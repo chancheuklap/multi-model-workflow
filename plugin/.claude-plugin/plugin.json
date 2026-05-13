@@ -1,7 +1,7 @@
 {
   "name": "multi-model-workflow",
   "description": "Multi-model orchestration layer on top of Superpowers: agent specialization, Task Pack batching, automated review loops",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": {
     "name": "Cheuk Lap Chan",
     "email": "chancheuklapincn@gmail.com"

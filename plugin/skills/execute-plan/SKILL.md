@@ -39,21 +39,34 @@ description: |
 
 | 循环 | 上限 | 超限处理 |
 |------|------|---------|
-| Phase 0：文档 review → 主 session 修复 | 2 轮 | 用业务语言告知用户哪个设计点无法确认 |
+| Phase 0a：设计文档 review → 主 session 修复 | 2 轮 | 用业务语言告知用户哪个设计点无法确认 |
+| Phase 0b：计划文档 review → 主 session 修复 | 2 轮 | 用业务语言告知用户哪个计划点无法确认 |
 | Phase A：pack review → pack-executor 修复 | 3 轮/pack | 用业务语言告知用户哪个功能点搞不定 |
 | Phase B：intent gap → pack-executor 修复 | 2 轮/gap | 用业务语言告知用户哪个承诺做不到 |
 | Phase B 总调度 | 15 次 | 汇报进度和剩余问题 |
 
-## Phase 0：文档审查
+## Phase 0：文档审查（分两个子阶段，各自并行调度）
+
+### Phase 0a：设计文档审查（仅存在时）
+
+1. 定位 `docs/superpowers/specs/` 中的匹配设计文档。读取全文。
+2. **并行调度 2 个 workflow-auditor**（同一消息两个 Agent tool call）：
+   - Auditor 1：读取 [design-review-content-prompt.md](design-review-content-prompt.md)（完整性 + 可测试性 + 一致性 + 范围）
+   - Auditor 2：读取 [design-review-alignment-prompt.md](design-review-alignment-prompt.md)（项目架构对齐 + 可行性）
+3. 聚合两个 auditor 的结果：
+   - 全部通过 → 进入 Phase 0b。
+   - 任一有 Critical → **你直接修复** → 重新并行调度 2 个 auditor。**最多 2 轮**。
+   - 涉及业务决策 → 用业务语言询问用户 → 你按用户意见修正。
+   - Important → 你直接修复后继续。
+
+### Phase 0b：计划文档审查
 
 1. 定位 `docs/superpowers/plans/` 中的活跃计划。读取全文。
-2. 检查 `docs/superpowers/specs/` 中是否有匹配设计文档。有则读取。
-3. 调度 workflow-auditor 审查文档（读取 [doc-review-prompt.md](doc-review-prompt.md) 填入路径）。
-4. 处理结果：
-   - 通过 → 进入 Setup。
-   - Critical → **你直接修复**（你拥有 brainstorming 结论和用户偏好的完整上下文）→ 重新调度 workflow-auditor。**最多 2 轮**。
-   - 涉及业务决策的问题 → 用业务语言询问用户 → 你按用户意见修正。
-   - Important → 你直接修复后继续。
+2. **并行调度 2 个 workflow-auditor**：
+   - Auditor 1：读取 [plan-review-coverage-prompt.md](plan-review-coverage-prompt.md)（设计覆盖度 + task 质量 + 可执行性）
+   - Auditor 2：读取 [plan-review-compliance-prompt.md](plan-review-compliance-prompt.md)（项目规则 + grep 验真）
+3. 聚合结果，处理逻辑同 Phase 0a。**最多 2 轮**。
+4. 通过 → 进入 Setup。
 
 ## Setup
 

@@ -79,7 +79,10 @@ multi-model-workflow/
 ├── skills/
 │   └── execute-plan/
 │       ├── SKILL.md
-│       ├── doc-review-prompt.md
+│       ├── design-review-content-prompt.md
+│       ├── design-review-alignment-prompt.md
+│       ├── plan-review-coverage-prompt.md
+│       ├── plan-review-compliance-prompt.md
 │       ├── pack-review-prompt.md
 │       └── final-intent-review-prompt.md
 ├── hooks/
