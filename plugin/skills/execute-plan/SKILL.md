@@ -62,10 +62,11 @@ description: |
 ### Phase 0b：计划文档审查
 
 1. 定位 `docs/superpowers/plans/` 中的活跃计划。读取全文。
-2. **并行调度 2 个 workflow-auditor**：
-   - Auditor 1：读取 [plan-review-coverage-prompt.md](plan-review-coverage-prompt.md)（设计覆盖度 + task 质量 + 可执行性）
-   - Auditor 2：读取 [plan-review-compliance-prompt.md](plan-review-compliance-prompt.md)（项目规则 + grep 验真）
-3. 聚合结果，处理逻辑同 Phase 0a。**最多 2 轮**。
+2. **并行调度 3 个 agent**（同一消息三个 Agent tool call）：
+   - workflow-auditor 1：读取 [plan-review-coverage-prompt.md](plan-review-coverage-prompt.md)（设计覆盖度 + task 质量 + 可执行性）
+   - workflow-auditor 2：读取 [plan-review-compliance-prompt.md](plan-review-compliance-prompt.md)（项目规则 + grep 验真）
+   - codex:codex-rescue：读取 [plan-review-codex-prompt.md](plan-review-codex-prompt.md)（第二模型独立验证）
+3. 聚合三方结果（workflow-auditor findings + Codex findings 去重合并）。处理逻辑同 Phase 0a。**最多 2 轮**。
 4. 通过 → 进入 Setup。
 
 ## Setup
@@ -121,11 +122,14 @@ description: |
 
 ### 有 design doc → 意图验证
 
-1. 调度 workflow-auditor（读取 [final-intent-review-prompt.md](final-intent-review-prompt.md) 填入内容）。
-2. Implementation gap → 调度 pack-executor 写失败 test → 修复 → workflow-auditor 确认。**最多 2 轮/gap**。
-3. Design gap（设计文档本身有缺陷）→ 用业务语言告知用户"设计需修正"，标注具体缺陷。
-4. Code-level Critical → 调度对应 agent 修复。
-5. 所有 gap 闭合后再调度一次 intent review 确认。
+1. **并行调度 2 个 agent**：
+   - workflow-auditor：读取 [final-intent-review-prompt.md](final-intent-review-prompt.md)（意图验证 + 回归检查 + 代码交叉审查）
+   - codex:codex-rescue：读取 [final-review-codex-prompt.md](final-review-codex-prompt.md)（第二模型独立代码审查）
+2. 聚合双方结果（去重合并，两方都报的问题优先级提升）。
+3. Implementation gap → 调度 pack-executor 写失败 test → 修复 → workflow-auditor 确认。**最多 2 轮/gap**。
+4. Design gap（设计文档本身有缺陷）→ 用业务语言告知用户"设计需修正"，标注具体缺陷。
+5. Code-level Critical → 调度对应 agent 修复。
+6. 所有 gap 闭合后再调度一次 intent review 确认（此轮不需要 Codex，workflow-auditor 单独确认即可）。
 6. **Phase B 总调度上限 15 次**。
 
 ### 无 design doc → 代码级全量 review

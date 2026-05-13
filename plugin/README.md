@@ -83,8 +83,10 @@ multi-model-workflow/
 │       ├── design-review-alignment-prompt.md
 │       ├── plan-review-coverage-prompt.md
 │       ├── plan-review-compliance-prompt.md
+│       ├── plan-review-codex-prompt.md
 │       ├── pack-review-prompt.md
-│       └── final-intent-review-prompt.md
+│       ├── final-intent-review-prompt.md
+│       └── final-review-codex-prompt.md
 ├── hooks/
 │   ├── hooks.json
 │   └── session-start.sh
