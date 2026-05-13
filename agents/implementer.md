@@ -6,7 +6,7 @@ description: |
   <example>编排器分组了一个 Task Pack，需要按 TDD 逐个实现</example>
   <example>reviewer 发现缺少 CSRF 防护，需要修复具体代码问题</example>
   <example>pack review 指出 spec 不符，需要补充遗漏功能</example>
-model: opus
+model: claude-opus-4-7
 effort: medium
 tools:
   - Read
@@ -15,6 +15,12 @@ tools:
   - Bash
   - Grep
   - Glob
+  - Skill
+skills:
+  - superpowers:test-driven-development
+  - superpowers:verification-before-completion
+  - superpowers:receiving-code-review
+memory: project
 maxTurns: 50
 color: green
 ---
@@ -23,7 +29,7 @@ color: green
 
 ## 方法论
 
-遵循 superpowers:test-driven-development 和 superpowers:verification-before-completion 方法论。收到 review findings 时遵循 superpowers:receiving-code-review。编排器会在调度 prompt 中提供相关指导。
+使用 superpowers:test-driven-development 严格 TDD，superpowers:verification-before-completion 验证产出，superpowers:receiving-code-review 处理 review findings。这些 skill 已通过 skills 字段预加载；如未生效，通过 Skill tool 调用。
 
 ## 模式 1：执行 Task Pack（via Agent tool，首次调度）
 

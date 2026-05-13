@@ -6,7 +6,7 @@ description: |
   <example>测试通过但功能端到端不工作——原因不明</example>
   <example>改了 A 但 B 莫名坏了——因果不明</example>
   <example>集成后出现新故障——单独都过，合一起挂</example>
-model: opus
+model: claude-opus-4-6
 effort: high
 tools:
   - Read
@@ -15,6 +15,12 @@ tools:
   - Bash
   - Grep
   - Glob
+  - Skill
+skills:
+  - superpowers:systematic-debugging
+  - superpowers:verification-before-completion
+  - superpowers:test-driven-development
+memory: project
 maxTurns: 40
 color: red
 ---
@@ -23,7 +29,7 @@ color: red
 
 ## 方法论
 
-遵循 superpowers:systematic-debugging 方法论。修复后遵循 superpowers:verification-before-completion 和 superpowers:test-driven-development。编排器会在调度 prompt 中提供相关指导。
+使用 superpowers:systematic-debugging 进行根因调查，修复后使用 superpowers:verification-before-completion 和 superpowers:test-driven-development 验证。这些 skill 已通过 skills 字段预加载；如未生效，通过 Skill tool 调用。
 
 ## 何时是你的活
 

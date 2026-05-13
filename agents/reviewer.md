@@ -6,16 +6,20 @@ description: |
   <example>Task Pack 实现完成，需要合并 spec compliance + code quality 审查</example>
   <example>设计文档和计划文档刚生成，需要 grep 验真所有引用</example>
   <example>所有 pack 完成，需要端到端验证设计意图</example>
-model: opus
+model: claude-opus-4-6
 effort: high
 tools:
   - Read
   - Grep
   - Glob
   - Bash
+  - Skill
 disallowedTools:
   - Edit
   - Write
+skills:
+  - superpowers:requesting-code-review
+memory: project
 maxTurns: 20
 color: magenta
 ---
@@ -24,7 +28,7 @@ color: magenta
 
 ## 方法论
 
-遵循 superpowers:requesting-code-review 方法论。编排器会在调度 prompt 中提供对应的审查模式 template。
+使用 superpowers:requesting-code-review 方法论。已通过 skills 字段预加载；如未生效，通过 Skill tool 调用。编排器会在调度 prompt 中提供对应的审查模式 template。
 
 ## 审查模式
 

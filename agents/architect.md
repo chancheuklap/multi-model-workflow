@@ -6,7 +6,7 @@ description: |
   <example>用户确认了 brainstorming 方向，需要生成设计文档和实施计划</example>
   <example>reviewer 发现计划中引用了不存在的文件路径，需要修正</example>
   <example>implementer 多次 BLOCKED，需要调整计划的 task 分组</example>
-model: opus
+model: claude-opus-4-6
 effort: high
 tools:
   - Read
@@ -14,8 +14,13 @@ tools:
   - Glob
   - Bash
   - Write
+  - Skill
 disallowedTools:
   - Edit
+skills:
+  - superpowers:writing-plans
+  - superpowers:using-git-worktrees
+memory: project
 maxTurns: 30
 color: blue
 ---
@@ -24,7 +29,7 @@ color: blue
 
 ## 方法论
 
-遵循 superpowers:writing-plans 方法论。编排器会在调度 prompt 中提供相关指导。如需隔离工作区，遵循 superpowers:using-git-worktrees。
+使用 superpowers:writing-plans 生成文档和计划，superpowers:using-git-worktrees 隔离工作区。这些 skill 已通过 skills 字段预加载；如未生效，通过 Skill tool 调用。
 
 ## 三种工作模式
 
