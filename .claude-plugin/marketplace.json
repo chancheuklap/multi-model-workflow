@@ -1,0 +1,28 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "multi-model-workflow",
+  "description": "Multi-model orchestration layer on top of Superpowers: agent specialization, Task Pack batching, automated review loops, project-aware auditing",
+  "owner": {
+    "name": "cheuk"
+  },
+  "plugins": [
+    {
+      "name": "multi-model-workflow",
+      "description": "Multi-model orchestration layer on top of Superpowers: agent specialization, Task Pack batching, automated review loops",
+      "version": "0.2.0",
+      "author": {
+        "name": "Cheuk Lap Chan",
+        "email": "chancheuklapincn@gmail.com"
+      },
+      "source": ".",
+      "category": "development",
+      "tags": [
+        "multi-model",
+        "orchestration",
+        "code-review",
+        "task-pack",
+        "superpowers"
+      ]
+    }
+  ]
+}
