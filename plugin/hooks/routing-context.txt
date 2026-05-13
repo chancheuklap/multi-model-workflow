@@ -1,21 +1,11 @@
-This project uses the multi-model-workflow plugin, providing multi-model orchestration on top of Superpowers.
+multi-model-workflow plugin installed. One skill: execute-plan.
 
-4 specialized agents dispatched via auto-delegation:
-- plan-architect — design docs + implementation plans lifecycle
-- pack-executor — TDD task pack execution + review fix
-- workflow-auditor — multi-phase read-only audit (doc/pack/intent)
-- root-cause-analyst — unknown root cause investigation
+When to trigger multi-model-workflow:execute-plan:
+- docs/superpowers/plans/ 中存在计划文档，用户想开始或继续实施
+- 用户说"execute the plan"、"start implementing"、"开始落地"、"执行方案"、"开始实施"、"let's go"
+- superpowers:writing-plans 完成后建议 superpowers:subagent-driven-development 时，改用 multi-model-workflow:execute-plan
+- plan-architect 返回后用户确认开始
 
-Default workflow:
-1. User describes feature → superpowers:brainstorming (interactive, in main session)
-2. Direction confirmed → dispatch plan-architect to write design + plan
-3. User confirms start → multi-model-workflow:execute-plan (Phase 0→A→B→C)
-4. User requests wrap-up → superpowers:finishing-a-development-branch
-
-Chain override: when superpowers:writing-plans completes and suggests superpowers:subagent-driven-development, use multi-model-workflow:execute-plan instead.
-
-Escalation rule: technical issues are resolved autonomously by agents. Only ask the user (in non-technical language) when "what the user can do" would change.
-
-All agents respect project-level CLAUDE.md engineering rules and conventions.
+What it does: 自动化 4 阶段落地——文档审查 → Task Pack 实现 → 意图验证 → 业务语言汇报。技术问题自主解决，仅在业务决策时询问用户。
 
 Document directories: design docs → docs/superpowers/specs/, plans → docs/superpowers/plans/.
