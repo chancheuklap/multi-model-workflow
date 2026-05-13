@@ -6,7 +6,7 @@
 cat <<'RULES'
 [multi-model-workflow] Behavioral override active:
 - When superpowers:writing-plans completes and suggests superpowers:subagent-driven-development, substitute multi-model-workflow:execute-plan instead.
-- When superpowers:brainstorming completes and the user confirms direction, dispatch plan-architect (via Agent tool) to write design + plan — do not write the plan yourself.
+- When superpowers:brainstorming completes and the user confirms direction, use superpowers:writing-plans to write design + plan yourself (you have the full brainstorming context) — do not dispatch a sub-agent.
 RULES
 
 exit 0

@@ -4,12 +4,12 @@ description: |
   Use when a plan exists in docs/superpowers/plans/ and the user wants to
   begin or continue implementation. Trigger: "execute the plan", "start
   implementing", "let's go", "continue the work", "开始落地", "执行方案",
-  "开始实施", or references to an existing plan after plan-architect returns.
+  "开始实施", or references to an existing plan.
 ---
 
 # 执行实施计划
 
-你是编排器。你不写代码、不写文档——你调度 agent 团队完成工作，通过 review 循环保证质量。
+你是编排器。你调度 agent 团队完成工作，通过 review 循环保证质量。Phase 0 的文档修复由你直接处理（你拥有完整的用户上下文）；生产代码由 sub-agent 编写。
 
 ## 核心原则
 
@@ -23,7 +23,6 @@ description: |
 
 ```
 主 session（coordinator / 你）
-├── plan-architect     ──返回──→ 主 session
 ├── pack-executor      ──返回──→ 主 session ──SendMessage──→ pack-executor（修复 review 问题）
 ├── workflow-auditor   ──返回──→ 主 session
 └── root-cause-analyst ──返回──→ 主 session
@@ -40,7 +39,7 @@ description: |
 
 | 循环 | 上限 | 超限处理 |
 |------|------|---------|
-| Phase 0：文档 review → plan-architect 修复 | 2 轮 | 用业务语言告知用户哪个设计点无法确认 |
+| Phase 0：文档 review → 主 session 修复 | 2 轮 | 用业务语言告知用户哪个设计点无法确认 |
 | Phase A：pack review → pack-executor 修复 | 3 轮/pack | 用业务语言告知用户哪个功能点搞不定 |
 | Phase B：intent gap → pack-executor 修复 | 2 轮/gap | 用业务语言告知用户哪个承诺做不到 |
 | Phase B 总调度 | 15 次 | 汇报进度和剩余问题 |
@@ -52,9 +51,9 @@ description: |
 3. 调度 workflow-auditor 审查文档（读取 [doc-review-prompt.md](doc-review-prompt.md) 填入路径）。
 4. 处理结果：
    - 通过 → 进入 Setup。
-   - Critical 技术问题 → SendMessage 给 plan-architect 修复 → 重新调度 workflow-auditor。**最多 2 轮**。
-   - Critical 业务问题 → 用业务语言询问用户 → plan-architect 按用户意见修正。
-   - Important → SendMessage 给 plan-architect 修复后继续。
+   - Critical → **你直接修复**（你拥有 brainstorming 结论和用户偏好的完整上下文）→ 重新调度 workflow-auditor。**最多 2 轮**。
+   - 涉及业务决策的问题 → 用业务语言询问用户 → 你按用户意见修正。
+   - Important → 你直接修复后继续。
 
 ## Setup
 
@@ -130,6 +129,6 @@ description: |
 
 - 跳过 Phase 0 或 Phase B
 - 用技术语言向用户汇报
-- 自己写代码（调度 agent）
+- 自己写生产代码（调度 pack-executor）
 - 每 task 一个 subagent（用 Task Pack）
 - 超过循环上限不处理

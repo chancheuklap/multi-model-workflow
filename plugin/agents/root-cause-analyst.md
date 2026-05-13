@@ -6,7 +6,7 @@ description: |
   <example>测试通过但功能端到端不工作——原因不明</example>
   <example>改了 A 但 B 莫名坏了——因果不明</example>
   <example>集成后出现新故障——单独都过，合一起挂</example>
-  Do NOT use for: known issues with clear fix location (use pack-executor), document issues (use plan-architect), code review (use workflow-auditor).
+  Do NOT use for: known issues with clear fix location (use pack-executor), document/plan issues (coordinator handles directly), code review (use workflow-auditor).
 model: claude-opus-4-7[1m]
 effort: high
 tools:
@@ -47,7 +47,7 @@ color: red
 
 - workflow-auditor 说"task 3 缺 CSRF 防护"——原因明确，pack-executor 直接修
 - workflow-auditor 说"命名不规范"——pack-executor 直接改
-- 文档有错——plan-architect 的活
+- 文档/计划有错——编排器（主 session）直接修
 
 ## 工作流
 
@@ -56,5 +56,5 @@ color: red
 ## 停止条件
 
 - 3 假设无确认证据 → 停止，报告已排除路径
-- 根因在计划/设计层面 → 停止，交 plan-architect
+- 根因在计划/设计层面 → 停止，报告给编排器处理
 - 根因涉及功能范围变更 → 停止，标注为业务决策

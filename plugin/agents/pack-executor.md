@@ -6,7 +6,7 @@ description: |
   <example>编排器分组了一个 Task Pack，需要按 TDD 逐个实现</example>
   <example>workflow-auditor 发现缺少 CSRF 防护，需要修复具体代码问题</example>
   <example>pack review 指出 spec 不符，需要补充遗漏功能</example>
-  Do NOT use for: root cause investigation (use root-cause-analyst), document fixes (use plan-architect), code review (use workflow-auditor).
+  Do NOT use for: root cause investigation (use root-cause-analyst), document/plan fixes (coordinator handles directly), code review (use workflow-auditor).
 model: claude-opus-4-7[1m]
 effort: medium
 tools:
