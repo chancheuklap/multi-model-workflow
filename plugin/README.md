@@ -62,7 +62,7 @@ Technical issues are resolved autonomously. You're only asked about business dec
 
 | Hook | Trigger | Effect |
 |------|---------|--------|
-| SessionStart | Every session | Injects routing context |
+| SessionStart | Every session | Injects behavioral override rules + detects active plans |
 | PreToolUse/Bash | `git push`, `git merge`, `gh pr create` | Blocks if plan has unchecked tasks |
 | SubagentStop | pack-executor completes | Reminds to dispatch workflow-auditor |
 
@@ -84,7 +84,7 @@ multi-model-workflow/
 │       └── final-intent-review-prompt.md
 ├── hooks/
 │   ├── hooks.json
-│   └── routing-context.txt
+│   └── session-start.sh
 └── scripts/
     └── guard-premature-push.sh
 ```
