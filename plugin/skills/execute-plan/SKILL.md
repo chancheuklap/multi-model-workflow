@@ -125,6 +125,20 @@ description: |
 
 停止。不自动 merge——收尾走 `superpowers:finishing-a-development-branch`。
 
+## 五问自检（方向感模糊时执行）
+
+如果你感觉失去全局方向感（多个 pack 完成后、review 循环多轮后、context compact 后），用这 5 个问题重新定位：
+
+| 问题 | 怎么答 |
+|------|--------|
+| 我在哪？ | 当前 Phase / 当前 pack 编号 |
+| 我去哪？ | 剩余 pack 数 / 剩余 phase |
+| 目标是什么？ | 重读设计文档的意图声明 |
+| 学到了什么？ | 已完成的 review findings 累积 |
+| 做了什么？ | plan checkbox 进度 |
+
+不需要每个 pack 都跑。只在方向感模糊时主动执行。
+
 ## 禁止
 
 - 跳过 Phase 0 或 Phase B
