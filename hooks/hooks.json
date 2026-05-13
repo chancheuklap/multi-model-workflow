@@ -25,11 +25,11 @@
     ],
     "SubagentStop": [
       {
-        "matcher": "implementer",
+        "matcher": "pack-executor",
         "hooks": [
           {
             "type": "command",
-            "command": "echo '[multi-model-workflow] implementer completed. Next: dispatch reviewer for pack review.' >&2; exit 0"
+            "command": "echo '[multi-model-workflow] pack-executor completed. Next: dispatch workflow-auditor for pack review.' >&2; exit 0"
           }
         ]
       }

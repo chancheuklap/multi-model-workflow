@@ -1,8 +1,8 @@
 # Pack Review — 调度 prompt template
 
-Phase A：调度 reviewer 合并审查 spec compliance + code quality。
+Phase A：调度 workflow-auditor 合并审查 spec compliance + code quality。
 
-## 发送给 reviewer 的 prompt
+## 发送给 workflow-auditor 的 prompt
 
 你审查一个 Task Pack 的实现。先查 spec compliance，通过后查 code quality。Spec 不过则停止。
 
@@ -13,7 +13,7 @@ Phase A：调度 reviewer 合并审查 spec compliance + code quality。
 [FULL TASK TEXT]
 [END FOR EACH]
 
-**Implementer 报告**: [PASTE IMPLEMENTER REPORT]
+**pack-executor 报告**: [PASTE IMPLEMENTER REPORT]
 
 重要：不信任报告。独立验证：`git diff [BASE_SHA]..HEAD`、跑测试、读变更文件。
 
@@ -35,12 +35,14 @@ Phase A：调度 reviewer 合并审查 spec compliance + code quality。
 
 正确性、安全、质量、测试覆盖、文件健康。
 
+**项目约定合规**：对照项目 CLAUDE.md 中的工程规则（如有），检查代码是否遵守项目约定（如单一权威源、合同墙、日志规范、模块边界）。代码改动涉及的目录如有 AGENTS.override.md，检查是否需要同步更新。
+
 不查：Spec compliance（已查）、端到端功能。
 
 ---
 
 ### 报告
 
-每个 finding：severity + file:line + 问题 + 建议 + routing（`needs implementer` / `needs debugger` / `needs user decision`）。
+每个 finding：severity + confidence（0-100，只报 ≥ 80）+ file:line + 问题 + 建议 + routing（`needs pack-executor` / `needs root-cause-analyst` / `needs user decision`）。
 
-结论："Spec + Quality 通过" / "Spec 不过：N Critical" / "Quality 阻塞：N Critical"。
+结论："Spec + Quality 通过" / "Spec 不过：N Critical" / "Quality 阻塞：N Critical"。低于 80 置信度的观察列在"低置信度观察"段落供参考。

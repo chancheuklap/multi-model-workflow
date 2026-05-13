@@ -1,15 +1,21 @@
 This project uses the multi-model-workflow plugin, providing multi-model orchestration on top of Superpowers.
 
-4 agents (architect/implementer/debugger/reviewer) are dispatched via auto-delegation.
+4 specialized agents dispatched via auto-delegation:
+- plan-architect — design docs + implementation plans lifecycle
+- pack-executor — TDD task pack execution + review fix
+- workflow-auditor — multi-phase read-only audit (doc/pack/intent)
+- root-cause-analyst — unknown root cause investigation
 
 Default workflow:
 1. User describes feature → superpowers:brainstorming (interactive, in main session)
-2. Direction confirmed → dispatch architect to write design + plan
+2. Direction confirmed → dispatch plan-architect to write design + plan
 3. User confirms start → multi-model-workflow:execute-plan (Phase 0→A→B→C)
 4. User requests wrap-up → superpowers:finishing-a-development-branch
 
 Chain override: when superpowers:writing-plans completes and suggests superpowers:subagent-driven-development, use multi-model-workflow:execute-plan instead.
 
 Escalation rule: technical issues are resolved autonomously by agents. Only ask the user (in non-technical language) when "what the user can do" would change.
+
+All agents respect project-level CLAUDE.md engineering rules and conventions.
 
 Document directories: design docs → docs/superpowers/specs/, plans → docs/superpowers/plans/.
