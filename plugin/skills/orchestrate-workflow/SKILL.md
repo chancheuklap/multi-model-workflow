@@ -1,13 +1,25 @@
 ---
-name: execute-plan
+name: orchestrate-workflow
 description: |
-  Use when a plan exists in docs/superpowers/plans/ and the user wants to
-  begin or continue implementation. Trigger: "execute the plan", "start
-  implementing", "let's go", "continue the work", "开始落地", "执行方案",
-  "开始实施", or references to an existing plan.
+  Multi-phase workflow orchestrator. Spans the ENTIRE workflow from "design document produced" through code completion — NOT just code execution. Replaces superpowers:subagent-driven-development when this plugin is installed.
+
+  Phases: 0a design review (specs/) → 0b plan review (plans/) → A Task Pack execution → B end-to-end intent verification → C business report.
+
+  Trigger AS SOON AS a design document is produced — do NOT wait for plan or code execution. Use when ANY signal is present:
+  - A design doc exists or was just written in docs/superpowers/specs/ → enter at Phase 0a
+  - A plan exists or was just written in docs/superpowers/plans/ → enter at Phase 0b or later
+  - superpowers:writing-plans just completed (design and/or plan produced) → immediately enter this skill (NOT superpowers:subagent-driven-development)
+  - User says (EN): "execute the plan", "start implementing", "review the design", "audit the plan", "let's go", "ship it", "build it", "do it", "continue", "kick it off", "make it happen", "go ahead", "advance the workflow"
+  - User says (中): "开始落地", "执行方案", "开始实施", "动手", "落地", "弄一下", "把这个做了", "推进", "继续", "跑一下", "走起", "审一下设计", "审一下方案", "走流程", "推流程", "接着来"
+  - User points at any design doc or plan in the project and wants the workflow advanced
+  - User resumes mid-workflow ("pick up where we left off", "继续", "接着来")
+
+  Technical issues are resolved autonomously by sub-agents. User is asked only about business decisions.
+
+  Do NOT use for: writing plans/designs from scratch (use superpowers:writing-plans), brainstorming requirements (use superpowers:brainstorming), ad-hoc non-workflow coding, or one-off code reviews (call workflow-auditor agent directly).
 ---
 
-# 执行实施计划
+# 多阶段工作流编排
 
 你是编排器。你调度 agent 团队完成工作，通过 review 循环保证质量。Phase 0 的文档修复由你直接处理（你拥有完整的用户上下文）；生产代码由 sub-agent 编写。
 
@@ -58,6 +70,7 @@ description: |
    - 任一有 Critical → **你直接修复** → 重新并行调度 2 个 auditor。**最多 2 轮**。
    - 涉及业务决策 → 用业务语言询问用户 → 你按用户意见修正。
    - Important → 你直接修复后继续。
+4. **Plan 不存在时的 fallback**：Phase 0a 通过后，若 `docs/superpowers/plans/` 下没有匹配的活跃计划，主 session 用 `superpowers:writing-plans` 自己写 plan（你有 design 完整上下文，不要派 sub-agent），写完后进入 Phase 0b。
 
 ### Phase 0b：计划文档审查
 

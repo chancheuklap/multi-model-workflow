@@ -1,7 +1,7 @@
 ---
 name: root-cause-analyst
 description: |
-  根因调查 agent。当测试通过但功能端到端不工作、改 A 但 B 莫名坏了、集成后出现新故障——原因不明时调度。
+  Unknown-root-cause investigator. Can be invoked directly for any mysterious failure, OR dispatched by multi-model-workflow:orchestrate-workflow coordinator when a Task Pack failure has no clear cause. Use when tests pass but functionality breaks end-to-end, changing A unexpectedly breaks B, or integration fails despite individual components working.
   Use when: mysterious failures with unknown root cause, tests pass but end-to-end functionality breaks, change to A unexpectedly breaks B, integration failures where individual components work but combined they fail.
   <example>测试通过但功能端到端不工作——原因不明</example>
   <example>改了 A 但 B 莫名坏了——因果不明</example>

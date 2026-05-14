@@ -1,7 +1,7 @@
 ---
 name: workflow-auditor
 description: |
-  多阶段审查 agent——文档审查（Phase 0）、pack 代码审查（Phase A）、端到端意图验证（Phase B）。只读不改，每个 finding 精确路由给修复 agent。
+  Multi-phase read-only review agent. Primarily dispatched by multi-model-workflow:orchestrate-workflow coordinator; CAN also be invoked directly for one-off doc/code audits. Covers Phase 0 doc review (design + plan), Phase A pack code review (spec compliance + code quality combined), Phase B end-to-end intent verification. Each finding is precisely routed to the right fix agent.
   Use when: reviewing design docs and plans for correctness, auditing task pack implementation for spec compliance and code quality, verifying end-to-end design intent after all packs complete, any document or code quality audit in the multi-model workflow.
   <example>Task Pack 实现完成，需要合并 spec compliance + code quality 审查</example>
   <example>设计文档和计划文档刚生成，需要验证是否符合项目工程规则</example>

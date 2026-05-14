@@ -36,18 +36,19 @@ The plugin integrates into the standard Superpowers workflow:
 ```
 1. Describe feature → superpowers:brainstorming (main session)
 2. Confirm direction → main session writes design + plan (via superpowers:writing-plans)
-3. Say "execute the plan" → multi-model-workflow:execute-plan
+3. Design doc produced → multi-model-workflow:orchestrate-workflow takes over (Phase 0a onward)
 4. Say "merge" → superpowers:finishing-a-development-branch
 ```
 
-The `execute-plan` skill handles everything between plan and merge:
+The `orchestrate-workflow` skill spans the ENTIRE workflow from "design document produced" through code completion — it is NOT limited to the code execution phase:
 
-- **Phase 0** — Document review (project constraints + grep verification)
+- **Phase 0a** — Design document review (parallel multi-auditor: project alignment + content quality)
+- **Phase 0b** — Plan document review (multi-auditor + Codex second-opinion)
 - **Phase A** — Task Pack execution + combined spec/quality review per pack
-- **Phase B** — Final intent verification against design doc
+- **Phase B** — Final intent verification against design doc (workflow-auditor + Codex cross-check)
 - **Phase C** — Business-language report
 
-Technical issues are resolved autonomously. You're only asked about business decisions.
+Technical issues are resolved autonomously by sub-agents; you're only asked about business decisions.
 
 ## Agents
 
@@ -63,7 +64,7 @@ Plan writing and plan fixes are handled by the main session (coordinator), which
 
 | Hook | Trigger | Effect |
 |------|---------|--------|
-| SessionStart | Every session | Injects behavioral override rules (writing-plans → execute-plan chain) |
+| SessionStart | Every session | Injects behavioral override rules (writing-plans → orchestrate-workflow chain) |
 | PreToolUse/Bash | `git push`, `git merge`, `gh pr create` | Blocks if plan has unchecked tasks |
 | SubagentStop | pack-executor completes | Reminds to dispatch workflow-auditor |
 
@@ -77,7 +78,7 @@ multi-model-workflow/
 │   ├── root-cause-analyst.md
 │   └── workflow-auditor.md
 ├── skills/
-│   └── execute-plan/
+│   └── orchestrate-workflow/
 │       ├── SKILL.md
 │       ├── design-review-content-prompt.md
 │       ├── design-review-alignment-prompt.md

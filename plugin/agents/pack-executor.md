@@ -1,12 +1,12 @@
 ---
 name: pack-executor
 description: |
-  Task Pack 代码执行 agent。按 TDD 执行 Task Pack，也修复 workflow-auditor 发现的具体代码问题。
-  Use when: implementing task packs from a plan, executing grouped tasks with strict TDD, fixing specific code issues identified by workflow-auditor review.
+  Internal coding agent — primarily dispatched by multi-model-workflow:orchestrate-workflow coordinator, not by user directly. Executes Task Packs with strict TDD; also fixes specific code issues flagged by workflow-auditor reviews.
+  Use when (typically auto-dispatched by the orchestrator, not invoked ad-hoc): implementing task packs from a plan, executing grouped tasks with strict TDD, fixing specific code issues identified by workflow-auditor review.
   <example>编排器分组了一个 Task Pack，需要按 TDD 逐个实现</example>
   <example>workflow-auditor 发现缺少 CSRF 防护，需要修复具体代码问题</example>
   <example>pack review 指出 spec 不符，需要补充遗漏功能</example>
-  Do NOT use for: root cause investigation (use root-cause-analyst), document/plan fixes (coordinator handles directly), code review (use workflow-auditor).
+  Do NOT use for: root cause investigation (use root-cause-analyst), document/plan fixes (coordinator handles directly), code review (use workflow-auditor), or ad-hoc coding outside the orchestrated workflow.
 model: claude-opus-4-7[1m]
 effort: medium
 tools:
