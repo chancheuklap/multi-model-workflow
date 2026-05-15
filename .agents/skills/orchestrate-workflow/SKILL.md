@@ -40,6 +40,23 @@ description: 当已有 design / implementation plan，Superpowers writing-plans 
 
 不要要求 subagent 自己去猜这些 reference。主线程读取 reference 后，把本次任务事实和需要执行的 review contract 写进 dispatch prompt。
 
+## 项目感知合同
+
+原 Claude plugin 的 `memory: project` 和“项目感知”在 Codex 里拆成两层：
+
+- agent TOML 固定要求各 role 读取 active project instructions；
+- coordinator 每次 dispatch 必须明确本次任务要读的项目文档和路径规则。
+
+每次进入 Phase 0 / Phase A / Phase B，主线程先确定 project anchors：
+
+1. 根 `AGENTS.md`。
+2. `AGENTS.md` 链入或项目存在的 `PROJECT.md`、`ENGINEERING-RULES.md`。
+3. 当前 design / plan / SPEC / ADR / GUIDE。
+4. owned files 或 review scope 覆盖目录里的 `AGENTS.override.md` 或 `agents.overrides.md`。
+5. 与任务相关的 data authority、module boundary、contract wall、testing route、logging rule、deployment / rollback rule。
+
+dispatch prompt 必须包含 `Read first:`，列出上述具体文件；还必须包含 `Project baseline:`，用短句写清本次任务最相关的不变量。不要只写“遵守项目规则”。
+
 ## Agent 路由
 
 | Claude plugin 角色 | Codex agent_type | 用法 |

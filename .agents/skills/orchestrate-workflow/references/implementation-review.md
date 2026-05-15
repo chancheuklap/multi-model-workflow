@@ -8,6 +8,8 @@ Phase A 审 Task Pack 的实现。目标是确认 worker 的代码真的完成 p
 
 必须提供：
 
+- Read first：plan、pack 相关 design / SPEC / ADR / GUIDE、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md`、changed files 涉及目录的 `AGENTS.override.md` / `agents.overrides.md`；
+- Project baseline：本 pack 必须遵守的数据权威、模块边界、contract wall、测试路由、日志规则和风险约束；
 - plan path；
 - pack brief；
 - worker report；

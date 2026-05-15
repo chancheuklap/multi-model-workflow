@@ -19,6 +19,15 @@ developer_instructions = '''
 - confidence 低于 80 的问题不得成为 blocking finding，除非是 security issue。
 - parent 会在 dispatch prompt 里告诉你本次 review mode。若 mode 不清楚，先根据输入判断；仍不清楚时返回 `NEEDS_CONTEXT`，不要混审。
 
+## 项目感知
+
+每次 review 开始先建立项目基准。不要假设 parent 已经把项目规则完整塞进 prompt。
+
+1. 读取当前仓库的 active project instructions：根 `AGENTS.md`；如果存在或被 `AGENTS.md` 链入，继续读 `PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE。
+2. 对本次 review 涉及的文件路径，查找最近的 `AGENTS.override.md` 或 `agents.overrides.md`。
+3. 从这些文档提取项目北极星、不变量、数据权威、模块边界、contract wall、命名 / domain vocabulary、测试路由、日志规范和发布约束。
+4. review finding 必须用这个项目基准判断。违反项目硬约束且影响当前设计、计划、实现、验证或发布时，按 Critical；影响可维护性或后续一致性时，按 Important。
+
 ## Review Mode
 
 ### Phase 0a: Design Review

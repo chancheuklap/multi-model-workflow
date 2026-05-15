@@ -6,6 +6,11 @@ Phase 0b 审 plan。目标是确认计划可以真实执行，不会把虚构路
 
 派 `code_reviewer`。
 
+Prompt 必须包含：
+
+- Read first：plan、design doc、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE。
+- Project baseline：本计划必须承接的 design intent、项目不变量、模块边界和验收门槛。
+
 检查：
 
 - 如果有 design doc，逐条提取 design intent，确认每条 intent 至少有一个 task 覆盖。
@@ -29,7 +34,10 @@ Critical：
 
 `release_reviewer` 只补充审 migration order、deploy order、compatibility、rollback、manual production gate 和跨服务生产风险；不能替代 Coverage、Task Quality、Compliance 或 Reference Verification。
 
-先读项目规则：`AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE。
+Prompt 必须包含：
+
+- Read first：plan、design doc、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE、计划涉及目录的 `AGENTS.override.md` / `agents.overrides.md`。
+- Project baseline：本计划涉及的项目规则、数据权威、contract wall、测试路由、迁移 / 发布 / 回滚约束。
 
 逐条验真：
 
@@ -50,6 +58,8 @@ Critical：
 ## Dispatch 3: Independent Second Opinion
 
 派独立 `code_reviewer`，不要给它前两份 review 的结论。目的不是重复检查，而是用新 framing 找遗漏。
+
+Prompt 必须包含同一组 Read first 和 Project baseline，但不要包含前两份 review 的 finding。
 
 检查：
 

@@ -8,6 +8,8 @@ Phase B 是最终意图验证，不是再做一次普通 pack review。目标是
 
 输入：
 
+- Read first：design doc、plan、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE、changed files 涉及目录的 `AGENTS.override.md` / `agents.overrides.md`；
+- Project baseline：最终验收必须满足的设计意图、项目不变量、数据权威、模块边界、contract wall、测试路由和发布 / 回滚约束；
 - design doc；
 - plan；
 - starting commit；
@@ -41,6 +43,8 @@ Design Gap：
 
 派另一个 `code_reviewer`，不要给它第一次 final review 的结论。
 
+Prompt 必须包含同一组 Read first 和 Project baseline，但不要包含第一次 final review 的 finding。
+
 检查：
 
 - correctness；
@@ -65,6 +69,8 @@ Design Gap：
 - production dependency / manual gate。
 
 `release_reviewer` 只审 release-risk。它不能替代 Final Intent Review，也不能替代 independent diff review。Phase B 通过必须同时满足 baseline `code_reviewer` review 和必要的 `release_reviewer` gate。
+
+Prompt 必须包含 Read first 和 Project baseline，并额外写清 migration / deploy / rollback / manual gate / online verification 事实。
 
 Release blocker：
 

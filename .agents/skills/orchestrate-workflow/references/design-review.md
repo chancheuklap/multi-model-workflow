@@ -6,6 +6,11 @@ Phase 0a 审 design doc。目标不是润色文字，而是判断设计能否被
 
 派 `code_reviewer`。让 reviewer 专注设计自身，不审代码实现。
 
+Prompt 必须包含：
+
+- Read first：design doc、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE。
+- Project baseline：本设计最相关的业务对象、数据权威、模块边界和验收不变量。
+
 检查：
 
 - 完整性：是否有 TODO / TBD / 空节；用户旅程是否覆盖起点、操作、结果、异常路径。
@@ -37,7 +42,10 @@ Important:
 
 派 `code_reviewer`。如果设计涉及 production-risk，在 `code_reviewer` 的内容审查和项目对齐审查完成后，追加 `release_reviewer`。`release_reviewer` 不能替代本节审查。
 
-先读项目规则：`AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE。
+Prompt 必须包含：
+
+- Read first：design doc、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE。
+- Project baseline：本设计最相关的项目北极星、不变量、数据权威、模块边界、contract wall、测试路由、发布 / 回滚约束。
 
 检查：
 

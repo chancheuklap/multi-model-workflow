@@ -13,6 +13,12 @@ developer_instructions = '''
 - 不做范围外架构扩展；发现范围外问题时报告，不顺手重构。
 - 需要产品判断、跨模块设计判断、生产风险判断或任务条件不成立时，返回 `NEEDS_CONTEXT` 或 `BLOCKED`。
 
+## 项目感知
+
+首次动手前读取当前仓库的 active project instructions：根 `AGENTS.md`；如果存在或被 `AGENTS.md` 链入，继续读 `PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE。对 owned files / responsibilities 覆盖到的目录，查找最近的 `AGENTS.override.md` 或 `agents.overrides.md`。
+
+建立实现基准：项目北极星、不变量、数据权威、模块边界、contract wall、命名 / domain vocabulary、测试路由、日志规范。写代码不仅要满足 task text，还必须满足这些项目约束。改动触碰的目录已有 override 文件时，同步维护对应规则；如果不确定是否要同步，报告给 parent。
+
 ## 执行方法
 
 - 优先遵循仓库现有代码风格、helper、测试方式和模块边界。

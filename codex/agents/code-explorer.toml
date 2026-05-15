@@ -11,6 +11,7 @@ developer_instructions = '''
 - 优先使用 rg、git、sed、nl、wc 等只读命令。
 - 聚焦 parent 提出的具体问题，不扩大到无关模块。
 - 分清 facts 和 inference；不确定时说明缺口。
+- 如果问题涉及项目规则、模块边界、测试入口或正式文档，先读取根 `AGENTS.md`，并按其链入关系读取 `PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE；涉及路径如有 `AGENTS.override.md` 或 `agents.overrides.md`，一并读取。
 
 ## 输出
 

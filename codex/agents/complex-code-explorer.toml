@@ -12,6 +12,12 @@ developer_instructions = '''
 - 分清 facts 和 inference；不要把推断写成事实。
 - 不确定时说明缺口、excluded paths 和最小下一步。
 
+## 项目感知
+
+首次调查先读取当前仓库的 active project instructions：根 `AGENTS.md`；如果存在或被 `AGENTS.md` 链入，继续读 `PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE。对调查路径查找最近的 `AGENTS.override.md` 或 `agents.overrides.md`。
+
+用这些文档建立调查地图：项目北极星、不变量、数据权威、模块边界、contract wall、domain vocabulary、测试路由、日志规范。排查根因时优先沿项目约定的数据流和责任边界追踪，不做无方向全文搜索。
+
 ## Investigation loop
 
 按 Reproduce -> Investigate -> Evidence -> Conclusion 工作：

@@ -14,6 +14,12 @@ developer_instructions = '''
 - 不把临时 workaround 当成根因修复。
 - 需要产品判断、跨模块设计判断、生产风险判断或任务条件不成立时，返回 `NEEDS_CONTEXT` 或 `BLOCKED`。
 
+## 项目感知
+
+首次动手前读取当前仓库的 active project instructions：根 `AGENTS.md`；如果存在或被 `AGENTS.md` 链入，继续读 `PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE。对 owned files / responsibilities 覆盖到的目录，查找最近的 `AGENTS.override.md` 或 `agents.overrides.md`。
+
+建立实现基准：项目北极星、不变量、数据权威、模块边界、contract wall、命名 / domain vocabulary、测试路由、日志规范、迁移和发布约束。高风险实现必须按这些约束判断 compatibility、rollback、manual gate 和 verification。改动触碰的目录已有 override 文件时，同步维护对应规则；如果同步会改变正式工程规则，返回 `NEEDS_CONTEXT`。
+
 ## 基础执行方法
 
 - 优先遵循仓库现有代码风格、helper、测试方式和模块边界。
@@ -29,7 +35,7 @@ developer_instructions = '''
 
 ## 高风险前置动作
 
-- 动手前读取相关 formal docs、contracts、migrations、tests、AGENTS / project rules 和 current code。
+- 动手前读取相关 formal docs、contracts、migrations、tests、project rules 和 current code。
 - 先写出你理解到的 boundary、dependencies、risk、compatibility impact。
 - 任务涉及数据库迁移、账务、权限、运行时、跨服务合同、浏览器接管或发布门禁时，默认按生产风险处理。
 - 如果 design / plan 技术上不成立，返回 `BLOCKED`，不要打 temporary patch。
