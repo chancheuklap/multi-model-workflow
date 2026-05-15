@@ -2,7 +2,7 @@
 
 用于 API、Pydantic、数据库字段、JSONB / SQLite JSON、sync outbox、local task payload、billing、permission、runtime、capability、UI form action、external adapter 和跨模块 helper。
 
-目标是防止 subagent 用 bare dict、临时 helper、route-local schema 或 mock 内部业务规则绕过系统合同。
+禁止 subagent 用 bare dict、临时 helper、route-local schema 或 mock 内部业务规则绕过系统合同。
 
 ## Boundary Classification
 

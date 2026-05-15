@@ -1,6 +1,6 @@
 # Design Review Contract
 
-Phase 0a 审 design doc。目标不是润色文字，而是判断设计能否被计划、实现和最终验证承接。
+Phase 0a 审 design doc。检查设计能否被计划、实现和最终验证承接；不做文字润色审查。
 
 ## Dispatch 1: Design Content Review
 

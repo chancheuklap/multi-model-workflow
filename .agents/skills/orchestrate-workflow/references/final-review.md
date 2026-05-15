@@ -1,6 +1,6 @@
 # Final Review Contract
 
-Phase B 是最终意图验证，不是再做一次普通 pack review。目标是确认所有 pack 合起来真的满足 design intent，并且没有 release blocker。
+Phase B 验证所有 pack 合并后是否满足 design intent，并确认没有 release blocker。
 
 ## Final Intent Review
 

@@ -1,6 +1,6 @@
 # Implementation Review Contract
 
-Phase A 审 Task Pack 的实现。目标是确认 worker 的代码真的完成 pack，而不是相信 worker 自报。
+Phase A 审 Task Pack 的实现。独立确认 worker 是否真实完成 pack；不接受 worker 自报作为通过证据。
 
 ## Dispatch: Pack Review
 

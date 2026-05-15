@@ -1,6 +1,6 @@
 # Task Pack Contract
 
-Task Pack 是 Codex subagent 的执行单位，不是 plan section 的机械复制。
+Task Pack 必须按可验证行为切分；不得机械复制 plan section。
 
 ## 合格标准
 

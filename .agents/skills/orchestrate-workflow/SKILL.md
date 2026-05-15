@@ -7,8 +7,6 @@ description: 当已有 design / implementation plan，Superpowers writing-plans 
 
 你是主线程 coordinator。这个 skill 接管 `superpowers:writing-plans` 之后的完整 post-design workflow：设计文档 review、计划文档 review、Task Pack 执行、代码 review、final intent / release review、业务汇报。
 
-它不是 brainstorm skill，不是写 plan skill，不是 subagent instruction，也不是只做代码执行。它迁移的是 Claude plugin 里 `workflow-auditor` + `pack-executor` + `root-cause-analyst` 的端到端编排能力。
-
 ## 触发边界
 
 使用此 skill：
@@ -18,6 +16,8 @@ description: 当已有 design / implementation plan，Superpowers writing-plans 
 - 用户要求“执行方案 / 开始实施 / 推进 / 继续 / 落地 / 审一下设计 / 审一下计划 / 走流程”；
 - 有 bug brief 或 feedback loop，需要按计划化维护流程推进。
 
+进入此 skill 后，由本 skill 的 Phase 0 / Setup / Phase A / Phase B 承担 plan execution、subagent dispatch、parallel agent dispatch、code review、review repair、debugging、TDD 和 completion verification。不要再单独调用 `superpowers:executing-plans`、`superpowers:subagent-driven-development`、`superpowers:dispatching-parallel-agents`、`superpowers:requesting-code-review`、`superpowers:receiving-code-review`、`superpowers:systematic-debugging`、`superpowers:test-driven-development` 或 `superpowers:verification-before-completion`。
+
 不使用此 skill：
 
 - 从零澄清需求：用 `superpowers:brainstorming`；
@@ -25,9 +25,9 @@ description: 当已有 design / implementation plan，Superpowers writing-plans 
 - 单次只读 code review：直接按 review 请求处理；
 - 已完成后 merge / PR / push：用 `superpowers:finishing-a-development-branch`。
 
-## 运行前先读 References
+## References
 
-本 skill 的 `references/` 是运行时 prompt contract，不是装饰文档。进入对应 phase 前先读取对应 reference，再派发 reviewer / worker：
+进入对应 phase 前先读取对应 reference，再派发 reviewer / worker：
 
 | Phase | 必读 reference | 用途 |
 | --- | --- | --- |
@@ -37,16 +37,11 @@ description: 当已有 design / implementation plan，Superpowers writing-plans 
 | API / Pydantic / DB / JSON / helper 边界 | `references/contract-boundary.md` | 判断合同归属、Pydantic 模型、schema version、registry、migration、consumer 同步和禁止的 ad-hoc helper / bare dict。 |
 | Phase A Pack Review | `references/implementation-review.md` | 生成 spec compliance + code quality review prompt。 |
 | Phase B Final Review | `references/final-review.md` | 生成 final intent review、代码交叉审查、release-risk review prompt。 |
-| 维护 / 外部方法校准 | `references/external-engineering-methods.md` | 确认从外部 engineering skills 吸收的方法没有丢失。 |
+| 维护 / root-cause / prototype route | `references/external-engineering-methods.md` | 校准 feedback loop、vertical TDD、prototype gate 和 architecture finding。 |
 
 不要要求 subagent 自己去猜这些 reference。主线程读取 reference 后，把本次任务事实和需要执行的 review contract 写进 dispatch prompt。
 
 ## 项目感知合同
-
-原 Claude plugin 的 `memory: project` 和“项目感知”在 Codex 里拆成两层：
-
-- agent TOML 固定要求各 role 读取 active project instructions；
-- coordinator 每次 dispatch 必须明确本次任务要读的项目文档和路径规则。
 
 每次进入 Phase 0 / Phase A / Phase B，主线程先确定 project anchors：
 
@@ -86,14 +81,14 @@ worker 不得用 bare dict、route-local schema、一次性 helper、silent unkn
 
 ## Agent 路由
 
-| Claude plugin 角色 | Codex agent_type | 用法 |
+| 场景 | Codex agent_type | 用法 |
 | --- | --- | --- |
-| `workflow-auditor` baseline review | `code_reviewer` | 所有 Design Review、Plan Review、Pack Review、Final Intent Review 的基础审核。不能被 `release_reviewer` 替代。 |
-| `workflow-auditor` production-risk supplement | `release_reviewer` | 在 baseline `code_reviewer` 之后追加，专审 deploy、database、billing、permissions、runtime、rollback、cross-service contract。 |
-| `pack-executor` | `coding_worker` | 普通 Task Pack 实现和明确 code finding 修复。 |
-| `pack-executor` 高风险实现 | `complex_coding_worker` | migration、billing、auth、permissions、runtime、Gateway、browser takeover、shared contract。 |
-| `root-cause-analyst` | `complex_code_explorer` | 未知根因调查，只读，先建立 feedback loop。 |
-| `root-cause-analyst` 紧耦合修复 | `complex_coding_worker` | 诊断与修复无法分离的复杂问题。 |
+| baseline review | `code_reviewer` | 所有 Design Review、Plan Review、Pack Review、Final Intent Review 的基础审核。不能被 `release_reviewer` 替代。 |
+| production-risk review | `release_reviewer` | 在 baseline `code_reviewer` 之后追加，专审 deploy、database、billing、permissions、runtime、rollback、cross-service contract。 |
+| 普通 Task Pack 实现 / 明确 code finding 修复 | `coding_worker` | 普通实现、测试修复、局部重构。 |
+| 高风险 Task Pack 实现 / 高风险 repair | `complex_coding_worker` | migration、billing、auth、permissions、runtime、Gateway、browser takeover、shared contract。 |
+| 未知根因调查 | `complex_code_explorer` | 只读调查，先建立 feedback loop。 |
+| 紧耦合 root-cause 修复 | `complex_coding_worker` | 诊断与修复无法分离的复杂问题。 |
 | 文档机械整理 | `docs_worker` | 低风险文档同步、格式和 stale reference 修复。 |
 
 ## Review 不变量
@@ -108,8 +103,6 @@ worker 不得用 bare dict、route-local schema、一次性 helper、silent unkn
 | Phase B Final Review | `code_reviewer`: final intent review + independent diff review | `release_reviewer`: final release-risk gate | design intent 通过，diff review 通过，且 release blockers 为 0 |
 
 禁止把 “有 production-risk” 理解为 “跳过 baseline review”。正确动作永远是：保留 `code_reviewer` baseline，再追加 `release_reviewer`。
-
-Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 
 - 新建独立任务：`spawn_agent`
 - 把 review finding 发回同一个 worker：`send_input`
@@ -220,7 +213,9 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 1. 先建立 feedback loop，不先写补丁。
 2. 形成 bug brief：current behavior、desired behavior、reproduction、hypotheses、key interfaces、acceptance criteria、out of scope。
 3. 小范围局部修复可主线程处理。
-4. 涉及 runtime、billing、migration、permission、API / Pydantic / DB / JSON boundary、shared contract、deploy 或多模块时，先补 plan，再走 Phase 0b / Phase A。
+4. 多个独立失败按 problem domain 分组；没有共享状态、共享文件或共享合同边界时，可以并行派 `complex_code_explorer` 或独立 Task Pack。
+5. 相关失败、共享状态、共享文件、共享合同边界或一个修复可能影响多个失败时，先合并调查，不并行派发。
+6. 涉及 runtime、billing、migration、permission、API / Pydantic / DB / JSON boundary、shared contract、deploy 或多模块时，先补 plan，再走 Phase 0b / Phase A。
 
 ### Phase B: Final Intent / Release Review
 
@@ -294,4 +289,3 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 - 不自动 merge、push 或 create PR。
 - 不为每个小 task 都 spawn agent。
 - 不把 hooks 当作 workflow 真相源。
-- 不把 external engineering skills 只写成方法名；必须按 references 和 agent TOML 中的具体行为执行。

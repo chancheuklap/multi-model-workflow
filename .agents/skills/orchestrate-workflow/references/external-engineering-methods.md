@@ -1,10 +1,6 @@
-# External Engineering Methods Adopted
-
-这些方法来自外部 engineering skills 的调研，用于校准本 workflow。这里记录的是已吸收的具体行为，不是方法名称清单。
+# External Engineering Methods
 
 ## Diagnose
-
-用于 unknown root cause。
 
 - 修复前先建立 feedback loop。
 - 反馈闭环优先级：failing test、HTTP/API script、CLI invocation、headless browser flow、trace/log replay、throwaway harness、property/fuzz loop、bisect/differential loop、HITL checklist。
@@ -20,8 +16,6 @@
 
 ## TDD
 
-用于 worker 实现和 review。
-
 - 测试 public behavior，不测试 private helper 或内部调用顺序。
 - 每个行为是一条 tracer bullet：失败检查 -> 最小实现 -> focused verification。
 - 禁止 horizontal slicing：不要先写全部 tests / schema / endpoint shell，再最后补行为。
@@ -34,8 +28,6 @@
 
 ## Grill With Docs
 
-用于 Phase 0 design / plan review。
-
 - domain language 必须对齐项目正式文档。
 - AgentFlow 权威入口是 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、SPEC、ADR、GUIDE。
 - 模糊词必须落到系统、状态、字段、事件或用户可见结果。
@@ -46,19 +38,14 @@
 
 ## To-Issues
 
-用于 Task Pack 设计。
-
 - Task Pack 必须是 vertical slice。
 - 完成后必须 demoable 或 independently verifiable。
 - pack brief 必须包含 current behavior、desired behavior、key interfaces、acceptance criteria、out of scope。
 - 标明 AFK / HITL。
 - 依赖只写真实阻塞关系，不制造伪依赖。
 - 长期 brief 优先写行为和接口，不写易漂移的 line number。文件路径只在立即执行 pack 中作为 owned files 使用。
-- issue publishing、triage labels 和 issue tracker state machine 不进入本 workflow；这里只吸收 vertical slice 和 durable brief 方法。
 
 ## Improve Codebase Architecture
-
-用于 review finding 分类。
 
 - 用 deletion test、seam、adapter、interface depth、leverage、locality 判断架构摩擦。
 - 单 adapter seam 通常是假 seam；多个 adapter、明确生产/测试边界或多个变化方向才可能是真 seam。
@@ -72,16 +59,8 @@
 
 ## Prototype Gate
 
-不作为默认路径，只在 Phase 0 发现 design 无法靠文档审查回答时使用。
-
 - 先写清 prototype 要回答的问题。
 - 逻辑 / 状态模型问题：做一个可运行 terminal / CLI prototype，展示每步状态。
 - UI 方向问题：做多个差异明显的 UI variants，并能一条命令启动。
 - prototype 从第一天就是 throwaway：不默认持久化，不碰生产数据，不写成正式架构。
 - 完成后只保留答案：吸收到 design / ADR / plan；prototype 要删除或明确吸收进正式代码。
-
-## 不纳入 Runtime 的外部内容
-
-- 不安装整套外部 skills。
-- 不引入 `CONTEXT.md`、`docs/agents/domain.md`、triage labels 或 issue tracker state machine。
-- 不让外部 skill 替代 Claude plugin 原始 workflow；只把其中经过筛选的方法融合进 review / worker / explorer / Task Pack 合同。

@@ -1,6 +1,6 @@
 # Plan Review Contract
 
-Phase 0b 审 plan。目标是确认计划可以真实执行，不会把虚构路径、横切任务或缺失验收传给 worker。
+Phase 0b 审 plan。确认计划可执行，不能把虚构路径、横切任务或缺失验收传给 worker。
 
 ## Dispatch 1: Coverage And Task Quality
 
