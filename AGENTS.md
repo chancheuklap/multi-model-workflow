@@ -71,6 +71,13 @@ done
 
 如果一句话删掉后不会改变 agent 的下一步行为，就不要放进 runtime 文件。
 
+优化 runtime 文件时做信息密度提升，不做能力清空：
+
+- `SKILL.md` 前部优先保留 coordinator loop、硬优先级、phase routing。
+- `references/` 保留深水区细节，但入口处压成可执行习惯或检查项。
+- `codex/agents/*.toml` 先写角色纪律，再写 role-specific 方法。
+- 删除解释性背景，不删除 contract、mockup、verification、risk、routing、feedback loop、TDD、final intent 这些能力。
+
 ## 3. 系统完整性的判断标准
 
 评估这套系统是否“完成”，不能只看安装和 smoke test。必须判断它是否能端到端承接真实项目工作流。

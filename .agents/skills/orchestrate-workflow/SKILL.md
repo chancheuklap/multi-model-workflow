@@ -5,287 +5,176 @@ description: 当已有 design / implementation plan，Superpowers writing-plans 
 
 # Orchestrate Workflow
 
-你是主线程 coordinator。这个 skill 接管 `superpowers:writing-plans` 之后的完整 post-design workflow：设计文档 review、计划文档 review、Task Pack 执行、代码 review、final intent / release review、业务汇报。
+你是主线程 coordinator。接管 `superpowers:writing-plans` 之后的 post-design workflow：design review、plan review、Task Pack execution、pack review、root-cause repair、final intent / release review、business report。
 
-## 触发边界
+## Use / Skip
 
-使用此 skill：
+使用：
 
-- 已有或刚生成 `docs/superpowers/specs/` 下的 design doc；
-- 已有或刚生成 `docs/superpowers/plans/` 下的 plan；
-- 用户要求“执行方案 / 开始实施 / 推进 / 继续 / 落地 / 审一下设计 / 审一下计划 / 走流程”；
-- 有 bug brief 或 feedback loop，需要按计划化维护流程推进。
+- 已有或刚生成 design doc。
+- 已有或刚生成 implementation plan。
+- 用户要求执行、审核、推进、继续、落地。
+- 有 bug brief、feedback loop 或维护问题需要计划化推进。
 
-进入此 skill 后，由本 skill 的 Phase 0 / Setup / Phase A / Phase B 承担 plan execution、subagent dispatch、parallel agent dispatch、code review、review repair、debugging、TDD 和 completion verification。不要再单独调用 `superpowers:executing-plans`、`superpowers:subagent-driven-development`、`superpowers:dispatching-parallel-agents`、`superpowers:requesting-code-review`、`superpowers:receiving-code-review`、`superpowers:systematic-debugging`、`superpowers:test-driven-development` 或 `superpowers:verification-before-completion`。
+不使用：
 
-不使用此 skill：
+- 从零澄清需求：用 `superpowers:brainstorming`。
+- 从零写 design / plan：用 `superpowers:writing-plans`。
+- 单次只读 code review：直接按 review 请求处理。
+- merge / PR / push / discard：用 `superpowers:finishing-a-development-branch`。
 
-- 从零澄清需求：用 `superpowers:brainstorming`；
-- 从零写 design / plan：用 `superpowers:writing-plans`；
-- 单次只读 code review：直接按 review 请求处理；
-- 已完成后 merge / PR / push：用 `superpowers:finishing-a-development-branch`。
+进入本 skill 后，不再单独调用 post-plan Superpowers execution skills。本 skill 内部承担 plan execution、subagent dispatch、parallel dispatch、code review、review repair、debugging、TDD 和 completion verification。
 
-## References
+## Operating Loop
 
-进入对应 phase 前先读取对应 reference，再派发 reviewer / worker：
+1. 识别入口：design -> Phase 0a；plan -> Phase 0b；bug -> Maintenance；已实现 diff -> Phase B 或单次 review。
+2. 建立 anchors：project、mockup、contract。
+3. 读取当前 phase 的 reference，把 review / worker contract 写进 dispatch prompt。
+4. Phase 0a 审 design；Phase 0b 审 plan；技术性文档缺口由主线程修。
+5. 把 plan task 重切成 Task Packs；不合格 pack 先重切。
+6. 按 risk 派 worker；只有独立 pack 才并行。
+7. Worker 返回后做 gated pack review：Spec Compliance 通过后才做 Code Quality。
+8. 生产风险追加 `release_reviewer`，不能替代 baseline `code_reviewer`。
+9. finding 回原 worker、root-cause explorer、release reviewer 或用户决策。
+10. 全部 pack 通过后做 Phase B final intent / diff / release review，再给业务汇报。
 
-| Phase | 必读 reference | 用途 |
-| --- | --- | --- |
-| Phase 0a Design Review | `references/design-review.md` | 生成设计内容审查、项目对齐审查的 dispatch prompt。 |
-| Phase 0b Plan Review | `references/plan-review.md` | 生成计划覆盖度、合规验真、second-opinion 审查的 dispatch prompt。 |
-| Setup Task Pack | `references/task-pack-contract.md` | 判断 pack 是否 vertical slice、是否可并行、是否 AFK/HITL。 |
-| API / Pydantic / DB / JSON / helper 边界 | `references/contract-boundary.md` | 判断合同归属、Pydantic 模型、schema version、registry、migration、consumer 同步和禁止的 ad-hoc helper / bare dict。 |
-| Phase A Pack Review | `references/implementation-review.md` | 生成 spec compliance + code quality review prompt。 |
-| Phase B Final Review | `references/final-review.md` | 生成 final intent review、代码交叉审查、release-risk review prompt。 |
-| 维护 / root-cause / prototype route | `references/external-engineering-methods.md` | 校准 feedback loop、vertical TDD、prototype gate 和 architecture finding。 |
+## Hard Rules
 
-不要要求 subagent 自己去猜这些 reference。主线程读取 reference 后，把本次任务事实和需要执行的 review contract 写进 dispatch prompt。
+- Phase 0 和 Phase B 不能跳过。
+- Task Pack 是执行单位；plan task 只是原材料。
+- `Read first:`、`Project baseline:`、`Contract anchors:`、`Mockup anchors:` 必须进 dispatch prompt。
+- Reviewer 不信 worker self-report，必须看代码、diff、测试或运行证据。
+- Bug 先建 feedback loop，再猜根因。
+- Tests 验 public behavior，不测 private helper 和内部调用顺序。
+- 同文件、同合同、同 migration、同权限、同账务、同 runtime 边界默认不并行。
+- 没有真实验证证据，不声称完成。
+- 不自动 merge、push 或 create PR。
 
-## 项目感知合同
+## Anchors
 
-每次进入 Phase 0 / Phase A / Phase B，主线程先确定 project anchors：
+每个 phase 先确定：
 
-1. 根 `AGENTS.md`。
-2. `AGENTS.md` 链入或项目存在的 `PROJECT.md`、`ENGINEERING-RULES.md`。
-3. 当前 design / plan / SPEC / ADR / GUIDE。
-4. 当前任务相关的 UI / UX mockup、截图、HTML 原型或页面参考。
-5. owned files 或 review scope 覆盖目录里的 `AGENTS.override.md` 或 `agents.overrides.md`。
-6. 与任务相关的 data authority、module boundary、contract wall、API / Pydantic / DB / JSON boundary、testing route、logging rule、deployment / rollback rule。
+- Project：根 `AGENTS.md`；其链入的 `PROJECT.md`、`ENGINEERING-RULES.md`、SPEC、ADR、GUIDE；相关 `AGENTS.override.md` / `agents.overrides.md`。
+- Mockup：UI / UX mockup、截图、HTML 原型、页面参考；目标页面、role、viewport、states、interaction、允许偏差。
+- Contract：API、Pydantic、DB、JSON、sync、task payload、billing、permission、runtime、capability、UI action、helper boundary；owner、provider、consumer、verifier、model、schema_version、registry / migration / catalog、repository / read model、tests / release gate。
 
-dispatch prompt 必须包含 `Read first:`，列出上述具体文件；还必须包含 `Project baseline:`，用短句写清本次任务最相关的不变量。不要只写“遵守项目规则”。
+缺少 in-scope anchor 时，先补上下文或返回 `NEEDS_CONTEXT` / `BLOCKED`，不要自创 dict、route-local schema、临时 helper 或 UI 方向。
 
-## Mockup 合同
+## Agent Routing
 
-当任务包含 UI / UX mockup、截图、HTML 原型或页面参考时，把它当成 design / plan 同级 artifact。
+| 场景 | agent_type |
+| --- | --- |
+| baseline design / plan / pack / final review | `code_reviewer` |
+| production-risk supplement | `release_reviewer` |
+| 普通 Task Pack / 明确 code finding 修复 | `coding_worker` |
+| 高风险 Task Pack / 高风险 repair | `complex_coding_worker` |
+| 未知根因调查 | `complex_code_explorer` |
+| 紧耦合 root-cause 修复 | `complex_coding_worker` |
+| 低风险文档整理 | `docs_worker` |
 
-- Phase 0：review design / plan 时确认 mockup 路径存在、版本明确、目标页面 / 状态 / 角色 / viewport 清楚。
-- Setup：Task Pack 必须按 mockup 中可独立验收的用户可见状态切分，不按“先写 CSS / JS / template”横切。
-- Phase A：worker dispatch 必须包含 mockup 路径、目标 viewport、关键 states、交互和允许偏差；实现要尽量做到原子级 UI 对齐。
-- Pack Review：`code_reviewer` 必须比较实现与 mockup 的信息架构、布局、间距、颜色、组件状态、交互和响应式行为。
-- Phase B：Final Review 必须用 browser / screenshot / DOM scan / manual checklist 验证 mockup intent。没有视觉证据时，UI / UX 任务不能声称完成。
-
-## Contract Boundary 合同
-
-任务涉及 API、Pydantic、数据库字段、JSONB / SQLite JSON、sync outbox、local task payload、billing、permission、runtime、capability、UI form action 或跨模块 helper 时，先读取 `references/contract-boundary.md`。
-
-dispatch prompt 必须包含 `Contract anchors:`：
-
-- boundary type：API request / response、Pydantic protocol、DB table / column、JSON payload、task payload、sync event、UI action、external adapter。
-- owner / provider / consumer / verifier。
-- 现有 Pydantic model，或需要新增 / 扩展的正式 model。
-- `schema_version`、`extra=forbid`、兼容策略和 consumer 同步范围。
-- registry / migration / catalog 位置，例如 JSON registry、Alembic tree、port / command / chargeable action / capability catalog。
-- 验证方式：contract test、repository / read-model test、API test、migration check、UI action test 或 release gate。
-
-worker 不得用 bare dict、route-local schema、一次性 helper、silent unknown-field drop、mock 当前仓库内部业务规则来绕过合同。私有 transport adapter 可以接收原始 dict，但 public API / client / service boundary 必须立即转换为正式 Pydantic contract。缺少合同锚点时返回 `NEEDS_CONTEXT` 或 `BLOCKED`，不要自创临时结构继续写。
-
-## Agent 路由
-
-| 场景 | Codex agent_type | 用法 |
-| --- | --- | --- |
-| baseline review | `code_reviewer` | 所有 Design Review、Plan Review、Pack Review、Final Intent Review 的基础审核。不能被 `release_reviewer` 替代。 |
-| production-risk review | `release_reviewer` | 在 baseline `code_reviewer` 之后追加，专审 deploy、database、billing、permissions、runtime、rollback、cross-service contract。 |
-| 普通 Task Pack 实现 / 明确 code finding 修复 | `coding_worker` | 普通实现、测试修复、局部重构。 |
-| 高风险 Task Pack 实现 / 高风险 repair | `complex_coding_worker` | migration、billing、auth、permissions、runtime、Gateway、browser takeover、shared contract。 |
-| 未知根因调查 | `complex_code_explorer` | 只读调查，先建立 feedback loop。 |
-| 紧耦合 root-cause 修复 | `complex_coding_worker` | 诊断与修复无法分离的复杂问题。 |
-| 文档机械整理 | `docs_worker` | 低风险文档同步、格式和 stale reference 修复。 |
-
-## Review 不变量
-
-每个 review phase 都有 baseline review。`release_reviewer` 只在 production-risk 存在时追加，永远不是 baseline review 的替代品。
-
-| Phase | 必须先完成 | 有生产风险时追加 | 通过条件 |
-| --- | --- | --- | --- |
-| Phase 0a Design Review | `code_reviewer`: content review + project alignment review | `release_reviewer`: migration / billing / permission / runtime / deploy / rollback risk | baseline design findings 通过，且 release blockers 为 0 |
-| Phase 0b Plan Review | `code_reviewer`: coverage + compliance / verification + second opinion | `release_reviewer`: migration order / deploy order / manual gate / rollback plan | baseline plan findings 通过，且 release blockers 为 0 |
-| Phase A Pack Review | `code_reviewer`: spec compliance，再 code quality | `release_reviewer`: high-risk implementation gate | spec / quality 通过，且 release blockers 为 0 |
-| Phase B Final Review | `code_reviewer`: final intent review + independent diff review | `release_reviewer`: final release-risk gate | design intent 通过，diff review 通过，且 release blockers 为 0 |
-
-禁止把 “有 production-risk” 理解为 “跳过 baseline review”。正确动作永远是：保留 `code_reviewer` baseline，再追加 `release_reviewer`。
+工具映射：
 
 - 新建独立任务：`spawn_agent`
-- 把 review finding 发回同一个 worker：`send_input`
-- 下一步被结果阻塞时才等待：`wait_agent`
+- finding 回原 worker：`send_input`
+- 下一步被结果阻塞时才 `wait_agent`
 - 任务完成后关闭不再需要的 agent
 
-## 主流程
+## Phase Gates
 
 ### Phase 0a: Design Review
 
-进入条件：存在 design doc，或 `writing-plans` 刚生成 design doc。
+入口：存在 design doc，或 `writing-plans` 刚生成 design doc。
 
-执行：
+- 先读 `references/design-review.md`；涉及 API / Pydantic / DB / JSON / helper 边界时再读 `references/contract-boundary.md`。
+- 派两个独立 `code_reviewer`：Design Content Review、Project Alignment Review。
+- 有 production risk 时，在 baseline review 后追加 `release_reviewer`。
+- 技术性文档缺口由主线程修；产品承诺、业务规则、UX、发布策略、架构 trade-off 才问用户。
+- 状态机、UI 方向或接口形状无法靠文档判断时，按 Prototype Gate 做 throwaway prototype。
+- design 合格但没有 plan 时，调用 `superpowers:writing-plans` 写 plan，再进入 Phase 0b。
+- 最多 2 轮；超出后汇报哪个 design 点需要产品 / 架构决策。
 
-1. 完整读取 design doc、相关 mockup 和项目规则：`AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE、相关 `AGENTS.override.md`。
-2. 读取 `references/design-review.md`；如涉及 API / Pydantic / DB / JSON / helper 边界，同时读取 `references/contract-boundary.md`。
-3. 派发两个独立 `code_reviewer`：
-   - Design Content Review：完整性、可测试性、内部一致性、范围纪律；
-   - Project Alignment Review：项目架构、权威源、模块边界、工程规则、技术可行性。
-4. 如果 design 涉及 production-risk，必须在两个 `code_reviewer` 之后追加 `release_reviewer`。不得用 `release_reviewer` 替代 Design Content Review 或 Project Alignment Review。
-5. 聚合 findings。技术性文档缺口由主线程直接修复；会改变产品承诺、业务规则、用户体验、发布策略或架构 trade-off 时才问用户。
-6. 最多 2 轮。超出后汇报哪个设计点需要业务或架构决策。
-7. 如果 design review 暴露的问题不能靠文档澄清，而是需要先回答“状态机是否合理 / UI 方向是否成立 / 接口形状是否好用”，读取 `references/external-engineering-methods.md` 的 Prototype Gate，先做 throwaway prototype 再修 design。
-8. 如果 design 通过但没有 plan，调用 `superpowers:writing-plans` 写 plan，然后进入 Phase 0b。
-
-通过标准：
-
-- 没有 Critical design finding；
-- 每条核心设计意图可验证；
-- 正常场景和至少一个失败/权限/重复/回滚场景能解释清楚；
-- 新对象、新状态、新合同有 owner / writer / reader / verifier / cleanup responsibility；
-- API / Pydantic / DB / JSON / helper 边界有明确 Contract anchors；
-- 与 AgentFlow 正式文档体系一致。
+通过：没有 Critical design finding；核心 intent 可验证；失败/权限/重复/回滚场景能解释；新对象/状态/合同有责任归属；contract anchors 明确。
 
 ### Phase 0b: Plan Review
 
-进入条件：存在 active plan。
+入口：存在 active plan。
 
-执行：
+- 先读 `references/plan-review.md` 和 `references/task-pack-contract.md`；涉及 API / Pydantic / DB / JSON / helper 边界时再读 `references/contract-boundary.md`。
+- 派三个独立 `code_reviewer`：Coverage、Compliance / Verification、Second Opinion。
+- 有 production risk 时追加 `release_reviewer`。
+- 主线程修 stale path、虚构 helper、缺测试、override 同步缺口、pack 横切、依赖错误。
+- 最多 2 轮；超出后汇报哪个 plan 点无法验真或需要决策。
 
-1. 完整读取 plan；如有 design doc 或 mockup，同时读取 design 和 mockup。
-2. 读取 `references/plan-review.md` 和 `references/task-pack-contract.md`；如涉及 API / Pydantic / DB / JSON / helper 边界，同时读取 `references/contract-boundary.md`。
-3. 派发三个独立 review：
-   - Coverage Review：设计意图覆盖、task 质量、可执行性；
-   - Compliance / Verification Review：项目规则、路径/函数/类/配置真实存在、依赖真实存在；
-   - Second-opinion Review：用独立 framing 检查计划可执行性、冲突、遗漏和风险假设。
-4. 三个 review 都由 `code_reviewer` 承担。生产风险计划必须追加 `release_reviewer`，但不得替代任何一个计划审核。
-5. 主线程聚合 findings 并直接修复技术性计划问题，包括 stale path、虚构 helper、缺少测试、缺少 `AGENTS.override.md` 同步、pack 横切、依赖顺序错误。
-6. 最多 2 轮。超出后汇报哪个计划点无法验证或需要决策。
-
-通过标准：
-
-- 每条 design intent 至少有一个 task 覆盖；
-- task 描述足够让 worker 不问问题即可开始；
-- 引用的已有路径、函数、类、fixture、命令都已验真；
-- task 有明确测试或验证方式；
-- 涉及合同边界的 task 已写清 Contract anchors、consumer 同步和 registry / migration / catalog 位置；
-- 依赖顺序真实；
-- 可拆成 vertical Task Packs。
+通过：design intent 被覆盖；task 可执行；已有路径/函数/fixture/命令已验真；每个 task 有验证；contract consumer / registry / migration / catalog 清楚；可拆成 vertical Task Packs。
 
 ### Setup: Task Pack Planning
 
-执行：
-
-1. 提取 plan 中所有未完成 task。
-2. 读取 `references/task-pack-contract.md`。
-3. 把 task 分成 Task Packs：
-   - 同文件 / 同合同 / 同迁移 / 同权限 / 同账务 / 同 runtime 边界放同一 pack；
-   - 有真实依赖的 task 串行；
-   - 独立 pack 可并行；
-   - 每个 pack 必须 demoable 或 independently verifiable。
-4. 给每个 pack 标注：目标行为、owned files、contract anchors、mockup anchors、verification commands、risk flags、AFK/HITL、serial/parallel。
-5. 如果 pack 会沉淀成长期任务或跨会话 handoff，使用 durable brief 格式：current behavior、desired behavior、key interfaces、acceptance criteria、out of scope；避免把行号或临时路径当成唯一合同。
+- 先读 `references/task-pack-contract.md`。
+- 提取未完成 plan tasks。
+- 按可验证行为重切 Task Packs。
+- 同文件、同合同、同 migration、同权限、同账务、同 runtime 边界放同一 pack 或串行。
+- 独立 pack 才并行。
+- 每个 pack 标注 goal behavior、owned scope、anchors、acceptance criteria、verification、risk、AFK/HITL、dependencies、out of scope。
 
 不合格 pack 先重切，不派发。
 
-### Phase A: Task Pack Execution + Code Review
+### Phase A: Execution + Pack Review
 
 每个 pack：
 
 1. 普通 pack 派 `coding_worker`；高风险 pack 派 `complex_coding_worker`。
-2. dispatch prompt 必须包含：phase、完整 task 文本、owned files、项目锚点、contract anchors、mockup anchors、acceptance criteria、verification commands、risk flags、no unauthorized revert、返回格式。
-3. worker 返回后，读取 `references/implementation-review.md`；如 pack 涉及 API / Pydantic / DB / JSON / helper 边界，同时读取 `references/contract-boundary.md`。
-4. 派 `code_reviewer` 做 pack review：
-   - Phase 1：Spec Compliance，逐 task 检查有没有做完、做错、越界、漏边界；
-   - Phase 2：Code Quality，仅 spec 通过后检查正确性、错误路径、项目约定、测试质量、文件健康。
-5. 生产风险改动追加 `release_reviewer`。
-6. finding 路由：
-   - 明确代码修复：`send_input` 给原 worker；
-   - 原因不明：`complex_code_explorer` 建 feedback loop；
-   - 诊断和修复紧耦合：`complex_coding_worker`；
-   - 业务范围变化：问用户。
-7. 每个 pack 最多 3 轮 repair。每轮必须改变方法。
+2. dispatch prompt 包含完整 Pack Brief、anchors、verification、risk、no unauthorized revert、返回格式。
+3. worker 返回后先读 `references/implementation-review.md`；涉及 API / Pydantic / DB / JSON / helper 边界时再读 `references/contract-boundary.md`。
+4. 派 `code_reviewer` 做 Pack Review。
+5. Pack Review 先 Spec Compliance；通过后才 Code Quality。
+6. production-risk pack 追加 `release_reviewer`。
+7. 明确代码 finding 回原 worker；根因不明走 `complex_code_explorer`；紧耦合修复走 `complex_coding_worker`；业务范围变化问用户。
+8. 每个 pack 最多 3 轮 repair；每轮必须改变方法。
 
-通过标准：
-
-- spec compliance 通过；
-- focused verification 已真实运行；UI / UX pack 必须包含 browser / screenshot / DOM / manual checklist 中至少一种 mockup 对齐证据；
-- 测试验证 public behavior；
-- API / Pydantic / DB / JSON / helper 边界没有 ad-hoc helper、bare dict、未注册 JSON、错误 migration tree 或未同步 consumer；
-- 没有 mock 掉当前仓库内部业务规则；
-- 没有 Critical / High review finding。
+通过：spec / quality 通过；focused verification 已运行；UI / UX 有 visual evidence；tests 验 public behavior；contract boundary 闭合；没有 Critical / High finding。
 
 ### Maintenance Bug Entry
 
 没有完整 plan 的 bug：
 
-1. 先建立 feedback loop，不先写补丁。
-2. 形成 bug brief：current behavior、desired behavior、reproduction、hypotheses、key interfaces、acceptance criteria、out of scope。
-3. 小范围局部修复可主线程处理。
-4. 多个独立失败按 problem domain 分组；没有共享状态、共享文件或共享合同边界时，可以并行派 `complex_code_explorer` 或独立 Task Pack。
-5. 相关失败、共享状态、共享文件、共享合同边界或一个修复可能影响多个失败时，先合并调查，不并行派发。
-6. 涉及 runtime、billing、migration、permission、API / Pydantic / DB / JSON boundary、shared contract、deploy 或多模块时，先补 plan，再走 Phase 0b / Phase A。
+- 先读 `references/external-engineering-methods.md`。
+- 先建立 feedback loop，不先写补丁。
+- 形成 bug brief：current behavior、desired behavior、reproduction、hypotheses、key interfaces、acceptance criteria、out of scope。
+- 小范围局部修复可主线程处理。
+- 多个独立失败按 problem domain 分组；无共享状态、文件或合同边界时可并行调查。
+- 相关失败、共享状态、共享文件、共享合同边界或一个修复可能影响多个失败时，先合并调查。
+- 触碰 runtime、billing、migration、permission、API / Pydantic / DB / JSON boundary、shared contract、deploy 或多模块时，先补 plan，再走 Phase 0b / Phase A。
 
 ### Phase B: Final Intent / Release Review
 
 所有 pack 通过后执行。
 
-有 design doc：
+- 先读 `references/final-review.md`；涉及 API / Pydantic / DB / JSON / helper 边界时再读 `references/contract-boundary.md`。
+- 有 design doc：派 `code_reviewer` 做 final intent review，再派 independent `code_reviewer` 做 diff review。
+- 无 design doc：派 `code_reviewer` 对 `git diff <starting_commit>..HEAD` 做全量 review。
+- 有 production risk 时追加 `release_reviewer`。
+- finding 分类：Implementation Gap 回 worker；Design Gap 给用户；Code-level Critical 派 worker；Release Blocker 必须修或列 manual gate。
+- 每个 gap 最多 2 轮；Phase B 总 dispatch 上限 15 次。
 
-1. 读取 `references/final-review.md`；如改动涉及 API / Pydantic / DB / JSON / helper 边界，同时读取 `references/contract-boundary.md`。
-2. 派 `code_reviewer` 做 final intent review：提取 design intent，逐条用真实命令 / 测试 / UI / smoke / VM / deploy check 验证。
-3. 派 independent second-opinion `code_reviewer` 做全 diff review，使用不同 framing，不读取第一次 review 的结论。
-4. 涉及生产风险时派 `release_reviewer` 做 release-risk review。
-5. 聚合 findings：
-   - Implementation Gap：派回 worker 写失败测试 / 复现检查，再修复；
-   - Design Gap：用业务语言交给用户；
-   - Code-level Critical：派合适 worker 修；
-   - Release Blocker：必须修或列为人工 gate，不能声称完成。
-6. 每个 gap 最多 2 轮；Phase B 总 dispatch 上限 15 次。
-
-无 design doc：
-
-- 派 `code_reviewer` 对 `git diff <starting_commit>..HEAD` 做代码级全量 review；
-- 高风险 diff 必须追加 `release_reviewer`。
-
-通过标准：
-
-- 可验证 design intent 全部通过，或未通过项被明确分类；
-- 合同边界、producer / consumer、schema version、registry、migration、read model 和 release gate 已闭合；
-- 没有 blocker；
-- 验证证据来自真实命令、browser / screenshot / DOM evidence 或人工检查清单；
-- 残余风险能用业务语言解释。
+通过：可验证 intent 全部通过或明确分类；contract boundary、producer / consumer、registry、migration、read model、release gate 闭合；没有 blocker；验证证据真实。
 
 ### Phase C: Business Report
 
 汇报：
 
-- 完成了什么产品能力；
-- 修改了哪些范围；
-- 做过哪些 review loop 和 repair；
-- 跑了哪些验证，结果是什么；
-- 仍需人工验证或业务决策的事项；
+- 完成的产品能力。
+- 修改范围。
+- review loop 和 repair。
+- 验证命令和结果。
+- 人工验证或业务决策。
 - 残余风险和 architecture follow-up。
-
-停止。此 skill 不自动 merge、push 或开 PR。
-
-## 循环上限
-
-| 循环 | 上限 | 超限处理 |
-| --- | --- | --- |
-| Phase 0a design review -> 主线程修复 | 2 轮 | 说明哪个 design 点需要产品 / 架构决策。 |
-| Phase 0b plan review -> 主线程修复 | 2 轮 | 说明哪个 plan 点无法验真或需要决策。 |
-| Phase A pack review -> worker repair | 每个 pack 3 轮 | 汇报 attempts，决定拆 pack / root-cause route / 用户决策。 |
-| Phase B intent gap -> worker repair | 每个 gap 2 轮 | 区分 implementation gap 与 design gap。 |
-| Phase B total dispatch | 15 次 | 汇报完成状态、剩余风险和决策点。 |
 
 ## Direction Check
 
-当多轮 pack、review 或 compaction 后方向不清，先回答：
+多轮 pack、review 或 compaction 后方向不清时，先回答：
 
-- 我在哪里：当前 phase / pack。
-- 我要去哪：剩余 packs / phase。
-- 目标是什么：重读 design intent。
-- 已经学到什么：累计 review findings。
-- 有什么变化：当前 plan checkbox 进度。
-
-## 禁止事项
-
-- 不跳过 Phase 0 或 Phase B。
-- 不把 design / plan review 降级成代码 review。
-- 不把代码 review 当成唯一 review。
-- 不让用户为每个技术阶段下命令。
-- 不自动 merge、push 或 create PR。
-- 不为每个小 task 都 spawn agent。
-- 不把 hooks 当作 workflow 真相源。
+- 当前 phase / pack。
+- 剩余 packs / phase。
+- design intent。
+- 累计 review findings。
+- plan checkbox 进度。
