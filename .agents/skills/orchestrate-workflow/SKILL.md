@@ -52,10 +52,21 @@ description: 当已有 design / implementation plan，Superpowers writing-plans 
 1. 根 `AGENTS.md`。
 2. `AGENTS.md` 链入或项目存在的 `PROJECT.md`、`ENGINEERING-RULES.md`。
 3. 当前 design / plan / SPEC / ADR / GUIDE。
-4. owned files 或 review scope 覆盖目录里的 `AGENTS.override.md` 或 `agents.overrides.md`。
-5. 与任务相关的 data authority、module boundary、contract wall、testing route、logging rule、deployment / rollback rule。
+4. 当前任务相关的 UI / UX mockup、截图、HTML 原型或页面参考。
+5. owned files 或 review scope 覆盖目录里的 `AGENTS.override.md` 或 `agents.overrides.md`。
+6. 与任务相关的 data authority、module boundary、contract wall、testing route、logging rule、deployment / rollback rule。
 
 dispatch prompt 必须包含 `Read first:`，列出上述具体文件；还必须包含 `Project baseline:`，用短句写清本次任务最相关的不变量。不要只写“遵守项目规则”。
+
+## Mockup 合同
+
+当任务包含 UI / UX mockup、截图、HTML 原型或页面参考时，把它当成 design / plan 同级 artifact。
+
+- Phase 0：review design / plan 时确认 mockup 路径存在、版本明确、目标页面 / 状态 / 角色 / viewport 清楚。
+- Setup：Task Pack 必须按 mockup 中可独立验收的用户可见状态切分，不按“先写 CSS / JS / template”横切。
+- Phase A：worker dispatch 必须包含 mockup 路径、目标 viewport、关键 states、交互和允许偏差；实现要尽量做到原子级 UI 对齐。
+- Pack Review：`code_reviewer` 必须比较实现与 mockup 的信息架构、布局、间距、颜色、组件状态、交互和响应式行为。
+- Phase B：Final Review 必须用 browser / screenshot / DOM scan / manual checklist 验证 mockup intent。没有视觉证据时，UI / UX 任务不能声称完成。
 
 ## Agent 路由
 
@@ -97,7 +108,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 
 执行：
 
-1. 完整读取 design doc 和项目规则：`AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE、相关 `AGENTS.override.md`。
+1. 完整读取 design doc、相关 mockup 和项目规则：`AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE、相关 `AGENTS.override.md`。
 2. 读取 `references/design-review.md`。
 3. 派发两个独立 `code_reviewer`：
    - Design Content Review：完整性、可测试性、内部一致性、范围纪律；
@@ -122,7 +133,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 
 执行：
 
-1. 完整读取 plan；如有 design doc，同时读取 design。
+1. 完整读取 plan；如有 design doc 或 mockup，同时读取 design 和 mockup。
 2. 读取 `references/plan-review.md` 和 `references/task-pack-contract.md`。
 3. 派发三个独立 review：
    - Coverage Review：设计意图覆盖、task 质量、可执行性；
@@ -152,7 +163,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
    - 有真实依赖的 task 串行；
    - 独立 pack 可并行；
    - 每个 pack 必须 demoable 或 independently verifiable。
-4. 给每个 pack 标注：目标行为、owned files、verification commands、risk flags、AFK/HITL、serial/parallel。
+4. 给每个 pack 标注：目标行为、owned files、mockup anchors、verification commands、risk flags、AFK/HITL、serial/parallel。
 5. 如果 pack 会沉淀成长期任务或跨会话 handoff，使用 durable brief 格式：current behavior、desired behavior、key interfaces、acceptance criteria、out of scope；避免把行号或临时路径当成唯一合同。
 
 不合格 pack 先重切，不派发。
@@ -162,7 +173,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 每个 pack：
 
 1. 普通 pack 派 `coding_worker`；高风险 pack 派 `complex_coding_worker`。
-2. dispatch prompt 必须包含：phase、完整 task 文本、owned files、项目锚点、acceptance criteria、verification commands、risk flags、no unauthorized revert、返回格式。
+2. dispatch prompt 必须包含：phase、完整 task 文本、owned files、项目锚点、mockup anchors、acceptance criteria、verification commands、risk flags、no unauthorized revert、返回格式。
 3. worker 返回后，读取 `references/implementation-review.md`。
 4. 派 `code_reviewer` 做 pack review：
    - Phase 1：Spec Compliance，逐 task 检查有没有做完、做错、越界、漏边界；
@@ -178,7 +189,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 通过标准：
 
 - spec compliance 通过；
-- focused verification 已真实运行；
+- focused verification 已真实运行；UI / UX pack 必须包含 browser / screenshot / DOM / manual checklist 中至少一种 mockup 对齐证据；
 - 测试验证 public behavior；
 - 没有 mock 掉当前仓库内部业务规则；
 - 没有 Critical / High review finding。
@@ -218,7 +229,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 
 - 可验证 design intent 全部通过，或未通过项被明确分类；
 - 没有 blocker；
-- 验证证据来自真实命令或人工检查清单；
+- 验证证据来自真实命令、browser / screenshot / DOM evidence 或人工检查清单；
 - 残余风险能用业务语言解释。
 
 ### Phase C: Business Report

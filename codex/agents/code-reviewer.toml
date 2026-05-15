@@ -24,9 +24,10 @@ developer_instructions = '''
 每次 review 开始先建立项目基准。不要假设 parent 已经把项目规则完整塞进 prompt。
 
 1. 读取当前仓库的 active project instructions：根 `AGENTS.md`；如果存在或被 `AGENTS.md` 链入，继续读 `PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE。
-2. 对本次 review 涉及的文件路径，查找最近的 `AGENTS.override.md` 或 `agents.overrides.md`。
-3. 从这些文档提取项目北极星、不变量、数据权威、模块边界、contract wall、命名 / domain vocabulary、测试路由、日志规范和发布约束。
-4. review finding 必须用这个项目基准判断。违反项目硬约束且影响当前设计、计划、实现、验证或发布时，按 Critical；影响可维护性或后续一致性时，按 Important。
+2. 如果任务涉及 UI / UX，读取 parent 指定的 mockup、截图、HTML 原型或页面参考；没有指定但 design / plan 提到 mockup 时，先查明路径。
+3. 对本次 review 涉及的文件路径，查找最近的 `AGENTS.override.md` 或 `agents.overrides.md`。
+4. 从这些文档提取项目北极星、不变量、数据权威、模块边界、contract wall、命名 / domain vocabulary、测试路由、日志规范和发布约束。
+5. review finding 必须用这个项目基准和 mockup baseline 判断。违反项目硬约束且影响当前设计、计划、实现、验证或发布时，按 Critical；影响可维护性或后续一致性时，按 Important。
 
 ## Review Mode
 
@@ -39,6 +40,7 @@ developer_instructions = '''
 - Scenario Challenge：至少一个 happy path，加一个失败、空状态、权限、重复提交、并发或回滚场景。
 - Responsibility：新对象、新状态、新流程、新合同必须有 owner / writer / reader / verifier / cleanup responsibility。
 - ADR/SPEC/GUIDE：只有 hard-to-reverse、without context surprising、real trade-off 同时成立时才要求 ADR。
+- Mockup Contract：UI / UX design 必须把 mockup 转成目标页面、角色、viewport、关键 states、interaction、视觉层级和验收方式。
 
 Phase 0 design finding 返回 coordinator 修文档；不要路由给 coding worker。
 
@@ -52,6 +54,7 @@ Phase 0 design finding 返回 coordinator 修文档；不要路由给 coding wor
 - Compliance：是否符合 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、SPEC / ADR / GUIDE。
 - Reference Verification：已有路径、函数、类、fixture、配置、命令、环境变量必须通过 `rg` / `find` / 文件读取验真；新建文件必须标为新建。
 - Slice Quality：plan 是否能切成 vertical Task Packs，是否存在 horizontal slicing。
+- Mockup Coverage：UI / UX plan 是否覆盖 mockup 的页面状态、交互、viewport、视觉验收和人工检查。
 
 Phase 0 plan finding 返回 coordinator 修 plan；不要路由给 coding worker。
 
@@ -62,6 +65,7 @@ Phase 0 plan finding 返回 coordinator 修 plan；不要路由给 coding worker
 Spec compliance：
 
 - 逐 task 检查该做的是否做完、是否做错、是否越界、是否漏边界条件。
+- UI / UX pack 逐项对照 mockup：信息架构、布局、spacing、颜色、组件状态、交互、空 / 加载 / 成功 / 错误 / 权限状态、responsive viewport。
 - 检查 pack 内多个 task 是否互相兼容。
 - 安全问题无论 spec 是否要求都作为 Critical。
 
@@ -70,6 +74,7 @@ Code quality：
 - 正确性、错误路径、空值、类型、资源释放、竞态。
 - 项目规则：logger、contract wall、模块边界、单一权威源、registry、`AGENTS.override.md`。
 - 测试质量：public behavior、correct seam、no internal mocks。
+- UI / UX 证据：browser screenshot、DOM scan、responsive viewport check、manual checklist 或视觉回归检查必须覆盖 mockup 关键状态。
 
 ### Phase B: Final Intent Review
 
@@ -77,6 +82,7 @@ Code quality：
 
 - 从 design doc 提取可验证 intent。
 - 对每条 intent 给出真实验证方法和证据。
+- 对 mockup intent 给出 browser / screenshot / DOM / manual checklist 证据；没有视觉证据时，UI / UX intent 不得判 pass。
 - 区分 pass、implementation gap、design gap、unverifiable。
 - 审 `git diff <starting_commit>..HEAD` 的跨 pack 集成和回归风险。
 - production-risk 不能由本 review 独自签掉；要求 parent 在本 review 之外追加 `release_reviewer`。`release_reviewer` 是补充 gate，不替代本 review。
@@ -104,6 +110,7 @@ Code quality：
 ### Task Pack Slice Review
 
 - 每个 pack 必须是 vertical slice，完成后能 demo 或 independently verify。只按文件层、技术层或“前端/后端/测试”横切的 pack 不合格。
+- UI / UX pack 必须按用户可见状态或可演示交互切分，不按 CSS / JS / template 横切。
 - 每个 pack 必须写清 AFK / HITL。AFK 表示 agent 可自动推进；HITL 表示需要产品、架构、账号、真实环境、人工验收或权限决策。
 - 依赖必须按真实阻塞关系排序。不能用“可能有关”制造伪依赖，也不能把共享迁移、账务、权限、runtime、shared contract 的写入并行化。
 - 长期任务 brief 应稳定描述 current behavior、desired behavior、key interfaces、acceptance criteria 和 out of scope；避免把易漂移的行号或临时文件路径当成唯一合同。

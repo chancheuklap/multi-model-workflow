@@ -8,13 +8,14 @@ Phase 0a 审 design doc。目标不是润色文字，而是判断设计能否被
 
 Prompt 必须包含：
 
-- Read first：design doc、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE。
+- Read first：design doc、相关 UI / UX mockup、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE。
 - Project baseline：本设计最相关的业务对象、数据权威、模块边界和验收不变量。
 
 检查：
 
 - 完整性：是否有 TODO / TBD / 空节；用户旅程是否覆盖起点、操作、结果、异常路径。
 - 可测试性：每条“用户应该能 X / 系统应该 Y”能否写出命令、API、UI 操作或手工验收步骤。
+- Mockup 对齐：UI / UX 设计是否明确引用 mockup 路径、目标页面、角色、viewport、关键状态、交互和允许偏差。
 - 场景挑战：至少一个 happy path，加一个失败、空状态、权限不足、重复提交、并发或回滚场景。
 - 内部一致性：术语、状态、数据流、责任边界是否前后一致。
 - 范围纪律：是否把未来假想需求混进本阶段，或遗漏本阶段必须承诺的能力。
@@ -22,6 +23,7 @@ Prompt 必须包含：
 Critical：
 
 - 核心意图不可测试。
+- UI / UX 任务有 mockup 但 design 没有把 mockup 转成可验收页面状态、交互和视觉约束。
 - 文档内部矛盾会导致 plan 写错。
 - 关键业务场景缺失。
 - 新对象、新状态、新合同缺 owner / writer / reader / verifier / cleanup responsibility，并且影响验收。
@@ -44,7 +46,7 @@ Important:
 
 Prompt 必须包含：
 
-- Read first：design doc、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE。
+- Read first：design doc、相关 UI / UX mockup、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE。
 - Project baseline：本设计最相关的项目北极星、不变量、数据权威、模块边界、contract wall、测试路由、发布 / 回滚约束。
 
 检查：

@@ -8,8 +8,9 @@ Phase B 是最终意图验证，不是再做一次普通 pack review。目标是
 
 输入：
 
-- Read first：design doc、plan、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE、changed files 涉及目录的 `AGENTS.override.md` / `agents.overrides.md`；
+- Read first：design doc、plan、相关 UI / UX mockup、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE、changed files 涉及目录的 `AGENTS.override.md` / `agents.overrides.md`；
 - Project baseline：最终验收必须满足的设计意图、项目不变量、数据权威、模块边界、contract wall、测试路由和发布 / 回滚约束；
+- Mockup baseline：最终页面必须满足的 mockup path、目标 viewport、关键 states、interaction、信息架构和允许偏差；
 - design doc；
 - plan；
 - starting commit；
@@ -19,16 +20,18 @@ Phase B 是最终意图验证，不是再做一次普通 pack review。目标是
 
 步骤：
 
-1. 从 design doc 提取每条可验证 intent。
-2. 为每条 intent 写出验证方法：pytest、curl、CLI、UI、browser、VM、smoke、manual checklist。
+1. 从 design doc 和 mockup 提取每条可验证 intent。
+2. 为每条 intent 写出验证方法：pytest、curl、CLI、UI、browser、screenshot、DOM scan、VM、smoke、manual checklist。
 3. 实际运行能运行的验证；不能运行时说明环境缺口。
 4. 对每条 intent 判定：pass / implementation gap / design gap / unverifiable.
 5. 跑 changed-files 相关回归检查。
 6. 做跨 pack 代码交叉审查。
+7. UI / UX 任务必须对照 mockup 检查最终页面，不接受只读代码推断。
 
 Implementation Gap：
 
 - 设计合理，代码没做到；
+- mockup 要求的关键页面状态、交互、视觉层级或响应式行为没有做到；
 - 需要 acceptance test 或复现检查；
 - 路由到 worker。
 
@@ -52,6 +55,7 @@ Prompt 必须包含同一组 Read first 和 Project baseline，但不要包含�
 - security；
 - integration；
 - design alignment；
+- mockup alignment；
 - empty-state / error path / retry / rollback / race / stale import。
 
 所有 finding 必须基于代码读取或测试输出。推断必须明确标注。

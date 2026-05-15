@@ -8,12 +8,13 @@ Phase 0b 审 plan。目标是确认计划可以真实执行，不会把虚构路
 
 Prompt 必须包含：
 
-- Read first：plan、design doc、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE。
+- Read first：plan、design doc、相关 UI / UX mockup、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE。
 - Project baseline：本计划必须承接的 design intent、项目不变量、模块边界和验收门槛。
 
 检查：
 
 - 如果有 design doc，逐条提取 design intent，确认每条 intent 至少有一个 task 覆盖。
+- 如果有 UI / UX mockup，逐条提取可见页面状态、关键交互、viewport 和组件状态，确认每项至少有 task 和验收证据覆盖。
 - 找出计划做了但 design 没要求的 scope creep。
 - 每个 task 是否足够具体：改什么、在哪改、测试什么、预期什么结果。
 - task 是否能在一个短反馈循环内完成；过大的 task 要拆。
@@ -27,6 +28,7 @@ Critical：
 - task 描述无法执行，worker 必须猜。
 - 依赖顺序错误会导致实现失败。
 - plan 缺少核心验证方式。
+- UI / UX mockup 没有被转成 implementation task、viewport 检查或 visual / DOM 验收。
 
 ## Dispatch 2: Compliance And Verification
 
@@ -36,12 +38,13 @@ Critical：
 
 Prompt 必须包含：
 
-- Read first：plan、design doc、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE、计划涉及目录的 `AGENTS.override.md` / `agents.overrides.md`。
+- Read first：plan、design doc、相关 UI / UX mockup、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE、计划涉及目录的 `AGENTS.override.md` / `agents.overrides.md`。
 - Project baseline：本计划涉及的项目规则、数据权威、contract wall、测试路由、迁移 / 发布 / 回滚约束。
 
 逐条验真：
 
 - 已有文件路径是否存在。
+- mockup / screenshot / HTML prototype 路径是否存在，且计划引用的是当前版本。
 - 已有函数、类、fixture、配置项、环境变量是否存在。
 - 命令和脚本入口是否存在。
 - 新建文件是否被明确标注为新建，不要误报不存在。
@@ -52,6 +55,7 @@ Prompt 必须包含：
 Critical：
 
 - 引用不存在的路径、函数、类、fixture 或命令。
+- 引用不存在或版本不明的 UI / UX mockup，却把它当作实现标准。
 - 违反项目规则、不变量、权威源、模块边界。
 - 高风险变更没有迁移、兼容、回滚或人工验证任务。
 

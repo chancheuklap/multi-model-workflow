@@ -9,6 +9,7 @@ Task Pack 是 Codex subagent 的执行单位，不是 plan section 的机械复�
 - 是 vertical slice，完成后能 demo 或 independently verify。
 - 有用户可见行为、公开接口行为或可检查系统效果。
 - 有 owned files / responsibilities。
+- UI / UX pack 有 mockup anchors：路径、页面区域、viewport、states、interaction。
 - 有 acceptance criteria。
 - 有 verification commands 或复现检查。
 - 有 risk flags：普通、高风险、生产风险、HITL。
@@ -20,6 +21,7 @@ Task Pack 是 Codex subagent 的执行单位，不是 plan section 的机械复�
 
 - 只按技术层横切：“先写全部 tests / schema / templates / endpoint shell，再写 implementation”。
 - 只按前端 / 后端 / 测试分层，但完成后不能单独验证。
+- UI / UX 工作只写“实现 mockup”但没有拆出可验收的页面状态、交互、viewport 或视觉证据。
 - 没有 owned files。
 - 没有验证命令。
 - 多个 worker 会同时写同一文件、同一 migration、同一 shared contract。
@@ -31,6 +33,7 @@ Task Pack 是 Codex subagent 的执行单位，不是 plan section 的机械复�
 - migration、billing、auth、permissions、runtime、browser takeover、shared contract 默认串行。
 - 独立 pack 才并行。
 - 如果一个 pack 太大，按可验证行为拆，不按文件层拆。
+- UI / UX pack 按用户可见状态拆，例如 empty / loading / success / error / permission / responsive viewport；不要按 CSS / JS / template 横切。
 - 如果一个 task 太小但共享上下文，和相邻 task 合并。
 
 ## Pack Brief 模板
@@ -41,6 +44,7 @@ Goal behavior:
 Tasks:
 Owned files / responsibilities:
 Read first:
+Mockup anchors:
 Acceptance criteria:
 Verification commands:
 Risk flags:
@@ -71,5 +75,6 @@ AFK / HITL:
 - 写行为合同，不写“去某文件第 N 行改 X”。
 - 可以命名稳定类型、函数签名、配置 shape 或业务对象，但不要把临时路径当成唯一入口。
 - acceptance criteria 必须逐条可验证。
+- UI / UX durable brief 必须保留 mockup path、目标 viewport、关键 states 和允许偏差。
 - out of scope 必须明确，避免 agent 顺手扩大范围。
 - 如果需要文件范围用于立即执行，把它放在 Pack Brief 的 owned files 中，不放进 durable contract 的核心语义。

@@ -34,8 +34,9 @@ Codex 迁移后的版本至少要满足原 plugin 的四个设计出发点，并
 | 与 Superpowers plugin 联动 | Codex 版不是替代整个 Superpowers，而是接管 Superpowers 与 AgentFlow 项目工作流不匹配的后半段：`brainstorming` 和 `writing-plans` 之后进入 `orchestrate-workflow`，并替代 `subagent-driven-development` 的执行与 review 部分。 |
 | Coding Agent 自动化 | 用户不应在每个 phase 手动发命令。设计文档或计划文档出现后，orchestrator 能自动进入 Phase 0、分包、执行、review、修复和 final verification；只有业务承诺、用户体验范围或产品取舍变化时才回到用户。 |
 | 更细致的多层 review | design、plan、Task Pack、final intent 都有独立 review 合同，并且要区分 spec compliance、project alignment、code quality、production risk 和 second opinion。Review 结果必须能路由到正确的修复角色。 |
+| UI / UX mockup 同级落地 | 当任务包含网页 mockup、截图、HTML 原型或页面参考时，mockup 是 design / plan 同级 artifact。Phase 0、Plan Review、Task Pack、worker dispatch、Pack Review 和 Final Review 都必须覆盖 mockup path、viewport、关键 states、interaction、视觉证据和允许偏差。 |
 
-这四项不是背景说明，而是 V1 的最低验收约束。后续所有 workflow package、可选 plugin wrapper、hook port、agent instruction sync 都应服务这四项。
+这些不是背景说明，而是 V1 的最低验收约束。后续所有 workflow package、可选 plugin wrapper、hook port、agent instruction sync 都应服务这些约束。
 
 ## 当前 Claude 包结构
 
@@ -688,16 +689,16 @@ coordinator 按以下维度把未勾选 plan tasks 分组为 packs：
 
 端到端推演：
 
-1. Coordinator 读取 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`，再读取目标 plan 和关联 mockup / source anchors。
-2. Phase 0b 派 `code_reviewer` 做 coverage / compliance / second-opinion review，重点核：mockup 是否存在、endpoint 是否真实、Pydantic contract 是否需要 `schema_version`、HTMX / Jinja / permission state 是否符合 AgentFlow Console 规则。
+1. Coordinator 读取 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`，再读取目标 plan 和关联 mockup / source anchors。mockup 与 design / plan 同级处理，不作为可选灵感图。
+2. Phase 0b 派 `code_reviewer` 做 coverage / compliance / second-opinion review，重点核：mockup 是否存在、目标 viewport / 页面 states / interaction 是否明确、endpoint 是否真实、Pydantic contract 是否需要 `schema_version`、HTMX / Jinja / permission state 是否符合 AgentFlow Console 规则。
 3. Task Pack 分组不能按“测试、前端、后端”横切，而应按可独立验证的 vertical slices，例如：
    - backend contract + rename endpoint + endpoint tests；
-   - sidebar / detail view markup + DOM contract tests；
-   - drawer JS state flow + source-copy / active preset / permission tests；
-   - final browser / VM visual verification。
+   - sidebar / detail view markup + DOM contract tests + mockup screenshot 对齐；
+   - drawer JS state flow + source-copy / active preset / permission tests + mockup interaction 对齐；
+   - final browser / VM visual verification，覆盖 mockup 的关键 viewport 和状态。
 4. 普通 packs 用 `coding_worker`；若触碰 `src/shared/contracts`、Local Agent runtime 或权限状态，则 prompt 中要求先读对应 `AGENTS.override.md`，并由 `code_reviewer` 复核合同与测试。
 5. Pack review 发现 bug 时优先发回同一个 worker 修复；如果 drawer / HTMX 行为无法从测试定位，进入 `complex_code_explorer` 的 feedback-loop-first 调查。
-6. Phase B 用真实证据验收：focused pytest、mockup path check、DOM key scan、必要时 VM / browser 页面验证。
+6. Phase B 用真实证据验收：focused pytest、mockup path check、DOM key scan、browser screenshot、responsive viewport check、必要时 VM / browser 页面验证。
 7. Phase C 给项目负责人报告用户可见变化、管理/非管理路径、已跑测试和仍需人工点看的 UI 状态。
 
 结论：该场景可端到端跑通。文档中的 Task Pack、vertical-slice TDD、AgentFlow project alignment、pack review 和 final intent review 能覆盖这个任务。需要特别守住的是不要把 UI 工作横向切成“先全写模板、再全写 JS、最后补测试”，否则会违背迁入的 `tdd` / `to-issues` 方法。
@@ -1233,6 +1234,7 @@ git diff -- docs/superpowers/specs/2026-05-15-codex-migration-design.md codex .a
 - workflow 能在不要求用户逐 phase 发命令的情况下推进 Phase 0、Task Pack execution、pack review、review-fix 和 final intent verification；
 - review / fix 循环有明确上限，超限时返回事实、失败路径和业务决策点；
 - Phase 0 design 和 plan reviews 能用 Codex reviewer roles 运行；
+- UI / UX mockup 能作为同级 artifact 被读取、分包、实现和 review；没有 browser / screenshot / DOM / manual checklist 等 mockup 对齐证据时，UI / UX 任务不得判完成；
 - Phase 0 review 能检查项目术语、ADR/SPEC/GUIDE alignment、new concept ownership 和 durable acceptance criteria；
 - Task Packs 能路由到 Codex worker roles，并带有清楚 ownership 且没有 conflicting write sets；
 - workers 使用 vertical-slice TDD，不把一个 Task Pack 变成一次性横向写完所有 tests 和 implementation；
@@ -1258,6 +1260,7 @@ git diff -- docs/superpowers/specs/2026-05-15-codex-migration-design.md codex .a
 | 两套 role taxonomy 让 dispatch 混乱 | 保持 Codex role names 为 canonical。`pack-executor`、`workflow-auditor` 和 `root-cause-analyst` 是 migration sources，不是 V1 runtime role names。 |
 | second-opinion review 失去模型多样性 | 通过分离 reviewer prompts 和 separate subagent context 保留独立性。只有当 active environment 提供受支持 route 时，才增加 model/provider variation。 |
 | Subagents 漏读 project rules | 每个 spawned prompt 都必须包含 project-doc loading step 和具体 task documents。coordinator 仍负责最终整合。 |
+| UI / UX mockup 被当成“灵感参考”而不是交付合同 | mockup path、viewport、关键 states、interaction、允许偏差和 visual verification evidence 必须进入 dispatch prompt、Pack Review 和 Final Review。 |
 | 直接引入 `mattpocock/skills` 造成重复入口 | V1 只吸收方法论，不安装整套 external skills；新增 skill 只考虑 `prototype-decision`，并保持 optional。 |
 | `CONTEXT.md` / `docs/agents/` 与项目正式文档体系冲突 | 不引入第二套配置真相源。把 domain glossary / ADR 思路映射到 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、SPEC/ADR/GUIDE。 |
 | issue triage / PRD / issue export 扩大 plugin 范围 | 暂缓纳入 `triage`、`to-prd`、`to-issues` 的完整 workflow，只吸收 durable agent brief 和 vertical slice 概念。 |

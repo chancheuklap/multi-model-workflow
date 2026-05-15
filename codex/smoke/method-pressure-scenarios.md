@@ -31,6 +31,21 @@ Expected `code_reviewer` behavior:
 - Requires AFK/HITL classification and real dependency order.
 - Identifies missing public-behavior verification.
 
+## Code Reviewer: Mockup Alignment
+
+Input shape:
+
+- A UI / UX plan references a webpage mockup but only says "implement the mockup".
+- It does not list viewport, visible states, interaction, DOM / screenshot checks, or manual visual acceptance.
+- Implementation changes templates and CSS, but no browser screenshot or DOM evidence is provided.
+
+Expected `code_reviewer` behavior:
+
+- Treats the mockup as a design / plan peer artifact, not a loose inspiration.
+- Requires mockup path, target viewport, key states, interaction, and allowed deviations.
+- Flags horizontal UI slicing if tasks are split into CSS / JS / template layers without independently verifiable page states.
+- Blocks final pass until browser screenshot, DOM scan, responsive check, manual checklist, or visual regression evidence exists.
+
 ## Coding Worker: TDD Execution
 
 Input shape:
