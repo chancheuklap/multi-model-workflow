@@ -21,7 +21,6 @@ esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="${CODEX_HOME:-$HOME/.codex}/agents"
-STAMP="$(date +%Y%m%d%H%M%S)"
 
 python3 "$SCRIPT_DIR/validate-agents.py"
 
@@ -40,11 +39,6 @@ while IFS= read -r src; do
     echo "DRY-RUN copy $src -> $dst"
   else
     mkdir -p "$TARGET_DIR"
-    if [[ -f "$dst" ]] && ! cmp -s "$src" "$dst"; then
-      backup="$dst.bak-$STAMP"
-      cp "$dst" "$backup"
-      echo "Backed up existing $dst -> $backup"
-    fi
     cp "$src" "$dst"
     echo "Copied $src -> $dst"
   fi

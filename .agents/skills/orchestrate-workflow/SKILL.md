@@ -44,13 +44,26 @@ description: 当已有 design / implementation plan，Superpowers writing-plans 
 
 | Claude plugin 角色 | Codex agent_type | 用法 |
 | --- | --- | --- |
-| `workflow-auditor` | `code_reviewer` | Phase 0 文档 review、Phase A pack review、非生产 final intent / code review。 |
-| `workflow-auditor` 高风险审查 | `release_reviewer` | design / plan / final review 涉及 deploy、database、billing、permissions、runtime、rollback、cross-service contract。 |
+| `workflow-auditor` baseline review | `code_reviewer` | 所有 Design Review、Plan Review、Pack Review、Final Intent Review 的基础审核。不能被 `release_reviewer` 替代。 |
+| `workflow-auditor` production-risk supplement | `release_reviewer` | 在 baseline `code_reviewer` 之后追加，专审 deploy、database、billing、permissions、runtime、rollback、cross-service contract。 |
 | `pack-executor` | `coding_worker` | 普通 Task Pack 实现和明确 code finding 修复。 |
 | `pack-executor` 高风险实现 | `complex_coding_worker` | migration、billing、auth、permissions、runtime、Gateway、browser takeover、shared contract。 |
 | `root-cause-analyst` | `complex_code_explorer` | 未知根因调查，只读，先建立 feedback loop。 |
 | `root-cause-analyst` 紧耦合修复 | `complex_coding_worker` | 诊断与修复无法分离的复杂问题。 |
 | 文档机械整理 | `docs_worker` | 低风险文档同步、格式和 stale reference 修复。 |
+
+## Review 不变量
+
+每个 review phase 都有 baseline review。`release_reviewer` 只在 production-risk 存在时追加，永远不是 baseline review 的替代品。
+
+| Phase | 必须先完成 | 有生产风险时追加 | 通过条件 |
+| --- | --- | --- | --- |
+| Phase 0a Design Review | `code_reviewer`: content review + project alignment review | `release_reviewer`: migration / billing / permission / runtime / deploy / rollback risk | baseline design findings 通过，且 release blockers 为 0 |
+| Phase 0b Plan Review | `code_reviewer`: coverage + compliance / verification + second opinion | `release_reviewer`: migration order / deploy order / manual gate / rollback plan | baseline plan findings 通过，且 release blockers 为 0 |
+| Phase A Pack Review | `code_reviewer`: spec compliance，再 code quality | `release_reviewer`: high-risk implementation gate | spec / quality 通过，且 release blockers 为 0 |
+| Phase B Final Review | `code_reviewer`: final intent review + independent diff review | `release_reviewer`: final release-risk gate | design intent 通过，diff review 通过，且 release blockers 为 0 |
+
+禁止把 “有 production-risk” 理解为 “跳过 baseline review”。正确动作永远是：保留 `code_reviewer` baseline，再追加 `release_reviewer`。
 
 Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 
@@ -72,7 +85,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 3. 派发两个独立 `code_reviewer`：
    - Design Content Review：完整性、可测试性、内部一致性、范围纪律；
    - Project Alignment Review：项目架构、权威源、模块边界、工程规则、技术可行性。
-4. 如果 design 涉及 production-risk，追加或改用 `release_reviewer`。
+4. 如果 design 涉及 production-risk，必须在两个 `code_reviewer` 之后追加 `release_reviewer`。不得用 `release_reviewer` 替代 Design Content Review 或 Project Alignment Review。
 5. 聚合 findings。技术性文档缺口由主线程直接修复；会改变产品承诺、业务规则、用户体验、发布策略或架构 trade-off 时才问用户。
 6. 最多 2 轮。超出后汇报哪个设计点需要业务或架构决策。
 7. 如果 design review 暴露的问题不能靠文档澄清，而是需要先回答“状态机是否合理 / UI 方向是否成立 / 接口形状是否好用”，读取 `references/external-engineering-methods.md` 的 Prototype Gate，先做 throwaway prototype 再修 design。
@@ -98,7 +111,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
    - Coverage Review：设计意图覆盖、task 质量、可执行性；
    - Compliance / Verification Review：项目规则、路径/函数/类/配置真实存在、依赖真实存在；
    - Second-opinion Review：用独立 framing 检查计划可执行性、冲突、遗漏和风险假设。
-4. 普通计划用 `code_reviewer`；生产风险计划追加或改用 `release_reviewer`。
+4. 三个 review 都由 `code_reviewer` 承担。生产风险计划必须追加 `release_reviewer`，但不得替代任何一个计划审核。
 5. 主线程聚合 findings 并直接修复技术性计划问题，包括 stale path、虚构 helper、缺少测试、缺少 `AGENTS.override.md` 同步、pack 横切、依赖顺序错误。
 6. 最多 2 轮。超出后汇报哪个计划点无法验证或需要决策。
 
@@ -181,8 +194,8 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 
 无 design doc：
 
-- 对 `git diff <starting_commit>..HEAD` 做代码级全量 review；
-- 高风险 diff 仍必须用 `release_reviewer`。
+- 派 `code_reviewer` 对 `git diff <starting_commit>..HEAD` 做代码级全量 review；
+- 高风险 diff 必须追加 `release_reviewer`。
 
 通过标准：
 

@@ -70,7 +70,7 @@ Code quality：
 - 对每条 intent 给出真实验证方法和证据。
 - 区分 pass、implementation gap、design gap、unverifiable。
 - 审 `git diff <starting_commit>..HEAD` 的跨 pack 集成和回归风险。
-- production-risk 交给 `release_reviewer` 或要求 parent 追加 release review。
+- production-risk 不能由本 review 独自签掉；要求 parent 在本 review 之外追加 `release_reviewer`。`release_reviewer` 是补充 gate，不替代本 review。
 
 ## 审核方法
 

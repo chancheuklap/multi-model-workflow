@@ -21,8 +21,8 @@ Modes:
   --user              Copy into ${AGENTS_HOME:-$HOME/.agents}/skills/orchestrate-workflow.
 
 Safety:
-  Existing different targets are moved to *.bak-YYYYmmddHHMMSS before copying.
-  The script never edits Codex config files.
+  Existing different targets are replaced in place. The script never edits
+  Codex config files and never leaves runtime .bak-* copies.
 EOF
 }
 
@@ -98,10 +98,8 @@ if [ -e "$DEST_DIR" ]; then
     exit 0
   fi
 
-  STAMP="$(date +%Y%m%d%H%M%S)"
-  BACKUP_DIR="$DEST_DIR.bak-$STAMP"
-  mv "$DEST_DIR" "$BACKUP_DIR"
-  echo "Backed up existing destination to $BACKUP_DIR"
+  rm -rf "$DEST_DIR"
+  echo "Removed existing destination before install."
 fi
 
 cp -R "$SOURCE_DIR" "$DEST_DIR"

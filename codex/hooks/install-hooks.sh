@@ -18,8 +18,8 @@ Installs multi-model-workflow Codex hooks at user level:
   ~/.codex/hooks/multi-model-workflow/guard-premature-push.sh
   ~/.codex/hooks.json
 
-Default mode is --dry-run. Existing ~/.codex/hooks.json is backed up before
-replacement when it differs.
+Default mode is --dry-run. Existing ~/.codex/hooks.json is replaced in place
+when it differs. This installer never leaves runtime .bak-* copies.
 EOF
 }
 
@@ -102,12 +102,6 @@ payload = {
 
 print(json.dumps(payload, ensure_ascii=False, indent=2))
 PY
-
-if [ -e "$HOOKS_JSON" ] && ! diff -q "$HOOKS_JSON" "$TMP_JSON" >/dev/null 2>&1; then
-  STAMP="$(date +%Y%m%d%H%M%S)"
-  cp "$HOOKS_JSON" "$HOOKS_JSON.bak-$STAMP"
-  echo "Backed up existing hooks JSON to $HOOKS_JSON.bak-$STAMP"
-fi
 
 mv "$TMP_JSON" "$HOOKS_JSON"
 python3 -m json.tool "$HOOKS_JSON" >/dev/null

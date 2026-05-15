@@ -27,6 +27,8 @@ Critical：
 
 派 `code_reviewer`；涉及 production-risk 时追加 `release_reviewer`。
 
+`release_reviewer` 只补充审 migration order、deploy order、compatibility、rollback、manual production gate 和跨服务生产风险；不能替代 Coverage、Task Quality、Compliance 或 Reference Verification。
+
 先读项目规则：`AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE。
 
 逐条验真：

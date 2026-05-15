@@ -35,7 +35,7 @@ Important:
 
 ## Dispatch 2: Project Alignment Review
 
-派 `code_reviewer`；如果设计涉及 production-risk，派 `release_reviewer`。
+派 `code_reviewer`。如果设计涉及 production-risk，在 `code_reviewer` 的内容审查和项目对齐审查完成后，追加 `release_reviewer`。`release_reviewer` 不能替代本节审查。
 
 先读项目规则：`AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE。
 

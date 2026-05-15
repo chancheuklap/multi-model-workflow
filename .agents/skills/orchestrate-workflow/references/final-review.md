@@ -64,6 +64,8 @@ Design Gap：
 - cross-service contract；
 - production dependency / manual gate。
 
+`release_reviewer` 只审 release-risk。它不能替代 Final Intent Review，也不能替代 independent diff review。Phase B 通过必须同时满足 baseline `code_reviewer` review 和必要的 `release_reviewer` gate。
+
 Release blocker：
 
 - 数据丢失或无法回滚；
