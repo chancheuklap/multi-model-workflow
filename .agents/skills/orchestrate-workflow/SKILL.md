@@ -34,6 +34,7 @@ description: 当已有 design / implementation plan，Superpowers writing-plans 
 | Phase 0a Design Review | `references/design-review.md` | 生成设计内容审查、项目对齐审查的 dispatch prompt。 |
 | Phase 0b Plan Review | `references/plan-review.md` | 生成计划覆盖度、合规验真、second-opinion 审查的 dispatch prompt。 |
 | Setup Task Pack | `references/task-pack-contract.md` | 判断 pack 是否 vertical slice、是否可并行、是否 AFK/HITL。 |
+| API / Pydantic / DB / JSON / helper 边界 | `references/contract-boundary.md` | 判断合同归属、Pydantic 模型、schema version、registry、migration、consumer 同步和禁止的 ad-hoc helper / bare dict。 |
 | Phase A Pack Review | `references/implementation-review.md` | 生成 spec compliance + code quality review prompt。 |
 | Phase B Final Review | `references/final-review.md` | 生成 final intent review、代码交叉审查、release-risk review prompt。 |
 | 维护 / 外部方法校准 | `references/external-engineering-methods.md` | 确认从外部 engineering skills 吸收的方法没有丢失。 |
@@ -54,7 +55,7 @@ description: 当已有 design / implementation plan，Superpowers writing-plans 
 3. 当前 design / plan / SPEC / ADR / GUIDE。
 4. 当前任务相关的 UI / UX mockup、截图、HTML 原型或页面参考。
 5. owned files 或 review scope 覆盖目录里的 `AGENTS.override.md` 或 `agents.overrides.md`。
-6. 与任务相关的 data authority、module boundary、contract wall、testing route、logging rule、deployment / rollback rule。
+6. 与任务相关的 data authority、module boundary、contract wall、API / Pydantic / DB / JSON boundary、testing route、logging rule、deployment / rollback rule。
 
 dispatch prompt 必须包含 `Read first:`，列出上述具体文件；还必须包含 `Project baseline:`，用短句写清本次任务最相关的不变量。不要只写“遵守项目规则”。
 
@@ -67,6 +68,21 @@ dispatch prompt 必须包含 `Read first:`，列出上述具体文件；还必�
 - Phase A：worker dispatch 必须包含 mockup 路径、目标 viewport、关键 states、交互和允许偏差；实现要尽量做到原子级 UI 对齐。
 - Pack Review：`code_reviewer` 必须比较实现与 mockup 的信息架构、布局、间距、颜色、组件状态、交互和响应式行为。
 - Phase B：Final Review 必须用 browser / screenshot / DOM scan / manual checklist 验证 mockup intent。没有视觉证据时，UI / UX 任务不能声称完成。
+
+## Contract Boundary 合同
+
+任务涉及 API、Pydantic、数据库字段、JSONB / SQLite JSON、sync outbox、local task payload、billing、permission、runtime、capability、UI form action 或跨模块 helper 时，先读取 `references/contract-boundary.md`。
+
+dispatch prompt 必须包含 `Contract anchors:`：
+
+- boundary type：API request / response、Pydantic protocol、DB table / column、JSON payload、task payload、sync event、UI action、external adapter。
+- owner / provider / consumer / verifier。
+- 现有 Pydantic model，或需要新增 / 扩展的正式 model。
+- `schema_version`、`extra=forbid`、兼容策略和 consumer 同步范围。
+- registry / migration / catalog 位置，例如 JSON registry、Alembic tree、port / command / chargeable action / capability catalog。
+- 验证方式：contract test、repository / read-model test、API test、migration check、UI action test 或 release gate。
+
+worker 不得用 bare dict、route-local schema、一次性 helper、silent unknown-field drop、mock 当前仓库内部业务规则来绕过合同。私有 transport adapter 可以接收原始 dict，但 public API / client / service boundary 必须立即转换为正式 Pydantic contract。缺少合同锚点时返回 `NEEDS_CONTEXT` 或 `BLOCKED`，不要自创临时结构继续写。
 
 ## Agent 路由
 
@@ -109,7 +125,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 执行：
 
 1. 完整读取 design doc、相关 mockup 和项目规则：`AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE、相关 `AGENTS.override.md`。
-2. 读取 `references/design-review.md`。
+2. 读取 `references/design-review.md`；如涉及 API / Pydantic / DB / JSON / helper 边界，同时读取 `references/contract-boundary.md`。
 3. 派发两个独立 `code_reviewer`：
    - Design Content Review：完整性、可测试性、内部一致性、范围纪律；
    - Project Alignment Review：项目架构、权威源、模块边界、工程规则、技术可行性。
@@ -125,6 +141,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 - 每条核心设计意图可验证；
 - 正常场景和至少一个失败/权限/重复/回滚场景能解释清楚；
 - 新对象、新状态、新合同有 owner / writer / reader / verifier / cleanup responsibility；
+- API / Pydantic / DB / JSON / helper 边界有明确 Contract anchors；
 - 与 AgentFlow 正式文档体系一致。
 
 ### Phase 0b: Plan Review
@@ -134,7 +151,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 执行：
 
 1. 完整读取 plan；如有 design doc 或 mockup，同时读取 design 和 mockup。
-2. 读取 `references/plan-review.md` 和 `references/task-pack-contract.md`。
+2. 读取 `references/plan-review.md` 和 `references/task-pack-contract.md`；如涉及 API / Pydantic / DB / JSON / helper 边界，同时读取 `references/contract-boundary.md`。
 3. 派发三个独立 review：
    - Coverage Review：设计意图覆盖、task 质量、可执行性；
    - Compliance / Verification Review：项目规则、路径/函数/类/配置真实存在、依赖真实存在；
@@ -149,6 +166,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 - task 描述足够让 worker 不问问题即可开始；
 - 引用的已有路径、函数、类、fixture、命令都已验真；
 - task 有明确测试或验证方式；
+- 涉及合同边界的 task 已写清 Contract anchors、consumer 同步和 registry / migration / catalog 位置；
 - 依赖顺序真实；
 - 可拆成 vertical Task Packs。
 
@@ -163,7 +181,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
    - 有真实依赖的 task 串行；
    - 独立 pack 可并行；
    - 每个 pack 必须 demoable 或 independently verifiable。
-4. 给每个 pack 标注：目标行为、owned files、mockup anchors、verification commands、risk flags、AFK/HITL、serial/parallel。
+4. 给每个 pack 标注：目标行为、owned files、contract anchors、mockup anchors、verification commands、risk flags、AFK/HITL、serial/parallel。
 5. 如果 pack 会沉淀成长期任务或跨会话 handoff，使用 durable brief 格式：current behavior、desired behavior、key interfaces、acceptance criteria、out of scope；避免把行号或临时路径当成唯一合同。
 
 不合格 pack 先重切，不派发。
@@ -173,8 +191,8 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 每个 pack：
 
 1. 普通 pack 派 `coding_worker`；高风险 pack 派 `complex_coding_worker`。
-2. dispatch prompt 必须包含：phase、完整 task 文本、owned files、项目锚点、mockup anchors、acceptance criteria、verification commands、risk flags、no unauthorized revert、返回格式。
-3. worker 返回后，读取 `references/implementation-review.md`。
+2. dispatch prompt 必须包含：phase、完整 task 文本、owned files、项目锚点、contract anchors、mockup anchors、acceptance criteria、verification commands、risk flags、no unauthorized revert、返回格式。
+3. worker 返回后，读取 `references/implementation-review.md`；如 pack 涉及 API / Pydantic / DB / JSON / helper 边界，同时读取 `references/contract-boundary.md`。
 4. 派 `code_reviewer` 做 pack review：
    - Phase 1：Spec Compliance，逐 task 检查有没有做完、做错、越界、漏边界；
    - Phase 2：Code Quality，仅 spec 通过后检查正确性、错误路径、项目约定、测试质量、文件健康。
@@ -191,6 +209,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 - spec compliance 通过；
 - focused verification 已真实运行；UI / UX pack 必须包含 browser / screenshot / DOM / manual checklist 中至少一种 mockup 对齐证据；
 - 测试验证 public behavior；
+- API / Pydantic / DB / JSON / helper 边界没有 ad-hoc helper、bare dict、未注册 JSON、错误 migration tree 或未同步 consumer；
 - 没有 mock 掉当前仓库内部业务规则；
 - 没有 Critical / High review finding。
 
@@ -201,7 +220,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 1. 先建立 feedback loop，不先写补丁。
 2. 形成 bug brief：current behavior、desired behavior、reproduction、hypotheses、key interfaces、acceptance criteria、out of scope。
 3. 小范围局部修复可主线程处理。
-4. 涉及 runtime、billing、migration、permission、shared contract、deploy 或多模块时，先补 plan，再走 Phase 0b / Phase A。
+4. 涉及 runtime、billing、migration、permission、API / Pydantic / DB / JSON boundary、shared contract、deploy 或多模块时，先补 plan，再走 Phase 0b / Phase A。
 
 ### Phase B: Final Intent / Release Review
 
@@ -209,7 +228,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 
 有 design doc：
 
-1. 读取 `references/final-review.md`。
+1. 读取 `references/final-review.md`；如改动涉及 API / Pydantic / DB / JSON / helper 边界，同时读取 `references/contract-boundary.md`。
 2. 派 `code_reviewer` 做 final intent review：提取 design intent，逐条用真实命令 / 测试 / UI / smoke / VM / deploy check 验证。
 3. 派 independent second-opinion `code_reviewer` 做全 diff review，使用不同 framing，不读取第一次 review 的结论。
 4. 涉及生产风险时派 `release_reviewer` 做 release-risk review。
@@ -228,6 +247,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 通过标准：
 
 - 可验证 design intent 全部通过，或未通过项被明确分类；
+- 合同边界、producer / consumer、schema version、registry、migration、read model 和 release gate 已闭合；
 - 没有 blocker；
 - 验证证据来自真实命令、browser / screenshot / DOM evidence 或人工检查清单；
 - 残余风险能用业务语言解释。

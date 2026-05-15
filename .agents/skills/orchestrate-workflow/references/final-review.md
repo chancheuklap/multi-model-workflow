@@ -10,6 +10,7 @@ Phase B 是最终意图验证，不是再做一次普通 pack review。目标是
 
 - Read first：design doc、plan、相关 UI / UX mockup、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE、changed files 涉及目录的 `AGENTS.override.md` / `agents.overrides.md`；
 - Project baseline：最终验收必须满足的设计意图、项目不变量、数据权威、模块边界、contract wall、测试路由和发布 / 回滚约束；
+- Contract baseline：最终 diff 涉及的 API、Pydantic、DB、JSON、task、sync、catalog、capability、helper 边界，以及 producer / consumer / verifier；
 - Mockup baseline：最终页面必须满足的 mockup path、目标 viewport、关键 states、interaction、信息架构和允许偏差；
 - design doc；
 - plan；
@@ -25,8 +26,9 @@ Phase B 是最终意图验证，不是再做一次普通 pack review。目标是
 3. 实际运行能运行的验证；不能运行时说明环境缺口。
 4. 对每条 intent 判定：pass / implementation gap / design gap / unverifiable.
 5. 跑 changed-files 相关回归检查。
-6. 做跨 pack 代码交叉审查。
-7. UI / UX 任务必须对照 mockup 检查最终页面，不接受只读代码推断。
+6. 涉及合同边界时，逐项确认 Pydantic model、schema_version、registry、migration、repository、read model、catalog、producer / consumer 和 release gate。
+7. 做跨 pack 代码交叉审查。
+8. UI / UX 任务必须对照 mockup 检查最终页面，不接受只读代码推断。
 
 Implementation Gap：
 
@@ -55,6 +57,7 @@ Prompt 必须包含同一组 Read first 和 Project baseline，但不要包含�
 - security；
 - integration；
 - design alignment；
+- contract boundary alignment；
 - mockup alignment；
 - empty-state / error path / retry / rollback / race / stale import。
 
@@ -70,6 +73,7 @@ Prompt 必须包含同一组 Read first 和 Project baseline，但不要包含�
 - runtime / scheduler / browser takeover；
 - deploy order / rollback；
 - cross-service contract；
+- API / Pydantic / DB / JSON / sync / task payload compatibility；
 - production dependency / manual gate。
 
 `release_reviewer` 只审 release-risk。它不能替代 Final Intent Review，也不能替代 independent diff review。Phase B 通过必须同时满足 baseline `code_reviewer` review 和必要的 `release_reviewer` gate。
@@ -82,6 +86,7 @@ Release blocker：
 - 权限绕过或授权状态漂移；
 - 账务 hold / settle / release / auto_release 不一致；
 - producer / consumer 合同字段未同步；
+- Pydantic contract、JSON registry、DB migration、repository / read model 或 catalog 没有闭合；
 - 部署顺序会让现役客户端或服务 401 / 500；
 - release gate 或 manual production dependency 没有验证证据。
 

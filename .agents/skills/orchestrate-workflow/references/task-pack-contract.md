@@ -9,6 +9,7 @@ Task Pack 是 Codex subagent 的执行单位，不是 plan section 的机械复�
 - 是 vertical slice，完成后能 demo 或 independently verify。
 - 有用户可见行为、公开接口行为或可检查系统效果。
 - 有 owned files / responsibilities。
+- 涉及 API / Pydantic / DB / JSON / sync / task payload / UI action / helper 时，有 Contract anchors：owner、provider、consumer、Pydantic model、schema_version、registry / migration / catalog、repository / read model、verification。
 - UI / UX pack 有 mockup anchors：路径、页面区域、viewport、states、interaction。
 - 有 acceptance criteria。
 - 有 verification commands 或复现检查。
@@ -25,11 +26,14 @@ Task Pack 是 Codex subagent 的执行单位，不是 plan section 的机械复�
 - 没有 owned files。
 - 没有验证命令。
 - 多个 worker 会同时写同一文件、同一 migration、同一 shared contract。
+- 需要同一个 Pydantic model、DB column、JSON registry、capability、chargeable action、port / command catalog，却被拆给多个 worker 并行。
+- 只写“新增 helper / dict shape / schema”但没有 owner、consumer、正式 contract 和 public behavior 验证。
 - 需要产品、账号、真实环境、人工验收或权限决策，却标成 AFK。
 
 ## 分包规则
 
 - 触碰同一文件或同一合同的 tasks 放同一 pack。
+- 同一 API / Pydantic contract / DB migration / repository / JSON registry / capability / chargeable action / runtime boundary 放同一 pack 或串行 pack。
 - migration、billing、auth、permissions、runtime、browser takeover、shared contract 默认串行。
 - 独立 pack 才并行。
 - 如果一个 pack 太大，按可验证行为拆，不按文件层拆。
@@ -44,6 +48,7 @@ Goal behavior:
 Tasks:
 Owned files / responsibilities:
 Read first:
+Contract anchors:
 Mockup anchors:
 Acceptance criteria:
 Verification commands:

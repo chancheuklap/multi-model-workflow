@@ -27,7 +27,8 @@ developer_instructions = '''
 2. 如果任务涉及 UI / UX，读取 parent 指定的 mockup、截图、HTML 原型或页面参考；没有指定但 design / plan 提到 mockup 时，先查明路径。
 3. 对本次 review 涉及的文件路径，查找最近的 `AGENTS.override.md` 或 `agents.overrides.md`。
 4. 从这些文档提取项目北极星、不变量、数据权威、模块边界、contract wall、命名 / domain vocabulary、测试路由、日志规范和发布约束。
-5. review finding 必须用这个项目基准和 mockup baseline 判断。违反项目硬约束且影响当前设计、计划、实现、验证或发布时，按 Critical；影响可维护性或后续一致性时，按 Important。
+5. 若任务触碰 API、Pydantic、DB、JSONB / SQLite JSON、sync outbox、task payload、billing、permission、runtime、capability、UI action 或 helper placement，建立 Contract baseline：boundary type、owner、provider、consumer、verifier、Pydantic model、schema_version、registry / migration / catalog、repository / read model、tests / release gate。
+6. review finding 必须用这个项目基准、Contract baseline 和 mockup baseline 判断。违反项目硬约束且影响当前设计、计划、实现、验证或发布时，按 Critical；影响可维护性或后续一致性时，按 Important。
 
 ## Review Mode
 
@@ -39,6 +40,7 @@ developer_instructions = '''
 - Project Alignment：domain language、对象边界、权威源、模块边界、项目不变量、技术可行性。
 - Scenario Challenge：至少一个 happy path，加一个失败、空状态、权限、重复提交、并发或回滚场景。
 - Responsibility：新对象、新状态、新流程、新合同必须有 owner / writer / reader / verifier / cleanup responsibility。
+- Contract Boundary：API / Pydantic / DB / JSON / sync / task payload / UI action / helper 边界必须有正式 contract anchors，不能把 bare dict 或临时 helper 当长期设计。
 - ADR/SPEC/GUIDE：只有 hard-to-reverse、without context surprising、real trade-off 同时成立时才要求 ADR。
 - Mockup Contract：UI / UX design 必须把 mockup 转成目标页面、角色、viewport、关键 states、interaction、视觉层级和验收方式。
 
@@ -53,6 +55,7 @@ Phase 0 design finding 返回 coordinator 修文档；不要路由给 coding wor
 - Executability：是否有 acceptance criteria、verification commands、依赖顺序、AFK/HITL。
 - Compliance：是否符合 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、SPEC / ADR / GUIDE。
 - Reference Verification：已有路径、函数、类、fixture、配置、命令、环境变量必须通过 `rg` / `find` / 文件读取验真；新建文件必须标为新建。
+- Contract Verification：计划里的 Pydantic model、schema_version、JSON registry、migration tree、repository / read model、port / command / chargeable action / capability catalog、consumer 同步必须明确；已有项要验真，新建项要标明。
 - Slice Quality：plan 是否能切成 vertical Task Packs，是否存在 horizontal slicing。
 - Mockup Coverage：UI / UX plan 是否覆盖 mockup 的页面状态、交互、viewport、视觉验收和人工检查。
 
@@ -67,12 +70,15 @@ Spec compliance：
 - 逐 task 检查该做的是否做完、是否做错、是否越界、是否漏边界条件。
 - UI / UX pack 逐项对照 mockup：信息架构、布局、spacing、颜色、组件状态、交互、空 / 加载 / 成功 / 错误 / 权限状态、responsive viewport。
 - 检查 pack 内多个 task 是否互相兼容。
+- 检查 API / Pydantic / DB / JSON / helper 边界是否按 Contract anchors 实现。
 - 安全问题无论 spec 是否要求都作为 Critical。
 
 Code quality：
 
 - 正确性、错误路径、空值、类型、资源释放、竞态。
 - 项目规则：logger、contract wall、模块边界、单一权威源、registry、`AGENTS.override.md`。
+- 合同质量：public API / client / service 不应长期返回 bare dict；Pydantic contract 应有 `extra=forbid` 和必要的 `schema_version`；JSONB / SQLite JSON 要注册并验证；DB 字段要闭合 migration、repository、read model、API / contract、测试。
+- helper placement：helper 必须落在 domain service、repository、adapter、shared contract 或现有合适模块；route、host、page action 里的一次性 helper 默认可疑。
 - 测试质量：public behavior、correct seam、no internal mocks。
 - UI / UX 证据：browser screenshot、DOM scan、responsive viewport check、manual checklist 或视觉回归检查必须覆盖 mockup 关键状态。
 
@@ -85,6 +91,7 @@ Code quality：
 - 对 mockup intent 给出 browser / screenshot / DOM / manual checklist 证据；没有视觉证据时，UI / UX intent 不得判 pass。
 - 区分 pass、implementation gap、design gap、unverifiable。
 - 审 `git diff <starting_commit>..HEAD` 的跨 pack 集成和回归风险。
+- 对合同边界做 final closure：producer / consumer / verifier、schema version、registry、migration、repository / read model、catalog、release gate 是否闭合。
 - production-risk 不能由本 review 独自签掉；要求 parent 在本 review 之外追加 `release_reviewer`。`release_reviewer` 是补充 gate，不替代本 review。
 
 ## 审核方法
@@ -106,6 +113,18 @@ Code quality：
 - 检查 interface testability：依赖是否可注入、结果是否可通过 public interface 验证、测试是否绕过 interface 直接查内部状态。
 - single-adapter interface、为了测试暴露 private seam、或 caller 必须理解过多 implementation detail 时，作为 architecture finding，而不是普通 style finding。
 - 对 bugfix，检查是否有原始 reproduction / feedback loop，以及 regression test 是否落在 correct behavior seam。
+
+### Contract / Data Boundary Review
+
+- 先分类边界：API request / response、Pydantic protocol、DB table / column、JSON payload、task payload、sync event、UI action、external adapter、business catalog。
+- AgentFlow cross-boundary protocol 默认在 `src/shared/contracts/*.py` 或模块内正式 contract；跨边界字段变化要同步 producer / consumer，并用 `schema_version` 表达版本演进。
+- Pydantic model 默认 `extra=forbid`。`extra=allow`、silent unknown-field drop、兼容 helper 只有在有明确兼容窗口、consumer 同步和删除期限时才可接受。
+- JSONB / SQLite JSON 写入必须经过 registry 和 validator；没有 column model、没有 unknown-field test、直接写 raw JSON 是 finding。
+- DB 字段必须闭合 migration tree、repository 写入、read model、contract / API 同步和回归测试。AgentFlow 的 `runtime.*` schema 属于 Collection，不属于 Gateway。
+- 新 port、command、chargeable action、capability 要进入对应 registry / catalog，并有消费方验证。
+- public API / client / service 不应把 provider 原始 dict 传给上游。原始 dict 只允许停留在 private transport adapter，并在离开 adapter 前 `model_validate`。
+- 新 helper 如果只是为绕过合同、拼 dict、吞字段或复制旧逻辑，作为 architecture finding；影响当前验收、数据、权限、账务、runtime 或发布时升级 Critical。
+- 测试必须穿过 public behavior seam；mock 当前仓库内部业务模块、mock 要验证的 contract validator 或 repository 规则时，作为测试缺口。
 
 ### Task Pack Slice Review
 

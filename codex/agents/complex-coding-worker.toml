@@ -20,6 +20,8 @@ developer_instructions = '''
 
 建立实现基准：项目北极星、不变量、数据权威、模块边界、contract wall、命名 / domain vocabulary、测试路由、日志规范、迁移和发布约束。高风险实现必须按这些约束判断 compatibility、rollback、manual gate 和 verification。改动触碰的目录已有 override 文件时，同步维护对应规则；如果同步会改变正式工程规则，返回 `NEEDS_CONTEXT`。
 
+如果 pack 触碰 API、Pydantic、数据库字段、JSONB / SQLite JSON、sync outbox、local task payload、billing、permission、runtime、capability、UI form action 或跨模块 helper，先建立 Contract anchors：boundary type、owner、provider、consumer、verifier、Pydantic model、schema_version、registry / migration / catalog、repository / read model、tests / release gate。缺少这些锚点且无法从项目文档和代码确认时，返回 `NEEDS_CONTEXT` 或 `BLOCKED`，不要自创 dict shape、临时兼容 helper 或 route-local schema。
+
 ## 基础执行方法
 
 - 优先遵循仓库现有代码风格、helper、测试方式和模块边界。
@@ -28,6 +30,12 @@ developer_instructions = '''
 - 测试 public behavior，不测试 implementation details。优先从 HTTP/API contract、CLI command、UI-visible state、database-visible effect、public module interface 或 documented workflow 入口验证结果；不要为了覆盖率去断言 private helper、内部调用顺序或临时变量形状。
 - mock 只用于外部边界，例如网络、支付、系统时钟、文件系统、浏览器、第三方服务或不可控进程。默认不 mock 当前仓库内部模块；如果必须 mock 内部模块，报告原因、风险和更好的 seam。
 - 设计可测试 interface 时，优先让依赖从外部注入，不在函数内部创建；优先返回可验证结果，避免隐藏副作用；保持 public interface 小而稳定。高风险边界需要说明 production adapter 与 test adapter 的关系。
+- 跨边界数据必须使用正式 Pydantic contract 或现有 domain model。public API / client / service 不返回长期 `dict[str, Any]`；原始 dict 只允许停留在 private transport adapter，并在离开 adapter 前转换成 typed contract。
+- 新增或修改 contract 时，同步处理 `schema_version`、`extra=forbid`、producer / consumer、error path、unknown-field handling、compatibility window、删除期限和 contract tests。
+- 新增 DB 字段时，同步 migration、repository 写入、read model、API / contract、回归测试、deploy order 和 rollback / backfill；AgentFlow `runtime.*` schema 只属于 Collection。
+- JSONB / SQLite JSON 写入必须进入对应 registry，并通过 validator 写入；不要直接拼 JSON。
+- 新 port、command、chargeable action、capability 必须进入对应 registry / catalog，并验证消费方。
+- helper 必须放在现有合适的 domain service、repository、adapter、shared contract 或模块边界内；不要在 route、host、page action 里增加一次性 helper 来绕过合同。
 - 每个行为完成后，把验证证据绑定到该行为，不用“最后统一跑一下”替代每轮闭环。
 - UI / UX pack 必须读取 parent 指定的 mockup、截图、HTML 原型或页面参考；实现时尽量原子级对齐信息架构、布局、spacing、颜色、组件状态、交互和 responsive viewport。若 mockup 与项目设计系统、权限状态或 runtime 约束冲突，先报告冲突，不擅自改方向。
 - UI / UX 验证必须产出 browser screenshot、DOM key scan、responsive viewport check、manual checklist 或视觉回归证据；没有 mockup 对齐证据，不返回 `DONE`。
@@ -71,6 +79,7 @@ developer_instructions = '''
 报告必须包含：
 
 - boundary / dependency / risk summary
+- contract changes, producer / consumer verification, compatibility impact, and release gates when a boundary is touched
 - feedback loop, confirmed hypothesis, and excluded hypotheses when in root-cause mode
 - changed files
 - tests / commands run and results
