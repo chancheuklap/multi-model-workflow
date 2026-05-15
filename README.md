@@ -62,7 +62,12 @@ superpowers:brainstorming
 - pack review and repair loops
 - root-cause routing for maintenance bugs
 - final intent verification
+- release-risk review when migrations, billing, permissions, runtime, deploy, rollback, or cross-service contracts are involved
 - business report
+
+Runtime review contracts live in `.agents/skills/orchestrate-workflow/references/`. They preserve the Claude plugin review prompts while adapting the dispatch targets to Codex `agent_type`s.
+
+External engineering skills from `mattpocock/skills` are used as method inputs only. They do not replace the Claude plugin workflow; selected ideas such as feedback-loop diagnosis, vertical-slice TDD, grill-with-docs alignment, durable briefs, and architecture finding language are fused into the Codex skill references and agent instructions.
 
 It does not automatically merge, push, or open PRs.
 

@@ -75,7 +75,8 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 4. 如果 design 涉及 production-risk，追加或改用 `release_reviewer`。
 5. 聚合 findings。技术性文档缺口由主线程直接修复；会改变产品承诺、业务规则、用户体验、发布策略或架构 trade-off 时才问用户。
 6. 最多 2 轮。超出后汇报哪个设计点需要业务或架构决策。
-7. 如果 design 通过但没有 plan，调用 `superpowers:writing-plans` 写 plan，然后进入 Phase 0b。
+7. 如果 design review 暴露的问题不能靠文档澄清，而是需要先回答“状态机是否合理 / UI 方向是否成立 / 接口形状是否好用”，读取 `references/external-engineering-methods.md` 的 Prototype Gate，先做 throwaway prototype 再修 design。
+8. 如果 design 通过但没有 plan，调用 `superpowers:writing-plans` 写 plan，然后进入 Phase 0b。
 
 通过标准：
 
@@ -122,6 +123,7 @@ Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
    - 独立 pack 可并行；
    - 每个 pack 必须 demoable 或 independently verifiable。
 4. 给每个 pack 标注：目标行为、owned files、verification commands、risk flags、AFK/HITL、serial/parallel。
+5. 如果 pack 会沉淀成长期任务或跨会话 handoff，使用 durable brief 格式：current behavior、desired behavior、key interfaces、acceptance criteria、out of scope；避免把行号或临时路径当成唯一合同。
 
 不合格 pack 先重切，不派发。
 

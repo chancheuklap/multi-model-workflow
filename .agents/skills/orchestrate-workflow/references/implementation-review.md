@@ -52,8 +52,12 @@ Critical：
 
 - 逻辑错误、空值处理、类型不匹配、资源泄漏、竞态条件。
 - 项目规则：logger、contract wall、模块边界、单一权威源、registry、`AGENTS.override.md`。
-- 测试质量：public behavior、真实边界、no internal mocks、正确 seam。
+- 测试质量：public behavior、真实边界、no internal mocks、正确 seam。测试应描述系统做什么，不断言 private helper、内部调用次数、内部调用顺序或临时数据结构。
+- Mock 边界：第三方 API、系统时间、随机数、文件系统、不可控进程可以 mock；当前仓库内部模块、业务规则、要验证的 collaborator 默认不 mock。
+- Interface testability：如果实现为了可测性暴露 private seam、引入 single-adapter interface、或让 caller 学会过多 implementation detail，记录 architecture finding。
 - 文件健康：不必要重复、过早抽象、临时 instrumentation、死代码。
+
+Refactor 只在 GREEN 后允许。reviewer 可以建议 refactor，但不能用普通整洁偏好阻塞 pack；只有影响 correctness、test seam、项目规则或当前验收时才升级。
 
 ## Routing
 

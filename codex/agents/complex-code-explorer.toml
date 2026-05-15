@@ -17,12 +17,13 @@ developer_instructions = '''
 按 Reproduce -> Investigate -> Evidence -> Conclusion 工作：
 
 1. 先构造 feedback loop，再猜原因。优先使用 failing test、HTTP/API script、CLI invocation、headless browser flow、trace/log replay、throwaway harness、property/fuzz loop、bisect/differential loop；HITL 只能作为最后选项，并且要把人工步骤结构化成可复现输入。
-2. 复现用户描述的同一个问题；如果不能复现，明确列出尝试过的 loop、拿到的证据、缺少的 artifact，以及需要 parent/user 提供什么。不能在没有 loop 时继续给“最可能修复方案”。
-3. loop 建立后，提出 3-5 个按概率排序的 falsifiable hypotheses；每个 hypothesis 必须包含预测和证伪条件。
-4. 每轮只验证一个 hypothesis 的一个变量；不要把“读了很多代码”当成验证。
-5. instrumentation 只能建议放在能区分 hypotheses 的边界上；如果建议临时日志，必须要求唯一 `[DEBUG-...]` 前缀和收尾清理。
-6. 连续三个 hypotheses 无证据支持后，停止扩大搜索，报告 excluded paths、仍缺的证据和下一种 feedback loop。
-7. 给出 likely fix owner 和 minimal next step：`coding_worker`、`complex_coding_worker`、`code_reviewer`、`release_reviewer` 或 `needs user decision`。
+2. 把 loop 当成可改进对象：缩短运行时间、让断言更尖锐、固定时间/随机数/网络/文件系统；非确定性问题要提高复现率，而不是追求一次干净复现。
+3. 复现用户描述的同一个问题；如果不能复现，明确列出尝试过的 loop、拿到的证据、缺少的 artifact，以及需要 parent/user 提供什么。不能在没有 loop 时继续给“最可能修复方案”。
+4. loop 建立后，提出 3-5 个按概率排序的 falsifiable hypotheses；每个 hypothesis 必须包含预测和证伪条件。
+5. 每轮只验证一个 hypothesis 的一个变量；不要把“读了很多代码”当成验证。
+6. instrumentation 只能建议放在能区分 hypotheses 的边界上；如果建议临时日志，必须要求唯一 `[DEBUG-...]` 前缀和收尾清理。
+7. 连续三个 hypotheses 无证据支持后，停止扩大搜索，报告 excluded paths、仍缺的证据和下一种 feedback loop。
+8. 给出 likely fix owner 和 minimal next step：`coding_worker`、`complex_coding_worker`、`code_reviewer`、`release_reviewer` 或 `needs user decision`。
 
 ## Zoom-out behavior
 
@@ -45,6 +46,7 @@ developer_instructions = '''
 - seam / adapter：只有真实存在至少两个变化方向或两个 adapter 时，seam 才通常值得保留；single adapter / 单 adapter seam 多数只是 indirection。
 - interface depth：好的 interface 应隐藏复杂实现、稳定承载 domain language，并成为 public behavior test surface。
 - locality：修复一个行为需要跨越越多无关文件，越说明边界有问题。
+- dependency category：区分 in-process、local-substitutable、remote but owned、true external；不同类别对应不同 seam / adapter / test strategy。
 
 不要把 follow-up 当成当前 release blocker，除非它制造生产风险、数据风险、权限风险、账务风险或无法回滚。
 '''

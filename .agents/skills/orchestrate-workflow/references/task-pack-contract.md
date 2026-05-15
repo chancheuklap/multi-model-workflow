@@ -51,3 +51,25 @@ Out of scope:
 ```
 
 这个 brief 进入 worker dispatch prompt。不要只发 task 标题。
+
+## Durable Handoff Brief
+
+当 pack 要跨会话交接、导出为 issue、或留给以后 agent 处理时，用 durable brief，不要只保存当前文件行号。
+
+```text
+Current behavior:
+Desired behavior:
+Key interfaces:
+Acceptance criteria:
+Out of scope:
+Risk flags:
+AFK / HITL:
+```
+
+原则：
+
+- 写行为合同，不写“去某文件第 N 行改 X”。
+- 可以命名稳定类型、函数签名、配置 shape 或业务对象，但不要把临时路径当成唯一入口。
+- acceptance criteria 必须逐条可验证。
+- out of scope 必须明确，避免 agent 顺手扩大范围。
+- 如果需要文件范围用于立即执行，把它放在 Pack Brief 的 owned files 中，不放进 durable contract 的核心语义。

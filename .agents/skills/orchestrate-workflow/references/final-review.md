@@ -73,6 +73,26 @@ Release blocker：
 - 部署顺序会让现役客户端或服务 401 / 500；
 - release gate 或 manual production dependency 没有验证证据。
 
+## Architecture After-Effects
+
+Final review 可以记录架构后效应，但不能随意把架构摩擦升级成 blocker。
+
+记录时使用固定词汇：
+
+- module：有 interface 和 implementation 的单元；
+- interface：caller 必须知道的全部事实，包括 invariant、error mode、ordering、config；
+- seam：interface 所在位置；
+- adapter：满足 interface 的具体实现；
+- depth：interface 背后隐藏的行为量；
+- locality：改动、bug、知识和验证是否集中。
+
+判断：
+
+- deletion test：删除某 abstraction 后复杂度消失，多半是 shallow；复杂度会散到多个 caller，说明它有价值。
+- one adapter = hypothetical seam；two adapters or real variation = stronger seam。
+- dependency category：in-process、local-substitutable、remote but owned、true external。
+- architecture after-effect 只有造成 production risk、data risk、permission risk、billing risk、rollback failure 或当前验收不成立时，才成为 blocker。
+
 ## 输出格式
 
 ```text

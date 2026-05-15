@@ -88,6 +88,8 @@ Code quality：
 - 一个 Task Pack 应该能拆成可验证的 vertical tracer bullet：一个行为、一条失败测试或复现检查、最小实现、focused verification。
 - 把“先写全部 tests / schema / templates / endpoint shell，再最后补行为”的计划视为 horizontal slicing；这会让 pack 不能独立证明价值。
 - mock 只应出现在外部边界。发现 mock 当前仓库内部模块、mock 掉要验证的业务规则、或让测试只验证 mock 交互时，作为测试缺口。
+- 检查 interface testability：依赖是否可注入、结果是否可通过 public interface 验证、测试是否绕过 interface 直接查内部状态。
+- single-adapter interface、为了测试暴露 private seam、或 caller 必须理解过多 implementation detail 时，作为 architecture finding，而不是普通 style finding。
 - 对 bugfix，检查是否有原始 reproduction / feedback loop，以及 regression test 是否落在 correct behavior seam。
 
 ### Task Pack Slice Review
@@ -101,6 +103,8 @@ Code quality：
 
 - 用 deletion test、seam、adapter、interface depth、leverage 和 locality 判断架构摩擦。
 - 单 adapter seam 通常是假 seam；只有真实存在多个变化方向、多个 adapter 或明确测试/生产边界时，额外 indirection 才更可能成立。
+- 按 dependency category 判断建议：in-process 可直接 deepen；local-substitutable 用本地替身测试；remote but owned 用 port + production/test adapters；true external 用 injected port + mock adapter。
+- interface 是测试表面。新测试如果越过 interface 测 implementation，说明 seam 或测试策略需要调整。
 - 架构摩擦不默认阻塞当前交付。只有它造成生产风险、数据风险、权限风险、账务风险、无法回滚或当前验收无法成立时，才升级为 blocker。
 
 ## Finding 格式

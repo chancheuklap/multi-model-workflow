@@ -18,14 +18,15 @@ Reference source: `mattpocock/skills`, `skills/engineering`, MIT License, local 
 
 1. Build a runnable feedback loop before proposing a fix.
 2. Prefer loops in this order: failing test, HTTP/API script, CLI invocation, headless browser flow, trace/log replay, throwaway harness, property/fuzz loop, bisect/differential loop, then HITL.
-3. Reproduce the same failure the user reported. A similar error is not enough.
-4. If no loop can be built, stop. Report attempted loops, missing artifact, needed environment access, log/HAR/recording/sample data, or temporary instrumentation permission.
-5. After the loop exists, create 3-5 ranked falsifiable hypotheses. Each hypothesis must include an observable prediction and a way to disprove it.
-6. Test one hypothesis and one variable at a time.
-7. Place temporary instrumentation at boundaries that distinguish hypotheses. Use a unique `[DEBUG-...]` prefix and clean it before completion unless it becomes formal observability.
-8. State the confirmed hypothesis and the excluded hypotheses.
-9. Put regression coverage at the correct behavior seam. If no seam exists, report the missing seam as architecture friction.
-10. Re-run the original feedback loop after the fix.
+3. Improve the loop itself: make it faster, sharper, and more deterministic. For flaky bugs, raise the reproduction rate with repetition, parallel triggering, stress, fixed seeds, or frozen time.
+4. Reproduce the same failure the user reported. A similar error is not enough.
+5. If no loop can be built, stop. Report attempted loops, missing artifact, needed environment access, log/HAR/recording/sample data, or temporary instrumentation permission.
+6. After the loop exists, create 3-5 ranked falsifiable hypotheses. Each hypothesis must include an observable prediction and a way to disprove it.
+7. Test one hypothesis and one variable at a time.
+8. Place temporary instrumentation at boundaries that distinguish hypotheses. Use a unique `[DEBUG-...]` prefix and clean it before completion unless it becomes formal observability.
+9. State the confirmed hypothesis and the excluded hypotheses.
+10. Put regression coverage at the correct behavior seam. If no seam exists, report the missing seam as architecture friction.
+11. Re-run the original feedback loop after the fix and clean throwaway harnesses or temporary instrumentation.
 
 ## TDD
 
@@ -35,8 +36,9 @@ Reference source: `mattpocock/skills`, `skills/engineering`, MIT License, local 
 4. Acceptable public surfaces include API responses, CLI commands, UI-visible state, database-visible effects, contract objects, documented workflow steps, and stable module interfaces.
 5. Mock only external boundaries such as network, payment providers, system time, file system, browser, external processes, or third-party services.
 6. Do not mock the current module under test or the business rule being verified.
-7. Test names and interface language should use project domain terms.
-8. Refactor only while the behavior is green, and rerun focused verification after refactor.
+7. Design testable interfaces: inject dependencies, return observable results, avoid hidden side effects, and keep the public surface small.
+8. Test names and interface language should use project domain terms.
+9. Refactor only while the behavior is green, and rerun focused verification after refactor.
 
 ## Grill With AgentFlow Docs
 
@@ -77,16 +79,20 @@ AgentFlow doc mapping:
 2. A seam is valuable when it isolates real variation. One adapter is usually a hypothetical seam; two real adapters or a clear production/test boundary make the seam more credible.
 3. A deep interface hides meaningful complexity and becomes a stable public behavior test surface.
 4. Good architecture improves locality: related changes stay near each other and do not force unrelated files to change.
-5. Report architecture findings with affected files, problem, proposed direction, and benefit.
-6. Do not block current delivery on architecture after-effects unless they create production, data, permission, billing, rollback, or verification risk.
+5. Classify dependencies before recommending seams: in-process, local-substitutable, remote but owned, or true external.
+6. The interface is the test surface. If tests must cross past the interface to verify behavior, the seam or module shape is suspect.
+7. Report architecture findings with affected files, problem, proposed direction, and benefit.
+8. Do not block current delivery on architecture after-effects unless they create production, data, permission, billing, rollback, or verification risk.
 
 ## Prototype
 
+- only use when Phase 0 exposes a design question that docs cannot answer;
 - state the exact question first;
+- use a terminal prototype for logic/state-model questions and UI variants for visual direction questions;
 - make one command or one route run the prototype;
 - avoid production persistence by default;
 - show state transitions clearly;
-- delete, archive, or absorb the prototype after the decision.
+- delete or absorb the prototype after the decision, preserving only the answer in design / ADR / plan.
 
 ## Not Adopted
 
