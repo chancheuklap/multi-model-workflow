@@ -1,0 +1,24 @@
+{
+  "SessionStart": [
+    {
+      "matcher": "startup|resume|clear",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash codex/hooks/session-start.sh"
+        }
+      ]
+    }
+  ],
+  "PreToolUse": [
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash codex/hooks/guard-premature-push.sh"
+        }
+      ]
+    }
+  ]
+}

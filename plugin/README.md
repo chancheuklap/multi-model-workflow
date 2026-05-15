@@ -2,6 +2,17 @@
 
 Claude Code plugin. Task Pack batching + automated review loops + 3 specialized agents, layered on top of [Superpowers](https://github.com/obra/superpowers).
 
+For Codex, use the repository root package instead:
+
+- `.agents/skills/orchestrate-workflow/`
+- `codex/agents/*.toml`
+- `codex/agents/sync-agents.sh`
+- `codex/skills/install-orchestrate-workflow.sh`
+- `codex/hooks/install-hooks.sh`
+- optional `codex/hooks/`
+
+Codex V1 is a workflow package, not a required Codex plugin. Use `codex/skills/install-orchestrate-workflow.sh --user --apply` for user-level installation across repos, or `--target-repo <repo> --apply` only when a specific project should vendor the skill in its own `.agents/skills/` directory. The Claude plugin in this directory remains available for Claude Code users.
+
 ## What It Does
 
 Replaces Superpowers' `subagent-driven-development` with a multi-agent orchestration system:
