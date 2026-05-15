@@ -1,0 +1,53 @@
+# Task Pack Contract
+
+Task Pack 是 Codex subagent 的执行单位，不是 plan section 的机械复制。
+
+## 合格标准
+
+一个 pack 必须同时满足：
+
+- 是 vertical slice，完成后能 demo 或 independently verify。
+- 有用户可见行为、公开接口行为或可检查系统效果。
+- 有 owned files / responsibilities。
+- 有 acceptance criteria。
+- 有 verification commands 或复现检查。
+- 有 risk flags：普通、高风险、生产风险、HITL。
+- 依赖关系是真阻塞，不是“可能有关”。
+
+## 不合格 Pack
+
+以下 pack 不应派发：
+
+- 只按技术层横切：“先写全部 tests / schema / templates / endpoint shell，再写 implementation”。
+- 只按前端 / 后端 / 测试分层，但完成后不能单独验证。
+- 没有 owned files。
+- 没有验证命令。
+- 多个 worker 会同时写同一文件、同一 migration、同一 shared contract。
+- 需要产品、账号、真实环境、人工验收或权限决策，却标成 AFK。
+
+## 分包规则
+
+- 触碰同一文件或同一合同的 tasks 放同一 pack。
+- migration、billing、auth、permissions、runtime、browser takeover、shared contract 默认串行。
+- 独立 pack 才并行。
+- 如果一个 pack 太大，按可验证行为拆，不按文件层拆。
+- 如果一个 task 太小但共享上下文，和相邻 task 合并。
+
+## Pack Brief 模板
+
+```text
+Pack:
+Goal behavior:
+Tasks:
+Owned files / responsibilities:
+Read first:
+Acceptance criteria:
+Verification commands:
+Risk flags:
+AFK / HITL:
+Dependencies:
+Parallel safety:
+Out of scope:
+```
+
+这个 brief 进入 worker dispatch prompt。不要只发 task 标题。

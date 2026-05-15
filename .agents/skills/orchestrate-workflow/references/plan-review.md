@@ -1,0 +1,74 @@
+# Plan Review Contract
+
+Phase 0b 审 plan。目标是确认计划可以真实执行，不会把虚构路径、横切任务或缺失验收传给 worker。
+
+## Dispatch 1: Coverage And Task Quality
+
+派 `code_reviewer`。
+
+检查：
+
+- 如果有 design doc，逐条提取 design intent，确认每条 intent 至少有一个 task 覆盖。
+- 找出计划做了但 design 没要求的 scope creep。
+- 每个 task 是否足够具体：改什么、在哪改、测试什么、预期什么结果。
+- task 是否能在一个短反馈循环内完成；过大的 task 要拆。
+- 依赖关系是否真实、是否有循环依赖。
+- section / pack 分组是否符合 shared files、shared contracts、dependency order。
+- 是否为每个高风险区域标出验证方式和人工 gate。
+
+Critical：
+
+- design intent 无 task 覆盖。
+- task 描述无法执行，worker 必须猜。
+- 依赖顺序错误会导致实现失败。
+- plan 缺少核心验证方式。
+
+## Dispatch 2: Compliance And Verification
+
+派 `code_reviewer`；涉及 production-risk 时追加 `release_reviewer`。
+
+先读项目规则：`AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE。
+
+逐条验真：
+
+- 已有文件路径是否存在。
+- 已有函数、类、fixture、配置项、环境变量是否存在。
+- 命令和脚本入口是否存在。
+- 新建文件是否被明确标注为新建，不要误报不存在。
+- 涉及目录如有 `AGENTS.override.md`，是否安排同步更新。
+- 数据库变更是否说明 migration tree。
+- 新端口 / 命令 / 收费动作 / 合同字段是否安排注册位置。
+
+Critical：
+
+- 引用不存在的路径、函数、类、fixture 或命令。
+- 违反项目规则、不变量、权威源、模块边界。
+- 高风险变更没有迁移、兼容、回滚或人工验证任务。
+
+## Dispatch 3: Independent Second Opinion
+
+派独立 `code_reviewer`，不要给它前两份 review 的结论。目的不是重复检查，而是用新 framing 找遗漏。
+
+检查：
+
+- 是否有任务互相矛盾。
+- 是否有隐含依赖没有标出。
+- 是否有两个 pack 会改同一文件却被计划并行。
+- 是否有 risky assumption，例如假设 API / data shape / fixture 存在。
+- 是否有“最后统一验证”的水平切片风险。
+
+## 输出格式
+
+```text
+### 计划文档审查
+结论: 可执行 / 需修正
+设计覆盖:
+Grep / rg 验真:
+Critical:
+Important:
+低置信度观察:
+```
+
+每条 finding 必须有 plan section / task、证据、为什么会导致执行出错、具体修正建议、confidence。
+
+Phase 0 plan findings 返回 coordinator。主线程修 plan，不派 worker 写代码。

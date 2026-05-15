@@ -1,115 +1,234 @@
 ---
 name: orchestrate-workflow
-description: Use when 已有 design / implementation plan，Superpowers writing-plans 刚生成项目文档，或用户要求执行、审核、继续、恢复、完成一段有文档依据的开发工作流。
+description: 当已有 design / implementation plan，Superpowers writing-plans 刚生成项目文档，或用户要求执行、审核、继续、推进、恢复、完成一段有文档依据的开发工作流时使用。
 ---
 
 # Orchestrate Workflow
 
-目标：把已有 design / plan 变成可验证的代码、文档更新和业务结果。这个 skill 不负责从零构思需求；没有 design / plan 时先用 `superpowers:brainstorming` 或 `superpowers:writing-plans`。
+你是主线程 coordinator。这个 skill 接管 `superpowers:writing-plans` 之后的完整 post-design workflow：设计文档 review、计划文档 review、Task Pack 执行、代码 review、final intent / release review、业务汇报。
 
-## 运行算法
+它不是 brainstorm skill，不是写 plan skill，不是 subagent instruction，也不是只做代码执行。它迁移的是 Claude plugin 里 `workflow-auditor` + `pack-executor` + `root-cause-analyst` 的端到端编排能力。
 
-1. **建立现场账本**
-   - 找到 design / plan / bug brief。
-   - 读取当前项目规则：`AGENTS.md`，以及其要求的 `PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE / `AGENTS.override.md`。
-   - 写下当前任务的 intent、acceptance criteria、风险、验证命令、已完成和未完成项。可以放在工作笔记里；只有项目要求时才改正式 plan。
+## 触发边界
 
-2. **Phase 0：先审文档是否能落地**
-   - design 存在时，先审 design：术语是否对齐正式文档，业务对象和责任边界是否清楚，至少能走通一个正常场景和一个失败/权限/重复/回滚场景。
-   - plan 存在时，审 plan：每个任务是否有交付物、文件范围、验证方式、依赖顺序和 `AGENTS.override.md` 同步要求。
-   - 技术性缺口由主线程直接修。会改变产品承诺、业务规则、发布策略或架构 trade-off 时才问用户。
+使用此 skill：
 
-3. **把 plan 切成 Task Packs**
-   - 每个 pack 必须是 vertical slice：完成后能 demo 或 independently verify。
-   - 每个 pack 写清：目标行为、owned files、入口、验证命令、依赖、风险、AFK/HITL。
-   - 按技术层横切的 pack 不合格，例如“先写全部 tests / schema / templates，再写 implementation”。
-   - 碰同一批文件、migration、billing、auth、runtime、browser takeover、shared contract 的 packs 默认串行；只有 write set 和依赖都不相交才并行。
+- 已有或刚生成 `docs/superpowers/specs/` 下的 design doc；
+- 已有或刚生成 `docs/superpowers/plans/` 下的 plan；
+- 用户要求“执行方案 / 开始实施 / 推进 / 继续 / 落地 / 审一下设计 / 审一下计划 / 走流程”；
+- 有 bug brief 或 feedback loop，需要按计划化维护流程推进。
 
-4. **派发或主线程执行**
-   - 当前关键路径、很小的局部修改、或主线程没有非重叠工作可做时，主线程自己做。
-   - 独立 sidecar work 才用 `spawn_agent`。
-   - review findings 发回同一个 worker 时用 `send_input`；只有下一步真的被阻塞时才 `wait_agent`。
+不使用此 skill：
 
-5. **每个 pack 都必须 review + repair**
-   - 普通 pack 完成后用 `code_reviewer`。
-   - 触及 deploy、database、billing、permissions、runtime、browser takeover、rollback、production dependency、cross-service contract 时用 `release_reviewer`。
-   - finding 有效就修；同一问题三次失败必须换方法，必要时进入 root-cause route。
+- 从零澄清需求：用 `superpowers:brainstorming`；
+- 从零写 design / plan：用 `superpowers:writing-plans`；
+- 单次只读 code review：直接按 review 请求处理；
+- 已完成后 merge / PR / push：用 `superpowers:finishing-a-development-branch`。
 
-6. **Root-cause route**
-   - 先建立可重复 feedback loop，再修复。
-   - 不能复现同一个问题时，不写补丁；返回缺少的日志、样本、环境或人工步骤。
-   - 不确定根因时派 `complex_code_explorer`；诊断和修复紧耦合时派 `complex_coding_worker`。
+## 运行前先读 References
 
-7. **Phase B：最终意图验证**
-   - 用真实命令、测试、smoke、browser / VM / deploy check 验证 design intent。
-   - 不用 worker 自报代替验证。
-   - implementation gap 派回 worker；design gap 用业务语言交给用户。
+本 skill 的 `references/` 是运行时 prompt contract，不是装饰文档。进入对应 phase 前先读取对应 reference，再派发 reviewer / worker：
 
-8. **Phase C：业务汇报**
-   - 汇报已完成的产品能力、修改范围、验证结果、剩余风险、需要人工判断的点。
-   - 这个 skill 不自动 merge、push、开 PR。收分支时用 `superpowers:finishing-a-development-branch`。
+| Phase | 必读 reference | 用途 |
+| --- | --- | --- |
+| Phase 0a Design Review | `references/design-review.md` | 生成设计内容审查、项目对齐审查的 dispatch prompt。 |
+| Phase 0b Plan Review | `references/plan-review.md` | 生成计划覆盖度、合规验真、second-opinion 审查的 dispatch prompt。 |
+| Setup Task Pack | `references/task-pack-contract.md` | 判断 pack 是否 vertical slice、是否可并行、是否 AFK/HITL。 |
+| Phase A Pack Review | `references/implementation-review.md` | 生成 spec compliance + code quality review prompt。 |
+| Phase B Final Review | `references/final-review.md` | 生成 final intent review、代码交叉审查、release-risk review prompt。 |
+| 维护 / 外部方法校准 | `references/external-engineering-methods.md` | 确认从外部 engineering skills 吸收的方法没有丢失。 |
 
-## Agent 路由表
+不要要求 subagent 自己去猜这些 reference。主线程读取 reference 后，把本次任务事实和需要执行的 review contract 写进 dispatch prompt。
 
-| 情况 | agent_type |
-| --- | --- |
-| 小范围查代码、调用链、测试位置 | `code_explorer` |
-| 多模块调查、历史行为、未知 root cause | `complex_code_explorer` |
-| 普通实现、测试修复、局部重构 | `coding_worker` |
-| migration / billing / auth / permissions / runtime / Gateway / browser takeover / shared contract | `complex_coding_worker` |
-| design / plan / pack review | `code_reviewer` |
-| 发布前、生产风险、跨服务合同、回滚风险 | `release_reviewer` |
-| 低风险文档整理 | `docs_worker` |
+## Agent 路由
 
-## Dispatch Prompt 模板
+| Claude plugin 角色 | Codex agent_type | 用法 |
+| --- | --- | --- |
+| `workflow-auditor` | `code_reviewer` | Phase 0 文档 review、Phase A pack review、非生产 final intent / code review。 |
+| `workflow-auditor` 高风险审查 | `release_reviewer` | design / plan / final review 涉及 deploy、database、billing、permissions、runtime、rollback、cross-service contract。 |
+| `pack-executor` | `coding_worker` | 普通 Task Pack 实现和明确 code finding 修复。 |
+| `pack-executor` 高风险实现 | `complex_coding_worker` | migration、billing、auth、permissions、runtime、Gateway、browser takeover、shared contract。 |
+| `root-cause-analyst` | `complex_code_explorer` | 未知根因调查，只读，先建立 feedback loop。 |
+| `root-cause-analyst` 紧耦合修复 | `complex_coding_worker` | 诊断与修复无法分离的复杂问题。 |
+| 文档机械整理 | `docs_worker` | 低风险文档同步、格式和 stale reference 修复。 |
 
-```text
-Phase:
-Purpose:
-Read first:
-Task Pack:
-Owned files / read-only boundary:
-Acceptance criteria:
-Verification commands:
-Risk flags:
-Do not:
-Return:
-```
+Codex 没有 Claude 的 `Agent tool` / `SendMessage` 名称。对应关系：
 
-派发 prompt 只传当前任务事实。不要重复粘贴 reviewer / worker 的完整方法论；稳定方法已经写在对应 `~/.codex/agents/*.toml`。
+- 新建独立任务：`spawn_agent`
+- 把 review finding 发回同一个 worker：`send_input`
+- 下一步被结果阻塞时才等待：`wait_agent`
+- 任务完成后关闭不再需要的 agent
 
-## Pack 合格标准
+## 主流程
 
-一个 pack 合格必须同时满足：
+### Phase 0a: Design Review
 
-- 有用户可见行为、公开接口行为或可检查的系统效果。
-- 有明确 owned files / responsibilities。
-- 有最小验证命令或复现检查。
-- 完成后能独立证明价值。
-- 风险类型明确：普通、高风险、生产风险、HITL。
-- 依赖关系是真阻塞，不是“可能有关”。
+进入条件：存在 design doc，或 `writing-plans` 刚生成 design doc。
 
-不合格 pack 先重切，不要派发。
+执行：
 
-## 停止条件
+1. 完整读取 design doc 和项目规则：`AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE、相关 `AGENTS.override.md`。
+2. 读取 `references/design-review.md`。
+3. 派发两个独立 `code_reviewer`：
+   - Design Content Review：完整性、可测试性、内部一致性、范围纪律；
+   - Project Alignment Review：项目架构、权威源、模块边界、工程规则、技术可行性。
+4. 如果 design 涉及 production-risk，追加或改用 `release_reviewer`。
+5. 聚合 findings。技术性文档缺口由主线程直接修复；会改变产品承诺、业务规则、用户体验、发布策略或架构 trade-off 时才问用户。
+6. 最多 2 轮。超出后汇报哪个设计点需要业务或架构决策。
+7. 如果 design 通过但没有 plan，调用 `superpowers:writing-plans` 写 plan，然后进入 Phase 0b。
 
-- design / plan 技术上不成立。
-- 需要产品、价格、权限、发布策略或架构取舍。
-- 缺少环境、账号、样本、日志或人工验证，导致 feedback loop 不能建立。
-- 同一 repair loop 三次失败。
-- Phase B 发现 design intent 和实现结果不一致。
+通过标准：
 
-停止时只报告阻塞事实、已验证证据、可选决策，不输出空泛计划。
+- 没有 Critical design finding；
+- 每条核心设计意图可验证；
+- 正常场景和至少一个失败/权限/重复/回滚场景能解释清楚；
+- 新对象、新状态、新合同有 owner / writer / reader / verifier / cleanup responsibility；
+- 与 AgentFlow 正式文档体系一致。
 
-## 汇报格式
+### Phase 0b: Plan Review
 
-```text
-Status:
-完成的能力:
-修改范围:
-验证:
-未完成 / 风险:
-需要用户决策:
-```
+进入条件：存在 active plan。
 
-没有需要用户决策时写“无”。不要把普通技术后续伪装成用户决策。
+执行：
+
+1. 完整读取 plan；如有 design doc，同时读取 design。
+2. 读取 `references/plan-review.md` 和 `references/task-pack-contract.md`。
+3. 派发三个独立 review：
+   - Coverage Review：设计意图覆盖、task 质量、可执行性；
+   - Compliance / Verification Review：项目规则、路径/函数/类/配置真实存在、依赖真实存在；
+   - Second-opinion Review：用独立 framing 检查计划可执行性、冲突、遗漏和风险假设。
+4. 普通计划用 `code_reviewer`；生产风险计划追加或改用 `release_reviewer`。
+5. 主线程聚合 findings 并直接修复技术性计划问题，包括 stale path、虚构 helper、缺少测试、缺少 `AGENTS.override.md` 同步、pack 横切、依赖顺序错误。
+6. 最多 2 轮。超出后汇报哪个计划点无法验证或需要决策。
+
+通过标准：
+
+- 每条 design intent 至少有一个 task 覆盖；
+- task 描述足够让 worker 不问问题即可开始；
+- 引用的已有路径、函数、类、fixture、命令都已验真；
+- task 有明确测试或验证方式；
+- 依赖顺序真实；
+- 可拆成 vertical Task Packs。
+
+### Setup: Task Pack Planning
+
+执行：
+
+1. 提取 plan 中所有未完成 task。
+2. 读取 `references/task-pack-contract.md`。
+3. 把 task 分成 Task Packs：
+   - 同文件 / 同合同 / 同迁移 / 同权限 / 同账务 / 同 runtime 边界放同一 pack；
+   - 有真实依赖的 task 串行；
+   - 独立 pack 可并行；
+   - 每个 pack 必须 demoable 或 independently verifiable。
+4. 给每个 pack 标注：目标行为、owned files、verification commands、risk flags、AFK/HITL、serial/parallel。
+
+不合格 pack 先重切，不派发。
+
+### Phase A: Task Pack Execution + Code Review
+
+每个 pack：
+
+1. 普通 pack 派 `coding_worker`；高风险 pack 派 `complex_coding_worker`。
+2. dispatch prompt 必须包含：phase、完整 task 文本、owned files、项目锚点、acceptance criteria、verification commands、risk flags、no unauthorized revert、返回格式。
+3. worker 返回后，读取 `references/implementation-review.md`。
+4. 派 `code_reviewer` 做 pack review：
+   - Phase 1：Spec Compliance，逐 task 检查有没有做完、做错、越界、漏边界；
+   - Phase 2：Code Quality，仅 spec 通过后检查正确性、错误路径、项目约定、测试质量、文件健康。
+5. 生产风险改动追加 `release_reviewer`。
+6. finding 路由：
+   - 明确代码修复：`send_input` 给原 worker；
+   - 原因不明：`complex_code_explorer` 建 feedback loop；
+   - 诊断和修复紧耦合：`complex_coding_worker`；
+   - 业务范围变化：问用户。
+7. 每个 pack 最多 3 轮 repair。每轮必须改变方法。
+
+通过标准：
+
+- spec compliance 通过；
+- focused verification 已真实运行；
+- 测试验证 public behavior；
+- 没有 mock 掉当前仓库内部业务规则；
+- 没有 Critical / High review finding。
+
+### Maintenance Bug Entry
+
+没有完整 plan 的 bug：
+
+1. 先建立 feedback loop，不先写补丁。
+2. 形成 bug brief：current behavior、desired behavior、reproduction、hypotheses、key interfaces、acceptance criteria、out of scope。
+3. 小范围局部修复可主线程处理。
+4. 涉及 runtime、billing、migration、permission、shared contract、deploy 或多模块时，先补 plan，再走 Phase 0b / Phase A。
+
+### Phase B: Final Intent / Release Review
+
+所有 pack 通过后执行。
+
+有 design doc：
+
+1. 读取 `references/final-review.md`。
+2. 派 `code_reviewer` 做 final intent review：提取 design intent，逐条用真实命令 / 测试 / UI / smoke / VM / deploy check 验证。
+3. 派 independent second-opinion `code_reviewer` 做全 diff review，使用不同 framing，不读取第一次 review 的结论。
+4. 涉及生产风险时派 `release_reviewer` 做 release-risk review。
+5. 聚合 findings：
+   - Implementation Gap：派回 worker 写失败测试 / 复现检查，再修复；
+   - Design Gap：用业务语言交给用户；
+   - Code-level Critical：派合适 worker 修；
+   - Release Blocker：必须修或列为人工 gate，不能声称完成。
+6. 每个 gap 最多 2 轮；Phase B 总 dispatch 上限 15 次。
+
+无 design doc：
+
+- 对 `git diff <starting_commit>..HEAD` 做代码级全量 review；
+- 高风险 diff 仍必须用 `release_reviewer`。
+
+通过标准：
+
+- 可验证 design intent 全部通过，或未通过项被明确分类；
+- 没有 blocker；
+- 验证证据来自真实命令或人工检查清单；
+- 残余风险能用业务语言解释。
+
+### Phase C: Business Report
+
+汇报：
+
+- 完成了什么产品能力；
+- 修改了哪些范围；
+- 做过哪些 review loop 和 repair；
+- 跑了哪些验证，结果是什么；
+- 仍需人工验证或业务决策的事项；
+- 残余风险和 architecture follow-up。
+
+停止。此 skill 不自动 merge、push 或开 PR。
+
+## 循环上限
+
+| 循环 | 上限 | 超限处理 |
+| --- | --- | --- |
+| Phase 0a design review -> 主线程修复 | 2 轮 | 说明哪个 design 点需要产品 / 架构决策。 |
+| Phase 0b plan review -> 主线程修复 | 2 轮 | 说明哪个 plan 点无法验真或需要决策。 |
+| Phase A pack review -> worker repair | 每个 pack 3 轮 | 汇报 attempts，决定拆 pack / root-cause route / 用户决策。 |
+| Phase B intent gap -> worker repair | 每个 gap 2 轮 | 区分 implementation gap 与 design gap。 |
+| Phase B total dispatch | 15 次 | 汇报完成状态、剩余风险和决策点。 |
+
+## Direction Check
+
+当多轮 pack、review 或 compaction 后方向不清，先回答：
+
+- 我在哪里：当前 phase / pack。
+- 我要去哪：剩余 packs / phase。
+- 目标是什么：重读 design intent。
+- 已经学到什么：累计 review findings。
+- 有什么变化：当前 plan checkbox 进度。
+
+## 禁止事项
+
+- 不跳过 Phase 0 或 Phase B。
+- 不把 design / plan review 降级成代码 review。
+- 不把代码 review 当成唯一 review。
+- 不让用户为每个技术阶段下命令。
+- 不自动 merge、push 或 create PR。
+- 不为每个小 task 都 spawn agent。
+- 不把 hooks 当作 workflow 真相源。
+- 不把 external engineering skills 只写成方法名；必须按 references 和 agent TOML 中的具体行为执行。
