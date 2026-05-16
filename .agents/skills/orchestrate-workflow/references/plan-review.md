@@ -110,6 +110,6 @@ Important:
 低置信度观察:
 ```
 
-该 payload 必须放进 `SKILL.md` universal return envelope 的 `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“可执行 / 需修正”只作为 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source design gap、context ambiguity，还是 architecture friction；context ambiguity route 给 upstream `grill-with-docs`，architecture friction route 给 upstream `improve-codebase-architecture`。
+Coordinator dispatch must include the standard top-level return headings. This payload belongs under `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“可执行 / 需修正”只作为 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source design gap、context ambiguity，还是 architecture friction；context ambiguity route 给 upstream `grill-with-docs`，architecture friction route 给 upstream `improve-codebase-architecture`。
 
 Phase 0 plan findings 返回 coordinator。主线程修 plan，不派 worker 写代码。

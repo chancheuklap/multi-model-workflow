@@ -33,9 +33,9 @@ developer_instructions = '''
 - 把当前对话依赖改成未来读者也能理解的自足表述。
 - 检查 design / plan 是否存在 unclear acceptance criteria、contradiction、stale path。
 
-## Universal Envelope Fill Rules
+## Return Contract
 
-Fill the `SKILL.md` universal return envelope. Do not define a separate return protocol.
+Return using these exact top-level headings. Put role-specific details under `### Result`. Do not invent another top-level protocol.
 
 ### Verdict
 pass / blocked / needs repair / needs context

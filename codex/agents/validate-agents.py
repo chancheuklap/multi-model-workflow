@@ -21,7 +21,7 @@ CLAUDE_ONLY_FIELDS = {
     "memory",
     "max" + "Turns",
 }
-UNIVERSAL_RETURN_TOKENS = [
+STANDARD_RETURN_TOKENS = [
     "### Verdict",
     "### Evidence",
     "### Result",
@@ -29,7 +29,12 @@ UNIVERSAL_RETURN_TOKENS = [
     "### Open Items",
     "### Routing",
 ]
-UNIVERSAL_RETURN_HEADINGS = set(UNIVERSAL_RETURN_TOKENS)
+STANDARD_RETURN_HEADINGS = set(STANDARD_RETURN_TOKENS)
+BANNED_INSTRUCTION_PHRASES = [
+    "Fill the `SKILL.md` universal return envelope",
+    "SKILL.md universal return envelope",
+    "Orchestrate Workflow `SKILL.md` universal return envelope",
+]
 
 
 def fail(message: str) -> None:
@@ -72,11 +77,17 @@ def validate_skills_config(path: Path, data: dict[str, object]) -> None:
             fail(f"{path}: skills.config[{index}].enabled must be a boolean")
 
 
-def validate_universal_return_headings(path: Path, text: str) -> None:
+def validate_standard_return_headings(path: Path, text: str) -> None:
     headings = [line.strip() for line in text.splitlines() if line.startswith("### ")]
-    extra = [heading for heading in headings if heading not in UNIVERSAL_RETURN_HEADINGS]
+    extra = [heading for heading in headings if heading not in STANDARD_RETURN_HEADINGS]
     if extra:
-        fail(f"{path}: non-universal return headings found: {', '.join(extra)}")
+        fail(f"{path}: non-standard return headings found: {', '.join(extra)}")
+
+
+def validate_no_ambiguous_skill_reference(path: Path, text: str) -> None:
+    hits = [phrase for phrase in BANNED_INSTRUCTION_PHRASES if phrase in text]
+    if hits:
+        fail(f"{path}: developer_instructions contains ambiguous SKILL.md return reference: {', '.join(hits)}")
 
 
 def main() -> int:
@@ -101,18 +112,18 @@ def main() -> int:
             fail(f"{path}: developer_instructions must be a non-empty string")
 
         stem = path.stem
-        require_tokens(path, instructions, UNIVERSAL_RETURN_TOKENS)
+        require_tokens(path, instructions, STANDARD_RETURN_TOKENS)
         require_tokens(
             path,
             instructions,
             [
-                "Universal Envelope Fill Rules",
-                "SKILL.md",
-                "Do not define a separate return protocol",
+                "Return Contract",
+                "Do not invent another top-level protocol",
                 "pass / blocked / needs repair / needs context",
             ],
         )
-        validate_universal_return_headings(path, instructions)
+        validate_no_ambiguous_skill_reference(path, instructions)
+        validate_standard_return_headings(path, instructions)
 
         if "reviewer" in stem:
             require_tokens(path, instructions, ["read-only", "findings"])

@@ -38,9 +38,9 @@ developer_instructions = '''
 - UI / UX 高风险 pack 必须对照 mockup 和权限 / runtime 约束验证。
 - 触碰 override 覆盖范围时同步维护；如果会改变正式工程规则，返回 `NEEDS_CONTEXT`。
 
-## Universal Envelope Fill Rules
+## Return Contract
 
-Fill the `SKILL.md` universal return envelope. Do not define a separate return protocol.
+Return using these exact top-level headings. Put role-specific details under `### Result`. Do not invent another top-level protocol.
 
 ### Verdict
 pass / blocked / needs repair / needs context

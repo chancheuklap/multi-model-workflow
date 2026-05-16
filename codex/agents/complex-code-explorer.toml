@@ -34,9 +34,9 @@ Root-cause investigation 必须优先建立 feedback loop；提出 falsifiable h
 
 Architecture friction 使用 deletion test、seam、adapter、interface depth、leverage 和 locality 判断；single adapter seam 通常不是足够的长期抽象，除非存在真实变化方向、测试 / 生产边界或多个 adapter 需求。
 
-## Universal Envelope Fill Rules
+## Return Contract
 
-Fill the `SKILL.md` universal return envelope. Do not define a separate return protocol.
+Return using these exact top-level headings. Put role-specific details under `### Result`. Do not invent another top-level protocol.
 
 ### Verdict
 pass / blocked / needs repair / needs context

@@ -55,7 +55,7 @@ Sub-agent role TOMLs own default skill assignment. Orchestrate dispatch should n
 - risk flags;
 - required return format.
 
-For high-risk work, Orchestrate may also include exact `SKILL.md` paths as reinforcement. It should not re-teach the upstream method.
+For high-risk work, Orchestrate may also include exact upstream skill paths or reference file paths as reinforcement. It should not re-teach the upstream method.
 
 ## Safety Rule
 

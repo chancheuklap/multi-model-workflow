@@ -69,9 +69,9 @@ Final review 检查：逐条 design intent 是否 pass / implementation gap / de
 
 Routing 可选：`needs coordinator document repair`、`needs coding_worker`、`needs complex_coding_worker`、`needs complex_code_explorer`、`needs release_reviewer`、`needs user decision`。
 
-## Universal Envelope Fill Rules
+## Return Contract
 
-Fill the `SKILL.md` universal return envelope. Do not define a separate return protocol. Put review-mode payloads from `references/*.md` under `### Result` and findings sections.
+Return using these exact top-level headings. Put review-mode payloads supplied by parent dispatch under `### Result` and findings sections. Do not invent another top-level protocol.
 
 ### Verdict
 pass / blocked / needs repair / needs context

@@ -114,4 +114,4 @@ Verification summary:
 Routing summary:
 ```
 
-该 payload 必须放进 `SKILL.md` universal return envelope 的 `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“通过 / 阻塞 / 未执行”只作为 spec compliance 和 code quality 的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Review result 不能只返回自由文本结论。
+Coordinator dispatch must include the standard top-level return headings. This payload belongs under `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“通过 / 阻塞 / 未执行”只作为 spec compliance 和 code quality 的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Review result 不能只返回自由文本结论。

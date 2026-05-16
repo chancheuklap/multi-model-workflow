@@ -197,11 +197,11 @@ Missing in-scope anchors -> `NEEDS_CONTEXT` / `BLOCKED`; do not invent schemas, 
 
 | Layer | Reader | Responsibility |
 | --- | --- | --- |
-| `SKILL.md` | parent coordinator | Owns phase routing, escalation gates, dispatch rules, review reception, and the single top-level sub-agent return envelope. |
-| `references/*.md` | parent coordinator | Owns phase-specific checks, pack rules, prompt payloads, and finding classification. References do not define a competing top-level output protocol. |
-| `codex/agents/*.toml` | custom sub-agent | Owns role discipline, local skill routing, project overlay, and how that role fills the universal envelope. Agent TOMLs do not redefine Orchestrate phases. |
+| `SKILL.md` | parent coordinator | Owns phase routing, escalation gates, dispatch rules, review reception, and the canonical sub-agent return contract. |
+| `references/*.md` | parent coordinator | Owns phase-specific checks, pack rules, prompt payloads, and finding classification. References tell the parent what to include in dispatch prompts; they are not automatically visible to sub-agents. |
+| `codex/agents/*.toml` | custom sub-agent | Owns self-contained role discipline, local skill routing, project overlay, and local return discipline. Agent TOMLs do not know this file unless the parent explicitly sends it, and they do not redefine Orchestrate phases. |
 
-Parent dispatch combines these layers: read the relevant reference, choose the custom agent, send phase / anchors / pack or review payload, and require the universal return envelope. Sub-agents follow their TOML while honoring the dispatch payload.
+Parent dispatch combines these layers: read the relevant reference, choose the custom agent, send phase / anchors / pack or review payload, and include the standard return contract in the dispatch prompt. Sub-agents follow their TOML plus the explicit parent dispatch they receive.
 
 ### Agent Routing
 
@@ -219,9 +219,9 @@ Parent dispatch combines these layers: read the relevant reference, choose the c
 | UI direction / state machine / interface shape | parent runs `prototype` |
 | issue-backed durable workflow | parent runs `triage` / `to-prd` / `to-issues` |
 
-Custom agent TOMLs own role-level skill selection. Orchestrate supplies phase, source docs, anchors, verification, risk flags, and the universal envelope; high-risk prompts may include exact `SKILL.md` paths.
+Custom agent TOMLs own role-level skill selection. Orchestrate supplies phase, source docs, anchors, verification, risk flags, and the standard return contract in each dispatch. If a sub-agent must use a reference payload, the parent includes the payload or an exact file path in that dispatch.
 
-### Universal Return Envelope
+### Standard Return Contract
 
 Every worker / explorer / reviewer / docs dispatch must include:
 

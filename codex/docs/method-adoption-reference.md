@@ -12,7 +12,7 @@ Reference source: `mattpocock/skills`, `skills/engineering`, MIT License, local 
 | `to-issues` | `orchestrate-workflow` Task Pack planning, `code-reviewer.toml` pack review | Shape Task Packs as vertical, demoable or independently verifiable slices. |
 | `triage` agent brief | `orchestrate-workflow` dispatch fields, `code-reviewer.toml` brief review | Keep delegated work self-contained and durable. |
 | `improve-codebase-architecture` | `complex-code-explorer.toml`, `code-reviewer.toml`, `release-reviewer.toml` | Record architecture after-effects without blocking delivery unless release risk exists. |
-| `prototype` | Deferred | Add later only as a throwaway decision route. |
+| `prototype` | `orchestrate-workflow`, `coding-worker.toml`, `complex-coding-worker.toml` | Use only as a throwaway decision route for state machine, interface shape, or UI direction questions. |
 
 ## Diagnose
 
@@ -44,7 +44,7 @@ Reference source: `mattpocock/skills`, `skills/engineering`, MIT License, local 
 
 AgentFlow doc mapping:
 
-- domain glossary and system map: `PROJECT.md`, `ENGINEERING-RULES.md`, and active SPEC/GUIDE docs;
+- domain glossary and system map: `CONTEXT.md`, `PROJECT.md`, `ENGINEERING-RULES.md`, and active SPEC/GUIDE docs;
 - decision records: existing ADR/SPEC/GUIDE structure;
 - local execution rules: `AGENTS.md` and `AGENTS.override.md`.
 
@@ -53,7 +53,7 @@ AgentFlow doc mapping:
 3. Run at least two concrete business scenarios through the design. One scenario should be an edge, failure, empty, permission, repeated-submit, concurrency, or rollback case.
 4. Cross-check that code facts support design claims. If code can answer a question, inspect code instead of asking the user.
 5. Suggest ADR only when all are true: the decision is hard to reverse, it would surprise future maintainers without context, and it contains a real trade-off.
-6. Do not create parallel truth sources such as `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/agents/` for AgentFlow.
+6. Use AgentFlow root `CONTEXT.md` as the upstream-skill glossary; do not create `CONTEXT-MAP.md` or `docs/agents/` unless the project rules are explicitly changed.
 
 ## To-Issues As Task Pack Design
 
@@ -97,8 +97,6 @@ AgentFlow doc mapping:
 ## Not Adopted
 
 - external issue tracker setup;
-- triage labels;
-- `CONTEXT.md`;
 - `CONTEXT-MAP.md`;
 - `docs/agents/`;
 - issue publishing as a default workflow;

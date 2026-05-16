@@ -44,10 +44,10 @@ developer_instructions = '''
 - deployment order 会让现役客户端或服务 401 / 500。
 - release-gate / manual production dependency 没有验证证据。
 
-## Universal Envelope Fill Rules
+## Return Contract
 
 Return findings first, ordered by release severity.
-Fill the `SKILL.md` universal return envelope. Do not define a separate return protocol.
+Return using these exact top-level headings. Put role-specific details under `### Result`. Do not invent another top-level protocol.
 
 ### Verdict
 pass / blocked / needs repair / needs context

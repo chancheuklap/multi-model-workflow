@@ -49,13 +49,16 @@ Standard workflow:
 
 ```text
 superpowers:brainstorming
-  -> superpowers:writing-plans
+  + grill-with-docs discovery capture when business context must be preserved
+  -> CONTEXT.md + SPEC / design draft
+  -> superpowers:writing-plans when an implementation plan is needed
   -> orchestrate-workflow
   -> superpowers:finishing-a-development-branch
 ```
 
-`orchestrate-workflow` starts after a design or plan exists. It handles:
+`orchestrate-workflow` starts at discovery capture, design review, plan review, maintenance bug routing, or existing diff review. It handles:
 
+- new-feature / systemic-bug discussion capture into `CONTEXT.md` and SPEC / design drafts
 - Phase 0a design review
 - Phase 0b plan review
 - Task Pack planning and execution
@@ -65,9 +68,9 @@ superpowers:brainstorming
 - release-risk review when migrations, billing, permissions, runtime, deploy, rollback, or cross-service contracts are involved
 - business report
 
-Runtime review contracts live in `.agents/skills/orchestrate-workflow/references/`. They preserve the Claude plugin review prompts while adapting the dispatch targets to Codex `agent_type`s.
+Runtime review contracts live in `.agents/skills/orchestrate-workflow/references/`. They tell the parent coordinator what to include in dispatch prompts for Codex `agent_type`s.
 
-External engineering skills from `mattpocock/skills` are used as method inputs only. They do not replace the Claude plugin workflow; selected ideas such as feedback-loop diagnosis, vertical-slice TDD, grill-with-docs alignment, durable briefs, and architecture finding language are fused into the Codex skill references and agent instructions.
+External engineering skills from `mattpocock/skills` are active upstream methods. Orchestrate routes to them for grill-with-docs discovery, feedback-loop diagnosis, vertical-slice TDD, prototype decisions, durable issue briefs, and architecture findings, then folds their outputs back into the Codex phases.
 
 It does not automatically merge, push, or open PRs.
 

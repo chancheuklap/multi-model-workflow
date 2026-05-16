@@ -39,9 +39,9 @@ developer_instructions = '''
 - UI / UX pack 必须读取 mockup / screenshot / prototype，并用 browser screenshot、DOM scan、responsive check 或 manual checklist 给证据。
 - 触碰有 override 的目录时同步维护对应规则；不确定时报告 parent。
 
-## Universal Envelope Fill Rules
+## Return Contract
 
-Fill the `SKILL.md` universal return envelope. Do not define a separate return protocol.
+Return using these exact top-level headings. Put role-specific details under `### Result`. Do not invent another top-level protocol.
 
 ### Verdict
 pass / blocked / needs repair / needs context

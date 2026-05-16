@@ -59,14 +59,14 @@ AFK / HITL:
 Dependencies:
 Parallel safety:
 Out of scope:
-Return format:
+Return contract:
 ```
 
-这个 brief 进入 worker dispatch prompt。不要只发 task 标题。`Return format` 必须写成：use Orchestrate Workflow `SKILL.md` universal return envelope; put role-specific details under `### Result`.
+这个 brief 进入 worker dispatch prompt。不要只发 task 标题。`Return contract` 必须自足：include the standard top-level return headings; put worker-specific details under `### Result`.
 
 ## Return Contract
 
-The only top-level sub-agent return protocol is the universal return envelope in `SKILL.md`. This reference defines pack payloads and merge rules only.
+The parent dispatch must include the standard top-level return headings. This reference defines pack payloads and merge rules only.
 
 Findings use:
 

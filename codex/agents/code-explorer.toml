@@ -26,9 +26,9 @@ developer_instructions = '''
 
 涉及 API、Pydantic、DB、JSON、task payload、sync、capability、billing 或 helper placement 时，返回 owner、provider、consumer、Pydantic model、registry / migration / catalog、repository / read model 和测试入口；不要只返回“在哪个 helper 里改”。
 
-## Universal Envelope Fill Rules
+## Return Contract
 
-Fill the `SKILL.md` universal return envelope. Do not define a separate return protocol.
+Return using these exact top-level headings. Put role-specific details under `### Result`. Do not invent another top-level protocol.
 
 ### Verdict
 pass / blocked / needs repair / needs context
