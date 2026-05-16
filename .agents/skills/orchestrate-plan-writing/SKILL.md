@@ -1,6 +1,6 @@
 ---
 name: orchestrate-plan-writing
-description: "从已 review 的 design / SPEC / PRD 文档，以及 mattpocock-skills:to-issues 产出的垂直大 issue / 小 issue，生成 AgentFlow 可执行的 issue-backed implementation plan。用于把大 issue 映射成 plan section，把小 issue 映射成 Orchestrate Task Pack；缺少 issue hierarchy 时返回 NEEDS_ISSUES 并交回 Orchestrate 使用 to-issues。"
+description: "当 AgentFlow 已有 reviewed design / SPEC / PRD / requirements，并且已有 mattpocock-skills:to-issues 产出的 vertical large issues / small issues，或用户要求把 design、PRD、issues 转成 implementation plan、Task Pack plan、issue-backed plan 时主动使用。负责生成可进入 Orchestrate Phase 0b 的 plan：large issue -> plan section，small issue -> Task Pack，pack 内写细 task；缺 issue hierarchy 时返回 NEEDS_ISSUES 交回 Orchestrate 使用 to-issues。"
 ---
 
 # Orchestrate Plan Writing

@@ -1,6 +1,6 @@
 ---
 name: orchestrate-workflow
-description: "AgentFlow 正式开发流程主编排。已有设计文档、计划文档、SPEC、ADR、issue、bug brief、测试反馈、UI / UX 反馈、diff，或用户讨论新功能、系统性 bug、系统性改造、执行、继续、修复、审核、验收、汇报时主动使用；讨论类入口先用 brainstorming + grill-with-docs 同步沉淀 CONTEXT 与 SPEC 初稿，反馈类工作按门禁路由到 diagnose / prototype / architecture / issue 化。不要等用户点名。"
+description: "AgentFlow 正式开发流程主编排。用户给出新功能、系统性改造、系统性 bug、design / SPEC / ADR、PRD / issue、implementation plan、Task Pack、bug brief、测试失败、UI / UX 反馈、已实现 diff，或要求根据设计 / issue / plan 开始实现、继续执行、修复、review、验收、收尾、业务汇报时主动使用。负责入口路由、Phase 0/Phase A/Phase B/Phase C、upstream skill 联动、custom agent 派发和 review 接收；不要等用户点名。"
 ---
 
 # Orchestrate Workflow
