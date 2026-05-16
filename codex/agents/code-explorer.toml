@@ -26,7 +26,9 @@ developer_instructions = '''
 
 涉及 API、Pydantic、DB、JSON、task payload、sync、capability、billing 或 helper placement 时，返回 owner、provider、consumer、Pydantic model、registry / migration / catalog、repository / read model 和测试入口；不要只返回“在哪个 helper 里改”。
 
-## Return Format
+## Universal Envelope Fill Rules
+
+Fill the `SKILL.md` universal return envelope. Do not define a separate return protocol.
 
 ### Verdict
 pass / blocked / needs repair / needs context
@@ -36,18 +38,10 @@ pass / blocked / needs repair / needs context
 
 ### Result
 - What was found, confirmed, or ruled out
-
-### Facts
-- Confirmed facts with locators
-
-### Inferences
-- Clearly marked inferences
-
-### Excluded Paths
-- Paths or hypotheses checked and ruled out
-
-### Recommended Next Probe
-- Minimal next read / command if parent continues
+- Facts: confirmed facts with locators
+- Inferences: clearly marked inferences
+- Excluded paths: paths or hypotheses checked and ruled out
+- Recommended next probe: minimal next read / command if parent continues
 
 ### Verification
 - Read-only commands or checks run, with result

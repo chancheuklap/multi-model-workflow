@@ -62,33 +62,11 @@ Out of scope:
 Return format:
 ```
 
-这个 brief 进入 worker dispatch prompt。不要只发 task 标题。`Return format` 必须使用 Orchestrate Workflow 的结构化 sub-agent 返回格式；不同角色可以追加 role-specific headings，但不能省略 universal envelope。
+这个 brief 进入 worker dispatch prompt。不要只发 task 标题。`Return format` 必须写成：use Orchestrate Workflow `SKILL.md` universal return envelope; put role-specific details under `### Result`.
 
-## Sub-agent Return Envelope
+## Return Contract
 
-所有 worker、explorer、reviewer 和 docs worker 的 dispatch 都必须包含：
-
-```text
-### Verdict
-pass / blocked / needs repair / needs context
-
-### Evidence
-- Files / docs / tests / commands / screenshots actually inspected
-- Key facts, with locators where useful
-
-### Result
-- What was changed, found, reviewed, or confirmed
-
-### Verification
-- Commands or checks run, with result
-- Checks not run, with reason
-
-### Open Items
-- Questions, risks, gaps, or decisions the parent must handle
-
-### Routing
-- Suggested next owner: parent / original worker / coding_worker / complex_coding_worker / complex_code_explorer / code_reviewer / release_reviewer / upstream grill-with-docs / upstream diagnose / upstream prototype / upstream improve-codebase-architecture / upstream triage-to-issues / user decision
-```
+The only top-level sub-agent return protocol is the universal return envelope in `SKILL.md`. This reference defines pack payloads and merge rules only.
 
 Findings use:
 

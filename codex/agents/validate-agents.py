@@ -29,6 +29,7 @@ UNIVERSAL_RETURN_TOKENS = [
     "### Open Items",
     "### Routing",
 ]
+UNIVERSAL_RETURN_HEADINGS = set(UNIVERSAL_RETURN_TOKENS)
 
 
 def fail(message: str) -> None:
@@ -71,6 +72,13 @@ def validate_skills_config(path: Path, data: dict[str, object]) -> None:
             fail(f"{path}: skills.config[{index}].enabled must be a boolean")
 
 
+def validate_universal_return_headings(path: Path, text: str) -> None:
+    headings = [line.strip() for line in text.splitlines() if line.startswith("### ")]
+    extra = [heading for heading in headings if heading not in UNIVERSAL_RETURN_HEADINGS]
+    if extra:
+        fail(f"{path}: non-universal return headings found: {', '.join(extra)}")
+
+
 def main() -> int:
     files = sorted(ROOT.glob("*.toml"))
     if not files:
@@ -94,7 +102,17 @@ def main() -> int:
 
         stem = path.stem
         require_tokens(path, instructions, UNIVERSAL_RETURN_TOKENS)
-        require_tokens(path, instructions, ["pass / blocked / needs repair / needs context"])
+        require_tokens(
+            path,
+            instructions,
+            [
+                "Universal Envelope Fill Rules",
+                "SKILL.md",
+                "Do not define a separate return protocol",
+                "pass / blocked / needs repair / needs context",
+            ],
+        )
+        validate_universal_return_headings(path, instructions)
 
         if "reviewer" in stem:
             require_tokens(path, instructions, ["read-only", "findings"])

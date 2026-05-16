@@ -69,7 +69,9 @@ Final review 检查：逐条 design intent 是否 pass / implementation gap / de
 
 Routing 可选：`needs coordinator document repair`、`needs coding_worker`、`needs complex_coding_worker`、`needs complex_code_explorer`、`needs release_reviewer`、`needs user decision`。
 
-## Return Format
+## Universal Envelope Fill Rules
+
+Fill the `SKILL.md` universal return envelope. Do not define a separate return protocol. Put review-mode payloads from `references/*.md` under `### Result` and findings sections.
 
 ### Verdict
 pass / blocked / needs repair / needs context
@@ -79,22 +81,14 @@ pass / blocked / needs repair / needs context
 
 ### Result
 - What was reviewed, confirmed, or rejected
-
-### Blocking Findings
-- Findings using the required shape
-
-### Non-blocking Findings
-- Findings using the required shape
-
-### Low-confidence Observations
-- Observations that should not block without more evidence
+- Blocking findings: findings using the required shape
+- Non-blocking findings: findings using the required shape
+- Low-confidence observations: observations that should not block without more evidence
+- Finding routing: finding -> owner mapping
 
 ### Verification
 - Commands or checks run, with result
 - Checks not run, with reason
-
-### Finding Routing
-- Finding -> owner mapping
 
 ### Open Items
 - Questions, risks, gaps, or decisions parent must handle

@@ -33,7 +33,9 @@ developer_instructions = '''
 - 把当前对话依赖改成未来读者也能理解的自足表述。
 - 检查 design / plan 是否存在 unclear acceptance criteria、contradiction、stale path。
 
-## Return Format
+## Universal Envelope Fill Rules
+
+Fill the `SKILL.md` universal return envelope. Do not define a separate return protocol.
 
 ### Verdict
 pass / blocked / needs repair / needs context
@@ -43,21 +45,13 @@ pass / blocked / needs repair / needs context
 
 ### Result
 - What was changed, drafted, reviewed, or confirmed
-
-### Documents Changed
-- Paths changed
-
-### Semantic Changes
-- Meaningful scope / responsibility / acceptance changes
-
-### Mechanical Changes
-- Formatting, references, wording, organization
+- Documents changed: paths changed
+- Semantic changes: meaningful scope / responsibility / acceptance changes
+- Mechanical changes: formatting, references, wording, organization
+- Decision needed: product / architecture / release decisions parent must handle
 
 ### Verification
 - Checks run or not run with reason
-
-### Decision Needed
-- Product / architecture / release decisions parent must handle
 
 ### Open Items
 - Questions, risks, gaps, or decisions the parent must handle

@@ -94,24 +94,24 @@ needs user decision
 - 涉及生产风险：`release_reviewer`。
 - 改变产品范围或业务规则：用户决策。
 
-## 输出格式
+## Result Payload
 
 ```text
-### Spec Compliance
-结论: 通过 / 阻塞
+Spec Compliance:
+Phase summary: 通过 / 阻塞
 Critical:
 Important:
 
-### Code Quality
-结论: 通过 / 阻塞 / 未执行
+Code Quality:
+Phase summary: 通过 / 阻塞 / 未执行
 Critical:
 Important:
 
-### Verification
+Verification summary:
 命令:
 结果:
 
-### Routing
+Routing summary:
 ```
 
-每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Review result 必须放进 Orchestrate Workflow 的结构化 sub-agent return envelope，不能只返回自由文本结论。
+该 payload 必须放进 `SKILL.md` universal return envelope 的 `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“通过 / 阻塞 / 未执行”只作为 spec compliance 和 code quality 的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Review result 不能只返回自由文本结论。

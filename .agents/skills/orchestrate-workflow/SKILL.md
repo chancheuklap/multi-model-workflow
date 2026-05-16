@@ -193,6 +193,16 @@ Missing in-scope anchors -> `NEEDS_CONTEXT` / `BLOCKED`; do not invent schemas, 
 
 ## 6. Dispatch Contract
 
+### Document Layers
+
+| Layer | Reader | Responsibility |
+| --- | --- | --- |
+| `SKILL.md` | parent coordinator | Owns phase routing, escalation gates, dispatch rules, review reception, and the single top-level sub-agent return envelope. |
+| `references/*.md` | parent coordinator | Owns phase-specific checks, pack rules, prompt payloads, and finding classification. References do not define a competing top-level output protocol. |
+| `codex/agents/*.toml` | custom sub-agent | Owns role discipline, local skill routing, project overlay, and how that role fills the universal envelope. Agent TOMLs do not redefine Orchestrate phases. |
+
+Parent dispatch combines these layers: read the relevant reference, choose the custom agent, send phase / anchors / pack or review payload, and require the universal return envelope. Sub-agents follow their TOML while honoring the dispatch payload.
+
 ### Agent Routing
 
 | 场景 | agent_type / owner |
@@ -209,7 +219,7 @@ Missing in-scope anchors -> `NEEDS_CONTEXT` / `BLOCKED`; do not invent schemas, 
 | UI direction / state machine / interface shape | parent runs `prototype` |
 | issue-backed durable workflow | parent runs `triage` / `to-prd` / `to-issues` |
 
-Custom agent TOMLs own role-level skill selection. Orchestrate supplies phase, source docs, anchors, verification, risk flags, and return format; high-risk prompts may include exact `SKILL.md` paths.
+Custom agent TOMLs own role-level skill selection. Orchestrate supplies phase, source docs, anchors, verification, risk flags, and the universal envelope; high-risk prompts may include exact `SKILL.md` paths.
 
 ### Universal Return Envelope
 
@@ -248,6 +258,8 @@ Findings use:
   remediation:
   routing:
 ```
+
+References and agent TOMLs may define role-specific payload headings inside `### Result`, but they must not replace `### Verdict`, `### Evidence`, `### Result`, `### Verification`, `### Open Items`, or `### Routing`.
 
 ## 7. Direction Check
 

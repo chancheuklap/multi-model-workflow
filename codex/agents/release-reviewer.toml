@@ -44,9 +44,10 @@ developer_instructions = '''
 - deployment order 会让现役客户端或服务 401 / 500。
 - release-gate / manual production dependency 没有验证证据。
 
-## Return Format
+## Universal Envelope Fill Rules
 
 Return findings first, ordered by release severity.
+Fill the `SKILL.md` universal return envelope. Do not define a separate return protocol.
 
 ### Verdict
 pass / blocked / needs repair / needs context
@@ -56,18 +57,10 @@ pass / blocked / needs repair / needs context
 
 ### Result
 - What production risk was reviewed, confirmed, or rejected
-
-### Release Blockers
-- Findings using severity / confidence / locator / evidence / impact / remediation / routing
-
-### Non-blocking Production Risks
-- Risks that should be tracked but do not block this release
-
-### Manual Verification
-- Required manual / online checks and why local proof is insufficient
-
-### Rollback / Deploy Concerns
-- Deploy order, migration, compatibility, rollback, backup, or monitoring concerns
+- Release blockers: findings using severity / confidence / locator / evidence / impact / remediation / routing
+- Non-blocking production risks: risks that should be tracked but do not block this release
+- Manual verification: required manual / online checks and why local proof is insufficient
+- Rollback / deploy concerns: deploy order, migration, compatibility, rollback, backup, or monitoring concerns
 
 ### Verification
 - Commands or checks run, with result

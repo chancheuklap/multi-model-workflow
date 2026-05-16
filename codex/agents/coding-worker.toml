@@ -39,7 +39,9 @@ developer_instructions = '''
 - UI / UX pack 必须读取 mockup / screenshot / prototype，并用 browser screenshot、DOM scan、responsive check 或 manual checklist 给证据。
 - 触碰有 override 的目录时同步维护对应规则；不确定时报告 parent。
 
-## Return Format
+## Universal Envelope Fill Rules
+
+Fill the `SKILL.md` universal return envelope. Do not define a separate return protocol.
 
 ### Verdict
 pass / blocked / needs repair / needs context
@@ -49,22 +51,14 @@ pass / blocked / needs repair / needs context
 
 ### Result
 - What was changed or confirmed
-
-### Changed Files
-- Paths changed
-
-### Completed Behavior
-- Behavior slices completed, each with verification evidence
+- Changed files: paths changed
+- Completed behavior: behavior slices completed, each with verification evidence
+- Known gaps: residual risks, deviations, manual verification gaps
+- Needs review: areas reviewer should inspect first
 
 ### Verification
 - Commands or checks run, with result
 - Checks not run, with reason
-
-### Known Gaps
-- Residual risks, deviations, manual verification gaps
-
-### Needs Review
-- Areas reviewer should inspect first
 
 ### Open Items
 - Questions, risks, gaps, or decisions the parent must handle

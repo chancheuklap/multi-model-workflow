@@ -103,29 +103,29 @@ Final review 可以记录架构后效应，但不能随意把架构摩擦升级�
 
 如果 final review 需要判断 module、interface、seam、adapter、depth、locality、deletion test 或 dependency category，使用 upstream `improve-codebase-architecture` 作为方法来源。Orchestrate 只定义 blocker threshold：architecture after-effect 只有造成 production risk、data risk、permission risk、billing risk、rollback failure 或当前验收不成立时，才成为 blocker；否则通过 upstream `triage` / `to-issues` 记录为 bounded issue candidate。
 
-## 输出格式
+## Result Payload
 
 ```text
-### Final Intent Review
+Final Intent Review:
 通过: X / Y
 Implementation Gaps:
 Design Gaps:
 Context Gaps:
 Unverifiable:
 
-### Regression / Cross-Pack Review
+Regression / Cross-Pack Review:
 Critical:
 Important:
 
-### Release Risk
+Release Risk:
 Blockers:
 Manual verification:
 Rollback concerns:
 
-### Verdict
+Phase Summary:
 可以完成 / 阻塞
 ```
 
 不要用 worker self-report 作为通过证据。
 
-每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Final review result 必须放进 Orchestrate Workflow 的结构化 sub-agent return envelope，方便主线程执行 Review Reception Gate。
+该 payload 必须放进 `SKILL.md` universal return envelope 的 `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“可以完成 / 阻塞”只作为 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Final review result 必须能被主线程执行 Review Reception Gate。

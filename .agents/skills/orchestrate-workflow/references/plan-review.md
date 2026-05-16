@@ -98,11 +98,11 @@ Prompt 必须包含同一组 Read first 和 Project baseline，也就是 source 
 - 是否有“最后统一验证”的水平切片风险。
 - 是否有把 UI / UX 主观反馈、业务含混点或 architecture seam 问题伪装成普通实现 task 的风险；前者 route 给 `grill-with-docs`，后者 route 给 `improve-codebase-architecture`。
 
-## 输出格式
+## Result Payload
 
 ```text
-### 计划文档审查
-结论: 可执行 / 需修正
+Review: 计划文档审查
+Phase summary: 可执行 / 需修正
 设计覆盖:
 Grep / rg 验真:
 Critical:
@@ -110,6 +110,6 @@ Important:
 低置信度观察:
 ```
 
-每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source design gap、context ambiguity，还是 architecture friction；context ambiguity route 给 upstream `grill-with-docs`，architecture friction route 给 upstream `improve-codebase-architecture`。
+该 payload 必须放进 `SKILL.md` universal return envelope 的 `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“可执行 / 需修正”只作为 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source design gap、context ambiguity，还是 architecture friction；context ambiguity route 给 upstream `grill-with-docs`，architecture friction route 给 upstream `improve-codebase-architecture`。
 
 Phase 0 plan findings 返回 coordinator。主线程修 plan，不派 worker 写代码。

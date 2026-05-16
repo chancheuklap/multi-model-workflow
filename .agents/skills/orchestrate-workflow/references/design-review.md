@@ -33,17 +33,17 @@ Critical：
 - 关键业务场景缺失。
 - 新对象、新状态、新合同缺 owner / writer / reader / verifier / cleanup responsibility，并且影响验收。
 
-输出：
+Result payload under `### Result`:
 
 ```text
-### 设计文档 - 内容与逻辑审查
-结论: 通过 / 阻塞
+Review: 设计文档 - 内容与逻辑审查
+Phase summary: 通过 / 阻塞
 Critical:
 Important:
 低置信度观察:
 ```
 
-每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Design finding 默认 route 给 coordinator document repair；domain language、业务对象、UI / UX target state、验收口径不清 route 给 upstream `grill-with-docs`；产品承诺、业务规则、UX、发布策略、架构 trade-off 无法由文档和代码判断时 route 给 user decision。
+该 payload 必须包装进 `SKILL.md` universal return envelope。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Design finding 默认 route 给 coordinator document repair；domain language、业务对象、UI / UX target state、验收口径不清 route 给 upstream `grill-with-docs`；产品承诺、业务规则、UX、发布策略、架构 trade-off 无法由文档和代码判断时 route 给 user decision。
 
 ## Dispatch 2: Project Alignment Review
 
@@ -76,14 +76,14 @@ Critical：
 - 新 API / DB / JSON / task / sync payload 绕过 Pydantic contract、JSON registry、migration tree 或 catalog。
 - 生产数据、权限、账务、迁移或回滚风险未设计。
 
-输出：
+Result payload under `### Result`:
 
 ```text
-### 设计文档 - 项目对齐审查
-结论: 通过 / 阻塞
+Review: 设计文档 - 项目对齐审查
+Phase summary: 通过 / 阻塞
 Critical:
 Important:
 低置信度观察:
 ```
 
-Phase 0 finding 返回 coordinator。主线程修文档；不派 worker 写代码。
+该 payload 必须包装进 `SKILL.md` universal return envelope。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。Phase 0 finding 返回 coordinator。主线程修文档；不派 worker 写代码。

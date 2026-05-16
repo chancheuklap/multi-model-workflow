@@ -38,7 +38,9 @@ developer_instructions = '''
 - UI / UX 高风险 pack 必须对照 mockup 和权限 / runtime 约束验证。
 - 触碰 override 覆盖范围时同步维护；如果会改变正式工程规则，返回 `NEEDS_CONTEXT`。
 
-## Return Format
+## Universal Envelope Fill Rules
+
+Fill the `SKILL.md` universal return envelope. Do not define a separate return protocol.
 
 ### Verdict
 pass / blocked / needs repair / needs context
@@ -48,22 +50,14 @@ pass / blocked / needs repair / needs context
 
 ### Result
 - What was changed or confirmed
-
-### Changed Files
-- Paths changed
-
-### Completed Behavior
-- Behavior slices completed, each with verification evidence
+- Changed files: paths changed
+- Completed behavior: behavior slices completed, each with verification evidence
+- Known gaps: compatibility impact, migration / deploy notes, rollback concerns, manual verification gaps
+- Needs review: contract, risk, architecture, release, or UI areas reviewer should inspect first
 
 ### Verification
 - Commands or checks run, with result
 - Checks not run, with reason
-
-### Known Gaps
-- Compatibility impact, migration / deploy notes, rollback concerns, manual verification gaps
-
-### Needs Review
-- Contract, risk, architecture, release, or UI areas reviewer should inspect first
 
 ### Open Items
 - Questions, risks, gaps, or decisions the parent must handle
