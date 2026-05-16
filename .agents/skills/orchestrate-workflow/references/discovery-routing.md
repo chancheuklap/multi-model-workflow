@@ -7,10 +7,11 @@
 1. 同时使用 `brainstorming` 和 `grill-with-docs` 做 discovery capture。
 2. `brainstorming` 负责探索产品意图、用户场景、目标行为、方案取舍和验收口径。
 3. `grill-with-docs` 同步约束领域语言、对象 owner、状态、边界、合同和现有文档。
-4. 每轮对话同时更新两个输出：稳定术语、对象关系、角色和状态写回 `CONTEXT.md` 或项目规则指定的上下文文档；功能承诺、UI 状态、接口合同、失败场景、rollout 边界和 acceptance 写入 SPEC / design draft。
-5. 能从代码或文档确认的问题，先查证；只把剩余业务决策交给用户。
-6. state machine、interface shape 或 UI 方向需要比较时，先走 `prototype`，再把结论写回 design。
-7. source requirements 成形后进入 Phase 0a。
+4. 能从代码或文档确认的问题，先查证；只把剩余业务决策交给用户。
+5. 向用户提问时一次只问一个，优先问能澄清 business intent、domain language、object relationship、state、boundary 和 acceptance 的问题。
+6. 每轮对话同时更新两个输出：稳定术语、对象关系、角色、状态、示例对话和已标记歧义写回 `CONTEXT.md` 或项目规则指定的上下文文档；功能承诺、UI 状态、接口合同、失败场景、rollout 边界和 acceptance 写入 SPEC / design draft。
+7. state machine、interface shape 或 UI 方向需要比较时，先走 `prototype`，再把结论写回 design。
+8. source requirements 成形后进入 Phase 0a。
 
 ## 流程图
 

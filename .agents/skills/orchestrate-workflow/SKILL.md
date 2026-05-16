@@ -44,6 +44,8 @@ source intent / feedback
 - Phase 0b 前，plan 必须声明 source design、source issues、Execution owner、Plan unit、Completion gate、large issue -> small issue -> Task Pack mapping。
 - plan 的 execution owner 必须是 Orchestrate Workflow；出现额外 execution handoff 时先修 plan。
 - 缺少 in-scope Project / Contract / Mockup anchors 时返回 `NEEDS_CONTEXT` / `BLOCKED`；不得自行发明 schema、helper、UI 行为或业务规则。
+- upstream skill 产出的 clarified context、prototype verdict、bug brief、architecture finding、issue brief 必须写回对应 design / plan / bug brief / issue，再继续 Orchestrate phase。
+- Task Pack implementation 必须按 public-behavior vertical TDD；禁止按 schema / backend / frontend / tests 横切。
 - 边界工作必须读取 `references/contract-boundary.md`。
 - 派发 custom agent 前必须读取 `references/dispatch-contract.md`，并把 Read first、Project baseline、anchors、self-contained Pack Brief / review payload、return contract 放进 prompt。
 - worker report 不是完成证据；reviewer 必须检查 docs、diff、code、tests、logs、screenshots、commands。
