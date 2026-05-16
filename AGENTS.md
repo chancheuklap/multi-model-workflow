@@ -19,9 +19,9 @@
 
 | 层级 | 路径 | 作用 |
 | --- | --- | --- |
-| Codex skill source | `.agents/skills/orchestrate-workflow/` | `orchestrate-workflow` skill 的源码真相 |
+| Codex skill source | `.agents/skills/orchestrate-workflow/`、`.agents/skills/orchestrate-plan-writing/` | Codex workflow skills 的源码真相 |
 | Codex agent source | `codex/agents/*.toml` | 自定义 `agent_type` 指令模板 |
-| Codex skill runtime | `/Users/cheuklapchan/.agents/skills/orchestrate-workflow` | Codex 实际可加载的 user-level skill |
+| Codex skill runtime | `/Users/cheuklapchan/.agents/skills/orchestrate-workflow`、`/Users/cheuklapchan/.agents/skills/orchestrate-plan-writing` | Codex 实际可加载的 user-level skills |
 | Codex agent runtime | `/Users/cheuklapchan/.codex/agents/*.toml` | Codex 实际可调用的 custom sub-agent |
 | Claude plugin source | `plugin/` | Claude Code 兼容源；不作为 Codex 当前设计权威 |
 
@@ -34,6 +34,7 @@ python3 codex/agents/validate-agents.py
 bash codex/skills/install-orchestrate-workflow.sh --user --apply
 bash codex/agents/sync-agents.sh --apply
 diff -qr .agents/skills/orchestrate-workflow /Users/cheuklapchan/.agents/skills/orchestrate-workflow
+diff -qr .agents/skills/orchestrate-plan-writing /Users/cheuklapchan/.agents/skills/orchestrate-plan-writing
 for f in code-explorer code-reviewer coding-worker complex-code-explorer complex-coding-worker docs-worker release-reviewer; do
   diff -q "codex/agents/$f.toml" "/Users/cheuklapchan/.codex/agents/$f.toml"
 done
@@ -45,6 +46,8 @@ done
 
 - `.agents/skills/orchestrate-workflow/SKILL.md`
 - `.agents/skills/orchestrate-workflow/references/*.md`
+- `.agents/skills/orchestrate-plan-writing/SKILL.md`
+- `.agents/skills/orchestrate-plan-writing/references/*.md`
 - `codex/agents/*.toml`
 
 runtime 文件只写会改变 agent 下一步行为的指令：
@@ -85,7 +88,8 @@ runtime 文件只写会改变 agent 下一步行为的指令：
 
 - `orchestrate-workflow` 能从 discovery capture、design、plan、bug feedback、UI/UX feedback 或 existing diff 接管正确入口。
 - Phase 0a 能审设计文档的完整性、项目一致性、场景边界、合同边界和 UI/mockup 承接关系。
-- Phase 0b 能审计划文档的覆盖率、真实路径、可执行性、验收标准、Task Pack 切分和风险任务。
+- `orchestrate-plan-writing` 能把已 review 的 design / SPEC / PRD 与 `to-issues` 产出的 vertical large issues / vertical small issues 生成 issue-backed implementation plan；大 issue 对应 plan 一级章节，小 issue 对应 Task Pack。缺 issue 层级时必须回到 `to-issues`，不能自行把候选拆分当正式 pack。
+- Phase 0b 能审计划文档的覆盖率、真实路径、可执行性、验收标准、issue -> Task Pack 映射和风险任务。
 - Phase A 能把 Task Pack 派给正确 custom agent，实现后做 spec compliance 和 code quality review。
 - Phase B 能把所有 pack 合起来审最终 intent，而不是只相信每个 pack 自报完成。
 - 生产风险必须追加 `release_reviewer`，但不能替代 baseline `code_reviewer`。
@@ -112,6 +116,8 @@ runtime 文件只写会改变 agent 下一步行为的指令：
 | --- | --- | --- | --- |
 | `.agents/skills/orchestrate-workflow/SKILL.md` | 主线程 coordinator | 入口路由、phase、escalation gate、dispatch、review reception、standard return contract | 假设 custom agent 自动知道本文件 |
 | `.agents/skills/orchestrate-workflow/references/*.md` | 主线程 coordinator | phase-specific 检查项、payload 模板、finding 分类、pack / review 规则 | 写成 sub-agent 自动读取的 contract source |
+| `.agents/skills/orchestrate-plan-writing/SKILL.md` | 主线程 planner | issue-backed plan 生成流程、输入要求、plan 结构、Task Pack 写作规则 | 重新定义 Orchestrate Phase A/B；提供非 Orchestrate execution owner |
+| `.agents/skills/orchestrate-plan-writing/references/*.md` | 主线程 planner | issue -> pack 映射、plan 文档合同、自检清单 | 让 worker 直接依赖这些 references |
 | `codex/agents/*.toml` | custom agent 自己 | 角色边界、默认方法、项目 overlay、可执行 / 只读纪律、本地 return contract | 引用模糊的 `SKILL.md`；重新定义 Orchestrate phase |
 | parent dispatch prompt | 主线程发给 custom agent | 本次 phase、source docs、anchors、risk、verification、return contract | 只发“按 Orchestrate 做”这类隐式要求 |
 
@@ -125,6 +131,7 @@ Codex runtime 优先使用真实 `agent_type`，不要把旧 Claude plugin 的 a
 
 | 当前能力 | agent_type / owner |
 | --- | --- |
+| issue-backed implementation plan generation | `orchestrate-plan-writing` |
 | baseline design / plan / pack / final review | `code_reviewer` |
 | production-risk supplement | `release_reviewer` |
 | ordinary Task Pack / clear implementation finding | `coding_worker` |
@@ -146,13 +153,13 @@ Superpowers 和 `mattpocock/skills` 是当前 Codex workflow 的前置方法和�
 必须保留的行为：
 
 - 新功能、系统性 bug、系统性改造讨论：`superpowers:brainstorming` + `grill-with-docs`，同步沉淀 `CONTEXT.md` 和 SPEC / design draft。
-- design / plan 之后由 `orchestrate-workflow` 接管 Phase 0、Task Pack、Phase A、Phase B、Phase C。
+- design 通过 review 后，先由 `to-issues` 形成 vertical large issues 和 vertical small issues，再由 `orchestrate-plan-writing` 生成 issue-backed plan，最后由 `orchestrate-workflow` 接管 Phase 0b、Task Pack、Phase A、Phase B、Phase C。
 - bug / error / wrong state / performance regression：先 `diagnose` 建 feedback loop、症状、hypotheses、regression target，再进入 repair 或 pack。
 - implementation work：`tdd` 转成 public-behavior vertical TDD，禁止 horizontal slicing。
 - UI / state machine / interface shape 不确定：`prototype` 只回答决策问题，结论回写 design / plan。
 - domain / UX / terminology / ownership 不清：`grill-with-docs` 先澄清，再派 worker。
 - bad seam、repeated repair、single-adapter、测试面错误：`improve-codebase-architecture` 产生 architecture finding，再回到 Orchestrate gate。
-- durable backlog 或跨会话交接：`triage` / `to-prd` / `to-issues` 生成 issue / brief，但不替代 Phase 0 / Task Pack / Review Reception。
+- durable backlog 或跨会话交接：`triage` / `to-prd` / `to-issues` 生成 issue / brief；进入执行前必须由 `orchestrate-plan-writing` 固化成 plan / Task Pack。
 - completion proof：`verification-before-completion` 的证据纪律进入最终 gate。
 
 禁止做法：
@@ -167,13 +174,14 @@ Superpowers 和 `mattpocock/skills` 是当前 Codex workflow 的前置方法和�
 当用户要求“检查这套系统是否完善”时，先做概念和行为审计：
 
 1. 读 `.agents/skills/orchestrate-workflow/SKILL.md`。
-2. 读相关 `references/*.md`。
-3. 读 `codex/agents/*.toml`。
-4. 对照当前 Codex runtime、Superpowers 工作流和 upstream engineering skills。
-5. 判断每个能力是否已经变成可执行指令。
-6. 检查每条指令的 reader 是否正确：parent、reference、custom agent、runtime script 不能混。
-7. 只在发现明确缺口时改 source。
-8. 改完同步 runtime 并验证 diff。
+2. 读 `.agents/skills/orchestrate-plan-writing/SKILL.md`。
+3. 读相关 `references/*.md`。
+4. 读 `codex/agents/*.toml`。
+5. 对照当前 Codex runtime、Superpowers 工作流和 upstream engineering skills。
+6. 判断每个能力是否已经变成可执行指令。
+7. 检查每条指令的 reader 是否正确：parent、planner、reference、custom agent、runtime script 不能混。
+8. 只在发现明确缺口时改 source。
+9. 改完同步 runtime 并验证 diff。
 
 不要再把旧 Claude plugin source 当作 Codex 设计依据。只有在维护 `plugin/` 兼容包，或用户明确要求核旧包是否还有未迁移能力时，才读取旧 plugin source；读取后也必须以当前 Codex runtime 为准。
 
@@ -182,7 +190,7 @@ Superpowers 和 `mattpocock/skills` 是当前 Codex workflow 的前置方法和�
 当用户要求“清理垃圾解释性文字”时，直接扫描 runtime source 和 agent source：
 
 ```bash
-rg -n "workflow-auditor|pack-executor|root-cause-analyst|codex-rescue|SendMessage|Agent tool|Fill the .*SKILL.md|SKILL.md universal|装饰文档|不纳入 Runtime|来自外部|只写成方法名|不是方法名称|不安装整套" .agents/skills/orchestrate-workflow codex/agents
+rg -n "workflow-auditor|pack-executor|root-cause-analyst|codex-rescue|SendMessage|Agent tool|Fill the .*SKILL.md|SKILL.md universal|装饰文档|不纳入 Runtime|来自外部|只写成方法名|不是方法名称|不安装整套" .agents/skills codex/agents
 ```
 
 发现解释性文字后，优先删除；如果其中含有必要行为，只改写成直接指令。
@@ -194,6 +202,7 @@ rg -n "workflow-auditor|pack-executor|root-cause-analyst|codex-rescue|SendMessag
 可以委派的情况：
 
 - 一个 agent 审 `orchestrate-workflow` skill。
+- 一个 agent 审 `orchestrate-plan-writing` skill。
 - 一个 agent 审 `codex/agents/*.toml`。
 - 一个 agent 对照当前 Codex runtime 找 source / runtime 漂移。
 
@@ -240,6 +249,7 @@ bash -n codex/skills/install-orchestrate-workflow.sh
 bash codex/skills/install-orchestrate-workflow.sh --user --apply
 bash codex/agents/sync-agents.sh --apply
 diff -qr .agents/skills/orchestrate-workflow /Users/cheuklapchan/.agents/skills/orchestrate-workflow
+diff -qr .agents/skills/orchestrate-plan-writing /Users/cheuklapchan/.agents/skills/orchestrate-plan-writing
 ```
 
 如果改了 agent TOML，还要逐个对比 `/Users/cheuklapchan/.codex/agents/*.toml`。

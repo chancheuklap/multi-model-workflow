@@ -4,7 +4,7 @@
 
 Codex runtime:
 
-- repo-local skill: `.agents/skills/orchestrate-workflow/`
+- repo-local skills: `.agents/skills/orchestrate-workflow/`, `.agents/skills/orchestrate-plan-writing/`
 - versioned Codex agent templates: `codex/agents/*.toml`
 - sync, install, and validation scripts: `codex/agents/sync-agents.sh`, `codex/skills/install-orchestrate-workflow.sh`, `codex/agents/validate-agents.py`
 - optional hook scripts and installer under `codex/hooks/`
@@ -21,20 +21,21 @@ bash codex/agents/sync-agents.sh --apply
 
 Restart Codex if updated agent instructions are not visible.
 
-The repo-local skill is available when Codex runs from this repository or a subdirectory:
+The repo-local skills are available when Codex runs from this repository or a subdirectory:
 
 ```text
 .agents/skills/orchestrate-workflow/SKILL.md
+.agents/skills/orchestrate-plan-writing/SKILL.md
 ```
 
-To use the workflow from every project, install the skill into the user-level skills directory:
+To use the workflow from every project, install the skills into the user-level skills directory:
 
 ```bash
 bash codex/skills/install-orchestrate-workflow.sh --user --dry-run
 bash codex/skills/install-orchestrate-workflow.sh --user --apply
 ```
 
-Only vendor the skill into a specific target repo when that repo should carry its own copy:
+Only vendor the skills into a specific target repo when that repo should carry its own copy:
 
 ```bash
 bash codex/skills/install-orchestrate-workflow.sh --target-repo /path/to/repo --dry-run
@@ -51,8 +52,9 @@ Standard workflow:
 superpowers:brainstorming
   + grill-with-docs discovery capture when business context must be preserved
   -> CONTEXT.md + SPEC / design draft
-  -> superpowers:writing-plans when an implementation plan is needed
-  -> orchestrate-workflow
+  -> upstream to-issues for vertical large issues and vertical small issues
+  -> orchestrate-plan-writing for issue-backed implementation plan
+  -> orchestrate-workflow for Phase 0b / Task Pack execution
   -> superpowers:finishing-a-development-branch
 ```
 
@@ -69,6 +71,8 @@ superpowers:brainstorming
 - business report
 
 Runtime review contracts live in `.agents/skills/orchestrate-workflow/references/`. They tell the parent coordinator what to include in dispatch prompts for Codex `agent_type`s.
+
+`orchestrate-plan-writing` generates plans from reviewed source design and `to-issues` output. In generated plans, top-level sections map to vertical large issues, Task Packs map to vertical small issues, and fine-grained tasks live inside each pack. If large or small issues are missing, it routes back to `to-issues` instead of finalizing a plan.
 
 External engineering skills from `mattpocock/skills` are active upstream methods. Orchestrate routes to them for grill-with-docs discovery, feedback-loop diagnosis, vertical-slice TDD, prototype decisions, durable issue briefs, and architecture findings, then folds their outputs back into the Codex phases.
 
@@ -108,9 +112,9 @@ bash -n codex/agents/sync-agents.sh
 bash -n codex/skills/install-orchestrate-workflow.sh
 bash -n codex/hooks/install-hooks.sh
 python3 -m json.tool codex/hooks/hooks.json >/dev/null
-find codex .agents/skills/orchestrate-workflow -type f -name '*.sh' -print -exec bash -n {} \;
+find codex .agents/skills -type f -name '*.sh' -print -exec bash -n {} \;
 UNSUPPORTED='codex:codex''-rescue|CLAUDE''_PLUGIN_ROOT|Subagent''Stop|subagent''_type:|disallowed''Tools|max''Turns|Skill'' tool'
-rg -n "$UNSUPPORTED" codex .agents/skills/orchestrate-workflow
+rg -n "$UNSUPPORTED" codex .agents/skills
 ```
 
 Pressure scenarios: `codex/smoke/method-pressure-scenarios.md`.

@@ -31,6 +31,27 @@ Expected `code_reviewer` behavior:
 - Requires AFK/HITL classification and real dependency order.
 - Identifies missing public-behavior verification.
 
+## Orchestrate Plan Writing: Issue-Backed Plan
+
+Input shape:
+
+- A reviewed design doc has five vertical large issues under `docs/issues`.
+- Each large issue has source sections, acceptance criteria, blocked-by, and out of scope.
+- Some large issues still need smaller issue boundaries.
+- The user asks for an implementation plan.
+
+Expected `orchestrate-plan-writing` behavior:
+
+- Reads source design and issue docs before writing the plan.
+- Makes each large issue a top-level plan section.
+- Refuses to finalize the plan while large issues lack small issues.
+- Returns `NEEDS_ISSUES` and routes parent to `to-issues`, with suggested vertical-slice prompts.
+- After small issues exist, makes each small issue a Task Pack.
+- Puts fine-grained TDD / implementation steps inside each Task Pack.
+- Includes Scope Check and File / Responsibility Map before Task Packs.
+- Includes Contract anchors, Mockup anchors, AFK/HITL, dependencies, parallel safety, out of scope, and verification commands.
+- Keeps execution ownership inside Orchestrate Workflow.
+
 ## Code Reviewer: Mockup Alignment
 
 Input shape:

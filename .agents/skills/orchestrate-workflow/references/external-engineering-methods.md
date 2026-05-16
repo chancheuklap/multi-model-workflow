@@ -13,7 +13,7 @@ This file is a routing note, not a compressed copy of external methods. Do not p
 | Prototype decision | upstream `prototype` | Prototype is throwaway unless explicitly promoted; answer state machine, interface shape, or UI direction only. |
 | Architecture improvement | upstream `improve-codebase-architecture` | Architecture finding blocks only when it affects current correctness, data, permission, billing, runtime, rollback, or release safety. |
 | Unknown module map | upstream `zoom-out` | Preserve AgentFlow authority map: Gateway, Collection, Local Agent, Dashboard/Console, Pipeline, shared contracts. |
-| PRD / issue generation | upstream `to-prd`, `to-issues`, `triage` | Use GitHub issue state docs and AgentFlow plan / Task Pack boundaries. |
+| PRD / issue generation | upstream `to-prd`, `to-issues`, `triage` | Produce durable vertical large issues and small issues; `orchestrate-plan-writing` consumes that approved issue hierarchy and turns it into plan / Task Pack inventory. |
 | Completion proof | `superpowers:verification-before-completion` | Evidence must be phase-specific: tests, commands, screenshots, logs, release gates, or manual verification reason. |
 
 ## Trigger Priority
@@ -25,7 +25,9 @@ Run these checks before dispatching implementation work or accepting reviewer fi
 3. **Repro before fix**：If the report is a bug, error, wrong state, flaky behavior, or performance regression, use upstream `diagnose` to build a feedback loop before patching.
 4. **Question before prototype**：If the decision is about UI direction, state machine, interface shape, or alternative flows, use upstream `prototype` to answer that question, then fold the verdict back into design / plan.
 5. **Seam before repeated repair**：If the same issue keeps returning, the test surface is wrong, a single-adapter interface appears, or callers must know implementation detail, use upstream `improve-codebase-architecture`.
-6. **Durable brief before parking**：If the work cannot close in the current run or should be queued for later agents, use upstream `triage`, `to-prd`, or `to-issues`.
+6. **Issues before plan**：If source design has not been split into vertical large issues and vertical small issues, run upstream `to-issues` before `orchestrate-plan-writing`.
+7. **Issue-backed plan before execution**：After source design has vertical issue hierarchy, run `orchestrate-plan-writing` before Phase 0b; do not let Task Pack Planning invent pack boundaries online.
+8. **Durable brief before parking**：If the work cannot close in the current run or should be queued for later agents, use upstream `triage`, `to-prd`, or `to-issues`.
 
 ## Feedback Routing
 

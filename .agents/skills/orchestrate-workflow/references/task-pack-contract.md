@@ -2,6 +2,8 @@
 
 Task Pack 必须按可验证行为切分；不得机械复制 plan section。
 
+在 issue-backed planning 流程里，Task Pack 边界应先由 `orchestrate-plan-writing` 写进 plan。Orchestrate 的 Task Pack Planning 只验证和修复 plan 里的 pack inventory，不重新发明一套 pack 边界。只有 plan 缺少 issue-backed pack、pack 明显横切、依赖错误、合同锚点缺失或并行安全不成立时，才要求修 plan。
+
 ## 合格标准
 
 一个 pack 必须同时满足：
