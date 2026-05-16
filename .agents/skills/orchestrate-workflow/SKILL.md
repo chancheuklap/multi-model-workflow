@@ -1,6 +1,6 @@
 ---
 name: orchestrate-workflow
-description: "AgentFlow 正式开发流程主编排。用户给出新功能、系统性改造、系统性 bug、design / SPEC / ADR、PRD / issue、implementation plan、Task Pack、bug brief、测试失败、UI / UX 反馈、已实现 diff，或要求根据设计 / issue / plan 开始实现、继续执行、修复、review、验收、收尾、业务汇报时主动使用。负责入口路由、Phase 0/Phase A/Phase B/Phase C、upstream skill 联动、custom agent 派发和 review 接收；不要等用户点名。"
+description: "AgentFlow 正式开发流程主编排。用户给出新功能、系统性改造、系统性 bug、design / SPEC / ADR、PRD / issue、implementation plan、Task Pack、bug brief、测试失败、UI / UX 反馈、已实现 diff，或要求根据设计 / issue / plan 开始实现、继续执行、修复、review、验收、收尾、业务汇报时主动使用。讨论类入口同时使用 brainstorming + grill-with-docs，同步沉淀 CONTEXT 与 SPEC / design draft。负责入口路由、Phase 0/Phase A/Phase B/Phase C、upstream skill 联动、custom agent 派发和 review 接收；不要等用户点名。"
 ---
 
 # Orchestrate Workflow
@@ -26,7 +26,7 @@ source intent / feedback
 
 | 入口信号 | 第一动作 | 下一步 |
 | --- | --- | --- |
-| 全新功能、系统性改造、用户要边讨论边沉淀上下文 | 读取 `references/discovery-routing.md`；使用 `brainstorming` + `grill-with-docs` | 产出 source requirements 后进入 Phase 0a |
+| 全新功能、系统性改造、用户要边讨论边沉淀上下文 | 读取 `references/discovery-routing.md`；同时使用 `brainstorming` + `grill-with-docs` | 产出 source requirements 后进入 Phase 0a |
 | 已有 / 刚生成 design doc | Phase 0a；读取 `references/design-review.md` | design 通过后确认 large / small issues；缺失则走 `to-issues`；齐备后走 `orchestrate-plan-writing` |
 | 已有 / 刚生成 implementation plan | Phase 0b；读取 `references/plan-review.md` | plan 通过后进入 Task Pack dispatch preparation |
 | 系统性 bug 复盘、bug、报错、性能退化、状态错乱 | 先走 `diagnose`；读取 `references/maintenance-bug-routing.md` 判断 repair / design / plan / pack | 小型局部 fix 留 parent；高风险或跨模块进入 design / plan / pack |
