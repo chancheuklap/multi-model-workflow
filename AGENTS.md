@@ -11,7 +11,7 @@
 7. 最终意图验证和生产风险 review。
 8. 面向项目负责人的业务语言汇报。
 
-后续 agent 进入本仓库时，先按这个目的判断工作是否有效。不要把“文件存在、脚本能跑、安装成功、smoke prompt 能过”当成系统已经完整。
+后续 agent 进入本仓库时，先按这个目的判断工作是否有效。不要把“文件存在、脚本能跑、安装成功”当成系统已经完整。
 
 ## 1. Source / Runtime
 
@@ -30,7 +30,6 @@
 同步命令：
 
 ```bash
-python3 codex/agents/validate-agents.py
 bash codex/skills/install-orchestrate-workflow.sh --user --apply
 bash codex/agents/sync-agents.sh --apply
 diff -qr .agents/skills/orchestrate-workflow /Users/cheuklapchan/.agents/skills/orchestrate-workflow
@@ -61,7 +60,7 @@ runtime 文件只写会改变 agent 下一步行为的指令：
 - stop condition；
 - finding severity；
 - verification gate；
-- sync / validation command。
+- sync command。
 
 不要写：
 
@@ -82,7 +81,7 @@ runtime 文件只写会改变 agent 下一步行为的指令：
 
 ## 3. 系统完整性
 
-评估这套系统是否“完成”，不能只看安装和 smoke test。必须判断它是否能端到端承接真实项目工作流。
+评估这套系统是否“完成”，不能只看安装。必须判断它是否能端到端承接真实项目工作流。
 
 合格标准：
 
@@ -100,7 +99,7 @@ runtime 文件只写会改变 agent 下一步行为的指令：
 
 不合格信号：
 
-- 只说“已经安装 / 已经复制 / smoke 通过”。
+- 只说“已经安装 / 已经复制”。
 - 只在 README 里提到 Claude plugin、Superpowers 或 upstream skills，却没有转成具体 runtime 规则。
 - skill 里出现长篇解释、历史背景、方法论摘要。
 - custom agent TOML 只有泛泛角色描述，没有 review / implementation / diagnosis 的具体 contract。
@@ -122,8 +121,6 @@ runtime 文件只写会改变 agent 下一步行为的指令：
 | parent dispatch prompt | 主线程发给 custom agent | 本次 phase、source docs、anchors、risk、verification、return contract | 只发“按 Orchestrate 做”这类隐式要求 |
 
 return contract 只有一套，但必须自足地出现在 custom agent TOML 或 parent dispatch prompt 里。禁止在 agent TOML 写 `Fill the SKILL.md universal return envelope`、`use Orchestrate Workflow SKILL.md envelope` 这类 custom agent 无法定位的句子。
-
-`validate-agents.py` 必须守住这条边界：校验六个标准 heading、校验 self-contained `Return Contract`，并禁止模糊 `SKILL.md` return reference。`skills.config.path must point to a SKILL.md` 是上游 skill 路径校验，不属于这类错误。
 
 ## 5. 当前 Codex 权威
 
@@ -226,22 +223,14 @@ rg -n "workflow-auditor|pack-executor|root-cause-analyst|codex-rescue|SendMessag
 
 - 先给结论，再给证据。
 - 少讲“我理解了什么”，多讲“我检查了什么、改了什么、同步到了哪里”。
-- 用户问概念判断时，不要用 smoke test 回避设计判断。
+- 用户问概念判断时，不要用文件存在、安装成功或脚本输出回避设计判断。
 - 用户要求执行时，直接执行，不停在方案。
 - 承认方向错了以后立刻修，不要用新增文档掩盖 runtime 缺口。
 - 不要把 README、审计报告、设计文档当成 runtime 能力。
 - 用户指出“你没有理解系统”时，先停手读 source、runtime、config 和当前规则；不要马上 patch。
 - 回答为什么读某个旧来源时，如果它不是当前权威，必须说明它只是兼容 / 漂移检查，不再用来推导 Codex 设计。
 
-## 10. 验证清单
-
-改动收尾至少执行：
-
-```bash
-python3 codex/agents/validate-agents.py
-bash -n codex/agents/sync-agents.sh
-bash -n codex/skills/install-orchestrate-workflow.sh
-```
+## 10. 同步清单
 
 如果改了 user-level runtime：
 
@@ -254,4 +243,4 @@ diff -qr .agents/skills/orchestrate-plan-writing /Users/cheuklapchan/.agents/ski
 
 如果改了 agent TOML，还要逐个对比 `/Users/cheuklapchan/.codex/agents/*.toml`。
 
-收尾时报告真实结果。没跑的验证不能写成已通过。
+收尾时报告真实同步结果；不要把脚本输出包装成系统设计已经成立。

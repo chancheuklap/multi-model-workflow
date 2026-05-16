@@ -1,10 +1,10 @@
-# Issue To Pack Contract
+# Issue 到 Pack 合同
 
 本文件用于把 `mattpocock-skills:to-issues` 产出的 issue 文档转换成 Orchestrate Workflow Task Pack。
 
 ## 1. 映射关系
 
-| Source artifact | Plan artifact |
+| source artifact | plan artifact |
 | --- | --- |
 | source design / SPEC / PRD | plan 的 source of truth 和 coverage checklist |
 | `to-issues` vertical large issue | plan 一级章节 |
@@ -61,7 +61,7 @@
 - 只产出 schema 或 helper，没有 owner、consumer 和 public behavior verification。
 - 需要人工决策、真实账号、生产确认或人工验收，却标成 AFK。
 
-## 5. Upstream Route Payload
+## 5. 上游 route payload
 
 当需要交回 `to-issues` 时，返回这组信息给 Orchestrate：
 
@@ -75,5 +75,5 @@ Suggested vertical slices:
      Type: AFK / HITL
      Blocked by:
      User stories / acceptance:
-Do not publish / finalize these slices until to-issues runs and user or tracker state confirms them.
+这些 slices 只是建议；必须等 `to-issues` 运行，并由用户或 issue tracker 状态确认后，才能成为正式 issue / Task Pack。
 ```

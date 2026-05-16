@@ -132,7 +132,7 @@ Scope Check 和 File / Responsibility Map 是计划边界。先确认范围和�
 - 代码片段一旦出现，必须完整，不写省略号、伪变量或未定义方法；
 - 后续 task 引用的类型、函数、方法、字段或 fixture 必须在前文定义，或在 existing code 中已验真；
 - existing path 必须已验证；新文件写 `Create`；
-- 文档、`agents.overrides.md` / `AGENTS.override.md`、registry、migration、read model、release gate、smoke 更新必须和对应行为放在同一个 pack；
+- 文档、`agents.overrides.md` / `AGENTS.override.md`、registry、migration、read model、release gate 更新必须和对应行为放在同一个 pack；
 - 不写 `similar to previous task`、`appropriate error handling`、`write tests`、`TBD`、`TODO` 或 `later`。
 - 保持 DRY / YAGNI：不为未来 hypothetical slice 预建抽象；重复出现并且影响当前多个 pack 的真实复杂度，才安排 shared module / helper。
 - 写清 commit boundary，但不要要求 worker 在没有用户或 parent 指令时自行 commit。
@@ -156,7 +156,7 @@ verification 必须证明 pack 行为：
 - DB / migration：migration test、repository write / read model test、downgrade 或 rollback 说明；
 - JSON / registry：validator test 和 unknown-field test；
 - billing / permission：service test 和用户可见 gate test；
-- runtime / browser / Local Agent：focused unit test，加 smoke 或 log evidence；
+- runtime / browser / Local Agent：focused unit test，加 log evidence 或人工检查证据；
 - UI / UX：DOM assertion、screenshot、responsive viewport check 或明确 manual visual gate。
 
 不要把最终大套测试当作 pack 的唯一验证。

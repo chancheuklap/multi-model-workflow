@@ -1,8 +1,30 @@
-# Design Review Contract
+# Design Review 合同
 
 Phase 0a 审 design doc。检查设计能否被计划、实现和最终验证承接；不做文字润色审查。新想法产生 design doc 后必须立刻进入本 review，通过后才允许生成 implementation plan。
 
-## Dispatch 1: Design Content Review
+## 入口流程图
+
+```mermaid
+flowchart TD
+    A["已有 / 刚生成 design document"] --> B["Phase 0a design review"]
+    B --> C{"Design 可执行?"}
+    C -->|否| D["修 design / grill / prototype / user decision"]
+    D --> B
+    C -->|是| E{"large / small issues 已存在?"}
+    E -->|否| F["to-issues 补齐 issue hierarchy"]
+    F --> E
+    E -->|是| G["orchestrate-plan-writing"]
+    G --> H["基于已 review 的 design 和 vertical issues 生成 issue-backed implementation plan"]
+    H --> I["Phase 0b plan review，同时提供 design doc、issues 和 plan doc"]
+    I --> J{"Plan 可执行且与 design / issues 对齐?"}
+    J -->|否| K["修复 plan、design-plan mismatch 或 issue-plan mismatch"]
+    K --> I
+    J -->|是| L["Task Pack dispatch preparation"]
+```
+
+Phase 0a 最多 2 轮文档修复。仍有 Critical design finding 时，不生成 plan。
+
+## 派发 1：Design Content Review
 
 派 `code_reviewer`。让 reviewer 专注设计自身，不审代码实现。
 
@@ -33,7 +55,7 @@ Critical：
 - 关键业务场景缺失。
 - 新对象、新状态、新合同缺 owner / writer / reader / verifier / cleanup responsibility，并且影响验收。
 
-Result payload under `### Result`:
+`### Result` 内的 payload：
 
 ```text
 Review: 设计文档 - 内容与逻辑审查
@@ -43,9 +65,9 @@ Important:
 低置信度观察:
 ```
 
-Coordinator dispatch must include the standard top-level return headings. This payload belongs under `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Design finding 默认 route 给 coordinator document repair；domain language、业务对象、UI / UX target state、验收口径不清 route 给 upstream `grill-with-docs`；产品承诺、业务规则、UX、发布策略、架构 trade-off 无法由文档和代码判断时 route 给 user decision。
+Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Design finding 默认 route 给 coordinator document repair；domain language、业务对象、UI / UX target state、验收口径不清 route 给 upstream `grill-with-docs`；产品承诺、业务规则、UX、发布策略、架构 trade-off 无法由文档和代码判断时 route 给 user decision。
 
-## Dispatch 2: Project Alignment Review
+## 派发 2：Project Alignment Review
 
 派 `code_reviewer`。如果设计涉及 production-risk，在 `code_reviewer` 的内容审查和项目对齐审查完成后，追加 `release_reviewer`。`release_reviewer` 不能替代本节审查。
 
@@ -76,7 +98,7 @@ Critical：
 - 新 API / DB / JSON / task / sync payload 绕过 Pydantic contract、JSON registry、migration tree 或 catalog。
 - 生产数据、权限、账务、迁移或回滚风险未设计。
 
-Result payload under `### Result`:
+`### Result` 内的 payload：
 
 ```text
 Review: 设计文档 - 项目对齐审查
@@ -86,4 +108,4 @@ Important:
 低置信度观察:
 ```
 
-Coordinator dispatch must include the standard top-level return headings. This payload belongs under `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。Phase 0 finding 返回 coordinator。主线程修文档；不派 worker 写代码。
+Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。Phase 0 finding 返回 coordinator。主线程修文档；不派 worker 写代码。

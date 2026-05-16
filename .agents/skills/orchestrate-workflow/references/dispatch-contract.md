@@ -1,4 +1,4 @@
-# Dispatch Contract
+# Dispatch 合同
 
 本文件只在即将派发 custom agent、接收 reviewer / worker 结果、或跨上下文恢复方向时读取。
 

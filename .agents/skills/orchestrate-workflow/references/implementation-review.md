@@ -1,8 +1,10 @@
-# Implementation Review Contract
+# Implementation Review 合同
 
 Phase A 审 Task Pack 的实现。独立确认 worker 是否真实完成 pack；不接受 worker 自报作为通过证据。
 
-## Dispatch: Pack Review
+每个 pack 最多 3 轮修复。每轮 repair 必须说明上一轮为什么不够，并改变方法、证据或边界；不能重复同一种修补。
+
+## 派发：Pack Review
 
 派 `code_reviewer`。生产风险 pack 追加 `release_reviewer`。
 
@@ -31,7 +33,7 @@ Reviewer 不信任 worker self-report：
 5. 涉及合同边界时，按 `contract-boundary.md` 对照 diff 检查正式 contract、registry、migration、repository、read model、catalog 和 producer / consumer。
 6. 对照 pack brief 逐 task 审查。
 
-## Phase 1: Spec Compliance
+## Phase 1：Spec Compliance
 
 先审 spec compliance。有 Critical 时停止，不进入 code quality。
 
@@ -56,7 +58,7 @@ Critical：
 - 新 API / DB / JSON / task / sync payload 绕过 Pydantic contract、JSON registry、migration tree、catalog 或 consumer 同步。
 - 违反项目不变量或跨服务合同。
 
-## Phase 2: Code Quality
+## Phase 2：Code Quality
 
 仅 spec compliance 通过后执行。
 
@@ -114,4 +116,4 @@ Verification summary:
 Routing summary:
 ```
 
-Coordinator dispatch must include the standard top-level return headings. This payload belongs under `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“通过 / 阻塞 / 未执行”只作为 spec compliance 和 code quality 的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Review result 不能只返回自由文本结论。
+Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“通过 / 阻塞 / 未执行”只作为 spec compliance 和 code quality 的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Review result 不能只返回自由文本结论。

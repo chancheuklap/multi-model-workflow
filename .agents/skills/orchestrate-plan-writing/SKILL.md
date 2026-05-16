@@ -23,19 +23,6 @@ source design / requirements
 
 开始时说明：正在使用 `orchestrate-plan-writing` 生成 issue-backed implementation plan。
 
-## Reference 按需加载
-
-不要在启动时一次性读取全部 reference。先用本文件完成入口判断和输入检查；走到哪个决策面，再读取对应 reference。
-
-| 需要判断什么 | 读取 |
-| --- | --- |
-| large issue 能否映射为 plan section、small issue 能否映射为 Task Pack、缺 issue 时如何 route | `references/issue-to-pack-contract.md` |
-| 已确认 issue hierarchy 后，正式写 plan header、Scope Check、Source Coverage Map、File / Responsibility Map、Task Pack brief、细 task 和验证语言 | `references/plan-document-contract.md` |
-| plan 初稿已经形成后，检查质量、过度设计和设计不足 | `references/plan-quality-gates.md` |
-| 保存前最终自审，确认 coverage、executability、pack quality 和 red flags | `references/plan-self-review.md` |
-
-如果用户只要求解释这个技能，只读本文件。如果输入检查已经能返回 `NEEDS_CONTEXT`、`NEEDS_DESIGN_REVIEW`、`NEEDS_ISSUES` 或 `NEEDS_TRIAGE`，不要继续读取后续 plan 写作 reference。
-
 ## 输入检查
 
 必须先确认：

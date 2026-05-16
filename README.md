@@ -6,7 +6,7 @@ Codex runtime:
 
 - repo-local skills: `.agents/skills/orchestrate-workflow/`, `.agents/skills/orchestrate-plan-writing/`
 - versioned Codex agent templates: `codex/agents/*.toml`
-- sync, install, and validation scripts: `codex/agents/sync-agents.sh`, `codex/skills/install-orchestrate-workflow.sh`, `codex/agents/validate-agents.py`
+- sync and install scripts: `codex/agents/sync-agents.sh`, `codex/skills/install-orchestrate-workflow.sh`
 - optional hook scripts and installer under `codex/hooks/`
 
 ## Codex Install
@@ -14,7 +14,6 @@ Codex runtime:
 From this repository:
 
 ```bash
-python3 codex/agents/validate-agents.py
 bash codex/agents/sync-agents.sh --dry-run
 bash codex/agents/sync-agents.sh --apply
 ```
@@ -103,18 +102,3 @@ claude --plugin-dir /path/to/multi-model-workflow/plugin
 ```
 
 See `plugin/README.md` for Claude-specific agents and hooks.
-
-## Development Checks
-
-```bash
-python3 codex/agents/validate-agents.py
-bash -n codex/agents/sync-agents.sh
-bash -n codex/skills/install-orchestrate-workflow.sh
-bash -n codex/hooks/install-hooks.sh
-python3 -m json.tool codex/hooks/hooks.json >/dev/null
-find codex .agents/skills -type f -name '*.sh' -print -exec bash -n {} \;
-UNSUPPORTED='codex:codex''-rescue|CLAUDE''_PLUGIN_ROOT|Subagent''Stop|subagent''_type:|disallowed''Tools|max''Turns|Skill'' tool'
-rg -n "$UNSUPPORTED" codex .agents/skills
-```
-
-Pressure scenarios: `codex/smoke/method-pressure-scenarios.md`.

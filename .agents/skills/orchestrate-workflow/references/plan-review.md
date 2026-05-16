@@ -1,8 +1,28 @@
-# Plan Review Contract
+# Plan Review 合同
 
 Phase 0b 审 issue-backed implementation plan。目标是确认计划覆盖 source design / requirements 和 `to-issues` 产出的 source issues，且 plan 中的 Task Pack inventory 可以直接进入 Orchestrate dispatch。Plan Review 必须同时读取 source design / requirements、source issues 和 plan；如果只有 plan，没有 source intent 或 issue source，返回 `NEEDS_CONTEXT`，或由主线程补齐 source intent 后再审。
 
-## Plan Intake Requirements
+## 入口流程图
+
+```mermaid
+flowchart TD
+    A["已有 / 刚生成 implementation plan"] --> B["定位 source design doc / explicit requirements / source issues"]
+    B --> C{"是否有 design / source requirements?"}
+    C -->|否| D["NEEDS_CONTEXT，或先重建 source intent 再 review"]
+    C -->|是| E{"是否有 source issues 和 large -> small -> Task Pack 映射?"}
+    E -->|否| F["NEEDS_ISSUES，或先用 to-issues / orchestrate-plan-writing 补齐 issue-backed plan"]
+    F --> E
+    E -->|是| G["Phase 0b plan review，同时提供 source design / requirements、source issues 和 plan doc"]
+    G --> H{"Plan 可执行且对齐 design / issues?"}
+    H -->|否| I["修复 plan；如果 mismatch 暴露 design gap 也修复 source design；如果 issue gap 回 to-issues"]
+    I --> G
+    H -->|是| J["Task Pack dispatch preparation"]
+    J --> K["Phase A execution + Pack Review"]
+```
+
+Phase 0b 最多 2 轮修复。仍有 invalid pack、design-plan mismatch、issue-plan mismatch、虚构路径、缺验证或缺 anchors 时，不进入 Phase A。
+
+## Plan 入口要求
 
 进入 review 前，主线程必须确认 plan 包含：
 
@@ -19,7 +39,7 @@ Phase 0b 审 issue-backed implementation plan。目标是确认计划覆盖 sour
 
 如果 plan 声称 issue-backed，但缺少 vertical large issues 或 vertical small issues，返回 `needs context`，routing 指向 upstream `to-issues`。
 
-## Task Pack Inventory Validation
+## Task Pack Inventory 校验
 
 Phase 0b 同时是 Task Pack inventory 的权威校验点。Task Pack 边界来自 `orchestrate-plan-writing` 生成的 issue-backed plan；Phase 0b 只验证和修复 invalid pack，不重新发明 pack 边界。
 
@@ -92,7 +112,7 @@ AFK / HITL:
 
 UI / UX durable brief 必须保留 mockup path、目标 viewport、关键 states 和允许偏差。如果 durable brief 来自 grill / prototype / architecture review，写明 resolved context、prototype verdict 或 architecture finding。需要文件范围用于立即执行时，把它放在 Pack Brief 的 owned files 中，不放进 durable contract 的核心语义。
 
-## Dispatch 1: Coverage And Task Quality
+## 派发 1：Coverage And Task Quality
 
 派 `code_reviewer`。
 
@@ -130,7 +150,7 @@ Critical：
 - UI / UX mockup 没有被转成 Task Pack、viewport 检查或 visual / DOM 验收。
 - 合同边界任务没有 Contract anchors，worker 必须自创 dict / helper 才能执行。
 
-## Dispatch 2: Compliance And Verification
+## 派发 2：Compliance And Verification
 
 派 `code_reviewer`；涉及 production-risk 时追加 `release_reviewer`。
 
@@ -166,7 +186,7 @@ Critical：
 - 计划允许 bare dict、route-local schema、临时 helper、silent unknown-field drop 或错误 migration tree 进入实现。
 - 高风险变更没有迁移、兼容、回滚或人工验证任务。
 
-## Dispatch 3: Independent Second Opinion
+## 派发 3：Independent Second Opinion
 
 派独立 `code_reviewer`，不要给它前两份 review 的结论。目的不是重复检查，而是用新 framing 找遗漏。
 
@@ -195,6 +215,6 @@ Important:
 低置信度观察:
 ```
 
-Coordinator dispatch must include the standard top-level return headings. This payload belongs under `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“可执行 / 需修正”只作为 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source design gap、issue-plan mismatch、context ambiguity，还是 architecture friction；context ambiguity route 给 upstream `grill-with-docs`，architecture friction route 给 upstream `improve-codebase-architecture`。
+Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“可执行 / 需修正”只作为 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source design gap、issue-plan mismatch、context ambiguity，还是 architecture friction；context ambiguity route 给 upstream `grill-with-docs`，architecture friction route 给 upstream `improve-codebase-architecture`。
 
 Phase 0 plan findings 返回 coordinator。主线程修 plan，不派 worker 写代码。

@@ -1,6 +1,8 @@
-# Final Review Contract
+# Final Review 合同
 
 Phase B 验证所有 pack 合并后是否满足 design intent，并确认没有 release blocker。
+
+每个 final gap 最多 2 轮修复。Phase B dispatch 总量上限 15；超过上限时先做方向检查，确认是继续 repair、回 design / plan，还是请求用户决策。
 
 ## Final Intent Review
 
@@ -22,7 +24,7 @@ Phase B 验证所有 pack 合并后是否满足 design intent，并确认没有 
 步骤：
 
 1. 从 design doc 和 mockup 提取每条可验证 intent。
-2. 为每条 intent 写出验证方法：pytest、curl、CLI、UI、browser、screenshot、DOM scan、VM、smoke、manual checklist。
+2. 为每条 intent 写出验证方法：pytest、curl、CLI、UI、browser、screenshot、DOM scan、VM、manual checklist。
 3. 实际运行能运行的验证；不能运行时说明环境缺口。
 4. 对每条 intent 判定：pass / implementation gap / design gap / unverifiable.
 5. 跑 changed-files 相关回归检查。
@@ -128,4 +130,4 @@ Phase Summary:
 
 不要用 worker self-report 作为通过证据。
 
-Coordinator dispatch must include the standard top-level return headings. This payload belongs under `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“可以完成 / 阻塞”只作为 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Final review result 必须能被主线程执行 Review Reception Gate。
+Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“可以完成 / 阻塞”只作为 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Final review result 必须能被主线程执行 Review Reception Gate。
