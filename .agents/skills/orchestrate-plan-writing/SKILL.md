@@ -5,72 +5,98 @@ description: "从已 review 的 design / SPEC / PRD 文档，以及 mattpocock-s
 
 # Orchestrate Plan Writing
 
-## 职责
+只负责生成 plan，不执行、不做 Phase 0b review、不临场派发 worker。
 
-把已 review 的 source design / requirements 和 `to-issues` issue hierarchy 写成正式 implementation plan。
-
-固定层级：
+固定结构：
 
 ```text
 source design / requirements
   -> vertical large issue
   -> vertical small issue
   -> Task Pack
-  -> fine-grained implementation tasks
+  -> pack-local implementation tasks
 ```
 
-本技能只生成 plan。`orchestrate-workflow` 负责 Phase 0b review、Task Pack 派发、执行、repair、Phase B final intent review 和业务汇报。
+Plan 生成后交回 `orchestrate-workflow`，由 Phase 0b review、Task Pack 派发、Phase A、Phase B 和业务汇报继续推进。
 
-开始时说明：正在使用 `orchestrate-plan-writing` 生成 issue-backed implementation plan。
+## 入口判断
 
-## 输入检查
+先定位这些输入：
 
-必须先确认：
+- source design / SPEC / PRD / bug brief / explicit requirements；
+- Phase 0a 通过结论，或等价 review 结论；
+- `to-issues` 产出的 vertical large issues；
+- 每个 large issue 下的 vertical small issues；
+- 项目 anchors：根 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 ADR / SPEC / GUIDE / runbook、触碰目录的 `AGENTS.override.md` / `agents.overrides.md`；
+- 涉及 UI / UX 时的 mockup anchors：路径、页面、viewport、states、interaction、允许偏差、visual verification；
+- 涉及 API / Pydantic / DB / JSON / sync / billing / permission / runtime / helper 时的 Contract anchors：owner、provider、consumer、model、schema_version、registry / migration / catalog、repository / read model、verification。
 
-- 有 source design、SPEC、PRD、bug brief 或明确 requirements。
-- source design 已通过 Phase 0a 或有等价 review 结论。
-- 有 `to-issues` 产出的 vertical large issues。
-- 每个 large issue 下都有 `to-issues` 产出的 vertical small issues。
-- 已读取项目 anchors：根 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 ADR / SPEC / GUIDE / runbook、触碰目录最近的 `AGENTS.override.md` / `agents.overrides.md`。
-- UI / UX 工作有 mockup anchors：截图、HTML prototype、页面路径、viewport、states、interaction、允许偏差、visual verification。
-- 合同工作有 Contract anchors：owner、provider、consumer、model、schema_version、registry / migration / catalog、repository / read model、verification。
+缺正式输入时不要保存半成品，按缺件返回。可以给 `to-issues` 提供 suggested vertical slices；这些 slices 在 `to-issues` 确认前不能写成正式 Task Pack。
 
-不要自行发明业务行为、术语、schema、helper 位置、UI 状态、issue hierarchy 或验收门槛。
-
-## 上游联动
-
-遇到缺件时返回结构化 route，由主线程调用对应 upstream skill，再回到本技能。
-
-| 信号 | 返回 | 上游 route |
+| 缺件 / 阻塞 | 返回 | 交回 Orchestrate 的 route |
 | --- | --- | --- |
-| 没有 source PRD / design / requirements | `NEEDS_CONTEXT` | `to-prd` 或 `grill-with-docs` |
-| source design 没有 review 结论 | `NEEDS_DESIGN_REVIEW` | `orchestrate-workflow` Phase 0a |
-| 缺少 vertical large issue | `NEEDS_ISSUES` | `to-issues` |
-| 大 issue 下面缺少 vertical small issue | `NEEDS_ISSUES` | `to-issues` |
-| 小 issue 太大，无法成为单个可验证 Task Pack | `NEEDS_ISSUES` | `to-issues` |
+| 没有 source requirements | `NEEDS_CONTEXT` | `to-prd` 或 `grill-with-docs` |
+| design 没有 review 结论 | `NEEDS_DESIGN_REVIEW` | Phase 0a |
+| 缺 large issue、small issue，或 small issue 不能独立验证 | `NEEDS_ISSUES` | `to-issues` |
 | issue ready state、AFK / HITL、blocked-by 不清 | `NEEDS_TRIAGE` | `triage` |
 | 业务术语、对象 owner、UI target state、permission、billing、lifecycle 或验收口径不清 | `NEEDS_CONTEXT` | `grill-with-docs` |
-| bug / wrong state / performance regression 缺少复现、feedback loop、真实症状或 hypotheses | `NEEDS_DIAGNOSIS` | `diagnose` |
-| state machine、interface shape 或 UI 方向需要比较方案 | `NEEDS_DECISION` | `prototype` |
-| 暴露 bad seam、repeated repair、single-adapter interface 或错误测试面 | `NEEDS_ARCHITECTURE` | `improve-codebase-architecture` |
-| 需要切 pack 但模块地图、调用链或风险区域不足 | `NEEDS_CONTEXT` | `zoom-out` |
-
-可以向 `to-issues` 提供 suggested vertical slices，但这些只是输入提示；没有经过 `to-issues` 输出确认前，不能把它们写成正式 Task Pack。
+| bug / wrong state / performance regression 缺复现、feedback loop、症状或 hypotheses | `NEEDS_DIAGNOSIS` | `diagnose` |
+| state machine、interface shape 或 UI 方向需要方案比较 | `NEEDS_DECISION` | `prototype` |
+| bad seam、repeated repair、single-adapter interface 或错误测试面暴露 | `NEEDS_ARCHITECTURE` | `improve-codebase-architecture` |
+| 模块地图、调用链或风险区域不足，影响 pack 边界 | `NEEDS_CONTEXT` | `zoom-out` |
 
 ## 写作流程
 
-1. 读取 source design / requirements，提取 goal、architecture、tech stack、交付意图、用户可见行为、合同边界、UI 状态、失败场景和 out of scope。
-2. 完成输入检查；缺件时按“上游联动”返回。
-3. 读取 `references/issue-to-pack-contract.md`，确认 issue hierarchy 可以转换成 plan section 和 Task Pack；如果不能，按“上游联动”返回，不继续读取 plan 写作 reference。
-4. 读取 `references/plan-document-contract.md`，写 plan 初稿。
-5. 读取 `references/plan-quality-gates.md`，删除过度设计，补齐设计不足；如果缺口来自 issue 边界、业务决策或架构 friction，按 route 返回。
-6. 读取 `references/plan-self-review.md`，保存前自审并修正 plan。
-7. 保存到 `docs/orchestrate/plans/YYYY-MM-DD-<feature-name>.md`，除非用户或项目规则指定其他路径；保存前创建父目录。
-8. 返回 plan path、source docs、issue inventory、coverage summary、HITL / blockers、自审结果和未运行检查。
+1. 读取 source design / requirements，提取 goal、architecture、tech stack、用户可见行为、系统可验证行为、合同边界、UI 状态、失败场景和 out of scope。
+2. 读取 `references/issue-to-pack-contract.md`，确认 large issue 可以成为 plan section、small issue 可以成为 Task Pack；不成立时按入口判断返回。
+3. 读取 `references/plan-document-contract.md`，写 plan：Header、Scope Check、Source Coverage Map、File / Responsibility Map、large issue sections、Task Packs、pack-local implementation tasks。
+4. 读取 `references/plan-quality-gates.md`，删除过度设计，补齐设计不足；如果缺口来自 issue 边界、业务决策或架构 friction，按入口判断返回。
+5. 读取 `references/plan-self-review.md`，保存前自审并修正。
+6. 保存到 `docs/orchestrate/plans/YYYY-MM-DD-<feature-name>.md`，除非用户或项目规则指定其他路径；保存前创建父目录。
+
+## 必须遵守
+
+- 一级章节对应 vertical large issue；每个 Task Pack 对应一个 vertical small issue。
+- Task Pack 是 Orchestrate 派发单位；细 task 只服务 pack 内执行。
+- `Execution owner` 必须是 `Orchestrate Workflow`；不要添加额外 execution handoff。
+- 没有 `to-issues` 确认的 issue hierarchy，不生成正式 issue-backed plan。
+- 不自行发明业务行为、术语、schema、helper 位置、UI 状态、issue hierarchy、验收门槛或路径事实。
+- existing paths、commands、fixtures、endpoints、mockup paths 必须验真；新文件标为 `Create`。
+- in-scope Project / Contract / Mockup anchors 必须进入对应 Task Pack；缺 anchors 时 route，不用 `N/A` 掩盖缺口。
+- 同一文件、shared contract、migration、permission、billing、runtime、release boundary 默认串行或同 pack。
+- 不写 placeholder：`TBD`、`TODO`、`later`、`follow up`、`write tests`、`add validation`、`handle edge cases`、`implement logic`、`similar to previous`。
+- plan 是 Phase 0b 的可审执行合同，不是直接开工指令。
+
+## 成功返回
+
+```text
+### Verdict
+PLAN_CREATED
+
+### Plan path
+- <path>
+
+### Inputs consumed
+- Source design / requirements:
+- Source issues:
+- Project / Contract / Mockup anchors:
+
+### Issue mapping
+- Large issues:
+- Task Packs:
+- Known dependencies:
+
+### Quality gate
+- Overdesign checked:
+- Underdesign checked:
+- Largest remaining risk:
+
+### Open items
+- HITL / blockers:
+- Checks not run:
+```
 
 ## 失败返回
-
-无法生成 plan 时不要保存半成品。返回：
 
 ```text
 ### Verdict
