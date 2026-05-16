@@ -29,6 +29,7 @@ Phase B 验证所有 pack 合并后是否满足 design intent，并确认没有 
 6. 涉及合同边界时，逐项确认 Pydantic model、schema_version、registry、migration、repository、read model、catalog、producer / consumer 和 release gate。
 7. 做跨 pack 代码交叉审查。
 8. UI / UX 任务必须对照 mockup 检查最终页面，不接受只读代码推断。
+9. 如果最终验收反馈暴露 desired behavior、domain term、UI role、target state、copy、interaction 或 verification method 不清，route 给 upstream `grill-with-docs`，不要把它归为普通 implementation gap。
 
 Implementation Gap：
 
@@ -43,6 +44,12 @@ Design Gap：
 - 设计遗漏项目约束；
 - 设计假设与当前系统不成立；
 - 路由到用户决策或文档修正。
+
+Context Gap：
+
+- 用户 / reviewer 的最终反馈需要业务术语、对象 owner、UI target state、验收口径或项目文档确认；
+- route 给 upstream `grill-with-docs`；
+- grill 结束后，把 clarified context 写回 design / plan / issue brief，再重新判断是 implementation gap、design repair、prototype question 还是 user decision。
 
 ## Independent Second Opinion
 
@@ -94,21 +101,7 @@ Release blocker：
 
 Final review 可以记录架构后效应，但不能随意把架构摩擦升级成 blocker。
 
-记录时使用固定词汇：
-
-- module：有 interface 和 implementation 的单元；
-- interface：caller 必须知道的全部事实，包括 invariant、error mode、ordering、config；
-- seam：interface 所在位置；
-- adapter：满足 interface 的具体实现；
-- depth：interface 背后隐藏的行为量；
-- locality：改动、bug、知识和验证是否集中。
-
-判断：
-
-- deletion test：删除某 abstraction 后复杂度消失，多半是 shallow；复杂度会散到多个 caller，说明它有价值。
-- one adapter = hypothetical seam；two adapters or real variation = stronger seam。
-- dependency category：in-process、local-substitutable、remote but owned、true external。
-- architecture after-effect 只有造成 production risk、data risk、permission risk、billing risk、rollback failure 或当前验收不成立时，才成为 blocker。
+如果 final review 需要判断 module、interface、seam、adapter、depth、locality、deletion test 或 dependency category，使用 upstream `improve-codebase-architecture` 作为方法来源。Orchestrate 只定义 blocker threshold：architecture after-effect 只有造成 production risk、data risk、permission risk、billing risk、rollback failure 或当前验收不成立时，才成为 blocker；否则通过 upstream `triage` / `to-issues` 记录为 bounded issue candidate。
 
 ## 输出格式
 
@@ -117,6 +110,7 @@ Final review 可以记录架构后效应，但不能随意把架构摩擦升级�
 通过: X / Y
 Implementation Gaps:
 Design Gaps:
+Context Gaps:
 Unverifiable:
 
 ### Regression / Cross-Pack Review
@@ -133,3 +127,5 @@ Rollback concerns:
 ```
 
 不要用 worker self-report 作为通过证据。
+
+每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Final review result 必须放进 Orchestrate Workflow 的结构化 sub-agent return envelope，方便主线程执行 Review Reception Gate。

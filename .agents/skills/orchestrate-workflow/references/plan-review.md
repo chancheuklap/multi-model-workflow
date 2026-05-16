@@ -1,6 +1,17 @@
 # Plan Review Contract
 
-Phase 0b 审 plan。确认计划可执行，不能把虚构路径、横切任务或缺失验收传给 worker。
+Phase 0b 审 plan。确认计划可执行，不能把虚构路径、横切任务或缺失验收传给 worker。Plan Review 必须同时读取 source design / requirements 和 plan；如果只有 plan，没有 source intent，先返回 `NEEDS_CONTEXT` 或由主线程重建 source intent。
+
+## Plan Intake Normalization
+
+如果 plan 来自 `superpowers:writing-plans`，先检查 header 和 execution handoff。该 skill 的原始模板可能要求使用 `superpowers:subagent-driven-development` 或 `superpowers:executing-plans`；在 AgentFlow 中这两个技能已被 Orchestrate Workflow 替代。
+
+进入 review 前，主线程必须：
+
+- 删除、忽略或替换这类 legacy handoff；
+- 明确写入 `Execution owner: Orchestrate Workflow`；
+- 保留 plan 中有价值的 task、code snippet、command、expected output 和 acceptance criteria；
+- 不因为 legacy handoff 存在而跳过 Phase 0b joint review。
 
 ## Dispatch 1: Coverage And Task Quality
 
@@ -8,14 +19,15 @@ Phase 0b 审 plan。确认计划可执行，不能把虚构路径、横切任务
 
 Prompt 必须包含：
 
-- Read first：plan、design doc、相关 UI / UX mockup、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE。
+- Read first：source design / requirements、plan、相关 UI / UX mockup、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE。
 - Project baseline：本计划必须承接的 design intent、项目不变量、模块边界和验收门槛。
 - Contract anchors：如果计划触碰 API / Pydantic / DB / JSON / sync / task payload / UI action / helper 边界，列出 owner、provider、consumer、model、schema_version、registry / migration / catalog、repository / read model 和验证方式。
 
 检查：
 
-- 如果有 design doc，逐条提取 design intent，确认每条 intent 至少有一个 task 覆盖。
+- 逐条提取 source design / requirements 的 intent，确认每条 intent 至少有一个 task 覆盖。
 - 如果有 UI / UX mockup，逐条提取可见页面状态、关键交互、viewport 和组件状态，确认每项至少有 task 和验收证据覆盖。
+- 如果 source design / requirements 对 desired behavior、业务术语、UI target state、role、视觉层级、交互意图或验收口径含混，route 给 upstream `grill-with-docs`；不要把含混点包装成 worker task。
 - 找出计划做了但 design 没要求的 scope creep。
 - 每个 task 是否足够具体：改什么、在哪改、测试什么、预期什么结果。
 - task 是否能在一个短反馈循环内完成；过大的 task 要拆。
@@ -27,6 +39,7 @@ Prompt 必须包含：
 Critical：
 
 - design intent 无 task 覆盖。
+- source intent / UI target state / business context 不清，却计划直接进入实现。
 - task 描述无法执行，worker 必须猜。
 - 依赖顺序错误会导致实现失败。
 - plan 缺少核心验证方式。
@@ -41,7 +54,7 @@ Critical：
 
 Prompt 必须包含：
 
-- Read first：plan、design doc、相关 UI / UX mockup、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE、计划涉及目录的 `AGENTS.override.md` / `agents.overrides.md`。
+- Read first：source design / requirements、plan、相关 UI / UX mockup、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE、计划涉及目录的 `AGENTS.override.md` / `agents.overrides.md`。
 - Project baseline：本计划涉及的项目规则、数据权威、contract wall、测试路由、迁移 / 发布 / 回滚约束。
 - Contract anchors：本计划涉及的 API、Pydantic、DB、JSON、task、sync、catalog、capability、helper 边界。
 
@@ -73,7 +86,7 @@ Critical：
 
 派独立 `code_reviewer`，不要给它前两份 review 的结论。目的不是重复检查，而是用新 framing 找遗漏。
 
-Prompt 必须包含同一组 Read first 和 Project baseline，但不要包含前两份 review 的 finding。
+Prompt 必须包含同一组 Read first 和 Project baseline，也就是 source design / requirements 与 plan 两份文档，但不要包含前两份 review 的 finding。
 
 检查：
 
@@ -83,6 +96,7 @@ Prompt 必须包含同一组 Read first 和 Project baseline，但不要包含�
 - 是否有 risky assumption，例如假设 API / data shape / fixture 存在。
 - 是否有 risky assumption，例如假设 Pydantic contract、DB 字段、JSON registry、catalog、capability 或 helper 已存在。
 - 是否有“最后统一验证”的水平切片风险。
+- 是否有把 UI / UX 主观反馈、业务含混点或 architecture seam 问题伪装成普通实现 task 的风险；前者 route 给 `grill-with-docs`，后者 route 给 `improve-codebase-architecture`。
 
 ## 输出格式
 
@@ -96,6 +110,6 @@ Important:
 低置信度观察:
 ```
 
-每条 finding 必须有 plan section / task、证据、为什么会导致执行出错、具体修正建议、confidence。
+每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source design gap、context ambiguity，还是 architecture friction；context ambiguity route 给 upstream `grill-with-docs`，architecture friction route 给 upstream `improve-codebase-architecture`。
 
 Phase 0 plan findings 返回 coordinator。主线程修 plan，不派 worker 写代码。

@@ -18,10 +18,17 @@ REQUIRED_FIELDS = {
 CLAUDE_ONLY_FIELDS = {
     "tools",
     "disallowed" + "Tools",
-    "skills",
     "memory",
     "max" + "Turns",
 }
+UNIVERSAL_RETURN_TOKENS = [
+    "### Verdict",
+    "### Evidence",
+    "### Result",
+    "### Verification",
+    "### Open Items",
+    "### Routing",
+]
 
 
 def fail(message: str) -> None:
@@ -42,6 +49,28 @@ def require_tokens(path: Path, text: str, tokens: list[str]) -> None:
         fail(f"{path}: developer_instructions missing tokens: {', '.join(missing)}")
 
 
+def validate_skills_config(path: Path, data: dict[str, object]) -> None:
+    skills = data.get("skills")
+    if skills is None:
+        return
+    if not isinstance(skills, dict) or set(skills) != {"config"}:
+        fail(f"{path}: skills must only contain Codex [[skills.config]] entries")
+
+    config = skills.get("config")
+    if not isinstance(config, list) or not config:
+        fail(f"{path}: skills.config must be a non-empty list")
+
+    for index, entry in enumerate(config, start=1):
+        if not isinstance(entry, dict):
+            fail(f"{path}: skills.config[{index}] must be a table")
+        if set(entry) != {"path", "enabled"}:
+            fail(f"{path}: skills.config[{index}] must contain only path and enabled")
+        if not isinstance(entry["path"], str) or not entry["path"].endswith("/SKILL.md"):
+            fail(f"{path}: skills.config[{index}].path must point to a SKILL.md")
+        if not isinstance(entry["enabled"], bool):
+            fail(f"{path}: skills.config[{index}].enabled must be a boolean")
+
+
 def main() -> int:
     files = sorted(ROOT.glob("*.toml"))
     if not files:
@@ -57,11 +86,16 @@ def main() -> int:
         if forbidden:
             fail(f"{path}: contains Claude-only fields: {', '.join(sorted(forbidden))}")
 
+        validate_skills_config(path, data)
+
         instructions = data.get("developer_instructions")
         if not isinstance(instructions, str) or not instructions.strip():
             fail(f"{path}: developer_instructions must be a non-empty string")
 
         stem = path.stem
+        require_tokens(path, instructions, UNIVERSAL_RETURN_TOKENS)
+        require_tokens(path, instructions, ["pass / blocked / needs repair / needs context"])
+
         if "reviewer" in stem:
             require_tokens(path, instructions, ["read-only", "findings"])
         if stem == "code-reviewer":
@@ -73,22 +107,23 @@ def main() -> int:
                     "owner",
                     "场景",
                     "public behavior",
-                    "vertical tracer bullet",
+                    "vertical slice",
                     "AFK",
                     "HITL",
                     "deletion test",
+                    "交回 parent",
                 ],
             )
         if stem in {"coding-worker", "complex-coding-worker"}:
-            require_tokens(path, instructions, ["DONE", "DONE_WITH_CONCERNS", "NEEDS_CONTEXT", "BLOCKED"])
+            require_tokens(path, instructions, ["NEEDS_CONTEXT", "BLOCKED"])
         if stem == "coding-worker":
             require_tokens(path, instructions, ["public behavior", "horizontal slicing", "外部边界"])
         if stem == "complex-coding-worker":
             require_tokens(path, instructions, ["falsifiable hypotheses", "feedback loop", "confirmed hypothesis"])
         if stem == "complex-code-explorer":
-            require_tokens(path, instructions, ["read-only", "feedback loop", "falsifiable", "deletion test", "single adapter"])
+            require_tokens(path, instructions, ["read-only", "feedback loop", "falsifiable", "deletion test", "single adapter", "交回 parent"])
         if stem == "docs-worker":
-            require_tokens(path, instructions, ["NEEDS_CONTEXT"])
+            require_tokens(path, instructions, ["NEEDS_CONTEXT", "不要自行改变 issue tracker 状态"])
 
     print(f"Validated {len(files)} Codex agent templates.")
     return 0

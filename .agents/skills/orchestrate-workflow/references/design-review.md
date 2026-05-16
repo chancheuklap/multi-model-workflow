@@ -1,6 +1,6 @@
 # Design Review Contract
 
-Phase 0a 审 design doc。检查设计能否被计划、实现和最终验证承接；不做文字润色审查。
+Phase 0a 审 design doc。检查设计能否被计划、实现和最终验证承接；不做文字润色审查。新想法产生 design doc 后必须立刻进入本 review，通过后才允许生成 implementation plan。
 
 ## Dispatch 1: Design Content Review
 
@@ -14,6 +14,7 @@ Prompt 必须包含：
 
 检查：
 
+- domain language、业务对象、UI role、页面状态或 lifecycle 是否与 `CONTEXT.md` / PROJECT / SPEC / ADR 一致；不一致或含混时，finding route 给 upstream `grill-with-docs`，不要让 plan author 自行解释。
 - 完整性：是否有 TODO / TBD / 空节；用户旅程是否覆盖起点、操作、结果、异常路径。
 - 可测试性：每条“用户应该能 X / 系统应该 Y”能否写出命令、API、UI 操作或手工验收步骤。
 - Mockup 对齐：UI / UX 设计是否明确引用 mockup 路径、目标页面、角色、viewport、关键状态、交互和允许偏差。
@@ -25,6 +26,7 @@ Prompt 必须包含：
 Critical：
 
 - 核心意图不可测试。
+- 业务术语、对象 owner、UI role、页面状态或验收口径含混，导致 plan / worker 只能自行决定目标行为。
 - UI / UX 任务有 mockup 但 design 没有把 mockup 转成可验收页面状态、交互和视觉约束。
 - API / Pydantic / DB / JSON / helper 边界没有 Contract anchors，或设计默认用 bare dict / 临时 helper 作为长期合同。
 - 文档内部矛盾会导致 plan 写错。
@@ -41,7 +43,7 @@ Important:
 低置信度观察:
 ```
 
-每条 finding 必须有 design doc section、证据、为什么会影响下游、具体修正建议、confidence。
+每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Design finding 默认 route 给 coordinator document repair；domain language、业务对象、UI / UX target state、验收口径不清 route 给 upstream `grill-with-docs`；产品承诺、业务规则、UX、发布策略、架构 trade-off 无法由文档和代码判断时 route 给 user decision。
 
 ## Dispatch 2: Project Alignment Review
 
@@ -55,6 +57,7 @@ Prompt 必须包含：
 
 检查：
 
+- domain language 和 `CONTEXT.md` glossary 是否一致；发现术语漂移、对象边界不清或业务关系冲突时，route 给 upstream `grill-with-docs`。
 - domain language 是否使用项目正式术语。
 - 数据权威源是否正确，例如 Gateway / Collection / Local Agent 的 owner 是否混乱。
 - 模块边界和依赖方向是否正确。

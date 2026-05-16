@@ -11,6 +11,7 @@ Task Pack 必须按可验证行为切分；不得机械复制 plan section。
 - 有 owned files / responsibilities。
 - 涉及 API / Pydantic / DB / JSON / sync / task payload / UI action / helper 时，有 Contract anchors：owner、provider、consumer、Pydantic model、schema_version、registry / migration / catalog、repository / read model、verification。
 - UI / UX pack 有 mockup anchors：路径、页面区域、viewport、states、interaction。
+- Bug / UI / UX feedback 的 desired behavior、role、state、copy、interaction 和 verification method 已由 source design / bug brief / grill result 明确。
 - 有 acceptance criteria。
 - 有 verification commands 或复现检查。
 - 有 risk flags：普通、高风险、生产风险、HITL。
@@ -23,6 +24,7 @@ Task Pack 必须按可验证行为切分；不得机械复制 plan section。
 - 只按技术层横切：“先写全部 tests / schema / templates / endpoint shell，再写 implementation”。
 - 只按前端 / 后端 / 测试分层，但完成后不能单独验证。
 - UI / UX 工作只写“实现 mockup”但没有拆出可验收的页面状态、交互、viewport 或视觉证据。
+- 测试反馈或 UI / UX 反馈目标含混，需要 worker 自行决定 desired behavior、文案语义、视觉层级或交互意图。
 - 没有 owned files。
 - 没有验证命令。
 - 多个 worker 会同时写同一文件、同一 migration、同一 shared contract。
@@ -57,9 +59,55 @@ AFK / HITL:
 Dependencies:
 Parallel safety:
 Out of scope:
+Return format:
 ```
 
-这个 brief 进入 worker dispatch prompt。不要只发 task 标题。
+这个 brief 进入 worker dispatch prompt。不要只发 task 标题。`Return format` 必须使用 Orchestrate Workflow 的结构化 sub-agent 返回格式；不同角色可以追加 role-specific headings，但不能省略 universal envelope。
+
+## Sub-agent Return Envelope
+
+所有 worker、explorer、reviewer 和 docs worker 的 dispatch 都必须包含：
+
+```text
+### Verdict
+pass / blocked / needs repair / needs context
+
+### Evidence
+- Files / docs / tests / commands / screenshots actually inspected
+- Key facts, with locators where useful
+
+### Result
+- What was changed, found, reviewed, or confirmed
+
+### Verification
+- Commands or checks run, with result
+- Checks not run, with reason
+
+### Open Items
+- Questions, risks, gaps, or decisions the parent must handle
+
+### Routing
+- Suggested next owner: parent / original worker / coding_worker / complex_coding_worker / complex_code_explorer / code_reviewer / release_reviewer / upstream grill-with-docs / upstream diagnose / upstream prototype / upstream improve-codebase-architecture / upstream triage-to-issues / user decision
+```
+
+Findings use:
+
+```text
+- severity:
+  confidence:
+  locator:
+  evidence:
+  impact:
+  remediation:
+  routing:
+```
+
+主线程 merge 规则：
+
+- worker report 不是完成证据，必须经过 review 和 verification gate。
+- reviewer finding 不是自动事实，必须经过 Review Reception Gate。
+- 多个 sub-agent 冲突时按 evidence quality 解决，不按人数投票。
+- 中间输出保持结构化和事实化；只有最终业务汇报需要叙事整理。
 
 ## Durable Handoff Brief
 
@@ -81,5 +129,6 @@ AFK / HITL:
 - 可以命名稳定类型、函数签名、配置 shape 或业务对象，但不要把临时路径当成唯一入口。
 - acceptance criteria 必须逐条可验证。
 - UI / UX durable brief 必须保留 mockup path、目标 viewport、关键 states 和允许偏差。
+- 如果 durable brief 来自 grill / prototype / architecture review，写明 resolved context、prototype verdict 或 architecture finding；不要只写原始主观反馈。
 - out of scope 必须明确，避免 agent 顺手扩大范围。
 - 如果需要文件范围用于立即执行，把它放在 Pack Brief 的 owned files 中，不放进 durable contract 的核心语义。
