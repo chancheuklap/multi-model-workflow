@@ -1,0 +1,4 @@
+interface:
+  display_name: "Orchestrate Workflow"
+  short_description: "编排 AgentFlow 端到端开发流程"
+  default_prompt: "Use $orchestrate-workflow 接管 AgentFlow 的设计、计划、Task Pack、执行、review 和业务汇报。"
