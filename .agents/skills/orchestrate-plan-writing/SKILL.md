@@ -23,15 +23,18 @@ source design / requirements
 
 开始时说明：正在使用 `orchestrate-plan-writing` 生成 issue-backed implementation plan。
 
-## Reference 加载
+## Reference 按需加载
 
-按这个顺序读取 reference，不要把下面内容凭记忆重写成另一套规则：
+不要在启动时一次性读取全部 reference。先用本文件完成入口判断和输入检查；走到哪个决策面，再读取对应 reference。
 
-1. 读取 `references/issue-to-pack-contract.md`：用于确认大 issue -> plan section、小 issue -> Task Pack、缺失 issue 时的 `to-issues` route、并行 / 串行边界。
-2. 读取 `references/plan-document-contract.md`：用于写 plan header、Scope Check、Source Coverage Map、File / Responsibility Map、Task Pack brief、细 task、验证语言。
-3. 读取 `references/plan-self-review.md`：用于保存前自审；发现缺口先修 plan，无法修正才返回 route。
+| 需要判断什么 | 读取 |
+| --- | --- |
+| large issue 能否映射为 plan section、small issue 能否映射为 Task Pack、缺 issue 时如何 route | `references/issue-to-pack-contract.md` |
+| 已确认 issue hierarchy 后，正式写 plan header、Scope Check、Source Coverage Map、File / Responsibility Map、Task Pack brief、细 task 和验证语言 | `references/plan-document-contract.md` |
+| plan 初稿已经形成后，检查质量、过度设计和设计不足 | `references/plan-quality-gates.md` |
+| 保存前最终自审，确认 coverage、executability、pack quality 和 red flags | `references/plan-self-review.md` |
 
-如果用户只要求解释这个技能，可以只读本文件。只要要生成、修改或 review plan，必须按上面顺序读取对应 reference。
+如果用户只要求解释这个技能，只读本文件。如果输入检查已经能返回 `NEEDS_CONTEXT`、`NEEDS_DESIGN_REVIEW`、`NEEDS_ISSUES` 或 `NEEDS_TRIAGE`，不要继续读取后续 plan 写作 reference。
 
 ## 输入检查
 
@@ -71,11 +74,12 @@ source design / requirements
 
 1. 读取 source design / requirements，提取 goal、architecture、tech stack、交付意图、用户可见行为、合同边界、UI 状态、失败场景和 out of scope。
 2. 完成输入检查；缺件时按“上游联动”返回。
-3. 读取 `references/issue-to-pack-contract.md`，确认 issue hierarchy 可以转换成 plan section 和 Task Pack。
-4. 读取 `references/plan-document-contract.md`，按合同写 plan。
-5. 保存到 `docs/orchestrate/plans/YYYY-MM-DD-<feature-name>.md`，除非用户或项目规则指定其他路径；保存前创建父目录。
-6. 读取 `references/plan-self-review.md`，自审并修正 plan。
-7. 返回 plan path、source docs、issue inventory、coverage summary、HITL / blockers、自审结果和未运行检查。
+3. 读取 `references/issue-to-pack-contract.md`，确认 issue hierarchy 可以转换成 plan section 和 Task Pack；如果不能，按“上游联动”返回，不继续读取 plan 写作 reference。
+4. 读取 `references/plan-document-contract.md`，写 plan 初稿。
+5. 读取 `references/plan-quality-gates.md`，删除过度设计，补齐设计不足；如果缺口来自 issue 边界、业务决策或架构 friction，按 route 返回。
+6. 读取 `references/plan-self-review.md`，保存前自审并修正 plan。
+7. 保存到 `docs/orchestrate/plans/YYYY-MM-DD-<feature-name>.md`，除非用户或项目规则指定其他路径；保存前创建父目录。
+8. 返回 plan path、source docs、issue inventory、coverage summary、HITL / blockers、自审结果和未运行检查。
 
 ## 失败返回
 

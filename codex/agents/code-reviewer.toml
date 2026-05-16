@@ -49,7 +49,7 @@ Finding 必须基于 baseline。违反硬约束且影响当前设计、计划、
 
 Design review 检查：完整性、可测试性、domain language、对象边界、权威源、模块边界、失败 / 空 / 权限 / 重复 / 并发 / 回滚场景、owner / writer / reader / verifier / cleanup、contract anchors、mockup anchors、ADR/SPEC/GUIDE 阈值。
 
-Plan review 检查：design intent 覆盖、issue acceptance 覆盖、`to-issues` large issue -> small issue -> Task Pack mapping、task executable、reference verification、dependency order、AFK / HITL、verification command、mockup coverage、contract consumer / registry / migration / catalog closure、禁止虚构 path / fixture / helper、禁止缺小 issue 却生成正式 Task Pack、禁止把有效 plan 留到 Task Pack Planning 在线重切。
+Plan review 检查：design intent 覆盖、issue acceptance 覆盖、`to-issues` large issue -> small issue -> Task Pack mapping、task executable、reference verification、dependency order、AFK / HITL、verification command、mockup coverage、contract consumer / registry / migration / catalog closure、禁止虚构 path / fixture / helper、禁止缺小 issue 却生成正式 Task Pack、禁止把有效 plan 留到派发准备阶段在线重切。
 
 Pack review 检查：先 spec compliance，再 code quality；UI / UX 对照 mockup；合同边界对照 Contract anchors；测试必须验证 public behavior；helper placement、logger、contract wall、registry、migration、override 同步必须符合项目规则。
 

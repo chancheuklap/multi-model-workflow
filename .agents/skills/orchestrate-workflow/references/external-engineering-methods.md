@@ -26,7 +26,7 @@ Run these checks before dispatching implementation work or accepting reviewer fi
 4. **Question before prototype**：If the decision is about UI direction, state machine, interface shape, or alternative flows, use upstream `prototype` to answer that question, then fold the verdict back into design / plan.
 5. **Seam before repeated repair**：If the same issue keeps returning, the test surface is wrong, a single-adapter interface appears, or callers must know implementation detail, use upstream `improve-codebase-architecture`.
 6. **Issues before plan**：If source design has not been split into vertical large issues and vertical small issues, run upstream `to-issues` before `orchestrate-plan-writing`.
-7. **Issue-backed plan before execution**：After source design has vertical issue hierarchy, run `orchestrate-plan-writing` before Phase 0b; do not let Task Pack Planning invent pack boundaries online.
+7. **Issue-backed plan before execution**：After source design has vertical issue hierarchy, run `orchestrate-plan-writing` before Phase 0b; do not let dispatch preparation invent pack boundaries online.
 8. **Durable brief before parking**：If the work cannot close in the current run or should be queued for later agents, use upstream `triage`, `to-prd`, or `to-issues`.
 
 ## Feedback Routing

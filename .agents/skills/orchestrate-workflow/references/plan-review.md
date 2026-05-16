@@ -19,6 +19,79 @@ Phase 0b 审 issue-backed implementation plan。目标是确认计划覆盖 sour
 
 如果 plan 声称 issue-backed，但缺少 vertical large issues 或 vertical small issues，返回 `needs context`，routing 指向 upstream `to-issues`。
 
+## Task Pack Inventory Validation
+
+Phase 0b 同时是 Task Pack inventory 的权威校验点。Task Pack 边界来自 `orchestrate-plan-writing` 生成的 issue-backed plan；Phase 0b 只验证和修复 invalid pack，不重新发明 pack 边界。
+
+每个 Task Pack 必须同时满足：
+
+- 对应一个已确认 vertical small issue，不能只是候选 slice。
+- 是 vertical slice，完成后能 demo 或 independently verify。
+- 有用户可见行为、公开接口行为或可检查系统效果。
+- 有 owned files / responsibilities。
+- 涉及 API / Pydantic / DB / JSON / sync / task payload / UI action / helper 时，有 Contract anchors：owner、provider、consumer、model、schema_version、registry / migration / catalog、repository / read model、verification。
+- UI / UX pack 有 mockup anchors：路径、页面区域、viewport、states、interaction、visual verification。
+- Bug / UI / UX feedback 的 desired behavior、role、state、copy、interaction 和 verification method 已由 source design / bug brief / grill result 明确。
+- 有 acceptance criteria、verification commands 或 manual gate、risk flags、AFK / HITL、dependencies、parallel safety、out of scope。
+- 依赖关系是真阻塞，不是“可能有关”。
+
+以下 pack 不进入 Phase A；主线程先修 plan：
+
+- 按技术层横切：all tests、all schema、all templates、endpoint shell、implementation。
+- 按前端 / 后端 / 测试分层，但完成后不能单独验证。
+- UI / UX 工作只写“实现 mockup”，没有页面状态、交互、viewport 或视觉证据。
+- 测试反馈或 UI / UX 反馈目标含混，需要 worker 自行决定 desired behavior、文案语义、视觉层级或交互意图。
+- 没有 owned files / responsibilities、验证命令、Contract anchors 或 Mockup anchors。
+- 多个 worker 会同时写同一文件、同一 migration、同一 shared contract。
+- 同一 Pydantic model、DB column、JSON registry、capability、chargeable action、port / command catalog 被拆给多个 worker 并行。
+- 只写“新增 helper / dict shape / schema”，没有 owner、consumer、正式 contract 和 public behavior verification。
+- 需要产品、账号、真实环境、人工验收或权限决策，却标成 AFK。
+
+分包修复规则：
+
+- 触碰同一文件或同一合同的 tasks 放同一 pack，或明确串行依赖。
+- migration、billing、auth、permissions、runtime、browser takeover、shared contract、release boundary 默认串行。
+- 如果一个 pack 太大，按可验证行为重新交回 `to-issues` 拆 small issue；不要按文件层拆。
+- UI / UX pack 按用户可见状态拆，例如 empty / loading / success / error / permission / responsive viewport；不要按 CSS / JS / template 横切。
+- 如果一个 task 太小但共享上下文，和相邻 task 合并。
+
+Pack Brief 必须来自 plan，不由 parent 临场重写。派发给 worker 时至少包含：
+
+```text
+Pack:
+Issue:
+Goal behavior:
+Implementation tasks:
+Owned files / responsibilities:
+Read first:
+Contract anchors:
+Mockup anchors:
+Acceptance criteria:
+Verification commands:
+Risk flags:
+AFK / HITL:
+Dependencies:
+Parallel safety:
+Out of scope:
+Return contract:
+```
+
+不要只发 pack 标题。`Return contract` 必须自足，包含标准顶层 headings；worker-specific details 放在 `### Result`。
+
+Durable handoff brief 只用于跨会话交接、导出为 issue 或留给以后 agent 处理。它写行为合同，不写“去某文件第 N 行改 X”：
+
+```text
+Current behavior:
+Desired behavior:
+Key interfaces:
+Acceptance criteria:
+Out of scope:
+Risk flags:
+AFK / HITL:
+```
+
+UI / UX durable brief 必须保留 mockup path、目标 viewport、关键 states 和允许偏差。如果 durable brief 来自 grill / prototype / architecture review，写明 resolved context、prototype verdict 或 architecture finding。需要文件范围用于立即执行时，把它放在 Pack Brief 的 owned files 中，不放进 durable contract 的核心语义。
+
 ## Dispatch 1: Coverage And Task Quality
 
 派 `code_reviewer`。
@@ -38,6 +111,8 @@ Prompt 必须包含：
 - 如果 source design / requirements 对 desired behavior、业务术语、UI target state、role、视觉层级、交互意图或验收口径含混，route 给 upstream `grill-with-docs`；不要把含混点包装成 worker task。
 - 找出计划做了但 design 或 issue 没要求的 scope creep。
 - 每个 Task Pack 是否足够具体：改什么、在哪改、测试什么、预期什么结果。
+- 计划是否存在过度设计：预建未来能力、过早抽象、大段实现代码、超出 issue 的 UI / registry / migration / message surface。
+- 计划是否存在设计不足：缺 failure state、合同 owner / consumer、UI states、billing / permission / runtime anchors、pack-local verification。
 - pack 内细 task 是否能在短反馈循环内完成；过大的 task 要拆。
 - 依赖关系是否真实、是否有循环依赖。
 - large issue / Task Pack 分组是否符合 source issue 边界、shared files、shared contracts、dependency order。
@@ -104,7 +179,7 @@ Prompt 必须包含同一组 Read first 和 Project baseline，也就是 source 
 - 是否有两个 Task Pack 会改同一文件或同一 contract surface，却被计划并行。
 - 是否有 risky assumption，例如假设 API / data shape / fixture 存在。
 - 是否有 risky assumption，例如假设 Pydantic contract、DB 字段、JSON registry、catalog、capability 或 helper 已存在。
-- 是否有 “Task Pack Planning later 再决定边界” 或 “最后统一验证” 的水平切片风险。
+- 是否有 “之后再切 Task Pack” 或 “最后统一验证” 的水平切片风险。
 - 是否有把 UI / UX 主观反馈、业务含混点或 architecture seam 问题伪装成普通实现 task 的风险；前者 route 给 `grill-with-docs`，后者 route 给 `improve-codebase-architecture`。
 
 ## Result Payload

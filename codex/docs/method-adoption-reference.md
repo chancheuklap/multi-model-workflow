@@ -80,7 +80,7 @@ AgentFlow doc mapping:
 7. The skill owns concrete task discipline: verified paths, exact commands, expected result, public-behavior checks, code / test shapes, DRY / YAGNI, commit boundary, and no placeholders.
 8. Do not add any execution owner or execution handoff outside Orchestrate Workflow.
 9. If source design lacks issues, route to `to-issues`; if issue ready state is unclear, route to `triage`; if terms or owner are unclear, route to `grill-with-docs`; if bug feedback loop is missing, route to `diagnose`; if state/interface/UI direction is unresolved, route to `prototype`; if architecture friction blocks planning, route to `improve-codebase-architecture`; if module map is insufficient, route to `zoom-out`.
-10. Phase 0b reviews the plan and pack inventory; Task Pack Planning validates or repairs invalid packs but does not recut a valid plan online.
+10. Phase 0b reviews the plan and pack inventory through `plan-review.md`; Task Pack dispatch preparation validates or repairs invalid packs but does not recut a valid plan online.
 
 ## Durable Agent Brief
 
