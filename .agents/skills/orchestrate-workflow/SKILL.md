@@ -35,13 +35,15 @@ source intent / feedback
 
 ## 必须遵守
 
+- 除非用户明确只要一次性只读 review，否则不能跳过 Phase 0a / Phase 0b 或 Phase B。
 - 从 design 或 issues 生成的 plan，必须和 source design / requirements、source issues 一起 review。
 - `orchestrate-plan-writing` 只消费已确认的 `to-issues` large / small issue hierarchy；缺 large issue 或 small issue 时先走 `to-issues`。
 - Task Pack 是执行单位；plan 内细任务只是 pack-local execution material。
 - Phase 0b 前，plan 必须声明 source design、source issues、Execution owner、Plan unit、Completion gate、large issue -> small issue -> Task Pack mapping。
 - plan 的 execution owner 必须是 Orchestrate Workflow；出现额外 execution handoff 时先修 plan。
+- 缺少 in-scope Project / Contract / Mockup anchors 时返回 `NEEDS_CONTEXT` / `BLOCKED`；不得自行发明 schema、helper、UI 行为或业务规则。
 - 边界工作必须读取 `references/contract-boundary.md`。
-- 派发 custom agent 前必须读取 `references/dispatch-contract.md`，并把 self-contained Pack Brief / review payload / return contract 放进 prompt。
+- 派发 custom agent 前必须读取 `references/dispatch-contract.md`，并把 Read first、Project baseline、anchors、self-contained Pack Brief / review payload、return contract 放进 prompt。
 - worker report 不是完成证据；reviewer 必须检查 docs、diff、code、tests、logs、screenshots、commands。
 - 同一文件、shared contract、migration、permission、billing、runtime、release boundary 默认串行。
 - 声称完成前必须满足 `verification-before-completion` 的证据纪律；没有验证证据，不得声称完成。
