@@ -59,5 +59,5 @@ flowchart TD
     C -->|是| E["domain-alignment.md 对齐对象、状态、边界"]
     E --> F["修订 design document"]
     F --> G["discovery-self-review"]
-    G --> H["Phase 0a design review"]
+    G --> H["DISCOVERY_READY_FOR_PHASE_0A"]
 ```

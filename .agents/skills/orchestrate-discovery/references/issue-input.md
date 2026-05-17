@@ -35,10 +35,5 @@ flowchart TD
     F --> E
     E -->|是| G["写入 design document"]
     G --> H["discovery-self-review"]
-    H --> I["Phase 0a design review"]
-    I --> J{"Design 通过?"}
-    J -->|否| K["回 orchestrate-discovery 修订设计"]
-    K --> I
-    J -->|是| L["to-issues 生成 vertical large / small issues"]
-    L --> M["orchestrate-plan-writing"]
+    H --> I["DISCOVERY_READY_FOR_PHASE_0A"]
 ```
