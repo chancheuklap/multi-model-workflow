@@ -60,3 +60,5 @@ mockup path、页面、viewport、states、copy、interaction、视觉允许偏�
 - 不用 TODO / TBD / later / defer 掩盖缺口。
 - 不写具体 file path 作为长期实现指令（mockup path、existing module anchor、confirmed contract anchor 除外）。
 - 不写 Task Pack、worker 指令或 implementation plan。
+
+写完后按 `discovery-checklist.md` 自检并修正，再返回 verdict。

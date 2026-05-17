@@ -31,23 +31,6 @@
 
 需求过大时先拆成多个 design cycle。
 
-```mermaid
-flowchart TD
-    A["新功能 / 系统性改造 / 模糊讨论"] --> B["读取项目上下文、相关文档、代码现状"]
-    B --> C{"范围是否过大?"}
-    C -->|是| D["拆成多个 design cycle"]
-    D --> B
-    C -->|否| E["一次只问一个关键问题"]
-    E --> F["domain alignment 全程检查"]
-    F --> G{"需要方案比较?"}
-    G -->|是| H["提出 2-3 个方案和推荐方案"]
-    G -->|否| I["形成目标行为和验收口径"]
-    H --> I
-    I --> J["写 design document"]
-    J --> K["discovery-checklist"]
-    K --> L["DISCOVERY_READY"]
-```
-
 ### Bug / wrong state / performance regression
 
 写入 design document 的字段：current behavior、desired behavior、reproduction / symptom、confirmed / rejected hypotheses、root cause or suspected boundary、regression check、user-visible target behavior、contract / UI / permission / billing impact、out of scope。
@@ -63,40 +46,9 @@ flowchart TD
 - 只是已批准 design 下的实现偏离 → 返回 `READY_FOR_REPAIR`，不新建 design。
 - 修复会改变正式行为、对象状态、权限、合同、UI target 或验收口径 → 必须产出或修订 design document。
 
-```mermaid
-flowchart TD
-    A["bug / error / performance / wrong state"] --> B{"已有可靠 feedback loop?"}
-    B -->|否| C["diagnose 建立 feedback loop"]
-    B -->|是| D["整理 current/desired behavior、symptom、hypotheses"]
-    C --> D
-    D --> N{"需要模块地图或调用链?"}
-    N -->|是| O["zoom-out"]
-    O --> D
-    N -->|否| E{"desired behavior 和业务语义清楚?"}
-    E -->|否| F["domain alignment"]
-    F --> D
-    E -->|是| G{"只是已批准设计下的实现偏离?"}
-    G -->|是| H["READY_FOR_REPAIR"]
-    G -->|否| I{"暴露 bad seam / repeated repair?"}
-    I -->|是| J["improve-codebase-architecture"]
-    I -->|否| K["写入或修订 design document"]
-    J --> K
-    K --> L["discovery-checklist"]
-    L --> M["DISCOVERY_READY"]
-```
-
 #### 系统性 bug 复盘
 
-```mermaid
-flowchart TD
-    A["系统性 bug 复盘"] --> B["diagnose 建立真实 feedback loop"]
-    B --> C{"需要重新定义业务对象、状态、边界或目标方案?"}
-    C -->|否| D["READY_FOR_REPAIR"]
-    C -->|是| E["domain alignment 对齐"]
-    E --> F["修订 design document"]
-    F --> G["discovery-checklist"]
-    G --> H["DISCOVERY_READY"]
-```
+需要重新定义业务对象、状态、边界或目标方案 → domain alignment → 修订 design document → discovery-checklist → DISCOVERY_READY。不需要 → READY_FOR_REPAIR。
 
 ### Issue / backlog / existing PRD
 
@@ -110,19 +62,6 @@ flowchart TD
 - 如果业务目标、用户场景、验收标准不清，按"新功能"章节继续澄清。
 - Phase 0a 通过后，由 Orchestrate 使用 `to-issues` 拆 vertical large issues 和 vertical small issues。
 
-```mermaid
-flowchart TD
-    A["issue / backlog / existing PRD"] --> B{"problem / solution / acceptance 清楚?"}
-    B -->|否| C["继续澄清"]
-    C --> B
-    B -->|是| D{"ready state / blocked-by / AFK-HITL 清楚?"}
-    D -->|否| E["triage"]
-    E --> D
-    D -->|是| F["写入 design document"]
-    F --> G["discovery-checklist"]
-    G --> H["DISCOVERY_READY"]
-```
-
 ### UI / UX / 截图 / 验收反馈
 
 写入 design document 的字段：feedback source / screenshot / test / human acceptance note、target state、role / viewport / copy / interaction、visual or DOM verification、acceptance criteria、permission / billing / lifecycle implications、prototype verdict if used、out of scope。
@@ -135,24 +74,6 @@ flowchart TD
 - 暴露 architecture friction → 使用 `improve-codebase-architecture`。
 - 只是偏离已批准 design / mockup / acceptance → 返回 `READY_FOR_REPAIR`，不进入新 Discovery。
 - 反馈暴露 source design 缺口 → 修订 design document，再进入 Phase 0a。
-
-```mermaid
-flowchart TD
-    A["反馈 / 截图 / 测试失败 / 人工验收结果"] --> B{"只是偏离已批准 design / mockup?"}
-    B -->|是| C["READY_FOR_REPAIR"]
-    B -->|否| D{"目标状态和验证方式清楚?"}
-    D -->|否| E["domain alignment"]
-    E --> D
-    D -->|是| F{"需要方案比较?"}
-    F -->|是| G["prototype，写回 verdict"]
-    F -->|否| H{"暴露 architecture friction?"}
-    G --> H
-    H -->|是| J["improve-codebase-architecture"]
-    H -->|否| I["写入或修订 design document"]
-    J --> I
-    I --> K["discovery-checklist"]
-    K --> L["DISCOVERY_READY"]
-```
 
 ## Domain Alignment
 
@@ -188,22 +109,3 @@ flowchart TD
 - 所有写回必须自足，不能依赖当前聊天记录。
 
 需要深度对齐时使用 `grill-with-docs`；结论必须写回 domain docs 和 design document，再回到当前 input flow。
-
-```mermaid
-flowchart TD
-    A["Discovery 当前轮讨论"] --> B{"术语 / 对象 / 状态 / 边界 / 合同清楚?"}
-    B -->|是| C["继续当前 input flow"]
-    B -->|否| D["查 CONTEXT / ADR / SPEC / GUIDE / code"]
-    D --> E{"能从文档或代码确认?"}
-    E -->|是| F["写回 domain docs 和 design document"]
-    E -->|否| G{"用户能否当场决策?"}
-    G -->|是| H["一次问一个问题，给推荐答案"]
-    H --> W["写回 CONTEXT / domain docs / design document"]
-    G -->|否| K["写入 Open Decisions"]
-    F --> R{"是否需要 ADR?"}
-    K --> C
-    W --> R
-    R -->|是| J["建议 ADR"]
-    R -->|否| C
-    J --> C
-```

@@ -1,32 +1,6 @@
 # Phase A Execution + Pack Review
 
-Phase 0b 通过后进入。逐 pack 派 worker → Pack Review → 必要时 repair → 必要时 early release gate。
-
-```mermaid
-flowchart TD
-    A["Phase 0b pass"] --> B["读 plan Task Pack inventory"]
-    B --> C["Agent tool 派 worker"]
-    C --> D["worker 返回"]
-    D --> E["Pack Review（codex:codex-rescue）"]
-    E --> F{"通过?"}
-    F -->|needs repair| V["Coordinator 验证 finding"]
-    V --> T{"修复分流"}
-    T -->|"简单（≤2 文件、意图明确）"| S["Coordinator 直接修复"]
-    T -->|"复杂（多文件、需上下文）"| R["新建 targeted-repair agent（同类型）"]
-    T -->|"根因不明"| RCA["新建 root-cause-analyst"]
-    S --> RE["targeted re-review（codex:codex-rescue）"]
-    R --> D2["repair agent 修复后返回"]
-    D2 --> RE
-    RCA --> D3["analyst 修复后返回"]
-    D3 --> RE
-    RE --> F
-    F -->|pass + early release gate| G["codex-release-reviewer via codex:codex-rescue"]
-    G --> H{"release gate pass?"}
-    H -->|否| I["release repair / user decision"]
-    I --> G
-    H -->|是| J["下一 pack 或 Phase B"]
-    F -->|pass, no risk| J
-```
+Phase 0b 通过后进入。逐 pack 循环：派 worker → Pack Review → 通过则检查 release gate → 下一 pack；needs repair 则验证 finding → 修复分流（简单 coordinator 修 / 复杂 targeted-repair / 根因不明 root-cause-analyst）→ targeted re-review → 回到通过判定。全部 pack pass → Phase B。
 
 ## Step 1: Dispatch Worker
 
@@ -117,7 +91,7 @@ Pack Review 通过后，只在 early release gate 触发时追加 `codex-release
 - 根因不明（只需调查）→ complex-code-explorer。
 - 根因不明（需要调查 + 修复）→ root-cause-analyst。
 - desired behavior 不清 → orchestrate-discovery。
-- bad seam → improve-codebase-architecture。
+- bad seam → improve-codebase-architecture；只影响当前 pack 回 Phase A 继续，改变 plan anchors 回 Phase 0b re-review。
 - 满足 release gate → codex-release-reviewer。
 - 改变产品范围 → user decision。
 

@@ -1,6 +1,28 @@
 # Coordinator Tools
 
-本文件在以下时刻加载：路由到 upstream skill、跨会话交接、方向感丢失后做 Direction Check。
+## Handoff Status
+
+收到 upstream skill verdict 后查此表决定下一步：
+
+| 来源 | Verdict | 下一步 |
+| --- | --- | --- |
+| discovery | `DISCOVERY_READY` / `DISCOVERY_NOT_NEEDED` | Phase 0a |
+| discovery | `READY_FOR_REPAIR` | Direct Repair |
+| discovery | `NEEDS_USER_DECISION` | User Decision |
+| discovery | `BLOCKED` | 停止 |
+| plan-writing | `PLAN_CREATED` | Phase 0b |
+| plan-writing | `NEEDS_DISCOVERY` | discovery |
+| plan-writing | `NEEDS_DESIGN_REVIEW` | Phase 0a |
+| plan-writing | `NEEDS_ISSUES` | to-issues |
+| plan-writing | `NEEDS_TRIAGE` | triage |
+| plan-writing | `NEEDS_DIAGNOSIS` | diagnose / discovery |
+| plan-writing | `NEEDS_DECISION` | user / prototype |
+| plan-writing | `NEEDS_ARCHITECTURE` | improve-codebase-architecture |
+| plan-writing | `NEEDS_CONTEXT` | code-explorer / zoom-out |
+| review | `pass` | 下一 phase |
+| review | `needs repair` | 修复后 targeted re-review |
+| review | `needs context` | explorer / discovery |
+| review | `blocked` | 停止 |
 
 ## Upstream Skill 调用
 

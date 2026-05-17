@@ -222,3 +222,5 @@ Suggested vertical slices:
      User stories / acceptance:
 这些 slices 只是建议；必须等 to-issues 运行并写回 parent large issue 文档后，才能成为正式 issue / Task Pack。
 ```
+
+保存 plan 前按 `plan-checklist.md` 做过度设计 / 设计不足 / coverage 自审，修正后再返回 verdict。

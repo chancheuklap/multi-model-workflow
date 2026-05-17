@@ -40,84 +40,30 @@ Sub-agent 的 frontmatter `skills:` 字段在启动时自动预加载 skill 内�
 | Answer-only | 只问概念/状态/解释 | 回答后停止 |
 | One-shot Review | 只要 review，不要修复 | 写 scope，按对应 review reference 审查 |
 | Direct Repair | 已有批准 design/plan/mockup/acceptance/failing test，目标行为清楚 | 读 `references/direct-repair.md` + `references/dispatch-primitives.md`，派 worker，完成后按风险分级决定 review 方式 |
-| Formal Orchestrate | 新功能、系统性改造、含混 bug/feedback、缺 design/issue/plan | 进入 Formal Workflow |
+| Formal Orchestrate | 新功能、系统性改造、含混 bug/feedback、缺 design/issue/plan | 按 Reference Map 从 Discovery 或 Phase 0a 开始 |
 | User Decision | 产品/业务/权限/账务/发布策略无法判定 | 一次只问一个问题 |
 
-## Formal Workflow
+## Formal Orchestrate 流程
 
-```mermaid
-flowchart TD
-    A["输入"] --> B["Entry + Resume Gate"]
-    B -->|缺 design| C["orchestrate-discovery"]
-    B -->|有 design| D["Phase 0a Design Review"]
-    C -->|DISCOVERY_READY / NOT_NEEDED| D
-    D -->|"design finding → coordinator 自修"| D
-    D -->|design / domain / UX gap| C
-    D -->|pass, 缺 issues| E["to-issues"]
-    D -->|pass, issues ready| F["orchestrate-plan-writing"]
-    E --> F
-    F -->|PLAN_CREATED| G["Phase 0b Plan Review"]
-    G -->|"plan finding → coordinator 自修"| G
-    G -->|design gap| C
-    G -->|issue gap| E
-    G -->|pass| H["Phase A Execution"]
-    H -->|"简单 finding → coordinator 自修"| H
-    H -->|"复杂 finding → targeted-repair agent"| H
-    H -->|needs evidence / unknown root cause| P["code-explorer / complex-code-explorer / root-cause-analyst"]
-    P --> H
-    H -->|domain / UX ambiguity| C
-    H -->|architecture friction| Q["improve-codebase-architecture"]
-    Q -->|只影响当前 pack| H
-    Q -->|改变 plan anchors| G
-    H -->|all packs pass| I["Phase B Final Review"]
-    I -->|"简单 gap → coordinator 自修"| H
-    I -->|"复杂 gap → targeted-repair agent"| H
-    I -->|design / context gap| C
-    I -->|plan gap| F
-    I -->|pass, no release-risk| K["Phase C Finishing"]
-    I -->|pass, release-risk| J["codex-release-reviewer"]
-    J -->|release blocker| N["complex-pack-executor / User Decision"]
-    N -->|resolved| J
-    J -->|release gate pass| K
-```
+正序：Discovery → Phase 0a → to-issues → plan-writing → Phase 0b → Phase A（逐 pack 循环）→ Phase B → Phase C → 完成。
+回流：任意 review 暴露 design / domain / UX gap → Discovery；issue gap → to-issues；plan gap → plan-writing；Phase B implementation gap → Phase A；architecture friction → improve-codebase-architecture（只影响当前 pack 回 Phase A，改变 plan anchors 回 Phase 0b）。
+终止：Phase C 汇报后完成；任意 phase `blocked` 停止并报告用户。
 
 ## Reference Map
 
 | 节点 | 到达条件 | 必读 | 主线程动作 | 下一跳 |
 | --- | --- | --- | --- | --- |
-| `orchestrate-discovery` | 缺可 review design document，或 review 暴露 design / domain / UX / context gap | `orchestrate-discovery/SKILL.md` | 调用 Skill `orchestrate-discovery`；Discovery 内部按需调用 Skill `diagnose` / `prototype` / `improve-codebase-architecture` / `zoom-out` / `triage` | Phase 0a |
+| `orchestrate-discovery` | 缺可 review design document，或 review 暴露 design / domain / UX / context gap | `orchestrate-discovery/SKILL.md` | 调用 Skill `orchestrate-discovery`；Discovery 内部按需调用 Skill `diagnose` / `prototype` / `improve-codebase-architecture` / `zoom-out` / `triage` | 按 verdict 路由（见 `coordinator-tools.md` Handoff Status） |
 | Phase 0a | 已有 / 刚生成 design document | `references/design-review.md` | 派 2 baseline `codex-reviewer` angles（via `codex:codex-rescue --model gpt-5.4`）；只在设计期必须判定 release strategy 时追加 `codex-release-reviewer` | design gap → Discovery；pass → 检查 issue hierarchy |
 | `to-issues` | Phase 0a 通过，但缺 large / small issue hierarchy | `to-issues/SKILL.md` | 调用 Skill `to-issues`，生成 vertical large issues 和 small issues；写回 Issue recording target | `orchestrate-plan-writing` |
-| `orchestrate-plan-writing` | design 通过且 issue hierarchy 已确认，或 Phase 0b 暴露 plan gap | `orchestrate-plan-writing/SKILL.md` | 调用 Skill `orchestrate-plan-writing`，生成 / 修复 issue-backed plan | Phase 0b |
+| `orchestrate-plan-writing` | design 通过且 issue hierarchy 已确认，或 Phase 0b 暴露 plan gap | `orchestrate-plan-writing/SKILL.md` | 调用 Skill `orchestrate-plan-writing`，生成 / 修复 issue-backed plan | 按 verdict 路由（见 `coordinator-tools.md` Handoff Status） |
 | Phase 0b | 已有 / 刚生成 plan | `references/plan-review.md` | 派 3 baseline `codex-reviewer` angles（via `codex:codex-rescue --model gpt-5.4`）；审 source design + issues + plan + Task Pack inventory | design gap → Discovery；issue gap → `to-issues`；plan gap → plan-writing；pass → Phase A |
-| Phase A | Phase 0b 通过，或 accepted implementation gap | `references/phase-a.md` + `references/dispatch-primitives.md` | 逐 pack 派 worker → Pack Review（`codex-reviewer`）；必要时 early release gate | 全部 pack pass → Phase B |
+| Phase A | Phase 0b 通过，或 accepted implementation gap | `references/phase-a.md` + `references/dispatch-primitives.md` | 逐 pack 派 worker → Pack Review（`codex-reviewer`）；必要时 early release gate | 全部 pack pass → Phase B；design/domain gap → Discovery；architecture friction → improve-codebase-architecture |
 | Phase B | 所有 pack review 通过 | `references/final-review.md` + `references/dispatch-primitives.md` | 2 baseline `codex-reviewer` angles（Intent + Code-Level）+ release gate | implementation gap → Phase A；design/context gap → Discovery；plan gap → plan-writing；pass → Phase C |
 | Phase C | Phase B 通过且 release gate 不触发或已通过 | `references/final-review.md` | 汇报能力、验证证据和残余风险；收尾工作（branch 整理、PR、push）在此完成；只有用户明确要求才 merge / PR / push | 完成或暂停 |
 | 合同边界 | 任意节点触碰 API / Pydantic / DB / JSON / sync / billing / permission / runtime | `references/contract-boundary.md` | 确认 owner / producer / consumer / schema / migration / verification；anchors 写入 dispatch prompt | 回到当前节点 |
 | Review Budget | 即将 spawn reviewer（baseline / targeted / release gate） | `references/review-budget.md` | 检查全局预算余量、per-phase 规则、80% 刹车机制；判断是否触发 release gate | 回到当前节点 |
-| Coordinator Tools | 路由到 upstream skill、跨会话交接、方向感丢失、路由不确定 | `references/coordinator-tools.md` | Upstream Skill 调用表、Durable Handoff Brief、Direction Check、Routing Vocabulary | 回到当前节点 |
-
-## Handoff Status
-
-| 来源 | Verdict | 下一步 |
-| --- | --- | --- |
-| discovery | `DISCOVERY_READY` / `DISCOVERY_NOT_NEEDED` | Phase 0a |
-| discovery | `READY_FOR_REPAIR` | Direct Repair |
-| discovery | `NEEDS_USER_DECISION` | User Decision |
-| discovery | `BLOCKED` | 停止 |
-| plan-writing | `PLAN_CREATED` | Phase 0b |
-| plan-writing | `NEEDS_DISCOVERY` | discovery |
-| plan-writing | `NEEDS_DESIGN_REVIEW` | Phase 0a |
-| plan-writing | `NEEDS_ISSUES` | to-issues |
-| plan-writing | `NEEDS_TRIAGE` | triage |
-| plan-writing | `NEEDS_DIAGNOSIS` | diagnose / discovery |
-| plan-writing | `NEEDS_DECISION` | user / prototype |
-| plan-writing | `NEEDS_ARCHITECTURE` | improve-codebase-architecture |
-| plan-writing | `NEEDS_CONTEXT` | code-explorer / zoom-out |
-| review | `pass` | 下一 phase |
-| review | `needs repair` | 修复后 targeted re-review |
-| review | `needs context` | explorer / discovery |
-| review | `blocked` | 停止 |
+| Coordinator Tools | 路由到 upstream skill、跨会话交接、方向感丢失、路由不确定、收到 upstream handoff verdict | `references/coordinator-tools.md` | Handoff Status、Upstream Skill 调用表、Durable Handoff Brief、Direction Check、Routing Vocabulary | 回到当前节点 |
 
 ## Custom Agents
 
