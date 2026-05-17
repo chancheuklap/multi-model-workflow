@@ -16,7 +16,7 @@ description: "AgentFlow 正式开发流程主编排。用户给出新功能、�
 | Answer-only | 用户只问概念、状态、解释、取舍或路径 | 回答后停止；不生成 design / issue / plan | 无 |
 | One-shot Review | 用户明确只要 review / audit / 判断，不要求修复 | 读取对应 reference，按 baseline review angles 返回 findings | 只有发布门禁、迁移 / 回滚顺序、账务 / 权限发布风险需要判断时才追加 `release_reviewer` |
 | Direct Repair | 已有批准 design / plan / mockup / acceptance / failing test / reviewer finding，且目标行为清楚 | 跳过 Discovery、`to-issues` 和 plan-writing，按 Phase A targeted repair 派发 | 普通代码改动一次 `code_reviewer`；只有本 repair 的发布风险需要上线 / 回滚 / 人工门禁判断时才派 `release_reviewer`；纯机械文档可 parent self-check |
-| Formal Orchestrate | 新功能、系统性改造、含混 bug / feedback、缺 design、缺 issue hierarchy、缺 plan、跨 pack 实现 | 进入下方 Workflow | 按各 phase gate |
+| Formal Orchestrate | 新功能、系统性改造、含混 bug / feedback、缺 design、缺 issue hierarchy、缺 plan，或已有 reviewed design / plan / Task Pack 要继续跨 pack 实现 | 进入下方 Workflow；已有 gate 通过证据时直接进入对应节点 | 按各 phase gate |
 | User Decision | 产品承诺、业务规则、权限、账务、发布策略或 UX target 无法从 source artifacts 判定 | 一次只问一个会改变 workflow 的问题 | 暂停执行 |
 
 Direct Repair 仍必须按 `references/dispatch-contract.md` 的 Direct Repair Brief 派发，携带 source artifacts、anchors、owned files、verification 和 out of scope；不得因为跳过正式前置文档就发明 schema、helper、UI 状态或业务规则。
@@ -72,7 +72,7 @@ Issue recording target:
 
 ## Workflow
 
-这张图只表达 Formal Orchestrate 主干和主要回流；具体 review 派发、finding reception、repair payload 和 stop condition 由节点 reference 决定。
+这张图只表达 Formal Orchestrate 主干和主要回流；具体 review 派发、finding reception、repair payload 和 stop condition 由节点 reference 决定。继续既有工作时，先找最近已经通过且 source baseline 未改变的 gate，从对应节点恢复，不从顶部重跑 review。
 
 ```mermaid
 flowchart TD
@@ -145,6 +145,7 @@ Phase A 的派发、Pack Brief、Return Contract、Review Reception 都由 `refe
 
 - 除非 Entry Gate 明确选择 Answer-only、One-shot Review 或 Direct Repair，否则不能跳过 Phase 0a / Phase 0b / Phase B。
 - Formal Orchestrate 没有可 review design document 时先进入 `orchestrate-discovery`；不要直接拆 issue、写 plan 或派 worker。
+- 已有 gate 通过证据且 source design / issue / plan / scope / shared contract baseline 未改变时，不重跑已通过 review；从下一个未完成节点继续。
 - Design 通过 Phase 0a 后才进入 `to-issues`。
 - `to-issues` 只能基于本轮 Source artifacts 和用户明确提供的 parent issue 工作；不能把 read-only context 自动拉入范围。
 - `orchestrate-plan-writing` 只消费已确认的 vertical large / small issue hierarchy；缺 large issue 或 small issue 时先走 `to-issues`。
