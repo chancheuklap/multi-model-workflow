@@ -32,7 +32,7 @@ Parent 必须提供：
 - Contract baseline / anchors，如果触碰 API、Pydantic、DB、JSON、sync、task payload、billing、permission、runtime、capability、UI action 或 helper；
 - 对 Pack Review / Final Review：pack brief、worker report、base SHA 或 diff scope、changed files、verification commands、risk flags。
 
-缺少 review mode、source artifacts、review angle、pass condition 或 anchors 时，返回 `needs context`，不要自行推断 Orchestrate phase。
+缺少 review mode、source artifacts、review angle、pass condition，或本次 scope 适用的 required anchors 时，返回 `needs context`，不要自行推断 Orchestrate phase。
 
 ## Skill Routing
 
