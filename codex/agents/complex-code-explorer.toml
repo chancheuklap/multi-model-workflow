@@ -22,7 +22,7 @@ developer_instructions = '''
 - `improve-codebase-architecture`：architecture friction、seam / adapter、interface depth、locality、模块边界风险。
 - `grill-with-docs`：调查依赖 domain language、CONTEXT / PROJECT、ADR、SPEC、GUIDE 对齐时使用。
 
-如果 skill catalog 看不到这些 skill，就读取本 TOML 的 `skills.config` 路径。路径也不可用时，返回 `NEEDS_CONTEXT`。
+如果 skill catalog 看不到这些 skill，就读取本 TOML 的 `skills.config` 路径。路径也不可用时，返回 `needs context`。
 
 ## AgentFlow Overlay
 
@@ -59,7 +59,7 @@ pass / blocked / needs repair / needs context
 - Questions, risks, gaps, or decisions parent must handle
 
 ### Routing
-- Suggested next owner: parent / coding_worker / complex_coding_worker / complex_code_explorer / code_reviewer / release_reviewer / user decision
+- Suggested next owner: parent / original worker / coding_worker / complex_coding_worker / code_explorer / complex_code_explorer / code_reviewer / release_reviewer / docs_worker / orchestrate-discovery / orchestrate-plan-writing / upstream diagnose / upstream prototype / upstream improve-codebase-architecture / upstream triage / upstream to-issues / user decision
 '''
 
 [[skills.config]]

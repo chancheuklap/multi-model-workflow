@@ -1,6 +1,6 @@
 ---
 name: orchestrate-plan-writing
-description: "当 AgentFlow 已有 reviewed source design / design document / SPEC / existing PRD / explicit requirements，并且已有 mattpocock-skills:to-issues 产出的 vertical large issues / small issues，或用户要求把 design、PRD、issues 转成 implementation plan、Task Pack plan、issue-backed plan 时主动使用。负责生成可进入 Orchestrate Phase 0b 的 plan：large issue -> plan section，small issue -> Task Pack，pack 内写细 task；缺 source design 时返回 NEEDS_DISCOVERY，缺 issue hierarchy 时返回 NEEDS_ISSUES。"
+description: "当 AgentFlow 已有 reviewed source design / design document / SPEC / existing PRD / explicit requirements，并且已有 mattpocock-skills:to-issues 产出的 vertical large issues / small issues，或用户要求把 design、PRD、issues 转成 implementation plan、Task Pack plan、issue-backed plan 时主动使用。负责生成可进入 Orchestrate Phase 0b 的 plan：large issue 映射 plan section，small issue 映射 Task Pack，pack 内写细 task；缺 source design 时返回 NEEDS_DISCOVERY，缺 issue hierarchy 时返回 NEEDS_ISSUES。"
 ---
 
 # Orchestrate Plan Writing
@@ -17,7 +17,7 @@ source design / design document / requirements
   -> pack-local implementation tasks
 ```
 
-Plan 生成后交回 `orchestrate-workflow`，由 Phase 0b review、Task Pack 派发、Phase A、Phase B 和业务汇报继续推进。
+Plan 生成或修复后交回 `orchestrate-workflow`，从 Phase 0b Plan Review 重新进入。除非 source design、issue hierarchy 或 scope 改变，不回 Discovery、不重跑 Phase 0a、不派 worker。
 
 ## 范围输入
 
@@ -36,6 +36,7 @@ Plan 生成后交回 `orchestrate-workflow`，由 Phase 0b review、Task Pack �
 - 项目 anchors：根 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 ADR / SPEC / GUIDE / runbook、触碰目录的 `AGENTS.override.md` / `agents.overrides.md`；
 - 涉及 UI / UX 时的 mockup anchors：路径、页面、viewport、states、interaction、允许偏差、visual verification；
 - 涉及 API / Pydantic / DB / JSON / sync / billing / permission / runtime / helper 时的 Contract anchors：owner、provider、consumer、model、schema_version、registry / migration / catalog、repository / read model、verification。
+- 涉及 migration / billing / permission / runtime / cross-service contract / deploy order / rollback / manual gate 时的发布风险事实：风险面、source issue、是否需要提前 review、Phase B 需要什么证据、manual gate owner。plan-writing 负责写进 plan 的“发布风险和人工门禁”；source facts 不足时返回 `NEEDS_DISCOVERY`。
 
 缺正式输入时不要保存半成品，按缺件返回。可以给 `to-issues` 提供 suggested vertical slices；这些 slices 在 `to-issues` 确认前不能写成正式 Task Pack。
 
@@ -47,7 +48,7 @@ Plan 生成后交回 `orchestrate-workflow`，由 Phase 0b review、Task Pack �
 | issue ready state、AFK / HITL、blocked-by 不清 | `NEEDS_TRIAGE` | `triage` |
 | 业务术语、对象 owner、UI target state、permission、billing、lifecycle 或验收口径不清 | `NEEDS_DISCOVERY` | `orchestrate-discovery` |
 | bug / wrong state / performance regression 缺复现、feedback loop、症状或 hypotheses | `NEEDS_DIAGNOSIS` | `orchestrate-discovery` / `diagnose` |
-| state machine、interface shape 或 UI 方向需要方案比较 | `NEEDS_DECISION` | `orchestrate-discovery` / `prototype` |
+| 状态行为、interface shape 或 UI 方向需要方案比较 | `NEEDS_DECISION` | `orchestrate-discovery` / `prototype` |
 | bad seam、repeated repair、single-adapter interface 或错误测试面暴露 | `NEEDS_ARCHITECTURE` | `improve-codebase-architecture` |
 | 模块地图、调用链或风险区域不足，影响 pack 边界 | `NEEDS_CONTEXT` | `zoom-out` 或 `orchestrate-discovery` |
 
@@ -55,7 +56,7 @@ Plan 生成后交回 `orchestrate-workflow`，由 Phase 0b review、Task Pack �
 
 1. 读取 source design / requirements，提取 goal、architecture、tech stack、用户可见行为、系统可验证行为、合同边界、UI 状态、失败场景和 out of scope。
 2. 读取 `references/issue-to-pack-contract.md`，确认 large issue 可以成为 plan section、small issue 可以成为 Task Pack；不成立时按入口判断返回。
-3. 读取 `references/plan-document-contract.md`，写 plan：Header、Scope Check、Source Coverage Map、File / Responsibility Map、large issue sections、Task Packs、pack-local implementation tasks。
+3. 读取 `references/plan-document-contract.md`，写 plan：Header、Scope Check、Source Coverage Map、File / Responsibility Map、发布风险和人工门禁、large issue sections、Task Packs、pack-local implementation tasks。
 4. 读取 `references/plan-quality-gates.md`，删除过度设计，补齐设计不足；如果缺口来自 issue 边界、业务决策或架构 friction，按入口判断返回。
 5. 读取 `references/plan-self-review.md`，保存前自审并修正。
 6. 保存到 `docs/orchestrate/plans/YYYY-MM-DD-<feature-name>.md`，除非用户或项目规则指定其他路径；保存前创建父目录。
@@ -72,7 +73,7 @@ Plan 生成后交回 `orchestrate-workflow`，由 Phase 0b review、Task Pack �
 - existing paths、commands、fixtures、endpoints、mockup paths 必须验真；新文件标为 `Create`。
 - in-scope Project / Contract / Mockup anchors 必须进入对应 Task Pack；缺 anchors 时 route，不用 `N/A` 掩盖缺口。
 - 同一文件、shared contract、migration、permission、billing、runtime、release boundary 默认串行或同 pack。
-- 不写 placeholder：`TBD`、`TODO`、`later`、`follow up`、`write tests`、`add validation`、`handle edge cases`、`implement logic`、`similar to previous`。
+- 不写 placeholder：`TBD`、`TODO`、`later`、`defer`、`write tests`、`add validation`、`handle edge cases`、`implement logic`、`similar to previous`。
 - plan 是 Phase 0b 的可审执行合同，不是直接开工指令。
 
 ## 成功返回
@@ -88,6 +89,7 @@ PLAN_CREATED
 - Source design / requirements:
 - Source issues:
 - Project / Contract / Mockup anchors:
+- 发布风险和人工门禁:
 
 ### Issue mapping
 - Large issues:

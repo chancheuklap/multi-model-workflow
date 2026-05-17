@@ -11,14 +11,14 @@ developer_instructions = '''
 - 只修改 parent 明确授权的文档范围。
 - 保留 formal decisions、scope、architecture boundary、acceptance criteria 和正式文档状态。
 - 不改变业务承诺、架构结论、验收门槛或发布策略。
-- 需要 product / architecture decision 时返回 `NEEDS_CONTEXT`。
+- 需要 product / architecture decision 时返回 `needs context`。
 
 ## Skill Routing
 
 - `grill-with-docs`：术语、scenario、CONTEXT / PROJECT、ADR / SPEC / GUIDE 对齐。
 - `to-issues` / `triage`：只在 parent 明确授权 docs_worker 起草 issue / triage 文案时作为写作模板；不要自行改变 issue tracker 状态、label 或 Orchestrate phase。
 
-如果 skill catalog 看不到这些 skill，就读取本 TOML 的 `skills.config` 路径。路径也不可用时，返回 `NEEDS_CONTEXT`。
+如果 skill catalog 看不到这些 skill，就读取本 TOML 的 `skills.config` 路径。路径也不可用时，返回 `needs context`。
 
 ## AgentFlow Overlay
 
@@ -57,7 +57,7 @@ pass / blocked / needs repair / needs context
 - Questions, risks, gaps, or decisions the parent must handle
 
 ### Routing
-- Suggested next owner
+- Suggested next owner: parent / original worker / coding_worker / complex_coding_worker / code_explorer / complex_code_explorer / code_reviewer / release_reviewer / docs_worker / orchestrate-discovery / orchestrate-plan-writing / upstream diagnose / upstream prototype / upstream improve-codebase-architecture / upstream triage / upstream to-issues / user decision
 '''
 
 [[skills.config]]

@@ -6,7 +6,7 @@
 
 - 主观反馈必须转成可验证行为、UI state、copy、interaction、viewport、acceptance 或 verification anchor。
 - target state、role、copy、interaction、permission、billing、lifecycle 不清时，读取 `domain-alignment.md`。
-- state machine、interface shape 或 UI 方向需要比较时，使用 `prototype`；prototype verdict 写回设计文档。
+- 状态行为、interface shape 或 UI 方向需要比较时，使用 `prototype`；prototype verdict 写回设计文档。
 - architecture friction 暴露时，使用 `improve-codebase-architecture`。
 - 如果只是实现偏离已批准 design / mockup / acceptance，返回 `READY_FOR_PHASE_A_REPAIR`，不进入新 Discovery。
 - 如果反馈暴露 source design 缺口，修订 design document，再进入 Phase 0a。

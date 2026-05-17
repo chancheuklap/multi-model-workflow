@@ -21,6 +21,7 @@
 - 新文件标记为 `Create`。
 - 每个 Task Pack 都有 owned files / responsibilities。
 - 每个 Task Pack 都有 verification commands 或 HITL / manual gate。
+- production-risk / billing / permission / migration / runtime / manual gate pack 都引用对应发布风险面。
 - 细 task 适合短反馈循环。
 - 改代码或测试的 step 有足够完整的 behavior、关键断言、合同面、命令和 expected result。
 - 后续 task 使用的类型、函数、方法、字段、fixture 与前文定义或 existing code 一致。
@@ -35,6 +36,7 @@
 - 并行 pack 不触碰同一文件或 contract surface。
 - UI / UX pack 有 mockup anchors、viewport、states、interaction 和 visual verification。
 - contract pack 有 owner、provider、consumer、model、schema_version 或 migration / catalog / registry，以及 verification。
+- “发布风险和人工门禁”覆盖所有 production-risk / billing / permission / runtime / migration / manual gate pack，且能被 Phase B final release gate 消费。
 
 ## 4. Red Flags
 
@@ -44,7 +46,7 @@
 - horizontal packs：all backend、all frontend、all tests、all schema、all templates；
 - placeholder：TBD、TODO、later、appropriate、similar；
 - `write tests`、`add validation`、`handle edge cases`、`implement logic` 这类没有具体内容的 step；
-- `similar to previous`、`follow up`、`later` 或把关键行为留给后续补齐；
+- `similar to previous`、`defer`、`later` 或把关键行为留给后续补齐；
 - 代码片段使用省略号、伪变量或未定义名称；
 - 大段生产代码出现在 plan 中，且不是 source design、prototype、ADR 或 existing contract 固定的精确 shape；
 - 未验证路径或命令被写成现有事实；
@@ -53,5 +55,6 @@
 - plan 没有经过 `to-issues` issue hierarchy，却声称 issue-backed。
 - 为当前 issue 没要求的未来能力预建 registry、migration、消息中心、历史页、全局 dashboard 或复杂抽象。
 - Task Pack 缺少 failure state、contract anchors、mockup states、pack-local verification 或 dependency truth。
+- production-risk 只写在 risk flags 里，没有进入“发布风险和人工门禁”。
 
 无法从当前上下文修正时，返回对应 route：`NEEDS_DISCOVERY`、`NEEDS_CONTEXT`、`NEEDS_ISSUES`、`NEEDS_TRIAGE`、`NEEDS_DIAGNOSIS`、`NEEDS_DECISION` 或 `NEEDS_ARCHITECTURE`，说明缺少的 design、artifact、issue、decision 或 feedback loop。

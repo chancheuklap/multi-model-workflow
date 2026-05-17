@@ -35,6 +35,10 @@
 
 涉及 API / Pydantic / DB / JSON / sync / task payload / UI action / helper 时，写清 owner、provider、consumer、model、schema_version、registry / migration / catalog、repository / read model、verification。
 
+## 发布风险和人工门禁
+
+涉及 migration、billing、permission、runtime、cross-service contract、deploy order、rollback 或 manual production dependency 时，写清发布风险面、风险来源、需要提前判定的 release decision、可延后到 Phase B 的 final release gate、manual gate owner 和本阶段验证证据。
+
 ## UI / UX 状态
 
 涉及 UI 时写清 mockup / screenshot / prototype path、页面、viewport、states、copy、interaction、视觉允许偏差和验证方式。
@@ -60,7 +64,7 @@
 
 - 使用项目正式术语。
 - 不写当前聊天才能理解的句子。
-- 不使用 TODO / TBD / later / follow-up 掩盖缺口。
+- 不使用 TODO / TBD / later / defer 掩盖缺口。
 - 不写具体 file path 作为长期实现指令，除非它是 mockup、source artifact、existing module anchor 或已确认 contract anchor。
-- prototype 代码片段只有在精确表达 state machine、schema、type shape 或 reducer decision 时才可摘录，且必须标注为 decision artifact，不作为生产实现代码。
+- prototype 代码片段只有在精确表达状态规则、schema、type shape 或 reducer decision 时才可摘录，且必须标注为 decision artifact，不作为生产实现代码。
 - 文档是 Phase 0a 输入，不是 implementation plan，不写 Task Pack，不写 worker 指令。

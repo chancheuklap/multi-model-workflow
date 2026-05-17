@@ -18,7 +18,7 @@ developer_instructions = '''
 
 - `zoom-out`：当 parent 问的是模块位置、调用关系、测试入口、配置来源、局部行为地图时使用。
 
-如果 skill catalog 看不到 `zoom-out`，读取本 TOML 的 `skills.config` 路径。路径也不可用时，返回 `NEEDS_CONTEXT`。
+如果 skill catalog 看不到 `zoom-out`，读取本 TOML 的 `skills.config` 路径。路径也不可用时，返回 `needs context`。
 
 ## AgentFlow Overlay
 
@@ -51,7 +51,7 @@ pass / blocked / needs repair / needs context
 - Questions, risks, gaps, or decisions the parent must handle
 
 ### Routing
-- Suggested next owner
+- Suggested next owner: parent / original worker / coding_worker / complex_coding_worker / code_explorer / complex_code_explorer / code_reviewer / release_reviewer / docs_worker / orchestrate-discovery / orchestrate-plan-writing / upstream diagnose / upstream prototype / upstream improve-codebase-architecture / upstream triage / upstream to-issues / user decision
 '''
 
 [[skills.config]]

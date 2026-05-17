@@ -34,6 +34,7 @@ Design、SPEC、ADR 或 PRD 中提到多个相关 issue 时，只处理用户明
 - acceptance criteria；
 - verification commands 或 manual gate；
 - risk flags；
+- 发布风险字段, if risk flags include production-risk / billing / permission / migration / runtime / manual gate；
 - AFK / HITL；
 - dependencies；
 - parallel safety；

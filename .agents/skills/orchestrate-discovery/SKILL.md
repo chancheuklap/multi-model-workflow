@@ -10,7 +10,7 @@ description: "当 AgentFlow 的新功能、issue、backlog、现有 PRD、系统
 ## 核心流程
 
 1. 定位输入材料：用户意图、现有 issue / PRD / backlog、bug 现象、UI 反馈、mockup、相关代码、相关文档。
-2. 读取项目上下文：根 `AGENTS.md`、项目规则、相关 `CONTEXT` / `PROJECT` / `ENGINEERING-RULES` / SPEC / ADR / GUIDE、相关目录 `agents.overrides.md`。
+2. 读取项目上下文：根 `AGENTS.md`、项目规则、相关 `CONTEXT` / `PROJECT` / `ENGINEERING-RULES` / SPEC / ADR / GUIDE、相关目录 `AGENTS.override.md` / `agents.overrides.md`。
 3. 按输入类型读取第一份 reference：
    - 普通新想法 / 系统性改造 / 模糊讨论：`references/conversation-to-design.md`
    - bug / wrong state / performance regression：`references/bug-input.md`

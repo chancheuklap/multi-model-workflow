@@ -2,9 +2,15 @@
 
 Phase B 验证所有 pack 合并后是否满足 design intent，并确认没有 release blocker。
 
-每个 final gap 最多 2 轮修复。Phase B dispatch 总量上限 15；超过上限时先做方向检查，确认是继续 repair、回 design / plan，还是请求用户决策。
+每个 final gap 最多 2 轮修复；这里的“轮”按 `dispatch-contract.md` 的 `repair round` 计算。Phase B dispatch 总量上限 15；超过上限时先做方向检查，确认是继续 repair、回 design / plan，还是请求用户决策。
 
-## Final Intent Review
+## Review Architecture
+
+所有 review reference 都按同一骨架工作：明确输入和通过条件 -> 派 baseline review angle -> 判断 release gate -> 做 Review Budget -> 做 Review Reception -> 用 Result Payload 返回可执行 findings。Final Review 的差异只在于 review 对象是所有 packs 合并后的最终 intent 和发布风险，不再拆新 pack 或修 plan，除非发现 accepted design / plan gap。
+
+Pass condition：Final Intent Review 通过；plan 中需要 Phase B 判定的发布风险已通过 release-risk gate 或明确为 non-blocking manual gate；没有 implementation / design / context blocker。
+
+## Baseline Review：Final Intent Review
 
 派 `code_reviewer`。
 
@@ -19,6 +25,7 @@ Phase B 验证所有 pack 合并后是否满足 design intent，并确认没有 
 - starting commit；
 - current diff；
 - pack completion summary；
+- 发布风险和人工门禁；
 - validation commands。
 
 步骤：
@@ -53,28 +60,14 @@ Context Gap：
 - route 给 `orchestrate-discovery`；
 - Discovery 结束后，把 clarified context 写回 design / plan / issue brief，再重新判断是 implementation gap、design repair、prototype question 还是 user decision。
 
-## Independent Second Opinion
+Unverifiable：
 
-派另一个 `code_reviewer`，不要给它第一次 final review 的结论。
+- 当前环境、账号、数据、生产 gate 或人工验收缺失；
+- 必须写清本地已验证证据、缺失 artifact、manual gate owner 和是否阻塞 Phase C。
 
-Prompt 必须包含同一组 Read first 和 Project baseline，但不要包含第一次 final review 的 finding。
+## Release Gate：Release Risk Review
 
-检查：
-
-- correctness；
-- regression；
-- security；
-- integration；
-- design alignment；
-- contract boundary alignment；
-- mockup alignment；
-- empty-state / error path / retry / rollback / race / stale import。
-
-所有 finding 必须基于代码读取或测试输出。推断必须明确标注。
-
-## Release Risk Review
-
-以下情况必须派 `release_reviewer`：
+Final Intent Review 没有 implementation / design blocker 后，以下情况必须派 `release_reviewer`：
 
 - database migration；
 - billing / wallet / settlement；
@@ -85,7 +78,7 @@ Prompt 必须包含同一组 Read first 和 Project baseline，但不要包含�
 - API / Pydantic / DB / JSON / sync / task payload compatibility；
 - production dependency / manual gate。
 
-`release_reviewer` 只审 release-risk。它不能替代 Final Intent Review，也不能替代 independent diff review。Phase B 通过必须同时满足 baseline `code_reviewer` review 和必要的 `release_reviewer` gate。
+`release_reviewer` 只审 release-risk。它不能替代 Final Intent Review。Phase B 通过必须同时满足 baseline `code_reviewer` review 和必要的 `release_reviewer` gate。
 
 Prompt 必须包含 Read first 和 Project baseline，并额外写清 migration / deploy / rollback / manual gate / online verification 事实。
 
@@ -104,6 +97,26 @@ Release blocker：
 Final review 可以记录架构后效应，但不能随意把架构摩擦升级成 blocker。
 
 如果 final review 需要判断 module、interface、seam、adapter、depth、locality、deletion test 或 dependency category，使用 upstream `improve-codebase-architecture` 作为方法来源。Orchestrate 只定义 blocker threshold：architecture after-effect 只有造成 production risk、data risk、permission risk、billing risk、rollback failure 或当前验收不成立时，才成为 blocker；否则通过 upstream `triage` / `to-issues` 记录为 bounded issue candidate。
+
+## Review Budget
+
+- 默认只派一次 baseline `code_reviewer` 执行 Final Intent Review。
+- Final Intent Review 仍 blocked 时不要先派 release-risk review；先修 accepted implementation / design blockers。
+- Final Intent Review 通过后，最终 diff 触碰发布风险时追加一次 `release_reviewer`，只审 release-risk。
+- Phase B 的 repair round 只处理 accepted findings；repair 后默认 targeted re-review accepted findings、affected files、contract / mockup anchors 和 verification，不重跑完整 Final Intent Review。
+- 只有 final findings 证据冲突、连续 targeted repair 后同类 blocker 仍复现、最终 diff 跨越多个 high-risk surfaces，或用户明确要求时，才追加针对性 review；prompt 只审冲突点或改动点。
+
+## Review Reception
+
+Coordinator 收到 findings 后按 `dispatch-contract.md` 做 disposition：
+
+- `accepted` implementation gap：回 Phase A targeted repair；repair prompt 只带 accepted findings、affected files、contract / mockup anchors 和 verification。
+- `accepted` design / context gap：交 `orchestrate-discovery`；修订 design 后回到必要的 Phase 0a / plan-writing / Phase 0b。
+- `accepted` plan gap：交 `orchestrate-plan-writing` 或 Phase 0b targeted plan repair。
+- `accepted` release blocker：交 `complex_coding_worker` 或 `user decision`；修复后只做 targeted release re-review。
+- `rejected` / `out of scope` / `duplicate` finding：记录证据，不 repair，不触发 targeted re-review。
+
+修复后只 targeted re-review accepted findings、affected files、contract / mockup anchors 和 verification。只有 source design、plan、Task Pack inventory、shared contract、migration、permission、billing、runtime 或 mockup baseline 改动时，才做 full phase review rerun。
 
 ## Result Payload
 
@@ -126,6 +139,7 @@ Rollback concerns:
 
 Phase Summary:
 可以完成 / 阻塞
+Disposition required:
 ```
 
 不要用 worker self-report 作为通过证据。

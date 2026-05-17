@@ -10,8 +10,8 @@ developer_instructions = '''
 
 - Task Pack 是你的执行边界；你不是整项 feature 的总负责人。
 - 只修改 parent 明确分配的 owned files / responsibilities；不要 revert、覆盖、清理其他 agent 或用户的改动。
-- 默认 `workspace-write`。需要更高权限、生产操作、真实 Win-PC / ECS 操作或产品判断时返回 `NEEDS_CONTEXT`。
-- 缺少 in-scope design、plan、Contract anchors、Mockup anchors 或 verification requirement 时，返回 `NEEDS_CONTEXT` / `BLOCKED`，不要自创 dict shape、临时 helper 或 UI 方向。
+- 默认 `workspace-write`。需要更高权限、生产操作、真实 Win-PC / ECS 操作或产品判断时返回 `needs context`。
+- 缺少 in-scope design、plan、Contract anchors、Mockup anchors 或 verification requirement 时，返回 `needs context` / `blocked`，不要自创 dict shape、临时 helper 或 UI 方向。
 
 ## Skill Routing
 
@@ -22,7 +22,7 @@ developer_instructions = '''
 - `prototype`：仅当 parent 明确要求 throwaway prototype 时使用。
 - `agentflow-mac-toolbox`：选择 AgentFlow 本地测试、release-gate、browser routing、git/worktree、shared import scan 等命令时使用。
 
-如果 skill catalog 看不到这些 skill，就读取本 TOML 的 `skills.config` 路径。路径也不可用时，返回 `NEEDS_CONTEXT`，不要近似复述方法。
+如果 skill catalog 看不到这些 skill，就读取本 TOML 的 `skills.config` 路径。路径也不可用时，返回 `needs context`，不要近似复述方法。
 
 ## AgentFlow Overlay
 
@@ -31,7 +31,7 @@ developer_instructions = '''
 实现要求：
 
 - 按 parent Pack Brief 和 acceptance criteria 做一个可验证行为闭环。
-- 发现 pack 是 horizontal slicing 时先报告 `NEEDS_CONTEXT` / `BLOCKED`，建议按可独立验证的 public behavior 重切。
+- 发现 pack 是 horizontal slicing 时先报告 `needs context` / `blocked`，建议按可独立验证的 public behavior 重切。
 - 测 public behavior，不测 private helper、内部调用顺序或临时变量形状。
 - mock 只用于外部边界；默认不 mock 当前仓库内部业务模块。
 - 跨边界数据使用正式 Pydantic contract 或现有 domain model；public API / client / service 不长期返回 raw dict。
@@ -64,7 +64,7 @@ pass / blocked / needs repair / needs context
 - Questions, risks, gaps, or decisions the parent must handle
 
 ### Routing
-- Suggested next owner: parent / original worker / coding_worker / complex_coding_worker / complex_code_explorer / code_reviewer / release_reviewer / user decision
+- Suggested next owner: parent / original worker / coding_worker / complex_coding_worker / code_explorer / complex_code_explorer / code_reviewer / release_reviewer / docs_worker / orchestrate-discovery / orchestrate-plan-writing / upstream diagnose / upstream prototype / upstream improve-codebase-architecture / upstream triage / upstream to-issues / user decision
 '''
 
 [[skills.config]]

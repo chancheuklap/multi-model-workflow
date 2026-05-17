@@ -50,6 +50,12 @@ Header 后必须写：
 
 **Docs / rules / registry / migration / release gate:**
 - `path or gate` — why it changes
+
+## 发布风险和人工门禁
+
+| 风险面 | Source issue / Task Pack | Risk flag | 提前 review | Phase B 证据 | Manual gate owner |
+| --- | --- | --- | --- | --- | --- |
+| <migration / billing / permission / runtime / cross-service contract / rollback / manual gate> | <issue / pack> | <risk> | yes / no, with reason | <evidence needed in Phase B> | <owner or N/A> |
 ```
 
 Scope Check 和 File / Responsibility Map 是计划边界。先确认范围和文件职责，再写 Task Pack；不要用文件清单替代 vertical issue hierarchy。
@@ -95,6 +101,7 @@ Scope Check 和 File / Responsibility Map 是计划边界。先确认范围和�
 
 **Commit boundary:** suggested commit scope, or `N/A` when parent will batch commits
 **Risk flags:** normal / high-risk / production-risk / billing / permission / migration / runtime / UI / HITL
+**发布风险:** <风险面 / N/A>
 **AFK / HITL:** ...
 **Dependencies:** ...
 **Parallel safety:** ...
@@ -141,7 +148,7 @@ Scope Check 和 File / Responsibility Map 是计划边界。先确认范围和�
 
 这些内容出现在 plan 中就是 plan failure，必须保存前修掉：
 
-- `TBD`、`TODO`、`later`、`follow up`；
+- `TBD`、`TODO`、`later`、`defer`；
 - `add validation`、`handle edge cases`、`appropriate error handling`、`implement logic`；
 - `write tests` 但没有说明 behavior、关键断言、fixtures、命令和 expected result；
 - `similar to previous pack / step`；
@@ -167,6 +174,7 @@ verification 必须证明 pack 行为：
 
 - Source Coverage Map 里的每条 intent 都能指向具体 Task Pack。
 - File / Responsibility Map 里的每个路径都在至少一个 Task Pack 中出现。
+- “发布风险和人工门禁”覆盖所有 production-risk / billing / permission / migration / runtime / manual gate 风险，并说明提前 review 或 Phase B final gate。
 - 后文引用的 type、field、fixture、command 和 path 与前文一致。
 - 每个 dependency 都来自 small issue blocked-by、shared contract 或真实 path / migration / release gate 冲突。
 - 每个 Task Pack 的 suggested commit boundary 与 pack scope 一致。

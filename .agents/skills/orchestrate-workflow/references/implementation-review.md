@@ -2,7 +2,13 @@
 
 Phase A 中每个 worker / repair worker 返回后，parent 立即读取本文件并派 review。它负责审 Task Pack 的实现，独立确认 worker 是否真实完成 pack；不接受 worker 自报作为通过证据。
 
-每个 pack 最多 3 轮修复。每轮 repair 必须说明上一轮为什么不够，并改变方法、证据或边界；不能重复同一种修补。
+每个 pack 最多 3 轮修复；这里的“轮”按 `dispatch-contract.md` 的 `repair round` 计算。每轮 repair 必须说明上一轮为什么不够，并改变方法、证据或边界；不能重复同一种修补。repair 后默认 targeted Pack Review，只重审 accepted findings、repair diff、受影响 contract / mockup anchors 和 verification；pack scope、source plan、shared contract 或 high-risk surface 改变时才做 full phase review rerun。
+
+## Review Architecture
+
+所有 review reference 都按同一骨架工作：明确输入和通过条件 -> 派 baseline review angle -> 判断 release gate -> 做 Review Budget -> 做 Review Reception -> 用 Result Payload 返回可执行 findings。Pack Review 的差异只在于 review 对象是单个 Task Pack implementation，baseline review 内部分成 Spec Compliance 和 Code Quality 两段。
+
+Pass condition：Spec Compliance 通过，Code Quality 没有当前验收 blocker；accepted release blocker 已关闭；pack-local verification 能证明 public behavior。
 
 ## Pack Review 流程图
 
@@ -10,23 +16,27 @@ Phase A 中每个 worker / repair worker 返回后，parent 立即读取本文�
 flowchart TD
     A["worker / repair worker 返回"] --> B["parent 收集 plan、pack brief、worker report、diff、verification"]
     B --> C["派 code_reviewer 做 Pack Review"]
-    C --> D{"是否有 production-risk?"}
-    D -->|是| E["追加 release_reviewer"]
-    D -->|否| F["进入 Spec Compliance"]
-    E --> F
-    F --> G{"Spec Compliance 通过?"}
-    G -->|否| H["finding route 给 worker / Discovery / explorer / architecture / user decision"]
-    H --> I["repair 后重新 review"]
-    I --> B
-    G -->|是| J["Code Quality review"]
-    J --> K{"Code Quality 通过?"}
-    K -->|否| H
-    K -->|是| L["Pack Review pass，标记 pack done"]
+    C --> D["进入 Spec Compliance"]
+    D --> E{"Spec Compliance 通过?"}
+    E -->|否| F["finding route 给 worker / Discovery / explorer / architecture / user decision"]
+    F --> G["repair 后 targeted Pack Review"]
+    G --> B
+    E -->|是| H["Code Quality review"]
+    H --> I{"Code Quality 通过?"}
+    I -->|否| F
+    I -->|是| J{"满足 early release gate?"}
+    J -->|是| K["派或合并 release_reviewer"]
+    K --> L{"release gate 通过?"}
+    L -->|否| N["release repair / user decision"]
+    N --> O["targeted release re-review"]
+    O --> L
+    L -->|是| M["Pack Review pass，标记 pack done"]
+    J -->|否| M
 ```
 
 ## 派发：Pack Review
 
-派 `code_reviewer`。生产风险 pack 追加 `release_reviewer`。
+派 `code_reviewer`。`release_reviewer` 的触发条件是 `dispatch-contract.md` 的 early release gate；通常 baseline Pack Review 通过后再派，多个相邻 high-risk packs 属于同一发布风险面时可合并一次 release-risk review。
 
 必须提供：
 
@@ -41,6 +51,7 @@ flowchart TD
 - verification commands；
 - changed files；
 - risk flags。
+- 发布风险, if risk flags include production-risk / billing / permission / migration / runtime / manual gate.
 
 ## 必做独立验证
 
@@ -85,7 +96,7 @@ Critical：
 检查：
 
 - 逻辑错误、空值处理、类型不匹配、资源泄漏、竞态条件。
-- 项目规则：logger、contract wall、模块边界、单一权威源、registry、`AGENTS.override.md`。
+- 项目规则：logger、contract wall、模块边界、单一权威源、registry、`AGENTS.override.md` / `agents.overrides.md`。
 - 合同质量：`schema_version`、`extra=forbid`、typed public return、unknown-field handling、producer / consumer 同步、DB migration / repository / read model 闭合。
 - helper placement：新增 helper 是否属于 domain service、repository、adapter 或 shared contract；route / host / page action 中的一次性 helper 默认可疑。
 - 测试质量：public behavior、真实边界、no internal mocks、正确 seam。测试应描述系统做什么，不断言 private helper、内部调用次数、内部调用顺序或临时数据结构。
@@ -97,15 +108,19 @@ Critical：
 
 Refactor 只在 GREEN 后允许。reviewer 可以建议 refactor，但不能用普通整洁偏好阻塞 pack；只有影响 correctness、test seam、项目规则或当前验收时才升级。
 
-## Routing
+## Release Gate
 
-```text
-needs coding_worker
-needs complex_coding_worker
-needs complex_code_explorer
-needs release_reviewer
-needs user decision
-```
+`release_reviewer` 只在 early release gate 触发；多个相邻 high-risk packs 属于同一发布风险面时合并一次 release-risk review。Pack Review 只负责确认当前 pack 的实现和风险输入是否可进入该 gate。
+
+## Review Budget
+
+- 默认只派一个 baseline `code_reviewer` 做 Pack Review；同一个 reviewer 先审 Spec Compliance，再审 Code Quality。
+- repair round 只处理 accepted findings；repair 后默认 targeted Pack Review。
+- 只有 baseline finding 证据冲突、连续 targeted repair 后同类 blocker 仍复现、release gate 和 pack 边界互相影响，或用户明确要求时，才追加针对性 review。
+
+## Review Reception
+
+Routing owner 必须使用 `dispatch-contract.md` 的统一名称，例如 `coding_worker`、`complex_coding_worker`、`code_explorer`、`complex_code_explorer`、`release_reviewer`、`orchestrate-discovery`、`orchestrate-plan-writing`、`upstream diagnose`、`upstream prototype`、`upstream improve-codebase-architecture`、`upstream triage`、`upstream to-issues`、`user decision`。
 
 判断：
 
@@ -113,8 +128,11 @@ needs user decision
 - 问题存在但根因不明：`complex_code_explorer`。
 - desired behavior、UI target、business term 或 object ownership 不清：`orchestrate-discovery`。
 - bad seam、repeated repair、single-adapter interface 或 weak test surface：upstream `improve-codebase-architecture`。
-- 涉及生产风险：`release_reviewer`。
+- 满足 early release gate：`release_reviewer`。
+- accepted release blocker：`complex_coding_worker` 或 `user decision`；修复后只做 targeted release re-review。
 - 改变产品范围或业务规则：用户决策。
+
+Coordinator 先按 `dispatch-contract.md` 做 finding disposition。只有 accepted findings 进入 repair；rejected、duplicate、out of scope 和低置信度观察不得触发 worker。
 
 ## Result Payload
 

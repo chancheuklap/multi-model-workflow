@@ -8,6 +8,7 @@
 - 是否和 `CONTEXT.md`、PROJECT、SPEC、ADR、GUIDE、代码事实冲突。
 - 是否每个目标行为都能转成验收或测试。
 - 是否有对象 / 状态 / 合同缺 owner、writer、reader、verifier。
+- 是否涉及 migration、billing、permission、runtime、cross-service contract、deploy order、rollback 或 manual gate，却没有写发布风险面、manual owner 或 final release gate 输入。
 - 是否有 UI / UX 输入但缺 mockup path、viewport、states、interaction 或 visual verification。
 - 是否有 bug 输入但缺 current behavior、desired behavior、reproduction / symptom、regression check。
 - 是否有 issue 输入但缺 source、acceptance、dependencies、AFK / HITL。

@@ -2,6 +2,12 @@
 
 Phase 0a 审 design doc。检查设计能否被计划、实现和最终验证承接；不做文字润色审查。新想法产生 design doc 后必须立刻进入本 review，通过后才允许生成 implementation plan。
 
+## Review Architecture
+
+所有 review reference 都按同一骨架工作：明确输入和通过条件 -> 派 baseline review angle -> 判断 release gate -> 做 Review Budget -> 做 Review Reception -> 用 Result Payload 返回可执行 findings。Design Review 的差异只在于 review 对象是 design document，finding 默认修文档或回 Discovery，不派 worker。
+
+Pass condition：Design Content Review 和 Project Alignment Review 都通过；accepted release blocker 已关闭；没有 Critical design finding。
+
 ## 入口流程图
 
 ```mermaid
@@ -17,9 +23,11 @@ flowchart TD
     G --> H["Phase 0b Plan Review"]
 ```
 
-Phase 0a 最多 2 轮文档修复。仍有 Critical design finding 时，不生成 plan。
+Phase 0a 最多 2 轮文档修复；这里的“轮”按 `dispatch-contract.md` 的 `repair round` 计算。仍有 Critical design finding 时，不生成 plan。
 
-## 派发 1：Design Content Review
+Design Content Review 和 Project Alignment Review 是两个不同角度，可以并行派发，但不能合并成一个 review。
+
+## Baseline Review 1：Design Content Review
 
 派 `code_reviewer`。让 reviewer 专注设计自身，不审代码实现。
 
@@ -59,13 +67,14 @@ Phase summary: 通过 / 阻塞
 Critical:
 Important:
 低置信度观察:
+Disposition required:
 ```
 
-Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Design finding 默认 route 给 coordinator document repair；domain language、业务对象、UI / UX target state、验收口径不清 route 给 `orchestrate-discovery`；产品承诺、业务规则、UX、发布策略、架构 trade-off 无法由文档和代码判断时 route 给 user decision 或 `orchestrate-discovery`。
+Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Design finding 默认 route 给 `parent` 或 `docs_worker` 做 document repair；domain language、业务对象、UI / UX target state、验收口径不清 route 给 `orchestrate-discovery`；产品承诺、业务规则、UX、发布策略、架构 trade-off 无法由文档和代码判断时 route 给 `user decision` 或 `orchestrate-discovery`。
 
-## 派发 2：Project Alignment Review
+## Baseline Review 2：Project Alignment Review
 
-派 `code_reviewer`。如果设计涉及 production-risk，在 `code_reviewer` 的内容审查和项目对齐审查完成后，追加 `release_reviewer`。`release_reviewer` 不能替代本节审查。
+派 `code_reviewer`。`release_reviewer` 只在本文件 Review Budget 定义的 early release gate 中追加，不能替代本节审查。
 
 Prompt 必须包含：
 
@@ -103,6 +112,32 @@ Phase summary: 通过 / 阻塞
 Critical:
 Important:
 低置信度观察:
+Disposition required:
 ```
 
 Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。Phase 0 finding 返回 coordinator。主线程修文档；不派 worker 写代码。
+
+## Release Gate
+
+设计期 `release_reviewer` 只在 release strategy、migration / deploy order、rollback 或 manual production gate 必须被提前判定时追加；普通 production-risk 由 baseline reviewers 转成 design anchors 和 risk flags。
+
+## Review Budget
+
+- 默认只派两个 baseline `code_reviewer`：Design Content Review、Project Alignment Review。
+- Phase 0a 的 repair round 只处理 accepted findings；repair 后默认 targeted re-review 受影响 angle，不重跑两个 baseline reviews。
+- 只有两个 baseline findings 证据冲突、连续 targeted repair 后同类 Critical gap 仍复现、release gate 和设计边界互相影响，或用户明确要求时，才追加针对性 review；prompt 只审冲突点或改动点。
+
+## Review Reception
+
+Coordinator 收到 findings 后按 `dispatch-contract.md` 做 disposition：
+
+- `accepted` document repair：coordinator 或 `docs_worker` 修 design。
+- `accepted` domain / UX / terminology / ownership ambiguity：交 `orchestrate-discovery`，并把 clarified context 写回 design / domain docs。
+- `accepted` issue gap：Phase 0a 通过后再 route 给 upstream `to-issues`，不要在 design review 中直接拆 pack。
+- `rejected` / `out of scope` / `duplicate` finding：记录证据，不进入 repair，不触发 targeted re-review。
+
+修复后只 targeted re-review changed sections、相关 anchors 和受影响的 review angle。只有 design intent、contract boundary、mockup target、scope 或 project invariant 被改动时，才做 full phase review rerun。
+
+## Result Payload
+
+两个 baseline angles 使用上文各自的 `### Result` payload，但必须共享标准顶层 headings、finding shape、disposition 和 routing vocabulary。Design Review 的 finding 不直接派 worker；accepted implementation implication 先写回 design，再由后续 Plan Review / Phase A 承接。

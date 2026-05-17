@@ -22,5 +22,7 @@ Role methods:
 - `coding_worker`: public-behavior vertical TDD, no horizontal slicing, external-boundary mocks only, testable interface discipline.
 - `complex_coding_worker`: root-cause feedback loop, loop refinement, falsifiable hypotheses, instrumentation cleanup, correct-seam regression.
 - `code_reviewer`: Design Review, Plan Review, Pack Review, Final Intent Review, behavior-test review, vertical Task Pack review, architecture finding classification.
+- `code_explorer`: narrow read-only file, symbol, call-chain, test-entry, config-source, and small behavior fact lookup.
 - `complex_code_explorer`: read-only diagnosis loop, feedback-loop gap reporting, facts vs inference, architecture friction vocabulary, dependency-category seam analysis.
-- `release_reviewer`: production-risk review across design, plan, implementation, and final release for data, permissions, billing, migrations, deploy order, rollback, and manual verification.
+- `release_reviewer`: early / final release-risk gate for data, permissions, billing, migrations, deploy order, rollback, compatibility, and manual verification; not a replacement for baseline design / plan / pack / final review.
+- `docs_worker`: low-risk documentation cleanup, self-contained design / issue drafting, stale reference cleanup, and mechanical structure repair.

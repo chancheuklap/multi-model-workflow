@@ -11,13 +11,14 @@
 - Task Pack 足够垂直，能独立验证；但不会把一个大 issue 临时拆成横向 schema / API / UI / test 任务。
 - plan 不把未验证的实现猜想伪装成代码事实；它提供行为、合同、路径、测试、依赖和验收。
 - plan 的细 task 足够小，能按 RED -> GREEN -> 验证 -> 整理的短反馈循环执行。
-- plan 不为未来 hypothetical scope 预建抽象、状态机、registry、migration、消息系统或 UI surface。
+- plan 不为未来 hypothetical scope 预建抽象、长期状态层、registry、migration、消息系统或 UI surface。
+- production-risk 不只是 Task Pack 的 risk flag；必须进入 plan 的“发布风险和人工门禁”，说明是否需要提前 review、Phase B final gate 输入和 manual owner。
 
 ## 2. 过度设计信号
 
-出现以下情况，先删减 plan；删不掉时 route 给 `orchestrate-discovery` 或 `improve-codebase-architecture`：
+出现以下情况，先删减 plan；删不掉时按 `orchestrate-plan-writing/SKILL.md` 返回 `NEEDS_DISCOVERY` 或 `NEEDS_ARCHITECTURE`：
 
-- 为一个 small issue 新增多个长期对象、状态机、registry、migration 或 UI surface，但 source issue 只要求一个可验证行为。
+- 为一个 small issue 新增多个长期对象、长期状态层、registry、migration 或 UI surface，但 source issue 只要求一个可验证行为。
 - 把未来消息中心、历史页、全局 dashboard、跨设备恢复、长期留存、复杂权限或运营后台提前塞进当前 pack。
 - 因为多个 pack 都会触碰同一文件，就抽象出 shared helper，但没有当前重复复杂度证据。
 - 细 task 写出大量生产代码片段，超过 plan 所需的接口 shape、字段、断言和调用边界。
@@ -43,6 +44,7 @@
 - small issue acceptance criteria 没进入 Task Pack acceptance criteria。
 - blocked-by 没进入 dependencies，或者把真实串行依赖写成可并行。
 - pack 改 shared contract，却没有安排 consumer 同步和 compatibility / migration / release gate。
+- production-risk / billing / permission / runtime / migration / manual gate 出现在 pack 中，但没有进入“发布风险和人工门禁”。
 - 只列最终大套测试，没有 pack-local focused verification。
 - worker 仍需要自行决定业务术语、文案、UI target state、计费含义、权限含义或 issue hierarchy。
 - 只说“修改某文件”，没有说明该文件在本 pack 中承担什么 responsibility。
@@ -51,10 +53,10 @@
 
 修正原则：
 
-- 业务 / UX / 术语不清，route 给 `orchestrate-discovery`。
-- state machine、interface shape 或 UI 方向需要比较方案，route 给 `prototype`。
-- issue 太大或无法独立验证，route 给 `to-issues`。
-- 架构边界反复卡住，route 给 `improve-codebase-architecture`。
+- 业务 / UX / 术语不清：返回 `NEEDS_DISCOVERY`。
+- 状态行为、interface shape 或 UI 方向需要比较方案：返回 `NEEDS_DECISION`，交 Orchestrate 选择 user decision 或 upstream `prototype`。
+- issue 太大或无法独立验证：返回 `NEEDS_ISSUES`。
+- 架构边界反复卡住：返回 `NEEDS_ARCHITECTURE`。
 
 ## 4. 细 Task 深度
 
@@ -68,6 +70,7 @@
 - 要修改的生产路径、合同面、owner / consumer；
 - focused command 和 expected result；
 - 何时更新 docs、`AGENTS.override.md` / `agents.overrides.md`、registry、migration、release gate。
+- production-risk pack 对应哪一个发布风险面。
 
 只有在这些情况才写代码片段：
 
@@ -100,7 +103,7 @@
 保存 plan 前给出一个简短自审结论：
 
 ```text
-Plan quality: pass / needs repair / needs upstream
+Plan quality: pass / needs repair / route required
 Overdesign checked:
 Underdesign checked:
 Largest remaining risk:

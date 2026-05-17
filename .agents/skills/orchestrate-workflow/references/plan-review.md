@@ -1,6 +1,12 @@
 # Plan Review 合同
 
-Phase 0b 审 issue-backed implementation plan。目标是确认计划覆盖 source design / requirements 和 `to-issues` 产出的 source issues，且 plan 中的 Task Pack inventory 可以直接进入 Orchestrate dispatch。Plan Review 必须同时读取 source design / requirements、source issues 和 plan；如果只有 plan，没有 source intent 或 issue source，返回 `NEEDS_DISCOVERY` 或 `NEEDS_ISSUES`，由主线程补齐 source design / issue source 后再审。
+Phase 0b 审 issue-backed implementation plan。目标是确认计划覆盖 source design / requirements 和 `to-issues` 产出的 source issues，且 plan 中的 Task Pack inventory 可以直接进入 Orchestrate dispatch。Plan Review 必须同时读取 source design / requirements、source issues 和 plan；如果只有 plan，没有 source intent 或 issue source，返回 `needs context`，routing 指向 `orchestrate-discovery` 或 upstream `to-issues`，由主线程补齐 source design / issue source 后再审。
+
+## Review Architecture
+
+所有 review reference 都按同一骨架工作：明确输入和通过条件 -> 派 baseline review angle -> 判断 release gate -> 做 Review Budget -> 做 Review Reception -> 用 Result Payload 返回可执行 findings。Plan Review 的差异只在于 review 对象是 issue-backed plan 和 Task Pack inventory，finding 默认修 plan、回 `to-issues` 或回 Discovery，不派 worker。
+
+Pass condition：Coverage And Task Quality 和 Compliance And Verification 都通过；发布风险和人工门禁可被 Phase A / Phase B 消费；没有 invalid pack、source mismatch、虚构路径、缺 anchors 或缺 verification。
 
 ## 入口流程图
 
@@ -30,7 +36,7 @@ flowchart TD
     H -->|是| J["Phase A Task Pack Execution"]
 ```
 
-Phase 0b 最多 2 轮修复。仍有 invalid pack、design-plan mismatch、issue-plan mismatch、虚构路径、缺验证或缺 anchors 时，不进入 Phase A。
+Phase 0b 最多 2 轮计划修复；这里的“轮”按 `dispatch-contract.md` 的 `repair round` 计算。仍有 invalid pack、design-plan mismatch、issue-plan mismatch、虚构路径、缺验证或缺 anchors 时，不进入 Phase A。
 
 ## Plan 入口要求
 
@@ -41,10 +47,11 @@ Phase 0b 最多 2 轮修复。仍有 invalid pack、design-plan mismatch、issue
 - `Execution owner: Orchestrate Workflow`；
 - `Plan unit`；
 - `Completion gate`；
+- `发布风险和人工门禁`，覆盖 production-risk / billing / permission / migration / runtime / manual gate；
 - large issue -> Task Pack mapping；
 - source issues 来自 `to-issues` 或等价垂直 issue workflow；
 - GitHub Issues 项目中，small issue hierarchy 已先记录到 parent large issue 文档；未记录前不能作为正式 Task Pack 来源；
-- 每个 Task Pack 的 issue source、goal behavior、owned files / responsibilities、read first、Contract anchors、Mockup anchors、acceptance criteria、verification commands、risk flags、AFK / HITL、dependencies、parallel safety、out of scope。
+- 每个 Task Pack 的 issue source、goal behavior、owned files / responsibilities、read first、Contract anchors、Mockup anchors、acceptance criteria、verification commands、risk flags、发布风险、AFK / HITL、dependencies、parallel safety、out of scope。
 
 如果 plan 声明非 Orchestrate Workflow 的 execution owner，或添加额外 execution handoff，返回 `needs repair`，由主线程修 plan，不进入 Phase A。
 
@@ -100,6 +107,7 @@ Mockup anchors:
 Acceptance criteria:
 Verification commands:
 Risk flags:
+发布风险:
 AFK / HITL:
 Dependencies:
 Parallel safety:
@@ -123,7 +131,9 @@ AFK / HITL:
 
 UI / UX durable brief 必须保留 mockup path、目标 viewport、关键 states 和允许偏差。如果 durable brief 来自 Discovery domain alignment、prototype 或 architecture review，写明 resolved context、prototype verdict 或 architecture finding。需要文件范围用于立即执行时，把它放在 Pack Brief 的 owned files 中，不放进 durable contract 的核心语义。
 
-## 派发 1：Coverage And Task Quality
+Coverage And Task Quality 和 Compliance And Verification 是两个不同角度，可以并行派发，但不能合并。两个角度都通过后才算 Phase 0b 通过。
+
+## Baseline Review 1：Coverage And Task Quality
 
 派 `code_reviewer`。
 
@@ -163,11 +173,11 @@ Critical：
 - UI / UX mockup 没有被转成 Task Pack、viewport 检查或 visual / DOM 验收。
 - 合同边界任务没有 Contract anchors，worker 必须自创 dict / helper 才能执行。
 
-## 派发 2：Compliance And Verification
+## Baseline Review 2：Compliance And Verification
 
-派 `code_reviewer`；涉及 production-risk 时追加 `release_reviewer`。
+派 `code_reviewer`。
 
-`release_reviewer` 只补充审 migration order、deploy order、compatibility、rollback、manual production gate 和跨服务生产风险；不能替代 Coverage、Task Quality、Compliance 或 Reference Verification。
+`release_reviewer` 只在 `dispatch-contract.md` 的 early release gate 中追加，用来审 migration order、deploy order、compatibility、rollback、manual production gate 和跨服务生产风险；不能替代 Coverage、Task Quality、Compliance 或 Reference Verification。
 
 Prompt 必须包含：
 
@@ -200,21 +210,27 @@ Critical：
 - 计划允许 bare dict、route-local schema、临时 helper、silent unknown-field drop 或错误 migration tree 进入实现。
 - 高风险变更没有迁移、兼容、回滚或人工验证任务。
 
-## 派发 3：Independent Second Opinion
+## Release Gate
 
-派独立 `code_reviewer`，不要给它前两份 review 的结论。目的不是重复检查，而是用新 framing 找遗漏。
+计划期 `release_reviewer` 只在 release order、rollback、manual production gate 或跨服务上线顺序必须被提前判定时追加；普通 production-risk 由 baseline reviewers 转成 plan risk flags、pack dependencies、发布风险和人工门禁、final release gate 输入。
 
-Prompt 必须包含同一组 Read first 和 Project baseline，也就是 source design / requirements、source issues 与 plan，但不要包含前两份 review 的 finding。
+## Review Budget
 
-检查：
+- 默认只派两个 baseline `code_reviewer`：Coverage And Task Quality、Compliance And Verification。
+- Phase 0b 的 repair round 只处理 accepted findings；repair 后默认 targeted re-review 受影响 angle，不重跑两个 baseline reviews。
+- 只有两个 baseline findings 证据冲突、连续 targeted repair 后仍反复出现同类缺口、release gate 和设计 / 计划边界互相影响，或用户明确要求时，才追加针对性 review；prompt 只审冲突点或改动点。
 
-- 是否有任务互相矛盾。
-- 是否有隐含依赖没有标出。
-- 是否有两个 Task Pack 会改同一文件或同一 contract surface，却被计划并行。
-- 是否有 risky assumption，例如假设 API / data shape / fixture 存在。
-- 是否有 risky assumption，例如假设 Pydantic contract、DB 字段、JSON registry、catalog、capability 或 helper 已存在。
-- 是否有 “之后再切 Task Pack” 或 “最后统一验证” 的水平切片风险。
-- 是否有把 UI / UX 主观反馈、业务含混点或 architecture seam 问题伪装成普通实现 task 的风险；主观反馈和业务含混点 route 给 `orchestrate-discovery`，architecture seam route 给 `improve-codebase-architecture`。
+## Review Reception
+
+Coordinator 收到 findings 后按 `dispatch-contract.md` 做 disposition：
+
+- `accepted` plan repair：交 `orchestrate-plan-writing` 或 coordinator 修 plan。
+- `accepted` source design gap / context ambiguity：交 `orchestrate-discovery`；Discovery 修改 design 后必须重进 Phase 0a，再回 plan-writing / Phase 0b。
+- `accepted` issue-plan mismatch 或 missing small issue：交 upstream `to-issues` 修 issue hierarchy，再由 `orchestrate-plan-writing` 更新 plan。
+- `accepted` architecture friction：交 upstream `improve-codebase-architecture` 形成 architecture finding；回写 design / plan 后 targeted re-review。
+- `rejected` / `out of scope` / `duplicate` finding：记录证据，不 repair，不触发 targeted re-review。
+
+修复后只 targeted re-review changed sections、affected packs、anchors 和 verification，并只重审受影响角度。只有 plan source、Task Pack inventory、shared contract、mockup target、scope 或 dependency graph 改动时，才做 full phase review rerun。
 
 ## Result Payload
 
@@ -227,6 +243,7 @@ Task Pack inventory:
 Critical:
 Important:
 低置信度观察:
+Disposition required:
 ```
 
 Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“可执行 / 需修正”只作为 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source design gap、issue-plan mismatch、context ambiguity，还是 architecture friction；source design gap 和 context ambiguity route 给 `orchestrate-discovery`，architecture friction route 给 upstream `improve-codebase-architecture`。
