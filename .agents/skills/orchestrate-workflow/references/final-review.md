@@ -2,7 +2,7 @@
 
 Phase B 验证所有 pack 合并后是否满足 design intent，并确认没有 release blocker。
 
-每个 final gap 最多 2 轮修复；这里的“轮”按 `dispatch-contract.md` 的 `repair round` 计算。Phase B dispatch 总量上限 15；超过上限时先做方向检查，确认是继续 repair、回 design / plan，还是请求用户决策。
+每个 final gap 最多 2 轮修复；这里的“轮”按 `dispatch-contract.md` 的 `repair round` 计算。超过修复轮次或下一次 reviewer spawn 目的不清时，按 `dispatch-contract.md` 做方向检查。
 
 ## Review Architecture
 
