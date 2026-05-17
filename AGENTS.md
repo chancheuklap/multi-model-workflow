@@ -19,10 +19,12 @@
 
 | 层级 | 路径 | 作用 |
 | --- | --- | --- |
-| Codex skill source | `.agents/skills/orchestrate-workflow/`、`.agents/skills/orchestrate-plan-writing/` | Codex workflow skills 的源码真相 |
+| Codex skill source | `.agents/skills/orchestrate-discovery/`、`.agents/skills/orchestrate-workflow/`、`.agents/skills/orchestrate-plan-writing/` | Codex workflow skills 的源码真相 |
 | Codex agent source | `codex/agents/*.toml` | 自定义 `agent_type` 指令模板 |
-| Codex skill runtime | `/Users/cheuklapchan/.agents/skills/orchestrate-workflow`、`/Users/cheuklapchan/.agents/skills/orchestrate-plan-writing` | Codex 实际可加载的 user-level skills |
+| Codex skill runtime | `/Users/cheuklapchan/.agents/skills/orchestrate-discovery`、`/Users/cheuklapchan/.agents/skills/orchestrate-workflow`、`/Users/cheuklapchan/.agents/skills/orchestrate-plan-writing` | Codex 实际可加载的 user-level skills |
 | Codex agent runtime | `/Users/cheuklapchan/.codex/agents/*.toml` | Codex 实际可调用的 custom sub-agent |
+| Codex hook source | `codex/hooks/*.sh`、`codex/hooks/hooks.json` | user-level hook 的源码真相 |
+| Codex hook runtime | `/Users/cheuklapchan/.codex/hooks/multi-model-workflow/`、`/Users/cheuklapchan/.codex/hooks.json` | Codex 实际执行的 user-level hooks |
 | Claude plugin source | `plugin/` | Claude Code 兼容源；不作为 Codex 当前设计权威 |
 
 改 Codex 运行行为时，先改 source，再同步 runtime。不要只改 `/Users/cheuklapchan/.agents` 或 `/Users/cheuklapchan/.codex/agents`，也不要只改仓库 source 后忘记同步。
@@ -32,11 +34,15 @@
 ```bash
 bash codex/skills/install-orchestrate-workflow.sh --user --apply
 bash codex/agents/sync-agents.sh --apply
+bash codex/hooks/install-hooks.sh --apply
 diff -qr .agents/skills/orchestrate-workflow /Users/cheuklapchan/.agents/skills/orchestrate-workflow
+diff -qr .agents/skills/orchestrate-discovery /Users/cheuklapchan/.agents/skills/orchestrate-discovery
 diff -qr .agents/skills/orchestrate-plan-writing /Users/cheuklapchan/.agents/skills/orchestrate-plan-writing
 for f in code-explorer code-reviewer coding-worker complex-code-explorer complex-coding-worker docs-worker release-reviewer; do
   diff -q "codex/agents/$f.toml" "/Users/cheuklapchan/.codex/agents/$f.toml"
 done
+diff -q codex/hooks/session-start.sh /Users/cheuklapchan/.codex/hooks/multi-model-workflow/session-start.sh
+diff -q codex/hooks/guard-premature-push.sh /Users/cheuklapchan/.codex/hooks/multi-model-workflow/guard-premature-push.sh
 ```
 
 ## 2. Runtime Files
@@ -45,9 +51,13 @@ done
 
 - `.agents/skills/orchestrate-workflow/SKILL.md`
 - `.agents/skills/orchestrate-workflow/references/*.md`
+- `.agents/skills/orchestrate-discovery/SKILL.md`
+- `.agents/skills/orchestrate-discovery/references/*.md`
 - `.agents/skills/orchestrate-plan-writing/SKILL.md`
 - `.agents/skills/orchestrate-plan-writing/references/*.md`
 - `codex/agents/*.toml`
+- `codex/hooks/*.sh`
+- `codex/hooks/hooks.json`
 
 runtime 文件只写会改变 agent 下一步行为的指令：
 
@@ -86,6 +96,7 @@ runtime 文件只写会改变 agent 下一步行为的指令：
 合格标准：
 
 - `orchestrate-workflow` 能从 discovery capture、design、plan、bug feedback、UI/UX feedback 或 existing diff 接管正确入口。
+- `orchestrate-discovery` 能把新功能、issue、backlog、现有 PRD、系统性 bug、wrong state、UI/UX 反馈和产品讨论转成可进入 Phase 0a 的 design document；domain ambiguity 必须通过 `grill-with-docs` 对齐项目文档并写回。
 - Phase 0a 能审设计文档的完整性、项目一致性、场景边界、合同边界和 UI/mockup 承接关系。
 - `orchestrate-plan-writing` 能把已 review 的 design / SPEC / PRD 与 `to-issues` 产出的 vertical large issues / vertical small issues 生成 issue-backed implementation plan；大 issue 对应 plan 一级章节，小 issue 对应 Task Pack。缺 issue 层级时必须回到 `to-issues`，不能自行把候选拆分当正式 pack。
 - Phase 0b 能审计划文档的覆盖率、真实路径、可执行性、验收标准、issue -> Task Pack 映射和风险任务。
@@ -115,6 +126,8 @@ runtime 文件只写会改变 agent 下一步行为的指令：
 | --- | --- | --- | --- |
 | `.agents/skills/orchestrate-workflow/SKILL.md` | 主线程 coordinator | 入口路由、phase、escalation gate、dispatch、review reception、standard return contract | 假设 custom agent 自动知道本文件 |
 | `.agents/skills/orchestrate-workflow/references/*.md` | 主线程 coordinator | phase-specific 检查项、payload 模板、finding 分类、pack / review 规则 | 写成 sub-agent 自动读取的 contract source |
+| `.agents/skills/orchestrate-discovery/SKILL.md` | 主线程 discovery owner | 缺 design document 输入的分类、domain alignment、design document 生成或修订 | 生成 plan、拆 Task Pack、派 worker |
+| `.agents/skills/orchestrate-discovery/references/*.md` | 主线程 discovery owner | conversation / bug / issue / feedback 输入处理、domain alignment、design contract、自检 | 写成 Phase A execution contract |
 | `.agents/skills/orchestrate-plan-writing/SKILL.md` | 主线程 planner | issue-backed plan 生成流程、输入要求、plan 结构、Task Pack 写作规则 | 重新定义 Orchestrate Phase A/B；提供非 Orchestrate execution owner |
 | `.agents/skills/orchestrate-plan-writing/references/*.md` | 主线程 planner | issue -> pack 映射、plan 文档合同、自检清单 | 让 worker 直接依赖这些 references |
 | `codex/agents/*.toml` | custom agent 自己 | 角色边界、默认方法、项目 overlay、可执行 / 只读纪律、本地 return contract | 引用模糊的 `SKILL.md`；重新定义 Orchestrate phase |
@@ -171,14 +184,15 @@ Codex runtime 优先使用真实 `agent_type`，不要把旧 Claude plugin 的 a
 当用户要求“检查这套系统是否完善”时，先做概念和行为审计：
 
 1. 读 `.agents/skills/orchestrate-workflow/SKILL.md`。
-2. 读 `.agents/skills/orchestrate-plan-writing/SKILL.md`。
-3. 读相关 `references/*.md`。
-4. 读 `codex/agents/*.toml`。
-5. 对照当前 Codex runtime、Orchestrate 工作流和 upstream engineering skills。
-6. 判断每个能力是否已经变成可执行指令。
-7. 检查每条指令的 reader 是否正确：parent、planner、reference、custom agent、runtime script 不能混。
-8. 只在发现明确缺口时改 source。
-9. 改完同步 runtime 并验证 diff。
+2. 读 `.agents/skills/orchestrate-discovery/SKILL.md`。
+3. 读 `.agents/skills/orchestrate-plan-writing/SKILL.md`。
+4. 读相关 `references/*.md`。
+5. 读 `codex/agents/*.toml`。
+6. 对照当前 Codex runtime、Orchestrate 工作流和 upstream engineering skills。
+7. 判断每个能力是否已经变成可执行指令。
+8. 检查每条指令的 reader 是否正确：parent、discovery、planner、reference、custom agent、runtime script 不能混。
+9. 只在发现明确缺口时改 source。
+10. 改完同步 runtime 并验证 diff。
 
 不要再把旧 Claude plugin source 当作 Codex 设计依据。只有在维护 `plugin/` 兼容包，或用户明确要求核旧包是否还有未迁移能力时，才读取旧 plugin source；读取后也必须以当前 Codex runtime 为准。
 
@@ -237,8 +251,12 @@ rg -n "workflow-auditor|pack-executor|root-cause-analyst|codex-rescue|SendMessag
 ```bash
 bash codex/skills/install-orchestrate-workflow.sh --user --apply
 bash codex/agents/sync-agents.sh --apply
+bash codex/hooks/install-hooks.sh --apply
 diff -qr .agents/skills/orchestrate-workflow /Users/cheuklapchan/.agents/skills/orchestrate-workflow
+diff -qr .agents/skills/orchestrate-discovery /Users/cheuklapchan/.agents/skills/orchestrate-discovery
 diff -qr .agents/skills/orchestrate-plan-writing /Users/cheuklapchan/.agents/skills/orchestrate-plan-writing
+diff -q codex/hooks/session-start.sh /Users/cheuklapchan/.codex/hooks/multi-model-workflow/session-start.sh
+diff -q codex/hooks/guard-premature-push.sh /Users/cheuklapchan/.codex/hooks/multi-model-workflow/guard-premature-push.sh
 ```
 
 如果改了 agent TOML，还要逐个对比 `/Users/cheuklapchan/.codex/agents/*.toml`。

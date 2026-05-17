@@ -14,6 +14,8 @@ Discovery 全程领域对齐。它不是新入口，不是新阶段，而是所�
 - 某个决定 hard-to-reverse、surprising without context、real trade-off 同时成立，可能需要 ADR。
 - 设计文档里出现“先这样”“后面再看”“临时”“大概”等会让 future agent 无法执行的说法。
 
+满足以上条件且需要对齐项目文档、挑战场景边界或更新 `CONTEXT.md` / ADR / SPEC / GUIDE 时，使用 `grill-with-docs` 进行 domain alignment；结论必须写回 domain docs 和 design document，再回到当前 input flow。
+
 ## 提问规则
 
 - 一次只问一个问题。

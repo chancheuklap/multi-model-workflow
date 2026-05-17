@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SOURCE_ROOT="$ROOT_DIR/.agents/skills"
 SKILL_NAMES=(
+  "orchestrate-discovery"
   "orchestrate-workflow"
   "orchestrate-plan-writing"
 )
@@ -17,7 +18,7 @@ Usage:
   codex/skills/install-orchestrate-workflow.sh --target-repo /path/to/repo [--dry-run|--apply]
   codex/skills/install-orchestrate-workflow.sh --user [--dry-run|--apply]
 
-Installs the repo-authored Codex workflow skills into a Codex-visible location.
+Installs the repo-authored Orchestrate skill bundle into a Codex-visible location.
 Default mode is --dry-run.
 
 Modes:

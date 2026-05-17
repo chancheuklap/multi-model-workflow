@@ -6,9 +6,10 @@ Reference source: `mattpocock/skills`, `skills/engineering`, MIT License, local 
 
 | Method | Runtime file | Use |
 | --- | --- | --- |
+| Discovery | `orchestrate-discovery` | Own design document generation and revision before Phase 0a. |
 | `diagnose` | `complex-code-explorer.toml`, `complex-coding-worker.toml` | Route unknown bugs into feedback-loop-first investigation or root-cause repair. |
 | `tdd` | `coding-worker.toml`, `complex-coding-worker.toml`, `code-reviewer.toml` | Split packs into public-behavior slices and reject horizontal slicing. |
-| `grill-with-docs` | `code-reviewer.toml` | Review design / plan alignment against AgentFlow formal docs. |
+| `grill-with-docs` | `orchestrate-discovery/references/domain-alignment.md`, `code-reviewer.toml` | Align terminology, object ownership, states, scenarios, and project docs during Discovery and review. |
 | `to-issues` | required upstream issue generation before `orchestrate-plan-writing` | Produce vertical large issues and small issues that become plan sections and Task Packs. |
 | plan writing | `orchestrate-plan-writing` | Own implementation plan writing for AgentFlow: scope, file responsibilities, bite-sized TDD tasks, exact commands, expected results, no placeholders, and no non-Orchestrate execution handoff. |
 | `triage` agent brief | `orchestrate-workflow` dispatch fields, `code-reviewer.toml` brief review | Keep delegated work self-contained and durable. |
@@ -41,7 +42,7 @@ Reference source: `mattpocock/skills`, `skills/engineering`, MIT License, local 
 8. Test names and interface language should use project domain terms.
 9. Refactor only while the behavior is green, and rerun focused verification after refactor.
 
-## Grill With AgentFlow Docs
+## Orchestrate Discovery And Grill With AgentFlow Docs
 
 AgentFlow doc mapping:
 
@@ -49,12 +50,15 @@ AgentFlow doc mapping:
 - decision records: existing ADR/SPEC/GUIDE structure;
 - local execution rules: `AGENTS.md` and `AGENTS.override.md`.
 
-1. Challenge terminology. New or fuzzy terms must resolve to canonical project terms or explicitly become new formal terms.
-2. For every new object, state, workflow, contract, or boundary, identify owner, writer, reader, verifier, and cleanup responsibility.
-3. Run at least two concrete business scenarios through the design. One scenario should be an edge, failure, empty, permission, repeated-submit, concurrency, or rollback case.
-4. Cross-check that code facts support design claims. If code can answer a question, inspect code instead of asking the user.
-5. Suggest ADR only when all are true: the decision is hard to reverse, it would surprise future maintainers without context, and it contains a real trade-off.
-6. Use AgentFlow root `CONTEXT.md` as the upstream-skill glossary; do not create `CONTEXT-MAP.md` or `docs/agents/` unless the project rules are explicitly changed.
+1. Use `orchestrate-discovery` whenever an input does not yet have a Phase 0a-ready design document.
+2. Inside Discovery, use `grill-with-docs` when terminology, object owner, state, lifecycle, contract boundary, UI role, permission, sync ownership, billing boundary, or existing project docs are unclear.
+3. Challenge terminology. New or fuzzy terms must resolve to canonical project terms or explicitly become new formal terms.
+4. For every new object, state, workflow, contract, or boundary, identify owner, writer, reader, verifier, and cleanup responsibility.
+5. Run concrete business scenarios through the design. At least one scenario should be an edge, failure, empty, permission, repeated-submit, concurrency, or rollback case.
+6. Cross-check that code facts support design claims. If code can answer a question, inspect code instead of asking the user.
+7. Suggest ADR only when all are true: the decision is hard to reverse, it would surprise future maintainers without context, and it contains a real trade-off.
+8. Write clarified context back to `CONTEXT.md` / domain docs and the design document before Phase 0a.
+9. Use AgentFlow root `CONTEXT.md` as the upstream-skill glossary; do not create `CONTEXT-MAP.md` or `docs/agents/` unless the project rules are explicitly changed.
 
 ## To-Issues As Issue Substrate
 
@@ -79,7 +83,7 @@ AgentFlow doc mapping:
 6. Include Scope Check and File / Responsibility Map before pack details.
 7. The skill owns concrete task discipline: verified paths, exact commands, expected result, public-behavior checks, code / test shapes, DRY / YAGNI, commit boundary, and no placeholders.
 8. Do not add any execution owner or execution handoff outside Orchestrate Workflow.
-9. If source design lacks issues, route to `to-issues`; if issue ready state is unclear, route to `triage`; if terms or owner are unclear, route to `grill-with-docs`; if bug feedback loop is missing, route to `diagnose`; if state/interface/UI direction is unresolved, route to `prototype`; if architecture friction blocks planning, route to `improve-codebase-architecture`; if module map is insufficient, route to `zoom-out`.
+9. If source design is missing or terms / owner / UI target / business semantics are unclear, route to `orchestrate-discovery`; if issue hierarchy is missing, route to `to-issues`; if issue ready state is unclear, route to `triage`; if bug feedback loop is missing, route to `diagnose`; if state/interface/UI direction is unresolved, route to `prototype`; if architecture friction blocks planning, route to `improve-codebase-architecture`; if module map is insufficient, route to `zoom-out`.
 10. Phase 0b reviews the plan and pack inventory through `plan-review.md`; Task Pack dispatch preparation validates or repairs invalid packs but does not recut a valid plan online.
 
 ## Durable Agent Brief

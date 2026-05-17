@@ -4,7 +4,7 @@
 
 Codex runtime:
 
-- repo-local skills: `.agents/skills/orchestrate-workflow/`, `.agents/skills/orchestrate-plan-writing/`
+- repo-local skills: `.agents/skills/orchestrate-discovery/`, `.agents/skills/orchestrate-workflow/`, `.agents/skills/orchestrate-plan-writing/`
 - versioned Codex agent templates: `codex/agents/*.toml`
 - sync and install scripts: `codex/agents/sync-agents.sh`, `codex/skills/install-orchestrate-workflow.sh`
 - optional hook scripts and installer under `codex/hooks/`
@@ -24,6 +24,7 @@ The repo-local skills are available when Codex runs from this repository or a su
 
 ```text
 .agents/skills/orchestrate-workflow/SKILL.md
+.agents/skills/orchestrate-discovery/SKILL.md
 .agents/skills/orchestrate-plan-writing/SKILL.md
 ```
 
