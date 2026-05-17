@@ -68,7 +68,7 @@ Issue recording target:
 | `orchestrate-plan-writing` | `NEEDS_DIAGNOSIS` | upstream `diagnose` 或 Discovery bug flow |
 | `orchestrate-plan-writing` | `NEEDS_DECISION` | User Decision 或 upstream `prototype` |
 | `orchestrate-plan-writing` | `NEEDS_ARCHITECTURE` | upstream `improve-codebase-architecture` |
-| `orchestrate-plan-writing` | `NEEDS_CONTEXT` | `code_explorer` / `complex_code_explorer` / `zoom-out` / Discovery |
+| `orchestrate-plan-writing` | `NEEDS_CONTEXT` | `code_explorer` / `complex_code_explorer` / `orchestrate-discovery` |
 
 ## Workflow
 
