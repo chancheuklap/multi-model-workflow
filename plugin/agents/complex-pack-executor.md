@@ -63,15 +63,28 @@ color: orange
 4. Plan 中勾选完成的 task。
 5. 返回：完成的 task、变更文件、测试状态、偏差。子代理不 commit——主线程在 review 通过后统一提交。
 
-## 模式 2：修复 review 问题（via Agent tool，targeted repair）
+## 模式 2a：修复 review 问题（via SendMessage，同一 agent 继续）
 
-通过 Agent tool 新建调度，收到 Codex reviewer 的具体发现和原 pack 的 git diff scope。先读取相关变更文件理解上下文，再执行修复。
+Coordinator 通过 SendMessage 发送 Pack Review 的 accepted findings。你已有完整的实现上下文——不需要重新读取 pack brief 或理解代码结构。
 
 1. 完整读完所有 findings。
 2. 按优先级修复：Critical → Important。
 3. 每修一个 finding 跑相关测试。
 4. 全部修完后跑完整测试。
 5. 返回修复摘要。子代理不 commit——主线程在 re-review 通过后统一提交。
+
+如果 finding 不正确，说明技术原因推回。不盲目实现。
+
+## 模式 2b：修复 review 问题（via Agent tool，targeted repair fallback）
+
+当 SendMessage 不可用时，通过 Agent tool 新建调度。收到 Codex reviewer 的具体发现和原 pack 的 git diff scope。先读取相关变更文件理解上下文，再执行修复。
+
+1. 完整读完所有 findings。
+2. 读取 diff scope 中的变更文件，理解实现上下文。
+3. 按优先级修复：Critical → Important。
+4. 每修一个 finding 跑相关测试。
+5. 全部修完后跑完整测试。
+6. 返回修复摘要。子代理不 commit——主线程在 re-review 通过后统一提交。
 
 如果 finding 不正确，说明技术原因推回。不盲目实现。
 

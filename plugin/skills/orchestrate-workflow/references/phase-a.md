@@ -4,12 +4,12 @@ Phase 0b 通过后进入。逐 pack 循环：派 worker → Pack Review → 通�
 
 ## Step 1: Dispatch Worker
 
-用 Agent tool 调度 `pack-executor`（普通 pack）或 `complex-pack-executor`（高风险 pack）。Prompt 包含 Pack Brief 完整字段（见 `dispatch-primitives.md`）+ pack 中所有 task 完整文本 + 上下文。
+用 Agent tool 调度 `pack-executor`（普通 pack）或 `complex-pack-executor`（高风险 pack）。Prompt 包含 Pack Brief 完整字段（见 `dispatch-primitives.md`）+ pack 中所有 task 完整文本 + 上下文。**记录返回的 agentId**——后续复杂修复需要用 SendMessage 继续该 agent。
 
 处理状态：
 - **pass** → Step 2。
 - **needs repair** → 正确性问题先处理；观察性意见记下继续。
-- **needs context** → 新建同类 worker，prompt 包含原 pack brief + 补充上下文。
+- **needs context** → SendMessage 继续原 worker，补充上下文（fallback: 新建同类 worker）。
 - **blocked** → 技术阻塞自主解决（拆 pack / 调度 root-cause-analyst）。业务阻塞询问用户。
 
 ## Parallel Dispatch
@@ -87,15 +87,34 @@ Pack Review 通过后，只在 early release gate 触发时追加 `codex-release
 
 ## Reception
 
-- 能说清改哪里 → original worker / pack-executor / complex-pack-executor。
-- 根因不明（只需调查）→ complex-code-explorer。
-- 根因不明（需要调查 + 修复）→ root-cause-analyst。
-- desired behavior 不清 → orchestrate-discovery。
-- bad seam → improve-codebase-architecture；只影响当前 pack 回 Phase A 继续，改变 plan anchors 回 Phase 0b re-review。
-- 满足 release gate → codex-release-reviewer。
-- 改变产品范围 → user decision。
+Coordinator 收到 Pack Review 结果后**不是传话筒**——必须：
+1. 主动验证 finding 正确性（读代码、跑测试、对照 source）
+2. 逐条给 disposition（accepted / rejected / needs evidence / duplicate / out of scope / user decision）
+3. 按修复分流规则决定谁来修
 
-Repair 后 targeted Pack Review，只重审 accepted findings + repair diff + affected anchors。完整路由选项见 `coordinator-tools.md` Routing Vocabulary。
+### 修复分流
+
+| 条件 | 修复归属 | 机制 |
+| --- | --- | --- |
+| ≤ 2 文件、不触碰合同边界、不需新增测试、意图明确 | **coordinator 直接修** | 读 diff → 修复 → 跑验证 → targeted re-review |
+| 多文件联动、需理解实现上下文、需新增测试 | **SendMessage 给原 worker**（agentId） | 发 findings + 修复指令 → worker 有完整实现上下文 |
+| SendMessage 不可用时的复杂修复 | **新建同类 targeted-repair agent** | prompt 包含 accepted findings + 原 pack brief subset + git diff scope |
+| 根因不明（只需调查） | complex-code-explorer | 新建 |
+| 根因不明（需要调查 + 修复） | root-cause-analyst | 新建（需全新视角） |
+| desired behavior 不清 | orchestrate-discovery | Skill 调用 |
+| bad seam | improve-codebase-architecture | 只影响当前 pack 回 Phase A 继续，改变 plan anchors 回 Phase 0b re-review |
+| 满足 release gate | codex-release-reviewer | 新建 |
+| 改变产品范围 | user decision | 停止执行 |
+
+### SendMessage 继续原 worker
+
+```
+SendMessage({ to: <agentId>, content: "<accepted findings + 修复指令>" })
+```
+
+前提：`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`。异步——等通知再继续。工具不存在时新建同类 agent。
+
+Repair 后 targeted Pack Review：只重审 accepted findings + repair diff + affected anchors。
 
 ## 进度
 

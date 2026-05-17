@@ -82,7 +82,7 @@ Coordinator 做路由决策时的完整参考。Sub-agent 不输出 routing—�
 | owner | 使用条件 |
 | --- | --- |
 | `parent` | coordinator 归并证据、更新进度、继续下一 phase |
-| `original worker` | accepted implementation finding 明确属于刚返回的 worker scope |
+| `original worker` | accepted implementation finding 明确属于刚返回的 worker scope。优先 SendMessage 继续原 agent（保留上下文）；SendMessage 不可用时新建同类 agent |
 | `pack-executor` | 普通 repair / implementation，改动范围清楚 |
 | `complex-pack-executor` | migration、billing、auth、permission、runtime、shared contract、release boundary 或高风险 repair |
 | `code-explorer` | 窄范围文件、符号、调用链、测试入口问题 |

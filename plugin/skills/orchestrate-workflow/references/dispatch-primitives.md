@@ -83,10 +83,21 @@ Phase reference 和 agent definitions 可以在 `### Result` 内定义 role-spec
 
 Disposition 为 `accepted` 后：
 
-- **Phase 0（Design / Plan）**：parent 直接修。
+- **Phase 0（Design / Plan）**：parent 直接修。Design 和 Plan 是 coordinator 写的，coordinator 拥有完整用户上下文。
 - **Phase A/B — 简单修复**（≤ 2 文件、不触碰合同边界、不需新增测试、意图明确）：parent 直接修复，跑验证后调度 targeted re-review。
-- **Phase A/B — 复杂修复**：新建同类 targeted-repair agent（`pack-executor` 或 `complex-pack-executor`），prompt 包含 accepted findings + 原 pack brief subset + git diff scope。
-- **Phase A/B — 根因不明**：新建 `root-cause-analyst`。
+- **Phase A/B — 复杂修复**：SendMessage 原 worker（异步，等通知）；未启用 Agent Teams 时新建同类 targeted-repair agent，prompt 含 accepted findings + pack brief subset + git diff scope。
+- **Phase A/B — 根因不明**：新建 `root-cause-analyst`（始终新建，需要全新视角）。
+
+### SendMessage vs 新建 agent
+
+| 维度 | SendMessage | 新建 agent |
+| --- | --- | --- |
+| 上下文 | 保留 | 仅 prompt |
+| 时序 | 异步（等通知） | 同步（阻塞） |
+| 前提 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | 无 |
+| 适用 | 同 pack review → 修复 | 未启用 / 跨 pack / 新问题 |
+
+派修复前：检查 SendMessage 在工具列表中 → 有则 SendMessage（agentId）→ 无则新建同类 agent。
 
 ### Repair 术语
 
