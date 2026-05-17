@@ -4,8 +4,8 @@
 
 ## 规则
 
-- 缺 feedback loop 时先用 `diagnose`。
-- `diagnose` 必须产出 current behavior、desired behavior、reproduction / observable symptom、falsifiable hypotheses、key interfaces、regression check。
+- 缺 feedback loop 时先用 `diagnose` 建立反馈环和事实记录。
+- Discovery 只消费 `diagnose` 产出的 current behavior、desired behavior、reproduction / observable symptom、falsifiable hypotheses、key interfaces、regression check；修复交给 Direct Repair 或 Phase A。
 - 如果无法构建 feedback loop，设计文档必须记录已尝试的复现路径、缺失环境或需要用户提供的 artifact。
 - desired behavior、业务术语、UI target、permission、billing、lifecycle 不清时，读取 `domain-alignment.md`。
 - 出现 bad seam、shallow module、caller leakage、single-adapter interface、repeated repair、无正确测试面时，使用 `improve-codebase-architecture`，并把 architecture finding 写回设计文档。

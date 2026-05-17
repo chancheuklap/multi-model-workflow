@@ -45,6 +45,21 @@ Issue recording target:
 
 收到 sub-agent 结果后，parent 必须过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改、纳入 plan source 或作为 Task Pack 来源。
 
+## Upstream Route Contract
+
+路由到 upstream skill 前，parent 必须给出 Scope、source artifacts、允许输出和写回目标。只消费下游会读取的结果：
+
+| route | 允许输出 | 写回目标 |
+| --- | --- | --- |
+| `grill-with-docs` | clarified context、resolved term、domain decision、ADR / SPEC / GUIDE need | domain docs 和 design document |
+| `upstream diagnose` | current behavior、desired behavior、reproduction / symptom、falsifiable hypotheses、key interfaces、regression target | bug brief、design document 或 Direct Repair Brief |
+| `upstream prototype` | prototype question、verdict、decision artifact、validated / rejected option | design document、plan anchors 或 issue brief |
+| `upstream improve-codebase-architecture` | architecture finding、affected modules、test seam impact、recommended boundary | design document、plan anchors 或 bounded issue candidate |
+| `upstream triage` | issue category、ready state、AFK / HITL、blocked-by、issue brief | source issue 或 Issue recording target |
+| `upstream to-issues` | confirmed vertical large issues、confirmed vertical small issues、blocked-by、AFK / HITL | Issue recording target；GitHub 项目先写 parent large issue 文档 |
+
+如果 upstream skill 的原始流程还包含发布 issue、改代码、创建长期文档、prototype 文件或 tracker 状态变更，parent 只在当前 Scope / Issue recording target / editable artifacts 授权范围内执行；完成后必须把 verdict 写回上表目标，再回到当前 Orchestrate 节点。
+
 ## Review Budget And Release Gate
 
 Baseline review 和 release-risk review 分开：
@@ -86,8 +101,11 @@ flowchart TD
     J --> K["code_reviewer 做 Pack Review"]
     K --> L["Review Reception Gate"]
     L --> M{"Pack Review 通过?"}
-    M -->|否| N["repair / explorer / Discovery / architecture route"]
-    N --> E
+    M -->|否| N{"route"}
+    N -->|implementation repair / evidence gap| E
+    N -->|design / issue / plan baseline changed| U["回 Phase 0a / plan-writing / Phase 0b"]
+    U --> A
+    N -->|architecture finding changes plan anchors| U
     M -->|是| O{"满足 early release gate?"}
     O -->|是| P["派或合并 release-risk review"]
     P --> Q{"release gate 通过?"}

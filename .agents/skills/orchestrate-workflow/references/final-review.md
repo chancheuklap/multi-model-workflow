@@ -29,12 +29,15 @@ Repair limit：每个 final gap 最多 2 个 repair rounds。超过修复轮次�
 ```mermaid
 flowchart TD
     A["所有 pack review 通过 / 用户要求验收 diff"] --> B["Final Intent Review"]
-    B --> C{"存在 implementation / design / context blocker?"}
+    B --> C{"存在 implementation / design / context / plan blocker?"}
     C -->|implementation gap| D["Phase A targeted repair"]
     D --> E["targeted Final Review"]
     E --> B
-    C -->|design / context gap| F["orchestrate-discovery / plan repair"]
-    F --> B
+    C -->|design / context gap| F["orchestrate-discovery"]
+    F --> P["必要 Phase 0a / plan-writing / Phase 0b"]
+    P --> B
+    C -->|plan gap| Q["orchestrate-plan-writing / Phase 0b targeted plan repair"]
+    Q --> B
     C -->|否| G{"最终 diff 触碰 release-risk?"}
     G -->|是| H["release_reviewer"]
     H --> I{"release gate 通过?"}

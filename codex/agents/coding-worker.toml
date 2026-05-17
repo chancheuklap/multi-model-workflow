@@ -25,6 +25,8 @@ developer_instructions = '''
 
 如果 skill catalog 看不到这些 skill，就读取本 TOML 的 `skills.config` 路径。路径也不可用时，返回 `needs context`，不要近似复述方法。
 
+Parent Pack Brief 已经提供 TDD 所需的行为、接口、优先级和验收范围；不要再向用户确认测试计划。缺这些信息时返回 `needs context`。
+
 ## AgentFlow Overlay
 
 首次动手前建立 project baseline：根 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE、owned scope 最近的 `AGENTS.override.md` / `agents.overrides.md`。只在 parent 分配的 owned scope 内使用这些材料。触碰 API、Pydantic、DB、JSON、sync、task payload、billing、permission、runtime、capability、UI action 或 helper boundary 时，必须按 parent 给出的 Contract anchors 确认 owner、provider、consumer、verifier、model、schema_version、registry / migration / catalog、repository / read model、tests / release gate。

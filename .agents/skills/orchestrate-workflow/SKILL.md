@@ -84,9 +84,11 @@ flowchart TD
     K -->|implementation gap| H
     K -->|design / context gap| C
     K -->|plan gap| F
-    K -->|user decision / release blocker| L["complex_coding_worker / User Decision"]
-    L -->|decision / repair resolved| K
-    K -->|pass| M["Phase C Report / Finishing"]
+    K -->|pass, no release-risk| M["Phase C Report / Finishing"]
+    K -->|pass, release-risk| L["release_reviewer"]
+    L -->|release blocker| N["complex_coding_worker / User Decision"]
+    N -->|decision / repair resolved| L
+    L -->|release gate pass| M
 ```
 
 图中方框必须能在 Reference Map、Handoff Status、Routing Vocabulary、upstream skill 或 custom agent 表里找到真实消费方。线路标签只是 route condition，不是新的流程主体。
@@ -97,7 +99,7 @@ flowchart TD
 | --- | --- | --- | --- | --- |
 | `orchestrate-discovery` | 缺可 review design document，或 review 暴露 design / domain / UX / context gap | `orchestrate-discovery` | 生成或修订 design document；必要时让 Discovery 联动 `grill-with-docs`、`diagnose`、`prototype`、`improve-codebase-architecture`、`zoom-out`、`triage` | Phase 0a |
 | Phase 0a Design Review | 已有 / 刚生成 design document | `references/design-review.md` | 派两个 baseline `code_reviewer` angles；只在设计期必须判定 release strategy / migration / rollback / manual gate 时追加 `release_reviewer` | design gap 回 Discovery；通过后检查 issue hierarchy |
-| `to-issues` | Phase 0a 通过，但缺 large / small issue hierarchy，或 issue hierarchy 不可独立验证 | `mattpocock-skills:to-issues` | 基于本轮 Source artifacts 生成 / 修正 vertical large issues 和 small issues | `orchestrate-plan-writing` |
+| `to-issues` | Phase 0a 通过，但缺 large / small issue hierarchy，或 issue hierarchy 不可独立验证 | `mattpocock-skills:to-issues`；`references/dispatch-contract.md` 的 Upstream Route Contract | 基于本轮 Source artifacts 生成 / 修正 vertical large issues 和 small issues；写回 Issue recording target 后才交给 plan-writing | `orchestrate-plan-writing` |
 | `orchestrate-plan-writing` | design 通过且 issue hierarchy 已确认，或 Phase 0b 暴露 plan gap | `orchestrate-plan-writing` | 生成 / 修复 issue-backed implementation plan；large issue -> plan section，small issue -> Task Pack | Phase 0b |
 | Phase 0b Plan Review | 已有 / 刚生成 implementation plan | `references/plan-review.md` | 同时审 source design、source issues、plan、Task Pack inventory；派两个 baseline `code_reviewer` angles；只在计划期必须提前判定 release order / rollback / manual production gate 时追加 `release_reviewer` | design gap 回 Discovery；issue gap 回 `to-issues`；plan gap 回 plan-writing；通过后 Phase A |
 | Phase A Task Pack Execution | Phase 0b 通过，或 Direct Repair / accepted implementation gap | `references/dispatch-contract.md`；worker 返回后读 `references/implementation-review.md` | 从 plan 读取 Task Pack queue；按风险派 `coding_worker` / `complex_coding_worker`；worker 返回后做 Pack Review；必要时 early release gate | 全部 pack review 通过后 Phase B |
@@ -154,6 +156,7 @@ Review 规则：
 - Design 通过 Phase 0a 后才进入 `to-issues`。
 - `orchestrate-plan-writing` 只消费已确认的 vertical large / small issue hierarchy；缺 large issue 或 small issue 时先走 `to-issues`。
 - `to-issues` 只能基于本轮 Source artifacts 和用户明确提供的 parent issue 工作；不能把 Read-only context 自动拉入范围。
+- 调用 upstream skill 前必须按 `dispatch-contract.md` 写清允许输出和写回目标；只消费 diagnosis facts、clarified context、prototype verdict、architecture finding、triage state 或 confirmed issue hierarchy 这些会被下游读取的结果。
 - Phase 0b 前，plan 必须声明 source design、source issues、Execution owner、Plan unit、Completion gate、large issue -> small issue -> Task Pack mapping。
 - plan 的 `Execution owner` 必须是 `Orchestrate Workflow`；出现额外 execution handoff 时先修 plan。
 - 缺少 in-scope Project / Contract / Mockup anchors 时不得继续；reviewer / worker 返回 `needs context` / `blocked`，plan-writing 才使用 `NEEDS_CONTEXT`。

@@ -6,7 +6,7 @@
 
 - issue / existing PRD 是 source material，不是独立设计生成流程。
 - 如果已有 problem、solution、acceptance、dependencies、AFK / HITL，可以直接写入 design document。
-- 如果 source intent、acceptance、blocked-by、ready state、AFK / HITL 不清，使用 `triage` 或继续 Discovery 提问。
+- 如果 source intent、acceptance、blocked-by、ready state、AFK / HITL 不清，使用 `triage` 或继续 Discovery 提问；Discovery 只消费 triage state 和 issue brief，tracker 写入交给 Orchestrate parent 的 Scope / Issue recording target。
 - 如果业务目标、用户场景、验收标准不清，读取 `conversation-to-design.md` 和 `domain-alignment.md`。
 - Phase 0a 通过后，由 Orchestrate 使用 `to-issues` 拆 vertical large issues 和 vertical small issues。
 
