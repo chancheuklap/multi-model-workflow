@@ -32,6 +32,21 @@ Critical：违反北极星或不变量 / 依赖不存在的基础设施 / 跨服
 
 只在 release strategy / migration-deploy order / rollback / manual gate 必须提前判定时追加 `release_reviewer`。普通 production-risk 由 baseline 转成 risk flags。
 
+## Result Payload
+
+`### Result` 下使用：
+
+```text
+Review: 设计文档 - <Design Content Review / Project Alignment Review>
+Phase summary: 通过 / 阻塞
+Critical:
+Important:
+低置信度观察:
+Disposition required:
+```
+
+Design finding 默认 route 给 `parent` 或 `docs_worker` 做 document repair；domain / UX / ownership / target-state ambiguity route 给 `orchestrate-discovery`；产品承诺、业务规则、UX、发布策略、架构 trade-off 无法从 source artifacts 判定时 route 给 `user decision` 或 `orchestrate-discovery`。
+
 ## Reception
 
 - accepted document repair → coordinator / docs_worker 修 design。

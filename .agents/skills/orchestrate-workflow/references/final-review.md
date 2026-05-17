@@ -32,6 +32,36 @@ Prompt 包含：Read first / Project baseline / Contract baseline / Mockup basel
 - **Context Gap**: 需要术语 / owner / UI target 确认 → orchestrate-discovery。
 - **Unverifiable**: 环境 / 账号 / 生产 gate 缺失 → 写清已验证证据和 manual gate owner。
 
+## Result Payload
+
+不要用 worker self-report 作为通过证据；Final Review 必须以 source design、plan、diff、changed files、verification evidence、mockup / contract anchors 和可运行检查为准。
+
+`### Result` 下使用：
+
+```text
+Final Intent Review:
+通过: X / Y
+Implementation Gaps:
+Design Gaps:
+Context Gaps:
+Unverifiable:
+
+Regression / Cross-Pack Review:
+Critical:
+Important:
+
+Release Risk:
+Blockers:
+Manual verification:
+Rollback concerns:
+
+Phase Summary:
+可以完成 / 阻塞
+Disposition required:
+```
+
+每条 finding 必须使用统一 Finding Shape。Final review result 必须能被主线程执行 Reception Gate。
+
 ## Release Gate
 
 Final Intent Review 通过后，最终 diff 触碰以下任一时派 `release_reviewer`：migration / billing / permission / runtime / cross-service / deploy order / rollback / manual gate / API compatibility。

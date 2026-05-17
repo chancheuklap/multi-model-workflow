@@ -41,6 +41,24 @@ Critical：intent 无覆盖 / source intent 不清却直接实现 / pack 不可�
 
 Critical：引用不存在的路径 / 违反项目规则 / 允许 bare dict 进入实现 / 高风险缺迁移回滚。
 
+## Result Payload
+
+`### Result` 下使用：
+
+```text
+Review: 计划文档审查 - <Coverage And Task Quality / Compliance And Verification>
+Phase summary: 可执行 / 需修正
+设计与 issue 覆盖:
+Grep / rg 验真:
+Task Pack inventory:
+Critical:
+Important:
+低置信度观察:
+Disposition required:
+```
+
+Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source design gap、issue-plan mismatch、context ambiguity，还是 architecture friction；source design gap 和 context ambiguity route 给 `orchestrate-discovery`，architecture friction route 给 `improve-codebase-architecture`。Phase 0 plan findings 返回 coordinator；不派 worker 写代码。
+
 ## Release Gate
 
 只在 release order / rollback / manual gate 必须提前判定时追加 `release_reviewer`。

@@ -38,6 +38,30 @@ Critical：功能缺失或做错 / mockup 关键状态未落地 / UI 目标含�
 
 Refactor 只在 GREEN 后允许；普通整洁偏好不阻塞 pack。
 
+## Result Payload
+
+`### Result` 下使用：
+
+```text
+Spec Compliance:
+Phase summary: 通过 / 阻塞
+Critical:
+Important:
+
+Code Quality:
+Phase summary: 通过 / 阻塞 / 未执行
+Critical:
+Important:
+
+Verification summary:
+命令:
+结果:
+
+Routing summary:
+```
+
+每条 finding 必须使用统一 Finding Shape。Review result 不能只返回自由文本结论。
+
 ## Release Gate
 
 只在 early release gate 触发时追加 `release_reviewer`。多个相邻 high-risk packs 同一风险面合并一次。
