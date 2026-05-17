@@ -1,8 +1,25 @@
-# Design Review Contract
+# Design Review 合同
 
 Phase 0a 审 design doc。检查设计能否被计划、实现和最终验证承接；不做文字润色审查。新想法产生 design doc 后必须立刻进入本 review，通过后才允许生成 implementation plan。
 
-## Dispatch 1: Design Content Review
+## 入口流程图
+
+```mermaid
+flowchart TD
+    A["已有 / 刚生成 design document"] --> B["Phase 0a design review"]
+    B --> C{"Design 可执行且对齐项目事实?"}
+    C -->|否| D["orchestrate-discovery 修订 design document"]
+    D --> B
+    C -->|是| E{"large / small issues 已存在?"}
+    E -->|否| F["to-issues 补齐 vertical issue hierarchy"]
+    F --> E
+    E -->|是| G["orchestrate-plan-writing"]
+    G --> H["Phase 0b plan review"]
+```
+
+Phase 0a 最多 2 轮文档修复。仍有 Critical design finding 时，不生成 plan。
+
+## 派发 1：Design Content Review
 
 派 `code_reviewer`。让 reviewer 专注设计自身，不审代码实现。
 
@@ -14,7 +31,7 @@ Prompt 必须包含：
 
 检查：
 
-- domain language、业务对象、UI role、页面状态或 lifecycle 是否与 `CONTEXT.md` / PROJECT / SPEC / ADR 一致；不一致或含混时，finding route 给 upstream `grill-with-docs`，不要让 plan author 自行解释。
+- domain language、业务对象、UI role、页面状态或 lifecycle 是否与 `CONTEXT.md` / PROJECT / SPEC / ADR 一致；不一致或含混时，finding route 给 `orchestrate-discovery`，不要让 plan author 自行解释。
 - 完整性：是否有 TODO / TBD / 空节；用户旅程是否覆盖起点、操作、结果、异常路径。
 - 可测试性：每条“用户应该能 X / 系统应该 Y”能否写出命令、API、UI 操作或手工验收步骤。
 - Mockup 对齐：UI / UX 设计是否明确引用 mockup 路径、目标页面、角色、viewport、关键状态、交互和允许偏差。
@@ -33,7 +50,7 @@ Critical：
 - 关键业务场景缺失。
 - 新对象、新状态、新合同缺 owner / writer / reader / verifier / cleanup responsibility，并且影响验收。
 
-Result payload under `### Result`:
+`### Result` 内的 payload：
 
 ```text
 Review: 设计文档 - 内容与逻辑审查
@@ -43,9 +60,9 @@ Important:
 低置信度观察:
 ```
 
-Coordinator dispatch must include the standard top-level return headings. This payload belongs under `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Design finding 默认 route 给 coordinator document repair；domain language、业务对象、UI / UX target state、验收口径不清 route 给 upstream `grill-with-docs`；产品承诺、业务规则、UX、发布策略、架构 trade-off 无法由文档和代码判断时 route 给 user decision。
+Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Design finding 默认 route 给 coordinator document repair；domain language、业务对象、UI / UX target state、验收口径不清 route 给 `orchestrate-discovery`；产品承诺、业务规则、UX、发布策略、架构 trade-off 无法由文档和代码判断时 route 给 user decision 或 `orchestrate-discovery`。
 
-## Dispatch 2: Project Alignment Review
+## 派发 2：Project Alignment Review
 
 派 `code_reviewer`。如果设计涉及 production-risk，在 `code_reviewer` 的内容审查和项目对齐审查完成后，追加 `release_reviewer`。`release_reviewer` 不能替代本节审查。
 
@@ -57,7 +74,7 @@ Prompt 必须包含：
 
 检查：
 
-- domain language 和 `CONTEXT.md` glossary 是否一致；发现术语漂移、对象边界不清或业务关系冲突时，route 给 upstream `grill-with-docs`。
+- domain language 和 `CONTEXT.md` glossary 是否一致；发现术语漂移、对象边界不清或业务关系冲突时，route 给 `orchestrate-discovery`。
 - domain language 是否使用项目正式术语。
 - 数据权威源是否正确，例如 Gateway / Collection / Local Agent 的 owner 是否混乱。
 - 模块边界和依赖方向是否正确。
@@ -76,7 +93,7 @@ Critical：
 - 新 API / DB / JSON / task / sync payload 绕过 Pydantic contract、JSON registry、migration tree 或 catalog。
 - 生产数据、权限、账务、迁移或回滚风险未设计。
 
-Result payload under `### Result`:
+`### Result` 内的 payload：
 
 ```text
 Review: 设计文档 - 项目对齐审查
@@ -86,4 +103,4 @@ Important:
 低置信度观察:
 ```
 
-Coordinator dispatch must include the standard top-level return headings. This payload belongs under `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。Phase 0 finding 返回 coordinator。主线程修文档；不派 worker 写代码。
+Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。Phase 0 finding 返回 coordinator。主线程修文档；不派 worker 写代码。

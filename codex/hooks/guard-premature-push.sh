@@ -49,10 +49,11 @@ def is_publish_command(command: str) -> bool:
 
 
 def active_plan_candidates(cwd: Path) -> list[Path]:
-    plans = cwd / "docs" / "superpowers" / "plans"
-    if not plans.exists():
+    plan_dir = cwd / "docs" / "orchestrate" / "plans"
+    if not plan_dir.exists():
         return []
-    return sorted(plans.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
+    plans = list(plan_dir.glob("*.md"))
+    return sorted(plans, key=lambda p: p.stat().st_mtime, reverse=True)
 
 
 def has_unchecked_tasks(plan: Path) -> bool:

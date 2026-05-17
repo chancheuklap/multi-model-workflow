@@ -1,8 +1,10 @@
-# Implementation Review Contract
+# Implementation Review 合同
 
 Phase A 审 Task Pack 的实现。独立确认 worker 是否真实完成 pack；不接受 worker 自报作为通过证据。
 
-## Dispatch: Pack Review
+每个 pack 最多 3 轮修复。每轮 repair 必须说明上一轮为什么不够，并改变方法、证据或边界；不能重复同一种修补。
+
+## 派发：Pack Review
 
 派 `code_reviewer`。生产风险 pack 追加 `release_reviewer`。
 
@@ -31,7 +33,7 @@ Reviewer 不信任 worker self-report：
 5. 涉及合同边界时，按 `contract-boundary.md` 对照 diff 检查正式 contract、registry、migration、repository、read model、catalog 和 producer / consumer。
 6. 对照 pack brief 逐 task 审查。
 
-## Phase 1: Spec Compliance
+## Phase 1：Spec Compliance
 
 先审 spec compliance。有 Critical 时停止，不进入 code quality。
 
@@ -39,7 +41,7 @@ Reviewer 不信任 worker self-report：
 
 - task 要求的功能是否已实现。
 - UI / UX task 是否按 mockup 实现了对应页面状态、信息架构、布局、组件状态和交互。
-- UI / UX finding 是否有明确目标。如果目标来自已批准 mockup / design / acceptance criteria，按 implementation divergence 审；如果目标来自主观反馈且 role、state、hierarchy、copy、interaction 或 verification 不清，route 给 upstream `grill-with-docs`，不要要求 worker 自行改。
+- UI / UX finding 是否有明确目标。如果目标来自已批准 mockup / design / acceptance criteria，按 implementation divergence 审；如果目标来自主观反馈且 role、state、hierarchy、copy、interaction 或 verification 不清，route 给 `orchestrate-discovery`，不要要求 worker 自行改。
 - 是否做错了行为。
 - 是否漏掉错误路径、权限、空状态、重复提交、并发、回滚。
 - API / Pydantic / DB / JSON / helper 边界是否按 Contract anchors 实现，没有让 worker 自创临时结构。
@@ -56,7 +58,7 @@ Critical：
 - 新 API / DB / JSON / task / sync payload 绕过 Pydantic contract、JSON registry、migration tree、catalog 或 consumer 同步。
 - 违反项目不变量或跨服务合同。
 
-## Phase 2: Code Quality
+## Phase 2：Code Quality
 
 仅 spec compliance 通过后执行。
 
@@ -89,7 +91,7 @@ needs user decision
 
 - 能说清楚改哪里改什么：worker。
 - 问题存在但根因不明：`complex_code_explorer`。
-- desired behavior、UI target、business term 或 object ownership 不清：upstream `grill-with-docs`。
+- desired behavior、UI target、business term 或 object ownership 不清：`orchestrate-discovery`。
 - bad seam、repeated repair、single-adapter interface 或 weak test surface：upstream `improve-codebase-architecture`。
 - 涉及生产风险：`release_reviewer`。
 - 改变产品范围或业务规则：用户决策。
@@ -114,4 +116,4 @@ Verification summary:
 Routing summary:
 ```
 
-Coordinator dispatch must include the standard top-level return headings. This payload belongs under `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“通过 / 阻塞 / 未执行”只作为 spec compliance 和 code quality 的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Review result 不能只返回自由文本结论。
+Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“通过 / 阻塞 / 未执行”只作为 spec compliance 和 code quality 的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Review result 不能只返回自由文本结论。

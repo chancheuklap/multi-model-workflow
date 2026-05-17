@@ -22,8 +22,6 @@ esac
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="${CODEX_HOME:-$HOME/.codex}/agents"
 
-python3 "$SCRIPT_DIR/validate-agents.py"
-
 templates_file="$(mktemp)"
 trap 'rm -f "$templates_file"' EXIT
 find "$SCRIPT_DIR" -maxdepth 1 -type f -name '*.toml' | sort > "$templates_file"

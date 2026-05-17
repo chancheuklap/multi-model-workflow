@@ -1,6 +1,8 @@
-# Final Review Contract
+# Final Review 合同
 
 Phase B 验证所有 pack 合并后是否满足 design intent，并确认没有 release blocker。
+
+每个 final gap 最多 2 轮修复。Phase B dispatch 总量上限 15；超过上限时先做方向检查，确认是继续 repair、回 design / plan，还是请求用户决策。
 
 ## Final Intent Review
 
@@ -22,14 +24,14 @@ Phase B 验证所有 pack 合并后是否满足 design intent，并确认没有 
 步骤：
 
 1. 从 design doc 和 mockup 提取每条可验证 intent。
-2. 为每条 intent 写出验证方法：pytest、curl、CLI、UI、browser、screenshot、DOM scan、VM、smoke、manual checklist。
+2. 为每条 intent 写出验证方法：pytest、curl、CLI、UI、browser、screenshot、DOM scan、VM、manual checklist。
 3. 实际运行能运行的验证；不能运行时说明环境缺口。
 4. 对每条 intent 判定：pass / implementation gap / design gap / unverifiable.
 5. 跑 changed-files 相关回归检查。
 6. 涉及合同边界时，逐项确认 Pydantic model、schema_version、registry、migration、repository、read model、catalog、producer / consumer 和 release gate。
 7. 做跨 pack 代码交叉审查。
 8. UI / UX 任务必须对照 mockup 检查最终页面，不接受只读代码推断。
-9. 如果最终验收反馈暴露 desired behavior、domain term、UI role、target state、copy、interaction 或 verification method 不清，route 给 upstream `grill-with-docs`，不要把它归为普通 implementation gap。
+9. 如果最终验收反馈暴露 desired behavior、domain term、UI role、target state、copy、interaction 或 verification method 不清，route 给 `orchestrate-discovery`，不要把它归为普通 implementation gap。
 
 Implementation Gap：
 
@@ -48,8 +50,8 @@ Design Gap：
 Context Gap：
 
 - 用户 / reviewer 的最终反馈需要业务术语、对象 owner、UI target state、验收口径或项目文档确认；
-- route 给 upstream `grill-with-docs`；
-- grill 结束后，把 clarified context 写回 design / plan / issue brief，再重新判断是 implementation gap、design repair、prototype question 还是 user decision。
+- route 给 `orchestrate-discovery`；
+- Discovery 结束后，把 clarified context 写回 design / plan / issue brief，再重新判断是 implementation gap、design repair、prototype question 还是 user decision。
 
 ## Independent Second Opinion
 
@@ -128,4 +130,4 @@ Phase Summary:
 
 不要用 worker self-report 作为通过证据。
 
-Coordinator dispatch must include the standard top-level return headings. This payload belongs under `### Result`。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“可以完成 / 阻塞”只作为 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Final review result 必须能被主线程执行 Review Reception Gate。
+Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“可以完成 / 阻塞”只作为 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Final review result 必须能被主线程执行 Review Reception Gate。

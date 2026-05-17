@@ -1,0 +1,4 @@
+interface:
+  display_name: "Orchestrate Discovery"
+  short_description: "把想法、issue、bug 和反馈转成设计文档"
+  default_prompt: "Use $orchestrate-discovery 把当前想法、issue、bug 或反馈讨论并整理成可进入 Phase 0a 的设计文档。"
