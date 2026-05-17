@@ -1,6 +1,6 @@
 # Issue Input
 
-用于 issue、backlog、existing PRD、durable request 和跨会话任务。目标是把 issue / backlog / existing PRD 转成 design document 的 source material；不把 PRD 当作另一条 workflow，不调用外部 PRD 生成技能，不在 Discovery 内调用 `to-issues`。
+用于 issue、backlog、existing PRD、durable request 和跨会话任务。目标是把 issue / backlog / existing PRD 转成 design document 的 source material；不把 PRD 当作另一条 workflow，不在 Discovery 内调用 `to-issues`。
 
 ## 规则
 
