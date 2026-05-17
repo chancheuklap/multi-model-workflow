@@ -1,28 +1,26 @@
 # Codex Agent Templates
 
-Sync templates:
+Sync templates to `~/.codex/agents/`:
 
 ```bash
 bash codex/agents/sync-agents.sh --dry-run
 bash codex/agents/sync-agents.sh --apply
 ```
 
-Roles:
+## Agents
 
-- `coding_worker`
-- `complex_coding_worker`
-- `code_reviewer`
-- `release_reviewer`
-- `code_explorer`
-- `complex_code_explorer`
-- `docs_worker`
+| Agent | Model | Sandbox | Role |
+| --- | --- | --- | --- |
+| `coding_worker` | gpt-5.3-codex | workspace-write | 普通 Task Pack / 测试修复 / 局部重构 |
+| `complex_coding_worker` | gpt-5.5 | workspace-write | 高风险 Task Pack（migration / billing / auth / permission / runtime / shared contract） |
+| `code_reviewer` | gpt-5.4 | read-only | Baseline review（design / plan / pack / final intent） |
+| `release_reviewer` | gpt-5.5 | read-only | Release-risk gate（数据 / 权限 / 账务 / 迁移 / 部署 / 回滚） |
+| `code_explorer` | gpt-5.3-codex | read-only | 窄范围文件 / 符号 / 调用链查询 |
+| `complex_code_explorer` | gpt-5.4 | read-only | 多模块调查 / root-cause investigation |
+| `docs_worker` | gpt-5.4 | workspace-write | 低风险文档整理 / issue 文案草稿 |
 
-Role methods:
+## Key Contracts
 
-- `coding_worker`: public-behavior vertical TDD, no horizontal slicing, external-boundary mocks only, testable interface discipline.
-- `complex_coding_worker`: high-risk implementation for migrations, billing, auth, permissions, runtime, shared contracts, compatibility, rollback, and manual gates.
-- `code_reviewer`: executes parent-supplied Design Review, Plan Review, Pack Review, Final Intent Review, behavior-test review, vertical Task Pack review, and architecture finding classification payloads; does not define Orchestrate phase contracts itself.
-- `code_explorer`: narrow read-only file, symbol, call-chain, test-entry, config-source, and small behavior fact lookup.
-- `complex_code_explorer`: read-only diagnosis loop, feedback-loop gap reporting, facts vs inference, architecture friction vocabulary, dependency-category seam analysis.
-- `release_reviewer`: early / final release-risk gate for data, permissions, billing, migrations, deploy order, rollback, compatibility, and manual verification; not a replacement for baseline design / plan / pack / final review.
-- `docs_worker`: low-risk documentation cleanup, self-contained design / issue drafting, stale reference cleanup, and mechanical structure repair.
+- Sub-agent 不读 Orchestrate SKILL.md 或 references。Parent dispatch prompt 必须自足。
+- 所有 sub-agent 按 parent dispatch 指定的 Return Contract 和 Routing Vocabulary 返回。
+- Return Contract 和 Finding Shape 的权威定义在 `orchestrate-workflow/references/dispatch-contract.md`。
