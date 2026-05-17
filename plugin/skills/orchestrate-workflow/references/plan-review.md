@@ -25,7 +25,7 @@ Plan 必须包含：Source design / Source issues / Execution owner: Orchestrate
 
 ## Dispatch：3 个 baseline `codex-reviewer`（可并行，不合并）
 
-三个 angle 均通过 `codex:codex-rescue --model gpt-5.4` 派发。Codex review 无 SendMessage；每次 re-review 是全新 task。
+三个 angle 均通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task。
 
 ### Baseline 1: Coverage And Task Quality
 

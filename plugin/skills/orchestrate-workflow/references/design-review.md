@@ -12,7 +12,7 @@
 
 ## Dispatch：2 个 baseline `codex-reviewer`（可并行，不合并）
 
-每个 angle 通过 `codex:codex-rescue --model gpt-5.4` 派发。Codex review 无 SendMessage；每次 re-review 是全新 task。
+每个 angle 通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task。
 
 ### Baseline 1: Design Content Review
 

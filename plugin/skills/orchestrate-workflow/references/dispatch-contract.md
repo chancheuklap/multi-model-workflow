@@ -98,21 +98,18 @@ pass / blocked / needs repair / needs context
 
 ### Open Items
 - parent 必须处理的问题
-
-### Routing
-- Suggested next owner
 ```
 
 References 和 agent definitions 可以在 `### Result` 内定义 role-specific payload headings，但不得替换标准顶层 headings。
 
-## Routing Vocabulary
+## Routing Vocabulary（Coordinator 专用）
 
-所有 sub-agent 只使用这组 owner 名称：
+以下是 coordinator 自己做路由决策时的参考。Sub-agent 不输出 routing——coordinator 根据 Verdict + Finding 自行判断：
 
 | owner | 使用条件 |
 | --- | --- |
 | `parent` | coordinator 归并证据、更新进度、继续下一 phase |
-| `original worker` | accepted implementation finding 明确属于刚返回的 worker scope。**必须用 SendMessage 继续原 worker（用保存的 agentId），不新建 agent**——原 worker 保有代码上下文 |
+| `original worker` | accepted implementation finding 明确属于刚返回的 worker scope。Coordinator 新建同类 targeted-repair agent（`pack-executor` 或 `complex-pack-executor`），prompt 包含 accepted findings + 原 pack brief subset + git diff scope |
 | `pack-executor` | 普通 repair / implementation，改动范围清楚 |
 | `complex-pack-executor` | migration、billing、auth、permission、runtime、shared contract、release boundary 或高风险 repair |
 | `code-explorer` | 窄范围文件、符号、调用链、测试入口问题 |
@@ -121,14 +118,14 @@ References 和 agent definitions 可以在 `### Result` 内定义 role-specific 
 | `codex-reviewer` | baseline design / plan / pack / final review，或 targeted re-review（dispatched via `codex:codex-rescue --model gpt-5.4`） |
 | `codex-release-reviewer` | early / final release-risk gate；不能替代 baseline review（dispatched via `codex:codex-rescue --model gpt-5.5`） |
 | `docs-worker` | parent 明确授权的低风险文档整理或 issue 文案草稿 |
-| `orchestrate-discovery` | design / domain / UX / terminology / ownership / target-state ambiguity |
-| `orchestrate-plan-writing` | reviewed design 和 confirmed issue hierarchy 已存在，但 plan 自身需要生成或修复 |
-| `upstream diagnose` | 缺 feedback loop、复现、hypothesis 或 regression target |
-| `upstream zoom-out` | 需要 module map、call chain、boundary context 或 test / config entrypoint |
-| `upstream prototype` | 状态行为、interface shape 或 UI direction 需要 throwaway proof |
-| `upstream improve-codebase-architecture` | bad seam、single-adapter interface、repeated repair、weak test surface |
-| `upstream triage` | issue ready state、AFK / HITL、blocked-by 或 label/status 不清 |
-| `upstream to-issues` | large / small issue hierarchy 缺失或 small issue 不能独立验证 |
+| `Skill: orchestrate-discovery` | design / domain / UX / terminology / ownership / target-state ambiguity。Coordinator 调用 `Skill({ skill: "orchestrate-discovery" })` |
+| `Skill: orchestrate-plan-writing` | reviewed design 和 confirmed issue hierarchy 已存在，但 plan 自身需要生成或修复。Coordinator 调用 `Skill({ skill: "orchestrate-plan-writing" })` |
+| `Skill: diagnose` | 缺 feedback loop、复现、hypothesis 或 regression target。Coordinator 调用 `Skill({ skill: "diagnose" })` |
+| `Skill: zoom-out` | 需要 module map、call chain、boundary context 或 test / config entrypoint。Coordinator 调用 `Skill({ skill: "zoom-out" })` |
+| `Skill: prototype` | 状态行为、interface shape 或 UI direction 需要 throwaway proof。Coordinator 调用 `Skill({ skill: "prototype" })` |
+| `Skill: improve-codebase-architecture` | bad seam、single-adapter interface、repeated repair、weak test surface。Coordinator 调用 `Skill({ skill: "improve-codebase-architecture" })` |
+| `Skill: triage` | issue ready state、AFK / HITL、blocked-by 或 label/status 不清。Coordinator 调用 `Skill({ skill: "triage" })` |
+| `Skill: to-issues` | large / small issue hierarchy 缺失或 small issue 不能独立验证。Coordinator 调用 `Skill({ skill: "to-issues" })` |
 | `user decision` | 产品、业务、账务、权限、UX 或发布决策无法从 source artifacts 判定 |
 
 不要返回自由 owner 名称。需要组合路线时写主要 owner，并在 `### Open Items` 说明 parent 应携带的 payload。
@@ -142,7 +139,6 @@ References 和 agent definitions 可以在 `### Result` 内定义 role-specific 
   evidence:
   impact:
   remediation:
-  routing:
 ```
 
 ## Reception Gate
@@ -155,7 +151,7 @@ Disposition 为 `accepted` 后，parent 按以下条件决定谁来修：
 
 - **Phase 0（Design / Plan）**：parent 直接修。Design 和 Plan 是 parent 写的，parent 拥有完整上下文。
 - **Phase A/B — 简单修复**（≤ 2 文件、不触碰合同边界、不需新增测试、意图明确）：parent 直接修复，跑验证后调度 targeted re-review。
-- **Phase A/B — 复杂修复**：SendMessage 给 `original worker`（保有代码上下文）。
+- **Phase A/B — 复杂修复**：新建同类 targeted-repair agent（`pack-executor` 或 `complex-pack-executor`），prompt 包含 accepted findings + 原 pack brief subset + git diff scope。
 - **Phase A/B — 根因不明**：新建 `root-cause-analyst`。
 
 先统一三个词：
@@ -184,13 +180,13 @@ Accepted finding 路由：
 - Phase A/B 复杂 implementation finding → `original worker`。
 - unknown root cause（只需调查）→ `complex-code-explorer`。
 - unknown root cause（需要调查 + 修复）→ `root-cause-analyst`。
-- module map / call-chain context gap → `code-explorer` / `complex-code-explorer` 或 `upstream zoom-out`。
+- module map / call-chain context gap → `code-explorer` / `complex-code-explorer` 或 `Skill: zoom-out`。
 - high-risk repair → `complex-pack-executor`。
 - 满足 early / final release gate → `codex-release-reviewer`。
 - accepted release blocker → `complex-pack-executor` 或 `user decision`；修复后只做 targeted release re-review。
 - domain / UX / terminology / ownership ambiguity → `orchestrate-discovery`。
-- bad seam → `upstream improve-codebase-architecture`。
-- UI / state / interface direction → `upstream prototype`。
+- bad seam → `Skill: improve-codebase-architecture`。
+- UI / state / interface direction → `Skill: prototype`。
 - low-confidence / wrong-context → 用证据退回。
 
 Repair prompt 只携带 accepted findings，不夹带 rejected、out-of-scope 或 low-confidence observations。Repair 返回后默认只做 targeted re-review。只有 source design / issue / plan 被修改、scope 扩大、shared contract / migration / permission / billing / runtime surface 改变，或 targeted review 发现新 blocker 时，才 full phase review rerun。
@@ -238,19 +234,19 @@ Repair prompt 只携带 accepted findings，不夹带 rejected、out-of-scope �
 
 **Final release gate**（Phase B 后触发）：Final Intent Review 没有 implementation / design / context / plan blocker 后，如果最终 diff 触碰 migration、billing、permission、runtime、cross-service contract、deploy order、rollback 或 manual production dependency，才派 `codex-release-reviewer`。
 
-## Upstream Route
+## Upstream Skill 调用
 
-路由到 upstream skill 前，parent 必须给出 Scope、source artifacts、允许输出和写回目标。只消费下游会读取的结果：
+路由到 upstream skill 时，parent 使用 `Skill({ skill: "<name>" })` 调用。Skill 内容注入主线程上下文，由 coordinator 直接执行。调用前必须给出 Scope、source artifacts、允许输出和写回目标。只消费下游会读取的结果：
 
-| route | 允许输出 | 写回目标 |
+| Skill 调用 | 允许输出 | 写回目标 |
 | --- | --- | --- |
-| `grill-with-docs` | clarified context、resolved term、domain decision、ADR / SPEC / GUIDE need | domain docs 和 design document |
-| `diagnose` | current / desired behavior、reproduction / symptom、falsifiable hypotheses、key interfaces、regression target | bug brief、design document 或 Direct Repair Brief |
-| `zoom-out` | module map、call chain、boundary context、test / config entrypoints | design document、plan anchors、Direct Repair Brief 或 explorer brief |
-| `prototype` | prototype question、verdict、decision artifact、validated / rejected option | design document、plan anchors 或 issue brief |
-| `improve-codebase-architecture` | architecture finding、affected modules、test seam impact、recommended boundary | design document、plan anchors 或 bounded issue candidate |
-| `triage` | issue category、ready state、AFK / HITL、blocked-by、issue brief | source issue 或 Issue recording target |
-| `to-issues` | confirmed vertical large issues、confirmed vertical small issues、blocked-by、AFK / HITL | Issue recording target；GitHub 项目先写 parent large issue 文档 |
+| `Skill: grill-with-docs` | clarified context、resolved term、domain decision、ADR / SPEC / GUIDE need | domain docs 和 design document |
+| `Skill: diagnose` | current / desired behavior、reproduction / symptom、falsifiable hypotheses、key interfaces、regression target | bug brief、design document 或 Direct Repair Brief |
+| `Skill: zoom-out` | module map、call chain、boundary context、test / config entrypoints | design document、plan anchors、Direct Repair Brief 或 explorer brief |
+| `Skill: prototype` | prototype question、verdict、decision artifact、validated / rejected option | design document、plan anchors 或 issue brief |
+| `Skill: improve-codebase-architecture` | architecture finding、affected modules、test seam impact、recommended boundary | design document、plan anchors 或 bounded issue candidate |
+| `Skill: triage` | issue category、ready state、AFK / HITL、blocked-by、issue brief | source issue 或 Issue recording target |
+| `Skill: to-issues` | confirmed vertical large issues、confirmed vertical small issues、blocked-by、AFK / HITL | Issue recording target；GitHub 项目先写 parent large issue 文档 |
 
 如果 upstream skill 的原始流程还包含发布 issue、改代码、创建长期文档、prototype 文件或 tracker 状态变更，parent 只在当前 Scope / Issue recording target / editable artifacts 授权范围内执行；完成后必须把 verdict 写回上表目标，再回到当前 Orchestrate 节点。
 

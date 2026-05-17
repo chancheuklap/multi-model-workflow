@@ -15,7 +15,7 @@ Multi-agent orchestration system with cross-model review:
 - **Codex for all reviews** — every review is dispatched to Codex via `codex:codex-rescue` for independent cross-model opinion (GPT-5.4 baseline, GPT-5.5 release gate)
 - **Main session as coordinator** — orchestrates all agents, fixes plan/design docs directly (full user context)
 - **Task Pack batching** — groups fine-grained tasks (2-5 min each) into packs of 2-5 for efficient dispatch
-- **Worktree isolation** — parallel packs execute in independent git worktrees, changes auto-merge back
+- **Worktree isolation** — parallel packs execute in independent git worktrees, coordinator merges back after completion
 - **Project-aware** — agents read CLAUDE.md engineering rules and conventions, persist learnings via memory
 
 ## Requirements

@@ -12,7 +12,7 @@ Spec Compliance 通过 + Code Quality 无当前验收 blocker。每个 pack 最�
 
 ## Dispatch：1 个 baseline `codex-reviewer`
 
-通过 `codex:codex-rescue --model gpt-5.4` 派发。Codex review 无 SendMessage；每次 re-review 是全新 task。同一 reviewer 先做 Spec Compliance，通过后才做 Code Quality。
+通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task。同一 reviewer 先做 Spec Compliance，通过后才做 Code Quality。
 
 Prompt 包含：Read first / Project baseline / Contract anchors / Mockup anchors / plan path / pack brief / worker report / diff scope / verification commands / risk flags / 发布风险。
 
@@ -56,8 +56,6 @@ Important:
 Verification summary:
 命令:
 结果:
-
-Routing summary:
 ```
 
 每条 finding 必须使用统一 Finding Shape。Review result 不能只返回自由文本结论。

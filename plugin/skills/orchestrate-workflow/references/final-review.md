@@ -24,7 +24,7 @@ Final Review 只审 Pack Review 看不到的东西：
 
 ## Dispatch：2 个 baseline `codex-reviewer`（可并行，不合并）
 
-两个 angle 均通过 `codex:codex-rescue --model gpt-5.4` 派发。Codex review 无 SendMessage；每次 re-review 是全新 task。
+两个 angle 均通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task。
 
 ### Baseline 1: Intent Coverage And Cross-Pack Review
 

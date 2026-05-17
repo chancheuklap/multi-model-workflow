@@ -82,6 +82,3 @@ pass / blocked / needs repair / needs context
 - Regression risk: what could break as a result of this fix
 ### Verification
 ### Open Items
-### Routing
-
-Routing owner: parent / original worker / pack-executor / complex-pack-executor / code-explorer / complex-code-explorer / root-cause-analyst / docs-worker / codex-reviewer / codex-release-reviewer / orchestrate-discovery / orchestrate-plan-writing / upstream diagnose / upstream zoom-out / upstream prototype / upstream improve-codebase-architecture / upstream triage / upstream to-issues / user decision

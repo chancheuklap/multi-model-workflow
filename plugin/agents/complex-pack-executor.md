@@ -63,9 +63,9 @@ color: orange
 4. Plan 中勾选完成的 task。
 5. 返回：完成的 task、变更文件、测试状态、偏差。子代理不 commit——主线程在 review 通过后统一提交。
 
-## 模式 2：修复 review 问题（via SendMessage，保有上下文）
+## 模式 2：修复 review 问题（via Agent tool，targeted repair）
 
-通过 SendMessage 收到 Codex reviewer 的具体发现，你保有之前写代码的完整上下文。
+通过 Agent tool 新建调度，收到 Codex reviewer 的具体发现和原 pack 的 git diff scope。先读取相关变更文件理解上下文，再执行修复。
 
 1. 完整读完所有 findings。
 2. 按优先级修复：Critical → Important。
@@ -112,6 +112,3 @@ pass / blocked / needs repair / needs context
 - Needs review: contract, risk, architecture, release, or UI areas reviewer should inspect first
 ### Verification
 ### Open Items
-### Routing
-
-Routing owner: parent / original worker / pack-executor / complex-pack-executor / code-explorer / complex-code-explorer / root-cause-analyst / docs-worker / codex-reviewer / codex-release-reviewer / orchestrate-discovery / orchestrate-plan-writing / upstream diagnose / upstream zoom-out / upstream prototype / upstream improve-codebase-architecture / upstream triage / upstream to-issues / user decision

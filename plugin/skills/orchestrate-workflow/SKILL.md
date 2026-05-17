@@ -7,6 +7,15 @@ description: "正式开发流程主编排。用户给出新功能、系统性改
 
 主线程 coordinator。职责：判断 workflow 节点 → 读节点 reference → 构建自足 dispatch prompt → 派 custom agent → 根据返回推进、修复、回流或停止。
 
+## 调度方式
+
+本系统使用两种调度机制，必须区分：
+
+- **Skill tool 调用**：本文档中 backtick 引用的 skill 名（`orchestrate-discovery`、`orchestrate-plan-writing`、`to-issues`、`diagnose`、`prototype`、`improve-codebase-architecture`、`zoom-out`、`triage`、`grill-with-docs`、`tdd`）均为 Skill tool 调用目标。到达对应节点时，coordinator 使用 `Skill({ skill: "<name>" })` 加载并执行。Skill 内容注入当前主线程上下文，由 coordinator 直接执行（不派 sub-agent）。
+- **Agent tool 派发**：coding worker、code explorer、root-cause-analyst、docs-worker 通过 Agent tool 派发为独立 sub-agent。Codex review 通过 `Agent({ subagent_type: "codex", prompt: "..." })` 派发。
+
+Sub-agent 的 frontmatter `skills:` 字段在启动时自动预加载 skill 内容，sub-agent 无需运行时调用 Skill tool。
+
 ## 执行顺序
 
 每次触发：
@@ -28,7 +37,7 @@ Reviewer finding 经 coordinator 验证和 disposition 后，按以下规则决�
 | Phase 0a（Design） | **coordinator 直接修** | Design 是 coordinator 写的，coordinator 拥有完整的用户上下文和设计意图 |
 | Phase 0b（Plan） | **coordinator 直接修** | Plan 是 coordinator 写的，coordinator 拥有 design 完整上下文 |
 | Phase A（Pack Review）— 简单修复 | **coordinator 直接修** | 变更 ≤ 2 个文件、改动意图明确（typo / import / 命名 / 格式 / 缺失 return / 简单逻辑修正）、不需要理解 worker 的实现上下文 |
-| Phase A（Pack Review）— 复杂修复 | **SendMessage 给原 worker** | 涉及多文件联动、需要理解实现上下文、需要新增测试、涉及架构决策 |
+| Phase A（Pack Review）— 复杂修复 | **新建 targeted-repair agent（同类型）** | 涉及多文件联动、需要理解实现上下文、需要新增测试、涉及架构决策 |
 | Phase A（Pack Review）— 根因不明 | **新建 root-cause-analyst** | 无法确定修复方向，需要独立调查 |
 | Phase B（Final Review） | 同 Phase A 分流规则 | Implementation gap 按复杂度分流 |
 
@@ -67,7 +76,7 @@ flowchart TD
     G -->|issue gap| E
     G -->|pass| H["Phase A Execution"]
     H -->|"简单 finding → coordinator 自修"| H
-    H -->|"复杂 finding → SendMessage 原 worker"| H
+    H -->|"复杂 finding → targeted-repair agent"| H
     H -->|needs evidence / unknown root cause| P["code-explorer / complex-code-explorer / root-cause-analyst"]
     P --> H
     H -->|domain / UX ambiguity| C
@@ -76,7 +85,7 @@ flowchart TD
     Q -->|改变 plan anchors| G
     H -->|all packs pass| I["Phase B Final Review"]
     I -->|"简单 gap → coordinator 自修"| H
-    I -->|"复杂 gap → SendMessage 原 worker"| H
+    I -->|"复杂 gap → targeted-repair agent"| H
     I -->|design / context gap| C
     I -->|plan gap| F
     I -->|pass, no release-risk| K["Phase C Finishing"]
@@ -90,10 +99,10 @@ flowchart TD
 
 | 节点 | 到达条件 | 必读 | 主线程动作 | 下一跳 |
 | --- | --- | --- | --- | --- |
-| `orchestrate-discovery` | 缺可 review design document，或 review 暴露 design / domain / UX / context gap | `orchestrate-discovery/SKILL.md` | 生成或修订 design document；必要时联动 `diagnose` / `prototype` / `improve-codebase-architecture` / `zoom-out` / `triage` | Phase 0a |
+| `orchestrate-discovery` | 缺可 review design document，或 review 暴露 design / domain / UX / context gap | `orchestrate-discovery/SKILL.md` | 调用 Skill `orchestrate-discovery`；Discovery 内部按需调用 Skill `diagnose` / `prototype` / `improve-codebase-architecture` / `zoom-out` / `triage` | Phase 0a |
 | Phase 0a | 已有 / 刚生成 design document | `references/design-review.md` | 派 2 baseline `codex-reviewer` angles（via `codex:codex-rescue --model gpt-5.4`）；只在设计期必须判定 release strategy 时追加 `codex-release-reviewer` | design gap → Discovery；pass → 检查 issue hierarchy |
-| `to-issues` | Phase 0a 通过，但缺 large / small issue hierarchy | `references/dispatch-contract.md` Upstream Route | 生成 vertical large issues 和 small issues；写回 Issue recording target | `orchestrate-plan-writing` |
-| `orchestrate-plan-writing` | design 通过且 issue hierarchy 已确认，或 Phase 0b 暴露 plan gap | `orchestrate-plan-writing/SKILL.md` | 生成 / 修复 issue-backed plan | Phase 0b |
+| `to-issues` | Phase 0a 通过，但缺 large / small issue hierarchy | `to-issues/SKILL.md` | 调用 Skill `to-issues`，生成 vertical large issues 和 small issues；写回 Issue recording target | `orchestrate-plan-writing` |
+| `orchestrate-plan-writing` | design 通过且 issue hierarchy 已确认，或 Phase 0b 暴露 plan gap | `orchestrate-plan-writing/SKILL.md` | 调用 Skill `orchestrate-plan-writing`，生成 / 修复 issue-backed plan | Phase 0b |
 | Phase 0b | 已有 / 刚生成 plan | `references/plan-review.md` | 派 3 baseline `codex-reviewer` angles（via `codex:codex-rescue --model gpt-5.4`）；审 source design + issues + plan + Task Pack inventory | design gap → Discovery；issue gap → `to-issues`；plan gap → plan-writing；pass → Phase A |
 | Phase A | Phase 0b 通过，或 Direct Repair / accepted implementation gap | `references/dispatch-contract.md` + `references/implementation-review.md` | 逐 pack 派 worker → Pack Review（`codex-reviewer`）；必要时 early release gate | 全部 pack pass → Phase B |
 | Phase B | 所有 pack review 通过 | `references/final-review.md` | 2 baseline `codex-reviewer` angles（Intent + Code-Level）+ release gate | implementation gap → Phase A；design/context gap → Discovery；plan gap → plan-writing；pass → Phase C |
@@ -145,23 +154,24 @@ flowchart TD
 ├─ Phase 0 finding ──→ coordinator 直接修复（Design / Plan 是你写的）
 │
 ├─ Phase A/B 简单 finding ──→ coordinator 直接修复（≤ 2 文件、意图明确）
-├─ Phase A/B 复杂 finding ──→ SendMessage 给原 worker（agentId）
+├─ Phase A/B 复杂 finding ──→ 新建 targeted-repair agent（同类型）
 │   ├── pack-executor      ──修复──→ 返回主 session
 │   └── complex-pack-executor ──修复──→ 返回主 session
 │
-├─ codex:codex-rescue ──返回──→ 主 session（review 结果，无 SendMessage）
+├─ codex:codex-rescue ──返回──→ 主 session（每次 review 是全新 task）
 ├─ root-cause-analyst ──返回──→ 主 session（始终新建）
 └─ code-explorer / complex-code-explorer / docs-worker ──返回──→ 主 session
 ```
 
-**上下文连续规则**：
+**调度原则——所有 sub-agent 调度均为无状态**：
 
-- **Phase 0 review → 修复**：**coordinator 直接修**。Design 和 Plan 是 coordinator 写的，coordinator 拥有完整上下文。
-- **Phase A/B 简单修复**：**coordinator 直接修**（≤ 2 文件、不触碰合同边界、不需新增测试、意图明确）。避免为改一行 typo 消耗 worker 上下文。
-- **Phase A/B 复杂修复**：**SendMessage** 给原 worker（用保存的 agentId）。worker 保有之前写代码的完整上下文，直接修复。
-- **Codex review**：无 SendMessage。每次 re-review 是全新 Codex task（fresh context）。
-- **跨 pack 或新问题**：**Agent tool** 新建（上下文干净）。
-- **root-cause-analyst / complex-code-explorer**：始终新建（调查未知根因需要全新视角）。
+每次 Agent tool 调度都是全新 agent，上下文完全由 prompt 携带。不依赖 agent session 延续。
+
+- **Phase 0 finding → coordinator 直接修**。Design 和 Plan 是 coordinator 写的，拥有完整上下文。
+- **Phase A/B 简单 finding → coordinator 直接修**（≤ 2 文件、不触碰合同边界、不需新增测试、意图明确）。
+- **Phase A/B 复杂 finding → 新建 targeted-repair agent**（同类型：`pack-executor` 或 `complex-pack-executor`）。Prompt 包含 accepted findings + 原 pack brief subset（只涉及修复的文件和行为）+ git diff scope。
+- **Codex review / re-review → 全新 Codex task**。每次 re-review 独立执行。
+- **root-cause-analyst / code-explorer → 全新 agent**。调查未知根因需要全新视角。
 
 ## Hard Gates
 
@@ -176,17 +186,17 @@ flowchart TD
 ```mermaid
 flowchart TD
     A["Phase 0b pass"] --> B["读 plan Task Pack inventory"]
-    B --> C["Agent tool 派 worker，保存 agentId"]
+    B --> C["Agent tool 派 worker"]
     C --> D["worker 返回"]
     D --> E["Pack Review（codex:codex-rescue）"]
     E --> F{"通过?"}
     F -->|needs repair| V["Coordinator 验证 finding"]
     V --> T{"修复分流"}
     T -->|"简单（≤2 文件、意图明确）"| S["Coordinator 直接修复"]
-    T -->|"复杂（多文件、需上下文）"| R["SendMessage 给原 worker（agentId）"]
+    T -->|"复杂（多文件、需上下文）"| R["新建 targeted-repair agent（同类型）"]
     T -->|"根因不明"| RCA["新建 root-cause-analyst"]
     S --> RE["targeted re-review（codex:codex-rescue）"]
-    R --> D2["worker 修复后返回"]
+    R --> D2["repair agent 修复后返回"]
     D2 --> RE
     RCA --> D3["analyst 修复后返回"]
     D3 --> RE
@@ -201,12 +211,12 @@ flowchart TD
 
 ### 步骤 1：调度 worker
 
-用 Agent tool 调度 `pack-executor`（普通 pack）或 `complex-pack-executor`（高风险 pack）。Prompt 包含 pack 中所有 task 完整文本 + 上下文。**保存返回的 agentId**——后续 repair 需要用它继续同一 agent。
+用 Agent tool 调度 `pack-executor`（普通 pack）或 `complex-pack-executor`（高风险 pack）。Prompt 包含 pack 中所有 task 完整文本 + 上下文。
 
 处理状态：
 - **pass** → 步骤 2。
 - **needs repair** → 正确性问题先处理；观察性意见记下继续。
-- **needs context** → **SendMessage** 给原 worker（agentId），提供上下文。
+- **needs context** → 新建同类 worker，prompt 包含原 pack brief + 补充上下文。
 - **blocked** → 技术阻塞自主解决（拆 pack / 调度 root-cause-analyst）。业务阻塞询问用户。
 
 ### 步骤 2：Pack Review
@@ -216,19 +226,19 @@ flowchart TD
 处理结果（coordinator 先验证 finding，再按修复分流规则判断）：
 - 通过 → pack 完成，下一个 pack。
 - accepted finding 且**满足 coordinator 直接修条件**（≤ 2 文件、不触碰合同边界、不需新增测试、意图明确）→ **coordinator 直接修复**，跑验证，修复后调度 codex:codex-rescue 做 targeted re-review。
-- accepted finding 且**不满足直接修条件** → **SendMessage 给原 worker（agentId）**，发 findings。worker 保有之前写代码的完整上下文，直接修复。修复后重新调度 codex:codex-rescue 做 targeted re-review。
+- accepted finding 且**不满足直接修条件** → **新建同类 targeted-repair agent**，prompt 包含 accepted findings + 原 pack brief subset（只涉及修复的文件和行为）+ git diff scope。修复后重新调度 codex:codex-rescue 做 targeted re-review。
 - `needs root-cause-analyst` → Agent tool **新建** root-cause-analyst（需要全新视角）。修复后重新调度 codex:codex-rescue。
 - `needs user decision` → 用业务语言询问用户。
 
-**最多 3 轮/pack。** 每轮 = 一次 repair（coordinator 自修或 SendMessage）+ 一次 targeted re-review。
+**最多 3 轮/pack。** 每轮 = 一次 repair（coordinator 自修或 targeted-repair agent）+ 一次 targeted re-review。
 
 ### 并行调度与 Worktree 隔离
 
 2+ 独立 pack 可并行执行。并行调度规则：
 
-- **并行 pack**：coordinator 在 Agent tool call 中添加 `isolation: "worktree"`，每个 worker 在独立 worktree 中工作，变更自动 merge 回主分支。
+- **并行 pack**：coordinator 在 Agent tool call 中添加 `isolation: "worktree"`，每个 worker 在独立 worktree 中工作。Agent tool 结果含 worktree path 和 branch name。
 - **顺序 pack**：不使用 worktree 隔离，worker 直接在当前分支工作。
-- 全部返回后：冲突验证（跑完整测试），失败则 SendMessage 给对应 worker 修复。
+- 全部返回后：coordinator 逐个 `git merge <worktree-branch> --no-ff` → 解决冲突 → 跑完整测试验证。冲突则新建 targeted-repair agent 修复。
 - 逐个跑 Pack Review。
 
 ### 进度
