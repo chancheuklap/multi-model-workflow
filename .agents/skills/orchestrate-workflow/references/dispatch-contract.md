@@ -12,6 +12,29 @@
 
 References 告诉 parent dispatch prompt 应该包含什么；sub-agents 不会自动读取 references。Parent 必须把 phase、source docs、anchors、pack / review payload、verification、risk flags 和 return contract 写进 dispatch prompt。
 
+## Scope Contract
+
+每次 dispatch 前，parent 必须写清：
+
+```text
+Scope:
+Source artifacts:
+Editable artifacts:
+Read-only context:
+Out of scope:
+Issue recording target:
+```
+
+规则：
+
+- `Source artifacts` 只包含用户明确提供的文档 / tracker refs / diff，以及当前 phase 已确认的直接输入。
+- `Editable artifacts` 只能是 source artifacts 或当前 phase 明确要求产出的 plan / pack / report。
+- `Read-only context` 可以包含相关 issue、ADR、代码或 runbook，但 sub-agent 只能用来判断当前 source artifacts，不得把它们变成交付范围。
+- `Out of scope` 必须明确列出容易被误纳入的相关 issue、ADR、未来能力、其它文档或环境。
+- `Issue recording target` 说明 small issue hierarchy 写回哪里。AgentFlow 使用 GitHub Issues 时，先写入 parent large issue 文档；未获明确授权不得新建 standalone issue 文档。
+
+收到 sub-agent 结果后，parent 必须过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改、纳入 plan source 或作为 Task Pack 来源。
+
 ## Pack Brief
 
 派 worker 时不要只发 pack 标题。Prompt 至少包含：
@@ -19,6 +42,7 @@ References 告诉 parent dispatch prompt 应该包含什么；sub-agents 不会�
 ```text
 Pack:
 Issue:
+Scope:
 Goal behavior:
 Implementation tasks:
 Owned files / responsibilities:

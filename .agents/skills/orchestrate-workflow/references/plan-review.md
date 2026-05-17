@@ -37,12 +37,13 @@ Phase 0b 最多 2 轮修复。仍有 invalid pack、design-plan mismatch、issue
 进入 review 前，主线程必须确认 plan 包含：
 
 - `Source design`；
-- `Source issues`；
+- `Source issues`，且只包含用户明确提供或 Orchestrate parent 明确确认的 issue；
 - `Execution owner: Orchestrate Workflow`；
 - `Plan unit`；
 - `Completion gate`；
 - large issue -> Task Pack mapping；
 - source issues 来自 `to-issues` 或等价垂直 issue workflow；
+- GitHub Issues 项目中，small issue hierarchy 已先记录到 parent large issue 文档；未记录前不能作为正式 Task Pack 来源；
 - 每个 Task Pack 的 issue source、goal behavior、owned files / responsibilities、read first、Contract anchors、Mockup anchors、acceptance criteria、verification commands、risk flags、AFK / HITL、dependencies、parallel safety、out of scope。
 
 如果 plan 声明非 Orchestrate Workflow 的 execution owner，或添加额外 execution handoff，返回 `needs repair`，由主线程修 plan，不进入 Phase A。
@@ -128,6 +129,7 @@ UI / UX durable brief 必须保留 mockup path、目标 viewport、关键 states
 
 Prompt 必须包含：
 
+- Scope：Source artifacts、Editable artifacts、Read-only context、Out of scope、Issue recording target。
 - Read first：source design / requirements、source issues、plan、相关 UI / UX mockup、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE。
 - Project baseline：本计划必须承接的 design intent、issue acceptance、项目不变量、模块边界和验收门槛。
 - Contract anchors：如果计划触碰 API / Pydantic / DB / JSON / sync / task payload / UI action / helper 边界，列出 owner、provider、consumer、model、schema_version、registry / migration / catalog、repository / read model 和验证方式。
@@ -137,6 +139,7 @@ Prompt 必须包含：
 - 逐条提取 source design / requirements 的 intent，确认每条 intent 至少有一个 large issue section 或 Task Pack 覆盖。
 - 逐条提取 source issue acceptance criteria，确认每条 criteria 进入 Task Pack acceptance criteria，或有明确 out of scope 依据。
 - large issue section 是否对应 vertical large issue；Task Pack 是否对应 vertical small issue。候选 small issue 不能进入 Phase A。
+- 确认 plan 没有把 read-only context、未提及 issue 或 reviewer 顺手关联的文档纳入 Source issues / Task Pack。
 - 如果有 UI / UX mockup，逐条提取可见页面状态、关键交互、viewport 和组件状态，确认每项至少有 Task Pack 和验收证据覆盖。
 - 如果 source design / requirements 对 desired behavior、业务术语、UI target state、role、视觉层级、交互意图或验收口径含混，route 给 `orchestrate-discovery`；不要把含混点包装成 worker task。
 - 找出计划做了但 design 或 issue 没要求的 scope creep。
@@ -168,6 +171,7 @@ Critical：
 
 Prompt 必须包含：
 
+- Scope：Source artifacts、Editable artifacts、Read-only context、Out of scope、Issue recording target。
 - Read first：source design / requirements、source issues、plan、相关 UI / UX mockup、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE、计划涉及目录的 `AGENTS.override.md` / `agents.overrides.md`。
 - Project baseline：本计划涉及的项目规则、数据权威、contract wall、测试路由、迁移 / 发布 / 回滚约束。
 - Contract anchors：本计划涉及的 API、Pydantic、DB、JSON、task、sync、catalog、capability、helper 边界。

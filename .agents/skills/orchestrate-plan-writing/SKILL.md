@@ -19,13 +19,19 @@ source design / design document / requirements
 
 Plan 生成后交回 `orchestrate-workflow`，由 Phase 0b review、Task Pack 派发、Phase A、Phase B 和业务汇报继续推进。
 
+## 范围输入
+
+只消费用户明确提供或 Orchestrate parent 明确确认的 source design / requirements / issues。Design、SPEC、ADR 或 PRD 中引用的其它 issue，不会自动成为 plan source。
+
+缺 small issue hierarchy 时返回 `NEEDS_ISSUES`。如果当前项目使用 GitHub Issues，而用户提供的是 parent large issue 文档，small issue 拆分必须先写回 parent large issue 文档，作为待上传 / 待确认的 issue hierarchy；不要自行创建新的 standalone issue 文档。
+
 ## 入口判断
 
 先定位这些输入：
 
 - source design / design document / SPEC / existing PRD / bug brief / explicit requirements；
 - Phase 0a 通过结论，或等价 review 结论；
-- `to-issues` 产出的 vertical large issues；
+- 用户明确提供或 parent 明确确认的 `to-issues` vertical large issues；
 - 每个 large issue 下的 vertical small issues；
 - 项目 anchors：根 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 ADR / SPEC / GUIDE / runbook、触碰目录的 `AGENTS.override.md` / `agents.overrides.md`；
 - 涉及 UI / UX 时的 mockup anchors：路径、页面、viewport、states、interaction、允许偏差、visual verification；
@@ -60,6 +66,8 @@ Plan 生成后交回 `orchestrate-workflow`，由 Phase 0b review、Task Pack �
 - Task Pack 是 Orchestrate 派发单位；细 task 只服务 pack 内执行。
 - `Execution owner` 必须是 `Orchestrate Workflow`；不要添加额外 execution handoff。
 - 没有 `to-issues` 确认的 issue hierarchy，不生成正式 issue-backed plan。
+- 不能把未提及 issue、read-only context、reviewer 顺手提到的 ADR / issue 纳入 Source issues。
+- 缺 small issue hierarchy 时，返回 `NEEDS_ISSUES`，并说明应写回哪个 parent large issue 文档；不要临场新建 issue 文档。
 - 不自行发明业务行为、术语、schema、helper 位置、UI 状态、issue hierarchy、验收门槛或路径事实。
 - existing paths、commands、fixtures、endpoints、mockup paths 必须验真；新文件标为 `Create`。
 - in-scope Project / Contract / Mockup anchors 必须进入对应 Task Pack；缺 anchors 时 route，不用 `N/A` 掩盖缺口。

@@ -25,6 +25,7 @@ Phase 0a 最多 2 轮文档修复。仍有 Critical design finding 时，不生�
 
 Prompt 必须包含：
 
+- Scope：Source artifacts、Editable artifacts、Read-only context、Out of scope、Issue recording target。
 - Read first：design doc、相关 UI / UX mockup、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE。
 - Project baseline：本设计最相关的业务对象、数据权威、模块边界和验收不变量。
 - Contract anchors：如果设计触碰 API / Pydantic / DB / JSON / sync / task payload / UI action / helper 边界，按 `contract-boundary.md` 写清 owner、provider、consumer、model、schema_version、registry / migration / catalog 和验证方式。
@@ -38,7 +39,7 @@ Prompt 必须包含：
 - Contract Boundary：跨模块、API、DB、JSON、sync、task payload 或 UI action 是否明确正式 Pydantic contract、producer / consumer、schema version、error / retry / idempotency、compatibility 和删除期限。
 - 场景挑战：至少一个 happy path，加一个失败、空状态、权限不足、重复提交、并发或回滚场景。
 - 内部一致性：术语、状态、数据流、责任边界是否前后一致。
-- 范围纪律：是否把未来假想需求混进本阶段，或遗漏本阶段必须承诺的能力。
+- 范围纪律：是否把未来假想需求、未提及 issue、read-only context 或 reviewer 顺手关联的 ADR / issue 混进本阶段，或遗漏本阶段必须承诺的能力。
 
 Critical：
 
@@ -68,6 +69,7 @@ Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 
 
 Prompt 必须包含：
 
+- Scope：Source artifacts、Editable artifacts、Read-only context、Out of scope、Issue recording target。
 - Read first：design doc、相关 UI / UX mockup、根 `AGENTS.md`、相关 `PROJECT.md` / `ENGINEERING-RULES.md` / SPEC / ADR / GUIDE。
 - Project baseline：本设计最相关的项目北极星、不变量、数据权威、模块边界、contract wall、测试路由、发布 / 回滚约束。
 - Contract anchors：本设计触碰的 API、Pydantic、DB、JSON、task、sync、catalog、capability、helper 边界。
