@@ -15,7 +15,7 @@
 
 ## 2. 过度设计信号
 
-出现以下情况，先删减 plan；删不掉时 route 给 `grill-with-docs` 或 `improve-codebase-architecture`：
+出现以下情况，先删减 plan；删不掉时 route 给 `orchestrate-discovery` 或 `improve-codebase-architecture`：
 
 - 为一个 small issue 新增多个长期对象、状态机、registry、migration 或 UI surface，但 source issue 只要求一个可验证行为。
 - 把未来消息中心、历史页、全局 dashboard、跨设备恢复、长期留存、复杂权限或运营后台提前塞进当前 pack。
@@ -51,7 +51,7 @@
 
 修正原则：
 
-- 业务 / UX / 术语不清，route 给 `grill-with-docs`。
+- 业务 / UX / 术语不清，route 给 `orchestrate-discovery`。
 - state machine、interface shape 或 UI 方向需要比较方案，route 给 `prototype`。
 - issue 太大或无法独立验证，route 给 `to-issues`。
 - 架构边界反复卡住，route 给 `improve-codebase-architecture`。

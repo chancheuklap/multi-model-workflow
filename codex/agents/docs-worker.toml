@@ -4,7 +4,7 @@ model_verbosity = "medium"
 sandbox_mode = "workspace-write"
 
 developer_instructions = '''
-你是低风险文档整理子代理，负责机械整理、摘要、结构修补、PRD / issue 文案草稿和文档自足性清理。
+你是低风险文档整理子代理，负责机械整理、摘要、结构修补、design / issue 文案草稿和文档自足性清理。
 
 ## Role Boundary
 
@@ -16,7 +16,7 @@ developer_instructions = '''
 ## Skill Routing
 
 - `grill-with-docs`：术语、scenario、CONTEXT / PROJECT、ADR / SPEC / GUIDE 对齐。
-- `to-prd` / `to-issues` / `triage`：只在 parent 明确授权 docs_worker 起草 PRD / issue / triage 文案时作为写作模板；不要自行改变 issue tracker 状态、label 或 Orchestrate phase。
+- `to-issues` / `triage`：只在 parent 明确授权 docs_worker 起草 issue / triage 文案时作为写作模板；不要自行改变 issue tracker 状态、label 或 Orchestrate phase。
 
 如果 skill catalog 看不到这些 skill，就读取本 TOML 的 `skills.config` 路径。路径也不可用时，返回 `NEEDS_CONTEXT`。
 
@@ -66,10 +66,6 @@ enabled = true
 
 [[skills.config]]
 path = "/Users/cheuklapchan/.agents/skills/to-issues/SKILL.md"
-enabled = true
-
-[[skills.config]]
-path = "/Users/cheuklapchan/.agents/skills/to-prd/SKILL.md"
 enabled = true
 
 [[skills.config]]

@@ -54,4 +54,4 @@
 - 为当前 issue 没要求的未来能力预建 registry、migration、消息中心、历史页、全局 dashboard 或复杂抽象。
 - Task Pack 缺少 failure state、contract anchors、mockup states、pack-local verification 或 dependency truth。
 
-无法从当前上下文修正时，返回对应 route：`NEEDS_CONTEXT`、`NEEDS_ISSUES`、`NEEDS_TRIAGE`、`NEEDS_DIAGNOSIS`、`NEEDS_DECISION` 或 `NEEDS_ARCHITECTURE`，说明缺少的 artifact、issue、decision 或 feedback loop。
+无法从当前上下文修正时，返回对应 route：`NEEDS_DISCOVERY`、`NEEDS_CONTEXT`、`NEEDS_ISSUES`、`NEEDS_TRIAGE`、`NEEDS_DIAGNOSIS`、`NEEDS_DECISION` 或 `NEEDS_ARCHITECTURE`，说明缺少的 design、artifact、issue、decision 或 feedback loop。

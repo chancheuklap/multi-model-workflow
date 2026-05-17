@@ -54,7 +54,7 @@ Header 后必须写：
 
 Scope Check 和 File / Responsibility Map 是计划边界。先确认范围和文件职责，再写 Task Pack；不要用文件清单替代 vertical issue hierarchy。
 
-如果 `Should split into multiple plans` 是 `yes`，不要继续把多个 subsystem 塞进同一份 plan。返回 `NEEDS_ISSUES` 或 `NEEDS_CONTEXT`，让上游先拆 issue / design。
+如果 `Should split into multiple plans` 是 `yes`，不要继续把多个 subsystem 塞进同一份 plan。返回 `NEEDS_ISSUES` 或 `NEEDS_DISCOVERY`，让上游先拆 issue / design。
 
 ## 2. Pack Brief 模板
 

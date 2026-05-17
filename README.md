@@ -48,32 +48,33 @@ Do not keep duplicate copies of the same skill in repo-local, user-level, and pl
 Standard workflow:
 
 ```text
-superpowers:brainstorming
-  + grill-with-docs discovery capture when business context must be preserved
-  -> CONTEXT.md + SPEC / design draft
+orchestrate-discovery
+  -> design document
+  -> Phase 0a design review
   -> upstream to-issues for vertical large issues and vertical small issues
   -> orchestrate-plan-writing for issue-backed implementation plan
   -> orchestrate-workflow for Phase 0b / Task Pack execution
-  -> superpowers:finishing-a-development-branch
+  -> Phase B / Phase C
 ```
 
-`orchestrate-workflow` starts at discovery capture, design review, plan review, maintenance bug routing, or existing diff review. It handles:
+`orchestrate-workflow` starts at discovery handoff, design review, plan review, Phase A repair, existing diff review, or final business reporting. It handles:
 
-- new-feature / systemic-bug discussion capture into `CONTEXT.md` and SPEC / design drafts
+- design handoff from `orchestrate-discovery`
 - Phase 0a design review
 - Phase 0b plan review
 - Task Pack planning and execution
 - pack review and repair loops
-- root-cause routing for maintenance bugs
 - final intent verification
 - release-risk review when migrations, billing, permissions, runtime, deploy, rollback, or cross-service contracts are involved
 - business report
 
 Runtime review contracts live in `.agents/skills/orchestrate-workflow/references/`. They tell the parent coordinator what to include in dispatch prompts for Codex `agent_type`s.
 
+`orchestrate-discovery` turns new features, issues, backlog items, existing PRD docs, systemic bugs, wrong states, performance regressions, UI / UX feedback, screenshots, test feedback, and product discussions into reviewable design documents. During Discovery, `grill-with-docs` is used as continuous domain alignment; diagnosis, prototype, architecture, zoom-out, and triage outputs must be written back into the design document or domain docs before Phase 0a.
+
 `orchestrate-plan-writing` generates plans from reviewed source design and `to-issues` output. In generated plans, top-level sections map to vertical large issues, Task Packs map to vertical small issues, and fine-grained tasks live inside each pack. If large or small issues are missing, it routes back to `to-issues` instead of finalizing a plan.
 
-External engineering skills from `mattpocock/skills` are active upstream methods. Orchestrate routes to them for grill-with-docs discovery, feedback-loop diagnosis, vertical-slice TDD, prototype decisions, durable issue briefs, and architecture findings, then folds their outputs back into the Codex phases.
+External engineering skills from `mattpocock/skills` are active upstream methods. Orchestrate routes to them for domain alignment, feedback-loop diagnosis, vertical-slice TDD, prototype decisions, issue slicing, triage state, and architecture findings, then folds their outputs back into the Codex phases.
 
 It does not automatically merge, push, or open PRs.
 

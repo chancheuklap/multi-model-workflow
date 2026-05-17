@@ -60,7 +60,7 @@ pass / blocked / needs repair / needs context
 - parent 必须处理的问题、风险、缺口或决策
 
 ### Routing
-- Suggested next owner: parent / original worker / coding_worker / complex_coding_worker / complex_code_explorer / code_reviewer / release_reviewer / upstream grill-with-docs / upstream diagnose / upstream prototype / upstream improve-codebase-architecture / upstream triage-to-issues / user decision
+- Suggested next owner: parent / original worker / coding_worker / complex_coding_worker / complex_code_explorer / code_reviewer / release_reviewer / orchestrate-discovery / upstream diagnose / upstream prototype / upstream improve-codebase-architecture / upstream triage-to-issues / user decision
 ```
 
 References 和 agent TOMLs 可以在 `### Result` 内定义 role-specific payload headings，但不得替换标准顶层 headings。
@@ -96,7 +96,7 @@ Review findings 使用：
 - unknown root cause -> `complex_code_explorer`；
 - high-risk repair -> `complex_coding_worker`；
 - production risk -> `release_reviewer`；
-- domain / UX / terminology / ownership ambiguity -> `grill-with-docs`；
+- domain / UX / terminology / ownership ambiguity -> `orchestrate-discovery`；
 - bad seam -> `improve-codebase-architecture`；
 - UI / state / interface direction -> `prototype`；
 - low-confidence / wrong-context -> 用证据退回。
@@ -115,7 +115,7 @@ Risk flags:
 AFK / HITL:
 ```
 
-写行为合同，不写“去某文件第 N 行改 X”。UI / UX durable brief 必须保留 mockup path、目标 viewport、关键 states 和允许偏差。如果 durable brief 来自 grill / prototype / architecture review，写明 resolved context、prototype verdict 或 architecture finding。
+写行为合同，不写“去某文件第 N 行改 X”。UI / UX durable brief 必须保留 mockup path、目标 viewport、关键 states 和允许偏差。如果 durable brief 来自 Discovery domain alignment、prototype 或 architecture review，写明 resolved context、prototype verdict 或 architecture finding。
 
 ## 方向检查
 

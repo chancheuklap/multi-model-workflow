@@ -7,19 +7,14 @@ Phase 0a 审 design doc。检查设计能否被计划、实现和最终验证承
 ```mermaid
 flowchart TD
     A["已有 / 刚生成 design document"] --> B["Phase 0a design review"]
-    B --> C{"Design 可执行?"}
-    C -->|否| D["修 design / grill / prototype / user decision"]
+    B --> C{"Design 可执行且对齐项目事实?"}
+    C -->|否| D["orchestrate-discovery 修订 design document"]
     D --> B
     C -->|是| E{"large / small issues 已存在?"}
-    E -->|否| F["to-issues 补齐 issue hierarchy"]
+    E -->|否| F["to-issues 补齐 vertical issue hierarchy"]
     F --> E
     E -->|是| G["orchestrate-plan-writing"]
-    G --> H["基于已 review 的 design 和 vertical issues 生成 issue-backed implementation plan"]
-    H --> I["Phase 0b plan review，同时提供 design doc、issues 和 plan doc"]
-    I --> J{"Plan 可执行且与 design / issues 对齐?"}
-    J -->|否| K["修复 plan、design-plan mismatch 或 issue-plan mismatch"]
-    K --> I
-    J -->|是| L["Task Pack dispatch preparation"]
+    G --> H["Phase 0b plan review"]
 ```
 
 Phase 0a 最多 2 轮文档修复。仍有 Critical design finding 时，不生成 plan。
@@ -36,7 +31,7 @@ Prompt 必须包含：
 
 检查：
 
-- domain language、业务对象、UI role、页面状态或 lifecycle 是否与 `CONTEXT.md` / PROJECT / SPEC / ADR 一致；不一致或含混时，finding route 给 upstream `grill-with-docs`，不要让 plan author 自行解释。
+- domain language、业务对象、UI role、页面状态或 lifecycle 是否与 `CONTEXT.md` / PROJECT / SPEC / ADR 一致；不一致或含混时，finding route 给 `orchestrate-discovery`，不要让 plan author 自行解释。
 - 完整性：是否有 TODO / TBD / 空节；用户旅程是否覆盖起点、操作、结果、异常路径。
 - 可测试性：每条“用户应该能 X / 系统应该 Y”能否写出命令、API、UI 操作或手工验收步骤。
 - Mockup 对齐：UI / UX 设计是否明确引用 mockup 路径、目标页面、角色、viewport、关键状态、交互和允许偏差。
@@ -65,7 +60,7 @@ Important:
 低置信度观察:
 ```
 
-Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Design finding 默认 route 给 coordinator document repair；domain language、业务对象、UI / UX target state、验收口径不清 route 给 upstream `grill-with-docs`；产品承诺、业务规则、UX、发布策略、架构 trade-off 无法由文档和代码判断时 route 给 user decision。
+Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；中文结论只作为 `### Result` 内的 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Design finding 默认 route 给 coordinator document repair；domain language、业务对象、UI / UX target state、验收口径不清 route 给 `orchestrate-discovery`；产品承诺、业务规则、UX、发布策略、架构 trade-off 无法由文档和代码判断时 route 给 user decision 或 `orchestrate-discovery`。
 
 ## 派发 2：Project Alignment Review
 
@@ -79,7 +74,7 @@ Prompt 必须包含：
 
 检查：
 
-- domain language 和 `CONTEXT.md` glossary 是否一致；发现术语漂移、对象边界不清或业务关系冲突时，route 给 upstream `grill-with-docs`。
+- domain language 和 `CONTEXT.md` glossary 是否一致；发现术语漂移、对象边界不清或业务关系冲突时，route 给 `orchestrate-discovery`。
 - domain language 是否使用项目正式术语。
 - 数据权威源是否正确，例如 Gateway / Collection / Local Agent 的 owner 是否混乱。
 - 模块边界和依赖方向是否正确。

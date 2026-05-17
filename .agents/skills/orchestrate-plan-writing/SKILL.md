@@ -1,6 +1,6 @@
 ---
 name: orchestrate-plan-writing
-description: "当 AgentFlow 已有 reviewed design / SPEC / PRD / requirements，并且已有 mattpocock-skills:to-issues 产出的 vertical large issues / small issues，或用户要求把 design、PRD、issues 转成 implementation plan、Task Pack plan、issue-backed plan 时主动使用。负责生成可进入 Orchestrate Phase 0b 的 plan：large issue -> plan section，small issue -> Task Pack，pack 内写细 task；缺 issue hierarchy 时返回 NEEDS_ISSUES 交回 Orchestrate 使用 to-issues。"
+description: "当 AgentFlow 已有 reviewed source design / design document / SPEC / existing PRD / explicit requirements，并且已有 mattpocock-skills:to-issues 产出的 vertical large issues / small issues，或用户要求把 design、PRD、issues 转成 implementation plan、Task Pack plan、issue-backed plan 时主动使用。负责生成可进入 Orchestrate Phase 0b 的 plan：large issue -> plan section，small issue -> Task Pack，pack 内写细 task；缺 source design 时返回 NEEDS_DISCOVERY，缺 issue hierarchy 时返回 NEEDS_ISSUES。"
 ---
 
 # Orchestrate Plan Writing
@@ -10,7 +10,7 @@ description: "当 AgentFlow 已有 reviewed design / SPEC / PRD / requirements�
 固定结构：
 
 ```text
-source design / requirements
+source design / design document / requirements
   -> vertical large issue
   -> vertical small issue
   -> Task Pack
@@ -23,7 +23,7 @@ Plan 生成后交回 `orchestrate-workflow`，由 Phase 0b review、Task Pack �
 
 先定位这些输入：
 
-- source design / SPEC / PRD / bug brief / explicit requirements；
+- source design / design document / SPEC / existing PRD / bug brief / explicit requirements；
 - Phase 0a 通过结论，或等价 review 结论；
 - `to-issues` 产出的 vertical large issues；
 - 每个 large issue 下的 vertical small issues；
@@ -35,15 +35,15 @@ Plan 生成后交回 `orchestrate-workflow`，由 Phase 0b review、Task Pack �
 
 | 缺件 / 阻塞 | 返回 | 交回 Orchestrate 的 route |
 | --- | --- | --- |
-| 没有 source requirements | `NEEDS_CONTEXT` | `to-prd` 或 `grill-with-docs` |
+| 没有 source design / source requirements | `NEEDS_DISCOVERY` | `orchestrate-discovery` |
 | design 没有 review 结论 | `NEEDS_DESIGN_REVIEW` | Phase 0a |
 | 缺 large issue、small issue，或 small issue 不能独立验证 | `NEEDS_ISSUES` | `to-issues` |
 | issue ready state、AFK / HITL、blocked-by 不清 | `NEEDS_TRIAGE` | `triage` |
-| 业务术语、对象 owner、UI target state、permission、billing、lifecycle 或验收口径不清 | `NEEDS_CONTEXT` | `grill-with-docs` |
-| bug / wrong state / performance regression 缺复现、feedback loop、症状或 hypotheses | `NEEDS_DIAGNOSIS` | `diagnose` |
-| state machine、interface shape 或 UI 方向需要方案比较 | `NEEDS_DECISION` | `prototype` |
+| 业务术语、对象 owner、UI target state、permission、billing、lifecycle 或验收口径不清 | `NEEDS_DISCOVERY` | `orchestrate-discovery` |
+| bug / wrong state / performance regression 缺复现、feedback loop、症状或 hypotheses | `NEEDS_DIAGNOSIS` | `orchestrate-discovery` / `diagnose` |
+| state machine、interface shape 或 UI 方向需要方案比较 | `NEEDS_DECISION` | `orchestrate-discovery` / `prototype` |
 | bad seam、repeated repair、single-adapter interface 或错误测试面暴露 | `NEEDS_ARCHITECTURE` | `improve-codebase-architecture` |
-| 模块地图、调用链或风险区域不足，影响 pack 边界 | `NEEDS_CONTEXT` | `zoom-out` |
+| 模块地图、调用链或风险区域不足，影响 pack 边界 | `NEEDS_CONTEXT` | `zoom-out` 或 `orchestrate-discovery` |
 
 ## 写作流程
 
@@ -100,13 +100,13 @@ PLAN_CREATED
 
 ```text
 ### Verdict
-NEEDS_CONTEXT / NEEDS_DESIGN_REVIEW / NEEDS_ISSUES / NEEDS_TRIAGE / NEEDS_DIAGNOSIS / NEEDS_DECISION / NEEDS_ARCHITECTURE
+NEEDS_DISCOVERY / NEEDS_CONTEXT / NEEDS_DESIGN_REVIEW / NEEDS_ISSUES / NEEDS_TRIAGE / NEEDS_DIAGNOSIS / NEEDS_DECISION / NEEDS_ARCHITECTURE
 
 ### Missing
 - 缺少的 source / issue / decision / feedback loop / route state
 
 ### Upstream route
-- to-prd / to-issues / triage / grill-with-docs / diagnose / prototype / improve-codebase-architecture / zoom-out
+- orchestrate-discovery / to-issues / triage / diagnose / prototype / improve-codebase-architecture / zoom-out
 
 ### Suggested prompt
 - 可直接交给 upstream skill 的简短输入

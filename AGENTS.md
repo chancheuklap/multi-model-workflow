@@ -65,7 +65,7 @@ runtime 文件只写会改变 agent 下一步行为的指令：
 不要写：
 
 - 迁移背景说明；
-- “这是从 Claude plugin / Superpowers / 某 GitHub skill 吸收来的”这类来源说明；
+- “这是从旧 plugin / 某 GitHub skill 吸收来的”这类来源说明；
 - “不是某某、不是某某”的大段定位解释；
 - 方法名清单；
 - 给人看的项目复盘；
@@ -100,7 +100,7 @@ runtime 文件只写会改变 agent 下一步行为的指令：
 不合格信号：
 
 - 只说“已经安装 / 已经复制”。
-- 只在 README 里提到 Claude plugin、Superpowers 或 upstream skills，却没有转成具体 runtime 规则。
+- 只在 README 里提到旧 plugin 或 upstream skills，却没有转成具体 runtime 规则。
 - skill 里出现长篇解释、历史背景、方法论摘要。
 - custom agent TOML 只有泛泛角色描述，没有 review / implementation / diagnosis 的具体 contract。
 - review 只审代码，不审 design、plan 和 final intent。
@@ -135,8 +135,8 @@ Codex runtime 优先使用真实 `agent_type`，不要把旧 Claude plugin 的 a
 | high-risk Task Pack / high-risk repair | `complex_coding_worker` |
 | unknown root cause / multi-module investigation | `complex_code_explorer` |
 | narrow code location / call-chain question | `code_explorer` |
-| low-risk docs cleanup / PRD / issue draft | `docs_worker` |
-| domain / UX / terminology / ownership ambiguity | parent uses `grill-with-docs` |
+| low-risk docs cleanup / design / issue draft | `docs_worker` |
+| domain / UX / terminology / ownership ambiguity | `orchestrate-discovery` uses `grill-with-docs` |
 | bug / error / wrong state | parent uses `diagnose` before patching |
 | state machine / interface shape / UI direction | parent uses `prototype` |
 | bad test seam / architecture friction / repeated repair | parent uses `improve-codebase-architecture` |
@@ -145,19 +145,19 @@ Codex runtime 优先使用真实 `agent_type`，不要把旧 Claude plugin 的 a
 
 ## 6. Upstream Skills
 
-Superpowers 和 `mattpocock/skills` 是当前 Codex workflow 的前置方法和升级路径，不是附录，也不是历史来源说明。
+`orchestrate-discovery` 和 `mattpocock/skills` 是当前 Codex workflow 的前置方法和升级路径，不是附录，也不是历史来源说明。
 
 必须保留的行为：
 
-- 新功能、系统性 bug、系统性改造讨论：`superpowers:brainstorming` + `grill-with-docs`，同步沉淀 `CONTEXT.md` 和 SPEC / design draft。
+- 新功能、issue、backlog、现有 PRD、系统性 bug、wrong state、performance regression、UI / UX 反馈、截图反馈、测试反馈、系统性改造或产品讨论：先由 `orchestrate-discovery` 生成或修订 design document，再进入 Phase 0a。
 - design 通过 review 后，先由 `to-issues` 形成 vertical large issues 和 vertical small issues，再由 `orchestrate-plan-writing` 生成 issue-backed plan，最后由 `orchestrate-workflow` 接管 Phase 0b、Task Pack、Phase A、Phase B、Phase C。
-- bug / error / wrong state / performance regression：先 `diagnose` 建 feedback loop、症状、hypotheses、regression target，再进入 repair 或 pack。
+- `grill-with-docs` 是 Discovery 全程 domain alignment 机制；术语、对象 owner、状态、边界、合同、现有文档不清时高频触发，结论写回 `CONTEXT.md` / domain docs 和 design document。
+- bug / error / wrong state / performance regression：在 `orchestrate-discovery` 或 repair flow 内先 `diagnose` 建 feedback loop、症状、hypotheses、regression target，再判断是 design repair 还是 Phase A repair。
 - implementation work：`tdd` 转成 public-behavior vertical TDD，禁止 horizontal slicing。
 - UI / state machine / interface shape 不确定：`prototype` 只回答决策问题，结论回写 design / plan。
-- domain / UX / terminology / ownership 不清：`grill-with-docs` 先澄清，再派 worker。
 - bad seam、repeated repair、single-adapter、测试面错误：`improve-codebase-architecture` 产生 architecture finding，再回到 Orchestrate gate。
-- durable backlog 或跨会话交接：`triage` / `to-prd` / `to-issues` 生成 issue / brief；进入执行前必须由 `orchestrate-plan-writing` 固化成 plan / Task Pack。
-- completion proof：`verification-before-completion` 的证据纪律进入最终 gate。
+- durable backlog 或跨会话交接：`orchestrate-discovery` 先生成 design document；Phase 0a 通过后由 `to-issues` 生成 issue hierarchy；进入执行前必须由 `orchestrate-plan-writing` 固化成 plan / Task Pack。
+- completion proof：最终 gate 必须保留完成前证据纪律，没有验证证据不得声称完成。
 
 禁止做法：
 
@@ -174,7 +174,7 @@ Superpowers 和 `mattpocock/skills` 是当前 Codex workflow 的前置方法和�
 2. 读 `.agents/skills/orchestrate-plan-writing/SKILL.md`。
 3. 读相关 `references/*.md`。
 4. 读 `codex/agents/*.toml`。
-5. 对照当前 Codex runtime、Superpowers 工作流和 upstream engineering skills。
+5. 对照当前 Codex runtime、Orchestrate 工作流和 upstream engineering skills。
 6. 判断每个能力是否已经变成可执行指令。
 7. 检查每条指令的 reader 是否正确：parent、planner、reference、custom agent、runtime script 不能混。
 8. 只在发现明确缺口时改 source。

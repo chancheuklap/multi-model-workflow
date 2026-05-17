@@ -1,23 +1,23 @@
 # Plan Review 合同
 
-Phase 0b 审 issue-backed implementation plan。目标是确认计划覆盖 source design / requirements 和 `to-issues` 产出的 source issues，且 plan 中的 Task Pack inventory 可以直接进入 Orchestrate dispatch。Plan Review 必须同时读取 source design / requirements、source issues 和 plan；如果只有 plan，没有 source intent 或 issue source，返回 `NEEDS_CONTEXT`，或由主线程补齐 source intent 后再审。
+Phase 0b 审 issue-backed implementation plan。目标是确认计划覆盖 source design / requirements 和 `to-issues` 产出的 source issues，且 plan 中的 Task Pack inventory 可以直接进入 Orchestrate dispatch。Plan Review 必须同时读取 source design / requirements、source issues 和 plan；如果只有 plan，没有 source intent 或 issue source，返回 `NEEDS_DISCOVERY` 或 `NEEDS_ISSUES`，由主线程补齐 source design / issue source 后再审。
 
 ## 入口流程图
 
 ```mermaid
 flowchart TD
-    A["已有 / 刚生成 implementation plan"] --> B["定位 source design doc / explicit requirements / source issues"]
-    B --> C{"是否有 design / source requirements?"}
-    C -->|否| D["NEEDS_CONTEXT，或先重建 source intent 再 review"]
-    C -->|是| E{"是否有 source issues 和 large -> small -> Task Pack 映射?"}
-    E -->|否| F["NEEDS_ISSUES，或先用 to-issues / orchestrate-plan-writing 补齐 issue-backed plan"]
+    A["已有 / 刚生成 implementation plan"] --> B["定位 source design / source issues / plan"]
+    B --> C{"是否有可 review source design?"}
+    C -->|否| D["orchestrate-discovery 重建或修订 design document"]
+    D --> C
+    C -->|是| E{"是否有 large -> small -> Task Pack 映射?"}
+    E -->|否| F["to-issues 或 orchestrate-plan-writing 补齐 issue-backed plan"]
     F --> E
-    E -->|是| G["Phase 0b plan review，同时提供 source design / requirements、source issues 和 plan doc"]
+    E -->|是| G["Phase 0b plan review"]
     G --> H{"Plan 可执行且对齐 design / issues?"}
-    H -->|否| I["修复 plan；如果 mismatch 暴露 design gap 也修复 source design；如果 issue gap 回 to-issues"]
+    H -->|否| I["修复 plan；design gap 回 Discovery；issue gap 回 to-issues"]
     I --> G
     H -->|是| J["Task Pack dispatch preparation"]
-    J --> K["Phase A execution + Pack Review"]
 ```
 
 Phase 0b 最多 2 轮修复。仍有 invalid pack、design-plan mismatch、issue-plan mismatch、虚构路径、缺验证或缺 anchors 时，不进入 Phase A。
@@ -51,7 +51,7 @@ Phase 0b 同时是 Task Pack inventory 的权威校验点。Task Pack 边界来�
 - 有 owned files / responsibilities。
 - 涉及 API / Pydantic / DB / JSON / sync / task payload / UI action / helper 时，有 Contract anchors：owner、provider、consumer、model、schema_version、registry / migration / catalog、repository / read model、verification。
 - UI / UX pack 有 mockup anchors：路径、页面区域、viewport、states、interaction、visual verification。
-- Bug / UI / UX feedback 的 desired behavior、role、state、copy、interaction 和 verification method 已由 source design / bug brief / grill result 明确。
+- Bug / UI / UX feedback 的 desired behavior、role、state、copy、interaction 和 verification method 已由 source design / bug brief / domain alignment result 明确。
 - 有 acceptance criteria、verification commands 或 manual gate、risk flags、AFK / HITL、dependencies、parallel safety、out of scope。
 - 依赖关系是真阻塞，不是“可能有关”。
 
@@ -110,7 +110,7 @@ Risk flags:
 AFK / HITL:
 ```
 
-UI / UX durable brief 必须保留 mockup path、目标 viewport、关键 states 和允许偏差。如果 durable brief 来自 grill / prototype / architecture review，写明 resolved context、prototype verdict 或 architecture finding。需要文件范围用于立即执行时，把它放在 Pack Brief 的 owned files 中，不放进 durable contract 的核心语义。
+UI / UX durable brief 必须保留 mockup path、目标 viewport、关键 states 和允许偏差。如果 durable brief 来自 Discovery domain alignment、prototype 或 architecture review，写明 resolved context、prototype verdict 或 architecture finding。需要文件范围用于立即执行时，把它放在 Pack Brief 的 owned files 中，不放进 durable contract 的核心语义。
 
 ## 派发 1：Coverage And Task Quality
 
@@ -128,7 +128,7 @@ Prompt 必须包含：
 - 逐条提取 source issue acceptance criteria，确认每条 criteria 进入 Task Pack acceptance criteria，或有明确 out of scope 依据。
 - large issue section 是否对应 vertical large issue；Task Pack 是否对应 vertical small issue。候选 small issue 不能进入 Phase A。
 - 如果有 UI / UX mockup，逐条提取可见页面状态、关键交互、viewport 和组件状态，确认每项至少有 Task Pack 和验收证据覆盖。
-- 如果 source design / requirements 对 desired behavior、业务术语、UI target state、role、视觉层级、交互意图或验收口径含混，route 给 upstream `grill-with-docs`；不要把含混点包装成 worker task。
+- 如果 source design / requirements 对 desired behavior、业务术语、UI target state、role、视觉层级、交互意图或验收口径含混，route 给 `orchestrate-discovery`；不要把含混点包装成 worker task。
 - 找出计划做了但 design 或 issue 没要求的 scope creep。
 - 每个 Task Pack 是否足够具体：改什么、在哪改、测试什么、预期什么结果。
 - 计划是否存在过度设计：预建未来能力、过早抽象、大段实现代码、超出 issue 的 UI / registry / migration / message surface。
@@ -200,7 +200,7 @@ Prompt 必须包含同一组 Read first 和 Project baseline，也就是 source 
 - 是否有 risky assumption，例如假设 API / data shape / fixture 存在。
 - 是否有 risky assumption，例如假设 Pydantic contract、DB 字段、JSON registry、catalog、capability 或 helper 已存在。
 - 是否有 “之后再切 Task Pack” 或 “最后统一验证” 的水平切片风险。
-- 是否有把 UI / UX 主观反馈、业务含混点或 architecture seam 问题伪装成普通实现 task 的风险；前者 route 给 `grill-with-docs`，后者 route 给 `improve-codebase-architecture`。
+- 是否有把 UI / UX 主观反馈、业务含混点或 architecture seam 问题伪装成普通实现 task 的风险；主观反馈和业务含混点 route 给 `orchestrate-discovery`，architecture seam route 给 `improve-codebase-architecture`。
 
 ## Result Payload
 
@@ -215,6 +215,6 @@ Important:
 低置信度观察:
 ```
 
-Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“可执行 / 需修正”只作为 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source design gap、issue-plan mismatch、context ambiguity，还是 architecture friction；context ambiguity route 给 upstream `grill-with-docs`，architecture friction route 给 upstream `improve-codebase-architecture`。
+Coordinator 派发必须包含标准顶层 return headings。本 payload 放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`；“可执行 / 需修正”只作为 phase summary。每条 finding 必须使用统一 shape：severity、confidence、locator、evidence、impact、remediation、routing。Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source design gap、issue-plan mismatch、context ambiguity，还是 architecture friction；source design gap 和 context ambiguity route 给 `orchestrate-discovery`，architecture friction route 给 upstream `improve-codebase-architecture`。
 
 Phase 0 plan findings 返回 coordinator。主线程修 plan，不派 worker 写代码。
