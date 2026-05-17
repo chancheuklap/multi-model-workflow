@@ -9,14 +9,24 @@ flowchart TD
     A["已有 / 刚生成 implementation plan"] --> B["定位 source design / source issues / plan"]
     B --> C{"是否有可 review source design?"}
     C -->|否| D["orchestrate-discovery 重建或修订 design document"]
-    D --> C
+    D --> O["Phase 0a design review"]
     C -->|是| E{"是否有 large -> small -> Task Pack 映射?"}
     E -->|否| F["to-issues 或 orchestrate-plan-writing 补齐 issue-backed plan"]
     F --> E
     E -->|是| G["Phase 0b plan review"]
     G --> H{"Plan 可执行且对齐 design / issues?"}
-    H -->|否| I["修复 plan；design gap 回 Discovery；issue gap 回 to-issues"]
-    I --> G
+    H -->|否| I{"缺口类型?"}
+    I -->|plan 自身问题| K["修复 plan"]
+    K --> G
+    I -->|source design gap| L["orchestrate-discovery 修订 design document"]
+    L --> O
+    O --> Q{"Design 通过?"}
+    Q -->|否| L
+    Q -->|是| P["to-issues / orchestrate-plan-writing 更新 plan"]
+    P --> G
+    I -->|issue gap| M["to-issues 修正 vertical issue hierarchy"]
+    M --> N["orchestrate-plan-writing 更新 issue-backed plan"]
+    N --> G
     H -->|是| J["Task Pack dispatch preparation"]
 ```
 

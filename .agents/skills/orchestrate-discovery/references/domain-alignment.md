@@ -51,11 +51,14 @@ flowchart TD
     B -->|否| D["查 CONTEXT / ADR / SPEC / GUIDE / code"]
     D --> E{"能从文档或代码确认?"}
     E -->|是| F["写回 domain docs 和 design document"]
-    E -->|否| G["一次只问一个 domain alignment 问题，并给推荐答案"]
-    G --> H["写回 CONTEXT / domain docs / design document"]
-    F --> I{"是否需要 ADR?"}
-    H --> I
-    I -->|是| J["建议 ADR，用户确认后记录"]
-    I -->|否| C
+    E -->|否| G{"用户能否当场决策?"}
+    G -->|是| H["一次只问一个 domain alignment 问题，并给推荐答案"]
+    H --> W["写回 CONTEXT / domain docs / design document"]
+    G -->|否| K["写入 design document 的 Open Decisions"]
+    F --> R{"是否需要 ADR?"}
+    K --> C
+    W --> R
+    R -->|是| J["建议 ADR，用户确认后记录"]
+    R -->|否| C
     J --> C
 ```

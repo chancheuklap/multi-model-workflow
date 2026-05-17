@@ -29,5 +29,7 @@ flowchart TD
     D -->|是| F{"是否误写 plan / Task Pack / worker 指令?"}
     F -->|是| G["移出 design document"]
     G --> A
-    F -->|否| H["DISCOVERY_READY_FOR_PHASE_0A"]
+    F -->|否| H{"是否还有必须由用户决定的 Open Decision?"}
+    H -->|是| I["NEEDS_USER_DECISION"]
+    H -->|否| J["DISCOVERY_READY_FOR_PHASE_0A"]
 ```

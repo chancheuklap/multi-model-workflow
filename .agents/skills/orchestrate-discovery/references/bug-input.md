@@ -33,7 +33,10 @@ flowchart TD
     B -->|否| C["diagnose 建立 feedback loop"]
     B -->|是| D["整理 current behavior / desired behavior / symptom / hypotheses"]
     C --> D
-    D --> E{"desired behavior 和业务语义清楚?"}
+    D --> N{"是否需要模块地图或调用链判断设计范围?"}
+    N -->|是| O["zoom-out，写回 module map / boundary context"]
+    O --> D
+    N -->|否| E{"desired behavior 和业务语义清楚?"}
     E -->|否| F["domain-alignment.md"]
     F --> D
     E -->|是| G{"只是已批准设计下的实现偏离?"}
@@ -52,8 +55,9 @@ flowchart TD
 flowchart TD
     A["系统性 bug 复盘"] --> B["diagnose 建立真实 feedback loop"]
     B --> C{"是否需要重新定义业务对象、状态、边界或目标方案?"}
-    C -->|否| D["READY_FOR_PHASE_A_REPAIR 或局部 repair"]
+    C -->|否| D["READY_FOR_PHASE_A_REPAIR"]
     C -->|是| E["domain-alignment.md 对齐对象、状态、边界"]
     E --> F["修订 design document"]
-    F --> G["Phase 0a design review"]
+    F --> G["discovery-self-review"]
+    G --> H["Phase 0a design review"]
 ```

@@ -34,9 +34,9 @@ flowchart TD
     D -->|是| F{"需要 UI / state / interface 方案比较?"}
     F -->|是| G["prototype，写回 prototype verdict"]
     F -->|否| H{"暴露 architecture friction?"}
-    G --> I["写入或修订 design document"]
+    G --> H
     H -->|是| J["improve-codebase-architecture，写回 architecture finding"]
-    H -->|否| I
+    H -->|否| I["写入或修订 design document"]
     J --> I
     I --> K["discovery-self-review"]
     K --> L["DISCOVERY_READY_FOR_PHASE_0A"]
