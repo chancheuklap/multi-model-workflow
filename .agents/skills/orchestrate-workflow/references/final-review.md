@@ -50,7 +50,7 @@ flowchart TD
 
 ## Dispatch
 
-默认派一次 baseline `code_reviewer` 做 Final Intent Review。Final Intent Review 仍 blocked 时，不先派 release-risk review；先处理 accepted implementation / design / context blockers。
+默认派一次 baseline `code_reviewer` 做 Final Intent Review。Final Intent Review 仍 blocked 时，不先派 release-risk review；先处理 accepted implementation / design / context / plan blockers。
 
 Prompt 必须包含：
 
@@ -84,7 +84,7 @@ Gap 分类：
 
 ## Release Gate
 
-Final Intent Review 没有 implementation / design blocker 后，以下情况必须派 `release_reviewer`：
+Final Intent Review 没有 implementation / design / context / plan blocker 后，以下情况必须派 `release_reviewer`：
 
 - database migration；
 - billing / wallet / settlement；

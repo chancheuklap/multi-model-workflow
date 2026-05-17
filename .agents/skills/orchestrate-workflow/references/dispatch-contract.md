@@ -75,7 +75,7 @@ Early release gate 只在这些情况触发：
 - 等待 Phase B 才审会造成不可逆数据、权限、账务或 runtime 风险。
 - 用户明确要求。
 
-Final release gate 在 Phase B 执行：Final Intent Review 没有 implementation / design blocker 后，如果最终 diff 触碰 migration、billing、permission、runtime、cross-service contract、deploy order、rollback 或 manual production dependency，才派 `release_reviewer`。
+Final release gate 在 Phase B 执行：Final Intent Review 没有 implementation / design / context / plan blocker 后，如果最终 diff 触碰 migration、billing、permission、runtime、cross-service contract、deploy order、rollback 或 manual production dependency，才派 `release_reviewer`。
 
 Budget rules：
 

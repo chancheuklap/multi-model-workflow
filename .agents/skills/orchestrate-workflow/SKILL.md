@@ -79,7 +79,8 @@ flowchart TD
     I --> H
     H -->|domain / UX ambiguity| C
     H -->|architecture friction| J["improve-codebase-architecture"]
-    J -->|finding 写回后 targeted review / Phase A| H
+    J -->|只影响当前 pack| H
+    J -->|改变 plan anchors| G
     H -->|all packs pass| K["Phase B Final Review"]
     K -->|implementation gap| H
     K -->|design / context gap| C
@@ -103,8 +104,8 @@ flowchart TD
 | `orchestrate-plan-writing` | design 通过且 issue hierarchy 已确认，或 Phase 0b 暴露 plan gap | `orchestrate-plan-writing` | 生成 / 修复 issue-backed implementation plan；large issue -> plan section，small issue -> Task Pack | Phase 0b |
 | Phase 0b Plan Review | 已有 / 刚生成 implementation plan | `references/plan-review.md` | 同时审 source design、source issues、plan、Task Pack inventory；派两个 baseline `code_reviewer` angles；只在计划期必须提前判定 release order / rollback / manual production gate 时追加 `release_reviewer` | design gap 回 Discovery；issue gap 回 `to-issues`；plan gap 回 plan-writing；通过后 Phase A |
 | Phase A Task Pack Execution | Phase 0b 通过，或 Direct Repair / accepted implementation gap | `references/dispatch-contract.md`；worker 返回后读 `references/implementation-review.md` | 从 plan 读取 Task Pack queue；按风险派 `coding_worker` / `complex_coding_worker`；worker 返回后做 Pack Review；必要时 early release gate | 全部 pack review 通过后 Phase B |
-| Phase B Final Review | 所有 Task Pack review 通过，或用户要求验收已实现 diff | `references/final-review.md` | 先派 `code_reviewer` 审最终 design intent、cross-pack interaction、regression；Final Intent Review 无 blocker 且触碰发布风险时才派 `release_reviewer` | implementation gap 回 Phase A；design / context gap 回 Discovery；通过后 Phase C |
-| Phase C Report / Finishing | Phase B 通过，或用户明确要求收尾 | `references/final-review.md` | 用业务语言汇报能力、验证证据、残余风险和需要用户决策的事项；只有用户明确要求才 merge / PR / push / cleanup | 完成 |
+| Phase B Final Review | 所有 Task Pack review 通过，或用户要求验收已实现 diff | `references/final-review.md` | 先派 `code_reviewer` 审最终 design intent、cross-pack interaction、regression；Final Intent Review 无 blocker 且触碰发布风险时才派 `release_reviewer` | implementation gap 回 Phase A；design / context gap 回 Discovery；plan gap 回 plan-writing；release-risk 通过 `release_reviewer` 后 Phase C |
+| Phase C Report / Finishing | Phase B 通过，且 release gate 不触发或已通过；或用户明确要求停止 / 暂停 / 汇报当前状态 | `references/final-review.md` | Phase B 通过时汇报能力、验证证据和残余风险；未通过时只汇报当前状态和 blocker，不声称完成；只有用户明确要求才 merge / PR / push / cleanup | 完成或暂停 |
 | Contract Boundary | 任意节点触碰 API / Pydantic / DB / JSON / sync / task payload / UI action / helper / billing / permission / runtime | `references/contract-boundary.md` | 确认 owner、producer、consumer、schema、migration、registry、verification；把 anchors 写入 review / worker prompt | 回到当前节点 |
 
 ## Handoff Status

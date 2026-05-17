@@ -14,7 +14,7 @@
 **Source issues:** <paths or tracker references>
 **Execution owner:** Orchestrate Workflow
 **Plan unit:** 一级章节对应 vertical large issue；Task Pack 对应 vertical small issue；细小 task 只存在于 Task Pack 内部。
-**Completion gate:** Phase 0b Plan Review -> Phase A Pack Execution -> Pack Review -> Phase B Final Intent Review。
+**Completion gate:** Phase 0b Plan Review -> Phase A Pack Execution -> Pack Review -> Phase B Final Review -> 触发 release-risk 时追加 release gate。
 **Architecture:** <2-3 句说明实现方向、主要合同边界和数据 / 状态流>
 **Tech stack:** <实际涉及的框架、服务、测试工具、运行时>
 **Quality gate:** 进入 Phase 0b 前必须通过过度设计 / 设计不足自审。

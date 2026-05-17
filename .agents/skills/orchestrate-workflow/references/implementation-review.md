@@ -34,9 +34,10 @@ flowchart TD
     C --> D["独立验证 diff / files / commands / mockup / anchors"]
     D --> E["Spec Compliance"]
     E --> F{"Spec Compliance 通过?"}
-    F -->|否| G["finding disposition / repair route"]
-    G --> H["repair 后 targeted Pack Review"]
+    F -->|否| G{"finding disposition / route"}
+    G -->|implementation repair / evidence gap| H["repair worker 返回"]
     H --> B
+    G -->|design / plan / architecture baseline changed| Q["回 Discovery / plan-writing / Phase 0b"]
     F -->|是| I["Code Quality"]
     I --> J{"Code Quality 通过?"}
     J -->|否| G

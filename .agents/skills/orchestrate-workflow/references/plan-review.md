@@ -35,8 +35,9 @@ flowchart TD
     D --> E["Phase 0a Design Review"]
     E --> B
     C -->|是| F{"large -> small -> Task Pack 映射完整?"}
-    F -->|否| G["to-issues / orchestrate-plan-writing 补齐 issue-backed plan"]
-    G --> B
+    F -->|否| G["to-issues 修 issue hierarchy"]
+    G --> R["orchestrate-plan-writing 更新 plan"]
+    R --> B
     F -->|是| H["Phase 0b Plan Review"]
     H --> I{"Plan 和 Task Pack inventory 通过?"}
     I -->|plan gap| J["orchestrate-plan-writing 修 plan"]

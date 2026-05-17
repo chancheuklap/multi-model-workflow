@@ -31,7 +31,7 @@ flowchart TD
     C -->|否| D["conversation-to-design.md 继续澄清"]
     D --> C
     C -->|是| E{"ready state / blocked-by / AFK-HITL 是否清楚?"}
-    E -->|否| F["triage"]
+    E -->|否| F["triage 取得 ready state / blocked-by / AFK-HITL"]
     F --> E
     E -->|是| G["写入 design document"]
     G --> H["discovery-self-review"]
