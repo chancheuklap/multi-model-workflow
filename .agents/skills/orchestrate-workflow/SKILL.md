@@ -57,43 +57,39 @@ Direct Repair 或 Formal Orchestrate 会改文件时：
 
 ## Formal Workflow
 
-这张图只表达 Formal Orchestrate 主干和主要回流。具体 prompt payload、review angle、finding 分类、Review Reception、repair round 和 stop condition 全部读节点 reference。
+这张图只画真实执行节点。判断条件只写在线路标签里；具体 prompt payload、review angle、finding 分类、Review Reception、repair round 和 stop condition 全部读节点 reference。
 
 ```mermaid
 flowchart TD
-    A["输入：想法 / issue / bug / feedback / design / plan / diff"] --> B{"有可 review design document?"}
-    B -->|否| C["orchestrate-discovery"]
-    C --> D["Phase 0a Design Review"]
-    B -->|是| D
-    D --> E{"Design 通过?"}
-    E -->|否| C
-    E -->|是| F{"large / small issue hierarchy 已确认?"}
-    F -->|否| G["to-issues"]
-    G --> F
-    F -->|是| H["orchestrate-plan-writing"]
-    H --> I["Phase 0b Plan Review"]
-    I --> J{"Plan 和 Task Pack inventory 通过?"}
-    J -->|否| K{"缺口类型"}
-    K -->|design gap| C
-    K -->|issue gap| G
-    K -->|plan gap| H
-    J -->|是| L["Phase A Task Pack Execution"]
-    L --> M{"所有 pack review 通过?"}
-    M -->|否| N{"finding route"}
-    N -->|implementation gap| L
-    N -->|unknown root cause| O["complex_code_explorer"]
-    N -->|domain / UX ambiguity| C
-    N -->|architecture friction| P["improve-codebase-architecture"]
-    O --> L
-    P --> L
-    M -->|是| Q["Phase B Final Review"]
-    Q --> R{"Final Review 通过?"}
-    R -->|否| S{"gap type"}
-    S -->|implementation gap| L
-    S -->|design / context gap| C
-    S -->|user decision| T["User Decision"]
-    R -->|是| U["Phase C Report / Finishing"]
+    A["输入 / 已有工作状态"] --> B["Entry Gate + Resume Gate"]
+    B -->|Formal Orchestrate 且缺 design| C["orchestrate-discovery"]
+    B -->|Formal Orchestrate 且已有 design| D["Phase 0a Design Review"]
+    C --> D
+    D -->|design / domain / UX gap| C
+    D -->|pass, 缺 issue hierarchy| E["to-issues"]
+    D -->|pass, issue hierarchy 已确认| F["orchestrate-plan-writing"]
+    E --> F
+    F --> G["Phase 0b Plan Review"]
+    G -->|design gap| C
+    G -->|issue gap| E
+    G -->|plan gap| F
+    G -->|pass| H["Phase A Task Pack Execution"]
+    H -->|implementation finding / targeted repair| H
+    H -->|needs evidence / unknown root cause| I["code_explorer / complex_code_explorer"]
+    I --> H
+    H -->|domain / UX ambiguity| C
+    H -->|architecture friction| J["improve-codebase-architecture"]
+    J -->|finding 写回后 targeted review / Phase A| H
+    H -->|all packs pass| K["Phase B Final Review"]
+    K -->|implementation gap| H
+    K -->|design / context gap| C
+    K -->|plan gap| F
+    K -->|user decision / release blocker| L["complex_coding_worker / User Decision"]
+    L -->|decision / repair resolved| K
+    K -->|pass| M["Phase C Report / Finishing"]
 ```
+
+图中方框必须能在 Reference Map、Handoff Status、Routing Vocabulary、upstream skill 或 custom agent 表里找到真实消费方。线路标签只是 route condition，不是新的流程主体。
 
 ## Reference Map
 
