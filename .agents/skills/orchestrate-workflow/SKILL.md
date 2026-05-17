@@ -63,7 +63,7 @@ Issue recording target:
 | `orchestrate-plan-writing` | `PLAN_CREATED` | Phase 0b Plan Review |
 | `orchestrate-plan-writing` | `NEEDS_DISCOVERY` | `orchestrate-discovery` |
 | `orchestrate-plan-writing` | `NEEDS_DESIGN_REVIEW` | Phase 0a Design Review |
-| `orchestrate-plan-writing` | `NEEDS_ISSUES` | `to-issues` |
+| `orchestrate-plan-writing` | `NEEDS_ISSUES` | upstream `to-issues` |
 | `orchestrate-plan-writing` | `NEEDS_TRIAGE` | upstream `triage` |
 | `orchestrate-plan-writing` | `NEEDS_DIAGNOSIS` | upstream `diagnose` 或 Discovery bug flow |
 | `orchestrate-plan-writing` | `NEEDS_DECISION` | User Decision 或 upstream `prototype` |
