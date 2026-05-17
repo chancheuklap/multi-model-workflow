@@ -9,11 +9,11 @@ flowchart TD
     A["已有 / 刚生成 implementation plan"] --> B["定位 source design / source issues / plan"]
     B --> C{"是否有可 review source design?"}
     C -->|否| D["orchestrate-discovery 重建或修订 design document"]
-    D --> O["Phase 0a design review"]
+    D --> O["Phase 0a Design Review"]
     C -->|是| E{"是否有 large -> small -> Task Pack 映射?"}
     E -->|否| F["to-issues 或 orchestrate-plan-writing 补齐 issue-backed plan"]
     F --> E
-    E -->|是| G["Phase 0b plan review"]
+    E -->|是| G["Phase 0b Plan Review"]
     G --> H{"Plan 可执行且对齐 design / issues?"}
     H -->|否| I{"缺口类型?"}
     I -->|plan 自身问题| K["修复 plan"]
@@ -27,7 +27,7 @@ flowchart TD
     I -->|issue gap| M["to-issues 修正 vertical issue hierarchy"]
     M --> N["orchestrate-plan-writing 更新 issue-backed plan"]
     N --> G
-    H -->|是| J["Task Pack dispatch preparation"]
+    H -->|是| J["Phase A Task Pack Execution"]
 ```
 
 Phase 0b 最多 2 轮修复。仍有 invalid pack、design-plan mismatch、issue-plan mismatch、虚构路径、缺验证或缺 anchors 时，不进入 Phase A。

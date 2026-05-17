@@ -6,7 +6,7 @@ Phase 0a 审 design doc。检查设计能否被计划、实现和最终验证承
 
 ```mermaid
 flowchart TD
-    A["已有 / 刚生成 design document"] --> B["Phase 0a design review"]
+    A["已有 / 刚生成 design document"] --> B["Phase 0a Design Review"]
     B --> C{"Design 可执行且对齐项目事实?"}
     C -->|否| D["orchestrate-discovery 修订 design document"]
     D --> B
@@ -14,7 +14,7 @@ flowchart TD
     E -->|否| F["to-issues 补齐 vertical issue hierarchy"]
     F --> E
     E -->|是| G["orchestrate-plan-writing"]
-    G --> H["Phase 0b plan review"]
+    G --> H["Phase 0b Plan Review"]
 ```
 
 Phase 0a 最多 2 轮文档修复。仍有 Critical design finding 时，不生成 plan。

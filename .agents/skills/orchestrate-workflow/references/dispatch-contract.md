@@ -35,11 +35,11 @@ Issue recording target:
 
 收到 sub-agent 结果后，parent 必须过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改、纳入 plan source 或作为 Task Pack 来源。
 
-## 派发流程图
+## Phase A Task Pack Execution
 
 ```mermaid
 flowchart TD
-    A["Phase 0b plan review 通过"] --> B["读取 plan 的 Task Pack inventory"]
+    A["Phase 0b Plan Review 通过"] --> B["读取 plan 的 Task Pack inventory"]
     B --> C{"Pack 是否有效且来自 small issue?"}
     C -->|否| D["返回 plan repair / to-issues / orchestrate-plan-writing 后重进 Phase 0b"]
     D --> A
@@ -57,6 +57,8 @@ flowchart TD
     N --> E
     M -->|是| O["标记 pack done，进入下一个 pack 或 Phase B"]
 ```
+
+Phase A 只执行已通过 Phase 0b 的 Task Pack inventory。不要按聊天记忆、文件类型或 reviewer 现场建议重切 pack。
 
 ## Pack Brief
 
@@ -84,9 +86,7 @@ Return contract:
 
 Pack Brief 必须来自已通过 Phase 0b 的 plan。无效 pack 先修回 plan，不在 dispatch prompt 里临场重切。
 
-## Task Pack Dispatch Procedure
-
-Phase 0b 通过后，parent 用 plan 里的 Task Pack inventory 建立 dispatch queue。不要按聊天记忆、文件类型或 reviewer 现场建议重切 pack。
+## 执行规则
 
 步骤：
 
