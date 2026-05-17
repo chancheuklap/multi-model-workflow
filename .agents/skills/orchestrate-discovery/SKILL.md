@@ -26,7 +26,7 @@ description: "当 AgentFlow 的新功能、issue、backlog、现有 PRD、系统
 ## 必须遵守
 
 - 没有可 review 的设计文档前，不进入 `to-issues`、`orchestrate-plan-writing`、Phase A 或 worker 派发。
-- 不把 upstream skill 的结果停留在聊天记录里；必须写回 design document、domain docs、plan、issue 或阶段文档。
+- 不把 upstream skill 的结果停留在聊天记录里；必须写回 design document、domain docs、bug brief 或 source issue。
 - 如果只是已批准 design / plan / mockup 下的明确实现偏离，返回 `READY_FOR_PHASE_A_REPAIR`，不创建新设计文档。
 - 如果用户已有 PRD，按 existing source material 消费，不重新生成 PRD。
 - 如果设计问题太大，先拆成多个 design document，不把多个独立系统塞进一份设计。
