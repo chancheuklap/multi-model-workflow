@@ -17,24 +17,10 @@ description: "把新功能、issue、bug、反馈、PRD 或模糊讨论转成可
 6. 写完后按 `references/discovery-checklist.md` 自检并修正。
 7. 返回 verdict。
 
-## Upstream Skills
-
-需要调用外部 skill 时，主线程从当前 Codex agent 的 `skills.config` 或项目 skill catalog 获取：
-
-| 场景 | skill |
-| --- | --- |
-| 术语、场景挑战、domain docs 对齐 | `grill-with-docs` |
-| bug 缺 feedback loop、复现、hypothesis | `diagnose` |
-| 模块地图、调用链、边界上下文 | `zoom-out` |
-| 状态行为或 UI 方向方案比较 | `prototype` |
-| bad seam、repeated repair、架构摩擦 | `improve-codebase-architecture` |
-| issue ready state、AFK / HITL、blocked-by 不清 | `triage` |
-
-只消费 upstream 产出的 clarified context / diagnosis facts / module map / prototype verdict / architecture finding / triage state；upstream 如需发布 issue 或改代码，先交回 Orchestrate parent 确认 scope。
-
 ## 边界规则
 
 - 没有可 review 的 design document 前，不进入 plan-writing、Phase A 或 worker 派发。
+- 只消费 upstream skill 产出的 clarified context / diagnosis facts / module map / prototype verdict / architecture finding / triage state；upstream 如需发布 issue 或改代码，先交回 Orchestrate parent 确认 scope。
 - upstream skill 结论必须写回 design document / domain docs，不停留在聊天记录。
 - 已批准 design 下的明确实现偏离 → 返回 `READY_FOR_REPAIR`，不新建 design。
 - 用户已有 PRD → 当 source material 消费，不重新生成。
