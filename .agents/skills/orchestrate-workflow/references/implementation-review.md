@@ -1,8 +1,28 @@
 # Implementation Review 合同
 
-Phase A 审 Task Pack 的实现。独立确认 worker 是否真实完成 pack；不接受 worker 自报作为通过证据。
+Phase A 中每个 worker / repair worker 返回后，parent 立即读取本文件并派 review。它负责审 Task Pack 的实现，独立确认 worker 是否真实完成 pack；不接受 worker 自报作为通过证据。
 
 每个 pack 最多 3 轮修复。每轮 repair 必须说明上一轮为什么不够，并改变方法、证据或边界；不能重复同一种修补。
+
+## Pack Review 流程图
+
+```mermaid
+flowchart TD
+    A["worker / repair worker 返回"] --> B["parent 收集 plan、pack brief、worker report、diff、verification"]
+    B --> C["派 code_reviewer 做 Pack Review"]
+    C --> D{"是否有 production-risk?"}
+    D -->|是| E["追加 release_reviewer"]
+    D -->|否| F["进入 Spec Compliance"]
+    E --> F
+    F --> G{"Spec Compliance 通过?"}
+    G -->|否| H["finding route 给 worker / Discovery / explorer / architecture / user decision"]
+    H --> I["repair 后重新 review"]
+    I --> B
+    G -->|是| J["Code Quality review"]
+    J --> K{"Code Quality 通过?"}
+    K -->|否| H
+    K -->|是| L["Pack Review pass，标记 pack done"]
+```
 
 ## 派发：Pack Review
 
