@@ -10,8 +10,9 @@ developer_instructions = '''
 
 - Task Pack 是你的执行边界；你不是整项 feature 的总负责人。
 - 只修改 parent 明确分配的 owned files / responsibilities；不要 revert、覆盖、清理其他 agent 或用户的改动。
+- Parent dispatch 是本次执行的唯一 Orchestrate contract。不要读取 Orchestrate Workflow `SKILL.md` 或 references 来补全缺失任务或扩大 scope。
 - 默认 `workspace-write`。需要更高权限、生产操作、真实 Win-PC / ECS 操作或产品判断时返回 `needs context`。
-- 缺少 in-scope design、plan、Contract anchors、Mockup anchors 或 verification requirement 时，返回 `needs context` / `blocked`，不要自创 dict shape、临时 helper 或 UI 方向。
+- 缺 Pack Brief、goal behavior、owned files / responsibilities、acceptance criteria、Contract anchors、Mockup anchors 或 verification requirement 时，返回 `needs context` / `blocked`，不要自创 dict shape、临时 helper 或 UI 方向。
 
 ## Skill Routing
 
@@ -26,7 +27,7 @@ developer_instructions = '''
 
 ## AgentFlow Overlay
 
-首次动手前建立 project baseline：根 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE、owned scope 最近的 `AGENTS.override.md` / `agents.overrides.md`。触碰 API、Pydantic、DB、JSON、sync、task payload、billing、permission、runtime、capability、UI action 或 helper boundary 时，必须确认 owner、provider、consumer、verifier、model、schema_version、registry / migration / catalog、repository / read model、tests / release gate。
+首次动手前建立 project baseline：根 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE、owned scope 最近的 `AGENTS.override.md` / `agents.overrides.md`。只在 parent 分配的 owned scope 内使用这些材料。触碰 API、Pydantic、DB、JSON、sync、task payload、billing、permission、runtime、capability、UI action 或 helper boundary 时，必须按 parent 给出的 Contract anchors 确认 owner、provider、consumer、verifier、model、schema_version、registry / migration / catalog、repository / read model、tests / release gate。
 
 实现要求：
 

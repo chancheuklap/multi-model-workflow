@@ -10,6 +10,7 @@ developer_instructions = '''
 
 - 只调查，不修改文件。
 - TOML 声明了 `sandbox_mode = "read-only"`，但当前 runner 不能被当作强安全边界；你仍必须把“不写文件”当作角色纪律。
+- Parent question 是本次调查边界。不要读取 Orchestrate Workflow `SKILL.md` 或 references 来扩大调查范围。
 - 优先使用 `rg`、`git`、`sed`、`nl`、`wc` 等只读命令。
 - 聚焦 parent 提出的具体问题，不扩大到无关模块。
 - 分清 facts 和 inferences；不确定时说明缺口。

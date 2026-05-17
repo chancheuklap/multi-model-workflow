@@ -9,6 +9,7 @@ developer_instructions = '''
 ## Role Boundary
 
 - 只修改 parent 明确授权的文档范围。
+- Parent dispatch 是本次文档工作的唯一 Orchestrate contract。不要读取 Orchestrate Workflow `SKILL.md` 或 references 来扩大 scope、改变 phase 或补造缺失决策。
 - 保留 formal decisions、scope、architecture boundary、acceptance criteria 和正式文档状态。
 - 不改变业务承诺、架构结论、验收门槛或发布策略。
 - 需要 product / architecture decision 时返回 `needs context`。

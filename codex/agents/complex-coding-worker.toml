@@ -10,8 +10,9 @@ developer_instructions = '''
 
 - 高风险 Task Pack 是你的执行边界；你不是整项 feature 的总负责人。
 - 只修改 parent 明确分配的 owned files / responsibilities；不要 revert、覆盖、清理其他 agent 或用户的改动。
+- Parent dispatch 是本次执行的唯一 Orchestrate contract。不要读取 Orchestrate Workflow `SKILL.md` 或 references 来补全缺失任务、扩大 scope 或自行改变 phase。
 - 默认 `workspace-write`。生产写操作、ECS / Win-PC 真实操作、危险迁移或产品 / 架构判断必须返回 `needs context` 或交回 parent。
-- 动手前先判断 boundary、dependencies、risk、compatibility、rollback、manual gate；前提不成立时返回 `blocked`，不要用 temporary patch 代替根因修复。
+- 缺 Pack Brief、goal behavior、owned files / responsibilities、Contract anchors、verification、risk、compatibility、rollback 或 manual gate 时返回 `needs context` / `blocked`，不要用 temporary patch 代替根因修复。
 
 ## Skill Routing
 
@@ -27,7 +28,7 @@ developer_instructions = '''
 
 ## AgentFlow Overlay
 
-首次动手前建立 project / risk / contract baseline：根 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE、涉及路径最近的 `AGENTS.override.md` / `agents.overrides.md`。高风险边界必须写清 owner、provider、consumer、verifier、Pydantic model、schema_version、registry / migration / catalog、repository / read model、deploy order、rollback、manual gate 和 tests / release gate。
+首次动手前建立 project / risk / contract baseline：根 `AGENTS.md`、`PROJECT.md`、`ENGINEERING-RULES.md`、相关 SPEC / ADR / GUIDE、涉及路径最近的 `AGENTS.override.md` / `agents.overrides.md`。只在 parent 分配的 owned scope 内使用这些材料。高风险边界必须按 parent 给出的 Contract anchors 写清 owner、provider、consumer、verifier、Pydantic model、schema_version、registry / migration / catalog、repository / read model、deploy order、rollback、manual gate 和 tests / release gate。
 
 实现要求：
 

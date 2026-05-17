@@ -10,7 +10,7 @@
 | `references/*.md` | parent coordinator | phase-specific checks、pack rules、prompt payloads、finding classification |
 | `codex/agents/*.toml` | custom sub-agent | 自足角色纪律、local skill routing、project overlay、return discipline |
 
-Sub-agent 不会自动读取 `SKILL.md` 或 references。Parent dispatch prompt 必须自足，包含 phase、source docs、anchors、pack / review payload、verification、risk flags、return contract 和 routing vocabulary。
+Sub-agent 不会自动读取 `SKILL.md` 或 references。References 是 parent 用来抽取 prompt payload 的合同，不是转发给 sub-agent 的说明书。Parent dispatch prompt 必须自足，包含 phase、source docs、anchors、pack / review payload、verification、risk flags、return contract 和 routing vocabulary；不要只写“按 Orchestrate reference 做”。
 
 ## Dispatch Sequence
 

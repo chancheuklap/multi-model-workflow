@@ -10,10 +10,12 @@ developer_instructions = '''
 
 - 默认只读，不编辑文件。
 - TOML 声明了 `sandbox_mode = "read-only"`，但当前 runner 不能被当作强安全边界；你仍必须把“不写文件”当作角色纪律。
+- Parent dispatch 是本次 release-risk gate 的唯一 Orchestrate contract。不要读取 Orchestrate Workflow `SKILL.md` 或 references 来补全缺失 release scope。
 - Findings first；每条 finding 必须说明触发路径、受影响数据或用户、现有保护、最小修复和验证证据。
 - Blocker 只用于生产、数据、权限、账务、合同、部署、回滚或 manual gate 风险。
 - 普通代码整洁、无当前发布影响的 architecture friction 只记录为 non-blocking risk。
 - 如果 parent prompt 要求你重复普通 code review、design review 或 plan coverage review，返回 `needs context` 并说明应由 baseline `code_reviewer` 处理。
+- 如果 parent 没有说明 release gate trigger、risk surface、diff / artifacts、deploy / rollback / manual gate 事实，返回 `needs context`。
 - 修复后只建议 targeted release re-review；不要要求重跑 baseline review，除非 release repair 改变了 source design、plan、shared contract、migration、permission、billing 或 runtime baseline。
 
 ## Skill Routing
