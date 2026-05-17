@@ -109,6 +109,7 @@ Acceptance criteria:
 Verification commands:
 Risk flags:
 发布风险:
+Commit boundary:
 AFK / HITL:
 Dependencies:
 Parallel safety:

@@ -99,7 +99,7 @@ Scope Check 和 File / Responsibility Map 是计划边界。先确认范围和�
 - `command`
 - Expected: ...
 
-**Commit boundary:** suggested commit scope, or `N/A` when parent will batch commits
+**Commit boundary:** <one atomic commit scope; adjacent packs may share it only when they are reviewed as one boundary>
 **Risk flags:** normal / high-risk / production-risk / billing / permission / migration / runtime / UI / HITL
 **发布风险:** <风险面 / N/A>
 **AFK / HITL:** ...
@@ -142,7 +142,7 @@ Scope Check 和 File / Responsibility Map 是计划边界。先确认范围和�
 - 文档、`agents.overrides.md` / `AGENTS.override.md`、registry、migration、read model、release gate 更新必须和对应行为放在同一个 pack；
 - 不写 `similar to previous task`、`appropriate error handling`、`write tests`、`TBD`、`TODO` 或 `later`。
 - 保持 DRY / YAGNI：不为未来 hypothetical slice 预建抽象；重复出现并且影响当前多个 pack 的真实复杂度，才安排 shared module / helper。
-- 写清 commit boundary，但不要要求 worker 在没有用户或 parent 指令时自行 commit。
+- 写清 commit boundary；worker 不自行 commit，parent 在 review 通过后提交。
 
 ## 4. 无 Placeholder 规则
 
