@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | `SKILL.md` | parent coordinator | Phase 路由、escalation gates、reference selection |
 | `references/*.md` | parent coordinator | phase-specific checks、pack rules、prompt payloads、finding classification |
-| `codex/agents/*.toml` | custom sub-agent | 自足角色纪律、local skill routing、project overlay、return discipline |
+| `plugin/agents/*.md` | custom sub-agent | 自足角色纪律、local skill routing、project overlay、return discipline |
 
 Sub-agent 不会自动读取 `SKILL.md` 或 references。References 是 parent 用来抽取 prompt payload 的合同，不是转发给 sub-agent 的说明书。Parent dispatch prompt 必须自足，包含 phase、source docs、anchors、pack / review payload、verification、risk flags、return contract 和 routing vocabulary；不要只写"按 Orchestrate reference 做"。
 
@@ -73,7 +73,7 @@ Worker 返回后，按改动风险决定 review 方式：
 | 条件 | review 方式 |
 | --- | --- |
 | 不触碰合同边界、不改 shared contract / migration / permission / billing / runtime、不改 public API、变更 ≤ 3 个文件且全部是 UI / copy / config / style / test fix | coordinator 自检：读 diff、跑 verification、确认 acceptance → 不派 reviewer |
-| 上述条件任一不满足 | targeted Pack Review（派 `code_reviewer`） |
+| 上述条件任一不满足 | targeted Pack Review（派 `codex-reviewer` via `codex:codex-rescue --model gpt-5.4`） |
 | 触碰 migration / billing / permission / runtime / release boundary | targeted Pack Review + 检查是否触发 early release gate |
 
 Coordinator 自检必须实际读 diff 和跑验证命令，不能只看 worker self-report。自检不通过时仍派 reviewer。
@@ -103,7 +103,7 @@ pass / blocked / needs repair / needs context
 - Suggested next owner
 ```
 
-References 和 agent TOMLs 可以在 `### Result` 内定义 role-specific payload headings，但不得替换标准顶层 headings。
+References 和 agent definitions 可以在 `### Result` 内定义 role-specific payload headings，但不得替换标准顶层 headings。
 
 ## Routing Vocabulary
 
@@ -112,14 +112,15 @@ References 和 agent TOMLs 可以在 `### Result` 内定义 role-specific payloa
 | owner | 使用条件 |
 | --- | --- |
 | `parent` | coordinator 归并证据、更新进度、继续下一 phase |
-| `original worker` | accepted implementation finding 明确属于刚返回的 worker scope。**必须继续原 worker（用保存的 handle），不新建 agent**——原 worker 保有代码上下文 |
-| `coding_worker` | 普通 repair / implementation，改动范围清楚 |
-| `complex_coding_worker` | migration、billing、auth、permission、runtime、shared contract、release boundary 或高风险 repair |
-| `code_explorer` | 窄范围文件、符号、调用链、测试入口问题 |
-| `complex_code_explorer` | unknown root cause、多模块调查、历史行为或迁移链路 |
-| `code_reviewer` | baseline design / plan / pack / final review，或 targeted re-review |
-| `release_reviewer` | early / final release-risk gate；不能替代 baseline review |
-| `docs_worker` | parent 明确授权的低风险文档整理或 issue 文案草稿 |
+| `original worker` | accepted implementation finding 明确属于刚返回的 worker scope。**必须用 SendMessage 继续原 worker（用保存的 agentId），不新建 agent**——原 worker 保有代码上下文 |
+| `pack-executor` | 普通 repair / implementation，改动范围清楚 |
+| `complex-pack-executor` | migration、billing、auth、permission、runtime、shared contract、release boundary 或高风险 repair |
+| `code-explorer` | 窄范围文件、符号、调用链、测试入口问题 |
+| `complex-code-explorer` | unknown root cause（只读调查）、多模块调查、历史行为或迁移链路 |
+| `root-cause-analyst` | unknown root cause（需要调查 + 修复）、测试通过但功能不工作、改 A 坏 B 因果不明 |
+| `codex-reviewer` | baseline design / plan / pack / final review，或 targeted re-review（dispatched via `codex:codex-rescue --model gpt-5.4`） |
+| `codex-release-reviewer` | early / final release-risk gate；不能替代 baseline review（dispatched via `codex:codex-rescue --model gpt-5.5`） |
+| `docs-worker` | parent 明确授权的低风险文档整理或 issue 文案草稿 |
 | `orchestrate-discovery` | design / domain / UX / terminology / ownership / target-state ambiguity |
 | `orchestrate-plan-writing` | reviewed design 和 confirmed issue hierarchy 已存在，但 plan 自身需要生成或修复 |
 | `upstream diagnose` | 缺 feedback loop、复现、hypothesis 或 regression target |
@@ -154,8 +155,8 @@ Disposition 为 `accepted` 后，parent 按以下条件决定谁来修：
 
 - **Phase 0（Design / Plan）**：parent 直接修。Design 和 Plan 是 parent 写的，parent 拥有完整上下文。
 - **Phase A/B — 简单修复**（≤ 2 文件、不触碰合同边界、不需新增测试、意图明确）：parent 直接修复，跑验证后调度 targeted re-review。
-- **Phase A/B — 复杂修复**：继续原 worker（保有代码上下文）。
-- **Phase A/B — 根因不明**：新建 `complex_code_explorer`。
+- **Phase A/B — 复杂修复**：SendMessage 给 `original worker`（保有代码上下文）。
+- **Phase A/B — 根因不明**：新建 `root-cause-analyst`。
 
 先统一三个词：
 
@@ -169,7 +170,7 @@ Disposition 为 `accepted` 后，parent 按以下条件决定谁来修：
 | --- | --- |
 | `accepted` | 转成 repair / doc / issue / upstream payload；写明 route、owner、affected artifacts 和 targeted re-review scope |
 | `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
-| `needs evidence` | 派 `code_explorer` / `complex_code_explorer` 或让 reviewer 补证据；补证前不 repair |
+| `needs evidence` | 派 `code-explorer` / `complex-code-explorer` 或让 reviewer 补证据；补证前不 repair |
 | `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |
 | `out of scope` | 从当前 scope 移出；只有用户授权或项目规则要求时才写 durable issue |
 | `user decision` | 停止执行，一次只问一个会改变设计、计划或发布策略的问题 |
@@ -181,11 +182,12 @@ Accepted finding 路由：
 - Phase 0 finding → `parent`（coordinator 直接修 design / plan）。
 - Phase A/B 简单 implementation finding（≤ 2 文件、意图明确、不触碰合同边界、不需新增测试）→ `parent`（coordinator 直接修）。
 - Phase A/B 复杂 implementation finding → `original worker`。
-- unknown root cause → `complex_code_explorer`。
-- module map / call-chain context gap → `code_explorer` / `complex_code_explorer` 或 `upstream zoom-out`。
-- high-risk repair → `complex_coding_worker`。
-- 满足 early / final release gate → `release_reviewer`。
-- accepted release blocker → `complex_coding_worker` 或 `user decision`；修复后只做 targeted release re-review。
+- unknown root cause（只需调查）→ `complex-code-explorer`。
+- unknown root cause（需要调查 + 修复）→ `root-cause-analyst`。
+- module map / call-chain context gap → `code-explorer` / `complex-code-explorer` 或 `upstream zoom-out`。
+- high-risk repair → `complex-pack-executor`。
+- 满足 early / final release gate → `codex-release-reviewer`。
+- accepted release blocker → `complex-pack-executor` 或 `user decision`；修复后只做 targeted release re-review。
 - domain / UX / terminology / ownership ambiguity → `orchestrate-discovery`。
 - bad seam → `upstream improve-codebase-architecture`。
 - UI / state / interface direction → `upstream prototype`。
@@ -202,22 +204,22 @@ Repair prompt 只携带 accepted findings，不夹带 rejected、out-of-scope �
 | 组成部分 | 预算 |
 | --- | --- |
 | Phase 0a baseline | 2 |
-| Phase 0b baseline | 2 |
+| Phase 0b baseline | 3 |
 | Phase A Pack Review | 每个 pack 1 |
-| Phase B Final Review | 1 |
+| Phase B Final Review | 2 |
 | Release gate | 最多 2（early + final 合并同发布风险面） |
 | Repair headroom | baseline 总数 × 1.0 |
 
-**公式**：预算 = 2 + 2 + N + 1 + 2 + (5 + N) = 2N + 12
+**公式**：预算 = 2 + 3 + N + 2 + 2 + (7 + N) = 2N + 16
 
-示例：4 个 pack → 预算 = 11 + 9 = 20。实际 happy path 用 11，留 9 给 repair。
+示例：4 个 pack → 预算 = 13 + 11 = 24。实际 happy path 用 13，留 11 给 repair。
 
 **刹车机制**：累计 review dispatch 达到预算的 80% 时，coordinator 必须做 Direction Check，重述当前 phase / 剩余工作 / 累计 findings / 是否继续。超过预算时停止并报告用户。
 
 ### Per-phase 规则
 
-- `code_reviewer` 是 baseline reviewer；每个 phase 指定的 baseline angles 可并行不可合并。
-- `release_reviewer` 只审 release-risk，不审普通代码质量、设计完整性或 plan coverage。
+- `codex-reviewer`（via `codex:codex-rescue --model gpt-5.4`）是 baseline reviewer；每个 phase 指定的 baseline angles 可并行不可合并。
+- `codex-release-reviewer`（via `codex:codex-rescue --model gpt-5.5`）只审 release-risk，不审普通代码质量、设计完整性或 plan coverage。
 - `production-risk` risk flag 先进入 plan 的"发布风险和人工门禁"；真正 dispatch trigger 是 early release gate 或 final release gate。
 - Repair 后默认 targeted re-review；只有 source design / plan / scope / shared contract / migration / permission / billing / runtime baseline 改变时才 full phase review rerun。
 - 追加 reviewer 只允许：evidence conflict / 连续 repair 后同类风险仍复现 / release gate / 用户要求。
@@ -234,7 +236,7 @@ Repair prompt 只携带 accepted findings，不夹带 rejected、out-of-scope �
 - 等待 Phase B 才审会造成不可逆数据、权限、账务或 runtime 风险。
 - 用户明确要求。
 
-**Final release gate**（Phase B 后触发）：Final Intent Review 没有 implementation / design / context / plan blocker 后，如果最终 diff 触碰 migration、billing、permission、runtime、cross-service contract、deploy order、rollback 或 manual production dependency，才派 `release_reviewer`。
+**Final release gate**（Phase B 后触发）：Final Intent Review 没有 implementation / design / context / plan blocker 后，如果最终 diff 触碰 migration、billing、permission、runtime、cross-service contract、deploy order、rollback 或 manual production dependency，才派 `codex-release-reviewer`。
 
 ## Upstream Route
 

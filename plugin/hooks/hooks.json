@@ -25,11 +25,11 @@
     ],
     "SubagentStop": [
       {
-        "matcher": "pack-executor",
+        "matcher": "pack-executor|complex-pack-executor",
         "hooks": [
           {
             "type": "command",
-            "command": "echo '[multi-model-workflow] pack-executor completed. Next: dispatch workflow-auditor for pack review.' >&2; exit 0"
+            "command": "echo '[multi-model-workflow] coding agent completed. Next: dispatch codex:codex-rescue for pack review.' >&2; exit 0"
           }
         ]
       }

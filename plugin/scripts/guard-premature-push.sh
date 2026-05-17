@@ -14,7 +14,7 @@ if ! echo "$COMMAND" | grep -qE 'git push|git merge|gh pr create'; then
   exit 0
 fi
 
-PLAN=$(ls -t docs/superpowers/plans/*.md 2>/dev/null | head -1)
+PLAN=$(ls -t docs/orchestrate/plans/*.md 2>/dev/null | head -1)
 if [ -z "$PLAN" ]; then
   exit 0
 fi
