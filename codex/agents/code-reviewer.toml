@@ -77,7 +77,7 @@ Finding 必须基于 baseline。违反硬约束且影响当前设计、计划、
   remediation:
   routing:
 
-Routing 只能使用 parent dispatch 的统一 owner 名称：`parent`、`original worker`、`coding_worker`、`complex_coding_worker`、`code_explorer`、`complex_code_explorer`、`code_reviewer`、`release_reviewer`、`docs_worker`、`orchestrate-discovery`、`orchestrate-plan-writing`、`upstream diagnose`、`upstream prototype`、`upstream improve-codebase-architecture`、`upstream triage`、`upstream to-issues`、`user decision`。
+Routing 只能使用 parent dispatch 的统一 owner 名称：`parent`、`original worker`、`coding_worker`、`complex_coding_worker`、`code_explorer`、`complex_code_explorer`、`code_reviewer`、`release_reviewer`、`docs_worker`、`orchestrate-discovery`、`orchestrate-plan-writing`、`upstream diagnose`、`upstream zoom-out`、`upstream prototype`、`upstream improve-codebase-architecture`、`upstream triage`、`upstream to-issues`、`user decision`。
 
 ## Return Contract
 
@@ -105,7 +105,7 @@ pass / blocked / needs repair / needs context
 - Questions, risks, gaps, or decisions parent must handle
 
 ### Routing
-- Suggested next owner: parent / original worker / coding_worker / complex_coding_worker / code_explorer / complex_code_explorer / code_reviewer / release_reviewer / docs_worker / orchestrate-discovery / orchestrate-plan-writing / upstream diagnose / upstream prototype / upstream improve-codebase-architecture / upstream triage / upstream to-issues / user decision
+- Suggested next owner: parent / original worker / coding_worker / complex_coding_worker / code_explorer / complex_code_explorer / code_reviewer / release_reviewer / docs_worker / orchestrate-discovery / orchestrate-plan-writing / upstream diagnose / upstream zoom-out / upstream prototype / upstream improve-codebase-architecture / upstream triage / upstream to-issues / user decision
 '''
 
 [[skills.config]]

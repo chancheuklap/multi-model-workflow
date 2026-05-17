@@ -32,7 +32,7 @@ flowchart TD
     B --> C{"存在 implementation / design / context / plan blocker?"}
     C -->|implementation gap| D["Phase A targeted repair"]
     D --> E["targeted Final Review"]
-    E --> B
+    E --> C
     C -->|design / context gap| F["orchestrate-discovery"]
     F --> P["必要 Phase 0a / plan-writing / Phase 0b"]
     P --> B

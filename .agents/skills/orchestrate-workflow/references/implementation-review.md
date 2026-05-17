@@ -30,13 +30,15 @@ Repair limit：每个 pack 最多 3 个 repair rounds。每轮 repair 必须改�
 ```mermaid
 flowchart TD
     A["worker / repair worker 返回"] --> B["parent 收集 plan、pack brief、worker report、diff、verification"]
-    B --> C["派 code_reviewer 做 Pack Review"]
+    B --> C["派 code_reviewer 做 Pack Review / targeted Pack Review"]
     C --> D["独立验证 diff / files / commands / mockup / anchors"]
     D --> E["Spec Compliance"]
     E --> F{"Spec Compliance 通过?"}
     F -->|否| G{"finding disposition / route"}
-    G -->|implementation repair / evidence gap| H["repair worker 返回"]
+    G -->|implementation repair| H["repair worker 返回"]
     H --> B
+    G -->|needs evidence / unknown root cause| R["code_explorer / complex_code_explorer 补证据"]
+    R --> G
     G -->|design / plan / architecture baseline changed| Q["回 Discovery / plan-writing / Phase 0b"]
     F -->|是| I["Code Quality"]
     I --> J{"Code Quality 通过?"}

@@ -41,7 +41,8 @@ flowchart TD
     F -->|是| H["Phase 0b Plan Review"]
     H --> I{"Plan 和 Task Pack inventory 通过?"}
     I -->|plan gap| J["orchestrate-plan-writing 修 plan"]
-    J --> H
+    J --> T["targeted Plan Review"]
+    T --> I
     I -->|design gap| D
     I -->|issue gap| G
     I -->|通过| K["Phase A Task Pack Execution"]

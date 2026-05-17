@@ -64,12 +64,12 @@ flowchart TD
     A["输入 / 已有工作状态"] --> B["Entry Gate + Resume Gate"]
     B -->|Formal Orchestrate 且缺 design| C["orchestrate-discovery"]
     B -->|Formal Orchestrate 且已有 design| D["Phase 0a Design Review"]
-    C --> D
+    C -->|DISCOVERY_READY_FOR_PHASE_0A / DISCOVERY_NOT_NEEDED_READY_FOR_PHASE_0A| D
     D -->|design / domain / UX gap| C
     D -->|pass, 缺 issue hierarchy| E["to-issues"]
     D -->|pass, issue hierarchy 已确认| F["orchestrate-plan-writing"]
     E --> F
-    F --> G["Phase 0b Plan Review"]
+    F -->|PLAN_CREATED| G["Phase 0b Plan Review"]
     G -->|design gap| C
     G -->|issue gap| E
     G -->|plan gap| F
@@ -92,7 +92,7 @@ flowchart TD
     L -->|release gate pass| M
 ```
 
-图中方框必须能在 Reference Map、Handoff Status、Routing Vocabulary、upstream skill 或 custom agent 表里找到真实消费方。线路标签只是 route condition，不是新的流程主体。
+图中方框必须能在 Reference Map、Handoff Status、Routing Vocabulary、upstream skill 或 custom agent 表里找到真实消费方。线路标签只是 route condition，不是新的流程主体。Discovery / plan-writing 返回非 ready verdict 时，按 Handoff Status 路由，不能沿 ready edge 继续。
 
 ## Reference Map
 
@@ -126,7 +126,7 @@ flowchart TD
 | `orchestrate-plan-writing` | `NEEDS_DIAGNOSIS` | upstream `diagnose` 或 Discovery bug flow |
 | `orchestrate-plan-writing` | `NEEDS_DECISION` | User Decision 或 upstream `prototype` |
 | `orchestrate-plan-writing` | `NEEDS_ARCHITECTURE` | upstream `improve-codebase-architecture` |
-| `orchestrate-plan-writing` | `NEEDS_CONTEXT` | `code_explorer` / `complex_code_explorer` / `orchestrate-discovery` |
+| `orchestrate-plan-writing` | `NEEDS_CONTEXT` | `code_explorer` / `complex_code_explorer` / upstream `zoom-out` / `orchestrate-discovery` |
 
 ## Phase A / Review Protocol
 
@@ -157,13 +157,13 @@ Review 规则：
 - Design 通过 Phase 0a 后才进入 `to-issues`。
 - `orchestrate-plan-writing` 只消费已确认的 vertical large / small issue hierarchy；缺 large issue 或 small issue 时先走 `to-issues`。
 - `to-issues` 只能基于本轮 Source artifacts 和用户明确提供的 parent issue 工作；不能把 Read-only context 自动拉入范围。
-- 调用 upstream skill 前必须按 `dispatch-contract.md` 写清允许输出和写回目标；只消费 diagnosis facts、clarified context、prototype verdict、architecture finding、triage state 或 confirmed issue hierarchy 这些会被下游读取的结果。
+- 调用 upstream skill 前必须按 `dispatch-contract.md` 写清允许输出和写回目标；只消费 diagnosis facts、clarified context、module map / boundary context、prototype verdict、architecture finding、triage state 或 confirmed issue hierarchy 这些会被下游读取的结果。
 - Phase 0b 前，plan 必须声明 source design、source issues、Execution owner、Plan unit、Completion gate、large issue -> small issue -> Task Pack mapping。
 - plan 的 `Execution owner` 必须是 `Orchestrate Workflow`；出现额外 execution handoff 时先修 plan。
 - 缺少 in-scope Project / Contract / Mockup anchors 时不得继续；reviewer / worker 返回 `needs context` / `blocked`，plan-writing 才使用 `NEEDS_CONTEXT`。
 - Task Pack 是执行单位；plan 内细任务只是 pack-local execution material。
 - Task Pack implementation 必须按 public-behavior vertical TDD；禁止按 schema / backend / frontend / tests 横切。
-- upstream skill 产出的 clarified context、diagnosis facts、prototype verdict、architecture finding、triage state、issue brief 必须写回对应 design / plan / bug brief / issue，再继续当前节点。
+- upstream skill 产出的 clarified context、diagnosis facts、module map / boundary context、prototype verdict、architecture finding、triage state、issue brief 必须写回对应 design / plan / bug brief / issue，再继续当前节点。
 - 没有验证证据，不得声称完成。
 - production-risk risk flags 必须进入 plan 的“发布风险和人工门禁”；Final Review 用这部分内容决定 final release gate。
 - Direct Repair 或 Formal Orchestrate 会改文件时必须先完成 Git Checkpoint；不要在 `main` 或长期未提交区堆完整实现。

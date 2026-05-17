@@ -50,7 +50,7 @@ Plan 生成或修复后交回 `orchestrate-workflow`，从 Phase 0b Plan Review 
 | bug / wrong state / performance regression 缺复现、feedback loop、症状或 hypotheses | `NEEDS_DIAGNOSIS` | `orchestrate-discovery` / upstream `diagnose` |
 | 状态行为、interface shape 或 UI 方向需要方案比较 | `NEEDS_DECISION` | User Decision / upstream `prototype` |
 | bad seam、repeated repair、single-adapter interface 或错误测试面暴露 | `NEEDS_ARCHITECTURE` | upstream `improve-codebase-architecture` |
-| 模块地图、调用链或风险区域不足，影响 pack 边界 | `NEEDS_CONTEXT` | `code_explorer` / `complex_code_explorer` / `orchestrate-discovery` |
+| 模块地图、调用链或风险区域不足，影响 pack 边界 | `NEEDS_CONTEXT` | `code_explorer` / `complex_code_explorer` / upstream `zoom-out` / `orchestrate-discovery` |
 
 ## 写作流程
 
@@ -116,7 +116,7 @@ NEEDS_DISCOVERY / NEEDS_CONTEXT / NEEDS_DESIGN_REVIEW / NEEDS_ISSUES / NEEDS_TRI
 - 缺少的 source / issue / decision / feedback loop / route state
 
 ### Route
-- orchestrate-discovery / upstream to-issues / upstream triage / upstream diagnose / upstream prototype / upstream improve-codebase-architecture / code_explorer / complex_code_explorer
+- Phase 0a / orchestrate-discovery / upstream to-issues / upstream triage / upstream diagnose / upstream zoom-out / upstream prototype / upstream improve-codebase-architecture / code_explorer / complex_code_explorer / user decision
 
 ### Suggested prompt
 - 可直接交给 Orchestrate / upstream skill / explorer 的简短输入

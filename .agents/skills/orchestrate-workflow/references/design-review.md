@@ -28,7 +28,8 @@ flowchart TD
     A["已有 / 刚生成 design document"] --> B["Phase 0a Design Review"]
     B --> C{"Design 可执行且对齐项目事实?"}
     C -->|否| D["orchestrate-discovery 修订 design document"]
-    D --> B
+    D --> R["targeted Design Review"]
+    R --> C
     C -->|是| E{"large / small issues 已存在?"}
     E -->|否| F["to-issues 补齐 vertical issue hierarchy"]
     F --> E

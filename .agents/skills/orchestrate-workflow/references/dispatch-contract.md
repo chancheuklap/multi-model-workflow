@@ -53,6 +53,7 @@ Issue recording target:
 | --- | --- | --- |
 | `grill-with-docs` | clarified context、resolved term、domain decision、ADR / SPEC / GUIDE need | domain docs 和 design document |
 | `upstream diagnose` | current behavior、desired behavior、reproduction / symptom、falsifiable hypotheses、key interfaces、regression target | bug brief、design document 或 Direct Repair Brief |
+| `upstream zoom-out` | module map、call chain、boundary context、test / config entrypoints | design document、plan anchors、Direct Repair Brief 或 explorer brief |
 | `upstream prototype` | prototype question、verdict、decision artifact、validated / rejected option | design document、plan anchors 或 issue brief |
 | `upstream improve-codebase-architecture` | architecture finding、affected modules、test seam impact、recommended boundary | design document、plan anchors 或 bounded issue candidate |
 | `upstream triage` | issue category、ready state、AFK / HITL、blocked-by、issue brief | source issue 或 Issue recording target |
@@ -102,7 +103,9 @@ flowchart TD
     K --> L["Review Reception Gate"]
     L --> M{"Pack Review 通过?"}
     M -->|否| N{"route"}
-    N -->|implementation repair / evidence gap| E
+    N -->|implementation repair| E
+    N -->|needs evidence / unknown root cause| V["code_explorer / complex_code_explorer"]
+    V --> L
     N -->|design / issue / plan baseline changed| U["回 Phase 0a / plan-writing / Phase 0b"]
     U --> A
     N -->|architecture finding changes plan anchors| U
@@ -199,7 +202,7 @@ pass / blocked / needs repair / needs context
 - parent 必须处理的问题、风险、缺口或决策
 
 ### Routing
-- Suggested next owner: parent / original worker / coding_worker / complex_coding_worker / code_explorer / complex_code_explorer / code_reviewer / release_reviewer / docs_worker / orchestrate-discovery / orchestrate-plan-writing / upstream diagnose / upstream prototype / upstream improve-codebase-architecture / upstream triage / upstream to-issues / user decision
+- Suggested next owner: parent / original worker / coding_worker / complex_coding_worker / code_explorer / complex_code_explorer / code_reviewer / release_reviewer / docs_worker / orchestrate-discovery / orchestrate-plan-writing / upstream diagnose / upstream zoom-out / upstream prototype / upstream improve-codebase-architecture / upstream triage / upstream to-issues / user decision
 ```
 
 References 和 agent TOMLs 可以在 `### Result` 内定义 role-specific payload headings，但不得替换标准顶层 headings。
@@ -222,6 +225,7 @@ References 和 agent TOMLs 可以在 `### Result` 内定义 role-specific payloa
 | `orchestrate-discovery` | design / domain / UX / terminology / ownership / target-state ambiguity |
 | `orchestrate-plan-writing` | reviewed design 和 confirmed issue hierarchy 已存在，但 plan 自身需要生成或修复 |
 | `upstream diagnose` | 缺 feedback loop、复现、hypothesis 或 regression target |
+| `upstream zoom-out` | 需要 module map、call chain、boundary context 或 test / config entrypoint 才能继续 |
 | `upstream prototype` | 状态行为、interface shape 或 UI direction 需要 throwaway proof |
 | `upstream improve-codebase-architecture` | bad seam、single-adapter interface、repeated repair、weak test surface |
 | `upstream triage` | issue ready state、AFK / HITL、blocked-by 或 label/status 不清 |
@@ -271,6 +275,7 @@ Accepted finding 路由：
 
 - implementation finding -> `original worker`。
 - unknown root cause -> `complex_code_explorer`。
+- module map / call-chain context gap -> `code_explorer` / `complex_code_explorer` 或 `upstream zoom-out`。
 - high-risk repair -> `complex_coding_worker`。
 - 满足 early / final release gate -> `release_reviewer`。
 - accepted release blocker -> `complex_coding_worker` 或 `user decision`；修复后只做 targeted release re-review。
