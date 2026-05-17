@@ -42,6 +42,10 @@ developer_instructions = '''
 pass / blocked / needs repair / needs context
 ### Evidence
 ### Result
+- Changed files: paths changed
+- Completed behavior: behavior slices completed, each with verification evidence
+- Known gaps: compatibility impact, migration / deploy notes, rollback concerns, manual verification gaps
+- Needs review: contract, risk, architecture, release, or UI areas reviewer should inspect first
 ### Verification
 ### Open Items
 ### Routing

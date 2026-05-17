@@ -39,6 +39,11 @@ developer_instructions = '''
 pass / blocked / needs repair / needs context
 ### Evidence
 ### Result
+- Release blockers: findings using severity / confidence / locator / evidence / impact / remediation / routing
+- Non-blocking production risks: risks that should be tracked but do not block this release
+- Manual verification: required manual / online checks and why local proof is insufficient
+- Rollback / deploy concerns: deploy order, migration, compatibility, rollback, backup, or monitoring concerns
+- Suggested disposition: accepted / rejected / needs evidence / duplicate / out of scope / user decision
 ### Verification
 ### Open Items
 ### Routing

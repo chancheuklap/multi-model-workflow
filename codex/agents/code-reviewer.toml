@@ -50,6 +50,11 @@ developer_instructions = '''
 pass / blocked / needs repair / needs context
 ### Evidence
 ### Result
+- Blocking findings: findings using the required shape
+- Non-blocking findings: findings using the required shape
+- Low-confidence observations: should not block without more evidence
+- Finding routing: finding -> owner mapping
+- Suggested disposition: accepted / rejected / needs evidence / duplicate / out of scope / user decision
 ### Verification
 ### Open Items
 ### Routing

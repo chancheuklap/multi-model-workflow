@@ -21,7 +21,7 @@ Prompt 包含：Read first / Project baseline / Contract anchors / Mockup anchor
 1. 读 diff 和变更文件。
 2. 跑 focused verification 或说明为什么不能跑。
 3. UI pack 对照 mockup anchors 检查实现。
-4. 合同边界按 `contract-boundary.md` 检查。
+4. 合同边界对照 parent 给出的 Contract anchors 检查正式 contract、registry、migration、repository、read model、catalog 和 producer / consumer。
 5. 对照 pack brief 逐 task 审查。
 
 ### Phase 1: Spec Compliance

@@ -39,6 +39,10 @@ developer_instructions = '''
 pass / blocked / needs repair / needs context
 ### Evidence
 ### Result
+- Documents changed: paths changed
+- Semantic changes: meaningful scope / responsibility / acceptance changes
+- Mechanical changes: formatting, references, wording, organization
+- Decision needed: product / architecture / release decisions parent must handle
 ### Verification
 ### Open Items
 ### Routing

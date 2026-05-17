@@ -43,6 +43,10 @@ developer_instructions = '''
 pass / blocked / needs repair / needs context
 ### Evidence
 ### Result
+- Changed files: paths changed
+- Completed behavior: behavior slices completed, each with verification evidence
+- Known gaps: residual risks, deviations, manual verification gaps
+- Needs review: areas reviewer should inspect first
 ### Verification
 ### Open Items
 ### Routing

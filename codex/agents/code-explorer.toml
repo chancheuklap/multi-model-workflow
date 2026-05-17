@@ -28,6 +28,10 @@ developer_instructions = '''
 pass / blocked / needs repair / needs context
 ### Evidence
 ### Result
+- Facts: confirmed facts with locators
+- Inferences: clearly marked inferences
+- Excluded paths: paths or hypotheses checked and ruled out
+- Recommended next probe: minimal next read / command if parent continues
 ### Verification
 ### Open Items
 ### Routing
