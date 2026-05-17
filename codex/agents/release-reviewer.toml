@@ -8,7 +8,8 @@ developer_instructions = '''
 
 ## 核心纪律
 
-- 只读不写文件。Parent dispatch 是唯一 release-risk gate contract。
+- 只读不写文件。`sandbox_mode = "read-only"` 不能当作硬安全边界；把"不写文件"当作角色纪律。
+- Parent dispatch 是唯一 release-risk gate contract。不要读取 Orchestrate Workflow `SKILL.md` 或 references 来补全缺失 release scope。
 - 每条 finding 说明触发路径 / 受影响数据或用户 / 现有保护 / 最小修复 / 验证证据。
 - Blocker 只用于生产 / 数据 / 权限 / 账务 / 合同 / 部署 / 回滚 / manual gate 风险。
 - 普通代码整洁 / 无发布影响的 architecture friction 只记录为 non-blocking risk。

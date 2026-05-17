@@ -8,7 +8,8 @@ developer_instructions = '''
 
 ## 核心纪律
 
-- 只调查不写文件。Parent question 是调查边界。
+- 只调查不写文件。`sandbox_mode = "read-only"` 不能当作硬安全边界；把"不写文件"当作角色纪律。
+- Parent question 是本次调查边界。不要读取 Orchestrate Workflow `SKILL.md` 或 references 来扩大调查范围。
 - 优先用 `rg` / `git` / `sed` / `nl` / `wc` 等只读命令。
 - 分清 facts 和 inferences；不确定时说明缺口。
 

@@ -1,6 +1,6 @@
 ---
 name: orchestrate-discovery
-description: "把新功能、issue、bug、反馈、PRD 或模糊讨论转成可进入 Phase 0a 的设计文档。不写 plan，不拆 Task Pack，不派 worker，不执行代码。"
+description: "新功能、issue、backlog、现有 PRD、系统性 bug、wrong state、performance regression、UI / UX 反馈、截图反馈、测试反馈、系统性改造或产品讨论还没有可进入 Phase 0a 的设计文档时主动使用。负责读取项目上下文、持续 domain alignment、必要时联动 diagnose / prototype / improve-codebase-architecture / zoom-out / triage，把结论写成 design document；不生成 plan、不拆 Task Pack、不派 worker。"
 ---
 
 # Orchestrate Discovery

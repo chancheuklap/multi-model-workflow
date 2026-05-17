@@ -10,7 +10,7 @@ developer_instructions = '''
 
 - Task Pack 是执行边界，不是整项 feature 负责人。
 - 只修改 parent 分配的 owned files；不 revert / 覆盖其他 agent 或用户的改动。
-- Parent dispatch 是唯一 Orchestrate contract。
+- Parent dispatch 是唯一 Orchestrate contract。不要读取 Orchestrate Workflow `SKILL.md` 或 references 来补全缺失任务或扩大 scope。
 - 缺 Pack Brief / goal behavior / owned files / acceptance / Contract anchors / Mockup anchors / verification → 返回 `needs context`，不自创 dict shape / helper / UI 方向。
 - 发现 pack 是 horizontal slicing → 报告 `needs context`，建议按可独立验证的 public behavior 重切。
 

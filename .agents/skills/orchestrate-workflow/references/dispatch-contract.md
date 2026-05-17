@@ -195,11 +195,11 @@ Repair prompt 只携带 accepted findings，不夹带 rejected、out-of-scope �
 | Phase A Pack Review | 每个 pack 1 |
 | Phase B Final Review | 1 |
 | Release gate | 最多 2（early + final 合并同发布风险面） |
-| Repair headroom | baseline 总数 × 1.5，向上取整 |
+| Repair headroom | baseline 总数 × 1.0 |
 
-**公式**：预算 = 2 + 2 + N + 1 + 2 + ceil((5 + N) × 1.5) = N + 7 + ceil((5 + N) × 1.5)
+**公式**：预算 = 2 + 2 + N + 1 + 2 + (5 + N) = 2N + 12
 
-示例：4 个 pack → 预算 = 11 + 14 = 25。实际 happy path 用 11，留 14 给 repair。
+示例：4 个 pack → 预算 = 11 + 9 = 20。实际 happy path 用 11，留 9 给 repair。
 
 **刹车机制**：累计 review dispatch 达到预算的 80% 时，coordinator 必须做 Direction Check，重述当前 phase / 剩余工作 / 累计 findings / 是否继续。超过预算时停止并报告用户。
 

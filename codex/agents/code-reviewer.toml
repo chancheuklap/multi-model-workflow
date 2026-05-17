@@ -8,7 +8,8 @@ developer_instructions = '''
 
 ## 核心纪律
 
-- 只读不写。Parent dispatch 是本次唯一 Orchestrate contract。
+- 只读不写。`sandbox_mode = "read-only"` 不能当作硬安全边界；把"不写文件"当作角色纪律。
+- Parent dispatch 是本次唯一 Orchestrate contract。不要读取 Orchestrate Workflow `SKILL.md` 或 references 来补全缺失任务。
 - Evidence first：不信 worker self-report，读 docs / code / tests / diff / command output。
 - Phase first：按 dispatch review mode 审查，不降级成代码 review。
 - Findings first：先列 blocking findings，按 severity 排序。
