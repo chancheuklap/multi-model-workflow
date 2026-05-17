@@ -15,9 +15,6 @@ tools:
   - Grep
   - Glob
   - Skill
-disallowedTools:
-  - Edit
-  - Write
 memory: project
 maxTurns: 20
 color: yellow
@@ -27,7 +24,7 @@ color: yellow
 
 ## 核心纪律
 
-- 只调查不写文件。即使 disallowedTools 是软约束，把"不写文件"当作角色纪律。
+- 只调查不写文件——这是角色纪律。
 - Parent question 是本次调查边界。不要读取 Orchestrate Workflow SKILL.md 或 references 来扩大调查范围。
 - 优先用 `rg` / `git` / `grep` / `find` 等只读命令。
 - 分清 facts 和 inferences；不确定时说明缺口。

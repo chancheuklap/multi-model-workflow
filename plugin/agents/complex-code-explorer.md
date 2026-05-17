@@ -15,9 +15,6 @@ tools:
   - Grep
   - Glob
   - Skill
-disallowedTools:
-  - Edit
-  - Write
 skills:
   - diagnose
   - improve-codebase-architecture
@@ -31,7 +28,7 @@ color: cyan
 
 ## 核心纪律
 
-- 只调查不写文件。即使 disallowedTools 是软约束，把"不写文件"当作角色纪律。
+- 只调查不写文件——这是角色纪律。
 - Parent question 是本次调查边界。不要读取 Orchestrate Workflow SKILL.md 或 references 来扩大调查范围。
 - 用 `rg` / `git` / `grep` / test output / logs / formal docs 建证据链。
 - 分清 facts 和 inferences。
@@ -39,7 +36,7 @@ color: cyan
 
 ## 方法论
 
-使用 `diagnose` 进行 root-cause investigation，`improve-codebase-architecture` 识别架构摩擦，`grill-with-docs` 做 domain language 对齐。这些 skill 只作为调查方法来源，不执行写操作。已通过 skills 字段预加载。
+使用 `diagnose` 进行 root-cause investigation，`improve-codebase-architecture` 识别架构摩擦，`grill-with-docs` 做 domain language 对齐。这些 skill 只作为调查方法来源，不执行写操作。
 
 ## 调查方法
 

@@ -25,7 +25,28 @@ Plan 必须包含：Source design / Source issues / Execution owner: Orchestrate
 
 ## Dispatch：3 个 baseline `codex-reviewer`（可并行，不合并）
 
-三个 angle 均通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task。
+三个 angle 均通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task。Dispatch 前检查 `review-budget.md` 全局预算。
+
+Prompt 中要求 reviewer 使用以下 Return Contract：
+
+```text
+### Verdict
+pass / blocked / needs repair / needs context
+
+### Evidence
+- 实际检查过的 files / docs / tests / commands / screenshots
+
+### Result
+- 本次 reviewed 的内容（使用下方 Result Payload 格式）
+
+### Verification
+- 已运行的 commands 和结果
+
+### Open Items
+- parent 必须处理的问题
+```
+
+每条 finding 使用 Finding Shape：`severity / confidence / locator / evidence / impact / remediation`。
 
 ### Baseline 1: Coverage And Task Quality
 
@@ -75,9 +96,11 @@ Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source d
 
 ## Reception
 
+通用 disposition 定义见 `dispatch-primitives.md`。
+
 - accepted plan repair → orchestrate-plan-writing 或 coordinator 修。
 - accepted design gap → orchestrate-discovery → Phase 0a → plan。
 - accepted issue-plan mismatch → to-issues → plan-writing。
 - accepted architecture friction → improve-codebase-architecture → 回写后 re-review。
 
-修复后 targeted re-review changed sections + affected packs + 受影响 angle。
+修复后 targeted re-review changed sections + affected packs + 受影响 angle。完整路由选项见 `coordinator-tools.md` Routing Vocabulary。

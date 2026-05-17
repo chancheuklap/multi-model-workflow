@@ -29,7 +29,7 @@ color: red
 
 ## 方法论
 
-使用 `diagnose` 进行根因调查，修复后使用 `tdd` 验证。这些 skill 已通过 skills 字段预加载。
+使用 `diagnose` 进行根因调查，修复后使用 `tdd` 验证。
 
 ## 项目感知（首次调度时执行）
 

@@ -12,7 +12,28 @@
 
 ## Dispatch：2 个 baseline `codex-reviewer`（可并行，不合并）
 
-每个 angle 通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task。
+每个 angle 通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task。Dispatch 前检查 `review-budget.md` 全局预算。
+
+Prompt 中要求 reviewer 使用以下 Return Contract：
+
+```text
+### Verdict
+pass / blocked / needs repair / needs context
+
+### Evidence
+- 实际检查过的 files / docs / tests / commands / screenshots
+
+### Result
+- 本次 reviewed 的内容（使用下方 Result Payload 格式）
+
+### Verification
+- 已运行的 commands 和结果
+
+### Open Items
+- parent 必须处理的问题
+```
+
+每条 finding 使用 Finding Shape：`severity / confidence / locator / evidence / impact / remediation`。
 
 ### Baseline 1: Design Content Review
 
@@ -51,9 +72,11 @@ Design finding 默认 route 给 `parent` 或 `docs-worker` 做 document repair�
 
 ## Reception
 
+通用 disposition 定义见 `dispatch-primitives.md`。
+
 - accepted document repair → coordinator / docs-worker 修 design。
 - accepted domain / UX / ownership ambiguity → orchestrate-discovery。
 - accepted issue gap → Phase 0a 通过后 route to-issues。
 - rejected / out of scope / duplicate → 记录，不 repair。
 
-修复后 targeted re-review changed sections + 受影响 angle。
+修复后 targeted re-review changed sections + 受影响 angle。完整路由选项见 `coordinator-tools.md` Routing Vocabulary。

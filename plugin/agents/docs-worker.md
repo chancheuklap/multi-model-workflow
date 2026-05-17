@@ -37,7 +37,7 @@ color: blue
 
 ## 方法论
 
-使用 `grill-with-docs` 做 domain language 对齐和 scenario challenge。已通过 skills 字段预加载。
+使用 `grill-with-docs` 做 domain language 对齐和 scenario challenge。
 
 ## 可做事项
 

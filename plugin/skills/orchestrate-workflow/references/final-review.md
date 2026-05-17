@@ -8,7 +8,7 @@
 
 ## Pass 条件
 
-两个 baseline review 通过 + release-risk gate 通过（或不触发）。每个 gap 最多 2 个 repair rounds。Phase B dispatch 总量上限 15。
+两个 baseline review 通过 + release-risk gate 通过（或不触发）。每个 gap 最多 2 个 repair rounds。Phase B 内部 review dispatch 上限 8（2 baseline + 最多 3 gaps × 2 targeted re-reviews；release gate 有独立预算见 `review-budget.md`）。
 
 ## 与 Pack Review 的分工
 
@@ -24,7 +24,7 @@ Final Review 只审 Pack Review 看不到的东西：
 
 ## Dispatch：2 个 baseline `codex-reviewer`（可并行，不合并）
 
-两个 angle 均通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task。
+两个 angle 均通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task。Return Contract 和 Finding Shape 格式见 `dispatch-primitives.md`。
 
 ### Baseline 1: Intent Coverage And Cross-Pack Review
 
@@ -113,6 +113,8 @@ Release blocker：数据丢失或无法回滚 / 权限绕过 / 账务不一致 /
 - accepted design / context gap → orchestrate-discovery → 必要 Phase 0a / plan。
 - accepted plan gap → orchestrate-plan-writing / Phase 0b repair。
 - accepted release blocker → complex-pack-executor / user decision → targeted release re-review。
+
+完整路由选项见 `coordinator-tools.md` Routing Vocabulary。
 
 ## Phase C Finishing
 

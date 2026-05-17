@@ -48,7 +48,7 @@ color: green
 
 ## 方法论
 
-使用 `tdd` 严格 TDD，`diagnose` 处理执行中遇到的 bug。这些 skill 已通过 skills 字段预加载。
+使用 `tdd` 严格 TDD，`diagnose` 处理执行中遇到的 bug。
 
 ## 项目感知（首次调度时执行）
 
