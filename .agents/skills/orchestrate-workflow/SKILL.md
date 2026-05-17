@@ -25,7 +25,7 @@ description: "主编排：判断工作阶段，打开对应 reference，构建�
 | --- | --- | --- |
 | Answer-only | 只问概念/状态/解释 | 回答后停止 |
 | One-shot Review | 只要 review，不要修复 | 写 scope，按对应 review reference 审查 |
-| Direct Repair | 已有批准 design/plan/mockup/acceptance/failing test，目标行为清楚 | 按 `dispatch-contract.md` 派 worker，完成后 targeted Pack Review |
+| Direct Repair | 已有批准 design/plan/mockup/acceptance/failing test，目标行为清楚 | 按 `dispatch-contract.md` 派 worker，完成后按风险分级决定 review 方式 |
 | Formal Orchestrate | 新功能、系统性改造、含混 bug/feedback、缺 design/issue/plan | 进入 Formal Workflow |
 | User Decision | 产品/业务/权限/账务/发布策略无法判定 | 一次只问一个问题 |
 

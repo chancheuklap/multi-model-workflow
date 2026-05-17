@@ -10,20 +10,33 @@
 
 Final Intent Review 通过 + release-risk gate 通过（或不触发）。每个 gap 最多 2 个 repair rounds。Phase B dispatch 总量上限 15。
 
+## 与 Pack Review 的分工
+
+每个 pack 已经独立通过了 spec compliance + code quality review。Final Review **不重复审单个 pack 已验证的内容**（行为正确性、合同闭合、测试质量、helper placement）。
+
+Final Review 只审 Pack Review 看不到的东西：
+
+1. **跨 pack 交互**：pack A 和 pack B 合在一起是否产生新问题（合同冲突、状态竞争、import 循环、migration 顺序）。
+2. **Design intent 缝隙**：是否有 design intent 落在 pack 之间的缝隙里，没有任何 pack 覆盖。
+3. **合并回归**：所有 pack 合并后，既有功能是否被破坏。
+
+如果所有 pack review 都已通过且 pack 之间没有共享 contract / migration / state surface，Final Review 可以只做 design intent 覆盖核查 + 回归检查，不需要重新读每个 pack 的 diff。
+
 ## Dispatch：1 次 baseline `code_reviewer` 做 Final Intent Review
 
-Prompt 包含：Read first / Project baseline / Contract baseline / Mockup baseline / design doc / plan / starting commit / diff / pack completion / 发布风险 / validation commands。
+Prompt 包含：Read first / Project baseline / Contract baseline / Mockup baseline / design doc / plan / starting commit / diff / pack completion summary（含每个 pack 的 review verdict 和已验证行为）/ 发布风险 / validation commands。
+
+Prompt 必须明确告诉 reviewer：每个 pack 已独立通过 Pack Review，本次只审跨 pack 交互、intent 覆盖缝隙和合并回归。
 
 ### Final Intent Review 步骤
 
 1. 从 design doc 和 mockup 提取每条可验证 intent。
-2. 为每条写验证方法（pytest / curl / CLI / UI / screenshot / DOM / manual）。
-3. 运行能运行的验证；不能运行时说明环境缺口。
-4. 每条 intent 判定：pass / implementation gap / design gap / context gap / unverifiable。
+2. 对照 pack completion summary，标出哪些 intent 已被 Pack Review 验证、哪些可能落在缝隙里。
+3. 只对缝隙 intent 和跨 pack 交互写验证方法并运行；已被 Pack Review 验证的 intent 标为 `covered by pack review`，不重复验证。
+4. 每条 intent 判定：pass / covered by pack review / implementation gap / design gap / context gap / unverifiable。
 5. 跑 changed-files 回归检查。
-6. 涉及合同边界时逐项确认 Pydantic / registry / migration / repository / catalog / producer-consumer。
-7. 跨 pack 代码交叉审查。
-8. UI 任务对照 mockup 检查最终页面。
+6. 跨 pack 代码交叉审查：shared contract surface、migration 顺序、import 关系、状态竞争。
+7. UI 任务：只检查跨 pack 的页面集成效果；单 pack 内的 UI 状态已在 Pack Review 验证。
 
 ### Gap 分类
 

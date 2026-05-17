@@ -66,6 +66,18 @@ Direct Repair Brief 用同一字段：
 - `Implementation tasks` 只写修复 accepted finding 或 failing behavior 所需步骤；不临场扩展 issue hierarchy。
 - 缺目标行为、合同边界、UI target 或验收口径时，返回 Discovery / user decision，不让 worker 自行决定。
 
+### Direct Repair Review 分级
+
+Worker 返回后，按改动风险决定 review 方式：
+
+| 条件 | review 方式 |
+| --- | --- |
+| 不触碰合同边界、不改 shared contract / migration / permission / billing / runtime、不改 public API、变更 ≤ 3 个文件且全部是 UI / copy / config / style / test fix | coordinator 自检：读 diff、跑 verification、确认 acceptance → 不派 reviewer |
+| 上述条件任一不满足 | targeted Pack Review（派 `code_reviewer`） |
+| 触碰 migration / billing / permission / runtime / release boundary | targeted Pack Review + 检查是否触发 early release gate |
+
+Coordinator 自检必须实际读 diff 和跑验证命令，不能只看 worker self-report。自检不通过时仍派 reviewer。
+
 ## Return Contract
 
 所有 sub-agent 使用这些顶层 heading：
@@ -171,6 +183,27 @@ Accepted finding 路由：
 Repair prompt 只携带 accepted findings，不夹带 rejected、out-of-scope 或 low-confidence observations。Repair 返回后默认只做 targeted re-review。只有 source design / issue / plan 被修改、scope 扩大、shared contract / migration / permission / billing / runtime surface 改变，或 targeted review 发现新 blocker 时，才 full phase review rerun。
 
 ## Review Budget
+
+### 全局预算
+
+一个 Formal Orchestrate 的 review dispatch 总数有预算。超出预算时强制 Direction Check，由 coordinator 判断是继续、简化还是停止。
+
+| 组成部分 | 预算 |
+| --- | --- |
+| Phase 0a baseline | 2 |
+| Phase 0b baseline | 2 |
+| Phase A Pack Review | 每个 pack 1 |
+| Phase B Final Review | 1 |
+| Release gate | 最多 2（early + final 合并同发布风险面） |
+| Repair headroom | baseline 总数 × 1.5，向上取整 |
+
+**公式**：预算 = 2 + 2 + N + 1 + 2 + ceil((5 + N) × 1.5) = N + 7 + ceil((5 + N) × 1.5)
+
+示例：4 个 pack → 预算 = 11 + 14 = 25。实际 happy path 用 11，留 14 给 repair。
+
+**刹车机制**：累计 review dispatch 达到预算的 80% 时，coordinator 必须做 Direction Check，重述当前 phase / 剩余工作 / 累计 findings / 是否继续。超过预算时停止并报告用户。
+
+### Per-phase 规则
 
 - `code_reviewer` 是 baseline reviewer；每个 phase 指定的 baseline angles 可并行不可合并。
 - `release_reviewer` 只审 release-risk，不审普通代码质量、设计完整性或 plan coverage。
