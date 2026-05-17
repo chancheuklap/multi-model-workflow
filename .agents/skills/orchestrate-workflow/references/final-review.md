@@ -22,7 +22,7 @@ Pass condition：
 - plan 中需要 Phase B 判定的发布风险已通过 release-risk gate，或明确为 non-blocking manual gate。
 - 没有 implementation / design / context blocker。
 
-Repair limit：每个 final gap 最多 2 个 repair rounds。超过修复轮次，或下一次 reviewer spawn 目的不清时，按 `dispatch-contract.md` 做方向检查。
+Repair limit：每个 final gap 最多 2 个 repair rounds。Phase B dispatch 总量上限 15；超过修复轮次、超过 dispatch 总量，或下一次 reviewer spawn 目的不清时，按 `dispatch-contract.md` 做方向检查。
 
 ## Flow
 
@@ -107,6 +107,14 @@ Release blocker：
 - 部署顺序会让现役客户端或服务 401 / 500。
 - release gate 或 manual production dependency 没有验证证据。
 
+## Review Budget
+
+- 默认只派一次 baseline `code_reviewer` 执行 Final Intent Review。
+- Final Intent Review 仍 blocked 时不要先派 release-risk review；先修 accepted implementation / design / context / plan blockers。
+- Final Intent Review 通过后，最终 diff 触碰发布风险时追加一次 `release_reviewer`，只审 release-risk。
+- Phase B 的 repair round 只处理 accepted findings；repair 后默认 targeted re-review accepted findings、affected files、contract / mockup anchors 和 verification，不重跑完整 Final Intent Review。
+- 只有 final findings 证据冲突、连续 targeted repair 后同类 blocker 仍复现、最终 diff 跨越多个 high-risk surfaces，或用户明确要求时，才追加针对性 review；prompt 只审冲突点或改动点。
+
 ## Architecture After-Effects
 
 Final Review 可以记录架构后效应，但不能随意把架构摩擦升级成 blocker。
@@ -128,6 +136,8 @@ Coordinator 收到 findings 后按 `dispatch-contract.md` 做 disposition：
 ## Result Payload
 
 Coordinator 派发必须要求标准顶层 headings；下列内容放在 `### Result` 下。顶层 `### Verdict` 只使用 `pass / blocked / needs repair / needs context`。
+
+不要用 worker self-report 作为通过证据；Final Review 必须以 source design、plan、diff、changed files、verification evidence、mockup / contract anchors 和可运行检查为准。
 
 ```text
 Final Intent Review:

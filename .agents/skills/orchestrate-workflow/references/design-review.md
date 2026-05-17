@@ -111,6 +111,12 @@ Critical：
 
 设计期 `release_reviewer` 只在 release strategy、migration / deploy order、rollback 或 manual production gate 必须提前判定时追加。普通 production-risk 由 baseline reviewers 转成 design anchors 和 risk flags。
 
+## Review Budget
+
+- 默认只派两个 baseline `code_reviewer` angles：Design Content Review、Project Alignment Review。
+- Phase 0a 的 repair round 只处理 accepted findings；repair 后默认 targeted re-review 受影响 angle，不重跑两个 baseline reviews。
+- 只有两个 baseline findings 证据冲突、连续 targeted repair 后同类 Critical gap 仍复现、release gate 和设计边界互相影响，或用户明确要求时，才追加针对性 review；prompt 只审冲突点或改动点。
+
 ## Reception
 
 Coordinator 收到 findings 后按 `dispatch-contract.md` 做 disposition：

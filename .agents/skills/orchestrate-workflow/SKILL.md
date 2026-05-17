@@ -25,7 +25,7 @@ description: "AgentFlow 正式开发流程主编排。用户给出新功能、�
 | --- | --- | --- |
 | Answer-only | 用户只问概念、状态、解释、取舍或路径 | 直接回答后停止；不生成 design / issue / plan / review |
 | One-shot Review | 用户明确只要 review / audit / 判断，不要求修复 | 写 scope，打开对应 review reference，返回 findings；只在发布门禁、迁移 / 回滚顺序、账务 / 权限发布风险需要判断时追加 `release_reviewer` |
-| Direct Repair | 已有批准 design / plan / mockup / acceptance / failing test / accepted reviewer finding，目标行为清楚 | 写 scope，按 `dispatch-contract.md` 的 Direct Repair Brief 派 worker；返回后做 targeted Pack Review |
+| Direct Repair | 已有批准 design / plan / mockup / acceptance / failing test / accepted reviewer finding，目标行为清楚 | 写 scope，按 `dispatch-contract.md` 的 Direct Repair Brief 派 worker；普通代码改动返回后做一次 targeted Pack Review；纯机械文档修补可由主线程自检 |
 | Formal Orchestrate | 新功能、系统性改造、含混 bug / feedback、缺 design、缺 issue hierarchy、缺 plan，或继续 reviewed design / plan / Task Pack 的跨 pack 实现 | 进入 Formal Workflow |
 | User Decision | 产品承诺、业务规则、权限、账务、发布策略或 UX target 无法从 source artifacts 判定 | 一次只问一个会改变 workflow 的问题 |
 
@@ -44,6 +44,8 @@ Issue recording target:
 ```
 
 Scope 规则以 `references/dispatch-contract.md` 为准。核心原则：Source artifacts 只放用户明确提供或当前节点确认的直接输入；Read-only context 不能自动变成 plan source、Task Pack 来源或 editable scope；AgentFlow 使用 GitHub Issues 时，small issue hierarchy 先写回 parent large issue 文档。
+
+所有 custom agent 的 dispatch prompt 必须携带同一组 Scope。后续 reviewer、worker、explorer 和 docs worker 都不能自行扩大 Source artifacts、Editable artifacts 或 Out of scope。
 
 ## Git Checkpoint
 
@@ -148,6 +150,7 @@ Review 规则：
 - `release_reviewer` 只审 release-risk，不能替代 baseline review。
 - 默认 targeted re-review；只有 source design / issue / plan、scope、Task Pack inventory、shared contract、migration、permission、billing、runtime 或 mockup baseline 改变时，才 full phase review rerun。
 - Repair 只处理 accepted findings；rejected、duplicate、out of scope 和低置信度观察不得触发 worker。
+- 追加 reviewer 只允许发生在 evidence conflict、连续 targeted repair 后同类风险仍复现、满足 early / final release gate，或用户明确要求时。
 - 下一次 reviewer spawn 如果不能归类为 baseline review、targeted re-review 或 release gate，先按 `dispatch-contract.md` 做方向检查。
 
 ## Hard Gates

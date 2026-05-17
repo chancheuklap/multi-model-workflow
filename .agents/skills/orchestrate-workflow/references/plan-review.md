@@ -222,6 +222,12 @@ Critical：
 
 计划期 `release_reviewer` 只在 release order、rollback、manual production gate 或跨服务上线顺序必须提前判定时追加。普通 production-risk 由 baseline reviewers 转成 plan risk flags、pack dependencies、发布风险和人工门禁、final release gate 输入。
 
+## Review Budget
+
+- 默认只派两个 baseline `code_reviewer` angles：Coverage And Task Quality、Compliance And Verification。
+- Phase 0b 的 repair round 只处理 accepted findings；repair 后默认 targeted re-review changed sections、affected packs、anchors 和 verification，并只重审受影响 angle。
+- 只有两个 baseline findings 证据冲突、连续 targeted repair 后同类缺口仍复现、release gate 和设计 / 计划边界互相影响，或用户明确要求时，才追加针对性 review；prompt 只审冲突点或改动点。
+
 ## Reception
 
 Coordinator 收到 findings 后按 `dispatch-contract.md` 做 disposition：

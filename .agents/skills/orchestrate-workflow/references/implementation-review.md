@@ -124,6 +124,12 @@ Refactor 只在 GREEN 后允许。reviewer 可以建议 refactor，但不能用�
 
 `release_reviewer` 只在 early release gate 触发；多个相邻 high-risk packs 属于同一发布风险面时合并一次 release-risk review。Pack Review 只确认当前 pack 的实现和风险输入是否可进入该 gate。
 
+## Review Budget
+
+- 默认只派一个 baseline `code_reviewer` 做 Pack Review；同一个 reviewer 先审 Spec Compliance，再审 Code Quality。
+- repair round 只处理 accepted findings；repair 后默认 targeted Pack Review。
+- 只有 baseline finding 证据冲突、连续 targeted repair 后同类 blocker 仍复现、release gate 和 pack 边界互相影响，或用户明确要求时，才追加针对性 review；prompt 只审冲突点或改动点。
+
 ## Reception
 
 Coordinator 收到 findings 后先按 `dispatch-contract.md` 做 disposition。只有 accepted findings 进入 repair；rejected、duplicate、out of scope 和低置信度观察不得触发 worker。
