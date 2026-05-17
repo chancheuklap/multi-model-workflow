@@ -51,7 +51,7 @@ Phase 0b 最多 2 轮计划修复；这里的“轮”按 `dispatch-contract.md`
 - large issue -> Task Pack mapping；
 - source issues 来自 `to-issues` 或等价垂直 issue workflow；
 - GitHub Issues 项目中，small issue hierarchy 已先记录到 parent large issue 文档；未记录前不能作为正式 Task Pack 来源；
-- 每个 Task Pack 的 issue source、goal behavior、owned files / responsibilities、read first、Contract anchors、Mockup anchors、acceptance criteria、verification commands、risk flags、发布风险、AFK / HITL、dependencies、parallel safety、out of scope。
+- 每个 Task Pack 的 issue source、goal behavior、owned files / responsibilities、read first、Contract anchors、Mockup anchors、acceptance criteria、verification commands、risk flags、发布风险、Commit boundary、AFK / HITL、dependencies、parallel safety、out of scope。
 
 如果 plan 声明非 Orchestrate Workflow 的 execution owner，或添加额外 execution handoff，返回 `needs repair`，由主线程修 plan，不进入 Phase A。
 
@@ -80,6 +80,7 @@ Phase 0b 同时是 Task Pack inventory 的权威校验点。Task Pack 边界来�
 - UI / UX 工作只写“实现 mockup”，没有页面状态、交互、viewport 或视觉证据。
 - 测试反馈或 UI / UX 反馈目标含混，需要 worker 自行决定 desired behavior、文案语义、视觉层级或交互意图。
 - 没有 owned files / responsibilities、验证命令、Contract anchors 或 Mockup anchors。
+- 没有 Commit boundary，或 commit boundary 和 pack scope 不一致。
 - 多个 worker 会同时写同一文件、同一 migration、同一 shared contract。
 - 同一 Pydantic model、DB column、JSON registry、capability、chargeable action、port / command catalog 被拆给多个 worker 并行。
 - 只写“新增 helper / dict shape / schema”，没有 owner、consumer、正式 contract 和 public behavior verification。

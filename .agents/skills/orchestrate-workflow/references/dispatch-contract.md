@@ -98,6 +98,7 @@ Acceptance criteria:
 Verification commands:
 Risk flags:
 发布风险:
+Commit boundary:
 AFK / HITL:
 Dependencies:
 Parallel safety:
@@ -117,6 +118,17 @@ Direct Repair 只能来自 Entry Gate，使用同一组字段作为 Direct Repai
 
 Direct Repair worker 返回后仍进入 `implementation-review.md` 的 targeted Pack Review；只有本 repair 的发布风险需要上线 / 回滚 / 人工门禁判断时才追加 `release_reviewer`。
 
+## Git Checkpoint
+
+Parent 负责 Git checkpoint；worker 和 reviewer 只返回证据。
+
+- 派第一个会写文件的 worker 前，确认当前分支不是 `main` / `master` / release branch；如果是，先创建 `codex/<short-scope>`。
+- 派发前记录已有 dirty files，并在接收结果时区分本轮改动和外部改动。
+- Pack Brief 的 `Commit boundary` 必须来自 plan；Direct Repair 使用 accepted finding / failing behavior 作为 commit boundary。
+- Pack Review 通过后，按 commit boundary stage 当前 pack / repair 的相关文件并提交；不要等所有 packs 都结束才把整批变更堆成一个提交。
+- release repair、design / plan repair、runtime sync 分开提交。
+- push、merge、PR、discard 仍然需要用户明确指令。
+
 ## 执行规则
 
 步骤：
@@ -126,9 +138,10 @@ Direct Repair worker 返回后仍进入 `implementation-review.md` 的 targeted 
 3. 选择 worker：
    - 普通 Task Pack -> `coding_worker`；
    - migration、billing、auth、permission、runtime、shared contract、release boundary、高风险 repair -> `complex_coding_worker`。
-4. 把 self-contained Pack Brief、标准 Return Contract、Read first、Project baseline、Contract anchors、Mockup anchors 和 verification commands 写进 dispatch prompt。
+4. 把 self-contained Pack Brief、标准 Return Contract、Read first、Project baseline、Contract anchors、Mockup anchors、verification commands 和 Commit boundary 写进 dispatch prompt。
 5. worker 返回后，parent 立即读取 `implementation-review.md`，派 `code_reviewer` 做 Pack Review；只在满足 early release gate 时派或合并 `release_reviewer`。release gate 失败时只做 release repair 和 targeted release re-review，除非修复改变 pack baseline。
 6. Pack Review 通过前，pack 不算完成；review finding 按 Review 接收门禁处理。
+7. Pack Review 和必要 early release gate 通过后，按 Git Checkpoint 提交该 pack / repair 的相关文件。
 
 ## 标准 Return Contract
 

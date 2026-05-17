@@ -39,6 +39,17 @@ Issue recording target:
 - `Out of scope` 写清容易被误纳入的相关 issue、ADR、未来能力、其它文档或环境。
 - AgentFlow 使用 GitHub Issues 时，small issue hierarchy 先写回 parent large issue 文档；未获明确授权不得新建 standalone issue 文档。
 
+## Git Checkpoint
+
+进入 Direct Repair 或 Formal Orchestrate 且会改文件时，主线程先处理 Git 边界：
+
+- 先看 `git status --short --branch`。
+- 如果当前在 `main` / `master` / release branch，先创建 `codex/<short-scope>` 分支再落地，除非用户明确要求留在当前分支。
+- 如果已有未提交改动，先判断哪些属于当前 scope；不要把用户或其它线程的改动混进本轮提交。
+- 把 commit 当作工作流 checkpoint：一个 design / plan 修订、一个通过 Pack Review 的 Task Pack、一次 accepted finding repair、一次 runtime sync，分别形成能独立回退的提交。
+- 没有用户明确指令，不 push、merge、开 PR、删分支或丢弃改动。
+- 子代理默认不 commit；主线程在 review / verification 通过后负责 stage 相关文件并提交。
+
 ## Skill Handoff Status
 
 三个 Orchestrate skills 之间只用这些状态交接；主线程收到状态后按表路由，不重新解释含义。
@@ -145,6 +156,7 @@ Phase A 的派发、Pack Brief、Return Contract、Review Reception 都由 `refe
 - upstream skill 产出的 clarified context、diagnosis facts、prototype verdict、architecture finding、triage state、issue brief 必须写回对应 design / plan / bug brief / issue，再继续当前节点。
 - Task Pack implementation 必须按 public-behavior vertical TDD；禁止按 schema / backend / frontend / tests 横切。
 - worker report 不是完成证据；每个 worker / repair worker 返回后必须进入 Pack Review。
+- Direct Repair 或 Formal Orchestrate 会改文件时必须先完成 Git Checkpoint；不要在 `main` 或长期未提交区堆完整实现。
 - 没有验证证据，不得声称完成。
 - 没有用户明确指令，不得 merge、push、PR、discard 或写生产环境。
 - 不同 review angles 不能合并。追加 reviewer 只允许发生在 evidence conflict、连续 targeted repair 后同类风险仍复现、满足 early / final release gate，或用户明确要求时。
