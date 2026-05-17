@@ -1,29 +1,26 @@
 # Dispatch 合同
 
-本文件只在即将派发 custom agent、接收 reviewer / worker 结果、或跨上下文恢复方向时读取。
+本文件在三种时候读取：即将派发 custom agent、接收 worker / reviewer 返回、或经过多轮 repair / compaction 后需要恢复方向。
 
-## 文档层级
+## Reader Boundary
 
-| 层级 | 读者 | 责任 |
+| 文件 | 读者 | 责任 |
 | --- | --- | --- |
-| `SKILL.md` | parent coordinator | Phase 路由、escalation gates、reference selection。 |
-| `references/*.md` | parent coordinator | phase-specific checks、pack rules、prompt payloads、finding classification。 |
-| `codex/agents/*.toml` | custom sub-agent | 自足角色纪律、local skill routing、project overlay、return discipline。 |
+| `SKILL.md` | parent coordinator | Phase 路由、escalation gates、reference selection |
+| `references/*.md` | parent coordinator | phase-specific checks、pack rules、prompt payloads、finding classification |
+| `codex/agents/*.toml` | custom sub-agent | 自足角色纪律、local skill routing、project overlay、return discipline |
 
-References 告诉 parent dispatch prompt 应该包含什么；sub-agents 不会自动读取 references。Parent 必须把 phase、source docs、anchors、pack / review payload、verification、risk flags 和 return contract 写进 dispatch prompt。
+Sub-agent 不会自动读取 `SKILL.md` 或 references。Parent dispatch prompt 必须自足，包含 phase、source docs、anchors、pack / review payload、verification、risk flags、return contract 和 routing vocabulary。
 
-## Review Budget And Release Gate
+## Dispatch Sequence
 
-Baseline review 和 release-risk review 分开：
-
-- `code_reviewer` 是 design / plan / pack / final intent 的 baseline reviewer；两个明确 angles 可以并行，但不能合并。
-- `release_reviewer` 只审 release-risk，不审普通代码质量、设计完整性或 plan coverage。
-- `production-risk` risk flag 先进入 plan 的“发布风险和人工门禁”；真正的 dispatch trigger 是 early release gate 或 final release gate。
-- Early release gate 只在这些情况触发：迁移 / deploy order / rollback / manual production gate 必须在实现前决定；baseline finding 暴露的问题必须先判定 release strategy 才能修；等待 Phase B 才审会造成不可逆数据、权限、账务或 runtime 风险；用户明确要求。
-- 多个相邻 high-risk packs 属于同一发布风险面时，默认合并成一次 release-risk review，而不是每个 pack 各派一次。
-- Final release gate 在 Phase B 执行：Final Intent Review 没有 implementation / design blocker 后，如果最终 diff 触碰 migration、billing、permission、runtime、cross-service contract、deploy order、rollback 或 manual production dependency，才派 `release_reviewer`。
-- release blocker 修复后只做 targeted release re-review；不重跑 baseline review，除非修复改变 source design / plan / shared contract / migration / permission / billing / runtime baseline。
-- 每次 spawn reviewer 前先数清本 phase 已经派过的 baseline reviews、targeted re-reviews 和 release gates；如果下一次 spawn 不属于这三类，先做方向检查，不用 review 填补不确定感。
+1. 写 Scope Contract。
+2. 判断当前 dispatch 属于 baseline review、targeted re-review、release gate、worker implementation、repair、explorer、docs worker 还是 upstream route。
+3. 读取当前 phase reference，抽取本次 prompt payload。
+4. 如触碰合同边界，读取 `contract-boundary.md`，写 Contract anchors。
+5. 派 worker 前确认 Git Checkpoint；worker / reviewer 不 commit。
+6. 要求标准 Return Contract。
+7. 收到结果后执行 Review Reception Gate；没有 disposition 的 finding 不能进入 repair。
 
 ## Scope Contract
 
@@ -41,44 +38,76 @@ Issue recording target:
 规则：
 
 - `Source artifacts` 只包含用户明确提供的文档 / tracker refs / diff，以及当前 phase 已确认的直接输入。
-- `Editable artifacts` 只能是 source artifacts 或当前 phase 明确要求产出的 plan / pack / report。
+- `Editable artifacts` 只能是 source artifacts 或当前 phase 明确要求产出的 design / plan / pack / report。
 - `Read-only context` 可以包含相关 issue、ADR、代码或 runbook，但 sub-agent 只能用来判断当前 source artifacts，不得把它们变成交付范围。
 - `Out of scope` 必须明确列出容易被误纳入的相关 issue、ADR、未来能力、其它文档或环境。
 - `Issue recording target` 说明 small issue hierarchy 写回哪里。AgentFlow 使用 GitHub Issues 时，先写入 parent large issue 文档；未获明确授权不得新建 standalone issue 文档。
 
 收到 sub-agent 结果后，parent 必须过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改、纳入 plan source 或作为 Task Pack 来源。
 
+## Review Budget And Release Gate
+
+Baseline review 和 release-risk review 分开：
+
+- `code_reviewer` 是 design / plan / pack / final intent 的 baseline reviewer；两个明确 angles 可以并行，但不能合并。
+- `release_reviewer` 只审 release-risk，不审普通代码质量、设计完整性或 plan coverage。
+- `production-risk` risk flag 先进入 plan 的“发布风险和人工门禁”；真正 dispatch trigger 是 early release gate 或 final release gate。
+
+Early release gate 只在这些情况触发：
+
+- 迁移 / deploy order / rollback / manual production gate 必须在实现前决定。
+- baseline finding 暴露的问题必须先判定 release strategy 才能修。
+- 等待 Phase B 才审会造成不可逆数据、权限、账务或 runtime 风险。
+- 用户明确要求。
+
+Final release gate 在 Phase B 执行：Final Intent Review 没有 implementation / design blocker 后，如果最终 diff 触碰 migration、billing、permission、runtime、cross-service contract、deploy order、rollback 或 manual production dependency，才派 `release_reviewer`。
+
+Budget rules：
+
+- 多个相邻 high-risk packs 属于同一发布风险面时，合并成一次 release-risk review。
+- release blocker 修复后只做 targeted release re-review；不重跑 baseline review，除非修复改变 source design / plan / shared contract / migration / permission / billing / runtime baseline。
+- 每次 spawn reviewer 前先数清本 phase 已经派过的 baseline reviews、targeted re-reviews 和 release gates；如果下一次 spawn 不属于这三类，先做方向检查，不用 review 填补不确定感。
+
 ## Phase A Task Pack Execution
 
 ```mermaid
 flowchart TD
     A["Phase 0b Plan Review 通过"] --> B["读取 plan 的 Task Pack inventory"]
-    B --> C{"Pack 是否有效且来自 small issue?"}
-    C -->|否| D["返回 plan repair / to-issues / orchestrate-plan-writing 后重进 Phase 0b"]
+    B --> C{"Pack 有效且来自 confirmed small issue?"}
+    C -->|否| D["plan repair / to-issues / orchestrate-plan-writing 后重进 Phase 0b"]
     D --> A
     C -->|是| E["建立串并行 dispatch queue"]
     E --> F{"Pack 是否高风险?"}
-    F -->|否| G["派 coding_worker"]
-    F -->|是| H["派 complex_coding_worker"]
+    F -->|否| G["coding_worker"]
+    F -->|是| H["complex_coding_worker"]
     G --> I["worker 返回 report / diff / verification"]
     H --> I
     I --> J["读取 implementation-review.md"]
-    J --> K["派 code_reviewer 做 Pack Review"]
-    K --> L["Review 接收门禁"]
+    J --> K["code_reviewer 做 Pack Review"]
+    K --> L["Review Reception Gate"]
     L --> M{"Pack Review 通过?"}
     M -->|否| N["repair / explorer / Discovery / architecture route"]
     N --> E
     M -->|是| O{"满足 early release gate?"}
     O -->|是| P["派或合并 release-risk review"]
     P --> Q{"release gate 通过?"}
-    Q -->|否| S["release repair / user decision"]
-    S --> T["targeted release re-review"]
-    T --> Q
-    Q -->|是| R["标记 pack done，进入下一个 pack 或 Phase B"]
-    O -->|否| R
+    Q -->|否| R["release repair / user decision"]
+    R --> S["targeted release re-review"]
+    S --> Q
+    Q -->|是| T["commit pack boundary，进入下一 pack 或 Phase B"]
+    O -->|否| T
 ```
 
 Phase A 只执行已通过 Phase 0b 的 Task Pack inventory。不要按聊天记忆、文件类型或 reviewer 现场建议重切 pack。
+
+Execution rules：
+
+1. 为每个 pack 确认 source issue、goal behavior、owned scope、anchors、verification 和 dependency。
+2. 标出串并行关系。同一文件、同一 shared contract、migration、permission、billing、runtime、release boundary 默认串行。
+3. 普通 Task Pack 派 `coding_worker`；migration、billing、auth、permission、runtime、shared contract、release boundary、高风险 repair 派 `complex_coding_worker`。
+4. 派发自足 Pack Brief、标准 Return Contract、Read first、Project baseline、Contract anchors、Mockup anchors、verification commands 和 Commit boundary。
+5. worker 返回后立即读取 `implementation-review.md`，派 `code_reviewer` 做 Pack Review；只在满足 early release gate 时派或合并 `release_reviewer`。
+6. Pack Review 和必要 early release gate 通过后，按 Git Checkpoint 提交该 pack / repair 的相关文件。
 
 ## Pack Brief
 
@@ -108,12 +137,12 @@ Return contract:
 
 Formal Orchestrate 的 Pack Brief 必须来自已通过 Phase 0b 的 plan。无效 pack 先修回 plan，不在 dispatch prompt 里临场重切。
 
-Direct Repair 只能来自 Entry Gate，使用同一组字段作为 Direct Repair Brief：
+Direct Repair 使用同一字段作为 Direct Repair Brief：
 
 - `Pack` 写 `Targeted repair`。
-- `Issue` 写 accepted reviewer finding、failing test、批准 design / plan / mockup / acceptance 的 locator，或用户明确给出的 repair brief。
+- `Issue` 写 accepted reviewer finding、failing test、批准 design / plan / mockup / acceptance 的 locator，或用户明确 repair brief。
 - `Implementation tasks` 只写修复 accepted finding 或 failing behavior 所需步骤；不要临场扩展 issue hierarchy。
-- `Contract anchors`、`Mockup anchors`、`Verification commands`、`Risk flags` 和 `Out of scope` 仍必须自足。
+- `Contract anchors`、`Mockup anchors`、`Verification commands`、`Risk flags` 和 `Out of scope` 必须自足。
 - 缺目标行为、合同边界、UI target 或验收口径时，返回 Discovery / user decision，不让 worker 自行决定。
 
 Direct Repair worker 返回后仍进入 `implementation-review.md` 的 targeted Pack Review；只有本 repair 的发布风险需要上线 / 回滚 / 人工门禁判断时才追加 `release_reviewer`。
@@ -129,21 +158,7 @@ Parent 负责 Git checkpoint；worker 和 reviewer 只返回证据。
 - release repair、design / plan repair、runtime sync 分开提交。
 - push、merge、PR、discard 仍然需要用户明确指令。
 
-## 执行规则
-
-步骤：
-
-1. 为每个 pack 确认 source issue、goal behavior、owned scope、anchors、verification 和 dependency。
-2. 标出串并行关系。同一文件、同一 shared contract、migration、permission、billing、runtime、release boundary 默认串行。
-3. 选择 worker：
-   - 普通 Task Pack -> `coding_worker`；
-   - migration、billing、auth、permission、runtime、shared contract、release boundary、高风险 repair -> `complex_coding_worker`。
-4. 把 self-contained Pack Brief、标准 Return Contract、Read first、Project baseline、Contract anchors、Mockup anchors、verification commands 和 Commit boundary 写进 dispatch prompt。
-5. worker 返回后，parent 立即读取 `implementation-review.md`，派 `code_reviewer` 做 Pack Review；只在满足 early release gate 时派或合并 `release_reviewer`。release gate 失败时只做 release repair 和 targeted release re-review，除非修复改变 pack baseline。
-6. Pack Review 通过前，pack 不算完成；review finding 按 Review 接收门禁处理。
-7. Pack Review 和必要 early release gate 通过后，按 Git Checkpoint 提交该 pack / repair 的相关文件。
-
-## 标准 Return Contract
+## Standard Return Contract
 
 每个 worker / explorer / reviewer / docs dispatch 都必须包含这些顶层 heading：
 
@@ -211,7 +226,7 @@ Review findings 使用：
   routing:
 ```
 
-## Review 接收门禁
+## Review Reception Gate
 
 收到 reviewer finding 后，parent 必须用 docs、code、tests、diff、logs、screenshots、command output 验证证据，并逐条给 disposition。没有 disposition 的 finding 不能进入 repair。
 
@@ -234,19 +249,19 @@ Review findings 使用：
 
 冲突按 evidence quality 判断，不按 reviewer 数量投票。
 
-accepted finding 路由：
+Accepted finding 路由：
 
-- implementation finding -> `original worker`；
-- unknown root cause -> `complex_code_explorer`；
-- high-risk repair -> `complex_coding_worker`；
-- 满足 early / final release gate -> `release_reviewer`；
-- accepted release blocker -> `complex_coding_worker` 或 `user decision`；修复后只做 targeted release re-review；
-- domain / UX / terminology / ownership ambiguity -> `orchestrate-discovery`；
-- bad seam -> `upstream improve-codebase-architecture`；
-- UI / state / interface direction -> `upstream prototype`；
+- implementation finding -> `original worker`。
+- unknown root cause -> `complex_code_explorer`。
+- high-risk repair -> `complex_coding_worker`。
+- 满足 early / final release gate -> `release_reviewer`。
+- accepted release blocker -> `complex_coding_worker` 或 `user decision`；修复后只做 targeted release re-review。
+- domain / UX / terminology / ownership ambiguity -> `orchestrate-discovery`。
+- bad seam -> `upstream improve-codebase-architecture`。
+- UI / state / interface direction -> `upstream prototype`。
 - low-confidence / wrong-context -> 用证据退回。
 
-Repair prompt 只携带 accepted findings，不夹带 rejected、out-of-scope 或 low-confidence observations。Repair 返回后默认只做 targeted re-review。只有 source design / issue / plan 被修改、scope 扩大、shared contract / migration / permission / billing / runtime surface 改变，或 targeted review 发现新 blocker 时，才做 full phase review rerun。
+Repair prompt 只携带 accepted findings，不夹带 rejected、out-of-scope 或 low-confidence observations。Repair 返回后默认只做 targeted re-review。只有 source design / issue / plan 被修改、scope 扩大、shared contract / migration / permission / billing / runtime surface 改变，或 targeted review 发现新 blocker 时，才 full phase review rerun。
 
 ## Durable Handoff Brief
 
@@ -264,7 +279,7 @@ AFK / HITL:
 
 写行为合同，不写“去某文件第 N 行改 X”。UI / UX durable brief 必须保留 mockup path、目标 viewport、关键 states 和允许偏差。如果 durable brief 来自 Discovery domain alignment、prototype 或 architecture review，写明 resolved context、prototype verdict 或 architecture finding。
 
-## 方向检查
+## Direction Check
 
 经过多个 packs、review rounds、repair loops 或 context compaction 后，先重述：
 

@@ -1,12 +1,12 @@
-# Contract Boundary Contract
+# Contract Boundary 合同
 
-用于 API、Pydantic、数据库字段、JSONB / SQLite JSON、sync outbox、local task payload、billing、permission、runtime、capability、UI form action、external adapter 和跨模块 helper。
+任意 design、plan、Task Pack、review 或 repair 触碰 API、Pydantic、数据库字段、JSONB / SQLite JSON、sync outbox、local task payload、billing、permission、runtime、capability、UI form action、external adapter 或跨模块 helper 时，先读本文件。
 
-禁止 subagent 用 bare dict、临时 helper、route-local schema 或 mock 内部业务规则绕过系统合同。
+目标：让每个跨边界改动都有 owner、producer、consumer、schema、registry / migration / catalog、verification 和 release gate；禁止 sub-agent 用 bare dict、临时 helper、route-local schema 或 mock 内部业务规则绕过系统合同。
 
-## Boundary Classification
+## Boundary Types
 
-设计、计划、pack 和 review 先判断触碰哪种边界：
+先判断触碰哪种边界：
 
 - API request / response：HTTP、FastAPI route、local agent API、browser / UI action endpoint。
 - Pydantic protocol：`src/shared/contracts/*.py` 或模块内正式 contract。
@@ -34,7 +34,7 @@ AgentFlow 任务优先核这些权威位置：
 
 ## Contract Anchors
 
-dispatch prompt 和 review finding 使用这组字段：
+dispatch prompt、plan pack、review finding 都使用这组字段：
 
 ```text
 Contract anchors:
@@ -71,7 +71,7 @@ Contract anchors:
 
 允许的原始 dict 只存在于 external transport adapter 的私有层。离开 adapter 前必须转换成正式 contract。
 
-## Phase Requirements
+## Phase Consumption
 
 ### Design Review
 
@@ -81,7 +81,7 @@ Contract anchors:
 - API / DB / JSON / sync / task payload 的 producer、consumer、verifier。
 - Pydantic model、schema version、error code、idempotency、retry、compatibility 和删除期限。
 - 数据库字段归属、migration tree、repository / read model、rollback 或 backfill。
-- 哪些外部 adapter 可以返回原始 shape，正式边界在哪里完成 `model_validate`。
+- 哪些 external adapter 可以返回原始 shape，正式边界在哪里完成 `model_validate`。
 
 ### Plan Review
 
@@ -116,6 +116,6 @@ reviewer 必须检查 diff：
 final review 必须确认：
 
 - producer / consumer / verifier 全部同步。
-- contract tests、repository / read model tests、API tests、UI action tests 或 release gate 已运行或明确不能运行的原因。
+- contract tests、repository / read model tests、API tests、UI action tests 或 release gate 已运行，或明确不能运行的原因。
 - deploy order、rollback、manual production verification 已闭合。
 - 没有残留 ad-hoc helper、bare dict、未注册 JSON、错误 migration tree 或未同步 consumer。
