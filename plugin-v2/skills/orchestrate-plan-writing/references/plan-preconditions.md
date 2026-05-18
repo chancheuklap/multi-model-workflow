@@ -1,0 +1,39 @@
+# Plan-writing 前置条件详情
+
+## Step 0a：Plan 修订模式
+
+Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问题描述。
+
+1. 读取已有 plan 文档
+2. 读取 workflow 附带的修订 context（哪些 pack 有问题、具体 findings）
+3. 判断修订范围：
+
+| 修订范围 | 路径 |
+| --- | --- |
+| 只需修改 plan header / coverage map / scope check / 发布风险表 | Coordinator 直接修 → 跳到 Step 11（Plan Entry Gate 重检） |
+| 需修改 Task Pack 内容（implementation tasks / owned files / verification） | SendMessage 原 plan-writer（agentId 从 workflow context 获取）或新建 plan-writer，prompt 附带具体 findings + 现有 plan path → plan-writer 定向修订 → Step 11 |
+| 修订揭示 design gap / issue mismatch | 返回 `NEEDS_DISCOVERY` / `NEEDS_ISSUES`（upstream backflow） |
+
+4. 修订后重跑 Plan Entry Gate（Step 11）+ Task Pack Inventory Gate（Step 12）
+5. 如果 pack_count 变化 → 更新 budget file（Step 12a）
+6. 重跑 Plan Review（Step 13-18），scope 缩小到修改的部分（targeted re-review 优先）
+
+## Step 1：缺件路由表
+
+| 缺件 | 返回 | 路由 |
+| --- | --- | --- |
+| 无 source design | `NEEDS_DISCOVERY` | orchestrate-discovery |
+| design 未 review | `NEEDS_DESIGN_REVIEW` | Design Review |
+| 缺 large/small issue | `NEEDS_ISSUES` | to-issues |
+| issue ready state 不清 | `NEEDS_TRIAGE` | triage |
+| 业务术语或验收不清 | `NEEDS_DISCOVERY` | orchestrate-discovery |
+| bug 缺复现或 hypothesis | `NEEDS_DIAGNOSIS` | diagnose |
+| 需要方案比较 | `NEEDS_DECISION` | user / prototype |
+| 架构摩擦反复阻塞 | `NEEDS_ARCHITECTURE` | improve-codebase-architecture |
+| 模块地图不足 | `NEEDS_CONTEXT` | zoom-out / code-explorer |
+
+## Step 2：Scope Contract + Budget File
+
+**Scope Contract**：继承 orchestrate-workflow 写的 Scope Contract（`.claude/multi-model-workflow/scope-<run_id>.md`）。验证 editable artifacts 包含 plan 保存路径和 source design path。
+
+**Budget File**：读取 `.claude/multi-model-workflow/active-run-id` 找到 budget file，记录当前 `budget_used`。Plan-writing 阶段会消耗 Plan Review dispatch（1-2 次，含修复后的 targeted re-review）。
