@@ -1,5 +1,7 @@
 # 修复分流 + Targeted Re-Review + 截断
 
+> **流程位置**：`orchestrate-execution` Steps 10-12 · 仅 needs repair 时进入
+
 ## Step 10：修复路由（三条路径）
 
 所有 repair prompt 只携带 accepted findings，不夹带 rejected / out-of-scope / low-confidence observations。
@@ -102,3 +104,6 @@ Explorer 返回后路由：
 **Analyst Resolution 路由**：`fixed` → Targeted Re-Review（Round 3） / `root cause found, not fixed` → 重新 dispatch worker（Round 3） / `root cause in design/plan` → 写回 → orchestrate-discovery 或 orchestrate-plan-writing / `unable to reproduce` → 报告用户 / `unable to determine` → BLOCKED。
 
 Round 3 Targeted Re-Review 仍 needs repair → BLOCKED，报告用户。
+
+---
+> **下一步**：修复通过 → 回到 Steps 4-9 per-pack 循环继续（`execution-pack-review-cycle.md`），或全部 pack 完成 → Step 13（`execution-completion.md`）。BLOCKED → 返回 verdict。

@@ -1,5 +1,7 @@
 # 设计文档生成 + 自检
 
+> **流程位置**：`orchestrate-discovery` Steps 7-9 · 完成后 → Steps 10-11（`design-review-angles.md`）
+
 ## Step 7：写 design document
 
 信息足够且用户确认设计方向后，按以下模板写。

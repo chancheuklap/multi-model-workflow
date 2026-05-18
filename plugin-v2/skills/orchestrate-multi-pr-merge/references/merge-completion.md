@@ -1,5 +1,7 @@
 # Multi-PR Merge 完成：集成审查 + 合并 + 返回
 
+> **流程位置**：`orchestrate-multi-pr-merge` Steps 16-22 · 含 verdict 判定 · 完成后回到 SKILL.md 返回区
+
 所有冲突解决后（或 explorer 一开始就没发现冲突），进入 Codex 集成审查。
 
 ---

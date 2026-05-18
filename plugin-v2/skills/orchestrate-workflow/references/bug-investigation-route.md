@@ -1,5 +1,7 @@
 # Bug Investigation Route — Dispatch Templates + Flow
 
+> **流程位置**：`orchestrate-workflow` Steps 15-18 · Route 2 Bug Investigation
+
 ## Step 15：Dispatch root-cause-analyst
 
 ```
@@ -157,3 +159,6 @@ Agent({
 ```
 
 Worker 返回 → Codex review（同 Step 17）→ Closing。
+
+---
+> **下一步**：修复通过 Codex review → Closing（`workflow-closing.md`）。root cause in design/plan → 创建 budget file + 转入 Route 1（`workflow-formal-orchestrate.md`）。

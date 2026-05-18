@@ -1,5 +1,7 @@
 # Pack 执行 + Review 循环
 
+> **流程位置**：`orchestrate-execution` Steps 4-9 · per-pack 循环 · 通过 → Step 13；needs repair → Step 10
+
 ## Step 4：选择 Worker 类型
 
 | Risk flags | Agent | 模型 |

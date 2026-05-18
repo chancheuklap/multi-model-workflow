@@ -1,5 +1,7 @@
 # Final Review 接收 + Disposition
 
+> **流程位置**：`orchestrate-final-review` Steps 6-8 · 通过 → Step 13（`final-review-completion.md`）；有 accepted findings → Step 9（`final-review-repair.md`）
+
 ## Step 6：接收 Review Findings
 
 **Coordinator 不是传话筒**——必须主动验证每条 finding：

@@ -1,5 +1,7 @@
 # Route 1 — Formal Orchestrate Phase Dispatch
 
+> **流程位置**：`orchestrate-workflow` Steps 7-14 · Route 1 Formal Orchestrate · phase 全部通过 → Closing（`workflow-closing.md`）
+
 线性管线：Discovery → Plan Writing → Execution → Final Review → Closing。每个 phase skill 通过 `Skill({ skill: "<name>" })` 加载到主线程。
 
 ## Step 7：orchestrate-discovery

@@ -1,5 +1,7 @@
 # Final Review 完成：清扫 + Release Gate + 业务汇报
 
+> **流程位置**：`orchestrate-final-review` Steps 13-20 · 含 verdict 判定 · 完成后回到 SKILL.md 返回区
+
 两个 baseline review 的 accepted findings 全部修复并通过 Targeted Re-Review 后（或两个 baseline 直接 pass），进入 Coordinator 主导的后续流程。
 
 ---

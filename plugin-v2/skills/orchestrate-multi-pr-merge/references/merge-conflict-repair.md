@@ -1,5 +1,7 @@
 # Multi-PR 冲突修复 + 验证 + 循环
 
+> **流程位置**：`orchestrate-multi-pr-merge` Steps 12-15 · 冲突修复 + 验证循环
+
 ## Step 12：构造 Worker Dispatch
 
 根据冲突是否经过 analyst 调查，dispatch prompt 的内容不同：
@@ -144,3 +146,6 @@ Agent({
 **循环上限**：每个冲突最多 3 轮修复尝试（与 Execution 修复截断对齐）。第 2 轮仍未解决 → 升级为系统性冲突走 RCA。第 3 轮仍未解决 → BLOCKED。
 
 **不在循环中做的事**：不逐冲突派 Codex review。Codex 审查在所有冲突解决后做一次集成审查。这避免 review 消耗激增。
+
+---
+> **下一步**：所有冲突解决 → Step 16（`merge-completion.md`）。3 轮未解决 → BLOCKED。

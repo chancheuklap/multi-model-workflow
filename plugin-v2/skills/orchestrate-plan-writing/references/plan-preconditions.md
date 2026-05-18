@@ -1,5 +1,7 @@
 # Plan-writing 前置条件详情
 
+> **流程位置**：`orchestrate-plan-writing` Steps 0-2 · 含 Re-entry 检测 · 完成后 → Steps 3-8（`plan-writing-methodology.md`）
+
 ## Step 0a：Plan 修订模式
 
 Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问题描述。

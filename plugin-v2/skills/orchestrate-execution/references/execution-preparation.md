@@ -1,5 +1,7 @@
 # Execution 预执行准备
 
+> **流程位置**：`orchestrate-execution` Steps 1-3 · 完成后 → Steps 4-9（`execution-pack-review-cycle.md`）
+
 ## Step 1：读取 Plan Task Pack Inventory
 
 读取已通过 Plan Review 的计划文档，提取：

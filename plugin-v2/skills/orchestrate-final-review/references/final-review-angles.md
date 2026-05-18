@@ -1,5 +1,7 @@
 # Final Review 增强型审查
 
+> **流程位置**：`orchestrate-final-review` Steps 4-5 · 派发后 → Steps 6-8（`final-review-disposition.md`）
+
 ## 与 Pack Review 的分工
 
 每个 pack 已经独立通过了 spec compliance + code quality review。Final Review 增加三层 Pack Review 结构性看不到的覆盖：

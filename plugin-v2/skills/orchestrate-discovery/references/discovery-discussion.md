@@ -1,5 +1,7 @@
 # Discovery 讨论方法论
 
+> **流程位置**：`orchestrate-discovery` Steps 3-6 · 完成后 → Steps 7-9（`discovery-design-document.md`）
+
 ## Step 3：澄清意图（一问一答迭代）
 
 核心规则：

@@ -1,5 +1,7 @@
 # Design Review Angles + Dispatch Details
 
+> **流程位置**：`orchestrate-discovery` Steps 10-11 · Design Review 派发 + 修复 · 通过后回到 SKILL.md Step 12
+
 ## Codex Dispatch 公共部分
 
 两个 review angle 通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task，可并行不可合并。

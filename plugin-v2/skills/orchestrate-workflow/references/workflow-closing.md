@@ -1,5 +1,7 @@
 # Closing
 
+> **流程位置**：`orchestrate-workflow` Steps 21-24 · 所有 Route 的终点
+
 Architecture-draft 结论 11：提交、推送、开 PR 是兜底动作，应自动执行。
 
 ## Step 21：Final Verification

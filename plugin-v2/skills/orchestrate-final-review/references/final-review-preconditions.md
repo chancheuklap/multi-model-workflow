@@ -1,5 +1,7 @@
 # Final Review 前置条件
 
+> **流程位置**：`orchestrate-final-review` Steps 1-3 · 完成后 → Steps 4-5（`final-review-angles.md`）
+
 ## Step 1：读取 Source Artifacts
 
 读取以下文档，建立对"设计意图 → 计划 → 实际代码"完整链条的理解：

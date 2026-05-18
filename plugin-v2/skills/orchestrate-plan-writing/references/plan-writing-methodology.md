@@ -1,5 +1,7 @@
 # Plan 写作方法论
 
+> **流程位置**：`orchestrate-plan-writing` Steps 3-8 · plan-writer 写作方法论 · Coordinator 按此构造 dispatch brief → Steps 9-10（`plan-writer-dispatch.md`）
+
 plan-writer agent 通过 `skills: [orchestrate-plan-writing]` 自动加载 SKILL.md 后，读取本文件执行写作。Coordinator 按本文件内容构造 plan-writer dispatch prompt。
 
 ## 核心原则

@@ -1,5 +1,7 @@
 # Plan Entry Gate + Task Pack Inventory Gate
 
+> **流程位置**：`orchestrate-plan-writing` Steps 11-12a · Plan Entry Gate + Budget 赋值 · 通过后 → Steps 13-14（`plan-review-dispatch.md`）
+
 ## Step 11：Plan Entry Gate
 
 Plan 必须包含以下字段，缺失则 needs repair（SendMessage plan-writer 修复）：

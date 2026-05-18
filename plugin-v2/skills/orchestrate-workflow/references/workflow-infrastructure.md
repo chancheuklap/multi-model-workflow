@@ -1,5 +1,7 @@
 # Infrastructure Setup + Cross-Conversation Resume
 
+> **流程位置**：`orchestrate-workflow` Steps 3-6 · 含 Cross-Conversation Resume · 完成后按 Route 进入对应 phase
+
 ## Step 3：Cross-Conversation Resume
 
 新对话接手上一个 session 的工作。检查 artifact 状态决定从哪里继续。

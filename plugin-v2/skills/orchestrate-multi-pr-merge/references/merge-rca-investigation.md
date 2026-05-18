@@ -1,5 +1,7 @@
 # Multi-PR 系统性冲突 — Root-Cause-Analyst 调查
 
+> **流程位置**：`orchestrate-multi-pr-merge` Steps 9-11 · 仅系统性冲突时进入
+
 这是 Multi-PR Merge 独特的调查场景。与 Bug Investigation（从零查 bug）和 Repair Truncation（worker 修两轮不过）不同，PR 冲突调查的对象是"两个各自正确的 PR 合在一起为什么出问题"。
 
 ## Step 9：构造 Analyst Dispatch
@@ -121,3 +123,6 @@ Agent({
 ```
 
 Explorer 返回后：用 explorer findings 补充 analyst prompt，重新 dispatch `root-cause-analyst`（Step 9）。如果 explorer 也无法提供有用信息 → BLOCKED，报告用户。
+
+---
+> **下一步**：root_cause_identified / implementation_deviation → Step 12（`merge-conflict-repair.md`）。design_conflict → 返回 verdict。unable_to_determine → 派 explorer 补信息或 BLOCKED。

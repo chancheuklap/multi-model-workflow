@@ -1,5 +1,7 @@
 # Plan Review — Disposition + 修复 + 截断
 
+> **流程位置**：`orchestrate-plan-writing` Steps 15-18 · Disposition + 修复 + 截断 · 通过后 → Step 19 回到 SKILL.md（Git Checkpoint）
+
 ## Step 15：接收 Review Findings
 
 **Coordinator 不是传话筒**——必须主动验证 finding 的正确性：

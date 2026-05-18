@@ -1,5 +1,7 @@
 # Release Gate + Git + 并行合并 + Backflow + 进度
 
+> **流程位置**：`orchestrate-execution` Steps 13-16
+
 ## Step 13：Early Release Gate
 
 Pack Review 通过后，检查该 pack 是否触发 Early Release Gate：
@@ -164,3 +166,6 @@ Final Review 打回时：按修复分流三条路径（读取 `execution-repair-
 ## 不存在"非阻塞项"
 
 **铁律。** 所有东西要么当场修复，要么立刻开 GitHub issue。Worker 说"先跳过"→ 不接受。Reviewer 说"Minor, not blocking" → Coordinator 仍需 disposition。
+
+---
+> **下一步**：所有 pack 完成且无阻塞 → 回到 SKILL.md 返回区确定 verdict 并返回给 orchestrate-workflow。

@@ -1,5 +1,7 @@
 # Multi-PR Merge 入口 + 文档理解
 
+> **流程位置**：`orchestrate-multi-pr-merge` Steps 1-3 · 完成后 → Steps 4-8（`merge-conflict-discovery.md`）
+
 ## Step 1：读取全部文档
 
 Multi-PR Merge 的前提是所有参与合并的 PR 都来自同一个大设计/大计划。Coordinator 必须建立**全局理解**。

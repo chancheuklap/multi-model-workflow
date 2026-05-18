@@ -1,5 +1,7 @@
 # Multi-PR 冲突发现 + 分类
 
+> **流程位置**：`orchestrate-multi-pr-merge` Steps 4-8 · 无冲突 → Step 16（`merge-completion.md`）；系统性冲突 → Step 9（`merge-rca-investigation.md`）；复杂/简单冲突 → Step 12（`merge-conflict-repair.md`）
+
 ## Step 4：确定 Explorer 分析策略
 
 **并行分析所有 PR**，不逐个顺序处理。分析维度：

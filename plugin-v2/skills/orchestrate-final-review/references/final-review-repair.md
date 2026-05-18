@@ -1,5 +1,7 @@
 # Final Review 修复分流 + 截断
 
+> **流程位置**：`orchestrate-final-review` Steps 9-12 · 仅 needs repair 时进入
+
 ## Step 9：修复路由（三条路径）
 
 所有 repair prompt 只携带 accepted findings，不夹带 rejected / out-of-scope / low-confidence observations。
@@ -258,3 +260,6 @@ Agent({
 Round 3 的 Targeted Re-Review 仍 needs repair → BLOCKED，报告用户附完整排查记录。
 
 **Phase 内部 review dispatch 软上限**：10（2 baseline + 最多 3 gaps × 2 rounds + analyst round + final re-review；release gate 有独立预算）。全局 Direction Check 在 80% 时是真正的刹车。
+
+---
+> **下一步**：修复通过 → Step 13（`final-review-completion.md`）。BLOCKED → 返回 verdict。

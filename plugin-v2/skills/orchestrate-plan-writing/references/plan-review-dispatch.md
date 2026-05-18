@@ -1,5 +1,7 @@
 # Plan Review Codex Dispatch Template
 
+> **流程位置**：`orchestrate-plan-writing` Steps 13-14 · Plan Review Codex 派发 · 派发后 → Steps 15-18（`plan-review-resolution.md`）
+
 通过 `codex:codex-rescue --model gpt-5.4` 派发 **1 个** baseline Codex reviewer，整合三个审查角度：
 
 ```

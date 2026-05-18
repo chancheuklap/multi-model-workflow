@@ -1,5 +1,7 @@
 # Plan-writer 派发协议
 
+> **流程位置**：`orchestrate-plan-writing` Steps 9-10 · 派发后 → Steps 11-12a（`plan-gates.md`）
+
 ## Step 9：构造 Dispatch Brief
 
 Dispatch prompt 必须自足——plan-writer 通过 skills 自动加载读取方法论，但 Coordinator 仍需在 prompt 中写清所有输入 artifact 路径和上下文。
