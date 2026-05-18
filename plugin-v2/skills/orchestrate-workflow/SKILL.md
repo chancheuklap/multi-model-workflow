@@ -45,7 +45,14 @@ description: "正式开发流程主入口。用户给出新功能、系统性改
 
 ## Steps 19-20：Route 3 — Multi-PR Merge
 
-`Skill({ skill: "orchestrate-multi-pr-merge" })`。返回 `MERGE_COMPLETE` → Closing；`BLOCKED` → 报告用户。
+`Skill({ skill: "orchestrate-multi-pr-merge" })`。
+
+| Multi-PR Merge Verdict | Coordinator 动作 |
+| --- | --- |
+| `MERGE_COMPLETE` | Closing |
+| `NEEDS_DISCOVERY` | analyst 发现设计/意图冲突 → 回到 Discovery |
+| `NEEDS_USER_DECISION` | 冲突解决需要用户决策 → 询问用户 → 拿到决策后重新进入 |
+| `BLOCKED` | 报告用户 |
 
 ## Steps 21-24：Closing
 

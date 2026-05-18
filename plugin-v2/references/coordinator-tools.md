@@ -35,6 +35,10 @@
 | analyst (Bug route) | `root cause found, not fixed` | 派 worker → Codex review → Closing |
 | analyst (Bug route) | `root cause in design/plan` | 更新 Scope Contract + 创建 budget file → discovery |
 | analyst (Bug route) | `unable to reproduce` / `unable to determine` | 报告用户 |
+| multi-pr-merge | `MERGE_COMPLETE` | Closing |
+| multi-pr-merge | `NEEDS_DISCOVERY` | analyst 发现设计/意图冲突 → discovery |
+| multi-pr-merge | `NEEDS_USER_DECISION` | 询问用户 → 拿到决策后重新进入 multi-pr-merge |
+| multi-pr-merge | `BLOCKED` | 停止 |
 
 ## Upstream Skill 调用协议
 
