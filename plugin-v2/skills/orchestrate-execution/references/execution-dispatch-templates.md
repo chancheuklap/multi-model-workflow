@@ -145,7 +145,8 @@ Agent({
   subagent_type: "root-cause-analyst",
   description: "Investigate repair failure: Pack N.M",
   prompt: "
-    Worker 修了两轮，reviewer 仍报 needs repair。
+    ## 调度场景
+    Repair Truncation（Execution Pack Review）。Worker 修了两轮，reviewer 仍报 needs repair。
 
     ## 前两轮上下文
     - Round 1 accepted findings: <paste>
@@ -160,12 +161,14 @@ Agent({
 
     ## Return contract
     ### Verdict
+    pass / blocked / needs repair / needs context
     ### Evidence
     ### Result
-    - Resolution: fixed / root cause found, not fixed / root cause in design/plan / unable to determine
+    - Resolution: fixed / root cause found, not fixed / root cause in design/plan / unable to reproduce / unable to determine
     - Root cause: <evidence>
     - Fix applied: <if fixed>
     - Excluded hypotheses: <with evidence>
+    - Regression risk: <what could break>
     ### Verification
     ### Open Items
   "

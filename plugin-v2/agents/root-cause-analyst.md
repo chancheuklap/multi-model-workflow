@@ -110,7 +110,7 @@ Worker 修了两轮，reviewer 仍报 needs repair。Dispatch prompt 包含：�
 5. Verify：跑回归测试。
 6. 返回时在 Result 中写明 `resolution`。
 
-**Resolution 值**：`fixed` / `root cause found, not fixed` / `root cause in design/plan` / `unable to determine`
+**Resolution 值**：`fixed` / `root cause found, not fixed` / `root cause in design/plan` / `unable to reproduce` / `unable to determine`
 
 ---
 

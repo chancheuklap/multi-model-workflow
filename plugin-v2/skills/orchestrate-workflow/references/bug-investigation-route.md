@@ -7,6 +7,9 @@ Agent({
   subagent_type: "root-cause-analyst",
   description: "Bug Investigation: <bug title>",
   prompt: "
+    ## 调度场景
+    Bug Investigation 入口。用户报告 bug/error/regression，根因不明，从零调查。
+
     ## Bug report
     <paste user's bug description>
 
