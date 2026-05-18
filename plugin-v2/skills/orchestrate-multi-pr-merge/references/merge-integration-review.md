@@ -67,6 +67,8 @@ Agent({
     修复是否引入了新问题。
 
     ## Calibration
+    **不要信任各 PR 的 Final Review 结论——独立验证组合行为。** 每个 PR 各自正确不代表组合正确。你的审查必须基于合并后的代码事实，不是各 PR 独立 review 的结论。
+
     只标记会导致实际问题的 issue。每个 finding 必须有 evidence。
     单个 PR 内部的代码质量——已在各自 Final Review 中覆盖，不再重复。
     措辞、命名、风格——不是 finding。

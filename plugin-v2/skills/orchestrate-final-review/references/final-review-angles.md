@@ -98,6 +98,8 @@ Agent({
     Cross-pack audit 降级为确认独立性的 1 行声明。
 
     ## Calibration
+    **不要信任 pack completion summary——独立验证。** Worker 和 Pack Review 可能遗漏了跨 pack 交互问题、遗漏了 gap intent、或对已验证行为的判断在 merge 后不再成立。你的 review 必须基于代码和测试事实。
+
     只标记会导致实际问题的 issue。每个 finding 必须有 evidence。
     Pack Review 已验证且 regression sweep 确认 intact 的行为——不是 finding。
     措辞、风格偏好、nice-to-have 建议——不是 finding。
@@ -184,6 +186,8 @@ Agent({
     7. **Edge cases**：空状态、错误路径、retry/rollback、竞态、测试未覆盖的边缘场景。
 
     ## Calibration
+    **不要信任 worker 的报告和 Pack Review 结论——独立验证。** 代码可能在 merge 后产生新问题，测试可能不覆盖你正在审查的边界情况。你的审计必须基于代码事实。
+
     只标记会导致实际问题的 issue。每个 finding 必须有 evidence。
     Pack Review 已验证的代码质量问题——不再重复。
     措辞、命名偏好、nice-to-have 建议——不是 finding。

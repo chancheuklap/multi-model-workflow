@@ -37,6 +37,11 @@ AFK / HITL: <manual gate requirements>
 Dependencies: <pack dependencies>
 Parallel safety: <can parallel with which packs / why>
 Out of scope: <what NOT to touch>
+Self-review before returning:
+  - 逐条验证 acceptance criteria 已满足
+  - 每个测试先失败再通过（没失败过 = 测试无效）
+  - 没有越界修改 owned files 以外的文件
+  - Known gaps 如实报告，不隐瞒
 Return contract:
   ### Verdict
   pass / blocked / needs repair / needs context

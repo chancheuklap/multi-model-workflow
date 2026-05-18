@@ -40,9 +40,9 @@ Agent({
 
     ### Code Quality
     验实现是否正确、可维护：
-    - TDD 纪律：测试测的是 public behavior，不是 mock behavior
+    - TDD 纪律：测试测的是 public behavior，不是 mock behavior。检查测试是否先失败再通过——没失败过的测试不可信
+    - Mock 纪律：mock 只用在外部边界（网络、文件系统、第三方 API），不 mock 仓库内部业务模块。测试断言的是结果和行为，不是调用顺序或内部状态
     - 合同纪律：跨边界数据用正式 Pydantic contract，不是 bare dict
-    - 不 mock 仓库内部业务模块
     - 文件职责清晰、接口定义好
     - 遵循项目既有模式
 
@@ -54,6 +54,8 @@ Agent({
     - rollback / compatibility 考虑
 
     ## Calibration
+    **不要信任 worker 的报告——独立验证一切。** Worker 可能遗漏了失败的边界情况、跳过了困难的 acceptance criteria、或报告了实际未通过的测试。你的 review 必须基于代码事实，不是 worker 的自述。
+
     只标记会导致实际问题的 issue。实现者做出错误的东西或卡住——这是 issue。
     措辞、风格偏好、nice-to-have 建议——不是。
     除非有严重缺口（spec 不符、合同破损、测试不覆盖核心行为、引入安全风险），否则 approve。
