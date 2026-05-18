@@ -39,9 +39,13 @@ description: "多个来自同一大设计/大计划的并行 PR 需要合并审�
 
 → `references/merge-conflict-repair.md`（Worker dispatch templates + 验证 + 冲突解决循环控制 + 3 轮上限）
 
-## Steps 16-22：Codex 集成审查 + 顺序合并 + 返回
+## Steps 16-18：Codex 跨 PR 集成审查
 
-→ `references/merge-completion.md`（跨 PR 集成审查 + Disposition + 顺序合并 + 不存在非阻塞项 + Verdict 判定）
+→ `references/merge-integration-review.md`（Codex dispatch + Disposition + 集成审查修复）
+
+## Steps 19-22：顺序合并 + 清扫 + 返回
+
+→ `references/merge-completion.md`（依赖顺序合并 + 全量验证 + 不存在非阻塞项 + Verdict 判定）
 
 ---
 

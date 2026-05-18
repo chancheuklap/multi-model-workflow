@@ -28,9 +28,13 @@ Pack Review dispatch template → `references/execution-review-dispatch.md`（St
 
 → `references/execution-repair-truncation.md`（路径 A/B/C → Targeted Re-Review → 最多 3 轮 → RCA 截断）
 
-## Steps 13-16：Release Gate + Git + 并行合并 + 过渡
+## Step 13：Early Release Gate（条件触发）
 
-→ `references/execution-completion.md`（Early Release Gate + Git Checkpoint + 并行 Worktree 合并 + Backflow + Plan Checkbox + 进度 + Re-entry from Final Review + 不存在非阻塞项）
+→ `references/execution-release-gate.md`（仅 pack 触碰发布风险面时读取）
+
+## Steps 14-16：Git Checkpoint + 并行合并 + 过渡
+
+→ `references/execution-completion.md`（Git Checkpoint + 并行 Worktree 合并 + Backflow + Plan Checkbox + 进度 + Re-entry from Final Review + 不存在非阻塞项）
 
 ## 返回
 

@@ -148,4 +148,4 @@ Agent({
 **不在循环中做的事**：不逐冲突派 Codex review。Codex 审查在所有冲突解决后做一次集成审查。这避免 review 消耗激增。
 
 ---
-> **下一步**：所有冲突解决 → Step 16（`merge-completion.md`）。3 轮未解决 → BLOCKED。
+> **下一步**：所有冲突解决 → Step 16（`merge-integration-review.md`）。3 轮未解决 → BLOCKED。

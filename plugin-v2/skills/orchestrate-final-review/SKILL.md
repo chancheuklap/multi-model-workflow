@@ -33,9 +33,13 @@ description: "所有 Pack Review 通过后、orchestrate-execution 返回 EXECUT
 
 → `references/final-review-repair.md`（路径 A/B/C + 回 Execution 判定 + Targeted Re-Review + 3 轮截断 + RCA）
 
-## Steps 13-19：清扫 + Release Gate + 业务汇报
+## Steps 13-15, 19-20：清扫 + 业务汇报 + Verdict
 
-→ `references/final-review-completion.md`（Coordinator 清扫遗留尾巴 + Final Release Gate + 业务汇报组装）
+→ `references/final-review-completion.md`（Coordinator 清扫遗留尾巴 + 业务汇报组装 + Verdict 判定）
+
+## Steps 16-18：Final Release Gate（条件触发）
+
+→ `references/final-review-release-gate.md`（仅 diff 触碰发布风险面时读取）
 
 ---
 
