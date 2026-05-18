@@ -26,20 +26,18 @@ cat <<'RULES'
 
 # 3. Entry routing rules
 - When the user confirms a direction after discussion, use multi-model-workflow:orchestrate-discovery to produce or refine a design document, then multi-model-workflow:orchestrate-plan-writing to write the plan.
-- AS SOON AS a design document is produced or exists, immediately enter multi-model-workflow:orchestrate-workflow (entry gate) — it routes to the correct phase skill from Phase 0a onward.
+- AS SOON AS a design document is produced or exists, immediately enter multi-model-workflow:orchestrate-workflow (entry gate) — it routes to the correct phase skill.
 - When the user references any existing design doc (specs/) or plan (plans/) and asks to review / audit / advance / execute / continue / 推进 / 审查 / 落地 / 动手 / 走流程, use multi-model-workflow:orchestrate-workflow (entry gate).
 
-# 4. Skill chaining rules
+# 4. Skill chaining rules (4 internal phase skills)
 - orchestrate-workflow selects Formal Orchestrate → orchestrate-discovery
-- orchestrate-discovery returns DISCOVERY_READY → orchestrate-design-review
-- orchestrate-design-review passes → check issue hierarchy; missing → to-issues → orchestrate-plan-writing
-- orchestrate-plan-writing returns PLAN_CREATED → orchestrate-plan-review
-- orchestrate-plan-review passes → orchestrate-execution
-- orchestrate-execution: all packs pass → orchestrate-final-review
-- orchestrate-final-review passes → business report → branch finishing → done
-- orchestrate-workflow selects Direct Repair → orchestrate-direct-repair
-- orchestrate-workflow selects Bug Investigation → root-cause-analyst → route by result (direct-repair / formal orchestrate)
-- Phase A/B: repair round 2 still fails → root-cause-analyst before round 3
+- orchestrate-discovery (includes Design Review internally) returns DISCOVERY_READY → check issue hierarchy; missing → to-issues → orchestrate-plan-writing
+- orchestrate-plan-writing (includes Plan Review internally) returns PLAN_CREATED → orchestrate-execution
+- orchestrate-execution (pack dispatch + Pack Review per pack) returns EXECUTION_PASSED → orchestrate-final-review
+- orchestrate-final-review (Final Review + business report + closing) passes → done
+- orchestrate-workflow selects READY_FOR_REPAIR → Direct Repair mini-route (workflow Step 8a)
+- orchestrate-workflow selects Bug Investigation → root-cause-analyst → route by result (repair / formal orchestrate)
+- Execution / Final Review: repair round 2 still fails → root-cause-analyst before round 3
 - At any point: design/domain/UX gap → orchestrate-discovery; issue gap → to-issues; plan gap → orchestrate-plan-writing
 
 # 5. Upstream skill routing
@@ -58,10 +56,10 @@ cat <<'RULES'
   · 没有验证证据，不得声称完成。
   · 没有用户明确指令，不得 merge / push / PR / discard / 写生产环境。
   · Formal Orchestrate 没有可 review 的 design document 时先进 Discovery，不跳到 plan / worker。
-  · Phase 0a / Phase 0b / Phase B 不可跳过（除非 Entry Gate 选择了 Answer-only / One-shot Review / Direct Repair）。
+  · Design Review / Plan Review / Final Review 不可跳过（除非 Entry Gate 选择了 Answer-only / One-shot Review / Direct Repair）。
   · upstream skill 结论必须写回 design / plan / bug brief，再继续当前节点。
 - 禁止:
-  · 跳过 Phase 0 或 Phase B。
+  · 跳过 Design Review、Plan Review 或 Final Review。
   · 用技术语言向用户汇报。
   · 自己写生产代码（调度 worker）。
   · 每 task 一个 subagent（用 Task Pack）。

@@ -110,7 +110,7 @@ Parent 通过 SendMessage 发送独立审查的 accepted findings。你已有完
 跨 session 记住以下内容，写入 `.claude/agent-memory/complex-pack-executor/`：
 - 合同边界：哪些 Pydantic model、哪些 registry、migration 链路
 - 高风险修改的 deploy/rollback 模式
-- 不记：已在 contract-boundary.md 中记录的通用规则
+- 不记：通用合同边界规则（这些在项目 reference 中维护）
 - 不记：具体 task 内容、单次 diff（这些在 git 里）
 
 ## Return Contract
