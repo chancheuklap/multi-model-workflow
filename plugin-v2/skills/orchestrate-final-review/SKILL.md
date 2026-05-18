@@ -1,57 +1,105 @@
 ---
 name: orchestrate-final-review
-description: "Phase B + C 最终审查和收尾。由 orchestrate-workflow coordinator 在所有 pack review 通过后调用。增强型审查：regression sweep + full intent coverage + cross-pack audit + 业务汇报 + 分支收尾。内部 phase skill，不由用户直接触发。"
+description: "所有 Pack Review 通过后、orchestrate-execution 返回 EXECUTION_PASSED 时由 orchestrate-workflow 调用。覆盖完整最终审查流程：前置条件验证 → 增强型 Codex 审查（regression sweep + design intent coverage + cross-pack audit + 独立代码级审计）→ Coordinator 验证 + Disposition → 修复分流 → Targeted Re-Review → 修复截断 → Coordinator 清扫遗留尾巴 → Release Gate → 业务汇报 → 返回 verdict 给 orchestrate-workflow 执行 Closing。纯 Coordinator 技能：主线程读取本技能执行调度、review 接收、修复路由、清扫和汇报；不由 Sub-Agent 消费。"
 ---
 
-# Orchestrate Final Review (Phase B + Phase C)
+# Orchestrate Final Review
 
-验证所有 pack 合并后是否满足 design intent，确认无 release blocker。Phase B 通过后进入 Phase C 业务汇报和收尾。
+所有 pack 通过 Pack Review + Git Checkpoint 后进入。验证整体实现是否满足 design intent，清扫所有遗留尾巴，评估发布风险，向用户汇报业务结果，返回 verdict 给 orchestrate-workflow 执行 Closing。
 
-## Flow
+**两大职责**：
+1. **意图验证**：检查落地的代码是否偏离了设计文档、计划文档和 Issue 文档。Pack Review 验证每个 pack 自身——Final Review 验证所有 pack 合在一起是否实现了设计的完整意图。
+2. **清扫遗留尾巴**：Coding Worker 经常因为 "Out of Scope" 或 "非阻塞项" 把东西搁置。Final Review 要全部揪出来、全部解决掉。项目中不存在 "非阻塞项" 这种概念。
 
+**Final Review 不做 Closing**——不 cleanup budget/scope/active-run-id，不 commit，不 push，不 PR。这些是 orchestrate-workflow Closing（Steps 21-24）的职责。Final Review 以 verdict 返回结束。
+
+---
+
+## Steps 1-3：前置条件
+
+→ `references/final-review-preconditions.md`（读 source artifacts + 验证前置条件 + Budget Check）
+
+## Steps 4-5：增强型审查派发
+
+→ `references/final-review-angles.md`（与 Pack Review 分工 + 2 baseline Codex dispatch templates）
+
+## Steps 6-8：接收 + Disposition
+
+→ `references/final-review-disposition.md`（Coordinator 主动验证 + 6 disposition + Gap 分类 + Backflow 路由）
+
+通过 → Step 13。有 accepted findings → 读取 `references/final-review-repair.md`。
+
+## Steps 9-12：修复分流 + 截断（仅 needs repair 时）
+
+→ `references/final-review-repair.md`（路径 A/B/C + 回 Execution 判定 + Targeted Re-Review + 3 轮截断 + RCA）
+
+## Steps 13-19：清扫 + Release Gate + 业务汇报
+
+→ `references/final-review-completion.md`（Coordinator 清扫遗留尾巴 + Final Release Gate + 业务汇报组装）
+
+---
+
+## 返回
+
+```text
+### Verdict
+FINAL_REVIEW_PASSED | FINAL_REVIEW_PASSED_WITH_RELEASE_RISK |
+NEEDS_EXECUTION | NEEDS_DISCOVERY | NEEDS_PLAN_REVISION | BLOCKED
+
+### Review dispatch summary
+- Baseline 1: <verdict> / Baseline 2: <verdict>
+- Repair rounds: <count>
+- Release gate: triggered / not triggered / passed / blocked
+
+### Baseline 1 result
+Regression Sweep:
+Intent Coverage: X / Y intents covered
+Cross-Pack Audit:
+Critical findings: <count>
+
+### Baseline 2 result
+Code-Level Audit:
+Critical findings: <count>
+
+### Findings summary
+- Total findings received: <count>
+- Accepted + repaired: <count>
+- Rejected: <count>
+- Out of scope (issues created): <count>
+
+### Lingering tail sweep
+- Worker Open Items processed: <count>
+- New TODO/FIXME found and processed: <count>
+- Out-of-scope dispositions reviewed: <count>
+- GitHub issues created: <refs>
+- Immediate fixes applied: <count>
+
+### Release gate
+- Risk surfaces: <list or N/A>
+- Release blockers: <count or none>
+- Release review verdict: pass / N/A
+
+### Business report
+新增能力:
+验证证据:
+残余风险:
+发布检查:
+
+### Git state
+- Branch: <current branch>
+- Commits since starting: <count>
+- Clean: yes / no
+
+### Review budget
+- Budget total: <N>
+- Budget used: <N> (including this phase)
+- Direction checks triggered: <count>
+
+### Open items
+- Blockers: <if any>
+- HITL: <if any>
+- Issues created: <GitHub issue refs>
+
+### Next route
+- orchestrate-workflow Closing / orchestrate-execution re-entry / orchestrate-discovery / orchestrate-plan-writing / user decision / blocked
 ```
-Step 1: Read references/final-review-angles.md.
-        Build dispatch prompt for 2 baseline codex-reviewers.
-        Augmented review: regression sweep + full intent coverage + cross-pack audit.
-        Read ${CLAUDE_PLUGIN_ROOT}/references/dispatch-primitives.md for Return Contract + Finding Shape.
-        Read ${CLAUDE_PLUGIN_ROOT}/references/review-budget.md for budget check.
-
-Step 2: Receive results.
-        Disposition each finding.
-        Repair per dispatch-primitives.md 修复归属.
-        第 2 轮 targeted re-review 仍 needs repair → 截断 worker 循环：
-          dispatch root-cause-analyst (Agent tool, 始终新建).
-          Route by analyst Result.Resolution:
-            - fixed → targeted re-review (消耗第 3 轮).
-            - root cause found, not fixed → 用 analyst findings dispatch worker (消耗第 3 轮).
-            - root cause in design/plan → 写回 design doc / plan, re-enter Phase 0a/0b.
-            - unable to determine → BLOCKED, 报告用户附排除路径.
-        Backflow and upstream skills (Skill tool; write back before continuing):
-        - implementation gap → orchestrate-execution targeted repair
-        - design / context gap → Skill: orchestrate-discovery → 写回 design document
-        - plan gap → Skill: orchestrate-plan-writing → 写回 plan
-        - architecture friction → Skill: improve-codebase-architecture → 写回 design doc / plan anchors
-        If release gate triggered:
-          read review-budget.md for release gate rules.
-          Dispatch codex:codex-rescue --model gpt-5.5.
-
-Step 3: Phase B passes.
-        Read references/business-report.md.
-        Assemble Phase C business report.
-
-Step 4: Branch finishing.
-        Clean up budget file + active-run-id + scope file.
-        Commit, report to user. Done.
-        只有用户明确要求才 merge / PR / push / cleanup。
-```
-
-## Pass 条件
-
-两个 baseline review 通过 + release-risk gate 通过（或不触发）。每个 gap 最多 3 个 repair rounds（第 2 轮失败后由 root-cause-analyst 介入，第 3 轮为最终验证）。Phase B 内部 review dispatch 上限 10（2 baseline + 最多 3 gaps × 2 worker rounds + analyst round + final re-review；release gate 有独立预算见 `review-budget.md`）。
-
-## Reception
-
-- accepted implementation gap → orchestrate-execution targeted repair。
-- accepted design / context gap → orchestrate-discovery → 必要 Phase 0a / plan。
-- accepted plan gap → orchestrate-plan-writing / Phase 0b repair。
-- accepted release blocker → complex-pack-executor / user decision → targeted release re-review。

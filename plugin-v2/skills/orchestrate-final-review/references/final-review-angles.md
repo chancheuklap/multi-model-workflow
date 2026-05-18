@@ -1,105 +1,209 @@
-# Final Review Angles (Augmented — F4)
+# Final Review 增强型审查
 
 ## 与 Pack Review 的分工
 
 每个 pack 已经独立通过了 spec compliance + code quality review。Final Review 增加三层 Pack Review 结构性看不到的覆盖：
 
-1. **Regression sweep**（NEW）：读 FULL diff（从 starting commit 到 HEAD）。跑完整测试套件。检查任何 pack 的改动是否破坏另一 pack 的行为或既有功能。这是"全新眼光看全局"的层。
-2. **Design intent coverage**（AUGMENTED）：逐条走 design doc 中每个可验证 intent。已被 Pack Review 验证的 intent，确认验证证据在 merge 后仍有效（1 行确认，不做 re-audit）。落在 pack 之间缝隙的 gap intent，做完整验证。
-3. **Cross-pack audit**（KEPT）：shared contract surface、migration 顺序、import 循环、状态竞争——不变。
-   **独立 pack 优化**：如果所有 pack 之间没有共享 contract / migration / state surface，Cross-pack audit 可以降级为确认独立性的 1 行声明，不做逐项审查。Regression sweep 和 Design intent coverage 仍必须执行。
+1. **Regression sweep**（全新层）：读完整 diff（starting commit → HEAD），跑完整测试套件。检查任何 pack 的改动是否破坏另一 pack 的行为或既有功能。这是"全新眼光看全局"的层。
+2. **Design intent coverage**（增强层）：逐条走 design doc 和 mockup 中每个可验证 intent。已被 Pack Review 验证的 intent 只做 1 行确认（merge 后证据仍有效）；落在 pack 之间缝隙的 gap intent 做完整验证。
+3. **Cross-pack audit**（保留层）：shared contract surface、migration 顺序、import 循环、状态竞争。独立 pack 优化：如果所有 pack 之间没有共享 contract / migration / state surface，Cross-pack audit 降级为确认独立性的 1 行声明。Regression sweep 和 Design intent coverage 仍必须执行。
 
-**Final Review 不做的事**：
+**Final Review 不重复的事**：
 - 不重新审查单个 pack 内 Pack Review 已验证且 regression sweep 确认 intact 的行为
 - 不重新检查 helper placement、命名或单 pack owned files 内的代码质量
 
-## 输入
+---
 
-- Scope + design doc + plan + pack completion summary + starting commit + diff + changed files + mockup + validation commands + 发布风险和人工门禁 + project docs + Contract baseline。
+## Step 4：派发 2 个 Baseline Codex Reviewer
 
-## Dispatch：2 个 baseline `codex-reviewer`（可并行，不合并）
+两个 baseline 通过 `codex:codex-rescue --model gpt-5.4` 派发。可并行派发，结果不合并——各自独立返回。
 
-两个 angle 均通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task。Return Contract 和 Finding Shape 格式见 `dispatch-primitives.md`。
+### Baseline 1：Regression Sweep + Intent Coverage + Cross-Pack Audit
 
-### Baseline 1: Regression Sweep + Intent Coverage + Cross-Pack Audit
+```
+Agent({
+  subagent_type: "codex:codex-rescue",
+  description: "Final Review Baseline 1: Regression + Intent + Cross-Pack",
+  prompt: "
+    --model gpt-5.4
 
-Prompt 包含：Read first / Project baseline / Contract baseline / Mockup baseline / design doc / plan / starting commit / diff / pack completion summary（含每个 pack 的 review verdict 和已验证行为）/ 发布风险 / validation commands。
+    ## Scope
+    Final Review for a completed implementation. All Task Packs have individually
+    passed Pack Review. Your job is to verify the COMBINED result.
 
-Prompt 必须明确告诉 reviewer：每个 pack 已独立通过 Pack Review。本次重点：
+    ## Read first
+    <project docs: CLAUDE.md, CONTEXT.md, ADRs, relevant SPEC>
 
-1. **Regression sweep**: 从 starting commit 读完整 diff。跑完整测试。识别跨 pack 回归。
-2. **Intent coverage**: 从 design doc 和 mockup 提取每条可验证 intent。对照 pack completion summary 标出：
-   - `covered by pack review` — 已被 Pack Review 验证，确认 merge 后证据仍有效。
-   - `gap intent` — 落在 pack 之间，做完整验证。
-   - `implementation gap` / `design gap` / `context gap` / `unverifiable`。
-3. **Cross-pack audit**: shared contract surface、migration 顺序、import 关系、状态竞争。
-4. UI 任务：只检查跨 pack 的页面集成效果；单 pack 内的 UI 状态已在 Pack Review 验证。
+    ## Source design
+    <path>（已通过 Design Review）
 
-### Baseline 2: Independent Code-Level Audit
+    ## Plan
+    <path>（已通过 Plan Review）
 
-独立第二视角对最终实现做正确性、回归和集成审查。
+    ## Starting commit
+    <commit hash>
 
-Prompt 包含：starting commit / diff scope / design doc / plan / pack completion summary。
+    ## Full diff
+    git diff <starting_commit>..HEAD
 
-步骤：
+    ## Changed files
+    <file list with pack ownership>
 
-1. Correctness：逻辑错误、off-by-one、null/undefined 处理、类型不匹配。
-2. Regression：变更是否破坏既有功能；跑测试套件并报告结果。
-3. Security：injection、auth bypass、敏感数据泄漏、insecure defaults。
-4. Integration：跨文件变更是否协调一致；模块间是否有不一致。
-5. Design alignment：实现是否匹配 design doc 的 stated intents。
-6. 二阶故障：如果 A 失败，B 是否优雅处理。
-7. Edge cases：空状态、错误路径、retry/rollback、竞态、测试未覆盖的边缘。
+    ## Pack completion summary
+    | Pack | Worker verdict | Pack Review verdict | Verified behaviors | Repair rounds | Open Items |
+    <paste per-pack summary>
 
-## Gap 分类
+    ## Contract baseline
+    <contract anchors from plan — all boundary types touched>
 
-- **Implementation Gap**: 设计合理，代码没做到 → worker。
-- **Design Gap**: 设计承诺不可实现或遗漏约束 → user decision / 文档修正。
-- **Context Gap**: 需要术语 / owner / UI target 确认 → orchestrate-discovery。
-- **Unverifiable**: 环境 / 账号 / 生产 gate 缺失 → 写清已验证证据和 manual gate owner。
+    ## Mockup baseline
+    <mockup anchors from plan — all UI work>
 
-## Result Payload
+    ## 发布风险和人工门禁
+    <paste from plan>
 
-不要用 worker self-report 作为通过证据；Final Review 必须以 source design、plan、diff、changed files、verification evidence、mockup / contract anchors 和可运行检查为准。
+    ## Validation commands
+    <paste from plan — all verification commands>
 
-`### Result` 下使用：
+    ## Review angles
 
-```text
-Regression Sweep:
-Critical:
-Important:
+    重要：每个 pack 已独立通过 spec compliance + code quality Pack Review。
+    不要重新审查单个 pack 内部已验证的行为。聚焦以下三个层面：
 
-Intent Coverage:
-通过: X / Y
-Gap intents verified:
-Covered by pack review (confirmed intact):
-Implementation Gaps:
-Design Gaps:
-Context Gaps:
-Unverifiable:
+    ### 1. Regression Sweep
+    从 starting commit 读完整 diff。跑完整测试套件。识别：
+    - 跨 pack 回归：pack A 的改动是否破坏 pack B 的行为或既有功能
+    - 既有功能回归：diff 是否破坏了 starting commit 时已有的功能
+    - 测试套件回归：全部测试是否通过
 
-Cross-Pack Audit:
-Critical:
-Important:
+    ### 2. Intent Coverage
+    从 source design 和 mockup 提取每条可验证 intent。对照 pack completion summary 标出：
+    - covered by pack review — 已被 Pack Review 验证，确认 merge 后证据仍有效（1 行确认）
+    - gap intent — 落在 pack 之间缝隙，做完整验证
+    - implementation gap — 设计合理，代码没做到
+    - design gap — 设计承诺不可实现或遗漏约束
+    - context gap — 需要术语 / owner / UI target 确认
+    - unverifiable — 环境 / 账号 / 生产 gate 缺失
 
-Code-Level Audit:
-Critical:
-Important:
+    ### 3. Cross-Pack Audit
+    - Shared contract surface：跨 pack 的 Pydantic model / schema_version / API 是否一致
+    - Migration 顺序：多个 migration 的执行顺序是否正确
+    - Import 关系：跨 pack 的 import 是否循环
+    - 状态竞争：并发访问共享 state 是否安全
+    - UI 集成（如有）：只检查跨 pack 的页面集成效果
 
-Release Risk:
-Blockers:
-Manual verification:
-Rollback concerns:
+    如果所有 pack 之间没有共享 contract / migration / state surface，
+    Cross-pack audit 降级为确认独立性的 1 行声明。
 
-Phase Summary:
-可以完成 / 阻塞
-Disposition required:
+    ## Calibration
+    只标记会导致实际问题的 issue。每个 finding 必须有 evidence。
+    Pack Review 已验证且 regression sweep 确认 intact 的行为——不是 finding。
+    措辞、风格偏好、nice-to-have 建议——不是 finding。
+
+    ## Return Contract
+    ### Verdict
+    pass / blocked / needs repair / needs context
+    ### Evidence
+    - 实际检查过的 files / docs / tests / commands
+    ### Result
+    Regression Sweep:
+    Critical:
+    Important:
+
+    Intent Coverage:
+    通过: X / Y
+    Gap intents verified:
+    Covered by pack review (confirmed intact):
+    Implementation Gaps:
+    Design Gaps:
+    Context Gaps:
+    Unverifiable:
+
+    Cross-Pack Audit:
+    Critical:
+    Important:
+
+    Release Risk:
+    Blockers:
+    Manual verification:
+    Rollback concerns:
+
+    Phase Summary:
+    可以完成 / 阻塞
+    Disposition required:
+    ### Verification
+    ### Open Items
+  "
+})
 ```
 
-每条 finding 必须使用统一 Finding Shape。Final review result 必须能被主线程执行 Reception Gate。
+### Baseline 2：Independent Code-Level Audit
 
-## Release Gate
+独立第二视角对最终实现做正确性、回归和集成审查。两个 baseline 角度互不重叠——Baseline 1 聚焦 design intent 和跨 pack 完整性，Baseline 2 聚焦代码级正确性和安全性。
 
-两个 baseline review 通过后，最终 diff 触碰以下任一时派 `codex:codex-rescue --model gpt-5.5`：migration / billing / permission / runtime / cross-service / deploy order / rollback / manual gate / API compatibility。
+```
+Agent({
+  subagent_type: "codex:codex-rescue",
+  description: "Final Review Baseline 2: Independent Code-Level Audit",
+  prompt: "
+    --model gpt-5.4
 
-Release blocker：数据丢失或无法回滚 / 权限绕过 / 账务不一致 / 合同未同步 / registry-migration-catalog 未闭合 / deploy order 导致 401/500 / release gate 无验证证据。
+    ## Scope
+    Independent code-level audit for a completed implementation.
+    All Task Packs have individually passed Pack Review.
+    You are the second reviewer — your perspective is independent of Baseline 1.
+
+    ## Starting commit
+    <commit hash>
+
+    ## Full diff
+    git diff <starting_commit>..HEAD
+
+    ## Source design
+    <path>（已通过 Design Review）
+
+    ## Plan
+    <path>（已通过 Plan Review）
+
+    ## Pack completion summary
+    | Pack | Worker verdict | Pack Review verdict | Verified behaviors | Repair rounds |
+    <paste per-pack summary>
+
+    ## Review steps
+
+    对 starting commit 到 HEAD 的完整 diff 做以下审查：
+
+    1. **Correctness**：逻辑错误、off-by-one、null/undefined 处理、类型不匹配、边界条件。
+    2. **Regression**：变更是否破坏既有功能。跑完整测试套件并报告结果。
+    3. **Security**：injection、auth bypass、敏感数据泄漏、insecure defaults、OWASP top 10。
+    4. **Integration**：跨文件变更是否协调一致；模块间接口是否一致。
+    5. **Design alignment**：实现是否匹配 design doc 的 stated intents。
+    6. **二阶故障**：如果 A 失败，B 是否优雅处理（error propagation、retry、rollback）。
+    7. **Edge cases**：空状态、错误路径、retry/rollback、竞态、测试未覆盖的边缘场景。
+
+    ## Calibration
+    只标记会导致实际问题的 issue。每个 finding 必须有 evidence。
+    Pack Review 已验证的代码质量问题——不再重复。
+    措辞、命名偏好、nice-to-have 建议——不是 finding。
+
+    ## Return Contract
+    ### Verdict
+    pass / blocked / needs repair / needs context
+    ### Evidence
+    - 实际检查过的 files / docs / tests / commands
+    ### Result
+    Code-Level Audit:
+    Critical:
+    Important:
+    低置信度观察:
+
+    Disposition required:
+    ### Verification
+    ### Open Items
+  "
+})
+```
+
+## Step 5：并行派发
+
+两个 baseline 可在同一消息中并行派发（两个 Agent tool call）。Budget 消耗 2。

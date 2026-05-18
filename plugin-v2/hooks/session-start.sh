@@ -34,7 +34,7 @@ cat <<'RULES'
 - orchestrate-discovery (includes Design Review internally) returns DISCOVERY_READY → check issue hierarchy; missing → to-issues → orchestrate-plan-writing
 - orchestrate-plan-writing (includes Plan Review internally) returns PLAN_CREATED → orchestrate-execution
 - orchestrate-execution (pack dispatch + Pack Review per pack) returns EXECUTION_PASSED → orchestrate-final-review
-- orchestrate-final-review (Final Review + business report + closing) passes → done
+- orchestrate-final-review (Final Review + business report) returns FINAL_REVIEW_PASSED → orchestrate-workflow Closing
 - orchestrate-workflow selects READY_FOR_REPAIR → Direct Repair mini-route (workflow Step 8a)
 - orchestrate-workflow selects Bug Investigation → root-cause-analyst → route by result (repair / formal orchestrate)
 - Execution / Final Review: repair round 2 still fails → root-cause-analyst before round 3
@@ -56,7 +56,7 @@ cat <<'RULES'
   · 没有验证证据，不得声称完成。
   · 没有用户明确指令，不得 merge / push / PR / discard / 写生产环境。
   · Formal Orchestrate 没有可 review 的 design document 时先进 Discovery，不跳到 plan / worker。
-  · Design Review / Plan Review / Final Review 不可跳过（除非 Entry Gate 选择了 Answer-only / One-shot Review / Direct Repair）。
+  · Design Review / Plan Review / Final Review 不可跳过（除非 Entry Gate 选择了 Direct Repair mini-route）。
   · upstream skill 结论必须写回 design / plan / bug brief，再继续当前节点。
 - 禁止:
   · 跳过 Design Review、Plan Review 或 Final Review。
