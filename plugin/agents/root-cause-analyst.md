@@ -8,7 +8,7 @@ description: |
   <example>集成后出现新故障——单独都过，合一起挂</example>
   Do NOT use for: known issues with clear fix location (use pack-executor/complex-pack-executor), read-only investigation without fix (use complex-code-explorer), document/plan issues (coordinator handles directly), code review (dispatched to Codex).
 model: claude-opus-4-7[1m]
-effort: high
+effort: xhigh
 tools:
   - Read
   - Edit
