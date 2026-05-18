@@ -76,3 +76,48 @@ Coordinator 审阅 analyst findings，不是盲目接受——主动验证：
 | `design_conflict` | 冲突在设计层面——两个 PR 的目标本身矛盾。两条路：(1) 回 orchestrate-discovery 让用户重新对齐设计 → 返回 `NEEDS_DISCOVERY`；(2) 当场询问用户做决策 → 拿到决策后继续 |
 | `implementation_deviation` | 某个 PR 偏离了设计——定位到具体偏离，dispatch worker 修复偏离（Step 12） |
 | `unable_to_determine` | 派 complex-code-explorer 补充信息后重新 dispatch analyst；或 BLOCKED 报告用户 |
+
+**`unable_to_determine` Explorer Dispatch**：
+
+```
+Agent({
+  subagent_type: "complex-code-explorer",
+  description: "Supplement PR conflict investigation: <conflict cluster>",
+  prompt: "
+    ## Scope
+    只读调查。Root-cause-analyst 无法确定 PR 间冲突的根因，需要更多信息。
+
+    ## Analyst 已排除的假设
+    <paste from analyst return — excluded hypotheses with evidence>
+
+    ## 待澄清的冲突
+    <paste unresolved conflicts from analyst return>
+
+    ## PRs involved
+    | PR | Branch | 核心行为 |
+    <paste>
+
+    ## 大设计文档
+    <path>
+
+    ## 调查方向
+    <Coordinator 根据 analyst 排除路径判断的下一步方向——
+     隐式依赖 / 运行时行为耦合 / 配置传播 / 时序依赖等>
+
+    ## Return Contract
+    ### Verdict
+    pass / blocked / needs repair / needs context
+    ### Evidence
+    - 实际检查过的 PRs / files / diffs / docs
+    ### Result
+    - Facts: confirmed facts with locators
+    - Inferences: hypotheses, clearly marked
+    - Excluded paths: hypotheses checked and ruled out with evidence
+    - Recommended next probe: <for analyst re-dispatch>
+    ### Verification
+    ### Open Items
+  "
+})
+```
+
+Explorer 返回后：用 explorer findings 补充 analyst prompt，重新 dispatch `root-cause-analyst`（Step 9）。如果 explorer 也无法提供有用信息 → BLOCKED，报告用户。

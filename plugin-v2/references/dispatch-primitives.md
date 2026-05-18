@@ -88,6 +88,47 @@ Phase reference 和 agent definitions 可以在 `### Result` 内定义 role-spec
 
 冲突按 evidence quality 判断，不按 reviewer 数量投票。
 
+### `needs evidence` Explorer Dispatch
+
+```
+Agent({
+  subagent_type: "<code-explorer | complex-code-explorer>",
+  description: "Supplement evidence: <finding summary>",
+  prompt: "
+    ## Scope
+    只读调查。Reviewer 提出了一条 finding，但 Coordinator 无法验证其正确性——
+    需要你查找证据来确认或否认这条 finding。
+
+    ## Finding 待验证
+    <paste finding — severity / locator / evidence / impact / remediation>
+
+    ## Reviewer 的主张
+    <reviewer 声称什么行为/问题存在>
+
+    ## Coordinator 存疑点
+    <为什么 Coordinator 无法自行判断——缺哪些信息>
+
+    ## 相关文件
+    <paste affected files / modules>
+
+    ## Return Contract
+    ### Verdict
+    pass / blocked / needs repair / needs context
+    ### Evidence
+    - 实际检查过的 files / tests / logs / commands
+    ### Result
+    - Facts: confirmed facts with locators
+    - Finding assessment: confirmed / refuted / partially confirmed + evidence
+    - Inferences: clearly marked
+    - Recommended next probe: <if unable to fully assess>
+    ### Verification
+    ### Open Items
+  "
+})
+```
+
+窄范围（单文件 / 单调用链）用 `code-explorer`；多模块 / 跨边界用 `complex-code-explorer`。
+
 ## 修复归属（单一来源）
 
 Disposition 为 `accepted` 后：
@@ -99,8 +140,11 @@ Disposition 为 `accepted` 后：
 - **Execution / Final Review — 简单修复**（≤ 2 文件、不触碰合同边界、不需新增测试、意图明确）：Coordinator 直接修复，跑验证后调度 targeted re-review。
 - **Execution / Final Review — 复杂修复**：SendMessage 原 worker（异步，等通知）；未启用 Agent Teams 时新建同类 targeted-repair agent，prompt 含 accepted findings + pack brief subset + git diff scope。
 - **Execution / Final Review — 根因不明（只读调查）**：新建 `complex-code-explorer`。
-- **Execution — 第 2 轮 repair 仍 needs repair**：截断 worker 循环，新建 `root-cause-analyst`（始终新建，需要全新视角）。Route by analyst `Result.Resolution`：`fixed` → targeted re-review；`root cause found, not fixed` → 用 analyst findings 重新 dispatch worker；`root cause in design/plan` → 写回后 re-enter discovery / plan-writing；`unable to determine` → BLOCKED，报告用户。
+- **Execution — 第 2 轮 repair 仍 needs repair**：截断 worker 循环，新建 `root-cause-analyst`（始终新建，需要全新视角）。Route by analyst `Result.Resolution`：`fixed` → targeted re-review；`root cause found, not fixed` → 用 analyst findings 重新 dispatch worker；`root cause in design/plan` → 写回后 re-enter discovery / plan-writing；`unable to reproduce` → 报告用户，请求更多重现信息；`unable to determine` → BLOCKED，报告用户。
 - **Bug Investigation 入口**：Entry Gate 判定根因不明的 bug/error/regression → 新建 `root-cause-analyst`。Route by analyst `Result.Resolution`：`fixed` → Codex review → Closing；`root cause found, not fixed` → 派 worker → Codex review → Closing；`root cause in design/plan` → 更新 Scope Contract + 创建 budget file → Formal Orchestrate（discovery seed）；`unable to reproduce` / `unable to determine` → 报告用户，请求更多信息。
+- **Multi-PR Merge — 系统性冲突**：explorer 发现意图 / 隐式依赖 / 多冲突关联 → 新建 `root-cause-analyst`（模式 3）。Route by analyst `Result.Resolution`：`root_cause_identified` → 逐冲突 dispatch worker；`design_conflict` → 询问用户或回 discovery；`implementation_deviation` → dispatch worker 修偏离；`unable_to_determine` → 派 `complex-code-explorer` 补信息后重新 dispatch analyst，或 BLOCKED。
+- **Multi-PR Merge — 复杂但根因明确**：功能 / 合同冲突但 Coordinator 清楚方向 → 直接 dispatch worker。
+- **Multi-PR Merge — 简单冲突**（≤ 2 文件、代码级）：Coordinator 直接修。
 - **READY_FOR_REPAIR**（已批准 design 下的实现偏离）：Direct Repair mini-route（workflow Step 8a）——派 worker → Codex review → Closing。
 - **desired behavior 不清**：`orchestrate-discovery`（Skill 调用）。
 - **bad seam / 架构摩擦**：`improve-codebase-architecture`（Skill 调用）；只影响当前 pack 回 Execution 继续，改变 plan anchors 回 Plan Review re-review。

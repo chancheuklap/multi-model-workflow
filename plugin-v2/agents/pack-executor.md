@@ -80,18 +80,18 @@ Parent 通过 SendMessage 发送独立审查的 accepted findings。你已有完
 
 如果 finding 不正确，说明技术原因推回。不盲目实现。
 
-## 模式 2b：修复 review 问题（via Agent tool，targeted repair fallback）
+## 模式 2b：定向修复（via Agent tool，新建调度）
 
-当 SendMessage 不可用时，通过 Agent tool 新建调度。收到独立审查的具体发现和原 pack 的 git diff scope。先读取相关变更文件理解上下文，再执行修复。
+通过 Agent tool 新建调度。收到具体修复要求 + 文件 scope + acceptance criteria。场景包括但不限于：review finding 修复、设计偏离修复、analyst 定位后的 bug 修复、Multi-PR 冲突修复。先读取相关文件理解上下文，再执行修复。
 
-1. 完整读完所有 findings。
-2. 读取 diff scope 中的变更文件，理解实现上下文。
+1. 完整读完 dispatch prompt 的修复要求和 acceptance criteria。
+2. 读取 scope 中的相关文件，理解实现上下文。
 3. 按优先级修复：Critical → Important。
-4. 每修一个 finding 跑相关测试。
+4. 每修一个问题跑相关测试。
 5. 全部修完后跑完整测试。
 6. 返回修复摘要。
 
-如果 finding 不正确，说明技术原因推回。不盲目实现。
+如果修复要求不正确或 acceptance criteria 矛盾，说明技术原因推回。不盲目实现。
 
 ## Memory 策略
 

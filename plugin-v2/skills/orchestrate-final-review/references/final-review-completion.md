@@ -148,8 +148,49 @@ Budget：Release gate 有独立预算（最多 2 个 dispatch，含 early + fina
 **Release blocker 修复**：
 
 1. 评估 blocker 严重程度和修复范围
-2. 简单 → Coordinator 直接修
-3. 复杂 → 派 `complex-pack-executor`（release blocker 默认用 Opus 模型）
+2. 简单（≤ 2 文件、修复方向明确）→ Coordinator 直接修
+3. 复杂 → 派 `complex-pack-executor`：
+
+```
+Agent({
+  subagent_type: "complex-pack-executor",
+  description: "Fix Final Release blocker: <blocker summary>",
+  prompt: "
+    ## Scope
+    修复 Final Release Gate 发现的 release blocker。
+
+    ## Release blocker
+    <paste accepted blocker finding — severity / locator / evidence / impact / remediation>
+
+    ## Risk surface
+    <migration / deploy / rollback / permission / billing / runtime>
+
+    ## Source design
+    <path>
+
+    ## Affected files
+    <list>
+
+    ## Acceptance criteria
+    - [ ] Release blocker 已修复
+    - [ ] 回归测试通过
+    - [ ] 不引入新的发布风险
+    - [ ] 不改变 source design / plan 的 baseline
+
+    ## Return contract
+    ### Verdict
+    pass / blocked / needs repair / needs context
+    ### Evidence
+    ### Result
+    - Changed files
+    - Fix applied per blocker
+    - Rollback impact: <if applicable>
+    ### Verification
+    ### Open Items
+  "
+})
+```
+
 4. 需要用户决策（如 rollback 策略选择）→ 询问用户
 5. 修复后做 targeted release re-review：只审修复变更 + 原 release risk surface。不重跑 baseline review（除非修复改变了 source design / plan / shared contract / migration / permission / billing / runtime baseline）
 

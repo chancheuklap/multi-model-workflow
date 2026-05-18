@@ -26,9 +26,50 @@
 
 **条件**：根因不明——reviewer 指出症状但无法确定原因。
 
-1. 新建 `complex-code-explorer`，prompt 含症状描述 + 相关文件 + 调查方向
-2. Explorer 返回只读调查结果（不修代码）
-3. 根据调查结果选择路径 A 或 B 继续修复
+```
+Agent({
+  subagent_type: "complex-code-explorer",
+  description: "Investigate unknown root cause: Pack N.M finding",
+  prompt: "
+    ## Scope
+    只读调查。Reviewer 报告了症状但无法确定根因。找到根因，不写代码。
+
+    ## 症状描述
+    <paste accepted finding — severity / locator / evidence / impact>
+
+    ## 已知上下文
+    - Pack: <pack number + title>
+    - Worker 修复尝试: <前轮修复内容及失败原因，如有>
+    - 相关文件: <affected files>
+    - Git diff scope: <paste>
+
+    ## 调查方向
+    <Coordinator 初步判断——时序 / 隐式依赖 / 状态污染 / 配置漂移等>
+
+    ## Return Contract
+    ### Verdict
+    pass / blocked / needs repair / needs context
+    ### Evidence
+    - 实际检查过的 files / tests / logs / commands
+    ### Result
+    - Facts: confirmed facts with locators
+    - Root cause assessment: <root cause + evidence, if found>
+    - Recommended fix direction: <路径 A（Coordinator 直接修）/ 路径 B（Worker 修）+ 理由>
+    - Excluded paths: hypotheses checked and ruled out with evidence
+    - Recommended next probe: <if root cause not found>
+    ### Verification
+    ### Open Items
+  "
+})
+```
+
+Explorer 返回后路由：
+
+| Explorer Result | 动作 |
+| --- | --- |
+| Root cause found + 推荐路径 A | Coordinator 直接修复 → Step 11 |
+| Root cause found + 推荐路径 B | 派 Worker 修复 → Step 11 |
+| Root cause not found | 报告用户，附 explorer 已排除路径 |
 
 ### 修复归属快速判定
 

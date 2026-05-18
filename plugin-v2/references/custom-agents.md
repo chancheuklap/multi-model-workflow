@@ -11,7 +11,7 @@
 | 高风险 Task Pack / 高风险 repair | `complex-pack-executor` | opus |
 | 多模块调查 / unknown root cause (只读) | `complex-code-explorer` | opus |
 | 窄范围代码问题 | `code-explorer` | sonnet |
-| repair round 2 仍失败 / Bug Investigation 入口 | `root-cause-analyst` | claude-opus-4-7[1m] |
+| repair round 2 仍失败 / Bug Investigation 入口 / Multi-PR 系统性冲突 | `root-cause-analyst` | claude-opus-4-7[1m] |
 | 低风险文档整理 | `docs-worker` | sonnet |
 
 ## 通信架构
