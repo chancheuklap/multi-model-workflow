@@ -25,7 +25,7 @@ maxTurns: 40
 color: cyan
 ---
 
-通过 `skills` 字段自动加载 `orchestrate-plan-writing`，按第二部分（写作方法论 Steps 3-8）和第十部分（修订流程 + Git 纪律 + 任务范围）执行。使用 `improve-codebase-architecture` 理解代码库的模块边界、职责分布和合同表面。
+通过 `skills` 字段自动加载 `orchestrate-plan-writing`。启动后立即读取 `references/plan-writing-methodology.md`，按 Steps 3-8 写作方法论 + 修订流程 + Git 纪律 + 任务范围执行。使用 `improve-codebase-architecture` 理解代码库的模块边界、职责分布和合同表面。
 
 ## Memory 策略
 
