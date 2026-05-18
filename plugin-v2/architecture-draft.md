@@ -199,12 +199,36 @@ flowchart TD
 | root-cause-analyst | Opus 4.7 (1M) | Bug Investigation / Execution 根因不明 |
 | docs-worker | Sonnet | 文档清理（Closing 阶段可选） |
 
-### 外部 Skill（2 个）
+### 外部 Skill
 
-| Skill | 用在哪 |
-|-------|--------|
-| to-issues | 设计文档 → 大 Issue → 小 Issue |
-| improve-codebase-architecture | Execution 中发现 architecture friction 时调用 |
+#### Coordinator 按需调用（主线程 Skill tool）
+
+| Skill | 用在哪 | 产出 |
+|-------|--------|------|
+| grill-with-docs | Discovery：术语对齐，与设计文档同步维护 CONTEXT.md | 更新 CONTEXT.md（术语表 + ADR） |
+| prototype | Discovery：状态/UI 方向验证 | throwaway 原型 + verdict |
+| to-issues | Design Review 通过后：设计文档 → 大 Issue → 小 Issue | vertical issues |
+| improve-codebase-architecture | Execution 中 architecture friction / Discovery 中架构分析 | 架构分析 + deepening 建议 |
+| zoom-out | 任何阶段需要代码地图 | 模块地图 + 调用链 + 边界上下文 |
+| triage | Issue 管理 | issue 分类 + ready state |
+| diagnose | Bug 路线或 Execution 中需要重现/假设 | 反馈循环 + 假设 + 关键接口 |
+
+#### Agent-Bound（agent frontmatter `skills:` 自动加载）
+
+| Skill | 绑定 Agent |
+|-------|-----------|
+| tdd | pack-executor, complex-pack-executor, root-cause-analyst |
+| diagnose | root-cause-analyst, pack-executor, complex-pack-executor |
+| prototype | Coordinator 在 Discovery 阶段按需调用 |
+| improve-codebase-architecture | complex-pack-executor, plan-writer |
+| grill-with-docs | docs-worker |
+| triage | docs-worker |
+
+#### 外部 Plugin（可选）
+
+| Plugin Skill | 用在哪 |
+|-------------|--------|
+| frontend-design | Discovery：UI 项目的高品质前端原型 |
 
 ### Codex Reviewer（贯穿所有 review 节点）
 
@@ -306,3 +330,22 @@ Closing = 汇报 + 提交 + 推送 + 开 PR，应自动执行。
 - 修复后由 **Coordinator 验证**（不是 Explorer），因为 Coordinator 最了解冲突的方向和正确状态。
 - 所有 PR **并行分析**，不是逐个顺序处理。
 - 理论上可能打回某个 PR，但实际上因为每个 PR 都经历了路线 1，几乎不存在回炉重造的情况。
+
+### 15. 外部 Skill 体系
+
+**Agent-Bound**（agent frontmatter `skills:` 自动加载）：
+- tdd → pack-executor + complex-pack-executor + root-cause-analyst
+- diagnose → root-cause-analyst + pack-executor + complex-pack-executor
+- prototype → Coordinator 在 Discovery 阶段按需调用
+- improve-codebase-architecture → complex-pack-executor + plan-writer
+- grill-with-docs → docs-worker
+- triage → docs-worker
+
+**Coordinator-Invoked**（主线程按需调用）：grill-with-docs、prototype、to-issues、improve-codebase-architecture、zoom-out、triage、diagnose。
+
+**外部 Plugin**（可选）：frontend-design（UI 项目的前端原型）。
+
+**Discovery 阶段的关键设计**：
+- **grill-with-docs** 在 Discovery 过程中同步维护 CONTEXT.md，确保术语和领域模型与设计文档**共同进化**。
+- Discovery 阶段是**灵活多变**的——grill-with-docs 做术语对齐、prototype 做状态/UI 验证、frontend-design 做前端原型、improve-codebase-architecture 做架构分析——按需组合，不是固定线性流程。
+- CONTEXT.md 是项目的领域词汇表，与设计文档**共同进化**。
