@@ -18,8 +18,8 @@ description: "正式开发流程主入口。用户给出新功能、改造、bug
 | 路线 | 输入信号 | 下一步 |
 | --- | --- | --- |
 | **Route 1: Formal Orchestrate** | 新功能、改造、feedback、缺 design/issue/plan、已有 design/plan 要 review/执行 | Step 2 |
-| **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Step 4 → `references/bug-investigation-route.md` |
-| **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Step 4 → Step 19 |
+| **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Steps 4-5（Scope + Git，跳过 Budget）→ Step 15 |
+| **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Steps 4-5（Scope + Git，跳过 Budget）→ Step 19 |
 
 模糊输入 → 一次只问一个问题收窄。概念/事实问题 → 直接回答不进 orchestrate。
 

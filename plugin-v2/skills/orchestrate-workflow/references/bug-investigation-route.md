@@ -116,10 +116,12 @@ Agent({
 })
 ```
 
+**整体 Verdict 前置检查**：如果 reviewer 返回整体 `needs context`，补充上下文后重新 dispatch，不进入 per-finding 处理。
+
 | Verdict | 动作 |
 | --- | --- |
 | `pass` | Step 21（Closing） |
-| `needs repair` | Coordinator 验证 finding → 路径 A（Coordinator 直接修，≤2 文件）或路径 B（新建 worker 修复）→ targeted re-review → 最多 2 轮 → Closing |
+| `needs repair` | Coordinator 验证 finding → 路径 A（Coordinator 直接修，≤2 文件）或路径 B（新建 worker 修复）→ targeted re-review（重用 Step 17 模板，scope 缩小到修复 diff）→ 最多 2 轮 → Closing |
 | `blocked` | 报告用户 |
 
 ## Step 18：Complex Bug — Worker Dispatch
@@ -158,7 +160,14 @@ Agent({
 })
 ```
 
-Worker 返回 → Codex review（同 Step 17）→ Closing。
+Worker 返回处理：
+
+| Worker Verdict | 动作 |
+| --- | --- |
+| `pass` | Codex review（同 Step 17）→ Closing |
+| `needs repair` | 读 concerns；正确性问题 → SendMessage worker 修复；观察性意见 → 记录，进 Codex review |
+| `needs context` | SendMessage 补充上下文给 worker |
+| `blocked` | 技术阻塞：换更强模型 / 拆 scope；业务阻塞：询问用户 |
 
 ---
 > **下一步**：修复通过 Codex review → Closing（`workflow-closing.md`）。root cause in design/plan → 创建 budget file + 转入 Route 1（`workflow-formal-orchestrate.md`）。

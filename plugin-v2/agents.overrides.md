@@ -66,3 +66,5 @@ Claude Code plugin v2 (v0.8.0)。6 个内部 Skill + 7 个 Sub-Agent + ~25 个 s
 - dispatch template 中不放 agent 定义已有的行为规则（自检、TDD、Git 纪律等）
 - 改 Forbidden Shortcuts 时同步 execution-review-dispatch.md 和 final-review-angles.md
 - 改 NEEDS_EXECUTION 上限时同步 final-review-repair.md、final-review-completion.md、workflow-formal-orchestrate.md
+- 改 disposition 的 `needs context` 前置检查时同步所有 5 个 disposition 文件（含 merge-integration-review.md）
+- 改 Analyst ↔ Explorer 循环上限时同步 merge-rca-investigation.md

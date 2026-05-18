@@ -194,25 +194,7 @@ Plan 中有 `risk_flags`（`migration`、`billing`、`auth`、`shared-contract`�
 
 ### 🟢 轻微（可优化，不影响功能）
 
-#### L1. 模拟场景中的 Pack Brief 可能非常大
-
-**位置**：`execution-worker-dispatch.md`
-
-**问题**：规定"所有 task 完整文本直接贴在 prompt 中——不让 worker 读 plan 文件"。对于包含 6-8 个 implementation tasks 的大 pack，加上 Contract anchors、Verification commands 等，一个 Pack Brief 可以轻松超过 2000 tokens。没有对"Pack Brief 过大"的处理指导。
-
-#### L2. Agent Memory 目录没有创建指导
-
-**位置**：所有 agent 定义的 Memory 策略
-
-**问题**：各 agent 都说"写入 `.claude/agent-memory/<agent-name>/`"，但没有说谁创建这个目录、什么时候创建。
-
-#### L3. Worker maxTurns 耗尽没有处理指导
-
-**位置**：`agents/pack-executor.md` (maxTurns: 50)、`agents/plan-writer.md` (maxTurns: 40)
-
-**问题**：如果 worker 在 50 turns 内没完成 pack，会怎样？没有指导。
-
-#### L4. Design Review 2 baseline vs Plan Review 1 baseline 的设计理由不明
+#### L1. Design Review 2 baseline vs Plan Review 1 baseline 的设计理由不明
 
 **位置**：`design-review-angles.md`（2 baseline）、`plan-review-dispatch.md`（1 baseline with 3 angles）
 
@@ -220,29 +202,83 @@ Plan 中有 `risk_flags`（`migration`、`billing`、`auth`、`shared-contract`�
 
 ---
 
-## 三、审计范围说明
+## 三、Route 2（Bug Investigation）审计
 
-本次演练只覆盖了 **Route 1（Formal Orchestrate）**——最长最复杂的主路线。以下路线**未被演练**：
+**模拟场景**：用户报告"TaskFlow 升级订阅后 Dashboard 仍显示旧配额，刷新后正常"
+**路径**：Entry Gate → Steps 4-5（Scope + Git）→ Step 15（dispatch analyst）→ Step 16（handle return）→ Step 17/18（review/worker）→ Closing
 
-- **Route 2（Bug Investigation）**：root-cause-analyst dispatch → 5 种分辨路径 → repair 或升级到 Route 1。未演练意味着 RCA dispatch template、模式检测表、5 种结果路由的正确性均未验证。
-- **Route 3（Multi-PR Merge）**：跨 PR 冲突发现 → RCA → worker repair → 集成审查 → merge。整个 `orchestrate-multi-pr-merge` skill 和相关 references 未被触及。
+### 已修复
 
-Route 2 和 Route 3 的问题密度可能与 Route 1 不同——它们的流程更短、reference 更少，但也更少被打磨。建议后续对它们做独立演练。
+| 编号 | 问题 | 修复 |
+|------|------|------|
+| R2-1 | Entry Gate 路由写 "Step 4 → reference"，实际 Bug Investigation 在 Steps 15-18，中间跳过 Steps 6-14 没有说明 | Entry Gate 改为 "Steps 4-5（Scope + Git，跳过 Budget）→ Step 15" |
+| R2-2 | Step 17 Codex review 缺少 `needs context` 整体 verdict 处理（与 S5 同类） | 加了前置检查 |
+| R2-3 | Step 18 worker 返回后只有一行 "→ Codex review → Closing"，没有 verdict routing | 补了完整的 4 种 verdict 路由表 |
+
+### 剩余问题
+
+#### R2-M1. Route 2 → Route 1 转换的 seed 传递机制隐式
+
+**位置**：`bug-investigation-route.md` Step 16 `root cause in design/plan` 路径
+
+**问题**：Analyst 发现根因在设计层面时，文档提供了 "Bug-seeded Discovery" 模板，但没有说明这个 seed 信息如何传递给 `orchestrate-discovery` skill。Coordinator 在调用 `Skill({ skill: "orchestrate-discovery" })` 时，seed 靠对话上下文隐式传递——如果发生 context compaction，seed 可能丢失。
+
+**修复建议**：seed 信息写入 Scope Contract 的 Source artifacts 部分（已有指导），但应额外强调 Scope Contract 是 compaction-durable 的信息载体。
+
+#### R2-M2. Route 2 没有任何 budget 机制
+
+**位置**：全局
+
+**问题**：Route 2 没有 budget file。Step 17 Codex review + targeted re-review 的次数只靠 "最多 2 轮" 文字约束。如果 analyst `unable_to_determine` 后用户要求继续，多次 analyst dispatch + Codex review 没有全局计数器。
+
+**影响**：小问题——Bug Investigation 通常很短（1 analyst + 1-2 Codex），不太会失控。但与 Route 1 的严格 budget 管控形成对比。
 
 ---
 
-## 四、总体评估
+## 四、Route 3（Multi-PR Merge）审计
+
+**模拟场景**：3 个 PR（Billing migration + Permission catalog + Dashboard UI）来自同一订阅系统设计
+**路径**：Entry Gate → Steps 4-5（Scope + Git）→ orchestrate-multi-pr-merge（Steps 1-22）→ Closing
+
+### 已修复
+
+| 编号 | 问题 | 修复 |
+|------|------|------|
+| R3-1 | `merge-integration-review.md` Step 17 缺少 `needs context` 前置检查（Route 1 修复时遗漏） | 加了前置检查 |
+| R3-2 | Analyst ↔ Explorer 循环无次数限制 | 加了 "最多 1 次循环" |
+| R3-3 | `git merge <pr-branch>` 假设本地分支，远程 PR 无 fetch 指导 | 加了 `git fetch origin` |
+
+### 剩余问题
+
+#### R3-M1. 修复引入新冲突的递归无上限
+
+**位置**：`merge-conflict-repair.md` Step 14
+
+**问题**：Step 14 说 "修复引入新冲突 → 新冲突进入 Step 7 分类"。每个冲突有 3 轮修复上限，但修复可以创造新冲突，新冲突又有自己的 3 轮上限。理论上：修 A 引出 B，修 B 引出 C…… 没有全局递归深度限制。
+
+**实际风险**：低——冲突通常越修越少，不会无限增殖。但没有显式 cap 是一个设计缺口。
+
+**修复建议**：加全局新冲突上限——"修复引入的新冲突最多处理 2 轮；之后 BLOCKED"。
+
+#### R3-M2. `${CLAUDE_PLUGIN_ROOT}` 变量在 agent context 中是否可用
+
+**位置**：`agents/root-cause-analyst.md` 模式 3 方法论读取指令
+
+**问题**：agent 定义说 "读取 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-multi-pr-merge/references/rca-pr-conflict-methodology.md`"。`${CLAUDE_PLUGIN_ROOT}` 是 Claude Code runtime 注入的变量，但 agent 是在子会话中运行——需要确认这个变量在子会话中是否解析。
+
+**影响**：如果变量未解析，agent 找不到方法论文件，会使用 fallback 的通用调查方法。不会链条断裂，但会降低调查质量。
+
+---
+
+## 五、全路线总体评估
 
 ### 做得好的
-- **文件引用零悬空**：25 个 reference 文件、7 个 agent 文件全部存在且正确引用
-- **Verdict producer/consumer 对齐**：每个 skill 的返回 verdict 在下游都有对应的 handler
-- **Agent dispatch template 自足**：每个 dispatch 都包含完整的 Return Contract 和 Calibration
-- **渐进式加载设计合理**：到达步骤时才读 reference，不一次性加载
+- **文件引用零悬空**：所有 reference 文件（Route 1: ~25 个 + Route 3: 7 个）全部存在且正确引用
+- **Agent 模式检测设计合理**：root-cause-analyst 的 3 模式各有独立 Resolution 值和方法论，dispatch template 的信号词与模式检测表对齐
+- **Route 3 的 5 维度冲突分析**很全面：代码 / 功能 / 意图 / 合同 / 隐式依赖
+- **Route 2 的 5 路径 Resolution 覆盖完整**：从 "修好了" 到 "需要重做设计" 到 "复现不了" 全有处理
 
-### 核心担忧
-- **4000 行指令文本中约 30% 是重复内容**（Disposition × 4、Repair 路由 × 3、Forbidden Shortcuts × 2、非阻塞项 × 5）
-- **Budget 系统有 5 层控制 + 预算偏紧**，理想路径就消耗 82%，一次波折就耗尽
-- **plan-writer 被灌了整个 Coordinator 视角的 SKILL.md**
-- **Final Review ↔ Execution 回流无显式次数限制**（budget 是隐式 cap 但文档未关联）
-- **TDD strict 无降级机制**，微调性 task 也要走完整红-绿-重构
-- **CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS 是隐式硬依赖**，未设置时整个修复链路静默降级
+### 三条路线的成熟度对比
+- **Route 1**：最成熟——经过这轮审计修了 17 个问题后，链条完整，budget 控制严格，修复和截断路径清晰
+- **Route 3**：中等——架构设计很好（冲突三级分类、Analyst 调查、集成审查），但边界情况（新冲突递归、变量解析）有缺口
+- **Route 2**：最薄——流程最短但也最粗糙，verdict 路由不完整（已修），没有 budget 机制，seed 传递靠隐式上下文

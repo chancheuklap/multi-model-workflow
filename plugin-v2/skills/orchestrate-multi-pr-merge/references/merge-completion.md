@@ -22,7 +22,8 @@ Codex 跨 PR 集成审查通过后，进入顺序合并。
 对每个 PR 按顺序执行：
 
 ```bash
-git merge <pr-branch> --no-ff -m "Merge PR #<number>: <title>"
+git fetch origin <pr-branch>
+git merge origin/<pr-branch> --no-ff -m "Merge PR #<number>: <title>"
 ```
 
 **冲突处理**：
