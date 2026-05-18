@@ -351,8 +351,10 @@ Step 4: Route per ${CLAUDE_PLUGIN_ROOT}/references/coordinator-tools.md Routing 
 Step 1: Read plan-review-angles.md → build dispatch prompt for 3 baseline codex-reviewers.
 Step 2: Dispatch reviewers (dispatch-primitives.md + review-budget.md; update budget_total and pack_count).
 Step 3: Receive results → disposition each finding.
-Step 4: Route: design gap → orchestrate-discovery; issue gap → to-issues;
-        plan gap → orchestrate-plan-writing; pass → orchestrate-execution.
+Step 4: Route per ${CLAUDE_PLUGIN_ROOT}/references/coordinator-tools.md Routing Vocabulary:
+        design gap → orchestrate-discovery; issue gap → to-issues;
+        plan gap → orchestrate-plan-writing; architecture friction → improve-codebase-architecture;
+        module map / call chain needed → zoom-out; pass → orchestrate-execution.
 ```
 
 ### orchestrate-execution (Phase A)
@@ -365,7 +367,9 @@ Step 2: Worker returns → read pack-review.md → dispatch 1 baseline codex-rev
 Step 3: Receive pack review → disposition → repair per dispatch-primitives.md 修复归属.
 Step 4: For parallel packs: read worktree-merge.md → coordinator merges worktrees sequentially.
 Step 5: All packs pass → route to orchestrate-final-review.
-        design/domain gap → orchestrate-discovery; architecture friction → improve-codebase-architecture.
+        For non-pass outcomes, route per ${CLAUDE_PLUGIN_ROOT}/references/coordinator-tools.md Routing Vocabulary:
+        design/domain gap → orchestrate-discovery; architecture friction → improve-codebase-architecture;
+        unknown root cause → root-cause-analyst / complex-code-explorer.
 ```
 
 ### orchestrate-final-review (Phase B + C)
@@ -375,7 +379,10 @@ Step 1: Read final-review-angles.md → build dispatch prompt for 2 baseline cod
         (augmented: regression sweep + full intent coverage + cross-pack audit).
         (dispatch-primitives.md + review-budget.md at dispatch.)
 Step 2: Receive results → disposition → repair per dispatch-primitives.md 修复归属.
-        If release gate triggered: read review-budget.md for release gate rules → dispatch codex-release-reviewer.
+        Route per ${CLAUDE_PLUGIN_ROOT}/references/coordinator-tools.md Routing Vocabulary:
+        implementation gap → orchestrate-execution; design / context gap → orchestrate-discovery;
+        plan gap → orchestrate-plan-writing; architecture friction → improve-codebase-architecture.
+        If release gate triggered: read review-budget.md → dispatch codex-release-reviewer.
 Step 3: Phase B passes → read business-report.md → assemble Phase C business report.
 Step 4: Branch finishing (commit, clean up, report to user). Done.
 ```
@@ -388,7 +395,9 @@ Step 2: Dispatch worker (dispatch-primitives.md at dispatch;
         contract-boundary.md only if contract boundary touched).
 Step 3: Worker returns → apply review tier from Step 1.
         Full review: dispatch codex-reviewer (dispatch-primitives.md + review-budget.md).
-Step 4: Receive review → disposition → repair if needed. Done.
+Step 4: Receive review → disposition per dispatch-primitives.md Reception Rules.
+        Route per ${CLAUDE_PLUGIN_ROOT}/references/coordinator-tools.md Routing Vocabulary.
+        Done.
 ```
 
 ### orchestrate-discovery / orchestrate-plan-writing
