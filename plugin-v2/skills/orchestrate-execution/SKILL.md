@@ -19,7 +19,8 @@ Plan Review 通过 → 逐 Pack 派 Worker → Pack Review → 修复 → Releas
 
 → `references/execution-pack-review-cycle.md`（选 worker → 构造 Pack Brief → 派发 → 处理返回 → Pack Review → Disposition）
 
-Dispatch templates → `references/execution-dispatch-templates.md`
+Worker dispatch template → `references/execution-worker-dispatch.md`（Step 5 读取）
+Pack Review dispatch template → `references/execution-review-dispatch.md`（Step 8 读取）
 
 通过 → Step 13。Needs repair → 读取 `references/execution-repair-truncation.md`。
 

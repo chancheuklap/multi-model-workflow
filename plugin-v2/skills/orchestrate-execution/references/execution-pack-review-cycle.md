@@ -11,7 +11,7 @@
 
 ## Step 5：构造 Pack Brief
 
-读取 `execution-dispatch-templates.md` 的 Pack Brief Template。Dispatch prompt 必须自足——worker 不读 SKILL.md、不读 references、不读 plan 文件。Coordinator 从 plan 中提取并在 prompt 中写全所有字段。
+读取 `execution-worker-dispatch.md`。Dispatch prompt 必须自足——worker 不读 SKILL.md、不读 references、不读 plan 文件。Coordinator 从 plan 中提取并在 prompt 中写全所有字段。
 
 ## Step 6：派发 Worker
 
@@ -39,7 +39,7 @@ Agent({
 
 ## Step 8：派发 Codex Reviewer
 
-读取 `execution-dispatch-templates.md` 的 Pack Review Codex Dispatch Template。通过 `codex:codex-rescue --model gpt-5.4` 派发 1 个 baseline reviewer。
+读取 `execution-review-dispatch.md`。通过 `codex:codex-rescue --model gpt-5.4` 派发 1 个 baseline reviewer。
 
 **Budget check**：`budget_used + 1 ≤ budget_total`。80% 触发 Direction Check。超预算停止报告用户。
 

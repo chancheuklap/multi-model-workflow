@@ -86,7 +86,7 @@ Explorer 返回后路由：
 
 修复完成后，只重审 accepted findings 涉及的变更部分。不做 full review rerun。
 
-派发方式同 Step 8（读取 `execution-dispatch-templates.md`），但 scope 缩小到：
+派发方式同 Step 8（读取 `execution-review-dispatch.md`），但 scope 缩小到：
 - changed files（修复涉及的文件）
 - accepted findings（原 finding 是否解决）
 - 受影响 angle（spec / quality / contract / risk 中与修复相关的）
@@ -99,9 +99,54 @@ Explorer 返回后路由：
 | --- | --- |
 | Round 1 | 路径 A/B/C 修复 → Targeted Re-Review |
 | Round 2 | 仍 needs repair → 路径 A/B/C 修复 → Targeted Re-Review |
-| Round 3（截断） | 仍 needs repair → 新建 `root-cause-analyst`（读取 `execution-dispatch-templates.md` RCA 模板） |
+| Round 3（截断） | 仍 needs repair → 截断 Worker 循环，新建 `root-cause-analyst`（见下方模板） |
 
-**Analyst Resolution 路由**：`fixed` → Targeted Re-Review（Round 3） / `root cause found, not fixed` → 重新 dispatch worker（Round 3） / `root cause in design/plan` → 写回 → orchestrate-discovery 或 orchestrate-plan-writing / `unable to reproduce` → 报告用户 / `unable to determine` → BLOCKED。
+### Root-Cause-Analyst 截断 Dispatch
+
+```
+Agent({
+  subagent_type: "root-cause-analyst",
+  description: "Investigate repair failure: Pack N.M",
+  prompt: "
+    ## 调度场景
+    Repair Truncation（Execution Pack Review）。Worker 修了两轮，reviewer 仍报 needs repair。
+
+    ## 前两轮上下文
+    - Round 1 accepted findings: <paste>
+    - Round 1 worker 修复内容: <paste>
+    - Round 2 accepted findings: <paste>
+    - Round 2 worker 修复内容: <paste>
+    - Git diff scope: <paste>
+    - 原 Pack Brief: <paste relevant subset>
+
+    ## 你的任务
+    不要重复 worker 的方法。从不同维度切入——时序、状态污染、隐式依赖、配置漂移。
+
+    ## Return contract
+    ### Verdict
+    pass / blocked / needs repair / needs context
+    ### Evidence
+    ### Result
+    - Resolution: fixed / root cause found, not fixed / root cause in design/plan / unable to reproduce / unable to determine
+    - Root cause: <evidence>
+    - Fix applied: <if fixed>
+    - Excluded hypotheses: <with evidence>
+    - Regression risk: <what could break>
+    ### Verification
+    ### Open Items
+  "
+})
+```
+
+**Analyst Resolution 路由**：
+
+| Resolution | 下一步 |
+| --- | --- |
+| `fixed` | Targeted Re-Review（消耗 Round 3） |
+| `root cause found, not fixed` | 用 analyst findings 重新 dispatch worker（消耗 Round 3） |
+| `root cause in design/plan` | 写回 design doc / plan → 回到 orchestrate-discovery 或 orchestrate-plan-writing |
+| `unable to reproduce` | 报告用户，附 analyst 排除路径，请求更多重现信息 |
+| `unable to determine` | BLOCKED，报告用户，附 analyst 排除路径 |
 
 Round 3 Targeted Re-Review 仍 needs repair → BLOCKED，报告用户。
 
