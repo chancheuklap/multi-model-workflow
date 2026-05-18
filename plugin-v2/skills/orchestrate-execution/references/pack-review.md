@@ -1,0 +1,76 @@
+# Pack Review
+
+## 输入
+
+Scope + source design + plan + pack brief + worker report + diff / changed files + verification + mockup + project docs + risk flags + Contract anchors。
+
+## Pass 条件
+
+Spec Compliance 通过 + Code Quality 无当前验收 blocker。每个 pack 最多 3 个 repair rounds。
+
+## Dispatch: 1 baseline `codex-reviewer`
+
+通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task。同一 reviewer 先做 Spec Compliance，通过后才做 Code Quality。
+
+Prompt 包含：Read first / Project baseline / Contract anchors / Mockup anchors / plan path / pack brief / worker report / diff scope / verification commands / risk flags / 发布风险 / Return Contract 和 Finding Shape（见 `dispatch-primitives.md`）。
+
+## Reviewer 独立验证（不信 worker self-report）
+
+1. 读 diff 和变更文件。
+2. 跑 focused verification 或说明为什么不能跑。
+3. UI pack 对照 mockup anchors 检查实现。
+4. 合同边界对照 parent 给出的 Contract anchors 检查正式 contract、registry、migration、repository、read model、catalog 和 producer / consumer。
+5. 对照 pack brief 逐 task 审查。
+
+## Phase 1: Spec Compliance
+
+有 Critical 时停止，不进 Code Quality。
+
+检查：功能完成 / UI 按 mockup 实现 / 错误路径覆盖 / 合同按 anchors 实现 / 无 scope creep / 多 task 兼容 / 安全问题。
+
+Critical：功能缺失或做错 / mockup 关键状态未落地 / UI 目标含混被 worker 自行落成不可追溯行为 / 安全漏洞 / 绕过 Pydantic-registry-migration / 违反不变量。
+
+## Phase 2: Code Quality（仅 Spec Compliance 通过后）
+
+检查：逻辑错误 / 项目规则 / 合同质量（schema_version / extra=forbid / typed return / consumer 同步 / DB 闭合）/ helper placement / 测试质量（public behavior / 真实边界 / no internal mocks）/ UI 证据 / mock 边界 / architecture routing / 文件健康。
+
+Refactor 只在 GREEN 后允许；普通整洁偏好不阻塞 pack。
+
+## Result Payload
+
+`### Result` 下使用：
+
+```text
+Spec Compliance:
+Phase summary: 通过 / 阻塞
+Critical:
+Important:
+
+Code Quality:
+Phase summary: 通过 / 阻塞 / 未执行
+Critical:
+Important:
+
+Verification summary:
+命令:
+结果:
+```
+
+每条 finding 必须使用统一 Finding Shape（见 `dispatch-primitives.md`）。
+
+## Reception
+
+Coordinator 收到 Pack Review 结果后**不是传话筒**——必须：
+1. 主动验证 finding 正确性（读代码、跑测试、对照 source）
+2. 逐条给 disposition（accepted / rejected / needs evidence / duplicate / out of scope / user decision）
+3. 按 `dispatch-primitives.md` 修复归属规则决定谁来修
+
+### SendMessage 继续原 worker
+
+```
+SendMessage({ to: <agentId>, content: "<accepted findings + 修复指令>" })
+```
+
+前提：`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`。异步——等通知再继续。工具不存在时新建同类 agent。
+
+Repair 后 targeted Pack Review：只重审 accepted findings + repair diff + affected anchors。
