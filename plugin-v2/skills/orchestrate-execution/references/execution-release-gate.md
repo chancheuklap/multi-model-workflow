@@ -72,7 +72,7 @@ Agent({
 })
 ```
 
-多个相邻 high-risk packs 同一发布风险面时合并一次。Budget：Release gate 有独立预算（最多 2 个 dispatch，含 early + final）。
+多个相邻 high-risk packs 同一发布风险面时合并一次。Budget：Release Gate 最多 2 个 dispatch（含 early + final），已包含在全局 `2N+12` 预算中。
 
 **Release blocker 修复**：
 

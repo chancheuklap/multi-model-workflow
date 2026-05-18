@@ -23,7 +23,6 @@ skills:
   - improve-codebase-architecture
   - prototype
 memory: project
-maxTurns: 50
 color: orange
 ---
 

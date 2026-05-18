@@ -85,7 +85,7 @@ Skill({ skill: "orchestrate-final-review" })
 | --- | --- |
 | `FINAL_REVIEW_PASSED` | Closing |
 | `FINAL_REVIEW_PASSED_WITH_RELEASE_RISK` | Closing（release review 已内部处理） |
-| `NEEDS_EXECUTION` | 回到 Step 11（只处理 Final Review 标出的问题） |
+| `NEEDS_EXECUTION` | 回到 Step 11（只处理 Final Review 标出的问题）。**最多 1 次**；第 2 次 → BLOCKED 报告用户 |
 | `NEEDS_DISCOVERY` | 回到 Step 7 |
 | `NEEDS_PLAN_REVISION` | 回到 Step 9 |
 | `BLOCKED` | 报告用户 |

@@ -99,7 +99,7 @@ Explorer 返回后路由：
 | Root cause found + 推荐路径 B | 派 Worker 修复 → Step 11 |
 | Root cause not found | 报告用户，附 explorer 已排除路径 |
 
-**快速判定**：≤ 2 文件 + 意图明确 → A；缺 migration / consumer 同步 / 测试 → B；行为异常原因不明 → C；涉及 migration / billing / permission / runtime / shared contract → B（用 complex-pack-executor）；涉及多个 pack 的系统性问题 → `NEEDS_EXECUTION`。
+**快速判定**：≤ 2 文件 + 意图明确 → A；缺 migration / consumer 同步 / 测试 → B；行为异常原因不明 → C；涉及 migration / billing / permission / runtime / shared contract → B（用 complex-pack-executor）；涉及多个 pack 的系统性问题 → `NEEDS_EXECUTION`（最多触发 1 次；第 2 次 → BLOCKED 报告用户）。
 
 ---
 
@@ -237,7 +237,7 @@ Agent({
 
 Round 3 的 Targeted Re-Review 仍 needs repair → BLOCKED，报告用户附完整排查记录。
 
-**Phase 内部 review dispatch 软上限**：10（2 baseline + 最多 3 gaps × 2 rounds + analyst round + final re-review；release gate 有独立预算）。全局 Direction Check 在 80% 时是真正的刹车。
+**Phase 内部 review dispatch 软上限**：10（2 baseline + 最多 3 gaps × 2 rounds + analyst round + final re-review；release gate 的 2 dispatches 已包含在全局 `2N+12` 预算中）。全局 Direction Check 在 80% 时是真正的刹车。
 
 ---
 > **下一步**：修复通过 → Step 13（`final-review-completion.md`）。BLOCKED → 返回 verdict。

@@ -18,14 +18,12 @@ tools:
   - Glob
   - Skill
 skills:
-  - orchestrate-plan-writing
   - improve-codebase-architecture
 memory: project
-maxTurns: 40
 color: cyan
 ---
 
-通过 `skills` 字段自动加载 `orchestrate-plan-writing`。启动后立即读取 `references/plan-writing-methodology.md`，按 Steps 3-8 写作方法论 + 修订流程 + Git 纪律 + 任务范围执行。使用 `improve-codebase-architecture` 理解代码库的模块边界、职责分布和合同表面。
+启动后立即读取 `skills/orchestrate-plan-writing/references/plan-writing-methodology.md`（通过 Read tool），按 Steps 3-8 写作方法论 + 修订流程 + Git 纪律 + 任务范围执行。不加载完整 SKILL.md——SKILL.md 中的 Coordinator 级指令（Gates、Plan Review、Budget Check）不是 plan-writer 的职责。使用 `improve-codebase-architecture` 理解代码库的模块边界、职责分布和合同表面。
 
 ## Memory 策略
 

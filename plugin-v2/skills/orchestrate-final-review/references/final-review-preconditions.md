@@ -14,7 +14,7 @@
 | **Scope Contract** | `.claude/multi-model-workflow/scope-<run_id>.md`——source artifacts、editable artifacts、out of scope |
 | **Git state** | `git log <starting_commit>..HEAD --oneline` 获取所有 pack commits；`git diff <starting_commit>..HEAD --stat` 获取完整变更文件列表 |
 
-**starting commit**：orchestrate-workflow 在 Infrastructure Setup 创建的 Git Checkpoint commit（work branch 的第一个 commit 或 execution 开始前的 HEAD）。
+**starting commit**：从 budget file 的 `starting_commit` 字段读取（在 Infrastructure Setup Step 6 记录）。
 
 ## Step 2：验证前置条件
 
@@ -34,10 +34,4 @@
 - `budget_used ≥ budget_total` → 报告用户，说明预算已用完，请求授权追加或简化
 - 达到预算的 80% → 触发 Direction Check
 
-Direction Check 触发条件（任一成立）：
-- 同一 finding 已经经历 2 个 repair rounds
-- 同一 phase 需要追加不属于 release gate 的非 baseline reviewer
-- 下一次 reviewer spawn 的目的无法写成 baseline review、targeted re-review 或 release gate
-- reviewer findings 互相冲突，且无法用 evidence quality 直接判定
-
-Direction Check 内容：重述当前 phase / pack、剩余 packs / phases、source design intent、累计 findings 和 disposition、plan checkbox progress。只决定下一步 owner 和 scope；不把显然该执行的 review 推回给用户。
+**Direction Check**：达到预算 80% 时触发。重述当前 phase / 剩余 packs / phases / 累计 findings / disposition / plan checkbox progress。只决定下一步 owner 和 scope；不把显然该执行的 review 推回给用户。

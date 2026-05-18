@@ -4,10 +4,11 @@
 
 ## Step 4：选择 Worker 类型
 
-| Risk flags | Agent | 模型 |
-| --- | --- | --- |
-| `normal` | `pack-executor` | Sonnet |
-| `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex-pack-executor` | Opus 4.7 |
+| Risk flags | Agent | 模型 | TDD |
+| --- | --- | --- | --- |
+| `trivial`（配置常量 / 文档更新 / 样式调整） | `pack-executor` | Sonnet | 宽松（验证通过即可，不强制红-绿循环） |
+| `normal` | `pack-executor` | Sonnet | 严格 |
+| `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex-pack-executor` | Opus 4.7 | 严格 |
 
 ## Step 5：构造 Pack Brief
 
@@ -43,9 +44,11 @@ Agent({
 
 **Budget check**：`budget_used + 1 ≤ budget_total`。超预算停止报告用户。
 
-Direction Check 触发条件（任一成立）：达到预算 80% / 同一 finding 经历 2 个 repair rounds / 需要追加非 baseline reviewer / 下次 spawn 目的无法归类为 baseline review、targeted re-review 或 release gate / reviewer findings 互相冲突。方向检查只决定下一步 owner 和 scope，不写成新审查。
+**Direction Check**：达到预算 80% 时触发。重述当前 phase / 剩余 packs / 累计 findings / 是否继续。只决定下一步 owner 和 scope，不写成新审查。
 
 ## Step 9：接收 Review Findings + Disposition
+
+**整体 Verdict 前置检查**：如果 reviewer 返回整体 `needs context`（不是某条 finding 的 `needs evidence`），说明 reviewer 无法完成审查。Coordinator 补充 reviewer 所需的上下文后重新 dispatch（budget 消耗 +1），不进入 per-finding disposition。
 
 收到 finding 后，Coordinator 不是传话筒——必须亲验每条 finding 的正确性（读代码、跑测试、对照 source artifacts），然后逐条给 disposition。没有 disposition 的 finding 不能进入 repair。过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改。
 

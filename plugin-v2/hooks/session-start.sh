@@ -11,9 +11,10 @@ RULES
 
 if [ -z "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" ]; then
   cat <<'ENVWARN'
-[multi-model-workflow] WARNING: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is not set.
-  SendMessage to existing agents will not work. All repairs will require new agent spawns.
-  Set CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 for optimal multi-agent coordination.
+[multi-model-workflow] ERROR: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is not set.
+  修复链路（pack repair、plan revision、final review repair）依赖 SendMessage 复用已有 agent。
+  未设置此变量时 SendMessage 不可用，修复效率大幅降低。
+  请设置 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 后重新启动。
 ENVWARN
 fi
 
@@ -37,6 +38,7 @@ cat <<'RULES'
 - orchestrate-workflow selects READY_FOR_REPAIR → Direct Repair mini-route (workflow Step 8a)
 - orchestrate-workflow selects Bug Investigation → root-cause-analyst → route by result (repair / formal orchestrate)
 - Execution / Final Review: repair round 2 still fails → root-cause-analyst before round 3
+- Final Review → NEEDS_EXECUTION 最多 1 次；第 2 次 → BLOCKED
 - At any point: design/domain/UX gap → orchestrate-discovery; issue gap → to-issues; plan gap → orchestrate-plan-writing
 
 # 5. Upstream skill routing
