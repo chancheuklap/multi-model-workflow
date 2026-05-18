@@ -41,21 +41,25 @@ Agent({
 
 读取 `execution-review-dispatch.md`。通过 `codex:codex-rescue --model gpt-5.4` 派发 1 个 baseline reviewer。
 
-**Budget check**：`budget_used + 1 ≤ budget_total`。80% 触发 Direction Check。超预算停止报告用户。
+**Budget check**：`budget_used + 1 ≤ budget_total`。超预算停止报告用户。
+
+Direction Check 触发条件（任一成立）：达到预算 80% / 同一 finding 经历 2 个 repair rounds / 需要追加非 baseline reviewer / 下次 spawn 目的无法归类为 baseline review、targeted re-review 或 release gate / reviewer findings 互相冲突。方向检查只决定下一步 owner 和 scope，不写成新审查。
 
 ## Step 9：接收 Review Findings + Disposition
 
-**Coordinator 不是传话筒**——亲验每条 finding（读代码、跑测试、对照 source artifacts）。
+收到 finding 后，Coordinator 不是传话筒——必须亲验每条 finding 的正确性（读代码、跑测试、对照 source artifacts），然后逐条给 disposition。没有 disposition 的 finding 不能进入 repair。过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改。
 
-| Disposition | 动作 |
+| disposition | parent 动作 |
 | --- | --- |
 | `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、targeted re-review scope |
-| `rejected` | 记录反证；不 repair |
-| `needs evidence` | 派 `code-explorer` / `complex-code-explorer` 补证据；补证前不 repair |
-| `duplicate / already covered` | 链到已有 finding / pack / commit / test |
-| `out of scope` | 从当前 scope 移出；只有用户授权时才写 durable issue |
-| `user decision` | 停止执行，一次只问一个问题 |
+| `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
+| `needs evidence` | 派 explorer 补证据（窄范围用 `code-explorer`，多模块用 `complex-code-explorer`）；补证前不 repair |
+| `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |
+| `out of scope` | 从当前 scope 移出；只有用户授权或项目规则要求时才写 durable issue |
+| `user decision` | 停止执行，一次只问一个会改变设计、计划或发布策略的问题 |
 
 冲突按 evidence quality 判断，不按 reviewer 数量投票。
+
+**`needs evidence` 补证**：派 `code-explorer`（窄范围单文件/单调用链）或 `complex-code-explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
 
 **通过** → Step 13（Release Gate）。**Needs repair** → Step 10（读取 `execution-repair-truncation.md`）。

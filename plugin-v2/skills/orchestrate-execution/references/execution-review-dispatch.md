@@ -45,6 +45,17 @@ Agent({
     - 合同纪律：跨边界数据用正式 Pydantic contract，不是 bare dict
     - 文件职责清晰、接口定义好
     - 遵循项目既有模式
+    - Forbidden shortcuts（以下默认是 finding；影响验收/数据/权限/账务/runtime/发布时是 Critical）：
+      · bare dict 作跨模块长期合同
+      · route/host 内临时拼 nested dict 绕过正式 contract
+      · 新增 route-local schema/helper 而不放 domain service/shared contract
+      · public API 返回 dict[str, Any]
+      · silent unknown-field drop / extra=allow 无版本策略
+      · 直接写 JSONB/SQLite JSON 不注册不走 validator
+      · 新 DB 字段没有 migration/repository/read model/回归测试
+      · 新 port/command/chargeable action/capability 没进 registry/catalog
+      · 测试 mock 仓库内部业务模块
+      · helper 只为绕过边界而存在
 
     ### Contract & Risk
     验高风险面是否正确处理：

@@ -20,9 +20,8 @@ fi
 cat <<'RULES'
 
 # 2. Progressive reference loading
-- Shared references live in ${CLAUDE_PLUGIN_ROOT}/references/. Do NOT load all eagerly.
-  Each orchestrate skill says which references to read inline at the point of use (dispatch step, routing step, etc.).
-  Read them when you reach that instruction, not when entering the skill.
+- Each orchestrate skill has its own references/ folder. References are loaded inline at point of use
+  (dispatch step, routing step, etc.). Read them when you reach that instruction, not when entering the skill.
 
 # 3. Entry routing rules
 - When the user confirms a direction after discussion, use multi-model-workflow:orchestrate-discovery to produce or refine a design document, then multi-model-workflow:orchestrate-plan-writing to write the plan.
@@ -44,7 +43,17 @@ cat <<'RULES'
 - diagnose, prototype, improve-codebase-architecture, zoom-out, triage, grill-with-docs, to-issues
   remain callable from any orchestrate skill via Skill tool.
   Each phase skill lists its own upstream triggers and write-back targets inline.
-  coordinator-tools.md defines the calling protocol; phase skills define when and where.
+- Upstream skill calling protocol: only consume downstream-readable results. When upstream skill
+  returns code changes / long-term docs / tracker mutations beyond current Scope, only execute
+  within Scope Contract authorization. Write verdict back to phase-specified target before continuing.
+- Allowed outputs per upstream skill:
+  · grill-with-docs: clarified context, resolved term, domain decision, ADR/SPEC/GUIDE need
+  · diagnose: current/desired behavior, reproduction/symptom, falsifiable hypotheses, key interfaces, regression target
+  · zoom-out: module map, call chain, boundary context, test/config entrypoints
+  · prototype: prototype question, verdict, decision artifact, validated/rejected option
+  · improve-codebase-architecture: architecture finding, affected modules, test seam impact, recommended boundary
+  · triage: issue category, ready state, AFK/HITL, blocked-by, issue brief
+  · to-issues: confirmed vertical large/small issues, blocked-by, AFK/HITL
 
 # 6. Compaction-durable constraints
 - Before entering any phase skill: re-read .claude/multi-model-workflow/scope-<run_id>.md to confirm Scope Contract

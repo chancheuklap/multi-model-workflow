@@ -2,26 +2,12 @@
 
 > **流程位置**：`orchestrate-final-review` Steps 9-12 · 仅 needs repair 时进入
 
-## Step 9：修复路由（三条路径）
+## Step 9：修复路由
 
-所有 repair prompt 只携带 accepted findings，不夹带 rejected / out-of-scope / low-confidence observations。
+所有 repair prompt 只携带 accepted findings。Repair 返回后默认只做 targeted re-review；只有 source baseline 改变时才 full phase review rerun。
 
-### 路径 A：Coordinator 直接修复
-
-**条件**：≤ 2 文件、不触碰合同边界、不需新增测试、意图明确。
-
-1. Coordinator 读 diff、理解 finding
-2. 直接修改代码
-3. 跑 verification commands 确认修复
-4. 进入 Step 11（Targeted Re-Review）
-
-### 路径 B：SendMessage 给原 Worker / 新建 Worker
-
-**条件**：多文件、需要代码上下文、需要新增/修改测试、但根因已知。
-
-1. 检查 SendMessage 是否可用（`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` + agentId 记录在 pack completion summary 中）
-2. 可用 → SendMessage 给该 pack 的 saved agentId，附 accepted findings
-3. 不可用 → 新建同类 agent（`pack-executor` 或 `complex-pack-executor`），prompt 含 accepted findings + pack brief subset + git diff scope：
+- **路径 A**（≤ 2 文件、不碰合同边界、意图明确）：Coordinator 直接修 → 跑验证 → Step 11
+- **路径 B**（多文件、根因已知）：SendMessage 给原 worker 或新建同类 agent：
 
 ```
 Agent({
@@ -113,15 +99,7 @@ Explorer 返回后路由：
 | Root cause found + 推荐路径 B | 派 Worker 修复 → Step 11 |
 | Root cause not found | 报告用户，附 explorer 已排除路径 |
 
-### 修复归属快速判定
-
-| 信号 | 路径 |
-| --- | --- |
-| "这行该返回 X 而不是 Y" + ≤ 2 文件 | A（Coordinator 直接修） |
-| "缺 migration / 缺 consumer 同步 / 测试不覆盖" | B（Worker 修） |
-| "行为异常但不清楚为什么" / "时序问题" | C（Explorer 查） |
-| accepted finding 涉及 migration / billing / permission / runtime / shared contract | B（用 complex-pack-executor） |
-| 涉及多个 pack 的系统性问题 | `NEEDS_EXECUTION`（回到 orchestrate-execution re-entry） |
+**快速判定**：≤ 2 文件 + 意图明确 → A；缺 migration / consumer 同步 / 测试 → B；行为异常原因不明 → C；涉及 migration / billing / permission / runtime / shared contract → B（用 complex-pack-executor）；涉及多个 pack 的系统性问题 → `NEEDS_EXECUTION`。
 
 ---
 

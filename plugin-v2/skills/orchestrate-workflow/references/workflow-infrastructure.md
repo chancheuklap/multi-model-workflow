@@ -92,3 +92,21 @@ Scope Contract 和 Budget File 已存在 → 读取并验证。`pack_count` 或 
 ```
 
 `budget_total` 在 plan-writing Step 12a 按 `2N + 12` 更新。Bug / Multi-PR route 不创建 budget file。
+
+---
+
+## Durable Handoff Brief
+
+跨会话交接、导出为 issue、或留给以后 agent 处理时，用 durable brief，不要只保存当前文件行号。
+
+```text
+Current behavior:
+Desired behavior:
+Key interfaces:
+Acceptance criteria:
+Out of scope:
+Risk flags:
+AFK / HITL:
+```
+
+写行为合同，不写"去某文件第 N 行改 X"。UI / UX durable brief 必须保留 mockup path、目标 viewport、关键 states 和允许偏差。如果 durable brief 来自 Discovery domain alignment、prototype 或 architecture review，写明 resolved context、prototype verdict 或 architecture finding。

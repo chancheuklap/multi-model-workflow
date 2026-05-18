@@ -1,6 +1,6 @@
 ---
 name: orchestrate-discovery
-description: "新功能、issue、backlog、现有 PRD、系统性 bug、wrong state、performance regression、UI / UX 反馈、截图反馈、测试反馈、系统性改造或产品讨论还没有可进入 Design Review 的设计文档时主动使用。覆盖完整流程：与用户讨论 → 生成设计文档 → Design Review（Codex 派发 + 修复）→ 过渡到 to-issues。负责读取项目上下文、持续 domain alignment、必要时联动 diagnose / prototype / improve-codebase-architecture / zoom-out / triage / grill-with-docs / frontend-design；不生成 plan、不拆 Task Pack、不派 worker。"
+description: "缺少可 review 的设计文档时使用。与用户讨论 → 生成设计文档 → Design Review → to-issues 过渡。产出：reviewed design doc + issue hierarchy。"
 ---
 
 # Orchestrate Discovery

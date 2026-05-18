@@ -1,6 +1,6 @@
 ---
 name: orchestrate-workflow
-description: "正式开发流程主入口。用户给出新功能、系统性改造、系统性 bug、wrong state、performance regression、design / SPEC / ADR、PRD / issue、backlog、implementation plan、Task Pack、bug brief、测试失败、UI / UX 反馈、截图反馈、已实现 diff，或要求根据设计 / issue / plan 开始实现、继续执行、修复、review、验收、收尾、业务汇报时主动使用。负责 Entry Gate 分类、Resume Gate、Infrastructure Setup、Phase Dispatch 路由和 Closing；不自己执行 Phase 内部逻辑——加载对应 phase skill 执行。"
+description: "正式开发流程主入口。用户给出新功能、改造、bug、design/plan/issue/PRD、UI/UX 反馈、截图、测试失败、已实现 diff，或要求实现/继续/review/验收/收尾时主动使用。Entry Gate → Infrastructure → Phase 路由 → Closing。"
 ---
 
 # Orchestrate Workflow

@@ -2,28 +2,24 @@
 
 > **流程位置**：`orchestrate-final-review` Steps 6-8 · 通过 → Step 13（`final-review-completion.md`）；有 accepted findings → Step 9（`final-review-repair.md`）
 
-## Step 6：接收 Review Findings
+## Steps 6-7：接收 + Disposition
 
-**Coordinator 不是传话筒**——必须主动验证每条 finding：
+收到 finding 后，Coordinator 不是传话筒——必须亲验每条 finding 的正确性（读代码、跑测试、对照 source artifacts），然后逐条给 disposition。没有 disposition 的 finding 不能进入 repair。过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改。
 
-1. **读代码**：检查 reviewer 说的是否与代码事实一致
-2. **跑测试**：reviewer 说测试不覆盖 → 跑一下确认
-3. **对照 source artifacts**：reviewer 说 spec 不符 → 对照 design document 和 plan 确认
-4. **对照 pack completion summary**：确认 finding 不是 Pack Review 已验证且 regression sweep 确认 intact 的行为重复
-5. **用自己的判断力质疑和确认**：不因为 reviewer 说了就当真，也不因为 worker 说通过就放行
+Final Review 增加一层验证：**对照 pack completion summary**——确认 finding 不是 Pack Review 已验证且 regression sweep 确认 intact 的行为重复。
 
-## Step 7：逐条 Disposition
-
-| Disposition | Coordinator 动作 |
+| disposition | parent 动作 |
 | --- | --- |
-| `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、targeted re-review scope |
-| `rejected` | 记录反证；不 repair，不让同一 finding 反复进入 review |
-| `needs evidence` | 派 `code-explorer` / `complex-code-explorer` 补证据；补证前不 repair |
-| `duplicate / already covered` | 链到已有 finding / pack / commit / test；不新增路线 |
+| `accepted` | 转成 repair / upstream payload；写明 affected artifacts、repair scope、targeted re-review scope |
+| `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
+| `needs evidence` | 派 explorer 补证据（窄范围用 `code-explorer`，多模块用 `complex-code-explorer`）；补证前不 repair |
+| `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |
 | `out of scope` | 从当前 scope 移出；只有用户授权或项目规则要求时才写 durable issue |
-| `user decision` | 停止执行，一次只问一个会改变设计/计划/发布策略的问题 |
+| `user decision` | 停止执行，一次只问一个会改变设计、计划或发布策略的问题 |
 
 冲突按 evidence quality 判断，不按 reviewer 数量投票。
+
+**`needs evidence` 补证**：派 `code-explorer`（窄范围单文件/单调用链）或 `complex-code-explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
 
 ## Step 8：Gap 分类
 

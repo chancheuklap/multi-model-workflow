@@ -1,6 +1,6 @@
 ---
 name: orchestrate-plan-writing
-description: "已有 reviewed source design 和 to-issues 产出的 vertical large issues / small issues 时主动使用。覆盖完整流程：前置条件确认 → 计划文档写作方法论 → 派发 plan-writer agent → Plan Entry Gate → Plan Review（单次 Codex 集成审查 + 修复）→ Git Checkpoint → 过渡到 orchestrate-execution。纯 Coordinator 线性流程：主线程按本技能逐步执行调度、review 接收、修复路由和进度追踪；plan-writer agent 通过 skills 字段自动加载本技能获取写作方法论。"
+description: "已有 reviewed design + issue hierarchy 时使用。派 plan-writer → Plan Entry Gate → Plan Review → Git Checkpoint。产出：reviewed plan + Task Pack inventory + budget_total。"
 ---
 
 # Orchestrate Plan Writing

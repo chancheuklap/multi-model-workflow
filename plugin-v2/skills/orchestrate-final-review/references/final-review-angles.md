@@ -184,6 +184,17 @@ Agent({
     5. **Design alignment**：实现是否匹配 design doc 的 stated intents。
     6. **二阶故障**：如果 A 失败，B 是否优雅处理（error propagation、retry、rollback）。
     7. **Edge cases**：空状态、错误路径、retry/rollback、竞态、测试未覆盖的边缘场景。
+    8. **Forbidden shortcuts**（以下默认是 finding；影响验收/数据/权限/账务/runtime/发布时是 Critical）：
+       · bare dict 作跨模块长期合同
+       · route/host 内临时拼 nested dict 绕过正式 contract
+       · 新增 route-local schema/helper 而不放 domain service/shared contract
+       · public API 返回 dict[str, Any]
+       · silent unknown-field drop / extra=allow 无版本策略
+       · 直接写 JSONB/SQLite JSON 不注册不走 validator
+       · 新 DB 字段没有 migration/repository/read model/回归测试
+       · 新 port/command/chargeable action/capability 没进 registry/catalog
+       · 测试 mock 仓库内部业务模块
+       · helper 只为绕过边界而存在
 
     ## Calibration
     **不要信任 worker 的报告和 Pack Review 结论——独立验证。** 代码可能在 merge 后产生新问题，测试可能不覆盖你正在审查的边界情况。你的审计必须基于代码事实。

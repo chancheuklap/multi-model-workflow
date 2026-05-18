@@ -1,6 +1,6 @@
 ---
 name: orchestrate-multi-pr-merge
-description: "多个来自同一大设计/大计划的并行 PR 需要合并审查时由 orchestrate-workflow Route 3 调用。覆盖完整流程：阅读全部文档建立正确状态理解 → 并行 explorer 发现 PR 间冲突 → 冲突分类与修复分流（简单 / 复杂根因明确 / 系统性根因不明）→ 系统性冲突派 root-cause-analyst 调查根因 → coding worker 落地修复 → Coordinator 验证 → Codex 跨 PR 集成审查 → 按依赖顺序合并 → 返回 verdict 给 orchestrate-workflow 执行 Closing。纯 Coordinator 技能：主线程读取本技能执行调度、冲突分析、修复路由和合并操作；不由 Sub-Agent 消费。"
+description: "多个并行 PR 需合并审查时使用（Route 3）。冲突发现 → 分类修复 → Codex 集成审查 → 依赖顺序合并。产出：所有 PR 合并 + 集成审查通过。"
 ---
 
 # Orchestrate Multi-PR Merge

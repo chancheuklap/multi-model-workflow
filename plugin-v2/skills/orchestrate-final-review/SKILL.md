@@ -1,6 +1,6 @@
 ---
 name: orchestrate-final-review
-description: "所有 Pack Review 通过后、orchestrate-execution 返回 EXECUTION_PASSED 时由 orchestrate-workflow 调用。覆盖完整最终审查流程：前置条件验证 → 增强型 Codex 审查（regression sweep + design intent coverage + cross-pack audit + 独立代码级审计）→ Coordinator 验证 + Disposition → 修复分流 → Targeted Re-Review → 修复截断 → Coordinator 清扫遗留尾巴 → Release Gate → 业务汇报 → 返回 verdict 给 orchestrate-workflow 执行 Closing。纯 Coordinator 技能：主线程读取本技能执行调度、review 接收、修复路由、清扫和汇报；不由 Sub-Agent 消费。"
+description: "EXECUTION_PASSED 后使用。增强型 Codex 审查（regression + intent coverage + cross-pack + code-level）→ Disposition → 修复 → 遗留清扫 → Release Gate → 业务汇报。产出：verdict + business report。"
 ---
 
 # Orchestrate Final Review

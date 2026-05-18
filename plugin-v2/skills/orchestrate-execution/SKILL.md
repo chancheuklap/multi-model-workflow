@@ -1,6 +1,6 @@
 ---
 name: orchestrate-execution
-description: "Plan Review 通过后、已有 reviewed plan + confirmed Task Pack inventory 时主动使用。覆盖完整 Pack 执行循环：预执行准备 → 逐 Pack 派 Worker → Pack Review → Coordinator 验证 + Disposition → 修复分流 → Targeted Re-Review → 修复截断 → Release Gate → Git Checkpoint → 循环释放。纯 Coordinator 技能：主线程读取本技能执行调度、review 接收、修复路由和进度追踪；不由 Sub-Agent 消费。"
+description: "已有 reviewed plan + Task Pack inventory 时使用。逐 Pack 派 Worker → Pack Review → Disposition → 修复 → Release Gate → Git Checkpoint。产出：所有 pack 通过 + review budget 消耗。"
 ---
 
 # Orchestrate Execution

@@ -1,127 +1,95 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+多模型开发工作流系统。Claude Code plugin（`plugin/`、`plugin-v2/`）+ Codex skills/agents（`.agents/skills/`、`codex/agents/`）。流水线：Discovery → Design Review → Plan → Plan Review → Task Pack Execution → Final Review → Business Report。
 
-## What This Repo Is
+Codex runtime 是设计权威。`plugin/` 是兼容层。`plugin-v2/` 是开发中的下一代 Claude plugin。
 
-A multi-model development workflow system that ships as both a **Claude Code plugin** (`plugin/`, `plugin-v2/`) and **Codex skills + agents** (`.agents/skills/`, `codex/agents/`). It orchestrates specialized sub-agents for coding, investigation, and cross-model review through a phased pipeline: Discovery → Design Review → Plan → Plan Review → Task Pack Execution → Final Intent Verification → Business Report.
+## 目录结构
 
-The Codex runtime (`codex/agents/*.toml`, `.agents/skills/orchestrate-*/`) is the design authority. The Claude Code plugin (`plugin/`) is a compatibility layer. `plugin-v2/` is the next-generation Claude plugin under development.
+- `.agents/skills/orchestrate-*` — Codex skill 源码（discovery / plan-writing / workflow）
+- `codex/agents/*.toml` — Codex agent 定义（7 角色）；`sync-agents.sh` 同步到 `~/.codex/agents/`
+- `codex/hooks/`、`codex/skills/` — Codex hooks 和 skill 安装脚本
+- `plugin/` — Claude Code plugin v1（v0.7.0，兼容层）
+- `plugin-v2/` — Claude Code plugin v2（v0.8.0，开发中）；`agents/` + `skills/` + `hooks/`
+- `.claude-plugin/marketplace.json` — Marketplace 上架清单
 
-## Repository Layout
+**Source → Runtime**：编辑 `.agents/skills/` 和 `codex/agents/*.toml`，然后 sync 到 `~/.codex/agents/` 和 `~/.agents/skills/`。先改源码再 sync。
 
-```
-.agents/skills/
-  orchestrate-discovery/    # Codex skill: turns inputs into design documents
-  orchestrate-plan-writing/ # Codex skill: generates issue-backed implementation plans
-  orchestrate-workflow/     # Codex skill: main coordinator (Phase 0a → Phase C)
+## 核心概念
 
-codex/
-  agents/*.toml             # Codex custom agent definitions (7 roles)
-  agents/sync-agents.sh     # Syncs agent TOMLs to ~/.codex/agents/
-  hooks/                    # Codex user-level hooks (session-start, guard-premature-push)
-  skills/install-orchestrate-workflow.sh  # Installs skills to user-level
+- **Sub-agent 隔离**：Sub-agent 不读 SKILL.md / references。Dispatch prompt 必须自足（phase / source docs / anchors / verification / return contract）。
+- **Review budget**：Formal Orchestrate 预算 `2N + 12`（N = pack 数）。80% 触发 Direction Check。
+- **合同边界**：跨边界变更（API / Pydantic / DB / JSON payload / task-sync / catalog / adapter / UI form）必须在 dispatch prompt 中写 contract anchors。
 
-plugin/                     # Claude Code plugin v1 (v0.7.0)
-  .claude-plugin/plugin.json
-  agents/                   # 6 agent definitions (.md files)
-  hooks/                    # hooks.json + session-start.sh
-  scripts/                  # guard-premature-push.sh
+## Plugin v2 架构规则
 
-plugin-v2/                  # Claude Code plugin v2 (v0.8.0, in development)
-  .claude-plugin/plugin.json
-  agents/                   # Restructured agent definitions
-  hooks/                    # Extended hooks (track-review-budget.sh)
-  references/               # Shared reference docs (contract-boundary, dispatch-primitives, etc.)
-  scripts/
+### 渐进式加载
 
-.claude-plugin/marketplace.json  # Marketplace listing manifest
-```
+SKILL.md 是骨架——步骤编号 + 一句话 + reference 路径。Coordinator 到达该步骤时才 Read reference。**不在入口一次性加载。**
 
-## Key Concepts
+拆分判定：
+- **不同时刻消费** → 拆（Worker dispatch Step 5 vs Reviewer dispatch Step 8 → 两个文件）
+- **条件触发** → 拆（Release Gate 只在触碰发布风险面时加载）
+- **始终一起用** → 不拆（Disposition + Backflow 路由）
 
-**Source → Runtime distinction**: `.agents/skills/` and `codex/agents/*.toml` are source. After `sync-agents.sh` and `install-orchestrate-workflow.sh`, the runtime lives at `~/.codex/agents/` and `~/.agents/skills/`. Always edit source first, then sync to runtime.
+拆分后 `rg -n "旧文件名" plugin-v2/` 扫 stale reference。
 
-**Phases**: 0a (design review) → 0b (plan review) → A (Task Pack execution + pack review) → B (final intent verification) → C (business report). Each phase has reference docs under `references/`.
+### Reference 分类
 
-**Sub-agent isolation**: Sub-agents cannot read `SKILL.md` or `references/`. Every dispatch prompt must be self-contained with phase, source docs, anchors, verification commands, and return contract.
+| 类型 | 导航标记 |
+|------|----------|
+| **Flow**（步骤序列中有固定位置） | header `> **流程位置**` + 非线性跳转时 footer `> **下一步**` |
+| **Lookup**（按需查阅，无位置） | 无 |
 
-**Review budget**: Formal Orchestrate runs have a capped review dispatch budget (`2N + 16` where N = pack count). The 80% threshold triggers a Direction Check.
+### Dispatch-Agent 对齐
 
-**Contract boundaries**: Cross-boundary changes (API, Pydantic, DB, JSON payload, task/sync, business catalog, external adapter, UI form) require explicit contract anchors in dispatch prompts.
+每个 dispatch 点对齐 agent 定义三维度：
+1. **模式触发**：信号词命中 agent 模式检测表
+2. **输入期望**：agent 要求的必填字段全部在 prompt 中提供
+3. **返回合同**：Return Contract 结构匹配 agent 默认格式
 
-## Sync Commands
+### Agent 定义 = 行为权威
 
-After editing Codex source files:
+行为规则（TDD、自检、scope 边界、三次失败协议）写 agent 定义——单一来源，所有 dispatch 场景加载。Dispatch template 只写场景特有信息，不重复 agent 定义的通用规则。
+
+### Reviewer 独立验证
+
+所有 Reviewer Calibration 必须包含"不信任上游报告，独立验证"。按层级定制信任边界：Pack Review 不信 worker 自述；Final Review 不信 pack summary；Multi-PR Review 不信各 PR 的 Final Review 结论。
+
+## 编辑规则
+
+- Runtime 文件（SKILL.md / references / agent definitions / hooks）只放可执行指令，不放背景解释、迁移历史、方法名列表。
+- Agent 定义必须包含自足的 return contract，不引用 agent 无法访问的 SKILL.md 或 references。
+- 改 `plugin-v2/` 时同步维护该目录下的 `agents.overrides.md`。
+- 改 Codex 源码后 sync 到 runtime 并用 `diff` 验证。
+
+## Sync 命令
 
 ```bash
-# Sync skills to user-level
 bash codex/skills/install-orchestrate-workflow.sh --user --apply
-
-# Sync agent TOMLs
 bash codex/agents/sync-agents.sh --apply
-
-# Sync hooks
 bash codex/hooks/install-hooks.sh --apply
-
-# Verify sync (diff should be empty)
+# 验证（diff 应为空）
 diff -qr .agents/skills/orchestrate-workflow ~/.agents/skills/orchestrate-workflow
 diff -qr .agents/skills/orchestrate-discovery ~/.agents/skills/orchestrate-discovery
 diff -qr .agents/skills/orchestrate-plan-writing ~/.agents/skills/orchestrate-plan-writing
 ```
 
-Use `--dry-run` instead of `--apply` to preview changes.
-
-## Agent Roles
-
-### Codex agents (`codex/agents/*.toml`)
-
-| Agent | Model | Role |
-|-------|-------|------|
-| `coding_worker` | gpt-5.3-codex | Normal Task Pack, test fix, local refactor |
-| `complex_coding_worker` | gpt-5.5 | High-risk packs (migration, billing, auth, permissions) |
-| `code_reviewer` | gpt-5.4 | Baseline review (all phases) |
-| `release_reviewer` | gpt-5.5 | Release-risk gate only |
-| `code_explorer` | gpt-5.3-codex | Narrow file/symbol lookup (read-only) |
-| `complex_code_explorer` | gpt-5.4 | Multi-module investigation (read-only) |
-| `docs_worker` | gpt-5.4 | Low-risk docs cleanup |
-
-### Claude Code agents (`plugin/agents/`, `plugin-v2/agents/`)
-
-| Agent | Model | Role |
-|-------|-------|------|
-| `plan-writer` | Opus 4.7 (1M) | Plan writing from design + issues |
-| `pack-executor` | Sonnet | Normal TDD coding + review fix |
-| `complex-pack-executor` | Opus | High-risk coding |
-| `code-explorer` | Sonnet | Narrow-scope investigation (read-only) |
-| `complex-code-explorer` | Opus | Multi-module investigation (read-only) |
-| `root-cause-analyst` | Opus | Unknown root cause investigation + fix |
-| `docs-worker` | Sonnet | Documentation cleanup |
-
-## Editing Guidelines
-
-- **Runtime files** (SKILL.md, references/, agent TOMLs, hooks) only contain executable instructions — no background explanations, migration history, method-name lists, or README-style intros.
-- **Reference docs** are read by the coordinator at specific phases; sub-agents never see them directly.
-- **Agent TOMLs** must include a self-contained return contract; never reference SKILL.md or references the agent can't access.
-- After editing any source, sync to runtime and verify with `diff`.
-- When modifying `plugin-v2/`, keep `agents.overrides.md` in the folder in sync.
-
-## Common Validation
+## 验证命令
 
 ```bash
-# Check for leaked references to old plugin concepts in Codex runtime
+# Codex runtime 中不应出现 Claude plugin 概念
 rg -n "workflow-auditor|pack-executor|root-cause-analyst|codex-rescue|SendMessage|Agent tool" .agents/skills codex/agents
-
-# Verify no stale cross-references
+# 不应有 stale 交叉引用
 rg -n "SKILL.md universal|Fill the.*SKILL.md" .agents/skills codex/agents
 ```
 
-## Install (Claude Code Plugin)
+## 安装
 
 ```bash
 claude plugin install multi-model-workflow@multi-model-workflow
-# or load from local path:
+# 或本地加载：
 claude --plugin-dir /path/to/multi-model-workflow/plugin
 ```
 
-Requires the [Codex plugin](https://github.com/anthropics/claude-code-plugins) for cross-model review dispatch via `codex:codex-rescue`.
+需要 Codex plugin 支持跨模型 review dispatch（`codex:codex-rescue`）。
