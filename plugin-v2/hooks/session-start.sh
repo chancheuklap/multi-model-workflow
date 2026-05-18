@@ -68,7 +68,7 @@ cat <<'RULES'
   · 超过循环上限不处理。
 
 # 7. Agent roles and dispatch rules
-- Agent roles: pack-executor (Sonnet, normal coding), complex-pack-executor (Opus, high-risk coding), code-explorer (Sonnet, narrow investigation), complex-code-explorer (Opus, deep investigation), root-cause-analyst (Opus, repair round 2 fail / bug investigation entry), docs-worker (Sonnet, documentation).
+- Agent roles: plan-writer (Opus 4.7 1M, plan writing from design + issues), pack-executor (Sonnet, normal coding), complex-pack-executor (Opus, high-risk coding), code-explorer (Sonnet, narrow investigation), complex-code-explorer (Opus, deep investigation), root-cause-analyst (Opus, repair round 2 fail / bug investigation entry), docs-worker (Sonnet, documentation).
 - ALL code reviews dispatched to Codex via codex:codex-rescue for independent cross-model opinion. No Claude-side reviewer agent exists.
 - Parallel Task Pack execution uses isolation: "worktree" in Agent tool call to prevent file conflicts.
 RULES
