@@ -148,7 +148,11 @@ flowchart TD
     E -->|"无冲突"| K["Codex 全量 Review\n（跨 PR 集成审查）"]:::codex
     E -->|"有冲突"| F{"修复分流"}:::coord
     F -->|"简单"| G["Coordinator 直接修复"]:::coord
-    F -->|"复杂 / 系统性"| H["派发 coding worker"]:::agent
+    F -->|"复杂、根因明确"| H["派发 coding worker"]:::agent
+    F -->|"复杂、系统性 / 根因不明"| RCA["root-cause-analyst\n调查 PR 间冲突根因"]:::agent
+    RCA --> RCAV["Coordinator 审阅\nanalyst findings"]:::coord
+    RCAV -->|"根因明确"| H
+    RCAV -->|"设计 / 意图冲突"| RCAROUTE["回到 Discovery\n或询问用户"]:::coord
     H --> J["worker 返回"]:::agent
     G --> V["Coordinator 验证修复"]:::coord
     J --> V
@@ -167,9 +171,11 @@ flowchart TD
 | Coordinator 阅读全部文档 | Coordinator 逻辑 | 读大设计 + 大计划 + 大 Issue + 各 PR 的小文档，建立全局理解 |
 | 建立正确状态理解 | Coordinator 逻辑 | 基于文档理解合并后代码应有的正确状态 |
 | 并行派发 code-explorer | Sub-Agent：code-explorer / complex-code-explorer | 并行探索各 PR 代码，发现 PR 间的冲突（代码/功能/意图） |
-| 修复分流 | Coordinator 逻辑 | 简单冲突 Coordinator 直接修，复杂/系统性的派 coding worker |
+| 修复分流 | Coordinator 逻辑 | 简单冲突 Coordinator 直接修；复杂但根因明确的派 coding worker；复杂且系统性/根因不明的先派 root-cause-analyst 调查 |
 | Coordinator 直接修复 | Coordinator 逻辑 | 读写范围明确的代码，修复简单冲突 |
-| 派发 coding worker | Sub-Agent：pack-executor / complex-pack-executor | 复杂冲突交给 coding worker 落地修复 |
+| root-cause-analyst 调查 | Sub-Agent：root-cause-analyst | 系统性冲突或根因不明时，独立调查 PR 间冲突的根因（功能冲突、意图冲突、隐式依赖）。返回根因分析 + 修复建议 |
+| Coordinator 审阅 analyst findings | Coordinator 逻辑 | 审阅 analyst 返回的根因分析：根因明确 → 派 coding worker 带方向修复；设计/意图冲突 → 回 Discovery 或询问用户 |
+| 派发 coding worker | Sub-Agent：pack-executor / complex-pack-executor | 复杂冲突交给 coding worker 落地修复（系统性冲突时携带 analyst 的根因分析和修复建议） |
 | Coordinator 验证修复 | Coordinator 逻辑 | 主线程最了解冲突方向，验证修复是否正确 |
 | Codex 全量 Review | Codex Reviewer：codex:codex-rescue | 所有冲突解决后，跨 PR 集成审查 |
 | 按计划顺序合并 PR | Coordinator 逻辑 | git 操作，按计划文档中的顺序合并 |
@@ -186,7 +192,7 @@ flowchart TD
 | orchestrate-plan-writing | Plan Writing + Plan Review | 前置确认 + 派发 plan-writer agent + 计划生成 + Plan Review（Codex 派发 + 修复）+ 过渡到 Execution |
 | orchestrate-execution | Execution（图 2） | Pack 循环：派 worker → Pack Review → 修复分流 → 循环释放 |
 | orchestrate-final-review | Final Review | 意图验证 + 清扫遗留尾巴 + Release Review 派发 |
-| orchestrate-multi-pr-merge | Multi-PR Merge（图 3） | 跨 PR 冲突发现与解决 + 合并 |
+| orchestrate-multi-pr-merge | Multi-PR Merge（图 3） | 跨 PR 冲突发现（explorer）→ 系统性冲突根因调查（analyst）→ 修复（coordinator / worker）→ 集成审查 → 合并 |
 
 ### Sub-Agent（7 个，已有 agent 文件全部保留）
 
@@ -197,7 +203,7 @@ flowchart TD
 | complex-pack-executor | Opus 4.7 | Execution 高风险 pack / Release blocker 修复 |
 | code-explorer | Sonnet | Execution 证据收集 / Multi-PR 代码探索 |
 | complex-code-explorer | Opus 4.7 | 多模块调查 |
-| root-cause-analyst | Opus 4.7 (1M) | Bug Investigation / Execution 根因不明 |
+| root-cause-analyst | Opus 4.7 (1M) | Bug Investigation / Execution 根因不明 / Multi-PR Merge 系统性冲突调查 |
 | docs-worker | Sonnet | 文档清理（Closing 阶段可选） |
 
 ### 外部 Skill
@@ -327,6 +333,7 @@ Closing = 汇报 + 提交 + 推送 + 开 PR，应自动执行。
 - 冲突是 **PR 与 PR 之间**的冲突，不是 PR 与 main 的冲突。因为这些 PR 都是从同一个大设计/大计划拆分出来并行落地的。
 - 代码合并冲突好解决，**功能和意图冲突**最难、最需要思考。
 - **Coordinator 读文档**建立方向，**Explorer 做代码验证**——符合节省主线程上下文的原则。
+- **系统性冲突先调查再修**：Explorer 发现的复杂系统性冲突（功能冲突、意图冲突、隐式依赖）先派 root-cause-analyst 调查清楚根因，Coordinator 审阅 analyst findings 后再带着明确方向派 coding worker。不让 worker 盲目尝试修复根因不明的冲突。
 - 修复后由 **Coordinator 验证**（不是 Explorer），因为 Coordinator 最了解冲突的方向和正确状态。
 - 所有 PR **并行分析**，不是逐个顺序处理。
 - 理论上可能打回某个 PR，但实际上因为每个 PR 都经历了路线 1，几乎不存在回炉重造的情况。
