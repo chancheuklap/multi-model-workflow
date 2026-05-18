@@ -6,37 +6,42 @@
 
 | 组成部分 | 预算 |
 | --- | --- |
-| Phase 0a baseline | 2 |
-| Phase 0b baseline | 3 |
-| Phase A Pack Review | 每个 pack 1 |
-| Phase B Final Review | 2 |
+| Discovery baseline (Design Review) | 2 |
+| Plan-writing baseline (Plan Review) | 1 |
+| Execution Pack Review | 每个 pack 1 |
+| Final Review | 2 |
 | Release gate | 最多 2（early + final 合并同发布风险面） |
 | Repair headroom | baseline 总数 × 1.0 |
 
-**公式**：预算 = 2 + 3 + N + 2 + 2 + (7 + N) = 2N + 16
+**公式**：预算 = (2 + 1 + N + 2) × 2 + 2 = 2N + 12
 
-示例：4 个 pack → 预算 = 13 + 11 = 24。实际 happy path 用 13，留 11 给 repair。
+示例：4 个 pack → 预算 = 11 + 9 + 2 = 20。实际 happy path 用 11，留 9 给 repair，2 给 release gate。
 
 **刹车机制**：累计 review dispatch 达到预算的 80% 时，coordinator 必须做 Direction Check（见 `coordinator-tools.md`），重述当前 phase / 剩余工作 / 累计 findings / 是否继续。超过预算时停止并报告用户。
 
 ## Budget File Lifecycle
 
 - **Created**: 由 `orchestrate-workflow` entry gate 在选择 Formal Orchestrate 时创建 `.claude/multi-model-workflow/budget-<run_id>.json`，同时写 `.claude/multi-model-workflow/active-run-id`。
-- **Updated**: 由 `track-review-budget.sh`（SubagentStop on `codex:codex-rescue`）递增 `budget_used` 并追加 dispatch 记录；由 `orchestrate-plan-review` 在确认 pack count 后更新 `budget_total` 和 `pack_count`。
+- **Updated**: 由 `track-review-budget.sh`（SubagentStop on `codex:codex-rescue`）递增 `budget_used` 并追加 dispatch 记录；由 `orchestrate-plan-writing`（Step 12a）在 Task Pack Inventory Gate 通过后更新 `budget_total` 和 `pack_count`；由 `orchestrate-workflow` 在每个 phase 返回后更新 `last_gate_phase` 和 `last_gate_timestamp`。
 - **Read**: 每个 review skill 通过 `active-run-id` 找到 budget file，检查 budget。
-- **Deleted**: 由 `orchestrate-final-review` Phase C finishing（成功路径）删除 budget file、`active-run-id` 和 `scope-<run_id>.md`。用户显式 abort 时 coordinator 清理。>1h 无更新的 stale file 由下次 entry gate 清理。
+- **Deleted**: 由 `orchestrate-workflow` Closing（Step 24）删除 budget file、`active-run-id` 和 `scope-<run_id>.md`。用户显式 abort 时 coordinator 清理。>1h 无更新的 stale file 由下次 entry gate 清理。
 - **Concurrency**: 单活跃运行 + stale 检测。不支持并行 Formal Orchestrate。
 
 **Budget file schema**:
 ```json
 {
   "run_id": "formal-20260518-143022",
-  "budget_total": 24,
+  "budget_total": 20,
   "budget_used": 0,
   "pack_count": 4,
+  "last_gate_phase": "entry",
+  "last_gate_timestamp": "2026-05-18T14:30:22Z",
   "dispatches": []
 }
 ```
+
+- `budget_total` 初始为 0（pack_count 未知），由 `orchestrate-plan-writing` Step 12a 首次赋值。
+- `last_gate_phase` / `last_gate_timestamp`：由 `orchestrate-workflow` 在每个 phase 返回后更新，用于 cross-conversation resume 的 source stability 检查。
 
 **Stale detection**: Entry gate 检查 `active-run-id` 指向的 budget file 是否在过去 1 小时内更新过。Stale → 覆写。Fresh → 警告用户并确认后覆写。
 
@@ -53,11 +58,11 @@
 
 ## Release Gate
 
-**Early release gate**（Phase A 中触发）：
+**Early release gate**（Execution 中触发）：
 
 - 迁移 / deploy order / rollback / manual production gate 必须在实现前决定。
 - baseline finding 暴露的问题必须先判定 release strategy 才能修。
-- 等待 Phase B 才审会造成不可逆数据、权限、账务或 runtime 风险。
+- 等到 Final Review 才审会造成不可逆数据、权限、账务或 runtime 风险。
 - 用户明确要求。
 
-**Final release gate**（Phase B 后触发）：Final Intent Review 没有 implementation / design / context / plan blocker 后，如果最终 diff 触碰 migration、billing、permission、runtime、cross-service contract、deploy order、rollback 或 manual production dependency，才派 `codex:codex-rescue --model gpt-5.5`。
+**Final release gate**（Final Review 后触发）：Final Intent Review 没有 implementation / design / context / plan blocker 后，如果最终 diff 触碰 migration、billing、permission、runtime、cross-service contract、deploy order、rollback 或 manual production dependency，才派 `codex:codex-rescue --model gpt-5.5`。

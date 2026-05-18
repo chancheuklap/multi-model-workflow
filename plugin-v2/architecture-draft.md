@@ -68,13 +68,13 @@ flowchart TD
 | 节点 | 机制 | 做什么 |
 |------|------|--------|
 | 路线判定 | Coordinator 自身逻辑 | 判断输入属于三条路线中的哪一条 |
-| Discovery | 内部 Skill：orchestrate-discovery | 引导与用户的一问一答迭代，产出设计文档 |
+| Discovery | 内部 Skill：orchestrate-discovery | 与用户 Q&A 迭代 + grill-with-docs 同步维护 CONTEXT.md + 产出设计文档 + Design Review + to-issues 过渡 |
 | Bug Investigation | Sub-Agent：root-cause-analyst | 调查 bug 根因，判定简单/深层 |
 | analyst 修复 → Codex Review | Sub-Agent + Codex Reviewer | analyst 修复代码，codex:codex-rescue 验证修复正确性 |
-| Design Review | Coordinator + Codex Reviewer | Coordinator 按 reference 中的 review angles 构建 prompt，派 codex:codex-rescue 审查设计文档，收到 findings 后 Coordinator 修复，只做一轮 |
+| Design Review | orchestrate-discovery 内部：Coordinator + Codex Reviewer | Coordinator 按 review angles 构建 prompt，派 codex:codex-rescue 审查设计文档，收到 findings 后 Coordinator 修复，只做一轮 |
 | to-issues | 外部 Skill | 将设计文档拆分为大 Issue → 小 Issue，形成追踪文档 |
-| Plan Writing | Sub-Agent：plan-writer（Opus 4.7） | 根据设计文档 + Issue 文档撰写计划文档 |
-| Plan Review | Coordinator + Codex Reviewer | 同 Design Review 流程——Coordinator 派 codex:codex-rescue，收到 findings 后修复，只做一轮 |
+| Plan Writing | orchestrate-plan-writing 内部：前置确认 + Sub-Agent（plan-writer Opus 4.7） | 验证 design + issues 就绪 → 派 plan-writer agent 撰写计划文档 |
+| Plan Review | orchestrate-plan-writing 内部：Coordinator + Codex Reviewer | Plan Entry Gate + Task Pack Inventory Gate → 派 codex:codex-rescue，收到 findings 后修复，只做一轮 |
 | Execution | 内部 Skill：orchestrate-execution | 执行图 2 的 pack 循环 |
 | code-explorer / complex-code-explorer | Sub-Agent | 代码探索，验证证据，挥洒上下文的探索型工作 |
 | root-cause-analyst | Sub-Agent | 根因调查，独立子进程 |
@@ -177,12 +177,13 @@ flowchart TD
 
 ## 组件汇总
 
-### 内部 Skill（5 个，按需加载到主线程）
+### 内部 Skill（6 个，按需加载到主线程）
 
 | Skill | 对应节点 | 职责 |
 |-------|---------|------|
-| orchestrate-workflow | 路线判定 + Closing | 入口路由、Design/Plan Review 调度（按 reference 构建 prompt）、git 操作 |
-| orchestrate-discovery | Discovery | 引导与用户的 Q&A 迭代，产出设计文档 |
+| orchestrate-workflow | 路线判定 + Bug 路线 + READY_FOR_REPAIR + Closing | 入口路由、Scope Contract、Git Checkpoint、Budget File、Bug 路线调度、Direct Repair mini-route（Step 8a）、Closing（汇报 + 提交 + 推送 + 开 PR） |
+| orchestrate-discovery | Discovery + Design Review + to-issues 过渡 | 与用户 Q&A 迭代 + grill-with-docs 同步维护 CONTEXT.md + 产出设计文档 + Design Review（Codex 派发 + 修复）+ 检查/调用 to-issues |
+| orchestrate-plan-writing | Plan Writing + Plan Review | 前置确认 + 派发 plan-writer agent + 计划生成 + Plan Review（Codex 派发 + 修复）+ 过渡到 Execution |
 | orchestrate-execution | Execution（图 2） | Pack 循环：派 worker → Pack Review → 修复分流 → 循环释放 |
 | orchestrate-final-review | Final Review | 意图验证 + 清扫遗留尾巴 + Release Review 派发 |
 | orchestrate-multi-pr-merge | Multi-PR Merge（图 3） | 跨 PR 冲突发现与解决 + 合并 |
@@ -219,7 +220,6 @@ flowchart TD
 |-------|-----------|
 | tdd | pack-executor, complex-pack-executor, root-cause-analyst |
 | diagnose | root-cause-analyst, pack-executor, complex-pack-executor |
-| prototype | Coordinator 在 Discovery 阶段按需调用 |
 | improve-codebase-architecture | complex-pack-executor, plan-writer |
 | grill-with-docs | docs-worker |
 | triage | docs-worker |
@@ -336,8 +336,8 @@ Closing = 汇报 + 提交 + 推送 + 开 PR，应自动执行。
 **Agent-Bound**（agent frontmatter `skills:` 自动加载）：
 - tdd → pack-executor + complex-pack-executor + root-cause-analyst
 - diagnose → root-cause-analyst + pack-executor + complex-pack-executor
-- prototype → Coordinator 在 Discovery 阶段按需调用
 - improve-codebase-architecture → complex-pack-executor + plan-writer
+- prototype → pack-executor + complex-pack-executor
 - grill-with-docs → docs-worker
 - triage → docs-worker
 

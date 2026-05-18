@@ -13,7 +13,7 @@ Sub-agent 的 frontmatter `skills:` 字段在启动时自动预加载 skill 内�
 
 ## Dispatch Checklist
 
-1. 写 Scope Contract（entry gate Step 3）。
+1. 写 Scope Contract（workflow Step 4）。
 2. 判断本次属于 baseline review / targeted re-review / release gate / worker / repair / explorer / docs worker / upstream route。
 3. spawn reviewer 前检查 `${CLAUDE_PLUGIN_ROOT}/references/review-budget.md` 全局预算和 per-phase 规则。
 4. 读当前 phase reference，抽取 prompt payload。
@@ -34,7 +34,7 @@ Acceptance criteria / Verification commands / Risk flags /
 Parallel safety / Out of scope / Return contract
 ```
 
-Formal Orchestrate 的 Pack Brief 必须来自已通过 Phase 0b 的 plan。无效 pack 先修回 plan，不在 dispatch prompt 里临场重切。
+Formal Orchestrate 的 Pack Brief 必须来自已通过 Plan Review 的 plan。无效 pack 先修回 plan，不在 dispatch prompt 里临场重切。
 
 ## Return Contract
 
@@ -92,14 +92,18 @@ Phase reference 和 agent definitions 可以在 `### Result` 内定义 role-spec
 
 Disposition 为 `accepted` 后：
 
-- **Phase 0（Design / Plan）**：parent 直接修。Design 和 Plan 是 coordinator 写的，coordinator 拥有完整用户上下文。
-- **Phase A/B — 简单修复**（≤ 2 文件、不触碰合同边界、不需新增测试、意图明确）：parent 直接修复，跑验证后调度 targeted re-review。
-- **Phase A/B — 复杂修复**：SendMessage 原 worker（异步，等通知）；未启用 Agent Teams 时新建同类 targeted-repair agent，prompt 含 accepted findings + pack brief subset + git diff scope。
-- **Phase A/B — 根因不明（只读调查）**：新建 `complex-code-explorer`。
-- **Phase A/B — 第 2 轮 repair 仍 needs repair**：截断 worker 循环，新建 `root-cause-analyst`（始终新建，需要全新视角）。Route by analyst `Result.Resolution`：`fixed` → targeted re-review；`root cause found, not fixed` → 用 analyst findings 重新 dispatch worker；`root cause in design/plan` → 写回后 re-enter Phase 0；`unable to determine` → BLOCKED，报告用户。
-- **Bug Investigation 入口**：Entry Gate 判定根因不明的 bug/error/regression → 新建 `root-cause-analyst`。Route by analyst `Result.Resolution`：`fixed` → orchestrate-direct-repair (review only)；`root cause found, not fixed` → orchestrate-direct-repair；`root cause in design/plan` → Formal Orchestrate；`unable to reproduce` / `unable to determine` → 报告用户，请求更多信息。
+- **Design Review finding**：Coordinator 直接修设计文档。Design 是 coordinator 写的，拥有完整用户上下文。
+- **Plan Review finding — 框架性内容**（header / coverage map / scope check / 发布风险表）：Coordinator 直接修 plan。
+- **Plan Review finding — Task Pack 内容**（implementation tasks / owned files / verification / contract anchors）：SendMessage 原 plan-writer（保有 design + issue 上下文）；未启用 Agent Teams 时新建 plan-writer。
+- **Plan Review finding — source artifact 问题**：upstream backflow（orchestrate-discovery / to-issues / improve-codebase-architecture），写回后 re-review plan。
+- **Execution / Final Review — 简单修复**（≤ 2 文件、不触碰合同边界、不需新增测试、意图明确）：Coordinator 直接修复，跑验证后调度 targeted re-review。
+- **Execution / Final Review — 复杂修复**：SendMessage 原 worker（异步，等通知）；未启用 Agent Teams 时新建同类 targeted-repair agent，prompt 含 accepted findings + pack brief subset + git diff scope。
+- **Execution / Final Review — 根因不明（只读调查）**：新建 `complex-code-explorer`。
+- **Execution — 第 2 轮 repair 仍 needs repair**：截断 worker 循环，新建 `root-cause-analyst`（始终新建，需要全新视角）。Route by analyst `Result.Resolution`：`fixed` → targeted re-review；`root cause found, not fixed` → 用 analyst findings 重新 dispatch worker；`root cause in design/plan` → 写回后 re-enter discovery / plan-writing；`unable to determine` → BLOCKED，报告用户。
+- **Bug Investigation 入口**：Entry Gate 判定根因不明的 bug/error/regression → 新建 `root-cause-analyst`。Route by analyst `Result.Resolution`：`fixed` → Codex review → Closing；`root cause found, not fixed` → 派 worker → Codex review → Closing；`root cause in design/plan` → 更新 Scope Contract + 创建 budget file → Formal Orchestrate（discovery seed）；`unable to reproduce` / `unable to determine` → 报告用户，请求更多信息。
+- **READY_FOR_REPAIR**（已批准 design 下的实现偏离）：Direct Repair mini-route（workflow Step 8a）——派 worker → Codex review → Closing。
 - **desired behavior 不清**：`orchestrate-discovery`（Skill 调用）。
-- **bad seam / 架构摩擦**：`improve-codebase-architecture`（Skill 调用）；只影响当前 pack 回 Phase A 继续，改变 plan anchors 回 Phase 0b re-review。
+- **bad seam / 架构摩擦**：`improve-codebase-architecture`（Skill 调用）；只影响当前 pack 回 Execution 继续，改变 plan anchors 回 Plan Review re-review。
 - **满足 release gate**：`codex:codex-rescue --model gpt-5.5`（新建）。
 - **改变产品范围**：user decision，停止执行。
 

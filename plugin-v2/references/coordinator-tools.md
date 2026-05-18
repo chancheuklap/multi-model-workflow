@@ -6,23 +6,35 @@
 
 | 来源 | Verdict | 下一步 |
 | --- | --- | --- |
-| discovery | `DISCOVERY_READY` / `DISCOVERY_NOT_NEEDED` | Phase 0a |
-| discovery | `READY_FOR_REPAIR` | Direct Repair |
-| discovery | `NEEDS_USER_DECISION` | User Decision |
+| discovery | `DISCOVERY_READY` / `DISCOVERY_NOT_NEEDED` | 检查 issue hierarchy → plan-writing |
+| discovery | `READY_FOR_REPAIR` | Direct Repair mini-route（workflow Step 8a） |
+| discovery | `NEEDS_USER_DECISION` | 询问用户 → 重新进入 discovery |
 | discovery | `BLOCKED` | 停止 |
-| plan-writing | `PLAN_CREATED` | Phase 0b |
+| plan-writing | `PLAN_CREATED` | execution |
 | plan-writing | `NEEDS_DISCOVERY` | discovery |
-| plan-writing | `NEEDS_DESIGN_REVIEW` | Phase 0a |
-| plan-writing | `NEEDS_ISSUES` | to-issues |
-| plan-writing | `NEEDS_TRIAGE` | triage |
-| plan-writing | `NEEDS_DIAGNOSIS` | diagnose / discovery |
-| plan-writing | `NEEDS_DECISION` | user / prototype |
-| plan-writing | `NEEDS_ARCHITECTURE` | improve-codebase-architecture |
-| plan-writing | `NEEDS_CONTEXT` | code-explorer / zoom-out |
-| review | `pass` | 下一 phase |
-| review | `needs repair` | 修复后 targeted re-review |
-| review | `needs context` | explorer / discovery |
-| review | `blocked` | 停止 |
+| plan-writing | `NEEDS_DESIGN_REVIEW` | discovery（Design Review 阶段） |
+| plan-writing | `NEEDS_ISSUES` | to-issues → 重新进入 plan-writing |
+| plan-writing | `NEEDS_TRIAGE` | triage → 重新进入 plan-writing |
+| plan-writing | `NEEDS_DIAGNOSIS` | diagnose → 写回 design doc → 重新进入 plan-writing |
+| plan-writing | `NEEDS_DECISION` | 询问用户 → 重新进入 plan-writing |
+| plan-writing | `NEEDS_ARCHITECTURE` | improve-codebase-architecture → 重新进入 plan-writing |
+| plan-writing | `NEEDS_CONTEXT` | code-explorer / zoom-out → 重新进入 plan-writing |
+| plan-writing | `BLOCKED` | 停止 |
+| execution | `EXECUTION_PASSED` | final-review |
+| execution | `NEEDS_DISCOVERY` | discovery（seed with execution report） |
+| execution | `NEEDS_PLAN_REVISION` | plan-writing（修订模式，Step 0a） |
+| execution | `NEEDS_ARCHITECTURE` | improve-codebase-architecture → 判断影响范围 |
+| execution | `BLOCKED` | 停止 |
+| final-review | `FINAL_REVIEW_PASSED` | Closing |
+| final-review | `FINAL_REVIEW_PASSED_WITH_RELEASE_RISK` | Closing（Release Review 已内部处理） |
+| final-review | `NEEDS_EXECUTION` | execution re-entry（只处理标出的问题） |
+| final-review | `NEEDS_DISCOVERY` | discovery |
+| final-review | `NEEDS_PLAN_REVISION` | plan-writing（修订模式） |
+| final-review | `BLOCKED` | 停止 |
+| analyst (Bug route) | `fixed` | Codex review → Closing |
+| analyst (Bug route) | `root cause found, not fixed` | 派 worker → Codex review → Closing |
+| analyst (Bug route) | `root cause in design/plan` | 更新 Scope Contract + 创建 budget file → discovery |
+| analyst (Bug route) | `unable to reproduce` / `unable to determine` | 报告用户 |
 
 ## Upstream Skill 调用协议
 

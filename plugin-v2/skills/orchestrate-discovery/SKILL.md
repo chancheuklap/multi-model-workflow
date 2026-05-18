@@ -339,7 +339,9 @@ mockup path / 页面 / viewport / states / copy / interaction / 视觉允许偏�
 
 ## Step 10：派发 2 个 baseline Codex reviewer
 
-两个 review angle 通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task，可并行不可合并。派发前检查 review-budget.md 全局预算。
+两个 review angle 通过 `codex:codex-rescue --model gpt-5.4` 派发。每次 review 是全新 Codex task，可并行不可合并。
+
+**Budget check**：Discovery Design Review 使用固定 per-phase allowance（2 baseline + 2 repair headroom = 4 dispatches）。此阶段 budget_total 尚未确认（pack_count 未知），不依赖 budget_total 做检查。检查 `budget_used + 2 ≤ per-phase allowance (4)`。达到全局预算 80% 时仍触发 Direction Check。
 
 Prompt 中要求 reviewer 使用 Return Contract：
 
