@@ -52,6 +52,8 @@ cat <<'RULES'
 - Before entering any phase skill: re-read .claude/multi-model-workflow/scope-<run_id>.md to confirm Scope Contract
   is still current (source artifacts, editable artifacts, out of scope haven't drifted since last phase).
   Run `git status --short --branch` to verify branch and dirty state match expectations.
+- Resume Gate: a passed gate is only valid if source artifacts are unchanged since that gate. Source modified → re-enter that gate.
+- Commit boundary = rollback boundary: design/plan repair, reviewed Task Pack, accepted finding repair each get separate commits.
 - Hard Gates:
   · 没有验证证据，不得声称完成。
   · 没有用户明确指令，不得 merge / push / PR / discard / 写生产环境。

@@ -28,11 +28,25 @@
 
 路由到 upstream skill 时，parent 使用 `Skill({ skill: "<name>" })` 调用。Skill 内容注入主线程上下文，由 coordinator 直接执行。调用前必须给出 Scope、source artifacts、允许输出和写回目标。
 
-每个 phase skill 的 SKILL.md 直接列出该阶段相关的 upstream skill、触发条件和写回目标。本节只定义通用协议：
+每个 phase skill 的 SKILL.md 直接列出该阶段相关的 upstream skill、触发条件和写回目标。本节定义通用协议和每个 skill 的允许输出：
 
 - 只消费下游会读取的结果。
 - upstream skill 的原始流程还包含发布 issue、改代码、创建长期文档、prototype 文件或 tracker 状态变更时，parent 只在当前 Scope / Issue recording target / editable artifacts 授权范围内执行。
 - 完成后必须把 verdict 写回 phase skill 指定的写回目标，再回到当前 Orchestrate 节点。
+
+### 允许输出（按 skill）
+
+| Skill | 允许输出 |
+| --- | --- |
+| `grill-with-docs` | clarified context、resolved term、domain decision、ADR / SPEC / GUIDE need |
+| `diagnose` | current / desired behavior、reproduction / symptom、falsifiable hypotheses、key interfaces、regression target |
+| `zoom-out` | module map、call chain、boundary context、test / config entrypoints |
+| `prototype` | prototype question、verdict、decision artifact、validated / rejected option |
+| `improve-codebase-architecture` | architecture finding、affected modules、test seam impact、recommended boundary |
+| `triage` | issue category、ready state、AFK / HITL、blocked-by、issue brief |
+| `to-issues` | confirmed vertical large issues、confirmed vertical small issues、blocked-by、AFK / HITL |
+
+Write-back 时只提取上表列出的输出类型。Skill 返回了其他内容（如代码改动、文档创建）时，只在当前 Scope 授权范围内执行。
 
 ## Durable Handoff Brief
 

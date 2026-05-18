@@ -19,12 +19,13 @@ Step 1: Entry Gate classification.
         User Decision → ask one question, stop.
 
 Step 2: Resume Gate.
-        Within-conversation: resume from last passed gate.
-        Cross-conversation: inspect artifact state —
+        Within-conversation: resume from last passed gate, source unchanged.
+        Cross-conversation: inspect artifact state + source stability —
+          Gate 通过但 source artifact 已变（design doc / plan / issue 被修改） → 回退到该 gate 重新 review。
           design exists but no Phase 0a pass → orchestrate-design-review.
-          plan exists + Phase 0a passed → orchestrate-plan-review.
-          packs partially done → orchestrate-execution (continue).
-          Phase B passed → orchestrate-final-review.
+          plan exists + Phase 0a passed + design unchanged → orchestrate-plan-review.
+          packs partially done + plan unchanged → orchestrate-execution (continue).
+          Phase B passed + no source change → orchestrate-final-review.
 
 Step 3: Write Scope Contract.
         - Source artifacts
@@ -44,6 +45,8 @@ Step 4: Git Checkpoint.
         git status --short --branch。
         在 main / master / release branch 上先创建 work/<short-scope> 分支。
         区分当前 scope 改动和用户 / 其它线程改动；不 stage 不属于当前 scope 的 dirty files。
+        Commit 边界 = 回退边界：design/plan repair、通过 review 的 Task Pack、accepted finding repair 分别提交。
+        Sub-agent 不 commit；coordinator 在 review/verification 通过后 stage 并提交。
 
 Step 5: Dispatch.
         Formal Orchestrate: create budget file + active-run-id → orchestrate-discovery.

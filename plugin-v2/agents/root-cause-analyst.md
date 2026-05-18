@@ -63,6 +63,12 @@ Worker 修了两轮，reviewer 仍报 needs repair。Dispatch prompt 包含：�
 5. Verify：跑回归测试。
 6. 返回时在 Result 中写明 `resolution`（见 Return Contract）。
 
+## 不是你的活（收到 dispatch 后先判断）
+
+- 问题原因已经明确（如"缺 CSRF 防护"、"命名不规范"、"返回类型错"）→ 返回 verdict `needs context`，说明原因已知，不需要根因调查，应派 worker 直接修
+- 问题在文档/计划层面而非代码层面（如"设计文档遗漏了这个场景"）→ 返回 verdict `needs repair`，resolution 写 `root cause in design/plan`
+- dispatch prompt 已经包含明确的修复方案 → 返回 verdict `needs context`，说明这是已知问题应派 worker
+
 ## 停止条件
 
 - 3 假设无确认证据 → 停止，报告已排除路径

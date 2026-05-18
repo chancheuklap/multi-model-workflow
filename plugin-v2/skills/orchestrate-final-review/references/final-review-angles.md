@@ -7,6 +7,7 @@
 1. **Regression sweep**（NEW）：读 FULL diff（从 starting commit 到 HEAD）。跑完整测试套件。检查任何 pack 的改动是否破坏另一 pack 的行为或既有功能。这是"全新眼光看全局"的层。
 2. **Design intent coverage**（AUGMENTED）：逐条走 design doc 中每个可验证 intent。已被 Pack Review 验证的 intent，确认验证证据在 merge 后仍有效（1 行确认，不做 re-audit）。落在 pack 之间缝隙的 gap intent，做完整验证。
 3. **Cross-pack audit**（KEPT）：shared contract surface、migration 顺序、import 循环、状态竞争——不变。
+   **独立 pack 优化**：如果所有 pack 之间没有共享 contract / migration / state surface，Cross-pack audit 可以降级为确认独立性的 1 行声明，不做逐项审查。Regression sweep 和 Design intent coverage 仍必须执行。
 
 **Final Review 不做的事**：
 - 不重新审查单个 pack 内 Pack Review 已验证且 regression sweep 确认 intact 的行为
