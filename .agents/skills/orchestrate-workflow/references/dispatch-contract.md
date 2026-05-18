@@ -112,7 +112,7 @@ References 和 agent TOMLs 可以在 `### Result` 内定义 role-specific payloa
 | owner | 使用条件 |
 | --- | --- |
 | `parent` | coordinator 归并证据、更新进度、继续下一 phase |
-| `original worker` | accepted implementation finding 明确属于刚返回的 worker scope |
+| `original worker` | accepted implementation finding 明确属于刚返回的 worker scope。**必须继续原 worker（用保存的 handle），不新建 agent**——原 worker 保有代码上下文 |
 | `coding_worker` | 普通 repair / implementation，改动范围清楚 |
 | `complex_coding_worker` | migration、billing、auth、permission、runtime、shared contract、release boundary 或高风险 repair |
 | `code_explorer` | 窄范围文件、符号、调用链、测试入口问题 |
@@ -146,7 +146,16 @@ References 和 agent TOMLs 可以在 `### Result` 内定义 role-specific payloa
 
 ## Reception Gate
 
-收到 reviewer finding 后，parent 必须用 docs、code、tests、diff、logs、screenshots、command output 验证证据，并逐条给 disposition。没有 disposition 的 finding 不能进入 repair。
+收到 reviewer finding 后，parent 不是传话筒——必须主动验证 finding 的正确性（读代码、跑测试、对照 source artifacts），用自己的判断力质疑和确认，然后逐条给 disposition。没有 disposition 的 finding 不能进入 repair。
+
+### 修复归属判断
+
+Disposition 为 `accepted` 后，parent 按以下条件决定谁来修：
+
+- **Phase 0（Design / Plan）**：parent 直接修。Design 和 Plan 是 parent 写的，parent 拥有完整上下文。
+- **Phase A/B — 简单修复**（≤ 2 文件、不触碰合同边界、不需新增测试、意图明确）：parent 直接修复，跑验证后调度 targeted re-review。
+- **Phase A/B — 复杂修复**：继续原 worker（保有代码上下文）。
+- **Phase A/B — 根因不明**：新建 `complex_code_explorer`。
 
 先统一三个词：
 
@@ -169,7 +178,9 @@ References 和 agent TOMLs 可以在 `### Result` 内定义 role-specific payloa
 
 Accepted finding 路由：
 
-- implementation finding → `original worker`。
+- Phase 0 finding → `parent`（coordinator 直接修 design / plan）。
+- Phase A/B 简单 implementation finding（≤ 2 文件、意图明确、不触碰合同边界、不需新增测试）→ `parent`（coordinator 直接修）。
+- Phase A/B 复杂 implementation finding → `original worker`。
 - unknown root cause → `complex_code_explorer`。
 - module map / call-chain context gap → `code_explorer` / `complex_code_explorer` 或 `upstream zoom-out`。
 - high-risk repair → `complex_coding_worker`。

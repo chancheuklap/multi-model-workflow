@@ -22,5 +22,18 @@ bash codex/agents/sync-agents.sh --apply
 ## Key Contracts
 
 - Sub-agent 不读 Orchestrate SKILL.md 或 references。Parent dispatch prompt 必须自足。
-- 所有 sub-agent 按 parent dispatch 指定的 Return Contract 和 Routing Vocabulary 返回。
-- Return Contract 和 Finding Shape 的权威定义在 `orchestrate-workflow/references/dispatch-contract.md`。
+- 所有 sub-agent 按 parent dispatch 指定的 Return Contract 返回。Routing 是 coordinator 的职责，sub-agent 只报告 Verdict。
+- Return Contract 和 Finding Shape 的权威定义在 `orchestrate-workflow/references/dispatch-primitives.md`。
+
+## Repair Routing（Coordinator 视角）
+
+Codex reviewer 返回 findings 后，coordinator（Claude Code 主线程）按修复分流规则处理：
+
+| 场景 | Coordinator 动作 |
+| --- | --- |
+| Phase 0（Design / Plan）finding | Coordinator 直接修复（Design / Plan 是它写的） |
+| Phase A/B 简单 finding（≤ 2 文件、意图明确） | Coordinator 直接修复 |
+| Phase A/B 复杂 finding | SendMessage 给原 Claude Code worker（保留实现上下文）；不可用时新建同类 worker |
+| 根因不明 | 新建 root-cause-analyst |
+
+Codex reviewer 不需要知道修复由谁执行——只需按 Finding Shape 格式报告问题。

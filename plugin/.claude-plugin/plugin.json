@@ -1,7 +1,7 @@
 {
   "name": "multi-model-workflow",
-  "description": "Multi-model orchestration layer on top of Superpowers: agent specialization, Task Pack batching, automated review loops",
-  "version": "0.6.0",
+  "description": "Multi-model orchestration: Claude agents for coding + Codex agents for independent review. Task Pack batching, automated review loops, worktree isolation.",
+  "version": "0.7.0",
   "author": {
     "name": "Cheuk Lap Chan",
     "email": "chancheuklapincn@gmail.com"
@@ -13,6 +13,6 @@
     "orchestration",
     "code-review",
     "task-pack",
-    "superpowers"
+    "codex-review"
   ]
 }
