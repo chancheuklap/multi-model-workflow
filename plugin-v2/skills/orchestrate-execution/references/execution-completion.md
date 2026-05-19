@@ -27,6 +27,8 @@ Pack Review 通过后，检查该 pack 是否触碰发布风险面（migration /
 4. 每次 merge 后跑完整测试
 5. 全部 merge 完后再跑一次确认集成正确
 
+**合并策略铁律**：只用 `git merge --no-ff`，**绝对禁止 squash merge（`--squash`）和 rebase（`--rebase`）**。完整保留每个 worktree 分支的 commit 历史。
+
 **不并行合并**——串行避免 merge conflict 级联。
 
 ## Backflow + Upstream Skill 路由

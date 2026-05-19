@@ -2,7 +2,7 @@
 
 ## 目录职责
 
-Claude Code plugin v2 (v0.8.0)。6 个内部 Skill + 7 个 Sub-Agent + ~25 个 skill-specific reference（无共享 reference 文件夹）。所有代码审查通过 `codex:codex-rescue` 跨模型派发。Worker agent（pack-executor / complex-pack-executor / plan-writer）无 maxTurns 限制——三次失败协议是内置熔断器。
+Claude Code plugin v2 (v0.8.1)。6 个内部 Skill + 7 个 Sub-Agent + ~25 个 skill-specific reference（无共享 reference 文件夹）。所有代码审查通过 `codex:codex-rescue` 跨模型派发。Worker agent（pack-executor / complex-pack-executor / plan-writer）无 maxTurns 限制——三次失败协议是内置熔断器。
 
 ## 架构约束
 
@@ -10,6 +10,7 @@ Claude Code plugin v2 (v0.8.0)。6 个内部 Skill + 7 个 Sub-Agent + ~25 个 s
 - **Sub-agent 隔离**：dispatch prompt 自足；sub-agent 不读 SKILL.md / references
 - **Agent 定义 = 行为权威**：TDD、自检、scope 边界等通用规则写 agent 定义，dispatch template 只写场景信息
 - **Reviewer 独立验证**：所有 Calibration 包含"不信任上游报告"
+- **合并策略铁律**：只用 `git merge --no-ff`，绝对禁止 squash merge（`--squash`）和 rebase（`--rebase`），完整保留 commit 历史
 - **Review 预算**：`2N + 12`（N = pack 数）
 
 ## 内部 Skill
@@ -56,6 +57,17 @@ Claude Code plugin v2 (v0.8.0)。6 个内部 Skill + 7 个 Sub-Agent + ~25 个 s
 - **Worker maxTurns 移除**：pack-executor / complex-pack-executor / plan-writer 无 maxTurns 限制（三次失败协议是熔断器）
 - **Pack Brief 精简**：必需字段 10 个 + 条件字段 5 个（仅在相关时包含）。移除了 Commit boundary / Parallel safety / Issue / Scope 等 Worker 不需要的字段
 - **Review 预算**：`2N + 12`（N = pack 数）。Design Review 2 dispatches + Plan Review 1 + Pack Review N + Final Review 2 + Release Gate 2 + 修复余量 N+5
+
+## Hooks
+
+| Hook | 事件 | 脚本 | 职责 |
+|------|------|------|------|
+| SessionStart | `startup\|clear\|compact` | `session-start.sh` | 注入行为规则（routing / hard gates / agent roles） |
+| PreToolUse/Bash | 所有 Bash 调用 | `scripts/guard-premature-push.sh` | ① 拦截 `--squash` 和 `rebase`（合并策略铁律） ② 有未完成 task 时拦截 `git push` 和 `gh pr create` |
+| SubagentStop/coding | `pack-executor\|complex-pack-executor` | inline | 提醒 Coordinator 派发 Codex review |
+| SubagentStop/codex | `codex:codex-rescue` | `track-review-budget.sh` | 递增 budget_used，80% 触发 Direction Check 警告，100% 报 EXHAUSTED |
+
+**注意**：PreToolUse/Bash hook 对 sub-agent 同样生效（Claude Code hook 全局拦截），因此 worker agent 执行 `git merge --squash` 也会被拦截。`git merge --no-ff`（无 `--squash`）不受影响——执行阶段 Coordinator 合并 worktree 和 Multi-PR 合并都正常放行。
 
 ## 编辑注意
 

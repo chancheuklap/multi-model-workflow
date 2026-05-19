@@ -19,6 +19,8 @@ Codex 跨 PR 集成审查通过后，进入顺序合并。
 
 **串行合并**——不并行，避免 merge conflict 级联。
 
+**合并策略铁律**：只用 `git merge --no-ff`，**绝对禁止 squash merge（`--squash`）和 rebase（`--rebase`）**。完整保留每个 PR 分支的全部 commit 历史。
+
 对每个 PR 按顺序执行：
 
 ```bash

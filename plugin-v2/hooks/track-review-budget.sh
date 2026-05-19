@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # multi-model-workflow: SubagentStop hook for codex:codex-rescue
-# Increments review budget counter. Reads active-run-id to find budget file.
+# Increments review budget counter and emits warnings at thresholds.
 # Must exit 0 — never block agent completion.
 
 set -euo pipefail
@@ -36,6 +36,17 @@ jq --arg ts "$TIMESTAMP" '
 USED=$(jq -r '.budget_used' "$BUDGET_FILE")
 TOTAL=$(jq -r '.budget_total' "$BUDGET_FILE")
 
-echo "[multi-model-workflow] Review budget: ${USED}/${TOTAL} dispatches used." >&2
+if [ "$TOTAL" -eq 0 ] 2>/dev/null; then
+  echo "[multi-model-workflow] Review budget: ${USED} dispatches used (budget not yet assigned — will be set after plan-writing)." >&2
+elif [ "$USED" -ge "$TOTAL" ]; then
+  echo "[multi-model-workflow] ⚠ BUDGET EXHAUSTED: ${USED}/${TOTAL} dispatches used. Stop dispatching reviews and report to user." >&2
+else
+  THRESHOLD=$(( TOTAL * 80 / 100 ))
+  if [ "$USED" -ge "$THRESHOLD" ]; then
+    echo "[multi-model-workflow] ⚠ DIRECTION CHECK: Review budget at ${USED}/${TOTAL} (≥80%). Pause and confirm with user whether to continue spending review budget." >&2
+  else
+    echo "[multi-model-workflow] Review budget: ${USED}/${TOTAL} dispatches used." >&2
+  fi
+fi
 
 exit 0
