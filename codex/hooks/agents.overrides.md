@@ -9,7 +9,7 @@
 
 ## 编辑规则
 
-- `session-start.sh` 注入 Plugin V2 等价的 routing / hard gates / upstream skill outputs / agent roles；只在 Codex 必要字段上做映射。
+- `session-start.sh` 注入 Plugin V2 等价的短规则：entry routing、skill namespace、hard gates、compaction recovery；只在 Codex 必要字段上做映射。
 - `SessionStart` matcher 覆盖 `startup|resume|clear|compact`；`compact` 来自 Plugin V2，`resume` 是 Codex 会话恢复等价入口。
 - `guard-premature-push.sh` 负责阻止 Orchestrate scope 未关闭时过早 publish，并在允许 `git push` / `gh pr create` / `gh pr edit` 前自动调用 cleanup。
 - `track-review-budget.sh` 负责 review budget / dispatch ledger，不写 phase-specific review logic；external reviewer runner 成功返回后直接调用它。
