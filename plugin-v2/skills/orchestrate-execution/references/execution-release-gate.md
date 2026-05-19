@@ -18,6 +18,7 @@ Agent({
   description: "Early Release Gate: Pack N.M <risk surface>",
   prompt: "
     --model gpt-5.5
+    --wait
 
     ## Scope
     Early Release Gate for Task Pack N.M.

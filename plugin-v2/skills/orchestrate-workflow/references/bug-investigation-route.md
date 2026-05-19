@@ -82,6 +82,7 @@ Agent({
   description: "Bug fix review: <bug title>",
   prompt: "
     --model gpt-5.4
+    --wait
 
     ## Scope
     Review a bug fix applied by root-cause-analyst.

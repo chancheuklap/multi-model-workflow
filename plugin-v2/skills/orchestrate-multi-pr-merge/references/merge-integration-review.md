@@ -12,6 +12,7 @@ Agent({
   description: "Multi-PR integration review: <PR set>",
   prompt: "
     --model gpt-5.4
+    --wait
 
     ## Scope
     跨 PR 集成审查。多个并行 PR 来自同一大设计，各自已通过 Final Review。
@@ -135,6 +136,7 @@ Agent({
   description: "Multi-PR targeted re-review: <finding summary>",
   prompt: "
     --model gpt-5.4
+    --wait
 
     ## Scope
     Targeted re-review for Multi-PR integration repair.

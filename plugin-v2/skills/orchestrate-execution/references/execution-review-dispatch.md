@@ -10,6 +10,7 @@ Agent({
   description: "Pack Review: Task Pack N.M",
   prompt: "
     --model gpt-5.4
+    --wait
 
     ## Scope
     Review the implementation of Task Pack N.M: <title>

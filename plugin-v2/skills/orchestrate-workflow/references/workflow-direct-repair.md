@@ -52,6 +52,7 @@ Agent({
   description: "Direct repair review: <deviation summary>",
   prompt: "
     --model gpt-5.4
+    --wait
     ## Scope
     Review a direct repair for design deviation.
     ## Source design: <path>

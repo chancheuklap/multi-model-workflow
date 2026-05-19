@@ -10,6 +10,7 @@ Agent({
   description: "Plan Review: <feature>",
   prompt: "
     --model gpt-5.4
+    --wait
 
     ## Scope
     Review the implementation plan for: <feature>

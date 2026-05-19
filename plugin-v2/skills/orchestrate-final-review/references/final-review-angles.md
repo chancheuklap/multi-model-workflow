@@ -28,6 +28,7 @@ Agent({
   description: "Final Review Baseline 1: Regression + Intent + Cross-Pack",
   prompt: "
     --model gpt-5.4
+    --wait
 
     ## Scope
     Final Review for a completed implementation. All Task Packs have individually
@@ -151,6 +152,7 @@ Agent({
   description: "Final Review Baseline 2: Independent Code-Level Audit",
   prompt: "
     --model gpt-5.4
+    --wait
 
     ## Scope
     Independent code-level audit for a completed implementation.
