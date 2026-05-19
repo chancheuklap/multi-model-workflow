@@ -6,6 +6,7 @@ Plugin V2 shaped Orchestrate Workflow runtime.
 Current Codex runtime source:
 
 - repo-local skills: `.agents/skills/orchestrate-*`
+- runtime source manifest: `codex/README.md`
 - Codex agent templates: `codex/agents/*.toml`
 - skill install scripts: `codex/skills/`
 - hook install scripts: `codex/hooks/`
@@ -106,12 +107,12 @@ After applying runtime changes:
 
 ```bash
 bash -n codex/skills/install-orchestrate-runtime.sh
-bash -n codex/skills/install-orchestrate-workflow.sh
 bash -n codex/agents/sync-agents.sh
 bash -n codex/hooks/install-hooks.sh
 bash -n codex/hooks/session-start.sh
 bash -n codex/hooks/guard-premature-push.sh
 bash -n codex/hooks/track-review-budget.sh
+bash -n codex/hooks/cleanup-run-state.sh
 bash -n codex/reviewers/claude-subscription-review.sh
 bash -n codex/reviewers/claude-review.sh
 python3 -m json.tool codex/hooks/hooks.json >/dev/null
@@ -122,6 +123,8 @@ diff -qr .agents/skills/orchestrate-execution ~/.agents/skills/orchestrate-execu
 diff -qr .agents/skills/orchestrate-final-review ~/.agents/skills/orchestrate-final-review
 diff -qr .agents/skills/orchestrate-multi-pr-merge ~/.agents/skills/orchestrate-multi-pr-merge
 for f in codex/agents/*.toml; do diff -q "$f" "$HOME/.codex/agents/$(basename "$f")"; done
+diff -q codex/hooks/cleanup-run-state.sh ~/.codex/hooks/multi-model-workflow/cleanup-run-state.sh
+python3 -m json.tool ~/.codex/hooks.json >/dev/null
 ```
 
 ## Historical Claude Sources

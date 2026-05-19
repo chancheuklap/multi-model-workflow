@@ -6,8 +6,9 @@
 
 - `codex/agents/*.toml`：custom `agent_type` 模板；
 - `codex/agents/sync-agents.sh`：复制 agent templates，并可更新 `~/.codex/config.toml`；
-- `codex/skills/*.sh`：安装六个 Orchestrate skills 到 user-level 或 target repo；
+- `codex/skills/install-orchestrate-runtime.sh`：安装六个 Orchestrate skills 到 user-level 或 target repo；
 - `codex/hooks/*.sh`、`codex/hooks/hooks.json`：Codex hook source 和安装器。
+- `codex/reviewers/*.sh`：外部 reviewer runner，由 Orchestrate review lane 调用。
 
 ## 当前 managed agent_type
 

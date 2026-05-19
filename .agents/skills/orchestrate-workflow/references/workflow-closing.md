@@ -21,10 +21,15 @@ Formal Orchestrate 的 pack commits 已在 execution 完成。此处只处理 Fi
 
 ## Step 22：Push + Open PR
 
+`PreToolUse/Bash` hook 会在 `git push` / `gh pr create` / `gh pr edit` 前自动清理本次运行的临时记录文件。清理范围只包括 `.codex/multi-model-workflow/`，不删除 design、plan、issue、report、code、test 或 commit artifacts。
+
 ```bash
 git push -u origin <branch>
+test ! -e .codex/multi-model-workflow
 gh pr list --head <branch> --json number --jq '.[0].number'
 ```
+
+如果 hooks 未启用或 publish 被 cleanup failure 拦截，运行 `bash codex/hooks/cleanup-run-state.sh --apply` 后重试 publish。
 
 | 状态 | 动作 |
 | --- | --- |
@@ -57,10 +62,10 @@ Generated with Codex + multi-model-workflow
 
 ## Step 24：Cleanup
 
+正常情况下 Step 22 的 PreToolUse hook 已经清理运行态。这里作为收尾幂等检查：
+
 ```bash
-rm .codex/multi-model-workflow/active-run-id
-rm .codex/multi-model-workflow/budget-<run_id>.json
-rm .codex/multi-model-workflow/scope-<run_id>.md
+bash codex/hooks/cleanup-run-state.sh --apply
 ```
 
-Bug / Multi-PR route 只删 scope file（无 budget file）。
+Bug / Multi-PR route 若没有 budget file，脚本仍会清理已有 scope / prompt / result 临时文件；目录不存在时直接通过。

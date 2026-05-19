@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PAYLOAD="$(cat)"
+export HOOK_DIR
 export PAYLOAD
 
 python3 - <<'PY'
@@ -10,6 +12,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -42,7 +46,6 @@ def active_plan_candidates(cwd: Path) -> list[Path]:
     plan_dirs = [
         cwd / "docs" / "orchestrate" / "plans",
         cwd / "docs" / "plans",
-        cwd / ".codex" / "multi-model-workflow",
     ]
     plans: list[Path] = []
     for plan_dir in plan_dirs:
@@ -54,6 +57,28 @@ def active_plan_candidates(cwd: Path) -> list[Path]:
 def has_unchecked_tasks(plan: Path) -> bool:
     text = plan.read_text(encoding="utf-8", errors="ignore")
     return bool(re.search(r"^\s*-\s+\[\s\]\s+", text, re.MULTILINE))
+
+
+def cleanup_runtime_state(cwd: Path) -> None:
+    hook_dir = Path(os.environ["HOOK_DIR"])
+    cleanup_script = hook_dir / "cleanup-run-state.sh"
+    if not cleanup_script.exists():
+        emit_block(f"Blocked publish command because cleanup hook is missing: {cleanup_script}")
+        raise SystemExit(0)
+
+    result = subprocess.run(
+        ["bash", str(cleanup_script), "--apply", "--root", str(cwd)],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if result.stdout.strip():
+        print(result.stdout.strip(), file=sys.stderr)
+    if result.stderr.strip():
+        print(result.stderr.strip(), file=sys.stderr)
+    if result.returncode != 0:
+        emit_block("Blocked publish command because runtime cleanup failed. Fix cleanup failure before publishing.")
+        raise SystemExit(0)
 
 
 payload = read_payload()
@@ -72,7 +97,7 @@ is_publish = any(
     re.search(pattern, command)
     for pattern in [
         r"(^|&&|\|\||;)\s*git\s+push(\s|$)",
-        r"(^|&&|\|\||;)\s*gh\s+pr\s+create(\s|$)",
+        r"(^|&&|\|\||;)\s*gh\s+pr\s+(create|edit)(\s|$)",
     ]
 )
 if not is_publish:
@@ -83,5 +108,6 @@ for active in active_plan_candidates(cwd):
         emit_block(f"Blocked publish command because active plan still has unchecked tasks: {active}")
         raise SystemExit(0)
 
+cleanup_runtime_state(cwd)
 raise SystemExit(0)
 PY

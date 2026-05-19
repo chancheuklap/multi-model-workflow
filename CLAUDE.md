@@ -53,9 +53,9 @@ bash codex/hooks/install-hooks.sh --apply
 
 ```bash
 bash -n codex/skills/install-orchestrate-runtime.sh
-bash -n codex/skills/install-orchestrate-workflow.sh
 bash -n codex/agents/sync-agents.sh
 bash -n codex/hooks/install-hooks.sh
+bash -n codex/hooks/cleanup-run-state.sh
 bash -n codex/reviewers/claude-subscription-review.sh
 bash -n codex/reviewers/claude-review.sh
 python3 -m json.tool codex/hooks/hooks.json >/dev/null

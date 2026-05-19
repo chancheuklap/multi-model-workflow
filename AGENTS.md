@@ -134,6 +134,7 @@ done
 diff -q codex/hooks/session-start.sh /Users/cheuklapchan/.codex/hooks/multi-model-workflow/session-start.sh
 diff -q codex/hooks/guard-premature-push.sh /Users/cheuklapchan/.codex/hooks/multi-model-workflow/guard-premature-push.sh
 diff -q codex/hooks/track-review-budget.sh /Users/cheuklapchan/.codex/hooks/multi-model-workflow/track-review-budget.sh
+diff -q codex/hooks/cleanup-run-state.sh /Users/cheuklapchan/.codex/hooks/multi-model-workflow/cleanup-run-state.sh
 ```
 
 ## 8. 子代理使用
