@@ -2,7 +2,7 @@
 
 ## 目录职责
 
-Claude Code plugin v2 (v0.8.1)。6 个内部 Skill + 7 个 Sub-Agent + ~25 个 skill-specific reference（无共享 reference 文件夹）。所有代码审查通过 `codex:codex-rescue` 跨模型派发。Worker agent（pack-executor / complex-pack-executor / plan-writer）无 maxTurns 限制——三次失败协议是内置熔断器。
+Claude Code plugin v2 (v0.8.2)。6 个内部 Skill + 7 个 Sub-Agent + ~25 个 skill-specific reference（无共享 reference 文件夹）。所有代码审查通过 `codex:codex-rescue` 跨模型派发。Worker agent（pack-executor / complex-pack-executor / plan-writer）无 maxTurns 限制——三次失败协议是内置熔断器。
 
 ## 架构约束
 
@@ -50,7 +50,10 @@ Claude Code plugin v2 (v0.8.1)。6 个内部 Skill + 7 个 Sub-Agent + ~25 个 s
 
 ## 架构变更记录
 
-- **plan-writer 不再 autoload 完整 SKILL.md**：移除了 `skills: ["orchestrate-plan-writing"]`，改为 Read tool 读取 `references/plan-writing-methodology.md`
+- **技能命名空间区分（v0.8.2）**：内部 plugin 技能调用必须使用全限定名 `multi-model-workflow:orchestrate-*`；外部用户级技能（diagnose / prototype / tdd / grill-with-docs / triage / to-issues / improve-codebase-architecture / zoom-out）使用短名调用，不加 `multi-model-workflow:` 前缀。所有 reference 文件中的 Skill 调用已统一为 `Skill({ skill: "..." })` 显式语法
+- **Sub-agent 方法论路径传递（v0.8.2）**：plan-writer 和 root-cause-analyst（模式 3）不再硬编码方法论文件路径。改为由 Coordinator 在 dispatch prompt 的 `## Methodology` 段落中传入 `${CLAUDE_PLUGIN_ROOT}` 解析后的绝对路径
+- **Sub-agent 技能预加载精简（v0.8.2）**：减少 worker agent 的 `skills:` frontmatter 预加载，改为 body text 内 trigger hints 按需调用。pack-executor 移除 diagnose/prototype（省 ~10.4KB/spawn）；complex-pack-executor 移除 diagnose/improve-codebase-architecture/prototype（省 ~15.6KB/spawn）；docs-worker 移除 triage（省 ~4.9KB/spawn）。root-cause-analyst 保留 diagnose+tdd（核心方法论）；plan-writer 保留 improve-codebase-architecture
+- **plan-writer 不再 autoload 完整 SKILL.md**：移除了 `skills: ["orchestrate-plan-writing"]`，改为 Read tool 读取 dispatch prompt 中提供的方法论路径
 - **Budget file 新增字段**：`starting_commit`（Git Checkpoint 时记录）、`discovery_used`（Discovery phase 本地计数）
 - **Release Gate 预算说明修正**：不再称"独立预算"，改为"已包含在全局 `2N+12` 预算中"
 - **Design Review per-phase allowance**：改用 `discovery_used` 字段做本地计数，不依赖全局 `budget_used`

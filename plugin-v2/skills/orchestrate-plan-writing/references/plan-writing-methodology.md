@@ -2,7 +2,7 @@
 
 > **流程位置**：`orchestrate-plan-writing` Steps 3-8 · plan-writer 写作方法论 · Coordinator 按此构造 dispatch brief → Steps 9-10（`plan-writer-dispatch.md`）
 
-plan-writer agent 通过 `skills: [orchestrate-plan-writing]` 自动加载 SKILL.md 后，读取本文件执行写作。Coordinator 按本文件内容构造 plan-writer dispatch prompt。
+plan-writer agent 通过 dispatch prompt 中指定的路径读取本文件执行写作。Coordinator 按本文件内容构造 plan-writer dispatch prompt。
 
 ## 核心原则
 
@@ -46,7 +46,7 @@ plan-writer agent 通过 `skills: [orchestrate-plan-writing]` 自动加载 SKILL
 
 ### 3c：探索代码库
 
-用 `rg` / `find` / `improve-codebase-architecture` 验证 source design 涉及的路径、模块、合同面、已有模式。
+用 `rg` / `find` / `Skill({ skill: "improve-codebase-architecture" })`（用户级，无前缀）验证 source design 涉及的路径、模块、合同面、已有模式。
 
 读取项目根目录 CLAUDE.md 及其链入的规则文档。理解模块边界、测试路由、合同墙、命名约定——plan 中的 File/Responsibility Map、verification commands、contract anchors 必须符合项目实际。
 

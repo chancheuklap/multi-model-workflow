@@ -45,7 +45,7 @@ description: "正式开发流程主入口。用户给出新功能、改造、bug
 
 ## Steps 19-20：Route 3 — Multi-PR Merge
 
-`Skill({ skill: "orchestrate-multi-pr-merge" })`。
+`Skill({ skill: "multi-model-workflow:orchestrate-multi-pr-merge" })`。
 
 | Multi-PR Merge Verdict | Coordinator 动作 |
 | --- | --- |

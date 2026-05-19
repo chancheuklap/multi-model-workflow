@@ -26,9 +26,9 @@
 - confirmed / rejected hypotheses、root cause or suspected boundary
 - regression check、user-visible target behavior
 - contract / UI / permission / billing impact、out of scope
-- 缺 feedback loop → 先调用 `diagnose`。Discovery 只消费 diagnose 产出的事实
+- 缺 feedback loop → 先 `Skill({ skill: "diagnose" })`（用户级，无前缀）。Discovery 只消费 diagnose 产出的事实
 - 只是已批准 design 下的实现偏离 → 返回 `READY_FOR_REPAIR`
-- 出现 bad seam、shallow module、caller leakage → 使用 `improve-codebase-architecture`
+- 出现 bad seam、shallow module、caller leakage → `Skill({ skill: "improve-codebase-architecture" })`（用户级，无前缀）
 - 修复会改变正式行为 → 必须产出或修订 design document
 
 **Issue / backlog / existing PRD**：
@@ -36,7 +36,7 @@
 - problem、solution、user stories、acceptance criteria
 - dependencies / blocked-by、AFK / HITL、open decisions、out of scope
 - 已有 problem、solution、acceptance 可直接写入 design document
-- source intent 不清 → 调用 `triage` 或继续 Discovery 提问
+- source intent 不清 → `Skill({ skill: "triage" })`（用户级，无前缀）或继续 Discovery 提问
 
 **UI / UX / 截图 / 验收反馈**：
 - feedback source / screenshot / test / human acceptance note
@@ -51,14 +51,14 @@
 
 设计要点：
 - **设计隔离和清晰**：把系统拆成更小的单元，明确目的、定义好的接口、可独立测试。
-- **深模块优先**：用 `improve-codebase-architecture` 理解现有模块边界。
+- **深模块优先**：用 `Skill({ skill: "improve-codebase-architecture" })` 理解现有模块边界。
 - **在现有代码库中工作**：先探索再提方案。遵循既有模式。
 
 ## Step 5：分段呈现设计
 
 按段呈现，每段长度与复杂度成比例。每段呈现后问用户是否正确。覆盖：架构、组件、数据流、错误处理、测试策略。
 
-涉及视觉判断时：调用 `prototype` 验证状态模型 / UI 方向，调用 `frontend-design` 生成高品质前端原型。
+涉及视觉判断时：`Skill({ skill: "prototype" })` 验证状态模型 / UI 方向，`Skill({ skill: "frontend-design" })` 生成高品质前端原型。
 
 ## Step 6：Domain Alignment（全程横向检查）
 

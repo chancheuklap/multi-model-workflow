@@ -120,7 +120,7 @@ Worker 修了两轮，reviewer 仍报 needs repair。Dispatch prompt 包含：�
 
 **核心区别**：这不是 bug——不是某段代码错了。调查要从"交互"而非"错误"的视角出发。
 
-**首先读取方法论**：用 `Read` 工具读取 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-multi-pr-merge/references/rca-pr-conflict-methodology.md`，按其中的 5 步方法论执行调查。
+**首先读取方法论**：用 `Read` 工具读取 dispatch prompt 中 `## Methodology` 提供的方法论文件路径，按其中的 5 步方法论执行调查。Coordinator 在 dispatch 时会将路径解析为绝对路径。
 
 Dispatch prompt 包含：explorer 发现的冲突列表、大设计文档路径、各 PR 概要、Coordinator 的正确状态理解、合同地图。
 

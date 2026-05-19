@@ -29,21 +29,29 @@ cat <<'RULES'
 - AS SOON AS a design document is produced or exists, immediately enter multi-model-workflow:orchestrate-workflow (entry gate) — it routes to the correct phase skill.
 - When the user references any existing design doc (specs/) or plan (plans/) and asks to review / audit / advance / execute / continue / 推进 / 审查 / 落地 / 动手 / 走流程, use multi-model-workflow:orchestrate-workflow (entry gate).
 
-# 4. Skill chaining rules (4 internal phase skills)
-- orchestrate-workflow selects Formal Orchestrate → orchestrate-discovery
-- orchestrate-discovery (includes Design Review internally) returns DISCOVERY_READY → check issue hierarchy; missing → to-issues → orchestrate-plan-writing
-- orchestrate-plan-writing (includes Plan Review internally) returns PLAN_CREATED → orchestrate-execution
-- orchestrate-execution (pack dispatch + Pack Review per pack) returns EXECUTION_PASSED → orchestrate-final-review
-- orchestrate-final-review (Final Review + business report) returns FINAL_REVIEW_PASSED → orchestrate-workflow Closing
-- orchestrate-workflow selects READY_FOR_REPAIR → Direct Repair mini-route (workflow Step 8a)
-- orchestrate-workflow selects Bug Investigation → root-cause-analyst → route by result (repair / formal orchestrate)
+# 4. Skill chaining rules — namespace distinction
+- INTERNAL plugin skills (call with multi-model-workflow: prefix):
+  multi-model-workflow:orchestrate-workflow, multi-model-workflow:orchestrate-discovery,
+  multi-model-workflow:orchestrate-plan-writing, multi-model-workflow:orchestrate-execution,
+  multi-model-workflow:orchestrate-final-review, multi-model-workflow:orchestrate-multi-pr-merge
+- EXTERNAL user-level skills (call WITHOUT prefix — short name only):
+  diagnose, prototype, improve-codebase-architecture, zoom-out, triage, grill-with-docs, to-issues
+
+- multi-model-workflow:orchestrate-workflow selects Formal Orchestrate → multi-model-workflow:orchestrate-discovery
+- multi-model-workflow:orchestrate-discovery (includes Design Review internally) returns DISCOVERY_READY → check issue hierarchy; missing → to-issues (user-level) → multi-model-workflow:orchestrate-plan-writing
+- multi-model-workflow:orchestrate-plan-writing (includes Plan Review internally) returns PLAN_CREATED → multi-model-workflow:orchestrate-execution
+- multi-model-workflow:orchestrate-execution (pack dispatch + Pack Review per pack) returns EXECUTION_PASSED → multi-model-workflow:orchestrate-final-review
+- multi-model-workflow:orchestrate-final-review (Final Review + business report) returns FINAL_REVIEW_PASSED → multi-model-workflow:orchestrate-workflow Closing
+- multi-model-workflow:orchestrate-workflow selects READY_FOR_REPAIR → Direct Repair mini-route (workflow Step 8a)
+- multi-model-workflow:orchestrate-workflow selects Bug Investigation → root-cause-analyst → route by result (repair / formal orchestrate)
 - Execution / Final Review: repair round 2 still fails → root-cause-analyst before round 3
 - Final Review → NEEDS_EXECUTION 最多 1 次；第 2 次 → BLOCKED
-- At any point: design/domain/UX gap → orchestrate-discovery; issue gap → to-issues; plan gap → orchestrate-plan-writing
+- At any point: design/domain/UX gap → multi-model-workflow:orchestrate-discovery; issue gap → to-issues (user-level); plan gap → multi-model-workflow:orchestrate-plan-writing
 
-# 5. Upstream skill routing
+# 5. Upstream skill routing (user-level skills — NO multi-model-workflow: prefix)
 - diagnose, prototype, improve-codebase-architecture, zoom-out, triage, grill-with-docs, to-issues
-  remain callable from any orchestrate skill via Skill tool.
+  are user-level skills installed at ~/.claude/skills/. Call them via Skill tool with SHORT NAME ONLY
+  (e.g., Skill({ skill: "to-issues" })), NEVER with multi-model-workflow: prefix.
   Each phase skill lists its own upstream triggers and write-back targets inline.
 - Upstream skill calling protocol: only consume downstream-readable results. When upstream skill
   returns code changes / long-term docs / tracker mutations beyond current Scope, only execute

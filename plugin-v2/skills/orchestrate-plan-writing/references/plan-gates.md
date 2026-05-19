@@ -14,7 +14,7 @@ Plan 必须包含以下字段，缺失则 needs repair（SendMessage plan-writer
 - File / Responsibility Map
 - 发布风险和人工门禁表
 
-声称 issue-backed 但缺 issues → `NEEDS_ISSUES` → to-issues。
+声称 issue-backed 但缺 issues → `NEEDS_ISSUES` → `Skill({ skill: "to-issues" })`（用户级，无前缀）。
 多余 handoff owner / 非 Orchestrate Workflow 的 execution owner → needs repair。
 
 ## Step 12：Task Pack Inventory Gate

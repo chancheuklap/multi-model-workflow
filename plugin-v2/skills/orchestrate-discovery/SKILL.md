@@ -46,11 +46,11 @@ Coordinator 亲验 findings → disposition → 直接修设计文档（不派 w
 
 ## Step 12：过渡到 to-issues
 
-已有 issue hierarchy → 返回进入 plan-writing。缺 issue hierarchy → 调用 `to-issues`。
+已有 issue hierarchy → 返回进入 plan-writing。缺 issue hierarchy → `Skill({ skill: "to-issues" })`（用户级技能，无前缀）。
 
-## 外部 Skill
+## 外部 Skill（用户级技能——调用时不加 `multi-model-workflow:` 前缀）
 
-**全程使用**：`grill-with-docs`（CONTEXT.md 维护）。**按需调用**：`prototype` / `frontend-design` / `improve-codebase-architecture` / `zoom-out` / `diagnose` / `triage` / `to-issues`。结论必须写回 design document 或 CONTEXT.md。
+**全程使用**：`Skill({ skill: "grill-with-docs" })`（CONTEXT.md 维护）。**按需调用**：`Skill({ skill: "prototype" })` / `frontend-design` / `Skill({ skill: "improve-codebase-architecture" })` / `Skill({ skill: "zoom-out" })` / `Skill({ skill: "diagnose" })` / `Skill({ skill: "triage" })` / `Skill({ skill: "to-issues" })`。结论必须写回 design document 或 CONTEXT.md。
 
 ## 边界规则
 
