@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # PreToolUse hook for Bash tool.
 # Cleans up orchestration temp files before git push / gh pr create.
 # Runs AFTER guard-premature-push.sh — only reaches here if push is allowed.
@@ -11,28 +11,28 @@ if ! echo "$COMMAND" | grep -qE 'git push|gh pr create'; then
 fi
 
 WORKFLOW_DIR=".claude/multi-model-workflow"
-if [ ! -d "$WORKFLOW_DIR" ]; then
+
+if [ ! -e "$WORKFLOW_DIR" ]; then
   exit 0
 fi
 
-CLEANED=()
-
-if [ -f "$WORKFLOW_DIR/active-run-id" ]; then
-  RUN_ID=$(cat "$WORKFLOW_DIR/active-run-id")
-
-  for f in "$WORKFLOW_DIR/budget-"*.json "$WORKFLOW_DIR/scope-"*.md; do
-    [ -f "$f" ] && rm -f "$f" && CLEANED+=("$(basename "$f")")
-  done
-
-  rm -f "$WORKFLOW_DIR/active-run-id" && CLEANED+=("active-run-id")
-else
-  for f in "$WORKFLOW_DIR/budget-"*.json "$WORKFLOW_DIR/scope-"*.md; do
-    [ -f "$f" ] && rm -f "$f" && CLEANED+=("$(basename "$f")")
-  done
+if [ -L "$WORKFLOW_DIR" ]; then
+  echo "[multi-model-workflow] WARNING: refusing to clean symlinked state directory: $WORKFLOW_DIR" >&2
+  exit 0
 fi
 
-if [ ${#CLEANED[@]} -gt 0 ]; then
-  echo "[multi-model-workflow] Cleaned up ${#CLEANED[@]} temp file(s): ${CLEANED[*]}" >&2
+if [ ! -d "$WORKFLOW_DIR" ]; then
+  echo "[multi-model-workflow] WARNING: state path is not a directory: $WORKFLOW_DIR" >&2
+  exit 0
 fi
+
+COUNT=$(find "$WORKFLOW_DIR" -mindepth 1 -print | wc -l | tr -d ' ')
+
+if [ "$COUNT" -eq 0 ]; then
+  exit 0
+fi
+
+rm -rf "$WORKFLOW_DIR"
+echo "[multi-model-workflow] Cleaned up $COUNT runtime state file(s) under $WORKFLOW_DIR" >&2
 
 exit 0
