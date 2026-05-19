@@ -36,6 +36,6 @@ Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问�
 
 ## Step 2：Scope Contract + Budget File
 
-**Scope Contract**：继承 orchestrate-workflow 写的 Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）。从中读取 feature slug。验证 editable artifacts 包含约定路径（`docs/orchestrate/design/<slug>.md`、`docs/orchestrate/plans/<slug>.md`、`docs/orchestrate/issues/<slug>/`）。
+**Scope Contract**：继承 orchestrate-workflow 写的 Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）。从中读取 feature slug。验证 editable artifacts 包含约定路径（`docs/orchestrate/design/<slug>.md`、`docs/orchestrate/plans/<slug>.md`、`docs/orchestrate/issues/<slug>.md`）。
 
 **Budget File**：读取 `.codex/multi-model-workflow/active-run-id` 找到 budget file，记录当前 `budget_used`。Plan-writing 阶段会消耗 Plan Review dispatch（1-2 次，含修复后的 targeted re-review）。

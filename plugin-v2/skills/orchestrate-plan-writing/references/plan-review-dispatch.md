@@ -18,7 +18,7 @@ Agent({
     ## Source artifacts（路径从 Scope Contract feature slug 推导）
     - Plan: docs/orchestrate/plans/<slug>.md
     - Source design: docs/orchestrate/design/<slug>.md
-    - Source issues: docs/orchestrate/issues/<slug>/
+    - Source issues: docs/orchestrate/issues/<slug>.md
     - Scope Contract: .claude/multi-model-workflow/scope-<run_id>.md
 
     ## Review angles (single integrated review)

@@ -27,7 +27,7 @@ SLUG=$(grep -A1 '^## Feature slug' ".codex/multi-model-workflow/scope-${RUN_ID}.
 git log --oneline --since="<last_gate_timestamp>" -- \
   "docs/orchestrate/design/${SLUG}.md" \
   "docs/orchestrate/plans/${SLUG}.md" \
-  "docs/orchestrate/issues/${SLUG}/"
+  "docs/orchestrate/issues/${SLUG}.md"
 ```
 
 | 条件 | 从哪里继续 |
@@ -57,10 +57,7 @@ docs/orchestrate/
 ├── plans/           # 实施计划（plan-writer 产出）
 │   └── YYYY-MM-DD-<feature>.md
 ├── issues/          # issue hierarchy（to-issues 产出）
-│   └── YYYY-MM-DD-<feature>/
-│       ├── 001-<large-issue-slug>.md   # 大 issue 文档（内含小 issue 拆分）
-│       ├── 002-<large-issue-slug>.md
-│       └── ...
+│   └── YYYY-MM-DD-<feature>.md         # 合并文档（所有大 issue + 内嵌小 issue）
 └── mockups/         # prototype / frontend-design 产出
     └── YYYY-MM-DD-<feature>/
         ├── *.html / *.png / *.svg
@@ -75,7 +72,7 @@ docs/orchestrate/
 **路径推导**：给定 feature slug `<slug>`，各文档路径为：
 - Design: `docs/orchestrate/design/<slug>.md`
 - Plan: `docs/orchestrate/plans/<slug>.md`
-- Issues: `docs/orchestrate/issues/<slug>/`
+- Issues: `docs/orchestrate/issues/<slug>.md`
 - Mockups: `docs/orchestrate/mockups/<slug>/`
 
 ---
@@ -96,7 +93,7 @@ docs/orchestrate/
 ## Editable artifacts
 - Design: docs/orchestrate/design/<slug>.md
 - Plan: docs/orchestrate/plans/<slug>.md
-- Issues: docs/orchestrate/issues/<slug>/
+- Issues: docs/orchestrate/issues/<slug>.md
 - Mockups: docs/orchestrate/mockups/<slug>/（UI/UX 时）
 
 ## Read-only context

@@ -12,7 +12,7 @@ Dispatch prompt 必须自足——plan_writer 不读 SKILL.md、不读 Coordinat
 
 1. **Read** Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）→ 获取 slug、run_id
 2. **Read** 设计文档（`docs/orchestrate/design/<slug>.md`）→ 提取 Goal、Architecture、行为清单、合同边界、验收标准
-3. **Read** issue hierarchy 目录下的所有 large issue 文档（`docs/orchestrate/issues/<slug>/001-*.md` 等）→ 提取 issue 列表、acceptance criteria、blocked-by 关系
+3. **Read** issue hierarchy 文档（`docs/orchestrate/issues/<slug>.md`）→ 提取所有大 issue 的列表、small issue、acceptance criteria、blocked-by 关系
 
 如果以上任何一个 Read 失败（文件不存在），停止派发，返回对应的 upstream verdict。
 
@@ -33,9 +33,7 @@ spawn_agent({
 
     ## Source artifacts（plan_writer 启动后需 Read 这些文件获取完整内容）
     - Source design: docs/orchestrate/design/<slug>.md（已通过 Design Review）
-    - Issue hierarchy: docs/orchestrate/issues/<slug>/
-      - Large issues: docs/orchestrate/issues/<slug>/001-<name>.md, ...（逐个列出实际文件名）
-      - Small issues: 内嵌在各大 issue 文档中
+    - Issue hierarchy: docs/orchestrate/issues/<slug>.md（合并文档，H2 = 大 issue，H4 = 小 issue）
     - Mockups（如有）: docs/orchestrate/mockups/<slug>/
     - Scope Contract: .codex/multi-model-workflow/scope-<run_id>.md
     - AGENTS.md / CLAUDE.md: <project root>/AGENTS.md / CLAUDE.md

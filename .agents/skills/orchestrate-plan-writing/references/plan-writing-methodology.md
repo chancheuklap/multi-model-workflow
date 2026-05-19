@@ -66,7 +66,7 @@ plan_writer 由 parent dispatch 提供本文件路径或粘贴关键方法论后
 
 **Goal:** <一句话用户可见或系统可验证能力>
 **Source design:** docs/orchestrate/design/<slug>.md
-**Source issues:** docs/orchestrate/issues/<slug>/
+**Source issues:** docs/orchestrate/issues/<slug>.md
 **Execution owner:** Orchestrate Workflow
 **Plan unit:** 一级章节 = large issue；Task Pack = small issue；细 task 只在 pack 内部。
 **Completion gate:** Plan Review → Execution → Pack Review → Final Review → Release Gate (if triggered)

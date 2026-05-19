@@ -10,7 +10,7 @@
 
 - 所有 Task Pack 的编号、标题、issue reference
 - 每个 pack 的 `Dependencies`、`Parallel safety`、`Risk flags`、`发布风险`
-- Source design path（`docs/orchestrate/design/<slug>.md`）、Source issues path（`docs/orchestrate/issues/<slug>/`）
+- Source design path（`docs/orchestrate/design/<slug>.md`）、Source issues path（`docs/orchestrate/issues/<slug>.md`）
 - File / Responsibility Map
 - 发布风险和人工门禁表
 

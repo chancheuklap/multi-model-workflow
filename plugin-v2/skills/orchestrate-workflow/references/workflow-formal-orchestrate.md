@@ -22,7 +22,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-discovery" })
 
 **更新 Budget File**：`last_gate_phase: "discovery"`, `last_gate_timestamp: <now>`。
 
-### Step 8b：to-issues 上下文传递
+### Step 8b：to-issues 上下文传递 + 输出格式覆盖
 
 调用 to-issues 前，Coordinator 必须：
 
@@ -31,6 +31,45 @@ Skill({ skill: "multi-model-workflow:orchestrate-discovery" })
 3. 调用 `Skill({ skill: "to-issues", args: "docs/orchestrate/design/<slug>.md" })`
 
 to-issues 运行时需要设计文档的完整内容来拆 issue。如果 Coordinator 上下文中已无设计文档内容（因 compact 或 phase 切换），必须重新 Read。
+
+**输出格式覆盖**：to-issues 默认每个大 issue 写一个独立文件。在 orchestrate workflow 中，**覆盖为单文件合并格式**——所有大 issue 合并到 `docs/orchestrate/issues/<slug>.md` 一个文件，与设计文档和计划文档保持一致的"一个阶段一份文档"模式。
+
+to-issues 的 Step 5a 执行完毕后，Coordinator 检查产出：
+- 如果产出是单文件 `docs/orchestrate/issues/<slug>.md` → 正确，继续
+- 如果产出是目录 `docs/orchestrate/issues/<slug>/` 下的多个文件 → 合并为单文件：依次 Read 每个文件，按编号顺序合并到 `docs/orchestrate/issues/<slug>.md`，然后删除目录
+
+合并后的文档格式：
+
+```markdown
+# <Feature> Issue Hierarchy
+
+**Source design:** docs/orchestrate/design/<slug>.md
+**Feature slug:** <slug>
+
+## 1. <Large Issue Title>
+
+### What to build
+<端到端行为描述>
+
+### Small issues
+
+#### 1.1 <Small Issue Title>
+**Type:** AFK / HITL
+**What to build:** ...
+**Acceptance criteria:**
+- [ ] ...
+**Blocked by:** ...
+
+### Blocked by
+- ...
+
+---
+
+## 2. <Large Issue Title>
+...
+```
+
+大 issue 是 H2 章节（编号 1, 2, 3...），小 issue 是 H4 条目（编号 M.N）——plan-writer 按此结构消费（"H2 → plan 一级章节"、"H4 → Task Pack"）。
 
 ### Step 8a：Direct Repair（READY_FOR_REPAIR mini-route）
 

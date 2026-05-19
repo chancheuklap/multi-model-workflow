@@ -47,7 +47,7 @@ Agent({
     docs/orchestrate/plans/<slug>.md（已通过 Plan Review）
 
     ## Issue hierarchy
-    docs/orchestrate/issues/<slug>/
+    docs/orchestrate/issues/<slug>.md
 
     ## Starting commit
     <commit hash>
