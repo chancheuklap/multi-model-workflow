@@ -1,106 +1,134 @@
 # multi-model-workflow
 
-`multi-model-workflow` provides a post-design development workflow for agentic coding systems.
+`multi-model-workflow` is the Codex source and sync repository for the
+Plugin V2 shaped Orchestrate Workflow runtime.
 
-Codex runtime:
+Current Codex runtime source:
 
-- repo-local skills: `.agents/skills/orchestrate-discovery/`, `.agents/skills/orchestrate-workflow/`, `.agents/skills/orchestrate-plan-writing/`
-- versioned Codex agent templates: `codex/agents/*.toml`
-- sync and install scripts: `codex/agents/sync-agents.sh`, `codex/skills/install-orchestrate-workflow.sh`
-- optional hook scripts and installer under `codex/hooks/`
+- repo-local skills: `.agents/skills/orchestrate-*`
+- runtime source manifest: `codex/README.md`
+- Codex agent templates: `codex/agents/*.toml`
+- skill install scripts: `codex/skills/`
+- hook install scripts: `codex/hooks/`
+- external reviewer helpers: `codex/reviewers/`
+
+The previous Codex V1 source is archived in
+`archive/2026-05-20-codex-v1/` and is not a runtime authority.
+
+## Runtime Shape
+
+The Codex system follows Plugin V2's phase split:
+
+```text
+orchestrate-workflow
+  -> orchestrate-discovery
+  -> orchestrate-plan-writing
+  -> orchestrate-execution
+  -> orchestrate-final-review
+  -> orchestrate-workflow Closing
+```
+
+Route 2 handles unknown bugs through `root_cause_analyst`. Route 3 handles
+multi-PR merge work through `orchestrate-multi-pr-merge`.
 
 ## Codex Install
 
-From this repository:
+Install or refresh the six Orchestrate skills:
 
 ```bash
-bash codex/agents/sync-agents.sh --dry-run
-bash codex/agents/sync-agents.sh --apply
+bash codex/skills/install-orchestrate-runtime.sh --user --dry-run
+bash codex/skills/install-orchestrate-runtime.sh --user --apply
 ```
 
-Restart Codex if updated agent instructions are not visible.
-
-The repo-local skills are available when Codex runs from this repository or a subdirectory:
-
-```text
-.agents/skills/orchestrate-workflow/SKILL.md
-.agents/skills/orchestrate-discovery/SKILL.md
-.agents/skills/orchestrate-plan-writing/SKILL.md
-```
-
-To use the workflow from every project, install the skills into the user-level skills directory:
+Install or refresh the custom Codex agents and register managed agent types:
 
 ```bash
-bash codex/skills/install-orchestrate-workflow.sh --user --dry-run
-bash codex/skills/install-orchestrate-workflow.sh --user --apply
+bash codex/agents/sync-agents.sh --dry-run --update-config
+bash codex/agents/sync-agents.sh --apply --update-config
 ```
 
-Only vendor the skills into a specific target repo when that repo should carry its own copy:
-
-```bash
-bash codex/skills/install-orchestrate-workflow.sh --target-repo /path/to/repo --dry-run
-bash codex/skills/install-orchestrate-workflow.sh --target-repo /path/to/repo --apply
-```
-
-Do not keep duplicate copies of the same skill in repo-local, user-level, and plugin-installed locations at the same time. Duplicate skill names make invocation ambiguous.
-
-## Codex Usage
-
-Standard workflow:
-
-```text
-orchestrate-discovery
-  -> design document
-  -> Phase 0a design review
-  -> upstream to-issues for vertical large issues and vertical small issues
-  -> orchestrate-plan-writing for issue-backed implementation plan
-  -> orchestrate-workflow for Phase 0b / Task Pack execution
-  -> Phase B / Phase C
-```
-
-`orchestrate-workflow` starts at discovery handoff, design review, plan review, Phase A repair, existing diff review, or final business reporting. It handles:
-
-- design handoff from `orchestrate-discovery`
-- Phase 0a design review
-- Phase 0b plan review
-- Task Pack planning and execution
-- pack review and repair loops
-- final intent verification
-- release-risk review when migrations, billing, permissions, runtime, deploy, rollback, or cross-service contracts are involved
-- business report
-
-Runtime review contracts live in `.agents/skills/orchestrate-workflow/references/`. They tell the parent coordinator what to include in dispatch prompts for Codex `agent_type`s.
-
-`orchestrate-discovery` turns new features, issues, backlog items, existing PRD docs, systemic bugs, wrong states, performance regressions, UI / UX feedback, screenshots, test feedback, and product discussions into reviewable design documents. During Discovery, `grill-with-docs` is used as continuous domain alignment; diagnosis, prototype, architecture, zoom-out, and triage outputs must be written back into the design document or domain docs before Phase 0a.
-
-`orchestrate-plan-writing` generates plans from reviewed source design and `to-issues` output. In generated plans, top-level sections map to vertical large issues, Task Packs map to vertical small issues, and fine-grained tasks live inside each pack. If large or small issues are missing, it routes back to `to-issues` instead of finalizing a plan.
-
-External engineering skills from `mattpocock/skills` are active upstream methods. Orchestrate routes to them for domain alignment, feedback-loop diagnosis, vertical-slice TDD, prototype decisions, issue slicing, triage state, and architecture findings, then folds their outputs back into the Codex phases.
-
-It does not automatically merge, push, or open PRs.
-
-## Optional Hooks
-
-To install them at user level:
+Install optional user-level hooks:
 
 ```bash
 bash codex/hooks/install-hooks.sh --dry-run
 bash codex/hooks/install-hooks.sh --apply
 ```
 
-Enable hooks with:
+Enable hooks in `~/.codex/config.toml`:
 
 ```toml
 [features]
 hooks = true
 ```
 
-## Claude Install
+Restart Codex if newly registered agent types are not visible in the current
+session.
 
-The Claude Code package remains under `plugin/`.
+## Managed Agent Types
+
+| agent_type | Role |
+| --- | --- |
+| `plan_writer` | Writes reviewed-design + issue-backed implementation plans |
+| `coding_worker` | Normal Task Pack execution and clear repair findings |
+| `complex_coding_worker` | High-risk implementation: migration, billing, permissions, runtime, shared contracts |
+| `code_reviewer` | Baseline design, plan, pack, final, direct repair, and integration review |
+| `release_reviewer` | Release-risk supplement; never replaces baseline review |
+| `code_explorer` | Narrow read-only code lookup |
+| `complex_code_explorer` | Multi-module read-only investigation |
+| `root_cause_analyst` | Unknown bug, repair truncation, and systemic PR conflict investigation |
+| `docs_worker` | Low-risk documentation cleanup |
+
+## External Claude Review
+
+Codex must not default to `claude -p` when the goal is to spend normal Claude
+subscription usage. `claude -p` / Agent SDK usage is a separate credit path, not
+the interactive subscription pool.
+
+Subscription-backed Claude review is automated through the non-`-p` runner:
 
 ```bash
-claude --plugin-dir /path/to/multi-model-workflow/plugin
+bash codex/reviewers/claude-subscription-review.sh \
+  --prompt-file .codex/multi-model-workflow/review-prompts/<gate>.md \
+  --output .codex/multi-model-workflow/review-results/<gate>-claude.md \
+  --review-name <gate>
 ```
 
-See `plugin/README.md` for Claude-specific agents and hooks.
+The runner invokes ordinary `claude` with stdin and read-only tools; it does not
+use `-p/--print`. Claude review is fixed to `claude-opus-4-7` with
+`--effort high`. When an active Orchestrate budget file exists, successful
+review calls are recorded in `budget_used` and the dispatch ledger.
+
+`codex/reviewers/claude-review.sh` exists only as an explicitly authorized
+Agent SDK / Extra Usage fallback and refuses to run without `--allow-extra-usage`.
+
+## Verification
+
+After applying runtime changes:
+
+```bash
+bash -n codex/skills/install-orchestrate-runtime.sh
+bash -n codex/agents/sync-agents.sh
+bash -n codex/hooks/install-hooks.sh
+bash -n codex/hooks/session-start.sh
+bash -n codex/hooks/guard-premature-push.sh
+bash -n codex/hooks/track-review-budget.sh
+bash -n codex/hooks/cleanup-run-state.sh
+bash -n codex/reviewers/claude-subscription-review.sh
+bash -n codex/reviewers/claude-review.sh
+python3 -m json.tool codex/hooks/hooks.json >/dev/null
+diff -qr .agents/skills/orchestrate-workflow ~/.agents/skills/orchestrate-workflow
+diff -qr .agents/skills/orchestrate-discovery ~/.agents/skills/orchestrate-discovery
+diff -qr .agents/skills/orchestrate-plan-writing ~/.agents/skills/orchestrate-plan-writing
+diff -qr .agents/skills/orchestrate-execution ~/.agents/skills/orchestrate-execution
+diff -qr .agents/skills/orchestrate-final-review ~/.agents/skills/orchestrate-final-review
+diff -qr .agents/skills/orchestrate-multi-pr-merge ~/.agents/skills/orchestrate-multi-pr-merge
+for f in codex/agents/*.toml; do diff -q "$f" "$HOME/.codex/agents/$(basename "$f")"; done
+diff -q codex/hooks/cleanup-run-state.sh ~/.codex/hooks/multi-model-workflow/cleanup-run-state.sh
+python3 -m json.tool ~/.codex/hooks.json >/dev/null
+```
+
+## Historical Claude Sources
+
+`plugin-v2/` remains the Claude Code Plugin V2 source that shaped this Codex
+runtime. `plugin/` is the older Claude plugin compatibility tree. Current Codex
+behavior is defined by `.agents/skills/`, `codex/agents/`, and `codex/hooks/`.

@@ -1,50 +1,74 @@
 ---
 name: orchestrate-discovery
-description: "新功能、issue、backlog、现有 PRD、系统性 bug、wrong state、performance regression、UI / UX 反馈、截图反馈、测试反馈、系统性改造或产品讨论还没有可进入 Phase 0a 的设计文档时主动使用。负责读取项目上下文、持续 domain alignment、必要时联动 diagnose / prototype / improve-codebase-architecture / zoom-out / triage，把结论写成 design document；不生成 plan、不拆 Task Pack、不派 worker。"
+description: "缺少可 review 的设计文档时使用。与用户讨论 → 生成设计文档 → Design Review → to-issues 过渡。产出：reviewed design doc + issue hierarchy。"
 ---
 
 # Orchestrate Discovery
 
-只负责生成或修订 design document。
+模糊输入 → 与用户讨论 → 设计文档 + CONTEXT.md → Design Review → 过渡到 to-issues。
 
-## 流程
+**Hard Gate**：用户确认设计之前，不写代码、不创建骨架、不派 worker。**每个项目**都走 Discovery，无论看起来多简单。
 
-1. 读取项目上下文：根 `AGENTS.md`、相关 SPEC / ADR / GUIDE / CONTEXT、相关目录 `agents.overrides.md`。
-2. 读取 `references/discovery-input.md`，按输入类型（新功能 / bug / issue / 反馈）执行对应章节。
-3. 每轮讨论检查术语、对象 owner、状态、边界和现有文档一致性；发现不清或冲突时按 `discovery-input.md` 的 Domain Alignment 章节处理。
-4. 可从代码和文档确认的事实先查证；只把无法自行确定的产品、业务、架构取舍交给用户。每次只问一个会改变设计的问题。
-5. 信息足够后按 `references/design-document-contract.md` 写 design document。
-6. 写完后按 `references/discovery-checklist.md` 自检并修正。
-7. 返回 verdict。
+---
+
+## 双文档产出
+
+| 文档 | 定位 | 维护方式 |
+|------|------|---------|
+| **CONTEXT.md** | 项目级领域模型——术语表、对象关系、角色、状态 | 讨论中每确认一个术语就立即写入（通过 `grill-with-docs` 方法论） |
+| **设计文档** | 本次功能的具体设计——目标、方案、行为、验收、合同 | 讨论充分后按模板一次成文 |
+
+设计文档术语**必须**与 CONTEXT.md 一致。新术语先进 CONTEXT.md 再引用。不能只写设计不维护 CONTEXT.md。
+
+CONTEXT.md 和 ADR 格式 → `references/discovery-formats.md`
+
+---
+
+## Step 1-2：探索项目上下文 + 判断 scope
+
+读取 AGENTS.md / CLAUDE.md 及链入文档、SPEC / ADR / CONTEXT.md、agents.overrides.md、近期 commits。评估需求规模——过大则拆成独立子项目。
+
+## Steps 3-6：与用户讨论
+
+→ `references/discovery-discussion.md`（一问一答迭代 + 按输入类型澄清 + 提出方案 + 分段呈现 + Domain Alignment）
+
+**Anti-Pattern**：不要先写完所有设计再一次性呈现——按段确认，每段确认后再进入下一段。
+
+## Steps 7-9：生成设计文档
+
+→ `references/discovery-design-document.md`（模板 + 自检 + 用户确认）
+
+## Steps 10-11：Design Review
+
+→ `references/design-review-angles.md`（2 个 baseline Codex reviewer：Design Content Review + Project Alignment Review）
+
+Coordinator 亲验 findings → disposition → 直接修设计文档（不派 worker）→ targeted re-review。一轮 review + 修复。Pass 条件：两个 baseline 通过 + 无 Critical。
+
+## Step 12：过渡到 to-issues
+
+已有 issue hierarchy → 返回进入 plan-writing。缺 issue hierarchy → 调用 `to-issues`。
+
+## 外部 Skill
+
+**全程使用**：`grill-with-docs`（CONTEXT.md 维护）。**按需调用**：`prototype` / `frontend-design` / `improve-codebase-architecture` / `zoom-out` / `diagnose` / `triage` / `to-issues`。结论必须写回 design document 或 CONTEXT.md。
 
 ## 边界规则
 
-- 没有可 review 的 design document 前，不进入 plan-writing、Phase A 或 worker 派发。
-- 只消费 upstream skill 产出的 clarified context / diagnosis facts / module map / prototype verdict / architecture finding / triage state；upstream 如需发布 issue 或改代码，先交回 Orchestrate parent 确认 scope。
-- upstream skill 结论必须写回 design document / domain docs，不停留在聊天记录。
-- 已批准 design 下的明确实现偏离 → 返回 `READY_FOR_REPAIR`，不新建 design。
-- 用户已有 PRD → 当 source material 消费，不重新生成。
-- 设计问题太大 → 先拆成多个 design document。
-- 已有 design 足够清楚 → 直接返回 `DISCOVERY_NOT_NEEDED`。
+没有 design document 前不进 plan-writing。已批准 design 下的实现偏离 → `READY_FOR_REPAIR`。已有清晰 design → `DISCOVERY_NOT_NEEDED`。
 
-## 返回格式
+## 返回
 
 ```text
 ### Verdict
 DISCOVERY_READY | DISCOVERY_NOT_NEEDED | READY_FOR_REPAIR | NEEDS_USER_DECISION | BLOCKED
 
 ### Design path
-- <path or not created>
-
+### Design Review
+- Baseline 1 / Baseline 2 / Findings dispositioned / Repairs applied
 ### Discovery result
-- Problem:
-- Target behavior:
-- Key decisions:
-- Acceptance:
-- Out of scope:
-- Domain alignment resolved:
-- Remaining ambiguity:
-
+- Problem / Target behavior / Key decisions / Acceptance / Out of scope / Domain alignment / Remaining ambiguity
+### Issue hierarchy
+- Status: ready / needs to-issues / not applicable
 ### Next route
-- Phase 0a / Direct Repair / user decision / blocked
+- plan-writing / to-issues → plan-writing / Direct Repair / user decision / blocked
 ```
