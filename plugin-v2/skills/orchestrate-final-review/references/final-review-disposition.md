@@ -45,7 +45,7 @@ Accepted findings 按影响范围分类，决定修复路由：
 | implementation gap（大，涉及多 pack） | orchestrate-execution re-entry | pack commits | `NEEDS_EXECUTION` |
 | design / context gap | orchestrate-discovery | design document | `NEEDS_DISCOVERY` |
 | plan gap | orchestrate-plan-writing（修订模式） | plan document | `NEEDS_PLAN_REVISION` |
-| architecture friction | `Skill({ skill: "improve-codebase-architecture" })`（用户级，无前缀） | design doc / plan anchors | 判断影响范围后继续或回流 |
+| architecture friction | `Skill({ skill: "improve-codebase-architecture" })` | design doc / plan anchors | 判断影响范围后继续或回流 |
 
 ## 路由
 

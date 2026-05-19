@@ -27,8 +27,8 @@ Plan Review 的 `accepted` 细分为 4 种路由：
 | --- | --- |
 | `plan repair` | Coordinator 直接修框架性内容，或 SendMessage plan-writer 修 Task Pack 内容 |
 | `design gap` | 回到 orchestrate-discovery → Design Review → 写回后 re-review plan |
-| `issue-plan mismatch` | `Skill({ skill: "to-issues" })`（用户级） → 写回后 re-review plan |
-| `architecture friction` | `Skill({ skill: "improve-codebase-architecture" })`（用户级） → 写回后 re-review |
+| `issue-plan mismatch` | `Skill({ skill: "to-issues" })` → 写回后 re-review plan |
+| `architecture friction` | `Skill({ skill: "improve-codebase-architecture" })` → 写回后 re-review |
 
 **通过** → Step 19（Git Checkpoint）。**Needs repair** → Step 16。
 
@@ -45,9 +45,9 @@ Plan Review 三条路径：
 | Finding 类型 | Upstream | 写回目标 |
 | --- | --- | --- |
 | design gap / 需求不清 | orchestrate-discovery | design document |
-| issue-plan mismatch | `Skill({ skill: "to-issues" })`（用户级） | issue hierarchy |
-| architecture friction | `Skill({ skill: "improve-codebase-architecture" })`（用户级） | design doc / plan anchors |
-| domain 术语冲突 | `Skill({ skill: "grill-with-docs" })`（用户级） | CONTEXT.md + design document |
+| issue-plan mismatch | `Skill({ skill: "to-issues" })` | issue hierarchy |
+| architecture friction | `Skill({ skill: "improve-codebase-architecture" })` | design doc / plan anchors |
+| domain 术语冲突 | `Skill({ skill: "grill-with-docs" })` | CONTEXT.md + design document |
 
 ## Step 17：Targeted Re-Review
 
@@ -73,4 +73,4 @@ Plan Review 三条路径：
 | --- | --- |
 | Plan 层面问题（结构、coverage、task quality） | BLOCKED，报告用户附 2 轮 findings 汇总 |
 | Source artifact 问题（design gap / issue mismatch） | 强制 upstream backflow（路径 C） |
-| 项目规则 / 代码现实 mismatch | `Skill({ skill: "improve-codebase-architecture" })` 或 `Skill({ skill: "zoom-out" })`（用户级）补充上下文后 re-run |
+| 项目规则 / 代码现实 mismatch | `Skill({ skill: "improve-codebase-architecture" })` 或 `Skill({ skill: "zoom-out" })`补充上下文后 re-run |

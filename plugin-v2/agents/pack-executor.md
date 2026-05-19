@@ -49,7 +49,7 @@ color: green
 
 ## 方法论
 
-使用 `tdd` 严格 TDD。遇到执行中无法解释的 bug → `Skill({ skill: "diagnose" })`（用户级，无前缀）。需要快速验证某个技术方案是否可行 → `Skill({ skill: "prototype" })`（用户级，无前缀）。
+使用 `tdd` 严格 TDD。遇到执行中无法解释的 bug → `Skill({ skill: "diagnose" })`。需要快速验证某个技术方案是否可行 → `Skill({ skill: "prototype" })`。
 
 ## 项目感知（首次调度时执行）
 

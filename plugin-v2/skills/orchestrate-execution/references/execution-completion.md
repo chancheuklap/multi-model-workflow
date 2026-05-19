@@ -36,10 +36,10 @@ Pack Review 通过后，检查该 pack 是否触碰发布风险面（migration /
 | 问题类型 | Upstream Skill | 写回目标 |
 | --- | --- | --- |
 | design / domain gap | `Skill({ skill: "multi-model-workflow:orchestrate-discovery" })` | design document |
-| architecture friction | `Skill({ skill: "improve-codebase-architecture" })`（用户级，无前缀） | design doc / plan anchors |
-| 术语 / domain 冲突 | `Skill({ skill: "grill-with-docs" })`（用户级，无前缀） | domain docs + design document |
-| module map / call chain | `Skill({ skill: "zoom-out" })`（用户级，无前缀） | plan anchors / explorer brief |
-| bug reproduction / hypothesis | `Skill({ skill: "diagnose" })`（用户级，无前缀） | bug brief / design document |
+| architecture friction | `Skill({ skill: "improve-codebase-architecture" })` | design doc / plan anchors |
+| 术语 / domain 冲突 | `Skill({ skill: "grill-with-docs" })` | domain docs + design document |
+| module map / call chain | `Skill({ skill: "zoom-out" })` | plan anchors / explorer brief |
+| bug reproduction / hypothesis | `Skill({ skill: "diagnose" })` | bug brief / design document |
 
 **影响范围判定**：只影响当前 pack → 写回继续 / 改变 plan anchors → 回到 orchestrate-plan-writing / 暴露 design 缺口 → 回到 orchestrate-discovery。
 

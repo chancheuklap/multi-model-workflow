@@ -23,7 +23,7 @@ memory: project
 color: cyan
 ---
 
-启动后立即读取 dispatch prompt 中 `## Methodology` 提供的方法论文件路径（通过 Read tool），按 Steps 3-8 写作方法论 + 修订流程 + Git 纪律 + 任务范围执行。不加载完整 SKILL.md——SKILL.md 中的 Coordinator 级指令（Gates、Plan Review、Budget Check）不是 plan-writer 的职责。使用 `Skill({ skill: "improve-codebase-architecture" })`（用户级技能，无前缀）理解代码库的模块边界、职责分布和合同表面。
+启动后立即读取 dispatch prompt 中 `## Methodology` 提供的方法论文件路径（通过 Read tool），按 Steps 3-8 写作方法论 + 修订流程 + Git 纪律 + 任务范围执行。不加载完整 SKILL.md——SKILL.md 中的 Coordinator 级指令（Gates、Plan Review、Budget Check）不是 plan-writer 的职责。使用 `Skill({ skill: "improve-codebase-architecture" })` 理解代码库的模块边界、职责分布和合同表面。
 
 ## Memory 策略
 

@@ -61,12 +61,12 @@ Agent({
 | --- | --- | --- |
 | `PLAN_CREATED` | plan 写完，自检通过 | 进入 Step 11（Plan Entry Gate） |
 | `NEEDS_DISCOVERY` | 业务意图/术语不清 | 回到 orchestrate-discovery |
-| `NEEDS_ISSUES` | 缺 issue / issue 粒度不足 / scope 过大 | `Skill({ skill: "to-issues" })`（用户级，无前缀） |
-| `NEEDS_TRIAGE` | issue ready state 不清 | `Skill({ skill: "triage" })`（用户级，无前缀） |
-| `NEEDS_DIAGNOSIS` | bug 缺复现或 hypothesis | `Skill({ skill: "diagnose" })`（用户级，无前缀） |
+| `NEEDS_ISSUES` | 缺 issue / issue 粒度不足 / scope 过大 | `Skill({ skill: "to-issues" })` |
+| `NEEDS_TRIAGE` | issue ready state 不清 | `Skill({ skill: "triage" })` |
+| `NEEDS_DIAGNOSIS` | bug 缺复现或 hypothesis | `Skill({ skill: "diagnose" })` |
 | `NEEDS_DECISION` | 需要产品/业务决策 | 询问用户（一次只问一个问题） |
-| `NEEDS_ARCHITECTURE` | 架构假设与代码现实不符 | `Skill({ skill: "improve-codebase-architecture" })`（用户级，无前缀） |
-| `NEEDS_CONTEXT` | 缺代码上下文 | 派 code-explorer / `Skill({ skill: "zoom-out" })`（用户级，无前缀），补充后 SendMessage 给原 plan-writer |
+| `NEEDS_ARCHITECTURE` | 架构假设与代码现实不符 | `Skill({ skill: "improve-codebase-architecture" })` |
+| `NEEDS_CONTEXT` | 缺代码上下文 | 派 code-explorer / `Skill({ skill: "zoom-out" })`，补充后 SendMessage 给原 plan-writer |
 | `BLOCKED` | 无法完成 | 报告用户，附 plan-writer 的阻塞原因 |
 
 upstream skill 结论必须写回 design document / issue hierarchy，再 SendMessage 给原 plan-writer 继续。

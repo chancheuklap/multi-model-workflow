@@ -26,9 +26,9 @@
 - confirmed / rejected hypotheses、root cause or suspected boundary
 - regression check、user-visible target behavior
 - contract / UI / permission / billing impact、out of scope
-- 缺 feedback loop → 先 `Skill({ skill: "diagnose" })`（用户级，无前缀）。Discovery 只消费 diagnose 产出的事实
+- 缺 feedback loop → 先 `Skill({ skill: "diagnose" })`。Discovery 只消费 diagnose 产出的事实
 - 只是已批准 design 下的实现偏离 → 返回 `READY_FOR_REPAIR`
-- 出现 bad seam、shallow module、caller leakage → `Skill({ skill: "improve-codebase-architecture" })`（用户级，无前缀）
+- 出现 bad seam、shallow module、caller leakage → `Skill({ skill: "improve-codebase-architecture" })`
 - 修复会改变正式行为 → 必须产出或修订 design document
 
 **Issue / backlog / existing PRD**：
@@ -36,7 +36,7 @@
 - problem、solution、user stories、acceptance criteria
 - dependencies / blocked-by、AFK / HITL、open decisions、out of scope
 - 已有 problem、solution、acceptance 可直接写入 design document
-- source intent 不清 → `Skill({ skill: "triage" })`（用户级，无前缀）或继续 Discovery 提问
+- source intent 不清 → `Skill({ skill: "triage" })` 或继续 Discovery 提问
 
 **UI / UX / 截图 / 验收反馈**：
 - feedback source / screenshot / test / human acceptance note

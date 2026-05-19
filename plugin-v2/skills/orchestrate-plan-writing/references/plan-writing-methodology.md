@@ -46,7 +46,7 @@ plan-writer agent 通过 dispatch prompt 中指定的路径读取本文件执行
 
 ### 3c：探索代码库
 
-用 `rg` / `find` / `Skill({ skill: "improve-codebase-architecture" })`（用户级，无前缀）验证 source design 涉及的路径、模块、合同面、已有模式。
+用 `rg` / `find` / `Skill({ skill: "improve-codebase-architecture" })` 验证 source design 涉及的路径、模块、合同面、已有模式。
 
 读取项目根目录 CLAUDE.md 及其链入的规则文档。理解模块边界、测试路由、合同墙、命名约定——plan 中的 File/Responsibility Map、verification commands、contract anchors 必须符合项目实际。
 

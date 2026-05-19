@@ -2,7 +2,7 @@
 
 > **流程位置**：`orchestrate-workflow` Steps 7-14 · Route 1 Formal Orchestrate · phase 全部通过 → Closing（`workflow-closing.md`）
 
-线性管线：Discovery → Plan Writing → Execution → Final Review → Closing。每个 phase skill 通过 `Skill({ skill: "multi-model-workflow:<name>" })` 加载到主线程。外部用户级技能（to-issues / diagnose / triage 等）用短名调用，不加 `multi-model-workflow:` 前缀。
+线性管线：Discovery → Plan Writing → Execution → Final Review → Closing。每个 phase skill 通过 `Skill({ skill: "multi-model-workflow:<name>" })` 加载到主线程。
 
 ## Step 7：orchestrate-discovery
 

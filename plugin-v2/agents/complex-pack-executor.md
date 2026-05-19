@@ -31,7 +31,7 @@ color: orange
 
 ## 方法论
 
-使用 `tdd` 严格 TDD。遇到执行中无法解释的 bug → `Skill({ skill: "diagnose" })`（用户级，无前缀）。需要架构层面判断（模块边界、依赖方向、合同拆分）→ `Skill({ skill: "improve-codebase-architecture" })`（用户级，无前缀）。需要快速验证技术方案 → `Skill({ skill: "prototype" })`（用户级，无前缀）。
+使用 `tdd` 严格 TDD。遇到执行中无法解释的 bug → `Skill({ skill: "diagnose" })`。需要架构层面判断（模块边界、依赖方向、合同拆分）→ `Skill({ skill: "improve-codebase-architecture" })`。需要快速验证技术方案 → `Skill({ skill: "prototype" })`。
 
 ## 项目感知（首次调度时执行）
 
