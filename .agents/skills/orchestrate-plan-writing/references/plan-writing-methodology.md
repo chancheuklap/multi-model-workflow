@@ -65,8 +65,8 @@ plan_writer 由 parent dispatch 提供本文件路径或粘贴关键方法论后
 # <Feature> Implementation Plan
 
 **Goal:** <一句话用户可见或系统可验证能力>
-**Source design:** <path or tracker reference>
-**Source issues:** <paths or tracker references>
+**Source design:** docs/orchestrate/design/<slug>.md
+**Source issues:** docs/orchestrate/issues/<slug>/
 **Execution owner:** Orchestrate Workflow
 **Plan unit:** 一级章节 = large issue；Task Pack = small issue；细 task 只在 pack 内部。
 **Completion gate:** Plan Review → Execution → Pack Review → Final Review → Release Gate (if triggered)
@@ -112,13 +112,13 @@ Execution owner 必须是 Orchestrate Workflow。Should split = yes 时不继续
 - Test: `path`
 
 **Read first:**
-- <source docs, ADRs, project rules, mockups>
+- <source docs, ADRs, project rules, docs/orchestrate/mockups/<slug>/ (如有)>
 
 **Contract anchors:**
 - Owner / Provider / Consumer / Model / schema / Registry / migration / catalog / Verification
 
 **Mockup anchors:**
-- Path / Viewport / States / Interaction / Visual verification
+- 目录: docs/orchestrate/mockups/<slug>/ · Viewport / States / Interaction / Visual verification
 
 **Acceptance criteria:**
 - [ ] ...
@@ -200,7 +200,7 @@ verification 必须证明 pack 行为：
 ### 不合格 Pack 信号
 
 - worker 必须自行决定 desired behavior / 文案 / 角色 / billing meaning / permission meaning / schema shape
-- pack 只写"实现 mockup"但没有 states / viewport / interaction / visual verification
+- pack 只写"实现 mockup"但没有 mockup 目录路径 / states / viewport / interaction / visual verification
 - 把未验证路径 / fixture / class 写成现有事实
 - 把真实依赖隐藏成"可以并行"
 - 只产出 schema 或 helper，没有 public behavior verification

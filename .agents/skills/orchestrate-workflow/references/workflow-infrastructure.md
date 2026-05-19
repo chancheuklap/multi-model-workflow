@@ -19,10 +19,14 @@ find .codex/multi-model-workflow/budget-*.json -mmin -60 2>/dev/null
 
 ### 3b：Source Stability 检查
 
-Budget file 记录 `last_gate_phase` 和 `last_gate_timestamp`。检查 source artifacts 自上次 gate 通过后是否被修改：
+Budget file 记录 `last_gate_phase` 和 `last_gate_timestamp`。从 Scope Contract 读取 feature slug，用约定路径检查 source artifacts 自上次 gate 通过后是否被修改：
 
 ```bash
-git log --oneline --since="<last_gate_timestamp>" -- <design_path> <plan_path> <issue_paths>
+SLUG=$(grep -A1 '^## Feature slug' .codex/multi-model-workflow/scope-*.md | tail -1 | xargs)
+git log --oneline --since="<last_gate_timestamp>" -- \
+  "docs/orchestrate/design/${SLUG}.md" \
+  "docs/orchestrate/plans/${SLUG}.md" \
+  "docs/orchestrate/issues/${SLUG}/"
 ```
 
 | 条件 | 从哪里继续 |
@@ -41,30 +45,67 @@ Scope Contract 和 Budget File 已存在 → 读取并验证。`pack_count` 或 
 
 ---
 
+## docs/orchestrate/ 路径约定
+
+所有 orchestrate 产出文档统一存放在项目的 `docs/orchestrate/` 下，按类型分子文件夹，同一功能用相同的 feature slug（`YYYY-MM-DD-<feature>`）贯穿四个子文件夹：
+
+```
+docs/orchestrate/
+├── design/          # 设计文档（orchestrate-discovery 产出）
+│   └── YYYY-MM-DD-<feature>.md
+├── plans/           # 实施计划（plan-writer 产出）
+│   └── YYYY-MM-DD-<feature>.md
+├── issues/          # issue hierarchy（to-issues 产出）
+│   └── YYYY-MM-DD-<feature>/
+│       ├── 001-<large-issue-slug>.md   # 大 issue 文档（内含小 issue 拆分）
+│       ├── 002-<large-issue-slug>.md
+│       └── ...
+└── mockups/         # prototype / frontend-design 产出
+    └── YYYY-MM-DD-<feature>/
+        ├── *.html / *.png / *.svg
+        └── README.md                   # mockup 索引（页面 × viewport × states）
+```
+
+**命名规则**：
+- `<feature>` 用 kebab-case，取功能核心词（如 `compass-ui`、`billing-gate`、`auth-middleware`）
+- 日期取 run 创建日（与 `run_id` 中日期一致）
+- Coordinator 在 Infrastructure Setup 确定 feature slug 后，所有 phase 使用同一个 slug
+
+**路径推导**：给定 feature slug `<slug>`，各文档路径为：
+- Design: `docs/orchestrate/design/<slug>.md`
+- Plan: `docs/orchestrate/plans/<slug>.md`
+- Issues: `docs/orchestrate/issues/<slug>/`
+- Mockups: `docs/orchestrate/mockups/<slug>/`
+
+---
+
 ## Step 4：Write Scope Contract
 
-创建 `.codex/multi-model-workflow/scope-<run_id>.md`：
+从用户提供的功能描述提取 kebab-case 核心词，加上当天日期组成 feature slug（`YYYY-MM-DD-<feature>`）；不确定时一次性问用户确认。然后创建 `.codex/multi-model-workflow/scope-<run_id>.md`：
 
 ```markdown
 # Scope Contract: <run_id>
+
+## Feature slug
+<YYYY-MM-DD-feature>
 
 ## Source artifacts
 - <用户明确提供的文档 / tracker refs / diff>
 
 ## Editable artifacts
-- <source artifacts 或当前 phase 明确要求产出的 design / plan / pack / report>
+- Design: docs/orchestrate/design/<slug>.md
+- Plan: docs/orchestrate/plans/<slug>.md
+- Issues: docs/orchestrate/issues/<slug>/
+- Mockups: docs/orchestrate/mockups/<slug>/（UI/UX 时）
 
 ## Read-only context
 - <相关 issue、ADR、代码或 runbook——sub-agent 只能用来判断，不得变成交付范围>
 
 ## Out of scope
 - <明确列出容易被误纳入的相关 issue、ADR、未来能力>
-
-## Issue recording target
-- <small issue hierarchy 写回哪里>
 ```
 
-**规则**：Source artifacts 只包含用户明确提供的内容。Editable artifacts 只能是 source 或 phase 产出。Out of scope 阻止 sub-agent 和 reviewer 扩大范围。
+**规则**：Source artifacts 只包含用户明确提供的内容。Editable artifacts 只能是 source 或 phase 产出。Out of scope 阻止 sub-agent 和 reviewer 扩大范围。Feature slug 一旦确定不可中途修改。
 
 ## Step 5：Git Checkpoint
 
@@ -111,4 +152,4 @@ Risk flags:
 AFK / HITL:
 ```
 
-写行为合同，不写"去某文件第 N 行改 X"。UI / UX durable brief 必须保留 mockup path、目标 viewport、关键 states 和允许偏差。如果 durable brief 来自 Discovery domain alignment、prototype 或 architecture review，写明 resolved context、prototype verdict 或 architecture finding。
+写行为合同，不写"去某文件第 N 行改 X"。UI / UX durable brief 必须保留 mockup 目录路径（`docs/orchestrate/mockups/<slug>/`）、目标 viewport、关键 states 和允许偏差。如果 durable brief 来自 Discovery domain alignment、prototype 或 architecture review，写明 resolved context、prototype verdict 或 architecture finding。

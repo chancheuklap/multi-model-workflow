@@ -4,7 +4,7 @@
 
 ## Step 7：写 design document
 
-信息足够且用户确认设计方向后，按以下模板写。
+信息足够且用户确认设计方向后，写入 `docs/orchestrate/design/<feature-slug>.md`（feature slug 从 Scope Contract 读取）。按以下模板写。
 
 ```markdown
 # <功能 / 问题> 设计文档
@@ -39,7 +39,8 @@ boundary type / owner / provider / consumer / Pydantic model / schema_version / 
 哪些行为需要测试 / 哪些模块 / 类似测试的先例 / manual gate / visual verification / regression check。
 
 ## UI / UX 状态
-mockup path / 页面 / viewport / states / copy / interaction / 视觉允许偏差 / 验证方式。
+mockup 目录: docs/orchestrate/mockups/<feature-slug>/ · 页面 / viewport / states / copy / interaction / 视觉允许偏差 / 验证方式。
+mockup 索引: docs/orchestrate/mockups/<feature-slug>/README.md
 
 ## 失败场景和异常处理
 
@@ -64,7 +65,7 @@ mockup path / 页面 / viewport / states / copy / interaction / 视觉允许偏�
 - Bug：有 current / desired behavior / reproduction / regression check
 - Issue：有 source / acceptance / dependencies / AFK-HITL
 - Feedback：有 target state / role / copy / interaction / verification
-- UI/UX：有 mockup path / viewport / states / interaction / visual verification
+- UI/UX：有 mockup 目录（docs/orchestrate/mockups/<slug>/）/ viewport / states / interaction / visual verification
 
 **内部一致性**：各 section 无矛盾 / 架构与功能一致 / 无歧义需求
 
@@ -72,4 +73,4 @@ mockup path / 页面 / viewport / states / copy / interaction / 视觉允许偏�
 
 ## Step 9：用户确认
 
-> "设计文档已写入 `<path>`，请审阅。确认后进入 Design Review。"
+> "设计文档已写入 `docs/orchestrate/design/<feature-slug>.md`，请审阅。确认后进入 Design Review。"

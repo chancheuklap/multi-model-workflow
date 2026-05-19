@@ -14,16 +14,20 @@ spawn_agent({
     ## Goal
     从 source design + issue hierarchy 写出 implementation plan。
 
+    ## Feature slug
+    <YYYY-MM-DD-feature>（从 Scope Contract 读取，贯穿所有路径）
+
     ## Source artifacts
-    - Source design: <path>（已通过 Design Review）
-    - Issue hierarchy:
-      - Large issues: <path(s) + titles>
-      - Small issues: <listed in large issue docs, or separate paths>
-    - Scope Contract: <path>
+    - Source design: docs/orchestrate/design/<slug>.md（已通过 Design Review）
+    - Issue hierarchy: docs/orchestrate/issues/<slug>/
+      - Large issues: docs/orchestrate/issues/<slug>/001-<slug>.md, ...
+      - Small issues: 内嵌在各大 issue 文档中
+    - Mockups（如有）: docs/orchestrate/mockups/<slug>/
+    - Scope Contract: .codex/multi-model-workflow/scope-<run_id>.md
     - AGENTS.md / CLAUDE.md: <project root>/AGENTS.md / CLAUDE.md
 
     ## Plan output
-    - Plan 保存路径: docs/orchestrate/plans/YYYY-MM-DD-<feature>.md
+    - Plan 保存路径: docs/orchestrate/plans/<slug>.md
     - Execution owner: Orchestrate Workflow（必须写入 plan header）
 
     ## 补充上下文

@@ -14,11 +14,11 @@ spawn_agent({
     ## Scope
     Review the implementation plan for: <feature>
 
-    ## Source artifacts
-    - Plan: <path>
-    - Source design: <path>
-    - Source issues: <paths>
-    - Scope Contract: <path>
+    ## Source artifacts（路径从 Scope Contract feature slug 推导）
+    - Plan: docs/orchestrate/plans/<slug>.md
+    - Source design: docs/orchestrate/design/<slug>.md
+    - Source issues: docs/orchestrate/issues/<slug>/
+    - Scope Contract: .codex/multi-model-workflow/scope-<run_id>.md
 
     ## Review angles (single integrated review)
 

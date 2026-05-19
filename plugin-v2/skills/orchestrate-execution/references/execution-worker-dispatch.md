@@ -16,7 +16,7 @@ Owned files:
   - Modify: <path — responsibility>
   - Test: <path — behavior covered>
 Read first:
-  - <source docs, ADRs, project rules, mockups>
+  - <source docs, ADRs, project rules, docs/orchestrate/mockups/<slug>/ (如有)>
 Acceptance criteria:
   - [ ] <each criterion>
 Verification commands:

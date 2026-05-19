@@ -36,11 +36,17 @@ spawn_agent({
     ## Read first
     <project docs: AGENTS.md / CLAUDE.md, CONTEXT.md, ADRs, relevant SPEC>
 
+    ## Feature slug（从 Scope Contract 读取）
+    <YYYY-MM-DD-feature>
+
     ## Source design
-    <path>（已通过 Design Review）
+    docs/orchestrate/design/<slug>.md（已通过 Design Review）
 
     ## Plan
-    <path>（已通过 Plan Review）
+    docs/orchestrate/plans/<slug>.md（已通过 Plan Review）
+
+    ## Issue hierarchy
+    docs/orchestrate/issues/<slug>/
 
     ## Starting commit
     <commit hash>
@@ -59,7 +65,7 @@ spawn_agent({
     <contract anchors from plan — all boundary types touched>
 
     ## Mockup baseline
-    <mockup anchors from plan — all UI work>
+    docs/orchestrate/mockups/<slug>/（如有 UI 工作）
 
     ## 发布风险和人工门禁
     <paste from plan>
@@ -162,10 +168,10 @@ spawn_agent({
     git diff <starting_commit>..HEAD
 
     ## Source design
-    <path>（已通过 Design Review）
+    docs/orchestrate/design/<slug>.md（已通过 Design Review）
 
     ## Plan
-    <path>（已通过 Plan Review）
+    docs/orchestrate/plans/<slug>.md（已通过 Plan Review）
 
     ## Pack completion summary
     | Pack | Worker verdict | Pack Review verdict | Verified behaviors | Repair rounds |
