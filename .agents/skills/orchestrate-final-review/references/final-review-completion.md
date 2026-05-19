@@ -10,13 +10,15 @@
 
 **这是 Coordinator 的职责**，不是 reviewer 的角度。Pack Review 和 baseline review 关注的是"做得对不对"；清扫关注的是"有没有漏做"。项目中不存在"非阻塞项"——所有东西要么当场修复，要么立刻开 GitHub issue。
 
-### Step 13：收集遗留项
+**注意**：Execution 阶段（Step 7a + Step 9）已经对 Worker Open Items 和 out-of-scope findings 做了即时处置并开了 GitHub issue。Final Review 的清扫是**验证 + 补漏**，不是主要开 issue 的环节。
 
-从三个来源收集所有可能的遗留尾巴：
+### Step 13：收集 + 验证已处置项
 
-**13a：Worker Open Items**
+从三个来源收集所有可能的遗留尾巴，**并验证 Execution 阶段的处置是否完整**：
 
-读取每个 pack 的 worker 返回的 `### Open Items`。Worker 经常在这里留下"不在 scope 内"或"建议后续处理"的东西。
+**13a：Worker Open Items — 验证已处置**
+
+读取每个 pack 的 worker 返回的 `### Open Items`。对照 Execution 阶段的处置记录：每个 `[out-of-scope]`、`[needs-evaluation]`、`[bug]` 标记项是否已有对应的 GitHub issue 或修复记录。**补漏**：发现未处置项 → 按 Step 14 处置。
 
 **13b：代码扫描**
 
@@ -28,21 +30,21 @@ git diff <starting_commit>..HEAD --diff-filter=AM --name-only | xargs grep -n "T
 
 过滤掉 starting commit 之前已存在的遗留标记（`git show <starting_commit>:<file>` 对比）。只关注本次实现新增的。
 
-**13c：Pack Review Disposition 记录**
+**13c：Pack Review Disposition 记录 — 验证 issue 已开**
 
-读取 execution 过程中所有 pack 的 "out of scope" disposition——有些可能在 Final Review 视角下应该被解决。
+读取 execution 过程中所有 `out of scope` 和 `needs evaluation` disposition。验证每条是否已有对应 GitHub issue（`gh issue list --search` 确认）。**补漏**：发现 execution 阶段遗漏的 → 按 Step 14 处置。
 
-### Step 14：逐项处置
+### Step 14：逐项处置（仅 Step 13 中发现的未处置项）
 
-对每个遗留项，Coordinator 必须做出明确处置——**不允许"先放着"**：
+对每个**尚未处置**的遗留项，Coordinator 必须做出明确处置——**不允许"先放着"**：
 
 | 处置 | 条件 | 动作 |
 | --- | --- | --- |
 | **立即修复** | 在当前 scope 内、修复简单（≤ 2 文件）、不引入新风险 | Coordinator 直接修或派 worker |
-| **开 GitHub Issue** | 不在当前 scope 内、或修复复杂需要独立 session | 立即开 issue，写明 current behavior / desired behavior / key interfaces / acceptance criteria / out of scope / risk flags |
+| **开 GitHub Issue** | 不在当前 scope 内、或修复复杂需要独立 session | 立即开 issue（Durable Handoff Brief 格式），先查重 |
 | **确认不是问题** | 经查实遗留标记是合理的（如 TODO 指向未来 feature，不影响当前功能） | 记录确认理由，不删除标记也不开 issue |
 
-**铁律**：处置完成后，不应存在任何含糊的遗留项。每一个 Worker Open Item、每一个新增 TODO/FIXME、每一个 "out of scope" disposition 都有明确的处置记录。
+**铁律**：处置完成后，不应存在任何含糊的遗留项。Execution 阶段已处置的有据可查；Final Review 新发现的全部补处置完毕。
 
 ### Step 15：清扫修复验证
 

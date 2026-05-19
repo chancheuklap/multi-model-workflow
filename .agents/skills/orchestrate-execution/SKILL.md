@@ -52,7 +52,7 @@ EXECUTION_PASSED | NEEDS_DISCOVERY | NEEDS_PLAN_REVISION | NEEDS_ARCHITECTURE | 
 - Budget total / used / Direction checks triggered
 
 ### Findings summary
-- Total / Accepted+repaired / Rejected / Out of scope (issues created)
+- Total / Accepted+repaired / Rejected / Out of scope (issues created) / Needs evaluation (issues created)
 
 ### Git state
 ### Plan checkbox progress

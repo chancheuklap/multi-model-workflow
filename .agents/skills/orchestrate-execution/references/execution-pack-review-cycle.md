@@ -6,9 +6,9 @@
 
 | Risk flags | Agent | 模型 | TDD |
 | --- | --- | --- | --- |
-| `trivial`（配置常量 / 文档更新 / 样式调整） | `coding_worker` | gpt-5.3-codex | 宽松（验证通过即可，不强制红-绿循环） |
-| `normal` | `coding_worker` | gpt-5.3-codex | 严格 |
-| `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex_coding_worker` | gpt-5.5 | 严格 |
+| `trivial`（配置常量 / 文档更新 / 样式调整） | `pack-executor` | Sonnet | 宽松（验证通过即可，不强制红-绿循环） |
+| `normal` | `pack-executor` | Sonnet | 严格 |
+| `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex-pack-executor` | Opus 4.7 | 严格 |
 
 ## Step 5：构造 Pack Brief
 
@@ -17,30 +17,55 @@
 ## Step 6：派发 Worker
 
 ```
-spawn_agent({
-  agent_type: "<coding_worker | complex_coding_worker>",
+Agent({
+  subagent_type: "<pack-executor | complex-pack-executor>",
   description: "Execute Task Pack N.M: <title>",
   prompt: "<Pack Brief>",
-  fork_context: true  # Codex 子代理需要继承当前上下文时使用
+  isolation: "worktree"  // 仅并行 pack 使用
 })
 ```
 
-**记录返回的 agentId**——后续复杂修复需要用 send_input 继续该 worker。并行 pack 在同一消息中发送多个 spawn_agent call。
+**记录返回的 agentId**——后续复杂修复需要用 SendMessage 继续该 worker。并行 pack 在同一消息中发送多个 Agent tool call。
 
 ## Step 7：接收 Worker 返回
 
 | Worker Verdict | 含义 | Coordinator 动作 |
 | --- | --- | --- |
-| `pass`（DONE） | 实现完成，全部测试通过 | 进入 Step 8（Pack Review） |
-| `needs repair`（DONE_WITH_CONCERNS） | 实现完成但有疑虑 | 读 concerns。正确性/scope concerns → 按 Step 10 修复分流 → 修完进 Pack Review。观察性意见 → 记录，进 Pack Review |
-| `needs context` | 缺信息 | send_input 补充上下文给原 worker；补充后继续 |
+| `pass`（DONE） | 实现完成，全部测试通过 | 进入 Step 7a（Open Items 即时处置）→ Step 8（Pack Review） |
+| `needs repair`（DONE_WITH_CONCERNS） | 实现完成但有疑虑 | 读 concerns。正确性/scope concerns → 按 Step 10 修复分流 → 修完进 Step 7a → Pack Review。观察性意见 → 记录，进 Step 7a → Pack Review |
+| `needs context` | 缺信息 | SendMessage 补充上下文给原 worker；补充后继续 |
 | `blocked` | 无法完成 | 技术阻塞：拆 pack / 更多上下文 / 换模型。业务阻塞：询问用户 |
 
 **Worker scope drift 检测**：检查 Changed files 是否超出 Owned files。属于当前 scope 其它 pack → 记录不 revert；不属于当前 scope → revert。
 
+### Step 7a：Open Items 即时处置
+
+Worker 返回的 `### Open Items` 中包含结构化标记的发现。**Coordinator 必须在进入 Pack Review 之前逐项处置**——不堆积到 Final Review。
+
+对每个标记了 `[out-of-scope]` 或 `[needs-evaluation]` 的条目：
+
+| 标记 | Coordinator 动作 |
+| --- | --- |
+| `[out-of-scope]` | **立即**开 GitHub issue（Durable Handoff Brief 格式）。先 `gh issue list --search "<关键词>"` 查重 |
+| `[needs-evaluation]` | Coordinator 评估：属于当前 scope → 记录到当前或后续 pack 的 repair payload；不属于 → 立即开 GitHub issue |
+| `[bug]` | Coordinator 判断严重性：影响当前功能 → 加入当前 pack repair；不影响当前功能 → 立即开 GitHub issue 标记为 bug |
+| 无标记的观察性意见 | 记录，不开 issue |
+
+**GitHub Issue 内容格式**（Durable Handoff Brief）：
+
+```
+Current behavior:
+Desired behavior:
+Key interfaces:
+Acceptance criteria:
+Out of scope:
+Risk flags:
+Source: Pack <N.M> worker discovery
+```
+
 ## Step 8：派发 Codex Reviewer
 
-读取 `execution-review-dispatch.md`。通过 `code_reviewer` 派发 1 个 baseline reviewer。
+读取 `execution-review-dispatch.md`。通过 `codex:codex-rescue --model gpt-5.4` 派发 1 个 baseline reviewer。
 
 **Budget check**：`budget_used + 1 ≤ budget_total`。超预算停止报告用户。
 
@@ -56,13 +81,14 @@ spawn_agent({
 | --- | --- |
 | `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、targeted re-review scope |
 | `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
-| `needs evidence` | 派 explorer 补证据（窄范围用 `code_explorer`，多模块用 `complex_code_explorer`）；补证前不 repair |
+| `needs evidence` | 派 explorer 补证据（窄范围用 `code-explorer`，多模块用 `complex-code-explorer`）；补证前不 repair |
 | `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |
-| `out of scope` | 从当前 scope 移出；只有用户授权或项目规则要求时才写 durable issue |
+| `out of scope` | 从当前 scope 移出；**立即**开 GitHub issue（Durable Handoff Brief 格式，先查重） |
+| `needs evaluation` | 不在当前 pack 可修范围但需独立评估；**立即**开 GitHub issue，标明评估要点 |
 | `user decision` | 停止执行，一次只问一个会改变设计、计划或发布策略的问题 |
 
 冲突按 evidence quality 判断，不按 reviewer 数量投票。
 
-**`needs evidence` 补证**：派 `code_explorer`（窄范围单文件/单调用链）或 `complex_code_explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
+**`needs evidence` 补证**：派 `code-explorer`（窄范围单文件/单调用链）或 `complex-code-explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
 
 **通过** → Step 13（Release Gate）。**Needs repair** → Step 10（读取 `execution-repair-truncation.md`）。

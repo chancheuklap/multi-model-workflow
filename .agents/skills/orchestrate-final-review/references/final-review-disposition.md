@@ -14,14 +14,15 @@ Final Review 增加一层验证：**对照 pack completion summary**——确认
 | --- | --- |
 | `accepted` | 转成 repair / upstream payload；写明 affected artifacts、repair scope、targeted re-review scope |
 | `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
-| `needs evidence` | 派 explorer 补证据（窄范围用 `code_explorer`，多模块用 `complex_code_explorer`）；补证前不 repair |
+| `needs evidence` | 派 explorer 补证据（窄范围用 `code-explorer`，多模块用 `complex-code-explorer`）；补证前不 repair |
 | `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |
-| `out of scope` | 从当前 scope 移出；只有用户授权或项目规则要求时才写 durable issue |
+| `out of scope` | 从当前 scope 移出；**立即**开 GitHub issue（Durable Handoff Brief 格式，先查重） |
+| `needs evaluation` | 不在当前 pack 可修范围但需独立评估；**立即**开 GitHub issue，标明评估要点 |
 | `user decision` | 停止执行，一次只问一个会改变设计、计划或发布策略的问题 |
 
 冲突按 evidence quality 判断，不按 reviewer 数量投票。
 
-**`needs evidence` 补证**：派 `code_explorer`（窄范围单文件/单调用链）或 `complex_code_explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
+**`needs evidence` 补证**：派 `code-explorer`（窄范围单文件/单调用链）或 `complex-code-explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
 
 ## Step 8：Gap 分类
 
@@ -45,7 +46,7 @@ Accepted findings 按影响范围分类，决定修复路由：
 | implementation gap（大，涉及多 pack） | orchestrate-execution re-entry | pack commits | `NEEDS_EXECUTION` |
 | design / context gap | orchestrate-discovery | design document | `NEEDS_DISCOVERY` |
 | plan gap | orchestrate-plan-writing（修订模式） | plan document | `NEEDS_PLAN_REVISION` |
-| architecture friction | `improve-codebase-architecture`（Skill tool） | design doc / plan anchors | 判断影响范围后继续或回流 |
+| architecture friction | `Skill({ skill: "improve-codebase-architecture" })` | design doc / plan anchors | 判断影响范围后继续或回流 |
 
 ## 路由
 
