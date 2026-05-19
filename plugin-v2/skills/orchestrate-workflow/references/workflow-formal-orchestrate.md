@@ -2,19 +2,19 @@
 
 > **流程位置**：`orchestrate-workflow` Steps 7-14 · Route 1 Formal Orchestrate · phase 全部通过 → Closing（`workflow-closing.md`）
 
-线性管线：Discovery → Plan Writing → Execution → Final Review → Closing。每个 phase skill 通过 `Skill({ skill: "<name>" })` 加载到主线程。
+线性管线：Discovery → Plan Writing → Execution → Final Review → Closing。每个 phase skill 通过 `Skill({ skill: "multi-model-workflow:<name>" })` 加载到主线程。
 
 ## Step 7：orchestrate-discovery
 
 ```
-Skill({ skill: "orchestrate-discovery" })
+Skill({ skill: "multi-model-workflow:orchestrate-discovery" })
 ```
 
 ## Step 8：Handle Discovery Return
 
 | Discovery Verdict | Coordinator 动作 |
 | --- | --- |
-| `DISCOVERY_READY` | 检查 issue hierarchy：有 → Step 9；无 → 调用 `to-issues` → Step 9 |
+| `DISCOVERY_READY` | 检查 issue hierarchy：有 → Step 9；无 → `Skill({ skill: "to-issues" })` → Step 9 |
 | `DISCOVERY_NOT_NEEDED` | 已有足够清晰的 design → 检查 issue hierarchy → Step 9 |
 | `READY_FOR_REPAIR` | 已批准 design 下的实现偏离 → Step 8a（Direct Repair） |
 | `NEEDS_USER_DECISION` | 询问用户（一次只问一个），回答后重新进入 discovery |
@@ -31,7 +31,7 @@ Skill({ skill: "orchestrate-discovery" })
 ## Step 9：orchestrate-plan-writing
 
 ```
-Skill({ skill: "orchestrate-plan-writing" })
+Skill({ skill: "multi-model-workflow:orchestrate-plan-writing" })
 ```
 
 ## Step 10：Handle Plan-writing Return
@@ -41,12 +41,12 @@ Skill({ skill: "orchestrate-plan-writing" })
 | `PLAN_CREATED` | 确认 budget file → Step 11 |
 | `NEEDS_DISCOVERY` | 回到 Step 7 |
 | `NEEDS_DESIGN_REVIEW` | 回到 discovery Design Review |
-| `NEEDS_ISSUES` | 调用 `to-issues` → 重新 Step 9 |
-| `NEEDS_TRIAGE` | 调用 `triage` → 重新 Step 9 |
-| `NEEDS_DIAGNOSIS` | 调用 `diagnose` → 写回 → 重新 Step 9 |
+| `NEEDS_ISSUES` | `Skill({ skill: "to-issues" })` → 重新 Step 9 |
+| `NEEDS_TRIAGE` | `Skill({ skill: "triage" })` → 重新 Step 9 |
+| `NEEDS_DIAGNOSIS` | `Skill({ skill: "diagnose" })` → 写回 → 重新 Step 9 |
 | `NEEDS_DECISION` | 询问用户 → 回答后 Step 9 |
-| `NEEDS_ARCHITECTURE` | 调用 `improve-codebase-architecture` → 写回 → Step 9 |
-| `NEEDS_CONTEXT` | 派 `code-explorer` / `zoom-out` → 补充后 Step 9 |
+| `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` → 写回 → Step 9 |
+| `NEEDS_CONTEXT` | 派 `code-explorer` / `Skill({ skill: "zoom-out" })` → 补充后 Step 9 |
 | `BLOCKED` | 报告用户 |
 
 **更新 Budget File**：`last_gate_phase: "plan-writing"`, `last_gate_timestamp: <now>`。
@@ -56,7 +56,7 @@ Skill({ skill: "orchestrate-plan-writing" })
 ## Step 11：orchestrate-execution
 
 ```
-Skill({ skill: "orchestrate-execution" })
+Skill({ skill: "multi-model-workflow:orchestrate-execution" })
 ```
 
 ## Step 12：Handle Execution Return
@@ -66,7 +66,7 @@ Skill({ skill: "orchestrate-execution" })
 | `EXECUTION_PASSED` | Step 13 |
 | `NEEDS_DISCOVERY` | 回到 Step 7 |
 | `NEEDS_PLAN_REVISION` | 回到 Step 9 |
-| `NEEDS_ARCHITECTURE` | `improve-codebase-architecture` → 只影响当前 pack → 回 Step 11；改变 plan → 回 Step 9 |
+| `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` → 只影响当前 pack → 回 Step 11；改变 plan → 回 Step 9 |
 | `BLOCKED` | 报告用户 |
 
 **更新 Budget File**：`last_gate_phase: "execution"`, `last_gate_timestamp: <now>`。
@@ -76,7 +76,7 @@ Skill({ skill: "orchestrate-execution" })
 ## Step 13：orchestrate-final-review
 
 ```
-Skill({ skill: "orchestrate-final-review" })
+Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
 ```
 
 ## Step 14：Handle Final Review Return

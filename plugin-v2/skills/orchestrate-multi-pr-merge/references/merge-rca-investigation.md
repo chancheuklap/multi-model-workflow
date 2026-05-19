@@ -33,6 +33,10 @@ Agent({
     ## 合同地图
     <paste cross-PR contract surfaces>
 
+    ## Methodology
+    启动后立即 Read 以下文件，按其中 5 步方法论执行调查：
+    ${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-multi-pr-merge/references/rca-pr-conflict-methodology.md
+
     ## 你的任务
 
     使用 Multi-PR Conflict Investigation 方法论（模式 3）。

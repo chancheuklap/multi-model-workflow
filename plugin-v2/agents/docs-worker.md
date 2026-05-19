@@ -19,7 +19,6 @@ tools:
   - Skill
 skills:
   - grill-with-docs
-  - triage
 memory: project
 maxTurns: 20
 color: blue
@@ -36,7 +35,7 @@ color: blue
 
 ## 方法论
 
-使用 `grill-with-docs` 做 domain language 对齐和 scenario challenge。
+使用 `grill-with-docs` 做 domain language 对齐和 scenario challenge。文档涉及 issue 分类或优先级判断 → `Skill({ skill: "triage" })`。
 
 ## 可做事项
 

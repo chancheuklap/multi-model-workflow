@@ -4,7 +4,7 @@
 
 ## Step 9：构造 Dispatch Brief
 
-Dispatch prompt 必须自足——plan-writer 通过 skills 自动加载读取方法论，但 Coordinator 仍需在 prompt 中写清所有输入 artifact 路径和上下文。
+Dispatch prompt 必须自足——Coordinator 在 prompt 中写清所有输入 artifact 路径和上下文，包括方法论文件的绝对路径。
 
 ```
 Agent({
@@ -13,6 +13,10 @@ Agent({
   prompt: "
     ## Goal
     从 source design + issue hierarchy 写出 implementation plan。
+
+    ## Methodology
+    启动后立即 Read 以下文件，按其中 Steps 3-8 执行：
+    ${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-plan-writing/references/plan-writing-methodology.md
 
     ## Source artifacts
     - Source design: <path>（已通过 Design Review）
@@ -47,6 +51,8 @@ Agent({
 })
 ```
 
+**注意**：`${CLAUDE_PLUGIN_ROOT}` 在 Coordinator 主线程中会被 Claude Code 运行时解析为 plugin 安装目录的绝对路径，Sub-agent 收到的 prompt 中已经是解析后的路径。
+
 **记录返回的 agentId**——后续修复可能需要 SendMessage 继续该 plan-writer（保有 design + issue 上下文）。
 
 ## Step 10：处理 Plan-writer 返回
@@ -55,12 +61,12 @@ Agent({
 | --- | --- | --- |
 | `PLAN_CREATED` | plan 写完，自检通过 | 进入 Step 11（Plan Entry Gate） |
 | `NEEDS_DISCOVERY` | 业务意图/术语不清 | 回到 orchestrate-discovery |
-| `NEEDS_ISSUES` | 缺 issue / issue 粒度不足 / scope 过大 | 调用 to-issues |
-| `NEEDS_TRIAGE` | issue ready state 不清 | 调用 triage |
-| `NEEDS_DIAGNOSIS` | bug 缺复现或 hypothesis | 调用 diagnose |
+| `NEEDS_ISSUES` | 缺 issue / issue 粒度不足 / scope 过大 | `Skill({ skill: "to-issues" })` |
+| `NEEDS_TRIAGE` | issue ready state 不清 | `Skill({ skill: "triage" })` |
+| `NEEDS_DIAGNOSIS` | bug 缺复现或 hypothesis | `Skill({ skill: "diagnose" })` |
 | `NEEDS_DECISION` | 需要产品/业务决策 | 询问用户（一次只问一个问题） |
-| `NEEDS_ARCHITECTURE` | 架构假设与代码现实不符 | 调用 improve-codebase-architecture |
-| `NEEDS_CONTEXT` | 缺代码上下文 | 派 code-explorer / 调用 zoom-out，补充后 SendMessage 给原 plan-writer |
+| `NEEDS_ARCHITECTURE` | 架构假设与代码现实不符 | `Skill({ skill: "improve-codebase-architecture" })` |
+| `NEEDS_CONTEXT` | 缺代码上下文 | 派 code-explorer / `Skill({ skill: "zoom-out" })`，补充后 SendMessage 给原 plan-writer |
 | `BLOCKED` | 无法完成 | 报告用户，附 plan-writer 的阻塞原因 |
 
 upstream skill 结论必须写回 design document / issue hierarchy，再 SendMessage 给原 plan-writer 继续。

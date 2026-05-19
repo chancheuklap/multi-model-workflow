@@ -19,6 +19,10 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/guard-premature-push.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/cleanup-before-push.sh\""
           }
         ]
       }
