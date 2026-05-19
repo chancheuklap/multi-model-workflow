@@ -19,10 +19,11 @@ find .codex/multi-model-workflow/budget-*.json -mmin -60 2>/dev/null
 
 ### 3b：Source Stability 检查
 
-Budget file 记录 `last_gate_phase` 和 `last_gate_timestamp`。从 Scope Contract 读取 feature slug，用约定路径检查 source artifacts 自上次 gate 通过后是否被修改：
+Budget file 记录 `last_gate_phase` 和 `last_gate_timestamp`。从活跃运行的 Scope Contract 读取 feature slug，用约定路径检查 source artifacts 自上次 gate 通过后是否被修改：
 
 ```bash
-SLUG=$(grep -A1 '^## Feature slug' .codex/multi-model-workflow/scope-*.md | tail -1 | xargs)
+RUN_ID=$(cat .codex/multi-model-workflow/active-run-id)
+SLUG=$(grep -A1 '^## Feature slug' ".codex/multi-model-workflow/scope-${RUN_ID}.md" | tail -1 | xargs)
 git log --oneline --since="<last_gate_timestamp>" -- \
   "docs/orchestrate/design/${SLUG}.md" \
   "docs/orchestrate/plans/${SLUG}.md" \
