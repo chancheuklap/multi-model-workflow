@@ -3,4 +3,5 @@
 *.swo
 *~
 .claude/
+.codex/multi-model-workflow/
 node_modules/

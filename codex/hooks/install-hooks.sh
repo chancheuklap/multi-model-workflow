@@ -11,15 +11,15 @@ APPLY=0
 usage() {
   cat <<'EOF'
 Usage:
-  codex/hooks/install-hooks.sh [--dry-run|--apply]
+  bash codex/hooks/install-hooks.sh [--dry-run|--apply]
 
 Installs multi-model-workflow Codex hooks at user level:
   ~/.codex/hooks/multi-model-workflow/session-start.sh
   ~/.codex/hooks/multi-model-workflow/guard-premature-push.sh
+  ~/.codex/hooks/multi-model-workflow/track-review-budget.sh
   ~/.codex/hooks.json
 
-Default mode is --dry-run. Existing ~/.codex/hooks.json is replaced in place
-when it differs. This installer never leaves runtime .bak-* copies.
+Default mode is --dry-run.
 EOF
 }
 
@@ -45,7 +45,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-for script in session-start.sh guard-premature-push.sh; do
+for script in session-start.sh guard-premature-push.sh track-review-budget.sh; do
   if [ ! -f "$SOURCE_DIR/$script" ]; then
     echo "ERROR: missing source hook script: $SOURCE_DIR/$script" >&2
     exit 1
@@ -64,7 +64,8 @@ fi
 mkdir -p "$DEST_DIR"
 cp "$SOURCE_DIR/session-start.sh" "$DEST_DIR/session-start.sh"
 cp "$SOURCE_DIR/guard-premature-push.sh" "$DEST_DIR/guard-premature-push.sh"
-chmod +x "$DEST_DIR/session-start.sh" "$DEST_DIR/guard-premature-push.sh"
+cp "$SOURCE_DIR/track-review-budget.sh" "$DEST_DIR/track-review-budget.sh"
+chmod +x "$DEST_DIR/session-start.sh" "$DEST_DIR/guard-premature-push.sh" "$DEST_DIR/track-review-budget.sh"
 
 TMP_JSON="$(mktemp)"
 python3 - "$DEST_DIR" > "$TMP_JSON" <<'PY'

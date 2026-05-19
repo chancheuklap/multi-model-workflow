@@ -1,67 +1,71 @@
 ---
 name: orchestrate-plan-writing
-description: "已有 reviewed source design / design document / SPEC / existing PRD / explicit requirements，并且已有 to-issues 产出的 vertical large issues / small issues，或用户要求把 design、PRD、issues 转成 implementation plan、Task Pack plan、issue-backed plan 时主动使用。负责生成可进入 Phase 0b 的 plan：large issue 映射 plan section，small issue 映射 Task Pack，pack 内写细 task；缺 source design 时返回 NEEDS_DISCOVERY，缺 issue hierarchy 时返回 NEEDS_ISSUES。"
+description: "已有 reviewed design + issue hierarchy 时使用。派 plan_writer → Plan Entry Gate → Plan Review → Git Checkpoint。产出：reviewed plan + Task Pack inventory + budget_total。"
 ---
 
 # Orchestrate Plan Writing
 
-只负责生成或修复 plan。Plan 生成后交回 `orchestrate-workflow` 进入 Phase 0b。
+Source design + issue hierarchy → plan_writer 产出 plan → Codex Plan Review → Git Checkpoint → 进入 Execution。
 
-## 前置条件
+**plan_writer 消费说明**：plan_writer 通过 `skills: ["orchestrate-plan-writing"]` 自动加载本技能，启动后读取 `references/plan-writing-methodology.md`。
 
-必须同时具备：
+---
 
-- source design / SPEC / PRD / bug brief（已通过 Phase 0a 或等价 review）
-- `to-issues` 产出的 vertical large issues 和 vertical small issues
+## Step 0：Re-entry 检测
 
-| 缺件 | 返回 | 路由 |
-| --- | --- | --- |
-| 无 source design | `NEEDS_DISCOVERY` | `orchestrate-discovery` |
-| design 未 review | `NEEDS_DESIGN_REVIEW` | Phase 0a |
-| 缺 large/small issue | `NEEDS_ISSUES` | `to-issues` |
-| issue ready state 不清 | `NEEDS_TRIAGE` | `triage` |
-| 业务术语或验收不清 | `NEEDS_DISCOVERY` | `orchestrate-discovery` |
-| bug 缺复现或 hypothesis | `NEEDS_DIAGNOSIS` | `diagnose` |
-| 需要方案比较 | `NEEDS_DECISION` | user / `prototype` |
-| 架构摩擦反复阻塞 | `NEEDS_ARCHITECTURE` | `improve-codebase-architecture` |
-| 模块地图不足 | `NEEDS_CONTEXT` | `zoom-out` / `code_explorer` |
+| 条件 | 下一步 |
+| --- | --- |
+| 无已有 plan | Step 1 |
+| 已有 plan + `NEEDS_PLAN_REVISION` context | 读取 `references/plan-preconditions.md` 修订模式 → Step 11 |
+| 已有 plan + 无修订 context | Step 1（忽略旧 plan） |
 
-## 写作流程
+## Steps 1-2：前置条件
 
-1. 读取 source design，提取 goal、architecture、tech stack、行为、合同边界、失败场景。
-2. 读取 `references/plan-contract.md`，确认 issue→pack 映射成立，按模板写 plan。
-3. 读取 `references/plan-checklist.md`，删过度设计、补设计不足、自审修正。
-4. 保存到 `docs/orchestrate/plans/YYYY-MM-DD-<feature>.md`。
+验证 source design 已 reviewed + issue hierarchy 已就绪 + Scope Contract + Budget File 存在。缺件时读取 `references/plan-preconditions.md` 路由。
 
-## 固定结构
+## Steps 3-8：写作方法论
 
-```
-source design → vertical large issue → vertical small issue → Task Pack → pack-local tasks
-```
+→ `references/plan-writing-methodology.md`（plan_writer 消费；Coordinator 按此构造 dispatch brief）
 
-- 一级章节 = large issue。每个 Task Pack = 一个 small issue。
-- `Execution owner` 必须是 `Orchestrate Workflow`。
-- Task Pack 是 Orchestrate 派发单位；细 task 只服务 pack 内执行。
+## Steps 9-10：派发 plan_writer + 处理返回
 
-## 返回格式
+→ `references/plan-writer-dispatch.md`（dispatch template + 9 种 verdict 路由）
+
+## Steps 11-12a：Plan Entry Gate + Task Pack Inventory Gate + Budget 赋值
+
+→ `references/plan-gates.md`（gate 检查条件 + budget_total 首次赋值 `2N + 12`）
+
+## Steps 13-14：Plan Review
+
+Budget check（`budget_used + 1 ≤ budget_total`，80% 触发 Direction Check）→ 读取 `references/plan-review-dispatch.md` 派发 `code_reviewer`。
+
+## Steps 15-18：Disposition + 修复 + 截断
+
+→ `references/plan-review-resolution.md`（Coordinator 亲验 → disposition → 修复路由 A/B/C → 最多 2 轮 → 截断路由）
+
+通过 → Step 19。
+
+## Step 19：Git Checkpoint
+
+`git add` + `git commit`。Plan-writer 不 commit；Coordinator 统一提交。Design doc repair 和 plan doc 分别提交。
+
+## Step 20：返回
 
 ```text
 ### Verdict
-PLAN_CREATED | NEEDS_DISCOVERY | NEEDS_DESIGN_REVIEW | NEEDS_ISSUES | NEEDS_TRIAGE | NEEDS_DIAGNOSIS | NEEDS_DECISION | NEEDS_ARCHITECTURE | NEEDS_CONTEXT
+PLAN_CREATED | NEEDS_DISCOVERY | NEEDS_DESIGN_REVIEW | NEEDS_ISSUES |
+NEEDS_TRIAGE | NEEDS_DIAGNOSIS | NEEDS_DECISION | NEEDS_ARCHITECTURE |
+NEEDS_CONTEXT | BLOCKED
 
 ### Plan path
-- <path>
-
+### Plan Review
+- Review dispatched / Findings dispositioned / Repairs applied / Rounds used
 ### Issue mapping
-- Large issues:
-- Task Packs:
-- Dependencies:
-
+- Large issues / Task Packs / Dependencies
 ### Quality gate
-- Overdesign checked:
-- Underdesign checked:
-- Largest remaining risk:
-
+- Overdesign / Underdesign / Coverage / Type consistency / Largest risk
+### Git state
 ### Open items
-- Blockers / HITL:
+### Next route
+- orchestrate-execution / upstream route / user decision / blocked
 ```
