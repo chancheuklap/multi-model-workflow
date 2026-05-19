@@ -12,13 +12,23 @@
 
 | Discovery Verdict | Coordinator 动作 |
 | --- | --- |
-| `DISCOVERY_READY` | 检查 issue hierarchy：有 → Step 9；无 → 调用 `to-issues` → Step 9 |
+| `DISCOVERY_READY` | 检查 issue hierarchy：有 → Step 9；无 → Step 8b（to-issues + 上下文传递）→ Step 9 |
 | `DISCOVERY_NOT_NEEDED` | 已有足够清晰的 design → 检查 issue hierarchy → Step 9 |
 | `READY_FOR_REPAIR` | 已批准 design 下的实现偏离 → Step 8a（Direct Repair） |
 | `NEEDS_USER_DECISION` | 询问用户（一次只问一个），回答后重新进入 discovery |
 | `BLOCKED` | 报告用户 |
 
 **更新 Budget File**：`last_gate_phase: "discovery"`, `last_gate_timestamp: <now>`。
+
+### Step 8b：to-issues 上下文传递
+
+调用 to-issues 前，Coordinator 必须：
+
+1. **Read** Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）获取 slug
+2. **Read** 设计文档（`docs/orchestrate/design/<slug>.md`）确认内容在上下文中
+3. 调用 `to-issues`，将设计文档路径作为输入
+
+to-issues 运行时需要设计文档的完整内容来拆 issue。如果 Coordinator 上下文中已无设计文档内容（因 compact 或 phase 切换），必须重新 Read。
 
 ### Step 8a：Direct Repair（READY_FOR_REPAIR mini-route）
 

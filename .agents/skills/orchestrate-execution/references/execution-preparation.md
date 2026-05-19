@@ -4,7 +4,9 @@
 
 ## Step 1：读取 Plan Task Pack Inventory
 
-读取已通过 Plan Review 的计划文档，提取：
+**Read** Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）获取 slug → **Read** plan 文档（`docs/orchestrate/plans/<slug>.md`）获取完整内容。
+
+从 plan 文档中提取：
 
 - 所有 Task Pack 的编号、标题、issue reference
 - 每个 pack 的 `Dependencies`、`Parallel safety`、`Risk flags`、`发布风险`

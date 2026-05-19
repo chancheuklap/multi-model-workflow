@@ -12,7 +12,25 @@
 
 ## Step 5：构造 Pack Brief
 
-读取 `execution-worker-dispatch.md`。Dispatch prompt 必须自足——worker 不读 SKILL.md、不读 references、不读 plan 文件。Coordinator 从 plan 中提取并在 prompt 中写全所有字段。
+### Step 5a：Pre-dispatch Context Transfer（强制）
+
+构造 Pack Brief 之前，Coordinator 必须确认以下内容在上下文中：
+
+1. **Read** plan 文档（`docs/orchestrate/plans/<slug>.md`）—— 如果上下文中没有 plan 内容（首个 pack 或经过 compact），必须重新 Read
+2. 从 plan 中**定位当前 pack** 的完整章节（Task Pack N.M），提取所有字段：Goal behavior、Implementation tasks（全文）、Owned files、Read first、Acceptance criteria、Verification commands、Risk flags、Contract anchors、Mockup anchors、Dependencies、Out of scope
+3. 读取 `execution-worker-dispatch.md` 获取 Pack Brief 模板
+
+### Step 5b：填充 Pack Brief
+
+**将 Step 5a 提取的内容逐字段填入模板**。关键规则：
+
+- `Implementation tasks` 字段：**完整粘贴** plan 中该 pack 的所有 task 原文（包括 step 编号、文件路径、命令、expected result），不得摘要、不得省略、不得写"见 plan"
+- `Goal behavior` 字段：从 plan 中该 pack 的 Goal behavior 完整复制
+- `Acceptance criteria` 字段：从 plan 中该 pack 的 Acceptance criteria 完整复制
+- `Verification commands` 字段：从 plan 中该 pack 的 Verification commands 完整复制
+- 条件字段（Contract anchors / Mockup anchors / Dependencies 等）：plan 中有则复制，无则不写
+
+Dispatch prompt 必须自足——worker 不读 SKILL.md、不读 references、不读 plan 文件。**验证：prompt 中不得出现未替换的 `<>` 占位符、"见 plan"、"参考上文" 等间接引用。**
 
 ## Step 6：派发 Worker
 

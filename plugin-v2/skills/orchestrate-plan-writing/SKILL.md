@@ -25,11 +25,11 @@ Source design + issue hierarchy → plan-writer 产出 plan → Codex Plan Revie
 
 ## Steps 3-8：写作方法论
 
-→ `references/plan-writing-methodology.md`（plan-writer 消费；Coordinator 按此构造 dispatch brief）
+**Read** `references/plan-writing-methodology.md`（plan-writer 消费；Coordinator 按此理解 plan 结构，为 dispatch brief 构造做准备）。
 
 ## Steps 9-10：派发 plan-writer + 处理返回
 
-→ `references/plan-writer-dispatch.md`（dispatch template + 9 种 verdict 路由）
+**Read** `references/plan-writer-dispatch.md` 并严格执行（Pre-dispatch Context Transfer + dispatch template 填充 + 9 种 verdict 路由）。
 
 ## Steps 11-12a：Plan Entry Gate + Task Pack Inventory Gate + Budget 赋值
 

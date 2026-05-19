@@ -4,39 +4,64 @@
 
 ## Step 9：构造 Dispatch Brief
 
-Dispatch prompt 必须自足——plan_writer 通过 skills 自动加载读取方法论，但 Coordinator 仍需在 prompt 中写清所有输入 artifact 路径和上下文。
+Dispatch prompt 必须自足——plan_writer 不读 SKILL.md、不读 Coordinator 的上下文。**Coordinator 必须把 plan_writer 需要的所有信息写进 prompt**。
+
+### Step 9a：Pre-dispatch Context Transfer（强制）
+
+构造 dispatch prompt 之前，Coordinator 必须用 Read 读取以下文件，确认内容在上下文中：
+
+1. **Read** Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）→ 获取 slug、run_id
+2. **Read** 设计文档（`docs/orchestrate/design/<slug>.md`）→ 提取 Goal、Architecture、行为清单、合同边界、验收标准
+3. **Read** issue hierarchy 目录下的所有 large issue 文档（`docs/orchestrate/issues/<slug>/001-*.md` 等）→ 提取 issue 列表、acceptance criteria、blocked-by 关系
+
+如果以上任何一个 Read 失败（文件不存在），停止派发，返回对应的 upstream verdict。
+
+### Step 9b：填充 Dispatch Prompt
+
+将 Step 9a 读到的内容填入以下模板。**所有 `<>` 占位符都必须替换为实际值**——不得让占位符原样出现在 prompt 中。
 
 ```
 spawn_agent({
   agent_type: "plan_writer",
-  description: "Write implementation plan: <feature>",
+  description: "Write implementation plan: <feature title>",
   prompt: "
     ## Goal
     从 source design + issue hierarchy 写出 implementation plan。
 
     ## Feature slug
-    <YYYY-MM-DD-feature>（从 Scope Contract 读取，贯穿所有路径）
+    <填入从 Scope Contract 读取的 slug>
 
-    ## Source artifacts
+    ## Source artifacts（plan_writer 启动后需 Read 这些文件获取完整内容）
     - Source design: docs/orchestrate/design/<slug>.md（已通过 Design Review）
     - Issue hierarchy: docs/orchestrate/issues/<slug>/
-      - Large issues: docs/orchestrate/issues/<slug>/001-<slug>.md, ...
+      - Large issues: docs/orchestrate/issues/<slug>/001-<name>.md, ...（逐个列出实际文件名）
       - Small issues: 内嵌在各大 issue 文档中
     - Mockups（如有）: docs/orchestrate/mockups/<slug>/
     - Scope Contract: .codex/multi-model-workflow/scope-<run_id>.md
     - AGENTS.md / CLAUDE.md: <project root>/AGENTS.md / CLAUDE.md
+
+    ## 设计摘要（Coordinator 从设计文档提取，帮 plan_writer 快速定向）
+    **Goal:** <从设计文档 Goal 节提取>
+    **Architecture:** <从设计文档 Architecture 节提取关键架构决策>
+    **核心行为:** <列出设计文档定义的主要行为/功能点>
+    **合同边界:** <列出设计文档中的 contract/interface 边界>
+    **验收标准:** <列出设计文档的顶层验收标准>
+
+    ## Issue 概览（Coordinator 从 issue hierarchy 提取）
+    <列出所有 large issue 的编号、标题和 small issue 数量>
+    <列出 issue 之间的 blocked-by 依赖关系>
 
     ## Plan output
     - Plan 保存路径: docs/orchestrate/plans/<slug>.md
     - Execution owner: Orchestrate Workflow（必须写入 plan header）
 
     ## 补充上下文
-    - Design Review 中 reviewer 的重点建议: <paste if any>
-    - 用户偏好 / 架构决策: <paste if any>
-    - 已知 gotcha / 路径变更: <paste if any>
+    - Design Review 中 reviewer 的重点建议: <从 Design Review 结果提取，无则写「无」>
+    - 用户偏好 / 架构决策: <从讨论中提取，无则写「无」>
+    - 已知 gotcha / 路径变更: <从讨论中提取，无则写「无」>
 
     ## Out of scope
-    - <explicitly list what NOT to include>
+    - <从设计文档的 Out of scope 节提取>
     - 不自创 issue——只消费 to-issues 产出的 issue hierarchy
 
     ## Return contract
@@ -51,7 +76,7 @@ spawn_agent({
 })
 ```
 
-**记录返回的 agentId**——后续修复可能需要 send_input 继续该 plan_writer（保有 design + issue 上下文）。
+**记录返回的 agentId**——后续修复可能需要 send_input / SendMessage 继续该 plan_writer（保有 design + issue 上下文）。
 
 ## Step 10：处理 Plan-writer 返回
 

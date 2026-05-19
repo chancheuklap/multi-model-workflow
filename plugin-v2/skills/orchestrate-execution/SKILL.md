@@ -13,14 +13,14 @@ Plan Review 通过 → 逐 Pack 派 Worker → Pack Review → 修复 → Releas
 
 ## Steps 1-3：预执行准备
 
-→ `references/execution-preparation.md`（读 plan inventory + 构建执行队列 + 验证 Scope Contract / Git / Budget）
+**Read** `references/execution-preparation.md` 并严格执行（读 plan inventory + 构建执行队列 + 验证 Scope Contract / Git / Budget）。
 
 ## Steps 4-9：Pack 执行 + Review 循环（per pack）
 
-→ `references/execution-pack-review-cycle.md`（选 worker → 构造 Pack Brief → 派发 → 处理返回 → Pack Review → Disposition）
+**Read** `references/execution-pack-review-cycle.md` 并严格执行（选 worker → Pre-dispatch Context Transfer → 构造 Pack Brief → 派发 → 处理返回 → Pack Review → Disposition）。
 
-Worker dispatch template → `references/execution-worker-dispatch.md`（Step 5 读取）
-Pack Review dispatch template → `references/execution-review-dispatch.md`（Step 8 读取）
+Step 5 构造 Pack Brief 时 **Read** `references/execution-worker-dispatch.md` 获取模板。
+Step 8 派发 Reviewer 时 **Read** `references/execution-review-dispatch.md` 获取模板。
 
 通过 → Step 13。Needs repair → 读取 `references/execution-repair-truncation.md`。
 
