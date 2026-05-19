@@ -67,6 +67,7 @@ Claude Code plugin v2 (v0.8.2)。6 个内部 Skill + 7 个 Sub-Agent + ~25 个 s
 |------|------|------|------|
 | SessionStart | `startup\|clear\|compact` | `session-start.sh` | 注入行为规则（routing / hard gates / agent roles） |
 | PreToolUse/Bash | 所有 Bash 调用 | `scripts/guard-premature-push.sh` | ① 拦截 `--squash` 和 `rebase`（合并策略铁律） ② 有未完成 task 时拦截 `git push` 和 `gh pr create` |
+| PreToolUse/Bash | 所有 Bash 调用 | `scripts/cleanup-before-push.sh` | `git push` / `gh pr create` 前自动清理 `.claude/multi-model-workflow/` 临时文件 |
 | SubagentStop/coding | `pack-executor\|complex-pack-executor` | inline | 提醒 Coordinator 派发 Codex review |
 | SubagentStop/codex | `codex:codex-rescue` | `track-review-budget.sh` | 递增 budget_used，80% 触发 Direction Check 警告，100% 报 EXHAUSTED |
 
