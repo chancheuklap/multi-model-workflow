@@ -46,7 +46,7 @@ spawn_agent({
     docs/orchestrate/plans/<slug>.md（已通过 Plan Review）
 
     ## Issue hierarchy
-    docs/orchestrate/issues/<slug>.md
+    docs/orchestrate/issues/<slug>/
 
     ## Starting commit
     <commit hash>
