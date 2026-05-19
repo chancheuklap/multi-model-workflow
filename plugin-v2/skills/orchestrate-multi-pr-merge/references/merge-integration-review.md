@@ -12,6 +12,7 @@ Agent({
   description: "Multi-PR integration review: <PR set>",
   prompt: "
     --model gpt-5.4
+    --wait
 
     ## Scope
     跨 PR 集成审查。多个并行 PR 来自同一大设计，各自已通过 Final Review。
@@ -108,7 +109,8 @@ Multi-PR 增加验证维度：对照大设计文档确认 spec 判断 + 对照�
 | `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
 | `needs evidence` | 派 explorer 补证据（窄范围用 `code-explorer`，多模块用 `complex-code-explorer`）；补证前不 repair |
 | `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |
-| `out of scope` | 从当前 scope 移出；只有用户授权或项目规则要求时才写 durable issue |
+| `out of scope` | 从当前 scope 移出；**立即**开 GitHub issue（Durable Handoff Brief 格式，先查重） |
+| `needs evaluation` | 不在当前 pack 可修范围但需独立评估；**立即**开 GitHub issue，标明评估要点 |
 | `user decision` | 停止执行，一次只问一个会改变设计、计划或发布策略的问题 |
 
 冲突按 evidence quality 判断，不按 reviewer 数量投票。
@@ -134,6 +136,7 @@ Agent({
   description: "Multi-PR targeted re-review: <finding summary>",
   prompt: "
     --model gpt-5.4
+    --wait
 
     ## Scope
     Targeted re-review for Multi-PR integration repair.

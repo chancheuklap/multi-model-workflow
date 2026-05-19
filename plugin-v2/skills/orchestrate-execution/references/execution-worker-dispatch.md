@@ -34,6 +34,11 @@ Return contract:
   - Needs review
   ### Verification
   ### Open Items
+  每条标记一个分类标签：
+  - [out-of-scope] 不属于当前 pack 或整个 scope 的问题
+  - [needs-evaluation] 需要独立评估才能判断是否修复的问题
+  - [bug] 执行中发现的已有代码 bug（非本次引入）
+  格式：`- [标签] 简述问题 — 发现位置 — 影响判断`
 ```
 
 ## 条件字段（仅在相关时包含，不写 N/A 占位）

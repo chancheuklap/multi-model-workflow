@@ -70,6 +70,7 @@ Critical findings: <count>
 - Accepted + repaired: <count>
 - Rejected: <count>
 - Out of scope (issues created): <count>
+- Needs evaluation (issues created): <count>
 
 ### Lingering tail sweep
 - Worker Open Items processed: <count>

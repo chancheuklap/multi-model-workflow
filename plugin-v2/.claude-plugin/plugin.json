@@ -1,7 +1,7 @@
 {
   "name": "multi-model-workflow",
   "description": "Multi-model orchestration: Claude agents for coding + Codex agents for independent review. Task Pack batching, automated review loops, worktree isolation.",
-  "version": "0.8.3",
+  "version": "0.9.0",
   "author": {
     "name": "Cheuk Lap Chan",
     "email": "chancheuklapincn@gmail.com"

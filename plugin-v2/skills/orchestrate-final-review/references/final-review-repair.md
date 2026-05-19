@@ -132,6 +132,7 @@ Agent({
   description: "Final Review targeted re-review: <finding summary>",
   prompt: "
     --model gpt-5.4
+    --wait
 
     ## Scope
     Targeted re-review for Final Review repair.

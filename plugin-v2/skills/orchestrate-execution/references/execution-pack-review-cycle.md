@@ -31,12 +31,37 @@ Agent({
 
 | Worker Verdict | 含义 | Coordinator 动作 |
 | --- | --- | --- |
-| `pass`（DONE） | 实现完成，全部测试通过 | 进入 Step 8（Pack Review） |
-| `needs repair`（DONE_WITH_CONCERNS） | 实现完成但有疑虑 | 读 concerns。正确性/scope concerns → 按 Step 10 修复分流 → 修完进 Pack Review。观察性意见 → 记录，进 Pack Review |
+| `pass`（DONE） | 实现完成，全部测试通过 | 进入 Step 7a（Open Items 即时处置）→ Step 8（Pack Review） |
+| `needs repair`（DONE_WITH_CONCERNS） | 实现完成但有疑虑 | 读 concerns。正确性/scope concerns → 按 Step 10 修复分流 → 修完进 Step 7a → Pack Review。观察性意见 → 记录，进 Step 7a → Pack Review |
 | `needs context` | 缺信息 | SendMessage 补充上下文给原 worker；补充后继续 |
 | `blocked` | 无法完成 | 技术阻塞：拆 pack / 更多上下文 / 换模型。业务阻塞：询问用户 |
 
 **Worker scope drift 检测**：检查 Changed files 是否超出 Owned files。属于当前 scope 其它 pack → 记录不 revert；不属于当前 scope → revert。
+
+### Step 7a：Open Items 即时处置
+
+Worker 返回的 `### Open Items` 中包含结构化标记的发现。**Coordinator 必须在进入 Pack Review 之前逐项处置**——不堆积到 Final Review。
+
+对每个标记了 `[out-of-scope]` 或 `[needs-evaluation]` 的条目：
+
+| 标记 | Coordinator 动作 |
+| --- | --- |
+| `[out-of-scope]` | **立即**开 GitHub issue（Durable Handoff Brief 格式）。先 `gh issue list --search "<关键词>"` 查重 |
+| `[needs-evaluation]` | Coordinator 评估：属于当前 scope → 记录到当前或后续 pack 的 repair payload；不属于 → 立即开 GitHub issue |
+| `[bug]` | Coordinator 判断严重性：影响当前功能 → 加入当前 pack repair；不影响当前功能 → 立即开 GitHub issue 标记为 bug |
+| 无标记的观察性意见 | 记录，不开 issue |
+
+**GitHub Issue 内容格式**（Durable Handoff Brief）：
+
+```
+Current behavior:
+Desired behavior:
+Key interfaces:
+Acceptance criteria:
+Out of scope:
+Risk flags:
+Source: Pack <N.M> worker discovery
+```
 
 ## Step 8：派发 Codex Reviewer
 
@@ -58,7 +83,8 @@ Agent({
 | `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
 | `needs evidence` | 派 explorer 补证据（窄范围用 `code-explorer`，多模块用 `complex-code-explorer`）；补证前不 repair |
 | `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |
-| `out of scope` | 从当前 scope 移出；只有用户授权或项目规则要求时才写 durable issue |
+| `out of scope` | 从当前 scope 移出；**立即**开 GitHub issue（Durable Handoff Brief 格式，先查重） |
+| `needs evaluation` | 不在当前 pack 可修范围但需独立评估；**立即**开 GitHub issue，标明评估要点 |
 | `user decision` | 停止执行，一次只问一个会改变设计、计划或发布策略的问题 |
 
 冲突按 evidence quality 判断，不按 reviewer 数量投票。

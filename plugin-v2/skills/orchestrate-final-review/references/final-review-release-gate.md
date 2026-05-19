@@ -28,6 +28,7 @@ Agent({
   description: "Final Release Gate: <risk surface>",
   prompt: "
     --model gpt-5.5
+    --wait
 
     ## Scope
     Release-risk review for the final implementation.
