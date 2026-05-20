@@ -109,7 +109,7 @@ Final Review 的两个 baseline 通过 + 遗留清扫完成 + Release Gate 通�
 | --- | --- |
 | 两个 baseline 通过 + 遗留清扫完成 + 无 release gate 触发 | `FINAL_REVIEW_PASSED` |
 | 两个 baseline 通过 + 遗留清扫完成 + release gate 触发且通过 | `FINAL_REVIEW_PASSED_WITH_RELEASE_RISK` |
-| accepted findings 涉及多 pack 系统性问题 | `NEEDS_EXECUTION`（最多 1 次；第 2 次 → BLOCKED） |
+| accepted findings 涉及多 pack 系统性问题 | `NEEDS_EXECUTION`（读 budget file `execution_reflux_count`：0 → 可回流；≥1 → BLOCKED） |
 | design / context gap 需要 discovery 补充 | `NEEDS_DISCOVERY` |
 | plan gap 需要修订 | `NEEDS_PLAN_REVISION` |
 | 无法自主解决 | `BLOCKED` |

@@ -132,6 +132,7 @@ docs/orchestrate/
   "pack_count": 0,
   "starting_commit": "<git rev-parse HEAD after Git Checkpoint>",
   "discovery_used": 0,
+  "execution_reflux_count": 0,
   "last_gate_phase": "entry",
   "last_gate_timestamp": "<ISO 8601>",
   "dispatches": []

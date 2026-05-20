@@ -10,10 +10,8 @@ cat <<'RULES'
 RULES
 
 if [ -z "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" ]; then
-  cat <<'ENVWARN'
-[multi-model-workflow] ERROR: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is not set.
-  修复链路依赖 SendMessage。请设置 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 后重新启动。
-ENVWARN
+  echo "[multi-model-workflow] BLOCKED: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is not set. 修复链路依赖 SendMessage，系统无法正常运行。请设置后重新启动。" >&2
+  exit 2
 fi
 
 cat <<'RULES'

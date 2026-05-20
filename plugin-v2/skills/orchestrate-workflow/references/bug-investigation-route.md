@@ -53,7 +53,7 @@ Agent({
 
 ### `root cause in design/plan` → Discovery Seed
 
-Coordinator 整理 analyst report 作为 Discovery 的输入 brief：
+Coordinator 整理 analyst report 写入 `.claude/multi-model-workflow/bug-seed-<run_id>.md`：
 
 ```text
 ## Bug-seeded Discovery
@@ -68,9 +68,10 @@ Analyst findings:
 请以此为基础进行 Discovery 讨论，不需要用户从零描述问题。
 ```
 
-此时执行两项基础设施操作：
-1. **更新 Scope Contract**：scope 从 bug investigation 扩大为 full design + plan + execution。更新 `.claude/multi-model-workflow/scope-<run_id>.md` 的 Source artifacts（加入 analyst report）、Editable artifacts（加入 design / plan 预期产出）和 Out of scope。
-2. **创建 Budget File**（Step 6）：后续走 Formal Orchestrate 完整管线。
+此时执行三项基础设施操作：
+1. **写入 Bug Seed 文件**：写入 `.claude/multi-model-workflow/bug-seed-<run_id>.md`。
+2. **更新 Scope Contract**：更新 `.claude/multi-model-workflow/scope-<run_id>.md` 的 Source artifacts（加入 `bug-seed-<run_id>.md`）、Editable artifacts（加入 design / plan）和 Out of scope。
+3. **创建 Budget File**（Step 6）。
 
 ## Step 17：Simple Bug — Codex Review
 
@@ -78,7 +79,7 @@ Analyst 已修复代码。按以下步骤派发 Codex review（`CODEX_SCRIPT` �
 1. 写 prompt → `review-prompts/bug-fix-review.md`（内容见下方模板）
 2. `node "$CODEX_SCRIPT" task --background --prompt-file .claude/multi-model-workflow/review-prompts/bug-fix-review.md --model gpt-5.4 --effort xhigh` → 记录 JOB_ID
 3. `node "$CODEX_SCRIPT" status <JOB_ID> --wait --timeout-ms 600000`（run_in_background: true）
-4. `node "$CODEX_SCRIPT" result <JOB_ID>` → 存到 `review-results/bug-fix-review.md`，budget_used += 1
+4. `node "$CODEX_SCRIPT" result <JOB_ID>` → 存到 `review-results/bug-fix-review.md`
 
 Review prompt 写入 `.claude/multi-model-workflow/review-prompts/bug-fix-review.md`：
 

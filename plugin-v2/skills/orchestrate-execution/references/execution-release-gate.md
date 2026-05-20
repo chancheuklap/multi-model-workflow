@@ -14,7 +14,7 @@ Pack Review 通过后，检查该 pack 是否触发 Early Release Gate：
 1. 写 prompt → `review-prompts/<gate>.md`
 2. `node "$CODEX_SCRIPT" task --background --prompt-file .claude/multi-model-workflow/review-prompts/<gate>.md --model gpt-5.4 --effort xhigh` → 记录 JOB_ID
 3. `node "$CODEX_SCRIPT" status <JOB_ID> --wait --timeout-ms 600000`（run_in_background: true）
-4. `node "$CODEX_SCRIPT" result <JOB_ID>` → 存到 `review-results/<gate>.md`，budget_used += 1
+4. `node "$CODEX_SCRIPT" result <JOB_ID>` → 存到 `review-results/<gate>.md`
 
 Review prompt 写入 `.claude/multi-model-workflow/review-prompts/release-gate-N.M.md`：
 

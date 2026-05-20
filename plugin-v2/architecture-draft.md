@@ -1,8 +1,7 @@
 # Plugin V2 架构文档（基于 2026-05-20 审计）
 
 > **审计基准**：`plugin-v2/` 目录下的实际代码（skills/ agents/ hooks/）。
-> **审计日期**：2026-05-20，基于 commit 5d8d9f7。
-> **上一次 E2E 审计**：`plugin-v2/E2E-AUDIT-REPORT.md`（2026-05-19）。
+> **审计日期**：2026-05-20。
 
 ## 图例
 
@@ -12,8 +11,8 @@
 🟧 橙色 = 外部 Review（跨模型独立审查）
 🟪 紫色 = 外部 Skill（orchestrate 之外的独立技能）
 ⬜ 灰色 = Coordinator 自身逻辑（路线判定、修复分流、git 操作等）
-🟥 红色 = 断点 / 矛盾（需修复后流程才通畅）
-⬜ 虚线 = 路径存在但机制缺失或矛盾
+🟥 红色 = 断点 / 矛盾
+⬜ 虚线 = 路径存在但机制缺失
 ```
 
 ---
@@ -74,7 +73,7 @@ flowchart TD
     J -->|"pass"| K
     K["Closing\n（汇报 + 提交 + 推送 + PR）"]:::coord
 
-    %% Review 节点统一通过 各 dispatch 模板内联的 Codex review 派发步骤 的 codex-companion.mjs 机制派发
+    %% Review 节点统一通过 dispatch 模板内联的 Codex review 步骤 的 codex-companion.mjs 机制派发
 ```
 
 ### 图 1 节点分析
@@ -84,7 +83,7 @@ flowchart TD
 | 路线判定 | Coordinator 自身逻辑 | 判断输入属于三条路线中的哪一条 | ✅ 正常 |
 | Steps 2-6 Infrastructure | Coordinator 逻辑（`workflow-infrastructure.md`） | Cross-Conversation Resume + Scope Contract + Git Checkpoint + Budget File 创建 | ✅ 正常 |
 | Discovery | Skill：`orchestrate-discovery` | 与用户 Q&A 迭代 + grill-with-docs 同步维护 CONTEXT.md + 产出设计文档 | ✅ 正常 |
-| Design Review | Coordinator + **外部 Review** | 两个 baseline review（Design Content + Project Alignment），按 `各 dispatch 模板内联的 Codex review 派发步骤` 派发 | ✅ 正常 |
+| Design Review | Coordinator + **外部 Review** | 两个 baseline review（Design Content + Project Alignment），按 dispatch 模板内联的 Codex review 步骤派发 | ✅ 正常 |
 | to-issues | 外部 Skill | 设计文档拆分为大 Issue → 小 Issue | ✅ 正常 |
 | Plan Writing | Skill：`orchestrate-plan-writing` | 前置确认 + 派 plan-writer agent + Budget 赋值（`2N+12`） | ✅ 正常 |
 | Plan Review | Coordinator + **外部 Review** | Plan Entry Gate + Task Pack Inventory Gate → 派外部 review | ✅ 正常 |
@@ -92,7 +91,7 @@ flowchart TD
 | Final Review | Skill：`orchestrate-final-review` | 意图验证 + 清扫遗留尾巴 + Release Gate | ✅ 正常（review 节点除外） |
 | Release Review | Coordinator + **外部 Review** | 发布风险审查，仅触碰风险面时进入 | ✅ 正常 |
 | Bug Investigation | Sub-Agent：root-cause-analyst | 调查 bug 根因，判定简单/深层 | ✅ 正常 |
-| Bug Fix Review | **外部 Review** | 按 `各 dispatch 模板内联的 Codex review 派发步骤` 派发 Codex review | ✅ 正常 |
+| Bug Fix Review | **外部 Review** | 按 dispatch 模板内联的 Codex review 步骤派发 Codex review | ✅ 正常 |
 | Closing | Coordinator 自身逻辑 | 汇报 + 提交 + 推送 + 开 PR | ✅ 正常 |
 
 ---
@@ -144,7 +143,7 @@ flowchart TD
 | 读 Task Pack inventory | Coordinator 逻辑 | 读取所有 plan 文档中的 Task Pack 列表 | ✅ 正常 |
 | 派 worker | Sub-Agent：`pack-executor`（普通）/ `complex-pack-executor`（高风险） | Agent tool 派发 coding worker，保存 agentId | ✅ 正常 |
 | SubagentStop 提醒 | Hook：`SubagentStop` on `pack-executor\|complex-pack-executor` | 提醒 Coordinator 派发 review | ✅ 正常 |
-| Pack Review | **外部 Review** | 按 `各 dispatch 模板内联的 Codex review 派发步骤` 派发 | ✅ 正常 |
+| Pack Review | **外部 Review** | 按 dispatch 模板内联的 Codex review 步骤派发 | ✅ 正常 |
 | Coordinator 验证 finding | Coordinator 逻辑 | 主线程评估 finding 是否成立 | ✅ 正常 |
 | 修复分流 | Coordinator 逻辑 | 简单/复杂/根因不明三路分流 | ✅ 正常 |
 | SendMessage 给原 worker | SendMessage（需 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`） | 复杂修复发回原 worker 保持上下文 | ⚠️ env 未设置时静默降级 |
@@ -307,7 +306,7 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 | `docs-worker` | Sonnet, maxTurns: 20 | 文档清理（Closing 阶段可选） | `grill-with-docs` | — |
 
 **注意**：
-- Plugin-v2 **没有 `code-reviewer` 和 `release-reviewer` agent**。所有 review 通过 `各 dispatch 模板内联的 Codex review 派发步骤` 直接调用 codex 插件的 `codex-companion.mjs` 派发。
+- Plugin-v2 **没有 `code-reviewer` 和 `release-reviewer` agent**。所有 review 通过 `dispatch 模板内联的 Codex review 步骤` 直接调用 codex 插件的 `codex-companion.mjs` 派发。
 - `skills:` 自动加载 = frontmatter 声明，agent 启动时自动预加载。体内 Skill tool 调用 = agent body 中通过 `Skill({ skill: "..." })` 按需调用，不预加载。
 - `plan-writer` frontmatter 无 `skills:` 字段，`improve-codebase-architecture` 在 body 中按需调用。
 - `docs-worker` frontmatter 只声明 `grill-with-docs`，**`triage` 未在 frontmatter 中声明**（与原 draft 不一致）。
@@ -319,7 +318,8 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 | `SessionStart` | `startup\|clear\|compact` | `session-start.sh`：注入行为覆盖规则 | ✅ 正常 |
 | `PreToolUse` | `Bash` | `guard-premature-push.sh`：阻止未完成时 push/PR | ✅ 正常 |
 | `PreToolUse` | `Bash` | `cleanup-before-push.sh`：push 前清理 `.claude/multi-model-workflow/` | ✅ 正常 |
-| `SubagentStop` | `pack-executor\|complex-pack-executor` | 提醒 Coordinator 按 各 dispatch 模板内联的 Codex review 派发步骤 派发 review | ✅ 正常 |
+| `PostToolUse` | `Bash` | `track-review-budget.sh`：检测 codex-companion result 命令，自动递增 budget_used，80%/100% 阈值警告 | ✅ 正常 |
+| `SubagentStop` | `pack-executor\|complex-pack-executor` | 提醒 Coordinator 派发 Codex review | ✅ 正常 |
 
 ### 外部 Skill
 
@@ -353,167 +353,54 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 
 ---
 
-## 断点与已知问题
-
-### 🔴 Critical（流程不通畅）
-
-#### B1：Review Budget 追踪改为 Coordinator 手动（已修复指令矛盾）
-
-**已修复**：本次审计修正了 `session-start.sh`、`bug-investigation-route.md`、`workflow-direct-repair.md`、`final-review-repair.md` 中残留的旧 review 派发指令，统一到 `各 dispatch 模板内联的 Codex review 派发步骤` 机制。
-
-**Review 派发机制**：所有 review 节点统一通过 Bash 直接调用 codex 插件的 `codex-companion.mjs`（位于 `~/.claude/plugins/marketplaces/openai-codex/plugins/codex/scripts/`），按 `各 dispatch 模板内联的 Codex review 派发步骤` Step 1-4 执行。
-
-**剩余关注点**：
-- Review budget 现在由 Coordinator 手动更新 `budget_used` 和 `dispatches` 数组（`各 dispatch 模板内联的 Codex review 派发步骤` 明确要求）。原有的 SubagentStop 自动追踪 hook 已移除。如果 Coordinator 遗忘手动更新，budget 数据会不准确。
-- `codex-companion.mjs` 的路径查找依赖 `find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs"`。codex 插件更新或卸载后路径可能变化。
-
-#### B3：SendMessage 静默降级
-
-**症状**：`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 未设置时，所有 `SendMessage` 路径（worker repair、plan-writer repair、Final Review repair）静默降级为新建 agent，丢失原 worker 上下文。
-
-**来源**：E2E 审计 S2。`session-start.sh` 检查此 env var 并警告，但 SKILL.md 内无降级处理说明。
-
-### 🟡 Medium（不影响主路径但有隐患）
-
-#### M1：`needs context` 整体 verdict 无处理路径
-
-Codex reviewer 可能返回 overall verdict = `needs context`，但所有 Disposition 表只处理 per-finding dispositions。整体 `needs context` 悬空。（E2E 审计 S5，Route 2 Step 17 已修，其他 review 节点未修。）
-
-#### M2：Release Gate "独立预算"描述误导
-
-Release Gate 声称有"独立预算"，实际 2 个 dispatch slot 已包含在全局 `2N+12` 中。（E2E 审计 S1）
-
-#### M3：Cross-Conversation Resume budget 判断
-
-Design Review 阶段的 per-phase allowance check 用全局 `budget_used` 而非 phase-local 计数器，跨 session 恢复时可能错误阻断。（E2E 审计 S4）
-
-#### M4：Budget 公式偏紧
-
-`2N+12`（N = Task Pack 总数）在有 repair 的真实运行中很快耗尽。1 次 Plan Review repair + 1 次 Pack Review repair + 1 次 Final Review repair = 21/22 dispatches，2 个 pack 失败就超限。（E2E 审计 M4）
-
-#### M5：Final Review ↔ Execution 回流无显式循环上限
-
-Budget 是隐式上限，但 `NEEDS_EXECUTION` 回流仅标注"最多 1 次"在 orchestrate-workflow 层面——如果 budget 允许，orchestrate-final-review 内部没有独立计数。（E2E 审计 M9）
-
-#### M6：Disposition 表 / Repair 路由 / Forbidden Shortcuts 大量重复
-
-4x Disposition 表、3x repair 路由、2x Forbidden Shortcuts。更新其一遗忘其他会导致标准不一致。（E2E 审计 M1-M3）
-
-#### M7：Bug 路线无 budget 机制
-
-Route 2 跳过 Budget File 创建。如果 bug 调查触发多轮 review，没有任何预算约束。（E2E 审计 R2-M2）
-
-#### M8：Bug → Discovery 种子信息依赖会话上下文
-
-Bug 调查升级为 Formal Orchestrate 时，root cause 信息通过会话上下文传递，compaction 可能丢失。（E2E 审计 R2-M1）
-
-#### M9：Multi-PR 递归冲突无全局深度限制
-
-修复一个 PR 间冲突可能引入新冲突，形成修复链。无全局 depth cap。（E2E 审计 R3-M1）
-
-### ℹ️ Info（设计选择，已知但可接受）
-
-- **Cognitive load**：Coordinator 需读 ~6 SKILL.md + ~25 reference files ≈ 4000 行指令。E2E 审计指出 M1-M3 重复是主要原因。
-- **`${CLAUDE_PLUGIN_ROOT}` 在 sub-agent 中可能不解析**：E2E 审计 R3-M2，影响 Multi-PR 路线。
-- **TDD strict 无 escape valve**：trivial tasks（constants、README、CSS）无法跳过 TDD 要求。`agents.overrides.md` 标注 v0.8.3 修复但未见对应代码变更。
 
 ---
 
-## 对齐结论记录
+## 架构约束
 
-以下是架构讨论中确认的设计决策。标注 ✅ = 当前仍然成立，⚠️ = 需要更新，❌ = 已过时。
+- **渐进式加载**：SKILL.md 是骨架；reference 到达步骤时才读取
+- **Sub-agent 隔离**：dispatch prompt 自足；sub-agent 不读 SKILL.md / references
+- **Agent 定义 = 行为权威**：TDD、自检、scope 边界等通用规则写 agent 定义，dispatch template 只写场景信息
+- **Reviewer 独立验证**：所有 Calibration 包含"不信任上游报告"
+- **合并策略铁律**：只用 `git merge --no-ff`，禁止 squash merge 和 rebase（`guard-premature-push.sh` 强制）
+- **Review 预算**：`2N + 12`（N = pack 数）。Budget 自动追踪（PostToolUse hook）
+- **`AGENT_TEAMS` 硬依赖**：`session-start.sh` 阻断未设置 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 的会话
 
-### 1. 只有三条路线，不是六条 ✅
+---
 
-新设计/优化、Bug、多 PR 合并审查。Answer-only / One-shot Review / User Decision / Direct Repair 不是独立路线。
+## 设计决策
 
-### 2. Bug 和新设计本质上是同一种任务 ✅
+- Bug 路线不走 Final Review——`bug-investigation-route.md` Step 17/18 → Closing
+- 文档阶段线性不回流——Discovery → Design Review → to-issues → Plan Writing → Plan Review，各一轮 review + 修复
+- Release Review 最多两次——Execution Early Release Gate + Final Release Gate，合计 ≤ 2 dispatch
+- Coding Worker 无"非阻塞项"——要么当场修，要么开 GitHub Issue
+- Closing 积极主动——提交 + 推送 + PR 自动执行，`guard-premature-push.sh` 确保完成后才放行
+- Review 无独立 agent——不用 `code-reviewer` / `release-reviewer`，全部通过 `codex-companion.mjs` Bash 调用
+- Budget 由 PostToolUse hook 自动追踪——prompt 写入 `review-prompts/<gate>.md`，结果存 `review-results/<gate>.md`
 
-简单 bug → analyst 修复 + review → Closing。深层 bug → 汇入 Route 1。
+---
 
-### 3. Bug 路线不走 Final Review ✅
+## 与 Codex Runtime 的关系
 
-已验证：plugin-v2 的 `bug-investigation-route.md` 明确 Step 17 → Closing，Step 18 → Closing。
-
-### 4. 不再用 Phase A/B/C 命名 ✅
-
-改用描述性名称：Discovery、Design Review、Plan Review、Execution、Final Review、Closing。
-
-### 5. 文档阶段是线性的，不回流 ✅
-
-Discovery → Design Review → to-issues → Plan Writing → Plan Review，各一轮 review + 修复，不循环。回流/内循环只在 Execution 阶段。
-
-### 6. to-issues 的拆分逻辑 ✅
-
-设计文档 → 大 Issue → 小 Issue。依赖外部 skill。
-
-### 7. Plan Writing 是独立的 Sub-Agent ✅
-
-plan-writer 用 Opus 4.7 (1M)，不自动加载 SKILL.md（`agents.overrides.md` 确认）。
-
-### 8. per issue 开 session，同一 session 内完成 ✅
-
-Plan Writing → Plan Review → Execution → Final Review → Closing 在同一 session 内。
-
-### 9. Final Review 的两个职责 ✅
-
-意图验证 + 清扫遗留尾巴。plugin-v2 还加了 Release Gate（条件触发）。
-
-### 10. Coding Worker 规则：不存在"非阻塞项" ✅
-
-要么当场修复，要么开 GitHub Issue。
-
-### 11. Closing 应该积极主动 ✅
-
-提交 + 推送 + 开 PR 自动执行。`guard-premature-push.sh` hook 确保只在所有 task 完成后才放行。
-
-### 12. Release Review 只做一次，在 Final Review 之后 ⚠️ 需更新
-
-**当前实际**：Release Review 可能做 **两次**——Execution 阶段有 Early Release Gate（按 pack 触碰风险面触发），Final Review 阶段有 Final Release Gate。两次合计最多 2 个 dispatch，在全局 `2N+12` 预算内。
-
-### 13. 三种 Agent 角色的本质区别 ✅
-
-Explorer（广泛发现）、Coordinator（派发 + 把关 + 明确范围的代码修改）、Coding Worker（按设计计划落地）。
-
-### 14. Multi-PR Merge 的关键细节 ✅
-
-冲突是 PR 间的。功能/意图冲突最难。Coordinator 读文档建立方向，Explorer 做代码验证。系统性冲突先 analyst 调查再修。修复后 Coordinator 验证。PR 并行分析。新增：analyst ↔ explorer 循环 capped at 1 轮。
-
-### 15. 外部 Skill 体系 ⚠️ 需更新
-
-**Agent-Bound 实际状态**（基于 `plugin-v2/agents/*.md` frontmatter `skills:` 字段）：
-
-| Skill | frontmatter 自动加载 | body 中 Skill tool 按需调用 |
-|-------|---------------------|---------------------------|
-| `tdd` | pack-executor, complex-pack-executor, root-cause-analyst | — |
-| `diagnose` | root-cause-analyst | pack-executor, complex-pack-executor |
-| `grill-with-docs` | docs-worker | — |
-| `improve-codebase-architecture` | — | complex-pack-executor, plan-writer |
-| `prototype` | — | pack-executor, complex-pack-executor |
-| `triage` | — | — （docs-worker body 未提及，frontmatter 未声明） |
-| `zoom-out` | — | — （无 agent 绑定，仅 Coordinator 调用） |
-
-**与原 draft 差异**：`prototype` 从未进入 frontmatter autoload（只是 body 调用）；`triage` 从 docs-worker frontmatter 中消失；`diagnose` 只有 root-cause-analyst 自动加载，其他 agent 按需调用。
-
-**Coordinator-Invoked** 不变：grill-with-docs、prototype、to-issues、improve-codebase-architecture、zoom-out、triage、diagnose。
-
-### 16. Review 机制（新增） ✅
-
-Plugin-v2 没有 `code-reviewer` / `release-reviewer` agent。所有 review 统一通过 `各 dispatch 模板内联的 Codex review 派发步骤` 定义的机制派发：Coordinator 直接 Bash 调用 codex 插件的 `codex-companion.mjs`（`task` → `status --wait` → `result`），review prompt 写入 `.claude/multi-model-workflow/review-prompts/<gate>.md`，结果保存到 `review-results/<gate>.md`。Budget 由 Coordinator 每次 review 完成后手动更新。
-
-### 17. 与 Codex Runtime 的关系（新增）
-
-Plugin-v2 和 `.agents/skills/`（Codex runtime）是**两套并行代码**，30+ 文件已不同步。关键差异：
+Plugin-v2 和 `.agents/skills/`（Codex runtime）是**两套并行代码**，30+ 文件已不同步。同步方向单向：`.agents/skills/` → 外部 repo（通过 `install-orchestrate-runtime.sh`）。
 
 | 维度 | Plugin V2 | Codex Runtime |
 |------|-----------|---------------|
 | Skill 调用语法 | `Skill({ skill: "multi-model-workflow:..." })` | 裸名 `orchestrate-*` |
 | 状态文件路径 | `.claude/multi-model-workflow/` | `.codex/multi-model-workflow/` |
-| 分支命名 | `work/<scope>` | `codex/<scope>` |
-| Review 派发 | `各 dispatch 模板内联的 Codex review 派发步骤`（codex-companion.mjs 不存在） | `codex/reviewers/claude-subscription-review.sh` |
+| Review 派发 | `codex-companion.mjs` Bash 调用 | `claude-subscription-review.sh` |
 | Agent 命名 | `plan-writer`（连字符） | `plan_writer`（下划线） |
 | Worker 隔离 | `isolation: "worktree"` | disjoint write sets |
-| Reviewer agents | 无 | `code_reviewer` + `release_reviewer`（TOML） |
-| SubagentStop hooks | 有（track budget） | 无（Codex CLI 自带返回值） |
 
-`.agents/skills/` 已领先 plugin-v2 若干 bug 修复 commit。同步方向是单向的：`.agents/skills/` → 外部 repo（通过 `install-orchestrate-runtime.sh`），没有 plugin-v2 ↔ .agents 的双向同步脚本。
+---
+
+## 编辑同步清单
+
+- 改 disposition 表 → 同步 4 个 phase 文件（execution-pack-review-cycle / final-review-disposition / plan-review-resolution / merge-integration-review）
+- 改 disposition `needs context` 前置检查 → 同步全部 5 个 disposition 文件（含 design-review-angles）
+- 改 Forbidden Shortcuts → 同步 execution-review-dispatch.md + final-review-angles.md
+- 改 verdict 值 → `rg` 验证所有 producer 和 consumer
+- 改 dispatch template → 检查 agent 定义的模式检测表是否对齐
+- 改 agent 通用规则 → 检查所有相关 agent 定义
+- 改 NEEDS_EXECUTION 上限 → 同步 final-review-repair.md + final-review-completion.md + workflow-formal-orchestrate.md
+- dispatch template 不放 agent 定义已有的规则（TDD、自检、Git 纪律等）

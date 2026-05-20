@@ -99,7 +99,7 @@ Explorer 返回后路由：
 | Root cause found + 推荐路径 B | 派 Worker 修复 → Step 11 |
 | Root cause not found | 报告用户，附 explorer 已排除路径 |
 
-**快速判定**：≤ 2 文件 + 意图明确 → A；缺 migration / consumer 同步 / 测试 → B；行为异常原因不明 → C；涉及 migration / billing / permission / runtime / shared contract → B（用 complex-pack-executor）；涉及多个 pack 的系统性问题 → `NEEDS_EXECUTION`（最多触发 1 次；第 2 次 → BLOCKED 报告用户）。
+**快速判定**：≤ 2 文件 + 意图明确 → A；缺 migration / consumer 同步 / 测试 → B；行为异常原因不明 → C；涉及 migration / billing / permission / runtime / shared contract → B（用 complex-pack-executor）；涉及多个 pack 的系统性问题 → `NEEDS_EXECUTION`（读 budget file `execution_reflux_count`：0 → 可回流；≥1 → BLOCKED 报告用户）。
 
 ---
 
@@ -130,7 +130,7 @@ Explorer 返回后路由：
 1. 写 prompt → `review-prompts/final-review-re-review.md`（内容见下方模板）
 2. `node "$CODEX_SCRIPT" task --background --prompt-file .claude/multi-model-workflow/review-prompts/final-review-re-review.md --model gpt-5.4 --effort xhigh` → 记录 JOB_ID
 3. `node "$CODEX_SCRIPT" status <JOB_ID> --wait --timeout-ms 600000`（run_in_background: true）
-4. `node "$CODEX_SCRIPT" result <JOB_ID>` → 存到 `review-results/final-review-re-review.md`，budget_used += 1
+4. `node "$CODEX_SCRIPT" result <JOB_ID>` → 存到 `review-results/final-review-re-review.md`
 
 Review prompt 写入 `.claude/multi-model-workflow/review-prompts/final-review-re-review.md`：
 
