@@ -1,6 +1,8 @@
 # Execution 预执行准备
 
-> **流程位置**：`orchestrate-execution` Steps 1-3 · 完成后 → Steps 4-7a（`execution-plan-review-cycle.md`）
+> **流程位置**：`orchestrate-execution` Steps 1-3 · 完成后 → SKILL.md Steps 4-9（pack 循环）
+
+**状态锚写入**（进入时）：budget file 写 `"current_phase": "execution"`, `"current_reference": "execution-preparation.md"`, `"current_step": "1"`。
 
 ## Step 1：读取 Plan Task Pack Inventory
 

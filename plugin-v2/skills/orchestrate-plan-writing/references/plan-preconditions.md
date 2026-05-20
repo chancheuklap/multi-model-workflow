@@ -2,6 +2,8 @@
 
 > **流程位置**：`orchestrate-plan-writing` Steps 0-2 · 含 Re-entry 检测 · 完成后 → Steps 3-8（`plan-writing-methodology.md`）
 
+**状态锚写入**（进入时）：budget file 写 `"current_phase": "plan-writing"`, `"current_reference": "plan-preconditions.md"`, `"current_step": "0"`。
+
 ## Step 0a：Plan 修订模式
 
 Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问题描述。

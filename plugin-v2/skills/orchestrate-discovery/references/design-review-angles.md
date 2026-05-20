@@ -164,3 +164,6 @@ Disposition required:
 ### Open Items
 - parent 必须处理的问题
 ```
+
+---
+> **下一步**：Design Review 通过 → 回到 SKILL.md Step 12（过渡到 to-issues）。needs repair → Coordinator 直接修设计文档 → targeted re-review。

@@ -1,5 +1,7 @@
 # Root-Cause-Analyst 方法论：Multi-PR Merge 冲突调查
 
+> **参考文档**：`orchestrate-multi-pr-merge` Step 9 · Root-Cause-Analyst 派发时随 prompt 传入 · 非流程步骤
+
 本文档供 root-cause-analyst 在模式 3（Multi-PR Merge 冲突调查）时读取。
 
 ---
@@ -81,3 +83,6 @@ PR 冲突与 bug 不同——不是某段代码错了，而是两段各自正确
 - 排除的假设：<with evidence>
 - 回归风险：<修复后可能影响的区域>
 ```
+
+---
+> **回到**：`merge-rca-investigation.md` 的 Analyst Resolution 路由继续。

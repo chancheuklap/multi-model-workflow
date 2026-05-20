@@ -65,3 +65,6 @@ git merge origin/<pr-branch> --no-ff -m "Merge PR #<number>: <title>"
 | analyst 发现设计/意图冲突，需要重新对齐设计 | `NEEDS_DISCOVERY` |
 | 冲突解决需要用户决策 | `NEEDS_USER_DECISION` |
 | 无法自主解决 | `BLOCKED` |
+
+---
+> **下一步**：verdict 确定后回到 SKILL.md 返回区。MERGE_COMPLETE → orchestrate-workflow Closing。

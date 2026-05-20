@@ -9,6 +9,15 @@ description: "缺少可 review 的设计文档时使用。与用户讨论 → �
 
 **Hard Gate**：用户确认设计之前，不写代码、不创建骨架、不派 worker。**每个项目**都走 Discovery，无论看起来多简单。
 
+**Only stop for：**
+- 需要用户确认设计方向
+- 需要用户确认设计文档
+- BLOCKED
+
+**Never stop for：**
+- 讨论中间环节（一问一答持续迭代）
+- Design Review findings（Coordinator 直接修复，不问用户）
+
 ---
 
 ## 双文档产出
@@ -30,17 +39,17 @@ CONTEXT.md 和 ADR 格式 → `references/discovery-formats.md`
 
 ## Steps 3-6：与用户讨论
 
-→ `references/discovery-discussion.md`（一问一答迭代 + 按输入类型澄清 + 提出方案 + 分段呈现 + Domain Alignment）
+**Read** `references/discovery-discussion.md` 并严格执行（一问一答迭代 + 按输入类型澄清 + 提出方案 + 分段呈现 + Domain Alignment）。读完进入 Steps 7-9 生成设计文档。
 
 **Anti-Pattern**：不要先写完所有设计再一次性呈现——按段确认，每段确认后再进入下一段。
 
 ## Steps 7-9：生成设计文档
 
-→ `references/discovery-design-document.md`（模板 + 自检 + 用户确认）
+**Read** `references/discovery-design-document.md` 并严格执行（模板 + 自检 + 用户确认）。读完进入 Steps 10-11 Design Review。
 
 ## Steps 10-11：Design Review
 
-→ `references/design-review-angles.md`（2 个 baseline Codex reviewer：Design Content Review + Project Alignment Review）
+**Read** `references/design-review-angles.md`（2 个 baseline Codex reviewer：Design Content Review + Project Alignment Review）。通过后回到 Step 12 过渡到 to-issues。
 
 Coordinator 亲验 findings → disposition → 直接修设计文档（不派 worker）→ targeted re-review。一轮 review + 修复。Pass 条件：两个 baseline 通过 + 无 Critical。
 

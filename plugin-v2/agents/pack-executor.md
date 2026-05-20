@@ -5,7 +5,7 @@ description: |
   Use when (typically auto-dispatched by the orchestrator, not invoked ad-hoc): implementing task packs from a plan, executing grouped tasks with strict TDD, fixing specific code issues identified by Codex reviewer review.
   <example>编排器分组了一个 Task Pack，需要按 TDD 逐个实现</example>
   <example>Codex reviewer 发现缺少 CSRF 防护，需要修复具体代码问题</example>
-  <example>pack review 指出 spec 不符，需要补充遗漏功能</example>
+  <example>plan implementation review 指出 spec 不符，需要补充遗漏功能</example>
   Do NOT use for: high-risk task packs with migrations/billing/auth/permissions/runtime (use complex-pack-executor), root cause investigation (use root-cause-analyst), document/plan fixes (coordinator handles directly), code review (dispatched to Codex).
 model: sonnet
 effort: high

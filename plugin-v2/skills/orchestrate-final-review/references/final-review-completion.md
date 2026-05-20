@@ -113,3 +113,6 @@ Final Review 的两个 baseline 通过 + 遗留清扫完成 + Release Gate 通�
 | design / context gap 需要 discovery 补充 | `NEEDS_DISCOVERY` |
 | plan gap 需要修订 | `NEEDS_PLAN_REVISION` |
 | 无法自主解决 | `BLOCKED` |
+
+---
+> **下一步**：verdict 确定后回到 SKILL.md 返回区组装最终返回值。NEEDS_EXECUTION → orchestrate-execution。BLOCKED → 报告用户。

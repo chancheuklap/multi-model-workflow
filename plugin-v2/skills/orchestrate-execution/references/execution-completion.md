@@ -16,7 +16,7 @@ Coordinator 写入 execution state：
 - `plans[N].release_gate_triggered = true/false`
 - `current_plan_id` 更新为下一个 Plan 编号
 
-回到 Steps 4-9（`execution-plan-review-cycle.md`）执行下一个 Plan。
+回到 SKILL.md Steps 4-9 执行下一个 Plan。
 
 ## Backflow + Upstream Skill 路由
 
@@ -40,7 +40,14 @@ Coordinator 写入 execution state：
 
 ## Re-Entry from Final Review
 
-Final Review 打回时：按修复分流三条路径（读取 `execution-repair-truncation.md`）处理 → targeted re-review → Git Checkpoint → 返回 Final Review。不重新执行所有 pack。
+Final Review 返回 `NEEDS_EXECUTION` 时（跨 Plan 系统性问题），Coordinator 按以下 execution-state 协议重进：
+
+1. **读取 Final Review 附带的 affected plans + affected packs 列表**
+2. **更新 execution-state**：将 affected plans 的 status 设为 `repairing`（其余 Plan 保持 `completed`）
+3. **`repair_round` 不递增**——这属于 Final Review 的修复轮次，不消耗 Execution 自身的 repair quota
+4. **diff scope**：每个 affected plan 的 diff = `plans[N].end_commit..HEAD`（只看 Final Review 修复引入的变更）
+5. 按修复分流三条路径（读取 `execution-repair-truncation.md`）处理 → targeted re-review → Git Checkpoint
+6. 所有 affected plans re-review 通过 → 返回 Final Review 继续
 
 ## 不存在"非阻塞项"
 

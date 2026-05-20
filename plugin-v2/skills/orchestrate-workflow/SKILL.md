@@ -9,7 +9,14 @@ description: "正式开发流程主入口。用户给出新功能、改造、bug
 
 **Workflow 只做路由和基础设施**——不写设计、不写计划、不派 worker、不做 review。每个 phase 由对应 skill 负责。
 
-**连续执行**：phase 之间不暂停、不汇报、不问"要不要继续"。BLOCKED 或业务决策才停。
+**Only stop for：**
+- 模糊输入需要收窄（一次只问一个）
+- BLOCKED verdict
+- 用户业务决策
+
+**Never stop for：**
+- Phase 之间过渡（连续执行，不问"要不要继续"）
+- Upstream verdict 路由（自动进入对应 phase）
 
 ---
 
@@ -25,23 +32,129 @@ description: "正式开发流程主入口。用户给出新功能、改造、bug
 
 ## Step 2：Within-Conversation Resume
 
-同一对话内 phase skill 返回的 verdict → 直接路由到下一 phase（读取 `references/workflow-formal-orchestrate.md` 中的 verdict 表）。
+同一对话内 phase skill 返回的 verdict → 直接路由到下方对应 phase 的 Handle Return 步骤。
 
 ## Step 3：Cross-Conversation Resume
 
-→ `references/workflow-infrastructure.md`（检测活跃运行 + Source Stability + 恢复 Infrastructure）
+**Read** `references/workflow-infrastructure.md` 并严格执行（检测活跃运行 + Source Stability + 恢复 Infrastructure）。读完按 Route 进入对应 phase。
 
 ## Steps 4-6：Infrastructure Setup
 
-→ `references/workflow-infrastructure.md`（Scope Contract + Git Checkpoint + Budget File）
+**Read** `references/workflow-infrastructure.md` 并严格执行（Scope Contract + Git Checkpoint + Budget File）。读完按 Route 进入对应 phase。
 
 ## Steps 7-14：Route 1 — Formal Orchestrate
 
-→ `references/workflow-formal-orchestrate.md`（Discovery → Plan Writing → Execution → Final Review + 每 phase 的 verdict 路由 + Direct Repair mini-route + Budget 更新）
+线性管线：Discovery → Plan Writing → Execution → Final Review → Closing。每个 phase skill 通过 `Skill({ skill: "multi-model-workflow:<name>" })` 加载到主线程。
+
+### Step 7：orchestrate-discovery
+
+```
+Skill({ skill: "multi-model-workflow:orchestrate-discovery" })
+```
+
+### Step 8：Handle Discovery Return
+
+> **Phase complete.** Discovery: [设计文档状态, Design Review 结果]。Passing to [next phase]。
+
+| Discovery Verdict | Coordinator 动作 |
+| --- | --- |
+| `DISCOVERY_READY` | 检查 issue hierarchy：有 → Step 9；无 → Step 8b（to-issues + 上下文传递）→ Step 9 |
+| `DISCOVERY_NOT_NEEDED` | 已有足够清晰的 design → 检查 issue hierarchy → Step 9 |
+| `READY_FOR_REPAIR` | 已批准 design 下的实现偏离 → Step 8a（Direct Repair） |
+| `NEEDS_USER_DECISION` | 询问用户（一次只问一个），回答后重新进入 discovery |
+| `BLOCKED` | 报告用户 |
+
+**更新 Budget File**：`last_gate_phase: "discovery"`, `last_gate_timestamp: <now>`。
+
+#### Step 8b：to-issues 上下文传递
+
+调用 to-issues 前，Coordinator 必须：
+
+1. **Read** Scope Contract（`.claude/multi-model-workflow/scope-<run_id>.md`）获取 slug
+2. **Read** 设计文档（`docs/orchestrate/design/<slug>.md`）确认内容在上下文中
+3. 调用 `Skill({ skill: "to-issues", args: "docs/orchestrate/design/<slug>.md" })`
+
+to-issues 运行时需要设计文档的完整内容来拆 issue。如果 Coordinator 上下文中已无设计文档内容（因 compact 或 phase 切换），必须重新 Read。
+
+#### Step 8a：Direct Repair（READY_FOR_REPAIR mini-route）
+
+**Read** `references/workflow-direct-repair.md` 并严格执行（Worker 修复 + Codex review + Closing）。修复后进入 Closing。
+
+---
+
+### Step 9：orchestrate-plan-writing
+
+```
+Skill({ skill: "multi-model-workflow:orchestrate-plan-writing" })
+```
+
+### Step 10：Handle Plan-writing Return
+
+> **Phase complete.** Plan-writing: [plan 数量, task pack 数量, budget]。Passing to [next phase]。
+
+| Plan-writing Verdict | Coordinator 动作 |
+| --- | --- |
+| `PLAN_CREATED` | 确认 budget file → Step 11 |
+| `NEEDS_DISCOVERY` | 回到 Step 7 |
+| `NEEDS_DESIGN_REVIEW` | 回到 discovery Design Review |
+| `NEEDS_ISSUES` | `Skill({ skill: "to-issues" })` → 重新 Step 9 |
+| `NEEDS_TRIAGE` | `Skill({ skill: "triage" })` → 重新 Step 9 |
+| `NEEDS_DIAGNOSIS` | `Skill({ skill: "diagnose" })` → 写回 → 重新 Step 9 |
+| `NEEDS_DECISION` | 询问用户 → 回答后 Step 9 |
+| `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` → 写回 → Step 9 |
+| `NEEDS_CONTEXT` | 派 `code-explorer` / `Skill({ skill: "zoom-out" })` → 补充后 Step 9 |
+| `BLOCKED` | 报告用户 |
+
+**更新 Budget File**：`last_gate_phase: "plan-writing"`, `last_gate_timestamp: <now>`。
+
+---
+
+### Step 11：orchestrate-execution
+
+```
+Skill({ skill: "multi-model-workflow:orchestrate-execution" })
+```
+
+### Step 12：Handle Execution Return
+
+> **Phase complete.** Execution: [pack 通过数/总数, repair rounds, budget 消耗]。Passing to [next phase]。
+
+| Execution Verdict | Coordinator 动作 |
+| --- | --- |
+| `EXECUTION_PASSED` | Step 13 |
+| `NEEDS_DISCOVERY` | 回到 Step 7 |
+| `NEEDS_PLAN_REVISION` | 回到 Step 9 |
+| `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` → 只影响当前 pack → 回 Step 11；改变 plan → 回 Step 9 |
+| `BLOCKED` | 报告用户 |
+
+**更新 Budget File**：`last_gate_phase: "execution"`, `last_gate_timestamp: <now>`。
+
+---
+
+### Step 13：orchestrate-final-review
+
+```
+Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
+```
+
+### Step 14：Handle Final Review Return
+
+> **Phase complete.** Final Review: [verdict, release risk 状态]。Passing to [next]。
+
+| Final Review Verdict | Coordinator 动作 |
+| --- | --- |
+| `FINAL_REVIEW_PASSED` | Closing |
+| `FINAL_REVIEW_PASSED_WITH_RELEASE_RISK` | Closing（release review 已内部处理） |
+| `NEEDS_EXECUTION` | 读 budget file `execution_reflux_count`：0 → 递增为 1，回到 Step 11；≥1 → BLOCKED 报告用户 |
+| `NEEDS_DISCOVERY` | 回到 Step 7 |
+| `NEEDS_PLAN_REVISION` | 回到 Step 9 |
+| `BLOCKED` | 报告用户 |
+
+**更新 Budget File**：`last_gate_phase: "final-review"`, `last_gate_timestamp: <now>`。回流不重置 `budget_used`。Plan revision 改变 `pack_count` → plan-writing Step 12a 更新 `budget_total`。
 
 ## Steps 15-18：Route 2 — Bug Investigation
 
-→ `references/bug-investigation-route.md`（dispatch analyst → handle return → Codex review / worker dispatch → Closing）
+**Read** `references/bug-investigation-route.md` 并严格执行（dispatch analyst → handle return → Codex review / worker dispatch → Closing）。读完进入 Closing。
 
 ## Steps 19-20：Route 3 — Multi-PR Merge
 
@@ -56,7 +169,7 @@ description: "正式开发流程主入口。用户给出新功能、改造、bug
 
 ## Steps 21-24：Closing
 
-→ `references/workflow-closing.md`（Final Verification + Push + PR + Report + Cleanup）
+**Read** `references/workflow-closing.md` 并严格执行（Final Verification + Push + PR + Report + Cleanup）。流程终点。
 
 ---
 

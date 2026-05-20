@@ -138,4 +138,4 @@ Agent({
 Round 3 Targeted Re-Review 仍 needs repair → BLOCKED，报告用户。
 
 ---
-> **下一步**：修复通过 → 回到 Step 8-9 继续当前 Plan 的 review cycle（`execution-plan-review-cycle.md`），或 Plan review pass → Step 13（`execution-completion.md`）。BLOCKED → 返回 verdict。
+> **下一步**：修复通过 → SKILL.md Step 13（Release Gate，条件触发）→ Step 14（completion）。BLOCKED → 返回 verdict。

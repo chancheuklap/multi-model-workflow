@@ -48,7 +48,7 @@ RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
 if [ -f "$RUN_ID_FILE" ]; then
   RUN_ID=$(cat "$RUN_ID_FILE")
   STATE_FILE="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
-  if [ -f "$STATE_FILE" ]; then
+  if [ -f "$STATE_FILE" ] && jq empty "$STATE_FILE" 2>/dev/null; then
     CURRENT_PLAN=$(jq -r '.current_plan_id' "$STATE_FILE")
     PLAN_STATUS=$(jq -r ".plans[\"${CURRENT_PLAN}\"].status" "$STATE_FILE")
     TOTAL_PACKS=$(jq "[.plans[].expected_pack_ids | length] | add" "$STATE_FILE")
@@ -56,6 +56,17 @@ if [ -f "$RUN_ID_FILE" ]; then
     echo ""
     echo "# 6. Execution state recovery"
     echo "[multi-model-workflow] RESUME: Plan ${CURRENT_PLAN} (${PLAN_STATUS}), ${DONE_PACKS}/${TOTAL_PACKS} packs committed. Read execution-state-${RUN_ID}.json before continuing."
+  fi
+
+  # === Budget file position recovery (compaction) ===
+  BUDGET_FILE="${BUDGET_DIR}/budget-${RUN_ID}.json"
+  if [ -f "$BUDGET_FILE" ] && jq empty "$BUDGET_FILE" 2>/dev/null; then
+    CUR_PHASE=$(jq -r '.current_phase // empty' "$BUDGET_FILE")
+    CUR_REF=$(jq -r '.current_reference // empty' "$BUDGET_FILE")
+    CUR_STEP=$(jq -r '.current_step // empty' "$BUDGET_FILE")
+    if [ -n "$CUR_PHASE" ]; then
+      echo "[multi-model-workflow] POSITION: phase=${CUR_PHASE}, reference=${CUR_REF:-none}, step=${CUR_STEP:-unknown}."
+    fi
   fi
 fi
 

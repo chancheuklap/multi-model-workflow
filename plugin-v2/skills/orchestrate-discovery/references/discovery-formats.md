@@ -1,5 +1,7 @@
 # CONTEXT.md + ADR 格式
 
+> **参考文档**：`orchestrate-discovery` 全程可查阅 · CONTEXT.md + ADR 格式参考 · 非流程步骤
+
 ## CONTEXT.md 格式
 
 ```markdown
@@ -65,3 +67,6 @@ _Avoid_: Client, buyer, account
 3. **The result of a real trade-off** — 有真正的替代方案，选了一个有理由的
 
 典型场景：架构形态 / 跨 context 集成 / 有 lock-in 的技术选型 / 边界和范围决策 / 对显而易见路径的刻意偏离 / 被拒绝的替代方案。
+
+---
+> **回到**：你之前正在执行的步骤继续。本文档是格式参考，不是流程步骤。

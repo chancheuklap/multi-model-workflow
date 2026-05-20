@@ -75,3 +75,6 @@ AFK / HITL:                # 有人工门禁
 - Pack Brief 必须来自已通过 Plan Review 的 plan。无效 pack 先修回 plan，不在 dispatch prompt 里临场重切。
 - 所有 task 完整文本直接贴在 prompt 中——不让 worker 读 plan 文件。
 - 条件字段只在 plan 中该 pack 有对应内容时才包含——不写空字段和 N/A，减少 worker 的无效 token 消耗。
+
+---
+> **回到**：SKILL.md Step 5b 继续填充 Pack Brief → Step 6 派发 Worker。

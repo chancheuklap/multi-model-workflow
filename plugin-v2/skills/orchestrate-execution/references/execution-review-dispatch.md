@@ -116,3 +116,6 @@ Disposition required:
 ```
 
 Plan Implementation Review finding 必须标注 `[Pack N.M]` 归属。`Affected packs` 字段列出所有涉及 finding 的 Pack 编号，Coordinator 据此路由 repair。
+
+---
+> **回到**：SKILL.md Step 9（接收 Review Findings + Disposition）。

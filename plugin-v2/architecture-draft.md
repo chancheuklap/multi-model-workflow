@@ -752,11 +752,11 @@ Plugin-v2 和 `.agents/skills/`（Codex runtime）是**两套并行代码**，30
 
 ## 编辑同步清单
 
-- 改 disposition 表 → 同步 4 个 phase 文件（execution-plan-review-cycle / final-review-disposition / plan-review-resolution / merge-integration-review）
+- 改 disposition 表 → 同步 4 个 phase 文件（orchestrate-execution/SKILL.md Steps 4-9 / final-review-disposition / plan-review-resolution / merge-integration-review）
 - 改 disposition `needs context` 前置检查 → 同步全部 5 个 disposition 文件（含 design-review-angles）
 - 改 Forbidden Shortcuts → 同步 execution-review-dispatch.md（Plan Implementation Review prompt）+ final-review-angles.md
 - 改 verdict 值 → `rg` 验证所有 producer 和 consumer
 - 改 dispatch template → 检查 agent 定义的模式检测表是否对齐
 - 改 agent 通用规则 → 检查所有相关 agent 定义
-- 改 NEEDS_EXECUTION 上限 → 同步 final-review-repair.md + final-review-completion.md + workflow-formal-orchestrate.md
+- 改 NEEDS_EXECUTION 上限 → 同步 final-review-repair.md + final-review-completion.md + orchestrate-workflow/SKILL.md Step 14
 - dispatch template 不放 agent 定义已有的规则（TDD、自检、Git 纪律等）

@@ -171,4 +171,4 @@ Worker 返回处理：
 | `blocked` | 技术阻塞：换更强模型 / 拆 scope；业务阻塞：询问用户 |
 
 ---
-> **下一步**：修复通过 Codex review → Closing（`workflow-closing.md`）。root cause in design/plan → 创建 budget file + 转入 Route 1（`workflow-formal-orchestrate.md`）。
+> **下一步**：修复通过 Codex review → Closing（`workflow-closing.md`）。root cause in design/plan → 创建 budget file + 转入 Route 1（SKILL.md Steps 7-14）。

@@ -236,3 +236,6 @@ Disposition required:
 ## Step 5：并行提交
 
 两个 baseline 可同时提交（两个 Codex background task）。Budget 消耗 2。
+
+---
+> **下一步**：两个 baseline 提交后 → Steps 6-8（final-review-disposition.md）。

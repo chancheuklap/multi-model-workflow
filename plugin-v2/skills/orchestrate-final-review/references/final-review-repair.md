@@ -99,26 +99,34 @@ Explorer 返回后路由：
 | Root cause found + 推荐路径 B | 派 Worker 修复 → Step 11 |
 | Root cause not found | 报告用户，附 explorer 已排除路径 |
 
-**快速判定**：≤ 2 文件 + 意图明确 → A；缺 migration / consumer 同步 / 测试 → B；行为异常原因不明 → C；涉及 migration / billing / permission / runtime / shared contract → B（用 complex-pack-executor）；涉及多个 pack 的系统性问题 → `NEEDS_EXECUTION`（读 budget file `execution_reflux_count`：0 → 可回流；≥1 → BLOCKED 报告用户）。
+**快速判定**：≤ 2 文件 + 意图明确 → A；缺 migration / consumer 同步 / 测试 → B；行为异常原因不明 → C；涉及 migration / billing / permission / runtime / shared contract → B（用 complex-pack-executor）；涉及多个 pack 的系统性问题 → Step 10（判定 Plan 维度）。
 
 ---
 
 ## Step 10：Implementation Gap 回 Execution 的判定
 
-如果 accepted findings 涉及多个 pack 的系统性问题（不是单点修复），Coordinator 判断是否应该回到 orchestrate-execution 处理：
+如果 accepted findings 涉及多个 pack 的系统性问题（不是单点修复），Coordinator 先判断 **Plan 维度**，再决定路由：
 
-**回 Execution 的条件**（任一成立）：
-- 涉及 3 个以上 pack 的 owned files
+### Step 10a：Plan 维度判定
+
+| 情况 | 路由 |
+| --- | --- |
+| 所有 affected packs 属于**同一 Plan** | **留在 Final Review**——按 Path B 修复 + 该 Plan targeted re-review（Step 11）。不回 Execution |
+| Affected packs **跨越多个 Plan** 且系统性（shared contract / migration 顺序 / cross-plan state） | → Step 10b（回 Execution 判定） |
+
+### Step 10b：回 Execution 的条件（任一成立）
+
+- 跨 Plan 的系统性问题（shared contract 不一致、migration 顺序错误、cross-plan state 竞争）
 - 需要重新执行某个完整 pack
 - plan 的 Source Coverage Map 有未覆盖的 intent 需要新 pack 实现
-- 修复影响其它 pack 的 dependencies 或 contract surface
+- 修复影响其它 Plan 的 dependencies 或 contract surface
 
-**留在 Final Review 修复的条件**：
+**留在 Final Review 修复的条件**（即使跨 Plan）：
 - 涉及 1-2 个 pack 的少量文件
 - 修复范围明确、不影响其它 pack
 - 不需要新 pack
 
-回 Execution → 立即返回 `NEEDS_EXECUTION` verdict，附 accepted findings 和 affected packs。
+回 Execution → 读 budget file `execution_reflux_count`：0 → 可回流，返回 `NEEDS_EXECUTION` verdict，附 accepted findings 和 affected packs 及所属 Plan；≥1 → BLOCKED 报告用户。
 
 ---
 

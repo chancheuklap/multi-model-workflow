@@ -2,6 +2,8 @@
 
 > **流程位置**：`orchestrate-final-review` Steps 1-3 · 完成后 → Steps 4-5（`final-review-angles.md`）
 
+**状态锚写入**（进入时）：budget file 写 `"current_phase": "final-review"`, `"current_reference": "final-review-preconditions.md"`, `"current_step": "1"`。
+
 ## Step 1：读取 Source Artifacts
 
 读取以下文档，建立对"设计意图 → 计划 → 实际代码"完整链条的理解：
@@ -25,3 +27,6 @@
 | Scope Contract 存在 | BLOCKED |
 | Execution state file 中所有 Plan status = completed | 返回 `NEEDS_EXECUTION` |
 | Budget file 存在 | 由 `track-review-budget.sh` hook 自动追踪和警告 |
+
+---
+> **下一步**：前置条件通过 → Steps 4-5（final-review-angles.md）。缺件 → 按上方路由表返回对应 upstream phase。

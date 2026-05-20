@@ -19,33 +19,42 @@ description: "多个并行 PR 需合并审查时使用（Route 3）。冲突发�
 
 **Multi-PR route 不创建 Budget File**——Codex 审查 dispatch 控制在合理范围内（通常 2-4 次：1-2 full review + 1-2 targeted re-review）。
 
+**Only stop for：**
+- 冲突解决需要用户决策（NEEDS_USER_DECISION）
+- BLOCKED
+
+**Never stop for：**
+- 简单冲突（Coordinator 直接修）
+- 复杂冲突（派 Worker 修复）
+- 系统性冲突（Analyst 调查 → Worker 修复）
+
 ---
 
 ## Steps 1-3：入口 + 文档理解
 
-→ `references/merge-preparation.md`（读全部文档 + 建立合并后正确状态模型 + Scope Contract + Git State）
+**Read** `references/merge-preparation.md`（读全部文档 + 建立合并后正确状态模型 + Scope Contract + Git State）。读完进入 Steps 4-8 冲突发现。
 
 ## Steps 4-8：并行 PR 分析 + 冲突分类
 
-→ `references/merge-conflict-discovery.md`（Explorer 派发 + 冲突发现 + 三级分类 + 简单冲突 Coordinator 直接修）
+**Read** `references/merge-conflict-discovery.md`（Explorer 派发 + 冲突发现 + 三级分类 + 简单冲突 Coordinator 直接修）。按冲突分类路由到 Step 8/9/12/16。
 
 无冲突 → Step 16。有冲突 → 按分类路由：简单走 Step 8；复杂根因明确走 Step 12；系统性走 Step 9。
 
 ## Steps 9-11：系统性冲突 — Root-Cause-Analyst 调查（仅系统性冲突时）
 
-→ `references/merge-rca-investigation.md`（Analyst dispatch + PR 冲突专用方法论 + Resolution 路由）
+**Read** `references/merge-rca-investigation.md`（Analyst dispatch + PR 冲突专用方法论 + Resolution 路由）。调查后路由到 repair 或报告用户。
 
 ## Steps 12-15：Coding Worker 修复 + 验证 + 循环
 
-→ `references/merge-conflict-repair.md`（Worker dispatch templates + 验证 + 冲突解决循环控制 + 3 轮上限）
+**Read** `references/merge-conflict-repair.md`（Worker dispatch templates + 验证 + 冲突解决循环控制 + 3 轮上限）。修复后 → Step 14 验证 → 循环或 Step 16。
 
 ## Steps 16-18：Codex 跨 PR 集成审查
 
-→ `references/merge-integration-review.md`（Codex dispatch + Disposition + 集成审查修复）
+**Read** `references/merge-integration-review.md`（Codex dispatch + Disposition + 集成审查修复）。通过后 → Steps 19-22。
 
 ## Steps 19-22：顺序合并 + 清扫 + 返回
 
-→ `references/merge-completion.md`（依赖顺序合并 + 全量验证 + 不存在非阻塞项 + Verdict 判定）
+**Read** `references/merge-completion.md`（依赖顺序合并 + 全量验证 + 不存在非阻塞项 + Verdict 判定）。完成后回到 SKILL.md 返回区。
 
 ---
 

@@ -2,6 +2,8 @@
 
 > **流程位置**：`orchestrate-discovery` Steps 3-6 · 完成后 → Steps 7-9（`discovery-design-document.md`）
 
+**状态锚写入**（进入时）：budget file 写 `"current_phase": "discovery"`, `"current_reference": "discovery-discussion.md"`, `"current_step": "3"`。
+
 ## Step 3：澄清意图（一问一答迭代）
 
 核心规则：
@@ -76,3 +78,6 @@
 | 架构取舍满足 ADR 三条件 | docs/adr/ | 用户确认后 |
 
 **grill-with-docs 的角色**：不是辅助工具——是 Domain Alignment 的核心执行方式。始终用其方法论挑战术语、交叉验证代码、更新 CONTEXT.md。
+
+---
+> **下一步**：讨论充分后 → Steps 7-9（discovery-design-document.md）生成设计文档。

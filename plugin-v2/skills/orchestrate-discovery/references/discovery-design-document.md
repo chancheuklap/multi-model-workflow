@@ -74,3 +74,6 @@ mockup 索引: docs/orchestrate/mockups/<feature-slug>/README.md
 ## Step 9：用户确认
 
 > "设计文档已写入 `docs/orchestrate/design/<feature-slug>.md`，请审阅。确认后进入 Design Review。"
+
+---
+> **下一步**：用户确认设计文档后 → Steps 10-11（design-review-angles.md）进入 Design Review。

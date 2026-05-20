@@ -132,3 +132,6 @@ Coordinator 逐个审阅 explorer 发现的冲突，做修复路由判定：
 3. 直接修改代码
 4. 跑相关测试确认修复
 5. 进入 Step 14（Coordinator 验证）
+
+---
+> **下一步**：无冲突 → Step 16（merge-integration-review.md）。简单冲突已修 → Step 14（Coordinator 验证）。复杂冲突 → Step 12（merge-conflict-repair.md）。系统性冲突 → Step 9（merge-rca-investigation.md）。

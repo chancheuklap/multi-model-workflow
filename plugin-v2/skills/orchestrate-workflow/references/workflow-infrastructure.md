@@ -134,11 +134,36 @@ docs/orchestrate/
   "execution_reflux_count": 0,
   "last_gate_phase": "entry",
   "last_gate_timestamp": "<ISO 8601>",
+  "plan_count": 0,
+  "current_phase": null,
+  "current_reference": null,
+  "current_step": null,
   "dispatches": []
 }
 ```
 
 `budget_total` 在 plan-writing Step 12a 按 `3P + 12`（P = plan 文件数）更新，此后**不可变**——执行阶段、Final Review 阶段均不得修改 `budget_total` 或 `pack_count`。如果执行阶段发现 pack 数与 budget file 不一致，返回 `NEEDS_PLAN_REVISION`，不得静默更新。Bug / Multi-PR route 不创建 budget file。
+
+### 状态锚字段（Compaction Recovery）
+
+| 字段 | 类型 | 更新时机 | 用途 |
+|------|------|---------|------|
+| `current_phase` | string \| null | 进入/退出 phase skill 时 | Compaction 后知道在哪个 phase |
+| `current_reference` | string \| null | Read reference 前写入，执行完写 null | Compaction 后知道在哪个 reference 里 |
+| `current_step` | string \| null | 进入 phase / reference 时（记录起始步骤号） | Compaction 后知道从哪个步骤继续 |
+
+**更新规则**：
+- 进入 phase skill → 写 `current_phase`，清空 `current_reference` 和 `current_step`
+- Read reference 前 → 写 `current_reference`
+- 执行完 reference 回到 SKILL.md → `current_reference` 设为 null
+- 进入 phase / reference 时 → 写 `current_step`（记录起始步骤号）
+
+**恢复规则**（compaction 后）：
+1. 读 budget file 的 `current_phase` / `current_reference` / `current_step`
+2. 如果 `current_reference` 不为 null → 重新 Read 该 reference，从 `current_step` 位置继续
+3. 如果 `current_reference` 为 null → 在 SKILL.md 的 `current_step` 位置继续
+
+**与 `last_gate_phase` 的区别**：`last_gate_phase` 记录最近通过的 gate（粗粒度，phase 级，用于 cross-conversation resume），`current_*` 记录 phase 入口位置（reference 级，用于 compaction recovery）。两者共存。
 
 ---
 
@@ -157,3 +182,6 @@ AFK / HITL:
 ```
 
 写行为合同，不写"去某文件第 N 行改 X"。UI / UX durable brief 必须保留 mockup 目录路径（`docs/orchestrate/mockups/<slug>/`）、目标 viewport、关键 states 和允许偏差。如果 durable brief 来自 Discovery domain alignment、prototype 或 architecture review，写明 resolved context、prototype verdict 或 architecture finding。
+
+---
+> **下一步**：Route 1 → SKILL.md Steps 7-14（Formal Orchestrate phase dispatch）。Route 2 → SKILL.md Steps 15-18（bug-investigation-route.md）。Route 3 → SKILL.md Steps 19-20（Multi-PR Merge）。

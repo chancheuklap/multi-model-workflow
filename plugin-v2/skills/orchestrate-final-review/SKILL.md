@@ -13,35 +13,60 @@ description: "EXECUTION_PASSED 后使用。增强型 Codex 审查（regression +
 
 **Final Review 不做 Closing**——不 cleanup budget/scope/active-run-id，不 commit，不 push，不 PR。这些是 orchestrate-workflow Closing（Steps 21-24）的职责。Final Review 以 verdict 返回结束。
 
+**Only stop for：**
+- 需要用户决策的 finding
+- BLOCKED
+
+**Never stop for：**
+- Accepted findings（进入修复分流）
+- 遗留清扫发现（当场处置或开 issue）
+- Release Gate findings（走 release review 流程）
+
+---
+
+**Pre-final-review（进入前快速验证）：**
+- [ ] 所有 Plan 通过 Plan Implementation Review + Git Checkpoint
+- [ ] Source design 存在且已通过 Design Review
+- [ ] Scope Contract 和 Budget file 存在
+- [ ] Budget 状态锚写入：`current_phase = final-review`
+
 ---
 
 ## Steps 1-3：前置条件
 
-→ `references/final-review-preconditions.md`（读 source artifacts + 验证前置条件 + Budget Check）
+**Read** `references/final-review-preconditions.md`（读 source artifacts + 验证前置条件 + Budget Check）。通过后进入 Steps 4-5。
 
 ## Steps 4-5：增强型审查派发
 
-→ `references/final-review-angles.md`（与 Plan Implementation Review 分工 + 2 baseline Codex dispatch templates）
+**Read** `references/final-review-angles.md`（与 Plan Implementation Review 分工 + 2 baseline Codex dispatch templates）。派发后进入 Steps 6-8。
 
 ## Steps 6-8：接收 + Disposition
 
-→ `references/final-review-disposition.md`（Coordinator 主动验证 + 6 disposition + Gap 分类 + Backflow 路由）
+**Read** `references/final-review-disposition.md`（Coordinator 主动验证 + 6 disposition + Gap 分类 + Backflow 路由）。通过 → Step 13；有 accepted findings → Step 9。
 
 通过 → Step 13。有 accepted findings → 读取 `references/final-review-repair.md`。
 
 ## Steps 9-12：修复分流 + 截断（仅 needs repair 时）
 
-→ `references/final-review-repair.md`（路径 A/B/C + 回 Execution 判定 + Targeted Re-Review + 3 轮截断 + RCA）
+**Read** `references/final-review-repair.md`（路径 A/B/C + 回 Execution 判定 + Targeted Re-Review + 3 轮截断 + RCA）。修复后回 Step 6 re-review 或 Step 13。
 
 ## Steps 13-15, 19-20：清扫 + 业务汇报 + Verdict
 
-→ `references/final-review-completion.md`（Coordinator 清扫遗留尾巴 + 业务汇报组装 + Verdict 判定）
+**Read** `references/final-review-completion.md`（Coordinator 清扫遗留尾巴 + 业务汇报组装 + Verdict 判定）。完成后回到 SKILL.md 返回区。
 
 ## Steps 16-18：Final Release Gate（条件触发）
 
-→ `references/final-review-release-gate.md`（仅 diff 触碰发布风险面时读取）
+**Read** `references/final-review-release-gate.md`（仅 diff 触碰发布风险面时读取）。通过后回 Step 19。
 
 ---
+
+**Required before returning（返回前验证）：**
+- [ ] 两个 baseline review 有结果
+- [ ] 所有 accepted findings 已修复并通过 re-review
+- [ ] 遗留清扫完成（无未处置项）
+- [ ] Release Gate 通过（如触发）
+- [ ] 业务汇报已组装
+- [ ] Budget 状态锚更新：`current_phase = final-review_done`
 
 ## 返回
 

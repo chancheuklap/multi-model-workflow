@@ -56,3 +56,6 @@ PR body：
 ## Step 23：Report to User
 
 一到两句话汇报。不做长篇总结。
+
+---
+> **流程到此结束**。orchestrate-workflow 返回 verdict，不再读取其他 reference。
