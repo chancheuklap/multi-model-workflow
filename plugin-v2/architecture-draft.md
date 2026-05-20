@@ -109,7 +109,7 @@ flowchart TD
     B --> PL["FOR EACH Plan\n（按 Blocked by 排序）"]:::coord
     PL --> SC["记录 start_commit\n+ current_plan_id"]:::coord
     SC --> C["派 worker\n（pack-executor / complex-pack-executor）\nvalidate-pack-dispatch hook 校验前置"]:::agent
-    C --> D["worker 返回\n（subagent-stop-handler hook\n读 durable return → 更新 state → NEXT 指令）"]:::agent
+    C --> D["worker 返回\n（PostToolUse Agent hook\n读 durable return → 更新 state → NEXT 指令）"]:::agent
     D --> OI["Open Items 即时处置\n+ scope drift 检测"]:::coord
     OI --> GC["Git Checkpoint\n（enforce-pack-commit hook 校验格式\ntrack-execution-state hook 更新 state）"]:::coord
     GC --> MORE{"还有 Pack?"}:::coord
@@ -145,7 +145,7 @@ flowchart TD
 | 读 Task Pack inventory + 创建 state | Coordinator 逻辑 | 读取所有 plan → 构建两级执行队列 → 创建 `execution-state-<run_id>.json` | **读** `plans/<slug>/` 全部文件 → 提取 pack 编号、依赖、风险、并行标记 | ✅ 正常 |
 | 记录 start_commit | Coordinator 逻辑 | Plan 首个 Pack dispatch 前记录 `git rev-parse HEAD` | **写** execution state | ✅ 正常 |
 | 派 worker | Sub-Agent：`pack-executor`（普通）/ `complex-pack-executor`（高风险） | Agent tool 派发 coding worker | **嵌入** Pack Brief（含 Durable Return 指令 + Context hint） | ✅ 正常 |
-| SubagentStop handler | Hook：`subagent-stop-handler.sh` | 读 `pack-returns/<pack-id>.json` → 更新 state → 输出 `NEXT` 指令 | **读** pack-returns、**写** execution state | ✅ 正常 |
+| Agent return handler | Hook：`agent-return-handler.sh`（PostToolUse Agent） | 读 `pack-returns/<run_id>/<pack-id>.json` → 更新 state → 输出 `NEXT` 指令（additionalContext） | **读** pack-returns、**写** execution state | ✅ 正常 |
 | validate-pack-dispatch | Hook：`validate-pack-dispatch.sh` | 拦截缺少 start_commit 或 Pack 状态非 pending 的 dispatch | **读** execution state | ✅ 正常 |
 | enforce-pack-commit | Hook：`enforce-pack-commit.sh` | 校验 Pack commit message 格式 | — | ✅ 正常 |
 | track-execution-state | Hook：`track-execution-state.sh` | commit 后更新 pack status + commit_sha | **写** execution state | ✅ 正常 |
@@ -500,8 +500,8 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 | `PreToolUse` | `Bash(git commit *)` | `enforce-pack-commit.sh`：Pack commit 格式校验 | Pack commit 格式不匹配 `Pack N.M: ...` → exit 2 拦截。非 Pack commit 静默放行 |
 | `PreToolUse` | `Agent(pack-executor*)` / `Agent(complex-pack-executor*)` | `validate-pack-dispatch.sh`：Worker dispatch 前置条件校验 | 缺少 start_commit 或 Pack 状态非 pending → exit 2 拦截。Repair re-dispatch（含 `[repair-round-N]` 标记）放行 |
 | `PostToolUse` | `Bash` | `track-review-budget.sh`：budget 自动追踪 + Plan Impl Review state 更新 | 检测 `codex-companion` + `result` → 递增 `budget_used`；检测 `plan-impl-review-N` → 更新 execution state。80% → Direction Check；100% → BUDGET EXHAUSTED |
-| `PostToolUse` | `Bash(git commit *)` | `track-execution-state.sh`：commit 后更新 execution state | Pack commit 成功后更新 `packs[N.M].status = committed` + `commit_sha` + `plans[N].end_commit`。输出 `STATE` 进度信息 |
-| `SubagentStop` | `pack-executor\|complex-pack-executor` | `subagent-stop-handler.sh`：读 durable return → 更新 state → 输出 `NEXT` 指令 | 读 `pack-returns/<pack-id>.json` → 更新 execution state → 计算 Plan 完成度。缺 return 文件 → exit 2 拦截。所有 Pack committed → 指示派发 Plan Implementation Review |
+| `PostToolUse` | `Bash(git commit *)` | `track-execution-state.sh`：commit 后更新 execution state | Pack commit 成功后更新 `packs[N.M].status = committed` + `commit_sha` + `plans[N].end_commit`。全部 committed → 输出 `NEXT` 指示派发 Plan Implementation Review |
+| `PostToolUse` | `Agent` | `agent-return-handler.sh`：Worker 返回后更新 execution state | 从 `tool_input` 提取 Pack ID → 读 `pack-returns/<run_id>/<pack-id>.json`（或解析 `tool_response` 作 fallback）→ 更新 `packs[N.M].status = returned` + `worker_verdict`。非 execution 路线（无 execution-state）静默放行 |
 
 ### 外部 Skill
 

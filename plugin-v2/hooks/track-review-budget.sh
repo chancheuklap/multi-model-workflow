@@ -70,8 +70,7 @@ if [ -n "$GATE" ]; then
   PLAN_KEY=$(printf "%03d" "$GATE")
   if [ -f "$STATE_FILE" ]; then
     jq --arg plan "$PLAN_KEY" --arg gate "plan-impl-review-${GATE}" '
-      .plans[$plan].review_gate = $gate |
-      .plans[$plan].status = "review_pending"
+      .plans[$plan].review_gate = $gate
     ' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
   fi
 fi

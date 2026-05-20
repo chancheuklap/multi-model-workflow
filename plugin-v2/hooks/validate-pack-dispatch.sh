@@ -22,6 +22,11 @@ RUN_ID=$(cat "$RUN_ID_FILE")
 STATE_FILE="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
 if [ ! -f "$STATE_FILE" ]; then exit 0; fi
 
+if ! jq empty "$STATE_FILE" 2>/dev/null; then
+  echo "[multi-model-workflow] BLOCKED: execution-state JSON is corrupted. Fix: inspect and repair .claude/multi-model-workflow/execution-state-${RUN_ID}.json manually." >&2
+  exit 2
+fi
+
 # Repair re-dispatch → pass through
 if echo "$PROMPT" | grep -qE '\[repair-round-[0-9]+\]'; then
   exit 0

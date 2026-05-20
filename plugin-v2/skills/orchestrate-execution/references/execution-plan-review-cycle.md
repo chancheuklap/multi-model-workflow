@@ -56,7 +56,7 @@ Coordinator 写入 execution state：`packs[N.M].status = dispatched`。
 
 #### Step 7：接收 Worker 返回
 
-`subagent-stop-handler.sh` hook 自动读取 Worker 写盘的 `pack-returns/<pack-id>.json`，更新 execution state（`status = returned`、`worker_verdict`、`agent_id`），并输出 `NEXT` 指令告知 Coordinator 下一步。缺 return 文件 → `BLOCKED`。
+`agent-return-handler.sh`（PostToolUse Agent hook）自动从 Worker 的 dispatch prompt 提取 Pack ID，读取 `pack-returns/<run_id>/<pack-id>.json`（或从 `tool_response` 解析 verdict 作为 fallback），更新 execution state（`status = returned`、`worker_verdict`），并通过 `additionalContext` 输出 `NEXT` 指令告知 Coordinator 下一步。非 execution 路线（无 execution-state 文件）静默放行。
 
 | Worker Verdict | 含义 | Coordinator 动作 |
 | --- | --- | --- |
@@ -118,7 +118,7 @@ Source: Pack <N.M> worker discovery
 
 ### Step 8：Plan Implementation Review（所有 Pack 完成后）
 
-当 `subagent-stop-handler.sh` 输出 `NEXT: All N packs in Plan XXX committed` 时，所有 Pack 已完成。
+当 `track-execution-state.sh` 输出 `NEXT: All N packs in Plan XXX committed` 时（PostToolUse Bash hook，在最后一个 Pack commit 后触发），所有 Pack 已完成。
 
 **Read** `execution-review-dispatch.md`，按其中的 Codex review 派发步骤提交 Plan Implementation Review。
 

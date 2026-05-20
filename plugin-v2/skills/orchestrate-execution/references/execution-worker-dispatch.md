@@ -24,6 +24,7 @@ Verification commands:
 Risk flags: <trivial / normal / high-risk / ...>
 Out of scope: <what NOT to touch>
 Context hint: Your code will be reviewed alongside packs <N.1..N.M> within Plan N.
+State directory: <absolute path to .claude/multi-model-workflow — Coordinator 用 $(pwd)/.claude/multi-model-workflow 填入>
 Return contract:
   ### Verdict
   pass / blocked / needs repair / needs context
@@ -42,7 +43,7 @@ Return contract:
   格式：`- [标签] 简述问题 — 发现位置 — 影响判断`
 
   ## Durable return（必须在最终 verdict 之前执行）
-  写入 `.claude/multi-model-workflow/pack-returns/<pack-id>.json`：
+  写入 `<STATE_DIR>/pack-returns/<run_id>/<pack-id>.json`（绝对路径，Coordinator 在 dispatch 时填入）：
   {
     "pack_id": "<N.M>",
     "verdict": "<pass | blocked | needs repair | needs context>",
@@ -50,6 +51,8 @@ Return contract:
     "open_items": [{"tag": "<out-of-scope|needs-evaluation|bug>", "summary": "..."}],
     "concerns": "<如有>"
   }
+  注意：Worker 在 isolation worktree 中运行时，必须使用此绝对路径写入（不是相对路径），
+  确保 Coordinator 和 hooks 能在主工作目录读到该文件。
 ```
 
 ## 条件字段（仅在相关时包含，不写 N/A 占位）

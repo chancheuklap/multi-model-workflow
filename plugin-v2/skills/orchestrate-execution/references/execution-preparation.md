@@ -65,6 +65,14 @@ plan_queue = [Plan001, Plan002, Plan003]  ← 按 Blocked by 排序
 
 填入所有 Plan 和 Pack 的初始状态 + `expected_pack_ids`。
 
+**同时创建 run-scoped pack-returns 目录**：
+
+```bash
+mkdir -p .claude/multi-model-workflow/pack-returns/<run_id>
+```
+
+Worker 的 durable return file 写入此目录（按 run_id 隔离，防止跨 run 污染）。
+
 ### Step 2b：记录 Plan start_commit
 
 每个 Plan 的第一个 Pack dispatch 之前：
