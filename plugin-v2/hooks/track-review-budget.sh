@@ -63,6 +63,19 @@ else
   MSG="Review budget: ${USED}/${TOTAL} dispatches used."
 fi
 
+# === Plan Implementation Review → update execution state ===
+GATE=$(echo "$COMMAND" | sed -n 's/.*plan-impl-review-\([0-9][0-9]*\).*/\1/p' | head -1)
+if [ -n "$GATE" ]; then
+  STATE_FILE="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
+  PLAN_KEY=$(printf "%03d" "$GATE")
+  if [ -f "$STATE_FILE" ]; then
+    jq --arg plan "$PLAN_KEY" --arg gate "plan-impl-review-${GATE}" '
+      .plans[$plan].review_gate = $gate |
+      .plans[$plan].status = "review_pending"
+    ' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
+  fi
+fi
+
 jq -n --arg msg "[multi-model-workflow] $MSG" \
   '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $msg}}'
 

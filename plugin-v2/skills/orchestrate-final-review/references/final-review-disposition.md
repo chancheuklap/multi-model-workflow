@@ -8,7 +8,7 @@
 
 收到 finding 后，Coordinator 不是传话筒——必须亲验每条 finding 的正确性（读代码、跑测试、对照 source artifacts），然后逐条给 disposition。没有 disposition 的 finding 不能进入 repair。过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改。
 
-Final Review 增加一层验证：**对照 pack completion summary**——确认 finding 不是 Pack Review 已验证且 regression sweep 确认 intact 的行为重复。
+Final Review 增加一层验证：**对照 plan/pack completion summary**——确认 finding 不是 Plan Implementation Review 已验证且 regression sweep 确认 intact 的行为重复。
 
 | disposition | parent 动作 |
 | --- | --- |

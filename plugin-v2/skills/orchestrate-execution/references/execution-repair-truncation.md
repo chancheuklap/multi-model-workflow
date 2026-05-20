@@ -4,10 +4,14 @@
 
 ## Step 10：修复路由
 
+Coordinator 收到 Plan Implementation Review findings → 逐条 disposition（与 Step 9 完全一致）。
+
+Accepted findings 按 `Affected packs` 字段分组 → 每组复用现有三路分流：
+
 所有 repair prompt 只携带 accepted findings。Repair 返回后默认只做 targeted re-review；只有 source baseline 改变时才 full phase review rerun。
 
 - **路径 A**（≤ 2 文件、不碰合同边界、意图明确）：Coordinator 直接修 → 跑验证 → Step 11
-- **路径 B**（多文件、根因已知）：SendMessage 给原 worker（或新建同类 agent） → Step 11
+- **路径 B**（多文件、根因已知）：SendMessage 给原 worker（或新建同类 agent），prompt 包含 `[repair-round-N]` 标记（触发 `validate-pack-dispatch.sh` 放行）→ Step 11
 
 ### 路径 C：Complex-Code-Explorer 调查
 
@@ -16,7 +20,7 @@
 ```
 Agent({
   subagent_type: "complex-code-explorer",
-  description: "Investigate unknown root cause: Pack N.M finding",
+  description: "Investigate unknown root cause: Plan N finding",
   prompt: "
     ## Scope
     只读调查。Reviewer 报告了症状但无法确定根因。找到根因，不写代码。
@@ -25,10 +29,11 @@ Agent({
     <paste accepted finding — severity / locator / evidence / impact>
 
     ## 已知上下文
-    - Pack: <pack number + title>
+    - Plan: <plan number + title>
+    - Affected packs: <N.M, N.K>
     - Worker 修复尝试: <前轮修复内容及失败原因，如有>
     - 相关文件: <affected files>
-    - Git diff scope: <paste>
+    - Git diff scope: <plan-start-commit>..<plan-end-commit>
 
     ## 调查方向
     <Coordinator 初步判断——时序 / 隐式依赖 / 状态污染 / 配置漂移等>
@@ -58,19 +63,23 @@ Explorer 返回后路由：
 | Root cause found + 推荐路径 B | 派 Worker 修复 → Step 11 |
 | Root cause not found | 报告用户，附 explorer 已排除路径 |
 
+**涉及多个 Pack 交互的 finding**：Coordinator 判断是否合并修复（用 complex-pack-executor）或拆分到各 Pack worker。
+
 **快速判定**：≤ 2 文件 + 意图明确 → A；缺 migration / consumer 同步 / 测试 → B；行为异常原因不明 → C；涉及 migration / billing / permission / runtime / shared contract → B（用 complex-pack-executor）。
+
+**Coordinator 写入 execution state**：`plans[N].repair_round += 1`、`plans[N].status = repairing`。
 
 ## Step 11：Targeted Re-Review
 
 修复完成后，只重审 accepted findings 涉及的变更部分。不做 full review rerun。
 
 派发方式同 Step 8（读取 `execution-review-dispatch.md`），但：
-- gate 名使用 `pack-review-N.M-repair-<round>`（`<round>` = 当前修复轮次 1/2/3），不覆盖 baseline 结果
+- gate 名使用 `plan-impl-review-N-repair-<round>`（`<round>` = 当前修复轮次 1/2/3），不覆盖 baseline 结果
 - scope 缩小到：changed files（修复涉及的文件）/ accepted findings（原 finding 是否解决）/ 受影响 angle
 
 ## Step 12：修复截断
 
-每个 pack 最多 **2 Worker repair round + 1 root-cause-analyst round = 3 repair round**。
+每个 Plan Implementation Review 最多 **2 Worker repair round + 1 root-cause-analyst round = 3 repair round**。
 
 | Round | 动作 |
 | --- | --- |
@@ -83,17 +92,18 @@ Explorer 返回后路由：
 ```
 Agent({
   subagent_type: "root-cause-analyst",
-  description: "Investigate repair failure: Pack N.M",
+  description: "Investigate repair failure: Plan N",
   prompt: "
     ## 调度场景
-    Repair Truncation（Execution Pack Review）。Worker 修了两轮，reviewer 仍报 needs repair。
+    Repair Truncation（Plan Implementation Review）。Worker 修了两轮，reviewer 仍报 needs repair。
 
     ## 前两轮上下文
     - Round 1 accepted findings: <paste>
     - Round 1 worker 修复内容: <paste>
     - Round 2 accepted findings: <paste>
     - Round 2 worker 修复内容: <paste>
-    - Git diff scope: <paste>
+    - Git diff scope: <plan-start-commit>..<plan-end-commit>
+    - Affected packs: <N.M, N.K>
     - 原 Pack Brief: <paste relevant subset>
 
     ## 你的任务
@@ -128,4 +138,4 @@ Agent({
 Round 3 Targeted Re-Review 仍 needs repair → BLOCKED，报告用户。
 
 ---
-> **下一步**：修复通过 → 回到 Steps 4-9 per-pack 循环继续（`execution-pack-review-cycle.md`），或全部 pack 完成 → Step 13（`execution-completion.md`）。BLOCKED → 返回 verdict。
+> **下一步**：修复通过 → 回到 Step 8-9 继续当前 Plan 的 review cycle（`execution-plan-review-cycle.md`），或 Plan review pass → Step 13（`execution-completion.md`）。BLOCKED → 返回 verdict。

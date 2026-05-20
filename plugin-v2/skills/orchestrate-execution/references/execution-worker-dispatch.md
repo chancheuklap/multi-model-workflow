@@ -23,6 +23,7 @@ Verification commands:
   - <command> → Expected: <result>
 Risk flags: <trivial / normal / high-risk / ...>
 Out of scope: <what NOT to touch>
+Context hint: Your code will be reviewed alongside packs <N.1..N.M> within Plan N.
 Return contract:
   ### Verdict
   pass / blocked / needs repair / needs context
@@ -39,6 +40,16 @@ Return contract:
   - [needs-evaluation] 需要独立评估才能判断是否修复的问题
   - [bug] 执行中发现的已有代码 bug（非本次引入）
   格式：`- [标签] 简述问题 — 发现位置 — 影响判断`
+
+  ## Durable return（必须在最终 verdict 之前执行）
+  写入 `.claude/multi-model-workflow/pack-returns/<pack-id>.json`：
+  {
+    "pack_id": "<N.M>",
+    "verdict": "<pass | blocked | needs repair | needs context>",
+    "changed_files": ["<path1>", "<path2>"],
+    "open_items": [{"tag": "<out-of-scope|needs-evaluation|bug>", "summary": "..."}],
+    "concerns": "<如有>"
+  }
 ```
 
 ## 条件字段（仅在相关时包含，不写 N/A 占位）

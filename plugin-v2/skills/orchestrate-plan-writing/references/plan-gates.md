@@ -36,15 +36,16 @@ Plan 文件数量必须与 issue 文件数量一致。缺少对应 plan 的 issu
 
 ## Step 12a：更新 Budget File
 
-Task Pack Inventory Gate 通过后，**汇总所有 plan 文件的 pack 数量**，pack_count = 总数。立即更新 budget file：
+Task Pack Inventory Gate 通过后，**汇总 plan 文件数量**（P = 总 plan 数）和 **pack 数量**（N = 总 pack 数）。立即更新 budget file：
 
 ```json
 {
   "pack_count": N,
-  "budget_total": "2N + 12"
+  "plan_count": P,
+  "budget_total": "3P + 12"
 }
 ```
 
-N = 所有 plan 文件中 Task Pack 的总数。公式推导不变。
+P = plan 文件总数。公式分配：`3P`（每个 Plan 1 次 baseline + 最多 2 次 repair re-review）+ `12`（Design Review 2-4 + Plan Document Review 1 + Final Review 2 + Release Gate ≤2 + 修复余量 3-5）。
 
-**这是 budget_total 的首次有效赋值**——workflow entry gate 创建时写 0（pack_count 未知），此处确认。
+**这是 budget_total 的首次有效赋值**——workflow entry gate 创建时写 0（plan_count 未知），此处确认。

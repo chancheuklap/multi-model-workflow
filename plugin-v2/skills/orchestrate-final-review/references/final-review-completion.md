@@ -8,7 +8,7 @@
 
 ## 第一段：清扫遗留尾巴（Steps 13-15）
 
-**这是 Coordinator 的职责**，不是 reviewer 的角度。Pack Review 和 baseline review 关注的是"做得对不对"；清扫关注的是"有没有漏做"。项目中不存在"非阻塞项"——所有东西要么当场修复，要么立刻开 GitHub issue。
+**这是 Coordinator 的职责**，不是 reviewer 的角度。Plan Implementation Review 和 Final baseline review 关注的是"做得对不对"；清扫关注的是"有没有漏做"。项目中不存在"非阻塞项"——所有东西要么当场修复，要么立刻开 GitHub issue。
 
 **注意**：Execution 阶段（Step 7a + Step 9）已经对 Worker Open Items 和 out-of-scope findings 做了即时处置并开了 GitHub issue。Final Review 的清扫是**验证 + 补漏**，不是主要开 issue 的环节。
 
@@ -30,7 +30,7 @@ git diff <starting_commit>..HEAD --diff-filter=AM --name-only | xargs grep -n "T
 
 过滤掉 starting commit 之前已存在的遗留标记（`git show <starting_commit>:<file>` 对比）。只关注本次实现新增的。
 
-**13c：Pack Review Disposition 记录 — 验证 issue 已开**
+**13c：Plan Implementation Review Disposition 记录 — 验证 issue 已开**
 
 读取 execution 过程中所有 `out of scope` 和 `needs evaluation` disposition。验证每条是否已有对应 GitHub issue（`gh issue list --search` 确认）。**补漏**：发现 execution 阶段遗漏的 → 按 Step 14 处置。
 

@@ -42,4 +42,21 @@ cat <<'RULES'
 - Resume Gate: source artifacts 改过 → 重进该 gate
 RULES
 
+# === Execution state recovery ===
+BUDGET_DIR=".claude/multi-model-workflow"
+RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
+if [ -f "$RUN_ID_FILE" ]; then
+  RUN_ID=$(cat "$RUN_ID_FILE")
+  STATE_FILE="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
+  if [ -f "$STATE_FILE" ]; then
+    CURRENT_PLAN=$(jq -r '.current_plan_id' "$STATE_FILE")
+    PLAN_STATUS=$(jq -r ".plans[\"${CURRENT_PLAN}\"].status" "$STATE_FILE")
+    TOTAL_PACKS=$(jq "[.plans[].expected_pack_ids | length] | add" "$STATE_FILE")
+    DONE_PACKS=$(jq '[.plans[].packs | to_entries[] | select(.value.status == "committed")] | length' "$STATE_FILE")
+    echo ""
+    echo "# 6. Execution state recovery"
+    echo "[multi-model-workflow] RESUME: Plan ${CURRENT_PLAN} (${PLAN_STATUS}), ${DONE_PACKS}/${TOTAL_PACKS} packs committed. Read execution-state-${RUN_ID}.json before continuing."
+  fi
+fi
+
 exit 0

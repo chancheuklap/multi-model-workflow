@@ -1,12 +1,12 @@
 # Early Release Gate
 
-> **流程位置**：`orchestrate-execution` Step 13 · 仅 pack 触碰发布风险面时进入 · 不触发时跳到 Step 14
+> **流程位置**：`orchestrate-execution` Step 13 · 仅 Plan 中有 Pack 触碰发布风险面时进入 · 不触发时跳到 Step 14
 
-Pack Review 通过后，检查该 pack 是否触发 Early Release Gate：
+Plan Implementation Review 通过后，检查该 Plan 中是否有任何 Pack 触发 Early Release Gate：
 
 **触发条件**（任一成立）：
-- pack 的 `发布风险` 涉及 migration / deploy order / rollback / manual production gate，且必须在后续 pack 实现前决定
-- baseline finding 暴露的问题必须先判定 release strategy 才能修
+- Plan 内任何 pack 的 `发布风险` 涉及 migration / deploy order / rollback / manual production gate，且必须在后续 Plan 实现前决定
+- Plan Implementation Review finding 暴露的问题必须先判定 release strategy 才能修
 - 等到 Final Review 才审会造成不可逆数据、权限、账务或 runtime 风险
 - 用户明确要求
 
@@ -18,16 +18,19 @@ Pack Review 通过后，检查该 pack 是否触发 Early Release Gate：
 
 Compaction 恢复：有 `.job-id` 无对应 `review-results/` → 从 Step 3 继续。
 
-Review prompt 写入 `.claude/multi-model-workflow/review-prompts/release-gate-N.M.md`：
+Review prompt 写入 `.claude/multi-model-workflow/review-prompts/release-gate-plan-N.md`：
 
 ```markdown
 ## Scope
-Early Release Gate for Task Pack N.M.
-Code quality and spec compliance have already passed Pack Review.
-Only assess release risk — this pack cannot wait for Final Review.
+Early Release Gate for Plan N: <plan title>.
+Code quality and spec compliance have already passed Plan Implementation Review.
+Only assess release risk — this Plan cannot wait for Final Review.
 
-## Pack
-<pack number + title + risk flags>
+## Plan
+<plan number + title>
+
+## Packs with release risk
+<list packs that triggered this gate, with their risk flags>
 
 ## Changed files
 <list from worker return>
@@ -72,20 +75,23 @@ Deploy order assessment:
 ### Open Items
 ```
 
-多个相邻 high-risk packs 同一发布风险面时合并一次。Budget：Release Gate 最多 2 个 dispatch（含 early + final），已包含在全局 `2N+12` 预算中。
+多个 Plan 涉及同一发布风险面时，在最后一个相关 Plan 的 Release Gate 中统一审查。Budget：Release Gate 最多 2 个 dispatch（含 early + final），已包含在全局 `3P+12` 预算中。
 
 **Release blocker 修复**：
 
 ```
 Agent({
   subagent_type: "complex-pack-executor",
-  description: "Fix release blocker: Pack N.M <blocker summary>",
+  description: "Fix release blocker: Plan N <blocker summary>",
   prompt: "
+    [repair-round-N]
     ## Scope
     修复 Early Release Gate 发现的 release blocker。
 
-    ## Pack
-    <pack number + title>
+    ## Plan
+    <plan number + title>
+    ## Affected packs
+    <affected pack numbers>
 
     ## Release blocker
     <paste accepted blocker finding — severity / locator / evidence / impact / remediation>

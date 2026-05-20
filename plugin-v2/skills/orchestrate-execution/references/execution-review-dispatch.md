@@ -1,8 +1,8 @@
-# Pack Review Codex Dispatch Template
+# Plan Implementation Review Codex Dispatch Template
 
-> **流程位置**：`orchestrate-execution` Step 8 · Worker 返回后派发 Reviewer 时读取
+> **流程位置**：`orchestrate-execution` Step 8 · 同一 Plan 内所有 Pack 完成后派发
 
-Worker 返回 `pass` 或处理完 `needs repair` concerns 后，派发 **1 个** baseline Codex reviewer。
+同一 Plan 内所有 Pack 完成 Open Items 处置 + Git Checkpoint 后，派发 **1 个** baseline Codex reviewer 覆盖该 Plan 全部代码变更。
 
 **Codex review 派发步骤**（`CODEX_SCRIPT` 未定义时先执行 `CODEX_SCRIPT="$(find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs" -type f 2>/dev/null | head -1)"`）：
 1. 写 prompt → `review-prompts/<gate>.md`
@@ -12,44 +12,53 @@ Worker 返回 `pass` 或处理完 `needs repair` concerns 后，派发 **1 个**
 
 Compaction 恢复：有 `.job-id` 无对应 `review-results/` → 从 Step 3 继续。
 
-以下是 review prompt 内容（写入 `.claude/multi-model-workflow/review-prompts/pack-review-N.M.md`）：
+以下是 review prompt 内容（写入 `.claude/multi-model-workflow/review-prompts/plan-impl-review-N.md`）：
 
 ```markdown
 ## Scope
-Review the implementation of Task Pack N.M: <title>
+Review the implementation of Plan N: <plan title>
+This plan implements Issue N: <issue title> (a vertical slice of <feature>).
+All Task Packs within this plan have been executed and committed.
 
 ## Source artifacts
-- Plan: <path>
-- Source design: <path>
-- Pack acceptance criteria: <paste>
-- Verification commands: <paste>
+- Plan: docs/orchestrate/plans/<slug>/00N-*.md
+- Source design: docs/orchestrate/design/<slug>.md
+- Source issue: docs/orchestrate/issues/<slug>/00N-*.md
+- Scope Contract: .claude/multi-model-workflow/scope-<run_id>.md
 
-## Changed files
-<list from worker return>
+## Pack summary
+| Pack | Worker verdict | Repair rounds | Changed files |
+<paste per-pack summary within this plan>
+
+## Aggregate diff
+git diff <plan-start-commit>..<plan-end-commit>
+
+## Changed files (all packs combined)
+<combined file list with pack ownership>
 
 ## Contract anchors
-<paste if this pack touches contract boundaries>
+<paste all contract anchors from all packs in this plan>
 
 ## Mockup anchors
-<paste if this pack has UI work>
+<paste if any pack in this plan has UI work>
 
 ## Review angles (single integrated review)
 
 ### Spec Compliance
-验 worker 是否实现了 pack 要求的一切（不多不少）：
-- 每条 acceptance criteria 是否满足
-- 是否有 missing requirements
+验 plan 中所有 pack 的实现是否满足要求：
+- 每个 pack 的 acceptance criteria 是否满足
+- 每个 pack 的 goal behavior 是否可从代码确认
+- pack 之间是否有遗漏的交互行为
+- 是否有 missing requirements（设计中有但代码没做到的）
 - 是否有 extra/unneeded work（YAGNI）
-- goal behavior 是否可从代码中确认
 
 ### Code Quality
 验实现是否正确、可维护：
-- TDD 纪律：测试测的是 public behavior，不是 mock behavior。检查测试是否先失败再通过——没失败过的测试不可信
-- Mock 纪律：mock 只用在外部边界（网络、文件系统、第三方 API），不 mock 仓库内部业务模块。测试断言的是结果和行为，不是调用顺序或内部状态
-- 合同纪律：跨边界数据用正式 Pydantic contract，不是 bare dict
-- 文件职责清晰、接口定义好
-- 遵循项目既有模式
-- Forbidden shortcuts（以下默认是 finding；影响验收/数据/权限/账务/runtime/发布时是 Critical）：
+- TDD 纪律：测试测的是 public behavior 而非 mock behavior
+- Mock 纪律：mock 只用在外部边界
+- 合同纪律：跨边界数据用正式 Pydantic contract
+- Pack 间接口一致性：Pack A 暴露的接口是否与 Pack B 消费的一致
+- Forbidden shortcuts（同现有列表）：
   · bare dict 作跨模块长期合同
   · route/host 内临时拼 nested dict 绕过正式 contract
   · 新增 route-local schema/helper 而不放 domain service/shared contract
@@ -61,6 +70,17 @@ Review the implementation of Task Pack N.M: <title>
   · 测试 mock 仓库内部业务模块
   · helper 只为绕过边界而存在
 
+### Cross-Pack Coherence（原 Final Review 的 Cross-Pack Audit 下沉到这里）
+验同 Plan 内多个 Pack 合在一起是否协调：
+- Shared contract surface：跨 pack 的 Pydantic model / schema_version / API 一致
+- Migration 顺序：多个 migration 的执行顺序正确
+- Import 关系：跨 pack 的 import 无循环
+- 状态竞争：并发访问共享 state 安全
+- UI 集成（如有）：跨 pack 的页面集成效果
+
+如果 Plan 中所有 Pack 之间没有共享 contract / migration / state surface，
+Cross-Pack Coherence 降级为确认独立性的 1 行声明。
+
 ### Contract & Risk
 验高风险面是否正确处理：
 - Contract anchors 闭合（owner / provider / consumer / verification）
@@ -69,25 +89,30 @@ Review the implementation of Task Pack N.M: <title>
 - rollback / compatibility 考虑
 
 ## Calibration
-**不要信任 worker 的报告——独立验证一切。** Worker 可能遗漏了失败的边界情况、跳过了困难的 acceptance criteria、或报告了实际未通过的测试。你的 review 必须基于代码事实，不是 worker 的自述。
-
-只标记会导致实际问题的 issue。实现者做出错误的东西或卡住——这是 issue。
+**不要信任 worker 的报告——独立验证一切。**
+只标记会导致实际问题的 issue。
 措辞、风格偏好、nice-to-have 建议——不是。
-除非有严重缺口（spec 不符、合同破损、测试不覆盖核心行为、引入安全风险），否则 approve。
+除非有严重缺口，否则 approve。
 
 ## Return Contract
 ### Verdict
 pass / blocked / needs repair / needs context
 ### Evidence
 ### Result
-Pack Review 结果：
+Plan Implementation Review 结果：
 Spec compliance:
 Code quality:
+Cross-pack coherence:
 Contract & risk:
 Critical:
+  - [Pack N.M] <finding>
 Important:
+  - [Pack N.M] <finding>
+Affected packs:
 低置信度观察:
 Disposition required:
 ### Verification
 ### Open Items
 ```
+
+Plan Implementation Review finding 必须标注 `[Pack N.M]` 归属。`Affected packs` 字段列出所有涉及 finding 的 Pack 编号，Coordinator 据此路由 repair。

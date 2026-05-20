@@ -43,7 +43,7 @@ Coordinator 列出 `docs/orchestrate/issues/<slug>/` 目录下的所有大 issue
 
 ## Steps 11-12a：Plan Entry Gate + Task Pack Inventory Gate + Budget 赋值
 
-**Read** `references/plan-gates.md`（对 `plans/<slug>/` 下所有 plan 文件做 gate 检查 + budget_total 首次赋值 `2N + 12`，N = 所有 plan 的 pack 总数）。
+**Read** `references/plan-gates.md`（对 `plans/<slug>/` 下所有 plan 文件做 gate 检查 + budget_total 首次赋值 `3P + 12`，P = plan 文件总数）。
 
 ## Steps 13-14：Plan Review
 

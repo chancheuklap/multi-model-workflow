@@ -23,6 +23,26 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/cleanup-before-push.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforce-pack-commit.sh\"",
+            "if": "Bash(git commit *)"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/validate-pack-dispatch.sh\"",
+            "if": "Agent(pack-executor*)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/validate-pack-dispatch.sh\"",
+            "if": "Agent(complex-pack-executor*)"
           }
         ]
       }
@@ -35,6 +55,12 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/track-review-budget.sh\"",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/track-execution-state.sh\"",
+            "if": "Bash(git commit *)",
+            "timeout": 10
           }
         ]
       }
@@ -45,7 +71,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '[multi-model-workflow] Coding agent completed. Next: read the review dispatch reference for this phase and follow the inline Codex review steps.' >&2; exit 0"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-handler.sh\"",
+            "timeout": 10
           }
         ]
       }

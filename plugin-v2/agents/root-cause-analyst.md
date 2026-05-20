@@ -101,7 +101,7 @@ color: red
 
 Worker 修了两轮，reviewer 仍报 needs repair。Dispatch prompt 包含：前两轮的 accepted findings、worker 的修复尝试、diff scope、原 pack brief。
 
-此模式同时用于 **Execution Pack Review 截断**和 **Final Review 截断**。Final Review 场景额外提供 source design / plan / affected packs 上下文，调查时应关注跨 pack 交互维度。
+此模式同时用于 **Plan Implementation Review 截断**和 **Final Review 截断**。Final Review 场景额外提供 source design / plan / affected packs 上下文，调查时应关注跨 Plan 交互维度。
 
 1. 读 dispatch prompt 中的 findings 和修复历史——理解 worker 尝试了什么、为什么没解决。
 2. **不要重复 worker 的方法。** Worker 已经试过两轮，你需要从不同维度切入。

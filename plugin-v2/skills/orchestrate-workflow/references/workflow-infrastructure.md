@@ -36,8 +36,8 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 | Design doc 在 Design Review 后被修改 | 重新进入 Design Review |
 | Plan 存在 + Design Review 通过 + design 未变 | orchestrate-plan-writing（Plan Review 阶段） |
 | Plan 在 Plan Review 后被修改 | 重新进入 Plan Review |
-| Packs 部分完成 + plan 未变 | orchestrate-execution（从上次完成的 pack 继续） |
-| 所有 packs 完成 + 代码未变 | orchestrate-final-review |
+| Packs 部分完成 + plan 未变 | orchestrate-execution（读 execution-state file 确定从哪个 Plan/Pack 继续） |
+| 所有 Plans 通过 Plan Implementation Review + 代码未变 | orchestrate-final-review |
 | Final Review 通过 | Closing（Step 21） |
 
 ### 3c：恢复 Infrastructure
@@ -138,7 +138,7 @@ docs/orchestrate/
 }
 ```
 
-`budget_total` 在 plan-writing Step 12a 按 `2N + 12` 更新，此后**不可变**——执行阶段、Final Review 阶段均不得修改 `budget_total` 或 `pack_count`。如果执行阶段发现 pack 数与 budget file 不一致，返回 `NEEDS_PLAN_REVISION`，不得静默更新。Bug / Multi-PR route 不创建 budget file。
+`budget_total` 在 plan-writing Step 12a 按 `3P + 12`（P = plan 文件数）更新，此后**不可变**——执行阶段、Final Review 阶段均不得修改 `budget_total` 或 `pack_count`。如果执行阶段发现 pack 数与 budget file 不一致，返回 `NEEDS_PLAN_REVISION`，不得静默更新。Bug / Multi-PR route 不创建 budget file。
 
 ---
 

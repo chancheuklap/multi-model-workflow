@@ -1,14 +1,14 @@
 ---
 name: orchestrate-final-review
-description: "EXECUTION_PASSED 后使用。增强型 Codex 审查（regression + intent coverage + cross-pack + code-level）→ Disposition → 修复 → 遗留清扫 → Release Gate → 业务汇报。产出：verdict + business report。"
+description: "EXECUTION_PASSED 后使用。增强型 Codex 审查（regression + intent coverage + cross-plan integration + code-level）→ Disposition → 修复 → 遗留清扫 → Release Gate → 业务汇报。产出：verdict + business report。"
 ---
 
 # Orchestrate Final Review
 
-所有 pack 通过 Pack Review + Git Checkpoint 后进入。验证整体实现是否满足 design intent，清扫所有遗留尾巴，评估发布风险，向用户汇报业务结果，返回 verdict 给 orchestrate-workflow 执行 Closing。
+所有 Plan 通过 Plan Implementation Review 后进入。验证整体实现是否满足 design intent，清扫所有遗留尾巴，评估发布风险，向用户汇报业务结果，返回 verdict 给 orchestrate-workflow 执行 Closing。
 
 **两大职责**：
-1. **意图验证**：检查落地的代码是否偏离了设计文档、计划文档和 Issue 文档。Pack Review 验证每个 pack 自身——Final Review 验证所有 pack 合在一起是否实现了设计的完整意图。
+1. **意图验证**：检查落地的代码是否偏离了设计文档、计划文档和 Issue 文档。Plan Implementation Review 验证每个 Plan 内部——Final Review 验证所有 Plan 合在一起是否实现了设计的完整意图。
 2. **清扫遗留尾巴**：Coding Worker 经常因为 "Out of Scope" 或 "非阻塞项" 把东西搁置。Final Review 要全部揪出来、全部解决掉。项目中不存在 "非阻塞项" 这种概念。
 
 **Final Review 不做 Closing**——不 cleanup budget/scope/active-run-id，不 commit，不 push，不 PR。这些是 orchestrate-workflow Closing（Steps 21-24）的职责。Final Review 以 verdict 返回结束。
@@ -21,7 +21,7 @@ description: "EXECUTION_PASSED 后使用。增强型 Codex 审查（regression +
 
 ## Steps 4-5：增强型审查派发
 
-→ `references/final-review-angles.md`（与 Pack Review 分工 + 2 baseline Codex dispatch templates）
+→ `references/final-review-angles.md`（与 Plan Implementation Review 分工 + 2 baseline Codex dispatch templates）
 
 ## Steps 6-8：接收 + Disposition
 
@@ -58,7 +58,7 @@ NEEDS_EXECUTION | NEEDS_DISCOVERY | NEEDS_PLAN_REVISION | BLOCKED
 ### Baseline 1 result
 Regression Sweep:
 Intent Coverage: X / Y intents covered
-Cross-Pack Audit:
+Cross-Plan Integration:
 Critical findings: <count>
 
 ### Baseline 2 result

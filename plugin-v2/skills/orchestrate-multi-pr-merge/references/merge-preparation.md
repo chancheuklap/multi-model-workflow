@@ -15,7 +15,7 @@ Multi-PR Merge 的前提是所有参与合并的 PR 都来自同一个大设计/
 | **大 Issue 层级** | 各 PR 对应哪些 Issue，Issue 间的依赖和优先级 |
 | **各 PR 的小文档** | 每个 PR 自己的 design doc / plan / issue / PR description |
 | **各 PR 的代码变更** | `gh pr diff <number>` 或 `git diff main...<branch>` 获取每个 PR 的 diff |
-| **各 PR 的 review 记录** | 每个 PR 的 Pack Review / Final Review verdict 和 findings |
+| **各 PR 的 review 记录** | 每个 PR 的 Plan Implementation Review / Final Review verdict 和 findings |
 
 ## Step 2：建立"合并后正确状态"的理解
 
