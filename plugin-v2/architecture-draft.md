@@ -484,13 +484,13 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 
 ### Hooks（5 个）
 
-| 事件 | Matcher | 做什么 | 状态 |
-|------|---------|--------|------|
-| `SessionStart` | `startup\|clear\|compact` | `session-start.sh`：注入行为覆盖规则 | ✅ 正常 |
-| `PreToolUse` | `Bash` | `guard-premature-push.sh`：阻止未完成时 push/PR | ✅ 正常 |
-| `PreToolUse` | `Bash` | `cleanup-before-push.sh`：push 前清理 `.claude/multi-model-workflow/` | ✅ 正常 |
-| `PostToolUse` | `Bash` | `track-review-budget.sh`：检测 codex-companion result 命令，自动递增 budget_used，80%/100% 阈值警告 | ✅ 正常 |
-| `SubagentStop` | `pack-executor\|complex-pack-executor` | 提醒 Coordinator 派发 Codex review | ✅ 正常 |
+| 事件 | Matcher | 做什么 | 强制行为 |
+|------|---------|--------|---------|
+| `SessionStart` | `startup\|clear\|compact` | `session-start.sh`：注入行为覆盖规则 | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 未设置 → exit 2（阻断会话）。注入 compaction recovery 规则（"进入任何 phase 前 re-read scope contract"）的唯一入口 |
+| `PreToolUse` | `Bash` | `guard-premature-push.sh`：阻止未完成时 push/PR | ① plan 文件有未勾选 task（`- [ ]`）→ 阻止 `git push` / `gh pr create`　② 无条件阻止 `git merge --squash` / `git rebase` |
+| `PreToolUse` | `Bash` | `cleanup-before-push.sh`：push 前清理 `.claude/multi-model-workflow/` | guard 放行后执行。删除整个 `.claude/multi-model-workflow/` 目录（active-run-id + budget + scope + review 临时文件）。拒绝删除符号链接。**唯一清理机制**——skill 流程中无显式清理步骤 |
+| `PostToolUse` | `Bash` | `track-review-budget.sh`：budget 自动追踪 | 检测 Bash 输出含 `codex-companion` + `result` 且 exit 0 → 递增 `budget_used` + 追加 `dispatches[]` 时间戳。80% → Direction Check 警告；100% → BUDGET EXHAUSTED（均通过 `additionalContext` 注入 Coordinator 上下文） |
+| `SubagentStop` | `pack-executor\|complex-pack-executor` | 提醒 Coordinator 派发 Codex review | 软提醒（stderr），非阻断 |
 
 ### 外部 Skill
 
@@ -524,6 +524,149 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 
 ---
 
+## Review 派发机制
+
+所有 review 通过 codex 插件的 `codex-companion.mjs` 脚本派发（不使用独立 reviewer agent）。每次 dispatch 固定四步：
+
+```
+1. 定位脚本    find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs" | head -1
+2. 提交任务    node "$CODEX_SCRIPT" task --background --prompt-file <path> --model gpt-5.4 --effort xhigh → JOB_ID
+3. 等待完成    node "$CODEX_SCRIPT" status <JOB_ID> --wait --timeout-ms 600000（run_in_background）
+4. 取回结果    node "$CODEX_SCRIPT" result <JOB_ID> → 写入 review-results/<gate>.md
+```
+
+Budget 计数器在 Step 4 触发（`track-review-budget.sh` 检测 `result` 命令成功执行），不在 Step 2。600 秒超时是单次 review 的硬上限。
+
+### Disposition 表（全 phase 通用）
+
+Coordinator **不是传话筒**——必须亲验每条 finding（读代码、跑测试、对照 source artifacts）后才给 disposition：
+
+| Disposition | 行为 |
+|------------|------|
+| `accepted` | 进入修复流程（Pack Review → worker 修；Plan Review → 4 种子路由见下） |
+| `rejected` | 附技术理由，finding 不进入修复 |
+| `needs evidence` | 派 `code-explorer` / `complex-code-explorer` 子调查 → `confirmed / refuted / partially confirmed` → 再定 disposition |
+| `duplicate or already covered` | 标记 |
+| `out of scope` | 开 GitHub Issue（Durable Handoff Brief 格式） |
+| `needs evaluation` | Coordinator 评估后归入其他 disposition |
+| `user decision` | 暂停，询问用户 |
+
+**Plan Review `accepted` 的四种子路由**：`plan repair`（Coordinator 或 plan-writer 直接修）· `design gap`（回流 Discovery）· `issue-plan mismatch`（调 to-issues）· `architecture friction`（调 improve-codebase-architecture）。
+
+---
+
+## 修复截断规则
+
+所有修复循环（Pack Review / Final Review / Multi-PR）共享同一截断模式：
+
+```
+Round 1-2：三路分流
+  Path A — Coordinator 直接修复（≤ 2 文件）
+  Path B — Worker 修复（SendMessage 原 worker 或新建 dispatch）
+  Path C — code-explorer 只读调查（根因不明时）
+  → Targeted Re-Review
+
+Round 3（截断轮）：
+  停止 worker 循环 → 派 root-cause-analyst（带前 2 轮完整上下文）
+  RCA 五种结论：
+    fixed                     → Targeted Re-Review
+    root cause found not fixed → worker 按 RCA 结论修复
+    root cause in design/plan → 回流 Discovery（创建 bug seed file）
+    unable to reproduce       → 降级为 non-blocking + 开 GitHub Issue
+    unable to determine       → BLOCKED
+
+Round 3 Re-Review 仍 needs repair → BLOCKED
+```
+
+**Final Review → Execution 回流**：`execution_reflux_count`（budget file 字段，初始 0）。允许回流 1 次（increment → 1）；第 2 次 → BLOCKED。防止无限 Final Review ↔ Execution 循环。
+
+---
+
+## Budget 预算分配
+
+### 公式 `2N + 12`
+
+N = 所有 plan 中 Task Pack 总数。`budget_total` 在 plan-writing Step 12a **首次且唯一赋值**，执行阶段不可变。
+
+### +12 的分配
+
+| 预留 | 数量 | 用途 |
+|------|------|------|
+| Design Review | 2 | 2 baseline（Design Content + Project Alignment） |
+| Plan Review | 1 | 1 baseline |
+| Final Review | 2 | 2 baseline（Regression+Intent+Cross-Pack / Code-level） |
+| Release Gate | 2 | Early Release Gate + Final Release Gate（共享，合计 ≤ 2） |
+| 修复余量 | 5 | pack repair re-review + final repair re-review |
+
+### Discovery 独立预算
+
+Design Review 在 `2N+12` 赋值之前执行，使用独立计数器 `discovery_used`（非 `budget_used`），上限 4 dispatch（2 baseline + 2 repair headroom）。
+
+### 三级耗尽行为
+
+| 阈值 | 行为 |
+|------|------|
+| `budget_used ≥ 80%` | Direction Check：Coordinator 汇报当前进度 + 剩余 pack + 累计 findings，确认是否继续 |
+| 下一动作将超 `budget_total` | 停止 dispatch，请求用户授权追加预算或简化 |
+| `budget_used ≥ budget_total` | 硬停。Hook 输出 BUDGET EXHAUSTED |
+
+Budget **不因 phase 回流而重置**。Plan revision 改变 pack_count 时必须回到 plan-writing Step 12a 重算。
+
+---
+
+## Scope Contract 完整字段
+
+```markdown
+# Scope Contract: <run_id>
+
+## Feature slug
+YYYY-MM-DD-<feature>
+
+## Source artifacts
+<用户提供的文档 / tracker / diff — 只读参考>
+
+## Editable artifacts
+- Design: docs/orchestrate/design/<slug>.md
+- Plans: docs/orchestrate/plans/<slug>/
+- Issues: docs/orchestrate/issues/<slug>/
+- Mockups: docs/orchestrate/mockups/<slug>/        （UI 项目）
+
+## Read-only context
+<相关 issue / ADR / 代码 / runbook — sub-agent 可读不可改>
+
+## Out of scope
+<明确排除的相关内容 — reviewer 提及也不授权修改>
+```
+
+**Editable vs Read-only 的区别是 sub-agent 的写权限边界**：worker 修改的文件必须在 Editable artifacts 中，否则 execution preparation 返回 `NEEDS_PLAN_REVISION`。Out of scope 用于阻止 reviewer scope creep。Feature slug 确定后不可变。
+
+---
+
+## 跨会话恢复
+
+恢复会话时不是"从上次停的地方继续"，而是检查 source artifact 是否在上次 gate 之后被修改过：
+
+```bash
+git log --oneline --since="<last_gate_timestamp>" -- \
+  "docs/orchestrate/design/${SLUG}.md" \
+  "docs/orchestrate/plans/${SLUG}/" \
+  "docs/orchestrate/issues/${SLUG}/"
+```
+
+- Source artifact 在 gate 后有改动 → **重新进入对应 gate review**（不跳过）
+- `active-run-id` 对应的 budget file 超过 1 小时未更新 → 视为 stale，允许新 run 覆盖
+- SessionStart hook 注入的 compaction recovery 规则：进入任何 phase 前必须 re-read `scope-<run_id>.md`
+
+---
+
+## Bug Seed File 与设计级别升级
+
+`root-cause-analyst` 返回 `root cause in design/plan` 时不直接回 Discovery，而是：
+
+1. 创建 `.claude/multi-model-workflow/bug-seed-<run_id>.md`（结构化摘要：原始 bug · analyst findings · root cause · 受影响模块 · 排除假设 · 建议设计变更）
+2. 更新 Scope Contract：bug seed 加入 Source artifacts，design/plan 加入 Editable artifacts
+3. 创建 Budget File
+4. 以 seed file 作为 Discovery 上下文进入 Route 1（Formal Orchestrate）
 
 ---
 
@@ -532,22 +675,30 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 - **渐进式加载**：SKILL.md 是骨架；reference 到达步骤时才读取
 - **Sub-agent 隔离**：dispatch prompt 自足；sub-agent 不读 SKILL.md / references
 - **Agent 定义 = 行为权威**：TDD、自检、scope 边界等通用规则写 agent 定义，dispatch template 只写场景信息
-- **Reviewer 独立验证**：所有 Calibration 包含"不信任上游报告"
-- **合并策略铁律**：只用 `git merge --no-ff`，禁止 squash merge 和 rebase（`guard-premature-push.sh` 强制）
-- **Review 预算**：`2N + 12`（N = pack 数）。Budget 自动追踪（PostToolUse hook）
+- **Reviewer 独立验证**：所有 Calibration 包含"不信任上游报告"；Coordinator 亲验后才给 disposition
+- **合并策略铁律**：只用 `git merge --no-ff`，禁止 squash merge 和 rebase（`guard-premature-push.sh` 进程级强制）
+- **Review 预算**：`2N + 12`（N = pack 数），Discovery 有独立 4-dispatch 预算。三级耗尽（80% Direction Check → 溢出停派 → 100% 硬停）
+- **修复截断**：所有修复循环 3 轮封顶（2 轮 A/B/C + 1 轮 RCA），超出 → BLOCKED
+- **回流守卫**：Final Review → Execution 回流最多 1 次（`execution_reflux_count`）
+- **跨会话稳定性**：恢复时检查 source artifact 是否在 gate 后被修改——有改动则重进 gate review
 - **`AGENT_TEAMS` 硬依赖**：`session-start.sh` 阻断未设置 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 的会话
+- **Worker scope 漂移检测**：worker 修改了 Owned files 之外的文件 → 当前 scope 内的保留，scope 外的回滚
 
 ---
 
 ## 设计决策
 
 - Bug 路线不走 Final Review——`bug-investigation-route.md` Step 17/18 → Closing
+- Bug RCA 发现设计问题 → 不直接回 Discovery，先创建 bug seed file 再以 seed 进入 Route 1
 - 文档阶段线性不回流——Discovery → Design Review → to-issues → Plan Writing → Plan Review，各一轮 review + 修复
-- Release Review 最多两次——Execution Early Release Gate + Final Release Gate，合计 ≤ 2 dispatch
-- Coding Worker 无"非阻塞项"——要么当场修，要么开 GitHub Issue
+- Release Review 最多两次——Execution Early Release Gate + Final Release Gate，共享 ≤ 2 dispatch 配额
+- Coding Worker 无"非阻塞项"——要么当场修，要么开 GitHub Issue（Durable Handoff Brief 格式）
+- Worker Open Items 在 Pack Review **之前**处理——`[out-of-scope]` 立即开 issue，`[needs-evaluation]` Coordinator 评估归类
 - Closing 积极主动——提交 + 推送 + PR 自动执行，`guard-premature-push.sh` 确保完成后才放行
-- Review 无独立 agent——不用 `code-reviewer` / `release-reviewer`，全部通过 `codex-companion.mjs` Bash 调用
+- Review 无独立 agent——全部通过 `codex-companion.mjs` 四步协议（submit → poll → result → budget hook）
 - Budget 由 PostToolUse hook 自动追踪——prompt 写入 `review-prompts/<gate>.md`，结果存 `review-results/<gate>.md`
+- Pre-dispatch Context Transfer 强制——每个 pack dispatch 前必须从磁盘 re-read plan（防 compaction 后信息丢失）；Pack Brief 不允许"见 plan"等间接引用
+- Direct Repair mini-route 不创建 Budget File——已有 approved design 的实现偏差走单 worker + 1 review + ≤ 2 repair
 
 ---
 
