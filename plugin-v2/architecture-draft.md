@@ -584,20 +584,6 @@ Coordinator **不是传话筒**——必须亲验每条 finding（读代码、�
 
 **修复方向**：文件名加 `-round-N` 后缀（如 `final-review-re-review-round-1.md`）。
 
-#### 🟧 `CODEX_SCRIPT` 定位静默失败
-
-`find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs" | head -1` 在 codex 插件未安装时返回空字符串。后续 `node "$CODEX_SCRIPT" task ...` 静默失败（exit code ≠ 0）。`track-review-budget.sh` 不递增 budget（因 exit_code ≠ 0），但 Coordinator 也收不到 review 结果——可能把空结果当成 `pass` 或死循环等待。
-
-**修复方向**：Step 1 后检查 `CODEX_SCRIPT` 非空，否则报错退出。
-
-#### 🟧 Discovery 预算与全局预算重叠计数
-
-Discovery Design Review 用 `discovery_used`（上限 4）做 per-phase cap。但 `track-review-budget.sh` 不知道 `discovery_used`——它在每次 `result` 成功时无条件递增 `budget_used`。所以 Discovery 的 2-4 次 dispatch **同时**递增了 `budget_used` 和 `discovery_used`。
-
-当 `budget_total = 2N + 12` 在 plan-writing Step 12a 赋值时，`budget_used` 已经 > 0（Discovery 已消耗 2-4）。+12 余量中实际可用的修复空间比文档暗示的少 2-4。
-
-> 注：上方「Budget 预算分配」中 Design Review 的 2 dispatch 预留应理解为"已消耗"，不是"额外配额"。
-
 ---
 
 ## 修复截断规则
@@ -637,15 +623,13 @@ N = 所有 plan 中 Task Pack 总数。`budget_total` 在 plan-writing Step 12a 
 
 | 预留 | 数量 | 用途 |
 |------|------|------|
-| Design Review（已消耗） | 2-4 | 2 baseline + 最多 2 repair。在 `budget_total` 赋值前已发生，赋值时 `budget_used` 已 > 0 |
+| Design Review | 2-4 | 2 baseline + 最多 2 repair |
 | Plan Review | 1 | 1 baseline |
 | Final Review | 2 | 2 baseline（Regression+Intent+Cross-Pack / Code-level） |
 | Release Gate | 2 | Early Release Gate + Final Release Gate（共享，合计 ≤ 2） |
-| 修复余量 | 3-5 | pack repair re-review + final repair re-review（Discovery 多消耗则此处缩减） |
+| 修复余量 | 3-5 | pack repair re-review + final repair re-review |
 
-### Discovery 预算机制
-
-Design Review 在 `budget_total` 赋值之前执行。Coordinator 用独立计数器 `discovery_used`（上限 4）做 per-phase cap，但 `track-review-budget.sh` 同时递增 `budget_used`。两个计数器并行：`discovery_used` 防单 phase 失控，`budget_used` 跟踪全局消耗。当 Step 12a 赋值 `budget_total = 2N+12` 时，`budget_used` 已包含 Discovery 消耗。
+Discovery 不是例外——所有 phase 统一走 `budget_used`，由 `track-review-budget.sh` hook 递增。Discovery 阶段 `budget_total` 尚未赋值（pack_count 未知），Coordinator 用 `budget_used` 做 per-phase 上限检查（≤ 4 dispatch）。Step 12a 赋值 `budget_total = 2N+12` 时，`budget_used` 已包含 Discovery 消耗。
 
 ### 三级耗尽行为
 
