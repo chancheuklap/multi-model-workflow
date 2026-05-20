@@ -1,66 +1,47 @@
 # CLAUDE.md
 
-## 当前 Codex Source
+## 边界
 
-- `.agents/skills/orchestrate-workflow/`
-- `.agents/skills/orchestrate-discovery/`
-- `.agents/skills/orchestrate-plan-writing/`
-- `.agents/skills/orchestrate-execution/`
-- `.agents/skills/orchestrate-final-review/`
-- `.agents/skills/orchestrate-multi-pr-merge/`
-- `codex/agents/*.toml`
-- `codex/hooks/`
-- `codex/skills/`
+本仓库有两套系统。Claude Code 只管 `plugin-v2/`（当前活跃的 Claude Code Plugin 源码）。
 
-旧 Codex V1 已归档到 `archive/2026-05-20-codex-v1/`。
+**禁区**（除非用户明确指令，否则不读不改）：
+- `.agents/` — Codex skill source
+- `codex/` — Codex agent/hook/sync source
+- `archive/` — 历史归档
 
-## Runtime Pipeline
+## 架构权威
 
-```text
-Entry Gate
-  -> Discovery + Design Review
-  -> to-issues
-  -> Plan Writing + Plan Review
-  -> Execution + Pack Review + Repair + Early Release Gate
-  -> Final Review + Tail Sweep + Final Release Gate
-  -> Closing
+改动 plugin-v2 结构前必读：[`plugin-v2/architecture-draft.md`](plugin-v2/architecture-draft.md)
+
+涵盖：全局流程（三条路线）、Execution 循环、Multi-PR Merge、状态文件链、文档产物链、Review 派发机制、修复截断规则、Budget 预算、Scope Contract、跨会话恢复、组件汇总（Skill / Agent / Hook）、返回值路由表。
+
+## Plugin-v2 结构
+
+```
+plugin-v2/
+├── .claude-plugin/plugin.json   # 插件清单（版本号在这）
+├── skills/orchestrate-*/        # 六个 phase skill
+├── agents/*.md                  # 七个 sub-agent 定义
+├── hooks/                       # hooks.json + session-start.sh + track-review-budget.sh
+└── scripts/                     # guard-premature-push.sh + cleanup-before-push.sh
 ```
 
-Bug route 先派 `root_cause_analyst`。Multi-PR route 进入 `orchestrate-multi-pr-merge`。
+## 版本号同步
 
-## Runtime Rules
+改版本号时必须同时更新两处，保持一致：
+- `plugin-v2/.claude-plugin/plugin.json` → `version`
+- `.claude-plugin/marketplace.json`（仓库根目录）→ `plugins[0].version`
 
-- Runtime 文件只写可执行指令，不写迁移背景或来源说明。
-- Sub-agent dispatch 必须自足；custom agent 不依赖它看不到的 `SKILL.md` 或 reference。
-- Agent 定义是角色行为权威；dispatch template 只写本次场景信息。
-- Baseline review 用 `code_reviewer`；release-risk supplement 用 `release_reviewer`。
-- Review 通过 Codex `codex-companion.mjs` 四步协议派发，按 `orchestrate-workflow/references/external-review-lanes.md` 执行。不使用 Claude CLI、不使用 `claude -p`。
-- 运行态 scope / budget 文件在 `.codex/multi-model-workflow/`。
-- 改 Codex source 后同步 user-level runtime 并用 diff 验证。
-
-## Sync
+## 验证
 
 ```bash
-bash codex/skills/install-orchestrate-runtime.sh --user --apply
-bash codex/agents/sync-agents.sh --apply --update-config
-bash codex/hooks/install-hooks.sh --apply
+# plugin.json 格式
+python3 -m json.tool plugin-v2/.claude-plugin/plugin.json >/dev/null
+
+# hooks.json 格式
+python3 -m json.tool plugin-v2/hooks/hooks.json >/dev/null
+
+# 版本号一致性
+diff <(jq -r .version plugin-v2/.claude-plugin/plugin.json) \
+     <(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)
 ```
-
-## Verification
-
-```bash
-bash -n codex/skills/install-orchestrate-runtime.sh
-bash -n codex/agents/sync-agents.sh
-bash -n codex/hooks/install-hooks.sh
-bash -n codex/hooks/cleanup-run-state.sh
-python3 -m json.tool codex/hooks/hooks.json >/dev/null
-rg -n "codex-rescue|SendMessage|Agent tool|CLAUDE_PLUGIN_ROOT|\\.claude/multi-model-workflow" .agents/skills codex
-```
-
-## Historical Sources
-
-- `plugin-v2/` is the Claude Code Plugin V2 source that shaped the current Codex runtime.
-- `plugin/` is the older Claude plugin compatibility tree.
-- `archive/2026-05-20-codex-v1/` preserves the previous Codex source.
-
-Do not use historical sources to infer live Codex behavior.
