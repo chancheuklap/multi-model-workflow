@@ -8,7 +8,7 @@ description: |
   <example>Plan 结构不满足规范，coordinator 要求按 findings 重写部分章节</example>
   Do NOT use for: pre-condition checking / routing (coordinator handles), plan review (dispatched to Codex), code execution (use pack-executor/complex-pack-executor), investigation (use code-explorer/root-cause-analyst), issue splitting (use to-issues).
 model: claude-opus-4-7[1m]
-effort: high
+effort: xhigh
 tools:
   - Read
   - Edit
