@@ -99,7 +99,7 @@ Explorer 返回后路由：
 | Root cause found + 推荐路径 B | 派 Worker 修复 → Step 11 |
 | Root cause not found | 报告用户，附 explorer 已排除路径 |
 
-**快速判定**：≤ 2 文件 + 意图明确 → A；缺 migration / consumer 同步 / 测试 → B；行为异常原因不明 → C；涉及 migration / billing / permission / runtime / shared contract → B（用 complex-pack-executor）；涉及多个 pack 的系统性问题 → `NEEDS_EXECUTION`（最多触发 1 次；第 2 次 → BLOCKED 报告用户）。
+**快速判定**：≤ 2 文件 + 意图明确 → A；缺 migration / consumer 同步 / 测试 → B；行为异常原因不明 → C；涉及 migration / billing / permission / runtime / shared contract → B（用 complex-pack-executor）；涉及多个 pack 的系统性问题 → `NEEDS_EXECUTION`（读 budget file `execution_reflux_count`：0 → 可回流；≥1 → BLOCKED 报告用户）。
 
 ---
 
@@ -126,58 +126,58 @@ Explorer 返回后路由：
 
 修复完成后，只重审 accepted findings 涉及的变更部分。不做 full review rerun。
 
+按以下步骤派发 Codex review（`CODEX_SCRIPT` 未定义时先执行 `CODEX_SCRIPT="$(find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs" -type f 2>/dev/null | head -1)"`）：
+1. 写 prompt → `review-prompts/final-review-repair-<round>.md`（`<round>` = 当前修复轮次 1/2/3）
+2. `node "$CODEX_SCRIPT" task --background --prompt-file .claude/multi-model-workflow/review-prompts/final-review-repair-<round>.md --model gpt-5.4 --effort xhigh` → 记录 JOB_ID，写入 `review-prompts/final-review-repair-<round>.job-id`
+3. `node "$CODEX_SCRIPT" status "$(cat .claude/multi-model-workflow/review-prompts/final-review-repair-<round>.job-id)" --wait --timeout-ms 600000`（run_in_background: true）
+4. `node "$CODEX_SCRIPT" result "$(cat .claude/multi-model-workflow/review-prompts/final-review-repair-<round>.job-id)"` → 存到 `review-results/final-review-repair-<round>.md`
+
+Compaction 恢复：有 `.job-id` 无对应 `review-results/` → 从 Step 3 继续。
+
+Review prompt 写入 `.claude/multi-model-workflow/review-prompts/final-review-repair-<round>.md`：
+
+```markdown
+## Scope
+Targeted re-review for Final Review repair.
+Only review the changes made to address the listed findings.
+
+## Original findings
+<paste accepted findings>
+
+## Repair diff
+<git diff of repair changes>
+
+## Changed files
+<repair-affected files only>
+
+## Contract anchors
+<if repair touches contract boundaries>
+
+## Review focus
+- Each accepted finding has been addressed
+- Repair does not introduce new issues
+- Verification commands pass
+
+## Calibration
+只验证修复是否解决了原始 finding。不做全面重审。
+
+## Return Contract
+### Verdict
+pass / needs repair / blocked
+### Evidence
+### Result
+Per-finding status:
+- <finding 1>: resolved / still present / new issue
+### Verification
+### Open Items
 ```
-Agent({
-  subagent_type: "codex:codex-rescue",
-  description: "Final Review targeted re-review: <finding summary>",
-  prompt: "
-    --model gpt-5.4
-    --wait
 
-    ## Scope
-    Targeted re-review for Final Review repair.
-    Only review the changes made to address the listed findings.
-
-    ## Original findings
-    <paste accepted findings>
-
-    ## Repair diff
-    <git diff of repair changes>
-
-    ## Changed files
-    <repair-affected files only>
-
-    ## Contract anchors
-    <if repair touches contract boundaries>
-
-    ## Review focus
-    - Each accepted finding has been addressed
-    - Repair does not introduce new issues
-    - Verification commands pass
-
-    ## Calibration
-    只验证修复是否解决了原始 finding。不做全面重审。
-
-    ## Return Contract
-    ### Verdict
-    pass / needs repair / blocked
-    ### Evidence
-    ### Result
-    Per-finding status:
-    - <finding 1>: resolved / still present / new issue
-    ### Verification
-    ### Open Items
-  "
-})
-```
-
-Budget 消耗 1。Budget check 同 Step 3。
 
 ---
 
-## Step 12：修复预算 + 截断
+## Step 12：修复截断
 
-**修复预算**：每个 gap 最多消耗 3 个 repair round（2 个 Worker/Coordinator round + 1 个 root-cause-analyst round）。全局 review budget 优先——Direction Check 在 80% 时触发。
+每个 gap 最多 3 个 repair round（2 个 Worker/Coordinator round + 1 个 root-cause-analyst round）。
 
 | Round | 动作 |
 | --- | --- |
@@ -238,7 +238,7 @@ Agent({
 
 Round 3 的 Targeted Re-Review 仍 needs repair → BLOCKED，报告用户附完整排查记录。
 
-**Phase 内部 review dispatch 软上限**：10（2 baseline + 最多 3 gaps × 2 rounds + analyst round + final re-review；release gate 的 2 dispatches 已包含在全局 `2N+12` 预算中）。全局 Direction Check 在 80% 时是真正的刹车。
+**Phase 内部 review dispatch 软上限**：10（2 baseline + 最多 3 gaps × 2 rounds + analyst round + final re-review）。
 
 ---
 > **下一步**：修复通过 → Step 13（`final-review-completion.md`）。BLOCKED → 返回 verdict。

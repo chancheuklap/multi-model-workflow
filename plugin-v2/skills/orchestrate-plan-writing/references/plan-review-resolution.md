@@ -4,7 +4,7 @@
 
 ## Step 15：接收 + Disposition
 
-**整体 Verdict 前置检查**：如果 reviewer 返回整体 `needs context`（不是某条 finding 的 `needs evidence`），说明 reviewer 无法完成审查。Coordinator 补充 reviewer 所需的上下文后重新 dispatch（budget 消耗 +1），不进入 per-finding disposition。
+**整体 Verdict 前置检查**：如果 reviewer 返回整体 `needs context`（不是某条 finding 的 `needs evidence`），说明 reviewer 无法完成审查。Coordinator 补充 reviewer 所需的上下文后重新 dispatch，不进入 per-finding disposition。
 
 收到 finding 后，Coordinator 不是传话筒——必须亲验每条 finding 的正确性（读代码、跑测试、对照 source artifacts），然后逐条给 disposition。没有 disposition 的 finding 不能进入 repair。过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改。
 
@@ -54,14 +54,13 @@ Plan Review 三条路径：
 
 修复完成后，只重审 accepted findings 涉及的变更部分。不做 full review rerun。
 
-派发方式同 Step 14（读取 `plan-review-dispatch.md`），但 scope 缩小到：
-- changed sections（修复涉及的 plan 章节）
-- accepted findings（原 finding 是否解决）
-- 受影响 angle（coverage / compliance / cross-verification 中与修复相关的）
+派发方式同 Step 14（读取 `plan-review-dispatch.md`），但：
+- gate 名使用 `plan-review-repair-<round>`（`<round>` = 当前修复轮次 1/2），不覆盖 baseline 结果
+- scope 缩小到：changed sections（修复涉及的 plan 章节）/ accepted findings（原 finding 是否解决）/ 受影响 angle
 
-## Step 18：修复预算 + 截断
+## Step 18：修复截断
 
-**修复预算**：Plan Review 最多 **2 个 repair round**。全局 review budget 优先——Direction Check 在 80% 时触发。
+Plan Review 最多 **2 个 repair round**。
 
 | Round | 动作 |
 | --- | --- |

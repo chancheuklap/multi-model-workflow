@@ -23,15 +23,4 @@
 | 所有 pack 通过 Pack Review + Git Checkpoint | 返回 `NEEDS_EXECUTION` |
 | Source design 存在且已通过 Design Review | 返回 `NEEDS_DISCOVERY` |
 | Scope Contract 存在 | BLOCKED |
-| Budget file 存在且 budget_used < budget_total | 检查剩余预算；不足时做 Direction Check |
-
-## Step 3：Budget Check
-
-读取 `.claude/multi-model-workflow/active-run-id` 找到 budget file。Final Review 最少消耗 2 个 review dispatch（2 baseline）。
-
-- `budget_used + 2 ≤ budget_total` → 继续
-- `budget_used + 2 > budget_total` 但 `budget_used < budget_total` → Direction Check（重述当前 phase / 剩余工作 / 累计 findings / 是否继续）
-- `budget_used ≥ budget_total` → 报告用户，说明预算已用完，请求授权追加或简化
-- 达到预算的 80% → 触发 Direction Check
-
-**Direction Check**：达到预算 80% 时触发。重述当前 phase / 剩余 packs / phases / 累计 findings / disposition / plan checkbox progress。只决定下一步 owner 和 scope；不把显然该执行的 review 推回给用户。
+| Budget file 存在 | 由 `track-review-budget.sh` hook 自动追踪和警告 |

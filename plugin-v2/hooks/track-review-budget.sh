@@ -1,15 +1,34 @@
 #!/usr/bin/env bash
-# multi-model-workflow: SubagentStop hook for codex:codex-rescue
-# Increments review budget counter and emits warnings at thresholds.
-# Must exit 0 — never block agent completion.
+# PostToolUse hook for Bash tool.
+# Detects codex-companion.mjs "result" commands and auto-increments review budget.
+# Outputs budget status via additionalContext so Coordinator sees running count.
+# Must exit 0 — PostToolUse cannot block.
 
 set -euo pipefail
+
+INPUT=$(cat)
+
+COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+if [ -z "$COMMAND" ]; then
+  exit 0
+fi
+
+if ! echo "$COMMAND" | grep -qE '(codex-companion|CODEX_SCRIPT)'; then
+  exit 0
+fi
+if ! echo "$COMMAND" | grep -qw 'result'; then
+  exit 0
+fi
+
+EXIT_CODE=$(echo "$INPUT" | jq -r '.tool_response.exit_code // 0' 2>/dev/null)
+if [ "$EXIT_CODE" != "0" ]; then
+  exit 0
+fi
 
 BUDGET_DIR=".claude/multi-model-workflow"
 RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
 
 if [ ! -f "$RUN_ID_FILE" ]; then
-  echo "[multi-model-workflow] No active-run-id found. Skipping budget tracking." >&2
   exit 0
 fi
 
@@ -17,12 +36,10 @@ RUN_ID=$(cat "$RUN_ID_FILE")
 BUDGET_FILE="${BUDGET_DIR}/budget-${RUN_ID}.json"
 
 if [ ! -f "$BUDGET_FILE" ]; then
-  echo "[multi-model-workflow] Budget file not found: ${BUDGET_FILE}. Skipping." >&2
   exit 0
 fi
 
 if ! command -v jq >/dev/null 2>&1; then
-  echo "[multi-model-workflow] jq not found — budget tracking requires jq. Skipping." >&2
   exit 0
 fi
 
@@ -37,16 +54,16 @@ USED=$(jq -r '.budget_used' "$BUDGET_FILE")
 TOTAL=$(jq -r '.budget_total' "$BUDGET_FILE")
 
 if [ "$TOTAL" -eq 0 ] 2>/dev/null; then
-  echo "[multi-model-workflow] Review budget: ${USED} dispatches used (budget not yet assigned — will be set after plan-writing)." >&2
+  MSG="Review budget: ${USED} dispatches used (budget_total not yet assigned)"
 elif [ "$USED" -ge "$TOTAL" ]; then
-  echo "[multi-model-workflow] ⚠ BUDGET EXHAUSTED: ${USED}/${TOTAL} dispatches used. Stop dispatching reviews and report to user." >&2
+  MSG="⚠ BUDGET EXHAUSTED: ${USED}/${TOTAL} dispatches. Stop dispatching reviews and report to user."
+elif [ "$USED" -ge "$(( TOTAL * 80 / 100 ))" ]; then
+  MSG="⚠ DIRECTION CHECK: Review budget at ${USED}/${TOTAL} (≥80%). Confirm with user before spending more."
 else
-  THRESHOLD=$(( TOTAL * 80 / 100 ))
-  if [ "$USED" -ge "$THRESHOLD" ]; then
-    echo "[multi-model-workflow] ⚠ DIRECTION CHECK: Review budget at ${USED}/${TOTAL} (≥80%). Pause and confirm with user whether to continue spending review budget." >&2
-  else
-    echo "[multi-model-workflow] Review budget: ${USED}/${TOTAL} dispatches used." >&2
-  fi
+  MSG="Review budget: ${USED}/${TOTAL} dispatches used."
 fi
+
+jq -n --arg msg "[multi-model-workflow] $MSG" \
+  '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $msg}}'
 
 exit 0

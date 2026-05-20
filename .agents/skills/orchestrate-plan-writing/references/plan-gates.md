@@ -4,18 +4,16 @@
 
 ## Step 11：Plan Entry Gate
 
-Plan 必须包含以下字段，缺失则 needs repair（send_input plan_writer 修复）：
+**Read** `docs/orchestrate/plans/<slug>/` 目录下所有 plan 文件。每份 plan 必须包含以下字段，缺失则 needs repair（send_input 对应的 plan_writer 修复）：
+
 - Source design（path + 已 reviewed 确认）
-- Source issues（paths）
+- Source issue（path，指向对应的 issue 文件）
 - Execution owner: Orchestrate Workflow
-- Plan unit 定义
-- Completion gate
-- Source Coverage Map（每条 source intent 有对应 Task Pack）
+- Blocked by（从 issue 文件继承的大 issue 级依赖）
 - File / Responsibility Map
 - 发布风险和人工门禁表
 
-声称 issue-backed 但缺 issues → `NEEDS_ISSUES` → to-issues。
-多余 handoff owner / 非 Orchestrate Workflow 的 execution owner → needs repair。
+Plan 文件数量必须与 issue 文件数量一致。缺少对应 plan 的 issue → 该 issue 未被覆盖，返回 plan-writing 补写。
 
 ## Step 12：Task Pack Inventory Gate
 
@@ -38,7 +36,7 @@ Plan 必须包含以下字段，缺失则 needs repair（send_input plan_writer 
 
 ## Step 12a：更新 Budget File
 
-Task Pack Inventory Gate 通过后，pack_count 已确认。立即更新 budget file：
+Task Pack Inventory Gate 通过后，**汇总所有 plan 文件的 pack 数量**，pack_count = 总数。立即更新 budget file：
 
 ```json
 {
@@ -47,6 +45,6 @@ Task Pack Inventory Gate 通过后，pack_count 已确认。立即更新 budget 
 }
 ```
 
-公式推导：`(Discovery baseline: 2 + Plan-writing baseline: 1 + Pack Reviews: N + Final Review: 2) × 2 + Release gate max: 2 = 2N + 12`。
+N = 所有 plan 文件中 Task Pack 的总数。公式推导不变。
 
-**这是 budget_total 的首次有效赋值**——workflow entry gate 创建时写 0（pack_count 未知），此处确认。Workflow 在 plan-writing 返回后做确认性写入。
+**这是 budget_total 的首次有效赋值**——workflow entry gate 创建时写 0（pack_count 未知），此处确认。

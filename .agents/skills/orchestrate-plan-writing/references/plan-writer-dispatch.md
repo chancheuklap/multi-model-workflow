@@ -4,40 +4,62 @@
 
 ## Step 9：构造 Dispatch Brief
 
-Dispatch prompt 必须自足——plan_writer 通过 skills 自动加载读取方法论，但 Coordinator 仍需在 prompt 中写清所有输入 artifact 路径和上下文。
+Dispatch prompt 必须自足——plan_writer 不读 SKILL.md、不读 Coordinator 的上下文。**Coordinator 必须把 plan_writer 需要的所有信息写进 prompt**。
+
+### Step 9a：Pre-dispatch Context Transfer（强制，每个 issue 执行一次）
+
+派发当前 issue 的 plan_writer 之前，Coordinator 必须用 Read 确认以下内容在上下文中：
+
+1. **Read** Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）→ 获取 slug、run_id（首个 issue 时读取，后续复用）
+2. **Read** 设计文档（`docs/orchestrate/design/<slug>.md`）→ 提取设计摘要（首个 issue 时读取，后续复用）
+3. **Read** 当前这个 issue 文件（`docs/orchestrate/issues/<slug>/00N-<issue-slug>.md`）→ 提取 What to build、Small issues、Blocked by
+
+如果以上任何一个 Read 失败（文件不存在），停止派发，返回对应的 upstream verdict。
+
+### Step 9b：填充 Dispatch Prompt
+
+将 Step 9a 读到的内容填入以下模板。**所有 `<>` 占位符都必须替换为实际值**。每个 issue 用同一模板、不同的 issue 文件路径和内容。
 
 ```
 spawn_agent({
   agent_type: "plan_writer",
-  description: "Write implementation plan: <feature>",
+  description: "Write plan for issue 00N: <issue title>",
   prompt: "
     ## Goal
-    从 source design + issue hierarchy 写出 implementation plan。
+    为一个大 issue 写出 implementation plan。你只负责这一个 issue，不负责其他 issue。
 
     ## Feature slug
-    <YYYY-MM-DD-feature>（从 Scope Contract 读取，贯穿所有路径）
+    <填入从 Scope Contract 读取的 slug>
 
     ## Source artifacts
-    - Source design: docs/orchestrate/design/<slug>.md（已通过 Design Review）
-    - Issue hierarchy: docs/orchestrate/issues/<slug>/
-      - Large issues: docs/orchestrate/issues/<slug>/001-<slug>.md, ...
-      - Small issues: 内嵌在各大 issue 文档中
+    - Source design: docs/orchestrate/design/<slug>.md（已通过 Design Review，全局上下文）
+    - **你的 issue:** docs/orchestrate/issues/<slug>/00N-<issue-slug>.md
     - Mockups（如有）: docs/orchestrate/mockups/<slug>/
     - Scope Contract: .codex/multi-model-workflow/scope-<run_id>.md
     - AGENTS.md / CLAUDE.md: <project root>/AGENTS.md / CLAUDE.md
 
+    ## 设计摘要（Coordinator 从设计文档提取）
+    **Goal:** <从设计文档 Goal 节提取>
+    **Architecture:** <从设计文档 Architecture 节提取关键架构决策>
+    **与本 issue 相关的行为:** <只列出与当前 issue 相关的设计要点>
+
+    ## Issue 内容（Coordinator 从 issue 文件提取）
+    **Issue title:** <大 issue 标题>
+    **What to build:** <从 issue 文件的 What to build 节提取>
+    **Small issues:** <列出所有 small issue 的编号、标题和 acceptance criteria>
+    **Blocked by:** <从 issue 文件的 Blocked by 节提取>
+
     ## Plan output
-    - Plan 保存路径: docs/orchestrate/plans/<slug>.md
+    - Plan 保存路径: docs/orchestrate/plans/<slug>/00N-<issue-slug>.md
     - Execution owner: Orchestrate Workflow（必须写入 plan header）
 
     ## 补充上下文
-    - Design Review 中 reviewer 的重点建议: <paste if any>
-    - 用户偏好 / 架构决策: <paste if any>
-    - 已知 gotcha / 路径变更: <paste if any>
+    - Design Review 中 reviewer 的重点建议: <无则写「无」>
+    - 已知 gotcha / 路径变更: <无则写「无」>
 
     ## Out of scope
-    - <explicitly list what NOT to include>
-    - 不自创 issue——只消费 to-issues 产出的 issue hierarchy
+    - 其他 issue 的内容（不属于你的 scope）
+    - 不自创 issue——只消费当前 issue 文件中的 small issues
 
     ## Return contract
     ### Verdict

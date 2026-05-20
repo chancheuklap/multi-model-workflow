@@ -12,7 +12,25 @@
 
 ## Step 5：构造 Pack Brief
 
-读取 `execution-worker-dispatch.md`。Dispatch prompt 必须自足——worker 不读 SKILL.md、不读 references、不读 plan 文件。Coordinator 从 plan 中提取并在 prompt 中写全所有字段。
+### Step 5a：Pre-dispatch Context Transfer（强制）
+
+构造 Pack Brief 之前，Coordinator 必须确认以下内容在上下文中：
+
+1. **Read** 当前 pack 对应的 plan 文件（`docs/orchestrate/plans/<slug>/00N-*.md`）—— 如果上下文中没有该 plan 内容（首个 pack 或经过 compact），必须重新 Read
+2. 从该 plan 中**定位当前 pack** 的完整章节，提取所有字段：Goal behavior、Implementation tasks（全文）、Owned files、Read first、Acceptance criteria、Verification commands、Risk flags、Contract anchors、Mockup anchors、Dependencies、Out of scope
+3. 读取 `execution-worker-dispatch.md` 获取 Pack Brief 模板
+
+### Step 5b：填充 Pack Brief
+
+**将 Step 5a 提取的内容逐字段填入模板**。关键规则：
+
+- `Implementation tasks` 字段：**完整粘贴** plan 中该 pack 的所有 task 原文（包括 step 编号、文件路径、命令、expected result），不得摘要、不得省略、不得写"见 plan"
+- `Goal behavior` 字段：从 plan 中该 pack 的 Goal behavior 完整复制
+- `Acceptance criteria` 字段：从 plan 中该 pack 的 Acceptance criteria 完整复制
+- `Verification commands` 字段：从 plan 中该 pack 的 Verification commands 完整复制
+- 条件字段（Contract anchors / Mockup anchors / Dependencies 等）：plan 中有则复制，无则不写
+
+Dispatch prompt 必须自足——worker 不读 SKILL.md、不读 references、不读 plan 文件。**验证：prompt 中不得出现未替换的 `<>` 占位符、"见 plan"、"参考上文" 等间接引用。**
 
 ## Step 6：派发 Worker
 
@@ -65,15 +83,11 @@ Source: Pack <N.M> worker discovery
 
 ## Step 8：派发 Codex Reviewer
 
-读取 `execution-review-dispatch.md`。通过 `codex:codex-rescue --model gpt-5.4` 派发 1 个 baseline reviewer。
-
-**Budget check**：`budget_used + 1 ≤ budget_total`。超预算停止报告用户。
-
-**Direction Check**：达到预算 80% 时触发。重述当前 phase / 剩余 packs / 累计 findings / 是否继续。只决定下一步 owner 和 scope，不写成新审查。
+**Read** `execution-review-dispatch.md`，按其中的 Codex review 派发步骤提交。
 
 ## Step 9：接收 Review Findings + Disposition
 
-**整体 Verdict 前置检查**：如果 reviewer 返回整体 `needs context`（不是某条 finding 的 `needs evidence`），说明 reviewer 无法完成审查。Coordinator 补充 reviewer 所需的上下文后重新 dispatch（budget 消耗 +1），不进入 per-finding disposition。
+**整体 Verdict 前置检查**：如果 reviewer 返回整体 `needs context`（不是某条 finding 的 `needs evidence`），说明 reviewer 无法完成审查。Coordinator 补充 reviewer 所需的上下文后重新 dispatch，不进入 per-finding disposition。
 
 收到 finding 后，Coordinator 不是传话筒——必须亲验每条 finding 的正确性（读代码、跑测试、对照 source artifacts），然后逐条给 disposition。没有 disposition 的 finding 不能进入 repair。过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改。
 

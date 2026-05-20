@@ -1,7 +1,5 @@
 # CLAUDE.md
 
-多模型开发工作流系统。当前 Codex runtime 是主权威；Claude plugin 源只作为上游形态或兼容来源。
-
 ## 当前 Codex Source
 
 - `.agents/skills/orchestrate-workflow/`

@@ -5,7 +5,9 @@ description: "已有 reviewed design + issue hierarchy 时使用。派 plan_writ
 
 # Orchestrate Plan Writing
 
-Source design + issue hierarchy → plan_writer 产出 plan → Codex Plan Review → Git Checkpoint → 进入 Execution。
+Source design + issue hierarchy → **逐个 issue 派发 plan_writer** → 全部 plan 写完后 Codex Plan Review → Git Checkpoint → 进入 Execution。
+
+**每个大 issue 对应一份 plan 文件**。Coordinator 读取 `issues/<slug>/` 目录，逐个 issue 派发 plan_writer，每个 plan_writer 只写一份 plan。Plan 文件编号与 issue 文件编号一一对应。
 
 **plan_writer 消费说明**：plan_writer 通过 `skills: ["orchestrate-plan-writing"]` 自动加载本技能，启动后读取 `references/plan-writing-methodology.md`。
 
@@ -16,8 +18,8 @@ Source design + issue hierarchy → plan_writer 产出 plan → Codex Plan Revie
 | 条件 | 下一步 |
 | --- | --- |
 | 无已有 plan | Step 1 |
-| 已有 plan + `NEEDS_PLAN_REVISION` context | 读取 `references/plan-preconditions.md` 修订模式 → Step 11 |
-| 已有 plan + 无修订 context | Step 1（忽略旧 plan） |
+| 已有部分 plan + `NEEDS_PLAN_REVISION` context | 读取 `references/plan-preconditions.md` 修订模式 → Step 11 |
+| 已有全部 plan + 无修订 context | Step 1（忽略旧 plan） |
 
 ## Steps 1-2：前置条件
 
@@ -25,15 +27,25 @@ Source design + issue hierarchy → plan_writer 产出 plan → Codex Plan Revie
 
 ## Steps 3-8：写作方法论
 
-→ `references/plan-writing-methodology.md`（plan_writer 消费；Coordinator 按此构造 dispatch brief）
+**Read** `references/plan-writing-methodology.md`（plan_writer 消费；Coordinator 按此理解 plan 结构，为 dispatch brief 构造做准备）。
 
-## Steps 9-10：派发 plan_writer + 处理返回
+## Steps 9-10：逐 issue 派发 plan_writer + 处理返回
 
-→ `references/plan-writer-dispatch.md`（dispatch template + 9 种 verdict 路由）
+**Read** `references/plan-writer-dispatch.md` 并严格执行。
+
+Coordinator 列出 `docs/orchestrate/issues/<slug>/` 目录下的所有大 issue 文件（`001-*.md, 002-*.md, ...`），然后**逐个 issue 派发 plan_writer**：
+
+1. 按 issue 编号顺序遍历
+2. 每次派发一个 plan_writer，传入设计文档 + 当前这个 issue 文件
+3. plan_writer 写出 `docs/orchestrate/plans/<slug>/00N-<issue-slug>.md`（编号与 issue 文件对应）
+4. 处理 plan_writer 返回（verdict 路由见 dispatch 文档）
+5. 下一个 issue，直到全部完成
+
+全部 plan_writer 返回 `PLAN_CREATED` 后，进入 Step 11。任一 plan_writer 返回 upstream verdict → 按 verdict 路由处理后重新进入。
 
 ## Steps 11-12a：Plan Entry Gate + Task Pack Inventory Gate + Budget 赋值
 
-→ `references/plan-gates.md`（gate 检查条件 + budget_total 首次赋值 `2N + 12`）
+**Read** `references/plan-gates.md`（对 `plans/<slug>/` 下所有 plan 文件做 gate 检查 + budget_total 首次赋值 `2N + 12`，N = 所有 plan 的 pack 总数）。
 
 ## Steps 13-14：Plan Review
 
@@ -57,7 +69,7 @@ PLAN_CREATED | NEEDS_DISCOVERY | NEEDS_DESIGN_REVIEW | NEEDS_ISSUES |
 NEEDS_TRIAGE | NEEDS_DIAGNOSIS | NEEDS_DECISION | NEEDS_ARCHITECTURE |
 NEEDS_CONTEXT | BLOCKED
 
-### Plan path
+### Plan directory + file count
 ### Plan Review
 - Review dispatched / Findings dispositioned / Repairs applied / Rounds used
 ### Issue mapping

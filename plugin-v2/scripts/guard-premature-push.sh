@@ -30,14 +30,9 @@ if ! echo "$COMMAND" | grep -qE 'git push|gh pr create'; then
   exit 0
 fi
 
-PLAN=$(ls -t docs/orchestrate/plans/*.md 2>/dev/null | head -1)
-if [ -z "$PLAN" ]; then
-  exit 0
-fi
-
-UNCHECKED=$(grep -c '^\s*- \[ \]' "$PLAN" 2>/dev/null)
-if [ "${UNCHECKED:-0}" -gt 0 ]; then
-  echo "[multi-model-workflow] BLOCKED: Plan has ${UNCHECKED} unchecked tasks. Complete execution and review before pushing." >&2
+UNCHECKED=$(find docs/orchestrate/plans -name '*.md' -exec grep -c '^\s*- \[ \]' {} + 2>/dev/null | awk -F: '{s+=$NF} END {print s+0}')
+if [ "${UNCHECKED}" -gt 0 ]; then
+  echo "[multi-model-workflow] BLOCKED: Plans have ${UNCHECKED} unchecked tasks. Complete execution and review before pushing." >&2
   exit 2
 fi
 

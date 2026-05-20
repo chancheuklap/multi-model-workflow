@@ -64,14 +64,13 @@ Explorer 返回后路由：
 
 修复完成后，只重审 accepted findings 涉及的变更部分。不做 full review rerun。
 
-派发方式同 Step 8（读取 `execution-review-dispatch.md`），但 scope 缩小到：
-- changed files（修复涉及的文件）
-- accepted findings（原 finding 是否解决）
-- 受影响 angle（spec / quality / contract / risk 中与修复相关的）
+派发方式同 Step 8（读取 `execution-review-dispatch.md`），但：
+- gate 名使用 `pack-review-N.M-repair-<round>`（`<round>` = 当前修复轮次 1/2/3），不覆盖 baseline 结果
+- scope 缩小到：changed files（修复涉及的文件）/ accepted findings（原 finding 是否解决）/ 受影响 angle
 
-## Step 12：修复预算 + 截断
+## Step 12：修复截断
 
-每个 pack 最多 **2 Worker repair round + 1 root-cause-analyst round = 3 repair round**。全局 review budget 优先。
+每个 pack 最多 **2 Worker repair round + 1 root-cause-analyst round = 3 repair round**。
 
 | Round | 动作 |
 | --- | --- |
