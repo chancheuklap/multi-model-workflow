@@ -359,7 +359,30 @@ Disposition required:
 
 ### 设计方案：Execution State File + Hook 扩展
 
-**核心原则**：一个新状态文件 + 扩展已有 hooks，不引入新系统。所有 Execution 决策改为"从文件读"而非"从记忆取"。
+**核心原则**：
+- 一个新状态文件 + 扩展已有 hooks，不引入新系统。所有 Execution 决策改为"从文件读"而非"从记忆取"。
+- **上下游依赖的字段/文件缺失 = 拦截（exit 2）+ 指明修复方法**。不靠 WARNING。
+- **不过度设计**：Hook 只在关键决策点触发，不频繁打断 Agent 工作流。
+- **统一 I/O 格式**：全系统 hook 输出统一前缀和结构，降低 Agent 理解成本，便于后续监测。
+
+#### Hook 输出格式规范
+
+所有 hook 输出遵循统一格式：
+
+```
+[multi-model-workflow] <ACTION>: <message>. Fix: <remediation>.
+```
+
+**ACTION 枚举**（Agent 只需识别这 4 种）：
+
+| ACTION | 含义 | Hook 退出码 | Agent 行为 |
+|--------|------|------------|-----------|
+| `BLOCKED` | 上下游依赖缺失，操作被拦截 | exit 2 | 停止当前操作，按 Fix 指示补救 |
+| `STATE` | 状态已更新（自动完成，Agent 无需动作） | exit 0 | 继续工作 |
+| `NEXT` | 流程节点完成，告知下一步 | exit 0 | 按指示执行下一步 |
+| `RESUME` | Compaction 恢复，告知当前进度 | exit 0 | 从指定位置继续 |
+
+**规则**：`BLOCKED` 必须带 `Fix:`。`STATE` / `NEXT` / `RESUME` 不带。所有输出一行完成，不换行。
 
 #### 状态文件：`execution-state-<run_id>.json`
 
@@ -459,22 +482,32 @@ Return contract:
 
 #### Hook 修改清单
 
-| Hook | 事件 | 改动 | 触发条件 |
-|------|------|------|---------|
-| **`session-start.sh`** | `SessionStart` | 扩展：检测 `execution-state-*.json` → 输出当前进度概要 | 有活跃 execution state |
-| **`track-review-budget.sh`** | `PostToolUse` Bash | 扩展：检测 `codex-companion result` 且 gate 为 `plan-impl-review-N` → 写入 `plans[N].review_verdict` | Review 结果返回时 |
-| **新 hook：`track-execution-state.sh`** | `PostToolUse` Bash + `if: "Bash(git commit*)"` | 解析 commit message `Pack N.M:` 格式 → 更新 `packs[N.M].commit_sha`、`packs[N.M].status = committed`。首个 Pack 时记录 `plans[N].start_commit` | Git commit 后 |
-| **`SubagentStop` hook** | `SubagentStop` | 扩展：读 `pack-returns/<pack-id>.json` → 更新 execution state → 计算当前 Plan 完成度 → 输出精确指令 | Worker 完成时 |
-| **新 hook：`validate-pack-dispatch.sh`** | `PreToolUse` Agent + `if: "Agent(pack-executor*) OR Agent(complex-pack-executor*)"` | 检查 execution state：当前 Pack 的前置 Pack 是否已 committed → 阻止乱序 dispatch | Worker dispatch 前 |
+| Hook | 事件 | 改动 | 触发频率 | 拦截？ |
+|------|------|------|---------|--------|
+| **`session-start.sh`** | `SessionStart` | 扩展：检测 execution state → 输出 `RESUME` | 每次 startup/compact | 否 |
+| **`track-review-budget.sh`** | `PostToolUse` Bash | 扩展：Plan Impl Review result → 更新 execution state | 每次 codex result | 否 |
+| **新：`track-execution-state.sh`** | `PostToolUse` Bash + `if: "Bash(git commit*)"` | 解析 commit → 更新 pack 状态 + Plan end_commit。格式不符 → `BLOCKED` | 每次 git commit | **是**（格式不符时） |
+| **`subagent-stop-handler.sh`** | `SubagentStop` | 读 `pack-returns/<pack-id>.json` → 更新 state → 输出 `NEXT`。Return 文件缺失 → `BLOCKED` | 每次 worker 完成 | **是**（return 缺失时） |
+| **新：`validate-pack-dispatch.sh`** | `PreToolUse` Agent | 检查 start_commit 已记录 + Pack 状态为 pending。缺失 → `BLOCKED` | 每次 worker dispatch | **是** |
 
 #### Hook 详细设计
 
+##### Commit Message 硬规范
+
+Pack commit message 格式为流程合同，hook 依赖它识别 Pack commit：
+
+```
+Pack <N.M>: <title> — <summary>
+```
+
+正则：`^Pack [0-9]+\.[0-9]+: .+`。不符合此格式的 commit 在 active execution 期间被拦截。Coordinator 使用此格式；非 Pack 的 commit（design/plan repair、merge）不包含 `Pack` 前缀，hook 静默放行。
+
 ##### 1. `session-start.sh` 扩展
 
-在现有行为覆盖规则输出之后，追加 execution state 检测：
+追加 execution state 检测（输出 `RESUME`）：
 
 ```bash
-# Execution state recovery
+# === Execution state recovery（追加到现有输出之后）===
 BUDGET_DIR=".claude/multi-model-workflow"
 RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
 if [ -f "$RUN_ID_FILE" ]; then
@@ -487,35 +520,26 @@ if [ -f "$RUN_ID_FILE" ]; then
     DONE_PACKS=$(jq '[.plans[].packs | to_entries[] | select(.value.status == "committed")] | length' "$STATE_FILE")
     echo ""
     echo "# 6. Execution state recovery"
-    echo "- Current plan: ${CURRENT_PLAN} (${PLAN_STATUS})"
-    echo "- Progress: ${DONE_PACKS}/${TOTAL_PACKS} packs committed"
-    echo "- Re-read execution-state-${RUN_ID}.json before continuing"
+    echo "[multi-model-workflow] RESUME: Plan ${CURRENT_PLAN} (${PLAN_STATUS}), ${DONE_PACKS}/${TOTAL_PACKS} packs committed. Read execution-state-${RUN_ID}.json before continuing."
   fi
 fi
 ```
 
 ##### 2. `track-execution-state.sh`（新 hook）
 
+PostToolUse on Bash + `if: "Bash(git commit*)"`.
+
+两个职责：（1）识别 Pack commit → 更新 state + 输出 `STATE`；（2）active execution 期间 commit message 格式不符 → `BLOCKED`。
+
 ```bash
 #!/usr/bin/env bash
-# PostToolUse hook for Bash tool (if: "Bash(git commit*)").
-# Detects Pack commits and updates execution-state file.
+# PostToolUse hook for Bash (if: "Bash(git commit*)").
+# Tracks Pack commits in execution-state file. Enforces commit message format.
 set -euo pipefail
 
 INPUT=$(cat)
 EXIT_CODE=$(echo "$INPUT" | jq -r '.tool_response.exit_code // 0' 2>/dev/null)
 if [ "$EXIT_CODE" != "0" ]; then exit 0; fi
-
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
-STDOUT=$(echo "$INPUT" | jq -r '.tool_response.stdout // empty' 2>/dev/null)
-
-# 从 commit message 中提取 Pack ID (格式: "Pack N.M: ...")
-PACK_ID=$(echo "$COMMAND" | grep -oP 'Pack \K[0-9]+\.[0-9]+' | head -1)
-if [ -z "$PACK_ID" ]; then exit 0; fi
-
-PLAN_ID=$(echo "$PACK_ID" | cut -d. -f1)
-# 零填充 Plan ID 以匹配 state file key 格式
-PLAN_KEY=$(printf "%03d" "$PLAN_ID")
 
 BUDGET_DIR=".claude/multi-model-workflow"
 RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
@@ -525,52 +549,59 @@ RUN_ID=$(cat "$RUN_ID_FILE")
 STATE_FILE="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
 if [ ! -f "$STATE_FILE" ]; then exit 0; fi
 
+COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+
+# 提取 commit message（支持 -m "..." 和 heredoc 两种格式）
+COMMIT_MSG=$(echo "$COMMAND" | grep -oP '(?<=-m\s")[^"]+' | head -1)
+if [ -z "$COMMIT_MSG" ]; then
+  COMMIT_MSG=$(echo "$COMMAND" | grep -oP '(?<=-m\s'"'"')[^'"'"']+' | head -1)
+fi
+
+# 非 Pack commit（design repair / plan repair / merge）→ 静默放行
+if [ -z "$COMMIT_MSG" ] || ! echo "$COMMIT_MSG" | grep -qiP '^Pack\b'; then
+  exit 0
+fi
+
+# 是 Pack commit → 格式必须严格匹配
+PACK_ID=$(echo "$COMMIT_MSG" | grep -oP '^Pack \K[0-9]+\.[0-9]+' | head -1)
+if [ -z "$PACK_ID" ]; then
+  echo "[multi-model-workflow] BLOCKED: Commit message starts with 'Pack' but format is invalid. Fix: use 'Pack N.M: <title> — <summary>'." >&2
+  exit 2
+fi
+
+PLAN_ID=$(echo "$PACK_ID" | cut -d. -f1)
+PLAN_KEY=$(printf "%03d" "$PLAN_ID")
 COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
-# 更新 pack status 和 commit_sha
+# 更新 execution state：pack status + end_commit
 jq --arg plan "$PLAN_KEY" --arg pack "$PACK_ID" --arg sha "$COMMIT_SHA" '
   .plans[$plan].packs[$pack].status = "committed" |
   .plans[$plan].packs[$pack].commit_sha = $sha |
-  # 如果是该 Plan 的首个 commit，记录 start_commit
-  if .plans[$plan].start_commit == null then
-    .plans[$plan].start_commit = $sha
-  else . end |
-  # 更新 end_commit
   .plans[$plan].end_commit = $sha
 ' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
 
-# 计算进度
 DONE=$(jq --arg plan "$PLAN_KEY" '[.plans[$plan].packs | to_entries[] | select(.value.status == "committed")] | length' "$STATE_FILE")
 TOTAL=$(jq --arg plan "$PLAN_KEY" '.plans[$plan].expected_pack_ids | length' "$STATE_FILE")
 
-jq -n --arg msg "[multi-model-workflow] Pack ${PACK_ID} committed (${DONE}/${TOTAL} in Plan ${PLAN_KEY})." \
+jq -n --arg msg "[multi-model-workflow] STATE: Pack ${PACK_ID} committed (${DONE}/${TOTAL} in Plan ${PLAN_KEY})." \
   '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $msg}}'
 exit 0
 ```
 
-**start_commit 逻辑说明**：首个 Pack commit 时 `plans[N].start_commit` 为 null，hook 将其设为该 commit 的 SHA。但这记录的是"首次 commit 后的 SHA"，而非"首次 commit 前的 SHA"。Review diff 需要的是"Plan 开始前的状态"。
+**注意**：此 hook 是 PostToolUse（commit 已执行后触发）。如果格式不符合，commit 已经生效——`BLOCKED` + exit 2 在此处的作用是**阻止后续操作并要求修正**（`git commit --amend` 修正消息），而非阻止 commit 本身。如果需要阻止 commit 本身，需要用 PreToolUse。但 `git commit --amend` 修正消息比 PreToolUse 拦截 + 重试的体验更顺畅。
 
-**修正**：`start_commit` 应在 Plan 进入 `in_progress` 时记录（`execution-preparation.md` 中 Coordinator 开始执行该 Plan 前）。Hook 只负责更新 `end_commit`。因此 `start_commit` 的写入时机是：
+**start_commit**：由 Coordinator 在开始执行 Plan 前写入（`execution-preparation.md`），不由 hook 写入——因为 start_commit 需要的是"第一个 Pack commit 之前"的 SHA，hook 触发时 commit 已完成。
 
-```
-Coordinator 开始 Plan N 的第一个 Pack dispatch 之前：
-  git rev-parse HEAD → 写入 plans[N].start_commit
-  plans[N].status = in_progress
-```
+##### 3. `subagent-stop-handler.sh`（替代原有 echo）
 
-这一步写入 SKILL reference（`execution-preparation.md`），不靠 hook——因为它发生在 dispatch 之前，hook 无法提前触发。
-
-##### 3. `SubagentStop` hook 扩展
+读取 Worker 的 durable return → 更新 execution state → 告知下一步。缺 return 文件 → `BLOCKED`。
 
 ```bash
-# 替换当前的纯 echo 消息
 #!/usr/bin/env bash
 set -euo pipefail
 
 INPUT=$(cat)
 AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null)
-
-# 只处理 coding worker
 if ! echo "$AGENT_TYPE" | grep -qE 'pack-executor|complex-pack-executor'; then
   exit 0
 fi
@@ -578,67 +609,83 @@ fi
 BUDGET_DIR=".claude/multi-model-workflow"
 RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
 if [ ! -f "$RUN_ID_FILE" ]; then
-  echo "[multi-model-workflow] Coding agent completed. No active run — cannot determine next step." >&2
-  exit 0
+  echo "[multi-model-workflow] BLOCKED: Coding agent completed but no active-run-id found. Fix: verify .claude/multi-model-workflow/active-run-id exists." >&2
+  exit 2
 fi
 
 RUN_ID=$(cat "$RUN_ID_FILE")
 STATE_FILE="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
 if [ ! -f "$STATE_FILE" ]; then
-  echo "[multi-model-workflow] Coding agent completed. No execution state file — read execution-preparation.md." >&2
-  exit 0
+  echo "[multi-model-workflow] BLOCKED: Coding agent completed but no execution-state file. Fix: run execution-preparation.md to create execution-state-${RUN_ID}.json." >&2
+  exit 2
 fi
 
-# 读取 worker 的 durable return（如果存在）
 AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null)
 CURRENT_PLAN=$(jq -r '.current_plan_id' "$STATE_FILE")
 
-# 在 pack-returns/ 中查找该 agent 对应的 pack return
+# 查找该 worker 的 durable return（文件名 = pack-id.json）
+RETURN_DIR="${BUDGET_DIR}/pack-returns"
 RETURN_FILE=""
-for f in "${BUDGET_DIR}/pack-returns/"*.json; do
-  [ -f "$f" ] || continue
-  RETURN_FILE="$f"
-  break  # 处理最新的未消费 return
-done
+PACK_ID=""
+VERDICT=""
 
-if [ -n "$RETURN_FILE" ]; then
-  PACK_ID=$(jq -r '.pack_id' "$RETURN_FILE")
-  VERDICT=$(jq -r '.verdict' "$RETURN_FILE")
-  
-  # 更新 execution state
-  PLAN_KEY=$(printf "%03d" "$(echo "$PACK_ID" | cut -d. -f1)")
-  jq --arg plan "$PLAN_KEY" --arg pack "$PACK_ID" --arg verdict "$VERDICT" --arg agent "$AGENT_ID" '
-    .plans[$plan].packs[$pack].worker_verdict = $verdict |
-    .plans[$plan].packs[$pack].agent_id = $agent |
-    .plans[$plan].packs[$pack].status = "returned"
-  ' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
+if [ -d "$RETURN_DIR" ]; then
+  # 查找状态为 dispatched 的 pack — 其 return 文件就是 worker 刚写的
+  for f in "${RETURN_DIR}/"*.json; do
+    [ -f "$f" ] || continue
+    FILE_PACK_ID=$(jq -r '.pack_id // empty' "$f" 2>/dev/null)
+    if [ -z "$FILE_PACK_ID" ]; then continue; fi
+    # 检查该 pack 在 state 中是否为 dispatched（说明是刚完成的 worker）
+    F_PLAN_KEY=$(printf "%03d" "$(echo "$FILE_PACK_ID" | cut -d. -f1)")
+    F_STATUS=$(jq -r --arg plan "$F_PLAN_KEY" --arg pack "$FILE_PACK_ID" '.plans[$plan].packs[$pack].status // ""' "$STATE_FILE")
+    if [ "$F_STATUS" = "dispatched" ]; then
+      RETURN_FILE="$f"
+      PACK_ID="$FILE_PACK_ID"
+      VERDICT=$(jq -r '.verdict // empty' "$f")
+      break
+    fi
+  done
 fi
 
-# 计算当前 Plan 完成度
+if [ -z "$RETURN_FILE" ]; then
+  echo "[multi-model-workflow] BLOCKED: Worker completed but no pack-returns file found for a dispatched pack. Fix: check that Worker wrote .claude/multi-model-workflow/pack-returns/<pack-id>.json per the Durable Return contract in Pack Brief." >&2
+  exit 2
+fi
+
+# 更新 execution state
+PLAN_KEY=$(printf "%03d" "$(echo "$PACK_ID" | cut -d. -f1)")
+jq --arg plan "$PLAN_KEY" --arg pack "$PACK_ID" --arg verdict "$VERDICT" --arg agent "$AGENT_ID" '
+  .plans[$plan].packs[$pack].worker_verdict = $verdict |
+  .plans[$plan].packs[$pack].agent_id = $agent |
+  .plans[$plan].packs[$pack].status = "returned"
+' "$STATE_FILE" > "${STATE_FILE}.tmp" && mv "${STATE_FILE}.tmp" "$STATE_FILE"
+
+# 计算当前 Plan 完成度（看 committed，不是 returned — commit 在 review 前）
 COMMITTED=$(jq --arg plan "$CURRENT_PLAN" \
   '[.plans[$plan].packs | to_entries[] | select(.value.status == "committed")] | length' "$STATE_FILE")
 EXPECTED=$(jq --arg plan "$CURRENT_PLAN" \
   '.plans[$plan].expected_pack_ids | length' "$STATE_FILE")
 
 if [ "$COMMITTED" -eq "$EXPECTED" ] && [ "$EXPECTED" -gt 0 ]; then
-  MSG="All ${EXPECTED} packs in Plan ${CURRENT_PLAN} are committed. NEXT: dispatch Plan Implementation Review. Read execution-review-dispatch.md for the prompt template. Plan diff range: $(jq -r --arg p "$CURRENT_PLAN" '.plans[$p].start_commit' "$STATE_FILE")..$(jq -r --arg p "$CURRENT_PLAN" '.plans[$p].end_commit' "$STATE_FILE")"
+  START_SHA=$(jq -r --arg p "$CURRENT_PLAN" '.plans[$p].start_commit' "$STATE_FILE")
+  END_SHA=$(jq -r --arg p "$CURRENT_PLAN" '.plans[$p].end_commit' "$STATE_FILE")
+  echo "[multi-model-workflow] NEXT: All ${EXPECTED} packs in Plan ${CURRENT_PLAN} committed. Dispatch Plan Implementation Review. Diff range: ${START_SHA}..${END_SHA}. Read execution-review-dispatch.md." >&2
 else
-  NEXT_PACK=$(jq -r --arg plan "$CURRENT_PLAN" \
-    '.plans[$plan].expected_pack_ids as $ids | .plans[$plan].packs | to_entries | map(.key) as $done | ($ids - $done)[0] // "none"' "$STATE_FILE")
-  MSG="Pack completed (${COMMITTED}/${EXPECTED} in Plan ${CURRENT_PLAN}). NEXT: process Open Items → scope drift check → Git Checkpoint → continue with Pack ${NEXT_PACK}."
+  RETURNED=$(jq --arg plan "$CURRENT_PLAN" \
+    '[.plans[$plan].packs | to_entries[] | select(.value.status == "returned" or .value.status == "committed")] | length' "$STATE_FILE")
+  echo "[multi-model-workflow] NEXT: Pack ${PACK_ID} returned (verdict: ${VERDICT}). Progress: ${RETURNED}/${EXPECTED} returned, ${COMMITTED}/${EXPECTED} committed in Plan ${CURRENT_PLAN}. Process Open Items → scope drift check → Git Checkpoint → next pack." >&2
 fi
 
-echo "[multi-model-workflow] ${MSG}" >&2
 exit 0
 ```
 
 ##### 4. `track-review-budget.sh` 扩展
 
-在现有的 budget 追踪逻辑之后，追加 execution state 更新：
+追加 execution state 更新（在现有 budget_used 递增之后）：
 
 ```bash
-# 追加到现有逻辑末尾（budget_used 递增之后）
-# 如果是 Plan Implementation Review 的结果，更新 execution state
+# === 追加到 budget 追踪逻辑之后 ===
+# Plan Implementation Review result → 更新 execution state
 GATE=$(echo "$COMMAND" | grep -oP 'plan-impl-review-\K[0-9]+' | head -1)
 if [ -n "$GATE" ]; then
   STATE_FILE="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
@@ -652,14 +699,16 @@ if [ -n "$GATE" ]; then
 fi
 ```
 
-Review verdict 写入由 Coordinator 在 Disposition 后执行（需要人工判断 accepted/rejected），不由 hook 自动写入——hook 只标记"review 已提交"。
+Review verdict 写入由 Coordinator 在 Disposition 完成后执行（需要判断 accepted/rejected），不由 hook 自动写入——hook 只标记"review 已返回"。
 
 ##### 5. `validate-pack-dispatch.sh`（新 PreToolUse hook）
 
+拦截缺少上游依赖的 dispatch。Repair re-dispatch 通过 dispatch prompt 中的 `[repair-round-N]` 标记放行。
+
 ```bash
 #!/usr/bin/env bash
-# PreToolUse hook for Agent tool.
-# Validates pack dispatch preconditions against execution state file.
+# PreToolUse hook for Agent tool (pack-executor / complex-pack-executor).
+# Blocks dispatch when upstream dependencies are missing.
 set -euo pipefail
 
 INPUT=$(cat)
@@ -680,23 +729,27 @@ RUN_ID=$(cat "$RUN_ID_FILE")
 STATE_FILE="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
 if [ ! -f "$STATE_FILE" ]; then exit 0; fi
 
-# 检查：该 Pack 的 Dependencies 中所有前置 Pack 是否已 committed
-# （Dependencies 在 execution state 创建时已写入——如果 state 中该 pack 已存在但 status 不是 pending，说明正在重复 dispatch）
-CURRENT_STATUS=$(jq -r --arg plan "$PLAN_KEY" --arg pack "$PACK_ID" '.plans[$plan].packs[$pack].status // "pending"' "$STATE_FILE")
-if [ "$CURRENT_STATUS" != "pending" ] && [ "$CURRENT_STATUS" != "null" ]; then
-  echo "[multi-model-workflow] WARNING: Pack ${PACK_ID} status is '${CURRENT_STATUS}', not 'pending'. Verify this is intentional (e.g., repair re-dispatch)." >&2
+# Repair re-dispatch 放行：prompt 中包含 [repair-round-N] 标记
+if echo "$PROMPT" | grep -qP '\[repair-round-[0-9]+\]'; then
+  exit 0
 fi
 
-# 检查：start_commit 是否已记录（首个 Pack dispatch 前 Coordinator 应已记录）
+# 检查 1：start_commit 必须已记录
 START=$(jq -r --arg plan "$PLAN_KEY" '.plans[$plan].start_commit // "null"' "$STATE_FILE")
 if [ "$START" = "null" ]; then
-  echo "[multi-model-workflow] WARNING: Plan ${PLAN_KEY} has no start_commit recorded. Record git rev-parse HEAD before dispatching first pack." >&2
+  echo "[multi-model-workflow] BLOCKED: Plan ${PLAN_KEY} has no start_commit. Fix: run 'git rev-parse HEAD' and write result to execution-state plans[${PLAN_KEY}].start_commit before dispatching." >&2
+  exit 2
+fi
+
+# 检查 2：Pack 状态必须为 pending（首次 dispatch）
+CURRENT_STATUS=$(jq -r --arg plan "$PLAN_KEY" --arg pack "$PACK_ID" '.plans[$plan].packs[$pack].status // "pending"' "$STATE_FILE")
+if [ "$CURRENT_STATUS" != "pending" ]; then
+  echo "[multi-model-workflow] BLOCKED: Pack ${PACK_ID} status is '${CURRENT_STATUS}', expected 'pending'. Fix: if this is a repair re-dispatch, add [repair-round-N] to the dispatch prompt." >&2
+  exit 2
 fi
 
 exit 0
 ```
-
-**注意**：此 hook 只发出 WARNING（stderr），不阻断（exit 0）——阻断 Agent 调用风险太高，可能破坏合法的 repair re-dispatch。
 
 #### Coordinator 侧写入点（文档约束，不靠 Hook）
 
@@ -734,6 +787,8 @@ exit 0
 不受此改造影响。Direct Repair 不创建 Budget File，也不创建 execution-state file（与现有 "no budget file" 规则一致）。
 
 #### `hooks.json` 新结构
+
+变动点（相比现有）：`PreToolUse` 新增 `Agent` matcher；`PostToolUse` 新增 git commit matcher；`SubagentStop` 从 inline echo 改为脚本文件。
 
 ```json
 {
