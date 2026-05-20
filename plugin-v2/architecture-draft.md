@@ -78,21 +78,21 @@ flowchart TD
 
 ### 图 1 节点分析
 
-| 节点 | 机制 | 做什么 | 状态 |
-|------|------|--------|------|
-| 路线判定 | Coordinator 自身逻辑 | 判断输入属于三条路线中的哪一条 | ✅ 正常 |
-| Steps 2-6 Infrastructure | Coordinator 逻辑（`workflow-infrastructure.md`） | Cross-Conversation Resume + Scope Contract + Git Checkpoint + Budget File 创建 | ✅ 正常 |
-| Discovery | Skill：`orchestrate-discovery` | 与用户 Q&A 迭代 + grill-with-docs 同步维护 CONTEXT.md + 产出设计文档 | ✅ 正常 |
-| Design Review | Coordinator + **外部 Review** | 两个 baseline review（Design Content + Project Alignment），按 dispatch 模板内联的 Codex review 步骤派发 | ✅ 正常 |
-| to-issues | 外部 Skill | 设计文档拆分为大 Issue → 小 Issue | ✅ 正常 |
-| Plan Writing | Skill：`orchestrate-plan-writing` | 前置确认 + 派 plan-writer agent + Budget 赋值（`2N+12`） | ✅ 正常 |
-| Plan Review | Coordinator + **外部 Review** | Plan Entry Gate + Task Pack Inventory Gate → 派外部 review | ✅ 正常 |
-| Execution | Skill：`orchestrate-execution` | 图 2 的 pack 循环 | ✅ 正常（review 节点除外） |
-| Final Review | Skill：`orchestrate-final-review` | 意图验证 + 清扫遗留尾巴 + Release Gate | ✅ 正常（review 节点除外） |
-| Release Review | Coordinator + **外部 Review** | 发布风险审查，仅触碰风险面时进入 | ✅ 正常 |
-| Bug Investigation | Sub-Agent：root-cause-analyst | 调查 bug 根因，判定简单/深层 | ✅ 正常 |
-| Bug Fix Review | **外部 Review** | 按 dispatch 模板内联的 Codex review 步骤派发 Codex review | ✅ 正常 |
-| Closing | Coordinator 自身逻辑 | 汇报 + 提交 + 推送 + 开 PR | ✅ 正常 |
+| 节点 | 机制 | 做什么 | 产出/消费文档 | 状态 |
+|------|------|--------|-------------|------|
+| 路线判定 | Coordinator 自身逻辑 | 判断输入属于三条路线中的哪一条 | — | ✅ 正常 |
+| Steps 2-6 Infrastructure | Coordinator 逻辑（`workflow-infrastructure.md`） | Cross-Conversation Resume + Scope Contract + Git Checkpoint + Budget File 创建 | **确定** feature slug（贯穿 `docs/orchestrate/` 全链） | ✅ 正常 |
+| Discovery | Skill：`orchestrate-discovery` | 与用户 Q&A 迭代 + grill-with-docs 同步维护 CONTEXT.md + 产出设计文档 | **产出** `design/<slug>.md` + CONTEXT.md | ✅ 正常 |
+| Design Review | Coordinator + **外部 Review** | 两个 baseline review（Design Content + Project Alignment），按 dispatch 模板内联的 Codex review 步骤派发 | **审查** `design/<slug>.md` | ✅ 正常 |
+| to-issues | 外部 Skill | 设计文档拆分为大 Issue → 小 Issue | **消费** `design/<slug>.md` → **产出** `issues/<slug>/00N-*.md` | ✅ 正常 |
+| Plan Writing | Skill：`orchestrate-plan-writing` | 前置确认 + 派 plan-writer agent + Budget 赋值（`2N+12`） | **消费** `issues/<slug>/00N-*.md` → **产出** `plans/<slug>/00N-*.md`（编号一一对应） | ✅ 正常 |
+| Plan Review | Coordinator + **外部 Review** | Plan Entry Gate + Task Pack Inventory Gate → 派外部 review | **审查** `plans/<slug>/` 全部 plan 文件 | ✅ 正常 |
+| Execution | Skill：`orchestrate-execution` | 图 2 的 pack 循环 | **消费** `plans/<slug>/` 提取 Task Pack → 构造 Pack Brief（自足，worker 不读 plan） | ✅ 正常（review 节点除外） |
+| Final Review | Skill：`orchestrate-final-review` | 意图验证 + 清扫遗留尾巴 + Release Gate | **消费** `design/<slug>.md` 验证意图覆盖 | ✅ 正常（review 节点除外） |
+| Release Review | Coordinator + **外部 Review** | 发布风险审查，仅触碰风险面时进入 | — | ✅ 正常 |
+| Bug Investigation | Sub-Agent：root-cause-analyst | 调查 bug 根因，判定简单/深层 | — | ✅ 正常 |
+| Bug Fix Review | **外部 Review** | 按 dispatch 模板内联的 Codex review 步骤派发 Codex review | — | ✅ 正常 |
+| Closing | Coordinator 自身逻辑 | 汇报 + 提交 + 推送 + 开 PR | — | ✅ 正常 |
 
 ---
 
@@ -138,17 +138,17 @@ flowchart TD
 
 ### 图 2 节点分析
 
-| 节点 | 机制 | 做什么 | 状态 |
-|------|------|--------|------|
-| 读 Task Pack inventory | Coordinator 逻辑 | 读取所有 plan 文档中的 Task Pack 列表 | ✅ 正常 |
-| 派 worker | Sub-Agent：`pack-executor`（普通）/ `complex-pack-executor`（高风险） | Agent tool 派发 coding worker，保存 agentId | ✅ 正常 |
-| SubagentStop 提醒 | Hook：`SubagentStop` on `pack-executor\|complex-pack-executor` | 提醒 Coordinator 派发 review | ✅ 正常 |
-| Pack Review | **外部 Review** | 按 dispatch 模板内联的 Codex review 步骤派发 | ✅ 正常 |
-| Coordinator 验证 finding | Coordinator 逻辑 | 主线程评估 finding 是否成立 | ✅ 正常 |
-| 修复分流 | Coordinator 逻辑 | 简单/复杂/根因不明三路分流 | ✅ 正常 |
-| SendMessage 给原 worker | SendMessage（需 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`） | 复杂修复发回原 worker 保持上下文 | ⚠️ env 未设置时静默降级 |
-| targeted re-review | **外部 Review** | 只审查修复变更 | ✅ 正常 |
-| Early Release Gate | Coordinator + **外部 Review** | Pack 触碰风险面时触发 release review | ✅ 正常 |
+| 节点 | 机制 | 做什么 | 文档交互 | 状态 |
+|------|------|--------|---------|------|
+| 读 Task Pack inventory | Coordinator 逻辑 | 读取所有 plan 文档中的 Task Pack 列表 | **读** `plans/<slug>/` 全部文件 → 提取 pack 编号、依赖、风险、并行标记 | ✅ 正常 |
+| 派 worker | Sub-Agent：`pack-executor`（普通）/ `complex-pack-executor`（高风险） | Agent tool 派发 coding worker，保存 agentId | **嵌入** Pack Brief（从 plan 提取，worker 不读 plan 文件） | ✅ 正常 |
+| SubagentStop 提醒 | Hook：`SubagentStop` on `pack-executor\|complex-pack-executor` | 提醒 Coordinator 派发 review | — | ✅ 正常 |
+| Pack Review | **外部 Review** | 按 dispatch 模板内联的 Codex review 步骤派发 | — | ✅ 正常 |
+| Coordinator 验证 finding | Coordinator 逻辑 | 主线程评估 finding 是否成立 | — | ✅ 正常 |
+| 修复分流 | Coordinator 逻辑 | 简单/复杂/根因不明三路分流 | — | ✅ 正常 |
+| SendMessage 给原 worker | SendMessage（需 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`） | 复杂修复发回原 worker 保持上下文 | — | ⚠️ env 未设置时静默降级 |
+| targeted re-review | **外部 Review** | 只审查修复变更 | — | ✅ 正常 |
+| Early Release Gate | Coordinator + **外部 Review** | Pack 触碰风险面时触发 release review | — | ✅ 正常 |
 
 ---
 
@@ -219,6 +219,177 @@ Review 派发时
 Closing 前（cleanup-before-push.sh）
   └─ 清除 active-run-id + scope + budget + review temp files
 ```
+
+---
+
+## 文档产物链：`docs/orchestrate/`
+
+运行态状态文件（上节）跟踪 Coordinator 内部状态。**文档产物**跟踪功能本身的设计-拆分-计划-执行链路——它们是 phase 之间传递信息的载体，也是 review 的审查对象。
+
+### 目录结构与命名
+
+所有 orchestrate 产出文档统一存放在 `docs/orchestrate/`，按类型分子文件夹。同一功能用相同的 **feature slug**（`YYYY-MM-DD-<feature>`，kebab-case）贯穿四个子文件夹：
+
+```
+docs/orchestrate/
+├── design/                                  # 设计文档（Discovery 产出）
+│   └── <slug>.md
+├── issues/                                  # Issue hierarchy（to-issues 产出）
+│   └── <slug>/
+│       ├── 001-<large-issue-slug>.md       # 大 issue（内含小 issue）
+│       ├── 002-<large-issue-slug>.md
+│       └── ...
+├── plans/                                   # 实施计划（plan-writer 产出）
+│   └── <slug>/
+│       ├── 001-<issue-slug>.md             # 编号与 issues/ 下同编号文件一一对应
+│       ├── 002-<issue-slug>.md
+│       └── ...
+└── mockups/                                 # 原型产出（prototype / frontend-design）
+    └── <slug>/
+        ├── *.html / *.png / *.svg
+        └── README.md                        # mockup 索引
+```
+
+**关键约束**：
+- feature slug 在 Infrastructure Setup 确定后全流程不变
+- `issues/` 和 `plans/` 的文件**编号必须一一对应**（001 ↔ 001, 002 ↔ 002）——Plan Entry Gate 强制检查
+- Plan 文件数量必须与 issue 文件数量一致——缺对应 plan 的 issue 返回 plan-writing 补写
+
+### 图 4：文档产物流
+
+```mermaid
+flowchart LR
+    classDef doc fill:#e0f2fe,stroke:#0284c7
+    classDef gate fill:#fef3c7,stroke:#d97706
+    classDef embed fill:#f0fdf4,stroke:#16a34a,stroke-dasharray: 3 3
+
+    D["设计文档\n<slug>.md\n（背景 / 目标 / 方案 / 合同 / 风险 / 验收）"]:::doc
+    DR["Design Review\n（完整性 + 项目对齐）"]:::gate
+    I["大 Issue 文件\n001-*.md\n（What to build + 小 issue 列表）"]:::doc
+    SI["小 Issue\n（内嵌在大 issue 中）\nType / What / Acceptance / Blocked by"]:::embed
+    P["Plan 文件\n001-*.md\n（Header + File Map + 风险表 + Task Pack 列表）"]:::doc
+    TP["Task Pack N.M\n（内嵌在 plan 中）\nGoal / Files / Criteria / Commands / Risk"]:::embed
+    PG["Plan Entry Gate\n+ Task Pack Inventory Gate"]:::gate
+    W["Worker dispatch\n（Pack Brief 自足，不读 plan 文件）"]:::doc
+
+    D --> DR --> I
+    I --- SI
+    SI -->|"1 small issue = 1 Task Pack"| TP
+    I -->|"1 大 issue = 1 plan 文件\n编号一一对应"| P
+    P --- TP
+    P --> PG --> W
+```
+
+### 四种文档产物
+
+| 产物 | 模板来源 | 产出者 | 消费者 | 审查门禁 |
+|------|---------|--------|--------|---------|
+| **设计文档** | `discovery-design-document.md` | orchestrate-discovery | to-issues、plan-writer（只读） | Design Review（2 baseline） |
+| **大 Issue 文件** | to-issues skill（上游） | to-issues | plan-writer（1 issue = 1 plan） | — |
+| **Plan 文件** | `plan-writing-methodology.md` | plan-writer agent | orchestrate-execution | Plan Entry Gate + Task Pack Inventory Gate |
+| **Mockup** | prototype / frontend-design | Discovery 阶段 | plan-writer（mockup anchors）、worker（视觉验证） | Design Review 覆盖 |
+
+### 设计文档结构
+
+```
+# <功能> 设计文档
+├── 背景和问题          — 用户视角问题、触发场景
+├── 目标结果            — 完成后能稳定做到什么
+├── 用户场景            — actor/action/benefit · happy path + 失败 + 空态 + 权限 + 并发 + 回滚
+├── 方案设计
+│   ├── 业务对象、角色和状态   — 对象 / owner / writer / reader / verifier / 状态 / 生命周期
+│   └── 实现决策               — 讨论中做出的决策（不写 file path / code snippet）
+├── 合同边界            — API / Pydantic / DB / JSON / sync / billing / permission / runtime
+├── 发布风险和人工门禁
+├── 测试和验收
+├── UI/UX 状态          — mockup 目录 / viewport / states / interaction
+├── 失败场景和异常处理
+├── 不在本次范围
+└── Open Decisions
+```
+
+**硬规则**：使用 CONTEXT.md 正式术语 · 无 TODO/TBD · 不混入 Task Pack 或 worker 指令 · 不写只在聊天中能理解的句子。
+
+### Issue 文档结构
+
+Issue 文档由上游 `to-issues` skill 产出（非 plugin-v2 自有），plugin-v2 只消费它。
+
+```
+# <大 Issue 标题>
+├── What to build       — 端到端行为描述（vertical slice）
+├── Small issues        — 编号子节，每个小 issue 包含：
+│   ├── Type: AFK / HITL
+│   ├── What to build
+│   ├── Acceptance criteria（checkbox 列表）
+│   └── Blocked by（其他小 issue 编号或 None）
+└── Blocked by          — 其他大 issue 编号或 None（跨 plan 依赖）
+```
+
+**层级关系**：大 issue = 一个 vertical slice = 一个文件 · 小 issue = 内嵌子节（不是独立文件）· 小 issue 直接映射 Task Pack。
+
+**编号规则**：文件名 `00N-<slug>.md`，N 按依赖顺序排列（blocker 在前）。to-issues 完成后还会发布 GitHub Issue 并将 issue number 写回本地文件。
+
+### Plan 文档结构
+
+```
+# <Issue Title> Implementation Plan
+├── Header
+│   ├── Goal / Source design / Source issue / Execution owner / Blocked by
+│   ├── Architecture / Tech stack / Quality gate
+│   ├── File / Responsibility Map（Create / Modify / Test / Docs）
+│   └── 发布风险和人工门禁表
+└── Task Pack 列表（每个小 issue → 一个 Task Pack）
+    └── Task Pack N.M: <small issue title>
+        ├── Issue / Goal behavior
+        ├── Owned files / responsibilities
+        ├── Read first（source docs / ADRs / mockups）
+        ├── Contract anchors / Mockup anchors
+        ├── Acceptance criteria（从 issue 映射）
+        ├── Verification commands（pack-local）
+        ├── Implementation tasks（TDD: Red → Green → Refactor per step）
+        ├── Commit boundary
+        ├── Risk flags / 发布风险
+        ├── AFK / HITL
+        ├── Dependencies / Parallel safety
+        └── Out of scope
+```
+
+**Task Pack 编号**：`N.M`，N = plan/issue 文件编号，M = pack 在该 plan 内的序号。Pack 2.3 = plan 002 的第 3 个 Task Pack。
+
+**关键设计决策**：
+- 每个 plan-writer agent **只负责一个大 issue**——Coordinator 逐 issue 派发
+- Worker **不读 plan 文件**——Pack Brief 在 dispatch prompt 中完整自足
+- Task Pack 是最小执行单元：包含 worker 所需的一切（任务、验收、命令、文件、合同锚点）
+- 无 Placeholder 规则：TBD/TODO/later 出现在 plan 中 = plan failure
+- `Dependencies` + `Parallel safety` 字段决定 pack 能否并行 worktree 执行
+
+### 文档间引用关系
+
+```
+设计文档 ←───────────── plan header: Source design
+    │
+    ├─(Design Review)
+    │
+    ▼
+大 Issue 文件 ←──────── plan header: Source issue
+    │                    plan header: Blocked by（从 issue 继承）
+    │
+    ├─(1 大 issue = 1 plan 文件，编号对应)
+    │
+    │   小 issue ←────── Task Pack: Issue 字段
+    │   acceptance ←──── Task Pack: Acceptance criteria
+    │   blocked-by ←──── Task Pack: Dependencies
+    │
+    ▼
+Plan 文件
+    │
+    ├─(Plan Entry Gate + Task Pack Inventory Gate)
+    │
+    ▼
+Worker dispatch（Pack Brief 自足）
+```
+
+**单向引用**：设计文档不引用 issue/plan（上游只产出不消费下游）。Issue 不引用 plan。Plan 引用设计文档和 issue。Worker dispatch 嵌入 pack 内容，不引用 plan 文件路径。
 
 ---
 
