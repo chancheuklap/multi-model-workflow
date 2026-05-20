@@ -48,9 +48,11 @@ Agent({
 
 按以下步骤派发 Codex review（`CODEX_SCRIPT` 未定义时先执行 `CODEX_SCRIPT="$(find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs" -type f 2>/dev/null | head -1)"`）：
 1. 写 prompt → `review-prompts/direct-repair-review.md`（内容见下方模板）
-2. `node "$CODEX_SCRIPT" task --background --prompt-file .claude/multi-model-workflow/review-prompts/direct-repair-review.md --model gpt-5.4 --effort xhigh` → 记录 JOB_ID
-3. `node "$CODEX_SCRIPT" status <JOB_ID> --wait --timeout-ms 600000`（run_in_background: true）
-4. `node "$CODEX_SCRIPT" result <JOB_ID>` → 存到 `review-results/direct-repair-review.md`
+2. `node "$CODEX_SCRIPT" task --background --prompt-file .claude/multi-model-workflow/review-prompts/direct-repair-review.md --model gpt-5.4 --effort xhigh` → 记录 JOB_ID，写入 `review-prompts/direct-repair-review.job-id`
+3. `node "$CODEX_SCRIPT" status "$(cat .claude/multi-model-workflow/review-prompts/direct-repair-review.job-id)" --wait --timeout-ms 600000`（run_in_background: true）
+4. `node "$CODEX_SCRIPT" result "$(cat .claude/multi-model-workflow/review-prompts/direct-repair-review.job-id)"` → 存到 `review-results/direct-repair-review.md`
+
+Compaction 恢复：有 `.job-id` 无对应 `review-results/` → 从 Step 3 继续。
 
 Review prompt 写入 `.claude/multi-model-workflow/review-prompts/direct-repair-review.md`：
 

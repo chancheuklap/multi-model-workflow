@@ -54,10 +54,9 @@ Plan Review 三条路径：
 
 修复完成后，只重审 accepted findings 涉及的变更部分。不做 full review rerun。
 
-派发方式同 Step 14（读取 `plan-review-dispatch.md`），但 scope 缩小到：
-- changed sections（修复涉及的 plan 章节）
-- accepted findings（原 finding 是否解决）
-- 受影响 angle（coverage / compliance / cross-verification 中与修复相关的）
+派发方式同 Step 14（读取 `plan-review-dispatch.md`），但：
+- gate 名使用 `plan-review-repair-<round>`（`<round>` = 当前修复轮次 1/2），不覆盖 baseline 结果
+- scope 缩小到：changed sections（修复涉及的 plan 章节）/ accepted findings（原 finding 是否解决）/ 受影响 angle
 
 ## Step 18：修复截断
 

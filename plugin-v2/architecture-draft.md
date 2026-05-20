@@ -530,12 +530,15 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 
 ```
 1. 定位脚本    find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs" | head -1
-2. 提交任务    node "$CODEX_SCRIPT" task --background --prompt-file <path> --model gpt-5.4 --effort xhigh → JOB_ID
-3. 等待完成    node "$CODEX_SCRIPT" status <JOB_ID> --wait --timeout-ms 600000（run_in_background）
-4. 取回结果    node "$CODEX_SCRIPT" result <JOB_ID> → 写入 review-results/<gate>.md
+2. 提交 + 持久化    node "$CODEX_SCRIPT" task ... → JOB_ID，写入 review-prompts/<gate>.job-id
+3. 等待完成    node "$CODEX_SCRIPT" status "$(cat <gate>.job-id)" --wait --timeout-ms 600000（run_in_background）
+4. 取回结果    node "$CODEX_SCRIPT" result "$(cat <gate>.job-id)" → 写入 review-results/<gate>.md
 ```
 
-Budget 计数器在 Step 4 触发（`track-review-budget.sh` 检测 `result` 命令成功执行），不在 Step 2。600 秒超时是单次 review 的硬上限。
+- JOB_ID 通过 `.job-id` 文件持久化，compaction 后可从 Step 3 恢复
+- Budget 计数器在 Step 4 触发（`track-review-budget.sh` 检测 `result` 命令成功执行）
+- Targeted re-review 文件名加 `-repair-<round>` 后缀，不覆盖 baseline 结果
+- 600 秒超时是单次 review 的硬上限
 
 ### Disposition 表（全 phase 通用）
 
@@ -559,28 +562,17 @@ Coordinator **不是传话筒**——必须亲验每条 finding（读代码、�
 
 原 glob `plans/*.md` 对不上 `plans/<slug>/00N-*.md`，检查被跳过。已改为 `find docs/orchestrate/plans -name '*.md'` 递归扫描所有 plan 文件。
 
-#### 🟥 JOB_ID 不持久化——compaction 后丢失
+#### ✅ JOB_ID 持久化（已修复）
 
-四步协议中 JOB_ID 只存在于 Coordinator 上下文。如果 Step 2（submit）和 Step 4（result）之间发生 `compact`（SessionStart hook 触发 compaction recovery），JOB_ID 丢失但 Codex 任务仍在后台运行。`review-prompts/<gate>.md` 保存了 prompt 但不保存 JOB_ID。没有任何磁盘文件能恢复 in-flight review 状态。
+Step 2 提交后 JOB_ID 写入 `review-prompts/<gate>.job-id`。Steps 3-4 从文件读取 JOB_ID。Compaction 恢复：有 `.job-id` 无对应 `review-results/` → 从 Step 3 继续。所有 11 个 dispatch 站点已统一。
 
-**影响**：必须重新 submit 相同 prompt（budget 多消耗 1），且无法取消前一个孤儿任务。
+#### ✅ Re-review 结果文件轮次区分（已修复）
 
-**修复方向**：Step 2 后将 JOB_ID 写入 `review-prompts/<gate>.job-id`，Step 4 前先检查该文件。
-
-#### 🟧 Re-review 结果文件无轮次后缀——覆盖前一轮记录
-
-| 文件模式 | 有无轮次区分 |
-|---------|------------|
-| `pack-review-N.M.md` | ✅ Pack 级唯一 |
-| `release-gate-N.M.md` | ✅ Pack 级唯一 |
-| `plan-review.md` | ❌ 唯一名称，轮次覆盖 |
-| `final-review-re-review.md` | ❌ 修复 Round 2 覆盖 Round 1 |
-| `multi-pr-targeted-re-review.md` | ❌ 修复 Round 2 覆盖 Round 1 |
-| `final-review-baseline-{1,2}.md` | ✅ 但如果 `needs context` 重派，覆盖前一次 |
-
-前一轮审查记录被覆盖后无法取证（repair truncation 中 RCA 需要前两轮上下文，但 review result 文件只有最新一轮）。实际上 Coordinator 上下文中保留了前轮信息——磁盘丢失的是离线取证能力。
-
-**修复方向**：文件名加 `-round-N` 后缀（如 `final-review-re-review-round-1.md`）。
+Targeted re-review 文件名加 `-repair-<round>` 后缀，不覆盖 baseline 结果：
+- Pack re-review: `pack-review-N.M-repair-1.md`, `-repair-2.md`, `-repair-3.md`
+- Plan re-review: `plan-review-repair-1.md`, `-repair-2.md`
+- Final re-review: `final-review-repair-1.md`, `-repair-2.md`, `-repair-3.md`
+- Multi-PR re-review: `multi-pr-repair-1.md`, `-repair-2.md`
 
 ---
 
