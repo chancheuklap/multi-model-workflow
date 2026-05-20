@@ -83,7 +83,7 @@ Source: Pack <N.M> worker discovery
 
 ## Step 8：派发 Codex Reviewer
 
-读取 `execution-review-dispatch.md`。通过 `codex:codex-rescue --model gpt-5.4` 派发 1 个 baseline reviewer。
+**Read** `execution-review-dispatch.md`，按 `external-review-lanes.md` 定义的方式提交 Codex review 任务。
 
 **Budget check**：`budget_used + 1 ≤ budget_total`。超预算停止报告用户。
 

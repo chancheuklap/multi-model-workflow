@@ -2,17 +2,14 @@
 
 > **流程位置**：`orchestrate-execution` Step 8 · Worker 返回后派发 Reviewer 时读取
 
-Worker 返回 `pass` 或处理完 `needs repair` concerns 后，派发 **1 个** baseline Codex reviewer：
+Worker 返回 `pass` 或处理完 `needs repair` concerns 后，派发 **1 个** baseline Codex reviewer。
 
-```
-Agent({
-  subagent_type: "codex:codex-rescue",
-  description: "Pack Review: Task Pack N.M",
-  prompt: "
-    --model gpt-5.4
-    --wait
+派发前先 **Read** `orchestrate-workflow/references/external-review-lanes.md` 了解调用方式。按 lanes 文档的 Step 1-4 提交 Codex review 任务。
 
-    ## Scope
+以下是 review prompt 内容（写入 `.claude/multi-model-workflow/review-prompts/pack-review-N.M.md`）：
+
+```markdown
+## Scope
     Review the implementation of Task Pack N.M: <title>
 
     ## Source artifacts
@@ -87,6 +84,4 @@ Agent({
     Disposition required:
     ### Verification
     ### Open Items
-  "
-})
 ```

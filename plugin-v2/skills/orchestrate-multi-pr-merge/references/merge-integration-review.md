@@ -6,15 +6,12 @@
 
 ## Step 16：构造 Codex Dispatch
 
-```
-Agent({
-  subagent_type: "codex:codex-rescue",
-  description: "Multi-PR integration review: <PR set>",
-  prompt: "
-    --model gpt-5.4
-    --wait
+派发前先 **Read** `orchestrate-workflow/references/external-review-lanes.md` 了解调用方式。按 lanes 文档的 Step 1-4 提交 Codex review 任务。
 
-    ## Scope
+Review prompt 写入 `.claude/multi-model-workflow/review-prompts/multi-pr-integration-review.md`：
+
+```markdown
+## Scope
     跨 PR 集成审查。多个并行 PR 来自同一大设计，各自已通过 Final Review。
     本次审查验证它们合在一起后是否正确。
 
@@ -91,8 +88,6 @@ Agent({
     Disposition required:
     ### Verification
     ### Open Items
-  "
-})
 ```
 
 ## Step 17：接收 + Disposition
@@ -128,17 +123,12 @@ Multi-PR 增加验证维度：对照大设计文档确认 spec 判断 + 对照�
 - 简单修复（≤ 2 文件、不碰合同）→ Coordinator 直接修
 - 复杂修复 → 派 worker
 
-修复后做 **Targeted Re-Review**：
+修复后做 **Targeted Re-Review**。按 `orchestrate-workflow/references/external-review-lanes.md` 定义的方式提交 Codex review 任务。
 
-```
-Agent({
-  subagent_type: "codex:codex-rescue",
-  description: "Multi-PR targeted re-review: <finding summary>",
-  prompt: "
-    --model gpt-5.4
-    --wait
+Review prompt 写入 `.claude/multi-model-workflow/review-prompts/multi-pr-targeted-re-review.md`：
 
-    ## Scope
+```markdown
+## Scope
     Targeted re-review for Multi-PR integration repair.
     Only review the changes made to address the listed findings.
 
@@ -163,8 +153,6 @@ Agent({
     Per-finding status:
     ### Verification
     ### Open Items
-  "
-})
 ```
 
 最多 2 轮修复。超过 → BLOCKED。

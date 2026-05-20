@@ -18,16 +18,13 @@
 
 ## Step 4：派发 2 个 Baseline Codex Reviewer
 
-两个 baseline 通过 `codex:codex-rescue --model gpt-5.4` 派发。可并行派发，结果不合并——各自独立返回。
+派发前先 **Read** `orchestrate-workflow/references/external-review-lanes.md` 了解调用方式。两个 baseline 按 lanes 文档的 Step 1-4 分别提交 Codex review 任务。可并行提交，结果独立返回。
 
 ### Baseline 1：Regression Sweep + Intent Coverage + Cross-Pack Audit
 
-```
-Agent({
-  subagent_type: "codex:codex-rescue",
-  description: "Final Review Baseline 1: Regression + Intent + Cross-Pack",
-  prompt: "
-    --model gpt-5.4
+Review prompt 写入 `.claude/multi-model-workflow/review-prompts/final-review-baseline-1.md`：
+
+```markdown
     --wait
 
     ## Scope
@@ -144,23 +141,16 @@ Agent({
     Disposition required:
     ### Verification
     ### Open Items
-  "
-})
 ```
 
 ### Baseline 2：Independent Code-Level Audit
 
 独立第二视角对最终实现做正确性、回归和集成审查。两个 baseline 角度互不重叠——Baseline 1 聚焦 design intent 和跨 pack 完整性，Baseline 2 聚焦代码级正确性和安全性。
 
-```
-Agent({
-  subagent_type: "codex:codex-rescue",
-  description: "Final Review Baseline 2: Independent Code-Level Audit",
-  prompt: "
-    --model gpt-5.4
-    --wait
+Review prompt 写入 `.claude/multi-model-workflow/review-prompts/final-review-baseline-2.md`：
 
-    ## Scope
+```markdown
+## Scope
     Independent code-level audit for a completed implementation.
     All Task Packs have individually passed Pack Review.
     You are the second reviewer — your perspective is independent of Baseline 1.
@@ -225,10 +215,8 @@ Agent({
     Disposition required:
     ### Verification
     ### Open Items
-  "
-})
 ```
 
-## Step 5：并行派发
+## Step 5：并行提交
 
-两个 baseline 可在同一消息中并行派发（两个 Agent tool call）。Budget 消耗 2。
+两个 baseline 可同时提交（两个 Codex background task）。Budget 消耗 2。

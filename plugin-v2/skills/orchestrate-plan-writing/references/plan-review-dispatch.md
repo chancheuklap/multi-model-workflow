@@ -2,17 +2,12 @@
 
 > **流程位置**：`orchestrate-plan-writing` Steps 13-14 · Plan Review Codex 派发 · 派发后 → Steps 15-18（`plan-review-resolution.md`）
 
-通过 `codex:codex-rescue --model gpt-5.4` 派发 **1 个** baseline Codex reviewer，整合三个审查角度：
+派发前先 **Read** `orchestrate-workflow/references/external-review-lanes.md` 了解调用方式。按 lanes 文档的 Step 1-4 提交 Codex review 任务。
 
-```
-Agent({
-  subagent_type: "codex:codex-rescue",
-  description: "Plan Review: <feature>",
-  prompt: "
-    --model gpt-5.4
-    --wait
+以下是 review prompt 内容（写入 `.claude/multi-model-workflow/review-prompts/plan-review.md`）：
 
-    ## Scope
+```markdown
+## Scope
     Review the implementation plan for: <feature>
 
     ## Source artifacts（路径从 Scope Contract feature slug 推导）
@@ -79,8 +74,6 @@ Agent({
     Disposition required:
     ### Verification
     ### Open Items
-  "
-})
 ```
 
 Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source design gap、issue-plan mismatch、context ambiguity，还是 architecture friction。

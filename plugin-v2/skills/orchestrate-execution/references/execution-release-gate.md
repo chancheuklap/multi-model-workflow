@@ -10,17 +10,12 @@ Pack Review 通过后，检查该 pack 是否触发 Early Release Gate：
 - 等到 Final Review 才审会造成不可逆数据、权限、账务或 runtime 风险
 - 用户明确要求
 
-**触发时**：
+**触发时**：按 `orchestrate-workflow/references/external-review-lanes.md` 定义的方式提交 Codex review 任务。
 
-```
-Agent({
-  subagent_type: "codex:codex-rescue",
-  description: "Early Release Gate: Pack N.M <risk surface>",
-  prompt: "
-    --model gpt-5.5
-    --wait
+Review prompt 写入 `.claude/multi-model-workflow/review-prompts/release-gate-N.M.md`：
 
-    ## Scope
+```markdown
+## Scope
     Early Release Gate for Task Pack N.M.
     Code quality and spec compliance have already passed Pack Review.
     Only assess release risk — this pack cannot wait for Final Review.
@@ -69,8 +64,6 @@ Agent({
     Deploy order assessment:
     ### Verification
     ### Open Items
-  "
-})
 ```
 
 多个相邻 high-risk packs 同一发布风险面时合并一次。Budget：Release Gate 最多 2 个 dispatch（含 early + final），已包含在全局 `2N+12` 预算中。

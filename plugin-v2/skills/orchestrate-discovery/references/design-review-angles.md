@@ -4,7 +4,7 @@
 
 ## Codex Dispatch 公共部分
 
-两个 review angle 通过 `codex:codex-rescue --model gpt-5.4 --wait` 派发。每次 review 是全新 Codex task，可并行不可合并。`--wait` 强制前台执行——review 必须等 Codex 线程完成后再返回 verdict。
+派发前先 **Read** `orchestrate-workflow/references/external-review-lanes.md` 了解调用方式。两个 review angle 按 lanes 文档的 Step 1-4 分别提交 Codex review 任务。可并行提交，结果独立返回。
 
 **Budget check**：Discovery Design Review 使用固定 per-phase allowance（2 baseline + 2 repair headroom = 4 dispatches）。此阶段 budget_total 尚未确认（pack_count 未知），不依赖 budget_total 做检查。检查 budget file 的 `discovery_used + 2 ≤ 4`。每次 dispatch 后 Coordinator 递增 `discovery_used`。
 

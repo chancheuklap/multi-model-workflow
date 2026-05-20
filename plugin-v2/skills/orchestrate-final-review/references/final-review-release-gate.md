@@ -22,15 +22,12 @@
 
 ## Step 17：派发 Release Reviewer
 
-```
-Agent({
-  subagent_type: "codex:codex-rescue",
-  description: "Final Release Gate: <risk surface>",
-  prompt: "
-    --model gpt-5.5
-    --wait
+按 `orchestrate-workflow/references/external-review-lanes.md` 定义的方式提交 Codex review 任务。
 
-    ## Scope
+Review prompt 写入 `.claude/multi-model-workflow/review-prompts/final-release-gate.md`：
+
+```markdown
+## Scope
     Release-risk review for the final implementation.
     Code quality and spec compliance have already passed.
     Only assess release risk.

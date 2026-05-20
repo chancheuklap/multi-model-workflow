@@ -138,7 +138,7 @@ docs/orchestrate/
 }
 ```
 
-`budget_total` 在 plan-writing Step 12a 按 `2N + 12` 更新。Bug / Multi-PR route 不创建 budget file。
+`budget_total` 在 plan-writing Step 12a 按 `2N + 12` 更新，此后**不可变**——执行阶段、Final Review 阶段均不得修改 `budget_total` 或 `pack_count`。如果执行阶段发现 pack 数与 budget file 不一致，返回 `NEEDS_PLAN_REVISION`，不得静默更新。Bug / Multi-PR route 不创建 budget file。
 
 ---
 
