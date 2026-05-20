@@ -41,7 +41,7 @@ Issue 和 Plan 是天然的"一个完整功能切片"粒度。但在执行阶段
 2. **Worker 自判断**：Worker 返回 `pass` / `needs repair` / `blocked`。返回 `needs repair` 时 Coordinator 必须先解决再继续下一个 Pack
 3. **Coordinator scope drift 检测**：检查 Changed files vs Owned files
 4. **Open Items 即时处置**：`[out-of-scope]` / `[needs-evaluation]` / `[bug]` 在下一个 Pack 之前处置
-5. **Intra-Plan Blocker 规则（新增）**：Pack N.M 返回 `needs repair` 且修复后 worker 仍报 `blocked` → 整个 Plan 停止，不继续后续 Pack
+5. **Intra-Plan Blocker 规则（新增）**：Pack N.M 返回 `blocked`（或 `needs repair` 修复后仍 `blocked`）→ Coordinator 将 `packs[N.M].status` 写为 `blocked`、`plans[N].status` 写为 `blocked` → 整个 Plan 停止，不继续后续 Pack → 返回 `BLOCKED`。**落地位置**：写入 `execution-pack-review-cycle.md` Step 7 的 Worker Verdict 路由表
 
 **权衡**：Worker 的 TDD + 自检 + Coordinator 检查已经是当前流程中"Pack Review 之前"就在做的事。Pack Review 额外发现的问题主要是 worker 盲区（mock 纪律、合同纪律、forbidden shortcuts）。这些问题不会因为延迟到 Plan 级别 review 而变得更难修——反而 Reviewer 有更完整的上下文来判断。
 
@@ -89,15 +89,12 @@ Coordinator 据此路由：
 - 旧：`2×12 + 12 = 36`
 - 新：`3×3 + 12 = 21`（节省 42%）
 
-### 决策 5：SubagentStop Hook 语义
+### 决策 5：SubagentStop Hook → 状态驱动的流程指令
 
-**旧 hook 消息**（每个 worker 完成时）：
-> "Coding agent completed. Next: read the review dispatch reference for this phase and follow the inline Codex review steps."
+**旧**：纯文本提醒（"read the review dispatch reference"），Coordinator 自行判断下一步。
+**新**：`subagent-stop-handler.sh` 脚本。读取 Worker 写盘的 `pack-returns/<pack-id>.json` → 更新 execution state → 计算当前 Plan 完成度 → 输出精确的 `NEXT:` 指令（含 diff 范围或下一个 Pack 编号）。缺 return 文件 → `BLOCKED`。
 
-**新 hook 消息**：
-> "Coding agent completed. Next: check if all packs in the current plan are done. If yes, read the review dispatch reference and dispatch Plan Implementation Review. If not, continue with the next pack in this plan."
-
-逻辑在 Coordinator 侧，hook 只是提醒。
+详细设计见"Hook 详细设计 § 3"。
 
 ### 决策 6：Early Release Gate 移到 Plan 边界
 
@@ -289,10 +286,18 @@ Disposition required:
 
 每个 Plan Implementation Review 最多 **2 Worker repair round + 1 root-cause-analyst round = 3 repair round**（与现有截断规则一致）。
 
-区别：
-- Findings 通过 `Affected packs` 路由到对应 Pack 的 worker
-- 多个 Pack 涉及的 finding → Coordinator 判断是否拆分或统一修复
-- Targeted Re-Review 文件名：`plan-impl-review-N-repair-<round>`
+### Repair 路由流程
+
+1. Coordinator 收到 Plan Implementation Review findings → 逐条 disposition（与现有 Step 9 完全一致）
+2. Accepted findings 按 `Affected packs` 字段分组 → 每组复用现有三路分流（A/B/C）：
+   - **路径 A**（≤2 文件、不碰合同）：Coordinator 直接修
+   - **路径 B**（多文件、根因已知）：dispatch worker，prompt 包含 `[repair-round-N]` 标记（触发 `validate-pack-dispatch.sh` 放行）
+   - **路径 C**（根因不明）：派 code-explorer / complex-code-explorer 调查
+3. 涉及多个 Pack 交互的 finding → Coordinator 判断是否合并修复（用 complex-pack-executor）或拆分到各 Pack worker
+4. 修复完成 → Targeted Re-Review：文件名 `plan-impl-review-N-repair-<round>`，scope 缩小到修复涉及的变更
+5. Round 3 截断 → root-cause-analyst（与现有截断规则完全一致）
+
+**与现有 Pack 级 repair 的唯一区别**：findings 来源从单 Pack review 变为整 Plan review，Coordinator 需要先按 `Affected packs` 路由再进入 A/B/C 分流。三路分流本身、截断规则、RCA 模板全部复用。
 
 ---
 
@@ -309,7 +314,7 @@ Disposition required:
 | `execution-completion.md` | Git Checkpoint 时机调整（per-pack commit + per-plan review） |
 | `execution-preparation.md` | 构建两级执行队列（Plan → Pack） |
 | `execution-release-gate.md` | 触发时机从 per-pack 改为 per-plan |
-| `execution-worker-dispatch.md` | Pack Brief 增加提示："your code will be reviewed alongside packs N.1..N.M within this plan" |
+| `execution-worker-dispatch.md` | Pack Brief 增加两项：（1）上下文提示 "your code will be reviewed alongside packs N.1..N.M within this plan"；（2）Durable Return 指令（Worker 写 verdict 到 `pack-returns/<pack-id>.json`） |
 
 ### Final Review 适配
 
@@ -407,17 +412,13 @@ Disposition required:
           "status": "committed",
           "agent_id": "agent-abc123",
           "commit_sha": "aaa1111",
-          "worker_verdict": "pass",
-          "open_items_processed": true,
-          "scope_drift_checked": true
+          "worker_verdict": "pass"
         },
         "1.2": {
           "status": "committed",
           "agent_id": "agent-def456",
           "commit_sha": "bbb2222",
-          "worker_verdict": "pass",
-          "open_items_processed": true,
-          "scope_drift_checked": true
+          "worker_verdict": "pass"
         }
       }
     },
@@ -435,9 +436,7 @@ Disposition required:
           "status": "dispatched",
           "agent_id": "agent-ghi789",
           "commit_sha": null,
-          "worker_verdict": null,
-          "open_items_processed": false,
-          "scope_drift_checked": false
+          "worker_verdict": null
         }
       }
     }
@@ -446,8 +445,10 @@ Disposition required:
 ```
 
 **Status 枚举**：
-- Plan: `pending` → `in_progress` → `review_pending` → `repairing` → `review_passed` → `release_gate_pending` → `completed` | `blocked`
+- Plan: `pending` → `in_progress` → `review_pending` → `repairing` → `review_passed` → `completed` | `blocked`
 - Pack: `pending` → `dispatched` → `returned` → `committed` | `blocked`
+
+Release Gate 是 `review_passed` 之后、`completed` 之前的 Coordinator 动作，不需要独立状态——结果直接写入 `release_gate_triggered: true/false`。
 
 **创建时机**：`execution-preparation.md` Step 2 构建执行队列后立即创建，写入所有 Plan 和 Pack 的初始状态 + `expected_pack_ids`。`start_commit` 在每个 Plan 的第一个 Pack dispatch 前记录（`git rev-parse HEAD`）。
 
@@ -486,7 +487,8 @@ Return contract:
 |------|------|------|---------|--------|
 | **`session-start.sh`** | `SessionStart` | 扩展：检测 execution state → 输出 `RESUME` | 每次 startup/compact | 否 |
 | **`track-review-budget.sh`** | `PostToolUse` Bash | 扩展：Plan Impl Review result → 更新 execution state | 每次 codex result | 否 |
-| **新：`track-execution-state.sh`** | `PostToolUse` Bash + `if: "Bash(git commit*)"` | 解析 commit → 更新 pack 状态 + Plan end_commit。格式不符 → `BLOCKED` | 每次 git commit | **是**（格式不符时） |
+| **新：`enforce-pack-commit.sh`** | `PreToolUse` Bash + `if: "Bash(git commit*)"` | Pack commit 格式校验（在 commit 前拦截） | 每次 git commit | **是**（格式不符时） |
+| **新：`track-execution-state.sh`** | `PostToolUse` Bash + `if: "Bash(git commit*)"` | commit 成功后更新 pack 状态 + Plan end_commit（输出 `STATE`）| 每次成功 git commit | 否 |
 | **`subagent-stop-handler.sh`** | `SubagentStop` | 读 `pack-returns/<pack-id>.json` → 更新 state → 输出 `NEXT`。Return 文件缺失 → `BLOCKED` | 每次 worker 完成 | **是**（return 缺失时） |
 | **新：`validate-pack-dispatch.sh`** | `PreToolUse` Agent | 检查 start_commit 已记录 + Pack 状态为 pending。缺失 → `BLOCKED` | 每次 worker dispatch | **是** |
 
@@ -525,16 +527,49 @@ if [ -f "$RUN_ID_FILE" ]; then
 fi
 ```
 
-##### 2. `track-execution-state.sh`（新 hook）
+##### 2a. `enforce-pack-commit.sh`（新 PreToolUse hook）
 
-PostToolUse on Bash + `if: "Bash(git commit*)"`.
+PreToolUse on Bash + `if: "Bash(git commit*)"`. **在 commit 执行前**校验 Pack commit message 格式。
 
-两个职责：（1）识别 Pack commit → 更新 state + 输出 `STATE`；（2）active execution 期间 commit message 格式不符 → `BLOCKED`。
+```bash
+#!/usr/bin/env bash
+# PreToolUse hook for Bash (if: "Bash(git commit*)").
+# Validates Pack commit message format BEFORE the commit executes.
+set -euo pipefail
+
+INPUT=$(cat)
+BUDGET_DIR=".claude/multi-model-workflow"
+if [ ! -f "${BUDGET_DIR}/active-run-id" ]; then exit 0; fi
+if [ ! -f "${BUDGET_DIR}/execution-state-$(cat "${BUDGET_DIR}/active-run-id").json" ]; then exit 0; fi
+
+COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+COMMIT_MSG=$(echo "$COMMAND" | grep -oP '(?<=-m\s")[^"]+' | head -1)
+if [ -z "$COMMIT_MSG" ]; then
+  COMMIT_MSG=$(echo "$COMMAND" | grep -oP "(?<=-m\s')[^']+" | head -1)
+fi
+
+# 非 Pack commit → 放行
+if [ -z "$COMMIT_MSG" ] || ! echo "$COMMIT_MSG" | grep -qiP '^Pack\b'; then
+  exit 0
+fi
+
+# Pack commit → 格式必须匹配 "Pack N.M: ..."
+if ! echo "$COMMIT_MSG" | grep -qP '^Pack [0-9]+\.[0-9]+: .+'; then
+  echo "[multi-model-workflow] BLOCKED: Pack commit message format invalid. Fix: use 'Pack N.M: <title> — <summary>'." >&2
+  exit 2
+fi
+
+exit 0
+```
+
+##### 2b. `track-execution-state.sh`（新 PostToolUse hook）
+
+PostToolUse on Bash + `if: "Bash(git commit*)"`. Commit 成功后更新 execution state（纯状态追踪，不拦截）。
 
 ```bash
 #!/usr/bin/env bash
 # PostToolUse hook for Bash (if: "Bash(git commit*)").
-# Tracks Pack commits in execution-state file. Enforces commit message format.
+# Updates execution-state file after successful Pack commit.
 set -euo pipefail
 
 INPUT=$(cat)
@@ -544,36 +579,17 @@ if [ "$EXIT_CODE" != "0" ]; then exit 0; fi
 BUDGET_DIR=".claude/multi-model-workflow"
 RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
 if [ ! -f "$RUN_ID_FILE" ]; then exit 0; fi
-
 RUN_ID=$(cat "$RUN_ID_FILE")
 STATE_FILE="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
 if [ ! -f "$STATE_FILE" ]; then exit 0; fi
 
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+PACK_ID=$(echo "$COMMAND" | grep -oP 'Pack \K[0-9]+\.[0-9]+' | head -1)
+if [ -z "$PACK_ID" ]; then exit 0; fi
 
-# 提取 commit message（支持 -m "..." 和 heredoc 两种格式）
-COMMIT_MSG=$(echo "$COMMAND" | grep -oP '(?<=-m\s")[^"]+' | head -1)
-if [ -z "$COMMIT_MSG" ]; then
-  COMMIT_MSG=$(echo "$COMMAND" | grep -oP '(?<=-m\s'"'"')[^'"'"']+' | head -1)
-fi
-
-# 非 Pack commit（design repair / plan repair / merge）→ 静默放行
-if [ -z "$COMMIT_MSG" ] || ! echo "$COMMIT_MSG" | grep -qiP '^Pack\b'; then
-  exit 0
-fi
-
-# 是 Pack commit → 格式必须严格匹配
-PACK_ID=$(echo "$COMMIT_MSG" | grep -oP '^Pack \K[0-9]+\.[0-9]+' | head -1)
-if [ -z "$PACK_ID" ]; then
-  echo "[multi-model-workflow] BLOCKED: Commit message starts with 'Pack' but format is invalid. Fix: use 'Pack N.M: <title> — <summary>'." >&2
-  exit 2
-fi
-
-PLAN_ID=$(echo "$PACK_ID" | cut -d. -f1)
-PLAN_KEY=$(printf "%03d" "$PLAN_ID")
+PLAN_KEY=$(printf "%03d" "$(echo "$PACK_ID" | cut -d. -f1)")
 COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
-# 更新 execution state：pack status + end_commit
 jq --arg plan "$PLAN_KEY" --arg pack "$PACK_ID" --arg sha "$COMMIT_SHA" '
   .plans[$plan].packs[$pack].status = "committed" |
   .plans[$plan].packs[$pack].commit_sha = $sha |
@@ -588,9 +604,7 @@ jq -n --arg msg "[multi-model-workflow] STATE: Pack ${PACK_ID} committed (${DONE
 exit 0
 ```
 
-**注意**：此 hook 是 PostToolUse（commit 已执行后触发）。如果格式不符合，commit 已经生效——`BLOCKED` + exit 2 在此处的作用是**阻止后续操作并要求修正**（`git commit --amend` 修正消息），而非阻止 commit 本身。如果需要阻止 commit 本身，需要用 PreToolUse。但 `git commit --amend` 修正消息比 PreToolUse 拦截 + 重试的体验更顺畅。
-
-**start_commit**：由 Coordinator 在开始执行 Plan 前写入（`execution-preparation.md`），不由 hook 写入——因为 start_commit 需要的是"第一个 Pack commit 之前"的 SHA，hook 触发时 commit 已完成。
+**start_commit**：由 Coordinator 在开始执行 Plan 前写入（`execution-preparation.md`），不由 hook 写——因为 start_commit 需要的是"第一个 Pack commit 之前"的 SHA。
 
 ##### 3. `subagent-stop-handler.sh`（替代原有 echo）
 
@@ -759,8 +773,7 @@ exit 0
 |---------|---------|-------------------|
 | `execution-preparation.md` Step 2 之后 | 创建 `execution-state-<run_id>.json`，填入所有 Plan 和 Pack 初始状态 | execution-preparation.md |
 | 每个 Plan 首个 Pack dispatch 之前 | `plans[N].start_commit = git rev-parse HEAD`、`plans[N].status = in_progress`、`current_plan_id = N` | execution-preparation.md（新 Step 2b） |
-| Worker 返回后 Coordinator 处理 Open Items | `packs[N.M].open_items_processed = true` | execution-pack-review-cycle.md Step 7a |
-| Worker 返回后 Coordinator 检查 scope drift | `packs[N.M].scope_drift_checked = true` | execution-pack-review-cycle.md Step 7 |
+| Worker 返回 blocked | `packs[N.M].status = blocked`、`plans[N].status = blocked` | execution-pack-review-cycle.md Step 7（Intra-Plan Blocker） |
 | Plan Implementation Review 提交后 | `plans[N].status = review_pending` | execution-review-dispatch.md |
 | Disposition 完成后 | `plans[N].review_verdict = pass/needs repair`、`plans[N].status` 更新 | execution-review-dispatch.md 或 repair-truncation.md |
 | Repair round 开始 | `plans[N].repair_round += 1`、`plans[N].status = repairing` | execution-repair-truncation.md |
@@ -788,7 +801,7 @@ exit 0
 
 #### `hooks.json` 新结构
 
-变动点（相比现有）：`PreToolUse` 新增 `Agent` matcher；`PostToolUse` 新增 git commit matcher；`SubagentStop` 从 inline echo 改为脚本文件。
+变动点（相比现有）：`PreToolUse` 新增 `Agent` matcher + Bash git commit 格式校验；`PostToolUse` 新增 git commit 状态追踪；`SubagentStop` 从 inline echo 改为脚本文件。
 
 ```json
 {
@@ -816,6 +829,11 @@ exit 0
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/cleanup-before-push.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforce-pack-commit.sh\"",
+            "if": "Bash(git commit*)"
           }
         ]
       },
@@ -873,16 +891,18 @@ exit 0
 
 | 文件 | 改动 |
 |------|------|
-| `hooks/hooks.json` | 新增 PreToolUse Agent matcher、PostToolUse git commit matcher、SubagentStop 改为脚本 |
-| `hooks/session-start.sh` | 追加 execution state recovery 输出 |
+| `hooks/hooks.json` | 新增 PreToolUse Agent + Bash(git commit) matcher、PostToolUse git commit matcher、SubagentStop 改为脚本 |
+| `hooks/session-start.sh` | 追加 execution state recovery 输出（`RESUME`） |
 | `hooks/track-review-budget.sh` | 追加 Plan Impl Review gate → execution state 更新 |
-| `hooks/track-execution-state.sh`（新建） | Git commit 后更新 pack status |
-| `hooks/subagent-stop-handler.sh`（新建） | 替代原有 echo；读 worker return → 更新 state → 计算完成度 → 输出精确指令 |
+| `hooks/enforce-pack-commit.sh`（新建） | PreToolUse：Pack commit 格式校验（commit 前拦截） |
+| `hooks/track-execution-state.sh`（新建） | PostToolUse：commit 成功后更新 pack status |
+| `hooks/subagent-stop-handler.sh`（新建） | 替代原有 echo；读 worker return → 更新 state → 计算完成度 → 输出 `NEXT` |
 | `hooks/validate-pack-dispatch.sh`（新建） | Worker dispatch 前检查前置条件 |
-| `execution-worker-dispatch.md` | Pack Brief 增加 Durable Return 指令（Worker 写 verdict 到 `pack-returns/`） |
 | `execution-preparation.md` | 新增 Step 2a（创建 execution-state）+ Step 2b（Plan start_commit 记录） |
 
-**总计文件数更新**：原 13 个 + 新 6 个 = 19 个文件。
+注：`execution-worker-dispatch.md` 的 Durable Return 改动已合并到上方核心修改清单中。
+
+**总计文件数更新**：原 13 个 + 新 7 个 = 20 个文件。
 
 ---
 
