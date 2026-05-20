@@ -17,6 +17,7 @@ Usage:
 Installs multi-model-workflow Codex hooks at user level:
   ~/.codex/hooks/multi-model-workflow/session-start.sh
   ~/.codex/hooks/multi-model-workflow/guard-premature-push.sh
+  ~/.codex/hooks/multi-model-workflow/guard-budget-immutable.sh
   ~/.codex/hooks/multi-model-workflow/track-review-budget.sh
   ~/.codex/hooks/multi-model-workflow/cleanup-run-state.sh
   ~/.codex/hooks.json
@@ -50,7 +51,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-for script in session-start.sh guard-premature-push.sh track-review-budget.sh cleanup-run-state.sh; do
+for script in session-start.sh guard-premature-push.sh guard-budget-immutable.sh track-review-budget.sh cleanup-run-state.sh; do
   if [ ! -f "$SOURCE_DIR/$script" ]; then
     echo "ERROR: missing source hook script: $SOURCE_DIR/$script" >&2
     exit 1
@@ -77,9 +78,10 @@ fi
 mkdir -p "$DEST_DIR"
 cp "$SOURCE_DIR/session-start.sh" "$DEST_DIR/session-start.sh"
 cp "$SOURCE_DIR/guard-premature-push.sh" "$DEST_DIR/guard-premature-push.sh"
+cp "$SOURCE_DIR/guard-budget-immutable.sh" "$DEST_DIR/guard-budget-immutable.sh"
 cp "$SOURCE_DIR/track-review-budget.sh" "$DEST_DIR/track-review-budget.sh"
 cp "$SOURCE_DIR/cleanup-run-state.sh" "$DEST_DIR/cleanup-run-state.sh"
-chmod +x "$DEST_DIR/session-start.sh" "$DEST_DIR/guard-premature-push.sh" "$DEST_DIR/track-review-budget.sh" "$DEST_DIR/cleanup-run-state.sh"
+chmod +x "$DEST_DIR/session-start.sh" "$DEST_DIR/guard-premature-push.sh" "$DEST_DIR/guard-budget-immutable.sh" "$DEST_DIR/track-review-budget.sh" "$DEST_DIR/cleanup-run-state.sh"
 
 TMP_JSON="$(mktemp)"
 python3 - "$SOURCE_HOOKS_JSON" "$DEST_DIR" > "$TMP_JSON" <<'PY'

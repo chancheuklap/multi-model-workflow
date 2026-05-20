@@ -19,6 +19,15 @@
           "command": "bash codex/hooks/guard-premature-push.sh"
         }
       ]
+    },
+    {
+      "matcher": "Write|Edit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash codex/hooks/guard-budget-immutable.sh"
+        }
+      ]
     }
   ]
 }
