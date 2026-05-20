@@ -100,8 +100,4 @@ Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
 | `NEEDS_PLAN_REVISION` | 回到 Step 9 |
 | `BLOCKED` | 报告用户 |
 
-### Budget 与 Backflow
-
-回流不重置 `budget_used`。Direction Check 在 80% 时仍触发。Plan revision 改变 `pack_count` → plan-writing Step 12a 更新 `budget_total`。
-
-**更新 Budget File**：`last_gate_phase: "final-review"`, `last_gate_timestamp: <now>`。
+**更新 Budget File**：`last_gate_phase: "final-review"`, `last_gate_timestamp: <now>`。回流不重置 `budget_used`。Plan revision 改变 `pack_count` → plan-writing Step 12a 更新 `budget_total`。

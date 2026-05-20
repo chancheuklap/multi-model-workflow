@@ -555,11 +555,9 @@ Coordinator **不是传话筒**——必须亲验每条 finding（读代码、�
 
 ### Review 链路健壮性审计
 
-#### 🟥 `guard-premature-push.sh` 任务完成检查失效
+#### ✅ `guard-premature-push.sh` 任务完成检查（已修复）
 
-`guard-premature-push.sh:33` 用 `ls -t docs/orchestrate/plans/*.md` 检查未勾选 task。但实际 plan 文件路径是 `docs/orchestrate/plans/<slug>/00N-*.md`（多一层目录）。glob `plans/*.md` 不匹配任何文件 → `PLAN` 为空 → 检查被跳过 → **push 不会因未完成 task 而阻断**。合并策略规则（squash/rebase 阻断）不受影响。
-
-**修复**：改为 `ls -t docs/orchestrate/plans/**/*.md` 或 `find docs/orchestrate/plans -name '*.md' -print -quit`。
+原 glob `plans/*.md` 对不上 `plans/<slug>/00N-*.md`，检查被跳过。已改为 `find docs/orchestrate/plans -name '*.md'` 递归扫描所有 plan 文件。
 
 #### 🟥 JOB_ID 不持久化——compaction 后丢失
 

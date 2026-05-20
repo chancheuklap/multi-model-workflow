@@ -69,9 +69,9 @@ Explorer 返回后路由：
 - accepted findings（原 finding 是否解决）
 - 受影响 angle（spec / quality / contract / risk 中与修复相关的）
 
-## Step 12：修复预算 + 截断
+## Step 12：修复截断
 
-每个 pack 最多 **2 Worker repair round + 1 root-cause-analyst round = 3 repair round**。全局 review budget 优先。
+每个 pack 最多 **2 Worker repair round + 1 root-cause-analyst round = 3 repair round**。
 
 | Round | 动作 |
 | --- | --- |

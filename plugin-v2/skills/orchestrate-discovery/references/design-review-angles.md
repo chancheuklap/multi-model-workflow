@@ -12,9 +12,7 @@
 3. `node "$CODEX_SCRIPT" status <JOB_ID> --wait --timeout-ms 600000`（run_in_background: true）
 4. `node "$CODEX_SCRIPT" result <JOB_ID>` → 存到 `review-results/<gate>.md`
 
-**Budget check**：Discovery Design Review 使用固定 per-phase allowance（2 baseline + 2 repair headroom = 4 dispatches）。此阶段 budget_total 尚未确认（pack_count 未知），不依赖 budget_total 做检查。检查 `discovery_used + 2 ≤ 4`。每次 dispatch 后递增 `discovery_used`。
-
-**整体 Verdict 前置检查**：如果 reviewer 返回整体 `needs context`（不是某条 finding 的 `needs evidence`），说明 reviewer 无法完成审查。Coordinator 补充 reviewer 所需的上下文后重新 dispatch（budget 消耗 +1，递增 `discovery_used`），不进入 per-finding disposition。
+**整体 Verdict 前置检查**：如果 reviewer 返回整体 `needs context`（不是某条 finding 的 `needs evidence`），说明 reviewer 无法完成审查。Coordinator 补充 reviewer 所需的上下文后重新 dispatch，不进入 per-finding disposition。
 
 每条 finding 使用 Finding Shape：`severity / confidence / locator / evidence / impact / remediation`。
 

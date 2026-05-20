@@ -170,13 +170,12 @@ Per-finding status:
 ### Open Items
 ```
 
-Budget 消耗 1。Budget check 同 Step 3。
 
 ---
 
-## Step 12：修复预算 + 截断
+## Step 12：修复截断
 
-**修复预算**：每个 gap 最多消耗 3 个 repair round（2 个 Worker/Coordinator round + 1 个 root-cause-analyst round）。全局 review budget 优先——Direction Check 在 80% 时触发。
+每个 gap 最多 3 个 repair round（2 个 Worker/Coordinator round + 1 个 root-cause-analyst round）。
 
 | Round | 动作 |
 | --- | --- |
@@ -237,7 +236,7 @@ Agent({
 
 Round 3 的 Targeted Re-Review 仍 needs repair → BLOCKED，报告用户附完整排查记录。
 
-**Phase 内部 review dispatch 软上限**：10（2 baseline + 最多 3 gaps × 2 rounds + analyst round + final re-review；release gate 的 2 dispatches 已包含在全局 `2N+12` 预算中）。全局 Direction Check 在 80% 时是真正的刹车。
+**Phase 内部 review dispatch 软上限**：10（2 baseline + 最多 3 gaps × 2 rounds + analyst round + final re-review）。
 
 ---
 > **下一步**：修复通过 → Step 13（`final-review-completion.md`）。BLOCKED → 返回 verdict。
