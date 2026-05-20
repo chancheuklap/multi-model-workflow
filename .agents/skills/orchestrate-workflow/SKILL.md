@@ -64,7 +64,7 @@ description: "正式开发流程主入口。用户给出新功能、改造、bug
 
 **Hard Gates**：没有验证证据不得声称完成 / 没有 design document 不跳到 plan / 每 phase review 不可跳过 / upstream 结论必须写回再继续 / 不存在非阻塞项。
 
-**Review Lanes**：任何 baseline review 或 release review 前先按 `references/external-review-lanes.md` 判断 review lane。默认先用 external Claude subscription runner 做 cross-model review；失败时回落到 Codex 内部 `code_reviewer` / `release_reviewer`。不得调用 `claude -p`，除非用户明确授权 Agent SDK credits / Extra Usage。
+**Review**：任何 baseline review 或 release review 前先按 `references/external-review-lanes.md` 的 Codex 四步协议派发。不使用 Claude CLI、不使用 `claude -p`。
 
 **Sub-agent 隔离**：dispatch prompt 必须自足。Sub-agent 不读 SKILL.md、不读 references/。Agent TOML `skills.config` 自动启用指定 skill；未自动启用的 reference / 方法论由 parent dispatch 提供路径或必要合同。
 

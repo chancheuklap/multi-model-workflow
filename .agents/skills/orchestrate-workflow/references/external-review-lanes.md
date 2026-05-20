@@ -1,52 +1,81 @@
-# External Review Lanes
+# Codex Review Dispatch Protocol
 
 > **Lookup**：任意 phase 准备派发 baseline review 或 release review 前读取。
 
-Codex 有三条 review lane。Coordinator 必须按成本和独立性选择，并在 gate 结果里写明实际使用了哪条。
+所有 review 通过 Codex `codex-companion.mjs` 四步协议派发。不使用 Claude CLI、不使用 `claude -p`。
 
-| Lane | 用途 | 计费/额度 | 使用方式 |
-| --- | --- | --- | --- |
-| External Claude subscription runner | 默认 cross-model review lane；固定 `claude-opus-4-7` + `--effort high` | 普通 Claude Code CLI subscription path；不使用 `-p` / Agent SDK | `codex/reviewers/claude-subscription-review.sh` |
-| Internal Codex reviewer | Claude runner 不可用时兜底 | Codex 当前会话额度 | `spawn_agent` 派 `code_reviewer` / `release_reviewer` |
-| Claude non-interactive | 用户明确授权 Agent SDK credits / Extra Usage；固定 `claude-opus-4-7` + `--effort high` | Agent SDK / usage credits，不是 normal subscription pool | `codex/reviewers/claude-review.sh --allow-extra-usage` |
-
-## 选择规则
-
-- 默认自动执行：External Claude subscription runner。
-- Claude reviewer lane 必须使用 `claude-opus-4-7` 和 `--effort high`；不得降级模型或 effort。
-- External Claude runner 失败或 `claude` 不可用：回落到 Internal Codex reviewer，并在 gate 结果里写明未执行 cross-model review。Internal Codex reviewer 完成后由 Coordinator 手动调用 `codex/hooks/track-review-budget.sh`，`MULTI_MODEL_WORKFLOW_REVIEW_LANE=internal-codex`，`MULTI_MODEL_WORKFLOW_REVIEW_NAME=<gate>`。
-- 用户明确授权 usage credits / Extra Usage：可以用 `claude-review.sh --allow-extra-usage` 自动调用。
-- 不得调用 `claude -p`，除非用户明确授权 Agent SDK credits / Extra Usage。
-- `claude ultrareview` 不是默认替代项；它是 usage credits 路径，只能在用户明确授权时使用。
-
-## External Claude Subscription Runner
-
-把当前 review dispatch prompt 写成文件后运行：
+## 四步协议
 
 ```bash
-bash codex/reviewers/claude-subscription-review.sh \
-  --prompt-file .codex/multi-model-workflow/review-prompts/<gate>.md \
-  --output .codex/multi-model-workflow/review-results/<gate>-claude.md \
-  --review-name <gate>
+# Step 0 — 定位脚本（每个 session 只做一次）
+CODEX_SCRIPT="$(find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs" -type f 2>/dev/null | head -1)"
 ```
 
-Runner 默认只给 Claude `Read,Grep,Glob`，不启用写文件或 shell 命令。成功返回后 runner 会调用 `codex/hooks/track-review-budget.sh` 递增 `budget_used` 并写入 dispatch ledger。Claude findings 返回后，Coordinator 按当前 phase 的 disposition rules 亲验每条 finding。外部 reviewer 的结论不能直接变成 repair。
+### Step 1 — Submit + 持久化 job-id
 
-## Internal Codex Fallback Budget Recording
-
-Internal Codex reviewer fallback 不经过 external runner。收到 `code_reviewer` / `release_reviewer` 结果后，Coordinator 立刻运行：
+Coordinator 写好 review prompt 到 `.codex/multi-model-workflow/review-prompts/<gate>.md` 后：
 
 ```bash
-MULTI_MODEL_WORKFLOW_REVIEW_LANE=internal-codex \
+node "$CODEX_SCRIPT" task --background \
+  --prompt-file .codex/multi-model-workflow/review-prompts/<gate>.md \
+  --json \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['jobId'])" \
+  > .codex/multi-model-workflow/review-prompts/<gate>.job-id
+```
+
+**关键**：`--json` + `python3` 提取确保 job-id 完整持久化到文件，不经过终端渲染截断。
+
+### Step 2 — Wait（后台等待）
+
+```bash
+node "$CODEX_SCRIPT" status \
+  "$(cat .codex/multi-model-workflow/review-prompts/<gate>.job-id)" \
+  --wait --timeout-ms 600000
+```
+
+用 `run_in_background: true` 执行。Coordinator 可以继续其他工作。
+
+### Step 3 — Verify + Result
+
+后台 wait 完成后（收到 exit 通知），**必须**先验证 job 状态再取结果：
+
+```bash
+JOB_STATUS=$(node "$CODEX_SCRIPT" status \
+  "$(cat .codex/multi-model-workflow/review-prompts/<gate>.job-id)" \
+  --json \
+  | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('job',d).get('status','unknown'))")
+```
+
+- `completed` / `failed` / `cancelled` → 继续取结果
+- `queued` / `running` → wait 超时了，重新执行 Step 2
+- 取不到 → 报错，检查 job-id 文件内容
+
+取结果：
+
+```bash
+node "$CODEX_SCRIPT" result \
+  "$(cat .codex/multi-model-workflow/review-prompts/<gate>.job-id)" \
+  > .codex/multi-model-workflow/review-results/<gate>.md
+```
+
+### Step 4 — Budget 记账
+
+取到结果后 Coordinator 立即运行：
+
+```bash
+MULTI_MODEL_WORKFLOW_REVIEW_LANE=codex \
 MULTI_MODEL_WORKFLOW_REVIEW_NAME=<gate> \
   bash codex/hooks/track-review-budget.sh
 ```
+
+## Compaction 恢复
+
+有 `.job-id` 文件但无对应 `review-results/` → 从 Step 2 继续。
 
 ## Reporting
 
 每个 review gate 汇报：
 
-- Lane used: external Claude subscription runner / internal Codex / Claude non-interactive extra usage。
-- Reviewer result path 或 internal reviewer transcript。
-- 是否执行 cross-model review。
-- 如果 fallback 到 internal Codex，写明原因：no Claude findings / no user authorization / Claude bridge failed / cost policy.
+- Job ID
+- Reviewer result path
+- Budget status（track-review-budget.sh 输出）

@@ -11,7 +11,6 @@
 - `codex/agents/*.toml`
 - `codex/hooks/`
 - `codex/skills/`
-- `codex/reviewers/`
 
 旧 Codex V1 已归档到 `archive/2026-05-20-codex-v1/`。
 
@@ -35,7 +34,7 @@ Bug route 先派 `root_cause_analyst`。Multi-PR route 进入 `orchestrate-multi
 - Sub-agent dispatch 必须自足；custom agent 不依赖它看不到的 `SKILL.md` 或 reference。
 - Agent 定义是角色行为权威；dispatch template 只写本次场景信息。
 - Baseline review 用 `code_reviewer`；release-risk supplement 用 `release_reviewer`。
-- Claude cross-model review 需要按 `orchestrate-workflow/references/external-review-lanes.md` 选 lane。订阅额度路径优先用 `codex/reviewers/claude-subscription-review.sh`，并固定调用 `claude-opus-4-7` + `--effort high`；`claude -p` 是 Agent SDK / Extra Usage fallback，必须显式授权。
+- Review 通过 Codex `codex-companion.mjs` 四步协议派发，按 `orchestrate-workflow/references/external-review-lanes.md` 执行。不使用 Claude CLI、不使用 `claude -p`。
 - 运行态 scope / budget 文件在 `.codex/multi-model-workflow/`。
 - 改 Codex source 后同步 user-level runtime 并用 diff 验证。
 
@@ -54,8 +53,6 @@ bash -n codex/skills/install-orchestrate-runtime.sh
 bash -n codex/agents/sync-agents.sh
 bash -n codex/hooks/install-hooks.sh
 bash -n codex/hooks/cleanup-run-state.sh
-bash -n codex/reviewers/claude-subscription-review.sh
-bash -n codex/reviewers/claude-review.sh
 python3 -m json.tool codex/hooks/hooks.json >/dev/null
 rg -n "codex-rescue|SendMessage|Agent tool|CLAUDE_PLUGIN_ROOT|\\.claude/multi-model-workflow" .agents/skills codex
 ```

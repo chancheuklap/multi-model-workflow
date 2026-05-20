@@ -2,7 +2,7 @@
 
 > **流程位置**：`orchestrate-plan-writing` Steps 13-14 · Plan Review Codex 派发 · 派发后 → Steps 15-18（`plan-review-resolution.md`）
 
-Review lane：派发前先读 `orchestrate-workflow/references/external-review-lanes.md`。默认先用 external Claude subscription runner；失败时回落到 `code_reviewer`。不得调用 `claude -p`，除非用户明确授权 Agent SDK credits / Extra Usage。
+Review：派发前先读 `orchestrate-workflow/references/external-review-lanes.md`，按 Codex 四步协议执行。
 
 通过 `code_reviewer` 派发 **1 个** baseline Codex reviewer，整合三个审查角度：
 

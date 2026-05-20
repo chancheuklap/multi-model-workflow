@@ -6,7 +6,7 @@
 
 清扫完成后，检查最终 diff 是否触碰发布风险面。
 
-Review lane：派发前先读 `orchestrate-workflow/references/external-review-lanes.md`。默认先用 external Claude subscription runner；失败时回落到 `release_reviewer`。不得调用 `claude -p`，除非用户明确授权 Agent SDK credits / Extra Usage。
+Review：派发前先读 `orchestrate-workflow/references/external-review-lanes.md`，按 Codex 四步协议执行。
 
 **触发条件**（任一成立）：
 - diff 触碰 migration

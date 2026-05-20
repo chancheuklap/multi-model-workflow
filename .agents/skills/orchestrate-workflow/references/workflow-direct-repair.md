@@ -4,7 +4,7 @@
 
 已批准 design 下的明确实现偏离。不走完整 Formal Orchestrate——派 worker 修复 + Codex review + Closing。
 
-Review lane：派发 repair review 前先读 `references/external-review-lanes.md`。默认先用 external Claude subscription runner；失败时回落到 `code_reviewer`。不得调用 `claude -p`，除非用户明确授权 Agent SDK credits / Extra Usage。
+Review：派发 repair review 前先读 `references/external-review-lanes.md`，按 Codex 四步协议执行。
 
 ## 1. 派 Worker（按 risk flags 选择 agent）
 

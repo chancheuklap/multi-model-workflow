@@ -2,7 +2,7 @@
 
 > **流程位置**：`orchestrate-execution` Step 8 · Worker 返回后派发 Reviewer 时读取
 
-Review lane：派发前先读 `orchestrate-workflow/references/external-review-lanes.md`。默认先用 external Claude subscription runner；失败时回落到 `code_reviewer`。不得调用 `claude -p`，除非用户明确授权 Agent SDK credits / Extra Usage。
+Review：派发前先读 `orchestrate-workflow/references/external-review-lanes.md`，按 Codex 四步协议执行。
 
 Worker 返回 `pass` 或处理完 `needs repair` concerns 后，派发 **1 个** baseline Codex reviewer：
 

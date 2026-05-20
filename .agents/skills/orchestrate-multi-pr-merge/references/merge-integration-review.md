@@ -4,7 +4,7 @@
 
 这不是 Pack Review（审查单个 pack），不是 Final Review（审查 design intent coverage）——这是**跨 PR 集成审查**，验证多个 PR 合在一起后系统是否正确。
 
-Review lane：派发前先读 `orchestrate-workflow/references/external-review-lanes.md`。默认先用 external Claude subscription runner；失败时回落到 `code_reviewer`。不得调用 `claude -p`，除非用户明确授权 Agent SDK credits / Extra Usage。
+Review：派发前先读 `orchestrate-workflow/references/external-review-lanes.md`，按 Codex 四步协议执行。
 
 ## Step 16：构造 Codex Dispatch
 

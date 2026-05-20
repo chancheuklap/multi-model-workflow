@@ -29,8 +29,7 @@ message = """[multi-model-workflow] Behavioral override active:
 - upstream skill 结论必须写回 design / plan / bug brief，再继续当前节点
 - 不自己写生产代码——调度 worker
 - 不用技术语言向用户汇报
-- Review 全部 dispatch 到 external Claude reviewer via codex/reviewers/claude-subscription-review.sh
-- Claude review fixed to claude-opus-4-7 + high thinking effort; do not call claude -p unless user explicitly authorizes Agent SDK / Extra Usage credits
+- Review 通过 Codex codex-companion.mjs 四步协议派发（按 external-review-lanes.md）；不使用 Claude CLI、不使用 claude -p
 - Parallel Task Pack execution 使用 disjoint write sets / independent workspaces
 
 # 5. Compaction recovery

@@ -4,7 +4,7 @@
 
 Pack Review 通过后，检查该 pack 是否触发 Early Release Gate：
 
-Review lane：派发前先读 `orchestrate-workflow/references/external-review-lanes.md`。默认先用 external Claude subscription runner；失败时回落到 `release_reviewer`。不得调用 `claude -p`，除非用户明确授权 Agent SDK credits / Extra Usage。
+Review：派发前先读 `orchestrate-workflow/references/external-review-lanes.md`，按 Codex 四步协议执行。
 
 **触发条件**（任一成立）：
 - pack 的 `发布风险` 涉及 migration / deploy order / rollback / manual production gate，且必须在后续 pack 实现前决定

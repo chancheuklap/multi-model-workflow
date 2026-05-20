@@ -20,6 +20,6 @@
 - Reference 中的 dispatch prompt 必须自足，不假设 custom agent 读过本 skill。
 - Codex 运行目录使用 `.codex/multi-model-workflow/`，不要写旧 Claude 运行目录。
 - Review dispatch 使用 `code_reviewer`；release gate 使用 `release_reviewer`。
-- 需要 Claude cross-model review 时先读 `orchestrate-workflow/references/external-review-lanes.md`；默认使用 `codex/reviewers/claude-subscription-review.sh` 自动调用普通 `claude` stdin，不走 `claude -p`，并固定 `claude-opus-4-7` + `--effort high`。
+- Review 通过 Codex `codex-companion.mjs` 四步协议派发，按 `orchestrate-workflow/references/external-review-lanes.md` 执行。不使用 Claude CLI、不使用 `claude -p`。
 - Worker dispatch 使用 `coding_worker` 或 `complex_coding_worker`；未知根因使用 `root_cause_analyst`。
 - 改 verdict、disposition、repair truncation、budget 或 release gate 时，用 `rg` 检查 producer/consumer 是否同步。

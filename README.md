@@ -10,7 +10,6 @@ Current Codex runtime source:
 - Codex agent templates: `codex/agents/*.toml`
 - skill install scripts: `codex/skills/`
 - hook install scripts: `codex/hooks/`
-- external reviewer helpers: `codex/reviewers/`
 
 The previous Codex V1 source is archived in
 `archive/2026-05-20-codex-v1/` and is not a runtime authority.
@@ -84,22 +83,9 @@ Codex must not default to `claude -p` when the goal is to spend normal Claude
 subscription usage. `claude -p` / Agent SDK usage is a separate credit path, not
 the interactive subscription pool.
 
-Subscription-backed Claude review is automated through the non-`-p` runner:
-
-```bash
-bash codex/reviewers/claude-subscription-review.sh \
-  --prompt-file .codex/multi-model-workflow/review-prompts/<gate>.md \
-  --output .codex/multi-model-workflow/review-results/<gate>-claude.md \
-  --review-name <gate>
-```
-
-The runner invokes ordinary `claude` with stdin and read-only tools; it does not
-use `-p/--print`. Claude review is fixed to `claude-opus-4-7` with
-`--effort high`. When an active Orchestrate budget file exists, successful
-review calls are recorded in `budget_used` and the dispatch ledger.
-
-`codex/reviewers/claude-review.sh` exists only as an explicitly authorized
-Agent SDK / Extra Usage fallback and refuses to run without `--allow-extra-usage`.
+All reviews are dispatched through Codex `codex-companion.mjs` using the
+four-step protocol documented in
+`orchestrate-workflow/references/external-review-lanes.md`.
 
 ## Verification
 
@@ -113,8 +99,6 @@ bash -n codex/hooks/session-start.sh
 bash -n codex/hooks/guard-premature-push.sh
 bash -n codex/hooks/track-review-budget.sh
 bash -n codex/hooks/cleanup-run-state.sh
-bash -n codex/reviewers/claude-subscription-review.sh
-bash -n codex/reviewers/claude-review.sh
 python3 -m json.tool codex/hooks/hooks.json >/dev/null
 diff -qr .agents/skills/orchestrate-workflow ~/.agents/skills/orchestrate-workflow
 diff -qr .agents/skills/orchestrate-discovery ~/.agents/skills/orchestrate-discovery

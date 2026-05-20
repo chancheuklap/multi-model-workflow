@@ -16,5 +16,5 @@
 - `cleanup-run-state.sh` 是 publish 前自动清理 helper，也可作为手动 fallback；只删 `.codex/multi-model-workflow/`，不删正式 design / plan / issue / report / code artifacts。
 - `hooks.json` 是 hook manifest source；新增或删除 hook 时必须先改这里，再改安装脚本的脚本清单。
 - Hook 中不得写旧 Claude runtime 路径；统一使用 `.codex/multi-model-workflow/`。
-- Claude cross-model review 默认使用 `codex/reviewers/claude-subscription-review.sh`，固定 `claude-opus-4-7` + `--effort high`；不得在 hook 中引导 `claude -p`，除非用户明确授权 Agent SDK credits / Extra Usage。
+- Review 通过 Codex `codex-companion.mjs` 四步协议派发；不得在 hook 中引导 `claude` 或 `claude -p`。
 - 修改本目录后运行 `bash codex/hooks/install-hooks.sh --apply`，并对比 user-level hook runtime。

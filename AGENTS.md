@@ -11,7 +11,6 @@
 | Codex skill source | `.agents/skills/orchestrate-*` | 六个 Orchestrate phase skill 的源码真相 |
 | Codex agent source | `codex/agents/*.toml` | 自定义 `agent_type` 指令模板 |
 | Codex hook source | `codex/hooks/*.sh`、`codex/hooks/hooks.json` | user-level hook 的源码真相 |
-| Codex reviewer helpers | `codex/reviewers/` | Codex 调用或交接外部 reviewer 的脚本 |
 | Codex skill runtime | `/Users/cheuklapchan/.agents/skills/orchestrate-*` | Codex 实际可加载的 user-level skills |
 | Codex agent runtime | `/Users/cheuklapchan/.codex/agents/*.toml` | Codex 实际可调用的 custom sub-agent 配置 |
 | Codex hook runtime | `/Users/cheuklapchan/.codex/hooks/multi-model-workflow/`、`/Users/cheuklapchan/.codex/hooks.json` | Codex 实际执行的 user-level hooks |
@@ -87,7 +86,7 @@ Sub-agent dispatch 必须自足。需要 reference 时，parent 要提供明确�
 - Execution 逐 Task Pack 派正确 worker，review 后 disposition，再 repair。
 - Final Review 验证所有 pack 合起来是否满足 design intent，并清扫 worker open items、TODO/FIXME、out-of-scope disposition。
 - Release-risk review 由 `release_reviewer` 追加，不能覆盖 baseline `code_reviewer`。
-- Claude cross-model review 要先走 `orchestrate-workflow/references/external-review-lanes.md`：订阅额度路径优先用 `codex/reviewers/claude-subscription-review.sh`，并固定调用 `claude-opus-4-7` + `--effort high`；`claude -p` 只能在用户明确授权 Agent SDK credits / Extra Usage 时使用。
+- Review 通过 Codex `codex-companion.mjs` 四步协议派发（按 `orchestrate-workflow/references/external-review-lanes.md`）。
 - 未知根因先建立 feedback loop 和可证伪 hypotheses，再修复。
 - Worker 按 public behavior vertical TDD，不做 horizontal slicing。
 - API、Pydantic、DB、JSON、sync、billing、permission、runtime、UI action 和 helper placement 走正式 contract boundary。

@@ -34,16 +34,30 @@ Dispatch prompt 必须自足——worker 不读 SKILL.md、不读 references、�
 
 ## Step 6：派发 Worker
 
+**串行 pack**（队列中单独一组）：
+
+```
+spawn_agent({
+  agent_type: "<coding_worker | complex_coding_worker>",
+  description: "Execute Task Pack N.M: <title>",
+  prompt: "<Pack Brief>"
+})
+```
+
+**并行 pack**（队列中同组多个 pack）——每个 worker 必须在独立 worktree 中工作：
+
 ```
 spawn_agent({
   agent_type: "<coding_worker | complex_coding_worker>",
   description: "Execute Task Pack N.M: <title>",
   prompt: "<Pack Brief>",
-  fork_context: true  # Codex 子代理需要继承当前上下文时使用
+  isolation: "worktree"
 })
 ```
 
-**记录返回的 agentId**——后续复杂修复需要用 send_input 继续该 worker。并行 pack 在同一消息中发送多个 spawn_agent call。
+**并行 pack 在同一消息中发送多个 spawn_agent call。** 每个 call 都带 `isolation: "worktree"`。返回的 worktree path 和 branch 用于 Step 15 合并。
+
+**记录返回的 agentId**——后续复杂修复需要用 send_input 继续该 worker。
 
 ## Step 7：接收 Worker 返回
 
