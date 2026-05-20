@@ -4,15 +4,16 @@
 
 ## Step 1：读取 Plan Task Pack Inventory
 
-**Read** Scope Contract（`.claude/multi-model-workflow/scope-<run_id>.md`）获取 slug → **Read** plan 文档（`docs/orchestrate/plans/<slug>.md`）获取完整内容。
+**Read** Scope Contract（`.claude/multi-model-workflow/scope-<run_id>.md`）获取 slug → **列出** `docs/orchestrate/plans/<slug>/` 目录下所有 plan 文件 → **逐个 Read** 每份 plan 文件获取完整内容。
 
-从 plan 文档中提取：
+从所有 plan 文件中汇总提取：
 
-- 所有 Task Pack 的编号、标题、issue reference
+- 所有 Task Pack 的编号、标题、所属 plan / issue reference
 - 每个 pack 的 `Dependencies`、`Parallel safety`、`Risk flags`、`发布风险`
+- 每份 plan header 中的 `Blocked by`（大 issue 级依赖，用于排列跨 plan 的 pack 顺序）
 - Source design path（`docs/orchestrate/design/<slug>.md`）、Source issues path（`docs/orchestrate/issues/<slug>/`）
-- File / Responsibility Map
-- 发布风险和人工门禁表
+- 合并所有 plan 的 File / Responsibility Map
+- 合并所有 plan 的发布风险和人工门禁表
 
 **验证 Plan 完整性**：每个 pack 必须有 goal behavior / owned files / acceptance criteria / verification commands / contract anchors（触碰合同时）/ mockup anchors（UI 时）/ commit boundary / risk flags。缺字段的 pack 不进入执行——返回 `NEEDS_PLAN_REVISION`，让 orchestrate-plan-writing 修复。
 

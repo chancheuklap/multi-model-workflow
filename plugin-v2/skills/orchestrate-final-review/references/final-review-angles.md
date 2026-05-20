@@ -43,8 +43,8 @@ Agent({
     ## Source design
     docs/orchestrate/design/<slug>.md（已通过 Design Review）
 
-    ## Plan
-    docs/orchestrate/plans/<slug>.md（已通过 Plan Review）
+    ## Plans（已通过 Plan Review）
+    docs/orchestrate/plans/<slug>/（目录，逐个列出所有 plan 文件路径）
 
     ## Issue hierarchy
     docs/orchestrate/issues/<slug>/
@@ -174,8 +174,8 @@ Agent({
     ## Source design
     docs/orchestrate/design/<slug>.md（已通过 Design Review）
 
-    ## Plan
-    docs/orchestrate/plans/<slug>.md（已通过 Plan Review）
+    ## Plans（已通过 Plan Review）
+    docs/orchestrate/plans/<slug>/（目录，逐个列出所有 plan 文件路径）
 
     ## Pack completion summary
     | Pack | Worker verdict | Pack Review verdict | Verified behaviors | Repair rounds |

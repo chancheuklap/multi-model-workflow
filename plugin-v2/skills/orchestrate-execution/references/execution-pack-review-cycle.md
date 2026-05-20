@@ -16,8 +16,8 @@
 
 构造 Pack Brief 之前，Coordinator 必须确认以下内容在上下文中：
 
-1. **Read** plan 文档（`docs/orchestrate/plans/<slug>.md`）—— 如果上下文中没有 plan 内容（首个 pack 或经过 compact），必须重新 Read
-2. 从 plan 中**定位当前 pack** 的完整章节（Task Pack N.M），提取所有字段：Goal behavior、Implementation tasks（全文）、Owned files、Read first、Acceptance criteria、Verification commands、Risk flags、Contract anchors、Mockup anchors、Dependencies、Out of scope
+1. **Read** 当前 pack 对应的 plan 文件（`docs/orchestrate/plans/<slug>/00N-*.md`）—— 如果上下文中没有该 plan 内容（首个 pack 或经过 compact），必须重新 Read
+2. 从该 plan 中**定位当前 pack** 的完整章节，提取所有字段：Goal behavior、Implementation tasks（全文）、Owned files、Read first、Acceptance criteria、Verification commands、Risk flags、Contract anchors、Mockup anchors、Dependencies、Out of scope
 3. 读取 `execution-worker-dispatch.md` 获取 Pack Brief 模板
 
 ### Step 5b：填充 Pack Brief

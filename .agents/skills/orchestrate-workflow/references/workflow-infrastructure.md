@@ -26,7 +26,7 @@ RUN_ID=$(cat .codex/multi-model-workflow/active-run-id)
 SLUG=$(grep -A1 '^## Feature slug' ".codex/multi-model-workflow/scope-${RUN_ID}.md" | tail -1 | xargs)
 git log --oneline --since="<last_gate_timestamp>" -- \
   "docs/orchestrate/design/${SLUG}.md" \
-  "docs/orchestrate/plans/${SLUG}.md" \
+  "docs/orchestrate/plans/${SLUG}/" \
   "docs/orchestrate/issues/${SLUG}/"
 ```
 
@@ -54,8 +54,11 @@ Scope Contract 和 Budget File 已存在 → 读取并验证。`pack_count` 或 
 docs/orchestrate/
 ├── design/          # 设计文档（orchestrate-discovery 产出）
 │   └── YYYY-MM-DD-<feature>.md
-├── plans/           # 实施计划（plan-writer 产出）
-│   └── YYYY-MM-DD-<feature>.md
+├── plans/           # 实施计划（plan_writer 产出，每个大 issue 一份 plan）
+│   └── YYYY-MM-DD-<feature>/
+│       ├── 001-<issue-slug>.md          # 与 issues/ 下同编号文件一一对应
+│       ├── 002-<issue-slug>.md
+│       └── ...
 ├── issues/          # issue hierarchy（to-issues 产出）
 │   └── YYYY-MM-DD-<feature>/
 │       ├── 001-<large-issue-slug>.md   # 大 issue 文档（内含小 issue 拆分）
@@ -74,7 +77,7 @@ docs/orchestrate/
 
 **路径推导**：给定 feature slug `<slug>`，各文档路径为：
 - Design: `docs/orchestrate/design/<slug>.md`
-- Plan: `docs/orchestrate/plans/<slug>.md`
+- Plans: `docs/orchestrate/plans/<slug>/`（目录，每个大 issue 一份 plan 文件）
 - Issues: `docs/orchestrate/issues/<slug>/`
 - Mockups: `docs/orchestrate/mockups/<slug>/`
 
@@ -95,7 +98,7 @@ docs/orchestrate/
 
 ## Editable artifacts
 - Design: docs/orchestrate/design/<slug>.md
-- Plan: docs/orchestrate/plans/<slug>.md
+- Plans: docs/orchestrate/plans/<slug>/
 - Issues: docs/orchestrate/issues/<slug>/
 - Mockups: docs/orchestrate/mockups/<slug>/（UI/UX 时）
 

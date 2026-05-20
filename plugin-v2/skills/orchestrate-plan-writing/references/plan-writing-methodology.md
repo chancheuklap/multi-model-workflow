@@ -10,39 +10,39 @@ plan-writer agent 通过 dispatch prompt 中指定的路径读取本文件执行
 
 执行者是有经验的开发者，但几乎不了解我们的工具链和问题领域。假设他们的测试设计能力一般。
 
-## Step 3：读取 source design + issue hierarchy
+## Step 3：读取 source design + 你的 issue
+
+**每个 plan-writer 只负责一个大 issue。** dispatch prompt 中已指定你的 issue 文件路径。
 
 ### 3a：读取 source design
 
-提取 goal、architecture、tech stack、行为清单、合同边界、失败场景。理解设计文档中每一个可验证 intent。
+提取 goal、architecture、tech stack、合同边界。理解全局设计上下文，但只关注与你的 issue 相关的部分。
 
-### 3b：读取 issue hierarchy
+### 3b：读取你的 issue 文件
 
-确认 large issues 和 small issues 完整。每个 small issue 必须能独立验证。
+Read dispatch prompt 中指定的 issue 文件。提取 What to build、所有 Small issues、Blocked by。每个 small issue 必须能独立验证。
 
 映射规则：
 
 | source artifact | plan artifact |
 | --- | --- |
-| source design / SPEC / PRD | plan 的 source of truth 和 coverage checklist |
-| vertical large issue | plan 一级章节 |
-| parent large issue 文档内已记录的 vertical small issue | 一个 Task Pack |
-| issue acceptance criteria | Task Pack acceptance criteria |
-| issue blocked-by | Task Pack dependencies |
-| issue out of scope | Task Pack out of scope |
-| issue AFK / HITL | Task Pack AFK / HITL 和 risk flags |
+| source design | plan 的全局上下文（只读参考） |
+| 你的 issue 文件 | plan 的 scope |
+| issue 内的 small issue | 一个 Task Pack |
+| small issue acceptance criteria | Task Pack acceptance criteria |
+| small issue blocked-by | Task Pack dependencies |
+| issue blocked-by（大 issue 级） | plan header 记录，Coordinator 在 execution 阶段处理跨 plan 依赖 |
 
 映射不成立时：
 
 | 状况 | 返回 |
 | --- | --- |
-| 缺 large / small issue | `NEEDS_ISSUES`："缺 issue hierarchy，需要 to-issues" |
-| small issue 不可独立验证 | `NEEDS_ISSUES`："issue 粒度不足，建议用 to-issues 继续拆" |
+| issue 文件缺 small issue | `NEEDS_ISSUES`："issue 粒度不足，建议用 to-issues 继续拆" |
+| small issue 不可独立验证 | `NEEDS_ISSUES`："small issue 粒度不足" |
 | 术语 / 验收不清 | `NEEDS_DISCOVERY`："业务意图不清，需要 discovery" |
-| scope 应拆多个 plan | `NEEDS_ISSUES`："scope 过大，应拆分 plan" |
 | 架构假设与代码现实不符 | `NEEDS_ARCHITECTURE`：具体说明哪个假设不成立 |
 
-只处理用户明确提供或 parent 确认的 issue。Design / SPEC 中提到的其它 issue 最多作为 read-only context，不进入 plan source、Task Pack inventory 或 coverage map。不要把建议拆分直接当成正式 Task Pack——必须等 to-issues 运行并写回后才能成为正式 issue。
+只处理你的 issue 文件中的 small issues。其他 issue 不属于你的 scope。
 
 ### 3c：探索代码库
 
@@ -62,27 +62,16 @@ plan-writer agent 通过 dispatch prompt 中指定的路径读取本文件执行
 ## Step 5：写 Plan Header
 
 ```markdown
-# <Feature> Implementation Plan
+# <Issue Title> Implementation Plan
 
-**Goal:** <一句话用户可见或系统可验证能力>
+**Goal:** <这个 issue 的一句话目标>
 **Source design:** docs/orchestrate/design/<slug>.md
-**Source issues:** docs/orchestrate/issues/<slug>/
+**Source issue:** docs/orchestrate/issues/<slug>/00N-<issue-slug>.md
 **Execution owner:** Orchestrate Workflow
-**Plan unit:** 一级章节 = large issue；Task Pack = small issue；细 task 只在 pack 内部。
-**Completion gate:** Plan Review → Execution → Pack Review → Final Review → Release Gate (if triggered)
-**Architecture:** <2-3 句实现方向、主要合同边界和数据/状态流>
-**Tech stack:** <实际涉及的框架、服务、测试工具、运行时>
+**Blocked by:** <从 issue 文件的 Blocked by 节复制，Coordinator 在 execution 阶段处理跨 plan 依赖>
+**Architecture:** <与本 issue 相关的实现方向>
+**Tech stack:** <实际涉及的框架、服务、测试工具>
 **Quality gate:** 进入 Plan Review 前必须通过过度设计 / 设计不足自审。
-
-## Scope Check
-**Subsystems:** ...
-**Should split into multiple plans:** yes / no, with reason
-**This plan covers:** ...
-**This plan does not cover:** ...
-
-## Source Coverage Map
-| Source intent / requirement | Large issue | Small issue / Task Pack | Acceptance evidence |
-| --- | --- | --- | --- |
 
 ## File / Responsibility Map
 **Create:** `path` — responsibility
@@ -91,11 +80,11 @@ plan-writer agent 通过 dispatch prompt 中指定的路径读取本文件执行
 **Docs / rules / registry / migration / release gate:** `path or gate` — why it changes
 
 ## 发布风险和人工门禁
-| 风险面 | Source issue / Task Pack | Risk flag | 提前 review | Manual gate owner |
+| 风险面 | Task Pack | Risk flag | 提前 review | Manual gate owner |
 | --- | --- | --- | --- | --- |
 ```
 
-Execution owner 必须是 Orchestrate Workflow。Should split = yes 时不继续硬塞，返回 `NEEDS_ISSUES` 或 `NEEDS_DISCOVERY`。
+Execution owner 必须是 Orchestrate Workflow。
 
 ## Step 6：写 Task Pack
 
