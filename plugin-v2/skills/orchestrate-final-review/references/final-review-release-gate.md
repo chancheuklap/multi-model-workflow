@@ -22,63 +22,65 @@
 
 ## Step 17：派发 Release Reviewer
 
-按 `orchestrate-workflow/references/external-review-lanes.md` 定义的方式提交 Codex review 任务。
+按以下步骤派发 Codex review（`CODEX_SCRIPT` 未定义时先执行 `CODEX_SCRIPT="$(find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs" -type f 2>/dev/null | head -1)"`）：
+1. 写 prompt → `review-prompts/<gate>.md`
+2. `node "$CODEX_SCRIPT" task --background --prompt-file .claude/multi-model-workflow/review-prompts/<gate>.md --model gpt-5.4 --effort xhigh` → 记录 JOB_ID
+3. `node "$CODEX_SCRIPT" status <JOB_ID> --wait --timeout-ms 600000`（run_in_background: true）
+4. `node "$CODEX_SCRIPT" result <JOB_ID>` → 存到 `review-results/<gate>.md`，budget_used += 1
 
 Review prompt 写入 `.claude/multi-model-workflow/review-prompts/final-release-gate.md`：
 
 ```markdown
 ## Scope
-    Release-risk review for the final implementation.
-    Code quality and spec compliance have already passed.
-    Only assess release risk.
+Release-risk review for the final implementation.
+Code quality and spec compliance have already passed.
+Only assess release risk.
 
-    ## Full diff
-    git diff <starting_commit>..HEAD
+## Full diff
+git diff <starting_commit>..HEAD
 
-    ## Risk surface
-    <specific risk areas triggered>
+## Risk surface
+<specific risk areas triggered>
 
-    ## 发布风险和人工门禁
-    <paste from plan>
+## 发布风险和人工门禁
+<paste from plan>
 
-    ## Already covered by Early Release Gate
-    <list of risk surfaces already reviewed during Execution, if any>
+## Already covered by Early Release Gate
+<list of risk surfaces already reviewed during Execution, if any>
 
-    ## Review focus
-    - Migration 安全：顺序、回滚、数据完整性
-    - Deploy order：服务依赖、API 兼容、蓝绿/灰度策略
-    - Permission / billing：权限变更、账务一致性、审计链
-    - Runtime：进程管理、重启安全、状态恢复
-    - Rollback：每个变更是否可安全回滚
-    - Manual gate：是否所有 manual production gate 都有验证证据
+## Review focus
+- Migration 安全：顺序、回滚、数据完整性
+- Deploy order：服务依赖、API 兼容、蓝绿/灰度策略
+- Permission / billing：权限变更、账务一致性、审计链
+- Runtime：进程管理、重启安全、状态恢复
+- Rollback：每个变更是否可安全回滚
+- Manual gate：是否所有 manual production gate 都有验证证据
 
-    ## Release blocker 定义
-    以下为 release blocker（必须修复才能发布）：
-    - 数据丢失或无法回滚
-    - 权限绕过
-    - 账务不一致
-    - 合同未同步（provider 改了 consumer 没跟）
-    - registry / migration / catalog 未闭合
-    - deploy order 导致 401/500
-    - release gate 无验证证据
+## Release blocker 定义
+以下为 release blocker（必须修复才能发布）：
+- 数据丢失或无法回滚
+- 权限绕过
+- 账务不一致
+- 合同未同步（provider 改了 consumer 没跟）
+- registry / migration / catalog 未闭合
+- deploy order 导致 401/500
+- release gate 无验证证据
 
-    ## Calibration
-    只标记 release blocker。代码质量、风格、设计——不在此 review 范围。
+## Calibration
+只标记 release blocker。代码质量、风格、设计——不在此 review 范围。
 
-    ## Return Contract
-    ### Verdict
-    pass / blocked / needs repair
-    ### Evidence
-    ### Result
-    Release Risk:
-    Blockers:
-    Manual verification needed:
-    Rollback assessment:
-    Deploy order assessment:
-    ### Verification
-    ### Open Items
-  "
-})
+## Return Contract
+### Verdict
+pass / blocked / needs repair
+### Evidence
+### Result
+Release Risk:
+Blockers:
+Manual verification needed:
+Rollback assessment:
+Deploy order assessment:
+### Verification
+### Open Items
 ```
 
 Budget：Release Gate 最多 2 个 dispatch（含 early + final），已包含在全局 `2N+12` 预算中。如果 Execution 已用 1 个 early release gate，此处还有 1 个。

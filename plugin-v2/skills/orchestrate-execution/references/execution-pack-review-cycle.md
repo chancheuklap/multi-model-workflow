@@ -83,7 +83,7 @@ Source: Pack <N.M> worker discovery
 
 ## Step 8：派发 Codex Reviewer
 
-**Read** `execution-review-dispatch.md`，按 `external-review-lanes.md` 定义的方式提交 Codex review 任务。
+**Read** `execution-review-dispatch.md`，按其中的 Codex review 派发步骤提交。
 
 **Budget check**：`budget_used + 1 ≤ budget_total`。超预算停止报告用户。
 

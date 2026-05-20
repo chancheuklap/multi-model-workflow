@@ -33,17 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '[multi-model-workflow] Coding agent completed. Next: dispatch codex:codex-rescue for independent review (pack review or targeted re-review per context).' >&2; exit 0"
-          }
-        ]
-      },
-      {
-        "matcher": "codex:codex-rescue",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/track-review-budget.sh\"",
-            "timeout": 5
+            "command": "echo '[multi-model-workflow] Coding agent completed. Next: read the review dispatch reference for this phase and follow the inline Codex review steps.' >&2; exit 0"
           }
         ]
       }

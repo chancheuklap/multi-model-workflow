@@ -74,47 +74,44 @@ Analyst findings:
 
 ## Step 17：Simple Bug — Codex Review
 
-Analyst 已修复代码。派发 Codex 验证修复正确性：
+Analyst 已修复代码。按以下步骤派发 Codex review（`CODEX_SCRIPT` 未定义时先执行 `CODEX_SCRIPT="$(find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs" -type f 2>/dev/null | head -1)"`）：
+1. 写 prompt → `review-prompts/bug-fix-review.md`（内容见下方模板）
+2. `node "$CODEX_SCRIPT" task --background --prompt-file .claude/multi-model-workflow/review-prompts/bug-fix-review.md --model gpt-5.4 --effort xhigh` → 记录 JOB_ID
+3. `node "$CODEX_SCRIPT" status <JOB_ID> --wait --timeout-ms 600000`（run_in_background: true）
+4. `node "$CODEX_SCRIPT" result <JOB_ID>` → 存到 `review-results/bug-fix-review.md`，budget_used += 1
 
-```
-Agent({
-  subagent_type: "codex:codex-rescue",
-  description: "Bug fix review: <bug title>",
-  prompt: "
-    --model gpt-5.4
-    --wait
+Review prompt 写入 `.claude/multi-model-workflow/review-prompts/bug-fix-review.md`：
 
-    ## Scope
-    Review a bug fix applied by root-cause-analyst.
+```markdown
+## Scope
+Review a bug fix applied by root-cause-analyst.
 
-    ## Bug
-    <original bug description>
+## Bug
+<original bug description>
 
-    ## Root cause
-    <analyst's root cause finding>
+## Root cause
+<analyst's root cause finding>
 
-    ## Fix applied
-    <analyst's fix description + changed files>
+## Fix applied
+<analyst's fix description + changed files>
 
-    ## Review angles
-    - Fix addresses the stated root cause
-    - No regression introduced
-    - Tests cover the fixed behavior
-    - Contract integrity maintained (if applicable)
+## Review angles
+- Fix addresses the stated root cause
+- No regression introduced
+- Tests cover the fixed behavior
+- Contract integrity maintained (if applicable)
 
-    ## Calibration
-    Targeted bug fix review — only assess fix correctness and regression risk.
-    Do not expand scope beyond the stated bug.
+## Calibration
+Targeted bug fix review — only assess fix correctness and regression risk.
+Do not expand scope beyond the stated bug.
 
-    ## Return Contract
-    ### Verdict
-    pass / needs repair / blocked
-    ### Evidence
-    ### Result
-    ### Verification
-    ### Open Items
-  "
-})
+## Return Contract
+### Verdict
+pass / needs repair / blocked
+### Evidence
+### Result
+### Verification
+### Open Items
 ```
 
 **整体 Verdict 前置检查**：如果 reviewer 返回整体 `needs context`，补充上下文后重新 dispatch，不进入 per-finding 处理。

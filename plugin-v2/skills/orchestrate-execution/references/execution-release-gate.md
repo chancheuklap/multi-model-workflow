@@ -10,60 +10,64 @@ Pack Review 通过后，检查该 pack 是否触发 Early Release Gate：
 - 等到 Final Review 才审会造成不可逆数据、权限、账务或 runtime 风险
 - 用户明确要求
 
-**触发时**：按 `orchestrate-workflow/references/external-review-lanes.md` 定义的方式提交 Codex review 任务。
+**触发时**，按以下步骤派发 Codex review（`CODEX_SCRIPT` 未定义时先执行 `CODEX_SCRIPT="$(find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs" -type f 2>/dev/null | head -1)"`）：
+1. 写 prompt → `review-prompts/<gate>.md`
+2. `node "$CODEX_SCRIPT" task --background --prompt-file .claude/multi-model-workflow/review-prompts/<gate>.md --model gpt-5.4 --effort xhigh` → 记录 JOB_ID
+3. `node "$CODEX_SCRIPT" status <JOB_ID> --wait --timeout-ms 600000`（run_in_background: true）
+4. `node "$CODEX_SCRIPT" result <JOB_ID>` → 存到 `review-results/<gate>.md`，budget_used += 1
 
 Review prompt 写入 `.claude/multi-model-workflow/review-prompts/release-gate-N.M.md`：
 
 ```markdown
 ## Scope
-    Early Release Gate for Task Pack N.M.
-    Code quality and spec compliance have already passed Pack Review.
-    Only assess release risk — this pack cannot wait for Final Review.
+Early Release Gate for Task Pack N.M.
+Code quality and spec compliance have already passed Pack Review.
+Only assess release risk — this pack cannot wait for Final Review.
 
-    ## Pack
-    <pack number + title + risk flags>
+## Pack
+<pack number + title + risk flags>
 
-    ## Changed files
-    <list from worker return>
+## Changed files
+<list from worker return>
 
-    ## Risk surface
-    <specific risk areas: migration / deploy order / rollback / manual gate / billing / permission / runtime>
+## Risk surface
+<specific risk areas: migration / deploy order / rollback / manual gate / billing / permission / runtime>
 
-    ## 发布风险和人工门禁
-    <paste from plan>
+## 发布风险和人工门禁
+<paste from plan>
 
-    ## Review focus
-    - Migration 安全：顺序、回滚、数据完整性
-    - Deploy order：服务依赖、API 兼容
-    - Permission / billing：权限变更、账务一致性
-    - Runtime：进程管理、重启安全
-    - Rollback：每个变更是否可安全回滚
-    - Manual gate：是否有验证证据
+## Review focus
+- Migration 安全：顺序、回滚、数据完整性
+- Deploy order：服务依赖、API 兼容
+- Permission / billing：权限变更、账务一致性
+- Runtime：进程管理、重启安全
+- Rollback：每个变更是否可安全回滚
+- Manual gate：是否有验证证据
 
-    ## Release blocker 定义
-    - 数据丢失或无法回滚
-    - 权限绕过
-    - 账务不一致
-    - 合同未同步
-    - registry / migration / catalog 未闭合
-    - deploy order 导致 401/500
-    - release gate 无验证证据
+## Release blocker 定义
+- 数据丢失或无法回滚
+- 权限绕过
+- 账务不一致
+- 合同未同步
+- registry / migration / catalog 未闭合
+- deploy order 导致 401/500
+- release gate 无验证证据
 
-    ## Calibration
-    只标记 release blocker。代码质量、风格、设计——不在此 review 范围。
+## Calibration
+只标记 release blocker。代码质量、风格、设计——不在此 review 范围。
 
-    ## Return Contract
-    ### Verdict
-    pass / blocked / needs repair
-    ### Evidence
-    ### Result
-    Release Risk:
-    Blockers:
-    Manual verification needed:
-    Rollback assessment:
-    Deploy order assessment:
-    ### Verification
-    ### Open Items
+## Return Contract
+### Verdict
+pass / blocked / needs repair
+### Evidence
+### Result
+Release Risk:
+Blockers:
+Manual verification needed:
+Rollback assessment:
+Deploy order assessment:
+### Verification
+### Open Items
 ```
 
 多个相邻 high-risk packs 同一发布风险面时合并一次。Budget：Release Gate 最多 2 个 dispatch（含 early + final），已包含在全局 `2N+12` 预算中。

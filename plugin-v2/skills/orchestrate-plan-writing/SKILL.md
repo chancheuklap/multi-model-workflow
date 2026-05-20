@@ -47,7 +47,7 @@ Coordinator 列出 `docs/orchestrate/issues/<slug>/` 目录下的所有大 issue
 
 ## Steps 13-14：Plan Review
 
-Budget check（`budget_used + 1 ≤ budget_total`，80% 触发 Direction Check）→ **Read** `references/plan-review-dispatch.md`，按 `external-review-lanes.md` 定义的方式提交 Codex review 任务。
+Budget check（`budget_used + 1 ≤ budget_total`，80% 触发 Direction Check）→ **Read** `references/plan-review-dispatch.md`，按其中的 Codex review 派发步骤提交。
 
 ## Steps 15-18：Disposition + 修复 + 截断
 

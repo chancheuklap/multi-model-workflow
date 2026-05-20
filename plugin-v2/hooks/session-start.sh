@@ -35,7 +35,7 @@ cat <<'RULES'
 - upstream skill 结论必须写回 design / plan / bug brief，再继续当前节点
 - 不自己写生产代码——调度 worker
 - 不用技术语言向用户汇报
-- Review 全部 dispatch 到 codex:codex-rescue
+- Review 派发步骤已内联到各 dispatch 模板中，Read 对应的 review dispatch reference 即可
 - Parallel Task Pack execution 使用 isolation: "worktree"
 
 # 5. Compaction recovery

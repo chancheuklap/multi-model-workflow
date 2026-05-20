@@ -126,49 +126,48 @@ Explorer 返回后路由：
 
 修复完成后，只重审 accepted findings 涉及的变更部分。不做 full review rerun。
 
-```
-Agent({
-  subagent_type: "codex:codex-rescue",
-  description: "Final Review targeted re-review: <finding summary>",
-  prompt: "
-    --model gpt-5.4
-    --wait
+按以下步骤派发 Codex review（`CODEX_SCRIPT` 未定义时先执行 `CODEX_SCRIPT="$(find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs" -type f 2>/dev/null | head -1)"`）：
+1. 写 prompt → `review-prompts/final-review-re-review.md`（内容见下方模板）
+2. `node "$CODEX_SCRIPT" task --background --prompt-file .claude/multi-model-workflow/review-prompts/final-review-re-review.md --model gpt-5.4 --effort xhigh` → 记录 JOB_ID
+3. `node "$CODEX_SCRIPT" status <JOB_ID> --wait --timeout-ms 600000`（run_in_background: true）
+4. `node "$CODEX_SCRIPT" result <JOB_ID>` → 存到 `review-results/final-review-re-review.md`，budget_used += 1
 
-    ## Scope
-    Targeted re-review for Final Review repair.
-    Only review the changes made to address the listed findings.
+Review prompt 写入 `.claude/multi-model-workflow/review-prompts/final-review-re-review.md`：
 
-    ## Original findings
-    <paste accepted findings>
+```markdown
+## Scope
+Targeted re-review for Final Review repair.
+Only review the changes made to address the listed findings.
 
-    ## Repair diff
-    <git diff of repair changes>
+## Original findings
+<paste accepted findings>
 
-    ## Changed files
-    <repair-affected files only>
+## Repair diff
+<git diff of repair changes>
 
-    ## Contract anchors
-    <if repair touches contract boundaries>
+## Changed files
+<repair-affected files only>
 
-    ## Review focus
-    - Each accepted finding has been addressed
-    - Repair does not introduce new issues
-    - Verification commands pass
+## Contract anchors
+<if repair touches contract boundaries>
 
-    ## Calibration
-    只验证修复是否解决了原始 finding。不做全面重审。
+## Review focus
+- Each accepted finding has been addressed
+- Repair does not introduce new issues
+- Verification commands pass
 
-    ## Return Contract
-    ### Verdict
-    pass / needs repair / blocked
-    ### Evidence
-    ### Result
-    Per-finding status:
-    - <finding 1>: resolved / still present / new issue
-    ### Verification
-    ### Open Items
-  "
-})
+## Calibration
+只验证修复是否解决了原始 finding。不做全面重审。
+
+## Return Contract
+### Verdict
+pass / needs repair / blocked
+### Evidence
+### Result
+Per-finding status:
+- <finding 1>: resolved / still present / new issue
+### Verification
+### Open Items
 ```
 
 Budget 消耗 1。Budget check 同 Step 3。
