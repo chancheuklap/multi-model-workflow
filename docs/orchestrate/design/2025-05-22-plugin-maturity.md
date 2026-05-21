@@ -135,6 +135,30 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 2. **agentId 持久化到 workflow-state**：`state.sh` 在 dispatch 时记录 `packs[N].agent_id`，compaction 后可恢复
 3. **SendMessage 是唯一修复路径**：删除所有"或新建同类 agent"fallback。SendMessage resume 经实测可靠，fallback 只会掩盖 agentId 丢失问题
 4. **修复截断保持 3 轮 + RCA**：不变
+5. **SKILL.md 必须包含显式的 SendMessage resume 操作指令**：AI 对 SendMessage resume 已完成 agent 的能力认知不可靠——实测中直接询问 AI"能否向已完成的 subagent 发送 SendMessage"会得到"不行"的错误回答。因此 SKILL.md 不能假设 Coordinator 自己知道这个用法，必须在修复步骤中写成不可跳过的操作清单（见下方模板）
+
+**SKILL.md 中的 SendMessage resume 操作模板**（由 `control-envelope.sh` resolver 生成，内联到 execution / plan-writing 的修复步骤中）：
+
+```markdown
+## 修复 dispatch（SendMessage resume 原 worker）
+
+1. 从 workflow-state 读取 `packs[N].agent_id`（或 `plans[N].plan_writer_agent_id`）
+2. 确认 agentId 存在且非空。如果为空 → BLOCKED，报告"agentId 丢失，无法 resume 原 worker"
+3. 调用 SendMessage：
+   ```
+   SendMessage({
+     to: "<agentId>",
+     summary: "Repair round N for pack X.Y",
+     message: "<修复指令，含 review findings 和具体要求>"
+   })
+   ```
+   **关键**：SendMessage 会将已完成的 background agent 从其 transcript 恢复运行。
+   agent 保留首次执行的完整上下文（代码理解、尝试过的方案、遇到的边界情况）。
+4. 等待 worker 完成修复
+5. 调用 state.sh 更新 pack 状态（Coordinator 显式写入，不依赖 hook 自动触发）
+```
+
+这个模板解决了两个问题：(a) AI 的认知盲区——显式告诉 Coordinator "SendMessage 可以恢复已完成的 agent"；(b) 操作完整性——agentId 检查、调用格式、状态更新一步不漏。
 
 **修复链路**：
 
@@ -143,8 +167,9 @@ Coordinator dispatch worker（Agent, run_in_background: true）
   → 捕获 agentId → 写入 workflow-state packs[N].agent_id
   → worker 完成 Pack 实现 → Coordinator 收到通知
   → Codex review 返回 findings
-  → Coordinator 通过 SendMessage({to: agentId}) 向同一 worker 发修复指令
+  → Coordinator 按 SKILL.md 修复模板，SendMessage({to: agentId}) 向同一 worker 发修复指令
   → worker 从 transcript resume，带完整上下文继续修复
+  → Coordinator 调用 state.sh 更新状态
   → 修复完成 / 3 轮截断 → RCA 升级
 ```
 
