@@ -113,54 +113,98 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 **修正方案**：BLOCKED 报告分两层——**业务影响层**（用一句话说"什么功能受影响、不修会怎样、修了需要什么资源"）+ **技术详情层**（现有的 findings + repair history，给能帮忙的技术人员看）。同样，80% Direction Check 应该展示业务语言的进度而非裸数字。
 
-### 3.8 SendMessage 修复链路从未生效
+### 3.8 SendMessage 修复链路从未生效——根因与架构修正
 
-**声称**（25+ 处引用）：Coordinator 在收到 Codex review 结果后，通过 `SendMessage` 向原 worker 派发修复工作。`pack-executor.md` 定义了"模式 2a：修复 review 问题（via SendMessage，同一 agent 继续）"。`execution SKILL.md` 行 91 要求"记录返回的 agentId——后续复杂修复需要用 SendMessage 继续该 worker"。
+**声称**（27 处引用）：Coordinator 在收到 Codex review 结果后，通过 `SendMessage` 向原 worker 派发修复工作。`pack-executor.md` 定义了"模式 2a：修复 review 问题（via SendMessage，同一 agent 继续）"。`execution SKILL.md` 行 91 要求"记录返回的 agentId——后续复杂修复需要用 SendMessage 继续该 worker"。
 
-**实际**：通过 `Agent()` 工具派发的 subagent 完成任务后进程退出，`SendMessage` 无法送达已完成的 subagent。这意味着：
+**实际**：通过 `Agent()` 工具派发的 subagent 完成任务后进程退出，`SendMessage` 无法送达已完成的 subagent。所有修复 fallback 到"新建同类 agent"——原 worker 积累的代码理解、尝试过的方案、遇到的边界情况全部丢失，每次修复从零开始。
 
-1. **pack-executor 的"模式 2a"从来没有被执行过**——所有修复 fallback 到"新建同类 agent"
-2. **plan-writer 的 SendMessage 续写也从来没有工作过**——每次都是新建 plan-writer
-3. **"记录返回的 agentId"是死指令**——记了也没用
-4. 原 worker 积累的代码理解、尝试过的方案、遇到的边界情况——**每次修复都从零开始**
+**根因**：Subagent 是 fire-and-forget 模型。原 worker 继续修复是效果最好且最经济的路径（无需重建上下文），而 SendMessage 是实现这一路径的唯一机制。问题不在 SendMessage 的设计意图，而在 subagent 的执行模型不支持。
 
-这是架构层面的假设失败：plugin 的修复链路设计建立在"SendMessage 能唤醒已完成 subagent"的前提上，但 Claude Code 平台的 subagent 是 fire-and-forget 模型。
+**修正方案**：**pack-executor / complex-pack-executor 从 Subagent 切换到 Agent Teams Teammate 模式。**
 
-**修正方案**：接受 subagent fire-and-forget 的平台现实，**结构化上下文传递**替代 SendMessage 续派。
+Teammate 是独立的 Claude Code session（不是 subagent），完成任务后进入 idle 状态（不退出），`SendMessage` 可送达。我们已强制要求 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`（§3.6），Agent Teams 是基础假设而非可选特性。
 
-具体实现：
-1. **Worker 返回时写入结构化修复上下文**：repair prompt 不再假设 worker 仍然存活。workflow-state 的 pack 记录增加 `repair_context` 字段，包含：`modified_files`（worker 改了什么）、`attempted_approaches`（worker 尝试过什么）、`failure_reason`（为什么需要修复）、`reviewer_findings`（accepted findings 列表）。
-2. **Coordinator 构造自足的 repair dispatch**：新建 repair worker 的 prompt 包含完整的上下文（从 `repair_context` 读取），不依赖原 worker 的 context window。
-3. **清理死代码**：移除 `pack-executor.md` 的"模式 2a：via SendMessage"、`execution SKILL.md` 的"记录返回的 agentId"指令、以及所有 25+ 处"SendMessage 给原 worker"的引用中关于续派的表述。保留 SendMessage 在 Agent Teams 场景下的合法用途（teammate 通信）。
+**Teammate 与 Subagent 的关键差异**：
 
-**演进方向**：Workflow 工具（§10）和 Agent Teams 模式在平台支持后可能提供更优方案，但当前设计不依赖它们。
+| 方面 | Subagent（当前） | Teammate（目标） |
+|------|-----------------|-----------------|
+| 执行模型 | 父 session 内的受限子进程 | 独立的 Claude Code session |
+| 生命周期 | 完成即死 | idle 等待指令，显式 shutdown |
+| SendMessage | **不可达** | **可达**（idle 状态接收消息） |
+| 能否 spawn subagent | 不能 | **能**（独立 session 权限，见 §3.9） |
+| Agent 定义的作用 | 定义就是 agent 的全部世界 | 定义作为角色配置——`tools` 和 `model` 强制生效，body 追加到 session system prompt |
+| `skills` / `mcpServers` 字段 | 生效 | **不生效**——从项目/用户 settings 加载 |
+| 项目上下文 | 只有 agent body | 完整 session（CLAUDE.md + skills + 项目上下文 + agent body 追加） |
 
-### 3.9 Worker 缺乏按需调查能力——"先理解再动手"无法实现
+**修复链路变为**：
 
-**声称**（隐含假设）：Worker（pack-executor / complex-pack-executor）在实现 Task Pack 时，能通过 Read/Grep 充分理解目标代码。
-
-**实际**：Worker 遇到不熟悉的代码时，只能用 Read/Grep 做浅层检索。它没有能力派发专门的调查 agent（如 code-explorer）去做深度理解。结果是 worker 对不熟悉的代码做假设 → 实现错误 → Codex review 抓到 → 浪费一轮修复。
-
-**平台限制**：Claude Code 官方文档明确声明 **"Subagents cannot spawn other subagents, so `Agent(agent_type)` has no effect in subagent definitions."**（`code.claude.com/docs/en/sub-agents`，三处确认）。`Agent(agent_type)` 在 `tools:` 中只在 `claude --agent` 主线程模式下生效。2.1.147 修复的 "multiple `Agent(...)` types" 解析 bug 也仅针对主线程路径。因此，**不能通过给 pack-executor 加 `Agent(code-explorer)` 来实现嵌套派发**。
-
-**修正方案**：**Coordinator 代理调查**——官方推荐的 "chain subagents from the main conversation" 模式。
-
-Worker 在 Return Contract 中新增 `needs_investigation` 信号：
-
-```markdown
-### Open Items
-- [needs-investigation] src/billing/processor.py:120-180 — 不理解 refund 逻辑的状态机，需要 code-explorer 深度调查后再修改
+```
+Coordinator（team lead）创建 Team（TeamCreate）
+  → spawn teammate（引用 pack-executor 定义）→ teammate 做 Pack 实现
+  → teammate 完成 → idle（活着，保有完整代码理解）
+  → Codex review 返回 findings
+  → Coordinator 通过 SendMessage 向同一个 teammate 发修复指令
+  → teammate 带着完整上下文继续修复（不重新读文件、不重建理解）
+  → 修复完成 / 3 轮截断 → Coordinator shutdown teammate
 ```
 
-Coordinator 收到 `[needs-investigation]` 后：
-1. 派 code-explorer 调查 worker 标注的代码区域
-2. 将 explorer 返回的结构化分析写入 repair prompt
-3. 派新 worker（或原 worker 的 repair dispatch）带着调查结果继续实现
+**Worktree 隔离的替代方案**：Subagent 的 `isolation: "worktree"` 在 Teammate 模式下不是内建的。替代方案：Teammate spawn prompt 中指示 teammate 在启动时调用 `EnterWorktree` 工具创建独立 worktree。worktree 的创建和清理由 teammate 自己管理，Coordinator 在 shutdown 前检查 worktree 是否已合并。
 
-这比嵌套派发多一个 hop（worker → Coordinator → explorer → Coordinator → worker），但：
-- 在平台限制内完全可行
-- Coordinator 作为中间人可以审查 explorer 的结论再传给 worker（符合三方分离原则）
-- Explorer 的调查结果被 Coordinator 持久化，compaction 后不丢失
+**对现有系统的影响范围**（28 个位置，6 类变更）：
+
+**A. Dispatch 模式**（10 处 `Agent()` 调用 → TeamCreate + spawn）：
+- `execution/SKILL.md` 行 81-88：主 dispatch 模板
+- `execution-repair-truncation.md`、`final-review-repair.md`、`workflow-direct-repair.md`、`bug-investigation-route.md`、`merge-conflict-repair.md`（2 个块）：repair / route dispatch
+- `execution-release-gate.md`、`final-review-release-gate.md`：release blocker 修复
+
+**B. Return 处理模式**（从 PostToolUse hook → 消息驱动）：
+- `agent-return-handler.sh`：**整个文件需要重新设计**——当前监听 PostToolUse Agent 事件并从 `tool_input.subagent_type` 提取 agent 类型、从 `tool_response` 解析 verdict。Teammate 不触发 PostToolUse Agent 事件，其结果通过 SendMessage 返回。新机制：Coordinator 在 SendMessage 收到 teammate 的工作报告后，从报告中提取 verdict 和 pack status，调用 `state.sh` 更新 workflow-state
+- `execution/SKILL.md` 行 95-98：return handler 描述需要重写
+
+**C. Hook 触发**（4 个 hook 条件失效）：
+- `hooks.json` 行 35-48：PreToolUse `Agent(pack-executor*)` / `Agent(complex-pack-executor*)` 不再触发。替代：如果 Teammate spawn 也触发 PreToolUse（待验证），用新 matcher；否则在 Coordinator 的 SKILL.md 步骤中做 pre-dispatch 检查
+- `hooks.json` 行 68-76：PostToolUse Agent 对 pack-executor 不再触发。替代：Coordinator 在收到 teammate 消息后主动调用 state.sh 更新状态
+- `validate-pack-dispatch.sh`：整个 input 解析方式改变（不再从 `tool_input.prompt` 读取）
+- `session-start.sh` 行 37：`isolation: "worktree"` 注入规则改为 `EnterWorktree` 指令
+
+**D. Worktree 隔离**（5 处引用）：
+- `execution/SKILL.md` 行 85：`isolation: "worktree"` → spawn prompt 中指示 `EnterWorktree`
+- `execution/SKILL.md` 行 134-150：整个 Step 7c "合并并行 Pack 的 Worktree" → teammate 自己管理 worktree 的创建和合并，Coordinator 在 shutdown 前验证
+- `execution-preparation.md` 行 30：并行条件定义更新
+- `execution-worker-dispatch.md` 行 45-56：durable return 绝对路径要求（worktree 路径变化）
+
+**E. SendMessage 引用**（15+ 处从死代码变为正式路径）：
+- `pack-executor.md` 模式 2a / `complex-pack-executor.md` 模式 2a：从死代码变为**主修复路径**
+- 所有"SendMessage 给原 worker（或新建同类 agent）"表述：删除"或新建同类 agent"，SendMessage 是唯一路径
+
+**F. 架构文档**（`architecture-draft.md` 8+ 处）：
+- sub-agent 组件表：pack-executor / complex-pack-executor 从"Sub-Agent"分类移到"Teammate"分类
+- hook 表：PreToolUse / PostToolUse Agent 行更新
+- 流程图：dispatch 和 return 节点重画
+- 对比表：`isolation: "worktree"` 行更新
+
+### 3.9 Worker 可按需调查——Teammate 模式解锁 subagent 嵌套
+
+**问题**：Worker 遇到不熟悉的代码时，只能用 Read/Grep 做浅层检索，无法派发 code-explorer 做深度调查。结果是 worker 做假设 → 实现错误 → Codex review 抓到 → 浪费修复轮次。
+
+**平台限制**：Subagent 不能嵌套派发 subagent（官方文档三处明确声明）。**但 Teammate 是独立的 Claude Code session，可以 spawn subagent**（官方文档："teammates can spawn subagents"）。Teammate 不能嵌套 spawn teammate（"No nested teams"），但可以 spawn 普通 subagent。
+
+**§3.8 的 Teammate 模式同时解决了 §3.9**：pack-executor 作为 Teammate 运行后，它可以直接在实现过程中 spawn code-explorer 做调查，无需 Coordinator 中转。
+
+```
+Teammate（pack-executor）实现 Pack
+  → 遇到不熟悉的代码
+  → 直接 spawn code-explorer（subagent）调查
+  → code-explorer 返回结构化分析
+  → Teammate 带着调查结果继续实现
+```
+
+这比 Coordinator 代理调查少一个 hop，且 worker 不需要中断执行——它在自己的 session 内就能完成"先理解再动手"的循环。
+
+**Agent 定义变更**：给 `pack-executor.md`、`complex-pack-executor.md`、`root-cause-analyst.md` 的 `tools:` 增加 `Agent(code-explorer)` 和 `Agent(complex-code-explorer)`。这些声明在 Teammate 模式下生效（Teammate 是独立 session，等价于 `claude --agent` 主线程）。
+
+**不需要调查能力的 agent**：plan-writer（已有 `Skill("improve-codebase-architecture")`）、docs-worker（纯文档整理）。
 
 ## 4. 架构承诺
 
@@ -293,13 +337,8 @@ hooks 通过 `tool_input` 中的 prompt 字段提取信封（`jq` 解析 `<!-- D
     "updated_at": "..."
   },
   "plans": { ... },
-  "repair_contexts": {
-    "2.3": {
-      "modified_files": ["src/auth.py", "tests/test_auth.py"],
-      "attempted_approaches": ["Added null check at line 42 — reviewer found it masks a deeper issue"],
-      "failure_reason": "Session race condition in shared middleware",
-      "reviewer_findings": ["F1: missing CSRF validation", "F2: session race condition"]
-    }
+  "teammates": {
+    "2.3": { "name": "pack-2-3-worker", "status": "idle", "team": "exec-formal-20250522" }
   },
   "reflux": { "execution_count": 0 },
   "review_dispositions": { ... },
@@ -810,7 +849,7 @@ gstack 的 `|| true` 和"subagent 失败时 fallback to inline"模式在单人�
 | Hook 参数化 `if` 条件现在能正常工作 | Claude Code 2.1.147 修复。之前 `Bash(git commit *)` 等条件从未匹配——4 个 hook 形同虚设 | **2.1.147 修复**（需回归测试） |
 | `CLAUDE_CODE_SUBAGENT_MODEL` 现在应用到 teammate 进程 | Claude Code 2.1.147 修复。之前 teammate 忽略此变量 | **2.1.147 修复** |
 | Auto mode 不再吞掉 `AskUserQuestion` | Claude Code 2.1.146 修复。plugin 中的 AskUserQuestion（Direction Check、BLOCKED 决策）现在在 auto mode 中可靠呈现 | **2.1.146 修复** |
-| Plugin agent 可声明多个 `Agent(...)` 类型 | Claude Code 2.1.147 修复了 "dropping all but the last entry"——但仅对 `claude --agent` 主线程模式有效。**Subagent 不能嵌套派发 subagent**（官方文档三处明确声明） | **2.1.147 修复**（仅主线程） |
+| Plugin agent 可声明多个 `Agent(...)` 类型 | Claude Code 2.1.147 修复了 "dropping all but the last entry"。Subagent 不能嵌套派发 subagent（官方文档三处明确声明），但 **Teammate 是独立 session，等价于主线程，`Agent(...)` 声明生效**——§3.8 的 Teammate 模式使 §3.9 的 `Agent(code-explorer)` 声明成为可能 | **2.1.147 修复**（Teammate 模式下可用） |
 
 ## 8. 验证标准
 
@@ -898,13 +937,18 @@ grep -q "不是你的 skill 指令\|not your skill instruction" plugin-v2/build/
 grep -q "Pack.*[>≤≥].*8\|NEEDS_ISSUE_SPLIT" plugin-v2/skills/orchestrate-plan-writing/SKILL.md
 ```
 
-### 修复链路验证（§3.8）
+### Teammate 修复链路验证（§3.8 + §3.9）
 ```bash
-# 无 SendMessage 续派死代码
-grep -c "SendMessage.*原.*worker\|SendMessage.*继续该" plugin-v2/agents/*.md plugin-v2/skills/orchestrate-*/SKILL.md
+# SendMessage 是唯一修复路径——无"或新建同类 agent" fallback
+grep -c "或新建同类\|新建.*dispatch\|新建.*agent" plugin-v2/skills/orchestrate-*/references/*.md
 # 期望：0
-# workflow-state 含 repair_contexts 字段
-python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert 'repair_contexts' in d" .claude/multi-model-workflow/workflow-state-*.json
+# Agent 定义含 Agent(code-explorer)
+grep -q "Agent(code-explorer)" plugin-v2/agents/pack-executor.md plugin-v2/agents/complex-pack-executor.md
+# workflow-state 含 teammates 字段
+python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert 'teammates' in d" .claude/multi-model-workflow/workflow-state-*.json
+# 无 Agent() dispatch pack-executor 的残留（应全部改为 teammate spawn）
+grep -c 'subagent_type.*pack-executor\|subagent_type.*complex-pack-executor' plugin-v2/skills/orchestrate-*/SKILL.md plugin-v2/skills/orchestrate-*/references/*.md
+# 期望：0
 ```
 
 ### 行为验证
@@ -936,11 +980,16 @@ python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert 'repair_cont
 | Worker preamble | 更新（输入边界声明） | 8 |
 | plan-writing SKILL.md | 更新（Pack 数量阈值检查） | 9 |
 | execution SKILL.md Step 5b | 更新（邻居接口摘要注入） | 9 |
-| `agents/pack-executor.md` | 更新（删除"模式 2a: via SendMessage"，保留模式 1 和模式 2b） | 3.8 |
-| `agents/complex-pack-executor.md` | 更新（同上） | 3.8 |
-| `agents/root-cause-analyst.md` | 保留（不加 Agent(...)——平台不支持 subagent 嵌套） | — |
-| execution SKILL.md 行 91 | 更新（删除"记录返回的 agentId"指令） | 3.8 |
-| 25+ 处 SendMessage 引用 | 审查并更新：删除"SendMessage 给原 worker"续派表述，保留 teammate 通信用途 | 3.8 |
+| `agents/pack-executor.md` | 更新（模式 2a 从死代码变为主修复路径；`tools:` 增加 `Agent(code-explorer)`） | 3.8 + 3.9 |
+| `agents/complex-pack-executor.md` | 更新（同上，加 `Agent(code-explorer)`, `Agent(complex-code-explorer)`） | 3.8 + 3.9 |
+| `agents/root-cause-analyst.md` | 更新（`tools:` 增加 `Agent(code-explorer)`, `Agent(complex-code-explorer)`） | 3.9 |
+| `hooks/agent-return-handler.sh` | **重新设计**（PostToolUse Agent → 消息驱动，Coordinator 从 teammate 报告提取 verdict） | 3.8 |
+| `hooks/validate-pack-dispatch.sh` | 更新（input 解析从 `tool_input.prompt` 改为新 teammate spawn 机制） | 3.8 |
+| `hooks/hooks.json` | 更新（PreToolUse / PostToolUse Agent matcher 对 pack-executor 不再适用，需新触发机制） | 3.8 |
+| execution SKILL.md 行 81-91 | 重写（`Agent()` dispatch → `TeamCreate` + spawn teammate；agentId → teammate name） | 3.8 |
+| execution SKILL.md 行 134-150 | 重写（Step 7c worktree 合并 → teammate 自管理 worktree via `EnterWorktree`） | 3.8 |
+| 10 处 `Agent()` dispatch 模板 | 全部改为 teammate spawn（execution/final-review/workflow/multi-pr-merge 的 repair + release gate） | 3.8 |
+| 15+ 处 SendMessage 引用 | 从死代码变为正式路径：删除"或新建同类 agent" fallback，SendMessage 是唯一修复路径 | 3.8 |
 | `architecture-draft.md` Open Items 表述 | 更新（"无非阻塞项"→"每个发现必须在返回前归类处置"） | 3.3 |
 
 **总计**：~25 个新增文件 + ~60 个更新文件。
