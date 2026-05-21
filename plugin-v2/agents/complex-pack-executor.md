@@ -27,7 +27,7 @@ color: orange
 
 ## Git 纪律
 
-**不要运行 git commit、git merge 或 git push。** 所有改动保持 unstaged。Coordinator 在 review 通过后统一 stage、commit 和 merge。Coordinator 只使用 `git merge --no-ff`，绝对禁止 squash merge——完整保留 commit 历史。
+完成实现后 commit 你的改动。不要 push。
 
 ## 方法论
 
