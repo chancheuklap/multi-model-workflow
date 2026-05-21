@@ -86,7 +86,7 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 ### 3.5 控制平面依赖文本模式匹配
 
-8 个 shell 脚本（6 个 hooks + 2 个 scripts）通过约 25 处 `sed`/`grep` 正则从自然语言 prompt、response、commit message 中提取控制信号（Pack ID、verdict、repair round、review gate 名）。一个 prompt 模板的修改是否破坏某个 hook 的正则，只能在运行时发现。`agent-return-handler.sh` 的 3 层 fallback 正则是这种不确定性的工程应对。
+8 个 shell 脚本（6 个 hooks + 2 个 scripts）通过约 20 处 `sed`/`grep` 正则从自然语言 prompt、response、commit message 中提取控制信号（Pack ID、verdict、repair round、review gate 名）。一个 prompt 模板的修改是否破坏某个 hook 的正则，只能在运行时发现。`agent-return-handler.sh` 的 3 层 fallback 正则是这种不确定性的工程应对。
 
 **2025-05-22 确认**：Claude Code 2.1.147 修复了 hook `if` 条件的参数化匹配（"Fixed hook `if` conditions like `PowerShell(git push*)` never matching"）。我们的 4 个参数化 `if` 条件（`Bash(git commit *)`×2、`Agent(pack-executor*)`、`Agent(complex-pack-executor*)`）在 2.1.147 之前**从未触发过**——`enforce-pack-commit.sh`（commit 格式强制）、`validate-pack-dispatch.sh`（dispatch 校验）、`track-execution-state.sh`（commit 后状态追踪）全部形同虚设。这证实了文本模式匹配的脆弱性不是理论风险：连 hook 注册本身都静默失败了。
 
@@ -102,9 +102,10 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 **修正方案**：
 
-1. **Feature detection 替代 flag 检查**：不检查环境变量是否存在，而是在运行时测试 SendMessage 是否可用（例如：尝试一次无副作用的 SendMessage 调用，检查返回值）。如果不可用，输出清晰的降级说明而非硬阻断。
-2. **降级路径设计**：Agent Teams 不可用时，plugin 降级为"单进程模式"——Coordinator 不派 worker sub-agent，而是在当前 context 内直接执行 pack（失去进程隔离的好处，但 workflow 仍然可以跑通）。Review dispatch（通过 Bash 调用 Codex）不依赖 Agent Teams，不受影响。
-3. **版本绑定声明**：在 `plugin.json` 中声明最低 Claude Code 版本要求。当 Agent Teams 从实验性升级为正式特性后，切换到正式 API。
+1. **Runtime feature detection 替代 flag 检查**：不检查环境变量是否存在，而是在 `SessionStart` hook 中运行时测试 Agent Teams 能力是否可用。检测方式：尝试创建一个轻量 Team（`TeamCreate` + 立即 `TeamDelete`），或检查 `SendMessage` tool 是否在可用工具列表中。
+2. **不可用 = 硬停 + 清晰报错**：Agent Teams 是核心架构依赖（进程隔离、worktree 执行、三方分离）。单进程降级下行为差异过大，用户无法判断输出质量——这违反 §6.5 的"拒绝静默降级"原则。检测到不可用时输出：`[multi-model-workflow] BLOCKED: Agent Teams 能力不可用。请在 settings.json 的 env 中设置 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1，或升级 Claude Code 到 ≥2.1.32。`
+3. **Runtime version check**（替代 manifest 声明——Claude Code 的 `plugin.json` schema 不支持最低版本字段）：`session-start.sh` 解析 `claude --version` 输出，版本低于 2.1.32 时硬停并提示升级。
+4. **修正代码自相矛盾**：第 4 行注释改为 "May exit 2 to block session when required capabilities are missing"。
 
 ### 3.7 BLOCKED 对非技术用户是黑洞
 
@@ -125,11 +126,14 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 这是架构层面的假设失败：plugin 的修复链路设计建立在"SendMessage 能唤醒已完成 subagent"的前提上，但 Claude Code 平台的 subagent 是 fire-and-forget 模型。
 
-**修正方案**：三条路径（按优先级）：
+**修正方案**：接受 subagent fire-and-forget 的平台现实，**结构化上下文传递**替代 SendMessage 续派。
 
-1. **Workflow 工具**（见 §10）：如果 Claude Code 的 Workflow 工具正式开放，其 `agent()` 原语由 workflow 运行时管理生命周期，不存在"完成即死"问题。这是最根本的解决。
-2. **Agent Teams 模式**：将 pack-executor 从 subagent 改为 teammate。Teammate 完成任务后进入 idle 状态（不退出），`TeammateIdle` hook 可保活。SendMessage 可送达 idle teammate。代价：token 成本更高、无内建 `isolation: "worktree"` 支持。
-3. **优化"新建 agent"路径**（当前可行的务实方案）：接受 subagent fire-and-forget 的现实，把原 worker 的关键上下文（修改了什么文件、尝试过什么、失败在哪）结构化地传给新 worker 的 repair prompt。这不是理想方案，但立即可行。
+具体实现：
+1. **Worker 返回时写入结构化修复上下文**：repair prompt 不再假设 worker 仍然存活。workflow-state 的 pack 记录增加 `repair_context` 字段，包含：`modified_files`（worker 改了什么）、`attempted_approaches`（worker 尝试过什么）、`failure_reason`（为什么需要修复）、`reviewer_findings`（accepted findings 列表）。
+2. **Coordinator 构造自足的 repair dispatch**：新建 repair worker 的 prompt 包含完整的上下文（从 `repair_context` 读取），不依赖原 worker 的 context window。
+3. **清理死代码**：移除 `pack-executor.md` 的"模式 2a：via SendMessage"、`execution SKILL.md` 的"记录返回的 agentId"指令、以及所有 25+ 处"SendMessage 给原 worker"的引用中关于续派的表述。保留 SendMessage 在 Agent Teams 场景下的合法用途（teammate 通信）。
+
+**演进方向**：Workflow 工具（§10）和 Agent Teams 模式在平台支持后可能提供更优方案，但当前设计不依赖它们。
 
 ### 3.9 Worker 缺乏按需调查能力——"先理解再动手"无法实现
 
@@ -137,17 +141,26 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 **实际**：Worker 遇到不熟悉的代码时，只能用 Read/Grep 做浅层检索。它没有能力派发专门的调查 agent（如 code-explorer）去做深度理解。结果是 worker 对不熟悉的代码做假设 → 实现错误 → Codex review 抓到 → 浪费一轮修复。
 
-**修正方案**：允许特定 subagent 在 `tools:` 中声明 `Agent(...)` 类型，实现**按需调查委派**：
+**平台限制**：Claude Code 官方文档明确声明 **"Subagents cannot spawn other subagents, so `Agent(agent_type)` has no effect in subagent definitions."**（`code.claude.com/docs/en/sub-agents`，三处确认）。`Agent(agent_type)` 在 `tools:` 中只在 `claude --agent` 主线程模式下生效。2.1.147 修复的 "multiple `Agent(...)` types" 解析 bug 也仅针对主线程路径。因此，**不能通过给 pack-executor 加 `Agent(code-explorer)` 来实现嵌套派发**。
 
-| 调用方 | 可调用 | 场景 |
-|---|---|---|
-| pack-executor | `Agent(code-explorer)` | 实现前理解不熟悉的代码，减少"实现错了 → review 抓到 → 修复"的浪费 |
-| complex-pack-executor | `Agent(code-explorer)` | 高风险改动前验证跨模块影响面 |
-| root-cause-analyst | `Agent(code-explorer)`, `Agent(complex-code-explorer)` | 并行验证多个 RCA 假设 |
+**修正方案**：**Coordinator 代理调查**——官方推荐的 "chain subagents from the main conversation" 模式。
 
-**不需要嵌套的 agent**：plan-writer（已有 `Skill("improve-codebase-architecture")`）、docs-worker（纯文档整理）、code-explorer 本身（再嵌套无收益）。
+Worker 在 Return Contract 中新增 `needs_investigation` 信号：
 
-**注意**：Claude Code 2.1.147 修复了"plugin agents that declare multiple `Agent(...)` types in `tools:` frontmatter dropping all but the last entry"——这个修复使得 agent 声明多个 `Agent(...)` 类型成为可能。
+```markdown
+### Open Items
+- [needs-investigation] src/billing/processor.py:120-180 — 不理解 refund 逻辑的状态机，需要 code-explorer 深度调查后再修改
+```
+
+Coordinator 收到 `[needs-investigation]` 后：
+1. 派 code-explorer 调查 worker 标注的代码区域
+2. 将 explorer 返回的结构化分析写入 repair prompt
+3. 派新 worker（或原 worker 的 repair dispatch）带着调查结果继续实现
+
+这比嵌套派发多一个 hop（worker → Coordinator → explorer → Coordinator → worker），但：
+- 在平台限制内完全可行
+- Coordinator 作为中间人可以审查 explorer 的结论再传给 worker（符合三方分离原则）
+- Explorer 的调查结果被 Coordinator 持久化，compaction 后不丢失
 
 ## 4. 架构承诺
 
@@ -237,13 +250,9 @@ plugin-v2/
 
 hooks 通过 `tool_input` 中的 prompt 字段提取信封（`jq` 解析 `<!-- DISPATCH_ENVELOPE` 和 `-->` 之间的 JSON）。PostToolUse hooks 的 `tool_input` 包含原始 dispatch 参数，`tool_use_id` 可用于日志关联。
 
-2. **per-dispatch 文件**（fallback，仅串行 dispatch 使用）：写入 `dispatches/<pack_id>.json` 而非全局 `current-dispatch.json`。文件名包含 pack_id，并行写入不互相覆盖。hook 通过从 prompt 提取 pack_id 后读取对应文件。
-
-3. **正则提取**（legacy fallback）：保留现有正则作为最后 fallback，渐进迁移期间使用。
-
 信封的 schema 由 `control-envelope.sh` resolver 定义，构建系统确保 SKILL.md 中的信封写入指令和 hook 中的信封读取代码使用同一个 schema。
 
-**渐进迁移**：第一步在 prompt 中嵌入信封，hooks 优先从 `tool_input` 解析信封、正则作为 fallback。第二步移除正则 fallback。
+**无 fallback，无渐进迁移**：信封解析失败 = 硬停 + 报错（`jq` 解析失败说明信封格式有 bug，应该修 bug 而不是静默降级到正则）。这与 §6.5 "拒绝静默降级"一致。旧的正则提取代码在信封机制上线时一次性移除，不保留 legacy 路径。
 
 **2b. 统一状态机**
 
@@ -251,7 +260,7 @@ hooks 通过 `tool_input` 中的 prompt 字段提取信封（`jq` 解析 `<!-- D
 
 - **写入前 schema 校验**：pack status 只能在 `pending → dispatched → returned → committed → blocked` 之间转换
 - **写入后 mutation log**：每次写入记录 `{ field, old, new, writer, timestamp }`
-- **文件锁**：macOS 不自带 `flock`，使用 portable 方案——`mkdir` 原子锁（`mkdir "$LOCKDIR" 2>/dev/null || wait-and-retry`）或 Python `fcntl.flock` 小脚本。锁实现封装在 `state.sh` 内部，调用方无感知
+- **文件锁**：`mkdir` 原子锁（`mkdir "$LOCKDIR" 2>/dev/null || wait-and-retry`）+ 60 秒 TTL 超时清理（锁文件超过 60 秒自动视为残留进程崩溃）。POSIX 保证 `mkdir` 原子性。锁实现封装在 `state.sh` 内部，调用方无感知
 - **一致性检查**：`state.sh validate` 检测状态不一致（如 pack 已 committed 但 execution-state 未更新）
 - **状态转换权限矩阵**（借鉴 LangGraph conditional edges）：不仅定义"什么转换合法"，还定义"谁可以触发什么转换"——每个写入器只能执行自己被授权的转换：
 
@@ -284,6 +293,14 @@ hooks 通过 `tool_input` 中的 prompt 字段提取信封（`jq` 解析 `<!-- D
     "updated_at": "..."
   },
   "plans": { ... },
+  "repair_contexts": {
+    "2.3": {
+      "modified_files": ["src/auth.py", "tests/test_auth.py"],
+      "attempted_approaches": ["Added null check at line 42 — reviewer found it masks a deeper issue"],
+      "failure_reason": "Session race condition in shared middleware",
+      "reviewer_findings": ["F1: missing CSRF validation", "F2: session race condition"]
+    }
+  },
   "reflux": { "execution_count": 0 },
   "review_dispositions": { ... },
   "learnings_written": 0,
@@ -451,9 +468,9 @@ Exploratory, question-first. Surface constraints before proposing solutions.
 | Review Budget | Codex dispatch 次数 | `3P + 12`（保留） | `track-review-budget.sh` via `state.sh` |
 | Effort Budget | worker + explorer + RCA dispatch 加权总和 | 初始阈值 TBD，从 run-summary 数据校准 | 新增 `track-effort-budget.sh` via `state.sh` |
 
-Effort Budget 的权重：worker dispatch = 1、explorer dispatch = 0.5、RCA dispatch = 2（RCA 消耗最大 context）。**初始阈值不硬编码公式**——前 5 次 workflow 运行记录实际 effort 消耗，从 run-summary 数据中拟合阈值。在有数据之前，effort budget 只追踪不限制（仅记录到 workflow-state，不触发硬停）。这避免了 `3P+12` 的错误：一个没有数据支撑的公式被当作硬性约束。
+Effort Budget 的权重：worker dispatch = 1、explorer dispatch = 0.5、RCA dispatch = 2（RCA 消耗最大 context）。**初始阈值 = review budget × 2**（保守上限——review budget `3P+12` 是已校准的，effort 不应超过 review 的 2 倍）。从 run-summary 数据积累后逐步校准。超过阈值时触发 Direction Check（同 review budget 的 80% 机制），不是硬停——但用户必须显式确认继续。
 
-**冷启动阶段的局限性**（显式承认）：前 5 次运行期间，effort 维度没有防护——系统在最需要防护的早期（经验不足）恰好没有约束。同样，Learnings（承诺 4a）在第一天是空的，早期 review 的校准没有历史数据支撑。这是所有基于历史数据的系统的固有冷启动问题，不是设计缺陷——但使用者应知晓。
+**Learnings 冷启动**：Learnings（承诺 4a）在第一天是空的，早期 review 的校准没有历史数据支撑。这是固有的冷启动问题——但 review 本身的置信度评分（承诺 3a）不依赖历史数据，第一天就能工作。
 
 **5b. Direction Check 信息化**
 
@@ -511,7 +528,7 @@ Route 4-7 的 Entry Gate 路由条件基于用户的显式关键词：
 - "spike"/"探索"/"prototype"/"试试" → Route 6
 - "升级"/"upgrade"/"CVE"/"依赖"/"重构"/"refactor"/"清理"/"tech debt" → Route 7
 
-**Route 4-7 的 state 和 budget 策略**：Route 4-7 仍创建 `workflow-state-<run_id>.json` 和 `active-run-id`（hooks 依赖这两个文件才能追踪状态），但不设置 review budget 上限（`review_total: null`）——即 hooks 追踪 dispatch 次数但不触发 Direction Check 或硬停。这与"不创建 Budget File"的旧表述不同：区别是"不限制 budget"而非"不创建 state"。
+**Route 4-7 的 state 和 budget 策略**：Route 4-7 仍创建 `workflow-state-<run_id>.json` 和 `active-run-id`（hooks 依赖这两个文件才能追踪状态），但 review budget 标记为无上限（`review_total: "unlimited"`）——即 hooks 追踪 dispatch 次数但不触发 Direction Check 或硬停。`"unlimited"` 是显式的无上限声明，区别于 `null`（未设置/错误状态）。
 
 Route 7 和 Route 5 的区别：Route 5 仍走完整 Execution + Review 循环；Route 7 的 Review angle 针对变更类型定制（upgrade → breaking changes + 依赖兼容性；refactor → behavioral equivalence + public API 不变性）。
 
@@ -689,7 +706,13 @@ plugin-v2/
 | `pack-returns/<pack-id>.json` | 保留 | 不变（Worker 进程隔离，不能通过 state.sh 写入） |
 | `review-prompts/` + `review-results/` | 保留 | 不变 |
 | — | `learnings.jsonl` | 新增 |
-| — | `dispatches/<pack_id>.json` | 新增（per-dispatch 信封文件，仅串行 dispatch fallback 使用；主路径通过 prompt 内嵌信封传递） |
+
+**状态迁移安全协议**：
+
+1. **检测旧格式**：`session-start.sh` 检查是否存在 `active-run-id` 且对应的 `budget-<run_id>.json` / `execution-state-<run_id>.json` 仍在（旧格式）。
+2. **旧 run 活跃时阻断升级**：如果旧格式文件存在且 run 未完成（无 `FINAL_REVIEW_PASSED` verdict），硬停并提示："检测到未完成的旧格式 workflow run `<run_id>`。请先完成或手动终止该 run（删除 `active-run-id`），再启动新 run。"不做自动迁移——旧 run 的 hook 代码已经不在了，静默迁移后 hook 行为不一致。
+3. **旧 run 已完成时清理**：旧格式文件存在但 run 已完成 → 归档到 `archive/` 目录，创建新格式 `workflow-state`。
+4. **新 run 只用新格式**：所有新 run 从第一天起使用 `workflow-state-<run_id>.json`，不存在"兼容两种格式"的运行时代码路径。
 
 ### 5.3 SKILL.md 变化矩阵
 
@@ -785,7 +808,7 @@ gstack 的 `|| true` 和"subagent 失败时 fallback to inline"模式在单人�
 | Hook 参数化 `if` 条件现在能正常工作 | Claude Code 2.1.147 修复。之前 `Bash(git commit *)` 等条件从未匹配——4 个 hook 形同虚设 | **2.1.147 修复**（需回归测试） |
 | `CLAUDE_CODE_SUBAGENT_MODEL` 现在应用到 teammate 进程 | Claude Code 2.1.147 修复。之前 teammate 忽略此变量 | **2.1.147 修复** |
 | Auto mode 不再吞掉 `AskUserQuestion` | Claude Code 2.1.146 修复。plugin 中的 AskUserQuestion（Direction Check、BLOCKED 决策）现在在 auto mode 中可靠呈现 | **2.1.146 修复** |
-| Plugin agent 可声明多个 `Agent(...)` 类型 | Claude Code 2.1.147 修复了 "dropping all but the last entry"——支持 §3.9 的 agent 嵌套设计 | **2.1.147 修复** |
+| Plugin agent 可声明多个 `Agent(...)` 类型 | Claude Code 2.1.147 修复了 "dropping all but the last entry"——但仅对 `claude --agent` 主线程模式有效。**Subagent 不能嵌套派发 subagent**（官方文档三处明确声明） | **2.1.147 修复**（仅主线程） |
 
 ## 8. 验证标准
 
@@ -798,9 +821,9 @@ grep -rn "codex-companion" plugin-v2/skills/ --include="*.md" | grep -c "find.*p
 
 ### 控制协议验证
 ```bash
-# 所有 hooks 读 JSON 信封，不 grep prompt
-grep -rn "sed.*Pack" plugin-v2/hooks/*.sh | grep -v "# legacy fallback"
-# 期望：0（正则解析只作为标注的 legacy fallback）
+# 所有 hooks 从 tool_input 解析 JSON 信封，不 grep prompt 文本
+grep -rn "sed.*Pack\|grep.*Pack.*ID" plugin-v2/hooks/*.sh
+# 期望：0（所有正则提取已移除，信封解析失败 = 硬停）
 ```
 
 ### 状态一致性验证
@@ -820,6 +843,66 @@ done
 ```bash
 python3 -m json.tool plugin-v2/.claude-plugin/plugin.json >/dev/null
 python3 -m json.tool plugin-v2/hooks/hooks.json >/dev/null
+```
+
+### 置信度校准验证（承诺 3）
+```bash
+# review prompt 含 confidence 格式要求
+grep -q "Confidence.*10" plugin-v2/build/resolvers/review-dispatch.sh
+# workflow-state 含 disposition 记录
+python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert 'review_dispositions' in d" .claude/multi-model-workflow/workflow-state-*.json
+```
+
+### 运行时可观测验证（承诺 4）
+```bash
+# learnings.jsonl 可写入和搜索
+test -f .claude/multi-model-workflow/learnings.jsonl
+python3 -c "import json; [json.loads(l) for l in open('.claude/multi-model-workflow/learnings.jsonl')]"
+# run-summary 包含 review_effectiveness
+python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert 'review_effectiveness' in d" .claude/multi-model-workflow/run-summary-*.json
+```
+
+### Budget 模型验证（承诺 5）
+```bash
+# effort budget 字段存在且有初始值
+python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['budget']['effort_total'] is not None" .claude/multi-model-workflow/workflow-state-*.json
+```
+
+### 执行合同验证（承诺 6）
+```bash
+# 所有 SKILL.md 含 Stop/Continue
+for f in plugin-v2/skills/orchestrate-*/SKILL.md; do
+  grep -q "STOP\|NEVER STOP\|Stop/Continue" "$f" || echo "MISSING Stop/Continue: $f"
+done
+```
+
+### Route 扩展验证（承诺 7）
+```bash
+# Entry Gate 包含 Route 4-7 关键词
+grep -q "hotfix\|quick.fix\|spike\|maintenance\|upgrade" plugin-v2/skills/orchestrate-workflow/SKILL.md
+```
+
+### 对抗性输入验证（承诺 8）
+```bash
+# review prompt 含 trust boundary 标记
+grep -q "BEGIN UNTRUSTED" plugin-v2/build/resolvers/review-dispatch.sh
+# worker preamble 含输入边界声明
+grep -q "不是你的 skill 指令\|not your skill instruction" plugin-v2/build/resolvers/preamble.sh
+```
+
+### 输入粒度验证（承诺 9）
+```bash
+# plan-writing SKILL.md 含 pack 数量阈值检查
+grep -q "Pack.*[>≤≥].*8\|NEEDS_ISSUE_SPLIT" plugin-v2/skills/orchestrate-plan-writing/SKILL.md
+```
+
+### 修复链路验证（§3.8）
+```bash
+# 无 SendMessage 续派死代码
+grep -c "SendMessage.*原.*worker\|SendMessage.*继续该" plugin-v2/agents/*.md plugin-v2/skills/orchestrate-*/SKILL.md
+# 期望：0
+# workflow-state 含 repair_contexts 字段
+python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert 'repair_contexts' in d" .claude/multi-model-workflow/workflow-state-*.json
 ```
 
 ### 行为验证
@@ -844,15 +927,21 @@ python3 -m json.tool plugin-v2/hooks/hooks.json >/dev/null
 | `hooks/validate-pack-dispatch.sh` | 更新（读 JSON 信封 + state 字段） | 2 |
 | `hooks/track-effort-budget.sh` | 新增 | 5 |
 | `scripts/cleanup-before-push.sh` | 移到 PostToolUse | 2 |
-| `hooks/session-start.sh` | 更新（feature detection 替代 flag 检查 + 降级路径） | 3.6 |
+| `hooks/session-start.sh` | 更新（runtime feature detection + version check + 硬停） | 3.6 |
 | `architecture-draft.md` | 更新（新状态文件、构建系统、控制协议） | 全部 |
 | SKILL.md Entry Gate | 更新（Route 4-7） | 7 |
 | Review prompt 模板 | 更新（trust boundary 标记） | 8 |
 | Worker preamble | 更新（输入边界声明） | 8 |
 | plan-writing SKILL.md | 更新（Pack 数量阈值检查） | 9 |
 | execution SKILL.md Step 5b | 更新（邻居接口摘要注入） | 9 |
+| `agents/pack-executor.md` | 更新（删除"模式 2a: via SendMessage"，保留模式 1 和模式 2b） | 3.8 |
+| `agents/complex-pack-executor.md` | 更新（同上） | 3.8 |
+| `agents/root-cause-analyst.md` | 保留（不加 Agent(...)——平台不支持 subagent 嵌套） | — |
+| execution SKILL.md 行 91 | 更新（删除"记录返回的 agentId"指令） | 3.8 |
+| 25+ 处 SendMessage 引用 | 审查并更新：删除"SendMessage 给原 worker"续派表述，保留 teammate 通信用途 | 3.8 |
+| `architecture-draft.md` Open Items 表述 | 更新（"无非阻塞项"→"每个发现必须在返回前归类处置"） | 3.3 |
 
-**总计**：~25 个新增文件 + ~55 个更新文件。
+**总计**：~25 个新增文件 + ~60 个更新文件。
 
 ## 10. 平台演进方向——Claude Code Workflow 工具
 
