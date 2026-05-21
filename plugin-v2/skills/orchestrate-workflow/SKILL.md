@@ -139,7 +139,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
 
 ### Step 14：Handle Final Review Return
 
-> **Phase complete.** Final Review: [verdict, release risk 状态]。Passing to [next]。
+> **Phase complete.** Final Review: [verdict, release risk 状态]。Passing to [next phase]。
 
 | Final Review Verdict | Coordinator 动作 |
 | --- | --- |
