@@ -148,7 +148,7 @@ Source: Pack <N.M> worker discovery
 4. 每次 merge 后跑完整测试
 5. 全部 merge 完后再跑一次确认集成正确
 
-**合并策略铁律**：只用 `git merge --no-ff`，**绝对禁止 squash merge（`--squash`）和 rebase（`--rebase`）**。
+**合并策略铁律**：只用 `git merge --no-ff`，**绝对禁止 squash merge（`--squash`）**。
 
 **不并行合并**——串行避免 merge conflict 级联。
 
