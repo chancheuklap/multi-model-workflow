@@ -104,8 +104,8 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 1. **Shell-level 环境检查**（`session-start.sh` 只做 shell 可执行的检查，不调用 Claude 内部工具）：
    - `claude --version` 解析版本号，低于 2.1.147 时硬停并提示升级（2.1.147 修复了 hook `if` 条件、subagent model、SendMessage resume 等关键功能）
+   - **`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` 硬前置**：官方文档确认 SendMessage 只在 Agent Teams 启用时可用。§3.8 将 SendMessage 定为唯一修复路径，因此 Agent Teams 是核心依赖，缺失 = 硬停。当前 `session-start.sh` 的 `exit 2` 行为是正确的
    - 检查 `jq`、`python3` 等工具链是否在 PATH（state.sh 和构建系统依赖）
-   - （可选）检查 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 环境变量——当前不阻断（SendMessage resume 不依赖 Agent Teams），仅在缺失时输出提示："Agent Teams 未启用，§3.9 Future Enhancement（Worker 调查能力）不可用"
 2. **不可用 = 硬停 + 清晰报错**：检测到不满足条件时输出：`[multi-model-workflow] BLOCKED: <具体缺失项>。` 不做降级，不静默跳过。
 3. **修正代码自相矛盾**：第 4 行注释改为 "May exit 2 to block session when required capabilities are missing"。
 4. **Coordinator 启动后自检**（shell hook 无法验证的能力）：Coordinator 在 orchestrate-workflow 的 Entry Gate 中验证 SendMessage 工具可用（尝试读取工具列表）。如果 Claude Code 未来移除 SendMessage，Entry Gate 硬停。
@@ -269,13 +269,14 @@ hooks 通过 `tool_input` 中的 prompt 字段提取信封（`jq` 解析 `<!-- D
 - **一致性检查**：`state.sh validate` 检测状态不一致（如 pack 已 committed 但 execution-state 未更新）
 - **状态转换权限矩阵**（借鉴 LangGraph conditional edges）：不仅定义"什么转换合法"，还定义"谁可以触发什么转换"——每个写入器只能执行自己被授权的转换：
 
-| 转换 | 授权写入器 |
-|------|----------|
-| `pending → dispatched` | Coordinator（SKILL.md） |
-| `dispatched → returned` | `agent-return-handler.sh` |
-| `returned → committed` | `track-execution-state.sh` |
-| `plans[N].review_gate` | `track-review-budget.sh` |
-| `任何 → blocked` | Coordinator 或 `agent-return-handler.sh` |
+| 转换 | 授权写入器 | 触发方式 |
+|------|----------|---------|
+| `pending → dispatched` | Coordinator（SKILL.md） | SKILL.md 步骤显式写入 |
+| `dispatched → returned`（首次 dispatch） | `agent-return-handler.sh` | PostToolUse Agent hook 自动触发 |
+| `dispatched → returned`（SendMessage repair 完成） | Coordinator（SKILL.md） | SKILL.md 步骤显式写入（SendMessage 返回后 Coordinator 调用 `state.sh`，因为 resumed agent 的完成不触发 PostToolUse Agent matcher） |
+| `returned → committed` | `track-execution-state.sh` | PostToolUse Bash hook（`git commit`）自动触发 |
+| `plans[N].review_gate` | `track-review-budget.sh` | PostToolUse Bash hook 自动触发 |
+| `任何 → blocked` | Coordinator 或 `agent-return-handler.sh` | SKILL.md 步骤或 hook |
 
 ```json
 {
@@ -299,6 +300,7 @@ hooks 通过 `tool_input` 中的 prompt 字段提取信封（`jq` 解析 `<!-- D
   },
   "plans": {
     "002": {
+      "plan_writer_agent_id": "f6g7h8i9j0k",
       "packs": {
         "2.3": { "status": "dispatched", "agent_id": "a1b2c3d4e5f", "repair_round": 0 }
       }
@@ -732,7 +734,7 @@ plugin-v2/
 | 状态写入命令从 resolver 生成 | 1 + 2 | execution, plan-writing, final-review, workflow |
 | 入口/出口路标从 resolver 生成 | 1 + 6 | 全部 reference 文件 |
 | Disposition 表从 resolver 生成 | 1 + 3 | execution, final-review, plan-writing, discovery, multi-pr-merge |
-| JSON 信封写入指令 | 2 | execution |
+| JSON 信封写入指令 | 2 | execution, plan-writing |
 | cursor 写入点 | 2 | 全部有 phase 转换的 skill |
 | 置信度格式要求注入 review prompt | 3 | execution, final-review, plan-writing, discovery |
 | Learnings 写入点 | 4 | execution, final-review |
@@ -742,6 +744,7 @@ plugin-v2/
 | Route 4-7 入口判定 | 7 | workflow（Entry Gate） |
 | Review prompt trust boundary 标记 | 8 | execution, final-review, plan-writing, discovery |
 | Worker 输入边界声明注入 preamble | 8 | execution（worker dispatch） |
+| `run_in_background: true` + agentId 记录（plan-writer dispatch） | 3.8 | plan-writing |
 | Pack 数量阈值检查 | 9 | plan-writing |
 | 邻居接口摘要注入 Pack Brief | 9 | execution（Step 5b） |
 
@@ -911,6 +914,7 @@ grep -c "或新建同类\|新建.*dispatch\|新建.*agent" plugin-v2/skills/orch
 # 期望：0
 # dispatch 模板含 run_in_background: true（确保 agentId 可捕获）
 grep -q "run_in_background" plugin-v2/skills/orchestrate-execution/SKILL.md
+grep -q "run_in_background" plugin-v2/skills/orchestrate-plan-writing/SKILL.md
 # workflow-state 实际包含 agent_id（对运行中的 workflow-state 文件验证）
 python3 -c "import json,sys; d=json.load(open(sys.argv[1])); plans=d.get('plans',{}); [p['packs'][pk]['agent_id'] for p in plans.values() for pk in p.get('packs',{}) if 'agent_id' in p['packs'][pk]]" .claude/multi-model-workflow/workflow-state-*.json
 # state.sh validate 拒绝缺少 agent_id 的 dispatched pack
@@ -975,13 +979,17 @@ grep -q "Neighbor.*interface\|邻居接口" plugin-v2/skills/orchestrate-executi
 | SKILL.md Entry Gate | 更新（Route 4-7） | 7 |
 | Review prompt 模板 | 更新（trust boundary 标记） | 8 |
 | Worker preamble | 更新（输入边界声明） | 8 |
-| plan-writing SKILL.md | 更新（Pack 数量阈值检查） | 9 |
+| plan-writing SKILL.md | 更新（Pack 数量阈值检查 + plan-writer dispatch 增加 `run_in_background: true` + agentId 记录） | 9 + 3.8 |
 | execution SKILL.md Step 5b | 更新（邻居接口摘要注入） | 9 |
 | `agents/pack-executor.md` | 更新（模式 2a 从死代码变为主修复路径） | 3.8 |
 | `agents/complex-pack-executor.md` | 更新（同上） | 3.8 |
+| `agents/plan-writer.md` | 更新（增加 SendMessage resume 修复模式说明） | 3.8 |
 | execution SKILL.md 行 81-91 | 更新（dispatch 增加 `run_in_background: true` + agentId 记录到 workflow-state） | 3.8 |
 | 15+ 处 SendMessage 引用 | 从死代码变为正式路径：删除"或新建同类 agent" fallback，SendMessage 是唯一修复路径 | 3.8 |
 | `architecture-draft.md` Open Items 表述 | 更新（"无非阻塞项"→"每个发现必须在返回前归类处置"） | 3.3 |
+| `architecture-draft.md` Hook 表（行 497） | 更新（`AGENT_TEAMS` 检查从 exit 2 改为 version check + 工具链检查） | 3.6 |
+| `architecture-draft.md` 修复截断规则（行 597） | 更新（删除"或新建 dispatch" fallback，SendMessage 唯一路径） | 3.8 |
+| `architecture-draft.md` 架构约束（行 718） | 更新（`AGENT_TEAMS` 从独立硬依赖改为 SendMessage 所需的平台条件） | 3.6 |
 
 **总计**：~25 个新增文件 + ~45 个更新文件。
 
