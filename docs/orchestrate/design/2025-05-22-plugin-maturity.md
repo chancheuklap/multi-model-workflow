@@ -88,7 +88,7 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 6 个 shell 脚本通过 `sed`/`grep` 正则从自然语言 prompt、response、commit message 中提取控制信号（Pack ID、verdict、repair round、review gate 名）。一个 prompt 模板的修改是否破坏某个 hook 的正则，只能在运行时发现。`agent-return-handler.sh` 的 3 层 fallback 正则是这种不确定性的工程应对。
 
-**修正方案**：定义结构化信封格式。Pack dispatch 前写 `current-dispatch.json`：`{"pack_id": "2.3", "plan_id": "002", "run_id": "..."}`。Hooks 解析 JSON 而非 grep 自然语言。这是从"prompt 工程"到"结构化协议"的关键一步。
+**修正方案**：定义结构化信封格式。每个 Agent dispatch 的 prompt 头部嵌入 JSON 信封（`<!-- DISPATCH_ENVELOPE {...} -->`），hooks 从 `tool_input` 解析信封而非 grep 自然语言。信封嵌入 prompt 天然支持并行 dispatch（每个 Agent tool call 有自己的 prompt）。这是从"prompt 工程"到"结构化协议"的关键一步。
 
 ### 3.6 实验性特性硬依赖——单点故障无降级路径
 
@@ -175,25 +175,27 @@ plugin-v2/
 
 **2a. 结构化信封**
 
-Coordinator 在每次 dispatch（Worker、Explorer、RCA）前写入 `current-dispatch.json`：
+当前 execution 允许并行 pack dispatch（同一消息发送多个 Agent tool call）。信封机制必须支持并行——单个全局文件会被并行写入覆盖。
 
-```json
-{
-  "type": "pack-dispatch",
-  "run_id": "formal-20250522-143000",
-  "pack_id": "2.3",
-  "plan_id": "002",
-  "agent_type": "pack-executor",
-  "repair_round": 0,
-  "timestamp": "2025-05-22T14:30:00Z"
-}
+**信封传递方式（按优先级）**：
+
+1. **嵌入 Agent prompt**（主路径）：Coordinator 在每个 Agent dispatch 的 prompt 头部嵌入 JSON 信封块。信封是 prompt 的一部分，天然 per-dispatch 隔离，不存在并行竞态：
+
+```markdown
+<!-- DISPATCH_ENVELOPE
+{"type":"pack-dispatch","run_id":"formal-20250522-143000","pack_id":"2.3","plan_id":"002","agent_type":"pack-executor","repair_round":0}
+-->
 ```
 
-所有 hooks（`validate-pack-dispatch.sh`、`agent-return-handler.sh`、`track-execution-state.sh`）读 JSON 信封而非 grep prompt。信封的 schema 由 `control-envelope.sh` resolver 定义，构建系统确保 SKILL.md 中的信封写入指令和 hook 中的信封读取代码使用同一个 schema。
+hooks 通过 `tool_input` 中的 prompt 字段提取信封（`jq` 解析 `<!-- DISPATCH_ENVELOPE` 和 `-->` 之间的 JSON）。PostToolUse hooks 的 `tool_input` 包含原始 dispatch 参数，`tool_use_id` 可用于日志关联。
 
-**环境变量补充路径**：如果 Claude Code 的 hook 执行环境继承父进程环境变量，可同时设置 `ORCHESTRATE_PACK_ID` 和 `ORCHESTRATE_RUN_ID`。Hooks 优先读环境变量（最轻量）→ fallback 到 `current-dispatch.json`（确保可靠）→ 最后 fallback 到正则（向后兼容）。
+2. **per-dispatch 文件**（fallback，仅串行 dispatch 使用）：写入 `dispatches/<pack_id>.json` 而非全局 `current-dispatch.json`。文件名包含 pack_id，并行写入不互相覆盖。hook 通过从 prompt 提取 pack_id 后读取对应文件。
 
-**渐进迁移**：第一步在 prompt 中加入信封，hooks 优先读信封、正则作为 fallback。第二步移除正则 fallback。这保证向后兼容。
+3. **正则提取**（legacy fallback）：保留现有正则作为最后 fallback，渐进迁移期间使用。
+
+信封的 schema 由 `control-envelope.sh` resolver 定义，构建系统确保 SKILL.md 中的信封写入指令和 hook 中的信封读取代码使用同一个 schema。
+
+**渐进迁移**：第一步在 prompt 中嵌入信封，hooks 优先从 `tool_input` 解析信封、正则作为 fallback。第二步移除正则 fallback。
 
 **2b. 统一状态机**
 
@@ -201,7 +203,7 @@ Coordinator 在每次 dispatch（Worker、Explorer、RCA）前写入 `current-di
 
 - **写入前 schema 校验**：pack status 只能在 `pending → dispatched → returned → committed → blocked` 之间转换
 - **写入后 mutation log**：每次写入记录 `{ field, old, new, writer, timestamp }`
-- **文件锁**：`flock` 保证并发 hook 不互踩
+- **文件锁**：macOS 不自带 `flock`，使用 portable 方案——`mkdir` 原子锁（`mkdir "$LOCKDIR" 2>/dev/null || wait-and-retry`）或 Python `fcntl.flock` 小脚本。锁实现封装在 `state.sh` 内部，调用方无感知
 - **一致性检查**：`state.sh validate` 检测状态不一致（如 pack 已 committed 但 execution-state 未更新）
 
 ```json
@@ -437,10 +439,10 @@ Phase 切换时输出：`> Phase complete. [Phase]: [关键指标]。Passing to 
 
 | 场景 | 现状 | 解决方案 |
 |------|------|---------|
-| 紧急热补丁 | 走 Bug 路线，600 秒 review timeout 不可接受 | Route 4：Hotfix——跳过 Codex review，Coordinator 直接 review + 用户确认后 push |
+| 紧急热补丁 | 走 Bug 路线，600 秒 review timeout 不可接受 | Route 4：Hotfix——push 前跳过 Codex review（Coordinator review + 用户确认即可 push），但 **push 后强制触发事后 Codex review**。如果事后 review 返回 needs repair，立即创建 follow-up issue 并在下次 workflow 中修复。Hotfix 的 commit message 标记 `[hotfix-unreviewed]`，事后 review 通过后追加 `[hotfix-reviewed]` 标记。这保证紧急响应速度的同时不放弃独立审查——审查只是延迟执行，不是取消 |
 | 纯 UX 迭代 | 走 Formal 路线，Discovery + Design Review 过度 | Route 5：Quick Fix——简化 Formal，跳过 Discovery/Design Review，从现有 design 直接进 plan-writing |
 | 探索性 spike | `prototype` skill 只是 Discovery 的辅助 | Route 6：Spike——`prototype` 升级为独立路线，产出 throwaway code + verdict，不进 plan/execution |
-| 依赖升级 / CVE 修复 | 有明确变更内容但不需要 design doc，走 Formal 过度 | Route 7：Maintenance——跳过 Discovery/Design Review，从变更清单直接进 plan-writing，Plan 只有 1 个 Pack（upgrade + test），Codex review 聚焦 breaking changes 和安全面 |
+| 依赖升级 / CVE 修复 | 有明确变更内容但不需要 design doc，走 Formal 过度 | Route 7：Maintenance——跳过 Discovery/Design Review，从变更清单直接进 plan-writing，Pack 数量由实际变更范围决定（简单升级可能 1 pack，大型 framework 升级可能 3-4 pack 覆盖 lock file + compat shim + tests + docs），Codex review 聚焦 breaking changes 和依赖兼容性 |
 | 代码清理 / 技术债 | 不改变外部行为，走 Formal 强制 Discovery 浪费 | Route 7：Maintenance——同上，review angle 聚焦"行为不变性"（refactoring 不应改变 public API 和 test 断言） |
 
 Route 4-7 的 Entry Gate 路由条件基于用户的显式关键词：
@@ -449,7 +451,9 @@ Route 4-7 的 Entry Gate 路由条件基于用户的显式关键词：
 - "spike"/"探索"/"prototype"/"试试" → Route 6
 - "升级"/"upgrade"/"CVE"/"依赖"/"重构"/"refactor"/"清理"/"tech debt" → Route 7
 
-Route 4-7 不创建 Budget File（与 Bug Route 一致）。Route 7 和 Route 5 的区别：Route 5 仍走完整 Execution + Review 循环；Route 7 的 Plan 限制为单 Pack，Review angle 针对变更类型定制（upgrade → breaking changes；refactor → behavioral equivalence）。
+**Route 4-7 的 state 和 budget 策略**：Route 4-7 仍创建 `workflow-state-<run_id>.json` 和 `active-run-id`（hooks 依赖这两个文件才能追踪状态），但不设置 review budget 上限（`review_total: null`）——即 hooks 追踪 dispatch 次数但不触发 Direction Check 或硬停。这与"不创建 Budget File"的旧表述不同：区别是"不限制 budget"而非"不创建 state"。
+
+Route 7 和 Route 5 的区别：Route 5 仍走完整 Execution + Review 循环；Route 7 的 Review angle 针对变更类型定制（upgrade → breaking changes + 依赖兼容性；refactor → behavioral equivalence + public API 不变性）。
 
 ### 承诺 8：对抗性输入防御——外部内容不可信
 
@@ -500,6 +504,14 @@ plan-writing 的 Step 3b（前置条件检查）增加 pack 数量检查：
 | Pack 数 ≤ 8 | 正常继续 |
 | Pack 数 9-12 | Coordinator 向用户发出 Direction Check："`Plan N` 有 X 个 Task Pack，超出建议范围（≤8）。建议将此 issue 进一步拆分为 2-3 个独立 issue。继续还是拆分？" |
 | Pack 数 > 12 | 强制拆分。Coordinator 返回 `NEEDS_ISSUE_SPLIT`，附带建议的拆分方案。 |
+
+**`NEEDS_ISSUE_SPLIT` 回写机制**：Coordinator 返回 `NEEDS_ISSUE_SPLIT` 时，必须同时完成以下回写操作，而非只返回一个 verdict：
+
+1. **拆分 issue 文件**：将原 issue（`docs/orchestrate/issues/<slug>/00N-*.md`）中的 small issues 按建议方案重新分配到 2-3 个新 issue 文件（编号递增）。原 issue 文件保留但标记为 `status: split`，指向新 issue 文件。
+2. **更新 issue hierarchy**：如果存在 issue hierarchy 文档，同步更新（新 issue 的 parent/child 关系）。
+3. **重新进入 plan-writing**：每个新 issue 独立生成 plan。plan 编号从原 plan 的下一个序号开始，不复用原编号。
+4. **Budget 影响**：新增的 plan 增加 review budget（`budget_total += 3 * new_plan_count`），因为 `3P+12` 的 P 增加了。通过 `state.sh` 更新 workflow-state。
+5. **Git checkpoint**：拆分操作本身做一次 commit（`"issue split: 00N → 00N-a, 00N-b"`），确保可回溯。
 
 **9b. Review 分段**
 
@@ -617,7 +629,7 @@ plugin-v2/
 | `pack-returns/<pack-id>.json` | 保留 | 不变（Worker 进程隔离，不能通过 state.sh 写入） |
 | `review-prompts/` + `review-results/` | 保留 | 不变 |
 | — | `learnings.jsonl` | 新增 |
-| — | `current-dispatch.json` | 新增（Pack ID 传递通道，dispatch 前写入，hook 读取后清理） |
+| — | `dispatches/<pack_id>.json` | 新增（per-dispatch 信封文件，仅串行 dispatch fallback 使用；主路径通过 prompt 内嵌信封传递） |
 
 ### 5.3 SKILL.md 变化矩阵
 
@@ -643,19 +655,22 @@ plugin-v2/
 | Pack 数量阈值检查 | 9 | plan-writing |
 | 邻居接口摘要注入 Pack Brief | 9 | execution（Step 5b） |
 
-### 5.4 新 Hook 事件利用（如果 Claude Code 支持）
+### 5.4 新增 Hook 事件利用
+
+Claude Code 官方 hooks reference 已正式支持以下事件（29 个 hook 事件之一），可直接使用：
 
 | Hook 事件 | 用途 | 承诺 |
 |-----------|------|------|
 | PreCompact | 写入 cursor 快照到 workflow-state，恢复时有精确位置 | 2 |
 | SessionEnd | 写入 learning：本次 session 最后状态 + 未完成项 | 4 |
 | SubagentStop | 捕获 worker 异常终止，标记 pack 为 blocked | 2 |
+| PostToolBatch | 并行 pack dispatch 全部完成后统一更新 execution state | 2 |
 
 ### 5.5 现有控制流不变
 
 以下逻辑保持原样——它们是经过验证的设计决策（judgment），不是会漂移的实现事实（fact）：
 
-- 三条路线的入口判定和路由（Route 4-6 是新增，不是替换）
+- 三条路线的入口判定和路由（Route 4-7 是新增，不是替换）
 - Phase verdict 返回值和路由表
 - 修复截断规则（3 轮 + RCA）
 - Execution reflux 上限（1 次）
