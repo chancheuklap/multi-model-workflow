@@ -102,10 +102,13 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 **修正方案**：
 
-1. **Runtime feature detection 替代 flag 检查**：不检查环境变量是否存在，而是在 `SessionStart` hook 中运行时测试 Agent Teams 能力是否可用。检测方式：尝试创建一个轻量 Team（`TeamCreate` + 立即 `TeamDelete`），或检查 `SendMessage` tool 是否在可用工具列表中。
-2. **不可用 = 硬停 + 清晰报错**：Agent Teams 是核心架构依赖（进程隔离、worktree 执行、三方分离）。单进程降级下行为差异过大，用户无法判断输出质量——这违反 §6.5 的"拒绝静默降级"原则。检测到不可用时输出：`[multi-model-workflow] BLOCKED: Agent Teams 能力不可用。请在 settings.json 的 env 中设置 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1，或升级 Claude Code 到 ≥2.1.32。`
-3. **Runtime version check**（替代 manifest 声明——Claude Code 的 `plugin.json` schema 不支持最低版本字段）：`session-start.sh` 解析 `claude --version` 输出，版本低于 2.1.32 时硬停并提示升级。
-4. **修正代码自相矛盾**：第 4 行注释改为 "May exit 2 to block session when required capabilities are missing"。
+1. **Shell-level 环境检查**（`session-start.sh` 只做 shell 可执行的检查，不调用 Claude 内部工具）：
+   - `claude --version` 解析版本号，低于 2.1.147 时硬停并提示升级（2.1.147 修复了 hook `if` 条件、subagent model、SendMessage resume 等关键功能）
+   - 检查 `jq`、`python3` 等工具链是否在 PATH（state.sh 和构建系统依赖）
+   - （可选）检查 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 环境变量——当前不阻断（SendMessage resume 不依赖 Agent Teams），仅在缺失时输出提示："Agent Teams 未启用，§3.9 Future Enhancement（Worker 调查能力）不可用"
+2. **不可用 = 硬停 + 清晰报错**：检测到不满足条件时输出：`[multi-model-workflow] BLOCKED: <具体缺失项>。` 不做降级，不静默跳过。
+3. **修正代码自相矛盾**：第 4 行注释改为 "May exit 2 to block session when required capabilities are missing"。
+4. **Coordinator 启动后自检**（shell hook 无法验证的能力）：Coordinator 在 orchestrate-workflow 的 Entry Gate 中验证 SendMessage 工具可用（尝试读取工具列表）。如果 Claude Code 未来移除 SendMessage，Entry Gate 硬停。
 
 ### 3.7 BLOCKED 对非技术用户是黑洞
 
@@ -113,98 +116,56 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 **修正方案**：BLOCKED 报告分两层——**业务影响层**（用一句话说"什么功能受影响、不修会怎样、修了需要什么资源"）+ **技术详情层**（现有的 findings + repair history，给能帮忙的技术人员看）。同样，80% Direction Check 应该展示业务语言的进度而非裸数字。
 
-### 3.8 SendMessage 修复链路从未生效——根因与架构修正
+### 3.8 SendMessage 修复链路未被正确实现——根因与修正
 
 **声称**（27 处引用）：Coordinator 在收到 Codex review 结果后，通过 `SendMessage` 向原 worker 派发修复工作。`pack-executor.md` 定义了"模式 2a：修复 review 问题（via SendMessage，同一 agent 继续）"。`execution SKILL.md` 行 91 要求"记录返回的 agentId——后续复杂修复需要用 SendMessage 继续该 worker"。
 
-**实际**：通过 `Agent()` 工具派发的 subagent 完成任务后进程退出，`SendMessage` 无法送达已完成的 subagent。所有修复 fallback 到"新建同类 agent"——原 worker 积累的代码理解、尝试过的方案、遇到的边界情况全部丢失，每次修复从零开始。
+**实际**：修复链路从未按设计生效——所有修复 fallback 到"新建同类 agent"，原 worker 积累的代码理解、尝试过的方案、遇到的边界情况全部丢失，每次修复从零开始。
 
-**根因**：Subagent 是 fire-and-forget 模型。原 worker 继续修复是效果最好且最经济的路径（无需重建上下文），而 SendMessage 是实现这一路径的唯一机制。问题不在 SendMessage 的设计意图，而在 subagent 的执行模型不支持。
+**根因**：**实现问题，不是平台限制**。Claude Code 2.1.147 的 `SendMessage` 工具明确支持 resume 已完成的 background agent——工具文档写 "to resume a completed background agent, use the `agentId` from its spawn result"，2.1.77 changelog 确认 `SendMessage({to: agentId})` 为继续已 spawn agent 的路径，2.1.118 修复了 resume 后 cwd 恢复问题。**2026-05-22 实测确认**：向已完成的 background agent 发送 SendMessage，返回 "Agent had no active task; resumed from transcript in the background with your message"，resumed agent 保留完整上下文（记得之前任务的全部细节）。
 
-**修正方案**：**pack-executor / complex-pack-executor 从 Subagent 切换到 Agent Teams Teammate 模式。**
+修复链路失效的真实原因是实现层面：
+1. **agentId 未被正确捕获和持久化**：Coordinator dispatch 后没有系统性记录 agentId 到 workflow-state
+2. **SendMessage 调用路径有"或新建同类 agent"fallback**：fallback 太容易触发，掩盖了真实问题
+3. **background agent 的 dispatch 模式不统一**：部分 dispatch 用前台等待（无 agentId 返回），部分用后台（有 agentId）
 
-Teammate 是独立的 Claude Code session（不是 subagent），完成任务后进入 idle 状态（不退出），`SendMessage` 可送达。我们已强制要求 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`（§3.6），Agent Teams 是基础假设而非可选特性。
+**修正方案**：
 
-**Teammate 与 Subagent 的关键差异**：
+1. **所有 worker dispatch 使用 `run_in_background: true`**：确保 Coordinator 获得 agentId
+2. **agentId 持久化到 workflow-state**：`state.sh` 在 dispatch 时记录 `packs[N].agent_id`，compaction 后可恢复
+3. **SendMessage 是唯一修复路径**：删除所有"或新建同类 agent"fallback。SendMessage resume 经实测可靠，fallback 只会掩盖 agentId 丢失问题
+4. **修复截断保持 3 轮 + RCA**：不变
 
-| 方面 | Subagent（当前） | Teammate（目标） |
-|------|-----------------|-----------------|
-| 执行模型 | 父 session 内的受限子进程 | 独立的 Claude Code session |
-| 生命周期 | 完成即死 | idle 等待指令，显式 shutdown |
-| SendMessage | **不可达** | **可达**（idle 状态接收消息） |
-| 能否 spawn subagent | 不能 | **能**（独立 session 权限，见 §3.9） |
-| Agent 定义的作用 | 定义就是 agent 的全部世界 | 定义作为角色配置——`tools` 和 `model` 强制生效，body 追加到 session system prompt |
-| `skills` / `mcpServers` 字段 | 生效 | **不生效**——从项目/用户 settings 加载 |
-| 项目上下文 | 只有 agent body | 完整 session（CLAUDE.md + skills + 项目上下文 + agent body 追加） |
-
-**修复链路变为**：
+**修复链路**：
 
 ```
-Coordinator（team lead）创建 Team（TeamCreate）
-  → spawn teammate（引用 pack-executor 定义）→ teammate 做 Pack 实现
-  → teammate 完成 → idle（活着，保有完整代码理解）
+Coordinator dispatch worker（Agent, run_in_background: true）
+  → 捕获 agentId → 写入 workflow-state packs[N].agent_id
+  → worker 完成 Pack 实现 → Coordinator 收到通知
   → Codex review 返回 findings
-  → Coordinator 通过 SendMessage 向同一个 teammate 发修复指令
-  → teammate 带着完整上下文继续修复（不重新读文件、不重建理解）
-  → 修复完成 / 3 轮截断 → Coordinator shutdown teammate
+  → Coordinator 通过 SendMessage({to: agentId}) 向同一 worker 发修复指令
+  → worker 从 transcript resume，带完整上下文继续修复
+  → 修复完成 / 3 轮截断 → RCA 升级
 ```
 
-**Worktree 隔离的替代方案**：Subagent 的 `isolation: "worktree"` 在 Teammate 模式下不是内建的。替代方案：Teammate spawn prompt 中指示 teammate 在启动时调用 `EnterWorktree` 工具创建独立 worktree。worktree 的创建和清理由 teammate 自己管理，Coordinator 在 shutdown 前检查 worktree 是否已合并。
+**影响范围**：
 
-**对现有系统的影响范围**（28 个位置，6 类变更）：
+- `pack-executor.md` / `complex-pack-executor.md` 模式 2a：从死代码变为**主修复路径**
+- `plan-writer.md`：同理——Plan Review 返回修复需求时，Coordinator 通过 SendMessage resume 原 plan-writer（agentId 需同样捕获和持久化）
+- 所有"SendMessage 给原 worker（或新建同类 agent）"表述：删除"或新建同类 agent"（当前 plugin-v2 中有 2 处，分别在 `final-review-repair.md` 和 `execution-repair-truncation.md`）
+- `execution/SKILL.md` 行 81-91：dispatch 模板增加 `run_in_background: true` + agentId 记录
+- workflow-state schema：`plans[N].packs[M].agent_id` 字段
+- `architecture-draft.md`：更新 SendMessage 修复链路描述
 
-**A. Dispatch 模式**（10 处 `Agent()` 调用 → TeamCreate + spawn）：
-- `execution/SKILL.md` 行 81-88：主 dispatch 模板
-- `execution-repair-truncation.md`、`final-review-repair.md`、`workflow-direct-repair.md`、`bug-investigation-route.md`、`merge-conflict-repair.md`（2 个块）：repair / route dispatch
-- `execution-release-gate.md`、`final-review-release-gate.md`：release blocker 修复
+### 3.9 Worker 调查能力受限——平台限制与 Future Enhancement
 
-**B. Return 处理模式**（从 PostToolUse hook → 消息驱动）：
-- `agent-return-handler.sh`：**整个文件需要重新设计**——当前监听 PostToolUse Agent 事件并从 `tool_input.subagent_type` 提取 agent 类型、从 `tool_response` 解析 verdict。Teammate 不触发 PostToolUse Agent 事件，其结果通过 SendMessage 返回。新机制：Coordinator 在 SendMessage 收到 teammate 的工作报告后，从报告中提取 verdict 和 pack status，调用 `state.sh` 更新 workflow-state
-- `execution/SKILL.md` 行 95-98：return handler 描述需要重写
+**问题**：Worker 遇到不熟悉的代码时，只能用 Read/Grep/Glob 做浅层检索，无法派发 code-explorer 做深度调查。结果是 worker 做假设 → 实现错误 → Codex review 抓到 → 浪费修复轮次。
 
-**C. Hook 触发**（4 个 hook 条件失效）：
-- `hooks.json` 行 35-48：PreToolUse `Agent(pack-executor*)` / `Agent(complex-pack-executor*)` 不再触发。替代：如果 Teammate spawn 也触发 PreToolUse（待验证），用新 matcher；否则在 Coordinator 的 SKILL.md 步骤中做 pre-dispatch 检查
-- `hooks.json` 行 68-76：PostToolUse Agent 对 pack-executor 不再触发。替代：Coordinator 在收到 teammate 消息后主动调用 state.sh 更新状态
-- `validate-pack-dispatch.sh`：整个 input 解析方式改变（不再从 `tool_input.prompt` 读取）
-- `session-start.sh` 行 37：`isolation: "worktree"` 注入规则改为 `EnterWorktree` 指令
+**平台限制**：Subagent 不能嵌套派发 subagent（官方文档三处明确声明："Subagents cannot spawn other subagents, so `Agent(agent_type)` has no effect in subagent definitions"）。当前 worker 作为 subagent 运行，无法调用 code-explorer。
 
-**D. Worktree 隔离**（5 处引用）：
-- `execution/SKILL.md` 行 85：`isolation: "worktree"` → spawn prompt 中指示 `EnterWorktree`
-- `execution/SKILL.md` 行 134-150：整个 Step 7c "合并并行 Pack 的 Worktree" → teammate 自己管理 worktree 的创建和合并，Coordinator 在 shutdown 前验证
-- `execution-preparation.md` 行 30：并行条件定义更新
-- `execution-worker-dispatch.md` 行 45-56：durable return 绝对路径要求（worktree 路径变化）
+**当前缓解**：Worker 自身拥有 Read/Grep/Glob/Bash 工具，可以做基本的代码调查。对于需要深度调查的场景，§3.8 的 SendMessage resume 机制让 Coordinator 可以在修复轮次间协调——Worker 报告"需要调查 X 模块"，Coordinator 派 code-explorer 做调查后将结果通过 SendMessage 传回 Worker。多一个 hop，但保持了角色分离。
 
-**E. SendMessage 引用**（15+ 处从死代码变为正式路径）：
-- `pack-executor.md` 模式 2a / `complex-pack-executor.md` 模式 2a：从死代码变为**主修复路径**
-- 所有"SendMessage 给原 worker（或新建同类 agent）"表述：删除"或新建同类 agent"，SendMessage 是唯一路径
-
-**F. 架构文档**（`architecture-draft.md` 8+ 处）：
-- sub-agent 组件表：pack-executor / complex-pack-executor 从"Sub-Agent"分类移到"Teammate"分类
-- hook 表：PreToolUse / PostToolUse Agent 行更新
-- 流程图：dispatch 和 return 节点重画
-- 对比表：`isolation: "worktree"` 行更新
-
-### 3.9 Worker 可按需调查——Teammate 模式解锁 subagent 嵌套
-
-**问题**：Worker 遇到不熟悉的代码时，只能用 Read/Grep 做浅层检索，无法派发 code-explorer 做深度调查。结果是 worker 做假设 → 实现错误 → Codex review 抓到 → 浪费修复轮次。
-
-**平台限制**：Subagent 不能嵌套派发 subagent（官方文档三处明确声明）。**但 Teammate 是独立的 Claude Code session，可以 spawn subagent**（官方文档："teammates can spawn subagents"）。Teammate 不能嵌套 spawn teammate（"No nested teams"），但可以 spawn 普通 subagent。
-
-**§3.8 的 Teammate 模式同时解决了 §3.9**：pack-executor 作为 Teammate 运行后，它可以直接在实现过程中 spawn code-explorer 做调查，无需 Coordinator 中转。
-
-```
-Teammate（pack-executor）实现 Pack
-  → 遇到不熟悉的代码
-  → 直接 spawn code-explorer（subagent）调查
-  → code-explorer 返回结构化分析
-  → Teammate 带着调查结果继续实现
-```
-
-这比 Coordinator 代理调查少一个 hop，且 worker 不需要中断执行——它在自己的 session 内就能完成"先理解再动手"的循环。
-
-**Agent 定义变更**：给 `pack-executor.md`、`complex-pack-executor.md`、`root-cause-analyst.md` 的 `tools:` 增加 `Agent(code-explorer)` 和 `Agent(complex-code-explorer)`。这些声明在 Teammate 模式下生效（Teammate 是独立 session，等价于 `claude --agent` 主线程）。
-
-**不需要调查能力的 agent**：plan-writer（已有 `Skill("improve-codebase-architecture")`）、docs-worker（纯文档整理）。
+**Future Enhancement**：当 Agent Teams Teammate 模式从实验性变为稳定 API 后，pack-executor / complex-pack-executor / root-cause-analyst 可切换到 Teammate 模式（独立 Claude Code session，可 spawn subagent）。这将解锁 worker 直接 spawn code-explorer 的能力。迁移条件：`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 标志被 deprecated 或改为默认启用。
 
 ## 4. 架构承诺
 
@@ -336,9 +297,12 @@ hooks 通过 `tool_input` 中的 prompt 字段提取信封（`jq` 解析 `<!-- D
     "step": "5b",
     "updated_at": "..."
   },
-  "plans": { ... },
-  "teammates": {
-    "2.3": { "name": "pack-2-3-worker", "status": "idle", "team": "exec-formal-20250522" }
+  "plans": {
+    "002": {
+      "packs": {
+        "2.3": { "status": "dispatched", "agent_id": "a1b2c3d4e5f", "repair_round": 0 }
+      }
+    }
   },
   "reflux": { "execution_count": 0 },
   "review_dispositions": { ... },
@@ -505,7 +469,7 @@ Exploratory, question-first. Surface constraints before proposing solutions.
 | 层 | 计量 | 公式 | 追踪 |
 |----|------|------|------|
 | Review Budget | Codex dispatch 次数 | `3P + 12`（保留） | `track-review-budget.sh` via `state.sh` |
-| Effort Budget | worker + explorer + RCA dispatch 加权总和 | 初始阈值 TBD，从 run-summary 数据校准 | 新增 `track-effort-budget.sh` via `state.sh` |
+| Effort Budget | worker + explorer + RCA dispatch 加权总和 | 初始阈值 = review budget × 2，从 run-summary 数据逐步校准 | 新增 `track-effort-budget.sh` via `state.sh` |
 
 Effort Budget 的权重：worker dispatch = 1、explorer dispatch = 0.5、RCA dispatch = 2（RCA 消耗最大 context）。**初始阈值 = review budget × 2**（保守上限——review budget `3P+12` 是已校准的，effort 不应超过 review 的 2 倍）。从 run-summary 数据积累后逐步校准。超过阈值时触发 Direction Check（同 review budget 的 80% 机制），不是硬停——但用户必须显式确认继续。
 
@@ -663,6 +627,8 @@ Pack 2.3 consumes: UserAuthSchema via import in src/api/login.py:8
 
 **对抗性输入防御（8）依赖构建系统（1）和运行时可观测（4）**。Review prompt 的 trust boundary 标记由 `review-dispatch.sh` resolver 注入（1）。Learnings trust gate 在加载时验证 learning 的有效性（4a）。Worker 的输入边界声明通过 `preamble.sh` resolver 注入（1）。
 
+**Route 扩展（7）依赖结构化控制协议（2）**。Route 4-7 的 `review_total: "unlimited"` 需要 `state.sh` 的 schema 校验支持——`state.sh` 必须将 `"unlimited"` 作为合法的 `review_total` 值，区别于 `null`（未设置/错误状态）。
+
 **输入粒度保护（9）与执行合同（6）和置信度校准（3）互补**。Pack 数量阈值是执行合同的一部分（在 plan-writing 的 pre-phase checklist 中）。紧密耦合 Pack 的邻居接口摘要使 Cross-Pack Coherence review（3）的 finding 质量更高——reviewer 可以验证 pack 之间的接口是否一致，而非只能发现"调用了未定义的接口"这类编译级错误。
 
 ```
@@ -675,14 +641,16 @@ Pack 2.3 consumes: UserAuthSchema via import in src/api/login.py:8
   │承诺 2   │ │承诺 6     │ │承诺 7       │ │承诺 8       │
   │控制协议  │ │执行合同   │ │路线扩展     │ │对抗性输入   │
   │JSON+state│ │Stop/幂等  │ │Route 4-7   │ │trust gate  │
-  └──┬───┬──┘ └─────┬─────┘ └────────────┘ └────────────┘
-     │   │          │
-  ┌──▼┐ ┌▼─────────┐│ ┌──────────┐
-  │ 3 │ │    4     │└─│  9       │
-  │置信│◄►│可观测   │  │粒度保护  │
-  │校准│ │Learnings │  │Pack阈值  │
-  └─┬─┘ └────┬─────┘  └──────────┘
-    │        │
+  └──┬───┬──┘ └─────┬─────┘ └──────┬─────┘ └────────────┘
+     │   │          │         ▲    │
+     │   │◄─────────│─────────┘    │ (7→2: review_total:"unlimited"
+     │   │          │              │  需要 state.sh schema 支持)
+  ┌──▼┐ ┌▼─────────┐│ ┌───────────┘
+  │ 3 │ │    4     │└─│ ┌────────┐
+  │置信│◄►│可观测   │  │ │  9     │
+  │校准│ │Learnings │  └─│粒度保护│
+  └─┬─┘ └────┬─────┘    │Pack阈值│
+    │        │           └────────┘
     └───┬────┘
      ┌──▼──┐
      │  5  │
@@ -742,7 +710,7 @@ plugin-v2/
 | `execution-state-<run_id>.json` | `workflow-state-<run_id>.json` | 合并 |
 | `active-run-id` | 保留 | 不变 |
 | `scope-<run_id>.md` | 保留 | 不变 |
-| `pack-returns/<pack-id>.json` | 保留 | 不变（Worker 进程隔离，不能通过 state.sh 写入） |
+| `pack-returns/<run_id>/<pack-id>.json` | 保留 | 不变（Worker 进程隔离，不能通过 state.sh 写入。路径含 `<run_id>` 层级防止跨 run 污染） |
 | `review-prompts/` + `review-results/` | 保留 | 不变 |
 | — | `learnings.jsonl` | 新增 |
 
@@ -787,11 +755,10 @@ Claude Code 官方 hooks reference 已正式支持以下事件（29 个 hook 事
 | SessionEnd | 写入 learning：本次 session 最后状态 + 未完成项 | 4 |
 | SubagentStop | 捕获 worker 异常终止，标记 pack 为 blocked | 2 |
 | PostToolBatch | 并行 pack dispatch 全部完成后统一更新 execution state | 2 |
-| TeammateIdle | Teammate 即将空闲时触发，exit 2 保活——支持修复链路中的 SendMessage 续派 | 2 |
 | TaskCompleted | Task 被标完成时触发，exit 2 阻止——可作为质量门禁（测试必须通过才能关 pack） | 6 |
 | TaskCreated | Task 被创建时触发——可强制 Task 格式标准（Pack ID、owned files 必填） | 6 |
 
-**注意**：`TeammateIdle`、`TaskCreated`、`TaskCompleted` 官方文档明确不支持 `matcher` 字段——它们在每次事件发生时都触发。如果需要按 team / task / pack 过滤，必须在 hook 脚本内读取 JSON payload 字段做条件判断，不能在 `hooks.json` 层面用 matcher 筛选。
+**注意**：`TaskCreated`、`TaskCompleted` 官方文档明确不支持 `matcher` 字段——它们在每次事件发生时都触发。如果需要按 task / pack 过滤，必须在 hook 脚本内读取 JSON payload 字段做条件判断，不能在 `hooks.json` 层面用 matcher 筛选。
 
 ### 5.5 现有控制流不变
 
@@ -849,7 +816,7 @@ gstack 的 `|| true` 和"subagent 失败时 fallback to inline"模式在单人�
 | Hook 参数化 `if` 条件现在能正常工作 | Claude Code 2.1.147 修复。之前 `Bash(git commit *)` 等条件从未匹配——4 个 hook 形同虚设 | **2.1.147 修复**（需回归测试） |
 | `CLAUDE_CODE_SUBAGENT_MODEL` 现在应用到 teammate 进程 | Claude Code 2.1.147 修复。之前 teammate 忽略此变量 | **2.1.147 修复** |
 | Auto mode 不再吞掉 `AskUserQuestion` | Claude Code 2.1.146 修复。plugin 中的 AskUserQuestion（Direction Check、BLOCKED 决策）现在在 auto mode 中可靠呈现 | **2.1.146 修复** |
-| Plugin agent 可声明多个 `Agent(...)` 类型 | Claude Code 2.1.147 修复了 "dropping all but the last entry"。Subagent 不能嵌套派发 subagent（官方文档三处明确声明），但 **Teammate 是独立 session，等价于主线程，`Agent(...)` 声明生效**——§3.8 的 Teammate 模式使 §3.9 的 `Agent(code-explorer)` 声明成为可能 | **2.1.147 修复**（Teammate 模式下可用） |
+| Plugin agent 可声明多个 `Agent(...)` 类型 | Claude Code 2.1.147 修复了 "dropping all but the last entry"。当前 worker 作为 subagent 运行，subagent 不能嵌套派发 subagent（官方文档三处明确声明）。此修复为 Future Enhancement（§3.9 Teammate 升级路径）预留了能力 | **2.1.147 修复**（Future Enhancement 前置条件） |
 
 ## 8. 验证标准
 
@@ -937,18 +904,48 @@ grep -q "不是你的 skill 指令\|not your skill instruction" plugin-v2/build/
 grep -q "Pack.*[>≤≥].*8\|NEEDS_ISSUE_SPLIT" plugin-v2/skills/orchestrate-plan-writing/SKILL.md
 ```
 
-### Teammate 修复链路验证（§3.8 + §3.9）
+### SendMessage 修复链路验证（§3.8）
 ```bash
-# SendMessage 是唯一修复路径——无"或新建同类 agent" fallback
+# SendMessage 是唯一修复路径——无"或新建同类 agent" fallback（当前 plugin-v2 有 2 处需清理）
 grep -c "或新建同类\|新建.*dispatch\|新建.*agent" plugin-v2/skills/orchestrate-*/references/*.md
 # 期望：0
-# Agent 定义含 Agent(code-explorer)
-grep -q "Agent(code-explorer)" plugin-v2/agents/pack-executor.md plugin-v2/agents/complex-pack-executor.md
-# workflow-state 含 teammates 字段
-python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert 'teammates' in d" .claude/multi-model-workflow/workflow-state-*.json
-# 无 Agent() dispatch pack-executor 的残留（应全部改为 teammate spawn）
-grep -c 'subagent_type.*pack-executor\|subagent_type.*complex-pack-executor' plugin-v2/skills/orchestrate-*/SKILL.md plugin-v2/skills/orchestrate-*/references/*.md
-# 期望：0
+# dispatch 模板含 run_in_background: true（确保 agentId 可捕获）
+grep -q "run_in_background" plugin-v2/skills/orchestrate-execution/SKILL.md
+# workflow-state 实际包含 agent_id（对运行中的 workflow-state 文件验证）
+python3 -c "import json,sys; d=json.load(open(sys.argv[1])); plans=d.get('plans',{}); [p['packs'][pk]['agent_id'] for p in plans.values() for pk in p.get('packs',{}) if 'agent_id' in p['packs'][pk]]" .claude/multi-model-workflow/workflow-state-*.json
+# state.sh validate 拒绝缺少 agent_id 的 dispatched pack
+```
+
+### 失败报告双层化验证（承诺 4c）
+```bash
+# BLOCKED 报告模板含业务影响层关键词
+grep -q "影响\|后果\|帮助" plugin-v2/skills/orchestrate-execution/SKILL.md
+```
+
+### Persona + Voice 验证（承诺 4d）
+```bash
+# 所有 SKILL.md 含禁止词表
+for f in plugin-v2/skills/orchestrate-*/SKILL.md; do
+  grep -q "禁止词\|Forbidden.*words\|delve" "$f" || echo "MISSING persona: $f"
+done
+```
+
+### Phase-Transition Summary 验证（承诺 6d）
+```bash
+# workflow SKILL.md 含 phase 切换输出格式
+grep -q "Phase complete" plugin-v2/skills/orchestrate-workflow/SKILL.md
+```
+
+### Review 分段验证（承诺 9b）
+```bash
+# execution SKILL.md 含分段 review 逻辑
+grep -q "分段\|split.*review\|Cross-Pack.*Coherence" plugin-v2/skills/orchestrate-execution/SKILL.md
+```
+
+### 邻居接口摘要验证（承诺 9c）
+```bash
+# execution SKILL.md 含邻居接口注入
+grep -q "Neighbor.*interface\|邻居接口" plugin-v2/skills/orchestrate-execution/SKILL.md
 ```
 
 ### 行为验证
@@ -980,19 +977,13 @@ grep -c 'subagent_type.*pack-executor\|subagent_type.*complex-pack-executor' plu
 | Worker preamble | 更新（输入边界声明） | 8 |
 | plan-writing SKILL.md | 更新（Pack 数量阈值检查） | 9 |
 | execution SKILL.md Step 5b | 更新（邻居接口摘要注入） | 9 |
-| `agents/pack-executor.md` | 更新（模式 2a 从死代码变为主修复路径；`tools:` 增加 `Agent(code-explorer)`） | 3.8 + 3.9 |
-| `agents/complex-pack-executor.md` | 更新（同上，加 `Agent(code-explorer)`, `Agent(complex-code-explorer)`） | 3.8 + 3.9 |
-| `agents/root-cause-analyst.md` | 更新（`tools:` 增加 `Agent(code-explorer)`, `Agent(complex-code-explorer)`） | 3.9 |
-| `hooks/agent-return-handler.sh` | **重新设计**（PostToolUse Agent → 消息驱动，Coordinator 从 teammate 报告提取 verdict） | 3.8 |
-| `hooks/validate-pack-dispatch.sh` | 更新（input 解析从 `tool_input.prompt` 改为新 teammate spawn 机制） | 3.8 |
-| `hooks/hooks.json` | 更新（PreToolUse / PostToolUse Agent matcher 对 pack-executor 不再适用，需新触发机制） | 3.8 |
-| execution SKILL.md 行 81-91 | 重写（`Agent()` dispatch → `TeamCreate` + spawn teammate；agentId → teammate name） | 3.8 |
-| execution SKILL.md 行 134-150 | 重写（Step 7c worktree 合并 → teammate 自管理 worktree via `EnterWorktree`） | 3.8 |
-| 10 处 `Agent()` dispatch 模板 | 全部改为 teammate spawn（execution/final-review/workflow/multi-pr-merge 的 repair + release gate） | 3.8 |
+| `agents/pack-executor.md` | 更新（模式 2a 从死代码变为主修复路径） | 3.8 |
+| `agents/complex-pack-executor.md` | 更新（同上） | 3.8 |
+| execution SKILL.md 行 81-91 | 更新（dispatch 增加 `run_in_background: true` + agentId 记录到 workflow-state） | 3.8 |
 | 15+ 处 SendMessage 引用 | 从死代码变为正式路径：删除"或新建同类 agent" fallback，SendMessage 是唯一修复路径 | 3.8 |
 | `architecture-draft.md` Open Items 表述 | 更新（"无非阻塞项"→"每个发现必须在返回前归类处置"） | 3.3 |
 
-**总计**：~25 个新增文件 + ~60 个更新文件。
+**总计**：~25 个新增文件 + ~45 个更新文件。
 
 ## 10. 平台演进方向——Claude Code Workflow 工具
 
@@ -1028,7 +1019,7 @@ Claude Code 2.1.147（2026-05-21）新增 `Workflow` 工具，changelog 描述�
 | SKILL.md 控制流（自然语言步骤指令） | **完全替代** | JavaScript 代码确定性更强、可测试、不会被 AI 跳步 |
 | Compaction 恢复（cursor + session-start.sh） | **完全替代** | `resumeFromRunId` + agent() 缓存原生解决 |
 | 并行 dispatch（同一消息多个 Agent() 调用） | **完全替代** | `parallel(() => agent(...))` 语义更清晰 |
-| SendMessage 修复链路（当前不工作，见 §3.8） | **完全替代** | Workflow 管理 agent 生命周期，不存在"完成即死" |
+| SendMessage 修复链路（§3.8 已修正） | **完全替代** | Workflow 管理 agent 生命周期，`resumeFromRunId` 更优雅 |
 | Phase 路由（Entry Gate → phases） | **完全替代** | `phase()` 原语天生就是这个 |
 
 ### 10.3 Workflow 工具替代不了什么
@@ -1050,7 +1041,7 @@ Claude Code 2.1.147（2026-05-21）新增 `Workflow` 工具，changelog 描述�
 - **Workflow 工具 = 地基**（确定性执行引擎：调度 agent、恢复中断、缓存结果）
 - **我们的 Plugin = 建筑**（跨模型审查、置信度校准、Budget 管理、非技术用户 UX、状态权限矩阵）
 
-当前的"地基"是 SKILL.md 自然语言指令——AI 可能跳步、compaction 后丢失位置、SendMessage 到已完成 agent 失败。Workflow 脚本用代码做编排，这些问题不存在。
+当前的"地基"是 SKILL.md 自然语言指令——AI 可能跳步、compaction 后丢失位置。Workflow 脚本用代码做编排，这些问题不存在。SendMessage resume（§3.8）已验证可行但仍需 agentId 管理，`resumeFromRunId` 更优雅。
 
 **对 9 个承诺的影响**：
 
