@@ -48,9 +48,9 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 两个系统都证明了：**agent 的行为由它读到的文本决定**。gstack 的回答是"全量内联到一个大文件"。我们的回答是"源码模块化 + 构建系统在 build time 组合"——agent 在运行时看到一个完整的、由 build 产出的 SKILL.md，但源码维护者看到的是模块化的 .tmpl 文件和 resolvers。这不是妥协——这是对我们更大规模的正确回答。
 
-## 3. 当前实现背叛自身理论的七处矛盾
+## 3. 当前实现背叛自身理论的九处矛盾
 
-设计文档不应只写"要加什么"——更应该说清楚"现在哪里是错的"。以下是深度调研揭示的七处矛盾。每一处都必须在成熟架构中修正。
+设计文档不应只写"要加什么"——更应该说清楚"现在哪里是错的"。以下是深度调研揭示的九处矛盾。每一处都必须在成熟架构中修正。
 
 ### 3.1 "渐进式加载"是名义上的
 
@@ -88,6 +88,8 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 8 个 shell 脚本（6 个 hooks + 2 个 scripts）通过约 25 处 `sed`/`grep` 正则从自然语言 prompt、response、commit message 中提取控制信号（Pack ID、verdict、repair round、review gate 名）。一个 prompt 模板的修改是否破坏某个 hook 的正则，只能在运行时发现。`agent-return-handler.sh` 的 3 层 fallback 正则是这种不确定性的工程应对。
 
+**2025-05-22 确认**：Claude Code 2.1.147 修复了 hook `if` 条件的参数化匹配（"Fixed hook `if` conditions like `PowerShell(git push*)` never matching"）。我们的 4 个参数化 `if` 条件（`Bash(git commit *)`×2、`Agent(pack-executor*)`、`Agent(complex-pack-executor*)`）在 2.1.147 之前**从未触发过**——`enforce-pack-commit.sh`（commit 格式强制）、`validate-pack-dispatch.sh`（dispatch 校验）、`track-execution-state.sh`（commit 后状态追踪）全部形同虚设。这证实了文本模式匹配的脆弱性不是理论风险：连 hook 注册本身都静默失败了。
+
 **修正方案**：定义结构化信封格式。每个 Agent dispatch 的 prompt 头部嵌入 JSON 信封（`<!-- DISPATCH_ENVELOPE {...} -->`），hooks 从 `tool_input` 解析信封而非 grep 自然语言。信封嵌入 prompt 天然支持并行 dispatch（每个 Agent tool call 有自己的 prompt）。这是从"prompt 工程"到"结构化协议"的关键一步。
 
 ### 3.6 实验性特性硬依赖——单点故障无降级路径
@@ -109,6 +111,43 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 "Round 3 Re-Review 仍 needs repair → BLOCKED，报告用户"——用户收到的是技术信息（accepted findings + 修复尝试 + analyst 排除路径）。非技术项目负责人既不能判断"这真的修不了"还是"方法不对"，也不能给出有效指导。
 
 **修正方案**：BLOCKED 报告分两层——**业务影响层**（用一句话说"什么功能受影响、不修会怎样、修了需要什么资源"）+ **技术详情层**（现有的 findings + repair history，给能帮忙的技术人员看）。同样，80% Direction Check 应该展示业务语言的进度而非裸数字。
+
+### 3.8 SendMessage 修复链路从未生效
+
+**声称**（25+ 处引用）：Coordinator 在收到 Codex review 结果后，通过 `SendMessage` 向原 worker 派发修复工作。`pack-executor.md` 定义了"模式 2a：修复 review 问题（via SendMessage，同一 agent 继续）"。`execution SKILL.md` 行 91 要求"记录返回的 agentId——后续复杂修复需要用 SendMessage 继续该 worker"。
+
+**实际**：通过 `Agent()` 工具派发的 subagent 完成任务后进程退出，`SendMessage` 无法送达已完成的 subagent。这意味着：
+
+1. **pack-executor 的"模式 2a"从来没有被执行过**——所有修复 fallback 到"新建同类 agent"
+2. **plan-writer 的 SendMessage 续写也从来没有工作过**——每次都是新建 plan-writer
+3. **"记录返回的 agentId"是死指令**——记了也没用
+4. 原 worker 积累的代码理解、尝试过的方案、遇到的边界情况——**每次修复都从零开始**
+
+这是架构层面的假设失败：plugin 的修复链路设计建立在"SendMessage 能唤醒已完成 subagent"的前提上，但 Claude Code 平台的 subagent 是 fire-and-forget 模型。
+
+**修正方案**：三条路径（按优先级）：
+
+1. **Workflow 工具**（见 §10）：如果 Claude Code 的 Workflow 工具正式开放，其 `agent()` 原语由 workflow 运行时管理生命周期，不存在"完成即死"问题。这是最根本的解决。
+2. **Agent Teams 模式**：将 pack-executor 从 subagent 改为 teammate。Teammate 完成任务后进入 idle 状态（不退出），`TeammateIdle` hook 可保活。SendMessage 可送达 idle teammate。代价：token 成本更高、无内建 `isolation: "worktree"` 支持。
+3. **优化"新建 agent"路径**（当前可行的务实方案）：接受 subagent fire-and-forget 的现实，把原 worker 的关键上下文（修改了什么文件、尝试过什么、失败在哪）结构化地传给新 worker 的 repair prompt。这不是理想方案，但立即可行。
+
+### 3.9 Worker 缺乏按需调查能力——"先理解再动手"无法实现
+
+**声称**（隐含假设）：Worker（pack-executor / complex-pack-executor）在实现 Task Pack 时，能通过 Read/Grep 充分理解目标代码。
+
+**实际**：Worker 遇到不熟悉的代码时，只能用 Read/Grep 做浅层检索。它没有能力派发专门的调查 agent（如 code-explorer）去做深度理解。结果是 worker 对不熟悉的代码做假设 → 实现错误 → Codex review 抓到 → 浪费一轮修复。
+
+**修正方案**：允许特定 subagent 在 `tools:` 中声明 `Agent(...)` 类型，实现**按需调查委派**：
+
+| 调用方 | 可调用 | 场景 |
+|---|---|---|
+| pack-executor | `Agent(code-explorer)` | 实现前理解不熟悉的代码，减少"实现错了 → review 抓到 → 修复"的浪费 |
+| complex-pack-executor | `Agent(code-explorer)` | 高风险改动前验证跨模块影响面 |
+| root-cause-analyst | `Agent(code-explorer)`, `Agent(complex-code-explorer)` | 并行验证多个 RCA 假设 |
+
+**不需要嵌套的 agent**：plan-writer（已有 `Skill("improve-codebase-architecture")`）、docs-worker（纯文档整理）、code-explorer 本身（再嵌套无收益）。
+
+**注意**：Claude Code 2.1.147 修复了"plugin agents that declare multiple `Agent(...)` types in `tools:` frontmatter dropping all but the last entry"——这个修复使得 agent 声明多个 `Agent(...)` 类型成为可能。
 
 ## 4. 架构承诺
 
@@ -686,6 +725,9 @@ Claude Code 官方 hooks reference 已正式支持以下事件（29 个 hook 事
 | SessionEnd | 写入 learning：本次 session 最后状态 + 未完成项 | 4 |
 | SubagentStop | 捕获 worker 异常终止，标记 pack 为 blocked | 2 |
 | PostToolBatch | 并行 pack dispatch 全部完成后统一更新 execution state | 2 |
+| TeammateIdle | Teammate 即将空闲时触发，exit 2 保活——支持修复链路中的 SendMessage 续派（见 §3.8 路径 2） | 2 |
+| TaskCompleted | Task 被标完成时触发，exit 2 阻止——可作为质量门禁（测试必须通过才能关 pack） | 6 |
+| TaskCreated | Task 被创建时触发——可强制 Task 格式标准（Pack ID、owned files 必填） | 6 |
 
 ### 5.5 现有控制流不变
 
@@ -740,6 +782,10 @@ gstack 的 `|| true` 和"subagent 失败时 fallback to inline"模式在单人�
 | 构建系统的生成物可紧急直接编辑 | gstack 100k+ stars 生产验证：SKILL.md 提交 git + --dry-run CI + hotfix 逃生路径 | **gstack 已验证** |
 | `mkdir` 原子锁在 macOS 本地 APFS 上可靠 | POSIX 规范保证 `mkdir` 的原子性 | **可行**（NFS/SMB/云同步场景需注意） |
 | 6 个 SKILL.md 总行数（850）允许 hot-path 内联 | 实测行数；gstack 单个 ship SKILL.md 958 行仍可用 | **空间充裕** |
+| Hook 参数化 `if` 条件现在能正常工作 | Claude Code 2.1.147 修复。之前 `Bash(git commit *)` 等条件从未匹配——4 个 hook 形同虚设 | **2.1.147 修复**（需回归测试） |
+| `CLAUDE_CODE_SUBAGENT_MODEL` 现在应用到 teammate 进程 | Claude Code 2.1.147 修复。之前 teammate 忽略此变量 | **2.1.147 修复** |
+| Auto mode 不再吞掉 `AskUserQuestion` | Claude Code 2.1.146 修复。plugin 中的 AskUserQuestion（Direction Check、BLOCKED 决策）现在在 auto mode 中可靠呈现 | **2.1.146 修复** |
+| Plugin agent 可声明多个 `Agent(...)` 类型 | Claude Code 2.1.147 修复了 "dropping all but the last entry"——支持 §3.9 的 agent 嵌套设计 | **2.1.147 修复** |
 
 ## 8. 验证标准
 
@@ -807,3 +853,125 @@ python3 -m json.tool plugin-v2/hooks/hooks.json >/dev/null
 | execution SKILL.md Step 5b | 更新（邻居接口摘要注入） | 9 |
 
 **总计**：~25 个新增文件 + ~55 个更新文件。
+
+## 10. 平台演进方向——Claude Code Workflow 工具
+
+### 10.1 Workflow 工具概述
+
+Claude Code 2.1.147（2026-05-21）新增 `Workflow` 工具，changelog 描述为"deterministic multi-agent orchestration"。通过 `CLAUDE_CODE_WORKFLOWS=1` 环境变量启用，但同时受服务端 feature flag `tengu_workflows_enabled` 门控——截至 2026-05-22 对外未开放。
+
+从 Claude Code 二进制中提取的技术细节：
+
+**参数 Schema**：
+- `script`：自足的 JavaScript 脚本，必须以 `export const meta = { name, description, phases }` 开头
+- `name`：预定义 workflow 名称（内置或来自 `.claude/workflows/`）
+- `args`：传给脚本的参数，脚本内通过全局变量 `args` 访问
+- `scriptPath`：磁盘上的脚本文件路径（优先级最高，支持 Edit 后重跑）
+- `resumeFromRunId`：恢复之前的运行（格式 `wf_[a-z0-9-]{6,}`），未改变的 `agent()` 调用返回缓存结果
+
+**编排原语**：
+- `agent()` — 派发子 agent（支持 `{agentType}`、`{schema}` 结构化输出、`{isolation:'remote'}`）
+- `parallel()` — 并行运行多个 agent（`parallel([() => agent(...), () => agent(...)])`）
+- `pipeline()` — 顺序执行
+- `phase()` — 定义阶段
+
+**确定性保证**：脚本内禁用 `Date.now()`、`Math.random()`、`new Date()`（"breaks resume"）。
+
+**Plugin 集成**：`loadPluginWorkflows` / `clearPluginWorkflowCache` — plugin 可以定义自己的 workflow 脚本，放在 `.claude/workflows/` 目录。
+
+**内置 workflow**：coding task（"scopes the problem, hardens its plan using 5 critics, implements it, runs a bug hunting sweep"）、bug fix、dashboard、documentation、planning。
+
+### 10.2 Workflow 工具替代了什么
+
+| 当前机制 | 是否被替代 | 原因 |
+|---------|----------|------|
+| SKILL.md 控制流（自然语言步骤指令） | **完全替代** | JavaScript 代码确定性更强、可测试、不会被 AI 跳步 |
+| Compaction 恢复（cursor + session-start.sh） | **完全替代** | `resumeFromRunId` + agent() 缓存原生解决 |
+| 并行 dispatch（同一消息多个 Agent() 调用） | **完全替代** | `parallel(() => agent(...))` 语义更清晰 |
+| SendMessage 修复链路（当前不工作，见 §3.8） | **完全替代** | Workflow 管理 agent 生命周期，不存在"完成即死" |
+| Phase 路由（Entry Gate → phases） | **完全替代** | `phase()` 原语天生就是这个 |
+
+### 10.3 Workflow 工具替代不了什么
+
+| 当前机制 | 为什么替代不了 |
+|---------|-------------|
+| **跨模型独立审查（核心理论）** | Workflow 的 `agent()` 派发 Claude subagent。我们的 Codex review 通过 `codex-companion.mjs` 调用 GPT-5.4——不同 AI 的独立验证是 plugin 存在的根本理由 |
+| **Hook 级运行时强制** | `validate-pack-dispatch.sh` 用 exit 2 硬阻断非法 dispatch——这是代码级强制，不是 prompt 指令。Workflow 管编排，不管强制 |
+| **状态机权限矩阵** | "谁可以触发什么状态转换"（承诺 2b）是我们的设计，Workflow 工具没有这个概念 |
+| **Review 协议** | 4 步 Codex dispatch、confidence 1-10 评分、disposition 审计、修复截断（3 轮 + RCA）——领域逻辑 |
+| **Budget 模型** | 3P+12 review budget、effort budget、80% Direction Check——资源管理设计 |
+| **非技术用户界面** | BLOCKED 双层报告、Direction Check 信息化——Workflow 工具面向开发者，不面向项目负责人 |
+| **构建系统** | resolver + template 消除重复——开发时工具链，和运行时编排无关 |
+
+### 10.4 战略判断
+
+**Workflow 工具不会取代我们的 plugin，但应该成为我们的底层。**
+
+- **Workflow 工具 = 地基**（确定性执行引擎：调度 agent、恢复中断、缓存结果）
+- **我们的 Plugin = 建筑**（跨模型审查、置信度校准、Budget 管理、非技术用户 UX、状态权限矩阵）
+
+当前的"地基"是 SKILL.md 自然语言指令——AI 可能跳步、compaction 后丢失位置、SendMessage 到已完成 agent 失败。Workflow 脚本用代码做编排，这些问题不存在。
+
+**对 9 个承诺的影响**：
+
+| 承诺 | Workflow 方案下的变化 |
+|------|-------------------|
+| 1 构建系统 | resolver 同时生成 **Workflow 脚本**和 hook 配置。SKILL.md 变为轻量入口（路由到 Workflow 调用） |
+| 2a 结构化信封 | Workflow 脚本直接通过 `agent()` 参数传递 metadata，不需要 HTML 注释信封。**信封机制大幅简化** |
+| 2b 统一状态机 | Workflow 运行时自带执行位置状态。`state.sh` 简化为 hook 的辅助验证层，不再承担编排状态恢复 |
+| 3-9 | **不变**——领域逻辑不受编排方式影响 |
+
+**迁移示意**：
+
+```javascript
+// Workflow 脚本（确定性，可恢复，可测试）
+export const meta = {
+  name: "formal-execution",
+  description: "Formal route execution phase",
+  phases: [
+    { title: "Pack Execution" },
+    { title: "Plan Review" },
+    { title: "Release Gate" }
+  ]
+};
+
+await phase("Pack Execution", async () => {
+  for (const pack of args.packs) {
+    const result = await agent(
+      `实现 Task Pack ${pack.id}: ${pack.goal}`,
+      { agentType: "pack-executor", isolation: "worktree" }
+    );
+    // Codex review — Workflow 工具做不到的，我们的核心价值
+    const review = await agent(
+      `Codex review for pack ${pack.id}`,
+      { agentType: "codex-review-dispatcher" }
+    );
+    if (review.verdict === "needs_repair") {
+      for (let round = 1; round <= 3; round++) {
+        const fix = await agent(`Repair ${pack.id} round ${round}`, {
+          agentType: "pack-executor"
+        });
+        const reReview = await agent(`Re-review ${pack.id}`, {
+          agentType: "codex-review-dispatcher"
+        });
+        if (reReview.verdict === "pass") break;
+        if (round === 3) {
+          await agent(`RCA for ${pack.id}`, { agentType: "root-cause-analyst" });
+        }
+      }
+    }
+  }
+});
+```
+
+### 10.5 实施策略
+
+**当前实施按原方案推进**（SKILL.md + hooks + state.sh），但在架构上留出迁移接缝：
+
+1. 构建系统的 resolver 设计为可以同时输出 SKILL.md 和 Workflow 脚本——resolver 的输出是结构化数据，不是直接拼接文本
+2. 状态机（state.sh）的接口不绑定到 hook 的调用方式——Workflow 脚本中也可以通过 Bash 调用 state.sh
+3. 不依赖"SKILL.md 里的自然语言步骤顺序"作为唯一的控制流保证——hook 级强制是独立于 SKILL.md 的运行时保护
+
+**迁移触发条件**：Workflow 工具的 `tengu_workflows_enabled` feature flag 对外开放 + 官方文档发布 + plugin 可通过 `loadPluginWorkflows` 注册自定义 workflow。满足这三个条件后启动迁移。
+
+**迁移不影响的部分**：9 个承诺的领域设计（§4）、显式拒绝（§6）、验证标准（§8）——这些是"建筑"设计，不依赖"地基"实现。
