@@ -495,7 +495,7 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 | 事件 | Matcher | 做什么 | 强制行为 |
 |------|---------|--------|---------|
 | `SessionStart` | `startup\|clear\|compact` | `session-start.sh`：注入行为覆盖规则 + execution state recovery（`RESUME`） | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 未设置 → exit 2（阻断会话）。注入 compaction recovery 规则的唯一入口。有 execution state 时输出 `RESUME` 指令 |
-| `PreToolUse` | `Bash` | `guard-premature-push.sh`：阻止未完成时 push/PR | ① plan 文件有未勾选 task（`- [ ]`）→ 阻止 `git push` / `gh pr create`　② 无条件阻止 `git merge --squash` / `git rebase` |
+| `PreToolUse` | `Bash` | `guard-premature-push.sh`：阻止未完成时 push/PR | ① plan 文件有未勾选 task（`- [ ]`）→ 阻止 `git push` / `gh pr create`　② 无条件阻止 `git merge --squash` |
 | `PreToolUse` | `Bash` | `cleanup-before-push.sh`：push 前清理 `.claude/multi-model-workflow/` | guard 放行后执行。删除整个 `.claude/multi-model-workflow/` 目录（含 execution-state + pack-returns）。拒绝删除符号链接。**唯一清理机制** |
 | `PreToolUse` | `Bash(git commit *)` | `enforce-pack-commit.sh`：Pack commit 格式校验 | Pack commit 格式不匹配 `Pack N.M: ...` → exit 2 拦截。非 Pack commit 静默放行 |
 | `PreToolUse` | `Agent(pack-executor*)` / `Agent(complex-pack-executor*)` | `validate-pack-dispatch.sh`：Worker dispatch 前置条件校验 | 缺少 start_commit 或 Pack 状态非 pending → exit 2 拦截。Repair re-dispatch（含 `[repair-round-N]` 标记）放行 |
@@ -710,7 +710,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 - **Sub-agent 隔离**：dispatch prompt 自足；sub-agent 不读 SKILL.md / references
 - **Agent 定义 = 行为权威**：TDD、自检、scope 边界等通用规则写 agent 定义，dispatch template 只写场景信息
 - **Reviewer 独立验证**：所有 Calibration 包含"不信任上游报告"；Coordinator 亲验后才给 disposition
-- **合并策略铁律**：只用 `git merge --no-ff`，禁止 squash merge 和 rebase（`guard-premature-push.sh` 进程级强制）
+- **合并策略铁律**：只用 `git merge --no-ff`，禁止 squash merge（`guard-premature-push.sh` 进程级强制）
 - **Review 预算**：`3P + 12`（P = plan 数），Discovery 有独立 4-dispatch 预算。三级耗尽（80% Direction Check → 溢出停派 → 100% 硬停）
 - **修复截断**：所有修复循环 3 轮封顶（2 轮 A/B/C + 1 轮 RCA），超出 → BLOCKED
 - **回流守卫**：Final Review → Execution 回流最多 1 次（`execution_reflux_count`）

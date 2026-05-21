@@ -132,11 +132,11 @@ Source: Pack <N.M> worker discovery
 
 ###### Step 7b：Git Checkpoint（per-pack）
 
-1. `git add <owned files + test files + plan doc>`
+Worker 在 worktree 中已 commit 自己的改动。Coordinator 在主分支补提 plan doc 勾选：
+
+1. `git add <plan doc>`
 2. `git commit -m "Pack N.M: <title> — <summary of behavior>"`（`enforce-pack-commit.sh` hook 自动校验格式）
 3. `track-execution-state.sh` hook 自动更新 `packs[N.M].status = committed` + `commit_sha` + `plans[N].end_commit`
-
-**规则**：Worker 不 commit；Coordinator 统一提交。不 stage 非当前 scope 文件。
 
 ###### Step 7c：合并并行 Pack 的 Worktree
 
@@ -147,8 +147,6 @@ Source: Pack <N.M> worker discovery
 3. 冲突处理：简单 → Coordinator 直接解决；复杂 → 新建 targeted-repair agent
 4. 每次 merge 后跑完整测试
 5. 全部 merge 完后再跑一次确认集成正确
-
-**合并策略铁律**：只用 `git merge --no-ff`，**绝对禁止 squash merge（`--squash`）和 rebase（`--rebase`）**。
 
 **不并行合并**——串行避免 merge conflict 级联。
 
