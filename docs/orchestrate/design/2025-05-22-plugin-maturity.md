@@ -32,7 +32,7 @@ gstack（https://github.com/garrytan/gstack）和我们在解决同一个根本�
 
 **进程模型不同**：gstack 是单进程带辅助——subagent 在父 agent 的 context 内运行。我们是真正的多进程——`Agent({ isolation: "worktree" })` 的子 agent 有独立 context，执行完后进程退出，durable return 文件是承重结构。
 
-**状态模型不同**：gstack 每个状态文件由单一 skill 独占写入。我们的 `execution-state` 被 3 个独立组件写入（Coordinator + 2 个 hooks），没有事务性和一致性校验。
+**状态模型不同**：gstack 每个状态文件由单一 skill 独占写入。我们的 `execution-state` 被 4 个独立组件写入（Coordinator + 3 个 hooks：agent-return-handler、track-execution-state、track-review-budget），没有事务性和一致性校验。
 
 **控制流不同**：gstack 主要是线性工作流（失败 = 重跑）。我们有嵌套循环（Plan → Pack → Repair → Re-review）+ 跨 phase 回流 + 修复截断 + RCA 升级。自然语言重跑不够——需要精确的状态驱动循环。
 
@@ -64,7 +64,7 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 **声称**（SKILL.md）："禁止：自己写生产代码——调度 worker。"
 
-**实际**：Path A 修复（≤2 文件直接修）在四个地方出现。Coordinator 修完代码后需要 disposition Codex 对同一段代码的 finding——这是一个"自己验证自己"的循环，直接违反核心理论（"信任不能来自同一个 AI"）。
+**实际**：Path A 修复（≤2 文件直接修）在七个文件中出现（execution-repair-truncation.md、final-review-repair.md、plan-review-resolution.md、bug-investigation-route.md、workflow-direct-repair.md + execution/final-review 两个 SKILL.md 的摘要引用）。Coordinator 修完代码后需要 disposition Codex 对同一段代码的 finding——这是一个"自己验证自己"的循环，直接违反核心理论（"信任不能来自同一个 AI"）。
 
 **修正方案**：Path A 修复保留（效率合理），但 Coordinator 的修复必须自动触发一次 targeted Codex re-review，Coordinator 不得 disposition 自己修复的代码的 finding。这恢复了角色分离的纯粹性。
 
@@ -86,7 +86,7 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 ### 3.5 控制平面依赖文本模式匹配
 
-6 个 shell 脚本通过 `sed`/`grep` 正则从自然语言 prompt、response、commit message 中提取控制信号（Pack ID、verdict、repair round、review gate 名）。一个 prompt 模板的修改是否破坏某个 hook 的正则，只能在运行时发现。`agent-return-handler.sh` 的 3 层 fallback 正则是这种不确定性的工程应对。
+8 个 shell 脚本（6 个 hooks + 2 个 scripts）通过约 25 处 `sed`/`grep` 正则从自然语言 prompt、response、commit message 中提取控制信号（Pack ID、verdict、repair round、review gate 名）。一个 prompt 模板的修改是否破坏某个 hook 的正则，只能在运行时发现。`agent-return-handler.sh` 的 3 层 fallback 正则是这种不确定性的工程应对。
 
 **修正方案**：定义结构化信封格式。每个 Agent dispatch 的 prompt 头部嵌入 JSON 信封（`<!-- DISPATCH_ENVELOPE {...} -->`），hooks 从 `tool_input` 解析信封而非 grep 自然语言。信封嵌入 prompt 天然支持并行 dispatch（每个 Agent tool call 有自己的 prompt）。这是从"prompt 工程"到"结构化协议"的关键一步。
 
@@ -126,7 +126,7 @@ plugin-v2/
 │   ├── build.sh                # 构建入口（纯 bash/python，不引入 TypeScript）
 │   ├── resolvers/              # 每个 resolver 是一个独立脚本
 │   │   ├── review-dispatch.sh  # Codex review 4 步协议（当前 10 处重复 → 1 处权威）
-│   │   ├── disposition-table.sh# Disposition 表（当前 5 处同步 → 1 处权威）
+│   │   ├── disposition-table.sh# Disposition 表（当前 4 处同步 → 1 处权威）
 │   │   ├── state-write.sh      # 状态写入命令（由 state.sh schema 生成）
 │   │   ├── preamble.sh         # 分层 bootstrap（tier 1-3）
 │   │   ├── signpost.sh         # 入口/出口路标
@@ -584,7 +584,7 @@ plugin-v2/
 │   ├── build.sh
 │   ├── resolvers/
 │   │   ├── review-dispatch.sh      # 消除 10 处 codex-companion 重复
-│   │   ├── disposition-table.sh    # 消除 5 处 disposition 重复
+│   │   ├── disposition-table.sh    # 消除 4 处 disposition 重复
 │   │   ├── forbidden-shortcuts.sh  # 消除 2 处 shortcuts 重复
 │   │   ├── state-write.sh          # 状态写入命令生成
 │   │   ├── preamble.sh             # 分层 bootstrap（T1-T3）
@@ -692,9 +692,9 @@ gstack 把 3000 行逻辑手写到一个 SKILL.md。我们不手写内联，因�
 
 gstack 的循环是"失败就从头重跑"。我们的嵌套循环（Plan → Pack → Repair）和精确截断（3 轮 + RCA）需要状态驱动，不是自然语言条件。
 
-### 6.3 拒绝 gstack 的 Dual Voice Consensus Table
+### 6.3 推迟 gstack 的完整 Dual Voice——当前用单向验证 + 偏差检测
 
-gstack 在每个 review 阶段运行 Claude subagent + Codex subagent，产出 consensus table。我们不加倍 review dispatch，因为 budget 约束。但我们承认当前系统**不是真正的 dual voice**——Coordinator 亲验是 verification（验证 reviewer 的结论），不是 independent generation（独立产出结论）。置信度校准（承诺 3）让 Coordinator 的 verification 更系统化和可审计化，但它不等于 gstack 的 dual voice。如果未来 budget 允许，在 Design Review 和 Final Review 引入 dual voice 是值得考虑的方向。
+gstack 在每个 review 阶段运行 Claude subagent + Codex subagent，产出 consensus table。我们当前使用**单向 Dual Voice**（Codex 生成 finding → Coordinator 验证），而非完整 Dual Voice（两方独立生成 finding → 比对共识），原因是 budget 约束。承诺 3c（Path A re-review）和 3d（disposition 偏差检测）是对单向模式确认偏差风险的系统性弥补。如果未来 budget 允许，在 Design Review 和 Final Review 引入完整 Dual Voice 是确认的演进方向。
 
 ### 6.4 拒绝 gstack 的 Review Army 自动选择
 
