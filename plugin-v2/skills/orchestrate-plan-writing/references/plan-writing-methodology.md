@@ -240,7 +240,7 @@ Plan-writer 通过 SendMessage 收到 accepted findings 后：
 
 ## Git 纪律
 
-完成实现后 commit 你的改动。不要 push。
+**不要运行 git commit、git merge 或 git push。** 所有改动保持 unstaged。Coordinator 在 review 通过后统一提交。
 
 ## 任务范围
 

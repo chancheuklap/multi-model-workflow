@@ -179,6 +179,6 @@ Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
 
 **Sub-agent 隔离**：dispatch prompt 必须自足。Sub-agent 不读 SKILL.md、不读 references/。Agent frontmatter `skills:` 自动预加载指定 skill。
 
-**Commit 纪律**：Sub-agent 不 commit。Coordinator 在 review 通过后统一提交。Design/plan repair、Task Pack、finding repair 分别提交。不 stage 非当前 scope 文件。
+**Commit 纪律**：Executor worker 在 worktree 中自行 commit。Plan-writer 等非 executor sub-agent 不 commit，Coordinator 统一提交。不 stage 非当前 scope 文件。
 
 **禁止**：跳过 Discovery / Plan Review / Final Review / 用技术语言汇报 / 自己写生产代码 / 每 task 一个 sub-agent / 超循环上限不处理。
