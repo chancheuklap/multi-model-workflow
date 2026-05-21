@@ -748,9 +748,11 @@ Claude Code 官方 hooks reference 已正式支持以下事件（29 个 hook 事
 | SessionEnd | 写入 learning：本次 session 最后状态 + 未完成项 | 4 |
 | SubagentStop | 捕获 worker 异常终止，标记 pack 为 blocked | 2 |
 | PostToolBatch | 并行 pack dispatch 全部完成后统一更新 execution state | 2 |
-| TeammateIdle | Teammate 即将空闲时触发，exit 2 保活——支持修复链路中的 SendMessage 续派（见 §3.8 路径 2） | 2 |
+| TeammateIdle | Teammate 即将空闲时触发，exit 2 保活——支持修复链路中的 SendMessage 续派 | 2 |
 | TaskCompleted | Task 被标完成时触发，exit 2 阻止——可作为质量门禁（测试必须通过才能关 pack） | 6 |
 | TaskCreated | Task 被创建时触发——可强制 Task 格式标准（Pack ID、owned files 必填） | 6 |
+
+**注意**：`TeammateIdle`、`TaskCreated`、`TaskCompleted` 官方文档明确不支持 `matcher` 字段——它们在每次事件发生时都触发。如果需要按 team / task / pack 过滤，必须在 hook 脚本内读取 JSON payload 字段做条件判断，不能在 `hooks.json` 层面用 matcher 筛选。
 
 ### 5.5 现有控制流不变
 
