@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workflow-state-v1",
+  "description": "Unified state file for multi-model-workflow orchestration",
+  "type": "object",
+  "required": [
+    "run_id", "slug", "route", "started_at", "current_phase",
+    "cursor", "budget", "plans", "idempotency_keys",
+    "plan_writer_agent_id", "review_dispositions",
+    "review_effectiveness", "pending_post_push_reviews",
+    "path_a_escalation", "self_verifications",
+    "pending_direction_check",
+    "execution_reflux_count", "last_gate_phase", "last_gate_timestamp"
+  ],
+  "properties": {
+    "run_id": { "type": "string" },
+    "slug": { "type": "string" },
+    "route": { "type": "string", "enum": ["formal", "direct-repair", "multi-pr-merge", "bug-investigation", "hotfix", "quickfix", "spike", "maintenance"] },
+    "started_at": { "type": "string", "format": "date-time" },
+    "current_phase": { "type": "string" },
+    "current_reference": { "type": ["string", "null"] },
+    "current_step": { "type": ["integer", "null"] },
+    "cursor": {
+      "type": "object",
+      "properties": {
+        "phase": { "type": "string" },
+        "reference": { "type": ["string", "null"] },
+        "step": { "type": ["integer", "null"] }
+      },
+      "required": ["phase"]
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "review_total": { "oneOf": [{ "type": "number" }, { "type": "string", "const": "unlimited" }] },
+        "review_used": { "type": "number" },
+        "effort_total": { "oneOf": [{ "type": "number" }, { "type": "string", "const": "unlimited" }] },
+        "effort_used": { "type": "number" },
+        "direction_check_count": { "type": "number" }
+      },
+      "required": ["review_total", "review_used"]
+    },
+    "plans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "plan_id": { "type": "string" },
+          "status": { "type": "string" },
+          "packs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pack_id": { "type": "string" },
+                "status": { "type": "string" },
+                "worker_verdict": { "type": ["string", "null"] },
+                "start_commit": { "type": ["string", "null"] },
+                "commit_sha": { "type": ["string", "null"] },
+                "agent_id": { "type": ["string", "null"] },
+                "repair_round": { "type": "number" }
+              },
+              "required": ["pack_id", "status"]
+            }
+          }
+        },
+        "required": ["plan_id", "status"]
+      }
+    },
+    "idempotency_keys": { "type": "array", "items": { "type": "string" } },
+    "plan_writer_agent_id": { "type": ["string", "null"] },
+    "review_dispositions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "review_round": { "type": "number" },
+          "finding_id": { "type": "string" },
+          "severity": { "type": "string" },
+          "confidence": { "type": "number" },
+          "disposition": { "type": "string" },
+          "evidence": { "type": ["string", "null"] },
+          "path": { "type": ["string", "null"] },
+          "reviewer_agent_id": { "type": ["string", "null"] },
+          "dispatched_at": { "type": ["string", "null"] },
+          "resolved_at": { "type": ["string", "null"] }
+        },
+        "required": ["finding_id", "disposition"]
+      }
+    },
+    "review_effectiveness": {
+      "type": "object",
+      "properties": {
+        "reject_count": { "type": "number" },
+        "suppress_count": { "type": "number" },
+        "path_a_count": { "type": "number" },
+        "path_b_count": { "type": "number" },
+        "total_findings": { "type": "number" },
+        "last_aggregated_at": { "type": ["string", "null"] }
+      }
+    },
+    "pending_post_push_reviews": { "type": "array" },
+    "path_a_escalation": { "type": "array" },
+    "self_verifications": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "run_id": { "type": "string" },
+          "pack_id": { "type": "string" },
+          "repair_round": { "type": "number" },
+          "verification_passed": { "type": "string" },
+          "exception": { "type": "string" },
+          "verified_at": { "type": "string" }
+        }
+      }
+    },
+    "pending_direction_check": { "type": ["object", "null"] },
+    "execution_reflux_count": { "type": "number" },
+    "last_gate_phase": { "type": ["string", "null"] },
+    "last_gate_timestamp": { "type": ["string", "null"] }
+  }
+}
