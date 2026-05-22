@@ -18,13 +18,13 @@
 
 ```bash
 # 检查：生成内容与当前文件是否一致（CI 用）
-bash plugin-v2/build/build.sh --check --plugin-dir plugin-v2
+bash plugin/build/build.sh --check --plugin-dir plugin
 
 # 应用：把生成内容写入文件（原子写入：tmp → rename）
-bash plugin-v2/build/build.sh --apply --plugin-dir plugin-v2
+bash plugin/build/build.sh --apply --plugin-dir plugin
 
 # 只跑单个 resolver（调试用）
-bash plugin-v2/build/build.sh --apply --plugin-dir plugin-v2 --resolver=preamble
+bash plugin/build/build.sh --apply --plugin-dir plugin --resolver=preamble
 ```
 
 ## 新增 Resolver 步骤

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs all test suites for plugin-v2.
+# Runs all test suites for plugin.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

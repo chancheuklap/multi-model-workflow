@@ -1,6 +1,6 @@
-# Plugin V2 架构文档（基于 2026-05-20 审计）
+# Plugin 架构文档（基于 2026-05-20 审计）
 
-> **审计基准**：`plugin-v2/` 目录下的实际代码（skills/ agents/ hooks/）。
+> **审计基准**：`plugin/` 目录下的实际代码（skills/ agents/ hooks/）。
 > **审计日期**：2026-05-20。
 
 ## 图例
@@ -333,7 +333,7 @@ flowchart LR
 
 ### Issue 文档结构
 
-Issue 文档由上游 `to-issues` skill 产出（非 plugin-v2 自有），plugin-v2 只消费它。
+Issue 文档由上游 `to-issues` skill 产出（非 plugin 自有），plugin 只消费它。
 
 ```
 # <大 Issue 标题>
