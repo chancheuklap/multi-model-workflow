@@ -185,4 +185,54 @@ Disposition required:
 ```
 
 ---
+## Disposition 流程
+
+<!-- BEGIN: disposition-table -->
+**Coordinator 亲验纪律** (disposition 之前的必经步骤):
+
+收到 reviewer findings 后**禁止直接转发给 worker**。逐条执行：
+1. 亲验：用 Read / grep / 对照设计文档验证 finding 的事实主张
+2. Disposition：accepted / rejected / needs evidence / out of scope（调用 state.sh disposition append）
+3. 修复指令：只把 accepted findings 翻译为具体修复指令传给 worker。Reviewer 原始输出不传
+
+**Confidence 校准** (Codex 返回 confidence 1-10):
+
+| Confidence | Coordinator 默认动作 | 覆写条件 |
+| --- | --- | --- |
+| 8-10 (high) | 直接亲验，通常 accept 或 reject | Coordinator 找到反向证据 |
+| 5-7 (medium) | 亲验 + 派 code-explorer 补证 -> 再定 disposition | -- |
+| 1-4 (low) | 默认 suppress -> 记录为 "suppressed: low confidence" | Coordinator 手动升级并附证据 |
+
+**Disposition 审计写入** (每条 finding 决定后立即调用):
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
+  --run-id "<run_id>" --review-round <r> --finding-id <id> \
+  --disposition <accepted|rejected|suppress|path-a|path-b> \
+  --confidence <1-10> --severity <H|M|L> \
+  --evidence "<一行理由>" --path "<file:line>"
+```
+
+`--evidence` 对 `--disposition accepted` 必填且非空。
+
+**Disposition 表**:
+
+| disposition | Coordinator 动作 |
+| --- | --- |
+| `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、targeted re-review scope |
+| `rejected` | 记录反证；不派 repair |
+| `needs evidence` | 派 explorer 补证据 |
+| `duplicate / already covered` | 链到已有 finding |
+| `out of scope` | 开 GitHub issue（Durable Handoff Brief） |
+| `needs evaluation` | 开 GitHub issue |
+| `user decision` | 停止执行，一次只问一个决策问题 |
+
+冲突按 evidence quality 判断，不按 reviewer 数量投票。
+
+**Path A re-review 规则** (仅 confidence >= 7 的 accepted findings):
+- Coordinator Path A 直接修复 -> 强制 targeted Codex re-review
+- Codex 返回 `needs_repair` -> 必须升级 Path B 派 worker
+- 用 `state.sh path-a-escalation start/update/clear` 追踪
+<!-- END: disposition-table -->
+
 > **下一步**：Design Review 通过 → 回到 SKILL.md Step 12（过渡到 to-issues）。needs repair → Coordinator 直接修设计文档 → targeted re-review。
