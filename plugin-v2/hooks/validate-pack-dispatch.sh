@@ -1,49 +1,46 @@
 #!/usr/bin/env bash
-# PreToolUse hook for Agent tool (pack-executor / complex-pack-executor).
-# Blocks dispatch when upstream dependencies are missing.
-# Repair re-dispatches pass through via [repair-round-N] marker in prompt.
+# PreToolUse hook for Agent (pack-executor / complex-pack-executor).
+# Parses DISPATCH_ENVELOPE → validates state conditions.
 set -euo pipefail
 
 INPUT=$(cat)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PARSE_ENVELOPE="$SCRIPT_DIR/lib/parse-envelope.sh"
+
 PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty' 2>/dev/null)
+if [[ -z "$PROMPT" ]]; then exit 0; fi
 
-# Extract Pack ID from dispatch prompt
-PACK_ID=$(echo "$PROMPT" | sed -n 's/.*Pack:*[[:space:]]*\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -1)
-if [ -z "$PACK_ID" ]; then exit 0; fi
+ENVELOPE=$(echo "$PROMPT" | bash "$PARSE_ENVELOPE" 2>/dev/null) || {
+  echo "[multi-model-workflow] BLOCKED: DISPATCH_ENVELOPE missing or malformed." >&2
+  exit 2
+}
 
-PLAN_ID=$(echo "$PACK_ID" | cut -d. -f1)
-PLAN_KEY=$(printf "%03d" "$PLAN_ID")
+RUN_ID=$(echo "$ENVELOPE" | jq -r '.run_id')
+PACK_ID=$(echo "$ENVELOPE" | jq -r '.pack_id // empty')
+REPAIR_ROUND=$(echo "$ENVELOPE" | jq -r '.repair_round')
+IDEMPOTENCY_KEY=$(echo "$ENVELOPE" | jq -r '.idempotency_key')
 
 BUDGET_DIR=".claude/multi-model-workflow"
-RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
-if [ ! -f "$RUN_ID_FILE" ]; then exit 0; fi
+SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
+if [[ ! -f "$SF" ]]; then exit 0; fi
 
-RUN_ID=$(cat "$RUN_ID_FILE")
-STATE_FILE="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
-if [ ! -f "$STATE_FILE" ]; then exit 0; fi
-
-if ! jq empty "$STATE_FILE" 2>/dev/null; then
-  echo "[multi-model-workflow] BLOCKED: execution-state JSON is corrupted. Fix: inspect and repair .claude/multi-model-workflow/execution-state-${RUN_ID}.json manually." >&2
+# Idempotency check
+EXISTING=$(jq -r --arg key "$IDEMPOTENCY_KEY" '.idempotency_keys | index($key) // empty' "$SF")
+if [[ -n "$EXISTING" ]]; then
+  echo "[multi-model-workflow] BLOCKED: duplicate dispatch (idempotency_key=$IDEMPOTENCY_KEY)." >&2
   exit 2
 fi
 
-# Repair re-dispatch → pass through
-if echo "$PROMPT" | grep -qE '\[repair-round-[0-9]+\]'; then
-  exit 0
-fi
+jq --arg key "$IDEMPOTENCY_KEY" '.idempotency_keys += [$key]' "$SF" > "${SF}.tmp" && mv "${SF}.tmp" "$SF"
 
-# Check 1: start_commit must be recorded
-START=$(jq -r --arg plan "$PLAN_KEY" '.plans[$plan].start_commit // "null"' "$STATE_FILE")
-if [ "$START" = "null" ]; then
-  echo "[multi-model-workflow] BLOCKED: Plan ${PLAN_KEY} has no start_commit. Fix: run 'git rev-parse HEAD' and write result to execution-state plans[${PLAN_KEY}].start_commit before dispatching." >&2
-  exit 2
-fi
-
-# Check 2: Pack status must be pending (first dispatch)
-CURRENT_STATUS=$(jq -r --arg plan "$PLAN_KEY" --arg pack "$PACK_ID" '.plans[$plan].packs[$pack].status // "pending"' "$STATE_FILE")
-if [ "$CURRENT_STATUS" != "pending" ]; then
-  echo "[multi-model-workflow] BLOCKED: Pack ${PACK_ID} status is '${CURRENT_STATUS}', expected 'pending'. Fix: if this is a repair re-dispatch, add [repair-round-N] to the dispatch prompt." >&2
-  exit 2
+# Direction check gate
+DC=$(jq -r '.pending_direction_check.ack_status // empty' "$SF")
+if [[ "$DC" == "pending" ]]; then
+  AGENT_ROLE=$(echo "$ENVELOPE" | jq -r '.agent_role')
+  if [[ "$AGENT_ROLE" != "codex-reviewer" ]]; then
+    echo "[multi-model-workflow] BLOCKED: Direction Check pending." >&2
+    exit 2
+  fi
 fi
 
 exit 0
