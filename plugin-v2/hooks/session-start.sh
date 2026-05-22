@@ -1,20 +1,37 @@
 #!/usr/bin/env bash
 # multi-model-workflow: SessionStart hook
-# Injects behavioral override rules. Re-injected on startup|clear|compact.
-# Must exit 0 — never block session startup.
+# Prerequisites check + behavioral override injection + state recovery.
+# Missing prerequisites = exit 2 (block session startup).
 
-cat <<'RULES'
+check_prerequisite() {
+  local name="$1" check="$2"
+  if ! eval "$check" >/dev/null 2>&1; then
+    echo "[multi-model-workflow] BLOCKED: prerequisite missing — $name" >&2
+    exit 2
+  fi
+}
+
+check_prerequisite "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS" \
+  '[ -n "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" ]'
+
+check_prerequisite "jq in PATH" \
+  'command -v jq'
+
+check_prerequisite "python3 in PATH" \
+  'command -v python3'
+
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+check_prerequisite "plugin.json readable" \
+  "[ -f '$PLUGIN_ROOT/.claude-plugin/plugin.json' ]"
+
+PLUGIN_VERSION=$(jq -r '.version // empty' "$PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null)
+check_prerequisite "plugin.json has version field" \
+  '[ -n "$PLUGIN_VERSION" ]'
+
+cat <<RULES
 [multi-model-workflow] Behavioral override active:
 
 # 1. Environment check
-RULES
-
-if [ -z "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" ]; then
-  echo "[multi-model-workflow] BLOCKED: CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS is not set. 修复链路依赖 SendMessage，系统无法正常运行。请设置后重新启动。" >&2
-  exit 2
-fi
-
-cat <<'RULES'
 
 # 2. Entry routing
 - User confirms direction → multi-model-workflow:orchestrate-discovery → multi-model-workflow:orchestrate-plan-writing
@@ -42,31 +59,22 @@ cat <<'RULES'
 - Resume Gate: source artifacts 改过 → 重进该 gate
 RULES
 
-# === Execution state recovery ===
+# === Workflow state recovery ===
 BUDGET_DIR=".claude/multi-model-workflow"
 RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
 if [ -f "$RUN_ID_FILE" ]; then
   RUN_ID=$(cat "$RUN_ID_FILE")
-  STATE_FILE="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
-  if [ -f "$STATE_FILE" ] && jq empty "$STATE_FILE" 2>/dev/null; then
-    CURRENT_PLAN=$(jq -r '.current_plan_id' "$STATE_FILE")
-    PLAN_STATUS=$(jq -r ".plans[\"${CURRENT_PLAN}\"].status" "$STATE_FILE")
-    TOTAL_PACKS=$(jq "[.plans[].expected_pack_ids | length] | add" "$STATE_FILE")
-    DONE_PACKS=$(jq '[.plans[].packs | to_entries[] | select(.value.status == "committed")] | length' "$STATE_FILE")
-    echo ""
-    echo "# 6. Execution state recovery"
-    echo "[multi-model-workflow] RESUME: Plan ${CURRENT_PLAN} (${PLAN_STATUS}), ${DONE_PACKS}/${TOTAL_PACKS} packs committed. Read execution-state-${RUN_ID}.json before continuing."
-  fi
+  SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
+  if [ -f "$SF" ] && jq empty "$SF" 2>/dev/null; then
+    CUR_PHASE=$(jq -r '.cursor.phase // empty' "$SF")
+    CUR_REF=$(jq -r '.cursor.reference // empty' "$SF")
+    CUR_STEP=$(jq -r '.cursor.step // empty' "$SF")
+    REVIEW_USED=$(jq -r '.budget.review_used // 0' "$SF")
+    REVIEW_TOTAL=$(jq -r '.budget.review_total // 0' "$SF")
 
-  # === Budget file position recovery (compaction) ===
-  BUDGET_FILE="${BUDGET_DIR}/budget-${RUN_ID}.json"
-  if [ -f "$BUDGET_FILE" ] && jq empty "$BUDGET_FILE" 2>/dev/null; then
-    CUR_PHASE=$(jq -r '.current_phase // empty' "$BUDGET_FILE")
-    CUR_REF=$(jq -r '.current_reference // empty' "$BUDGET_FILE")
-    CUR_STEP=$(jq -r '.current_step // empty' "$BUDGET_FILE")
-    if [ -n "$CUR_PHASE" ]; then
-      echo "[multi-model-workflow] POSITION: phase=${CUR_PHASE}, reference=${CUR_REF:-none}, step=${CUR_STEP:-unknown}."
-    fi
+    echo ""
+    echo "# 6. Workflow state recovery"
+    echo "[multi-model-workflow] RESUME: phase=${CUR_PHASE}, reference=${CUR_REF:-none}, step=${CUR_STEP:-unknown}, budget=${REVIEW_USED}/${REVIEW_TOTAL}."
   fi
 fi
 
