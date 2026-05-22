@@ -42,13 +42,13 @@ EOF
 run_test "under threshold passes" \
   bash "$VALIDATOR" "$FIXTURE_DIR/plan-ok.md" 5
 
-# 2. Over threshold
+# 2. Over threshold (5 packs, warn=3, over=4 → OVER_THRESHOLD exit 1)
 run_test_expect_fail "over threshold fails" \
-  bash "$VALIDATOR" "$FIXTURE_DIR/plan-over.md" 4
+  bash "$VALIDATOR" "$FIXTURE_DIR/plan-over.md" 3 4
 
-# 3. Bootstrap exception
+# 3. Bootstrap exception (5 packs, warn=3, over=4 but bootstrap → exit 0)
 run_test "bootstrap exception passes" \
-  bash "$VALIDATOR" "$FIXTURE_DIR/plan-bootstrap.md" 4
+  bash "$VALIDATOR" "$FIXTURE_DIR/plan-bootstrap.md" 3 4
 
 echo ""
 echo "Results: $pass passed, $fail failed"
