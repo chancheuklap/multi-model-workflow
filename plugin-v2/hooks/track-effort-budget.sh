@@ -28,7 +28,24 @@ trap 'state_lock_release "$LOCK_DIR"' EXIT
 EFFORT_TOTAL=$(jq -r '.budget.effort_total // 0' "$SF")
 if [[ "$EFFORT_TOTAL" == "0" || "$EFFORT_TOTAL" == "unlimited" ]]; then exit 0; fi
 
-jq '.budget.effort_used += 1' "$SF" > "${SF}.tmp" && mv "${SF}.tmp" "$SF"
+# Agent-role weighted effort: detect agent dispatch from command content
+# worker (pack-executor/complex-pack-executor) = 1
+# explorer (code-explorer/complex-code-explorer) = 1 (design says 0.5 rounded up)
+# RCA (root-cause-analyst) = 2
+# Other Bash calls = 0 (not effort-bearing)
+# NOTE: Follow-up Task needed to move trigger to PostToolUse Agent for cleaner dispatch detection
+EFFORT_INCREMENT=0
+if echo "$COMMAND" | grep -qE 'pack-executor|complex-pack-executor'; then
+  EFFORT_INCREMENT=1
+elif echo "$COMMAND" | grep -qE 'code-explorer|complex-code-explorer'; then
+  EFFORT_INCREMENT=1
+elif echo "$COMMAND" | grep -qE 'root-cause-analyst'; then
+  EFFORT_INCREMENT=2
+fi
+
+if [[ "$EFFORT_INCREMENT" -eq 0 ]]; then exit 0; fi
+
+jq --argjson inc "$EFFORT_INCREMENT" '.budget.effort_used += $inc' "$SF" > "${SF}.tmp" && mv "${SF}.tmp" "$SF"
 
 EFFORT_USED=$(jq -r '.budget.effort_used' "$SF")
 THRESHOLD=$(( EFFORT_TOTAL * 80 / 100 ))

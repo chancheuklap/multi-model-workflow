@@ -83,7 +83,12 @@
         "path_a_count": { "type": "number" },
         "path_b_count": { "type": "number" },
         "total_findings": { "type": "number" },
-        "last_aggregated_at": { "type": ["string", "null"] }
+        "last_aggregated_at": { "type": ["string", "null"] },
+        "health_warnings": {
+          "type": "array",
+          "description": "Disposition health range deviation warnings",
+          "items": { "type": "string" }
+        }
       }
     },
     "pending_post_push_reviews": { "type": "array" },
@@ -105,6 +110,21 @@
     "pending_direction_check": { "type": ["object", "null"] },
     "execution_reflux_count": { "type": "number" },
     "last_gate_phase": { "type": ["string", "null"] },
-    "last_gate_timestamp": { "type": ["string", "null"] }
+    "last_gate_timestamp": { "type": ["string", "null"] },
+    "mutations": {
+      "type": "array",
+      "description": "Append-only mutation log for audit trail",
+      "items": {
+        "type": "object",
+        "properties": {
+          "field": { "type": "string", "description": "jq path of mutated field" },
+          "old": { "description": "Previous value" },
+          "new": { "description": "New value" },
+          "writer": { "type": "string", "description": "Actor or command that caused the mutation" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        },
+        "required": ["field", "writer", "timestamp"]
+      }
+    }
   }
 }

@@ -240,6 +240,40 @@ run_test "idempotency append" \
 run_test_expect_fail "idempotency check duplicate key" \
   bash "$STATE_SH" idempotency check --run-id "$RUN_ID" --key "test/1.1/r0"
 
+# --- R3-12: mutation log ---
+run_test "mutations array exists after init" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.mutations | type') == 'array' ]]"
+
+run_test "mutations array has records after updates" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.mutations | length') -gt 0 ]]"
+
+run_test "mutation record has field and writer" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.mutations[0].field') != 'null' ]] && [[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.mutations[0].writer') != 'null' ]]"
+
+# --- R3-14: cross-file consistency (committed pack without commit_sha) ---
+RUN_ID4="test-validate-xfile"
+run_test "init for cross-file validation test" \
+  bash "$STATE_SH" init --run-id "$RUN_ID4" --slug "xval" --route "formal"
+
+cat > "$FIXTURE_DIR/execution-state-${RUN_ID4}.json" <<'ESJSON'
+{"run_id":"test-validate-xfile","plans":{"001":{"packs":{"1.1":{"status":"committed","agent_id":"a1","commit_sha":null}}}}}
+ESJSON
+
+run_test_expect_fail "validate fails on committed pack without commit_sha" \
+  bash "$STATE_SH" validate --run-id "$RUN_ID4"
+
+# Fix the execution-state and test that accepted disposition without evidence also fails
+cat > "$FIXTURE_DIR/execution-state-${RUN_ID4}.json" <<'ESJSON'
+{"run_id":"test-validate-xfile","plans":{"001":{"packs":{"1.1":{"status":"pending","agent_id":null,"commit_sha":null}}}}}
+ESJSON
+
+# Inject accepted disposition without evidence directly into JSON
+jq '.review_dispositions = [{"finding_id":"BF1","disposition":"accepted","evidence":""}]' \
+  "$FIXTURE_DIR/workflow-state-${RUN_ID4}.json" > "$FIXTURE_DIR/tmp-val.json" && mv "$FIXTURE_DIR/tmp-val.json" "$FIXTURE_DIR/workflow-state-${RUN_ID4}.json"
+
+run_test_expect_fail "validate fails on accepted disposition without evidence" \
+  bash "$STATE_SH" validate --run-id "$RUN_ID4"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

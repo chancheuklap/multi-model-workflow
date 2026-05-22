@@ -174,7 +174,8 @@ cmd_init() {
   "pending_direction_check": null,
   "execution_reflux_count": 0,
   "last_gate_phase": null,
-  "last_gate_timestamp": null
+  "last_gate_timestamp": null,
+  "mutations": []
 }
 INITJSON
   echo "Created: $sf"
@@ -222,7 +223,21 @@ cmd_update() {
   local sf
   sf="$(state_file)"
   local tmp="${sf}.tmp"
+
+  # Capture old value for mutation log
+  local old_value
+  old_value=$(jq "$field" "$sf" 2>/dev/null || echo "null")
+
   jq "$field = $value" "$sf" > "$tmp"
+  mv "$tmp" "$sf"
+
+  # Append mutation record
+  local now
+  now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  jq --arg f "$field" --argjson old "$old_value" --argjson new "$value" \
+     --arg w "cmd_update" --arg ts "$now" \
+    '.mutations += [{"field": $f, "old": $old, "new": $new, "writer": $w, "timestamp": $ts}]' \
+    "$sf" > "$tmp"
   mv "$tmp" "$sf"
 }
 
@@ -302,6 +317,13 @@ cmd_transition() {
     '.cursor.phase = $phase | .current_phase = $phase | .last_gate_phase = $phase | .last_gate_timestamp = $ts' \
     "$sf" > "$tmp"
   mv "$tmp" "$sf"
+
+  # Append mutation record for transition
+  jq --arg f ".cursor.phase" --arg old "$from" --arg new "$to" \
+     --arg w "cmd_transition:${actor}" --arg ts "$now" \
+    '.mutations += [{"field": $f, "old": $old, "new": $new, "writer": $w, "timestamp": $ts}]' \
+    "$sf" > "$tmp"
+  mv "$tmp" "$sf"
 }
 
 cmd_validate() {
@@ -331,6 +353,38 @@ cmd_validate() {
   rd_type=$(jq -r '.review_dispositions | type' "$sf")
   if [[ "$rd_type" != "array" ]]; then
     echo "Error: review_dispositions must be array, got $rd_type" >&2
+    exit 2
+  fi
+
+  # --- Cross-file consistency checks (only when execution-state exists) ---
+  local esf
+  esf="$(execution_state_file)"
+  if [[ -f "$esf" ]]; then
+    # Check: committed packs must have commit_sha
+    local committed_no_sha
+    committed_no_sha=$(jq '[.plans | to_entries[] | .value.packs | to_entries[] | select(.value.status == "committed" and (.value.commit_sha == null or .value.commit_sha == ""))] | length' "$esf")
+    if [[ "$committed_no_sha" -gt 0 ]]; then
+      echo "Error: $committed_no_sha pack(s) with status=committed but no commit_sha in execution-state" >&2
+      exit 2
+    fi
+
+    # Check: workflow-state plans have corresponding entries in execution-state
+    local wf_plan_ids es_plan_ids
+    wf_plan_ids=$(jq -r '[.plans[].plan_id] | sort | .[]' "$sf" 2>/dev/null)
+    es_plan_ids=$(jq -r '[.plans | keys[]] | sort | .[]' "$esf" 2>/dev/null)
+    for pid in $wf_plan_ids; do
+      if ! echo "$es_plan_ids" | grep -qF "$pid"; then
+        echo "Error: plan_id $pid in workflow-state but not in execution-state" >&2
+        exit 2
+      fi
+    done
+  fi
+
+  # Check: accepted dispositions must have non-empty evidence
+  local accepted_no_evidence
+  accepted_no_evidence=$(jq '[.review_dispositions[] | select(.disposition == "accepted" and (.evidence == null or .evidence == ""))] | length' "$sf")
+  if [[ "$accepted_no_evidence" -gt 0 ]]; then
+    echo "Error: $accepted_no_evidence accepted disposition(s) with no evidence" >&2
     exit 2
   fi
 

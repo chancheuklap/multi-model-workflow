@@ -49,6 +49,13 @@ echo "{\"schema_version\":1,\"timestamp\":\"$OLD_TS\",\"run_id\":\"r0\",\"source
 run_test "stale entry (365 days old, conf 5) filtered by decay" \
   bash -c "! bash '$LEARNINGS_SH' read --with-trust-gate | jq -e '.[] | select(.content == \"very old learning\")'"
 
+# --- R3-15: stale file reference filter ---
+# Add a learning with a nonexistent file path
+echo '{"schema_version":1,"timestamp":"2026-05-22T01:00:00Z","run_id":"r1","source_project":"","agent_role":"","type":"pattern","content":"stale file ref learning","tags":[],"files":["nonexistent/path/does-not-exist.py"],"confidence":8,"source":"test"}' >> "$FIXTURE_DIR/learnings.jsonl"
+
+run_test "stale file reference filtered by trust gate" \
+  bash -c "! bash '$LEARNINGS_SH' read --with-trust-gate | jq -e '.[] | select(.content == \"stale file ref learning\")'"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

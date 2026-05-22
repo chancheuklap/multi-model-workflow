@@ -31,8 +31,17 @@ if [[ -n "$CURRENT_RUN_ID" ]]; then
   fi
 fi
 
-# Type 3: High-volume check (caller must provide count)
-# Handled externally by learnings-jsonl.sh
+# Type 3: High-volume flooding check
+if [[ -n "$CURRENT_RUN_ID" ]]; then
+  LEARNINGS_FILE="${STATE_BASE:-.claude/multi-model-workflow}/learnings.jsonl"
+  if [[ -f "$LEARNINGS_FILE" ]]; then
+    RUN_COUNT=$(grep -c "\"run_id\":\"${CURRENT_RUN_ID}\"" "$LEARNINGS_FILE" 2>/dev/null || echo "0")
+    if [[ "$RUN_COUNT" -gt 20 ]]; then
+      POISONED=1
+      REASONS+=("high_volume_flooding:${RUN_COUNT}_entries_for_${CURRENT_RUN_ID}")
+    fi
+  fi
+fi
 
 # Type 4: Scope escape
 if [[ -n "$SCOPE_FILE" && -f "$SCOPE_FILE" ]]; then

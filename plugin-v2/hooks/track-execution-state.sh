@@ -17,7 +17,12 @@ if [ ! -f "$ESF" ]; then exit 0; fi
 
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
 # Pack ID from validated commit message (enforce-pack-commit.sh guarantees format "Pack N.M: ...")
-PACK_ID=$(echo "$COMMAND" | sed -n 's/.*Pack \([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -1)
+# Uses bash regex instead of sed — input is commit message text, not prompt/control-plane
+if [[ "$COMMAND" =~ Pack[[:space:]]+([0-9]+\.[0-9]+) ]]; then
+  PACK_ID="${BASH_REMATCH[1]}"
+else
+  PACK_ID=""
+fi
 if [ -z "$PACK_ID" ]; then exit 0; fi
 
 COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")

@@ -28,6 +28,17 @@ PLUGIN_VERSION=$(jq -r '.version // empty' "$PLUGIN_ROOT/.claude-plugin/plugin.j
 check_prerequisite "plugin.json has version field" \
   '[ -n "$PLUGIN_VERSION" ]'
 
+# Claude Code version check (silent skip if claude not in PATH)
+if command -v claude >/dev/null 2>&1; then
+  CLAUDE_VERSION=$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  if [[ -n "$CLAUDE_VERSION" ]]; then
+    IFS='.' read -r major minor patch <<< "$CLAUDE_VERSION"
+    if [[ "$major" -lt 2 ]] || [[ "$major" -eq 2 && "$minor" -lt 1 ]] || [[ "$major" -eq 2 && "$minor" -eq 1 && "$patch" -lt 147 ]]; then
+      check_prerequisite "Claude Code >= 2.1.147" "false"
+    fi
+  fi
+fi
+
 cat <<RULES
 [multi-model-workflow] Behavioral override active:
 

@@ -96,6 +96,15 @@ cmd_append() {
 
   echo "$entry" >> "$LEARNINGS_FILE"
 
+  # Per-run count check: warn if >10 learnings from same run_id
+  if [[ -n "$run_id" ]]; then
+    local run_count
+    run_count=$(grep -c "\"run_id\":\"${run_id}\"" "$LEARNINGS_FILE" 2>/dev/null || echo "0")
+    if [[ "$run_count" -gt 10 ]]; then
+      echo "WARNING: run_id $run_id has $run_count learnings (>10 threshold)" >&2
+    fi
+  fi
+
   state_lock_release "$lock_dir"
   echo "OK: appended learning"
 }
@@ -160,6 +169,23 @@ except Exception:
       local src
       src=$(echo "$line" | jq -r '.source // ""')
       if [[ -z "$src" ]]; then
+        continue
+      fi
+
+      # Filter: stale file references — check if referenced files still exist
+      local has_stale_ref=false
+      local file_refs
+      file_refs=$(echo "$line" | jq -r '.files[]? // empty' 2>/dev/null)
+      if [[ -n "$file_refs" ]]; then
+        while IFS= read -r ref_path; do
+          [[ -z "$ref_path" ]] && continue
+          if [[ ! -f "$ref_path" && ! -f "./$ref_path" ]]; then
+            has_stale_ref=true
+            break
+          fi
+        done <<< "$file_refs"
+      fi
+      if [[ "$has_stale_ref" == "true" ]]; then
         continue
       fi
 
