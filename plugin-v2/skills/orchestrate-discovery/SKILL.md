@@ -7,6 +7,7 @@ description: "缺少可 review 的设计文档时使用。与用户讨论 → �
 
 模糊输入 → 与用户讨论 → 设计文档 + CONTEXT.md → Design Review → 过渡到 to-issues。
 
+<!-- BEGIN: preamble -->
 **Hard Gate**：用户确认设计之前，不写代码、不创建骨架、不派 worker。**每个项目**都走 Discovery，无论看起来多简单。
 
 **Only stop for：**
@@ -17,6 +18,7 @@ description: "缺少可 review 的设计文档时使用。与用户讨论 → �
 **Never stop for：**
 - 讨论中间环节（一问一答持续迭代）
 - Design Review findings（Coordinator 直接修复，不问用户）
+<!-- END: preamble -->
 
 ---
 
