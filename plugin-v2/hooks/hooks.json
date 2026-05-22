@@ -22,10 +22,6 @@
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/cleanup-before-push.sh\""
-          },
-          {
-            "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforce-pack-commit.sh\"",
             "if": "Bash(git commit *)"
           }
@@ -61,6 +57,11 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/track-execution-state.sh\"",
             "if": "Bash(git commit *)",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/cleanup-before-push.sh\"",
+            "if": "Bash(git push *)"
           }
         ]
       },
