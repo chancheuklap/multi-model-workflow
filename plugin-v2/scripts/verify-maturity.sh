@@ -151,5 +151,76 @@ else
 fi
 
 echo ""
+echo "## Behavioral Checks (R2)"
+
+# C1: agent-return-handler uses || pattern, not dead-code if $?
+check "C1: agent-return-handler no dead-code pattern" bash -c \
+  "! grep -q 'if \[ \$? -ne 0 \]' '$PLUGIN_DIR/hooks/agent-return-handler.sh'"
+
+# C2: track-review-budget uses state lock for concurrent safety
+check "C2: track-review-budget uses state lock" \
+  grep -q 'state_lock_acquire' "$PLUGIN_DIR/hooks/track-review-budget.sh"
+
+# C3: track-effort-budget uses state lock for concurrent safety
+check "C3: track-effort-budget uses state lock" \
+  grep -q 'state_lock_acquire' "$PLUGIN_DIR/hooks/track-effort-budget.sh"
+
+# C4: agent-return-handler uses lock for execution-state write
+check "C4: agent-return-handler uses state lock" \
+  grep -q 'state_lock_acquire' "$PLUGIN_DIR/hooks/agent-return-handler.sh"
+
+# I1: all active resolvers have at least one consuming anchor
+for resolver in forbidden-shortcuts sendmessage-resume signpost state-write trust-boundary; do
+  check "I1: resolver $resolver has consuming anchor" bash -c \
+    "grep -rl 'BEGIN: $resolver' '$PLUGIN_DIR/skills/' '$PLUGIN_DIR/agents/' 2>/dev/null | grep -q ."
+done
+
+# I2: plan-writer-dispatch has DISPATCH_ENVELOPE protocol
+check "I2: plan-writer-dispatch has DISPATCH_ENVELOPE" \
+  grep -q 'DISPATCH_ENVELOPE' "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-writer-dispatch.md"
+
+# I3: plan-writing and workflow SKILL.md have build-system anchors
+check "I3: plan-writing SKILL.md has anchors" bash -c \
+  "[ \$(grep -c 'BEGIN:' '$PLUGIN_DIR/skills/orchestrate-plan-writing/SKILL.md') -ge 1 ]"
+check "I3: workflow SKILL.md has anchors" bash -c \
+  "[ \$(grep -c 'BEGIN:' '$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md') -ge 1 ]"
+
+# I4: validate-pack-dispatch Step 7 implemented (not deferred)
+check "I4: validate-pack-dispatch Step 7 pack status check" \
+  grep -q 'PACK_STATUS' "$PLUGIN_DIR/hooks/validate-pack-dispatch.sh"
+
+# I5: state.sh supports plans subcommand
+check "I5: state.sh has plans subcommand" bash -c \
+  "bash '$PLUGIN_DIR/scripts/state.sh' 2>&1 | grep -q 'plans'"
+
+# I7: no macOS-only date -j in learnings (cross-platform)
+check "I7: learnings-jsonl no macOS-only date" bash -c \
+  "! grep -q 'date -j' '$PLUGIN_DIR/scripts/learnings-jsonl.sh'"
+
+# M3: state.sh disposition enum validation
+check "M3: state.sh has disposition enum validation" bash -c \
+  "grep -q 'case.*disposition' '$PLUGIN_DIR/scripts/state.sh'"
+
+# D2: BLOCKED template has dual layers (business + technical)
+check "D2: execution SKILL.md has BLOCKED dual-layer template" \
+  grep -q '业务影响层' "$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md"
+check "D2: execution SKILL.md has technical detail layer" \
+  grep -q '技术详情层' "$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md"
+
+# D8: Entry Gate checks SendMessage tool availability
+check "D8: workflow SKILL.md has SendMessage availability check" bash -c \
+  "grep -q 'SendMessage.*可用\|SendMessage tool' '$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md'"
+
+# route-extension dead code deleted
+check "route-extension template deleted" bash -c \
+  "test ! -f '$PLUGIN_DIR/build/templates/route-extension.md.tmpl'"
+check "route-extension resolver deleted" bash -c \
+  "test ! -f '$PLUGIN_DIR/build/resolvers/route-extension.sh'"
+
+# set -e anti-pattern: detect $(...); if [ $? -ne 0 ] in all hooks
+check "no set -e anti-pattern in hooks" bash -c \
+  "! grep -rq 'if \[ \$? -ne 0 \]' '$PLUGIN_DIR/hooks/'"
+
+echo ""
 echo "=== Results: $pass passed, $fail failed ==="
 [[ $fail -eq 0 ]]
