@@ -402,6 +402,12 @@ Coordinator 收到 reviewer 返回的 findings 后，**不得直接转发给 wor
 
 这确保 Coordinator 行使裁判权而非沦为传声筒。如果 Coordinator 不做亲验就转发 findings，worker 可能按错误的 finding 修复（reviewer 也会犯错）。Disposition 偏差检测（3d）监控 Coordinator 是否过度 rubber-stamping（accept 率 > 90%）。
 
+**机制层强制（prompt 不可靠，hook 兜底）**：
+- `state.sh disposition append --disposition accepted` 强制 `--evidence` 非空（空 evidence = 退出 2）
+- DISPATCH_ENVELOPE 新增 `disposition_refs` 字段——repair dispatch（`repair_round ≥ 1`）时必填，引用已 accepted 的 finding ID
+- `validate-pack-dispatch.sh` 校验 disposition_refs 在 state 中有 accepted + 非空 evidence 记录（Agent dispatch 路径）
+- `state.sh transition --to repairing --disposition-refs` 做相同校验（SendMessage 路径补盲，因为 SendMessage 不触发 Agent hook）
+
 **3b-3. 修复后不自动复审——Coordinator 自验收**
 
 Worker 完成修复后，**Coordinator 自己验收**（grep 确认变更、对照 acceptance criteria、运行 verification commands），验收通过即提交。**不自动派发 reviewer 复审。**
@@ -412,9 +418,19 @@ Worker 完成修复后，**Coordinator 自己验收**（grep 确认变更、对�
 - 设计 §8 的 verification commands 是机械化检查，不需要 reviewer 介入
 
 **例外**：以下情况 Coordinator 应主动派发复审：
-- 修复涉及 3+ 个文件且改变了控制流逻辑
-- 用户明确要求复审
-- 修复截断触发 RCA 后的根因修复
+- 修复涉及 3+ 个文件且改变了控制流逻辑（`exception_code: "3plus_files_control_flow"`）
+- 用户明确要求复审（`exception_code: "user_requested"`——gate hook 直接放行，不阻拦）
+- 修复截断触发 RCA 后的根因修复（`exception_code: "rca_root_cause"`）
+
+**机制层强制（prompt 不可靠，hook 兜底）**：
+- `state.sh self-verify append` 记录 Coordinator 自验收结果 + exception code
+- DISPATCH_ENVELOPE 新增 `review_intent`（baseline / targeted-re-review / path-a-re-review）+ `exception_code` 字段
+- **新增 `gate-codex-review.sh`**（PreToolUse Bash hook，matcher=`Bash(*codex-companion.mjs task*)`）：
+  - `review_intent == "baseline"` → 放行
+  - `review_intent == "path-a-re-review"` → 查 path_a_escalation 状态 → 放行
+  - `review_intent == "targeted-re-review"` + `exception_code == "user_requested"` → **直接放行**
+  - `review_intent == "targeted-re-review"` + 其他 exception → 查 state 中 self_verifications 有对应记录且 exception≠none → 放行
+  - 不满足 → 退出 2 阻断（"Default is Coordinator self-verify"）
 
 **3c. Path A 修复的角色分离恢复**
 
