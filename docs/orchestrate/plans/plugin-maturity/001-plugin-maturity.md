@@ -105,6 +105,10 @@
 | `plugin-v2/skills/*/references/*.md`（设计 §9 列 ~33 个）：包含 workflow-* / discovery-* / plan-* / execution-* / final-* / multi-pr-* 各前缀的 reference 文件 | 部分被 resolver 注入锚点（review / disposition / sendmessage-resume / trust-boundary）；部分被本计划 Pack 直接改写（路径在 File map 显式列出） | 5 / 7 / 8 / 10 / 11 / 12 / 13 |
 | `plugin-v2/agents/*.md`（7 个：pack-executor / complex-pack-executor / plan-writer / codex-reviewer / + 持续维护） | persona / voice / input boundary / trust isolation 段注入 | 5 / 8 / 12 |
 | `plugin-v2/hooks/*.sh`（含 4 个 writer + session-start + 新增 track-effort-budget） | state 写入统一走 state.sh；envelope 解析无 fallback；effort budget 累加 | 3 / 4 / 6 / 9 |
+| `plugin-v2/scripts/lib/*.sh`（state-lock / review-effectiveness / learnings-poison-detector 等公共库） | state.sh 与 hook 的共享逻辑（锁、聚合、投毒检测） | 2 / 10 / 12 |
+| `plugin-v2/scripts/tests/*.sh`（state / route / budget / path-a / hotfix / verify-maturity 等脚本测试） | TDD 测试目录，覆盖 state.sh + 各类 lib | 2 / 5 / 7 / 9 / 10 / 11 / 12 / 13 / 14 |
+| `plugin-v2/hooks/lib/*.sh`（如有：envelope parser / dispatch validator 共享逻辑） | hook 间共享逻辑（按 Pack 4 / 5 / 7 / 9 实现需要新建；Pack 14 verify-maturity.sh 校验存在性） | 4 / 5 / 7 / 9 |
+| `plugin-v2/hooks/tests/*.sh`（hook 单测：execution-state / review-budget / validate-pack-dispatch / effort-budget / build-check） | TDD 测试目录，覆盖 hook 解析与状态写入 | 3 / 4 / 6 / 9 |
 
 任何被通配条目命中但未在显式表中列出的文件，由本计划 verify-maturity.sh（Pack 14）兜底验证：`build.sh --check` 退出 0 + 各类 grep 计数符合 acceptance。
 
@@ -279,7 +283,7 @@ grep -rc "Apply this disposition table" plugin-v2/skills/                 # 期�
 - workflow-state JSON schema 字段（merge 自现有两文件 + Pack 4 / 5 / 9 的前置字段位）：
   - `run_id`, `slug`, `started_at`, `route`, `current_phase`, `current_reference`, `current_step`
   - `cursor: { phase, reference, step }`（Pack 2 引入的统一锚字段）
-  - `budget: { review_total, review_used, effort_total, effort_used, direction_check_count }`（`effort_*` 字段在 Pack 9 启用，Pack 2 仅留 schema 位 + 默认 0）
+  - `budget: { review_total, review_used, effort_total, effort_used, direction_check_count }`（`effort_*` 字段在 Pack 9 启用，Pack 2 仅留 schema 位 + 默认 0；`review_total` 与 `effort_total` 类型均为 `number | "unlimited"`，Route 4-7 写入 "unlimited"，详见 Pack 9 / Pack 11）
   - `plans[]: { plan_id, status, packs[]: { pack_id, status, worker_verdict, start_commit, commit_sha, agent_id, repair_round } }`
   - `idempotency_keys: [string]`（顶层数组；Pack 4 / 5 写入 envelope 的 idempotency_key 防重放；Pack 2 创建空数组）
   - `plan_writer_agent_id: <string|null>`（Pack 5 SendMessage 持久化用；Pack 2 创建为 null）
@@ -633,20 +637,23 @@ grep -nE "never block" plugin-v2/hooks/session-start.sh                   # 期�
 
 ### Pack 7 — Confidence calibration + disposition audit + Path A re-review（承诺 3a/3b/3c/3d）
 
-**Goal behavior**：在 review 派发模板（codex-reviewer.md / execution-review-dispatch.md）中加入 1-10 信心度评分 prompt + 偏差指标声明（承诺 3a）；Coordinator 在 disposition 阶段调用 `state.sh disposition append` 写入 review_dispositions（承诺 3b）；Path A 修复后强制 targeted Codex re-review，Codex needs repair 时 Coordinator 禁止继续自修，必须再次 Path A 重审（承诺 3c）；偏差指标在每次 review 后通过 disposition 数据累计（承诺 3d 的累计逻辑在 Pack 10 run-summary 完成）。**同时实现 Codex Review 模型按 Phase 分层**：`review-dispatch.sh` resolver 根据 `workflow-state.cursor.phase` 自动选择 Codex 模型（Design/Plan Review → GPT-5.5 xhigh，Execution/Final/Direct Repair Review → GPT-5.4 xhigh）。
+**Goal behavior**：在 review 派发模板（codex-reviewer.md / execution-review-dispatch.md）中加入 1-10 信心度评分 prompt + 偏差指标声明（承诺 3a）；Coordinator 在 disposition 阶段调用 `state.sh disposition append` 写入 review_dispositions（承诺 3b）；Path A 修复后强制 targeted Codex re-review，Codex needs repair 时 Coordinator **禁止继续做 Path A**，必须升级到 **Path B 派 worker 修复**（pack-executor / complex-pack-executor）（承诺 3c）；偏差指标在每次 review 后通过 disposition 数据累计（承诺 3d 的累计逻辑在 Pack 10 run-summary 完成）。**同时实现 Codex Review 模型按 Phase 分层**：`review-dispatch.sh` resolver 根据 `workflow-state.cursor.phase` 自动选择 Codex 模型（Design/Plan Review → GPT-5.5 xhigh，Execution/Final/Direct Repair Review → GPT-5.4 xhigh）。
 
 **Owned files**：
 - `plugin-v2/agents/codex-reviewer.md`（prompt 加 confidence rubric + bias indicators 声明段）
 - `plugin-v2/skills/orchestrate-execution/references/execution-review-dispatch.md`（review prompt 模板：confidence rubric + Path A re-review 流程）
-- `plugin-v2/skills/orchestrate-execution/references/path-a-re-review.md`（新建：Path A 修复后 targeted re-review 流程；Codex needs repair → Coordinator 禁止自修，必须再次派 Codex 重审）
+- `plugin-v2/skills/orchestrate-execution/references/path-a-re-review.md`（新建：Path A 修复后 targeted re-review 流程；Codex needs repair → Coordinator 禁止继续 Path A，必须升级 Path B 派 worker 修复）
 - `plugin-v2/build/templates/disposition-table.md.tmpl`（在 8 行表上方加 confidence 校准 4 行 + disposition audit append 调用模板）
 - `plugin-v2/build/templates/review-dispatch.md.tmpl`（在 Pack 1.2 占位基础上补全：phase→model 映射 + confidence rubric 调用 + bias indicators 提示）
 - `plugin-v2/build/resolvers/review-dispatch.sh`（在 Pack 1.2 占位基础上补全：phase 参数 → 模型 + confidence + Path A 注释段；本 Pack 改实现，不重新创建文件）
+- `plugin-v2/skills/orchestrate-execution/references/execution-repair-truncation.md`（Step 11 "Targeted Re-Review" 改为 "Coordinator 自验收"，例外条件触发 re-review）
+- `plugin-v2/skills/orchestrate-final-review/references/final-review-repair.md`（Step 11 同上）
+- `plugin-v2/skills/orchestrate-plan-writing/references/plan-review-resolution.md`（Step 17 同上）
 - `plugin-v2/skills/orchestrate-execution/references/learnings-confidence-audit.md`（新建：低分 finding 处理流程）
 - `plugin-v2/build/tests/test_confidence_injection.sh`（新建）
 - `plugin-v2/build/tests/test_review_model_tiers.sh`（新建：断言 review-dispatch.sh phase 参数映射正确）
 - `plugin-v2/build/tests/test_disposition_audit_injection.sh`（新建：断言生成的 SKILL.md 含 `state.sh disposition append` 调用）
-- `plugin-v2/scripts/tests/test_path_a_re_review.sh`（新建：模拟 Path A 修复 + Codex needs repair → 断言 Coordinator 不能直接自修，必须再次 Codex 重审；该测试同时覆盖 `state.sh path-a-escalation start/update` CLI + validate-pack-dispatch 在 `blocked_for_self_fix=true` 时拒绝非 codex-reviewer dispatch）
+- `plugin-v2/scripts/tests/test_path_a_re_review.sh`（新建：模拟 Path A 修复 + Codex needs repair → 断言 Coordinator 不能继续 Path A，必须升级 Path B；该测试同时覆盖 `state.sh path-a-escalation start/update/clear` CLI + validate-pack-dispatch 在 `blocked_for_self_fix=true` 时**允许** Path B worker dispatch 但**拒绝**重复 Path A 路径）
 - `plugin-v2/scripts/state.sh`（本 Pack 增量：增加 `path-a-escalation` 子命令 — start/update/clear；写入与读取 `workflow-state.path_a_escalation[]`）
 - `plugin-v2/hooks/validate-pack-dispatch.sh`（本 Pack 增量：增加 `path_a_escalation[].blocked_for_self_fix=true` 时拒绝非 codex-reviewer dispatch 的逻辑）
 
@@ -669,25 +676,50 @@ grep -nE "never block" plugin-v2/hooks/session-start.sh                   # 期�
   - confidence 4-6 → 强制 needs evidence（不可直接 accepted）
   - confidence ≤ 3 → 自动 rejected（除非 Coordinator 提供反向证据）
 - **Disposition audit 写入（承诺 3b）**：Coordinator 每决定一条 finding 的 disposition 后，立即调用 `state.sh disposition append --review-round <r> --finding-id <id> --severity <H|M|L> --confidence <1-10> --disposition <accept|reject|suppress|path-a|path-b> --path <findings 路径>` 写入 workflow-state.review_dispositions；此调用模板必须由 disposition-table resolver 注入到所有 4 处 disposition 表
-- **Path A re-review 强制规则（承诺 3c）**：
+- **Path A re-review 升级规则（承诺 3c）**：
   - 仅 confidence ≥ 7 的 accepted finding 走 Path A（targeted re-review，避免低质量 finding 反复 re-review）
   - Path A 修复完成 → 强制派 Codex targeted re-review（不能跳过）
-  - Codex re-review 返回 needs repair → Coordinator **禁止**直接自修，必须再次 Path A 派 Codex 复审（最多 3 轮，超出则 BLOCKED 给用户）
-  - 此 escalation 流程内联在 `path-a-re-review.md` 中并通过 review-dispatch resolver 引用
-- **Path A escalation 状态表示（承诺 3c 落地）**：当 Path A 派出 Codex re-review 时，Coordinator 必须调用 `state.sh path-a-escalation start --finding-id <id> --round <r>`，写入 `workflow-state.path_a_escalation[]`（schema 见 Pack 2：`{ finding_id, current_round, last_codex_verdict, blocked_for_self_fix: true, triggered_at }`）；Codex 返回后调用 `state.sh path-a-escalation update --finding-id <id> --verdict <approved|needs_repair>`；approved 则 `blocked_for_self_fix=false`，needs_repair 则 `current_round+=1` 并保持 `blocked_for_self_fix=true`。`validate-pack-dispatch.sh` 在 Pack 5/7 升级中加查询：对任一 finding_id，若 `path_a_escalation[].blocked_for_self_fix == true` 且当前 dispatch agent ≠ codex-reviewer，则拒绝 dispatch（exit 2 + stderr 提示）
-- 4 处 disposition table 渲染后均含：(1) 8 行 disposition 表，(2) 4 行 confidence 校准，(3) `state.sh disposition append` 调用模板，(4) Path A re-review 规则引用
+  - Codex re-review 返回 needs repair → Coordinator **禁止**继续做 Path A（不再做 Coordinator 自修 + targeted re-review 循环），**必须升级到 Path B 派 worker 修复**（pack-executor / complex-pack-executor）。Path B 完成后回到正常的 Plan Implementation Review 循环，不再走 targeted re-review
+  - 设计依据：Coordinator 自修两次不通过说明问题超出 inline 编辑范围（需要 worker 的工作记忆与对完整代码上下文的访问），强行第三次 Path A 是无效 retry
+  - 此升级流程内联在 `path-a-re-review.md` 中并通过 review-dispatch resolver 引用
+- **Path A escalation 状态表示（承诺 3c 落地，单一模型：entry exists = blocked）**：
+  - 当 Path A 派出 Codex re-review 时，Coordinator 调用 `state.sh path-a-escalation start --finding-id <id> --round 1`，向 `workflow-state.path_a_escalation[]` **追加一条新 entry**（schema 见 Pack 2：`{ finding_id, current_round, last_codex_verdict: null, blocked_for_self_fix: false, triggered_at }`）。entry 一旦创建即作为"该 finding 处于 Path A 流程中"的标记
+  - Codex 返回后 Coordinator 调用 `state.sh path-a-escalation update --finding-id <id> --verdict <approved|needs_repair>` 更新该 entry 的 `last_codex_verdict`
+    - `--verdict approved`：调用 `clear --finding-id <id>` 删除 entry，Path A 流程结束，任何 dispatch 通过
+    - `--verdict needs_repair`：将 entry 的 `blocked_for_self_fix=true`、保留 entry。Coordinator 必须升级 Path B 派 worker；worker dispatch 完成后调用 `state.sh path-a-escalation clear --finding-id <id>` 删除 entry
+  - `validate-pack-dispatch.sh` 守门规则（Pack 7 加入）：查询 `path_a_escalation[] | map(select(.finding_id == 当前 finding))` 是否存在 entry 且 `blocked_for_self_fix == true`：
+    - 命中 → **仅允许** dispatch agent ∈ {`pack-executor`, `complex-pack-executor`}（Path B worker），其他 agent（包括再次 `codex-reviewer` 做 Path A re-review）一律拒绝 exit 2，stderr 含"Path A 已耗尽，请升级 Path B"
+    - 未命中（无 entry 或 `blocked_for_self_fix == false`）→ 不限制
+  - 重复 `start` 防护：`state.sh path-a-escalation start` 自身在已有 entry 且 `blocked_for_self_fix == true` 时直接 exit 2 拒绝（不依赖时间戳推导，由 entry 存在性决定）
+  - `current_round` 字段：仅供 audit 与 Pack 10 bias metrics 使用，不参与守门判断
+- 4 处 disposition table 渲染后均含：(1) 8 行 disposition 表，(2) 4 行 confidence 校准，(3) `state.sh disposition append` 调用模板，(4) Path A re-review 规则引用，(5) **Coordinator 亲验纪律段**
+- **Coordinator 亲验纪律（设计 §3b-2，disposition-table.md.tmpl 内联，构建系统注入到 4 处 SKILL.md）**：
+  - 收到 reviewer findings 后，**禁止直接转发给 worker**。Coordinator 必须逐条执行：
+    1. **亲验**：用 Read / grep / 对照设计文档验证 finding 的事实主张（reviewer 也会犯错）
+    2. **Disposition**：accepted / rejected / needs evidence / out of scope（调用 `state.sh disposition append`）
+    3. **修复指令**：只把 accepted findings 翻译为**具体修复指令**（文件路径 + 行号 + 期望变更）传给 worker。Reviewer 原始输出不传
+  - 此纪律模板由 `disposition-table.md.tmpl` 定义，通过构建系统注入 4 处——Coordinator 无法跳过
+- **修复后 Coordinator 自验收、不自动复审（设计 §3b-3）**：repair reference 模板（execution-repair-truncation / final-review-repair / plan-review-resolution）的 "Targeted Re-Review" 步骤改为：
+  - 默认路径：Worker 修复完成 → **Coordinator 自验收**（运行 verification commands + 对照 acceptance criteria + grep 确认变更）→ 验收通过即提交，**不派 reviewer**
+  - 例外路径（触发 targeted re-review）：修复涉及 3+ 文件且改变控制流逻辑 / 用户明确要求 / RCA 后的根因修复
+  - Path A 修复**始终**做 targeted re-review（§3c 要求，因为 Coordinator 判断自己的修复质量有利益冲突）
 
 **Acceptance criteria**：
 - [ ] codex-reviewer 派发模板含 confidence rubric + bias indicators 声明段
-- [ ] disposition table 注入后含 4 行 confidence 校准 + `state.sh disposition append` 调用模板
+- [ ] disposition table 注入后含 4 行 confidence 校准 + `state.sh disposition append` 调用模板 + **Coordinator 亲验纪律段**（"禁止直接转发"+ 3 步操作清单）
+- [ ] 3 个 repair reference 文件的 "Targeted Re-Review" 步骤改为 "Coordinator 自验收"（默认不派 reviewer，例外条件列出）
 - [ ] `execution-review-dispatch.md` 的派发模板由 review-dispatch resolver 生成且含 rubric
 - [ ] `learnings-confidence-audit.md` + `path-a-re-review.md` 流程文档存在
 - [ ] 4 处 disposition table 渲染后均含校准段 + audit append 调用
 - [ ] review-dispatch resolver 含 phase→model 映射表（Design/Plan → gpt-5.5，Execution/Final/Path A → gpt-5.4，均 xhigh）
 - [ ] 生成的 codex dispatch 命令中模型参数正确（Design Review 场景 → 含 `gpt-5.5`；Pack Review / Path A re-review 场景 → 含 `gpt-5.4`）
-- [ ] `test_path_a_re_review.sh` 模拟 Path A → Codex needs repair → Coordinator 自修尝试被拒：`state.sh path-a-escalation start` 后 `blocked_for_self_fix=true`，`validate-pack-dispatch.sh` 拒绝非 codex-reviewer agent 的 dispatch（exit 2）
+- [ ] `test_path_a_re_review.sh` 覆盖 4 个场景（单一模型：entry-existence-driven）：
+      (1) `start` → `update --verdict approved`：entry 自动删除（update approved 内部 clear），后续任何 agent dispatch 通过；
+      (2) `start` → `update --verdict needs_repair`：entry 仍存在且 `blocked_for_self_fix=true`，dispatch `pack-executor` / `complex-pack-executor`（Path B）通过，dispatch `codex-reviewer`（再次 Path A）被 `validate-pack-dispatch.sh` 拒绝 exit 2；
+      (3) `blocked_for_self_fix=true` 状态下再次调用 `state.sh path-a-escalation start --finding-id X` 直接被 state.sh 自身拒绝 exit 2（不依赖 hook）；
+      (4) worker dispatch 完成后 `state.sh path-a-escalation clear --finding-id X` 删除 entry，后续 dispatch 任何 agent 通过
 - [ ] `state.sh path-a-escalation` 子命令支持 start/update/clear，写入符合 Pack 2 schema 的 `path_a_escalation[]` 数组
-- [ ] `validate-pack-dispatch.sh` 升级后保留原有功能（Pack 4 / 5 已加的检查不被破坏）
+- [ ] `validate-pack-dispatch.sh` 升级后保留原有功能（Pack 4 / 5 已加的检查不被破坏）；新的 Path A 守门**仅拒绝**重复 Path A 路径，不拒绝 Path B worker 或 new round Codex review
 
 **Verification commands**：
 ```bash
@@ -699,6 +731,10 @@ grep -c "confidence" plugin-v2/agents/codex-reviewer.md                         
 grep -c "bias indicator" plugin-v2/agents/codex-reviewer.md                     # 期望：≥ 1
 grep -rEc "confidence ≥ 7|confidence 4-6" plugin-v2/skills/                     # 期望：≥ 4 处
 grep -rEc "state\.sh disposition append" plugin-v2/skills/                      # 期望：≥ 4 处（4 个 disposition table 位置）
+grep -rEc "禁止直接转发|亲验|逐条验证" plugin-v2/skills/                         # 期望：≥ 4 处（4 个 disposition table 注入位置含亲验纪律段）
+grep -c "Coordinator 自验收" plugin-v2/skills/orchestrate-execution/references/execution-repair-truncation.md  # 期望：≥ 1
+grep -c "Coordinator 自验收" plugin-v2/skills/orchestrate-final-review/references/final-review-repair.md       # 期望：≥ 1
+grep -c "Coordinator 自验收" plugin-v2/skills/orchestrate-plan-writing/references/plan-review-resolution.md    # 期望：≥ 1
 grep -rEc "Path A re-review" plugin-v2/skills/                                  # 期望：≥ 2 处（execution 与 final-review）
 grep -c "path-a-escalation" plugin-v2/scripts/state.sh                          # 期望：≥ 1（子命令分发）
 grep -c "blocked_for_self_fix" plugin-v2/hooks/validate-pack-dispatch.sh        # 期望：≥ 1（守门查询）
@@ -714,15 +750,22 @@ grep -rEc "state\.sh path-a-escalation start" plugin-v2/skills/                 
 6. GREEN：在 disposition-table.md.tmpl 上方加 4 行 confidence 校准 + audit append 调用模板
 7. 跑 `build.sh --apply` 让 4 处 disposition table 同步
 8. 写 `learnings-confidence-audit.md` 流程
-9. RED：扩 `test_path_a_re_review.sh`：先断言 `state.sh path-a-escalation start --finding-id X --round 1` 写入 `path_a_escalation[]` 含 `blocked_for_self_fix=true`；再断言之后 `validate-pack-dispatch.sh` 在 dispatch agent=pack-executor 时退出 2
-10. GREEN：在 `state.sh` 加 `path-a-escalation` 子命令（start/update/clear），写入 schema 字段；在 `validate-pack-dispatch.sh` 加查询逻辑（jq `.path_a_escalation[] | select(.blocked_for_self_fix==true)`）
-11. RED：补 `test_path_a_re_review.sh` 的 happy path：`state.sh path-a-escalation update --verdict approved` 后 `blocked_for_self_fix=false`，dispatch 不再被拒
-12. GREEN：实现 update 逻辑分支
-13. RED：补 needs_repair 升级：再次 update --verdict needs_repair 后 `current_round=2`，超过 3 轮 BLOCKED
-14. GREEN：实现 round 累加 + 第 4 次抛 BLOCKED
-15. GREEN：写 `path-a-re-review.md` + 在 `execution-review-dispatch.md` 模板中引用此 reference，并在 review-dispatch resolver 中加入 Path A 注释段（注释段必须含 `state.sh path-a-escalation start` 调用模板）
-16. REFACTOR：在 review-dispatch.sh 中抽 `_select_model_for_phase` 函数，可单独测试
-17. 全部 verification 通过
+9. RED：扩 `test_path_a_re_review.sh` 场景 (1)：`state.sh path-a-escalation start --finding-id X --round 1` 后 `update --verdict approved` 触发自动 `clear`，断言 entry 已删除，dispatch 任何 agent 通过
+10. GREEN：在 `state.sh` 加 `path-a-escalation` 子命令（start/update/clear）；`update --verdict approved` 内部调用 clear 路径
+11. RED：场景 (2)：start → `update --verdict needs_repair`，断言 entry 仍存在且 `blocked_for_self_fix=true`；同状态下 dispatch `pack-executor` / `complex-pack-executor` 通过，dispatch `codex-reviewer`（再次 Path A）被拒
+12. GREEN：在 `validate-pack-dispatch.sh` 加查询逻辑：`jq '.path_a_escalation[] | select(.blocked_for_self_fix==true)'` 命中时，对 dispatch agent 做白名单判断（**仅** `pack-executor` / `complex-pack-executor` 通过；其他一律拒绝 exit 2 含"Path A 已耗尽，请升级 Path B"提示）
+13. RED：场景 (3)：`blocked_for_self_fix=true` 状态下再次调用 `state.sh path-a-escalation start --finding-id X` 直接被 state.sh 自身拒绝 exit 2（不需要走 validate-pack-dispatch.sh）
+14. GREEN：在 `state.sh path-a-escalation start` 路径加 entry 存在性检查：若已有 entry 且 `blocked_for_self_fix==true` → exit 2，stderr 含 stale-entry 提示
+15. RED：场景 (4)：worker dispatch 完成后 `state.sh path-a-escalation clear --finding-id X` 删除 entry；后续 dispatch 任何 agent 通过
+16. GREEN：实现 `clear` 子命令（jq `del(.path_a_escalation[] | select(.finding_id==X))`）
+17. GREEN：写 `path-a-re-review.md`（明确"Codex needs_repair → 必须升级 Path B 派 worker"流程，含 `state.sh path-a-escalation start/update/clear` 三步调用模板）+ 在 `execution-review-dispatch.md` 模板中引用此 reference，并在 review-dispatch resolver 中加入 Path A 注释段（注释段提示 needs_repair 后下一步**必须**是 worker dispatch）
+18. REFACTOR：在 review-dispatch.sh 中抽 `_select_model_for_phase` 函数，可单独测试
+19. RED：断言 disposition-table.md.tmpl 渲染后含"禁止直接转发""亲验""逐条验证"关键词
+20. GREEN：在 disposition-table.md.tmpl 中加入 **Coordinator 亲验纪律段**——3 步操作清单（亲验 → disposition → 具体修复指令），构建系统注入 4 处 SKILL.md
+21. RED：断言 `execution-repair-truncation.md` 含"Coordinator 自验收"且不含"强制 targeted re-review"（默认路径）
+22. GREEN：改 `execution-repair-truncation.md` Step 11——默认路径改为 Coordinator 自验收（运行 verification commands + 对照 acceptance criteria），例外条件（3+ 文件控制流变更 / 用户要求 / RCA 根因修复）才派 targeted re-review
+23. 同样修改 `final-review-repair.md` Step 11 和 `plan-review-resolution.md` Step 17
+24. 跑 `build.sh --apply` 同步；全部 verification 通过
 
 ---
 
@@ -796,6 +839,7 @@ grep -c "BEGIN: voice-directive" plugin-v2/agents/                              
 
 **Contract anchors**：
 - effort_total = review_total × 2（floor）
+- **特殊情形：当 `review_total == "unlimited"`（Route 4-7）时，`effort_total = "unlimited"`，所有 budget hook（track-effort-budget.sh / track-review-budget.sh）在阈值检查处早返回 0，不写计数也不触发 Direction Check**
 - effort_used 累加触发：每次 worker dispatch（Sonnet × 1 / Opus × 2 加权）+ 每次 SendMessage（worker × 1）
 - **Direction Check 阈值（review + effort 同等机制）**：
   - review_used ≥ review_total × 80% → 触发 Direction Check（hook 输出阻塞性提示，要求用户显式 ack）
@@ -806,10 +850,10 @@ grep -c "BEGIN: voice-directive" plugin-v2/agents/                              
 - review_total 达 100% → 阻塞；effort_total 达 100% → 同样阻塞（与设计承诺 5 一致：effort budget 不是 informational，是 hard gate）
 
 **Acceptance criteria**：
-- [ ] schema 含 effort_total / effort_used 字段
-- [ ] state.sh init 自动计算 effort_total
-- [ ] track-effort-budget.sh 在 PostToolUse Agent 触发时累加
-- [ ] track-effort-budget.sh 在 effort_used ≥ 80% 时输出阻塞性 Direction Check 提示
+- [ ] schema 含 effort_total / effort_used 字段，类型与 review_total 一致（`number | "unlimited"`）
+- [ ] state.sh init 自动计算 effort_total：Route 1 时 `effort_total = review_total × 2`；Route 4-7 时 `effort_total = "unlimited"`（与 review_total 同步）
+- [ ] track-effort-budget.sh 在 PostToolUse Agent 触发时累加；effort_total == "unlimited" 时早返回不触发阈值检查
+- [ ] track-effort-budget.sh 在 effort_used ≥ 80% 时输出阻塞性 Direction Check 提示（仅 effort_total 为数字时生效）
 - [ ] direction-check.md 含 effort budget 触发分支与用户确认流程
 - [ ] workflow-infrastructure.md 描述新 schema + 两类 budget 同等触发机制
 - [ ] `test_budget_direction_check.sh` 覆盖：（1）trigger 后 `pending_direction_check.ack_status == "pending"`；（2）此时 `validate-pack-dispatch.sh` 对 pack-executor dispatch 退出 2；（3）`state.sh direction-check ack --status continue` 后 dispatch 通过且 direction_check_count +1；（4）`ack --status stop` 后 run 进入终止态
@@ -947,10 +991,11 @@ grep -E "review_effectiveness|reject率|suppress率|Path A 占比" \
 - 当前 workflow-infrastructure.md Step 1（Route 1-3 关键词）
 
 **Contract anchors**（严格对齐设计 §4 承诺 7）：
-- **Route 4 Hotfix**：紧急生产修复，跳过 Discovery + Plan Writing，**push 前跳过 review**（生产事故必须先止血），但 **push 后强制入队事后 review**（next session 启动时自动调度，记入 `workflow-state.pending_post_push_reviews[]`）。失败可回滚。
-- **Route 5 Quick Fix**：小改动（≤ 2 文件），从现有 design 直接进 plan-writing（不重做 Discovery），生成最小 plan + Worker + 1 轮 review。
-- **Route 6 Spike**：探索性 / 概念验证，无 review budget 上限（`review_total: "unlimited"`），产出 **throwaway code + verdict**（"该方向可行 / 该方向不可行 / 该方向需要 X 前置"），不是 design proposal——design proposal 走 Route 2 Discovery。
-- **Route 7 Maintenance**：版本号 bump / 文档同步 / 依赖更新等结构性维护，**仍需 Codex review**，但 review angle 聚焦"breaking changes / regression surface / 依赖兼容性"，不审业务逻辑。
+- **Route 4-7 共同语义**：均为 Route 1（formal orchestrate）的精简变体，**全部使用 `review_total: "unlimited"`**——这些路线不适用 Route 1 的固定 review budget 概念（Route 4 push 前不审，事后审；Route 5 短链路一轮；Route 6 探索循环；Route 7 维护一次性审）。budget 字段在 state.sh init 时按 route 自动设为 "unlimited"，session-start 与 budget hook 跳过阈值检查。
+- **Route 4 Hotfix**：紧急生产修复，跳过 Discovery + Plan Writing，**push 前跳过 review**（生产事故必须先止血），但 **push 后强制入队事后 review**（next session 启动时自动调度，记入 `workflow-state.pending_post_push_reviews[]`）。`review_total: "unlimited"`。失败可回滚。
+- **Route 5 Quick Fix**：小改动（≤ 2 文件），从现有 design 直接进 plan-writing（不重做 Discovery），生成最小 plan + Worker + 1 轮 review。`review_total: "unlimited"`。
+- **Route 6 Spike**：探索性 / 概念验证，产出 **throwaway code + verdict**（"该方向可行 / 该方向不可行 / 该方向需要 X 前置"），不是 design proposal——design proposal 走 Route 2 Discovery。`review_total: "unlimited"`。
+- **Route 7 Maintenance**：版本号 bump / 文档同步 / 依赖更新等结构性维护，**仍需 Codex review**，但 review angle 聚焦"breaking changes / regression surface / 依赖兼容性"，不审业务逻辑。`review_total: "unlimited"`。
 - Entry Gate 关键词触发：紧急 / hotfix / 线上挂了 / 生产事故 → Route 4；quick fix / 小改 / 改一下 → Route 5；试 / spike / 探索 / 看看能不能 / proof of concept → Route 6；维护 / 升级 / bump / 同步文档 / 依赖更新 → Route 7
 - workflow-state 增加 `pending_post_push_reviews: [{run_id, slug, commit_sha, dispatched_at}]` 字段（Pack 2 schema 中预留位，本 Pack 启用）
 
@@ -961,8 +1006,9 @@ grep -E "review_effectiveness|reject率|suppress率|Path A 占比" \
 - [ ] Spike reference 明确产出是 throwaway code + verdict
 - [ ] Quick Fix reference 明确从现有 design 进 plan-writing
 - [ ] Entry Gate 表注入后含 Route 4-7 + 关键词
-- [ ] workflow-state schema 允许 review_total: "unlimited" + pending_post_push_reviews 数组
-- [ ] state.sh 对 unlimited 不写 budget 阻塞
+- [ ] workflow-state schema 允许 `review_total: number | "unlimited"` + pending_post_push_reviews 数组
+- [ ] state.sh init 在 `--route 4|5|6|7` 时自动将 `review_total` 和 `effort_total` **同时**设为 `"unlimited"`（与 Route 1 的数字 budget 区分）；`review_used` 与 `effort_used` 仍初始化为 0（可观测累计，不参与阈值判断）
+- [ ] state.sh 对 unlimited 不写 budget 阻塞；track-review-budget.sh / track-effort-budget.sh 在 review_total/effort_total 任一为 unlimited 时跳过阈值检查与 Direction Check 触发
 - [ ] `test_route_keyword_routing.sh` 覆盖 4 个 route 的关键词识别
 - [ ] `test_hotfix_post_push_review.sh` 模拟 Hotfix push 后 pending_post_push_reviews 写入 + next session 启动时调度
 
@@ -987,8 +1033,8 @@ bash plugin-v2/scripts/tests/test_hotfix_post_push_review.sh                  # 
    - Route 7 Maintenance（Codex review 聚焦 breaking changes / regression surface / 依赖兼容性）
 4. RED：写 `test_hotfix_post_push_review.sh`：模拟 Hotfix 路径 push 后 state.sh 写入 `pending_post_push_reviews[]`；模拟 next session 启动 → session-start 读 pending → 报告需要事后 review
 5. GREEN：state.sh + session-start.sh 实现 pending_post_push_reviews 读写；Pack 2 schema 中如未预留则在本 Pack 补
-6. RED：写 schema 测试，断言 review_total 同时接受 number 和 "unlimited"
-7. GREEN：state.sh / schema 支持 "unlimited"
+6. RED：写 schema 测试，断言 review_total 与 effort_total 同时接受 number 和 "unlimited"；扩 `test_route_keyword_routing.sh` 第二段断言 `state.sh init --route 4|5|6|7` 后 `.budget.review_total == "unlimited" && .budget.effort_total == "unlimited"`，`init --route 1` 后两者均为数字且 effort_total = review_total × 2
+7. GREEN：state.sh / schema 支持 "unlimited"；state.sh init 加 route-to-budget 映射（Route 1 → number / Route 4-7 → "unlimited"），同时为 review_total 与 effort_total；track-review-budget.sh + track-effort-budget.sh 在对应字段 == "unlimited" 时早返回不写计数也不触发 Direction Check
 8. 跑 build.sh --apply 让 SKILL.md 同步
 9. REFACTOR：抽出公共 route metadata 段（trigger / artifact / commit boundary）
 
@@ -1033,7 +1079,7 @@ bash plugin-v2/scripts/tests/test_hotfix_post_push_review.sh                  # 
 - **Learnings trust gate（多层过滤）**：
   - confidence < 4 或 decay weight < 0.3 → 不传给修复路径
   - **Source attribution 检查**：finding 缺少 source_run_id 或 source_project，或来自当前 run 之外但未声明 cross-project 引用 → 标 `untrusted` 跳过
-  - **Volume 异常检测**：单个 source_run_id 在 24 小时内贡献 > N 条 finding（阈值 50，可配置）→ 标 `high-volume-suspect` 触发人工审计
+  - **Volume 异常检测**：单个 source_run_id（即同一次 run）贡献 > 10 条 finding → 标 `high-volume-suspect` 触发人工审计（与设计文档承诺 8 阈值一致：单次 run 超过 10 条即异常；24h 窗口不再使用，因为同次 run 即足够异常信号）
   - **Stale / contested 检查**：finding 引用的 file / function / API 在当前 repo 已不存在或被 superseded（grep 检查），或上次同主题 finding 被 reject/suppress → 降级为 informational
   - learnings-jsonl.sh `read --with-trust-gate` 自动过滤上述 4 类
 - 4 类投毒检测在 `learnings-trust-gate.md` 中各有明确规则与 fixture 示例
@@ -1062,7 +1108,7 @@ grep -rE "UNTRUSTED_CODE_DIFF|BEGIN UNTRUSTED" plugin-v2/skills/                
 2. GREEN：实现 `build/templates/trust-boundary.md.tmpl` + `build/resolvers/trust-boundary.sh`；在 review-dispatch.md.tmpl + worker-dispatch.md 中加入 trust-boundary 锚点；跑 `build.sh --apply`
 3. 在 codex-reviewer.md 加 trust isolation 段
 4. 在 3 个 worker agent 加 input boundary 段
-5. RED：写 `test_learnings_poison_detection.sh`，4 类 fixture 各一例（缺 source_run_id / 单 source 50 条以上 / 引用已删除 API / 同主题被 reject 过）→ 断言 `read --with-trust-gate` 过滤
+5. RED：写 `test_learnings_poison_detection.sh`，4 类 fixture 各一例（缺 source_run_id / 单 source_run_id 超过 10 条 / 引用已删除 API / 同主题被 reject 过）→ 断言 `read --with-trust-gate` 过滤
 6. GREEN：实现 `lib/learnings-poison-detector.sh`（4 个独立 detector 函数）；在 learnings-jsonl.sh 加 `--with-trust-gate` 选项调用
 7. 写 `learnings-trust-gate.md` 含 4 类规则与 fixture
 8. RED：写 `test_trust_gate.sh`，confidence < 4 + decay < 0.3 case
@@ -1190,9 +1236,9 @@ bash plugin-v2/scripts/pack-count-validator.sh docs/orchestrate/plans/plugin-mat
 ```
 
 **Implementation tasks**（TDD：harness 测试驱动）：
-1. RED：写 `scripts/tests/test_verify_maturity_harness.sh`，断言一个最简的 verify-maturity.sh 在 fixture repo（含一个故意违反"或新建" grep 的文件）退出 1 + stderr 含违反 Pack 标识
+1. RED：写 `plugin-v2/scripts/tests/test_verify_maturity_harness.sh`，断言一个最简的 verify-maturity.sh 在 fixture repo（含一个故意违反"或新建" grep 的文件）退出 1 + stderr 含违反 Pack 标识
 2. GREEN：实现 verify-maturity.sh 最小骨架，跑一个断言（"或新建" grep）能让测试 pass
-3. RED：扩展 test_verify_maturity_harness.sh 加 build.sh --check / schema validate / version 一致性三个断言 case
+3. RED：扩展 `plugin-v2/scripts/tests/test_verify_maturity_harness.sh` 加 build.sh --check / schema validate / version 一致性三个断言 case
 4. GREEN：实现这三个断言；fixture 中各放一个反例 case 验证 exit 1
 5. RED：在 architecture-draft.md 中故意保留一个旧描述 → 写 sanity grep test 断言新结构关键词存在；跑确认 RED
 6. GREEN：编辑 architecture-draft.md 三处结构性更新 + 新增"Build system + Unified state + Control protocol"小节使 sanity grep 通过
@@ -1232,8 +1278,8 @@ bash plugin-v2/scripts/pack-count-validator.sh docs/orchestrate/plans/plugin-mat
 - Plugin V2 三大基础设施（构建系统 / 状态机 / 控制协议）由 Pack 1.1 / 1.2 / 2 / 4 构成清晰依赖链
 - Plan-writer SendMessage resume 模式（Pack 5 涵盖，含 plan-writer.md 新增段 + SendMessage Resume Operation Template 6 步通过 sendmessage-resume resolver 注入两条 SKILL.md）
 - Pack count threshold 的 bootstrap 例外（Pack 13 显式支持）
-- 承诺 3 全子区域覆盖：3a confidence rubric / 3b disposition 持久化（review_dispositions schema 在 Pack 2，写入在 Pack 7）/ 3c Path A re-review 强制 + Coordinator 自修禁止 / 3d bias metrics（写入 Pack 10 run-summary）
-- 承诺 7 Route 4-7 行为对齐设计 §4：Hotfix push 后强制事后 review / Quick Fix 直接进 plan-writing / Spike 输出 throwaway code + verdict / Maintenance 仍需 Codex review（聚焦 breaking changes）
+- 承诺 3 全子区域覆盖：3a confidence rubric / 3b disposition 持久化（review_dispositions schema 在 Pack 2，写入在 Pack 7）/ 3c Path A re-review 强制 + Coordinator 自修两轮无果后**强制升级 Path B worker**（不再做第三次 Path A）/ 3d bias metrics（写入 Pack 10 run-summary）
+- 承诺 7 Route 4-7 行为对齐设计 §4：Hotfix push 后强制事后 review / Quick Fix 直接进 plan-writing / Spike 输出 throwaway code + verdict / Maintenance 仍需 Codex review（聚焦 breaking changes）；**4 条 route 全部使用 `review_total: "unlimited"`**（state.sh init 按 route 自动设置），与 Route 1 的数字 review budget 区分
 - 承诺 8 adversarial 防御全维度：UNTRUSTED_CODE_DIFF resolver 注入 + 4 类投毒检测（source attribution / volume / stale / contested）
 - 承诺 5 effort budget Direction Check 与 review budget 同等阻塞机制（不是 informational warn）
 - TDD 翻译完整性：Pack 11 / 12 / 13 / 14 implementation tasks 全部按 RED→GREEN→REFACTOR 顺序翻译，与 Plan Header `Verification patterns` 段一致；Pack 5 / 7 / 9 同样遵守此顺序
