@@ -104,9 +104,9 @@ run_test_expect_fail "hook blocks dispatch to pack with existing agent_id" \
 run_test "hook allows dispatch to pack without agent_id" \
   bash -c "cd '$WORKSPACE' && echo '$INPUT_ALLOWED' | bash '$HOOK'"
 
-# Test 3: Verify the BLOCKED message mentions SendMessage
-run_test "block message references SendMessage" \
-  bash -c "cd '$WORKSPACE' && STDERR=\$(echo '$INPUT_BLOCKED' | bash '$HOOK' 2>&1 >/dev/null || true); echo \"\$STDERR\" | grep -q SendMessage"
+# Test 3: Verify the BLOCKED message mentions the blocking reason (Step 7 pack status or Step 8 agent_id)
+run_test "block message references pack status or SendMessage" \
+  bash -c "cd '$WORKSPACE' && STDERR=\$(echo '$INPUT_BLOCKED' | bash '$HOOK' 2>&1 >/dev/null || true); echo \"\$STDERR\" | grep -qE 'SendMessage|Cannot re-dispatch'"
 
 # Test 4: Verify idempotency was NOT appended for the blocked dispatch
 run_test "blocked dispatch did not append idempotency key" \

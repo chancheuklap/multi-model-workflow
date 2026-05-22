@@ -738,13 +738,13 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 
 ## 与 Codex Runtime 的关系
 
-Plugin-v2 和 `.agents/skills/`（Codex runtime）是**两套并行代码**，30+ 文件已不同步。同步方向单向：`.agents/skills/` → 外部 repo（通过 `install-orchestrate-runtime.sh`）。
+Plugin-v2 和 `.agents/skills/`（Codex runtime）是**两套并行代码**，30+ 文件已不同步。同步方向单向：`.agents/skills/` → 外部 repo。
 
 | 维度 | Plugin V2 | Codex Runtime |
 |------|-----------|---------------|
 | Skill 调用语法 | `Skill({ skill: "multi-model-workflow:..." })` | 裸名 `orchestrate-*` |
 | 状态文件路径 | `.claude/multi-model-workflow/` | `.codex/multi-model-workflow/` |
-| Review 派发 | `codex-companion.mjs` Bash 调用 | `claude-subscription-review.sh` |
+| Review 派发 | `codex-companion.mjs` Bash 调用 | `codex-companion.mjs`（统一通过 `review-dispatch` resolver 派发） |
 | Agent 命名 | `plan-writer`（连字符） | `plan_writer`（下划线） |
 | Worker 隔离 | `isolation: "worktree"` | disjoint write sets |
 

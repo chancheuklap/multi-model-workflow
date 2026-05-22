@@ -177,6 +177,19 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" self-verify append \
 | `needs context` | 缺信息 | SendMessage 补充上下文给原 worker；补充后继续 |
 | `blocked` | 无法完成 | **Intra-Plan Blocker**：写入 `packs[N.M].status = blocked` + `plans[N].status = blocked` → 整个 Plan 停止，不继续后续 Pack → 返回 `BLOCKED` |
 
+**BLOCKED 报告格式**（双层，发给用户）：
+
+**业务影响层**（非技术人员可读）：
+> 功能 X 的实现在 Pack N.M（<模块描述>）遇到障碍。
+> 影响：<对用户可见功能的影响>
+> 不修的后果：<功能无法发布 / 体验降级 / 数据不一致>
+> 需要的帮助：<具体需要什么 + 预估时间>
+
+**技术详情层**（给能帮忙的工程师）：
+> Round N: <reviewer 发现的问题> → <worker 修复尝试> → <结果>
+> Root cause: <根因分析>
+> Recommendation: <推荐修复方向>
+
 **Worker scope drift 检测**：检查 Changed files 是否超出 Owned files。属于当前 scope 其它 pack → 记录不 revert；不属于当前 scope → revert。
 
 ###### Step 7a：Open Items 即时处置

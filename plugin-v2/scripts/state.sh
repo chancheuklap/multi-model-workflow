@@ -25,6 +25,7 @@ Commands:
   budget            Budget subcommands (initialize, check)
   direction-check   Direction Check flow (trigger, ack)
   idempotency       Idempotency key management (check, append)
+  plans             Plan management (add)
 
 Options:
   --run-id <id>     Run identifier (required for most commands)
@@ -363,6 +364,16 @@ cmd_disposition_append() {
     echo "Error: --finding-id and --disposition required" >&2
     exit 2
   fi
+
+  # Enum validation: only allow known disposition values
+  case "$disposition" in
+    accepted|rejected|suppress|path-a|path-b|duplicate|out-of-scope|needs-evidence|needs-evaluation|user-decision)
+      ;;
+    *)
+      echo "Error: invalid disposition '$disposition'. Allowed: accepted|rejected|suppress|path-a|path-b|duplicate|out-of-scope|needs-evidence|needs-evaluation|user-decision" >&2
+      exit 2
+      ;;
+  esac
 
   if [[ "$disposition" == "accepted" && ( -z "$evidence" || "$evidence" == "" ) ]]; then
     echo "Error: --evidence required and must be non-empty for accepted disposition" >&2
@@ -820,6 +831,40 @@ cmd_idempotency_append() {
   mv "$tmp" "$sf"
 }
 
+# --- plans subcommand ---
+cmd_plans() {
+  local subcmd="$1"; shift
+  case "$subcmd" in
+    add) cmd_plans_add "$@" ;;
+    *) echo "Error: unknown plans subcommand: $subcmd (use add)" >&2; exit 2 ;;
+  esac
+}
+
+cmd_plans_add() {
+  local plan_id="" status="pending"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --status) status="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  if [[ -z "$plan_id" ]]; then
+    echo "Error: --plan-id required" >&2
+    exit 2
+  fi
+  ensure_state_exists
+  acquire_lock
+  trap release_lock EXIT
+  local sf
+  sf="$(state_file)"
+  jq --arg pid "$plan_id" --arg st "$status" \
+    '.plans += [{"plan_id": $pid, "status": $st, "packs": {}}]' \
+    "$sf" > "${sf}.tmp" && mv "${sf}.tmp" "$sf"
+  release_lock
+  trap - EXIT
+}
+
 # --- Main ---
 if [[ $# -lt 1 ]]; then usage; fi
 
@@ -854,5 +899,6 @@ case "$CMD" in
   budget) cmd_budget "$@" ;;
   direction-check) cmd_direction_check "$@" ;;
   idempotency) cmd_idempotency "$@" ;;
+  plans) cmd_plans "$@" ;;
   *) echo "Error: unknown command: $CMD" >&2; usage ;;
 esac

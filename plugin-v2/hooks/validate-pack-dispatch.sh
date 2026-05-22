@@ -55,7 +55,16 @@ if [[ "$DC" == "pending" ]]; then
   fi
 fi
 
-# Step 7: (pack existence/status check - deferred to execution-state if available)
+# Step 7: pack status check — only allow dispatch for pending packs
+if [[ -n "$PACK_ID" && "$PACK_ID" != "null" && -f "$ESF" ]]; then
+  PACK_STATUS=$(jq -r --arg pid "$PACK_ID" \
+    '[.plans | to_entries[] | .value.packs // {} | to_entries[] | select(.key == $pid) | .value.status // "unknown"] | first // "unknown"' \
+    "$ESF" 2>/dev/null || echo "unknown")
+  if [[ "$PACK_STATUS" != "pending" && "$PACK_STATUS" != "unknown" ]]; then
+    echo "[multi-model-workflow] BLOCKED: Pack $PACK_ID status is '$PACK_STATUS', expected 'pending'. Cannot re-dispatch." >&2
+    exit 2
+  fi
+fi
 
 # Step 8: agent_id existence guard (per Ruling 2 + A7: not gated by repair_round)
 if [[ -n "$PACK_ID" && "$PACK_ID" != "null" && -f "$ESF" ]]; then

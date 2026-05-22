@@ -37,6 +37,9 @@ description: "正式开发流程主入口。用户给出新功能、改造、bug
 
 ---
 
+**Pre-flight（进入 Entry Gate 前）：**
+1. 验证 SendMessage 工具可用（尝试列出工具列表确认）。如不可用 → 硬停：`"SendMessage tool not available. Ensure CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is set and Claude Code version >= 2.1.147."`
+
 ## Step 1：Entry Gate
 
 | 路线 | 输入信号 | 下一步 |
@@ -193,6 +196,18 @@ Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
 ## Global Constraints
 
 **Hard Gates**：没有验证证据不得声称完成 / 没有 design document 不跳到 plan / 每 phase review 不可跳过 / upstream 结论必须写回再继续 / 不存在非阻塞项。
+
+**BLOCKED 报告格式**（任何 phase 返回 BLOCKED 时，使用双层格式报告用户）：
+
+**业务影响层**（非技术人员可读）：
+> <哪个功能/流程>在<哪个环节>被阻塞。
+> 影响：<用户能感知到的影响>
+> 需要的帮助：<用户可以做什么来解除阻塞>
+
+**技术详情层**（如需转发给工程师）：
+> Phase: <phase 名称> | Verdict: BLOCKED
+> Root cause: <阻塞根因>
+> Attempted: <已尝试的解决方案>
 
 **Sub-agent 隔离**：dispatch prompt 必须自足。Sub-agent 不读 SKILL.md、不读 references/。Agent frontmatter `skills:` 自动预加载指定 skill。
 

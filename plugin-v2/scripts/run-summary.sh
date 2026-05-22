@@ -54,7 +54,18 @@ fi
 echo ""
 
 echo "## Plans"
-jq -r '.plans[] | "- Plan \(.plan_id): \(.status) (\(.packs | length) packs)"' "$SF" 2>/dev/null || echo "- No plans"
+PLAN_COUNT=$(jq '.plans | length' "$SF" 2>/dev/null || echo "0")
+if [[ "$PLAN_COUNT" -gt 0 ]]; then
+  jq -r '.plans[] | "- Plan \(.plan_id // "unknown"): \(.status // "unknown") (\(.packs // {} | length) packs)"' "$SF" 2>/dev/null || echo "- No plans"
+else
+  # Fallback: check execution-state for plan data
+  ESF="${STATE_BASE}/execution-state-${RUN_ID}.json"
+  if [[ -f "$ESF" ]]; then
+    jq -r '.plans | to_entries[] | "- Plan \(.key): \(.value.status // "unknown") (\(.value.packs // {} | length) packs)"' "$ESF" 2>/dev/null || echo "- No plans (execution-state fallback failed)"
+  else
+    echo "- No plans"
+  fi
+fi
 echo ""
 
 echo "## Path A Escalations"

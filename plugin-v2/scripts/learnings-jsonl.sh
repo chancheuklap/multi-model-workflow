@@ -139,7 +139,15 @@ cmd_read() {
       ts=$(echo "$line" | jq -r '.timestamp // ""')
       if [[ -n "$ts" ]]; then
         local ts_epoch
-        ts_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$ts" +%s 2>/dev/null || date -d "$ts" +%s 2>/dev/null || echo "0")
+        ts_epoch=$(python3 -c "
+import datetime, sys
+ts = sys.argv[1].replace('Z', '+00:00')
+try:
+    dt = datetime.datetime.fromisoformat(ts)
+    print(int(dt.timestamp()))
+except Exception:
+    print('0')
+" "$ts" 2>/dev/null || echo "0")
         local age_days=$(( (now_epoch - ts_epoch) / 86400 ))
         local decay=$(( age_days / 30 ))
         local effective_conf=$(( conf - decay ))
