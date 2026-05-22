@@ -15,7 +15,7 @@ Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问�
 | 修订范围 | 路径 |
 | --- | --- |
 | 只需修改 plan header / coverage map / scope check / 发布风险表 | Coordinator 直接修 → 跳到 Step 11（Plan Entry Gate 重检） |
-| 需修改 Task Pack 内容（implementation tasks / owned files / verification） | SendMessage 原 plan-writer（agentId 从 workflow context 获取）或新建 plan-writer，prompt 附带具体 findings + 现有 plan path → plan-writer 定向修订 → Step 11 |
+| 需修改 Task Pack 内容（implementation tasks / owned files / verification） | SendMessage 原 plan-writer（agentId 从 workflow context 获取）（agentId 从 workflow-state 获取，若无 agentId 则 BLOCKED），prompt 附带具体 findings + 现有 plan path → plan-writer 定向修订 → Step 11 |
 | 修订揭示 design gap / issue mismatch | 返回 `NEEDS_DISCOVERY` / `NEEDS_ISSUES`（upstream backflow） |
 
 4. 修订后重跑 Plan Entry Gate（Step 11）+ Task Pack Inventory Gate（Step 12）

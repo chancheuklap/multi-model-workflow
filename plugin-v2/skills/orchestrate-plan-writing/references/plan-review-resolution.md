@@ -38,7 +38,7 @@ Plan Review 的 `accepted` 细分为 4 种路由：
 Plan Review 三条路径：
 
 - **路径 A**（框架性内容：header / coverage map / scope check / 发布风险表）：Coordinator 直接修 → Step 17
-- **路径 B**（Task Pack 内容：implementation tasks / verification / owned files / contract anchors）：SendMessage plan-writer（或新建）→ 重跑 Gate → Step 17
+- **路径 B**（Task Pack 内容：implementation tasks / verification / owned files / contract anchors）：SendMessage plan-writer（agentId 从 workflow-state 获取，若无 agentId 则 BLOCKED）→ 重跑 Gate → Step 17
 - **路径 C**（source artifact 问题）：Upstream backflow → 写回后 re-review
 
 路径 C 路由表：

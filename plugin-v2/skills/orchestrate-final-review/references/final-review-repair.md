@@ -7,7 +7,7 @@
 所有 repair prompt 只携带 accepted findings。Repair 返回后默认只做 targeted re-review；只有 source baseline 改变时才 full phase review rerun。
 
 - **路径 A**（≤ 2 文件、不碰合同边界、意图明确）：Coordinator 直接修 → 跑验证 → Step 11
-- **路径 B**（多文件、根因已知）：SendMessage 给原 worker 或新建同类 agent：
+- **路径 B**（多文件、根因已知）：SendMessage 给原 worker （agentId 从 workflow-state 获取，若无 agentId 则 BLOCKED）：
 
 ```
 Agent({
