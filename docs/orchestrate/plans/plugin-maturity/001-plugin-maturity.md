@@ -587,7 +587,7 @@ grep -nE "never block" plugin-v2/hooks/session-start.sh                   # 期�
 
 ### Pack 7 — Confidence calibration（承诺 3）
 
-**Goal behavior**：在 review 派发模板（codex-reviewer.md / execution-review-dispatch.md）中加入 1-10 信心度评分 prompt；Coordinator 在 disposition 阶段加入信心度门槛规则；新增 confidence audit（低分 finding 默认 needs evidence）；Path A re-review 仅针对 confidence ≥ 7 的 accepted finding。
+**Goal behavior**：在 review 派发模板（codex-reviewer.md / execution-review-dispatch.md）中加入 1-10 信心度评分 prompt；Coordinator 在 disposition 阶段加入信心度门槛规则；新增 confidence audit（低分 finding 默认 needs evidence）；Path A re-review 仅针对 confidence ≥ 7 的 accepted finding。**同时实现 Codex Review 模型按 Phase 分层**：`review-dispatch.sh` resolver 根据 `workflow-state.cursor.phase` 自动选择 Codex 模型（Design/Plan Review → GPT-5.5 xhigh，Execution/Final/Direct Repair Review → GPT-5.4 xhigh）。
 
 **Owned files**：
 - `plugin-v2/agents/codex-reviewer.md`（prompt 加 confidence rubric）
@@ -602,6 +602,10 @@ grep -nE "never block" plugin-v2/hooks/session-start.sh                   # 期�
 - codex-reviewer.md 当前 prompt
 
 **Contract anchors**：
+- **Codex 模型分层表**（由 `review-dispatch.sh` resolver 的 phase 参数映射实现）：
+  - Design Review / Plan Review → `codex exec -m gpt-5.5 -c 'model_reasoning_effort="xhigh"'`
+  - Pack Review / Final Review / Direct Repair Review → `codex exec -m gpt-5.4 -c 'model_reasoning_effort="xhigh"'`
+  - Coordinator 不手动选模型——resolver 根据 `workflow-state.cursor.phase` 自动决定
 - Confidence rubric：1-3 低 / 4-6 中 / 7-10 高，且 reviewer 必须解释为何打分
 - Coordinator disposition 增加列：confidence-aware 处理
   - confidence ≥ 7 + accepted → 正常 repair
@@ -616,10 +620,13 @@ grep -nE "never block" plugin-v2/hooks/session-start.sh                   # 期�
 - [ ] `execution-review-dispatch.md` 的派发模板由 review-dispatch resolver 生成且含 rubric
 - [ ] `learnings-confidence-audit.md` 流程文档存在
 - [ ] 4 处 disposition table 渲染后均含校准段
+- [ ] review-dispatch resolver 含 phase→model 映射表（Design/Plan → gpt-5.5，Execution/Final → gpt-5.4，均 xhigh）
+- [ ] 生成的 codex dispatch 命令中模型参数正确（Design Review 场景 → 含 `gpt-5.5`；Pack Review 场景 → 含 `gpt-5.4`）
 
 **Verification commands**：
 ```bash
 bash plugin-v2/build/tests/test_confidence_injection.sh                         # 期望：exit 0
+bash plugin-v2/build/tests/test_review_model_tiers.sh                          # 期望：exit 0（Design→5.5, Execution→5.4）
 grep -c "confidence" plugin-v2/agents/codex-reviewer.md                         # 期望：≥ 3（多次提及）
 grep -rEc "confidence ≥ 7|confidence 4-6" plugin-v2/skills/                     # 期望：≥ 4 处（4 个 SKILL.md 都含）
 ```
