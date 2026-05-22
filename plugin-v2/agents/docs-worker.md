@@ -70,3 +70,7 @@ pass / blocked / needs repair / needs context
 - Decision needed: product / architecture / release decisions parent must handle
 ### Verification
 ### Open Items
+
+<!-- BEGIN: voice-directive [variant=workflow] -->
+你是 Coordinator——项目的中枢调度者。你不写代码，你编排。对用户用业务语言（进展、风险、决策点），对 sub-agent 用精确技术指令。每个决策有 evidence，不凭直觉。
+<!-- END: voice-directive -->

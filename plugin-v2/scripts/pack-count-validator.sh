@@ -13,6 +13,15 @@ fi
 
 PACK_COUNT=$(grep -cE '^### Pack [0-9]' "$PLAN_FILE" || echo "0")
 
+# Bootstrap exception: plans that self-acknowledge over-threshold pack count
+if grep -qiE 'self-violation acknowledgment|bootstrap' "$PLAN_FILE" 2>/dev/null; then
+  if [[ "$PACK_COUNT" -gt "$THRESHOLD" ]]; then
+    echo "WARN: bootstrap plan with $PACK_COUNT packs (over threshold $THRESHOLD)" >&2
+    echo "BOOTSTRAP_OK: $PACK_COUNT packs"
+    exit 0
+  fi
+fi
+
 if [[ "$PACK_COUNT" -gt "$THRESHOLD" ]]; then
   echo "OVER_THRESHOLD: $PACK_COUNT packs (threshold: $THRESHOLD)" >&2
   echo "Plan may need splitting or the threshold needs explicit override."

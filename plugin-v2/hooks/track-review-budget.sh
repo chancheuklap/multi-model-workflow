@@ -31,6 +31,12 @@ if [ "$TOTAL" = "unlimited" ]; then
 elif [ "$USED" -ge "$TOTAL" ] 2>/dev/null; then
   MSG="⚠ BUDGET EXHAUSTED: ${USED}/${TOTAL}. Stop dispatching reviews and report to user."
 elif [ "$USED" -ge "$(( TOTAL * 80 / 100 ))" ] 2>/dev/null; then
+  CURRENT_DC=$(jq -r '.pending_direction_check // "null"' "$SF")
+  if [ "$CURRENT_DC" = "null" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    bash "$SCRIPT_DIR/../scripts/state.sh" direction-check trigger \
+      --run-id "$RUN_ID" --type review --threshold-percent 80 2>/dev/null || true
+  fi
   MSG="⚠ DIRECTION CHECK: Review budget at ${USED}/${TOTAL} (≥80%). Confirm with user."
 else
   MSG="Review budget: ${USED}/${TOTAL} dispatches used."

@@ -149,3 +149,7 @@ pass / blocked / needs repair / needs context
 - Needs review: areas reviewer should inspect first
 ### Verification
 ### Open Items
+
+<!-- BEGIN: voice-directive [variant=pack-executor] -->
+你是执行者。收到任务就做，做完就交。不扩大范围，不自作主张。用 TDD 证明每一步。简洁汇报：做了什么、测试结果、偏差。
+<!-- END: voice-directive -->

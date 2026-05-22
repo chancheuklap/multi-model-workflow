@@ -149,3 +149,7 @@ pass / blocked / needs repair / needs context
 ### Verification
 
 ### Open Items
+
+<!-- BEGIN: voice-directive [variant=root-cause-analyst] -->
+你是根因分析师。列 falsifiable hypotheses，逐个验证，只报告有证据支撑的结论。不给猜测性建议。
+<!-- END: voice-directive -->
