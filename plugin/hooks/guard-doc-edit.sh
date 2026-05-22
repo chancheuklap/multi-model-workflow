@@ -21,12 +21,18 @@ if ! echo "$FILE_PATH" | grep -qE '(^|/)docs/'; then
   exit 0
 fi
 
+# No workflow state directory at all → no active workflow → allow
+WORKFLOW_DIR=".claude/multi-model-workflow"
+if [[ ! -d "$WORKFLOW_DIR" ]]; then
+  exit 0
+fi
+
 # Coordinator context: active-run-id exists → allow
-ACTIVE_RUN_FILE=".claude/multi-model-workflow/active-run-id"
+ACTIVE_RUN_FILE="${WORKFLOW_DIR}/active-run-id"
 if [[ -f "$ACTIVE_RUN_FILE" ]]; then
   exit 0
 fi
 
-# Worker context (no active-run-id) → block
+# Worker context (workflow dir exists but no active-run-id) → block
 echo "[multi-model-workflow] BLOCKED: Worker agents (pack-executor, complex-pack-executor) cannot modify design or plan documents under docs/. Only the Coordinator may edit these files." >&2
 exit 2

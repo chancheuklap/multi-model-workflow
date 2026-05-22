@@ -3,6 +3,10 @@
 # Cleans up orchestration temp files AFTER a successful push.
 
 INPUT=$(cat)
+
+EXIT_CODE=$(echo "$INPUT" | jq -r '.tool_response.exit_code // 0' 2>/dev/null)
+if [ "$EXIT_CODE" != "0" ]; then exit 0; fi
+
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
 
 if ! echo "$COMMAND" | grep -qE 'git push|gh pr create'; then

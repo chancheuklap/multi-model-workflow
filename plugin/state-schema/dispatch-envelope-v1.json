@@ -6,7 +6,7 @@
   "properties": {
     "protocol_version": { "type": "string", "const": "1" },
     "run_id": { "type": "string" },
-    "phase": { "type": "string", "enum": ["plan-writing", "execution", "final-review", "discovery"] },
+    "phase": { "type": "string", "enum": ["plan-writing", "execution", "final-review", "discovery", "multi-pr-merge"] },
     "agent_role": { "type": "string" },
     "agent_id": { "type": ["string", "null"] },
     "pack_id": { "type": ["string", "null"] },

@@ -27,8 +27,7 @@
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate-codex-review.sh\"",
-            "if": "Bash(*codex-companion.mjs task*)"
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate-codex-review.sh\""
           }
         ]
       },

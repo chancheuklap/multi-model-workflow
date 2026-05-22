@@ -18,11 +18,14 @@
 | Coordinator | workflow | plan-writing | 进入 Plan Writing phase |
 | Coordinator | workflow | execution | 进入 Execution phase |
 | Coordinator | workflow | final-review | 进入 Final Review phase |
+| Coordinator | discovery | plan-writing | Discovery → Plan Writing 阶段推进 |
+| Coordinator | plan-writing | execution | Plan Writing → Execution 阶段推进 |
+| Coordinator | execution | final-review | Execution → Final Review 阶段推进 |
+| Coordinator | final-review | closed | Final Review → 关闭 |
 | Coordinator | * | execution_done | Execution 完成 |
 | Coordinator | * | closed | 工作流关闭 |
 | agent-return-handler | dispatched | returned | PostToolUse hook 自动标记 Worker 返回 |
 | track-execution-state | returned | committed | PostToolUse hook 自动标记 commit 完成 |
-| session-start | * | current_phase | Session 恢复当前 phase |
 
 ## 设计约束
 

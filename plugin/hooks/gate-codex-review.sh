@@ -9,7 +9,7 @@ PARSE_ENVELOPE="$SCRIPT_DIR/lib/parse-envelope.sh"
 
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
 if [[ -z "$COMMAND" ]]; then exit 0; fi
-if ! echo "$COMMAND" | grep -qE 'codex-companion.*task'; then exit 0; fi
+if ! echo "$COMMAND" | grep -qE '(codex-companion|CODEX_SCRIPT).*task'; then exit 0; fi
 
 PROMPT_FILE=$(echo "$COMMAND" | sed -n 's/.*--prompt-file[[:space:]]*\([^[:space:]]*\).*/\1/p')
 if [[ -z "$PROMPT_FILE" || ! -f "$PROMPT_FILE" ]]; then

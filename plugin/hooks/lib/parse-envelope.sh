@@ -11,7 +11,20 @@ else
   PROMPT_TEXT=$(cat)
 fi
 
+# Try single-line format: <!-- DISPATCH_ENVELOPE {...} -->
 ENVELOPE_JSON=$(echo "$PROMPT_TEXT" | sed -n 's/.*<!-- DISPATCH_ENVELOPE \(.*\) -->.*/\1/p' | head -1)
+
+# Fall back to multi-line format:
+# <!-- DISPATCH_ENVELOPE
+# { ... }
+# -->
+if [[ -z "$ENVELOPE_JSON" ]]; then
+  ENVELOPE_JSON=$(echo "$PROMPT_TEXT" | awk '
+    /<!-- DISPATCH_ENVELOPE/ { found=1; next }
+    /^-->/ { if (found) exit }
+    found { printf "%s", $0 }
+  ')
+fi
 
 if [[ -z "$ENVELOPE_JSON" ]]; then
   echo "Error: DISPATCH_ENVELOPE not found in prompt" >&2

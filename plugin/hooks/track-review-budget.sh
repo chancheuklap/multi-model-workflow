@@ -32,6 +32,7 @@ jq '.budget.review_used += 1' "$SF" > "${SF}.tmp" && mv "${SF}.tmp" "$SF"
 USED=$(jq -r '.budget.review_used' "$SF")
 TOTAL=$(jq -r '.budget.review_total' "$SF")
 
+NEEDS_DC=false
 if [ "$TOTAL" = "unlimited" ]; then
   MSG="Review budget: ${USED} dispatches used (unlimited)."
 elif [ "$USED" -ge "$TOTAL" ] 2>/dev/null; then
@@ -39,13 +40,20 @@ elif [ "$USED" -ge "$TOTAL" ] 2>/dev/null; then
 elif [ "$USED" -ge "$(( TOTAL * 80 / 100 ))" ] 2>/dev/null; then
   CURRENT_DC=$(jq -r '.pending_direction_check // "null"' "$SF")
   if [ "$CURRENT_DC" = "null" ]; then
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-    bash "$SCRIPT_DIR/../scripts/state.sh" direction-check trigger \
-      --run-id "$RUN_ID" --type review --threshold-percent 80 2>/dev/null || true
+    NEEDS_DC=true
   fi
   MSG="⚠ DIRECTION CHECK: Review budget at ${USED}/${TOTAL} (≥80%). Confirm with user."
 else
   MSG="Review budget: ${USED}/${TOTAL} dispatches used."
+fi
+
+# Release lock before calling state.sh (which acquires the same lock)
+state_lock_release "$LOCK_DIR"
+trap - EXIT
+
+if [ "$NEEDS_DC" = "true" ]; then
+  bash "$SCRIPT_DIR/../scripts/state.sh" direction-check trigger \
+    --run-id "$RUN_ID" --type review --threshold-percent 80 2>/dev/null || true
 fi
 
 jq -n --arg msg "[multi-model-workflow] $MSG" \

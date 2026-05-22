@@ -117,7 +117,7 @@ Plan Review 通过 → 两级循环（Plan → Pack）→ Pack 执行 + Git Chec
 
 **Pre-execution（进入前快速验证）：**
 - [ ] Plan Review 通过（所有 plan 文件）
-- [ ] Budget file 存在且 budget_total > 0
+- [ ] Budget 已初始化（`budget.budget_status == "initialized"` 且 `budget.review_total > 0`）
 - [ ] Scope Contract 存在
 - [ ] Git 在 work branch 上
 - [ ] Budget 状态锚写入：`current_phase = execution`

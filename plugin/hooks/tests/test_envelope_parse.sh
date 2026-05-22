@@ -46,6 +46,32 @@ run_test "baseline review_intent valid" bash -c "echo '$BASELINE' | bash '$PARSE
 REPAIR_OK='<!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"r1","phase":"execution","agent_role":"pack-executor","pack_id":"1.1","repair_round":1,"idempotency_key":"r1/1.1/r1","disposition_refs":["F1","F3"],"review_intent":null,"exception_code":null} -->'
 run_test "repair with disposition_refs valid" bash -c "echo '$REPAIR_OK' | bash '$PARSE'"
 
+# Multi-line envelope (production format from control-envelope.md.tmpl)
+MULTILINE='<!-- DISPATCH_ENVELOPE
+{
+  "protocol_version": "1",
+  "run_id": "r2",
+  "phase": "execution",
+  "agent_role": "pack-executor",
+  "agent_id": null,
+  "pack_id": "2.1",
+  "repair_round": 0,
+  "idempotency_key": "r2/2.1/r0",
+  "disposition_refs": null,
+  "review_intent": null,
+  "exception_code": null
+}
+-->'
+run_test "multi-line envelope parses" bash -c "printf '%s' '$MULTILINE' | bash '$PARSE'"
+
+# Multi-line envelope with surrounding text
+MULTILINE_CONTEXT="Some prompt text before.
+<!-- DISPATCH_ENVELOPE
+{\"protocol_version\":\"1\",\"run_id\":\"r3\",\"phase\":\"plan-writing\",\"agent_role\":\"plan-writer\",\"agent_id\":null,\"pack_id\":null,\"repair_round\":0,\"idempotency_key\":\"r3/plan/r0\",\"disposition_refs\":null,\"review_intent\":null,\"exception_code\":null}
+-->
+More prompt text after."
+run_test "multi-line envelope with surrounding text" bash -c "printf '%s' '$MULTILINE_CONTEXT' | bash '$PARSE'"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

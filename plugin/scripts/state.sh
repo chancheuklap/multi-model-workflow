@@ -83,11 +83,14 @@ TRANSITION_MATRIX=(
   "Coordinator:workflow:plan-writing"
   "Coordinator:workflow:execution"
   "Coordinator:workflow:final-review"
+  "Coordinator:discovery:plan-writing"
+  "Coordinator:plan-writing:execution"
+  "Coordinator:execution:final-review"
+  "Coordinator:final-review:closed"
   "Coordinator:*:execution_done"
   "Coordinator:*:closed"
   "agent-return-handler:dispatched:returned"
   "track-execution-state:returned:committed"
-  "session-start:*:current_phase"
 )
 
 transition_allowed() {
@@ -338,7 +341,10 @@ cmd_validate() {
 
   local required_fields=("run_id" "slug" "route" "cursor" "budget" "plans"
     "idempotency_keys" "review_dispositions" "review_effectiveness"
-    "path_a_escalation" "self_verifications")
+    "path_a_escalation" "self_verifications"
+    "current_phase" "execution_reflux_count" "last_gate_phase"
+    "last_gate_timestamp" "pending_direction_check"
+    "pending_post_push_reviews" "plan_writer_agent_id" "started_at")
 
   for field in "${required_fields[@]}"; do
     local val
@@ -913,7 +919,7 @@ cmd_plans_add() {
   local sf
   sf="$(state_file)"
   jq --arg pid "$plan_id" --arg st "$status" \
-    '.plans += [{"plan_id": $pid, "status": $st, "packs": {}}]' \
+    '.plans += [{"plan_id": $pid, "status": $st}]' \
     "$sf" > "${sf}.tmp" && mv "${sf}.tmp" "$sf"
   release_lock
   trap - EXIT
