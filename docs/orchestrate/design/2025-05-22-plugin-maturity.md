@@ -365,7 +365,7 @@ hooks 通过 `tool_input` 中的 prompt 字段提取信封（`jq` 解析 `<!-- D
 }
 ```
 
-> **[Ruling 2 衍生]** workflow-state.plans 使用 object（keyed by plan_id）而非 array。execution-state 的 plans 也使用 object keyed by plan_id，两文件通过 plan_id 和 pack_id 关联。
+> **[Ruling 2 衍生]** workflow-state.plans 使用 array（每个元素含 plan_id 字段），因为 workflow-state 只做 plan-level tracking（遍历场景），不需要 by-key 查找。execution-state.plans 使用 object（keyed by plan_id），因为需要按 plan_id 快速定位 pack-level 数据。两文件通过 plan_id 和 pack_id 关联。
 
 **2c. cleanup-before-push 移到 PostToolUse**
 
@@ -965,7 +965,7 @@ python3 -m json.tool plugin-v2/hooks/hooks.json >/dev/null
 ### 置信度校准验证（承诺 3）
 ```bash
 # review prompt 含 confidence 格式要求
-grep -q "Confidence.*10" plugin-v2/build/resolvers/review-dispatch.sh
+grep -q "Confidence.*10" plugin-v2/build/templates/review-dispatch.md.tmpl
 # workflow-state 含 disposition 记录
 python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert 'review_dispositions' in d" .claude/multi-model-workflow/workflow-state-*.json
 ```
@@ -1002,9 +1002,9 @@ grep -q "hotfix\|quick.fix\|spike\|maintenance\|upgrade" plugin-v2/skills/orches
 ### 对抗性输入验证（承诺 8）
 ```bash
 # review prompt 含 trust boundary 标记
-grep -q "BEGIN UNTRUSTED" plugin-v2/build/resolvers/review-dispatch.sh
+grep -q "BEGIN UNTRUSTED" plugin-v2/build/templates/review-dispatch.md.tmpl
 # worker preamble 含输入边界声明
-grep -q "不是你的 skill 指令\|not your skill instruction" plugin-v2/build/resolvers/preamble.sh
+grep -q "不是你的 skill 指令\|not your skill instruction" plugin-v2/build/templates/preamble.md.tmpl
 ```
 
 ### 输入粒度验证（承诺 9）

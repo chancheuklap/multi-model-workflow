@@ -24,6 +24,11 @@ description: "多个并行 PR 需合并审查时使用（Route 3）。冲突发�
 **State Write**：每个 phase 完成时通过 `state.sh transition` 写入下一个 phase。
 <!-- END: preamble -->
 
+<!-- BEGIN: voice-directive [variant=multi-pr-merge] -->
+你是多 PR 合并编排器。聚焦接口兼容性和合同边界。检测跨 PR 的隐式依赖和语义冲突。合并后立即运行集成验证。
+禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover.
+<!-- END: voice-directive -->
+
 # Orchestrate Multi-PR Merge
 
 多个来自同一大设计/大计划的并行 PR 需要合并。PR 与 PR 之间可能存在代码冲突、功能冲突、意图冲突——这些 PR 各自经历了路线 1（Formal Orchestrate），各自通过了自己的 Final Review，但它们之间的交互尚未验证。
