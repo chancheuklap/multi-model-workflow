@@ -59,17 +59,18 @@
 | `plugin-v2/build/resolvers/route-extension.sh` | Route 4-7 keywords / 最小参考引用解析 | 新建 | 1.2 |
 | `plugin-v2/build/templates/*.tmpl` | 共享模板（preamble / disposition / dispatch / signpost / envelope / voice 等 ~10 个） | 新建 | 1.1 / 1.2 |
 | `plugin-v2/build/tests/` | 构建系统单测目录 | 新建 | 1.1 / 1.2 |
-| `plugin-v2/scripts/state.sh` | 统一状态机 CLI（init / read / update / transition / validate），含 mkdir 锁 + 60s TTL；Pack 7 增量加 `disposition append` + `path-a-escalation start/update/clear` 子命令；Pack 9 增量加 `budget check` + `direction-check trigger/ack` 子命令 | 新建 + 增量扩展 | 2 / 7 / 9 |
+| `plugin-v2/scripts/state.sh` | 统一状态机 CLI（init / read / update / transition / validate），含 mkdir 锁 + 60s TTL；Pack 5 增量加 `self-verify append` + transition `--disposition-refs` 校验；Pack 7 增量加 `disposition append`（evidence 强制）+ `path-a-escalation start/update/clear`；Pack 9 增量加 `budget check` + `direction-check trigger/ack` | 新建 + 增量扩展 | 2 / 5 / 7 / 9 |
 | `plugin-v2/state-schema/workflow-state-v1.json` | `.claude/multi-model-workflow/workflow-state-<run_id>.json` 的 JSON schema（含 `idempotency_keys: [string]` 顶层字段） | 新建 | 2 |
 | `plugin-v2/state-schema/dispatch-envelope-v1.json` | `<!-- DISPATCH_ENVELOPE {...} -->` 的 JSON schema | 新建 | 4 |
 | `plugin-v2/hooks/agent-return-handler.sh` | 改读 DISPATCH_ENVELOPE 解析 Pack ID，state 写入改走 state.sh | 重写解析层 | 3 / 4 |
 | `plugin-v2/hooks/track-execution-state.sh` | state 写入改走 state.sh，commit 触发 NEXT 输出保留 | 改写 | 3 |
 | `plugin-v2/hooks/track-review-budget.sh` | state 写入改走 state.sh，新增 effort budget 累加 | 改写 | 3 / 9 |
-| `plugin-v2/hooks/validate-pack-dispatch.sh` | Pack ID 改从 DISPATCH_ENVELOPE 解析；查 idempotency_keys 防重放；Pack 7 增量加 `path_a_escalation[].blocked_for_self_fix=true` 时拒绝非 codex-reviewer dispatch；Pack 9 增量加 `pending_direction_check.ack_status=="pending"` 时拒绝非 codex-reviewer dispatch | 改写 + 增量扩展 | 4 / 5 / 7 / 9 |
+| `plugin-v2/hooks/validate-pack-dispatch.sh` | Pack ID 改从 DISPATCH_ENVELOPE 解析；查 idempotency_keys 防重放；Pack 7 增量加 `path_a_escalation` 守门 + `disposition_refs` 亲验校验（§3b-2）；Pack 9 增量加 `pending_direction_check` 守门 | 改写 + 增量扩展 | 4 / 5 / 7 / 9 |
+| `plugin-v2/hooks/gate-codex-review.sh` | PreToolUse Bash hook（§3b-3）：拦截非例外的 Codex targeted re-review；`user_requested` 直接放行 | 新建 | 7 |
 | `plugin-v2/hooks/enforce-pack-commit.sh` | commit message 解析保留（sed 不变），但读取 pack 状态走 state.sh | 改写 | 3 |
 | `plugin-v2/hooks/session-start.sh` | 修复 line 4 / line 14 矛盾；改读 workflow-state；AGENT_TEAMS 缺失硬失败；新增版本号 + jq/python3 检查 | 改写 | 6 |
 | `plugin-v2/hooks/track-effort-budget.sh` | 新增 effort budget hook（基于 Sonnet/Opus 区分计数） | 新建 | 9 |
-| `plugin-v2/hooks/hooks.json` | cleanup-before-push 改为 PostToolUse；新增 track-effort-budget 注册；2.1.147 `if` 条件保留 | 改写 | 3 |
+| `plugin-v2/hooks/hooks.json` | cleanup-before-push 改为 PostToolUse；新增 track-effort-budget 注册；新增 gate-codex-review 注册（Pack 7）；2.1.147 `if` 条件保留 | 改写 | 3 / 7 |
 | `plugin-v2/skills/orchestrate-workflow/SKILL.md` | Entry Gate 增 Route 4-7；state 字段更新（构建注入） | 改写 | 11 |
 | `plugin-v2/skills/orchestrate-workflow/references/workflow-infrastructure.md` | budget file schema 改为 workflow-state；effort_total 字段；Route 4-7 关键词 | 改写 | 9 / 11 |
 | `plugin-v2/skills/orchestrate-execution/SKILL.md` | dispatch template 增 `run_in_background: true` + agentId 持久化；signpost / disposition 改走构建注入；neighbor interface 注入 | 改写 | 5 / 13 |
@@ -124,7 +125,8 @@
 | 4 | `runtime` | DISPATCH_ENVELOPE 无 fallback：parse 失败 = 硬失败 | 设计要求；不能再加 regex 兜底 |
 | 5 | `high-risk` | AI 认知盲区 + 改动所有 worker dispatch + 移除所有 fallback | 不可向后兼容 |
 | 6 | `runtime` | session-start 是启动门，挂掉整个 plugin 不可用 | 单点故障 |
-| 7 / 8 | `normal` | Review prompt / persona 改动需 dry-run 一次 review 周期验证 | reviewer 行为可见但难自动断言 |
+| 7 | `runtime` | 新增 gate-codex-review.sh hook + validate-pack-dispatch.sh disposition_refs 校验 + evidence 强制 | 门禁错误会阻断正常 review 或放行不合规 dispatch |
+| 8 | `normal` | Review prompt / persona 改动需 dry-run 一次 review 周期验证 | reviewer 行为可见但难自动断言 |
 | 9 | `normal` | budget schema 改动 | budget 是 review 入口的硬约束 |
 | 10 | `normal` | 观察性数据通道，未阻塞主流程 | learnings.jsonl 可写不可读时降级 |
 | 11 | `normal` + `migration` | review_total 字段类型由 number 扩展为 `number \| "unlimited"`，含 in-flight state 升级语义 | schema 类型变化触发 session-start 兼容性 |
@@ -287,10 +289,11 @@ grep -rc "Apply this disposition table" plugin-v2/skills/                 # 期�
   - `plans[]: { plan_id, status, packs[]: { pack_id, status, worker_verdict, start_commit, commit_sha, agent_id, repair_round } }`
   - `idempotency_keys: [string]`（顶层数组；Pack 4 / 5 写入 envelope 的 idempotency_key 防重放；Pack 2 创建空数组）
   - `plan_writer_agent_id: <string|null>`（Pack 5 SendMessage 持久化用；Pack 2 创建为 null）
-  - `review_dispositions: [{ review_round, finding_id, severity, confidence, disposition, path, reviewer_agent_id, dispatched_at, resolved_at }]`（承诺 3b：disposition 持久化；Pack 2 留空数组；Pack 7 启用写入；Pack 10 消费做 bias metrics）
+  - `review_dispositions: [{ review_round, finding_id, severity, confidence, disposition, evidence, path, reviewer_agent_id, dispatched_at, resolved_at }]`（承诺 3b：disposition 持久化；`evidence` 字段在 disposition==accepted 时必填非空——§3b-2 亲验产物校验；Pack 2 留空数组；Pack 7 启用写入；Pack 10 消费做 bias metrics）
   - `review_effectiveness: { reject_count, suppress_count, path_a_count, path_b_count, total_findings, last_aggregated_at }`（承诺 3d：偏差统计累计；Pack 2 创建为零值对象；Pack 10 累加并写入 run-summary）
   - `pending_post_push_reviews: [{ run_id, slug, commit_sha, dispatched_at }]`（承诺 7 Route 4 Hotfix：push 后事后 review 入队；Pack 2 留空数组；Pack 11 启用写入与读取）
   - `path_a_escalation: [{ finding_id, current_round, last_codex_verdict, blocked_for_self_fix, triggered_at }]`（承诺 3c：Path A 进入 re-review 状态时写入，validate-pack-dispatch.sh 查询此字段决定是否拒绝 Coordinator 自修 dispatch；Pack 2 留空数组；Pack 7 启用写入）
+  - `self_verifications: [{ run_id, pack_id, repair_round, verification_passed, exception, verified_at }]`（§3b-3：修复后 Coordinator 自验收记录；Pack 2 留空数组；Pack 5 启用写入；Pack 7 的 gate-codex-review.sh 消费做 re-review 门禁）
   - `pending_direction_check: { triggered_at, threshold_type, threshold_percent, ack_status } | null`（承诺 5：当 review/effort budget 跨阈值时 hook 写入，validate-pack-dispatch.sh 查 ack_status != "pending" 才允许下一步 dispatch；Pack 2 创建为 null；Pack 9 启用写入与 ack 流程）
   - `execution_reflux_count`
   - `last_gate_phase`, `last_gate_timestamp`
@@ -305,10 +308,10 @@ grep -rc "Apply this disposition table" plugin-v2/skills/                 # 期�
 - 锁：`mkdir <state_dir>/<run_id>.lock`；持有者写 `<lock>/pid` + `<lock>/ts`；超 60s 的 stale lock 由后续调用者清理后重试一次
 
 **Acceptance criteria**：
-- [ ] `state.sh init --run-id <id> --slug <slug> --route <route>` 创建符合 schema 的初始文件（含 `idempotency_keys=[]` `plan_writer_agent_id=null` `review_dispositions=[]` `review_effectiveness={零值}` `pending_post_push_reviews=[]` `path_a_escalation=[]` `pending_direction_check=null` 默认值）
+- [ ] `state.sh init --run-id <id> --slug <slug> --route <route>` 创建符合 schema 的初始文件（含 `idempotency_keys=[]` `plan_writer_agent_id=null` `review_dispositions=[]` `review_effectiveness={零值}` `pending_post_push_reviews=[]` `path_a_escalation=[]` `self_verifications=[]` `pending_direction_check=null` 默认值）
 - [ ] `state.sh read --run-id <id> --field <jq-path>` 输出指定字段
 - [ ] `state.sh transition --run-id <id> --actor <name> --from <s> --to <s> [其他字段]` 验证矩阵后写入，违规退出 2
-- [ ] `state.sh disposition append --run-id <id> --review-round <r> --finding-id <id> --disposition <accept|reject|suppress|path-a|path-b> --confidence <1-10> --severity <H|M|L>` 写入 review_dispositions 数组（承诺 3b）
+- [ ] `state.sh disposition append --run-id <id> --review-round <r> --finding-id <id> --disposition <accept|reject|suppress|path-a|path-b> --confidence <1-10> --severity <H|M|L> [--evidence <text>]` 写入 review_dispositions 数组（承诺 3b）；`--disposition accepted` 时 `--evidence` 必填且非空，否则退出 2（§3b-2 亲验产物校验）
 - [ ] `state.sh validate --run-id <id>` 校验文件符合 schema
 - [ ] 并发场景：两个 state.sh 进程同时写 → 一个等待 / 一个成功 / 文件最终一致
 - [ ] Stale lock（>60s）能被自动清理
@@ -441,7 +444,14 @@ jq '[.hooks[] | select(.if == null or .if == "")] | length' plugin-v2/hooks/hook
   - `pack_id: <string|null>`（execution route 必填）
   - `repair_round: <int>`（默认 0，1-3 表示修复轮次）
   - `idempotency_key: "<run_id>/<pack_id>/r<repair_round>"`
+  - `disposition_refs: [<finding_id>, ...] | null`（§3b-2 亲验卡扣：`repair_round >= 1` 时必填且非空——引用 workflow-state 中已 accepted 的 finding ID；`repair_round == 0` 时 null；`parse-envelope.sh` 在 repair_round >= 1 时校验非空）
+  - `review_intent: "baseline" | "targeted-re-review" | "path-a-re-review" | null`（§3b-3 复审门禁：仅 `agent_role == "codex-reviewer"` 时必填；baseline = 首次 review；targeted-re-review = 修复后复审，需附带 exception_code；path-a-re-review = Path A 后强制复审，始终允许）
+  - `exception_code: "3plus_files_control_flow" | "user_requested" | "rca_root_cause" | null`（§3b-3：`review_intent == "targeted-re-review"` 时必填；`user_requested` = 用户明确要求复审，gate-codex-review.sh 直接放行）
 - Hook 解析失败时：写 stderr 明确指出 envelope missing / malformed，退出 2（阻止 dispatch / agent return），不静默放行
+- **条件校验**（`parse-envelope.sh` 负责，Pack 4 实现）：
+  - `repair_round >= 1` 且 `disposition_refs` 为空/null → 退出 2："repair dispatch 必须引用已 accepted 的 finding ID"
+  - `agent_role == "codex-reviewer"` 且 `review_intent` 为空/null → 退出 2："review dispatch 必须声明 intent"
+  - `review_intent == "targeted-re-review"` 且 `exception_code` 为空/null → 退出 2："targeted re-review 必须声明例外条件"
 
 **Acceptance criteria**：
 - [ ] `dispatch-envelope-v1.json` schema 文件存在并通过 `python3 -c "import json; json.load(open('...'))"` 校验
@@ -450,6 +460,10 @@ jq '[.hooks[] | select(.if == null or .if == "")] | length' plugin-v2/hooks/hook
 - [ ] `agent-return-handler.sh` 中已无 regex fallback 代码路径（grep 验证）
 - [ ] `validate-pack-dispatch.sh` 中已无 sed Pack ID 抽取代码路径
 - [ ] Idempotency key 重放测试：相同 key 二次入 hook → state 不变（state.sh 层面要支持，但本 Pack 只测 hook 不重复写）
+- [ ] `parse-envelope.sh` 条件校验：repair_round=2 + disposition_refs=null → 退出 2
+- [ ] `parse-envelope.sh` 条件校验：agent_role=codex-reviewer + review_intent=null → 退出 2
+- [ ] `parse-envelope.sh` 条件校验：review_intent=targeted-re-review + exception_code=null → 退出 2
+- [ ] `dispatch-envelope-v1.json` schema 含 `disposition_refs` / `review_intent` / `exception_code` 字段定义
 
 **Verification commands**：
 ```bash
@@ -465,8 +479,8 @@ git grep -nE "sed -nE? '.*PACK[_ ]?ID" plugin-v2/hooks/                         
 2. GREEN：填充 schema 字段；validate pass
 3. RED：写 `test_envelope_parse.sh`，给合法 prompt 文件断言 parse 输出 JSON
 4. GREEN：实现 `parse-envelope.sh`（sed 抽 `<!-- DISPATCH_ENVELOPE ... -->` + jq 校验必填字段）
-5. RED：写 `test_envelope_missing.sh`，缺信封 / 缺字段 / JSON malformed → 断言 parse-envelope 退出 2
-6. GREEN：parse-envelope 中加错误处理
+5. RED：写 `test_envelope_missing.sh`，缺信封 / 缺字段 / JSON malformed → 断言 parse-envelope 退出 2；额外子测试：repair_round=2+disposition_refs=null → 退出 2；agent_role=codex-reviewer+review_intent=null → 退出 2；review_intent=targeted-re-review+exception_code=null → 退出 2
+6. GREEN：parse-envelope 中加错误处理 + 条件校验（disposition_refs / review_intent / exception_code）
 7. 在 `templates/control-envelope.md.tmpl` 填入实际信封注释模板
 8. 跑 `build.sh --apply` 让所有 dispatch 模板获得 envelope 注入
 9. 改写 `agent-return-handler.sh`：移除 3 层 regex fallback，改调 parse-envelope
@@ -508,6 +522,8 @@ git grep -nE "sed -nE? '.*PACK[_ ]?ID" plugin-v2/hooks/                         
 - `plugin-v2/hooks/tests/test_sendmessage_resume.sh`（新建：模拟 SendMessage 路径）
 - `plugin-v2/hooks/tests/test_idempotency_replay.sh`（新建）
 - `plugin-v2/build/tests/test_sendmessage_resume_injection.sh`（新建：断言锚点注入后 SKILL.md 含完整模板）
+- `plugin-v2/scripts/tests/test_state_self_verify.sh`（新建：self-verify append 写入 + 字段校验）
+- `plugin-v2/scripts/tests/test_transition_disposition_refs.sh`（新建：transition --to repairing 的 disposition-refs 校验）
 
 **Read first**：
 - 设计 §3.8 全文（line 138 SendMessage resume 操作清单要求）
@@ -531,10 +547,21 @@ git grep -nE "sed -nE? '.*PACK[_ ]?ID" plugin-v2/hooks/                         
   5. 解析返回的 DISPATCH_ENVELOPE → `state.sh transition --to returned`
   6. 写 `state.sh disposition append` 或 `state.sh update --field plans[N].packs[M].repair_round`
 - Idempotency：同 `(run_id, pack_id, repair_round)` 的 envelope 二次 dispatch → hook 拒绝（`validate-pack-dispatch.sh` 查 state，若该 key 已有记录则退出 2）
-- **修复后 Coordinator 自验收、不自动复审（设计 §3b-3）**：3 个 repair reference 文件的 "Targeted Re-Review" 步骤改为：
-  - 默认路径：Worker 修复完成 → **Coordinator 自验收**（运行 verification commands + 对照 acceptance criteria + grep 确认变更）→ 验收通过即提交，**不派 reviewer**
-  - 例外路径（触发 targeted re-review）：修复涉及 3+ 文件且改变控制流逻辑 / 用户明确要求 / RCA 后的根因修复
-  - Path A 修复**始终**做 targeted re-review（§3c 要求，因为 Coordinator 判断自己的修复质量有利益冲突）
+- **`state.sh transition --to repairing --disposition-refs` 校验（§3b-2 亲验卡扣，SendMessage 路径补盲）**：
+  - SendMessage 不触发 PreToolUse Agent hook → `validate-pack-dispatch.sh` 对 SendMessage 修复 dispatch 无效
+  - 补盲方案：sendmessage-resume 模板步骤 5 中 `state.sh transition --to repairing` 增加 `--disposition-refs F1,F3` 参数
+  - `state.sh` 在处理 `--to repairing` 时：验证 `--disposition-refs` 存在且非空 → 对每个 ref 校验 `review_dispositions[]` 中有 `disposition==accepted` + `evidence` 非空 → 不满足则退出 2
+  - 这样无论 Coordinator 走 Agent dispatch（hook 校验）还是 SendMessage 路径（state.sh transition 校验），disposition_refs 都会被验证
+- **修复后 Coordinator 自验收、不自动复审（设计 §3b-3）**：
+  - **Prompt 层**：3 个 repair reference 文件的 "Targeted Re-Review" 步骤改为 "Coordinator 自验收"
+  - **机制层**：`state.sh self-verify append` 子命令——Coordinator 自验收后必须调用，记录验收结果到 `workflow-state.self_verifications[]`
+  - **sendmessage-resume 模板增加步骤 5b/5c**：
+    - 5b. 修复完成后运行 verification commands + 对照 acceptance criteria + grep 确认变更
+    - 5c. 调用 `state.sh self-verify append --run-id <id> --pack-id <pack_id> --repair-round <N> --verification-passed <yes|no> --exception <none|3plus_files_control_flow|user_requested|rca_root_cause|path_a_self_fix>`
+    - 默认 `--exception none`（不触发复审）；用户明确要求时填 `user_requested`（gate-codex-review.sh 放行）
+  - 默认路径：Worker 修复完成 → Coordinator 自验收 → `self-verify append --exception none` → 提交，**不派 reviewer**
+  - 例外路径（触发 targeted re-review）：Coordinator 判断符合例外条件 → `self-verify append --exception <code>` → 派 Codex review（envelope 含 `review_intent: "targeted-re-review"` + `exception_code`）→ gate-codex-review.sh 查 state 有对应 exception 记录 → 放行
+  - Path A 修复**始终**做 targeted re-review（§3c 要求）
 
 **Acceptance criteria**：
 - [ ] 4 处 "或新建" + architecture-draft 同步删除 → `git grep -nE "或新建|新建同类" plugin-v2/` 返回 0
@@ -550,6 +577,11 @@ git grep -nE "sed -nE? '.*PACK[_ ]?ID" plugin-v2/hooks/                         
 - [ ] `execution-repair-truncation.md` Step 11 含"Coordinator 自验收"且默认路径不含"强制 targeted re-review"
 - [ ] `final-review-repair.md` Step 11 同上
 - [ ] `plan-review-resolution.md` Step 17 同上
+- [ ] `state.sh self-verify append` 子命令存在，写入 `self_verifications[]` 数组
+- [ ] `state.sh transition --to repairing` 要求 `--disposition-refs` 非空——缺失退出 2（SendMessage 路径亲验补盲）
+- [ ] sendmessage-resume 模板含步骤 5b（自验收）和 5c（`self-verify append`）
+- [ ] `test_state_self_verify.sh` 通过（self-verify append 写入 + 字段校验）
+- [ ] `test_transition_disposition_refs.sh` 通过（缺 refs 退出 2 + 含 refs 且 state 中有对应 accepted finding → 放行）
 
 **Verification commands**：
 ```bash
@@ -565,6 +597,10 @@ bash plugin-v2/hooks/tests/test_idempotency_replay.sh                           
 grep -c "Coordinator 自验收" plugin-v2/skills/orchestrate-execution/references/execution-repair-truncation.md  # 期望：≥ 1
 grep -c "Coordinator 自验收" plugin-v2/skills/orchestrate-final-review/references/final-review-repair.md       # 期望：≥ 1
 grep -c "Coordinator 自验收" plugin-v2/skills/orchestrate-plan-writing/references/plan-review-resolution.md    # 期望：≥ 1
+bash plugin-v2/scripts/tests/test_state_self_verify.sh                                 # 期望：exit 0
+bash plugin-v2/scripts/tests/test_transition_disposition_refs.sh                       # 期望：exit 0
+grep -c "self-verify append" plugin-v2/build/templates/sendmessage-resume.md.tmpl      # 期望：≥ 1
+grep -c "disposition-refs" plugin-v2/scripts/state.sh                                  # 期望：≥ 1（transition 路径校验）
 ```
 
 **Implementation tasks**：
@@ -584,7 +620,12 @@ grep -c "Coordinator 自验收" plugin-v2/skills/orchestrate-plan-writing/refere
 14. RED：断言 `execution-repair-truncation.md` 含"Coordinator 自验收"且默认路径不含"强制 targeted re-review"
 15. GREEN：改 `execution-repair-truncation.md` Step 11——默认路径改为 Coordinator 自验收（运行 verification commands + 对照 acceptance criteria），例外条件（3+ 文件控制流变更 / 用户要求 / RCA 根因修复）才派 targeted re-review
 16. 同样修改 `final-review-repair.md` Step 11 和 `plan-review-resolution.md` Step 17
-17. REFACTOR：在 sendmessage-resume.md.tmpl 中抽出公共步骤段（步骤 1 / 5 / 6 worker 与 plan-writer 一致）+ 各自 variant 段
+17. RED：写 `test_state_self_verify.sh`，断言 `state.sh self-verify append --pack-id P1 --repair-round 1 --verification-passed yes --exception none` 后 `state.sh read --field '.self_verifications[-1]'` 含正确字段
+18. GREEN：在 `state.sh` 中实现 `self-verify append` 子命令（jq `+= [{...}]`，包裹 lock）
+19. RED：写 `test_transition_disposition_refs.sh`，断言：(a) `state.sh transition --to repairing` 缺 `--disposition-refs` → 退出 2；(b) 含 refs 但 state 中无对应 accepted finding → 退出 2；(c) 含 refs 且 state 中有 accepted+evidence → 放行
+20. GREEN：在 `state.sh transition` 的 `--to repairing` 路径中加 `--disposition-refs` 校验（解析逗号分隔 finding ID → 逐个 jq 查 review_dispositions → 校验 disposition==accepted + evidence 非空）
+21. 在 sendmessage-resume.md.tmpl 中插入步骤 5b（自验收操作）和 5c（`state.sh self-verify append`），两个 variant（worker / plan-writer）均含
+22. REFACTOR：在 sendmessage-resume.md.tmpl 中抽出公共步骤段（步骤 1 / 5 / 5b / 5c / 6 worker 与 plan-writer 一致）+ 各自 variant 段
 
 **Commit boundary**：2 commits（fallback removal + dispatch 模板 / idempotency 实现），前缀 `Pack 5:`
 
@@ -651,7 +692,7 @@ grep -nE "never block" plugin-v2/hooks/session-start.sh                   # 期�
 
 ### Pack 7 — Confidence calibration + disposition audit + Path A re-review（承诺 3a/3b/3c/3d）
 
-**Goal behavior**：在 review 派发模板（codex-reviewer.md / execution-review-dispatch.md）中加入 1-10 信心度评分 prompt + 偏差指标声明（承诺 3a）；Coordinator 在 disposition 阶段调用 `state.sh disposition append` 写入 review_dispositions（承诺 3b）；Path A 修复后强制 targeted Codex re-review，Codex needs repair 时 Coordinator **禁止继续做 Path A**，必须升级到 **Path B 派 worker 修复**（pack-executor / complex-pack-executor）（承诺 3c）；偏差指标在每次 review 后通过 disposition 数据累计（承诺 3d 的累计逻辑在 Pack 10 run-summary 完成）。**同时实现 Codex Review 模型按 Phase 分层**：`review-dispatch.sh` resolver 根据 `workflow-state.cursor.phase` 自动选择 Codex 模型（Design/Plan Review → GPT-5.5 xhigh，Execution/Final/Direct Repair Review → GPT-5.4 xhigh）。
+**Goal behavior**：在 review 派发模板（codex-reviewer.md / execution-review-dispatch.md）中加入 1-10 信心度评分 prompt + 偏差指标声明（承诺 3a）；Coordinator 在 disposition 阶段调用 `state.sh disposition append` 写入 review_dispositions（承诺 3b）；Path A 修复后强制 targeted Codex re-review，Codex needs repair 时 Coordinator **禁止继续做 Path A**，必须升级到 **Path B 派 worker 修复**（pack-executor / complex-pack-executor）（承诺 3c）；偏差指标在每次 review 后通过 disposition 数据累计（承诺 3d 的累计逻辑在 Pack 10 run-summary 完成）。**同时实现 Codex Review 模型按 Phase 分层**：`review-dispatch.sh` resolver 根据 `workflow-state.cursor.phase` 自动选择 Codex 模型（Design/Plan Review → GPT-5.5 xhigh，Execution/Final/Direct Repair Review → GPT-5.4 xhigh）。**机制层强制执行两条纪律**：(1) `validate-pack-dispatch.sh` 校验 envelope.disposition_refs 在 state 中有 accepted+evidence 记录（§3b-2 亲验卡扣，Agent dispatch 路径）；(2) 新建 `gate-codex-review.sh` PreToolUse Bash hook 拦截非例外的 Codex targeted re-review（§3b-3 复审门禁）。
 
 **Owned files**：
 - `plugin-v2/agents/codex-reviewer.md`（prompt 加 confidence rubric + bias indicators 声明段）
@@ -666,7 +707,10 @@ grep -nE "never block" plugin-v2/hooks/session-start.sh                   # 期�
 - `plugin-v2/build/tests/test_disposition_audit_injection.sh`（新建：断言生成的 SKILL.md 含 `state.sh disposition append` 调用）
 - `plugin-v2/scripts/tests/test_path_a_re_review.sh`（新建：模拟 Path A 修复 + Codex needs repair → 断言 Coordinator 不能继续 Path A，必须升级 Path B；该测试同时覆盖 `state.sh path-a-escalation start/update/clear` CLI + validate-pack-dispatch 在 `blocked_for_self_fix=true` 时**允许** Path B worker dispatch 但**拒绝**重复 Path A 路径）
 - `plugin-v2/scripts/state.sh`（本 Pack 增量：增加 `path-a-escalation` 子命令 — start/update/clear；写入与读取 `workflow-state.path_a_escalation[]`）
-- `plugin-v2/hooks/validate-pack-dispatch.sh`（本 Pack 增量：增加 `path_a_escalation[].blocked_for_self_fix=true` 时拒绝非 codex-reviewer dispatch 的逻辑）
+- `plugin-v2/hooks/validate-pack-dispatch.sh`（本 Pack 增量：增加 `path_a_escalation[].blocked_for_self_fix=true` 时拒绝非 worker dispatch 的逻辑 + 增加 envelope.disposition_refs 校验——repair_round≥1 时查 state 中对应 finding 有 accepted+evidence）
+- `plugin-v2/hooks/gate-codex-review.sh`（**新建**：PreToolUse Bash hook，matcher=`Bash(*codex-companion.mjs task*)`；校验 review_intent + exception_code，拦截非例外的 targeted re-review；`user_requested` 例外直接放行）
+- `plugin-v2/hooks/tests/test_gate_codex_review.sh`（新建：5 个场景——baseline 放行 / path-a-re-review 放行 / targeted+有例外 放行 / targeted+无例外 拒绝 / targeted+user_requested 放行）
+- `plugin-v2/hooks/tests/test_disposition_refs_validation.sh`（新建：validate-pack-dispatch.sh 的 disposition_refs 校验测试）
 
 **Read first**：
 - 设计 §3.3（承诺 3a/3b/3c/3d 全文）
@@ -711,7 +755,25 @@ grep -nE "never block" plugin-v2/hooks/session-start.sh                   # 期�
     2. **Disposition**：accepted / rejected / needs evidence / out of scope（调用 `state.sh disposition append`）
     3. **修复指令**：只把 accepted findings 翻译为**具体修复指令**（文件路径 + 行号 + 期望变更）传给 worker。Reviewer 原始输出不传
   - 此前置段由 `disposition-table.md.tmpl` 的开头区域定义，通过构建系统注入 4 处——Coordinator 无法跳过
-- **修复后 Coordinator 自验收、不自动复审（设计 §3b-3）**：此规则的落地在 **Pack 5**（Pack 5 已持有 3 个 repair reference 文件；"删 fallback + 改 re-review 行为"属于同一个 repair cycle 端到端改造）。Pack 7 仅消费：disposition-table.md.tmpl 注释段提示 Coordinator"修复后默认自验收"
+- **修复后 Coordinator 自验收、不自动复审（设计 §3b-3）**：prompt 层落地在 Pack 5（repair reference 改写）。Pack 7 负责**机制层门禁**：
+  - `gate-codex-review.sh`（PreToolUse Bash hook，`if: "Bash(*codex-companion.mjs task*)"`）：
+    1. 从 `tool_input.command` 提取 `--prompt-file` 路径
+    2. 从 prompt file 解析 DISPATCH_ENVELOPE（复用 `parse-envelope.sh`）
+    3. `review_intent == "baseline"` → 放行（首次 review，不受限）
+    4. `review_intent == "path-a-re-review"` → 查 `state.sh` 中 `path_a_escalation[]` 有对应 entry → 放行（§3c 强制复审）
+    5. `review_intent == "targeted-re-review"` → 校验：
+       - `exception_code == "user_requested"` → **直接放行**（用户明确要求复审时不阻拦）
+       - 其他 exception_code → 从 state.sh 读取对应 pack 的最新 `self_verifications[]` entry → 必须存在 entry 且 `exception != "none"`
+       - 不满足 → exit 2: "Codex re-review blocked: no qualifying exception. Default is Coordinator self-verify."
+    6. 缺失 DISPATCH_ENVELOPE → exit 2: "Review dispatch missing envelope"
+  - hooks.json 注册（Pack 7 增量更新）：`{"type":"command","command":"bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate-codex-review.sh\"","if":"Bash(*codex-companion.mjs task*)"}`
+- **亲验纪律机制层卡扣（§3b-2，validate-pack-dispatch.sh 增量）**：
+  - 检测 envelope 的 `repair_round >= 1` 时：
+    1. 读取 `disposition_refs` 数组
+    2. 对每个 ref，查 `state.sh read --field ".review_dispositions[] | select(.finding_id==\"<ref>\")"` 
+    3. 校验 `disposition == "accepted"` 且 `evidence` 非空
+    4. 任一 ref 不满足 → 退出 2："Repair dispatch blocked: finding <ref> has no accepted disposition with evidence"
+  - 此检查与 Pack 4 的 `parse-envelope.sh` 条件校验互补：parse-envelope 检查"字段是否存在"，validate-pack-dispatch 检查"字段引用的 state 数据是否合法"
 
 **Acceptance criteria**：
 - [ ] codex-reviewer 派发模板含 confidence rubric + bias indicators 声明段
@@ -728,6 +790,11 @@ grep -nE "never block" plugin-v2/hooks/session-start.sh                   # 期�
       (4) worker dispatch 完成后 `state.sh path-a-escalation clear --finding-id X` 删除 entry，后续 dispatch 任何 agent 通过
 - [ ] `state.sh path-a-escalation` 子命令支持 start/update/clear，写入符合 Pack 2 schema 的 `path_a_escalation[]` 数组
 - [ ] `validate-pack-dispatch.sh` 升级后保留原有功能（Pack 4 / 5 已加的检查不被破坏）；新的 Path A 守门**仅拒绝**重复 Path A 路径，不拒绝 Path B worker 或 new round Codex review
+- [ ] `validate-pack-dispatch.sh` 在 envelope.repair_round≥1 时校验 disposition_refs——refs 引用的 finding 在 state 中必须有 accepted+evidence 记录，否则退出 2（§3b-2 亲验卡扣）
+- [ ] `gate-codex-review.sh` 存在且在 hooks.json 中注册为 PreToolUse Bash hook
+- [ ] `test_gate_codex_review.sh` 覆盖 5 个场景：baseline 放行 / path-a-re-review 放行 / targeted+有效例外 放行 / targeted+无例外 拒绝 / targeted+user_requested 放行
+- [ ] `test_disposition_refs_validation.sh` 覆盖：repair_round=2+refs 引用不存在的 finding → 拒绝 / refs 引用 accepted+有 evidence → 放行 / refs 引用 accepted+空 evidence → 拒绝
+- [ ] `state.sh disposition append --disposition accepted --evidence ""` → 退出 2（evidence 非空强制）
 
 **Verification commands**：
 ```bash
@@ -744,6 +811,12 @@ grep -rEc "Path A re-review" plugin-v2/skills/                                  
 grep -c "path-a-escalation" plugin-v2/scripts/state.sh                          # 期望：≥ 1（子命令分发）
 grep -c "blocked_for_self_fix" plugin-v2/hooks/validate-pack-dispatch.sh        # 期望：≥ 1（守门查询）
 grep -rEc "state\.sh path-a-escalation start" plugin-v2/skills/                  # 期望：≥ 1（reference 中的调用模板）
+bash plugin-v2/hooks/tests/test_gate_codex_review.sh                              # 期望：exit 0（5 个场景）
+bash plugin-v2/hooks/tests/test_disposition_refs_validation.sh                     # 期望：exit 0
+grep -c "disposition_refs" plugin-v2/hooks/validate-pack-dispatch.sh               # 期望：≥ 1（repair dispatch 校验）
+grep -c "gate-codex-review" plugin-v2/hooks/hooks.json                            # 期望：≥ 1（hook 注册）
+grep -c "review_intent" plugin-v2/hooks/gate-codex-review.sh                      # 期望：≥ 1
+grep -c "user_requested" plugin-v2/hooks/gate-codex-review.sh                     # 期望：≥ 1（用户要求复审 → 放行）
 ```
 
 **Implementation tasks**（TDD：每个 sub-feature 一条 RED→GREEN→REFACTOR）：
@@ -767,7 +840,14 @@ grep -rEc "state\.sh path-a-escalation start" plugin-v2/skills/                 
 18. REFACTOR：在 review-dispatch.sh 中抽 `_select_model_for_phase` 函数，可单独测试
 19. RED：断言 disposition-table.md.tmpl 渲染后含"禁止直接转发""亲验""逐条验证"关键词
 20. GREEN：在 disposition-table.md.tmpl 中加入 **Coordinator 亲验纪律段**——3 步操作清单（亲验 → disposition → 具体修复指令），构建系统注入 4 处 SKILL.md
-21. 跑 `build.sh --apply` 同步；全部 verification 通过
+21. RED：写 `test_disposition_refs_validation.sh`，3 个场景：(a) repair_round=2 + refs 引用不存在的 finding → validate-pack-dispatch 退出 2；(b) refs 引用 accepted + 有 evidence → 放行；(c) refs 引用 accepted + 空 evidence → 退出 2
+22. GREEN：在 `validate-pack-dispatch.sh` 加 disposition_refs 校验逻辑——当 envelope.repair_round≥1 时读取 refs → 逐个查 state.sh review_dispositions → 校验 accepted+evidence 非空
+23. RED：断言 `state.sh disposition append --disposition accepted --evidence ""` 退出 2
+24. GREEN：在 `state.sh disposition append` 路径加 evidence 非空校验（`--disposition accepted` 时强制）
+25. RED：写 `test_gate_codex_review.sh`，5 个场景：(a) baseline 放行；(b) path-a-re-review + 有 escalation entry → 放行；(c) targeted + exception=3plus_files_control_flow + state 有记录 → 放行；(d) targeted + 无例外 → 退出 2；(e) targeted + exception=user_requested → **直接放行**（不查 state）
+26. GREEN：实现 `gate-codex-review.sh`（解析 prompt file → 读 envelope → 按 review_intent 分支判断 → 查 state）
+27. 在 hooks.json 注册 `gate-codex-review.sh` 为 PreToolUse Bash hook（`if: "Bash(*codex-companion.mjs task*)"`)
+28. 跑 `build.sh --apply` 同步；全部 verification 通过
 
 ---
 
