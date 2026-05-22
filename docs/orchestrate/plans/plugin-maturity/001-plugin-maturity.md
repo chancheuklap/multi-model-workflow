@@ -74,11 +74,11 @@
 | `plugin-v2/skills/orchestrate-workflow/references/workflow-infrastructure.md` | budget file schema 改为 workflow-state；effort_total 字段；Route 4-7 关键词 | 改写 | 9 / 11 |
 | `plugin-v2/skills/orchestrate-execution/SKILL.md` | dispatch template 增 `run_in_background: true` + agentId 持久化；signpost / disposition 改走构建注入；neighbor interface 注入 | 改写 | 5 / 13 |
 | `plugin-v2/skills/orchestrate-execution/references/execution-worker-dispatch.md` | DISPATCH_ENVELOPE 注入；neighbor interface 字段；worker input boundary 段 | 改写 | 4 / 12 / 13 |
-| `plugin-v2/skills/orchestrate-execution/references/execution-repair-truncation.md` | 移除 "或新建同类 agent" fallback；SendMessage 强制路径 | 改写 | 5 |
+| `plugin-v2/skills/orchestrate-execution/references/execution-repair-truncation.md` | 移除 "或新建同类 agent" fallback；SendMessage 强制路径；Step 11 "Targeted Re-Review" 改为 "Coordinator 自验收"（§3b-3） | 改写 | 5 |
 | `plugin-v2/skills/orchestrate-execution/references/execution-review-dispatch.md` | 信心度 1-10 评分 prompt；review 输入分段；adversarial isolation | 改写 | 7 / 12 / 13 |
-| `plugin-v2/skills/orchestrate-final-review/references/final-review-repair.md` | 移除 "或新建同类 agent" fallback | 改写 | 5 |
+| `plugin-v2/skills/orchestrate-final-review/references/final-review-repair.md` | 移除 "或新建同类 agent" fallback；Step 11 改 "Coordinator 自验收"（§3b-3） | 改写 | 5 |
 | `plugin-v2/skills/orchestrate-plan-writing/references/plan-preconditions.md` | 移除 "或新建" fallback | 改写 | 5 |
-| `plugin-v2/skills/orchestrate-plan-writing/references/plan-review-resolution.md` | 移除 "或新建" fallback | 改写 | 5 |
+| `plugin-v2/skills/orchestrate-plan-writing/references/plan-review-resolution.md` | 移除 "或新建" fallback；Step 17 改 "Coordinator 自验收"（§3b-3） | 改写 | 5 |
 | `plugin-v2/skills/orchestrate-plan-writing/references/plan-writer-dispatch.md` | dispatch 增 `run_in_background: true` + agentId 持久化 | 改写 | 5 |
 | `plugin-v2/agents/pack-executor.md` | Mode 2a SendMessage 升为主修复路径；input boundary 段 | 改写 | 5 / 12 |
 | `plugin-v2/agents/complex-pack-executor.md` | 同上 | 改写 | 5 / 12 |
@@ -487,7 +487,7 @@ git grep -nE "sed -nE? '.*PACK[_ ]?ID" plugin-v2/hooks/                         
 
 ### Pack 5 — SendMessage chain repair（设计 §3.8 独立修复链路）
 
-**Goal behavior**：消除所有"或新建同类 agent" fallback（4 处 reference + architecture-draft.md 中的对应描述行）；agentId 在首次派发时持久化到 workflow-state；所有修复路径强制 SendMessage 原 agent。在 execution / plan-writing 两条 SKILL.md 中通过构建系统注入完整的"SendMessage resume 操作模板"（不可跳过的步骤清单）。pack-executor mode 2a 升为主修复路径；plan-writer 新增对应的 SendMessage resume 段。`run_in_background: true` 在 dispatch 模板中显式声明。
+**Goal behavior**：消除所有"或新建同类 agent" fallback（4 处 reference + architecture-draft.md 中的对应描述行）；agentId 在首次派发时持久化到 workflow-state；所有修复路径强制 SendMessage 原 agent。在 execution / plan-writing 两条 SKILL.md 中通过构建系统注入完整的"SendMessage resume 操作模板"（不可跳过的步骤清单）。pack-executor mode 2a 升为主修复路径；plan-writer 新增对应的 SendMessage resume 段。`run_in_background: true` 在 dispatch 模板中显式声明。**同时改造修复后验收流程**（设计 §3b-3）：3 个 repair reference 文件的 "Targeted Re-Review" 步骤改为 "Coordinator 自验收"（默认不派 reviewer），与 fallback 删除同属 repair cycle 端到端改造。
 
 **Owned files**：
 - `plugin-v2/skills/orchestrate-execution/references/execution-repair-truncation.md`（删 "或新建同类 agent"；新增 "SendMessage Resume Operation Template" 段）
@@ -531,6 +531,10 @@ git grep -nE "sed -nE? '.*PACK[_ ]?ID" plugin-v2/hooks/                         
   5. 解析返回的 DISPATCH_ENVELOPE → `state.sh transition --to returned`
   6. 写 `state.sh disposition append` 或 `state.sh update --field plans[N].packs[M].repair_round`
 - Idempotency：同 `(run_id, pack_id, repair_round)` 的 envelope 二次 dispatch → hook 拒绝（`validate-pack-dispatch.sh` 查 state，若该 key 已有记录则退出 2）
+- **修复后 Coordinator 自验收、不自动复审（设计 §3b-3）**：3 个 repair reference 文件的 "Targeted Re-Review" 步骤改为：
+  - 默认路径：Worker 修复完成 → **Coordinator 自验收**（运行 verification commands + 对照 acceptance criteria + grep 确认变更）→ 验收通过即提交，**不派 reviewer**
+  - 例外路径（触发 targeted re-review）：修复涉及 3+ 文件且改变控制流逻辑 / 用户明确要求 / RCA 后的根因修复
+  - Path A 修复**始终**做 targeted re-review（§3c 要求，因为 Coordinator 判断自己的修复质量有利益冲突）
 
 **Acceptance criteria**：
 - [ ] 4 处 "或新建" + architecture-draft 同步删除 → `git grep -nE "或新建|新建同类" plugin-v2/` 返回 0
@@ -542,6 +546,10 @@ git grep -nE "sed -nE? '.*PACK[_ ]?ID" plugin-v2/hooks/                         
 - [ ] Idempotency 测试：同 envelope dispatch 两次 → 第二次被 validate-pack-dispatch.sh 拒绝
 - [ ] `git grep -n "Agent({" plugin-v2/ | grep -v "run_in_background"` 返回 0（除了示例 fallback 段）
 - [ ] `test_sendmessage_resume_injection.sh` 通过（构建后 SKILL.md 含完整模板）
+- [ ] 3 个 repair reference 文件的 "Targeted Re-Review" 步骤改为 "Coordinator 自验收"（默认不派 reviewer，例外条件列出）
+- [ ] `execution-repair-truncation.md` Step 11 含"Coordinator 自验收"且默认路径不含"强制 targeted re-review"
+- [ ] `final-review-repair.md` Step 11 同上
+- [ ] `plan-review-resolution.md` Step 17 同上
 
 **Verification commands**：
 ```bash
@@ -554,6 +562,9 @@ grep -E "state\.sh read --field" plugin-v2/skills/orchestrate-execution/SKILL.md
 bash plugin-v2/build/tests/test_sendmessage_resume_injection.sh                        # 期望：exit 0
 bash plugin-v2/hooks/tests/test_sendmessage_resume.sh                                  # 期望：exit 0
 bash plugin-v2/hooks/tests/test_idempotency_replay.sh                                  # 期望：exit 0
+grep -c "Coordinator 自验收" plugin-v2/skills/orchestrate-execution/references/execution-repair-truncation.md  # 期望：≥ 1
+grep -c "Coordinator 自验收" plugin-v2/skills/orchestrate-final-review/references/final-review-repair.md       # 期望：≥ 1
+grep -c "Coordinator 自验收" plugin-v2/skills/orchestrate-plan-writing/references/plan-review-resolution.md    # 期望：≥ 1
 ```
 
 **Implementation tasks**：
@@ -570,7 +581,10 @@ bash plugin-v2/hooks/tests/test_idempotency_replay.sh                           
 11. RED：写 `test_idempotency_replay.sh`，同 envelope 二次 dispatch 断言被拒
 12. GREEN：在 validate-pack-dispatch.sh 查 state 的 idempotency_keys 集合；state.sh 加 `idempotency check|append` 子命令
 13. 跑全部 grep / test 链，确认 verification 全 pass
-14. REFACTOR：在 sendmessage-resume.md.tmpl 中抽出公共步骤段（步骤 1 / 5 / 6 worker 与 plan-writer 一致）+ 各自 variant 段
+14. RED：断言 `execution-repair-truncation.md` 含"Coordinator 自验收"且默认路径不含"强制 targeted re-review"
+15. GREEN：改 `execution-repair-truncation.md` Step 11——默认路径改为 Coordinator 自验收（运行 verification commands + 对照 acceptance criteria），例外条件（3+ 文件控制流变更 / 用户要求 / RCA 根因修复）才派 targeted re-review
+16. 同样修改 `final-review-repair.md` Step 11 和 `plan-review-resolution.md` Step 17
+17. REFACTOR：在 sendmessage-resume.md.tmpl 中抽出公共步骤段（步骤 1 / 5 / 6 worker 与 plan-writer 一致）+ 各自 variant 段
 
 **Commit boundary**：2 commits（fallback removal + dispatch 模板 / idempotency 实现），前缀 `Pack 5:`
 
@@ -646,9 +660,6 @@ grep -nE "never block" plugin-v2/hooks/session-start.sh                   # 期�
 - `plugin-v2/build/templates/disposition-table.md.tmpl`（在 8 行表上方加 confidence 校准 4 行 + disposition audit append 调用模板）
 - `plugin-v2/build/templates/review-dispatch.md.tmpl`（在 Pack 1.2 占位基础上补全：phase→model 映射 + confidence rubric 调用 + bias indicators 提示）
 - `plugin-v2/build/resolvers/review-dispatch.sh`（在 Pack 1.2 占位基础上补全：phase 参数 → 模型 + confidence + Path A 注释段；本 Pack 改实现，不重新创建文件）
-- `plugin-v2/skills/orchestrate-execution/references/execution-repair-truncation.md`（Step 11 "Targeted Re-Review" 改为 "Coordinator 自验收"，例外条件触发 re-review）
-- `plugin-v2/skills/orchestrate-final-review/references/final-review-repair.md`（Step 11 同上）
-- `plugin-v2/skills/orchestrate-plan-writing/references/plan-review-resolution.md`（Step 17 同上）
 - `plugin-v2/skills/orchestrate-execution/references/learnings-confidence-audit.md`（新建：低分 finding 处理流程）
 - `plugin-v2/build/tests/test_confidence_injection.sh`（新建）
 - `plugin-v2/build/tests/test_review_model_tiers.sh`（新建：断言 review-dispatch.sh phase 参数映射正确）
@@ -692,22 +703,19 @@ grep -nE "never block" plugin-v2/hooks/session-start.sh                   # 期�
     - 未命中（无 entry 或 `blocked_for_self_fix == false`）→ 不限制
   - 重复 `start` 防护：`state.sh path-a-escalation start` 自身在已有 entry 且 `blocked_for_self_fix == true` 时直接 exit 2 拒绝（不依赖时间戳推导，由 entry 存在性决定）
   - `current_round` 字段：仅供 audit 与 Pack 10 bias metrics 使用，不参与守门判断
-- 4 处 disposition table 渲染后均含：(1) 8 行 disposition 表，(2) 4 行 confidence 校准，(3) `state.sh disposition append` 调用模板，(4) Path A re-review 规则引用，(5) **Coordinator 亲验纪律段**
-- **Coordinator 亲验纪律（设计 §3b-2，disposition-table.md.tmpl 内联，构建系统注入到 4 处 SKILL.md）**：
+- 4 处 disposition table 渲染后均含：(0) **Coordinator 亲验纪律前置段**（disposition 之前的必经步骤），(1) 8 行 disposition 表，(2) 4 行 confidence 校准，(3) `state.sh disposition append` 调用模板，(4) Path A re-review 规则引用
+- **Coordinator 亲验纪律（设计 §3b-2，disposition-table.md.tmpl 前置段，构建系统注入到 4 处 SKILL.md）**：
+  - 注入位置：disposition 表**之前**（`<!-- BEGIN: disposition-prerequisite -->` 锚点），确保 Coordinator 先完成亲验再进入 disposition 决策
   - 收到 reviewer findings 后，**禁止直接转发给 worker**。Coordinator 必须逐条执行：
     1. **亲验**：用 Read / grep / 对照设计文档验证 finding 的事实主张（reviewer 也会犯错）
     2. **Disposition**：accepted / rejected / needs evidence / out of scope（调用 `state.sh disposition append`）
     3. **修复指令**：只把 accepted findings 翻译为**具体修复指令**（文件路径 + 行号 + 期望变更）传给 worker。Reviewer 原始输出不传
-  - 此纪律模板由 `disposition-table.md.tmpl` 定义，通过构建系统注入 4 处——Coordinator 无法跳过
-- **修复后 Coordinator 自验收、不自动复审（设计 §3b-3）**：repair reference 模板（execution-repair-truncation / final-review-repair / plan-review-resolution）的 "Targeted Re-Review" 步骤改为：
-  - 默认路径：Worker 修复完成 → **Coordinator 自验收**（运行 verification commands + 对照 acceptance criteria + grep 确认变更）→ 验收通过即提交，**不派 reviewer**
-  - 例外路径（触发 targeted re-review）：修复涉及 3+ 文件且改变控制流逻辑 / 用户明确要求 / RCA 后的根因修复
-  - Path A 修复**始终**做 targeted re-review（§3c 要求，因为 Coordinator 判断自己的修复质量有利益冲突）
+  - 此前置段由 `disposition-table.md.tmpl` 的开头区域定义，通过构建系统注入 4 处——Coordinator 无法跳过
+- **修复后 Coordinator 自验收、不自动复审（设计 §3b-3）**：此规则的落地在 **Pack 5**（Pack 5 已持有 3 个 repair reference 文件；"删 fallback + 改 re-review 行为"属于同一个 repair cycle 端到端改造）。Pack 7 仅消费：disposition-table.md.tmpl 注释段提示 Coordinator"修复后默认自验收"
 
 **Acceptance criteria**：
 - [ ] codex-reviewer 派发模板含 confidence rubric + bias indicators 声明段
 - [ ] disposition table 注入后含 4 行 confidence 校准 + `state.sh disposition append` 调用模板 + **Coordinator 亲验纪律段**（"禁止直接转发"+ 3 步操作清单）
-- [ ] 3 个 repair reference 文件的 "Targeted Re-Review" 步骤改为 "Coordinator 自验收"（默认不派 reviewer，例外条件列出）
 - [ ] `execution-review-dispatch.md` 的派发模板由 review-dispatch resolver 生成且含 rubric
 - [ ] `learnings-confidence-audit.md` + `path-a-re-review.md` 流程文档存在
 - [ ] 4 处 disposition table 渲染后均含校准段 + audit append 调用
@@ -732,9 +740,6 @@ grep -c "bias indicator" plugin-v2/agents/codex-reviewer.md                     
 grep -rEc "confidence ≥ 7|confidence 4-6" plugin-v2/skills/                     # 期望：≥ 4 处
 grep -rEc "state\.sh disposition append" plugin-v2/skills/                      # 期望：≥ 4 处（4 个 disposition table 位置）
 grep -rEc "禁止直接转发|亲验|逐条验证" plugin-v2/skills/                         # 期望：≥ 4 处（4 个 disposition table 注入位置含亲验纪律段）
-grep -c "Coordinator 自验收" plugin-v2/skills/orchestrate-execution/references/execution-repair-truncation.md  # 期望：≥ 1
-grep -c "Coordinator 自验收" plugin-v2/skills/orchestrate-final-review/references/final-review-repair.md       # 期望：≥ 1
-grep -c "Coordinator 自验收" plugin-v2/skills/orchestrate-plan-writing/references/plan-review-resolution.md    # 期望：≥ 1
 grep -rEc "Path A re-review" plugin-v2/skills/                                  # 期望：≥ 2 处（execution 与 final-review）
 grep -c "path-a-escalation" plugin-v2/scripts/state.sh                          # 期望：≥ 1（子命令分发）
 grep -c "blocked_for_self_fix" plugin-v2/hooks/validate-pack-dispatch.sh        # 期望：≥ 1（守门查询）
@@ -762,10 +767,7 @@ grep -rEc "state\.sh path-a-escalation start" plugin-v2/skills/                 
 18. REFACTOR：在 review-dispatch.sh 中抽 `_select_model_for_phase` 函数，可单独测试
 19. RED：断言 disposition-table.md.tmpl 渲染后含"禁止直接转发""亲验""逐条验证"关键词
 20. GREEN：在 disposition-table.md.tmpl 中加入 **Coordinator 亲验纪律段**——3 步操作清单（亲验 → disposition → 具体修复指令），构建系统注入 4 处 SKILL.md
-21. RED：断言 `execution-repair-truncation.md` 含"Coordinator 自验收"且不含"强制 targeted re-review"（默认路径）
-22. GREEN：改 `execution-repair-truncation.md` Step 11——默认路径改为 Coordinator 自验收（运行 verification commands + 对照 acceptance criteria），例外条件（3+ 文件控制流变更 / 用户要求 / RCA 根因修复）才派 targeted re-review
-23. 同样修改 `final-review-repair.md` Step 11 和 `plan-review-resolution.md` Step 17
-24. 跑 `build.sh --apply` 同步；全部 verification 通过
+21. 跑 `build.sh --apply` 同步；全部 verification 通过
 
 ---
 
