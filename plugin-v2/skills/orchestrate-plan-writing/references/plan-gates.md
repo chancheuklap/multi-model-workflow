@@ -49,3 +49,6 @@ Task Pack Inventory Gate 通过后，**汇总 plan 文件数量**（P = 总 plan
 P = plan 文件总数。公式分配：`3P`（每个 Plan 1 次 baseline + 最多 2 次 repair re-review）+ `12`（Design Review 2-4 + Plan Document Review 1 + Final Review 2 + Release Gate ≤2 + 修复余量 3-5）。
 
 **这是 budget_total 的首次有效赋值**——workflow entry gate 创建时写 0（plan_count 未知），此处确认。
+
+---
+> **下一步**：通过 → Steps 13-14（`plan-review-dispatch.md`）。Gate 失败 → 返回 plan-writer 修复。

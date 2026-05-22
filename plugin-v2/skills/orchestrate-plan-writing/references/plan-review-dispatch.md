@@ -104,3 +104,6 @@ Disposition required:
 ```
 
 Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source design gap、issue-plan mismatch、context ambiguity，还是 architecture friction。
+
+---
+> **下一步**：Review 派发后 → Steps 15-18（`plan-review-resolution.md`）。

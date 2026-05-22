@@ -130,3 +130,6 @@ Plan Review 最多 **2 个 repair round**。
 | Plan 层面问题（结构、coverage、task quality） | BLOCKED，报告用户附 2 轮 findings 汇总 |
 | Source artifact 问题（design gap / issue mismatch） | 强制 upstream backflow（路径 C） |
 | 项目规则 / 代码现实 mismatch | `Skill({ skill: "improve-codebase-architecture" })` 或 `Skill({ skill: "zoom-out" })`补充上下文后 re-run |
+
+---
+> **下一步**：通过 → Step 19 回到 SKILL.md（Git Checkpoint）。BLOCKED → 返回 verdict。upstream backflow → 返回对应 phase。

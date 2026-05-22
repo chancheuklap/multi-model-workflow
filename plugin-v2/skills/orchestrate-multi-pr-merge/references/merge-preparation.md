@@ -35,3 +35,6 @@ Multi-PR Merge 的前提是所有参与合并的 PR 都来自同一个大设计/
 - 当前分支状态（`git status --short --branch`）
 - 所有 PR 分支都可达（`git branch -a | grep <branch>`）
 - 没有 stale dirty files 干扰合并
+
+---
+> **下一步**：准备完成 → Steps 4-8（`merge-conflict-discovery.md`）。

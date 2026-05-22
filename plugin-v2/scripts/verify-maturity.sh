@@ -222,5 +222,80 @@ check "no set -e anti-pattern in hooks" bash -c \
   "! grep -rq 'if \[ \$? -ne 0 \]' '$PLUGIN_DIR/hooks/'"
 
 echo ""
+echo "## R3 Gap Coverage"
+
+# Route 4-7 keywords in workflow SKILL.md Entry Gate
+check "R3-05: Route 4 hotfix in workflow Entry Gate" \
+  grep -q "hotfix" "$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md"
+check "R3-05: Route 6 spike in workflow Entry Gate" \
+  grep -q "spike" "$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md"
+check "R3-05: Route 7 maintenance in workflow Entry Gate" \
+  grep -q "maintenance" "$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md"
+
+# NEEDS_ISSUE_SPLIT in plan-writing SKILL.md
+check "R3-06: NEEDS_ISSUE_SPLIT in plan-writing SKILL.md" \
+  grep -q "NEEDS_ISSUE_SPLIT" "$PLUGIN_DIR/skills/orchestrate-plan-writing/SKILL.md"
+
+# Forbidden words in voice-directive template
+check "R3-01: forbidden words in voice-directive template" \
+  grep -q "delve" "$PLUGIN_DIR/build/templates/voice-directive.md.tmpl"
+
+# Review segmentation in execution SKILL.md
+check "R3-07: review segmentation in execution SKILL.md" bash -c \
+  "grep -qE '分段|split.*review|Cross-Pack.*Coherence' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'"
+
+# Neighbor interface in execution SKILL.md
+check "R3-08: neighbor interface in execution SKILL.md" bash -c \
+  "grep -qE 'Neighbor.*interface|邻居接口' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'"
+
+# Re-run behavior in execution + plan-writing SKILL.md
+check "R3-09: Re-run behavior in execution SKILL.md" \
+  grep -q "Re-run behavior" "$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md"
+check "R3-09: Re-run behavior in plan-writing SKILL.md" \
+  grep -q "Re-run behavior" "$PLUGIN_DIR/skills/orchestrate-plan-writing/SKILL.md"
+
+# correlation_id in dispatch-envelope schema
+check "R3-04: correlation_id in dispatch-envelope schema" \
+  grep -q "correlation_id" "$PLUGIN_DIR/state-schema/dispatch-envelope-v1.json"
+
+# mutations field in state.sh
+check "R3-12: mutations field in state.sh" \
+  grep -q "mutations" "$PLUGIN_DIR/scripts/state.sh"
+
+# claude --version check in session-start.sh
+check "R3-13: claude version check in session-start.sh" bash -c \
+  "grep -qE 'claude.*version|2\\.1\\.147' '$PLUGIN_DIR/hooks/session-start.sh'"
+
+# R3-18: repair reference doc contradiction fixed
+check "R3-18: no '默认只做 targeted re-review' in execution repair" bash -c \
+  "! grep -q '默认只做 targeted re-review' '$PLUGIN_DIR/skills/orchestrate-execution/references/execution-repair-truncation.md'"
+check "R3-18: no '默认只做 targeted re-review' in final-review repair" bash -c \
+  "! grep -q '默认只做 targeted re-review' '$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-repair.md'"
+
+# R3-19: exit signposts in reference files
+check "R3-19: direction-check has exit signpost" bash -c \
+  "tail -3 '$PLUGIN_DIR/skills/orchestrate-workflow/references/direction-check.md' | grep -qE '下一步|回到'"
+check "R3-19: plan-gates has exit signpost" bash -c \
+  "tail -3 '$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-gates.md' | grep -qE '下一步|回到'"
+check "R3-19: merge-preparation has exit signpost" bash -c \
+  "tail -3 '$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-preparation.md' | grep -qE '下一步|回到'"
+
+# R3-20: architecture-draft sync
+check "R3-20: no budget-*.json refs in architecture-draft" bash -c \
+  "! grep -q 'budget-.*\.json' '$PLUGIN_DIR/architecture-draft.md'"
+check "R3-20: Ruling 1 in architecture-draft" \
+  grep -q "Ruling 1" "$PLUGIN_DIR/architecture-draft.md"
+check "R3-20: Ruling 2 in architecture-draft" \
+  grep -q "Ruling 2" "$PLUGIN_DIR/architecture-draft.md"
+check "R3-20: Ruling 3 in architecture-draft" \
+  grep -q "Ruling 3" "$PLUGIN_DIR/architecture-draft.md"
+
+# R3-21: design doc rulings
+check "R3-21: Ruling 2 in design doc" \
+  grep -q "Ruling 2" "docs/orchestrate/design/2025-05-22-plugin-maturity.md"
+check "R3-21: Ruling 3 in design doc" \
+  grep -q "Ruling 3" "docs/orchestrate/design/2025-05-22-plugin-maturity.md"
+
+echo ""
 echo "=== Results: $pass passed, $fail failed ==="
 [[ $fail -eq 0 ]]

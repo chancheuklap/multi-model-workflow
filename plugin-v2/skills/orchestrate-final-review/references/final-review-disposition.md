@@ -86,3 +86,6 @@ Accepted findings 按影响范围分类，决定修复路由：
 
 - **Review 通过**（全部 finding 为 rejected / out of scope / duplicate，或无 finding）→ Step 13（清扫遗留尾巴）
 - **有 accepted finding** → Step 9（读取 `references/final-review-repair.md`）
+
+---
+> **下一步**：Review 通过 → Step 13（`final-review-completion.md`）。有 accepted finding → Step 9（`final-review-repair.md`）。

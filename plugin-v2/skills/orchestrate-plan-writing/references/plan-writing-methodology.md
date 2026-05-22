@@ -247,3 +247,6 @@ Plan-writer 通过 SendMessage 收到 accepted findings 后：
 - 任务范围 = parent dispatch prompt 中给出的内容。不扩大 scope。
 - 不为 source design 没要求的能力预留 pack。
 - 不自创 issue——issue hierarchy 由 to-issues 产出，只消费它。
+
+---
+> **下一步**：方法论指导完成 → Steps 9-10（`plan-writer-dispatch.md`）派发 plan-writer。

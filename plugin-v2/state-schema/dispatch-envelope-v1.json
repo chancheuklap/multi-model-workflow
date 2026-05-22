@@ -29,6 +29,10 @@
         { "type": "string", "enum": ["3plus_files_control_flow", "user_requested", "rca_root_cause"] },
         { "type": "null" }
       ]
+    },
+    "correlation_id": {
+      "type": ["string", "null"],
+      "description": "{run_id}/{pack_id} — 跨 dispatch 追踪同一 pack 的 dispatch → return → review → repair 链路"
     }
   }
 }

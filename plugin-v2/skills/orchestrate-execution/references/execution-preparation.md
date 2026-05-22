@@ -92,3 +92,6 @@ SHA=$(git rev-parse HEAD)
 - 区分当前 scope 改动和用户/其它线程改动——不 stage 不属于当前 scope 的 dirty files
 
 **Budget File**：读取 `.claude/multi-model-workflow/active-run-id` 找到 budget file，确认 `pack_count` 与 plan 中 Task Pack 数量一致。**不一致时不得自行修改 budget file**——`budget_total` 只在 plan-writing Step 12a 赋值，执行阶段不可变。不一致说明 plan 文件与 budget file 脱节，返回 `NEEDS_PLAN_REVISION` 让 plan-writing 重新计算。
+
+---
+> **下一步**：预执行准备完成 → SKILL.md Steps 4-9（Pack 循环）。`NEEDS_PLAN_REVISION` → 返回 orchestrate-workflow。

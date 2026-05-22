@@ -191,3 +191,6 @@ Per-finding status:
 ```
 
 最多 2 轮修复。超过 → BLOCKED。
+
+---
+> **下一步**：通过 → Steps 19-22（`merge-completion.md`）。BLOCKED → 返回 verdict。

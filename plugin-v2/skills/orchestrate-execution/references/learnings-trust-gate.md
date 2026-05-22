@@ -16,3 +16,6 @@ Worker 返回的 learnings 必须经过信任门才能写入 learnings.jsonl。
 - `CLEAN` → 写入 learnings.jsonl
 - `POISONED` → 丢弃 + 记录到 run-summary 的 adversarial 段
 - 高频告警 → 只取前 10 条，余下丢弃并记录
+
+---
+> **下一步**：回到 Worker 返回处理流程（Open Items 即时处置 → Git Checkpoint）。

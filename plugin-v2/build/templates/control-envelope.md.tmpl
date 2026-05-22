@@ -15,7 +15,8 @@ Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin i
   "idempotency_key": "<run_id>/<pack_id>/r<repair_round>",
   "disposition_refs": null,
   "review_intent": null,
-  "exception_code": null
+  "exception_code": null,
+  "correlation_id": "<run_id>/<pack_id>"
 }
 -->
 ```

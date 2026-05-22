@@ -27,8 +27,14 @@ Phase complete. 返回 orchestrate-workflow 主循环。
 
 模糊输入 → 与用户讨论 → 设计文档 + CONTEXT.md → Design Review → 过渡到 to-issues。
 
-<!-- BEGIN: preamble -->
+<!-- BEGIN: preamble [variant=T2] -->
 **Hard Gate**：用户确认设计之前，不写代码、不创建骨架、不派 worker。**每个项目**都走 Discovery，无论看起来多简单。
+
+**Compaction Recovery**：如果你刚从 context compaction 恢复，先读 workflow-state 的 `cursor.phase` 确定当前位置，再继续。
+
+**State Read**：进入时读取 `workflow-state-<run_id>.json` 获取当前 phase、budget 余量、已完成 plan 列表。
+
+**Route Dispatch**：根据 Entry Gate 判定的 route 选择对应 phase skill。
 
 **Only stop for：**
 - 需要用户确认设计方向
@@ -38,6 +44,8 @@ Phase complete. 返回 orchestrate-workflow 主循环。
 **Never stop for：**
 - 讨论中间环节（一问一答持续迭代）
 - Design Review findings（Coordinator 直接修复，不问用户）
+
+**State Write**：每个 phase 完成时通过 `state.sh transition` 写入下一个 phase。
 <!-- END: preamble -->
 
 ---

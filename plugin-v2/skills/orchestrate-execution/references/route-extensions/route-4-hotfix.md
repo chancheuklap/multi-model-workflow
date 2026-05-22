@@ -1,4 +1,8 @@
+> **[DEPRECATED]** 此文件的权威副本已迁移到 `orchestrate-workflow/references/route-extensions/route-4-hotfix.md`。Entry Gate 路由属于 workflow 职责。本文件保留供过渡期参考，后续确认 execution SKILL 无引用后删除。
+
 # Route 4: Hotfix
+
+> **入口**：`orchestrate-workflow` Step 1 Entry Gate 匹配 hotfix / 紧急 / production fire / P0 / 生产事故
 
 紧急修复路径。跳过 Discovery + Plan Writing，push 后事后 review。生产 triage 优先。
 
@@ -41,3 +45,6 @@ Hotfix 的核心差异：**先 push 再 review**。修复完成 + 基本测试�
 - 事后 review 通过 → Closing
 - 事后 review 发现问题 → 立即修复 + push + targeted re-review
 - 问题严重到需要 revert → BLOCKED，报告用户
+
+---
+> **下一步**：事后 review 通过 → orchestrate-workflow Closing。BLOCKED → 返回 verdict。

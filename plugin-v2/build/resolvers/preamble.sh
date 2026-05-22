@@ -12,4 +12,9 @@ if [[ ! -f "$TEMPLATE_FILE" ]]; then
   exit 1
 fi
 
-cat "$TEMPLATE_FILE"
+if [[ -n "$VARIANT" ]]; then
+  # Extract [variant=X]...[/variant] block from the template
+  sed -n "/\[variant=$VARIANT\]/,/\[\/variant\]/{ /\[variant=/d; /\[\/variant\]/d; p; }" "$TEMPLATE_FILE"
+else
+  cat "$TEMPLATE_FILE"
+fi

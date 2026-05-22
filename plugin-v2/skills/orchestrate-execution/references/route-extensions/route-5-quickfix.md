@@ -1,4 +1,8 @@
+> **[DEPRECATED]** 此文件的权威副本已迁移到 `orchestrate-workflow/references/route-extensions/route-5-quickfix.md`。Entry Gate 路由属于 workflow 职责。本文件保留供过渡期参考，后续确认无引用后删除。
+
 # Route 5: Quick Fix
+
+> **入口**：`orchestrate-workflow` Step 1 Entry Gate 匹配 quick fix / 小改动 / 调整
 
 小规模修复路径。消费现有 design，single Pack，single review round。
 
@@ -41,3 +45,6 @@ Plan Implementation Review 只关注：
 - 是否引入新问题
 - 测试是否覆盖修复行为
 - 不审设计完备性（现有 design 已 reviewed）
+
+---
+> **下一步**：Review 通过 → orchestrate-workflow Closing。needs repair → 修复 + targeted re-review（最多 2 轮）。

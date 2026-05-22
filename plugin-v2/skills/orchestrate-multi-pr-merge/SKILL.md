@@ -3,6 +3,27 @@ name: orchestrate-multi-pr-merge
 description: "多个并行 PR 需合并审查时使用（Route 3）。冲突发现 → 分类修复 → Codex 集成审查 → 依赖顺序合并。产出：所有 PR 合并 + 集成审查通过。"
 ---
 
+<!-- BEGIN: preamble [variant=T2] -->
+**Hard Gate**：用户确认设计之前，不写代码、不创建骨架、不派 worker。**每个项目**都走 Discovery，无论看起来多简单。
+
+**Compaction Recovery**：如果你刚从 context compaction 恢复，先读 workflow-state 的 `cursor.phase` 确定当前位置，再继续。
+
+**State Read**：进入时读取 `workflow-state-<run_id>.json` 获取当前 phase、budget 余量、已完成 plan 列表。
+
+**Route Dispatch**：根据 Entry Gate 判定的 route 选择对应 phase skill。
+
+**Only stop for：**
+- 需要用户确认设计方向
+- 需要用户确认设计文档
+- BLOCKED
+
+**Never stop for：**
+- 讨论中间环节（一问一答持续迭代）
+- Design Review findings（Coordinator 直接修复，不问用户）
+
+**State Write**：每个 phase 完成时通过 `state.sh transition` 写入下一个 phase。
+<!-- END: preamble -->
+
 # Orchestrate Multi-PR Merge
 
 多个来自同一大设计/大计划的并行 PR 需要合并。PR 与 PR 之间可能存在代码冲突、功能冲突、意图冲突——这些 PR 各自经历了路线 1（Formal Orchestrate），各自通过了自己的 Final Review，但它们之间的交互尚未验证。

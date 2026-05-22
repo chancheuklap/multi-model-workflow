@@ -43,3 +43,6 @@ state.sh disposition append --run-id <run_id> --finding-id <id> \
 - `state.sh disposition append` 记录每条 finding 的 disposition + confidence + evidence
 - `review-effectiveness.sh` 聚合统计（reject_count, suppress_count, path_a/b_count）
 - 统计用于 Direction Check 和 Final Review 的 review effectiveness 报告
+
+---
+> **下一步**：回到当前 disposition 处理流程继续下一条 finding。

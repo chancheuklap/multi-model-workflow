@@ -305,9 +305,15 @@ hooks 通过 `tool_input` 中的 prompt 字段提取信封（`jq` 解析 `<!-- D
 
 **无 fallback，无渐进迁移**：信封解析失败 = 硬停 + 报错（`jq` 解析失败说明信封格式有 bug，应该修 bug 而不是静默降级到正则）。这与 §6.5 "拒绝静默降级"一致。旧的正则提取代码在信封机制上线时一次性移除，不保留 legacy 路径。
 
+> **[Ruling 3]** PostToolUse hook（agent-return-handler）在信封解析失败时 exit 0 跳过，而非 exit 2 硬停。原因：PostToolUse 无法撤回已完成的 agent，硬停只会中断正常流程。此处"无 fallback"适用于 PreToolUse dispatch gate，不适用于 PostToolUse 后处理。
+
+> **[Ruling 1]** track-execution-state.sh 的 Pack ID 提取保留 sed 模式，因为此 hook 的输入源是 commit message（受 enforce-pack-commit.sh 格式保证），不是 prompt/控制平面。"无渐进迁移"适用于 Agent dispatch 信封，不适用于已有格式保证的 commit message 解析。
+
 **2b. 统一状态机**
 
 `budget-<run_id>.json` 和 `execution-state-<run_id>.json` 合并为 `workflow-state-<run_id>.json`。单一写入脚本 `state.sh` 提供：
+
+> **[Ruling 2]** 实现采用双文件模型：workflow-state（budget/phase/dispositions）+ execution-state（pack-level data）。原因：pack-level 数据被多 hook 并发写入，分离降低竞态风险。详见 `architecture-draft.md` 状态文件双文件模型节。
 
 - **写入前 schema 校验**：pack status 只能在 `pending → dispatched → returned → committed → blocked` 之间转换
 - **写入后 mutation log**：每次写入记录 `{ field, old, new, writer, timestamp }`
@@ -358,6 +364,8 @@ hooks 通过 `tool_input` 中的 prompt 字段提取信封（`jq` 解析 `<!-- D
   "mutations": []
 }
 ```
+
+> **[Ruling 2 衍生]** workflow-state.plans 使用 object（keyed by plan_id）而非 array。execution-state 的 plans 也使用 object keyed by plan_id，两文件通过 plan_id 和 pack_id 关联。
 
 **2c. cleanup-before-push 移到 PostToolUse**
 

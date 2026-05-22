@@ -3,21 +3,19 @@ name: orchestrate-workflow
 description: "正式开发流程主入口。用户给出新功能、改造、bug、design/plan/issue/PRD、UI/UX 反馈、截图、测试失败、已实现 diff，或要求实现/继续/review/验收/收尾时主动使用。Entry Gate → Infrastructure → Phase 路由 → Closing。"
 ---
 
-<!-- BEGIN: preamble -->
+<!-- BEGIN: preamble [variant=T1] -->
 **Hard Gate**：用户确认设计之前，不写代码、不创建骨架、不派 worker。**每个项目**都走 Discovery，无论看起来多简单。
 
-**Only stop for：**
-- 需要用户确认设计方向
-- 需要用户确认设计文档
-- BLOCKED
+**Compaction Recovery**：如果你刚从 context compaction 恢复，先读 workflow-state 的 `cursor.phase` 确定当前位置，再继续。
 
-**Never stop for：**
-- 讨论中间环节（一问一答持续迭代）
-- Design Review findings（Coordinator 直接修复，不问用户）
+**State Read**：进入时读取 `workflow-state-<run_id>.json` 获取当前 phase、budget 余量、已完成 plan 列表。
+
+**Route Dispatch**：根据 Entry Gate 判定的 route 选择对应 phase skill。
 <!-- END: preamble -->
 
 <!-- BEGIN: voice-directive [variant=workflow] -->
 你是 Coordinator——项目的中枢调度者。你不写代码，你编排。对用户用业务语言（进展、风险、决策点），对 sub-agent 用精确技术指令。每个决策有 evidence，不凭直觉。
+禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover.
 <!-- END: voice-directive -->
 
 # Orchestrate Workflow
@@ -47,6 +45,10 @@ description: "正式开发流程主入口。用户给出新功能、改造、bug
 | **Route 1: Formal Orchestrate** | 新功能、改造、feedback、缺 design/issue/plan、已有 design/plan 要 review/执行 | Step 2 |
 | **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Steps 4-5（Scope + Git，跳过 Budget）→ Step 15 |
 | **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Steps 4-5（Scope + Git，跳过 Budget）→ Step 19 |
+| **Route 4: Hotfix** | hotfix / 紧急 / production fire / P0 / 生产事故 | Read references/route-extensions/route-4-hotfix.md |
+| **Route 5: Quick Fix** | quick fix / 小改动 / 调整 | Read references/route-extensions/route-5-quickfix.md |
+| **Route 6: Spike** | spike / 探索 / prototype / 试试 | Read references/route-extensions/route-6-spike.md |
+| **Route 7: Maintenance** | 升级 / upgrade / CVE / 依赖 / 重构 / refactor / 清理 / tech debt | Read references/route-extensions/route-7-maintenance.md |
 
 模糊输入 → 一次只问一个问题收窄。概念/事实问题 → 直接回答不进 orchestrate。
 

@@ -209,24 +209,37 @@ flowchart TD
 orchestrate-workflow Step 4
   └─ .claude/multi-model-workflow/scope-<run_id>.md        ← Scope Contract
 orchestrate-workflow Step 6
-  ├─ .claude/multi-model-workflow/budget-<run_id>.json      ← Budget File（Route 1 only）
+  ├─ .claude/multi-model-workflow/workflow-state-<run_id>.json ← Workflow State（budget/cursor/dispositions/plans）（Route 1 only）
   └─ .claude/multi-model-workflow/active-run-id             ← Active Run ID
 orchestrate-plan-writing Step 12a
-  └─ budget-<run_id>.json: budget_total = 3P + 12           ← Budget 赋值（P = plan 数，不可变）
+  └─ workflow-state-<run_id>.json: budget.budget_total = 3P + 12  ← Budget 赋值（P = plan 数，不可变）
 orchestrate-execution Step 2a
-  └─ .claude/multi-model-workflow/execution-state-<run_id>.json ← Execution State（Plan/Pack 进度）
+  └─ .claude/multi-model-workflow/execution-state-<run_id>.json ← Execution State（pack-level status/agent_id/commit_sha）
 每个 Worker 完成时
   └─ .claude/multi-model-workflow/pack-returns/<pack-id>.json  ← Worker Durable Return
 每次 review 完成
-  └─ budget-<run_id>.json: budget_used += 1                 ← Budget 消耗
+  └─ workflow-state-<run_id>.json: budget.review_used += 1     ← Budget 消耗
 每个 phase verdict 后
-  └─ budget-<run_id>.json: last_gate_phase + timestamp      ← Phase 标记
+  └─ workflow-state-<run_id>.json: cursor.phase + timestamp    ← Phase 标记
 Review 派发时
   ├─ .claude/multi-model-workflow/review-prompts/<gate>.md  ← Review prompt
   └─ .claude/multi-model-workflow/review-results/<gate>.md  ← Review result
 Closing 前（cleanup-before-push.sh）
-  └─ 清除 active-run-id + scope + budget + review temp files
+  └─ 清除 active-run-id + scope + workflow-state + execution-state + review temp files
 ```
+
+### 状态文件双文件模型
+
+**[Ruling 2]** 设计 §2b 原文描述将原 budget 文件和 execution-state 文件合并为单一 `workflow-state`。实现采用双文件模型：
+
+- **workflow-state-<run_id>.json**：budget（review_total/review_used/effort_total/effort_used/dispatches）、cursor（phase/reference/step）、plans 元信息、reflux、review_dispositions、mutations
+- **execution-state-<run_id>.json**：pack-level data（status/agent_id/commit_sha/worker_verdict per pack）
+
+分离原因：pack-level 数据被 3 个 hook 并发写入（agent-return-handler、track-execution-state、track-review-budget），合并到单文件会加剧竞态。双文件模型保持 workflow-state 由 Coordinator + state.sh 独占写入的简洁性，execution-state 由 hooks 写入。两文件通过 plan_id 和 pack_id 关联。
+
+**[Ruling 3]** PostToolUse hook（agent-return-handler）在信封解析失败时 exit 0 跳过，而非 exit 2 硬停。原因：PostToolUse 在 Agent 已完成后触发，无法撤回已完成的 agent，硬停只会中断正常流程。信封解析失败的 agent return 仍可从 tool_response fallback 提取 verdict。
+
+**[Ruling 1]** track-execution-state.sh 的 Pack ID 提取保留 sed 模式（`sed -n 's/.*Pack \([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`），因为此 hook 的输入源是 commit message（受 enforce-pack-commit.sh 格式保证），不是 prompt/控制平面。设计 §3.5 的"无 fallback 无渐进迁移"适用于 Agent dispatch 信封，不适用于已有格式保证的 commit message 解析。
 
 ---
 
@@ -417,7 +430,7 @@ Worker dispatch（Pack Brief 自足）
 
 | 返回值 | Coordinator 动作 |
 |--------|-----------------|
-| `PLAN_CREATED` | 确认 budget file → 进入 execution |
+| `PLAN_CREATED` | 确认 workflow-state budget → 进入 execution |
 | `NEEDS_DISCOVERY` | 回到 discovery |
 | `NEEDS_DESIGN_REVIEW` | 回到 design review |
 | `NEEDS_ISSUES` / `NEEDS_TRIAGE` | 调用 to-issues / triage |
@@ -490,18 +503,20 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 - `plan-writer` frontmatter 无 `skills:` 字段，`improve-codebase-architecture` 在 body 中按需调用。
 - `docs-worker` frontmatter 只声明 `grill-with-docs`，**`triage` 未在 frontmatter 中声明**（与原 draft 不一致）。
 
-### Hooks（9 个）
+### Hooks（10 个）
 
-| 事件 | Matcher | 做什么 | 强制行为 |
-|------|---------|--------|---------|
+| 事件 | Matcher / if 条件 | 做什么 | 强制行为 |
+|------|-------------------|--------|---------|
 | `SessionStart` | `startup\|clear\|compact` | `session-start.sh`：注入行为覆盖规则 + execution state recovery（`RESUME`） | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 未设置 → exit 2（阻断会话）。注入 compaction recovery 规则的唯一入口。有 execution state 时输出 `RESUME` 指令 |
 | `PreToolUse` | `Bash` | `guard-premature-push.sh`：阻止未完成时 push/PR | ① plan 文件有未勾选 task（`- [ ]`）→ 阻止 `git push` / `gh pr create`　② 无条件阻止 `git merge --squash` |
-| `PreToolUse` | `Bash` | `cleanup-before-push.sh`：push 前清理 `.claude/multi-model-workflow/` | guard 放行后执行。删除整个 `.claude/multi-model-workflow/` 目录（含 execution-state + pack-returns）。拒绝删除符号链接。**唯一清理机制** |
 | `PreToolUse` | `Bash(git commit *)` | `enforce-pack-commit.sh`：Pack commit 格式校验 | Pack commit 格式不匹配 `Pack N.M: ...` → exit 2 拦截。非 Pack commit 静默放行 |
+| `PreToolUse` | `Bash(*codex-companion.mjs task*)` | `gate-codex-review.sh`：Codex review dispatch gate | baseline → 放行；targeted-re-review 需满足 exception 条件（3+ files / user_requested / rca_root_cause），否则 exit 2 阻断（默认 Coordinator 自验收） |
 | `PreToolUse` | `Agent(pack-executor*)` / `Agent(complex-pack-executor*)` | `validate-pack-dispatch.sh`：Worker dispatch 前置条件校验 | 缺少 start_commit 或 Pack 状态非 pending → exit 2 拦截。Repair re-dispatch（含 `[repair-round-N]` 标记）放行 |
 | `PostToolUse` | `Bash` | `track-review-budget.sh`：budget 自动追踪 + Plan Impl Review state 更新 | 检测 `codex-companion` + `result` → 递增 `budget_used`；检测 `plan-impl-review-N` → 更新 execution state。80% → Direction Check；100% → BUDGET EXHAUSTED |
+| `PostToolUse` | `Bash` | `track-effort-budget.sh`：effort budget 追踪 | 检测 Agent dispatch 相关的 Bash 调用 → 按 agent 角色加权递增 `effort_used` |
 | `PostToolUse` | `Bash(git commit *)` | `track-execution-state.sh`：commit 后更新 execution state | Pack commit 成功后更新 `packs[N.M].status = committed` + `commit_sha` + `plans[N].end_commit`。全部 committed → 输出 `NEXT` 指示派发 Plan Implementation Review |
-| `PostToolUse` | `Agent` | `agent-return-handler.sh`：Worker 返回后更新 execution state | 从 `tool_input` 提取 Pack ID → 读 `pack-returns/<run_id>/<pack-id>.json`（或解析 `tool_response` 作 fallback）→ 更新 `packs[N.M].status = returned` + `worker_verdict`。非 execution 路线（无 execution-state）静默放行 |
+| `PostToolUse` | `Bash(git push *)` | `cleanup-before-push.sh`：push 成功后清理 `.claude/multi-model-workflow/` | push 成功后执行。删除整个 `.claude/multi-model-workflow/` 目录（含 execution-state + pack-returns）。拒绝删除符号链接。**唯一清理机制** |
+| `PostToolUse` | `Agent` | `agent-return-handler.sh`：Worker 返回后更新 execution state | 从 `tool_input` 提取 DISPATCH_ENVELOPE → 读 `pack-returns/<run_id>/<pack-id>.json`（或解析 `tool_response` 作 fallback）→ 更新 `packs[N.M].status = returned` + `worker_verdict`。非 execution 路线（无 execution-state）静默放行 |
 
 ### 外部 Skill
 
@@ -610,7 +625,7 @@ Round 3（截断轮）：
 Round 3 Re-Review 仍 needs repair → BLOCKED
 ```
 
-**Final Review → Execution 回流**：`execution_reflux_count`（budget file 字段，初始 0）。允许回流 1 次（increment → 1）；第 2 次 → BLOCKED。防止无限 Final Review ↔ Execution 循环。
+**Final Review → Execution 回流**：`execution_reflux_count`（workflow-state reflux 字段，初始 0）。允许回流 1 次（increment → 1）；第 2 次 → BLOCKED。防止无限 Final Review ↔ Execution 循环。
 
 ---
 
@@ -688,7 +703,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 ```
 
 - Source artifact 在 gate 后有改动 → **重新进入对应 gate review**（不跳过）
-- `active-run-id` 对应的 budget file 超过 1 小时未更新 → 视为 stale，允许新 run 覆盖
+- `active-run-id` 对应的 workflow-state 超过 1 小时未更新 → 视为 stale，允许新 run 覆盖
 - SessionStart hook 注入的 compaction recovery 规则：进入任何 phase 前必须 re-read `scope-<run_id>.md`
 
 ---

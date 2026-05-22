@@ -118,3 +118,6 @@ Agent({
 | `BLOCKED` | 无法完成 | 报告用户，附 plan-writer 的阻塞原因 |
 
 upstream skill 结论必须写回 design document / issue hierarchy，再 SendMessage 给原 plan-writer 继续。
+
+---
+> **下一步**：plan-writer 返回后 → Steps 11-12a（`plan-gates.md`）。

@@ -1,4 +1,8 @@
+> **[DEPRECATED]** 此文件的权威副本已迁移到 `orchestrate-workflow/references/route-extensions/route-6-spike.md`。Entry Gate 路由属于 workflow 职责。本文件保留供过渡期参考，后续确认无引用后删除。
+
 # Route 6: Spike
+
+> **入口**：`orchestrate-workflow` Step 1 Entry Gate 匹配 spike / 探索 / prototype / 试试
 
 探索性研究路径。产出 throwaway code + verdict，不产出生产代码。
 

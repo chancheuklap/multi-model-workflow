@@ -1,4 +1,8 @@
+> **[DEPRECATED]** 此文件的权威副本已迁移到 `orchestrate-workflow/references/route-extensions/route-7-maintenance.md`。Entry Gate 路由属于 workflow 职责。本文件保留供过渡期参考，后续确认无引用后删除。
+
 # Route 7: Maintenance
+
+> **入口**：`orchestrate-workflow` Step 1 Entry Gate 匹配 升级 / upgrade / CVE / 依赖 / 重构 / refactor / 清理 / tech debt
 
 维护任务路径。依赖更新、文档更新、配置调整、chore。
 
@@ -48,3 +52,6 @@ Final Review 降级为 **lint + test pass check**：
 - 无 breaking change（或 breaking change 有 migration guide）
 
 不做 intent coverage、cross-plan integration 等完整 Final Review angle。
+
+---
+> **下一步**：Final Review 通过 → orchestrate-workflow Closing。needs repair → 修复循环。
