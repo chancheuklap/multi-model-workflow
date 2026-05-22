@@ -392,6 +392,30 @@ Review prompt 模板（由 `review-dispatch.sh` resolver 生成）要求 reviewe
 
 用户可以回看"reviewer 说了什么，Coordinator 怎么判断的"。跨会话恢复时 disposition 不丢失。后续可以计算 review 有效性指标。
 
+**3b-2. Coordinator 亲验纪律——不当传声筒**
+
+Coordinator 收到 reviewer 返回的 findings 后，**不得直接转发给 worker**。必须逐条亲自验证：
+
+1. **亲验**：用 Read / grep / 对照设计文档验证每条 finding 的事实主张
+2. **Disposition**：accepted / rejected / needs evidence / out of scope
+3. **修复指令**：只把 accepted findings 翻译为具体修复指令传给 worker——包含文件路径、行号、期望变更。Reviewer 的原始输出不传
+
+这确保 Coordinator 行使裁判权而非沦为传声筒。如果 Coordinator 不做亲验就转发 findings，worker 可能按错误的 finding 修复（reviewer 也会犯错）。Disposition 偏差检测（3d）监控 Coordinator 是否过度 rubber-stamping（accept 率 > 90%）。
+
+**3b-3. 修复后不自动复审——Coordinator 自验收**
+
+Worker 完成修复后，**Coordinator 自己验收**（grep 确认变更、对照 acceptance criteria、运行 verification commands），验收通过即提交。**不自动派发 reviewer 复审。**
+
+理由：
+- 修复通常是针对明确 finding 的精确变更，Coordinator 有能力判断修复是否到位
+- 自动复审的 Token 消耗与收益不成比例——两轮修复-复审循环可能消耗首次 review 的 3 倍 Token
+- 设计 §8 的 verification commands 是机械化检查，不需要 reviewer 介入
+
+**例外**：以下情况 Coordinator 应主动派发复审：
+- 修复涉及 3+ 个文件且改变了控制流逻辑
+- 用户明确要求复审
+- 修复截断触发 RCA 后的根因修复
+
 **3c. Path A 修复的角色分离恢复**
 
 Coordinator 做 Path A 修复（≤2 文件直接修）后，必须触发一次 targeted Codex re-review 覆盖 Coordinator 修改的文件。**Re-review 的 verdict 是自动绑定的**：Codex 返回 `pass` → 修复被接受，无需 per-finding disposition；Codex 返回 `needs repair` → Coordinator 不得自行修复，必须 dispatch worker（Path B）完成修复。这确保 Coordinator 永远不处于"判断自己修复质量"的位置。
