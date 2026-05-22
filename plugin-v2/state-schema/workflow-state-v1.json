@@ -44,27 +44,12 @@
     "plan_count": { "type": ["integer", "null"] },
     "plans": {
       "type": "array",
+      "description": "Plan-level tracking only. Per Ruling 2: pack-level data (status, agent_id, commit_sha, worker_verdict) lives exclusively in execution-state-v1.json, not here.",
       "items": {
         "type": "object",
         "properties": {
           "plan_id": { "type": "string" },
-          "status": { "type": "string" },
-          "packs": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "pack_id": { "type": "string" },
-                "status": { "type": "string" },
-                "worker_verdict": { "type": ["string", "null"] },
-                "start_commit": { "type": ["string", "null"] },
-                "commit_sha": { "type": ["string", "null"] },
-                "agent_id": { "type": ["string", "null"] },
-                "repair_round": { "type": "number" }
-              },
-              "required": ["pack_id", "status"]
-            }
-          }
+          "status": { "type": "string" }
         },
         "required": ["plan_id", "status"]
       }
