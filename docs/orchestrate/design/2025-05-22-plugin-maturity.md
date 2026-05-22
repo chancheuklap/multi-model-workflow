@@ -4,7 +4,7 @@
 
 ## 1. 设计论点
 
-这个 plugin 有一个清晰但从未被显式声明的核心理论：**对 AI 生成代码的信任，不能来自生成它的同一个 AI 的声明，必须来自一个独立的、有不同偏见的 AI 的验证。** Claude 写代码（Worker），GPT-5.4 审代码（Codex Reviewer），Claude 做裁判（Coordinator 亲验）——三方分离的背后不是"多模型更好"的模糊主张，而是这个具体的认识论立场。
+这个 plugin 有一个清晰但从未被显式声明的核心理论：**对 AI 生成代码的信任，不能来自生成它的同一个 AI 的声明，必须来自一个独立的、有不同偏见的 AI 的验证。** Claude 写代码（Worker），OpenAI GPT 审代码（Codex Reviewer），Claude 做裁判（Coordinator 亲验）——三方分离的背后不是"多模型更好"的模糊主张，而是这个具体的认识论立场。
 
 当前的 plugin 已经在"能跑通"的层面证明了这个理论。但它的实现有七处背叛自己理论的地方，它的控制平面停留在"文本模式匹配"的原始阶段，它对用户在失败点的体验没有设计。
 
@@ -36,7 +36,7 @@ gstack（https://github.com/garrytan/gstack）和我们在解决同一个根本�
 
 **控制流不同**：gstack 主要是线性工作流（失败 = 重跑）。我们有嵌套循环（Plan → Pack → Repair → Re-review）+ 跨 phase 回流 + 修复截断 + RCA 升级。自然语言重跑不够——需要精确的状态驱动循环。
 
-**Review 模型不同**：gstack 在同一 context 内派 subagent review。我们通过 Bash 调用 `codex-companion.mjs` 发送到 GPT-5.4——跨模型、跨 API、跨进程。dispatch 协议被复制在 10 个 reference 中。
+**Review 模型不同**：gstack 在同一 context 内派 subagent review。我们通过 Bash 调用 `codex-companion.mjs` 发送到 OpenAI GPT——跨模型、跨 API、跨进程。dispatch 协议被复制在 10 个 reference 中。
 
 ### 2.3 gstack 的成功依赖于其范围
 
@@ -231,7 +231,7 @@ plugin-v2/
 
 | 内容类型 | 来源 | 分类原则 |
 |---------|------|---------|
-| Codex review 4 步 dispatch 协议 | resolver | 事实：协议变了 10 处必须同步 |
+| Codex review 4 步 dispatch 协议 + 模型分层 | resolver | 事实：协议变了 10 处必须同步；模型选择按 phase 分层（见承诺 3a） |
 | Disposition 表 | resolver | 事实：定义变了 5 处必须一致 |
 | Forbidden shortcuts 清单 | resolver | 事实：清单增减时多处必须同步 |
 | 状态字段写入命令 | resolver | 事实：schema 变了写入命令必须同步 |
@@ -346,7 +346,7 @@ hooks 通过 `tool_input` 中的 prompt 字段提取信封（`jq` 解析 `<!-- D
 
 **gstack 的洞见**：review finding 如果不带可靠性评级，高 false positive 率会导致 alert fatigue——用户很快就忽略所有 findings。
 
-**3a. Finding 结构化**
+**3a. Finding 结构化 + Review 模型分层**
 
 Review prompt 模板（由 `review-dispatch.sh` resolver 生成）要求 reviewer 按格式输出：
 
@@ -364,6 +364,18 @@ Review prompt 模板（由 `review-dispatch.sh` resolver 生成）要求 reviewe
 | 8-10 | 直接亲验，通常 accept 或 reject |
 | 5-7 | 亲验 + 派 code-explorer 补证 → 再定 disposition |
 | 1-4 | 默认 suppress → 记录为 "suppressed: low confidence" |
+
+**Codex Review 模型按 Phase 分层**：不同 phase 的审查对推理能力的需求不同。`review-dispatch.sh` resolver 根据当前 phase 自动选择模型参数：
+
+| Phase | Codex 模型 | Reasoning Effort | 理由 |
+|-------|-----------|-----------------|------|
+| Design Review | GPT-5.5 | xhigh | 架构和设计决策需要最高推理能力发现逻辑缺陷和一致性问题 |
+| Plan Review | GPT-5.5 | xhigh | 计划完整性、依赖正确性、Task Pack 覆盖率同样需要深度推理 |
+| Pack Review（Execution） | GPT-5.4 | xhigh | 代码质量审查——spec compliance + code quality + cross-pack coherence |
+| Final Review | GPT-5.4 | xhigh | 集成行为验证——基于已通过 Pack Review 的代码 |
+| Direct Repair Review | GPT-5.4 | xhigh | 小范围修复验证 |
+
+模型选择写入 `review-dispatch.sh` resolver 的 phase 参数映射表。Coordinator 不需要手动选模型——resolver 根据 `workflow-state.cursor.phase` 自动决定。
 
 **3b. Disposition 审计记录**
 
