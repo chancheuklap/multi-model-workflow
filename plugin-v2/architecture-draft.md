@@ -594,7 +594,7 @@ Targeted re-review 文件名加 `-repair-<round>` 后缀，不覆盖 baseline �
 ```
 Round 1-2：三路分流
   Path A — Coordinator 直接修复（≤ 2 文件）
-  Path B — Worker 修复（SendMessage 原 worker 或新建 dispatch）
+  Path B — Worker 修复（SendMessage resume 原 worker；若无 agent_id 则 BLOCKED）
   Path C — code-explorer 只读调查（根因不明时）
   → Targeted Re-Review
 
