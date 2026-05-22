@@ -162,12 +162,12 @@
 - `build.sh --apply` 行为：原子写入（写 tmp → rename）
 
 **Acceptance criteria**：
-- [ ] 选定一个 SKILL.md（建议 `orchestrate-discovery/SKILL.md` 作为最小试点）
-- [ ] 在该 SKILL.md 中插入 `<!-- BEGIN: preamble -->` / `<!-- END: preamble -->` 锚点对，内容为当前文件中已有的 preamble 段
-- [ ] `build.sh --apply` 后该 SKILL.md 内容字节级不变（idempotent）
-- [ ] 修改 `templates/preamble.md.tmpl` 后 `build.sh --check` 退出 1 并打印 diff
-- [ ] 还原 template 后 `build.sh --check` 退出 0
-- [ ] `build/README.md` 说明：锚点约定 / 新增 resolver 步骤 / `--check` vs `--apply`
+- [x] 选定一个 SKILL.md（建议 `orchestrate-discovery/SKILL.md` 作为最小试点）
+- [x] 在该 SKILL.md 中插入 `<!-- BEGIN: preamble -->` / `<!-- END: preamble -->` 锚点对，内容为当前文件中已有的 preamble 段
+- [x] `build.sh --apply` 后该 SKILL.md 内容字节级不变（idempotent）
+- [x] 修改 `templates/preamble.md.tmpl` 后 `build.sh --check` 退出 1 并打印 diff
+- [x] 还原 template 后 `build.sh --check` 退出 0
+- [x] `build/README.md` 说明：锚点约定 / 新增 resolver 步骤 / `--check` vs `--apply`
 
 **Verification commands**：
 ```bash
@@ -223,12 +223,12 @@ bash plugin-v2/build/build.sh --check                     # 期望：exit 0（so
 - Resolvers 用 bash 直接读 template + 简单字符串替换；不需要 python（保持 Pack 1.1 决策一致）
 
 **Acceptance criteria**：
-- [ ] 8 个 resolver 各有独立测试，全部 pass
-- [ ] 10 处 codex-companion.mjs 派发模板全部由 review-dispatch resolver 注入，源文件去掉硬编码
-- [ ] 4 处 disposition table 全部由 disposition-table resolver 注入
-- [ ] Signpost / state-write / forbidden-shortcuts / control-envelope / voice-directive 在各 SKILL.md 的对应位置由 resolver 注入
-- [ ] `build.sh --check` 在 apply 后退出 0（apply 后再 check 必须 idempotent）
-- [ ] 任意修改一处 template → 多个 SKILL.md 同时反映，且 diff 行数 > 1（验证去重生效）
+- [x] 8 个 resolver 各有独立测试，全部 pass
+- [x] 10 处 codex-companion.mjs 派发模板全部由 review-dispatch resolver 注入，源文件去掉硬编码
+- [x] 4 处 disposition table 全部由 disposition-table resolver 注入
+- [x] Signpost / state-write / forbidden-shortcuts / control-envelope / voice-directive 在各 SKILL.md 的对应位置由 resolver 注入
+- [x] `build.sh --check` 在 apply 后退出 0（apply 后再 check 必须 idempotent）
+- [x] 任意修改一处 template → 多个 SKILL.md 同时反映，且 diff 行数 > 1（验证去重生效）
 
 **Verification commands**：
 ```bash
@@ -308,14 +308,14 @@ grep -rc "Apply this disposition table" plugin-v2/skills/                 # 期�
 - 锁：`mkdir <state_dir>/<run_id>.lock`；持有者写 `<lock>/pid` + `<lock>/ts`；超 60s 的 stale lock 由后续调用者清理后重试一次
 
 **Acceptance criteria**：
-- [ ] `state.sh init --run-id <id> --slug <slug> --route <route>` 创建符合 schema 的初始文件（含 `idempotency_keys=[]` `plan_writer_agent_id=null` `review_dispositions=[]` `review_effectiveness={零值}` `pending_post_push_reviews=[]` `path_a_escalation=[]` `self_verifications=[]` `pending_direction_check=null` 默认值）
-- [ ] `state.sh read --run-id <id> --field <jq-path>` 输出指定字段
-- [ ] `state.sh transition --run-id <id> --actor <name> --from <s> --to <s> [其他字段]` 验证矩阵后写入，违规退出 2
-- [ ] `state.sh disposition append --run-id <id> --review-round <r> --finding-id <id> --disposition <accept|reject|suppress|path-a|path-b> --confidence <1-10> --severity <H|M|L> [--evidence <text>]` 写入 review_dispositions 数组（承诺 3b）；`--disposition accepted` 时 `--evidence` 必填且非空，否则退出 2（§3b-2 亲验产物校验）
-- [ ] `state.sh validate --run-id <id>` 校验文件符合 schema
-- [ ] 并发场景：两个 state.sh 进程同时写 → 一个等待 / 一个成功 / 文件最终一致
-- [ ] Stale lock（>60s）能被自动清理
-- [ ] Transition matrix 覆盖所有当前 4 个 writer 的实际写入路径 + Pack 9 的 track-effort-budget
+- [x] `state.sh init --run-id <id> --slug <slug> --route <route>` 创建符合 schema 的初始文件（含 `idempotency_keys=[]` `plan_writer_agent_id=null` `review_dispositions=[]` `review_effectiveness={零值}` `pending_post_push_reviews=[]` `path_a_escalation=[]` `self_verifications=[]` `pending_direction_check=null` 默认值）
+- [x] `state.sh read --run-id <id> --field <jq-path>` 输出指定字段
+- [x] `state.sh transition --run-id <id> --actor <name> --from <s> --to <s> [其他字段]` 验证矩阵后写入，违规退出 2
+- [x] `state.sh disposition append --run-id <id> --review-round <r> --finding-id <id> --disposition <accept|reject|suppress|path-a|path-b> --confidence <1-10> --severity <H|M|L> [--evidence <text>]` 写入 review_dispositions 数组（承诺 3b）；`--disposition accepted` 时 `--evidence` 必填且非空，否则退出 2（§3b-2 亲验产物校验）
+- [x] `state.sh validate --run-id <id>` 校验文件符合 schema
+- [x] 并发场景：两个 state.sh 进程同时写 → 一个等待 / 一个成功 / 文件最终一致
+- [x] Stale lock（>60s）能被自动清理
+- [x] Transition matrix 覆盖所有当前 4 个 writer 的实际写入路径 + Pack 9 的 track-effort-budget
 
 **Verification commands**：
 ```bash
@@ -378,11 +378,11 @@ bash plugin-v2/scripts/state.sh validate --run-id <fixture> # 期望：exit 0
 - hooks.json 每个 hook 都有正确的 `if` 条件（事件 + matcher），不依赖 hook 内的事件类型 fallback
 
 **Acceptance criteria**：
-- [ ] 4 个 hook 测试用 stdin JSON 喂入合成 tool_input，断言 hook 调用了正确的 state.sh transition + 退出 0
-- [ ] 旧文件路径（`budget-<run_id>.json` / `execution-state-<run_id>.json`）grep 全仓库返回 0（除了 schema doc / 历史注释）
-- [ ] hooks.json `if` 条件无遗漏：每条注册项都有显式 matcher
-- [ ] cleanup-before-push 在 PostToolUse 注册，hook 内逻辑相应调整
-- [ ] 跑一次完整 dry-run dispatch（Pack 14 的 verify-maturity.sh 的子集）能完整经过 dispatched → returned → committed
+- [x] 4 个 hook 测试用 stdin JSON 喂入合成 tool_input，断言 hook 调用了正确的 state.sh transition + 退出 0
+- [x] 旧文件路径（`budget-<run_id>.json` / `execution-state-<run_id>.json`）grep 全仓库返回 0（除了 schema doc / 历史注释）
+- [x] hooks.json `if` 条件无遗漏：每条注册项都有显式 matcher
+- [x] cleanup-before-push 在 PostToolUse 注册，hook 内逻辑相应调整
+- [x] 跑一次完整 dry-run dispatch（Pack 14 的 verify-maturity.sh 的子集）能完整经过 dispatched → returned → committed
 
 **Verification commands**：
 ```bash
@@ -454,16 +454,16 @@ jq '[.hooks[] | select(.if == null or .if == "")] | length' plugin-v2/hooks/hook
   - `review_intent == "targeted-re-review"` 且 `exception_code` 为空/null → 退出 2："targeted re-review 必须声明例外条件"
 
 **Acceptance criteria**：
-- [ ] `dispatch-envelope-v1.json` schema 文件存在并通过 `python3 -c "import json; json.load(open('...'))"` 校验
-- [ ] `control-envelope.md.tmpl` 渲染后的 dispatch prompt 含完整的 envelope HTML 注释块
-- [ ] `parse-envelope.sh <prompt-file>` 输出 jq-friendly JSON 到 stdout，失败时退出 2
-- [ ] `agent-return-handler.sh` 中已无 regex fallback 代码路径（grep 验证）
-- [ ] `validate-pack-dispatch.sh` 中已无 sed Pack ID 抽取代码路径
-- [ ] Idempotency key 重放测试：相同 key 二次入 hook → state 不变（state.sh 层面要支持，但本 Pack 只测 hook 不重复写）
-- [ ] `parse-envelope.sh` 条件校验：repair_round=2 + disposition_refs=null → 退出 2
-- [ ] `parse-envelope.sh` 条件校验：agent_role=codex-reviewer + review_intent=null → 退出 2
-- [ ] `parse-envelope.sh` 条件校验：review_intent=targeted-re-review + exception_code=null → 退出 2
-- [ ] `dispatch-envelope-v1.json` schema 含 `disposition_refs` / `review_intent` / `exception_code` 字段定义
+- [x] `dispatch-envelope-v1.json` schema 文件存在并通过 `python3 -c "import json; json.load(open('...'))"` 校验
+- [x] `control-envelope.md.tmpl` 渲染后的 dispatch prompt 含完整的 envelope HTML 注释块
+- [x] `parse-envelope.sh <prompt-file>` 输出 jq-friendly JSON 到 stdout，失败时退出 2
+- [x] `agent-return-handler.sh` 中已无 regex fallback 代码路径（grep 验证）
+- [x] `validate-pack-dispatch.sh` 中已无 sed Pack ID 抽取代码路径
+- [x] Idempotency key 重放测试：相同 key 二次入 hook → state 不变（state.sh 层面要支持，但本 Pack 只测 hook 不重复写）
+- [x] `parse-envelope.sh` 条件校验：repair_round=2 + disposition_refs=null → 退出 2
+- [x] `parse-envelope.sh` 条件校验：agent_role=codex-reviewer + review_intent=null → 退出 2
+- [x] `parse-envelope.sh` 条件校验：review_intent=targeted-re-review + exception_code=null → 退出 2
+- [x] `dispatch-envelope-v1.json` schema 含 `disposition_refs` / `review_intent` / `exception_code` 字段定义
 
 **Verification commands**：
 ```bash
@@ -564,24 +564,24 @@ git grep -nE "sed -nE? '.*PACK[_ ]?ID" plugin-v2/hooks/                         
   - Path A 修复**始终**做 targeted re-review（§3c 要求）
 
 **Acceptance criteria**：
-- [ ] 4 处 "或新建" + architecture-draft 同步删除 → `git grep -nE "或新建|新建同类" plugin-v2/` 返回 0
-- [ ] dispatch 模板 / SKILL.md / agent 文件中所有首次派发都含 `run_in_background: true`
-- [ ] agentId 持久化指令在 Coordinator-visible 位置（execution SKILL.md Step 6 + plan-writer-dispatch.md）
-- [ ] **execution SKILL.md 与 plan-writing SKILL.md 在修复路径处含完整 SendMessage Resume 操作模板**（步骤 1-6），由 sendmessage-resume resolver 注入；grep `read --field` + `SendMessage(` + `disposition append` 必须同时出现在两个 SKILL.md 的修复段
-- [ ] pack-executor.md / complex-pack-executor.md 的 mode 2a 描述 SendMessage 流程；mode "新建" 整段不存在
-- [ ] plan-writer.md 含 "Mode 2: SendMessage resume" 段，引用 sendmessage-resume 锚点
-- [ ] Idempotency 测试：同 envelope dispatch 两次 → 第二次被 validate-pack-dispatch.sh 拒绝
-- [ ] `git grep -n "Agent({" plugin-v2/ | grep -v "run_in_background"` 返回 0（除了示例 fallback 段）
-- [ ] `test_sendmessage_resume_injection.sh` 通过（构建后 SKILL.md 含完整模板）
-- [ ] 3 个 repair reference 文件的 "Targeted Re-Review" 步骤改为 "Coordinator 自验收"（默认不派 reviewer，例外条件列出）
-- [ ] `execution-repair-truncation.md` Step 11 含"Coordinator 自验收"且默认路径不含"强制 targeted re-review"
-- [ ] `final-review-repair.md` Step 11 同上
-- [ ] `plan-review-resolution.md` Step 17 同上
-- [ ] `state.sh self-verify append` 子命令存在，写入 `self_verifications[]` 数组
-- [ ] `state.sh transition --to repairing` 要求 `--disposition-refs` 非空——缺失退出 2（SendMessage 路径亲验补盲）
-- [ ] sendmessage-resume 模板含步骤 5b（自验收）和 5c（`self-verify append`）
-- [ ] `test_state_self_verify.sh` 通过（self-verify append 写入 + 字段校验）
-- [ ] `test_transition_disposition_refs.sh` 通过（缺 refs 退出 2 + 含 refs 且 state 中有对应 accepted finding → 放行）
+- [x] 4 处 "或新建" + architecture-draft 同步删除 → `git grep -nE "或新建|新建同类" plugin-v2/` 返回 0
+- [x] dispatch 模板 / SKILL.md / agent 文件中所有首次派发都含 `run_in_background: true`
+- [x] agentId 持久化指令在 Coordinator-visible 位置（execution SKILL.md Step 6 + plan-writer-dispatch.md）
+- [x] **execution SKILL.md 与 plan-writing SKILL.md 在修复路径处含完整 SendMessage Resume 操作模板**（步骤 1-6），由 sendmessage-resume resolver 注入；grep `read --field` + `SendMessage(` + `disposition append` 必须同时出现在两个 SKILL.md 的修复段
+- [x] pack-executor.md / complex-pack-executor.md 的 mode 2a 描述 SendMessage 流程；mode "新建" 整段不存在
+- [x] plan-writer.md 含 "Mode 2: SendMessage resume" 段，引用 sendmessage-resume 锚点
+- [x] Idempotency 测试：同 envelope dispatch 两次 → 第二次被 validate-pack-dispatch.sh 拒绝
+- [x] `git grep -n "Agent({" plugin-v2/ | grep -v "run_in_background"` 返回 0（除了示例 fallback 段）
+- [x] `test_sendmessage_resume_injection.sh` 通过（构建后 SKILL.md 含完整模板）
+- [x] 3 个 repair reference 文件的 "Targeted Re-Review" 步骤改为 "Coordinator 自验收"（默认不派 reviewer，例外条件列出）
+- [x] `execution-repair-truncation.md` Step 11 含"Coordinator 自验收"且默认路径不含"强制 targeted re-review"
+- [x] `final-review-repair.md` Step 11 同上
+- [x] `plan-review-resolution.md` Step 17 同上
+- [x] `state.sh self-verify append` 子命令存在，写入 `self_verifications[]` 数组
+- [x] `state.sh transition --to repairing` 要求 `--disposition-refs` 非空——缺失退出 2（SendMessage 路径亲验补盲）
+- [x] sendmessage-resume 模板含步骤 5b（自验收）和 5c（`self-verify append`）
+- [x] `test_state_self_verify.sh` 通过（self-verify append 写入 + 字段校验）
+- [x] `test_transition_disposition_refs.sh` 通过（缺 refs 退出 2 + 含 refs 且 state 中有对应 accepted finding → 放行）
 
 **Verification commands**：
 ```bash
@@ -659,10 +659,10 @@ grep -c "disposition-refs" plugin-v2/scripts/state.sh                           
 - 已有 in-flight workflow-state：读 cursor 字段 + report 恢复点；不修改 state
 
 **Acceptance criteria**：
-- [ ] line 4 注释与实际行为一致
-- [ ] 测试覆盖：4 个硬前置缺失各一例 + 全部就绪正常 case
-- [ ] 旧 budget-/execution-state 文件路径在 session-start.sh 中无残留
-- [ ] 报告 cursor 信息（current_phase / current_reference / current_step）符合 workflow-state schema
+- [x] line 4 注释与实际行为一致
+- [x] 测试覆盖：4 个硬前置缺失各一例 + 全部就绪正常 case
+- [x] 旧 budget-/execution-state 文件路径在 session-start.sh 中无残留
+- [x] 报告 cursor 信息（current_phase / current_reference / current_step）符合 workflow-state schema
 
 **Verification commands**：
 ```bash
@@ -776,25 +776,25 @@ grep -nE "never block" plugin-v2/hooks/session-start.sh                   # 期�
   - 此检查与 Pack 4 的 `parse-envelope.sh` 条件校验互补：parse-envelope 检查"字段是否存在"，validate-pack-dispatch 检查"字段引用的 state 数据是否合法"
 
 **Acceptance criteria**：
-- [ ] codex-reviewer 派发模板含 confidence rubric + bias indicators 声明段
-- [ ] disposition table 注入后含 4 行 confidence 校准 + `state.sh disposition append` 调用模板 + **Coordinator 亲验纪律段**（"禁止直接转发"+ 3 步操作清单）
-- [ ] `execution-review-dispatch.md` 的派发模板由 review-dispatch resolver 生成且含 rubric
-- [ ] `learnings-confidence-audit.md` + `path-a-re-review.md` 流程文档存在
-- [ ] 4 处 disposition table 渲染后均含校准段 + audit append 调用
-- [ ] review-dispatch resolver 含 phase→model 映射表（Design/Plan → gpt-5.5，Execution/Final/Path A → gpt-5.4，均 xhigh）
-- [ ] 生成的 codex dispatch 命令中模型参数正确（Design Review 场景 → 含 `gpt-5.5`；Pack Review / Path A re-review 场景 → 含 `gpt-5.4`）
-- [ ] `test_path_a_re_review.sh` 覆盖 4 个场景（单一模型：entry-existence-driven）：
+- [x] codex-reviewer 派发模板含 confidence rubric + bias indicators 声明段
+- [x] disposition table 注入后含 4 行 confidence 校准 + `state.sh disposition append` 调用模板 + **Coordinator 亲验纪律段**（"禁止直接转发"+ 3 步操作清单）
+- [x] `execution-review-dispatch.md` 的派发模板由 review-dispatch resolver 生成且含 rubric
+- [x] `learnings-confidence-audit.md` + `path-a-re-review.md` 流程文档存在
+- [x] 4 处 disposition table 渲染后均含校准段 + audit append 调用
+- [x] review-dispatch resolver 含 phase→model 映射表（Design/Plan → gpt-5.5，Execution/Final/Path A → gpt-5.4，均 xhigh）
+- [x] 生成的 codex dispatch 命令中模型参数正确（Design Review 场景 → 含 `gpt-5.5`；Pack Review / Path A re-review 场景 → 含 `gpt-5.4`）
+- [x] `test_path_a_re_review.sh` 覆盖 4 个场景（单一模型：entry-existence-driven）：
       (1) `start` → `update --verdict approved`：entry 自动删除（update approved 内部 clear），后续任何 agent dispatch 通过；
       (2) `start` → `update --verdict needs_repair`：entry 仍存在且 `blocked_for_self_fix=true`，dispatch `pack-executor` / `complex-pack-executor`（Path B）通过，dispatch `codex-reviewer`（再次 Path A）被 `validate-pack-dispatch.sh` 拒绝 exit 2；
       (3) `blocked_for_self_fix=true` 状态下再次调用 `state.sh path-a-escalation start --finding-id X` 直接被 state.sh 自身拒绝 exit 2（不依赖 hook）；
       (4) worker dispatch 完成后 `state.sh path-a-escalation clear --finding-id X` 删除 entry，后续 dispatch 任何 agent 通过
-- [ ] `state.sh path-a-escalation` 子命令支持 start/update/clear，写入符合 Pack 2 schema 的 `path_a_escalation[]` 数组
-- [ ] `validate-pack-dispatch.sh` 升级后保留原有功能（Pack 4 / 5 已加的检查不被破坏）；新的 Path A 守门**仅拒绝**重复 Path A 路径，不拒绝 Path B worker 或 new round Codex review
-- [ ] `validate-pack-dispatch.sh` 在 envelope.repair_round≥1 时校验 disposition_refs——refs 引用的 finding 在 state 中必须有 accepted+evidence 记录，否则退出 2（§3b-2 亲验卡扣）
-- [ ] `gate-codex-review.sh` 存在且在 hooks.json 中注册为 PreToolUse Bash hook
-- [ ] `test_gate_codex_review.sh` 覆盖 5 个场景：baseline 放行 / path-a-re-review 放行 / targeted+有效例外 放行 / targeted+无例外 拒绝 / targeted+user_requested 放行
-- [ ] `test_disposition_refs_validation.sh` 覆盖：repair_round=2+refs 引用不存在的 finding → 拒绝 / refs 引用 accepted+有 evidence → 放行 / refs 引用 accepted+空 evidence → 拒绝
-- [ ] `state.sh disposition append --disposition accepted --evidence ""` → 退出 2（evidence 非空强制）
+- [x] `state.sh path-a-escalation` 子命令支持 start/update/clear，写入符合 Pack 2 schema 的 `path_a_escalation[]` 数组
+- [x] `validate-pack-dispatch.sh` 升级后保留原有功能（Pack 4 / 5 已加的检查不被破坏）；新的 Path A 守门**仅拒绝**重复 Path A 路径，不拒绝 Path B worker 或 new round Codex review
+- [x] `validate-pack-dispatch.sh` 在 envelope.repair_round≥1 时校验 disposition_refs——refs 引用的 finding 在 state 中必须有 accepted+evidence 记录，否则退出 2（§3b-2 亲验卡扣）
+- [x] `gate-codex-review.sh` 存在且在 hooks.json 中注册为 PreToolUse Bash hook
+- [x] `test_gate_codex_review.sh` 覆盖 5 个场景：baseline 放行 / path-a-re-review 放行 / targeted+有效例外 放行 / targeted+无例外 拒绝 / targeted+user_requested 放行
+- [x] `test_disposition_refs_validation.sh` 覆盖：repair_round=2+refs 引用不存在的 finding → 拒绝 / refs 引用 accepted+有 evidence → 放行 / refs 引用 accepted+空 evidence → 拒绝
+- [x] `state.sh disposition append --disposition accepted --evidence ""` → 退出 2（evidence 非空强制）
 
 **Verification commands**：
 ```bash
@@ -870,10 +870,10 @@ grep -c "user_requested" plugin-v2/hooks/gate-codex-review.sh                   
 - Persona.md 是 single source of truth；agent.md / SKILL.md 不再硬编码 persona 描述
 
 **Acceptance criteria**：
-- [ ] `persona.md` 含 ≥ 6 个 agent 的 persona 段
-- [ ] 各 agent.md 含 `<!-- BEGIN: voice-directive -->` 锚点
-- [ ] build.sh --apply 后 agent.md 的 persona 段与 persona.md 一致
-- [ ] 跑 voice 测试断言 codex-reviewer.md / pack-executor.md / plan-writer.md / persona.md 内容一致
+- [x] `persona.md` 含 ≥ 6 个 agent 的 persona 段
+- [x] 各 agent.md 含 `<!-- BEGIN: voice-directive -->` 锚点
+- [x] build.sh --apply 后 agent.md 的 persona 段与 persona.md 一致
+- [x] 跑 voice 测试断言 codex-reviewer.md / pack-executor.md / plan-writer.md / persona.md 内容一致
 
 **Verification commands**：
 ```bash
@@ -932,14 +932,14 @@ grep -c "BEGIN: voice-directive" plugin-v2/agents/                              
 - review_total 达 100% → 阻塞；effort_total 达 100% → 同样阻塞（与设计承诺 5 一致：effort budget 不是 informational，是 hard gate）
 
 **Acceptance criteria**：
-- [ ] schema 含 effort_total / effort_used 字段，类型与 review_total 一致（`number | "unlimited"`）
-- [ ] state.sh init 自动计算 effort_total：Route 1 时 `effort_total = review_total × 2`；Route 4-7 时 `effort_total = "unlimited"`（与 review_total 同步）
-- [ ] track-effort-budget.sh 在 PostToolUse Agent 触发时累加；effort_total == "unlimited" 时早返回不触发阈值检查
-- [ ] track-effort-budget.sh 在 effort_used ≥ 80% 时输出阻塞性 Direction Check 提示（仅 effort_total 为数字时生效）
-- [ ] direction-check.md 含 effort budget 触发分支与用户确认流程
-- [ ] workflow-infrastructure.md 描述新 schema + 两类 budget 同等触发机制
-- [ ] `test_budget_direction_check.sh` 覆盖：（1）trigger 后 `pending_direction_check.ack_status == "pending"`；（2）此时 `validate-pack-dispatch.sh` 对 pack-executor dispatch 退出 2；（3）`state.sh direction-check ack --status continue` 后 dispatch 通过且 direction_check_count +1；（4）`ack --status stop` 后 run 进入终止态
-- [ ] `state.sh direction-check` 子命令支持 trigger / ack，写入符合 Pack 2 schema 的 `pending_direction_check` 字段
+- [x] schema 含 effort_total / effort_used 字段，类型与 review_total 一致（`number | "unlimited"`）
+- [x] state.sh init 自动计算 effort_total：Route 1 时 `effort_total = review_total × 2`；Route 4-7 时 `effort_total = "unlimited"`（与 review_total 同步）
+- [x] track-effort-budget.sh 在 PostToolUse Agent 触发时累加；effort_total == "unlimited" 时早返回不触发阈值检查
+- [x] track-effort-budget.sh 在 effort_used ≥ 80% 时输出阻塞性 Direction Check 提示（仅 effort_total 为数字时生效）
+- [x] direction-check.md 含 effort budget 触发分支与用户确认流程
+- [x] workflow-infrastructure.md 描述新 schema + 两类 budget 同等触发机制
+- [x] `test_budget_direction_check.sh` 覆盖：（1）trigger 后 `pending_direction_check.ack_status == "pending"`；（2）此时 `validate-pack-dispatch.sh` 对 pack-executor dispatch 退出 2；（3）`state.sh direction-check ack --status continue` 后 dispatch 通过且 direction_check_count +1；（4）`ack --status stop` 后 run 进入终止态
+- [x] `state.sh direction-check` 子命令支持 trigger / ack，写入符合 Pack 2 schema 的 `pending_direction_check` 字段
 
 **Verification commands**：
 ```bash
@@ -1011,12 +1011,12 @@ grep -c "state\.sh direction-check trigger" plugin-v2/hooks/track-effort-budget.
 - run-summary 输出位置：plan doc Closing 段末尾（追加，不覆盖），用 `<!-- BEGIN: run-summary -->` 锚点对包裹便于后续重生成
 
 **Acceptance criteria**：
-- [ ] learnings.jsonl append 测试 pass（并发安全：用文件锁）
-- [ ] run-summary 生成的 markdown 含全部 schema 字段 + review_effectiveness 段 + bias metrics 表
-- [ ] `review-effectiveness.sh` 对合成 review_dispositions[] 输出正确占比（test_review_effectiveness.sh）
-- [ ] workflow-closing.md 含 run-summary 调用
-- [ ] dual-layer failure 测试覆盖两条路径
-- [ ] 偏差告警阈值在 fixture 数据下能正确触发 "potential bias" 标注
+- [x] learnings.jsonl append 测试 pass（并发安全：用文件锁）
+- [x] run-summary 生成的 markdown 含全部 schema 字段 + review_effectiveness 段 + bias metrics 表
+- [x] `review-effectiveness.sh` 对合成 review_dispositions[] 输出正确占比（test_review_effectiveness.sh）
+- [x] workflow-closing.md 含 run-summary 调用
+- [x] dual-layer failure 测试覆盖两条路径
+- [x] 偏差告警阈值在 fixture 数据下能正确触发 "potential bias" 标注
 
 **Verification commands**：
 ```bash
@@ -1082,17 +1082,17 @@ grep -E "review_effectiveness|reject率|suppress率|Path A 占比" \
 - workflow-state 增加 `pending_post_push_reviews: [{run_id, slug, commit_sha, dispatched_at}]` 字段（Pack 2 schema 中预留位，本 Pack 启用）
 
 **Acceptance criteria**：
-- [ ] 4 条 reference 各自精确反映设计 §4 承诺 7 的语义（见 Contract anchors）
-- [ ] Hotfix reference 含 push-then-review 流程 + `pending_post_push_reviews` 入队逻辑
-- [ ] Maintenance reference 含 Codex review angle（breaking changes 聚焦）
-- [ ] Spike reference 明确产出是 throwaway code + verdict
-- [ ] Quick Fix reference 明确从现有 design 进 plan-writing
-- [ ] Entry Gate 表注入后含 Route 4-7 + 关键词
-- [ ] workflow-state schema 允许 `review_total: number | "unlimited"` + pending_post_push_reviews 数组
-- [ ] state.sh init 在 `--route 4|5|6|7` 时自动将 `review_total` 和 `effort_total` **同时**设为 `"unlimited"`（与 Route 1 的数字 budget 区分）；`review_used` 与 `effort_used` 仍初始化为 0（可观测累计，不参与阈值判断）
-- [ ] state.sh 对 unlimited 不写 budget 阻塞；track-review-budget.sh / track-effort-budget.sh 在 review_total/effort_total 任一为 unlimited 时跳过阈值检查与 Direction Check 触发
-- [ ] `test_route_keyword_routing.sh` 覆盖 4 个 route 的关键词识别
-- [ ] `test_hotfix_post_push_review.sh` 模拟 Hotfix push 后 pending_post_push_reviews 写入 + next session 启动时调度
+- [x] 4 条 reference 各自精确反映设计 §4 承诺 7 的语义（见 Contract anchors）
+- [x] Hotfix reference 含 push-then-review 流程 + `pending_post_push_reviews` 入队逻辑
+- [x] Maintenance reference 含 Codex review angle（breaking changes 聚焦）
+- [x] Spike reference 明确产出是 throwaway code + verdict
+- [x] Quick Fix reference 明确从现有 design 进 plan-writing
+- [x] Entry Gate 表注入后含 Route 4-7 + 关键词
+- [x] workflow-state schema 允许 `review_total: number | "unlimited"` + pending_post_push_reviews 数组
+- [x] state.sh init 在 `--route 4|5|6|7` 时自动将 `review_total` 和 `effort_total` **同时**设为 `"unlimited"`（与 Route 1 的数字 budget 区分）；`review_used` 与 `effort_used` 仍初始化为 0（可观测累计，不参与阈值判断）
+- [x] state.sh 对 unlimited 不写 budget 阻塞；track-review-budget.sh / track-effort-budget.sh 在 review_total/effort_total 任一为 unlimited 时跳过阈值检查与 Direction Check 触发
+- [x] `test_route_keyword_routing.sh` 覆盖 4 个 route 的关键词识别
+- [x] `test_hotfix_post_push_review.sh` 模拟 Hotfix push 后 pending_post_push_reviews 写入 + next session 启动时调度
 
 **Verification commands**：
 ```bash
@@ -1167,13 +1167,13 @@ bash plugin-v2/scripts/tests/test_hotfix_post_push_review.sh                  # 
 - 4 类投毒检测在 `learnings-trust-gate.md` 中各有明确规则与 fixture 示例
 
 **Acceptance criteria**：
-- [ ] codex-reviewer.md 含 trust isolation 段
-- [ ] 3 个 worker agent 文件含 input boundary 段
-- [ ] trust gate 测试 pass
-- [ ] `trust-boundary.sh` resolver 在 review-dispatch + worker-dispatch 模板中注入 UNTRUSTED 标记
-- [ ] `test_trust_boundary_injection.sh` 断言生成的 review prompt / worker prompt 含 `<UNTRUSTED_CODE_DIFF>` 标记（或等价 sentinel）
-- [ ] `learnings-poison-detector.sh` 覆盖 4 类检测：source_attribution / volume / stale / contested
-- [ ] `test_learnings_poison_detection.sh` 给 4 类 fixture finding 断言 `read --with-trust-gate` 输出过滤正确
+- [x] codex-reviewer.md 含 trust isolation 段
+- [x] 3 个 worker agent 文件含 input boundary 段
+- [x] trust gate 测试 pass
+- [x] `trust-boundary.sh` resolver 在 review-dispatch + worker-dispatch 模板中注入 UNTRUSTED 标记
+- [x] `test_trust_boundary_injection.sh` 断言生成的 review prompt / worker prompt 含 `<UNTRUSTED_CODE_DIFF>` 标记（或等价 sentinel）
+- [x] `learnings-poison-detector.sh` 覆盖 4 类检测：source_attribution / volume / stale / contested
+- [x] `test_learnings_poison_detection.sh` 给 4 类 fixture finding 断言 `read --with-trust-gate` 输出过滤正确
 
 **Verification commands**：
 ```bash
@@ -1237,10 +1237,10 @@ grep -rE "UNTRUSTED_CODE_DIFF|BEGIN UNTRUSTED" plugin-v2/skills/                
 - Review 分段：前半 review / 后半 review / cross-pack coherence review，三次 dispatch，分别带不同的 segment 字段
 
 **Acceptance criteria**：
-- [ ] pack-count-validator.sh 三档行为正确
-- [ ] 对本计划自身（15 packs，含 bootstrap 标记）退出 0 + stderr 警告
-- [ ] Pack Brief 模板含 neighbor interface 字段
-- [ ] review-dispatch 模板含条件分段逻辑
+- [x] pack-count-validator.sh 三档行为正确
+- [x] 对本计划自身（15 packs，含 bootstrap 标记）退出 0 + stderr 警告
+- [x] Pack Brief 模板含 neighbor interface 字段
+- [x] review-dispatch 模板含条件分段逻辑
 
 **Verification commands**：
 ```bash
@@ -1303,11 +1303,11 @@ bash plugin-v2/scripts/pack-count-validator.sh docs/orchestrate/plans/plugin-mat
   - 新增小节"Build system + Unified state + Control protocol"，含构建系统索引、state.sh CLI、DISPATCH_ENVELOPE schema、sendmessage-resume 模板路径
 
 **Acceptance criteria**：
-- [ ] verify-maturity.sh 串联所有关键断言
-- [ ] architecture-draft.md 4 处编辑落地
-- [ ] plugin.json 与 marketplace.json version 一致（diff 退出 0）
-- [ ] verify-maturity.sh 在本仓库当前状态退出 0
-- [ ] pack-count-validator.sh 对本计划自身退出 0（bootstrap 标记生效）
+- [x] verify-maturity.sh 串联所有关键断言
+- [x] architecture-draft.md 4 处编辑落地
+- [x] plugin.json 与 marketplace.json version 一致（diff 退出 0）
+- [x] verify-maturity.sh 在本仓库当前状态退出 0
+- [x] pack-count-validator.sh 对本计划自身退出 0（bootstrap 标记生效）
 
 **Verification commands**：
 ```bash
