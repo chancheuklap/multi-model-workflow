@@ -3,6 +3,26 @@ name: orchestrate-discovery
 description: "缺少可 review 的设计文档时使用。与用户讨论 → 生成设计文档 → Design Review → to-issues 过渡。产出：reviewed design doc + issue hierarchy。"
 ---
 
+<!-- BEGIN: signpost -->
+**Phase 过渡标记**：
+
+完成当前 phase 时，更新 workflow-state 的 cursor 和 status 锚：
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" transition \
+  --run-id "<run_id>" --actor Coordinator \
+  --from "<current_phase>" --to "<next_phase>"
+```
+
+Phase 序列（formal route）：
+`workflow` → `discovery` → `plan-writing` → `execution` → `final-review` → `execution_done` → `closed`
+
+每个 phase skill 返回前必须通过 transition 写入下一个 phase。
+Compaction 恢复时读取 `cursor.phase` 确定当前位置。
+
+Phase complete. 返回 orchestrate-workflow 主循环。
+<!-- END: signpost -->
+
 # Orchestrate Discovery
 
 模糊输入 → 与用户讨论 → 设计文档 + CONTEXT.md → Design Review → 过渡到 to-issues。

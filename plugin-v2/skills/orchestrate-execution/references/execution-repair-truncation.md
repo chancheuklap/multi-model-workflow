@@ -13,21 +13,25 @@ Accepted findings 按 `Affected packs` 字段分组 → 每组复用现有三路
 - **路径 A**（≤ 2 文件、不碰合同边界、意图明确）：Coordinator 直接修 → 跑验证 → Step 11
 - **路径 B**（多文件、根因已知）：
 
-**SendMessage Resume 操作步骤**（禁止创建新 agent）：
+<!-- BEGIN: sendmessage-resume [variant=worker] -->
+**Worker SendMessage Resume 步骤**（pack-executor / complex-pack-executor 修复）：
 
 1. `state.sh agent-id get --run-id <run_id> --pack-id <pack_id>` 读取 execution-state 中的 agent_id
-2. 若返回 null/empty -> BLOCKED + `state.sh transition --actor Coordinator --to blocked`（不创建新 agent）
+2. 若返回 null/empty -> 立即标记 BLOCKED 给用户 + `state.sh transition --actor Coordinator --to blocked`（不允许创建新 agent）
 3. 调用：
    ```
    SendMessage({
      to: "<agent_id>",
-     summary: "Plan Implementation Review repair round <N>: <finding_ids>",
-     message: "<DISPATCH_ENVELOPE, repair_round >= 1>\n\n<repair prompt with findings + acceptance criteria>"
+     summary: "修复 <finding_ids>",
+     message: "<含 DISPATCH_ENVELOPE 的修复 prompt，repair_round >= 1>"
    })
    ```
-4. 等待返回
-5. 运行 verification commands + 对照 acceptance criteria
-6. `state.sh self-verify append --run-id ... --pack-id ... --repair-round <N> --verification-passed <yes|no>`
+4. 等待 SendMessage 返回（同步）
+5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
+5b. 修复完成后运行 verification commands + 对照 acceptance criteria + grep 确认变更
+5c. `state.sh self-verify append --run-id <run_id> --pack-id <pack_id> --repair-round <N> --verification-passed <yes|no> --exception <none|3plus_files_control_flow|user_requested|rca_root_cause|path_a_self_fix>`
+6. 写 `state.sh disposition append` 或 `state.sh update --field plans[N].packs[M].repair_round`
+<!-- END: sendmessage-resume -->
 
 Targeted Re-Review 使用 `--resume` 继续 baseline reviewer session。
 

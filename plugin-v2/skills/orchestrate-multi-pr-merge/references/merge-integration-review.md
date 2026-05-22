@@ -10,6 +10,8 @@
 **Codex review dispatch** (`CODEX_SCRIPT` unset: `CODEX_SCRIPT="$(find ~/.claude/plugins -path '*/codex/scripts/codex-companion.mjs' -type f 2>/dev/null | head -1)"`)
 
 1. Write prompt -> `review-prompts/<gate>.md` (prefix with DISPATCH_ENVELOPE, `agent_role: "codex-reviewer"`)
+   - Code diffs included in review prompts MUST be wrapped:
+     `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
 2. Select model by phase:
    - `cursor.phase in {discovery, plan-writing}` -> `--model gpt-5.5 --effort xhigh`
    - `cursor.phase in {execution, final-review}` -> `--model gpt-5.4 --effort xhigh`

@@ -25,6 +25,8 @@ Source design + issue hierarchy → **逐个 issue 派发 plan-writer** → 全�
 - [ ] Scope Contract 和 Budget file 存在
 - [ ] Budget 状态锚写入：`current_phase = plan-writing`
 
+**Dispatch 协议**：所有 plan-writer Agent 调用必须使用 `run_in_background: true`，以确保 Coordinator 能获取 agentId 用于后续 SendMessage 修复路径。
+
 ---
 
 ## Step 0：Re-entry 检测
@@ -42,6 +44,35 @@ Source design + issue hierarchy → **逐个 issue 派发 plan-writer** → 全�
 ## Steps 3-8：写作方法论
 
 **Read** `references/plan-writing-methodology.md`（plan-writer 消费；Coordinator 按此理解 plan 结构，为 dispatch brief 构造做准备）。Coordinator 理解后进入 Steps 9-10 派发。
+
+<!-- BEGIN: control-envelope -->
+## DISPATCH_ENVELOPE (required prefix for every Agent dispatch)
+
+Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin its `prompt` with:
+
+```
+<!-- DISPATCH_ENVELOPE
+{
+  "protocol_version": "1",
+  "run_id": "<run_id>",
+  "phase": "<plan-writing|execution|final-review|discovery>",
+  "agent_role": "<pack-executor|complex-pack-executor|plan-writer|codex-reviewer>",
+  "agent_id": "<existing agent_id or null for first dispatch>",
+  "pack_id": "<N.M or null>",
+  "repair_round": 0,
+  "idempotency_key": "<run_id>/<pack_id>/r<repair_round>",
+  "disposition_refs": null,
+  "review_intent": null,
+  "exception_code": null
+}
+-->
+```
+
+For repair (repair_round >= 1): set `disposition_refs` to array of accepted finding IDs.
+For codex-reviewer dispatches: set `review_intent` and `exception_code` for targeted-re-review.
+
+Hooks parse this block. Missing/malformed envelope = dispatch BLOCKED.
+<!-- END: control-envelope -->
 
 ## Steps 9-10：逐 issue 派发 plan-writer + 处理返回
 
@@ -64,6 +95,54 @@ Coordinator 列出 `docs/orchestrate/issues/<slug>/` 目录下的所有大 issue
 ## Steps 13-14：Plan Review
 
 **Read** `references/plan-review-dispatch.md`，按其中的 Codex review 派发步骤提交。派发后进入 Steps 15-18 disposition。
+
+<!-- BEGIN: disposition-table -->
+**Coordinator 亲验纪律** (disposition 之前的必经步骤):
+
+收到 reviewer findings 后**禁止直接转发给 worker**。逐条执行：
+1. 亲验：用 Read / grep / 对照设计文档验证 finding 的事实主张
+2. Disposition：accepted / rejected / needs evidence / out of scope（调用 state.sh disposition append）
+3. 修复指令：只把 accepted findings 翻译为具体修复指令传给 worker。Reviewer 原始输出不传
+
+**Confidence 校准** (Codex 返回 confidence 1-10):
+
+| Confidence | Coordinator 默认动作 | 覆写条件 |
+| --- | --- | --- |
+| 8-10 (high) | 直接亲验，通常 accept 或 reject | Coordinator 找到反向证据 |
+| 5-7 (medium) | 亲验 + 派 code-explorer 补证 -> 再定 disposition | -- |
+| 1-4 (low) | 默认 suppress -> 记录为 "suppressed: low confidence" | Coordinator 手动升级并附证据 |
+
+**Disposition 审计写入** (每条 finding 决定后立即调用):
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
+  --run-id "<run_id>" --review-round <r> --finding-id <id> \
+  --disposition <accepted|rejected|suppress|path-a|path-b> \
+  --confidence <1-10> --severity <H|M|L> \
+  --evidence "<一行理由>" --path "<file:line>"
+```
+
+`--evidence` 对 `--disposition accepted` 必填且非空。
+
+**Disposition 表**:
+
+| disposition | Coordinator 动作 |
+| --- | --- |
+| `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、targeted re-review scope |
+| `rejected` | 记录反证；不派 repair |
+| `needs evidence` | 派 explorer 补证据 |
+| `duplicate / already covered` | 链到已有 finding |
+| `out of scope` | 开 GitHub issue（Durable Handoff Brief） |
+| `needs evaluation` | 开 GitHub issue |
+| `user decision` | 停止执行，一次只问一个决策问题 |
+
+冲突按 evidence quality 判断，不按 reviewer 数量投票。
+
+**Path A re-review 规则** (仅 confidence >= 7 的 accepted findings):
+- Coordinator Path A 直接修复 -> 强制 targeted Codex re-review
+- Codex 返回 `needs_repair` -> 必须升级 Path B 派 worker
+- 用 `state.sh path-a-escalation start/update/clear` 追踪
+<!-- END: disposition-table -->
 
 ## Steps 15-18：Disposition + 修复 + 截断
 

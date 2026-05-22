@@ -3,6 +3,26 @@ name: orchestrate-final-review
 description: "EXECUTION_PASSED 后使用。增强型 Codex 审查（regression + intent coverage + cross-plan integration + code-level）→ Disposition → 修复 → 遗留清扫 → Release Gate → 业务汇报。产出：verdict + business report。"
 ---
 
+<!-- BEGIN: signpost -->
+**Phase 过渡标记**：
+
+完成当前 phase 时，更新 workflow-state 的 cursor 和 status 锚：
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" transition \
+  --run-id "<run_id>" --actor Coordinator \
+  --from "<current_phase>" --to "<next_phase>"
+```
+
+Phase 序列（formal route）：
+`workflow` → `discovery` → `plan-writing` → `execution` → `final-review` → `execution_done` → `closed`
+
+每个 phase skill 返回前必须通过 transition 写入下一个 phase。
+Compaction 恢复时读取 `cursor.phase` 确定当前位置。
+
+Phase complete. 返回 orchestrate-workflow 主循环。
+<!-- END: signpost -->
+
 # Orchestrate Final Review
 
 所有 Plan 通过 Plan Implementation Review 后进入。验证整体实现是否满足 design intent，清扫所有遗留尾巴，评估发布风险，向用户汇报业务结果，返回 verdict 给 orchestrate-workflow 执行 Closing。
@@ -59,6 +79,15 @@ description: "EXECUTION_PASSED 后使用。增强型 Codex 审查（regression +
 **Read** `references/final-review-release-gate.md`（仅 diff 触碰发布风险面时读取）。通过后回 Step 19。
 
 ---
+
+<!-- BEGIN: forbidden-shortcuts -->
+**Forbidden shortcuts**（违反任何一条 = 立即停止并报告）：
+- 不跳过 review（哪怕"只改了一行"）
+- 不合并未 review 的代码
+- 不在 review 未通过时继续下一个 Pack
+- 不修改 scope contract 中排除的文件
+- 不 force push 到 main/master
+<!-- END: forbidden-shortcuts -->
 
 **Required before returning（返回前验证）：**
 - [ ] 两个 baseline review 有结果

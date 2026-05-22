@@ -24,7 +24,25 @@ Dispatch prompt 必须自足——plan-writer 不读 SKILL.md、不读 Coordinat
 Agent({
   subagent_type: "plan-writer",
   description: "Write plan for issue 00N: <issue title>",
+  run_in_background: true,
   prompt: "
+    <DISPATCH_ENVELOPE>
+    <!-- DISPATCH_ENVELOPE
+    {
+      \"protocol_version\": \"1\",
+      \"run_id\": \"<run_id>\",
+      \"phase\": \"plan-writing\",
+      \"agent_role\": \"plan-writer\",
+      \"agent_id\": null,
+      \"pack_id\": null,
+      \"repair_round\": 0,
+      \"idempotency_key\": \"<run_id>/plan-writer/<issue_id>/r0\",
+      \"disposition_refs\": null,
+      \"review_intent\": null,
+      \"exception_code\": null
+    }
+    -->
+
     ## Goal
     为一个大 issue 写出 implementation plan。你只负责这一个 issue，不负责其他 issue。
 
@@ -78,7 +96,12 @@ Agent({
 
 **注意**：`${CLAUDE_PLUGIN_ROOT}` 在 Coordinator 主线程中会被 Claude Code 运行时解析为 plugin 安装目录的绝对路径，Sub-agent 收到的 prompt 中已经是解析后的路径。
 
-**记录返回的 agentId**——后续修复可能需要 SendMessage 继续该 plan-writer（保有 design + issue 上下文）。
+**After each Agent call returns**（强制执行）：
+1. Extract `agentId` from return value
+2. `state.sh update --run-id <run_id> --field '.plan_writer_agent_id' --value '"<agentId>"'`
+3. 若后续需要修复/补充上下文，必须使用 SendMessage({to: "<agentId>"}) resume 原 plan-writer
+
+**Critical**: `run_in_background: true` ensures Coordinator gets agentId. Without agentId, plan-writer repair path is BLOCKED.
 
 ## Step 10：处理 Plan-writer 返回
 

@@ -74,10 +74,11 @@ Plan Review 三条路径：
 - **路径 A**（框架性内容：header / coverage map / scope check / 发布风险表）：Coordinator 直接修 → Step 17
 - **路径 B**（Task Pack 内容：implementation tasks / verification / owned files / contract anchors）：
 
-**SendMessage Resume 操作步骤**（禁止创建新 agent）：
+<!-- BEGIN: sendmessage-resume [variant=plan-writer] -->
+**Plan-Writer SendMessage Resume 步骤**（plan-writer 修复）：
 
 1. `state.sh read --run-id <run_id> --field '.plan_writer_agent_id'` 读取 workflow-state 中的 plan_writer_agent_id
-2. 若返回 null/empty -> BLOCKED + `state.sh transition --actor Coordinator --to blocked`（不创建新 agent）
+2. 若返回 null/empty -> 立即标记 BLOCKED 给用户 + `state.sh transition --actor Coordinator --to blocked`（不允许创建新 agent）
 3. 调用：
    ```
    SendMessage({
@@ -86,9 +87,12 @@ Plan Review 三条路径：
      message: "<含 DISPATCH_ENVELOPE 的修复 prompt，repair_round >= 1>"
    })
    ```
-4. 等待返回
-5. 验证 plan 文件格式 + pack count validator
-6. `state.sh self-verify append --run-id <run_id> --repair-round <N> --verification-passed <yes|no>`
+4. 等待 SendMessage 返回（同步）
+5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
+5b. 验证 plan 文件格式 + pack count validator
+5c. `state.sh self-verify append --run-id <run_id> --repair-round <N> --verification-passed <yes|no>`
+6. 回到 Plan Review 重审
+<!-- END: sendmessage-resume -->
 
 → 重跑 Gate → Step 17
 - **路径 C**（source artifact 问题）：Upstream backflow → 写回后 re-review
