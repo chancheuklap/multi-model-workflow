@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# PreToolUse hook for Bash tool.
-# Cleans up orchestration temp files before git push / gh pr create.
-# Runs AFTER guard-premature-push.sh — only reaches here if push is allowed.
+# PostToolUse hook for Bash tool (if: "Bash(git push *)").
+# Cleans up orchestration temp files AFTER a successful push.
 
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)

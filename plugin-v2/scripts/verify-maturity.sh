@@ -72,6 +72,73 @@ check "learnings-poison-detector.sh exists" test -x "$PLUGIN_DIR/scripts/lib/lea
 check "pack-count-validator.sh exists" test -x "$PLUGIN_DIR/scripts/pack-count-validator.sh"
 
 echo ""
+echo "## State Machine Contracts"
+check "state.sh transition matrix enforced" bash -c "
+  export STATE_BASE=\$(mktemp -d)
+  bash '$PLUGIN_DIR/scripts/state.sh' init --run-id mtest --slug s --route formal >/dev/null
+  ! bash '$PLUGIN_DIR/scripts/state.sh' transition --run-id mtest --actor evil --from x --to y 2>/dev/null
+"
+
+check "state.sh init formal defers budget" bash -c "
+  export STATE_BASE=\$(mktemp -d)
+  bash '$PLUGIN_DIR/scripts/state.sh' init --run-id mtest --slug s --route formal >/dev/null
+  [ \"\$(jq -r '.budget.budget_status' \$STATE_BASE/workflow-state-mtest.json)\" = 'pending_plan_count' ]
+"
+
+check "state.sh budget initialize computes correctly" bash -c "
+  export STATE_BASE=\$(mktemp -d)
+  bash '$PLUGIN_DIR/scripts/state.sh' init --run-id mtest --slug s --route formal >/dev/null
+  bash '$PLUGIN_DIR/scripts/state.sh' budget initialize --run-id mtest --plan-count 2 >/dev/null
+  [ \"\$(jq '.budget.effort_total' \$STATE_BASE/workflow-state-mtest.json)\" = '36' ]
+"
+
+check "no regex Pack ID in agent-return-handler" bash -c "
+  ! grep -qE 'sed -n.*Pack:' '$PLUGIN_DIR/hooks/agent-return-handler.sh'
+"
+
+check "gate-codex-review hard-fails on missing envelope" bash -c "
+  echo '{\"tool_input\":{\"command\":\"node x/codex-companion.mjs task --prompt-file /nonexistent\"}}' \
+    | bash '$PLUGIN_DIR/hooks/gate-codex-review.sh' 2>/dev/null; [ \$? -eq 2 ]
+"
+
+check "disposition append injected" bash -c "
+  grep -q 'state\.sh.*disposition append' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'
+"
+
+check "run_in_background in dispatch" bash -c "
+  grep -q 'run_in_background' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'
+"
+
+check "DISPATCH_ENVELOPE in worker dispatch" bash -c "
+  grep -q 'DISPATCH_ENVELOPE' '$PLUGIN_DIR/skills/orchestrate-execution/references/execution-worker-dispatch.md'
+"
+
+check "agent_id guard in validate-pack-dispatch" bash -c "
+  grep -q 'already has agent_id\|agent_id.*BLOCKED' '$PLUGIN_DIR/hooks/validate-pack-dispatch.sh'
+"
+
+check "targeted-re-review requires --resume" bash -c "
+  grep -q 'Targeted re-review.*--resume' '$PLUGIN_DIR/hooks/gate-codex-review.sh'
+"
+
+check "worker spec no review finding in mode 2b" bash -c "
+  ! grep -A2 '模式 2b' '$PLUGIN_DIR/agents/pack-executor.md' | grep -q 'review finding'
+"
+
+check "Path B uses SendMessage not Agent()" bash -c "
+  ! grep -A3 '路径 B' '$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-repair.md' | grep -q 'Agent({'
+"
+
+echo ""
+echo "## Missing Files"
+check "state-lock.sh exists" test -f "$PLUGIN_DIR/scripts/lib/state-lock.sh"
+check "learnings-jsonl.sh executable" test -x "$PLUGIN_DIR/scripts/learnings-jsonl.sh"
+check "execution-state-v1.json valid" python3 -m json.tool "$PLUGIN_DIR/state-schema/execution-state-v1.json"
+check "trust-boundary.md.tmpl exists" test -f "$PLUGIN_DIR/build/templates/trust-boundary.md.tmpl"
+check "path-a-re-review.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-execution/references/path-a-re-review.md"
+check "direction-check.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-workflow/references/direction-check.md"
+
+echo ""
 echo "## Version Sync"
 PLUGIN_V=$(jq -r '.version' "$PLUGIN_DIR/.claude-plugin/plugin.json" 2>/dev/null || echo "MISSING")
 MARKET_V=$(jq -r '.plugins[0].version' "$(cd "$PLUGIN_DIR/.." && pwd)/.claude-plugin/marketplace.json" 2>/dev/null || echo "MISSING")
