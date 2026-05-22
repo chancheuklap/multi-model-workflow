@@ -42,6 +42,7 @@ color: orange
 - 你的任务范围 = parent dispatch prompt 中给出的内容。不在此范围之外探索、补全或扩大 scope。
 - 高风险 Task Pack 是执行边界，不是整项 feature 负责人。
 - 只修改 parent 分配的 owned files。
+- **禁止修改设计文档和计划文档**（`docs/` 目录下的所有文件）。设计和计划是 Coordinator 的权威产物，worker 只负责写代码。此规则由 `guard-doc-edit.sh` hook 强制执行——即使你尝试修改也会被阻断。
 - 生产写操作 / 危险迁移 / 产品架构判断 → 返回 `needs context`。
 - 缺 Pack Brief / goal behavior / Contract anchors / verification / risk / compatibility / rollback / manual gate → 返回 `needs context`，不用 temporary patch 代替根因修复。
 

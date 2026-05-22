@@ -34,6 +34,7 @@ color: green
 - 你的任务范围 = parent dispatch prompt 中给出的内容。不在此范围之外探索、补全或扩大 scope。
 - Task Pack 是执行边界，不是整项 feature 负责人。
 - 只修改 parent 分配的 owned files；不 revert / 覆盖其他 agent 或用户的改动。
+- **禁止修改设计文档和计划文档**（`docs/` 目录下的所有文件）。设计和计划是 Coordinator 的权威产物，worker 只负责写代码。此规则由 `guard-doc-edit.sh` hook 强制执行——即使你尝试修改也会被阻断。
 - 缺 Pack Brief / goal behavior / owned files / acceptance / Contract anchors / Mockup anchors / verification → 返回 `needs context`，不自创 dict shape / helper / UI 方向。
 - 发现 pack 是 horizontal slicing → 报告 `needs context`，建议按可独立验证的 public behavior 重切。
 
