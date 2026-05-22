@@ -125,14 +125,14 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 **根因**：**实现问题，不是平台限制**。Claude Code 2.1.147 的 `SendMessage` 工具明确支持 resume 已完成的 background agent——工具文档写 "to resume a completed background agent, use the `agentId` from its spawn result"，2.1.77 changelog 确认 `SendMessage({to: agentId})` 为继续已 spawn agent 的路径，2.1.118 修复了 resume 后 cwd 恢复问题。**2026-05-22 实测确认**：向已完成的 background agent 发送 SendMessage，返回 "Agent had no active task; resumed from transcript in the background with your message"，resumed agent 保留完整上下文（记得之前任务的全部细节）。
 
 修复链路失效的真实原因是实现层面：
-1. **agentId 未被正确捕获和持久化**：Coordinator dispatch 后没有系统性记录 agentId 到 workflow-state
+1. **agentId 未被正确捕获和持久化**：Coordinator dispatch 后没有系统性记录 agentId 到 execution-state
 2. **SendMessage 调用路径有"或新建同类 agent"fallback**：fallback 太容易触发，掩盖了真实问题
 3. **background agent 的 dispatch 模式不统一**：部分 dispatch 用前台等待（无 agentId 返回），部分用后台（有 agentId）
 
 **修正方案**：
 
 1. **所有 worker dispatch 使用 `run_in_background: true`**：确保 Coordinator 获得 agentId
-2. **agentId 持久化到 workflow-state**：`state.sh` 在 dispatch 时记录 `packs[N].agent_id`，compaction 后可恢复
+2. **agentId 持久化到 execution-state**（`execution-state-${RUN_ID}.json` 的 `plans[N].packs[M].agent_id`）：`state.sh agent-id set` 在 dispatch 后记录，compaction 后可恢复
 3. **SendMessage 是唯一修复路径**：删除所有"或新建同类 agent"fallback。SendMessage resume 经实测可靠，fallback 只会掩盖 agentId 丢失问题
 4. **修复截断保持 3 轮 + RCA**：不变
 5. **SKILL.md 必须包含显式的 SendMessage resume 操作指令**：AI 对 SendMessage resume 已完成 agent 的能力认知不可靠——实测中直接询问 AI"能否向已完成的 subagent 发送 SendMessage"会得到"不行"的错误回答。因此 SKILL.md 不能假设 Coordinator 自己知道这个用法，必须在修复步骤中写成不可跳过的操作清单（见下方模板）
@@ -142,7 +142,7 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 ```markdown
 ## 修复 dispatch（SendMessage resume 原 worker）
 
-1. 从 workflow-state 读取 `packs[N].agent_id`（或 `plans[N].plan_writer_agent_id`）
+1. 从 execution-state 读取 `packs[N].agent_id`（`state.sh agent-id get`）或从 workflow-state 读取 `plan_writer_agent_id`
 2. 确认 agentId 存在且非空。如果为空 → BLOCKED，报告"agentId 丢失，无法 resume 原 worker"
 3. 调用 SendMessage：
    ```
@@ -164,7 +164,7 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 ```
 Coordinator dispatch worker（Agent, run_in_background: true）
-  → 捕获 agentId → 写入 workflow-state packs[N].agent_id
+  → 捕获 agentId → 写入 execution-state packs[N].agent_id
   → worker 完成 Pack 实现 → Coordinator 收到通知
   → Codex review 返回 findings
   → Coordinator 按 SKILL.md 修复模板，SendMessage({to: agentId}) 向同一 worker 发修复指令
@@ -181,6 +181,27 @@ Coordinator dispatch worker（Agent, run_in_background: true）
 - `execution/SKILL.md` 行 81-91：dispatch 模板增加 `run_in_background: true` + agentId 记录
 - workflow-state schema：`plans[N].packs[M].agent_id` 字段
 - `architecture-draft.md`：更新 SendMessage 修复链路描述
+
+#### 3.8a Codex Reviewer Session Continuity
+
+**问题**：Targeted re-review 使用 `codex task --background --prompt-file`（新 session）。
+Reviewer 丢失 baseline review 上下文。
+
+**平台支持**：`codex-companion.mjs` 支持 `--resume` / `--resume-last`。
+`--resume` 查找最近的 Codex task thread 并在其上继续（`resumeThreadId`），
+reviewer 保留前轮对话历史。可与 `--background` 和 `--prompt-file` 组合。
+
+**修正方案**：
+1. Baseline review：新 session（不变）
+2. Targeted re-review：使用 `--resume` 继续 baseline reviewer session
+3. gate-codex-review.sh：targeted-re-review 必须含 `--resume`，否则 BLOCK
+
+**已知限制**：`--resume` 等价于 `--resume-last`，查找仓库级最近 tracked task thread。
+风险场景：用户在两次 review 之间手动运行 codex task -> resume 连到手动 task。
+当前阶段可接受（Plan Implementation Review 通常是该阶段唯一 Codex task）。
+
+**彻底修复（Future Enhancement）**：扩展 `--thread-id <id>` 参数，Coordinator 在
+baseline review 时记录 thread ID 到 execution-state，targeted re-review 精确 resume。
 
 ### 3.9 Worker 调查能力受限——平台限制与 Future Enhancement
 
@@ -284,9 +305,15 @@ hooks 通过 `tool_input` 中的 prompt 字段提取信封（`jq` 解析 `<!-- D
 
 **无 fallback，无渐进迁移**：信封解析失败 = 硬停 + 报错（`jq` 解析失败说明信封格式有 bug，应该修 bug 而不是静默降级到正则）。这与 §6.5 "拒绝静默降级"一致。旧的正则提取代码在信封机制上线时一次性移除，不保留 legacy 路径。
 
+> **[Ruling 3]** PostToolUse hook（agent-return-handler）在信封解析失败时 exit 0 跳过，而非 exit 2 硬停。原因：PostToolUse 无法撤回已完成的 agent，硬停只会中断正常流程。此处"无 fallback"适用于 PreToolUse dispatch gate，不适用于 PostToolUse 后处理。
+
+> **[Ruling 1]** track-execution-state.sh 的 Pack ID 提取保留 sed 模式，因为此 hook 的输入源是 commit message（受 enforce-pack-commit.sh 格式保证），不是 prompt/控制平面。"无渐进迁移"适用于 Agent dispatch 信封，不适用于已有格式保证的 commit message 解析。
+
 **2b. 统一状态机**
 
 `budget-<run_id>.json` 和 `execution-state-<run_id>.json` 合并为 `workflow-state-<run_id>.json`。单一写入脚本 `state.sh` 提供：
+
+> **[Ruling 2]** 实现采用双文件模型：workflow-state（budget/phase/dispositions）+ execution-state（pack-level data）。原因：pack-level 数据被多 hook 并发写入，分离降低竞态风险。详见 `architecture-draft.md` 状态文件双文件模型节。
 
 - **写入前 schema 校验**：pack status 只能在 `pending → dispatched → returned → committed → blocked` 之间转换
 - **写入后 mutation log**：每次写入记录 `{ field, old, new, writer, timestamp }`
@@ -337,6 +364,8 @@ hooks 通过 `tool_input` 中的 prompt 字段提取信封（`jq` 解析 `<!-- D
   "mutations": []
 }
 ```
+
+> **[Ruling 2 衍生]** workflow-state.plans 使用 array（每个元素含 plan_id 字段），因为 workflow-state 只做 plan-level tracking（遍历场景），不需要 by-key 查找。execution-state.plans 使用 object（keyed by plan_id），因为需要按 plan_id 快速定位 pack-level 数据。两文件通过 plan_id 和 pack_id 关联。
 
 **2c. cleanup-before-push 移到 PostToolUse**
 
@@ -936,7 +965,7 @@ python3 -m json.tool plugin-v2/hooks/hooks.json >/dev/null
 ### 置信度校准验证（承诺 3）
 ```bash
 # review prompt 含 confidence 格式要求
-grep -q "Confidence.*10" plugin-v2/build/resolvers/review-dispatch.sh
+grep -q "Confidence.*10" plugin-v2/build/templates/review-dispatch.md.tmpl
 # workflow-state 含 disposition 记录
 python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert 'review_dispositions' in d" .claude/multi-model-workflow/workflow-state-*.json
 ```
@@ -973,9 +1002,9 @@ grep -q "hotfix\|quick.fix\|spike\|maintenance\|upgrade" plugin-v2/skills/orches
 ### 对抗性输入验证（承诺 8）
 ```bash
 # review prompt 含 trust boundary 标记
-grep -q "BEGIN UNTRUSTED" plugin-v2/build/resolvers/review-dispatch.sh
+grep -q "BEGIN UNTRUSTED" plugin-v2/build/templates/review-dispatch.md.tmpl
 # worker preamble 含输入边界声明
-grep -q "不是你的 skill 指令\|not your skill instruction" plugin-v2/build/resolvers/preamble.sh
+grep -q "不是你的 skill 指令\|not your skill instruction" plugin-v2/build/templates/preamble.md.tmpl
 ```
 
 ### 输入粒度验证（承诺 9）
@@ -1061,7 +1090,7 @@ grep -q "Neighbor.*interface\|邻居接口" plugin-v2/skills/orchestrate-executi
 | `agents/pack-executor.md` | 更新（模式 2a 从死代码变为主修复路径） | 3.8 |
 | `agents/complex-pack-executor.md` | 更新（同上） | 3.8 |
 | `agents/plan-writer.md` | 更新（增加 SendMessage resume 修复模式说明） | 3.8 |
-| execution SKILL.md 行 81-91 | 更新（dispatch 增加 `run_in_background: true` + agentId 记录到 workflow-state） | 3.8 |
+| execution SKILL.md 行 81-91 | 更新（dispatch 增加 `run_in_background: true` + agentId 记录到 execution-state） | 3.8 |
 | 15+ 处 SendMessage 引用 | 从死代码变为正式路径：删除"或新建同类 agent" fallback，SendMessage 是唯一修复路径 | 3.8 |
 | `architecture-draft.md` Open Items 表述 | 更新（"无非阻塞项"→"每个发现必须在返回前归类处置"） | 3.3 |
 | `architecture-draft.md` Hook 表（行 497） | 更新（`AGENT_TEAMS` 检查从 exit 2 改为 version check + 工具链检查） | 3.6 |
