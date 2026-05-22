@@ -361,6 +361,102 @@ cmd_self_verify_append() {
   mv "$tmp" "$sf"
 }
 
+cmd_path_a_escalation() {
+  local subcmd="$1"; shift
+  case "$subcmd" in
+    start) cmd_pa_start "$@" ;;
+    update) cmd_pa_update "$@" ;;
+    clear) cmd_pa_clear "$@" ;;
+    *) echo "Error: unknown path-a-escalation subcommand: $subcmd" >&2; exit 2 ;;
+  esac
+}
+
+cmd_pa_start() {
+  local finding_id="" round=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --finding-id) finding_id="$2"; shift 2 ;;
+      --round) round="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  ensure_state_exists
+  acquire_lock
+  trap release_lock EXIT
+
+  local sf
+  sf="$(state_file)"
+
+  local existing
+  existing=$(jq -r --arg fid "$finding_id" '[.path_a_escalation[] | select(.finding_id == $fid and .blocked_for_self_fix == true)] | length' "$sf")
+  if [[ "$existing" -gt 0 ]]; then
+    echo "Error: finding $finding_id already has a blocked path_a_escalation entry" >&2
+    exit 2
+  fi
+
+  local now
+  now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local tmp="${sf}.tmp"
+  jq --arg fid "$finding_id" --arg rnd "${round:-1}" --arg ts "$now" \
+    '.path_a_escalation += [{"finding_id": $fid, "current_round": ($rnd|tonumber), "last_codex_verdict": null, "blocked_for_self_fix": false, "triggered_at": $ts}]' \
+    "$sf" > "$tmp"
+  mv "$tmp" "$sf"
+}
+
+cmd_pa_update() {
+  local finding_id="" verdict=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --finding-id) finding_id="$2"; shift 2 ;;
+      --verdict) verdict="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  ensure_state_exists
+  acquire_lock
+  trap release_lock EXIT
+
+  local sf
+  sf="$(state_file)"
+  local tmp="${sf}.tmp"
+
+  if [[ "$verdict" == "approved" ]]; then
+    jq --arg fid "$finding_id" \
+      '.path_a_escalation |= map(select(.finding_id != $fid))' \
+      "$sf" > "$tmp"
+    mv "$tmp" "$sf"
+  elif [[ "$verdict" == "needs_repair" ]]; then
+    jq --arg fid "$finding_id" \
+      '.path_a_escalation |= map(if .finding_id == $fid then .blocked_for_self_fix = true | .last_codex_verdict = "needs_repair" else . end)' \
+      "$sf" > "$tmp"
+    mv "$tmp" "$sf"
+  fi
+}
+
+cmd_pa_clear() {
+  local finding_id=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --finding-id) finding_id="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  ensure_state_exists
+  acquire_lock
+  trap release_lock EXIT
+
+  local sf
+  sf="$(state_file)"
+  local tmp="${sf}.tmp"
+  jq --arg fid "$finding_id" \
+    '.path_a_escalation |= map(select(.finding_id != $fid))' \
+    "$sf" > "$tmp"
+  mv "$tmp" "$sf"
+}
+
 # --- Main ---
 if [[ $# -lt 1 ]]; then usage; fi
 
@@ -390,5 +486,6 @@ case "$CMD" in
   validate) cmd_validate "$@" ;;
   disposition) cmd_disposition "$@" ;;
   self-verify) cmd_self_verify "$@" ;;
+  path-a-escalation) cmd_path_a_escalation "$@" ;;
   *) echo "Error: unknown command: $CMD" >&2; usage ;;
 esac
