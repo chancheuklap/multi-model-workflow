@@ -26,12 +26,11 @@ if [ ! -f "$SF" ]; then exit 0; fi
 
 # Parse DISPATCH_ENVELOPE from the dispatch prompt
 PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty' 2>/dev/null)
-ENVELOPE=$(echo "$PROMPT" | bash "$SCRIPT_DIR/lib/parse-envelope.sh" 2>/dev/null)
-if [ $? -ne 0 ]; then
-  # Per Ruling 3: PostToolUse hook, agent already returned — skip is safe, exit 2 is disruptive
+ENVELOPE=$(echo "$PROMPT" | bash "$SCRIPT_DIR/lib/parse-envelope.sh" 2>/dev/null) || {
+  # Per Ruling 3: PostToolUse hook, agent already returned — skip is safe
   echo "[multi-model-workflow] WARN: agent return without DISPATCH_ENVELOPE, skipping state tracking" >&2
   exit 0
-fi
+}
 
 PACK_ID=$(echo "$ENVELOPE" | jq -r '.pack_id // empty')
 if [ -z "$PACK_ID" ] || [ "$PACK_ID" = "null" ]; then exit 0; fi
@@ -64,7 +63,9 @@ fi
 # Update execution-state (per Ruling 2: pack-level data in execution-state, not workflow-state)
 ESF="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
 if [ -f "$ESF" ]; then
-  export STATE_BASE="$BUDGET_DIR"
+  source "$SCRIPT_DIR/../scripts/lib/state-lock.sh"
+  LOCK_DIR="${BUDGET_DIR}/${RUN_ID}.lock"
+  state_lock_acquire "$LOCK_DIR"
   jq --arg pack "$PACK_ID" --arg v "$VERDICT" --arg at "$AGENT_TYPE" '
     .plans |= with_entries(
       .value.packs |= with_entries(
@@ -74,6 +75,7 @@ if [ -f "$ESF" ]; then
       )
     )
   ' "$ESF" > "${ESF}.tmp" && mv "${ESF}.tmp" "$ESF"
+  state_lock_release "$LOCK_DIR"
 fi
 
 MSG="[multi-model-workflow] NEXT: Pack ${PACK_ID} returned (verdict: ${VERDICT}). Process Open Items → scope drift check → Git Checkpoint → next pack."

@@ -21,6 +21,12 @@ RUN_ID=$(cat "$RUN_ID_FILE")
 SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
 if [ ! -f "$SF" ]; then exit 0; fi
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/../scripts/lib/state-lock.sh"
+LOCK_DIR="${BUDGET_DIR}/${RUN_ID}.lock"
+state_lock_acquire "$LOCK_DIR"
+trap 'state_lock_release "$LOCK_DIR"' EXIT
+
 jq '.budget.review_used += 1' "$SF" > "${SF}.tmp" && mv "${SF}.tmp" "$SF"
 
 USED=$(jq -r '.budget.review_used' "$SF")

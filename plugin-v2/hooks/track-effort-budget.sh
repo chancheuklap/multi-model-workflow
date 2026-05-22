@@ -19,6 +19,12 @@ RUN_ID=$(cat "$RUN_ID_FILE")
 SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
 if [[ ! -f "$SF" ]]; then exit 0; fi
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/../scripts/lib/state-lock.sh"
+LOCK_DIR="${BUDGET_DIR}/${RUN_ID}.lock"
+state_lock_acquire "$LOCK_DIR"
+trap 'state_lock_release "$LOCK_DIR"' EXIT
+
 EFFORT_TOTAL=$(jq -r '.budget.effort_total // 0' "$SF")
 if [[ "$EFFORT_TOTAL" == "0" || "$EFFORT_TOTAL" == "unlimited" ]]; then exit 0; fi
 
