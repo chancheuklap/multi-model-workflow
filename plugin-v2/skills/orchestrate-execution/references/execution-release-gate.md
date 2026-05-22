@@ -10,13 +10,15 @@ Plan Implementation Review 通过后，检查该 Plan 中是否有任何 Pack �
 - 等到 Final Review 才审会造成不可逆数据、权限、账务或 runtime 风险
 - 用户明确要求
 
-**触发时**，按以下步骤派发 Codex review（`CODEX_SCRIPT` 未定义时先执行 `CODEX_SCRIPT="$(find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs" -type f 2>/dev/null | head -1)"`）：
+**触发时**，<!-- BEGIN: review-dispatch -->
+**Codex review 派发步骤**（`CODEX_SCRIPT` 未定义时先执行 `CODEX_SCRIPT="$(find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs" -type f 2>/dev/null | head -1)"`）：
 1. 写 prompt → `review-prompts/<gate>.md`
 2. `node "$CODEX_SCRIPT" task --background --prompt-file .claude/multi-model-workflow/review-prompts/<gate>.md --model gpt-5.4 --effort xhigh` → 记录 JOB_ID，写入 `review-prompts/<gate>.job-id`
 3. `node "$CODEX_SCRIPT" status "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)" --wait --timeout-ms 600000`（run_in_background: true）
 4. `node "$CODEX_SCRIPT" result "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)"` → 存到 `review-results/<gate>.md`
 
 Compaction 恢复：有 `.job-id` 无对应 `review-results/` → 从 Step 3 继续。
+<!-- END: review-dispatch -->
 
 Review prompt 写入 `.claude/multi-model-workflow/review-prompts/release-gate-plan-N.md`：
 
