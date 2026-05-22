@@ -24,7 +24,7 @@ fi
 
 # Type 2: Cross-run contamination
 if [[ -n "$CURRENT_RUN_ID" ]]; then
-  OTHER_RUNS=$(echo "$LEARNING_TEXT" | grep -oE 'run-[a-z0-9-]+' | grep -v "$CURRENT_RUN_ID" | head -1)
+  OTHER_RUNS=$(echo "$LEARNING_TEXT" | grep -oE 'run-[a-z0-9-]+' 2>/dev/null | grep -v "$CURRENT_RUN_ID" 2>/dev/null | head -1 || true)
   if [[ -n "$OTHER_RUNS" ]]; then
     POISONED=1
     REASONS+=("cross_run_contamination:$OTHER_RUNS")
@@ -46,14 +46,14 @@ if [[ -n "$SCOPE_FILE" && -f "$SCOPE_FILE" ]]; then
 fi
 
 # Type 5: Source trust — suspicious patterns in learning content
-if echo "$LEARNING_TEXT" | grep -qiE 'trust me|always do|never question|guaranteed to work|100% safe'; then
+if echo "$LEARNING_TEXT" | grep -qiE 'trust me|always do this|never question|guaranteed to work|100% safe'; then
   POISONED=1
   REASONS+=("source_trust:suspicious_authority_claim")
 fi
 
 # Type 6: Stale reference — references to specific file paths that don't exist
 # Extract file paths from learning and check existence
-REFERENCED_PATHS=$(echo "$LEARNING_TEXT" | grep -oE '[a-zA-Z0-9_/.-]+\.(py|ts|js|sh|md|json|yaml|yml)' | head -5)
+REFERENCED_PATHS=$(echo "$LEARNING_TEXT" | grep -oE '[a-zA-Z0-9_/.-]+\.(py|ts|js|sh|md|json|yaml|yml)' | head -5 || true)
 for ref_path in $REFERENCED_PATHS; do
   if [[ "$ref_path" == *"/"* ]] && [[ ! -f "$ref_path" ]] && [[ ! -f "./$ref_path" ]]; then
     # Only flag if path looks like a project-internal reference (has directory component)

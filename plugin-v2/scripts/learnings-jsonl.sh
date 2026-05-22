@@ -55,9 +55,9 @@ cmd_append() {
   fi
 
   # Run poison detection
-  local poison_result
-  poison_result=$("$SCRIPT_DIR/lib/learnings-poison-detector.sh" "$content" "${run_id:-}" "" 2>/dev/null || echo "")
-  if echo "$poison_result" | grep -q "POISONED"; then
+  local poison_result poison_exit
+  poison_result=$(bash "$SCRIPT_DIR/lib/learnings-poison-detector.sh" "$content" "${run_id:-}" "" 2>/dev/null) && poison_exit=0 || poison_exit=$?
+  if [[ "$poison_exit" -ne 0 ]]; then
     echo "BLOCKED: learning failed poison detection: $poison_result" >&2
     exit 2
   fi
