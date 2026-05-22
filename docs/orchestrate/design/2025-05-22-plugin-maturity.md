@@ -125,14 +125,14 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 **根因**：**实现问题，不是平台限制**。Claude Code 2.1.147 的 `SendMessage` 工具明确支持 resume 已完成的 background agent——工具文档写 "to resume a completed background agent, use the `agentId` from its spawn result"，2.1.77 changelog 确认 `SendMessage({to: agentId})` 为继续已 spawn agent 的路径，2.1.118 修复了 resume 后 cwd 恢复问题。**2026-05-22 实测确认**：向已完成的 background agent 发送 SendMessage，返回 "Agent had no active task; resumed from transcript in the background with your message"，resumed agent 保留完整上下文（记得之前任务的全部细节）。
 
 修复链路失效的真实原因是实现层面：
-1. **agentId 未被正确捕获和持久化**：Coordinator dispatch 后没有系统性记录 agentId 到 workflow-state
+1. **agentId 未被正确捕获和持久化**：Coordinator dispatch 后没有系统性记录 agentId 到 execution-state
 2. **SendMessage 调用路径有"或新建同类 agent"fallback**：fallback 太容易触发，掩盖了真实问题
 3. **background agent 的 dispatch 模式不统一**：部分 dispatch 用前台等待（无 agentId 返回），部分用后台（有 agentId）
 
 **修正方案**：
 
 1. **所有 worker dispatch 使用 `run_in_background: true`**：确保 Coordinator 获得 agentId
-2. **agentId 持久化到 workflow-state**：`state.sh` 在 dispatch 时记录 `packs[N].agent_id`，compaction 后可恢复
+2. **agentId 持久化到 execution-state**（`execution-state-${RUN_ID}.json` 的 `plans[N].packs[M].agent_id`）：`state.sh agent-id set` 在 dispatch 后记录，compaction 后可恢复
 3. **SendMessage 是唯一修复路径**：删除所有"或新建同类 agent"fallback。SendMessage resume 经实测可靠，fallback 只会掩盖 agentId 丢失问题
 4. **修复截断保持 3 轮 + RCA**：不变
 5. **SKILL.md 必须包含显式的 SendMessage resume 操作指令**：AI 对 SendMessage resume 已完成 agent 的能力认知不可靠——实测中直接询问 AI"能否向已完成的 subagent 发送 SendMessage"会得到"不行"的错误回答。因此 SKILL.md 不能假设 Coordinator 自己知道这个用法，必须在修复步骤中写成不可跳过的操作清单（见下方模板）
@@ -142,7 +142,7 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 ```markdown
 ## 修复 dispatch（SendMessage resume 原 worker）
 
-1. 从 workflow-state 读取 `packs[N].agent_id`（或 `plans[N].plan_writer_agent_id`）
+1. 从 execution-state 读取 `packs[N].agent_id`（`state.sh agent-id get`）或从 workflow-state 读取 `plan_writer_agent_id`
 2. 确认 agentId 存在且非空。如果为空 → BLOCKED，报告"agentId 丢失，无法 resume 原 worker"
 3. 调用 SendMessage：
    ```
@@ -164,7 +164,7 @@ gstack 的某些设计模式是范围无关的（普适）：Confidence Calibrat
 
 ```
 Coordinator dispatch worker（Agent, run_in_background: true）
-  → 捕获 agentId → 写入 workflow-state packs[N].agent_id
+  → 捕获 agentId → 写入 execution-state packs[N].agent_id
   → worker 完成 Pack 实现 → Coordinator 收到通知
   → Codex review 返回 findings
   → Coordinator 按 SKILL.md 修复模板，SendMessage({to: agentId}) 向同一 worker 发修复指令
@@ -181,6 +181,27 @@ Coordinator dispatch worker（Agent, run_in_background: true）
 - `execution/SKILL.md` 行 81-91：dispatch 模板增加 `run_in_background: true` + agentId 记录
 - workflow-state schema：`plans[N].packs[M].agent_id` 字段
 - `architecture-draft.md`：更新 SendMessage 修复链路描述
+
+#### 3.8a Codex Reviewer Session Continuity
+
+**问题**：Targeted re-review 使用 `codex task --background --prompt-file`（新 session）。
+Reviewer 丢失 baseline review 上下文。
+
+**平台支持**：`codex-companion.mjs` 支持 `--resume` / `--resume-last`。
+`--resume` 查找最近的 Codex task thread 并在其上继续（`resumeThreadId`），
+reviewer 保留前轮对话历史。可与 `--background` 和 `--prompt-file` 组合。
+
+**修正方案**：
+1. Baseline review：新 session（不变）
+2. Targeted re-review：使用 `--resume` 继续 baseline reviewer session
+3. gate-codex-review.sh：targeted-re-review 必须含 `--resume`，否则 BLOCK
+
+**已知限制**：`--resume` 等价于 `--resume-last`，查找仓库级最近 tracked task thread。
+风险场景：用户在两次 review 之间手动运行 codex task -> resume 连到手动 task。
+当前阶段可接受（Plan Implementation Review 通常是该阶段唯一 Codex task）。
+
+**彻底修复（Future Enhancement）**：扩展 `--thread-id <id>` 参数，Coordinator 在
+baseline review 时记录 thread ID 到 execution-state，targeted re-review 精确 resume。
 
 ### 3.9 Worker 调查能力受限——平台限制与 Future Enhancement
 
@@ -1061,7 +1082,7 @@ grep -q "Neighbor.*interface\|邻居接口" plugin-v2/skills/orchestrate-executi
 | `agents/pack-executor.md` | 更新（模式 2a 从死代码变为主修复路径） | 3.8 |
 | `agents/complex-pack-executor.md` | 更新（同上） | 3.8 |
 | `agents/plan-writer.md` | 更新（增加 SendMessage resume 修复模式说明） | 3.8 |
-| execution SKILL.md 行 81-91 | 更新（dispatch 增加 `run_in_background: true` + agentId 记录到 workflow-state） | 3.8 |
+| execution SKILL.md 行 81-91 | 更新（dispatch 增加 `run_in_background: true` + agentId 记录到 execution-state） | 3.8 |
 | 15+ 处 SendMessage 引用 | 从死代码变为正式路径：删除"或新建同类 agent" fallback，SendMessage 是唯一修复路径 | 3.8 |
 | `architecture-draft.md` Open Items 表述 | 更新（"无非阻塞项"→"每个发现必须在返回前归类处置"） | 3.3 |
 | `architecture-draft.md` Hook 表（行 497） | 更新（`AGENT_TEAMS` 检查从 exit 2 改为 version check + 工具链检查） | 3.6 |
