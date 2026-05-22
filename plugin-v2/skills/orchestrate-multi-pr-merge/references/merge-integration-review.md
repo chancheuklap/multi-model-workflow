@@ -29,6 +29,25 @@
 - 4-6: medium. Coordinator must gather additional evidence before disposition.
 - 7-10: high. Coordinator should default to accept unless contradicted by evidence.
 
+**Pre-emit Verification Gate**：
+
+每个 finding 必须满足以下条件才能进入报告：
+
+1. **引用触发 finding 的具体代码行**——file:line + 该行的原始文本。
+   - "field X doesn't exist on model Y" → 引用 class Y 的定义体，证明字段缺失
+   - "dict.get() might return None" → 引用 dict 的初始化代码
+   - "race condition between A and B" → 引用 A 和 B 两处代码
+
+2. **无法引用 = finding 未验证**。将 confidence 强制设为 4-5（从主报告中抑制，移入附录）。
+   不要通过虚构 confidence 7+ 来绕过此门槛。
+
+3. **框架元编程特例**：当符号来自 ORM 元类、装饰器、代码生成器时，引用生成该符号的元构造，而非期望在类体中 grep 到字面名称。
+
+**Rationalization Prevention**：
+- "This looks fine" 不是 finding。要么引用证据证明确实没问题，要么标记为未验证。
+- "likely handled elsewhere" → 读并引用处理代码，或标记 unknown。
+- "probably tested" → 给出测试文件和方法名，或标记 unknown。
+
 **Bias indicators (REQUIRED at end of review output)**:
 Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
 
@@ -121,11 +140,39 @@ Disposition required:
 
 **整体 Verdict 前置检查**：reviewer 返回整体 `needs context` 时，Coordinator 补充上下文后重新 dispatch，不进入 per-finding disposition。
 
-收到 finding 后，Coordinator 不是传话筒——必须亲验每条 finding 的正确性（读代码、跑测试、对照 source artifacts），然后逐条给 disposition。没有 disposition 的 finding 不能进入 repair。过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改。
+<!-- BEGIN: disposition-table -->
+**Coordinator 亲验纪律** (disposition 之前的必经步骤):
 
-Multi-PR 增加验证维度：对照大设计文档确认 spec 判断 + 对照冲突解决记录确认修复判断。
+收到 reviewer findings 后**禁止直接转发给 worker**。逐条执行：
+1. 亲验：用 Read / grep / 对照设计文档验证 finding 的事实主张
+2. Disposition：accepted / rejected / needs evidence / out of scope（调用 state.sh disposition append）
+3. 修复指令：只把 accepted findings 翻译为具体修复指令传给 worker。Reviewer 原始输出不传
 
-| disposition | parent 动作 |
+没有 disposition 的 finding 不能进入 repair。过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改。
+
+**Confidence 校准** (Codex 返回 confidence 1-10):
+
+| Confidence | Coordinator 默认动作 | 覆写条件 |
+| --- | --- | --- |
+| 8-10 (high) | 直接亲验，通常 accept 或 reject | Coordinator 找到反向证据 |
+| 5-7 (medium) | 亲验 + 派 code-explorer 补证 -> 再定 disposition | -- |
+| 1-4 (low) | 默认 suppress -> 记录为 "suppressed: low confidence" | Coordinator 手动升级并附证据 |
+
+**Disposition 审计写入** (每条 finding 决定后立即调用):
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
+  --run-id "<run_id>" --review-round <r> --finding-id <id> \
+  --disposition <accepted|rejected|suppress|path-a|path-b> \
+  --confidence <1-10> --severity <H|M|L> \
+  --evidence "<一行理由>" --path "<file:line>"
+```
+
+`--evidence` 对 `--disposition accepted` 必填且非空。
+
+**Disposition 表**:
+
+| disposition | Coordinator 动作 |
 | --- | --- |
 | `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、targeted re-review scope |
 | `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
@@ -136,6 +183,14 @@ Multi-PR 增加验证维度：对照大设计文档确认 spec 判断 + 对照�
 | `user decision` | 停止执行，一次只问一个会改变设计、计划或发布策略的问题 |
 
 冲突按 evidence quality 判断，不按 reviewer 数量投票。
+
+**Path A re-review 规则** (仅 confidence >= 7 的 accepted findings):
+- Coordinator Path A 直接修复 -> 强制 targeted Codex re-review
+- Codex 返回 `needs_repair` -> 必须升级 Path B 派 worker
+- 用 `state.sh path-a-escalation start/update/clear` 追踪
+<!-- END: disposition-table -->
+
+Multi-PR 增加验证维度：对照大设计文档确认 spec 判断 + 对照冲突解决记录确认修复判断。
 
 **`needs evidence` 补证**：派 `code-explorer`（窄范围单文件/单调用链）或 `complex-code-explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
 

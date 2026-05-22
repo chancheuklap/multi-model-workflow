@@ -99,6 +99,18 @@ Final Review 的两个 baseline 通过 + 遗留清扫完成 + Release Gate 通�
 | Deploy order | 通过 / 不适用 / 需人工确认 |
 | Manual production gate | 通过 / 不适用 / 需人工确认 |
 
+### 业务报告写作锚点
+
+Good:
+> **新增能力**：用户现在可以用手机号登录，15 秒内完成。之前只支持邮箱，平均 45 秒。
+> **验证证据**：注册→登录→访问首页全流程测试通过。
+> **残余风险**：海外手机号格式未覆盖，影响 ~5% 用户。已开 issue #42 跟踪。
+
+Bad:
+> **新增能力**：实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline。
+> **验证证据**：TDD red-green-refactor 完成，所有 23 个 test case 通过。
+> **残余风险**：需要进一步测试边界条件。
+
 **业务汇报包含在 verdict 返回的 `### Business report` 中。orchestrate-workflow Closing 的 Step 23 将其呈现给用户。**
 
 ---

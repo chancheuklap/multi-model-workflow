@@ -12,15 +12,36 @@ set -euo pipefail
 LEARNING_TEXT="$1"
 CURRENT_RUN_ID="${2:-}"
 SCOPE_FILE="${3:-}"
+SOURCE="${4:-}"
 
 POISONED=0
 REASONS=()
 
-# Type 1: Instruction injection
-if echo "$LEARNING_TEXT" | grep -qiE 'ignore previous|system prompt|you are now|forget all|override|<system>|</system>|DISPATCH_ENVELOPE|<!-- BEGIN|<!-- END'; then
-  POISONED=1
-  REASONS+=("instruction_injection")
-fi
+# Type 1: Instruction injection (10 anti-injection patterns)
+INJECTION_PATTERNS=(
+  'ignore\s+(all\s+)?previous\s+(instructions|context|rules)'
+  'you\s+are\s+now\s+'
+  'always\s+output\s+no\s+findings'
+  'skip\s+(all\s+)?(security|review|checks)'
+  'override[:\s]'
+  '\bsystem\s*:'
+  '\bassistant\s*:'
+  '\buser\s*:'
+  'do\s+not\s+(report|flag|mention)'
+  'approve\s+(all|every|this)'
+  'system\s*prompt'
+  'forget\s+all'
+  '<system>|</system>'
+  'DISPATCH_ENVELOPE'
+  '<!-- BEGIN|<!-- END'
+)
+for pattern in "${INJECTION_PATTERNS[@]}"; do
+  if echo "$LEARNING_TEXT" | grep -qiP "$pattern" 2>/dev/null || echo "$LEARNING_TEXT" | grep -qiE "$pattern" 2>/dev/null; then
+    POISONED=1
+    REASONS+=("instruction_injection:$pattern")
+    break
+  fi
+done
 
 # Type 2: Cross-run contamination
 if [[ -n "$CURRENT_RUN_ID" ]]; then
@@ -83,5 +104,10 @@ if [[ $POISONED -eq 1 ]]; then
   exit 1
 fi
 
-echo "CLEAN"
+# Trust gate: source="user-stated" → trusted, all others → untrusted
+if [[ "$SOURCE" == "user-stated" ]]; then
+  echo "CLEAN:trusted=true"
+else
+  echo "CLEAN:trusted=false"
+fi
 exit 0

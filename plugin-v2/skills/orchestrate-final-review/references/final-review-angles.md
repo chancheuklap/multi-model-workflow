@@ -44,6 +44,25 @@
 - 4-6: medium. Coordinator must gather additional evidence before disposition.
 - 7-10: high. Coordinator should default to accept unless contradicted by evidence.
 
+**Pre-emit Verification Gate**：
+
+每个 finding 必须满足以下条件才能进入报告：
+
+1. **引用触发 finding 的具体代码行**——file:line + 该行的原始文本。
+   - "field X doesn't exist on model Y" → 引用 class Y 的定义体，证明字段缺失
+   - "dict.get() might return None" → 引用 dict 的初始化代码
+   - "race condition between A and B" → 引用 A 和 B 两处代码
+
+2. **无法引用 = finding 未验证**。将 confidence 强制设为 4-5（从主报告中抑制，移入附录）。
+   不要通过虚构 confidence 7+ 来绕过此门槛。
+
+3. **框架元编程特例**：当符号来自 ORM 元类、装饰器、代码生成器时，引用生成该符号的元构造，而非期望在类体中 grep 到字面名称。
+
+**Rationalization Prevention**：
+- "This looks fine" 不是 finding。要么引用证据证明确实没问题，要么标记为未验证。
+- "likely handled elsewhere" → 读并引用处理代码，或标记 unknown。
+- "probably tested" → 给出测试文件和方法名，或标记 unknown。
+
 **Bias indicators (REQUIRED at end of review output)**:
 Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
 

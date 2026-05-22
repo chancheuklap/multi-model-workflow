@@ -54,12 +54,18 @@ cmd_append() {
     exit 2
   fi
 
-  # Run poison detection
+  # Run poison detection (pass source for trust gate)
   local poison_result poison_exit
-  poison_result=$(bash "$SCRIPT_DIR/lib/learnings-poison-detector.sh" "$content" "${run_id:-}" "" 2>/dev/null) && poison_exit=0 || poison_exit=$?
+  poison_result=$(bash "$SCRIPT_DIR/lib/learnings-poison-detector.sh" "$content" "${run_id:-}" "" "${source:-}" 2>/dev/null) && poison_exit=0 || poison_exit=$?
   if [[ "$poison_exit" -ne 0 ]]; then
     echo "BLOCKED: learning failed poison detection: $poison_result" >&2
     exit 2
+  fi
+
+  # Extract trust marking from poison detector result
+  local trusted="false"
+  if [[ "$poison_result" == *"trusted=true"* ]]; then
+    trusted="true"
   fi
 
   mkdir -p "$STATE_BASE"
@@ -92,7 +98,8 @@ cmd_append() {
     --argjson fl "$files_json" \
     --argjson cf "${confidence:-5}" \
     --arg src "${source:-}" \
-    '{schema_version: ($sv|tonumber), timestamp: $ts, run_id: $rid, source_project: $sp, agent_role: $ar, type: $tp, content: $ct, tags: $tg, files: $fl, confidence: $cf, source: $src}')
+    --argjson tr "$trusted" \
+    '{schema_version: ($sv|tonumber), timestamp: $ts, run_id: $rid, source_project: $sp, agent_role: $ar, type: $tp, content: $ct, tags: $tg, files: $fl, confidence: $cf, source: $src, trusted: $tr}')
 
   echo "$entry" >> "$LEARNINGS_FILE"
 

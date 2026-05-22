@@ -45,4 +45,16 @@ state.sh disposition append --run-id <run_id> --finding-id <id> \
 - 统计用于 Direction Check 和 Final Review 的 review effectiveness 报告
 
 ---
+
+## Calibration Learning 触发规则
+
+| 条件 | 动作 | Learning 类型 |
+|------|------|-------------|
+| Finding confidence < 7 但 Coordinator 亲验后 accept | 写入 calibration learning："reviewer under-confidence on this pattern" | review-calibration |
+| Finding confidence ≥ 8 但 Coordinator reject | 写入 over-confidence learning："reviewer confident but wrong on [category]" | review-calibration |
+| 同一 category 累计近 5 次 run 中 3 条 reject | 写入 reviewer-drift learning："reviewer consistently wrong on [category]" | reviewer-drift |
+| Worker 返回 needs repair（首次 dispatch 未通过） | 写入 repair-pattern learning | repair-pattern |
+| Worker 修改了 owned files 之外的文件 | 写入 scope-drift learning | scope-drift |
+
+---
 > **下一步**：回到当前 disposition 处理流程继续下一条 finding。
