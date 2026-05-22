@@ -3,6 +3,9 @@
 # Updates review_effectiveness in workflow-state.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/state-lock.sh"
+
 STATE_BASE="${STATE_BASE:-.claude/multi-model-workflow}"
 
 RUN_ID=""
@@ -15,6 +18,11 @@ done
 
 SF="${STATE_BASE}/workflow-state-${RUN_ID}.json"
 if [[ ! -f "$SF" ]]; then exit 1; fi
+
+LOCK_DIR="${STATE_BASE}/${RUN_ID}.lock"
+
+state_lock_acquire "$LOCK_DIR"
+trap 'state_lock_release "$LOCK_DIR"' EXIT
 
 NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 

@@ -5,18 +5,26 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STATE_BASE="${STATE_BASE:-.claude/multi-model-workflow}"
 LOCK_TTL=60
 
+# Source shared lock primitives
+source "$SCRIPT_DIR/lib/state-lock.sh"
+
 usage() {
   cat <<'USAGE'
 Usage: state.sh <command> [options]
 
 Commands:
-  init          Create initial workflow-state file
-  read          Read a field from state
-  update        Update a field in state
-  transition    State machine transition with matrix validation
-  validate      Validate state file against schema
-  disposition   Manage review dispositions (append)
-  self-verify   Manage self-verification records (append)
+  init              Create initial workflow-state file
+  read              Read a field from state
+  update            Update a field in state
+  transition        State machine transition with matrix validation
+  validate          Validate state file against schema
+  disposition       Manage review dispositions (append)
+  self-verify       Manage self-verification records (append)
+  path-a-escalation Manage Path A escalation entries
+  agent-id          Get/set agent_id in execution-state (per Ruling 2)
+  budget            Budget subcommands (initialize, check)
+  direction-check   Direction Check flow (trigger, ack)
+  idempotency       Idempotency key management (check, append)
 
 Options:
   --run-id <id>     Run identifier (required for most commands)
@@ -33,43 +41,20 @@ state_file() {
   echo "${STATE_BASE}/workflow-state-${RUN_ID}.json"
 }
 
+execution_state_file() {
+  echo "${STATE_BASE}/execution-state-${RUN_ID}.json"
+}
+
 lock_dir() {
   echo "${STATE_BASE}/${RUN_ID}.lock"
 }
 
 acquire_lock() {
-  local lock
-  lock="$(lock_dir)"
-  local attempts=0
-
-  while ! mkdir "$lock" 2>/dev/null; do
-    if [[ -f "$lock/ts" ]]; then
-      local ts
-      ts=$(cat "$lock/ts")
-      local now
-      now=$(date +%s)
-      if (( now - ts > LOCK_TTL )); then
-        echo "Cleaning stale lock (age=$((now - ts))s)" >&2
-        rm -rf "$lock"
-        continue
-      fi
-    fi
-    attempts=$((attempts + 1))
-    if (( attempts > 50 )); then
-      echo "Error: could not acquire lock after 50 attempts" >&2
-      exit 2
-    fi
-    sleep 0.1
-  done
-
-  echo $$ > "$lock/pid"
-  date +%s > "$lock/ts"
+  state_lock_acquire "$(lock_dir)"
 }
 
 release_lock() {
-  local lock
-  lock="$(lock_dir)"
-  rm -rf "$lock"
+  state_lock_release "$(lock_dir)"
 }
 
 ensure_state_exists() {
@@ -79,6 +64,45 @@ ensure_state_exists() {
     echo "Error: state file not found: $sf" >&2
     exit 2
   fi
+}
+
+# --- Transition Matrix ---
+# Format: "actor:from:to" — wildcard * matches any value in that position
+TRANSITION_MATRIX=(
+  "Coordinator:pending:dispatched"
+  "Coordinator:dispatched:returned"
+  "Coordinator:returned:committed"
+  "Coordinator:review_pending:pass"
+  "Coordinator:review_pending:needs_repair"
+  "Coordinator:*:blocked"
+  "Coordinator:returned:repairing"
+  "Coordinator:repairing:returned"
+  "Coordinator:workflow:dispatched"
+  "Coordinator:workflow:discovery"
+  "Coordinator:workflow:plan-writing"
+  "Coordinator:workflow:execution"
+  "Coordinator:workflow:final-review"
+  "Coordinator:*:execution_done"
+  "Coordinator:*:closed"
+  "agent-return-handler:dispatched:returned"
+  "track-execution-state:returned:committed"
+  "session-start:*:current_phase"
+)
+
+transition_allowed() {
+  local actor="$1" from="$2" to="$3"
+  for entry in "${TRANSITION_MATRIX[@]}"; do
+    local m_actor m_from m_to
+    IFS=':' read -r m_actor m_from m_to <<< "$entry"
+    if [[ "$m_actor" == "$actor" || "$m_actor" == "*" ]]; then
+      if [[ "$m_from" == "$from" || "$m_from" == "*" ]]; then
+        if [[ "$m_to" == "$to" || "$m_to" == "*" ]]; then
+          return 0
+        fi
+      fi
+    fi
+  done
+  return 1
 }
 
 cmd_init() {
@@ -98,9 +122,18 @@ cmd_init() {
   local now
   now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-  local review_total=3
+  local budget_status review_total effort_total
   case "$route" in
-    hotfix|quickfix|spike|maintenance) review_total='"unlimited"' ;;
+    hotfix|quickfix|spike|maintenance)
+      budget_status='"unlimited"'
+      review_total='"unlimited"'
+      effort_total='"unlimited"'
+      ;;
+    *)
+      budget_status='"pending_plan_count"'
+      review_total='null'
+      effort_total='null'
+      ;;
   esac
 
   cat > "$sf" <<INITJSON
@@ -114,12 +147,14 @@ cmd_init() {
   "current_step": null,
   "cursor": { "phase": "workflow", "reference": null, "step": null },
   "budget": {
+    "budget_status": ${budget_status},
     "review_total": ${review_total},
     "review_used": 0,
-    "effort_total": 0,
+    "effort_total": ${effort_total},
     "effort_used": 0,
     "direction_check_count": 0
   },
+  "plan_count": null,
   "plans": [],
   "idempotency_keys": [],
   "plan_writer_agent_id": null,
@@ -191,16 +226,23 @@ cmd_update() {
 }
 
 cmd_transition() {
-  local actor="" from="" to="" disposition_refs=""
+  local actor="" from="" to="" disposition_refs="" force=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --actor) actor="$2"; shift 2 ;;
       --from) from="$2"; shift 2 ;;
       --to) to="$2"; shift 2 ;;
       --disposition-refs) disposition_refs="$2"; shift 2 ;;
+      --force) force="true"; shift ;;
       *) shift ;;
     esac
   done
+
+  # Actor is required
+  if [[ -z "$actor" ]]; then
+    echo "Error: --actor is required for transition" >&2
+    exit 2
+  fi
 
   ensure_state_exists
   acquire_lock
@@ -208,6 +250,27 @@ cmd_transition() {
 
   local sf
   sf="$(state_file)"
+
+  # Read current phase from cursor
+  local current_phase
+  current_phase=$(jq -r '.cursor.phase // "unknown"' "$sf")
+
+  # If --from not provided, use current cursor.phase
+  if [[ -z "$from" ]]; then
+    from="$current_phase"
+  fi
+
+  # Verify --from matches current state (unless --force)
+  if [[ "$from" != "$current_phase" && "$force" != "true" ]]; then
+    echo "Error: --from ($from) does not match current cursor.phase ($current_phase)" >&2
+    exit 2
+  fi
+
+  # Validate against transition matrix
+  if ! transition_allowed "$actor" "$from" "$to"; then
+    echo "Transition denied: actor=$actor from=$from to=$to" >&2
+    exit 2
+  fi
 
   # Validate disposition-refs for repairing transition
   if [[ "$to" == "repairing" && -n "$disposition_refs" ]]; then
@@ -457,6 +520,306 @@ cmd_pa_clear() {
   mv "$tmp" "$sf"
 }
 
+# --- agent-id subcommand (operates on execution-state per Ruling 2) ---
+cmd_agent_id() {
+  local subcmd="$1"; shift
+  case "$subcmd" in
+    set) cmd_agent_id_set "$@" ;;
+    get) cmd_agent_id_get "$@" ;;
+    *) echo "Error: unknown agent-id subcommand: $subcmd (use set|get)" >&2; exit 2 ;;
+  esac
+}
+
+cmd_agent_id_set() {
+  local pack_id="" agent_id=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --pack-id) pack_id="$2"; shift 2 ;;
+      --agent-id) agent_id="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$pack_id" || -z "$agent_id" ]]; then
+    echo "Error: --pack-id and --agent-id required for agent-id set" >&2
+    exit 2
+  fi
+
+  local esf
+  esf="$(execution_state_file)"
+  if [[ ! -f "$esf" ]]; then
+    echo "Error: execution-state file not found: $esf" >&2
+    exit 2
+  fi
+
+  acquire_lock
+  trap release_lock EXIT
+
+  local tmp="${esf}.tmp"
+  jq --arg pid "$pack_id" --arg aid "$agent_id" '
+    .plans |= with_entries(
+      .value.packs |= with_entries(
+        if .key == $pid then .value.agent_id = $aid else . end
+      )
+    )
+  ' "$esf" > "$tmp"
+  mv "$tmp" "$esf"
+}
+
+cmd_agent_id_get() {
+  local pack_id=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --pack-id) pack_id="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$pack_id" ]]; then
+    echo "Error: --pack-id required for agent-id get" >&2
+    exit 2
+  fi
+
+  local esf
+  esf="$(execution_state_file)"
+  if [[ ! -f "$esf" ]]; then
+    echo ""
+    return 0
+  fi
+
+  local result
+  result=$(jq -r --arg pid "$pack_id" '
+    [.plans | to_entries[] | .value.packs // {} | to_entries[] | select(.key == $pid) | .value.agent_id // empty] | first // empty
+  ' "$esf" 2>/dev/null || echo "")
+
+  if [[ "$result" == "null" ]]; then
+    echo ""
+  else
+    echo "$result"
+  fi
+}
+
+# --- budget subcommand ---
+cmd_budget() {
+  local subcmd="$1"; shift
+  case "$subcmd" in
+    initialize) cmd_budget_initialize "$@" ;;
+    check) cmd_budget_check "$@" ;;
+    *) echo "Error: unknown budget subcommand: $subcmd (use initialize|check)" >&2; exit 2 ;;
+  esac
+}
+
+cmd_budget_initialize() {
+  local plan_count=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plan-count) plan_count="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$plan_count" ]]; then
+    echo "Error: --plan-count required for budget initialize" >&2
+    exit 2
+  fi
+
+  ensure_state_exists
+  acquire_lock
+  trap release_lock EXIT
+
+  local sf
+  sf="$(state_file)"
+
+  local current_status
+  current_status=$(jq -r '.budget.budget_status // "unknown"' "$sf")
+  if [[ "$current_status" != "pending_plan_count" ]]; then
+    echo "Error: budget already initialized (status=$current_status). Can only initialize from pending_plan_count." >&2
+    exit 2
+  fi
+
+  local review_total=$((3 * plan_count + 12))
+  local effort_total=$((review_total * 2))
+
+  local tmp="${sf}.tmp"
+  jq --argjson rt "$review_total" --argjson et "$effort_total" --argjson pc "$plan_count" \
+    '.budget.budget_status = "initialized" | .budget.review_total = $rt | .budget.effort_total = $et | .plan_count = $pc' \
+    "$sf" > "$tmp"
+  mv "$tmp" "$sf"
+}
+
+cmd_budget_check() {
+  ensure_state_exists
+  local sf
+  sf="$(state_file)"
+
+  local status
+  status=$(jq -r '.budget.budget_status // "unknown"' "$sf")
+
+  if [[ "$status" == "pending_plan_count" ]]; then
+    echo "Error: budget not initialized (status=pending_plan_count). Run 'budget initialize --plan-count N' first." >&2
+    exit 2
+  fi
+
+  if [[ "$status" == "unlimited" ]]; then
+    echo "OK: unlimited"
+    exit 0
+  fi
+
+  local review_total review_used
+  review_total=$(jq -r '.budget.review_total' "$sf")
+  review_used=$(jq -r '.budget.review_used' "$sf")
+
+  if [[ "$review_used" -ge "$review_total" ]] 2>/dev/null; then
+    echo "EXHAUSTED: review budget ${review_used}/${review_total}" >&2
+    exit 2
+  fi
+
+  echo "OK: ${review_used}/${review_total}"
+  exit 0
+}
+
+# --- direction-check subcommand ---
+cmd_direction_check() {
+  local subcmd="$1"; shift
+  case "$subcmd" in
+    trigger) cmd_dc_trigger "$@" ;;
+    ack) cmd_dc_ack "$@" ;;
+    *) echo "Error: unknown direction-check subcommand: $subcmd (use trigger|ack)" >&2; exit 2 ;;
+  esac
+}
+
+cmd_dc_trigger() {
+  local dc_type="" threshold_percent=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --type) dc_type="$2"; shift 2 ;;
+      --threshold-percent) threshold_percent="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  ensure_state_exists
+  acquire_lock
+  trap release_lock EXIT
+
+  local sf
+  sf="$(state_file)"
+  local now
+  now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local tmp="${sf}.tmp"
+
+  jq --arg ts "$now" --arg dt "${dc_type:-review}" --arg tp "${threshold_percent:-80}" \
+    '.pending_direction_check = {"triggered_at": $ts, "threshold_type": $dt, "threshold_percent": ($tp|tonumber), "ack_status": "pending"} | .budget.direction_check_count += 1' \
+    "$sf" > "$tmp"
+  mv "$tmp" "$sf"
+}
+
+cmd_dc_ack() {
+  local action=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --action) action="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$action" ]]; then
+    echo "Error: --action required (continue|stop|adjust)" >&2
+    exit 2
+  fi
+
+  ensure_state_exists
+  acquire_lock
+  trap release_lock EXIT
+
+  local sf
+  sf="$(state_file)"
+  local tmp="${sf}.tmp"
+
+  case "$action" in
+    continue)
+      jq '.pending_direction_check.ack_status = "acknowledged"' "$sf" > "$tmp"
+      mv "$tmp" "$sf"
+      ;;
+    stop)
+      jq '.pending_direction_check.ack_status = "stopped"' "$sf" > "$tmp"
+      mv "$tmp" "$sf"
+      ;;
+    adjust)
+      jq '.pending_direction_check = null' "$sf" > "$tmp"
+      mv "$tmp" "$sf"
+      ;;
+    *)
+      echo "Error: unknown action: $action (use continue|stop|adjust)" >&2
+      exit 2
+      ;;
+  esac
+}
+
+# --- idempotency subcommand ---
+cmd_idempotency() {
+  local subcmd="$1"; shift
+  case "$subcmd" in
+    check) cmd_idempotency_check "$@" ;;
+    append) cmd_idempotency_append "$@" ;;
+    *) echo "Error: unknown idempotency subcommand: $subcmd (use check|append)" >&2; exit 2 ;;
+  esac
+}
+
+cmd_idempotency_check() {
+  local key=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --key) key="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$key" ]]; then
+    echo "Error: --key required for idempotency check" >&2
+    exit 2
+  fi
+
+  ensure_state_exists
+  local sf
+  sf="$(state_file)"
+
+  local existing
+  existing=$(jq -r --arg key "$key" '.idempotency_keys | index($key) // empty' "$sf")
+  if [[ -n "$existing" ]]; then
+    echo "DUPLICATE" >&2
+    exit 2
+  fi
+
+  echo "NEW"
+  exit 0
+}
+
+cmd_idempotency_append() {
+  local key=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --key) key="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$key" ]]; then
+    echo "Error: --key required for idempotency append" >&2
+    exit 2
+  fi
+
+  ensure_state_exists
+  acquire_lock
+  trap release_lock EXIT
+
+  local sf
+  sf="$(state_file)"
+  local tmp="${sf}.tmp"
+  jq --arg key "$key" '.idempotency_keys += [$key]' "$sf" > "$tmp"
+  mv "$tmp" "$sf"
+}
+
 # --- Main ---
 if [[ $# -lt 1 ]]; then usage; fi
 
@@ -487,5 +850,9 @@ case "$CMD" in
   disposition) cmd_disposition "$@" ;;
   self-verify) cmd_self_verify "$@" ;;
   path-a-escalation) cmd_path_a_escalation "$@" ;;
+  agent-id) cmd_agent_id "$@" ;;
+  budget) cmd_budget "$@" ;;
+  direction-check) cmd_direction_check "$@" ;;
+  idempotency) cmd_idempotency "$@" ;;
   *) echo "Error: unknown command: $CMD" >&2; usage ;;
 esac

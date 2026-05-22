@@ -32,14 +32,16 @@
     "budget": {
       "type": "object",
       "properties": {
-        "review_total": { "oneOf": [{ "type": "number" }, { "type": "string", "const": "unlimited" }] },
+        "budget_status": { "type": "string", "enum": ["pending_plan_count", "initialized", "unlimited"] },
+        "review_total": { "oneOf": [{ "type": "number" }, { "type": "string", "const": "unlimited" }, { "type": "null" }] },
         "review_used": { "type": "number" },
-        "effort_total": { "oneOf": [{ "type": "number" }, { "type": "string", "const": "unlimited" }] },
+        "effort_total": { "oneOf": [{ "type": "number" }, { "type": "string", "const": "unlimited" }, { "type": "null" }] },
         "effort_used": { "type": "number" },
         "direction_check_count": { "type": "number" }
       },
-      "required": ["review_total", "review_used"]
+      "required": ["budget_status", "review_used"]
     },
+    "plan_count": { "type": ["integer", "null"] },
     "plans": {
       "type": "array",
       "items": {
