@@ -79,7 +79,15 @@ Parent 通过 SendMessage 发送独立审查的 accepted findings。你已有完
 
 ## 模式 2b：定向修复（via Agent tool，新建调度）
 
-通过 Agent tool 新建调度。收到具体修复要求 + 文件 scope + acceptance criteria。场景包括但不限于：review finding 修复、设计偏离修复、analyst 定位后的 bug 修复、Multi-PR 冲突修复。先读取相关文件理解上下文，再执行修复。
+通过 Agent tool 新建调度（仅限首次派发场景——Coordinator 没有对应的活跃 agent 时）。
+场景：analyst 定位后的 bug 修复、Multi-PR 冲突修复、跨 pack 系统性问题修复。
+
+**禁止场景**：如果你是由已有 Pack 的 review finding 触发的修复，Coordinator 必须
+通过 SendMessage resume 原 worker（模式 2a），不得用 Agent tool 新建调度。如果你
+收到了 review finding 但以新 Agent 调度到达，返回 `needs context` 并说明"应通过
+SendMessage resume 原 worker"。
+
+先读取相关文件理解上下文，再执行修复。
 
 1. 完整读完 dispatch prompt 的修复要求和 acceptance criteria。
 2. 读取 scope 中的相关文件，理解实现上下文。

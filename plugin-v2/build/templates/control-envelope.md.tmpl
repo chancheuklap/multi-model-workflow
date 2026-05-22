@@ -1,2 +1,26 @@
-<!-- DISPATCH_ENVELOPE 格式（Pack 4 填充完整 schema）-->
-所有 Agent dispatch 必须在 prompt 开头嵌入结构化信封。信封由构建系统注入，hook 解析。
+## DISPATCH_ENVELOPE (required prefix for every Agent dispatch)
+
+Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin its `prompt` with:
+
+```
+<!-- DISPATCH_ENVELOPE
+{
+  "protocol_version": "1",
+  "run_id": "<run_id>",
+  "phase": "<plan-writing|execution|final-review|discovery>",
+  "agent_role": "<pack-executor|complex-pack-executor|plan-writer|codex-reviewer>",
+  "agent_id": "<existing agent_id or null for first dispatch>",
+  "pack_id": "<N.M or null>",
+  "repair_round": 0,
+  "idempotency_key": "<run_id>/<pack_id>/r<repair_round>",
+  "disposition_refs": null,
+  "review_intent": null,
+  "exception_code": null
+}
+-->
+```
+
+For repair (repair_round >= 1): set `disposition_refs` to array of accepted finding IDs.
+For codex-reviewer dispatches: set `review_intent` and `exception_code` for targeted-re-review.
+
+Hooks parse this block. Missing/malformed envelope = dispatch BLOCKED.

@@ -11,7 +11,27 @@ Accepted findings 按 `Affected packs` 字段分组 → 每组复用现有三路
 所有 repair prompt 只携带 accepted findings。Repair 返回后默认只做 targeted re-review；只有 source baseline 改变时才 full phase review rerun。
 
 - **路径 A**（≤ 2 文件、不碰合同边界、意图明确）：Coordinator 直接修 → 跑验证 → Step 11
-- **路径 B**（多文件、根因已知）：SendMessage 给原 worker（（agentId 从 workflow-state 获取，若无 agentId 则 BLOCKED）），prompt 包含 `[repair-round-N]` 标记（触发 `validate-pack-dispatch.sh` 放行）→ Step 11
+- **路径 B**（多文件、根因已知）：
+
+**SendMessage Resume 操作步骤**（禁止创建新 agent）：
+
+1. `state.sh agent-id get --run-id <run_id> --pack-id <pack_id>` 读取 execution-state 中的 agent_id
+2. 若返回 null/empty -> BLOCKED + `state.sh transition --actor Coordinator --to blocked`（不创建新 agent）
+3. 调用：
+   ```
+   SendMessage({
+     to: "<agent_id>",
+     summary: "Plan Implementation Review repair round <N>: <finding_ids>",
+     message: "<DISPATCH_ENVELOPE, repair_round >= 1>\n\n<repair prompt with findings + acceptance criteria>"
+   })
+   ```
+4. 等待返回
+5. 运行 verification commands + 对照 acceptance criteria
+6. `state.sh self-verify append --run-id ... --pack-id ... --repair-round <N> --verification-passed <yes|no>`
+
+Targeted Re-Review 使用 `--resume` 继续 baseline reviewer session。
+
+→ Step 11
 
 ### 路径 C：Complex-Code-Explorer 调查
 

@@ -7,47 +7,25 @@
 所有 repair prompt 只携带 accepted findings。Repair 返回后默认只做 targeted re-review；只有 source baseline 改变时才 full phase review rerun。
 
 - **路径 A**（≤ 2 文件、不碰合同边界、意图明确）：Coordinator 直接修 → 跑验证 → Step 11
-- **路径 B**（多文件、根因已知）：SendMessage 给原 worker （agentId 从 workflow-state 获取，若无 agentId 则 BLOCKED）：
+- **路径 B**（多文件、根因已知）：
 
-```
-Agent({
-  subagent_type: "<pack-executor | complex-pack-executor>",
-  description: "Final Review repair: <finding summary>",
-  prompt: "
-    ## Scope
-    修复 Final Review 发现的问题。
+**SendMessage Resume 操作步骤**（禁止创建新 agent）：
 
-    ## Source design
-    <path>
+1. `state.sh agent-id get --run-id <run_id> --pack-id <pack_id>` 读取 agent_id
+2. 若返回 null/empty -> BLOCKED + `state.sh transition --actor Coordinator --to blocked`（不创建新 agent）
+3. 调用：
+   ```
+   SendMessage({
+     to: "<agent_id>",
+     summary: "Final Review repair round <N>: <finding_ids>",
+     message: "<DISPATCH_ENVELOPE>\n\n<repair prompt with findings + acceptance criteria>"
+   })
+   ```
+4. 等待返回
+5. 运行 verification commands + 对照 acceptance criteria
+6. `state.sh self-verify append --run-id ... --pack-id ... --repair-round <N> --verification-passed <yes|no>`
 
-    ## Finding(s)
-    <paste accepted findings with severity / locator / evidence / impact / remediation>
-
-    ## Affected files
-    <list>
-
-    ## Context
-    <pack brief subset — goal behavior + contract anchors + verification commands>
-
-    ## Acceptance criteria
-    - [ ] 每条 accepted finding 已修复
-    - [ ] 回归测试通过
-    - [ ] 不引入 design 未要求的新功能
-
-    ## Return contract
-    ### Verdict
-    pass / blocked / needs repair / needs context
-    ### Evidence
-    ### Result
-    - Changed files
-    - Fix applied per finding
-    ### Verification
-    ### Open Items
-  "
-})
-```
-
-4. Worker 修复后返回 → 进入 Step 11
+Worker 修复后返回 → 进入 Step 11
 
 ### 路径 C：Complex-Code-Explorer 调查
 
@@ -135,13 +113,30 @@ Explorer 返回后路由：
 修复完成后，只重审 accepted findings 涉及的变更部分。不做 full review rerun。
 
 <!-- BEGIN: review-dispatch -->
-**Codex review 派发步骤**（`CODEX_SCRIPT` 未定义时先执行 `CODEX_SCRIPT="$(find ~/.claude/plugins -path "*/codex/scripts/codex-companion.mjs" -type f 2>/dev/null | head -1)"`）：
-1. 写 prompt → `review-prompts/<gate>.md`
-2. `node "$CODEX_SCRIPT" task --background --prompt-file .claude/multi-model-workflow/review-prompts/<gate>.md --model gpt-5.4 --effort xhigh` → 记录 JOB_ID，写入 `review-prompts/<gate>.job-id`
-3. `node "$CODEX_SCRIPT" status "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)" --wait --timeout-ms 600000`（run_in_background: true）
-4. `node "$CODEX_SCRIPT" result "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)"` → 存到 `review-results/<gate>.md`
+**Codex review dispatch** (`CODEX_SCRIPT` unset: `CODEX_SCRIPT="$(find ~/.claude/plugins -path '*/codex/scripts/codex-companion.mjs' -type f 2>/dev/null | head -1)"`)
 
-Compaction 恢复：有 `.job-id` 无对应 `review-results/` → 从 Step 3 继续。
+1. Write prompt -> `review-prompts/<gate>.md` (prefix with DISPATCH_ENVELOPE, `agent_role: "codex-reviewer"`)
+2. Select model by phase:
+   - `cursor.phase in {discovery, plan-writing}` -> `--model gpt-5.5 --effort xhigh`
+   - `cursor.phase in {execution, final-review}` -> `--model gpt-5.4 --effort xhigh`
+3. Dispatch (distinguish baseline vs targeted re-review):
+   - **Baseline review** (gate name does not contain `-repair-`):
+     `node "$CODEX_SCRIPT" task --background --prompt-file <path> <model flags>`
+   - **Targeted re-review** (gate name contains `-repair-`):
+     `node "$CODEX_SCRIPT" task --background --resume --prompt-file <path> <model flags>`
+   -> record JOB_ID into `review-prompts/<gate>.job-id`
+4. Wait: `node "$CODEX_SCRIPT" status "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)" --wait --timeout-ms 600000` (run_in_background: true)
+5. Result: `node "$CODEX_SCRIPT" result "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)"` -> `review-results/<gate>.md`
+
+**Confidence rubric (REQUIRED in every review prompt)**:
+- 1-3: low confidence. Coordinator may suppress without deep investigation.
+- 4-6: medium. Coordinator must gather additional evidence before disposition.
+- 7-10: high. Coordinator should default to accept unless contradicted by evidence.
+
+**Bias indicators (REQUIRED at end of review output)**:
+Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
+
+Compaction recovery: `.job-id` present but no `review-results/` -> resume from Step 4.
 <!-- END: review-dispatch -->
 
 Review prompt 写入 `.claude/multi-model-workflow/review-prompts/final-review-repair-<round>.md`：

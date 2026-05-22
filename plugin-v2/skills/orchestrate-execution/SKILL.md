@@ -81,16 +81,24 @@ Dispatch prompt 必须自足——worker 不读 SKILL.md、不读 references、�
 Agent({
   subagent_type: "<pack-executor | complex-pack-executor>",
   description: "Execute Task Pack N.M: <title>",
-  prompt: "<Pack Brief>",
-  isolation: "worktree"  // 仅并行 pack 使用
+  prompt: "<DISPATCH_ENVELOPE>\n\n<Pack Brief>",
+  isolation: "worktree",
+  run_in_background: true
 })
 ```
 
-`validate-pack-dispatch.sh` hook 自动拦截缺少 `start_commit` 或 Pack 状态非 `pending` 的 dispatch。
+`validate-pack-dispatch.sh` hook 自动拦截缺少 DISPATCH_ENVELOPE、budget 未初始化或 Pack 已有 agent_id 的 dispatch。
 
-**记录返回的 agentId**——后续复杂修复需要用 SendMessage 继续该 worker。并行 pack 在同一消息中发送多个 Agent tool call。
+**After each Agent call returns**（强制执行）：
+1. Extract `agentId` from return value
+2. `state.sh agent-id set --run-id <run_id> --pack-id N.M --agent-id <agentId>`
+3. Write execution state: `packs[N.M].status = dispatched`
 
-Coordinator 写入 execution state：`packs[N.M].status = dispatched`。
+**Critical**: `run_in_background: true` ensures Coordinator gets agentId. Without agentId, repair path is BLOCKED. **Omitting agent-id persist is forbidden**.
+
+并行 pack 在同一消息中发送多个 Agent tool call。
+
+当 Worker 返回后需要修复时，必须使用 SendMessage resume 原 worker（读取 agent_id），不得创建新 Agent dispatch。
 
 ##### Step 7：接收 Worker 返回
 

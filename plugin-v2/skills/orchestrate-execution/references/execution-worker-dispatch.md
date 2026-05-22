@@ -2,6 +2,35 @@
 
 > **流程位置**：`orchestrate-execution` Step 5 · 构造 Pack Brief 时读取
 
+<!-- BEGIN: control-envelope -->
+## DISPATCH_ENVELOPE (required prefix for every Agent dispatch)
+
+Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin its `prompt` with:
+
+```
+<!-- DISPATCH_ENVELOPE
+{
+  "protocol_version": "1",
+  "run_id": "<run_id>",
+  "phase": "<plan-writing|execution|final-review|discovery>",
+  "agent_role": "<pack-executor|complex-pack-executor|plan-writer|codex-reviewer>",
+  "agent_id": "<existing agent_id or null for first dispatch>",
+  "pack_id": "<N.M or null>",
+  "repair_round": 0,
+  "idempotency_key": "<run_id>/<pack_id>/r<repair_round>",
+  "disposition_refs": null,
+  "review_intent": null,
+  "exception_code": null
+}
+-->
+```
+
+For repair (repair_round >= 1): set `disposition_refs` to array of accepted finding IDs.
+For codex-reviewer dispatches: set `review_intent` and `exception_code` for targeted-re-review.
+
+Hooks parse this block. Missing/malformed envelope = dispatch BLOCKED.
+<!-- END: control-envelope -->
+
 Dispatch prompt 必须自足——worker 不读 SKILL.md、不读 references、不读 plan 文件。Coordinator 从 plan 中提取并在 prompt 中写全所有字段。
 
 ## 必需字段（每个 pack 都写）

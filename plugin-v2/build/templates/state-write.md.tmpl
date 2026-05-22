@@ -1,1 +1,36 @@
-Coordinator 写入 execution state：`plans[N].review_verdict = pass/needs repair`、`plans[N].status` 更新。
+**State 操作参考**（通过 `state.sh` 执行所有状态变更）：
+
+**Transition**（phase / pack 状态流转）：
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" transition \
+  --run-id "<run_id>" --actor Coordinator --from "<from>" --to "<to>"
+```
+
+**Update**（任意字段更新）：
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" update \
+  --run-id "<run_id>" --field '<jq-path>' --value '<json-value>'
+```
+
+**Disposition Append**（review finding 逐条 disposition）：
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
+  --run-id "<run_id>" --review-round <r> --finding-id <id> \
+  --disposition <accepted|rejected|suppress|path-a|path-b> \
+  --confidence <1-10> --severity <H|M|L> \
+  --evidence "<一行理由>" --path "<file:line>"
+```
+`--evidence` 对 `--disposition accepted` 必填且非空。
+
+**Agent-ID Set**（Worker 派发后记录 agentId）：
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" agent-id set \
+  --run-id "<run_id>" --pack-id <N.M> --agent-id <agentId>
+```
+
+**Self-Verify Append**（修复后自检记录）：
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" self-verify append \
+  --run-id "<run_id>" --pack-id <pack_id> --repair-round <N> \
+  --verification-passed <yes|no> --exception <none|...>
+```
