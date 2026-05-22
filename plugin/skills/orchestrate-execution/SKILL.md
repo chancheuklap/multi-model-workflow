@@ -120,13 +120,13 @@ Plan Review 通过 → 两级循环（Plan → Pack）→ Pack 执行 + Git Chec
 - [ ] Budget 已初始化（`budget.budget_status == "initialized"` 且 `budget.review_total > 0`）
 - [ ] Scope Contract 存在
 - [ ] Git 在 work branch 上
-- [ ] Budget 状态锚写入：`current_phase = execution`
+- [ ] 状态锚写入：`cursor.phase` 已由 transition 设为 `execution`
 
 ---
 
 ## Steps 1-3：预执行准备
 
-**状态锚写入**（进入时）：budget file 写 `"current_phase": "execution"`, `"current_reference": "execution-preparation.md"`, `"current_step": "1"`。
+**状态锚写入**（进入时）：`state.sh update` 写 `cursor.reference = "execution-preparation.md"`, `cursor.step = 1`。`cursor.phase` 已由 `state.sh transition` 设为 `"execution"`。
 
 ### Step 1：读取 Plan Task Pack Inventory
 
@@ -796,7 +796,7 @@ Final Review 返回 `NEEDS_EXECUTION` 时（跨 Plan 系统性问题），Coordi
 - [ ] Git Checkpoint 完成
 - [ ] Plan checkboxes 已更新
 - [ ] Budget 消耗已记录
-- [ ] Budget 状态锚更新：`current_phase = execution_done`
+- [ ] 状态锚更新：`cursor.phase` transition 到 `execution_done`
 
 **Re-run behavior:**
 - Step 6: 如果 Pack 已 dispatched/returned/committed → 跳过 dispatch，从当前状态继续

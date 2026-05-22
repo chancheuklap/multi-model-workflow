@@ -95,10 +95,10 @@ run_test "validate passes on init state" \
 
 # --- update ---
 run_test "update field" \
-  bash "$STATE_SH" update --run-id "$RUN_ID" --field '.current_step' --value '5'
+  bash "$STATE_SH" update --run-id "$RUN_ID" --field '.cursor.step' --value '5'
 
 run_test "updated value readable" \
-  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.current_step') == '5' ]]"
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.cursor.step') == '5' ]]"
 
 # --- disposition append ---
 run_test "disposition append accepted with evidence" \
@@ -196,7 +196,7 @@ echo $$ > "$STALE_LOCK/pid"
 echo $(($(date +%s) - 120)) > "$STALE_LOCK/ts"
 
 run_test "stale lock cleaned and operation succeeds" \
-  bash "$STATE_SH" update --run-id "$RUN_ID" --field '.current_step' --value '10'
+  bash "$STATE_SH" update --run-id "$RUN_ID" --field '.cursor.step' --value '10'
 
 # --- agent-id subcommand (execution-state) ---
 RUN_ID3="test-agent-id-001"

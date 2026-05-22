@@ -2,7 +2,7 @@
 
 > **流程位置**：`orchestrate-plan-writing` Steps 0-2 · 含 Re-entry 检测 · 完成后 → Steps 3-8（`plan-writing-methodology.md`）
 
-**状态锚写入**（进入时）：budget file 写 `"current_phase": "plan-writing"`, `"current_reference": "plan-preconditions.md"`, `"current_step": "0"`。
+**状态锚写入**（进入时）：`state.sh update` 写 `cursor.reference = "plan-preconditions.md"`, `cursor.step = 0`。`cursor.phase` 已由 `state.sh transition` 设为 `"plan-writing"`。
 
 ## Step 0a：Plan 修订模式
 

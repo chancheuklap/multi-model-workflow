@@ -44,5 +44,13 @@ Hotfix 的核心差异：**先 push 再 review**。修复完成 + 基本测试�
 - 事后 review 发现问题 → 立即修复 + push + targeted re-review
 - 问题严重到需要 revert → BLOCKED，报告用户
 
+## Closing 清理
+
+Hotfix 路线的 `git push` 不触发 state 清理（`cleanup-before-push.sh` 检测到 `route = "hotfix"` 时延迟清理）。事后 review 完成后，Closing 阶段必须手动执行清理：
+
+```bash
+bash "$(find ~/.claude/plugins -path '*/multi-model-workflow/scripts/cleanup-before-push.sh' -type f | head -1)" --force
+```
+
 ---
-> **下一步**：事后 review 通过 → orchestrate-workflow Closing。BLOCKED → 返回 verdict。
+> **下一步**：事后 review 通过 → orchestrate-workflow Closing（含手动清理）。BLOCKED → 返回 verdict。

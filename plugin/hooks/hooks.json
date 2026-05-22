@@ -76,11 +76,6 @@
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/track-effort-budget.sh\"",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/track-execution-state.sh\"",
             "if": "Bash(git commit *)",
             "timeout": 10
@@ -98,6 +93,11 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/agent-return-handler.sh\"",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/track-effort-budget.sh\"",
             "timeout": 10
           }
         ]

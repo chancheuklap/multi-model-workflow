@@ -141,22 +141,31 @@ Budget 一旦初始化（`budget_status = initialized`），`review_total` 和 `
 
 | 字段 | 类型 | 更新时机 | 用途 |
 |------|------|---------|------|
-| `current_phase` | string \| null | 进入/退出 phase skill 时 | Compaction 后知道在哪个 phase |
-| `current_reference` | string \| null | Read reference 前写入，执行完写 null | Compaction 后知道在哪个 reference 里 |
-| `current_step` | string \| null | 进入 phase / reference 时（记录起始步骤号） | Compaction 后知道从哪个步骤继续 |
+| `cursor.phase` | string | 进入/退出 phase skill 时（`state.sh transition` 自动更新） | Compaction 后知道在哪个 phase |
+| `cursor.reference` | string \| null | Read reference 前写入，执行完写 null | Compaction 后知道在哪个 reference 里 |
+| `cursor.step` | integer \| null | 进入 phase / reference 时（记录起始步骤号） | Compaction 后知道从哪个步骤继续 |
 
 **更新规则**：
-- 进入 phase skill → 写 `current_phase`，清空 `current_reference` 和 `current_step`
-- Read reference 前 → 写 `current_reference`
-- 执行完 reference 回到 SKILL.md → `current_reference` 设为 null
-- 进入 phase / reference 时 → 写 `current_step`（记录起始步骤号）
+- 进入 phase skill → `state.sh transition` 更新 `cursor.phase`，手动清空 `cursor.reference` 和 `cursor.step`
+- Read reference 前 → 写 `cursor.reference`
+- 执行完 reference 回到 SKILL.md → `cursor.reference` 设为 null
+- 进入 phase / reference 时 → 写 `cursor.step`（记录起始步骤号）
+
+```bash
+# 示例：进入 reference 前更新 cursor
+state.sh update --run-id <run_id> --field '.cursor.reference' --value '"discovery-discussion.md"'
+state.sh update --run-id <run_id> --field '.cursor.step' --value '3'
+
+# 执行完 reference 后清空
+state.sh update --run-id <run_id> --field '.cursor.reference' --value 'null'
+```
 
 **恢复规则**（compaction 后）：
-1. 读 budget file 的 `current_phase` / `current_reference` / `current_step`
-2. 如果 `current_reference` 不为 null → 重新 Read 该 reference，从 `current_step` 位置继续
-3. 如果 `current_reference` 为 null → 在 SKILL.md 的 `current_step` 位置继续
+1. 读 workflow-state 的 `cursor.phase` / `cursor.reference` / `cursor.step`
+2. 如果 `cursor.reference` 不为 null → 重新 Read 该 reference，从 `cursor.step` 位置继续
+3. 如果 `cursor.reference` 为 null → 在 SKILL.md 的 `cursor.step` 位置继续
 
-**与 `last_gate_phase` 的区别**：`last_gate_phase` 记录最近通过的 gate（粗粒度，phase 级，用于 cross-conversation resume），`current_*` 记录 phase 入口位置（reference 级，用于 compaction recovery）。两者共存。
+**与 `last_gate_phase` 的区别**：`last_gate_phase` 记录最近通过的 gate（粗粒度，phase 级，用于 cross-conversation resume），`cursor.*` 记录当前精确位置（reference + step 级，用于 compaction recovery）。两者共存。
 
 ---
 

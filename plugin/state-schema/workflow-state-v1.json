@@ -4,7 +4,7 @@
   "description": "Unified state file for multi-model-workflow orchestration",
   "type": "object",
   "required": [
-    "run_id", "slug", "route", "started_at", "current_phase",
+    "run_id", "slug", "route", "started_at",
     "cursor", "budget", "plans", "idempotency_keys",
     "plan_writer_agent_id", "review_dispositions",
     "review_effectiveness", "pending_post_push_reviews",
@@ -17,9 +17,6 @@
     "slug": { "type": "string" },
     "route": { "type": "string", "enum": ["formal", "direct-repair", "multi-pr-merge", "bug-investigation", "hotfix", "quickfix", "spike", "maintenance"] },
     "started_at": { "type": "string", "format": "date-time" },
-    "current_phase": { "type": "string" },
-    "current_reference": { "type": ["string", "null"] },
-    "current_step": { "type": ["integer", "null"] },
     "cursor": {
       "type": "object",
       "properties": {
@@ -65,7 +62,7 @@
           "finding_id": { "type": "string" },
           "severity": { "type": "string" },
           "confidence": { "type": "number" },
-          "disposition": { "type": "string" },
+          "disposition": { "type": "string", "enum": ["accepted", "rejected", "suppress", "path-a", "path-b", "duplicate", "out-of-scope", "needs-evidence", "needs-evaluation", "user-decision"] },
           "evidence": { "type": ["string", "null"] },
           "path": { "type": ["string", "null"] },
           "reviewer_agent_id": { "type": ["string", "null"] },

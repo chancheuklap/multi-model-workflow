@@ -117,7 +117,7 @@ Source design + issue hierarchy → **逐个 issue 派发 plan-writer** → 全�
 - [ ] Design Review 通过
 - [ ] Issue hierarchy 已就绪（docs/orchestrate/issues/<slug>/）
 - [ ] Scope Contract 和 Budget file 存在
-- [ ] Budget 状态锚写入：`current_phase = plan-writing`
+- [ ] 状态锚写入：`cursor.phase` 已由 transition 设为 `plan-writing`
 
 **Dispatch 协议**：所有 plan-writer Agent 调用必须使用 `run_in_background: true`，以确保 Coordinator 能获取 agentId 用于后续 SendMessage 修复路径。
 
@@ -275,7 +275,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 - [ ] budget_total 已赋值（3P + 12）
 - [ ] Plan Review 通过
 - [ ] Git Checkpoint 完成
-- [ ] Budget 状态锚更新：`current_phase = plan-writing_done`
+- [ ] 状态锚更新：`cursor.phase` transition 到 `plan-writing_done`
 
 **Re-run behavior:**
 - Step 9: 如果 plan 文件已存在且 plan-writer 已返回 → 跳过该 issue 的 dispatch

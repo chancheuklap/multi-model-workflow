@@ -2,7 +2,7 @@
 
 > **流程位置**：`orchestrate-execution` Steps 1-3 · 完成后 → SKILL.md Steps 4-9（pack 循环）
 
-**状态锚写入**（进入时）：budget file 写 `"current_phase": "execution"`, `"current_reference": "execution-preparation.md"`, `"current_step": "1"`。
+**状态锚写入**（进入时）：`state.sh update` 写 `cursor.reference = "execution-preparation.md"`, `cursor.step = 1`。`cursor.phase` 已由 `state.sh transition` 设为 `"execution"`。
 
 ## Step 1：读取 Plan Task Pack Inventory
 

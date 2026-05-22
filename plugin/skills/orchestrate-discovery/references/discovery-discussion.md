@@ -2,7 +2,7 @@
 
 > **流程位置**：`orchestrate-discovery` Steps 3-6 · 完成后 → Steps 7-9（`discovery-design-document.md`）
 
-**状态锚写入**（进入时）：budget file 写 `"current_phase": "discovery"`, `"current_reference": "discovery-discussion.md"`, `"current_step": "3"`。
+**状态锚写入**（进入时）：`state.sh update` 写 `cursor.reference = "discovery-discussion.md"`, `cursor.step = 3`。`cursor.phase` 已由 `state.sh transition` 设为 `"discovery"`。
 
 ## Step 3：澄清意图（一问一答迭代）
 

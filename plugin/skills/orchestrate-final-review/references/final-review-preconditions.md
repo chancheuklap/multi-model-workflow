@@ -2,7 +2,7 @@
 
 > **流程位置**：`orchestrate-final-review` Steps 1-3 · 完成后 → Steps 4-5（`final-review-angles.md`）
 
-**状态锚写入**（进入时）：budget file 写 `"current_phase": "final-review"`, `"current_reference": "final-review-preconditions.md"`, `"current_step": "1"`。
+**状态锚写入**（进入时）：`state.sh update` 写 `cursor.reference = "final-review-preconditions.md"`, `cursor.step = 1`。`cursor.phase` 已由 `state.sh transition` 设为 `"final-review"`。
 
 ## Step 1：读取 Source Artifacts
 

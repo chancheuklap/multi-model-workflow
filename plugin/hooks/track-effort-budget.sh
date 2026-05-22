@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
-# PostToolUse hook for Bash tool.
-# Tracks effort budget (Sonnet/Opus tool calls) in workflow-state.
+# PostToolUse hook for Agent tool.
+# Tracks effort budget (weighted agent dispatch count) in workflow-state.
 # Triggers Direction Check at 80% threshold.
 set -euo pipefail
 
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
-if [[ -z "$COMMAND" ]]; then exit 0; fi
 
-EXIT_CODE=$(echo "$INPUT" | jq -r '.tool_response.exit_code // 0' 2>/dev/null)
-if [[ "$EXIT_CODE" != "0" ]]; then exit 0; fi
+AGENT_TYPE=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null)
+if [[ -z "$AGENT_TYPE" ]]; then exit 0; fi
 
 BUDGET_DIR=".claude/multi-model-workflow"
 RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
@@ -28,22 +26,13 @@ trap 'state_lock_release "$LOCK_DIR"' EXIT
 EFFORT_TOTAL=$(jq -r '.budget.effort_total // 0' "$SF")
 if [[ "$EFFORT_TOTAL" == "0" || "$EFFORT_TOTAL" == "unlimited" ]]; then exit 0; fi
 
-# Agent-role weighted effort: detect agent dispatch from command content
-# worker (pack-executor/complex-pack-executor) = 1
-# explorer (code-explorer/complex-code-explorer) = 1 (design says 0.5 rounded up)
-# RCA (root-cause-analyst) = 2
-# Other Bash calls = 0 (not effort-bearing)
-# NOTE: Follow-up Task needed to move trigger to PostToolUse Agent for cleaner dispatch detection
-EFFORT_INCREMENT=0
-if echo "$COMMAND" | grep -qE 'pack-executor|complex-pack-executor'; then
-  EFFORT_INCREMENT=1
-elif echo "$COMMAND" | grep -qE 'code-explorer|complex-code-explorer'; then
-  EFFORT_INCREMENT=1
-elif echo "$COMMAND" | grep -qE 'root-cause-analyst'; then
-  EFFORT_INCREMENT=2
-fi
-
-if [[ "$EFFORT_INCREMENT" -eq 0 ]]; then exit 0; fi
+# Agent-role weighted effort
+case "$AGENT_TYPE" in
+  pack-executor|complex-pack-executor) EFFORT_INCREMENT=1 ;;
+  code-explorer|complex-code-explorer) EFFORT_INCREMENT=1 ;;
+  root-cause-analyst)                  EFFORT_INCREMENT=2 ;;
+  *)                                   exit 0 ;;
+esac
 
 jq --argjson inc "$EFFORT_INCREMENT" '.budget.effort_used += $inc' "$SF" > "${SF}.tmp" && mv "${SF}.tmp" "$SF"
 

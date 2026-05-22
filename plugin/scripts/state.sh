@@ -146,9 +146,6 @@ cmd_init() {
   "slug": "${slug}",
   "route": "${route}",
   "started_at": "${now}",
-  "current_phase": "workflow",
-  "current_reference": null,
-  "current_step": null,
   "cursor": { "phase": "workflow", "reference": null, "step": null },
   "budget": {
     "budget_status": ${budget_status},
@@ -317,7 +314,7 @@ cmd_transition() {
   local now
   now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   jq --arg phase "$to" --arg ts "$now" \
-    '.cursor.phase = $phase | .current_phase = $phase | .last_gate_phase = $phase | .last_gate_timestamp = $ts' \
+    '.cursor.phase = $phase | .last_gate_phase = $phase | .last_gate_timestamp = $ts' \
     "$sf" > "$tmp"
   mv "$tmp" "$sf"
 
@@ -342,7 +339,7 @@ cmd_validate() {
   local required_fields=("run_id" "slug" "route" "cursor" "budget" "plans"
     "idempotency_keys" "review_dispositions" "review_effectiveness"
     "path_a_escalation" "self_verifications"
-    "current_phase" "execution_reflux_count" "last_gate_phase"
+    "execution_reflux_count" "last_gate_phase"
     "last_gate_timestamp" "pending_direction_check"
     "pending_post_push_reviews" "plan_writer_agent_id" "started_at")
 

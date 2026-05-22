@@ -122,7 +122,7 @@ Bad:  "经过全面审查，代码质量达到了预期标准。"
 - [ ] 所有 Plan 通过 Plan Implementation Review + Git Checkpoint
 - [ ] Source design 存在且已通过 Design Review
 - [ ] Scope Contract 和 Budget file 存在
-- [ ] Budget 状态锚写入：`current_phase = final-review`
+- [ ] 状态锚写入：`cursor.phase` 已由 transition 设为 `final-review`
 
 ---
 
@@ -169,7 +169,7 @@ Bad:  "经过全面审查，代码质量达到了预期标准。"
 - [ ] 遗留清扫完成（无未处置项）
 - [ ] Release Gate 通过（如触发）
 - [ ] 业务汇报已组装
-- [ ] Budget 状态锚更新：`current_phase = final-review_done`
+- [ ] 状态锚更新：`cursor.phase` transition 到 `final-review_done`
 
 ## 返回
 
