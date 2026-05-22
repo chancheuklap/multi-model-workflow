@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PostToolUse hook for Bash (if: "Bash(git commit *)").
-# Updates workflow-state via state.sh after successful Pack commit.
+# Updates execution-state via state-lock after successful Pack commit.
 set -euo pipefail
 
 INPUT=$(cat)
@@ -12,33 +12,53 @@ RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
 if [ ! -f "$RUN_ID_FILE" ]; then exit 0; fi
 RUN_ID=$(cat "$RUN_ID_FILE")
 
-SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
-if [ ! -f "$SF" ]; then exit 0; fi
+ESF="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
+if [ ! -f "$ESF" ]; then exit 0; fi
 
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+# Pack ID from validated commit message (enforce-pack-commit.sh guarantees format "Pack N.M: ...")
 PACK_ID=$(echo "$COMMAND" | sed -n 's/.*Pack \([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -1)
 if [ -z "$PACK_ID" ]; then exit 0; fi
 
 COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-PLAN_ID=$(echo "$PACK_ID" | cut -d. -f1)
 
-export STATE_BASE="$BUDGET_DIR"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-STATE_SH="$SCRIPT_DIR/../scripts/state.sh"
+source "$SCRIPT_DIR/../scripts/lib/state-lock.sh"
 
-jq --arg pack "$PACK_ID" --arg sha "$COMMIT_SHA" --argjson pidx "$((PLAN_ID - 1))" '
-  if .plans[$pidx] then
-    .plans[$pidx].packs |= map(if .pack_id == $pack then .status = "committed" | .commit_sha = $sha else . end)
-  else . end
-' "$SF" > "${SF}.tmp" && mv "${SF}.tmp" "$SF"
+LOCK_DIR="${BUDGET_DIR}/${RUN_ID}.lock"
+state_lock_acquire "$LOCK_DIR"
+trap 'state_lock_release "$LOCK_DIR"' EXIT
 
-DONE=$(jq --argjson pidx "$((PLAN_ID - 1))" '[.plans[$pidx].packs[]? | select(.status == "committed")] | length' "$SF")
-TOTAL=$(jq --argjson pidx "$((PLAN_ID - 1))" '[.plans[$pidx].packs[]?] | length' "$SF")
+# Update execution-state (pack-level data per Ruling 2)
+jq --arg pack "$PACK_ID" --arg sha "$COMMIT_SHA" '
+  .plans |= with_entries(
+    .value.packs |= with_entries(
+      if .key == $pack then
+        .value.status = "committed" | .value.commit_sha = $sha
+      else . end
+    )
+  )
+' "$ESF" > "${ESF}.tmp" && mv "${ESF}.tmp" "$ESF"
 
-if [ "$DONE" -eq "$TOTAL" ] && [ "$TOTAL" -gt 0 ]; then
-  MSG="[multi-model-workflow] NEXT: All ${TOTAL} packs in Plan ${PLAN_ID} committed. Dispatch Plan Implementation Review."
+# Count completed packs across all plans
+DONE=$(jq '[.plans | to_entries[] | .value.packs | to_entries[] | select(.value.status == "committed")] | length' "$ESF")
+TOTAL=$(jq '[.plans | to_entries[] | .value.packs | to_entries[]] | length' "$ESF")
+
+# Find which plan this pack belongs to
+PLAN_ID=$(jq -r --arg pack "$PACK_ID" '[.plans | to_entries[] | select(.value.packs[$pack] != null) | .key] | first // empty' "$ESF")
+
+# Count packs in this plan
+PLAN_DONE=0
+PLAN_TOTAL=0
+if [ -n "$PLAN_ID" ]; then
+  PLAN_DONE=$(jq --arg pid "$PLAN_ID" '[.plans[$pid].packs | to_entries[] | select(.value.status == "committed")] | length' "$ESF")
+  PLAN_TOTAL=$(jq --arg pid "$PLAN_ID" '[.plans[$pid].packs | to_entries[]] | length' "$ESF")
+fi
+
+if [ "$PLAN_DONE" -eq "$PLAN_TOTAL" ] && [ "$PLAN_TOTAL" -gt 0 ]; then
+  MSG="[multi-model-workflow] NEXT: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed. Dispatch Plan Implementation Review."
 else
-  MSG="[multi-model-workflow] STATE: Pack ${PACK_ID} committed (${DONE}/${TOTAL} in Plan ${PLAN_ID})."
+  MSG="[multi-model-workflow] STATE: Pack ${PACK_ID} committed (${PLAN_DONE}/${PLAN_TOTAL} in Plan ${PLAN_ID})."
 fi
 
 jq -n --arg msg "$MSG" \

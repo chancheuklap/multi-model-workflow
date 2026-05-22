@@ -12,9 +12,15 @@ if [[ -z "$COMMAND" ]]; then exit 0; fi
 if ! echo "$COMMAND" | grep -qE 'codex-companion.*task'; then exit 0; fi
 
 PROMPT_FILE=$(echo "$COMMAND" | sed -n 's/.*--prompt-file[[:space:]]*\([^[:space:]]*\).*/\1/p')
-if [[ -z "$PROMPT_FILE" || ! -f "$PROMPT_FILE" ]]; then exit 0; fi
+if [[ -z "$PROMPT_FILE" || ! -f "$PROMPT_FILE" ]]; then
+  echo "[multi-model-workflow] BLOCKED: codex review dispatch missing --prompt-file or file unreadable." >&2
+  exit 2
+fi
 
-ENVELOPE=$(bash "$PARSE_ENVELOPE" "$PROMPT_FILE" 2>/dev/null) || exit 0
+ENVELOPE=$(bash "$PARSE_ENVELOPE" "$PROMPT_FILE" 2>/dev/null) || {
+  echo "[multi-model-workflow] BLOCKED: codex review prompt missing/malformed DISPATCH_ENVELOPE." >&2
+  exit 2
+}
 
 REVIEW_INTENT=$(echo "$ENVELOPE" | jq -r '.review_intent // empty')
 EXCEPTION_CODE=$(echo "$ENVELOPE" | jq -r '.exception_code // empty')
@@ -37,6 +43,12 @@ case "$REVIEW_INTENT" in
     exit 2
     ;;
   targeted-re-review)
+    # Enforce session continuity — targeted re-review must use --resume (A10)
+    if ! echo "$COMMAND" | grep -qE '\-\-resume'; then
+      echo "[multi-model-workflow] BLOCKED: Targeted re-review must use --resume to continue baseline reviewer session." >&2
+      exit 2
+    fi
+
     if [[ "$EXCEPTION_CODE" == "user_requested" ]]; then
       exit 0
     fi

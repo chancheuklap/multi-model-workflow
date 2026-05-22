@@ -40,22 +40,13 @@ plan_queue = [Plan001, Plan002, Plan003]  ← 按 Blocked by 排序
 
 ### Step 2a：创建 Execution State File
 
-构建执行队列后立即创建 `.claude/multi-model-workflow/execution-state-<run_id>.json`：
+构建执行队列后立即创建 `.claude/multi-model-workflow/execution-state-<run_id>.json`，结构：
 
 ```json
 {
   "run_id": "<run_id>",
-  "current_plan_id": "001",
   "plans": {
     "001": {
-      "status": "pending",
-      "start_commit": null,
-      "end_commit": null,
-      "review_gate": null,
-      "review_verdict": null,
-      "repair_round": 0,
-      "release_gate_triggered": false,
-      "expected_pack_ids": ["1.1", "1.2", "1.3", "1.4"],
       "packs": {
         "1.1": { "status": "pending", "agent_id": null, "commit_sha": null, "worker_verdict": null },
         "1.2": { "status": "pending", "agent_id": null, "commit_sha": null, "worker_verdict": null }
@@ -65,7 +56,10 @@ plan_queue = [Plan001, Plan002, Plan003]  ← 按 Blocked by 排序
 }
 ```
 
-填入所有 Plan 和 Pack 的初始状态 + `expected_pack_ids`。
+注意：execution-state 只存 pack-level 数据（status, agent_id, commit_sha, worker_verdict）。
+Cursor, budget, review dispositions 存在 workflow-state-<run_id>.json 中。
+
+填入所有 Plan 和 Pack 的初始状态。
 
 **同时创建 run-scoped pack-returns 目录**：
 

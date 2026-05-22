@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PostToolUse hook for Agent tool.
-# Reads Worker's return → updates workflow-state via state.sh → emits NEXT.
+# Reads Worker's return via DISPATCH_ENVELOPE → updates execution-state via state.sh → emits NEXT.
 set -euo pipefail
 
 INPUT=$(cat)
@@ -24,12 +24,21 @@ RUN_ID=$(cat "$RUN_ID_FILE")
 SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
 if [ ! -f "$SF" ]; then exit 0; fi
 
+# Parse DISPATCH_ENVELOPE from the dispatch prompt
 PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty' 2>/dev/null)
-PACK_ID=$(echo "$PROMPT" | sed -n 's/.*Pack:*[[:space:]]*\([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -1)
-if [ -z "$PACK_ID" ]; then exit 0; fi
+ENVELOPE=$(echo "$PROMPT" | bash "$SCRIPT_DIR/lib/parse-envelope.sh" 2>/dev/null)
+if [ $? -ne 0 ]; then
+  # Per Ruling 3: PostToolUse hook, agent already returned — skip is safe, exit 2 is disruptive
+  echo "[multi-model-workflow] WARN: agent return without DISPATCH_ENVELOPE, skipping state tracking" >&2
+  exit 0
+fi
+
+PACK_ID=$(echo "$ENVELOPE" | jq -r '.pack_id // empty')
+if [ -z "$PACK_ID" ] || [ "$PACK_ID" = "null" ]; then exit 0; fi
 
 PLAN_ID=$(echo "$PACK_ID" | cut -d. -f1)
 
+# Read verdict from structured return file first, then tool_response
 RETURN_DIR="${BUDGET_DIR}/pack-returns/${RUN_ID}"
 RETURN_FILE="${RETURN_DIR}/${PACK_ID}.json"
 VERDICT=""
@@ -40,26 +49,32 @@ fi
 
 if [ -z "$VERDICT" ]; then
   RESPONSE_TEXT=$(echo "$INPUT" | jq -r '.tool_response // empty' 2>/dev/null || true)
-  VERDICT_LINE=$(echo "$RESPONSE_TEXT" | grep -iE '[#]*[[:space:]]*verdict' | head -1 || true)
-  VERDICT_INLINE=$(echo "$VERDICT_LINE" | sed 's/.*[Vv]erdict[[:space:]]*:*[[:space:]]*//' | tr -d '[:space:]#' || true)
-  if [ -n "$VERDICT_INLINE" ] && echo "$VERDICT_INLINE" | grep -qiE '^(pass|blocked|needs)'; then
-    VERDICT="$VERDICT_INLINE"
-  else
-    VERDICT=$(echo "$RESPONSE_TEXT" | grep -iA1 '[#]*[[:space:]]*verdict' | tail -1 | tr -d '[:space:]' || true)
+  if [ -n "$RESPONSE_TEXT" ]; then
+    VERDICT_LINE=$(echo "$RESPONSE_TEXT" | grep -iE '^[#]*[[:space:]]*verdict' | head -1 || true)
+    if [ -n "$VERDICT_LINE" ]; then
+      VERDICT=$(echo "$VERDICT_LINE" | sed 's/.*[Vv]erdict[[:space:]]*:*[[:space:]]*//' | tr -d '[:space:]#' || true)
+    fi
   fi
 fi
+
 if [ -z "$VERDICT" ] || ! echo "$VERDICT" | grep -qiE '^(pass|blocked|needs|unknown)'; then
   VERDICT="unknown"
 fi
 
-export STATE_BASE="$BUDGET_DIR"
-bash "$STATE_SH" update --run-id "$RUN_ID" \
-  --field ".plans[$((PLAN_ID - 1))].packs |= (if . == null then [] else . end | . + [{\"pack_id\":\"$PACK_ID\",\"status\":\"returned\",\"worker_verdict\":\"$VERDICT\",\"agent_type\":\"$AGENT_TYPE\"}])" \
-  --value 'null' 2>/dev/null || {
-  jq --arg pack "$PACK_ID" --arg v "$VERDICT" \
-    '.plans[0].packs[$pack] = {"status":"returned","worker_verdict":$v}' \
-    "$SF" > "${SF}.tmp" && mv "${SF}.tmp" "$SF"
-}
+# Update execution-state (per Ruling 2: pack-level data in execution-state, not workflow-state)
+ESF="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
+if [ -f "$ESF" ]; then
+  export STATE_BASE="$BUDGET_DIR"
+  jq --arg pack "$PACK_ID" --arg v "$VERDICT" --arg at "$AGENT_TYPE" '
+    .plans |= with_entries(
+      .value.packs |= with_entries(
+        if .key == $pack then
+          .value.status = "returned" | .value.worker_verdict = $v
+        else . end
+      )
+    )
+  ' "$ESF" > "${ESF}.tmp" && mv "${ESF}.tmp" "$ESF"
+fi
 
 MSG="[multi-model-workflow] NEXT: Pack ${PACK_ID} returned (verdict: ${VERDICT}). Process Open Items → scope drift check → Git Checkpoint → next pack."
 jq -n --arg msg "$MSG" \

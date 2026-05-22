@@ -10,7 +10,7 @@
 
 ```bash
 cat .claude/multi-model-workflow/active-run-id 2>/dev/null
-find .claude/multi-model-workflow/budget-*.json -mmin -60 2>/dev/null
+find .claude/multi-model-workflow/workflow-state-*.json -mmin -60 2>/dev/null
 ```
 
 - **无活跃运行** → 从 Entry Gate（Step 1）开始
@@ -120,29 +120,22 @@ docs/orchestrate/
 | 有 dirty files 属于当前 scope | 暂不 stage |
 | 有 dirty files 不属于当前 scope | 不 stage、不动、不 stash |
 
-## Step 6：Budget File（仅 Formal Orchestrate）
+## Step 6：Workflow State File（仅 Formal Orchestrate）
 
-创建 `.claude/multi-model-workflow/budget-<run_id>.json` 和 `active-run-id`：
+创建 `.claude/multi-model-workflow/workflow-state-<run_id>.json` via `state.sh init`：
 
-```json
-{
-  "run_id": "formal-<YYYYMMDD>-<HHMMSS>",
-  "budget_total": 0,
-  "budget_used": 0,
-  "pack_count": 0,
-  "starting_commit": "<git rev-parse HEAD after Git Checkpoint>",
-  "execution_reflux_count": 0,
-  "last_gate_phase": "entry",
-  "last_gate_timestamp": "<ISO 8601>",
-  "plan_count": 0,
-  "current_phase": null,
-  "current_reference": null,
-  "current_step": null,
-  "dispatches": []
-}
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" init --run-id "<run_id>" --slug "<slug>" --route formal
+echo "<run_id>" > .claude/multi-model-workflow/active-run-id
 ```
 
-`budget_total` 在 plan-writing Step 12a 按 `3P + 12`（P = plan 文件数）更新，此后**不可变**——执行阶段、Final Review 阶段均不得修改 `budget_total` 或 `pack_count`。如果执行阶段发现 pack 数与 budget file 不一致，返回 `NEEDS_PLAN_REVISION`，不得静默更新。Bug / Multi-PR route 不创建 budget file。
+Budget 在 plan count 确认后初始化（plan-writing Step 12a）：
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" budget initialize --run-id "<run_id>" --plan-count <N>
+```
+
+Budget 一旦初始化（`budget_status = initialized`），`review_total` 和 `effort_total` **不可变**——执行阶段、Final Review 阶段均不得修改。如果执行阶段发现 pack 数与 plan 不一致，返回 `NEEDS_PLAN_REVISION`，不得静默更新。Bug / Multi-PR route 使用 `--route hotfix` 等，budget 自动设为 `unlimited`。
 
 ### 状态锚字段（Compaction Recovery）
 
