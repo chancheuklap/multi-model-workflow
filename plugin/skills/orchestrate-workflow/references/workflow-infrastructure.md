@@ -16,8 +16,9 @@ cat .claude/multi-model-workflow/active-worktree 2>/dev/null
 
 | 状态 | 动作 |
 | --- | --- |
-| 有 `active-worktree` 文件 | 读取路径 → `EnterWorktree({ path: "<路径>" })` 进入已有工作树 → 继续 3a |
-| 无 `active-worktree` 文件 | 继续 3a（在主仓库中检测，可能是首次运行或已清理） |
+| 有 `active-worktree` 文件且路径有效（`git worktree list` 包含该路径） | `EnterWorktree({ path: "<路径>" })` 进入已有工作树 → 继续 3a |
+| 有 `active-worktree` 文件但路径无效（工作树已被手动删除） | 删除 breadcrumb 文件 → 继续 3a（当作首次运行） |
+| 无 `active-worktree` 文件 | 继续 3a（首次运行或已清理） |
 
 ### 3a：检测活跃运行
 
@@ -117,16 +118,19 @@ docs/orchestrate/
 
 **创建工作树**（仅 MAIN_REPO 时执行）：
 
-1. 获取并记录主仓库绝对路径：运行 `pwd`，将输出记为 `MAIN_REPO`
+1. 准备 breadcrumb 目录（在主仓库中，进入工作树前执行）：
+   ```bash
+   mkdir -p .claude/multi-model-workflow
+   ```
 2. 创建并进入工作树：
    ```
    EnterWorktree({ name: "<short-scope>" })
    ```
 3. 确认分支名：`git branch --show-current`
-4. 写入跨会话恢复 breadcrumb：
+4. 写入跨会话恢复 breadcrumb（用 `git worktree list` 获取主仓库路径）：
    ```bash
-   mkdir -p "<MAIN_REPO>/.claude/multi-model-workflow"
-   echo "$(pwd)" > "<MAIN_REPO>/.claude/multi-model-workflow/active-worktree"
+   MAIN_REPO=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
+   echo "$(pwd)" > "${MAIN_REPO}/.claude/multi-model-workflow/active-worktree"
    ```
 
 工作树创建后，后续所有状态文件（Scope Contract、workflow-state、execution-state、pack-returns）写在工作树的 `.claude/multi-model-workflow/` 中。工作树删除时，状态文件随之清除。

@@ -35,8 +35,6 @@ ENVELOPE=$(echo "$PROMPT" | bash "$SCRIPT_DIR/lib/parse-envelope.sh" 2>/dev/null
 PACK_ID=$(echo "$ENVELOPE" | jq -r '.pack_id // empty')
 if [ -z "$PACK_ID" ] || [ "$PACK_ID" = "null" ]; then exit 0; fi
 
-PLAN_ID=$(echo "$PACK_ID" | cut -d. -f1)
-
 # Read verdict from structured return file first, then tool_response
 RETURN_DIR="${BUDGET_DIR}/pack-returns/${RUN_ID}"
 RETURN_FILE="${RETURN_DIR}/${PACK_ID}.json"

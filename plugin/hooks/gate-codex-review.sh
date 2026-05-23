@@ -32,10 +32,17 @@ case "$REVIEW_INTENT" in
     GATE_NAME=$(basename "$PROMPT_FILE" .md)
     PLAN_NUM=$(echo "$GATE_NAME" | sed -n 's/.*plan-impl-review-\([0-9]*\).*/\1/p')
     if [ -n "$PLAN_NUM" ]; then
+      # Normalize to 3-digit zero-padded key (execution-state uses "001", "002", ...)
+      PLAN_NUM=$(printf "%03d" "$PLAN_NUM")
       BUDGET_DIR=".claude/multi-model-workflow"
       ESF="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
       if [ -f "$ESF" ]; then
-        UNCOMMITTED=$(jq --arg pid "$PLAN_NUM" '[(.plans[$pid].packs // {}) | to_entries[] | select(.value.status != "committed")] | length' "$ESF")
+        PLAN_EXISTS=$(jq --arg pid "$PLAN_NUM" '.plans[$pid] != null' "$ESF")
+        if [ "$PLAN_EXISTS" != "true" ]; then
+          echo "[multi-model-workflow] BLOCKED: Plan ${PLAN_NUM} not found in execution-state. Cannot verify pack completion." >&2
+          exit 2
+        fi
+        UNCOMMITTED=$(jq --arg pid "$PLAN_NUM" '[.plans[$pid].packs | to_entries[] | select(.value.status != "committed")] | length' "$ESF")
         if [ "$UNCOMMITTED" -gt 0 ]; then
           echo "[multi-model-workflow] BLOCKED: Plan ${PLAN_NUM} has ${UNCOMMITTED} uncommitted packs. Complete all packs before dispatching Plan Implementation Review." >&2
           exit 2
