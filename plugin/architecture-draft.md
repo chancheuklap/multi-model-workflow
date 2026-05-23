@@ -29,14 +29,16 @@ flowchart TD
     classDef coord fill:#f3f4f6,stroke:#6b7280
     classDef broken fill:#fee2e2,stroke:#dc2626,stroke-dasharray: 5 5
 
-    A["输入"] --> B{"Step 1：路线判定"}:::coord
+    A["输入"] --> ENV{"Step 0：环境检测"}:::coord
+    ENV -->|"已在工作树 + 有状态"| RESUME["断点续传\n读 workflow-state → 路由到对应 phase"]:::coord
+    ENV -->|"在主仓库"| B{"Step 1：路线判定"}:::coord
 
     %% 路线 1：Formal Orchestrate
-    B -->|"新设计 / 优化 / 反馈"| INFRA["Steps 2-6：Resume + Infrastructure\n（Scope Contract + Git Checkpoint + Budget File）"]:::coord
+    B -->|"新设计 / 优化 / 反馈"| INFRA["Step 2：Infrastructure\n（工作树 + Scope Contract + Budget File）"]:::coord
     INFRA --> C["orchestrate-discovery\n（与用户 Q&A 迭代 + 设计文档）"]:::skill
 
     %% 路线 2：Bug
-    B -->|"Bug / error / regression"| INFRA2["Steps 4-5：Scope + Git\n（跳过 Budget File）"]:::coord
+    B -->|"Bug / error / regression"| INFRA2["Step 2：Scope + Git\n（跳过 Budget File）"]:::coord
     INFRA2 --> BUG["root-cause-analyst\n（调查 + 修复）"]:::agent
     BUG -->|"简单 bug: fixed"| BRV["Review\nCodex review"]:::review
     BRV --> DONE["Closing\n（汇报 + 提交 + 推送 + PR）"]:::coord
@@ -45,7 +47,7 @@ flowchart TD
     BUG -->|"深层系统性问题"| INFRA
 
     %% 路线 3：多 PR 合并
-    B -->|"多 PR 合并审查"| INFRA3["Steps 4-5：Scope + Git\n（跳过 Budget File）"]:::coord
+    B -->|"多 PR 合并审查"| INFRA3["Step 2：Scope + Git\n（跳过 Budget File）"]:::coord
     INFRA3 --> MPR["orchestrate-multi-pr-merge\n（见图 3）"]:::skill
 
     %% 路线 4：Hotfix
@@ -105,7 +107,7 @@ flowchart TD
 | 节点 | 机制 | 做什么 | 产出/消费文档 | 状态 |
 |------|------|--------|-------------|------|
 | 路线判定 | Coordinator 自身逻辑 | 判断输入属于七条路线中的哪一条 | — | ✅ 正常 |
-| Steps 2-6 Infrastructure | Coordinator 逻辑（`workflow-infrastructure.md`） | Cross-Conversation Resume + Scope Contract + Git Checkpoint + Budget File 创建 | **确定** feature slug（贯穿 `docs/orchestrate/` 全链） | ✅ 正常 |
+| Steps 0-2 Environment Detection + Infrastructure | Coordinator 逻辑（`workflow-infrastructure.md`） | 环境检测（工作树/主仓库）+ 断点续传 + Scope Contract + Git Checkpoint + Budget File 创建 | **确定** feature slug（贯穿 `docs/orchestrate/` 全链） | ✅ 正常 |
 | Discovery | Skill：`orchestrate-discovery` | 与用户 Q&A 迭代 + grill-with-docs 同步维护 CONTEXT.md + 产出设计文档 | **产出** `design/<slug>.md` + CONTEXT.md | ✅ 正常 |
 | Design Review | Coordinator + **外部 Review** | 两个 baseline review（Design Content + Project Alignment），按 dispatch 模板内联的 Codex review 步骤派发 | **审查** `design/<slug>.md` | ✅ 正常 |
 | to-issues | 外部 Skill | 设计文档拆分为大 Issue → 小 Issue | **消费** `design/<slug>.md` → **产出** `issues/<slug>/00N-*.md` | ✅ 正常 |
@@ -250,9 +252,9 @@ flowchart TD
 ## 状态文件链
 
 ```
-orchestrate-workflow Step 4
+orchestrate-workflow Step 2b
   └─ .claude/multi-model-workflow/scope-<run_id>.md        ← Scope Contract
-orchestrate-workflow Step 6
+orchestrate-workflow Step 2c
   ├─ .claude/multi-model-workflow/workflow-state-<run_id>.json ← Workflow State（budget/cursor/dispositions/plans）（Route 1 only）
   └─ .claude/multi-model-workflow/active-run-id             ← Active Run ID
 orchestrate-plan-writing Step 12a
@@ -813,7 +815,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 ```
 
 - Source artifact 在 gate 后有改动 → **重新进入对应 gate review**（不跳过）
-- `active-run-id` 对应的 workflow-state 超过 1 小时未更新 → 视为 stale，允许新 run 覆盖
+- `active-run-id` 对应的 workflow-state 超过 1 小时未更新 → Step 0 断点续传时视为 stale，提示用户确认是否继续
 - SessionStart hook 注入的 compaction recovery 规则：进入任何 phase 前必须 re-read `scope-<run_id>.md`
 
 ---

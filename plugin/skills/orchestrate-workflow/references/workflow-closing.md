@@ -63,14 +63,9 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-summary.sh" "<run_id>"
 
 ## Step 22b：退出工作树
 
-Push + PR 完成后，退出工作树并清理 breadcrumb：
+Push + PR 完成后，退出工作树：
 
 1. `ExitWorktree({ action: "keep" })` — 保留工作树（PR 可能需要后续修改）
-2. 清理 breadcrumb：
-   ```bash
-   rm -f .claude/multi-model-workflow/active-worktree
-   rmdir .claude/multi-model-workflow 2>/dev/null
-   ```
 
 工作树保留直到 PR 合并后由 `clean_gone` 统一清理（删除工作树 + 分支 + 残留状态文件）。
 

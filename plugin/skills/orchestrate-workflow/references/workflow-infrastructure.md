@@ -1,43 +1,39 @@
-# Infrastructure Setup + Cross-Conversation Resume
+# Environment Detection + Infrastructure Setup
 
-> **流程位置**：`orchestrate-workflow` Steps 3-6 · 含 Cross-Conversation Resume · 完成后按 Route 进入对应 phase
+> **流程位置**：`orchestrate-workflow` Steps 0-2 · 完成后按 Route 进入对应 phase
+>
+> Step 1（Entry Gate）在 SKILL.md 中，不在此 reference。本文档覆盖 Step 0（环境检测 + 断点续传）和 Step 2（基础设施搭建）。
 
-## Step 3：Cross-Conversation Resume
+## Step 0：Environment Detection + Resume
 
-新对话接手上一个 session 的工作。先检测活跃工作树，再检查 artifact 状态决定从哪里继续。
+启动时检测当前环境，决定是断点续传还是全新任务。
 
-### 3-pre：检测并进入活跃工作树
-
-主仓库中检查是否有活跃工作树的 breadcrumb：
+### 0a：检测是否在工作树中
 
 ```bash
-cat .claude/multi-model-workflow/active-worktree 2>/dev/null
+[ -f "$(git rev-parse --show-toplevel)/.git" ] && echo "IN_WORKTREE" || echo "MAIN_REPO"
 ```
+
+工作树内 `.git` 是文件（指向主仓库的 `.git/worktrees/`）；主仓库的 `.git` 是目录。
 
 | 状态 | 动作 |
 | --- | --- |
-| 有 `active-worktree` 文件且路径有效（`git worktree list` 包含该路径） | `EnterWorktree({ path: "<路径>" })` 进入已有工作树 → 继续 3a |
-| 有 `active-worktree` 文件但路径无效（工作树已被手动删除） | 删除 breadcrumb 文件 → 继续 3a（当作首次运行） |
-| 无 `active-worktree` 文件 | 继续 3a（首次运行或已清理） |
+| `IN_WORKTREE` + `.claude/multi-model-workflow/active-run-id` 存在 | 进入 0b（断点续传） |
+| `IN_WORKTREE` + 无 `active-run-id` | 提示 "没有找到活跃的 workflow 状态文件，将作为全新任务处理" → Step 1（Entry Gate） |
+| `MAIN_REPO` | Step 1（Entry Gate） |
 
-### 3a：检测活跃运行
+### 0b：断点续传
 
-```bash
-cat .claude/multi-model-workflow/active-run-id 2>/dev/null
-find .claude/multi-model-workflow/workflow-state-*.json -mmin -60 2>/dev/null
-```
-
-- **无活跃运行** → 从 Entry Gate（Step 1）开始
-- **有活跃运行且 stale（> 1h 无更新）** → 清理旧文件，从 Entry Gate 开始
-- **有活跃运行且 fresh** → 进入 3b
-
-### 3b：Source Stability 检查
-
-Budget file 记录 `last_gate_phase` 和 `last_gate_timestamp`。从活跃运行的 Scope Contract 读取 feature slug，用约定路径检查 source artifacts 自上次 gate 通过后是否被修改：
+用户已在工作树中启动 Claude，直接读取本地状态文件恢复。
 
 ```bash
 RUN_ID=$(cat .claude/multi-model-workflow/active-run-id)
 SLUG=$(grep -A1 '^## Feature slug' ".claude/multi-model-workflow/scope-${RUN_ID}.md" | tail -1 | xargs)
+```
+
+**Source Stability 检查**：Budget file 记录 `last_gate_phase` 和 `last_gate_timestamp`。检查 source artifacts 自上次 gate 通过后是否被修改：
+
+```bash
 git log --oneline --since="<last_gate_timestamp>" -- \
   "docs/orchestrate/design/${SLUG}.md" \
   "docs/orchestrate/plans/${SLUG}/" \
@@ -54,9 +50,9 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 | 所有 Plans 通过 Plan Implementation Review + 代码未变 | orchestrate-final-review |
 | Final Review 通过 | Closing（Step 21） |
 
-### 3c：恢复 Infrastructure
+**Scope Contract 和 Budget File 已存在** → 读取并验证。`pack_count` 或 `editable artifacts` 与当前 plan 不一致 → 更新。
 
-Scope Contract 和 Budget File 已存在 → 读取并验证。`pack_count` 或 `editable artifacts` 与当前 plan 不一致 → 更新。
+验证通过后，按上表路由到对应 phase。**不再执行 Steps 1-2**。
 
 ---
 
@@ -97,14 +93,18 @@ docs/orchestrate/
 
 ---
 
-## Step 4：Git Checkpoint（工作树创建）
+## Step 2：Infrastructure Setup
+
+Entry Gate（Step 1）完成后执行。创建工作树、写入状态文件。
+
+### Step 2a：Git Checkpoint（工作树创建）
 
 **禁止在主仓库直接切分支**（`git checkout -b`）。所有工作在独立工作树中进行。
 
 | 状态 | 动作 |
 | --- | --- |
 | 在主仓库中（非工作树） | 创建工作树（见下方） |
-| 已在工作树中 | 继续 |
+| 已在工作树中 | 继续（不重复创建） |
 | 有 dirty files 属于当前 scope | 暂不 stage |
 | 有 dirty files 不属于当前 scope | 不 stage、不动、不 stash |
 
@@ -114,28 +114,17 @@ docs/orchestrate/
 [ -f "$(git rev-parse --show-toplevel)/.git" ] && echo "IN_WORKTREE" || echo "MAIN_REPO"
 ```
 
-工作树内 `.git` 是文件（指向主仓库的 `.git/worktrees/`）；主仓库的 `.git` 是目录。
-
 **创建工作树**（仅 MAIN_REPO 时执行）：
 
-1. 准备 breadcrumb 目录（在主仓库中，进入工作树前执行）：
-   ```bash
-   mkdir -p .claude/multi-model-workflow
-   ```
-2. 创建并进入工作树：
+1. 创建并进入工作树：
    ```
    EnterWorktree({ name: "<short-scope>" })
    ```
-3. 确认分支名：`git branch --show-current`
-4. 写入跨会话恢复 breadcrumb（用 `git worktree list` 获取主仓库路径）：
-   ```bash
-   MAIN_REPO=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
-   echo "$(pwd)" > "${MAIN_REPO}/.claude/multi-model-workflow/active-worktree"
-   ```
+2. 确认分支名：`git branch --show-current`
 
 工作树创建后，后续所有状态文件（Scope Contract、workflow-state、execution-state、pack-returns）写在工作树的 `.claude/multi-model-workflow/` 中。工作树删除时，状态文件随之清除。
 
-## Step 5：Write Scope Contract
+### Step 2b：Write Scope Contract
 
 从用户提供的功能描述提取 kebab-case 核心词，加上当天日期组成 feature slug（`YYYY-MM-DD-<feature>`）；不确定时一次性问用户确认。然后创建 `.claude/multi-model-workflow/scope-<run_id>.md`：
 
@@ -163,11 +152,12 @@ docs/orchestrate/
 
 **规则**：Source artifacts 只包含用户明确提供的内容。Editable artifacts 只能是 source 或 phase 产出。Out of scope 阻止 sub-agent 和 reviewer 扩大范围。Feature slug 一旦确定不可中途修改。
 
-## Step 6：Workflow State File（仅 Formal Orchestrate）
+### Step 2c：Workflow State File（仅 Formal Orchestrate）
 
 创建 `.claude/multi-model-workflow/workflow-state-<run_id>.json` via `state.sh init`：
 
 ```bash
+mkdir -p .claude/multi-model-workflow
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" init --run-id "<run_id>" --slug "<slug>" --route formal
 echo "<run_id>" > .claude/multi-model-workflow/active-run-id
 ```
@@ -208,7 +198,7 @@ state.sh update --run-id <run_id> --field '.cursor.reference' --value 'null'
 2. 如果 `cursor.reference` 不为 null → 重新 Read 该 reference，从 `cursor.step` 位置继续
 3. 如果 `cursor.reference` 为 null → 在 SKILL.md 的 `cursor.step` 位置继续
 
-**与 `last_gate_phase` 的区别**：`last_gate_phase` 记录最近通过的 gate（粗粒度，phase 级，用于 cross-conversation resume），`cursor.*` 记录当前精确位置（reference + step 级，用于 compaction recovery）。两者共存。
+**与 `last_gate_phase` 的区别**：`last_gate_phase` 记录最近通过的 gate（粗粒度，phase 级，用于断点续传），`cursor.*` 记录当前精确位置（reference + step 级，用于 compaction recovery）。两者共存。
 
 ---
 

@@ -29,7 +29,7 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 
 # Orchestrate Workflow
 
-主线程入口。Entry Gate → Infrastructure → Phase 路由 → Closing。
+主线程入口。Environment Detection → Entry Gate → Infrastructure → Phase 路由 → Closing。
 
 **Workflow 只做路由和基础设施**——不写设计、不写计划、不派 worker、不做 review。每个 phase 由对应 skill 负责。
 
@@ -44,34 +44,34 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 
 ---
 
-**Pre-flight（进入 Entry Gate 前）：**
+## Step 0：Pre-flight + Environment Detection
+
+**Read** `references/workflow-infrastructure.md` Step 0 并严格执行。
+
 1. 验证 SendMessage 工具可用（尝试列出工具列表确认）。如不可用 → 硬停：`"SendMessage tool not available. Ensure CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is set and Claude Code version >= 2.1.147."`
+2. 检测当前环境（工作树 vs 主仓库）：
+   - **已在工作树 + 有状态文件** → 断点续传，直接路由到对应 phase（跳过 Steps 1-2）
+   - **在主仓库**（或工作树内无状态文件） → 继续 Step 1
 
 ## Step 1：Entry Gate
 
 | 路线 | 输入信号 | 下一步 |
 | --- | --- | --- |
 | **Route 1: Formal Orchestrate** | 新功能、改造、feedback、缺 design/issue/plan、已有 design/plan 要 review/执行 | Step 2 |
-| **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Steps 4-5（Git + Scope，跳过 Budget）→ Step 15 |
-| **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Steps 4-5（Git + Scope，跳过 Budget）→ Step 19 |
-| **Route 4: Hotfix** | hotfix / 紧急 / production fire / P0 / 生产事故 | Steps 4-5（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-4-hotfix.md |
-| **Route 5: Quick Fix** | quick fix / 小改动 / 调整 | Steps 4-5（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-5-quickfix.md |
-| **Route 6: Spike** | spike / 探索 / prototype / 试试 | Steps 4-5（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-6-spike.md |
-| **Route 7: Maintenance** | 升级 / upgrade / CVE / 依赖 / 重构 / refactor / 清理 / tech debt | Steps 4-5（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-7-maintenance.md |
+| **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Step 2（Git + Scope，跳过 Budget）→ Step 15 |
+| **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Step 2（Git + Scope，跳过 Budget）→ Step 19 |
+| **Route 4: Hotfix** | hotfix / 紧急 / production fire / P0 / 生产事故 | Step 2（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-4-hotfix.md |
+| **Route 5: Quick Fix** | quick fix / 小改动 / 调整 | Step 2（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-5-quickfix.md |
+| **Route 6: Spike** | spike / 探索 / prototype / 试试 | Step 2（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-6-spike.md |
+| **Route 7: Maintenance** | 升级 / upgrade / CVE / 依赖 / 重构 / refactor / 清理 / tech debt | Step 2（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-7-maintenance.md |
 
 模糊输入 → 一次只问一个问题收窄。概念/事实问题 → 直接回答不进 orchestrate。
 
-## Step 2：Within-Conversation Resume
+**Within-Conversation Resume**：同一对话内 phase skill 返回的 verdict → 直接路由到下方对应 phase 的 Handle Return 步骤，不重走 Steps 0-2。
 
-同一对话内 phase skill 返回的 verdict → 直接路由到下方对应 phase 的 Handle Return 步骤。
+## Step 2：Infrastructure Setup
 
-## Step 3：Cross-Conversation Resume
-
-**Read** `references/workflow-infrastructure.md` 并严格执行（检测活跃运行 + Source Stability + 恢复 Infrastructure）。读完按 Route 进入对应 phase。
-
-## Steps 4-6：Infrastructure Setup
-
-**Read** `references/workflow-infrastructure.md` 并严格执行（Git Checkpoint + Scope Contract + Budget File）。读完按 Route 进入对应 phase。
+**Read** `references/workflow-infrastructure.md` Step 2 并严格执行（Git Checkpoint + Scope Contract + Budget File）。读完按 Route 进入对应 phase。
 
 ## Steps 7-14：Route 1 — Formal Orchestrate
 
