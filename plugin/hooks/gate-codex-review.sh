@@ -28,6 +28,20 @@ RUN_ID=$(echo "$ENVELOPE" | jq -r '.run_id')
 
 case "$REVIEW_INTENT" in
   baseline)
+    # For Plan Implementation Review: verify all packs in the plan are committed
+    GATE_NAME=$(basename "$PROMPT_FILE" .md)
+    PLAN_NUM=$(echo "$GATE_NAME" | sed -n 's/.*plan-impl-review-\([0-9]*\).*/\1/p')
+    if [ -n "$PLAN_NUM" ]; then
+      BUDGET_DIR=".claude/multi-model-workflow"
+      ESF="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
+      if [ -f "$ESF" ]; then
+        UNCOMMITTED=$(jq --arg pid "$PLAN_NUM" '[(.plans[$pid].packs // {}) | to_entries[] | select(.value.status != "committed")] | length' "$ESF")
+        if [ "$UNCOMMITTED" -gt 0 ]; then
+          echo "[multi-model-workflow] BLOCKED: Plan ${PLAN_NUM} has ${UNCOMMITTED} uncommitted packs. Complete all packs before dispatching Plan Implementation Review." >&2
+          exit 2
+        fi
+      fi
+    fi
     exit 0
     ;;
   path-a-re-review)

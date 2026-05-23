@@ -1,6 +1,6 @@
 ---
 name: orchestrate-execution
-description: "已有 reviewed plan + Task Pack inventory 时使用。Plan 级两层循环：外层逐 Plan 串行，内层逐 Pack 派 Worker → Git Checkpoint → Plan Implementation Review → Disposition → 修复 → Release Gate。产出：所有 Plan 通过 + review budget 消耗。"
+description: "已有 reviewed plan + Task Pack inventory 时使用。Plan 级两层循环：外层逐 Plan 串行，内层逐 Pack 派 Worker → Git Checkpoint → 全部 Pack 完成后 Plan Implementation Review → Disposition → 修复 → Release Gate。产出：所有 Plan 通过 + review budget 消耗。"
 ---
 
 <!-- BEGIN: signpost -->

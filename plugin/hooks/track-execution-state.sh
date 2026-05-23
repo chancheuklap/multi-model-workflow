@@ -61,7 +61,11 @@ if [ -n "$PLAN_ID" ]; then
 fi
 
 if [ "$PLAN_DONE" -eq "$PLAN_TOTAL" ] && [ "$PLAN_TOTAL" -gt 0 ]; then
-  MSG="[multi-model-workflow] NEXT: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed. Dispatch Plan Implementation Review."
+  # Write end_commit for plan review diff (start_commit..end_commit)
+  jq --arg pid "$PLAN_ID" --arg sha "$COMMIT_SHA" '
+    .plans[$pid].end_commit = $sha
+  ' "$ESF" > "${ESF}.tmp" && mv "${ESF}.tmp" "$ESF"
+  MSG="[multi-model-workflow] NEXT: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${COMMIT_SHA}). Dispatch Plan Implementation Review."
 else
   MSG="[multi-model-workflow] STATE: Pack ${PACK_ID} committed (${PLAN_DONE}/${PLAN_TOTAL} in Plan ${PLAN_ID})."
 fi

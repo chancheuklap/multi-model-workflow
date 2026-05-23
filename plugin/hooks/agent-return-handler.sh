@@ -78,7 +78,22 @@ if [ -f "$ESF" ]; then
   state_lock_release "$LOCK_DIR"
 fi
 
-MSG="[multi-model-workflow] NEXT: Pack ${PACK_ID} returned (verdict: ${VERDICT}). Process Open Items → scope drift check → Git Checkpoint → next pack."
+# Check remaining packs in this plan to differentiate NEXT message
+REMAINING=999
+CUR_PLAN=""
+if [ -f "$ESF" ]; then
+  CUR_PLAN=$(jq -r --arg pack "$PACK_ID" '[.plans | to_entries[] | select(.value.packs[$pack] != null) | .key] | first // empty' "$ESF")
+  if [ -n "$CUR_PLAN" ]; then
+    REMAINING=$(jq --arg pid "$CUR_PLAN" '[.plans[$pid].packs | to_entries[] | select(.value.status == "pending" or .value.status == "dispatched")] | length' "$ESF")
+  fi
+fi
+
+if [ "$REMAINING" -eq 0 ]; then
+  MSG="[multi-model-workflow] NEXT: Pack ${PACK_ID} returned (verdict: ${VERDICT}). All packs in Plan ${CUR_PLAN} have returned. Process Open Items → scope drift check → Git Checkpoint for each → then Step 8 (Plan Implementation Review). Do NOT dispatch review until all Git Checkpoints complete."
+else
+  MSG="[multi-model-workflow] NEXT: Pack ${PACK_ID} returned (verdict: ${VERDICT}). Process Open Items → scope drift check → Git Checkpoint. ${REMAINING} packs still pending/dispatched in Plan ${CUR_PLAN}."
+fi
+
 jq -n --arg msg "$MSG" \
   '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $msg}}'
 exit 0
