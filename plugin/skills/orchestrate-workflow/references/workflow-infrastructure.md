@@ -4,7 +4,20 @@
 
 ## Step 3：Cross-Conversation Resume
 
-新对话接手上一个 session 的工作。检查 artifact 状态决定从哪里继续。
+新对话接手上一个 session 的工作。先检测活跃工作树，再检查 artifact 状态决定从哪里继续。
+
+### 3-pre：检测并进入活跃工作树
+
+主仓库中检查是否有活跃工作树的 breadcrumb：
+
+```bash
+cat .claude/multi-model-workflow/active-worktree 2>/dev/null
+```
+
+| 状态 | 动作 |
+| --- | --- |
+| 有 `active-worktree` 文件 | 读取路径 → `EnterWorktree({ path: "<路径>" })` 进入已有工作树 → 继续 3a |
+| 无 `active-worktree` 文件 | 继续 3a（在主仓库中检测，可能是首次运行或已清理） |
 
 ### 3a：检测活跃运行
 
@@ -83,7 +96,42 @@ docs/orchestrate/
 
 ---
 
-## Step 4：Write Scope Contract
+## Step 4：Git Checkpoint（工作树创建）
+
+**禁止在主仓库直接切分支**（`git checkout -b`）。所有工作在独立工作树中进行。
+
+| 状态 | 动作 |
+| --- | --- |
+| 在主仓库中（非工作树） | 创建工作树（见下方） |
+| 已在工作树中 | 继续 |
+| 有 dirty files 属于当前 scope | 暂不 stage |
+| 有 dirty files 不属于当前 scope | 不 stage、不动、不 stash |
+
+**检测是否在工作树中**：
+
+```bash
+[ -f "$(git rev-parse --show-toplevel)/.git" ] && echo "IN_WORKTREE" || echo "MAIN_REPO"
+```
+
+工作树内 `.git` 是文件（指向主仓库的 `.git/worktrees/`）；主仓库的 `.git` 是目录。
+
+**创建工作树**（仅 MAIN_REPO 时执行）：
+
+1. 获取并记录主仓库绝对路径：运行 `pwd`，将输出记为 `MAIN_REPO`
+2. 创建并进入工作树：
+   ```
+   EnterWorktree({ name: "<short-scope>" })
+   ```
+3. 确认分支名：`git branch --show-current`
+4. 写入跨会话恢复 breadcrumb：
+   ```bash
+   mkdir -p "<MAIN_REPO>/.claude/multi-model-workflow"
+   echo "$(pwd)" > "<MAIN_REPO>/.claude/multi-model-workflow/active-worktree"
+   ```
+
+工作树创建后，后续所有状态文件（Scope Contract、workflow-state、execution-state、pack-returns）写在工作树的 `.claude/multi-model-workflow/` 中。工作树删除时，状态文件随之清除。
+
+## Step 5：Write Scope Contract
 
 从用户提供的功能描述提取 kebab-case 核心词，加上当天日期组成 feature slug（`YYYY-MM-DD-<feature>`）；不确定时一次性问用户确认。然后创建 `.claude/multi-model-workflow/scope-<run_id>.md`：
 
@@ -110,15 +158,6 @@ docs/orchestrate/
 ```
 
 **规则**：Source artifacts 只包含用户明确提供的内容。Editable artifacts 只能是 source 或 phase 产出。Out of scope 阻止 sub-agent 和 reviewer 扩大范围。Feature slug 一旦确定不可中途修改。
-
-## Step 5：Git Checkpoint
-
-| 状态 | 动作 |
-| --- | --- |
-| 在 main / master / release branch 上 | 创建 `work/<short-scope>` 分支 |
-| 已在 work branch 上 | 继续 |
-| 有 dirty files 属于当前 scope | 暂不 stage |
-| 有 dirty files 不属于当前 scope | 不 stage、不动、不 stash |
 
 ## Step 6：Workflow State File（仅 Formal Orchestrate）
 

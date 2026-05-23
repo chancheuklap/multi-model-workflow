@@ -52,12 +52,12 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 | 路线 | 输入信号 | 下一步 |
 | --- | --- | --- |
 | **Route 1: Formal Orchestrate** | 新功能、改造、feedback、缺 design/issue/plan、已有 design/plan 要 review/执行 | Step 2 |
-| **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Steps 4-5（Scope + Git，跳过 Budget）→ Step 15 |
-| **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Steps 4-5（Scope + Git，跳过 Budget）→ Step 19 |
-| **Route 4: Hotfix** | hotfix / 紧急 / production fire / P0 / 生产事故 | Read references/route-extensions/route-4-hotfix.md |
-| **Route 5: Quick Fix** | quick fix / 小改动 / 调整 | Read references/route-extensions/route-5-quickfix.md |
-| **Route 6: Spike** | spike / 探索 / prototype / 试试 | Read references/route-extensions/route-6-spike.md |
-| **Route 7: Maintenance** | 升级 / upgrade / CVE / 依赖 / 重构 / refactor / 清理 / tech debt | Read references/route-extensions/route-7-maintenance.md |
+| **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Steps 4-5（Git + Scope，跳过 Budget）→ Step 15 |
+| **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Steps 4-5（Git + Scope，跳过 Budget）→ Step 19 |
+| **Route 4: Hotfix** | hotfix / 紧急 / production fire / P0 / 生产事故 | Steps 4-5（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-4-hotfix.md |
+| **Route 5: Quick Fix** | quick fix / 小改动 / 调整 | Steps 4-5（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-5-quickfix.md |
+| **Route 6: Spike** | spike / 探索 / prototype / 试试 | Steps 4-5（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-6-spike.md |
+| **Route 7: Maintenance** | 升级 / upgrade / CVE / 依赖 / 重构 / refactor / 清理 / tech debt | Steps 4-5（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-7-maintenance.md |
 
 模糊输入 → 一次只问一个问题收窄。概念/事实问题 → 直接回答不进 orchestrate。
 
@@ -71,7 +71,7 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 
 ## Steps 4-6：Infrastructure Setup
 
-**Read** `references/workflow-infrastructure.md` 并严格执行（Scope Contract + Git Checkpoint + Budget File）。读完按 Route 进入对应 phase。
+**Read** `references/workflow-infrastructure.md` 并严格执行（Git Checkpoint + Scope Contract + Budget File）。读完按 Route 进入对应 phase。
 
 ## Steps 7-14：Route 1 — Formal Orchestrate
 

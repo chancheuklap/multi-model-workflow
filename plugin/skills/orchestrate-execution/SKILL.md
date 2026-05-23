@@ -119,7 +119,7 @@ Plan Review 通过 → 两级循环（Plan → Pack）→ Pack 执行 + Git Chec
 - [ ] Plan Review 通过（所有 plan 文件）
 - [ ] Budget 已初始化（`budget.budget_status == "initialized"` 且 `budget.review_total > 0`）
 - [ ] Scope Contract 存在
-- [ ] Git 在 work branch 上
+- [ ] Git 在工作树的 work branch 上（非主仓库）
 - [ ] 状态锚写入：`cursor.phase` 已由 transition 设为 `execution`
 
 ---
@@ -323,7 +323,7 @@ Return contract:
     "concerns": "<如有>"
   }
   注意：Worker 在 isolation worktree 中运行时，必须使用此绝对路径写入（不是相对路径），
-  确保 Coordinator 和 hooks 能在主工作目录读到该文件。
+  确保 Coordinator 能在自己的工作树中读到该文件。
 ```
 
 ###### Pack Brief 条件字段（仅在相关时包含，不写 N/A 占位）
@@ -491,23 +491,30 @@ Risk flags:
 Source: Pack <N.M> worker discovery
 ```
 
-###### Step 7b：Git Checkpoint（per-pack）
+###### Step 7b：Git Checkpoint（per-pack，串行 pack）
 
-Worker 在 worktree 中已 commit 自己的改动。Coordinator 在主分支补提 plan doc 勾选：
+Worker 在隔离工作树中已 commit 自己的改动。Coordinator 合并 Worker 工作树分支并清理：
 
-1. `git add <plan doc>`
-2. `git commit -m "Pack N.M: <title> — <summary of behavior>"`（`enforce-pack-commit.sh` hook 自动校验格式）
-3. `track-execution-state.sh` hook 自动更新 `packs[N.M].status = committed` + `commit_sha` + `plans[N].end_commit`
+1. `git merge <worktree-branch> --no-ff`（Worker 工作树的分支名从 Agent 返回值获取）
+2. 冲突处理：简单 → Coordinator 直接解决；复杂 → 新建 targeted-repair agent
+3. `git worktree remove <worktree-path>`（Worker 工作树路径从 Agent 返回值获取）
+4. 勾选 plan doc + commit：
+   - `git add <plan doc>`
+   - `git commit -m "Pack N.M: <title> — <summary of behavior>"`（`enforce-pack-commit.sh` hook 自动校验格式）
+5. `track-execution-state.sh` hook 自动更新 `packs[N.M].status = committed` + `commit_sha` + `plans[N].end_commit`
 
 ###### Step 7c：合并并行 Pack 的 Worktree
 
-并行 pack 各自完成 Open Items + Git Checkpoint 后，按依赖顺序逐个合并：
+并行 pack 各自完成 Open Items 后，按依赖顺序逐个合并并清理：
 
 1. 确定合并顺序（按 plan 中的 dependencies）
-2. `git merge <worktree-branch> --no-ff`
-3. 冲突处理：简单 → Coordinator 直接解决；复杂 → 新建 targeted-repair agent
-4. 每次 merge 后跑完整测试
-5. 全部 merge 完后再跑一次确认集成正确
+2. 逐个执行：
+   a. `git merge <worktree-branch> --no-ff`
+   b. 冲突处理：简单 → Coordinator 直接解决；复杂 → 新建 targeted-repair agent
+   c. `git worktree remove <worktree-path>`
+   d. 勾选 plan doc + commit
+3. 每次 merge 后跑完整测试
+4. 全部 merge 完后再跑一次确认集成正确
 
 **不并行合并**——串行避免 merge conflict 级联。
 
