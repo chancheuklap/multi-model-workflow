@@ -37,7 +37,11 @@ check "dispatch-envelope-v1.json valid JSON" python3 -m json.tool "$PLUGIN_DIR/s
 
 echo ""
 echo "## Hooks"
+check "plugin manifest declares hooks.json" bash -c \
+  "[ \"\$(jq -r '.hooks // empty' '$PLUGIN_DIR/.codex-plugin/plugin.json')\" = './hooks.json' ]"
 check "hooks.json valid JSON" python3 -m json.tool "$PLUGIN_DIR/hooks.json"
+check "hook commands use PLUGIN_ROOT" bash -c \
+  "jq -r '.. | objects | select(has(\"command\")) | .command' '$PLUGIN_DIR/hooks.json' | grep -q 'PLUGIN_ROOT' && ! jq -r '.. | objects | select(has(\"command\")) | .command' '$PLUGIN_DIR/hooks.json' | grep -q '^\\./'"
 check "parse-envelope.sh exists" test -x "$PLUGIN_DIR/hooks/lib/parse-envelope.sh"
 check "validate-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-review-dispatch.sh"
 check "validate-pack-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-pack-dispatch.sh"

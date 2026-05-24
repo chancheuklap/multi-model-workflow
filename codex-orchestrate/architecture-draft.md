@@ -15,15 +15,16 @@ This document describes the replicated Codex system as it exists in source. It i
 - Review is performed by the native `codex_reviewer` subagent. There is no external review runner.
 - Dispatch validation that needs the full prompt runs in explicit Coordinator scripts before `spawn_agent` or `send_input`.
 - `SubagentStart` and `SubagentStop` hooks only use fields present in Codex hook payloads; they do not validate the original dispatch prompt.
+- The plugin manifest declares `"hooks": "./hooks.json"` and hook commands use `${PLUGIN_ROOT}` so installed hooks resolve scripts from the installed plugin root.
 
 ## Package Layout
 
 | Path | Role |
 | --- | --- |
-| `.codex-plugin/plugin.json` | Codex plugin manifest and version metadata |
+| `.codex-plugin/plugin.json` | Codex plugin manifest, version metadata, skills path, and bundled hooks declaration |
 | `skills/` | User-facing and workflow phase skills |
 | `agents/` | Codex TOML subagent definitions and shared persona reference |
-| `hooks.json` | Codex hook manifest |
+| `hooks.json` | Codex hook manifest referenced by `.codex-plugin/plugin.json` |
 | `hooks/` | Hook handlers for session, commit, state, effort, and worker-return events |
 | `scripts/` | Explicit Coordinator gates, state commands, validation, and verification helpers |
 | `state-schema/` | JSON schemas and transition matrix for workflow state |
@@ -228,6 +229,8 @@ The Codex source package is mature only when these source-level criteria hold:
 
 - Agent TOML files parse successfully.
 - `hooks.json` is valid JSON and points to existing scripts.
+- `.codex-plugin/plugin.json` declares `hooks: "./hooks.json"`.
+- Hook commands use `${PLUGIN_ROOT}` and do not rely on the caller's current working directory.
 - Hook and script shell files pass syntax checks.
 - Build templates and generated references are in sync.
 - Skill references dispatch review through `codex_reviewer`, `spawn_agent`, `send_input`, and `wait_agent`.

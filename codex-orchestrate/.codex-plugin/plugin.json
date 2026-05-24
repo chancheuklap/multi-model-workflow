@@ -16,6 +16,7 @@
     "codex-review"
   ],
   "skills": "./skills/",
+  "hooks": "./hooks.json",
   "interface": {
     "displayName": "Multi Model Workflow",
     "shortDescription": "Codex orchestration with task packs and review gates",
