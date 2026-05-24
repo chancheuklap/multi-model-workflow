@@ -60,7 +60,7 @@
 
 按段呈现，每段长度与复杂度成比例。每段呈现后问用户是否正确。覆盖：架构、组件、数据流、错误处理、测试策略。
 
-涉及视觉判断时：`Skill({ skill: "prototype" })` 验证状态模型 / UI 方向；新前端应用或高保真原型使用 `Skill({ skill: "build-web-apps:frontend-app-builder" })`，既有界面审美打磨使用 `Skill({ skill: "impeccable" })`。
+涉及视觉判断时：`Skill({ skill: "prototype" })` 验证状态模型 / UI 方向，`Skill({ skill: "frontend-design" })` 生成高品质前端原型。
 
 ## Step 6：Domain Alignment（全程横向检查）
 

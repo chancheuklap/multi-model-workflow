@@ -14,9 +14,9 @@
 | **Plan** | Task Pack inventory、Source Coverage Map、File/Responsibility Map、发布风险和人工门禁表 |
 | **Plan completion summary** | 每个 Plan 的 Plan Implementation Review verdict、repair rounds；每个 pack 的 worker verdict、已验证行为、Open Items |
 | **Scope Contract** | `.codex/multi-model-workflow/scope-<run_id>.md`——source artifacts、editable artifacts、out of scope |
-| **Git state** | 从 execution-state 读取每个 Plan 的 `start_commit` / `end_commit`；逐 Plan 用 `git diff <start_commit>..<end_commit>`，整体审查用最早的 `start_commit` 到 `HEAD` |
+| **Git state** | `git log <starting_commit>..HEAD --oneline` 获取所有 pack commits；`git diff <starting_commit>..HEAD --stat` 获取完整变更文件列表 |
 
-**starting commit**：来自 `.codex/multi-model-workflow/execution-state-<run_id>.json` 中每个 Plan 的 `start_commit`。不存在全局 `starting_commit` 字段。
+**starting commit**：从 budget file 的 `starting_commit` 字段读取（在 Infrastructure Setup Step 6 记录）。
 
 ## Step 2：验证前置条件
 
@@ -26,7 +26,7 @@
 | Source design 存在且已通过 Design Review | 返回 `NEEDS_DISCOVERY` |
 | Scope Contract 存在 | BLOCKED |
 | Execution state file 中所有 Plan status = completed | 返回 `NEEDS_EXECUTION` |
-| workflow-state 存在 | 由 review dispatch 步骤在 `wait_agent` 返回后显式调用 `state.sh budget increment-review` 追踪和警告 |
+| Budget file 存在 | 由 review dispatch 步骤在 `wait_agent` 返回后显式调用 `state.sh budget increment-review` 追踪和警告 |
 
 ---
 > **下一步**：前置条件通过 → Steps 4-5（final-review-angles.md）。缺件 → 按上方路由表返回对应 upstream phase。

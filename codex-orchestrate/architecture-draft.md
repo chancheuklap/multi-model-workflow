@@ -7,8 +7,6 @@
 
 `codex-orchestrate/` 的目标是把 `plugin/` 蓝本中的 workflow 合同保留下来，同时把运行机制替换为 Codex 原生能力：Codex plugin manifest、Codex skill、Codex TOML subagent、`spawn_agent` / `send_input` / `wait_agent`、Codex hook payload、`.codex/multi-model-workflow/` 状态目录，以及自动创建在 Codex 约定根目录下的 Git worktree。
 
-本文档的可验证声明由 `scripts/verify-architecture-draft.sh` 反查当前源码树：plugin 版本、skill 目录、TOML agent 模型 / reasoning / sandbox、hooks manifest、build templates、测试数量、route extension 文件、review dispatch 模型归属、phase transition 名称、run-summary 产物形态。`verify-maturity.sh` 必须调用该脚本；文档不能只靠人工目测保持同步。
-
 ---
 
 ## 图例
@@ -105,7 +103,7 @@ flowchart TD
 | Plan Review | `codex_reviewer` subagent | 审 issue 质量、plan 质量、Task Pack inventory | `review-results/plan-review-*.md` | 正常 |
 | Execution | `orchestrate-execution` | Plan → Pack 串行执行，worker 派发，commit，review，修复 | `execution-state-<run_id>.json`、pack commits | 正常 |
 | Final Review | `orchestrate-final-review` | 验证整体意图覆盖、回归面、跨 plan 一致性和遗留尾巴 | final review results、release risk verdict | 正常 |
-| Closing | `workflow-closing.md` | 最终验证、运行总结、push、PR、保留 Codex worktree | `run-summary-<run_id>.md`、PR | 正常 |
+| Closing | `workflow-closing.md` | 最终验证、运行总结、push、PR、保留 Codex worktree | `run-summary-<run_id>.json`、PR | 正常 |
 
 ### Route 对比
 
@@ -283,7 +281,7 @@ Codex native worktree
       ├─ review-prompts/<gate>.md                  ← Codex reviewer prompt
       ├─ review-agents/<gate>.agent-id             ← baseline reviewer agent_id
       ├─ review-results/<gate>.md                  ← reviewer final message
-      ├─ run-summary-<run_id>.md                   ← closing 前生成的运行总结
+      ├─ run-summary-<run_id>.json                 ← closing 前生成的运行总结
       └─ agent-memory/<agent-name>/                ← agent 跨 session 经验
 ```
 
@@ -378,7 +376,7 @@ flowchart LR
 | 设计文档 | `orchestrate-discovery` | issue splitting、plan_writer、reviewer | Design Review |
 | 大 Issue 文件 | Coordinator | plan_writer | Plan Review 的 Issue Quality 角度 |
 | Plan 文件 | plan_writer | orchestrate-execution | Plan Entry Gate + Task Pack Inventory Gate |
-| Mockup | Discovery / prototype / build-web-apps / impeccable | plan_writer、worker、reviewer | Design Review + UI pack 验收 |
+| Mockup | Discovery / prototype / frontend-design | plan_writer、worker、reviewer | Design Review + UI pack 验收 |
 
 ### 设计文档结构
 
@@ -510,7 +508,7 @@ Worker 不读 plan 文件。Coordinator 在 dispatch 前把当前 pack 的完整
 
 | Skill | 对应节点 | 职责 |
 | --- | --- | --- |
-| `orchestrate-workflow` | Entry / Infrastructure / Route 2 / Route 3 / Closing | 环境检测、Codex worktree 创建、路线判定、Scope Contract、状态初始化、bug route、多 PR route、closing |
+| `orchestrate-workflow` | Entry / Infrastructure / Route 2 / Route 3 / Closing | 环境检测、Codex worktree 迁移、路线判定、Scope Contract、状态初始化、bug route、多 PR route、closing |
 | `orchestrate-discovery` | Discovery + Design Review + Issue splitting | 讨论、设计文档、CONTEXT 对齐、design review、大 issue 拆分 |
 | `orchestrate-plan-writing` | Plan Writing + Plan Review | plan_writer 派发、小 issue 补全、plan 写作、plan review、budget 初始化 |
 | `orchestrate-execution` | Execution | Plan → Pack 两级循环、worker dispatch、Git Checkpoint、Plan Implementation Review、repair、release gate |
@@ -537,10 +535,10 @@ Agent 行为权威是 `agents/*.toml` 的 `developer_instructions`。`agents/per
 
 | 事件 | Matcher | Handler | 责任 |
 | --- | --- | --- | --- |
-| `SessionStart` | `startup / resume / clear / compact` | `hooks/session-start.sh` | 注入 workflow override、暴露 `MMW_PLUGIN_ROOT`、提示路由规则 |
+| `SessionStart` | `startup|resume|clear|compact` | `hooks/session-start.sh` | 注入 workflow override、暴露 `MMW_PLUGIN_ROOT`、提示路由规则 |
 | `PreToolUse` | `Bash` | `scripts/guard-premature-push.sh` | 阻止未完成时 push / PR，阻止 squash merge |
 | `PreToolUse` | `Bash` | `hooks/enforce-pack-commit.sh` | 校验 Pack commit message |
-| `PreToolUse` | `Edit / Write / apply_patch` | `hooks/guard-doc-edit.sh` | 阻止 worker 修改 protected docs |
+| `PreToolUse` | `Edit|Write|apply_patch` | `hooks/guard-doc-edit.sh` | 阻止 worker 修改 protected docs |
 | `PostToolUse` | `Bash` | `hooks/track-execution-state.sh` | Pack commit 后更新 execution-state |
 | `PostToolUse` | `Bash` | `scripts/cleanup-before-push.sh` | publish 成功后清理 workflow 状态；hotfix 可延迟 |
 | `SubagentStart` | 所有 subagent | `hooks/track-effort-budget.sh` | 按 agent type 加权统计 effort budget |
@@ -564,7 +562,7 @@ Agent 行为权威是 `agents/*.toml` 的 `developer_instructions`。`agents/per
 | `zoom-out` | 模块地图、调用链不足 | 代码地图和上下文补充 |
 | `triage` | issue ready state、优先级 | issue 分类和下一步 |
 | `diagnose` | bug 复现、假设验证 | 根因调查和修复建议 |
-| `build-web-apps:frontend-app-builder` / `impeccable` | UI/UX discovery | mockup / prototype 视觉产物 |
+| `frontend-design` | UI/UX discovery | mockup / prototype 视觉产物 |
 
 ---
 
@@ -584,8 +582,8 @@ Codex 版不使用外部 `codex-companion.mjs` 或 job-id polling。所有 revie
      --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" \
      --transport spawn_agent
 
-3. Coordinator 派 reviewer。模型、reasoning effort 和 sandbox 由 `agents/codex_reviewer.toml` 决定；dispatch 不传 per-phase model override:
-   spawn_agent({ agent_type: "codex_reviewer", message: "<prompt>" })
+3. Coordinator 派 reviewer:
+   spawn_agent({ agent_type: "codex_reviewer", message: "<prompt>", model: "<phase model>", reasoning_effort: "xhigh" })
 
 4. Coordinator 持久化 agent_id:
    .codex/multi-model-workflow/review-agents/<gate>.agent-id
@@ -910,7 +908,7 @@ bash codex-orchestrate/build/build.sh --apply --plugin-dir codex-orchestrate
 
 | 目录 | 测试数 | 覆盖范围 |
 | --- | --- | --- |
-| `build/tests/` | 10 | preamble、resolver、voice、confidence、review segmentation、send_input resume、review model authority、trust boundary |
+| `build/tests/` | 9 | preamble、resolver、voice、confidence、review segmentation、send_input resume、review model tier、trust boundary |
 | `hooks/tests/` | 5 | envelope parse、disposition refs、effort budget、idempotency replay、send_input resume |
 | `scripts/tests/` | 11 | state、budget direction check、path-a re-review、learnings、pack count、run summary、review effectiveness、route keywords、trust gate、hotfix post-push |
 

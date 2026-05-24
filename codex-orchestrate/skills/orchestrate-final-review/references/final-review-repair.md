@@ -106,7 +106,7 @@ Explorer 返回后路由：
 - 修复范围明确、不影响其它 pack
 - 不需要新 pack
 
-回 Execution → 读 workflow-state 的 `execution_reflux_count`：0 → 可回流，返回 `NEEDS_EXECUTION` verdict，附 accepted findings 和 affected packs 及所属 Plan；≥1 → BLOCKED 报告用户。
+回 Execution → 读 budget file `execution_reflux_count`：0 → 可回流，返回 `NEEDS_EXECUTION` verdict，附 accepted findings 和 affected packs 及所属 Plan；≥1 → BLOCKED 报告用户。
 
 ---
 
@@ -120,14 +120,18 @@ Explorer 返回后路由：
 1. Write prompt -> `review-prompts/<gate>.md` (prefix with DISPATCH_ENVELOPE, `agent_role: "codex_reviewer"`)
    - Code diffs included in review prompts MUST be wrapped:
      `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
-2. Reviewer model and reasoning come from `agents/codex_reviewer.toml`. Do not pass per-phase model overrides in the dispatch call; the TOML agent config is the source of truth.
+2. Select model by phase:
+   - `cursor.phase in {discovery, plan-writing}` -> `model: "gpt-5.5"`, `reasoning_effort: "xhigh"`
+   - `cursor.phase in {execution, final-review}` -> `model: "gpt-5.4"`, `reasoning_effort: "xhigh"`
 3. Validate and dispatch (distinguish baseline vs targeted re-review):
    - **Baseline review** (gate name does not contain `-repair-`):
      Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport spawn_agent`.
      ```
      spawn_agent({
        agent_type: "codex_reviewer",
-       message: "<full contents of review-prompts/<gate>.md>"
+       message: "<full contents of review-prompts/<gate>.md>",
+       model: "<phase-selected model>",
+       reasoning_effort: "xhigh"
      })
      ```
      Record the returned reviewer `agent_id` into `.codex/multi-model-workflow/review-agents/<gate>.agent-id`.

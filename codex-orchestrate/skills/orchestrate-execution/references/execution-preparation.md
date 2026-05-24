@@ -92,7 +92,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" execution-plan start \
 - 不在 main / master / release branch 上
 - 区分当前 scope 改动和用户/其它线程改动——不 stage 不属于当前 scope 的 dirty files
 
-**workflow-state budget**：读取 `.codex/multi-model-workflow/active-run-id` 找到 `workflow-state-<run_id>.json`，确认 `plan_count` 已初始化。执行阶段不得自行修改 `review_total` / `effort_total`；如果 plan 文件与 workflow-state 脱节，返回 `NEEDS_PLAN_REVISION` 让 plan-writing 重新计算。
+**Budget File**：读取 `.codex/multi-model-workflow/active-run-id` 找到 budget file，确认 `pack_count` 与 plan 中 Task Pack 数量一致。**不一致时不得自行修改 budget file**——`budget_total` 只在 plan-writing Step 12a 赋值，执行阶段不可变。不一致说明 plan 文件与 budget file 脱节，返回 `NEEDS_PLAN_REVISION` 让 plan-writing 重新计算。
 
 ---
 > **下一步**：预执行准备完成 → SKILL.md Steps 4-9（Pack 循环）。`NEEDS_PLAN_REVISION` → 返回 orchestrate-workflow。

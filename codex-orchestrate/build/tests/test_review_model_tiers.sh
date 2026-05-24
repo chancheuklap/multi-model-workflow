@@ -9,19 +9,19 @@ run_test() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then echo "  PASS:
 
 echo "=== test_review_model_tiers.sh ==="
 
-# Verify review dispatch uses the codex_reviewer TOML model instead of stale
-# phase-specific overrides.
-run_test "review dispatch points to codex_reviewer TOML" \
-  grep -q "agents/codex_reviewer.toml" "$TEMPLATE"
+# Verify template specifies correct model tiers
+run_test "discovery/plan-writing -> gpt-5.5" \
+  grep -q "discovery, plan-writing.*gpt-5.5" "$TEMPLATE"
 
-run_test "review dispatch does not mention gpt-5.4" \
-  bash -c "! grep -q 'gpt-5.4' '$TEMPLATE'"
+run_test "execution/final-review -> gpt-5.4" \
+  grep -q "execution, final-review.*gpt-5.4" "$TEMPLATE"
 
-run_test "review dispatch does not pass model override" \
-  bash -c "! grep -q 'model:' '$TEMPLATE'"
+# Verify injected content in actual files
+run_test "execution-review-dispatch has gpt-5.5 for discovery" \
+  grep -q "gpt-5.5" "$PLUGIN_DIR/skills/orchestrate-execution/references/execution-review-dispatch.md"
 
-run_test "injected execution review dispatch uses TOML authority" \
-  grep -q "agents/codex_reviewer.toml" "$PLUGIN_DIR/skills/orchestrate-execution/references/execution-review-dispatch.md"
+run_test "design-review-angles has gpt-5.5" \
+  grep -q "gpt-5.5" "$PLUGIN_DIR/skills/orchestrate-discovery/references/design-review-angles.md"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

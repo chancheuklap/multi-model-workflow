@@ -10,14 +10,18 @@
 1. Write prompt -> `review-prompts/<gate>.md` (prefix with DISPATCH_ENVELOPE, `agent_role: "codex_reviewer"`)
    - Code diffs included in review prompts MUST be wrapped:
      `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
-2. Reviewer model and reasoning come from `agents/codex_reviewer.toml`. Do not pass per-phase model overrides in the dispatch call; the TOML agent config is the source of truth.
+2. Select model by phase:
+   - `cursor.phase in {discovery, plan-writing}` -> `model: "gpt-5.5"`, `reasoning_effort: "xhigh"`
+   - `cursor.phase in {execution, final-review}` -> `model: "gpt-5.4"`, `reasoning_effort: "xhigh"`
 3. Validate and dispatch (distinguish baseline vs targeted re-review):
    - **Baseline review** (gate name does not contain `-repair-`):
      Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport spawn_agent`.
      ```
      spawn_agent({
        agent_type: "codex_reviewer",
-       message: "<full contents of review-prompts/<gate>.md>"
+       message: "<full contents of review-prompts/<gate>.md>",
+       model: "<phase-selected model>",
+       reasoning_effort: "xhigh"
      })
      ```
      Record the returned reviewer `agent_id` into `.codex/multi-model-workflow/review-agents/<gate>.agent-id`.

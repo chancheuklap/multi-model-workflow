@@ -71,7 +71,7 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 
 ## Step 2：Infrastructure Setup
 
-**Read** `references/workflow-infrastructure.md` Step 2 并严格执行（Git Checkpoint + Scope Contract + workflow-state）。读完按 Route 进入对应 phase。
+**Read** `references/workflow-infrastructure.md` Step 2 并严格执行（Git Checkpoint + Scope Contract + Budget File）。读完按 Route 进入对应 phase。
 
 ## Steps 7-14：Route 1 — Formal Orchestrate
 
@@ -95,7 +95,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-discovery" })
 | `NEEDS_USER_DECISION` | 询问用户（一次只问一个），回答后重新进入 discovery |
 | `BLOCKED` | 报告用户 |
 
-**更新 workflow-state**：`last_gate_phase: "discovery"`, `last_gate_timestamp: <now>`。
+**更新 Budget File**：`last_gate_phase: "discovery"`, `last_gate_timestamp: <now>`。
 
 #### Step 8b：大 issue 拆分（缺 issue hierarchy 时）
 
@@ -125,7 +125,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-plan-writing" })
 
 | Plan-writing Verdict | Coordinator 动作 |
 | --- | --- |
-| `PLAN_CREATED` | 确认 workflow-state budget 已初始化 → Step 11 |
+| `PLAN_CREATED` | 确认 budget file → Step 11 |
 | `NEEDS_DISCOVERY` | 回到 Step 7 |
 | `NEEDS_DESIGN_REVIEW` | 回到 discovery Design Review |
 | `NEEDS_ISSUES` | 判断缺件类型：缺大 issue → Step 8b（大 issue 拆分）；缺小 issue → 重新 Step 9（plan_writer 内部处理） |
@@ -136,7 +136,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-plan-writing" })
 | `NEEDS_CONTEXT` | 派 `code_explorer` / `Skill({ skill: "zoom-out" })` → 补充后 Step 9 |
 | `BLOCKED` | 报告用户 |
 
-**更新 workflow-state**：`last_gate_phase: "plan-writing"`, `last_gate_timestamp: <now>`。
+**更新 Budget File**：`last_gate_phase: "plan-writing"`, `last_gate_timestamp: <now>`。
 
 ---
 
@@ -158,7 +158,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-execution" })
 | `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` → 只影响当前 pack → 回 Step 11；改变 plan → 回 Step 9 |
 | `BLOCKED` | 报告用户 |
 
-**更新 workflow-state**：`last_gate_phase: "execution"`, `last_gate_timestamp: <now>`。
+**更新 Budget File**：`last_gate_phase: "execution"`, `last_gate_timestamp: <now>`。
 
 ---
 
@@ -176,12 +176,12 @@ Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
 | --- | --- |
 | `FINAL_REVIEW_PASSED` | Closing |
 | `FINAL_REVIEW_PASSED_WITH_RELEASE_RISK` | Closing（release review 已内部处理） |
-| `NEEDS_EXECUTION` | 读 workflow-state 的 `execution_reflux_count`：0 → 递增为 1，回到 Step 11；≥1 → BLOCKED 报告用户 |
+| `NEEDS_EXECUTION` | 读 budget file `execution_reflux_count`：0 → 递增为 1，回到 Step 11；≥1 → BLOCKED 报告用户 |
 | `NEEDS_DISCOVERY` | 回到 Step 7 |
 | `NEEDS_PLAN_REVISION` | 回到 Step 9 |
 | `BLOCKED` | 报告用户 |
 
-**更新 workflow-state**：`last_gate_phase: "final-review"`, `last_gate_timestamp: <now>`。回流不重置 budget usage。Plan revision 改变 plan count → plan-writing Step 12a 重新确认 budget。
+**更新 Budget File**：`last_gate_phase: "final-review"`, `last_gate_timestamp: <now>`。回流不重置 `budget_used`。Plan revision 改变 `pack_count` → plan-writing Step 12a 更新 `budget_total`。
 
 ## Steps 15-18：Route 2 — Bug Investigation
 

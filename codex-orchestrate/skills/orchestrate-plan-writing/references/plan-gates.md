@@ -34,7 +34,7 @@ Plan 文件数量必须与 issue 文件数量一致。缺少对应 plan 的 issu
 
 不通过的 pack → send_input 给 plan_writer 修复 → 重新检查。
 
-## Step 12a：初始化 workflow-state budget
+## Step 12a：更新 Budget File
 
 Task Pack Inventory Gate 通过后，**汇总 plan 文件数量**（P = 总 plan 数）和 **pack 数量**（N = 总 pack 数）。立即初始化 budget：
 

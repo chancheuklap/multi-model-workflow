@@ -15,7 +15,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" transition \
 ```
 
 Phase 序列（formal route）：
-`workflow` → `discovery` → `plan-writing` → `execution` → `final-review` → `closed`
+`workflow` → `discovery` → `plan-writing` → `execution` → `final-review` → `execution_done` → `closed`
 
 每个 phase skill 返回前必须通过 transition 写入下一个 phase。
 Compaction 恢复时读取 `cursor.phase` 确定当前位置。
@@ -105,7 +105,7 @@ Bad:  "经过全面审查，代码质量达到了预期标准。"
 1. **意图验证**：检查落地的代码是否偏离了设计文档、计划文档和 Issue 文档。Plan Implementation Review 验证每个 Plan 内部——Final Review 验证所有 Plan 合在一起是否实现了设计的完整意图。
 2. **清扫遗留尾巴**：Coding Worker 经常因为 "Out of Scope" 或 "非阻塞项" 把东西搁置。Final Review 要全部揪出来、全部解决掉。项目中不存在 "非阻塞项" 这种概念。
 
-**Final Review 不做 Closing**——不 cleanup workflow-state/scope/active-run-id，不 commit，不 push，不 PR。这些是 orchestrate-workflow Closing（Steps 21-24）的职责。Final Review 以 verdict 返回结束。
+**Final Review 不做 Closing**——不 cleanup budget/scope/active-run-id，不 commit，不 push，不 PR。这些是 orchestrate-workflow Closing（Steps 21-24）的职责。Final Review 以 verdict 返回结束。
 
 **Only stop for：**
 - 需要用户决策的 finding
@@ -121,7 +121,7 @@ Bad:  "经过全面审查，代码质量达到了预期标准。"
 **Pre-final-review（进入前快速验证）：**
 - [ ] 所有 Plan 通过 Plan Implementation Review + Git Checkpoint
 - [ ] Source design 存在且已通过 Design Review
-- [ ] Scope Contract 和 workflow-state 存在
+- [ ] Scope Contract 和 Budget file 存在
 - [ ] 状态锚写入：`cursor.phase` 已由 transition 设为 `final-review`
 
 ---
@@ -169,7 +169,7 @@ Bad:  "经过全面审查，代码质量达到了预期标准。"
 - [ ] 遗留清扫完成（无未处置项）
 - [ ] Release Gate 通过（如触发）
 - [ ] 业务汇报已组装
-- [ ] 状态锚更新：`cursor.phase` transition 到 `closed`
+- [ ] 状态锚更新：`cursor.phase` transition 到 `final-review_done`
 
 ## 返回
 

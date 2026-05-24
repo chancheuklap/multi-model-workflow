@@ -6,5 +6,4 @@
 - Do not add compatibility fallbacks to old state paths, old plugin search paths, or old companion scripts.
 - Verification scripts must validate the root `codex-orchestrate/hooks.json` manifest and Codex-native hook contracts; do not check for removed old-host review command hooks.
 - Verification scripts must reject old worktree pseudo tools and require the executable Codex worktree contract: `git worktree add -b` into `${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>`, with no main-repository branch switch first.
-- Architecture verification must compare `architecture-draft.md` against the live Codex source tree: plugin version, skill directories, TOML agent model/sandbox fields, hook manifest commands, build templates, test counts, route extension files, review dispatch model ownership, phase transition names, and run-summary artifact shape.
 - Dispatch validation that needs the full prompt/message must live in explicit scripts called by Skills before `spawn_agent` or `send_input`; do not move it back into `SubagentStart` hooks.

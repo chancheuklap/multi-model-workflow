@@ -1,6 +1,6 @@
 ---
 name: orchestrate-plan-writing
-description: "已有 reviewed design + issue hierarchy 时使用。派 plan_writer → Plan Entry Gate → Plan Review → Git Checkpoint。产出：reviewed plan + Task Pack inventory + initialized workflow-state budget。"
+description: "已有 reviewed design + issue hierarchy 时使用。派 plan_writer → Plan Entry Gate → Plan Review → Git Checkpoint。产出：reviewed plan + Task Pack inventory + budget_total。"
 ---
 
 <!-- BEGIN: signpost -->
@@ -15,7 +15,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" transition \
 ```
 
 Phase 序列（formal route）：
-`workflow` → `discovery` → `plan-writing` → `execution` → `final-review` → `closed`
+`workflow` → `discovery` → `plan-writing` → `execution` → `final-review` → `execution_done` → `closed`
 
 每个 phase skill 返回前必须通过 transition 写入下一个 phase。
 Compaction 恢复时读取 `cursor.phase` 确定当前位置。
@@ -116,7 +116,7 @@ Source design + issue hierarchy → **逐个 issue 派发 plan_writer** → 全�
 **Pre-plan-writing（进入前快速验证）：**
 - [ ] Design Review 通过
 - [ ] Issue hierarchy 已就绪（docs/orchestrate/issues/<slug>/）
-- [ ] Scope Contract 和 workflow-state 存在
+- [ ] Scope Contract 和 Budget file 存在
 - [ ] 状态锚写入：`cursor.phase` 已由 transition 设为 `plan-writing`
 
 **Dispatch 协议**：所有 plan_writer 调用必须使用 `spawn_agent`，并持久化返回的 `agent_id`，用于后续 `send_input` 修复路径。
@@ -135,7 +135,7 @@ Source design + issue hierarchy → **逐个 issue 派发 plan_writer** → 全�
 
 ## Steps 1-2：前置条件
 
-验证 source design 已 reviewed + issue hierarchy 已就绪 + Scope Contract + workflow-state 存在。缺件时 **Read** `references/plan-preconditions.md` 路由。读完进入 Steps 3-8 方法论。
+验证 source design 已 reviewed + issue hierarchy 已就绪 + Scope Contract + Budget File 存在。缺件时 **Read** `references/plan-preconditions.md` 路由。读完进入 Steps 3-8 方法论。
 
 ## Steps 3-8：写作方法论
 
@@ -187,7 +187,7 @@ Coordinator 列出 `docs/orchestrate/issues/<slug>/` 目录下的所有大 issue
 
 ## Steps 11-12a：Plan Entry Gate + Task Pack Inventory Gate + Budget 赋值
 
-**Read** `references/plan-gates.md`（对 `plans/<slug>/` 下所有 plan 文件做 gate 检查 + 初始化 workflow-state 中的 review budget：`3P + 12`，P = plan 文件总数）。通过后进入 Pack 数量检查。
+**Read** `references/plan-gates.md`（对 `plans/<slug>/` 下所有 plan 文件做 gate 检查 + budget_total 首次赋值 `3P + 12`，P = plan 文件总数）。通过后进入 Pack 数量检查。
 
 **Pack 数量检查**（对每个 plan 文件运行）：
 
@@ -270,10 +270,10 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 **Required before returning（返回前验证）：**
 - [ ] 所有 issue 的 plan 文件已写完
 - [ ] Plan Entry Gate + Task Pack Inventory Gate 通过
-- [ ] workflow-state budget 已初始化（3P + 12）
+- [ ] budget_total 已赋值（3P + 12）
 - [ ] Plan Review 通过
 - [ ] Git Checkpoint 完成
-- [ ] 状态锚更新：`cursor.phase` transition 到 `execution`
+- [ ] 状态锚更新：`cursor.phase` transition 到 `plan-writing_done`
 
 **Re-run behavior:**
 - Step 9: 如果 plan 文件已存在且 plan_writer 已返回 → 跳过该 issue 的 dispatch

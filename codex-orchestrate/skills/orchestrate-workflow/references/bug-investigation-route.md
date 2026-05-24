@@ -46,7 +46,7 @@ spawn_agent({
 | --- | --- |
 | `fixed` | analyst 已修复代码（未 commit）→ Step 17（Codex review） |
 | `root cause found, not fixed` | 修复超出 analyst 能力 → Step 18（派 worker 修复） |
-| `root cause in design/plan` | 系统性问题 → 转入 Formal Orchestrate（Route 1）：初始化 workflow-state budget → 进入 Step 7（discovery），seed with analyst report |
+| `root cause in design/plan` | 系统性问题 → 转入 Formal Orchestrate（Route 1）：创建 budget file → 进入 Step 7（discovery），seed with analyst report |
 | `unable to reproduce` | 报告用户，附 analyst 排除路径，请求更多重现信息 |
 | `unable to determine` | 报告用户，附 analyst 排除路径和已排除假设，请求协助判断方向 |
 
@@ -70,7 +70,7 @@ Analyst findings:
 此时执行三项基础设施操作：
 1. **写入 Bug Seed 文件**：写入 `.codex/multi-model-workflow/bug-seed-<run_id>.md`。
 2. **更新 Scope Contract**：更新 `.codex/multi-model-workflow/scope-<run_id>.md` 的 Source artifacts（加入 `bug-seed-<run_id>.md`）、Editable artifacts（加入 design / plan）和 Out of scope。
-3. **创建 workflow-state**（Step 2c）。
+3. **创建 Budget File**（Step 2c）。
 
 ## Step 17：Simple Bug — Codex Review
 
@@ -82,14 +82,18 @@ Analyst 已修复代码。
 1. Write prompt -> `review-prompts/<gate>.md` (prefix with DISPATCH_ENVELOPE, `agent_role: "codex_reviewer"`)
    - Code diffs included in review prompts MUST be wrapped:
      `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
-2. Reviewer model and reasoning come from `agents/codex_reviewer.toml`. Do not pass per-phase model overrides in the dispatch call; the TOML agent config is the source of truth.
+2. Select model by phase:
+   - `cursor.phase in {discovery, plan-writing}` -> `model: "gpt-5.5"`, `reasoning_effort: "xhigh"`
+   - `cursor.phase in {execution, final-review}` -> `model: "gpt-5.4"`, `reasoning_effort: "xhigh"`
 3. Validate and dispatch (distinguish baseline vs targeted re-review):
    - **Baseline review** (gate name does not contain `-repair-`):
      Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport spawn_agent`.
      ```
      spawn_agent({
        agent_type: "codex_reviewer",
-       message: "<full contents of review-prompts/<gate>.md>"
+       message: "<full contents of review-prompts/<gate>.md>",
+       model: "<phase-selected model>",
+       reasoning_effort: "xhigh"
      })
      ```
      Record the returned reviewer `agent_id` into `.codex/multi-model-workflow/review-agents/<gate>.agent-id`.
@@ -223,4 +227,4 @@ Worker 返回处理：
 | `blocked` | 技术阻塞：换更强模型 / 拆 scope；业务阻塞：询问用户 |
 
 ---
-> **下一步**：修复通过 Codex review → Closing（`workflow-closing.md`）。root cause in design/plan → 初始化 workflow-state budget + 转入 Route 1（SKILL.md Steps 7-14）。
+> **下一步**：修复通过 Codex review → Closing（`workflow-closing.md`）。root cause in design/plan → 创建 budget file + 转入 Route 1（SKILL.md Steps 7-14）。
