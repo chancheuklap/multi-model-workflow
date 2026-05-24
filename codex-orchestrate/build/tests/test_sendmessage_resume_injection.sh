@@ -20,7 +20,7 @@ run_test "send_input in plan-review-resolution" \
 
 # Verify no Agent() in Path B
 run_test "no Agent() in final-review Path B" \
-  bash -c "! grep -A3 '路径 B' '$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-repair.md' | grep -q 'Agent({'"
+  bash -c "! grep -A3 '路径 B' '$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-repair.md' | grep -q 'spawn_agent({'"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

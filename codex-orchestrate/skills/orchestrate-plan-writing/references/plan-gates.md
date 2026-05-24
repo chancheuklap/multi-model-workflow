@@ -4,7 +4,7 @@
 
 ## Step 11：Plan Entry Gate
 
-**Read** `docs/orchestrate/plans/<slug>/` 目录下所有 plan 文件。每份 plan 必须包含以下字段，缺失则 needs repair（SendMessage 对应的 plan-writer 修复）：
+**Read** `docs/orchestrate/plans/<slug>/` 目录下所有 plan 文件。每份 plan 必须包含以下字段，缺失则 needs repair（send_input 对应的 plan_writer 修复）：
 
 - Source design（path + 已 reviewed 确认）
 - Source issue（path，指向对应的 issue 文件）
@@ -32,7 +32,7 @@ Plan 文件数量必须与 issue 文件数量一致。缺少对应 plan 的 issu
 | risk flags | — |
 | dependencies | — |
 
-不通过的 pack → SendMessage 给 plan-writer 修复 → 重新检查。
+不通过的 pack → send_input 给 plan_writer 修复 → 重新检查。
 
 ## Step 12a：更新 Budget File
 
@@ -50,4 +50,4 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget initialize \
 **这是 budget 的首次有效赋值**——workflow entry gate 创建时 budget_status 为 pending_plan_count，此处确认。
 
 ---
-> **下一步**：通过 → Steps 13-14（`plan-review-dispatch.md`）。Gate 失败 → 返回 plan-writer 修复。
+> **下一步**：通过 → Steps 13-14（`plan-review-dispatch.md`）。Gate 失败 → 返回 plan_writer 修复。

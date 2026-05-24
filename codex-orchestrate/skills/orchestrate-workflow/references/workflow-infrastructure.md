@@ -64,12 +64,12 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 docs/orchestrate/
 ├── design/          # 设计文档（orchestrate-discovery 产出）
 │   └── YYYY-MM-DD-<feature>.md
-├── plans/           # 实施计划（plan-writer 产出，每个大 issue 一份 plan）
+├── plans/           # 实施计划（plan_writer 产出，每个大 issue 一份 plan）
 │   └── YYYY-MM-DD-<feature>/
 │       ├── 001-<issue-slug>.md          # 与 issues/ 下同编号文件一一对应
 │       ├── 002-<issue-slug>.md
 │       └── ...
-├── issues/          # issue hierarchy（大 issue: Coordinator 产出；小 issue: plan-writer 补全）
+├── issues/          # issue hierarchy（大 issue: Coordinator 产出；小 issue: plan_writer 补全）
 │   └── YYYY-MM-DD-<feature>/
 │       ├── 001-<large-issue-slug>.md   # 大 issue 文档（内含小 issue 拆分）
 │       ├── 002-<large-issue-slug>.md

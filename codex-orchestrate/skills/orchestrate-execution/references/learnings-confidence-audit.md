@@ -26,7 +26,7 @@ state.sh disposition append --run-id <run_id> --finding-id <id> \
 **默认动作**：亲验 + 补证 — 不直接 accept 或 reject。
 
 1. Coordinator 先用 Read/grep 验证 finding 的事实主张
-2. 如果无法确认 → 派 `code-explorer` 或 `complex-code-explorer` 补证
+2. 如果无法确认 → 派 `code_explorer` 或 `complex_code_explorer` 补证
 3. Explorer 返回 confirmed → accept；refuted → reject；partially confirmed → 细化 scope 再补证
 
 ### Confidence 7-10 (High)

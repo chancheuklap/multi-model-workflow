@@ -135,8 +135,8 @@ Deploy order assessment:
 **Release blocker 修复**：
 
 ```
-Agent({
-  subagent_type: "complex-pack-executor",
+spawn_agent({
+  agent_type: "complex_pack_executor",
   description: "Fix release blocker: Plan N <blocker summary>",
   prompt: "
     [repair-round-N]

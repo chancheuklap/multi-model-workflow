@@ -2,11 +2,11 @@
 
 > **流程位置**：`orchestrate-workflow` Steps 15-18 · Route 2 Bug Investigation
 
-## Step 15：Dispatch root-cause-analyst
+## Step 15：Dispatch root_cause_analyst
 
 ```
-Agent({
-  subagent_type: "root-cause-analyst",
+spawn_agent({
+  agent_type: "root_cause_analyst",
   description: "Bug Investigation: <bug title>",
   prompt: "
     ## 调度场景
@@ -142,7 +142,7 @@ Review prompt 写入 `.codex/multi-model-workflow/review-prompts/bug-fix-review.
 
 ```markdown
 ## Scope
-Review a bug fix applied by root-cause-analyst.
+Review a bug fix applied by root_cause_analyst.
 
 ## Bug
 <original bug description>
@@ -185,8 +185,8 @@ pass / needs repair / blocked
 Analyst 找到根因但无法修复。按 risk flags 选择 worker：
 
 ```
-Agent({
-  subagent_type: "<pack-executor | complex-pack-executor>",
+spawn_agent({
+  agent_type: "<pack_executor | complex_pack_executor>",
   description: "Fix bug: <bug title>",
   prompt: "
     ## Bug
@@ -221,8 +221,8 @@ Worker 返回处理：
 | Worker Verdict | 动作 |
 | --- | --- |
 | `pass` | Codex review（同 Step 17）→ Closing |
-| `needs repair` | 读 concerns；正确性问题 → SendMessage worker 修复；观察性意见 → 记录，进 Codex review |
-| `needs context` | SendMessage 补充上下文给 worker |
+| `needs repair` | 读 concerns；正确性问题 → send_input worker 修复；观察性意见 → 记录，进 Codex review |
+| `needs context` | send_input 补充上下文给 worker |
 | `blocked` | 技术阻塞：换更强模型 / 拆 scope；业务阻塞：询问用户 |
 
 ---

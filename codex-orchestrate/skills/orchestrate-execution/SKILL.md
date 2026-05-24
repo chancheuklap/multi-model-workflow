@@ -229,9 +229,9 @@ SHA=$(git rev-parse HEAD)
 
 | Risk flags | Agent | 模型 | TDD |
 | --- | --- | --- | --- |
-| `trivial`（配置常量 / 文档更新 / 样式调整） | `pack-executor` | Sonnet | 宽松（验证通过即可，不强制红-绿循环） |
-| `normal` | `pack-executor` | Sonnet | 严格 |
-| `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex-pack-executor` | Opus 4.7 | 严格 |
+| `trivial`（配置常量 / 文档更新 / 样式调整） | `pack_executor` | Sonnet | 宽松（验证通过即可，不强制红-绿循环） |
+| `normal` | `pack_executor` | Sonnet | 严格 |
+| `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex_pack_executor` | Opus 4.7 | 严格 |
 
 ##### Step 5：构造 Pack Brief
 
@@ -243,9 +243,9 @@ SHA=$(git rev-parse HEAD)
 2. 从该 plan 中**定位当前 pack** 的完整章节，提取所有字段：Goal behavior、Implementation tasks（全文）、Owned files、Read first、Acceptance criteria、Verification commands、Risk flags、Contract anchors、Mockup anchors、Dependencies、Out of scope
 3. Pack Brief 模板见下方。提取完成后进入 Step 5b 填充。
 
-###### DISPATCH_ENVELOPE（required prefix for every Agent dispatch）
+###### DISPATCH_ENVELOPE（required prefix for every spawn_agent dispatch）
 
-Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin its `prompt` with:
+Every `spawn_agent({...})` dispatch and every `send_input({...})` repair MUST begin its message with:
 
 ```
 <!-- DISPATCH_ENVELOPE
@@ -253,7 +253,7 @@ Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin i
   "protocol_version": "1",
   "run_id": "<run_id>",
   "phase": "<plan-writing|execution|final-review|discovery>",
-  "agent_role": "<pack-executor|complex-pack-executor|plan-writer|codex_reviewer>",
+  "agent_role": "<pack_executor|complex_pack_executor|plan_writer|codex_reviewer>",
   "agent_id": "<existing agent_id or null for first dispatch>",
   "pack_id": "<N.M or null>",
   "repair_round": 0,
@@ -384,11 +384,10 @@ touch .codex/multi-model-workflow/worker-active
 **派发**：
 
 ```
-Agent({
-  subagent_type: "<pack-executor | complex-pack-executor>",
+spawn_agent({
+  agent_type: "<pack_executor | complex_pack_executor>",
   description: "Execute Task Pack N.M: <title>",
-  prompt: "<DISPATCH_ENVELOPE>\n\n<Pack Brief>",
-  run_in_background: true
+  message: "<DISPATCH_ENVELOPE>\n\n<Pack Brief>"
 })
 ```
 
@@ -396,14 +395,14 @@ Worker 直接在 Coordinator 的分支上工作——不使用 worktree 隔离�
 
 `validate-pack-dispatch.sh` hook 自动拦截缺少 DISPATCH_ENVELOPE、budget 未初始化或 Pack 已有 agent_id 的 dispatch。
 
-**After each Agent call returns**（强制执行）：
-1. Extract `agentId` from return value
-2. `state.sh agent-id set --run-id <run_id> --pack-id N.M --agent-id <agentId>`
+**After each spawn_agent call returns**（强制执行）：
+1. Extract `agent_id` from return value
+2. `state.sh agent-id set --run-id <run_id> --pack-id N.M --agent-id <agent_id>`
 3. Write execution state: `packs[N.M].status = dispatched`
 
-**Critical**: `run_in_background: true` ensures Coordinator gets agentId. Without agentId, repair path is BLOCKED. **Omitting agent-id persist is forbidden**.
+**Critical**: `spawn_agent` must return `agent_id`. Without agent_id, repair path is BLOCKED. **Omitting agent-id persist is forbidden**.
 
-当 Worker 返回后需要修复时，必须使用 SendMessage resume 原 worker（读取 agent_id），不得创建新 Agent dispatch。
+当 Worker 返回后需要修复时，必须使用 `send_input` resume 原 worker（读取 agent_id），不得创建新 `spawn_agent` dispatch。
 
 <!-- BEGIN: state-write -->
 **State 操作参考**（通过 `state.sh` 执行所有状态变更）：
@@ -430,10 +429,10 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 ```
 `--evidence` 对 `--disposition accepted` 必填且非空。
 
-**Agent-ID Set**（Worker 派发后记录 agentId）：
+**Agent-ID Set**（Worker 派发后记录 agent_id）：
 ```bash
 bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" agent-id set \
-  --run-id "<run_id>" --pack-id <N.M> --agent-id <agentId>
+  --run-id "<run_id>" --pack-id <N.M> --agent-id <agent_id>
 ```
 
 **Self-Verify Append**（修复后自检记录）：
@@ -452,7 +451,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" self-verify append \
 | --- | --- | --- |
 | `pass`（DONE） | 实现完成，全部测试通过 | 进入 Step 7a（Open Items 即时处置）→ Step 7b（Git Checkpoint）→ 下一个 Pack |
 | `needs repair`（DONE_WITH_CONCERNS） | 实现完成但有疑虑 | 读 concerns。正确性/scope concerns → 按 Step 10 修复分流 → 修完进 Step 7a → Git Checkpoint。观察性意见 → 记录，进 Step 7a → Git Checkpoint |
-| `needs context` | 缺信息 | SendMessage 补充上下文给原 worker；补充后继续 |
+| `needs context` | 缺信息 | send_input 补充上下文给原 worker；补充后继续 |
 | `blocked` | 无法完成 | **Intra-Plan Blocker**：写入 `packs[N.M].status = blocked` + `plans[N].status = blocked` → 整个 Plan 停止，不继续后续 Pack → 返回 `BLOCKED` |
 
 **BLOCKED 报告格式**（双层，发给用户）：
@@ -688,7 +687,7 @@ Coordinator 写入 execution state：`plans[N].status = review_pending`。
 | Confidence | Coordinator 默认动作 | 覆写条件 |
 | --- | --- | --- |
 | 8-10 (high) | 直接亲验，通常 accept 或 reject | Coordinator 找到反向证据 |
-| 5-7 (medium) | 亲验 + 派 code-explorer 补证 -> 再定 disposition | -- |
+| 5-7 (medium) | 亲验 + 派 code_explorer 补证 -> 再定 disposition | -- |
 | 1-4 (low) | 默认 suppress -> 记录为 "suppressed: low confidence" | Coordinator 手动升级并附证据 |
 
 **Disposition 审计写入** (每条 finding 决定后立即调用):
@@ -709,7 +708,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 | --- | --- |
 | `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、targeted re-review scope |
 | `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
-| `needs evidence` | 派 explorer 补证据（窄范围用 `code-explorer`，多模块用 `complex-code-explorer`）；补证前不 repair |
+| `needs evidence` | 派 explorer 补证据（窄范围用 `code_explorer`，多模块用 `complex_code_explorer`）；补证前不 repair |
 | `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |
 | `out of scope` | 从当前 scope 移出；**立即**开 GitHub issue（Durable Handoff Brief 格式，先查重） |
 | `needs evaluation` | 不在当前 pack 可修范围但需独立评估；**立即**开 GitHub issue，标明评估要点 |
@@ -723,7 +722,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 - 用 `state.sh path-a-escalation start/update/clear` 追踪
 <!-- END: disposition-table -->
 
-**`needs evidence` 补证**：派 `code-explorer`（窄范围单文件/单调用链）或 `complex-code-explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
+**`needs evidence` 补证**：派 `code_explorer`（窄范围单文件/单调用链）或 `complex_code_explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
 
 Coordinator 写入 execution state：`plans[N].review_verdict = pass/needs repair`、`plans[N].status` 更新。
 

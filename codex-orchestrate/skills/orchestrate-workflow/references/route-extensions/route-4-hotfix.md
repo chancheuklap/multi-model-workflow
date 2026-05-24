@@ -11,14 +11,14 @@
 ## Phase 跳过
 
 - **跳过 Discovery**：不写设计文档。直接从用户描述 + 重现步骤开始。
-- **跳过 Plan Writing + Plan Review**：单 Pack 或 Coordinator 直接执行。不经过 plan-writer。
+- **跳过 Plan Writing + Plan Review**：单 Pack 或 Coordinator 直接执行。不经过 plan_writer。
 - `budget_status = "unlimited"`, `review_total = "unlimited"`, `effort_total = "unlimited"`
 
 ## Push 后事后 Review
 
 Hotfix 的核心差异：**先 push 再 review**。修复完成 + 基本测试通过后立即 push。
 
-1. Coordinator 修复或派 single pack-executor
+1. Coordinator 修复或派 single pack_executor
 2. 跑所有受影响的测试。Critical path 通过即可 push。
 3. Commit message 打 `[hotfix-unreviewed]` 标签
 4. `git push` — guard-premature-push.sh 对 hotfix route 放行

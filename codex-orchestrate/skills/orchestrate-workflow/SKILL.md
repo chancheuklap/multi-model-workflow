@@ -48,7 +48,7 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 
 **Read** `references/workflow-infrastructure.md` Step 0 并严格执行。
 
-1. 验证 SendMessage 工具可用（尝试列出工具列表确认）。如不可用 → 硬停：`"SendMessage tool not available. Ensure CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is set and Claude Code version >= 2.1.147."`
+1. 验证 Codex multi-agent primitives 可用：`spawn_agent`、`send_input`、`wait_agent`。如不可用 → 硬停：`"Codex multi-agent tools not available in this session."`
 2. 检测当前环境（工作树 vs 主仓库）：
    - **已在工作树 + 有状态文件** → 断点续传，直接路由到对应 phase（跳过 Steps 1-2）
    - **在主仓库**（或工作树内无状态文件） → 继续 Step 1
@@ -128,12 +128,12 @@ Skill({ skill: "multi-model-workflow:orchestrate-plan-writing" })
 | `PLAN_CREATED` | 确认 budget file → Step 11 |
 | `NEEDS_DISCOVERY` | 回到 Step 7 |
 | `NEEDS_DESIGN_REVIEW` | 回到 discovery Design Review |
-| `NEEDS_ISSUES` | 判断缺件类型：缺大 issue → Step 8b（大 issue 拆分）；缺小 issue → 重新 Step 9（plan-writer 内部处理） |
+| `NEEDS_ISSUES` | 判断缺件类型：缺大 issue → Step 8b（大 issue 拆分）；缺小 issue → 重新 Step 9（plan_writer 内部处理） |
 | `NEEDS_TRIAGE` | `Skill({ skill: "triage" })` → 重新 Step 9 |
 | `NEEDS_DIAGNOSIS` | `Skill({ skill: "diagnose" })` → 写回 → 重新 Step 9 |
 | `NEEDS_DECISION` | 询问用户 → 回答后 Step 9 |
 | `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` → 写回 → Step 9 |
-| `NEEDS_CONTEXT` | 派 `code-explorer` / `Skill({ skill: "zoom-out" })` → 补充后 Step 9 |
+| `NEEDS_CONTEXT` | 派 `code_explorer` / `Skill({ skill: "zoom-out" })` → 补充后 Step 9 |
 | `BLOCKED` | 报告用户 |
 
 **更新 Budget File**：`last_gate_phase: "plan-writing"`, `last_gate_timestamp: <now>`。

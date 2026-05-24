@@ -78,7 +78,7 @@ Review the implementation plan for: <feature>
 ## Review angles (single integrated review)
 
 ### Issue Quality（小 issue 拆分审查）
-**Read 每个 issue 文件**（`docs/orchestrate/issues/<slug>/00N-*.md`），审查 plan-writer 产出的小 issue 拆分质量：
+**Read 每个 issue 文件**（`docs/orchestrate/issues/<slug>/00N-*.md`），审查 plan_writer 产出的小 issue 拆分质量：
 - 小 issue 的并集是否覆盖大 issue `What to build` 的全部行为（无遗漏）
 - 粒度是否合理（单个小 issue 不应需要超过 8 个 implementation steps；单文件内单函数修改不值得独立成 issue）
 - 每个小 issue 的 acceptance criteria 是否可独立验证

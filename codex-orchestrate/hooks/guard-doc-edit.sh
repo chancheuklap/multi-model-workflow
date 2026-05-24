@@ -29,7 +29,7 @@ fi
 # Worker context: worker-active marker exists → block
 WORKER_MARKER="${WORKFLOW_DIR}/worker-active"
 if [[ -f "$WORKER_MARKER" ]]; then
-  echo "[multi-model-workflow] BLOCKED: Worker agents (pack-executor, complex-pack-executor) cannot modify design or plan documents under docs/. Only the Coordinator may edit these files." >&2
+  echo "[multi-model-workflow] BLOCKED: Worker agents (pack_executor, complex_pack_executor) cannot modify design or plan documents under docs/. Only the Coordinator may edit these files." >&2
   exit 2
 fi
 

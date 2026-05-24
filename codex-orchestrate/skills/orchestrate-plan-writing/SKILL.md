@@ -1,6 +1,6 @@
 ---
 name: orchestrate-plan-writing
-description: "已有 reviewed design + issue hierarchy 时使用。派 plan-writer → Plan Entry Gate → Plan Review → Git Checkpoint。产出：reviewed plan + Task Pack inventory + budget_total。"
+description: "已有 reviewed design + issue hierarchy 时使用。派 plan_writer → Plan Entry Gate → Plan Review → Git Checkpoint。产出：reviewed plan + Task Pack inventory + budget_total。"
 ---
 
 <!-- BEGIN: signpost -->
@@ -99,16 +99,16 @@ Bad:  "制定了全面的实施计划，涵盖所有功能模块。"
 
 # Orchestrate Plan Writing
 
-Source design + issue hierarchy → **逐个 issue 派发 plan-writer** → 全部 plan 写完后 Plan Review → Git Checkpoint → 进入 Execution。
+Source design + issue hierarchy → **逐个 issue 派发 plan_writer** → 全部 plan 写完后 Plan Review → Git Checkpoint → 进入 Execution。
 
-**每个大 issue 对应一份 plan 文件**。Coordinator 读取 `issues/<slug>/` 目录，逐个 issue 派发 plan-writer，每个 plan-writer 只写一份 plan。Plan 文件编号与 issue 文件编号一一对应。
+**每个大 issue 对应一份 plan 文件**。Coordinator 读取 `issues/<slug>/` 目录，逐个 issue 派发 plan_writer，每个 plan_writer 只写一份 plan。Plan 文件编号与 issue 文件编号一一对应。
 
 **Only stop for：**
 - Plan-writer 返回 upstream verdict 需要用户决策
 - BLOCKED
 
 **Never stop for：**
-- Issue 之间的切换（连续逐 issue 派发 plan-writer）
+- Issue 之间的切换（连续逐 issue 派发 plan_writer）
 - Plan Review findings（按修复分流处理）
 
 ---
@@ -119,11 +119,11 @@ Source design + issue hierarchy → **逐个 issue 派发 plan-writer** → 全�
 - [ ] Scope Contract 和 Budget file 存在
 - [ ] 状态锚写入：`cursor.phase` 已由 transition 设为 `plan-writing`
 
-**Dispatch 协议**：所有 plan-writer Agent 调用必须使用 `run_in_background: true`，以确保 Coordinator 能获取 agentId 用于后续 SendMessage 修复路径。
+**Dispatch 协议**：所有 plan_writer 调用必须使用 `spawn_agent`，并持久化返回的 `agent_id`，用于后续 `send_input` 修复路径。
 
-**agentId 持久化**：dispatch 完成后立即从 Agent tool result 中提取 `agentId`，调用 `bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" agent-id set --run-id "<run_id>" --pack-id "plan-writer-<issue_num>" --agent-id "<agentId>"`。如果 agentId 为空 → 记录警告但继续（Plan Review 修复路径将 fallback 到新建 dispatch）。
+**agent_id 持久化**：dispatch 完成后立即从 `spawn_agent` result 中提取 `agent_id`，调用 `bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" agent-id set --run-id "<run_id>" --pack-id "plan_writer-<issue_num>" --agent-id "<agent_id>"`。如果 agent_id 为空 → BLOCKED（Plan Review 修复路径不得新建 dispatch）。
 
-> **已知限制**：`state.sh agent-id set` 依赖 execution-state 文件（execution phase 才创建）。当前 plan-writing phase 调用时会静默失败。当 state.sh 支持 `--scope plan-writer` 参数后此步骤将完全生效。
+> **已知限制**：`state.sh agent-id set` 依赖 execution-state 文件（execution phase 才创建）。当前 plan-writing phase 调用时会静默失败。当 state.sh 支持 `--scope plan_writer` 参数后此步骤将完全生效。
 
 ---
 
@@ -141,7 +141,7 @@ Source design + issue hierarchy → **逐个 issue 派发 plan-writer** → 全�
 
 ## Steps 3-8：写作方法论
 
-**Read** `references/plan-writing-methodology.md`（plan-writer 消费；Coordinator 按此理解 plan 结构，为 dispatch brief 构造做准备）。Coordinator 理解后进入 Steps 9-10 派发。
+**Read** `references/plan-writing-methodology.md`（plan_writer 消费；Coordinator 按此理解 plan 结构，为 dispatch brief 构造做准备）。Coordinator 理解后进入 Steps 9-10 派发。
 
 <!-- BEGIN: control-envelope -->
 ## DISPATCH_ENVELOPE (required prefix for every spawn_agent dispatch)
@@ -173,19 +173,19 @@ For codex_reviewer dispatches: set `review_intent` and `exception_code` for targ
 Hooks parse this block. Missing/malformed envelope = dispatch BLOCKED.
 <!-- END: control-envelope -->
 
-## Steps 9-10：逐 issue 派发 plan-writer + 处理返回
+## Steps 9-10：逐 issue 派发 plan_writer + 处理返回
 
-**Read** `references/plan-writer-dispatch.md` 并严格执行。派发后进入 Steps 11-12a gate。
+**Read** `references/plan_writer-dispatch.md` 并严格执行。派发后进入 Steps 11-12a gate。
 
-Coordinator 列出 `docs/orchestrate/issues/<slug>/` 目录下的所有大 issue 文件（`001-*.md, 002-*.md, ...`），然后**逐个 issue 派发 plan-writer**：
+Coordinator 列出 `docs/orchestrate/issues/<slug>/` 目录下的所有大 issue 文件（`001-*.md, 002-*.md, ...`），然后**逐个 issue 派发 plan_writer**：
 
 1. 按 issue 编号顺序遍历
-2. 每次派发一个 plan-writer，传入设计文档 + 当前这个 issue 文件
-3. plan-writer 写出 `docs/orchestrate/plans/<slug>/00N-<issue-slug>.md`（编号与 issue 文件对应）
-4. 处理 plan-writer 返回（verdict 路由见 dispatch 文档）
+2. 每次派发一个 plan_writer，传入设计文档 + 当前这个 issue 文件
+3. plan_writer 写出 `docs/orchestrate/plans/<slug>/00N-<issue-slug>.md`（编号与 issue 文件对应）
+4. 处理 plan_writer 返回（verdict 路由见 dispatch 文档）
 5. 下一个 issue，直到全部完成
 
-全部 plan-writer 返回 `PLAN_CREATED` 后，进入 Step 11。任一 plan-writer 返回 upstream verdict → 按 verdict 路由处理后重新进入。
+全部 plan_writer 返回 `PLAN_CREATED` 后，进入 Step 11。任一 plan_writer 返回 upstream verdict → 按 verdict 路由处理后重新进入。
 
 ## Steps 11-12a：Plan Entry Gate + Task Pack Inventory Gate + Budget 赋值
 
@@ -224,7 +224,7 @@ Pack 数量检查通过后进入 Steps 13-14 review。
 | Confidence | Coordinator 默认动作 | 覆写条件 |
 | --- | --- | --- |
 | 8-10 (high) | 直接亲验，通常 accept 或 reject | Coordinator 找到反向证据 |
-| 5-7 (medium) | 亲验 + 派 code-explorer 补证 -> 再定 disposition | -- |
+| 5-7 (medium) | 亲验 + 派 code_explorer 补证 -> 再定 disposition | -- |
 | 1-4 (low) | 默认 suppress -> 记录为 "suppressed: low confidence" | Coordinator 手动升级并附证据 |
 
 **Disposition 审计写入** (每条 finding 决定后立即调用):
@@ -245,7 +245,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 | --- | --- |
 | `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、targeted re-review scope |
 | `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
-| `needs evidence` | 派 explorer 补证据（窄范围用 `code-explorer`，多模块用 `complex-code-explorer`）；补证前不 repair |
+| `needs evidence` | 派 explorer 补证据（窄范围用 `code_explorer`，多模块用 `complex_code_explorer`）；补证前不 repair |
 | `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |
 | `out of scope` | 从当前 scope 移出；**立即**开 GitHub issue（Durable Handoff Brief 格式，先查重） |
 | `needs evaluation` | 不在当前 pack 可修范围但需独立评估；**立即**开 GitHub issue，标明评估要点 |
@@ -278,7 +278,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 - [ ] 状态锚更新：`cursor.phase` transition 到 `plan-writing_done`
 
 **Re-run behavior:**
-- Step 9: 如果 plan 文件已存在且 plan-writer 已返回 → 跳过该 issue 的 dispatch
+- Step 9: 如果 plan 文件已存在且 plan_writer 已返回 → 跳过该 issue 的 dispatch
 - Steps 13-14: 如果 Plan Review 已有结果 → 跳过 dispatch
 
 ## Step 20：返回

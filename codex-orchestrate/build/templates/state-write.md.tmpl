@@ -22,10 +22,10 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 ```
 `--evidence` 对 `--disposition accepted` 必填且非空。
 
-**Agent-ID Set**（Worker 派发后记录 agentId）：
+**Agent-ID Set**（Worker 派发后记录 agent_id）：
 ```bash
 bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" agent-id set \
-  --run-id "<run_id>" --pack-id <N.M> --agent-id <agentId>
+  --run-id "<run_id>" --pack-id <N.M> --agent-id <agent_id>
 ```
 
 **Self-Verify Append**（修复后自检记录）：

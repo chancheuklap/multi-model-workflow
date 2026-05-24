@@ -7,8 +7,8 @@
 ## 1. 派 Worker（按 risk flags 选择 agent）
 
 ```
-Agent({
-  subagent_type: "<pack-executor | complex-pack-executor>",
+spawn_agent({
+  agent_type: "<pack_executor | complex_pack_executor>",
   description: "Direct repair: <deviation summary>",
   prompt: "
     ## Scope
@@ -141,7 +141,7 @@ pass / needs repair / blocked
 | Verdict | 动作 |
 | --- | --- |
 | `pass` | Closing |
-| `needs repair` | 路径 A（≤2 文件直接修）或路径 B（SendMessage worker）→ targeted re-review → 最多 2 轮 → Closing |
+| `needs repair` | 路径 A（≤2 文件直接修）或路径 B（send_input worker）→ targeted re-review → 最多 2 轮 → Closing |
 | `blocked` | 报告用户 |
 
 Direct Repair 不创建 budget file。

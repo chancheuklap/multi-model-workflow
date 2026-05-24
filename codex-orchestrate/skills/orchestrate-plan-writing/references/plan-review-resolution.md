@@ -21,7 +21,7 @@
 | Confidence | Coordinator 默认动作 | 覆写条件 |
 | --- | --- | --- |
 | 8-10 (high) | 直接亲验，通常 accept 或 reject | Coordinator 找到反向证据 |
-| 5-7 (medium) | 亲验 + 派 code-explorer 补证 -> 再定 disposition | -- |
+| 5-7 (medium) | 亲验 + 派 code_explorer 补证 -> 再定 disposition | -- |
 | 1-4 (low) | 默认 suppress -> 记录为 "suppressed: low confidence" | Coordinator 手动升级并附证据 |
 
 **Disposition 审计写入** (每条 finding 决定后立即调用):
@@ -42,7 +42,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 | --- | --- |
 | `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、targeted re-review scope |
 | `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
-| `needs evidence` | 派 explorer 补证据（窄范围用 `code-explorer`，多模块用 `complex-code-explorer`）；补证前不 repair |
+| `needs evidence` | 派 explorer 补证据（窄范围用 `code_explorer`，多模块用 `complex_code_explorer`）；补证前不 repair |
 | `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |
 | `out of scope` | 从当前 scope 移出；**立即**开 GitHub issue（Durable Handoff Brief 格式，先查重） |
 | `needs evaluation` | 不在当前 pack 可修范围但需独立评估；**立即**开 GitHub issue，标明评估要点 |
@@ -56,16 +56,16 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 - 用 `state.sh path-a-escalation start/update/clear` 追踪
 <!-- END: disposition-table -->
 
-**`needs evidence` 补证**：派 `code-explorer`（窄范围单文件/单调用链）或 `complex-code-explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
+**`needs evidence` 补证**：派 `code_explorer`（窄范围单文件/单调用链）或 `complex_code_explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
 
 Plan Review 的 `accepted` 细分为 5 种路由：
 
 | `accepted` 子类型 | 动作 |
 | --- | --- |
-| `plan repair` | Coordinator 直接修框架性内容，或 SendMessage plan-writer 修 Task Pack 内容 |
+| `plan repair` | Coordinator 直接修框架性内容，或 send_input plan_writer 修 Task Pack 内容 |
 | `design gap` | 回到 orchestrate-discovery → Design Review → 写回后 re-review plan |
-| `issue-plan mismatch` | 判断：大 issue 级问题 → 返回 Coordinator 走大 issue 拆分；小 issue 级问题 → SendMessage plan-writer 重新执行 Step 3c 拆分 → re-review plan |
-| `issue quality` | 小 issue 拆分质量问题（覆盖度/粒度/验收标准/依赖）→ SendMessage plan-writer 重新执行 Step 3c 修正小 issue → re-review plan |
+| `issue-plan mismatch` | 判断：大 issue 级问题 → 返回 Coordinator 走大 issue 拆分；小 issue 级问题 → send_input plan_writer 重新执行 Step 3c 拆分 → re-review plan |
+| `issue quality` | 小 issue 拆分质量问题（覆盖度/粒度/验收标准/依赖）→ send_input plan_writer 重新执行 Step 3c 修正小 issue → re-review plan |
 | `architecture friction` | `Skill({ skill: "improve-codebase-architecture" })` → 写回后 re-review |
 
 **通过** → Step 19（Git Checkpoint）。**Needs repair** → Step 16。
@@ -77,7 +77,7 @@ Plan Review 三条路径：
 - **路径 A**（框架性内容：header / coverage map / scope check / 发布风险表）：Coordinator 直接修 → Step 17
 - **路径 B**（Task Pack 内容：implementation tasks / verification / owned files / contract anchors）：
 
-<!-- BEGIN: sendmessage-resume [variant=plan-writer] -->
+<!-- BEGIN: sendmessage-resume [variant=plan_writer] -->
 **Plan-Writer send_input Resume 步骤**（plan_writer 修复）：
 
 1. `state.sh read --run-id <run_id> --field '.plan_writer_agent_id'` 读取 workflow-state 中的 plan_writer_agent_id
@@ -104,8 +104,8 @@ Plan Review 三条路径：
 | Finding 类型 | Upstream | 写回目标 |
 | --- | --- | --- |
 | design gap / 需求不清 | orchestrate-discovery | design document |
-| issue-plan mismatch | 大 issue 级：Coordinator 走大 issue 拆分；小 issue 级：SendMessage plan-writer Step 3c | issue hierarchy |
-| issue quality | SendMessage plan-writer 重新执行 Step 3c | issue hierarchy（小 issue 章节） |
+| issue-plan mismatch | 大 issue 级：Coordinator 走大 issue 拆分；小 issue 级：send_input plan_writer Step 3c | issue hierarchy |
+| issue quality | send_input plan_writer 重新执行 Step 3c | issue hierarchy（小 issue 章节） |
 | architecture friction | `Skill({ skill: "improve-codebase-architecture" })` | design doc / plan anchors |
 | domain 术语冲突 | `Skill({ skill: "grill-with-docs" })` | CONTEXT.md + design document |
 

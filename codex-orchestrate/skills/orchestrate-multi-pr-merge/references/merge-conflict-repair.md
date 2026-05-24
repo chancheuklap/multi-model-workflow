@@ -9,8 +9,8 @@
 ### 12a：有 Analyst Findings 的 Worker Dispatch
 
 ```
-Agent({
-  subagent_type: "<pack-executor | complex-pack-executor>",
+spawn_agent({
+  agent_type: "<pack_executor | complex_pack_executor>",
   description: "Multi-PR conflict fix: <conflict summary>",
   prompt: "
     ## Scope
@@ -19,7 +19,7 @@ Agent({
     ## 大设计文档
     <path>
 
-    ## 冲突详情（来自 root-cause-analyst 调查）
+    ## 冲突详情（来自 root_cause_analyst 调查）
     | # | 冲突 | 根因类型 | 涉及 PR | 修复方向 | 需改哪个 PR |
     <paste from analyst return>
 
@@ -62,8 +62,8 @@ Agent({
 ### 12b：无 Analyst 的 Worker Dispatch（复杂但根因明确）
 
 ```
-Agent({
-  subagent_type: "<pack-executor | complex-pack-executor>",
+spawn_agent({
+  agent_type: "<pack_executor | complex_pack_executor>",
   description: "Multi-PR conflict fix: <conflict summary>",
   prompt: "
     ## Scope
@@ -103,15 +103,15 @@ Agent({
 })
 ```
 
-**Worker 类型选择**：涉及 migration / billing / permission / runtime / shared contract → `complex-pack-executor`；否则 `pack-executor`。
+**Worker 类型选择**：涉及 migration / billing / permission / runtime / shared contract → `complex_pack_executor`；否则 `pack_executor`。
 
 ## Step 13：接收 Worker 返回
 
 | Worker Verdict | 动作 |
 | --- | --- |
 | `pass` | 进入 Step 14（Coordinator 验证） |
-| `needs repair` | worker 自己有疑虑 → 审阅 concerns，能自主解决则补充信息后 SendMessage worker 继续；否则进入 Step 14 让验证环节处理 |
-| `needs context` | SendMessage 补充上下文给原 worker |
+| `needs repair` | worker 自己有疑虑 → 审阅 concerns，能自主解决则补充信息后 send_input worker 继续；否则进入 Step 14 让验证环节处理 |
+| `needs context` | send_input 补充上下文给原 worker |
 | `blocked` | 技术阻塞：尝试拆分冲突 / 换更强模型。业务阻塞：询问用户 |
 
 ---
@@ -129,7 +129,7 @@ Agent({
 | 验证结果 | 动作 |
 | --- | --- |
 | 验证通过 | 标记该冲突为"已解决"→ Step 15 |
-| 修复不正确但方向对 | SendMessage worker 附修正意见 → 重新验证 |
+| 修复不正确但方向对 | send_input worker 附修正意见 → 重新验证 |
 | 修复方向有问题 | 重新评估冲突分类 → 可能需要升级为系统性冲突走 RCA |
 | 修复引入新冲突 | 新冲突进入 Step 7 分类 |
 

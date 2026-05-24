@@ -11,14 +11,14 @@
 ## Phase 简化
 
 - **skip Discovery**：消费现有 design（用户提供 design doc 路径或明确描述）。不走讨论。
-- **Plan Writing 简化**：单 Pack plan。Coordinator 自己写，不派 plan-writer。
+- **Plan Writing 简化**：单 Pack plan。Coordinator 自己写，不派 plan_writer。
 - **skip Plan Review**：Coordinator 自检 plan 即可。
 - `budget_status = "unlimited"`, `review_total = "unlimited"`, `effort_total = "unlimited"`
 
 ## 执行约束
 
 - **single Pack**：只允许一个 Task Pack。多文件修改也压到一个 Pack。
-- **single Worker**：只派一个 pack-executor（不用 complex-pack-executor，除非触碰 billing/auth/migration）。
+- **single Worker**：只派一个 pack_executor（不用 complex_pack_executor，除非触碰 billing/auth/migration）。
 - **single review round**：Plan Implementation Review 一轮。needs repair → 修复 → pass 或 BLOCKED。不允许 3 轮截断。
 
 ## Plan 内容

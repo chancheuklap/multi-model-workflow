@@ -4,11 +4,11 @@
 
 ## Step 9：构造 Dispatch Brief
 
-Dispatch prompt 必须自足——plan-writer 不读 SKILL.md、不读 Coordinator 的上下文。**Coordinator 必须把 plan-writer 需要的所有信息写进 prompt**。
+Dispatch prompt 必须自足——plan_writer 不读 SKILL.md、不读 Coordinator 的上下文。**Coordinator 必须把 plan_writer 需要的所有信息写进 prompt**。
 
 ### Step 9a：Pre-dispatch Context Transfer（强制，每个 issue 执行一次）
 
-派发当前 issue 的 plan-writer 之前，Coordinator 必须用 Read tool 确认以下内容在上下文中：
+派发当前 issue 的 plan_writer 之前，Coordinator 必须用 Read tool 确认以下内容在上下文中：
 
 1. **Read** Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）→ 获取 slug、run_id（首个 issue 时读取，后续复用）
 2. **Read** 设计文档（`docs/orchestrate/design/<slug>.md`）→ 提取设计摘要（首个 issue 时读取，后续复用）
@@ -21,22 +21,21 @@ Dispatch prompt 必须自足——plan-writer 不读 SKILL.md、不读 Coordinat
 将 Step 9a 读到的内容填入以下模板。**所有 `<>` 占位符都必须替换为实际值**。每个 issue 用同一模板、不同的 issue 文件路径和内容。
 
 ```
-Agent({
-  subagent_type: "plan-writer",
+spawn_agent({
+  agent_type: "plan_writer",
   description: "Write plan for issue 00N: <issue title>",
-  run_in_background: true,
-  prompt: "
+  message: "
     <DISPATCH_ENVELOPE>
     <!-- DISPATCH_ENVELOPE
     {
       \"protocol_version\": \"1\",
       \"run_id\": \"<run_id>\",
       \"phase\": \"plan-writing\",
-      \"agent_role\": \"plan-writer\",
+      \"agent_role\": \"plan_writer\",
       \"agent_id\": null,
       \"pack_id\": null,
       \"repair_round\": 0,
-      \"idempotency_key\": \"<run_id>/plan-writer/<issue_id>/r0\",
+      \"idempotency_key\": \"<run_id>/plan_writer/<issue_id>/r0\",
       \"disposition_refs\": null,
       \"review_intent\": null,
       \"exception_code\": null
@@ -67,7 +66,7 @@ Agent({
     ## Issue 内容（Coordinator 从 issue 文件提取）
     **Issue title:** <大 issue 标题>
     **What to build:** <从 issue 文件的 What to build 节提取>
-    **Small issues 状态:** <已有完整小 issue 列表 / PENDING（需 plan-writer 在 Step 3c 拆分）>
+    **Small issues 状态:** <已有完整小 issue 列表 / PENDING（需 plan_writer 在 Step 3c 拆分）>
     **Blocked by:** <从 issue 文件的 Blocked by 节提取>
 
     ## Plan output
@@ -94,14 +93,14 @@ Agent({
 })
 ```
 
-**注意**：`${MMW_PLUGIN_ROOT}` 在 Coordinator 主线程中会被 Claude Code 运行时解析为 plugin 安装目录的绝对路径，Sub-agent 收到的 prompt 中已经是解析后的路径。
+**注意**：`${MMW_PLUGIN_ROOT}` 来自 Codex SessionStart 注入的 plugin root。Coordinator 必须先设置该变量，再构造发给 plan_writer 的 message。
 
-**After each Agent call returns**（强制执行）：
-1. Extract `agentId` from return value
-2. `state.sh update --run-id <run_id> --field '.plan_writer_agent_id' --value '"<agentId>"'`
-3. 若后续需要修复/补充上下文，必须使用 SendMessage({to: "<agentId>"}) resume 原 plan-writer
+**After each spawn_agent call returns**（强制执行）：
+1. Extract `agent_id` from return value
+2. `state.sh update --run-id <run_id> --field '.plan_writer_agent_id' --value '"<agent_id>"'`
+3. 若后续需要修复/补充上下文，必须使用 `send_input({ target: "<agent_id>", message: "<修复 prompt>" })` resume 原 plan_writer
 
-**Critical**: `run_in_background: true` ensures Coordinator gets agentId. Without agentId, plan-writer repair path is BLOCKED.
+**Critical**: `spawn_agent` must return `agent_id`. Without agent_id, plan_writer repair path is BLOCKED.
 
 ## Step 10：处理 Plan-writer 返回
 
@@ -114,10 +113,10 @@ Agent({
 | `NEEDS_DIAGNOSIS` | bug 缺复现或 hypothesis | `Skill({ skill: "diagnose" })` |
 | `NEEDS_DECISION` | 需要产品/业务决策 | 询问用户（一次只问一个问题） |
 | `NEEDS_ARCHITECTURE` | 架构假设与代码现实不符 | `Skill({ skill: "improve-codebase-architecture" })` |
-| `NEEDS_CONTEXT` | 缺代码上下文 | 派 code-explorer / `Skill({ skill: "zoom-out" })`，补充后 SendMessage 给原 plan-writer |
-| `BLOCKED` | 无法完成 | 报告用户，附 plan-writer 的阻塞原因 |
+| `NEEDS_CONTEXT` | 缺代码上下文 | 派 code_explorer / `Skill({ skill: "zoom-out" })`，补充后 send_input 给原 plan_writer |
+| `BLOCKED` | 无法完成 | 报告用户，附 plan_writer 的阻塞原因 |
 
-upstream skill 结论必须写回 design document / issue hierarchy，再 SendMessage 给原 plan-writer 继续。
+upstream skill 结论必须写回 design document / issue hierarchy，再 send_input 给原 plan_writer 继续。
 
 ---
-> **下一步**：plan-writer 返回后 → Steps 11-12a（`plan-gates.md`）。
+> **下一步**：plan_writer 返回后 → Steps 11-12a（`plan-gates.md`）。

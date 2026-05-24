@@ -41,8 +41,8 @@ Targeted Re-Review 使用 `send_input` 继续 baseline reviewer agent。
 **条件**：根因不明——reviewer 指出症状但无法确定原因。
 
 ```
-Agent({
-  subagent_type: "complex-code-explorer",
+spawn_agent({
+  agent_type: "complex_code_explorer",
   description: "Investigate unknown root cause: Plan N finding",
   prompt: "
     ## Scope
@@ -86,9 +86,9 @@ Explorer 返回后路由：
 | Root cause found + 推荐路径 B | 派 Worker 修复 → Step 11 |
 | Root cause not found | 报告用户，附 explorer 已排除路径 |
 
-**涉及多个 Pack 交互的 finding**：Coordinator 判断是否合并修复（用 complex-pack-executor）或拆分到各 Pack worker。
+**涉及多个 Pack 交互的 finding**：Coordinator 判断是否合并修复（用 complex_pack_executor）或拆分到各 Pack worker。
 
-**快速判定**：≤ 2 文件 + 意图明确 → A；缺 migration / consumer 同步 / 测试 → B；行为异常原因不明 → C；涉及 migration / billing / permission / runtime / shared contract → B（用 complex-pack-executor）。
+**快速判定**：≤ 2 文件 + 意图明确 → A；缺 migration / consumer 同步 / 测试 → B；行为异常原因不明 → C；涉及 migration / billing / permission / runtime / shared contract → B（用 complex_pack_executor）。
 
 **Coordinator 写入 execution state**：`plans[N].repair_round += 1`、`plans[N].status = repairing`。
 
@@ -102,19 +102,19 @@ Explorer 返回后路由：
 
 ## Step 12：修复截断
 
-每个 Plan Implementation Review 最多 **2 Worker repair round + 1 root-cause-analyst round = 3 repair round**。
+每个 Plan Implementation Review 最多 **2 Worker repair round + 1 root_cause_analyst round = 3 repair round**。
 
 | Round | 动作 |
 | --- | --- |
 | Round 1 | 路径 A/B/C 修复 → Targeted Re-Review |
 | Round 2 | 仍 needs repair → 路径 A/B/C 修复 → Targeted Re-Review |
-| Round 3（截断） | 仍 needs repair → 截断 Worker 循环，新建 `root-cause-analyst`（见下方模板） |
+| Round 3（截断） | 仍 needs repair → 截断 Worker 循环，新建 `root_cause_analyst`（见下方模板） |
 
 ### Root-Cause-Analyst 截断 Dispatch
 
 ```
-Agent({
-  subagent_type: "root-cause-analyst",
+spawn_agent({
+  agent_type: "root_cause_analyst",
   description: "Investigate repair failure: Plan N",
   prompt: "
     ## 调度场景

@@ -17,11 +17,11 @@
 
 ## Step 5：派发 Code-Explorer
 
-根据风险热点和 PR 数量，派发 1-N 个 code-explorer（或 complex-code-explorer for 多模块交叉）。可并行派发。
+根据风险热点和 PR 数量，派发 1-N 个 code_explorer（或 complex_code_explorer for 多模块交叉）。可并行派发。
 
 ```
-Agent({
-  subagent_type: "<code-explorer | complex-code-explorer>",
+spawn_agent({
+  agent_type: "<code_explorer | complex_code_explorer>",
   description: "Multi-PR analysis: <PR set / dimension>",
   prompt: "
     ## Scope
@@ -116,7 +116,7 @@ Coordinator 逐个审阅 explorer 发现的冲突，做修复路由判定：
 | --- | --- | --- |
 | **简单** | 代码级冲突（import 顺序、同文件不同区域）；≤ 2 文件；修复方向明确 | Step 8：Coordinator 直接修 |
 | **复杂、根因明确** | 功能 / 合同冲突；涉及多文件；但冲突原因清楚——两个 PR 对同一接口做了不同改动，谁该 win 很清楚 | Step 12：派 coding worker |
-| **复杂、系统性 / 根因不明** | 意图冲突 / 隐式依赖 / 多个冲突相互关联；冲突原因不清楚——两个 PR 各自看起来都对但合在一起出问题；或需要理解整体架构才能判断哪种解法正确 | Step 9：先派 root-cause-analyst 调查 |
+| **复杂、系统性 / 根因不明** | 意图冲突 / 隐式依赖 / 多个冲突相互关联；冲突原因不清楚——两个 PR 各自看起来都对但合在一起出问题；或需要理解整体架构才能判断哪种解法正确 | Step 9：先派 root_cause_analyst 调查 |
 
 **分类判定规则**：
 - 如果 Coordinator 在 5 分钟内能看懂冲突、确定修复方向 → 简单或复杂根因明确

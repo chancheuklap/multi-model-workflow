@@ -15,7 +15,7 @@ Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问�
 | 修订范围 | 路径 |
 | --- | --- |
 | 只需修改 plan header / coverage map / scope check / 发布风险表 | Coordinator 直接修 → 跳到 Step 11（Plan Entry Gate 重检） |
-| 需修改 Task Pack 内容（implementation tasks / owned files / verification） | SendMessage 原 plan-writer（agentId 从 workflow context 获取）（agentId 从 workflow-state 获取，若无 agentId 则 BLOCKED），prompt 附带具体 findings + 现有 plan path → plan-writer 定向修订 → Step 11 |
+| 需修改 Task Pack 内容（implementation tasks / owned files / verification） | send_input 原 plan_writer（agent_id 从 workflow context 获取）（agent_id 从 workflow-state 获取，若无 agent_id 则 BLOCKED），prompt 附带具体 findings + 现有 plan path → plan_writer 定向修订 → Step 11 |
 | 修订揭示 design gap / issue mismatch | 返回 `NEEDS_DISCOVERY` / `NEEDS_ISSUES`（upstream backflow） |
 
 4. 修订后重跑 Plan Entry Gate（Step 11）+ Task Pack Inventory Gate（Step 12）
@@ -34,7 +34,7 @@ Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问�
 | bug 缺复现或 hypothesis | `NEEDS_DIAGNOSIS` | `Skill({ skill: "diagnose" })` |
 | 需要方案比较 | `NEEDS_DECISION` | user / `Skill({ skill: "prototype" })` |
 | 架构摩擦反复阻塞 | `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` |
-| 模块地图不足 | `NEEDS_CONTEXT` | `Skill({ skill: "zoom-out" })`/ code-explorer |
+| 模块地图不足 | `NEEDS_CONTEXT` | `Skill({ skill: "zoom-out" })`/ code_explorer |
 
 ## Step 2：Scope Contract + Budget File
 
@@ -43,4 +43,4 @@ Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问�
 **Budget File**：读取 `.codex/multi-model-workflow/active-run-id` 找到 budget file。Budget 由 `track-review-budget.sh` hook 自动追踪。
 
 ---
-> **下一步**：前置条件通过 → Steps 3-8（`plan-writing-methodology.md`）。缺 design → `NEEDS_DISCOVERY`。缺大 issue 文件 → `NEEDS_ISSUES`（Coordinator 走大 issue 拆分）。小 issue 缺失由 plan-writer 在 Step 3c 自行补全。
+> **下一步**：前置条件通过 → Steps 3-8（`plan-writing-methodology.md`）。缺 design → `NEEDS_DISCOVERY`。缺大 issue 文件 → `NEEDS_ISSUES`（Coordinator 走大 issue 拆分）。小 issue 缺失由 plan_writer 在 Step 3c 自行补全。

@@ -1,8 +1,8 @@
 # Plan 写作方法论
 
-> **流程位置**：`orchestrate-plan-writing` Steps 3-8 · plan-writer 写作方法论 · Coordinator 按此构造 dispatch brief → Steps 9-10（`plan-writer-dispatch.md`）
+> **流程位置**：`orchestrate-plan-writing` Steps 3-8 · plan_writer 写作方法论 · Coordinator 按此构造 dispatch brief → Steps 9-10（`plan_writer-dispatch.md`）
 
-plan-writer agent 通过 dispatch prompt 中指定的路径读取本文件执行写作。Coordinator 按本文件内容构造 plan-writer dispatch prompt。
+plan_writer agent 通过 dispatch prompt 中指定的路径读取本文件执行写作。Coordinator 按本文件内容构造 plan_writer dispatch prompt。
 
 ## 核心原则
 
@@ -12,7 +12,7 @@ plan-writer agent 通过 dispatch prompt 中指定的路径读取本文件执行
 
 ## Step 3：读取 source design + 你的 issue
 
-**每个 plan-writer 只负责一个大 issue。** dispatch prompt 中已指定你的 issue 文件路径。
+**每个 plan_writer 只负责一个大 issue。** dispatch prompt 中已指定你的 issue 文件路径。
 
 ### 3a：读取 source design
 
@@ -269,9 +269,9 @@ verification 必须证明 pack 行为：
 
 ---
 
-## 修订流程（plan-writer 收到 findings 后执行）
+## 修订流程（plan_writer 收到 findings 后执行）
 
-Plan-writer 通过 SendMessage 收到 accepted findings 后：
+Plan-writer 通过 send_input 收到 accepted findings 后：
 
 1. 读完所有 findings
 2. 按优先级修订：结构性问题 → 内容缺失 → 精度问题
@@ -292,4 +292,4 @@ Plan-writer 通过 SendMessage 收到 accepted findings 后：
 - 不创建新的大 issue——大 issue 由 Coordinator 在 Discovery 阶段产出。你只负责在已有大 issue 内拆分小 issue 并映射为 Task Pack。
 
 ---
-> **下一步**：方法论指导完成 → Steps 9-10（`plan-writer-dispatch.md`）派发 plan-writer。
+> **下一步**：方法论指导完成 → Steps 9-10（`plan_writer-dispatch.md`）派发 plan_writer。

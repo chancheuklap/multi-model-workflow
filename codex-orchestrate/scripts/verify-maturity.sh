@@ -106,8 +106,8 @@ check "disposition append injected" bash -c "
   grep -q 'state\.sh.*disposition append' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'
 "
 
-check "run_in_background in dispatch" bash -c "
-  grep -q 'run_in_background' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'
+check "spawn_agent in worker dispatch" bash -c "
+  grep -q 'spawn_agent' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'
 "
 
 check "DISPATCH_ENVELOPE in worker dispatch" bash -c "
@@ -123,11 +123,11 @@ check "targeted-re-review requires send_input continuity" bash -c "
 "
 
 check "worker spec no review finding in mode 2b" bash -c "
-  ! grep -A2 '模式 2b' '$PLUGIN_DIR/agents/pack-executor.md' | grep -q 'review finding'
+  ! grep -A2 '模式 2b' '$PLUGIN_DIR/agents/pack_executor.toml' | grep -q 'review finding'
 "
 
 check "Path B uses send_input not spawn_agent" bash -c "
-  ! grep -A3 '路径 B' '$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-repair.md' | grep -q 'Agent({'
+  ! grep -A3 '路径 B' '$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-repair.md' | grep -q 'spawn_agent({'
 "
 
 echo ""
@@ -181,9 +181,9 @@ for resolver in forbidden-shortcuts sendmessage-resume signpost state-write trus
     "grep -rl 'BEGIN: $resolver' '$PLUGIN_DIR/skills/' '$PLUGIN_DIR/agents/' 2>/dev/null | grep -q ."
 done
 
-# I2: plan-writer-dispatch has DISPATCH_ENVELOPE protocol
-check "I2: plan-writer-dispatch has DISPATCH_ENVELOPE" \
-  grep -q 'DISPATCH_ENVELOPE' "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-writer-dispatch.md"
+# I2: plan_writer-dispatch has DISPATCH_ENVELOPE protocol
+check "I2: plan_writer-dispatch has DISPATCH_ENVELOPE" \
+  grep -q 'DISPATCH_ENVELOPE' "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan_writer-dispatch.md"
 
 # I3: plan-writing and workflow SKILL.md have build-system anchors
 check "I3: plan-writing SKILL.md has anchors" bash -c \

@@ -13,7 +13,7 @@
 ## Phase 简化
 
 - **skip Discovery**：maintenance 不需要设计文档。
-- **Plan Writing 简化**：Coordinator 直接写 maintenance plan，不派 plan-writer。
+- **Plan Writing 简化**：Coordinator 直接写 maintenance plan，不派 plan_writer。
 - **Plan Review 简化**：Coordinator 自检。
 - `budget_status = "unlimited"`, `review_total = "unlimited"`, `effort_total = "unlimited"`
 

@@ -2,7 +2,7 @@
 
 > **参考文档**：`orchestrate-multi-pr-merge` Step 9 · Root-Cause-Analyst 派发时随 prompt 传入 · 非流程步骤
 
-本文档供 root-cause-analyst 在模式 3（Multi-PR Merge 冲突调查）时读取。
+本文档供 root_cause_analyst 在模式 3（Multi-PR Merge 冲突调查）时读取。
 
 ---
 

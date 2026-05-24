@@ -1,6 +1,6 @@
 ---
 name: orchestrate-discovery
-description: "缺少可 review 的设计文档时使用。与用户讨论 → 生成设计文档 → Design Review → 大 issue 拆分。产出：reviewed design doc + 大 issue 骨架（小 issue 由 plan-writer 补全）。"
+description: "缺少可 review 的设计文档时使用。与用户讨论 → 生成设计文档 → Design Review → 大 issue 拆分。产出：reviewed design doc + 大 issue 骨架（小 issue 由 plan_writer 补全）。"
 ---
 
 <!-- BEGIN: signpost -->

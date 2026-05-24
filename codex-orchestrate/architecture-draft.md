@@ -39,10 +39,10 @@ flowchart TD
 
     %% 路线 2：Bug
     B -->|"Bug / error / regression"| INFRA2["Step 2：Scope + Git\n（跳过 Budget File）"]:::coord
-    INFRA2 --> BUG["root-cause-analyst\n（调查 + 修复）"]:::agent
+    INFRA2 --> BUG["root_cause_analyst\n（调查 + 修复）"]:::agent
     BUG -->|"简单 bug: fixed"| BRV["Review\nCodex review"]:::review
     BRV --> DONE["Closing\n（汇报 + 提交 + 推送 + PR）"]:::coord
-    BUG -->|"复杂: worker 修复"| BWORK["pack-executor /\ncomplex-pack-executor"]:::agent
+    BUG -->|"复杂: worker 修复"| BWORK["pack_executor /\ncomplex_pack_executor"]:::agent
     BWORK --> BRV
     BUG -->|"深层系统性问题"| INFRA
 
@@ -52,14 +52,14 @@ flowchart TD
 
     %% 路线 4：Hotfix
     B -->|"紧急 / P0 / 生产事故"| HF_INFRA["Scope + Git\n（budget = unlimited）"]:::coord
-    HF_INFRA --> HF_WORK["Coordinator 或 single\npack-executor 修复"]:::agent
+    HF_INFRA --> HF_WORK["Coordinator 或 single\npack_executor 修复"]:::agent
     HF_WORK --> HF_PUSH["先 push\n（[hotfix-unreviewed] 标签）"]:::coord
     HF_PUSH --> HF_REVIEW["事后 Codex Review\n（pending_post_push_reviews）"]:::review
     HF_REVIEW --> K
 
     %% 路线 5：Quick Fix
     B -->|"小改动 / trivial fix"| QF_INFRA["Scope + Git\n（budget = unlimited）"]:::coord
-    QF_INFRA --> QF_WORK["Single pack-executor\n（Coordinator 写单 Pack plan）"]:::agent
+    QF_INFRA --> QF_WORK["Single pack_executor\n（Coordinator 写单 Pack plan）"]:::agent
     QF_WORK --> QF_REVIEW["Single review round\nCodex review"]:::review
     QF_REVIEW --> K
 
@@ -79,13 +79,13 @@ flowchart TD
     DR --> E["大 Issue 拆分\n（Coordinator 内嵌方法论）"]:::coord
 
     %% per issue，同一 session 内完成
-    E --> F["orchestrate-plan-writing\n（plan-writer Opus 4.7 1M\n含小 issue 拆分 + plan 写作）"]:::skill
+    E --> F["orchestrate-plan-writing\n（plan_writer Opus 4.7 1M\n含小 issue 拆分 + plan 写作）"]:::skill
     F --> PR["Plan Review\nCodex review\n（审查 issue 文档 + plan 文档）"]:::review
 
     %% 执行阶段
     PR --> H["orchestrate-execution\n（见图 2）"]:::skill
     H -->|"finding → repair"| H
-    H -->|"evidence needed"| P["code-explorer /\ncomplex-code-explorer /\nroot-cause-analyst"]:::agent
+    H -->|"evidence needed"| P["code_explorer /\ncomplex_code_explorer /\nroot_cause_analyst"]:::agent
     P --> H
     H -->|"architecture friction"| Q["improve-codebase-\narchitecture"]:::extSkill
     Q -->|"只影响当前 pack"| H
@@ -94,7 +94,7 @@ flowchart TD
     I -->|"implementation gap"| H
     I -->|"pass, release-risk"| J["Release Review\nCodex review"]:::review
     I -->|"pass, no risk"| K
-    J -->|"release blocker"| N["complex-pack-executor /\n用户决策"]:::agent
+    J -->|"release blocker"| N["complex_pack_executor /\n用户决策"]:::agent
     N -->|"resolved"| J
     J -->|"pass"| K
     K["Closing\n（汇报 + 提交 + 推送 + PR）"]:::coord
@@ -110,13 +110,13 @@ flowchart TD
 | Steps 0-2 Environment Detection + Infrastructure | Coordinator 逻辑（`workflow-infrastructure.md`） | 环境检测（工作树/主仓库）+ 断点续传 + Scope Contract + Git Checkpoint + Budget File 创建 | **确定** feature slug（贯穿 `docs/orchestrate/` 全链） | ✅ 正常 |
 | Discovery | Skill：`orchestrate-discovery` | 与用户 Q&A 迭代 + grill-with-docs 同步维护 CONTEXT.md + 产出设计文档 | **产出** `design/<slug>.md` + CONTEXT.md | ✅ 正常 |
 | Design Review | Coordinator + **外部 Review** | 两个 baseline review（Design Content + Project Alignment），按 dispatch 模板内联的 Codex review 步骤派发 | **审查** `design/<slug>.md` | ✅ 正常 |
-| 大 Issue 拆分 | Coordinator 内嵌方法论（`issue-splitting.md`） | 设计文档拆分为大 Issue 骨架 | **消费** `design/<slug>.md` → **产出** `issues/<slug>/00N-*.md`（小 issue 由 plan-writer 补全） | ✅ 正常 |
-| Plan Writing | Skill：`orchestrate-plan-writing` | 前置确认 + 派 plan-writer agent（先拆小 issue 再写 plan）+ Budget 赋值（`3P+12`） | **消费** `issues/<slug>/00N-*.md`（补全小 issue）→ **产出** `plans/<slug>/00N-*.md`（编号一一对应） | ✅ 正常 |
+| 大 Issue 拆分 | Coordinator 内嵌方法论（`issue-splitting.md`） | 设计文档拆分为大 Issue 骨架 | **消费** `design/<slug>.md` → **产出** `issues/<slug>/00N-*.md`（小 issue 由 plan_writer 补全） | ✅ 正常 |
+| Plan Writing | Skill：`orchestrate-plan-writing` | 前置确认 + 派 plan_writer agent（先拆小 issue 再写 plan）+ Budget 赋值（`3P+12`） | **消费** `issues/<slug>/00N-*.md`（补全小 issue）→ **产出** `plans/<slug>/00N-*.md`（编号一一对应） | ✅ 正常 |
 | Plan Review | Coordinator + **外部 Review** | Plan Entry Gate + Task Pack Inventory Gate → 派外部 review | **审查** `issues/<slug>/`（小 issue 质量）+ `plans/<slug>/`（plan 质量）全部文件 | ✅ 正常 |
 | Execution | Skill：`orchestrate-execution` | 图 2 的两级循环（Plan → Pack → Plan Implementation Review） | **消费** `plans/<slug>/` 提取 Task Pack → 构造 Pack Brief（自足，worker 不读 plan） | ✅ 正常 |
 | Final Review | Skill：`orchestrate-final-review` | 意图验证 + 清扫遗留尾巴 + Release Gate | **消费** `design/<slug>.md` 验证意图覆盖 | ✅ 正常（review 节点除外） |
 | Release Review | Coordinator + **外部 Review** | 发布风险审查，仅触碰风险面时进入 | — | ✅ 正常 |
-| Bug Investigation | Sub-Agent：root-cause-analyst | 调查 bug 根因，判定简单/深层 | — | ✅ 正常 |
+| Bug Investigation | Sub-Agent：root_cause_analyst | 调查 bug 根因，判定简单/深层 | — | ✅ 正常 |
 | Bug Fix Review | **外部 Review** | 按 dispatch 模板内联的 Codex review 步骤派发 Codex review | — | ✅ 正常 |
 | Closing | Coordinator 自身逻辑 | 汇报 + 提交 + 推送 + 开 PR | — | ✅ 正常 |
 | Hotfix（Route 4） | Coordinator + single worker | 跳过 Discovery + Plan Writing，先 push 再事后 review | `pending_post_push_reviews` 记录待审 | ✅ 正常 |
@@ -154,7 +154,7 @@ flowchart TD
     A["Plan Review pass"] --> B["读 plan Task Pack inventory\n+ 创建 execution-state file"]:::coord
     B --> PL["FOR EACH Plan\n（按 Blocked by 排序）"]:::coord
     PL --> SC["记录 start_commit\n+ current_plan_id"]:::coord
-    SC --> C["派 worker\n（pack-executor / complex-pack-executor）\nvalidate-pack-dispatch hook 校验前置"]:::agent
+    SC --> C["派 worker\n（pack_executor / complex_pack_executor）\nvalidate-pack-dispatch hook 校验前置"]:::agent
     C --> D["worker 返回\n（PostToolUse Agent hook\n读 durable return → 更新 state → NEXT 指令）"]:::agent
     D --> OI["Open Items 即时处置\n+ scope drift 检测"]:::coord
     OI --> GC["Git Checkpoint\n（enforce-pack-commit hook 校验格式\ntrack-execution-state hook 更新 state）"]:::coord
@@ -166,7 +166,7 @@ flowchart TD
     V --> T{"修复分流"}:::coord
     T -->|"简单（≤2 文件）"| S["Coordinator 直接修复"]:::coord
     T -->|"复杂（根因已知）"| R["SendMessage 给原 worker"]:::agent
-    T -->|"根因不明"| RCA["code-explorer 调查"]:::agent
+    T -->|"根因不明"| RCA["code_explorer 调查"]:::agent
     S --> RE["Targeted Re-Review\nCodex review"]:::review
     R --> RE
     RCA --> RE
@@ -190,7 +190,7 @@ flowchart TD
 |------|------|--------|---------|------|
 | 读 Task Pack inventory + 创建 state | Coordinator 逻辑 | 读取所有 plan → 构建执行队列 → 创建 `execution-state-<run_id>.json` | **读** `plans/<slug>/` 全部文件 → 提取 pack 编号、依赖、风险 | ✅ 正常 |
 | 记录 start_commit | Coordinator 逻辑 | Plan 首个 Pack dispatch 前记录 `git rev-parse HEAD` | **写** execution state | ✅ 正常 |
-| 派 worker | Sub-Agent：`pack-executor`（普通）/ `complex-pack-executor`（高风险） | Agent tool 派发 coding worker | **嵌入** Pack Brief（含 Durable Return 指令 + Context hint） | ✅ 正常 |
+| 派 worker | Sub-Agent：`pack_executor`（普通）/ `complex_pack_executor`（高风险） | Agent tool 派发 coding worker | **嵌入** Pack Brief（含 Durable Return 指令 + Context hint） | ✅ 正常 |
 | Agent return handler | Hook：`agent-return-handler.sh`（PostToolUse Agent） | 读 `pack-returns/<run_id>/<pack-id>.json` → 更新 state → 输出 `NEXT` 指令（additionalContext） | **读** pack-returns、**写** execution state | ✅ 正常 |
 | validate-pack-dispatch | Hook：`validate-pack-dispatch.sh` | 拦截缺少 start_commit 或 Pack 状态非 pending 的 dispatch | **读** execution state | ✅ 正常 |
 | enforce-pack-commit | Hook：`enforce-pack-commit.sh` | 校验 Pack commit message 格式 | — | ✅ 正常 |
@@ -215,13 +215,13 @@ flowchart TD
 
     A["多个并行 PR\n（来自同一大设计 / 大计划）"] --> B["Coordinator 阅读全部文档\n大设计 + 大计划 + 大 Issue + 各 PR 小文档"]:::coord
     B --> C["建立「合并后正确状态」的理解"]:::coord
-    C --> D["并行派发 code-explorer\n验证 PR 间的代码 / 功能 / 意图关系"]:::agent
+    C --> D["并行派发 code_explorer\n验证 PR 间的代码 / 功能 / 意图关系"]:::agent
     D --> E{"Explorer findings"}:::coord
     E -->|"无冲突"| K["Integration Review\nCodex review"]:::review
     E -->|"有冲突"| F{"修复分流"}:::coord
     F -->|"简单"| G["Coordinator 直接修复"]:::coord
     F -->|"复杂、根因明确"| H["派发 coding worker"]:::agent
-    F -->|"系统性 / 根因不明"| RCA["root-cause-analyst\n调查 PR 间冲突根因\n（最多 1 轮 analyst ↔ explorer）"]:::agent
+    F -->|"系统性 / 根因不明"| RCA["root_cause_analyst\n调查 PR 间冲突根因\n（最多 1 轮 analyst ↔ explorer）"]:::agent
     RCA --> RCAV["Coordinator 审阅\nanalyst findings"]:::coord
     RCAV -->|"根因明确"| H
     RCAV -->|"设计 / 意图冲突"| RCAROUTE["回到 Discovery\n或询问用户"]:::coord
@@ -241,9 +241,9 @@ flowchart TD
 | 节点 | 机制 | 做什么 | 状态 |
 |------|------|--------|------|
 | Coordinator 阅读全部文档 | Coordinator 逻辑 | 读大设计 + 大计划 + 各 PR 小文档，建立全局理解 | ✅ 正常 |
-| 并行派发 code-explorer | Sub-Agent：`code-explorer` / `complex-code-explorer` | 并行探索各 PR 代码，发现冲突 | ✅ 正常 |
+| 并行派发 code_explorer | Sub-Agent：`code_explorer` / `complex_code_explorer` | 并行探索各 PR 代码，发现冲突 | ✅ 正常 |
 | 修复分流 | Coordinator 逻辑 | 简单/复杂/系统性三路分流 | ✅ 正常 |
-| root-cause-analyst 调查 | Sub-Agent：root-cause-analyst | 系统性冲突根因调查（capped at 1 轮 analyst ↔ explorer） | ✅ 正常 |
+| root_cause_analyst 调查 | Sub-Agent：root_cause_analyst | 系统性冲突根因调查（capped at 1 轮 analyst ↔ explorer） | ✅ 正常 |
 | Integration Review | **外部 Review** | 跨 PR 集成审查 | ✅ 正常 |
 | 按计划顺序合并 PR | Coordinator 逻辑 | git 操作 | ✅ 正常 |
 
@@ -301,12 +301,12 @@ Closing 前（cleanup-before-push.sh）
 docs/orchestrate/
 ├── design/                                  # 设计文档（Discovery 产出）
 │   └── <slug>.md
-├── issues/                                  # Issue hierarchy（大 issue: Coordinator 产出；小 issue: plan-writer 补全）
+├── issues/                                  # Issue hierarchy（大 issue: Coordinator 产出；小 issue: plan_writer 补全）
 │   └── <slug>/
 │       ├── 001-<large-issue-slug>.md       # 大 issue（内含小 issue）
 │       ├── 002-<large-issue-slug>.md
 │       └── ...
-├── plans/                                   # 实施计划（plan-writer 产出）
+├── plans/                                   # 实施计划（plan_writer 产出）
 │   └── <slug>/
 │       ├── 001-<issue-slug>.md             # 编号与 issues/ 下同编号文件一一对应
 │       ├── 002-<issue-slug>.md
@@ -333,7 +333,7 @@ flowchart LR
     D["设计文档\n<slug>.md\n（背景 / 目标 / 方案 / 合同 / 风险 / 验收）"]:::doc
     DR["Design Review\n（完整性 + 项目对齐）"]:::gate
     I["大 Issue 骨架\n001-*.md\n（Coordinator 产出：What to build + Blocked by）"]:::doc
-    SI["小 Issue\n（plan-writer 补全，内嵌在大 issue 中）\nType / What / Acceptance / Blocked by"]:::embed
+    SI["小 Issue\n（plan_writer 补全，内嵌在大 issue 中）\nType / What / Acceptance / Blocked by"]:::embed
     P["Plan 文件\n001-*.md\n（Header + File Map + 风险表 + Task Pack 列表）"]:::doc
     TP["Task Pack N.M\n（内嵌在 plan 中）\nGoal / Files / Criteria / Commands / Risk"]:::embed
     PG["Plan Entry Gate\n+ Task Pack Inventory Gate"]:::gate
@@ -354,10 +354,10 @@ flowchart LR
 
 | 产物 | 模板来源 | 产出者 | 消费者 | 审查门禁 |
 |------|---------|--------|--------|---------|
-| **设计文档** | `discovery-design-document.md` | orchestrate-discovery | Coordinator（大 issue 拆分）、plan-writer（只读） | Design Review（2 baseline） |
-| **大 Issue 文件** | `issue-splitting.md`（Coordinator 方法论）+ `plan-writing-methodology.md` Step 3c（plan-writer 补全小 issue） | Coordinator（大 issue 骨架）+ plan-writer（小 issue 补全） | plan-writer（1 issue = 1 plan） | Plan Review（Issue Quality 角度） |
-| **Plan 文件** | `plan-writing-methodology.md` | plan-writer agent | orchestrate-execution | Plan Entry Gate + Task Pack Inventory Gate |
-| **Mockup** | prototype / frontend-design | Discovery 阶段 | plan-writer（mockup anchors）、worker（视觉验证） | Design Review 覆盖 |
+| **设计文档** | `discovery-design-document.md` | orchestrate-discovery | Coordinator（大 issue 拆分）、plan_writer（只读） | Design Review（2 baseline） |
+| **大 Issue 文件** | `issue-splitting.md`（Coordinator 方法论）+ `plan-writing-methodology.md` Step 3c（plan_writer 补全小 issue） | Coordinator（大 issue 骨架）+ plan_writer（小 issue 补全） | plan_writer（1 issue = 1 plan） | Plan Review（Issue Quality 角度） |
+| **Plan 文件** | `plan-writing-methodology.md` | plan_writer agent | orchestrate-execution | Plan Entry Gate + Task Pack Inventory Gate |
+| **Mockup** | prototype / frontend-design | Discovery 阶段 | plan_writer（mockup anchors）、worker（视觉验证） | Design Review 覆盖 |
 
 ### 设计文档结构
 
@@ -382,7 +382,7 @@ flowchart LR
 
 ### Issue 文档结构
 
-Issue 文档的大 issue 骨架由 Coordinator 在 Discovery 阶段产出（`issue-splitting.md` 方法论），小 issue 由 plan-writer 在 Plan Writing 阶段补全（`plan-writing-methodology.md` Step 3c）。
+Issue 文档的大 issue 骨架由 Coordinator 在 Discovery 阶段产出（`issue-splitting.md` 方法论），小 issue 由 plan_writer 在 Plan Writing 阶段补全（`plan-writing-methodology.md` Step 3c）。
 
 ```
 # <大 Issue 标题>
@@ -397,7 +397,7 @@ Issue 文档的大 issue 骨架由 Coordinator 在 Discovery 阶段产出（`iss
 
 **层级关系**：大 issue = 一个 vertical slice = 一个文件 · 小 issue = 内嵌子节（不是独立文件）· 小 issue 直接映射 Task Pack。
 
-**两阶段产出**：大 issue 骨架（`What to build` + `Blocked by`）由 Coordinator 在 Discovery 阶段产出；`Small issues` 章节由 plan-writer 在 Plan Writing 阶段 Step 3c 补全。Plan Review 同时审查小 issue 拆分质量和 plan 质量。
+**两阶段产出**：大 issue 骨架（`What to build` + `Blocked by`）由 Coordinator 在 Discovery 阶段产出；`Small issues` 章节由 plan_writer 在 Plan Writing 阶段 Step 3c 补全。Plan Review 同时审查小 issue 拆分质量和 plan 质量。
 
 **编号规则**：文件名 `00N-<slug>.md`，N 按依赖顺序排列（blocker 在前）。Coordinator 完成大 issue 拆分后发布 GitHub Issue 并将 issue number 写回本地文件。
 
@@ -429,7 +429,7 @@ Issue 文档的大 issue 骨架由 Coordinator 在 Discovery 阶段产出（`iss
 **Task Pack 编号**：`N.M`，N = plan/issue 文件编号，M = pack 在该 plan 内的序号。Pack 2.3 = plan 002 的第 3 个 Task Pack。
 
 **关键设计决策**：
-- 每个 plan-writer agent **只负责一个大 issue**——Coordinator 逐 issue 派发
+- 每个 plan_writer agent **只负责一个大 issue**——Coordinator 逐 issue 派发
 - Worker **不读 plan 文件**——Pack Brief 在 dispatch prompt 中完整自足
 - Task Pack 是最小执行单元：包含 worker 所需的一切（任务、验收、命令、文件、合同锚点）
 - 无 Placeholder 规则：TBD/TODO/later 出现在 plan 中 = plan failure
@@ -484,7 +484,7 @@ Worker dispatch（Pack Brief 自足）
 | `PLAN_CREATED` | 确认 workflow-state budget → 进入 execution |
 | `NEEDS_DISCOVERY` | 回到 discovery |
 | `NEEDS_DESIGN_REVIEW` | 回到 design review |
-| `NEEDS_ISSUES` / `NEEDS_TRIAGE` | 大 issue 缺失 → 重新进入大 issue 拆分；小 issue 缺失 → plan-writer 内部处理 / triage |
+| `NEEDS_ISSUES` / `NEEDS_TRIAGE` | 大 issue 缺失 → 重新进入大 issue 拆分；小 issue 缺失 → plan_writer 内部处理 / triage |
 | `NEEDS_DIAGNOSIS` / `NEEDS_ARCHITECTURE` / `NEEDS_CONTEXT` | 调用对应外部 skill |
 | `NEEDS_DECISION` | 询问用户 |
 | `BLOCKED` | 报告用户 |
@@ -529,7 +529,7 @@ Worker dispatch（Pack Brief 自足）
 |-------|---------|------|
 | `orchestrate-workflow` | 路线判定（7 条）+ Infrastructure + Bug 路线 + Direct Repair + Closing + Route Extensions（4-7） | 入口路由（formal/bug/multi-pr/hotfix/quickfix/spike/maintenance）、Scope Contract、Git Checkpoint、Budget File、Bug 路线调度、Direct Repair mini-route、Closing |
 | `orchestrate-discovery` | Discovery + Design Review + 大 issue 拆分 | Q&A 迭代 + grill-with-docs + 设计文档 + Design Review + 大 issue 拆分（内嵌方法论） |
-| `orchestrate-plan-writing` | Plan Writing（含小 issue 拆分）+ Plan Review（含 issue 质量审查） | 前置确认 + plan-writer dispatch（先拆小 issue 再写 plan）+ Budget 赋值 + Plan Review（issue 质量 + plan 质量）+ Git Checkpoint |
+| `orchestrate-plan-writing` | Plan Writing（含小 issue 拆分）+ Plan Review（含 issue 质量审查） | 前置确认 + plan_writer dispatch（先拆小 issue 再写 plan）+ Budget 赋值 + Plan Review（issue 质量 + plan 质量）+ Git Checkpoint |
 | `orchestrate-execution` | Execution（图 2） | 两级循环（Plan → Pack）：派 worker → Git Checkpoint → Plan Implementation Review → 修复分流 → Early Release Gate → 循环释放 |
 | `orchestrate-final-review` | Final Review + Release Gate | 意图验证 + 清扫遗留尾巴 + Final Release Gate + 业务汇报 |
 | `orchestrate-multi-pr-merge` | Multi-PR Merge（图 3） | 冲突发现 → 根因调查 → 修复 → 集成审查 → 合并 |
@@ -540,12 +540,12 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 
 | Agent | 模型 | effort | maxTurns | 用在哪 | `skills:` 自动加载 | 体内 Skill tool 调用 |
 |-------|------|--------|----------|--------|-------------------|---------------------|
-| `plan-writer` | Opus 4.7 (1M) | xhigh | — | Plan Writing（小 issue 拆分 + plan 写作） | `improve-codebase-architecture` | `improve-codebase-architecture` |
-| `pack-executor` | Sonnet | high | — | Execution 普通 pack / Bug worker | `tdd` | `diagnose`, `prototype` |
-| `complex-pack-executor` | Opus 4.7 | high | — | Execution 高风险 pack / Release blocker | `tdd` | `diagnose`, `improve-codebase-architecture`, `prototype` |
-| `code-explorer` | Sonnet | high | 20 | Execution 证据收集 / Multi-PR 代码探索 | — | — |
-| `complex-code-explorer` | Opus 4.7 | high | 30 | 多模块调查 | — | — |
-| `root-cause-analyst` | Opus 4.7 (1M) | xhigh | 40 | Bug Investigation / Execution RCA / Multi-PR 冲突调查 | `diagnose`, `tdd` | — |
+| `plan_writer` | Opus 4.7 (1M) | xhigh | — | Plan Writing（小 issue 拆分 + plan 写作） | `improve-codebase-architecture` | `improve-codebase-architecture` |
+| `pack_executor` | Sonnet | high | — | Execution 普通 pack / Bug worker | `tdd` | `diagnose`, `prototype` |
+| `complex_pack_executor` | Opus 4.7 | high | — | Execution 高风险 pack / Release blocker | `tdd` | `diagnose`, `improve-codebase-architecture`, `prototype` |
+| `code_explorer` | Sonnet | high | 20 | Execution 证据收集 / Multi-PR 代码探索 | — | — |
+| `complex_code_explorer` | Opus 4.7 | high | 30 | 多模块调查 | — | — |
+| `root_cause_analyst` | Opus 4.7 (1M) | xhigh | 40 | Bug Investigation / Execution RCA / Multi-PR 冲突调查 | `diagnose`, `tdd` | — |
 | `docs-worker` | Sonnet | high | 20 | 文档清理（Closing 阶段可选） | `grill-with-docs` | `triage` |
 
 另有 `persona.md`（非 agent 定义），是 voice/persona 规范参考文档，声明权威来源为 `build/templates/voice-directive.md.tmpl`。
@@ -564,12 +564,12 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 | `PreToolUse` | `Bash` | `guard-premature-push.sh`：阻止未完成时 push/PR | ① plan 文件有未勾选 task（`- [ ]`）→ 阻止 `git push` / `gh pr create`　② 无条件阻止 `git merge --squash` |
 | `PreToolUse` | `Bash(git commit *)` | `enforce-pack-commit.sh`：Pack commit 格式校验 | Pack commit 格式不匹配 `Pack N.M: ...` → exit 2 拦截。非 Pack commit 静默放行 |
 | `PreToolUse` | `Bash` | `gate-codex-review.sh`：Codex review dispatch gate | 自过滤 `codex-companion`/`CODEX_SCRIPT` + `task`。按 `review_intent` 三路判定：`baseline` → 放行；`path-a-re-review` → 需 `path_a_escalation` 非空；`targeted-re-review` → 需 `--resume` + exception 条件（`3plus_files_control_flow` / `user_requested` / `rca_root_cause`）。缺失或畸形 DISPATCH_ENVELOPE → exit 2 |
-| `PreToolUse` | `Agent(pack-executor*)` | `validate-pack-dispatch.sh`：Worker dispatch 13 步校验 | DISPATCH_ENVELOPE 解析 → 必填字段校验 → 幂等性检查 → budget 初始化检查 → Direction Check 待处理检查 → Pack 状态必须为 pending → agent_id 已存在时阻止（repair 须 SendMessage） → Path A escalation 检查 → repair round 的 disposition_refs 验证 → 登记幂等键 → 设 Pack 状态为 dispatched。任一步失败 → exit 2 |
-| `PreToolUse` | `Agent(complex-pack-executor*)` | `validate-pack-dispatch.sh`：同上脚本 | 同上 |
+| `PreToolUse` | `Agent(pack_executor*)` | `validate-pack-dispatch.sh`：Worker dispatch 13 步校验 | DISPATCH_ENVELOPE 解析 → 必填字段校验 → 幂等性检查 → budget 初始化检查 → Direction Check 待处理检查 → Pack 状态必须为 pending → agent_id 已存在时阻止（repair 须 SendMessage） → Path A escalation 检查 → repair round 的 disposition_refs 验证 → 登记幂等键 → 设 Pack 状态为 dispatched。任一步失败 → exit 2 |
+| `PreToolUse` | `Agent(complex_pack_executor*)` | `validate-pack-dispatch.sh`：同上脚本 | 同上 |
 | `PreToolUse` | `Edit` | `guard-doc-edit.sh`：阻止 Worker 修改 docs/ | Worker 上下文（workflow 目录存在但无 `active-run-id`）中 Edit `docs/` 路径 → exit 2。Coordinator 上下文放行 |
 | `PreToolUse` | `Write` | `guard-doc-edit.sh`：同上脚本 | 同上 |
 | `PostToolUse` | `Bash` | `track-review-budget.sh`：review budget 自动追踪 | 检测 `codex-companion`/`CODEX_SCRIPT` + `result` 成功执行 → 递增 `review_used`。≥ 80% → `state.sh direction-check trigger`；≥ 100% → BUDGET EXHAUSTED |
-| `PostToolUse` | `Agent` | `track-effort-budget.sh`：effort budget 追踪 | 从 `tool_input.subagent_type` 读 agent 角色 → 按角色加权递增 `effort_used`（worker = +1, explorer = +1, RCA = +2）。≥ 80% → Direction Check；≥ 100% → EXHAUSTED。`effort_total` 为 0 或 unlimited 时跳过 |
+| `PostToolUse` | `Agent` | `track-effort-budget.sh`：effort budget 追踪 | 从 `tool_input.agent_type` 读 agent 角色 → 按角色加权递增 `effort_used`（worker = +1, explorer = +1, RCA = +2）。≥ 80% → Direction Check；≥ 100% → EXHAUSTED。`effort_total` 为 0 或 unlimited 时跳过 |
 | `PostToolUse` | `Bash(git commit *)` | `track-execution-state.sh`：commit 后更新 execution state | Pack commit 成功后更新 `packs[N.M].status = committed` + `commit_sha`。全部 committed → 输出 `NEXT` 指示派发 Plan Implementation Review |
 | `PostToolUse` | `Bash(git push *)` | `cleanup-before-push.sh`：push 成功后清理 `.codex/multi-model-workflow/` | push 成功后执行。Hotfix route 检测到 `route = "hotfix"` 时延迟清理（事后 review 仍需 state）。其他 route 删除整个 `.codex/multi-model-workflow/` 目录。拒绝删除符号链接。支持 `--force` 参数跳过 hook 输入解析和 route 检查（Hotfix Closing 手动调用） |
 | `PostToolUse` | `Agent` | `agent-return-handler.sh`：Worker 返回后更新 execution state | 从 `tool_input` 提取 DISPATCH_ENVELOPE → 读 `pack-returns/<run_id>/<pack-id>.json`（或解析 `tool_response` 作 fallback）→ 更新 `packs[N.M].status = returned` + `worker_verdict`。非 execution 路线（无 execution-state）静默放行 |
@@ -593,10 +593,10 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 
 | Skill | 自动加载到 |
 |-------|-----------|
-| `tdd` | pack-executor, complex-pack-executor, root-cause-analyst |
-| `diagnose` | root-cause-analyst |
+| `tdd` | pack_executor, complex_pack_executor, root_cause_analyst |
+| `diagnose` | root_cause_analyst |
 | `grill-with-docs` | docs-worker |
-| `improve-codebase-architecture` | plan-writer |
+| `improve-codebase-architecture` | plan_writer |
 
 其他 skill（`prototype`、`triage`、`zoom-out`）**不在任何 agent frontmatter 的 `skills:` 中**——agent body 中通过 `Skill({ skill: "..." })` 按需调用。
 
@@ -642,7 +642,7 @@ Coordinator **不是传话筒**——必须亲验每条 finding（读代码、�
 | `suppress` | 低 confidence（1-4）finding 默认处置。记录为 `suppressed: low confidence` |
 | `path-a` | Coordinator 直接修复（≤ 2 文件，confidence ≥ 7）。修复后强制 targeted re-review |
 | `path-b` | 派 Worker 修复（SendMessage resume 原 worker 或新 dispatch） |
-| `needs-evidence` | 派 `code-explorer` / `complex-code-explorer` 子调查 → `confirmed / refuted / partially confirmed` → 再定 disposition |
+| `needs-evidence` | 派 `code_explorer` / `complex_code_explorer` 子调查 → `confirmed / refuted / partially confirmed` → 再定 disposition |
 | `duplicate` | 标记为重复 |
 | `out-of-scope` | 开 GitHub Issue（Durable Handoff Brief 格式） |
 | `needs-evaluation` | Coordinator 评估后归入其他 disposition |
@@ -656,7 +656,7 @@ Coordinator **不是传话筒**——必须亲验每条 finding（读代码、�
 | 4-6 (Medium) | 亲验 + 派 explorer 补证 | explorer 返回 confirmed → accept；refuted → reject |
 | 7-10 (High) | 亲验后 accept 或 reject | 验证通过 → accept；找到反向证据 → reject |
 
-**Plan Review `accepted` 的五种子路由**：`plan repair`（Coordinator 或 plan-writer 直接修）· `design gap`（回流 Discovery）· `issue-plan mismatch`（大 issue 级：Coordinator 走大 issue 拆分；小 issue 级：plan-writer Step 3c 重新拆分）· `issue quality`（小 issue 拆分质量问题 → plan-writer Step 3c 修正）· `architecture friction`（调 improve-codebase-architecture）。
+**Plan Review `accepted` 的五种子路由**：`plan repair`（Coordinator 或 plan_writer 直接修）· `design gap`（回流 Discovery）· `issue-plan mismatch`（大 issue 级：Coordinator 走大 issue 拆分；小 issue 级：plan_writer Step 3c 重新拆分）· `issue quality`（小 issue 拆分质量问题 → plan_writer Step 3c 修正）· `architecture friction`（调 improve-codebase-architecture）。
 
 ### Path A 与 Path B 修复路径
 
@@ -707,11 +707,11 @@ Round 1-2：三路分流
             修复后强制 targeted re-review（review_intent: path-a-re-review）
             Codex 返回 needs_repair → blocked_for_self_fix = true → 升级 Path B
   Path B — Worker 修复（SendMessage resume 原 worker；若无 agent_id 则 BLOCKED）
-  Path C — code-explorer 只读调查（根因不明时）
+  Path C — code_explorer 只读调查（根因不明时）
   → Targeted Re-Review
 
 Round 3（截断轮）：
-  停止 worker 循环 → 派 root-cause-analyst（带前 2 轮完整上下文）
+  停止 worker 循环 → 派 root_cause_analyst（带前 2 轮完整上下文）
   RCA 五种结论：
     fixed                     → Targeted Re-Review
     root cause found not fixed → worker 按 RCA 结论修复
@@ -747,9 +747,9 @@ Routes 4-7（hotfix / quickfix / spike / maintenance）在 workflow 初始化时
 
 | Agent 角色 | 权重 |
 |-----------|------|
-| `pack-executor` / `complex-pack-executor` | +1 |
-| `code-explorer` / `complex-code-explorer` | +1 |
-| `root-cause-analyst` | +2 |
+| `pack_executor` / `complex_pack_executor` | +1 |
+| `code_explorer` / `complex_code_explorer` | +1 |
+| `root_cause_analyst` | +2 |
 
 ### Review Budget `3P` 的分配
 
@@ -826,7 +826,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 
 ## Bug Seed File 与设计级别升级
 
-`root-cause-analyst` 返回 `root cause in design/plan` 时不直接回 Discovery，而是：
+`root_cause_analyst` 返回 `root cause in design/plan` 时不直接回 Discovery，而是：
 
 1. 创建 `.codex/multi-model-workflow/bug-seed-<run_id>.md`（结构化摘要：原始 bug · analyst findings · root cause · 受影响模块 · 排除假设 · 建议设计变更）
 2. 更新 Scope Contract：bug seed 加入 Source artifacts，design/plan 加入 Editable artifacts
@@ -884,7 +884,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 | Skill 调用语法 | `Skill({ skill: "multi-model-workflow:..." })` | 裸名 `orchestrate-*` |
 | 状态文件路径 | `.codex/multi-model-workflow/` | `.codex/multi-model-workflow/` |
 | Review 派发 | `codex-companion.mjs` Bash 调用 | `codex-companion.mjs`（统一通过 `review-dispatch` resolver 派发） |
-| Agent 命名 | `plan-writer`（连字符） | `plan_writer`（下划线） |
+| Agent 命名 | `plan_writer`（连字符） | `plan_writer`（下划线） |
 | Worker 隔离 | 串行执行，同分支 | disjoint write sets |
 
 ---

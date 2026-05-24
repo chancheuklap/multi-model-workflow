@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SubagentStart hook for pack-executor / complex-pack-executor.
+# SubagentStart hook for pack_executor / complex_pack_executor.
 # Parses DISPATCH_ENVELOPE → validates state conditions (10-step ordering).
 set -euo pipefail
 

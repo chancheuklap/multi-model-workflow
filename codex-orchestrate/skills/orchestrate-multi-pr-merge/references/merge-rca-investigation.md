@@ -7,8 +7,8 @@
 ## Step 9：构造 Analyst Dispatch
 
 ```
-Agent({
-  subagent_type: "root-cause-analyst",
+spawn_agent({
+  agent_type: "root_cause_analyst",
   description: "Multi-PR conflict investigation: <conflict cluster summary>",
   prompt: "
     ## 调度场景
@@ -81,13 +81,13 @@ Coordinator 审阅 analyst findings，不是盲目接受——主动验证：
 | `root_cause_identified` | 逐个冲突审阅修复方向 → 按修复顺序逐个 dispatch worker（Step 12） |
 | `design_conflict` | 冲突在设计层面——两个 PR 的目标本身矛盾。两条路：(1) 回 orchestrate-discovery 让用户重新对齐设计 → 返回 `NEEDS_DISCOVERY`；(2) 当场询问用户做决策 → 拿到决策后继续 |
 | `implementation_deviation` | 某个 PR 偏离了设计——定位到具体偏离，dispatch worker 修复偏离（Step 12） |
-| `unable_to_determine` | 派 complex-code-explorer 补充信息后重新 dispatch analyst；或 BLOCKED 报告用户 |
+| `unable_to_determine` | 派 complex_code_explorer 补充信息后重新 dispatch analyst；或 BLOCKED 报告用户 |
 
 **`unable_to_determine` Explorer Dispatch**：
 
 ```
-Agent({
-  subagent_type: "complex-code-explorer",
+spawn_agent({
+  agent_type: "complex_code_explorer",
   description: "Supplement PR conflict investigation: <conflict cluster>",
   prompt: "
     ## Scope
@@ -126,7 +126,7 @@ Agent({
 })
 ```
 
-Explorer 返回后：用 explorer findings 补充 analyst prompt，重新 dispatch `root-cause-analyst`（Step 9）。**Analyst ↔ Explorer 循环最多 1 次**（analyst → explorer → analyst）。第 2 轮 analyst 仍返回 `unable_to_determine` → BLOCKED，报告用户。
+Explorer 返回后：用 explorer findings 补充 analyst prompt，重新 dispatch `root_cause_analyst`（Step 9）。**Analyst ↔ Explorer 循环最多 1 次**（analyst → explorer → analyst）。第 2 轮 analyst 仍返回 `unable_to_determine` → BLOCKED，报告用户。
 
 ---
 > **下一步**：root_cause_identified / implementation_deviation → Step 12（`merge-conflict-repair.md`）。design_conflict → 返回 verdict。unable_to_determine → 派 explorer 补信息或 BLOCKED。

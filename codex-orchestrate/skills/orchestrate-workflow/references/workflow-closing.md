@@ -50,7 +50,7 @@ PR body：
 ## Review history
 - Reviews dispatched / Findings / Repair rounds
 
-🤖 Generated with [Claude Code](https://claude.com/claude-code) + multi-model-workflow
+Generated with Codex + multi-model-workflow
 ```
 
 ### Step 22a：生成运行总结

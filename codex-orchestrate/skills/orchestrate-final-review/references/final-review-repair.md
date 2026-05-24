@@ -35,8 +35,8 @@ Worker 修复后返回 → 进入 Step 11
 **条件**：根因不明——reviewer 指出症状但无法确定原因。
 
 ```
-Agent({
-  subagent_type: "complex-code-explorer",
+spawn_agent({
+  agent_type: "complex_code_explorer",
   description: "Investigate unknown root cause: Final Review finding",
   prompt: "
     ## Scope
@@ -80,7 +80,7 @@ Explorer 返回后路由：
 | Root cause found + 推荐路径 B | 派 Worker 修复 → Step 11 |
 | Root cause not found | 报告用户，附 explorer 已排除路径 |
 
-**快速判定**：≤ 2 文件 + 意图明确 → A；缺 migration / consumer 同步 / 测试 → B；行为异常原因不明 → C；涉及 migration / billing / permission / runtime / shared contract → B（用 complex-pack-executor）；涉及多个 pack 的系统性问题 → Step 10（判定 Plan 维度）。
+**快速判定**：≤ 2 文件 + 意图明确 → A；缺 migration / consumer 同步 / 测试 → B；行为异常原因不明 → C；涉及 migration / billing / permission / runtime / shared contract → B（用 complex_pack_executor）；涉及多个 pack 的系统性问题 → Step 10（判定 Plan 维度）。
 
 ---
 
@@ -219,19 +219,19 @@ Per-finding status:
 
 ## Step 12：修复截断
 
-每个 gap 最多 3 个 repair round（2 个 Worker/Coordinator round + 1 个 root-cause-analyst round）。
+每个 gap 最多 3 个 repair round（2 个 Worker/Coordinator round + 1 个 root_cause_analyst round）。
 
 | Round | 动作 |
 | --- | --- |
 | Round 1 | 路径 A/B/C 修复 → Targeted Re-Review |
 | Round 2 | 仍 needs repair → 路径 A/B/C 修复 → Targeted Re-Review |
-| Round 3（截断） | 仍 needs repair → **截断 Worker 循环**，新建 `root-cause-analyst` |
+| Round 3（截断） | 仍 needs repair → **截断 Worker 循环**，新建 `root_cause_analyst` |
 
 **Root-Cause-Analyst 截断调度**：
 
 ```
-Agent({
-  subagent_type: "root-cause-analyst",
+spawn_agent({
+  agent_type: "root_cause_analyst",
   description: "Investigate Final Review repair failure: <finding>",
   prompt: "
     ## 调度场景

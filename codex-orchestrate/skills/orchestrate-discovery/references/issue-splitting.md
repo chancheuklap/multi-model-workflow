@@ -2,7 +2,7 @@
 
 > **流程位置**：`orchestrate-discovery` Step 12 · Design Review 通过后 · 完成后返回 SKILL.md（verdict）
 
-Coordinator 在 Design Review 通过后执行本方法论，将设计文档拆分为大 issue（vertical slice 级）。**小 issue 拆分不在此阶段进行**——由 plan-writer 在 plan-writing 阶段完成。
+Coordinator 在 Design Review 通过后执行本方法论，将设计文档拆分为大 issue（vertical slice 级）。**小 issue 拆分不在此阶段进行**——由 plan_writer 在 plan-writing 阶段完成。
 
 ## Step 12a：读取设计文档
 
@@ -70,13 +70,13 @@ docs/orchestrate/issues/<slug>/
 <描述这个 vertical slice 的端到端行为>
 
 ## Small issues
-<!-- PENDING: plan-writer 将在 plan-writing 阶段补全小 issue 拆分 -->
+<!-- PENDING: plan_writer 将在 plan-writing 阶段补全小 issue 拆分 -->
 
 ## Blocked by
 - <其他大 issue 编号或 "None">
 ```
 
-**`## Small issues` 章节留空**——标记 `<!-- PENDING -->`，由 plan-writer 在 plan-writing 阶段填充。
+**`## Small issues` 章节留空**——标记 `<!-- PENDING -->`，由 plan_writer 在 plan-writing 阶段填充。
 
 ## Step 12f：发布 GitHub Issue
 

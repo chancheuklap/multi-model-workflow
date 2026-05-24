@@ -152,11 +152,11 @@ Budget：Release Gate 最多 2 个 dispatch（含 early + final），已包含�
 
 1. 评估 blocker 严重程度和修复范围
 2. 简单（≤ 2 文件、修复方向明确）→ Coordinator 直接修
-3. 复杂 → 派 `complex-pack-executor`：
+3. 复杂 → 派 `complex_pack_executor`：
 
 ```
-Agent({
-  subagent_type: "complex-pack-executor",
+spawn_agent({
+  agent_type: "complex_pack_executor",
   description: "Fix Final Release blocker: <blocker summary>",
   prompt: "
     ## Scope
