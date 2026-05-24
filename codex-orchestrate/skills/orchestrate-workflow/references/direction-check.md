@@ -31,7 +31,7 @@ workflow-state 写入：
 
 ### Step 2: Block
 `validate-pack-dispatch.sh` 检查 `pending_direction_check.ack_status`：
-- `"pending"` → 阻止新 Worker dispatch（codex-reviewer 除外）
+- `"pending"` → 阻止新 Worker dispatch（codex_reviewer 除外）
 - `"acknowledged"` 或 null → 放行
 
 ### Step 3: User Confirm
@@ -72,7 +72,7 @@ state.sh direction-check ack --run-id <run_id> --action adjust
 ## 约束
 
 - 同一阈值只触发一次（hook 检查 `pending_direction_check` 是否已存在）
-- codex-reviewer dispatch 不受 Direction Check 阻塞（review 本身是消耗 budget 的行为，不能阻止）
+- codex_reviewer dispatch 不受 Direction Check 阻塞（review 本身是消耗 budget 的行为，不能阻止）
 - Direction Check 是纯用户交互，不自动决策
 
 ---

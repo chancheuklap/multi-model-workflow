@@ -67,7 +67,7 @@ Reviewer must declare which modules/stacks they lack experience with and which f
 Compaction recovery: `.agent-id` present but no `review-results/` -> wait for that reviewer agent. If the `.agent-id` is missing for a targeted re-review, mark BLOCKED; do not create a new reviewer for the same baseline.
 <!-- END: review-dispatch -->
 
-Review prompt 写入 `.claude/multi-model-workflow/review-prompts/multi-pr-integration-review.md`：
+Review prompt 写入 `.codex/multi-model-workflow/review-prompts/multi-pr-integration-review.md`：
 
 ```markdown
 ## Scope
@@ -218,17 +218,18 @@ Multi-PR 增加验证维度：对照大设计文档确认 spec 判断 + 对照�
 - 简单修复（≤ 2 文件、不碰合同）→ Coordinator 直接修
 - 复杂修复 → 派 worker
 
-修复后做 **Targeted Re-Review**。按以下步骤派发 Codex review（复用已有 `CODEX_SCRIPT`）：
-1. 写 prompt → `review-prompts/<gate>.md`
-2. `node "$CODEX_SCRIPT" task --background --prompt-file .claude/multi-model-workflow/review-prompts/<gate>.md --model gpt-5.4 --effort xhigh` → 记录 JOB_ID，写入 `review-prompts/<gate>.job-id`
-3. `node "$CODEX_SCRIPT" status "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)" --wait --timeout-ms 600000`（run_in_background: true）
-4. `node "$CODEX_SCRIPT" result "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)"` → 存到 `review-results/<gate>.md`
+修复后做 **Targeted Re-Review**：
+1. 写 prompt → `.codex/multi-model-workflow/review-prompts/<gate>.md`
+2. 读取 baseline reviewer `agent_id`：`.codex/multi-model-workflow/review-agents/multi-pr-integration-review.agent-id`
+3. `send_input({ target: "<baseline reviewer agent_id>", message: "<full contents of review-prompts/<gate>.md>" })`
+4. `wait_agent({ targets: ["<baseline reviewer agent_id>"], timeout_ms: 600000 })`
+5. 将 reviewer 最终消息存到 `.codex/multi-model-workflow/review-results/<gate>.md`
 
-Compaction 恢复：有 `.job-id` 无对应 `review-results/` → 从 Step 3 继续。
+Compaction 恢复：有 `.agent-id` 无对应 `review-results/` → wait 该 reviewer agent；targeted re-review 缺少 baseline `.agent-id` 时 BLOCKED，不新建 reviewer。
 
 gate 名使用 `multi-pr-repair-<round>`（`<round>` = 当前修复轮次 1/2），不覆盖 baseline 结果。
 
-Review prompt 写入 `.claude/multi-model-workflow/review-prompts/multi-pr-repair-<round>.md`：
+Review prompt 写入 `.codex/multi-model-workflow/review-prompts/multi-pr-repair-<round>.md`：
 
 ```markdown
 ## Scope

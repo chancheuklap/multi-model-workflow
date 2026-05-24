@@ -65,7 +65,7 @@ Reviewer must declare which modules/stacks they lack experience with and which f
 Compaction recovery: `.agent-id` present but no `review-results/` -> wait for that reviewer agent. If the `.agent-id` is missing for a targeted re-review, mark BLOCKED; do not create a new reviewer for the same baseline.
 <!-- END: review-dispatch -->
 
-以下是 review prompt 内容（写入 `.claude/multi-model-workflow/review-prompts/plan-impl-review-N.md`）：
+以下是 review prompt 内容（写入 `.codex/multi-model-workflow/review-prompts/plan-impl-review-N.md`）：
 
 ```markdown
 ## Scope

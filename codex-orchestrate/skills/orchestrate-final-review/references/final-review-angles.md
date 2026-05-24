@@ -84,7 +84,7 @@ Compaction recovery: `.agent-id` present but no `review-results/` -> wait for th
 
 ### Baseline 1：Regression Sweep + Intent Coverage + Cross-Plan Integration
 
-Review prompt 写入 `.claude/multi-model-workflow/review-prompts/final-review-baseline-1.md`：
+Review prompt 写入 `.codex/multi-model-workflow/review-prompts/final-review-baseline-1.md`：
 
 ```markdown
 ## Scope
@@ -212,7 +212,7 @@ Disposition required:
 
 独立第二视角对最终实现做正确性、回归和集成审查。两个 baseline 角度互不重叠——Baseline 1 聚焦 design intent 和跨 pack 完整性，Baseline 2 聚焦代码级正确性和安全性。
 
-Review prompt 写入 `.claude/multi-model-workflow/review-prompts/final-review-baseline-2.md`：
+Review prompt 写入 `.codex/multi-model-workflow/review-prompts/final-review-baseline-2.md`：
 
 ```markdown
 ## Scope

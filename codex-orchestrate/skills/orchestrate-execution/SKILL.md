@@ -253,7 +253,7 @@ Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin i
   "protocol_version": "1",
   "run_id": "<run_id>",
   "phase": "<plan-writing|execution|final-review|discovery>",
-  "agent_role": "<pack-executor|complex-pack-executor|plan-writer|codex-reviewer>",
+  "agent_role": "<pack-executor|complex-pack-executor|plan-writer|codex_reviewer>",
   "agent_id": "<existing agent_id or null for first dispatch>",
   "pack_id": "<N.M or null>",
   "repair_round": 0,
@@ -267,7 +267,7 @@ Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin i
 ```
 
 For repair (repair_round >= 1): set `disposition_refs` to array of accepted finding IDs.
-For codex-reviewer dispatches: set `review_intent` and `exception_code` for targeted-re-review.
+For codex_reviewer dispatches: set `review_intent` and `exception_code` for targeted-re-review.
 
 Hooks parse this block. Missing/malformed envelope = dispatch BLOCKED.
 
@@ -522,22 +522,35 @@ Pack 数 ≤ 8 则按当前方式一次性 review。
 
 同一 Plan 内所有 Pack 完成 Open Items 处置 + Git Checkpoint 后，派发 **1 个** baseline Codex reviewer 覆盖该 Plan 全部代码变更。
 
-**Codex review 派发步骤**（`CODEX_SCRIPT` 未定义时先执行 `CODEX_SCRIPT="$(find ~/.claude/plugins -path '*/codex/scripts/codex-companion.mjs' -type f 2>/dev/null | head -1)"`）：
+**Codex review 派发步骤**：
 
-1. Write prompt → `review-prompts/<gate>.md`（prefix with DISPATCH_ENVELOPE, `agent_role: "codex-reviewer"`）
+1. Write prompt → `.codex/multi-model-workflow/review-prompts/<gate>.md`（prefix with DISPATCH_ENVELOPE, `agent_role: "codex_reviewer"`）
    - Code diffs included in review prompts MUST be wrapped:
      `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
 2. Select model by phase:
-   - `cursor.phase in {discovery, plan-writing}` → `--model gpt-5.5 --effort xhigh`
-   - `cursor.phase in {execution, final-review}` → `--model gpt-5.4 --effort xhigh`
+   - `cursor.phase in {discovery, plan-writing}` → `model: "gpt-5.5"`, `reasoning_effort: "xhigh"`
+   - `cursor.phase in {execution, final-review}` → `model: "gpt-5.4"`, `reasoning_effort: "xhigh"`
 3. Dispatch（区分 baseline vs targeted re-review）：
    - **Baseline review**（gate name does not contain `-repair-`）：
-     `node "$CODEX_SCRIPT" task --background --prompt-file <path> <model flags>`
+     ```
+     spawn_agent({
+       agent_type: "codex_reviewer",
+       message: "<full contents of review-prompts/<gate>.md>",
+       model: "<phase-selected model>",
+       reasoning_effort: "xhigh"
+     })
+     ```
+     Record the returned reviewer `agent_id` into `.codex/multi-model-workflow/review-agents/<gate>.agent-id`.
    - **Targeted re-review**（gate name contains `-repair-`）：
-     `node "$CODEX_SCRIPT" task --background --resume --prompt-file <path> <model flags>`
-   → record JOB_ID into `review-prompts/<gate>.job-id`
-4. Wait: `node "$CODEX_SCRIPT" status "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)" --wait --timeout-ms 600000`（run_in_background: true）
-5. Result: `node "$CODEX_SCRIPT" result "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)"` → `review-results/<gate>.md`
+     ```
+     send_input({
+       target: "<baseline reviewer agent_id>",
+       message: "<full contents of review-prompts/<gate>.md>"
+     })
+     ```
+     The targeted prompt envelope MUST set `review_intent: "targeted-re-review"`, `exception_code`, and `agent_id` to the baseline reviewer `agent_id`.
+4. Wait: `wait_agent({ targets: ["<reviewer agent_id>"], timeout_ms: 600000 })`.
+5. Result: save the reviewer final message from `wait_agent` into `.codex/multi-model-workflow/review-results/<gate>.md`.
 
 **Confidence rubric（REQUIRED in every review prompt）**：
 - 1-3: low confidence. Coordinator may suppress without deep investigation.
@@ -547,9 +560,9 @@ Pack 数 ≤ 8 则按当前方式一次性 review。
 **Bias indicators（REQUIRED at end of review output）**：
 Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
 
-Compaction recovery: `.job-id` present but no `review-results/` → resume from Step 4.
+Compaction recovery: `.agent-id` present but no `review-results/` → wait for that reviewer agent. If the `.agent-id` is missing for a targeted re-review, mark BLOCKED; do not create a new reviewer for the same baseline.
 
-Review prompt 写入 `.claude/multi-model-workflow/review-prompts/plan-impl-review-N.md`：
+Review prompt 写入 `.codex/multi-model-workflow/review-prompts/plan-impl-review-N.md`：
 
 ```markdown
 ## Scope
@@ -561,7 +574,7 @@ All Task Packs within this plan have been executed and committed.
 - Plan: docs/orchestrate/plans/<slug>/00N-*.md
 - Source design: docs/orchestrate/design/<slug>.md
 - Source issue: docs/orchestrate/issues/<slug>/00N-*.md
-- Scope Contract: .claude/multi-model-workflow/scope-<run_id>.md
+- Scope Contract: .codex/multi-model-workflow/scope-<run_id>.md
 
 ## Pack summary
 | Pack | Worker verdict | Repair rounds | Changed files |

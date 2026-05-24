@@ -73,7 +73,7 @@ Compaction recovery: `.agent-id` present but no `review-results/` -> wait for th
 
 ## Baseline 1: Design Content Review
 
-Review prompt 写入 `.claude/multi-model-workflow/review-prompts/design-content-review.md`：
+Review prompt 写入 `.codex/multi-model-workflow/review-prompts/design-content-review.md`：
 
 ```markdown
 ## Scope
@@ -144,7 +144,7 @@ Disposition required:
 
 ## Baseline 2: Project Alignment Review
 
-Review prompt 写入 `.claude/multi-model-workflow/review-prompts/design-alignment-review.md`：
+Review prompt 写入 `.codex/multi-model-workflow/review-prompts/design-alignment-review.md`：
 
 ```markdown
 ## Scope

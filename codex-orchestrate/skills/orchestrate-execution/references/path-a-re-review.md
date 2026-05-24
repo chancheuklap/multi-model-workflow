@@ -19,11 +19,18 @@ state.sh path-a-escalation start --run-id <run_id> --finding-id <finding_id> --r
 修改 <= 2 个文件，不碰合同边界。跑受影响的测试确认修复。
 
 ### Step 3: Dispatch Targeted Re-Review
-```bash
-# 写 review prompt
-# 使用 --resume 继续 baseline reviewer session
-node "$CODEX_SCRIPT" task --background --resume --prompt-file <repair-review-prompt> --model gpt-5.4 --effort xhigh
+```text
+send_input({
+  target: "<baseline reviewer agent_id>",
+  message: "<full contents of .codex/multi-model-workflow/review-prompts/<gate>.md>"
+})
+wait_agent({
+  targets: ["<baseline reviewer agent_id>"],
+  timeout_ms: 600000
+})
 ```
+
+Targeted prompt envelope 必须设置 `review_intent: "targeted-re-review"`、`exception_code: "path_a_self_fix"`，并把 `agent_id` 设置为 baseline reviewer `agent_id`。
 
 ### Step 4: Update
 记录 Codex 返回的 verdict：
@@ -47,7 +54,7 @@ Codex 报告仍 needs repair → **必须升级 Path B**，不允许 Coordinator
 # validate-pack-dispatch.sh 会检查 path_a_escalation 中是否有 blocked entry
 ```
 
-→ 走 Path B：SendMessage 给原 worker 执行修复
+→ 走 Path B：`send_input` 给原 worker 执行修复
 
 ### Step 6: Clear
 Path B 修复完成且 targeted re-review 通过后：

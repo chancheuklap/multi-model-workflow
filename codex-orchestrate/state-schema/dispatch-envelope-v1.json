@@ -26,7 +26,7 @@
     },
     "exception_code": {
       "oneOf": [
-        { "type": "string", "enum": ["3plus_files_control_flow", "user_requested", "rca_root_cause"] },
+        { "type": "string", "enum": ["3plus_files_control_flow", "user_requested", "rca_root_cause", "path_a_self_fix"] },
         { "type": "null" }
       ]
     },
