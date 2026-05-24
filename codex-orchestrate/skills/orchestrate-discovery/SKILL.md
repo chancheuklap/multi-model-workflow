@@ -109,7 +109,7 @@ CONTEXT.md 和 ADR 格式 → `references/discovery-formats.md`
 
 ## Step 1-2：探索项目上下文 + 判断 scope
 
-读取 CLAUDE.md 及链入文档、SPEC / ADR / CONTEXT.md、agents.overrides.md、近期 commits。评估需求规模——过大则拆成独立子项目。
+读取 AGENTS.md 及链入文档、SPEC / ADR / CONTEXT.md、agents.overrides.md、近期 commits。评估需求规模——过大则拆成独立子项目。
 
 ## Steps 3-6：与用户讨论
 

@@ -81,7 +81,7 @@ Review prompt 写入 `.codex/multi-model-workflow/review-prompts/design-content-
 Design Content Review — 审设计自身是否完整、可测试、可执行。
 
 ## Read first
-<project docs: CLAUDE.md, CONTEXT.md, ADRs, relevant SPEC>
+<project docs: AGENTS.md, CONTEXT.md, ADRs, relevant SPEC>
 
 ## Source design
 docs/orchestrate/design/<slug>.md
@@ -152,7 +152,7 @@ Review prompt 写入 `.codex/multi-model-workflow/review-prompts/design-alignmen
 Project Alignment Review — 审设计是否符合项目事实和约束。
 
 ## Read first
-<project docs: CLAUDE.md, CONTEXT.md, ADRs, relevant SPEC>
+<project docs: AGENTS.md, CONTEXT.md, ADRs, relevant SPEC>
 
 ## Source design
 docs/orchestrate/design/<slug>.md

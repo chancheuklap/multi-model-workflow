@@ -93,7 +93,7 @@ Final Review for a completed implementation. All Plans have individually
 passed Plan Implementation Review. Your job is to verify the COMBINED result.
 
 ## Read first
-<project docs: CLAUDE.md, CONTEXT.md, ADRs, relevant SPEC>
+<project docs: AGENTS.md, CONTEXT.md, ADRs, relevant SPEC>
 
 ## Feature slug（从 Scope Contract 读取）
 <YYYY-MM-DD-feature>
