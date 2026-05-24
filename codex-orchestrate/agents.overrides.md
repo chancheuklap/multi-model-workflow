@@ -12,3 +12,4 @@
 - Current workflow state paths are `.codex/multi-model-workflow/*`. Do not write new runtime instructions against old-host state paths.
 - Worktree instructions must be concrete and automatic: create Git worktrees under `${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>` with `git worktree add -b`, never with UI-only steps, pseudo tools, or custom roots. Do not switch the main repository branch before creating the worktree.
 - `architecture-draft.md` is the Codex source architecture authority. Keep it in Chinese and keep it detailed enough to audit workflow routes, state files, document artifacts, subagents, hooks, scripts, tests, and Codex-specific runtime rulings.
+- Architecture documentation must reflect the current runtime/source tree. Do not change runtime contracts, state machines, templates, hooks, or agent dispatch behavior just to make the architecture draft look consistent; runtime behavior changes need their own commit and end-to-end evidence.

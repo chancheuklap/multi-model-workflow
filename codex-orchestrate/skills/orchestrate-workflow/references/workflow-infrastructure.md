@@ -50,7 +50,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 | 所有 Plans 通过 Plan Implementation Review + 代码未变 | orchestrate-final-review |
 | Final Review 通过 | Closing（Step 21） |
 
-**Scope Contract 和 Budget File 已存在** → 读取并验证。`pack_count` 或 `editable artifacts` 与当前 plan 不一致 → 更新。
+**Scope Contract 和 workflow-state 已存在** → 读取并验证。`plan_count` 或 `editable artifacts` 与当前 plan 不一致 → 回到对应 phase 重新确认，不在恢复阶段静默改写预算。
 
 验证通过后，按上表路由到对应 phase。**不再执行 Steps 1-2**。
 
@@ -74,7 +74,7 @@ docs/orchestrate/
 │       ├── 001-<large-issue-slug>.md   # 大 issue 文档（内含小 issue 拆分）
 │       ├── 002-<large-issue-slug>.md
 │       └── ...
-└── mockups/         # prototype / frontend-design 产出
+└── mockups/         # prototype / build-web-apps:frontend-app-builder / impeccable 产出
     └── YYYY-MM-DD-<feature>/
         ├── *.html / *.png / *.svg
         └── README.md                   # mockup 索引（页面 × viewport × states）
