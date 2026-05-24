@@ -101,7 +101,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-discovery" })
 
 重新进入 `orchestrate-discovery` Step 12（大 issue 拆分）。Coordinator 执行前必须：
 
-1. **Read** Scope Contract（`.claude/multi-model-workflow/scope-<run_id>.md`）获取 slug
+1. **Read** Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）获取 slug
 2. **Read** 设计文档（`docs/orchestrate/design/<slug>.md`）确认内容在上下文中
 3. 进入 `Skill({ skill: "multi-model-workflow:orchestrate-discovery" })` 的 Step 12 流程
 

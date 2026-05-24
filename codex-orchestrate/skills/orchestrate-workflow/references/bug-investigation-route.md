@@ -53,7 +53,7 @@ Agent({
 
 ### `root cause in design/plan` → Discovery Seed
 
-Coordinator 整理 analyst report 写入 `.claude/multi-model-workflow/bug-seed-<run_id>.md`：
+Coordinator 整理 analyst report 写入 `.codex/multi-model-workflow/bug-seed-<run_id>.md`：
 
 ```text
 ## Bug-seeded Discovery
@@ -69,8 +69,8 @@ Analyst findings:
 ```
 
 此时执行三项基础设施操作：
-1. **写入 Bug Seed 文件**：写入 `.claude/multi-model-workflow/bug-seed-<run_id>.md`。
-2. **更新 Scope Contract**：更新 `.claude/multi-model-workflow/scope-<run_id>.md` 的 Source artifacts（加入 `bug-seed-<run_id>.md`）、Editable artifacts（加入 design / plan）和 Out of scope。
+1. **写入 Bug Seed 文件**：写入 `.codex/multi-model-workflow/bug-seed-<run_id>.md`。
+2. **更新 Scope Contract**：更新 `.codex/multi-model-workflow/scope-<run_id>.md` 的 Source artifacts（加入 `bug-seed-<run_id>.md`）、Editable artifacts（加入 design / plan）和 Out of scope。
 3. **创建 Budget File**（Step 2c）。
 
 ## Step 17：Simple Bug — Codex Review

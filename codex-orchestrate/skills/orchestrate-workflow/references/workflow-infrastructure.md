@@ -18,7 +18,7 @@
 
 | 状态 | 动作 |
 | --- | --- |
-| `IN_WORKTREE` + `.claude/multi-model-workflow/active-run-id` 存在 | 进入 0b（断点续传） |
+| `IN_WORKTREE` + `.codex/multi-model-workflow/active-run-id` 存在 | 进入 0b（断点续传） |
 | `IN_WORKTREE` + 无 `active-run-id` | 提示 "没有找到活跃的 workflow 状态文件，将作为全新任务处理" → Step 1（Entry Gate） |
 | `MAIN_REPO` | Step 1（Entry Gate） |
 
@@ -27,8 +27,8 @@
 用户已在工作树中启动 Claude，直接读取本地状态文件恢复。
 
 ```bash
-RUN_ID=$(cat .claude/multi-model-workflow/active-run-id)
-SLUG=$(grep -A1 '^## Feature slug' ".claude/multi-model-workflow/scope-${RUN_ID}.md" | tail -1 | xargs)
+RUN_ID=$(cat .codex/multi-model-workflow/active-run-id)
+SLUG=$(grep -A1 '^## Feature slug' ".codex/multi-model-workflow/scope-${RUN_ID}.md" | tail -1 | xargs)
 ```
 
 **Source Stability 检查**：Budget file 记录 `last_gate_phase` 和 `last_gate_timestamp`。检查 source artifacts 自上次 gate 通过后是否被修改：
@@ -122,11 +122,11 @@ Entry Gate（Step 1）完成后执行。创建工作树、写入状态文件。
    ```
 2. 确认分支名：`git branch --show-current`
 
-工作树创建后，后续所有状态文件（Scope Contract、workflow-state、execution-state、pack-returns）写在工作树的 `.claude/multi-model-workflow/` 中。工作树删除时，状态文件随之清除。
+工作树创建后，后续所有状态文件（Scope Contract、workflow-state、execution-state、pack-returns）写在工作树的 `.codex/multi-model-workflow/` 中。工作树删除时，状态文件随之清除。
 
 ### Step 2b：Write Scope Contract
 
-从用户提供的功能描述提取 kebab-case 核心词，加上当天日期组成 feature slug（`YYYY-MM-DD-<feature>`）；不确定时一次性问用户确认。然后创建 `.claude/multi-model-workflow/scope-<run_id>.md`：
+从用户提供的功能描述提取 kebab-case 核心词，加上当天日期组成 feature slug（`YYYY-MM-DD-<feature>`）；不确定时一次性问用户确认。然后创建 `.codex/multi-model-workflow/scope-<run_id>.md`：
 
 ```markdown
 # Scope Contract: <run_id>
@@ -154,12 +154,12 @@ Entry Gate（Step 1）完成后执行。创建工作树、写入状态文件。
 
 ### Step 2c：Workflow State File（仅 Formal Orchestrate）
 
-创建 `.claude/multi-model-workflow/workflow-state-<run_id>.json` via `state.sh init`：
+创建 `.codex/multi-model-workflow/workflow-state-<run_id>.json` via `state.sh init`：
 
 ```bash
-mkdir -p .claude/multi-model-workflow
+mkdir -p .codex/multi-model-workflow
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" init --run-id "<run_id>" --slug "<slug>" --route formal
-echo "<run_id>" > .claude/multi-model-workflow/active-run-id
+echo "<run_id>" > .codex/multi-model-workflow/active-run-id
 ```
 
 Budget 在 plan count 确认后初始化（plan-writing Step 12a）：

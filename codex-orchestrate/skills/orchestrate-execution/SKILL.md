@@ -130,7 +130,7 @@ Plan Review 通过 → 两级循环（Plan → Pack）→ Pack 执行 + Git Chec
 
 ### Step 1：读取 Plan Task Pack Inventory
 
-**Read** Scope Contract（`.claude/multi-model-workflow/scope-<run_id>.md`）获取 slug → **列出** `docs/orchestrate/plans/<slug>/` 目录下所有 plan 文件 → **逐个 Read** 每份 plan 文件获取完整内容。
+**Read** Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）获取 slug → **列出** `docs/orchestrate/plans/<slug>/` 目录下所有 plan 文件 → **逐个 Read** 每份 plan 文件获取完整内容。
 
 从所有 plan 文件中汇总提取：
 
@@ -160,7 +160,7 @@ plan_queue = [Plan001, Plan002, Plan003]  ← 按 Blocked by 排序
 
 #### Step 2a：创建 Execution State File
 
-构建执行队列后立即创建 `.claude/multi-model-workflow/execution-state-<run_id>.json`，结构：
+构建执行队列后立即创建 `.codex/multi-model-workflow/execution-state-<run_id>.json`，结构：
 
 ```json
 {
@@ -184,7 +184,7 @@ Cursor, budget, review dispositions 存在 workflow-state-<run_id>.json 中。
 **同时创建 run-scoped pack-returns 目录**：
 
 ```bash
-mkdir -p .claude/multi-model-workflow/pack-returns/<run_id>
+mkdir -p .codex/multi-model-workflow/pack-returns/<run_id>
 ```
 
 Worker 的 durable return file 写入此目录（按 run_id 隔离，防止跨 run 污染）。
@@ -204,14 +204,14 @@ SHA=$(git rev-parse HEAD)
 
 ### Step 3：验证 Scope Contract + Git Checkpoint
 
-**Scope Contract**：继承 orchestrate-workflow 写的 Scope Contract（`.claude/multi-model-workflow/scope-<run_id>.md`）。验证 editable artifacts 包含 plan 中所有 owned files。
+**Scope Contract**：继承 orchestrate-workflow 写的 Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）。验证 editable artifacts 包含 plan 中所有 owned files。
 
 **Git Checkpoint**：
 - `git status --short --branch` 确认当前分支、无 stale dirty files
 - 不在 main / master / release branch 上
 - 区分当前 scope 改动和用户/其它线程改动——不 stage 不属于当前 scope 的 dirty files
 
-**Budget File**：读取 `.claude/multi-model-workflow/active-run-id` 找到 budget file，确认 `pack_count` 与 plan 中 Task Pack 数量一致。**不一致时不得自行修改 budget file**——`budget_total` 只在 plan-writing Step 12a 赋值，执行阶段不可变。不一致说明 plan 文件与 budget file 脱节，返回 `NEEDS_PLAN_REVISION` 让 plan-writing 重新计算。
+**Budget File**：读取 `.codex/multi-model-workflow/active-run-id` 找到 budget file，确认 `pack_count` 与 plan 中 Task Pack 数量一致。**不一致时不得自行修改 budget file**——`budget_total` 只在 plan-writing Step 12a 赋值，执行阶段不可变。不一致说明 plan 文件与 budget file 脱节，返回 `NEEDS_PLAN_REVISION` 让 plan-writing 重新计算。
 
 预执行准备完成 → 进入 Steps 4-9（Pack 循环）。`NEEDS_PLAN_REVISION` → 返回 orchestrate-workflow。
 
@@ -291,7 +291,7 @@ Verification commands:
 Risk flags: <trivial / normal / high-risk / ...>
 Out of scope: <what NOT to touch>
 Context hint: Your code will be reviewed alongside packs <N.1..N.M> within Plan N.
-State directory: <absolute path to .claude/multi-model-workflow — Coordinator 用 $(pwd)/.claude/multi-model-workflow 填入>
+State directory: <absolute path to .codex/multi-model-workflow — Coordinator 用 $(pwd)/.codex/multi-model-workflow 填入>
 Return contract:
   ### Verdict
   pass / blocked / needs repair / needs context
@@ -376,7 +376,7 @@ Review 只基于代码实际行为的独立分析。
 **派发前**（Coordinator 执行）：
 
 ```bash
-touch .claude/multi-model-workflow/worker-active
+touch .codex/multi-model-workflow/worker-active
 ```
 
 此 marker 文件让 `guard-doc-edit.sh` hook 识别 worker 上下文，阻止 worker 修改 docs/。
@@ -499,7 +499,7 @@ Source: Pack <N.M> worker discovery
 
 Worker 已在 Coordinator 的分支上直接 commit。Coordinator 验证并记录：
 
-1. `rm -f .claude/multi-model-workflow/worker-active`（移除 worker marker）
+1. `rm -f .codex/multi-model-workflow/worker-active`（移除 worker marker）
 2. `git log --oneline -1` 确认 Worker 的 commit 已在当前分支上
 3. 勾选 plan doc + commit：
    - `git add <plan doc>`

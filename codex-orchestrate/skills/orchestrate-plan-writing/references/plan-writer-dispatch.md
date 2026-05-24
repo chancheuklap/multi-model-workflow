@@ -10,7 +10,7 @@ Dispatch prompt 必须自足——plan-writer 不读 SKILL.md、不读 Coordinat
 
 派发当前 issue 的 plan-writer 之前，Coordinator 必须用 Read tool 确认以下内容在上下文中：
 
-1. **Read** Scope Contract（`.claude/multi-model-workflow/scope-<run_id>.md`）→ 获取 slug、run_id（首个 issue 时读取，后续复用）
+1. **Read** Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）→ 获取 slug、run_id（首个 issue 时读取，后续复用）
 2. **Read** 设计文档（`docs/orchestrate/design/<slug>.md`）→ 提取设计摘要（首个 issue 时读取，后续复用）
 3. **Read** 当前这个 issue 文件（`docs/orchestrate/issues/<slug>/00N-<issue-slug>.md`）→ 提取 What to build、Small issues、Blocked by
 

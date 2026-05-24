@@ -73,7 +73,7 @@ Review the implementation plan for: <feature>
 - Plans: docs/orchestrate/plans/<slug>/（目录，每个大 issue 一份 plan 文件）
 - Source design: docs/orchestrate/design/<slug>.md
 - Source issues: docs/orchestrate/issues/<slug>/
-- Scope Contract: .claude/multi-model-workflow/scope-<run_id>.md
+- Scope Contract: .codex/multi-model-workflow/scope-<run_id>.md
 
 ## Review angles (single integrated review)
 

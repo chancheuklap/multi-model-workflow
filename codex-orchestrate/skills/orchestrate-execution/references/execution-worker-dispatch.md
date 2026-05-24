@@ -54,7 +54,7 @@ Verification commands:
 Risk flags: <trivial / normal / high-risk / ...>
 Out of scope: <what NOT to touch>
 Context hint: Your code will be reviewed alongside packs <N.1..N.M> within Plan N.
-State directory: <absolute path to .claude/multi-model-workflow — Coordinator 用 $(pwd)/.claude/multi-model-workflow 填入>
+State directory: <absolute path to .codex/multi-model-workflow — Coordinator 用 $(pwd)/.codex/multi-model-workflow 填入>
 Return contract:
   ### Verdict
   pass / blocked / needs repair / needs context

@@ -38,9 +38,9 @@ Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问�
 
 ## Step 2：Scope Contract + Budget File
 
-**Scope Contract**：继承 orchestrate-workflow 写的 Scope Contract（`.claude/multi-model-workflow/scope-<run_id>.md`）。从中读取 feature slug。验证 editable artifacts 包含约定路径（`docs/orchestrate/design/<slug>.md`、`docs/orchestrate/plans/<slug>/`、`docs/orchestrate/issues/<slug>/`）。
+**Scope Contract**：继承 orchestrate-workflow 写的 Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）。从中读取 feature slug。验证 editable artifacts 包含约定路径（`docs/orchestrate/design/<slug>.md`、`docs/orchestrate/plans/<slug>/`、`docs/orchestrate/issues/<slug>/`）。
 
-**Budget File**：读取 `.claude/multi-model-workflow/active-run-id` 找到 budget file。Budget 由 `track-review-budget.sh` hook 自动追踪。
+**Budget File**：读取 `.codex/multi-model-workflow/active-run-id` 找到 budget file。Budget 由 `track-review-budget.sh` hook 自动追踪。
 
 ---
 > **下一步**：前置条件通过 → Steps 3-8（`plan-writing-methodology.md`）。缺 design → `NEEDS_DISCOVERY`。缺大 issue 文件 → `NEEDS_ISSUES`（Coordinator 走大 issue 拆分）。小 issue 缺失由 plan-writer 在 Step 3c 自行补全。

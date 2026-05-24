@@ -253,23 +253,23 @@ flowchart TD
 
 ```
 orchestrate-workflow Step 2b
-  └─ .claude/multi-model-workflow/scope-<run_id>.md        ← Scope Contract
+  └─ .codex/multi-model-workflow/scope-<run_id>.md        ← Scope Contract
 orchestrate-workflow Step 2c
-  ├─ .claude/multi-model-workflow/workflow-state-<run_id>.json ← Workflow State（budget/cursor/dispositions/plans）（Route 1 only）
-  └─ .claude/multi-model-workflow/active-run-id             ← Active Run ID
+  ├─ .codex/multi-model-workflow/workflow-state-<run_id>.json ← Workflow State（budget/cursor/dispositions/plans）（Route 1 only）
+  └─ .codex/multi-model-workflow/active-run-id             ← Active Run ID
 orchestrate-plan-writing Step 12a
   └─ workflow-state-<run_id>.json: budget.review_total = 3P + 12, effort_total = 2 × review_total  ← Budget 赋值（P = plan 数，不可变）
 orchestrate-execution Step 2a
-  └─ .claude/multi-model-workflow/execution-state-<run_id>.json ← Execution State（pack-level status/agent_id/commit_sha）
+  └─ .codex/multi-model-workflow/execution-state-<run_id>.json ← Execution State（pack-level status/agent_id/commit_sha）
 每个 Worker 完成时
-  └─ .claude/multi-model-workflow/pack-returns/<pack-id>.json  ← Worker Durable Return
+  └─ .codex/multi-model-workflow/pack-returns/<pack-id>.json  ← Worker Durable Return
 每次 review 完成
   └─ workflow-state-<run_id>.json: budget.review_used += 1     ← Budget 消耗
 每个 phase verdict 后
   └─ workflow-state-<run_id>.json: cursor.phase + timestamp    ← Phase 标记
 Review 派发时
-  ├─ .claude/multi-model-workflow/review-prompts/<gate>.md  ← Review prompt
-  └─ .claude/multi-model-workflow/review-results/<gate>.md  ← Review result
+  ├─ .codex/multi-model-workflow/review-prompts/<gate>.md  ← Review prompt
+  └─ .codex/multi-model-workflow/review-results/<gate>.md  ← Review result
 Closing 前（cleanup-before-push.sh）
   └─ 清除 active-run-id + scope + workflow-state + execution-state + review temp files
 ```
@@ -571,7 +571,7 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 | `PostToolUse` | `Bash` | `track-review-budget.sh`：review budget 自动追踪 | 检测 `codex-companion`/`CODEX_SCRIPT` + `result` 成功执行 → 递增 `review_used`。≥ 80% → `state.sh direction-check trigger`；≥ 100% → BUDGET EXHAUSTED |
 | `PostToolUse` | `Agent` | `track-effort-budget.sh`：effort budget 追踪 | 从 `tool_input.subagent_type` 读 agent 角色 → 按角色加权递增 `effort_used`（worker = +1, explorer = +1, RCA = +2）。≥ 80% → Direction Check；≥ 100% → EXHAUSTED。`effort_total` 为 0 或 unlimited 时跳过 |
 | `PostToolUse` | `Bash(git commit *)` | `track-execution-state.sh`：commit 后更新 execution state | Pack commit 成功后更新 `packs[N.M].status = committed` + `commit_sha`。全部 committed → 输出 `NEXT` 指示派发 Plan Implementation Review |
-| `PostToolUse` | `Bash(git push *)` | `cleanup-before-push.sh`：push 成功后清理 `.claude/multi-model-workflow/` | push 成功后执行。Hotfix route 检测到 `route = "hotfix"` 时延迟清理（事后 review 仍需 state）。其他 route 删除整个 `.claude/multi-model-workflow/` 目录。拒绝删除符号链接。支持 `--force` 参数跳过 hook 输入解析和 route 检查（Hotfix Closing 手动调用） |
+| `PostToolUse` | `Bash(git push *)` | `cleanup-before-push.sh`：push 成功后清理 `.codex/multi-model-workflow/` | push 成功后执行。Hotfix route 检测到 `route = "hotfix"` 时延迟清理（事后 review 仍需 state）。其他 route 删除整个 `.codex/multi-model-workflow/` 目录。拒绝删除符号链接。支持 `--force` 参数跳过 hook 输入解析和 route 检查（Hotfix Closing 手动调用） |
 | `PostToolUse` | `Agent` | `agent-return-handler.sh`：Worker 返回后更新 execution state | 从 `tool_input` 提取 DISPATCH_ENVELOPE → 读 `pack-returns/<run_id>/<pack-id>.json`（或解析 `tool_response` 作 fallback）→ 更新 `packs[N.M].status = returned` + `worker_verdict`。非 execution 路线（无 execution-state）静默放行 |
 
 **共享库**：`hooks/lib/parse-envelope.sh` — DISPATCH_ENVELOPE 解析原语，被 `gate-codex-review.sh`、`validate-pack-dispatch.sh`、`agent-return-handler.sh` 共用。从 prompt 提取 `<!-- DISPATCH_ENVELOPE {...} -->` JSON 块，校验必填字段和条件规则。
@@ -828,7 +828,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 
 `root-cause-analyst` 返回 `root cause in design/plan` 时不直接回 Discovery，而是：
 
-1. 创建 `.claude/multi-model-workflow/bug-seed-<run_id>.md`（结构化摘要：原始 bug · analyst findings · root cause · 受影响模块 · 排除假设 · 建议设计变更）
+1. 创建 `.codex/multi-model-workflow/bug-seed-<run_id>.md`（结构化摘要：原始 bug · analyst findings · root cause · 受影响模块 · 排除假设 · 建议设计变更）
 2. 更新 Scope Contract：bug seed 加入 Source artifacts，design/plan 加入 Editable artifacts
 3. 创建 Budget File
 4. 以 seed file 作为 Discovery 上下文进入 Route 1（Formal Orchestrate）
@@ -882,7 +882,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 | 维度 | Plugin | Codex Runtime |
 |------|--------|---------------|
 | Skill 调用语法 | `Skill({ skill: "multi-model-workflow:..." })` | 裸名 `orchestrate-*` |
-| 状态文件路径 | `.claude/multi-model-workflow/` | `.codex/multi-model-workflow/` |
+| 状态文件路径 | `.codex/multi-model-workflow/` | `.codex/multi-model-workflow/` |
 | Review 派发 | `codex-companion.mjs` Bash 调用 | `codex-companion.mjs`（统一通过 `review-dispatch` resolver 派发） |
 | Agent 命名 | `plan-writer`（连字符） | `plan_writer`（下划线） |
 | Worker 隔离 | 串行执行，同分支 | disjoint write sets |
@@ -958,7 +958,7 @@ bash plugin/build/build.sh --apply --plugin-dir plugin   # 应用（原子写入
 |------|------|
 | `state.sh`（26 KB） | 核心状态机 CLI：transition / agent-id / budget / direction-check / idempotency / plans / disposition / path-a-escalation 子命令 |
 | `guard-premature-push.sh` | PreToolUse hook：阻止未完成时 push/PR，阻止 squash merge |
-| `cleanup-before-push.sh` | PostToolUse hook：push 成功后清理 `.claude/multi-model-workflow/` |
+| `cleanup-before-push.sh` | PostToolUse hook：push 成功后清理 `.codex/multi-model-workflow/` |
 | `learnings-jsonl.sh` | Learnings JSONL 管理：append / read / read --with-trust-gate |
 | `pack-count-validator.sh` | Plan Pack 数量校验（WARN 阈值默认 8） |
 | `run-summary.sh` | 从 workflow-state 生成 run summary（指标聚合） |

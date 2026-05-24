@@ -39,7 +39,7 @@ Plan 文件数量必须与 issue 文件数量一致。缺少对应 plan 的 issu
 Task Pack Inventory Gate 通过后，**汇总 plan 文件数量**（P = 总 plan 数）和 **pack 数量**（N = 总 pack 数）。立即初始化 budget：
 
 ```bash
-bash .claude/multi-model-workflow/../plugin/scripts/state.sh budget initialize \
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget initialize \
   --run-id "$RUN_ID" --plan-count P
 ```
 

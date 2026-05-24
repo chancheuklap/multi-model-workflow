@@ -77,7 +77,7 @@ All Task Packs within this plan have been executed and committed.
 - Plan: docs/orchestrate/plans/<slug>/00N-*.md
 - Source design: docs/orchestrate/design/<slug>.md
 - Source issue: docs/orchestrate/issues/<slug>/00N-*.md
-- Scope Contract: .claude/multi-model-workflow/scope-<run_id>.md
+- Scope Contract: .codex/multi-model-workflow/scope-<run_id>.md
 
 ## Pack summary
 | Pack | Worker verdict | Repair rounds | Changed files |

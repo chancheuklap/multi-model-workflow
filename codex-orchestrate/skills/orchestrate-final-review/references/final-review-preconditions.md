@@ -13,7 +13,7 @@
 | **Source design** | 目标行为、用户场景、验收标准、合同边界、发布风险、人工门禁 |
 | **Plan** | Task Pack inventory、Source Coverage Map、File/Responsibility Map、发布风险和人工门禁表 |
 | **Plan completion summary** | 每个 Plan 的 Plan Implementation Review verdict、repair rounds；每个 pack 的 worker verdict、已验证行为、Open Items |
-| **Scope Contract** | `.claude/multi-model-workflow/scope-<run_id>.md`——source artifacts、editable artifacts、out of scope |
+| **Scope Contract** | `.codex/multi-model-workflow/scope-<run_id>.md`——source artifacts、editable artifacts、out of scope |
 | **Git state** | `git log <starting_commit>..HEAD --oneline` 获取所有 pack commits；`git diff <starting_commit>..HEAD --stat` 获取完整变更文件列表 |
 
 **starting commit**：从 budget file 的 `starting_commit` 字段读取（在 Infrastructure Setup Step 6 记录）。

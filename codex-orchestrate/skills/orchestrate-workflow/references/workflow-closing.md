@@ -21,7 +21,7 @@ Formal Orchestrate 的 pack commits 已在 execution 完成。此处只处理 Fi
 
 ## Step 22：Push + Open PR
 
-临时文件由 `cleanup-before-push.sh` PreToolUse hook 自动清理——`git push` 或 `gh pr create` 执行前，hook 删除 `.claude/multi-model-workflow/` 下的 active-run-id、budget、scope 文件。
+临时文件由 `cleanup-before-push.sh` PreToolUse hook 自动清理——`git push` 或 `gh pr create` 执行前，hook 删除 `.codex/multi-model-workflow/` 下的 active-run-id、budget、scope 文件。
 
 ```bash
 git push -u origin <branch>
@@ -59,7 +59,7 @@ PR body：
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-summary.sh" "<run_id>"
 ```
 
-输出写入 `.claude/multi-model-workflow/run-summary-<run_id>.json`。用于后续 workflow 的 effort budget 校准。
+输出写入 `.codex/multi-model-workflow/run-summary-<run_id>.json`。用于后续 workflow 的 effort budget 校准。
 
 ## Step 22b：退出工作树
 
