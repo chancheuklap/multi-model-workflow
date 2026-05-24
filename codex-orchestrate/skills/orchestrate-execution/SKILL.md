@@ -135,7 +135,7 @@ Plan Review 通过 → 两级循环（Plan → Pack）→ Pack 执行 + Git Chec
 从所有 plan 文件中汇总提取：
 
 - 所有 Task Pack 的编号、标题、所属 plan / issue reference
-- 每个 pack 的 `Dependencies`、`Parallel safety`、`Risk flags`、`发布风险`
+- 每个 pack 的 `Dependencies`、`Risk flags`、`发布风险`
 - 每份 plan header 中的 `Blocked by`（大 issue 级依赖，用于排列跨 plan 的执行顺序）
 - Source design path（`docs/orchestrate/design/<slug>.md`）、Source issues path（`docs/orchestrate/issues/<slug>/`）
 - 合并所有 plan 的 File / Responsibility Map
@@ -147,19 +147,15 @@ Plan Review 通过 → 两级循环（Plan → Pack）→ Pack 执行 + Git Chec
 
 **第一级：Plan 执行顺序**（串行）。根据各 plan header 中的 `Blocked by` 字段排序。无依赖关系的 Plan 按编号顺序执行。
 
-**第二级：Pack 执行顺序**（同 Plan 内，可并行）。根据 pack 间的 `Dependencies` 和 `Parallel safety` 字段排序：
-
-**串行条件（默认）**：同一文件 / 同一 Pydantic model / 同一 DB migration tree / 同一 JSON registry / billing / permission / auth / runtime / deployment / rollback / release gate / 同一 UI action contract。
-
-**并行条件**：pack 间无共享 owned files、无共享 contract surface、各自可独立验证。并行 pack 通过 `dispatch-gateway.sh --mode worktree` 在独立 worktree 中执行。
+**第二级：Pack 执行顺序**（同 Plan 内，严格串行）。根据 pack 间的 `Dependencies` 字段排序，逐个执行。
 
 排列结果：
 
 ```
 plan_queue = [Plan001, Plan002, Plan003]  ← 按 Blocked by 排序
-  Plan001.pack_queue = [[1.1], [1.2, 1.3], [1.4]]  ← 内部按 Dependencies 排序
-  Plan002.pack_queue = [[2.1, 2.2], [2.3]]
-  Plan003.pack_queue = [[3.1], [3.2]]
+  Plan001.pack_queue = [1.1, 1.2, 1.3, 1.4]  ← 内部按 Dependencies 排序，逐个串行
+  Plan002.pack_queue = [2.1, 2.2, 2.3]
+  Plan003.pack_queue = [3.1, 3.2]
 ```
 
 #### Step 2a：创建 Execution State File
@@ -172,15 +168,15 @@ plan_queue = [Plan001, Plan002, Plan003]  ← 按 Blocked by 排序
   "plans": {
     "001": {
       "packs": {
-        "1.1": { "status": "pending", "agent_id": null, "worker_backend": null, "worker_thread_id": null, "worker_job_file": null, "commit_sha": null, "worker_verdict": null },
-        "1.2": { "status": "pending", "agent_id": null, "worker_backend": null, "worker_thread_id": null, "worker_job_file": null, "commit_sha": null, "worker_verdict": null }
+        "1.1": { "status": "pending", "agent_id": null, "commit_sha": null, "worker_verdict": null },
+        "1.2": { "status": "pending", "agent_id": null, "commit_sha": null, "worker_verdict": null }
       }
     }
   }
 }
 ```
 
-注意：execution-state 只存 pack-level 数据（status, agent_id, worker_backend, worker_thread_id, worker_job_file, commit_sha, worker_verdict）。
+注意：execution-state 只存 pack-level 数据（status, agent_id, commit_sha, worker_verdict）。
 Cursor, budget, review dispositions 存在 workflow-state-<run_id>.json 中。
 
 填入所有 Plan 和 Pack 的初始状态。
@@ -204,7 +200,7 @@ SHA=$(git rev-parse HEAD)
 # 写入 execution-state: current_plan_id = N
 ```
 
-此步由 Coordinator 执行，不由 hook 代劳——因为 start_commit 需要的是"第一个 Pack commit 之前"的 SHA。`dispatch-gateway.sh` and Codex hooks 会拦截缺少 start_commit 的 dispatch。
+此步由 Coordinator 执行，不由 hook 代劳——因为 start_commit 需要的是"第一个 Pack commit 之前"的 SHA。`validate-pack-dispatch.sh` hook 会拦截缺少 start_commit 的 dispatch。
 
 ### Step 3：验证 Scope Contract + Git Checkpoint
 
@@ -322,8 +318,7 @@ Return contract:
     "open_items": [{"tag": "<out-of-scope|needs-evaluation|bug>", "summary": "..."}],
     "concerns": "<如有>"
   }
-  注意：Worker 在 isolation worktree 中运行时，必须使用此绝对路径写入（不是相对路径），
-  确保 Coordinator 能在自己的工作树中读到该文件。
+  注意：必须使用此绝对路径写入（不是相对路径），确保 Coordinator 和 hooks 能读到该文件。
 ```
 
 ###### Pack Brief 条件字段（仅在相关时包含，不写 N/A 占位）
@@ -378,16 +373,15 @@ Review 只基于代码实际行为的独立分析。
 
 ##### Step 6：派发 Worker
 
+**派发前**（Coordinator 执行）：
+
 ```bash
-bash "${PLUGIN_ROOT}/scripts/dispatch/dispatch-gateway.sh" \
-  --mode worktree \
-  --envelope-file "<path/to/dispatch-envelope.json>" \
-  --pack-brief "<path/to/pack-brief.md>"
+touch .codex/multi-model-workflow/worker-active
 ```
 
-`agent_type` 来自 dispatch envelope 的 `agent_role` 字段；`worktree-exec.sh` 必须读取对应 `agents/<agent_role>.toml`，将其中的 `model`、`model_reasoning_effort`、`sandbox_mode`、`developer_instructions` 和 `skills.config` 注入本次 `codex exec` worker。
+此 marker 文件让 `guard-doc-edit.sh` hook 识别 worker 上下文，阻止 worker 修改 docs/。
 
-需要在当前 Codex thread 内直接派发时，使用 Codex 原生 multi-agent schema：
+**派发**（Codex 原生 multi-agent schema）：
 
 ```
 spawn_agent({
@@ -396,18 +390,18 @@ spawn_agent({
 })
 ```
 
-`dispatch-gateway.sh`、Codex hook 和 explicit pack validation 自动拦截缺少 DISPATCH_ENVELOPE、budget 未初始化或 Pack 已有 agent_id 的 dispatch。
+Worker 直接在 Coordinator 的分支上工作——不使用 worktree 隔离，所有 pack 串行执行。
 
-**After each dispatch job returns**（强制执行）：
-1. Extract `agent_id` from Codex `spawn_agent` return value, or read `agent_id = codex-exec:<thread_id>` from the `worktree-exec.sh` job record
-2. Interactive subagent path: `state.sh agent-id set --run-id <run_id> --pack-id N.M --agent-id <agent_id>`；worktree path: confirm `worktree-exec.sh` wrote `worker_backend = "codex-exec"`, `worker_thread_id`, `worker_job_file`, and `agent_id`
+`validate-pack-dispatch.sh` hook 自动拦截缺少 DISPATCH_ENVELOPE、budget 未初始化或 Pack 已有 agent_id 的 dispatch。
+
+**After each spawn_agent call returns**（强制执行）：
+1. Extract `agent_id` from Codex `spawn_agent` return value
+2. `state.sh agent-id set --run-id <run_id> --pack-id N.M --agent-id <agent_id>`
 3. Write execution state: `packs[N.M].status = dispatched`
 
-**Critical**: Codex `spawn_agent` return value or `worktree-exec.sh` job record is the only source of resumable worker identity. Without `agent_id` / `worker_thread_id` / `worker_job_file`, repair path is BLOCKED. **Omitting identity persist is forbidden**.
+**Critical**: Codex `spawn_agent` return value is the only source of resumable worker identity. Without `agent_id`, repair path is BLOCKED. **Omitting identity persist is forbidden**.
 
-并行 pack 在同一消息中发送多个 dispatch command。
-
-当 Worker 返回后需要修复时，interactive subagent 必须使用 send_input/resume_agent resume 原 worker；worktree worker 必须使用 `worktree-resume.sh` 通过 `codex exec resume <worker_thread_id>` 继续原 worker session。不得无记录创建新 dispatch。
+当 Worker 返回后需要修复时，必须使用 send_input/resume_agent resume 原 worker；不得无记录创建新 dispatch。
 
 <!-- BEGIN: state-write -->
 **State 操作参考**（通过 `state.sh` 执行所有状态变更）：
@@ -450,13 +444,13 @@ bash "${PLUGIN_ROOT}/scripts/state.sh" self-verify append \
 
 ##### Step 7：接收 Worker 返回
 
-Interactive subagent path：`subagent-stop.sh`（SubagentStop hook）根据 Codex `agent_id` 在 execution-state 中定位 Pack，读取 `pack-returns/<run_id>/<pack-id>.json`，更新 execution state（`status = returned`、`worker_verdict`），并通过 `additionalContext` 输出 `NEXT` 指令告知 Coordinator 下一步。Worktree path：`worktree-exec.sh` / `worktree-resume.sh` 在 job 完成时直接更新 execution-state。非 execution 路线（无 execution-state 文件）静默放行。
+`subagent-stop.sh`（SubagentStop hook）根据 Codex `agent_id` 在 execution-state 中定位 Pack，读取 `pack-returns/<run_id>/<pack-id>.json`，更新 execution state（`status = returned`、`worker_verdict`），并通过 `additionalContext` 输出 `NEXT` 指令告知 Coordinator 下一步。非 execution 路线（无 execution-state 文件）静默放行。
 
 | Worker Verdict | 含义 | Coordinator 动作 |
 | --- | --- | --- |
 | `pass`（DONE） | 实现完成，全部测试通过 | 进入 Step 7a（Open Items 即时处置）→ Step 7b（Git Checkpoint）→ 下一个 Pack |
 | `needs repair`（DONE_WITH_CONCERNS） | 实现完成但有疑虑 | 读 concerns。正确性/scope concerns → 按 Step 10 修复分流 → 修完进 Step 7a → Git Checkpoint。观察性意见 → 记录，进 Step 7a → Git Checkpoint |
-| `needs context` | 缺信息 | interactive path 用 send_input/resume_agent 补充上下文；worktree path 用 `worktree-resume.sh` 补充上下文；补充后继续 |
+| `needs context` | 缺信息 | send_input/resume_agent 补充上下文给原 worker；补充后继续 |
 | `blocked` | 无法完成 | **Intra-Plan Blocker**：写入 `packs[N.M].status = blocked` + `plans[N].status = blocked` → 整个 Plan 停止，不继续后续 Pack → 返回 `BLOCKED` |
 
 **BLOCKED 报告格式**（双层，发给用户）：
@@ -499,32 +493,16 @@ Risk flags:
 Source: Pack <N.M> worker discovery
 ```
 
-###### Step 7b：Git Checkpoint（per-pack，串行 pack）
+###### Step 7b：Git Checkpoint
 
-Worker 在隔离工作树中已 commit 自己的改动。Coordinator 合并 Worker 工作树分支并清理：
+Worker 已在 Coordinator 的分支上直接 commit。Coordinator 验证并记录：
 
-1. `git merge <worktree-branch> --no-ff`（Worker 工作树的分支名从 Agent 返回值获取）
-2. 冲突处理：简单 → Coordinator 直接解决；复杂 → 新建 targeted-repair agent
-3. `git worktree remove <worktree-path>`（Worker 工作树路径从 Agent 返回值获取）
-4. 勾选 plan doc + commit：
+1. `rm -f .codex/multi-model-workflow/worker-active`（移除 worker marker）
+2. `git log --oneline -1` 确认 Worker 的 commit 已在当前分支上
+3. 勾选 plan doc + commit：
    - `git add <plan doc>`
    - `git commit -m "Pack N.M: <title> — <summary of behavior>"`（`enforce-pack-commit.sh` hook 自动校验格式）
-5. `track-execution-state.sh` hook 自动更新 `packs[N.M].status = committed` + `commit_sha` + `plans[N].end_commit`
-
-###### Step 7c：合并并行 Pack 的 Worktree
-
-并行 pack 各自完成 Open Items 后，按依赖顺序逐个合并并清理：
-
-1. 确定合并顺序（按 plan 中的 dependencies）
-2. 逐个执行：
-   a. `git merge <worktree-branch> --no-ff`
-   b. 冲突处理：简单 → Coordinator 直接解决；复杂 → 新建 targeted-repair agent
-   c. `git worktree remove <worktree-path>`
-   d. 勾选 plan doc + commit
-3. 每次 merge 后跑完整测试
-4. 全部 merge 完后再跑一次确认集成正确
-
-**不并行合并**——串行避免 merge conflict 级联。
+4. `track-execution-state.sh` hook 自动更新 `packs[N.M].status = committed` + `commit_sha` + `plans[N].end_commit`
 
 → 下一 Pack 回到 Step 4；所有 Pack 完成 → Step 8。
 

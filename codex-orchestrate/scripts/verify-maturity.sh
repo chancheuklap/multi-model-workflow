@@ -106,24 +106,17 @@ check "disposition append injected" bash -c "
   grep -q 'state\.sh.*disposition append' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'
 "
 
-check "worker dispatch uses Codex-native agent_id sources" bash -c "
-  grep -q 'dispatch-gateway.sh' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md' &&
-  grep -q -- '--mode worktree' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md' &&
+check "worker dispatch uses Codex-native subagent identity" bash -c "
+  grep -q 'spawn_agent({' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md' &&
+  grep -q 'state.sh agent-id set' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md' &&
+  grep -q 'worker-active' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md' &&
   grep -q 'spawn_agent({ agent_type' '$PLUGIN_DIR/skills/orchestrate-plan-writing/SKILL.md' &&
   grep -q 'spawn_agent.*返回.*agent_id' '$PLUGIN_DIR/skills/orchestrate-plan-writing/SKILL.md'
 "
 
-check "worktree-exec consumes agent TOML" bash -c "
-  grep -q 'AGENT_CONFIG=.*agents' '$PLUGIN_DIR/scripts/dispatch/worktree-exec.sh' &&
-  grep -q 'model_reasoning_effort' '$PLUGIN_DIR/scripts/dispatch/worktree-exec.sh' &&
-  grep -q 'developer_instructions' '$PLUGIN_DIR/scripts/dispatch/worktree-exec.sh' &&
-  grep -q 'thread_id' '$PLUGIN_DIR/scripts/dispatch/worktree-exec.sh'
-"
-
-check "worktree resume uses codex exec resume" bash -c "
-  test -x '$PLUGIN_DIR/scripts/dispatch/worktree-resume.sh' &&
-  grep -q 'codex exec resume' '$PLUGIN_DIR/scripts/dispatch/worktree-resume.sh' &&
-  grep -q 'worker_thread_id' '$PLUGIN_DIR/state-schema/execution-state-v1.json'
+check "no worktree dispatch backend remains" bash -c "
+  test ! -d '$PLUGIN_DIR/scripts/dispatch' &&
+  ! grep -Rqs 'worktree-exec\\|worktree-resume\\|dispatch-gateway\\|worker_thread_id' '$PLUGIN_DIR/skills' '$PLUGIN_DIR/hooks' '$PLUGIN_DIR/agents' '$PLUGIN_DIR/state-schema'
 "
 
 check "DISPATCH_ENVELOPE in worker dispatch" bash -c "

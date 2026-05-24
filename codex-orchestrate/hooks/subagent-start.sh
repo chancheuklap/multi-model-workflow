@@ -24,7 +24,7 @@ esac
 
 if [[ "$AGENT_TYPE" == "pack_executor" || "$AGENT_TYPE" == "complex_pack_executor" ]]; then
   if [[ -z "$PROMPT" ]]; then
-    CONTEXT_SUFFIX=" Codex SubagentStart payload did not expose the dispatch message; Coordinator must have validated worker dispatch through dispatch-gateway.sh or a visible DISPATCH_ENVELOPE before spawning."
+    CONTEXT_SUFFIX=" Codex SubagentStart payload did not expose the dispatch message; Coordinator must include a visible DISPATCH_ENVELOPE in every worker prompt before spawning."
   else
     jq -n --arg prompt "$PROMPT" '{tool_input:{prompt:$prompt}}' | bash "$SCRIPT_DIR/validate-pack-dispatch.sh"
     CONTEXT_SUFFIX=""

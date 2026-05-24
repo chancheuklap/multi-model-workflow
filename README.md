@@ -11,7 +11,7 @@
 
 | 层级 | Source | Runtime |
 | --- | --- | --- |
-| Plugin manifest | `codex-orchestrate/.codex-plugin/plugin.json` | 安装后目标：`~/.codex/plugins/cache/multi-model-workflow/codex-orchestrate/0.1.0/` |
+| Plugin manifest | `codex-orchestrate/.codex-plugin/plugin.json` | 安装后目标：`~/.codex/plugins/cache/multi-model-workflow/codex-orchestrate/3.6.1/` |
 | Skills | `codex-orchestrate/skills/` | plugin cache skills |
 | Custom agents | `codex-orchestrate/agents/*.toml` | `~/.codex/agents/*.toml` + `~/.codex/config.toml` `[agents.<name>]` |
 | Hooks | `codex-orchestrate/hooks/hooks.json`、`codex-orchestrate/hooks/*.sh` | plugin cache hooks |

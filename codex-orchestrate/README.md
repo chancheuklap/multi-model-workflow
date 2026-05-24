@@ -11,7 +11,7 @@
 - Codex plugin hook manifest：`hooks/hooks.json`
 - Hook 源码：`hooks/*.sh`
 - 持久状态：`.codex/multi-model-workflow`
-- Worktree 执行和恢复：`scripts/dispatch/worktree-exec.sh` / `scripts/dispatch/worktree-resume.sh`；运行时读取 `agents/<agent_role>.toml` 并注入 model、reasoning、sandbox、developer instructions 和 enabled skills，修复时通过 `codex exec resume <worker_thread_id>` 回到原 worker thread
+- Worker 执行和恢复：`spawn_agent` 派发 `pack_executor` / `complex_pack_executor`，记录 `agent_id`；修复时通过 `send_input` / `resume_agent` 回到原 worker
 - Native Codex Review：`scripts/review/review-lane.sh`
 - 安装与 parity 验证：`installers/`
 

@@ -55,11 +55,18 @@ if jq -n --arg cmd "bash $PLUGIN_DIR/scripts/review/review-lane.sh submit --lane
   exit 1
 fi
 
-jq -n --arg cmd "bash $PLUGIN_DIR/scripts/dispatch/worktree-resume.sh --job-file $TMP/job.json --repair-prompt $TMP/repair.md" \
-  '{tool_input:{command:$cmd}}' | bash "$PLUGIN_DIR/hooks/validate-dispatch-command.sh"
+WORKDIR="$TMP/work"
+mkdir -p "$WORKDIR"
+if (
+  cd "$WORKDIR"
+  jq -n --arg path "docs/orchestrate/plans/demo.md" \
+    '{tool_input:{file_path:$path}}' | bash "$PLUGIN_DIR/hooks/guard-doc-edit.sh"
 
-if jq -n --arg cmd "bash $PLUGIN_DIR/scripts/dispatch/worktree-resume.sh --job-file $TMP/job.json" \
-  '{tool_input:{command:$cmd}}' | bash "$PLUGIN_DIR/hooks/validate-dispatch-command.sh" 2>/dev/null; then
-  echo "worktree-resume without repair prompt was not blocked" >&2
+  mkdir -p .codex/multi-model-workflow
+  touch .codex/multi-model-workflow/worker-active
+  jq -n --arg path "docs/orchestrate/plans/demo.md" \
+    '{tool_input:{file_path:$path}}' | bash "$PLUGIN_DIR/hooks/guard-doc-edit.sh" 2>/dev/null
+); then
+  echo "worker-active doc edit was not blocked" >&2
   exit 1
 fi

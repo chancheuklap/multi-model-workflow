@@ -90,8 +90,6 @@ TRANSITION_MATRIX=(
   "Coordinator:*:execution_done"
   "Coordinator:*:closed"
   "subagent-stop:dispatched:returned"
-  "worktree-exec:dispatched:returned"
-  "worktree-resume:repairing:returned"
   "track-execution-state:returned:committed"
 )
 

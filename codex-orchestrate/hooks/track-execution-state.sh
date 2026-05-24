@@ -67,7 +67,7 @@ if [ "$PLAN_DONE" -eq "$PLAN_TOTAL" ] && [ "$PLAN_TOTAL" -gt 0 ]; then
   ' "$ESF" > "${ESF}.tmp" && mv "${ESF}.tmp" "$ESF"
   MSG="[codex-orchestrate] NEXT: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${COMMIT_SHA}). Dispatch Plan Implementation Review."
 else
-  MSG="[multi-model-workflow] STATE: Pack ${PACK_ID} committed (${PLAN_DONE}/${PLAN_TOTAL} in Plan ${PLAN_ID})."
+  MSG="[codex-orchestrate] STATE: Pack ${PACK_ID} committed (${PLAN_DONE}/${PLAN_TOTAL} in Plan ${PLAN_ID})."
 fi
 
 jq -n --arg msg "$MSG" \

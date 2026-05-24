@@ -1,6 +1,6 @@
 {
   "name": "codex-orchestrate",
-  "version": "0.1.0",
+  "version": "3.6.1",
   "description": "把 multi-model-workflow 的 Claude Code 编排插件原子级复刻到 Codex 的原生插件。",
   "author": {
     "name": "Cheuk Lap Chan",
@@ -19,7 +19,7 @@
   "interface": {
     "displayName": "Codex Orchestrate",
     "shortDescription": "Codex 侧的正式设计、计划、执行、审查和发布门禁编排。",
-    "longDescription": "Codex Orchestrate 将 Claude Code multi-model-workflow 插件复刻为 Codex 原生插件，包含 skills、自定义 agent、生命周期 hooks、worktree 执行、持久状态和按文档/代码分流的 Codex Review。",
+    "longDescription": "Codex Orchestrate 将 Claude Code multi-model-workflow 插件复刻为 Codex 原生插件，包含 skills、自定义 agent、生命周期 hooks、串行 Task Pack 执行、持久状态和按文档/代码分流的 Codex Review。",
     "developerName": "Cheuk Lap Chan",
     "category": "Productivity",
     "capabilities": [

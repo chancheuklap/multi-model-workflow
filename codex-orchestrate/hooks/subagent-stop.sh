@@ -38,6 +38,17 @@ jq --arg pack "$PACK_ID" --arg verdict "$VERDICT" '
 ' "$ESF" > "${ESF}.tmp" && mv "${ESF}.tmp" "$ESF"
 state_lock_release "$LOCK_DIR"
 
-MSG="[codex-orchestrate] NEXT: ${AGENT_TYPE} ${AGENT_ID} returned for pack ${PACK_ID} with verdict ${VERDICT}. Process open items, verify, checkpoint, then review."
+REMAINING=999
+CUR_PLAN=""
+CUR_PLAN="$(jq -r --arg pack "$PACK_ID" '[.plans | to_entries[] | select(.value.packs[$pack] != null) | .key] | first // empty' "$ESF" 2>/dev/null || true)"
+if [[ -n "$CUR_PLAN" ]]; then
+  REMAINING="$(jq --arg pid "$CUR_PLAN" '[.plans[$pid].packs | to_entries[] | select(.value.status == "pending" or .value.status == "dispatched")] | length' "$ESF" 2>/dev/null || echo 999)"
+fi
+
+if [[ "$REMAINING" -eq 0 ]] 2>/dev/null; then
+  MSG="[codex-orchestrate] NEXT: Pack ${PACK_ID} returned (verdict: ${VERDICT}). All packs in Plan ${CUR_PLAN} have returned. Process Open Items -> scope drift check -> Git Checkpoint for each -> then Step 8 (Plan Implementation Review). Do not dispatch review until all Git Checkpoints complete."
+else
+  MSG="[codex-orchestrate] NEXT: Pack ${PACK_ID} returned (verdict: ${VERDICT}). Process Open Items -> scope drift check -> Git Checkpoint. ${REMAINING} packs still pending/dispatched in Plan ${CUR_PLAN}."
+fi
 jq -n --arg msg "$MSG" \
   '{hookSpecificOutput:{hookEventName:"SubagentStop",additionalContext:$msg}}'

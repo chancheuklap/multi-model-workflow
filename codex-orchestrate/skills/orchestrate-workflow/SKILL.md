@@ -222,6 +222,6 @@ Load skill: multi-model-workflow:orchestrate-final-review
 
 **Sub-agent 隔离**：dispatch prompt 必须自足。Sub-agent 不读 SKILL.md、不读 references/。Codex agent TOML 的 `skills.config` 只负责预装可用 skill，不替代本次 dispatch 合同。
 
-**Commit 纪律**：Executor worker 在 worktree 中自行 commit。Plan-writer 等非 executor sub-agent 不 commit，Coordinator 统一提交。不 stage 非当前 scope 文件。
+**Commit 纪律**：Executor worker 在 Coordinator 分支上自行 commit。Plan-writer 等非 executor sub-agent 不 commit，Coordinator 统一提交。不 stage 非当前 scope 文件。
 
 **禁止**：跳过 Discovery / Plan Review / Final Review / 用技术语言汇报 / 自己写生产代码 / 每 task 一个 sub-agent / 超循环上限不处理。

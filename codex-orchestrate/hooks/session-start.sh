@@ -61,9 +61,9 @@ MSG="$(cat <<RULES
 
 # 4. Codex runtime contract
 - Runtime state lives under .codex/multi-model-workflow.
-- Dispatches must carry DISPATCH_ENVELOPE and go through dispatch-gateway.sh or worktree-exec.sh when they affect Task Packs.
-- Write-heavy Task Packs use managed git worktrees and codex exec. Interactive subagents are for read-only or same-workspace coordination unless the coordinator records a clear exception.
-- Repairs resume the original worker through send_input/resume_agent for interactive subagents, or worktree-resume.sh / codex exec resume <worker_thread_id> for worktree workers. Replacement dispatch requires an exception code and full prior context.
+- Dispatches must carry DISPATCH_ENVELOPE in the worker prompt.
+- Task Packs execute strictly serially. Workers are Codex subagents that work directly on the Coordinator branch.
+- Repairs resume the original worker through send_input/resume_agent. Replacement dispatch requires an exception code and full prior context.
 - All review uses native codex exec review through review-lane.sh and records thread_id. Targeted re-review must resume that thread_id; document reviews use gpt-5.5/xhigh; code, bug, integration, final, and release-risk reviews use gpt-5.4/xhigh. No Claude Review lane is part of this Codex runtime.
 
 # 5. Compaction recovery

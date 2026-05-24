@@ -12,6 +12,5 @@ run_guard() {
 run_guard "$SCRIPT_DIR/../scripts/guard-premature-push.sh"
 run_guard "$SCRIPT_DIR/enforce-pack-commit.sh"
 run_guard "$SCRIPT_DIR/gate-external-review.sh"
-run_guard "$SCRIPT_DIR/validate-dispatch-command.sh"
 
 exit 0

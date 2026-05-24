@@ -13,28 +13,20 @@
 **Worker resume 步骤**（pack_executor / complex_pack_executor 修复）：
 
 1. `state.sh agent-id get --run-id <run_id> --pack-id <pack_id>` 读取 execution-state 中的 agent_id
-2. 同时从 execution-state 读取 `worker_backend` / `worker_job_file` / `worker_thread_id`
-3. 若 `worker_backend == "codex-exec"` 或 `agent_id` 以 `codex-exec:` 开头，使用 CLI resume 路径：
-   ```bash
-   bash "${PLUGIN_ROOT}/scripts/dispatch/worktree-resume.sh" \
-     --job-file "<worker_job_file>" \
-     --repair-prompt "<含 DISPATCH_ENVELOPE 的修复 prompt 文件，repair_round >= 1>"
-   ```
-   `worktree-resume.sh` 必须通过 `codex exec resume <thread_id>` 继续原 worker session，不得创建 replacement dispatch。
-4. 若是 interactive Codex subagent，调用：
+2. 调用：
    ```
    send_input({
      target: "<agent_id>",
      message: "<含 DISPATCH_ENVELOPE 的修复 prompt，repair_round >= 1>"
    })
    ```
-5. 如果 interactive Codex host 返回 agent 已关闭，调用 `resume_agent({ id: "<agent_id>" })` 后再次 `send_input({ target: "<agent_id>", message: "<repair prompt>" })`。
-6. 如果原 worker resume 仍失败，Coordinator 必须记录 exception_code，带完整原 Pack Brief、accepted finding ids、prior attempt summary 新建 replacement dispatch；不得静默重派。
-7. 等待原 worker 返回（interactive path 可用 `wait_agent({ targets: ["<agent_id>"] })`；worktree path 等 `worktree-resume.sh` 返回 job file）
-8. 解析返回结果 -> `state.sh transition --actor Coordinator --to returned`
-9. 修复完成后运行 verification commands + 对照 acceptance criteria + grep 确认变更
-10. `state.sh self-verify append --run-id <run_id> --pack-id <pack_id> --repair-round <N> --verification-passed <yes|no> --exception <none|3plus_files_control_flow|user_requested|rca_root_cause|path_a_self_fix|host_resume_failed>`
-11. 写 `state.sh disposition append` 或 `state.sh update --field plans[N].packs[M].repair_round`
+3. 如果 Codex host 返回 agent 已关闭，调用 `resume_agent({ id: "<agent_id>" })` 后再次 `send_input({ target: "<agent_id>", message: "<repair prompt>" })`。
+4. 如果原 worker resume 仍失败，Coordinator 必须记录 exception_code，带完整原 Pack Brief、accepted finding ids、prior attempt summary 新建 replacement dispatch；不得静默重派。
+5. 等待原 worker 返回（可用 `wait_agent({ targets: ["<agent_id>"] })`）
+6. 解析返回结果 -> `state.sh transition --actor Coordinator --to returned`
+7. 修复完成后运行 verification commands + 对照 acceptance criteria + grep 确认变更
+8. `state.sh self-verify append --run-id <run_id> --pack-id <pack_id> --repair-round <N> --verification-passed <yes|no> --exception <none|3plus_files_control_flow|user_requested|rca_root_cause|path_a_self_fix|host_resume_failed>`
+9. 写 `state.sh disposition append` 或 `state.sh update --field plans[N].packs[M].repair_round`
 <!-- END: sendmessage-resume -->
 
 Worker 修复后返回 → 进入 Step 11

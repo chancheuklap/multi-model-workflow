@@ -25,8 +25,6 @@
 | Coordinator | * | execution_done | Execution 完成 |
 | Coordinator | * | closed | 工作流关闭 |
 | subagent-stop | dispatched | returned | SubagentStop hook 自动标记 Worker 返回 |
-| worktree-exec | dispatched | returned | `worktree-exec.sh` 完成 worktree worker 后写回 |
-| worktree-resume | repairing | returned | `worktree-resume.sh` 完成原 worker repair 后写回 |
 | track-execution-state | returned | committed | PostToolUse hook 自动标记 commit 完成 |
 
 ## 设计约束

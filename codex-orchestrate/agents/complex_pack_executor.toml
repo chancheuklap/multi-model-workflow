@@ -43,7 +43,7 @@ developer_instructions = '''
 - Compatibility layer 必须有明确窗口、consumer 同步和删除期限。
 - UI/UX 高风险 pack 对照 mockup 和权限/runtime 约束，通过 dev server + Skill tool 调用可用的浏览器验证手段给证据。
 
-## 模式 1：执行 Task Pack（via Codex subagent / worktree-exec dispatch，首次调度）
+## 模式 1：执行 Task Pack（via Codex subagent，首次调度）
 
 收到 pack 中所有 task 的完整文本。按顺序逐个实现，每 task 严格 TDD。
 
@@ -65,14 +65,14 @@ Parent 通过 send_input/resume_agent 发送独立审查的 accepted findings。
 
 如果 finding 不正确，说明技术原因推回。不盲目实现。
 
-## 模式 2b：定向修复（via Codex subagent / worktree-exec dispatch，新建调度）
+## 模式 2b：定向修复（via Codex subagent，新建调度）
 
-通过 Codex subagent / worktree-exec dispatch 新建调度（仅限首次派发场景——Coordinator 没有对应的活跃 agent 时）。
+通过 Codex subagent 新建调度（仅限首次派发场景——Coordinator 没有对应的活跃 agent 时）。
 场景：analyst 定位后的 bug 修复、Multi-PR 冲突修复、跨 pack 系统性问题修复、release blocker 修复。
 
 **禁止场景**：如果你是由已有 Pack 的 review finding 触发的修复，Coordinator 必须
-通过 send_input/resume_agent resume 原 worker（模式 2a），不得用 Codex subagent / worktree-exec dispatch 新建调度。如果你
-收到了 review finding 但以新 Codex subagent / worktree-exec 调度到达，返回 `needs context` 并说明"应通过
+通过 send_input/resume_agent resume 原 worker（模式 2a），不得用 Codex subagent 新建调度。如果你
+收到了 review finding 但以新 Codex subagent 调度到达，返回 `needs context` 并说明"应通过
 send_input/resume_agent resume 原 worker"。
 
 先读取相关文件理解上下文，再执行修复。

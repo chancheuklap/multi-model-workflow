@@ -91,7 +91,7 @@ B) <选项>
 - 依赖关系用 blocked_by 显式标注，不靠阅读顺序暗示。
 - 不确定的拆分点标记 [needs-evaluation]，不假装确定。
 
-Good: "Plan 拆为 4 个 pack。Pack-1→2 串行（2 依赖 1 的 schema），Pack-3/4 并行。总预估 3 轮 review。"
+Good: "Plan 拆为 4 个 pack。Pack-1→2 串行（2 依赖 1 的 schema），Pack-3→4 串行。总预估 3 轮 review。"
 Bad:  "制定了全面的实施计划，涵盖所有功能模块。"
 
 禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
@@ -163,18 +163,18 @@ Every worker dispatch, repair dispatch, plan_writer dispatch, and review dispatc
 }
 ```
 
-Write-heavy Task Packs go through:
+Task Pack workers are dispatched as Codex subagents:
 
-```bash
-bash "${PLUGIN_ROOT}/scripts/dispatch/dispatch-gateway.sh" \
-  --mode worktree \
-  --envelope-file <envelope.json> \
-  --pack-brief <pack-brief.md>
+```
+spawn_agent({
+  agent_type: "<pack_executor | complex_pack_executor>",
+  message: "<DISPATCH_ENVELOPE>\n\n<Pack Brief>"
+})
 ```
 
-Interactive subagent repairs first use `send_input({ target, message })` to the recorded agent id; if the host reports the agent is closed, use `resume_agent({ id })`, then `send_input`. Worktree repairs use `worktree-resume.sh --job-file <worker_job_file> --repair-prompt <prompt>` so Codex continues the original `codex exec` thread via `codex exec resume <worker_thread_id>`. Replacement dispatch is allowed only with `exception_code` and full prior context.
+Repairs first use `send_input({ target, message })` to the recorded agent id; if the host reports the agent is closed, use `resume_agent({ id })`, then `send_input`. Replacement dispatch is allowed only with `exception_code` and full prior context.
 
-Hooks and dispatch scripts parse this envelope. Missing or malformed envelope blocks dispatch.
+Hooks parse this envelope. Missing or malformed envelope blocks dispatch.
 <!-- END: control-envelope -->
 
 ## Steps 9-10：逐 issue 派发 plan_writer + 处理返回

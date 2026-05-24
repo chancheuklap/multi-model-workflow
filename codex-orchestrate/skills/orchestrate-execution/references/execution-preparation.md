@@ -11,7 +11,7 @@
 从所有 plan 文件中汇总提取：
 
 - 所有 Task Pack 的编号、标题、所属 plan / issue reference
-- 每个 pack 的 `Dependencies`、`Parallel safety`、`Risk flags`、`发布风险`
+- 每个 pack 的 `Dependencies`、`Risk flags`、`发布风险`
 - 每份 plan header 中的 `Blocked by`（大 issue 级依赖，用于排列跨 plan 的执行顺序）
 - Source design path（`docs/orchestrate/design/<slug>.md`）、Source issues path（`docs/orchestrate/issues/<slug>/`）
 - 合并所有 plan 的 File / Responsibility Map
@@ -23,19 +23,15 @@
 
 **第一级：Plan 执行顺序**（串行）。根据各 plan header 中的 `Blocked by` 字段排序。无依赖关系的 Plan 按编号顺序执行。
 
-**第二级：Pack 执行顺序**（同 Plan 内，可并行）。根据 pack 间的 `Dependencies` 和 `Parallel safety` 字段排序：
-
-**串行条件（默认）**：同一文件 / 同一 Pydantic model / 同一 DB migration tree / 同一 JSON registry / billing / permission / auth / runtime / deployment / rollback / release gate / 同一 UI action contract。
-
-**并行条件**：pack 间无共享 owned files、无共享 contract surface、各自可独立验证。并行 pack 通过 `dispatch-gateway.sh --mode worktree` 在独立 worktree 中执行。
+**第二级：Pack 执行顺序**（同 Plan 内，严格串行）。根据 pack 间的 `Dependencies` 字段排序，逐个执行。
 
 排列结果：
 
 ```
 plan_queue = [Plan001, Plan002, Plan003]  ← 按 Blocked by 排序
-  Plan001.pack_queue = [[1.1], [1.2, 1.3], [1.4]]  ← 内部按 Dependencies 排序
-  Plan002.pack_queue = [[2.1, 2.2], [2.3]]
-  Plan003.pack_queue = [[3.1], [3.2]]
+  Plan001.pack_queue = [1.1, 1.2, 1.3, 1.4]  ← 内部按 Dependencies 排序，逐个串行
+  Plan002.pack_queue = [2.1, 2.2, 2.3]
+  Plan003.pack_queue = [3.1, 3.2]
 ```
 
 ### Step 2a：创建 Execution State File
@@ -48,15 +44,15 @@ plan_queue = [Plan001, Plan002, Plan003]  ← 按 Blocked by 排序
   "plans": {
     "001": {
       "packs": {
-        "1.1": { "status": "pending", "agent_id": null, "worker_backend": null, "worker_thread_id": null, "worker_job_file": null, "commit_sha": null, "worker_verdict": null },
-        "1.2": { "status": "pending", "agent_id": null, "worker_backend": null, "worker_thread_id": null, "worker_job_file": null, "commit_sha": null, "worker_verdict": null }
+        "1.1": { "status": "pending", "agent_id": null, "commit_sha": null, "worker_verdict": null },
+        "1.2": { "status": "pending", "agent_id": null, "commit_sha": null, "worker_verdict": null }
       }
     }
   }
 }
 ```
 
-注意：execution-state 只存 pack-level 数据（status, agent_id, worker_backend, worker_thread_id, worker_job_file, commit_sha, worker_verdict）。
+注意：execution-state 只存 pack-level 数据（status, agent_id, commit_sha, worker_verdict）。
 Cursor, budget, review dispositions 存在 workflow-state-<run_id>.json 中。
 
 填入所有 Plan 和 Pack 的初始状态。
@@ -80,7 +76,7 @@ SHA=$(git rev-parse HEAD)
 # 写入 execution-state: current_plan_id = N
 ```
 
-此步由 Coordinator 执行，不由 hook 代劳——因为 start_commit 需要的是"第一个 Pack commit 之前"的 SHA。`dispatch-gateway.sh` and Codex hooks 会拦截缺少 start_commit 的 dispatch。
+此步由 Coordinator 执行，不由 hook 代劳——因为 start_commit 需要的是"第一个 Pack commit 之前"的 SHA。`validate-pack-dispatch.sh` hook 会拦截缺少 start_commit 的 dispatch。
 
 ## Step 3：验证 Scope Contract + Git Checkpoint
 

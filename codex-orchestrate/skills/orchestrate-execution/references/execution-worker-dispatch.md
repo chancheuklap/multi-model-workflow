@@ -24,18 +24,18 @@ Every worker dispatch, repair dispatch, plan_writer dispatch, and review dispatc
 }
 ```
 
-Write-heavy Task Packs go through:
+Task Pack workers are dispatched as Codex subagents:
 
-```bash
-bash "${PLUGIN_ROOT}/scripts/dispatch/dispatch-gateway.sh" \
-  --mode worktree \
-  --envelope-file <envelope.json> \
-  --pack-brief <pack-brief.md>
+```
+spawn_agent({
+  agent_type: "<pack_executor | complex_pack_executor>",
+  message: "<DISPATCH_ENVELOPE>\n\n<Pack Brief>"
+})
 ```
 
-Interactive subagent repairs first use `send_input({ target, message })` to the recorded agent id; if the host reports the agent is closed, use `resume_agent({ id })`, then `send_input`. Worktree repairs use `worktree-resume.sh --job-file <worker_job_file> --repair-prompt <prompt>` so Codex continues the original `codex exec` thread via `codex exec resume <worker_thread_id>`. Replacement dispatch is allowed only with `exception_code` and full prior context.
+Repairs first use `send_input({ target, message })` to the recorded agent id; if the host reports the agent is closed, use `resume_agent({ id })`, then `send_input`. Replacement dispatch is allowed only with `exception_code` and full prior context.
 
-Hooks and dispatch scripts parse this envelope. Missing or malformed envelope blocks dispatch.
+Hooks parse this envelope. Missing or malformed envelope blocks dispatch.
 <!-- END: control-envelope -->
 
 Dispatch prompt 必须自足——worker 不读 SKILL.md、不读 references、不读 plan 文件。Coordinator 从 plan 中提取并在 prompt 中写全所有字段。
@@ -87,8 +87,7 @@ Return contract:
     "open_items": [{"tag": "<out-of-scope|needs-evaluation|bug>", "summary": "..."}],
     "concerns": "<如有>"
   }
-  注意：Worker 在 isolation worktree 中运行时，必须使用此绝对路径写入（不是相对路径），
-  确保 Coordinator 和 hooks 能在主工作目录读到该文件。
+  注意：必须使用此绝对路径写入（不是相对路径），确保 Coordinator 和 hooks 能读到该文件。
 ```
 
 ## 条件字段（仅在相关时包含，不写 N/A 占位）

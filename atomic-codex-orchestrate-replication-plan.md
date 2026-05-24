@@ -120,9 +120,9 @@ Review 不替换为 Claude Review，也不保留 Claude-only supplemental lane�
 
 | Claude 行为 | Codex 差异 | Codex 替代方案 |
 | --- | --- | --- |
-| 后台 agent 派发并返回 agent id | Codex interactive subagent 和 exec backend 的生命周期不同 | interactive path 使用 `spawn_agent({ agent_type, message })` 并立即记录返回的 `agent_id`；写代码 pack 默认通过 worktree-exec 隔离，并记录 `agent_id = codex-exec:<thread_id>` / `worker_thread_id` / `worker_job_file` |
-| 给原 agent 发送修复消息 | host 可能关闭 / compact / 恢复失败 | interactive path 先 `send_input({ target, message })`，失败后 `resume_agent({ id })` 再 `send_input({ target, message })`；worktree path 使用 `worktree-resume.sh` 调 `codex exec resume <worker_thread_id>`；仍失败必须记录 exception code 并带完整 prior context replacement dispatch |
-| per-dispatch worktree isolation | interactive subagent 不暴露完全相同参数 | `scripts/dispatch/worktree-exec.sh` 创建 git worktree + branch，读取对应 agent TOML 并注入 model / reasoning effort / sandbox / developer instructions / enabled skills 后执行 `codex exec --cd`；repair 通过 `worktree-resume.sh` 继续同一 thread；`merge-pack-worktree.sh` 合并 |
+| 后台 agent 派发并返回 agent id | Codex subagent API 名称和返回字段不同 | 使用 `spawn_agent({ agent_type, message })` 派发 `pack_executor` / `complex_pack_executor`，prompt 前置 `DISPATCH_ENVELOPE`，并立即记录返回的 `agent_id` |
+| 给原 agent 发送修复消息 | host 可能关闭 / compact / 恢复失败 | 先 `send_input({ target, message })`，失败后 `resume_agent({ id })` 再 `send_input({ target, message })`；仍失败必须记录 exception code 并带完整 prior context replacement dispatch |
+| Claude 3.6.1 的同分支串行 worker | Codex subagent 也在当前工作区执行，但 hook event 名称不同 | Codex 保持同分支、逐 Pack 严格串行；Coordinator dispatch 前创建 `.codex/multi-model-workflow/worker-active`，`guard-doc-edit.sh` 阻止 worker 修改 docs/，返回后移除 marker |
 | Claude hook 条件表达式 | Codex hook matcher 语义不同，多个 hook 可能并发 | 每个 event 使用 dispatcher，脚本内部按顺序执行 gate；状态写入加 lock |
 | Claude review companion job API | Codex Review 不是同一个 companion API，`codex review` 本身不暴露 resume 参数 | `scripts/review/review-lane.sh` 用 `codex exec review --json` 建立可恢复 thread，job 文件保存 `thread_id`；targeted re-review 用 `codex exec resume <thread_id>` 继续 baseline review session；找不到 baseline thread 直接失败 |
 | Claude agent discovery | Codex sub-agent role 由 `~/.codex/config.toml` 注册 | installer 复制 TOML 后写入托管 `[agents.<name>]` block，verify 阶段检查 `config_file`、description、nickname |
@@ -141,7 +141,7 @@ Review 不替换为 Claude Review，也不保留 Claude-only supplemental lane�
 | Skills | `skills/<name>/SKILL.md` |
 | Custom agents | `agents/*.toml` + `~/.codex/config.toml` `[agents.<name>] config_file`，含 `model`、`model_reasoning_effort`、`sandbox_mode`、`skills.config` |
 | Multi-agent tools | interactive 场景使用 subagent dispatch / resume / wait |
-| `codex exec` | worktree-isolated worker backend |
+| `spawn_agent` / `send_input` / `resume_agent` | worker 派发、原 worker 修复、host 恢复 |
 | Native `codex exec review` / `codex exec resume` | `review-lane.sh` 统一模型路由、job 文件和 `thread_id` continuity |
 | Hook manifest validation | installer / parity verifier 检查 `hooks/hooks.json`、feature flags、plugin cache parity；安装后由 Codex hook trust 流程确认生效 |
 | Feature validation | `codex doctor`、feature check、strict config 检查 |
@@ -191,7 +191,7 @@ uv run --with pyyaml --no-project python ~/.codex/skills/.system/plugin-creator/
 ```bash
 bash codex-orchestrate/installers/install.sh --user --apply
 bash codex-orchestrate/installers/verify-runtime-parity.sh --user
-diff -qr codex-orchestrate ~/.codex/plugins/cache/multi-model-workflow/codex-orchestrate/0.1.0
+diff -qr codex-orchestrate ~/.codex/plugins/cache/multi-model-workflow/codex-orchestrate/3.6.1
 for f in codex-orchestrate/agents/*.toml; do
   diff -q "$f" "$HOME/.codex/agents/$(basename "$f")"
 done
@@ -219,9 +219,9 @@ python3 codex-orchestrate/installers/sync-agent-config.py verify \
 
 交付 `review-lane.sh`、Codex Review companion、job API。验收：文档 review 走 `gpt-5.5/xhigh`，代码 review 走 `gpt-5.4/xhigh`，baseline job 记录 Codex `thread_id`，targeted re-review 必须通过 `codex exec resume <thread_id>` 继续同一 review session。
 
-### Pack 4A：Worktree Dispatch
+### Pack 4A：Worker Dispatch
 
-交付 `worktree-exec.sh`、`worktree-resume.sh`、`dispatch-gateway.sh`、`merge-pack-worktree.sh`、`pack-return-v1.json`。验收：write-heavy pack 可隔离执行、用原 `thread_id` 恢复、返回、按依赖合并。
+交付 Codex subagent dispatch / resume 合同、`worker-active` marker、`pack-return-v1.json` 和 hook/state 对接。验收：worker prompt 携带 `DISPATCH_ENVELOPE`，`agent_id` 被持久化，repair 通过 `send_input` / `resume_agent` 回到原 worker，所有 Task Pack 严格串行并直接在 Coordinator 分支提交。
 
 ### Pack 5：Build / Template
 

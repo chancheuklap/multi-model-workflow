@@ -18,7 +18,7 @@
 | Codex source | `codex-orchestrate/` | Codex 原生原子复刻源码真相 |
 | Codex hooks source | `codex-orchestrate/hooks/hooks.json` 和 `codex-orchestrate/hooks/` | plugin hook manifest 与 hook 脚本 |
 | Codex plugin marketplace | `.agents/plugins/marketplace.json` | repo-local Codex marketplace |
-| Codex plugin runtime target | `~/.codex/plugins/cache/multi-model-workflow/codex-orchestrate/0.1.0/` | 完成 source 审计后安装到 Codex 的目标缓存路径；未安装时不得把它当作当前行为依据 |
+| Codex plugin runtime target | `~/.codex/plugins/cache/multi-model-workflow/codex-orchestrate/3.6.1/` | 完成 source 审计后安装到 Codex 的目标缓存路径；未安装时不得把它当作当前行为依据 |
 | Codex custom-agent runtime | `~/.codex/agents/*.toml` | Codex 实际可调用的 managed agents |
 | Legacy Codex archive | `archive/2026-05-24-codex-pre-atomic/codex/` | 只做审计参考，不作为当前行为依据 |
 
@@ -74,7 +74,7 @@ bash codex-orchestrate/tests/run-all-tests.sh
 bash codex-orchestrate/build/build.sh --check --plugin-dir codex-orchestrate
 bash codex-orchestrate/installers/install.sh --user --apply
 bash codex-orchestrate/installers/verify-runtime-parity.sh --user
-diff -qr codex-orchestrate ~/.codex/plugins/cache/multi-model-workflow/codex-orchestrate/0.1.0
+diff -qr codex-orchestrate ~/.codex/plugins/cache/multi-model-workflow/codex-orchestrate/3.6.1
 for f in codex-orchestrate/agents/*.toml; do
   diff -q "$f" "$HOME/.codex/agents/$(basename "$f")"
 done

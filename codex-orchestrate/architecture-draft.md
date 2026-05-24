@@ -64,7 +64,7 @@ flowchart TD
 | Hook source | `codex-orchestrate/hooks/` | hook 脚本和 `hooks/hooks.json` |
 | Agent source | `codex-orchestrate/agents/*.toml` | Codex custom agent 配置 |
 | Runtime state | `.codex/multi-model-workflow/` | 每次运行的状态、prompt、result、return |
-| Installed cache | `~/.codex/plugins/cache/multi-model-workflow/codex-orchestrate/0.1.0/` | Codex 实际加载的 plugin cache |
+| Installed cache | `~/.codex/plugins/cache/multi-model-workflow/codex-orchestrate/3.6.1/` | Codex 实际加载的 plugin cache |
 | Installed agents | `~/.codex/agents/*.toml` + `~/.codex/config.toml` `[agents.<name>]` | Codex 实际可调用的 agent templates 和 role registry |
 
 旧 `codex/` 已归档到 `archive/2026-05-24-codex-pre-atomic/codex/`，只允许做历史对照，不允许作为当前行为来源。
@@ -114,11 +114,11 @@ Claude plugin 中的后台 agent 和消息恢复语义在 Codex 侧拆成两层�
 
 | 行为 | Codex 复刻方案 |
 | --- | --- |
-| 首次派发 worker | interactive subagent 使用 `spawn_agent({ agent_type, message })`；worktree worker 使用 `scripts/dispatch/worktree-exec.sh`；所有 write-heavy dispatch 先经过 `dispatch-gateway.sh` |
-| 写代码 pack 隔离 | 默认使用 managed git worktree + `codex exec --cd <worktree>`；`worktree-exec.sh` 读取对应 agent TOML，注入 model、reasoning effort、sandbox、developer instructions 和 enabled skills，捕获 JSONL / final message / pack return |
-| 原 worker 修复 | interactive path 读取 `agent_id` 后使用 `send_input({ target, message })`；host 关闭时先 `resume_agent({ id })` 再 `send_input`。worktree path 读取 `worker_job_file` / `worker_thread_id` 后用 `worktree-resume.sh` 调 `codex exec resume <thread_id>` |
+| 首次派发 worker | Codex subagent 使用 `spawn_agent({ agent_type, message })`，prompt 前置 `DISPATCH_ENVELOPE`，并记录返回的 `agent_id` |
+| 写代码 pack 执行 | Worker 直接在 Coordinator 分支上工作；Plan 串行，Pack 严格串行；`worker-active` marker 让 hook 阻止 worker 修改设计/计划文档 |
+| 原 worker 修复 | 读取 `agent_id` 后使用 `send_input({ target, message })`；host 关闭时先 `resume_agent({ id })` 再 `send_input` |
 | host 无法恢复原 worker | 必须记录 `exception_code`、原 Pack Brief、accepted findings、prior attempts，再 replacement dispatch |
-| worker return | `pack-return-v1.json` 是事实源；`SubagentStop` 只做状态同步和 next-step 提示 |
+| worker return | `pack-return-v1.json` 是事实源；`SubagentStop` 做状态同步和 next-step 提示 |
 
 所有 worker dispatch prompt 必须自足，不能只写“按 Orchestrate 做”。
 
@@ -128,7 +128,7 @@ Claude plugin 中的后台 agent 和消息恢复语义在 Codex 侧拆成两层�
 | --- | --- | --- |
 | `workflow-state-<run_id>.json` | coordinator + `state.sh` | route、slug、cursor、budget、review dispositions、direction check、pending post-push review、path-A escalation、mutation log |
 | `execution-state-<run_id>.json` | coordinator + execution hooks | plan queue、pack queue、pack status、agent id、commit sha、worker verdict、repair round、review verdict |
-| `pack-returns/<run_id>/<pack_id>.json` | worker / worktree-exec | worktree path、branch、base/head sha、changed files、verification、open items、verdict |
+| `pack-returns/<run_id>/<pack_id>.json` | worker | branch、base/head sha、changed files、verification、open items、verdict |
 | `review-results/<gate>.md` | review lane | review output、findings、confidence、bias indicators |
 
 状态写入通过 `.codex/multi-model-workflow/<run_id>.lock` 串行化。
@@ -187,7 +187,7 @@ bash codex-orchestrate/installers/install.sh --user --apply
 
 ```bash
 bash codex-orchestrate/installers/verify-runtime-parity.sh --user
-diff -qr codex-orchestrate ~/.codex/plugins/cache/multi-model-workflow/codex-orchestrate/0.1.0
+diff -qr codex-orchestrate ~/.codex/plugins/cache/multi-model-workflow/codex-orchestrate/3.6.1
 for f in codex-orchestrate/agents/*.toml; do
   diff -q "$f" "$HOME/.codex/agents/$(basename "$f")"
 done

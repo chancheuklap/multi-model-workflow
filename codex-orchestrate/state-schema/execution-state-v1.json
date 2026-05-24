@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "execution-state-v1",
-  "description": "Pack-level execution state for multi-model-workflow orchestration. Per Ruling 2: pack-level data (status, agent_id, worker_thread_id, worker_job_file, commit_sha, worker_verdict) lives here, not in workflow-state.",
+  "description": "Pack-level execution state for multi-model-workflow orchestration. Per Ruling 2: pack-level data (status, agent_id, commit_sha, worker_verdict) lives here, not in workflow-state.",
   "type": "object",
   "required": ["run_id", "plans"],
   "properties": {
@@ -26,14 +26,8 @@
                 },
                 "agent_id": {
                   "type": ["string", "null"],
-                  "description": "Interactive Codex subagent id, or codex-exec:<thread_id> for worktree-exec workers."
+                  "description": "Codex subagent id returned by spawn_agent."
                 },
-                "worker_backend": {
-                  "type": ["string", "null"],
-                  "enum": ["codex-subagent", "codex-exec", null]
-                },
-                "worker_thread_id": { "type": ["string", "null"] },
-                "worker_job_file": { "type": ["string", "null"] },
                 "commit_sha": { "type": ["string", "null"] },
                 "worker_verdict": { "type": ["string", "null"] },
                 "repair_round": { "type": "integer", "default": 0 }

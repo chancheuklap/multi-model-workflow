@@ -2,10 +2,9 @@
 # PreToolUse hook for Edit and Write tools.
 # Blocks worker agents from modifying design docs and plan docs.
 #
-# Detection: Workers dispatched through worktree-exec get a clean worktree
-# without .codex/ (gitignored). The Coordinator's working directory has
-# .codex/multi-model-workflow/active-run-id (created during infrastructure setup).
-# If active-run-id is absent → worker context → block docs/ modifications.
+# Detection: Coordinator creates .codex/multi-model-workflow/worker-active
+# before dispatching a worker and removes it after the worker returns.
+# If worker-active exists → worker context → block docs/ modifications.
 #
 # Protected paths: docs/ directory (design docs, plan docs, reviews)
 set -euo pipefail
@@ -27,12 +26,12 @@ if [[ ! -d "$WORKFLOW_DIR" ]]; then
   exit 0
 fi
 
-# Coordinator context: active-run-id exists → allow
-ACTIVE_RUN_FILE="${WORKFLOW_DIR}/active-run-id"
-if [[ -f "$ACTIVE_RUN_FILE" ]]; then
-  exit 0
+# Worker context: worker-active marker exists → block
+WORKER_MARKER="${WORKFLOW_DIR}/worker-active"
+if [[ -f "$WORKER_MARKER" ]]; then
+  echo "[codex-orchestrate] BLOCKED: Worker agents (pack_executor, complex_pack_executor) cannot modify design or plan documents under docs/. Only the Coordinator may edit these files." >&2
+  exit 2
 fi
 
-# Worker context (workflow dir exists but no active-run-id) → block
-echo "[codex-orchestrate] BLOCKED: Worker agents (pack_executor, complex_pack_executor) cannot modify design or plan documents under docs/. Only the Coordinator may edit these files." >&2
-exit 2
+# Coordinator context (no worker-active marker) → allow
+exit 0
