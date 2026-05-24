@@ -66,7 +66,6 @@ bash "${MMW_PLUGIN_ROOT}/scripts/run-summary.sh" "<run_id>"
 Push + PR 完成后，保持当前线程附着在 Codex-managed worktree 上：
 
 - 不运行 `git worktree remove`，不移动工作树目录，不把 worktree 手工复制回主仓库。
-- 如果 Codex App 提供原生的 Move to Local / Move out of Worktree 操作，只能使用 Codex 原生动作；不要用 shell 命令模拟。
 - 默认保留工作树，因为 PR 可能需要后续修改。
 
 工作树保留直到 PR 合并后由 Codex / `clean_gone` 统一清理（删除工作树 + 分支 + 残留状态文件）。

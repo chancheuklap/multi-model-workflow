@@ -5,7 +5,7 @@
 > **Codex Plugin 版本**：3.6.2。
 > **文档定位**：这是 Codex 原生复刻系统的架构权威文档，不是迁移日志，也不是旧机制清单。
 
-`codex-orchestrate/` 的目标是把 `plugin/` 蓝本中的 workflow 合同保留下来，同时把运行机制替换为 Codex 原生能力：Codex plugin manifest、Codex skill、Codex TOML subagent、`spawn_agent` / `send_input` / `wait_agent`、Codex hook payload、`.codex/multi-model-workflow/` 状态目录，以及 Codex runtime 管理的工作树。
+`codex-orchestrate/` 的目标是把 `plugin/` 蓝本中的 workflow 合同保留下来，同时把运行机制替换为 Codex 原生能力：Codex plugin manifest、Codex skill、Codex TOML subagent、`spawn_agent` / `send_input` / `wait_agent`、Codex hook payload、`.codex/multi-model-workflow/` 状态目录，以及自动创建在 Codex 约定根目录下的 Git worktree。
 
 ---
 
@@ -36,7 +36,7 @@ flowchart TD
 
     A["用户输入"] --> ENV{"Step 0：环境检测"}:::coord
     ENV -->|"已在 Codex worktree + active-run-id"| RESUME["断点续传\n读 workflow-state → 路由 phase"]:::coord
-    ENV -->|"主仓库"| WT["Codex 原生工作树迁移\nhost 选择 ~/.codex/worktrees/*/<repo>"]:::coord
+    ENV -->|"主仓库"| WT["自动创建 Git worktree\n~/.codex/worktrees/<4hex>/<repo>"]:::coord
     WT --> B{"Step 1：路线判定"}:::coord
     ENV -->|"worktree 但无 active-run-id"| B
 
@@ -93,7 +93,7 @@ flowchart TD
 | 节点 | 机制 | 做什么 | 产出 / 消费 | 状态 |
 | --- | --- | --- | --- | --- |
 | Environment Detection | `workflow-infrastructure.md` | 判断当前是主仓库、Codex worktree，还是断点续传 | 读 `.git` 形态和 `.codex/multi-model-workflow/active-run-id` | 正常 |
-| Codex 原生工作树迁移 | Coordinator + Codex runtime | 主仓库启动时把当前线程迁入 Codex-managed worktree | 目录由 Codex 选择，通常是 `${CODEX_HOME:-$HOME/.codex}/worktrees/*/<repo>` | 正常 |
+| Codex 目录下自动建 worktree | Coordinator + `git worktree add -b` | 主仓库启动时自动创建独立 Git worktree 并进入该目录 | `${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>`；主仓库分支不切走 | 正常 |
 | Entry Gate | `orchestrate-workflow/SKILL.md` | 把输入分到 7 条路线 | 不写代码，只判定路线 | 正常 |
 | Infrastructure | `workflow-infrastructure.md` | 写 Scope Contract、初始化 workflow-state、记录 active-run-id | `.codex/multi-model-workflow/scope-<run_id>.md`、`workflow-state-<run_id>.json` | 正常 |
 | Discovery | `orchestrate-discovery` | 与用户讨论、维护 CONTEXT、写设计文档 | `docs/orchestrate/design/<slug>.md` | 正常 |
@@ -126,19 +126,35 @@ Routes 4-7 的定义分布在两组 reference 中：
 
 ---
 
-## Codex 工作树托管规则
+## Codex 工作树创建规则
 
-Codex 版 workflow 不拥有工作树父目录。它只声明“需要进入独立工作树”，目录选择交给 Codex runtime / Codex App。
+Codex 版 workflow 必须自动创建工作树，不要求用户在 Codex App UI 中手动创建。创建位置固定在 Codex 本机约定根目录下；区别只在于目录 id 由 Coordinator 随机生成并避免碰撞。
 
 | 规则 | 合同 |
 | --- | --- |
-| 目录权威 | 由 Codex runtime 创建，通常为 `${CODEX_HOME:-$HOME/.codex}/worktrees/<codex-assigned-id>/<repo-name>` |
-| 禁止事项 | 不运行 `git worktree add <自造路径>`；不创建 `../worktrees`、`.worktrees`、`/tmp/<repo>`；不把 Codex workflow 状态写到自定义根目录 |
-| 主仓库启动 | 使用 Codex 原生工作树创建/迁移动作，把当前线程迁入 host-managed worktree |
-| 原生动作不可用 | 返回 `BLOCKED`，请用户在 Codex App 中迁移当前线程；不得 shell fallback |
-| 分支 | 工作树迁移后确认或创建 `codex/<short-scope>` 工作分支；detached HEAD 不能进入执行阶段 |
+| 目录权威 | `${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>` |
+| 自动创建 | Coordinator 运行 `git worktree add -b "$BRANCH" "$WT_PATH" HEAD` |
+| 禁止事项 | 不创建 `../worktrees`、`.worktrees`、`/tmp/<repo>`；不把 Codex workflow 状态写到自定义根目录 |
+| 主仓库启动 | 自动生成 `<4-hex-id>` 和 `codex/<short-scope>` 分支名，在 Codex 根目录下创建 worktree，然后 `cd "$WT_PATH"` |
+| 主仓库分支 | 禁止先在主仓库执行 `git switch -c` / `git checkout -b`；`git worktree add -b` 会在新 worktree 中创建并检出分支，主仓库当前分支不被切走 |
+| 失败处理 | `git worktree add` 失败就报告真实错误并停止，不改用临时目录绕过 |
 | 子代理 | worker 不再创建二级 worktree；所有 pack 在 Coordinator 当前工作分支串行执行 |
 | 状态目录 | Scope、workflow-state、execution-state、pack-returns 都写在当前 Codex worktree 内的 `.codex/multi-model-workflow/` |
+
+创建命令的规范形态：
+
+```bash
+CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_NAME="$(basename "$REPO_ROOT")"
+WT_ID="<random 4 hex, collision-checked>"
+WT_PATH="$CODEX_HOME/worktrees/$WT_ID/$REPO_NAME"
+BRANCH="codex/<short-scope>"
+
+mkdir -p "$(dirname "$WT_PATH")"
+git worktree add -b "$BRANCH" "$WT_PATH" HEAD
+cd "$WT_PATH"
+```
 
 检测当前是否在 worktree 的方法仍然是 Git 事实：
 
@@ -757,7 +773,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 
 ## 架构约束
 
-- **Codex 原生工作树**：工作树目录由 Codex runtime 选择；workflow 不自造路径。
+- **Codex 根目录 worktree**：Coordinator 自动运行 `git worktree add -b`，但路径只能落在 `${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>`。
 - **渐进加载**：SKILL.md 只做路由和骨架；reference 到步骤时再读。
 - **Prompt 自足**：subagent 不继承 Coordinator 上下文；dispatch prompt 必须带完整任务、验收、命令和边界。
 - **Reviewer 独立**：`codex_reviewer` 是一等 subagent；Coordinator 亲验后才 disposition。
@@ -803,9 +819,9 @@ workflow-state 和 execution-state 分离。workflow-state owns route / cursor /
 
 `agent-return-handler.sh` 是 SubagentStop 后置处理。非 worker、无 active run、无 execution-state 时 exit 0；worker durable return 缺失或无效时 exit 2 阻断后续流程。
 
-### Ruling 4：Codex Worktree Path Authority
+### Ruling 4：Codex Worktree Creation Authority
 
-工作树物理路径由 Codex runtime / Codex App 决定。Workflow 不提供父目录路径，不 shell fallback，不把自造目录称为 Codex worktree。
+工作树由 Coordinator 自动创建，不要求用户点 UI。创建命令必须是 `git worktree add -b "$BRANCH" "$WT_PATH" HEAD`，其中 `WT_PATH` 必须位于 `${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>`。主仓库禁止先切分支；分支创建和 checkout 发生在新 worktree 中。
 
 ### Ruling 5：Prompt Validation Boundary
 
@@ -823,7 +839,7 @@ Codex lifecycle hooks拿不到完整 dispatch prompt；凡是需要读 `DISPATCH
 | Review 派发 | 外部 companion script + job-id polling | `spawn_agent` / `send_input` / `wait_agent` 原生 reviewer |
 | Hook payload | Claude Code tool events | Codex plugin hook events |
 | Prompt gate | 部分在 hooks 中拦截 | 显式 Coordinator script |
-| 工作树 | 蓝本沿用旧 worktree 操作描述 | Codex runtime 托管路径 |
+| 工作树 | 蓝本沿用旧 worktree 操作描述 | `git worktree add -b` 自动创建到 Codex 根目录 |
 | Runtime root | `CLAUDE_PLUGIN_ROOT` | `MMW_PLUGIN_ROOT` / `${PLUGIN_ROOT}` |
 
 同步方向：`plugin/` 是行为蓝本，`codex-orchestrate/` 是 Codex 原生源码。复刻时保留业务合同，替换 host-specific 执行机制。
@@ -918,7 +934,7 @@ bash codex-orchestrate/scripts/verify-maturity.sh
 
 ## 编辑同步清单
 
-- 改工作树规则 → 同步 `workflow-infrastructure.md`、`workflow-closing.md`、`agents.overrides.md`、`verify-maturity.sh`、本文件。
+- 改工作树规则 → 同步 `workflow-infrastructure.md`、`workflow-closing.md`、`agents.overrides.md`、`scripts/agents.overrides.md`、`verify-maturity.sh`、本文件。
 - 改 review dispatch 协议 → 同步 `build/templates/review-dispatch.md.tmpl`、所有 generated review references、`validate-review-dispatch.sh`、`dispatch-envelope-v1.json`、本文件。
 - 改 worker dispatch 协议 → 同步 `orchestrate-execution/SKILL.md`、`validate-pack-dispatch.sh`、`record-pack-dispatch.sh`、`agent-return-handler.sh`、schema、本文件。
 - 改 disposition enum → 同步 `state.sh`、`validate-pack-dispatch.sh`、disposition template、所有 phase 的 disposition reference、schema、本文件。
@@ -937,7 +953,7 @@ Codex source package 只有在以下条件同时成立时才算可用：
 - `.codex-plugin/plugin.json` 指向 `skills/` 和 `hooks.json`。
 - 所有 review reference 都使用 `codex_reviewer` subagent、`spawn_agent` / `send_input` / `wait_agent`。
 - 所有 state path 都是 `.codex/multi-model-workflow/`。
-- 工作树入口只委托 Codex runtime，不出现旧 worktree 伪工具或自造路径。
+- 工作树入口自动创建到 Codex 根目录，不出现旧 worktree 伪工具、UI-only 步骤、主仓库先切分支或自造路径。
 - worker dispatch 和 review dispatch 都先跑显式校验脚本。
 - `agent_id` 在 worker 和 reviewer 两条 lane 都可持久化和恢复。
 - `workflow-state` / `execution-state` 通过 schema 和 `state.sh validate`。

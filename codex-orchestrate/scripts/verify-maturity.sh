@@ -236,11 +236,13 @@ check "D2: execution SKILL.md has technical detail layer" \
 check "D8: workflow SKILL.md has send_input availability check" bash -c \
   "grep -q 'send_input.*可用\|send_input' '$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md'"
 
-# D9: Codex worktree placement stays host-owned
+# D9: Codex worktree creation is executable and stays under Codex root
 check "D9: no old worktree pseudo tools in Codex workflow refs" bash -c \
   "! grep -R -q 'EnterWorktree\|ExitWorktree' '$PLUGIN_DIR/skills'"
-check "D9: workflow infrastructure delegates worktree path to Codex" bash -c \
-  "grep -q 'Codex runtime' '$PLUGIN_DIR/skills/orchestrate-workflow/references/workflow-infrastructure.md' && grep -q '.codex}/worktrees' '$PLUGIN_DIR/skills/orchestrate-workflow/references/workflow-infrastructure.md'"
+check "D9: workflow infrastructure creates Codex-root worktree automatically" bash -c \
+  "grep -q 'git worktree add -b' '$PLUGIN_DIR/skills/orchestrate-workflow/references/workflow-infrastructure.md' && grep -q '.codex}/worktrees' '$PLUGIN_DIR/skills/orchestrate-workflow/references/workflow-infrastructure.md'"
+check "D9: workflow infrastructure forbids main-repo branch switch" bash -c \
+  "grep -q '禁止先在主仓库执行' '$PLUGIN_DIR/skills/orchestrate-workflow/references/workflow-infrastructure.md'"
 
 # route-extension dead code deleted
 check "route-extension template deleted" bash -c \
