@@ -19,7 +19,7 @@ Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问�
 | 修订揭示 design gap / issue mismatch | 返回 `NEEDS_DISCOVERY` / `NEEDS_ISSUES`（upstream backflow） |
 
 4. 修订后重跑 Plan Entry Gate（Step 11）+ Task Pack Inventory Gate（Step 12）
-5. 如果 pack_count 变化 → 更新 budget file（Step 12a）
+5. 如果 plan count 变化 → 回 Step 12a 重新初始化或修正 workflow-state budget
 6. 重跑 Plan Review（Step 13-18），scope 缩小到修改的部分（targeted re-review 优先）
 
 ## Step 1：缺件路由表
@@ -36,11 +36,11 @@ Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问�
 | 架构摩擦反复阻塞 | `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` |
 | 模块地图不足 | `NEEDS_CONTEXT` | `Skill({ skill: "zoom-out" })`/ code_explorer |
 
-## Step 2：Scope Contract + Budget File
+## Step 2：Scope Contract + workflow-state
 
 **Scope Contract**：继承 orchestrate-workflow 写的 Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）。从中读取 feature slug。验证 editable artifacts 包含约定路径（`docs/orchestrate/design/<slug>.md`、`docs/orchestrate/plans/<slug>/`、`docs/orchestrate/issues/<slug>/`）。
 
-**Budget File**：读取 `.codex/multi-model-workflow/active-run-id` 找到 budget file。Review budget 由 review dispatch 步骤在 `wait_agent` 返回后显式调用 `state.sh budget increment-review` 追踪。
+**workflow-state**：读取 `.codex/multi-model-workflow/active-run-id` 找到 `workflow-state-<run_id>.json`。Review budget 由 review dispatch 步骤在 `wait_agent` 返回后显式调用 `state.sh budget increment-review` 追踪。
 
 ---
 > **下一步**：前置条件通过 → Steps 3-8（`plan-writing-methodology.md`）。缺 design → `NEEDS_DISCOVERY`。缺大 issue 文件 → `NEEDS_ISSUES`（Coordinator 走大 issue 拆分）。小 issue 缺失由 plan_writer 在 Step 3c 自行补全。

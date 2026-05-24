@@ -9,7 +9,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" transition \
 ```
 
 Phase 序列（formal route）：
-`workflow` → `discovery` → `plan-writing` → `execution` → `final-review` → `execution_done` → `closed`
+`workflow` → `discovery` → `plan-writing` → `execution` → `final-review` → `closed`
 
 每个 phase skill 返回前必须通过 transition 写入下一个 phase。
 Compaction 恢复时读取 `cursor.phase` 确定当前位置。

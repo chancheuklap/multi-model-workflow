@@ -15,7 +15,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" transition \
 ```
 
 Phase 序列（formal route）：
-`workflow` → `discovery` → `plan-writing` → `execution` → `final-review` → `execution_done` → `closed`
+`workflow` → `discovery` → `plan-writing` → `execution` → `final-review` → `closed`
 
 每个 phase skill 返回前必须通过 transition 写入下一个 phase。
 Compaction 恢复时读取 `cursor.phase` 确定当前位置。
@@ -133,7 +133,7 @@ Coordinator 亲验 findings → disposition → 直接修设计文档（不派 w
 
 ## 外部 Skill
 
-**全程使用**：`Skill({ skill: "grill-with-docs" })`（CONTEXT.md 维护）。**按需调用**：`Skill({ skill: "prototype" })` / `frontend-design` / `Skill({ skill: "improve-codebase-architecture" })` / `Skill({ skill: "zoom-out" })` / `Skill({ skill: "diagnose" })` / `Skill({ skill: "triage" })`。结论必须写回 design document 或 CONTEXT.md。
+**全程使用**：`Skill({ skill: "grill-with-docs" })`（CONTEXT.md 维护）。**按需调用**：`Skill({ skill: "prototype" })` / `Skill({ skill: "build-web-apps:frontend-app-builder" })` / `Skill({ skill: "impeccable" })` / `Skill({ skill: "improve-codebase-architecture" })` / `Skill({ skill: "zoom-out" })` / `Skill({ skill: "diagnose" })` / `Skill({ skill: "triage" })`。结论必须写回 design document 或 CONTEXT.md。
 
 ## 边界规则
 

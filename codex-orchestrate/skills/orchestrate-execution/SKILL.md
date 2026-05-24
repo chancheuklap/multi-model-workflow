@@ -15,7 +15,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" transition \
 ```
 
 Phase 序列（formal route）：
-`workflow` → `discovery` → `plan-writing` → `execution` → `final-review` → `execution_done` → `closed`
+`workflow` → `discovery` → `plan-writing` → `execution` → `final-review` → `closed`
 
 每个 phase skill 返回前必须通过 transition 写入下一个 phase。
 Compaction 恢复时读取 `cursor.phase` 确定当前位置。
@@ -216,7 +216,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" execution-plan start \
 - 不在 main / master / release branch 上
 - 区分当前 scope 改动和用户/其它线程改动——不 stage 不属于当前 scope 的 dirty files
 
-**Budget File**：读取 `.codex/multi-model-workflow/active-run-id` 找到 budget file，确认 `pack_count` 与 plan 中 Task Pack 数量一致。**不一致时不得自行修改 budget file**——`budget_total` 只在 plan-writing Step 12a 赋值，执行阶段不可变。不一致说明 plan 文件与 budget file 脱节，返回 `NEEDS_PLAN_REVISION` 让 plan-writing 重新计算。
+**workflow-state budget**：读取 `.codex/multi-model-workflow/active-run-id` 找到 `workflow-state-<run_id>.json`，确认 `plan_count` 已初始化。执行阶段不得自行修改 `review_total` / `effort_total`；如果 plan 文件与 workflow-state 脱节，返回 `NEEDS_PLAN_REVISION` 让 plan-writing 重新计算。
 
 预执行准备完成 → 进入 Steps 4-9（Pack 循环）。`NEEDS_PLAN_REVISION` → 返回 orchestrate-workflow。
 
@@ -537,17 +537,13 @@ Pack 数 ≤ 8 则按当前方式一次性 review。
 1. Write prompt → `.codex/multi-model-workflow/review-prompts/<gate>.md`（prefix with DISPATCH_ENVELOPE, `agent_role: "codex_reviewer"`）
    - Code diffs included in review prompts MUST be wrapped:
      `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
-2. Select model by phase:
-   - `cursor.phase in {discovery, plan-writing}` → `model: "gpt-5.5"`, `reasoning_effort: "xhigh"`
-   - `cursor.phase in {execution, final-review}` → `model: "gpt-5.4"`, `reasoning_effort: "xhigh"`
+2. Reviewer model and reasoning come from `agents/codex_reviewer.toml`. Do not pass per-phase model overrides in the dispatch call; the TOML agent config is the source of truth.
 3. Dispatch（区分 baseline vs targeted re-review）：
    - **Baseline review**（gate name does not contain `-repair-`）：
      ```
      spawn_agent({
        agent_type: "codex_reviewer",
-       message: "<full contents of review-prompts/<gate>.md>",
-       model: "<phase-selected model>",
-       reasoning_effort: "xhigh"
+       message: "<full contents of review-prompts/<gate>.md>"
      })
      ```
      Record the returned reviewer `agent_id` into `.codex/multi-model-workflow/review-agents/<gate>.agent-id`.
@@ -814,7 +810,7 @@ Final Review 返回 `NEEDS_EXECUTION` 时（跨 Plan 系统性问题），Coordi
 - [ ] Git Checkpoint 完成
 - [ ] Plan checkboxes 已更新
 - [ ] Budget 消耗已记录
-- [ ] 状态锚更新：`cursor.phase` transition 到 `execution_done`
+- [ ] 状态锚更新：`cursor.phase` transition 到 `final-review`
 
 **Re-run behavior:**
 - Step 6: 如果 Pack 已 dispatched/returned/committed → 跳过 dispatch，从当前状态继续

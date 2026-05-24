@@ -110,9 +110,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" \
 ```text
 spawn_agent({
   agent_type: "codex_reviewer",
-  message: "<full contents of PROMPT_FILE>",
-  model: "gpt-5.4",
-  reasoning_effort: "xhigh"
+  message: "<full contents of PROMPT_FILE>"
 })
 ```
 
@@ -151,5 +149,5 @@ cat > "${REVIEW_DIR}/review-${TIMESTAMP}-result.md"
 
 - 此 Skill 不写入 `workflow-state`，不消耗 Orchestrate Workflow review budget。
 - 结果目录 `.codex/codex-review/` 与正规工作流的 `.codex/multi-model-workflow/review-prompts/` 隔离。
-- 默认用 `model: "gpt-5.4"` 和 `reasoning_effort: "xhigh"`；用户要求时可以换模型。
+- reviewer 的模型、reasoning effort 和 sandbox 由 `agents/codex_reviewer.toml` 决定；ad-hoc review 不传 per-call model override。
 - 一次性调用，不做 re-review 循环；用户要再审就再调用一次。

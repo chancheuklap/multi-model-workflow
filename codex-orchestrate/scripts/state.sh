@@ -88,7 +88,6 @@ TRANSITION_MATRIX=(
   "Coordinator:plan-writing:execution"
   "Coordinator:execution:final-review"
   "Coordinator:final-review:closed"
-  "Coordinator:*:execution_done"
   "Coordinator:*:closed"
   "agent-return-handler:dispatched:returned"
   "track-execution-state:returned:committed"

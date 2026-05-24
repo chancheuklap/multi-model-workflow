@@ -22,7 +22,6 @@
 | Coordinator | plan-writing | execution | Plan Writing → Execution 阶段推进 |
 | Coordinator | execution | final-review | Execution → Final Review 阶段推进 |
 | Coordinator | final-review | closed | Final Review → 关闭 |
-| Coordinator | * | execution_done | Execution 完成 |
 | Coordinator | * | closed | 工作流关闭 |
 | agent-return-handler | dispatched | returned | PostToolUse hook 自动标记 Worker 返回 |
 | track-execution-state | returned | committed | PostToolUse hook 自动标记 commit 完成 |

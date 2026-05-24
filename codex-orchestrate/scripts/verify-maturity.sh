@@ -72,6 +72,8 @@ echo "## Persona + Observability"
 check "persona.md exists" test -f "$PLUGIN_DIR/agents/persona.md"
 check "run-summary.sh exists" test -x "$PLUGIN_DIR/scripts/run-summary.sh"
 check "review-effectiveness.sh exists" test -x "$PLUGIN_DIR/scripts/lib/review-effectiveness.sh"
+check "verify-architecture-draft.sh exists" test -x "$PLUGIN_DIR/scripts/verify-architecture-draft.sh"
+check "architecture draft verification passes" bash "$PLUGIN_DIR/scripts/verify-architecture-draft.sh"
 
 echo ""
 echo "## Defense"
@@ -322,6 +324,8 @@ check "R3-20: Ruling 2 in architecture-draft" \
   grep -q "Ruling 2" "$PLUGIN_DIR/architecture-draft.md"
 check "R3-20: Ruling 3 in architecture-draft" \
   grep -q "Ruling 3" "$PLUGIN_DIR/architecture-draft.md"
+check "R3-20: no stale architecture runtime claims" bash -c \
+  "! grep -q 'model: \"<phase model>\"\\|gpt-5.4\\|frontend-design\\|run-summary-<run_id>.json\\|plan-writing_done\\|final-review_done' '$PLUGIN_DIR/architecture-draft.md'"
 
 # R3-21: design doc rulings
 check "R3-21: Ruling 2 in design doc" \
