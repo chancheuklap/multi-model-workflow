@@ -201,6 +201,27 @@ The build system keeps shared language synchronized:
 
 When a shared template changes, regenerate generated references with `build/build.sh --apply` and verify with `build/build.sh --check`.
 
+## Architecture Rulings
+
+The following rulings are source-level contracts used by scripts, schemas, and verification:
+
+### Ruling 1: Commit Message Pack Parsing
+
+`hooks/track-execution-state.sh` may extract Pack ID from commit messages because the input is already constrained by `hooks/enforce-pack-commit.sh`. This is not prompt parsing and it is not part of the dispatch control plane.
+
+### Ruling 2: Two-File State Model
+
+Workflow state and execution state are separate files:
+
+- `workflow-state-<run_id>.json` owns route, cursor, budget, dispositions, and plan-level tracking.
+- `execution-state-<run_id>.json` owns pack-level data: pack status, recorded agent ids, commit shas, worker verdicts, repair rounds, current plan, and plan commit boundaries.
+
+Pack-level fields must not be duplicated into workflow state.
+
+### Ruling 3: Post-Completion Hook Behavior
+
+`hooks/agent-return-handler.sh` runs after a subagent has already stopped. If its event payload lacks a usable envelope, it skips rather than blocking the session, because a post-completion hook cannot cancel the completed subagent. Dispatch-time validation remains strict and happens before `spawn_agent` or `send_input`.
+
 ## Verification Criteria
 
 The Codex source package is mature only when these source-level criteria hold:
