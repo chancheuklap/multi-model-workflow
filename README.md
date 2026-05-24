@@ -11,7 +11,7 @@
 
 | 层级 | Source | Runtime |
 | --- | --- | --- |
-| Plugin manifest | `codex-orchestrate/.codex-plugin/plugin.json` | 安装后目标：`~/.codex/plugins/cache/multi-model-workflow/codex-orchestrate/3.6.1/` |
+| Plugin manifest | `codex-orchestrate/.codex-plugin/plugin.json` | 安装后缓存：`~/.codex/plugins/cache/multi-model-workflow/multi-model-workflow/3.6.2/` |
 | Skills | `codex-orchestrate/skills/` | plugin cache skills |
 | Custom agents | `codex-orchestrate/agents/*.toml` | `~/.codex/agents/*.toml` + `~/.codex/config.toml` `[agents.<name>]` |
 | Hooks | `codex-orchestrate/hooks/hooks.json`、`codex-orchestrate/hooks/*.sh` | plugin cache hooks |
@@ -48,10 +48,12 @@ uv run --with pyyaml --no-project \
 ## 安装
 
 Source 覆盖审计完成后再执行安装；不要用安装动作替代复刻验收。
+本仓库通过 repo-local marketplace 暴露 `codex-orchestrate/`，入口是 `.agents/plugins/marketplace.json`。
 安装后还要在新 Codex session 里 review/trust plugin hook definitions，并确认 SessionStart 输出 `codex-orchestrate` runtime active。
 
 ```bash
-bash codex-orchestrate/installers/install.sh --user --apply
-bash codex-orchestrate/installers/verify-runtime-parity.sh --user
+codex plugin marketplace list
 codex plugin list --marketplace multi-model-workflow
+codex plugin add multi-model-workflow@multi-model-workflow
+rsync -ain --delete codex-orchestrate/ ~/.codex/plugins/cache/multi-model-workflow/multi-model-workflow/3.6.2/
 ```
