@@ -22,7 +22,7 @@ Commands:
   self-verify       Manage self-verification records (append)
   path-a-escalation Manage Path A escalation entries
   agent-id          Get/set agent_id in execution-state (per Ruling 2)
-  budget            Budget subcommands (initialize, check)
+  budget            Budget subcommands (initialize, check, increment-review)
   direction-check   Direction Check flow (trigger, ack)
   idempotency       Idempotency key management (check, append)
   plans             Plan management (add)
@@ -673,7 +673,8 @@ cmd_budget() {
   case "$subcmd" in
     initialize) cmd_budget_initialize "$@" ;;
     check) cmd_budget_check "$@" ;;
-    *) echo "Error: unknown budget subcommand: $subcmd (use initialize|check)" >&2; exit 2 ;;
+    increment-review) cmd_budget_increment_review "$@" ;;
+    *) echo "Error: unknown budget subcommand: $subcmd (use initialize|check|increment-review)" >&2; exit 2 ;;
   esac
 }
 
@@ -744,6 +745,54 @@ cmd_budget_check() {
 
   echo "OK: ${review_used}/${review_total}"
   exit 0
+}
+
+cmd_budget_increment_review() {
+  ensure_state_exists
+  local sf
+  sf="$(state_file)"
+
+  acquire_lock
+  trap release_lock EXIT
+
+  local status
+  status=$(jq -r '.budget.budget_status // "unknown"' "$sf")
+  if [[ "$status" == "pending_plan_count" ]]; then
+    echo "Error: budget not initialized (status=pending_plan_count). Run 'budget initialize --plan-count N' first." >&2
+    exit 2
+  fi
+
+  local tmp="${sf}.tmp"
+  jq '.budget.review_used += 1' "$sf" > "$tmp"
+  mv "$tmp" "$sf"
+
+  local used total needs_dc=false msg
+  used=$(jq -r '.budget.review_used' "$sf")
+  total=$(jq -r '.budget.review_total' "$sf")
+
+  if [[ "$total" == "unlimited" ]]; then
+    msg="Review budget: ${used} dispatches used (unlimited)."
+  elif [[ "$used" -ge "$total" ]] 2>/dev/null; then
+    msg="BUDGET EXHAUSTED: ${used}/${total}. Stop dispatching reviews and report to user."
+  elif [[ "$used" -ge "$(( total * 80 / 100 ))" ]] 2>/dev/null; then
+    local current_dc
+    current_dc=$(jq -r '.pending_direction_check // "null"' "$sf")
+    if [[ "$current_dc" == "null" ]]; then
+      needs_dc=true
+    fi
+    msg="DIRECTION CHECK: Review budget at ${used}/${total} (>=80%). Confirm with user."
+  else
+    msg="Review budget: ${used}/${total} dispatches used."
+  fi
+
+  release_lock
+  trap - EXIT
+
+  if [[ "$needs_dc" == "true" ]]; then
+    cmd_dc_trigger --type review --threshold-percent 80 >/dev/null
+  fi
+
+  echo "$msg"
 }
 
 # --- direction-check subcommand ---

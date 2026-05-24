@@ -20,15 +20,26 @@ bash "$STATE_SH" init --run-id "$RUN_ID" --slug "test" --route "formal" >/dev/nu
 run_test_expect_fail "budget check fails on pending_plan_count" \
   bash "$STATE_SH" budget check --run-id "$RUN_ID"
 
-# 2. Initialize budget
+# 2. Budget increment fails before initialization
+run_test_expect_fail "budget increment-review fails on pending_plan_count" \
+  bash "$STATE_SH" budget increment-review --run-id "$RUN_ID"
+
+# 3. Initialize budget
 run_test "budget initialize" \
   bash "$STATE_SH" budget initialize --run-id "$RUN_ID" --plan-count 2
 
-# 3. Budget check passes after initialization
+# 4. Budget check passes after initialization
 run_test "budget check passes after init" \
   bash "$STATE_SH" budget check --run-id "$RUN_ID"
 
-# 4. Direction check trigger + ack
+# 5. Manual targeted re-review budget increment
+run_test "budget increment-review increments review_used" \
+  bash "$STATE_SH" budget increment-review --run-id "$RUN_ID"
+
+run_test "review_used is 1 after increment-review" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.budget.review_used') == '1' ]]"
+
+# 6. Direction check trigger + ack
 run_test "direction-check trigger" \
   bash "$STATE_SH" direction-check trigger --run-id "$RUN_ID" --type review --threshold-percent 80
 
@@ -41,7 +52,7 @@ run_test "direction-check ack stop" \
 run_test "direction-check stopped" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.pending_direction_check.ack_status') == 'stopped' ]]"
 
-# 5. Unlimited budget route
+# 7. Unlimited budget route
 RUN_ID2="test-bdc-hotfix"
 bash "$STATE_SH" init --run-id "$RUN_ID2" --slug "hf" --route "hotfix" >/dev/null
 
