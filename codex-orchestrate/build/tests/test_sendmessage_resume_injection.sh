@@ -18,8 +18,8 @@ run_test "send_input in execution-repair-truncation" \
 run_test "send_input in plan-review-resolution" \
   grep -q "send_input Resume" "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-review-resolution.md"
 
-# Verify no Agent() in Path B
-run_test "no Agent() in final-review Path B" \
+# Verify Path B keeps continuation on the existing agent.
+run_test "no fresh subagent dispatch in final-review Path B" \
   bash -c "! grep -A3 '路径 B' '$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-repair.md' | grep -q 'spawn_agent({'"
 
 echo ""

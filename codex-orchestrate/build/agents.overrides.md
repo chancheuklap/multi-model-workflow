@@ -7,3 +7,4 @@
 - Review dispatch templates may call explicit validation scripts before `spawn_agent` / `send_input`; those scripts are gates, not review executors.
 - Script command templates must use `${MMW_PLUGIN_ROOT}` for plugin helper scripts; never restore old-host plugin root variables.
 - Resume templates must use Codex `send_input` plus `wait_agent`; do not describe old message-resume APIs.
+- Build tests must assert current Codex-native structure directly and must not preserve removed runner strings only to prove their absence.

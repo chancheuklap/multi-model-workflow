@@ -20,8 +20,11 @@ run_test "template has targeted re-review" \
 run_test "targeted re-review uses send_input" \
   grep -q "send_input" "$TMPL"
 
-run_test "template has no companion CLI runner" \
-  bash -c "! grep -qE 'CODEX_SCRIPT|CODEX_REVIEW|codex-companion|codex-review\\.sh|\\.job-id|--resume' '$TMPL'"
+run_test "template dispatches native reviewer subagent" \
+  grep -q 'agent_type: "codex_reviewer"' "$TMPL"
+
+run_test "template waits for reviewer subagent" \
+  grep -q "wait_agent" "$TMPL"
 
 echo ""
 echo "Results: $pass passed, $fail failed"
