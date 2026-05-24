@@ -22,8 +22,7 @@
 ```
 spawn_agent({
   agent_type: "<code_explorer | complex_code_explorer>",
-  description: "Multi-PR analysis: <PR set / dimension>",
-  prompt: "
+  message: "
     ## Scope
     分析多个并行 PR 之间的代码 / 功能 / 意图关系。
     这些 PR 来自同一个大设计，各自已通过 Final Review。

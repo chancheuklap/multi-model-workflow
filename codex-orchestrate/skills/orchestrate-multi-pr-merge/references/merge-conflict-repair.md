@@ -11,8 +11,7 @@
 ```
 spawn_agent({
   agent_type: "<pack_executor | complex_pack_executor>",
-  description: "Multi-PR conflict fix: <conflict summary>",
-  prompt: "
+  message: "
     ## Scope
     修复 Multi-PR Merge 中发现的 PR 间冲突。
 
@@ -64,8 +63,7 @@ spawn_agent({
 ```
 spawn_agent({
   agent_type: "<pack_executor | complex_pack_executor>",
-  description: "Multi-PR conflict fix: <conflict summary>",
-  prompt: "
+  message: "
     ## Scope
     修复 Multi-PR Merge 中发现的 PR 间冲突。
 

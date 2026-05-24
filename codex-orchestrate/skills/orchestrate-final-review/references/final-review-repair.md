@@ -37,8 +37,7 @@ Worker 修复后返回 → 进入 Step 11
 ```
 spawn_agent({
   agent_type: "complex_code_explorer",
-  description: "Investigate unknown root cause: Final Review finding",
-  prompt: "
+  message: "
     ## Scope
     只读调查。Final Review 报告了症状但无法确定根因。找到根因，不写代码。
 
@@ -233,8 +232,7 @@ Per-finding status:
 ```
 spawn_agent({
   agent_type: "root_cause_analyst",
-  description: "Investigate Final Review repair failure: <finding>",
-  prompt: "
+  message: "
     ## 调度场景
     Repair Truncation（Final Review）。Final Review 修了两轮，reviewer 仍报 needs repair。
 

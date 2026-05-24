@@ -158,8 +158,7 @@ Budget：Release Gate 最多 2 个 dispatch（含 early + final），已包含�
 ```
 spawn_agent({
   agent_type: "complex_pack_executor",
-  description: "Fix Final Release blocker: <blocker summary>",
-  prompt: "
+  message: "
     ## Scope
     修复 Final Release Gate 发现的 release blocker。
 
