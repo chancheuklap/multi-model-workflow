@@ -1,4 +1,0 @@
-interface:
-  display_name: "Orchestrate Workflow"
-  short_description: "编排端到端开发流程：Discovery → Review → Plan → Execution → Finishing"
-  default_prompt: "Use $orchestrate-workflow 编排 Discovery、Phase 0、Task Pack 执行、review 和收尾。"

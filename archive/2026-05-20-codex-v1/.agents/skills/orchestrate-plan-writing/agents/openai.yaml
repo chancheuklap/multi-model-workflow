@@ -1,4 +1,0 @@
-interface:
-  display_name: "Orchestrate Plan Writing"
-  short_description: "把已 review 的 design 和 vertical issues 转成 implementation plan"
-  default_prompt: "Use $orchestrate-plan-writing 根据已 review 的 design 和 vertical issues 生成 issue-backed implementation plan。"
