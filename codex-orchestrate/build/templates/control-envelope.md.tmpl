@@ -1,0 +1,33 @@
+## DISPATCH_ENVELOPE (required)
+
+Every worker dispatch, repair dispatch, plan_writer dispatch, and review dispatch must begin its prompt or envelope file with:
+
+```json
+{
+  "protocol_version": "1",
+  "run_id": "<run_id>",
+  "phase": "<discovery|plan-writing|execution|final-review|multi-pr-merge>",
+  "agent_role": "<pack_executor|complex_pack_executor|plan_writer|root_cause_analyst|code_explorer|complex_code_explorer|docs_worker|reviewer>",
+  "agent_id": "<existing agent id or null>",
+  "pack_id": "<N.M or null>",
+  "repair_round": 0,
+  "idempotency_key": "<run_id>/<role>/<pack_id-or-gate>/r<repair_round>",
+  "disposition_refs": [],
+  "review_intent": null,
+  "exception_code": null,
+  "correlation_id": "<run_id>/<pack_id-or-gate>"
+}
+```
+
+Write-heavy Task Packs go through:
+
+```bash
+bash "${PLUGIN_ROOT}/scripts/dispatch/dispatch-gateway.sh" \
+  --mode worktree \
+  --envelope-file <envelope.json> \
+  --pack-brief <pack-brief.md>
+```
+
+Interactive subagent repairs first use `send_input({ target, message })` to the recorded agent id; if the host reports the agent is closed, use `resume_agent({ id })`, then `send_input`. Worktree repairs use `worktree-resume.sh --job-file <worker_job_file> --repair-prompt <prompt>` so Codex continues the original `codex exec` thread via `codex exec resume <worker_thread_id>`. Replacement dispatch is allowed only with `exception_code` and full prior context.
+
+Hooks and dispatch scripts parse this envelope. Missing or malformed envelope blocks dispatch.

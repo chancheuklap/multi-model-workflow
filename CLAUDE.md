@@ -2,91 +2,77 @@
 
 ## 边界
 
-本仓库有两套系统。Claude Code 只管 `plugin/`（当前活跃的 Claude Code Plugin 源码）。
+本仓库同时保存 Claude Code 版和 Codex 版编排系统：
 
-**禁区**（除非用户明确指令，否则不读不改）：
-- `.agents/` — Codex skill source
-- `codex/` — Codex agent/hook/sync source
-- `archive/` — 历史归档
+- `plugin/` 是 Claude Code plugin 源码，也是 Codex 复刻的行为蓝本。
+- `codex-orchestrate/` 是 Codex 原生插件复刻源码。
+- 旧 Codex 实现已经归档在 `archive/2026-05-24-codex-pre-atomic/codex/`。
 
-## 前置条件
+Claude Code 侧工作默认只改 `plugin/`。除非用户明确要求更新 Codex 复刻，否则不要改 `codex-orchestrate/`。
 
-Plugin 启动时 `session-start.sh` 会硬检查以下条件，缺一个就阻断：
-- 环境变量 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 已设置
-- `jq` 和 `python3` 在 PATH 中
-- Claude Code 版本 ≥ 2.1.147
+## Claude Plugin 结构
 
-## Plugin 结构
-
-```
+```text
 plugin/
-├── .claude-plugin/plugin.json   # 插件清单（版本号在这）
-├── skills/orchestrate-*/        # phase skill（每个含 SKILL.md + references/）
-├── agents/*.md                  # sub-agent 定义
-├── hooks/                       # hooks.json + hook 脚本 + lib/
-├── build/                       # 构建系统（resolver + template），详见 build/README.md
-├── scripts/                     # state.sh + 工具脚本 + lib/
-├── state-schema/                # JSON schema 定义
-└── architecture-draft.md        # 架构权威文档
+├── .claude-plugin/plugin.json
+├── skills/orchestrate-*/
+├── skills/codex-review/
+├── agents/*.md
+├── hooks/
+├── build/
+├── scripts/
+├── state-schema/
+└── architecture-draft.md
 ```
 
-## 架构权威
+改 Claude plugin 架构前先读 `plugin/architecture-draft.md`。
 
-改动 plugin 结构前必读：[`plugin/architecture-draft.md`](plugin/architecture-draft.md)
+## Codex 复刻结构
+
+```text
+codex-orchestrate/
+├── .codex-plugin/plugin.json
+├── skills/
+├── agents/*.toml
+├── hooks.json
+├── hooks/
+├── scripts/
+├── state-schema/
+├── build/
+└── architecture-draft.md
+```
+
+Codex 侧必须使用 Codex 原生能力：plugin manifest、自定义 agent TOML、Codex hooks、native Codex Review、`.codex/multi-model-workflow` 状态路径。
 
 ## 构建系统
 
-Skill 和 Agent 的 `.md` 文件中有 `<!-- BEGIN: xxx -->` / `<!-- END: xxx -->` 锚点，内容由 `build/templates/*.tmpl` 模板统一管理。
+`plugin/` 和 `codex-orchestrate/` 都使用 `build/templates/*.tmpl` + resolver 注入锚点内容。
 
-**规则**：
-- 改了模板（`.tmpl`）→ 必须跑 `bash plugin/build/build.sh --apply --plugin-dir plugin`
-- 改了锚点之外的 SKILL.md 内容 → 不需要跑构建
-- 直接改锚点内的内容 → 立即生效但下次 `--apply` 会被覆盖；事后必须把改动同步到 `.tmpl` 源文件
+规则：
 
-详细的锚点约定、新增 resolver 步骤、紧急修复路径见 [`plugin/build/README.md`](plugin/build/README.md)。
-
-## 版本号同步
-
-改版本号时必须同时更新两处，保持一致：
-- `plugin/.claude-plugin/plugin.json` → `version`
-- `.claude-plugin/marketplace.json`（仓库根目录）→ `plugins[0].version`
-
-## 硬规则
-
-- `docs/orchestrate/plans/` 下有未勾选任务（`- [ ]`）时，`git push` 和 `gh pr create` 会被 hook 阻断
-- `git merge --squash` 被禁止，必须用 `--no-ff`
-- Worker agent（在 worktree 中运行）不能修改 `docs/` 下的文件，只有 Coordinator 可以
+- 改 `.tmpl` 后跑对应 package 的 `build.sh --apply`。
+- 改锚点外正文不需要 apply。
+- 直接改锚点内内容会被下一次 apply 覆盖，必须同步到模板。
 
 ## 常用命令
 
 ```bash
-# 构建检查（模板内容与文件是否一致）
+# Claude plugin
 bash plugin/build/build.sh --check --plugin-dir plugin
-
-# 构建应用（模板内容写入文件）
-bash plugin/build/build.sh --apply --plugin-dir plugin
-
-# 全量测试
 bash plugin/scripts/run-all-tests.sh
-
-# 成熟度验证（构建+测试+schema+结构 全面检查）
 bash plugin/scripts/verify-maturity.sh
 
-# JSON 格式验证
-python3 -m json.tool plugin/.claude-plugin/plugin.json >/dev/null
-python3 -m json.tool plugin/hooks/hooks.json >/dev/null
-
-# 版本号一致性
-diff <(jq -r .version plugin/.claude-plugin/plugin.json) \
-     <(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)
+# Codex 复刻
+bash codex-orchestrate/scripts/run-all-tests.sh
+bash codex-orchestrate/scripts/verify-maturity.sh
+bash codex-orchestrate/build/build.sh --check --plugin-dir codex-orchestrate
+bash codex-orchestrate/installers/install.sh --user --apply
+bash codex-orchestrate/installers/verify-runtime-parity.sh --user
 ```
 
-## 修改后检查清单
+## 硬规则
 
-| 改了什么 | 需要跑什么 |
-|---------|-----------|
-| `build/templates/*.tmpl` | `build.sh --apply` → `build.sh --check` |
-| `hooks/*.sh` 或 `scripts/*.sh` | `run-all-tests.sh` |
-| `hooks/hooks.json` | `python3 -m json.tool` 验证格式 |
-| `plugin.json` 版本号 | 同步更新 `marketplace.json` → `diff` 验证 |
-| 任何改动（提交前） | `verify-maturity.sh` |
+- 不要把归档 `archive/2026-05-24-codex-pre-atomic/codex/` 当成当前 Codex 行为。
+- 不要重建 `.agents/skills/orchestrate-*`。
+- Codex baseline review 默认走 native Codex Review，不默认走 Claude。
+- Worker 在 worktree 里不拥有正式文档；正式文档由 Coordinator 主线程处理。

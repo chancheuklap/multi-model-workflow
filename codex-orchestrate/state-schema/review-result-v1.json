@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "review-result-v1.json",
+  "title": "Codex Orchestrate Review Result v1",
+  "type": "object",
+  "required": ["job_id", "lane", "status", "result_file"],
+  "properties": {
+    "job_id": { "type": "string", "minLength": 1 },
+    "lane": { "type": "string", "enum": ["codex"] },
+    "status": { "type": "string", "enum": ["completed", "blocked", "cancelled", "failed"] },
+    "prompt_file": { "type": "string" },
+    "result_file": { "type": "string" },
+    "review_kind": { "type": "string", "enum": ["document", "code"] },
+    "model": { "type": "string", "enum": ["gpt-5.5", "gpt-5.4"] },
+    "reasoning_effort": { "type": "string", "enum": ["xhigh", "cli-default"] },
+    "resume": { "type": "boolean" },
+    "created_at": { "type": "string" }
+  },
+  "additionalProperties": true
+}

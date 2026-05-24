@@ -1,0 +1,196 @@
+# Final Release Gate
+
+> **流程位置**：`orchestrate-final-review` Steps 16-18 · 仅 diff 触碰发布风险面时进入 · 不触发时跳到 Step 19
+
+## Step 16：判断是否触发 Final Release Gate
+
+清扫完成后，检查最终 diff 是否触碰发布风险面。
+
+**触发条件**（任一成立）：
+- diff 触碰 migration
+- diff 触碰 billing / 账务
+- diff 触碰 permission / 权限
+- diff 触碰 runtime / 进程管理
+- diff 触碰 cross-service contract
+- diff 触碰 deploy order / rollback strategy
+- diff 触碰 manual production gate
+- diff 触碰 API compatibility（对外 API 变更）
+
+**不触发时** → Step 19（业务汇报）。
+
+**Execution 已通过 Early Release Gate 的 risk surface** → 已覆盖的不重审。只审新增的或 Final Review 修复引入的发布风险面。
+
+## Step 17：派发 Release Reviewer
+
+<!-- BEGIN: review-dispatch -->
+**Codex review dispatch**
+
+1. Write prompt -> `.codex/multi-model-workflow/review-prompts/<gate>.md` (prefix with DISPATCH_ENVELOPE, `agent_role: "reviewer"`)
+   - Code diffs included in review prompts MUST be wrapped:
+     `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
+2. Select review kind:
+   - Design Review / Plan Review / issue hierarchy review -> `--review-kind document`
+   - Implementation / bug / direct repair / final / integration / release-risk review -> `--review-kind code`
+3. Dispatch through native Codex Review:
+   - **Baseline review** (gate name does not contain `-repair-`):
+     `bash "$PLUGIN_ROOT/scripts/review/review-lane.sh" submit --lane codex --review-kind <document|code> --prompt-file <path> --result-file <result-path>`
+   - **Targeted re-review** (gate name contains `-repair-`):
+     `bash "$PLUGIN_ROOT/scripts/review/review-lane.sh" submit --lane codex --review-kind <document|code> --resume --prompt-file <path> --result-file <result-path>`
+   -> record JOB_ID into `.codex/multi-model-workflow/review-prompts/<gate>.job-id`
+   -> baseline job files record Codex `thread_id`; targeted re-review must resume that thread and must fail if no completed baseline thread exists.
+4. Wait: `bash "$PLUGIN_ROOT/scripts/review/review-lane.sh" status --job-id "$(cat .codex/multi-model-workflow/review-prompts/<gate>.job-id)" --wait --timeout-ms 600000`
+5. Result: `bash "$PLUGIN_ROOT/scripts/review/review-lane.sh" fetch --job-id "$(cat .codex/multi-model-workflow/review-prompts/<gate>.job-id)"` -> `.codex/multi-model-workflow/review-results/<gate>.md`
+
+Model routing is mandatory and lives in `review-lane.sh`:
+- document review -> `gpt-5.5` / `xhigh`
+- code review -> `gpt-5.4` / `xhigh`
+
+Claude Review is not part of the Codex runtime. All formal and ad-hoc review lanes use native Codex Review.
+
+**Confidence rubric (REQUIRED in every review prompt)**:
+- 1-3: low confidence. Coordinator may suppress without deep investigation.
+- 4-6: medium. Coordinator must gather additional evidence before disposition.
+- 7-10: high. Coordinator should default to accept unless contradicted by evidence.
+
+**Pre-emit Verification Gate**：
+
+每个 finding 必须满足以下条件才能进入报告：
+
+1. **引用触发 finding 的具体代码行**——file:line + 该行的原始文本。
+   - "field X doesn't exist on model Y" -> 引用 class Y 的定义体，证明字段缺失
+   - "dict.get() might return None" -> 引用 dict 的初始化代码
+   - "race condition between A and B" -> 引用 A 和 B 两处代码
+
+2. **无法引用 = finding 未验证**。将 confidence 强制设为 4-5（从主报告中抑制，移入附录）。
+   不要通过虚构 confidence 7+ 来绕过此门槛。
+
+3. **框架元编程特例**：当符号来自 ORM 元类、装饰器、代码生成器时，引用生成该符号的元构造，而非期望在类体中 grep 到字面名称。
+
+**Rationalization Prevention**：
+- "This looks fine" 不是 finding。要么引用证据证明确实没问题，要么标记为未验证。
+- "likely handled elsewhere" -> 读并引用处理代码，或标记 unknown。
+- "probably tested" -> 给出测试文件和方法名，或标记 unknown。
+
+**Bias indicators (REQUIRED at end of review output)**:
+Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
+
+Compaction recovery: `.job-id` present but no `review-results/` -> resume from Step 4.
+<!-- END: review-dispatch -->
+
+Review prompt 写入 `.codex/multi-model-workflow/review-prompts/final-release-gate.md`：
+
+```markdown
+## Scope
+Release-risk review for the final implementation.
+Code quality and spec compliance have already passed.
+Only assess release risk.
+
+## Full diff
+git diff <starting_commit>..HEAD
+
+## Risk surface
+<specific risk areas triggered>
+
+## 发布风险和人工门禁
+<paste from plan>
+
+## Already covered by Early Release Gate
+<list of risk surfaces already reviewed during Execution, if any>
+
+## Review focus
+- Migration 安全：顺序、回滚、数据完整性
+- Deploy order：服务依赖、API 兼容、蓝绿/灰度策略
+- Permission / billing：权限变更、账务一致性、审计链
+- Runtime：进程管理、重启安全、状态恢复
+- Rollback：每个变更是否可安全回滚
+- Manual gate：是否所有 manual production gate 都有验证证据
+
+## Release blocker 定义
+以下为 release blocker（必须修复才能发布）：
+- 数据丢失或无法回滚
+- 权限绕过
+- 账务不一致
+- 合同未同步（provider 改了 consumer 没跟）
+- registry / migration / catalog 未闭合
+- deploy order 导致 401/500
+- release gate 无验证证据
+
+## Calibration
+只标记 release blocker。代码质量、风格、设计——不在此 review 范围。
+
+## Return Contract
+### Verdict
+pass / blocked / needs repair
+### Evidence
+### Result
+Release Risk:
+Blockers:
+Manual verification needed:
+Rollback assessment:
+Deploy order assessment:
+### Verification
+### Open Items
+```
+
+Budget：Release Gate 最多 2 个 dispatch（含 early + final），已包含在全局 `3P+12` 预算中。如果 Execution 已用 1 个 early release gate，此处还有 1 个。
+
+## Step 18：处理 Release Gate 结果
+
+| Release Gate Verdict | 动作 |
+| --- | --- |
+| `pass` | 记录 release review 通过 → Step 19 |
+| `needs repair` | 修复 release blocker |
+| `blocked` | 报告用户 |
+
+**Release blocker 修复**：
+
+1. 评估 blocker 严重程度和修复范围
+2. 简单（≤ 2 文件、修复方向明确）→ Coordinator 直接修
+3. 复杂 → 派 `complex_pack_executor`：
+
+```
+spawn_agent({
+  agent_type: "complex_pack_executor",
+  message: "
+    ## Scope
+    修复 Final Release Gate 发现的 release blocker。
+
+    ## Release blocker
+    <paste accepted blocker finding — severity / locator / evidence / impact / remediation>
+
+    ## Risk surface
+    <migration / deploy / rollback / permission / billing / runtime>
+
+    ## Source design
+    <path>
+
+    ## Affected files
+    <list>
+
+    ## Acceptance criteria
+    - [ ] Release blocker 已修复
+    - [ ] 回归测试通过
+    - [ ] 不引入新的发布风险
+    - [ ] 不改变 source design / plan 的 baseline
+
+    ## Return contract
+    ### Verdict
+    pass / blocked / needs repair / needs context
+    ### Evidence
+    ### Result
+    - Changed files
+    - Fix applied per blocker
+    - Rollback impact: <if applicable>
+    ### Verification
+    ### Open Items
+  "
+})
+```
+
+4. 需要用户决策（如 rollback 策略选择）→ 询问用户
+5. 修复后做 targeted release re-review：只审修复变更 + 原 release risk surface。不重跑 baseline review（除非修复改变了 source design / plan / shared contract / migration / permission / billing / runtime baseline）
+
+Release blocker 修复最多 2 轮。超过 → BLOCKED，报告用户。
+
+---
+> **下一步**：Release Gate 通过 → Step 19（回到 `final-review-completion.md` 业务汇报）。BLOCKED → 返回 verdict。

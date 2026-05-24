@@ -1,0 +1,36 @@
+{
+  "name": "codex-orchestrate",
+  "version": "0.1.0",
+  "description": "把 multi-model-workflow 的 Claude Code 编排插件原子级复刻到 Codex 的原生插件。",
+  "author": {
+    "name": "Cheuk Lap Chan",
+    "email": "chancheuklapincn@gmail.com"
+  },
+  "repository": "https://github.com/chancheuklap/multi-model-workflow",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "orchestration",
+    "multi-agent",
+    "code-review",
+    "task-pack"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex Orchestrate",
+    "shortDescription": "Codex 侧的正式设计、计划、执行、审查和发布门禁编排。",
+    "longDescription": "Codex Orchestrate 将 Claude Code multi-model-workflow 插件复刻为 Codex 原生插件，包含 skills、自定义 agent、生命周期 hooks、worktree 执行、持久状态和按文档/代码分流的 Codex Review。",
+    "developerName": "Cheuk Lap Chan",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Review",
+      "Automation"
+    ],
+    "defaultPrompt": [
+      "使用 Codex Orchestrate，把这个产品需求推进到设计、计划、实现、审查和发布报告。",
+      "使用 Codex Orchestrate，对这个 bug 做根因调查、修复、审查和验证。"
+    ]
+  }
+}

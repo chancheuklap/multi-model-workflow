@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workflow-state-v1",
+  "description": "Unified state file for multi-model-workflow orchestration",
+  "type": "object",
+  "required": [
+    "run_id", "slug", "route", "started_at",
+    "cursor", "budget", "plans", "idempotency_keys",
+    "plan_writer_agent_id", "review_dispositions",
+    "review_effectiveness", "pending_post_push_reviews",
+    "path_a_escalation", "self_verifications",
+    "pending_direction_check",
+    "execution_reflux_count", "last_gate_phase", "last_gate_timestamp"
+  ],
+  "properties": {
+    "run_id": { "type": "string" },
+    "slug": { "type": "string" },
+    "route": { "type": "string", "enum": ["formal", "direct-repair", "multi-pr-merge", "bug-investigation", "hotfix", "quickfix", "spike", "maintenance"] },
+    "started_at": { "type": "string", "format": "date-time" },
+    "cursor": {
+      "type": "object",
+      "properties": {
+        "phase": { "type": "string" },
+        "reference": { "type": ["string", "null"] },
+        "step": { "type": ["integer", "null"] }
+      },
+      "required": ["phase"]
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "budget_status": { "type": "string", "enum": ["pending_plan_count", "initialized", "unlimited"] },
+        "review_total": { "oneOf": [{ "type": "number" }, { "type": "string", "const": "unlimited" }, { "type": "null" }] },
+        "review_used": { "type": "number" },
+        "effort_total": { "oneOf": [{ "type": "number" }, { "type": "string", "const": "unlimited" }, { "type": "null" }] },
+        "effort_used": { "type": "number" },
+        "direction_check_count": { "type": "number" }
+      },
+      "required": ["budget_status", "review_used"]
+    },
+    "plan_count": { "type": ["integer", "null"] },
+    "plans": {
+      "type": "array",
+      "description": "Plan-level tracking only. Per Ruling 2: pack-level data (status, agent_id, commit_sha, worker_verdict) lives exclusively in execution-state-v1.json, not here.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "plan_id": { "type": "string" },
+          "status": { "type": "string" }
+        },
+        "required": ["plan_id", "status"]
+      }
+    },
+    "idempotency_keys": { "type": "array", "items": { "type": "string" } },
+    "plan_writer_agent_id": { "type": ["string", "null"] },
+    "review_dispositions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "review_round": { "type": "number" },
+          "finding_id": { "type": "string" },
+          "severity": { "type": "string" },
+          "confidence": { "type": "number" },
+          "disposition": { "type": "string", "enum": ["accepted", "rejected", "suppress", "path-a", "path-b", "duplicate", "out-of-scope", "needs-evidence", "needs-evaluation", "user-decision"] },
+          "evidence": { "type": ["string", "null"] },
+          "path": { "type": ["string", "null"] },
+          "reviewer_agent_id": { "type": ["string", "null"] },
+          "dispatched_at": { "type": ["string", "null"] },
+          "resolved_at": { "type": ["string", "null"] }
+        },
+        "required": ["finding_id", "disposition"]
+      }
+    },
+    "review_effectiveness": {
+      "type": "object",
+      "properties": {
+        "reject_count": { "type": "number" },
+        "suppress_count": { "type": "number" },
+        "path_a_count": { "type": "number" },
+        "path_b_count": { "type": "number" },
+        "total_findings": { "type": "number" },
+        "last_aggregated_at": { "type": ["string", "null"] },
+        "health_warnings": {
+          "type": "array",
+          "description": "Disposition health range deviation warnings",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "pending_post_push_reviews": { "type": "array" },
+    "path_a_escalation": { "type": "array" },
+    "self_verifications": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "run_id": { "type": "string" },
+          "pack_id": { "type": "string" },
+          "repair_round": { "type": "number" },
+          "verification_passed": { "type": "string" },
+          "exception": { "type": "string" },
+          "verified_at": { "type": "string" }
+        }
+      }
+    },
+    "pending_direction_check": { "type": ["object", "null"] },
+    "execution_reflux_count": { "type": "number" },
+    "last_gate_phase": { "type": ["string", "null"] },
+    "last_gate_timestamp": { "type": ["string", "null"] },
+    "mutations": {
+      "type": "array",
+      "description": "Append-only mutation log for audit trail",
+      "items": {
+        "type": "object",
+        "properties": {
+          "field": { "type": "string", "description": "jq path of mutated field" },
+          "old": { "description": "Previous value" },
+          "new": { "description": "New value" },
+          "writer": { "type": "string", "description": "Actor or command that caused the mutation" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        },
+        "required": ["field", "writer", "timestamp"]
+      }
+    }
+  }
+}

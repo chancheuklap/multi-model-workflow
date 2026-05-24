@@ -1,22 +1,27 @@
 # multi-model-workflow
 
-`multi-model-workflow` is the Codex source and sync repository for the
-Plugin V2 shaped Orchestrate Workflow runtime.
+本仓库保存两套边界清楚的编排系统：
 
-Current Codex runtime source:
+- `plugin/`：Claude Code plugin 源码，也是行为蓝本。
+- `codex-orchestrate/`：Codex 原生插件复刻源码。
 
-- repo-local skills: `.agents/skills/orchestrate-*`
-- runtime source manifest: `codex/README.md`
-- Codex agent templates: `codex/agents/*.toml`
-- skill install scripts: `codex/skills/`
-- hook install scripts: `codex/hooks/`
+旧 Codex 实现已经归档到 `archive/2026-05-24-codex-pre-atomic/`，不再作为当前 runtime 依据。
 
-The previous Codex V1 source is archived in
-`archive/2026-05-20-codex-v1/` and is not a runtime authority.
+## Codex 当前权威
 
-## Runtime Shape
+| 层级 | Source | Runtime |
+| --- | --- | --- |
+| Plugin manifest | `codex-orchestrate/.codex-plugin/plugin.json` | 安装后目标：`~/.codex/plugins/cache/multi-model-workflow/codex-orchestrate/0.1.0/` |
+| Skills | `codex-orchestrate/skills/` | plugin cache skills |
+| Custom agents | `codex-orchestrate/agents/*.toml` | `~/.codex/agents/*.toml` + `~/.codex/config.toml` `[agents.<name>]` |
+| Hooks | `codex-orchestrate/hooks/hooks.json`、`codex-orchestrate/hooks/*.sh` | plugin cache hooks |
+| Review lane | `codex-orchestrate/scripts/review/review-lane.sh` | plugin cache script |
+| Worktree execution | `codex-orchestrate/scripts/dispatch/` | plugin cache scripts |
+| State schema | `codex-orchestrate/state-schema/` | plugin cache schemas |
 
-The Codex system follows Plugin V2's phase split:
+不要重建 `.agents/skills/orchestrate-*`，也不要从归档 `codex/` 推导当前行为。
+
+## 运行形态
 
 ```text
 orchestrate-workflow
@@ -24,95 +29,29 @@ orchestrate-workflow
   -> orchestrate-plan-writing
   -> orchestrate-execution
   -> orchestrate-final-review
-  -> orchestrate-workflow Closing
+  -> orchestrate-workflow closing
 ```
 
-Route 2 handles unknown bugs through `root_cause_analyst`. Route 3 handles
-multi-PR merge work through `orchestrate-multi-pr-merge`.
+Route 2 处理未知根因 bug。Route 3 处理多 PR merge。`codex-review` skill 作为 review lane 入口保留。
 
-## Codex Install
-
-Install or refresh the six Orchestrate skills:
+## 验证
 
 ```bash
-bash codex/skills/install-orchestrate-runtime.sh --user --dry-run
-bash codex/skills/install-orchestrate-runtime.sh --user --apply
+bash codex-orchestrate/scripts/run-all-tests.sh
+bash codex-orchestrate/scripts/verify-maturity.sh
+bash codex-orchestrate/build/build.sh --check --plugin-dir codex-orchestrate
+uv run --with pyyaml --no-project \
+  python ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py \
+  codex-orchestrate
 ```
 
-Install or refresh the custom Codex agents and register managed agent types:
+## 安装
+
+Source 覆盖审计完成后再执行安装；不要用安装动作替代复刻验收。
+安装后还要在新 Codex session 里 review/trust plugin hook definitions，并确认 SessionStart 输出 `codex-orchestrate` runtime active。
 
 ```bash
-bash codex/agents/sync-agents.sh --dry-run --update-config
-bash codex/agents/sync-agents.sh --apply --update-config
+bash codex-orchestrate/installers/install.sh --user --apply
+bash codex-orchestrate/installers/verify-runtime-parity.sh --user
+codex plugin list --marketplace multi-model-workflow
 ```
-
-Install optional user-level hooks:
-
-```bash
-bash codex/hooks/install-hooks.sh --dry-run
-bash codex/hooks/install-hooks.sh --apply
-```
-
-Enable hooks in `~/.codex/config.toml`:
-
-```toml
-[features]
-hooks = true
-```
-
-Restart Codex if newly registered agent types are not visible in the current
-session.
-
-## Managed Agent Types
-
-| agent_type | Role |
-| --- | --- |
-| `plan_writer` | Writes reviewed-design + issue-backed implementation plans |
-| `coding_worker` | Normal Task Pack execution and clear repair findings |
-| `complex_coding_worker` | High-risk implementation: migration, billing, permissions, runtime, shared contracts |
-| `code_reviewer` | Baseline design, plan, pack, final, direct repair, and integration review |
-| `release_reviewer` | Release-risk supplement; never replaces baseline review |
-| `code_explorer` | Narrow read-only code lookup |
-| `complex_code_explorer` | Multi-module read-only investigation |
-| `root_cause_analyst` | Unknown bug, repair truncation, and systemic PR conflict investigation |
-| `docs_worker` | Low-risk documentation cleanup |
-
-## External Claude Review
-
-Codex must not default to `claude -p` when the goal is to spend normal Claude
-subscription usage. `claude -p` / Agent SDK usage is a separate credit path, not
-the interactive subscription pool.
-
-All reviews are dispatched through Codex `codex-companion.mjs` using the
-four-step protocol documented in
-`orchestrate-workflow/references/external-review-lanes.md`.
-
-## Verification
-
-After applying runtime changes:
-
-```bash
-bash -n codex/skills/install-orchestrate-runtime.sh
-bash -n codex/agents/sync-agents.sh
-bash -n codex/hooks/install-hooks.sh
-bash -n codex/hooks/session-start.sh
-bash -n codex/hooks/guard-premature-push.sh
-bash -n codex/hooks/track-review-budget.sh
-bash -n codex/hooks/cleanup-run-state.sh
-python3 -m json.tool codex/hooks/hooks.json >/dev/null
-diff -qr .agents/skills/orchestrate-workflow ~/.agents/skills/orchestrate-workflow
-diff -qr .agents/skills/orchestrate-discovery ~/.agents/skills/orchestrate-discovery
-diff -qr .agents/skills/orchestrate-plan-writing ~/.agents/skills/orchestrate-plan-writing
-diff -qr .agents/skills/orchestrate-execution ~/.agents/skills/orchestrate-execution
-diff -qr .agents/skills/orchestrate-final-review ~/.agents/skills/orchestrate-final-review
-diff -qr .agents/skills/orchestrate-multi-pr-merge ~/.agents/skills/orchestrate-multi-pr-merge
-for f in codex/agents/*.toml; do diff -q "$f" "$HOME/.codex/agents/$(basename "$f")"; done
-diff -q codex/hooks/cleanup-run-state.sh ~/.codex/hooks/multi-model-workflow/cleanup-run-state.sh
-python3 -m json.tool ~/.codex/hooks.json >/dev/null
-```
-
-## Historical Claude Sources
-
-`plugin-v2/` remains the Claude Code Plugin V2 source that shaped this Codex
-runtime. `plugin/` is the older Claude plugin compatibility tree. Current Codex
-behavior is defined by `.agents/skills/`, `codex/agents/`, and `codex/hooks/`.
