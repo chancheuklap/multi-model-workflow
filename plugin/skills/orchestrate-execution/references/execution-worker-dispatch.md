@@ -81,8 +81,7 @@ Return contract:
     "open_items": [{"tag": "<out-of-scope|needs-evaluation|bug>", "summary": "..."}],
     "concerns": "<如有>"
   }
-  注意：Worker 在 isolation worktree 中运行时，必须使用此绝对路径写入（不是相对路径），
-  确保 Coordinator 和 hooks 能在主工作目录读到该文件。
+  注意：必须使用此绝对路径写入（不是相对路径），确保 Coordinator 和 hooks 能读到该文件。
 ```
 
 ## 条件字段（仅在相关时包含，不写 N/A 占位）

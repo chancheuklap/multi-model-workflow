@@ -135,7 +135,7 @@ Plan Review 通过 → 两级循环（Plan → Pack）→ Pack 执行 + Git Chec
 从所有 plan 文件中汇总提取：
 
 - 所有 Task Pack 的编号、标题、所属 plan / issue reference
-- 每个 pack 的 `Dependencies`、`Parallel safety`、`Risk flags`、`发布风险`
+- 每个 pack 的 `Dependencies`、`Risk flags`、`发布风险`
 - 每份 plan header 中的 `Blocked by`（大 issue 级依赖，用于排列跨 plan 的执行顺序）
 - Source design path（`docs/orchestrate/design/<slug>.md`）、Source issues path（`docs/orchestrate/issues/<slug>/`）
 - 合并所有 plan 的 File / Responsibility Map
@@ -147,19 +147,15 @@ Plan Review 通过 → 两级循环（Plan → Pack）→ Pack 执行 + Git Chec
 
 **第一级：Plan 执行顺序**（串行）。根据各 plan header 中的 `Blocked by` 字段排序。无依赖关系的 Plan 按编号顺序执行。
 
-**第二级：Pack 执行顺序**（同 Plan 内，可并行）。根据 pack 间的 `Dependencies` 和 `Parallel safety` 字段排序：
-
-**串行条件（默认）**：同一文件 / 同一 Pydantic model / 同一 DB migration tree / 同一 JSON registry / billing / permission / auth / runtime / deployment / rollback / release gate / 同一 UI action contract。
-
-**并行条件**：pack 间无共享 owned files、无共享 contract surface、各自可独立验证。并行 pack 使用 `isolation: "worktree"` 在独立 worktree 中执行。
+**第二级：Pack 执行顺序**（同 Plan 内，严格串行）。根据 pack 间的 `Dependencies` 字段排序，逐个执行。
 
 排列结果：
 
 ```
 plan_queue = [Plan001, Plan002, Plan003]  ← 按 Blocked by 排序
-  Plan001.pack_queue = [[1.1], [1.2, 1.3], [1.4]]  ← 内部按 Dependencies 排序
-  Plan002.pack_queue = [[2.1, 2.2], [2.3]]
-  Plan003.pack_queue = [[3.1], [3.2]]
+  Plan001.pack_queue = [1.1, 1.2, 1.3, 1.4]  ← 内部按 Dependencies 排序，逐个串行
+  Plan002.pack_queue = [2.1, 2.2, 2.3]
+  Plan003.pack_queue = [3.1, 3.2]
 ```
 
 #### Step 2a：创建 Execution State File
@@ -322,8 +318,7 @@ Return contract:
     "open_items": [{"tag": "<out-of-scope|needs-evaluation|bug>", "summary": "..."}],
     "concerns": "<如有>"
   }
-  注意：Worker 在 isolation worktree 中运行时，必须使用此绝对路径写入（不是相对路径），
-  确保 Coordinator 能在自己的工作树中读到该文件。
+  注意：必须使用此绝对路径写入（不是相对路径），确保 Coordinator 和 hooks 能读到该文件。
 ```
 
 ###### Pack Brief 条件字段（仅在相关时包含，不写 N/A 占位）
@@ -378,15 +373,26 @@ Review 只基于代码实际行为的独立分析。
 
 ##### Step 6：派发 Worker
 
+**派发前**（Coordinator 执行）：
+
+```bash
+touch .claude/multi-model-workflow/worker-active
+```
+
+此 marker 文件让 `guard-doc-edit.sh` hook 识别 worker 上下文，阻止 worker 修改 docs/。
+
+**派发**：
+
 ```
 Agent({
   subagent_type: "<pack-executor | complex-pack-executor>",
   description: "Execute Task Pack N.M: <title>",
   prompt: "<DISPATCH_ENVELOPE>\n\n<Pack Brief>",
-  isolation: "worktree",
   run_in_background: true
 })
 ```
+
+Worker 直接在 Coordinator 的分支上工作——不使用 worktree 隔离，所有 pack 串行执行。
 
 `validate-pack-dispatch.sh` hook 自动拦截缺少 DISPATCH_ENVELOPE、budget 未初始化或 Pack 已有 agent_id 的 dispatch。
 
@@ -396,8 +402,6 @@ Agent({
 3. Write execution state: `packs[N.M].status = dispatched`
 
 **Critical**: `run_in_background: true` ensures Coordinator gets agentId. Without agentId, repair path is BLOCKED. **Omitting agent-id persist is forbidden**.
-
-并行 pack 在同一消息中发送多个 Agent tool call。
 
 当 Worker 返回后需要修复时，必须使用 SendMessage resume 原 worker（读取 agent_id），不得创建新 Agent dispatch。
 
@@ -491,32 +495,16 @@ Risk flags:
 Source: Pack <N.M> worker discovery
 ```
 
-###### Step 7b：Git Checkpoint（per-pack，串行 pack）
+###### Step 7b：Git Checkpoint
 
-Worker 在隔离工作树中已 commit 自己的改动。Coordinator 合并 Worker 工作树分支并清理：
+Worker 已在 Coordinator 的分支上直接 commit。Coordinator 验证并记录：
 
-1. `git merge <worktree-branch> --no-ff`（Worker 工作树的分支名从 Agent 返回值获取）
-2. 冲突处理：简单 → Coordinator 直接解决；复杂 → 新建 targeted-repair agent
-3. `git worktree remove <worktree-path>`（Worker 工作树路径从 Agent 返回值获取）
-4. 勾选 plan doc + commit：
+1. `rm -f .claude/multi-model-workflow/worker-active`（移除 worker marker）
+2. `git log --oneline -1` 确认 Worker 的 commit 已在当前分支上
+3. 勾选 plan doc + commit：
    - `git add <plan doc>`
    - `git commit -m "Pack N.M: <title> — <summary of behavior>"`（`enforce-pack-commit.sh` hook 自动校验格式）
-5. `track-execution-state.sh` hook 自动更新 `packs[N.M].status = committed` + `commit_sha` + `plans[N].end_commit`
-
-###### Step 7c：合并并行 Pack 的 Worktree
-
-并行 pack 各自完成 Open Items 后，按依赖顺序逐个合并并清理：
-
-1. 确定合并顺序（按 plan 中的 dependencies）
-2. 逐个执行：
-   a. `git merge <worktree-branch> --no-ff`
-   b. 冲突处理：简单 → Coordinator 直接解决；复杂 → 新建 targeted-repair agent
-   c. `git worktree remove <worktree-path>`
-   d. 勾选 plan doc + commit
-3. 每次 merge 后跑完整测试
-4. 全部 merge 完后再跑一次确认集成正确
-
-**不并行合并**——串行避免 merge conflict 级联。
+4. `track-execution-state.sh` hook 自动更新 `packs[N.M].status = committed` + `commit_sha` + `plans[N].end_commit`
 
 → 下一 Pack 回到 Step 4；所有 Pack 完成 → Step 8。
 

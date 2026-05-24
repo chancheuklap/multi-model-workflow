@@ -63,7 +63,7 @@ cat <<RULES
 - 不自己写生产代码——调度 worker
 - 不用技术语言向用户汇报
 - Review 派发步骤已内联到各 dispatch 模板中，Read 对应的 review dispatch reference 即可
-- Parallel Task Pack execution 使用 isolation: "worktree"
+- Task Pack 串行执行，Worker 直接在 Coordinator 分支上工作
 
 # 5. Compaction recovery
 - 进入任何 phase skill 前：re-read .claude/multi-model-workflow/scope-<run_id>.md 确认 Scope Contract

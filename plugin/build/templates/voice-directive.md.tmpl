@@ -110,7 +110,7 @@ Bad:  "执行进展顺利，各模块按计划推进中。"
 - 依赖关系用 blocked_by 显式标注，不靠阅读顺序暗示。
 - 不确定的拆分点标记 [needs-evaluation]，不假装确定。
 
-Good: "Plan 拆为 4 个 pack。Pack-1→2 串行（2 依赖 1 的 schema），Pack-3/4 并行。总预估 3 轮 review。"
+Good: "Plan 拆为 4 个 pack。Pack-1→2→3→4 串行，2 依赖 1 的 schema。总预估 3 轮 review。"
 Bad:  "制定了全面的实施计划，涵盖所有功能模块。"
 
 禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.

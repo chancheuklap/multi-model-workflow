@@ -166,7 +166,6 @@ Execution owner 必须是 Orchestrate Workflow。
 **发布风险:** <风险面 / N/A>
 **AFK / HITL:** ...
 **Dependencies:** ...
-**Parallel safety:** ...
 **Out of scope:** ...
 ```
 
@@ -207,9 +206,7 @@ Execution owner 必须是 Orchestrate Workflow。
 
 ### 串行与并行边界
 
-**默认同 pack 或串行**：同一文件 / 同一 Pydantic model / 同一 DB migration tree / 同一 JSON registry / billing / permission / auth / runtime / deployment / rollback / release gate / 同一 UI action contract。
-
-允许并行的 pack 必须能独立验证且不竞争同一 contract surface。
+所有 pack 严格串行执行，按 Dependencies 字段排序。
 
 ### 验证语言
 

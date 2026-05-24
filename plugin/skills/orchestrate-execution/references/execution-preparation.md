@@ -11,7 +11,7 @@
 从所有 plan 文件中汇总提取：
 
 - 所有 Task Pack 的编号、标题、所属 plan / issue reference
-- 每个 pack 的 `Dependencies`、`Parallel safety`、`Risk flags`、`发布风险`
+- 每个 pack 的 `Dependencies`、`Risk flags`、`发布风险`
 - 每份 plan header 中的 `Blocked by`（大 issue 级依赖，用于排列跨 plan 的执行顺序）
 - Source design path（`docs/orchestrate/design/<slug>.md`）、Source issues path（`docs/orchestrate/issues/<slug>/`）
 - 合并所有 plan 的 File / Responsibility Map
@@ -23,11 +23,7 @@
 
 **第一级：Plan 执行顺序**（串行）。根据各 plan header 中的 `Blocked by` 字段排序。无依赖关系的 Plan 按编号顺序执行。
 
-**第二级：Pack 执行顺序**（同 Plan 内，可并行）。根据 pack 间的 `Dependencies` 和 `Parallel safety` 字段排序：
-
-**串行条件（默认）**：同一文件 / 同一 Pydantic model / 同一 DB migration tree / 同一 JSON registry / billing / permission / auth / runtime / deployment / rollback / release gate / 同一 UI action contract。
-
-**并行条件**：pack 间无共享 owned files、无共享 contract surface、各自可独立验证。并行 pack 使用 `isolation: "worktree"` 在独立 worktree 中执行。
+**第二级：Pack 执行顺序**（同 Plan 内，严格串行）。根据 pack 间的 `Dependencies` 字段排序，逐个执行。
 
 排列结果：
 

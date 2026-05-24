@@ -188,7 +188,7 @@ flowchart TD
 
 | 节点 | 机制 | 做什么 | 文档交互 | 状态 |
 |------|------|--------|---------|------|
-| 读 Task Pack inventory + 创建 state | Coordinator 逻辑 | 读取所有 plan → 构建两级执行队列 → 创建 `execution-state-<run_id>.json` | **读** `plans/<slug>/` 全部文件 → 提取 pack 编号、依赖、风险、并行标记 | ✅ 正常 |
+| 读 Task Pack inventory + 创建 state | Coordinator 逻辑 | 读取所有 plan → 构建执行队列 → 创建 `execution-state-<run_id>.json` | **读** `plans/<slug>/` 全部文件 → 提取 pack 编号、依赖、风险 | ✅ 正常 |
 | 记录 start_commit | Coordinator 逻辑 | Plan 首个 Pack dispatch 前记录 `git rev-parse HEAD` | **写** execution state | ✅ 正常 |
 | 派 worker | Sub-Agent：`pack-executor`（普通）/ `complex-pack-executor`（高风险） | Agent tool 派发 coding worker | **嵌入** Pack Brief（含 Durable Return 指令 + Context hint） | ✅ 正常 |
 | Agent return handler | Hook：`agent-return-handler.sh`（PostToolUse Agent） | 读 `pack-returns/<run_id>/<pack-id>.json` → 更新 state → 输出 `NEXT` 指令（additionalContext） | **读** pack-returns、**写** execution state | ✅ 正常 |
@@ -422,7 +422,7 @@ Issue 文档的大 issue 骨架由 Coordinator 在 Discovery 阶段产出（`iss
         ├── Commit boundary
         ├── Risk flags / 发布风险
         ├── AFK / HITL
-        ├── Dependencies / Parallel safety
+        ├── Dependencies
         └── Out of scope
 ```
 
@@ -433,7 +433,7 @@ Issue 文档的大 issue 骨架由 Coordinator 在 Discovery 阶段产出（`iss
 - Worker **不读 plan 文件**——Pack Brief 在 dispatch prompt 中完整自足
 - Task Pack 是最小执行单元：包含 worker 所需的一切（任务、验收、命令、文件、合同锚点）
 - 无 Placeholder 规则：TBD/TODO/later 出现在 plan 中 = plan failure
-- `Dependencies` + `Parallel safety` 字段决定 pack 能否并行 worktree 执行
+- `Dependencies` 字段决定 pack 执行顺序（严格串行）
 
 ### 文档间引用关系
 
@@ -885,7 +885,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 | 状态文件路径 | `.claude/multi-model-workflow/` | `.codex/multi-model-workflow/` |
 | Review 派发 | `codex-companion.mjs` Bash 调用 | `codex-companion.mjs`（统一通过 `review-dispatch` resolver 派发） |
 | Agent 命名 | `plan-writer`（连字符） | `plan_writer`（下划线） |
-| Worker 隔离 | `isolation: "worktree"` | disjoint write sets |
+| Worker 隔离 | 串行执行，同分支 | disjoint write sets |
 
 ---
 

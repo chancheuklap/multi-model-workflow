@@ -30,7 +30,7 @@ Plan 文件数量必须与 issue 文件数量一致。缺少对应 plan 的 issu
 | mockup anchors（UI 时） | 需人工决策却标 AFK |
 | commit boundary | — |
 | risk flags | — |
-| dependencies + parallel safety | — |
+| dependencies | — |
 
 不通过的 pack → SendMessage 给 plan-writer 修复 → 重新检查。
 
