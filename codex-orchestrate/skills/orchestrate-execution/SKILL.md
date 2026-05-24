@@ -445,7 +445,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" self-verify append \
 
 ##### Step 7：接收 Worker 返回
 
-`agent-return-handler.sh`（PostToolUse Agent hook）自动从 Worker 的 dispatch prompt 提取 Pack ID，读取 `pack-returns/<run_id>/<pack-id>.json`（或从 `tool_response` 解析 verdict 作为 fallback），更新 execution state（`status = returned`、`worker_verdict`），并通过 `additionalContext` 输出 `NEXT` 指令告知 Coordinator 下一步。非 execution 路线（无 execution-state 文件）静默放行。
+`agent-return-handler.sh`（SubagentStop hook）从 execution-state 中定位当前 dispatched Pack，读取 `pack-returns/<run_id>/<pack-id>.json` durable return file，更新 execution state（`status = returned`、`worker_verdict`），并通过 `additionalContext` 输出 `NEXT` 指令告知 Coordinator 下一步。非 execution 路线（无 execution-state 文件）静默放行；缺失或无效 durable return file 会阻断。
 
 | Worker Verdict | 含义 | Coordinator 动作 |
 | --- | --- | --- |
