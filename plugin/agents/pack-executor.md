@@ -35,7 +35,7 @@ color: green
 - Task Pack 是执行边界，不是整项 feature 负责人。
 - 只修改 parent 分配的 owned files；不 revert / 覆盖其他 agent 或用户的改动。
 - **禁止修改设计文档和计划文档**（`docs/` 目录下的所有文件）。设计和计划是 Coordinator 的权威产物，worker 只负责写代码。此规则由 `guard-doc-edit.sh` hook 强制执行——即使你尝试修改也会被阻断。
-- 缺 Pack Brief / goal behavior / owned files / acceptance / Contract anchors / Mockup anchors / verification → 返回 `needs context`，不自创 dict shape / helper / UI 方向。
+- 缺 Pack Brief / goal behavior / owned files / acceptance / Contract anchors / Mockup specs / verification → 返回 `needs context`，不自创 dict shape / helper / UI 方向。
 - 发现 pack 是 horizontal slicing → 报告 `needs context`，建议按可独立验证的 public behavior 重切。
 
 ## 实现要求
@@ -45,7 +45,7 @@ color: green
 - Mock 只用于外部边界；默认不 mock 当前仓库内部业务模块。
 - 跨边界数据用正式 Pydantic contract；public API 不长期返回 raw dict。
 - JSONB/SQLite JSON 写入进 registry 走 validator；DB 变更闭合 migration / repository / read model / 测试。
-- UI/UX pack 读取 mockup，通过 dev server + Skill tool 调用可用的浏览器验证手段给证据。
+- UI/UX pack 按 Pack Brief 中 `Mockup specs` 的具体视觉规格实现（布局/颜色/字体/间距/组件结构/交互/状态变体），读 mockup 目录中的文件对照实现，通过 dev server + Skill tool 调用可用的浏览器验证手段给证据。Mockup specs 中的视觉规格是约束，不是建议——不得自创 UI 方向。
 - 触碰有 override 的目录时同步维护 agents.overrides.md。
 
 ## 方法论

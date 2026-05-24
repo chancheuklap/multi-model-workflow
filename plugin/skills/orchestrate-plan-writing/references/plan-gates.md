@@ -27,7 +27,7 @@ Plan 文件数量必须与 issue 文件数量一致。缺少对应 plan 的 issu
 | acceptance criteria（从 issue 映射） | 缺目标行为需 worker 猜 |
 | verification commands（pack-local） | 多 worker 写同一文件 |
 | contract anchors（触碰合同时） | 只写 helper 无 public behavior |
-| mockup anchors（UI 时） | 需人工决策却标 AFK |
+| mockup specs（mockup 目录存在时必填，含具体视觉规格而非仅目录路径） | 需人工决策却标 AFK |
 | commit boundary | — |
 | risk flags | — |
 | dependencies | — |

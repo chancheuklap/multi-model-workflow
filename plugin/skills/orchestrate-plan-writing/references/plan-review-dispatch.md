@@ -78,7 +78,7 @@ Review the implementation plan for: <feature>
 - issue acceptance 进入 pack acceptance
 - large→small→pack 映射完整
 - read-only context 未误纳入 editable scope
-- mockup 转化为 states/viewport/interaction/visual verification
+- mockup 已拆解为具体视觉规格写入 pack acceptance criteria（不是只给目录路径）
 - 无含混行为（worker 需猜 desired behavior）
 - 无 scope creep / 过度设计 / 设计不足
 - 细 task 有短反馈循环（Red→Green→Refactor）
@@ -88,7 +88,7 @@ Review the implementation plan for: <feature>
 ### Compliance & Verification
 验路径、命令、合同、项目规则是否真实：
 - 文件路径用 grep/find 逐条验真
-- mockup / fixtures / 命令存在
+- mockup 目录和文件存在 / fixtures / 命令存在
 - 新文件标 Create
 - agents.overrides.md 同步
 - migration tree / 注册位置 / Pydantic contract / JSON registry / DB 闭合
@@ -109,7 +109,7 @@ Review the implementation plan for: <feature>
 除非有严重缺口（spec 需求缺失、步骤矛盾、placeholder 内容、task 模糊到无法执行），否则 approve。
 
 Critical：intent 无覆盖 / source intent 不清却直接实现 / pack 不可执行 /
-依赖错误 / 缺 Task Pack inventory / mockup 未转化 / 合同缺 anchors /
+依赖错误 / 缺 Task Pack inventory / mockup 未拆解为具体视觉规格（只有目录路径） / 合同缺 anchors /
 引用不存在的路径 / 违反项目规则 / 允许 bare dict /
 高风险缺迁移回滚 / task 间逻辑矛盾 / 循环依赖 /
 小 issue 遗漏大 issue 行为 / 小 issue 不可独立验证 / 小 issue 依赖关系错误

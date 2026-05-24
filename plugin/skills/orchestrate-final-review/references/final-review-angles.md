@@ -113,8 +113,9 @@ git diff <starting_commit>..HEAD
 ## Contract baseline
 <contract anchors from plan — all boundary types touched>
 
-## Mockup baseline
+## Mockup baseline（与 design doc 同等权威）
 docs/orchestrate/mockups/<slug>/（如有 UI 工作）
+**Reviewer 必须 Read mockup 目录中的文件**，对照实现代码和设计文档中 `## UI / UX 状态` 的视觉规格表，验证实现与 mockup 的视觉一致性。不能只看文字描述——mockup 文件是视觉约束的权威源头。
 
 ## 发布风险和人工门禁
 <paste from plan>
@@ -134,7 +135,7 @@ docs/orchestrate/mockups/<slug>/（如有 UI 工作）
 - 测试套件回归：全部测试是否通过
 
 ### 2. Intent Coverage
-从 source design 和 mockup 提取每条可验证 intent。对照 plan/pack completion summary 标出：
+从 source design 和 mockup（Read mockup 文件，不只看文字描述）提取每条可验证 intent。对照 plan/pack completion summary 标出：
 - covered by plan impl review — 已被 Plan Implementation Review 验证，确认 merge 后证据仍有效（1 行确认）
 - gap intent — 落在 Plan 之间缝隙，做完整验证
 - implementation gap — 设计合理，代码没做到

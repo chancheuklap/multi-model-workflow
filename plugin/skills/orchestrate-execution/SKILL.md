@@ -141,7 +141,7 @@ Plan Review 通过 → 两级循环（Plan → Pack）→ Pack 执行 + Git Chec
 - 合并所有 plan 的 File / Responsibility Map
 - 合并所有 plan 的发布风险和人工门禁表
 
-**验证 Plan 完整性**：每个 pack 必须有 goal behavior / owned files / acceptance criteria / verification commands / contract anchors（触碰合同时）/ mockup anchors（UI 时）/ commit boundary / risk flags。缺字段的 pack 不进入执行——返回 `NEEDS_PLAN_REVISION`，让 orchestrate-plan-writing 修复。
+**验证 Plan 完整性**：每个 pack 必须有 goal behavior / owned files / acceptance criteria / verification commands / contract anchors（触碰合同时）/ mockup specs（mockup 目录存在时必填，且必须含具体视觉规格而非仅目录路径）/ commit boundary / risk flags。缺字段的 pack 不进入执行——返回 `NEEDS_PLAN_REVISION`，让 orchestrate-plan-writing 修复。
 
 ### Step 2：构建两级执行队列
 
@@ -240,7 +240,7 @@ SHA=$(git rev-parse HEAD)
 构造 Pack Brief 之前，Coordinator 必须确认以下内容在上下文中：
 
 1. **Read** 当前 pack 对应的 plan 文件（`docs/orchestrate/plans/<slug>/00N-*.md`）—— 如果上下文中没有该 plan 内容（首个 pack 或经过 compact），必须重新 Read
-2. 从该 plan 中**定位当前 pack** 的完整章节，提取所有字段：Goal behavior、Implementation tasks（全文）、Owned files、Read first、Acceptance criteria、Verification commands、Risk flags、Contract anchors、Mockup anchors、Dependencies、Out of scope
+2. 从该 plan 中**定位当前 pack** 的完整章节，提取所有字段：Goal behavior、Implementation tasks（全文）、Owned files、Read first、Acceptance criteria、Verification commands、Risk flags、Contract anchors、Mockup specs、Dependencies、Out of scope
 3. Pack Brief 模板见下方。提取完成后进入 Step 5b 填充。
 
 ###### DISPATCH_ENVELOPE（required prefix for every Agent dispatch）
@@ -283,7 +283,7 @@ Owned files:
   - Modify: <path — responsibility>
   - Test: <path — behavior covered>
 Read first:
-  - <source docs, ADRs, project rules, docs/orchestrate/mockups/<slug>/ (如有)>
+  - <source docs, ADRs, project rules>
 Acceptance criteria:
   - [ ] <each criterion>
 Verification commands:
@@ -326,8 +326,8 @@ Return contract:
 ```text
 Contract anchors:          # 跨边界 pack（触碰 Pydantic / registry / migration / API contract）
   - boundary type / owner / provider / consumer / verifier
-Mockup anchors:            # UI pack
-  - path / viewport / states / interaction / visual verification
+Mockup specs:              # mockup 目录存在时必填（从 plan 的 Mockup specs 字段原样复制）
+  - 目录 / 涉及页面 / 视觉规格 / 交互行为 / 状态变体 / 验证方式
 Dependencies:              # 有前置 pack 依赖
   - <pack N.M must complete first — reason>
 发布风险:                   # high-risk / production-risk / migration / billing / permission / runtime
@@ -346,7 +346,7 @@ AFK / HITL:                # 有人工门禁
 - `Acceptance criteria` 字段：从 plan 中该 pack 的 Acceptance criteria 完整复制
 - `Verification commands` 字段：从 plan 中该 pack 的 Verification commands 完整复制
 - `Context hint` 字段：填入当前 Plan 中所有 Pack 编号（"Your code will be reviewed alongside packs N.1..N.M within Plan N"）
-- 条件字段（Contract anchors / Mockup anchors / Dependencies 等）：plan 中有则复制，无则不写
+- 条件字段（Contract anchors / Mockup specs / Dependencies 等）：plan 中有则复制，无则不写
 - 所有 task 完整文本直接贴在 prompt 中——不让 worker 读 plan 文件
 - 条件字段只在 plan 中该 pack 有对应内容时才包含——不写空字段和 N/A，减少 worker 的无效 token 消耗
 
@@ -576,8 +576,8 @@ git diff <plan-start-commit>..<plan-end-commit>
 ## Contract anchors
 <paste all contract anchors from all packs in this plan>
 
-## Mockup anchors
-<paste if any pack in this plan has UI work>
+## Mockup specs
+<paste all Mockup specs from all packs in this plan — 包含具体视觉规格，不只是目录路径。同时指示 reviewer: Read docs/orchestrate/mockups/<slug>/ 目录中的 mockup 文件，对照实现代码验证视觉一致性>
 
 ## Review angles (single integrated review)
 

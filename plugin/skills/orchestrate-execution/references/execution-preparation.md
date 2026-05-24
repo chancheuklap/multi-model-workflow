@@ -17,7 +17,7 @@
 - 合并所有 plan 的 File / Responsibility Map
 - 合并所有 plan 的发布风险和人工门禁表
 
-**验证 Plan 完整性**：每个 pack 必须有 goal behavior / owned files / acceptance criteria / verification commands / contract anchors（触碰合同时）/ mockup anchors（UI 时）/ commit boundary / risk flags。缺字段的 pack 不进入执行——返回 `NEEDS_PLAN_REVISION`，让 orchestrate-plan-writing 修复。
+**验证 Plan 完整性**：每个 pack 必须有 goal behavior / owned files / acceptance criteria / verification commands / contract anchors（触碰合同时）/ mockup specs（mockup 目录存在时必填，且必须含具体视觉规格而非仅目录路径）/ commit boundary / risk flags。缺字段的 pack 不进入执行——返回 `NEEDS_PLAN_REVISION`，让 orchestrate-plan-writing 修复。
 
 ## Step 2：构建两级执行队列
 

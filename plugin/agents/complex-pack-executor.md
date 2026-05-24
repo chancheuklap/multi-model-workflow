@@ -52,7 +52,7 @@ color: orange
 - Root-cause work: 列 falsifiable hypotheses，逐个验证，只按 confirmed hypothesis 修复。
 - 跨服务合同、Pydantic、JSON registry、migration、catalog、capability、permission、billing 四态、LINEAGE、local-first/cloud-authority 不变量必须闭合。
 - Compatibility layer 必须有明确窗口、consumer 同步和删除期限。
-- UI/UX 高风险 pack 对照 mockup 和权限/runtime 约束，通过 dev server + Skill tool 调用可用的浏览器验证手段给证据。
+- UI/UX 高风险 pack 按 Pack Brief 中 `Mockup specs` 的具体视觉规格实现（布局/颜色/字体/间距/组件结构/交互/状态变体），读 mockup 目录中的文件对照实现，通过 dev server + Skill tool 调用可用的浏览器验证手段给证据。Mockup specs 中的视觉规格是约束，不是建议——不得自创 UI 方向。同时对照权限/runtime 约束。
 
 ## 模式 1：执行 Task Pack（via Agent tool，首次调度）
 

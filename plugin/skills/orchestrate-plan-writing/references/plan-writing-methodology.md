@@ -14,9 +14,14 @@ plan-writer agent 通过 dispatch prompt 中指定的路径读取本文件执行
 
 **每个 plan-writer 只负责一个大 issue。** dispatch prompt 中已指定你的 issue 文件路径。
 
-### 3a：读取 source design
+### 3a：读取 source design + mockup（两个平级源头）
 
 提取 goal、architecture、tech stack、合同边界。理解全局设计上下文，但只关注与你的 issue 相关的部分。
+
+**Mockup 是可视化设计文档，与文字设计文档地位平等。** 如果 `docs/orchestrate/mockups/<slug>/` 目录存在：
+1. Read mockup 索引（`README.md`）和设计文档的 `## UI / UX 状态` 中的视觉规格表
+2. 提取每个页面的视觉规格（布局/颜色/字体/间距/组件结构）、交互行为、状态变体
+3. 后续写 Task Pack 时，mockup 拆解出的视觉规格必须写入对应 pack 的 acceptance criteria——不是作为"去看 mockup 目录"的指针，而是作为具体的、可验证的视觉目标
 
 ### 3b：读取你的 issue 文件
 
@@ -147,13 +152,18 @@ Execution owner 必须是 Orchestrate Workflow。
 - Test: `path`
 
 **Read first:**
-- <source docs, ADRs, project rules, docs/orchestrate/mockups/<slug>/ (如有)>
+- <source docs, ADRs, project rules>
 
 **Contract anchors:**
 - Owner / Provider / Consumer / Model / schema / Registry / migration / catalog / Verification
 
-**Mockup anchors:**
-- 目录: docs/orchestrate/mockups/<slug>/ · Viewport / States / Interaction / Visual verification
+**Mockup specs:**（mockup 目录存在时必填，从设计文档 `## UI / UX 状态` 视觉规格表提取）
+- 目录: docs/orchestrate/mockups/<slug>/
+- 涉及页面: <本 pack 涉及的 mockup 页面列表>
+- 视觉规格: <从设计文档拆解的具体布局/颜色/字体/间距/组件结构——写出来，不写"见 mockup">
+- 交互行为: <点击/hover/输入/动画的具体描述>
+- 状态变体: <空/加载/错误/成功等状态下的具体视觉差异>
+- 验证方式: <截图对比/DOM 断言/视觉回归/具体检查点>
 
 **Acceptance criteria:**
 - [ ] ...
@@ -232,7 +242,7 @@ verification 必须证明 pack 行为：
 ### 不合格 Pack 信号
 
 - worker 必须自行决定 desired behavior / 文案 / 角色 / billing meaning / permission meaning / schema shape
-- pack 只写"实现 mockup"但没有 mockup 目录路径 / states / viewport / interaction / visual verification
+- pack 只写"实现 mockup"或只给 mockup 目录路径，但没有把 mockup 拆解为具体视觉规格写入 acceptance criteria（mockup 内容必须原子级进入 pack，不是一个指针）
 - 把未验证路径 / fixture / class 写成现有事实
 - 把真实依赖隐藏成"可以并行"
 - 只产出 schema 或 helper，没有 public behavior verification
@@ -252,7 +262,7 @@ verification 必须证明 pack 行为：
 ### 设计不足检查（补齐）
 - [ ] pack 只写"实现功能"，无行为 / 结果 / failure state
 - [ ] 只写路径和文件，无 owner / provider / consumer / contract anchors
-- [ ] UI 工作无 states / viewport / interaction / visual verification
+- [ ] UI 工作无从 mockup 拆解的具体视觉规格（只有 mockup 目录路径不算）
 - [ ] issue acceptance 没进 pack acceptance
 - [ ] blocked-by 没进 dependencies，或真串行写成并行
 - [ ] pack 改 shared contract 却无 consumer 同步和 migration gate

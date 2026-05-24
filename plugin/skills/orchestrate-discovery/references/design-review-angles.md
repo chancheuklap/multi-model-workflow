@@ -86,8 +86,12 @@ docs/orchestrate/design/<slug>.md
 ### 可测试性
 每条目标行为是否可通过命令、断言或截图验证。不可测的 intent 是 finding。
 
-### UI mockup 转化
-如有 mockup（docs/orchestrate/mockups/<slug>/），每个页面 × viewport × states 是否转成了可验收的目标行为描述。
+### UI mockup 转化（与设计文档同等重要）
+Mockup 是可视化设计文档，地位与文字设计文档平等。如有 mockup（docs/orchestrate/mockups/<slug>/），检查：
+- 每个 mockup 页面 × viewport × states 是否已在 `## UI / UX 状态` 中拆解为具体视觉规格（布局/颜色/字体/间距/组件结构）
+- 拆解出的视觉规格是否可直接转为 issue 和 plan 的 acceptance criteria（不是"见 mockup"指针）
+- 交互行为（点击/hover/输入/动画）是否逐项描述
+- 状态变体（空/加载/错误/成功/权限不足）是否在 mockup 中体现并描述
 
 ### Contract anchors
 跨边界数据是否有 Contract anchors（boundary type / owner / provider / consumer / verifier）。缺 anchors 是 finding。
@@ -102,7 +106,7 @@ docs/orchestrate/design/<slug>.md
 以下为 Critical（必须修复才能进入 plan）：
 - 核心意图不可测
 - 目标行为含混导致 plan 必须猜
-- UI 有 mockup 但没转成验收状态
+- UI 有 mockup 但没拆解为具体视觉规格表（只写了目录路径不算转化）
 - 合同缺 anchors
 - 文档内部矛盾
 - 关键场景缺失

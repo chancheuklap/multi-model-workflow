@@ -39,8 +39,16 @@ boundary type / owner / provider / consumer / Pydantic model / schema_version / 
 哪些行为需要测试 / 哪些模块 / 类似测试的先例 / manual gate / visual verification / regression check。
 
 ## UI / UX 状态
-mockup 目录: docs/orchestrate/mockups/<feature-slug>/ · 页面 / viewport / states / copy / interaction / 视觉允许偏差 / 验证方式。
+mockup 目录: docs/orchestrate/mockups/<feature-slug>/
 mockup 索引: docs/orchestrate/mockups/<feature-slug>/README.md
+
+**Mockup 是可视化设计文档，与文字设计文档地位平等。** 此 section 必须把每个 mockup 拆解为可验收的行为描述：
+
+| 页面 / 组件 | Mockup 文件 | Viewport | 视觉规格 | 交互行为 | 状态变体 | 验证方式 |
+| --- | --- | --- | --- | --- | --- | --- |
+| <名称> | <文件路径> | <尺寸> | <布局/颜色/字体/间距等从 mockup 提取的具体规格> | <点击/hover/输入等交互> | <空状态/加载/错误/成功等> | <截图对比/DOM 断言/视觉回归> |
+
+不能只写"见 mockup 目录"——必须把 mockup 的视觉信息提取为文字描述，让后续 issue 和 plan 可以直接引用。
 
 ## 失败场景和异常处理
 
@@ -65,7 +73,7 @@ mockup 索引: docs/orchestrate/mockups/<feature-slug>/README.md
 - Bug：有 current / desired behavior / reproduction / regression check
 - Issue：有 source / acceptance / dependencies / AFK-HITL
 - Feedback：有 target state / role / copy / interaction / verification
-- UI/UX：有 mockup 目录（docs/orchestrate/mockups/<slug>/）/ viewport / states / interaction / visual verification
+- UI/UX：有 mockup 目录（docs/orchestrate/mockups/<slug>/）且每个 mockup 已拆解为具体视觉规格表（页面×viewport×状态×交互×验证方式），不是只写目录路径
 
 **内部一致性**：各 section 无矛盾 / 架构与功能一致 / 无歧义需求
 

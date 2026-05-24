@@ -53,10 +53,10 @@ Agent({
     ## Feature slug
     <填入从 Scope Contract 读取的 slug>
 
-    ## Source artifacts
+    ## Source artifacts（设计文档和 Mockup 地位平等）
     - Source design: docs/orchestrate/design/<slug>.md（已通过 Design Review，全局上下文）
     - **你的 issue:** docs/orchestrate/issues/<slug>/00N-<issue-slug>.md
-    - Mockups（如有）: docs/orchestrate/mockups/<slug>/
+    - **Mockups:** docs/orchestrate/mockups/<slug>/（如目录存在，是与设计文档平级的源头工件，不是可选参考。你必须 Read mockup 文件和设计文档中的 `## UI / UX 状态` 视觉规格表，把视觉规格原子级拆解写入每个 UI pack 的 acceptance criteria。不能只写"见 mockup 目录"。）
     - CLAUDE.md: <project root>/CLAUDE.md
 
     ## 设计摘要（Coordinator 从设计文档提取）

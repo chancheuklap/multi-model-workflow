@@ -46,7 +46,7 @@ Owned files:
   - Modify: <path — responsibility>
   - Test: <path — behavior covered>
 Read first:
-  - <source docs, ADRs, project rules, docs/orchestrate/mockups/<slug>/ (如有)>
+  - <source docs, ADRs, project rules>
 Acceptance criteria:
   - [ ] <each criterion>
 Verification commands:
@@ -89,8 +89,8 @@ Return contract:
 ```text
 Contract anchors:          # 跨边界 pack（触碰 Pydantic / registry / migration / API contract）
   - boundary type / owner / provider / consumer / verifier
-Mockup anchors:            # UI pack
-  - path / viewport / states / interaction / visual verification
+Mockup specs:              # mockup 目录存在时必填（从 plan 的 Mockup specs 字段原样复制）
+  - 目录 / 涉及页面 / 视觉规格 / 交互行为 / 状态变体 / 验证方式
 Dependencies:              # 有前置 pack 依赖
   - <pack N.M must complete first — reason>
 发布风险:                   # high-risk / production-risk / migration / billing / permission / runtime
