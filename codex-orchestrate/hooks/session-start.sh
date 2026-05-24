@@ -29,6 +29,8 @@ cat <<RULES
 [multi-model-workflow] Codex workflow override active (version ${PLUGIN_VERSION}):
 
 # 1. Environment check
+- Before running plugin helper scripts in Skill instructions, set:
+  `export MMW_PLUGIN_ROOT="${PLUGIN_ROOT}"`
 
 # 2. Entry routing
 - User asks for ad-hoc Codex review (Codex review / 用 Codex 审 / Codex 看看 / second opinion / 独立审查 + 指定 commit/文件/分支/文档) → multi-model-workflow:codex-review

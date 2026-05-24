@@ -56,7 +56,7 @@ PR body：
 ### Step 22a：生成运行总结
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/run-summary.sh" "<run_id>"
+bash "${MMW_PLUGIN_ROOT}/scripts/run-summary.sh" "<run_id>"
 ```
 
 输出写入 `.codex/multi-model-workflow/run-summary-<run_id>.json`。用于后续 workflow 的 effort budget 校准。

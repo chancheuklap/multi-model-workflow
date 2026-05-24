@@ -9,7 +9,7 @@ description: "EXECUTION_PASSED 后使用。增强型 Codex 审查（regression +
 完成当前 phase 时，更新 workflow-state 的 cursor 和 status 锚：
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" transition \
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" transition \
   --run-id "<run_id>" --actor Coordinator \
   --from "<current_phase>" --to "<next_phase>"
 ```

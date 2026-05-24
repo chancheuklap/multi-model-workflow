@@ -35,7 +35,7 @@ Agent({
 
     ## Methodology
     启动后立即 Read 以下文件，按其中 5 步方法论执行调查：
-    ${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-multi-pr-merge/references/rca-pr-conflict-methodology.md
+    ${MMW_PLUGIN_ROOT}/skills/orchestrate-multi-pr-merge/references/rca-pr-conflict-methodology.md
 
     ## 你的任务
 

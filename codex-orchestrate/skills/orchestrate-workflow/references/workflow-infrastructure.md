@@ -158,14 +158,14 @@ Entry Gate（Step 1）完成后执行。创建工作树、写入状态文件。
 
 ```bash
 mkdir -p .codex/multi-model-workflow
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" init --run-id "<run_id>" --slug "<slug>" --route formal
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" init --run-id "<run_id>" --slug "<slug>" --route formal
 echo "<run_id>" > .codex/multi-model-workflow/active-run-id
 ```
 
 Budget 在 plan count 确认后初始化（plan-writing Step 12a）：
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" budget initialize --run-id "<run_id>" --plan-count <N>
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget initialize --run-id "<run_id>" --plan-count <N>
 ```
 
 Budget 一旦初始化（`budget_status = initialized`），`review_total` 和 `effort_total` **不可变**——执行阶段、Final Review 阶段均不得修改。如果执行阶段发现 pack 数与 plan 不一致，返回 `NEEDS_PLAN_REVISION`，不得静默更新。Bug / Multi-PR route 使用 `--route hotfix` 等，budget 自动设为 `unlimited`。

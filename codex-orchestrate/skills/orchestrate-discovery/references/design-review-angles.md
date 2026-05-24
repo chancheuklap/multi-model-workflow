@@ -242,7 +242,7 @@ Disposition required:
 **Disposition 审计写入** (每条 finding 决定后立即调用):
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" disposition append \
   --run-id "<run_id>" --review-round <r> --finding-id <id> \
   --disposition <accepted|rejected|suppress|path-a|path-b> \
   --confidence <1-10> --severity <H|M|L> \

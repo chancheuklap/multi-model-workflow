@@ -9,7 +9,7 @@ description: "已有 reviewed design + issue hierarchy 时使用。派 plan-writ
 完成当前 phase 时，更新 workflow-state 的 cursor 和 status 锚：
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" transition \
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" transition \
   --run-id "<run_id>" --actor Coordinator \
   --from "<current_phase>" --to "<next_phase>"
 ```
@@ -121,7 +121,7 @@ Source design + issue hierarchy → **逐个 issue 派发 plan-writer** → 全�
 
 **Dispatch 协议**：所有 plan-writer Agent 调用必须使用 `run_in_background: true`，以确保 Coordinator 能获取 agentId 用于后续 SendMessage 修复路径。
 
-**agentId 持久化**：dispatch 完成后立即从 Agent tool result 中提取 `agentId`，调用 `bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" agent-id set --run-id "<run_id>" --pack-id "plan-writer-<issue_num>" --agent-id "<agentId>"`。如果 agentId 为空 → 记录警告但继续（Plan Review 修复路径将 fallback 到新建 dispatch）。
+**agentId 持久化**：dispatch 完成后立即从 Agent tool result 中提取 `agentId`，调用 `bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" agent-id set --run-id "<run_id>" --pack-id "plan-writer-<issue_num>" --agent-id "<agentId>"`。如果 agentId 为空 → 记录警告但继续（Plan Review 修复路径将 fallback 到新建 dispatch）。
 
 > **已知限制**：`state.sh agent-id set` 依赖 execution-state 文件（execution phase 才创建）。当前 plan-writing phase 调用时会静默失败。当 state.sh 支持 `--scope plan-writer` 参数后此步骤将完全生效。
 
@@ -194,7 +194,7 @@ Coordinator 列出 `docs/orchestrate/issues/<slug>/` 目录下的所有大 issue
 **Pack 数量检查**（对每个 plan 文件运行）：
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/pack-count-validator.sh" <plan-file>
+bash "${MMW_PLUGIN_ROOT}/scripts/pack-count-validator.sh" <plan-file>
 ```
 
 | 结果 | Coordinator 动作 |
@@ -230,7 +230,7 @@ Pack 数量检查通过后进入 Steps 13-14 review。
 **Disposition 审计写入** (每条 finding 决定后立即调用):
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" disposition append \
   --run-id "<run_id>" --review-round <r> --finding-id <id> \
   --disposition <accepted|rejected|suppress|path-a|path-b> \
   --confidence <1-10> --severity <H|M|L> \

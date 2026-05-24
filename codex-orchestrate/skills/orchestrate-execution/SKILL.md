@@ -9,7 +9,7 @@ description: "已有 reviewed plan + Task Pack inventory 时使用。Plan 级两
 完成当前 phase 时，更新 workflow-state 的 cursor 和 status 锚：
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" transition \
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" transition \
   --run-id "<run_id>" --actor Coordinator \
   --from "<current_phase>" --to "<next_phase>"
 ```
@@ -410,19 +410,19 @@ Worker 直接在 Coordinator 的分支上工作——不使用 worktree 隔离�
 
 **Transition**（phase / pack 状态流转）：
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" transition \
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" transition \
   --run-id "<run_id>" --actor Coordinator --from "<from>" --to "<to>"
 ```
 
 **Update**（任意字段更新）：
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" update \
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" update \
   --run-id "<run_id>" --field '<jq-path>' --value '<json-value>'
 ```
 
 **Disposition Append**（review finding 逐条 disposition）：
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" disposition append \
   --run-id "<run_id>" --review-round <r> --finding-id <id> \
   --disposition <accepted|rejected|suppress|path-a|path-b> \
   --confidence <1-10> --severity <H|M|L> \
@@ -432,13 +432,13 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 
 **Agent-ID Set**（Worker 派发后记录 agentId）：
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" agent-id set \
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" agent-id set \
   --run-id "<run_id>" --pack-id <N.M> --agent-id <agentId>
 ```
 
 **Self-Verify Append**（修复后自检记录）：
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" self-verify append \
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" self-verify append \
   --run-id "<run_id>" --pack-id <pack_id> --repair-round <N> \
   --verification-passed <yes|no> --exception <none|...>
 ```
@@ -694,7 +694,7 @@ Coordinator 写入 execution state：`plans[N].status = review_pending`。
 **Disposition 审计写入** (每条 finding 决定后立即调用):
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" disposition append \
   --run-id "<run_id>" --review-round <r> --finding-id <id> \
   --disposition <accepted|rejected|suppress|path-a|path-b> \
   --confidence <1-10> --severity <H|M|L> \

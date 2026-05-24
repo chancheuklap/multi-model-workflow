@@ -4,3 +4,4 @@
 - Do not restore Markdown agent definitions as the runtime source. Keep `agents/*.toml` as the Codex agent source of truth.
 - Build tests should verify template injection against the current source files, not deleted old-host agent files.
 - Review dispatch templates must use Codex native `codex_reviewer` subagents through `spawn_agent`, `send_input`, and `wait_agent`; do not add script or companion CLI review runners.
+- Script command templates must use `${MMW_PLUGIN_ROOT}` for plugin helper scripts; never restore old-host plugin root variables.

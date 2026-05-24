@@ -48,7 +48,7 @@ Agent({
 
     ## Methodology
     启动后立即 Read 以下文件，按其中 Steps 3-8 执行：
-    ${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-plan-writing/references/plan-writing-methodology.md
+    ${MMW_PLUGIN_ROOT}/skills/orchestrate-plan-writing/references/plan-writing-methodology.md
 
     ## Feature slug
     <填入从 Scope Contract 读取的 slug>
@@ -94,7 +94,7 @@ Agent({
 })
 ```
 
-**注意**：`${CLAUDE_PLUGIN_ROOT}` 在 Coordinator 主线程中会被 Claude Code 运行时解析为 plugin 安装目录的绝对路径，Sub-agent 收到的 prompt 中已经是解析后的路径。
+**注意**：`${MMW_PLUGIN_ROOT}` 在 Coordinator 主线程中会被 Claude Code 运行时解析为 plugin 安装目录的绝对路径，Sub-agent 收到的 prompt 中已经是解析后的路径。
 
 **After each Agent call returns**（强制执行）：
 1. Extract `agentId` from return value
