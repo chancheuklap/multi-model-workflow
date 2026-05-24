@@ -121,9 +121,7 @@ Source design + issue hierarchy → **逐个 issue 派发 plan_writer** → 全�
 
 **Dispatch 协议**：所有 plan_writer 调用必须使用 `spawn_agent`，并持久化返回的 `agent_id`，用于后续 `send_input` 修复路径。
 
-**agent_id 持久化**：dispatch 完成后立即从 `spawn_agent` result 中提取 `agent_id`，调用 `bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" agent-id set --run-id "<run_id>" --pack-id "plan_writer-<issue_num>" --agent-id "<agent_id>"`。如果 agent_id 为空 → BLOCKED（Plan Review 修复路径不得新建 dispatch）。
-
-> **已知限制**：`state.sh agent-id set` 依赖 execution-state 文件（execution phase 才创建）。当前 plan-writing phase 调用时会静默失败。当 state.sh 支持 `--scope plan_writer` 参数后此步骤将完全生效。
+**agent_id 持久化**：dispatch 完成后立即从 `spawn_agent` result 中提取 `agent_id`，调用 `bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" update --run-id "<run_id>" --field '.plan_writer_agent_id' --value '"<agent_id>"'` 写入 workflow-state。如果 agent_id 为空 → BLOCKED（Plan Review 修复路径不得新建 dispatch）。
 
 ---
 
