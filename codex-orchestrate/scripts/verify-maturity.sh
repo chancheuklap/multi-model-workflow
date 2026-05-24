@@ -108,6 +108,11 @@ check "validate-review-dispatch blocks targeted review through spawn_agent" bash
   [ \$rc -eq 2 ]
 "
 
+check "ad-hoc codex-review validates before spawn_agent" bash -c "
+  grep -q 'validate-review-dispatch.sh' '$PLUGIN_DIR/skills/codex-review/SKILL.md' &&
+  awk '/validate-review-dispatch.sh/{v=NR} /spawn_agent\\(/{s=NR; exit} END{exit !(v && s && v < s)}' '$PLUGIN_DIR/skills/codex-review/SKILL.md'
+"
+
 check "disposition append injected" bash -c "
   grep -q 'state\.sh.*disposition append' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'
 "

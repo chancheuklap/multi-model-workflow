@@ -97,7 +97,15 @@ PROMPT_FILE="${REVIEW_DIR}/review-${TIMESTAMP}.md"
 
 ## Step 3 — 派发 reviewer
 
-读取 `PROMPT_FILE` 全文，派发 Codex 原生 reviewer 子代理：
+先校验 prompt envelope：
+
+```bash
+bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" \
+  --prompt-file "$PROMPT_FILE" \
+  --transport spawn_agent
+```
+
+校验通过后，读取 `PROMPT_FILE` 全文，派发 Codex 原生 reviewer 子代理：
 
 ```text
 spawn_agent({
