@@ -43,6 +43,7 @@
 - 改 `codex-orchestrate/` 子目录时，同步检查本层或上层 `agents.overrides.md` 是否需要更新。
 - 除非用户明确要求 Claude Code plugin 工作，否则不要修改 `plugin/`。
 - 不要重建 `.agents/skills/orchestrate-*` 或旧 `codex/` 源码树作为当前权威。
+- Source 改动完成后不要自动同步到 runtime。常规修复以 source diff、验证结果和 commit 为交付边界；只有用户明确要求安装、发布、同步 runtime，或在汇报 source 验证结果和 runtime dry-run 差异后获得明确确认，才允许写入 `~/.codex/plugins/cache/`、`~/.codex/agents/` 或 `~/.codex/config.toml`。
 - commit 要原子且及时。一个有意义的 repo rule、runtime contract、hook、build 或 doc-sync 改动应单独提交。
 
 ## 验证门槛
