@@ -116,9 +116,23 @@ Entry Gate（Step 1）完成后执行。创建工作树、写入状态文件。
 
 **创建工作树**（仅 MAIN_REPO 时执行）：
 
-1. 创建 Codex 管理工作树：`git worktree add -b "codex-orchestrate/<short-scope>" "../<repo-name>.worktrees/<short-scope>" HEAD`
-2. 后续命令使用 `cd "../<repo-name>.worktrees/<short-scope>"` 或 Codex `--cd` 指向该工作树
-3. 确认分支名：`git branch --show-current`
+使用 Codex 运行时规定的工作树根目录，不在 repo 旁边新建临时工作树目录：
+
+```bash
+CODEX_WORKTREE_ROOT="${CODEX_WORKTREE_ROOT:-$HOME/.codex/worktrees}"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_NAME="$(basename "$REPO_ROOT")"
+WORKTREE_ID="orchestrate-<short-scope>"
+WORKTREE_PATH="${CODEX_WORKTREE_ROOT}/${WORKTREE_ID}/${REPO_NAME}"
+
+mkdir -p "$(dirname "$WORKTREE_PATH")"
+git worktree add -b "codex-orchestrate/<short-scope>" "$WORKTREE_PATH" HEAD
+cd "$WORKTREE_PATH"
+```
+
+1. 工作树路径必须落在 `$HOME/.codex/worktrees/<worktree-id>/<repo-name>` 下。
+2. 后续命令使用 `cd "$WORKTREE_PATH"` 或 Codex `--cd "$WORKTREE_PATH"` 指向该工作树。
+3. 确认分支名：`git branch --show-current`。
 
 工作树创建后，后续所有状态文件（Scope Contract、workflow-state、execution-state、pack-returns）写在工作树的 `.codex/multi-model-workflow/` 中。工作树删除时，状态文件随之清除。
 

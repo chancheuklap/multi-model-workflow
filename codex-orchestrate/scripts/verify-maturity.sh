@@ -119,6 +119,12 @@ check "no worktree dispatch backend remains" bash -c "
   ! grep -Rqs 'worktree-exec\\|worktree-resume\\|dispatch-gateway\\|worker_thread_id' '$PLUGIN_DIR/skills' '$PLUGIN_DIR/hooks' '$PLUGIN_DIR/agents' '$PLUGIN_DIR/state-schema'
 "
 
+check "workflow worktree root uses Codex runtime directory" bash -c "
+  grep -Fq '\$HOME/.codex/worktrees' '$PLUGIN_DIR/skills/orchestrate-workflow/references/workflow-infrastructure.md' &&
+  grep -q 'CODEX_WORKTREE_ROOT' '$PLUGIN_DIR/skills/orchestrate-workflow/references/workflow-infrastructure.md' &&
+  ! grep -q 'git worktree add.*\\.worktrees' '$PLUGIN_DIR/skills/orchestrate-workflow/references/workflow-infrastructure.md'
+"
+
 check "DISPATCH_ENVELOPE in worker dispatch" bash -c "
   grep -q 'DISPATCH_ENVELOPE' '$PLUGIN_DIR/skills/orchestrate-execution/references/execution-worker-dispatch.md'
 "
