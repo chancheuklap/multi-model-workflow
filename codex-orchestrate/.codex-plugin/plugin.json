@@ -1,0 +1,36 @@
+{
+  "name": "multi-model-workflow",
+  "version": "3.6.1",
+  "description": "Multi-model orchestration for Codex: specialized agents, Task Pack batching, independent review loops, and project-aware auditing.",
+  "author": {
+    "name": "Cheuk Lap Chan",
+    "email": "chancheuklapincn@gmail.com"
+  },
+  "repository": "https://github.com/chancheuklap/multi-model-workflow",
+  "license": "MIT",
+  "keywords": [
+    "multi-model",
+    "orchestration",
+    "code-review",
+    "task-pack",
+    "codex-review"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Multi Model Workflow",
+    "shortDescription": "Codex orchestration with task packs and review gates",
+    "longDescription": "Coordinates Codex-native workflow phases, specialized agents, Task Pack execution, independent reviews, state tracking, and release gates for production work.",
+    "developerName": "Cheuk Lap Chan",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Run the orchestrated Codex workflow for this task.",
+      "Review this plan with the Codex review lane.",
+      "Execute the next Task Pack with review gates."
+    ],
+    "brandColor": "#2563EB"
+  }
+}
