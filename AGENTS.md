@@ -8,14 +8,14 @@
 
 | 路径 | 归属 | Codex 规则 |
 | --- | --- | --- |
-| `plugin/` | Clockwork 维护和使用的 plugin 源码 | 只读参考。可以用来对照结构、行为和迁移意图，但不能修改、格式化、构建、安装或把变更落到这里。 |
+| `plugin/` | Claude Code 维护和使用的 plugin 源码 | 只读参考。可以用来对照结构、行为和迁移意图，但不能修改、格式化、构建、安装或把变更落到这里。 |
 | `codex-orchestrate/` | Codex Orchestrate 源码 | Codex 的主工作区。skills、agents、hooks、scripts、state schema、build、manifest 的改动都应落在这里。 |
 | `.agents/plugins/marketplace.json` | repo-local Codex marketplace | 只在 Codex 插件入口变化时改，默认 source path 必须指向 `./codex-orchestrate`。 |
 | `docs/orchestrate/`、`atomic-codex-orchestrate-replication-plan.md` | 设计、计划、验收材料 | 改变流程、合同、验收口径或发布判断时同步更新。 |
 
 ## 工作规则
 
-- 开工先确认改动属于 Codex Orchestrate，而不是 Clockwork plugin。
+- 开工先确认改动属于 Codex Orchestrate，而不是 Claude Code plugin。
 - 需要参考 `plugin/` 时只读必要文件；不要把 `plugin/` 当成 Codex runtime 真相。
 - 从 `plugin/` 对照迁移时，必须翻译成 Codex-native 路径、hooks、subagent、state 和安装合同，不能保留旧宿主兼容兜底。
 - 改 `codex-orchestrate/` 子目录时，同时检查同级或上级 `agents.overrides.md` 是否需要更新。
