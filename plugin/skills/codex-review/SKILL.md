@@ -5,6 +5,9 @@ description: "按需调用 Codex Reviewer 对任意内容做一次独立审查�
 
 # Ad-hoc Codex Review
 
+<!-- TEMPLATE_DEPS: control-envelope(L37-52 envelope 字段结构), review-dispatch(L74-86 confidence/pre-emit/bias, L95-120 dispatch 命令) -->
+<!-- 本文件未接入构建系统（无锚点）。上述模板变更时须同步检查此文件。 -->
+
 对用户指定的任意内容派发一次 Codex 独立审查，不经过 Orchestrate Workflow。
 
 ## Step 1 — 确定审查对象
