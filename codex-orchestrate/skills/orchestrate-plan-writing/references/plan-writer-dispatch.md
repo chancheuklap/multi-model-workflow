@@ -23,7 +23,6 @@ Dispatch prompt 必须自足——plan_writer 不读 SKILL.md、不读 Coordinat
 ```
 spawn_agent({
   agent_type: "plan_writer",
-  description: "Write plan for issue 00N: <issue title>",
   message: "
     <DISPATCH_ENVELOPE>
     <!-- DISPATCH_ENVELOPE
