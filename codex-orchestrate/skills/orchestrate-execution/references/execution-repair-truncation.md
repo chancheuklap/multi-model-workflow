@@ -14,19 +14,18 @@ Accepted findings 按 `Affected packs` 字段分组 → 每组复用现有三路
 - **路径 B**（多文件、根因已知）：
 
 <!-- BEGIN: sendmessage-resume [variant=worker] -->
-**Worker SendMessage Resume 步骤**（pack-executor / complex-pack-executor 修复）：
+**Worker send_input Resume 步骤**（pack_executor / complex_pack_executor 修复）：
 
 1. `state.sh agent-id get --run-id <run_id> --pack-id <pack_id>` 读取 execution-state 中的 agent_id
 2. 若返回 null/empty -> 立即标记 BLOCKED 给用户 + `state.sh transition --actor Coordinator --to blocked`（不允许创建新 agent）
 3. 调用：
    ```
-   SendMessage({
-     to: "<agent_id>",
-     summary: "修复 <finding_ids>",
+   send_input({
+     target: "<agent_id>",
      message: "<含 DISPATCH_ENVELOPE 的修复 prompt，repair_round >= 1>"
    })
    ```
-4. 等待 SendMessage 返回（同步）
+4. 等待原 agent 返回：`wait_agent({ targets: ["<agent_id>"], timeout_ms: 600000 })`
 5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
 5b. 修复完成后运行 verification commands + 对照 acceptance criteria + grep 确认变更
 5c. `state.sh self-verify append --run-id <run_id> --pack-id <pack_id> --repair-round <N> --verification-passed <yes|no> --exception <none|3plus_files_control_flow|user_requested|rca_root_cause|path_a_self_fix>`

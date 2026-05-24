@@ -8,15 +8,15 @@ run_test() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then echo "  PASS:
 
 echo "=== test_sendmessage_resume_injection.sh ==="
 
-# Verify SendMessage Resume content in repair references
-run_test "SendMessage in final-review-repair" \
-  grep -q "SendMessage Resume" "$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-repair.md"
+# Verify send_input Resume content in repair references
+run_test "send_input in final-review-repair" \
+  grep -q "send_input Resume" "$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-repair.md"
 
-run_test "SendMessage in execution-repair-truncation" \
-  grep -q "SendMessage Resume" "$PLUGIN_DIR/skills/orchestrate-execution/references/execution-repair-truncation.md"
+run_test "send_input in execution-repair-truncation" \
+  grep -q "send_input Resume" "$PLUGIN_DIR/skills/orchestrate-execution/references/execution-repair-truncation.md"
 
-run_test "SendMessage in plan-review-resolution" \
-  grep -q "SendMessage Resume" "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-review-resolution.md"
+run_test "send_input in plan-review-resolution" \
+  grep -q "send_input Resume" "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-review-resolution.md"
 
 # Verify no Agent() in Path B
 run_test "no Agent() in final-review Path B" \

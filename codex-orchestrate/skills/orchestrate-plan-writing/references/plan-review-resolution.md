@@ -78,19 +78,18 @@ Plan Review 三条路径：
 - **路径 B**（Task Pack 内容：implementation tasks / verification / owned files / contract anchors）：
 
 <!-- BEGIN: sendmessage-resume [variant=plan-writer] -->
-**Plan-Writer SendMessage Resume 步骤**（plan-writer 修复）：
+**Plan-Writer send_input Resume 步骤**（plan_writer 修复）：
 
 1. `state.sh read --run-id <run_id> --field '.plan_writer_agent_id'` 读取 workflow-state 中的 plan_writer_agent_id
 2. 若返回 null/empty -> 立即标记 BLOCKED 给用户 + `state.sh transition --actor Coordinator --to blocked`（不允许创建新 agent）
 3. 调用：
    ```
-   SendMessage({
-     to: "<plan_writer_agent_id>",
-     summary: "Plan Review 修复 round <N>: <finding_ids>",
+   send_input({
+     target: "<plan_writer_agent_id>",
      message: "<含 DISPATCH_ENVELOPE 的修复 prompt，repair_round >= 1>"
    })
    ```
-4. 等待 SendMessage 返回（同步）
+4. 等待原 agent 返回：`wait_agent({ targets: ["<plan_writer_agent_id>"], timeout_ms: 600000 })`
 5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
 5b. 验证 plan 文件格式 + pack count validator
 5c. `state.sh self-verify append --run-id <run_id> --repair-round <N> --verification-passed <yes|no>`
