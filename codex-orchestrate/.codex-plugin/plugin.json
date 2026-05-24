@@ -1,6 +1,6 @@
 {
   "name": "multi-model-workflow",
-  "version": "3.6.1",
+  "version": "3.6.2",
   "description": "Multi-model orchestration for Codex: specialized agents, Task Pack batching, independent review loops, and project-aware auditing.",
   "author": {
     "name": "Cheuk Lap Chan",

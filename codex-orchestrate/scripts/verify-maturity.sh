@@ -153,6 +153,7 @@ check "direction-check.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-workfl
 echo ""
 echo "## Version Sync"
 PLUGIN_V=$(jq -r '.version' "$PLUGIN_DIR/.codex-plugin/plugin.json" 2>/dev/null || echo "MISSING")
+SOURCE_V=$(jq -r '.version // empty' "$PLUGIN_DIR/../plugin/.claude-plugin/plugin.json" 2>/dev/null || echo "")
 MARKET_V=$(jq -r '.plugins[] | select(.name == "multi-model-workflow") | .version // empty' "$(cd "$PLUGIN_DIR/.." && pwd)/.agents/plugins/marketplace.json" 2>/dev/null || echo "")
 if [[ -z "$MARKET_V" ]]; then
   MARKET_V="$PLUGIN_V"
@@ -163,6 +164,15 @@ if [[ "$PLUGIN_V" == "$MARKET_V" ]]; then
 else
   echo "  ✗ version mismatch: plugin=$PLUGIN_V marketplace=$MARKET_V"
   fail=$((fail + 1))
+fi
+if [[ -n "$SOURCE_V" ]]; then
+  if [[ "$PLUGIN_V" == "$SOURCE_V" ]]; then
+    echo "  ✓ source version parity ($PLUGIN_V)"
+    pass=$((pass + 1))
+  else
+    echo "  ✗ source version mismatch: codex=$PLUGIN_V source=$SOURCE_V"
+    fail=$((fail + 1))
+  fi
 fi
 
 echo ""
