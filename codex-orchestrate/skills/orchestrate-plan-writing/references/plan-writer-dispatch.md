@@ -55,7 +55,7 @@ spawn_agent({
     - Source design: docs/orchestrate/design/<slug>.md（已通过 Design Review，全局上下文）
     - **你的 issue:** docs/orchestrate/issues/<slug>/00N-<issue-slug>.md
     - Mockups（如有）: docs/orchestrate/mockups/<slug>/
-    - CLAUDE.md: <project root>/CLAUDE.md
+    - Project rules: <project root>/AGENTS.md and linked rule documents
 
     ## 设计摘要（Coordinator 从设计文档提取）
     **Goal:** <从设计文档 Goal 节提取>

@@ -94,7 +94,7 @@ Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked 
 
 用 `rg` / `find` / `Skill({ skill: "improve-codebase-architecture" })` 验证 source design 涉及的路径、模块、合同面、已有模式。
 
-读取项目根目录 CLAUDE.md 及其链入的规则文档。理解模块边界、测试路由、合同墙、命名约定——plan 中的 File/Responsibility Map、verification commands、contract anchors 必须符合项目实际。
+读取项目根目录 AGENTS.md 及其链入的规则文档。理解模块边界、测试路由、合同墙、命名约定——plan 中的 File/Responsibility Map、verification commands、contract anchors 必须符合项目实际。
 
 ## Step 4：确定文件结构
 
