@@ -165,8 +165,12 @@ plan_queue = [Plan001, Plan002, Plan003]  ← 按 Blocked by 排序
 ```json
 {
   "run_id": "<run_id>",
+  "current_plan_id": null,
   "plans": {
     "001": {
+      "status": "pending",
+      "start_commit": null,
+      "end_commit": null,
       "packs": {
         "1.1": { "status": "pending", "agent_id": null, "commit_sha": null, "worker_verdict": null },
         "1.2": { "status": "pending", "agent_id": null, "commit_sha": null, "worker_verdict": null }
@@ -176,7 +180,7 @@ plan_queue = [Plan001, Plan002, Plan003]  ← 按 Blocked by 排序
 }
 ```
 
-注意：execution-state 只存 pack-level 数据（status, agent_id, commit_sha, worker_verdict）。
+注意：execution-state 存 Plan 执行边界（current_plan_id, status, start_commit, end_commit）和 pack-level 数据（status, agent_id, commit_sha, worker_verdict）。
 Cursor, budget, review dispositions 存在 workflow-state-<run_id>.json 中。
 
 填入所有 Plan 和 Pack 的初始状态。
@@ -195,12 +199,13 @@ Worker 的 durable return file 写入此目录（按 run_id 隔离，防止跨 r
 
 ```bash
 SHA=$(git rev-parse HEAD)
-# 写入 execution-state: plans[N].start_commit = $SHA
-# 写入 execution-state: plans[N].status = "in_progress"
-# 写入 execution-state: current_plan_id = N
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" execution-plan start \
+  --run-id <run_id> \
+  --plan-id <N> \
+  --start-commit "$SHA"
 ```
 
-此步由 Coordinator 执行，不由 hook 代劳——因为 start_commit 需要的是"第一个 Pack commit 之前"的 SHA。`validate-pack-dispatch.sh` hook 会拦截缺少 start_commit 的 dispatch。
+此步由 Coordinator 执行，不由 hook 代劳——因为 start_commit 需要的是"第一个 Pack commit 之前"的 SHA。后续 `validate-pack-dispatch.sh` 显式脚本会在 dispatch 前拦截 execution-state 中缺少 `current_plan_id` / `plans[N].status` / `plans[N].start_commit` 的 dispatch。
 
 ### Step 3：验证 Scope Contract + Git Checkpoint
 

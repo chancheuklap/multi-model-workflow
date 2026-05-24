@@ -22,6 +22,7 @@ Commands:
   self-verify       Manage self-verification records (append)
   path-a-escalation Manage Path A escalation entries
   agent-id          Get/set agent_id in execution-state (per Ruling 2)
+  execution-plan    Manage execution-state plan boundaries (start)
   budget            Budget subcommands (initialize, check, increment-review)
   direction-check   Direction Check flow (trigger, ack)
   idempotency       Idempotency key management (check, append)
@@ -667,6 +668,61 @@ cmd_agent_id_get() {
   fi
 }
 
+# --- execution-plan subcommand (operates on execution-state plan boundaries) ---
+cmd_execution_plan() {
+  local subcmd="$1"; shift
+  case "$subcmd" in
+    start) cmd_execution_plan_start "$@" ;;
+    *) echo "Error: unknown execution-plan subcommand: $subcmd (use start)" >&2; exit 2 ;;
+  esac
+}
+
+cmd_execution_plan_start() {
+  local plan_id="" start_commit=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --start-commit) start_commit="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$plan_id" || -z "$start_commit" ]]; then
+    echo "Error: --plan-id and --start-commit required for execution-plan start" >&2
+    exit 2
+  fi
+
+  local esf
+  esf="$(execution_state_file)"
+  if [[ ! -f "$esf" ]]; then
+    echo "Error: execution-state file not found: $esf" >&2
+    exit 2
+  fi
+
+  if ! jq -e --arg pid "$plan_id" '.plans[$pid] != null' "$esf" >/dev/null; then
+    echo "Error: plan_id $plan_id not found in execution-state" >&2
+    exit 2
+  fi
+
+  local existing_start
+  existing_start=$(jq -r --arg pid "$plan_id" '.plans[$pid].start_commit // empty' "$esf")
+  if [[ -n "$existing_start" && "$existing_start" != "$start_commit" ]]; then
+    echo "Error: plan_id $plan_id already has start_commit=$existing_start" >&2
+    exit 2
+  fi
+
+  acquire_lock
+  trap release_lock EXIT
+
+  local tmp="${esf}.tmp"
+  jq --arg pid "$plan_id" --arg sha "$start_commit" '
+    .current_plan_id = $pid
+    | .plans[$pid].status = "in_progress"
+    | .plans[$pid].start_commit = $sha
+  ' "$esf" > "$tmp"
+  mv "$tmp" "$esf"
+}
+
 # --- budget subcommand ---
 cmd_budget() {
   local subcmd="$1"; shift
@@ -1002,6 +1058,7 @@ case "$CMD" in
   self-verify) cmd_self_verify "$@" ;;
   path-a-escalation) cmd_path_a_escalation "$@" ;;
   agent-id) cmd_agent_id "$@" ;;
+  execution-plan) cmd_execution_plan "$@" ;;
   budget) cmd_budget "$@" ;;
   direction-check) cmd_direction_check "$@" ;;
   idempotency) cmd_idempotency "$@" ;;

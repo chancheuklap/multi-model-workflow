@@ -82,6 +82,36 @@ if [[ "$PACK_STATUS" != "pending" ]]; then
   exit 2
 fi
 
+PLAN_ID=$(jq -r --arg pid "$PACK_ID" \
+  '[.plans | to_entries[] | select(.value.packs[$pid] != null) | .key] | first // empty' \
+  "$ESF")
+if [[ -z "$PLAN_ID" || "$PLAN_ID" == "null" ]]; then
+  echo "Error: Pack $PACK_ID not found in execution-state plans" >&2
+  exit 2
+fi
+
+CURRENT_PLAN_ID=$(jq -r '.current_plan_id // empty' "$ESF")
+if [[ -z "$CURRENT_PLAN_ID" || "$CURRENT_PLAN_ID" == "null" ]]; then
+  echo "Error: current_plan_id missing in execution-state; record Plan start_commit before dispatch" >&2
+  exit 2
+fi
+if [[ "$CURRENT_PLAN_ID" != "$PLAN_ID" ]]; then
+  echo "Error: current_plan_id=$CURRENT_PLAN_ID but Pack $PACK_ID belongs to Plan $PLAN_ID" >&2
+  exit 2
+fi
+
+PLAN_STATUS=$(jq -r --arg plan "$PLAN_ID" '.plans[$plan].status // empty' "$ESF")
+if [[ "$PLAN_STATUS" != "in_progress" ]]; then
+  echo "Error: Plan $PLAN_ID status is '${PLAN_STATUS:-missing}', expected 'in_progress'" >&2
+  exit 2
+fi
+
+START_COMMIT=$(jq -r --arg plan "$PLAN_ID" '.plans[$plan].start_commit // empty' "$ESF")
+if [[ -z "$START_COMMIT" || "$START_COMMIT" == "null" ]]; then
+  echo "Error: Plan $PLAN_ID missing start_commit; record git rev-parse HEAD before first Pack dispatch" >&2
+  exit 2
+fi
+
 EXISTING_AGENT_ID=$(jq -r --arg pid "$PACK_ID" \
   '[.plans | to_entries[] | .value.packs // {} | to_entries[] | select(.key == $pid) | .value.agent_id // empty] | first // empty' \
   "$ESF")

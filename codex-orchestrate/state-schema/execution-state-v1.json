@@ -1,11 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "execution-state-v1",
-  "description": "Pack-level execution state for multi-model-workflow orchestration. Per Ruling 2: pack-level data (status, agent_id, commit_sha, worker_verdict) lives here, not in workflow-state.",
+  "description": "Execution state for multi-model-workflow orchestration. Plan execution boundaries (current_plan_id, status, start_commit, end_commit) and pack-level data (status, agent_id, commit_sha, worker_verdict) live here, not in workflow-state.",
   "type": "object",
   "required": ["run_id", "plans"],
   "properties": {
     "run_id": { "type": "string" },
+    "current_plan_id": { "type": ["string", "null"] },
     "plans": {
       "type": "object",
       "description": "Keyed by plan ID (e.g., '001', '002')",
@@ -13,6 +14,12 @@
         "type": "object",
         "required": ["packs"],
         "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["pending", "in_progress", "reviewing", "completed", "repairing", "blocked"]
+          },
+          "start_commit": { "type": ["string", "null"] },
+          "end_commit": { "type": ["string", "null"] },
           "packs": {
             "type": "object",
             "description": "Keyed by pack ID (e.g., '1.1', '1.2')",

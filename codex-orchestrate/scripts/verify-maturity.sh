@@ -205,10 +205,14 @@ check "I3: workflow SKILL.md has anchors" bash -c \
 # I4: validate-pack-dispatch Step 7 implemented (not deferred)
 check "I4: validate-pack-dispatch Step 7 pack status check" \
   grep -q 'PACK_STATUS' "$PLUGIN_DIR/scripts/validate-pack-dispatch.sh"
+check "I4: validate-pack-dispatch requires plan start_commit" bash -c \
+  "grep -q 'start_commit' '$PLUGIN_DIR/scripts/validate-pack-dispatch.sh' && grep -q 'current_plan_id' '$PLUGIN_DIR/scripts/validate-pack-dispatch.sh'"
 
 # I5: state.sh supports plans subcommand
 check "I5: state.sh has plans subcommand" bash -c \
   "bash '$PLUGIN_DIR/scripts/state.sh' 2>&1 | grep -q 'plans'"
+check "I5: state.sh has execution-plan start subcommand" bash -c \
+  "bash '$PLUGIN_DIR/scripts/state.sh' 2>&1 | grep -q 'execution-plan' && grep -q 'cmd_execution_plan_start' '$PLUGIN_DIR/scripts/state.sh'"
 
 # I7: no macOS-only date -j in learnings (cross-platform)
 check "I7: learnings-jsonl no macOS-only date" bash -c \
