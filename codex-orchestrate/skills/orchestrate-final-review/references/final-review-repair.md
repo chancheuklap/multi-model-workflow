@@ -123,8 +123,9 @@ Explorer 返回后路由：
 2. Select model by phase:
    - `cursor.phase in {discovery, plan-writing}` -> `model: "gpt-5.5"`, `reasoning_effort: "xhigh"`
    - `cursor.phase in {execution, final-review}` -> `model: "gpt-5.4"`, `reasoning_effort: "xhigh"`
-3. Dispatch (distinguish baseline vs targeted re-review):
+3. Validate and dispatch (distinguish baseline vs targeted re-review):
    - **Baseline review** (gate name does not contain `-repair-`):
+     Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport spawn_agent`.
      ```
      spawn_agent({
        agent_type: "codex_reviewer",
@@ -135,6 +136,7 @@ Explorer 返回后路由：
      ```
      Record the returned reviewer `agent_id` into `.codex/multi-model-workflow/review-agents/<gate>.agent-id`.
    - **Targeted re-review** (gate name contains `-repair-`):
+     Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport send_input`.
      ```
      send_input({
        target: "<baseline reviewer agent_id>",
@@ -143,7 +145,7 @@ Explorer 返回后路由：
      ```
      The targeted prompt envelope MUST set `review_intent: "targeted-re-review"`, `exception_code`, and `agent_id` to the baseline reviewer `agent_id`.
 4. Wait: `wait_agent({ targets: ["<reviewer agent_id>"], timeout_ms: 600000 })`.
-5. Budget: baseline review is counted by `track-review-budget.sh` on `SubagentStart`. Targeted re-review must be counted after `wait_agent` returns by running `bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget increment-review --run-id "<run_id>"`.
+5. Budget: after `wait_agent` returns for either baseline review or targeted re-review, run `bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget increment-review --run-id "<run_id>"`.
 6. Result: save the reviewer final message from `wait_agent` into `.codex/multi-model-workflow/review-results/<gate>.md`.
 
 **Confidence rubric (REQUIRED in every review prompt)**:

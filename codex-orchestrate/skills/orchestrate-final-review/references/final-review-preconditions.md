@@ -26,7 +26,7 @@
 | Source design 存在且已通过 Design Review | 返回 `NEEDS_DISCOVERY` |
 | Scope Contract 存在 | BLOCKED |
 | Execution state file 中所有 Plan status = completed | 返回 `NEEDS_EXECUTION` |
-| Budget file 存在 | 由 `track-review-budget.sh` hook 自动追踪和警告 |
+| Budget file 存在 | 由 review dispatch 步骤在 `wait_agent` 返回后显式调用 `state.sh budget increment-review` 追踪和警告 |
 
 ---
 > **下一步**：前置条件通过 → Steps 4-5（final-review-angles.md）。缺件 → 按上方路由表返回对应 upstream phase。

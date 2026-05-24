@@ -269,7 +269,7 @@ Every `spawn_agent({...})` dispatch and every `send_input({...})` repair MUST be
 For repair (repair_round >= 1): set `disposition_refs` to array of accepted finding IDs.
 For codex_reviewer dispatches: set `review_intent` and `exception_code` for targeted-re-review.
 
-Hooks parse this block. Missing/malformed envelope = dispatch BLOCKED.
+Coordinator validates this block with an explicit dispatch script before `spawn_agent` / `send_input`. Missing/malformed envelope = dispatch BLOCKED.
 
 ###### Pack Brief 必需字段（每个 pack 都写）
 
@@ -392,12 +392,19 @@ spawn_agent({
 
 Worker 直接在 Coordinator 的分支上工作——不使用 worktree 隔离，所有 pack 串行执行。
 
-`validate-pack-dispatch.sh` hook 自动拦截缺少 DISPATCH_ENVELOPE、budget 未初始化或 Pack 已有 agent_id 的 dispatch。
+派发前必须先把完整 message 写入 `.codex/multi-model-workflow/worker-prompts/<pack-id>.md`，并执行：
+
+```bash
+bash "${MMW_PLUGIN_ROOT}/scripts/validate-pack-dispatch.sh" \
+  --prompt-file ".codex/multi-model-workflow/worker-prompts/<pack-id>.md"
+```
+
+校验通过后，读取该 prompt 文件全文作为 `spawn_agent.message`。缺少 DISPATCH_ENVELOPE、budget 未初始化、Pack 状态不是 pending、或 Pack 已有 agent_id 时，校验脚本必须阻断派发。
 
 **After each spawn_agent call returns**（强制执行）：
 1. Extract `agent_id` from return value
-2. `state.sh agent-id set --run-id <run_id> --pack-id N.M --agent-id <agent_id>`
-3. Write execution state: `packs[N.M].status = dispatched`
+2. `bash "${MMW_PLUGIN_ROOT}/scripts/record-pack-dispatch.sh" --prompt-file ".codex/multi-model-workflow/worker-prompts/<pack-id>.md" --agent-id "<agent_id>"`
+3. Confirm execution state has `packs[N.M].status = dispatched` and `packs[N.M].agent_id = "<agent_id>"`
 
 **Critical**: `spawn_agent` must return `agent_id`. Without agent_id, repair path is BLOCKED. **Omitting agent-id persist is forbidden**.
 

@@ -67,24 +67,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./hooks/gate-codex-review.sh",
-            "statusMessage": "Check reviewer dispatch",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "./hooks/track-review-budget.sh",
-            "statusMessage": "Track review budget",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "./hooks/validate-pack-dispatch.sh",
-            "statusMessage": "Validate worker dispatch",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "./hooks/track-effort-budget.sh",
             "statusMessage": "Track effort budget",
             "timeout": 10

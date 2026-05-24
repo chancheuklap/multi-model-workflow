@@ -5,14 +5,14 @@
 ## 触发条件
 
 当 review budget 或 effort budget 消耗达 80% 时自动触发：
-- `track-review-budget.sh`：review_used >= review_total * 80%
+- `state.sh budget increment-review`：review_used >= review_total * 80%
 - `track-effort-budget.sh`：effort_used >= effort_total * 80%
 - `state.sh direction-check trigger` 写入 `pending_direction_check`
 
 ## 流程
 
 ### Step 1: Trigger
-Hook 检测到 80% 阈值 → 调用：
+Budget tracking 检测到 80% 阈值 → 调用：
 ```bash
 state.sh direction-check trigger --run-id <run_id> --type <review|effort> --threshold-percent 80
 ```

@@ -21,7 +21,7 @@ Formal Orchestrate 的 pack commits 已在 execution 完成。此处只处理 Fi
 
 ## Step 22：Push + Open PR
 
-临时文件由 `cleanup-before-push.sh` PreToolUse hook 自动清理——`git push` 或 `gh pr create` 执行前，hook 删除 `.codex/multi-model-workflow/` 下的 active-run-id、budget、scope 文件。
+临时文件由 `cleanup-before-push.sh` PostToolUse hook 自动清理——`git push` 或 `gh pr create` 成功后，hook 删除 `.codex/multi-model-workflow/` 下的 active-run-id、budget、scope 文件。
 
 ```bash
 git push -u origin <branch>

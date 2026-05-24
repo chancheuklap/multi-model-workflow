@@ -38,10 +38,12 @@ check "dispatch-envelope-v1.json valid JSON" python3 -m json.tool "$PLUGIN_DIR/s
 echo ""
 echo "## Hooks"
 check "hooks.json valid JSON" python3 -m json.tool "$PLUGIN_DIR/hooks.json"
-check "gate-codex-review.sh exists" test -x "$PLUGIN_DIR/hooks/gate-codex-review.sh"
-check "track-review-budget.sh exists" test -x "$PLUGIN_DIR/hooks/track-review-budget.sh"
 check "parse-envelope.sh exists" test -x "$PLUGIN_DIR/hooks/lib/parse-envelope.sh"
-check "validate-pack-dispatch.sh exists" test -x "$PLUGIN_DIR/hooks/validate-pack-dispatch.sh"
+check "validate-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-review-dispatch.sh"
+check "validate-pack-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-pack-dispatch.sh"
+check "record-pack-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/record-pack-dispatch.sh"
+check "prompt-dependent gates not registered as SubagentStart hooks" bash -c \
+  "! grep -qE 'gate-codex-review|track-review-budget|validate-pack-dispatch' '$PLUGIN_DIR/hooks.json'"
 
 echo ""
 echo "## Fallback Removal"
@@ -97,9 +99,13 @@ check "no regex Pack ID in agent-return-handler" bash -c "
   ! grep -qE 'sed -n.*Pack:' '$PLUGIN_DIR/hooks/agent-return-handler.sh'
 "
 
-check "gate-codex-review hard-fails on missing reviewer envelope" bash -c "
-  echo '{\"hook_event_name\":\"SubagentStart\",\"agent_type\":\"codex_reviewer\",\"prompt\":\"no envelope\"}' \
-    | bash '$PLUGIN_DIR/hooks/gate-codex-review.sh' 2>/dev/null; [ \$? -eq 2 ]
+check "validate-review-dispatch blocks targeted review through spawn_agent" bash -c "
+  tmp=\$(mktemp)
+  printf '%s\n' '<!-- DISPATCH_ENVELOPE {\"protocol_version\":\"1\",\"run_id\":\"rv\",\"phase\":\"execution\",\"agent_role\":\"codex_reviewer\",\"agent_id\":\"reviewer-1\",\"pack_id\":null,\"repair_round\":0,\"idempotency_key\":\"rv/review/r1\",\"disposition_refs\":null,\"review_intent\":\"targeted-re-review\",\"exception_code\":\"user_requested\"} -->' > \"\$tmp\"
+  bash '$PLUGIN_DIR/scripts/validate-review-dispatch.sh' --prompt-file \"\$tmp\" --transport spawn_agent 2>/dev/null
+  rc=\$?
+  rm -f \"\$tmp\"
+  [ \$rc -eq 2 ]
 "
 
 check "disposition append injected" bash -c "
@@ -115,11 +121,11 @@ check "DISPATCH_ENVELOPE in worker dispatch" bash -c "
 "
 
 check "agent_id guard in validate-pack-dispatch" bash -c "
-  grep -q 'already has agent_id\|agent_id.*BLOCKED' '$PLUGIN_DIR/hooks/validate-pack-dispatch.sh'
+  grep -q 'already has agent_id\|repair must use send_input' '$PLUGIN_DIR/scripts/validate-pack-dispatch.sh'
 "
 
 check "targeted-re-review requires send_input continuity" bash -c "
-  grep -q 'targeted re-review must use send_input' '$PLUGIN_DIR/hooks/gate-codex-review.sh'
+  grep -q 'targeted re-review must use send_input' '$PLUGIN_DIR/scripts/validate-review-dispatch.sh'
 "
 
 check "worker spec no review finding in mode 2b" bash -c "
@@ -161,11 +167,11 @@ echo "## Behavioral Checks (R2)"
 check "C1: agent-return-handler no dead-code pattern" bash -c \
   "! grep -q 'if \[ \$? -ne 0 \]' '$PLUGIN_DIR/hooks/agent-return-handler.sh'"
 
-# C2: track-review-budget uses state lock for concurrent safety
-check "C2: track-review-budget uses state lock" \
-  grep -q 'state_lock_acquire' "$PLUGIN_DIR/hooks/track-review-budget.sh"
-check "C2: track-review-budget tracks native reviewer start" bash -c \
-  "grep -q 'SubagentStart' '$PLUGIN_DIR/hooks/track-review-budget.sh' && grep -q 'codex_reviewer' '$PLUGIN_DIR/hooks/track-review-budget.sh'"
+# C2: review budget increments through state.sh, not prompt-less SubagentStart hooks
+check "C2: state.sh review budget uses lock" bash -c \
+  "grep -q 'cmd_budget_increment_review' '$PLUGIN_DIR/scripts/state.sh' && grep -q 'acquire_lock' '$PLUGIN_DIR/scripts/state.sh'"
+check "C2: review dispatch template increments budget explicitly" \
+  grep -q 'budget increment-review' "$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
 
 # C3: track-effort-budget uses state lock for concurrent safety
 check "C3: track-effort-budget uses state lock" \
@@ -193,7 +199,7 @@ check "I3: workflow SKILL.md has anchors" bash -c \
 
 # I4: validate-pack-dispatch Step 7 implemented (not deferred)
 check "I4: validate-pack-dispatch Step 7 pack status check" \
-  grep -q 'PACK_STATUS' "$PLUGIN_DIR/hooks/validate-pack-dispatch.sh"
+  grep -q 'PACK_STATUS' "$PLUGIN_DIR/scripts/validate-pack-dispatch.sh"
 
 # I5: state.sh supports plans subcommand
 check "I5: state.sh has plans subcommand" bash -c \

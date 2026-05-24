@@ -29,7 +29,7 @@ Every `spawn_agent({...})` dispatch and every `send_input({...})` repair MUST be
 For repair (repair_round >= 1): set `disposition_refs` to array of accepted finding IDs.
 For codex_reviewer dispatches: set `review_intent` and `exception_code` for targeted-re-review.
 
-Hooks parse this block. Missing/malformed envelope = dispatch BLOCKED.
+Coordinator validates this block with an explicit dispatch script before `spawn_agent` / `send_input`. Missing/malformed envelope = dispatch BLOCKED.
 <!-- END: control-envelope -->
 
 Dispatch prompt 必须自足——worker 不读 SKILL.md、不读 references、不读 plan 文件。Coordinator 从 plan 中提取并在 prompt 中写全所有字段。
