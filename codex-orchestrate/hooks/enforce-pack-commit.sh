@@ -4,7 +4,7 @@
 set -euo pipefail
 
 INPUT=$(cat)
-BUDGET_DIR=".claude/multi-model-workflow"
+BUDGET_DIR=".codex/multi-model-workflow"
 RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
 if [ ! -f "$RUN_ID_FILE" ]; then exit 0; fi
 RUN_ID=$(cat "$RUN_ID_FILE")

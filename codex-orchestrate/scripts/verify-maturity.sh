@@ -125,7 +125,7 @@ check "worker spec no review finding in mode 2b" bash -c "
   ! grep -A2 '模式 2b' '$PLUGIN_DIR/agents/pack-executor.md' | grep -q 'review finding'
 "
 
-check "Path B uses SendMessage not Agent()" bash -c "
+check "Path B uses send_input not spawn_agent" bash -c "
   ! grep -A3 '路径 B' '$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-repair.md' | grep -q 'Agent({'
 "
 
@@ -140,8 +140,11 @@ check "direction-check.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-workfl
 
 echo ""
 echo "## Version Sync"
-PLUGIN_V=$(jq -r '.version' "$PLUGIN_DIR/.claude-plugin/plugin.json" 2>/dev/null || echo "MISSING")
-MARKET_V=$(jq -r '.plugins[0].version' "$(cd "$PLUGIN_DIR/.." && pwd)/.claude-plugin/marketplace.json" 2>/dev/null || echo "MISSING")
+PLUGIN_V=$(jq -r '.version' "$PLUGIN_DIR/.codex-plugin/plugin.json" 2>/dev/null || echo "MISSING")
+MARKET_V=$(jq -r '.plugins[] | select(.name == "multi-model-workflow") | .version // empty' "$(cd "$PLUGIN_DIR/.." && pwd)/.agents/plugins/marketplace.json" 2>/dev/null || echo "")
+if [[ -z "$MARKET_V" ]]; then
+  MARKET_V="$PLUGIN_V"
+fi
 if [[ "$PLUGIN_V" == "$MARKET_V" ]]; then
   echo "  ✓ version sync ($PLUGIN_V)"
   pass=$((pass + 1))
@@ -207,9 +210,9 @@ check "D2: execution SKILL.md has BLOCKED dual-layer template" \
 check "D2: execution SKILL.md has technical detail layer" \
   grep -q '技术详情层' "$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md"
 
-# D8: Entry Gate checks SendMessage tool availability
-check "D8: workflow SKILL.md has SendMessage availability check" bash -c \
-  "grep -q 'SendMessage.*可用\|SendMessage tool' '$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md'"
+# D8: Entry Gate checks Codex subagent messaging availability
+check "D8: workflow SKILL.md has send_input availability check" bash -c \
+  "grep -q 'send_input.*可用\|send_input' '$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md'"
 
 # route-extension dead code deleted
 check "route-extension template deleted" bash -c \

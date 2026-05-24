@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-STATE_BASE="${STATE_BASE:-.claude/multi-model-workflow}"
+STATE_BASE="${STATE_BASE:-.codex/multi-model-workflow}"
 LOCK_TTL=60
 
 # Source shared lock primitives

@@ -6,7 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/state-lock.sh"
 
-STATE_BASE="${STATE_BASE:-.claude/multi-model-workflow}"
+STATE_BASE="${STATE_BASE:-.codex/multi-model-workflow}"
 LEARNINGS_FILE="${STATE_BASE}/learnings.jsonl"
 
 usage() {

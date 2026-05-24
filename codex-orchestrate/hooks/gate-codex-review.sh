@@ -34,7 +34,7 @@ case "$REVIEW_INTENT" in
     if [ -n "$PLAN_NUM" ]; then
       # Normalize to 3-digit zero-padded key (execution-state uses "001", "002", ...)
       PLAN_NUM=$(printf "%03d" "$PLAN_NUM")
-      BUDGET_DIR=".claude/multi-model-workflow"
+      BUDGET_DIR=".codex/multi-model-workflow"
       ESF="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
       if [ -f "$ESF" ]; then
         PLAN_EXISTS=$(jq --arg pid "$PLAN_NUM" '.plans[$pid] != null' "$ESF")
@@ -52,7 +52,7 @@ case "$REVIEW_INTENT" in
     exit 0
     ;;
   path-a-re-review)
-    BUDGET_DIR=".claude/multi-model-workflow"
+    BUDGET_DIR=".codex/multi-model-workflow"
     SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
     if [[ -f "$SF" ]]; then
       HAS_ENTRY=$(jq '.path_a_escalation | length > 0' "$SF")
@@ -74,7 +74,7 @@ case "$REVIEW_INTENT" in
       exit 0
     fi
 
-    BUDGET_DIR=".claude/multi-model-workflow"
+    BUDGET_DIR=".codex/multi-model-workflow"
     SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
     if [[ -f "$SF" ]]; then
       HAS_EXCEPTION=$(jq '[.self_verifications[] | select(.exception != "none")] | length > 0' "$SF" 2>/dev/null)

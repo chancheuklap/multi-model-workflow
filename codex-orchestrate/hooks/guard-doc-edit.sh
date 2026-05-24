@@ -2,7 +2,7 @@
 # PreToolUse hook for Edit and Write tools.
 # Blocks worker agents from modifying design docs and plan docs.
 #
-# Detection: Coordinator creates .claude/multi-model-workflow/worker-active
+# Detection: Coordinator creates .codex/multi-model-workflow/worker-active
 # before dispatching a worker and removes it after the worker returns.
 # If worker-active exists → worker context → block docs/ modifications.
 #
@@ -11,7 +11,7 @@ set -euo pipefail
 
 INPUT=$(cat)
 
-# Extract file_path from tool_input (works for both Edit and Write)
+# Extract file_path from tool_input (works for Edit, Write, and apply_patch-like payloads)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
 [[ -z "$FILE_PATH" ]] && exit 0
 
@@ -21,7 +21,7 @@ if ! echo "$FILE_PATH" | grep -qE '(^|/)docs/'; then
 fi
 
 # No workflow state directory at all → no active workflow → allow
-WORKFLOW_DIR=".claude/multi-model-workflow"
+WORKFLOW_DIR=".codex/multi-model-workflow"
 if [[ ! -d "$WORKFLOW_DIR" ]]; then
   exit 0
 fi

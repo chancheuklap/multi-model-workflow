@@ -23,7 +23,7 @@ if [ "$FORCE" = false ]; then
   fi
 fi
 
-WORKFLOW_DIR=".claude/multi-model-workflow"
+WORKFLOW_DIR=".codex/multi-model-workflow"
 
 if [ ! -e "$WORKFLOW_DIR" ]; then
   exit 0

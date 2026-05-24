@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# multi-model-workflow: SessionStart hook
+# multi-model-workflow: Codex SessionStart hook.
 # Prerequisites check + behavioral override injection + state recovery.
 # Missing prerequisites = exit 2 (block session startup).
 
@@ -11,36 +11,22 @@ check_prerequisite() {
   fi
 }
 
-check_prerequisite "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS" \
-  '[ -n "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" ]'
-
 check_prerequisite "jq in PATH" \
   'command -v jq'
 
 check_prerequisite "python3 in PATH" \
   'command -v python3'
 
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+PLUGIN_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 check_prerequisite "plugin.json readable" \
-  "[ -f '$PLUGIN_ROOT/.claude-plugin/plugin.json' ]"
+  "[ -f '$PLUGIN_ROOT/.codex-plugin/plugin.json' ]"
 
-PLUGIN_VERSION=$(jq -r '.version // empty' "$PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null)
+PLUGIN_VERSION=$(jq -r '.version // empty' "$PLUGIN_ROOT/.codex-plugin/plugin.json" 2>/dev/null)
 check_prerequisite "plugin.json has version field" \
   '[ -n "$PLUGIN_VERSION" ]'
 
-# Claude Code version check (silent skip if claude not in PATH)
-if command -v claude >/dev/null 2>&1; then
-  CLAUDE_VERSION=$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-  if [[ -n "$CLAUDE_VERSION" ]]; then
-    IFS='.' read -r major minor patch <<< "$CLAUDE_VERSION"
-    if [[ "$major" -lt 2 ]] || [[ "$major" -eq 2 && "$minor" -lt 1 ]] || [[ "$major" -eq 2 && "$minor" -eq 1 && "$patch" -lt 147 ]]; then
-      check_prerequisite "Claude Code >= 2.1.147" "false"
-    fi
-  fi
-fi
-
 cat <<RULES
-[multi-model-workflow] Behavioral override active:
+[multi-model-workflow] Codex workflow override active (version ${PLUGIN_VERSION}):
 
 # 1. Environment check
 
@@ -60,19 +46,19 @@ cat <<RULES
 - 没有可 review 的 design document 时先进 Discovery，不跳到 plan / worker
 - Design Review / Plan Review / Final Review 不可跳过（除非 Direct Repair mini-route）
 - upstream skill 结论必须写回 design / plan / bug brief，再继续当前节点
-- 不自己写生产代码——调度 worker
+- 不自己写生产代码——调度 Codex worker
 - 不用技术语言向用户汇报
 - Review 派发步骤已内联到各 dispatch 模板中，Read 对应的 review dispatch reference 即可
 - Task Pack 串行执行，Worker 直接在 Coordinator 分支上工作
 
 # 5. Compaction recovery
-- 进入任何 phase skill 前：re-read .claude/multi-model-workflow/scope-<run_id>.md 确认 Scope Contract
+- 进入任何 phase skill 前：re-read .codex/multi-model-workflow/scope-<run_id>.md 确认 Scope Contract
 - git status --short --branch 验证 branch 和 dirty state
 - Resume Gate: source artifacts 改过 → 重进该 gate
 RULES
 
 # === Workflow state recovery ===
-BUDGET_DIR=".claude/multi-model-workflow"
+BUDGET_DIR=".codex/multi-model-workflow"
 RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
 if [ -f "$RUN_ID_FILE" ]; then
   RUN_ID=$(cat "$RUN_ID_FILE")

@@ -7,7 +7,7 @@ INPUT=$(cat)
 EXIT_CODE=$(echo "$INPUT" | jq -r '.tool_response.exit_code // 0' 2>/dev/null)
 if [ "$EXIT_CODE" != "0" ]; then exit 0; fi
 
-BUDGET_DIR=".claude/multi-model-workflow"
+BUDGET_DIR=".codex/multi-model-workflow"
 RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
 if [ ! -f "$RUN_ID_FILE" ]; then exit 0; fi
 RUN_ID=$(cat "$RUN_ID_FILE")

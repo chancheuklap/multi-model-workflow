@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreToolUse hook for Agent (pack-executor / complex-pack-executor).
+# SubagentStart hook for pack-executor / complex-pack-executor.
 # Parses DISPATCH_ENVELOPE → validates state conditions (10-step ordering).
 set -euo pipefail
 
@@ -8,9 +8,21 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PARSE_ENVELOPE="$SCRIPT_DIR/lib/parse-envelope.sh"
 STATE_SH="$SCRIPT_DIR/../scripts/state.sh"
 
-# Step 1: parse envelope
-PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty' 2>/dev/null)
-if [[ -z "$PROMPT" ]]; then exit 0; fi
+HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty' 2>/dev/null)
+if [[ "$HOOK_EVENT" != "SubagentStart" ]]; then exit 0; fi
+
+AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null)
+case "$AGENT_TYPE" in
+  pack_executor|complex_pack_executor) ;;
+  *) exit 0 ;;
+esac
+
+# Step 1: parse envelope from Codex SubagentStart prompt
+PROMPT=$(echo "$INPUT" | jq -r '.prompt // empty' 2>/dev/null)
+if [[ -z "$PROMPT" ]]; then
+  echo "[multi-model-workflow] BLOCKED: SubagentStart payload missing prompt." >&2
+  exit 2
+fi
 
 ENVELOPE=$(echo "$PROMPT" | bash "$PARSE_ENVELOPE" 2>/dev/null) || {
   echo "[multi-model-workflow] BLOCKED: DISPATCH_ENVELOPE missing or malformed." >&2
@@ -24,7 +36,7 @@ REPAIR_ROUND=$(echo "$ENVELOPE" | jq -r '.repair_round')
 IDEMPOTENCY_KEY=$(echo "$ENVELOPE" | jq -r '.idempotency_key')
 AGENT_ROLE=$(echo "$ENVELOPE" | jq -r '.agent_role')
 
-BUDGET_DIR=".claude/multi-model-workflow"
+BUDGET_DIR=".codex/multi-model-workflow"
 
 # Step 3: load workflow-state + execution-state
 SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
@@ -72,7 +84,7 @@ if [[ -n "$PACK_ID" && "$PACK_ID" != "null" && -f "$ESF" ]]; then
     '[.plans | to_entries[] | .value.packs // {} | to_entries[] | select(.key == $pid) | .value.agent_id // empty] | first // empty' \
     "$ESF" 2>/dev/null || echo "")
   if [[ -n "$EXISTING_AGENT_ID" && "$EXISTING_AGENT_ID" != "null" ]]; then
-    echo "[multi-model-workflow] BLOCKED: Pack $PACK_ID already has agent_id=$EXISTING_AGENT_ID. Repair must use SendMessage({to: \"$EXISTING_AGENT_ID\"}) to resume the original worker." >&2
+    echo "[multi-model-workflow] BLOCKED: Pack $PACK_ID already has agent_id=$EXISTING_AGENT_ID. Repair must use send_input(target: \"$EXISTING_AGENT_ID\") to resume the original worker." >&2
     exit 2
   fi
 fi
@@ -81,7 +93,7 @@ fi
 PA_BLOCKED=$(jq '[.path_a_escalation[] | select(.blocked_for_self_fix == true)] | length' "$SF" 2>/dev/null || echo "0")
 if [[ "$PA_BLOCKED" -gt 0 ]]; then
   case "$AGENT_ROLE" in
-    pack-executor|complex-pack-executor) ;; # Path B worker allowed
+    pack_executor|complex_pack_executor) ;; # Path B worker allowed
     *) echo "[multi-model-workflow] BLOCKED: Path A exhausted, must use Path B worker." >&2; exit 2 ;;
   esac
 fi

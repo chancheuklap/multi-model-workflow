@@ -1,0 +1,108 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/session-start.sh",
+            "statusMessage": "Load multi-model workflow",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./scripts/guard-premature-push.sh",
+            "statusMessage": "Check publish gates",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "./hooks/enforce-pack-commit.sh",
+            "statusMessage": "Check pack commit format",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "./hooks/gate-codex-review.sh",
+            "statusMessage": "Check review dispatch gate",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/guard-doc-edit.sh",
+            "statusMessage": "Check worker document boundary",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/track-review-budget.sh",
+            "statusMessage": "Track review budget",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "./hooks/track-execution-state.sh",
+            "statusMessage": "Track execution state",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "./scripts/cleanup-before-push.sh",
+            "statusMessage": "Cleanup workflow state",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/validate-pack-dispatch.sh",
+            "statusMessage": "Validate worker dispatch",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "./hooks/track-effort-budget.sh",
+            "statusMessage": "Track effort budget",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/agent-return-handler.sh",
+            "statusMessage": "Process worker return",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

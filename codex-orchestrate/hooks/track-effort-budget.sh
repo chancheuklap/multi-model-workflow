@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# PostToolUse hook for Agent tool.
+# SubagentStart hook.
 # Tracks effort budget (weighted agent dispatch count) in workflow-state.
 # Triggers Direction Check at 80% threshold.
 set -euo pipefail
 
 INPUT=$(cat)
 
-AGENT_TYPE=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null)
+HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty' 2>/dev/null)
+if [[ "$HOOK_EVENT" != "SubagentStart" ]]; then exit 0; fi
+
+AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null)
 if [[ -z "$AGENT_TYPE" ]]; then exit 0; fi
 
-BUDGET_DIR=".claude/multi-model-workflow"
+BUDGET_DIR=".codex/multi-model-workflow"
 RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
 if [[ ! -f "$RUN_ID_FILE" ]]; then exit 0; fi
 RUN_ID=$(cat "$RUN_ID_FILE")
@@ -28,9 +31,9 @@ if [[ "$EFFORT_TOTAL" == "0" || "$EFFORT_TOTAL" == "unlimited" ]]; then exit 0; 
 
 # Agent-role weighted effort
 case "$AGENT_TYPE" in
-  pack-executor|complex-pack-executor) EFFORT_INCREMENT=1 ;;
-  code-explorer|complex-code-explorer) EFFORT_INCREMENT=1 ;;
-  root-cause-analyst)                  EFFORT_INCREMENT=2 ;;
+  pack_executor|complex_pack_executor) EFFORT_INCREMENT=1 ;;
+  code_explorer|complex_code_explorer) EFFORT_INCREMENT=1 ;;
+  root_cause_analyst)                  EFFORT_INCREMENT=2 ;;
   *)                                   exit 0 ;;
 esac
 
@@ -57,5 +60,5 @@ else
 fi
 
 jq -n --arg msg "[multi-model-workflow] $MSG" \
-  '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $msg}}'
+  '{hookSpecificOutput: {hookEventName: "SubagentStart", additionalContext: $msg}}'
 exit 0

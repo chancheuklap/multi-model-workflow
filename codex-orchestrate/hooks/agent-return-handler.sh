@@ -1,22 +1,21 @@
 #!/usr/bin/env bash
-# PostToolUse hook for Agent tool.
-# Reads Worker's return via DISPATCH_ENVELOPE → updates execution-state via state.sh → emits NEXT.
+# SubagentStop hook for Codex workers.
+# Reads the durable worker return file → updates execution-state → emits NEXT.
 set -euo pipefail
 
 INPUT=$(cat)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-STATE_SH="$SCRIPT_DIR/../scripts/state.sh"
 
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
-if [ "$TOOL_NAME" != "Agent" ]; then exit 0; fi
+HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty' 2>/dev/null)
+if [ "$HOOK_EVENT" != "SubagentStop" ]; then exit 0; fi
 
-AGENT_TYPE=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null)
+AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null)
 case "$AGENT_TYPE" in
-  pack-executor|complex-pack-executor) ;;
+  pack_executor|complex_pack_executor) ;;
   *) exit 0 ;;
 esac
 
-BUDGET_DIR=".claude/multi-model-workflow"
+BUDGET_DIR=".codex/multi-model-workflow"
 RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
 if [ ! -f "$RUN_ID_FILE" ]; then exit 0; fi
 RUN_ID=$(cat "$RUN_ID_FILE")
@@ -24,15 +23,15 @@ RUN_ID=$(cat "$RUN_ID_FILE")
 SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
 if [ ! -f "$SF" ]; then exit 0; fi
 
-# Parse DISPATCH_ENVELOPE from the dispatch prompt
-PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty' 2>/dev/null)
-ENVELOPE=$(echo "$PROMPT" | bash "$SCRIPT_DIR/lib/parse-envelope.sh" 2>/dev/null) || {
-  # Per Ruling 3: PostToolUse hook, agent already returned — skip is safe
-  echo "[multi-model-workflow] WARN: agent return without DISPATCH_ENVELOPE, skipping state tracking" >&2
-  exit 0
-}
+ESF="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
+if [ ! -f "$ESF" ]; then exit 0; fi
 
-PACK_ID=$(echo "$ENVELOPE" | jq -r '.pack_id // empty')
+# Codex SubagentStop does not carry the original prompt. The execution state is
+# the authority because orchestrate execution dispatches one worker pack at a time.
+PACK_ID=$(jq -r '
+  [.plans | to_entries[] | .value.packs // {} | to_entries[] |
+   select(.value.status == "dispatched") | .key] | first // empty
+' "$ESF" 2>/dev/null)
 if [ -z "$PACK_ID" ] || [ "$PACK_ID" = "null" ]; then exit 0; fi
 
 # Read verdict from structured return file first, then tool_response
@@ -44,22 +43,12 @@ if [ -f "$RETURN_FILE" ] && jq empty "$RETURN_FILE" 2>/dev/null; then
   VERDICT=$(jq -r '.verdict // empty' "$RETURN_FILE")
 fi
 
-if [ -z "$VERDICT" ]; then
-  RESPONSE_TEXT=$(echo "$INPUT" | jq -r '.tool_response // empty' 2>/dev/null || true)
-  if [ -n "$RESPONSE_TEXT" ]; then
-    VERDICT_LINE=$(echo "$RESPONSE_TEXT" | grep -iE '^[#]*[[:space:]]*verdict' | head -1 || true)
-    if [ -n "$VERDICT_LINE" ]; then
-      VERDICT=$(echo "$VERDICT_LINE" | sed 's/.*[Vv]erdict[[:space:]]*:*[[:space:]]*//' | tr -d '[:space:]#' || true)
-    fi
-  fi
-fi
-
 if [ -z "$VERDICT" ] || ! echo "$VERDICT" | grep -qiE '^(pass|blocked|needs|unknown)'; then
-  VERDICT="unknown"
+  echo "[multi-model-workflow] BLOCKED: worker durable return missing or invalid for Pack ${PACK_ID}: ${RETURN_FILE}" >&2
+  exit 2
 fi
 
 # Update execution-state (per Ruling 2: pack-level data in execution-state, not workflow-state)
-ESF="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
 if [ -f "$ESF" ]; then
   source "$SCRIPT_DIR/../scripts/lib/state-lock.sh"
   LOCK_DIR="${BUDGET_DIR}/${RUN_ID}.lock"
@@ -93,5 +82,5 @@ else
 fi
 
 jq -n --arg msg "$MSG" \
-  '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $msg}}'
+  '{hookSpecificOutput: {hookEventName: "SubagentStop", additionalContext: $msg}}'
 exit 0
