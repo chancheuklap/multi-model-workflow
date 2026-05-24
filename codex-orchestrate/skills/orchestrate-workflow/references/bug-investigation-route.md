@@ -67,10 +67,11 @@ Analyst findings:
 请以此为基础进行 Discovery 讨论，不需要用户从零描述问题。
 ```
 
-此时执行三项基础设施操作：
+此时执行两项基础设施操作：
 1. **写入 Bug Seed 文件**：写入 `.codex/multi-model-workflow/bug-seed-<run_id>.md`。
 2. **更新 Scope Contract**：更新 `.codex/multi-model-workflow/scope-<run_id>.md` 的 Source artifacts（加入 `bug-seed-<run_id>.md`）、Editable artifacts（加入 design / plan）和 Out of scope。
-3. **创建 Budget File**（Step 2c）。
+
+Formal plan-count budget 不在这里创建；转入 Route 1 后由 plan-writing 在 plan count 确认时初始化。
 
 ## Step 17：Simple Bug — Codex Review
 
@@ -84,7 +85,7 @@ Analyst 已修复代码。
      `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
 2. Select model by phase:
    - `cursor.phase in {discovery, plan-writing}` -> `model: "gpt-5.5"`, `reasoning_effort: "xhigh"`
-   - `cursor.phase in {execution, final-review}` -> `model: "gpt-5.4"`, `reasoning_effort: "xhigh"`
+   - `cursor.phase in {execution, final-review, bug-investigation, direct-repair, multi-pr-merge, hotfix, quickfix, maintenance}` -> `model: "gpt-5.4"`, `reasoning_effort: "xhigh"`
 3. Validate and dispatch (distinguish baseline vs targeted re-review):
    - **Baseline review** (gate name does not contain `-repair-`):
      Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport spawn_agent`.
@@ -186,10 +187,39 @@ pass / needs repair / blocked
 
 Analyst 找到根因但无法修复。按 risk flags 选择 worker：
 
+Complex Bug worker 是非 execution Pack 的 coding worker：不创建 execution-state，不要求 Pack durable return，Coordinator 通过 `wait_agent` 读取 final message。但它必须走 Codex-native route-worker gate：
+
+1. 写 prompt → `.codex/multi-model-workflow/worker-prompts/bug-fix-worker.md`，以 `DISPATCH_ENVELOPE` 开头：
+   - `phase: "bug-investigation"`
+   - `agent_role: "<pack_executor|complex_pack_executor>"`
+   - `agent_id: null`
+   - `pack_id: null`
+   - `idempotency_key: "<run_id>/bug-fix-worker/r0"`
+2. Dispatch 前运行：
+   ```bash
+   bash "${MMW_PLUGIN_ROOT}/scripts/validate-route-worker-dispatch.sh" \
+     --prompt-file ".codex/multi-model-workflow/worker-prompts/bug-fix-worker.md"
+   ```
+3. 校验通过后读取 prompt 文件全文作为 `spawn_agent.message`。
+4. 从 `spawn_agent` 返回值提取 `agent_id`，并持久化：
+   ```bash
+   bash "${MMW_PLUGIN_ROOT}/scripts/record-route-worker-dispatch.sh" \
+     --prompt-file ".codex/multi-model-workflow/worker-prompts/bug-fix-worker.md" \
+     --agent-id "<agent_id>" \
+     --agent-file ".codex/multi-model-workflow/worker-agents/bug-fix-worker.agent-id"
+   ```
+5. 等待 worker：`wait_agent({ targets: ["<agent_id>"], timeout_ms: 600000 })`，将返回内容保存到 `.codex/multi-model-workflow/worker-results/bug-fix-worker.md`。
+
 ```
 spawn_agent({
   agent_type: "<pack_executor | complex_pack_executor>",
-  message: "
+  message: "<full contents of worker-prompts/bug-fix-worker.md>"
+})
+```
+
+Worker prompt body：
+
+```markdown
     ## Bug
     <original bug description>
 
@@ -213,8 +243,6 @@ spawn_agent({
     - Completed behavior
     ### Verification
     ### Open Items
-  "
-})
 ```
 
 Worker 返回处理：
@@ -226,5 +254,7 @@ Worker 返回处理：
 | `needs context` | send_input 补充上下文给 worker |
 | `blocked` | 技术阻塞：换更强模型 / 拆 scope；业务阻塞：询问用户 |
 
+`send_input` 修复或补上下文必须读取 `.codex/multi-model-workflow/worker-agents/bug-fix-worker.agent-id`，构造 `repair_round >= 1` 且 `agent_id = "<原 worker agent_id>"` 的 route-worker prompt，运行 `validate-route-worker-dispatch.sh --transport send_input` 后再发送。缺失 agent_id → BLOCKED，不新建第二个 worker 冒充续修。
+
 ---
-> **下一步**：修复通过 Codex review → Closing（`workflow-closing.md`）。root cause in design/plan → 创建 budget file + 转入 Route 1（SKILL.md Steps 7-14）。
+> **下一步**：修复通过 Codex review → Closing（`workflow-closing.md`）。root cause in design/plan → 转入 Route 1（SKILL.md Steps 7-14），Formal plan-count budget 由 plan-writing 在确认 plan 数后初始化。

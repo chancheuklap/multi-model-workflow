@@ -175,7 +175,7 @@ run_test_expect_fail "transition denied for unknown actor" \
 run_test "validate passes after operations" \
   bash "$STATE_SH" validate --run-id "$RUN_ID"
 
-# --- Route 4-7: unlimited budget ---
+# --- Non-formal routes: unlimited budget ---
 RUN_ID2="test-hotfix-001"
 run_test "init hotfix route has unlimited review_total" \
   bash "$STATE_SH" init --run-id "$RUN_ID2" --slug "hotfix" --route "hotfix"
@@ -188,6 +188,26 @@ run_test "hotfix budget_status is unlimited" \
 
 run_test "hotfix effort_total is unlimited" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID2' --field '.budget.effort_total') == 'unlimited' ]]"
+
+RUN_ID2B="test-bug-route-001"
+run_test "init bug-investigation route has unlimited budget" \
+  bash "$STATE_SH" init --run-id "$RUN_ID2B" --slug "bug" --route "bug-investigation"
+
+run_test "bug-investigation budget check passes" \
+  bash "$STATE_SH" budget check --run-id "$RUN_ID2B"
+
+RUN_ID2C="test-direct-repair-001"
+run_test "init formal for direct repair conversion" \
+  bash "$STATE_SH" init --run-id "$RUN_ID2C" --slug "direct" --route "formal"
+
+run_test "budget unlimited converts pending formal route" \
+  bash "$STATE_SH" budget unlimited --run-id "$RUN_ID2C" --route "direct-repair"
+
+run_test "direct repair conversion updates route" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID2C' --field '.route') == 'direct-repair' ]]"
+
+run_test "direct repair conversion sets unlimited budget" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID2C' --field '.budget.budget_status') == 'unlimited' ]]"
 
 # --- Lock: stale lock cleanup ---
 STALE_LOCK="$FIXTURE_DIR/${RUN_ID}.lock"

@@ -6,10 +6,39 @@
 
 ## 1. 派 Worker（按 risk flags 选择 agent）
 
+Direct Repair 不创建 execution-state，也不使用 Pack durable return hook；Coordinator 通过 `wait_agent` 接收 worker final message。但它仍然是 coding worker dispatch，必须使用 Codex-native envelope、显式校验、idempotency key 和 agent_id 持久化。
+
+1. 写 prompt → `.codex/multi-model-workflow/worker-prompts/direct-repair-worker.md`，以 `DISPATCH_ENVELOPE` 开头：
+   - `phase: "direct-repair"`
+   - `agent_role: "<pack_executor|complex_pack_executor>"`
+   - `agent_id: null`
+   - `pack_id: null`
+   - `idempotency_key: "<run_id>/direct-repair-worker/r0"`
+2. Dispatch 前运行：
+   ```bash
+   bash "${MMW_PLUGIN_ROOT}/scripts/validate-route-worker-dispatch.sh" \
+     --prompt-file ".codex/multi-model-workflow/worker-prompts/direct-repair-worker.md"
+   ```
+3. 校验通过后读取 prompt 文件全文作为 `spawn_agent.message`。
+4. 从 `spawn_agent` 返回值提取 `agent_id`，并持久化：
+   ```bash
+   bash "${MMW_PLUGIN_ROOT}/scripts/record-route-worker-dispatch.sh" \
+     --prompt-file ".codex/multi-model-workflow/worker-prompts/direct-repair-worker.md" \
+     --agent-id "<agent_id>" \
+     --agent-file ".codex/multi-model-workflow/worker-agents/direct-repair-worker.agent-id"
+   ```
+5. 等待 worker：`wait_agent({ targets: ["<agent_id>"], timeout_ms: 600000 })`，将返回内容保存到 `.codex/multi-model-workflow/worker-results/direct-repair-worker.md`。
+
+Worker prompt body：
+
 ```
 spawn_agent({
   agent_type: "<pack_executor | complex_pack_executor>",
-  message: "
+  message: "<full contents of worker-prompts/direct-repair-worker.md>"
+})
+```
+
+```markdown
     ## Scope
     修复已批准 design 下的实现偏离。
 
@@ -39,8 +68,6 @@ spawn_agent({
     - Completed behavior
     ### Verification
     ### Open Items
-  "
-})
 ```
 
 ## 2. Codex Review
@@ -53,7 +80,7 @@ spawn_agent({
      `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
 2. Select model by phase:
    - `cursor.phase in {discovery, plan-writing}` -> `model: "gpt-5.5"`, `reasoning_effort: "xhigh"`
-   - `cursor.phase in {execution, final-review}` -> `model: "gpt-5.4"`, `reasoning_effort: "xhigh"`
+   - `cursor.phase in {execution, final-review, bug-investigation, direct-repair, multi-pr-merge, hotfix, quickfix, maintenance}` -> `model: "gpt-5.4"`, `reasoning_effort: "xhigh"`
 3. Validate and dispatch (distinguish baseline vs targeted re-review):
    - **Baseline review** (gate name does not contain `-repair-`):
      Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport spawn_agent`.
@@ -146,7 +173,9 @@ pass / needs repair / blocked
 | `needs repair` | 路径 A（≤2 文件直接修）或路径 B（send_input worker）→ targeted re-review → 最多 2 轮 → Closing |
 | `blocked` | 报告用户 |
 
-Direct Repair 不创建 budget file。
+路径 B 必须读取 `.codex/multi-model-workflow/worker-agents/direct-repair-worker.agent-id`，构造 `repair_round >= 1` 且 `agent_id = "<原 worker agent_id>"` 的 route-worker prompt，运行 `validate-route-worker-dispatch.sh --transport send_input` 后再 `send_input`。缺失 agent_id → BLOCKED，不新建第二个 worker 冒充续修。
+
+Direct Repair 不创建 plan-count budget；它使用 Step 8a 设置的 `unlimited` workflow-state 预算来支撑 review validation、effort tracking 和 idempotency。
 
 ---
 > **下一步**：Codex review 通过 → Closing（`workflow-closing.md`）。BLOCKED → 返回 verdict。

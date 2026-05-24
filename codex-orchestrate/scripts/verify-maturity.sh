@@ -48,8 +48,10 @@ check "parse-envelope.sh exists" test -x "$PLUGIN_DIR/hooks/lib/parse-envelope.s
 check "validate-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-review-dispatch.sh"
 check "validate-pack-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-pack-dispatch.sh"
 check "record-pack-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/record-pack-dispatch.sh"
+check "validate-route-worker-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-route-worker-dispatch.sh"
+check "record-route-worker-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/record-route-worker-dispatch.sh"
 check "prompt-dependent gates not registered as SubagentStart hooks" bash -c \
-  "! grep -qE 'gate-codex-review|track-review-budget|validate-pack-dispatch' '$PLUGIN_DIR/hooks.json'"
+  "! grep -qE 'gate-codex-review|track-review-budget|validate-pack-dispatch|validate-route-worker-dispatch' '$PLUGIN_DIR/hooks.json'"
 
 echo ""
 echo "## Fallback Removal"
@@ -135,6 +137,16 @@ check "agent_id guard in validate-pack-dispatch" bash -c "
   grep -q 'already has agent_id\|repair must use send_input' '$PLUGIN_DIR/scripts/validate-pack-dispatch.sh'
 "
 
+check "route worker dispatch has agent_id guard" bash -c "
+  grep -q 'route worker repair must include original worker agent_id' '$PLUGIN_DIR/scripts/validate-route-worker-dispatch.sh'
+"
+
+check "route worker dispatch used by bug/direct/multi-pr routes" bash -c "
+  grep -q 'validate-route-worker-dispatch.sh' '$PLUGIN_DIR/skills/orchestrate-workflow/references/bug-investigation-route.md' &&
+  grep -q 'validate-route-worker-dispatch.sh' '$PLUGIN_DIR/skills/orchestrate-workflow/references/workflow-direct-repair.md' &&
+  grep -q 'validate-route-worker-dispatch.sh' '$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md'
+"
+
 check "targeted-re-review requires send_input continuity" bash -c "
   grep -q 'targeted re-review must use send_input' '$PLUGIN_DIR/scripts/validate-review-dispatch.sh'
 "
@@ -216,6 +228,9 @@ check "I5: state.sh has plans subcommand" bash -c \
   "bash '$PLUGIN_DIR/scripts/state.sh' 2>&1 | grep -q 'plans'"
 check "I5: state.sh has execution-plan start subcommand" bash -c \
   "bash '$PLUGIN_DIR/scripts/state.sh' 2>&1 | grep -q 'execution-plan' && grep -q 'cmd_execution_plan_start' '$PLUGIN_DIR/scripts/state.sh'"
+
+check "I5: state.sh has unlimited budget subcommand" bash -c \
+  "bash '$PLUGIN_DIR/scripts/state.sh' 2>&1 | grep -q 'initialize, unlimited, check' && grep -q 'cmd_budget_unlimited' '$PLUGIN_DIR/scripts/state.sh'"
 
 # I7: no macOS-only date -j in learnings (cross-platform)
 check "I7: learnings-jsonl no macOS-only date" bash -c \

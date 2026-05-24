@@ -16,6 +16,9 @@ run_test "discovery/plan-writing -> gpt-5.5" \
 run_test "execution/final-review -> gpt-5.4" \
   grep -q "execution, final-review.*gpt-5.4" "$TEMPLATE"
 
+run_test "non-formal review routes -> gpt-5.4" \
+  grep -q "bug-investigation, direct-repair, multi-pr-merge, hotfix, quickfix, maintenance.*gpt-5.4" "$TEMPLATE"
+
 # Verify injected content in actual files
 run_test "execution-review-dispatch has gpt-5.5 for discovery" \
   grep -q "gpt-5.5" "$PLUGIN_DIR/skills/orchestrate-execution/references/execution-review-dispatch.md"

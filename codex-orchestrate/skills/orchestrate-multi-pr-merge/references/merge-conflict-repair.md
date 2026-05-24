@@ -6,12 +6,41 @@
 
 根据冲突是否经过 analyst 调查，dispatch prompt 的内容不同：
 
+Multi-PR conflict repair 是非 execution Pack 的 coding worker：不创建 execution-state，不要求 Pack durable return，Coordinator 通过 `wait_agent` 读取 final message。但它仍然必须使用 Codex-native route-worker gate：
+
+1. 写 prompt → `.codex/multi-model-workflow/worker-prompts/multi-pr-conflict-<conflict-id>.md`，以 `DISPATCH_ENVELOPE` 开头：
+   - `phase: "multi-pr-merge"`
+   - `agent_role: "<pack_executor|complex_pack_executor>"`
+   - `agent_id: null`
+   - `pack_id: null`
+   - `idempotency_key: "<run_id>/multi-pr-conflict-<conflict-id>/r0"`
+2. Dispatch 前运行：
+   ```bash
+   bash "${MMW_PLUGIN_ROOT}/scripts/validate-route-worker-dispatch.sh" \
+     --prompt-file ".codex/multi-model-workflow/worker-prompts/multi-pr-conflict-<conflict-id>.md"
+   ```
+3. 校验通过后读取 prompt 文件全文作为 `spawn_agent.message`。
+4. 从 `spawn_agent` 返回值提取 `agent_id`，并持久化：
+   ```bash
+   bash "${MMW_PLUGIN_ROOT}/scripts/record-route-worker-dispatch.sh" \
+     --prompt-file ".codex/multi-model-workflow/worker-prompts/multi-pr-conflict-<conflict-id>.md" \
+     --agent-id "<agent_id>" \
+     --agent-file ".codex/multi-model-workflow/worker-agents/multi-pr-conflict-<conflict-id>.agent-id"
+   ```
+5. 等待 worker：`wait_agent({ targets: ["<agent_id>"], timeout_ms: 600000 })`，将返回内容保存到 `.codex/multi-model-workflow/worker-results/multi-pr-conflict-<conflict-id>.md`。
+
 ### 12a：有 Analyst Findings 的 Worker Dispatch
 
 ```
 spawn_agent({
   agent_type: "<pack_executor | complex_pack_executor>",
-  message: "
+  message: "<full contents of worker-prompts/multi-pr-conflict-<conflict-id>.md>"
+})
+```
+
+Worker prompt body：
+
+```markdown
     ## Scope
     修复 Multi-PR Merge 中发现的 PR 间冲突。
 
@@ -54,8 +83,6 @@ spawn_agent({
     - Per-conflict resolution
     ### Verification
     ### Open Items
-  "
-})
 ```
 
 ### 12b：无 Analyst 的 Worker Dispatch（复杂但根因明确）
@@ -63,7 +90,13 @@ spawn_agent({
 ```
 spawn_agent({
   agent_type: "<pack_executor | complex_pack_executor>",
-  message: "
+  message: "<full contents of worker-prompts/multi-pr-conflict-<conflict-id>.md>"
+})
+```
+
+Worker prompt body：
+
+```markdown
     ## Scope
     修复 Multi-PR Merge 中发现的 PR 间冲突。
 
@@ -97,8 +130,6 @@ spawn_agent({
     - Conflict resolution summary
     ### Verification
     ### Open Items
-  "
-})
 ```
 
 **Worker 类型选择**：涉及 migration / billing / permission / runtime / shared contract → `complex_pack_executor`；否则 `pack_executor`。
@@ -111,6 +142,8 @@ spawn_agent({
 | `needs repair` | worker 自己有疑虑 → 审阅 concerns，能自主解决则补充信息后 send_input worker 继续；否则进入 Step 14 让验证环节处理 |
 | `needs context` | send_input 补充上下文给原 worker |
 | `blocked` | 技术阻塞：尝试拆分冲突 / 换更强模型。业务阻塞：询问用户 |
+
+`send_input` 修复或补上下文必须读取对应 `.codex/multi-model-workflow/worker-agents/multi-pr-conflict-<conflict-id>.agent-id`，构造 `repair_round >= 1` 且 `agent_id = "<原 worker agent_id>"` 的 route-worker prompt，运行 `validate-route-worker-dispatch.sh --transport send_input` 后再发送。缺失 agent_id → BLOCKED，不新建第二个 worker 冒充续修。
 
 ---
 
