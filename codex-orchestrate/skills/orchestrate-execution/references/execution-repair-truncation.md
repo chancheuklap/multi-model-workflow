@@ -43,8 +43,7 @@ Targeted Re-Review 使用 `send_input` 继续 baseline reviewer agent。
 ```
 spawn_agent({
   agent_type: "complex_code_explorer",
-  description: "Investigate unknown root cause: Plan N finding",
-  prompt: "
+  message: "
     ## Scope
     只读调查。Reviewer 报告了症状但无法确定根因。找到根因，不写代码。
 
@@ -115,8 +114,7 @@ Explorer 返回后路由：
 ```
 spawn_agent({
   agent_type: "root_cause_analyst",
-  description: "Investigate repair failure: Plan N",
-  prompt: "
+  message: "
     ## 调度场景
     Repair Truncation（Plan Implementation Review）。Worker 修了两轮，reviewer 仍报 needs repair。
 

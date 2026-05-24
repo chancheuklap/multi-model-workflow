@@ -386,7 +386,6 @@ touch .codex/multi-model-workflow/worker-active
 ```
 spawn_agent({
   agent_type: "<pack_executor | complex_pack_executor>",
-  description: "Execute Task Pack N.M: <title>",
   message: "<DISPATCH_ENVELOPE>\n\n<Pack Brief>"
 })
 ```
