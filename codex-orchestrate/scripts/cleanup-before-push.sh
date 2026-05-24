@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PostToolUse hook for Bash tool (if: "Bash(git push *)").
+# PostToolUse hook for shell commands that push or create pull requests.
 # Cleans up orchestration temp files AFTER a successful push.
 #
 # Also callable directly: cleanup-before-push.sh --force

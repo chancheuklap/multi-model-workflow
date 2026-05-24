@@ -42,7 +42,7 @@ Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked 
 
 1. 读完 `What to build` 后，结合 Step 3a 的设计上下文和 Step 3d 的代码探索结果，识别实现单元
 2. 每个实现单元写为一个小 issue，包含 Type、What to build、Acceptance criteria、Blocked by
-3. 用 Edit tool 将小 issue 写回大 issue 文件的 `## Small issues` 章节，替换 `<!-- PENDING -->` 标记
+3. 用 Codex 的文件编辑能力将小 issue 写回大 issue 文件的 `## Small issues` 章节，替换 `<!-- PENDING -->` 标记
 
 #### 写回格式
 

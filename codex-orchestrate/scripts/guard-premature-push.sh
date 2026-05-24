@@ -1,5 +1,5 @@
 #!/bin/bash
-# PreToolUse hook for Bash tool.
+# PreToolUse hook for shell commands.
 # Two responsibilities:
 # 1. Block git push / gh pr create if unchecked tasks remain in the active plan.
 # 2. Block git merge --squash — merge strategy rule enforcement.

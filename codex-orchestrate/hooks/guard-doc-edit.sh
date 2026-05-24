@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreToolUse hook for Edit and Write tools.
+# PreToolUse hook for file-editing commands.
 # Blocks worker agents from modifying design docs and plan docs.
 #
 # Detection: Coordinator creates .codex/multi-model-workflow/worker-active
@@ -11,7 +11,7 @@ set -euo pipefail
 
 INPUT=$(cat)
 
-# Extract file_path from tool_input (works for Edit, Write, and apply_patch-like payloads)
+# Extract file_path from tool_input when the payload exposes one.
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
 [[ -z "$FILE_PATH" ]] && exit 0
 

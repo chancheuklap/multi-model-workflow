@@ -8,7 +8,7 @@ Dispatch prompt 必须自足——plan_writer 不读 SKILL.md、不读 Coordinat
 
 ### Step 9a：Pre-dispatch Context Transfer（强制，每个 issue 执行一次）
 
-派发当前 issue 的 plan_writer 之前，Coordinator 必须用 Read tool 确认以下内容在上下文中：
+派发当前 issue 的 plan_writer 之前，Coordinator 必须用 Codex 可用的只读文件读取方式确认以下内容在上下文中：
 
 1. **Read** Scope Contract（`.codex/multi-model-workflow/scope-<run_id>.md`）→ 获取 slug、run_id（首个 issue 时读取，后续复用）
 2. **Read** 设计文档（`docs/orchestrate/design/<slug>.md`）→ 提取设计摘要（首个 issue 时读取，后续复用）
