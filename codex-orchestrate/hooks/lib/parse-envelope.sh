@@ -57,9 +57,9 @@ if [[ "$REPAIR_ROUND" -ge 1 ]] 2>/dev/null; then
   fi
 fi
 
-if [[ "$AGENT_ROLE" == "codex-reviewer" ]]; then
+if [[ "$AGENT_ROLE" == "codex_reviewer" ]]; then
   if [[ -z "$REVIEW_INTENT" || "$REVIEW_INTENT" == "null" ]]; then
-    echo "Error: codex-reviewer dispatch must include review_intent" >&2
+    echo "Error: codex_reviewer dispatch must include review_intent" >&2
     exit 2
   fi
 fi

@@ -1,54 +1,40 @@
 #!/usr/bin/env bash
-# PreToolUse Bash hook (if: "Bash(*codex-companion.mjs task*)")
-# Gates Codex review dispatch — blocks targeted re-review without exception.
+# SubagentStart hook for codex_reviewer.
+# Gates baseline reviewer dispatches and blocks targeted re-review through new agents.
 set -euo pipefail
 
 INPUT=$(cat)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PARSE_ENVELOPE="$SCRIPT_DIR/lib/parse-envelope.sh"
 
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
-if [[ -z "$COMMAND" ]]; then exit 0; fi
-if ! echo "$COMMAND" | grep -qE '(codex-companion|CODEX_SCRIPT).*[[:space:]]task([[:space:]]|$)'; then exit 0; fi
+HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty' 2>/dev/null)
+if [[ "$HOOK_EVENT" != "SubagentStart" ]]; then exit 0; fi
 
-PROMPT_FILE=$(echo "$COMMAND" | sed -n 's/.*--prompt-file[[:space:]]*\([^[:space:]]*\).*/\1/p')
-if [[ -z "$PROMPT_FILE" || ! -f "$PROMPT_FILE" ]]; then
-  echo "[multi-model-workflow] BLOCKED: codex review dispatch missing --prompt-file or file unreadable." >&2
+AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null)
+if [[ "$AGENT_TYPE" != "codex_reviewer" ]]; then exit 0; fi
+
+PROMPT=$(echo "$INPUT" | jq -r '.prompt // empty' 2>/dev/null)
+if [[ -z "$PROMPT" ]]; then
+  echo "[multi-model-workflow] BLOCKED: codex_reviewer dispatch missing prompt." >&2
   exit 2
 fi
 
-ENVELOPE=$(bash "$PARSE_ENVELOPE" "$PROMPT_FILE" 2>/dev/null) || {
-  echo "[multi-model-workflow] BLOCKED: codex review prompt missing/malformed DISPATCH_ENVELOPE." >&2
+ENVELOPE=$(echo "$PROMPT" | bash "$PARSE_ENVELOPE" 2>/dev/null) || {
+  echo "[multi-model-workflow] BLOCKED: codex_reviewer prompt missing/malformed DISPATCH_ENVELOPE." >&2
   exit 2
 }
 
+AGENT_ROLE=$(echo "$ENVELOPE" | jq -r '.agent_role // empty')
 REVIEW_INTENT=$(echo "$ENVELOPE" | jq -r '.review_intent // empty')
-EXCEPTION_CODE=$(echo "$ENVELOPE" | jq -r '.exception_code // empty')
 RUN_ID=$(echo "$ENVELOPE" | jq -r '.run_id')
+
+if [[ "$AGENT_ROLE" != "codex_reviewer" ]]; then
+  echo "[multi-model-workflow] BLOCKED: codex_reviewer dispatch envelope agent_role must be codex_reviewer." >&2
+  exit 2
+fi
 
 case "$REVIEW_INTENT" in
   baseline)
-    # For Plan Implementation Review: verify all packs in the plan are committed
-    GATE_NAME=$(basename "$PROMPT_FILE" .md)
-    PLAN_NUM=$(echo "$GATE_NAME" | sed -n 's/.*plan-impl-review-\([0-9]*\).*/\1/p')
-    if [ -n "$PLAN_NUM" ]; then
-      # Normalize to 3-digit zero-padded key (execution-state uses "001", "002", ...)
-      PLAN_NUM=$(printf "%03d" "$PLAN_NUM")
-      BUDGET_DIR=".codex/multi-model-workflow"
-      ESF="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
-      if [ -f "$ESF" ]; then
-        PLAN_EXISTS=$(jq --arg pid "$PLAN_NUM" '.plans[$pid] != null' "$ESF")
-        if [ "$PLAN_EXISTS" != "true" ]; then
-          echo "[multi-model-workflow] BLOCKED: Plan ${PLAN_NUM} not found in execution-state. Cannot verify pack completion." >&2
-          exit 2
-        fi
-        UNCOMMITTED=$(jq --arg pid "$PLAN_NUM" '[.plans[$pid].packs | to_entries[] | select(.value.status != "committed")] | length' "$ESF")
-        if [ "$UNCOMMITTED" -gt 0 ]; then
-          echo "[multi-model-workflow] BLOCKED: Plan ${PLAN_NUM} has ${UNCOMMITTED} uncommitted packs. Complete all packs before dispatching Plan Implementation Review." >&2
-          exit 2
-        fi
-      fi
-    fi
     exit 0
     ;;
   path-a-re-review)
@@ -64,28 +50,11 @@ case "$REVIEW_INTENT" in
     exit 2
     ;;
   targeted-re-review)
-    # Enforce session continuity — targeted re-review must use --resume (A10)
-    if ! echo "$COMMAND" | grep -qE '\-\-resume'; then
-      echo "[multi-model-workflow] BLOCKED: Targeted re-review must use --resume to continue baseline reviewer session." >&2
-      exit 2
-    fi
-
-    if [[ "$EXCEPTION_CODE" == "user_requested" ]]; then
-      exit 0
-    fi
-
-    BUDGET_DIR=".codex/multi-model-workflow"
-    SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
-    if [[ -f "$SF" ]]; then
-      HAS_EXCEPTION=$(jq '[.self_verifications[] | select(.exception != "none")] | length > 0' "$SF" 2>/dev/null)
-      if [[ "$HAS_EXCEPTION" == "true" ]]; then
-        exit 0
-      fi
-    fi
-    echo "[multi-model-workflow] BLOCKED: Codex re-review requires qualifying exception. Default is Coordinator self-verify." >&2
+    echo "[multi-model-workflow] BLOCKED: targeted re-review must use send_input(target: baseline reviewer agent_id), not spawn_agent." >&2
     exit 2
     ;;
   *)
-    exit 0
+    echo "[multi-model-workflow] BLOCKED: codex_reviewer dispatch requires review_intent=baseline or path-a-re-review." >&2
+    exit 2
     ;;
 esac

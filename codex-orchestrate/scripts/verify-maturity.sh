@@ -37,8 +37,9 @@ check "dispatch-envelope-v1.json valid JSON" python3 -m json.tool "$PLUGIN_DIR/s
 
 echo ""
 echo "## Hooks"
-check "hooks.json valid JSON" python3 -m json.tool "$PLUGIN_DIR/hooks/hooks.json"
+check "hooks.json valid JSON" python3 -m json.tool "$PLUGIN_DIR/hooks.json"
 check "gate-codex-review.sh exists" test -x "$PLUGIN_DIR/hooks/gate-codex-review.sh"
+check "track-review-budget.sh exists" test -x "$PLUGIN_DIR/hooks/track-review-budget.sh"
 check "parse-envelope.sh exists" test -x "$PLUGIN_DIR/hooks/lib/parse-envelope.sh"
 check "validate-pack-dispatch.sh exists" test -x "$PLUGIN_DIR/hooks/validate-pack-dispatch.sh"
 
@@ -96,8 +97,8 @@ check "no regex Pack ID in agent-return-handler" bash -c "
   ! grep -qE 'sed -n.*Pack:' '$PLUGIN_DIR/hooks/agent-return-handler.sh'
 "
 
-check "gate-codex-review hard-fails on missing envelope" bash -c "
-  echo '{\"tool_input\":{\"command\":\"node x/codex-companion.mjs task --prompt-file /nonexistent\"}}' \
+check "gate-codex-review hard-fails on missing reviewer envelope" bash -c "
+  echo '{\"hook_event_name\":\"SubagentStart\",\"agent_type\":\"codex_reviewer\",\"prompt\":\"no envelope\"}' \
     | bash '$PLUGIN_DIR/hooks/gate-codex-review.sh' 2>/dev/null; [ \$? -eq 2 ]
 "
 
@@ -117,8 +118,8 @@ check "agent_id guard in validate-pack-dispatch" bash -c "
   grep -q 'already has agent_id\|agent_id.*BLOCKED' '$PLUGIN_DIR/hooks/validate-pack-dispatch.sh'
 "
 
-check "targeted-re-review requires --resume" bash -c "
-  grep -q 'Targeted re-review.*--resume' '$PLUGIN_DIR/hooks/gate-codex-review.sh'
+check "targeted-re-review requires send_input continuity" bash -c "
+  grep -q 'targeted re-review must use send_input' '$PLUGIN_DIR/hooks/gate-codex-review.sh'
 "
 
 check "worker spec no review finding in mode 2b" bash -c "
@@ -163,6 +164,8 @@ check "C1: agent-return-handler no dead-code pattern" bash -c \
 # C2: track-review-budget uses state lock for concurrent safety
 check "C2: track-review-budget uses state lock" \
   grep -q 'state_lock_acquire' "$PLUGIN_DIR/hooks/track-review-budget.sh"
+check "C2: track-review-budget tracks native reviewer start" bash -c \
+  "grep -q 'SubagentStart' '$PLUGIN_DIR/hooks/track-review-budget.sh' && grep -q 'codex_reviewer' '$PLUGIN_DIR/hooks/track-review-budget.sh'"
 
 # C3: track-effort-budget uses state lock for concurrent safety
 check "C3: track-effort-budget uses state lock" \

@@ -28,12 +28,6 @@
             "command": "./hooks/enforce-pack-commit.sh",
             "statusMessage": "Check pack commit format",
             "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "./hooks/gate-codex-review.sh",
-            "statusMessage": "Check review dispatch gate",
-            "timeout": 10
           }
         ]
       },
@@ -55,12 +49,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./hooks/track-review-budget.sh",
-            "statusMessage": "Track review budget",
-            "timeout": 10
-          },
-          {
-            "type": "command",
             "command": "./hooks/track-execution-state.sh",
             "statusMessage": "Track execution state",
             "timeout": 10
@@ -77,6 +65,18 @@
     "SubagentStart": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "./hooks/gate-codex-review.sh",
+            "statusMessage": "Check reviewer dispatch",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "./hooks/track-review-budget.sh",
+            "statusMessage": "Track review budget",
+            "timeout": 10
+          },
           {
             "type": "command",
             "command": "./hooks/validate-pack-dispatch.sh",

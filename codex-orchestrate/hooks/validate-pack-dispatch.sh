@@ -61,7 +61,7 @@ fi
 # Step 6: check pending Direction Check
 DC=$(jq -r '.pending_direction_check.ack_status // empty' "$SF")
 if [[ "$DC" == "pending" ]]; then
-  if [[ "$AGENT_ROLE" != "codex-reviewer" ]]; then
+  if [[ "$AGENT_ROLE" != "codex_reviewer" ]]; then
     echo "[multi-model-workflow] BLOCKED: Direction Check pending." >&2
     exit 2
   fi

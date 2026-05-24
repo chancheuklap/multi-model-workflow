@@ -4,3 +4,4 @@
 - Root `codex-orchestrate/hooks.json` is the Codex hook manifest. Files under `hooks/` are executable handlers only.
 - Multi-agent lifecycle hooks use Codex `SubagentStart` and `SubagentStop` payloads. Do not depend on legacy dispatch tool names or legacy payload fields.
 - Hook scripts must fail closed for malformed workflow dispatch/review envelopes when they are on the production workflow path.
+- Review gate and review budget hooks run on native `SubagentStart` events for `codex_reviewer`. Do not reintroduce Bash command matchers or companion-script review polling.

@@ -1,27 +1,29 @@
 #!/usr/bin/env bash
-# PostToolUse hook for Bash tool.
-# Detects codex-companion "result" commands → increments review budget in workflow-state.
+# SubagentStart hook for codex_reviewer.
+# Counts native reviewer dispatches against workflow-state review budget.
 set -euo pipefail
 
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
-if [ -z "$COMMAND" ]; then exit 0; fi
 
-if ! echo "$COMMAND" | grep -qE '(codex-companion|CODEX_SCRIPT)'; then exit 0; fi
-if ! echo "$COMMAND" | grep -qw 'result'; then exit 0; fi
+HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty' 2>/dev/null)
+if [[ "$HOOK_EVENT" != "SubagentStart" ]]; then exit 0; fi
 
-EXIT_CODE=$(echo "$INPUT" | jq -r '.tool_response.exit_code // 0' 2>/dev/null)
-if [ "$EXIT_CODE" != "0" ]; then exit 0; fi
+AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null)
+if [[ "$AGENT_TYPE" != "codex_reviewer" ]]; then exit 0; fi
+
+PROMPT=$(echo "$INPUT" | jq -r '.prompt // empty' 2>/dev/null)
+if [[ -z "$PROMPT" ]]; then exit 0; fi
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PARSE_ENVELOPE="$SCRIPT_DIR/lib/parse-envelope.sh"
+ENVELOPE=$(echo "$PROMPT" | bash "$PARSE_ENVELOPE" 2>/dev/null) || exit 0
+RUN_ID=$(echo "$ENVELOPE" | jq -r '.run_id // empty')
+if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then exit 0; fi
 
 BUDGET_DIR=".codex/multi-model-workflow"
-RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
-if [ ! -f "$RUN_ID_FILE" ]; then exit 0; fi
-RUN_ID=$(cat "$RUN_ID_FILE")
-
 SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
 if [ ! -f "$SF" ]; then exit 0; fi
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/../scripts/lib/state-lock.sh"
 LOCK_DIR="${BUDGET_DIR}/${RUN_ID}.lock"
 state_lock_acquire "$LOCK_DIR"
@@ -57,5 +59,5 @@ if [ "$NEEDS_DC" = "true" ]; then
 fi
 
 jq -n --arg msg "[multi-model-workflow] $MSG" \
-  '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $msg}}'
+  '{hookSpecificOutput: {hookEventName: "SubagentStart", additionalContext: $msg}}'
 exit 0
