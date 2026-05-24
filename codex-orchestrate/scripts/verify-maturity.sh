@@ -39,6 +39,8 @@ echo ""
 echo "## Hooks"
 check "plugin manifest declares hooks.json" bash -c \
   "[ \"\$(jq -r '.hooks // empty' '$PLUGIN_DIR/.codex-plugin/plugin.json')\" = './hooks.json' ]"
+check "Codex plugin contract validates with bundled hooks" \
+  bash "$PLUGIN_DIR/scripts/validate-plugin-contract.sh" "$PLUGIN_DIR"
 check "hooks.json valid JSON" python3 -m json.tool "$PLUGIN_DIR/hooks.json"
 check "hook commands use PLUGIN_ROOT" bash -c \
   "jq -r '.. | objects | select(has(\"command\")) | .command' '$PLUGIN_DIR/hooks.json' | grep -q 'PLUGIN_ROOT' && ! jq -r '.. | objects | select(has(\"command\")) | .command' '$PLUGIN_DIR/hooks.json' | grep -q '^\\./'"
@@ -155,17 +157,14 @@ check "path-a-re-review.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-execu
 check "direction-check.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-workflow/references/direction-check.md"
 
 echo ""
-echo "## Version Sync"
+echo "## Marketplace Source"
 PLUGIN_V=$(jq -r '.version' "$PLUGIN_DIR/.codex-plugin/plugin.json" 2>/dev/null || echo "MISSING")
-MARKET_V=$(jq -r '.plugins[] | select(.name == "multi-model-workflow") | .version // empty' "$(cd "$PLUGIN_DIR/.." && pwd)/.agents/plugins/marketplace.json" 2>/dev/null || echo "")
-if [[ -z "$MARKET_V" ]]; then
-  MARKET_V="$PLUGIN_V"
-fi
-if [[ "$PLUGIN_V" == "$MARKET_V" ]]; then
-  echo "  ✓ version sync ($PLUGIN_V)"
+MARKET_PATH=$(jq -r '.plugins[] | select(.name == "multi-model-workflow") | .source.path // empty' "$(cd "$PLUGIN_DIR/.." && pwd)/.agents/plugins/marketplace.json" 2>/dev/null || echo "")
+if [[ "$MARKET_PATH" == "./codex-orchestrate" ]]; then
+  echo "  ✓ marketplace source path points to Codex source ($MARKET_PATH, version $PLUGIN_V)"
   pass=$((pass + 1))
 else
-  echo "  ✗ version mismatch: plugin=$PLUGIN_V marketplace=$MARKET_V"
+  echo "  ✗ marketplace source path mismatch: expected ./codex-orchestrate, got ${MARKET_PATH:-missing}"
   fail=$((fail + 1))
 fi
 
@@ -323,11 +322,11 @@ check "R3-20: Ruling 2 in architecture-draft" \
 check "R3-20: Ruling 3 in architecture-draft" \
   grep -q "Ruling 3" "$PLUGIN_DIR/architecture-draft.md"
 
-# R3-21: design doc rulings
-check "R3-21: Ruling 2 in design doc" \
-  grep -q "Ruling 2" "docs/orchestrate/design/2025-05-22-plugin-maturity.md"
-check "R3-21: Ruling 3 in design doc" \
-  grep -q "Ruling 3" "docs/orchestrate/design/2025-05-22-plugin-maturity.md"
+# R3-21: Codex architecture authority, not the old Claude maturity design
+check "R3-21: architecture draft is Codex source authority" \
+  grep -q "Codex 原生复刻系统的架构权威文档" "$PLUGIN_DIR/architecture-draft.md"
+check "R3-21: architecture draft is not a migration log" \
+  grep -q "不是迁移日志" "$PLUGIN_DIR/architecture-draft.md"
 
 echo ""
 echo "=== Results: $pass passed, $fail failed ==="

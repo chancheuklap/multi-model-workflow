@@ -14,7 +14,7 @@
 | Plugin manifest | `codex-orchestrate/.codex-plugin/plugin.json` | 安装后缓存：`~/.codex/plugins/cache/multi-model-workflow/multi-model-workflow/3.6.2/` |
 | Skills | `codex-orchestrate/skills/` | plugin cache skills |
 | Custom agents | `codex-orchestrate/agents/*.toml` | `~/.codex/agents/*.toml` + `~/.codex/config.toml` `[agents.<name>]` |
-| Hooks | `codex-orchestrate/hooks/hooks.json`、`codex-orchestrate/hooks/*.sh` | plugin cache hooks |
+| Hooks | `codex-orchestrate/hooks.json`、`codex-orchestrate/hooks/*.sh` | plugin cache hooks |
 | Review lane | `codex-orchestrate/scripts/review/review-lane.sh` | plugin cache script |
 | Worktree execution | `codex-orchestrate/scripts/dispatch/` | plugin cache scripts |
 | State schema | `codex-orchestrate/state-schema/` | plugin cache schemas |
@@ -39,10 +39,8 @@ Route 2 处理未知根因 bug。Route 3 处理多 PR merge。`codex-review` ski
 ```bash
 bash codex-orchestrate/scripts/run-all-tests.sh
 bash codex-orchestrate/scripts/verify-maturity.sh
+bash codex-orchestrate/scripts/validate-plugin-contract.sh codex-orchestrate
 bash codex-orchestrate/build/build.sh --check --plugin-dir codex-orchestrate
-uv run --with pyyaml --no-project \
-  python ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py \
-  codex-orchestrate
 ```
 
 ## 安装
@@ -56,4 +54,5 @@ codex plugin marketplace list
 codex plugin list --marketplace multi-model-workflow
 codex plugin add multi-model-workflow@multi-model-workflow
 rsync -ain --delete codex-orchestrate/ ~/.codex/plugins/cache/multi-model-workflow/multi-model-workflow/3.6.2/
+bash codex-orchestrate/scripts/verify-runtime-parity.sh codex-orchestrate
 ```

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PostToolUse hook for Bash (if: "Bash(git commit *)").
+# PostToolUse hook for Bash commands.
 # Updates execution-state via state-lock after successful Pack commit.
 set -euo pipefail
 
