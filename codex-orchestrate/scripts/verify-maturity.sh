@@ -181,9 +181,9 @@ for resolver in forbidden-shortcuts sendmessage-resume signpost state-write trus
     "grep -rl 'BEGIN: $resolver' '$PLUGIN_DIR/skills/' '$PLUGIN_DIR/agents/' 2>/dev/null | grep -q ."
 done
 
-# I2: plan_writer-dispatch has DISPATCH_ENVELOPE protocol
-check "I2: plan_writer-dispatch has DISPATCH_ENVELOPE" \
-  grep -q 'DISPATCH_ENVELOPE' "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan_writer-dispatch.md"
+# I2: plan-writer-dispatch has DISPATCH_ENVELOPE protocol
+check "I2: plan-writer-dispatch has DISPATCH_ENVELOPE" \
+  grep -q 'DISPATCH_ENVELOPE' "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-writer-dispatch.md"
 
 # I3: plan-writing and workflow SKILL.md have build-system anchors
 check "I3: plan-writing SKILL.md has anchors" bash -c \
@@ -268,9 +268,9 @@ check "R3-04: correlation_id in dispatch-envelope schema" \
 check "R3-12: mutations field in state.sh" \
   grep -q "mutations" "$PLUGIN_DIR/scripts/state.sh"
 
-# claude --version check in session-start.sh
-check "R3-13: claude version check in session-start.sh" bash -c \
-  "grep -qE 'claude.*version|2\\.1\\.147' '$PLUGIN_DIR/hooks/session-start.sh'"
+# Codex plugin manifest and runtime root injection in session-start.sh
+check "R3-13: Codex plugin manifest check in session-start.sh" bash -c \
+  "grep -q '.codex-plugin/plugin.json' '$PLUGIN_DIR/hooks/session-start.sh' && grep -q 'MMW_PLUGIN_ROOT' '$PLUGIN_DIR/hooks/session-start.sh'"
 
 # R3-18: repair reference doc contradiction fixed
 check "R3-18: no '默认只做 targeted re-review' in execution repair" bash -c \
