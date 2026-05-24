@@ -20,9 +20,57 @@ plan-writer agent 通过 dispatch prompt 中指定的路径读取本文件执行
 
 ### 3b：读取你的 issue 文件
 
-Read dispatch prompt 中指定的 issue 文件。提取 What to build、所有 Small issues、Blocked by。每个 small issue 必须能独立验证。
+Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked by。
 
-映射规则：
+检查 `## Small issues` 章节：
+- 如果已有完整的小 issue 列表 → 跳过 Step 3c，直接进入 Step 3d
+- 如果为空或标记 `<!-- PENDING -->` → 进入 Step 3c 拆分小 issue
+
+### 3c：拆分小 issue（大 issue 内部的实现步骤拆解）
+
+**你负责将大 issue 的 `What to build` 拆分为小 issue。** 这不是再切一层 vertical slice——大 issue 本身已经是一个完整的 vertical slice。小 issue 是这个 slice 内部的**实现步骤拆解**，目标是让每个步骤可独立实现、可独立验证。
+
+#### 拆分原则
+
+- 每个小 issue 是大 issue 端到端路径中的一个可独立验证的实现单元
+- 拆分维度：按功能边界（schema → API → UI）或按行为边界（创建 → 编辑 → 删除）
+- 每个小 issue 必须有明确的验收标准（完成后能用测试或手动方式验证）
+- 标记依赖关系：哪些小 issue 必须在其他小 issue 之前完成
+- 标记 Type：AFK（可无人值守实现）或 HITL（需要人工决策/确认）
+
+#### 拆分步骤
+
+1. 读完 `What to build` 后，结合 Step 3a 的设计上下文和 Step 3d 的代码探索结果，识别实现单元
+2. 每个实现单元写为一个小 issue，包含 Type、What to build、Acceptance criteria、Blocked by
+3. 用 Edit tool 将小 issue 写回大 issue 文件的 `## Small issues` 章节，替换 `<!-- PENDING -->` 标记
+
+#### 写回格式
+
+```markdown
+## Small issues
+
+### 1. <Small Issue Title>
+**Type:** AFK / HITL
+**What to build:** <描述>
+**Acceptance criteria:**
+- [ ] ...
+**Blocked by:** <其他 small issue 编号或 "None">
+
+### 2. <Small Issue Title>
+...
+```
+
+#### 质量自检
+
+- [ ] 每个小 issue 可独立验证（有明确的验收标准）
+- [ ] 小 issue 的并集覆盖大 issue 的 `What to build` 全部行为
+- [ ] 依赖关系正确（不存在循环依赖）
+- [ ] 没有过粗的小 issue（单个小 issue 不应需要超过 8 个 implementation steps）
+- [ ] 没有过细的小 issue（单文件内的单函数修改不值得独立成 issue）
+
+写回完成后，继续进入映射规则。
+
+#### 映射规则
 
 | source artifact | plan artifact |
 | --- | --- |
@@ -37,14 +85,12 @@ Read dispatch prompt 中指定的 issue 文件。提取 What to build、所有 S
 
 | 状况 | 返回 |
 | --- | --- |
-| issue 文件缺 small issue | `NEEDS_ISSUES`："issue 粒度不足，建议用 to-issues 继续拆" |
-| small issue 不可独立验证 | `NEEDS_ISSUES`："small issue 粒度不足" |
 | 术语 / 验收不清 | `NEEDS_DISCOVERY`："业务意图不清，需要 discovery" |
 | 架构假设与代码现实不符 | `NEEDS_ARCHITECTURE`：具体说明哪个假设不成立 |
 
-只处理你的 issue 文件中的 small issues。其他 issue 不属于你的 scope。
+只处理你的 issue 文件中的内容。其他 issue 不属于你的 scope。
 
-### 3c：探索代码库
+### 3d：探索代码库
 
 用 `rg` / `find` / `Skill({ skill: "improve-codebase-architecture" })` 验证 source design 涉及的路径、模块、合同面、已有模式。
 
@@ -246,7 +292,7 @@ Plan-writer 通过 SendMessage 收到 accepted findings 后：
 
 - 任务范围 = parent dispatch prompt 中给出的内容。不扩大 scope。
 - 不为 source design 没要求的能力预留 pack。
-- 不自创 issue——issue hierarchy 由 to-issues 产出，只消费它。
+- 不创建新的大 issue——大 issue 由 Coordinator 在 Discovery 阶段产出。你只负责在已有大 issue 内拆分小 issue 并映射为 Task Pack。
 
 ---
 > **下一步**：方法论指导完成 → Steps 9-10（`plan-writer-dispatch.md`）派发 plan-writer。

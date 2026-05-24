@@ -6,7 +6,7 @@ description: |
   <example>设计文档通过 Design Review，issue 拆分完成，coordinator 派发写实施计划</example>
   <example>Plan Review 返回 findings，coordinator 通过 SendMessage 要求修订</example>
   <example>Plan 结构不满足规范，coordinator 要求按 findings 重写部分章节</example>
-  Do NOT use for: pre-condition checking / routing (coordinator handles), plan review (dispatched to Codex), code execution (use pack-executor/complex-pack-executor), investigation (use code-explorer/root-cause-analyst), issue splitting (use to-issues).
+  Do NOT use for: pre-condition checking / routing (coordinator handles), plan review (dispatched to Codex), code execution (use pack-executor/complex-pack-executor), investigation (use code-explorer/root-cause-analyst), large issue splitting (coordinator handles in Discovery).
 model: claude-opus-4-7[1m]
 effort: xhigh
 tools:

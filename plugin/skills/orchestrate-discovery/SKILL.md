@@ -1,6 +1,6 @@
 ---
 name: orchestrate-discovery
-description: "缺少可 review 的设计文档时使用。与用户讨论 → 生成设计文档 → Design Review → to-issues 过渡。产出：reviewed design doc + issue hierarchy。"
+description: "缺少可 review 的设计文档时使用。与用户讨论 → 生成设计文档 → Design Review → 大 issue 拆分。产出：reviewed design doc + 大 issue 骨架（小 issue 由 plan-writer 补全）。"
 ---
 
 <!-- BEGIN: signpost -->
@@ -25,7 +25,7 @@ Phase complete. 返回 orchestrate-workflow 主循环。
 
 # Orchestrate Discovery
 
-模糊输入 → 与用户讨论 → 设计文档 + CONTEXT.md → Design Review → 过渡到 to-issues。
+模糊输入 → 与用户讨论 → 设计文档 + CONTEXT.md → Design Review → 大 issue 拆分。
 
 <!-- BEGIN: preamble [variant=T2] -->
 **Hard Gate**：用户确认设计之前，不写代码、不创建骨架、不派 worker。**每个项目**都走 Discovery，无论看起来多简单。
@@ -123,17 +123,17 @@ CONTEXT.md 和 ADR 格式 → `references/discovery-formats.md`
 
 ## Steps 10-11：Design Review
 
-**Read** `references/design-review-angles.md`（2 个 baseline Codex reviewer：Design Content Review + Project Alignment Review）。通过后回到 Step 12 过渡到 to-issues。
+**Read** `references/design-review-angles.md`（2 个 baseline Codex reviewer：Design Content Review + Project Alignment Review）。通过后回到 Step 12 大 issue 拆分。
 
 Coordinator 亲验 findings → disposition → 直接修设计文档（不派 worker）→ targeted re-review。一轮 review + 修复。Pass 条件：两个 baseline 通过 + 无 Critical。
 
-## Step 12：过渡到 to-issues
+## Step 12：大 issue 拆分
 
-已有 issue hierarchy → 返回进入 plan-writing。缺 issue hierarchy → `Skill({ skill: "to-issues" })`。
+已有 issue hierarchy（`docs/orchestrate/issues/<slug>/` 下有大 issue 文件）→ 返回进入 plan-writing。缺 issue hierarchy → **Read** `references/issue-splitting.md` 并严格执行（vertical slice 拆分 + 用户确认 + 写大 issue 骨架 + 发布 GitHub Issue）。
 
 ## 外部 Skill
 
-**全程使用**：`Skill({ skill: "grill-with-docs" })`（CONTEXT.md 维护）。**按需调用**：`Skill({ skill: "prototype" })` / `frontend-design` / `Skill({ skill: "improve-codebase-architecture" })` / `Skill({ skill: "zoom-out" })` / `Skill({ skill: "diagnose" })` / `Skill({ skill: "triage" })` / `Skill({ skill: "to-issues" })`。结论必须写回 design document 或 CONTEXT.md。
+**全程使用**：`Skill({ skill: "grill-with-docs" })`（CONTEXT.md 维护）。**按需调用**：`Skill({ skill: "prototype" })` / `frontend-design` / `Skill({ skill: "improve-codebase-architecture" })` / `Skill({ skill: "zoom-out" })` / `Skill({ skill: "diagnose" })` / `Skill({ skill: "triage" })`。结论必须写回 design document 或 CONTEXT.md。
 
 ## 边界规则
 
@@ -151,7 +151,7 @@ DISCOVERY_READY | DISCOVERY_NOT_NEEDED | READY_FOR_REPAIR | NEEDS_USER_DECISION 
 ### Discovery result
 - Problem / Target behavior / Key decisions / Acceptance / Out of scope / Domain alignment / Remaining ambiguity
 ### Issue hierarchy
-- Status: ready / needs to-issues / not applicable
+- Status: ready / large_issues_ready / not applicable
 ### Next route
-- plan-writing / to-issues → plan-writing / Direct Repair / user decision / blocked
+- plan-writing / Direct Repair / user decision / blocked
 ```

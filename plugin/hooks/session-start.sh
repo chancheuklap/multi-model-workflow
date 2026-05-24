@@ -52,7 +52,7 @@ cat <<RULES
 
 # 3. Skill namespace
 - Plugin skills (multi-model-workflow: prefix): orchestrate-workflow, orchestrate-discovery, orchestrate-plan-writing, orchestrate-execution, orchestrate-final-review, orchestrate-multi-pr-merge, codex-review
-- User-level skills (short name, NO prefix): diagnose, prototype, improve-codebase-architecture, zoom-out, triage, grill-with-docs, to-issues
+- User-level skills (short name, NO prefix): diagnose, prototype, improve-codebase-architecture, zoom-out, triage, grill-with-docs
 
 # 4. Hard gates
 - 没有验证证据，不得声称完成

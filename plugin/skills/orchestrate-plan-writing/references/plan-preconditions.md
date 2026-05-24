@@ -28,7 +28,7 @@ Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问�
 | --- | --- | --- |
 | 无 source design | `NEEDS_DISCOVERY` | orchestrate-discovery |
 | design 未 review | `NEEDS_DESIGN_REVIEW` | Design Review |
-| 缺 large/small issue | `NEEDS_ISSUES` | `Skill({ skill: "to-issues" })` |
+| 缺大 issue 文件 | `NEEDS_ISSUES` | 返回 Coordinator → 重新进入 orchestrate-discovery Step 12（大 issue 拆分） |
 | issue ready state 不清 | `NEEDS_TRIAGE` | `Skill({ skill: "triage" })` |
 | 业务术语或验收不清 | `NEEDS_DISCOVERY` | `Skill({ skill: "multi-model-workflow:orchestrate-discovery" })` |
 | bug 缺复现或 hypothesis | `NEEDS_DIAGNOSIS` | `Skill({ skill: "diagnose" })` |
@@ -43,4 +43,4 @@ Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问�
 **Budget File**：读取 `.claude/multi-model-workflow/active-run-id` 找到 budget file。Budget 由 `track-review-budget.sh` hook 自动追踪。
 
 ---
-> **下一步**：前置条件通过 → Steps 3-8（`plan-writing-methodology.md`）。缺 design → `NEEDS_DISCOVERY`。缺 issues → `NEEDS_ISSUES`。
+> **下一步**：前置条件通过 → Steps 3-8（`plan-writing-methodology.md`）。缺 design → `NEEDS_DISCOVERY`。缺大 issue 文件 → `NEEDS_ISSUES`（Coordinator 走大 issue 拆分）。小 issue 缺失由 plan-writer 在 Step 3c 自行补全。

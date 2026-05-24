@@ -64,7 +64,7 @@ Plan Review 的 `accepted` 细分为 4 种路由：
 | --- | --- |
 | `plan repair` | Coordinator 直接修框架性内容，或 SendMessage plan-writer 修 Task Pack 内容 |
 | `design gap` | 回到 orchestrate-discovery → Design Review → 写回后 re-review plan |
-| `issue-plan mismatch` | `Skill({ skill: "to-issues" })` → 写回后 re-review plan |
+| `issue-plan mismatch` | 判断：大 issue 级问题 → 返回 Coordinator 走大 issue 拆分；小 issue 级问题 → SendMessage plan-writer 重新执行 Step 3c 拆分 → re-review plan |
 | `architecture friction` | `Skill({ skill: "improve-codebase-architecture" })` → 写回后 re-review |
 
 **通过** → Step 19（Git Checkpoint）。**Needs repair** → Step 16。
@@ -104,7 +104,7 @@ Plan Review 三条路径：
 | Finding 类型 | Upstream | 写回目标 |
 | --- | --- | --- |
 | design gap / 需求不清 | orchestrate-discovery | design document |
-| issue-plan mismatch | `Skill({ skill: "to-issues" })` | issue hierarchy |
+| issue-plan mismatch | 大 issue 级：Coordinator 走大 issue 拆分；小 issue 级：SendMessage plan-writer Step 3c | issue hierarchy |
 | architecture friction | `Skill({ skill: "improve-codebase-architecture" })` | design doc / plan anchors |
 | domain 术语冲突 | `Skill({ skill: "grill-with-docs" })` | CONTEXT.md + design document |
 

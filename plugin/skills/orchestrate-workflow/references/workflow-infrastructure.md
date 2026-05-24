@@ -69,7 +69,7 @@ docs/orchestrate/
 │       ├── 001-<issue-slug>.md          # 与 issues/ 下同编号文件一一对应
 │       ├── 002-<issue-slug>.md
 │       └── ...
-├── issues/          # issue hierarchy（to-issues 产出）
+├── issues/          # issue hierarchy（大 issue: Coordinator 产出；小 issue: plan-writer 补全）
 │   └── YYYY-MM-DD-<feature>/
 │       ├── 001-<large-issue-slug>.md   # 大 issue 文档（内含小 issue 拆分）
 │       ├── 002-<large-issue-slug>.md

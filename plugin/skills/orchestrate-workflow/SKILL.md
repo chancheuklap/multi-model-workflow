@@ -89,7 +89,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-discovery" })
 
 | Discovery Verdict | Coordinator 动作 |
 | --- | --- |
-| `DISCOVERY_READY` | 检查 issue hierarchy：有 → Step 9；无 → Step 8b（to-issues + 上下文传递）→ Step 9 |
+| `DISCOVERY_READY` | 检查 issue hierarchy：有 → Step 9；无 → 重新进入 orchestrate-discovery Step 12（大 issue 拆分）→ Step 9 |
 | `DISCOVERY_NOT_NEEDED` | 已有足够清晰的 design → 检查 issue hierarchy → Step 9 |
 | `READY_FOR_REPAIR` | 已批准 design 下的实现偏离 → Step 8a（Direct Repair） |
 | `NEEDS_USER_DECISION` | 询问用户（一次只问一个），回答后重新进入 discovery |
@@ -97,15 +97,15 @@ Skill({ skill: "multi-model-workflow:orchestrate-discovery" })
 
 **更新 Budget File**：`last_gate_phase: "discovery"`, `last_gate_timestamp: <now>`。
 
-#### Step 8b：to-issues 上下文传递
+#### Step 8b：大 issue 拆分（缺 issue hierarchy 时）
 
-调用 to-issues 前，Coordinator 必须：
+重新进入 `orchestrate-discovery` Step 12（大 issue 拆分）。Coordinator 执行前必须：
 
 1. **Read** Scope Contract（`.claude/multi-model-workflow/scope-<run_id>.md`）获取 slug
 2. **Read** 设计文档（`docs/orchestrate/design/<slug>.md`）确认内容在上下文中
-3. 调用 `Skill({ skill: "to-issues", args: "docs/orchestrate/design/<slug>.md" })`
+3. 进入 `Skill({ skill: "multi-model-workflow:orchestrate-discovery" })` 的 Step 12 流程
 
-to-issues 运行时需要设计文档的完整内容来拆 issue。如果 Coordinator 上下文中已无设计文档内容（因 compact 或 phase 切换），必须重新 Read。
+大 issue 拆分需要设计文档的完整内容。如果 Coordinator 上下文中已无设计文档内容（因 compact 或 phase 切换），必须重新 Read。
 
 #### Step 8a：Direct Repair（READY_FOR_REPAIR mini-route）
 
@@ -128,7 +128,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-plan-writing" })
 | `PLAN_CREATED` | 确认 budget file → Step 11 |
 | `NEEDS_DISCOVERY` | 回到 Step 7 |
 | `NEEDS_DESIGN_REVIEW` | 回到 discovery Design Review |
-| `NEEDS_ISSUES` | `Skill({ skill: "to-issues" })` → 重新 Step 9 |
+| `NEEDS_ISSUES` | 判断缺件类型：缺大 issue → Step 8b（大 issue 拆分）；缺小 issue → 重新 Step 9（plan-writer 内部处理） |
 | `NEEDS_TRIAGE` | `Skill({ skill: "triage" })` → 重新 Step 9 |
 | `NEEDS_DIAGNOSIS` | `Skill({ skill: "diagnose" })` → 写回 → 重新 Step 9 |
 | `NEEDS_DECISION` | 询问用户 → 回答后 Step 9 |

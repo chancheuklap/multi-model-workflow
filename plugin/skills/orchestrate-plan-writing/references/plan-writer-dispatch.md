@@ -67,7 +67,7 @@ Agent({
     ## Issue 内容（Coordinator 从 issue 文件提取）
     **Issue title:** <大 issue 标题>
     **What to build:** <从 issue 文件的 What to build 节提取>
-    **Small issues:** <列出所有 small issue 的编号、标题和 acceptance criteria>
+    **Small issues 状态:** <已有完整小 issue 列表 / PENDING（需 plan-writer 在 Step 3c 拆分）>
     **Blocked by:** <从 issue 文件的 Blocked by 节提取>
 
     ## Plan output
@@ -80,7 +80,7 @@ Agent({
 
     ## Out of scope
     - 其他 issue 的内容（不属于你的 scope）
-    - 不自创 issue——只消费当前 issue 文件中的 small issues
+    - 不创建新的大 issue——大 issue 由 Coordinator 在 Discovery 阶段产出。你负责在已有大 issue 内拆分小 issue（Step 3c）并映射为 Task Pack
 
     ## Return contract
     ### Verdict
@@ -109,7 +109,7 @@ Agent({
 | --- | --- | --- |
 | `PLAN_CREATED` | plan 写完，自检通过 | 进入 Step 11（Plan Entry Gate） |
 | `NEEDS_DISCOVERY` | 业务意图/术语不清 | 回到 orchestrate-discovery |
-| `NEEDS_ISSUES` | 缺 issue / issue 粒度不足 / scope 过大 | `Skill({ skill: "to-issues" })` |
+| `NEEDS_ISSUES` | 缺大 issue 文件 / scope 过大 | 返回 Coordinator → 重新进入 orchestrate-discovery Step 12（大 issue 拆分） |
 | `NEEDS_TRIAGE` | issue ready state 不清 | `Skill({ skill: "triage" })` |
 | `NEEDS_DIAGNOSIS` | bug 缺复现或 hypothesis | `Skill({ skill: "diagnose" })` |
 | `NEEDS_DECISION` | 需要产品/业务决策 | 询问用户（一次只问一个问题） |

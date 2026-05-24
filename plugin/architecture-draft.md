@@ -76,7 +76,7 @@ flowchart TD
 
     %% 文档阶段（线性，不回流）
     C --> DR["Design Review\nCodex review"]:::review
-    DR --> E["to-issues\n（大 Issue → 小 Issue）"]:::extSkill
+    DR --> E["大 Issue 拆分\n（Coordinator 内嵌方法论）"]:::coord
 
     %% per issue，同一 session 内完成
     E --> F["orchestrate-plan-writing\n（plan-writer Opus 4.7 1M）"]:::skill
@@ -110,7 +110,7 @@ flowchart TD
 | Steps 0-2 Environment Detection + Infrastructure | Coordinator 逻辑（`workflow-infrastructure.md`） | 环境检测（工作树/主仓库）+ 断点续传 + Scope Contract + Git Checkpoint + Budget File 创建 | **确定** feature slug（贯穿 `docs/orchestrate/` 全链） | ✅ 正常 |
 | Discovery | Skill：`orchestrate-discovery` | 与用户 Q&A 迭代 + grill-with-docs 同步维护 CONTEXT.md + 产出设计文档 | **产出** `design/<slug>.md` + CONTEXT.md | ✅ 正常 |
 | Design Review | Coordinator + **外部 Review** | 两个 baseline review（Design Content + Project Alignment），按 dispatch 模板内联的 Codex review 步骤派发 | **审查** `design/<slug>.md` | ✅ 正常 |
-| to-issues | 外部 Skill | 设计文档拆分为大 Issue → 小 Issue | **消费** `design/<slug>.md` → **产出** `issues/<slug>/00N-*.md` | ✅ 正常 |
+| 大 Issue 拆分 | Coordinator 内嵌方法论（`issue-splitting.md`） | 设计文档拆分为大 Issue 骨架 | **消费** `design/<slug>.md` → **产出** `issues/<slug>/00N-*.md`（小 issue 由 plan-writer 补全） | ✅ 正常 |
 | Plan Writing | Skill：`orchestrate-plan-writing` | 前置确认 + 派 plan-writer agent + Budget 赋值（`3P+12`） | **消费** `issues/<slug>/00N-*.md` → **产出** `plans/<slug>/00N-*.md`（编号一一对应） | ✅ 正常 |
 | Plan Review | Coordinator + **外部 Review** | Plan Entry Gate + Task Pack Inventory Gate → 派外部 review | **审查** `plans/<slug>/` 全部 plan 文件 | ✅ 正常 |
 | Execution | Skill：`orchestrate-execution` | 图 2 的两级循环（Plan → Pack → Plan Implementation Review） | **消费** `plans/<slug>/` 提取 Task Pack → 构造 Pack Brief（自足，worker 不读 plan） | ✅ 正常 |
@@ -301,7 +301,7 @@ Closing 前（cleanup-before-push.sh）
 docs/orchestrate/
 ├── design/                                  # 设计文档（Discovery 产出）
 │   └── <slug>.md
-├── issues/                                  # Issue hierarchy（to-issues 产出）
+├── issues/                                  # Issue hierarchy（大 issue: Coordinator 产出；小 issue: plan-writer 补全）
 │   └── <slug>/
 │       ├── 001-<large-issue-slug>.md       # 大 issue（内含小 issue）
 │       ├── 002-<large-issue-slug>.md
@@ -351,8 +351,8 @@ flowchart LR
 
 | 产物 | 模板来源 | 产出者 | 消费者 | 审查门禁 |
 |------|---------|--------|--------|---------|
-| **设计文档** | `discovery-design-document.md` | orchestrate-discovery | to-issues、plan-writer（只读） | Design Review（2 baseline） |
-| **大 Issue 文件** | to-issues skill（上游） | to-issues | plan-writer（1 issue = 1 plan） | — |
+| **设计文档** | `discovery-design-document.md` | orchestrate-discovery | Coordinator（大 issue 拆分）、plan-writer（只读） | Design Review（2 baseline） |
+| **大 Issue 文件** | `issue-splitting.md`（Coordinator 方法论） | Coordinator（大 issue 骨架）+ plan-writer（小 issue 补全） | plan-writer（1 issue = 1 plan） | — |
 | **Plan 文件** | `plan-writing-methodology.md` | plan-writer agent | orchestrate-execution | Plan Entry Gate + Task Pack Inventory Gate |
 | **Mockup** | prototype / frontend-design | Discovery 阶段 | plan-writer（mockup anchors）、worker（视觉验证） | Design Review 覆盖 |
 
@@ -379,7 +379,7 @@ flowchart LR
 
 ### Issue 文档结构
 
-Issue 文档由上游 `to-issues` skill 产出（非 plugin 自有），plugin 只消费它。
+Issue 文档的大 issue 骨架由 Coordinator 在 Discovery 阶段产出（`issue-splitting.md` 方法论），小 issue 由 plan-writer 在 Plan Writing 阶段补全（`plan-writing-methodology.md` Step 3c）。
 
 ```
 # <大 Issue 标题>
@@ -394,7 +394,7 @@ Issue 文档由上游 `to-issues` skill 产出（非 plugin 自有），plugin �
 
 **层级关系**：大 issue = 一个 vertical slice = 一个文件 · 小 issue = 内嵌子节（不是独立文件）· 小 issue 直接映射 Task Pack。
 
-**编号规则**：文件名 `00N-<slug>.md`，N 按依赖顺序排列（blocker 在前）。to-issues 完成后还会发布 GitHub Issue 并将 issue number 写回本地文件。
+**编号规则**：文件名 `00N-<slug>.md`，N 按依赖顺序排列（blocker 在前）。Coordinator 完成大 issue 拆分后发布 GitHub Issue 并将 issue number 写回本地文件。
 
 ### Plan 文档结构
 
@@ -466,7 +466,7 @@ Worker dispatch（Pack Brief 自足）
 
 | 返回值 | Coordinator 动作 |
 |--------|-----------------|
-| `DISCOVERY_READY` | 检查 issue hierarchy → 有则进 plan-writing；无则先调 `to-issues` |
+| `DISCOVERY_READY` | 检查 issue hierarchy → 有则进 plan-writing；无则重新进入 orchestrate-discovery Step 12（大 issue 拆分） |
 | `DISCOVERY_NOT_NEEDED` | 同上 |
 | `READY_FOR_REPAIR` | 进入 Direct Repair mini-route → Closing |
 | `NEEDS_USER_DECISION` | 询问用户 → 重新进入 discovery |
@@ -479,7 +479,7 @@ Worker dispatch（Pack Brief 自足）
 | `PLAN_CREATED` | 确认 workflow-state budget → 进入 execution |
 | `NEEDS_DISCOVERY` | 回到 discovery |
 | `NEEDS_DESIGN_REVIEW` | 回到 design review |
-| `NEEDS_ISSUES` / `NEEDS_TRIAGE` | 调用 to-issues / triage |
+| `NEEDS_ISSUES` / `NEEDS_TRIAGE` | 大 issue 缺失 → 重新进入大 issue 拆分；小 issue 缺失 → plan-writer 内部处理 / triage |
 | `NEEDS_DIAGNOSIS` / `NEEDS_ARCHITECTURE` / `NEEDS_CONTEXT` | 调用对应外部 skill |
 | `NEEDS_DECISION` | 询问用户 |
 | `BLOCKED` | 报告用户 |
@@ -523,7 +523,7 @@ Worker dispatch（Pack Brief 自足）
 | Skill | 对应节点 | 职责 |
 |-------|---------|------|
 | `orchestrate-workflow` | 路线判定（7 条）+ Infrastructure + Bug 路线 + Direct Repair + Closing + Route Extensions（4-7） | 入口路由（formal/bug/multi-pr/hotfix/quickfix/spike/maintenance）、Scope Contract、Git Checkpoint、Budget File、Bug 路线调度、Direct Repair mini-route、Closing |
-| `orchestrate-discovery` | Discovery + Design Review + to-issues 过渡 | Q&A 迭代 + grill-with-docs + 设计文档 + Design Review + to-issues 检查/调用 |
+| `orchestrate-discovery` | Discovery + Design Review + 大 issue 拆分 | Q&A 迭代 + grill-with-docs + 设计文档 + Design Review + 大 issue 拆分（内嵌方法论） |
 | `orchestrate-plan-writing` | Plan Writing + Plan Review | 前置确认 + plan-writer dispatch + Budget 赋值 + Plan Review + Git Checkpoint |
 | `orchestrate-execution` | Execution（图 2） | 两级循环（Plan → Pack）：派 worker → Git Checkpoint → Plan Implementation Review → 修复分流 → Early Release Gate → 循环释放 |
 | `orchestrate-final-review` | Final Review + Release Gate | 意图验证 + 清扫遗留尾巴 + Final Release Gate + 业务汇报 |
@@ -579,7 +579,6 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 |-------|--------|------|
 | `grill-with-docs` | Discovery：术语对齐，同步维护 CONTEXT.md | 更新 CONTEXT.md |
 | `prototype` | Discovery：状态/UI 方向验证 | throwaway 原型 + verdict |
-| `to-issues` | Design Review 通过后 | vertical issues |
 | `improve-codebase-architecture` | Execution 中 architecture friction / Discovery 中架构分析 | 架构分析 + 建议 |
 | `zoom-out` | 任何阶段需要代码地图 | 模块地图 + 调用链 |
 | `triage` | Issue 管理 | issue 分类 |
@@ -652,7 +651,7 @@ Coordinator **不是传话筒**——必须亲验每条 finding（读代码、�
 | 4-6 (Medium) | 亲验 + 派 explorer 补证 | explorer 返回 confirmed → accept；refuted → reject |
 | 7-10 (High) | 亲验后 accept 或 reject | 验证通过 → accept；找到反向证据 → reject |
 
-**Plan Review `accepted` 的四种子路由**：`plan repair`（Coordinator 或 plan-writer 直接修）· `design gap`（回流 Discovery）· `issue-plan mismatch`（调 to-issues）· `architecture friction`（调 improve-codebase-architecture）。
+**Plan Review `accepted` 的四种子路由**：`plan repair`（Coordinator 或 plan-writer 直接修）· `design gap`（回流 Discovery）· `issue-plan mismatch`（大 issue 级：Coordinator 走大 issue 拆分；小 issue 级：plan-writer Step 3c 重新拆分）· `architecture friction`（调 improve-codebase-architecture）。
 
 ### Path A 与 Path B 修复路径
 
@@ -858,7 +857,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 
 - Bug 路线不走 Final Review——`bug-investigation-route.md` Step 17/18 → Closing
 - Bug RCA 发现设计问题 → 不直接回 Discovery，先创建 bug seed file 再以 seed 进入 Route 1
-- 文档阶段线性不回流——Discovery → Design Review → to-issues → Plan Writing → Plan Review，各一轮 review + 修复
+- 文档阶段线性不回流——Discovery → Design Review → 大 issue 拆分 → Plan Writing（含小 issue 拆分）→ Plan Review，各一轮 review + 修复
 - Release Review 最多两次——Execution Early Release Gate + Final Release Gate，共享 ≤ 2 dispatch 配额
 - Coding Worker 无"非阻塞项"——要么当场修，要么开 GitHub Issue（Durable Handoff Brief 格式）
 - Worker Open Items 在 Git Checkpoint **之前**处理——`[out-of-scope]` 立即开 issue，`[needs-evaluation]` Coordinator 评估归类

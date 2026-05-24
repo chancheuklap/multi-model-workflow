@@ -258,4 +258,4 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 - 用 `state.sh path-a-escalation start/update/clear` 追踪
 <!-- END: disposition-table -->
 
-> **下一步**：Design Review 通过 → 回到 SKILL.md Step 12（过渡到 to-issues）。needs repair → Coordinator 直接修设计文档 → targeted re-review。
+> **下一步**：Design Review 通过 → 回到 SKILL.md Step 12（大 issue 拆分）。needs repair → Coordinator 直接修设计文档 → targeted re-review。
