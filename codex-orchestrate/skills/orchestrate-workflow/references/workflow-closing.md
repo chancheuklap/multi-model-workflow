@@ -56,18 +56,20 @@ Generated with Codex + multi-model-workflow
 ### Step 22a：生成运行总结
 
 ```bash
-bash "${MMW_PLUGIN_ROOT}/scripts/run-summary.sh" "<run_id>"
+bash "${MMW_PLUGIN_ROOT}/scripts/run-summary.sh" --run-id "<run_id>" \
+  > ".codex/multi-model-workflow/run-summary-<run_id>.md"
 ```
 
-输出写入 `.codex/multi-model-workflow/run-summary-<run_id>.json`。用于后续 workflow 的 effort budget 校准。
+输出写入 `.codex/multi-model-workflow/run-summary-<run_id>.md`。用于后续 workflow 的 effort budget 校准。
 
 ## Step 22b：退出工作树
 
-Push + PR 完成后，退出工作树：
+Push + PR 完成后，保持当前线程附着在 Codex-managed worktree 上：
 
-1. `ExitWorktree({ action: "keep" })` — 保留工作树（PR 可能需要后续修改）
+- 不运行 `git worktree remove`，不移动工作树目录，不把 worktree 手工复制回主仓库。
+- 默认保留工作树，因为 PR 可能需要后续修改。
 
-工作树保留直到 PR 合并后由 `clean_gone` 统一清理（删除工作树 + 分支 + 残留状态文件）。
+工作树保留直到 PR 合并后由 Codex / `clean_gone` 统一清理（删除工作树 + 分支 + 残留状态文件）。
 
 ## Step 23：Report to User
 

@@ -50,7 +50,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 | 所有 Plans 通过 Plan Implementation Review + 代码未变 | orchestrate-final-review |
 | Final Review 通过 | Closing（Step 21） |
 
-**Scope Contract 和 Budget File 已存在** → 读取并验证。`pack_count` 或 `editable artifacts` 与当前 plan 不一致 → 更新。
+**Scope Contract 和 workflow-state 已存在** → 读取并验证。`plan_count` 或 `editable artifacts` 与当前 plan 不一致 → 回到对应 phase 重新确认，不在恢复阶段静默改写预算。
 
 验证通过后，按上表路由到对应 phase。**不再执行 Steps 1-2**。
 
@@ -74,7 +74,7 @@ docs/orchestrate/
 │       ├── 001-<large-issue-slug>.md   # 大 issue 文档（内含小 issue 拆分）
 │       ├── 002-<large-issue-slug>.md
 │       └── ...
-└── mockups/         # prototype / frontend-design 产出
+└── mockups/         # prototype / build-web-apps:frontend-app-builder / impeccable 产出
     └── YYYY-MM-DD-<feature>/
         ├── *.html / *.png / *.svg
         └── README.md                   # mockup 索引（页面 × viewport × states）
@@ -99,13 +99,21 @@ Entry Gate（Step 1）完成后执行。创建工作树、写入状态文件。
 
 ### Step 2a：Git Checkpoint（工作树创建）
 
-**禁止在主仓库直接切分支**（`git checkout -b`）。所有工作在独立工作树中进行。
+**禁止在主仓库直接切分支**（`git switch -c` / `git checkout -b`）。所有工作在独立工作树中进行。
+
+**工作树目录权威**：Coordinator 自动创建工作树，但只能创建在 Codex 约定目录下。不得创建 `../worktrees`、`.worktrees`、`/tmp/<repo>` 或任何自定义工作树根目录。目录形态固定为：
+
+```text
+${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>
+```
+
+`<4-hex-id>` 由 Coordinator 随机生成并避免碰撞，`<repo-name>` 来自主仓库目录名。这个路径匹配 Codex App 本机已有 worktree 形态，例如 `~/.codex/worktrees/cd49/agentflow`。
 
 | 状态 | 动作 |
 | --- | --- |
-| 在主仓库中（非工作树） | 创建工作树（见下方） |
+| 在主仓库中（非工作树） | 自动创建 Codex 目录下的 Git worktree（见下方） |
 | 已在工作树中 | 继续（不重复创建） |
-| 有 dirty files 属于当前 scope | 暂不 stage |
+| 有 dirty files 属于当前 scope | 不创建新 worktree；先返回 `BLOCKED`，说明这些未提交改动不会自动带入新 worktree |
 | 有 dirty files 不属于当前 scope | 不 stage、不动、不 stash |
 
 **检测是否在工作树中**：
@@ -114,13 +122,54 @@ Entry Gate（Step 1）完成后执行。创建工作树、写入状态文件。
 [ -f "$(git rev-parse --show-toplevel)/.git" ] && echo "IN_WORKTREE" || echo "MAIN_REPO"
 ```
 
-**创建工作树**（仅 MAIN_REPO 时执行）：
+**创建工作树**（仅 MAIN_REPO 时执行，自动完成，不要求用户点 UI）：
 
-1. 创建并进入工作树：
-   ```
-   EnterWorktree({ name: "<short-scope>" })
-   ```
-2. 确认分支名：`git branch --show-current`
+```bash
+CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_NAME="$(basename "$REPO_ROOT")"
+SHORT_SCOPE="<short-scope>"
+
+WT_ID="$(python3 - <<'PY'
+import secrets
+print(secrets.token_hex(2))
+PY
+)"
+WT_PATH="$CODEX_HOME/worktrees/$WT_ID/$REPO_NAME"
+while [ -e "$WT_PATH" ]; do
+  WT_ID="$(python3 - <<'PY'
+import secrets
+print(secrets.token_hex(2))
+PY
+)"
+  WT_PATH="$CODEX_HOME/worktrees/$WT_ID/$REPO_NAME"
+done
+
+BRANCH="codex/$SHORT_SCOPE"
+if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+  BRANCH="codex/$SHORT_SCOPE-$WT_ID"
+fi
+
+mkdir -p "$(dirname "$WT_PATH")"
+git worktree add -b "$BRANCH" "$WT_PATH" HEAD
+cd "$WT_PATH"
+```
+
+关键语义：
+
+- `git worktree add -b "$BRANCH" "$WT_PATH" HEAD` 会创建新分支并在新 worktree 中检出；主仓库当前分支不会被切走。
+- 禁止先在主仓库执行 `git switch -c "$BRANCH"` 或 `git checkout -b "$BRANCH"`。
+- 禁止把 worktree 建到 Codex 约定根目录以外。
+- 如果 `git worktree add` 失败，报告真实错误并停止；不得改用临时目录绕过。
+
+创建后确认目录与 Git 状态：
+
+```bash
+pwd
+[ -f "$(git rev-parse --show-toplevel)/.git" ] && echo "IN_WORKTREE" || echo "MAIN_REPO"
+git rev-parse --git-common-dir
+git branch --show-current
+```
 
 工作树创建后，后续所有状态文件（Scope Contract、workflow-state、execution-state、pack-returns）写在工作树的 `.codex/multi-model-workflow/` 中。工作树删除时，状态文件随之清除。
 
