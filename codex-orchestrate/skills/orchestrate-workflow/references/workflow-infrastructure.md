@@ -24,7 +24,7 @@
 
 ### 0b：断点续传
 
-用户已在工作树中启动 Claude，直接读取本地状态文件恢复。
+用户已在工作树中启动 Codex workflow，直接读取本地状态文件恢复。
 
 ```bash
 RUN_ID=$(cat .codex/multi-model-workflow/active-run-id)

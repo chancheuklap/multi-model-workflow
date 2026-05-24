@@ -49,7 +49,7 @@ Hotfix 的核心差异：**先 push 再 review**。修复完成 + 基本测试�
 Hotfix 路线的 `git push` 不触发 state 清理（`cleanup-before-push.sh` 检测到 `route = "hotfix"` 时延迟清理）。事后 review 完成后，Closing 阶段必须手动执行清理：
 
 ```bash
-bash "$(find ~/.claude/plugins -path '*/multi-model-workflow/scripts/cleanup-before-push.sh' -type f | head -1)" --force
+bash "${MMW_PLUGIN_ROOT}/scripts/cleanup-before-push.sh" --force
 ```
 
 ---
