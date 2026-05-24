@@ -79,8 +79,8 @@ flowchart TD
     DR --> E["大 Issue 拆分\n（Coordinator 内嵌方法论）"]:::coord
 
     %% per issue，同一 session 内完成
-    E --> F["orchestrate-plan-writing\n（plan-writer Opus 4.7 1M）"]:::skill
-    F --> PR["Plan Review\nCodex review"]:::review
+    E --> F["orchestrate-plan-writing\n（plan-writer Opus 4.7 1M\n含小 issue 拆分 + plan 写作）"]:::skill
+    F --> PR["Plan Review\nCodex review\n（审查 issue 文档 + plan 文档）"]:::review
 
     %% 执行阶段
     PR --> H["orchestrate-execution\n（见图 2）"]:::skill
@@ -111,8 +111,8 @@ flowchart TD
 | Discovery | Skill：`orchestrate-discovery` | 与用户 Q&A 迭代 + grill-with-docs 同步维护 CONTEXT.md + 产出设计文档 | **产出** `design/<slug>.md` + CONTEXT.md | ✅ 正常 |
 | Design Review | Coordinator + **外部 Review** | 两个 baseline review（Design Content + Project Alignment），按 dispatch 模板内联的 Codex review 步骤派发 | **审查** `design/<slug>.md` | ✅ 正常 |
 | 大 Issue 拆分 | Coordinator 内嵌方法论（`issue-splitting.md`） | 设计文档拆分为大 Issue 骨架 | **消费** `design/<slug>.md` → **产出** `issues/<slug>/00N-*.md`（小 issue 由 plan-writer 补全） | ✅ 正常 |
-| Plan Writing | Skill：`orchestrate-plan-writing` | 前置确认 + 派 plan-writer agent + Budget 赋值（`3P+12`） | **消费** `issues/<slug>/00N-*.md` → **产出** `plans/<slug>/00N-*.md`（编号一一对应） | ✅ 正常 |
-| Plan Review | Coordinator + **外部 Review** | Plan Entry Gate + Task Pack Inventory Gate → 派外部 review | **审查** `plans/<slug>/` 全部 plan 文件 | ✅ 正常 |
+| Plan Writing | Skill：`orchestrate-plan-writing` | 前置确认 + 派 plan-writer agent（先拆小 issue 再写 plan）+ Budget 赋值（`3P+12`） | **消费** `issues/<slug>/00N-*.md`（补全小 issue）→ **产出** `plans/<slug>/00N-*.md`（编号一一对应） | ✅ 正常 |
+| Plan Review | Coordinator + **外部 Review** | Plan Entry Gate + Task Pack Inventory Gate → 派外部 review | **审查** `issues/<slug>/`（小 issue 质量）+ `plans/<slug>/`（plan 质量）全部文件 | ✅ 正常 |
 | Execution | Skill：`orchestrate-execution` | 图 2 的两级循环（Plan → Pack → Plan Implementation Review） | **消费** `plans/<slug>/` 提取 Task Pack → 构造 Pack Brief（自足，worker 不读 plan） | ✅ 正常 |
 | Final Review | Skill：`orchestrate-final-review` | 意图验证 + 清扫遗留尾巴 + Release Gate | **消费** `design/<slug>.md` 验证意图覆盖 | ✅ 正常（review 节点除外） |
 | Release Review | Coordinator + **外部 Review** | 发布风险审查，仅触碰风险面时进入 | — | ✅ 正常 |
@@ -332,11 +332,12 @@ flowchart LR
 
     D["设计文档\n<slug>.md\n（背景 / 目标 / 方案 / 合同 / 风险 / 验收）"]:::doc
     DR["Design Review\n（完整性 + 项目对齐）"]:::gate
-    I["大 Issue 文件\n001-*.md\n（What to build + 小 issue 列表）"]:::doc
-    SI["小 Issue\n（内嵌在大 issue 中）\nType / What / Acceptance / Blocked by"]:::embed
+    I["大 Issue 骨架\n001-*.md\n（Coordinator 产出：What to build + Blocked by）"]:::doc
+    SI["小 Issue\n（plan-writer 补全，内嵌在大 issue 中）\nType / What / Acceptance / Blocked by"]:::embed
     P["Plan 文件\n001-*.md\n（Header + File Map + 风险表 + Task Pack 列表）"]:::doc
     TP["Task Pack N.M\n（内嵌在 plan 中）\nGoal / Files / Criteria / Commands / Risk"]:::embed
     PG["Plan Entry Gate\n+ Task Pack Inventory Gate"]:::gate
+    PRV["Plan Review\n（审查 issue 质量 + plan 质量）"]:::gate
     W["Worker dispatch\n（Pack Brief 自足，不读 plan 文件）"]:::doc
 
     D --> DR --> I
@@ -344,7 +345,9 @@ flowchart LR
     SI -->|"1 small issue = 1 Task Pack"| TP
     I -->|"1 大 issue = 1 plan 文件\n编号一一对应"| P
     P --- TP
-    P --> PG --> W
+    P --> PG --> PRV
+    I -->|"小 issue 质量审查"| PRV
+    PRV --> W
 ```
 
 ### 四种文档产物
@@ -352,7 +355,7 @@ flowchart LR
 | 产物 | 模板来源 | 产出者 | 消费者 | 审查门禁 |
 |------|---------|--------|--------|---------|
 | **设计文档** | `discovery-design-document.md` | orchestrate-discovery | Coordinator（大 issue 拆分）、plan-writer（只读） | Design Review（2 baseline） |
-| **大 Issue 文件** | `issue-splitting.md`（Coordinator 方法论） | Coordinator（大 issue 骨架）+ plan-writer（小 issue 补全） | plan-writer（1 issue = 1 plan） | — |
+| **大 Issue 文件** | `issue-splitting.md`（Coordinator 方法论）+ `plan-writing-methodology.md` Step 3c（plan-writer 补全小 issue） | Coordinator（大 issue 骨架）+ plan-writer（小 issue 补全） | plan-writer（1 issue = 1 plan） | Plan Review（Issue Quality 角度） |
 | **Plan 文件** | `plan-writing-methodology.md` | plan-writer agent | orchestrate-execution | Plan Entry Gate + Task Pack Inventory Gate |
 | **Mockup** | prototype / frontend-design | Discovery 阶段 | plan-writer（mockup anchors）、worker（视觉验证） | Design Review 覆盖 |
 
@@ -393,6 +396,8 @@ Issue 文档的大 issue 骨架由 Coordinator 在 Discovery 阶段产出（`iss
 ```
 
 **层级关系**：大 issue = 一个 vertical slice = 一个文件 · 小 issue = 内嵌子节（不是独立文件）· 小 issue 直接映射 Task Pack。
+
+**两阶段产出**：大 issue 骨架（`What to build` + `Blocked by`）由 Coordinator 在 Discovery 阶段产出；`Small issues` 章节由 plan-writer 在 Plan Writing 阶段 Step 3c 补全。Plan Review 同时审查小 issue 拆分质量和 plan 质量。
 
 **编号规则**：文件名 `00N-<slug>.md`，N 按依赖顺序排列（blocker 在前）。Coordinator 完成大 issue 拆分后发布 GitHub Issue 并将 issue number 写回本地文件。
 
@@ -524,7 +529,7 @@ Worker dispatch（Pack Brief 自足）
 |-------|---------|------|
 | `orchestrate-workflow` | 路线判定（7 条）+ Infrastructure + Bug 路线 + Direct Repair + Closing + Route Extensions（4-7） | 入口路由（formal/bug/multi-pr/hotfix/quickfix/spike/maintenance）、Scope Contract、Git Checkpoint、Budget File、Bug 路线调度、Direct Repair mini-route、Closing |
 | `orchestrate-discovery` | Discovery + Design Review + 大 issue 拆分 | Q&A 迭代 + grill-with-docs + 设计文档 + Design Review + 大 issue 拆分（内嵌方法论） |
-| `orchestrate-plan-writing` | Plan Writing + Plan Review | 前置确认 + plan-writer dispatch + Budget 赋值 + Plan Review + Git Checkpoint |
+| `orchestrate-plan-writing` | Plan Writing（含小 issue 拆分）+ Plan Review（含 issue 质量审查） | 前置确认 + plan-writer dispatch（先拆小 issue 再写 plan）+ Budget 赋值 + Plan Review（issue 质量 + plan 质量）+ Git Checkpoint |
 | `orchestrate-execution` | Execution（图 2） | 两级循环（Plan → Pack）：派 worker → Git Checkpoint → Plan Implementation Review → 修复分流 → Early Release Gate → 循环释放 |
 | `orchestrate-final-review` | Final Review + Release Gate | 意图验证 + 清扫遗留尾巴 + Final Release Gate + 业务汇报 |
 | `orchestrate-multi-pr-merge` | Multi-PR Merge（图 3） | 冲突发现 → 根因调查 → 修复 → 集成审查 → 合并 |
@@ -535,7 +540,7 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 
 | Agent | 模型 | effort | maxTurns | 用在哪 | `skills:` 自动加载 | 体内 Skill tool 调用 |
 |-------|------|--------|----------|--------|-------------------|---------------------|
-| `plan-writer` | Opus 4.7 (1M) | xhigh | — | Plan Writing | `improve-codebase-architecture` | `improve-codebase-architecture` |
+| `plan-writer` | Opus 4.7 (1M) | xhigh | — | Plan Writing（小 issue 拆分 + plan 写作） | `improve-codebase-architecture` | `improve-codebase-architecture` |
 | `pack-executor` | Sonnet | high | — | Execution 普通 pack / Bug worker | `tdd` | `diagnose`, `prototype` |
 | `complex-pack-executor` | Opus 4.7 | high | — | Execution 高风险 pack / Release blocker | `tdd` | `diagnose`, `improve-codebase-architecture`, `prototype` |
 | `code-explorer` | Sonnet | high | 20 | Execution 证据收集 / Multi-PR 代码探索 | — | — |
@@ -651,7 +656,7 @@ Coordinator **不是传话筒**——必须亲验每条 finding（读代码、�
 | 4-6 (Medium) | 亲验 + 派 explorer 补证 | explorer 返回 confirmed → accept；refuted → reject |
 | 7-10 (High) | 亲验后 accept 或 reject | 验证通过 → accept；找到反向证据 → reject |
 
-**Plan Review `accepted` 的四种子路由**：`plan repair`（Coordinator 或 plan-writer 直接修）· `design gap`（回流 Discovery）· `issue-plan mismatch`（大 issue 级：Coordinator 走大 issue 拆分；小 issue 级：plan-writer Step 3c 重新拆分）· `architecture friction`（调 improve-codebase-architecture）。
+**Plan Review `accepted` 的五种子路由**：`plan repair`（Coordinator 或 plan-writer 直接修）· `design gap`（回流 Discovery）· `issue-plan mismatch`（大 issue 级：Coordinator 走大 issue 拆分；小 issue 级：plan-writer Step 3c 重新拆分）· `issue quality`（小 issue 拆分质量问题 → plan-writer Step 3c 修正）· `architecture friction`（调 improve-codebase-architecture）。
 
 ### Path A 与 Path B 修复路径
 
