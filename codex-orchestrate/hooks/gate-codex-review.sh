@@ -37,24 +37,12 @@ case "$REVIEW_INTENT" in
   baseline)
     exit 0
     ;;
-  path-a-re-review)
-    BUDGET_DIR=".codex/multi-model-workflow"
-    SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
-    if [[ -f "$SF" ]]; then
-      HAS_ENTRY=$(jq '.path_a_escalation | length > 0' "$SF")
-      if [[ "$HAS_ENTRY" == "true" ]]; then
-        exit 0
-      fi
-    fi
-    echo "[multi-model-workflow] BLOCKED: path-a-re-review requires active path_a_escalation entry." >&2
-    exit 2
-    ;;
   targeted-re-review)
     echo "[multi-model-workflow] BLOCKED: targeted re-review must use send_input(target: baseline reviewer agent_id), not spawn_agent." >&2
     exit 2
     ;;
   *)
-    echo "[multi-model-workflow] BLOCKED: codex_reviewer dispatch requires review_intent=baseline or path-a-re-review." >&2
+    echo "[multi-model-workflow] BLOCKED: codex_reviewer spawn_agent dispatch requires review_intent=baseline. Targeted and Path A re-review must use send_input(target: baseline reviewer agent_id)." >&2
     exit 2
     ;;
 esac

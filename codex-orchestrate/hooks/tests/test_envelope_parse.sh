@@ -38,6 +38,11 @@ run_test_fail "codex_reviewer + null review_intent → exit 2" bash -c "echo '$C
 TARGETED_NO_EX='<!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"r1","phase":"execution","agent_role":"codex_reviewer","pack_id":null,"repair_round":0,"idempotency_key":"r1/review/r0","disposition_refs":null,"review_intent":"targeted-re-review","exception_code":null} -->'
 run_test_fail "targeted-re-review + null exception_code → exit 2" bash -c "echo '$TARGETED_NO_EX' | bash '$PARSE'"
 
+# Legacy path-a-re-review intent must not parse. Path A uses targeted-re-review
+# plus exception_code=path_a_self_fix on send_input to the baseline reviewer.
+PATH_A_LEGACY='<!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"r1","phase":"execution","agent_role":"codex_reviewer","pack_id":null,"repair_round":0,"idempotency_key":"r1/review/r0","disposition_refs":null,"review_intent":"path-a-re-review","exception_code":null} -->'
+run_test_fail "legacy path-a-re-review intent → exit 2" bash -c "echo '$PATH_A_LEGACY' | bash '$PARSE'"
+
 # Valid codex_reviewer with baseline
 BASELINE='<!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"r1","phase":"execution","agent_role":"codex_reviewer","pack_id":null,"repair_round":0,"idempotency_key":"r1/review/r0","disposition_refs":null,"review_intent":"baseline","exception_code":null} -->'
 run_test "baseline review_intent valid" bash -c "echo '$BASELINE' | bash '$PARSE'"

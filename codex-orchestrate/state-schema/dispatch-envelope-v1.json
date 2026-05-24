@@ -20,7 +20,7 @@
     },
     "review_intent": {
       "oneOf": [
-        { "type": "string", "enum": ["baseline", "targeted-re-review", "path-a-re-review"] },
+        { "type": "string", "enum": ["baseline", "targeted-re-review"] },
         { "type": "null" }
       ]
     },

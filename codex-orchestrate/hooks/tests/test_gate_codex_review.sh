@@ -25,7 +25,7 @@ TARGETED_PROMPT='<!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"test",
 Targeted prompt content'
 
 PATH_A_PROMPT='<!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"test","phase":"execution","agent_role":"codex_reviewer","agent_id":null,"pack_id":null,"repair_round":0,"idempotency_key":"test/path-a/r0","disposition_refs":null,"review_intent":"path-a-re-review","exception_code":null} -->
-Path A prompt content'
+Legacy Path A prompt content'
 
 run_test "non-SubagentStart payload passes" \
   bash -c "echo '{\"tool_input\":{\"command\":\"echo hello\"}}' | bash '$HOOK'"
@@ -53,26 +53,10 @@ targeted_new_reviewer_blocked() {
 }
 run_test_expect_fail "targeted re-review through new reviewer blocked" targeted_new_reviewer_blocked
 
-WORKSPACE=$(mktemp -d)
-trap 'rm -rf "$WORKSPACE"' EXIT
-mkdir -p "$WORKSPACE/.codex/multi-model-workflow"
-cat > "$WORKSPACE/.codex/multi-model-workflow/workflow-state-test.json" <<'JSON'
-{"path_a_escalation":[]}
-JSON
-
-path_a_without_escalation_blocked() {
-  (cd "$WORKSPACE" && make_input codex_reviewer "$PATH_A_PROMPT" | bash "$HOOK" 2>/dev/null)
+path_a_spawn_blocked() {
+  make_input codex_reviewer "$PATH_A_PROMPT" | bash "$HOOK" 2>/dev/null
 }
-run_test_expect_fail "path-a re-review without escalation blocked" path_a_without_escalation_blocked
-
-cat > "$WORKSPACE/.codex/multi-model-workflow/workflow-state-test.json" <<'JSON'
-{"path_a_escalation":[{"pack_id":"1.1","blocked_for_self_fix":true}]}
-JSON
-
-path_a_with_escalation_passes() {
-  (cd "$WORKSPACE" && make_input codex_reviewer "$PATH_A_PROMPT" | bash "$HOOK")
-}
-run_test "path-a re-review with escalation passes" path_a_with_escalation_passes
+run_test_expect_fail "legacy path-a re-review through new reviewer blocked" path_a_spawn_blocked
 
 echo ""
 echo "Results: $pass passed, $fail failed"
