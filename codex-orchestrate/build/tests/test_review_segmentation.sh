@@ -17,11 +17,11 @@ run_test "template has baseline review" \
 run_test "template has targeted re-review" \
   grep -q "Targeted re-review" "$TMPL"
 
-run_test "targeted re-review uses --resume" \
-  grep -q "\-\-resume" "$TMPL"
+run_test "targeted re-review uses send_input" \
+  grep -q "send_input" "$TMPL"
 
-run_test "baseline does NOT use --resume" \
-  bash -c "! sed -n '/Baseline review/,/Targeted/p' '$TMPL' | grep -q '\-\-resume'"
+run_test "template has no companion CLI runner" \
+  bash -c "! grep -qE 'CODEX_SCRIPT|CODEX_REVIEW|codex-companion|codex-review\\.sh|\\.job-id|--resume' '$TMPL'"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

@@ -22,22 +22,35 @@
 两个 baseline 分别提交 Codex review 任务，可并行提交，结果独立返回。
 
 <!-- BEGIN: review-dispatch -->
-**Codex review dispatch** (`CODEX_SCRIPT` unset: `CODEX_SCRIPT="$(find ~/.claude/plugins -path '*/codex/scripts/codex-companion.mjs' -type f 2>/dev/null | head -1)"`)
+**Codex review dispatch** (native `codex_reviewer` subagent)
 
-1. Write prompt -> `review-prompts/<gate>.md` (prefix with DISPATCH_ENVELOPE, `agent_role: "codex-reviewer"`)
+1. Write prompt -> `review-prompts/<gate>.md` (prefix with DISPATCH_ENVELOPE, `agent_role: "codex_reviewer"`)
    - Code diffs included in review prompts MUST be wrapped:
      `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
 2. Select model by phase:
-   - `cursor.phase in {discovery, plan-writing}` -> `--model gpt-5.5 --effort xhigh`
-   - `cursor.phase in {execution, final-review}` -> `--model gpt-5.4 --effort xhigh`
+   - `cursor.phase in {discovery, plan-writing}` -> `model: "gpt-5.5"`, `reasoning_effort: "xhigh"`
+   - `cursor.phase in {execution, final-review}` -> `model: "gpt-5.4"`, `reasoning_effort: "xhigh"`
 3. Dispatch (distinguish baseline vs targeted re-review):
    - **Baseline review** (gate name does not contain `-repair-`):
-     `node "$CODEX_SCRIPT" task --background --prompt-file <path> <model flags>`
+     ```
+     spawn_agent({
+       agent_type: "codex_reviewer",
+       message: "<full contents of review-prompts/<gate>.md>",
+       model: "<phase-selected model>",
+       reasoning_effort: "xhigh"
+     })
+     ```
+     Record the returned reviewer `agent_id` into `.codex/multi-model-workflow/review-agents/<gate>.agent-id`.
    - **Targeted re-review** (gate name contains `-repair-`):
-     `node "$CODEX_SCRIPT" task --background --resume --prompt-file <path> <model flags>`
-   -> record JOB_ID into `review-prompts/<gate>.job-id`
-4. Wait: `node "$CODEX_SCRIPT" status "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)" --wait --timeout-ms 600000` (run_in_background: true)
-5. Result: `node "$CODEX_SCRIPT" result "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)"` -> `review-results/<gate>.md`
+     ```
+     send_input({
+       target: "<baseline reviewer agent_id>",
+       message: "<full contents of review-prompts/<gate>.md>"
+     })
+     ```
+     The targeted prompt envelope MUST set `review_intent: "targeted-re-review"`, `exception_code`, and `agent_id` to the baseline reviewer `agent_id`.
+4. Wait: `wait_agent({ targets: ["<reviewer agent_id>"], timeout_ms: 600000 })`.
+5. Result: save the reviewer final message from `wait_agent` into `.codex/multi-model-workflow/review-results/<gate>.md`.
 
 **Confidence rubric (REQUIRED in every review prompt)**:
 - 1-3: low confidence. Coordinator may suppress without deep investigation.
@@ -66,7 +79,7 @@
 **Bias indicators (REQUIRED at end of review output)**:
 Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
 
-Compaction recovery: `.job-id` present but no `review-results/` -> resume from Step 4.
+Compaction recovery: `.agent-id` present but no `review-results/` -> wait for that reviewer agent. If the `.agent-id` is missing for a targeted re-review, mark BLOCKED; do not create a new reviewer for the same baseline.
 <!-- END: review-dispatch -->
 
 ### Baseline 1：Regression Sweep + Intent Coverage + Cross-Plan Integration

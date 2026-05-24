@@ -3,9 +3,9 @@
 > **流程位置**：`orchestrate-execution` Step 5 · 构造 Pack Brief 时读取
 
 <!-- BEGIN: control-envelope -->
-## DISPATCH_ENVELOPE (required prefix for every Agent dispatch)
+## DISPATCH_ENVELOPE (required prefix for every spawn_agent dispatch)
 
-Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin its `prompt` with:
+Every `spawn_agent({...})` dispatch and every `send_input({...})` repair MUST begin its message with:
 
 ```
 <!-- DISPATCH_ENVELOPE
@@ -13,7 +13,7 @@ Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin i
   "protocol_version": "1",
   "run_id": "<run_id>",
   "phase": "<plan-writing|execution|final-review|discovery>",
-  "agent_role": "<pack-executor|complex-pack-executor|plan-writer|codex-reviewer>",
+  "agent_role": "<pack_executor|complex_pack_executor|plan_writer|codex_reviewer>",
   "agent_id": "<existing agent_id or null for first dispatch>",
   "pack_id": "<N.M or null>",
   "repair_round": 0,
@@ -27,7 +27,7 @@ Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin i
 ```
 
 For repair (repair_round >= 1): set `disposition_refs` to array of accepted finding IDs.
-For codex-reviewer dispatches: set `review_intent` and `exception_code` for targeted-re-review.
+For codex_reviewer dispatches: set `review_intent` and `exception_code` for targeted-re-review.
 
 Hooks parse this block. Missing/malformed envelope = dispatch BLOCKED.
 <!-- END: control-envelope -->
