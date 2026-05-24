@@ -2,8 +2,8 @@
 set -euo pipefail
 
 INPUT="$(cat)"
-AGENT_TYPE="$(echo "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null || true)"
-AGENT_ID="$(echo "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null || true)"
+AGENT_TYPE="$(printf '%s' "$INPUT" | jq -r 'if type == "object" then (.agent_type // empty) else empty end' 2>/dev/null || true)"
+AGENT_ID="$(printf '%s' "$INPUT" | jq -r 'if type == "object" then (.agent_id // empty) else empty end' 2>/dev/null || true)"
 STATE_BASE="${STATE_BASE:-.codex/multi-model-workflow}"
 
 case "$AGENT_TYPE" in

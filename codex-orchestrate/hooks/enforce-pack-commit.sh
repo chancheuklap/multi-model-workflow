@@ -12,7 +12,7 @@ RUN_ID=$(cat "$RUN_ID_FILE")
 SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
 if [ ! -f "$SF" ]; then exit 0; fi
 
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+COMMAND=$(printf '%s' "$INPUT" | jq -r 'if type == "object" then (.tool_input.command // empty) else empty end' 2>/dev/null || true)
 COMMIT_MSG=$(echo "$COMMAND" | sed -n 's/.*-m[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
 if [ -z "$COMMIT_MSG" ]; then
   COMMIT_MSG=$(echo "$COMMAND" | sed -n "s/.*-m[[:space:]]*'\([^']*\)'.*/\1/p" | head -1)

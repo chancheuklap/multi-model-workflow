@@ -34,7 +34,7 @@ for feature in plugins plugin_hooks hooks multi_agent unified_exec; do
   fi
 done
 
-cat <<RULES
+MSG="$(cat <<RULES
 [codex-orchestrate] Runtime active: version=$VERSION, cli=${CODEX_VERSION:-unknown}
 
 # 1. Entry routing
@@ -72,6 +72,7 @@ cat <<RULES
 - Run git status --short --branch to verify branch and dirty state before dispatch or review.
 - If source artifacts changed after their review gate, re-enter that gate before continuing downstream.
 RULES
+)"
 
 RUN_ID_FILE="$STATE_BASE/active-run-id"
 if [[ -f "$RUN_ID_FILE" ]]; then
@@ -83,7 +84,7 @@ if [[ -f "$RUN_ID_FILE" ]]; then
     STEP="$(jq -r '.cursor.step // "unknown"' "$SF")"
     REVIEW_USED="$(jq -r '.budget.review_used // 0' "$SF")"
     REVIEW_TOTAL="$(jq -r '.budget.review_total // "unknown"' "$SF")"
-    cat <<STATE
+    STATE_MSG="$(cat <<STATE
 
 [codex-orchestrate] Resume state:
 - run_id: $RUN_ID
@@ -92,7 +93,12 @@ if [[ -f "$RUN_ID_FILE" ]]; then
 - step: $STEP
 - review budget: $REVIEW_USED/$REVIEW_TOTAL
 STATE
+)"
+    MSG="${MSG}${STATE_MSG}"
   fi
 fi
+
+jq -n --arg msg "$MSG" \
+  '{hookSpecificOutput:{hookEventName:"SessionStart",additionalContext:$msg}}'
 
 exit 0

@@ -6,7 +6,7 @@ set -euo pipefail
 
 INPUT=$(cat)
 
-AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // .tool_input.agent_type // .tool_input.subagent_type // empty' 2>/dev/null)
+AGENT_TYPE=$(printf '%s' "$INPUT" | jq -r 'if type == "object" then (.agent_type // .tool_input.agent_type // .tool_input.subagent_type // empty) else empty end' 2>/dev/null || true)
 if [[ -z "$AGENT_TYPE" ]]; then exit 0; fi
 AGENT_TYPE="${AGENT_TYPE//-/_}"
 

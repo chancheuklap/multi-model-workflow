@@ -13,7 +13,7 @@ set -euo pipefail
 INPUT=$(cat)
 
 # Extract file_path from tool_input (works for both Edit and Write)
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+FILE_PATH=$(printf '%s' "$INPUT" | jq -r 'if type == "object" then (.tool_input.file_path // empty) else empty end' 2>/dev/null || true)
 [[ -z "$FILE_PATH" ]] && exit 0
 
 # Only guard docs/ paths

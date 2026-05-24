@@ -4,12 +4,12 @@
 set -euo pipefail
 
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+COMMAND=$(printf '%s' "$INPUT" | jq -r 'if type == "object" then (.tool_input.command // empty) else empty end' 2>/dev/null || true)
 if [ -z "$COMMAND" ]; then exit 0; fi
 
 if ! echo "$COMMAND" | grep -qE 'scripts/review/review-lane\.sh[[:space:]]+(fetch|result)'; then exit 0; fi
 
-EXIT_CODE=$(echo "$INPUT" | jq -r '.tool_response.exit_code // 0' 2>/dev/null)
+EXIT_CODE=$(printf '%s' "$INPUT" | jq -r 'if type == "object" then (.tool_response.exit_code // 0) else 0 end' 2>/dev/null || echo 0)
 if [ "$EXIT_CODE" != "0" ]; then exit 0; fi
 
 BUDGET_DIR=".codex/multi-model-workflow"

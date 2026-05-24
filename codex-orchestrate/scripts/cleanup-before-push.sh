@@ -13,10 +13,10 @@ fi
 if [ "$FORCE" = false ]; then
   INPUT=$(cat)
 
-  EXIT_CODE=$(echo "$INPUT" | jq -r '.tool_response.exit_code // 0' 2>/dev/null)
+  EXIT_CODE=$(printf '%s' "$INPUT" | jq -r 'if type == "object" then (.tool_response.exit_code // 0) else 0 end' 2>/dev/null || echo 0)
   if [ "$EXIT_CODE" != "0" ]; then exit 0; fi
 
-  COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+  COMMAND=$(printf '%s' "$INPUT" | jq -r 'if type == "object" then (.tool_input.command // empty) else empty end' 2>/dev/null || true)
 
   if ! echo "$COMMAND" | grep -qE 'git push|gh pr create'; then
     exit 0

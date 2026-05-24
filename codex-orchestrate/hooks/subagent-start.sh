@@ -3,15 +3,17 @@ set -euo pipefail
 
 INPUT="$(cat)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-AGENT_TYPE="$(echo "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null || true)"
-AGENT_ID="$(echo "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null || true)"
-PROMPT="$(echo "$INPUT" | jq -r '
-  .message
-  // .prompt
-  // .tool_input.message
-  // .tool_input.prompt
-  // ((.items // .tool_input.items // []) | map(select((.type // "") == "text") | (.text // "")) | join("\n"))
-  // empty
+AGENT_TYPE="$(printf '%s' "$INPUT" | jq -r 'if type == "object" then (.agent_type // empty) else empty end' 2>/dev/null || true)"
+AGENT_ID="$(printf '%s' "$INPUT" | jq -r 'if type == "object" then (.agent_id // empty) else empty end' 2>/dev/null || true)"
+PROMPT="$(printf '%s' "$INPUT" | jq -r '
+  if type == "object" then
+    .message
+    // .prompt
+    // .tool_input.message
+    // .tool_input.prompt
+    // ((.items // .tool_input.items // []) | map(select((.type // "") == "text") | (.text // "")) | join("\n"))
+    // empty
+  else empty end
 ' 2>/dev/null || true)"
 STATE_BASE="${STATE_BASE:-.codex/multi-model-workflow}"
 

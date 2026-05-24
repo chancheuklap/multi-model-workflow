@@ -5,4 +5,5 @@
 - `SubagentStart` 只在 Codex payload 暴露 `message`、`prompt` 或 text items 时校验 DISPATCH_ENVELOPE；payload 不暴露调度正文时，只注入上下文并要求 Coordinator 已通过 `dispatch-gateway.sh` 显式校验。
 - 需要顺序时，只注册一个 event dispatcher，在 dispatcher 内按固定顺序运行各 guard/helper。
 - Hook 脚本必须幂等，写共享状态前必须拿锁。
+- 读取 hook payload 时必须先判断 JSON top-level 是 object；未知 payload shape 只允许安全跳过，不能让 jq 退出码 5 冒泡成 hook failure。
 - Hook manifest 固定为本目录 `hooks.json`；不要再新增根目录重复 manifest。

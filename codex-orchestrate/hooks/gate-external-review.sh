@@ -5,7 +5,7 @@ INPUT="$(cat)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PARSE_ENVELOPE="$SCRIPT_DIR/lib/parse-envelope.sh"
 
-COMMAND="$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
+COMMAND="$(printf '%s' "$INPUT" | jq -r 'if type == "object" then (.tool_input.command // empty) else empty end' 2>/dev/null || true)"
 [[ -z "$COMMAND" ]] && exit 0
 
 if ! echo "$COMMAND" | grep -qE 'scripts/review/review-lane\.sh[[:space:]]+submit'; then
