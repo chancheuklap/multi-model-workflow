@@ -91,6 +91,7 @@ agents = [
     ("pack_executor", "Task Pack implementation worker for scoped Codex workflow packs and accepted review repairs.", "agents/pack_executor.toml", ["Builder", "Executor", "Patch"]),
     ("complex_pack_executor", "High-risk Task Pack implementation worker for migrations, billing, auth, permissions, runtime, shared contracts, and cross-module changes.", "agents/complex_pack_executor.toml", ["Integrator", "Engineer", "Risk"]),
     ("plan_writer", "Implementation plan writer for reviewed source designs and issue hierarchies.", "agents/plan_writer.toml", ["Planner", "Architect", "Writer"]),
+    ("codex_reviewer", "Independent reviewer for Codex workflow baseline and targeted review gates.", "agents/codex_reviewer.toml", ["Reviewer", "Auditor", "Verifier"]),
     ("root_cause_analyst", "Root-cause analyst for unknown bugs, failed repair loops, and systemic multi-PR conflicts.", "agents/root_cause_analyst.toml", ["Investigator", "Analyst", "Debugger"]),
     ("code_explorer", "Focused read-only codebase explorer for file, symbol, call-chain, config, and test-entry questions.", "agents/code_explorer.toml", ["Scout", "Mapper", "Reader"]),
     ("complex_code_explorer", "Broad read-only codebase explorer for multi-module relationships, historical behavior, migration chains, and architecture context.", "agents/complex_code_explorer.toml", ["Investigator", "Mapper", "Architect"]),
