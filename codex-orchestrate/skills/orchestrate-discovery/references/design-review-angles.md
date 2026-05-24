@@ -12,23 +12,20 @@
 1. Write prompt -> `review-prompts/<gate>.md` (prefix with DISPATCH_ENVELOPE, `agent_role: "codex_reviewer"`)
    - Code diffs included in review prompts MUST be wrapped:
      `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
-2. Select model by phase:
-   - `cursor.phase in {discovery, plan-writing}` -> `model: "gpt-5.5"`, `reasoning_effort: "xhigh"`
-   - `cursor.phase in {execution, final-review}` -> `model: "gpt-5.4"`, `reasoning_effort: "xhigh"`
+2. Model authority: use the registered `codex_reviewer` role model and reasoning settings from `agents/codex_reviewer.toml`; do not pass per-dispatch model overrides unless the Codex host explicitly supports changing that role.
 3. Validate and dispatch (distinguish baseline vs targeted re-review):
    - **Baseline review** (gate name does not contain `-repair-`):
-     Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport spawn_agent`.
+     Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport spawn_agent --gate "<gate>"`.
      ```
      spawn_agent({
        agent_type: "codex_reviewer",
-       message: "<full contents of review-prompts/<gate>.md>",
-       model: "<phase-selected model>",
-       reasoning_effort: "xhigh"
+       message: "<full contents of review-prompts/<gate>.md>"
      })
      ```
-     Record the returned reviewer `agent_id` into `.codex/multi-model-workflow/review-agents/<gate>.agent-id`.
+     Record the returned reviewer `agent_id`:
+     `bash "${MMW_PLUGIN_ROOT}/scripts/record-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --gate "<gate>" --agent-id "<reviewer agent_id>"`.
    - **Targeted re-review** (gate name contains `-repair-`):
-     Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport send_input`.
+     Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport send_input --gate "<gate>"`.
      ```
      send_input({
        target: "<baseline reviewer agent_id>",
@@ -37,8 +34,8 @@
      ```
      The targeted prompt envelope MUST set `review_intent: "targeted-re-review"`, `exception_code`, and `agent_id` to the baseline reviewer `agent_id`.
 4. Wait: `wait_agent({ targets: ["<reviewer agent_id>"], timeout_ms: 600000 })`.
-5. Budget: after `wait_agent` returns for either baseline review or targeted re-review, run `bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget increment-review --run-id "<run_id>"`.
-6. Result: save the reviewer final message from `wait_agent` into `.codex/multi-model-workflow/review-results/<gate>.md`.
+5. Result: save the reviewer final message from `wait_agent` into `.codex/multi-model-workflow/review-results/<gate>.md`.
+6. Complete: run `bash "${MMW_PLUGIN_ROOT}/scripts/complete-review-dispatch.sh" --run-id "<run_id>" --gate "<gate>" --agent-id "<reviewer agent_id>" --result-file ".codex/multi-model-workflow/review-results/<gate>.md"` to mark the result durable and increment review budget exactly once.
 
 **Confidence rubric (REQUIRED in every review prompt)**:
 - 1-3: low confidence. Coordinator may suppress without deep investigation.
@@ -102,8 +99,12 @@ docs/orchestrate/design/<slug>.md
 ### 可测试性
 每条目标行为是否可通过命令、断言或截图验证。不可测的 intent 是 finding。
 
-### UI mockup 转化
-如有 mockup（docs/orchestrate/mockups/<slug>/），每个页面 × viewport × states 是否转成了可验收的目标行为描述。
+### UI mockup 转化（与设计文档同等重要）
+Mockup 是可视化设计文档，地位与文字设计文档平等。如有 mockup（docs/orchestrate/mockups/<slug>/），检查：
+- 每个 mockup 页面 × viewport × states 是否已在 `## UI / UX 状态` 中拆解为具体视觉规格（布局/颜色/字体/间距/组件结构）
+- 拆解出的视觉规格是否可直接转为 issue 和 plan 的 acceptance criteria（不是"见 mockup"指针）
+- 交互行为（点击/hover/输入/动画）是否逐项描述
+- 状态变体（空/加载/错误/成功/权限不足）是否在 mockup 中体现并描述
 
 ### Contract anchors
 跨边界数据是否有 Contract anchors（boundary type / owner / provider / consumer / verifier）。缺 anchors 是 finding。
@@ -118,7 +119,7 @@ docs/orchestrate/design/<slug>.md
 以下为 Critical（必须修复才能进入 plan）：
 - 核心意图不可测
 - 目标行为含混导致 plan 必须猜
-- UI 有 mockup 但没转成验收状态
+- UI 有 mockup 但没拆解为具体视觉规格表（只写了目录路径不算转化）
 - 合同缺 anchors
 - 文档内部矛盾
 - 关键场景缺失

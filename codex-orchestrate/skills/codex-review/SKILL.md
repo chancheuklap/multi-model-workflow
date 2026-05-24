@@ -35,6 +35,7 @@ REVIEW_DIR=".codex/codex-review"
 mkdir -p "$REVIEW_DIR"
 TIMESTAMP=$(date +%s)
 PROMPT_FILE="${REVIEW_DIR}/review-${TIMESTAMP}.md"
+GATE="adhoc-review-${TIMESTAMP}"
 ```
 
 写入 prompt 文件：
@@ -102,17 +103,16 @@ PROMPT_FILE="${REVIEW_DIR}/review-${TIMESTAMP}.md"
 ```bash
 bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" \
   --prompt-file "$PROMPT_FILE" \
-  --transport spawn_agent
+  --transport spawn_agent \
+  --gate "$GATE"
 ```
 
-校验通过后，读取 `PROMPT_FILE` 全文，派发 Codex 原生 reviewer 子代理：
+校验通过后，读取 `PROMPT_FILE` 全文，派发 Codex 原生 reviewer 子代理。模型和推理强度由已注册的 `codex_reviewer` agent 定义（`agents/codex_reviewer.toml` 与 runtime `~/.codex/agents/codex_reviewer.toml`）拥有；不要在 ad-hoc dispatch 里传 per-dispatch model override，除非 Codex 宿主明确支持覆盖已注册 agent 的模型。
 
 ```text
 spawn_agent({
   agent_type: "codex_reviewer",
-  message: "<full contents of PROMPT_FILE>",
-  model: "gpt-5.4",
-  reasoning_effort: "xhigh"
+  message: "<full contents of PROMPT_FILE>"
 })
 ```
 
@@ -151,5 +151,5 @@ cat > "${REVIEW_DIR}/review-${TIMESTAMP}-result.md"
 
 - 此 Skill 不写入 `workflow-state`，不消耗 Orchestrate Workflow review budget。
 - 结果目录 `.codex/codex-review/` 与正规工作流的 `.codex/multi-model-workflow/review-prompts/` 隔离。
-- 默认用 `model: "gpt-5.4"` 和 `reasoning_effort: "xhigh"`；用户要求时可以换模型。
+- Reviewer 模型配置以已注册 `codex_reviewer` agent 为准；本 Skill 不声明虚假的 per-dispatch model tier。
 - 一次性调用，不做 re-review 循环；用户要再审就再调用一次。

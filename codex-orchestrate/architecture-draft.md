@@ -280,6 +280,7 @@ Codex native worktree
       ├─ pack-returns/<run_id>/<pack-id>.json      ← worker durable return
       ├─ review-prompts/<gate>.md                  ← Codex reviewer prompt
       ├─ review-agents/<gate>.agent-id             ← baseline reviewer agent_id
+      ├─ review-registry/<gate>.json               ← review dispatch bookkeeping / budget idempotency
       ├─ review-results/<gate>.md                  ← reviewer final message
       ├─ run-summary-<run_id>.md                   ← closing 前生成的运行总结
       └─ agent-memory/<agent-name>/                ← agent 跨 session 经验
@@ -549,6 +550,8 @@ Agent 行为权威是 `agents/*.toml` 的 `developer_instructions`。`agents/per
 | 脚本 | 调用时机 | 为什么不放 hook |
 | --- | --- | --- |
 | `scripts/validate-review-dispatch.sh` | `spawn_agent` / `send_input` Codex reviewer 前 | Codex `SubagentStart` payload 不携带完整 prompt，不能在 hook 中解析 envelope |
+| `scripts/record-review-dispatch.sh` | baseline reviewer `spawn_agent` 返回 `agent_id` 后 | hook 不拥有真实返回的 reviewer `agent_id`，需要 Coordinator 显式登记 |
+| `scripts/complete-review-dispatch.sh` | reviewer final message 已保存后 | 只有 Coordinator 知道结果文件已 durable，预算递增必须和结果落盘绑定并保持幂等 |
 | `scripts/validate-pack-dispatch.sh` | `spawn_agent` worker 前 | 需要读取完整 Pack Brief、workflow-state、execution-state、disposition refs |
 | `scripts/record-pack-dispatch.sh` | `spawn_agent` worker 返回后 | 需要真实返回的 `agent_id`，hook 不拥有这个上下文 |
 
@@ -580,13 +583,17 @@ Codex 版不使用外部 `codex-companion.mjs` 或 job-id polling。所有 revie
 2. Coordinator 显式校验:
    bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" \
      --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" \
-     --transport spawn_agent
+     --transport spawn_agent \
+     --gate "<gate>"
 
-3. Coordinator 派 reviewer:
-   spawn_agent({ agent_type: "codex_reviewer", message: "<prompt>", model: "<phase model>", reasoning_effort: "xhigh" })
+3. Coordinator 派 reviewer。模型和推理强度由已注册的 `codex_reviewer` agent 配置拥有，不在 dispatch call 里声明虚假的 per-dispatch override:
+   spawn_agent({ agent_type: "codex_reviewer", message: "<prompt>" })
 
-4. Coordinator 持久化 agent_id:
-   .codex/multi-model-workflow/review-agents/<gate>.agent-id
+4. Coordinator 记录 reviewer `agent_id` 和 registry row:
+   bash "${MMW_PLUGIN_ROOT}/scripts/record-review-dispatch.sh" \
+     --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" \
+     --gate "<gate>" \
+     --agent-id "<agent_id>"
 
 5. Coordinator 等待:
    wait_agent({ targets: ["<agent_id>"], timeout_ms: 600000 })
@@ -594,8 +601,12 @@ Codex 版不使用外部 `codex-companion.mjs` 或 job-id polling。所有 revie
 6. Coordinator 保存结果:
    .codex/multi-model-workflow/review-results/<gate>.md
 
-7. Coordinator 递增 review budget:
-   bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget increment-review --run-id "<run_id>"
+7. Coordinator 完成登记并幂等递增 review budget:
+   bash "${MMW_PLUGIN_ROOT}/scripts/complete-review-dispatch.sh" \
+     --run-id "<run_id>" \
+     --gate "<gate>" \
+     --agent-id "<agent_id>" \
+     --result-file ".codex/multi-model-workflow/review-results/<gate>.md"
 ```
 
 ### Targeted re-review
@@ -603,11 +614,11 @@ Codex 版不使用外部 `codex-companion.mjs` 或 job-id polling。所有 revie
 ```text
 1. 读取 baseline reviewer agent_id
 2. 写 targeted prompt，review_intent = "targeted-re-review"，exception_code 非空，agent_id = baseline reviewer
-3. validate-review-dispatch.sh --transport send_input
+3. validate-review-dispatch.sh --transport send_input --gate "<gate>"
 4. send_input({ target: "<baseline reviewer agent_id>", message: "<targeted prompt>" })
 5. wait_agent(...)
 6. 写 review-results/<gate>-repair-<round>.md
-7. budget increment-review
+7. complete-review-dispatch.sh 记录 targeted result，并幂等递增 review budget
 ```
 
 ### Review intent 规则
@@ -678,7 +689,7 @@ Final Review → Execution 回流由 `execution_reflux_count` 限制：允许 1 
 
 | 预算 | 公式 | 递增位置 | 计量单位 |
 | --- | --- | --- | --- |
-| Review Budget | `review_total = 3P + 12` | Coordinator 在 `wait_agent` 后调用 `state.sh budget increment-review` | Codex review dispatch 次数 |
+| Review Budget | `review_total = 3P + 12` | Coordinator 保存 reviewer 结果后调用 `complete-review-dispatch.sh`，由脚本幂等调用 `state.sh budget increment-review` | Codex review dispatch 次数 |
 | Effort Budget | `effort_total = review_total * 2` | `track-effort-budget.sh` SubagentStart hook | 加权 subagent dispatch 次数 |
 
 P = plan 文件数量。Formal route 在 plan-writing 确认 plan count 后初始化；Routes 4-7 使用 `unlimited`。

@@ -35,8 +35,34 @@ BUDGET_DIR="${STATE_BASE:-.codex/multi-model-workflow}"
 REGISTRY_FILE="$BUDGET_DIR/review-registry/${GATE}.json"
 
 if [[ ! -f "$REGISTRY_FILE" ]]; then
-  echo "Error: review registry not found for gate: $GATE" >&2
-  exit 2
+  BASELINE_REGISTRY=$(find "$BUDGET_DIR/review-registry" -name '*.json' -type f 2>/dev/null \
+    -exec jq -r --arg run "$RUN_ID" --arg agent "$AGENT_ID" 'select(.run_id == $run and .agent_id == $agent and (.review_intent // "baseline") == "baseline") | input_filename' {} \; \
+    | head -1)
+  if [[ -z "$BASELINE_REGISTRY" ]]; then
+    echo "Error: review registry not found for gate: $GATE" >&2
+    exit 2
+  fi
+
+  mkdir -p "$BUDGET_DIR/review-registry"
+  now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  jq -n \
+    --arg run_id "$RUN_ID" \
+    --arg gate "$GATE" \
+    --arg agent_id "$AGENT_ID" \
+    --arg created_at "$now" \
+    '{
+      run_id: $run_id,
+      gate: $gate,
+      phase: null,
+      review_intent: "targeted-re-review",
+      agent_id: $agent_id,
+      prompt_file: null,
+      result_file: null,
+      status: "dispatched",
+      created_at: $created_at,
+      completed_at: null,
+      budget_counted: false
+    }' > "$REGISTRY_FILE"
 fi
 
 RECORDED_AGENT=$(jq -r '.agent_id // empty' "$REGISTRY_FILE")

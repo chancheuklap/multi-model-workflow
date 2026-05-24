@@ -89,6 +89,27 @@ run_test "complete-review-dispatch is idempotent for same gate" \
 run_test "review_used stays 1 after replay" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.budget.review_used') == '1' ]]"
 
+REPAIR_RESULT="$FIXTURE_DIR/review-results/plan-review-repair-1.md"
+cat > "$REPAIR_RESULT" <<'EOF'
+### Verdict
+pass
+EOF
+
+run_test "complete-review-dispatch records targeted re-review without a fresh spawn" \
+  bash "$COMPLETE" --run-id "$RUN_ID" --gate plan-review-repair-1 --agent-id reviewer-1 --result-file "$REPAIR_RESULT"
+
+run_test "targeted re-review consumes one additional review budget unit" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.budget.review_used') == '2' ]]"
+
+run_test "targeted re-review registry marks targeted intent" \
+  bash -c "[[ \$(jq -r '.review_intent' '$FIXTURE_DIR/review-registry/plan-review-repair-1.json') == 'targeted-re-review' ]]"
+
+run_test "complete-review-dispatch is idempotent for targeted re-review" \
+  bash "$COMPLETE" --run-id "$RUN_ID" --gate plan-review-repair-1 --agent-id reviewer-1 --result-file "$REPAIR_RESULT"
+
+run_test "review_used stays 2 after targeted replay" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.budget.review_used') == '2' ]]"
+
 run_test_expect_fail "complete-review-dispatch rejects missing result" \
   bash "$COMPLETE" --run-id "$RUN_ID" --gate missing-result --agent-id reviewer-1 --result-file "$FIXTURE_DIR/missing.md"
 

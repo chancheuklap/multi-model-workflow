@@ -14,8 +14,8 @@
 | Plugin manifest | `codex-orchestrate/.codex-plugin/plugin.json` | 安装后缓存：`~/.codex/plugins/cache/multi-model-workflow/multi-model-workflow/3.6.2/` |
 | Skills | `codex-orchestrate/skills/` | plugin cache skills |
 | Custom agents | `codex-orchestrate/agents/*.toml` | `~/.codex/agents/*.toml` + `~/.codex/config.toml` `[agents.<name>]` |
-| Hooks | `codex-orchestrate/hooks/hooks.json`、`codex-orchestrate/hooks/*.sh` | plugin cache hooks |
-| Review lane | `codex-orchestrate/scripts/review/review-lane.sh` | plugin cache script |
+| Hooks | `codex-orchestrate/hooks.json`、`codex-orchestrate/hooks/*.sh` | plugin cache hooks |
+| Review lane | `codex-orchestrate/skills/codex-review/SKILL.md`、`codex-orchestrate/scripts/validate-review-dispatch.sh`、`codex-orchestrate/scripts/record-review-dispatch.sh`、`codex-orchestrate/scripts/complete-review-dispatch.sh` | plugin cache skill + scripts |
 | Worktree execution | `codex-orchestrate/scripts/dispatch/` | plugin cache scripts |
 | State schema | `codex-orchestrate/state-schema/` | plugin cache schemas |
 
