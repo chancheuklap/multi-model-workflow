@@ -198,6 +198,12 @@ check "C2: review dispatch template records baseline reviewer agent" \
 check "C2: review dispatch template does not declare fake per-dispatch model" bash -c \
   "! grep -q 'phase-selected model\\|model: \"gpt-\\|reasoning_effort' '$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl'"
 
+check "C2: execution SKILL review dispatch does not declare fake per-dispatch model" bash -c \
+  "! grep -q 'phase-selected model\\|model: \"gpt-\\|reasoning_effort' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'"
+
+check "C2: execution SKILL review dispatch records and completes through scripts" bash -c \
+  "grep -q 'record-review-dispatch.sh' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md' && grep -q 'complete-review-dispatch.sh' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'"
+
 check "C2: plan implementation review gate requires committed packs" bash -c \
   "grep -q 'start_commit' '$PLUGIN_DIR/scripts/validate-review-dispatch.sh' && grep -q 'status != \"committed\"' '$PLUGIN_DIR/scripts/validate-review-dispatch.sh' && grep -q 'commit_sha' '$PLUGIN_DIR/scripts/validate-review-dispatch.sh'"
 

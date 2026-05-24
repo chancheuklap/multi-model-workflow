@@ -24,6 +24,12 @@ run_test "execution-review-dispatch delegates model authority" \
 run_test "design-review-angles delegates model authority" \
   grep -q "agents/codex_reviewer.toml" "$PLUGIN_DIR/skills/orchestrate-discovery/references/design-review-angles.md"
 
+run_test "execution SKILL delegates model authority" \
+  grep -q "agents/codex_reviewer.toml" "$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md"
+
+run_test "execution SKILL does not contain stale per-dispatch model override" \
+  bash -c "! grep -q 'phase-selected model\\|model: \"gpt-\\|reasoning_effort' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]
