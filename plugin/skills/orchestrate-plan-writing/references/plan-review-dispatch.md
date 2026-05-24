@@ -64,6 +64,14 @@ Review the implementation plan for: <feature>
 
 ## Review angles (single integrated review)
 
+### Issue Quality（小 issue 拆分审查）
+**Read 每个 issue 文件**（`docs/orchestrate/issues/<slug>/00N-*.md`），审查 plan-writer 产出的小 issue 拆分质量：
+- 小 issue 的并集是否覆盖大 issue `What to build` 的全部行为（无遗漏）
+- 粒度是否合理（单个小 issue 不应需要超过 8 个 implementation steps；单文件内单函数修改不值得独立成 issue）
+- 每个小 issue 的 acceptance criteria 是否可独立验证
+- 小 issue 之间的依赖关系是否正确（无循环、无遗漏）
+- AFK / HITL 标记是否正确（需要人工决策的标 HITL，其余标 AFK）
+
 ### Coverage & Task Quality
 验 plan 是否覆盖 source design/issues，Task Pack 是否可执行：
 - 每条 source intent 映射到 Task Pack
@@ -103,7 +111,8 @@ Review the implementation plan for: <feature>
 Critical：intent 无覆盖 / source intent 不清却直接实现 / pack 不可执行 /
 依赖错误 / 缺 Task Pack inventory / mockup 未转化 / 合同缺 anchors /
 引用不存在的路径 / 违反项目规则 / 允许 bare dict /
-高风险缺迁移回滚 / task 间逻辑矛盾 / 循环依赖
+高风险缺迁移回滚 / task 间逻辑矛盾 / 循环依赖 /
+小 issue 遗漏大 issue 行为 / 小 issue 不可独立验证 / 小 issue 依赖关系错误
 
 ## Return Contract
 ### Verdict
@@ -111,6 +120,7 @@ pass / blocked / needs repair / needs context
 ### Evidence
 ### Result
 Plan Review 结果：
+Issue Quality:
 Coverage & Task Quality:
 Compliance & Verification:
 Cross-Verification:
