@@ -7,3 +7,4 @@
 - Verification scripts must validate the root `codex-orchestrate/hooks.json` manifest and Codex-native hook contracts; do not check for removed old-host review command hooks.
 - Verification scripts must reject old worktree pseudo tools and require the executable Codex worktree contract: `git worktree add -b` into `${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>`, with no main-repository branch switch first.
 - Dispatch validation that needs the full prompt/message must live in explicit scripts called by Skills before `spawn_agent` or `send_input`; do not move it back into `SubagentStart` hooks.
+- Review dispatch bookkeeping belongs in explicit scripts: `record-review-dispatch.sh` persists baseline reviewer agent ids and registry rows, and `complete-review-dispatch.sh` records durable results and increments review budget exactly once. These scripts must not execute reviews or replace `codex_reviewer` subagents.
