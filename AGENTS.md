@@ -2,28 +2,52 @@
 
 ## 作用域
 
-本文件给 Codex 在本仓库工作时使用。它只记录稳定边界、入口和验收规则；具体实现细节以 `README.md`、相关源码和 `codex-orchestrate/**/agents.overrides.md` 为准。
+本文件是 Codex 在本仓库工作的规则入口，只记录稳定的仓库事实、所有权边界、运行时合同和验收门槛。详细架构写在 `codex-orchestrate/architecture-draft.md`；面向使用者的快速入口写在 `README.md`。
 
-## 目录边界
+## 当前真相
 
-| 路径 | 归属 | Codex 规则 |
+- 本仓库保存同一套编排思想的两个宿主实现。
+- `plugin/` 是 Claude Code plugin 源码和行为蓝本。Codex 可以只读它来做 parity 对照，但不能修改、格式化、构建、安装或暂存 `plugin/` 下的文件。
+- `codex-orchestrate/` 是 Codex 原生源码权威。skills、TOML agents、hooks、scripts、state schema、build templates、manifest 和运行时合同都应落在这里。
+- `.agents/plugins/marketplace.json` 负责把 Codex plugin 暴露给 repo-local marketplace；除非源码根目录正式迁移，否则 source path 必须继续指向 `./codex-orchestrate`。
+- `codex-orchestrate/.codex-plugin/plugin.json` 是 Codex plugin manifest；版本号以该文件为准，并且必须声明 `skills: "./skills/"` 与 `hooks: "./hooks.json"`。
+- Source 改动不等于 runtime 已生效。发布或安装类任务必须在受影响时核对 plugin cache、custom agent runtime、hook wiring 和 SessionStart 输出。
+
+## 目录合同
+
+| 路径 | 责任 | 规则 |
 | --- | --- | --- |
-| `plugin/` | Claude Code 维护和使用的 plugin 源码 | 只读参考。可以用来对照结构、行为和迁移意图，但不能修改、格式化、构建、安装或把变更落到这里。 |
-| `codex-orchestrate/` | Codex Orchestrate 源码 | Codex 的主工作区。skills、agents、hooks、scripts、state schema、build、manifest 的改动都应落在这里。 |
-| `.agents/plugins/marketplace.json` | repo-local Codex marketplace | 只在 Codex 插件入口变化时改，默认 source path 必须指向 `./codex-orchestrate`。 |
-| `docs/orchestrate/`、`atomic-codex-orchestrate-replication-plan.md` | 设计、计划、验收材料 | 改变流程、合同、验收口径或发布判断时同步更新。 |
+| `codex-orchestrate/architecture-draft.md` | Codex 架构权威 | 必须贴合 live source 合同；不要为了让文档好看而改运行时行为。 |
+| `codex-orchestrate/skills/` | Codex skill 入口 | 保留 route graph 和 phase contract；phase reference 必须能从所属 skill 找到。 |
+| `codex-orchestrate/agents/*.toml` | Codex custom agents | agent 指令必须自足；subagent 不会自动继承父 skill 的 references。 |
+| `codex-orchestrate/hooks.json` | Codex hook manifest | hook 注册在这里；`hooks/` 只放可执行 handler。不要迁回 `hooks/hooks.json`。 |
+| `codex-orchestrate/hooks/` | Hook handlers | 使用 Codex payload 和 plugin-root 路径，不使用旧宿主 payload 名称或依赖 cwd 的路径。 |
+| `codex-orchestrate/scripts/` | 状态、派发、验证、summary 工具 | 状态路径属于 `.codex/multi-model-workflow/`；不要给旧 runtime 加 fallback。 |
+| `codex-orchestrate/state-schema/` | workflow / execution state 合同 | schema、`state.sh`、validators 和生成文本必须一致。 |
+| `codex-orchestrate/build/` | template / resolver 系统 | 改 template 要 build apply/check；生成片段必须和 resolver 输出一致。 |
+| `docs/orchestrate/` | 设计与审查证据 | workflow 行为、成熟度标准、route 语义或验收门槛变化时同步更新。 |
 
-## 工作规则
+## Workflow 合同
 
-- 开工先确认改动属于 Codex Orchestrate，而不是 Claude Code plugin。
-- 需要参考 `plugin/` 时只读必要文件；不要把 `plugin/` 当成 Codex runtime 真相。
-- 从 `plugin/` 对照迁移时，必须翻译成 Codex-native 路径、hooks、subagent、state 和安装合同，不能保留旧宿主兼容兜底。
-- 改 `codex-orchestrate/` 子目录时，同时检查同级或上级 `agents.overrides.md` 是否需要更新。
-- 每个有意义的变更单独提交；不要把无关主题塞进同一个 commit。
+- `orchestrate-workflow` 是 coordinator 入口。Formal work 依次走 discovery、plan writing、execution、final review 和 closing。
+- Route 2 处理未知根因 bug；Route 3 处理 multi-PR merge；Routes 4-7 分别覆盖 hotfix、quick fix、spike、maintenance。不要把这些路线压成一个泛执行流程。
+- 派发必须是 Codex-native：使用 `spawn_agent`、`send_input`、`wait_agent`，并调用已注册的 `pack_executor`、`complex_pack_executor`、`plan_writer`、`codex_reviewer`、`root_cause_analyst` 和 explorer agents。
+- Pack / review prompt 必须自带 scope、anchors、return contract 和 routing vocabulary。不要假设 worker 或 reviewer 能从父 skill 隐式推断上下文。
+- 高风险合同栈是 `workflow-state` / `execution-state`、`DISPATCH_ENVELOPE`、dispatch validators、hook registration、template-generated text、review budget 和 verify harness。成熟度或 runtime 变更必须逐层核。
+- Hook 的价值在于从 Codex plugin manifest 自动触发。能手动运行的 helper script 不等于 hook wiring 已生效。
+- `plugin/` 可以提供行为意图，但 Codex 落地必须使用 Codex-native 路径、payload、subagent 字段、state file 和安装合同。
 
-## 验证入口
+## 改动纪律
 
-按改动面选择最小但真实的验证。涉及 Codex Orchestrate 行为时优先使用：
+- 改动前先读 `README.md`、本文件、相关 `codex-orchestrate/**/agents.overrides.md` 和实际要动的源码。
+- 改 `codex-orchestrate/` 子目录时，同步检查本层或上层 `agents.overrides.md` 是否需要更新。
+- 除非用户明确要求 Claude Code plugin 工作，否则不要修改 `plugin/`。
+- 不要重建 `.agents/skills/orchestrate-*` 或旧 `codex/` 源码树作为当前权威。
+- commit 要原子且及时。一个有意义的 repo rule、runtime contract、hook、build 或 doc-sync 改动应单独提交。
+
+## 验证门槛
+
+按改动面选择能证明合同的最小验证。涉及 Codex Orchestrate 行为时优先使用：
 
 ```bash
 bash codex-orchestrate/build/build.sh --check --plugin-dir codex-orchestrate
@@ -33,3 +57,5 @@ uv run --with pyyaml --no-project \
   python ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py \
   codex-orchestrate
 ```
+
+发布或安装类任务还要验证 source/runtime parity，不要只相信安装输出。按 manifest 版本核对 `~/.codex/plugins/cache/multi-model-workflow/multi-model-workflow/<version>/` 下的 plugin cache、`~/.codex/agents/` 下的 agent TOML，以及本次改动涉及的 hook / SessionStart 行为。
