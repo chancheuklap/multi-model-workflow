@@ -1,114 +1,114 @@
-# Claude Plugin Review System Synchronization Plan
+# Claude Code Plugin Review 系统同步计划
 
-## Purpose
+## 目的
 
-This plan records how to carry the review-system improvements back to the Claude Code plugin source in `plugin/`.
+本文档记录如何把 review 系统优化同步回 Claude Code plugin source，也就是 `plugin/`。
 
-The target is behavior-level parity, not mechanical replacement. The Claude plugin and Codex plugin use different host mechanics. Shared review intent should be synchronized, while host-specific dispatch, hook payloads, agent naming, state paths, and runtime contracts must remain native to the Claude plugin.
+目标是行为层面对齐，不是机械替换。Claude plugin 和 Codex plugin 的宿主机制不同。两边应同步共同的 review 意图和流程能力，但 dispatch 方式、hook payload、agent 命名、state 路径和 runtime 合同必须保持各自宿主原生。
 
-The Codex optimization should land first. After it is validated, the Claude plugin can receive the same content and workflow improvements with Claude-native implementation details.
+执行顺序上，先完成并验证 Codex 原生优化，再按本计划同步 Claude plugin。
 
-## Scope
+## 范围
 
-Synchronize these improvements into `plugin/`:
+同步到 `plugin/` 的内容：
 
-- Evidence Table in review outputs.
-- Cross-Plan Contract Map in the plan-writing to final-review flow.
-- Central repair routing based on finding risk and repair shape.
-- Regression evidence requirements for repair work.
-- `review_effectiveness` downgrade to optional diagnostic.
+- Review 输出中的证据表。
+- Plan Writing 到 Final Review 流程中的跨计划合同图。
+- 基于 finding 风险和修复形态的统一 repair routing。
+- Repair 工作的回归证据要求。
+- `review_effectiveness` 降级为可选诊断。
 
-Do not synchronize rejected ideas:
+明确不同步的内容：
 
-- no Intent Ledger
-- no review-content risk prioritization
-- no imported Codex PR review product flow
-- no extra review phase
+- 不增加 Intent Ledger。
+- 不做 review 内容风险分层。
+- 不引入 Codex PR review 产品流程。
+- 不增加额外 review phase。
 
-## Claude Plugin Boundaries
+## Claude Plugin 边界
 
-The Claude plugin must keep its own host contracts:
+Claude plugin 必须保留自己的宿主合同：
 
-- Claude plugin agent files use Markdown agents under `plugin/agents/`.
-- Claude dispatch should keep the plugin's existing Agent tool and resume semantics.
-- Claude hooks live under `plugin/hooks/` and use Claude hook payloads.
-- Existing plugin review integration such as `gate-codex-review.sh`, `track-review-budget.sh`, and Codex companion review dispatch should be preserved unless a concrete plugin-side bug requires changing it.
-- State paths and runtime contracts should remain Claude-plugin-native, not rewritten to `.codex/multi-model-workflow/`.
+- Claude plugin agent 文件是 `plugin/agents/` 下的 Markdown agents。
+- Claude dispatch 保留现有 `Agent` tool 和 `SendMessage` resume 语义。
+- Claude hooks 位于 `plugin/hooks/`，并使用 Claude hook payload。
+- 现有 plugin review 集成，例如 `gate-codex-review.sh`、`track-review-budget.sh`、`codex-companion.mjs` review dispatch，在没有明确 plugin-side bug 时必须保留。
+- State 路径和 runtime 合同保持 Claude-plugin-native，不能改写成 `.codex/multi-model-workflow/`。
 
-Do not port Codex-only mechanisms into `plugin/`:
+不得把 Codex-only 机制移植到 `plugin/`：
 
-- no `spawn_agent` / `send_input` / `wait_agent` wording unless the Claude plugin already uses equivalent terminology
-- no Codex custom-agent TOML contracts
-- no Codex hook payload assumptions
-- no Codex runtime sync behavior
+- 不写 `spawn_agent` / `send_input` / `wait_agent`，除非 Claude plugin 现有文本里已经把它们作为对照说明。
+- 不引入 Codex custom-agent TOML 合同。
+- 不假设 Codex hook payload。
+- 不引入 Codex runtime sync 行为。
 
-## Preflight: Plugin Build and Anchor Health
+## 预检：Plugin Build 和 Anchor 健康度
 
-Before changing review content, verify the plugin's build anchors.
+修改 review 内容之前，先验证 plugin 的 build anchors。
 
-Prior audit notes indicated some `<!-- BEGIN: review-dispatch -->` anchors had once been inline with preceding text, which could cause build replacement to skip them. Current source must be checked before assuming this is still a live bug.
+历史 audit 曾指出部分 `<!-- BEGIN: review-dispatch -->` anchor 可能和前文同行，导致 build replacement 跳过。当前 source 必须现场检查，不能把历史 finding 自动当作当前 bug。
 
-### Source Targets
+### 源码目标
 
 - `plugin/build/templates/review-dispatch.md.tmpl`
 - `plugin/build/resolvers/review-dispatch.sh`
-- review references under `plugin/skills/**/references/`
-- plugin build tests under `plugin/build/tests/`
-
-### Acceptance
-
-- `plugin/build/build.sh --check` can verify review-dispatch generated sections.
-- Review-dispatch anchors are on their own lines and can be replaced consistently.
-- If the build check and own-line anchor check pass, do not create an anchor-repair change just because the historical audit once found this issue.
-- No Codex-native wording is introduced during anchor repair.
-
-## Work Package 1: Evidence Table
-
-### Change
-
-Add the same semi-structured Evidence Table requirement to Claude plugin review output contracts.
-
-Recommended fields are the same as the Codex plan:
-
-| Field | Meaning |
-| --- | --- |
-| `Design / mockup / plan sources read` | The documents the reviewer actually read. |
-| `Code or artifact paths inspected` | Files, generated artifacts, state schema, hooks, templates, or docs inspected. |
-| `Commands or validations run` | Commands actually executed by the reviewer, if any. |
-| `Findings supported by` | The concrete path, line, diff, command, or behavior used as evidence. |
-| `Assumptions` | Any assumption that could affect the verdict. |
-| `Unverified items` | Anything relevant that the reviewer could not verify. |
-
-### Claude Plugin Source Targets
-
-- `plugin/build/templates/review-dispatch.md.tmpl`
-- all generated `review-dispatch` anchor consumers under `plugin/skills/**`, including `plugin/skills/orchestrate-execution/SKILL.md` and references under `plugin/skills/**/references/`
-- `plugin/skills/codex-review/SKILL.md`, because the ad-hoc review skill has a separate output contract and is not generated from the shared template
+- `plugin/skills/**/references/` 下的 review references
 - `plugin/build/tests/`
 
-### Acceptance
+### 验收
 
-- All Claude plugin review dispatch prompts require the Evidence Table.
-- Ad-hoc review also requires the Evidence Table.
-- Build tests fail if the Evidence Table disappears from any `review-dispatch` anchor consumer or from the ad-hoc review skill.
+- `plugin/build/build.sh --check` 能验证 review-dispatch 生成片段。
+- `review-dispatch` anchors 独占一行，并且能被稳定替换。
+- 如果 build check 和 anchor 独占行检查都通过，不为了历史 audit 记录额外制造 anchor repair commit。
+- Anchor repair 不引入 Codex-native 术语。
 
-## Work Package 2: Cross-Plan Contract Map
+## 工作包 1：证据表
 
-### Change
+### 改动
 
-Add the Cross-Plan Contract Map to the Claude plugin plan-writing flow.
+把同样的半结构化证据表要求加入 Claude plugin review 输出合同。
 
-The artifact path should match Codex so documentation artifacts stay host-agnostic:
+建议字段与 Codex 计划一致：
+
+| 字段 | 含义 |
+| --- | --- |
+| `已读设计 / mockup / plan 来源` | Reviewer 实际读过的文档。 |
+| `已检查代码或产物路径` | 已检查的文件、生成产物、state schema、hooks、templates 或文档。 |
+| `已运行命令或验证` | Reviewer 实际执行过的命令或验证。 |
+| `Finding 证据` | 支撑 finding 的具体路径、行号、diff、命令或行为。 |
+| `假设` | 可能影响 verdict 的假设。 |
+| `未验证项` | 相关但未能验证的内容。 |
+
+### Claude Plugin 源码目标
+
+- `plugin/build/templates/review-dispatch.md.tmpl`
+- `plugin/skills/**` 下所有生成的 `review-dispatch` anchor consumer，包括 `plugin/skills/orchestrate-execution/SKILL.md` 和 `plugin/skills/**/references/` 下的 references
+- `plugin/skills/codex-review/SKILL.md`，因为 ad-hoc review skill 有独立 output contract，且没有从共享 template 生成
+- `plugin/build/tests/`
+
+### 验收
+
+- 所有 Claude plugin review dispatch prompts 都要求证据表。
+- Ad-hoc review 也要求证据表。
+- 如果任意 `review-dispatch` anchor consumer 或 ad-hoc review skill 丢失证据表，build tests 必须失败。
+
+## 工作包 2：跨计划合同图
+
+### 改动
+
+把跨计划合同图加入 Claude plugin 的 plan-writing 流程。
+
+Artifact 路径应与 Codex 保持一致，确保文档产物与宿主无关：
 
 `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`
 
-### Timing
+### 产生时机
 
-- Generate after all plan documents are written.
-- Review during Plan Review.
-- Consume during Final Review.
+- 所有 plan 文档写完后生成。
+- Plan Review 阶段 review。
+- Final Review 阶段再次消费。
 
-### Claude Plugin Source Targets
+### Claude Plugin 源码目标
 
 - `plugin/skills/orchestrate-plan-writing/SKILL.md`
 - `plugin/skills/orchestrate-plan-writing/references/plan-review-dispatch.md`
@@ -116,24 +116,24 @@ The artifact path should match Codex so documentation artifacts stay host-agnost
 - `plugin/skills/orchestrate-final-review/references/final-review-angles.md`
 - `plugin/skills/orchestrate-final-review/references/final-review-preconditions.md`
 - `plugin/architecture-draft.md`
-- plugin build tests or grep assertions
+- plugin build tests 或 grep assertions
 
-### Acceptance
+### 验收
 
-- Claude plugin Plan Writing produces the map before Plan Review.
-- Plan Review checks producer, consumer, ownership, and verification conflicts.
-- Final Review reuses the map to inspect integrated cross-plan behavior.
+- Claude plugin Plan Writing 在 Plan Review 前生成合同图。
+- Plan Review 检查 producer、consumer、ownership 和 verification 冲突。
+- Final Review 使用合同图审查集成后的跨 plan 行为。
 
-## Work Package 3: Central Repair Routing
+## 工作包 3：统一修复分流
 
-### Change
+### 改动
 
-Add a shared repair-routing block to the Claude plugin build system, adapted to Claude-native dispatch.
+给 Claude plugin build system 增加共享 repair-routing block，并适配 Claude-native dispatch。
 
-### Claude Plugin Source Targets
+### Claude Plugin 源码目标
 
-- new `plugin/build/templates/repair-routing.md.tmpl`
-- new `plugin/build/resolvers/repair-routing.sh`
+- 新增 `plugin/build/templates/repair-routing.md.tmpl`
+- 新增 `plugin/build/resolvers/repair-routing.sh`
 - `plugin/skills/orchestrate-plan-writing/references/plan-review-resolution.md`
 - `plugin/skills/orchestrate-execution/references/execution-repair-truncation.md`
 - `plugin/skills/orchestrate-final-review/references/final-review-repair.md`
@@ -145,35 +145,35 @@ Add a shared repair-routing block to the Claude plugin build system, adapted to 
 - `plugin/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md`
 - `plugin/build/tests/`
 
-### Claude-Native Routing Language
+### Claude-native 分流语言
 
-The routing logic should match Codex conceptually, but the words and mechanics must match the Claude plugin:
+分流逻辑在概念上与 Codex 一致，但文字和机制必须使用 Claude plugin 现有语言：
 
-| Finding / repair shape | Claude plugin repair owner |
+| Finding / 修复形态 | Claude plugin 修复 owner |
 | --- | --- |
-| Small, local, clearly scoped, no contract boundary | Coordinator Path A self-fix is allowed. |
-| Same pack, normal code repair, original worker has sufficient capability | Resume or re-dispatch the original pack executor through the plugin's existing agent mechanism. |
-| Cross-module, migration, billing, permission, runtime, shared contract, state machine, or generated-template issue | Use the complex pack executor route. |
-| Root cause unclear | Use the plugin's explorer route first. |
-| Systemic bug, repeated failed repair, or regression with unknown cause | Use the plugin's existing `root-cause-analyst` route. |
-| Cross-plan contract issue discovered during Final Review | Return `NEEDS_EXECUTION` once and route through execution repair. |
-| Design, mockup, or plan is insufficient to decide correctness | Backflow to Discovery or Plan Writing. |
-| Path A repair fails targeted re-review | Escalate to Path B. |
+| 范围小、本地化、意图清楚、不碰合同边界 | 允许 Coordinator Path A 自修。 |
+| 同一个 pack 内的普通修复，原 worker 能胜任 | 通过 plugin 现有 agent 机制 resume 或 re-dispatch 原 pack executor。 |
+| 跨模块、migration、billing、permission、runtime、共享合同、state machine、生成模板问题 | 使用 complex pack executor 路径。 |
+| 根因不清 | 先使用 plugin 的 explorer 路径。 |
+| 系统性 bug、重复修复失败、未知 regression | 使用 plugin 现有 `root-cause-analyst` 路径。 |
+| Final Review 发现跨 plan 合同问题 | 返回一次 `NEEDS_EXECUTION`，通过 execution repair 处理。 |
+| 设计、mockup 或 plan 不足以判断正确性 | 回流 Discovery 或 Plan Writing。 |
+| Path A repair targeted re-review 失败 | 升级 Path B。 |
 
-### Acceptance
+### 验收
 
-- Repair routing is shared across all Claude plugin review repair paths, including formal plan/execution/final review, release gates, direct repair, bug investigation, and multi-PR integration review.
-- The shared block uses Claude plugin agent names, hook names, and resume mechanisms.
-- The plugin does not receive Codex-only tool names or state paths.
-- Existing hand-written targeted re-review commands, such as multi-PR integration re-review, are either moved to the shared review-dispatch template or explicitly updated to satisfy the plugin's `--resume` gate.
+- Repair routing 覆盖所有 Claude plugin review repair 路径，包括 formal plan / execution / final review、release gates、direct repair、bug investigation 和 multi-PR integration review。
+- 共享 block 使用 Claude plugin agent names、hook names 和 resume 机制。
+- Plugin 不引入 Codex-only tool names 或 state paths。
+- 现有手写 targeted re-review 命令，例如 multi-PR integration re-review，要么迁入共享 `review-dispatch` template，要么明确更新为满足 plugin 的 `--resume` gate。
 
-## Work Package 4: Regression Evidence
+## 工作包 4：回归证据
 
-### Change
+### 改动
 
-Update Claude plugin repair agents and repair references so accepted findings require regression evidence or an explicit manual validation gate.
+更新 Claude plugin repair agents 和 repair references，要求 accepted findings 的修复返回回归证据或明确 manual validation gate。
 
-### Claude Plugin Source Targets
+### Claude Plugin 源码目标
 
 - `plugin/agents/pack-executor.md`
 - `plugin/agents/complex-pack-executor.md`
@@ -182,45 +182,45 @@ Update Claude plugin repair agents and repair references so accepted findings re
 - `plugin/skills/orchestrate-workflow/references/bug-investigation-route.md`
 - `plugin/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md`
 - `plugin/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md`
-- repair references touched by Work Package 3
-- release-gate references touched by Work Package 3
-- plugin tests or grep assertions for the repair return contract
+- 工作包 3 触碰的 repair references
+- 工作包 3 触碰的 release-gate references
+- plugin tests 或 grep assertions：断言 repair return contract 包含回归证据
 
-### Acceptance
+### 验收
 
-- Repair agent output includes regression evidence.
-- The prompt discourages low-value microscopic tests that only lock implementation details.
-- Release Gate checks evidence before declaring a review repair complete.
-- Root-cause analyst fixes, Coordinator Path A fixes, direct repair fixes, and multi-PR repair fixes are covered by the same evidence rule.
+- Repair agent output 包含回归证据。
+- Prompt 明确避免低价值微型测试，不测试实现细节。
+- Release Gate 在宣布 review repair 完成前检查证据。
+- `root-cause-analyst` 修复、Coordinator Path A 修复、direct repair 修复和 multi-PR repair 修复都使用同一证据规则。
 
-## Work Package 5: Review Effectiveness Downgrade
+## 工作包 5：Review Effectiveness 降级
 
-### Change
+### 改动
 
-Downgrade `review_effectiveness` in the Claude plugin from core maturity proof to optional diagnostic.
+把 Claude plugin 中的 `review_effectiveness` 从核心成熟度证明降级为可选诊断。
 
-The Claude plugin appears to be the original source for this feature. That makes the plugin-side downgrade more sensitive than the Codex downgrade. The first change should be wording and gate status, not deletion.
+Claude plugin 很可能是该功能的原始来源，因此 plugin-side 降级比 Codex 降级更敏感。第一步应是 wording 和 gate status 调整，不直接删除。
 
-### Claude Plugin Source Targets
+### Claude Plugin 源码目标
 
 - `plugin/architecture-draft.md`
 - `plugin/scripts/verify-maturity.sh`
 - `plugin/scripts/lib/review-effectiveness.sh`
 - `plugin/state-schema/workflow-state-v1.json`
 - `plugin/scripts/state.sh`
-- related tests only if gate wording or maturity assertions need to change
+- 只有当 gate wording 或 maturity assertion 需要改变时，才触碰相关 tests
 
-### Acceptance
+### 验收
 
-- Plugin maturity does not depend on `review_effectiveness` as proof of review correctness.
-- If the field and script remain for observability compatibility, `verify-maturity.sh` may keep existence checks, but warning generation must not be described as a correctness gate.
-- If implementation chooses to make the field truly optional, schema, state initialization, and state tests must be updated in the same commit.
-- Existing scripts can remain for compatibility.
-- Deletion, if desired later, is handled as a separate cleanup.
+- Plugin maturity 不再依赖 `review_effectiveness` 来证明 review 正确性。
+- 如果为了 observability compatibility 保留字段和脚本，`verify-maturity.sh` 可以保留 existence check，但 warning generation 不能被描述为 correctness gate。
+- 如果 implementation 选择让该字段真正 optional，必须在同一个 commit 里同步 schema、state 初始化和 state tests。
+- 现有脚本可以暂时保留以维持兼容。
+- 如后续要删除，作为单独 cleanup 处理。
 
-## Validation
+## 验证
 
-Use plugin-native validation after each plugin work package:
+每个 plugin 工作包完成后使用 plugin-native 验证：
 
 ```bash
 bash plugin/build/build.sh --check --plugin-dir plugin
@@ -228,32 +228,32 @@ bash plugin/scripts/verify-maturity.sh
 bash plugin/scripts/run-all-tests.sh
 ```
 
-Also inspect the resulting diff:
+同时检查 plugin diff：
 
 ```bash
 git diff -- plugin/
 ```
 
-The diff must not introduce Codex-native host terms into Claude plugin runtime contracts.
+Diff 不得引入 Codex-native host terms 到 Claude plugin runtime contracts。
 
-## Commit Sequence
+## 提交顺序
 
-Keep Claude plugin synchronization separate from Codex source changes:
+Claude plugin 同步必须和 Codex source 修改分开：
 
-1. Plugin anchor and build-health repair, if required.
-2. Plugin Evidence Table.
-3. Plugin Cross-Plan Contract Map.
-4. Plugin central repair routing.
-5. Plugin regression evidence contract.
-6. Plugin `review_effectiveness` downgrade.
+1. Plugin anchor 和 build-health repair，如现场验证确实需要。
+2. Plugin 证据表。
+3. Plugin 跨计划合同图。
+4. Plugin 统一 repair routing。
+5. Plugin 回归证据合同。
+6. Plugin `review_effectiveness` 降级。
 
-Do not mix Codex and Claude plugin source modifications in the same commit unless the commit is a documentation-only plan that explicitly records both tracks.
+不要把 Codex 和 Claude plugin source 修改混在同一个 commit 里，除非该 commit 只是记录两条路线的 documentation-only plan。
 
-## Execution Order
+## 执行顺序
 
-1. Finish and validate the Codex-native source optimization.
-2. Compare the final Codex source changes against this plugin synchronization plan.
-3. Apply the same review-system behavior to `plugin/` using Claude-native mechanics.
-4. Run plugin validation.
-5. Review the plugin diff specifically for accidental Codex host terminology.
-6. Commit plugin changes in separate atomic commits.
+1. 完成并验证 Codex-native source optimization。
+2. 对照本同步计划检查最终 Codex source changes。
+3. 使用 Claude-native 机制把同样的 review-system 行为应用到 `plugin/`。
+4. 运行 plugin validation。
+5. 专门检查 plugin diff，确认没有误引入 Codex host terminology。
+6. 按独立原子 commit 提交 plugin changes。

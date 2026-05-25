@@ -1,100 +1,100 @@
-# Codex Review System Optimization Plan
+# Codex Review 系统修复与优化计划
 
-## Purpose
+## 目的
 
-This plan records the next repair and optimization pass for the Codex-native review system in `codex-orchestrate/`.
+本文档记录 `codex-orchestrate/` 这套 Codex 原生 review 系统的下一轮修复与优化计划。
 
-The goal is not to add more review ceremonies. The goal is to make the existing review chain more faithful to the workflow design:
+目标不是增加更多 review 仪式，而是让现有 review 链条更忠于 workflow 的设计意图：
 
-- Design and mockup documents remain the source of intent. Reviewers must read them directly.
-- Plan Review checks whether each plan can implement the design and whether plans connect to each other correctly.
-- Plan Implementation Review checks whether each completed plan matches its reviewed plan and design anchors.
-- Final Review checks the integrated result across all plans, not just whether every individual plan passed.
-- Repair routing is based on the risk and nature of the finding, not on a pre-labeled risk class for review content.
-- Tests or validation evidence must prove the repaired behavior without creating unnecessary test bloat.
+- 设计文档和 mockup 文档仍然是意图来源。Reviewer 必须直接读取这些文档，不能依赖二手摘要。
+- Plan Review 要检查每份 plan 是否能落地设计意图，也要检查 plan 之间的合同是否能接上。
+- Plan Implementation Review 要检查每个完成后的 plan 是否匹配已 review 的 plan、设计锚点和 mockup 锚点。
+- Final Review 要检查所有 plan 合并后的整体结果，而不是只确认每个 plan 单独通过。
+- 修复分流依据 finding 的风险和修复形态，而不是提前给 review 内容分风险等级。
+- 测试或验证证据要证明修复后的行为，不制造没有价值的细碎测试膨胀。
 
-This is a source-only plan. It must not sync changes into the installed runtime or plugin cache unless the user explicitly approves that as a separate runtime step.
+本计划只针对 source。除非用户明确批准单独的 runtime 步骤，否则不得把修改同步到已安装 runtime 或 plugin cache。
 
-## Non-Goals
+## 明确不做
 
-- Do not add an Intent Ledger. Intent is unstable and must be reconstructed by reviewers from the Design and Mockup documents.
-- Do not rank review areas by content risk. All review content is important.
-- Do not add extra review phases unless an existing phase cannot express the required check.
-- Do not import Codex PR review or security-review product behavior as a core workflow requirement.
-- Do not remove the existing `review_effectiveness` implementation in the same change set unless a separate cleanup is approved.
-- Do not change Claude plugin source from this plan. Claude plugin synchronization is covered by the second plan.
+- 不增加 Intent Ledger。意图不稳定，必须由 reviewer 重新阅读 Design 和 Mockup 文档来判断。
+- 不给 review 内容做风险等级排序。所有 review 内容都同等重要。
+- 不增加新的 review phase，除非现有 phase 无法表达必要检查。
+- 不把 Codex PR review 或安全审查产品功能当作本 workflow 的核心要求引入。
+- 不在同一个改动里删除现有 `review_effectiveness` 实现；如需删除，单独做 cleanup。
+- 本计划不修改 Claude plugin source。Claude plugin 同步由第二份计划处理。
 
-## Work Package 1: Evidence Table
+## 工作包 1：证据表
 
-### Change
+### 改动
 
-Add a required semi-structured Evidence Table to the review output contract.
+在 review 输出合同里加入必填的半结构化证据表。
 
-This table should force the reviewer to show what they actually inspected before issuing a verdict. It is not an intent summary and it is not a replacement for reading the design docs.
+证据表的作用是让 reviewer 明确展示自己实际检查过什么。它不是意图摘要，也不能替代阅读设计文档。
 
-Recommended fields:
+建议字段：
 
-| Field | Meaning |
+| 字段 | 含义 |
 | --- | --- |
-| `Design / mockup / plan sources read` | The documents the reviewer actually read. |
-| `Code or artifact paths inspected` | Files, generated artifacts, state schema, hooks, templates, or docs inspected. |
-| `Commands or validations run` | Commands actually executed by the reviewer, if any. |
-| `Findings supported by` | The concrete path, line, diff, command, or behavior used as evidence. |
-| `Assumptions` | Any assumption that could affect the verdict. |
-| `Unverified items` | Anything relevant that the reviewer could not verify. |
+| `已读设计 / mockup / plan 来源` | Reviewer 实际读过的文档。 |
+| `已检查代码或产物路径` | 已检查的文件、生成产物、state schema、hooks、templates 或文档。 |
+| `已运行命令或验证` | Reviewer 实际执行过的命令或验证。 |
+| `Finding 证据` | 支撑 finding 的具体路径、行号、diff、命令或行为。 |
+| `假设` | 可能影响 verdict 的假设。 |
+| `未验证项` | 相关但未能验证的内容。 |
 
-### Codex Source Targets
+### Codex 源码目标
 
 - `codex-orchestrate/build/templates/review-dispatch.md.tmpl`
 - `codex-orchestrate/skills/codex-review/SKILL.md`
-- generated review references produced by `codex-orchestrate/build/build.sh --apply`
-- build tests that assert the Evidence Table appears in both phase review prompts and ad-hoc Codex review prompts
+- 由 `codex-orchestrate/build/build.sh --apply` 生成的 review references
+- build tests：断言 phase review prompt 和 ad-hoc Codex review prompt 都包含证据表
 
-### Implementation Notes
+### 实施说明
 
-`review-dispatch.md.tmpl` is the right primary source because it already carries the shared review behavior: confidence rubric, pre-emit verification, rationalization prevention, and review-bias indicators.
+`review-dispatch.md.tmpl` 是主要入口，因为它已经承载了共享 review 行为：confidence rubric、pre-emit verification、rationalization prevention 和 bias indicators。
 
-`codex-review/SKILL.md` needs a direct update because ad-hoc review is not only a generated phase reference. It must use the same evidence discipline even when invoked outside the formal Orchestrate phase flow.
+`codex-review/SKILL.md` 需要单独修改，因为 ad-hoc review 不完全依赖生成后的 phase reference。它即使不进入正式 Orchestrate phase，也必须使用同样的证据纪律。
 
-### Acceptance
+### 验收
 
-- Every generated `review-dispatch` consumer requires the Evidence Table, including Design Review, Plan Review, Plan Implementation Review, Final Review, Release Gate, Multi-PR Integration Review, direct repair review, bug fix review, and targeted re-review prompts.
-- Ad-hoc Codex Review requires the Evidence Table even though it has a separate prompt contract.
-- Reviewers are instructed to leave fields explicit rather than silently omitting unverified areas.
-- Build tests fail if any `review-dispatch` anchor consumer or the ad-hoc review skill loses the Evidence Table.
+- 所有生成的 `review-dispatch` consumer 都必须要求证据表，包括 Design Review、Plan Review、Plan Implementation Review、Final Review、Release Gate、Multi-PR Integration Review、direct repair review、bug fix review 和 targeted re-review。
+- Ad-hoc Codex Review 也必须要求证据表，即使它有独立 prompt 合同。
+- Reviewer 被要求显式填写未验证项，而不是静默省略。
+- 如果任意 `review-dispatch` anchor consumer 或 ad-hoc review skill 丢失证据表，build tests 必须失败。
 
-## Work Package 2: Cross-Plan Contract Map
+## 工作包 2：跨计划合同图
 
-### Change
+### 改动
 
-Create a Cross-Plan Contract Map after all implementation plans are written and before Plan Review starts.
+在所有 implementation plan 写完之后、Plan Review 开始之前，生成一份跨计划合同图。
 
-This artifact is not an Intent Ledger. It only records explicit cross-plan connection surfaces: shared interfaces, state fields, migrations, generated artifacts, hooks, contracts, data ownership, ordering assumptions, and verification responsibilities.
+这不是 Intent Ledger。它只记录明确的跨 plan 连接面：共享接口、state 字段、migration、生成产物、hook、合同、数据所有权、顺序假设和验证责任。
 
-Recommended artifact path:
+建议产物路径：
 
 `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`
 
-Recommended fields:
+建议字段：
 
-| Field | Meaning |
+| 字段 | 含义 |
 | --- | --- |
-| `Surface` | The contract, artifact, state field, hook, route, schema, UI behavior, or shared module. |
-| `Producer plan` | The plan responsible for creating or changing it. |
-| `Consumer plan(s)` | Plans that depend on it. |
-| `Owner` | Which plan or system owns future changes. |
-| `Verification` | How the integrated contract is checked. |
-| `Final Review focus` | What Final Review must re-check across plans. |
+| `连接面` | 合同、产物、state 字段、hook、route、schema、UI 行为或共享模块。 |
+| `生产方 plan` | 负责创建或修改该连接面的 plan。 |
+| `消费方 plan` | 依赖该连接面的 plan。 |
+| `Owner` | 后续由哪个 plan 或系统负责维护。 |
+| `验证方式` | 如何检查集成后的合同是否成立。 |
+| `Final Review 重点` | Final Review 必须重新检查的跨 plan 风险。 |
 
-### Timing
+### 产生时机
 
-The map should be produced after plan generation because only then are the plan boundaries and ownership claims visible.
+合同图应在 plan 生成之后产生，因为只有这时 plan 边界和 ownership 才可见。
 
-It should be reviewed during Plan Review because Plan Review is the last cheap moment to catch broken plan boundaries before implementation begins.
+合同图应在 Plan Review 阶段被 review，因为这是 implementation 前发现 plan 边界错误的最低成本节点。
 
-It should be consumed again during Final Review because a set of individually passing plans can still break when their shared contracts are combined.
+合同图还应在 Final Review 阶段被再次消费，因为所有 plan 单独通过后，合并在一起仍然可能在共享合同上出错。
 
-### Codex Source Targets
+### Codex 源码目标
 
 - `codex-orchestrate/skills/orchestrate-plan-writing/SKILL.md`
 - `codex-orchestrate/skills/orchestrate-plan-writing/references/plan-review-dispatch.md`
@@ -102,46 +102,46 @@ It should be consumed again during Final Review because a set of individually pa
 - `codex-orchestrate/skills/orchestrate-final-review/references/final-review-angles.md`
 - `codex-orchestrate/skills/orchestrate-final-review/references/final-review-preconditions.md`
 - `codex-orchestrate/architecture-draft.md`
-- relevant build tests or grep assertions
+- 相关 build tests 或 grep assertions
 
-### Implementation Notes
+### 实施说明
 
-Do not create a script generator first. The Coordinator can produce the Markdown map by reading all plan files. A script is only justified later if repeated manual production becomes error-prone.
+第一版不创建脚本生成器。Coordinator 读取所有 plan 文件后直接生成 Markdown 合同图。只有当人工生成反复出错时，才考虑脚本。
 
-The map should remain compact. It should only list cross-plan contracts, not every file touched by every plan.
+合同图必须保持紧凑，只列跨 plan 合同，不列每个 plan 的全部 touched files。
 
-### Acceptance
+### 验收
 
-- Plan Writing requires the Coordinator to produce the Cross-Plan Contract Map before Plan Review dispatch.
-- Plan Review explicitly reviews the map for missing producers, missing consumers, ownership conflicts, and unverifiable contracts.
-- Final Review explicitly uses the map while reviewing the integrated diff from the starting commit to `HEAD`.
-- Final Review can return `NEEDS_EXECUTION` when a cross-plan contract requires implementation-level repair.
+- Plan Writing 要求 Coordinator 在 Plan Review dispatch 前生成跨计划合同图。
+- Plan Review 明确 review 合同图，检查 producer 缺失、consumer 缺失、ownership 冲突和不可验证合同。
+- Final Review 明确使用合同图，审查从 starting commit 到 `HEAD` 的集成 diff。
+- Final Review 发现跨 plan 合同需要实现层修复时，可以返回 `NEEDS_EXECUTION`。
 
-## Work Package 3: Central Repair Routing
+## 工作包 3：统一修复分流
 
-### Change
+### 改动
 
-Add a shared repair-routing contract used by plan review repair, execution repair, final review repair, and release-gate repair.
+新增共享 repair-routing 合同，供 plan review repair、execution repair、final review repair、release-gate repair、direct repair、bug investigation 和 multi-PR repair 使用。
 
-This does not classify review content by risk. It classifies findings and repair paths after a reviewer has found a problem.
+这不是给 review 内容分风险等级，而是在 reviewer 已经发现问题之后，对 finding 和修复路径做分流。
 
-### Routing Rules
+### 分流规则
 
-| Finding / repair shape | Repair owner |
+| Finding / 修复形态 | 修复 owner |
 | --- | --- |
-| Small, local, clearly scoped, no contract boundary | Coordinator Path A self-fix is allowed. |
-| Same pack, normal code repair, original worker has sufficient capability | Resume or re-dispatch the original `pack_executor`. |
-| Cross-module, migration, billing, permission, runtime, shared contract, state machine, or generated-template issue | Use `complex_pack_executor` or execution re-entry. |
-| Root cause unclear | Use `code_explorer` or `complex_code_explorer` first. |
-| Systemic bug, repeated failed repair, or regression with unknown cause | Use `root_cause_analyst`. |
-| Cross-plan contract issue discovered during Final Review | Return `NEEDS_EXECUTION` once and route through execution repair. |
-| Design, mockup, or plan is insufficient to decide correctness | Backflow to Discovery or Plan Writing instead of patching code blindly. |
-| Path A repair fails targeted re-review | Escalate to Path B. |
+| 范围小、本地化、意图清楚、不碰合同边界 | 允许 Coordinator Path A 自修。 |
+| 同一个 pack 内的普通修复，原 worker 能胜任 | resume 或重新派发原 `pack_executor`。 |
+| 跨模块、migration、billing、permission、runtime、共享合同、state machine、生成模板问题 | 使用 `complex_pack_executor` 或回 execution。 |
+| 根因不清 | 先派 `code_explorer` 或 `complex_code_explorer` 补证。 |
+| 系统性 bug、重复修复失败、未知 regression | 使用 `root_cause_analyst`。 |
+| Final Review 发现跨 plan 合同问题 | 返回一次 `NEEDS_EXECUTION`，通过 execution repair 处理。 |
+| 设计、mockup 或 plan 不足以判断正确性 | 回流 Discovery 或 Plan Writing，不盲目 patch 代码。 |
+| Path A 修复 targeted re-review 失败 | 升级 Path B。 |
 
-### Codex Source Targets
+### Codex 源码目标
 
-- new `codex-orchestrate/build/templates/repair-routing.md.tmpl`
-- new `codex-orchestrate/build/resolvers/repair-routing.sh`
+- 新增 `codex-orchestrate/build/templates/repair-routing.md.tmpl`
+- 新增 `codex-orchestrate/build/resolvers/repair-routing.sh`
 - `codex-orchestrate/skills/orchestrate-plan-writing/references/plan-review-resolution.md`
 - `codex-orchestrate/skills/orchestrate-execution/references/execution-repair-truncation.md`
 - `codex-orchestrate/skills/orchestrate-final-review/references/final-review-repair.md`
@@ -151,39 +151,39 @@ This does not classify review content by risk. It classifies findings and repair
 - `codex-orchestrate/skills/orchestrate-workflow/references/bug-investigation-route.md`
 - `codex-orchestrate/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md`
 - `codex-orchestrate/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md`
-- build tests proving the generated repair-routing block appears in all target references
+- build tests：证明生成后的 repair-routing block 出现在所有目标 reference 中
 
-### Implementation Notes
+### 实施说明
 
-This shared template is justified because the same repair decision appears in several phases and routes today. Without a shared contract, one phase can route a serious finding to a weak repair path while another phase routes the same kind of finding correctly.
+共享模板是必要的，因为相同的 repair decision 现在分散在多个 phase 和 route 里。没有共享合同时，同一种 serious finding 可能在不同 phase 被路由到不同强度的修复路径。
 
-The routing language must stay Codex-native: `spawn_agent`, `send_input`, `wait_agent`, and registered agent types such as `pack_executor`, `complex_pack_executor`, `code_explorer`, `complex_code_explorer`, and `root_cause_analyst`.
+分流语言必须保持 Codex-native：`spawn_agent`、`send_input`、`wait_agent`，以及已注册 agent type，例如 `pack_executor`、`complex_pack_executor`、`code_explorer`、`complex_code_explorer`、`root_cause_analyst`。
 
-### Acceptance
+### 验收
 
-- All review repair paths use the same finding-to-owner rules.
-- A finding that exceeds the original worker's capability cannot be forced back to the weaker worker just because it came from that worker's plan.
-- Final Review has a clear path for integrated cross-plan failures.
-- Path A remains available for genuinely small local fixes, but failed Path A repair must escalate.
+- 所有 review repair 路径使用同一套 finding-to-owner 规则。
+- 当 finding 超出原 worker 能力时，不能因为它来自该 worker 的 plan 就强行派回弱 worker。
+- Final Review 对集成后的跨 plan 故障有清晰回流路径。
+- Path A 仍可用于真正小范围修复，但 Path A 失败必须升级。
 
-## Work Package 4: Regression Evidence, Not Automatic Test Bloat
+## 工作包 4：回归证据，而不是自动堆测试
 
-### Change
+### 改动
 
-Require repair agents to return regression evidence for accepted findings, without requiring one new tiny test for every finding.
+要求 repair agent 对 accepted findings 返回回归证据，但不要求每个 finding 都新增一个细碎测试。
 
-### Evidence Guidance
+### 证据指引
 
-| Finding type | Preferred evidence |
+| Finding 类型 | 优先证据 |
 | --- | --- |
-| Public behavior bug | Existing or new behavior/integration test. |
-| Contract, schema, migration, or generated artifact bug | Contract check, schema validation, migration check, or build check. |
-| UI behavior bug | Browser smoke, screenshot, DOM state validation, or existing UI test. |
-| Permission, billing, runtime, state machine, or hook issue | Integration check, state transition check, hook test, or manual gate with owner and steps. |
-| Documentation or plan mismatch | Document consistency evidence and link to the corrected source. |
-| Environment-only issue | Manual validation gate with exact owner, command, and expected result. |
+| Public behavior bug | 现有或新增 behavior / integration test。 |
+| 合同、schema、migration、生成产物 bug | 合同检查、schema validation、migration check 或 build check。 |
+| UI 行为 bug | Browser smoke、screenshot、DOM state validation 或现有 UI test。 |
+| permission、billing、runtime、state machine、hook 问题 | integration check、state transition check、hook test 或带 owner 和步骤的 manual gate。 |
+| 文档或 plan mismatch | 文档一致性证据和修正后的 source 链接。 |
+| 只能环境验证的问题 | 明确 owner、命令和预期结果的 manual validation gate。 |
 
-### Codex Source Targets
+### Codex 源码目标
 
 - `codex-orchestrate/agents/pack_executor.toml`
 - `codex-orchestrate/agents/complex_pack_executor.toml`
@@ -191,68 +191,68 @@ Require repair agents to return regression evidence for accepted findings, witho
 - `codex-orchestrate/skills/orchestrate-workflow/references/workflow-direct-repair.md`
 - `codex-orchestrate/skills/orchestrate-workflow/references/bug-investigation-route.md`
 - `codex-orchestrate/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md`
-- repair references updated by Work Package 3
-- release-gate references updated by Work Package 3
-- build or grep tests asserting the repair return contract includes regression evidence
+- 工作包 3 更新的 repair references
+- 工作包 3 更新的 release-gate references
+- build 或 grep tests：断言 repair return contract 包含回归证据要求
 
-### Implementation Notes
+### 实施说明
 
-The rule should prefer broad, behavior-level evidence over implementation-detail unit tests. The system should not create a bloated test suite where every review finding creates a fragile microscopic test.
+证据规则应优先选择高层行为证据，不鼓励测试实现细节。系统不应该因为 review finding 而制造大量脆弱的微型单测。
 
-When no automated test is reasonable, the repair output must say so and provide a concrete manual validation gate. Silent omission is not acceptable.
+如果自动测试不合理，repair 输出必须明确说明，并提供具体 manual validation gate。不能静默省略。
 
-### Acceptance
+### 验收
 
-- Repair outputs include regression evidence or an explicit manual validation gate.
-- Agents are warned not to add low-value tests that only lock in implementation details.
-- Release Gate checks that accepted findings have evidence before declaring the phase complete.
-- Root-cause analyst fixes, Coordinator Path A fixes, direct repair fixes, and multi-PR repair fixes are covered by the same evidence rule.
+- Repair 输出包含回归证据，或明确的 manual validation gate。
+- Agent prompt 明确警告不要增加低价值实现细节测试。
+- Release Gate 在宣布 phase 完成前检查 accepted findings 是否有证据。
+- `root_cause_analyst` 修复、Coordinator Path A 修复、direct repair 修复和 multi-PR repair 修复都使用同一证据规则。
 
-## Work Package 5: Review Effectiveness Downgrade
+## 工作包 5：Review Effectiveness 降级
 
-### Change
+### 改动
 
-Downgrade `review_effectiveness` from a core maturity signal to an optional diagnostic or legacy copied metric.
+把 `review_effectiveness` 从核心成熟度信号降级为可选诊断或历史复制指标。
 
-This feature exists in both the Claude plugin source and the Codex source. It was not newly invented during the Codex repair. However, it currently does not help the review loop make better decisions, and it should not become a required gate.
+这个功能同时存在于 Claude plugin source 和 Codex source。它不是 Codex 修复过程中临时发明的功能。但它目前不能帮助 review loop 做出更好的决策，因此不应成为必要 gate。
 
-### Codex Source Targets
+### Codex 源码目标
 
 - `codex-orchestrate/architecture-draft.md`
 - `codex-orchestrate/scripts/verify-maturity.sh`
-- existing review-effectiveness scripts and tests only if the downgrade requires wording or gate changes
+- 只有当降级需要改 wording 或 gate 时，才触碰现有 review-effectiveness scripts 和 tests
 
-### Implementation Notes
+### 实施说明
 
-Do not delete the script, schema fields, or tests as part of this optimization unless that deletion is separately planned. Removing it may touch state schema, validators, and compatibility assumptions.
+本次优化不直接删除脚本、schema 字段或 tests，除非另有单独 cleanup 计划。删除可能牵涉 state schema、validators 和兼容假设。
 
-The first step should be a wording and maturity-gate downgrade:
+第一步只做 wording 和 maturity-gate 降级：
 
-- The architecture doc should describe it as optional diagnostics.
-- `verify-maturity.sh` should not treat it as proof that the review system is correct.
-- Existing script/test files can remain for compatibility until a dedicated cleanup removes them.
+- 架构文档把它描述为可选诊断。
+- `verify-maturity.sh` 不把它当作 review 系统正确性的证明。
+- 现有 script / test 暂时保留，后续如要删除，另开窄范围 cleanup。
 
-### Acceptance
+### 验收
 
-- Review correctness no longer depends on `review_effectiveness`.
-- The feature is not expanded.
-- Any future removal is left as a separate, narrow cleanup with its own validation.
+- Review 正确性不再依赖 `review_effectiveness`。
+- 不扩展该功能。
+- 如后续要删除，作为单独 cleanup 处理并单独验证。
 
-## Commit Sequence
+## 提交顺序
 
-Use one commit per meaningful change:
+每个有意义改动单独提交：
 
-1. Evidence Table.
-2. Cross-Plan Contract Map.
-3. Central Repair Routing.
-4. Regression Evidence.
-5. Review Effectiveness downgrade.
+1. 证据表。
+2. 跨计划合同图。
+3. 统一修复分流。
+4. 回归证据。
+5. `review_effectiveness` 降级。
 
-Do not combine source changes with runtime synchronization. Runtime synchronization, if approved, must be a separate explicit step after source validation.
+不要把 source 修改和 runtime 同步混在一起。Runtime 同步如果获批，必须在 source 验证后作为单独步骤执行。
 
-## Validation
+## 验证
 
-Minimum validation after source changes:
+Source 修改后的最低验证：
 
 ```bash
 bash codex-orchestrate/build/build.sh --check --plugin-dir codex-orchestrate
@@ -260,4 +260,4 @@ bash codex-orchestrate/scripts/verify-maturity.sh
 bash codex-orchestrate/scripts/run-all-tests.sh
 ```
 
-Plugin manifest validation is outside this plan's core review-system scope. If it is used during implementation, verify the validator behavior in that turn instead of assuming either success or failure.
+Plugin manifest validation 不属于本 review-system 计划的核心范围。如果 implementation 阶段要使用 validator，必须在当时现场核实 validator 行为，而不是预设成功或失败。

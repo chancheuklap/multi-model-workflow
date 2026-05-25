@@ -42,6 +42,7 @@
 
 - 改动前先读 `README.md`、本文件、相关 `codex-orchestrate/**/agents.overrides.md` 和实际要动的源码。
 - 改 `codex-orchestrate/` 子目录时，同步检查本层或上层 `agents.overrides.md` 是否需要更新。
+- 文档、计划、skill、reference、agent 指令、template 和面向用户 / agent 的源码文字默认使用中文。英文只用于必要的命令、路径、协议字段、工具名、代码标识符、API 名称和不可翻译的宿主术语。
 - 除非用户明确要求 Claude Code plugin 工作，否则不要修改 `plugin/`。
 - 不要重建 `.agents/skills/orchestrate-*` 或旧 `codex/` 源码树作为当前权威。
 - Source 改动完成后不要自动同步到 runtime。常规修复以 source diff、验证结果和 commit 为交付边界；只有用户明确要求安装、发布、同步 runtime，或在汇报 source 验证结果和 runtime dry-run 差异后获得明确确认，才允许写入 `~/.codex/plugins/cache/`、`~/.codex/agents/` 或 `~/.codex/config.toml`。
