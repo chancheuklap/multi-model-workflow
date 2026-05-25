@@ -815,6 +815,20 @@ cmd_budget_unlimited() {
 }
 
 cmd_budget_check() {
+  local allow_over_budget="false" override_reason=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --allow-over-budget) allow_over_budget="true"; shift ;;
+      --override-reason) override_reason="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ "$allow_over_budget" == "true" && -z "$override_reason" ]]; then
+    echo "Error: --override-reason required with --allow-over-budget" >&2
+    exit 2
+  fi
+
   ensure_state_exists
   local sf
   sf="$(state_file)"
@@ -837,6 +851,10 @@ cmd_budget_check() {
   review_used=$(jq -r '.budget.review_used' "$sf")
 
   if [[ "$review_used" -ge "$review_total" ]] 2>/dev/null; then
+    if [[ "$allow_over_budget" == "true" ]]; then
+      echo "OK: over-budget override ${review_used}/${review_total}"
+      exit 0
+    fi
     echo "EXHAUSTED: review budget ${review_used}/${review_total}" >&2
     exit 2
   fi
@@ -846,6 +864,20 @@ cmd_budget_check() {
 }
 
 cmd_budget_increment_review() {
+  local allow_over_budget="false" override_reason=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --allow-over-budget) allow_over_budget="true"; shift ;;
+      --override-reason) override_reason="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ "$allow_over_budget" == "true" && -z "$override_reason" ]]; then
+    echo "Error: --override-reason required with --allow-over-budget" >&2
+    exit 2
+  fi
+
   ensure_state_exists
   local sf
   sf="$(state_file)"
@@ -865,8 +897,11 @@ cmd_budget_increment_review() {
   total=$(jq -r '.budget.review_total' "$sf")
 
   if [[ "$total" != "unlimited" && "$used" -ge "$total" ]] 2>/dev/null; then
-    echo "Error: review budget exhausted (${used}/${total}); refusing to count another review." >&2
-    exit 2
+    if [[ "$allow_over_budget" != "true" ]]; then
+      echo "Error: review budget exhausted (${used}/${total}); refusing to count another review." >&2
+      exit 2
+    fi
+    echo "Warning: review budget exhausted (${used}/${total}); applying explicit over-budget override." >&2
   fi
 
   local tmp="${sf}.tmp"

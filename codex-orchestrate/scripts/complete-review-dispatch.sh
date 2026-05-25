@@ -6,10 +6,12 @@ RUN_ID=""
 GATE=""
 AGENT_ID=""
 RESULT_FILE=""
+ALLOW_OVER_BUDGET="false"
+OVERRIDE_REASON=""
 
 usage() {
   cat <<'USAGE'
-Usage: complete-review-dispatch.sh --run-id RUN_ID --gate GATE --agent-id AGENT_ID --result-file PATH
+Usage: complete-review-dispatch.sh --run-id RUN_ID --gate GATE --agent-id AGENT_ID --result-file PATH [--allow-over-budget --override-reason TEXT]
 USAGE
   exit 2
 }
@@ -20,11 +22,17 @@ while [[ $# -gt 0 ]]; do
     --gate) GATE="${2:-}"; shift 2 ;;
     --agent-id) AGENT_ID="${2:-}"; shift 2 ;;
     --result-file) RESULT_FILE="${2:-}"; shift 2 ;;
+    --allow-over-budget) ALLOW_OVER_BUDGET="true"; shift ;;
+    --override-reason) OVERRIDE_REASON="${2:-}"; shift 2 ;;
     *) usage ;;
   esac
 done
 
 [[ -n "$RUN_ID" && -n "$GATE" && -n "$AGENT_ID" && -n "$RESULT_FILE" ]] || usage
+if [[ "$ALLOW_OVER_BUDGET" == "true" && -z "$OVERRIDE_REASON" ]]; then
+  echo "Error: --override-reason required with --allow-over-budget" >&2
+  exit 2
+fi
 [[ -s "$RESULT_FILE" ]] || {
   echo "Error: review result file missing or empty: $RESULT_FILE" >&2
   exit 2
@@ -76,15 +84,28 @@ if [[ "$(jq -r '.budget_counted // false' "$REGISTRY_FILE")" == "true" ]]; then
   exit 0
 fi
 
-bash "$SCRIPT_DIR/state.sh" budget increment-review --run-id "$RUN_ID" >/dev/null
+BUDGET_ARGS=(--run-id "$RUN_ID")
+if [[ "$ALLOW_OVER_BUDGET" == "true" ]]; then
+  BUDGET_ARGS+=(--allow-over-budget --override-reason "$OVERRIDE_REASON")
+fi
+bash "$SCRIPT_DIR/state.sh" budget increment-review "${BUDGET_ARGS[@]}" >/dev/null
 
 now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 tmp="${REGISTRY_FILE}.tmp"
-jq --arg result_file "$RESULT_FILE" --arg completed_at "$now" '
+if [[ "$ALLOW_OVER_BUDGET" == "true" ]]; then
+  OVER_BUDGET_JSON="true"
+else
+  OVER_BUDGET_JSON="false"
+fi
+
+jq --arg result_file "$RESULT_FILE" --arg completed_at "$now" \
+  --argjson over_budget "$OVER_BUDGET_JSON" --arg override_reason "$OVERRIDE_REASON" '
   .result_file = $result_file
   | .status = "completed"
   | .completed_at = $completed_at
   | .budget_counted = true
+  | .over_budget_allowed = $over_budget
+  | .over_budget_reason = (if $over_budget then $override_reason else null end)
 ' "$REGISTRY_FILE" > "$tmp"
 mv "$tmp" "$REGISTRY_FILE"
 

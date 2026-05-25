@@ -573,9 +573,10 @@ Pack 数 ≤ 8 则按当前方式一次性 review。
      })
      ```
      The targeted prompt envelope MUST set `review_intent: "targeted-re-review"`, `exception_code`, and `agent_id` to the baseline reviewer `agent_id`.
+   - **Over-budget escape hatch**：如果 Review Budget 已耗尽且用户明确要求继续 review，在 validate 命令和后续 complete 命令同时追加 `--allow-over-budget --override-reason "<用户授权原因>"`。不要因为方便或 Effort Budget 使用这个 flag。
 4. Wait: `wait_agent({ targets: ["<reviewer agent_id>"], timeout_ms: 600000 })`.
 5. Result: save the reviewer final message from `wait_agent` into `.codex/multi-model-workflow/review-results/<gate>.md`.
-6. Complete: run `bash "${MMW_PLUGIN_ROOT}/scripts/complete-review-dispatch.sh" --run-id "<run_id>" --gate "<gate>" --agent-id "<reviewer agent_id>" --result-file ".codex/multi-model-workflow/review-results/<gate>.md"` to mark the result durable and increment review budget exactly once.
+6. Complete: run `bash "${MMW_PLUGIN_ROOT}/scripts/complete-review-dispatch.sh" --run-id "<run_id>" --gate "<gate>" --agent-id "<reviewer agent_id>" --result-file ".codex/multi-model-workflow/review-results/<gate>.md"` to mark the result durable and increment review budget exactly once. 如果 Step 3 使用了 over-budget escape hatch，这里必须传同一个 `--allow-over-budget --override-reason "<用户授权原因>"`。
 7. Release capacity: after the result file is saved and complete-review bookkeeping succeeds, call `close_agent({ target: "<reviewer agent_id>" })`. Do this for baseline reviews and targeted re-reviews.
 
 **Confidence rubric（REQUIRED in every review prompt）**：

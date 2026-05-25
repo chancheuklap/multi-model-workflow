@@ -54,6 +54,15 @@ run_test_expect_fail "budget increment-review blocks exhausted review budget" \
 run_test "review_used remains capped after exhausted increment attempt" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID_EXHAUSTED' --field '.budget.review_used') == '15' ]]"
 
+run_test_expect_fail "over-budget increment requires override reason" \
+  bash "$STATE_SH" budget increment-review --run-id "$RUN_ID_EXHAUSTED" --allow-over-budget
+
+run_test "explicit over-budget override increments review budget" \
+  bash "$STATE_SH" budget increment-review --run-id "$RUN_ID_EXHAUSTED" --allow-over-budget --override-reason "user requested one more review"
+
+run_test "review_used can exceed cap only after explicit override" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID_EXHAUSTED' --field '.budget.review_used') == '16' ]]"
+
 # 7. Direction check trigger + ack
 run_test "direction-check trigger" \
   bash "$STATE_SH" direction-check trigger --run-id "$RUN_ID" --type review --threshold-percent 80

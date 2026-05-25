@@ -149,6 +149,18 @@ run_test "exhausted completion leaves review_used capped" \
 run_test "exhausted completion does not mark budget counted" \
   bash -c "[[ \$(jq -r '.budget_counted' '$FIXTURE_DIR/review-registry/exhausted-review.json') == 'false' ]]"
 
+run_test_expect_fail "over-budget completion requires override reason" \
+  bash "$COMPLETE" --run-id "$RUN_ID_EXHAUSTED" --gate exhausted-review --agent-id reviewer-exhausted --result-file "$EXHAUSTED_RESULT" --allow-over-budget
+
+run_test "complete-review-dispatch allows explicit over-budget override" \
+  bash "$COMPLETE" --run-id "$RUN_ID_EXHAUSTED" --gate exhausted-review --agent-id reviewer-exhausted --result-file "$EXHAUSTED_RESULT" --allow-over-budget --override-reason "user requested one more review"
+
+run_test "over-budget completion increments review_used past cap" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID_EXHAUSTED' --field '.budget.review_used') == '16' ]]"
+
+run_test "over-budget completion records override reason" \
+  bash -c "[[ \$(jq -r '.over_budget_allowed' '$FIXTURE_DIR/review-registry/exhausted-review.json') == 'true' && \$(jq -r '.over_budget_reason' '$FIXTURE_DIR/review-registry/exhausted-review.json') == 'user requested one more review' ]]"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]
