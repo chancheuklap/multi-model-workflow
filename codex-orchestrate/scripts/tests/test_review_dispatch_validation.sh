@@ -138,6 +138,39 @@ write_prompt "$TARGETED_BAD_REF" "$RUN_ID" "plan-impl-review-1-repair-1" "target
 run_test_expect_fail "targeted re-review rejects non-accepted disposition ref" \
   bash "$VALIDATE" --prompt-file "$TARGETED_BAD_REF" --transport send_input --gate plan-impl-review-1-repair-1
 
+RUN_ID_EXHAUSTED="review-budget-override"
+bash "$STATE_SH" init --run-id "$RUN_ID_EXHAUSTED" --slug "review-budget-override" --route "formal" >/dev/null
+bash "$STATE_SH" budget initialize --run-id "$RUN_ID_EXHAUSTED" --plan-count 1 >/dev/null
+bash "$STATE_SH" update --run-id "$RUN_ID_EXHAUSTED" --field '.budget.review_used' --value 15 >/dev/null
+
+cat > "$FIXTURE_DIR/execution-state-${RUN_ID_EXHAUSTED}.json" <<'JSON'
+{
+  "run_id": "review-budget-override",
+  "current_plan_id": "001",
+  "plans": {
+    "001": {
+      "status": "completed",
+      "start_commit": "abc123",
+      "packs": {
+        "1.1": {"status": "committed", "agent_id": "worker-1", "commit_sha": "c1"}
+      }
+    }
+  }
+}
+JSON
+
+EXHAUSTED_PROMPT="$FIXTURE_DIR/plan-impl-review-1-exhausted.md"
+write_prompt "$EXHAUSTED_PROMPT" "$RUN_ID_EXHAUSTED" "plan-impl-review-1" "baseline" "null" 0 "null" "null"
+
+run_test_expect_fail "baseline review blocks exhausted review budget" \
+  bash "$VALIDATE" --prompt-file "$EXHAUSTED_PROMPT" --transport spawn_agent --gate plan-impl-review-1
+
+run_test_expect_fail "over-budget review validation requires override reason" \
+  bash "$VALIDATE" --prompt-file "$EXHAUSTED_PROMPT" --transport spawn_agent --gate plan-impl-review-1 --allow-over-budget
+
+run_test "baseline review allows explicit over-budget override" \
+  bash "$VALIDATE" --prompt-file "$EXHAUSTED_PROMPT" --transport spawn_agent --gate plan-impl-review-1 --allow-over-budget --override-reason "user requested one more review"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

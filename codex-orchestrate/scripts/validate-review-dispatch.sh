@@ -7,10 +7,12 @@ set -euo pipefail
 PROMPT_FILE=""
 TRANSPORT=""
 GATE=""
+ALLOW_OVER_BUDGET="false"
+OVERRIDE_REASON=""
 
 usage() {
   cat <<'USAGE'
-Usage: validate-review-dispatch.sh --prompt-file PATH --transport spawn_agent|send_input [--gate GATE]
+Usage: validate-review-dispatch.sh --prompt-file PATH --transport spawn_agent|send_input [--gate GATE] [--allow-over-budget --override-reason TEXT]
 USAGE
   exit 2
 }
@@ -20,12 +22,18 @@ while [[ $# -gt 0 ]]; do
     --prompt-file) PROMPT_FILE="${2:-}"; shift 2 ;;
     --transport) TRANSPORT="${2:-}"; shift 2 ;;
     --gate) GATE="${2:-}"; shift 2 ;;
+    --allow-over-budget) ALLOW_OVER_BUDGET="true"; shift ;;
+    --override-reason) OVERRIDE_REASON="${2:-}"; shift 2 ;;
     *) usage ;;
   esac
 done
 
 [[ -n "$PROMPT_FILE" && -f "$PROMPT_FILE" ]] || usage
 [[ "$TRANSPORT" == "spawn_agent" || "$TRANSPORT" == "send_input" ]] || usage
+if [[ "$ALLOW_OVER_BUDGET" == "true" && -z "$OVERRIDE_REASON" ]]; then
+  echo "Error: --override-reason required with --allow-over-budget" >&2
+  exit 2
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENVELOPE=$(bash "$SCRIPT_DIR/../hooks/lib/parse-envelope.sh" "$PROMPT_FILE")
@@ -189,7 +197,11 @@ case "$TRANSPORT:$REVIEW_INTENT" in
 esac
 
 if [[ "$RUN_ID" != adhoc-* ]]; then
-  bash "$SCRIPT_DIR/state.sh" budget check --run-id "$RUN_ID" >/dev/null
+  BUDGET_ARGS=(--run-id "$RUN_ID")
+  if [[ "$ALLOW_OVER_BUDGET" == "true" ]]; then
+    BUDGET_ARGS+=(--allow-over-budget --override-reason "$OVERRIDE_REASON")
+  fi
+  bash "$SCRIPT_DIR/state.sh" budget check "${BUDGET_ARGS[@]}" >/dev/null
 fi
 
 echo "OK"
