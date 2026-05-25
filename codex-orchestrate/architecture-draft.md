@@ -563,6 +563,11 @@ Codex Orchestrate 把 subagent 派发视为 ownership transfer，而不是“同
 | `SubagentStart` | 所有 subagent | `hooks/track-effort-budget.sh` | 按 agent type 加权统计 effort budget |
 | `SubagentStop` | 所有 subagent | `hooks/agent-return-handler.sh` | worker 返回后读 durable return，更新 execution-state，输出 NEXT |
 
+Hook 输出和 payload 解析有两条 runtime 合同：
+
+1. `SessionStart` 输出必须是有效 JSON，使用 `hookSpecificOutput.additionalContext` 注入上下文，避免裸文本以 `[` 或 `{` 开头时被 Codex CLI 当作 JSON 候选解析失败。
+2. Tool hooks 不能直接假设 `tool_input` / `tool_response` 一定是 object；Codex CLI 在不同 tool path 下可能传 object、string 或其它 JSON value。Hook handler 统一通过 `hooks/lib/payload.sh` 提取 command、file path 和 exit code，解析不到时静默放行，不因 payload shape 漂移让 hook 自身失败。
+
 ### 显式 Coordinator Gate（不是 hooks）
 
 | 脚本 | 调用时机 | 为什么不放 hook |

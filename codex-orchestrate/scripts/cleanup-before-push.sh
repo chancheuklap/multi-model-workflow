@@ -12,11 +12,13 @@ fi
 
 if [ "$FORCE" = false ]; then
   INPUT=$(cat)
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+  source "$SCRIPT_DIR/../hooks/lib/payload.sh"
 
-  EXIT_CODE=$(echo "$INPUT" | jq -r '.tool_response.exit_code // 0' 2>/dev/null)
+  EXIT_CODE=$(payload_tool_exit_code "$INPUT")
   if [ "$EXIT_CODE" != "0" ]; then exit 0; fi
 
-  COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+  COMMAND=$(payload_tool_command "$INPUT")
 
   if ! echo "$COMMAND" | grep -qE 'git push|gh pr create'; then
     exit 0

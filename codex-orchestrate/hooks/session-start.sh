@@ -25,7 +25,7 @@ PLUGIN_VERSION=$(jq -r '.version // empty' "$PLUGIN_ROOT/.codex-plugin/plugin.js
 check_prerequisite "plugin.json has version field" \
   '[ -n "$PLUGIN_VERSION" ]'
 
-cat <<RULES
+CONTEXT=$(cat <<RULES
 [multi-model-workflow] Codex workflow override active (version ${PLUGIN_VERSION}):
 
 # 1. Environment check
@@ -58,6 +58,7 @@ cat <<RULES
 - git status --short --branch 验证 branch 和 dirty state
 - Resume Gate: source artifacts 改过 → 重进该 gate
 RULES
+)
 
 # === Workflow state recovery ===
 BUDGET_DIR=".codex/multi-model-workflow"
@@ -72,10 +73,13 @@ if [ -f "$RUN_ID_FILE" ]; then
     REVIEW_USED=$(jq -r '.budget.review_used // 0' "$SF")
     REVIEW_TOTAL=$(jq -r '.budget.review_total // 0' "$SF")
 
-    echo ""
-    echo "# 6. Workflow state recovery"
-    echo "[multi-model-workflow] RESUME: phase=${CUR_PHASE}, reference=${CUR_REF:-none}, step=${CUR_STEP:-unknown}, budget=${REVIEW_USED}/${REVIEW_TOTAL}."
+    CONTEXT="${CONTEXT}
+
+# 6. Workflow state recovery
+[multi-model-workflow] RESUME: phase=${CUR_PHASE}, reference=${CUR_REF:-none}, step=${CUR_STEP:-unknown}, budget=${REVIEW_USED}/${REVIEW_TOTAL}."
   fi
 fi
 
+jq -n --arg context "$CONTEXT" \
+  '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $context}}'
 exit 0

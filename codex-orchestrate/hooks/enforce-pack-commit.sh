@@ -4,6 +4,9 @@
 set -euo pipefail
 
 INPUT=$(cat)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/payload.sh"
+
 BUDGET_DIR=".codex/multi-model-workflow"
 RUN_ID_FILE="${BUDGET_DIR}/active-run-id"
 if [ ! -f "$RUN_ID_FILE" ]; then exit 0; fi
@@ -12,7 +15,7 @@ RUN_ID=$(cat "$RUN_ID_FILE")
 SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
 if [ ! -f "$SF" ]; then exit 0; fi
 
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+COMMAND=$(payload_tool_command "$INPUT")
 COMMIT_MSG=$(echo "$COMMAND" | sed -n 's/.*-m[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
 if [ -z "$COMMIT_MSG" ]; then
   COMMIT_MSG=$(echo "$COMMAND" | sed -n "s/.*-m[[:space:]]*'\([^']*\)'.*/\1/p" | head -1)

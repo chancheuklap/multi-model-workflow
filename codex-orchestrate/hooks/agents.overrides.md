@@ -8,3 +8,5 @@
 - `SubagentStart` payloads do not include the original `spawn_agent` message, so hooks must not validate `DISPATCH_ENVELOPE` by reading `.prompt`.
 - Review and worker dispatch gates belong in explicit Coordinator scripts before `spawn_agent` / `send_input`; hook handlers are only for events whose Codex payload contains the required data.
 - SessionStart is responsible for exposing the concrete `MMW_PLUGIN_ROOT` value used by Skill command examples; do not use old-host plugin root variables.
+- SessionStart must return valid JSON with `hookSpecificOutput.hookEventName = "SessionStart"` and `additionalContext`; do not emit raw text that starts with `[` or `{`.
+- Hook handlers must tolerate Codex payload fields arriving as either structured objects or strings. Use `hooks/lib/payload.sh` instead of direct `.tool_input.command`, `.tool_input.file_path`, or `.tool_response.exit_code` jq indexing.

@@ -26,11 +26,20 @@ OUTPUT="$(bash "$SESSION_START")"
 EXPECTED_ACTIVE_LINE="[multi-model-workflow] Codex workflow override active (version 3.6.2)"
 EXPECTED_ROOT_LINE="\`export MMW_PLUGIN_ROOT=\"$PLUGIN_ROOT\"\`"
 
-run_test "session-start reports active version" \
-  bash -c '[[ "$1" == *"$2"* ]]' bash "$OUTPUT" "$EXPECTED_ACTIVE_LINE"
+run_test "session-start emits valid JSON" \
+  bash -c 'printf "%s" "$1" | jq empty' bash "$OUTPUT"
 
-run_test "session-start prints concrete MMW_PLUGIN_ROOT export" \
-  bash -c '[[ "$1" == *"$2"* ]]' bash "$OUTPUT" "$EXPECTED_ROOT_LINE"
+CONTEXT="$(printf '%s' "$OUTPUT" | jq -r '.hookSpecificOutput.additionalContext')"
+EVENT="$(printf '%s' "$OUTPUT" | jq -r '.hookSpecificOutput.hookEventName')"
+
+run_test "session-start JSON declares SessionStart event" \
+  bash -c '[[ "$1" == "SessionStart" ]]' bash "$EVENT"
+
+run_test "session-start context reports active version" \
+  bash -c '[[ "$1" == *"$2"* ]]' bash "$CONTEXT" "$EXPECTED_ACTIVE_LINE"
+
+run_test "session-start context prints concrete MMW_PLUGIN_ROOT export" \
+  bash -c '[[ "$1" == *"$2"* ]]' bash "$CONTEXT" "$EXPECTED_ROOT_LINE"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

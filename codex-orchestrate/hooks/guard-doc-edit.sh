@@ -10,13 +10,10 @@
 set -euo pipefail
 
 INPUT=$(cat)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/payload.sh"
 
-# Extract file_path from tool_input when the payload exposes one.
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
-[[ -z "$FILE_PATH" ]] && exit 0
-
-# Only guard docs/ paths
-if ! echo "$FILE_PATH" | grep -qE '(^|/)docs/'; then
+if ! payload_touches_docs "$INPUT"; then
   exit 0
 fi
 
