@@ -41,6 +41,18 @@ run_test "session-start context reports active version" \
 run_test "session-start context prints concrete MMW_PLUGIN_ROOT export" \
   bash -c '[[ "$1" == *"$2"* ]]' bash "$CONTEXT" "$EXPECTED_ROOT_LINE"
 
+run_test "session-start names current Matt Pocock skill namespace" \
+  bash -c '[[ "$1" == *"mattpocock-skills:diagnose"* && "$1" == *"mattpocock-skills:grill-with-docs"* ]]' bash "$CONTEXT"
+
+run_test "session-start does not advertise stale short-name skill namespace" \
+  bash -c '[[ "$1" != *"User-level skills (short name, NO prefix)"* ]]' bash "$CONTEXT"
+
+run_test "session-start scopes no-production-code gate to formal workflow" \
+  bash -c '[[ "$1" == *"在 Orchestrate formal workflow 中，Coordinator 不直接写生产代码"* ]]' bash "$CONTEXT"
+
+run_test "session-start includes direct final-review and multi-pr routing" \
+  bash -c '[[ "$1" == *"multi-model-workflow:orchestrate-final-review"* && "$1" == *"multi-model-workflow:orchestrate-multi-pr-merge"* ]]' bash "$CONTEXT"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]
