@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# PreToolUse hook for Bash (if: "Bash(git commit *)").
-# Validates Pack commit message format. Uses workflow-state.
+# PreToolUse hook for Bash commands.
+# Validates Pack commit message format by inspecting the Codex hook payload.
 set -euo pipefail
 
 INPUT=$(cat)

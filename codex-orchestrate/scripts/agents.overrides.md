@@ -5,5 +5,8 @@
 - Script comments and user-facing messages must not refer to old-host tool names; describe Codex shell, file, hook, and subagent actions directly.
 - Do not add compatibility fallbacks to old state paths, old plugin search paths, or old companion scripts.
 - Verification scripts must validate the root `codex-orchestrate/hooks.json` manifest and Codex-native hook contracts; do not check for removed old-host review command hooks.
+- `validate-plugin-contract.sh` is the Codex-aware source manifest gate. It accepts the official `.codex-plugin/plugin.json` `hooks` field and validates the referenced hook manifest directly; do not replace it with generic validators that reject bundled hooks.
+- `verify-runtime-parity.sh` is the source/runtime parity gate. It checks plugin cache parity, user-level agent TOML parity, agent registration, and persisted plugin hook trust records.
 - Verification scripts must reject old worktree pseudo tools and require the executable Codex worktree contract: `git worktree add -b` into `${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>`, with no main-repository branch switch first.
 - Dispatch validation that needs the full prompt/message must live in explicit scripts called by Skills before `spawn_agent` or `send_input`; do not move it back into `SubagentStart` hooks.
+- `validate-pack-dispatch.sh` is only for execution Pack workers that have execution-state and Pack durable returns. Non-execution route workers must use `validate-route-worker-dispatch.sh` plus `record-route-worker-dispatch.sh` so Route 2/3/Direct Repair keep envelope, budget, idempotency, and agent_id guarantees without inventing fake execution Packs.

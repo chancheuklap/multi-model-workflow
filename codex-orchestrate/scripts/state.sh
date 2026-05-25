@@ -23,7 +23,7 @@ Commands:
   path-a-escalation Manage Path A escalation entries
   agent-id          Get/set agent_id in execution-state (per Ruling 2)
   execution-plan    Manage execution-state plan boundaries (start)
-  budget            Budget subcommands (initialize, check, increment-review)
+  budget            Budget subcommands (initialize, unlimited, check, increment-review)
   direction-check   Direction Check flow (trigger, ack)
   idempotency       Idempotency key management (check, append)
   plans             Plan management (add)
@@ -129,7 +129,7 @@ cmd_init() {
 
   local budget_status review_total effort_total
   case "$route" in
-    hotfix|quickfix|spike|maintenance)
+    direct-repair|multi-pr-merge|bug-investigation|hotfix|quickfix|spike|maintenance)
       budget_status='"unlimited"'
       review_total='"unlimited"'
       effort_total='"unlimited"'
@@ -728,9 +728,10 @@ cmd_budget() {
   local subcmd="$1"; shift
   case "$subcmd" in
     initialize) cmd_budget_initialize "$@" ;;
+    unlimited) cmd_budget_unlimited "$@" ;;
     check) cmd_budget_check "$@" ;;
     increment-review) cmd_budget_increment_review "$@" ;;
-    *) echo "Error: unknown budget subcommand: $subcmd (use initialize|check|increment-review)" >&2; exit 2 ;;
+    *) echo "Error: unknown budget subcommand: $subcmd (use initialize|unlimited|check|increment-review)" >&2; exit 2 ;;
   esac
 }
 
@@ -769,6 +770,47 @@ cmd_budget_initialize() {
   jq --argjson rt "$review_total" --argjson et "$effort_total" --argjson pc "$plan_count" \
     '.budget.budget_status = "initialized" | .budget.review_total = $rt | .budget.effort_total = $et | .plan_count = $pc' \
     "$sf" > "$tmp"
+  mv "$tmp" "$sf"
+}
+
+cmd_budget_unlimited() {
+  local route=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --route) route="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  ensure_state_exists
+  local sf
+  sf="$(state_file)"
+
+  local current_status
+  current_status=$(jq -r '.budget.budget_status' "$sf")
+  if [[ "$current_status" == "initialized" ]]; then
+    echo "Error: cannot change initialized bounded budget to unlimited" >&2
+    exit 2
+  fi
+
+  acquire_lock
+  trap release_lock EXIT
+
+  local tmp="${sf}.tmp"
+  if [[ -n "$route" ]]; then
+    jq --arg route "$route" '
+      .route = $route |
+      .budget.budget_status = "unlimited" |
+      .budget.review_total = "unlimited" |
+      .budget.effort_total = "unlimited"
+    ' "$sf" > "$tmp"
+  else
+    jq '
+      .budget.budget_status = "unlimited" |
+      .budget.review_total = "unlimited" |
+      .budget.effort_total = "unlimited"
+    ' "$sf" > "$tmp"
+  fi
   mv "$tmp" "$sf"
 }
 

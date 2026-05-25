@@ -201,23 +201,31 @@ git branch --show-current
 
 **规则**：Source artifacts 只包含用户明确提供的内容。Editable artifacts 只能是 source 或 phase 产出。Out of scope 阻止 sub-agent 和 reviewer 扩大范围。Feature slug 一旦确定不可中途修改。
 
-### Step 2c：Workflow State File（仅 Formal Orchestrate）
+### Step 2c：Workflow State File（所有 Route）
 
-创建 `.codex/multi-model-workflow/workflow-state-<run_id>.json` via `state.sh init`：
+创建 `.codex/multi-model-workflow/workflow-state-<run_id>.json` via `state.sh init`。`<route>` 必须使用 Entry Gate 判定的真实 route：`formal` / `bug-investigation` / `multi-pr-merge` / `hotfix` / `quickfix` / `spike` / `maintenance`。
 
 ```bash
 mkdir -p .codex/multi-model-workflow
-bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" init --run-id "<run_id>" --slug "<slug>" --route formal
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" init --run-id "<run_id>" --slug "<slug>" --route "<route>"
 echo "<run_id>" > .codex/multi-model-workflow/active-run-id
 ```
 
-Budget 在 plan count 确认后初始化（plan-writing Step 12a）：
+Formal route 的 bounded budget 在 plan count 确认后初始化（plan-writing Step 12a）：
 
 ```bash
 bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget initialize --run-id "<run_id>" --plan-count <N>
 ```
 
-Budget 一旦初始化（`budget_status = initialized`），`review_total` 和 `effort_total` **不可变**——执行阶段、Final Review 阶段均不得修改。如果执行阶段发现 pack 数与 plan 不一致，返回 `NEEDS_PLAN_REVISION`，不得静默更新。Bug / Multi-PR route 使用 `--route hotfix` 等，budget 自动设为 `unlimited`。
+Route 2-7 不走 plan-count budget；`state.sh init --route bug-investigation|multi-pr-merge|hotfix|quickfix|spike|maintenance` 自动设置 `budget_status = "unlimited"`。它们仍然必须有 workflow-state，因为 review dispatch validation、effort tracking、idempotency keys、cursor resume 和 run summary 都消费同一个状态文件。
+
+Direct Repair 是 Formal route 中从 Discovery 分流出来的 mini-route。进入 `workflow-direct-repair.md` 前，如果 workflow-state 仍是 `pending_plan_count`，先执行：
+
+```bash
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget unlimited --run-id "<run_id>" --route direct-repair
+```
+
+Budget 一旦初始化为 bounded（`budget_status = initialized`），`review_total` 和 `effort_total` **不可变**——执行阶段、Final Review 阶段均不得修改。如果执行阶段发现 pack 数与 plan 不一致，返回 `NEEDS_PLAN_REVISION`，不得静默更新。
 
 ### 状态锚字段（Compaction Recovery）
 

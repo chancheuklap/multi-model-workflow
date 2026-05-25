@@ -55,7 +55,7 @@ flowchart TD
     FINAL -->|"pass"| CLOSE["Closing\n验证 + push + PR + summary"]:::coord
     REL --> CLOSE
 
-    B -->|"Route 2：Bug Investigation"| BUG_INFRA["Scope + Git\n跳过 plan budget 初始化"]:::coord
+    B -->|"Route 2：Bug Investigation"| BUG_INFRA["Scope + Git\nbudget unlimited"]:::coord
     BUG_INFRA --> RCA["root_cause_analyst"]:::agent
     RCA -->|"simple fixed"| BRV["Bug Fix Review\nCodex reviewer"]:::review
     RCA -->|"worker repair"| BWORK["pack_executor /\ncomplex_pack_executor"]:::agent
@@ -63,7 +63,7 @@ flowchart TD
     RCA -->|"design / plan root cause"| INFRA
     BRV --> CLOSE
 
-    B -->|"Route 3：Multi-PR Merge"| MPR_INFRA["Scope + Git\n跳过 budget"]:::coord
+    B -->|"Route 3：Multi-PR Merge"| MPR_INFRA["Scope + Git\nbudget unlimited"]:::coord
     MPR_INFRA --> MPR["orchestrate-multi-pr-merge\n冲突发现 + 集成审查"]:::skill
     MPR --> CLOSE
 
@@ -110,8 +110,8 @@ flowchart TD
 | Route | 名称 | Discovery | Plan Writing | Plan Review | Execution | Final Review | Budget | 特殊行为 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Formal Orchestrate | 是 | 是 | 是 | 是 | 是 | `3P+12` review + `2x` effort | 完整正式流程 |
-| 2 | Bug Investigation | 否 | 否 | 否 | RCA / worker | 否 | 不初始化 plan budget | 根因不明先调查；设计级根因回流 Route 1 |
-| 3 | Multi-PR Merge | 否 | 否 | 否 | 冲突修复 | 集成审查 | 不初始化 plan budget | 多 PR 冲突发现、修复、顺序合并 |
+| 2 | Bug Investigation | 否 | 否 | 否 | RCA / worker | 否 | unlimited | 根因不明先调查；设计级根因回流 Route 1 |
+| 3 | Multi-PR Merge | 否 | 否 | 否 | 冲突修复 | 集成审查 | unlimited | 多 PR 冲突发现、修复、顺序合并 |
 | 4 | Hotfix | 否 | 否 | 否 | 单修复 | 事后 review | unlimited | 可先 push，但必须记录 post-push review |
 | 5 | Quick Fix | 否 | Coordinator 单 Pack | 否 | 单 worker | 单轮 review | unlimited | 不走三轮截断 |
 | 6 | Spike | 否 | 否 | 否 | 探索性 | 否 | unlimited | throwaway code + verdict，不进入生产交付 |
@@ -551,6 +551,8 @@ Agent 行为权威是 `agents/*.toml` 的 `developer_instructions`。`agents/per
 | `scripts/validate-review-dispatch.sh` | `spawn_agent` / `send_input` Codex reviewer 前 | Codex `SubagentStart` payload 不携带完整 prompt，不能在 hook 中解析 envelope |
 | `scripts/validate-pack-dispatch.sh` | `spawn_agent` worker 前 | 需要读取完整 Pack Brief、workflow-state、execution-state、disposition refs |
 | `scripts/record-pack-dispatch.sh` | `spawn_agent` worker 返回后 | 需要真实返回的 `agent_id`，hook 不拥有这个上下文 |
+| `scripts/validate-route-worker-dispatch.sh` | 非 execution route 的 `spawn_agent` / `send_input` coding worker 前 | Route 2/3/Direct Repair 没有 execution-state，但仍需要 envelope、budget、idempotency 和 agent_id gate |
+| `scripts/record-route-worker-dispatch.sh` | 非 execution route worker `spawn_agent` 返回后 | route worker repair 需要原始 `agent_id`，hook 不拥有这个上下文 |
 
 ### 外部 Skill
 
@@ -681,7 +683,7 @@ Final Review → Execution 回流由 `execution_reflux_count` 限制：允许 1 
 | Review Budget | `review_total = 3P + 12` | Coordinator 在 `wait_agent` 后调用 `state.sh budget increment-review` | Codex review dispatch 次数 |
 | Effort Budget | `effort_total = review_total * 2` | `track-effort-budget.sh` SubagentStart hook | 加权 subagent dispatch 次数 |
 
-P = plan 文件数量。Formal route 在 plan-writing 确认 plan count 后初始化；Routes 4-7 使用 `unlimited`。
+P = plan 文件数量。Formal route 在 plan-writing 确认 plan count 后初始化；Routes 2-7 使用 `unlimited` workflow-state budget，但不创建 plan-count budget。
 
 ### Effort 权重
 
@@ -783,7 +785,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 - **状态写入加锁**：状态脚本使用 `scripts/lib/state-lock.sh`，tmp → rename 原子写。
 - **Disposition evidence 强制**：`accepted` 没有 evidence 会被 `state.sh` 拒绝。
 - **Dispatch 幂等性**：每次 dispatch 有 `idempotency_key`，重复 dispatch 被阻断。
-- **Agent ID 持久化**：worker repair 和 reviewer targeted re-review 都依赖原始 `agent_id`；丢失则 BLOCKED。
+- **Agent ID 持久化**：worker repair 和 reviewer targeted re-review 都依赖原始 `agent_id`；丢失则 BLOCKED。非 execution route worker 通过 `worker-agents/<gate>.agent-id` 持久化。
 - **修复三轮封顶**：普通 repair 最多两轮，第三轮 RCA，仍失败则 BLOCKED。
 - **Final Review 回流守卫**：Final Review 回 execution 最多一次。
 - **Git 纪律**：禁止 squash merge；未完成 workflow 阻止 publish。
@@ -799,7 +801,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 - `SubagentStart` / `SubagentStop` hook 只消费 Codex payload 中真实存在的字段。
 - `agent-return-handler.sh` 不解析原 prompt；execution-state 是 worker 返回归属的权威。
 - Worker durable return 必须写 run-scoped 路径，避免跨 run 污染。
-- Routes 4-7 使用 unlimited budget，但仍要有 review 或 verdict 交付。
+- Routes 2-7 使用 unlimited workflow-state budget，但仍要有 review 或 verdict 交付。
 - Bug route 不走 Final Review；root cause 指向设计时生成 bug seed 并回 Route 1。
 - Closing 默认 push + PR；工作树保留给 PR 后续修订，不由 workflow 手工删除。
 
@@ -885,6 +887,8 @@ bash codex-orchestrate/build/build.sh --apply --plugin-dir codex-orchestrate
 | `validate-review-dispatch.sh` | Codex reviewer dispatch prompt gate |
 | `validate-pack-dispatch.sh` | worker dispatch prompt + state precondition gate |
 | `record-pack-dispatch.sh` | 记录 worker `agent_id` |
+| `validate-route-worker-dispatch.sh` | 非 execution route worker 的 prompt / budget / idempotency gate |
+| `record-route-worker-dispatch.sh` | 记录非 execution route worker `agent_id` |
 | `guard-premature-push.sh` | 阻止未完成 publish 和 squash merge |
 | `cleanup-before-push.sh` | publish 后清理 `.codex/multi-model-workflow/` |
 | `learnings-jsonl.sh` | learnings append/read/trust gate |
@@ -954,7 +958,7 @@ Codex source package 只有在以下条件同时成立时才算可用：
 - 所有 review reference 都使用 `codex_reviewer` subagent、`spawn_agent` / `send_input` / `wait_agent`。
 - 所有 state path 都是 `.codex/multi-model-workflow/`。
 - 工作树入口自动创建到 Codex 根目录，不出现旧 worktree 伪工具、UI-only 步骤、主仓库先切分支或自造路径。
-- worker dispatch 和 review dispatch 都先跑显式校验脚本。
+- execution Pack worker dispatch 使用 `validate-pack-dispatch.sh`；非 execution route worker dispatch 使用 `validate-route-worker-dispatch.sh`；review dispatch 使用 `validate-review-dispatch.sh`。
 - `agent_id` 在 worker 和 reviewer 两条 lane 都可持久化和恢复。
 - `workflow-state` / `execution-state` 通过 schema 和 `state.sh validate`。
 - hooks 只使用 Codex payload 中真实存在的字段。

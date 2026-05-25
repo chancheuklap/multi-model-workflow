@@ -39,6 +39,8 @@ echo ""
 echo "## Hooks"
 check "plugin manifest declares hooks.json" bash -c \
   "[ \"\$(jq -r '.hooks // empty' '$PLUGIN_DIR/.codex-plugin/plugin.json')\" = './hooks.json' ]"
+check "Codex plugin contract validates with bundled hooks" \
+  bash "$PLUGIN_DIR/scripts/validate-plugin-contract.sh" "$PLUGIN_DIR"
 check "hooks.json valid JSON" python3 -m json.tool "$PLUGIN_DIR/hooks.json"
 check "hook commands use PLUGIN_ROOT" bash -c \
   "jq -r '.. | objects | select(has(\"command\")) | .command' '$PLUGIN_DIR/hooks.json' | grep -q 'PLUGIN_ROOT' && ! jq -r '.. | objects | select(has(\"command\")) | .command' '$PLUGIN_DIR/hooks.json' | grep -q '^\\./'"
@@ -46,8 +48,10 @@ check "parse-envelope.sh exists" test -x "$PLUGIN_DIR/hooks/lib/parse-envelope.s
 check "validate-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-review-dispatch.sh"
 check "validate-pack-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-pack-dispatch.sh"
 check "record-pack-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/record-pack-dispatch.sh"
+check "validate-route-worker-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-route-worker-dispatch.sh"
+check "record-route-worker-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/record-route-worker-dispatch.sh"
 check "prompt-dependent gates not registered as SubagentStart hooks" bash -c \
-  "! grep -qE 'gate-codex-review|track-review-budget|validate-pack-dispatch' '$PLUGIN_DIR/hooks.json'"
+  "! grep -qE 'gate-codex-review|track-review-budget|validate-pack-dispatch|validate-route-worker-dispatch' '$PLUGIN_DIR/hooks.json'"
 
 echo ""
 echo "## Fallback Removal"
@@ -133,6 +137,16 @@ check "agent_id guard in validate-pack-dispatch" bash -c "
   grep -q 'already has agent_id\|repair must use send_input' '$PLUGIN_DIR/scripts/validate-pack-dispatch.sh'
 "
 
+check "route worker dispatch has agent_id guard" bash -c "
+  grep -q 'route worker repair must include original worker agent_id' '$PLUGIN_DIR/scripts/validate-route-worker-dispatch.sh'
+"
+
+check "route worker dispatch used by bug/direct/multi-pr routes" bash -c "
+  grep -q 'validate-route-worker-dispatch.sh' '$PLUGIN_DIR/skills/orchestrate-workflow/references/bug-investigation-route.md' &&
+  grep -q 'validate-route-worker-dispatch.sh' '$PLUGIN_DIR/skills/orchestrate-workflow/references/workflow-direct-repair.md' &&
+  grep -q 'validate-route-worker-dispatch.sh' '$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md'
+"
+
 check "targeted-re-review requires send_input continuity" bash -c "
   grep -q 'targeted re-review must use send_input' '$PLUGIN_DIR/scripts/validate-review-dispatch.sh'
 "
@@ -155,17 +169,14 @@ check "path-a-re-review.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-execu
 check "direction-check.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-workflow/references/direction-check.md"
 
 echo ""
-echo "## Version Sync"
+echo "## Marketplace Source"
 PLUGIN_V=$(jq -r '.version' "$PLUGIN_DIR/.codex-plugin/plugin.json" 2>/dev/null || echo "MISSING")
-MARKET_V=$(jq -r '.plugins[] | select(.name == "multi-model-workflow") | .version // empty' "$(cd "$PLUGIN_DIR/.." && pwd)/.agents/plugins/marketplace.json" 2>/dev/null || echo "")
-if [[ -z "$MARKET_V" ]]; then
-  MARKET_V="$PLUGIN_V"
-fi
-if [[ "$PLUGIN_V" == "$MARKET_V" ]]; then
-  echo "  ✓ version sync ($PLUGIN_V)"
+MARKET_PATH=$(jq -r '.plugins[] | select(.name == "multi-model-workflow") | .source.path // empty' "$(cd "$PLUGIN_DIR/.." && pwd)/.agents/plugins/marketplace.json" 2>/dev/null || echo "")
+if [[ "$MARKET_PATH" == "./codex-orchestrate" ]]; then
+  echo "  ✓ marketplace source path points to Codex source ($MARKET_PATH, version $PLUGIN_V)"
   pass=$((pass + 1))
 else
-  echo "  ✗ version mismatch: plugin=$PLUGIN_V marketplace=$MARKET_V"
+  echo "  ✗ marketplace source path mismatch: expected ./codex-orchestrate, got ${MARKET_PATH:-missing}"
   fail=$((fail + 1))
 fi
 
@@ -217,6 +228,9 @@ check "I5: state.sh has plans subcommand" bash -c \
   "bash '$PLUGIN_DIR/scripts/state.sh' 2>&1 | grep -q 'plans'"
 check "I5: state.sh has execution-plan start subcommand" bash -c \
   "bash '$PLUGIN_DIR/scripts/state.sh' 2>&1 | grep -q 'execution-plan' && grep -q 'cmd_execution_plan_start' '$PLUGIN_DIR/scripts/state.sh'"
+
+check "I5: state.sh has unlimited budget subcommand" bash -c \
+  "bash '$PLUGIN_DIR/scripts/state.sh' 2>&1 | grep -q 'initialize, unlimited, check' && grep -q 'cmd_budget_unlimited' '$PLUGIN_DIR/scripts/state.sh'"
 
 # I7: no macOS-only date -j in learnings (cross-platform)
 check "I7: learnings-jsonl no macOS-only date" bash -c \
@@ -323,11 +337,11 @@ check "R3-20: Ruling 2 in architecture-draft" \
 check "R3-20: Ruling 3 in architecture-draft" \
   grep -q "Ruling 3" "$PLUGIN_DIR/architecture-draft.md"
 
-# R3-21: design doc rulings
-check "R3-21: Ruling 2 in design doc" \
-  grep -q "Ruling 2" "docs/orchestrate/design/2025-05-22-plugin-maturity.md"
-check "R3-21: Ruling 3 in design doc" \
-  grep -q "Ruling 3" "docs/orchestrate/design/2025-05-22-plugin-maturity.md"
+# R3-21: Codex architecture authority, not the old Claude maturity design
+check "R3-21: architecture draft is Codex source authority" \
+  grep -q "Codex 原生复刻系统的架构权威文档" "$PLUGIN_DIR/architecture-draft.md"
+check "R3-21: architecture draft is not a migration log" \
+  grep -q "不是迁移日志" "$PLUGIN_DIR/architecture-draft.md"
 
 echo ""
 echo "=== Results: $pass passed, $fail failed ==="

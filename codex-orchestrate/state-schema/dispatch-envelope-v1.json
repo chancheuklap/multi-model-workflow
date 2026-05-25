@@ -6,7 +6,21 @@
   "properties": {
     "protocol_version": { "type": "string", "const": "1" },
     "run_id": { "type": "string" },
-    "phase": { "type": "string", "enum": ["plan-writing", "execution", "final-review", "discovery", "multi-pr-merge"] },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "discovery",
+        "plan-writing",
+        "execution",
+        "final-review",
+        "bug-investigation",
+        "direct-repair",
+        "multi-pr-merge",
+        "hotfix",
+        "quickfix",
+        "maintenance"
+      ]
+    },
     "agent_role": { "type": "string" },
     "agent_id": { "type": ["string", "null"] },
     "pack_id": { "type": ["string", "null"] },

@@ -53,9 +53,7 @@
 bash codex-orchestrate/build/build.sh --check --plugin-dir codex-orchestrate
 bash codex-orchestrate/scripts/run-all-tests.sh
 bash codex-orchestrate/scripts/verify-maturity.sh
-uv run --with pyyaml --no-project \
-  python ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py \
-  codex-orchestrate
+bash codex-orchestrate/scripts/validate-plugin-contract.sh codex-orchestrate
 ```
 
 发布或安装类任务还要验证 source/runtime parity，不要只相信安装输出。按 manifest 版本核对 `~/.codex/plugins/cache/multi-model-workflow/multi-model-workflow/<version>/` 下的 plugin cache、`~/.codex/agents/` 下的 agent TOML，以及本次改动涉及的 hook / SessionStart 行为。

@@ -9,6 +9,7 @@
 - Ad-hoc review skills must dispatch the native `codex_reviewer` subagent with `spawn_agent` and `wait_agent`; do not add external review runners.
 - Orchestrated review references must use `.codex/multi-model-workflow/review-*`, reviewer `.agent-id` files, `spawn_agent`, `send_input`, and `wait_agent`; do not describe job-id polling.
 - Dispatch validation belongs in explicit Coordinator scripts before `spawn_agent` / `send_input`; those scripts may gate the prompt envelope, but must not run reviews or replace subagents.
+- Execution Pack workers and non-execution route workers have different gates: use Pack dispatch scripts only when execution-state exists; use route-worker dispatch scripts for Bug Investigation, Direct Repair, Multi-PR conflict repair, and other unlimited route workers.
 - Current workflow state paths are `.codex/multi-model-workflow/*`. Do not write new runtime instructions against old-host state paths.
 - Worktree instructions must be concrete and automatic: create Git worktrees under `${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>` with `git worktree add -b`, never with UI-only steps, pseudo tools, or custom roots. Do not switch the main repository branch before creating the worktree.
 - `architecture-draft.md` is the Codex source architecture authority. Keep it in Chinese and keep it detailed enough to audit workflow routes, state files, document artifacts, subagents, hooks, scripts, tests, and Codex-specific runtime rulings.

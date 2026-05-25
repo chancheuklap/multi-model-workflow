@@ -58,12 +58,12 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 | 路线 | 输入信号 | 下一步 |
 | --- | --- | --- |
 | **Route 1: Formal Orchestrate** | 新功能、改造、feedback、缺 design/issue/plan、已有 design/plan 要 review/执行 | Step 2 |
-| **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Step 2（Git + Scope，跳过 Budget）→ Step 15 |
-| **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Step 2（Git + Scope，跳过 Budget）→ Step 19 |
-| **Route 4: Hotfix** | hotfix / 紧急 / production fire / P0 / 生产事故 | Step 2（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-4-hotfix.md |
-| **Route 5: Quick Fix** | quick fix / 小改动 / 调整 | Step 2（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-5-quickfix.md |
-| **Route 6: Spike** | spike / 探索 / prototype / 试试 | Step 2（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-6-spike.md |
-| **Route 7: Maintenance** | 升级 / upgrade / CVE / 依赖 / 重构 / refactor / 清理 / tech debt | Step 2（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-7-maintenance.md |
+| **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Step 2（Git + Scope + unlimited workflow-state）→ Step 15 |
+| **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Step 2（Git + Scope + unlimited workflow-state）→ Step 19 |
+| **Route 4: Hotfix** | hotfix / 紧急 / production fire / P0 / 生产事故 | Step 2（Git + Scope + unlimited workflow-state）→ Read references/route-extensions/route-4-hotfix.md |
+| **Route 5: Quick Fix** | quick fix / 小改动 / 调整 | Step 2（Git + Scope + unlimited workflow-state）→ Read references/route-extensions/route-5-quickfix.md |
+| **Route 6: Spike** | spike / 探索 / prototype / 试试 | Step 2（Git + Scope + unlimited workflow-state）→ Read references/route-extensions/route-6-spike.md |
+| **Route 7: Maintenance** | 升级 / upgrade / CVE / 依赖 / 重构 / refactor / 清理 / tech debt | Step 2（Git + Scope + unlimited workflow-state）→ Read references/route-extensions/route-7-maintenance.md |
 
 模糊输入 → 一次只问一个问题收窄。概念/事实问题 → 直接回答不进 orchestrate。
 
@@ -108,6 +108,12 @@ Skill({ skill: "multi-model-workflow:orchestrate-discovery" })
 大 issue 拆分需要设计文档的完整内容。如果 Coordinator 上下文中已无设计文档内容（因 compact 或 phase 切换），必须重新 Read。
 
 #### Step 8a：Direct Repair（READY_FOR_REPAIR mini-route）
+
+先将 workflow-state 转为 Direct Repair unlimited budget：
+
+```bash
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget unlimited --run-id "<run_id>" --route direct-repair
+```
 
 **Read** `references/workflow-direct-repair.md` 并严格执行（Worker 修复 + Codex review + Closing）。修复后进入 Closing。
 

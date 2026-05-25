@@ -151,8 +151,8 @@ Every `spawn_agent({...})` dispatch and every `send_input({...})` repair MUST be
 {
   "protocol_version": "1",
   "run_id": "<run_id>",
-  "phase": "<plan-writing|execution|final-review|discovery>",
-  "agent_role": "<pack_executor|complex_pack_executor|plan_writer|codex_reviewer>",
+  "phase": "<discovery|plan-writing|execution|final-review|bug-investigation|direct-repair|multi-pr-merge|hotfix|quickfix|maintenance>",
+  "agent_role": "<pack_executor|complex_pack_executor|plan_writer|codex_reviewer|root_cause_analyst|code_explorer|complex_code_explorer>",
   "agent_id": "<existing agent_id or null for first dispatch>",
   "pack_id": "<N.M or null>",
   "repair_round": 0,
@@ -165,7 +165,7 @@ Every `spawn_agent({...})` dispatch and every `send_input({...})` repair MUST be
 -->
 ```
 
-For repair (repair_round >= 1): set `disposition_refs` to array of accepted finding IDs.
+For repair (repair_round >= 1): set `disposition_refs` to array of accepted finding IDs or route-worker follow-up references.
 For codex_reviewer dispatches: set `review_intent` and `exception_code` for targeted-re-review.
 
 Coordinator validates this block with an explicit dispatch script before `spawn_agent` / `send_input`. Missing/malformed envelope = dispatch BLOCKED.
