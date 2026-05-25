@@ -11,6 +11,8 @@ description: "正式开发流程主入口。用户给出新功能、改造、bug
 **State Read**：进入时读取 `workflow-state-<run_id>.json` 获取当前 phase、budget 余量、已完成 plan 列表。
 
 **Route Dispatch**：根据 Entry Gate 判定的 route 选择对应 phase skill。
+
+**Sub-agent Ownership**：一旦把某个 investigation / implementation / review 派给 sub-agent，Coordinator 不得并行重复做同一件事，不得用短间隔轮询催促，不得要求未完成 agent 输出中间结论，不得中断或关闭仍在运行的 agent。等待期间只做不重叠的协调工作；若下一步依赖该结果，就直接等待 `wait_agent` 返回。
 <!-- END: preamble -->
 
 <!-- BEGIN: voice-directive [variant=workflow] -->

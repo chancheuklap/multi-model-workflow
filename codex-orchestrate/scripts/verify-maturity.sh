@@ -61,6 +61,8 @@ echo "## Anchors"
 check "≥10 review-dispatch anchors" bash -c "[ \$(grep -rl 'BEGIN: review-dispatch' '$PLUGIN_DIR/skills/' | wc -l) -ge 10 ]"
 check "≥1 disposition-table anchor" bash -c "[ \$(grep -rl 'BEGIN: disposition-table' '$PLUGIN_DIR/skills/' | wc -l) -ge 1 ]"
 check "≥1 preamble anchor" bash -c "[ \$(grep -rl 'BEGIN: preamble' '$PLUGIN_DIR/skills/' | wc -l) -ge 1 ]"
+check "sub-agent ownership rule is injected" bash -c \
+  "grep -q 'Sub-agent Ownership' '$PLUGIN_DIR/build/templates/preamble.md.tmpl' && grep -q 'Sub-agent Ownership' '$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md'"
 
 echo ""
 echo "## Route Extensions"

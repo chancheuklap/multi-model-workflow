@@ -36,6 +36,8 @@ Phase complete. 返回 orchestrate-workflow 主循环。
 
 **Route Dispatch**：根据 Entry Gate 判定的 route 选择对应 phase skill。
 
+**Sub-agent Ownership**：一旦把某个 investigation / implementation / review 派给 sub-agent，Coordinator 不得并行重复做同一件事，不得用短间隔轮询催促，不得要求未完成 agent 输出中间结论，不得中断或关闭仍在运行的 agent。等待期间只做不重叠的协调工作；若下一步依赖该结果，就直接等待 `wait_agent` 返回。
+
 **Only stop for：**
 - 需要用户确认设计方向
 - 需要用户确认设计文档

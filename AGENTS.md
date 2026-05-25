@@ -32,6 +32,7 @@
 - `orchestrate-workflow` 是 coordinator 入口。Formal work 依次走 discovery、plan writing、execution、final review 和 closing。
 - Route 2 处理未知根因 bug；Route 3 处理 multi-PR merge；Routes 4-7 分别覆盖 hotfix、quick fix、spike、maintenance。不要把这些路线压成一个泛执行流程。
 - 派发必须是 Codex-native：使用 `spawn_agent`、`send_input`、`wait_agent`，并调用已注册的 `pack_executor`、`complex_pack_executor`、`plan_writer`、`codex_reviewer`、`root_cause_analyst` 和 explorer agents。
+- 派发后必须尊重 sub-agent ownership：Coordinator 不重复执行已派发的同一任务，不用短间隔轮询催促，不在未完成时要求中间结论，不中断或关闭仍在运行的 agent。等待期间只能做不重叠的协调工作；需要结果才能继续时就等待 `wait_agent` 返回。
 - Pack / review prompt 必须自带 scope、anchors、return contract 和 routing vocabulary。不要假设 worker 或 reviewer 能从父 skill 隐式推断上下文。
 - 高风险合同栈是 `workflow-state` / `execution-state`、`DISPATCH_ENVELOPE`、dispatch validators、hook registration、template-generated text、review budget 和 verify harness。成熟度或 runtime 变更必须逐层核。
 - Hook 的价值在于从 Codex plugin manifest 自动触发。能手动运行的 helper script 不等于 hook wiring 已生效。

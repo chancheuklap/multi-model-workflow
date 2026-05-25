@@ -532,6 +532,21 @@ Worker 不读 plan 文件。Coordinator 在 dispatch 前把当前 pack 的完整
 
 Agent 行为权威是 `agents/*.toml` 的 `developer_instructions`。`agents/persona.md` 是共享 voice/persona 参考，不是 agent 注册文件。
 
+### Coordinator 派发所有权
+
+Codex Orchestrate 把 subagent 派发视为 ownership transfer，而不是“同时找一个助手再由主线程重做一遍”。
+
+规则：
+
+1. Coordinator 派出 `plan_writer`、worker、explorer、`root_cause_analyst` 或 `codex_reviewer` 后，不得在主线程并行执行同一 investigation / implementation / review。
+2. 等待期间只允许做不重叠的协调工作，例如准备下一阶段的状态文件、核对 scope contract、整理用户汇报或等待其它独立 agent。
+3. 如果下一步依赖该 agent 的结果，Coordinator 必须等待 `wait_agent` 返回，不用短间隔轮询催促。
+4. 未完成 agent 不应被要求输出中间结论；中间结论会破坏 review / repair 的完整上下文。
+5. 只有用户明确取消、workflow 判定 BLOCKED、agent 已完成/失联且影响已说明时，才允许中断或关闭 agent。
+6. Agent 返回后，Coordinator 的职责是验收、disposition、整合和路由，不是重新做一遍 agent 已经完成的工作。
+
+这条规则保护上下文边界：subagent 负责完成被派发的闭环，Coordinator 负责调度和整合。重复执行同一任务会消耗上下文、制造相互矛盾的证据，并破坏 review / repair 的责任归属。
+
 ### Hooks（5 类事件 / 8 个 command handler）
 
 | 事件 | Matcher | Handler | 责任 |
