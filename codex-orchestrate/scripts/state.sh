@@ -860,11 +860,20 @@ cmd_budget_increment_review() {
     exit 2
   fi
 
+  local used total
+  used=$(jq -r '.budget.review_used' "$sf")
+  total=$(jq -r '.budget.review_total' "$sf")
+
+  if [[ "$total" != "unlimited" && "$used" -ge "$total" ]] 2>/dev/null; then
+    echo "Error: review budget exhausted (${used}/${total}); refusing to count another review." >&2
+    exit 2
+  fi
+
   local tmp="${sf}.tmp"
   jq '.budget.review_used += 1' "$sf" > "$tmp"
   mv "$tmp" "$sf"
 
-  local used total needs_dc=false msg
+  local needs_dc=false msg
   used=$(jq -r '.budget.review_used' "$sf")
   total=$(jq -r '.budget.review_total' "$sf")
 
