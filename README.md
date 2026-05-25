@@ -15,7 +15,7 @@
 | Skills | `codex-orchestrate/skills/` | plugin cache skills |
 | Custom agents | `codex-orchestrate/agents/*.toml` | `~/.codex/agents/*.toml` + `~/.codex/config.toml` `[agents.<name>]` |
 | Hooks | `codex-orchestrate/hooks.json`、`codex-orchestrate/hooks/*.sh` | plugin cache hooks |
-| Review lane | `codex-orchestrate/scripts/review/review-lane.sh` | plugin cache script |
+| Review lane | `codex-orchestrate/skills/codex-review/SKILL.md`、`codex-orchestrate/scripts/validate-review-dispatch.sh`、`codex-orchestrate/scripts/record-review-dispatch.sh`、`codex-orchestrate/scripts/complete-review-dispatch.sh` | plugin cache skill + scripts |
 | Worktree execution | `codex-orchestrate/scripts/dispatch/` | plugin cache scripts |
 | State schema | `codex-orchestrate/state-schema/` | plugin cache schemas |
 
@@ -42,6 +42,8 @@ bash codex-orchestrate/scripts/verify-maturity.sh
 bash codex-orchestrate/scripts/validate-plugin-contract.sh codex-orchestrate
 bash codex-orchestrate/build/build.sh --check --plugin-dir codex-orchestrate
 ```
+
+如果当前系统级 `validate_plugin.py` 拒绝 `.codex-plugin/plugin.json` 的 `hooks` 字段，不要为了通过旧 validator 删除 hooks。Codex Orchestrate 的 manifest 必须声明 `"hooks": "./hooks.json"`；此时以 `verify-maturity.sh`、`run-all-tests.sh` 和 build check 作为 source 验证。
 
 ## 安装
 

@@ -74,6 +74,7 @@
     },
     "review_effectiveness": {
       "type": "object",
+      "description": "Optional diagnostic counters for review disposition health. Kept for observability compatibility; not a correctness gate.",
       "properties": {
         "reject_count": { "type": "number" },
         "suppress_count": { "type": "number" },
@@ -83,7 +84,7 @@
         "last_aggregated_at": { "type": ["string", "null"] },
         "health_warnings": {
           "type": "array",
-          "description": "Disposition health range deviation warnings",
+          "description": "Optional diagnostic disposition health range deviation warnings",
           "items": { "type": "string" }
         }
       }

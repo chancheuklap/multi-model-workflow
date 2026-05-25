@@ -122,6 +122,18 @@ Analyst 已修复代码。
 **Bias indicators (REQUIRED at end of review output)**:
 Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
 
+**证据表 (REQUIRED)**：
+Reviewer 必须在 `### Evidence` 下填写半结构化证据表。证据表证明 reviewer 实际检查过什么；它不是设计意图摘要，也不能替代阅读 source artifacts。
+
+| 字段 | 必填内容 |
+| --- | --- |
+| 已读设计 / mockup / plan 来源 | 实际读过的文档、计划、mockup 或用户上下文。 |
+| 已检查代码或产物路径 | 已检查的源码、生成产物、state schema、hooks、templates 或文档路径。 |
+| 已运行命令或验证 | 实际执行的命令、脚本、测试、build check 或人工验证。 |
+| Finding 证据 | 支撑 finding 的路径、行号、diff、命令输出或可复现行为。 |
+| 假设 | 影响 verdict 的前提和未被源码直接证明的判断。 |
+| 未验证项 | 相关但未能验证的内容，以及原因。 |
+
 Compaction recovery: `.job-id` present but no `review-results/` -> resume from Step 4.
 <!-- END: review-dispatch -->
 
@@ -204,6 +216,40 @@ Agent({
 ```
 
 Worker 返回处理：
+
+<!-- BEGIN: repair-routing -->
+## 统一修复分流
+
+所有 review repair 先由 Coordinator 对 accepted findings 做亲验和 disposition；未 accepted 的 finding 不进入修复。修复 prompt 只携带 accepted finding、证据、scope、受影响文件、验证门槛和 targeted re-review 范围。
+
+| Finding / 修复形态 | Claude plugin 修复 owner |
+| --- | --- |
+| 范围小、本地化、意图清楚、不碰合同边界 | Coordinator Path A 自修，随后运行对应验证。 |
+| 同一个 pack 内的普通修复，原 worker 能胜任 | 通过现有 `SendMessage` resume 原 `pack-executor`；没有可用 agent id 时按当前 phase 的阻塞规则处理。 |
+| 跨模块、migration、billing、permission、runtime、共享合同、state machine、生成模板问题 | 使用 `complex-pack-executor` 路径，修复 prompt 写清 owner / provider / consumer / migration / deploy order / rollback / manual gate。 |
+| 根因不清，只知道症状 | 先派 `code-explorer` 或 `complex-code-explorer` 做只读调查，拿到 confirmed root cause 后再进入 Path A、原 worker 或 complex path。 |
+| 系统性 bug、重复修复失败、未知 regression | 使用 `root-cause-analyst` 路径；要求列可证伪假设、排除证据和下一步修复方向。 |
+| Final Review 发现跨 plan 合同问题 | 返回一次 `NEEDS_EXECUTION`，把 affected plans、affected packs、producer / consumer 断点和必须重跑的验证交给 execution repair。 |
+| 设计、mockup 或 plan 不足以判断正确性 | 回流 Discovery 或 Plan Writing；不要用代码临时补设计缺口。 |
+| Path A repair targeted re-review 失败 | 升级 Path B，优先 `SendMessage` 原 worker；跨边界则走 `complex-pack-executor`。 |
+
+**Claude-native dispatch 规则**：
+- 新派发使用 `Agent({ subagent_type: "<agent-name>", ... })`；已有 worker / plan-writer 修复优先使用 `SendMessage({ to: "<agent_id>", ... })` resume。
+- Agent 名使用 Claude plugin 现有连字符：`pack-executor`、`complex-pack-executor`、`code-explorer`、`complex-code-explorer`、`root-cause-analyst`、`plan-writer`。
+- Review 修复后的 targeted re-review 使用现有 `codex-companion.mjs` review dispatch；repair gate 使用独立 gate 名，不能覆盖 baseline 结果。
+- 本分流块只定义 owner 和升级条件；各 phase 的 round 上限、state 写入和 release gate 仍以所在 reference 为准。
+
+**回归证据要求 (REQUIRED in repair return)**：
+
+Repair agent 或 Coordinator Path A 返回时必须提供回归证据；不要求每个 finding 都新增一个测试。优先选择能证明用户可见行为、合同或发布风险已修好的证据，不新增低价值实现细节测试。
+
+回归证据必须包含以下至少一项：
+- 先失败后通过的 public-behavior test、contract test、migration / schema test 或 build/template check。
+- 相关验证命令及结果，能覆盖 accepted finding 的修复面。
+- 无法自动化时写明 `manual validation gate`：人工检查对象、检查步骤、通过标准和 release 前责任人。
+
+Release Gate 在宣布 review repair 完成前，必须确认每个 accepted finding 都有回归证据或 `manual validation gate`。
+<!-- END: repair-routing -->
 
 | Worker Verdict | 动作 |
 | --- | --- |

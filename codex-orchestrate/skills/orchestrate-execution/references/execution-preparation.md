@@ -90,6 +90,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" execution-plan start \
 **Git Checkpoint**：
 - `git status --short --branch` 确认当前分支、无 stale dirty files
 - 不在 main / master / release branch 上
+- `git branch --show-current` 必须非空；如果是 detached HEAD，返回 orchestrate-workflow 的 infrastructure 分支就绪检查，不继续派 worker
 - 区分当前 scope 改动和用户/其它线程改动——不 stage 不属于当前 scope 的 dirty files
 
 **Budget File**：读取 `.codex/multi-model-workflow/active-run-id` 找到 budget file，确认 `pack_count` 与 plan 中 Task Pack 数量一致。**不一致时不得自行修改 budget file**——`budget_total` 只在 plan-writing Step 12a 赋值，执行阶段不可变。不一致说明 plan 文件与 budget file 脱节，返回 `NEEDS_PLAN_REVISION` 让 plan-writing 重新计算。

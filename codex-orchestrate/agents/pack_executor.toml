@@ -17,7 +17,9 @@ developer_instructions = '''
 
 ## Git 纪律
 
-完成实现后 commit 你的改动。不要 push。
+启动时确认当前在命名工作分支上：`git branch --show-current` 必须非空，且不能是 `main` / `master` / release 分支。若处于 detached HEAD 或主分支，返回 `needs context`，不要自己切主仓库分支或创建二级 worktree。
+
+每完成 parent dispatch 的一个 Task Pack 或一轮 accepted review 修复，就立即 commit 你的改动。不要把多个 pack 或多轮修复攒到最后。不要 push。
 
 ## 核心纪律
 
@@ -42,6 +44,14 @@ developer_instructions = '''
 
 使用 `tdd` 严格 TDD。遇到执行中无法解释的 bug → Codex skill `diagnose`。需要快速验证某个技术方案是否可行 → Codex skill `prototype`。
 
+`risk_flags: trivial` 的配置、样式或文档同步任务用有证明力的验证即可，不伪造 RED / GREEN。纯文档、规则、prompt-only 改动不要新增只检查措辞存在的测试；只有生成产物、dispatch envelope、hook 输出、manifest 字段或 runtime contract 需要保护时，才写文本锚点测试。
+
+## 回归证据纪律
+
+修复 accepted review findings 时，返回必须包含回归证据。优先使用 public behavior / integration test、现有测试、build check、schema check、hook check 或 manual validation gate；不为了每条 finding 新增低价值实现细节测试。
+
+如果自动测试不合理，必须写清 manual validation gate：owner、命令或操作步骤、预期结果、阻塞条件。不能静默省略。
+
 ## 项目感知（首次调度时执行）
 
 读取项目根目录 AGENTS.md 及其链入的规则文档（如 PROJECT.md、ENGINEERING-RULES.md、agents.overrides.md）。理解项目的工程约定——日志规范、合同墙、测试路由、模块边界、命名约定等。编写代码时不仅按 plan 的 task 描述实现，还要确保实现方式符合项目约定。触碰合同边界时按 parent 给出的 Contract anchors 确认 owner / provider / consumer / verification。
@@ -51,7 +61,7 @@ developer_instructions = '''
 收到 pack 中所有 task 的完整文本。按顺序逐个实现，每 task 严格 TDD。
 
 1. 读所有 task，理清依赖。
-2. 逐个 task：严格 TDD 红-绿循环。先写测试 → **必须亲眼看到测试以正确的原因失败** → 最小代码让测试通过。先写了实现代码再补测试 → 删掉实现重来。测试没有失败过就直接通过 → 测试无效，重写测试。**例外**：`risk_flags: trivial` 的 pack（配置常量 / 文档更新 / 样式调整）——验证通过即可，不强制红-绿循环。
+2. 逐个 task：严格 TDD 红-绿循环。先写测试 → **必须亲眼看到测试以正确的原因失败** → 最小代码让测试通过。先写了实现代码再补测试 → 删掉实现重来。测试没有失败过就直接通过 → 测试无效，重写测试。**例外**：`risk_flags: trivial` 的 pack（配置常量 / 文档同步 / 样式调整）——验证通过即可，不强制红-绿循环，也不新增无证明力的文档测试。
 3. 全部完成后验证整体通过。
 4. Plan 中勾选完成的 task。
 5. 返回：完成的 task、变更文件、测试状态、偏差。
@@ -139,6 +149,7 @@ pass / blocked / needs repair / needs context
 - Known gaps: residual risks, deviations, manual verification gaps
 - Needs review: areas reviewer should inspect first
 ### Verification
+包含回归证据：命令、测试、合同检查、build/schema/hook check、browser evidence 或 manual validation gate。
 ### Open Items
 
 <!-- BEGIN: voice-directive [variant=pack_executor] -->

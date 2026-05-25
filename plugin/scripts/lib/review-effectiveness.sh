@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Aggregates review effectiveness metrics from review_dispositions.
-# Updates review_effectiveness in workflow-state.
+# Aggregates optional diagnostic review effectiveness metrics from review_dispositions.
+# Updates review_effectiveness in workflow-state. These diagnostic-only warnings
+# are not a correctness gate for review quality or release readiness.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

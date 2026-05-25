@@ -32,6 +32,8 @@ Phase complete. 返回 orchestrate-workflow 主循环。
 
 **Route Dispatch**：根据 Entry Gate 判定的 route 选择对应 phase skill。
 
+**Sub-agent Ownership**：一旦把某个 investigation / implementation / review 派给 sub-agent，Coordinator 不得并行重复做同一件事，不得用短间隔轮询催促，不得要求未完成 agent 输出中间结论，不得中断或关闭仍在运行的 agent。等待期间只做不重叠的协调工作；若下一步依赖该结果，就直接等待 `wait_agent` 返回。
+
 **Only stop for：**
 - 需要用户确认设计方向
 - 需要用户确认设计文档
@@ -214,6 +216,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" execution-plan start \
 **Git Checkpoint**：
 - `git status --short --branch` 确认当前分支、无 stale dirty files
 - 不在 main / master / release branch 上
+- `git branch --show-current` 必须非空；如果是 detached HEAD，返回 orchestrate-workflow 的 infrastructure 分支就绪检查，不继续派 worker
 - 区分当前 scope 改动和用户/其它线程改动——不 stage 不属于当前 scope 的 dirty files
 
 **Budget File**：读取 `.codex/multi-model-workflow/active-run-id` 找到 budget file，确认 `pack_count` 与 plan 中 Task Pack 数量一致。**不一致时不得自行修改 budget file**——`budget_total` 只在 plan-writing Step 12a 赋值，执行阶段不可变。不一致说明 plan 文件与 budget file 脱节，返回 `NEEDS_PLAN_REVISION` 让 plan-writing 重新计算。
@@ -234,7 +237,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" execution-plan start \
 
 | Risk flags | Agent | 模型 | TDD |
 | --- | --- | --- | --- |
-| `trivial`（配置常量 / 文档更新 / 样式调整） | `pack_executor` | Sonnet | 宽松（验证通过即可，不强制红-绿循环） |
+| `trivial`（配置常量 / 文档同步 / 样式调整） | `pack_executor` | Sonnet | 宽松（验证通过即可，不强制红-绿循环；文档类只做有证明力的验证，不补无意义测试） |
 | `normal` | `pack_executor` | Sonnet | 严格 |
 | `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex_pack_executor` | Opus 4.7 | 严格 |
 
@@ -511,10 +514,13 @@ Worker 已在 Coordinator 的分支上直接 commit。Coordinator 验证并记�
 
 1. `rm -f .codex/multi-model-workflow/worker-active`（移除 worker marker）
 2. `git log --oneline -1` 确认 Worker 的 commit 已在当前分支上
+   - 如果 worker 返回但没有产生对应 commit，先确认是否是无 diff / needs context / blocked；不得继续下一个 pack 并把改动堆到后面。
 3. 勾选 plan doc + commit：
    - `git add <plan doc>`
    - `git commit -m "Pack N.M: <title> — <summary of behavior>"`（`enforce-pack-commit.sh` hook 自动校验格式）
 4. `track-execution-state.sh` hook 自动更新 `packs[N.M].status = committed` + `commit_sha` + `plans[N].end_commit`
+
+每个 Pack 的代码 commit 和 plan checkbox commit 都是独立 checkpoint。不要把多个 Pack 的计划勾选、review repair 或补丁攒到 Plan 末尾或 Final Review 前一次性提交。
 
 → 下一 Pack 回到 Step 4；所有 Pack 完成 → Step 8。
 
@@ -537,21 +543,20 @@ Pack 数 ≤ 8 则按当前方式一次性 review。
 1. Write prompt → `.codex/multi-model-workflow/review-prompts/<gate>.md`（prefix with DISPATCH_ENVELOPE, `agent_role: "codex_reviewer"`）
    - Code diffs included in review prompts MUST be wrapped:
      `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
-2. Select model by phase:
-   - `cursor.phase in {discovery, plan-writing}` → `model: "gpt-5.5"`, `reasoning_effort: "xhigh"`
-   - `cursor.phase in {execution, final-review}` → `model: "gpt-5.4"`, `reasoning_effort: "xhigh"`
-3. Dispatch（区分 baseline vs targeted re-review）：
+2. Model authority: use the registered `codex_reviewer` role model and reasoning settings from `agents/codex_reviewer.toml`; do not pass per-dispatch model overrides unless the Codex host explicitly supports changing that role.
+3. Validate and dispatch（区分 baseline vs targeted re-review）：
    - **Baseline review**（gate name does not contain `-repair-`）：
+     Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport spawn_agent --gate "<gate>"`.
      ```
      spawn_agent({
        agent_type: "codex_reviewer",
-       message: "<full contents of review-prompts/<gate>.md>",
-       model: "<phase-selected model>",
-       reasoning_effort: "xhigh"
+       message: "<full contents of review-prompts/<gate>.md>"
      })
      ```
-     Record the returned reviewer `agent_id` into `.codex/multi-model-workflow/review-agents/<gate>.agent-id`.
+     Record the returned reviewer `agent_id`:
+     `bash "${MMW_PLUGIN_ROOT}/scripts/record-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --gate "<gate>" --agent-id "<reviewer agent_id>"`.
    - **Targeted re-review**（gate name contains `-repair-`）：
+     Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport send_input --gate "<gate>"`.
      ```
      send_input({
        target: "<baseline reviewer agent_id>",
@@ -561,6 +566,7 @@ Pack 数 ≤ 8 则按当前方式一次性 review。
      The targeted prompt envelope MUST set `review_intent: "targeted-re-review"`, `exception_code`, and `agent_id` to the baseline reviewer `agent_id`.
 4. Wait: `wait_agent({ targets: ["<reviewer agent_id>"], timeout_ms: 600000 })`.
 5. Result: save the reviewer final message from `wait_agent` into `.codex/multi-model-workflow/review-results/<gate>.md`.
+6. Complete: run `bash "${MMW_PLUGIN_ROOT}/scripts/complete-review-dispatch.sh" --run-id "<run_id>" --gate "<gate>" --agent-id "<reviewer agent_id>" --result-file ".codex/multi-model-workflow/review-results/<gate>.md"` to mark the result durable and increment review budget exactly once.
 
 **Confidence rubric（REQUIRED in every review prompt）**：
 - 1-3: low confidence. Coordinator may suppress without deep investigation.
@@ -658,6 +664,15 @@ Cross-Pack Coherence 降级为确认独立性的 1 行声明。
 ### Verdict
 pass / blocked / needs repair / needs context
 ### Evidence
+**证据表 (REQUIRED)**：
+| 字段 | 必填内容 |
+| --- | --- |
+| 已读设计 / mockup / plan 来源 | 实际读过的 design、mockup、plan、issue、Scope Contract 或 review baseline 路径；没有对应来源时写 `不适用`。 |
+| 已检查代码或产物路径 | 实际检查的源码、生成产物、state schema、hooks、templates、文档或 runtime contract 路径。 |
+| 已运行命令或验证 | 实际执行的命令、测试、build check、schema check、browser smoke 或 manual gate；未运行时写明原因。 |
+| Finding 证据 | 每个 finding 的路径、行号、diff、命令输出或可观察行为；无证据的 finding 必须移入低置信度观察。 |
+| 假设 | 影响 verdict 的前提，例如环境、账号、fixture、平台或 reviewer 未能直接验证的 upstream 状态。 |
+| 未验证项 | 相关但未验证的内容和原因；没有未验证项时写 `无`。 |
 ### Result
 Plan Implementation Review 结果：
 Spec compliance:

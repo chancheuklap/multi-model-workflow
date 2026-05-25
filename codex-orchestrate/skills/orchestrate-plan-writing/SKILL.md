@@ -32,6 +32,8 @@ Phase complete. 返回 orchestrate-workflow 主循环。
 
 **Route Dispatch**：根据 Entry Gate 判定的 route 选择对应 phase skill。
 
+**Sub-agent Ownership**：一旦把某个 investigation / implementation / review 派给 sub-agent，Coordinator 不得并行重复做同一件事，不得用短间隔轮询催促，不得要求未完成 agent 输出中间结论，不得中断或关闭仍在运行的 agent。等待期间只做不重叠的协调工作；若下一步依赖该结果，就直接等待 `wait_agent` 返回。
+
 **Only stop for：**
 - 需要用户确认设计方向
 - 需要用户确认设计文档
@@ -185,9 +187,9 @@ Coordinator 列出 `docs/orchestrate/issues/<slug>/` 目录下的所有大 issue
 
 全部 plan_writer 返回 `PLAN_CREATED` 后，进入 Step 11。任一 plan_writer 返回 upstream verdict → 按 verdict 路由处理后重新进入。
 
-## Steps 11-12a：Plan Entry Gate + Task Pack Inventory Gate + Budget 赋值
+## Steps 11-12b：Plan Entry Gate + Task Pack Inventory Gate + Budget 赋值 + 跨计划合同图
 
-**Read** `references/plan-gates.md`（对 `plans/<slug>/` 下所有 plan 文件做 gate 检查 + budget_total 首次赋值 `3P + 12`，P = plan 文件总数）。通过后进入 Pack 数量检查。
+**Read** `references/plan-gates.md`（对 `plans/<slug>/` 下所有 plan 文件做 gate 检查 + budget_total 首次赋值 `3P + 12`，P = plan 文件总数，并生成跨计划合同图）。通过后进入 Pack 数量检查。
 
 **Pack 数量检查**（对每个 plan 文件运行）：
 
@@ -201,7 +203,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/pack-count-validator.sh" <plan-file>
 | WARN (9-12) | Direction Check — 告知用户 pack 数超出建议范围，建议拆分。用户确认继续或拆分 |
 | OVER_THRESHOLD (>12) | 返回 `NEEDS_ISSUE_SPLIT` + 建议拆分方案（哪些 pack 可合并为独立 issue） |
 
-Pack 数量检查通过后进入 Steps 13-14 review。
+Pack 数量检查通过后，Coordinator 生成 `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`。该文件只记录跨 plan 连接面：共享接口、state 字段、migration、生成产物、hook、合同、数据所有权、顺序假设和验证责任；不要列每个 plan 的全部 touched files。生成后进入 Steps 13-14 review，Plan Review 必须审这份合同图。
 
 ## Steps 13-14：Plan Review
 

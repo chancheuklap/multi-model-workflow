@@ -49,5 +49,30 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget initialize \
 
 **这是 budget 的首次有效赋值**——workflow entry gate 创建时 budget_status 为 pending_plan_count，此处确认。
 
+## Step 12b：生成跨计划合同图
+
+所有 plan 文件完成并通过 Step 11-12a 后，Coordinator 读取 `docs/orchestrate/plans/<slug>/` 下全部 plan，生成：
+
+`docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`
+
+该文件只列跨 plan 合同，不列每个 plan 的全部 touched files。没有跨 plan 连接面时也要写明"无跨计划共享合同"，并说明 Final Review 只需确认独立性。
+
+合同图表格必须包含：
+
+| 字段 | 内容 |
+| --- | --- |
+| 连接面 | 合同、产物、state 字段、hook、route、schema、UI 行为或共享模块。 |
+| 生产方 plan | 负责创建或修改该连接面的 plan。 |
+| 消费方 plan | 依赖该连接面的 plan。 |
+| Owner | 后续由哪个 plan 或系统负责维护。 |
+| 验证方式 | 如何检查集成后的合同是否成立。 |
+| Final Review 重点 | Final Review 必须重新检查的跨 plan 风险。 |
+
+生成步骤：
+1. 扫描每份 plan 的 File / Responsibility Map、Contract anchors、migration / registry / hook / state / generated artifact 条目。
+2. 只提取跨 plan 连接面，记录 provider / consumer / owner / 验证责任。
+3. 对 producer 缺失、consumer 缺失、ownership 冲突或验证方式不清的连接面标记 `needs plan repair`。
+4. 写完后再进入 Plan Review；Plan Review dispatch 必须把该文件列为 source artifact。
+
 ---
 > **下一步**：通过 → Steps 13-14（`plan-review-dispatch.md`）。Gate 失败 → 返回 plan_writer 修复。

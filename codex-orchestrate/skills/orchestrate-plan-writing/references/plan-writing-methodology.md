@@ -162,7 +162,7 @@ Execution owner 必须是 Orchestrate Workflow。
 - `command` → Expected: ...
 
 **Commit boundary:** <one atomic commit scope>
-**Risk flags:** normal / high-risk / production-risk / billing / permission / migration / runtime / UI / HITL
+**Risk flags:** trivial / normal / high-risk / production-risk / billing / permission / migration / runtime / UI / HITL
 **发布风险:** <风险面 / N/A>
 **AFK / HITL:** ...
 **Dependencies:** ...
@@ -187,6 +187,19 @@ Execution owner 必须是 Orchestrate Workflow。
 - [ ] Step 6: Suggested commit boundary
 ```
 
+文档、规则、计划或 prompt-only pack 使用 verification-first 写法，不强制伪造 RED / GREEN：
+
+```markdown
+#### Implementation tasks
+- [ ] Step 1: 定位要同步的合同或规则来源
+  - 文件 / 来源 / 为什么这次必须更新
+- [ ] Step 2: 修改目标文档或指令
+  - 文件 / 责任边界 / 与 source design 或 workflow contract 的关系
+- [ ] Step 3: 运行有证明力的验证
+  - Run: `git diff --check` / build check / generator check / manifest check / path-link check → Expected: PASS
+- [ ] Step 4: Suggested commit boundary
+```
+
 **细 Task 规则**：
 - 优先从 public behavior 检查开始（Red → Green → Refactor）
 - 每个 step 只做一个动作
@@ -195,6 +208,7 @@ Execution owner 必须是 Orchestrate Workflow。
 - 后续 task 引用的类型/函数/字段必须在前文定义或 existing code 中验真
 - existing path 必须验真（`rg` / `find` / `ls`）；新文件写 `Create`
 - 文档、agents.overrides.md、registry、migration、release gate 更新与对应行为同 pack
+- 纯文档、规则、计划或 prompt-only 改动不要求新增测试；不要写只 grep 某句文字的测试。只有该文字是生成片段、dispatch envelope、hook 输出、manifest 字段或 runtime contract 锚点时，才允许用文本锚点测试保护。
 - 不写 `similar to previous task`——重复写出来，worker 可能不按顺序读
 - DRY / YAGNI：不为未来 hypothetical slice 预建抽象
 
@@ -217,6 +231,7 @@ verification 必须证明 pack 行为：
 - billing / permission：service test、用户可见 gate test
 - runtime / browser：focused unit test + log evidence
 - UI / UX：DOM assertion、screenshot、responsive viewport check、manual visual gate
+- 文档 / 规则 / prompt-only：`git diff --check`、生成器 `--check`、manifest / schema 校验、路径 / 链接校验、或人工可审查 diff。不要为纯文字改动构造不能发现真实 bug 的测试。
 
 ### 无 Placeholder 规则
 

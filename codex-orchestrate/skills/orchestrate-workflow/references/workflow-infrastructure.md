@@ -22,6 +22,46 @@
 | `IN_WORKTREE` + 无 `active-run-id` | 提示 "没有找到活跃的 workflow 状态文件，将作为全新任务处理" → Step 1（Entry Gate） |
 | `MAIN_REPO` | Step 1（Entry Gate） |
 
+### 0a-branch：Codex App detached worktree 分支就绪
+
+Codex App 常在对话开始时直接把 session 放进 `.codex/worktrees/<4-hex-id>/<repo-name>`，并且初始状态可能是 detached HEAD。Orchestrate Workflow 不能在 detached HEAD 上一路执行，也不能回主仓库抢占 `main`。只要当前目录是 Git worktree 且 `git branch --show-current` 为空，先在当前 worktree 原地创建任务分支。
+
+```bash
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+REPO_NAME="$(basename "$REPO_ROOT")"
+
+if [ -f "$REPO_ROOT/.git" ] && ! git symbolic-ref --quiet --short HEAD >/dev/null; then
+  WT_PARENT="$(basename "$(dirname "$REPO_ROOT")")"
+  case "$WT_PARENT" in
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f]) WT_ID="$WT_PARENT" ;;
+    *) WT_ID="$(python3 - <<'PY'
+import secrets
+print(secrets.token_hex(2))
+PY
+)" ;;
+  esac
+
+  BASE_BRANCH="codex/${REPO_NAME}-$(date +%Y%m%d)-${WT_ID}"
+  BRANCH="$BASE_BRANCH"
+  N=2
+  while git show-ref --verify --quiet "refs/heads/$BRANCH"; do
+    BRANCH="${BASE_BRANCH}-${N}"
+    N=$((N + 1))
+  done
+
+  git switch -c "$BRANCH"
+fi
+```
+
+确认：
+
+```bash
+git status --short --branch
+git branch --show-current
+```
+
+`git branch --show-current` 必须非空。若当前目录是主仓库，不执行 `git switch -c`；继续 Step 2a 通过 `git worktree add -b` 创建独立 worktree。
+
 ### 0b：断点续传
 
 用户已在工作树中启动 Codex workflow，直接读取本地状态文件恢复。
@@ -112,7 +152,8 @@ ${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>
 | 状态 | 动作 |
 | --- | --- |
 | 在主仓库中（非工作树） | 自动创建 Codex 目录下的 Git worktree（见下方） |
-| 已在工作树中 | 继续（不重复创建） |
+| 已在工作树中 + detached HEAD | 先按 Step 0a-branch 在当前 worktree 创建命名分支；不重复创建 worktree |
+| 已在工作树中 + 命名分支 | 继续（不重复创建） |
 | 有 dirty files 属于当前 scope | 不创建新 worktree；先返回 `BLOCKED`，说明这些未提交改动不会自动带入新 worktree |
 | 有 dirty files 不属于当前 scope | 不 stage、不动、不 stash |
 
@@ -121,6 +162,14 @@ ${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>
 ```bash
 [ -f "$(git rev-parse --show-toplevel)/.git" ] && echo "IN_WORKTREE" || echo "MAIN_REPO"
 ```
+
+**检测是否已经有命名分支**：
+
+```bash
+git branch --show-current
+```
+
+输出为空代表 detached HEAD。Codex App 已创建 worktree 时必须原地 `git switch -c`，不要因为已经在 worktree 中就跳过分支创建。
 
 **创建工作树**（仅 MAIN_REPO 时执行，自动完成，不要求用户点 UI）：
 
@@ -160,6 +209,7 @@ cd "$WT_PATH"
 - `git worktree add -b "$BRANCH" "$WT_PATH" HEAD` 会创建新分支并在新 worktree 中检出；主仓库当前分支不会被切走。
 - 禁止先在主仓库执行 `git switch -c "$BRANCH"` 或 `git checkout -b "$BRANCH"`。
 - 禁止把 worktree 建到 Codex 约定根目录以外。
+- 如果用户已经通过 Codex App 进入 detached worktree，不执行 `git worktree add`；在当前 worktree 原地创建分支。
 - 如果 `git worktree add` 失败，报告真实错误并停止；不得改用临时目录绕过。
 
 创建后确认目录与 Git 状态：

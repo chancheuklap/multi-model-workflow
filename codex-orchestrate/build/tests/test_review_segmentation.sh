@@ -20,6 +20,21 @@ run_test "template has targeted re-review" \
 run_test "targeted re-review uses send_input" \
   grep -q "send_input" "$TMPL"
 
+run_test "template validates with gate name" \
+  grep -q -- '--gate "<gate>"' "$TMPL"
+
+run_test "template records baseline reviewer dispatch" \
+  grep -q "record-review-dispatch.sh" "$TMPL"
+
+run_test "template completes review dispatch once" \
+  grep -q "complete-review-dispatch.sh" "$TMPL"
+
+run_test "execution SKILL records baseline reviewer dispatch" \
+  grep -q "record-review-dispatch.sh" "$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md"
+
+run_test "execution SKILL completes review dispatch once" \
+  grep -q "complete-review-dispatch.sh" "$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md"
+
 run_test "template dispatches native reviewer subagent" \
   grep -q 'agent_type: "codex_reviewer"' "$TMPL"
 

@@ -51,6 +51,18 @@
 **Bias indicators (REQUIRED at end of review output)**:
 Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
 
+**证据表 (REQUIRED)**：
+Reviewer 必须在 `### Evidence` 下填写半结构化证据表。证据表证明 reviewer 实际检查过什么；它不是设计意图摘要，也不能替代阅读 source artifacts。
+
+| 字段 | 必填内容 |
+| --- | --- |
+| 已读设计 / mockup / plan 来源 | 实际读过的文档、计划、mockup 或用户上下文。 |
+| 已检查代码或产物路径 | 已检查的源码、生成产物、state schema、hooks、templates 或文档路径。 |
+| 已运行命令或验证 | 实际执行的命令、脚本、测试、build check 或人工验证。 |
+| Finding 证据 | 支撑 finding 的路径、行号、diff、命令输出或可复现行为。 |
+| 假设 | 影响 verdict 的前提和未被源码直接证明的判断。 |
+| 未验证项 | 相关但未能验证的内容，以及原因。 |
+
 Compaction recovery: `.job-id` present but no `review-results/` -> resume from Step 4.
 <!-- END: review-dispatch -->
 

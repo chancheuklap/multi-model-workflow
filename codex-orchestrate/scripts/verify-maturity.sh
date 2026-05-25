@@ -20,6 +20,15 @@ check() {
   fi
 }
 
+optional_check() {
+  local name="$1"; shift
+  if "$@" >/dev/null 2>&1; then
+    echo "  ◦ $name"
+  else
+    echo "  ◦ $name (optional diagnostic missing)"
+  fi
+}
+
 echo "=== Plugin Maturity Verification ==="
 echo ""
 
@@ -46,6 +55,8 @@ check "hook commands use PLUGIN_ROOT" bash -c \
   "jq -r '.. | objects | select(has(\"command\")) | .command' '$PLUGIN_DIR/hooks.json' | grep -q 'PLUGIN_ROOT' && ! jq -r '.. | objects | select(has(\"command\")) | .command' '$PLUGIN_DIR/hooks.json' | grep -q '^\\./'"
 check "parse-envelope.sh exists" test -x "$PLUGIN_DIR/hooks/lib/parse-envelope.sh"
 check "validate-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-review-dispatch.sh"
+check "record-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/record-review-dispatch.sh"
+check "complete-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/complete-review-dispatch.sh"
 check "validate-pack-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-pack-dispatch.sh"
 check "record-pack-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/record-pack-dispatch.sh"
 check "validate-route-worker-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-route-worker-dispatch.sh"
@@ -63,6 +74,8 @@ echo "## Anchors"
 check "≥10 review-dispatch anchors" bash -c "[ \$(grep -rl 'BEGIN: review-dispatch' '$PLUGIN_DIR/skills/' | wc -l) -ge 10 ]"
 check "≥1 disposition-table anchor" bash -c "[ \$(grep -rl 'BEGIN: disposition-table' '$PLUGIN_DIR/skills/' | wc -l) -ge 1 ]"
 check "≥1 preamble anchor" bash -c "[ \$(grep -rl 'BEGIN: preamble' '$PLUGIN_DIR/skills/' | wc -l) -ge 1 ]"
+check "sub-agent ownership rule is injected" bash -c \
+  "grep -q 'Sub-agent Ownership' '$PLUGIN_DIR/build/templates/preamble.md.tmpl' && grep -q 'Sub-agent Ownership' '$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md'"
 
 echo ""
 echo "## Route Extensions"
@@ -75,7 +88,10 @@ echo ""
 echo "## Persona + Observability"
 check "persona.md exists" test -f "$PLUGIN_DIR/agents/persona.md"
 check "run-summary.sh exists" test -x "$PLUGIN_DIR/scripts/run-summary.sh"
-check "review-effectiveness.sh exists" test -x "$PLUGIN_DIR/scripts/lib/review-effectiveness.sh"
+
+echo ""
+echo "## Optional Diagnostics"
+optional_check "review-effectiveness.sh available" test -x "$PLUGIN_DIR/scripts/lib/review-effectiveness.sh"
 
 echo ""
 echo "## Defense"
@@ -119,6 +135,12 @@ check "validate-review-dispatch blocks targeted review through spawn_agent" bash
 check "ad-hoc codex-review validates before spawn_agent" bash -c "
   grep -q 'validate-review-dispatch.sh' '$PLUGIN_DIR/skills/codex-review/SKILL.md' &&
   awk '/validate-review-dispatch.sh/{v=NR} /spawn_agent\\(/{s=NR; exit} END{exit !(v && s && v < s)}' '$PLUGIN_DIR/skills/codex-review/SKILL.md'
+"
+
+check "ad-hoc codex-review delegates model authority to codex_reviewer agent" bash -c "
+  grep -q 'agents/codex_reviewer.toml' '$PLUGIN_DIR/skills/codex-review/SKILL.md' &&
+  ! grep -q 'reasoning_effort' '$PLUGIN_DIR/skills/codex-review/SKILL.md' &&
+  ! grep -q 'model: \"gpt-' '$PLUGIN_DIR/skills/codex-review/SKILL.md'
 "
 
 check "disposition append injected" bash -c "
@@ -190,8 +212,34 @@ check "C1: agent-return-handler no dead-code pattern" bash -c \
 # C2: review budget increments through state.sh, not prompt-less SubagentStart hooks
 check "C2: state.sh review budget uses lock" bash -c \
   "grep -q 'cmd_budget_increment_review' '$PLUGIN_DIR/scripts/state.sh' && grep -q 'acquire_lock' '$PLUGIN_DIR/scripts/state.sh'"
-check "C2: review dispatch template increments budget explicitly" \
-  grep -q 'budget increment-review' "$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
+check "C2: review completion increments budget exactly once after durable result" bash -c \
+  "grep -q 'budget increment-review' '$PLUGIN_DIR/scripts/complete-review-dispatch.sh' && grep -q 'budget_counted' '$PLUGIN_DIR/scripts/complete-review-dispatch.sh'"
+check "C2: review dispatch template completes through bookkeeping script" \
+  grep -q 'complete-review-dispatch.sh' "$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
+
+check "C2: review dispatch template records baseline reviewer agent" \
+  grep -q 'record-review-dispatch.sh' "$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
+
+check "C2: review dispatch template does not declare fake per-dispatch model" bash -c \
+  "! grep -q 'phase-selected model\\|model: \"gpt-\\|reasoning_effort' '$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl'"
+
+check "C2: execution SKILL review dispatch does not declare fake per-dispatch model" bash -c \
+  "! grep -q 'phase-selected model\\|model: \"gpt-\\|reasoning_effort' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'"
+
+check "C2: execution SKILL review dispatch records and completes through scripts" bash -c \
+  "grep -q 'record-review-dispatch.sh' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md' && grep -q 'complete-review-dispatch.sh' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'"
+
+check "C2: plan implementation review gate requires committed packs" bash -c \
+  "grep -q 'start_commit' '$PLUGIN_DIR/scripts/validate-review-dispatch.sh' && grep -q 'status != \"committed\"' '$PLUGIN_DIR/scripts/validate-review-dispatch.sh' && grep -q 'commit_sha' '$PLUGIN_DIR/scripts/validate-review-dispatch.sh'"
+
+check "C2: targeted re-review requires baseline result continuity" bash -c \
+  "grep -q 'targeted re-review requires baseline review result' '$PLUGIN_DIR/scripts/validate-review-dispatch.sh'"
+
+check "C2: design review preserves mockup as visual design authority" bash -c \
+  "grep -q 'Mockup 是可视化设计文档' '$PLUGIN_DIR/skills/orchestrate-discovery/references/design-review-angles.md' && grep -q '布局/颜色/字体/间距/组件结构' '$PLUGIN_DIR/skills/orchestrate-discovery/references/design-review-angles.md'"
+
+check "C2: final review requires reading mockup files" bash -c \
+  "grep -q 'Reviewer 必须 Read mockup 目录中的文件' '$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-angles.md' && grep -q 'Read mockup 文件，不只看文字描述' '$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-angles.md'"
 
 # C3: track-effort-budget uses state lock for concurrent safety
 check "C3: track-effort-budget uses state lock" \

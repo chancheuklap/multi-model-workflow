@@ -8,23 +8,20 @@
 1. Write prompt -> `review-prompts/<gate>.md` (prefix with DISPATCH_ENVELOPE, `agent_role: "codex_reviewer"`)
    - Code diffs included in review prompts MUST be wrapped:
      `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
-2. Select model by phase:
-   - `cursor.phase in {discovery, plan-writing}` -> `model: "gpt-5.5"`, `reasoning_effort: "xhigh"`
-   - `cursor.phase in {execution, final-review, bug-investigation, direct-repair, multi-pr-merge, hotfix, quickfix, maintenance}` -> `model: "gpt-5.4"`, `reasoning_effort: "xhigh"`
+2. Model authority: use the registered `codex_reviewer` role model and reasoning settings from `agents/codex_reviewer.toml`; do not pass per-dispatch model overrides unless the Codex host explicitly supports changing that role.
 3. Validate and dispatch (distinguish baseline vs targeted re-review):
    - **Baseline review** (gate name does not contain `-repair-`):
-     Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport spawn_agent`.
+     Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport spawn_agent --gate "<gate>"`.
      ```
      spawn_agent({
        agent_type: "codex_reviewer",
-       message: "<full contents of review-prompts/<gate>.md>",
-       model: "<phase-selected model>",
-       reasoning_effort: "xhigh"
+       message: "<full contents of review-prompts/<gate>.md>"
      })
      ```
-     Record the returned reviewer `agent_id` into `.codex/multi-model-workflow/review-agents/<gate>.agent-id`.
+     Record the returned reviewer `agent_id`:
+     `bash "${MMW_PLUGIN_ROOT}/scripts/record-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --gate "<gate>" --agent-id "<reviewer agent_id>"`.
    - **Targeted re-review** (gate name contains `-repair-`):
-     Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport send_input`.
+     Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport send_input --gate "<gate>"`.
      ```
      send_input({
        target: "<baseline reviewer agent_id>",
@@ -33,8 +30,8 @@
      ```
      The targeted prompt envelope MUST set `review_intent: "targeted-re-review"`, `exception_code`, and `agent_id` to the baseline reviewer `agent_id`.
 4. Wait: `wait_agent({ targets: ["<reviewer agent_id>"], timeout_ms: 600000 })`.
-5. Budget: after `wait_agent` returns for either baseline review or targeted re-review, run `bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget increment-review --run-id "<run_id>"`.
-6. Result: save the reviewer final message from `wait_agent` into `.codex/multi-model-workflow/review-results/<gate>.md`.
+5. Result: save the reviewer final message from `wait_agent` into `.codex/multi-model-workflow/review-results/<gate>.md`.
+6. Complete: run `bash "${MMW_PLUGIN_ROOT}/scripts/complete-review-dispatch.sh" --run-id "<run_id>" --gate "<gate>" --agent-id "<reviewer agent_id>" --result-file ".codex/multi-model-workflow/review-results/<gate>.md"` to mark the result durable and increment review budget exactly once.
 
 **Confidence rubric (REQUIRED in every review prompt)**:
 - 1-3: low confidence. Coordinator may suppress without deep investigation.
@@ -60,6 +57,18 @@
 - "likely handled elsewhere" → 读并引用处理代码，或标记 unknown。
 - "probably tested" → 给出测试文件和方法名，或标记 unknown。
 
+**证据表 (REQUIRED)**：
+Reviewer 必须在 `### Evidence` 下填写半结构化证据表。证据表证明 reviewer 实际检查过什么；它不是设计意图摘要，也不能替代阅读 source artifacts。
+
+| 字段 | 必填内容 |
+| --- | --- |
+| 已读设计 / mockup / plan 来源 | 实际读过的 design、mockup、plan、issue、Scope Contract 或 review baseline 路径。没有对应来源时写 `不适用`，不能留空。 |
+| 已检查代码或产物路径 | 实际检查的源码、生成产物、state schema、hooks、templates、文档或 runtime contract 路径。 |
+| 已运行命令或验证 | 实际执行的命令、测试、build check、schema check、browser smoke 或 manual gate；未运行时写明原因。 |
+| Finding 证据 | 每个 finding 的路径、行号、diff、命令输出或可观察行为；无证据的 finding 必须移入低置信度观察。 |
+| 假设 | 影响 verdict 的前提，例如环境、账号、fixture、平台或 reviewer 未能直接验证的 upstream 状态。 |
+| 未验证项 | 相关但未验证的内容和原因；没有未验证项时写 `无`。 |
+
 **Bias indicators (REQUIRED at end of review output)**:
 Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
 
@@ -74,6 +83,7 @@ Review the implementation plan for: <feature>
 
 ## Source artifacts（路径从 Scope Contract feature slug 推导）
 - Plans: docs/orchestrate/plans/<slug>/（目录，每个大 issue 一份 plan 文件）
+- Cross-plan contract map: docs/orchestrate/plans/<slug>/cross-plan-contract-map.md
 - Source design: docs/orchestrate/design/<slug>.md
 - Source issues: docs/orchestrate/issues/<slug>/
 - Scope Contract: .codex/multi-model-workflow/scope-<run_id>.md
@@ -119,6 +129,14 @@ Review the implementation plan for: <feature>
 - 隐式顺序依赖是否在 plan 标注
 - 项目工程规则违反
 
+### Cross-Plan Contract Map
+**Read** `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`，审查跨 plan 合同是否能落地：
+- producer 是否存在：每个连接面都有明确生产方 plan，且对应 plan 的 owned files / tasks 会创建或修改它。
+- consumer 是否存在：依赖该连接面的消费方 plan 已列出，并在对应 plan 中有读取、调用、验证或部署顺序说明。
+- ownership 是否冲突：Owner 只能有一个清晰维护方；多个 plan 共同修改同一合同必须写明顺序和最终 owner。
+- 不可验证合同：每个连接面都有验证方式；缺少测试、build check、schema validation、migration check 或 manual gate 时是 finding。
+- Final Review 重点是否足够具体：必须能指导 Final Review 从 `git diff <starting_commit>..HEAD` 重新审跨 plan 集成风险。
+
 ## Calibration
 只标记会导致实际问题的 issue。实现者做出错误的东西或卡住——这是 issue。
 措辞、风格偏好、nice-to-have 建议——不是。
@@ -140,6 +158,7 @@ Issue Quality:
 Coverage & Task Quality:
 Compliance & Verification:
 Cross-Verification:
+Cross-Plan Contract Map:
 Critical:
 Important:
 低置信度观察:

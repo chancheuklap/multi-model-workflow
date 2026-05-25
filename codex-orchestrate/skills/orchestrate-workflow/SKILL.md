@@ -11,6 +11,8 @@ description: "正式开发流程主入口。用户给出新功能、改造、bug
 **State Read**：进入时读取 `workflow-state-<run_id>.json` 获取当前 phase、budget 余量、已完成 plan 列表。
 
 **Route Dispatch**：根据 Entry Gate 判定的 route 选择对应 phase skill。
+
+**Sub-agent Ownership**：一旦把某个 investigation / implementation / review 派给 sub-agent，Coordinator 不得并行重复做同一件事，不得用短间隔轮询催促，不得要求未完成 agent 输出中间结论，不得中断或关闭仍在运行的 agent。等待期间只做不重叠的协调工作；若下一步依赖该结果，就直接等待 `wait_agent` 返回。
 <!-- END: preamble -->
 
 <!-- BEGIN: voice-directive [variant=workflow] -->
@@ -50,8 +52,9 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 
 1. 验证 Codex multi-agent primitives 可用：`spawn_agent`、`send_input`、`wait_agent`。如不可用 → 硬停：`"Codex multi-agent tools not available in this session."`
 2. 检测当前环境（工作树 vs 主仓库）：
+   - **已在工作树 + detached HEAD** → 先在当前 worktree 原地创建命名分支，再继续；已有任务名时用 `codex/<task-slug>`，否则用 repo/date/worktree id 临时命名
    - **已在工作树 + 有状态文件** → 断点续传，直接路由到对应 phase（跳过 Steps 1-2）
-   - **在主仓库**（或工作树内无状态文件） → 继续 Step 1
+   - **在主仓库**（或工作树内无状态文件） → 继续 Step 1；Step 2 只能用 `git worktree add -b` 创建独立 worktree，不在主仓库直接切分支
 
 ## Step 1：Entry Gate
 

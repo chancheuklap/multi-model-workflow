@@ -99,8 +99,8 @@ flowchart TD
 | Discovery | `orchestrate-discovery` | 与用户讨论、维护 CONTEXT、写设计文档 | `docs/orchestrate/design/<slug>.md` | 正常 |
 | Design Review | `codex_reviewer` subagent | 两个 baseline 审设计完整性和项目对齐 | `review-prompts/`、`review-agents/`、`review-results/` | 正常 |
 | 大 Issue 拆分 | Coordinator 方法论 | 将设计拆成大 issue 骨架 | `docs/orchestrate/issues/<slug>/00N-*.md` | 正常 |
-| Plan Writing | `plan_writer` subagent | 补小 issue 并写 implementation plan | `docs/orchestrate/plans/<slug>/00N-*.md` | 正常 |
-| Plan Review | `codex_reviewer` subagent | 审 issue 质量、plan 质量、Task Pack inventory | `review-results/plan-review-*.md` | 正常 |
+| Plan Writing | `plan_writer` subagent + Coordinator | 补小 issue、写 implementation plan，并在 Plan Review 前生成跨计划合同图 | `docs/orchestrate/plans/<slug>/00N-*.md`、`docs/orchestrate/plans/<slug>/cross-plan-contract-map.md` | 正常 |
+| Plan Review | `codex_reviewer` subagent | 审 issue 质量、plan 质量、Task Pack inventory 和跨 plan producer / consumer / owner / verification | `review-results/plan-review-*.md` | 正常 |
 | Execution | `orchestrate-execution` | Plan → Pack 串行执行，worker 派发，commit，review，修复 | `execution-state-<run_id>.json`、pack commits | 正常 |
 | Final Review | `orchestrate-final-review` | 验证整体意图覆盖、回归面、跨 plan 一致性和遗留尾巴 | final review results、release risk verdict | 正常 |
 | Closing | `workflow-closing.md` | 最终验证、运行总结、push、PR、保留 Codex worktree | `run-summary-<run_id>.md`、PR | 正常 |
@@ -280,6 +280,7 @@ Codex native worktree
       ├─ pack-returns/<run_id>/<pack-id>.json      ← worker durable return
       ├─ review-prompts/<gate>.md                  ← Codex reviewer prompt
       ├─ review-agents/<gate>.agent-id             ← baseline reviewer agent_id
+      ├─ review-registry/<gate>.json               ← review dispatch bookkeeping / budget idempotency
       ├─ review-results/<gate>.md                  ← reviewer final message
       ├─ run-summary-<run_id>.md                   ← closing 前生成的运行总结
       └─ agent-memory/<agent-name>/                ← agent 跨 session 经验
@@ -291,7 +292,7 @@ Codex native worktree
 
 | 文件 | Owner | 内容 |
 | --- | --- | --- |
-| `workflow-state-<run_id>.json` | Coordinator + `scripts/state.sh` | route、cursor、budget、plan_count、review_dispositions、review_effectiveness、path_a_escalation、self_verifications、pending_direction_check、pending_post_push_reviews、execution_reflux_count、last_gate_phase、mutations |
+| `workflow-state-<run_id>.json` | Coordinator + `scripts/state.sh` | route、cursor、budget、plan_count、review_dispositions、review_effectiveness（可选诊断 / 历史复制指标，不参与 review 正确性 gate）、path_a_escalation、self_verifications、pending_direction_check、pending_post_push_reviews、execution_reflux_count、last_gate_phase、mutations |
 | `execution-state-<run_id>.json` | Coordinator + dispatch/return/commit 脚本 | current_plan_id、plan status、start_commit、end_commit、pack status、agent_id、commit_sha、worker_verdict、repair_round |
 
 分离原因：pack-level 状态会被 `agent-return-handler.sh`、`track-execution-state.sh`、dispatch 记录脚本写入；workflow-state 则承载预算、disposition 和 phase cursor。拆开能降低状态写入竞争，也让 review disposition 不被 pack-level 细节污染。
@@ -376,6 +377,7 @@ flowchart LR
 | 设计文档 | `orchestrate-discovery` | issue splitting、plan_writer、reviewer | Design Review |
 | 大 Issue 文件 | Coordinator | plan_writer | Plan Review 的 Issue Quality 角度 |
 | Plan 文件 | plan_writer | orchestrate-execution | Plan Entry Gate + Task Pack Inventory Gate |
+| 跨计划合同图 | Coordinator | Plan Review、Final Review、execution repair | `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md` |
 | Mockup | Discovery / prototype / build-web-apps / impeccable | plan_writer、worker、reviewer | Design Review + UI pack 验收 |
 
 ### 设计文档结构
@@ -531,6 +533,21 @@ Worker 不读 plan 文件。Coordinator 在 dispatch 前把当前 pack 的完整
 
 Agent 行为权威是 `agents/*.toml` 的 `developer_instructions`。`agents/persona.md` 是共享 voice/persona 参考，不是 agent 注册文件。
 
+### Coordinator 派发所有权
+
+Codex Orchestrate 把 subagent 派发视为 ownership transfer，而不是“同时找一个助手再由主线程重做一遍”。
+
+规则：
+
+1. Coordinator 派出 `plan_writer`、worker、explorer、`root_cause_analyst` 或 `codex_reviewer` 后，不得在主线程并行执行同一 investigation / implementation / review。
+2. 等待期间只允许做不重叠的协调工作，例如准备下一阶段的状态文件、核对 scope contract、整理用户汇报或等待其它独立 agent。
+3. 如果下一步依赖该 agent 的结果，Coordinator 必须等待 `wait_agent` 返回，不用短间隔轮询催促。
+4. 未完成 agent 不应被要求输出中间结论；中间结论会破坏 review / repair 的完整上下文。
+5. 只有用户明确取消、workflow 判定 BLOCKED、agent 已完成/失联且影响已说明时，才允许中断或关闭 agent。
+6. Agent 返回后，Coordinator 的职责是验收、disposition、整合和路由，不是重新做一遍 agent 已经完成的工作。
+
+这条规则保护上下文边界：subagent 负责完成被派发的闭环，Coordinator 负责调度和整合。重复执行同一任务会消耗上下文、制造相互矛盾的证据，并破坏 review / repair 的责任归属。
+
 ### Hooks（5 类事件 / 8 个 command handler）
 
 | 事件 | Matcher | Handler | 责任 |
@@ -549,6 +566,8 @@ Agent 行为权威是 `agents/*.toml` 的 `developer_instructions`。`agents/per
 | 脚本 | 调用时机 | 为什么不放 hook |
 | --- | --- | --- |
 | `scripts/validate-review-dispatch.sh` | `spawn_agent` / `send_input` Codex reviewer 前 | Codex `SubagentStart` payload 不携带完整 prompt，不能在 hook 中解析 envelope |
+| `scripts/record-review-dispatch.sh` | baseline reviewer `spawn_agent` 返回 `agent_id` 后 | hook 不拥有真实返回的 reviewer `agent_id`，需要 Coordinator 显式登记 |
+| `scripts/complete-review-dispatch.sh` | reviewer final message 已保存后 | 只有 Coordinator 知道结果文件已 durable，预算递增必须和结果落盘绑定并保持幂等 |
 | `scripts/validate-pack-dispatch.sh` | `spawn_agent` worker 前 | 需要读取完整 Pack Brief、workflow-state、execution-state、disposition refs |
 | `scripts/record-pack-dispatch.sh` | `spawn_agent` worker 返回后 | 需要真实返回的 `agent_id`，hook 不拥有这个上下文 |
 | `scripts/validate-route-worker-dispatch.sh` | 非 execution route 的 `spawn_agent` / `send_input` coding worker 前 | Route 2/3/Direct Repair 没有 execution-state，但仍需要 envelope、budget、idempotency 和 agent_id gate |
@@ -582,13 +601,17 @@ Codex 版不使用外部 `codex-companion.mjs` 或 job-id polling。所有 revie
 2. Coordinator 显式校验:
    bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" \
      --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" \
-     --transport spawn_agent
+     --transport spawn_agent \
+     --gate "<gate>"
 
-3. Coordinator 派 reviewer:
-   spawn_agent({ agent_type: "codex_reviewer", message: "<prompt>", model: "<phase model>", reasoning_effort: "xhigh" })
+3. Coordinator 派 reviewer。模型和推理强度由已注册的 `codex_reviewer` agent 配置拥有，不在 dispatch call 里声明虚假的 per-dispatch override:
+   spawn_agent({ agent_type: "codex_reviewer", message: "<prompt>" })
 
-4. Coordinator 持久化 agent_id:
-   .codex/multi-model-workflow/review-agents/<gate>.agent-id
+4. Coordinator 记录 reviewer `agent_id` 和 registry row:
+   bash "${MMW_PLUGIN_ROOT}/scripts/record-review-dispatch.sh" \
+     --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" \
+     --gate "<gate>" \
+     --agent-id "<agent_id>"
 
 5. Coordinator 等待:
    wait_agent({ targets: ["<agent_id>"], timeout_ms: 600000 })
@@ -596,8 +619,12 @@ Codex 版不使用外部 `codex-companion.mjs` 或 job-id polling。所有 revie
 6. Coordinator 保存结果:
    .codex/multi-model-workflow/review-results/<gate>.md
 
-7. Coordinator 递增 review budget:
-   bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget increment-review --run-id "<run_id>"
+7. Coordinator 完成登记并幂等递增 review budget:
+   bash "${MMW_PLUGIN_ROOT}/scripts/complete-review-dispatch.sh" \
+     --run-id "<run_id>" \
+     --gate "<gate>" \
+     --agent-id "<agent_id>" \
+     --result-file ".codex/multi-model-workflow/review-results/<gate>.md"
 ```
 
 ### Targeted re-review
@@ -605,11 +632,11 @@ Codex 版不使用外部 `codex-companion.mjs` 或 job-id polling。所有 revie
 ```text
 1. 读取 baseline reviewer agent_id
 2. 写 targeted prompt，review_intent = "targeted-re-review"，exception_code 非空，agent_id = baseline reviewer
-3. validate-review-dispatch.sh --transport send_input
+3. validate-review-dispatch.sh --transport send_input --gate "<gate>"
 4. send_input({ target: "<baseline reviewer agent_id>", message: "<targeted prompt>" })
 5. wait_agent(...)
 6. 写 review-results/<gate>-repair-<round>.md
-7. budget increment-review
+7. complete-review-dispatch.sh 记录 targeted result，并幂等递增 review budget
 ```
 
 ### Review intent 规则
@@ -680,7 +707,7 @@ Final Review → Execution 回流由 `execution_reflux_count` 限制：允许 1 
 
 | 预算 | 公式 | 递增位置 | 计量单位 |
 | --- | --- | --- | --- |
-| Review Budget | `review_total = 3P + 12` | Coordinator 在 `wait_agent` 后调用 `state.sh budget increment-review` | Codex review dispatch 次数 |
+| Review Budget | `review_total = 3P + 12` | Coordinator 保存 reviewer 结果后调用 `complete-review-dispatch.sh`，由脚本幂等调用 `state.sh budget increment-review` | Codex review dispatch 次数 |
 | Effort Budget | `effort_total = review_total * 2` | `track-effort-budget.sh` SubagentStart hook | 加权 subagent dispatch 次数 |
 
 P = plan 文件数量。Formal route 在 plan-writing 确认 plan count 后初始化；Routes 2-7 使用 `unlimited` workflow-state budget，但不创建 plan-count budget。
@@ -776,6 +803,8 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 ## 架构约束
 
 - **Codex 根目录 worktree**：Coordinator 自动运行 `git worktree add -b`，但路径只能落在 `${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>`。
+- **Codex App detached worktree**：如果 session 已经从 `.codex/worktrees/...` detached HEAD 启动，Coordinator 在当前 worktree 原地创建命名分支后继续。这里不再创建二级 worktree，也不回主仓库切分支。
+- **Claude Code 与 Codex 入口差异**：Claude Code plugin 可以假设用户常在主仓库对话并由插件创建 / 进入 worktree；Codex App 常先创建 detached worktree 再启动对话。Codex Orchestrate 不能照搬 Claude Code 的入口前提，必须把 "main repo -> create worktree" 和 "detached Codex worktree -> create branch in place" 分开处理。
 - **渐进加载**：SKILL.md 只做路由和骨架；reference 到步骤时再读。
 - **Prompt 自足**：subagent 不继承 Coordinator 上下文；dispatch prompt 必须带完整任务、验收、命令和边界。
 - **Reviewer 独立**：`codex_reviewer` 是一等 subagent；Coordinator 亲验后才 disposition。
@@ -788,7 +817,8 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 - **Agent ID 持久化**：worker repair 和 reviewer targeted re-review 都依赖原始 `agent_id`；丢失则 BLOCKED。非 execution route worker 通过 `worker-agents/<gate>.agent-id` 持久化。
 - **修复三轮封顶**：普通 repair 最多两轮，第三轮 RCA，仍失败则 BLOCKED。
 - **Final Review 回流守卫**：Final Review 回 execution 最多一次。
-- **Git 纪律**：禁止 squash merge；未完成 workflow 阻止 publish。
+- **Git 纪律**：禁止 squash merge；未完成 workflow 阻止 publish；每个 pack、review repair、plan doc 或 workflow rule 的真实完成边界都要及时 commit，不把历史堆到 closing 前。
+- **文档验证纪律**：纯文档、规则、计划或 prompt-only 改动不新增无意义测试。只用能证明真实合同的验证：格式、生成器、manifest、schema、路径链接或 diff 审查；只在生成产物或 runtime contract 需要保护时才写文本锚点测试。
 - **无兼容 fallback**：不恢复旧 state path、旧 companion runner、旧 tool-name label 或双 host 入口。
 
 ---
