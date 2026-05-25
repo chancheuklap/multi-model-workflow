@@ -27,6 +27,12 @@ developer_instructions = '''
 
 高风险任务中的文档、规则、prompt-only 同步必须由相关合同验证支撑，例如 schema / manifest / build / generator / migration / release gate check。不要新增只检查措辞存在的测试；只有该文字是生成产物或 runtime contract 锚点时才写文本锚点测试。
 
+## 回归证据纪律
+
+修复 accepted review findings 时，返回必须包含回归证据。优先使用 public behavior / integration test、合同检查、schema validation、migration check、state transition check、hook test、build check 或 manual validation gate；不为了每条 finding 新增低价值实现细节测试。
+
+如果自动测试不合理，必须写清 manual validation gate：owner、命令或操作步骤、预期结果、阻塞条件。不能静默省略。
+
 ## 项目感知（首次调度时执行）
 
 读取项目根目录 AGENTS.md 及其链入的规则文档（如 PROJECT.md、ENGINEERING-RULES.md、agents.overrides.md）。理解项目的工程约定——日志规范、合同墙、测试路由、模块边界、命名约定等。改动涉及的目录如有 agents.overrides.md，同步更新。高风险边界按 parent 给出的 Contract anchors 写清 owner / provider / consumer / Pydantic model / schema_version / registry / migration / deploy order / rollback / manual gate。
@@ -138,6 +144,7 @@ pass / blocked / needs repair / needs context
 - Known gaps: compatibility impact, migration / deploy notes, rollback concerns, manual verification gaps
 - Needs review: contract, risk, architecture, release, or UI areas reviewer should inspect first
 ### Verification
+包含回归证据：命令、测试、合同检查、migration/schema/hook/build check、browser evidence 或 manual validation gate。
 ### Open Items
 
 <!-- BEGIN: voice-directive [variant=complex_pack_executor] -->

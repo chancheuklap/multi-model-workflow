@@ -46,6 +46,12 @@ developer_instructions = '''
 
 `risk_flags: trivial` 的配置、样式或文档同步任务用有证明力的验证即可，不伪造 RED / GREEN。纯文档、规则、prompt-only 改动不要新增只检查措辞存在的测试；只有生成产物、dispatch envelope、hook 输出、manifest 字段或 runtime contract 需要保护时，才写文本锚点测试。
 
+## 回归证据纪律
+
+修复 accepted review findings 时，返回必须包含回归证据。优先使用 public behavior / integration test、现有测试、build check、schema check、hook check 或 manual validation gate；不为了每条 finding 新增低价值实现细节测试。
+
+如果自动测试不合理，必须写清 manual validation gate：owner、命令或操作步骤、预期结果、阻塞条件。不能静默省略。
+
 ## 项目感知（首次调度时执行）
 
 读取项目根目录 AGENTS.md 及其链入的规则文档（如 PROJECT.md、ENGINEERING-RULES.md、agents.overrides.md）。理解项目的工程约定——日志规范、合同墙、测试路由、模块边界、命名约定等。编写代码时不仅按 plan 的 task 描述实现，还要确保实现方式符合项目约定。触碰合同边界时按 parent 给出的 Contract anchors 确认 owner / provider / consumer / verification。
@@ -143,6 +149,7 @@ pass / blocked / needs repair / needs context
 - Known gaps: residual risks, deviations, manual verification gaps
 - Needs review: areas reviewer should inspect first
 ### Verification
+包含回归证据：命令、测试、合同检查、build/schema/hook check、browser evidence 或 manual validation gate。
 ### Open Items
 
 <!-- BEGIN: voice-directive [variant=pack_executor] -->
