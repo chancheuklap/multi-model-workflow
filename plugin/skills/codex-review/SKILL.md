@@ -83,6 +83,18 @@ PROMPT_FILE="${REVIEW_DIR}/review-${TIMESTAMP}.md"
 每个 finding 必须引用触发它的具体代码行（file:line + 原始文本）。
 无法引用 = confidence 强制设为 4-5，移入附录。
 
+**证据表 (REQUIRED)**：
+Reviewer 必须在 `### Evidence` 下填写半结构化证据表：
+
+| 字段 | 必填内容 |
+| --- | --- |
+| 已读设计 / mockup / plan 来源 | 实际读过的文档、计划、mockup 或用户上下文。 |
+| 已检查代码或产物路径 | 已检查的源码、生成产物、state schema、hooks、templates 或文档路径。 |
+| 已运行命令或验证 | 实际执行的命令、脚本、测试、build check 或人工验证。 |
+| Finding 证据 | 支撑 finding 的路径、行号、diff、命令输出或可复现行为。 |
+| 假设 | 影响 verdict 的前提和未被源码直接证明的判断。 |
+| 未验证项 | 相关但未能验证的内容，以及原因。 |
+
 **输出格式**：
 - verdict: pass | needs_repair
 - findings: [{id, severity, confidence, file, line, description, evidence}]
