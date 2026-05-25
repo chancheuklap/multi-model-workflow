@@ -58,9 +58,10 @@ Recommended fields:
 
 ### Acceptance
 
-- Plan Review, Plan Implementation Review, Final Review, and ad-hoc Codex Review all require the Evidence Table.
+- Every generated `review-dispatch` consumer requires the Evidence Table, including Design Review, Plan Review, Plan Implementation Review, Final Review, Release Gate, Multi-PR Integration Review, direct repair review, bug fix review, and targeted re-review prompts.
+- Ad-hoc Codex Review requires the Evidence Table even though it has a separate prompt contract.
 - Reviewers are instructed to leave fields explicit rather than silently omitting unverified areas.
-- Build tests fail if the shared review references or ad-hoc review skill lose the Evidence Table.
+- Build tests fail if any `review-dispatch` anchor consumer or the ad-hoc review skill loses the Evidence Table.
 
 ## Work Package 2: Cross-Plan Contract Map
 
@@ -146,11 +147,15 @@ This does not classify review content by risk. It classifies findings and repair
 - `codex-orchestrate/skills/orchestrate-final-review/references/final-review-repair.md`
 - `codex-orchestrate/skills/orchestrate-execution/references/execution-release-gate.md`
 - `codex-orchestrate/skills/orchestrate-final-review/references/final-review-release-gate.md`
+- `codex-orchestrate/skills/orchestrate-workflow/references/workflow-direct-repair.md`
+- `codex-orchestrate/skills/orchestrate-workflow/references/bug-investigation-route.md`
+- `codex-orchestrate/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md`
+- `codex-orchestrate/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md`
 - build tests proving the generated repair-routing block appears in all target references
 
 ### Implementation Notes
 
-This shared template is justified because the same repair decision appears in several phases today. Without a shared contract, one phase can route a serious finding to a weak repair path while another phase routes the same kind of finding correctly.
+This shared template is justified because the same repair decision appears in several phases and routes today. Without a shared contract, one phase can route a serious finding to a weak repair path while another phase routes the same kind of finding correctly.
 
 The routing language must stay Codex-native: `spawn_agent`, `send_input`, `wait_agent`, and registered agent types such as `pack_executor`, `complex_pack_executor`, `code_explorer`, `complex_code_explorer`, and `root_cause_analyst`.
 
@@ -182,6 +187,10 @@ Require repair agents to return regression evidence for accepted findings, witho
 
 - `codex-orchestrate/agents/pack_executor.toml`
 - `codex-orchestrate/agents/complex_pack_executor.toml`
+- `codex-orchestrate/agents/root_cause_analyst.toml`
+- `codex-orchestrate/skills/orchestrate-workflow/references/workflow-direct-repair.md`
+- `codex-orchestrate/skills/orchestrate-workflow/references/bug-investigation-route.md`
+- `codex-orchestrate/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md`
 - repair references updated by Work Package 3
 - release-gate references updated by Work Package 3
 - build or grep tests asserting the repair return contract includes regression evidence
@@ -197,6 +206,7 @@ When no automated test is reasonable, the repair output must say so and provide 
 - Repair outputs include regression evidence or an explicit manual validation gate.
 - Agents are warned not to add low-value tests that only lock in implementation details.
 - Release Gate checks that accepted findings have evidence before declaring the phase complete.
+- Root-cause analyst fixes, Coordinator Path A fixes, direct repair fixes, and multi-PR repair fixes are covered by the same evidence rule.
 
 ## Work Package 5: Review Effectiveness Downgrade
 
@@ -250,5 +260,4 @@ bash codex-orchestrate/scripts/verify-maturity.sh
 bash codex-orchestrate/scripts/run-all-tests.sh
 ```
 
-Plugin manifest validation may be useful, but the currently available external validator can fail on Codex plugin hook manifest shape. Do not patch external validator behavior as part of this review-system optimization unless that becomes the actual blocker.
-
+Plugin manifest validation is outside this plan's core review-system scope. If it is used during implementation, verify the validator behavior in that turn instead of assuming either success or failure.

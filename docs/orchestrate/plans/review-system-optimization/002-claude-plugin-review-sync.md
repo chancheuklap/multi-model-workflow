@@ -44,9 +44,9 @@ Do not port Codex-only mechanisms into `plugin/`:
 
 ## Preflight: Plugin Build and Anchor Health
 
-Before changing review content, inspect and repair the plugin's build anchors.
+Before changing review content, verify the plugin's build anchors.
 
-Known concern: prior audit notes indicated some `<!-- BEGIN: review-dispatch -->` anchors may be inline with preceding text, which can cause build replacement to skip them.
+Prior audit notes indicated some `<!-- BEGIN: review-dispatch -->` anchors had once been inline with preceding text, which could cause build replacement to skip them. Current source must be checked before assuming this is still a live bug.
 
 ### Source Targets
 
@@ -59,6 +59,7 @@ Known concern: prior audit notes indicated some `<!-- BEGIN: review-dispatch -->
 
 - `plugin/build/build.sh --check` can verify review-dispatch generated sections.
 - Review-dispatch anchors are on their own lines and can be replaced consistently.
+- If the build check and own-line anchor check pass, do not create an anchor-repair change just because the historical audit once found this issue.
 - No Codex-native wording is introduced during anchor repair.
 
 ## Work Package 1: Evidence Table
@@ -81,15 +82,15 @@ Recommended fields are the same as the Codex plan:
 ### Claude Plugin Source Targets
 
 - `plugin/build/templates/review-dispatch.md.tmpl`
-- generated review references under `plugin/skills/**/references/`
-- `plugin/skills/codex-review/SKILL.md`, if the ad-hoc review skill has a separate output contract
+- all generated `review-dispatch` anchor consumers under `plugin/skills/**`, including `plugin/skills/orchestrate-execution/SKILL.md` and references under `plugin/skills/**/references/`
+- `plugin/skills/codex-review/SKILL.md`, because the ad-hoc review skill has a separate output contract and is not generated from the shared template
 - `plugin/build/tests/`
 
 ### Acceptance
 
 - All Claude plugin review dispatch prompts require the Evidence Table.
-- Ad-hoc review also requires the Evidence Table if it bypasses the shared template.
-- Build tests fail if the Evidence Table disappears from generated review references.
+- Ad-hoc review also requires the Evidence Table.
+- Build tests fail if the Evidence Table disappears from any `review-dispatch` anchor consumer or from the ad-hoc review skill.
 
 ## Work Package 2: Cross-Plan Contract Map
 
@@ -138,6 +139,10 @@ Add a shared repair-routing block to the Claude plugin build system, adapted to 
 - `plugin/skills/orchestrate-final-review/references/final-review-repair.md`
 - `plugin/skills/orchestrate-execution/references/execution-release-gate.md`
 - `plugin/skills/orchestrate-final-review/references/final-review-release-gate.md`
+- `plugin/skills/orchestrate-workflow/references/workflow-direct-repair.md`
+- `plugin/skills/orchestrate-workflow/references/bug-investigation-route.md`
+- `plugin/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md`
+- `plugin/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md`
 - `plugin/build/tests/`
 
 ### Claude-Native Routing Language
@@ -150,16 +155,17 @@ The routing logic should match Codex conceptually, but the words and mechanics m
 | Same pack, normal code repair, original worker has sufficient capability | Resume or re-dispatch the original pack executor through the plugin's existing agent mechanism. |
 | Cross-module, migration, billing, permission, runtime, shared contract, state machine, or generated-template issue | Use the complex pack executor route. |
 | Root cause unclear | Use the plugin's explorer route first. |
-| Systemic bug, repeated failed repair, or regression with unknown cause | Use the root-cause analyst route if available in the plugin. |
+| Systemic bug, repeated failed repair, or regression with unknown cause | Use the plugin's existing `root-cause-analyst` route. |
 | Cross-plan contract issue discovered during Final Review | Return `NEEDS_EXECUTION` once and route through execution repair. |
 | Design, mockup, or plan is insufficient to decide correctness | Backflow to Discovery or Plan Writing. |
 | Path A repair fails targeted re-review | Escalate to Path B. |
 
 ### Acceptance
 
-- Repair routing is shared across Claude plugin review repair paths.
+- Repair routing is shared across all Claude plugin review repair paths, including formal plan/execution/final review, release gates, direct repair, bug investigation, and multi-PR integration review.
 - The shared block uses Claude plugin agent names, hook names, and resume mechanisms.
 - The plugin does not receive Codex-only tool names or state paths.
+- Existing hand-written targeted re-review commands, such as multi-PR integration re-review, are either moved to the shared review-dispatch template or explicitly updated to satisfy the plugin's `--resume` gate.
 
 ## Work Package 4: Regression Evidence
 
@@ -171,6 +177,11 @@ Update Claude plugin repair agents and repair references so accepted findings re
 
 - `plugin/agents/pack-executor.md`
 - `plugin/agents/complex-pack-executor.md`
+- `plugin/agents/root-cause-analyst.md`
+- `plugin/skills/orchestrate-workflow/references/workflow-direct-repair.md`
+- `plugin/skills/orchestrate-workflow/references/bug-investigation-route.md`
+- `plugin/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md`
+- `plugin/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md`
 - repair references touched by Work Package 3
 - release-gate references touched by Work Package 3
 - plugin tests or grep assertions for the repair return contract
@@ -180,6 +191,7 @@ Update Claude plugin repair agents and repair references so accepted findings re
 - Repair agent output includes regression evidence.
 - The prompt discourages low-value microscopic tests that only lock implementation details.
 - Release Gate checks evidence before declaring a review repair complete.
+- Root-cause analyst fixes, Coordinator Path A fixes, direct repair fixes, and multi-PR repair fixes are covered by the same evidence rule.
 
 ## Work Package 5: Review Effectiveness Downgrade
 
@@ -194,11 +206,15 @@ The Claude plugin appears to be the original source for this feature. That makes
 - `plugin/architecture-draft.md`
 - `plugin/scripts/verify-maturity.sh`
 - `plugin/scripts/lib/review-effectiveness.sh`
+- `plugin/state-schema/workflow-state-v1.json`
+- `plugin/scripts/state.sh`
 - related tests only if gate wording or maturity assertions need to change
 
 ### Acceptance
 
 - Plugin maturity does not depend on `review_effectiveness` as proof of review correctness.
+- If the field and script remain for observability compatibility, `verify-maturity.sh` may keep existence checks, but warning generation must not be described as a correctness gate.
+- If implementation chooses to make the field truly optional, schema, state initialization, and state tests must be updated in the same commit.
 - Existing scripts can remain for compatibility.
 - Deletion, if desired later, is handled as a separate cleanup.
 
@@ -241,4 +257,3 @@ Do not mix Codex and Claude plugin source modifications in the same commit unles
 4. Run plugin validation.
 5. Review the plugin diff specifically for accidental Codex host terminology.
 6. Commit plugin changes in separate atomic commits.
-
