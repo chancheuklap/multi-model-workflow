@@ -69,19 +69,20 @@ Repair Return Contract 必须补充：
      id: "<agent_id>"
    })
    ```
-4. 调用：
+4. 将完整修复 prompt 写入 `.codex/multi-model-workflow/worker-prompts/<pack-id>-repair-<round>.md`。该文件必须以 DISPATCH_ENVELOPE 开头，包含 accepted findings、Coordinator 亲验证据、repair scope、verification commands 和 Return Contract。调用 `send_input` 时只发送该文件全文，不在 tool call message 里另写补充说明。
+5. 调用：
    ```
    send_input({
      target: "<agent_id>",
-     message: "<含 DISPATCH_ENVELOPE 的修复 prompt，repair_round >= 1>"
+     message: "<full contents of .codex/multi-model-workflow/worker-prompts/<pack-id>-repair-<round>.md>"
    })
    ```
-5. 等待原 agent 返回：`wait_agent({ targets: ["<agent_id>"], timeout_ms: 600000 })`
-6. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
-6b. 修复完成后运行 verification commands + 对照 acceptance criteria + grep 确认变更
-6c. `state.sh self-verify append --run-id <run_id> --pack-id <pack_id> --repair-round <N> --verification-passed <yes|no> --exception <none|3plus_files_control_flow|user_requested|rca_root_cause|path_a_self_fix>`
-7. 写 `state.sh disposition append` 或 `state.sh update --field plans[N].packs[M].repair_round`
-8. 关闭完成态 agent 释放容量：`close_agent({ target: "<agent_id>" })`。后续仍需同一 worker 继续时，重复 `resume_agent` -> `send_input` -> `wait_agent` -> 保存结果 -> `close_agent`。
+6. 等待原 agent 返回：`wait_agent({ targets: ["<agent_id>"], timeout_ms: 600000 })`
+7. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
+7b. 修复完成后运行 verification commands + 对照 acceptance criteria + grep 确认变更
+7c. `state.sh self-verify append --run-id <run_id> --pack-id <pack_id> --repair-round <N> --verification-passed <yes|no> --exception <none|3plus_files_control_flow|user_requested|rca_root_cause|path_a_self_fix>`
+8. 写 `state.sh disposition append` 或 `state.sh update --field plans[N].packs[M].repair_round`
+9. 关闭完成态 agent 释放容量：`close_agent({ target: "<agent_id>" })`。后续仍需同一 worker 继续时，重复 `resume_agent` -> 写 repair prompt 文件 -> `send_input` 文件全文 -> `wait_agent` -> 保存结果 -> `close_agent`。
 <!-- END: sendmessage-resume -->
 
 Targeted Re-Review 使用 `resume_agent` 后 `send_input` 继续 baseline reviewer agent，返回保存和 bookkeeping 完成后再次 `close_agent`。

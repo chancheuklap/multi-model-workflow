@@ -133,19 +133,20 @@ Plan Review 三条路径：
      id: "<plan_writer_agent_id>"
    })
    ```
-4. 调用：
+4. 将完整修复 prompt 写入 `.codex/multi-model-workflow/plan-writer-prompts/<issue-id>-repair-<round>.md`。该文件必须以 DISPATCH_ENVELOPE 开头，包含 accepted findings、Coordinator 亲验证据、需要修改的 plan/issue sections、verification commands 和 Return Contract。调用 `send_input` 时只发送该文件全文，不在 tool call message 里另写补充说明。
+5. 调用：
    ```
    send_input({
      target: "<plan_writer_agent_id>",
-     message: "<含 DISPATCH_ENVELOPE 的修复 prompt，repair_round >= 1>"
+     message: "<full contents of .codex/multi-model-workflow/plan-writer-prompts/<issue-id>-repair-<round>.md>"
    })
    ```
-5. 等待原 agent 返回：`wait_agent({ targets: ["<plan_writer_agent_id>"], timeout_ms: 600000 })`
-6. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
-6b. 验证 plan 文件格式 + pack count validator
-6c. `state.sh self-verify append --run-id <run_id> --repair-round <N> --verification-passed <yes|no>`
-7. 关闭完成态 agent 释放容量：`close_agent({ target: "<plan_writer_agent_id>" })`
-8. 回到 Plan Review 重审
+6. 等待原 agent 返回：`wait_agent({ targets: ["<plan_writer_agent_id>"], timeout_ms: 600000 })`
+7. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
+7b. 验证 plan 文件格式 + pack count validator
+7c. `state.sh self-verify append --run-id <run_id> --repair-round <N> --verification-passed <yes|no>`
+8. 关闭完成态 agent 释放容量：`close_agent({ target: "<plan_writer_agent_id>" })`
+9. 回到 Plan Review 重审
 <!-- END: sendmessage-resume -->
 
 → 重跑 Gate → Step 17

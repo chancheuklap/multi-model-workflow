@@ -218,6 +218,10 @@ check "C2: state.sh review budget uses lock" bash -c \
   "grep -q 'cmd_budget_increment_review' '$PLUGIN_DIR/scripts/state.sh' && grep -q 'acquire_lock' '$PLUGIN_DIR/scripts/state.sh'"
 check "C2: review completion increments budget exactly once after durable result" bash -c \
   "grep -q 'budget increment-review' '$PLUGIN_DIR/scripts/complete-review-dispatch.sh' && grep -q 'budget_counted' '$PLUGIN_DIR/scripts/complete-review-dispatch.sh'"
+check "C2: review disposition recovery script exists" \
+  test -x "$PLUGIN_DIR/scripts/record-review-disposition.sh"
+check "C2: review dispatch template marks disposition recovery" bash -c \
+  "grep -q 'record-review-disposition.sh' '$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl' && grep -q 'disposition_started' '$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl'"
 check "C2: review dispatch template completes through bookkeeping script" \
   grep -q 'complete-review-dispatch.sh' "$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
 
