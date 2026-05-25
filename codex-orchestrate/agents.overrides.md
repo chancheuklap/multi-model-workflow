@@ -14,5 +14,9 @@
 - Coordinator delegation 有 ownership 语义：任务派给 subagent 后，Coordinator 不得并行重复做同一个 investigation、implementation 或 review。只能做不重叠的协调工作，然后等待 assigned agent。除非用户取消任务或正式 workflow 已经到达真实 BLOCKED 状态，不要 interrupt、close 或 pressure running agents 要求 partial output。
 - 当前 workflow state paths 是 `.codex/multi-model-workflow/*`。不要把新的 runtime 指令写到旧宿主 state paths。
 - Worktree 指令必须具体且可执行：在 `${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>` 下用 `git worktree add -b` 创建 Git worktree，不使用 UI-only steps、pseudo tools 或自定义根目录。创建 worktree 前不要切换 main repository branch。
+- Codex App 任务如果已经从 detached HEAD worktree 启动，Coordinator 必须先在当前 worktree 原地创建命名分支，再进入 workflow phase。已有任务名时用 `codex/<task-slug>`，尚未确定任务名时用 repo/date/worktree id 组成临时分支名。不要让整个任务停留在 detached HEAD，也不要回主仓库抢占 `main`。
+- Claude Code plugin 的常见入口是主仓库对话后由插件管理 worktree；Codex source 不能照搬这个前提。Codex Orchestrate 必须明确区分 "main repo -> create worktree" 和 "detached Codex worktree -> create branch in place"。
+- Pack、review repair、plan doc 和 workflow rule 改动必须按真实完成边界及时 commit。不要把多个 pack、多个 phase 或多轮修复堆到 closing 前统一提交。
+- 文档、规则、计划、prompt-only 改动只做有证明力的验证：格式 / 生成器 / manifest / schema / 路径链接 / diff 审查。不要新增只检查措辞存在的测试，除非该措辞是生成片段或 runtime contract 的锚点。
 - `architecture-draft.md` 是 Codex source architecture authority。保持中文，并保留足够细节，能审计 workflow routes、state files、document artifacts、subagents、hooks、scripts、tests 和 Codex-specific runtime rulings。
 - Architecture documentation 必须反映当前 runtime/source tree。不要为了让 architecture draft 看起来一致而改 runtime contracts、state machines、templates、hooks 或 agent dispatch 行为；runtime behavior changes 需要独立 commit 和 end-to-end evidence。

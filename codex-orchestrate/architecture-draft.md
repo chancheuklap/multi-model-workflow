@@ -800,6 +800,8 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 ## 架构约束
 
 - **Codex 根目录 worktree**：Coordinator 自动运行 `git worktree add -b`，但路径只能落在 `${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>`。
+- **Codex App detached worktree**：如果 session 已经从 `.codex/worktrees/...` detached HEAD 启动，Coordinator 在当前 worktree 原地创建命名分支后继续。这里不再创建二级 worktree，也不回主仓库切分支。
+- **Claude Code 与 Codex 入口差异**：Claude Code plugin 可以假设用户常在主仓库对话并由插件创建 / 进入 worktree；Codex App 常先创建 detached worktree 再启动对话。Codex Orchestrate 不能照搬 Claude Code 的入口前提，必须把 "main repo -> create worktree" 和 "detached Codex worktree -> create branch in place" 分开处理。
 - **渐进加载**：SKILL.md 只做路由和骨架；reference 到步骤时再读。
 - **Prompt 自足**：subagent 不继承 Coordinator 上下文；dispatch prompt 必须带完整任务、验收、命令和边界。
 - **Reviewer 独立**：`codex_reviewer` 是一等 subagent；Coordinator 亲验后才 disposition。
@@ -812,7 +814,8 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 - **Agent ID 持久化**：worker repair 和 reviewer targeted re-review 都依赖原始 `agent_id`；丢失则 BLOCKED。
 - **修复三轮封顶**：普通 repair 最多两轮，第三轮 RCA，仍失败则 BLOCKED。
 - **Final Review 回流守卫**：Final Review 回 execution 最多一次。
-- **Git 纪律**：禁止 squash merge；未完成 workflow 阻止 publish。
+- **Git 纪律**：禁止 squash merge；未完成 workflow 阻止 publish；每个 pack、review repair、plan doc 或 workflow rule 的真实完成边界都要及时 commit，不把历史堆到 closing 前。
+- **文档验证纪律**：纯文档、规则、计划或 prompt-only 改动不新增无意义测试。只用能证明真实合同的验证：格式、生成器、manifest、schema、路径链接或 diff 审查；只在生成产物或 runtime contract 需要保护时才写文本锚点测试。
 - **无兼容 fallback**：不恢复旧 state path、旧 companion runner、旧 tool-name label 或双 host 入口。
 
 ---

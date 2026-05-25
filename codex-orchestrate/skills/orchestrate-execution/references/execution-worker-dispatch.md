@@ -53,6 +53,9 @@ Verification commands:
   - <command> → Expected: <result>
 Risk flags: <trivial / normal / high-risk / ...>
 Out of scope: <what NOT to touch>
+Verification discipline:
+  - For code behavior: use focused public-behavior tests, with RED/GREEN when risk is normal or higher.
+  - For trivial docs/config/style sync: use proof-oriented checks such as `git diff --check`, build/generator check, manifest/schema validation, or path/link verification. Do not add tests that only assert wording exists unless that wording is a generated artifact or runtime contract anchor.
 Context hint: Your code will be reviewed alongside packs <N.1..N.M> within Plan N.
 State directory: <absolute path to .codex/multi-model-workflow — Coordinator 用 $(pwd)/.codex/multi-model-workflow 填入>
 Return contract:

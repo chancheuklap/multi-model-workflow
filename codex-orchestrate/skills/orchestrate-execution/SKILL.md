@@ -216,6 +216,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" execution-plan start \
 **Git Checkpoint**：
 - `git status --short --branch` 确认当前分支、无 stale dirty files
 - 不在 main / master / release branch 上
+- `git branch --show-current` 必须非空；如果是 detached HEAD，返回 orchestrate-workflow 的 infrastructure 分支就绪检查，不继续派 worker
 - 区分当前 scope 改动和用户/其它线程改动——不 stage 不属于当前 scope 的 dirty files
 
 **Budget File**：读取 `.codex/multi-model-workflow/active-run-id` 找到 budget file，确认 `pack_count` 与 plan 中 Task Pack 数量一致。**不一致时不得自行修改 budget file**——`budget_total` 只在 plan-writing Step 12a 赋值，执行阶段不可变。不一致说明 plan 文件与 budget file 脱节，返回 `NEEDS_PLAN_REVISION` 让 plan-writing 重新计算。
@@ -236,7 +237,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" execution-plan start \
 
 | Risk flags | Agent | 模型 | TDD |
 | --- | --- | --- | --- |
-| `trivial`（配置常量 / 文档更新 / 样式调整） | `pack_executor` | Sonnet | 宽松（验证通过即可，不强制红-绿循环） |
+| `trivial`（配置常量 / 文档同步 / 样式调整） | `pack_executor` | Sonnet | 宽松（验证通过即可，不强制红-绿循环；文档类只做有证明力的验证，不补无意义测试） |
 | `normal` | `pack_executor` | Sonnet | 严格 |
 | `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex_pack_executor` | Opus 4.7 | 严格 |
 
@@ -513,10 +514,13 @@ Worker 已在 Coordinator 的分支上直接 commit。Coordinator 验证并记�
 
 1. `rm -f .codex/multi-model-workflow/worker-active`（移除 worker marker）
 2. `git log --oneline -1` 确认 Worker 的 commit 已在当前分支上
+   - 如果 worker 返回但没有产生对应 commit，先确认是否是无 diff / needs context / blocked；不得继续下一个 pack 并把改动堆到后面。
 3. 勾选 plan doc + commit：
    - `git add <plan doc>`
    - `git commit -m "Pack N.M: <title> — <summary of behavior>"`（`enforce-pack-commit.sh` hook 自动校验格式）
 4. `track-execution-state.sh` hook 自动更新 `packs[N.M].status = committed` + `commit_sha` + `plans[N].end_commit`
+
+每个 Pack 的代码 commit 和 plan checkbox commit 都是独立 checkpoint。不要把多个 Pack 的计划勾选、review repair 或补丁攒到 Plan 末尾或 Final Review 前一次性提交。
 
 → 下一 Pack 回到 Step 4；所有 Pack 完成 → Step 8。
 

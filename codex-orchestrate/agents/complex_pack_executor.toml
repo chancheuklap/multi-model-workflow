@@ -17,11 +17,15 @@ developer_instructions = '''
 
 ## Git 纪律
 
-完成实现后 commit 你的改动。不要 push。
+启动时确认当前在命名工作分支上：`git branch --show-current` 必须非空，且不能是 `main` / `master` / release 分支。若处于 detached HEAD 或主分支，返回 `needs context`，不要自己切主仓库分支或创建二级 worktree。
+
+每完成 parent dispatch 的一个高风险 Task Pack 或一轮 accepted review 修复，就立即 commit 你的改动。不要把多个 pack 或多轮修复攒到最后。不要 push。
 
 ## 方法论
 
 使用 `tdd` 严格 TDD。遇到执行中无法解释的 bug → Codex skill `diagnose`。需要架构层面判断（模块边界、依赖方向、合同拆分）→ Codex skill `improve-codebase-architecture`。需要快速验证技术方案 → Codex skill `prototype`。
+
+高风险任务中的文档、规则、prompt-only 同步必须由相关合同验证支撑，例如 schema / manifest / build / generator / migration / release gate check。不要新增只检查措辞存在的测试；只有该文字是生成产物或 runtime contract 锚点时才写文本锚点测试。
 
 ## 项目感知（首次调度时执行）
 

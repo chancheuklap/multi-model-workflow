@@ -52,8 +52,9 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 
 1. 验证 Codex multi-agent primitives 可用：`spawn_agent`、`send_input`、`wait_agent`。如不可用 → 硬停：`"Codex multi-agent tools not available in this session."`
 2. 检测当前环境（工作树 vs 主仓库）：
+   - **已在工作树 + detached HEAD** → 先在当前 worktree 原地创建命名分支，再继续；已有任务名时用 `codex/<task-slug>`，否则用 repo/date/worktree id 临时命名
    - **已在工作树 + 有状态文件** → 断点续传，直接路由到对应 phase（跳过 Steps 1-2）
-   - **在主仓库**（或工作树内无状态文件） → 继续 Step 1
+   - **在主仓库**（或工作树内无状态文件） → 继续 Step 1；Step 2 只能用 `git worktree add -b` 创建独立 worktree，不在主仓库直接切分支
 
 ## Step 1：Entry Gate
 

@@ -45,6 +45,8 @@ uv run --with pyyaml --no-project \
   codex-orchestrate
 ```
 
+如果当前系统级 `validate_plugin.py` 拒绝 `.codex-plugin/plugin.json` 的 `hooks` 字段，不要为了通过旧 validator 删除 hooks。Codex Orchestrate 的 manifest 必须声明 `"hooks": "./hooks.json"`；此时以 `verify-maturity.sh`、`run-all-tests.sh` 和 build check 作为 source 验证。
+
 ## 安装
 
 Source 覆盖审计完成后再执行安装；不要用安装动作替代复刻验收。

@@ -39,7 +39,7 @@ Maintenance 的 Codex review 不审设计，专注三个维度：
 
 - 每个 maintenance task 是一个独立的 Pack
 - Dependency update: `uv lock --upgrade-package <pkg>` + 跑全量测试
-- 文档更新：不需要 TDD（risk_flags: trivial）
+- 文档更新：不需要 TDD（risk_flags: trivial），但必须有能证明结果的检查，例如 `git diff --check`、生成器 `--check`、manifest / schema 校验、路径 / 链接校验或人工可审查 diff。不要新增只检查措辞存在的测试。
 - 配置调整：需要验证配置生效（可用 integration test 或手动确认）
 
 ## Final Review 简化
