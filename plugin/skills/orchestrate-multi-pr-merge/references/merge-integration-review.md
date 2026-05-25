@@ -252,18 +252,33 @@ Release Gate 在宣布 review repair 完成前，必须确认每个 accepted fin
 - 复杂修复 → 派 worker
 
 修复后做 **Targeted Re-Review**。按以下步骤派发 Codex review（复用已有 `CODEX_SCRIPT`）：
-1. 写 prompt → `review-prompts/<gate>.md`
-2. `node "$CODEX_SCRIPT" task --background --prompt-file .claude/multi-model-workflow/review-prompts/<gate>.md --model gpt-5.4 --effort xhigh` → 记录 JOB_ID，写入 `review-prompts/<gate>.job-id`
-3. `node "$CODEX_SCRIPT" status "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)" --wait --timeout-ms 600000`（run_in_background: true）
-4. `node "$CODEX_SCRIPT" result "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)"` → 存到 `review-results/<gate>.md`
+1. 写 prompt → `review-prompts/<gate>.md`，并以前缀 `DISPATCH_ENVELOPE` 声明 `agent_role: "codex-reviewer"`、`review_intent: "targeted-re-review"`、`exception_code: "user_requested"` 和非空 `disposition_refs`。
+2. 按 Step 16 的共享 `review-dispatch` 执行；gate 名包含 `-repair-`，因此 dispatch 命令必须使用 `--resume` 继续 baseline reviewer session。
+3. 等待和读取结果也按 Step 16 的共享 `review-dispatch` 执行，结果写入 `review-results/<gate>.md`。
 
 Compaction 恢复：有 `.job-id` 无对应 `review-results/` → 从 Step 3 继续。
 
 gate 名使用 `multi-pr-repair-<round>`（`<round>` = 当前修复轮次 1/2），不覆盖 baseline 结果。
 
-Review prompt 写入 `.claude/multi-model-workflow/review-prompts/multi-pr-repair-<round>.md`：
+Review prompt 写入 `.claude/multi-model-workflow/review-prompts/multi-pr-repair-<round>.md`。下例以第 1 轮为例；第 2 轮时同步替换 `repair_round` 和 `idempotency_key`：
 
 ```markdown
+<!-- DISPATCH_ENVELOPE
+{
+  "protocol_version": "1",
+  "run_id": "<run_id>",
+  "phase": "multi-pr-merge",
+  "agent_role": "codex-reviewer",
+  "agent_id": null,
+  "pack_id": null,
+  "repair_round": 1,
+  "idempotency_key": "<run_id>/multi-pr-repair-1",
+  "disposition_refs": ["<accepted finding ids>"],
+  "review_intent": "targeted-re-review",
+  "exception_code": "user_requested"
+}
+-->
+
 ## Scope
 Targeted re-review for Multi-PR integration repair.
 Only review the changes made to address the listed findings.

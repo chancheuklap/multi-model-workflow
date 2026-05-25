@@ -16,6 +16,7 @@ FILES=(
   "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md"
   "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md"
 )
+MULTI_PR_INTEGRATION="$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md"
 
 pass=0; fail=0
 run_test() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then echo "  PASS: $name"; pass=$((pass+1)); else echo "  FAIL: $name"; fail=$((fail+1)); fi; }
@@ -36,6 +37,12 @@ done
 
 run_test "repair routing does not introduce Codex-only dispatch terms" bash -c \
   "! grep -R 'spawn_agent\\|send_input\\|wait_agent\\|\\.codex/multi-model-workflow\\|codex_reviewer\\|pack_executor\\|complex_pack_executor\\|root_cause_analyst' '$PLUGIN_DIR/build/templates/repair-routing.md.tmpl' '$PLUGIN_DIR/skills' >/dev/null"
+
+run_test "multi-pr repair re-review declares targeted envelope fields" bash -c \
+  "grep -q 'review_intent.*targeted-re-review' '$MULTI_PR_INTEGRATION' && grep -q 'exception_code.*user_requested' '$MULTI_PR_INTEGRATION'"
+
+run_test "multi-pr repair re-review has no stale task command without resume" bash -c \
+  "! grep -q 'node \"\\\$CODEX_SCRIPT\" task --background --prompt-file \\.claude/multi-model-workflow/review-prompts/<gate>\\.md' '$MULTI_PR_INTEGRATION'"
 
 echo ""
 echo "Results: $pass passed, $fail failed"
