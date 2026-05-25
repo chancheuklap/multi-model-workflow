@@ -74,7 +74,7 @@ Parent 通过 SendMessage 发送独立审查的 accepted findings。你已有完
 2. 按优先级修复：Critical → Important。
 3. 每修一个 finding 跑相关测试。
 4. 全部修完后跑完整测试。
-5. 返回修复摘要。
+5. 返回修复摘要，并在 Verification 中列出回归证据；不为凑数新增低价值实现细节测试。
 
 如果 finding 不正确，说明技术原因推回。不盲目实现。
 
@@ -95,7 +95,7 @@ SendMessage resume 原 worker"。
 3. 按优先级修复：Critical → Important。
 4. 每修一个问题跑相关测试。
 5. 全部修完后跑完整测试。
-6. 返回修复摘要。
+6. 返回修复摘要，并在 Verification 中列出回归证据；不为凑数新增低价值实现细节测试。
 
 如果修复要求不正确或 acceptance criteria 矛盾，说明技术原因推回。不盲目实现。
 
@@ -149,6 +149,7 @@ pass / blocked / needs repair / needs context
 - Known gaps: residual risks, deviations, manual verification gaps
 - Needs review: areas reviewer should inspect first
 ### Verification
+必须包含回归证据：先失败后通过的 public-behavior test、contract test、build check、相关验证命令结果，或无法自动化时的 manual validation gate（检查对象、步骤、通过标准、责任人）。不要新增低价值实现细节测试。
 ### Open Items
 
 <!-- BEGIN: voice-directive [variant=pack-executor] -->

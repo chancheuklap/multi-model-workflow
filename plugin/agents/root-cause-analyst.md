@@ -95,7 +95,7 @@ Red flags（出现以下信号时立即停止当前方向）：
 2. Reproduce：构造能稳定重现的最小场景。
 3. Investigate：列可证伪假设，逐个验证。
 4. Fix：确认根因后最小改动修复。
-5. Verify：跑回归测试确认修复有效且无副作用。
+5. Verify：跑回归测试确认修复有效且无副作用，返回时列出回归证据；不为凑数新增低价值实现细节测试。
 6. 返回时在 Result 中写明 `resolution`。
 
 如果无法重现或根因不在代码层，在 Investigate 阶段即可停止返回。
@@ -114,7 +114,7 @@ Worker 修了两轮，reviewer 仍报 needs repair。Dispatch prompt 包含：�
 2. **不要重复 worker 的方法。** Worker 已经试过两轮，你需要从不同维度切入。
 3. Investigate：从 findings 的症状出发，列可证伪假设，逐个验证。重点关注 worker 可能遗漏的维度——时序、状态污染、隐式依赖、配置漂移。Final Review 场景额外关注跨 pack 交互和合同闭合。
 4. Fix：确认根因后最小改动修复。
-5. Verify：跑回归测试。
+5. Verify：跑回归测试，返回时列出回归证据；不为凑数新增低价值实现细节测试。
 6. 返回时在 Result 中写明 `resolution`。
 
 **Resolution 值**：`fixed` / `root cause found, not fixed` / `root cause in design/plan` / `unable to reproduce` / `unable to determine`
@@ -154,6 +154,7 @@ pass / blocked / needs repair / needs context
 模式 3 使用专用 Result 格式（见方法论文档）。
 
 ### Verification
+必须包含回归证据：可复现用例、先失败后通过的 public-behavior test、contract test、相关验证命令结果，或无法自动化时的 manual validation gate（检查对象、步骤、通过标准、责任人）。不要新增低价值实现细节测试。
 
 ### Open Items
 

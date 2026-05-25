@@ -235,6 +235,17 @@ Multi-PR 增加验证维度：对照大设计文档确认 spec 判断 + 对照�
 - Agent 名使用 Claude plugin 现有连字符：`pack-executor`、`complex-pack-executor`、`code-explorer`、`complex-code-explorer`、`root-cause-analyst`、`plan-writer`。
 - Review 修复后的 targeted re-review 使用现有 `codex-companion.mjs` review dispatch；repair gate 使用独立 gate 名，不能覆盖 baseline 结果。
 - 本分流块只定义 owner 和升级条件；各 phase 的 round 上限、state 写入和 release gate 仍以所在 reference 为准。
+
+**回归证据要求 (REQUIRED in repair return)**：
+
+Repair agent 或 Coordinator Path A 返回时必须提供回归证据；不要求每个 finding 都新增一个测试。优先选择能证明用户可见行为、合同或发布风险已修好的证据，不新增低价值实现细节测试。
+
+回归证据必须包含以下至少一项：
+- 先失败后通过的 public-behavior test、contract test、migration / schema test 或 build/template check。
+- 相关验证命令及结果，能覆盖 accepted finding 的修复面。
+- 无法自动化时写明 `manual validation gate`：人工检查对象、检查步骤、通过标准和 release 前责任人。
+
+Release Gate 在宣布 review repair 完成前，必须确认每个 accepted finding 都有回归证据或 `manual validation gate`。
 <!-- END: repair-routing -->
 
 - 简单修复（≤ 2 文件、不碰合同）→ Coordinator 直接修
