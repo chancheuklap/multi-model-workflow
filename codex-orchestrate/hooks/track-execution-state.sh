@@ -4,7 +4,10 @@
 set -euo pipefail
 
 INPUT=$(cat)
-EXIT_CODE=$(echo "$INPUT" | jq -r '.tool_response.exit_code // 0' 2>/dev/null)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/payload.sh"
+
+EXIT_CODE=$(payload_tool_exit_code "$INPUT")
 if [ "$EXIT_CODE" != "0" ]; then exit 0; fi
 
 BUDGET_DIR=".codex/multi-model-workflow"
@@ -15,7 +18,7 @@ RUN_ID=$(cat "$RUN_ID_FILE")
 ESF="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
 if [ ! -f "$ESF" ]; then exit 0; fi
 
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+COMMAND=$(payload_tool_command "$INPUT")
 # Pack ID from validated commit message (enforce-pack-commit.sh guarantees format "Pack N.M: ...")
 # Uses bash regex instead of sed — input is commit message text, not prompt/control-plane
 if [[ "$COMMAND" =~ Pack[[:space:]]+([0-9]+\.[0-9]+) ]]; then
@@ -27,7 +30,6 @@ if [ -z "$PACK_ID" ]; then exit 0; fi
 
 COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/../scripts/lib/state-lock.sh"
 
 LOCK_DIR="${BUDGET_DIR}/${RUN_ID}.lock"

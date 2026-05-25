@@ -10,7 +10,10 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/../hooks/lib/payload.sh"
+
+COMMAND=$(payload_tool_command "$INPUT")
 
 # --- Rule 1: Merge strategy enforcement (always active, no plan check needed) ---
 

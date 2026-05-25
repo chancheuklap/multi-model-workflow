@@ -5,11 +5,13 @@
 set -euo pipefail
 
 INPUT=$(cat)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/payload.sh"
 
-HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty' 2>/dev/null)
+HOOK_EVENT=$(payload_jq "$INPUT" '.hook_event_name // ""' "")
 if [[ "$HOOK_EVENT" != "SubagentStart" ]]; then exit 0; fi
 
-AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null)
+AGENT_TYPE=$(payload_jq "$INPUT" '.agent_type // ""' "")
 if [[ -z "$AGENT_TYPE" ]]; then exit 0; fi
 
 BUDGET_DIR=".codex/multi-model-workflow"
@@ -20,7 +22,6 @@ RUN_ID=$(cat "$RUN_ID_FILE")
 SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
 if [[ ! -f "$SF" ]]; then exit 0; fi
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/../scripts/lib/state-lock.sh"
 LOCK_DIR="${BUDGET_DIR}/${RUN_ID}.lock"
 state_lock_acquire "$LOCK_DIR"

@@ -5,11 +5,12 @@ set -euo pipefail
 
 INPUT=$(cat)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/payload.sh"
 
-HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // empty' 2>/dev/null)
+HOOK_EVENT=$(payload_jq "$INPUT" '.hook_event_name // ""' "")
 if [ "$HOOK_EVENT" != "SubagentStop" ]; then exit 0; fi
 
-AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null)
+AGENT_TYPE=$(payload_jq "$INPUT" '.agent_type // ""' "")
 case "$AGENT_TYPE" in
   pack_executor|complex_pack_executor) ;;
   *) exit 0 ;;
