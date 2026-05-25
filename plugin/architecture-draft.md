@@ -672,9 +672,9 @@ Coordinator **不是传话筒**——必须亲验每条 finding（读代码、�
 
 **Path B**（Worker 修复）：SendMessage resume 原 worker 或新 dispatch。标准修复路径，不受 Path A 的单独约束。
 
-### Review Effectiveness 追踪
+### Review Effectiveness 可选诊断
 
-`scripts/lib/review-effectiveness.sh` 从所有 disposition 聚合统计，写入 workflow-state：
+`scripts/lib/review-effectiveness.sh` 从所有 disposition 聚合统计，写入 workflow-state。`review_effectiveness` 保留为可选诊断和观测兼容字段；它只提示 disposition 分布异常，不能证明 review 正确性，也不是 release readiness gate。
 
 | 指标 | 健康告警阈值 |
 |------|------------|
@@ -683,7 +683,7 @@ Coordinator **不是传话筒**——必须亲验每条 finding（读代码、�
 | `suppress_count` / 总 findings | > 30% → low-confidence abuse |
 | `path_a_count` / 总 findings | > 50% → excessive self-repair |
 
-健康告警在 Direction Check 和 Final Review 时呈现。
+健康告警可在 Direction Check 和 Final Review 时呈现，供 Coordinator 判断是否需要人工复核；告警本身不改变 verdict。
 
 ### Learnings 系统
 
@@ -853,7 +853,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 - **Dispatch 幂等性**：每次 dispatch 附 `idempotency_key`，`validate-pack-dispatch.sh` 阻止重复 dispatch
 - **状态文件锁**：所有状态写入使用 `lib/state-lock.sh` 目录级自旋锁（50 次 × 100ms，TTL 60s），原子写入通过 tmp → rename
 - **Disposition 证据强制**：`accepted` disposition 必须附 `evidence`，`state.sh` 和 `validate-pack-dispatch.sh` 双重校验
-- **Review Effectiveness 监控**：reject > 60% / suppress > 30% / path-a > 50% 触发健康告警
+- **Review Effectiveness 可选诊断**：reject > 60% / suppress > 30% / path-a > 50% 触发健康告警；该指标不作为 review correctness gate
 - **Learnings 信任门**：Worker 返回的 learnings 必须通过投毒检测 + 高频检测 + 时间衰减三关
 
 ---
@@ -980,7 +980,7 @@ bash plugin/build/build.sh --apply --plugin-dir plugin   # 应用（原子写入
 | 库 | 用途 |
 |-----|------|
 | `state-lock.sh` | 目录级自旋锁（50 次 × 100ms，TTL 60s）+ 原子写入 |
-| `review-effectiveness.sh` | Review effectiveness 聚合计算 + 健康告警生成 |
+| `review-effectiveness.sh` | Review effectiveness 可选诊断聚合 + 健康告警生成 |
 | `learnings-poison-detector.sh` | Learnings 投毒检测（指令注入 / 跨 run 污染 / 范围逃逸） |
 
 ---

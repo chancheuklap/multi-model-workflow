@@ -64,7 +64,7 @@ echo ""
 echo "## Persona + Observability"
 check "persona.md exists" test -f "$PLUGIN_DIR/agents/persona.md"
 check "run-summary.sh exists" test -x "$PLUGIN_DIR/scripts/run-summary.sh"
-check "review-effectiveness.sh exists" test -x "$PLUGIN_DIR/scripts/lib/review-effectiveness.sh"
+check "review-effectiveness optional diagnostic script exists" test -x "$PLUGIN_DIR/scripts/lib/review-effectiveness.sh"
 
 echo ""
 echo "## Defense"
