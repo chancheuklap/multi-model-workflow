@@ -97,7 +97,10 @@ spawn_agent({
 **After each spawn_agent call returns**（强制执行）：
 1. Extract `agent_id` from return value
 2. `state.sh update --run-id <run_id> --field '.plan_writer_agent_id' --value '"<agent_id>"'`
-3. 若后续需要修复/补充上下文，必须使用 `send_input({ target: "<agent_id>", message: "<修复 prompt>" })` resume 原 plan_writer
+3. 等待该 plan_writer 返回：`wait_agent({ targets: ["<agent_id>"], timeout_ms: 600000 })`
+4. 将 final message 保存到 `.codex/multi-model-workflow/plan-writer-results/<issue-id>.md`，再解析 verdict 和 plan path
+5. 结果保存后立即释放容量：`close_agent({ target: "<agent_id>" })`
+6. 若后续需要修复/补充上下文，必须先 `resume_agent({ id: "<agent_id>" })`，再使用 `send_input({ target: "<agent_id>", message: "<修复 prompt>" })` resume 原 plan_writer；修复返回保存后再次 `close_agent`
 
 **Critical**: `spawn_agent` must return `agent_id`. Without agent_id, plan_writer repair path is BLOCKED.
 
@@ -112,10 +115,10 @@ spawn_agent({
 | `NEEDS_DIAGNOSIS` | bug 缺复现或 hypothesis | `Skill({ skill: "diagnose" })` |
 | `NEEDS_DECISION` | 需要产品/业务决策 | 询问用户（一次只问一个问题） |
 | `NEEDS_ARCHITECTURE` | 架构假设与代码现实不符 | `Skill({ skill: "improve-codebase-architecture" })` |
-| `NEEDS_CONTEXT` | 缺代码上下文 | 派 code_explorer / `Skill({ skill: "zoom-out" })`，补充后 send_input 给原 plan_writer |
+| `NEEDS_CONTEXT` | 缺代码上下文 | 派 code_explorer / `Skill({ skill: "zoom-out" })`，补充后按 resume 流程 send_input 给原 plan_writer |
 | `BLOCKED` | 无法完成 | 报告用户，附 plan_writer 的阻塞原因 |
 
-upstream skill 结论必须写回 design document / issue hierarchy，再 send_input 给原 plan_writer 继续。
+upstream skill 结论必须写回 design document / issue hierarchy，再按 `resume_agent` → `send_input` → `wait_agent` → 保存结果 → `close_agent` 的流程给原 plan_writer 继续。
 
 ---
 > **下一步**：plan_writer 返回后 → Steps 11-12a（`plan-gates.md`）。

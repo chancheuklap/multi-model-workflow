@@ -26,6 +26,12 @@
      `bash "${MMW_PLUGIN_ROOT}/scripts/record-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --gate "<gate>" --agent-id "<reviewer agent_id>"`.
    - **Targeted re-review** (gate name contains `-repair-`):
      Run `bash "${MMW_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" --transport send_input --gate "<gate>"`.
+     Resume the baseline reviewer before sending the targeted prompt; baseline reviewers are closed after each completed wait to release subagent capacity.
+     ```
+     resume_agent({
+       id: "<baseline reviewer agent_id>"
+     })
+     ```
      ```
      send_input({
        target: "<baseline reviewer agent_id>",
@@ -36,6 +42,7 @@
 4. Wait: `wait_agent({ targets: ["<reviewer agent_id>"], timeout_ms: 600000 })`.
 5. Result: save the reviewer final message from `wait_agent` into `.codex/multi-model-workflow/review-results/<gate>.md`.
 6. Complete: run `bash "${MMW_PLUGIN_ROOT}/scripts/complete-review-dispatch.sh" --run-id "<run_id>" --gate "<gate>" --agent-id "<reviewer agent_id>" --result-file ".codex/multi-model-workflow/review-results/<gate>.md"` to mark the result durable and increment review budget exactly once.
+7. Release capacity: after the result file is saved and complete-review bookkeeping succeeds, call `close_agent({ target: "<reviewer agent_id>" })`. Do this for baseline reviews and targeted re-reviews. If later targeted re-review is needed, repeat `resume_agent` -> `send_input` -> `wait_agent` -> save/complete -> `close_agent`.
 
 **Confidence rubric (REQUIRED in every review prompt)**:
 - 1-3: low confidence. Coordinator may suppress without deep investigation.
@@ -76,7 +83,7 @@ Reviewer 必须在 `### Evidence` 下填写半结构化证据表。证据表证�
 **Bias indicators (REQUIRED at end of review output)**:
 Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
 
-Compaction recovery: `.agent-id` present but no `review-results/` -> wait for that reviewer agent. If the `.agent-id` is missing for a targeted re-review, mark BLOCKED; do not create a new reviewer for the same baseline.
+Compaction recovery: `.agent-id` present but no `review-results/` -> wait for that reviewer agent; once the result is saved and bookkeeping is complete, close it. If the `.agent-id` is missing for a targeted re-review, mark BLOCKED; do not create a new reviewer for the same baseline.
 <!-- END: review-dispatch -->
 
 **整体 Verdict 前置检查**：如果 reviewer 返回整体 `needs context`（不是某条 finding 的 `needs evidence`），说明 reviewer 无法完成审查。Coordinator 补充 reviewer 所需的上下文后重新 dispatch，不进入 per-finding disposition。

@@ -19,6 +19,7 @@
 - Plan Review、Execution、Final Review、Release Gate、Direct Repair、Bug Route 和 Multi-PR repair 必须消费同一套 repair-routing 规则；不能因 finding 来自某个 phase 就弱化 owner 选择。
 - Accepted finding 暴露跨模块、migration、permission、runtime、共享合同、state machine 或模板生成等高风险问题时，不能被原 `pack_executor` 绑定。Coordinator 必须写明 escalation reason，携带 original agent/context/disposition refs，并按当前 route 的合法状态边界升级到 `complex_pack_executor`：Formal Execution 先建立新的 pending repair Pack，non-execution route 使用新的 route-worker escalation dispatch。
 - Coordinator delegation 有 ownership 语义：任务派给 subagent 后，Coordinator 不得并行重复做同一个 investigation、implementation 或 review。只能做不重叠的协调工作，然后等待 assigned agent。除非用户取消任务或正式 workflow 已经到达真实 BLOCKED 状态，不要 interrupt、close 或 pressure running agents 要求 partial output。
+- Coordinator 必须管理 subagent 生命周期：`wait_agent` 返回 final status 且结果已保存/写入 state 后立即 `close_agent` 释放容量；后续续修或 targeted re-review 先 `resume_agent` 再 `send_input`，再次等待、保存结果并关闭。禁止关闭 running agent，也禁止让 completed agent 长期挂起占用并发上限。
 - 当前 workflow state paths 是 `.codex/multi-model-workflow/*`。不要把新的 runtime 指令写到旧宿主 state paths。
 - Worktree 指令必须具体且可执行：在 `${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>` 下用 `git worktree add -b` 创建 Git worktree，不使用 UI-only steps、pseudo tools 或自定义根目录。创建 worktree 前不要切换 main repository branch。
 - Codex App 任务如果已经从 detached HEAD worktree 启动，Coordinator 必须先在当前 worktree 原地创建命名分支，再进入 workflow phase。已有任务名时用 `codex/<task-slug>`，尚未确定任务名时用 repo/date/worktree id 组成临时分支名。不要让整个任务停留在 detached HEAD，也不要回主仓库抢占 `main`。

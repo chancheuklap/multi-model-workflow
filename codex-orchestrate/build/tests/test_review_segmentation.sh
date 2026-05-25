@@ -20,6 +20,12 @@ run_test "template has targeted re-review" \
 run_test "targeted re-review uses send_input" \
   grep -q "send_input" "$TMPL"
 
+run_test "targeted re-review resumes closed reviewer" \
+  grep -q "resume_agent" "$TMPL"
+
+run_test "review dispatch closes completed reviewer" \
+  grep -q "close_agent" "$TMPL"
+
 run_test "template validates with gate name" \
   grep -q -- '--gate "<gate>"' "$TMPL"
 
@@ -40,6 +46,9 @@ run_test "template dispatches native reviewer subagent" \
 
 run_test "template waits for reviewer subagent" \
   grep -q "wait_agent" "$TMPL"
+
+run_test "execution SKILL closes reviewer after wait" \
+  grep -Fq 'close_agent({ target: "<reviewer agent_id>" })' "$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

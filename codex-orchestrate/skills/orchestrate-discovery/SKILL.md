@@ -38,6 +38,8 @@ Phase complete. 返回 orchestrate-workflow 主循环。
 
 **Sub-agent Ownership**：一旦把某个 investigation / implementation / review 派给 sub-agent，Coordinator 不得并行重复做同一件事，不得用短间隔轮询催促，不得要求未完成 agent 输出中间结论，不得中断或关闭仍在运行的 agent。等待期间只做不重叠的协调工作；若下一步依赖该结果，就直接等待 `wait_agent` 返回。
 
+**Sub-agent Lifecycle**：`wait_agent` 返回 final status 且结果已保存/写入 state 后，必须立即调用 `close_agent({ target: "<agent_id>" })` 释放容量。后续需要继续同一 owner 时，先调用 `resume_agent({ id: "<agent_id>" })`，再 `send_input`，再次 `wait_agent` 返回并保存结果后再次 `close_agent`。禁止关闭仍在运行的 agent；禁止把已完成 agent 长期挂起占用名额。
+
 **Only stop for：**
 - 需要用户确认设计方向
 - 需要用户确认设计文档

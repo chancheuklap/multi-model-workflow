@@ -5,7 +5,7 @@
 > **Codex Plugin 版本**：3.6.2。
 > **文档定位**：这是 Codex 原生复刻系统的架构权威文档，不是迁移日志，也不是旧机制清单。
 
-`codex-orchestrate/` 的目标是把 `plugin/` 蓝本中的 workflow 合同保留下来，同时把运行机制替换为 Codex 原生能力：Codex plugin manifest、Codex skill、Codex TOML subagent、`spawn_agent` / `send_input` / `wait_agent`、Codex hook payload、`.codex/multi-model-workflow/` 状态目录，以及自动创建在 Codex 约定根目录下的 Git worktree。
+`codex-orchestrate/` 的目标是把 `plugin/` 蓝本中的 workflow 合同保留下来，同时把运行机制替换为 Codex 原生能力：Codex plugin manifest、Codex skill、Codex TOML subagent、`spawn_agent` / `send_input` / `wait_agent` / `close_agent` / `resume_agent`、Codex hook payload、`.codex/multi-model-workflow/` 状态目录，以及自动创建在 Codex 约定根目录下的 Git worktree。
 
 ---
 
@@ -194,7 +194,7 @@ flowchart TD
     REV --> DISP["Coordinator 亲验 findings\n写 disposition"]:::coord
     DISP --> PASS{"Review pass?"}:::coord
     PASS -->|"needs repair"| REPAIR["Path A/B/C 修复\n最多 3 轮 + RCA 截断"]:::coord
-    REPAIR --> REREV["Targeted re-review\nsend_input 原 reviewer"]:::review
+    REPAIR --> REREV["Targeted re-review\nresume + send_input 原 reviewer\n完成后 close"]:::review
     REREV --> DISP
     PASS -->|"pass"| REL{"Plan 触碰发布风险?"}:::coord
     REL -->|"是"| RREL["Early Release Review"]:::review
@@ -542,9 +542,11 @@ Codex Orchestrate 把 subagent 派发视为 ownership transfer，而不是“同
 1. Coordinator 派出 `plan_writer`、worker、explorer、`root_cause_analyst` 或 `codex_reviewer` 后，不得在主线程并行执行同一 investigation / implementation / review。
 2. 等待期间只允许做不重叠的协调工作，例如准备下一阶段的状态文件、核对 scope contract、整理用户汇报或等待其它独立 agent。
 3. 如果下一步依赖该 agent 的结果，Coordinator 必须等待 `wait_agent` 返回，不用短间隔轮询催促。
-4. 未完成 agent 不应被要求输出中间结论；中间结论会破坏 review / repair 的完整上下文。
-5. 只有用户明确取消、workflow 判定 BLOCKED、agent 已完成/失联且影响已说明时，才允许中断或关闭 agent。
-6. Agent 返回后，Coordinator 的职责是验收、disposition、整合和路由，不是重新做一遍 agent 已经完成的工作。
+4. `wait_agent` 返回 final status 且结果已保存到 review / worker / explorer / analyst result file 或写入 state 后，Coordinator 必须立即 `close_agent({ target: "<agent_id>" })` 释放容量。
+5. 后续确实需要同一 owner 继续上下文时，先 `resume_agent({ id: "<agent_id>" })`，再 `send_input`，再次等待、保存结果并关闭。
+6. 未完成 agent 不应被要求输出中间结论；中间结论会破坏 review / repair 的完整上下文。
+7. 只有用户明确取消、workflow 判定 BLOCKED、agent 已完成/失联且影响已说明时，才允许中断 running agent。已完成 agent 的关闭不是中断，是容量释放。
+8. Agent 返回后，Coordinator 的职责是验收、disposition、整合和路由，不是重新做一遍 agent 已经完成的工作。
 
 这条规则保护上下文边界：subagent 负责完成被派发的闭环，Coordinator 负责调度和整合。重复执行同一任务会消耗上下文、制造相互矛盾的证据，并破坏 review / repair 的责任归属。
 
@@ -625,6 +627,9 @@ Codex 版不使用外部 `codex-companion.mjs` 或 job-id polling。所有 revie
      --gate "<gate>" \
      --agent-id "<agent_id>" \
      --result-file ".codex/multi-model-workflow/review-results/<gate>.md"
+
+8. Coordinator 关闭完成态 reviewer:
+   close_agent({ target: "<agent_id>" })
 ```
 
 ### Targeted re-review
@@ -633,10 +638,12 @@ Codex 版不使用外部 `codex-companion.mjs` 或 job-id polling。所有 revie
 1. 读取 baseline reviewer agent_id
 2. 写 targeted prompt，review_intent = "targeted-re-review"，exception_code 非空，agent_id = baseline reviewer
 3. validate-review-dispatch.sh --transport send_input --gate "<gate>"
-4. send_input({ target: "<baseline reviewer agent_id>", message: "<targeted prompt>" })
-5. wait_agent(...)
-6. 写 review-results/<gate>-repair-<round>.md
-7. complete-review-dispatch.sh 记录 targeted result，并幂等递增 review budget
+4. resume_agent({ id: "<baseline reviewer agent_id>" })
+5. send_input({ target: "<baseline reviewer agent_id>", message: "<targeted prompt>" })
+6. wait_agent(...)
+7. 写 review-results/<gate>-repair-<round>.md
+8. complete-review-dispatch.sh 记录 targeted result，并幂等递增 review budget
+9. close_agent({ target: "<baseline reviewer agent_id>" })
 ```
 
 ### Review intent 规则
@@ -644,7 +651,7 @@ Codex 版不使用外部 `codex-companion.mjs` 或 job-id polling。所有 revie
 | Intent | Transport | 必填 |
 | --- | --- | --- |
 | `baseline` | `spawn_agent` | `agent_role = codex_reviewer` |
-| `targeted-re-review` | `send_input` | baseline `agent_id`、`exception_code`、repair context |
+| `targeted-re-review` | `resume_agent` + `send_input` | baseline `agent_id`、`exception_code`、repair context |
 
 ### Disposition 表（全 phase 通用）
 
@@ -656,7 +663,7 @@ Coordinator 必须亲验每条 finding。Codex reviewer 只提供独立判断，
 | `rejected` | finding 被证据反驳 |
 | `suppress` | 低 confidence 或已知噪声，不进入修复 |
 | `path-a` | Coordinator 直接修复，之后强制 targeted re-review |
-| `path-b` | worker 修复，优先 `send_input` 原 worker |
+| `path-b` | worker 修复，优先 `resume_agent` 后 `send_input` 原 worker，返回保存后关闭 |
 | `needs-evidence` | 派 explorer 或补证后再 disposition |
 | `duplicate` | 被另一条 finding 覆盖 |
 | `out-of-scope` | 开外部 issue 或 durable handoff |
@@ -682,7 +689,7 @@ Round 1-2:
   Path A — Coordinator 直接修复（confidence >= 7，范围小）
            修复后 targeted re-review
            Codex 仍 needs repair → blocked_for_self_fix = true → 必须升级 Path B
-  Path B — worker 修复（send_input 原 worker；没有 agent_id 时 BLOCKED）
+  Path B — worker 修复（resume_agent + send_input 原 worker；没有 agent_id 时 BLOCKED；返回保存后 close_agent）
   Path C — code_explorer / complex_code_explorer 补证
   → targeted re-review
 
@@ -779,7 +786,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 | design 在 Design Review 后变更 | 重新 Design Review |
 | plan 在 Plan Review 后变更 | 重新 Plan Review |
 | execution-state 有部分 pack | 按 pack status 跳过已完成项，从当前 plan/pack 继续 |
-| baseline reviewer `.agent-id` 存在但无 result | `wait_agent` 等待原 reviewer |
+| baseline reviewer `.agent-id` 存在但无 result | `wait_agent` 等待原 reviewer，保存 result 后 `close_agent` |
 | targeted re-review 缺 baseline `.agent-id` | BLOCKED，不创建新的 reviewer 伪装续审 |
 | Final Review 已通过 | Closing |
 
@@ -868,7 +875,7 @@ Codex lifecycle hooks拿不到完整 dispatch prompt；凡是需要读 `DISPATCH
 | Manifest | `.claude-plugin/plugin.json` | `.codex-plugin/plugin.json` |
 | 状态路径 | `.claude/multi-model-workflow/` | `.codex/multi-model-workflow/` |
 | Agent 定义 | `agents/*.md` | `agents/*.toml` |
-| Review 派发 | 外部 companion script + job-id polling | `spawn_agent` / `send_input` / `wait_agent` 原生 reviewer |
+| Review 派发 | 外部 companion script + job-id polling | `spawn_agent` / `resume_agent` / `send_input` / `wait_agent` / `close_agent` 原生 reviewer |
 | Hook payload | Claude Code tool events | Codex plugin hook events |
 | Prompt gate | 部分在 hooks 中拦截 | 显式 Coordinator script |
 | 工作树 | 蓝本沿用旧 worktree 操作描述 | `git worktree add -b` 自动创建到 Codex 根目录 |
@@ -891,7 +898,7 @@ Codex lifecycle hooks拿不到完整 dispatch prompt；凡是需要读 `DISPATCH
 | `review-dispatch.md.tmpl` | Codex reviewer dispatch 协议 |
 | `disposition-table.md.tmpl` | disposition 表和 confidence 规则 |
 | `trust-boundary.md.tmpl` | 不信任代码 diff / review output 的边界声明 |
-| `sendmessage-resume.md.tmpl` | `send_input` resume 协议 |
+| `sendmessage-resume.md.tmpl` | `resume_agent` + `send_input` + `close_agent` resume 协议 |
 | `control-envelope.md.tmpl` | DISPATCH_ENVELOPE 结构 |
 | `state-write.md.tmpl` | `state.sh` 写入约定 |
 | `decision-brief.md.tmpl` | 用户决策简报 |
@@ -942,8 +949,8 @@ bash codex-orchestrate/build/build.sh --apply --plugin-dir codex-orchestrate
 
 | 目录 | 测试数 | 覆盖范围 |
 | --- | --- | --- |
-| `build/tests/` | 10 | preamble、resolver、voice、confidence、review segmentation、send_input resume、review model tier、trust boundary |
-| `hooks/tests/` | 5 | envelope parse、disposition refs、effort budget、idempotency replay、send_input resume |
+| `build/tests/` | 10 | preamble、resolver、voice、confidence、review segmentation、resume / close lifecycle、review model tier、trust boundary |
+| `hooks/tests/` | 5 | envelope parse、disposition refs、effort budget、idempotency replay、resume lifecycle |
 | `scripts/tests/` | 11 | state、budget direction check、path-a re-review、learnings、pack count、run summary、review effectiveness、route keywords、trust gate、hotfix post-push |
 
 总验证：
@@ -985,7 +992,7 @@ bash codex-orchestrate/scripts/verify-maturity.sh
 Codex source package 只有在以下条件同时成立时才算可用：
 
 - `.codex-plugin/plugin.json` 指向 `skills/` 和 `hooks.json`。
-- 所有 review reference 都使用 `codex_reviewer` subagent、`spawn_agent` / `send_input` / `wait_agent`。
+- 所有 review reference 都使用 `codex_reviewer` subagent、`spawn_agent` / `resume_agent` / `send_input` / `wait_agent` / `close_agent`。
 - 所有 state path 都是 `.codex/multi-model-workflow/`。
 - 工作树入口自动创建到 Codex 根目录，不出现旧 worktree 伪工具、UI-only 步骤、主仓库先切分支或自造路径。
 - execution Pack worker dispatch 使用 `validate-pack-dispatch.sh`；非 execution route worker dispatch 使用 `validate-route-worker-dispatch.sh`；review dispatch 使用 `validate-review-dispatch.sh`。

@@ -94,6 +94,15 @@ spawn_agent({
 })
 ```
 
+每个 explorer 的生命周期必须闭合：
+
+1. 记录每次 `spawn_agent` 返回的 `agent_id`
+2. 用 `wait_agent({ targets: ["<agent_id>", "..."], timeout_ms: 600000 })` 等待任一 explorer 完成；每返回一个 final status，就将结果保存到 `.codex/multi-model-workflow/explorer-results/multi-pr-conflict-<n>.md`
+3. 每保存一个 explorer 结果，立即 `close_agent({ target: "<agent_id>" })`
+4. 从待等待列表移除已关闭的 agent，直到本轮所有 explorer 都已返回并关闭
+
+禁止让已完成 explorer 继续挂起占用后续 worker/reviewer 容量。
+
 ## Step 6：接收 Explorer 返回
 
 汇总所有 explorer 的冲突发现。去重（多个 explorer 可能发现同一冲突）。

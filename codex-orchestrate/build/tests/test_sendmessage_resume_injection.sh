@@ -18,6 +18,15 @@ run_test "send_input in execution-repair-truncation" \
 run_test "send_input in plan-review-resolution" \
   grep -q "send_input Resume" "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-review-resolution.md"
 
+run_test "resume template resumes existing worker" \
+  grep -q "resume_agent" "$PLUGIN_DIR/build/templates/sendmessage-resume.md.tmpl"
+
+run_test "worker repair closes completed agent" \
+  grep -Fq 'close_agent({ target: "<agent_id>" })' "$PLUGIN_DIR/skills/orchestrate-execution/references/execution-repair-truncation.md"
+
+run_test "plan writer repair closes completed agent" \
+  grep -Fq 'close_agent({ target: "<plan_writer_agent_id>" })' "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-review-resolution.md"
+
 # Verify Path B keeps continuation on the existing agent.
 run_test "no fresh subagent dispatch in final-review Path B" \
   bash -c "! grep -A3 '路径 B' '$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-repair.md' | grep -q 'spawn_agent({'"

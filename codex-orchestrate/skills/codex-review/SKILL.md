@@ -149,6 +149,14 @@ wait_agent({
 cat > "${REVIEW_DIR}/review-${TIMESTAMP}-result.md"
 ```
 
+保存结果后立即释放 reviewer 容量：
+
+```text
+close_agent({
+  target: "<reviewer_agent_id>"
+})
+```
+
 ## Step 5 — 向用户报告
 
 向用户汇报：

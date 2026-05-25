@@ -1,22 +1,29 @@
-**send_input Resume 操作模板**（修复路径必须使用 `send_input` 继续原 agent，禁止创建新 agent）：
+**send_input Resume 操作模板**（修复路径必须先 `resume_agent`，再用 `send_input` 继续原 agent，禁止创建新 agent）：
 
 [variant=worker]
 **Worker send_input Resume 步骤**（pack_executor / complex_pack_executor 修复）：
 
 1. `state.sh agent-id get --run-id <run_id> --pack-id <pack_id>` 读取 execution-state 中的 agent_id
 2. 若返回 null/empty -> 立即标记 BLOCKED 给用户 + `state.sh transition --actor Coordinator --to blocked`（不允许创建新 agent）
-3. 调用：
+3. 恢复已关闭的原 agent：
+   ```
+   resume_agent({
+     id: "<agent_id>"
+   })
+   ```
+4. 调用：
    ```
    send_input({
      target: "<agent_id>",
      message: "<含 DISPATCH_ENVELOPE 的修复 prompt，repair_round >= 1>"
    })
    ```
-4. 等待原 agent 返回：`wait_agent({ targets: ["<agent_id>"], timeout_ms: 600000 })`
-5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
-5b. 修复完成后运行 verification commands + 对照 acceptance criteria + grep 确认变更
-5c. `state.sh self-verify append --run-id <run_id> --pack-id <pack_id> --repair-round <N> --verification-passed <yes|no> --exception <none|3plus_files_control_flow|user_requested|rca_root_cause|path_a_self_fix>`
-6. 写 `state.sh disposition append` 或 `state.sh update --field plans[N].packs[M].repair_round`
+5. 等待原 agent 返回：`wait_agent({ targets: ["<agent_id>"], timeout_ms: 600000 })`
+6. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
+6b. 修复完成后运行 verification commands + 对照 acceptance criteria + grep 确认变更
+6c. `state.sh self-verify append --run-id <run_id> --pack-id <pack_id> --repair-round <N> --verification-passed <yes|no> --exception <none|3plus_files_control_flow|user_requested|rca_root_cause|path_a_self_fix>`
+7. 写 `state.sh disposition append` 或 `state.sh update --field plans[N].packs[M].repair_round`
+8. 关闭完成态 agent 释放容量：`close_agent({ target: "<agent_id>" })`。后续仍需同一 worker 继续时，重复 `resume_agent` -> `send_input` -> `wait_agent` -> 保存结果 -> `close_agent`。
 [/variant]
 
 [variant=plan_writer]
@@ -24,16 +31,23 @@
 
 1. `state.sh read --run-id <run_id> --field '.plan_writer_agent_id'` 读取 workflow-state 中的 plan_writer_agent_id
 2. 若返回 null/empty -> 立即标记 BLOCKED 给用户 + `state.sh transition --actor Coordinator --to blocked`（不允许创建新 agent）
-3. 调用：
+3. 恢复已关闭的原 plan_writer：
+   ```
+   resume_agent({
+     id: "<plan_writer_agent_id>"
+   })
+   ```
+4. 调用：
    ```
    send_input({
      target: "<plan_writer_agent_id>",
      message: "<含 DISPATCH_ENVELOPE 的修复 prompt，repair_round >= 1>"
    })
    ```
-4. 等待原 agent 返回：`wait_agent({ targets: ["<plan_writer_agent_id>"], timeout_ms: 600000 })`
-5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
-5b. 验证 plan 文件格式 + pack count validator
-5c. `state.sh self-verify append --run-id <run_id> --repair-round <N> --verification-passed <yes|no>`
-6. 回到 Plan Review 重审
+5. 等待原 agent 返回：`wait_agent({ targets: ["<plan_writer_agent_id>"], timeout_ms: 600000 })`
+6. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
+6b. 验证 plan 文件格式 + pack count validator
+6c. `state.sh self-verify append --run-id <run_id> --repair-round <N> --verification-passed <yes|no>`
+7. 关闭完成态 agent 释放容量：`close_agent({ target: "<plan_writer_agent_id>" })`
+8. 回到 Plan Review 重审
 [/variant]

@@ -4,7 +4,7 @@
 
 ## Step 11：Plan Entry Gate
 
-**Read** `docs/orchestrate/plans/<slug>/` 目录下所有 plan 文件。每份 plan 必须包含以下字段，缺失则 needs repair（send_input 对应的 plan_writer 修复）：
+**Read** `docs/orchestrate/plans/<slug>/` 目录下所有 plan 文件。每份 plan 必须包含以下字段，缺失则 needs repair（`resume_agent` 后 `send_input` 对应的 plan_writer 修复，返回保存后 `close_agent`）：
 
 - Source design（path + 已 reviewed 确认）
 - Source issue（path，指向对应的 issue 文件）
@@ -32,7 +32,7 @@ Plan 文件数量必须与 issue 文件数量一致。缺少对应 plan 的 issu
 | risk flags | — |
 | dependencies | — |
 
-不通过的 pack → send_input 给 plan_writer 修复 → 重新检查。
+不通过的 pack → `resume_agent` 后 `send_input` 给 plan_writer 修复 → 保存返回结果并 `close_agent` → 重新检查。
 
 ## Step 12a：更新 Budget File
 

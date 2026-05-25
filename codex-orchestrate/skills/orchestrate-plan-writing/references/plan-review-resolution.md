@@ -62,10 +62,10 @@ Plan Review 的 `accepted` 细分为 5 种路由：
 
 | `accepted` 子类型 | 动作 |
 | --- | --- |
-| `plan repair` | Coordinator 直接修框架性内容，或 send_input plan_writer 修 Task Pack 内容 |
+| `plan repair` | Coordinator 直接修框架性内容，或 `resume_agent` 后 `send_input` plan_writer 修 Task Pack 内容 |
 | `design gap` | 回到 orchestrate-discovery → Design Review → 写回后 re-review plan |
-| `issue-plan mismatch` | 判断：大 issue 级问题 → 返回 Coordinator 走大 issue 拆分；小 issue 级问题 → send_input plan_writer 重新执行 Step 3c 拆分 → re-review plan |
-| `issue quality` | 小 issue 拆分质量问题（覆盖度/粒度/验收标准/依赖）→ send_input plan_writer 重新执行 Step 3c 修正小 issue → re-review plan |
+| `issue-plan mismatch` | 判断：大 issue 级问题 → 返回 Coordinator 走大 issue 拆分；小 issue 级问题 → `resume_agent` 后 `send_input` plan_writer 重新执行 Step 3c 拆分 → 保存结果并关闭 → re-review plan |
+| `issue quality` | 小 issue 拆分质量问题（覆盖度/粒度/验收标准/依赖）→ `resume_agent` 后 `send_input` plan_writer 重新执行 Step 3c 修正小 issue → 保存结果并关闭 → re-review plan |
 | `architecture friction` | `Skill({ skill: "improve-codebase-architecture" })` → 写回后 re-review |
 
 **通过** → Step 19（Git Checkpoint）。**Needs repair** → Step 16。
@@ -80,8 +80,8 @@ Plan Review 的 `accepted` 细分为 5 种路由：
 | Finding / 修复形态 | 修复 owner |
 | --- | --- |
 | 范围小、本地化、意图清楚、不碰合同边界 | Coordinator Path A 可自修；修完必须验证，Path A targeted re-review 失败时升级 Path B。 |
-| 同一个 pack 内的普通修复，原 worker 能胜任 | 使用 `send_input` resume 原 `pack_executor`；已有 agent_id 时不得新建同类 worker。 |
-| 高风险或跨边界修复：跨模块、migration、billing、permission、runtime、共享合同、state machine、生成模板 | 如果原 worker 是 `complex_pack_executor` 且仍适合承接，使用 `send_input` resume 原 agent；如果原 worker 是 `pack_executor`，或 finding 证明原 owner 不具备高风险合同能力，必须升级 owner。Formal Execution 中先形成新的 repair Pack / 回到 Execution 边界，再按新的 pending pack 派发 `complex_pack_executor`；non-execution route 中使用新的 route-worker escalation dispatch。两种情况都必须记录 `original_agent_id`、`context_ref`、`disposition_ref` 和 accepted finding refs。 |
+| 同一个 pack 内的普通修复，原 worker 能胜任 | 使用 `resume_agent` 后 `send_input` 继续原 `pack_executor`；已有 agent_id 时不得新建同类 worker。 |
+| 高风险或跨边界修复：跨模块、migration、billing、permission、runtime、共享合同、state machine、生成模板 | 如果原 worker 是 `complex_pack_executor` 且仍适合承接，使用 `resume_agent` 后 `send_input` 继续原 agent；如果原 worker 是 `pack_executor`，或 finding 证明原 owner 不具备高风险合同能力，必须升级 owner。Formal Execution 中先形成新的 repair Pack / 回到 Execution 边界，再按新的 pending pack 派发 `complex_pack_executor`；non-execution route 中使用新的 route-worker escalation dispatch。两种情况都必须记录 `original_agent_id`、`context_ref`、`disposition_ref` 和 accepted finding refs。 |
 | 根因不清，只知道症状 | 先派 `code_explorer` 或 `complex_code_explorer` 做只读补证；确认根因前不 patch。 |
 | 系统性 bug、重复修复失败、未知 regression | 派 `root_cause_analyst`，要求列可证伪假设、排除证据和回归验证。 |
 | Final Review 发现跨 plan 合同问题 | 返回一次 `NEEDS_EXECUTION`，附 affected plans / packs / 连接面 / producer-consumer 断点，通过 execution repair 处理。 |
@@ -90,9 +90,9 @@ Plan Review 的 `accepted` 细分为 5 种路由：
 | Multi-PR 合并冲突 | 简单冲突可 Coordinator 修；跨 PR 合同、迁移、状态或依赖冲突派 `complex_pack_executor`；系统性冲突派 `root_cause_analyst`。 |
 
 调度纪律：
-- Targeted repair 默认优先 `send_input` 到原 agent；但高风险 finding 不能被原普通 worker 绑定。如果原 worker 是 `pack_executor`，Coordinator 必须写明 `escalation_reason`，并按当前 route 的状态模型升级 owner。
-- Formal Execution 的升级不能对同一个 `pack_id` 再次 `spawn_agent`：`validate-pack-dispatch.sh` 只允许 pending pack 首次派发，已有 `agent_id` 的同一 pack 普通修复只能 `send_input` 原 agent。若 accepted finding 证明必须换成 `complex_pack_executor`，Coordinator 必须回到 Execution/Plan 边界，把修复表达成新的 repair Pack 或 plan revision，使其拥有新的 `pack_id`、pending status、完整 Pack Brief 和独立 dispatch；不能用第二个 agent 冒充同一 Pack 的续修。
-- Non-execution route 的升级派发不是原 worker 的续修：使用 `validate-route-worker-dispatch.sh --transport spawn_agent`，envelope 里 `agent_id: null`、`pack_id: null`、`repair_round` 保留当前轮次、`idempotency_key` 使用新的 escalation key，并用 `record-route-worker-dispatch.sh` 写入独立 `.agent-id` 文件。只有同一 owner 的普通 follow-up 才使用 `send_input` 到原 agent；缺失原 `agent_id` 仍然 BLOCKED，不能用新 worker 冒充续修。
+- Targeted repair 默认优先 `resume_agent` 后 `send_input` 到原 agent；但高风险 finding 不能被原普通 worker 绑定。如果原 worker 是 `pack_executor`，Coordinator 必须写明 `escalation_reason`，并按当前 route 的状态模型升级 owner。每次 `wait_agent` 返回并保存结果后，必须 `close_agent` 释放该 worker/reviewer/explorer 的名额。
+- Formal Execution 的升级不能对同一个 `pack_id` 再次 `spawn_agent`：`validate-pack-dispatch.sh` 只允许 pending pack 首次派发，已有 `agent_id` 的同一 pack 普通修复只能 `resume_agent` 后 `send_input` 原 agent。若 accepted finding 证明必须换成 `complex_pack_executor`，Coordinator 必须回到 Execution/Plan 边界，把修复表达成新的 repair Pack 或 plan revision，使其拥有新的 `pack_id`、pending status、完整 Pack Brief 和独立 dispatch；不能用第二个 agent 冒充同一 Pack 的续修。
+- Non-execution route 的升级派发不是原 worker 的续修：使用 `validate-route-worker-dispatch.sh --transport spawn_agent`，envelope 里 `agent_id: null`、`pack_id: null`、`repair_round` 保留当前轮次、`idempotency_key` 使用新的 escalation key，并用 `record-route-worker-dispatch.sh` 写入独立 `.agent-id` 文件。只有同一 owner 的普通 follow-up 才使用 `resume_agent` 后 `send_input` 到原 agent；缺失原 `agent_id` 仍然 BLOCKED，不能用新 worker 冒充续修。
 - 升级派发 prompt 必须带上 `original_agent_id`、`context_ref`、`disposition_ref`、accepted findings、已确认风险面和回归证据要求，保证新 `complex_pack_executor` 能追溯原 context。
 - `Path A` 只适用于真正小范围修复；失败或 targeted re-review 返回 `needs repair` 时必须升级，不重复同一修法。
 - `needs evidence` finding 先补证再决定 owner。
@@ -127,18 +127,25 @@ Plan Review 三条路径：
 
 1. `state.sh read --run-id <run_id> --field '.plan_writer_agent_id'` 读取 workflow-state 中的 plan_writer_agent_id
 2. 若返回 null/empty -> 立即标记 BLOCKED 给用户 + `state.sh transition --actor Coordinator --to blocked`（不允许创建新 agent）
-3. 调用：
+3. 恢复已关闭的原 plan_writer：
+   ```
+   resume_agent({
+     id: "<plan_writer_agent_id>"
+   })
+   ```
+4. 调用：
    ```
    send_input({
      target: "<plan_writer_agent_id>",
      message: "<含 DISPATCH_ENVELOPE 的修复 prompt，repair_round >= 1>"
    })
    ```
-4. 等待原 agent 返回：`wait_agent({ targets: ["<plan_writer_agent_id>"], timeout_ms: 600000 })`
-5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
-5b. 验证 plan 文件格式 + pack count validator
-5c. `state.sh self-verify append --run-id <run_id> --repair-round <N> --verification-passed <yes|no>`
-6. 回到 Plan Review 重审
+5. 等待原 agent 返回：`wait_agent({ targets: ["<plan_writer_agent_id>"], timeout_ms: 600000 })`
+6. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
+6b. 验证 plan 文件格式 + pack count validator
+6c. `state.sh self-verify append --run-id <run_id> --repair-round <N> --verification-passed <yes|no>`
+7. 关闭完成态 agent 释放容量：`close_agent({ target: "<plan_writer_agent_id>" })`
+8. 回到 Plan Review 重审
 <!-- END: sendmessage-resume -->
 
 → 重跑 Gate → Step 17
@@ -149,8 +156,8 @@ Plan Review 三条路径：
 | Finding 类型 | Upstream | 写回目标 |
 | --- | --- | --- |
 | design gap / 需求不清 | orchestrate-discovery | design document |
-| issue-plan mismatch | 大 issue 级：Coordinator 走大 issue 拆分；小 issue 级：send_input plan_writer Step 3c | issue hierarchy |
-| issue quality | send_input plan_writer 重新执行 Step 3c | issue hierarchy（小 issue 章节） |
+| issue-plan mismatch | 大 issue 级：Coordinator 走大 issue 拆分；小 issue 级：resume_agent + send_input plan_writer Step 3c | issue hierarchy |
+| issue quality | resume_agent + send_input plan_writer 重新执行 Step 3c | issue hierarchy（小 issue 章节） |
 | architecture friction | `Skill({ skill: "improve-codebase-architecture" })` | design doc / plan anchors |
 | domain 术语冲突 | `Skill({ skill: "grill-with-docs" })` | CONTEXT.md + design document |
 

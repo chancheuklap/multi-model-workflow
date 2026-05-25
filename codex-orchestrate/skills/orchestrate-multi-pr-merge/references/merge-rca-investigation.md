@@ -65,6 +65,12 @@ spawn_agent({
 })
 ```
 
+从 `spawn_agent` 返回值提取 analyst `agent_id` 后，等待并保存结果：
+
+1. `wait_agent({ targets: ["<agent_id>"], timeout_ms: 600000 })`
+2. 将 analyst final message 保存到 `.codex/multi-model-workflow/analyst-results/multi-pr-conflict-<conflict-id>.md`
+3. 结果保存后立即释放容量：`close_agent({ target: "<agent_id>" })`
+
 ## Step 10：接收 Analyst 返回
 
 Coordinator 审阅 analyst findings，不是盲目接受——主动验证：
@@ -123,6 +129,8 @@ spawn_agent({
   "
 })
 ```
+
+Explorer 返回同样必须闭合生命周期：`wait_agent` 返回后保存到 `.codex/multi-model-workflow/explorer-results/multi-pr-rca-followup-<n>.md`，然后立即 `close_agent({ target: "<agent_id>" })`。如需把结果继续交给 analyst，重新派发或 resume 合法 owner 前不得保留 completed explorer 占用容量。
 
 Explorer 返回后：用 explorer findings 补充 analyst prompt，重新 dispatch `root_cause_analyst`（Step 9）。**Analyst ↔ Explorer 循环最多 1 次**（analyst → explorer → analyst）。第 2 轮 analyst 仍返回 `unable_to_determine` → BLOCKED，报告用户。
 

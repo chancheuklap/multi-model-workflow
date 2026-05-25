@@ -76,6 +76,10 @@ check "≥1 disposition-table anchor" bash -c "[ \$(grep -rl 'BEGIN: disposition
 check "≥1 preamble anchor" bash -c "[ \$(grep -rl 'BEGIN: preamble' '$PLUGIN_DIR/skills/' | wc -l) -ge 1 ]"
 check "sub-agent ownership rule is injected" bash -c \
   "grep -q 'Sub-agent Ownership' '$PLUGIN_DIR/build/templates/preamble.md.tmpl' && grep -q 'Sub-agent Ownership' '$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md'"
+check "sub-agent lifecycle rule releases completed agents" bash -c \
+  "grep -q 'Sub-agent Lifecycle' '$PLUGIN_DIR/build/templates/preamble.md.tmpl' &&
+   grep -q 'close_agent' '$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl' &&
+   grep -q 'resume_agent' '$PLUGIN_DIR/build/templates/sendmessage-resume.md.tmpl'"
 
 echo ""
 echo "## Route Extensions"

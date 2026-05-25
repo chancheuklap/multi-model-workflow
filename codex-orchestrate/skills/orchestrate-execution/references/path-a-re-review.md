@@ -20,6 +20,9 @@ state.sh path-a-escalation start --run-id <run_id> --finding-id <finding_id> --r
 
 ### Step 3: Dispatch Targeted Re-Review
 ```text
+resume_agent({
+  id: "<baseline reviewer agent_id>"
+})
 send_input({
   target: "<baseline reviewer agent_id>",
   message: "<full contents of .codex/multi-model-workflow/review-prompts/<gate>.md>"
@@ -31,6 +34,7 @@ wait_agent({
 ```
 
 Targeted prompt envelope 必须设置 `review_intent: "targeted-re-review"`、`exception_code: "path_a_self_fix"`，并把 `agent_id` 设置为 baseline reviewer `agent_id`。
+将 reviewer 最终消息保存到 `.codex/multi-model-workflow/review-results/<gate>.md` 并完成 review bookkeeping 后，立即 `close_agent({ target: "<baseline reviewer agent_id>" })` 释放容量。
 
 ### Step 4: Update
 记录 Codex 返回的 verdict：

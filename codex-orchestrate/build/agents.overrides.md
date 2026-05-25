@@ -6,6 +6,7 @@
 - Review dispatch templates must use Codex native `codex_reviewer` subagents through `spawn_agent`, `send_input`, and `wait_agent`; do not add script or companion CLI review runners.
 - Review dispatch templates may call explicit validation scripts before `spawn_agent` / `send_input`; those scripts are gates, not review executors.
 - Review dispatch templates must record the returned baseline reviewer agent with `record-review-dispatch.sh`, and must finalize saved review results with `complete-review-dispatch.sh` so review budget accounting is durable and idempotent.
+- Review and resume templates must release completed agents with `close_agent` after `wait_agent` results are saved, and must call `resume_agent` before any later `send_input` targeted re-review or repair continuation.
 - Review dispatch templates must require a semi-structured evidence table covering read sources, checked paths, verification commands, finding evidence, assumptions, and unverified items.
 - Repair routing templates must stay Codex-native and name `send_input`, `spawn_agent`, `pack_executor`, `complex_pack_executor`, `code_explorer`, `complex_code_explorer`, and `root_cause_analyst` directly.
 - Script command templates must use `${MMW_PLUGIN_ROOT}` for plugin helper scripts; never restore old-host plugin root variables.

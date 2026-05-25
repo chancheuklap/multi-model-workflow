@@ -13,6 +13,8 @@ description: "正式开发流程主入口。用户给出新功能、改造、bug
 **Route Dispatch**：根据 Entry Gate 判定的 route 选择对应 phase skill。
 
 **Sub-agent Ownership**：一旦把某个 investigation / implementation / review 派给 sub-agent，Coordinator 不得并行重复做同一件事，不得用短间隔轮询催促，不得要求未完成 agent 输出中间结论，不得中断或关闭仍在运行的 agent。等待期间只做不重叠的协调工作；若下一步依赖该结果，就直接等待 `wait_agent` 返回。
+
+**Sub-agent Lifecycle**：`wait_agent` 返回 final status 且结果已保存/写入 state 后，必须立即调用 `close_agent({ target: "<agent_id>" })` 释放容量。后续需要继续同一 owner 时，先调用 `resume_agent({ id: "<agent_id>" })`，再 `send_input`，再次 `wait_agent` 返回并保存结果后再次 `close_agent`。禁止关闭仍在运行的 agent；禁止把已完成 agent 长期挂起占用名额。
 <!-- END: preamble -->
 
 <!-- BEGIN: voice-directive [variant=workflow] -->
@@ -50,7 +52,7 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 
 **Read** `references/workflow-infrastructure.md` Step 0 并严格执行。
 
-1. 验证 Codex multi-agent primitives 可用：`spawn_agent`、`send_input`、`wait_agent`。如不可用 → 硬停：`"Codex multi-agent tools not available in this session."`
+1. 验证 Codex multi-agent primitives 可用：`spawn_agent`、`send_input`、`wait_agent`、`close_agent`、`resume_agent`。如不可用 → 硬停：`"Codex multi-agent tools not available in this session."`
 2. 检测当前环境（工作树 vs 主仓库）：
    - **已在工作树 + detached HEAD** → 先在当前 worktree 原地创建命名分支，再继续；已有任务名时用 `codex/<task-slug>`，否则用 repo/date/worktree id 临时命名
    - **已在工作树 + 有状态文件** → 断点续传，直接路由到对应 phase（跳过 Steps 1-2）
