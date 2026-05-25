@@ -70,6 +70,7 @@ Review the implementation plan for: <feature>
 
 ## Source artifacts（路径从 Scope Contract feature slug 推导）
 - Plans: docs/orchestrate/plans/<slug>/（目录，每个大 issue 一份 plan 文件）
+- Cross-plan contract map: docs/orchestrate/plans/<slug>/cross-plan-contract-map.md
 - Source design: docs/orchestrate/design/<slug>.md
 - Source issues: docs/orchestrate/issues/<slug>/
 - Scope Contract: .claude/multi-model-workflow/scope-<run_id>.md
@@ -89,6 +90,7 @@ Review the implementation plan for: <feature>
 - 每条 source intent 映射到 Task Pack
 - issue acceptance 进入 pack acceptance
 - large→small→pack 映射完整
+- `cross-plan-contract-map.md` 覆盖所有跨 plan producer / consumer / ownership / verification 连接面
 - read-only context 未误纳入 editable scope
 - mockup 已拆解为具体视觉规格写入 pack acceptance criteria（不是只给目录路径）
 - 无含混行为（worker 需猜 desired behavior）
@@ -113,6 +115,7 @@ Review the implementation plan for: <feature>
 - tasks 之间无逻辑矛盾、无循环依赖
 - 修改同一文件的 tasks 分布是否有 merge conflict 风险
 - 隐式顺序依赖是否在 plan 标注
+- 跨 plan 合同图没有 producer 缺失、consumer 缺失、ownership 冲突或 verification 空洞
 - 项目工程规则违反
 
 ## Calibration

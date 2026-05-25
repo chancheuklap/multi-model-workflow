@@ -889,6 +889,16 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 
 ---
 
+## 跨计划合同图
+
+Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，生成宿主无关的 artifact：
+
+`docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`
+
+该文件由 Coordinator 写入，记录跨 plan 连接面的 producer、consumer、ownership 和 verification。Plan Review 必须审查这份合同图是否覆盖共享合同、migration、state、hook、template、schema、UI 行为或共享模块。Final Review 再用 `git diff <starting_commit>..HEAD` 对照合同图，确认集成后的 producer / consumer / ownership / verification 没有漂移。没有跨 plan 连接面时，合同图也必须写明“无跨计划共享合同”，Final Review 只确认独立性。
+
+---
+
 ## 构建系统
 
 `build/` 目录实现 template + resolver 模式，将共享内容注入 SKILL.md 和 agent .md 文件的锚点（`<!-- BEGIN: <name> -->` / `<!-- END: <name> -->`）。
