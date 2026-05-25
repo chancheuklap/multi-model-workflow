@@ -280,7 +280,7 @@ Codex native worktree
       ├─ pack-returns/<run_id>/<pack-id>.json      ← worker durable return
       ├─ review-prompts/<gate>.md                  ← Codex reviewer prompt
       ├─ review-agents/<gate>.agent-id             ← baseline reviewer agent_id
-      ├─ review-registry/<gate>.json               ← review dispatch bookkeeping / budget idempotency
+      ├─ review-registry/<gate>.json               ← review dispatch bookkeeping / budget idempotency / disposition recovery status
       ├─ review-results/<gate>.md                  ← reviewer final message
       ├─ run-summary-<run_id>.md                   ← closing 前生成的运行总结
       └─ agent-memory/<agent-name>/                ← agent 跨 session 经验
@@ -628,7 +628,14 @@ Codex 版不使用外部 `codex-companion.mjs` 或 job-id polling。所有 revie
      --agent-id "<agent_id>" \
      --result-file ".codex/multi-model-workflow/review-results/<gate>.md"
 
-8. Coordinator 关闭完成态 reviewer:
+8. Coordinator 开始并完成 disposition 时标记 registry 状态:
+   bash "${MMW_PLUGIN_ROOT}/scripts/record-review-disposition.sh" \
+     --run-id "<run_id>" --gate "<gate>" --status started
+   # 所有 finding 已写入 disposition 后:
+   bash "${MMW_PLUGIN_ROOT}/scripts/record-review-disposition.sh" \
+     --run-id "<run_id>" --gate "<gate>" --status completed
+
+9. Coordinator 关闭完成态 reviewer:
    close_agent({ target: "<agent_id>" })
 ```
 
@@ -643,7 +650,8 @@ Codex 版不使用外部 `codex-companion.mjs` 或 job-id polling。所有 revie
 6. wait_agent(...)
 7. 写 review-results/<gate>-repair-<round>.md
 8. complete-review-dispatch.sh 记录 targeted result，并幂等递增 review budget
-9. close_agent({ target: "<baseline reviewer agent_id>" })
+9. record-review-disposition.sh 标记 targeted result 的 disposition started / completed
+10. close_agent({ target: "<baseline reviewer agent_id>" })
 ```
 
 ### Review intent 规则

@@ -577,6 +577,7 @@ Pack 数 ≤ 8 则按当前方式一次性 review。
 4. Wait: `wait_agent({ targets: ["<reviewer agent_id>"], timeout_ms: 600000 })`.
 5. Result: save the reviewer final message from `wait_agent` into `.codex/multi-model-workflow/review-results/<gate>.md`.
 6. Complete: run `bash "${MMW_PLUGIN_ROOT}/scripts/complete-review-dispatch.sh" --run-id "<run_id>" --gate "<gate>" --agent-id "<reviewer agent_id>" --result-file ".codex/multi-model-workflow/review-results/<gate>.md"` to mark the result durable and increment review budget exactly once. 如果 Step 3 使用了 over-budget escape hatch，这里必须传同一个 `--allow-over-budget --override-reason "<用户授权原因>"`。
+6b. Disposition recovery anchor: before reading findings for disposition, run `bash "${MMW_PLUGIN_ROOT}/scripts/record-review-disposition.sh" --run-id "<run_id>" --gate "<gate>" --status started`; after all findings have disposition records, run the same command with `--status completed`.
 7. Release capacity: after the result file is saved and complete-review bookkeeping succeeds, call `close_agent({ target: "<reviewer agent_id>" })`. Do this for baseline reviews and targeted re-reviews.
 
 **Confidence rubric（REQUIRED in every review prompt）**：
@@ -587,7 +588,10 @@ Pack 数 ≤ 8 则按当前方式一次性 review。
 **Bias indicators（REQUIRED at end of review output）**：
 Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
 
-Compaction recovery: `.agent-id` present but no `review-results/` → wait for that reviewer agent. If the `.agent-id` is missing for a targeted re-review, mark BLOCKED; do not create a new reviewer for the same baseline.
+Compaction recovery:
+- `.agent-id` present but no `review-results/` → wait for that reviewer agent. Once the result is saved and bookkeeping is complete, close it.
+- `review-registry/<gate>.json` status is `completed` or `disposition_started`, and `review-results/<gate>.md` exists → Read that exact result file and continue Coordinator disposition. Do not re-dispatch review and do not proceed to repair until `record-review-disposition.sh --status completed` has been recorded.
+- If the `.agent-id` is missing for a targeted re-review, mark BLOCKED; do not create a new reviewer for the same baseline.
 
 Review prompt 写入 `.codex/multi-model-workflow/review-prompts/plan-impl-review-N.md`：
 

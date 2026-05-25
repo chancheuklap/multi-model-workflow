@@ -21,6 +21,12 @@ run_test "send_input in plan-review-resolution" \
 run_test "resume template resumes existing worker" \
   grep -q "resume_agent" "$PLUGIN_DIR/build/templates/sendmessage-resume.md.tmpl"
 
+run_test "worker repair sends full prompt file contents" \
+  grep -Fq 'message: "<full contents of .codex/multi-model-workflow/worker-prompts/<pack-id>-repair-<round>.md>"' "$PLUGIN_DIR/skills/orchestrate-execution/references/execution-repair-truncation.md"
+
+run_test "plan writer repair sends full prompt file contents" \
+  grep -Fq 'message: "<full contents of .codex/multi-model-workflow/plan-writer-prompts/<issue-id>-repair-<round>.md>"' "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-review-resolution.md"
+
 run_test "worker repair closes completed agent" \
   grep -Fq 'close_agent({ target: "<agent_id>" })' "$PLUGIN_DIR/skills/orchestrate-execution/references/execution-repair-truncation.md"
 
