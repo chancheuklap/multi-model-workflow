@@ -12,6 +12,7 @@
 - Dispatch validation 放在 Coordinator 显式调用的 scripts 里，并且发生在 `spawn_agent` / `send_input` 之前；这些 scripts 可以 gate prompt envelope，但不能执行 review，也不能替代 subagents。
 - Review result bookkeeping 放在 dispatch 和 result persistence 之后由 Coordinator 显式调用的 scripts 里；`record-review-dispatch.sh` 记录真实 reviewer agent，`complete-review-dispatch.sh` 把 durable result file 和 exactly-once review budget increment 绑定起来。
 - Review prompt 必须要求 reviewer 输出半结构化证据表，覆盖已读来源、已检查路径、已运行验证、finding 证据、假设和未验证项；ad-hoc review 与 orchestrated review 使用同一证据纪律。
+- Plan Writing 完成所有 plan 后，必须在 Plan Review 前生成 `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`；Plan Review 和 Final Review 都必须消费它来检查跨 plan producer / consumer / owner / verification。
 - Coordinator delegation 有 ownership 语义：任务派给 subagent 后，Coordinator 不得并行重复做同一个 investigation、implementation 或 review。只能做不重叠的协调工作，然后等待 assigned agent。除非用户取消任务或正式 workflow 已经到达真实 BLOCKED 状态，不要 interrupt、close 或 pressure running agents 要求 partial output。
 - 当前 workflow state paths 是 `.codex/multi-model-workflow/*`。不要把新的 runtime 指令写到旧宿主 state paths。
 - Worktree 指令必须具体且可执行：在 `${CODEX_HOME:-$HOME/.codex}/worktrees/<4-hex-id>/<repo-name>` 下用 `git worktree add -b` 创建 Git worktree，不使用 UI-only steps、pseudo tools 或自定义根目录。创建 worktree 前不要切换 main repository branch。

@@ -115,6 +115,9 @@ docs/orchestrate/design/<slug>.md（已通过 Design Review）
 ## Plans（已通过 Plan Review）
 docs/orchestrate/plans/<slug>/（目录，逐个列出所有 plan 文件路径）
 
+## Cross-plan contract map（已通过 Plan Review）
+docs/orchestrate/plans/<slug>/cross-plan-contract-map.md
+
 ## Issue hierarchy
 docs/orchestrate/issues/<slug>/
 
@@ -170,6 +173,7 @@ docs/orchestrate/mockups/<slug>/（如有 UI 工作）
 
 ### 3. Cross-Plan Integration
 只检查**跨 Plan** 的集成（Plan 内跨 Pack 已由 Plan Implementation Review 的 Cross-Pack Coherence 覆盖）：
+- Cross-plan contract map：逐行读取 `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`，用 `git diff <starting_commit>..HEAD` 验证 producer / consumer / owner / 验证方式是否在合并结果中成立
 - Shared contract surface：跨 Plan 的 Pydantic model / schema_version / API 是否一致
 - Migration 顺序：跨 Plan 的 migration 执行顺序是否正确
 - Import 关系：跨 Plan 的 import 是否循环
@@ -178,6 +182,8 @@ docs/orchestrate/mockups/<slug>/（如有 UI 工作）
 
 如果所有 Plan 之间没有共享 contract / migration / state surface，
 Cross-Plan Integration 降级为确认独立性的 1 行声明。
+
+Final Review 发现跨 plan 合同需要实现层修复时，返回 `NEEDS_EXECUTION`，并列出 affected plans、affected packs、连接面、producer / consumer 断点和必须重跑的验证。
 
 ## Calibration
 **不要信任 plan/pack completion summary——独立验证。** Worker 和 Plan Implementation Review 可能遗漏了跨 Plan 交互问题、遗漏了 gap intent、或对已验证行为的判断在 merge 后不再成立。你的 review 必须基于代码和测试事实。
@@ -208,6 +214,7 @@ Unverifiable:
 Cross-Plan Integration:
 Critical:
 Important:
+NEEDS_EXECUTION:
 
 Release Risk:
 Blockers:

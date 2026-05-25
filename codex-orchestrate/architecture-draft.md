@@ -99,8 +99,8 @@ flowchart TD
 | Discovery | `orchestrate-discovery` | 与用户讨论、维护 CONTEXT、写设计文档 | `docs/orchestrate/design/<slug>.md` | 正常 |
 | Design Review | `codex_reviewer` subagent | 两个 baseline 审设计完整性和项目对齐 | `review-prompts/`、`review-agents/`、`review-results/` | 正常 |
 | 大 Issue 拆分 | Coordinator 方法论 | 将设计拆成大 issue 骨架 | `docs/orchestrate/issues/<slug>/00N-*.md` | 正常 |
-| Plan Writing | `plan_writer` subagent | 补小 issue 并写 implementation plan | `docs/orchestrate/plans/<slug>/00N-*.md` | 正常 |
-| Plan Review | `codex_reviewer` subagent | 审 issue 质量、plan 质量、Task Pack inventory | `review-results/plan-review-*.md` | 正常 |
+| Plan Writing | `plan_writer` subagent + Coordinator | 补小 issue、写 implementation plan，并在 Plan Review 前生成跨计划合同图 | `docs/orchestrate/plans/<slug>/00N-*.md`、`docs/orchestrate/plans/<slug>/cross-plan-contract-map.md` | 正常 |
+| Plan Review | `codex_reviewer` subagent | 审 issue 质量、plan 质量、Task Pack inventory 和跨 plan producer / consumer / owner / verification | `review-results/plan-review-*.md` | 正常 |
 | Execution | `orchestrate-execution` | Plan → Pack 串行执行，worker 派发，commit，review，修复 | `execution-state-<run_id>.json`、pack commits | 正常 |
 | Final Review | `orchestrate-final-review` | 验证整体意图覆盖、回归面、跨 plan 一致性和遗留尾巴 | final review results、release risk verdict | 正常 |
 | Closing | `workflow-closing.md` | 最终验证、运行总结、push、PR、保留 Codex worktree | `run-summary-<run_id>.md`、PR | 正常 |
@@ -377,6 +377,7 @@ flowchart LR
 | 设计文档 | `orchestrate-discovery` | issue splitting、plan_writer、reviewer | Design Review |
 | 大 Issue 文件 | Coordinator | plan_writer | Plan Review 的 Issue Quality 角度 |
 | Plan 文件 | plan_writer | orchestrate-execution | Plan Entry Gate + Task Pack Inventory Gate |
+| 跨计划合同图 | Coordinator | Plan Review、Final Review、execution repair | `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md` |
 | Mockup | Discovery / prototype / build-web-apps / impeccable | plan_writer、worker、reviewer | Design Review + UI pack 验收 |
 
 ### 设计文档结构

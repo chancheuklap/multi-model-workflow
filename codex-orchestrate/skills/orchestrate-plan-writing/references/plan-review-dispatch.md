@@ -83,6 +83,7 @@ Review the implementation plan for: <feature>
 
 ## Source artifacts（路径从 Scope Contract feature slug 推导）
 - Plans: docs/orchestrate/plans/<slug>/（目录，每个大 issue 一份 plan 文件）
+- Cross-plan contract map: docs/orchestrate/plans/<slug>/cross-plan-contract-map.md
 - Source design: docs/orchestrate/design/<slug>.md
 - Source issues: docs/orchestrate/issues/<slug>/
 - Scope Contract: .codex/multi-model-workflow/scope-<run_id>.md
@@ -128,6 +129,14 @@ Review the implementation plan for: <feature>
 - 隐式顺序依赖是否在 plan 标注
 - 项目工程规则违反
 
+### Cross-Plan Contract Map
+**Read** `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`，审查跨 plan 合同是否能落地：
+- producer 是否存在：每个连接面都有明确生产方 plan，且对应 plan 的 owned files / tasks 会创建或修改它。
+- consumer 是否存在：依赖该连接面的消费方 plan 已列出，并在对应 plan 中有读取、调用、验证或部署顺序说明。
+- ownership 是否冲突：Owner 只能有一个清晰维护方；多个 plan 共同修改同一合同必须写明顺序和最终 owner。
+- 不可验证合同：每个连接面都有验证方式；缺少测试、build check、schema validation、migration check 或 manual gate 时是 finding。
+- Final Review 重点是否足够具体：必须能指导 Final Review 从 `git diff <starting_commit>..HEAD` 重新审跨 plan 集成风险。
+
 ## Calibration
 只标记会导致实际问题的 issue。实现者做出错误的东西或卡住——这是 issue。
 措辞、风格偏好、nice-to-have 建议——不是。
@@ -149,6 +158,7 @@ Issue Quality:
 Coverage & Task Quality:
 Compliance & Verification:
 Cross-Verification:
+Cross-Plan Contract Map:
 Critical:
 Important:
 低置信度观察:
