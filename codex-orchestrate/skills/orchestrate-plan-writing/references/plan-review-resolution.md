@@ -81,7 +81,7 @@ Plan Review 的 `accepted` 细分为 5 种路由：
 | --- | --- |
 | 范围小、本地化、意图清楚、不碰合同边界 | Coordinator Path A 可自修；修完必须验证，Path A targeted re-review 失败时升级 Path B。 |
 | 同一个 pack 内的普通修复，原 worker 能胜任 | 使用 `send_input` resume 原 `pack_executor`；已有 agent_id 时不得新建同类 worker。 |
-| 高风险或跨边界修复：跨模块、migration、billing、permission、runtime、共享合同、state machine、生成模板 | 使用 `send_input` resume 原 `complex_pack_executor`；若不是既有 pack 的 review finding，按首次定向修复派 `complex_pack_executor`。 |
+| 高风险或跨边界修复：跨模块、migration、billing、permission、runtime、共享合同、state machine、生成模板 | 如果原 worker 是 `complex_pack_executor` 且仍适合承接，使用 `send_input` resume 原 agent；如果原 worker 是 `pack_executor`，或 finding 证明原 owner 不具备高风险合同能力，确认 `escalation_reason` 后使用 `spawn_agent` 新派 `complex_pack_executor`，并在 prompt 中记录 `original_agent_id`、`context_ref`、`disposition_ref` 和 accepted finding refs。 |
 | 根因不清，只知道症状 | 先派 `code_explorer` 或 `complex_code_explorer` 做只读补证；确认根因前不 patch。 |
 | 系统性 bug、重复修复失败、未知 regression | 派 `root_cause_analyst`，要求列可证伪假设、排除证据和回归验证。 |
 | Final Review 发现跨 plan 合同问题 | 返回一次 `NEEDS_EXECUTION`，附 affected plans / packs / 连接面 / producer-consumer 断点，通过 execution repair 处理。 |
@@ -90,7 +90,8 @@ Plan Review 的 `accepted` 细分为 5 种路由：
 | Multi-PR 合并冲突 | 简单冲突可 Coordinator 修；跨 PR 合同、迁移、状态或依赖冲突派 `complex_pack_executor`；系统性冲突派 `root_cause_analyst`。 |
 
 调度纪律：
-- Targeted repair 必须优先 `send_input` 到原 agent；只有没有活跃原 agent 且不是已有 Pack review finding 的首次定向修复，才允许 `spawn_agent`。
+- Targeted repair 默认优先 `send_input` 到原 agent；但高风险 finding 不能被原普通 worker 绑定。如果原 worker 是 `pack_executor`，Coordinator 必须写明 `escalation_reason`，用 `spawn_agent` 派新的 `complex_pack_executor`，再 `wait_agent` 等待该 agent 完成。
+- 升级派发 prompt 必须带上 `original_agent_id`、`context_ref`、`disposition_ref`、accepted findings、已确认风险面和回归证据要求，保证新 `complex_pack_executor` 能追溯原 pack context。
 - `Path A` 只适用于真正小范围修复；失败或 targeted re-review 返回 `needs repair` 时必须升级，不重复同一修法。
 - `needs evidence` finding 先补证再决定 owner。
 - 所有 repair prompt 只携带 accepted findings 和 Coordinator 亲验后的修复指令，不转发 reviewer 原始输出。

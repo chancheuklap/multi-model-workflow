@@ -28,6 +28,9 @@ run_test "repair-routing resolver exists" test -f "$RESOLVER"
 run_test "repair-routing template names Codex native agents" bash -c \
   "grep -q 'complex_pack_executor' '$TEMPLATE' && grep -q 'root_cause_analyst' '$TEMPLATE' && grep -q 'send_input' '$TEMPLATE'"
 
+run_test "repair-routing template can escalate original pack_executor findings" bash -c \
+  "grep -q '原 worker 是 \`pack_executor\`' '$TEMPLATE' && grep -q 'spawn_agent' '$TEMPLATE' && grep -q 'escalation_reason' '$TEMPLATE' && grep -q 'original_agent_id' '$TEMPLATE' && grep -q 'disposition_ref' '$TEMPLATE'"
+
 targets=(
   "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-review-resolution.md"
   "$PLUGIN_DIR/skills/orchestrate-execution/references/execution-repair-truncation.md"
@@ -45,6 +48,8 @@ for ref in "${targets[@]}"; do
     grep -q "BEGIN: repair-routing" "$ref"
   run_test "$(basename "$ref") includes finding-to-owner routing" \
     grep -q "Finding-to-owner 修复分流" "$ref"
+  run_test "$(basename "$ref") preserves pack_executor escalation path" bash -c \
+    "grep -q '原 worker 是 \`pack_executor\`' '$ref' && grep -q 'escalation_reason' '$ref' && grep -q 'original_agent_id' '$ref' && grep -q 'disposition_ref' '$ref'"
 done
 
 echo ""

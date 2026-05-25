@@ -22,6 +22,7 @@ echo "=== test_review_evidence_table.sh ==="
 
 TEMPLATE="$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
 ADHOC="$PLUGIN_DIR/skills/codex-review/SKILL.md"
+EXECUTION_SKILL="$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md"
 
 run_test "review-dispatch template requires evidence table" \
   grep -q "证据表 (REQUIRED)" "$TEMPLATE"
@@ -44,6 +45,12 @@ run_test "ad-hoc codex-review requires source evidence row" \
 
 run_test "ad-hoc codex-review requires unverified items" \
   grep -q "未验证项" "$ADHOC"
+
+run_test "Plan Implementation Review inline prompt requires evidence table" bash -c \
+  "awk '/Review prompt 写入 .*plan-impl-review-N\\.md/{flag=1} flag{print} /Plan Implementation Review finding 必须标注/{flag=0}' '$EXECUTION_SKILL' | grep -q '证据表 (REQUIRED)'"
+
+run_test "Plan Implementation Review inline prompt requires unverified items" bash -c \
+  "awk '/Review prompt 写入 .*plan-impl-review-N\\.md/{flag=1} flag{print} /Plan Implementation Review finding 必须标注/{flag=0}' '$EXECUTION_SKILL' | grep -q '未验证项'"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

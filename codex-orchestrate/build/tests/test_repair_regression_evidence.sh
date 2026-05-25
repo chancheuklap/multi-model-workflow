@@ -21,6 +21,7 @@ run_test() {
 echo "=== test_repair_regression_evidence.sh ==="
 
 TEMPLATE="$PLUGIN_DIR/build/templates/repair-routing.md.tmpl"
+BUG_ROUTE="$PLUGIN_DIR/skills/orchestrate-workflow/references/bug-investigation-route.md"
 
 run_test "repair-routing template requires regression evidence" \
   grep -q "回归证据" "$TEMPLATE"
@@ -30,6 +31,12 @@ run_test "repair-routing template allows manual validation gate" \
 
 run_test "repair-routing template discourages low-value tests" \
   grep -q "低价值实现细节测试" "$TEMPLATE"
+
+run_test "bug route worker dispatch does not force regression tests" bash -c \
+  "! sed -n '/Step 18：Complex Bug — Worker Dispatch/,\$p' '$BUG_ROUTE' | grep -q 'Regression tests added'"
+
+run_test "bug route worker dispatch accepts regression evidence or manual gate" bash -c \
+  "sed -n '/Step 18：Complex Bug — Worker Dispatch/,\$p' '$BUG_ROUTE' | grep -Eq 'Regression evidence|manual validation gate'"
 
 for agent in pack_executor complex_pack_executor root_cause_analyst; do
   file="$PLUGIN_DIR/agents/${agent}.toml"

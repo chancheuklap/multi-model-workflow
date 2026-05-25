@@ -664,6 +664,15 @@ Cross-Pack Coherence 降级为确认独立性的 1 行声明。
 ### Verdict
 pass / blocked / needs repair / needs context
 ### Evidence
+**证据表 (REQUIRED)**：
+| 字段 | 必填内容 |
+| --- | --- |
+| 已读设计 / mockup / plan 来源 | 实际读过的 design、mockup、plan、issue、Scope Contract 或 review baseline 路径；没有对应来源时写 `不适用`。 |
+| 已检查代码或产物路径 | 实际检查的源码、生成产物、state schema、hooks、templates、文档或 runtime contract 路径。 |
+| 已运行命令或验证 | 实际执行的命令、测试、build check、schema check、browser smoke 或 manual gate；未运行时写明原因。 |
+| Finding 证据 | 每个 finding 的路径、行号、diff、命令输出或可观察行为；无证据的 finding 必须移入低置信度观察。 |
+| 假设 | 影响 verdict 的前提，例如环境、账号、fixture、平台或 reviewer 未能直接验证的 upstream 状态。 |
+| 未验证项 | 相关但未验证的内容和原因；没有未验证项时写 `无`。 |
 ### Result
 Plan Implementation Review 结果：
 Spec compliance:
