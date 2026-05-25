@@ -20,6 +20,15 @@ check() {
   fi
 }
 
+optional_check() {
+  local name="$1"; shift
+  if "$@" >/dev/null 2>&1; then
+    echo "  ◦ $name"
+  else
+    echo "  ◦ $name (optional diagnostic missing)"
+  fi
+}
+
 echo "=== Plugin Maturity Verification ==="
 echo ""
 
@@ -75,7 +84,10 @@ echo ""
 echo "## Persona + Observability"
 check "persona.md exists" test -f "$PLUGIN_DIR/agents/persona.md"
 check "run-summary.sh exists" test -x "$PLUGIN_DIR/scripts/run-summary.sh"
-check "review-effectiveness.sh exists" test -x "$PLUGIN_DIR/scripts/lib/review-effectiveness.sh"
+
+echo ""
+echo "## Optional Diagnostics"
+optional_check "review-effectiveness.sh available" test -x "$PLUGIN_DIR/scripts/lib/review-effectiveness.sh"
 
 echo ""
 echo "## Defense"

@@ -292,7 +292,7 @@ Codex native worktree
 
 | 文件 | Owner | 内容 |
 | --- | --- | --- |
-| `workflow-state-<run_id>.json` | Coordinator + `scripts/state.sh` | route、cursor、budget、plan_count、review_dispositions、review_effectiveness、path_a_escalation、self_verifications、pending_direction_check、pending_post_push_reviews、execution_reflux_count、last_gate_phase、mutations |
+| `workflow-state-<run_id>.json` | Coordinator + `scripts/state.sh` | route、cursor、budget、plan_count、review_dispositions、review_effectiveness（可选诊断 / 历史复制指标，不参与 review 正确性 gate）、path_a_escalation、self_verifications、pending_direction_check、pending_post_push_reviews、execution_reflux_count、last_gate_phase、mutations |
 | `execution-state-<run_id>.json` | Coordinator + dispatch/return/commit 脚本 | current_plan_id、plan status、start_commit、end_commit、pack status、agent_id、commit_sha、worker_verdict、repair_round |
 
 分离原因：pack-level 状态会被 `agent-return-handler.sh`、`track-execution-state.sh`、dispatch 记录脚本写入；workflow-state 则承载预算、disposition 和 phase cursor。拆开能降低状态写入竞争，也让 review disposition 不被 pack-level 细节污染。
