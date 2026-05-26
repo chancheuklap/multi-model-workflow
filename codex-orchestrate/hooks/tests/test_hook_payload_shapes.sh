@@ -68,6 +68,14 @@ printf '%s' "$BAD_PACK_STRING" > "$BAD_PACK_FILE"
 printf '%s' "$PATCH_DOCS" > "$PATCH_DOCS_FILE"
 printf '%s' "$MALFORMED" > "$MALFORMED_FILE"
 
+write_push_payload() {
+  local output_file="$1"
+  local workdir="$2"
+  jq -n --arg workdir "$workdir" \
+    '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"cmd":"git push origin test","workdir":$workdir}}' \
+    > "$output_file"
+}
+
 run_test "track-execution-state tolerates string tool_response" \
   bash -c "cd '$WORKSPACE' && bash '$TRACK_EXEC' < '$POST_STRING_RESPONSE_FILE'"
 
@@ -79,6 +87,72 @@ run_test "guard-premature-push tolerates string tool_input" \
 
 run_test_expect_code "guard-premature-push blocks squash from string tool_input" 2 \
   bash -c "cd '$WORKSPACE' && bash '$GUARD_PUSH' < '$MERGE_SQUASH_FILE'"
+
+SCOPED_PASS_WORKSPACE="$WORKSPACE/scoped-pass"
+SCOPED_PASS_PAYLOAD="$WORKSPACE/scoped-pass-push.json"
+mkdir -p "$SCOPED_PASS_WORKSPACE/.codex/multi-model-workflow"
+mkdir -p "$SCOPED_PASS_WORKSPACE/docs/orchestrate/plans/active-plan"
+mkdir -p "$SCOPED_PASS_WORKSPACE/docs/orchestrate/plans/other-plan"
+printf '%s\n' "run-1" > "$SCOPED_PASS_WORKSPACE/.codex/multi-model-workflow/active-run-id"
+printf '%s\n' '{"slug":"active-plan"}' > "$SCOPED_PASS_WORKSPACE/.codex/multi-model-workflow/workflow-state-run-1.json"
+printf '%s\n' "- [x] active task complete" > "$SCOPED_PASS_WORKSPACE/docs/orchestrate/plans/active-plan/plan.md"
+printf '%s\n' "- [ ] unrelated task pending" > "$SCOPED_PASS_WORKSPACE/docs/orchestrate/plans/other-plan/plan.md"
+write_push_payload "$SCOPED_PASS_PAYLOAD" "$SCOPED_PASS_WORKSPACE"
+
+run_test "guard-premature-push ignores unchecked tasks outside active run plan" \
+  bash -c "bash '$GUARD_PUSH' < '$SCOPED_PASS_PAYLOAD'"
+
+SCOPED_BLOCK_WORKSPACE="$WORKSPACE/scoped-block"
+SCOPED_BLOCK_PAYLOAD="$WORKSPACE/scoped-block-push.json"
+mkdir -p "$SCOPED_BLOCK_WORKSPACE/.codex/multi-model-workflow"
+mkdir -p "$SCOPED_BLOCK_WORKSPACE/docs/orchestrate/plans/active-plan"
+printf '%s\n' "run-1" > "$SCOPED_BLOCK_WORKSPACE/.codex/multi-model-workflow/active-run-id"
+printf '%s\n' '{"slug":"active-plan"}' > "$SCOPED_BLOCK_WORKSPACE/.codex/multi-model-workflow/workflow-state-run-1.json"
+printf '%s\n' "- [ ] active task pending" > "$SCOPED_BLOCK_WORKSPACE/docs/orchestrate/plans/active-plan/plan.md"
+write_push_payload "$SCOPED_BLOCK_PAYLOAD" "$SCOPED_BLOCK_WORKSPACE"
+
+run_test_expect_code "guard-premature-push blocks unchecked tasks inside active run plan" 2 \
+  bash -c "bash '$GUARD_PUSH' < '$SCOPED_BLOCK_PAYLOAD'"
+
+FALLBACK_PASS_WORKSPACE="$WORKSPACE/fallback-pass"
+FALLBACK_PASS_PAYLOAD="$WORKSPACE/fallback-pass-push.json"
+mkdir -p "$FALLBACK_PASS_WORKSPACE"
+git -C "$FALLBACK_PASS_WORKSPACE" -c init.defaultBranch=main init >/dev/null
+git -C "$FALLBACK_PASS_WORKSPACE" config user.email test@example.com
+git -C "$FALLBACK_PASS_WORKSPACE" config user.name "Hook Test"
+mkdir -p "$FALLBACK_PASS_WORKSPACE/docs/orchestrate/plans/other-plan"
+printf '%s\n' "- [ ] unrelated baseline task pending" > "$FALLBACK_PASS_WORKSPACE/docs/orchestrate/plans/other-plan/plan.md"
+git -C "$FALLBACK_PASS_WORKSPACE" add docs
+git -C "$FALLBACK_PASS_WORKSPACE" commit -m baseline >/dev/null
+git -C "$FALLBACK_PASS_WORKSPACE" update-ref refs/remotes/origin/main HEAD
+mkdir -p "$FALLBACK_PASS_WORKSPACE/docs/orchestrate/plans/current-plan"
+printf '%s\n' "- [x] current task complete" > "$FALLBACK_PASS_WORKSPACE/docs/orchestrate/plans/current-plan/plan.md"
+git -C "$FALLBACK_PASS_WORKSPACE" add docs
+git -C "$FALLBACK_PASS_WORKSPACE" commit -m current-plan >/dev/null
+write_push_payload "$FALLBACK_PASS_PAYLOAD" "$FALLBACK_PASS_WORKSPACE"
+
+run_test "guard-premature-push falls back to changed plan dirs after cleanup" \
+  bash -c "bash '$GUARD_PUSH' < '$FALLBACK_PASS_PAYLOAD'"
+
+FALLBACK_BLOCK_WORKSPACE="$WORKSPACE/fallback-block"
+FALLBACK_BLOCK_PAYLOAD="$WORKSPACE/fallback-block-push.json"
+mkdir -p "$FALLBACK_BLOCK_WORKSPACE"
+git -C "$FALLBACK_BLOCK_WORKSPACE" -c init.defaultBranch=main init >/dev/null
+git -C "$FALLBACK_BLOCK_WORKSPACE" config user.email test@example.com
+git -C "$FALLBACK_BLOCK_WORKSPACE" config user.name "Hook Test"
+mkdir -p "$FALLBACK_BLOCK_WORKSPACE/docs/orchestrate/plans/other-plan"
+printf '%s\n' "- [ ] unrelated baseline task pending" > "$FALLBACK_BLOCK_WORKSPACE/docs/orchestrate/plans/other-plan/plan.md"
+git -C "$FALLBACK_BLOCK_WORKSPACE" add docs
+git -C "$FALLBACK_BLOCK_WORKSPACE" commit -m baseline >/dev/null
+git -C "$FALLBACK_BLOCK_WORKSPACE" update-ref refs/remotes/origin/main HEAD
+mkdir -p "$FALLBACK_BLOCK_WORKSPACE/docs/orchestrate/plans/current-plan"
+printf '%s\n' "- [ ] current task pending" > "$FALLBACK_BLOCK_WORKSPACE/docs/orchestrate/plans/current-plan/plan.md"
+git -C "$FALLBACK_BLOCK_WORKSPACE" add docs
+git -C "$FALLBACK_BLOCK_WORKSPACE" commit -m current-plan >/dev/null
+write_push_payload "$FALLBACK_BLOCK_PAYLOAD" "$FALLBACK_BLOCK_WORKSPACE"
+
+run_test_expect_code "guard-premature-push blocks unchecked changed plan dirs after cleanup" 2 \
+  bash -c "bash '$GUARD_PUSH' < '$FALLBACK_BLOCK_PAYLOAD'"
 
 mkdir -p "$WORKSPACE/.codex/multi-model-workflow"
 echo "shape-test" > "$WORKSPACE/.codex/multi-model-workflow/active-run-id"
