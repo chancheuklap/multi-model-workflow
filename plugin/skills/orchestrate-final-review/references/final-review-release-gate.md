@@ -30,15 +30,22 @@
      `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
 2. Select model by phase:
    - `cursor.phase in {discovery, plan-writing}` -> `--model gpt-5.5 --effort xhigh`
-   - `cursor.phase in {execution, final-review}` -> `--model gpt-5.4 --effort xhigh`
-3. Dispatch (distinguish baseline vs targeted re-review):
+   - `cursor.phase in {execution, final-review, bug-investigation, direct-repair, multi-pr-merge, hotfix, quickfix, maintenance}` -> `--model gpt-5.4 --effort xhigh`
+3. Validate and dispatch (distinguish baseline vs targeted re-review):
    - **Baseline review** (gate name does not contain `-repair-`):
+     Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".claude/multi-model-workflow/review-prompts/<gate>.md" --transport Agent --gate "<gate>"`.
      `node "$CODEX_SCRIPT" task --background --prompt-file <path> <model flags>`
+     -> record JOB_ID into `review-prompts/<gate>.job-id`
+     Then record the dispatch: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/record-review-dispatch.sh" --prompt-file ".claude/multi-model-workflow/review-prompts/<gate>.md" --gate "<gate>" --agent-id "<JOB_ID>"`.
    - **Targeted re-review** (gate name contains `-repair-`):
+     Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".claude/multi-model-workflow/review-prompts/<gate>.md" --transport SendMessage --gate "<gate>"`.
      `node "$CODEX_SCRIPT" task --background --resume --prompt-file <path> <model flags>`
-   -> record JOB_ID into `review-prompts/<gate>.job-id`
+     -> record JOB_ID into `review-prompts/<gate>.job-id`. The targeted prompt envelope MUST set `review_intent: "targeted-re-review"`, `exception_code`, and `agent_id` to the baseline reviewer's recorded JOB_ID.
+   - **Over-budget escape hatch**: if Review Budget is exhausted and the user explicitly asks to continue with another review, append `--allow-over-budget --override-reason "<brief user authorization>"` to the validate command and to the later complete command. Do not use this flag for convenience or for Effort Budget.
 4. Wait: `node "$CODEX_SCRIPT" status "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)" --wait --timeout-ms 600000` (run_in_background: true)
 5. Result: `node "$CODEX_SCRIPT" result "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)"` -> `review-results/<gate>.md`
+6. Complete: run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/complete-review-dispatch.sh" --run-id "<run_id>" --gate "<gate>" --agent-id "<JOB_ID>" --result-file ".claude/multi-model-workflow/review-results/<gate>.md"` to mark the result durable and increment review budget exactly once. If Step 3 used the over-budget escape hatch, pass the same `--allow-over-budget --override-reason "<brief user authorization>"` here.
+6b. Disposition recovery anchor: before reading findings for disposition, run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/record-review-disposition.sh" --run-id "<run_id>" --gate "<gate>" --status started`; after all findings have disposition records, run the same command with `--status completed`.
 
 **Confidence rubric (REQUIRED in every review prompt)**:
 - 1-3: low confidence. Coordinator may suppress without deep investigation.
@@ -64,22 +71,25 @@
 - "likely handled elsewhere" → 读并引用处理代码，或标记 unknown。
 - "probably tested" → 给出测试文件和方法名，或标记 unknown。
 
-**Bias indicators (REQUIRED at end of review output)**:
-Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
-
 **证据表 (REQUIRED)**：
 Reviewer 必须在 `### Evidence` 下填写半结构化证据表。证据表证明 reviewer 实际检查过什么；它不是设计意图摘要，也不能替代阅读 source artifacts。
 
 | 字段 | 必填内容 |
 | --- | --- |
-| 已读设计 / mockup / plan 来源 | 实际读过的文档、计划、mockup 或用户上下文。 |
-| 已检查代码或产物路径 | 已检查的源码、生成产物、state schema、hooks、templates 或文档路径。 |
-| 已运行命令或验证 | 实际执行的命令、脚本、测试、build check 或人工验证。 |
-| Finding 证据 | 支撑 finding 的路径、行号、diff、命令输出或可复现行为。 |
-| 假设 | 影响 verdict 的前提和未被源码直接证明的判断。 |
-| 未验证项 | 相关但未能验证的内容，以及原因。 |
+| 已读设计 / mockup / plan 来源 | 实际读过的 design、mockup、plan、issue、Scope Contract 或 review baseline 路径。没有对应来源时写 `不适用`，不能留空。 |
+| 已检查代码或产物路径 | 实际检查的源码、生成产物、state schema、hooks、templates、文档或 runtime contract 路径。 |
+| 已运行命令或验证 | 实际执行的命令、测试、build check、schema check、browser smoke 或 manual gate；未运行时写明原因。 |
+| Finding 证据 | 每个 finding 的路径、行号、diff、命令输出或可观察行为；无证据的 finding 必须移入低置信度观察。 |
+| 假设 | 影响 verdict 的前提，例如环境、账号、fixture、平台或 reviewer 未能直接验证的 upstream 状态。 |
+| 未验证项 | 相关但未验证的内容和原因；没有未验证项时写 `无`。 |
 
-Compaction recovery: `.job-id` present but no `review-results/` -> resume from Step 4.
+**Bias indicators (REQUIRED at end of review output)**:
+Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
+
+Compaction recovery:
+- `.job-id` present but no `review-results/<gate>.md` -> resume from Step 4 (wait + result) using that JOB_ID; once the result is saved and bookkeeping is complete, proceed to Step 6.
+- `review-registry/<gate>.json` status is `completed` or `disposition_started`, and `review-results/<gate>.md` exists -> Read that exact result file and continue Coordinator disposition. Do not re-dispatch review and do not proceed to repair until `record-review-disposition.sh --status completed` has been recorded.
+- If the `.job-id` is missing for a targeted re-review, mark BLOCKED; do not create a new reviewer for the same baseline.
 <!-- END: review-dispatch -->
 
 Review prompt 写入 `.claude/multi-model-workflow/review-prompts/final-release-gate.md`：
@@ -150,37 +160,48 @@ Budget：Release Gate 最多 2 个 dispatch（含 early + final），已包含�
 **Release blocker 修复**：
 
 <!-- BEGIN: repair-routing -->
-## 统一修复分流
+**Finding-to-owner 修复分流 (REQUIRED)**：
 
-所有 review repair 先由 Coordinator 对 accepted findings 做亲验和 disposition；未 accepted 的 finding 不进入修复。修复 prompt 只携带 accepted finding、证据、scope、受影响文件、验证门槛和 targeted re-review 范围。
+这套规则在 reviewer 已经产出 finding、Coordinator 完成 disposition 之后使用。它不对 review 内容预先分风险等级，只根据 finding 的风险面、根因清晰度和修复形态选择 owner。
 
-| Finding / 修复形态 | Claude plugin 修复 owner |
+| Finding / 修复形态 | 修复 owner |
 | --- | --- |
-| 范围小、本地化、意图清楚、不碰合同边界 | Coordinator Path A 自修，随后运行对应验证。 |
-| 同一个 pack 内的普通修复，原 worker 能胜任 | 通过现有 `SendMessage` resume 原 `pack-executor`；没有可用 agent id 时按当前 phase 的阻塞规则处理。 |
-| 跨模块、migration、billing、permission、runtime、共享合同、state machine、生成模板问题 | 使用 `complex-pack-executor` 路径，修复 prompt 写清 owner / provider / consumer / migration / deploy order / rollback / manual gate。 |
-| 根因不清，只知道症状 | 先派 `code-explorer` 或 `complex-code-explorer` 做只读调查，拿到 confirmed root cause 后再进入 Path A、原 worker 或 complex path。 |
-| 系统性 bug、重复修复失败、未知 regression | 使用 `root-cause-analyst` 路径；要求列可证伪假设、排除证据和下一步修复方向。 |
-| Final Review 发现跨 plan 合同问题 | 返回一次 `NEEDS_EXECUTION`，把 affected plans、affected packs、producer / consumer 断点和必须重跑的验证交给 execution repair。 |
-| 设计、mockup 或 plan 不足以判断正确性 | 回流 Discovery 或 Plan Writing；不要用代码临时补设计缺口。 |
-| Path A repair targeted re-review 失败 | 升级 Path B，优先 `SendMessage` 原 worker；跨边界则走 `complex-pack-executor`。 |
+| 范围小、本地化、意图清楚、不碰合同边界 | Coordinator Path A 可自修；修完必须验证，Path A targeted re-review 失败时升级 Path B。 |
+| 同一个 pack 内的普通修复，原 worker 能胜任 | 使用 `SendMessage({ to: "<agent_id>", ... })` 续修原 `pack-executor`；已有 agent_id 时不得新建同类 worker。 |
+| 高风险或跨边界修复：跨模块、migration、billing、permission、runtime、共享合同、state machine、生成模板 | 如果原 worker 是 `complex-pack-executor` 且仍适合承接，使用 `SendMessage` 续修原 agent；如果原 worker 是 `pack-executor`，或 finding 证明原 owner 不具备高风险合同能力，必须升级 owner。Formal Execution 中先形成新的 repair Pack / 回到 Execution 边界，再按新的 pending pack 派发 `complex-pack-executor`；non-execution route 中使用新的 route-worker escalation dispatch。两种情况都必须记录 `original_agent_id`、`context_ref`、`disposition_ref` 和 accepted finding refs。 |
+| 根因不清，只知道症状 | 先派 `code-explorer` 或 `complex-code-explorer` 做只读补证；确认根因前不 patch。 |
+| 系统性 bug、重复修复失败、未知 regression | 派 `root-cause-analyst`，要求列可证伪假设、排除证据和回归验证。 |
+| Final Review 发现跨 plan 合同问题 | 返回一次 `NEEDS_EXECUTION`，附 affected plans / packs / 连接面 / producer-consumer 断点，通过 execution repair 处理。 |
+| 设计、mockup 或 plan 不足以判断正确性 | 回流 Discovery 或 Plan Writing；不得用代码 patch 代替 source artifact 修复。 |
+| Release blocker | 简单且不碰合同边界可 Path A；涉及 migration / deploy order / rollback / permission / billing / runtime 时派 `complex-pack-executor`。 |
+| Multi-PR 合并冲突 | 简单冲突可 Coordinator 修；跨 PR 合同、迁移、状态或依赖冲突派 `complex-pack-executor`；系统性冲突派 `root-cause-analyst`。 |
 
-**Claude-native dispatch 规则**：
-- 新派发使用 `Agent({ subagent_type: "<agent-name>", ... })`；已有 worker / plan-writer 修复优先使用 `SendMessage({ to: "<agent_id>", ... })` resume。
-- Agent 名使用 Claude plugin 现有连字符：`pack-executor`、`complex-pack-executor`、`code-explorer`、`complex-code-explorer`、`root-cause-analyst`、`plan-writer`。
-- Review 修复后的 targeted re-review 使用现有 `codex-companion.mjs` review dispatch；repair gate 使用独立 gate 名，不能覆盖 baseline 结果。
-- 本分流块只定义 owner 和升级条件；各 phase 的 round 上限、state 写入和 release gate 仍以所在 reference 为准。
+调度纪律：
+- Targeted repair 默认优先 `SendMessage` 续修原 agent；但高风险 finding 不能被原普通 worker 绑定。如果原 worker 是 `pack-executor`，Coordinator 必须写明 `escalation_reason`，并按当前 route 的状态模型升级 owner。
+- Formal Execution 的升级不能对同一个 `pack_id` 再次 `Agent({...})`：`validate-pack-dispatch.sh` 只允许 pending pack 首次派发，已有 `agent_id` 的同一 pack 普通修复只能 `SendMessage` 原 agent。若 accepted finding 证明必须换成 `complex-pack-executor`，Coordinator 必须回到 Execution/Plan 边界，把修复表达成新的 repair Pack 或 plan revision，使其拥有新的 `pack_id`、pending status、完整 Pack Brief 和独立 dispatch；不能用第二个 agent 冒充同一 Pack 的续修。
+- Non-execution route 的升级派发不是原 worker 的续修：使用 `validate-route-worker-dispatch.sh --transport Agent`，envelope 里 `agent_id: null`、`pack_id: null`、`repair_round` 保留当前轮次、`idempotency_key` 使用新的 escalation key，并用 `record-route-worker-dispatch.sh` 写入独立 `.agent-id` 文件。只有同一 owner 的普通 follow-up 才使用 `SendMessage` 续修原 agent；缺失原 `agent_id` 仍然 BLOCKED，不能用新 worker 冒充续修。
+- 升级派发 prompt 必须带上 `original_agent_id`、`context_ref`、`disposition_ref`、accepted findings、已确认风险面和回归证据要求，保证新 `complex-pack-executor` 能追溯原 context。
+- `Path A` 只适用于真正小范围修复；失败或 targeted re-review 返回 `needs repair` 时必须升级，不重复同一修法。
+- `needs evidence` finding 先补证再决定 owner。
+- 所有 repair prompt 只携带 accepted findings 和 Coordinator 亲验后的修复指令，不转发 reviewer 原始输出。
 
 **回归证据要求 (REQUIRED in repair return)**：
 
 Repair agent 或 Coordinator Path A 返回时必须提供回归证据；不要求每个 finding 都新增一个测试。优先选择能证明用户可见行为、合同或发布风险已修好的证据，不新增低价值实现细节测试。
 
-回归证据必须包含以下至少一项：
-- 先失败后通过的 public-behavior test、contract test、migration / schema test 或 build/template check。
-- 相关验证命令及结果，能覆盖 accepted finding 的修复面。
-- 无法自动化时写明 `manual validation gate`：人工检查对象、检查步骤、通过标准和 release 前责任人。
+| Finding 类型 | 优先证据 |
+| --- | --- |
+| Public behavior bug | 现有或新增 behavior / integration test。 |
+| 合同、schema、migration、生成产物 bug | 合同检查、schema validation、migration check 或 build check。 |
+| UI 行为 bug | Browser smoke、screenshot、DOM state validation 或现有 UI test。 |
+| permission、billing、runtime、state machine、hook 问题 | integration check、state transition check、hook test，或带 owner 和步骤的 manual validation gate。 |
+| 文档或 plan mismatch | 文档一致性证据和修正后的 source 链接。 |
+| 只能环境验证的问题 | 明确 owner、命令、预期结果和阻塞条件的 manual validation gate。 |
 
-Release Gate 在宣布 review repair 完成前，必须确认每个 accepted finding 都有回归证据或 `manual validation gate`。
+Repair Return Contract 必须补充：
+- `Regression evidence`: 命令、测试、build/schema/migration/hook check、browser evidence，或 manual validation gate。
+- `Test choice`: 说明为何使用现有测试、新增高层测试、合同检查或 manual gate；不得为纯实现细节新增脆弱测试。
+- `Unverified`: 仍未验证的边界和原因；没有则写 `无`。
 <!-- END: repair-routing -->
 
 1. 评估 blocker 严重程度和修复范围

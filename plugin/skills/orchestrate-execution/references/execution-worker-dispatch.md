@@ -12,8 +12,8 @@ Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin i
 {
   "protocol_version": "1",
   "run_id": "<run_id>",
-  "phase": "<plan-writing|execution|final-review|discovery>",
-  "agent_role": "<pack-executor|complex-pack-executor|plan-writer|codex-reviewer>",
+  "phase": "<discovery|plan-writing|execution|final-review|bug-investigation|direct-repair|multi-pr-merge|hotfix|quickfix|maintenance>",
+  "agent_role": "<pack-executor|complex-pack-executor|plan-writer|codex-reviewer|root-cause-analyst|code-explorer|complex-code-explorer>",
   "agent_id": "<existing agent_id or null for first dispatch>",
   "pack_id": "<N.M or null>",
   "repair_round": 0,
@@ -26,10 +26,10 @@ Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin i
 -->
 ```
 
-For repair (repair_round >= 1): set `disposition_refs` to array of accepted finding IDs.
+For repair (repair_round >= 1): set `disposition_refs` to array of accepted finding IDs or route-worker follow-up references.
 For codex-reviewer dispatches: set `review_intent` and `exception_code` for targeted-re-review.
 
-Hooks parse this block. Missing/malformed envelope = dispatch BLOCKED.
+Coordinator validates this block with an explicit dispatch script before `Agent({...})` / `SendMessage({...})`. Missing/malformed envelope = dispatch BLOCKED.
 <!-- END: control-envelope -->
 
 Dispatch prompt 必须自足——worker 不读 SKILL.md、不读 references、不读 plan 文件。Coordinator 从 plan 中提取并在 prompt 中写全所有字段。
