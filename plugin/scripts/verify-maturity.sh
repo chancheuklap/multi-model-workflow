@@ -166,8 +166,10 @@ check "C1: agent-return-handler no dead-code pattern" bash -c \
 # C2: review budget increments through state.sh with lock, not in-hook
 check "C2: state.sh review budget uses lock" bash -c \
   "grep -q 'cmd_budget_increment_review' '$PLUGIN_DIR/scripts/state.sh' && grep -q 'acquire_lock' '$PLUGIN_DIR/scripts/state.sh'"
-check "C2: review completion increments budget exactly once after durable result" bash -c \
-  "grep -q 'budget increment-review' '$PLUGIN_DIR/scripts/complete-review-dispatch.sh' && grep -q 'budget_counted' '$PLUGIN_DIR/scripts/complete-review-dispatch.sh'"
+check "C2: review budget auto-counted by PostToolUse hook (Claude-native)" bash -c \
+  "grep -q 'review_used += 1' '$PLUGIN_DIR/hooks/track-review-budget.sh' && grep -q 'track-review-budget.sh' '$PLUGIN_DIR/hooks/hooks.json'"
+check "C2: complete-review-dispatch is durability-only (no double-counting)" bash -c \
+  "! grep -q 'budget increment-review' '$PLUGIN_DIR/scripts/complete-review-dispatch.sh' && grep -q 'status = \"completed\"' '$PLUGIN_DIR/scripts/complete-review-dispatch.sh'"
 check "C2: review dispatch template marks disposition recovery" bash -c \
   "grep -q 'record-review-disposition.sh' '$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl' && grep -q 'disposition_started' '$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl'"
 check "C2: review dispatch template completes through bookkeeping script" \

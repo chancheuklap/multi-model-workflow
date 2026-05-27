@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# Records a successful Codex reviewer baseline dispatch after the Agent call returns.
+# Records a successful Codex reviewer baseline dispatch.
+#
+# On Claude, reviews are dispatched via `node codex-companion.mjs task --background`
+# which returns a JOB_ID. Coordinator calls this script with --agent-id <JOB_ID>
+# after the task command returns, so the registry can find this reviewer when
+# targeted re-review or compaction recovery needs to resume.
 set -euo pipefail
 
 PROMPT_FILE=""

@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
-# Marks a reviewer result durable and increments review budget exactly once.
+# Marks a reviewer result durable in the registry.
+#
+# Claude-native split-of-concerns:
+#   - Budget counting is performed by the PostToolUse hook
+#     (hooks/track-review-budget.sh) the moment `codex-companion result`
+#     fires. The hook is the auto-counter; do not double-count here.
+#   - This script only writes the registry entry's durability marker
+#     (result_file, completed_at, status=completed) so that compaction
+#     recovery and disposition tracking can find the durable artifact.
+#   - --allow-over-budget / --override-reason are recorded as registry
+#     metadata so that audit can see which reviews were explicit
+#     user-authorized over-budget dispatches.
 set -euo pipefail
 
 RUN_ID=""
@@ -12,6 +23,9 @@ OVERRIDE_REASON=""
 usage() {
   cat <<'USAGE'
 Usage: complete-review-dispatch.sh --run-id RUN_ID --gate GATE --agent-id AGENT_ID --result-file PATH [--allow-over-budget --override-reason TEXT]
+
+The agent-id is the reviewer identity: on Claude this is the JOB_ID returned by
+`codex-companion.mjs task` (or shared across resume calls).
 USAGE
   exit 2
 }
@@ -79,16 +93,12 @@ if [[ "$RECORDED_AGENT" != "$AGENT_ID" ]]; then
   exit 2
 fi
 
-if [[ "$(jq -r '.budget_counted // false' "$REGISTRY_FILE")" == "true" ]]; then
-  echo "OK"
+if [[ "$(jq -r '.status // empty' "$REGISTRY_FILE")" == "completed" ]] \
+   || [[ "$(jq -r '.status // empty' "$REGISTRY_FILE")" == "disposition_started" ]] \
+   || [[ "$(jq -r '.status // empty' "$REGISTRY_FILE")" == "disposition_done" ]]; then
+  echo "OK (already durable)"
   exit 0
 fi
-
-BUDGET_ARGS=(--run-id "$RUN_ID")
-if [[ "$ALLOW_OVER_BUDGET" == "true" ]]; then
-  BUDGET_ARGS+=(--allow-over-budget --override-reason "$OVERRIDE_REASON")
-fi
-bash "$SCRIPT_DIR/state.sh" budget increment-review "${BUDGET_ARGS[@]}" >/dev/null
 
 now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 tmp="${REGISTRY_FILE}.tmp"
@@ -103,7 +113,6 @@ jq --arg result_file "$RESULT_FILE" --arg completed_at "$now" \
   .result_file = $result_file
   | .status = "completed"
   | .completed_at = $completed_at
-  | .budget_counted = true
   | .over_budget_allowed = $over_budget
   | .over_budget_reason = (if $over_budget then $override_reason else null end)
 ' "$REGISTRY_FILE" > "$tmp"

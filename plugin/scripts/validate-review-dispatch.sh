@@ -1,17 +1,26 @@
 #!/usr/bin/env bash
-# Explicit Coordinator gate for Codex reviewer dispatch.
-# Review envelopes must be validated before Agent/SendMessage is invoked.
+# Explicit Coordinator gate for Codex reviewer dispatch on Claude side.
+#
+# Claude reviews go through `node codex-companion.mjs task --background[--resume]`,
+# so the transport is always Bash. This script validates the DISPATCH_ENVELOPE
+# shape and budget readiness *before* the Coordinator runs codex-companion.
+#
+# Baseline vs targeted re-review is derived from `review_intent` in the
+# envelope (no separate transport flag — the envelope is the source of truth).
 set -euo pipefail
 
 PROMPT_FILE=""
-TRANSPORT=""
 GATE=""
 ALLOW_OVER_BUDGET="false"
 OVERRIDE_REASON=""
 
 usage() {
   cat <<'USAGE'
-Usage: validate-review-dispatch.sh --prompt-file PATH --transport Agent|SendMessage [--gate GATE] [--allow-over-budget --override-reason TEXT]
+Usage: validate-review-dispatch.sh --prompt-file PATH [--gate GATE] [--allow-over-budget --override-reason TEXT]
+
+The envelope's `review_intent` ("baseline" or "targeted-re-review") drives
+validation: baseline requires agent_id=null; targeted-re-review requires
+agent_id (= baseline reviewer JOB_ID), exception_code, and repair_round >= 1.
 USAGE
   exit 2
 }
@@ -19,7 +28,6 @@ USAGE
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --prompt-file) PROMPT_FILE="${2:-}"; shift 2 ;;
-    --transport) TRANSPORT="${2:-}"; shift 2 ;;
     --gate) GATE="${2:-}"; shift 2 ;;
     --allow-over-budget) ALLOW_OVER_BUDGET="true"; shift ;;
     --override-reason) OVERRIDE_REASON="${2:-}"; shift 2 ;;
@@ -28,7 +36,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$PROMPT_FILE" && -f "$PROMPT_FILE" ]] || usage
-[[ "$TRANSPORT" == "Agent" || "$TRANSPORT" == "SendMessage" ]] || usage
 if [[ "$ALLOW_OVER_BUDGET" == "true" && -z "$OVERRIDE_REASON" ]]; then
   echo "Error: --override-reason required with --allow-over-budget" >&2
   exit 2
@@ -125,12 +132,12 @@ validate_targeted_continuity() {
   fi
 
   if [[ -z "$expected_agent" || "$expected_agent" == "null" ]]; then
-    echo "Error: targeted re-review could not find recorded baseline reviewer agent_id" >&2
+    echo "Error: targeted re-review could not find recorded baseline reviewer JOB_ID" >&2
     exit 2
   fi
 
   if [[ "$AGENT_ID" != "$expected_agent" ]]; then
-    echo "Error: targeted re-review agent_id does not match recorded baseline reviewer" >&2
+    echo "Error: targeted re-review agent_id does not match recorded baseline reviewer JOB_ID" >&2
     exit 2
   fi
 
@@ -170,13 +177,17 @@ if [[ -z "$GATE" ]]; then
   GATE="$(gate_from_prompt_file)"
 fi
 
-case "$TRANSPORT:$REVIEW_INTENT" in
-  Agent:baseline)
+case "$REVIEW_INTENT" in
+  baseline)
+    if [[ -n "$AGENT_ID" && "$AGENT_ID" != "null" ]]; then
+      echo "Error: baseline review envelope must set agent_id to null (this is a fresh dispatch)" >&2
+      exit 2
+    fi
     validate_plan_impl_gate "$GATE"
     ;;
-  SendMessage:targeted-re-review)
+  targeted-re-review)
     if [[ -z "$AGENT_ID" || "$AGENT_ID" == "null" ]]; then
-      echo "Error: targeted re-review must include baseline reviewer agent_id" >&2
+      echo "Error: targeted re-review must include baseline reviewer JOB_ID as agent_id" >&2
       exit 2
     fi
     if [[ -z "$EXCEPTION_CODE" || "$EXCEPTION_CODE" == "null" ]]; then
@@ -185,12 +196,8 @@ case "$TRANSPORT:$REVIEW_INTENT" in
     fi
     validate_targeted_continuity "$GATE"
     ;;
-  Agent:targeted-re-review)
-    echo "Error: targeted re-review must use SendMessage, not Agent" >&2
-    exit 2
-    ;;
   *)
-    echo "Error: invalid review transport/intent combination: ${TRANSPORT}/${REVIEW_INTENT}" >&2
+    echo "Error: review_intent must be baseline or targeted-re-review (got: ${REVIEW_INTENT:-empty})" >&2
     exit 2
     ;;
 esac
