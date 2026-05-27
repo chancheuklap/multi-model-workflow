@@ -62,6 +62,13 @@ if [[ "$AGENT_ROLE" == "codex-reviewer" ]]; then
     echo "Error: codex-reviewer dispatch must include review_intent" >&2
     exit 2
   fi
+  case "$REVIEW_INTENT" in
+    baseline|targeted-re-review) ;;
+    *)
+      echo "Error: codex-reviewer review_intent must be baseline or targeted-re-review" >&2
+      exit 2
+      ;;
+  esac
 fi
 
 if [[ "$REVIEW_INTENT" == "targeted-re-review" ]]; then

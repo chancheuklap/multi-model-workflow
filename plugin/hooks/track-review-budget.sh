@@ -27,14 +27,24 @@ LOCK_DIR="${BUDGET_DIR}/${RUN_ID}.lock"
 state_lock_acquire "$LOCK_DIR"
 trap 'state_lock_release "$LOCK_DIR"' EXIT
 
-jq '.budget.review_used += 1' "$SF" > "${SF}.tmp" && mv "${SF}.tmp" "$SF"
-
 USED=$(jq -r '.budget.review_used' "$SF")
 TOTAL=$(jq -r '.budget.review_total' "$SF")
+
+# Cap guard: refuse to count past exhaustion (mirrors state.sh budget increment-review).
+# Hook is observational — dispatch validation already enforces budget upstream.
+if [ "$TOTAL" != "unlimited" ] && [ "$USED" -ge "$TOTAL" ] 2>/dev/null; then
+  SKIPPED=true
+else
+  SKIPPED=false
+  jq '.budget.review_used += 1' "$SF" > "${SF}.tmp" && mv "${SF}.tmp" "$SF"
+  USED=$(jq -r '.budget.review_used' "$SF")
+fi
 
 NEEDS_DC=false
 if [ "$TOTAL" = "unlimited" ]; then
   MSG="Review budget: ${USED} dispatches used (unlimited)."
+elif [ "$SKIPPED" = "true" ]; then
+  MSG="⚠ BUDGET EXHAUSTED: ${USED}/${TOTAL}. Skipped counting an over-cap dispatch — stop dispatching reviews and report to user."
 elif [ "$USED" -ge "$TOTAL" ] 2>/dev/null; then
   MSG="⚠ BUDGET EXHAUSTED: ${USED}/${TOTAL}. Stop dispatching reviews and report to user."
 elif [ "$USED" -ge "$(( TOTAL * 80 / 100 ))" ] 2>/dev/null; then

@@ -22,7 +22,8 @@ Commands:
   self-verify       Manage self-verification records (append)
   path-a-escalation Manage Path A escalation entries
   agent-id          Get/set agent_id in execution-state (per Ruling 2)
-  budget            Budget subcommands (initialize, check)
+  execution-plan    Manage execution-state plan boundaries (start)
+  budget            Budget subcommands (initialize, unlimited, check, increment-review)
   direction-check   Direction Check flow (trigger, ack)
   idempotency       Idempotency key management (check, append)
   plans             Plan management (add)
@@ -128,7 +129,7 @@ cmd_init() {
 
   local budget_status review_total effort_total
   case "$route" in
-    hotfix|quickfix|spike|maintenance)
+    direct-repair|multi-pr-merge|bug-investigation|hotfix|quickfix|spike|maintenance)
       budget_status='"unlimited"'
       review_total='"unlimited"'
       effort_total='"unlimited"'
@@ -667,13 +668,70 @@ cmd_agent_id_get() {
   fi
 }
 
+# --- execution-plan subcommand (operates on execution-state plan boundaries) ---
+cmd_execution_plan() {
+  local subcmd="$1"; shift
+  case "$subcmd" in
+    start) cmd_execution_plan_start "$@" ;;
+    *) echo "Error: unknown execution-plan subcommand: $subcmd (use start)" >&2; exit 2 ;;
+  esac
+}
+
+cmd_execution_plan_start() {
+  local plan_id="" start_commit=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --start-commit) start_commit="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$plan_id" || -z "$start_commit" ]]; then
+    echo "Error: --plan-id and --start-commit required for execution-plan start" >&2
+    exit 2
+  fi
+
+  local esf
+  esf="$(execution_state_file)"
+  if [[ ! -f "$esf" ]]; then
+    echo "Error: execution-state file not found: $esf" >&2
+    exit 2
+  fi
+
+  if ! jq -e --arg pid "$plan_id" '.plans[$pid] != null' "$esf" >/dev/null; then
+    echo "Error: plan_id $plan_id not found in execution-state" >&2
+    exit 2
+  fi
+
+  local existing_start
+  existing_start=$(jq -r --arg pid "$plan_id" '.plans[$pid].start_commit // empty' "$esf")
+  if [[ -n "$existing_start" && "$existing_start" != "$start_commit" ]]; then
+    echo "Error: plan_id $plan_id already has start_commit=$existing_start" >&2
+    exit 2
+  fi
+
+  acquire_lock
+  trap release_lock EXIT
+
+  local tmp="${esf}.tmp"
+  jq --arg pid "$plan_id" --arg sha "$start_commit" '
+    .current_plan_id = $pid
+    | .plans[$pid].status = "in_progress"
+    | .plans[$pid].start_commit = $sha
+  ' "$esf" > "$tmp"
+  mv "$tmp" "$esf"
+}
+
 # --- budget subcommand ---
 cmd_budget() {
   local subcmd="$1"; shift
   case "$subcmd" in
     initialize) cmd_budget_initialize "$@" ;;
+    unlimited) cmd_budget_unlimited "$@" ;;
     check) cmd_budget_check "$@" ;;
-    *) echo "Error: unknown budget subcommand: $subcmd (use initialize|check)" >&2; exit 2 ;;
+    increment-review) cmd_budget_increment_review "$@" ;;
+    *) echo "Error: unknown budget subcommand: $subcmd (use initialize|unlimited|check|increment-review)" >&2; exit 2 ;;
   esac
 }
 
@@ -715,7 +773,62 @@ cmd_budget_initialize() {
   mv "$tmp" "$sf"
 }
 
+cmd_budget_unlimited() {
+  local route=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --route) route="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  ensure_state_exists
+  local sf
+  sf="$(state_file)"
+
+  local current_status
+  current_status=$(jq -r '.budget.budget_status' "$sf")
+  if [[ "$current_status" == "initialized" ]]; then
+    echo "Error: cannot change initialized bounded budget to unlimited" >&2
+    exit 2
+  fi
+
+  acquire_lock
+  trap release_lock EXIT
+
+  local tmp="${sf}.tmp"
+  if [[ -n "$route" ]]; then
+    jq --arg route "$route" '
+      .route = $route |
+      .budget.budget_status = "unlimited" |
+      .budget.review_total = "unlimited" |
+      .budget.effort_total = "unlimited"
+    ' "$sf" > "$tmp"
+  else
+    jq '
+      .budget.budget_status = "unlimited" |
+      .budget.review_total = "unlimited" |
+      .budget.effort_total = "unlimited"
+    ' "$sf" > "$tmp"
+  fi
+  mv "$tmp" "$sf"
+}
+
 cmd_budget_check() {
+  local allow_over_budget="false" override_reason=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --allow-over-budget) allow_over_budget="true"; shift ;;
+      --override-reason) override_reason="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ "$allow_over_budget" == "true" && -z "$override_reason" ]]; then
+    echo "Error: --override-reason required with --allow-over-budget" >&2
+    exit 2
+  fi
+
   ensure_state_exists
   local sf
   sf="$(state_file)"
@@ -738,12 +851,90 @@ cmd_budget_check() {
   review_used=$(jq -r '.budget.review_used' "$sf")
 
   if [[ "$review_used" -ge "$review_total" ]] 2>/dev/null; then
+    if [[ "$allow_over_budget" == "true" ]]; then
+      echo "OK: over-budget override ${review_used}/${review_total}"
+      exit 0
+    fi
     echo "EXHAUSTED: review budget ${review_used}/${review_total}" >&2
     exit 2
   fi
 
   echo "OK: ${review_used}/${review_total}"
   exit 0
+}
+
+cmd_budget_increment_review() {
+  local allow_over_budget="false" override_reason=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --allow-over-budget) allow_over_budget="true"; shift ;;
+      --override-reason) override_reason="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ "$allow_over_budget" == "true" && -z "$override_reason" ]]; then
+    echo "Error: --override-reason required with --allow-over-budget" >&2
+    exit 2
+  fi
+
+  ensure_state_exists
+  local sf
+  sf="$(state_file)"
+
+  acquire_lock
+  trap release_lock EXIT
+
+  local status
+  status=$(jq -r '.budget.budget_status // "unknown"' "$sf")
+  if [[ "$status" == "pending_plan_count" ]]; then
+    echo "Error: budget not initialized (status=pending_plan_count). Run 'budget initialize --plan-count N' first." >&2
+    exit 2
+  fi
+
+  local used total
+  used=$(jq -r '.budget.review_used' "$sf")
+  total=$(jq -r '.budget.review_total' "$sf")
+
+  if [[ "$total" != "unlimited" && "$used" -ge "$total" ]] 2>/dev/null; then
+    if [[ "$allow_over_budget" != "true" ]]; then
+      echo "Error: review budget exhausted (${used}/${total}); refusing to count another review." >&2
+      exit 2
+    fi
+    echo "Warning: review budget exhausted (${used}/${total}); applying explicit over-budget override." >&2
+  fi
+
+  local tmp="${sf}.tmp"
+  jq '.budget.review_used += 1' "$sf" > "$tmp"
+  mv "$tmp" "$sf"
+
+  local needs_dc=false msg
+  used=$(jq -r '.budget.review_used' "$sf")
+  total=$(jq -r '.budget.review_total' "$sf")
+
+  if [[ "$total" == "unlimited" ]]; then
+    msg="Review budget: ${used} dispatches used (unlimited)."
+  elif [[ "$used" -ge "$total" ]] 2>/dev/null; then
+    msg="BUDGET EXHAUSTED: ${used}/${total}. Stop dispatching reviews and report to user."
+  elif [[ "$used" -ge "$(( total * 80 / 100 ))" ]] 2>/dev/null; then
+    local current_dc
+    current_dc=$(jq -r '.pending_direction_check // "null"' "$sf")
+    if [[ "$current_dc" == "null" ]]; then
+      needs_dc=true
+    fi
+    msg="DIRECTION CHECK: Review budget at ${used}/${total} (>=80%). Confirm with user."
+  else
+    msg="Review budget: ${used}/${total} dispatches used."
+  fi
+
+  release_lock
+  trap - EXIT
+
+  if [[ "$needs_dc" == "true" ]]; then
+    cmd_dc_trigger --type review --threshold-percent 80 >/dev/null
+  fi
+
+  echo "$msg"
 }
 
 # --- direction-check subcommand ---
@@ -953,6 +1144,7 @@ case "$CMD" in
   self-verify) cmd_self_verify "$@" ;;
   path-a-escalation) cmd_path_a_escalation "$@" ;;
   agent-id) cmd_agent_id "$@" ;;
+  execution-plan) cmd_execution_plan "$@" ;;
   budget) cmd_budget "$@" ;;
   direction-check) cmd_direction_check "$@" ;;
   idempotency) cmd_idempotency "$@" ;;
