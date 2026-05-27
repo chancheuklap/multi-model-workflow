@@ -31,8 +31,8 @@ run_test "repair-routing template is Claude native" bash -c \
 for file in "${FILES[@]}"; do
   run_test "$(basename "$file") includes repair-routing anchor" \
     grep -q "BEGIN: repair-routing" "$file"
-  run_test "$(basename "$file") includes unified repair routing" \
-    grep -q "统一修复分流" "$file"
+  run_test "$(basename "$file") includes finding-to-owner repair routing" \
+    grep -q "Finding-to-owner 修复分流" "$file"
 done
 
 run_test "repair routing does not introduce Codex-only dispatch terms" bash -c \

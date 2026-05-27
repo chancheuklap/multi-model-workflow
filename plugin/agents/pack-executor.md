@@ -8,7 +8,7 @@ description: |
   <example>plan implementation review 指出 spec 不符，需要补充遗漏功能</example>
   Do NOT use for: high-risk task packs with migrations/billing/auth/permissions/runtime (use complex-pack-executor), root cause investigation (use root-cause-analyst), document/plan fixes (coordinator handles directly), code review (dispatched to Codex).
 model: sonnet
-effort: high
+effort: xhigh
 tools:
   - Read
   - Edit

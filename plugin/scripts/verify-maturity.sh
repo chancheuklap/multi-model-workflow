@@ -41,6 +41,12 @@ check "hooks.json valid JSON" python3 -m json.tool "$PLUGIN_DIR/hooks/hooks.json
 check "gate-codex-review.sh exists" test -x "$PLUGIN_DIR/hooks/gate-codex-review.sh"
 check "parse-envelope.sh exists" test -x "$PLUGIN_DIR/hooks/lib/parse-envelope.sh"
 check "validate-pack-dispatch.sh exists" test -x "$PLUGIN_DIR/hooks/validate-pack-dispatch.sh"
+check "validate-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-review-dispatch.sh"
+check "record-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/record-review-dispatch.sh"
+check "complete-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/complete-review-dispatch.sh"
+check "record-review-disposition.sh exists" test -x "$PLUGIN_DIR/scripts/record-review-disposition.sh"
+check "validate-route-worker-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-route-worker-dispatch.sh"
+check "record-route-worker-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/record-route-worker-dispatch.sh"
 
 echo ""
 echo "## Fallback Removal"
@@ -157,9 +163,23 @@ echo "## Behavioral Checks (R2)"
 check "C1: agent-return-handler no dead-code pattern" bash -c \
   "! grep -q 'if \[ \$? -ne 0 \]' '$PLUGIN_DIR/hooks/agent-return-handler.sh'"
 
-# C2: track-review-budget uses state lock for concurrent safety
-check "C2: track-review-budget uses state lock" \
-  grep -q 'state_lock_acquire' "$PLUGIN_DIR/hooks/track-review-budget.sh"
+# C2: review budget increments through state.sh with lock, not in-hook
+check "C2: state.sh review budget uses lock" bash -c \
+  "grep -q 'cmd_budget_increment_review' '$PLUGIN_DIR/scripts/state.sh' && grep -q 'acquire_lock' '$PLUGIN_DIR/scripts/state.sh'"
+check "C2: review completion increments budget exactly once after durable result" bash -c \
+  "grep -q 'budget increment-review' '$PLUGIN_DIR/scripts/complete-review-dispatch.sh' && grep -q 'budget_counted' '$PLUGIN_DIR/scripts/complete-review-dispatch.sh'"
+check "C2: review dispatch template marks disposition recovery" bash -c \
+  "grep -q 'record-review-disposition.sh' '$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl' && grep -q 'disposition_started' '$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl'"
+check "C2: review dispatch template completes through bookkeeping script" \
+  grep -q 'complete-review-dispatch.sh' "$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
+check "C2: review dispatch template records baseline reviewer agent" \
+  grep -q 'record-review-dispatch.sh' "$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
+check "C2: state.sh supports budget unlimited subcommand" \
+  bash -c "grep -q 'cmd_budget_unlimited' '$PLUGIN_DIR/scripts/state.sh'"
+check "C2: direct-repair / multi-pr-merge / bug-investigation init as unlimited" bash -c \
+  "grep -q 'direct-repair|multi-pr-merge|bug-investigation' '$PLUGIN_DIR/scripts/state.sh'"
+check "C2: route worker dispatch used by merge-conflict-repair" \
+  grep -q 'validate-route-worker-dispatch.sh' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md"
 
 # C3: track-effort-budget uses state lock for concurrent safety
 check "C3: track-effort-budget uses state lock" \
