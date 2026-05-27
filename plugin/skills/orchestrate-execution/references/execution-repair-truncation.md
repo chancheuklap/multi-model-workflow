@@ -53,7 +53,7 @@ Repair Return Contract 必须补充：
 - `Unverified`: 仍未验证的边界和原因；没有则写 `无`。
 <!-- END: repair-routing -->
 
-所有 repair prompt 只携带 accepted findings。Repair 返回后 Coordinator 默认自验收（verification commands + acceptance criteria 对照）。仅当满足 exception 条件（3+ 文件控制流修改 / 用户要求 / RCA 根因修复）时派发 targeted Codex re-review。gate-codex-review.sh 强制此规则。只有 source baseline 改变时才 full phase review rerun。
+所有 repair prompt 只携带 accepted findings。Repair 返回后 Coordinator 默认自验收（verification commands + acceptance criteria 对照）。仅当满足 exception 条件（3+ 文件控制流修改 / 用户要求 / RCA 根因修复 / Path A 自修）时派发 targeted Codex re-review。Targeted re-review 必须用 `codex-companion.mjs task --background --resume` 复用 baseline reviewer 的 JOB_ID；只有 source baseline 改变时才 full phase review rerun。gate-codex-review.sh 强制此规则。
 
 - **路径 A**（≤ 2 文件、不碰合同边界、意图明确）：Coordinator 直接修 → 跑验证 → Step 11
 - **路径 B**（多文件、根因已知）：

@@ -4,7 +4,31 @@
 
 ## Step 12：构造 Worker Dispatch
 
-根据冲突是否经过 analyst 调查，dispatch prompt 的内容不同：
+根据冲突是否经过 analyst 调查，dispatch prompt 的内容不同。
+
+Multi-PR conflict repair 是非 execution Pack 的 coding worker：不创建 execution-state，不要求 Pack durable return，Coordinator 从 Agent 返回值读取 final message。但它仍然必须走 route-worker dispatch gate：
+
+1. 写 prompt → `.claude/multi-model-workflow/worker-prompts/multi-pr-conflict-<conflict-id>.md`，以 `DISPATCH_ENVELOPE` 开头：
+   - `phase: "multi-pr-merge"`
+   - `agent_role: "<pack-executor|complex-pack-executor>"`
+   - `agent_id: null`
+   - `pack_id: null`
+   - `idempotency_key: "<run_id>/multi-pr-conflict-<conflict-id>/r0"`
+2. Dispatch 前运行：
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}/scripts/validate-route-worker-dispatch.sh" \
+     --prompt-file ".claude/multi-model-workflow/worker-prompts/multi-pr-conflict-<conflict-id>.md" \
+     --transport Agent
+   ```
+3. 校验通过后用 prompt 文件全文作为 `Agent.prompt`。
+4. 从 `Agent` 返回值提取 `agent_id`，并持久化：
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}/scripts/record-route-worker-dispatch.sh" \
+     --prompt-file ".claude/multi-model-workflow/worker-prompts/multi-pr-conflict-<conflict-id>.md" \
+     --agent-id "<agent_id>" \
+     --agent-file ".claude/multi-model-workflow/worker-agents/multi-pr-conflict-<conflict-id>.agent-id"
+   ```
+5. Agent 返回后将 final message 保存到 `.claude/multi-model-workflow/worker-results/multi-pr-conflict-<conflict-id>.md`。后续如需同一 worker 继续修复，使用 `SendMessage({ to: "<agent_id>", ... })`。
 
 ### 12a：有 Analyst Findings 的 Worker Dispatch
 

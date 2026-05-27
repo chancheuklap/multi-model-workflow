@@ -46,11 +46,14 @@ Owned files:
   - Modify: <path — responsibility>
   - Test: <path — behavior covered>
 Read first:
-  - <source docs, ADRs, project rules>
+  - <source docs, ADRs, project rules, docs/orchestrate/mockups/<slug>/ (如有)>
 Acceptance criteria:
   - [ ] <each criterion>
 Verification commands:
   - <command> → Expected: <result>
+Verification discipline:
+  - For code behavior: use focused public-behavior tests, with RED/GREEN when risk is normal or higher.
+  - For trivial docs/config/style sync: use proof-oriented checks such as `git diff --check`, build/generator check, manifest/schema validation, or path/link verification. Do not add tests that only assert wording exists unless that wording is a generated artifact or runtime contract anchor.
 Risk flags: <trivial / normal / high-risk / ...>
 Out of scope: <what NOT to touch>
 Context hint: Your code will be reviewed alongside packs <N.1..N.M> within Plan N.

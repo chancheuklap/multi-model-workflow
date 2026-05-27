@@ -98,7 +98,7 @@ Bad:  "检测到多个 PR 之间存在潜在的兼容性问题，需要进一步
 
 **Multi-PR Merge 不做 Closing**——不 push，不 PR，不 cleanup。这些是 orchestrate-workflow Closing 的职责。以 verdict 返回结束。
 
-**Multi-PR route 不创建 Budget File**——Codex 审查 dispatch 控制在合理范围内（通常 2-4 次：1-2 full review + 1-2 targeted re-review）。
+**Multi-PR route 不创建 plan-count budget**——workflow-state 使用 `budget_status = "unlimited"` 支撑 review validation、effort tracking、idempotency 和 resume；Codex 审查 dispatch 控制在合理范围内（通常 2-4 次：1-2 full review + 1-2 targeted re-review）。
 
 **Only stop for：**
 - 冲突解决需要用户决策（NEEDS_USER_DECISION）
