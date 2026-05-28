@@ -69,6 +69,13 @@ docs/orchestrate/issues/<slug>/
 ## What to build
 <描述这个 vertical slice 的端到端行为>
 
+## Design context refs
+
+指向 design 文档相关章节的锚点（plan-writer 跟随，无需 Coordinator 临场提取"与本 issue 相关的设计要点"）。至少一条。
+
+- `docs/orchestrate/design/<slug>.md#<anchor-1>` — <相关性说明>
+- `docs/orchestrate/design/<slug>.md#<anchor-2>` — <相关性说明>
+
 ## Small issues
 <!-- PENDING: plan-writer 将在 plan-writing 阶段补全小 issue 拆分 -->
 
@@ -77,6 +84,8 @@ docs/orchestrate/issues/<slug>/
 ```
 
 **`## Small issues` 章节留空**——标记 `<!-- PENDING -->`，由 plan-writer 在 plan-writing 阶段填充。
+
+**`## Design context refs` 必填至少一条**——Discovery 自检：每个大 issue 至少有一条 design 锚点链接。
 
 ## Step 12f：发布 GitHub Issue
 
