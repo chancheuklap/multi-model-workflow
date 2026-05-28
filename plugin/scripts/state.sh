@@ -746,8 +746,191 @@ cmd_execution_plan() {
   local subcmd="$1"; shift
   case "$subcmd" in
     start) cmd_execution_plan_start "$@" ;;
-    *) echo "Error: unknown execution-plan subcommand: $subcmd (use start)" >&2; exit 2 ;;
+    complete) cmd_execution_plan_complete "$@" ;;
+    *) echo "Error: unknown execution-plan subcommand: $subcmd (use start|complete)" >&2; exit 2 ;;
   esac
+}
+
+# Plan 005 Pack 5.7: execution-plan complete — marks a Plan as worker-finished.
+# Writes .plans[plan_id].finished_at + .plans[plan_id].worker_verdict.
+cmd_execution_plan_complete() {
+  local plan_id="" verdict=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --verdict) verdict="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$plan_id" || -z "$verdict" ]]; then
+    echo "Error: --plan-id and --verdict required for execution-plan complete" >&2
+    exit 2
+  fi
+
+  case "$verdict" in
+    pass|partial-pass|blocked|need-fresh-worker|needs-context|needs-plan-revision) ;;
+    *)
+      echo "Error: invalid verdict '$verdict'. Allowed: pass|partial-pass|blocked|need-fresh-worker|needs-context|needs-plan-revision" >&2
+      exit 2
+      ;;
+  esac
+
+  local esf
+  esf="$(execution_state_file)"
+  if [[ ! -f "$esf" ]]; then
+    echo "Error: execution-state file not found: $esf" >&2
+    exit 2
+  fi
+  if ! jq -e --arg pid "$plan_id" '.plans[$pid] != null' "$esf" >/dev/null 2>&1; then
+    echo "Error: plan_id $plan_id not found in execution-state" >&2
+    exit 2
+  fi
+
+  acquire_lock
+  trap release_lock EXIT
+
+  local now
+  now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local tmp="${esf}.tmp"
+  jq --arg pid "$plan_id" --arg v "$verdict" --arg ts "$now" '
+    .plans[$pid].finished_at = $ts
+    | .plans[$pid].worker_verdict = $v
+  ' "$esf" > "$tmp"
+  mv "$tmp" "$esf"
+}
+
+# Plan 005 Pack 5.7: pack-progress — Worker calls this after each Pack commit.
+# Writes .plans[plan_id].packs[pack_id].status + .commit_sha.
+cmd_pack_progress() {
+  local plan_id="" pack_id="" status="" commit_sha=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --pack-id) pack_id="$2"; shift 2 ;;
+      --status) status="$2"; shift 2 ;;
+      --commit-sha) commit_sha="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$plan_id" || -z "$pack_id" || -z "$status" ]]; then
+    echo "Error: --plan-id, --pack-id, --status required for pack-progress" >&2
+    exit 2
+  fi
+
+  case "$status" in
+    committed|blocked|skipped) ;;
+    *)
+      echo "Error: invalid status '$status'. Allowed: committed|blocked|skipped" >&2
+      exit 2
+      ;;
+  esac
+
+  local esf
+  esf="$(execution_state_file)"
+  if [[ ! -f "$esf" ]]; then
+    echo "Error: execution-state file not found: $esf" >&2
+    exit 2
+  fi
+  if ! jq -e --arg pid "$plan_id" --arg packid "$pack_id" \
+      '.plans[$pid].packs[$packid] != null' "$esf" >/dev/null 2>&1; then
+    echo "Error: plan_id $plan_id / pack_id $pack_id not found in execution-state" >&2
+    exit 2
+  fi
+
+  acquire_lock
+  trap release_lock EXIT
+
+  local tmp="${esf}.tmp"
+  if [[ -n "$commit_sha" ]]; then
+    jq --arg pid "$plan_id" --arg packid "$pack_id" --arg s "$status" --arg sha "$commit_sha" '
+      .plans[$pid].packs[$packid].status = $s
+      | .plans[$pid].packs[$packid].commit_sha = $sha
+    ' "$esf" > "$tmp"
+  else
+    jq --arg pid "$plan_id" --arg packid "$pack_id" --arg s "$status" '
+      .plans[$pid].packs[$packid].status = $s
+    ' "$esf" > "$tmp"
+  fi
+  mv "$tmp" "$esf"
+}
+
+# Plan 005 Pack 5.7: plan-returns ingest — agent-return-handler calls this.
+# Reads plan-returns/<run_id>/<plan_id>/plan-return.json, validates schema,
+# expands per_pack into execution-state, mirrors verdict.
+cmd_plan_returns() {
+  local subcmd="$1"; shift
+  case "$subcmd" in
+    ingest) cmd_plan_returns_ingest "$@" ;;
+    *) echo "Error: unknown plan-returns subcommand: $subcmd (use ingest)" >&2; exit 2 ;;
+  esac
+}
+
+cmd_plan_returns_ingest() {
+  local plan_id=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plan-id) plan_id="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$plan_id" ]]; then
+    echo "Error: --plan-id required for plan-returns ingest" >&2
+    exit 2
+  fi
+
+  local pr_file="${STATE_BASE}/plan-returns/${RUN_ID}/${plan_id}/plan-return.json"
+  if [[ ! -f "$pr_file" ]]; then
+    echo "Error: plan-return.json not found at: $pr_file" >&2
+    exit 2
+  fi
+  if ! jq empty "$pr_file" 2>/dev/null; then
+    echo "Error: plan-return.json is not valid JSON" >&2
+    exit 2
+  fi
+
+  # Minimal schema check: schema_version=1, has run_id/plan_id/verdict/per_pack
+  local sv verdict
+  sv=$(jq -r '.schema_version // empty' "$pr_file")
+  verdict=$(jq -r '.verdict // empty' "$pr_file")
+  if [[ "$sv" != "1" ]]; then
+    echo "Error: plan-return schema_version expected '1', got '$sv'" >&2
+    exit 2
+  fi
+  case "$verdict" in
+    pass|partial-pass|blocked|need-fresh-worker|needs-context|needs-plan-revision) ;;
+    *) echo "Error: invalid verdict '$verdict'" >&2; exit 2 ;;
+  esac
+  if ! jq -e '.per_pack | type == "object"' "$pr_file" >/dev/null 2>&1; then
+    echo "Error: plan-return missing per_pack object" >&2
+    exit 2
+  fi
+
+  local esf
+  esf="$(execution_state_file)"
+  if [[ ! -f "$esf" ]]; then
+    echo "Error: execution-state file not found: $esf" >&2
+    exit 2
+  fi
+
+  acquire_lock
+  trap release_lock EXIT
+
+  local tmp="${esf}.tmp"
+  # Merge per_pack entries into .plans[plan_id].packs and write worker_verdict
+  jq --arg pid "$plan_id" --slurpfile pr "$pr_file" '
+    . as $base
+    | ($pr[0].per_pack // {}) as $pp
+    | .plans[$pid].worker_verdict = $pr[0].verdict
+    | .plans[$pid].packs = (
+        ($base.plans[$pid].packs // {}) as $cur
+        | reduce ($pp | to_entries[]) as $e
+          ($cur; .[$e.key] = ((.[$e.key] // {}) + ($e.value)))
+      )
+  ' "$esf" > "$tmp"
+  mv "$tmp" "$esf"
 }
 
 cmd_execution_plan_start() {
@@ -1740,6 +1923,8 @@ case "$CMD" in
   path-a-escalation) cmd_path_a_escalation "$@" ;;
   agent-id) cmd_agent_id "$@" ;;
   agent-context-check) cmd_agent_context_check "$@" ;;
+  pack-progress) cmd_pack_progress "$@" ;;
+  plan-returns) cmd_plan_returns "$@" ;;
   execution-plan) cmd_execution_plan "$@" ;;
   budget) cmd_budget "$@" ;;
   direction-check) cmd_direction_check "$@" ;;
