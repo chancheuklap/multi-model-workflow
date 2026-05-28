@@ -60,12 +60,19 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 | **Route 1: Formal Orchestrate** | 新功能、改造、feedback、缺 design/issue/plan、已有 design/plan 要 review/执行 | Step 2 |
 | **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Step 2（Git + Scope + unlimited workflow-state）→ Step 15 |
 | **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Step 2（Git + Scope + unlimited workflow-state）→ Step 19 |
-| **Route 4: Hotfix** | hotfix / 紧急 / production fire / P0 / 生产事故 | Step 2（Git + Scope + unlimited workflow-state）→ Read references/route-extensions/route-4-hotfix.md |
-| **Route 5: Quick Fix** | quick fix / 小改动 / 调整 | Step 2（Git + Scope + unlimited workflow-state）→ Read references/route-extensions/route-5-quickfix.md |
-| **Route 6: Spike** | spike / 探索 / prototype / 试试 | Step 2（Git + Scope + unlimited workflow-state）→ Read references/route-extensions/route-6-spike.md |
-| **Route 7: Maintenance** | 升级 / upgrade / CVE / 依赖 / 重构 / refactor / 清理 / tech debt | Step 2（Git + Scope + unlimited workflow-state）→ Read references/route-extensions/route-7-maintenance.md |
 
 模糊输入 → 一次只问一个问题收窄。概念/事实问题 → 直接回答不进 orchestrate。
+
+### Route 1 Variant Table
+
+Entry Gate 识别以下关键词时，路由到 Route 1 + 对应 flags。`state.sh init` 后立即 `state.sh update` 设置 `phase_skip` 和 `commit_format_override`。`budget_status` / `review_total` / `effort_total` 均设为 `"unlimited"`。
+
+| Variant 关键词 | phase_skip | budget_status | commit_format_override | 备注 |
+| --- | --- | --- | --- | --- |
+| hotfix / 紧急 / production fire / P0 / 生产事故 | `["discovery","plan-writing","plan-review","final-review"]` | unlimited | `"hotfix-unreviewed"` | 先 push 再事后 review；`pending_post_push_reviews` 保留；Closing 阶段手动清理 |
+| quickfix / 快速修复 / 小改动 / 一行修复 / trivial fix | `["discovery","plan-review"]` | unlimited | `null` | 单 Pack、单 Worker、单 review round；Coordinator 自己写 plan |
+| spike / 调研 / 探索 / POC / prototype / 可行性验证 | `["plan-review","final-review"]` | unlimited | `null` | Discovery 简化为 1-page spike brief；产出 throwaway code + verdict 文档；不触发 release gate |
+| maintenance / 依赖更新 / 文档更新 / chore / cleanup / refactor / bump | `["discovery","plan-review"]` | unlimited | `null` | Coordinator 直接写 plan；Final Review 降级为 lint + test pass check |
 
 **Within-Conversation Resume**：同一对话内 phase skill 返回的 verdict → 直接路由到下方对应 phase 的 Handle Return 步骤，不重走 Steps 0-2。
 

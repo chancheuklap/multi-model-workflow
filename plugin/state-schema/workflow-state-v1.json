@@ -15,7 +15,13 @@
   "properties": {
     "run_id": { "type": "string" },
     "slug": { "type": "string" },
-    "route": { "type": "string", "enum": ["formal", "direct-repair", "multi-pr-merge", "bug-investigation", "hotfix", "quickfix", "spike", "maintenance"] },
+    "route": { "type": "string", "enum": ["formal", "direct-repair", "multi-pr-merge", "bug-investigation"] },
+    "phase_skip": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["discovery", "plan-writing", "execution", "final-review", "plan-review"] },
+      "default": []
+    },
+    "commit_format_override": { "type": ["string", "null"], "default": null },
     "started_at": { "type": "string", "format": "date-time" },
     "cursor": {
       "type": "object",

@@ -41,9 +41,9 @@ run_test "direction-check ack stop" \
 run_test "direction-check stopped" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.pending_direction_check.ack_status') == 'stopped' ]]"
 
-# 5. Unlimited budget route
-RUN_ID2="test-bdc-hotfix"
-bash "$STATE_SH" init --run-id "$RUN_ID2" --slug "hf" --route "hotfix" >/dev/null
+# 5. Unlimited budget route (D10: hotfix collapsed into Route 1 + flags; use direct-repair for unlimited)
+RUN_ID2="test-bdc-unlimited"
+bash "$STATE_SH" init --run-id "$RUN_ID2" --slug "dr" --route "direct-repair" >/dev/null
 
 run_test "unlimited budget check passes" \
   bash "$STATE_SH" budget check --run-id "$RUN_ID2"

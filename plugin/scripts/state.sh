@@ -135,7 +135,7 @@ cmd_init() {
 
   local budget_status review_total effort_total
   case "$route" in
-    direct-repair|multi-pr-merge|bug-investigation|hotfix|quickfix|spike|maintenance)
+    direct-repair|multi-pr-merge|bug-investigation)
       budget_status='"unlimited"'
       review_total='"unlimited"'
       effort_total='"unlimited"'
@@ -152,6 +152,8 @@ cmd_init() {
   "run_id": "${RUN_ID}",
   "slug": "${slug}",
   "route": "${route}",
+  "phase_skip": [],
+  "commit_format_override": null,
   "started_at": "${now}",
   "cursor": { "phase": "workflow", "reference": null, "step": null },
   "budget": {

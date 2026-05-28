@@ -175,18 +175,18 @@ run_test_expect_fail "transition denied for unknown actor" \
 run_test "validate passes after operations" \
   bash "$STATE_SH" validate --run-id "$RUN_ID"
 
-# --- Route 4-7: unlimited budget ---
-RUN_ID2="test-hotfix-001"
-run_test "init hotfix route has unlimited review_total" \
-  bash "$STATE_SH" init --run-id "$RUN_ID2" --slug "hotfix" --route "hotfix"
+# --- Unlimited budget routes (D10: hotfix/quickfix/spike/maintenance collapsed into Route 1) ---
+RUN_ID2="test-unlimited-001"
+run_test "init direct-repair route has unlimited review_total" \
+  bash "$STATE_SH" init --run-id "$RUN_ID2" --slug "dr" --route "direct-repair"
 
-run_test "hotfix review_total is unlimited" \
+run_test "direct-repair review_total is unlimited" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID2' --field '.budget.review_total') == 'unlimited' ]]"
 
-run_test "hotfix budget_status is unlimited" \
+run_test "direct-repair budget_status is unlimited" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID2' --field '.budget.budget_status') == 'unlimited' ]]"
 
-run_test "hotfix effort_total is unlimited" \
+run_test "direct-repair effort_total is unlimited" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID2' --field '.budget.effort_total') == 'unlimited' ]]"
 
 # --- Lock: stale lock cleanup ---
