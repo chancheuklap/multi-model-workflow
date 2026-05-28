@@ -18,16 +18,20 @@
 
 ## Plan Acceptance Criteria
 
-- [ ] **9 个** dispatch / route reference 文件完成视角反转（含 bug-investigation-route + workflow-direct-repair）
-- [ ] 每个 reference 顶部加 `## Self-Read Protocol` 段
-- [ ] 删除「Coordinator 必须把以下内容粘贴到 prompt」类指引
-- [ ] 删除与 SKILL.md 重复的流程概述
-- [ ] Coordinator 端 dispatch 调用 prompt 缩为 envelope + 路径
-- [ ] 每个 reference 末尾保留「Coordinator 端最小职责」段
-- [ ] design-review-angles / final-review-angles / merge-* 中所有 `<paste …>` 段已删
-- [ ] bug-investigation envelope 加 `bug_context` inline 字段语义说明 / direct-repair envelope 加 `repair_context` inline 字段
-- [ ] `bash plugin/build/build.sh --check --plugin-dir plugin` 通过
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
+- [x] **12 个** reference 文件完成视角反转（execution-worker-dispatch / execution-review-dispatch / plan-writer-dispatch / plan-review-dispatch / bug-investigation-route / workflow-direct-repair / design-review-angles / final-review-angles + 4 merge-* reference）
+- [x] 每个 reference 顶部加 `## Self-Read Protocol` 段
+- [x] 删除「Coordinator 必须把以下内容粘贴到 prompt」类指引
+- [x] 删除与 SKILL.md 重复的流程概述
+- [x] Coordinator 端 dispatch 调用 prompt 缩为 envelope + 路径
+- [x] 每个 reference 末尾保留「Coordinator 端最小职责」段
+- [x] design-review-angles / final-review-angles / merge-* 中所有 `<paste …>` 段已删
+- [x] bug-investigation envelope 加 `bug_context` inline 字段语义说明 / direct-repair envelope 加 `repair_context` inline 字段
+- [x] `bash plugin/build/build.sh --check --plugin-dir plugin` 通过
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过（37/37 suites）
+
+**Plan 004 状态**：✅ 完成（2026-05-28，Worker agentId `ae6d29f73b4383903`，verdict=pass）
+
+**Plan 文档校正**：Pack 4.5 (discovery-dispatch.md) + Pack 4.6 (final-review-dispatch.md) — 这两个文件不存在于 codebase（discovery 与 final-review skill 的 dispatch 行为在 SKILL.md 中，已由 Plan 003 瘦身处理；角色规范在 -angles.md / -preconditions.md / 等独立文件，Pack 4.9 已覆盖）。Pack 4.5 / 4.6 视为 plan-writer 估算误差，正式 drop（实际反转工作全部由其他 Pack 覆盖）。
 
 ## File / Responsibility Map
 
