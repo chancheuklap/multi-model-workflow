@@ -60,13 +60,6 @@ check "≥1 disposition-table anchor" bash -c "[ \$(grep -rl 'BEGIN: disposition
 check "≥1 preamble anchor" bash -c "[ \$(grep -rl 'BEGIN: preamble' '$PLUGIN_DIR/skills/' | wc -l) -ge 1 ]"
 
 echo ""
-echo "## Route Extensions"
-check "route-4-hotfix.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-execution/references/route-extensions/route-4-hotfix.md"
-check "route-5-quickfix.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-execution/references/route-extensions/route-5-quickfix.md"
-check "route-6-spike.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-execution/references/route-extensions/route-6-spike.md"
-check "route-7-maintenance.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-execution/references/route-extensions/route-7-maintenance.md"
-
-echo ""
 echo "## Persona + Observability"
 check "persona.md exists" test -f "$PLUGIN_DIR/agents/persona.md"
 check "run-summary.sh exists" test -x "$PLUGIN_DIR/scripts/run-summary.sh"
@@ -141,8 +134,6 @@ check "state-lock.sh exists" test -f "$PLUGIN_DIR/scripts/lib/state-lock.sh"
 check "learnings-jsonl.sh executable" test -x "$PLUGIN_DIR/scripts/learnings-jsonl.sh"
 check "execution-state-v1.json valid" python3 -m json.tool "$PLUGIN_DIR/state-schema/execution-state-v1.json"
 check "pack-returns-v1.json exists and valid" python3 -m json.tool "$PLUGIN_DIR/state-schema/pack-returns-v1.json"
-check "trust-boundary.md.tmpl exists" test -f "$PLUGIN_DIR/build/templates/trust-boundary.md.tmpl"
-check "path-a-re-review.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-execution/references/path-a-re-review.md"
 check "direction-check.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-workflow/references/direction-check.md"
 
 echo ""
@@ -193,7 +184,7 @@ check "C4: agent-return-handler uses state lock" \
   grep -q 'state_lock_acquire' "$PLUGIN_DIR/hooks/agent-return-handler.sh"
 
 # I1: all active resolvers have at least one consuming anchor
-for resolver in forbidden-shortcuts sendmessage-resume signpost state-write trust-boundary; do
+for resolver in sendmessage-resume signpost; do
   check "I1: resolver $resolver has consuming anchor" bash -c \
     "grep -rl 'BEGIN: $resolver' '$PLUGIN_DIR/skills/' '$PLUGIN_DIR/agents/' 2>/dev/null | grep -q ."
 done
@@ -376,19 +367,15 @@ check "6.9: validate-multi-pr-dispatch.sh checks merge-brief existence" \
 check "6.9: validate-multi-pr-dispatch.sh checks prompt references merge-brief" \
   grep -q 'EXPECTED_MERGE_BRIEF_REF\|does not reference merge-brief' "$PLUGIN_DIR/hooks/validate-multi-pr-dispatch.sh"
 
-# 6.11: Multi-PR role handbooks exist with Self-Read Protocol
-check "6.11: multi-pr-explorer-handbook.md exists" \
-  test -f "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/multi-pr-explorer-handbook.md"
-check "6.11: multi-pr-conflict-worker-handbook.md exists" \
-  test -f "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/multi-pr-conflict-worker-handbook.md"
-check "6.11: multi-pr-integration-review-handbook.md exists" \
-  test -f "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/multi-pr-integration-review-handbook.md"
-check "6.11: explorer handbook has Self-Read Protocol" \
-  grep -q 'Self-Read Protocol' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/multi-pr-explorer-handbook.md"
-check "6.11: conflict worker handbook has Self-Read Protocol" \
-  grep -q 'Self-Read Protocol' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/multi-pr-conflict-worker-handbook.md"
-check "6.11: integration reviewer handbook has Self-Read Protocol" \
-  grep -q 'Self-Read Protocol' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/multi-pr-integration-review-handbook.md"
+# 6.11: Multi-PR merge-brief + role references with Self-Read Protocol
+check "6.11: merge-brief-template exists" \
+  test -f "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-brief-template.md"
+check "6.11: merge-preparation has signpost" \
+  bash -c "head -5 '$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-preparation.md' | grep -qE '流程位置|使用场景|完成后回到|Self-Read Protocol'"
+check "6.11: merge-conflict-discovery has signpost" \
+  bash -c "head -5 '$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-conflict-discovery.md' | grep -qE '流程位置|使用场景|完成后回到|Self-Read Protocol'"
+check "6.11: merge-integration-review has signpost" \
+  bash -c "head -5 '$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md' | grep -qE '流程位置|使用场景|完成后回到|Self-Read Protocol'"
 check "6.11: orchestrate-multi-pr-merge SKILL.md ≥100 lines" bash -c "
   [ \$(wc -l < '$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/SKILL.md') -ge 100 ]
 "

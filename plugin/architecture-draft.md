@@ -283,9 +283,9 @@ Skill 是按需加载到主线程的 Coordinator 逻辑。每个 skill 由 SKILL
 | `orchestrate-workflow` | 219 | 0-2（环境检测 + 入口） / 7-14（Route 1） / 15-18（Route 2 Bug） / 19-20（Route 3 Multi-PR） / 21-24（Closing） | bug-investigation-route / direction-check / workflow-closing / workflow-direct-repair / workflow-infrastructure / route-extensions/{hotfix,quickfix,spike,maintenance} |
 | `orchestrate-discovery` | 155 | 1-2（探索） / 3-6（与用户讨论） / 7-9（设计文档） / 10-11（Design Review） / 12（大 issue 拆分） | design-review-angles / discovery-design-document / discovery-discussion / discovery-formats / issue-splitting |
 | `orchestrate-plan-writing` | 271 | 0（Re-entry） / 1-2（前置） / 3-8（写作方法论） / 9-10（派 plan-writer + 收返） / 11-12b（Plan Entry Gate + Inventory Gate + Budget 赋值 + 跨计划合同锚点） / 13-14（Plan Review） / 15-18（disposition + repair + 截断） / 19（Git Checkpoint） | plan-writer-dispatch（Self-Read Protocol） / plan-writing-methodology / plan-gates / plan-preconditions / plan-review-dispatch / plan-review-resolution |
-| `orchestrate-execution` | 530 | 1-3（预执行） / 4-9（Plan 执行 + Review 循环 per Plan） / 10-12（修复分流 + 截断） / 13（Early Release Gate） / 14-16（Plan 推进 + 过渡） | execution-worker-dispatch（Self-Read Protocol） / execution-worker-handbook（Worker 自读） / execution-review-dispatch / execution-preparation / execution-completion / execution-release-gate / execution-repair-truncation / path-a-re-review / learnings-confidence-audit / learnings-trust-gate / route-extensions/ |
+| `orchestrate-execution` | 530 | 1-3（预执行） / 4-9（Plan 执行 + Review 循环 per Plan） / 10-12（修复分流 + 截断） / 13（Early Release Gate） / 14-16（Plan 推进 + 过渡） | execution-worker-dispatch（Self-Read Protocol） / execution-review-dispatch / execution-preparation / execution-completion / execution-release-gate / execution-repair-truncation |
 | `orchestrate-final-review` | 236 | 1-3（前置） / 4-5（2 baseline Codex dispatch） / 6-8（接收 + disposition） / 9-12（修复分流 + 截断） / 13-15,19-20（清扫 + 业务汇报 + Verdict） / 16-18（Final Release Gate） | final-review-angles / final-review-preconditions / final-review-disposition / final-review-repair / final-review-release-gate / final-review-completion |
-| `orchestrate-multi-pr-merge` | 229 | 1-3（入口 + 文档理解） / 4-8（并行 PR 分析 + 冲突分类） / 9-11（系统性冲突 RCA） / 12-15（Worker 修复 + 验证 + 循环） / 16-18（Codex 集成审查） / 19-22（顺序合并 + 清扫 + 返回） | merge-brief-template / merge-preparation / merge-conflict-discovery / merge-rca-investigation / merge-conflict-repair / merge-integration-review / merge-completion / multi-pr-explorer-handbook / multi-pr-conflict-worker-handbook / multi-pr-integration-review-handbook / rca-pr-conflict-methodology |
+| `orchestrate-multi-pr-merge` | 229 | 1-3（入口 + 文档理解） / 4-8（并行 PR 分析 + 冲突分类） / 9-11（系统性冲突 RCA） / 12-15（Worker 修复 + 验证 + 循环） / 16-18（Codex 集成审查） / 19-22（顺序合并 + 清扫 + 返回） | merge-brief-template / merge-preparation / merge-conflict-discovery / merge-rca-investigation / merge-conflict-repair / merge-integration-review / merge-completion / rca-pr-conflict-methodology |
 | `codex-review` | 154 | 1（确定审查对象） / 2（构建 prompt） / 3（派发 Codex） / 4（等待） / 5（汇报） | 无 references（单文件 ad-hoc skill） |
 
 **Skill 命名空间**：`multi-model-workflow:orchestrate-*`（全限定名，通过 `Skill({ skill: "..." })` 调用）。`codex-review` 是独立的轻量 ad-hoc 路径，与正规 orchestrate workflow 隔离（prompt 写入 `.claude/codex-review/`，不污染 `review-prompts/`）。
@@ -296,7 +296,7 @@ Plan-level 重构前：Coordinator 在 dispatch prompt 中**粘贴**完整 refer
 重构后：Coordinator 在 dispatch prompt 中只写**路径**，每个 reference 顶部的 `## Self-Read Protocol` 段告诉 sub-agent 启动后立即 Read 哪些文件。
 
 9 个反转的 reference：
-- `execution-worker-dispatch.md` / `execution-review-dispatch.md` / `execution-worker-handbook.md`
+- `execution-worker-dispatch.md` / `execution-review-dispatch.md`
 - `plan-writer-dispatch.md` / `plan-review-dispatch.md`
 - `final-review-angles.md`
 - `merge-rca-investigation.md` / `merge-conflict-repair.md` / `merge-integration-review.md`
