@@ -570,6 +570,36 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - plan-gates.md Plan Entry Gate / Inventory Gate / Cross-Plan Contract section ——结构清晰
 - plan-review-resolution.md 187 行——disposition + 修复 + 截断，与决策 13 兼容
 
+#### 决策 21：Execution 阶段微调（已被决策 1-20 大量覆盖后的剩余清单）
+
+亲查 Execution 阶段（SKILL.md 530 行 + 9 reference / total 1,630 行，全 plugin 最重）发现：**round 2 决策 1-20 已累计减负 ≈430 行**（决策 1 模板去重 130 + 决策 2 死模板/孤儿/handbook 折回 200 + 决策 3 删 Path A 30 + 决策 4 删 doc-patch 20 + 决策 6 删 agent-context-check 50 + 决策 13 删 targeted re-review 30），post-round-2 估算 ≈1,200 行——这是 Coordinator 工作手册的合理体量。
+
+**Execution 重的本质不是过度设计**：
+- DISPATCH_ENVELOPE 协议（跨 phase 通用，不可省）
+- state.sh 状态机调用密集（Document-as-Context + compaction recovery 支柱）
+- Worker Loop 6 段不变量（§10 第 1 条）
+- Plan Implementation Review 5 步派发协议
+- Open Items / Git Checkpoint / Release Gate / Backflow / Re-Entry from Final Review
+
+亲查后新发现的可压缩项（仅 2 条）：
+
+**1. execution-review-dispatch.md L5-15 Self-Read Protocol 死内容**：
+- 同 Discovery design-review-angles.md / Plan Writing plan-review-dispatch.md 同模式——"你是 codex-reviewer" 但 Codex 读 Coordinator 写的 review prompt 文件，**不读此 reference**
+- 删除约 10 行 / 500 chars
+
+**2. execution-worker-handbook.md 路径 bug 明确修正**：
+- SKILL.md L202 dispatch 模板写 `Handbook: <$(pwd)/plugin/skills/orchestrate-execution/references/execution-worker-handbook.md>`，但**实际文件名是 `execution-worker-dispatch.md`**
+- pack-executor / complex-pack-executor 启动后 Read 此路径会失败
+- 决策 2 已识别此问题但未明确修正位置；本决策具体化：**修正 SKILL.md L202 引用为 `execution-worker-dispatch.md`**（不重命名文件，文件名已是正确语义"dispatch 协议"）
+- 同时检查 agent-return-handler.sh / dispatch script / verify-maturity 中类似引用
+
+**不动的**（已是必要复杂度）：
+- DISPATCH_ENVELOPE schema（决策 1 列入"保留 inject" — 3 个紧密耦合文件）
+- execution-preparation.md / execution-completion.md / execution-release-gate.md / execution-repair-truncation.md — 按渐进式加载（按需读），保留独立文件而非折回 SKILL.md，让加载顺序按需触发
+- Worker Loop 6 段（不变量）
+
+**收益估算**：约 500 chars 减负 + 1 个路径 bug 修复（防止 worker 启动失败）
+
 ### 4.3 改动总览图
 
 ```
