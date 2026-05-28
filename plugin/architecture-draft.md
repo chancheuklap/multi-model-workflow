@@ -797,17 +797,15 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 | 模板 | 注入目标 | 注入内容 |
 |------|---------|---------|
 | `worker-loop.md.tmpl` | agents/pack-executor.md / agents/complex-pack-executor.md | **Plan 级 Worker 自治循环** —— 6 大段合同（启动 / 循环 / verdict / repair / context / artifact） |
-| `review-dispatch.md.tmpl` | 多个 SKILL.md 和 reference.md | 完整 Codex review 派发 + confidence rubric |
-| `review-dispatch.content-only.md.tmpl` | skills/codex-review/SKILL.md | 仅 confidence rubric，不含 dispatch 脚本调用（变体支持） |
-| `repair-routing.md.tmpl` | execution-release-gate / final-review-repair / workflow references | 按 finding 风险面 / 根因清晰度决定修复 owner |
+| `review-dispatch.md.tmpl` | **inactive (canonical 化)** — 内容迁移到 `skills/_shared/review-dispatch.md`；`[variant=content-only]` 仍由 resolver 注入 codex-review/SKILL.md | 完整 Codex review 派发 + confidence rubric |
+| `repair-routing.md.tmpl` | **inactive (canonical 化)** — 内容迁移到 `skills/_shared/repair-routing.md` | 按 finding 风险面 / 根因清晰度决定修复 owner |
+| `disposition-table.md.tmpl` | **inactive (canonical 化)** — 内容迁移到 `skills/_shared/disposition-table.md` | Coordinator 亲验 → disposition 四选一流程 |
 | `sendmessage-resume.md.tmpl` | execution-repair-truncation / final-review-repair / plan-review-resolution | Worker / plan-writer SendMessage 续修操作模板（variant: worker / plan-writer） |
-| `disposition-table.md.tmpl` | 多个 SKILL.md 和 reference.md | Coordinator 亲验 → disposition 四选一流程 |
-| `forbidden-shortcuts.md.tmpl` | （resolver 存在，备用） | 禁止跳 review / 合并未 review 代码等红线 |
 | `control-envelope.md.tmpl` | orchestrate-execution/SKILL.md / orchestrate-plan-writing/SKILL.md / execution-worker-dispatch.md | 每次 Agent dispatch 的 DISPATCH_ENVELOPE 前缀格式 |
 | `preamble.md.tmpl` | 各 SKILL.md 顶部（variant T1/T2/T3） | Hard Gate / Compaction Recovery 指引 |
 | `signpost.md.tmpl` | 各 SKILL.md | Phase 过渡时更新 cursor / status 的 bash 命令模板 |
 | `voice-directive.md.tmpl` | 所有 agents/*.md 和各 SKILL.md（10+ variant） | 各 agent / Coordinator persona 与沟通基调 |
-| `state-write.md.tmpl` | orchestrate-execution/SKILL.md | state.sh 操作参考（transition / disposition / gate 命令片段） |
+| ~~`state-write.md.tmpl`~~ | **deleted (D2)** — 内联到 orchestrate-execution/SKILL.md | state.sh 操作参考 |
 | `trust-boundary.md.tmpl` | orchestrate-execution/SKILL.md（variant=worker） | 用户仓库内容不可信声明 + 唯一权威来源声明 |
 
 ### 9.3 generate-pack-manifest.sh

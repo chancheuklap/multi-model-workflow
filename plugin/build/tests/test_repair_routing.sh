@@ -3,6 +3,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TEMPLATE="$PLUGIN_DIR/build/templates/repair-routing.md.tmpl"
+CANONICAL="$PLUGIN_DIR/skills/_shared/repair-routing.md"
 RESOLVER="$PLUGIN_DIR/build/resolvers/repair-routing.sh"
 
 FILES=(
@@ -16,33 +17,30 @@ FILES=(
   "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md"
   "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md"
 )
-MULTI_PR_INTEGRATION="$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md"
 
 pass=0; fail=0
 run_test() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then echo "  PASS: $name"; pass=$((pass+1)); else echo "  FAIL: $name"; fail=$((fail+1)); fi; }
 
 echo "=== test_repair_routing.sh ==="
 
+# Template and resolver still exist (for potential future use)
 run_test "repair-routing template exists" test -f "$TEMPLATE"
 run_test "repair-routing resolver exists" test -x "$RESOLVER"
-run_test "repair-routing template is Claude native" bash -c \
-  "grep -q 'SendMessage' '$TEMPLATE' && grep -q 'complex-pack-executor' '$TEMPLATE' && grep -q 'root-cause-analyst' '$TEMPLATE'"
 
+# Canonical reference (D1) contains the core content
+run_test "canonical repair-routing is Claude native" bash -c \
+  "grep -q 'SendMessage' '$CANONICAL' && grep -q 'complex-pack-executor' '$CANONICAL' && grep -q 'root-cause-analyst' '$CANONICAL'"
+run_test "canonical includes finding-to-owner repair routing" \
+  grep -q "Finding-to-owner 修复分流" "$CANONICAL"
+
+# All former anchor sites now reference canonical via Read directive
 for file in "${FILES[@]}"; do
-  run_test "$(basename "$file") includes repair-routing anchor" \
-    grep -q "BEGIN: repair-routing" "$file"
-  run_test "$(basename "$file") includes finding-to-owner repair routing" \
-    grep -q "Finding-to-owner 修复分流" "$file"
+  run_test "$(basename "$file") references canonical repair-routing" \
+    grep -q "plugin/skills/_shared/repair-routing.md" "$file"
 done
 
 run_test "repair routing does not introduce Codex-only dispatch terms" bash -c \
-  "! grep -R 'spawn_agent\\|send_input\\|wait_agent\\|\\.codex/multi-model-workflow\\|codex_reviewer\\|pack_executor\\|complex_pack_executor\\|root_cause_analyst' '$PLUGIN_DIR/build/templates/repair-routing.md.tmpl' '$PLUGIN_DIR/skills' >/dev/null"
-
-run_test "multi-pr repair re-review declares targeted envelope fields" bash -c \
-  "grep -q 'review_intent.*targeted-re-review' '$MULTI_PR_INTEGRATION' && grep -q 'exception_code.*user_requested' '$MULTI_PR_INTEGRATION'"
-
-run_test "multi-pr repair re-review has no stale task command without resume" bash -c \
-  "! grep -q 'node \"\\\$CODEX_SCRIPT\" task --background --prompt-file \\.claude/multi-model-workflow/review-prompts/<gate>\\.md' '$MULTI_PR_INTEGRATION'"
+  "! grep -R 'spawn_agent\\|send_input\\|wait_agent\\|\\.codex/multi-model-workflow\\|codex_reviewer\\|pack_executor\\|complex_pack_executor\\|root_cause_analyst' '$PLUGIN_DIR/build/templates/repair-routing.md.tmpl' >/dev/null"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

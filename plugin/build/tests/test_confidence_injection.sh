@@ -8,18 +8,19 @@ run_test() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then echo "  PASS:
 
 echo "=== test_confidence_injection.sh ==="
 
-# Confidence calibration table injected into multiple files
-run_test "confidence in execution SKILL.md" \
-  grep -q "8-10 (high)" "$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md"
+# Confidence calibration table in canonical references (D1)
+run_test "confidence in canonical disposition-table" \
+  grep -q "8-10 (high)" "$PLUGIN_DIR/skills/_shared/disposition-table.md"
 
-run_test "confidence in final-review-disposition.md" \
-  grep -q "8-10 (high)" "$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-disposition.md"
+run_test "confidence in canonical review-dispatch" \
+  grep -q "7-10: high" "$PLUGIN_DIR/skills/_shared/review-dispatch.md"
 
-run_test "confidence in plan-review-resolution.md" \
-  grep -q "8-10 (high)" "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-review-resolution.md"
+# Files referencing canonical disposition-table (have Read directives)
+run_test "execution SKILL.md references disposition-table canonical" \
+  grep -q "plugin/skills/_shared/disposition-table.md" "$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md"
 
-run_test "confidence in design-review-angles.md" \
-  grep -q "8-10 (high)" "$PLUGIN_DIR/skills/orchestrate-discovery/references/design-review-angles.md"
+run_test "final-review-disposition references disposition-table canonical" \
+  grep -q "plugin/skills/_shared/disposition-table.md" "$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-disposition.md"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

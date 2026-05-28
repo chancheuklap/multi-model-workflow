@@ -321,79 +321,7 @@ Worker 返回的 learnings 必须经过信任门才能写入 learnings.jsonl。
 
 **Read** `references/execution-review-dispatch.md` 获取完整 review prompt 结构（含 Review 分段规则、Cross-Pack Coherence、Neighbor interface contracts）和 reviewer 自跑命令列表。
 
-<!-- BEGIN: review-dispatch -->
-**Codex review dispatch** (`CODEX_SCRIPT` unset: `CODEX_SCRIPT="$(find ~/.claude/plugins -path '*/codex/scripts/codex-companion.mjs' -type f 2>/dev/null | head -1)"`)
-
-Claude-native flow split-of-concerns:
-- Coordinator runs `codex-companion.mjs` via Bash; the PostToolUse hook
-  `hooks/track-review-budget.sh` auto-counts review budget the moment the
-  `result` command fires (cap-guarded — won't double-count past exhaustion).
-- The validate / record / complete scripts handle envelope checks, registry
-  durability, and disposition recovery anchors — they do *not* touch budget
-  counting (that's the hook's job on Claude).
-
-1. Write prompt -> `review-prompts/<gate>.md` (prefix with DISPATCH_ENVELOPE, `agent_role: "codex-reviewer"`)
-   - Code diffs included in review prompts MUST be wrapped:
-     `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
-2. Select model by phase:
-   - `cursor.phase in {discovery, plan-writing}` -> `--model gpt-5.5 --effort xhigh`
-   - `cursor.phase in {execution, final-review, bug-investigation, direct-repair, multi-pr-merge, hotfix, quickfix, maintenance}` -> `--model gpt-5.4 --effort xhigh`
-3. Validate envelope and dispatch:
-   - **Baseline review** (envelope `review_intent: "baseline"`):
-     Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/dispatch-review.sh" validate --prompt-file ".claude/multi-model-workflow/review-prompts/<gate>.md" --gate "<gate>"`.
-     `node "$CODEX_SCRIPT" task --background --prompt-file <path> <model flags>`
-     -> record JOB_ID into `review-prompts/<gate>.job-id`
-     Then write the registry entry: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/dispatch-review.sh" record --prompt-file ".claude/multi-model-workflow/review-prompts/<gate>.md" --gate "<gate>" --agent-id "<JOB_ID>"`.
-   - **Over-budget escape hatch**: if Review Budget is exhausted and the user explicitly authorizes another review, append `--allow-over-budget --override-reason "<brief user authorization>"` to the validate command (lets the dispatch through) and to the later complete command (records the override in the registry). Do not use this flag for convenience or for Effort Budget.
-4. Wait: `node "$CODEX_SCRIPT" status "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)" --wait --timeout-ms 600000` (run_in_background: true)
-5. Result: `node "$CODEX_SCRIPT" result "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)"` -> `review-results/<gate>.md`
-   - The `track-review-budget` hook auto-increments review_used here (cap-guarded).
-6. Mark durable: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/complete-review-dispatch.sh" --run-id "<run_id>" --gate "<gate>" --agent-id "<JOB_ID>" --result-file ".claude/multi-model-workflow/review-results/<gate>.md"`. If Step 3 used the over-budget escape hatch, pass the same `--allow-over-budget --override-reason "<brief user authorization>"` here to record the override in the registry.
-6b. Disposition recovery anchor: before reading findings for disposition, run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/record-review-disposition.sh" --run-id "<run_id>" --gate "<gate>" --status started`; after all findings have disposition records, run the same command with `--status completed`.
-
-**Confidence rubric (REQUIRED in every review prompt)**:
-- 1-3: low confidence. Coordinator may suppress without deep investigation.
-- 4-6: medium. Coordinator must gather additional evidence before disposition.
-- 7-10: high. Coordinator should default to accept unless contradicted by evidence.
-
-**Pre-emit Verification Gate**：
-
-每个 finding 必须满足以下条件才能进入报告：
-
-1. **引用触发 finding 的具体代码行**——file:line + 该行的原始文本。
-   - "field X doesn't exist on model Y" → 引用 class Y 的定义体，证明字段缺失
-   - "dict.get() might return None" → 引用 dict 的初始化代码
-   - "race condition between A and B" → 引用 A 和 B 两处代码
-
-2. **无法引用 = finding 未验证**。将 confidence 强制设为 4-5（从主报告中抑制，移入附录）。
-   不要通过虚构 confidence 7+ 来绕过此门槛。
-
-3. **框架元编程特例**：当符号来自 ORM 元类、装饰器、代码生成器时，引用生成该符号的元构造，而非期望在类体中 grep 到字面名称。
-
-**Rationalization Prevention**：
-- "This looks fine" 不是 finding。要么引用证据证明确实没问题，要么标记为未验证。
-- "likely handled elsewhere" → 读并引用处理代码，或标记 unknown。
-- "probably tested" → 给出测试文件和方法名，或标记 unknown。
-
-**证据表 (REQUIRED)**：
-Reviewer 必须在 `### Evidence` 下填写半结构化证据表。证据表证明 reviewer 实际检查过什么；它不是设计意图摘要，也不能替代阅读 source artifacts。
-
-| 字段 | 必填内容 |
-| --- | --- |
-| 已读设计 / mockup / plan 来源 | 实际读过的 design、mockup、plan、issue、Scope Contract 或 review baseline 路径。没有对应来源时写 `不适用`，不能留空。 |
-| 已检查代码或产物路径 | 实际检查的源码、生成产物、state schema、hooks、templates、文档或 runtime contract 路径。 |
-| 已运行命令或验证 | 实际执行的命令、测试、build check、schema check、browser smoke 或 manual gate；未运行时写明原因。 |
-| Finding 证据 | 每个 finding 的路径、行号、diff、命令输出或可观察行为；无证据的 finding 必须移入低置信度观察。 |
-| 假设 | 影响 verdict 的前提，例如环境、账号、fixture、平台或 reviewer 未能直接验证的 upstream 状态。 |
-| 未验证项 | 相关但未验证的内容和原因；没有未验证项时写 `无`。 |
-
-**Bias indicators (REQUIRED at end of review output)**:
-Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
-
-Compaction recovery:
-- `.job-id` present but no `review-results/<gate>.md` -> resume from Step 4 (status + result) using that JOB_ID; once the result is saved and bookkeeping is complete, proceed to Step 6.
-- `review-registry/<gate>.json` status is `completed` or `disposition_started`, and `review-results/<gate>.md` exists -> Read that exact result file and continue Coordinator disposition. Do not re-dispatch review and do not proceed to repair until `record-review-disposition.sh --status completed` has been recorded.
-<!-- END: review-dispatch -->
+**Read** `plugin/skills/_shared/review-dispatch.md` 并按其格式派发 Codex review。
 
 Coordinator 写入 execution state：`plans[N].status = review_pending`。
 
@@ -401,55 +329,7 @@ Coordinator 写入 execution state：`plans[N].status = review_pending`。
 
 **Read** `references/execution-review-dispatch.md`（disposition 补证、Path A/B 路由细节）。
 
-<!-- BEGIN: disposition-table -->
-**Coordinator 亲验纪律** (disposition 之前的必经步骤):
-
-收到 reviewer findings 后**禁止直接转发给 worker**。逐条执行：
-1. 亲验：用 Read / grep / 对照设计文档验证 finding 的事实主张
-2. Disposition：accepted / rejected / needs evidence / out of scope（调用 state.sh disposition append）
-3. 修复指令：只把 accepted findings 翻译为具体修复指令传给 worker。Reviewer 原始输出不传
-
-没有 disposition 的 finding 不能进入 repair。过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改。
-
-**Confidence 校准** (Codex 返回 confidence 1-10):
-
-| Confidence | Coordinator 默认动作 | 覆写条件 |
-| --- | --- | --- |
-| 8-10 (high) | 直接亲验，通常 accept 或 reject | Coordinator 找到反向证据 |
-| 5-7 (medium) | 亲验 + 派 code-explorer 补证 -> 再定 disposition | -- |
-| 1-4 (low) | 默认 suppress -> 记录为 "suppressed: low confidence" | Coordinator 手动升级并附证据 |
-
-**Disposition 审计写入** (每条 finding 决定后立即调用):
-
-```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
-  --run-id "<run_id>" --review-round <r> --finding-id <id> \
-  --disposition <accepted|rejected|suppress|path-a|path-b> \
-  --confidence <1-10> --severity <H|M|L> \
-  --evidence "<一行理由>" --path "<file:line>"
-```
-
-`--evidence` 对 `--disposition accepted` 必填且非空。
-
-**Disposition 表**:
-
-| disposition | Coordinator 动作 |
-| --- | --- |
-| `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、targeted re-review scope |
-| `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
-| `needs evidence` | 派 explorer 补证据（窄范围用 `code-explorer`，多模块用 `complex-code-explorer`）；补证前不 repair |
-| `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |
-| `out of scope` | 从当前 scope 移出；**立即**开 GitHub issue（Durable Handoff Brief 格式，先查重） |
-| `needs evaluation` | 不在当前 pack 可修范围但需独立评估；**立即**开 GitHub issue，标明评估要点 |
-| `user decision` | 停止执行，一次只问一个会改变设计、计划或发布策略的问题 |
-
-冲突按 evidence quality 判断，不按 reviewer 数量投票。
-
-**Path A re-review 规则** (仅 confidence >= 7 的 accepted findings):
-- Coordinator Path A 直接修复 -> 强制 targeted Codex re-review
-- Codex 返回 `needs_repair` -> 必须升级 Path B 派 worker
-- 用 `state.sh path-a-escalation start/update/clear` 追踪
-<!-- END: disposition-table -->
+**Read** `plugin/skills/_shared/disposition-table.md` 并按其 disposition 选项处理 findings。
 
 **`needs evidence`**：派 `code-explorer`（窄范围）或 `complex-code-explorer`（跨模块），返回 confirmed/refuted 后再定 disposition。
 

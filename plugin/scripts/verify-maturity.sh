@@ -54,9 +54,14 @@ check "no '或新建' in skills/" bash -c "! grep -rq '或新建' '$PLUGIN_DIR/s
 check "no '新建同类' in agents/" bash -c "! grep -rq '新建同类' '$PLUGIN_DIR/agents/'"
 
 echo ""
-echo "## Anchors"
-check "≥10 review-dispatch anchors" bash -c "[ \$(grep -rl 'BEGIN: review-dispatch' '$PLUGIN_DIR/skills/' | wc -l) -ge 10 ]"
-check "≥1 disposition-table anchor" bash -c "[ \$(grep -rl 'BEGIN: disposition-table' '$PLUGIN_DIR/skills/' | wc -l) -ge 1 ]"
+echo "## Anchors + Canonical References (D1)"
+check "canonical review-dispatch exists" test -f "$PLUGIN_DIR/skills/_shared/review-dispatch.md"
+check "canonical repair-routing exists" test -f "$PLUGIN_DIR/skills/_shared/repair-routing.md"
+check "canonical disposition-table exists" test -f "$PLUGIN_DIR/skills/_shared/disposition-table.md"
+check "no stale review-dispatch standard anchor" bash -c "[ \$(grep -rln '<!-- BEGIN: review-dispatch -->' '$PLUGIN_DIR/skills/' | grep -v 'codex-review' | wc -l) -eq 0 ]"
+check "no stale repair-routing anchor" bash -c "[ \$(grep -rln '<!-- BEGIN: repair-routing -->' '$PLUGIN_DIR/skills/' | wc -l) -eq 0 ]"
+check "no stale disposition-table anchor" bash -c "[ \$(grep -rln '<!-- BEGIN: disposition-table -->' '$PLUGIN_DIR/skills/' | wc -l) -eq 0 ]"
+check "no relative _shared/ references" bash -c "[ \$(grep -rn '\.\./\_shared/\|^_shared/' '$PLUGIN_DIR/skills/' | wc -l) -eq 0 ]"
 check "≥1 preamble anchor" bash -c "[ \$(grep -rl 'BEGIN: preamble' '$PLUGIN_DIR/skills/' | wc -l) -ge 1 ]"
 
 echo ""

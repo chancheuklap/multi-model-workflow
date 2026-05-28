@@ -6,55 +6,7 @@
 
 **整体 Verdict 前置检查**：如果 reviewer 返回整体 `needs context`（不是某条 finding 的 `needs evidence`），说明 reviewer 无法完成审查。Coordinator 补充 reviewer 所需的上下文后重新 dispatch，不进入 per-finding disposition。
 
-<!-- BEGIN: disposition-table -->
-**Coordinator 亲验纪律** (disposition 之前的必经步骤):
-
-收到 reviewer findings 后**禁止直接转发给 worker**。逐条执行：
-1. 亲验：用 Read / grep / 对照设计文档验证 finding 的事实主张
-2. Disposition：accepted / rejected / needs evidence / out of scope（调用 state.sh disposition append）
-3. 修复指令：只把 accepted findings 翻译为具体修复指令传给 worker。Reviewer 原始输出不传
-
-没有 disposition 的 finding 不能进入 repair。过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改。
-
-**Confidence 校准** (Codex 返回 confidence 1-10):
-
-| Confidence | Coordinator 默认动作 | 覆写条件 |
-| --- | --- | --- |
-| 8-10 (high) | 直接亲验，通常 accept 或 reject | Coordinator 找到反向证据 |
-| 5-7 (medium) | 亲验 + 派 code-explorer 补证 -> 再定 disposition | -- |
-| 1-4 (low) | 默认 suppress -> 记录为 "suppressed: low confidence" | Coordinator 手动升级并附证据 |
-
-**Disposition 审计写入** (每条 finding 决定后立即调用):
-
-```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
-  --run-id "<run_id>" --review-round <r> --finding-id <id> \
-  --disposition <accepted|rejected|suppress|path-a|path-b> \
-  --confidence <1-10> --severity <H|M|L> \
-  --evidence "<一行理由>" --path "<file:line>"
-```
-
-`--evidence` 对 `--disposition accepted` 必填且非空。
-
-**Disposition 表**:
-
-| disposition | Coordinator 动作 |
-| --- | --- |
-| `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、targeted re-review scope |
-| `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
-| `needs evidence` | 派 explorer 补证据（窄范围用 `code-explorer`，多模块用 `complex-code-explorer`）；补证前不 repair |
-| `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |
-| `out of scope` | 从当前 scope 移出；**立即**开 GitHub issue（Durable Handoff Brief 格式，先查重） |
-| `needs evaluation` | 不在当前 pack 可修范围但需独立评估；**立即**开 GitHub issue，标明评估要点 |
-| `user decision` | 停止执行，一次只问一个会改变设计、计划或发布策略的问题 |
-
-冲突按 evidence quality 判断，不按 reviewer 数量投票。
-
-**Path A re-review 规则** (仅 confidence >= 7 的 accepted findings):
-- Coordinator Path A 直接修复 -> 强制 targeted Codex re-review
-- Codex 返回 `needs_repair` -> 必须升级 Path B 派 worker
-- 用 `state.sh path-a-escalation start/update/clear` 追踪
-<!-- END: disposition-table -->
+**Read** `plugin/skills/_shared/disposition-table.md` 并按其 disposition 选项处理 findings。
 
 **`needs evidence` 补证**：派 `code-explorer`（窄范围单文件/单调用链）或 `complex-code-explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
 
@@ -72,50 +24,7 @@ Plan Review 的 `accepted` 细分为 5 种路由：
 
 ## Step 16：修复路由
 
-<!-- BEGIN: repair-routing -->
-**Finding-to-owner 修复分流 (REQUIRED)**：
-
-这套规则在 reviewer 已经产出 finding、Coordinator 完成 disposition 之后使用。它不对 review 内容预先分风险等级，只根据 finding 的风险面、根因清晰度和修复形态选择 owner。
-
-| Finding / 修复形态 | 修复 owner |
-| --- | --- |
-| 范围小、本地化、意图清楚、不碰合同边界 | Coordinator Path A 可自修；修完必须验证，Path A targeted re-review 失败时升级 Path B。 |
-| 同一个 pack 内的普通修复，原 worker 能胜任 | 使用 `SendMessage({ to: "<agent_id>", ... })` 续修原 `pack-executor`；已有 agent_id 时不得新建同类 worker。 |
-| 高风险或跨边界修复：跨模块、migration、billing、permission、runtime、共享合同、state machine、生成模板 | 如果原 worker 是 `complex-pack-executor` 且仍适合承接，使用 `SendMessage` 续修原 agent；如果原 worker 是 `pack-executor`，或 finding 证明原 owner 不具备高风险合同能力，必须升级 owner。Formal Execution 中先形成新的 repair Pack / 回到 Execution 边界，再按新的 pending pack 派发 `complex-pack-executor`；non-execution route 中使用新的 route-worker escalation dispatch。两种情况都必须记录 `original_agent_id`、`context_ref`、`disposition_ref` 和 accepted finding refs。 |
-| 根因不清，只知道症状 | 先派 `code-explorer` 或 `complex-code-explorer` 做只读补证；确认根因前不 patch。 |
-| 系统性 bug、重复修复失败、未知 regression | 派 `root-cause-analyst`，要求列可证伪假设、排除证据和回归验证。 |
-| Final Review 发现跨 plan 合同问题 | 返回一次 `NEEDS_EXECUTION`，附 affected plans / packs / 连接面 / producer-consumer 断点，通过 execution repair 处理。 |
-| 设计、mockup 或 plan 不足以判断正确性 | 回流 Discovery 或 Plan Writing；不得用代码 patch 代替 source artifact 修复。 |
-| Release blocker | 简单且不碰合同边界可 Path A；涉及 migration / deploy order / rollback / permission / billing / runtime 时派 `complex-pack-executor`。 |
-| Multi-PR 合并冲突 | 简单冲突可 Coordinator 修；跨 PR 合同、迁移、状态或依赖冲突派 `complex-pack-executor`；系统性冲突派 `root-cause-analyst`。 |
-
-调度纪律：
-- Targeted repair 默认优先 `SendMessage` 续修原 agent；但高风险 finding 不能被原普通 worker 绑定。如果原 worker 是 `pack-executor`，Coordinator 必须写明 `escalation_reason`，并按当前 route 的状态模型升级 owner。
-- Formal Execution 的升级不能对同一个 `pack_id` 再次 `Agent({...})`：`validate-pack-dispatch.sh` 只允许 pending pack 首次派发，已有 `agent_id` 的同一 pack 普通修复只能 `SendMessage` 原 agent。若 accepted finding 证明必须换成 `complex-pack-executor`，Coordinator 必须回到 Execution/Plan 边界，把修复表达成新的 repair Pack 或 plan revision，使其拥有新的 `pack_id`、pending status、完整 Pack Brief 和独立 dispatch；不能用第二个 agent 冒充同一 Pack 的续修。
-- Non-execution route 的升级派发不是原 worker 的续修：使用 `dispatch-route-worker.sh validate --transport Agent`，envelope 里 `agent_id: null`、`pack_id: null`、`repair_round` 保留当前轮次、`idempotency_key` 使用新的 escalation key，并用 `dispatch-route-worker.sh record` 写入独立 `.agent-id` 文件。只有同一 owner 的普通 follow-up 才使用 `SendMessage` 续修原 agent；缺失原 `agent_id` 仍然 BLOCKED，不能用新 worker 冒充续修。
-- 升级派发 prompt 必须带上 `original_agent_id`、`context_ref`、`disposition_ref`、accepted findings、已确认风险面和回归证据要求，保证新 `complex-pack-executor` 能追溯原 context。
-- `Path A` 只适用于真正小范围修复；失败或 targeted re-review 返回 `needs repair` 时必须升级，不重复同一修法。
-- `needs evidence` finding 先补证再决定 owner。
-- 所有 repair prompt 只携带 accepted findings 和 Coordinator 亲验后的修复指令，不转发 reviewer 原始输出。
-
-**回归证据要求 (REQUIRED in repair return)**：
-
-Repair agent 或 Coordinator Path A 返回时必须提供回归证据；不要求每个 finding 都新增一个测试。优先选择能证明用户可见行为、合同或发布风险已修好的证据，不新增低价值实现细节测试。
-
-| Finding 类型 | 优先证据 |
-| --- | --- |
-| Public behavior bug | 现有或新增 behavior / integration test。 |
-| 合同、schema、migration、生成产物 bug | 合同检查、schema validation、migration check 或 build check。 |
-| UI 行为 bug | Browser smoke、screenshot、DOM state validation 或现有 UI test。 |
-| permission、billing、runtime、state machine、hook 问题 | integration check、state transition check、hook test，或带 owner 和步骤的 manual validation gate。 |
-| 文档或 plan mismatch | 文档一致性证据和修正后的 source 链接。 |
-| 只能环境验证的问题 | 明确 owner、命令、预期结果和阻塞条件的 manual validation gate。 |
-
-Repair Return Contract 必须补充：
-- `Regression evidence`: 命令、测试、build/schema/migration/hook check、browser evidence，或 manual validation gate。
-- `Test choice`: 说明为何使用现有测试、新增高层测试、合同检查或 manual gate；不得为纯实现细节新增脆弱测试。
-- `Unverified`: 仍未验证的边界和原因；没有则写 `无`。
-<!-- END: repair-routing -->
+**Read** `plugin/skills/_shared/repair-routing.md` 并按其流程处理 review findings。
 
 Plan Review 三条路径：
 
