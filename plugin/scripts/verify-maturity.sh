@@ -40,7 +40,7 @@ echo "## Hooks"
 check "hooks.json valid JSON" python3 -m json.tool "$PLUGIN_DIR/hooks/hooks.json"
 check "gate-codex-review.sh exists" test -x "$PLUGIN_DIR/hooks/gate-codex-review.sh"
 check "parse-envelope.sh exists" test -x "$PLUGIN_DIR/hooks/lib/parse-envelope.sh"
-check "validate-pack-dispatch.sh exists" test -x "$PLUGIN_DIR/hooks/validate-pack-dispatch.sh"
+check "validate-plan-dispatch.sh exists" test -x "$PLUGIN_DIR/hooks/validate-plan-dispatch.sh"
 check "validate-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-review-dispatch.sh"
 check "record-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/record-review-dispatch.sh"
 check "complete-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/complete-review-dispatch.sh"
@@ -119,8 +119,8 @@ check "DISPATCH_ENVELOPE in worker dispatch" bash -c "
   grep -q 'DISPATCH_ENVELOPE' '$PLUGIN_DIR/skills/orchestrate-execution/references/execution-worker-dispatch.md'
 "
 
-check "agent_id guard in validate-pack-dispatch" bash -c "
-  grep -q 'already has agent_id\|agent_id.*BLOCKED' '$PLUGIN_DIR/hooks/validate-pack-dispatch.sh'
+check "agent_id guard in validate-plan-dispatch" bash -c "
+  grep -q 'already has agent_id\|agent_id.*BLOCKED' '$PLUGIN_DIR/hooks/validate-plan-dispatch.sh'
 "
 
 check "targeted-re-review requires --resume" bash -c "
@@ -208,9 +208,9 @@ check "I3: plan-writing SKILL.md has anchors" bash -c \
 check "I3: workflow SKILL.md has anchors" bash -c \
   "[ \$(grep -c 'BEGIN:' '$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md') -ge 1 ]"
 
-# I4: validate-pack-dispatch Step 7 implemented (not deferred)
-check "I4: validate-pack-dispatch Step 7 pack status check" \
-  grep -q 'PACK_STATUS' "$PLUGIN_DIR/hooks/validate-pack-dispatch.sh"
+# I4: validate-plan-dispatch Step 7 implemented (not deferred)
+check "I4: validate-plan-dispatch Step 7 pack status check" \
+  grep -q 'PACK_STATUS' "$PLUGIN_DIR/hooks/validate-plan-dispatch.sh"
 
 # I5: state.sh supports plans subcommand
 check "I5: state.sh has plans subcommand" bash -c \
