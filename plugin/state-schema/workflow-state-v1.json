@@ -7,7 +7,7 @@
     "run_id", "slug", "route", "started_at",
     "cursor", "budget", "plans", "idempotency_keys",
     "plan_writer_agent_id", "review_dispositions",
-    "review_effectiveness", "pending_post_push_reviews",
+    "pending_post_push_reviews",
     "path_a_escalation", "self_verifications",
     "pending_direction_check",
     "execution_reflux_count", "last_gate_phase", "last_gate_timestamp"
@@ -84,23 +84,6 @@
           }
         },
         "required": ["finding_id", "disposition"]
-      }
-    },
-    "review_effectiveness": {
-      "type": "object",
-      "description": "Optional diagnostic counters for review disposition health. Kept for observability compatibility; not a correctness gate.",
-      "properties": {
-        "reject_count": { "type": "number" },
-        "suppress_count": { "type": "number" },
-        "path_a_count": { "type": "number" },
-        "path_b_count": { "type": "number" },
-        "total_findings": { "type": "number" },
-        "last_aggregated_at": { "type": ["string", "null"] },
-        "health_warnings": {
-          "type": "array",
-          "description": "Optional diagnostic disposition health range deviation warnings",
-          "items": { "type": "string" }
-        }
       }
     },
     "pending_post_push_reviews": { "type": "array" },

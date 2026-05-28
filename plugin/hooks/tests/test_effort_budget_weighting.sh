@@ -43,7 +43,6 @@ cat > "$BUDGET_DIR/workflow-state-${RUN_ID}.json" <<'EOF'
   "idempotency_keys": [],
   "plan_writer_agent_id": null,
   "review_dispositions": [],
-  "review_effectiveness": {"reject_count":0,"suppress_count":0,"path_a_count":0,"path_b_count":0,"total_findings":0,"last_aggregated_at":null},
   "pending_post_push_reviews": [],
   "path_a_escalation": [],
   "self_verifications": [],

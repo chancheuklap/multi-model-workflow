@@ -696,7 +696,7 @@ track-execution-state.sh 的 Pack ID 提取保留 sed 模式（`sed -n 's/.*Pack
 ### 8.2 双文件模型（Ruling 2）
 
 设计原文将 budget 和 execution-state 合并为单一 workflow-state。实现采用双文件：
-- **workflow-state-<run_id>.json**：run_id / slug / route（4 值 enum）/ cursor / budget / plans 元信息 / plan_count / plan_writer_agent_id / idempotency_keys / review_dispositions / review_effectiveness / path_a_escalation / self_verifications / pending_direction_check / pending_post_push_reviews / execution_reflux_count / last_gate_phase/timestamp / phase_skip / commit_format_override / mutations（append-only 审计日志）
+- **workflow-state-<run_id>.json**：run_id / slug / route（4 值 enum）/ cursor / budget / plans 元信息 / plan_count / plan_writer_agent_id / idempotency_keys / review_dispositions / path_a_escalation / self_verifications / pending_direction_check / pending_post_push_reviews / execution_reflux_count / last_gate_phase/timestamp / phase_skip / commit_format_override / mutations（append-only 审计日志）
 - **execution-state-<run_id>.json**：pack-level data（plans[plan_id].packs[pack_id] 含 status / agent_id / commit_sha / worker_verdict / repair_round / drift_warnings[] / pack_summary）
 
 分离原因：pack-level 被 3 个 hook 并发写入（agent-return-handler / track-execution-state / track-effort-budget），合并到单文件会加剧竞态。两文件通过 `plan_id` + `pack_id` 关联。
@@ -749,7 +749,6 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 | 库 | 用途 |
 |-----|------|
 | `scripts/lib/state-lock.sh` | 共享 flock 原语；TTL 60s，50 次重试，自动清 stale lock |
-| `scripts/lib/review-effectiveness.sh` | 从 review_dispositions 聚合诊断指标（reject/suppress/path-a 占比） |
 | `scripts/lib/learnings-poison-detector.sh` | 7 类 learnings 污染检测（指令注入 / 跨 run 污染 / 高量 flooding / scope 逃逸 / 来源可信度 / 过期引用 / contested learning） |
 | `scripts/lib/plan-return-parser.sh` | **新增**；source 后调用 `parse_plan_return <path>`；校验 schema_version=1、必填字段；导出 PLAN_RETURN_* bash 变量 |
 | `scripts/lib/doc-patch-apply.sh` | **新增**；source 后调用 `apply_doc_patch <patch>`；先 git apply --check 再 git apply + git add；空 patch no-op；不 commit |
@@ -929,20 +928,7 @@ Round 3 Re-Review 仍 needs repair → BLOCKED
 
 **Final Review → Execution 回流**：`execution_reflux_count` 字段，初始 0。允许回流 1 次；第 2 次 → BLOCKED。
 
-### 11.4 Review Effectiveness 可选诊断
-
-`scripts/lib/review-effectiveness.sh` 从 disposition 聚合统计，写入 workflow-state。**保留为可选诊断和观测兼容字段**；只提示分布异常，**不证明 review 正确性，不是 release readiness gate**。
-
-| 指标 | 健康告警阈值 |
-|------|------------|
-| `reject_count` / 总 findings | > 60% → systematic dismissal |
-| `reject_count` / 总 findings | < 10% → rubber-stamping |
-| `suppress_count` / 总 findings | > 30% → low-confidence abuse |
-| `path_a_count` / 总 findings | > 50% → excessive self-repair |
-
-健康告警可在 Direction Check 和 Final Review 时呈现，供 Coordinator 判断是否需人工复核。
-
-### 11.5 Learnings 系统
+### 11.4 Learnings 系统
 
 Worker 返回的 learnings 经过信任门（`learnings-trust-gate.md`）后写入 `learnings.jsonl`：
 1. **投毒检测**（`lib/learnings-poison-detector.sh`）：指令注入 / 跨 run 污染 / 范围逃逸
@@ -1318,9 +1304,9 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 
 | 目录 | 测试数 | 覆盖范围 |
 |------|-------|---------|
-| `build/tests/` | 15 | preamble resolver、review model tier、confidence injection、sendmessage resume、resolver 逻辑、voice injection、review segmentation、disposition audit、trust boundary、build check、cross-plan contract map、repair regression evidence、repair routing、review evidence table、review effectiveness optional |
+| `build/tests/` | 14 | preamble resolver、review model tier、confidence injection、sendmessage resume、resolver 逻辑、voice injection、review segmentation、disposition audit、trust boundary、build check、cross-plan contract map、repair regression evidence、repair routing、review evidence table |
 | `hooks/tests/` | 21 | 幂等性重放、disposition refs 校验、gate-codex-review、effort budget 加权（含计划级）、agent-id hook guard、envelope 解析、sendmessage resume、validate-plan-dispatch、validate-pack-manifest、validate-multi-pr-dispatch（14 项）、multi-pr-merge end-to-end（25 项）、worker scope drift、guard-plan-doc-patch、track-execution-state（pack summary / next suppression）、enforce-plan-commit、need-fresh-worker |
-| `scripts/tests/` | 21 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_context_check、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、learnings append、learnings 投毒检测、pack count validator、run summary、review effectiveness、hotfix post-push review、budget direction check、route keyword routing、trust gate、path-a re-review、doc-patch apply、generate pack manifest、complete review dispatch history、plan return parser |
+| `scripts/tests/` | 20 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_context_check、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、learnings append、learnings 投毒检测、pack count validator、run summary、hotfix post-push review、budget direction check、route keyword routing、trust gate、path-a re-review、doc-patch apply、generate pack manifest、complete review dispatch history、plan return parser |
 
 运行方式：`bash plugin/scripts/run-all-tests.sh`（全量）或 `bash plugin/scripts/verify-maturity.sh`（含测试 + 构建 + schema + 结构 12 大类检查）。
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Shared state lock primitives.
-# Extracted from state.sh for reuse by review-effectiveness.sh and other scripts.
+# Extracted from state.sh for reuse by other scripts.
 set -euo pipefail
 
 STATE_LOCK_TTL="${STATE_LOCK_TTL:-60}"

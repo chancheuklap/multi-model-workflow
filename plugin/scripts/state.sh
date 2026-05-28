@@ -169,14 +169,6 @@ cmd_init() {
   "idempotency_keys": [],
   "plan_writer_agent_id": null,
   "review_dispositions": [],
-  "review_effectiveness": {
-    "reject_count": 0,
-    "suppress_count": 0,
-    "path_a_count": 0,
-    "path_b_count": 0,
-    "total_findings": 0,
-    "last_aggregated_at": null
-  },
   "pending_post_push_reviews": [],
   "path_a_escalation": [],
   "self_verifications": [],
@@ -346,7 +338,7 @@ cmd_validate() {
   }
 
   local required_fields=("run_id" "slug" "route" "cursor" "budget" "plans"
-    "idempotency_keys" "review_dispositions" "review_effectiveness"
+    "idempotency_keys" "review_dispositions"
     "path_a_escalation" "self_verifications"
     "execution_reflux_count" "last_gate_phase"
     "last_gate_timestamp" "pending_direction_check"
