@@ -417,24 +417,6 @@ run_test_expect_fail "review-history append rejects missing doc kind" \
 run_test_expect_fail "review-history append rejects plan without --plan-id" \
   bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' review-history append --run-id '$RUN_ID8' --doc plan --slug rh-test --round 1 --verdict pass"
 
-# --- business-summary append ---
-cat > "$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md" <<'DOCEOF'
-# Test BS
-
-## Business Summary Inputs
-
-## Next section
-DOCEOF
-
-run_test "business-summary append fresh plan" \
-  bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' business-summary append --run-id '$RUN_ID8' --slug bs-test --plan-id 001 --summary 'launches feature X' --evidence 'screenshot' --risks 'none'"
-
-run_test "business-summary block appears" \
-  bash -c "grep -F '### Plan 001' '$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md' && grep -F 'launches feature X' '$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md'"
-
-run_test "business-summary append idempotent (replace)" \
-  bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' business-summary append --run-id '$RUN_ID8' --slug bs-test --plan-id 001 --summary 'updated feature X' --evidence 'new screenshot' --risks '-' && [[ \$(grep -c -F '### Plan 001' '$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md') -eq 1 ]] && grep -qF 'updated feature X' '$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md' && ! grep -qF 'launches feature X' '$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md'"
-
 # --- merge-brief lifecycle (Pack 6.8: 9-section schema, ephemeral path) ---
 RUN_ID9="test-mb"
 run_test "init for merge-brief test" \

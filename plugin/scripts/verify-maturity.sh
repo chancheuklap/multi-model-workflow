@@ -71,7 +71,7 @@ check "run-summary.sh exists" test -x "$PLUGIN_DIR/scripts/run-summary.sh"
 
 echo ""
 echo "## Defense"
-check "learnings-poison-detector.sh exists" test -x "$PLUGIN_DIR/scripts/lib/learnings-poison-detector.sh"
+check "poison detection function inlined in learnings-jsonl.sh" bash -c "grep -q 'detect_learning_poison' '$PLUGIN_DIR/scripts/learnings-jsonl.sh'"
 check "pack-count-validator.sh removed (D24)" test ! -f "$PLUGIN_DIR/scripts/pack-count-validator.sh"
 
 echo ""

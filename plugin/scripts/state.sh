@@ -1422,40 +1422,6 @@ cmd_idempotency_append() {
   mv "$tmp" "$sf"
 }
 
-# --- plans subcommand ---
-cmd_plans() {
-  local subcmd="$1"; shift
-  case "$subcmd" in
-    add) cmd_plans_add "$@" ;;
-    *) echo "Error: unknown plans subcommand: $subcmd (use add)" >&2; exit 2 ;;
-  esac
-}
-
-cmd_plans_add() {
-  local plan_id="" status="pending"
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --plan-id) plan_id="$2"; shift 2 ;;
-      --status) status="$2"; shift 2 ;;
-      *) shift ;;
-    esac
-  done
-  if [[ -z "$plan_id" ]]; then
-    echo "Error: --plan-id required" >&2
-    exit 2
-  fi
-  ensure_state_exists
-  acquire_lock
-  trap release_lock EXIT
-  local sf
-  sf="$(state_file)"
-  jq --arg pid "$plan_id" --arg st "$status" \
-    '.plans += [{"plan_id": $pid, "status": $st}]' \
-    "$sf" > "${sf}.tmp" && mv "${sf}.tmp" "$sf"
-  release_lock
-  trap - EXIT
-}
-
 # --- review-history subcommand (Pack 2.8) ---
 # Appends a row to a design/plan document's "## Review History" / "## Plan Review History"
 # markdown table. Idempotent: skip if a row with the same (round, verdict, reviewer, date)
@@ -1592,131 +1558,6 @@ cmd_review_history_append() {
   echo "OK"
 }
 
-# --- business-summary subcommand (Pack 2.8) ---
-cmd_business_summary() {
-  local subcmd="$1"; shift
-  for a in "$@"; do
-    case "$a" in --help|-h) subcmd="help"; break ;; esac
-  done
-  case "$subcmd" in
-    append) cmd_business_summary_append "$@" ;;
-    --help|-h|help)
-      cat <<'BSHELP'
-Usage: state.sh business-summary append --run-id <id> --slug <slug> --plan-id <N> \
-         --summary <text> [--evidence <text>] [--risks <text>]
-
-Appends a "### Plan <plan-id> — ..." block to the design document's
-"## Business Summary Inputs" section. Idempotent: re-running with the same
-plan-id replaces the block in place.
-BSHELP
-      exit 0
-      ;;
-    *) echo "Error: unknown business-summary subcommand: $subcmd (use append)" >&2; exit 2 ;;
-  esac
-}
-
-cmd_business_summary_append() {
-  local slug="" plan_id="" summary="" evidence="" risks=""
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --slug) slug="$2"; shift 2 ;;
-      --plan-id) plan_id="$2"; shift 2 ;;
-      --summary) summary="$2"; shift 2 ;;
-      --evidence) evidence="$2"; shift 2 ;;
-      --risks) risks="$2"; shift 2 ;;
-      *) shift ;;
-    esac
-  done
-
-  if [[ -z "$slug" || -z "$plan_id" || -z "$summary" ]]; then
-    echo "Error: --slug, --plan-id, --summary required for business-summary append" >&2
-    exit 2
-  fi
-
-  local target="docs/orchestrate/design/${slug}.md"
-  if [[ ! -f "$target" ]]; then
-    echo "Error: design document not found: $target" >&2
-    exit 2
-  fi
-  if ! grep -qF "## Business Summary Inputs" "$target"; then
-    echo "Error: '## Business Summary Inputs' section not found in $target" >&2
-    exit 2
-  fi
-
-  : "${evidence:=-}"
-  : "${risks:=-}"
-
-  acquire_lock
-  trap release_lock EXIT
-
-  # Build the block content.
-  local block_header="### Plan ${plan_id}"
-  local tmp="${target}.bs.tmp"
-
-  # Replace existing block with same Plan id, or append at section end.
-  # Strategy: rewrite the file in a single awk pass:
-  #   - Track when we enter "## Business Summary Inputs"
-  #   - Track when we hit an existing "### Plan <plan_id>" block
-  #   - Skip until next "### Plan" or "## " heading or EOF; emit our new block instead
-  #   - On exit of the section without finding existing block, append it
-  awk -v plan_id="$plan_id" -v summary="$summary" -v evidence="$evidence" -v risks="$risks" '
-    BEGIN { in_bsi=0; skipping=0; replaced=0; section_end_seen=0 }
-    /^## Business Summary Inputs/ { print; in_bsi=1; next }
-    {
-      if (in_bsi == 1) {
-        if ($0 ~ /^## /) {
-          # Exiting BSI without having appended. Insert block before this heading.
-          if (replaced == 0) {
-            print_block(plan_id, summary, evidence, risks)
-            replaced=1
-          }
-          in_bsi=0
-          skipping=0
-          print
-          next
-        }
-        if (skipping == 1) {
-          if ($0 ~ /^### Plan /) {
-            skipping=0
-            # Fall through to evaluate this new ### Plan line below.
-          } else if ($0 ~ /^## /) {
-            # Handled above; safety.
-            skipping=0
-          } else {
-            next
-          }
-        }
-        if ($0 ~ /^### Plan / ) {
-          # Check if it matches our target plan_id
-          if ($0 ~ ("^### Plan " plan_id "($| )")) {
-            # Replace this block
-            print_block(plan_id, summary, evidence, risks)
-            replaced=1
-            skipping=1
-            next
-          }
-        }
-        print
-        next
-      }
-      print
-    }
-    END {
-      if (in_bsi == 1 && replaced == 0) {
-        print_block(plan_id, summary, evidence, risks)
-      }
-    }
-    function print_block(pid, sum, ev, rk) {
-      print "### Plan " pid
-      print "- 新增能力：" sum
-      print "- 验证证据：" ev
-      print "- 残余风险：" rk
-      print ""
-    }
-  ' "$target" > "$tmp"
-  mv "$tmp" "$target"
-  echo "OK"
-}
 
 # --- merge-brief subcommand (Pack 6.8) ---
 # Lifecycle helper for merge-brief-v1 9-section artifact.
@@ -2122,9 +1963,7 @@ case "$CMD" in
   budget) cmd_budget "$@" ;;
   direction-check) cmd_direction_check "$@" ;;
   idempotency) cmd_idempotency "$@" ;;
-  plans) cmd_plans "$@" ;;
   review-history) cmd_review_history "$@" ;;
-  business-summary) cmd_business_summary "$@" ;;
   merge-brief) cmd_merge_brief "$@" ;;
   *) echo "Error: unknown command: $CMD" >&2; usage ;;
 esac
