@@ -99,7 +99,18 @@ if [ "$PLAN_DONE" -eq "$PLAN_TOTAL" ] && [ "$PLAN_TOTAL" -gt 0 ]; then
     fi
   fi
 
-  MSG="[multi-model-workflow] NEXT: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${COMMIT_SHA}). Dispatch Plan Implementation Review."
+  # Plan 005 Pack 5.10: when worker_agent_id is set (autonomous-mode Worker still
+  # in flight), suppress the "Dispatch Plan Implementation Review" NEXT — the
+  # Worker is committing all packs in a single session and will return through
+  # agent-return-handler.sh, which is the authoritative routing decision point.
+  # Emitting Review NEXT here would mislead Coordinator into dispatching review
+  # before Worker returns the plan-return.json artifact.
+  WORKER_AGENT_ID=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].worker_agent_id // empty' "$ESF" 2>/dev/null || echo "")
+  if [ -n "$WORKER_AGENT_ID" ] && [ "$WORKER_AGENT_ID" != "null" ]; then
+    MSG="[multi-model-workflow] STATE: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${COMMIT_SHA}). Worker ${WORKER_AGENT_ID} still in session — wait for SubagentStop / agent-return-handler.sh. Do NOT dispatch Plan Implementation Review yet."
+  else
+    MSG="[multi-model-workflow] NEXT: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${COMMIT_SHA}). Dispatch Plan Implementation Review."
+  fi
 else
   MSG="[multi-model-workflow] STATE: Pack ${PACK_ID} committed (${PLAN_DONE}/${PLAN_TOTAL} in Plan ${PLAN_ID})."
 fi
