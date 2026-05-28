@@ -53,6 +53,11 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/validate-pack-manifest.sh\"",
             "if": "Agent(complex-pack-executor*)"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/validate-multi-pr-dispatch.sh\"",
+            "comment": "Pack 6.9: gates dispatches carrying phase=multi-pr-merge (merge-brief existence + META consistency + conflict_id check + prompt reference)"
           }
         ]
       },
