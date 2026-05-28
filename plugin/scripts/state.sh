@@ -27,6 +27,9 @@ Commands:
   direction-check   Direction Check flow (trigger, ack)
   idempotency       Idempotency key management (check, append)
   plans             Plan management (add)
+  review-history    Append a row to a design/plan document's Review History table
+  business-summary  Append a Business Summary Inputs section for a Plan
+  merge-brief       Manage merge-brief lifecycle (init, stage, verify)
 
 Options:
   --run-id <id>     Run identifier (required for most commands)
@@ -392,6 +395,18 @@ cmd_validate() {
     exit 2
   fi
 
+  # Pack 2.8 (Plan 002 R3): accepted dispositions, IF they carry a
+  # coordinator_verified_evidence key, must not have it as empty string.
+  # null / absent is backward-compatible (pre-Plan-002 state files and
+  # dispositions recorded without the new flag). The intent: prevent
+  # repair workers from running with an explicitly-blank verification.
+  local accepted_blank_cve
+  accepted_blank_cve=$(jq '[.review_dispositions[] | select(.disposition == "accepted" and has("coordinator_verified_evidence") and .coordinator_verified_evidence == "")] | length' "$sf")
+  if [[ "$accepted_blank_cve" -gt 0 ]]; then
+    echo "Error: $accepted_blank_cve accepted disposition(s) with explicitly empty coordinator_verified_evidence" >&2
+    exit 2
+  fi
+
   echo "Valid"
 }
 
@@ -405,6 +420,8 @@ cmd_disposition() {
 
 cmd_disposition_append() {
   local review_round="" finding_id="" disposition="" confidence="" severity="" evidence="" path=""
+  local plan_id="" coord_verified_evidence=""
+  local coord_verified_evidence_set="false"
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --review-round) review_round="$2"; shift 2 ;;
@@ -414,6 +431,8 @@ cmd_disposition_append() {
       --severity) severity="$2"; shift 2 ;;
       --evidence) evidence="$2"; shift 2 ;;
       --path) path="$2"; shift 2 ;;
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --coordinator-verified-evidence) coord_verified_evidence="$2"; coord_verified_evidence_set="true"; shift 2 ;;
       *) shift ;;
     esac
   done
@@ -438,6 +457,15 @@ cmd_disposition_append() {
     exit 2
   fi
 
+  # Pack 2.8: if --coordinator-verified-evidence is provided for accepted disposition,
+  # it must be non-empty. This guards the explicit "I verified this" path. When the
+  # flag is omitted entirely the field stays null (backward-compatible with pre-Plan-002
+  # state and old fixtures); enforcement at validate time is likewise null-tolerant.
+  if [[ "$disposition" == "accepted" && "$coord_verified_evidence_set" == "true" && -z "$coord_verified_evidence" ]]; then
+    echo "Error: --coordinator-verified-evidence cannot be empty for accepted disposition" >&2
+    exit 2
+  fi
+
   ensure_state_exists
   acquire_lock
   trap release_lock EXIT
@@ -448,10 +476,22 @@ cmd_disposition_append() {
   now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   local tmp="${sf}.tmp"
 
+  # Build plan_id / coordinator_verified_evidence JSON values.
+  # Use jq --argjson with raw JSON strings so null vs "" stays distinct.
+  local plan_id_json="null"
+  if [[ -n "$plan_id" ]]; then
+    plan_id_json=$(jq -nc --arg v "$plan_id" '$v')
+  fi
+  local cve_json="null"
+  if [[ "$coord_verified_evidence_set" == "true" ]]; then
+    cve_json=$(jq -nc --arg v "$coord_verified_evidence" '$v')
+  fi
+
   jq --arg rr "${review_round:-0}" --arg fid "$finding_id" --arg disp "$disposition" \
      --arg conf "${confidence:-0}" --arg sev "${severity:-M}" \
      --arg ev "${evidence:-}" --arg p "${path:-}" --arg ts "$now" \
-    '.review_dispositions += [{"review_round": ($rr|tonumber), "finding_id": $fid, "disposition": $disp, "confidence": ($conf|tonumber), "severity": $sev, "evidence": $ev, "path": $p, "dispatched_at": $ts, "resolved_at": null}]' \
+     --argjson pid "$plan_id_json" --argjson cve "$cve_json" \
+    '.review_dispositions += [{"review_round": ($rr|tonumber), "finding_id": $fid, "disposition": $disp, "confidence": ($conf|tonumber), "severity": $sev, "evidence": $ev, "path": $p, "dispatched_at": $ts, "resolved_at": null, "plan_id": $pid, "coordinator_verified_evidence": $cve}]' \
     "$sf" > "$tmp"
   mv "$tmp" "$sf"
 }
@@ -600,17 +640,26 @@ cmd_agent_id() {
 }
 
 cmd_agent_id_set() {
-  local pack_id="" agent_id=""
+  local pack_id="" plan_id="" agent_id=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --pack-id) pack_id="$2"; shift 2 ;;
+      --plan-id) plan_id="$2"; shift 2 ;;
       --agent-id) agent_id="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
 
-  if [[ -z "$pack_id" || -z "$agent_id" ]]; then
-    echo "Error: --pack-id and --agent-id required for agent-id set" >&2
+  if [[ -n "$pack_id" && -n "$plan_id" ]]; then
+    echo "Error: --pack-id and --plan-id are mutually exclusive for agent-id set" >&2
+    exit 2
+  fi
+  if [[ -z "$pack_id" && -z "$plan_id" ]]; then
+    echo "Error: one of --pack-id or --plan-id required for agent-id set" >&2
+    exit 2
+  fi
+  if [[ -z "$agent_id" ]]; then
+    echo "Error: --agent-id required for agent-id set" >&2
     exit 2
   fi
 
@@ -625,27 +674,44 @@ cmd_agent_id_set() {
   trap release_lock EXIT
 
   local tmp="${esf}.tmp"
-  jq --arg pid "$pack_id" --arg aid "$agent_id" '
-    .plans |= with_entries(
-      .value.packs |= with_entries(
-        if .key == $pid then .value.agent_id = $aid else . end
+  if [[ -n "$plan_id" ]]; then
+    # plan-level: write to .plans[plan_id].worker_agent_id (per Pack 2.5 schema)
+    if ! jq -e --arg pid "$plan_id" '.plans[$pid] != null' "$esf" >/dev/null; then
+      echo "Error: plan_id $plan_id not found in execution-state" >&2
+      exit 2
+    fi
+    jq --arg pid "$plan_id" --arg aid "$agent_id" \
+      '.plans[$pid].worker_agent_id = $aid' "$esf" > "$tmp"
+    mv "$tmp" "$esf"
+  else
+    # pack-level: legacy path under .plans[*].packs[pack_id].agent_id
+    jq --arg pid "$pack_id" --arg aid "$agent_id" '
+      .plans |= with_entries(
+        .value.packs |= with_entries(
+          if .key == $pid then .value.agent_id = $aid else . end
+        )
       )
-    )
-  ' "$esf" > "$tmp"
-  mv "$tmp" "$esf"
+    ' "$esf" > "$tmp"
+    mv "$tmp" "$esf"
+  fi
 }
 
 cmd_agent_id_get() {
-  local pack_id=""
+  local pack_id="" plan_id=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --pack-id) pack_id="$2"; shift 2 ;;
+      --plan-id) plan_id="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
 
-  if [[ -z "$pack_id" ]]; then
-    echo "Error: --pack-id required for agent-id get" >&2
+  if [[ -n "$pack_id" && -n "$plan_id" ]]; then
+    echo "Error: --pack-id and --plan-id are mutually exclusive for agent-id get" >&2
+    exit 2
+  fi
+  if [[ -z "$pack_id" && -z "$plan_id" ]]; then
+    echo "Error: one of --pack-id or --plan-id required for agent-id get" >&2
     exit 2
   fi
 
@@ -657,9 +723,13 @@ cmd_agent_id_get() {
   fi
 
   local result
-  result=$(jq -r --arg pid "$pack_id" '
-    [.plans | to_entries[] | .value.packs // {} | to_entries[] | select(.key == $pid) | .value.agent_id // empty] | first // empty
-  ' "$esf" 2>/dev/null || echo "")
+  if [[ -n "$plan_id" ]]; then
+    result=$(jq -r --arg pid "$plan_id" '.plans[$pid].worker_agent_id // empty' "$esf" 2>/dev/null || echo "")
+  else
+    result=$(jq -r --arg pid "$pack_id" '
+      [.plans | to_entries[] | .value.packs // {} | to_entries[] | select(.key == $pid) | .value.agent_id // empty] | first // empty
+    ' "$esf" 2>/dev/null || echo "")
+  fi
 
   if [[ "$result" == "null" ]]; then
     echo ""
@@ -1113,6 +1183,427 @@ cmd_plans_add() {
   trap - EXIT
 }
 
+# --- review-history subcommand (Pack 2.8) ---
+# Appends a row to a design/plan document's "## Review History" / "## Plan Review History"
+# markdown table. Idempotent: skip if a row with the same (round, verdict, reviewer, date)
+# already exists. Locking via the workflow-state lock — even though we don't write the
+# state file, we serialize concurrent writers against the same target document.
+cmd_review_history() {
+  local subcmd="$1"; shift
+  # Forward --help on the subcommand line to the help text below.
+  for a in "$@"; do
+    case "$a" in --help|-h) subcmd="help"; break ;; esac
+  done
+  case "$subcmd" in
+    append) cmd_review_history_append "$@" ;;
+    --help|-h|help)
+      cat <<'RHHELP'
+Usage: state.sh review-history append --run-id <id> --doc design|plan --slug <slug> \
+         [--plan-id <N>] --round <R> --verdict <V> [--reviewer <name>] \
+         [--gotchas <text>] [--date <YYYY-MM-DD>]
+
+Appends a row to the Review History table in:
+  - design: docs/orchestrate/design/<slug>.md  (## Review History)
+  - plan:   docs/orchestrate/plans/<slug>/<plan-id>-*.md  (## Plan Review History)
+
+Idempotent: re-running with the same (round, verdict, reviewer, date) is a no-op.
+RHHELP
+      exit 0
+      ;;
+    *) echo "Error: unknown review-history subcommand: $subcmd (use append)" >&2; exit 2 ;;
+  esac
+}
+
+cmd_review_history_append() {
+  local doc_kind="" slug="" plan_id="" round="" verdict="" reviewer="" gotchas="" date_str=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --doc) doc_kind="$2"; shift 2 ;;
+      --slug) slug="$2"; shift 2 ;;
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --round) round="$2"; shift 2 ;;
+      --verdict) verdict="$2"; shift 2 ;;
+      --reviewer) reviewer="$2"; shift 2 ;;
+      --gotchas) gotchas="$2"; shift 2 ;;
+      --date) date_str="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$doc_kind" || -z "$slug" || -z "$round" || -z "$verdict" ]]; then
+    echo "Error: --doc, --slug, --round, --verdict required for review-history append" >&2
+    exit 2
+  fi
+  case "$doc_kind" in
+    design|plan) ;;
+    *) echo "Error: --doc must be 'design' or 'plan' (got '$doc_kind')" >&2; exit 2 ;;
+  esac
+  if [[ "$doc_kind" == "plan" && -z "$plan_id" ]]; then
+    echo "Error: --plan-id required when --doc plan" >&2
+    exit 2
+  fi
+
+  local target=""
+  local heading=""
+  if [[ "$doc_kind" == "design" ]]; then
+    target="docs/orchestrate/design/${slug}.md"
+    heading="## Review History"
+  else
+    # Plan files live under docs/orchestrate/plans/<slug>/<plan_id>-*.md
+    local plan_dir="docs/orchestrate/plans/${slug}"
+    # Find file starting with plan_id-
+    target=$(ls "${plan_dir}/${plan_id}"-*.md 2>/dev/null | head -1)
+    heading="## Plan Review History"
+  fi
+
+  if [[ -z "$target" || ! -f "$target" ]]; then
+    echo "Error: target document not found for doc=$doc_kind slug=$slug plan_id=$plan_id" >&2
+    exit 2
+  fi
+  if ! grep -qF "$heading" "$target"; then
+    echo "Error: heading '$heading' not found in $target — schema must include this section" >&2
+    exit 2
+  fi
+
+  : "${reviewer:=-}"
+  : "${gotchas:=-}"
+  : "${date_str:=$(date -u +%Y-%m-%d)}"
+
+  acquire_lock
+  trap release_lock EXIT
+
+  # Idempotency: check exact (round, verdict, reviewer, date) tuple already present.
+  local probe="| ${round} | ${verdict} | ${reviewer} |"
+  if grep -F "$probe" "$target" | grep -qF "| ${date_str} |"; then
+    echo "OK (already present)"
+    return 0
+  fi
+
+  local new_row="| ${round} | ${verdict} | ${reviewer} | ${gotchas} | - | ${date_str} |"
+
+  # Append the new row right after the last table line ('| ... |') beneath the
+  # target heading, before the next blank line or before the next heading.
+  # Use awk for the state-machine — sed/regex line-substitution is too fragile
+  # when the template carries a placeholder row.
+  local tmp="${target}.rh.tmp"
+  awk -v heading="$heading" -v new_row="$new_row" '
+    BEGIN { in_section=0; inserted=0; last_table_line=-1; }
+    {
+      lines[NR]=$0
+    }
+    END {
+      # First pass: find heading line, then walk forward to last table row.
+      heading_line=0
+      for (i=1; i<=NR; i++) {
+        if (lines[i] == heading) { heading_line=i; break }
+      }
+      if (heading_line == 0) {
+        # Fallback: heading not exactly matched (shouldn'\''t happen — grep -qF above).
+        for (i=1; i<=NR; i++) print lines[i]
+        print new_row
+        exit
+      }
+      last_table=heading_line
+      for (i=heading_line+1; i<=NR; i++) {
+        line=lines[i]
+        if (substr(line,1,2) == "##") break        # next heading
+        if (line ~ /^\|.*\|/) { last_table=i; continue }
+      }
+      for (i=1; i<=NR; i++) {
+        print lines[i]
+        if (i == last_table) print new_row
+      }
+    }
+  ' "$target" > "$tmp"
+  mv "$tmp" "$target"
+  echo "OK"
+}
+
+# --- business-summary subcommand (Pack 2.8) ---
+cmd_business_summary() {
+  local subcmd="$1"; shift
+  for a in "$@"; do
+    case "$a" in --help|-h) subcmd="help"; break ;; esac
+  done
+  case "$subcmd" in
+    append) cmd_business_summary_append "$@" ;;
+    --help|-h|help)
+      cat <<'BSHELP'
+Usage: state.sh business-summary append --run-id <id> --slug <slug> --plan-id <N> \
+         --summary <text> [--evidence <text>] [--risks <text>]
+
+Appends a "### Plan <plan-id> — ..." block to the design document's
+"## Business Summary Inputs" section. Idempotent: re-running with the same
+plan-id replaces the block in place.
+BSHELP
+      exit 0
+      ;;
+    *) echo "Error: unknown business-summary subcommand: $subcmd (use append)" >&2; exit 2 ;;
+  esac
+}
+
+cmd_business_summary_append() {
+  local slug="" plan_id="" summary="" evidence="" risks=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --slug) slug="$2"; shift 2 ;;
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --summary) summary="$2"; shift 2 ;;
+      --evidence) evidence="$2"; shift 2 ;;
+      --risks) risks="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$slug" || -z "$plan_id" || -z "$summary" ]]; then
+    echo "Error: --slug, --plan-id, --summary required for business-summary append" >&2
+    exit 2
+  fi
+
+  local target="docs/orchestrate/design/${slug}.md"
+  if [[ ! -f "$target" ]]; then
+    echo "Error: design document not found: $target" >&2
+    exit 2
+  fi
+  if ! grep -qF "## Business Summary Inputs" "$target"; then
+    echo "Error: '## Business Summary Inputs' section not found in $target" >&2
+    exit 2
+  fi
+
+  : "${evidence:=-}"
+  : "${risks:=-}"
+
+  acquire_lock
+  trap release_lock EXIT
+
+  # Build the block content.
+  local block_header="### Plan ${plan_id}"
+  local tmp="${target}.bs.tmp"
+
+  # Replace existing block with same Plan id, or append at section end.
+  # Strategy: rewrite the file in a single awk pass:
+  #   - Track when we enter "## Business Summary Inputs"
+  #   - Track when we hit an existing "### Plan <plan_id>" block
+  #   - Skip until next "### Plan" or "## " heading or EOF; emit our new block instead
+  #   - On exit of the section without finding existing block, append it
+  awk -v plan_id="$plan_id" -v summary="$summary" -v evidence="$evidence" -v risks="$risks" '
+    BEGIN { in_bsi=0; skipping=0; replaced=0; section_end_seen=0 }
+    /^## Business Summary Inputs/ { print; in_bsi=1; next }
+    {
+      if (in_bsi == 1) {
+        if ($0 ~ /^## /) {
+          # Exiting BSI without having appended. Insert block before this heading.
+          if (replaced == 0) {
+            print_block(plan_id, summary, evidence, risks)
+            replaced=1
+          }
+          in_bsi=0
+          skipping=0
+          print
+          next
+        }
+        if (skipping == 1) {
+          if ($0 ~ /^### Plan /) {
+            skipping=0
+            # Fall through to evaluate this new ### Plan line below.
+          } else if ($0 ~ /^## /) {
+            # Handled above; safety.
+            skipping=0
+          } else {
+            next
+          }
+        }
+        if ($0 ~ /^### Plan / ) {
+          # Check if it matches our target plan_id
+          if ($0 ~ ("^### Plan " plan_id "($| )")) {
+            # Replace this block
+            print_block(plan_id, summary, evidence, risks)
+            replaced=1
+            skipping=1
+            next
+          }
+        }
+        print
+        next
+      }
+      print
+    }
+    END {
+      if (in_bsi == 1 && replaced == 0) {
+        print_block(plan_id, summary, evidence, risks)
+      }
+    }
+    function print_block(pid, sum, ev, rk) {
+      print "### Plan " pid
+      print "- 新增能力：" sum
+      print "- 验证证据：" ev
+      print "- 残余风险：" rk
+      print ""
+    }
+  ' "$target" > "$tmp"
+  mv "$tmp" "$target"
+  echo "OK"
+}
+
+# --- merge-brief subcommand (Pack 2.8) ---
+# Lifecycle scaffold for multi-pr-merge artifact. Implementation surface here is
+# minimal — Plan 005/Phase 5 (merge-preparation reshape) will fill richer
+# semantics. We expose init / stage / verify so the CLI surface is stable now.
+cmd_merge_brief() {
+  local subcmd="$1"; shift
+  for a in "$@"; do
+    case "$a" in --help|-h) subcmd="help"; break ;; esac
+  done
+  case "$subcmd" in
+    init)   cmd_merge_brief_init "$@" ;;
+    stage)  cmd_merge_brief_stage "$@" ;;
+    verify) cmd_merge_brief_verify "$@" ;;
+    --help|-h|help)
+      cat <<'MBHELP'
+Usage:
+  state.sh merge-brief init   --run-id <id> [--brief-path <path>]
+  state.sh merge-brief stage  --run-id <id> --stage <name> [--brief-path <path>]
+  state.sh merge-brief verify --run-id <id> [--brief-path <path>]
+
+Manages docs/orchestrate/merge-briefs/merge-brief-<run_id>.md scaffolding.
+MBHELP
+      exit 0
+      ;;
+    *) echo "Error: unknown merge-brief subcommand: $subcmd (use init|stage|verify)" >&2; exit 2 ;;
+  esac
+}
+
+merge_brief_path() {
+  local override="$1"
+  if [[ -n "$override" ]]; then
+    echo "$override"
+  else
+    echo "docs/orchestrate/merge-briefs/merge-brief-${RUN_ID}.md"
+  fi
+}
+
+cmd_merge_brief_init() {
+  local brief_path=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --brief-path) brief_path="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  local target
+  target="$(merge_brief_path "$brief_path")"
+
+  acquire_lock
+  trap release_lock EXIT
+
+  if [[ -f "$target" ]]; then
+    echo "OK (already initialized)"
+    return 0
+  fi
+
+  mkdir -p "$(dirname "$target")"
+  local now
+  now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  cat > "$target" <<MBEOF
+# Merge Brief — ${RUN_ID}
+
+**Created:** ${now}
+**Stage:** init
+
+## 合成模型 / Compositional Model
+
+<filled by Coordinator during merge-preparation>
+
+## 合同地图 / Contract Map
+
+<cross-PR contract surfaces touched>
+
+## 文件矩阵 / File Matrix
+
+| File | PRs | Owner | Conflict notes |
+| --- | --- | --- | --- |
+
+## 冲突追加段 / Conflicts Append Log
+
+<append-only entries during merge-conflict-repair>
+
+## 解决日志 / Resolution Log
+
+<append-only resolution decisions>
+MBEOF
+  echo "Created: $target"
+}
+
+cmd_merge_brief_stage() {
+  local stage="" brief_path=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --stage) stage="$2"; shift 2 ;;
+      --brief-path) brief_path="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$stage" ]]; then
+    echo "Error: --stage required for merge-brief stage" >&2
+    exit 2
+  fi
+
+  local target
+  target="$(merge_brief_path "$brief_path")"
+  if [[ ! -f "$target" ]]; then
+    echo "Error: merge brief not found: $target (run 'merge-brief init' first)" >&2
+    exit 2
+  fi
+
+  acquire_lock
+  trap release_lock EXIT
+
+  local tmp="${target}.stg.tmp"
+  awk -v stage="$stage" '
+    BEGIN { done=0 }
+    /^\*\*Stage:\*\*/ {
+      if (done == 0) { print "**Stage:** " stage; done=1; next }
+    }
+    { print }
+  ' "$target" > "$tmp"
+  mv "$tmp" "$target"
+  echo "OK (stage=$stage)"
+}
+
+cmd_merge_brief_verify() {
+  local brief_path=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --brief-path) brief_path="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  local target
+  target="$(merge_brief_path "$brief_path")"
+  if [[ ! -f "$target" ]]; then
+    echo "Error: merge brief not found: $target" >&2
+    exit 2
+  fi
+
+  local missing=()
+  for section in "## 合成模型 / Compositional Model" "## 合同地图 / Contract Map" \
+                 "## 文件矩阵 / File Matrix" "## 冲突追加段 / Conflicts Append Log" \
+                 "## 解决日志 / Resolution Log"; do
+    if ! grep -qF "$section" "$target"; then
+      missing+=("$section")
+    fi
+  done
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "Error: merge brief missing required sections:" >&2
+    for s in "${missing[@]}"; do echo "  - $s" >&2; done
+    exit 2
+  fi
+  echo "Valid: $target"
+}
+
 # --- Main ---
 if [[ $# -lt 1 ]]; then usage; fi
 
@@ -1129,7 +1620,15 @@ while [[ $# -gt 0 ]]; do
 done
 set -- "${REMAINING_ARGS[@]+"${REMAINING_ARGS[@]}"}"
 
-if [[ -z "$RUN_ID" && "$CMD" != "help" ]]; then
+# Help mode (--help / -h) does not require --run-id.
+HELP_REQUESTED="false"
+for arg in "$@"; do
+  case "$arg" in
+    --help|-h|help) HELP_REQUESTED="true"; break ;;
+  esac
+done
+
+if [[ -z "$RUN_ID" && "$CMD" != "help" && "$HELP_REQUESTED" != "true" ]]; then
   echo "Error: --run-id is required" >&2
   exit 2
 fi
@@ -1149,5 +1648,8 @@ case "$CMD" in
   direction-check) cmd_direction_check "$@" ;;
   idempotency) cmd_idempotency "$@" ;;
   plans) cmd_plans "$@" ;;
+  review-history) cmd_review_history "$@" ;;
+  business-summary) cmd_business_summary "$@" ;;
+  merge-brief) cmd_merge_brief "$@" ;;
   *) echo "Error: unknown command: $CMD" >&2; usage ;;
 esac

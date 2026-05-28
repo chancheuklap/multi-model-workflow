@@ -274,6 +274,194 @@ jq '.review_dispositions = [{"finding_id":"BF1","disposition":"accepted","eviden
 run_test_expect_fail "validate fails on accepted disposition without evidence" \
   bash "$STATE_SH" validate --run-id "$RUN_ID4"
 
+# === Pack 2.8 new subcommands ===
+echo ""
+echo "=== Pack 2.8 new subcommands ==="
+
+# --- agent-id --plan-id (plan-level) ---
+RUN_ID5="test-plan-agent-id"
+run_test "init for plan-level agent-id test" \
+  bash "$STATE_SH" init --run-id "$RUN_ID5" --slug "agent-plan" --route "formal"
+
+cat > "$FIXTURE_DIR/execution-state-${RUN_ID5}.json" <<'ESJSON'
+{"run_id":"test-plan-agent-id","plans":{"001":{"packs":{"1.1":{"status":"pending"}}},"002":{"packs":{"2.1":{"status":"pending"}}}}}
+ESJSON
+
+run_test "agent-id set --plan-id writes worker_agent_id" \
+  bash "$STATE_SH" agent-id set --run-id "$RUN_ID5" --plan-id 001 --agent-id "plan-worker-1"
+
+run_test "agent-id get --plan-id returns set value" \
+  bash -c "[[ \$(bash '$STATE_SH' agent-id get --run-id '$RUN_ID5' --plan-id 001) == 'plan-worker-1' ]]"
+
+run_test "agent-id get --plan-id on unset plan returns empty" \
+  bash -c "[[ -z \$(bash '$STATE_SH' agent-id get --run-id '$RUN_ID5' --plan-id 002) ]]"
+
+run_test_expect_fail "agent-id set with both --pack-id and --plan-id rejected" \
+  bash "$STATE_SH" agent-id set --run-id "$RUN_ID5" --pack-id 1.1 --plan-id 001 --agent-id "x"
+
+run_test_expect_fail "agent-id set with neither --pack-id nor --plan-id rejected" \
+  bash "$STATE_SH" agent-id set --run-id "$RUN_ID5" --agent-id "x"
+
+run_test_expect_fail "agent-id set --plan-id on missing plan rejected" \
+  bash "$STATE_SH" agent-id set --run-id "$RUN_ID5" --plan-id 999 --agent-id "x"
+
+# --- disposition append with --plan-id + --coordinator-verified-evidence ---
+RUN_ID6="test-disp-extended"
+run_test "init for extended disposition test" \
+  bash "$STATE_SH" init --run-id "$RUN_ID6" --slug "disp-ext" --route "formal"
+
+run_test "disposition append with --plan-id + --coordinator-verified-evidence" \
+  bash "$STATE_SH" disposition append --run-id "$RUN_ID6" --finding-id "F1" --disposition accepted \
+    --evidence "grep evidence" --plan-id "001" --coordinator-verified-evidence "Coordinator ran grep X"
+
+run_test "disposition plan_id stored correctly" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID6' --field '.review_dispositions[0].plan_id') == '001' ]]"
+
+run_test "disposition coordinator_verified_evidence stored correctly" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID6' --field '.review_dispositions[0].coordinator_verified_evidence') == 'Coordinator ran grep X' ]]"
+
+run_test "disposition without --plan-id stores null" \
+  bash "$STATE_SH" disposition append --run-id "$RUN_ID6" --finding-id "F2" --disposition rejected
+run_test "disposition F2 plan_id is null" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID6' --field '.review_dispositions[1].plan_id') == 'null' ]]"
+run_test "disposition F2 coordinator_verified_evidence is null" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID6' --field '.review_dispositions[1].coordinator_verified_evidence') == 'null' ]]"
+
+run_test_expect_fail "disposition accepted with explicit empty --coordinator-verified-evidence rejected" \
+  bash "$STATE_SH" disposition append --run-id "$RUN_ID6" --finding-id "F3" --disposition accepted \
+    --evidence "ok" --coordinator-verified-evidence ""
+
+# --- validate enforces blank coordinator_verified_evidence only when present-but-empty ---
+RUN_ID7="test-validate-cve"
+run_test "init for cve validate test" \
+  bash "$STATE_SH" init --run-id "$RUN_ID7" --slug "cve" --route "formal"
+
+# Inject accepted disposition with cve key but empty value: should FAIL validate
+jq '.review_dispositions = [{"finding_id":"X1","disposition":"accepted","evidence":"e","coordinator_verified_evidence":""}]' \
+  "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json" > "$FIXTURE_DIR/tmp-cve.json" && mv "$FIXTURE_DIR/tmp-cve.json" "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json"
+
+run_test_expect_fail "validate fails when accepted has blank coordinator_verified_evidence" \
+  bash "$STATE_SH" validate --run-id "$RUN_ID7"
+
+# Replace with null cve: should PASS validate (backward compat)
+jq '.review_dispositions = [{"finding_id":"X1","disposition":"accepted","evidence":"e","coordinator_verified_evidence":null}]' \
+  "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json" > "$FIXTURE_DIR/tmp-cve.json" && mv "$FIXTURE_DIR/tmp-cve.json" "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json"
+
+run_test "validate passes when accepted has null coordinator_verified_evidence" \
+  bash "$STATE_SH" validate --run-id "$RUN_ID7"
+
+# Replace with absent cve (pre-Plan-002 state): should PASS validate (backward compat)
+jq '.review_dispositions = [{"finding_id":"X1","disposition":"accepted","evidence":"e"}]' \
+  "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json" > "$FIXTURE_DIR/tmp-cve.json" && mv "$FIXTURE_DIR/tmp-cve.json" "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json"
+
+run_test "validate passes when accepted lacks coordinator_verified_evidence key (legacy)" \
+  bash "$STATE_SH" validate --run-id "$RUN_ID7"
+
+# Replace with non-empty cve: should PASS validate
+jq '.review_dispositions = [{"finding_id":"X1","disposition":"accepted","evidence":"e","coordinator_verified_evidence":"Coordinator verified"}]' \
+  "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json" > "$FIXTURE_DIR/tmp-cve.json" && mv "$FIXTURE_DIR/tmp-cve.json" "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json"
+
+run_test "validate passes when accepted has populated coordinator_verified_evidence" \
+  bash "$STATE_SH" validate --run-id "$RUN_ID7"
+
+# --- review-history append ---
+RUN_ID8="test-review-history"
+run_test "init for review-history test" \
+  bash "$STATE_SH" init --run-id "$RUN_ID8" --slug "rh-test" --route "formal"
+
+# Create fixture design and plan documents under a temp cwd
+REVHIST_WORKDIR=$(mktemp -d)
+mkdir -p "$REVHIST_WORKDIR/docs/orchestrate/design"
+mkdir -p "$REVHIST_WORKDIR/docs/orchestrate/plans/rh-test"
+
+cat > "$REVHIST_WORKDIR/docs/orchestrate/design/rh-test.md" <<'DOCEOF'
+# Test Design
+
+## Review History
+
+| Round | Verdict | Reviewer | 重点建议 | 已知 gotcha | 日期 |
+| --- | --- | --- | --- | --- | --- |
+
+## Some other section
+DOCEOF
+
+cat > "$REVHIST_WORKDIR/docs/orchestrate/plans/rh-test/001-foo.md" <<'DOCEOF'
+# Plan 001
+
+## Plan Review History
+
+| Round | Verdict | Reviewer | 重点建议 | 已知 gotcha | 日期 |
+| --- | --- | --- | --- | --- | --- |
+
+## Pack Execution Manifest
+DOCEOF
+
+run_test "review-history append to design" \
+  bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' review-history append --run-id '$RUN_ID8' --doc design --slug rh-test --round 1 --verdict pass --reviewer codex-gpt-5.5 --date 2026-05-28"
+
+run_test "review-history row appears in design" \
+  bash -c "grep -F '| 1 | pass | codex-gpt-5.5 |' '$REVHIST_WORKDIR/docs/orchestrate/design/rh-test.md'"
+
+run_test "review-history append idempotent" \
+  bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' review-history append --run-id '$RUN_ID8' --doc design --slug rh-test --round 1 --verdict pass --reviewer codex-gpt-5.5 --date 2026-05-28 && [[ \$(grep -c -F '| 1 | pass | codex-gpt-5.5 |' '$REVHIST_WORKDIR/docs/orchestrate/design/rh-test.md') -eq 1 ]]"
+
+run_test "review-history append to plan" \
+  bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' review-history append --run-id '$RUN_ID8' --doc plan --slug rh-test --plan-id 001 --round 1 --verdict pass --reviewer codex-gpt-5.5 --date 2026-05-28"
+
+run_test "review-history row appears in plan" \
+  bash -c "grep -F '| 1 | pass | codex-gpt-5.5 |' '$REVHIST_WORKDIR/docs/orchestrate/plans/rh-test/001-foo.md'"
+
+run_test_expect_fail "review-history append rejects missing doc kind" \
+  bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' review-history append --run-id '$RUN_ID8' --slug rh-test --round 1 --verdict pass"
+
+run_test_expect_fail "review-history append rejects plan without --plan-id" \
+  bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' review-history append --run-id '$RUN_ID8' --doc plan --slug rh-test --round 1 --verdict pass"
+
+# --- business-summary append ---
+cat > "$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md" <<'DOCEOF'
+# Test BS
+
+## Business Summary Inputs
+
+## Next section
+DOCEOF
+
+run_test "business-summary append fresh plan" \
+  bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' business-summary append --run-id '$RUN_ID8' --slug bs-test --plan-id 001 --summary 'launches feature X' --evidence 'screenshot' --risks 'none'"
+
+run_test "business-summary block appears" \
+  bash -c "grep -F '### Plan 001' '$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md' && grep -F 'launches feature X' '$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md'"
+
+run_test "business-summary append idempotent (replace)" \
+  bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' business-summary append --run-id '$RUN_ID8' --slug bs-test --plan-id 001 --summary 'updated feature X' --evidence 'new screenshot' --risks '-' && [[ \$(grep -c -F '### Plan 001' '$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md') -eq 1 ]] && grep -qF 'updated feature X' '$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md' && ! grep -qF 'launches feature X' '$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md'"
+
+# --- merge-brief lifecycle ---
+RUN_ID9="test-mb"
+run_test "init for merge-brief test" \
+  bash "$STATE_SH" init --run-id "$RUN_ID9" --slug "mb-test" --route "multi-pr-merge"
+
+MB_DIR=$(mktemp -d)
+
+run_test "merge-brief init creates file" \
+  bash "$STATE_SH" merge-brief init --run-id "$RUN_ID9" --brief-path "$MB_DIR/brief.md"
+
+run_test "merge-brief init idempotent" \
+  bash "$STATE_SH" merge-brief init --run-id "$RUN_ID9" --brief-path "$MB_DIR/brief.md"
+
+run_test "merge-brief stage updates stage line" \
+  bash -c "bash '$STATE_SH' merge-brief stage --run-id '$RUN_ID9' --brief-path '$MB_DIR/brief.md' --stage 'compositional-model' && grep -qF '**Stage:** compositional-model' '$MB_DIR/brief.md'"
+
+run_test "merge-brief verify passes on scaffold" \
+  bash "$STATE_SH" merge-brief verify --run-id "$RUN_ID9" --brief-path "$MB_DIR/brief.md"
+
+# Corrupt the brief by removing a required section, verify must fail
+sed -i.bak '/合同地图/d' "$MB_DIR/brief.md" 2>/dev/null || sed -i '' '/合同地图/d' "$MB_DIR/brief.md"
+run_test_expect_fail "merge-brief verify fails when section missing" \
+  bash "$STATE_SH" merge-brief verify --run-id "$RUN_ID9" --brief-path "$MB_DIR/brief.md"
+
+# Cleanup temp dirs
+rm -rf "$REVHIST_WORKDIR" "$MB_DIR"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]
