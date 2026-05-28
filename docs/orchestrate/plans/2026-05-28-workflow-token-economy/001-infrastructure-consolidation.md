@@ -131,13 +131,13 @@
 - Verification: agent frontmatter 解析在 Claude Code 启动时进行；本 Pack 完成后 docs-worker / plan-writer 派发不会自动加载 skill，但 body 中 Skill() 调用仍可用
 
 **Acceptance criteria:**
-- [ ] `plugin/agents/docs-worker.md` 顶部 frontmatter（`---` 之间）不含 `skills:` key
-- [ ] `plugin/agents/plan-writer.md` 顶部 frontmatter 不含 `skills:` key
-- [ ] `plugin/agents/pack-executor.md` 仍含 `skills:\n  - tdd`
-- [ ] `plugin/agents/complex-pack-executor.md` 仍含 `skills:\n  - tdd`
-- [ ] `plugin/agents/root-cause-analyst.md` 仍含 `skills:\n  - diagnose\n  - tdd`
-- [ ] body 文字（说明何时按需调用 Skill）保留
-- [ ] `bash plugin/scripts/run-all-tests.sh` 全绿
+- [x] `plugin/agents/docs-worker.md` 顶部 frontmatter（`---` 之间）不含 `skills:` key
+- [x] `plugin/agents/plan-writer.md` 顶部 frontmatter 不含 `skills:` key
+- [x] `plugin/agents/pack-executor.md` 仍含 `skills:\n  - tdd`
+- [x] `plugin/agents/complex-pack-executor.md` 仍含 `skills:\n  - tdd`
+- [x] `plugin/agents/root-cause-analyst.md` 仍含 `skills:\n  - diagnose\n  - tdd`
+- [x] body 文字（说明何时按需调用 Skill）保留
+- [x] `bash plugin/scripts/run-all-tests.sh` 全绿
 
 **Verification commands:**
 - `awk '/^---$/{c++; next} c==1' plugin/agents/docs-worker.md | grep -c '^skills:'` → Expected: 0
@@ -155,22 +155,22 @@
 **Out of scope:** Discovery SKILL.md / discovery-discussion.md 中 grill-with-docs Step 0 提升（Issue 003 D15）
 
 #### Implementation tasks
-- [ ] Step 1: 写 verification 命令做 baseline 检查（现在 docs-worker.md / plan-writer.md 应该都返回 `1`，pack-executor 等返回 `1`）
+- [x] Step 1: 写 verification 命令做 baseline 检查（现在 docs-worker.md / plan-writer.md 应该都返回 `1`，pack-executor 等返回 `1`）
   - Run: `awk '/^---$/{c++; next} c==1' plugin/agents/docs-worker.md | grep -c '^skills:'` → Expected: 1（改前）
   - Run: `awk '/^---$/{c++; next} c==1' plugin/agents/plan-writer.md | grep -c '^skills:'` → Expected: 1（改前）
-- [ ] Step 2: Edit `plugin/agents/docs-worker.md` — 删除 L20-21 两行（`skills:` 和下一行 `  - grill-with-docs`）；保留下方 `memory: project` / `maxTurns: 20` / `color: blue` 等字段
+- [x] Step 2: Edit `plugin/agents/docs-worker.md` — 删除 L20-21 两行（`skills:` 和下一行 `  - grill-with-docs`）；保留下方 `memory: project` / `maxTurns: 20` / `color: blue` 等字段
   - 文件 / Behavior / Key assertions：frontmatter 仍以 `---` 开头结尾；其他字段顺序不变
-- [ ] Step 3: Edit `plugin/agents/plan-writer.md` — 删除 L20-21 两行（`skills:` 和 `  - improve-codebase-architecture`）；保留下方 `memory: project` / `color: cyan` 等字段
-- [ ] Step 4: 运行 verification 命令确认 frontmatter 已修改
+- [x] Step 3: Edit `plugin/agents/plan-writer.md` — 删除 L20-21 两行（`skills:` 和 `  - improve-codebase-architecture`）；保留下方 `memory: project` / `color: cyan` 等字段
+- [x] Step 4: 运行 verification 命令确认 frontmatter 已修改
   - Run: `awk '/^---$/{c++; next} c==1' plugin/agents/docs-worker.md | grep -c '^skills:'` → Expected: 0
   - Run: `awk '/^---$/{c++; next} c==1' plugin/agents/plan-writer.md | grep -c '^skills:'` → Expected: 0
-- [ ] Step 5: 确认其他 3 个 agent 不动
+- [x] Step 5: 确认其他 3 个 agent 不动
   - Run: `awk '/^---$/{c++; next} c==1' plugin/agents/pack-executor.md | grep -c '^skills:'` → Expected: 1
   - Run: `awk '/^---$/{c++; next} c==1' plugin/agents/complex-pack-executor.md | grep -c '^skills:'` → Expected: 1
   - Run: `awk '/^---$/{c++; next} c==1' plugin/agents/root-cause-analyst.md | grep -c '^skills:'` → Expected: 1
-- [ ] Step 6: 跑全量测试
+- [x] Step 6: 跑全量测试
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS（all suites）
-- [ ] Step 7: Suggested commit boundary — `feat(agents): slim docs-worker and plan-writer frontmatter skills (D11)`
+- [x] Step 7: Suggested commit boundary — `feat(agents): slim docs-worker and plan-writer frontmatter skills (D11)`
 
 ---
 
@@ -199,14 +199,14 @@
 - Verification: build.sh --check 不再有 `forbidden-shortcuts` 处理路径
 
 **Acceptance criteria:**
-- [ ] `grep -rn 'BEGIN: forbidden-shortcuts' plugin/` 返回空
-- [ ] `grep -rn 'END: forbidden-shortcuts' plugin/` 返回空
-- [ ] `test ! -f plugin/build/templates/forbidden-shortcuts.md.tmpl`
-- [ ] `test ! -f plugin/build/resolvers/forbidden-shortcuts.sh`
-- [ ] orchestrate-final-review/SKILL.md L150-180 含原 forbidden-shortcuts 内容（grep 关键字符串，如 "禁止快捷方式" 或同义中文/英文标志）
-- [ ] orchestrate-execution/SKILL.md L475-490 同上
-- [ ] `bash plugin/build/build.sh --check --plugin-dir plugin` exit 0
-- [ ] `bash plugin/scripts/run-all-tests.sh` 全绿
+- [x] `grep -rn 'BEGIN: forbidden-shortcuts' plugin/` 返回空
+- [x] `grep -rn 'END: forbidden-shortcuts' plugin/` 返回空
+- [x] `test ! -f plugin/build/templates/forbidden-shortcuts.md.tmpl`
+- [x] `test ! -f plugin/build/resolvers/forbidden-shortcuts.sh`
+- [x] orchestrate-final-review/SKILL.md L150-180 含原 forbidden-shortcuts 内容（grep 关键字符串，如 "禁止快捷方式" 或同义中文/英文标志）
+- [x] orchestrate-execution/SKILL.md L475-490 同上
+- [x] `bash plugin/build/build.sh --check --plugin-dir plugin` exit 0
+- [x] `bash plugin/scripts/run-all-tests.sh` 全绿
 
 **Verification commands:**
 - `grep -rn 'BEGIN: forbidden-shortcuts\|END: forbidden-shortcuts' plugin/` → Expected: empty
@@ -223,24 +223,24 @@
 **Out of scope:** state-write / trust-boundary（独立 Pack）
 
 #### Implementation tasks
-- [ ] Step 1: Read 当前模板和 resolver
+- [x] Step 1: Read 当前模板和 resolver
   - Run: `cat plugin/build/templates/forbidden-shortcuts.md.tmpl` → 记下完整内容
   - Run: `cat plugin/build/resolvers/forbidden-shortcuts.sh` → 确认 resolver 是否处理 variant；如有 variant，需要对每个 active site 调用 resolver 还原 expanded 内容
-- [ ] Step 2: 跑当前 build 确认基线
+- [x] Step 2: 跑当前 build 确认基线
   - Run: `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0（baseline）
-- [ ] Step 3: Read `plugin/skills/orchestrate-final-review/SKILL.md` L140-180 拿到完整锚点块；记录 BEGIN 行号和 END 行号
-- [ ] Step 4: Edit orchestrate-final-review/SKILL.md — 把整个 `<!-- BEGIN: forbidden-shortcuts ... -->` 行 + 内容 + `<!-- END: forbidden-shortcuts -->` 替换为纯内容（无 BEGIN/END 注释）。内容应为 resolver 展开后的最终文本
-- [ ] Step 5: Read orchestrate-execution/SKILL.md L470-495 同样处理；记录 BEGIN/END 行号；Edit 替换
-- [ ] Step 6: 删除模板源
+- [x] Step 3: Read `plugin/skills/orchestrate-final-review/SKILL.md` L140-180 拿到完整锚点块；记录 BEGIN 行号和 END 行号
+- [x] Step 4: Edit orchestrate-final-review/SKILL.md — 把整个 `<!-- BEGIN: forbidden-shortcuts ... -->` 行 + 内容 + `<!-- END: forbidden-shortcuts -->` 替换为纯内容（无 BEGIN/END 注释）。内容应为 resolver 展开后的最终文本
+- [x] Step 5: Read orchestrate-execution/SKILL.md L470-495 同样处理；记录 BEGIN/END 行号；Edit 替换
+- [x] Step 6: 删除模板源
   - Run: `rm plugin/build/templates/forbidden-shortcuts.md.tmpl`
   - Run: `rm plugin/build/resolvers/forbidden-shortcuts.sh`
-- [ ] Step 7: 跑 build --check 确认无 active anchor 残留
+- [x] Step 7: 跑 build --check 确认无 active anchor 残留
   - Run: `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
-- [ ] Step 8: grep 验证 anchor 清零
+- [x] Step 8: grep 验证 anchor 清零
   - Run: `grep -rn 'BEGIN: forbidden-shortcuts\|END: forbidden-shortcuts' plugin/` → Expected: empty
-- [ ] Step 9: 跑全量测试
+- [x] Step 9: 跑全量测试
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
-- [ ] Step 10: Suggested commit boundary — `refactor(build): inline forbidden-shortcuts and remove template (D2)`
+- [x] Step 10: Suggested commit boundary — `refactor(build): inline forbidden-shortcuts and remove template (D2)`
 
 ---
 
@@ -267,12 +267,12 @@
 - Verification: build --check 不再触及 state-write
 
 **Acceptance criteria:**
-- [ ] `grep -rn 'BEGIN: state-write\|END: state-write' plugin/` 返回空
-- [ ] `test ! -f plugin/build/templates/state-write.md.tmpl`
-- [ ] `test ! -f plugin/build/resolvers/state-write.sh`
-- [ ] orchestrate-execution/SKILL.md L205-220 含原 state-write 内容（grep 关键字符串验证）
-- [ ] `bash plugin/build/build.sh --check --plugin-dir plugin` exit 0
-- [ ] `bash plugin/scripts/run-all-tests.sh` 全绿
+- [x] `grep -rn 'BEGIN: state-write\|END: state-write' plugin/` 返回空
+- [x] `test ! -f plugin/build/templates/state-write.md.tmpl`
+- [x] `test ! -f plugin/build/resolvers/state-write.sh`
+- [x] orchestrate-execution/SKILL.md L205-220 含原 state-write 内容（grep 关键字符串验证）
+- [x] `bash plugin/build/build.sh --check --plugin-dir plugin` exit 0
+- [x] `bash plugin/scripts/run-all-tests.sh` 全绿
 
 **Verification commands:**
 - `grep -rn 'BEGIN: state-write\|END: state-write' plugin/` → Expected: empty
@@ -289,21 +289,21 @@
 **Out of scope:** forbidden-shortcuts / trust-boundary（独立 Pack）
 
 #### Implementation tasks
-- [ ] Step 1: Read 模板和 resolver
+- [x] Step 1: Read 模板和 resolver
   - Run: `cat plugin/build/templates/state-write.md.tmpl` → 记录内容
   - Run: `cat plugin/build/resolvers/state-write.sh` → 确认 variant 处理
-- [ ] Step 2: Baseline build check
+- [x] Step 2: Baseline build check
   - Run: `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
-- [ ] Step 3: Read orchestrate-execution/SKILL.md L205-225 拿到完整锚点块
-- [ ] Step 4: Edit 替换 BEGIN-END 整段为纯内容
-- [ ] Step 5: 删除源
+- [x] Step 3: Read orchestrate-execution/SKILL.md L205-225 拿到完整锚点块
+- [x] Step 4: Edit 替换 BEGIN-END 整段为纯内容
+- [x] Step 5: 删除源
   - Run: `rm plugin/build/templates/state-write.md.tmpl plugin/build/resolvers/state-write.sh`
-- [ ] Step 6: 验证清零
+- [x] Step 6: 验证清零
   - Run: `grep -rn 'BEGIN: state-write\|END: state-write' plugin/` → Expected: empty
-- [ ] Step 7: build check + 全量测试
+- [x] Step 7: build check + 全量测试
   - Run: `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
-- [ ] Step 8: Commit `refactor(build): inline state-write and remove template (D2)`
+- [x] Step 8: Commit `refactor(build): inline state-write and remove template (D2)`
 
 ---
 
@@ -330,12 +330,12 @@
 - Verification: build --check 不触及 trust-boundary
 
 **Acceptance criteria:**
-- [ ] `grep -rn 'BEGIN: trust-boundary\|END: trust-boundary' plugin/` 返回空
-- [ ] `test ! -f plugin/build/templates/trust-boundary.md.tmpl`
-- [ ] `test ! -f plugin/build/resolvers/trust-boundary.sh`
-- [ ] orchestrate-execution/SKILL.md L180-200 含原 trust-boundary [variant=worker] 展开后内容
-- [ ] `bash plugin/build/build.sh --check --plugin-dir plugin` exit 0
-- [ ] `bash plugin/scripts/run-all-tests.sh` 全绿
+- [x] `grep -rn 'BEGIN: trust-boundary\|END: trust-boundary' plugin/` 返回空
+- [x] `test ! -f plugin/build/templates/trust-boundary.md.tmpl`
+- [x] `test ! -f plugin/build/resolvers/trust-boundary.sh`
+- [x] orchestrate-execution/SKILL.md L180-200 含原 trust-boundary [variant=worker] 展开后内容
+- [x] `bash plugin/build/build.sh --check --plugin-dir plugin` exit 0
+- [x] `bash plugin/scripts/run-all-tests.sh` 全绿
 
 **Verification commands:**
 - `grep -rn 'BEGIN: trust-boundary\|END: trust-boundary' plugin/` → Expected: empty
@@ -352,21 +352,21 @@
 **Out of scope:** forbidden-shortcuts / state-write（独立 Pack）
 
 #### Implementation tasks
-- [ ] Step 1: Read 模板 + resolver
+- [x] Step 1: Read 模板 + resolver
   - Run: `cat plugin/build/templates/trust-boundary.md.tmpl`
   - Run: `cat plugin/build/resolvers/trust-boundary.sh` → 关键：确认 `[variant=worker]` 展开后的具体文本
-- [ ] Step 2: Baseline build check
+- [x] Step 2: Baseline build check
   - Run: `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
-- [ ] Step 3: Read orchestrate-execution/SKILL.md L180-205 拿到完整锚点块
-- [ ] Step 4: Edit 替换 BEGIN-END 整段为 worker variant 展开后的纯内容
-- [ ] Step 5: 删除源
+- [x] Step 3: Read orchestrate-execution/SKILL.md L180-205 拿到完整锚点块
+- [x] Step 4: Edit 替换 BEGIN-END 整段为 worker variant 展开后的纯内容
+- [x] Step 5: 删除源
   - Run: `rm plugin/build/templates/trust-boundary.md.tmpl plugin/build/resolvers/trust-boundary.sh`
-- [ ] Step 6: 验证清零
+- [x] Step 6: 验证清零
   - Run: `grep -rn 'BEGIN: trust-boundary\|END: trust-boundary' plugin/` → Expected: empty
-- [ ] Step 7: build check + 全量测试
+- [x] Step 7: build check + 全量测试
   - Run: `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
-- [ ] Step 8: Commit `refactor(build): inline trust-boundary worker variant and remove template (D2)`
+- [x] Step 8: Commit `refactor(build): inline trust-boundary worker variant and remove template (D2)`
 
 ---
 
@@ -403,19 +403,19 @@
 - Verification: 文件物理消失 + grep 在 plugin/skills/ 内无孤儿引用
 
 **Acceptance criteria:**
-- [ ] `test ! -f plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-conflict-worker-handbook.md`
-- [ ] `test ! -f plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-explorer-handbook.md`
-- [ ] `test ! -f plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-integration-review-handbook.md`
-- [ ] `test ! -f plugin/skills/orchestrate-execution/references/learnings-confidence-audit.md`
-- [ ] `test ! -f plugin/skills/orchestrate-execution/references/learnings-trust-gate.md`
-- [ ] `test ! -f plugin/skills/orchestrate-execution/references/path-a-re-review.md`
-- [ ] `test ! -d plugin/skills/orchestrate-execution/references/route-extensions/`
-- [ ] orchestrate-execution/SKILL.md 含 `## Learnings 信任门` 或同义子章节（grep 关键短语：`Confidence 分层处理` 或 `投毒检测` 等原内容代表性短语）
-- [ ] `plugin/scripts/verify-maturity.sh` 不再含三处 `multi-pr-explorer-handbook.md` / `multi-pr-conflict-worker-handbook.md` / `multi-pr-integration-review-handbook.md` 字符串
-- [ ] `plugin/scripts/verify-maturity.sh` 新含 `merge-brief-template.md` 存在性 + 4 个 merge-* reference 内容检查（grep 验证）
-- [ ] `plugin/architecture-draft.md` L286 / L299 不再含 `execution-worker-handbook（Worker 自读）` 短语（其他位置允许残留，归 Issue 003）
-- [ ] `bash plugin/scripts/verify-maturity.sh` 整体 pass
-- [ ] `bash plugin/scripts/run-all-tests.sh` 全绿
+- [x] `test ! -f plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-conflict-worker-handbook.md`
+- [x] `test ! -f plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-explorer-handbook.md`
+- [x] `test ! -f plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-integration-review-handbook.md`
+- [x] `test ! -f plugin/skills/orchestrate-execution/references/learnings-confidence-audit.md`
+- [x] `test ! -f plugin/skills/orchestrate-execution/references/learnings-trust-gate.md`
+- [x] `test ! -f plugin/skills/orchestrate-execution/references/path-a-re-review.md`
+- [x] `test ! -d plugin/skills/orchestrate-execution/references/route-extensions/`
+- [x] orchestrate-execution/SKILL.md 含 `## Learnings 信任门` 或同义子章节（grep 关键短语：`Confidence 分层处理` 或 `投毒检测` 等原内容代表性短语）
+- [x] `plugin/scripts/verify-maturity.sh` 不再含三处 `multi-pr-explorer-handbook.md` / `multi-pr-conflict-worker-handbook.md` / `multi-pr-integration-review-handbook.md` 字符串
+- [x] `plugin/scripts/verify-maturity.sh` 新含 `merge-brief-template.md` 存在性 + 4 个 merge-* reference 内容检查（grep 验证）
+- [x] `plugin/architecture-draft.md` L286 / L299 不再含 `execution-worker-handbook（Worker 自读）` 短语（其他位置允许残留，归 Issue 003）
+- [x] `bash plugin/scripts/verify-maturity.sh` 整体 pass
+- [x] `bash plugin/scripts/run-all-tests.sh` 全绿
 
 **Verification commands:**
 - `ls plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-*.md 2>/dev/null | wc -l` → Expected: 0
@@ -439,14 +439,14 @@
 - execution-worker-handbook 其余 6 处引用修正（Issue 003 D21）
 
 #### Implementation tasks
-- [ ] Step 1: Read 5 个将删 reference 全文，记录关键内容
+- [x] Step 1: Read 5 个将删 reference 全文，记录关键内容
   - Run: `cat plugin/skills/orchestrate-execution/references/learnings-confidence-audit.md` → 记录 60 行
   - Run: `cat plugin/skills/orchestrate-execution/references/learnings-trust-gate.md` → 记录 21 行
   - Run: `head plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-explorer-handbook.md` → 确认内容已被 merge-brief 覆盖
-- [ ] Step 2: Read orchestrate-execution/SKILL.md 找 Worker 返回处理段（grep `Worker 返回\|Plan Implementation Review\|Step 9`）
+- [x] Step 2: Read orchestrate-execution/SKILL.md 找 Worker 返回处理段（grep `Worker 返回\|Plan Implementation Review\|Step 9`）
   - Run: `grep -n 'Worker 返回\|Plan Implementation Review' plugin/skills/orchestrate-execution/SKILL.md` → 记录行号
-- [ ] Step 3: Edit orchestrate-execution/SKILL.md 在 Worker 返回处理段后插入 `## Learnings 信任门` 子章节，合并 learnings-confidence-audit + learnings-trust-gate 内容（保留所有原段落 + 表格 + 列表）
-- [ ] Step 4: 删除 5 个 reference 文件 + execution route-extensions 目录
+- [x] Step 3: Edit orchestrate-execution/SKILL.md 在 Worker 返回处理段后插入 `## Learnings 信任门` 子章节，合并 learnings-confidence-audit + learnings-trust-gate 内容（保留所有原段落 + 表格 + 列表）
+- [x] Step 4: 删除 5 个 reference 文件 + execution route-extensions 目录
   - Run: `rm plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-conflict-worker-handbook.md`
   - Run: `rm plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-explorer-handbook.md`
   - Run: `rm plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-integration-review-handbook.md`
@@ -454,20 +454,20 @@
   - Run: `rm plugin/skills/orchestrate-execution/references/learnings-trust-gate.md`
   - Run: `rm plugin/skills/orchestrate-execution/references/path-a-re-review.md`
   - Run: `rm -r plugin/skills/orchestrate-execution/references/route-extensions/`
-- [ ] Step 5: Edit verify-maturity.sh L379-394 — 删除 6 行 multi-pr handbook 检查；新增 4 行检查：
+- [x] Step 5: Edit verify-maturity.sh L379-394 — 删除 6 行 multi-pr handbook 检查；新增 4 行检查：
   - `check "6.11: merge-brief-template exists" test -f "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-brief-template.md"`
   - `check "6.11: merge-preparation has Self-Read Protocol" grep -q 'Self-Read Protocol' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-preparation.md"`
   - `check "6.11: merge-conflict-discovery has Self-Read Protocol" grep -q 'Self-Read Protocol' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-conflict-discovery.md"`
   - `check "6.11: merge-integration-review has Self-Read Protocol" grep -q 'Self-Read Protocol' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md"`
-- [ ] Step 6: Read architecture-draft.md L280-310
+- [x] Step 6: Read architecture-draft.md L280-310
   - Run: `sed -n '280,310p' plugin/architecture-draft.md` 实际用 Read tool 读
-- [ ] Step 7: Edit architecture-draft.md L286 — 在 `execution-completion / execution-release-gate / execution-repair-truncation / path-a-re-review / learnings-confidence-audit / learnings-trust-gate / route-extensions/` 这串列表中删除已删的 4 项：`path-a-re-review` + `learnings-confidence-audit` + `learnings-trust-gate` + `route-extensions/`；删除 `execution-worker-handbook（Worker 自读） / `（含尾部斜杠分隔）
-- [ ] Step 8: Edit architecture-draft.md L299 — 删除 `execution-worker-handbook.md` 提及（在 `execution-worker-dispatch.md / execution-review-dispatch.md / execution-worker-handbook.md` 这种串列表中删除该项）
-- [ ] Step 9: 跑 verify-maturity 确认新检查 pass
+- [x] Step 7: Edit architecture-draft.md L286 — 在 `execution-completion / execution-release-gate / execution-repair-truncation / path-a-re-review / learnings-confidence-audit / learnings-trust-gate / route-extensions/` 这串列表中删除已删的 4 项：`path-a-re-review` + `learnings-confidence-audit` + `learnings-trust-gate` + `route-extensions/`；删除 `execution-worker-handbook（Worker 自读） / `（含尾部斜杠分隔）
+- [x] Step 8: Edit architecture-draft.md L299 — 删除 `execution-worker-handbook.md` 提及（在 `execution-worker-dispatch.md / execution-review-dispatch.md / execution-worker-handbook.md` 这种串列表中删除该项）
+- [x] Step 9: 跑 verify-maturity 确认新检查 pass
   - Run: `bash plugin/scripts/verify-maturity.sh` → Expected: PASS
-- [ ] Step 10: 跑全量测试
+- [x] Step 10: 跑全量测试
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
-- [ ] Step 11: Commit `refactor(skills): delete orphan handbooks + fold learnings into SKILL + clean verify-maturity §6.11 (D2)`
+- [x] Step 11: Commit `refactor(skills): delete orphan handbooks + fold learnings into SKILL + clean verify-maturity §6.11 (D2)`
 
 ---
 
@@ -500,18 +500,18 @@
 - Verification: schema enum 长度 = 4 + state.sh init 生成的 JSON 含新字段 + workflow/SKILL.md 不含 Route 4-7
 
 **Acceptance criteria:**
-- [ ] `jq '.properties.route.enum | length' plugin/state-schema/workflow-state-v1.json` = 4
-- [ ] `jq -r '.properties.route.enum | sort | join(",")' plugin/state-schema/workflow-state-v1.json` 输出 `bug-investigation,direct-repair,formal,multi-pr-merge`
-- [ ] `jq '.properties.phase_skip.type' plugin/state-schema/workflow-state-v1.json` 输出 `"array"`
-- [ ] `jq -r '.properties.commit_format_override.type | if type == "array" then join("|") else . end' plugin/state-schema/workflow-state-v1.json` 含 `string` 和 `null`（schema 允许 nullable）
-- [ ] `test ! -d plugin/skills/orchestrate-workflow/references/route-extensions/`
-- [ ] orchestrate-workflow/SKILL.md 含 "Route 1 Variant Table" 字符串（grep）
-- [ ] `grep -cE '^\| \*\*Route [4-7]:' plugin/skills/orchestrate-workflow/SKILL.md` = 0
-- [ ] `grep -c 'route-extensions/route-' plugin/skills/orchestrate-workflow/SKILL.md` = 0
-- [ ] orchestrate-workflow/SKILL.md Step 1 仍含 hotfix/quickfix/spike/maintenance 关键词，路由到 Route 1（grep 验证）
-- [ ] `bash plugin/scripts/state.sh init --run-id pack6-test --slug test --route formal` 成功生成 workflow-state JSON 且含 `phase_skip: []`, `commit_format_override: null`
-- [ ] state-schema JSON validity: `python3 -m json.tool plugin/state-schema/workflow-state-v1.json >/dev/null`
-- [ ] `bash plugin/scripts/run-all-tests.sh` 全绿
+- [x] `jq '.properties.route.enum | length' plugin/state-schema/workflow-state-v1.json` = 4
+- [x] `jq -r '.properties.route.enum | sort | join(",")' plugin/state-schema/workflow-state-v1.json` 输出 `bug-investigation,direct-repair,formal,multi-pr-merge`
+- [x] `jq '.properties.phase_skip.type' plugin/state-schema/workflow-state-v1.json` 输出 `"array"`
+- [x] `jq -r '.properties.commit_format_override.type | if type == "array" then join("|") else . end' plugin/state-schema/workflow-state-v1.json` 含 `string` 和 `null`（schema 允许 nullable）
+- [x] `test ! -d plugin/skills/orchestrate-workflow/references/route-extensions/`
+- [x] orchestrate-workflow/SKILL.md 含 "Route 1 Variant Table" 字符串（grep）
+- [x] `grep -cE '^\| \*\*Route [4-7]:' plugin/skills/orchestrate-workflow/SKILL.md` = 0
+- [x] `grep -c 'route-extensions/route-' plugin/skills/orchestrate-workflow/SKILL.md` = 0
+- [x] orchestrate-workflow/SKILL.md Step 1 仍含 hotfix/quickfix/spike/maintenance 关键词，路由到 Route 1（grep 验证）
+- [x] `bash plugin/scripts/state.sh init --run-id pack6-test --slug test --route formal` 成功生成 workflow-state JSON 且含 `phase_skip: []`, `commit_format_override: null`
+- [x] state-schema JSON validity: `python3 -m json.tool plugin/state-schema/workflow-state-v1.json >/dev/null`
+- [x] `bash plugin/scripts/run-all-tests.sh` 全绿
 
 **Verification commands:**
 - `jq '.properties.route.enum' plugin/state-schema/workflow-state-v1.json` → Expected: 4 values, no hotfix/quickfix/spike/maintenance
@@ -532,41 +532,41 @@
 **Out of scope:** orchestrate-execution/references/route-extensions/（已由 Pack 5 删除）
 
 #### Implementation tasks
-- [ ] Step 1: Read 4 个 route-extensions 文件全文，提取每个 route 的特殊行为列表
+- [x] Step 1: Read 4 个 route-extensions 文件全文，提取每个 route 的特殊行为列表
   - Run: `wc -l plugin/skills/orchestrate-workflow/references/route-extensions/*.md`
   - 实际 Read 每个文件
   - 输出：4 个 route × 各特殊行为（如 hotfix: phase_skip=[discovery,plan-writing,final-review] + budget_status=unlimited + commit_format_override="hotfix-unreviewed" + pending_post_push_reviews 保留）
-- [ ] Step 2: Read state-schema/workflow-state-v1.json 完整内容（确认 properties 段结构 + required 段）
-- [ ] Step 3: Edit `plugin/state-schema/workflow-state-v1.json`
+- [x] Step 2: Read state-schema/workflow-state-v1.json 完整内容（确认 properties 段结构 + required 段）
+- [x] Step 3: Edit `plugin/state-schema/workflow-state-v1.json`
   - 修改 L18 `route` enum：从 8 值 `["formal","direct-repair","multi-pr-merge","bug-investigation","hotfix","quickfix","spike","maintenance"]` 改为 4 值 `["formal","direct-repair","multi-pr-merge","bug-investigation"]`
   - 在 properties 段新增 `phase_skip`：`{ "type": "array", "items": { "type": "string", "enum": ["discovery","plan-writing","execution","final-review","closed","bug-investigation","direct-repair","multi-pr-merge"] }, "default": [] }`（phase enum 与现有 cursor.phase 保持一致——先 Read 确认 cursor.phase 当前枚举值）
   - 在 properties 段新增 `commit_format_override`：`{ "type": ["string","null"], "default": null }`
   - required 段不动（这两个字段都是可选 + 有 default）
-- [ ] Step 4: 验证 schema 合法性
+- [x] Step 4: 验证 schema 合法性
   - Run: `python3 -m json.tool plugin/state-schema/workflow-state-v1.json >/dev/null` → Expected: exit 0
-- [ ] Step 5: Read `plugin/scripts/state.sh` 中 init 子命令实现（grep `cmd_init\|case.*init` 找入口）
+- [x] Step 5: Read `plugin/scripts/state.sh` 中 init 子命令实现（grep `cmd_init\|case.*init` 找入口）
   - Run: `grep -n 'cmd_init\|"phase_skip"\|"commit_format_override"' plugin/scripts/state.sh`
-- [ ] Step 6: Edit state.sh init 子命令 — 在生成 workflow-state JSON 的 jq pipeline 中加入 `phase_skip: []` 和 `commit_format_override: null` 字段
-- [ ] Step 7: 手动验 state.sh init
+- [x] Step 6: Edit state.sh init 子命令 — 在生成 workflow-state JSON 的 jq pipeline 中加入 `phase_skip: []` 和 `commit_format_override: null` 字段
+- [x] Step 7: 手动验 state.sh init
   - Run: `bash plugin/scripts/state.sh init --run-id pack6-init-test --slug pack6 --route formal`
   - Run: `jq '.phase_skip,.commit_format_override' .claude/multi-model-workflow/workflow-state-pack6-init-test.json` → Expected: `[]` `null`
   - Run: `rm -f .claude/multi-model-workflow/workflow-state-pack6-init-test.json`（清理）
-- [ ] Step 8: 验证 state.sh 不接受已删 route 值
+- [x] Step 8: 验证 state.sh 不接受已删 route 值
   - Run: `bash plugin/scripts/state.sh init --run-id pack6-bad --slug pack6 --route hotfix 2>&1 || echo "Correctly rejected"` → Expected: 接受或拒绝看 state.sh 是否做 enum 校验。如做了校验，应输出 "Correctly rejected"；如未做（依赖 schema 校验），允许通过但 schema validation 应报错
-- [ ] Step 9: Edit `plugin/skills/orchestrate-workflow/SKILL.md` L58-66 表
+- [x] Step 9: Edit `plugin/skills/orchestrate-workflow/SKILL.md` L58-66 表
   - 删除 L63-66 四行（Route 4/5/6/7）
   - 在 Step 1 表后或 Step 2 后插入新段 "## Route 1 Variant Table"（≈80-120 行）
   - 表头：`| Variant 关键词 | phase_skip | budget_status | commit_format_override | 备注 |`
   - 4 行：hotfix / quickfix / spike / maintenance，每行填具体 flag 值（值来源于 Step 1 提取的列表）
   - 在表后写一段说明文字：Entry Gate 识别这 4 个关键词 → Route 1 + 对应 flags；保留 pending_post_push_reviews 机制不动
-- [ ] Step 10: 删除 workflow 一侧 route-extensions 目录
+- [x] Step 10: 删除 workflow 一侧 route-extensions 目录
   - Run: `rm -r plugin/skills/orchestrate-workflow/references/route-extensions/`
-- [ ] Step 11: 验证 grep 清扫
+- [x] Step 11: 验证 grep 清扫
   - Run: `grep -rn 'route-extensions/route-' plugin/` → Expected: 仅设计文档 / 审计 / git history（不在 plugin/skills/ 或 plugin/build/ 或 plugin/hooks/ 内）
-- [ ] Step 12: 跑 verify-maturity + 全量测试
+- [x] Step 12: 跑 verify-maturity + 全量测试
   - Run: `bash plugin/scripts/verify-maturity.sh` → Expected: PASS（如有 route-extensions 引用检查需同步更新）
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
-- [ ] Step 13: Commit `refactor(routes): collapse routes 4-7 into Route 1 + phase_skip flags (D10)`
+- [x] Step 13: Commit `refactor(routes): collapse routes 4-7 into Route 1 + phase_skip flags (D10)`
 
 ---
 
@@ -597,18 +597,18 @@
 - Verification: Hook 数 = 12（13-1）+ hooks.json JSON 合法 + 各 hook 改后行为符合契约表
 
 **Acceptance criteria:**
-- [ ] `test ! -f plugin/hooks/guard-plan-doc-patch.sh`
-- [ ] `grep -c 'guard-plan-doc-patch' plugin/hooks/hooks.json` = 0
-- [ ] `python3 -m json.tool plugin/hooks/hooks.json >/dev/null` 成功
-- [ ] `plugin/hooks/validate-plan-dispatch.sh` Step 6 Manifest 缺失输出含 `WARN` 字符串
-- [ ] `plugin/hooks/validate-plan-dispatch.sh` Step 6 Manifest 缺失退出码非 2（应是 0）
-- [ ] `plugin/hooks/validate-plan-dispatch.sh` 不再含 `# Step 8: Path A escalation` 注释段
-- [ ] `grep -c 'path-a-re-review\|targeted-re-review' plugin/hooks/gate-codex-review.sh` = 0
-- [ ] `grep -c 'baseline\|review_intent' plugin/hooks/gate-codex-review.sh` ≥ 1（确认 baseline review 仍可用）
-- [ ] `grep -c 'exit 2' plugin/hooks/validate-multi-pr-dispatch.sh` ≥ 4（(a)(b)(c)(d) 共 4 处至少保留——baseline 实际数）
-- [ ] `ls plugin/hooks/*.sh | wc -l` = 12（baseline 13 - 1）
-- [ ] Hook test suite 全绿（`plugin/hooks/tests/*.sh`）
-- [ ] `bash plugin/scripts/run-all-tests.sh` 全绿
+- [x] `test ! -f plugin/hooks/guard-plan-doc-patch.sh`
+- [x] `grep -c 'guard-plan-doc-patch' plugin/hooks/hooks.json` = 0
+- [x] `python3 -m json.tool plugin/hooks/hooks.json >/dev/null` 成功
+- [x] `plugin/hooks/validate-plan-dispatch.sh` Step 6 Manifest 缺失输出含 `WARN` 字符串
+- [x] `plugin/hooks/validate-plan-dispatch.sh` Step 6 Manifest 缺失退出码非 2（应是 0）
+- [x] `plugin/hooks/validate-plan-dispatch.sh` 不再含 `# Step 8: Path A escalation` 注释段
+- [x] `grep -c 'path-a-re-review\|targeted-re-review' plugin/hooks/gate-codex-review.sh` = 0
+- [x] `grep -c 'baseline\|review_intent' plugin/hooks/gate-codex-review.sh` ≥ 1（确认 baseline review 仍可用）
+- [x] `grep -c 'exit 2' plugin/hooks/validate-multi-pr-dispatch.sh` ≥ 4（(a)(b)(c)(d) 共 4 处至少保留——baseline 实际数）
+- [x] `ls plugin/hooks/*.sh | wc -l` = 12（baseline 13 - 1）
+- [x] Hook test suite 全绿（`plugin/hooks/tests/*.sh`）
+- [x] `bash plugin/scripts/run-all-tests.sh` 全绿
 
 **Verification commands:**
 - `test ! -f plugin/hooks/guard-plan-doc-patch.sh && echo OK` → Expected: OK
@@ -631,32 +631,32 @@
 - SKILL.md / reference 中 path-a-escalation 使用引用（Issue 002）
 
 #### Implementation tasks
-- [ ] Step 1: Read 3 个 hook 脚本完整内容做 baseline
+- [x] Step 1: Read 3 个 hook 脚本完整内容做 baseline
   - Run: `wc -l plugin/hooks/guard-plan-doc-patch.sh plugin/hooks/validate-plan-dispatch.sh plugin/hooks/gate-codex-review.sh`
   - Read validate-plan-dispatch.sh L74-103 (Step 6) + L124-130 (Step 8) 区段
   - Read gate-codex-review.sh 全文（91 行）
-- [ ] Step 2: Read 当前 hooks.json L73-85（Write matcher）
-- [ ] Step 3: 跑 hook test baseline
+- [x] Step 2: Read 当前 hooks.json L73-85（Write matcher）
+- [x] Step 3: 跑 hook test baseline
   - Run: `bash plugin/scripts/run-all-tests.sh 2>&1 | tail -20` → 记录通过的 hook test 数
-- [ ] Step 4: Edit `plugin/hooks/validate-plan-dispatch.sh` Step 6 — L83-91 的 `if ! grep -q '## Pack Execution Manifest' ...; then echo BLOCKED ... exit 2; fi` 改为：
+- [x] Step 4: Edit `plugin/hooks/validate-plan-dispatch.sh` Step 6 — L83-91 的 `if ! grep -q '## Pack Execution Manifest' ...; then echo BLOCKED ... exit 2; fi` 改为：
   ```
   if ! grep -q '## Pack Execution Manifest' "$PLAN_PATH"; then
     echo "[multi-model-workflow] WARN: plan $PLAN_ID at $PLAN_PATH missing '## Pack Execution Manifest' — Worker may work from plan body. (D9 降级)" >&2
     # 不 exit 2，继续后续 step
   fi
   ```
-- [ ] Step 5: Edit validate-plan-dispatch.sh — 删除 L124-130 整段 `# Step 8: Path A escalation` + `if [[ "$REVIEW_INTENT" == "path-a-re-review" ]]; then ... exit 2; fi` 块
-- [ ] Step 6: Edit `plugin/hooks/gate-codex-review.sh` — 找到 `case ... in` 块，删除 `path-a-re-review)` 和 `targeted-re-review)` 两个 case 分支（含其内部 `exit 2` 检查）；保留 `baseline)` 和 default 分支
-- [ ] Step 7: 删除 guard-plan-doc-patch.sh
+- [x] Step 5: Edit validate-plan-dispatch.sh — 删除 L124-130 整段 `# Step 8: Path A escalation` + `if [[ "$REVIEW_INTENT" == "path-a-re-review" ]]; then ... exit 2; fi` 块
+- [x] Step 6: Edit `plugin/hooks/gate-codex-review.sh` — 找到 `case ... in` 块，删除 `path-a-re-review)` 和 `targeted-re-review)` 两个 case 分支（含其内部 `exit 2` 检查）；保留 `baseline)` 和 default 分支
+- [x] Step 7: 删除 guard-plan-doc-patch.sh
   - Run: `rm plugin/hooks/guard-plan-doc-patch.sh`
-- [ ] Step 8: Edit `plugin/hooks/hooks.json` — 删除 L80-83 中 PreToolUse/Write/guard-plan-doc-patch entry（保留 guard-doc-edit.sh entry）
-- [ ] Step 9: 验证 hooks.json JSON 合法
+- [x] Step 8: Edit `plugin/hooks/hooks.json` — 删除 L80-83 中 PreToolUse/Write/guard-plan-doc-patch entry（保留 guard-doc-edit.sh entry）
+- [x] Step 9: 验证 hooks.json JSON 合法
   - Run: `python3 -m json.tool plugin/hooks/hooks.json >/dev/null` → Expected: exit 0
-- [ ] Step 10: 验证 hook 数
+- [x] Step 10: 验证 hook 数
   - Run: `ls plugin/hooks/*.sh | wc -l` → Expected: 12
-- [ ] Step 11: 跑 hook test suite
+- [x] Step 11: 跑 hook test suite
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS（必要时新增/调整 test_validate_plan_dispatch 验证 WARN 行为）
-- [ ] Step 12: Commit `refactor(hooks): downgrade manifest check to WARN + remove path-a + delete guard-plan-doc-patch (D9)`
+- [x] Step 12: Commit `refactor(hooks): downgrade manifest check to WARN + remove path-a + delete guard-plan-doc-patch (D9)`
 
 ---
 
@@ -692,15 +692,15 @@
 - Verification: grep 验证 producer 全部使用新调用形式 + shim 转发等价 + 全量测试通过
 
 **Acceptance criteria:**
-- [ ] `test -x plugin/scripts/dispatch-review.sh`
-- [ ] `test -x plugin/scripts/dispatch-route-worker.sh`
-- [ ] `bash plugin/scripts/dispatch-review.sh --help 2>&1 | grep -c 'validate\|record'` ≥ 2
-- [ ] `bash plugin/scripts/dispatch-route-worker.sh --help 2>&1 | grep -c 'validate\|record'` ≥ 2
-- [ ] 4 个旧脚本仍存在且每个 ≤ 10 行（shim 化）
+- [x] `test -x plugin/scripts/dispatch-review.sh`
+- [x] `test -x plugin/scripts/dispatch-route-worker.sh`
+- [x] `bash plugin/scripts/dispatch-review.sh --help 2>&1 | grep -c 'validate\|record'` ≥ 2
+- [x] `bash plugin/scripts/dispatch-route-worker.sh --help 2>&1 | grep -c 'validate\|record'` ≥ 2
+- [x] 4 个旧脚本仍存在且每个 ≤ 10 行（shim 化）
   - `wc -l plugin/scripts/record-review-dispatch.sh plugin/scripts/validate-review-dispatch.sh plugin/scripts/record-route-worker-dispatch.sh plugin/scripts/validate-route-worker-dispatch.sh`
-- [ ] 旧脚本仍可调用且转发等价（test_dispatch_review_shim.sh 通过）
-- [ ] `grep -rln 'validate-review-dispatch\.sh\|record-review-dispatch\.sh\|validate-route-worker-dispatch\.sh\|record-route-worker-dispatch\.sh' plugin/skills/ plugin/build/templates/ plugin/hooks/ | wc -l` = 0（所有 producer 已迁移）
-- [ ] `bash plugin/scripts/run-all-tests.sh` 全绿（含新增 test_dispatch_review_shim.sh）
+- [x] 旧脚本仍可调用且转发等价（test_dispatch_review_shim.sh 通过）
+- [x] `grep -rln 'validate-review-dispatch\.sh\|record-review-dispatch\.sh\|validate-route-worker-dispatch\.sh\|record-route-worker-dispatch\.sh' plugin/skills/ plugin/build/templates/ plugin/hooks/ | wc -l` = 0（所有 producer 已迁移）
+- [x] `bash plugin/scripts/run-all-tests.sh` 全绿（含新增 test_dispatch_review_shim.sh）
 
 **Verification commands:**
 - `test -x plugin/scripts/dispatch-review.sh && echo OK` → Expected: OK
@@ -720,43 +720,43 @@
 **Out of scope:** Shim 删除（deferred 到 Issue 003 后清理阶段）
 
 #### Implementation tasks
-- [ ] Step 1: 找全 producer
+- [x] Step 1: 找全 producer
   - Run: `grep -rln 'validate-review-dispatch\.sh\|record-review-dispatch\.sh' plugin/skills/ plugin/build/templates/ plugin/hooks/` → 记录产出列表
   - Run: `grep -rln 'validate-route-worker-dispatch\.sh\|record-route-worker-dispatch\.sh' plugin/skills/ plugin/build/templates/ plugin/hooks/` → 记录产出列表
-- [ ] Step 2: Read 4 个旧脚本全文，分析参数 + 输出格式
+- [x] Step 2: Read 4 个旧脚本全文，分析参数 + 输出格式
   - Read record-review-dispatch.sh / validate-review-dispatch.sh / record-route-worker-dispatch.sh / validate-route-worker-dispatch.sh
-- [ ] Step 3: 写 failing 测试 — `plugin/scripts/tests/test_dispatch_review_shim.sh`
+- [x] Step 3: 写 failing 测试 — `plugin/scripts/tests/test_dispatch_review_shim.sh`
   - Behavior：调用 `bash plugin/scripts/validate-review-dispatch.sh <test args>` 和 `bash plugin/scripts/dispatch-review.sh validate <test args>`，两者输出应完全相同；同理 record 子命令
   - 测试使用 fixture 在 `/tmp/dispatch-shim-test-<run-id>/` 隔离
   - Key assertions：stdout / stderr / exit code 三方对齐
-- [ ] Step 4: 跑测试确认失败
+- [x] Step 4: 跑测试确认失败
   - Run: `bash plugin/scripts/tests/test_dispatch_review_shim.sh` → Expected: FAIL because dispatch-review.sh does not exist
-- [ ] Step 5: 写 `plugin/scripts/dispatch-review.sh`
+- [x] Step 5: 写 `plugin/scripts/dispatch-review.sh`
   - 入口：`case "$1" in validate) shift; <validate logic>;; record) shift; <record logic>;; *) usage;; esac`
   - 选择实现策略：
     - Option A：把 validate-review-dispatch.sh + record-review-dispatch.sh 的核心逻辑 inline 进 dispatch-review.sh 的两个子命令块（旧脚本变 shim 直接 exec 转发）
     - Option B：dispatch-review.sh 内 `case` 分支转发到原脚本 — 但这会让 shim 反向调用，造成循环。**用 Option A**
   - 加 `--help` / `-h` 输出
   - 加 `chmod +x`
-- [ ] Step 6: 写 `plugin/scripts/dispatch-route-worker.sh` — 同 Option A 模式
-- [ ] Step 7: 改写 4 个旧脚本为 shim
+- [x] Step 6: 写 `plugin/scripts/dispatch-route-worker.sh` — 同 Option A 模式
+- [x] Step 7: 改写 4 个旧脚本为 shim
   - record-review-dispatch.sh：`#!/usr/bin/env bash\nexec "$(dirname "$0")/dispatch-review.sh" record "$@"`
   - validate-review-dispatch.sh：`exec ".../dispatch-review.sh" validate "$@"`
   - record-route-worker-dispatch.sh / validate-route-worker-dispatch.sh：同模式
   - 每个文件 ≤ 10 行（含 shebang 和注释）
-- [ ] Step 8: 跑 shim 测试
+- [x] Step 8: 跑 shim 测试
   - Run: `bash plugin/scripts/tests/test_dispatch_review_shim.sh` → Expected: PASS
-- [ ] Step 9: 迁移所有 producer
+- [x] Step 9: 迁移所有 producer
   - 对 Step 1 grep 结果中每个文件，Edit 替换：
     - `bash "${CLAUDE_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh"` → `bash "${CLAUDE_PLUGIN_ROOT}/scripts/dispatch-review.sh" validate`
     - `bash "${CLAUDE_PLUGIN_ROOT}/scripts/record-review-dispatch.sh"` → `bash "${CLAUDE_PLUGIN_ROOT}/scripts/dispatch-review.sh" record`
     - 同模式对 route-worker
   - 注意：`plugin/build/templates/review-dispatch.md.tmpl` 内部对脚本的引用也要改（该模板 Pack 9 会被 canonical 化但本 Pack 仍可独立修改）
-- [ ] Step 10: 验证 producer 清零
+- [x] Step 10: 验证 producer 清零
   - Run: `grep -rln 'validate-review-dispatch\.sh\|record-review-dispatch\.sh\|validate-route-worker-dispatch\.sh\|record-route-worker-dispatch\.sh' plugin/skills/ plugin/build/templates/ plugin/hooks/ | wc -l` → Expected: 0
-- [ ] Step 11: 跑全量测试
+- [x] Step 11: 跑全量测试
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
-- [ ] Step 12: Commit `refactor(scripts): merge review-dispatch + route-worker-dispatch into dispatch-<x>.sh with shim (D8)`
+- [x] Step 12: Commit `refactor(scripts): merge review-dispatch + route-worker-dispatch into dispatch-<x>.sh with shim (D8)`
 
 ---
 
@@ -799,22 +799,22 @@
 - Verification: verify-maturity.sh 新增 4 条 canonical 检查 + grep 无残留 BEGIN/END 锚点（除 codex-review） + 无相对路径 `_shared/` / `../_shared/` 引用
 
 **Acceptance criteria:**
-- [ ] `test -d plugin/skills/_shared/`
-- [ ] `test -f plugin/skills/_shared/review-dispatch.md` 且 `wc -l` ≥ 50 且 ≤ 100
-- [ ] `test -f plugin/skills/_shared/repair-routing.md` 且 `wc -l` ≥ 30 且 ≤ 60
-- [ ] `test -f plugin/skills/_shared/disposition-table.md` 且 `wc -l` ≥ 30 且 ≤ 60
-- [ ] `head -5` 每个 canonical 文件含路标 blockquote（`> **使用场景**` 或同义）
-- [ ] `grep -i 'targeted-re-review\|targeted re-review' plugin/skills/_shared/review-dispatch.md` 返回空（canonical 干净）
-- [ ] `grep -rln '<!-- BEGIN: review-dispatch -->' plugin/skills/ | grep -v 'codex-review' | wc -l` = 0
-- [ ] `grep -rln '<!-- BEGIN: review-dispatch \[variant=content-only' plugin/skills/codex-review/` ≥ 1（codex-review 保留）
-- [ ] `grep -rln '<!-- BEGIN: repair-routing -->' plugin/skills/ | wc -l` = 0
-- [ ] `grep -rln '<!-- BEGIN: disposition-table -->' plugin/skills/ | wc -l` = 0
-- [ ] `grep -rn '\.\./\_shared/\|^_shared/' plugin/skills/ | wc -l` = 0（无相对路径引用）
-- [ ] 至少 10 处 SKILL.md / reference 含字符串 `plugin/skills/_shared/review-dispatch.md`（grep 验证 Read 指令存在）
-- [ ] `bash plugin/build/build.sh --check --plugin-dir plugin` exit 0（build 不再处理 3 个 canonical 化的 resolver）
-- [ ] `bash plugin/scripts/verify-maturity.sh` 整体 pass（新检查通过 + 旧 anchor count 检查已删）
-- [ ] `bash plugin/build/tests/test_review_evidence_table.sh` 通过（已迁移到扫 canonical）
-- [ ] `bash plugin/scripts/run-all-tests.sh` 全绿
+- [x] `test -d plugin/skills/_shared/`
+- [x] `test -f plugin/skills/_shared/review-dispatch.md` 且 `wc -l` ≥ 50 且 ≤ 100
+- [x] `test -f plugin/skills/_shared/repair-routing.md` 且 `wc -l` ≥ 30 且 ≤ 60
+- [x] `test -f plugin/skills/_shared/disposition-table.md` 且 `wc -l` ≥ 30 且 ≤ 60
+- [x] `head -5` 每个 canonical 文件含路标 blockquote（`> **使用场景**` 或同义）
+- [x] `grep -i 'targeted-re-review\|targeted re-review' plugin/skills/_shared/review-dispatch.md` 返回空（canonical 干净）
+- [x] `grep -rln '<!-- BEGIN: review-dispatch -->' plugin/skills/ | grep -v 'codex-review' | wc -l` = 0
+- [x] `grep -rln '<!-- BEGIN: review-dispatch \[variant=content-only' plugin/skills/codex-review/` ≥ 1（codex-review 保留）
+- [x] `grep -rln '<!-- BEGIN: repair-routing -->' plugin/skills/ | wc -l` = 0
+- [x] `grep -rln '<!-- BEGIN: disposition-table -->' plugin/skills/ | wc -l` = 0
+- [x] `grep -rn '\.\./\_shared/\|^_shared/' plugin/skills/ | wc -l` = 0（无相对路径引用）
+- [x] 至少 10 处 SKILL.md / reference 含字符串 `plugin/skills/_shared/review-dispatch.md`（grep 验证 Read 指令存在）
+- [x] `bash plugin/build/build.sh --check --plugin-dir plugin` exit 0（build 不再处理 3 个 canonical 化的 resolver）
+- [x] `bash plugin/scripts/verify-maturity.sh` 整体 pass（新检查通过 + 旧 anchor count 检查已删）
+- [x] `bash plugin/build/tests/test_review_evidence_table.sh` 通过（已迁移到扫 canonical）
+- [x] `bash plugin/scripts/run-all-tests.sh` 全绿
 
 **Verification commands:**
 - `ls plugin/skills/_shared/` → Expected: `review-dispatch.md repair-routing.md disposition-table.md`
@@ -841,46 +841,46 @@
 - 删除 `plugin/build/resolvers/{review-dispatch,repair-routing,disposition-table}.sh`（resolver 文件保留——content-only 变体仍依赖 review-dispatch.sh resolver；只跳过非 content-only 调用）
 
 #### Implementation tasks
-- [ ] Step 1: 找全锚点位置（baseline）
+- [x] Step 1: 找全锚点位置（baseline）
   - Run: `grep -rln 'BEGIN: review-dispatch' plugin/skills/` → 12 文件
   - Run: `grep -rln 'BEGIN: review-dispatch \[variant=content-only' plugin/skills/codex-review/` → 1 文件（codex-review/SKILL.md）
   - Run: `grep -rln 'BEGIN: repair-routing' plugin/skills/` → 9 文件
   - Run: `grep -rln 'BEGIN: disposition-table' plugin/skills/` → 6 文件
-- [ ] Step 2: Read review-dispatch.md.tmpl 全文，识别 `[variant=targeted-re-review]` 段落边界
+- [x] Step 2: Read review-dispatch.md.tmpl 全文，识别 `[variant=targeted-re-review]` 段落边界
   - 关键：找到 `**Targeted re-review**` 子段（Step 3 内的）和任何标记为 `[variant=targeted-re-review]` 的内容
   - 记录该段起止
-- [ ] Step 3: Read repair-routing.md.tmpl + disposition-table.md.tmpl 全文
-- [ ] Step 4: 写 `plugin/skills/_shared/review-dispatch.md`
+- [x] Step 3: Read repair-routing.md.tmpl + disposition-table.md.tmpl 全文
+- [x] Step 4: 写 `plugin/skills/_shared/review-dispatch.md`
   - 顶部添加路标 blockquote：`> **使用场景**：派发 Codex review 时按本文件格式构造 prompt + 调用 dispatch-review.sh validate/record · **完成后回到** 调用方 phase skill 的对应 step`
   - 内容：从 review-dispatch.md.tmpl 抽取，**排除**所有 `[variant=targeted-re-review]` 段（保留 `[variant=baseline]` 主路径 + 通用部分如 `### Evidence` 表 / `### Confidence rubric` / `### Pre-emit Verification Gate` 等）
   - 把 `targeted-re-review` 相关的整段（Step 3 中的 "Targeted re-review" 子段及之下的 `--resume` 描述）整段省略
   - 内容中所有脚本调用使用 `dispatch-review.sh validate` / `dispatch-review.sh record` 形式（Pack 8 已迁移）
   - 完整、可直接 Read 使用
-- [ ] Step 5: 验证 canonical 干净
+- [x] Step 5: 验证 canonical 干净
   - Run: `grep -ci 'targeted-re-review\|targeted re-review\|--resume' plugin/skills/_shared/review-dispatch.md` → Expected: 0
-- [ ] Step 6: 写 `plugin/skills/_shared/repair-routing.md`
+- [x] Step 6: 写 `plugin/skills/_shared/repair-routing.md`
   - 顶部路标 blockquote
   - 内容：从 repair-routing.md.tmpl 完整抽取（该模板无 targeted-re-review variant，全量保留）
-- [ ] Step 7: 写 `plugin/skills/_shared/disposition-table.md`
+- [x] Step 7: 写 `plugin/skills/_shared/disposition-table.md`
   - 顶部路标 blockquote
   - 内容：从 disposition-table.md.tmpl 完整抽取
   - 注意：disposition enum 10 值含 `path-a` —— Issue 001 不删 path-a disposition 值（Issue 002 D3 才删）；canonical 保留 path-a 描述
-- [ ] Step 8: 替换 12 处 review-dispatch 锚点位置为 Read 指令
+- [x] Step 8: 替换 12 处 review-dispatch 锚点位置为 Read 指令
   - 对每个文件（除 codex-review/SKILL.md）：找到 `<!-- BEGIN: review-dispatch -->` ... `<!-- END: review-dispatch -->` 整段，整段替换为：
     ```
     **Read** `plugin/skills/_shared/review-dispatch.md` 并按其格式派发 Codex review。
     ```
   - 注意：merge-integration-review.md 在同一文件中有 review-dispatch + disposition-table + repair-routing 三处锚点，每处独立替换
   - **codex-review/SKILL.md 跳过**（内含 [variant=content-only] 不动）
-- [ ] Step 9: 替换 9 处 repair-routing 锚点位置为：
+- [x] Step 9: 替换 9 处 repair-routing 锚点位置为：
   ```
   **Read** `plugin/skills/_shared/repair-routing.md` 并按其流程处理 review findings。
   ```
-- [ ] Step 10: 替换 6 处 disposition-table 锚点位置为：
+- [x] Step 10: 替换 6 处 disposition-table 锚点位置为：
   ```
   **Read** `plugin/skills/_shared/disposition-table.md` 并按其 disposition 选项处理 findings。
   ```
-- [ ] Step 11: Edit `plugin/build/build.sh` — 在 `resolve_anchor` 函数或 process_skill_file 中加入 skip 逻辑：
+- [x] Step 11: Edit `plugin/build/build.sh` — 在 `resolve_anchor` 函数或 process_skill_file 中加入 skip 逻辑：
   ```bash
   # Skip 3 canonical-converted anchors (D1)
   case "$anchor_name" in
@@ -892,8 +892,8 @@
   esac
   ```
   - 保留 content-only 变体的处理（codex-review/SKILL.md 用）
-- [ ] Step 12: Edit `plugin/build/tests/test_review_evidence_table.sh` — 原本 `done < <(grep -rl "BEGIN: review-dispatch" "$PLUGIN_DIR/skills" | sort)` 改为扫 canonical：`done < <(echo "$PLUGIN_DIR/skills/_shared/review-dispatch.md"; grep -rl "BEGIN: review-dispatch \[variant=content-only" "$PLUGIN_DIR/skills" | sort)`
-- [ ] Step 13: Edit `plugin/scripts/verify-maturity.sh` L58-59 — 删除：
+- [x] Step 12: Edit `plugin/build/tests/test_review_evidence_table.sh` — 原本 `done < <(grep -rl "BEGIN: review-dispatch" "$PLUGIN_DIR/skills" | sort)` 改为扫 canonical：`done < <(echo "$PLUGIN_DIR/skills/_shared/review-dispatch.md"; grep -rl "BEGIN: review-dispatch \[variant=content-only" "$PLUGIN_DIR/skills" | sort)`
+- [x] Step 13: Edit `plugin/scripts/verify-maturity.sh` L58-59 — 删除：
   ```
   check "≥10 review-dispatch anchors" bash -c "[ \$(grep -rl 'BEGIN: review-dispatch' '$PLUGIN_DIR/skills/' | wc -l) -ge 10 ]"
   check "≥1 disposition-table anchor" bash -c "[ \$(grep -rl 'BEGIN: disposition-table' '$PLUGIN_DIR/skills/' | wc -l) -ge 1 ]"
@@ -908,15 +908,15 @@
   check "no stale disposition-table anchor" bash -c "[ \$(grep -rln '<!-- BEGIN: disposition-table -->' '$PLUGIN_DIR/skills/' | wc -l) -eq 0 ]"
   check "no relative _shared/ references" bash -c "[ \$(grep -rn '\.\./\_shared/\|^_shared/' '$PLUGIN_DIR/skills/' | wc -l) -eq 0 ]"
   ```
-- [ ] Step 14: Edit `plugin/architecture-draft.md` build template anchor 表：标记 review-dispatch / repair-routing / disposition-table 三个模板为 "inactive (canonical 化)"；review-dispatch.content-only 标 "保留（codex-review 单 site）"
-- [ ] Step 15: 跑 build --check
+- [x] Step 14: Edit `plugin/architecture-draft.md` build template anchor 表：标记 review-dispatch / repair-routing / disposition-table 三个模板为 "inactive (canonical 化)"；review-dispatch.content-only 标 "保留（codex-review 单 site）"
+- [x] Step 15: 跑 build --check
   - Run: `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
-- [ ] Step 16: 跑 verify-maturity
+- [x] Step 16: 跑 verify-maturity
   - Run: `bash plugin/scripts/verify-maturity.sh` → Expected: PASS
-- [ ] Step 17: 跑全量测试
+- [x] Step 17: 跑全量测试
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
-- [ ] Step 18: 验证 acceptance 全部满足（逐条跑 verification command）
-- [ ] Step 19: Commit `refactor(build): extract review-dispatch + repair-routing + disposition-table to plugin/skills/_shared/ canonical (D1)`
+- [x] Step 18: 验证 acceptance 全部满足（逐条跑 verification command）
+- [x] Step 19: Commit `refactor(build): extract review-dispatch + repair-routing + disposition-table to plugin/skills/_shared/ canonical (D1)`
 
 ---
 
@@ -952,22 +952,22 @@
 - Verification: head -5 grep 路标命中率 100%（_shared/ 除外）+ verify-maturity 路标段通过 + architecture-draft 与 Issue 001 完成态一致
 
 **Acceptance criteria:**
-- [ ] `head -5 plugin/skills/orchestrate-discovery/references/discovery-formats.md | grep -cE '> \*\*流程位置\*\*|> \*\*使用场景\*\*|> \*\*完成后回到\*\*'` ≥ 1
-- [ ] `head -5 plugin/skills/orchestrate-multi-pr-merge/references/merge-brief-template.md | grep -cE '> \*\*流程位置\*\*|> \*\*使用场景\*\*|> \*\*完成后回到\*\*'` ≥ 1
-- [ ] `test ! -f plugin/skills/orchestrate-multi-pr-merge/references/rca-pr-conflict-methodology.md`（已折回 merge-rca-investigation.md 后删除）
-- [ ] `grep -c '## 方法论' plugin/skills/orchestrate-multi-pr-merge/references/merge-rca-investigation.md` ≥ 1（含折回正文）
-- [ ] `grep -c '读取 execution-release-gate\.md\|读取 execution-repair-truncation\.md' plugin/skills/orchestrate-execution/references/execution-completion.md` = 0
-- [ ] `grep -c '读取 final-review-release-gate\.md' plugin/skills/orchestrate-final-review/references/final-review-completion.md` = 0
-- [ ] 跑全 reference 路标体检（除 _shared/）：每个 reference head -5 命中路标 — 全 PASS
+- [x] `head -5 plugin/skills/orchestrate-discovery/references/discovery-formats.md | grep -cE '> \*\*流程位置\*\*|> \*\*使用场景\*\*|> \*\*完成后回到\*\*'` ≥ 1
+- [x] `head -5 plugin/skills/orchestrate-multi-pr-merge/references/merge-brief-template.md | grep -cE '> \*\*流程位置\*\*|> \*\*使用场景\*\*|> \*\*完成后回到\*\*'` ≥ 1
+- [x] `test ! -f plugin/skills/orchestrate-multi-pr-merge/references/rca-pr-conflict-methodology.md`（已折回 merge-rca-investigation.md 后删除）
+- [x] `grep -c '## 方法论' plugin/skills/orchestrate-multi-pr-merge/references/merge-rca-investigation.md` ≥ 1（含折回正文）
+- [x] `grep -c '读取 execution-release-gate\.md\|读取 execution-repair-truncation\.md' plugin/skills/orchestrate-execution/references/execution-completion.md` = 0
+- [x] `grep -c '读取 final-review-release-gate\.md' plugin/skills/orchestrate-final-review/references/final-review-completion.md` = 0
+- [x] 跑全 reference 路标体检（除 _shared/）：每个 reference head -5 命中路标 — 全 PASS
   - Verification 命令：`for f in $(find plugin/skills -type f -name '*.md' -not -path '*/\_shared/*' -path '*/references/*'); do head -5 "$f" | grep -qE '> \*\*流程位置\*\*|> \*\*使用场景\*\*|> \*\*完成后回到\*\*' || echo "MISSING: $f"; done` → Expected: empty output
-- [ ] `plugin/scripts/verify-maturity.sh` 含路标完整性检查段（grep 验证存在）
-- [ ] `plugin/architecture-draft.md`：
+- [x] `plugin/scripts/verify-maturity.sh` 含路标完整性检查段（grep 验证存在）
+- [x] `plugin/architecture-draft.md`：
   - build template 表反映 10 active（含 review-dispatch.content-only）+ 3 canonical
   - hook 表反映 12 hooks（不再含 guard-plan-doc-patch）
   - route enum 表反映 4 值 + phase_skip / commit_format_override 字段
   - reference 拓扑不再含 multi-pr-explorer-handbook / route-extensions/ / path-a-re-review / learnings-confidence-audit / learnings-trust-gate / rca-pr-conflict-methodology 等已删条目
-- [ ] `bash plugin/scripts/verify-maturity.sh` 整体 pass
-- [ ] `bash plugin/scripts/run-all-tests.sh` 全绿
+- [x] `bash plugin/scripts/verify-maturity.sh` 整体 pass
+- [x] `bash plugin/scripts/run-all-tests.sh` 全绿
 
 **Verification commands:**
 - `head -5 plugin/skills/orchestrate-discovery/references/discovery-formats.md | grep -cE '流程位置|使用场景|完成后回到'` → Expected: ≥ 1
@@ -991,29 +991,29 @@
 - jump-elimination 改动至 SKILL.md（Issue 003 处理 SKILL.md 内容压缩）
 
 #### Implementation tasks
-- [ ] Step 1: 跑全 reference 路标体检 baseline
+- [x] Step 1: 跑全 reference 路标体检 baseline
   - Run: `for f in $(find plugin/skills -type f -name '*.md' -not -path '*/\_shared/*' -path '*/references/*'); do head -5 "$f" | grep -qE '流程位置|使用场景|完成后回到' || echo "MISSING: $f"; done` → 期待此时输出 2-3 个 MISSING（discovery-formats / merge-brief-template / rca-pr-conflict-methodology——后者将被删）
-- [ ] Step 2: Edit `plugin/skills/orchestrate-discovery/references/discovery-formats.md` 顶部添加：
+- [x] Step 2: Edit `plugin/skills/orchestrate-discovery/references/discovery-formats.md` 顶部添加：
   ```
   > **使用场景**：起草 CONTEXT.md / ADR / scope.md 时按本文件 schema 输出 · **完成后回到**：调用方（discovery-discussion.md / discovery-design-document.md）
   ```
-- [ ] Step 3: Edit `plugin/skills/orchestrate-multi-pr-merge/references/merge-brief-template.md` 顶部添加：
+- [x] Step 3: Edit `plugin/skills/orchestrate-multi-pr-merge/references/merge-brief-template.md` 顶部添加：
   ```
   > **使用场景**：multi-pr-merge 流程的 9 段 merge-brief 合成模板 · **完成后回到**：调用方 phase skill
   ```
-- [ ] Step 4: Read `rca-pr-conflict-methodology.md` 全文
-- [ ] Step 5: Edit `merge-rca-investigation.md` — 在合适位置（Step 4 的"读 rca-pr-conflict-methodology.md"段附近）添加 `## 方法论` 子章节，把 rca-pr-conflict-methodology.md 的 5 步方法论正文整段折入；同时把原 Step 4 中"读 rca-pr-conflict-methodology.md，按其中 5 步方法论执行调查"改写为"按本文件 ## 方法论 章节中 5 步执行调查"
-- [ ] Step 6: 删除 rca-pr-conflict-methodology.md
+- [x] Step 4: Read `rca-pr-conflict-methodology.md` 全文
+- [x] Step 5: Edit `merge-rca-investigation.md` — 在合适位置（Step 4 的"读 rca-pr-conflict-methodology.md"段附近）添加 `## 方法论` 子章节，把 rca-pr-conflict-methodology.md 的 5 步方法论正文整段折入；同时把原 Step 4 中"读 rca-pr-conflict-methodology.md，按其中 5 步方法论执行调查"改写为"按本文件 ## 方法论 章节中 5 步执行调查"
+- [x] Step 6: 删除 rca-pr-conflict-methodology.md
   - Run: `rm plugin/skills/orchestrate-multi-pr-merge/references/rca-pr-conflict-methodology.md`
-- [ ] Step 7: Edit `plugin/skills/orchestrate-execution/references/execution-completion.md`
+- [x] Step 7: Edit `plugin/skills/orchestrate-execution/references/execution-completion.md`
   - L9 附近的 "**触发** → 读取 execution-release-gate.md 执行 Release Gate 流程" 改为 "**触发** → 详见 SKILL.md Step 13（Release Gate 条件分支）"
   - L49 附近的 "按修复分流三条路径（读取 execution-repair-truncation.md）" 改为 "按 SKILL.md Step 14 修复分流三条路径"
   - 注意：本 Pack 只动 reference 文件，不动 SKILL.md（Issue 003 才压缩 SKILL.md Steps 13/14）
-- [ ] Step 8: Edit `plugin/skills/orchestrate-final-review/references/final-review-completion.md`
+- [x] Step 8: Edit `plugin/skills/orchestrate-final-review/references/final-review-completion.md`
   - L63 附近的 "**触发** → 读取 final-review-release-gate.md 执行 Release Gate 流程" 改为 "**触发** → 详见 SKILL.md Step 18（Release Gate 条件分支）"
-- [ ] Step 9: 跑全 reference 路标体检
+- [x] Step 9: 跑全 reference 路标体检
   - Run: `for f in $(find plugin/skills -type f -name '*.md' -not -path '*/\_shared/*' -path '*/references/*'); do head -5 "$f" | grep -qE '流程位置|使用场景|完成后回到' || echo "MISSING: $f"; done` → Expected: empty
-- [ ] Step 10: Edit `plugin/scripts/verify-maturity.sh` — 新增"路标完整性"检查段（建议放在 §6.11 之后或 §6.12 标号）：
+- [x] Step 10: Edit `plugin/scripts/verify-maturity.sh` — 新增"路标完整性"检查段（建议放在 §6.11 之后或 §6.12 标号）：
   ```bash
   echo ""
   echo "=== 6.12: Reference signpost completeness (D12) ==="
@@ -1027,22 +1027,22 @@
     pass=$((pass+1))
   fi
   ```
-- [ ] Step 11: Edit `plugin/architecture-draft.md`
+- [x] Step 11: Edit `plugin/architecture-draft.md`
   - 找到 build template 表（grep `forbidden-shortcuts\|state-write\|trust-boundary`），把 3 个删除的模板从 active 列移除；添加 3 个 canonical reference 行
   - 找到 hook 表（grep `13 hooks\|hooks 数\|guard-plan-doc-patch`），把 guard-plan-doc-patch 删除；hook 数从 13 改为 12
   - 找到 route enum 表（grep `8 值\|route.*hotfix`），把 8 值改为 4 值；新增 phase_skip / commit_format_override 字段说明
   - 找到 reference 拓扑表（grep `multi-pr-explorer-handbook\|route-extensions`），删除已删的 7 个条目（multi-pr-*-handbook ×3 + learnings-confidence-audit + learnings-trust-gate + path-a-re-review + rca-pr-conflict-methodology），删除 execution / workflow 一侧 route-extensions/ 目录提及
   - 备注：本 Pack 是 Issue 001 收尾，把 1200 行 architecture-draft.md 中所有 Issue 001 触及的章节一次性同步——不展开成多次 grep + 多次 edit，应一次 Read 1200 行后批量做 Edit
-- [ ] Step 12: 跑 verify-maturity（含新 §6.12）
+- [x] Step 12: 跑 verify-maturity（含新 §6.12）
   - Run: `bash plugin/scripts/verify-maturity.sh` → Expected: PASS
-- [ ] Step 13: 跑全量测试
+- [x] Step 13: 跑全量测试
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
-- [ ] Step 14: 整 Issue 收尾——跑 plugin 完整成熟度验证
+- [x] Step 14: 整 Issue 收尾——跑 plugin 完整成熟度验证
   - Run: `bash plugin/scripts/verify-maturity.sh` → Expected: PASS
   - Run: `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
   - Run: `python3 -m json.tool plugin/.claude-plugin/plugin.json >/dev/null` → Expected: exit 0
   - Run: `python3 -m json.tool plugin/hooks/hooks.json >/dev/null` → Expected: exit 0
-- [ ] Step 15: Commit `refactor(refs): signpost completeness + jump elimination + architecture-draft sync (D12)`
+- [x] Step 15: Commit `refactor(refs): signpost completeness + jump elimination + architecture-draft sync (D12)`
 
 ---
 
@@ -1074,16 +1074,16 @@
 - Verification: validator 文件不存在 + SKILL.md 不含 validator 引用 + verify-maturity 按行为验证 hook
 
 **Acceptance criteria:**
-- [ ] `test ! -f plugin/scripts/pack-count-validator.sh && echo OK` → Expected: OK
-- [ ] `grep -c 'pack-count-validator' plugin/skills/orchestrate-plan-writing/SKILL.md` → Expected: 0
-- [ ] `grep -c 'WARN_THRESHOLD\|OVER_THRESHOLD' plugin/skills/orchestrate-plan-writing/SKILL.md` → Expected: 0
-- [ ] `grep -c 'Pack 数量检查' plugin/skills/orchestrate-plan-writing/SKILL.md` → Expected: 0
-- [ ] `grep -c '≤ *8 *pack\|≤8 *pack\|8 *packs' plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md` → Expected: 0（若原本无表述则免改）
-- [ ] `grep -c 'Hook 数.*≤ *10\|Hooks.*≤ *10' plugin/scripts/verify-maturity.sh` → Expected: 0（如原本含 ≤10 字面验证则删除）
-- [ ] `grep -c 'guard-plan-doc-patch' plugin/scripts/verify-maturity.sh` ≥ 1（按行为验证仍保留）
-- [ ] `bash plugin/scripts/verify-maturity.sh` → Expected: PASS（含 §6.12 路标段 + 新的 hook 行为段）
-- [ ] `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
-- [ ] `grep -rc 'pack-count-validator' plugin/` → Expected: 0（全 plugin 无残留）
+- [x] `test ! -f plugin/scripts/pack-count-validator.sh && echo OK` → Expected: OK
+- [x] `grep -c 'pack-count-validator' plugin/skills/orchestrate-plan-writing/SKILL.md` → Expected: 0
+- [x] `grep -c 'WARN_THRESHOLD\|OVER_THRESHOLD' plugin/skills/orchestrate-plan-writing/SKILL.md` → Expected: 0
+- [x] `grep -c 'Pack 数量检查' plugin/skills/orchestrate-plan-writing/SKILL.md` → Expected: 0
+- [x] `grep -c '≤ *8 *pack\|≤8 *pack\|8 *packs' plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md` → Expected: 0（若原本无表述则免改）
+- [x] `grep -c 'Hook 数.*≤ *10\|Hooks.*≤ *10' plugin/scripts/verify-maturity.sh` → Expected: 0（如原本含 ≤10 字面验证则删除）
+- [x] `grep -c 'guard-plan-doc-patch' plugin/scripts/verify-maturity.sh` ≥ 1（按行为验证仍保留）
+- [x] `bash plugin/scripts/verify-maturity.sh` → Expected: PASS（含 §6.12 路标段 + 新的 hook 行为段）
+- [x] `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
+- [x] `grep -rc 'pack-count-validator' plugin/` → Expected: 0（全 plugin 无残留）
 
 **Verification commands:**
 - `test ! -f plugin/scripts/pack-count-validator.sh && echo OK` → Expected: OK
@@ -1103,30 +1103,30 @@
 - 不动 §2.1 SKILL.md ≤ 300 / reference ≤ 250 / phase chars ≤ 50000（基于 token economy + sub-agent 加载预算，有可观测理由）
 
 #### Implementation tasks
-- [ ] Step 1: Read `plugin/scripts/pack-count-validator.sh` 确认无其他 consumer 调用（grep `pack-count-validator` 全 plugin/）
+- [x] Step 1: Read `plugin/scripts/pack-count-validator.sh` 确认无其他 consumer 调用（grep `pack-count-validator` 全 plugin/）
   - Run: `grep -rn 'pack-count-validator' plugin/` → 记录所有引用点
-- [ ] Step 2: 删除 `plugin/scripts/pack-count-validator.sh`
+- [x] Step 2: 删除 `plugin/scripts/pack-count-validator.sh`
   - Run: `rm plugin/scripts/pack-count-validator.sh`
-- [ ] Step 3: Edit `plugin/skills/orchestrate-plan-writing/SKILL.md`
+- [x] Step 3: Edit `plugin/skills/orchestrate-plan-writing/SKILL.md`
   - 找到 "Pack 数量检查" 一段（含 `bash ... pack-count-validator.sh <plan-file>` + WARN_THRESHOLD / OVER_THRESHOLD 表格 + OK/WARN/OVER_THRESHOLD 三档分流表），整段删除
   - 后续段（Plan Review 派发）的引用如有 "Pack 数量检查通过后" 文字，改为 "Plan Entry Gate + Inventory Gate 通过后"
-- [ ] Step 4: Read `plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md` 搜 ≤8 / 8 packs / OVER_THRESHOLD 表述
+- [x] Step 4: Read `plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md` 搜 ≤8 / 8 packs / OVER_THRESHOLD 表述
   - Run: `grep -nE '≤ *8|8 *pack|OVER_THRESHOLD|WARN_THRESHOLD' plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md`
   - 如有命中：删除对应表述，保留方法论文本（"按文件 scope 拆分 Task Pack"）
-- [ ] Step 5: Read `plugin/scripts/verify-maturity.sh` 搜 Hook 数 ≤ 10 / pack-count-validator
+- [x] Step 5: Read `plugin/scripts/verify-maturity.sh` 搜 Hook 数 ≤ 10 / pack-count-validator
   - Run: `grep -nE 'Hook 数|hooks.*≤|pack-count-validator' plugin/scripts/verify-maturity.sh`
   - 把"Hook 脚本数 ≤ 10"硬验证改为按行为验证：保留对 `guard-plan-doc-patch` 不存在的检查；删除对 `hooks/*.sh` 总数 ≤ 10 的硬检查
   - 新增"pack-count-validator 已删除"段：`test ! -f plugin/scripts/pack-count-validator.sh`
-- [ ] Step 6: Edit `plugin/architecture-draft.md`
+- [x] Step 6: Edit `plugin/architecture-draft.md`
   - Run: `grep -nE 'pack-count-validator|Pack ≤ *8|≤ *8 *pack|≤ *12 *pack|WARN_THRESHOLD|OVER_THRESHOLD' plugin/architecture-draft.md`
   - 如有命中：删除对应段落；如 hook 表里有 ≤ 10 字面，改为 "按行为验证（无 guard-plan-doc-patch）"
-- [ ] Step 7: 跑 verify-maturity（含新的 hook 行为段 + pack-count-validator 删除段）
+- [x] Step 7: 跑 verify-maturity（含新的 hook 行为段 + pack-count-validator 删除段）
   - Run: `bash plugin/scripts/verify-maturity.sh` → Expected: PASS
-- [ ] Step 8: 跑全量测试
+- [x] Step 8: 跑全量测试
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
-- [ ] Step 9: 残留 grep
+- [x] Step 9: 残留 grep
   - Run: `grep -rc 'pack-count-validator' plugin/` → Expected: 0
-- [ ] Step 10: Commit `refactor(arbitrary-limits): drop pack-count-validator + hook count ceiling (D24)`
+- [x] Step 10: Commit `refactor(arbitrary-limits): drop pack-count-validator + hook count ceiling (D24)`
 
 ---
 
@@ -1134,17 +1134,17 @@
 
 | Pack | Title | Status | Dependencies |
 |------|-------|--------|--------------|
-| - [ ] **Pack 1** | Agent frontmatter 瘦身（D11 局部） | pending | None |
-| - [ ] **Pack 2** | 死模板 forbidden-shortcuts 内联并删除（D2.a） | pending | None |
-| - [ ] **Pack 3** | 死模板 state-write 内联并删除（D2.b） | pending | None |
-| - [ ] **Pack 4** | 死模板 trust-boundary 内联并删除（D2.c） | pending | None |
-| - [ ] **Pack 5** | 孤儿 + 副本 reference + verify-maturity §6.11 清扫（D2.d） | pending | None |
-| - [ ] **Pack 6** | Route 4-7 折叠为 Route 1 + flags（D10） | pending | None |
-| - [ ] **Pack 7** | Hook 降级 / 删除（D9） | pending | None |
-| - [ ] **Pack 8** | Scripts 合并：dispatch-review.sh + dispatch-route-worker.sh（D8） | pending | None |
-| - [ ] **Pack 9** | Canonical reference 抽取（D1） | pending | 2, 3, 4, 5, 6, 7, 8 |
-| - [ ] **Pack 10** | Reference 路标补齐 + 跳跃精简 + architecture-draft 同步（D12） | pending | 5, 9 |
-| - [ ] **Pack 11** | 删除 arbitrary meta-limits — pack-count-validator + hook 总数上限（D24） | pending | 7, 10 |
+| - [x] **Pack 1** | Agent frontmatter 瘦身（D11 局部） | pending | None |
+| - [x] **Pack 2** | 死模板 forbidden-shortcuts 内联并删除（D2.a） | pending | None |
+| - [x] **Pack 3** | 死模板 state-write 内联并删除（D2.b） | pending | None |
+| - [x] **Pack 4** | 死模板 trust-boundary 内联并删除（D2.c） | pending | None |
+| - [x] **Pack 5** | 孤儿 + 副本 reference + verify-maturity §6.11 清扫（D2.d） | pending | None |
+| - [x] **Pack 6** | Route 4-7 折叠为 Route 1 + flags（D10） | pending | None |
+| - [x] **Pack 7** | Hook 降级 / 删除（D9） | pending | None |
+| - [x] **Pack 8** | Scripts 合并：dispatch-review.sh + dispatch-route-worker.sh（D8） | pending | None |
+| - [x] **Pack 9** | Canonical reference 抽取（D1） | pending | 2, 3, 4, 5, 6, 7, 8 |
+| - [x] **Pack 10** | Reference 路标补齐 + 跳跃精简 + architecture-draft 同步（D12） | pending | 5, 9 |
+| - [x] **Pack 11** | 删除 arbitrary meta-limits — pack-count-validator + hook 总数上限（D24） | pending | 7, 10 |
 
 **串行执行顺序建议**：1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11（按本表顺序，Pack 11 在 Pack 10 architecture-draft 同步之后做收尾，确保 architecture-draft 中 D24 涉及的描述也一并清理）
 

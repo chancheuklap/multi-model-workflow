@@ -131,9 +131,9 @@
 - 已有的 design 文档（如有）确认 schema 兼容
 
 ### Acceptance criteria
-- [ ] design 模板含 3 个新 section 的模板段
-- [ ] Self-Check 列表更新
-- [ ] `build.sh --check` 通过
+- [x] design 模板含 3 个新 section 的模板段
+- [x] Self-Check 列表更新
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 - `grep -q 'Review History' plugin/skills/orchestrate-discovery/references/discovery-design-document.md` → Expected: exit 0
@@ -177,8 +177,8 @@ normal（schema 变更影响所有未来 design；老 design 文档需 fallback 
 - `plugin/skills/orchestrate-discovery/references/issue-splitting.md`（当前格式）
 
 ### Acceptance criteria
-- [ ] issue 模板含 Design context refs section
-- [ ] `build.sh --check` 通过
+- [x] issue 模板含 Design context refs section
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 - `grep -q 'Design context refs' plugin/skills/orchestrate-discovery/references/issue-splitting.md` → Expected: exit 0
@@ -227,10 +227,10 @@ Worker 入口查询表。每行：pack_id → 章节锚点 + 关键字段索引�
 - 已有 plan 文档（如有）
 
 ### Acceptance criteria
-- [ ] methodology 模板含 Plan Review History section
-- [ ] methodology 模板含 Pack Execution Manifest section
-- [ ] 自检列表更新
-- [ ] `build.sh --check` 通过
+- [x] methodology 模板含 Plan Review History section
+- [x] methodology 模板含 Pack Execution Manifest section
+- [x] 自检列表更新
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 - `grep -q 'Plan Review History' plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md` → Expected: exit 0
@@ -265,9 +265,9 @@ normal（Worker 自治依赖此 schema；缺失会触发 NEEDS_PLAN_REVISION）
 - `plugin/state-schema/workflow-state-v1.json`（现状）
 
 ### Acceptance criteria
-- [ ] schema 含 plan_id + coordinator_verified_evidence 可选字段
-- [ ] JSON 合法
-- [ ] 老 state 文件可被新 schema 验证（向后兼容）
+- [x] schema 含 plan_id + coordinator_verified_evidence 可选字段
+- [x] JSON 合法
+- [x] 老 state 文件可被新 schema 验证（向后兼容）
 
 ### Verification commands
 - `python3 -c "import json; s=json.load(open('plugin/state-schema/workflow-state-v1.json')); assert 'plan_id' in s['properties']['review_dispositions']['items']['properties']" ` → Expected: exit 0
@@ -300,9 +300,9 @@ normal
 - `plugin/hooks/track-execution-state.sh`（确认字段使用方式）
 
 ### Acceptance criteria
-- [ ] schema 含上述字段
-- [ ] JSON 合法
-- [ ] 老 state 兼容
+- [x] schema 含上述字段
+- [x] JSON 合法
+- [x] 老 state 兼容
 
 ### Verification commands
 - `python3 -c "import json; s=json.load(open('plugin/state-schema/execution-state-v1.json')); ap=s['properties']['plans']['additionalProperties']['properties']; assert 'worker_agent_id' in ap and 'pack_summary' in ap"` → Expected: exit 0
@@ -332,9 +332,9 @@ DISPATCH_ENVELOPE 加 plan_id 字段（与 pack_id 互斥），让 hook 能区�
 - `plugin/build/templates/control-envelope.md.tmpl`
 
 ### Acceptance criteria
-- [ ] schema +plan_id
-- [ ] template 字段列表同步
-- [ ] `build.sh --apply` + `--check` 通过
+- [x] schema +plan_id
+- [x] template 字段列表同步
+- [x] `build.sh --apply` + `--check` 通过
 
 ### Verification commands
 - `python3 -c "import json; s=json.load(open('plugin/state-schema/dispatch-envelope-v1.json')); assert 'plan_id' in s['properties']"` → Expected: exit 0
@@ -382,8 +382,8 @@ trivial（仅 schema 声明，运行时解析在 Plan 005）
 - 其他 state schema 文件作 reference
 
 ### Acceptance criteria
-- [ ] schema 文件存在且 JSON 合法
-- [ ] schema 覆盖 pack-returns 当前所有字段
+- [x] schema 文件存在且 JSON 合法
+- [x] schema 覆盖 pack-returns 当前所有字段
 
 ### Verification commands
 - `test -f plugin/state-schema/pack-returns-v1.json` → Expected: exit 0
@@ -423,9 +423,9 @@ state.sh 加 5 项能力：
 - `plugin/state-schema/execution-state-v1.json`（Pack 2.5 已扩展）
 
 ### Acceptance criteria
-- [ ] 5 项能力全部可用
-- [ ] state.sh 单元测试通过（含新子命令 fixture）
-- [ ] state-lock 正确保护
+- [x] 5 项能力全部可用
+- [x] state.sh 单元测试通过（含新子命令 fixture）
+- [x] state-lock 正确保护
 
 ### Verification commands
 - `bash plugin/scripts/state.sh review-history append --help` → Expected: 显示用法
@@ -461,9 +461,9 @@ state.sh 加 5 项能力：
 - `plugin/scripts/state.sh`（确认 review-history append 调用契约）
 
 ### Acceptance criteria
-- [ ] 脚本对 design-review-* / plan-review-* 自动调用 state.sh
-- [ ] 不影响其他 gate 名
-- [ ] 测试通过
+- [x] 脚本对 design-review-* / plan-review-* 自动调用 state.sh
+- [x] 不影响其他 gate 名
+- [x] 测试通过
 
 ### Verification commands
 - `grep -q 'review-history append' plugin/scripts/complete-review-dispatch.sh` → Expected: exit 0
@@ -499,9 +499,9 @@ Plan 全部 Pack committed 后，自动聚合 pack-returns/*.json 到 `execution
 - `plugin/state-schema/pack-returns-v1.json`（Pack 2.7）
 
 ### Acceptance criteria
-- [ ] PLAN_DONE 时 pack_summary 写入
-- [ ] 幂等
-- [ ] 现有测试不破
+- [x] PLAN_DONE 时 pack_summary 写入
+- [x] 幂等
+- [x] 现有测试不破
 
 ### Verification commands
 - 单元测试：mock plan 完成 → execution-state 中 pack_summary 非空数组
@@ -537,9 +537,9 @@ normal
 - `plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md`（Manifest 模板格式）
 
 ### Acceptance criteria
-- [ ] 脚本可用：`bash plugin/build/generate-pack-manifest.sh <plan.md>` 生成/更新 Manifest
-- [ ] `--check` 模式可校验
-- [ ] 对本计划文档（plan-level-worker-autonomy 系列）跑 check 通过
+- [x] 脚本可用：`bash plugin/build/generate-pack-manifest.sh <plan.md>` 生成/更新 Manifest
+- [x] `--check` 模式可校验
+- [x] 对本计划文档（plan-level-worker-autonomy 系列）跑 check 通过
 
 ### Verification commands
 - `test -x plugin/build/generate-pack-manifest.sh` → Expected: exit 0
@@ -583,10 +583,10 @@ normal
 - `plugin/skills/orchestrate-discovery/references/discovery-design-document.md`（Pack 2.1 已加 section）
 
 ### Acceptance criteria
-- [ ] plan-gates.md Step 11 不再要求生成独立文件
-- [ ] 3 处 reader 路径全部改为 design.md#cross-plan-contract-anchors
-- [ ] `grep -rn 'cross-plan-contract-map.md' plugin/skills/` 仅在 fallback 注释或本 Plan 文档中出现
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
+- [x] plan-gates.md Step 11 不再要求生成独立文件
+- [x] 3 处 reader 路径全部改为 design.md#cross-plan-contract-anchors
+- [x] `grep -rn 'cross-plan-contract-map.md' plugin/skills/` 仅在 fallback 注释或本 Plan 文档中出现
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过
 
 ### Verification commands
 - `! grep -rq 'Read.*cross-plan-contract-map.md' plugin/skills/` → Expected: exit 0（除 fallback 注释外）
@@ -640,12 +640,12 @@ normal
 
 ### Acceptance criteria
 
-- [ ] hook 存在且可执行
-- [ ] 三方一致 → allow
-- [ ] Manifest 缺 pack → BLOCKED + 诊断
-- [ ] 主体缺 pack → BLOCKED + 诊断
-- [ ] execution-state 含 Manifest 外的 pack → BLOCKED + 诊断
-- [ ] 测试覆盖
+- [x] hook 存在且可执行
+- [x] 三方一致 → allow
+- [x] Manifest 缺 pack → BLOCKED + 诊断
+- [x] 主体缺 pack → BLOCKED + 诊断
+- [x] execution-state 含 Manifest 外的 pack → BLOCKED + 诊断
+- [x] 测试覆盖
 
 ### Verification commands
 
@@ -686,9 +686,9 @@ normal（新 hook，需保证不影响现有 pack-executor 派发）
 
 ### Acceptance criteria
 
-- [ ] 文档含 4 条新流转
-- [ ] state.sh TRANSITION_MATRIX 同步
-- [ ] 单测通过
+- [x] 文档含 4 条新流转
+- [x] state.sh TRANSITION_MATRIX 同步
+- [x] 单测通过
 
 ### Verification commands
 

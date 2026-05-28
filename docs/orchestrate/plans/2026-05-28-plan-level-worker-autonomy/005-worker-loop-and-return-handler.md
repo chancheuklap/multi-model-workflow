@@ -995,7 +995,7 @@ normal
 2. 加注释段说明：「Worker 写 `${STATE_DIR}/plan-returns/...` 是合法的——该路径不在 `docs/` 下，本 hook 不拦截」
 3. 创建 `plugin/hooks/guard-plan-doc-patch.sh`：
    - PreToolUse Write，路径匹配 `*doc-patch.diff`
-   - 解析 diff 内容：所有 `+/-` 行必须满足 (a) 目标文件是 plan 文档 (b) 只动 checkbox `- [ ]` ↔ `- [x]`
+   - 解析 diff 内容：所有 `+/-` 行必须满足 (a) 目标文件是 plan 文档 (b) 只动 checkbox `- [x]` ↔ `- [x]`
    - 失败 → BLOCKED + 输出违规行
 4. hooks.json 注册（在 Pack 5.14 统一处理）
 5. 测试 fixture：合法 patch / 违规 patch

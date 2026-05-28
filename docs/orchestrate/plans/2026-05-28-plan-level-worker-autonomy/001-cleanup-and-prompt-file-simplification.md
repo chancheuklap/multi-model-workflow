@@ -65,7 +65,7 @@
 
 ### Acceptance criteria
 - [x] L8-9 的 `TEMPLATE_DEPS` 注释已删除
-- [ ] ~~`<!-- BEGIN: review-dispatch -->` 锚点存在于 SKILL.md~~（推到 Plan 003 Pack 3.5）
+- [x] ~~`<!-- BEGIN: review-dispatch -->` 锚点存在于 SKILL.md~~（推到 Plan 003 Pack 3.5）
 - [x] `build.sh --check` 通过
 
 ### Verification commands
@@ -101,10 +101,10 @@ trivial（文档级清理）
 - `plugin/build/README.md`
 
 ### Acceptance criteria
-- [ ] `decision-brief.md.tmpl` 文件不存在
-- [ ] `decision-brief.sh` resolver 不存在
-- [ ] `bash plugin/build/build.sh --check` 通过
-- [ ] grep `decision-brief` 在 SKILL.md / 锚点中找不到任何引用
+- [x] `decision-brief.md.tmpl` 文件不存在
+- [x] `decision-brief.sh` resolver 不存在
+- [x] `bash plugin/build/build.sh --check` 通过
+- [x] grep `decision-brief` 在 SKILL.md / 锚点中找不到任何引用
 
 ### Verification commands
 - `! test -f plugin/build/templates/decision-brief.md.tmpl` → Expected: exit 0
@@ -144,10 +144,10 @@ trivial
 - `plugin/skills/orchestrate-plan-writing/references/plan-review-resolution.md`
 
 ### Acceptance criteria
-- [ ] sendmessage-resume.md.tmpl 不再包含 "worker-prompts/" 路径写入指令
-- [ ] 模板末尾说明了 compaction 恢复路径（不依赖 prompt 文件）
-- [ ] `build.sh --apply` + `--check` 通过
-- [ ] grep `worker-prompts/.*\.md` 在模板中无匹配（除非是历史 reference 注释）
+- [x] sendmessage-resume.md.tmpl 不再包含 "worker-prompts/" 路径写入指令
+- [x] 模板末尾说明了 compaction 恢复路径（不依赖 prompt 文件）
+- [x] `build.sh --apply` + `--check` 通过
+- [x] grep `worker-prompts/.*\.md` 在模板中无匹配（除非是历史 reference 注释）
 
 ### Verification commands
 - `! grep -q 'write to .*worker-prompts/' plugin/build/templates/sendmessage-resume.md.tmpl` → Expected: exit 0
@@ -192,10 +192,10 @@ Pack 1.3 改了 template；本 Pack 把所有 dispatch reference 中提到 `work
 - `plugin/build/templates/sendmessage-resume.md.tmpl`（Pack 1.3 改好的版本）
 
 ### Acceptance criteria
-- [ ] `grep -rn 'write.*worker-prompts/' plugin/skills/` 无匹配
-- [ ] 所有 reference 中的 SendMessage 续派说明都是 "inline" 模式
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
-- [ ] `bash plugin/scripts/verify-maturity.sh` 通过
+- [x] `grep -rn 'write.*worker-prompts/' plugin/skills/` 无匹配
+- [x] 所有 reference 中的 SendMessage 续派说明都是 "inline" 模式
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过
+- [x] `bash plugin/scripts/verify-maturity.sh` 通过
 
 ### Verification commands
 - `! grep -rq 'write.*worker-prompts/' plugin/skills/` → Expected: exit 0

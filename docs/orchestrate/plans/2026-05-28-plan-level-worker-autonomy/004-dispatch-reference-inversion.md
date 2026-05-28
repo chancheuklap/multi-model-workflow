@@ -94,11 +94,11 @@
 
 ### Acceptance criteria
 
-- [ ] 文件顶部含 `## Self-Read Protocol` 段（5 步）
-- [ ] 无「Coordinator 必须粘贴」类指引
-- [ ] 主语统一为「你（Worker）」
-- [ ] 末尾含 `## Coordinator 端最小职责` 段
-- [ ] `build.sh --check` 通过
+- [x] 文件顶部含 `## Self-Read Protocol` 段（5 步）
+- [x] 无「Coordinator 必须粘贴」类指引
+- [x] 主语统一为「你（Worker）」
+- [x] 末尾含 `## Coordinator 端最小职责` 段
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 
@@ -147,10 +147,10 @@ Codex Reviewer 自读视角。删除 Coordinator 端「必须粘贴 review promp
 
 ### Acceptance criteria
 
-- [ ] 含 `## Self-Read Protocol` 段
-- [ ] 主语统一为「你（Reviewer）」
-- [ ] confidence rubric / pre-emit gate / evidence schema 保留
-- [ ] `build.sh --check` 通过
+- [x] 含 `## Self-Read Protocol` 段
+- [x] 主语统一为「你（Reviewer）」
+- [x] confidence rubric / pre-emit gate / evidence schema 保留
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 
@@ -191,10 +191,10 @@ Plan Writer 自读视角。Coordinator 端 prompt 缩为：envelope + design.md 
 
 ### Acceptance criteria
 
-- [ ] 含 `## Self-Read Protocol`
-- [ ] 含 `## Coordinator 端最小职责`
-- [ ] plan.md schema + Pack 上限 + worker_type 选择规则 + budget 公式 保留
-- [ ] `build.sh --check` 通过
+- [x] 含 `## Self-Read Protocol`
+- [x] 含 `## Coordinator 端最小职责`
+- [x] plan.md schema + Pack 上限 + worker_type 选择规则 + budget 公式 保留
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 
@@ -232,10 +232,10 @@ Plan Reviewer 自读视角。Coordinator 端 prompt 缩为：envelope + plan.md 
 
 ### Acceptance criteria
 
-- [ ] 含 `## Self-Read Protocol` + `## Coordinator 端最小职责`
-- [ ] Plan Review rubric 保留
-- [ ] Cross-Plan Contract Anchors 校验项保留（Plan 002 Pack 2.11 已迁到 design.md）
-- [ ] `build.sh --check` 通过
+- [x] 含 `## Self-Read Protocol` + `## Coordinator 端最小职责`
+- [x] Plan Review rubric 保留
+- [x] Cross-Plan Contract Anchors 校验项保留（Plan 002 Pack 2.11 已迁到 design.md）
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 
@@ -274,9 +274,9 @@ Discovery agent 自读视角。Coordinator 端 prompt 缩为 envelope + bug brie
 
 ### Acceptance criteria
 
-- [ ] 含 `## Self-Read Protocol` + `## Coordinator 端最小职责`
-- [ ] Discovery 输出 schema 保留
-- [ ] `build.sh --check` 通过
+- [x] 含 `## Self-Read Protocol` + `## Coordinator 端最小职责`
+- [x] Discovery 输出 schema 保留
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 
@@ -315,9 +315,9 @@ Final Reviewer 自读视角。Coordinator 端 prompt 缩为 envelope + design.md
 
 ### Acceptance criteria
 
-- [ ] 含 `## Self-Read Protocol` + `## Coordinator 端最小职责`
-- [ ] Final Review angles 引用保留
-- [ ] `build.sh --check` 通过
+- [x] 含 `## Self-Read Protocol` + `## Coordinator 端最小职责`
+- [x] Final Review angles 引用保留
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 
@@ -358,10 +358,10 @@ trivial
 
 ### Acceptance criteria
 
-- [ ] 含 `## Self-Read Protocol` + `## Coordinator 端最小职责`
-- [ ] 4 处 paste 段已删
-- [ ] reference 中明确 `envelope.bug_context` 字段语义
-- [ ] `build.sh --check` 通过
+- [x] 含 `## Self-Read Protocol` + `## Coordinator 端最小职责`
+- [x] 4 处 paste 段已删
+- [x] reference 中明确 `envelope.bug_context` 字段语义
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 
@@ -404,9 +404,9 @@ normal
 
 ### Acceptance criteria
 
-- [ ] 含 `## Self-Read Protocol` + `## Coordinator 端最小职责`
-- [ ] 粘贴段已删
-- [ ] envelope.repair_context 字段语义明确
+- [x] 含 `## Self-Read Protocol` + `## Coordinator 端最小职责`
+- [x] 粘贴段已删
+- [x] envelope.repair_context 字段语义明确
 
 ### Verification commands
 
@@ -453,9 +453,9 @@ normal
 
 ### Acceptance criteria
 
-- [ ] `grep -rn '<paste' plugin/skills/orchestrate-discovery/references/design-review-angles.md plugin/skills/orchestrate-final-review/references/final-review-angles.md plugin/skills/orchestrate-multi-pr-merge/references/` 无匹配
-- [ ] merge-* reference 全部含 merge-brief 路径引用
-- [ ] `build.sh --check` 通过
+- [x] `grep -rn '<paste' plugin/skills/orchestrate-discovery/references/design-review-angles.md plugin/skills/orchestrate-final-review/references/final-review-angles.md plugin/skills/orchestrate-multi-pr-merge/references/` 无匹配
+- [x] merge-* reference 全部含 merge-brief 路径引用
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 

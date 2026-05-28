@@ -134,10 +134,10 @@
 - Verification: build.sh --check 不报错 + grep `variant=targeted-re-review` 在 `plugin/build/templates/` 无结果
 
 **Acceptance criteria:**
-- [ ] `plugin/build/templates/review-dispatch.md.tmpl` 不含 `variant=targeted-re-review` 子模板段
-- [ ] `plugin/build/resolvers/` 中 review-dispatch 相关 resolver 不再处理 `targeted-re-review` variant
-- [ ] `bash plugin/build/build.sh --check --plugin-dir plugin` 退出码 0
-- [ ] `grep -rn "variant=targeted-re-review" plugin/build/templates/` 无结果
+- [x] `plugin/build/templates/review-dispatch.md.tmpl` 不含 `variant=targeted-re-review` 子模板段
+- [x] `plugin/build/resolvers/` 中 review-dispatch 相关 resolver 不再处理 `targeted-re-review` variant
+- [x] `bash plugin/build/build.sh --check --plugin-dir plugin` 退出码 0
+- [x] `grep -rn "variant=targeted-re-review" plugin/build/templates/` 无结果
 
 **Verification commands:**
 - `grep -rn "variant=targeted-re-review" plugin/build/templates/` → Expected: 无输出
@@ -152,35 +152,35 @@
 
 #### Implementation tasks
 
-- [ ] Step 1: Read 当前 review-dispatch.md.tmpl 结构 + 定位 targeted-re-review variant 段
+- [x] Step 1: Read 当前 review-dispatch.md.tmpl 结构 + 定位 targeted-re-review variant 段
   - 文件: `plugin/build/templates/review-dispatch.md.tmpl`
   - Behavior: grep `variant=targeted-re-review` 找到子模板起止行
   - Run: `grep -n "variant=targeted-re-review\|END.*targeted-re-review" plugin/build/templates/review-dispatch.md.tmpl` → Expected: 找到起止行号
 
-- [ ] Step 2: 定位对应 resolver 文件
+- [x] Step 2: 定位对应 resolver 文件
   - Run: `grep -rln "variant=targeted-re-review\|targeted-re-review" plugin/build/resolvers/` → Expected: 1-2 个 resolver 文件
   - Behavior: 阅读 resolver 内 handling logic，标记需删除的代码段
 
-- [ ] Step 3: 写失败的 build check（Red）
+- [x] Step 3: 写失败的 build check（Red）
   - Run: 先 `bash plugin/build/build.sh --apply --plugin-dir plugin` 重建一次 baseline；记录当前 inject 位置数
   - Expected: 当前 build 通过；记录 11 个 .md 文件含 `<!-- BEGIN: review-dispatch -->` 锚点
 
-- [ ] Step 4: 删除 .tmpl 中 targeted-re-review variant 子模板
+- [x] Step 4: 删除 .tmpl 中 targeted-re-review variant 子模板
   - 文件: `plugin/build/templates/review-dispatch.md.tmpl`
   - 动作: Edit 删除 `variant=targeted-re-review` 起止段（用 Step 1 找到的行号定位）
 
-- [ ] Step 5: 删除 resolver 中 targeted-re-review variant 处理
+- [x] Step 5: 删除 resolver 中 targeted-re-review variant 处理
   - 文件: Step 2 定位的 resolver
   - 动作: Edit 删除 targeted-re-review 分支代码
 
-- [ ] Step 6: 跑 build check 验证
+- [x] Step 6: 跑 build check 验证
   - Run: `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
   - Run: `bash plugin/build/build.sh --apply --plugin-dir plugin` → Expected: 11 个目标文件中 targeted-re-review 段被移除
 
-- [ ] Step 7: 全树验证无残留
+- [x] Step 7: 全树验证无残留
   - Run: `grep -rn "variant=targeted-re-review" plugin/build/templates/` → Expected: 无输出
 
-- [ ] Step 8: Suggested commit boundary
+- [x] Step 8: Suggested commit boundary
   - Message: `feat(build): D13a 删除 review-dispatch targeted-re-review variant 子模板（cross-issue priority for Issue 001 D1）`
 
 ---
@@ -215,15 +215,15 @@
 - Verification: grep 全树 `targeted-re-review` 仅在 git history / decision rationale 中残留；2 个 hook test pass
 
 **Acceptance criteria:**
-- [ ] `dispatch-envelope-v1.json` `review_intent` enum 仅含 `["baseline"]`（不含 `targeted-re-review`；`path-a-re-review` 由 Pack 2.5 删）
-- [ ] `parse-envelope.sh` 不含 `targeted-re-review` 分支 + 不含 exception_code 必填校验
-- [ ] `gate-codex-review.sh` 不含 `targeted-re-review` case + 不含 `--resume` 强制检查代码
-- [ ] `plan-gates.md` L46 含 `budget.review_total = 2P + 6` + `budget.effort_total = (2P + 6) * 2`
-- [ ] `orchestrate-plan-writing/SKILL.md` L172 含 `budget_total = 2P + 6`
-- [ ] 全树 `grep -rn "targeted-re-review\|targeted re-review" plugin/` 在 .sh / .json / SKILL.md / reference.md 中无残留（git history / decision rationale 除外）
-- [ ] `plugin/hooks/tests/test_envelope_parse.sh` 通过（含新增 baseline-only 用例）
-- [ ] `plugin/hooks/tests/test_gate_codex_review.sh` 通过（删除 targeted-re-review + --resume 用例）
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
+- [x] `dispatch-envelope-v1.json` `review_intent` enum 仅含 `["baseline"]`（不含 `targeted-re-review`；`path-a-re-review` 由 Pack 2.5 删）
+- [x] `parse-envelope.sh` 不含 `targeted-re-review` 分支 + 不含 exception_code 必填校验
+- [x] `gate-codex-review.sh` 不含 `targeted-re-review` case + 不含 `--resume` 强制检查代码
+- [x] `plan-gates.md` L46 含 `budget.review_total = 2P + 6` + `budget.effort_total = (2P + 6) * 2`
+- [x] `orchestrate-plan-writing/SKILL.md` L172 含 `budget_total = 2P + 6`
+- [x] 全树 `grep -rn "targeted-re-review\|targeted re-review" plugin/` 在 .sh / .json / SKILL.md / reference.md 中无残留（git history / decision rationale 除外）
+- [x] `plugin/hooks/tests/test_envelope_parse.sh` 通过（含新增 baseline-only 用例）
+- [x] `plugin/hooks/tests/test_gate_codex_review.sh` 通过（删除 targeted-re-review + --resume 用例）
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过
 
 **Verification commands:**
 - `jq -r '.properties.review_intent.oneOf[0].enum' plugin/state-schema/dispatch-envelope-v1.json` → Expected: `["baseline"]`（或仅含 baseline + path-a-re-review，path-a 由 Pack 2.5 删）
@@ -242,57 +242,57 @@
 
 #### Implementation tasks
 
-- [ ] Step 1: 写失败测试（Red）— 新增 baseline-only 用例
+- [x] Step 1: 写失败测试（Red）— 新增 baseline-only 用例
   - 文件: `plugin/hooks/tests/test_envelope_parse.sh`
   - Behavior: 新增 case "valid baseline envelope（不含 exception_code）" → 期望 exit 0；"含 review_intent=targeted-re-review" → 当前 exit 0（旧行为），修复后应 exit ≠ 0（enum 不允许）
   - Run: `bash plugin/hooks/tests/test_envelope_parse.sh` → Expected: FAIL（新 case 因 schema 未改而失败）
 
-- [ ] Step 2: 修改 dispatch-envelope-v1.json
+- [x] Step 2: 修改 dispatch-envelope-v1.json
   - 文件: `plugin/state-schema/dispatch-envelope-v1.json` L27
   - 动作: 把 `"enum": ["baseline", "targeted-re-review", "path-a-re-review"]` 改为 `"enum": ["baseline", "path-a-re-review"]`（path-a-re-review 留给 Pack 2.5）
   - 同时检查 `exception_code` 字段——若仅服务 targeted-re-review，标注待删除（具体删除由后续 step 处理）
 
-- [ ] Step 3: 修改 parse-envelope.sh
+- [x] Step 3: 修改 parse-envelope.sh
   - 文件: `plugin/hooks/lib/parse-envelope.sh` L49-L80
   - 动作: 删除 `baseline|targeted-re-review` 行的 `|targeted-re-review` 部分；删除 L74-78 `if [[ "$REVIEW_INTENT" == "targeted-re-review" ]]; then ... exception_code 必填` 整段
   - Run: `bash plugin/hooks/tests/test_envelope_parse.sh` → Expected: 新 case PASS（schema 已改）；旧 targeted-re-review case 仍存在则 FAIL → 删除该 case
 
-- [ ] Step 4: 修改 gate-codex-review.sh
+- [x] Step 4: 修改 gate-codex-review.sh
   - 文件: `plugin/hooks/gate-codex-review.sh`
   - 定位: `grep -n "targeted-re-review\|--resume" plugin/hooks/gate-codex-review.sh`
   - 动作: 删除 `targeted-re-review)` case 整段（含 `--resume` 强制检查 + 任何 exception_code 处理）
   - 注意: 保留 `baseline)` case + `uncommitted packs` 检查（决策 9 这两项不动）+ `path-a-re-review)` case（Pack 2.5 删）
 
-- [ ] Step 5: 跑 hook test 验证
+- [x] Step 5: 跑 hook test 验证
   - Run: `bash plugin/hooks/tests/test_gate_codex_review.sh` → Expected: PASS（删除 targeted-re-review + --resume 用例后）
   - 若失败：检查测试 fixture 是否仍含 targeted-re-review 用例 → 一并删除
 
-- [ ] Step 6: 修改 plan-gates.md budget 公式
+- [x] Step 6: 修改 plan-gates.md budget 公式
   - 文件: `plugin/skills/orchestrate-plan-writing/references/plan-gates.md` L46
   - 当前内容（Read 验证）: `此命令写入 budget.review_total = 3P + 12、budget.effort_total = (3P + 12) * 2`
   - 改为: `此命令写入 budget.review_total = 2P + 6、budget.effort_total = (2P + 6) * 2`
   - 公式分配（追加说明段）:
     > `2P` = 每 Plan 2 次 review（Plan Review + Plan Implementation Review）；`+6` 固定分配：Design Review 2 + Final Review 2 + Release Gate 1 + Multi-PR Integration Review 1。
 
-- [ ] Step 7: 修改 orchestrate-plan-writing/SKILL.md
+- [x] Step 7: 修改 orchestrate-plan-writing/SKILL.md
   - 文件: `plugin/skills/orchestrate-plan-writing/SKILL.md` L172
   - 当前内容: `budget_total = 3P + 12`
   - 改为: `budget_total = 2P + 6`
 
-- [ ] Step 8: 清除 SKILL.md / reference 中 targeted-re-review 描述
+- [x] Step 8: 清除 SKILL.md / reference 中 targeted-re-review 描述
   - 定位: `grep -rln "targeted-re-review\|targeted re-review" plugin/skills/`
   - 动作: 逐文件 Edit 删除 targeted-re-review 描述行（保留 baseline review 描述）。**仅本 Pack scope**：删除合同表面提及；具体 reference 内容压缩（如 final-review-repair.md Step 11/12 重写）由 Issue 003 处理
 
-- [ ] Step 9: 修改 architecture-draft.md
+- [x] Step 9: 修改 architecture-draft.md
   - 文件: `plugin/architecture-draft.md`
   - 定位: `grep -n "targeted-re-review\|targeted re-review" plugin/architecture-draft.md`
   - 动作: 删除 §11.4 targeted re-review 章节 + §13 review intent 表中 targeted-re-review 行；保留 baseline review 描述
 
-- [ ] Step 10: 跑全量测试
+- [x] Step 10: 跑全量测试
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
   - Run: `bash plugin/scripts/verify-maturity.sh` → Expected: PASS（review_effectiveness 检查仍在，由 Pack 2.3 处理）
 
-- [ ] Step 11: Suggested commit boundary
+- [x] Step 11: Suggested commit boundary
   - Message: `feat(plugin): D13b 全局删除 Targeted Re-review 机制（schema + hooks + budget 2P+6 + 描述清除）`
 
 ---
@@ -330,19 +330,19 @@
 - Verification: grep 全树无 `review_effectiveness` / `review-effectiveness` 残留（git history / decision rationale 除外）
 
 **Acceptance criteria:**
-- [ ] `plugin/scripts/lib/review-effectiveness.sh` 不存在
-- [ ] `plugin/scripts/tests/test_review_effectiveness.sh` 不存在
-- [ ] `plugin/build/tests/test_review_effectiveness_optional.sh` 不存在
-- [ ] `workflow-state-v1.json` `required` 数组不含 `review_effectiveness`；properties 段不含 `review_effectiveness`
-- [ ] `state.sh` init 不再初始化 `review_effectiveness` 字段
-- [ ] `state.sh` L347 required_fields 校验列表不含 `review_effectiveness`
-- [ ] `verify-maturity.sh` 不含 `review-effectiveness optional diagnostic script exists` 检查
-- [ ] `architecture-draft.md` L703 / L756 / L940 三段对应内容清除（L703 删除 review_effectiveness 字段提及；L756 删除 review-effectiveness.sh 表行；L940 整段删除）
-- [ ] `learnings-confidence-audit.md` L44 引用段清除
-- [ ] `test_agent_id_hook_guard.sh` L59 + `test_effort_budget_weighting.sh` L46 不含 `review_effectiveness` 字段
-- [ ] `state-lock.sh` L3 注释更新（不再提及 review-effectiveness.sh）
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
-- [ ] `bash plugin/scripts/verify-maturity.sh` 通过（删除 review-effectiveness 检查后）
+- [x] `plugin/scripts/lib/review-effectiveness.sh` 不存在
+- [x] `plugin/scripts/tests/test_review_effectiveness.sh` 不存在
+- [x] `plugin/build/tests/test_review_effectiveness_optional.sh` 不存在
+- [x] `workflow-state-v1.json` `required` 数组不含 `review_effectiveness`；properties 段不含 `review_effectiveness`
+- [x] `state.sh` init 不再初始化 `review_effectiveness` 字段
+- [x] `state.sh` L347 required_fields 校验列表不含 `review_effectiveness`
+- [x] `verify-maturity.sh` 不含 `review-effectiveness optional diagnostic script exists` 检查
+- [x] `architecture-draft.md` L703 / L756 / L940 三段对应内容清除（L703 删除 review_effectiveness 字段提及；L756 删除 review-effectiveness.sh 表行；L940 整段删除）
+- [x] `learnings-confidence-audit.md` L44 引用段清除
+- [x] `test_agent_id_hook_guard.sh` L59 + `test_effort_budget_weighting.sh` L46 不含 `review_effectiveness` 字段
+- [x] `state-lock.sh` L3 注释更新（不再提及 review-effectiveness.sh）
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过
+- [x] `bash plugin/scripts/verify-maturity.sh` 通过（删除 review-effectiveness 检查后）
 
 **Verification commands:**
 - `test ! -e plugin/scripts/lib/review-effectiveness.sh` → Expected: exit 0
@@ -364,54 +364,54 @@
 
 #### Implementation tasks
 
-- [ ] Step 1: 写失败测试（Red）— 验证 state.sh init 不再含 review_effectiveness
+- [x] Step 1: 写失败测试（Red）— 验证 state.sh init 不再含 review_effectiveness
   - 文件: `plugin/scripts/tests/test_state.sh`（如存在 init 测试）— 新增 case "init 后的 workflow-state 不含 review_effectiveness"
   - 或临时 inline: `bash plugin/scripts/state.sh init --run-id test-r0 --slug test --route formal && jq '.review_effectiveness' .claude/multi-model-workflow/workflow-state-test-r0.json`
   - Expected: 当前 = object（FAIL）；修复后 = null（PASS）
 
-- [ ] Step 2: 删除 lib + tests
+- [x] Step 2: 删除 lib + tests
   - Run: `rm plugin/scripts/lib/review-effectiveness.sh plugin/scripts/tests/test_review_effectiveness.sh plugin/build/tests/test_review_effectiveness_optional.sh`
   - Verify: `test ! -e plugin/scripts/lib/review-effectiveness.sh` → exit 0
 
-- [ ] Step 3: 修改 workflow-state-v1.json schema
+- [x] Step 3: 修改 workflow-state-v1.json schema
   - 文件: `plugin/state-schema/workflow-state-v1.json` L10 + L83
   - L10: required 数组中删除 `"review_effectiveness"`
   - L83: properties 段删除整个 `"review_effectiveness": {...}` block
 
-- [ ] Step 4: 修改 state.sh init + required_fields
+- [x] Step 4: 修改 state.sh init + required_fields
   - 文件: `plugin/scripts/state.sh` L170 + L347
   - L170: 删除 init 时的 `"review_effectiveness": {...}` 初始化段
   - L347: required_fields 校验列表中删除 `"review_effectiveness"`
 
-- [ ] Step 5: 修改 2 个 hook test fixture
+- [x] Step 5: 修改 2 个 hook test fixture
   - 文件: `plugin/hooks/tests/test_agent_id_hook_guard.sh` L59 + `plugin/hooks/tests/test_effort_budget_weighting.sh` L46
   - 动作: 删除 `"review_effectiveness": {"reject_count":0,...},` 整行（保留其他字段 + 行末逗号合法）
 
-- [ ] Step 6: 修改 verify-maturity.sh
+- [x] Step 6: 修改 verify-maturity.sh
   - 文件: `plugin/scripts/verify-maturity.sh` L73
   - 动作: 删除 `check "review-effectiveness optional diagnostic script exists" test -x ...` 整行
 
-- [ ] Step 7: 修改 architecture-draft.md（3 处）
+- [x] Step 7: 修改 architecture-draft.md（3 处）
   - 文件: `plugin/architecture-draft.md`
   - L703: 该行是 workflow-state JSON 结构说明，删除 `review_effectiveness` 字段提及
   - L756: lib 文件表中删除 `scripts/lib/review-effectiveness.sh` 行
   - L940: 整段（"`scripts/lib/review-effectiveness.sh` 从 disposition 聚合统计..."）删除
 
-- [ ] Step 8: 修改 learnings-confidence-audit.md
+- [x] Step 8: 修改 learnings-confidence-audit.md
   - 文件: `plugin/skills/orchestrate-execution/references/learnings-confidence-audit.md` L44
   - 动作: 删除 `- review-effectiveness.sh 聚合统计（reject_count, suppress_count, path_a/b_count）` 行
 
-- [ ] Step 9: 修改 state-lock.sh 注释
+- [x] Step 9: 修改 state-lock.sh 注释
   - 文件: `plugin/scripts/lib/state-lock.sh` L3
   - 当前: `# Extracted from state.sh for reuse by review-effectiveness.sh and other scripts.`
   - 改为: `# Extracted from state.sh for reuse by other scripts.`
 
-- [ ] Step 10: 跑全量测试 + verify-maturity
+- [x] Step 10: 跑全量测试 + verify-maturity
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
   - Run: `bash plugin/scripts/verify-maturity.sh` → Expected: PASS
   - Run: `grep -rn "review_effectiveness\|review-effectiveness" plugin/` | grep -v ".git\|/reviews/" → Expected: 无输出
 
-- [ ] Step 11: Suggested commit boundary
+- [x] Step 11: Suggested commit boundary
   - Message: `feat(plugin): D7a 删除 review_effectiveness 字段 + lib + 8 处 consumer 清理`
 
 ---
@@ -441,14 +441,14 @@
 - Verification: state.sh subcommand 数从 20 → 18（path-a-escalation / agent-context-check 由 Pack 2.5 / 2.8 删，本 Pack 后达 18，最终 16）
 
 **Acceptance criteria:**
-- [ ] `bash plugin/scripts/state.sh business-summary append --help` exit ≠ 0（命令不存在）
-- [ ] `bash plugin/scripts/state.sh plans add --help` exit ≠ 0
-- [ ] `bash plugin/scripts/state.sh idempotency check --run-id foo --key bar 2>&1` 仍可执行（保留——4 处生产调用）
-- [ ] `plugin/scripts/lib/learnings-poison-detector.sh` 不存在
-- [ ] `plugin/scripts/learnings-jsonl.sh` 内含 poison-detector 函数（grep `poison_detector\|poison-detector` 在该文件内有定义）
-- [ ] `plugin/scripts/tests/test_state.sh` 不含 business-summary / plans 用例
-- [ ] `plugin/scripts/tests/test_learnings_poison_detection.sh` 调用方式更新（source learnings-jsonl.sh）且通过
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
+- [x] `bash plugin/scripts/state.sh business-summary append --help` exit ≠ 0（命令不存在）
+- [x] `bash plugin/scripts/state.sh plans add --help` exit ≠ 0
+- [x] `bash plugin/scripts/state.sh idempotency check --run-id foo --key bar 2>&1` 仍可执行（保留——4 处生产调用）
+- [x] `plugin/scripts/lib/learnings-poison-detector.sh` 不存在
+- [x] `plugin/scripts/learnings-jsonl.sh` 内含 poison-detector 函数（grep `poison_detector\|poison-detector` 在该文件内有定义）
+- [x] `plugin/scripts/tests/test_state.sh` 不含 business-summary / plans 用例
+- [x] `plugin/scripts/tests/test_learnings_poison_detection.sh` 调用方式更新（source learnings-jsonl.sh）且通过
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过
 
 **Verification commands:**
 - `bash plugin/scripts/state.sh business-summary 2>&1 | grep -i "unknown\|invalid\|not found"` → Expected: 命中（命令不存在）
@@ -468,56 +468,56 @@
 
 #### Implementation tasks
 
-- [ ] Step 1: 写失败测试（Red）— 子命令不存在
+- [x] Step 1: 写失败测试（Red）— 子命令不存在
   - Run: `bash plugin/scripts/state.sh business-summary 2>&1; echo "exit=$?"` → Expected (now): exit 0 + 输出 usage；Expected (after): exit ≠ 0
   - Run: `bash plugin/scripts/state.sh plans 2>&1; echo "exit=$?"` → Expected (now): exit 0 + 输出 usage；Expected (after): exit ≠ 0
 
-- [ ] Step 2: 定位 state.sh 中子命令函数 + dispatcher
+- [x] Step 2: 定位 state.sh 中子命令函数 + dispatcher
   - Run: `grep -n "cmd_business_summary\|cmd_plans\|business-summary)\|plans)" plugin/scripts/state.sh`
   - 记录: function 定义行 + dispatcher case 行
 
-- [ ] Step 3: 删除 state.sh business-summary
+- [x] Step 3: 删除 state.sh business-summary
   - 文件: `plugin/scripts/state.sh`
   - 动作: Edit 删除 `cmd_business_summary` 函数完整段（L1611 附近）+ dispatcher 中 `business-summary)` case 整行
   - 验证: `grep -n "business-summary\|business_summary" plugin/scripts/state.sh` → 无输出
 
-- [ ] Step 4: 删除 state.sh plans 子命令
+- [x] Step 4: 删除 state.sh plans 子命令
   - 文件: `plugin/scripts/state.sh`
   - 动作: Edit 删除 `cmd_plans` 函数 + dispatcher 中 `plans)` case
   - 注意: 不删除 hook 错误消息字符串中的 `state.sh plans add` 提示（已是 deprecated 提示）；改为统一提示"plans 子命令已移除"——或一并清理（同 Pack 内）
   - 定位错误提示: `grep -n "state.sh plans add" plugin/hooks/`
   - 动作: 把 hook 中 `state.sh plans add` 错误提示文本删除或替换（不再引用已删命令）
 
-- [ ] Step 5: 删除 state.sh 测试用例
+- [x] Step 5: 删除 state.sh 测试用例
   - 文件: `plugin/scripts/tests/test_state.sh`
   - 定位: `grep -n "business-summary\|cmd_plans\|state.sh plans" plugin/scripts/tests/test_state.sh`
   - 动作: 删除对应测试用例段（保留其他子命令测试）
 
-- [ ] Step 6: 跑 state.sh 子命令测试验证
+- [x] Step 6: 跑 state.sh 子命令测试验证
   - Run: `bash plugin/scripts/tests/test_state.sh` → Expected: PASS（剩余用例全过）
   - Run: `bash plugin/scripts/state.sh business-summary 2>&1; echo "exit=$?"` → Expected: exit ≠ 0
   - Run: `bash plugin/scripts/state.sh idempotency check --run-id foo --key bar 2>&1; echo "exit=$?"` → Expected: 仍可执行（保留）
 
-- [ ] Step 7: 合并 poison-detector 入 learnings-jsonl.sh
+- [x] Step 7: 合并 poison-detector 入 learnings-jsonl.sh
   - 文件 source: `plugin/scripts/lib/learnings-poison-detector.sh`
   - 文件 target: `plugin/scripts/learnings-jsonl.sh`
   - 动作: Read poison-detector.sh 整文件 → 将主逻辑包装为 shell function（如 `detect_learning_poison() { ... }`）→ Edit append 到 learnings-jsonl.sh 底部
   - 注意: 保留 shebang + 原有 license/comment
 
-- [ ] Step 8: 删除 learnings-poison-detector.sh
+- [x] Step 8: 删除 learnings-poison-detector.sh
   - Run: `rm plugin/scripts/lib/learnings-poison-detector.sh`
   - Verify: `test ! -e plugin/scripts/lib/learnings-poison-detector.sh` → exit 0
 
-- [ ] Step 9: 更新 test_learnings_poison_detection.sh
+- [x] Step 9: 更新 test_learnings_poison_detection.sh
   - 文件: `plugin/scripts/tests/test_learnings_poison_detection.sh`
   - 当前: 调用 `bash plugin/scripts/lib/learnings-poison-detector.sh ...`
   - 改为: `source plugin/scripts/lib/learnings-jsonl.sh; detect_learning_poison ...`（具体调用按 Step 7 实际 function 接口）
   - Run: `bash plugin/scripts/tests/test_learnings_poison_detection.sh` → Expected: PASS
 
-- [ ] Step 10: 跑全量测试
+- [x] Step 10: 跑全量测试
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
 
-- [ ] Step 11: Suggested commit boundary
+- [x] Step 11: Suggested commit boundary
   - Message: `feat(plugin): D7b 删除 state.sh business-summary/plans 子命令 + 合并 poison-detector 入 learnings-jsonl`
 
 ---
@@ -566,19 +566,19 @@
 - Verification: grep 全树 `path-a` / `path_a` 在 .sh / .json / .md 中无残留（git history / decision rationale 除外）
 
 **Acceptance criteria:**
-- [ ] `bash plugin/scripts/state.sh path-a-escalation start --help` exit ≠ 0
-- [ ] `workflow-state-v1.json` 不含 `path_a_escalation` / `blocked_for_self_fix`
-- [ ] `gate-codex-review.sh` 不含 `path-a-re-review` case 代码
-- [ ] `dispatch-envelope-v1.json` `review_intent` enum 收敛为 `["baseline"]`
-- [ ] `disposition-table.md.tmpl` 不含 `path-a` 字符串（CLI enum 从 5 值降至 4 值，且 L44-47 "Path A re-review 规则" 整段删除）
-- [ ] `plugin/skills/orchestrate-execution/references/path-a-re-review.md` 不存在
-- [ ] `plugin/scripts/tests/test_path_a_re_review.sh` 不存在
-- [ ] **5 hook test fixture** 不含 `path_a_escalation: []`（test_need_fresh_worker_continuation / test_worker_loop_e2e / test_validate_plan_dispatch / test_agent_id_hook_guard / test_effort_budget_weighting）
-- [ ] 6 处 SKILL/reference 中 `state.sh path-a-escalation` 描述清除
-- [ ] `validate-plan-dispatch.sh` 不含 Step 8 Path A 检查代码
-- [ ] `architecture-draft.md` L901/L904 Path A 段删除
-- [ ] 全树 `grep -rn "path-a\|path_a" plugin/` 在 .sh / .json / .md 中无残留（git history / decision rationale 除外）
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
+- [x] `bash plugin/scripts/state.sh path-a-escalation start --help` exit ≠ 0
+- [x] `workflow-state-v1.json` 不含 `path_a_escalation` / `blocked_for_self_fix`
+- [x] `gate-codex-review.sh` 不含 `path-a-re-review` case 代码
+- [x] `dispatch-envelope-v1.json` `review_intent` enum 收敛为 `["baseline"]`
+- [x] `disposition-table.md.tmpl` 不含 `path-a` 字符串（CLI enum 从 5 值降至 4 值，且 L44-47 "Path A re-review 规则" 整段删除）
+- [x] `plugin/skills/orchestrate-execution/references/path-a-re-review.md` 不存在
+- [x] `plugin/scripts/tests/test_path_a_re_review.sh` 不存在
+- [x] **5 hook test fixture** 不含 `path_a_escalation: []`（test_need_fresh_worker_continuation / test_worker_loop_e2e / test_validate_plan_dispatch / test_agent_id_hook_guard / test_effort_budget_weighting）
+- [x] 6 处 SKILL/reference 中 `state.sh path-a-escalation` 描述清除
+- [x] `validate-plan-dispatch.sh` 不含 Step 8 Path A 检查代码
+- [x] `architecture-draft.md` L901/L904 Path A 段删除
+- [x] 全树 `grep -rn "path-a\|path_a" plugin/` 在 .sh / .json / .md 中无残留（git history / decision rationale 除外）
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过
 
 **Verification commands:**
 - `bash plugin/scripts/state.sh path-a-escalation 2>&1; echo "exit=$?"` → Expected: exit ≠ 0
@@ -602,56 +602,56 @@
 
 #### Implementation tasks
 
-- [ ] Step 1: 写失败测试（Red）— Path A 子命令不存在 + schema 不含字段
+- [x] Step 1: 写失败测试（Red）— Path A 子命令不存在 + schema 不含字段
   - Run: `bash plugin/scripts/state.sh path-a-escalation 2>&1; echo "exit=$?"` → Expected (now): exit 0；Expected (after): exit ≠ 0
   - Run: `jq '.properties.path_a_escalation' plugin/state-schema/workflow-state-v1.json` → Expected (now): {...}；Expected (after): null
 
-- [ ] Step 2: 删除 state.sh path-a-escalation 子命令
+- [x] Step 2: 删除 state.sh path-a-escalation 子命令
   - 文件: `plugin/scripts/state.sh`
   - 定位: `grep -n "cmd_path_a_escalation\|path-a-escalation)" plugin/scripts/state.sh`
   - 动作: Edit 删除 function 段 + dispatcher case
 
-- [ ] Step 3: 修改 workflow-state-v1.json schema
+- [x] Step 3: 修改 workflow-state-v1.json schema
   - 文件: `plugin/state-schema/workflow-state-v1.json`
   - L11: required 数组中删除 `"path_a_escalation"`
   - L101: properties 段删除 `"path_a_escalation": { "type": "array" }`
   - 检查 + 删除 `blocked_for_self_fix`（grep 定位）
 
-- [ ] Step 4: 修改 state.sh init（删除 path_a_escalation 字段初始化）
+- [x] Step 4: 修改 state.sh init（删除 path_a_escalation 字段初始化）
   - 文件: `plugin/scripts/state.sh`
   - 定位: `grep -n "path_a_escalation" plugin/scripts/state.sh`
   - 动作: 删除 init 中 `"path_a_escalation": []` 行 + required_fields 校验列表中的 `"path_a_escalation"`
 
-- [ ] Step 5: 修改 dispatch-envelope-v1.json
+- [x] Step 5: 修改 dispatch-envelope-v1.json
   - 文件: `plugin/state-schema/dispatch-envelope-v1.json` L27
   - 当前（Pack 2.2 后）: `"enum": ["baseline", "path-a-re-review"]`
   - 改为: `"enum": ["baseline"]`
 
-- [ ] Step 6: 修改 gate-codex-review.sh
+- [x] Step 6: 修改 gate-codex-review.sh
   - 文件: `plugin/hooks/gate-codex-review.sh` L54-L63
   - 动作: 删除 `path-a-re-review)` case 整段（约 10 行）
 
-- [ ] Step 7: 修改 validate-plan-dispatch.sh
+- [x] Step 7: 修改 validate-plan-dispatch.sh
   - 文件: `plugin/hooks/validate-plan-dispatch.sh`
   - 定位: `grep -n "path_a\|Path A\|path-a" plugin/hooks/validate-plan-dispatch.sh`
   - 动作: 删除 Step 8 Path A 检查代码段（按设计文档 §4.2 决策 9）
 
-- [ ] Step 8: 修改 disposition-table.md.tmpl
+- [x] Step 8: 修改 disposition-table.md.tmpl
   - 文件: `plugin/build/templates/disposition-table.md.tmpl`
   - 动作 a: L23 CLI enum `--disposition <accepted|rejected|suppress|path-a|path-b>` 改为 `--disposition <accepted|rejected|suppress|path-b>`（CLI 5 值降至 4 值）
   - 动作 b: 删除 L44-47 "Path A re-review 规则" 整段（4 行）
   - 验证: `grep -n "path-a" plugin/build/templates/disposition-table.md.tmpl` → 无输出
   - 注意: disposition 主表 L32-40 不变（7 个 markdown table row：accepted / rejected / needs evidence / duplicate / out of scope / needs evaluation / user decision——不含 path-a 行，无需改动）
 
-- [ ] Step 8b: 修改 canonical disposition-table.md（live 文件）
+- [x] Step 8b: 修改 canonical disposition-table.md（live 文件）
   - 文件: `plugin/skills/_shared/disposition-table.md`（Issue 001 Pack 9 抽取时保留了 path-a，本步在 live canonical 中同步清理）
   - 动作: 与 Step 8 同模式——删除 CLI enum 中 `path-a` + 删除 "Path A re-review 规则" 整段
   - 验证: `grep -n "path-a" plugin/skills/_shared/disposition-table.md` → 无输出
 
-- [ ] Step 9: 删除 path-a-re-review.md reference + test_path_a_re_review.sh
+- [x] Step 9: 删除 path-a-re-review.md reference + test_path_a_re_review.sh
   - Run: `rm plugin/skills/orchestrate-execution/references/path-a-re-review.md plugin/scripts/tests/test_path_a_re_review.sh`
 
-- [ ] Step 10: 修改 6 处 SKILL/reference 中 path-a-escalation 描述
+- [x] Step 10: 修改 6 处 SKILL/reference 中 path-a-escalation 描述
   - 文件 1: `plugin/skills/orchestrate-discovery/references/design-review-angles.md` L306 — 删除 `- 用 state.sh path-a-escalation start/update/clear 追踪` 行
   - 文件 2: `plugin/skills/orchestrate-plan-writing/SKILL.md` L235 — 同上
   - 文件 3: `plugin/skills/orchestrate-final-review/references/final-review-disposition.md` L56 — 同上
@@ -659,12 +659,12 @@
   - 文件 5: `plugin/skills/orchestrate-plan-writing/references/plan-review-resolution.md` L56 — 同上
   - 文件 6: `plugin/skills/orchestrate-execution/SKILL.md` L428 — 同上
 
-- [ ] Step 11: 修改 architecture-draft.md
+- [x] Step 11: 修改 architecture-draft.md
   - 文件: `plugin/architecture-draft.md`
   - 定位: `grep -n "path-a\|path_a\|Path A" plugin/architecture-draft.md`
   - 动作: 删除 L901 / L904 + 其他 Path A 段（含 disposition table 中 path-a 行 + workflow-state 字段列表中 path_a_escalation）
 
-- [ ] Step 12: 修改 **5 hook test fixture**
+- [x] Step 12: 修改 **5 hook test fixture**
   - 文件 1: `plugin/hooks/tests/test_need_fresh_worker_continuation.sh` L43
   - 文件 2: `plugin/hooks/tests/test_worker_loop_e2e.sh` L43
   - 文件 3: `plugin/hooks/tests/test_validate_plan_dispatch.sh` L18
@@ -673,12 +673,12 @@
   - 动作: 在 fixture JSON 中删除 `"path_a_escalation":[],` 或 `"path_a_escalation": [],` 段（保留其他字段，确保 JSON 合法 + 行末逗号处理正确）
   - 验证（每个文件单独跑）: `python3 -c "import json; json.load(open('/tmp/fixture.json'))"` 或在 test 内 `jq .` 验证 JSON 合法
 
-- [ ] Step 13: 跑全量测试
+- [x] Step 13: 跑全量测试
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
   - Run: `grep -rn "path-a\|path_a" plugin/scripts plugin/hooks plugin/skills plugin/state-schema plugin/build/templates | grep -v ".git\|/reviews/"` → Expected: 无输出
   - Run: `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: PASS（disposition-table.md.tmpl 改动后 build check 不变）
 
-- [ ] Step 14: Suggested commit boundary
+- [x] Step 14: Suggested commit boundary
   - Message: `feat(plugin): D3 完全删除 Path A 自修分叉（state.sh + schema + hooks + disposition + reference + 3 fixture）`
 
 ---
@@ -705,11 +705,11 @@
 - Verification: 全树 grep `bug-seed-path` / `bug_seed_path` / `bug-seed-file` 无残留
 
 **Acceptance criteria:**
-- [ ] `bug-investigation-route.md` 不含 "bug-seed-<run_id>.md" / "写入 Bug Seed" 步骤
-- [ ] `architecture-draft.md` §17（Bug Seed File）章节删除
-- [ ] 全树 `grep -rn "bug-seed-path\|bug_seed_path\|bug-seed-file\|bug-seed-" plugin/` 无残留（git history / decision rationale 除外）
-- [ ] `bug-investigation-route.md` 改为 "RCA findings 直接进 Scope Contract 的 Source artifacts"
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
+- [x] `bug-investigation-route.md` 不含 "bug-seed-<run_id>.md" / "写入 Bug Seed" 步骤
+- [x] `architecture-draft.md` §17（Bug Seed File）章节删除
+- [x] 全树 `grep -rn "bug-seed-path\|bug_seed_path\|bug-seed-file\|bug-seed-" plugin/` 无残留（git history / decision rationale 除外）
+- [x] `bug-investigation-route.md` 改为 "RCA findings 直接进 Scope Contract 的 Source artifacts"
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过
 
 **Verification commands:**
 - `grep -n "bug-seed\|bug_seed" plugin/skills/orchestrate-workflow/references/bug-investigation-route.md` → Expected: 无输出
@@ -726,10 +726,10 @@
 
 #### Implementation tasks
 
-- [ ] Step 1: 写失败 grep（Red）
+- [x] Step 1: 写失败 grep（Red）
   - Run: `grep -rn "bug-seed\|bug_seed" plugin/ | grep -v ".git\|/reviews/"` → Expected (now): 多条；Expected (after): 无残留
 
-- [ ] Step 2: 修改 bug-investigation-route.md
+- [x] Step 2: 修改 bug-investigation-route.md
   - 文件: `plugin/skills/orchestrate-workflow/references/bug-investigation-route.md`
   - 定位: `grep -n "bug-seed\|Bug Seed" plugin/skills/orchestrate-workflow/references/bug-investigation-route.md`
   - 当前 L63 / L79-80（设计文档 D5 已亲验）
@@ -738,19 +738,19 @@
     - 删除 L79 "写入 Bug Seed 文件" Step
     - 修改 L80 "更新 Scope Contract" 段——从 "加入 bug-seed-<run_id>.md" 改为 "加入 RCA analyst findings 报告路径作为 Source artifact"
 
-- [ ] Step 3: 修改 architecture-draft.md
+- [x] Step 3: 修改 architecture-draft.md
   - 文件: `plugin/architecture-draft.md`
   - 定位: `grep -n "Bug Seed\|bug-seed\|bug_seed" plugin/architecture-draft.md`
   - 动作: 删除 §17（Bug Seed File）章节整段 + 其他 bug-seed 提及（流程图 / 状态字段表）
 
-- [ ] Step 4: 全树清扫
+- [x] Step 4: 全树清扫
   - Run: `grep -rn "bug-seed\|bug_seed" plugin/ | grep -v ".git\|/reviews/"`
   - 动作: 逐一处理剩余命中（应为零）
 
-- [ ] Step 5: 跑全量测试
+- [x] Step 5: 跑全量测试
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
 
-- [ ] Step 6: Suggested commit boundary
+- [x] Step 6: Suggested commit boundary
   - Message: `feat(plugin): D5 删除 bug-seed-file 中间文档（RCA findings 直接进 Discovery Source artifacts）`
 
 ---
@@ -768,7 +768,7 @@
 - Delete: `plugin/hooks/tests/test_guard_plan_doc_patch.sh`
 - Modify: `plugin/hooks/hooks.json` — 删除 `guard-plan-doc-patch.sh` 条目
 - Modify: `plugin/state-schema/plan-return-v1.json` — 删除 `doc_patch_path` 字段 + L4 description 中 "doc-patch.diff" 提及全部重写
-- Modify: `plugin/hooks/agent-return-handler.sh` — 删除 5 处 doc-patch.diff 暂存提示（L13/L94/L108/L111/L114/L124/L127）；verdict=pass/partial-pass 时输出新 NEXT "Coordinator: Plan Implementation Review pass 后 Edit per_pack[*].status=committed 的 checkbox（按 Pack ID 精确匹配 plan 文档中 `- [ ] **Pack N.M**` 行）"
+- Modify: `plugin/hooks/agent-return-handler.sh` — 删除 5 处 doc-patch.diff 暂存提示（L13/L94/L108/L111/L114/L124/L127）；verdict=pass/partial-pass 时输出新 NEXT "Coordinator: Plan Implementation Review pass 后 Edit per_pack[*].status=committed 的 checkbox（按 Pack ID 精确匹配 plan 文档中 `- [x] **Pack N.M**` 行）"
 - Modify: `plugin/build/templates/worker-loop.md.tmpl` — 删除"写 doc-patch.diff"步骤（具体行由 Worker grep `doc-patch` 定位）
 - Modify: `plugin/agents/pack-executor.md` — 删除 doc-patch.diff 写出指令（L119/L120/L124/L182/L184 共 5 处）
 - Modify: `plugin/agents/complex-pack-executor.md` — 删除 doc-patch.diff 写出指令（L117/L118/L122/L180/L182 共 8 处）
@@ -790,21 +790,21 @@
 - Verification: grep 全树 `doc-patch` / `doc_patch` 无残留；3 处 Coordinator checkbox toggle 规则落地（含 `per_pack[*].status == committed` 字串）
 
 **Acceptance criteria:**
-- [ ] `plugin/hooks/guard-plan-doc-patch.sh` 不存在
-- [ ] `plugin/scripts/lib/doc-patch-apply.sh` 不存在
-- [ ] `plugin/scripts/tests/test_doc_patch_apply.sh` + `plugin/hooks/tests/test_guard_plan_doc_patch.sh` 不存在
-- [ ] `plugin/hooks/hooks.json` 不含 `guard-plan-doc-patch.sh` 条目
-- [ ] `plan-return-v1.json` 不含 `doc_patch_path` 字段；L4 description 不含 "doc-patch.diff" 字符串
-- [ ] `agent-return-handler.sh` 不含 "doc-patch.diff" 字符串；含 "per_pack" 和 "status=committed" 输出
-- [ ] `worker-loop.md.tmpl` 不含 "doc-patch.diff" 字符串
-- [ ] `pack-executor.md` + `complex-pack-executor.md` 不含 "doc-patch" 字符串
-- [ ] `architecture-draft.md` §7.5（doc-patch）+ Decision 6 段删除
-- [ ] `orchestrate-execution/SKILL.md` Step 14 含 `per_pack[*].status == committed` 表述
-- [ ] `plan-review-resolution.md` 含 Coordinator checkbox toggle 权威规则
-- [ ] `guard-doc-edit.sh` 顶部注释不再提及 doc-patch.diff
-- [ ] 全树 `grep -rn "doc-patch\|doc_patch" plugin/` 在 .sh / .json / .md 中无残留（git history / decision rationale 除外）
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
-- [ ] `bash plugin/build/build.sh --apply --plugin-dir plugin && bash plugin/build/build.sh --check --plugin-dir plugin` 通过
+- [x] `plugin/hooks/guard-plan-doc-patch.sh` 不存在
+- [x] `plugin/scripts/lib/doc-patch-apply.sh` 不存在
+- [x] `plugin/scripts/tests/test_doc_patch_apply.sh` + `plugin/hooks/tests/test_guard_plan_doc_patch.sh` 不存在
+- [x] `plugin/hooks/hooks.json` 不含 `guard-plan-doc-patch.sh` 条目
+- [x] `plan-return-v1.json` 不含 `doc_patch_path` 字段；L4 description 不含 "doc-patch.diff" 字符串
+- [x] `agent-return-handler.sh` 不含 "doc-patch.diff" 字符串；含 "per_pack" 和 "status=committed" 输出
+- [x] `worker-loop.md.tmpl` 不含 "doc-patch.diff" 字符串
+- [x] `pack-executor.md` + `complex-pack-executor.md` 不含 "doc-patch" 字符串
+- [x] `architecture-draft.md` §7.5（doc-patch）+ Decision 6 段删除
+- [x] `orchestrate-execution/SKILL.md` Step 14 含 `per_pack[*].status == committed` 表述
+- [x] `plan-review-resolution.md` 含 Coordinator checkbox toggle 权威规则
+- [x] `guard-doc-edit.sh` 顶部注释不再提及 doc-patch.diff
+- [x] 全树 `grep -rn "doc-patch\|doc_patch" plugin/` 在 .sh / .json / .md 中无残留（git history / decision rationale 除外）
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过
+- [x] `bash plugin/build/build.sh --apply --plugin-dir plugin && bash plugin/build/build.sh --check --plugin-dir plugin` 通过
 
 **Verification commands:**
 - `test ! -e plugin/hooks/guard-plan-doc-patch.sh` → Expected: exit 0
@@ -829,41 +829,41 @@
 
 #### Implementation tasks
 
-- [ ] Step 1: 写失败测试（Red）— Coordinator checkbox toggle 规则在 3 处落地
+- [x] Step 1: 写失败测试（Red）— Coordinator checkbox toggle 规则在 3 处落地
   - Run: `grep -n "per_pack\[\*\]\.status" plugin/skills/orchestrate-execution/SKILL.md plugin/skills/orchestrate-plan-writing/references/plan-review-resolution.md plugin/hooks/agent-return-handler.sh` → Expected (now): 无命中；Expected (after): 3 文件各至少 1 处命中
 
-- [ ] Step 2: 删除 guard-plan-doc-patch.sh + 2 个 doc-patch 测试
+- [x] Step 2: 删除 guard-plan-doc-patch.sh + 2 个 doc-patch 测试
   - Run: `rm plugin/hooks/guard-plan-doc-patch.sh plugin/hooks/tests/test_guard_plan_doc_patch.sh plugin/scripts/lib/doc-patch-apply.sh plugin/scripts/tests/test_doc_patch_apply.sh`
   - Verify: 4 个文件均不存在
 
-- [ ] Step 3: 修改 hooks.json
+- [x] Step 3: 修改 hooks.json
   - 文件: `plugin/hooks/hooks.json`
   - 定位: `grep -n "guard-plan-doc-patch" plugin/hooks/hooks.json`（L82 附近）
   - 动作: 删除该 hook 条目整段（PreToolUse + Write matcher + command）
   - 验证: `python3 -m json.tool plugin/hooks/hooks.json >/dev/null` → exit 0
 
-- [ ] Step 4: 修改 plan-return-v1.json schema
+- [x] Step 4: 修改 plan-return-v1.json schema
   - 文件: `plugin/state-schema/plan-return-v1.json`
   - L4: description 文本中删除所有 "doc-patch.diff" / "doc_patch_path" / "Decision 6" 提及 — 重写 description 段，反映 per_pack 是 Plan-level envelope 唯一权威，Coordinator 在 Plan Implementation Review pass 后用 Edit 工具直接 toggle plan 文档 checkbox（按 per_pack[*].status == committed 决定）
   - properties: 删除 `doc_patch_path` 字段段
   - L39: description 中 "doc-patch NOT yet applied" 类提及全部删除
 
-- [ ] Step 5: 修改 agent-return-handler.sh
+- [x] Step 5: 修改 agent-return-handler.sh
   - 文件: `plugin/hooks/agent-return-handler.sh`
   - 定位: `grep -n "doc-patch\|doc_patch" plugin/hooks/agent-return-handler.sh`（L13/L94/L108/L111/L114/L124/L127）
   - 动作 a: 删除 L13 / L94 注释中 "doc-patch NOT applied here" 等
   - 动作 b: 改写 L108（verdict=pass）输出为:
-    > `[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=pass. Dispatch Plan Implementation Review (Codex). After review pass, Coordinator MUST Edit plan doc: toggle checkbox '- [ ]' → '- [x]' for each Pack where per_pack[*].status == committed (read plan-return.json at ${BUDGET_DIR}/plan-returns/${RUN_ID}/${PLAN_ID}/plan-return.json).`
+    > `[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=pass. Dispatch Plan Implementation Review (Codex). After review pass, Coordinator MUST Edit plan doc: toggle checkbox '- [x]' → '- [x]' for each Pack where per_pack[*].status == committed (read plan-return.json at ${BUDGET_DIR}/plan-returns/${RUN_ID}/${PLAN_ID}/plan-return.json).`
   - 动作 c: 改写 L111（verdict=partial-pass）类似格式
   - 动作 d: 改写 L114（verdict=blocked）— 删除 doc-patch 提及，保留 per_pack[].reason + open-items.json 引用
   - 动作 e: 改写 L124 / L127 — 同上格式（删除 "doc-patch.diff NOT applied" 句）
 
-- [ ] Step 6: 修改 worker-loop.md.tmpl
+- [x] Step 6: 修改 worker-loop.md.tmpl
   - 文件: `plugin/build/templates/worker-loop.md.tmpl`
   - 定位: `grep -n "doc-patch" plugin/build/templates/worker-loop.md.tmpl`
   - 动作: 删除所有 "写 doc-patch.diff" / "doc-patch.diff" 提及（包括步骤段、artifact list 段）
 
-- [ ] Step 7: 修改 pack-executor.md + complex-pack-executor.md
+- [x] Step 7: 修改 pack-executor.md + complex-pack-executor.md
   - 文件 1: `plugin/agents/pack-executor.md`
   - 定位: `grep -n "doc-patch\|doc_patch" plugin/agents/pack-executor.md`（L119/L120/L124/L182/L184）
   - 动作: 删除 doc-patch.diff 写出指令 + 引用段（每处删整行或整段）
@@ -871,7 +871,7 @@
   - 定位: 同上（L117/L118/L122/L180/L182）
   - 动作: 同上
 
-- [ ] Step 8: 修改 guard-doc-edit.sh 注释
+- [x] Step 8: 修改 guard-doc-edit.sh 注释
   - 文件: `plugin/hooks/guard-doc-edit.sh` L14-L16
   - 当前:
     ```
@@ -886,7 +886,7 @@
     # toggling per per_pack[*].status==committed (read from plan-return.json).
     ```
 
-- [ ] Step 9: 修改 architecture-draft.md
+- [x] Step 9: 修改 architecture-draft.md
   - 文件: `plugin/architecture-draft.md`
   - 定位: `grep -n "doc-patch\|guard-plan-doc-patch\|doc-patch-apply\|Decision 6" plugin/architecture-draft.md`（多处：L58/L178/L195/L222/L357/L379/L408/L461-462/L470/L518/L559/L579-585/L654/L687/L759/L1242/L1288/L1328/L1329/L1351/L1371）
   - 动作: 
@@ -899,30 +899,30 @@
     - 删除测试统计中 guard-plan-doc-patch / doc-patch apply 行（L1328 / L1329）
     - 更新 L1351 / L1371（移除 doc-patch apply 触发同步规则）
 
-- [ ] Step 10: 写入 Coordinator checkbox toggle 权威规则（3 处）
+- [x] Step 10: 写入 Coordinator checkbox toggle 权威规则（3 处）
   - 文件 1: `plugin/skills/orchestrate-execution/SKILL.md` Step 14 段（L447）
   - 在 Step 14 起始处 + Plan Implementation Review pass 后的 Edit 动作前，新增段:
     ```markdown
     **Coordinator checkbox toggle 权威规则**（D4 source-of-truth）：
     Plan Implementation Review pass 后，Coordinator Edit plan 文档勾选 checkbox 的 source-of-truth 是 `plan-return.per_pack[*]` where `status == committed`：
     1. Read `.claude/multi-model-workflow/plan-returns/<plan_id>/plan-return.json`
-    2. 对每个 `per_pack[i].status == "committed"` 的 Pack，按 Pack ID 精确匹配 `docs/orchestrate/plans/<slug>/<plan-file>.md` 中 `- [ ] **Pack N.M**` 行，Edit toggle 为 `- [x] **Pack N.M**`
+    2. 对每个 `per_pack[i].status == "committed"` 的 Pack，按 Pack ID 精确匹配 `docs/orchestrate/plans/<slug>/<plan-file>.md` 中 `- [x] **Pack N.M**` 行，Edit toggle 为 `- [x] **Pack N.M**`
     3. `status` 不是 `committed`（pending / in_progress / blocked / skipped）的 Pack 不勾选
     ```
   - 文件 2: `plugin/skills/orchestrate-plan-writing/references/plan-review-resolution.md`
   - 在合适段落写入同规则（4 步骤完整列出，按设计文档 §4.2 决策 4）
 
-- [ ] Step 11: 跑 build + 全量测试
+- [x] Step 11: 跑 build + 全量测试
   - Run: `bash plugin/build/build.sh --apply --plugin-dir plugin` → Expected: 通过
   - Run: `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: 通过
   - Run: `python3 -m json.tool plugin/hooks/hooks.json >/dev/null` → exit 0
   - Run: `python3 -m json.tool plugin/state-schema/plan-return-v1.json >/dev/null` → exit 0
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
 
-- [ ] Step 12: 全树清扫验证
+- [x] Step 12: 全树清扫验证
   - Run: `grep -rn "doc-patch\|doc_patch" plugin/` | grep -v ".git\|/reviews/" → Expected: 无残留
 
-- [ ] Step 13: Suggested commit boundary
+- [x] Step 13: Suggested commit boundary
   - Message: `feat(plugin): D4 删除 doc-patch 系统 + 落地 Coordinator checkbox toggle 权威规则（per_pack[*].status==committed）`
 
 ---
@@ -954,16 +954,16 @@
 - Verification: grep `agent-context-check` 全树无残留；worker-loop.md.tmpl segment 5 同时含两条路径关键字串
 
 **Acceptance criteria:**
-- [ ] `bash plugin/scripts/state.sh agent-context-check --help` exit ≠ 0
-- [ ] `plugin/scripts/tests/test_state_agent_context_check.sh` 不存在
-- [ ] `worker-loop.md.tmpl` segment 5 同时含:
+- [x] `bash plugin/scripts/state.sh agent-context-check --help` exit ≠ 0
+- [x] `plugin/scripts/tests/test_state_agent_context_check.sh` 不存在
+- [x] `worker-loop.md.tmpl` segment 5 同时含:
   - 正常路径关键字串: `packs_in_session += 1` （或 `packs_in_session += 1` 同义中文表述）
   - 启动/recovery 关键字串: `execution-state.plans` + `status == "committed"`（或 `status==committed`）或同义"从 execution-state 重建 counter"表述
-- [ ] `pack-executor.md` + `complex-pack-executor.md` 不含 `state.sh agent-context-check` 字符串
-- [ ] `architecture-draft.md` L215/L355/L739/L1240 对应内容更新或删除
-- [ ] 全树 `grep -rn "agent-context-check" plugin/` 在 .sh / .md 中无残留（git history / decision rationale 除外）
-- [ ] `bash plugin/build/build.sh --apply --plugin-dir plugin && bash plugin/build/build.sh --check --plugin-dir plugin` 通过
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
+- [x] `pack-executor.md` + `complex-pack-executor.md` 不含 `state.sh agent-context-check` 字符串
+- [x] `architecture-draft.md` L215/L355/L739/L1240 对应内容更新或删除
+- [x] 全树 `grep -rn "agent-context-check" plugin/` 在 .sh / .md 中无残留（git history / decision rationale 除外）
+- [x] `bash plugin/build/build.sh --apply --plugin-dir plugin && bash plugin/build/build.sh --check --plugin-dir plugin` 通过
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过
 
 **Verification commands:**
 - `bash plugin/scripts/state.sh agent-context-check 2>&1; echo "exit=$?"` → Expected: exit ≠ 0
@@ -984,21 +984,21 @@
 
 #### Implementation tasks
 
-- [ ] Step 1: 写失败测试（Red）— worker-loop.md.tmpl segment 5 含双路径
+- [x] Step 1: 写失败测试（Red）— worker-loop.md.tmpl segment 5 含双路径
   - Run: `grep -c "packs_in_session" plugin/build/templates/worker-loop.md.tmpl` → Expected (now): 0 或不含双路径；Expected (after): ≥ 1
   - Run: `grep -c "execution-state.plans\|从 execution-state 重建" plugin/build/templates/worker-loop.md.tmpl` → Expected (after): ≥ 1
 
-- [ ] Step 2: 删除 state.sh agent-context-check 子命令
+- [x] Step 2: 删除 state.sh agent-context-check 子命令
   - 文件: `plugin/scripts/state.sh`
   - 定位 L982-L1030（cmd_agent_context_check 函数）+ L2124（dispatcher case `agent-context-check)`）
   - 动作: Edit 删除 function 段 + dispatcher case
   - 验证: `grep -n "agent_context_check\|agent-context-check" plugin/scripts/state.sh` → 无输出
 
-- [ ] Step 3: 删除 test_state_agent_context_check.sh
+- [x] Step 3: 删除 test_state_agent_context_check.sh
   - Run: `rm plugin/scripts/tests/test_state_agent_context_check.sh`
   - Verify: `test ! -e plugin/scripts/tests/test_state_agent_context_check.sh` → exit 0
 
-- [ ] Step 4: 修改 worker-loop.md.tmpl — 删除 agent-context-check 调用 + 重写 segment 5
+- [x] Step 4: 修改 worker-loop.md.tmpl — 删除 agent-context-check 调用 + 重写 segment 5
   - 文件: `plugin/build/templates/worker-loop.md.tmpl`
   - 定位: `grep -n "agent-context-check\|segment 5\|Context 自监控" plugin/build/templates/worker-loop.md.tmpl`（L55 / L100 + segment 5 标题）
   - 动作 a: 删除 L55 + L100 `state.sh agent-context-check` 调用代码
@@ -1025,18 +1025,18 @@
     `execution-state` 由 `track-execution-state.sh` 自动维护，是单一真相源。Compaction 后内存丢失时，启动 recovery 路径精确反映已完成 Pack 数，无需"猜"。
     ```
 
-- [ ] Step 5: 修改 pack-executor.md
+- [x] Step 5: 修改 pack-executor.md
   - 文件: `plugin/agents/pack-executor.md` L114 + L159
   - 定位: `grep -n "agent-context-check\|need-fresh-worker" plugin/agents/pack-executor.md`
   - 动作: 删除 `ctx=$(bash state.sh agent-context-check ...)` 行（L114）+ 删除 `bash state.sh agent-context-check ...` 行（L159）
   - 注意: 保留 need-fresh-worker 判断逻辑（改为 in-memory counter 判断——按 Step 4 segment 5 模板）
 
-- [ ] Step 6: 修改 complex-pack-executor.md
+- [x] Step 6: 修改 complex-pack-executor.md
   - 文件: `plugin/agents/complex-pack-executor.md` L112 + L157 + L187
   - 动作: 同 pack-executor.md（删除 3 处 state.sh agent-context-check 调用）
   - 注意: L187 是"高风险自检 checklist"段——删除 "在 state.sh agent-context-check 之前先做一轮高风险自检" 中 "state.sh agent-context-check" 字符串；保留"高风险自检 checklist" 行为本身（改为 "在 verdict 判断之前先做一轮高风险自检"）
 
-- [ ] Step 7: 修改 architecture-draft.md
+- [x] Step 7: 修改 architecture-draft.md
   - 文件: `plugin/architecture-draft.md`
   - 定位:
     - L215: `state.sh agent-context-check` 表行 — 删除整行
@@ -1045,17 +1045,17 @@
     - L1240: 测试统计中"`state.sh agent-context-check` + worker-loop.md.tmpl 段 6"提及 — 改为 "Worker in-memory counter + execution-state 重建 + worker-loop.md.tmpl segment 5 双路径"
   - 如果整体 §17 / Decision 4 / 其他段含 agent-context-check 提及 → 一并更新
 
-- [ ] Step 8: 跑 build + 全量测试
+- [x] Step 8: 跑 build + 全量测试
   - Run: `bash plugin/build/build.sh --apply --plugin-dir plugin` → Expected: 通过（worker-loop.md.tmpl 锚点重新注入到 pack-executor.md + complex-pack-executor.md）
   - Run: `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: 通过
   - Run: `grep -c "packs_in_session" plugin/build/templates/worker-loop.md.tmpl` → Expected: ≥ 1
   - Run: `grep -c "execution-state.plans\|从 execution-state 重建" plugin/build/templates/worker-loop.md.tmpl` → Expected: ≥ 1
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
 
-- [ ] Step 9: 全树清扫验证
+- [x] Step 9: 全树清扫验证
   - Run: `grep -rn "agent-context-check" plugin/` | grep -v ".git\|/reviews/" → Expected: 无残留
 
-- [ ] Step 10: Suggested commit boundary
+- [x] Step 10: Suggested commit boundary
   - Message: `feat(plugin): D6 删除 state.sh agent-context-check + 重写 worker-loop segment 5 双路径（normal + recovery from execution-state）`
 
 ---

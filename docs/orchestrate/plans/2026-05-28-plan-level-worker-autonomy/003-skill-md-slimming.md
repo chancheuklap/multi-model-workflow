@@ -83,13 +83,13 @@
 - `plugin/skills/orchestrate-final-review/SKILL.md`（lean 样板）
 
 ### Acceptance criteria
-- [ ] 行数 881 → ~240（误差 ±20 可接受）
-- [ ] Worker 类型选择表完整保留
-- [ ] 流程指挥 verdict 路由表完整保留
-- [ ] 「不存在非阻塞项」铁律保留
-- [ ] BLOCKED 双层报告格式保留
-- [ ] 所有 build template 锚点保留
-- [ ] `build.sh --apply` + `--check` 通过
+- [x] 行数 881 → ~240（误差 ±20 可接受）
+- [x] Worker 类型选择表完整保留
+- [x] 流程指挥 verdict 路由表完整保留
+- [x] 「不存在非阻塞项」铁律保留
+- [x] BLOCKED 双层报告格式保留
+- [x] 所有 build template 锚点保留
+- [x] `build.sh --apply` + `--check` 通过
 
 ### Verification commands
 - `[[ $(wc -l < plugin/skills/orchestrate-execution/SKILL.md) -le 260 ]]` → Expected: exit 0
@@ -127,9 +127,9 @@ normal（最大删除量，但全部目标内容已在 reference）
 - `plugin/skills/orchestrate-plan-writing/references/plan-writer-dispatch.md`
 
 ### Acceptance criteria
-- [ ] 行数 303 → ~200
-- [ ] Pack 数量检查表 / budget_total 验收节点保留
-- [ ] `build.sh --check` 通过
+- [x] 行数 303 → ~200
+- [x] Pack 数量检查表 / budget_total 验收节点保留
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 - `[[ $(wc -l < plugin/skills/orchestrate-plan-writing/SKILL.md) -le 220 ]]` → Expected: exit 0
@@ -160,8 +160,8 @@ normal
 - 现有 SKILL.md 全文
 
 ### Acceptance criteria
-- [ ] 行数 233 → ~215
-- [ ] Entry Gate 路由表 + 5 类 verdict 表 + Global Constraints 完整保留
+- [x] 行数 233 → ~215
+- [x] Entry Gate 路由表 + 5 类 verdict 表 + Global Constraints 完整保留
 
 ### Verification commands
 - `[[ $(wc -l < plugin/skills/orchestrate-workflow/SKILL.md) -le 220 ]]` → Expected: exit 0
@@ -189,9 +189,9 @@ trivial
 - Edit: `plugin/skills/orchestrate-multi-pr-merge/SKILL.md`
 
 ### Acceptance criteria
-- [ ] 三个 SKILL.md 各净删 5-30 行
-- [ ] 所有 lean 模式特征保留
-- [ ] `build.sh --check` 通过
+- [x] 三个 SKILL.md 各净删 5-30 行
+- [x] 所有 lean 模式特征保留
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 - `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
@@ -245,13 +245,13 @@ trivial
 
 ### Acceptance criteria
 
-- [ ] template 拆为 formal + content-only 两 variant
-- [ ] resolver 注册 codex-review 用 content-only variant
-- [ ] codex-review/SKILL.md 含 `BEGIN: review-dispatch variant=content-only` 锚点
-- [ ] codex-review/SKILL.md 的 ad-hoc Step 2-5 流程**完整保留**（不被注入覆盖）
-- [ ] codex-review/SKILL.md 不含 TEMPLATE_DEPS 注释（Plan 001 Pack 1.1 已删，本 Pack 验证）
-- [ ] 11 个 formal review skill 行为不变（仍获完整 formal 段）
-- [ ] `build.sh --apply` + `--check` + `run-all-tests.sh` 通过
+- [x] template 拆为 formal + content-only 两 variant
+- [x] resolver 注册 codex-review 用 content-only variant
+- [x] codex-review/SKILL.md 含 `BEGIN: review-dispatch variant=content-only` 锚点
+- [x] codex-review/SKILL.md 的 ad-hoc Step 2-5 流程**完整保留**（不被注入覆盖）
+- [x] codex-review/SKILL.md 不含 TEMPLATE_DEPS 注释（Plan 001 Pack 1.1 已删，本 Pack 验证）
+- [x] 11 个 formal review skill 行为不变（仍获完整 formal 段）
+- [x] `build.sh --apply` + `--check` + `run-all-tests.sh` 通过
 
 ### Verification commands
 

@@ -103,15 +103,15 @@
 **Mockup specs:** N/A（plugin 内部重构，无 UI）
 
 **Acceptance criteria:**
-- [ ] `orchestrate-discovery/SKILL.md` Step 0「同步启动 grill-with-docs」存在；CONTEXT.md 与 design document 同等地位措辞落地
-- [ ] Steps 1-2 改写为「Coordinator 按范围派 code-explorer / complex-code-explorer / root-cause-analyst；Coordinator 只读浓缩报告 + 用户原话」；不再含"Coordinator 自己读 CLAUDE.md / SPEC / ADR / CONTEXT.md / agents.overrides.md / 近期 commits"措辞
-- [ ] Steps 3-9 之间存在一段「mockup 留空间」声明（暂停讨论 / 给用户调用 frontend-design/prototype/Impeccable / Coordinator 不催促）
-- [ ] Steps 1-2 增加一句 to-PRD synthesize fast-path（"PRD/issue/完整上下文已覆盖 Problem/Solution/Acceptance → 跳过 Steps 3-6 一问一答 → 直接进入 Steps 7-9"）
-- [ ] L37 区段 `Route Dispatch` 错位行已删除
-- [ ] `discovery-design-document.md` L29 区段 prototype snippet 例外类型已精确化为"state machine / reducer / schema / type shape"
-- [ ] `voice-directive.md.tmpl` Anti-Sycophancy 段含 "Push twice" 一行
-- [ ] `bash plugin/build/build.sh --apply --plugin-dir plugin` 跑过；`bash plugin/build/build.sh --check --plugin-dir plugin` 通过
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
+- [x] `orchestrate-discovery/SKILL.md` Step 0「同步启动 grill-with-docs」存在；CONTEXT.md 与 design document 同等地位措辞落地
+- [x] Steps 1-2 改写为「Coordinator 按范围派 code-explorer / complex-code-explorer / root-cause-analyst；Coordinator 只读浓缩报告 + 用户原话」；不再含"Coordinator 自己读 CLAUDE.md / SPEC / ADR / CONTEXT.md / agents.overrides.md / 近期 commits"措辞
+- [x] Steps 3-9 之间存在一段「mockup 留空间」声明（暂停讨论 / 给用户调用 frontend-design/prototype/Impeccable / Coordinator 不催促）
+- [x] Steps 1-2 增加一句 to-PRD synthesize fast-path（"PRD/issue/完整上下文已覆盖 Problem/Solution/Acceptance → 跳过 Steps 3-6 一问一答 → 直接进入 Steps 7-9"）
+- [x] L37 区段 `Route Dispatch` 错位行已删除
+- [x] `discovery-design-document.md` L29 区段 prototype snippet 例外类型已精确化为"state machine / reducer / schema / type shape"
+- [x] `voice-directive.md.tmpl` Anti-Sycophancy 段含 "Push twice" 一行
+- [x] `bash plugin/build/build.sh --apply --plugin-dir plugin` 跑过；`bash plugin/build/build.sh --check --plugin-dir plugin` 通过
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过
 
 **Verification commands:**
 - `grep -E "^## Step 0|同步启动 grill-with-docs" plugin/skills/orchestrate-discovery/SKILL.md` → Expected: 至少 1 行命中
@@ -137,11 +137,11 @@
 - Step 1.5 Explorer 校验门控（→ Pack 3.7）
 
 #### Implementation tasks
-- [ ] Step 1: 写失败测试——`bash plugin/build/build.sh --check --plugin-dir plugin` 在改动前后均通过
+- [x] Step 1: 写失败测试——`bash plugin/build/build.sh --check --plugin-dir plugin` 在改动前后均通过
   - 文件：`plugin/build/build.sh` 输出
   - Behavior：build check 验证 `.tmpl` 与目标文件锚点段内容一致
   - Key assertions：改 `.tmpl` 后必须 `--apply` 否则 `--check` 报错
-- [ ] Step 2: 在 `orchestrate-discovery/SKILL.md` Steps 1-2 之前插入 Step 0
+- [x] Step 2: 在 `orchestrate-discovery/SKILL.md` Steps 1-2 之前插入 Step 0
   - 文件：`plugin/skills/orchestrate-discovery/SKILL.md`
   - Position：当前 `## Step 1` 之前
   - 内容：
@@ -150,7 +150,7 @@
 
     在第一轮用户对话前调用 `Skill({ skill: "grill-with-docs" })`，由该 skill 全程负责 CONTEXT.md 维护。CONTEXT.md 与 design document 是 Discovery 阶段的**双交付物**，地位等同。CONTEXT.md 路径写入 Scope Contract 作为 Discovery 权威文档之一（与 design path 并列）。
     ```
-- [ ] Step 3: 重写 `orchestrate-discovery/SKILL.md` Steps 1-2 为并行 Explorer 派发
+- [x] Step 3: 重写 `orchestrate-discovery/SKILL.md` Steps 1-2 为并行 Explorer 派发
   - 文件：`plugin/skills/orchestrate-discovery/SKILL.md`
   - 旧文本：（含"Coordinator 自己读 CLAUDE.md / SPEC / ADR / CONTEXT.md / agents.overrides.md / 近期 commits"措辞的段）
   - 新文本：
@@ -166,7 +166,7 @@
 
     **to-PRD synthesize fast-path**：若用户传入的 PRD / issue / 完整上下文已覆盖 Problem / Solution / Acceptance，跳过 Steps 3-6 一问一答 fast-path，直接进入 Steps 7-9 起草设计文档，最后让用户审稿。
     ```
-- [ ] Step 4: 在 `orchestrate-discovery/SKILL.md` 插入「mockup 留空间」段
+- [x] Step 4: 在 `orchestrate-discovery/SKILL.md` 插入「mockup 留空间」段
   - Position：紧跟 Step 0（grill-with-docs，本 Pack Step 2 已落地）之后、Steps 1-2（本 Pack Step 3 已重写）之前；或如果 SKILL.md 已含 `## Steps 3-6` 标题段，则放在 Steps 3-6 标题之前。先 grep 定位：`grep -n "^## Step 0\|^## Steps 1-2\|^## Steps 3-6" plugin/skills/orchestrate-discovery/SKILL.md` 取锚点；选 Step 0 之后第一个出现的 `## Step` 标题之前的位置插入。约束：必须在 Step 0 之后、所有 Step N 主流程之前（作为整 Discovery phase 适用的横切声明）。
   - 内容：
     ```markdown
@@ -174,27 +174,27 @@
 
     当设计涉及 UI/UX 且用户表达要生成 mockup 时，Coordinator 暂停当前 Step，给用户调用 `frontend-design` / `prototype` / 其他用户选用的 UI 设计 skill 留出完整时间和空间。Mockup 的生成方式、迭代节奏由用户主动驱动，Coordinator 不催促、不并行启动后续 Step、不替用户决定何时定稿。Mockup 与设计文档地位平等且迭代可能交叉——用户切回设计讨论 Step 时，按当前 Step 继续。
     ```
-- [ ] Step 5: 删除 `orchestrate-discovery/SKILL.md` 中 `Route Dispatch` 行
+- [x] Step 5: 删除 `orchestrate-discovery/SKILL.md` 中 `Route Dispatch` 行
   - 文件：`plugin/skills/orchestrate-discovery/SKILL.md`
   - 旧文本（在 preamble 段内）：`**Route Dispatch**：根据 Entry Gate 判定的 route 选择对应 phase skill。`
   - 新文本：（删除整行）
-- [ ] Step 6: 修改 `discovery-design-document.md` L29 区段 prototype snippet 例外类型
+- [x] Step 6: 修改 `discovery-design-document.md` L29 区段 prototype snippet 例外类型
   - 文件：`plugin/skills/orchestrate-discovery/references/discovery-design-document.md`
   - 旧文本：`不写具体 file path 或 code snippet（prototype snippet 例外）`
   - 新文本：`不写具体 file path 或 code snippet（prototype snippet 例外——例外类型仅限：state machine / reducer / schema / type shape）`
-- [ ] Step 7: 修改 `voice-directive.md.tmpl` Anti-Sycophancy 段追加 Push twice
+- [x] Step 7: 修改 `voice-directive.md.tmpl` Anti-Sycophancy 段追加 Push twice
   - 文件：`plugin/build/templates/voice-directive.md.tmpl`
   - Position：Anti-Sycophancy 段末（"立场+证据+质疑最强版本" 一行之后）
   - 追加：
     ```
     Push twice：第一个回答默认是抛光过的，至少追问一轮才相信。
     ```
-- [ ] Step 8: 跑 build apply 同步模板到所有目标文件
+- [x] Step 8: 跑 build apply 同步模板到所有目标文件
   - Run: `bash plugin/build/build.sh --apply --plugin-dir plugin` → Expected: exit 0，stderr 无 error
   - Run: `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
-- [ ] Step 9: 验证所有 acceptance verification commands 通过
+- [x] Step 9: 验证所有 acceptance verification commands 通过
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: 全 suite PASS
-- [ ] Step 10: Suggested commit boundary
+- [x] Step 10: Suggested commit boundary
   - Message: `feat(discovery): Steps 0/1-2 重写 + mockup 留空间 + Push twice + prototype snippet 类型`
 
 ---
@@ -223,11 +223,11 @@
 **Mockup specs:** N/A
 
 **Acceptance criteria:**
-- [ ] `design-review-angles.md` 顶部无 `## Self-Read Protocol` 段；按"流程位置"路标 blockquote 之后直接进入 `## Codex Dispatch 公共部分`
-- [ ] `discovery-discussion.md` 末尾无 `**grill-with-docs 的角色**` 段
-- [ ] `issue-splitting.md` 整文只剩一套 issue body 模板（本地大 issue 文件 = GH body + `## Design context refs` + `## Small issues` 两节）
-- [ ] `issue-splitting.md` 无 `gh issue create` / `GitHub Issue 发布` / `回写编号` / Step 12f 中所有 GH 发布相关流程
-- [ ] `verify-maturity.sh` 路标完整性检查通过（design-review-angles 顶部仍有"流程位置"blockquote 作为路标）
+- [x] `design-review-angles.md` 顶部无 `## Self-Read Protocol` 段；按"流程位置"路标 blockquote 之后直接进入 `## Codex Dispatch 公共部分`
+- [x] `discovery-discussion.md` 末尾无 `**grill-with-docs 的角色**` 段
+- [x] `issue-splitting.md` 整文只剩一套 issue body 模板（本地大 issue 文件 = GH body + `## Design context refs` + `## Small issues` 两节）
+- [x] `issue-splitting.md` 无 `gh issue create` / `GitHub Issue 发布` / `回写编号` / Step 12f 中所有 GH 发布相关流程
+- [x] `verify-maturity.sh` 路标完整性检查通过（design-review-angles 顶部仍有"流程位置"blockquote 作为路标）
 
 **Verification commands:**
 - `grep -c "^## Self-Read Protocol" plugin/skills/orchestrate-discovery/references/design-review-angles.md` → Expected: 0
@@ -245,7 +245,7 @@
 **Out of scope:** Step 1.5（→ Pack 3.7）；SKILL.md 主流程（→ Pack 3.1）
 
 #### Implementation tasks
-- [ ] Step 1: 删除 `design-review-angles.md` 顶部 Self-Read Protocol 整段
+- [x] Step 1: 删除 `design-review-angles.md` 顶部 Self-Read Protocol 整段
   - 文件：`plugin/skills/orchestrate-discovery/references/design-review-angles.md`
   - 旧文本（含路标 blockquote 之后到 `## Codex Dispatch 公共部分` 之前）：
     ```markdown
@@ -260,22 +260,22 @@
     5. 按两个 Baseline Review angle 独立验证，遵守 Pre-emit Verification Gate，输出 findings。
     ```
   - 新文本：（整段删除；保留路标 blockquote 之后直接进 `## Codex Dispatch 公共部分`）
-- [ ] Step 2: 删除 `discovery-discussion.md` 末尾「grill-with-docs 的角色」段
+- [x] Step 2: 删除 `discovery-discussion.md` 末尾「grill-with-docs 的角色」段
   - 文件：`plugin/skills/orchestrate-discovery/references/discovery-discussion.md`
   - 旧文本：
     ```markdown
     **grill-with-docs 的角色**：不是辅助工具——是 Domain Alignment 的核心执行方式。始终用其方法论挑战术语、交叉验证代码、更新 CONTEXT.md。
     ```
   - 新文本：（整段删除）
-- [ ] Step 3: 合并 `issue-splitting.md` 双模板 + 删除 GitHub Issue 发布
+- [x] Step 3: 合并 `issue-splitting.md` 双模板 + 删除 GitHub Issue 发布
   - 文件：`plugin/skills/orchestrate-discovery/references/issue-splitting.md`
   - 改动：找到 Step 12f / GitHub Issue body 模板 / `gh issue create` / 回写编号逻辑，整段删除；保留单一本地大 issue 文件模板（结构：GH body 部分 + `## Design context refs` 节 + `## Small issues` 节）
-- [ ] Step 4: 跑 verification
+- [x] Step 4: 跑 verification
   - Run: `grep -c "^## Self-Read Protocol" plugin/skills/orchestrate-discovery/references/design-review-angles.md` → Expected: 0
   - Run: `grep "grill-with-docs 的角色" plugin/skills/orchestrate-discovery/references/discovery-discussion.md` → Expected: 不命中（exit 1 from grep）
   - Run: `grep -E "gh issue create|GitHub Issue 发布" plugin/skills/orchestrate-discovery/references/issue-splitting.md` → Expected: 不命中
   - Run: `bash plugin/scripts/verify-maturity.sh` → Expected: exit 0
-- [ ] Step 5: Suggested commit
+- [x] Step 5: Suggested commit
   - Message: `chore(discovery): 删除 4 处死内容 + GitHub Issue 发布完全删除`
 
 ---
@@ -305,13 +305,13 @@
 **Mockup specs:** N/A
 
 **Acceptance criteria:**
-- [ ] `plan-writer-dispatch.md` 顶部无 `## Self-Read Protocol` 段
-- [ ] `plan-review-dispatch.md` 顶部无 `## Self-Read Protocol` 段
-- [ ] `plan-gates.md` budget 公式行改为：`budget.review_total = 2P + 6`、`budget.effort_total = (2P + 6) * 2`
-- [ ] `plan-gates.md` 公式分配解释改为决策 20 权威表述（每 Plan 2 次 review + Design Review 2 + Final Review 2 + Release Gate 1 + Multi-PR Integration Review 1）
-- [ ] `plan-gates.md` 不含"每 Plan 最多 2 次 repair re-review"或同义表述（targeted re-review 已删，修复由 Coordinator 自验闭合）
-- [ ] `orchestrate-plan-writing/SKILL.md` 公式数字行改为 `2P + 6`
-- [ ] plan-writing/ 整树无 `3P + 12` / `3P+12` 字符串残留
+- [x] `plan-writer-dispatch.md` 顶部无 `## Self-Read Protocol` 段
+- [x] `plan-review-dispatch.md` 顶部无 `## Self-Read Protocol` 段
+- [x] `plan-gates.md` budget 公式行改为：`budget.review_total = 2P + 6`、`budget.effort_total = (2P + 6) * 2`
+- [x] `plan-gates.md` 公式分配解释改为决策 20 权威表述（每 Plan 2 次 review + Design Review 2 + Final Review 2 + Release Gate 1 + Multi-PR Integration Review 1）
+- [x] `plan-gates.md` 不含"每 Plan 最多 2 次 repair re-review"或同义表述（targeted re-review 已删，修复由 Coordinator 自验闭合）
+- [x] `orchestrate-plan-writing/SKILL.md` 公式数字行改为 `2P + 6`
+- [x] plan-writing/ 整树无 `3P + 12` / `3P+12` 字符串残留
 
 **Verification commands:**
 - `grep -c "^## Self-Read Protocol" plugin/skills/orchestrate-plan-writing/references/plan-writer-dispatch.md` → Expected: 0
@@ -330,27 +330,27 @@
 **Out of scope:** dispatch-envelope-v1.json schema / state.sh init 中字段（属 Issue 002）；Final Review / Multi-PR 软上限（→ Pack 3.5 / 3.6）
 
 #### Implementation tasks
-- [ ] Step 1: 删除 `plan-writer-dispatch.md` 顶部 Self-Read Protocol
+- [x] Step 1: 删除 `plan-writer-dispatch.md` 顶部 Self-Read Protocol
   - 文件：`plugin/skills/orchestrate-plan-writing/references/plan-writer-dispatch.md`
   - 旧文本：从 `## Self-Read Protocol` 标题到下一个 `##` 之前
   - 新文本：（整段删除；保留顶部"流程位置"blockquote 作为路标）
-- [ ] Step 2: 删除 `plan-review-dispatch.md` 顶部 Self-Read Protocol
+- [x] Step 2: 删除 `plan-review-dispatch.md` 顶部 Self-Read Protocol
   - 文件：`plugin/skills/orchestrate-plan-writing/references/plan-review-dispatch.md`
   - 同 Step 1 模式
-- [ ] Step 3: 验证 `plan-gates.md` budget 公式已由 Issue 002 Pack 2.2 落地 + 补充分配细节
+- [x] Step 3: 验证 `plan-gates.md` budget 公式已由 Issue 002 Pack 2.2 落地 + 补充分配细节
   - 文件：`plugin/skills/orchestrate-plan-writing/references/plan-gates.md`
   - 验证：`grep "2P + 6" plugin/skills/orchestrate-plan-writing/references/plan-gates.md` → Expected: ≥ 1 行命中（Issue 002 Pack 2.2 已改）
   - 如 Pack 2.2 的分配文字仅写了简要说明，补充为决策 20 权威表述（完整分配：`2P` = 每 Plan 2 review + `+6` = Design Review 2 + Final Review 2 + Release Gate 1 + Multi-PR Integration Review 1 + "修复后由 Coordinator 自验闭合"）
   - 如已完整：跳过本步
-- [ ] Step 4: 验证 `orchestrate-plan-writing/SKILL.md` 公式已由 Issue 002 Pack 2.2 落地
+- [x] Step 4: 验证 `orchestrate-plan-writing/SKILL.md` 公式已由 Issue 002 Pack 2.2 落地
   - 文件：`plugin/skills/orchestrate-plan-writing/SKILL.md`
   - 验证：`grep "2P + 6" plugin/skills/orchestrate-plan-writing/SKILL.md` → Expected: ≥ 1 行命中（Issue 002 Pack 2.2 已改）
   - 如命中：跳过本步
-- [ ] Step 5: 跑 verification
+- [x] Step 5: 跑 verification
   - Run: `grep -r "3P + 12\|3P+12" plugin/skills/orchestrate-plan-writing/` → Expected: 0 命中
   - Run: `grep "2P + 6" plugin/skills/orchestrate-plan-writing/references/plan-gates.md` → Expected: ≥ 2 行
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: 全 PASS
-- [ ] Step 6: Suggested commit
+- [x] Step 6: Suggested commit
   - Message: `chore(plan-writing): 删 Self-Read 死内容 + budget 公式 3P+12 → 2P+6`
 
 ---
@@ -383,16 +383,16 @@
 **Mockup specs:** N/A
 
 **Acceptance criteria:**
-- [ ] `grep -r execution-worker-handbook plugin/` 整树 0 结果
-- [ ] `plugin/skills/orchestrate-execution/SKILL.md` Handbook 路径行含 `execution-worker-dispatch.md`，不含 `execution-worker-handbook.md`
-- [ ] `plugin/agents/pack-executor.md` Read handbook 步骤路径为 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-dispatch.md`
-- [ ] `plugin/agents/complex-pack-executor.md` 同上
-- [ ] `plugin/build/templates/worker-loop.md.tmpl` Step 2 Read handbook 路径为 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-dispatch.md`
-- [ ] `plugin/architecture-draft.md` L53 / L338 区段 Read handbook 步骤改为 `execution-worker-dispatch.md`（L286 / L299 已由 Issue 001 Pack 5 处理）
-- [ ] `execution-review-dispatch.md` 顶部无 `## Self-Read Protocol` 段
-- [ ] `bash plugin/build/build.sh --apply --plugin-dir plugin` 跑过；`--check` 通过
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
-- [ ] `bash plugin/scripts/verify-maturity.sh` 通过
+- [x] `grep -r execution-worker-handbook plugin/` 整树 0 结果
+- [x] `plugin/skills/orchestrate-execution/SKILL.md` Handbook 路径行含 `execution-worker-dispatch.md`，不含 `execution-worker-handbook.md`
+- [x] `plugin/agents/pack-executor.md` Read handbook 步骤路径为 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-dispatch.md`
+- [x] `plugin/agents/complex-pack-executor.md` 同上
+- [x] `plugin/build/templates/worker-loop.md.tmpl` Step 2 Read handbook 路径为 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-dispatch.md`
+- [x] `plugin/architecture-draft.md` L53 / L338 区段 Read handbook 步骤改为 `execution-worker-dispatch.md`（L286 / L299 已由 Issue 001 Pack 5 处理）
+- [x] `execution-review-dispatch.md` 顶部无 `## Self-Read Protocol` 段
+- [x] `bash plugin/build/build.sh --apply --plugin-dir plugin` 跑过；`--check` 通过
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过
+- [x] `bash plugin/scripts/verify-maturity.sh` 通过
 
 **Verification commands:**
 - `grep -r execution-worker-handbook plugin/` → Expected: 0 命中
@@ -410,37 +410,37 @@
 **Out of scope:** segment 5 fallback 路径双路径（属 Issue 002 D6）；sub-agent 事实校验 Step（→ Pack 3.7）
 
 #### Implementation tasks
-- [ ] Step 1: 修正 `plugin/skills/orchestrate-execution/SKILL.md` Handbook 路径行
+- [x] Step 1: 修正 `plugin/skills/orchestrate-execution/SKILL.md` Handbook 路径行
   - 文件：`plugin/skills/orchestrate-execution/SKILL.md`
   - 旧文本（约 L202 区段）：`Handbook：<$(pwd)/plugin/skills/orchestrate-execution/references/execution-worker-handbook.md>`
   - 新文本：`Handbook：<$(pwd)/plugin/skills/orchestrate-execution/references/execution-worker-dispatch.md>`
-- [ ] Step 2: 修正 `pack-executor.md` Read handbook 步骤
+- [x] Step 2: 修正 `pack-executor.md` Read handbook 步骤
   - 文件：`plugin/agents/pack-executor.md`
   - 旧文本：`Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-handbook.md``
   - 新文本：`Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-dispatch.md``
-- [ ] Step 3: 修正 `complex-pack-executor.md` Read handbook 步骤
+- [x] Step 3: 修正 `complex-pack-executor.md` Read handbook 步骤
   - 文件：`plugin/agents/complex-pack-executor.md`
   - 同 Step 2 模式
-- [ ] Step 4: 修正 `worker-loop.md.tmpl` Step 2 Read handbook 路径（critical runtime bug）
+- [x] Step 4: 修正 `worker-loop.md.tmpl` Step 2 Read handbook 路径（critical runtime bug）
   - 文件：`plugin/build/templates/worker-loop.md.tmpl`
   - 旧文本：`Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-handbook.md``
   - 新文本：`Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-dispatch.md``
-- [ ] Step 5: 修正 `architecture-draft.md` 2 处 handbook 引用（L286 / L299 已由 Issue 001 Pack 5 处理）
+- [x] Step 5: 修正 `architecture-draft.md` 2 处 handbook 引用（L286 / L299 已由 Issue 001 Pack 5 处理）
   - 文件：`plugin/architecture-draft.md`
   - L53 区段（"5 步严格启动序列"段）：`读 execution-worker-handbook` → `读 execution-worker-dispatch`
   - L338 区段（Read handbook 步骤）：`Read execution-worker-handbook.md` → `Read execution-worker-dispatch.md`
-- [ ] Step 6: 删除 `execution-review-dispatch.md` 顶部 Self-Read Protocol
+- [x] Step 6: 删除 `execution-review-dispatch.md` 顶部 Self-Read Protocol
   - 文件：`plugin/skills/orchestrate-execution/references/execution-review-dispatch.md`
   - 旧文本：`## Self-Read Protocol` 标题到下一个 `##` 之前的整段
   - 新文本：（整段删除；保留顶部"流程位置"blockquote）
-- [ ] Step 7: 跑 build apply 同步 worker-loop.md.tmpl 改动到所有目标文件
+- [x] Step 7: 跑 build apply 同步 worker-loop.md.tmpl 改动到所有目标文件
   - Run: `bash plugin/build/build.sh --apply --plugin-dir plugin` → Expected: exit 0
   - Run: `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
-- [ ] Step 8: 跑 verification
+- [x] Step 8: 跑 verification
   - Run: `grep -r execution-worker-handbook plugin/` → Expected: 0 命中
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: 全 PASS
   - Run: `bash plugin/scripts/verify-maturity.sh` → Expected: exit 0
-- [ ] Step 9: Suggested commit
+- [x] Step 9: Suggested commit
   - Message: `fix(execution): 6 处 handbook 路径修正 + 删 Self-Read 死内容 (critical runtime bug)`
 
 ---
@@ -471,16 +471,16 @@
 **Mockup specs:** N/A
 
 **Acceptance criteria:**
-- [ ] `final-review-angles.md` 顶部无 `## Self-Read Protocol` 段
-- [ ] `final-review-repair.md` 无 `## Step 11` 章节标题（整段已删）
-- [ ] `final-review-repair.md` Step 12 改写为二段模型（repair-once + RCA escalation）；不含 "Round 3" / "Targeted Re-Review 消耗 Round 3 的 review budget" / "Analyst Resolution Routing 表中 Targeted Re-Review 行"
-- [ ] `final-review-repair.md` Step 12 内 `Agent({subagent_type: "root-cause-analyst", ...})` dispatch prompt 块保留（仅内部措辞从"两轮上下文"改为"Round 1 上下文"）
-- [ ] `final-review-repair.md` L52 区段不含 "targeted Codex re-review" / "exception 条件" / "exception_code" 派发逻辑
-- [ ] `final-review-repair.md` Phase 软上限行为 `≤ 3（2 baseline + 0 targeted + 最多 1 release gate）`
-- [ ] `final-review-release-gate.md` Step 18 区段不含 "修复后做 targeted release re-review"
-- [ ] `final-review-completion.md` Step 15 区段不含 "复杂修复 → targeted re-review (Budget 消耗 1)"
-- [ ] `orchestrate-final-review/SKILL.md` preamble 不含 "targeted re-review 使用 task --background --resume"
-- [ ] `grep -ri "targeted re-review\|targeted-re-review" plugin/skills/orchestrate-final-review/` 0 结果（除共享 inject 已由 Issue 001 D1 处理）
+- [x] `final-review-angles.md` 顶部无 `## Self-Read Protocol` 段
+- [x] `final-review-repair.md` 无 `## Step 11` 章节标题（整段已删）
+- [x] `final-review-repair.md` Step 12 改写为二段模型（repair-once + RCA escalation）；不含 "Round 3" / "Targeted Re-Review 消耗 Round 3 的 review budget" / "Analyst Resolution Routing 表中 Targeted Re-Review 行"
+- [x] `final-review-repair.md` Step 12 内 `Agent({subagent_type: "root-cause-analyst", ...})` dispatch prompt 块保留（仅内部措辞从"两轮上下文"改为"Round 1 上下文"）
+- [x] `final-review-repair.md` L52 区段不含 "targeted Codex re-review" / "exception 条件" / "exception_code" 派发逻辑
+- [x] `final-review-repair.md` Phase 软上限行为 `≤ 3（2 baseline + 0 targeted + 最多 1 release gate）`
+- [x] `final-review-release-gate.md` Step 18 区段不含 "修复后做 targeted release re-review"
+- [x] `final-review-completion.md` Step 15 区段不含 "复杂修复 → targeted re-review (Budget 消耗 1)"
+- [x] `orchestrate-final-review/SKILL.md` preamble 不含 "targeted re-review 使用 task --background --resume"
+- [x] `grep -ri "targeted re-review\|targeted-re-review" plugin/skills/orchestrate-final-review/` 0 结果（除共享 inject 已由 Issue 001 D1 处理）
 
 **Verification commands:**
 - `grep -c "^## Self-Read Protocol" plugin/skills/orchestrate-final-review/references/final-review-angles.md` → Expected: 0
@@ -499,15 +499,15 @@
 **Out of scope:** review-dispatch / repair-routing / disposition-table 共享 inject 在 final-review/ 文件中的处理（属 Issue 001 D1）；sub-agent 事实校验 Step（→ Pack 3.7）
 
 #### Implementation tasks
-- [ ] Step 1: 删除 `final-review-angles.md` 顶部 Self-Read Protocol
+- [x] Step 1: 删除 `final-review-angles.md` 顶部 Self-Read Protocol
   - 文件：`plugin/skills/orchestrate-final-review/references/final-review-angles.md`
   - 旧文本：从 `## Self-Read Protocol` 标题到下一个 `##` 之前的整段
   - 新文本：（整段删除）
-- [ ] Step 2: 删除 `final-review-repair.md` Step 11 整段
+- [x] Step 2: 删除 `final-review-repair.md` Step 11 整段
   - 文件：`plugin/skills/orchestrate-final-review/references/final-review-repair.md`
   - 旧文本：从 `## Step 11：Targeted Re-Review` 标题到下一个 `## Step 12` 之前的整段（约 122 行，含 `<!-- BEGIN: review-dispatch -->` ... `Open Items` 模板）
   - 新文本：（整段删除；Step 10 之后直接进入 Step 12）
-- [ ] Step 3: 改写 `final-review-repair.md` Step 12 为二段模型（surgical edits，保留 RCA dispatch prompt 块）
+- [x] Step 3: 改写 `final-review-repair.md` Step 12 为二段模型（surgical edits，保留 RCA dispatch prompt 块）
   - 文件：`plugin/skills/orchestrate-final-review/references/final-review-repair.md`
   - 改动策略：**不整段删 Step 12**；做 4 处精确替换，保留 `Agent({subagent_type: "root-cause-analyst", ...})` dispatch prompt 块及其前导标题 `**Root-Cause-Analyst 截断调度**：` 不动
   - **子改动 3a**：替换 Step 12 开头三轮模型表
@@ -588,15 +588,15 @@
 
       **Phase 内部 review dispatch 软上限**：3（2 baseline + 0 targeted + 最多 1 release gate）。
       ```
-- [ ] Step 4: 修改 `final-review-repair.md` L52 区段删 targeted dispatch
+- [x] Step 4: 修改 `final-review-repair.md` L52 区段删 targeted dispatch
   - 文件：`plugin/skills/orchestrate-final-review/references/final-review-repair.md`
   - 旧文本：`所有 repair prompt 只携带 accepted findings。Repair 返回后 Coordinator 默认自验收（verification commands + acceptance criteria 对照）。仅当满足 exception 条件（3+ 文件控制流修改 / 用户要求 / RCA 根因修复 / Path A 自修）时派发 targeted Codex re-review。Targeted re-review 必须用 `codex-companion.mjs task --background --resume` 复用 baseline reviewer 的 JOB_ID；只有 source baseline 改变时才 full phase review rerun。gate-codex-review.sh 强制此规则。`
   - 新文本：`所有 repair prompt 只携带 accepted findings。Repair 返回后 Coordinator 自验收（verification commands + acceptance criteria 对照）即闭合，不再派发 targeted Codex re-review；自验仍有疑虑 → 升级 RCA 或 BLOCKED 报告用户。`
-- [ ] Step 5: 修改 `final-review-release-gate.md` Step 18 区段删 targeted release re-review
+- [x] Step 5: 修改 `final-review-release-gate.md` Step 18 区段删 targeted release re-review
   - 文件：`plugin/skills/orchestrate-final-review/references/final-review-release-gate.md`
   - 旧文本：`5. 修复后做 targeted release re-review：只审修复变更 + 原 release risk surface。不重跑 baseline review（除非修复改变了 source design / plan / shared contract / migration / permission / billing / runtime baseline）`
   - 新文本：`5. 修复后由 Coordinator 自验：对照 release risk surface + 跑 verification commands 验证修复点已落地；不再派发 targeted release re-review。`
-- [ ] Step 6: 修改 `final-review-completion.md` Step 15 区段
+- [x] Step 6: 修改 `final-review-completion.md` Step 15 区段
   - 文件：`plugin/skills/orchestrate-final-review/references/final-review-completion.md`
   - 旧文本：
     ```
@@ -608,15 +608,15 @@
     3. 简单修复（Coordinator 直接改）→ Coordinator 自验闭合
     4. 复杂修复（派了 worker）→ Coordinator 自验闭合（不再派 targeted re-review；自验仍有疑虑 → RCA 或 BLOCKED）
     ```
-- [ ] Step 7: 修改 `orchestrate-final-review/SKILL.md` preamble L52 区段
+- [x] Step 7: 修改 `orchestrate-final-review/SKILL.md` preamble L52 区段
   - 文件：`plugin/skills/orchestrate-final-review/SKILL.md`
   - 旧文本：`Baseline review 使用 `codex-companion.mjs task --background` 启动 background job；targeted re-review 使用 `task --background --resume` 复用同一 JOB_ID。`
   - 新文本：`Baseline review 使用 `codex-companion.mjs task --background` 启动 background job。修复后由 Coordinator 自验闭合，不再派发 targeted re-review。`
-- [ ] Step 8: 跑 verification
+- [x] Step 8: 跑 verification
   - Run: `grep -i "targeted re-review\|targeted-re-review" plugin/skills/orchestrate-final-review/` → Expected: 0 命中
   - Run: `grep "Phase 内部 review dispatch 软上限" plugin/skills/orchestrate-final-review/references/final-review-repair.md` → Expected: 命中且含 `3`
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: 全 PASS
-- [ ] Step 9: Suggested commit
+- [x] Step 9: Suggested commit
   - Message: `chore(final-review): 删 Self-Read + Step 11 整段 + Step 12 三轮→二段 + 软上限 10→3`
 
 ---
@@ -650,12 +650,12 @@
 **Mockup specs:** N/A
 
 **Acceptance criteria:**
-- [ ] `orchestrate-multi-pr-merge/SKILL.md` 顶部存在「Coordinator dispatch 通用步骤」一段（4 step 通用模板：写 merge-brief + 写 DISPATCH_ENVELOPE + 派发 + 处理返回）
-- [ ] 5 个 reference 文件均不再含 `## Coordinator 端最小职责` 重复整段；保留单行引用 SKILL.md 通用模板可接受
-- [ ] `merge-integration-review.md` Step 18 区段不含 `<!-- DISPATCH_ENVELOPE ... review_intent: "targeted-re-review"` 模板；不含 "gate 名使用 multi-pr-repair-<round>" 行；"最多 2 轮修复" 改为 "1 轮修复 + Coordinator 自验 → 失败 BLOCKED"
-- [ ] `merge-integration-review.md` 末尾追加 "Phase 内部 review dispatch 软上限：1（1 integration review + 0 targeted re-review）" 一行
-- [ ] `merge-completion.md` "不存在非阻塞项" 段改为单行引用 "清扫纪律同 Final Review Step 13（详见 `final-review-completion.md`）"，保留 multi-PR 独有的清扫来源列表
-- [ ] `merge-conflict-repair.md` dispatch prompt 中无 `multi-pr-conflict-worker-handbook` / `multi-pr-explorer-handbook` / `multi-pr-integration-review-handbook` 字符串残留
+- [x] `orchestrate-multi-pr-merge/SKILL.md` 顶部存在「Coordinator dispatch 通用步骤」一段（4 step 通用模板：写 merge-brief + 写 DISPATCH_ENVELOPE + 派发 + 处理返回）
+- [x] 5 个 reference 文件均不再含 `## Coordinator 端最小职责` 重复整段；保留单行引用 SKILL.md 通用模板可接受
+- [x] `merge-integration-review.md` Step 18 区段不含 `<!-- DISPATCH_ENVELOPE ... review_intent: "targeted-re-review"` 模板；不含 "gate 名使用 multi-pr-repair-<round>" 行；"最多 2 轮修复" 改为 "1 轮修复 + Coordinator 自验 → 失败 BLOCKED"
+- [x] `merge-integration-review.md` 末尾追加 "Phase 内部 review dispatch 软上限：1（1 integration review + 0 targeted re-review）" 一行
+- [x] `merge-completion.md` "不存在非阻塞项" 段改为单行引用 "清扫纪律同 Final Review Step 13（详见 `final-review-completion.md`）"，保留 multi-PR 独有的清扫来源列表
+- [x] `merge-conflict-repair.md` dispatch prompt 中无 `multi-pr-conflict-worker-handbook` / `multi-pr-explorer-handbook` / `multi-pr-integration-review-handbook` 字符串残留
 
 **Verification commands:**
 - `grep "Coordinator dispatch 通用步骤\|merge-brief 写作流程" plugin/skills/orchestrate-multi-pr-merge/SKILL.md` → Expected: ≥ 1 命中
@@ -675,7 +675,7 @@
 **Out of scope:** sub-agent 事实校验 Step（→ Pack 3.7）；review-dispatch 共享 inject 在 multi-pr/ 文件中的处理（属 Issue 001 D1）
 
 #### Implementation tasks
-- [ ] Step 1: 在 `orchestrate-multi-pr-merge/SKILL.md` 顶部追加「Coordinator dispatch 通用步骤」一段
+- [x] Step 1: 在 `orchestrate-multi-pr-merge/SKILL.md` 顶部追加「Coordinator dispatch 通用步骤」一段
   - 文件：`plugin/skills/orchestrate-multi-pr-merge/SKILL.md`
   - Position：紧跟现有 `## merge-brief 写作流程` 段之后（已验证该 section 存在于当前 SKILL.md L114 区段）、`## Steps 1-3：入口 + 文档理解` 之前。先 grep 定位：`grep -n "^## merge-brief 写作流程\|^## Steps 1-3" plugin/skills/orchestrate-multi-pr-merge/SKILL.md` 取得两个锚点行号，在两行之间插入新段。
   - 内容：
@@ -691,17 +691,17 @@
 
     各阶段 reference（merge-preparation / merge-conflict-discovery / merge-rca-investigation / merge-conflict-repair / merge-integration-review）只描述该阶段特有的 prompt 模板与返回处置，**不再重复 Coordinator dispatch 通用步骤**。
     ```
-- [ ] Step 2: 删除 `merge-preparation.md` 末尾 `## Coordinator 端最小职责` 整段
+- [x] Step 2: 删除 `merge-preparation.md` 末尾 `## Coordinator 端最小职责` 整段
   - 文件：`plugin/skills/orchestrate-multi-pr-merge/references/merge-preparation.md`
   - 旧文本：`## Coordinator 端最小职责` 标题到下一个 `##` 或文件末尾的整段
   - 新文本：（整段删除；可选保留单行引用 "Coordinator dispatch 通用步骤见 SKILL.md 顶部"）
-- [ ] Step 3: 同 Step 2 处理 `merge-conflict-discovery.md`
-- [ ] Step 4: 同 Step 2 处理 `merge-rca-investigation.md`
-- [ ] Step 5: 同 Step 2 处理 `merge-conflict-repair.md` + 删除 dispatch prompt 中对 3 个 handbook 的引用
+- [x] Step 3: 同 Step 2 处理 `merge-conflict-discovery.md`
+- [x] Step 4: 同 Step 2 处理 `merge-rca-investigation.md`
+- [x] Step 5: 同 Step 2 处理 `merge-conflict-repair.md` + 删除 dispatch prompt 中对 3 个 handbook 的引用
   - 文件：`plugin/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md`
   - 子改动 a：删除 `## Coordinator 端最小职责` 整段
   - 子改动 b：在 Step 12a/12b worker dispatch prompt 中，找到任何 `multi-pr-conflict-worker-handbook` / `multi-pr-explorer-handbook` / `multi-pr-integration-review-handbook` 字符串残留，整段删除（决策 23 指出 conflict 详情 + 修复方向已在 merge-brief §4/§5 内）
-- [ ] Step 6: 重写 `merge-integration-review.md` Step 18 区段 + 末尾追加软上限 + 删 `## Coordinator 端最小职责`
+- [x] Step 6: 重写 `merge-integration-review.md` Step 18 区段 + 末尾追加软上限 + 删 `## Coordinator 端最小职责`
   - 文件：`plugin/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md`
   - 子改动 a：找到 Step 18（修复后做 Targeted Re-Review）整段：从"修复后做 **Targeted Re-Review**"声明 → DISPATCH_ENVELOPE 模板 → "最多 2 轮修复" 一行，全部删除（约 55 行）
   - 子改动 a 新文本：
@@ -718,7 +718,7 @@
     ```markdown
     **Phase 内部 review dispatch 软上限**：1（1 integration review + 0 targeted re-review）。
     ```
-- [ ] Step 7: 改写 `merge-completion.md` "不存在非阻塞项" 段
+- [x] Step 7: 改写 `merge-completion.md` "不存在非阻塞项" 段
   - 文件：`plugin/skills/orchestrate-multi-pr-merge/references/merge-completion.md`
   - 旧文本（约 9 行）：
     ```markdown
@@ -740,13 +740,13 @@
     - 合并过程中 worker Open Items → 逐项处置（修复 / 开 issue / 确认不是问题）
     - `git diff <base>..HEAD` 范围内新增的 TODO/FIXME → 处置
     ```
-- [ ] Step 8: 跑 verification
+- [x] Step 8: 跑 verification
   - Run: `grep "^## Coordinator 端最小职责" plugin/skills/orchestrate-multi-pr-merge/references/*.md` → Expected: 0 命中
   - Run: `grep -i "targeted re-review\|targeted-re-review\|multi-pr-repair-" plugin/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md` → Expected: 0 命中
   - Run: `grep "Phase 内部 review dispatch 软上限" plugin/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md` → Expected: 命中且含 `1`
   - Run: `grep -E "multi-pr-explorer-handbook|multi-pr-conflict-worker-handbook|multi-pr-integration-review-handbook" plugin/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md` → Expected: 0 命中
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: 全 PASS
-- [ ] Step 9: Suggested commit
+- [x] Step 9: Suggested commit
   - Message: `chore(multi-pr): 提取 Coordinator dispatch 通用模板 + targeted re-review 级联清理 + 软上限 1`
 
 ---
@@ -782,12 +782,12 @@
 **Mockup specs:** N/A
 
 **Acceptance criteria:**
-- [ ] `code-explorer.md` / `complex-code-explorer.md` / `root-cause-analyst.md` 三个 agent 的 description 字段末尾均含中文表述：返回的事实声明（行号 / 计数 / 存在性 / 引用关系）由 Coordinator 必须亲验，sub-agent 不承担 ground truth 责任
-- [ ] `orchestrate-discovery/SKILL.md` 含 `Step 1.5` 章节或同义"Explorer 报告校验门控"段，包含 4 项规则（高置信度抽样验 / 中低逐条验 / 跨外部仓库二次验 / 验证失败剔除并重派）
-- [ ] `orchestrate-plan-writing/SKILL.md` / `orchestrate-execution/SKILL.md` / `orchestrate-multi-pr-merge/SKILL.md` 均含 sub-agent 事实校验同义表述（plan-writer / pack-executor / root-cause-analyst 返回事实须 Coordinator 抽验）
-- [ ] `agent-return-handler.sh` 生成 Coordinator NEXT 指令的代码段含 "校验本次返回的事实声明" 输出
-- [ ] `architecture-draft.md` 含「Sub-agent 信任边界」章节，明确 Coordinator 是事实的唯一 ground truth
-- [ ] 本 Pack 不引入新 hook 阻断（保持决策 9 hook 简化方向）
+- [x] `code-explorer.md` / `complex-code-explorer.md` / `root-cause-analyst.md` 三个 agent 的 description 字段末尾均含中文表述：返回的事实声明（行号 / 计数 / 存在性 / 引用关系）由 Coordinator 必须亲验，sub-agent 不承担 ground truth 责任
+- [x] `orchestrate-discovery/SKILL.md` 含 `Step 1.5` 章节或同义"Explorer 报告校验门控"段，包含 4 项规则（高置信度抽样验 / 中低逐条验 / 跨外部仓库二次验 / 验证失败剔除并重派）
+- [x] `orchestrate-plan-writing/SKILL.md` / `orchestrate-execution/SKILL.md` / `orchestrate-multi-pr-merge/SKILL.md` 均含 sub-agent 事实校验同义表述（plan-writer / pack-executor / root-cause-analyst 返回事实须 Coordinator 抽验）
+- [x] `agent-return-handler.sh` 生成 Coordinator NEXT 指令的代码段含 "校验本次返回的事实声明" 输出
+- [x] `architecture-draft.md` 含「Sub-agent 信任边界」章节，明确 Coordinator 是事实的唯一 ground truth
+- [x] 本 Pack 不引入新 hook 阻断（保持决策 9 hook 简化方向）
 
 **Verification commands:**
 - `grep -l "Coordinator 必须亲验\|亲验\|Coordinator must verify" plugin/agents/code-explorer.md plugin/agents/complex-code-explorer.md plugin/agents/root-cause-analyst.md` → Expected: 3 个文件均命中
@@ -807,16 +807,16 @@
 **Out of scope:** 新增 hook 阻断（设计明确不引入）；agent body 内容改动（只改 frontmatter description）；CLAUDE.md 全局规则的改动（属于用户全局，不在 plugin scope）
 
 #### Implementation tasks
-- [ ] Step 1: 在 `code-explorer.md` frontmatter description 末尾追加校验声明
+- [x] Step 1: 在 `code-explorer.md` frontmatter description 末尾追加校验声明
   - 文件：`plugin/agents/code-explorer.md`
   - Position：frontmatter description 字段（多行字符串）末尾，在 `Do NOT use for:` 之后或合适位置
   - 追加：
     ```
     返回的事实声明（行号 / 计数 / 文件存在性 / 引用关系）由 Coordinator 必须亲验后再写入交付物或汇报。本 agent 是劳动力不是 ground truth，Coordinator 是事实的唯一权威。
     ```
-- [ ] Step 2: 同 Step 1 处理 `complex-code-explorer.md`
-- [ ] Step 3: 同 Step 1 处理 `root-cause-analyst.md`
-- [ ] Step 4: 在 `orchestrate-discovery/SKILL.md` Steps 1-2 与 Step 3 之间插入 Step 1.5
+- [x] Step 2: 同 Step 1 处理 `complex-code-explorer.md`
+- [x] Step 3: 同 Step 1 处理 `root-cause-analyst.md`
+- [x] Step 4: 在 `orchestrate-discovery/SKILL.md` Steps 1-2 与 Step 3 之间插入 Step 1.5
   - 文件：`plugin/skills/orchestrate-discovery/SKILL.md`
   - Position：紧跟 Pack 3.1 重写的 Steps 1-2 段之后，Step 3 之前
   - 内容：
@@ -832,28 +832,28 @@
 
     通过校验门控后再进入 Step 3 与用户讨论。
     ```
-- [ ] Step 5: 在 `orchestrate-plan-writing/SKILL.md` 主流程加 sub-agent 事实校验 Step
+- [x] Step 5: 在 `orchestrate-plan-writing/SKILL.md` 主流程加 sub-agent 事实校验 Step
   - 文件：`plugin/skills/orchestrate-plan-writing/SKILL.md`
   - Position：紧跟 `## Steps 9-10` 段落（"派 plan-writer + 收返"）之后、`## Steps 11-12b` 之前。先 grep 定位：`grep -n "^## Steps 9-10\|^## Steps 11-12" plugin/skills/orchestrate-plan-writing/SKILL.md` 取锚点；在两个标题之间插入。
   - 追加 / 插入：
     ```markdown
     **Plan-writer 返回事实校验**：Coordinator 收到 plan-writer 返回的 plan 文件路径、文件存在性、行号引用、Pack 数量声明等事实，必须抽验（≥ 1 个事实 grep / Read）后再进入 Plan Entry Gate。事实失实 → 重派 plan-writer 或 Coordinator 亲查。
     ```
-- [ ] Step 6: 在 `orchestrate-execution/SKILL.md` 主流程加 sub-agent 事实校验 Step
+- [x] Step 6: 在 `orchestrate-execution/SKILL.md` 主流程加 sub-agent 事实校验 Step
   - 文件：`plugin/skills/orchestrate-execution/SKILL.md`
   - Position：紧跟 Worker 返回处置段、Plan Implementation Review 派发段之前。先 grep 定位：`grep -n "Plan Implementation Review\|^## Steps 4-9\|^## Step 8" plugin/skills/orchestrate-execution/SKILL.md` 取锚点；选首次出现 `Plan Implementation Review` 派发的章节标题之前插入。
   - 追加 / 插入：
     ```markdown
     **Worker / RCA 返回事实校验**：Coordinator 收到 pack-executor / complex-pack-executor / root-cause-analyst 返回的 commit hash、文件路径、行号、grep 结果、Pack 状态等事实，必须抽验（≥ 1 个事实 grep / Read / git show）后再进入 Plan Implementation Review 或下一 Pack 派发。事实失实 → 重派或 Coordinator 亲查。
     ```
-- [ ] Step 7: 在 `orchestrate-multi-pr-merge/SKILL.md` 主流程加 sub-agent 事实校验 Step
+- [x] Step 7: 在 `orchestrate-multi-pr-merge/SKILL.md` 主流程加 sub-agent 事实校验 Step
   - 文件：`plugin/skills/orchestrate-multi-pr-merge/SKILL.md`
   - Position：紧跟 Pack 3.6 Step 1 已写入的 `## Coordinator dispatch 通用步骤` 段之后、`## Steps 1-3：入口 + 文档理解` 之前。先 grep 定位：`grep -n "^## Coordinator dispatch 通用步骤\|^## Steps 1-3" plugin/skills/orchestrate-multi-pr-merge/SKILL.md` 取锚点；在两标题之间插入。
   - 追加 / 插入：
     ```markdown
     **4 类 dispatch 返回事实校验**：Coordinator 收到 explorer / analyst / worker / reviewer 返回的 PR 列表、冲突点、文件路径、行号、grep 结果等事实，必须抽验（≥ 1 个事实 grep / Read / gh pr view）后再写入 merge-brief 对应段。事实失实 → 重派或 Coordinator 亲查。
     ```
-- [ ] Step 8: 修改 `agent-return-handler.sh` 在 NEXT 指令前一次性输出校验提醒
+- [x] Step 8: 修改 `agent-return-handler.sh` 在 NEXT 指令前一次性输出校验提醒
   - 文件：`plugin/hooks/agent-return-handler.sh`
   - Position：找到所有 verdict 分支共同进入的 NEXT 指令输出区域。**统一在所有 verdict 路由前的入口处打印 1 次**（避免 5 个 verdict 分支各打 1 次造成噪音）。一般在 plan-return parsed 之后、verdict switch case 之前的位置插入。
   - **必须只插入 1 次**（top-of-NEXT-emit），不在每个 verdict 分支重复。
@@ -862,7 +862,7 @@
     echo "⚠️ 写入交付物前必须校验本次返回的事实声明（行号 / 计数 / 存在性 / grep 结果 / 引用关系）" >&2
     ```
   - 注意：保持原 NEXT 指令格式与下游消费者契约不变；本行仅追加为额外提醒，输出到 stderr 避免污染下游 stdout 解析
-- [ ] Step 9: 在 `architecture-draft.md` 新增「Sub-agent 信任边界」章节
+- [x] Step 9: 在 `architecture-draft.md` 新增「Sub-agent 信任边界」章节
   - 文件：`plugin/architecture-draft.md`
   - Position：合适章节位置（如紧随 Sub-agent 层介绍后，或 Coordinator 角色章节之后）
   - 内容：
@@ -883,7 +883,7 @@
 
     **不引入新的 Hook 阻断**：本机制是提醒层而非阻断层，保持 hook 简化方向。Coordinator 的校验责任由文本强制，不由 hook 强制。
     ```
-- [ ] Step 10: 跑 verification
+- [x] Step 10: 跑 verification
   - Run: `grep -l "Coordinator 必须亲验\|亲验" plugin/agents/code-explorer.md plugin/agents/complex-code-explorer.md plugin/agents/root-cause-analyst.md` → Expected: 3 个文件均命中
   - Run: `grep "Step 1.5\|Explorer 报告校验门控" plugin/skills/orchestrate-discovery/SKILL.md` → Expected: 命中
   - Run: `grep -lE "Coordinator 抽验|事实校验|返回事实" plugin/skills/orchestrate-plan-writing/SKILL.md plugin/skills/orchestrate-execution/SKILL.md plugin/skills/orchestrate-multi-pr-merge/SKILL.md` → Expected: 3 个文件均命中
@@ -891,7 +891,7 @@
   - Run: `grep "Sub-agent 信任边界" plugin/architecture-draft.md` → Expected: 命中
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: 全 PASS
   - Run: `bash plugin/scripts/verify-maturity.sh` → Expected: exit 0
-- [ ] Step 11: Suggested commit
+- [x] Step 11: Suggested commit
   - Message: `feat(plugin): sub-agent 事实校验机制落地（agents + SKILL.md + hook + architecture）`
 
 ---
