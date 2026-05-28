@@ -16,7 +16,7 @@ ESF="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
 if [ ! -f "$ESF" ]; then exit 0; fi
 
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
-# Pack ID from validated commit message (enforce-pack-commit.sh guarantees format "Pack N.M: ...")
+# Pack ID from validated commit message (enforce-plan-commit.sh guarantees format "Pack N.M: ...")
 # Uses bash regex instead of sed — input is commit message text, not prompt/control-plane
 if [[ "$COMMAND" =~ Pack[[:space:]]+([0-9]+\.[0-9]+) ]]; then
   PACK_ID="${BASH_REMATCH[1]}"
