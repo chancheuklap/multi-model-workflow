@@ -169,11 +169,11 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - `doc_patch_path` 字段（plan-return-v1.json）— 删除
 - Worker `agent-context-check` 状态查询 — 改为 Worker 本地决策（不调 state.sh）
 
-### 4.2 实现决策（核心改动 17 类）
+### 4.2 实现决策（核心改动 18 类）
 
 > Round 2 决策分两批：
 > - **决策 1-12**：v3.8.0 → token economy 基础重构（模板去重 / 死代码删除 / route 折叠 等）
-> - **决策 13-17**：用户讨论 Discovery 环节后补充（删 targeted re-review / Explorer 集成 / grill-with-docs 升级 / 外部精华补齐 / Discovery 压缩）
+> - **决策 13-18**：用户讨论 Discovery 环节后补充（删 targeted re-review / Explorer 集成 / grill-with-docs 升级 / 外部精华占位 / Discovery 压缩 / **Sub-agent 事实校验机制**）
 
 > 这一节列出本轮改动的全部范畴。每一条都对应后续大 issue 拆分时的一个候选 vertical slice。具体实现细节由计划文档承担，本节只到决策层面。
 
@@ -463,6 +463,37 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - discovery-discussion.md / discovery-design-document.md / issue-splitting.md 三个核心 reference（这些是外部 skill 精华的本地化版本，是真正不可减的内容）
 
 **收益估算**：Discovery phase baseline 加载从 ≈38,453 chars 降至 ≈32,000 chars（≈17% 减），与决策 1 / 2 叠加后 ≤30,000 chars。
+
+#### 决策 18：Sub-agent 返回事实校验机制（横切 / 写入 plugin）
+
+**背景**：当前 plugin 没有 "Coordinator 必须验证 sub-agent 返回事实" 的硬规则——只有用户全局 `~/.claude/CLAUDE.md` 里有「子代理返回的任何事实声明（数字、文件路径、行号、计数、'存在/不存在'），在写入交付物或汇报给用户之前，必须亲自用 Read/grep/curl 验证」。但 plugin 自身的 SKILL.md / agent definition / hook 没有任何对应约束。
+
+**问题**：决策 14 让 Coordinator 在 Discovery 阶段并行派 N 个 Explorer 收集仓库事实。如果 Coordinator 不验证就直接写进设计文档，**单个 Explorer 误判 = 设计文档错误结论**。本次 Round 2 Discovery 中已经出现 2 个真实案例：
+- Explorer 报告"`zoom-out` skill 不存在"——实际在 `/Users/cheuklapchan/.claude/skills/zoom-out`（mattpocock-skills 软链）。Explorer 只 grep plugin/ 内没查用户 skills 目录
+- Explorer 报告"`discovery-formats.md` 是孤儿"——实际被 architecture-draft.md:284 + SKILL.md:104 引用。Explorer 把"无 `**Read**` 强制指令"等同"未加载"
+
+这两条都被采信并写进了设计文档，直到用户指正才被发现。
+
+**改动（横切 — 写入 plugin 强制层）**：
+- **agents/*.md frontmatter description**：所有调研类 sub-agent（code-explorer / complex-code-explorer / root-cause-analyst）必须在 description 中明确：返回的事实声明（行号 / 计数 / 存在性 / 引用关系）由 Coordinator **必须亲验**，sub-agent 自身不承担 ground truth 责任
+- **orchestrate-discovery/SKILL.md 新增 Step 1.5（在 Step 1-2 派 Explorer 之后，Step 3 与用户讨论之前）**：
+  ```
+  **Step 1.5：Explorer 报告校验门控**
+  对每个 Explorer 返回的报告：
+  1. 高置信度声明（confidence ≥7）：抽样验 — 至少 grep 1 个关键事实
+  2. 中低置信度（≤6）或"存在性 / 不存在性"声明：逐条 grep / Read 验
+  3. 跨用户 skills / 跨外部仓库 / 跨主仓库 的事实：必须二次验（Explorer 默认只读 plugin/，会漏外部）
+  4. 任何验证失败 → 该声明从设计文档输入中剔除，重派 Explorer 或 Coordinator 亲查
+  ```
+- **orchestrate-plan-writing / orchestrate-execution / orchestrate-multi-pr-merge SKILL.md 同步加 Step**：plan-writer / pack-executor / root-cause-analyst 返回的事实声明（pack 状态、文件路径、行号、grep 结果）也必须 Coordinator 抽验
+- **agent-return-handler.sh hook 增强**：sub-agent 返回报告时，在 Coordinator NEXT 指令中明确生成一行"⚠️ 写入交付物前必须校验本次返回的事实声明"提醒
+- **architecture-draft.md 新增章节**：「Sub-agent 信任边界」——明确 Coordinator 是事实的唯一 ground truth，sub-agent 是劳动力不是信源
+
+**与决策 14 的关系**：决策 14 让 Discovery 充分使用 Explorer 分担上下文压力；决策 18 是配套的"信任边界"——派得多必须验得严，否则上下文压力虽然分担了，但 Coordinator 的结论质量没保证。
+
+**收益估算**：避免"sub-agent 误判 → 设计文档错 → 下游 plan/pack 全错"的连锁失败。Coordinator 校验本身消耗很小（grep / Read 几次），但救一次大错节省的成本巨大。
+
+**注意**：决策 18 不引入新的 Hook 阻断（保持决策 9 hook 简化方向）；只在 SKILL.md / agent description / agent-return-handler 输出层加提醒。强约束在主流程文本中体现，不在 Hook 中。
 
 ### 4.3 改动总览图
 
