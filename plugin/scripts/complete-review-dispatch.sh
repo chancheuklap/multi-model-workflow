@@ -118,4 +118,89 @@ jq --arg result_file "$RESULT_FILE" --arg completed_at "$now" \
 ' "$REGISTRY_FILE" > "$tmp"
 mv "$tmp" "$REGISTRY_FILE"
 
+# Pack 2.9: auto-append Review History row when the gate matches a known design/plan
+# review pattern. We do this best-effort — failures to append are logged to stderr
+# but never fail the script, because durability marking is the primary purpose
+# of this script and Plan 002 R3 backward-compat keeps the workflow forward-progressing
+# even if the secondary append misses (the row can still be added manually).
+#
+# Slug source: prefer workflow-state.slug (read via jq); fallback to env STATE_SLUG.
+# Plan id source: derived from the gate suffix when the kind is "plan".
+#
+# Gate name conventions (matched here):
+#   design-review-content-N         -> doc=design, round=N
+#   design-review-alignment-N       -> doc=design, round=N
+#   plan-review-<plan_id>-<angle>-N -> doc=plan, plan_id=<plan_id>, round=N
+# Targeted re-review gates contain "-repair-" — we still write a row but mark round
+# as the repair round derived from the suffix.
+
+append_review_history_row() {
+  local kind="$1" round="$2" plan_id="${3:-}"
+  local state_sh="${SCRIPT_DIR}/state.sh"
+  if [[ ! -x "$state_sh" ]]; then return 0; fi
+
+  # Resolve slug from workflow-state file; if missing, fallback to STATE_SLUG env var.
+  local wf_state_file="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
+  local slug=""
+  if [[ -f "$wf_state_file" ]]; then
+    slug=$(jq -r '.slug // empty' "$wf_state_file" 2>/dev/null)
+  fi
+  if [[ -z "$slug" ]]; then
+    slug="${STATE_SLUG:-}"
+  fi
+  if [[ -z "$slug" ]]; then
+    echo "Note: review-history append skipped — could not resolve slug for run $RUN_ID" >&2
+    return 0
+  fi
+
+  # Verdict parse from result file: first non-empty line under "### Verdict".
+  local verdict=""
+  if [[ -s "$RESULT_FILE" ]]; then
+    verdict=$(awk '
+      /^### Verdict/ { capture=1; next }
+      capture==1 && /^[[:space:]]*$/ { next }
+      capture==1 { print; exit }
+    ' "$RESULT_FILE" | head -c 200 | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')
+  fi
+  : "${verdict:=unknown}"
+
+  local args=(--run-id "$RUN_ID" --doc "$kind" --slug "$slug" --round "$round"
+              --verdict "$verdict" --reviewer "${AGENT_ID:-codex-reviewer}")
+  if [[ "$kind" == "plan" ]]; then
+    if [[ -z "$plan_id" ]]; then
+      echo "Note: plan review gate did not yield plan_id ($GATE); skipping append" >&2
+      return 0
+    fi
+    args+=(--plan-id "$plan_id")
+  fi
+
+  if ! bash "$state_sh" review-history append "${args[@]}" >/dev/null 2>&1; then
+    echo "Note: state.sh review-history append failed for gate $GATE (non-fatal)" >&2
+  fi
+}
+
+# Derive round and (optional) plan_id from gate name.
+# Round defaults to 1 when no trailing digit is found.
+ROUND="1"
+if [[ "$GATE" =~ -([0-9]+)$ ]]; then
+  ROUND="${BASH_REMATCH[1]}"
+elif [[ "$GATE" =~ -repair-([0-9]+)$ ]]; then
+  ROUND="${BASH_REMATCH[1]}"
+fi
+
+case "$GATE" in
+  design-review-*)
+    append_review_history_row design "$ROUND" ""
+    ;;
+  plan-review-*)
+    # Gate convention: plan-review-<plan_id>-... where <plan_id> is the
+    # zero-padded numeric segment (e.g. plan-review-001-coverage-1).
+    PLAN_ID=""
+    if [[ "$GATE" =~ ^plan-review-([0-9]+)- ]]; then
+      PLAN_ID="${BASH_REMATCH[1]}"
+    fi
+    append_review_history_row plan "$ROUND" "$PLAN_ID"
+    ;;
+esac
+
 echo "OK"
