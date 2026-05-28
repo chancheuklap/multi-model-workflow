@@ -26,7 +26,7 @@ actor / action / benefit。覆盖 happy path、失败、空状态、权限不足
 涉及的对象、owner、writer、reader、verifier、状态、生命周期和关键关系。
 
 ### 实现决策
-讨论中做出的实现决策。不写具体 file path 或 code snippet（prototype snippet 例外）。
+讨论中做出的实现决策。不写具体 file path 或 code snippet（prototype snippet 例外——例外类型仅限：state machine / reducer / schema / type shape）。
 
 ## 合同边界
 涉及 API / Pydantic / DB / JSON / sync / task payload / UI action / billing / permission / runtime 时填写：
