@@ -1046,6 +1046,90 @@
 
 ---
 
+### Task Pack 11: 删除 arbitrary meta-limits（D24）
+
+**Issue:** Small Issue 11
+**Goal behavior:** 删除 `pack-count-validator.sh` 和 orchestrate-plan-writing 中对它的调用；不再用 magic number 限制 Plan 文档的 Task Pack 数量；§2.1 Hook 上限按设计文档已改为"行为验证而非总数验证"。
+
+**Owned files / responsibilities:**
+- Delete: `plugin/scripts/pack-count-validator.sh`
+- Modify: `plugin/skills/orchestrate-plan-writing/SKILL.md`（删除 "Pack 数量检查" 一段，调用 validator + WARN/OVER_THRESHOLD 分流表）
+- Modify: `plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md`（如含 ≤8 / "8 packs" 推荐表述则删除；保留按文件 scope 拆分的方法论）
+- Modify: `plugin/scripts/verify-maturity.sh`（如含 `Hook 数 ≤ 10` 检查则改为"`hooks.json` 无 `guard-plan-doc-patch` 条目"按行为验证；新增"pack-count-validator 已删除"检查段）
+- Modify: `plugin/architecture-draft.md`（如含 "Pack ≤ 8 / ≤ 12" / "pack-count-validator" 描述则删除）
+
+**Read first:**
+- 设计文档 §4.2 决策 24（本 Pack 唯一权威）
+- 设计文档 §2.1 Hook 行（已改为"N（不设 arbitrary 上限）"）
+- 设计文档 §7.1 verify 检查清单——找 "Hook 行为变化" + "pack-count-validator 已删除" 两条
+- `plugin/scripts/pack-count-validator.sh` 全文（删前确认）
+- `plugin/skills/orchestrate-plan-writing/SKILL.md` 搜 "pack-count-validator" / "Pack 数量检查" / "WARN_THRESHOLD" / "OVER_THRESHOLD"
+- `plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md` 搜 "≤8" / "≤ 8" / "8 packs"
+- `plugin/scripts/verify-maturity.sh` 搜 "Hook 数" / "≤ 10" / "pack-count-validator"
+
+**Contract anchors:**
+- Owner: Issue 001（Pack 11 = 决策 24 唯一落地）
+- Provider: pack-count-validator.sh 删除 + SKILL.md "Pack 数量检查" 段删除 + verify-maturity Hook 检查改行为验证
+- Consumer: orchestrate-plan-writing skill（不再调用 validator）+ Plan 文档作者（不再被 magic number 限制）
+- Verification: validator 文件不存在 + SKILL.md 不含 validator 引用 + verify-maturity 按行为验证 hook
+
+**Acceptance criteria:**
+- [ ] `test ! -f plugin/scripts/pack-count-validator.sh && echo OK` → Expected: OK
+- [ ] `grep -c 'pack-count-validator' plugin/skills/orchestrate-plan-writing/SKILL.md` → Expected: 0
+- [ ] `grep -c 'WARN_THRESHOLD\|OVER_THRESHOLD' plugin/skills/orchestrate-plan-writing/SKILL.md` → Expected: 0
+- [ ] `grep -c 'Pack 数量检查' plugin/skills/orchestrate-plan-writing/SKILL.md` → Expected: 0
+- [ ] `grep -c '≤ *8 *pack\|≤8 *pack\|8 *packs' plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md` → Expected: 0（若原本无表述则免改）
+- [ ] `grep -c 'Hook 数.*≤ *10\|Hooks.*≤ *10' plugin/scripts/verify-maturity.sh` → Expected: 0（如原本含 ≤10 字面验证则删除）
+- [ ] `grep -c 'guard-plan-doc-patch' plugin/scripts/verify-maturity.sh` ≥ 1（按行为验证仍保留）
+- [ ] `bash plugin/scripts/verify-maturity.sh` → Expected: PASS（含 §6.12 路标段 + 新的 hook 行为段）
+- [ ] `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
+- [ ] `grep -rc 'pack-count-validator' plugin/` → Expected: 0（全 plugin 无残留）
+
+**Verification commands:**
+- `test ! -f plugin/scripts/pack-count-validator.sh && echo OK` → Expected: OK
+- `grep -rc 'pack-count-validator' plugin/ | grep -v ':0$' | head` → Expected: empty
+- `grep -c 'Pack 数量检查\|pack-count-validator' plugin/skills/orchestrate-plan-writing/SKILL.md` → Expected: 0
+- `bash plugin/scripts/verify-maturity.sh` → Expected: PASS
+- `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
+
+**Commit boundary:** 单 atomic commit, scope = "refactor(arbitrary-limits): drop pack-count-validator + hook count ceiling (D24)"
+**Risk flags:** normal — 只删工具脚本和文档表述，不动 runtime 路径
+**发布风险:** N/A
+**AFK / HITL:** AFK
+**Dependencies:** Pack 7（hook 降级 / 删除 guard-plan-doc-patch 已完成）→ verify-maturity 改 "Hook 数 ≤ 10" 为行为验证才有意义；Pack 10（architecture-draft 同步已完成）→ Pack 11 收尾清理 architecture-draft 中可能仍存在的 Pack ≤8 描述
+**Out of scope:** 
+- 不动 state.sh `--threshold-percent 80` direction check（budget direction check 有具体 budget 公式依据，非 arbitrary）
+- 不动 state.sh `packs_in_session < 5` Worker autonomy 启发（v3.8.0 Worker Loop 设计依据，非 arbitrary）
+- 不动 §2.1 SKILL.md ≤ 300 / reference ≤ 250 / phase chars ≤ 50000（基于 token economy + sub-agent 加载预算，有可观测理由）
+
+#### Implementation tasks
+- [ ] Step 1: Read `plugin/scripts/pack-count-validator.sh` 确认无其他 consumer 调用（grep `pack-count-validator` 全 plugin/）
+  - Run: `grep -rn 'pack-count-validator' plugin/` → 记录所有引用点
+- [ ] Step 2: 删除 `plugin/scripts/pack-count-validator.sh`
+  - Run: `rm plugin/scripts/pack-count-validator.sh`
+- [ ] Step 3: Edit `plugin/skills/orchestrate-plan-writing/SKILL.md`
+  - 找到 "Pack 数量检查" 一段（含 `bash ... pack-count-validator.sh <plan-file>` + WARN_THRESHOLD / OVER_THRESHOLD 表格 + OK/WARN/OVER_THRESHOLD 三档分流表），整段删除
+  - 后续段（Plan Review 派发）的引用如有 "Pack 数量检查通过后" 文字，改为 "Plan Entry Gate + Inventory Gate 通过后"
+- [ ] Step 4: Read `plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md` 搜 ≤8 / 8 packs / OVER_THRESHOLD 表述
+  - Run: `grep -nE '≤ *8|8 *pack|OVER_THRESHOLD|WARN_THRESHOLD' plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md`
+  - 如有命中：删除对应表述，保留方法论文本（"按文件 scope 拆分 Task Pack"）
+- [ ] Step 5: Read `plugin/scripts/verify-maturity.sh` 搜 Hook 数 ≤ 10 / pack-count-validator
+  - Run: `grep -nE 'Hook 数|hooks.*≤|pack-count-validator' plugin/scripts/verify-maturity.sh`
+  - 把"Hook 脚本数 ≤ 10"硬验证改为按行为验证：保留对 `guard-plan-doc-patch` 不存在的检查；删除对 `hooks/*.sh` 总数 ≤ 10 的硬检查
+  - 新增"pack-count-validator 已删除"段：`test ! -f plugin/scripts/pack-count-validator.sh`
+- [ ] Step 6: Edit `plugin/architecture-draft.md`
+  - Run: `grep -nE 'pack-count-validator|Pack ≤ *8|≤ *8 *pack|≤ *12 *pack|WARN_THRESHOLD|OVER_THRESHOLD' plugin/architecture-draft.md`
+  - 如有命中：删除对应段落；如 hook 表里有 ≤ 10 字面，改为 "按行为验证（无 guard-plan-doc-patch）"
+- [ ] Step 7: 跑 verify-maturity（含新的 hook 行为段 + pack-count-validator 删除段）
+  - Run: `bash plugin/scripts/verify-maturity.sh` → Expected: PASS
+- [ ] Step 8: 跑全量测试
+  - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: PASS
+- [ ] Step 9: 残留 grep
+  - Run: `grep -rc 'pack-count-validator' plugin/` → Expected: 0
+- [ ] Step 10: Commit `refactor(arbitrary-limits): drop pack-count-validator + hook count ceiling (D24)`
+
+---
+
 ## Pack Execution Manifest
 
 | Pack | Title | Status | Dependencies |
@@ -1060,14 +1144,15 @@
 | - [ ] **Pack 8** | Scripts 合并：dispatch-review.sh + dispatch-route-worker.sh（D8） | pending | None |
 | - [ ] **Pack 9** | Canonical reference 抽取（D1） | pending | 2, 3, 4, 5, 6, 7, 8 |
 | - [ ] **Pack 10** | Reference 路标补齐 + 跳跃精简 + architecture-draft 同步（D12） | pending | 5, 9 |
+| - [ ] **Pack 11** | 删除 arbitrary meta-limits — pack-count-validator + hook 总数上限（D24） | pending | 7, 10 |
 
-**串行执行顺序建议**：1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10（按本表顺序，Pack 9 是合同表面最大的一次改动，放在小且独立 Pack 之后）
+**串行执行顺序建议**：1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11（按本表顺序，Pack 11 在 Pack 10 architecture-draft 同步之后做收尾，确保 architecture-draft 中 D24 涉及的描述也一并清理）
 
 ---
 
 ## Open Items
 
-- **[needs-evaluation]** Hook 数 design §2.1 目标 ≤ 10，Issue 001 完成后实际 = 12（仅 -1 from guard-plan-doc-patch）。Issue 002 / 003 无额外 hook 删除。此目标在本轮 plan 范围内不可达——flag 给 Final Review 重新评估是否调整 §2.1 目标或预留下一轮 minor。
+- **[resolved by D24]** 原 [needs-evaluation] Hook 数 §2.1 目标 ≤ 10 不可达问题——决策 24 直接删除此 arbitrary 上限。Pack 11 落地后 verify-maturity 按行为验证（无 guard-plan-doc-patch），不再硬验总数。
 - **[out-of-scope clarification]** Pack 9 canonical 抽取采用"抽取时归一化"（exclude `[variant=targeted-re-review]` during extraction），是设计 D1 "或等价做法" 授权范围内的合理实现选择——不是预执行 Issue 002 的 D13。Issue 002 D13 仍在 `.tmpl` 源中删除该 variant（对已抽取的 canonical 是 no-op）。
 - **[out-of-scope]** Shim 期持续——Pack 8 完成后保留 4 个旧脚本作为 shim，整个 Issue 002/003 期间不删；Issue 003 关闭后单独清理阶段删除 shim。
 - **[out-of-scope]** `execution-worker-handbook.md` 路径 bug 完整 8 处修正归 Issue 003 D21；Issue 001 Pack 5 仅清理 architecture-draft.md L286 / L299 两处（这两处描述了不存在的孤儿文件）。

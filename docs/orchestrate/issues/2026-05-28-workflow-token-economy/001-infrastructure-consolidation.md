@@ -206,6 +206,24 @@
 - [ ] `bash plugin/scripts/run-all-tests.sh` 全绿
 **Blocked by:** 5（learnings-trust-gate.md 由 Pack 5 删除/折回）, 9（_shared/ 路径基线由 Pack 9 建立，verify-maturity 检查互不冲突）
 
+### Small Issue 11 — 删除 arbitrary meta-limits（D24）
+**Goal:** 删掉 `pack-count-validator.sh` + orchestrate-plan-writing SKILL.md 中调用它的"Pack 数量检查"段；不再用 magic number 8/12 限制 Plan 文档的 Task Pack 数量；§2.1 Hook 上限按设计 D24 改为按行为验证（hooks.json 无 guard-plan-doc-patch），不再硬验总数。
+**What to do:**
+- 删除 `plugin/scripts/pack-count-validator.sh`（整个 50 行文件，含 hardcoded `WARN_THRESHOLD=8` / `OVER_THRESHOLD=12`）
+- 修改 `plugin/skills/orchestrate-plan-writing/SKILL.md`：删除 "Pack 数量检查" 一段（调用 validator + 三档分流表 OK/WARN/OVER_THRESHOLD），后续段引用改为 "Plan Entry Gate + Inventory Gate 通过后"
+- 修改 `plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md`：若存在 ≤8 / "8 packs" 推荐表述则删除；保留按文件 scope 拆分的方法论
+- 修改 `plugin/scripts/verify-maturity.sh`：把"Hook 脚本数 ≤ 10"硬验证改为"`hooks.json` 无 `guard-plan-doc-patch` 条目"按行为验证；新增"pack-count-validator 已删除"段
+- 修改 `plugin/architecture-draft.md`：删除 "Pack ≤ 8 / ≤ 12" / "pack-count-validator" 描述；hook 表如有 ≤ 10 字面，改为"按行为验证"
+**Acceptance criteria:**
+- [ ] `test ! -f plugin/scripts/pack-count-validator.sh` → OK
+- [ ] `grep -rc 'pack-count-validator' plugin/` → 0（全 plugin 无残留）
+- [ ] `grep -c 'Pack 数量检查\|WARN_THRESHOLD\|OVER_THRESHOLD' plugin/skills/orchestrate-plan-writing/SKILL.md` → 0
+- [ ] `grep -c 'Hook 数.*≤ *10\|Hooks.*≤ *10' plugin/scripts/verify-maturity.sh` → 0
+- [ ] `grep -c 'guard-plan-doc-patch' plugin/scripts/verify-maturity.sh` ≥ 1（按行为验证保留）
+- [ ] `bash plugin/scripts/verify-maturity.sh` → PASS
+- [ ] `bash plugin/scripts/run-all-tests.sh` → 全绿
+**Blocked by:** 7（hook 降级 / 删除 guard-plan-doc-patch 完成）, 10（architecture-draft 同步完成，本 Small Issue 在此基础上做 D24 收尾）
+
 ## Blocked by
 
 - None — 可立即启动

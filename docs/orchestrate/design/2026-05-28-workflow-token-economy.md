@@ -92,7 +92,7 @@ Route 1（Formal）+ Route 2（Bug）+ Route 3（Multi-PR）是真正不同的�
 | scripts/lib 0 生产 source 的库 | 2 | 0 — 删除或合并 |
 | route-extensions 副本目录数 | 2（workflow + execution） | 1（只在 workflow） |
 | Route 枚举值 | 8（formal / bug-investigation / multi-pr-merge / hotfix / quickfix / spike / maintenance / direct-repair） | 4（保留 runtime 全称 formal / bug-investigation / multi-pr-merge / direct-repair） + phase_skip[] flags |
-| Hook 脚本数 | 13 | ≤ 10 |
+| Hook 脚本数 | 13 | N（决策 24：本轮净减 = 删 guard-plan-doc-patch + 降级 1 项；不设 arbitrary 上限）|
 | Reference 无顶部路标数 | 8 / 50（16%） | 0 / N |
 | 不变量：Worker Loop 6 段合同 | 保持 | 保持 |
 | 不变量：Document-as-Context 主线 | 保持 | 保持 |
@@ -169,13 +169,14 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - `doc_patch_path` 字段（plan-return-v1.json）— 删除
 - Worker `agent-context-check` 状态查询 — 改为 Worker 本地决策（不调 state.sh）
 
-### 4.2 实现决策（核心改动 23 类）
+### 4.2 实现决策（核心改动 24 类）
 
 > Round 2 决策分四批：
 > - **决策 1-12**：v3.8.0 → token economy 基础重构（模板去重 / 死代码删除 / route 折叠 等）
 > - **决策 13-19**：用户讨论 Discovery 环节后补充（删 targeted re-review / Explorer 集成 / grill-with-docs 升级 / 外部精华 3 条引入 / Discovery 压缩 / Sub-agent 事实校验 / Mockup 生成留空间）
 > - **决策 20**：用户讨论 Plan Writing 环节后补充（死 Self-Read Protocol 删除 + budget 公式同步落地）
 > - **决策 21-23**：用户分别讨论 Execution / Final Review / Multi-PR Merge 三个剩余 phase 环节后补充（Execution 路径 bug 修正 + Self-Read 死内容 / Final Review repair-once + RCA 二段 + Phase 软上限 10→3 / Multi-PR Coordinator 端最小职责通用模板提取 + 决策 13 在 Multi-PR 的 5 处级联落地）
+> - **决策 24**：用户对 Plan Review 阶段 pack 数量限制提出质疑后补充（删除 arbitrary meta-limits — pack-count-validator.sh + §2.1 hook 上限）
 
 > 这一节列出本轮改动的全部范畴。每一条都对应后续大 issue 拆分时的一个候选 vertical slice。具体实现细节由计划文档承担，本节只到决策层面。
 
@@ -741,12 +742,44 @@ Alignment Review C1 验证：实际有 **8 处引用** `execution-worker-handboo
 
 **收益估算**：决策 1/2/13 cascade 落地 ≈550 行 + 决策 23 新发现 ≈45 行（30 通用模板提取 + 9 清扫复述 + 6 软上限）。post-round-2 ≈1,400 行（仍是最重 skill，但符合该 route 4 类 dispatch + 5 维 + 7 角度的固有复杂度）。
 
+#### 决策 24：删除 arbitrary meta-limits（用户质疑后的自找麻烦清理）
+
+**背景**：本轮收尾 Plan Review 阶段时，用户对 `pack-count-validator.sh` 的 8/12 阈值和 §2.1 表里"Hook 脚本数 ≤ 10"的目标提出质疑：「这些 pack 数量的限制、hooks 数量的限制，是谁规定的呀？这些规定根本就没有意义。」
+
+亲查后确认用户判断正确：
+- `pack-count-validator.sh`（50 行）的 `WARN_THRESHOLD=8` / `OVER_THRESHOLD=12` 是 hardcoded magic number，无任何分析或经验数据支撑；validator 本身还有 regex bug（识别 `### Pack` 但 plan 文档实际用 `### Task Pack`，导致输出 "0 packs"）。Round 2 本轮 Plan 文档实际 pack 数 10 / 8 / 7，已经触发 WARN。这种限制只会强迫 Coordinator 拆 plan 或绕过 validator，不解决任何真实问题。
+- §2.1 表里"Hook 脚本数 13 → ≤ 10"同样无依据——hook 数量取决于 plugin 实际需要的关键时刻提醒数量，本轮决策 4（删 guard-plan-doc-patch）+ 决策 9（降级 1 项）已经是基于行为价值的具体决定，不需要再叠加一个 arbitrary 总数上限。
+
+这两条限制完全契合本轮主题（**自挖坑造工具 / 自找麻烦**），属于 v3.8.0 → token economy 应当清理的过度设计残留。
+
+**改动**：
+1. **删除 `plugin/scripts/pack-count-validator.sh`**（整个 50 行文件）
+2. **删除 `plugin/skills/orchestrate-plan-writing/SKILL.md` 中 "Pack 数量检查" 一段**（调用 validator + WARN/OVER_THRESHOLD 分流表）
+3. **删除 `plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md` 中可能存在的 ≤8 推荐表述**（保留"按文件 scope 拆分"的方法论，不写死数量）
+4. **§2.1 Hook 行的"目标"列**：从 "≤ 10" 改为 "N（本轮净减 = 删 guard-plan-doc-patch + 降级 1 项；不设 arbitrary 上限）"（已在本节同步落地）
+5. **§4.3 改动总览图**："13 hooks → ≤ 10 hooks" 改为 "13 hooks → N hooks（删 guard-plan-doc-patch；不设上限）"
+6. **§4.3 累计减负"复杂度净减"行**："13 → ≤10 hooks" 改为 "13 → N hooks（具体删项）"
+7. **§7.1 verify 检查**："Hook 数 ≤ 10" 改为 "`hooks.json` 无 `guard-plan-doc-patch` 条目；其他 hook 保留"（按行为而非总数验证）
+
+**理由**：
+- **限制 must justify itself**：每个 arbitrary 数值上限本质上是"我不知道正确答案就给一个数"。Pack 数应由 plan 文档自然 scope 决定，hook 数由实际关键时刻数决定，不应被 magic number 约束。
+- **跟本轮主题一致**：问题 D（自挖坑造工具）的反面就是**不造没有理由存在的约束**。
+- **可观测度量保留**：§2.1 表里 SKILL.md 行数 / reference 行数 / phase chars 等仍然保留——这些是基于"sub-agent 加载预算 + Coordinator 上下文成本"的可观测目标，有具体 token economy 理由，不是 arbitrary。
+
+**不动的**：
+- `state.sh path-a-escalation` 已被决策 3 删除（与本决策无关）
+- `state.sh` 的 `--threshold-percent 80` direction check（budget direction check 有具体 budget 公式依据，非 arbitrary）
+- `state.sh` 的 `packs_in_session < 5` Worker autonomy 启发（有 v3.8.0 Worker Loop 设计文档依据，非 arbitrary）
+- §2.1 SKILL.md ≤ 300 / reference ≤ 250 / phase chars ≤ 50000（基于 token economy + sub-agent 加载预算，有可观测理由）
+
+**Plan 落地位置**：本决策由 Plan 001 新增 Pack 11 承担（与 Pack 1-10 同 issue，因为本质都是 infrastructure-consolidation 主题下的 arbitrary 残留清理）。
+
 ### 4.3 改动总览图
 
 ```
 v3.8.0                         本轮 round 2 后
 ─────────────────────         ────────────────────
-13 hooks                      ≤ 10 hooks（删 guard-plan-doc-patch + 降级 1 项 + 简化 gate-codex-review）
+13 hooks                      N hooks（删 guard-plan-doc-patch + 降级 1 项；决策 24：不设 arbitrary 上限）
 13 build templates            10 build templates（删 forbidden-shortcuts / state-write / trust-boundary；review-dispatch.content-only 本轮保留 §10 第 15 条）
 50 references                 ≤ 39 references（删孤儿 7 + 合并多层跳 3）+ 3 个 _shared canonical（discovery-formats 保留 — sub-agent 误判已纠正）
 20 state.sh subcommands       16 subcommands（删 business-summary / plans / path-a-escalation / agent-context-check；idempotency 保留）
@@ -990,7 +1023,8 @@ TBD（plan writing 完成后填充）
   - **State machine 命令删除**：state.sh 不再支持 `business-summary` / `plans` / `path-a-escalation` / `agent-context-check` 4 个子命令；**仍支持** `idempotency check/append`
   - **Lib 死代码删除**：`scripts/lib/review-effectiveness.sh` 不存在；`scripts/lib/learnings-poison-detector.sh` 不存在（合并入 learnings-jsonl.sh）；`scripts/lib/doc-patch-apply.sh` 不存在
   - **review_effectiveness consumer 引用全清**：grep `review_effectiveness` / `review-effectiveness` 全仓库无非历史引用（git history 除外）；特别检查 `scripts/lib/learnings-confidence-audit.sh` / `scripts/run-summary.sh` / `plugin/architecture-draft.md` / 所有 SKILL.md 已清理
-  - **Hook 数**：`plugin/hooks/*.sh` 数量 ≤ 10；`hooks.json` 无 `guard-plan-doc-patch` 条目
+  - **Hook 行为变化**（决策 24：不验 arbitrary 总数，按行为验证）：`hooks.json` 无 `guard-plan-doc-patch` 条目；`plugin/hooks/guard-plan-doc-patch.sh` 不存在；决策 9 行为降级在对应 hook 中已落地（gate-codex-review --resume / validate-multi-pr-dispatch (b)(d) 保持 exit 2，按设计文档表格）
+  - **pack-count-validator 已删除**（决策 24）：`plugin/scripts/pack-count-validator.sh` 不存在；`plugin/skills/orchestrate-plan-writing/SKILL.md` 不含 "pack-count-validator" 字符串；不含 `WARN_THRESHOLD` / `OVER_THRESHOLD` 引用
   - **Route enum 长度**：`workflow-state-v1.json` 的 `route` enum 值数 = 4
   - **Route extensions 副本**：`plugin/skills/orchestrate-execution/references/route-extensions/` 目录不存在；`plugin/skills/orchestrate-workflow/references/route-extensions/` 目录不存在（已折叠回 SKILL.md）
   - **路标完整性**：所有 `plugin/skills/*/references/*.md`（除 `_shared/`）顶部 5 行内必须含路标 blockquote
@@ -1187,7 +1221,7 @@ TBD（Final Review 时填充）
 - 系统级 token 减负：plugin 进入每个 phase 的 baseline 加载减少 ≈30-40%
 - Worker dispatch 数：与 round 1 持平（不再有 Path A 优化，但通过模板去重抵消）
 - 流程稳定性：Worker Loop 6 段合同 + Document-as-Context 主线 + Codex Review 5 步协议 全部保留
-- 复杂度净减：13 → ≤10 hooks / 50 → ≤40 references / 20 → 17 state.sh subcommands / 8 → 4 routes / 13 → 9 build templates / 6 → 3 scripts/lib
+- 复杂度净减：13 hooks → 删 guard-plan-doc-patch + 降级 1 项（不设上限，决策 24）/ 50 → ≤40 references / 20 → 17 state.sh subcommands / 8 → 4 routes / 13 → 9 build templates / 6 → 3 scripts/lib / 删 pack-count-validator.sh（决策 24）
 
 ---
 
