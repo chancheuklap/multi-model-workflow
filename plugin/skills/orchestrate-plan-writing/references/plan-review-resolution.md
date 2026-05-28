@@ -65,7 +65,7 @@ Compaction recovery: 从 `workflow-state.cursor` + plan/design 文档重建 repa
 | issue-plan mismatch | 大 issue 级：Coordinator 走大 issue 拆分；小 issue 级：SendMessage plan-writer Step 3c | issue hierarchy |
 | issue quality | SendMessage plan-writer 重新执行 Step 3c | issue hierarchy（小 issue 章节） |
 | architecture friction | `Skill({ skill: "improve-codebase-architecture" })` | design doc / plan anchors |
-| domain 术语冲突 | `Skill({ skill: "grill-with-docs" })` | CONTEXT.md + design document |
+| domain 术语冲突 | `Skill({ skill: "grill-with-docs" })` | CONTEXT.md（或 CONTEXT-MAP.md 对应子 context 文件） + design document |
 
 ## Coordinator checkbox toggle 权威规则（D4 source-of-truth）
 

@@ -1,8 +1,10 @@
-# CONTEXT.md + ADR 格式
+# CONTEXT.md / CONTEXT-MAP.md + ADR 格式
 
-> **使用场景**：起草 CONTEXT.md / ADR / scope.md 时按本文件 schema 输出 · **完成后回到**：调用方（discovery-discussion.md / discovery-design-document.md）
+> **使用场景**：起草 CONTEXT.md / CONTEXT-MAP.md / 子 context 文件 / ADR / scope.md 时按本文件 schema 输出 · **完成后回到**：调用方（discovery-discussion.md / discovery-design-document.md）
 
-## CONTEXT.md 格式
+## CONTEXT.md / 子 context 格式
+
+> 单一 `CONTEXT.md` 和 `CONTEXT-MAP.md` 引用的子 context 文件用同一套格式；`CONTEXT-MAP.md` 自身的索引格式见下方。
 
 ```markdown
 # {Context Name}
@@ -43,13 +45,45 @@ _Avoid_: Client, buyer, account
 - **Flag conflicts explicitly**：术语模糊使用时，在 Flagged ambiguities 明确解决
 - **定义简短**：一句话。定义它**是什么**，不是它做什么
 - **Show relationships**：粗体术语名，表达关系和基数
-- **只包含项目特有术语**。通用编程概念不属于 CONTEXT.md
+- **只包含项目特有术语**。通用编程概念不属于 context 文件
 - **Example dialogue**：展示术语在对话中如何自然交互
 
 **单 context vs 多 context**：
-- `CONTEXT-MAP.md` 存在 → 读取找到各 context
-- 只有根 `CONTEXT.md` → 单 context
-- 都不存在 → 第一个术语被确认时懒创建
+- `CONTEXT-MAP.md` 存在 → 按 map 索引读取/写入对应子 context 文件（每个子文件按上面同一格式书写）
+- 只有根 `CONTEXT.md` → 单 context（直接读写根文件）
+- 都不存在 → 第一个术语被确认时懒创建（默认创建 `CONTEXT.md`，当规模膨胀到难以维护时再拆为 `CONTEXT-MAP.md` + 子文件）
+
+## CONTEXT-MAP.md 格式
+
+`CONTEXT-MAP.md` 是大型仓库用的索引文件，本身不存术语定义，只指向各子 context 文件。
+
+```markdown
+# Context Map
+
+{一段话说明本仓库为何拆分为多 context、各 context 的责任边界。}
+
+## Contexts
+
+- **Ordering**: [`docs/context/ordering.md`](docs/context/ordering.md) — 下单、购物车、订单状态机
+- **Billing**: [`docs/context/billing.md`](docs/context/billing.md) — 发票、计费、结算
+- **Fulfillment**: [`docs/context/fulfillment.md`](docs/context/fulfillment.md) — 履约、库存、物流
+
+## Cross-context relationships
+
+- **Ordering** 产生事件 → **Billing** 生成 Invoice
+- **Fulfillment** 确认事件 → **Billing** 触发结算
+- **Ordering** 与 **Fulfillment** 共享 `OrderId` 标识，但状态机互不依赖
+
+## Shared vocabulary
+
+- **OrderId** / **CustomerId** / **Money** —— 跨 context 通用标识与值对象，避免在各子 context 重复定义。
+```
+
+**规则**：
+- **map 文件本身不写术语定义**，只写 context 列表、子文件路径、跨 context 关系
+- **每个子 context 文件**按 "CONTEXT.md / 子 context 格式" 那一节书写
+- **跨 context 关系**集中在 map，子文件不重复声明
+- **共享词汇**（跨 context 通用的标识、值对象）可放在 map 顶层，子文件直接引用
 
 ## ADR 格式
 

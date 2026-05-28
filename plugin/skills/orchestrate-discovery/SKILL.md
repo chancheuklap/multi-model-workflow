@@ -25,7 +25,7 @@ Phase complete. 返回 orchestrate-workflow 主循环。
 
 # Orchestrate Discovery
 
-模糊输入 → 与用户讨论 → 设计文档 + CONTEXT.md → Design Review → 大 issue 拆分。
+模糊输入 → 与用户讨论 → 设计文档 + CONTEXT.md / CONTEXT-MAP.md → Design Review → 大 issue 拆分。
 
 <!-- BEGIN: preamble [variant=T2] -->
 **Hard Gate**：用户确认设计之前，不写代码、不创建骨架、不派 worker。**每个项目**都走 Discovery，无论看起来多简单。
@@ -95,18 +95,20 @@ Bad:  "这是一个有趣的方向！我们可以从多个角度来探索这个�
 
 | 文档 | 定位 | 维护方式 |
 |------|------|---------|
-| **CONTEXT.md** | 项目级领域模型——术语表、对象关系、角色、状态 | 讨论中每确认一个术语就立即写入（通过 `grill-with-docs` 方法论） |
+| **CONTEXT.md / CONTEXT-MAP.md** | 项目级领域模型——术语表、对象关系、角色、状态。大型仓库用 `CONTEXT-MAP.md` 作为索引指向多个子 context 文件；小型仓库用单一 `CONTEXT.md` | 讨论中每确认一个术语就立即写入（通过 `grill-with-docs` 方法论） |
 | **设计文档** | 本次功能的具体设计——目标、方案、行为、验收、合同 | 讨论充分后按模板一次成文 |
 
-设计文档术语**必须**与 CONTEXT.md 一致。新术语先进 CONTEXT.md 再引用。不能只写设计不维护 CONTEXT.md。
+**读写规则**：进入项目时优先查 `CONTEXT-MAP.md`；存在则按 map 索引读取/写入对应子 context 文件；不存在则回退到根 `CONTEXT.md`；两者皆无则懒创建（默认创建 `CONTEXT.md`，规模膨胀时再拆为 `CONTEXT-MAP.md` + 子文件）。
 
-CONTEXT.md 和 ADR 格式 → `references/discovery-formats.md`
+设计文档术语**必须**与 CONTEXT.md / CONTEXT-MAP.md 体系一致。新术语先进 context 体系再引用。不能只写设计不维护 context。
+
+CONTEXT.md / CONTEXT-MAP.md 和 ADR 格式 → `references/discovery-formats.md`
 
 ---
 
 ## Step 0：同步启动 grill-with-docs
 
-在第一轮用户对话前调用 `Skill({ skill: "grill-with-docs" })`，由该 skill 全程负责 CONTEXT.md 维护。CONTEXT.md 与 design document 是 Discovery 阶段的**双交付物**，地位等同。CONTEXT.md 路径写入 Scope Contract 作为 Discovery 权威文档之一（与 design path 并列）。
+在第一轮用户对话前调用 `Skill({ skill: "grill-with-docs" })`，由该 skill 全程负责 context 体系维护（`CONTEXT.md` 或 `CONTEXT-MAP.md` + 子 context，按项目实际情况）。context 体系与 design document 是 Discovery 阶段的**双交付物**，地位等同。context 文件路径（包括 `CONTEXT-MAP.md` 索引以及本次涉及的子 context 文件）写入 Scope Contract 作为 Discovery 权威文档之一（与 design path 并列）。
 
 ### Mockup 生成留空间
 
@@ -156,7 +158,7 @@ Coordinator 亲验 findings → disposition → 直接修设计文档（不派 w
 
 ## 外部 Skill
 
-**全程使用**：`Skill({ skill: "grill-with-docs" })`（CONTEXT.md 维护）。**按需调用**：`Skill({ skill: "prototype" })` / `frontend-design` / `Skill({ skill: "improve-codebase-architecture" })` / `Skill({ skill: "zoom-out" })` / `Skill({ skill: "diagnose" })` / `Skill({ skill: "triage" })`。结论必须写回 design document 或 CONTEXT.md。
+**全程使用**：`Skill({ skill: "grill-with-docs" })`（CONTEXT.md / CONTEXT-MAP.md 维护）。**按需调用**：`Skill({ skill: "prototype" })` / `frontend-design` / `Skill({ skill: "improve-codebase-architecture" })` / `Skill({ skill: "zoom-out" })` / `Skill({ skill: "diagnose" })` / `Skill({ skill: "triage" })`。结论必须写回 design document 或 context 体系（`CONTEXT.md` 或 `CONTEXT-MAP.md` 对应子文件）。
 
 ## 边界规则
 

@@ -90,7 +90,7 @@ mockup 索引: docs/orchestrate/mockups/<feature-slug>/README.md
 
 **内容完整性**：
 - [ ] 无 TODO / TBD / placeholder
-- [ ] 不和 CONTEXT.md / PROJECT / SPEC / ADR / 代码事实冲突
+- [ ] 不和 CONTEXT.md / CONTEXT-MAP.md 体系 / PROJECT / SPEC / ADR / 代码事实冲突
 - [ ] 每个目标行为都能转成验收或测试
 - [ ] 对象 / 状态 / 合同有 owner / writer / reader / verifier
 - [ ] 没有混入 implementation plan / Task Pack

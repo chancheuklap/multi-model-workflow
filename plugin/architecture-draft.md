@@ -1001,7 +1001,7 @@ docs/orchestrate/
 └── Review History                 ← 由 state.sh review-history append 写入
 ```
 
-**硬规则**：使用 CONTEXT.md 正式术语 · 无 TODO/TBD · 不混入 Task Pack 或 worker 指令。
+**硬规则**：使用 CONTEXT.md / CONTEXT-MAP.md 体系内的正式术语 · 无 TODO/TBD · 不混入 Task Pack 或 worker 指令。
 
 ### 13.3 Plan 文档结构
 

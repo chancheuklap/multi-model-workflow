@@ -33,7 +33,7 @@ Final Review for a completed implementation. All Plans have individually
 passed Plan Implementation Review. Your job is to verify the COMBINED result.
 
 ## Read first
-自读：`<project_root>/CLAUDE.md`、`<project_root>/CONTEXT.md`（若存在）、相关 ADR。
+自读：`<project_root>/CLAUDE.md`、`<project_root>/CONTEXT.md` 或 `<project_root>/CONTEXT-MAP.md` + map 索引的子 context 文件（若存在）、相关 ADR。
 
 ## Feature slug（从 Scope Contract 读取）
 <YYYY-MM-DD-feature>

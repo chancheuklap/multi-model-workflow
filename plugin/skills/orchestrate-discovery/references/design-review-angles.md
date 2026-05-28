@@ -21,7 +21,7 @@ Review prompt 写入 `.claude/multi-model-workflow/review-prompts/design-content
 Design Content Review — 审设计自身是否完整、可测试、可执行。
 
 ## Read first
-自读：`<project_root>/CLAUDE.md`、`<project_root>/CONTEXT.md`（若存在）、相关 ADR 文件。
+自读：`<project_root>/CLAUDE.md`、`<project_root>/CONTEXT.md` 或 `<project_root>/CONTEXT-MAP.md` + map 索引的子 context 文件（若存在）、相关 ADR 文件。
 
 ## Source design
 docs/orchestrate/design/<slug>.md
@@ -32,7 +32,7 @@ docs/orchestrate/design/<slug>.md
 ## Review angles
 
 ### 业务术语一致性
-设计文档中的术语是否与 CONTEXT.md / ADR 一致。
+设计文档中的术语是否与 CONTEXT.md / CONTEXT-MAP.md 体系 / ADR 一致。
 
 ### 用户旅程覆盖
 每条用户可感知的行为是否有对应的目标描述。
@@ -96,14 +96,14 @@ Review prompt 写入 `.claude/multi-model-workflow/review-prompts/design-alignme
 Project Alignment Review — 审设计是否符合项目事实和约束。
 
 ## Read first
-自读：`<project_root>/CLAUDE.md`、`<project_root>/CONTEXT.md`（若存在）、相关 ADR 文件。
+自读：`<project_root>/CLAUDE.md`、`<project_root>/CONTEXT.md` 或 `<project_root>/CONTEXT-MAP.md` + map 索引的子 context 文件（若存在）、相关 ADR 文件。
 
 ## Source design
 docs/orchestrate/design/<slug>.md
 
 ## Project baseline
 - 北极星 / 不变量 / 数据权威 / contract wall
-自读 `<project_root>/CONTEXT.md` 和相关 ADR 获取不变量定义。
+自读 `<project_root>/CONTEXT.md`（或 `CONTEXT-MAP.md` + map 索引的子 context 文件）和相关 ADR 获取不变量定义。
 
 ## Contract anchors
 自读 `docs/orchestrate/design/<slug>.md` 中 `## Cross-Plan Contract Anchors` 节（若设计触碰合同边界）。
