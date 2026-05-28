@@ -60,25 +60,11 @@ Agent({
 
 ### `root cause in design/plan` → Discovery Seed
 
-Coordinator 整理 analyst report 写入 `.claude/multi-model-workflow/bug-seed-<run_id>.md`：
+Coordinator 整理 analyst report 的 RCA findings 直接作为 Discovery Source artifact 传入 orchestrate-discovery。不创建中间 bug-seed 文件，RCA findings 报告路径直接加入 Scope Contract 的 Source artifacts。
 
-```text
-## Bug-seeded Discovery
-
-原始 bug: <description>
-Analyst findings:
-- Root cause: <analyst evidence>
-- Affected modules: <list>
-- Excluded hypotheses: <list>
-- Recommended design change: <if analyst provided>
-
-请以此为基础进行 Discovery 讨论，不需要用户从零描述问题。
-```
-
-此时执行三项基础设施操作：
-1. **写入 Bug Seed 文件**：写入 `.claude/multi-model-workflow/bug-seed-<run_id>.md`。
-2. **更新 Scope Contract**：更新 `.claude/multi-model-workflow/scope-<run_id>.md` 的 Source artifacts（加入 `bug-seed-<run_id>.md`）、Editable artifacts（加入 design / plan）和 Out of scope。
-3. **创建 Budget File**（Step 2c）。
+此时执行两项基础设施操作：
+1. **更新 Scope Contract**：更新 `.claude/multi-model-workflow/scope-<run_id>.md` 的 Source artifacts（加入 RCA analyst findings 报告路径）、Editable artifacts（加入 design / plan）和 Out of scope。
+2. **创建 Budget File**（Step 2c）。
 
 ## Step 17：Simple Bug — Codex Review
 

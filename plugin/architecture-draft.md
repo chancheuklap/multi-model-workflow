@@ -1176,17 +1176,7 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 
 ---
 
-## 17. Bug Seed File 与设计级别升级
-
-`root-cause-analyst` 返回 `root cause in design/plan` 时不直接回 Discovery，而是：
-1. 创建 `.claude/multi-model-workflow/bug-seed-<run_id>.md`（结构化摘要：原始 bug · analyst findings · root cause · 受影响模块 · 排除假设 · 建议设计变更）
-2. 更新 Scope Contract：bug seed 加入 Source artifacts，design/plan 加入 Editable artifacts
-3. 创建 Budget File
-4. 以 seed file 作为 Discovery 上下文进入 Route 1（Formal Orchestrate）
-
----
-
-## 18. 跨计划合同锚点
+## 17. 跨计划合同锚点
 
 Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 plan 合同写入：
 
