@@ -16,6 +16,7 @@ Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin i
   "agent_role": "<pack-executor|complex-pack-executor|plan-writer|codex-reviewer|root-cause-analyst|code-explorer|complex-code-explorer>",
   "agent_id": "<existing agent_id or null for first dispatch>",
   "pack_id": "<N.M or null>",
+  "plan_id": "<plan id (e.g. '001') or null>",
   "repair_round": 0,
   "idempotency_key": "<run_id>/<pack_id>/r<repair_round>",
   "disposition_refs": null,
@@ -28,6 +29,7 @@ Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin i
 
 For repair (repair_round >= 1): set `disposition_refs` to array of accepted finding IDs or route-worker follow-up references.
 For codex-reviewer dispatches: set `review_intent` and `exception_code` for targeted-re-review.
+For plan-level autonomous worker first dispatch: set `plan_id` to the plan id (e.g. "001") and leave `pack_id` null; for pack-level dispatch leave `plan_id` null. Exactly one of {pack_id, plan_id} must be non-null during execution.
 
 Coordinator validates this block with an explicit dispatch script before `Agent({...})` / `SendMessage({...})`. Missing/malformed envelope = dispatch BLOCKED.
 <!-- END: control-envelope -->
