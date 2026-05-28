@@ -207,9 +207,9 @@ check "I3: workflow SKILL.md has anchors" bash -c \
 check "I4: validate-plan-dispatch Step 7 pack status check" \
   grep -q 'PACK_STATUS' "$PLUGIN_DIR/hooks/validate-plan-dispatch.sh"
 
-# I5: state.sh supports plans subcommand
-check "I5: state.sh has plans subcommand" bash -c \
-  "bash '$PLUGIN_DIR/scripts/state.sh' 2>&1 | grep -q 'plans'"
+# I5: state.sh plans subcommand removed (D7b)
+check "I5: state.sh plans subcommand removed" bash -c \
+  "! bash '$PLUGIN_DIR/scripts/state.sh' 2>&1 | grep -q '^  plans '"
 
 # I7: no macOS-only date -j in learnings (cross-platform)
 check "I7: learnings-jsonl no macOS-only date" bash -c \

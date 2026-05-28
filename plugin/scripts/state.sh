@@ -20,15 +20,12 @@ Commands:
   validate          Validate state file against schema
   disposition       Manage review dispositions (append)
   self-verify       Manage self-verification records (append)
-  path-a-escalation Manage Path A escalation entries
   agent-id          Get/set agent_id in execution-state (per Ruling 2)
   execution-plan    Manage execution-state plan boundaries (start)
   budget            Budget subcommands (initialize, unlimited, check, increment-review)
   direction-check   Direction Check flow (trigger, ack)
   idempotency       Idempotency key management (check, append)
-  plans             Plan management (add)
   review-history    Append a row to a design/plan document's Review History table
-  business-summary  Append a Business Summary Inputs section for a Plan
   merge-brief       Manage merge-brief lifecycle (init, stage, verify)
 
 Options:
@@ -440,10 +437,10 @@ cmd_disposition_append() {
 
   # Enum validation: only allow known disposition values
   case "$disposition" in
-    accepted|rejected|suppress|path-a|path-b|duplicate|out-of-scope|needs-evidence|needs-evaluation|user-decision)
+    accepted|rejected|suppress|path-b|duplicate|out-of-scope|needs-evidence|needs-evaluation|user-decision)
       ;;
     *)
-      echo "Error: invalid disposition '$disposition'. Allowed: accepted|rejected|suppress|path-a|path-b|duplicate|out-of-scope|needs-evidence|needs-evaluation|user-decision" >&2
+      echo "Error: invalid disposition '$disposition'. Allowed: accepted|rejected|suppress|path-b|duplicate|out-of-scope|needs-evidence|needs-evaluation|user-decision" >&2
       exit 2
       ;;
   esac
