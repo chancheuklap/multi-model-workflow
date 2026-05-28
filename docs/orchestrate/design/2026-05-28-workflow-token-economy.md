@@ -418,28 +418,62 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 
 **收益估算**：设计文档术语一致性硬保证；下游 plan / pack 不再因术语漂移产生隐性 review finding。
 
-#### 决策 16：Discovery 外部精华吸收审查（占位 — 由用户挑选）
+#### 决策 16：Discovery 外部精华轻量引入（4 条，零/负 token 增量）
 
-调研 C / D 列出了本地与外部 skill（Brainstorming / to-PRD / to-issues / GSTack office-hours / plan-ceo-review）的差距清单。但用户原则明确：**参考 ≠ 复刻**——很多差距是故意省略的复杂度，不是缺口。
+经过"是否加重流程/token"的逐条评估，从 10 条候选中筛选出 4 条**不明显加重流程和 token**的精华引入：
 
-**本节作为占位**，等待用户从以下候选清单中**逐项判断**"要 / 不要 / 不确定"。任何条目未经用户确认前，**不写入 plugin**。
+**1. to-PRD synthesize fast-path（减负型 — token 净负增量）**：
+- `orchestrate-discovery/SKILL.md` Step 1-2 增加一句：
+  > 若用户传入的 PRD / issue / 完整上下文已覆盖 Problem / Solution / Acceptance，跳过 Steps 3-6 一问一答 fast-path，直接进入 Steps 7-9 起草设计文档，最后让用户审稿。
+- 收益：上下文足够的场景省一整轮多回合追问
 
-候选清单（仅供讨论，不构成实施承诺）：
+**2. prototype-snippet 例外类型列出（措辞精确化 — 加几个字）**：
+- `discovery-design-document.md` L29 现有"不写具体 file path 或 code snippet（prototype snippet 例外）"补一句：
+  > 例外类型仅限：state machine / reducer / schema / type shape。
+- 收益：防止 design 文档被滥用嵌入大段实现代码
 
-| 来源 | 候选精华 | 默认状态 |
-|------|---------|---------|
-| Brainstorming | Visual Companion 独立消息协议 | 不引入（除非用户明说要）|
-| to-PRD | synthesize fast-path（上下文足够时跳过追问） | 不引入 |
-| to-PRD | Deep modules sketch 显式 step | 不引入 |
-| to-PRD | prototype-snippet 例外类型列出 | 不引入 |
-| office-hours | Forcing Questions 三问锚点 | 不引入 |
-| office-hours | Push twice 规则 | 不引入 |
-| office-hours | Premises 显式 gate | 不引入 |
-| GSTack | Alternatives 三档结构化（minimal/ideal/creative）| 不引入 |
-| plan-ceo-review | 10-star product / Scope Modes | 不引入（且不属 Discovery 范畴）|
-| autoplan | Dual-Voice / 自动流水线 | 不引入（与本地架构哲学冲突）|
+**3. Forcing Questions 三问锚点（限定新功能场景）**：
+- `discovery-discussion.md` Step 2 "按输入类型澄清" 在"新功能"分支增加三个提示锚点（不强制每次都问，作为 Coordinator 在意图模糊时的引导工具）：
+  - **Demand Reality**：谁现在愿意为这个付钱 / 投入时间？说出具体人或机构
+  - **Status Quo**：用户现在用什么拼凑解决这个问题？（spreadsheet + Slack 也是真竞品）
+  - **Narrowest Wedge**：最小可付费 / 可演示 / 可验证的切片是什么？
+- 收益：新功能 Discovery 入口质量提升；不适用 plugin 自身重构等内部任务
 
-**保留原则**：调研 C / D 只是揭示差距事实，不代表必须补齐。用户原话："如果上面的这些参考技能之间或者与我们现在这个 plugin 相关的地方之间存在冲突的话……参考是为了获取他们的精华，并不是为了复刻他们的流程"。差距清单留作未来按需取用，不在本轮强行 inline。
+**4. Push twice 规则（一句话规则进 voice-directive）**：
+- `build/templates/voice-directive.md.tmpl` Anti-Sycophancy 段增加一行：
+  > Push twice：第一个回答默认是抛光过的，至少追问一轮才相信。
+- 收益：与现有"立场+证据+质疑最强版本"互补；暴露用户初次回应中的妥协式回答
+
+---
+
+**不引入的 6 条**（理由列在表中，记录决策痕迹）：
+
+| 候选 | 不引入理由 |
+|------|----------|
+| Brainstorming Visual Companion 独立消息协议 | 已被决策 19 覆盖（用户主动驱动 mockup）|
+| to-PRD Deep modules sketch 显式 Step | 加上游 token 流程过重；决策 14 Explorer 并行调研已隐含承担"模块边界探查" |
+| office-hours Premises 显式 gate | 与"分段呈现，每段确认"重叠（每段开头就是 premise）|
+| GSTack Alternatives 三档结构化 + 五字段 | 当前"2-3 方案对比 + 推荐 + YAGNI"已覆盖核心；强制三档是过度规范化 |
+| plan-ceo-review 10-star / Scope Modes | 不属 Discovery 范畴 |
+| autoplan Dual-Voice / 自动流水线 | 与本地 review budget + phase skill 显式编排架构冲突 |
+
+---
+
+**复查现有提示词的已吸收精华**（结合亲验 grep，本节无需动作）：
+
+| 已吸收精华 | 本地位置 | 来源 |
+|---|---|---|
+| Hard Gate "每项目都走 Discovery" | `orchestrate-discovery/SKILL.md:31` | Brainstorming |
+| Anti-Sycophancy 立场+证据+质疑最强版本 | `build/templates/voice-directive.md.tmpl:81-83` | office-hours |
+| 2-3 方案对比 + 推荐 + YAGNI | `discovery-discussion.md:50-52` | Brainstorming + GSTack |
+| Spec Self-Review 四查 | `discovery-design-document.md:92, 105` | Brainstorming |
+| Vertical Slice + AFK/HITL + AFK 优先 | `issue-splitting.md:21-31` | to-issues |
+| 不写 file path（prototype 例外）| `discovery-design-document.md:29` | to-PRD |
+| 一问一答 + 多选 + 推荐 | `discovery-discussion.md:9-16` | Brainstorming |
+| 按输入类型澄清维度（更细于 GSTack）| `discovery-discussion.md:20-49` | 本地原创 |
+| "先读代码再问问题"（精神层） | 决策 14 Explorer 并行调研隐含 | spec |
+
+**结论**：现有提示词已较完整吸收外部精华；本决策只补 4 条且都是轻量增量。决策 16 本身落地后，Discovery 阶段对外部精华的吸收度从"已较完整"提升至"完整且与本地架构一致"。
 
 #### 决策 17：Discovery 文档压缩（在保留所有精华前提下）
 
