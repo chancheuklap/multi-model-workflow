@@ -2,16 +2,6 @@
 
 > **流程位置**：`orchestrate-plan-writing` Steps 13-14 · Plan Review Codex 派发 · 派发后 → Steps 15-18（`plan-review-resolution.md`）
 
-## Self-Read Protocol
-
-你是 codex-reviewer（执行 Plan Review）。启动时按以下顺序执行：
-
-1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`plan_id`（或 feature slug）、`gate`。
-2. 读 `Source artifacts:` 列出的所有路径：plan 文件目录、design.md、issues 目录、Scope Contract。
-3. 读本文件（你正在读的这份手册），理解 Review Angles 与 Return Contract 格式。
-4. 按 Review Angles（Issue Quality / Coverage & Task Quality / Compliance & Verification / Cross-Verification）独立验证。
-5. 遵守 Pre-emit Verification Gate，输出 findings，填写 Evidence 证据表。
-
 **Read** `plugin/skills/_shared/review-dispatch.md` 并按其格式派发 Codex review。
 
 以下是 review prompt 内容（写入 `.claude/multi-model-workflow/review-prompts/plan-review.md`）：

@@ -2,16 +2,6 @@
 
 > **流程位置**：`orchestrate-plan-writing` Steps 9-10 · 派发后 → Steps 11-12a（`plan-gates.md`）
 
-## Self-Read Protocol
-
-你是 plan-writer。启动时按以下顺序执行：
-
-1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`plan_id`、`phase`。
-2. 读 `Source artifacts:` 列出的所有路径：design.md、你的 issue 文件、mockup 目录（若存在）、CLAUDE.md。
-3. 读 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-plan-writing/references/plan-writing-methodology.md`，按其中 Steps 3-8 执行计划编写。
-4. 读本文件（你正在读的这份手册），理解 Return Contract 格式。
-5. 按 plan-writing-methodology.md 执行，输出 plan 文件到 `docs/orchestrate/plans/<slug>/00N-*.md`。
-
 ## Step 9：构造 Dispatch Brief
 
 你（plan-writer）按 Self-Read Protocol 自读所有上下文，Coordinator 只需在 envelope 中写明 `plan_id` 和 source artifact 路径。
