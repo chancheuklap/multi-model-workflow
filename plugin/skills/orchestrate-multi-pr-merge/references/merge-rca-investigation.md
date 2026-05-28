@@ -96,7 +96,7 @@ Agent({
     只读调查。Root-cause-analyst 无法确定 PR 间冲突的根因，需要更多信息。
 
     ## Analyst 已排除的假设
-    <paste from analyst return — excluded hypotheses with evidence>
+    读 dispatch prompt 中 Coordinator 传入的 analyst 已排除假设摘要（含证据）。
 
     ## Merge context
     读 `.claude/multi-model-workflow/merge-brief-<run_id>.md` 获取：
