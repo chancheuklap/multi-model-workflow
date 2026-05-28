@@ -320,5 +320,79 @@ check "R3-21: Ruling 3 in design doc" \
   grep -q "Ruling 3" "docs/orchestrate/design/2025-05-22-plugin-maturity.md"
 
 echo ""
+echo "## Pack 6.x: merge-brief + Multi-PR Merge"
+
+# 6.1: merge-brief-v1.json schema exists and has ≥10 top-level properties
+check "6.1: merge-brief-v1.json exists and valid JSON" \
+  python3 -m json.tool "$PLUGIN_DIR/state-schema/merge-brief-v1.json"
+check "6.1: merge-brief-v1.json has ≥10 top-level properties" bash -c "
+  [ \$(jq '.properties | length' '$PLUGIN_DIR/state-schema/merge-brief-v1.json') -ge 10 ]
+"
+
+# 6.2: merge-brief-template.md exists and has ≥9 sections
+check "6.2: merge-brief-template.md exists" \
+  test -f "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-brief-template.md"
+check "6.2: merge-brief-template.md has ≥9 sections (## N.)" bash -c "
+  [ \$(grep -c '^## [0-9]' '$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-brief-template.md') -ge 9 ]
+"
+check "6.2: merge-brief-template.md has MERGE_BRIEF_META block" \
+  grep -q 'MERGE_BRIEF_META' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-brief-template.md"
+
+# 6.3: SKILL.md merge-brief section and dispatch rules present
+check "6.3: orchestrate-multi-pr-merge SKILL.md has merge-brief 写作流程 section" \
+  grep -q 'merge-brief 写作流程' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/SKILL.md"
+check "6.3: orchestrate-multi-pr-merge SKILL.md has dispatch path-not-paste rule" bash -c "
+  grep -q '路径.*不粘贴\|prompt 只携带.*路径\|path.*not.*paste\|路径而非粘贴' '$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/SKILL.md'
+"
+check "6.3: merge-preparation.md has mandatory state.sh merge-brief init step" \
+  grep -q 'state.sh.*merge-brief init\|merge-brief init' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-preparation.md"
+
+# 6.4: cursor.reference tests exist
+check "6.4: test_state_cursor_reference.sh exists" \
+  test -f "$PLUGIN_DIR/scripts/tests/test_state_cursor_reference.sh"
+
+# 6.8: state.sh merge-brief subcommands (init/stage/verify)
+check "6.8: state.sh has merge-brief init subcommand" \
+  grep -q 'cmd_merge_brief_init\|merge-brief.*init' "$PLUGIN_DIR/scripts/state.sh"
+check "6.8: state.sh has merge-brief stage subcommand" \
+  grep -q 'cmd_merge_brief_stage\|merge-brief.*stage' "$PLUGIN_DIR/scripts/state.sh"
+check "6.8: state.sh has merge-brief verify subcommand" \
+  grep -q 'cmd_merge_brief_verify\|merge-brief.*verify' "$PLUGIN_DIR/scripts/state.sh"
+check "6.8: state.sh merge-brief path uses STATE_BASE (not docs/)" bash -c "
+  grep -A3 'merge_brief_default_path()' '$PLUGIN_DIR/scripts/state.sh' | grep -q 'STATE_BASE'
+"
+check "6.8: test_state_merge_brief.sh exists with ≥20 tests" bash -c "
+  test -f '$PLUGIN_DIR/scripts/tests/test_state_merge_brief.sh' && \
+  [ \$(grep -c 'run_test\|echo.*PASS\|echo.*FAIL' '$PLUGIN_DIR/scripts/tests/test_state_merge_brief.sh') -ge 20 ]
+"
+
+# 6.9: validate-multi-pr-dispatch.sh hook registered and executable
+check "6.9: validate-multi-pr-dispatch.sh exists and executable" \
+  test -x "$PLUGIN_DIR/hooks/validate-multi-pr-dispatch.sh"
+check "6.9: validate-multi-pr-dispatch.sh registered in hooks.json" \
+  grep -q 'validate-multi-pr-dispatch.sh' "$PLUGIN_DIR/hooks/hooks.json"
+check "6.9: validate-multi-pr-dispatch.sh checks merge-brief existence" \
+  grep -q 'merge-brief not found\|MERGE_BRIEF_PATH' "$PLUGIN_DIR/hooks/validate-multi-pr-dispatch.sh"
+check "6.9: validate-multi-pr-dispatch.sh checks prompt references merge-brief" \
+  grep -q 'EXPECTED_MERGE_BRIEF_REF\|does not reference merge-brief' "$PLUGIN_DIR/hooks/validate-multi-pr-dispatch.sh"
+
+# 6.11: Multi-PR role handbooks exist with Self-Read Protocol
+check "6.11: multi-pr-explorer-handbook.md exists" \
+  test -f "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/multi-pr-explorer-handbook.md"
+check "6.11: multi-pr-conflict-worker-handbook.md exists" \
+  test -f "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/multi-pr-conflict-worker-handbook.md"
+check "6.11: multi-pr-integration-review-handbook.md exists" \
+  test -f "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/multi-pr-integration-review-handbook.md"
+check "6.11: explorer handbook has Self-Read Protocol" \
+  grep -q 'Self-Read Protocol' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/multi-pr-explorer-handbook.md"
+check "6.11: conflict worker handbook has Self-Read Protocol" \
+  grep -q 'Self-Read Protocol' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/multi-pr-conflict-worker-handbook.md"
+check "6.11: integration reviewer handbook has Self-Read Protocol" \
+  grep -q 'Self-Read Protocol' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/multi-pr-integration-review-handbook.md"
+check "6.11: orchestrate-multi-pr-merge SKILL.md ≥100 lines" bash -c "
+  [ \$(wc -l < '$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/SKILL.md') -ge 100 ]
+"
+
+echo ""
 echo "=== Results: $pass passed, $fail failed ==="
 [[ $fail -eq 0 ]]
