@@ -6,7 +6,15 @@
 # before dispatching a worker and removes it after the worker returns.
 # If worker-active exists → worker context → block docs/ modifications.
 #
-# Protected paths: docs/ directory (design docs, plan docs, reviews)
+# Protected paths: docs/ directory (design docs, plan docs, reviews).
+#
+# Plan 005 note: Worker writes to ${STATE_DIR}/plan-returns/<run_id>/<plan_id>/
+# (.claude/multi-model-workflow/plan-returns/...) are LEGITIMATE — they live
+# outside docs/ and this hook does NOT intercept them. The Worker artifacts
+# (plan-return.json, doc-patch.diff, open-items.json) are control-plane data,
+# not source-of-truth design docs; guard-plan-doc-patch.sh validates the
+# doc-patch.diff content separately to ensure it only touches plan-doc
+# checkbox lines.
 set -euo pipefail
 
 INPUT=$(cat)
