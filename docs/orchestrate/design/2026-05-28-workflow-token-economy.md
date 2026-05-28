@@ -639,6 +639,62 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 
 **收益估算**：决策 13 级联落地 ≈250 行 + Self-Read 死内容 ≈550 chars + Step 12 三轮截断 → 二段（repair-once + RCA）≈30 行 + Phase 软上限 10→3 修正 + 路径校准
 
+#### 决策 23：Multi-PR Merge 阶段微调（已被决策 1/2/13 大量覆盖后的剩余清单）
+
+亲查 Multi-PR Merge 阶段（SKILL.md 229 行 + 11 reference / total 2,001 行，全 plugin 最重）发现：**round 2 决策 1/2/13 已累计减负 ≈550 行**（决策 1 共享 inject 在多个 merge 文件去重 ≈30；决策 2 删除 3 个 multi-pr handbook 共 455 行；决策 13 删除 integration review 的 targeted re-review prompt template + 2 轮修复 ≈65），post-round-2 估算 ≈1,450 行——这是全 plugin 唯一具备 4 类 dispatch（explorer / analyst / worker / reviewer）+ 5 维冲突分析 + 7 角度集成审查 + 依赖顺序合并的合理体量。
+
+**Multi-PR Merge 的核心价值不可压缩**（用户阐明的设计意图）：
+- 冲突识别不止 Git conflict，而是 PR 间**业务意图和功能 conflict**
+- 5 维冲突分析框架（代码 / 功能 / 意图 / 合同 / 隐式依赖）—— 全 plugin 独有，无其他 skill 替代
+- 三级冲突分类（简单 / 复杂根因明确 / 系统性）+ RCA-then-worker 路径
+- 7 角度集成审查（组合行为 / 合同一致 / 迁移完整 / 状态一致 / Import / 回归 / 冲突修复质量）
+- merge-brief 作为跨 PR 合成视角的唯一权威源
+
+**决策 2 cascade 补充**（删除 3 handbook 后，dispatch prompt 需更新 handbook 指针）：
+
+决策 2 已声明删除 3 个 handbook 文件并把 verify-maturity.sh 6.11 改为验证 merge-brief / merge-* references 覆盖。本决策具体化 dispatch prompt 中的指针修正：
+
+1. `merge-conflict-discovery.md` Step 5 dispatch prompt 中已经让 explorer "读 merge-brief"——5 维框架已在本文件 Step 4 表格内，agent 自读本 reference 即可获取（Self-Read Protocol point 4 "读本文件" 已覆盖）
+2. `merge-conflict-repair.md` Step 12a/12b worker dispatch prompt 中删除 handbook 引用，conflict 详情 + 修复方向已在 merge-brief §4/§5 内
+3. `merge-integration-review.md` Step 16 reviewer dispatch prompt 中已经让 reviewer 读 merge-brief §3/§6/§7，7 角度框架已在本文件 Step 16 Review prompt 模板内
+4. `merge-rca-investigation.md` Step 9 dispatch prompt 中 `rca-pr-conflict-methodology.md` 保留独立 reference（unique methodology，非 handbook 重复内容）
+
+**决策 13 cascade 具体清理点**（明确落地位置）：
+
+1. **`merge-integration-review.md` L290-344 targeted re-review prompt 模板 + DISPATCH_ENVELOPE 块** —— 全删（~55 行）
+2. **L298 "gate 名使用 multi-pr-repair-<round>"** —— 删除（gate 命名 convention 同步消失）
+3. **L346 "最多 2 轮修复"** —— 改为 "**1 轮修复 + Coordinator 自验 → 失败 BLOCKED**"
+4. **Step 18 修复路径整体重写**：从 "复杂修复 → worker → targeted re-review" 改为 "复杂修复 → worker → Coordinator 自验（对照 merge-brief §3/§7 + 跑 validation commands） → 失败 BLOCKED"
+5. **`multi-pr-integration-review-handbook.md` L40-41 "Targeted re-review 时" 块** —— 覆盖于决策 2 handbook 删除
+
+亲查后新发现的可压缩项（共 3 条）：
+
+**1. "Coordinator 端最小职责" section 重复 4 次**：
+- `merge-preparation.md` / `merge-conflict-discovery.md` L139-146 / `merge-rca-investigation.md` L131-138 / `merge-conflict-repair.md` L214-221 / `merge-integration-review.md` L348-355
+- 共 ~30 行重复（4 step 模板：写 merge-brief + 写 DISPATCH_ENVELOPE + 派发 + 处理返回）
+- **修复**：在 SKILL.md 顶部 "merge-brief 写作流程" 后新增 "Coordinator dispatch 通用步骤" 一段（4 step 通用模板），各 reference 改为引用而非重复
+
+**2. `merge-completion.md` L46-54 "不存在非阻塞项" 重述 Final Review Step 13 清扫哲学**：
+- ~9 行复述
+- **修复**：改为单行引用 "清扫纪律同 Final Review Step 13（详见 `final-review-completion.md`）"，保留 multi-PR 独有的清扫来源列表
+
+**3. Multi-PR route 缺 Phase 内部 review dispatch 软上限**：
+- 其他 phase（Plan Review / Final Review）有明确软上限
+- Multi-PR 实际只用 1 个 integration review（决策 13 后无 targeted re-review）
+- **修复**：在 `merge-integration-review.md` 末尾补 "**Phase 内部 review dispatch 软上限：1**（1 integration review + 0 targeted re-review）"
+
+**不动的**（已是必要复杂度）：
+- 5 维冲突分析框架 / 7 角度集成审查 / 三级冲突分类 —— 用户明确肯定的核心价值
+- merge-brief 合成模型 + 9 段结构 + state.sh 阶段推进 + verify 校验
+- Step 15 conflict iteration 3 轮（与决策 13 review 截断不同维度——这是冲突修复迭代，worker → RCA → BLOCKED）
+- Analyst ↔ Explorer 循环最多 1 次（已是最严约束）
+- 4 类 dispatch 各自的 Self-Read Protocol（决策 2 删 handbook 后，Self-Read 是 agent 实际读 dispatch reference 的进入路径，非死内容——与 Discovery/Plan/Execution/Final Review 模式不同）
+- `rca-pr-conflict-methodology.md` 88 行 —— unique methodology，由 analyst 在 dispatch 时 Read
+- `merge-brief-template.md` 230 行 —— 跨 PR 合成视角的 schema，foundational
+- 依赖顺序合并 Step 19-21（unique 流程，必要）
+
+**收益估算**：决策 1/2/13 cascade 落地 ≈550 行 + 决策 23 新发现 ≈45 行（30 通用模板提取 + 9 清扫复述 + 6 软上限）。post-round-2 ≈1,400 行（仍是最重 skill，但符合该 route 4 类 dispatch + 5 维 + 7 角度的固有复杂度）。
+
 ### 4.3 改动总览图
 
 ```
