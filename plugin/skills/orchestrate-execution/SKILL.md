@@ -208,7 +208,6 @@ Agent({
 
 返回后立即：extract `agentId` → `state.sh agent-id set` → `plans[N].status = dispatched`。`run_in_background: true` 是必需的（否则 agentId 丢失，repair path BLOCKED）。修复时 SendMessage resume 原 worker，不得新建 Agent dispatch。
 
-<!-- BEGIN: state-write -->
 **State 操作参考**（通过 `state.sh` 执行所有状态变更）：
 
 **Transition**（phase / pack 状态流转）：
@@ -245,7 +244,6 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" self-verify append \
   --run-id "<run_id>" --pack-id <pack_id> --repair-round <N> \
   --verification-passed <yes|no> --exception <none|...>
 ```
-<!-- END: state-write -->
 
 ##### Step 6：接收 Worker 返回
 
