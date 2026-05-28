@@ -62,13 +62,13 @@ if [[ "$AGENT_ROLE" == "codex-reviewer" ]]; then
     echo "Error: codex-reviewer dispatch must include review_intent" >&2
     exit 2
   fi
-fi
-
-if [[ "$REVIEW_INTENT" == "targeted-re-review" ]]; then
-  if [[ -z "$EXCEPTION_CODE" || "$EXCEPTION_CODE" == "null" ]]; then
-    echo "Error: targeted-re-review must include exception_code" >&2
-    exit 2
-  fi
+  case "$REVIEW_INTENT" in
+    baseline) ;;
+    *)
+      echo "Error: codex-reviewer review_intent must be baseline" >&2
+      exit 2
+      ;;
+  esac
 fi
 
 echo "$ENVELOPE_JSON"

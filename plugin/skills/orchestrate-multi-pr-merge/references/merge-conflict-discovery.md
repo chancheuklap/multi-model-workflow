@@ -2,6 +2,16 @@
 
 > **流程位置**：`orchestrate-multi-pr-merge` Steps 4-8 · 无冲突 → Step 16（`merge-integration-review.md`）；系统性冲突 → Step 9（`merge-rca-investigation.md`）；复杂/简单冲突 → Step 12（`merge-conflict-repair.md`）
 
+## Self-Read Protocol
+
+你是 code-explorer 或 complex-code-explorer（执行 Multi-PR 冲突发现）。启动时按以下顺序执行：
+
+1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`phase: "multi-pr-merge"`。
+2. 读 `.claude/multi-model-workflow/merge-brief-<run_id>.md`，获取 PR 列表、大设计文档路径、合同地图、文件交叉矩阵（此文件由 Coordinator 在 merge 启动时写入）。
+3. 读大设计文档路径（来自 merge-brief）获取整体目标 + 架构方案。
+4. 读本文件（你正在读的这份手册），理解分析维度和 Return Contract 格式。
+5. 并行分析所有 PR 分支，识别冲突，按分析维度报告结果。
+
 ## Step 4：确定 Explorer 分析策略
 
 **并行分析所有 PR**，不逐个顺序处理。分析维度：
@@ -29,19 +39,12 @@ Agent({
     这些 PR 来自同一个大设计，各自已通过 Final Review。
     你的任务是发现 PR 之间的冲突——不是评判单个 PR 的质量。
 
-    ## PRs to analyze
-    | PR | Branch | 变更范围 | 核心行为 |
-    | --- | --- | --- | --- |
-    <paste per-PR summary>
-
-    ## 大设计目标
-    <paste from big design doc — overall goal + architecture>
-
-    ## 合同地图
-    <paste cross-PR contract surfaces>
-
-    ## 文件交叉矩阵
-    <paste files modified by multiple PRs>
+    ## Merge context
+    读 `.claude/multi-model-workflow/merge-brief-<run_id>.md`（由 Coordinator 在 merge 启动时写入），获取：
+    - PRs to analyze（PR 列表 + Branch + 变更范围 + 核心行为）
+    - 大设计目标路径（你自读该设计文档）
+    - 合同地图（cross-PR contract surfaces）
+    - 文件交叉矩阵（files modified by multiple PRs）
 
     ## 分析维度
 

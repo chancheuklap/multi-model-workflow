@@ -34,8 +34,6 @@ Phase complete. 返回 orchestrate-workflow 主循环。
 
 **State Read**：进入时读取 `workflow-state-<run_id>.json` 获取当前 phase、budget 余量、已完成 plan 列表。
 
-**Route Dispatch**：根据 Entry Gate 判定的 route 选择对应 phase skill。
-
 **Only stop for：**
 - 需要用户确认设计方向
 - 需要用户确认设计文档
@@ -85,14 +83,13 @@ B) <选项>
 Anti-Sycophancy：
 - 始终对每个回答给出明确立场 + 什么证据会改变这个立场
 - 始终质疑用户主张的最强版本，不是稻草人
+- Push twice：第一个回答默认是抛光过的，至少追问一轮才相信。
 
 Good: "这个方案的核心假设是用户愿意多走一步验证——但你的数据显示 60% 的用户在第二步就流失。建议先做 A/B 测试验证这个假设。"
 Bad:  "这是一个有趣的方向！我们可以从多个角度来探索这个可能性。"
 
 禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 <!-- END: voice-directive -->
-
----
 
 ## 双文档产出
 
@@ -107,9 +104,35 @@ CONTEXT.md 和 ADR 格式 → `references/discovery-formats.md`
 
 ---
 
-## Step 1-2：探索项目上下文 + 判断 scope
+## Step 0：同步启动 grill-with-docs
 
-读取 CLAUDE.md 及链入文档、SPEC / ADR / CONTEXT.md、agents.overrides.md、近期 commits。评估需求规模——过大则拆成独立子项目。
+在第一轮用户对话前调用 `Skill({ skill: "grill-with-docs" })`，由该 skill 全程负责 CONTEXT.md 维护。CONTEXT.md 与 design document 是 Discovery 阶段的**双交付物**，地位等同。CONTEXT.md 路径写入 Scope Contract 作为 Discovery 权威文档之一（与 design path 并列）。
+
+### Mockup 生成留空间
+
+当设计涉及 UI/UX 且用户表达要生成 mockup 时，Coordinator 暂停当前 Step，给用户调用 `frontend-design` / `prototype` / 其他用户选用的 UI 设计 skill 留出完整时间和空间。Mockup 的生成方式、迭代节奏由用户主动驱动，Coordinator 不催促、不并行启动后续 Step、不替用户决定何时定稿。Mockup 与设计文档地位平等且迭代可能交叉——用户切回设计讨论 Step 时，按当前 Step 继续。
+
+## Steps 1-2：仓库范围探查 + 并行 Explorer 派发
+
+Coordinator 不再自己读大范围仓库；按问题范围**并行派 N 个 Explorer**：
+- 窄范围（单模块 / 单文件链）→ `code-explorer`
+- 多模块 / 历史行为 / 架构摩擦 → `complex-code-explorer`
+- 已知根因不清且涉及 bug → `root-cause-analyst`
+
+模糊设计意图触发**多 Explorer 并行**调研（5 个并行是常见模式）。Coordinator 只读 Explorer 返回的浓缩报告 + 用户原话；不主动 grep 大范围仓库。
+
+**to-PRD synthesize fast-path**：若用户传入的 PRD / issue / 完整上下文已覆盖 Problem / Solution / Acceptance，跳过 Steps 3-6 一问一答 fast-path，直接进入 Steps 7-9 起草设计文档，最后让用户审稿。
+
+## Step 1.5：Explorer 报告校验门控
+
+对每个 Explorer 返回的报告，Coordinator 必须在写入设计文档输入或与用户讨论前完成事实校验：
+
+1. **高置信度声明（confidence >= 7）**：抽样验 -- 至少 grep / Read 1 个关键事实
+2. **中低置信度（confidence <= 6）或"存在性 / 不存在性"声明**：逐条 grep / Read 验
+3. **跨用户 skills / 跨外部仓库 / 跨主仓库的事实**：必须二次验（Explorer 默认只读 `plugin/`，会漏外部）
+4. **任何验证失败**：该声明从设计文档输入中剔除 -> 重派 Explorer 或 Coordinator 亲查
+
+通过校验门控后再进入 Step 3 与用户讨论。
 
 ## Steps 3-6：与用户讨论
 
@@ -125,11 +148,11 @@ CONTEXT.md 和 ADR 格式 → `references/discovery-formats.md`
 
 **Read** `references/design-review-angles.md`（2 个 baseline Codex reviewer：Design Content Review + Project Alignment Review）。通过后回到 Step 12 大 issue 拆分。
 
-Coordinator 亲验 findings → disposition → 直接修设计文档（不派 worker）→ targeted re-review。一轮 review + 修复。Pass 条件：两个 baseline 通过 + 无 Critical。
+Coordinator 亲验 findings → disposition → 直接修设计文档（不派 worker）→ baseline re-review。一轮 review + 修复。Pass 条件：两个 baseline 通过 + 无 Critical。
 
 ## Step 12：大 issue 拆分
 
-已有 issue hierarchy（`docs/orchestrate/issues/<slug>/` 下有大 issue 文件）→ 返回进入 plan-writing。缺 issue hierarchy → **Read** `references/issue-splitting.md` 并严格执行（vertical slice 拆分 + 用户确认 + 写大 issue 骨架 + 发布 GitHub Issue）。
+已有 issue hierarchy（`docs/orchestrate/issues/<slug>/` 下有大 issue 文件）→ 返回进入 plan-writing。缺 issue hierarchy → **Read** `references/issue-splitting.md` 并严格执行（vertical slice 拆分 + 用户确认 + 写大 issue 骨架）。
 
 ## 外部 Skill
 

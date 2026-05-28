@@ -21,65 +21,7 @@
 
 两个 baseline 分别提交 Codex review 任务，可并行提交，结果独立返回。
 
-<!-- BEGIN: review-dispatch -->
-**Codex review dispatch** (`CODEX_SCRIPT` unset: `CODEX_SCRIPT="$(find ~/.claude/plugins -path '*/codex/scripts/codex-companion.mjs' -type f 2>/dev/null | head -1)"`)
-
-1. Write prompt -> `review-prompts/<gate>.md` (prefix with DISPATCH_ENVELOPE, `agent_role: "codex-reviewer"`)
-   - Code diffs included in review prompts MUST be wrapped:
-     `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
-2. Select model by phase:
-   - `cursor.phase in {discovery, plan-writing}` -> `--model gpt-5.5 --effort xhigh`
-   - `cursor.phase in {execution, final-review}` -> `--model gpt-5.4 --effort xhigh`
-3. Dispatch (distinguish baseline vs targeted re-review):
-   - **Baseline review** (gate name does not contain `-repair-`):
-     `node "$CODEX_SCRIPT" task --background --prompt-file <path> <model flags>`
-   - **Targeted re-review** (gate name contains `-repair-`):
-     `node "$CODEX_SCRIPT" task --background --resume --prompt-file <path> <model flags>`
-   -> record JOB_ID into `review-prompts/<gate>.job-id`
-4. Wait: `node "$CODEX_SCRIPT" status "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)" --wait --timeout-ms 600000` (run_in_background: true)
-5. Result: `node "$CODEX_SCRIPT" result "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)"` -> `review-results/<gate>.md`
-
-**Confidence rubric (REQUIRED in every review prompt)**:
-- 1-3: low confidence. Coordinator may suppress without deep investigation.
-- 4-6: medium. Coordinator must gather additional evidence before disposition.
-- 7-10: high. Coordinator should default to accept unless contradicted by evidence.
-
-**Pre-emit Verification Gate**：
-
-每个 finding 必须满足以下条件才能进入报告：
-
-1. **引用触发 finding 的具体代码行**——file:line + 该行的原始文本。
-   - "field X doesn't exist on model Y" → 引用 class Y 的定义体，证明字段缺失
-   - "dict.get() might return None" → 引用 dict 的初始化代码
-   - "race condition between A and B" → 引用 A 和 B 两处代码
-
-2. **无法引用 = finding 未验证**。将 confidence 强制设为 4-5（从主报告中抑制，移入附录）。
-   不要通过虚构 confidence 7+ 来绕过此门槛。
-
-3. **框架元编程特例**：当符号来自 ORM 元类、装饰器、代码生成器时，引用生成该符号的元构造，而非期望在类体中 grep 到字面名称。
-
-**Rationalization Prevention**：
-- "This looks fine" 不是 finding。要么引用证据证明确实没问题，要么标记为未验证。
-- "likely handled elsewhere" → 读并引用处理代码，或标记 unknown。
-- "probably tested" → 给出测试文件和方法名，或标记 unknown。
-
-**Bias indicators (REQUIRED at end of review output)**:
-Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
-
-**证据表 (REQUIRED)**：
-Reviewer 必须在 `### Evidence` 下填写半结构化证据表。证据表证明 reviewer 实际检查过什么；它不是设计意图摘要，也不能替代阅读 source artifacts。
-
-| 字段 | 必填内容 |
-| --- | --- |
-| 已读设计 / mockup / plan 来源 | 实际读过的文档、计划、mockup 或用户上下文。 |
-| 已检查代码或产物路径 | 已检查的源码、生成产物、state schema、hooks、templates 或文档路径。 |
-| 已运行命令或验证 | 实际执行的命令、脚本、测试、build check 或人工验证。 |
-| Finding 证据 | 支撑 finding 的路径、行号、diff、命令输出或可复现行为。 |
-| 假设 | 影响 verdict 的前提和未被源码直接证明的判断。 |
-| 未验证项 | 相关但未能验证的内容，以及原因。 |
-
-Compaction recovery: `.job-id` present but no `review-results/` -> resume from Step 4.
-<!-- END: review-dispatch -->
+**Read** `plugin/skills/_shared/review-dispatch.md` 并按其格式派发 Codex review。
 
 ### Baseline 1：Regression Sweep + Intent Coverage + Cross-Plan Integration
 
@@ -91,7 +33,7 @@ Final Review for a completed implementation. All Plans have individually
 passed Plan Implementation Review. Your job is to verify the COMBINED result.
 
 ## Read first
-<project docs: CLAUDE.md, CONTEXT.md, ADRs, relevant SPEC>
+自读：`<project_root>/CLAUDE.md`、`<project_root>/CONTEXT.md`（若存在）、相关 ADR。
 
 ## Feature slug（从 Scope Contract 读取）
 <YYYY-MM-DD-feature>
@@ -102,41 +44,41 @@ docs/orchestrate/design/<slug>.md（已通过 Design Review）
 ## Plans（已通过 Plan Review）
 docs/orchestrate/plans/<slug>/（目录，逐个列出所有 plan 文件路径）
 
-## Cross-plan contract map（已通过 Plan Review）
-docs/orchestrate/plans/<slug>/cross-plan-contract-map.md
+## Cross-plan contract anchors（已通过 Plan Review）
+docs/orchestrate/design/<slug>.md#cross-plan-contract-anchors （前移自独立 cross-plan-contract-map.md；老 run 若仍有此文件请人工迁移到 design.md 同名 section）
 
 ## Issue hierarchy
 docs/orchestrate/issues/<slug>/
 
 ## Starting commit
-<commit hash>
+自行运行 `git log --oneline docs/orchestrate/plans/<slug>/` 或读 Scope Contract 的 `plan_start_commit` 字段获取。
 
 ## Full diff
-git diff <starting_commit>..HEAD
+自行运行：`git diff <starting_commit>..HEAD`
 
 ## Changed files
-<file list with pack ownership>
+自读 `.claude/multi-model-workflow/pack-returns/<run_id>/` 目录下各 pack JSON 的 `changed_files` 字段，合并去重（带 pack ownership 标注）。
 
 ## Plan completion summary
 | Plan | Plan Impl Review verdict | Repair rounds | Packs | Release gate |
-<paste per-plan summary>
+自读 `.claude/multi-model-workflow/review-registry/` 目录下各 plan-impl-review JSON 获取 verdict 和 repair rounds。
 
 ## Pack completion summary
 | Pack | Plan | Worker verdict | Verified behaviors | Open Items |
-<paste per-pack summary>
+自读 `.claude/multi-model-workflow/pack-returns/<run_id>/` 目录下各 pack JSON 获取。
 
 ## Contract baseline
-<contract anchors from plan — all boundary types touched>
+自读 `docs/orchestrate/plans/<slug>/` 目录下各 plan 文件的 `## Contract anchors` 节（若有合同边界则列出所有 boundary types）。
 
 ## Mockup baseline（与 design doc 同等权威）
 docs/orchestrate/mockups/<slug>/（如有 UI 工作）
 **Reviewer 必须 Read mockup 目录中的文件**，对照实现代码和设计文档中 `## UI / UX 状态` 的视觉规格表，验证实现与 mockup 的视觉一致性。不能只看文字描述——mockup 文件是视觉约束的权威源头。
 
 ## 发布风险和人工门禁
-<paste from plan>
+自读 `docs/orchestrate/plans/<slug>/` 目录下各 plan 文件的 `## 发布风险` 和 `AFK / HITL` 节。
 
 ## Validation commands
-<paste from plan — all verification commands>
+自读 `docs/orchestrate/plans/<slug>/` 目录下各 plan 文件的 `Verification commands` 节，逐条运行。
 
 ## Review angles
 
@@ -160,7 +102,7 @@ docs/orchestrate/mockups/<slug>/（如有 UI 工作）
 
 ### 3. Cross-Plan Integration
 只检查**跨 Plan** 的集成（Plan 内跨 Pack 已由 Plan Implementation Review 的 Cross-Pack Coherence 覆盖）：
-- Cross-plan contract map：逐行读取 `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`，用 `git diff <starting_commit>..HEAD` 验证 producer / consumer / ownership / verification 是否在合并结果中成立
+- Cross-plan contract anchors：逐行读取 `docs/orchestrate/design/<slug>.md` 的 `## Cross-Plan Contract Anchors` section，用 `git diff <starting_commit>..HEAD` 验证 producer / consumer / ownership 是否在合并结果中成立（老 run 若 design.md 没有该 section，请检查是否还有遗留 `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`——人工迁移后再继续）
 - Shared contract surface：跨 Plan 的 Pydantic model / schema_version / API 是否一致
 - Migration 顺序：跨 Plan 的 migration 执行顺序是否正确
 - Import 关系：跨 Plan 的 import 是否循环
@@ -228,24 +170,24 @@ All Plans have individually passed Plan Implementation Review.
 You are the second reviewer — your perspective is independent of Baseline 1.
 
 ## Starting commit
-<commit hash>
+自行运行 `git log --oneline docs/orchestrate/plans/<slug>/` 或读 Scope Contract 的 `plan_start_commit` 字段获取。
 
 ## Full diff
-git diff <starting_commit>..HEAD
+自行运行：`git diff <starting_commit>..HEAD`
 
 ## Source design
 docs/orchestrate/design/<slug>.md（已通过 Design Review）
 
 ## Plans（已通过 Plan Review）
-docs/orchestrate/plans/<slug>/（目录，逐个列出所有 plan 文件路径）
+自行运行 `ls docs/orchestrate/plans/<slug>/` 获取所有 plan 文件列表，逐个自读。
 
 ## Plan completion summary
 | Plan | Plan Impl Review verdict | Repair rounds | Packs | Release gate |
-<paste per-plan summary>
+自读 `.claude/multi-model-workflow/review-registry/` 目录下各 plan-impl-review JSON 获取。
 
 ## Pack completion summary
 | Pack | Plan | Worker verdict | Verified behaviors |
-<paste per-pack summary>
+自读 `.claude/multi-model-workflow/pack-returns/<run_id>/` 目录下各 pack JSON 获取。
 
 ## Review steps
 
@@ -296,6 +238,15 @@ Disposition required:
 ## Step 5：并行提交
 
 两个 baseline 可同时提交（两个 Codex background task）。Budget 消耗 2。
+
+## Coordinator 端最小职责
+
+Coordinator 在派发时只需完成以下动作，其余由 Reviewer 自读：
+
+1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`gate`（`final-review-baseline-1` / `final-review-baseline-2`）、`review_intent: "baseline"`。
+2. 在 `Source design:` 中列出 design 文件路径（reviewer 自读全文和 diff）。
+3. 写两个 review-prompts 文件，运行 validate/record 脚本，并行触发两个 Codex job。
+4. 等待两个 job 完成后运行 result/complete 脚本，进入 Steps 6-8 disposition 流程。
 
 ---
 > **下一步**：两个 baseline 提交后 → Steps 6-8（final-review-disposition.md）。

@@ -10,6 +10,10 @@
     "agent_role": { "type": "string" },
     "agent_id": { "type": ["string", "null"] },
     "pack_id": { "type": ["string", "null"] },
+    "plan_id": {
+      "type": ["string", "null"],
+      "description": "Plan-level dispatch identifier (autonomous-mode plan worker). Semantics: during execution phase, exactly one of pack_id / plan_id is non-null. plan_id=<id> + pack_id=null = plan-level worker first dispatch (worker autonomously runs all packs in plan). Schema declaration only; hook parse logic ships in Plan 005."
+    },
     "repair_round": { "type": "integer", "minimum": 0 },
     "idempotency_key": { "type": "string" },
     "disposition_refs": {
@@ -20,7 +24,7 @@
     },
     "review_intent": {
       "oneOf": [
-        { "type": "string", "enum": ["baseline", "targeted-re-review", "path-a-re-review"] },
+        { "type": "string", "enum": ["baseline"] },
         { "type": "null" }
       ]
     },

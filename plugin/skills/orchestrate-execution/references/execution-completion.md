@@ -1,12 +1,12 @@
 # Plan 完成 + Release Gate + Backflow + 进度
 
-> **流程位置**：`orchestrate-execution` Steps 13-16 · Release Gate 条件触发时先读取 `execution-release-gate.md`
+> **流程位置**：`orchestrate-execution` Steps 13-16 · Release Gate 条件详见 SKILL.md Step 13
 
 ## Step 13：Early Release Gate（条件触发）
 
 Plan Implementation Review 通过后，检查该 Plan 中是否有任何 Pack 触碰发布风险面（migration / deploy order / rollback / manual production gate / billing / permission / runtime）。
 
-- **触发** → 读取 `execution-release-gate.md` 执行 Release Gate 流程
+- **触发** → 详见 SKILL.md Step 13（Release Gate 条件分支）
 - **不触发** → 继续 Step 14
 
 ## Step 14：标记 Plan 完成 + 推进
@@ -46,7 +46,7 @@ Final Review 返回 `NEEDS_EXECUTION` 时（跨 Plan 系统性问题），Coordi
 2. **更新 execution-state**：将 affected plans 的 status 设为 `repairing`（其余 Plan 保持 `completed`）
 3. **`repair_round` 不递增**——这属于 Final Review 的修复轮次，不消耗 Execution 自身的 repair quota
 4. **diff scope**：每个 affected plan 的 diff = `plans[N].end_commit..HEAD`（只看 Final Review 修复引入的变更）
-5. 按修复分流三条路径（读取 `execution-repair-truncation.md`）处理 → targeted re-review → Git Checkpoint
+5. 按 SKILL.md Step 14 修复分流三条路径处理 → baseline re-review → Git Checkpoint
 6. 所有 affected plans re-review 通过 → 返回 Final Review 继续
 
 ## 不存在"非阻塞项"

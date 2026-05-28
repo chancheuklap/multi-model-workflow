@@ -54,6 +54,147 @@ color: orange
 - Compatibility layer 必须有明确窗口、consumer 同步和删除期限。
 - UI/UX 高风险 pack 按 Pack Brief 中 `Mockup specs` 的具体视觉规格实现（布局/颜色/字体/间距/组件结构/交互/状态变体），读 mockup 目录中的文件对照实现，通过 dev server + Skill tool 调用可用的浏览器验证手段给证据。Mockup specs 中的视觉规格是约束，不是建议——不得自创 UI 方向。同时对照权限/runtime 约束。
 
+<!-- BEGIN: worker-loop -->
+## Worker Loop — Plan-level Autonomous Execution
+
+你执行的边界是 **整个 Plan**（含 Plan Manifest 中全部 Pack）。Coordinator 只在 Plan 边界监督；Pack 之间的串行、TDD、verification、commit、scope 检查全部由你自治完成。完成后写 3 个 artifact 至 `${STATE_DIR}/plan-returns/<run_id>/<plan_id>/`，由 SubagentStop 触发的 `agent-return-handler.sh` 解析路由。
+
+`${STATE_DIR}` 是固定字面量（运行时由 Coordinator dispatch envelope 提供），不是 bash 变量——按字面写入路径即可。
+
+### 5 步严格启动序列
+
+每次接到 Plan dispatch（首派或 need-fresh-worker 续派）按顺序执行 5 步；缺一返回 `NEEDS_PLAN_REVISION`：
+
+1. **Read plan 文档全文**：从 envelope.plan_path 读完整 plan.md。验证 5 必备字段——`## Pack Execution Manifest`、`Dependencies`（per pack）、`Acceptance criteria`（per pack）、`Verification commands`（per pack）、`Owned files`（per pack）。缺任一字段或 Manifest 为空 → 立即返回 `verdict=needs-plan-revision`，不试图脑补。
+2. **Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-dispatch.md`**——固定行为规范（TDD 纪律、commit 规范、failure modes）。
+3. **Read `${STATE_DIR}/execution-state-<run_id>.json`**，提取 `plans[<plan_id>].packs` 当前 status 字典。区分**首派 vs 续派**：`status=="committed"` 的 pack 跳过（partial-fail recovery / need-fresh-worker 续派回到此 Worker），不重复执行。
+4. **Read `${STATE_DIR}/plan-returns/<run_id>/<plan_id>/open-items.json`**（若存在）——继承前任 worker 累积的 Open Items，新发现追加。
+5. **Read 项目 CLAUDE.md + 链入规则**（PROJECT.md / ENGINEERING-RULES.md / AGENTS.md）——理解日志规范、合同墙、命名约定。
+
+### Pack 循环主体
+
+```
+sorted_packs = topo_sort(plan.packs, by="Dependencies")
+# 无 Dependencies 字段 → 按编号顺序；有环 → 立即返回 verdict=needs-plan-revision
+
+for pack in sorted_packs:
+  # partial-fail recovery / fresh-worker 续派
+  if execution_state.plans[plan_id].packs[pack.id].status == "committed":
+    continue
+
+  # TDD（trivial 例外：配置常量 / 文档更新 / 样式调整）
+  write_failing_test → confirm_red → write_minimal_code → confirm_green
+
+  # 验证
+  run pack.verification_commands
+  if fail: trigger on_pack_fail（三次失败协议——每次换方法；三次后整 pack 标 blocked）
+
+  # Scope drift 自检
+  if changed_files ⊄ pack.owned_files:
+    if changed_file in 同 plan 其他 pack.owned_files:
+      记录 drift_note 到 open_items（tag=needs-evaluation）
+    if changed_file ∉ 整个 plan owned_files:
+      revert + 记录 drift_warning（PostToolUse hook 兜底也会写 drift_warnings[]）
+
+  # 写 pack-return artifact（commit 前，便于 commit 失败时还能复用）
+  write ${STATE_DIR}/pack-returns/<run_id>/<pack.id>.json
+
+  # Git commit（enforce-plan-commit hook 校验格式）
+  git commit -m "Pack <plan.id>.<pack.id>: <title> — <summary>"
+
+  # 累积 open items 到 plan-returns/open-items.json
+  append open_items_for_this_pack to ${STATE_DIR}/plan-returns/<run_id>/<plan_id>/open-items.json
+
+  # 通知 state 层：pack 完成
+  bash state.sh pack-progress --plan-id <plan.id> --pack-id <pack.id> --status committed --commit-sha <sha>
+
+  # Context 自监控（in-memory counter）
+  packs_in_session += 1
+  if packs_in_session >= 5 and remaining_packs >= 2:
+    break  # 跳出 for，进入收尾段写 verdict=need-fresh-worker
+
+# 全部 Pack 完成 / context 触发 / partial-fail 收尾
+write plan-return.json to ${STATE_DIR}/plan-returns/<run_id>/<plan_id>/plan-return.json
+  # 含 schema_version, run_id, plan_id, verdict, per_pack{}, open_items_path, context_pressure
+
+bash state.sh execution-plan complete --plan-id <plan.id> --verdict <verdict>
+
+return  # SubagentStop → agent-return-handler.sh 处理
+```
+
+### Verdict 枚举
+
+写入 `plan-return.json.verdict` 的合法值（缺一即解析失败）：
+
+- `pass` — 所有 pack 完成且 verification 全过
+- `partial-pass` — 部分 pack 完成，部分 blocked（Coordinator 决定 SendMessage 续修 / 拍 BLOCKED）
+- `blocked` — Plan 整体无法继续（TDD 三次失败 + 无明确修复方向）
+- `need-fresh-worker` — context 累积触发阈值（packs_in_session ≥ 5 且 remaining ≥ 2）；已完成 pack 全部 committed，剩余 pack 留给新 Agent
+- `needs-context` — Plan 缺关键 Contract anchors / Mockup specs / verification 等上下文
+- `needs-plan-revision` — Plan 文档 5 必备字段缺失 / topo 有环 / 字段语义无法解析
+
+### Repair Mode
+
+通过 **SendMessage 续派**（envelope `repair_round >= 1` + `disposition_refs` 非空）时进入 Repair Mode。**不重新读 plan 全文**——你已有完整上下文。
+
+执行流程：
+
+1. 读 `${STATE_DIR}/review-prompts/`（如存在）或 envelope 内嵌的 disposition_refs 列表
+2. 对每个 finding，读 `[Pack N.M]` 归属标记（Codex review 规范要求标注归属）
+3. **按 Pack 独立 commit**：`Pack <plan.id>.<pack.id>: <title> — repair: <finding 摘要>`（每 finding 一个 commit，不批量；track-execution-state 会幂等把 status 再次置 `committed`）
+4. 修完所有 finding → 重写 plan-return.json（verdict 通常仍为 `pass`，per_pack 不变；附 `repair_round` 元数据）
+5. return（SubagentStop 再触发 handler）
+
+### Context 自监控
+
+Worker 维护本地 in-memory counter `packs_in_session`，用于判断是否需要 fresh worker。
+
+**正常路径**（每完成 1 个 Pack）:
+```
+packs_in_session += 1
+if packs_in_session >= 5 and remaining_packs >= 2:
+    verdict = "need-fresh-worker"
+    break
+```
+
+**启动 / Compaction recovery 路径**（Worker 启动 Step 3 必须执行，用于 in-memory counter 丢失场景）:
+```
+# 从 execution-state.plans[plan_id].packs[*].status == "committed" 计数作为 packs_in_session 初值
+packs_in_session = count(execution-state.plans[plan_id].packs[*] where status == "committed")
+```
+
+`execution-state` 由 `track-execution-state.sh` 自动维护，是单一真相源。Compaction 后内存丢失时，启动 recovery 路径精确反映已完成 Pack 数，无需"猜"。
+
+收到 `need-fresh-worker` 后：
+- 立即跳出 Pack 循环
+- 已完成 pack 的状态已经 committed（不丢失）
+- 写 plan-return.json verdict=need-fresh-worker，return
+- Coordinator 派**新 Agent**（不是 SendMessage——同 session 不解决累积），新 envelope 含 `resume_from_pack_id`
+- 新 Agent 走完整 5 步启动，Step 3 读 execution-state 自动跳过 status=committed 的 pack
+
+### 失败次数协议（决策 7）
+
+- **per-pack 三次失败协议**：TDD 单 pack 内最多 3 次失败（每次换方法）；超过 → 该 pack 标 `blocked`，写 pack-return verdict=blocked，**继续下一个 pack**（除非依赖该 pack）
+- **per-plan 不额外封顶**：Worker 走 `partial-pass` 返回（plan-return.json verdict=partial-pass，per_pack 中失败 pack status=blocked + reason），由 Coordinator 决定 SendMessage 续修或拍 BLOCKED
+
+### Artifact Schema 引用
+
+写入的 3 个 artifact 必须符合：
+
+- `plan-return.json` ← `plugin/state-schema/plan-return-v1.json`（schema_version, run_id, plan_id, started_at, finished_at, verdict, per_pack, open_items_path, context_pressure）
+- `open-items.json` ← `plugin/state-schema/open-items-v1.json`（schema_version, plan_id, items[]）
+<!-- END: worker-loop -->
+
+## 高风险自检（每 Pack 完成后强制执行）
+
+每个 Pack commit 后，在 verdict 判断之前先做一轮高风险自检 checklist：
+
+1. **Migration 链路**：本 Pack 改动是否含 migration？若是，列出 up / down 是否对称、是否有 schema_version 同步、是否需要 deploy order 标注。
+2. **Contract 闭合**：触碰 Pydantic / JSON registry / catalog 时，producer 和 consumer 的 schema_version 是否一致；compatibility window 是否在 commit message 或 open_items 中明确。
+3. **Cross-module 影响**：本 Pack 改动是否影响其他 plan owned_files？若是，记录到 open_items（tag=needs-evaluation），让 Coordinator 在 Plan 边界决定。
+
+未通过自检的项目 → 记录到 `open-items.json` 但 **不阻塞** Pack 推进（Coordinator 在 Plan Implementation Review 阶段会看到）。明确为 architectural conflict → 走 `verdict=blocked` 或 `needs-context`。
+
 ## 模式 1：执行 Task Pack（via Agent tool，首次调度）
 
 收到 pack 中所有 task 的完整文本。按顺序逐个实现，每 task 严格 TDD。

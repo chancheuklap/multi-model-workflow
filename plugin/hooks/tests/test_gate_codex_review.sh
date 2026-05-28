@@ -21,7 +21,7 @@ run_test "empty command passes" bash -c 'echo "{\"tool_input\":{}}" | bash "'"$H
 # 4. Non-task codex command -> pass
 run_test "codex non-task passes" bash -c 'echo "{\"tool_input\":{\"command\":\"node codex-companion.mjs status abc\"}}" | bash "'"$HOOK"'"'
 
-# 5. targeted-re-review without --resume -> exit 2
+# 5. targeted-re-review is now rejected (D13b: enum removed from dispatch-envelope)
 FIXTURE_DIR=$(mktemp -d)
 trap 'rm -rf "$FIXTURE_DIR"' EXIT
 mkdir -p "$FIXTURE_DIR"
@@ -30,7 +30,7 @@ cat > "$FIXTURE_DIR/test-prompt.md" <<'PROMPT'
 Review prompt content
 PROMPT
 
-run_test_expect_fail "targeted-re-review without --resume blocked" \
+run_test_expect_fail "targeted-re-review blocked (D13b)" \
   bash -c "echo '{\"tool_input\":{\"command\":\"node codex-companion.mjs task --background --prompt-file $FIXTURE_DIR/test-prompt.md\"}}' | bash '$HOOK' 2>/dev/null"
 
 echo ""

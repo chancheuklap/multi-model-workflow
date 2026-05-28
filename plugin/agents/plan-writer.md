@@ -17,8 +17,6 @@ tools:
   - Grep
   - Glob
   - Skill
-skills:
-  - improve-codebase-architecture
 memory: project
 color: cyan
 ---

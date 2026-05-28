@@ -39,16 +39,19 @@ if command -v claude >/dev/null 2>&1; then
   fi
 fi
 
-cat <<RULES
-[multi-model-workflow] Behavioral override active:
+CONTEXT=$(cat <<RULES
+[multi-model-workflow] Behavioral override active (version ${PLUGIN_VERSION}):
 
 # 1. Environment check
+- Plugin root: ${PLUGIN_ROOT}
 
 # 2. Entry routing
 - User asks for ad-hoc Codex review (Codex review / 用 Codex 审 / Codex 看看 / second opinion / 独立审查 + 指定 commit/文件/分支/文档) → multi-model-workflow:codex-review
-- User confirms direction → multi-model-workflow:orchestrate-discovery → multi-model-workflow:orchestrate-plan-writing
-- Design doc exists / referenced → multi-model-workflow:orchestrate-workflow (entry gate)
-- User asks to review / advance / execute / 推进 / 审查 / 落地 / 走流程 → multi-model-workflow:orchestrate-workflow
+- User asks for formal implementation, continuation, review, acceptance, or release flow → multi-model-workflow:orchestrate-workflow
+- Missing reviewable design document → multi-model-workflow:orchestrate-discovery
+- Reviewed design + issue hierarchy exists and user asks for plan → multi-model-workflow:orchestrate-plan-writing
+- EXECUTION_PASSED and user asks for final acceptance/release review → multi-model-workflow:orchestrate-final-review
+- Multiple parallel PRs need merge/integration review → multi-model-workflow:orchestrate-multi-pr-merge
 
 # 3. Skill namespace
 - Plugin skills (multi-model-workflow: prefix): orchestrate-workflow, orchestrate-discovery, orchestrate-plan-writing, orchestrate-execution, orchestrate-final-review, orchestrate-multi-pr-merge, codex-review
@@ -60,9 +63,9 @@ cat <<RULES
 - 没有可 review 的 design document 时先进 Discovery，不跳到 plan / worker
 - Design Review / Plan Review / Final Review 不可跳过（除非 Direct Repair mini-route）
 - upstream skill 结论必须写回 design / plan / bug brief，再继续当前节点
-- 不自己写生产代码——调度 worker
-- 不用技术语言向用户汇报
-- Review 派发步骤已内联到各 dispatch 模板中，Read 对应的 review dispatch reference 即可
+- 在 Orchestrate formal workflow 中，Coordinator 不直接写生产代码；实现交给 pack-executor / complex-pack-executor
+- 对用户先讲业务结论、影响和取舍；必要技术细节翻译成人话
+- Review 派发步骤以内联模板和对应 reference 为准
 - Task Pack 串行执行，Worker 直接在 Coordinator 分支上工作
 
 # 5. Compaction recovery
@@ -70,6 +73,7 @@ cat <<RULES
 - git status --short --branch 验证 branch 和 dirty state
 - Resume Gate: source artifacts 改过 → 重进该 gate
 RULES
+)
 
 # === Workflow state recovery ===
 BUDGET_DIR=".claude/multi-model-workflow"
@@ -83,11 +87,11 @@ if [ -f "$RUN_ID_FILE" ]; then
     CUR_STEP=$(jq -r '.cursor.step // empty' "$SF")
     REVIEW_USED=$(jq -r '.budget.review_used // 0' "$SF")
     REVIEW_TOTAL=$(jq -r '.budget.review_total // 0' "$SF")
-
-    echo ""
-    echo "# 6. Workflow state recovery"
-    echo "[multi-model-workflow] RESUME: phase=${CUR_PHASE}, reference=${CUR_REF:-none}, step=${CUR_STEP:-unknown}, budget=${REVIEW_USED}/${REVIEW_TOTAL}."
+    CONTEXT+=$'\n\n# 6. Workflow state recovery'
+    CONTEXT+=$'\n'"[multi-model-workflow] RESUME: phase=${CUR_PHASE}, reference=${CUR_REF:-none}, step=${CUR_STEP:-unknown}, budget=${REVIEW_USED}/${REVIEW_TOTAL}."
   fi
 fi
 
+jq -n --arg context "$CONTEXT" \
+  '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $context}}'
 exit 0

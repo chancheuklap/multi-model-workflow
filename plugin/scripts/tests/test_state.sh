@@ -175,18 +175,18 @@ run_test_expect_fail "transition denied for unknown actor" \
 run_test "validate passes after operations" \
   bash "$STATE_SH" validate --run-id "$RUN_ID"
 
-# --- Route 4-7: unlimited budget ---
-RUN_ID2="test-hotfix-001"
-run_test "init hotfix route has unlimited review_total" \
-  bash "$STATE_SH" init --run-id "$RUN_ID2" --slug "hotfix" --route "hotfix"
+# --- Unlimited budget routes (D10: hotfix/quickfix/spike/maintenance collapsed into Route 1) ---
+RUN_ID2="test-unlimited-001"
+run_test "init direct-repair route has unlimited review_total" \
+  bash "$STATE_SH" init --run-id "$RUN_ID2" --slug "dr" --route "direct-repair"
 
-run_test "hotfix review_total is unlimited" \
+run_test "direct-repair review_total is unlimited" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID2' --field '.budget.review_total') == 'unlimited' ]]"
 
-run_test "hotfix budget_status is unlimited" \
+run_test "direct-repair budget_status is unlimited" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID2' --field '.budget.budget_status') == 'unlimited' ]]"
 
-run_test "hotfix effort_total is unlimited" \
+run_test "direct-repair effort_total is unlimited" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID2' --field '.budget.effort_total') == 'unlimited' ]]"
 
 # --- Lock: stale lock cleanup ---
@@ -273,6 +273,206 @@ jq '.review_dispositions = [{"finding_id":"BF1","disposition":"accepted","eviden
 
 run_test_expect_fail "validate fails on accepted disposition without evidence" \
   bash "$STATE_SH" validate --run-id "$RUN_ID4"
+
+# === Pack 2.8 new subcommands ===
+echo ""
+echo "=== Pack 2.8 new subcommands ==="
+
+# --- agent-id --plan-id (plan-level) ---
+RUN_ID5="test-plan-agent-id"
+run_test "init for plan-level agent-id test" \
+  bash "$STATE_SH" init --run-id "$RUN_ID5" --slug "agent-plan" --route "formal"
+
+cat > "$FIXTURE_DIR/execution-state-${RUN_ID5}.json" <<'ESJSON'
+{"run_id":"test-plan-agent-id","plans":{"001":{"packs":{"1.1":{"status":"pending"}}},"002":{"packs":{"2.1":{"status":"pending"}}}}}
+ESJSON
+
+run_test "agent-id set --plan-id writes worker_agent_id" \
+  bash "$STATE_SH" agent-id set --run-id "$RUN_ID5" --plan-id 001 --agent-id "plan-worker-1"
+
+run_test "agent-id get --plan-id returns set value" \
+  bash -c "[[ \$(bash '$STATE_SH' agent-id get --run-id '$RUN_ID5' --plan-id 001) == 'plan-worker-1' ]]"
+
+run_test "agent-id get --plan-id on unset plan returns empty" \
+  bash -c "[[ -z \$(bash '$STATE_SH' agent-id get --run-id '$RUN_ID5' --plan-id 002) ]]"
+
+run_test_expect_fail "agent-id set with both --pack-id and --plan-id rejected" \
+  bash "$STATE_SH" agent-id set --run-id "$RUN_ID5" --pack-id 1.1 --plan-id 001 --agent-id "x"
+
+run_test_expect_fail "agent-id set with neither --pack-id nor --plan-id rejected" \
+  bash "$STATE_SH" agent-id set --run-id "$RUN_ID5" --agent-id "x"
+
+run_test_expect_fail "agent-id set --plan-id on missing plan rejected" \
+  bash "$STATE_SH" agent-id set --run-id "$RUN_ID5" --plan-id 999 --agent-id "x"
+
+# --- disposition append with --plan-id + --coordinator-verified-evidence ---
+RUN_ID6="test-disp-extended"
+run_test "init for extended disposition test" \
+  bash "$STATE_SH" init --run-id "$RUN_ID6" --slug "disp-ext" --route "formal"
+
+run_test "disposition append with --plan-id + --coordinator-verified-evidence" \
+  bash "$STATE_SH" disposition append --run-id "$RUN_ID6" --finding-id "F1" --disposition accepted \
+    --evidence "grep evidence" --plan-id "001" --coordinator-verified-evidence "Coordinator ran grep X"
+
+run_test "disposition plan_id stored correctly" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID6' --field '.review_dispositions[0].plan_id') == '001' ]]"
+
+run_test "disposition coordinator_verified_evidence stored correctly" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID6' --field '.review_dispositions[0].coordinator_verified_evidence') == 'Coordinator ran grep X' ]]"
+
+run_test "disposition without --plan-id stores null" \
+  bash "$STATE_SH" disposition append --run-id "$RUN_ID6" --finding-id "F2" --disposition rejected
+run_test "disposition F2 plan_id is null" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID6' --field '.review_dispositions[1].plan_id') == 'null' ]]"
+run_test "disposition F2 coordinator_verified_evidence is null" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID6' --field '.review_dispositions[1].coordinator_verified_evidence') == 'null' ]]"
+
+run_test_expect_fail "disposition accepted with explicit empty --coordinator-verified-evidence rejected" \
+  bash "$STATE_SH" disposition append --run-id "$RUN_ID6" --finding-id "F3" --disposition accepted \
+    --evidence "ok" --coordinator-verified-evidence ""
+
+# --- validate enforces blank coordinator_verified_evidence only when present-but-empty ---
+RUN_ID7="test-validate-cve"
+run_test "init for cve validate test" \
+  bash "$STATE_SH" init --run-id "$RUN_ID7" --slug "cve" --route "formal"
+
+# Inject accepted disposition with cve key but empty value: should FAIL validate
+jq '.review_dispositions = [{"finding_id":"X1","disposition":"accepted","evidence":"e","coordinator_verified_evidence":""}]' \
+  "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json" > "$FIXTURE_DIR/tmp-cve.json" && mv "$FIXTURE_DIR/tmp-cve.json" "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json"
+
+run_test_expect_fail "validate fails when accepted has blank coordinator_verified_evidence" \
+  bash "$STATE_SH" validate --run-id "$RUN_ID7"
+
+# Replace with null cve: should PASS validate (backward compat)
+jq '.review_dispositions = [{"finding_id":"X1","disposition":"accepted","evidence":"e","coordinator_verified_evidence":null}]' \
+  "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json" > "$FIXTURE_DIR/tmp-cve.json" && mv "$FIXTURE_DIR/tmp-cve.json" "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json"
+
+run_test "validate passes when accepted has null coordinator_verified_evidence" \
+  bash "$STATE_SH" validate --run-id "$RUN_ID7"
+
+# Replace with absent cve (pre-Plan-002 state): should PASS validate (backward compat)
+jq '.review_dispositions = [{"finding_id":"X1","disposition":"accepted","evidence":"e"}]' \
+  "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json" > "$FIXTURE_DIR/tmp-cve.json" && mv "$FIXTURE_DIR/tmp-cve.json" "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json"
+
+run_test "validate passes when accepted lacks coordinator_verified_evidence key (legacy)" \
+  bash "$STATE_SH" validate --run-id "$RUN_ID7"
+
+# Replace with non-empty cve: should PASS validate
+jq '.review_dispositions = [{"finding_id":"X1","disposition":"accepted","evidence":"e","coordinator_verified_evidence":"Coordinator verified"}]' \
+  "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json" > "$FIXTURE_DIR/tmp-cve.json" && mv "$FIXTURE_DIR/tmp-cve.json" "$FIXTURE_DIR/workflow-state-${RUN_ID7}.json"
+
+run_test "validate passes when accepted has populated coordinator_verified_evidence" \
+  bash "$STATE_SH" validate --run-id "$RUN_ID7"
+
+# --- review-history append ---
+RUN_ID8="test-review-history"
+run_test "init for review-history test" \
+  bash "$STATE_SH" init --run-id "$RUN_ID8" --slug "rh-test" --route "formal"
+
+# Create fixture design and plan documents under a temp cwd
+REVHIST_WORKDIR=$(mktemp -d)
+mkdir -p "$REVHIST_WORKDIR/docs/orchestrate/design"
+mkdir -p "$REVHIST_WORKDIR/docs/orchestrate/plans/rh-test"
+
+cat > "$REVHIST_WORKDIR/docs/orchestrate/design/rh-test.md" <<'DOCEOF'
+# Test Design
+
+## Review History
+
+| Round | Verdict | Reviewer | 重点建议 | 已知 gotcha | 日期 |
+| --- | --- | --- | --- | --- | --- |
+
+## Some other section
+DOCEOF
+
+cat > "$REVHIST_WORKDIR/docs/orchestrate/plans/rh-test/001-foo.md" <<'DOCEOF'
+# Plan 001
+
+## Plan Review History
+
+| Round | Verdict | Reviewer | 重点建议 | 已知 gotcha | 日期 |
+| --- | --- | --- | --- | --- | --- |
+
+## Pack Execution Manifest
+DOCEOF
+
+run_test "review-history append to design" \
+  bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' review-history append --run-id '$RUN_ID8' --doc design --slug rh-test --round 1 --verdict pass --reviewer codex-gpt-5.5 --date 2026-05-28"
+
+run_test "review-history row appears in design" \
+  bash -c "grep -F '| 1 | pass | codex-gpt-5.5 |' '$REVHIST_WORKDIR/docs/orchestrate/design/rh-test.md'"
+
+run_test "review-history append idempotent" \
+  bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' review-history append --run-id '$RUN_ID8' --doc design --slug rh-test --round 1 --verdict pass --reviewer codex-gpt-5.5 --date 2026-05-28 && [[ \$(grep -c -F '| 1 | pass | codex-gpt-5.5 |' '$REVHIST_WORKDIR/docs/orchestrate/design/rh-test.md') -eq 1 ]]"
+
+run_test "review-history append to plan" \
+  bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' review-history append --run-id '$RUN_ID8' --doc plan --slug rh-test --plan-id 001 --round 1 --verdict pass --reviewer codex-gpt-5.5 --date 2026-05-28"
+
+run_test "review-history row appears in plan" \
+  bash -c "grep -F '| 1 | pass | codex-gpt-5.5 |' '$REVHIST_WORKDIR/docs/orchestrate/plans/rh-test/001-foo.md'"
+
+run_test_expect_fail "review-history append rejects missing doc kind" \
+  bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' review-history append --run-id '$RUN_ID8' --slug rh-test --round 1 --verdict pass"
+
+run_test_expect_fail "review-history append rejects plan without --plan-id" \
+  bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' review-history append --run-id '$RUN_ID8' --doc plan --slug rh-test --round 1 --verdict pass"
+
+# --- merge-brief lifecycle (Pack 6.8: 9-section schema, ephemeral path) ---
+RUN_ID9="test-mb"
+run_test "init for merge-brief test" \
+  bash "$STATE_SH" init --run-id "$RUN_ID9" --slug "mb-test" --route "multi-pr-merge"
+
+# merge-brief init now uses STATE_BASE path, no --brief-path needed
+run_test "merge-brief init creates file in STATE_BASE" \
+  bash "$STATE_SH" merge-brief init --run-id "$RUN_ID9" --slug "mb-test"
+
+run_test "merge-brief init idempotent (second call is OK)" \
+  bash "$STATE_SH" merge-brief init --run-id "$RUN_ID9" --slug "mb-test"
+
+# merge-brief stage uses valid stage enum value
+run_test "merge-brief stage to conflict_discovery" \
+  bash -c "bash '$STATE_SH' merge-brief stage --run-id '$RUN_ID9' --stage 'conflict_discovery'"
+
+run_test "merge-brief stage updates META current_stage" \
+  bash -c "grep -q '\"current_stage\": \"conflict_discovery\"' '$FIXTURE_DIR/merge-brief-$RUN_ID9.md'"
+
+run_test "merge-brief stage to rca (enum progress)" \
+  bash "$STATE_SH" merge-brief stage --run-id "$RUN_ID9" --stage "rca"
+
+run_test_expect_fail "merge-brief stage invalid enum fails" \
+  bash "$STATE_SH" merge-brief stage --run-id "$RUN_ID9" --stage "compositional-model"
+
+run_test "merge-brief verify passes on scaffold" \
+  bash "$STATE_SH" merge-brief verify --run-id "$RUN_ID9"
+
+# Corrupt the brief by removing a required section, verify must fail
+MB_FILE="$FIXTURE_DIR/merge-brief-$RUN_ID9.md"
+sed -i.bak '/## 3\. 合并后正确状态模型/d' "$MB_FILE" 2>/dev/null || sed -i '' '/## 3\. 合并后正确状态模型/d' "$MB_FILE"
+run_test_expect_fail "merge-brief verify fails when section missing" \
+  bash "$STATE_SH" merge-brief verify --run-id "$RUN_ID9"
+
+# Cleanup temp dirs
+rm -rf "$REVHIST_WORKDIR"
+
+# === Pack 2.14 transition matrix: plan-level transitions ===
+echo ""
+echo "=== Pack 2.14 plan-level transitions ==="
+
+RUN_ID10="test-plan-trans"
+run_test "init for plan-level transition test" \
+  bash "$STATE_SH" init --run-id "$RUN_ID10" --slug "plan-trans" --route "formal"
+
+# Coordinator pending → in_progress (plan-level Worker first dispatch)
+run_test "Coordinator pending → in_progress allowed (plan-level dispatch)" \
+  bash -c "bash '$STATE_SH' update --run-id '$RUN_ID10' --field '.cursor.phase' --value '\"pending\"' && bash '$STATE_SH' transition --run-id '$RUN_ID10' --actor Coordinator --from pending --to in_progress"
+
+# agent-return-handler in_progress → returned (Worker auto-return)
+run_test "agent-return-handler in_progress → returned allowed" \
+  bash -c "bash '$STATE_SH' update --run-id '$RUN_ID10' --field '.cursor.phase' --value '\"in_progress\"' && bash '$STATE_SH' transition --run-id '$RUN_ID10' --actor agent-return-handler --from in_progress --to returned"
+
+# Coordinator returned → review_pending (enter Plan Implementation Review)
+run_test "Coordinator returned → review_pending allowed (Plan Implementation Review)" \
+  bash -c "bash '$STATE_SH' update --run-id '$RUN_ID10' --field '.cursor.phase' --value '\"returned\"' && bash '$STATE_SH' transition --run-id '$RUN_ID10' --actor Coordinator --from returned --to review_pending"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

@@ -2,9 +2,44 @@
 
 > **流程位置**：`orchestrate-multi-pr-merge` Steps 12-15 · 冲突修复 + 验证循环
 
+## Self-Read Protocol
+
+你是 pack-executor 或 complex-pack-executor（执行 Multi-PR 冲突修复）。启动时按以下顺序执行：
+
+1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`phase: "multi-pr-merge"`。
+2. 读 `.claude/multi-model-workflow/merge-brief-<run_id>.md`，获取大设计文档路径、PR 列表、合同地图。
+3. 读大设计文档（来自 merge-brief）理解大设计目标和正确状态。
+4. 读 dispatch 中的冲突描述和修复方向（来自 Coordinator 分析或 analyst findings）。
+5. 读本文件（你正在读的这份手册），理解 Return Contract 格式。
+6. 执行冲突修复，通过回归测试，输出修复摘要。
+
 ## Step 12：构造 Worker Dispatch
 
-根据冲突是否经过 analyst 调查，dispatch prompt 的内容不同：
+根据冲突是否经过 analyst 调查，dispatch prompt 的内容不同。
+
+Multi-PR conflict repair 是非 execution Pack 的 coding worker：不创建 execution-state，不要求 Pack durable return，Coordinator 从 Agent 返回值读取 final message。但它仍然必须走 route-worker dispatch gate：
+
+1. 写 prompt → `.claude/multi-model-workflow/worker-prompts/multi-pr-conflict-<conflict-id>.md`，以 `DISPATCH_ENVELOPE` 开头：
+   - `phase: "multi-pr-merge"`
+   - `agent_role: "<pack-executor|complex-pack-executor>"`
+   - `agent_id: null`
+   - `pack_id: null`
+   - `idempotency_key: "<run_id>/multi-pr-conflict-<conflict-id>/r0"`
+2. Dispatch 前运行：
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}/scripts/dispatch-route-worker.sh" validate \
+     --prompt-file ".claude/multi-model-workflow/worker-prompts/multi-pr-conflict-<conflict-id>.md" \
+     --transport Agent
+   ```
+3. 校验通过后用 prompt 文件全文作为 `Agent.prompt`。
+4. 从 `Agent` 返回值提取 `agent_id`，并持久化：
+   ```bash
+   bash "${CLAUDE_PLUGIN_ROOT}/scripts/dispatch-route-worker.sh" record \
+     --prompt-file ".claude/multi-model-workflow/worker-prompts/multi-pr-conflict-<conflict-id>.md" \
+     --agent-id "<agent_id>" \
+     --agent-file ".claude/multi-model-workflow/worker-agents/multi-pr-conflict-<conflict-id>.agent-id"
+   ```
+5. Agent 返回后将 final message 保存到 `.claude/multi-model-workflow/worker-results/multi-pr-conflict-<conflict-id>.md`。后续如需同一 worker 继续修复，使用 `SendMessage({ to: "<agent_id>", ... })`。
 
 ### 12a：有 Analyst Findings 的 Worker Dispatch
 
@@ -16,28 +51,15 @@ Agent({
     ## Scope
     修复 Multi-PR Merge 中发现的 PR 间冲突。
 
-    ## 大设计文档
-    <path>
+    ## Merge context
+    读 `.claude/multi-model-workflow/merge-brief-<run_id>.md` 获取：
+    - 大设计文档路径（你自读该文档）
+    - PR 列表和各 branch（你自行 git diff 获取相关代码段）
+    - 合同地图（cross-PR contract surfaces）
 
     ## 冲突详情（来自 root-cause-analyst 调查）
     | # | 冲突 | 根因类型 | 涉及 PR | 修复方向 | 需改哪个 PR |
-    <paste from analyst return>
-
-    ## 根因分析
-    <paste analyst's detailed root cause analysis>
-
-    ## 修复顺序
-    <paste if analyst identified dependency between conflicts>
-
-    ## 涉及的 PR 代码
-    PR A (<branch>):
-    <relevant diff sections>
-
-    PR B (<branch>):
-    <relevant diff sections>
-
-    ## 合同地图
-    <paste affected contract surfaces>
+    读 dispatch prompt 中 Coordinator 传入的 analyst findings 摘要。
 
     ## Acceptance criteria
     - [ ] 每个列出的冲突已解决
@@ -69,20 +91,17 @@ Agent({
     ## Scope
     修复 Multi-PR Merge 中发现的 PR 间冲突。
 
-    ## 大设计文档
-    <path>
+    ## Merge context
+    读 `.claude/multi-model-workflow/merge-brief-<run_id>.md` 获取：
+    - 大设计文档路径（你自读该文档）
+    - PR 列表和各 branch（你自行 git diff 获取相关代码段）
+    - 合同地图（若有合同边界）
 
     ## 冲突详情（来自 explorer 发现 + Coordinator 分析）
-    <paste conflict description + Coordinator's fix direction>
-
-    ## 涉及的 PR 代码
-    <relevant diff sections from both PRs>
-
-    ## 合同地图
-    <paste if contract boundary involved>
+    读 dispatch prompt 中 Coordinator 传入的冲突描述和修复方向。
 
     ## Coordinator 判定的修复方向
-    <which PR should win on each point + why>
+    读 dispatch prompt 中 Coordinator 的修复方向说明（哪个 PR 应该 win + 原因）。
 
     ## Acceptance criteria
     - [ ] 冲突已解决
@@ -105,39 +124,7 @@ Agent({
 
 **Worker 类型选择**：涉及 migration / billing / permission / runtime / shared contract → `complex-pack-executor`；否则 `pack-executor`。
 
-<!-- BEGIN: repair-routing -->
-## 统一修复分流
-
-所有 review repair 先由 Coordinator 对 accepted findings 做亲验和 disposition；未 accepted 的 finding 不进入修复。修复 prompt 只携带 accepted finding、证据、scope、受影响文件、验证门槛和 targeted re-review 范围。
-
-| Finding / 修复形态 | Claude plugin 修复 owner |
-| --- | --- |
-| 范围小、本地化、意图清楚、不碰合同边界 | Coordinator Path A 自修，随后运行对应验证。 |
-| 同一个 pack 内的普通修复，原 worker 能胜任 | 通过现有 `SendMessage` resume 原 `pack-executor`；没有可用 agent id 时按当前 phase 的阻塞规则处理。 |
-| 跨模块、migration、billing、permission、runtime、共享合同、state machine、生成模板问题 | 使用 `complex-pack-executor` 路径，修复 prompt 写清 owner / provider / consumer / migration / deploy order / rollback / manual gate。 |
-| 根因不清，只知道症状 | 先派 `code-explorer` 或 `complex-code-explorer` 做只读调查，拿到 confirmed root cause 后再进入 Path A、原 worker 或 complex path。 |
-| 系统性 bug、重复修复失败、未知 regression | 使用 `root-cause-analyst` 路径；要求列可证伪假设、排除证据和下一步修复方向。 |
-| Final Review 发现跨 plan 合同问题 | 返回一次 `NEEDS_EXECUTION`，把 affected plans、affected packs、producer / consumer 断点和必须重跑的验证交给 execution repair。 |
-| 设计、mockup 或 plan 不足以判断正确性 | 回流 Discovery 或 Plan Writing；不要用代码临时补设计缺口。 |
-| Path A repair targeted re-review 失败 | 升级 Path B，优先 `SendMessage` 原 worker；跨边界则走 `complex-pack-executor`。 |
-
-**Claude-native dispatch 规则**：
-- 新派发使用 `Agent({ subagent_type: "<agent-name>", ... })`；已有 worker / plan-writer 修复优先使用 `SendMessage({ to: "<agent_id>", ... })` resume。
-- Agent 名使用 Claude plugin 现有连字符：`pack-executor`、`complex-pack-executor`、`code-explorer`、`complex-code-explorer`、`root-cause-analyst`、`plan-writer`。
-- Review 修复后的 targeted re-review 使用现有 `codex-companion.mjs` review dispatch；repair gate 使用独立 gate 名，不能覆盖 baseline 结果。
-- 本分流块只定义 owner 和升级条件；各 phase 的 round 上限、state 写入和 release gate 仍以所在 reference 为准。
-
-**回归证据要求 (REQUIRED in repair return)**：
-
-Repair agent 或 Coordinator Path A 返回时必须提供回归证据；不要求每个 finding 都新增一个测试。优先选择能证明用户可见行为、合同或发布风险已修好的证据，不新增低价值实现细节测试。
-
-回归证据必须包含以下至少一项：
-- 先失败后通过的 public-behavior test、contract test、migration / schema test 或 build/template check。
-- 相关验证命令及结果，能覆盖 accepted finding 的修复面。
-- 无法自动化时写明 `manual validation gate`：人工检查对象、检查步骤、通过标准和 release 前责任人。
-
-Release Gate 在宣布 review repair 完成前，必须确认每个 accepted finding 都有回归证据或 `manual validation gate`。
-<!-- END: repair-routing -->
+**Read** `plugin/skills/_shared/repair-routing.md` 并按其流程处理 review findings。
 
 ## Step 13：接收 Worker 返回
 

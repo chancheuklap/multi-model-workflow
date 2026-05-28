@@ -7,15 +7,21 @@
     "run_id", "slug", "route", "started_at",
     "cursor", "budget", "plans", "idempotency_keys",
     "plan_writer_agent_id", "review_dispositions",
-    "review_effectiveness", "pending_post_push_reviews",
-    "path_a_escalation", "self_verifications",
+    "pending_post_push_reviews",
+    "self_verifications",
     "pending_direction_check",
     "execution_reflux_count", "last_gate_phase", "last_gate_timestamp"
   ],
   "properties": {
     "run_id": { "type": "string" },
     "slug": { "type": "string" },
-    "route": { "type": "string", "enum": ["formal", "direct-repair", "multi-pr-merge", "bug-investigation", "hotfix", "quickfix", "spike", "maintenance"] },
+    "route": { "type": "string", "enum": ["formal", "direct-repair", "multi-pr-merge", "bug-investigation"] },
+    "phase_skip": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["discovery", "plan-writing", "execution", "final-review", "plan-review"] },
+      "default": []
+    },
+    "commit_format_override": { "type": ["string", "null"], "default": null },
     "started_at": { "type": "string", "format": "date-time" },
     "cursor": {
       "type": "object",
@@ -67,30 +73,20 @@
           "path": { "type": ["string", "null"] },
           "reviewer_agent_id": { "type": ["string", "null"] },
           "dispatched_at": { "type": ["string", "null"] },
-          "resolved_at": { "type": ["string", "null"] }
+          "resolved_at": { "type": ["string", "null"] },
+          "plan_id": {
+            "type": ["string", "null"],
+            "description": "Optional: bind disposition to a specific Plan (e.g. '001') so re-review can narrow scope to one plan instead of the whole workflow."
+          },
+          "coordinator_verified_evidence": {
+            "type": ["string", "null"],
+            "description": "Optional: Coordinator-verified evidence text/pointer captured at disposition time. When disposition='accepted' this should be populated; state.sh validate enforces this when present."
+          }
         },
         "required": ["finding_id", "disposition"]
       }
     },
-    "review_effectiveness": {
-      "type": "object",
-      "description": "Optional diagnostic counters for review disposition health. Kept for observability compatibility; not a correctness gate.",
-      "properties": {
-        "reject_count": { "type": "number" },
-        "suppress_count": { "type": "number" },
-        "path_a_count": { "type": "number" },
-        "path_b_count": { "type": "number" },
-        "total_findings": { "type": "number" },
-        "last_aggregated_at": { "type": ["string", "null"] },
-        "health_warnings": {
-          "type": "array",
-          "description": "Optional diagnostic disposition health range deviation warnings",
-          "items": { "type": "string" }
-        }
-      }
-    },
     "pending_post_push_reviews": { "type": "array" },
-    "path_a_escalation": { "type": "array" },
     "self_verifications": {
       "type": "array",
       "items": {

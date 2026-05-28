@@ -8,18 +8,22 @@ run_test() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then echo "  PASS:
 
 echo "=== test_disposition_audit_injection.sh ==="
 
-# Verify state.sh disposition append is injected in skill files
-run_test "disposition append in execution SKILL.md" \
-  grep -q 'state.sh.*disposition append' "$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md"
+# Verify disposition append in canonical reference (D1)
+run_test "disposition append in canonical disposition-table" \
+  grep -q 'state.sh.*disposition append' "$PLUGIN_DIR/skills/_shared/disposition-table.md"
 
-run_test "disposition append in final-review-disposition.md" \
-  grep -q 'state.sh.*disposition append' "$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-disposition.md"
+# Verify files reference canonical disposition-table via Read directive
+run_test "execution SKILL.md references canonical disposition-table" \
+  grep -q 'plugin/skills/_shared/disposition-table.md' "$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md"
 
-run_test "disposition append in plan-review-resolution.md" \
-  grep -q 'state.sh.*disposition append' "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-review-resolution.md"
+run_test "final-review-disposition references canonical disposition-table" \
+  grep -q 'plugin/skills/_shared/disposition-table.md' "$PLUGIN_DIR/skills/orchestrate-final-review/references/final-review-disposition.md"
 
-run_test "disposition append in design-review-angles.md" \
-  grep -q 'state.sh.*disposition append' "$PLUGIN_DIR/skills/orchestrate-discovery/references/design-review-angles.md"
+run_test "plan-review-resolution references canonical disposition-table" \
+  grep -q 'plugin/skills/_shared/disposition-table.md' "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-review-resolution.md"
+
+run_test "design-review-angles references canonical disposition-table" \
+  grep -q 'plugin/skills/_shared/disposition-table.md' "$PLUGIN_DIR/skills/orchestrate-discovery/references/design-review-angles.md"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

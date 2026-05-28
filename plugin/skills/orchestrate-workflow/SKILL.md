@@ -58,20 +58,27 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 | 路线 | 输入信号 | 下一步 |
 | --- | --- | --- |
 | **Route 1: Formal Orchestrate** | 新功能、改造、feedback、缺 design/issue/plan、已有 design/plan 要 review/执行 | Step 2 |
-| **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Step 2（Git + Scope，跳过 Budget）→ Step 15 |
-| **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Step 2（Git + Scope，跳过 Budget）→ Step 19 |
-| **Route 4: Hotfix** | hotfix / 紧急 / production fire / P0 / 生产事故 | Step 2（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-4-hotfix.md |
-| **Route 5: Quick Fix** | quick fix / 小改动 / 调整 | Step 2（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-5-quickfix.md |
-| **Route 6: Spike** | spike / 探索 / prototype / 试试 | Step 2（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-6-spike.md |
-| **Route 7: Maintenance** | 升级 / upgrade / CVE / 依赖 / 重构 / refactor / 清理 / tech debt | Step 2（Git + Scope，跳过 Budget）→ Read references/route-extensions/route-7-maintenance.md |
+| **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Step 2（Git + Scope + unlimited workflow-state）→ Step 15 |
+| **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Step 2（Git + Scope + unlimited workflow-state）→ Step 19 |
 
 模糊输入 → 一次只问一个问题收窄。概念/事实问题 → 直接回答不进 orchestrate。
+
+### Route 1 Variant Table
+
+Entry Gate 识别以下关键词时，路由到 Route 1 + 对应 flags。`state.sh init` 后立即 `state.sh update` 设置 `phase_skip` 和 `commit_format_override`。`budget_status` / `review_total` / `effort_total` 均设为 `"unlimited"`。
+
+| Variant 关键词 | phase_skip | budget_status | commit_format_override | 备注 |
+| --- | --- | --- | --- | --- |
+| hotfix / 紧急 / production fire / P0 / 生产事故 | `["discovery","plan-writing","plan-review","final-review"]` | unlimited | `"hotfix-unreviewed"` | 先 push 再事后 review；`pending_post_push_reviews` 保留；Closing 阶段手动清理 |
+| quickfix / 快速修复 / 小改动 / 一行修复 / trivial fix | `["discovery","plan-review"]` | unlimited | `null` | 单 Pack、单 Worker、单 review round；Coordinator 自己写 plan |
+| spike / 调研 / 探索 / POC / prototype / 可行性验证 | `["plan-review","final-review"]` | unlimited | `null` | Discovery 简化为 1-page spike brief；产出 throwaway code + verdict 文档；不触发 release gate |
+| maintenance / 依赖更新 / 文档更新 / chore / cleanup / refactor / bump | `["discovery","plan-review"]` | unlimited | `null` | Coordinator 直接写 plan；Final Review 降级为 lint + test pass check |
 
 **Within-Conversation Resume**：同一对话内 phase skill 返回的 verdict → 直接路由到下方对应 phase 的 Handle Return 步骤，不重走 Steps 0-2。
 
 ## Step 2：Infrastructure Setup
 
-**Read** `references/workflow-infrastructure.md` Step 2 并严格执行（Git Checkpoint + Scope Contract + Budget File）。读完按 Route 进入对应 phase。
+**Read** `references/workflow-infrastructure.md` Step 2 并严格执行（Git Checkpoint + Scope Contract + workflow-state）。读完按 Route 进入对应 phase。
 
 ## Steps 7-14：Route 1 — Formal Orchestrate
 
@@ -95,21 +102,15 @@ Skill({ skill: "multi-model-workflow:orchestrate-discovery" })
 | `NEEDS_USER_DECISION` | 询问用户（一次只问一个），回答后重新进入 discovery |
 | `BLOCKED` | 报告用户 |
 
-**更新 Budget File**：`last_gate_phase: "discovery"`, `last_gate_timestamp: <now>`。
+**更新 workflow-state**：`last_gate_phase: "discovery"`, `last_gate_timestamp: <now>`。
 
-#### Step 8b：大 issue 拆分（缺 issue hierarchy 时）
+#### Step 8b：大 issue 拆分
 
-重新进入 `orchestrate-discovery` Step 12（大 issue 拆分）。Coordinator 执行前必须：
+Read Scope Contract + design doc → 重进 `orchestrate-discovery` Step 12。（compact 后设计内容须重新 Read。）
 
-1. **Read** Scope Contract（`.claude/multi-model-workflow/scope-<run_id>.md`）获取 slug
-2. **Read** 设计文档（`docs/orchestrate/design/<slug>.md`）确认内容在上下文中
-3. 进入 `Skill({ skill: "multi-model-workflow:orchestrate-discovery" })` 的 Step 12 流程
+#### Step 8a：Direct Repair
 
-大 issue 拆分需要设计文档的完整内容。如果 Coordinator 上下文中已无设计文档内容（因 compact 或 phase 切换），必须重新 Read。
-
-#### Step 8a：Direct Repair（READY_FOR_REPAIR mini-route）
-
-**Read** `references/workflow-direct-repair.md` 并严格执行（Worker 修复 + Codex review + Closing）。修复后进入 Closing。
+`state.sh budget unlimited --run-id "<run_id>" --route direct-repair` → **Read** `references/workflow-direct-repair.md` → Closing。
 
 ---
 
@@ -125,7 +126,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-plan-writing" })
 
 | Plan-writing Verdict | Coordinator 动作 |
 | --- | --- |
-| `PLAN_CREATED` | 确认 budget file → Step 11 |
+| `PLAN_CREATED` | 确认 workflow-state budget 已初始化 → Step 11 |
 | `NEEDS_DISCOVERY` | 回到 Step 7 |
 | `NEEDS_DESIGN_REVIEW` | 回到 discovery Design Review |
 | `NEEDS_ISSUES` | 判断缺件类型：缺大 issue → Step 8b（大 issue 拆分）；缺小 issue → 重新 Step 9（plan-writer 内部处理） |
@@ -136,7 +137,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-plan-writing" })
 | `NEEDS_CONTEXT` | 派 `code-explorer` / `Skill({ skill: "zoom-out" })` → 补充后 Step 9 |
 | `BLOCKED` | 报告用户 |
 
-**更新 Budget File**：`last_gate_phase: "plan-writing"`, `last_gate_timestamp: <now>`。
+**更新 workflow-state**：`last_gate_phase: "plan-writing"`, `last_gate_timestamp: <now>`。
 
 ---
 
@@ -158,7 +159,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-execution" })
 | `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` → 只影响当前 pack → 回 Step 11；改变 plan → 回 Step 9 |
 | `BLOCKED` | 报告用户 |
 
-**更新 Budget File**：`last_gate_phase: "execution"`, `last_gate_timestamp: <now>`。
+**更新 workflow-state**：`last_gate_phase: "execution"`, `last_gate_timestamp: <now>`。
 
 ---
 
@@ -176,12 +177,12 @@ Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
 | --- | --- |
 | `FINAL_REVIEW_PASSED` | Closing |
 | `FINAL_REVIEW_PASSED_WITH_RELEASE_RISK` | Closing（release review 已内部处理） |
-| `NEEDS_EXECUTION` | 读 budget file `execution_reflux_count`：0 → 递增为 1，回到 Step 11；≥1 → BLOCKED 报告用户 |
+| `NEEDS_EXECUTION` | 读 workflow-state 的 `execution_reflux_count`：0 → 递增为 1，回到 Step 11；≥1 → BLOCKED 报告用户 |
 | `NEEDS_DISCOVERY` | 回到 Step 7 |
 | `NEEDS_PLAN_REVISION` | 回到 Step 9 |
 | `BLOCKED` | 报告用户 |
 
-**更新 Budget File**：`last_gate_phase: "final-review"`, `last_gate_timestamp: <now>`。回流不重置 `budget_used`。Plan revision 改变 `pack_count` → plan-writing Step 12a 更新 `budget_total`。
+**更新 workflow-state**：`last_gate_phase: "final-review"`, `last_gate_timestamp: <now>`。回流不重置 budget usage。Plan revision 改变 plan count → plan-writing Step 12a 重新确认 budget。
 
 ## Steps 15-18：Route 2 — Bug Investigation
 
@@ -220,8 +221,6 @@ Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
 > Root cause: <阻塞根因>
 > Attempted: <已尝试的解决方案>
 
-**Sub-agent 隔离**：dispatch prompt 必须自足。Sub-agent 不读 SKILL.md、不读 references/。Agent frontmatter `skills:` 自动预加载指定 skill。
-
-**Commit 纪律**：Executor worker 直接在 Coordinator 分支上自行 commit。Plan-writer 等非 executor sub-agent 不 commit，Coordinator 统一提交。不 stage 非当前 scope 文件。
+**Sub-agent 隔离**：prompt 必须自足；Sub-agent 不读 SKILL.md / references/；`skills:` frontmatter 自动预加载。**Commit 纪律**：Executor worker 直接在 Coordinator 分支 commit；Plan-writer 等不 commit，Coordinator 统一提交。不 stage 非 scope 文件。
 
 **禁止**：跳过 Discovery / Plan Review / Final Review / 用技术语言汇报 / 自己写生产代码 / 每 task 一个 sub-agent / 超循环上限不处理。

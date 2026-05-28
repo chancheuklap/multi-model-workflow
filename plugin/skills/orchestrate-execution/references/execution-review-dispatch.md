@@ -4,65 +4,7 @@
 
 同一 Plan 内所有 Pack 完成 Open Items 处置 + Git Checkpoint 后，派发 **1 个** baseline Codex reviewer 覆盖该 Plan 全部代码变更。
 
-<!-- BEGIN: review-dispatch -->
-**Codex review dispatch** (`CODEX_SCRIPT` unset: `CODEX_SCRIPT="$(find ~/.claude/plugins -path '*/codex/scripts/codex-companion.mjs' -type f 2>/dev/null | head -1)"`)
-
-1. Write prompt -> `review-prompts/<gate>.md` (prefix with DISPATCH_ENVELOPE, `agent_role: "codex-reviewer"`)
-   - Code diffs included in review prompts MUST be wrapped:
-     `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
-2. Select model by phase:
-   - `cursor.phase in {discovery, plan-writing}` -> `--model gpt-5.5 --effort xhigh`
-   - `cursor.phase in {execution, final-review}` -> `--model gpt-5.4 --effort xhigh`
-3. Dispatch (distinguish baseline vs targeted re-review):
-   - **Baseline review** (gate name does not contain `-repair-`):
-     `node "$CODEX_SCRIPT" task --background --prompt-file <path> <model flags>`
-   - **Targeted re-review** (gate name contains `-repair-`):
-     `node "$CODEX_SCRIPT" task --background --resume --prompt-file <path> <model flags>`
-   -> record JOB_ID into `review-prompts/<gate>.job-id`
-4. Wait: `node "$CODEX_SCRIPT" status "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)" --wait --timeout-ms 600000` (run_in_background: true)
-5. Result: `node "$CODEX_SCRIPT" result "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)"` -> `review-results/<gate>.md`
-
-**Confidence rubric (REQUIRED in every review prompt)**:
-- 1-3: low confidence. Coordinator may suppress without deep investigation.
-- 4-6: medium. Coordinator must gather additional evidence before disposition.
-- 7-10: high. Coordinator should default to accept unless contradicted by evidence.
-
-**Pre-emit Verification Gate**：
-
-每个 finding 必须满足以下条件才能进入报告：
-
-1. **引用触发 finding 的具体代码行**——file:line + 该行的原始文本。
-   - "field X doesn't exist on model Y" → 引用 class Y 的定义体，证明字段缺失
-   - "dict.get() might return None" → 引用 dict 的初始化代码
-   - "race condition between A and B" → 引用 A 和 B 两处代码
-
-2. **无法引用 = finding 未验证**。将 confidence 强制设为 4-5（从主报告中抑制，移入附录）。
-   不要通过虚构 confidence 7+ 来绕过此门槛。
-
-3. **框架元编程特例**：当符号来自 ORM 元类、装饰器、代码生成器时，引用生成该符号的元构造，而非期望在类体中 grep 到字面名称。
-
-**Rationalization Prevention**：
-- "This looks fine" 不是 finding。要么引用证据证明确实没问题，要么标记为未验证。
-- "likely handled elsewhere" → 读并引用处理代码，或标记 unknown。
-- "probably tested" → 给出测试文件和方法名，或标记 unknown。
-
-**Bias indicators (REQUIRED at end of review output)**:
-Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
-
-**证据表 (REQUIRED)**：
-Reviewer 必须在 `### Evidence` 下填写半结构化证据表。证据表证明 reviewer 实际检查过什么；它不是设计意图摘要，也不能替代阅读 source artifacts。
-
-| 字段 | 必填内容 |
-| --- | --- |
-| 已读设计 / mockup / plan 来源 | 实际读过的文档、计划、mockup 或用户上下文。 |
-| 已检查代码或产物路径 | 已检查的源码、生成产物、state schema、hooks、templates 或文档路径。 |
-| 已运行命令或验证 | 实际执行的命令、脚本、测试、build check 或人工验证。 |
-| Finding 证据 | 支撑 finding 的路径、行号、diff、命令输出或可复现行为。 |
-| 假设 | 影响 verdict 的前提和未被源码直接证明的判断。 |
-| 未验证项 | 相关但未能验证的内容，以及原因。 |
-
-Compaction recovery: `.job-id` present but no `review-results/` -> resume from Step 4.
-<!-- END: review-dispatch -->
+**Read** `plugin/skills/_shared/review-dispatch.md` 并按其格式派发 Codex review。
 
 以下是 review prompt 内容（写入 `.claude/multi-model-workflow/review-prompts/plan-impl-review-N.md`）：
 
@@ -80,19 +22,19 @@ All Task Packs within this plan have been executed and committed.
 
 ## Pack summary
 | Pack | Worker verdict | Repair rounds | Changed files |
-<paste per-pack summary within this plan>
+自读 `.claude/multi-model-workflow/pack-returns/<run_id>/` 目录下各 pack JSON，汇总此表。
 
 ## Aggregate diff
-git diff <plan-start-commit>..<plan-end-commit>
+自行运行：`git diff <plan-start-commit>..<plan-end-commit>`（commit hash 从 Scope Contract 的 `plan_start_commit` 字段读取）
 
 ## Changed files (all packs combined)
-<combined file list with pack ownership>
+自读 pack-returns JSON 中各 `changed_files` 字段，合并去重。
 
 ## Contract anchors
-<paste all contract anchors from all packs in this plan>
+自读 `docs/orchestrate/plans/<slug>/00N-*.md` 中各 pack 的 Contract anchors 段。
 
 ## Mockup anchors
-<paste if any pack in this plan has UI work>
+自读 plan 文件中各 pack 的 Mockup specs 段（若无 UI work 则跳过此节）。
 
 ## Review angles (single integrated review)
 
@@ -168,6 +110,16 @@ Disposition required:
 ```
 
 Plan Implementation Review finding 必须标注 `[Pack N.M]` 归属。`Affected packs` 字段列出所有涉及 finding 的 Pack 编号，Coordinator 据此路由 repair。
+
+## Coordinator 端最小职责
+
+Coordinator 在派发时只需完成以下动作，其余由 Reviewer 自读：
+
+1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`plan_id`、`gate`（`plan-impl-review-N`）、`review_intent: "baseline"`。
+2. 在 `Source artifacts:` 中列出 plan 文件路径（reviewer 自读内容）。
+3. 写 `review-prompts/<gate>.md`，运行 validate/record 脚本，触发 Codex job。
+4. 等待 job 完成后运行 result/complete 脚本，触发 `track-review-budget` hook。
+5. 读取 review-results 文件，进入 disposition 流程。
 
 ---
 > **回到**：SKILL.md Step 9（接收 Review Findings + Disposition）。

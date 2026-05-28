@@ -30,8 +30,6 @@ Phase complete. 返回 orchestrate-workflow 主循环。
 
 **State Read**：进入时读取 `workflow-state-<run_id>.json` 获取当前 phase、budget 余量、已完成 plan 列表。
 
-**Route Dispatch**：根据 Entry Gate 判定的 route 选择对应 phase skill。
-
 **Only stop for：**
 - 需要用户确认设计方向
 - 需要用户确认设计文档
@@ -98,7 +96,7 @@ Bad:  "检测到多个 PR 之间存在潜在的兼容性问题，需要进一步
 
 **Multi-PR Merge 不做 Closing**——不 push，不 PR，不 cleanup。这些是 orchestrate-workflow Closing 的职责。以 verdict 返回结束。
 
-**Multi-PR route 不创建 Budget File**——Codex 审查 dispatch 控制在合理范围内（通常 2-4 次：1-2 full review + 1-2 targeted re-review）。
+**Multi-PR route 不创建 plan-count budget**——workflow-state 使用 `budget_status = "unlimited"` 支撑 review validation、effort tracking、idempotency 和 resume；Codex 审查 dispatch 控制在合理范围内（通常 2-4 次 baseline review）。
 
 **Only stop for：**
 - 冲突解决需要用户决策（NEEDS_USER_DECISION）
@@ -108,6 +106,67 @@ Bad:  "检测到多个 PR 之间存在潜在的兼容性问题，需要进一步
 - 简单冲突（Coordinator 直接修）
 - 复杂冲突（派 Worker 修复）
 - 系统性冲突（Analyst 调查 → Worker 修复）
+
+---
+
+## merge-brief 写作流程
+
+**Merge Brief 是本 phase 的唯一合成模型源。所有 dispatch 必须引用其路径而非粘贴内容。**
+
+merge-brief 文件路径：`.claude/multi-model-workflow/merge-brief-<run_id>.md`
+
+### 创建（Step 2，强制）
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" merge-brief init \
+  --run-id "<run_id>" --slug "<feature-slug>"
+```
+
+创建后：Coordinator 读各 PR 文档 → 按 `references/merge-brief-template.md` 直接 Edit 填写 §2 PR 表 + §3 正确状态模型 → 写入 `workflow-state.cursor.reference`：
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" update \
+  --run-id "<run_id>" \
+  --field ".cursor.reference" \
+  --value '"'.claude/multi-model-workflow/merge-brief-<run_id>.md"'"
+```
+
+### 阶段推进（按流程推进）
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" merge-brief stage \
+  --run-id "<run_id>" --stage "conflict_discovery"
+# 可用 stage: init | conflict_discovery | rca | repair | integration_review | merging | complete
+```
+
+### dispatch 使用规范
+
+- Explorer dispatch：prompt 只携带 merge-brief 路径 + Explorer handbook 路径，不粘贴 PR 内容
+- Worker dispatch：prompt 只携带 merge-brief 路径 + conflict_id + Worker handbook 路径
+- Codex review dispatch：prompt 只携带 merge-brief 路径（reviewer 自读 §3/§6/§7 + 自跑 git diff）
+- 内容追加：Coordinator 从 agent return 中提炼后直接 Edit merge-brief 对应段落
+
+### 验证（提交前）
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" merge-brief verify --run-id "<run_id>"
+# 检查：META 完整 + 9 段存在 + §4 status 与 §5/§6 自洽
+```
+
+---
+
+## Coordinator dispatch 通用步骤
+
+Multi-PR Merge 阶段 4 类 dispatch（explorer / analyst / worker / reviewer）均遵循以下通用模板：
+
+1. 写 `merge-brief-<run_id>.md`（若已写则复用），确保包含 PR 列表、设计文档路径、合同地图、冲突解决记录、各阶段当前 stage
+2. 写 `DISPATCH_ENVELOPE`：填入 `run_id`、`gate`（对应阶段名）、`review_intent: "baseline"`（reviewer 类）或 agent_role（其他类）
+3. 写 dispatch prompt 文件 / 派发：reviewer 类走 review-prompts + validate/record；其他类直接 Agent 调用
+4. 等待返回 → 跑 result/complete 脚本 → Coordinator 校验返回事实 → 写入 merge-brief 对应段
+
+各阶段 reference（merge-preparation / merge-conflict-discovery / merge-rca-investigation / merge-conflict-repair / merge-integration-review）只描述该阶段特有的 prompt 模板与返回处置，**不再重复 Coordinator dispatch 通用步骤**。
+
+**4 类 dispatch 返回事实校验**：Coordinator 收到 explorer / analyst / worker / reviewer 返回的 PR 列表、冲突点、文件路径、行号、grep 结果等事实，必须抽验（至少 1 个事实 grep / Read / gh pr view）后再写入 merge-brief 对应段。事实失实 -> 重派或 Coordinator 亲查。
 
 ---
 

@@ -9,6 +9,116 @@ source "$SCRIPT_DIR/lib/state-lock.sh"
 STATE_BASE="${STATE_BASE:-.claude/multi-model-workflow}"
 LEARNINGS_FILE="${STATE_BASE}/learnings.jsonl"
 
+# Inline poison detector (formerly scripts/lib/learnings-poison-detector.sh).
+# Detects 7 types of poisoning in learnings input.
+# Args: $1=learning_text $2=current_run_id $3=scope_file $4=source
+# Outputs POISONED:... (exit 1) or CLEAN:trusted=true/false (exit 0)
+detect_learning_poison() {
+  local LEARNING_TEXT="$1"
+  local CURRENT_RUN_ID="${2:-}"
+  local SCOPE_FILE="${3:-}"
+  local SOURCE="${4:-}"
+
+  local POISONED=0
+  local REASONS=()
+
+  # Type 1: Instruction injection (10 anti-injection patterns)
+  local INJECTION_PATTERNS=(
+    'ignore\s+(all\s+)?previous\s+(instructions|context|rules)'
+    'you\s+are\s+now\s+'
+    'always\s+output\s+no\s+findings'
+    'skip\s+(all\s+)?(security|review|checks)'
+    'override[:\s]'
+    '\bsystem\s*:'
+    '\bassistant\s*:'
+    '\buser\s*:'
+    'do\s+not\s+(report|flag|mention)'
+    'approve\s+(all|every|this)'
+    'system\s*prompt'
+    'forget\s+all'
+    '<system>|</system>'
+    'DISPATCH_ENVELOPE'
+    '<!-- BEGIN|<!-- END'
+  )
+  for pattern in "${INJECTION_PATTERNS[@]}"; do
+    if echo "$LEARNING_TEXT" | grep -qiP "$pattern" 2>/dev/null || echo "$LEARNING_TEXT" | grep -qiE "$pattern" 2>/dev/null; then
+      POISONED=1
+      REASONS+=("instruction_injection:$pattern")
+      break
+    fi
+  done
+
+  # Type 2: Cross-run contamination
+  if [[ -n "$CURRENT_RUN_ID" ]]; then
+    local OTHER_RUNS
+    OTHER_RUNS=$(echo "$LEARNING_TEXT" | grep -oE 'run-[a-z0-9-]+' 2>/dev/null | grep -v "$CURRENT_RUN_ID" 2>/dev/null | head -1 || true)
+    if [[ -n "$OTHER_RUNS" ]]; then
+      POISONED=1
+      REASONS+=("cross_run_contamination:$OTHER_RUNS")
+    fi
+  fi
+
+  # Type 3: High-volume flooding check
+  if [[ -n "$CURRENT_RUN_ID" ]]; then
+    if [[ -f "$LEARNINGS_FILE" ]]; then
+      local RUN_COUNT
+      RUN_COUNT=$(grep -c "\"run_id\":\"${CURRENT_RUN_ID}\"" "$LEARNINGS_FILE" 2>/dev/null || echo "0")
+      if [[ "$RUN_COUNT" -gt 20 ]]; then
+        POISONED=1
+        REASONS+=("high_volume_flooding:${RUN_COUNT}_entries_for_${CURRENT_RUN_ID}")
+      fi
+    fi
+  fi
+
+  # Type 4: Scope escape
+  if [[ -n "$SCOPE_FILE" && -f "$SCOPE_FILE" ]]; then
+    local EXCLUDED
+    EXCLUDED=$(jq -r '.excluded_paths[]? // empty' "$SCOPE_FILE" 2>/dev/null)
+    for path in $EXCLUDED; do
+      if echo "$LEARNING_TEXT" | grep -qF "$path"; then
+        POISONED=1
+        REASONS+=("scope_escape:$path")
+      fi
+    done
+  fi
+
+  # Type 5: Source trust — suspicious patterns in learning content
+  if echo "$LEARNING_TEXT" | grep -qiE 'trust me|always do this|never question|guaranteed to work|100% safe'; then
+    POISONED=1
+    REASONS+=("source_trust:suspicious_authority_claim")
+  fi
+
+  # Type 6: Stale reference — references to specific file paths that don't exist
+  local REFERENCED_PATHS
+  REFERENCED_PATHS=$(echo "$LEARNING_TEXT" | grep -oE '[a-zA-Z0-9_/.-]+\.(py|ts|js|sh|md|json|yaml|yml)' | head -5 || true)
+  for ref_path in $REFERENCED_PATHS; do
+    if [[ "$ref_path" == *"/"* ]] && [[ ! -f "$ref_path" ]] && [[ ! -f "./$ref_path" ]]; then
+      POISONED=1
+      REASONS+=("stale_reference:$ref_path")
+      break
+    fi
+  done
+
+  # Type 7: Contested learning — learning claims that contradict common patterns
+  if echo "$LEARNING_TEXT" | grep -qiE 'mock everything|skip tests|tests are optional|TDD is unnecessary|ignore type errors'; then
+    POISONED=1
+    REASONS+=("contested_learning:anti_pattern")
+  fi
+
+  if [[ $POISONED -eq 1 ]]; then
+    echo "POISONED: $(IFS=','; echo "${REASONS[*]}")"
+    return 1
+  fi
+
+  # Trust gate: source="user-stated" → trusted, all others → untrusted
+  if [[ "$SOURCE" == "user-stated" ]]; then
+    echo "CLEAN:trusted=true"
+  else
+    echo "CLEAN:trusted=false"
+  fi
+  return 0
+}
+
 usage() {
   cat <<'USAGE'
 Usage: learnings-jsonl.sh <command> [options]
@@ -56,7 +166,7 @@ cmd_append() {
 
   # Run poison detection (pass source for trust gate)
   local poison_result poison_exit
-  poison_result=$(bash "$SCRIPT_DIR/lib/learnings-poison-detector.sh" "$content" "${run_id:-}" "" "${source:-}" 2>/dev/null) && poison_exit=0 || poison_exit=$?
+  poison_result=$(detect_learning_poison "$content" "${run_id:-}" "" "${source:-}" 2>/dev/null) && poison_exit=0 || poison_exit=$?
   if [[ "$poison_exit" -ne 0 ]]; then
     echo "BLOCKED: learning failed poison detection: $poison_result" >&2
     exit 2
@@ -204,6 +314,11 @@ except Exception:
 }
 
 # --- Main ---
+# Support sourcing for function access (e.g. detect_learning_poison)
+if [[ "${1:-}" == "--source-only" ]]; then
+  return 0 2>/dev/null || exit 0
+fi
+
 if [[ $# -lt 1 ]]; then usage; fi
 
 CMD="$1"; shift

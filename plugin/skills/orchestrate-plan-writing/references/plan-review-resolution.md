@@ -6,55 +6,7 @@
 
 **整体 Verdict 前置检查**：如果 reviewer 返回整体 `needs context`（不是某条 finding 的 `needs evidence`），说明 reviewer 无法完成审查。Coordinator 补充 reviewer 所需的上下文后重新 dispatch，不进入 per-finding disposition。
 
-<!-- BEGIN: disposition-table -->
-**Coordinator 亲验纪律** (disposition 之前的必经步骤):
-
-收到 reviewer findings 后**禁止直接转发给 worker**。逐条执行：
-1. 亲验：用 Read / grep / 对照设计文档验证 finding 的事实主张
-2. Disposition：accepted / rejected / needs evidence / out of scope（调用 state.sh disposition append）
-3. 修复指令：只把 accepted findings 翻译为具体修复指令传给 worker。Reviewer 原始输出不传
-
-没有 disposition 的 finding 不能进入 repair。过滤越界建议：out-of-scope 文件不能因为 reviewer 提到就被修改。
-
-**Confidence 校准** (Codex 返回 confidence 1-10):
-
-| Confidence | Coordinator 默认动作 | 覆写条件 |
-| --- | --- | --- |
-| 8-10 (high) | 直接亲验，通常 accept 或 reject | Coordinator 找到反向证据 |
-| 5-7 (medium) | 亲验 + 派 code-explorer 补证 -> 再定 disposition | -- |
-| 1-4 (low) | 默认 suppress -> 记录为 "suppressed: low confidence" | Coordinator 手动升级并附证据 |
-
-**Disposition 审计写入** (每条 finding 决定后立即调用):
-
-```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
-  --run-id "<run_id>" --review-round <r> --finding-id <id> \
-  --disposition <accepted|rejected|suppress|path-a|path-b> \
-  --confidence <1-10> --severity <H|M|L> \
-  --evidence "<一行理由>" --path "<file:line>"
-```
-
-`--evidence` 对 `--disposition accepted` 必填且非空。
-
-**Disposition 表**:
-
-| disposition | Coordinator 动作 |
-| --- | --- |
-| `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、targeted re-review scope |
-| `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
-| `needs evidence` | 派 explorer 补证据（窄范围用 `code-explorer`，多模块用 `complex-code-explorer`）；补证前不 repair |
-| `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |
-| `out of scope` | 从当前 scope 移出；**立即**开 GitHub issue（Durable Handoff Brief 格式，先查重） |
-| `needs evaluation` | 不在当前 pack 可修范围但需独立评估；**立即**开 GitHub issue，标明评估要点 |
-| `user decision` | 停止执行，一次只问一个会改变设计、计划或发布策略的问题 |
-
-冲突按 evidence quality 判断，不按 reviewer 数量投票。
-
-**Path A re-review 规则** (仅 confidence >= 7 的 accepted findings):
-- Coordinator Path A 直接修复 -> 强制 targeted Codex re-review
-- Codex 返回 `needs_repair` -> 必须升级 Path B 派 worker
-- 用 `state.sh path-a-escalation start/update/clear` 追踪
-<!-- END: disposition-table -->
+**Read** `plugin/skills/_shared/disposition-table.md` 并按其 disposition 选项处理 findings。
 
 **`needs evidence` 补证**：派 `code-explorer`（窄范围单文件/单调用链）或 `complex-code-explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
 
@@ -72,39 +24,7 @@ Plan Review 的 `accepted` 细分为 5 种路由：
 
 ## Step 16：修复路由
 
-<!-- BEGIN: repair-routing -->
-## 统一修复分流
-
-所有 review repair 先由 Coordinator 对 accepted findings 做亲验和 disposition；未 accepted 的 finding 不进入修复。修复 prompt 只携带 accepted finding、证据、scope、受影响文件、验证门槛和 targeted re-review 范围。
-
-| Finding / 修复形态 | Claude plugin 修复 owner |
-| --- | --- |
-| 范围小、本地化、意图清楚、不碰合同边界 | Coordinator Path A 自修，随后运行对应验证。 |
-| 同一个 pack 内的普通修复，原 worker 能胜任 | 通过现有 `SendMessage` resume 原 `pack-executor`；没有可用 agent id 时按当前 phase 的阻塞规则处理。 |
-| 跨模块、migration、billing、permission、runtime、共享合同、state machine、生成模板问题 | 使用 `complex-pack-executor` 路径，修复 prompt 写清 owner / provider / consumer / migration / deploy order / rollback / manual gate。 |
-| 根因不清，只知道症状 | 先派 `code-explorer` 或 `complex-code-explorer` 做只读调查，拿到 confirmed root cause 后再进入 Path A、原 worker 或 complex path。 |
-| 系统性 bug、重复修复失败、未知 regression | 使用 `root-cause-analyst` 路径；要求列可证伪假设、排除证据和下一步修复方向。 |
-| Final Review 发现跨 plan 合同问题 | 返回一次 `NEEDS_EXECUTION`，把 affected plans、affected packs、producer / consumer 断点和必须重跑的验证交给 execution repair。 |
-| 设计、mockup 或 plan 不足以判断正确性 | 回流 Discovery 或 Plan Writing；不要用代码临时补设计缺口。 |
-| Path A repair targeted re-review 失败 | 升级 Path B，优先 `SendMessage` 原 worker；跨边界则走 `complex-pack-executor`。 |
-
-**Claude-native dispatch 规则**：
-- 新派发使用 `Agent({ subagent_type: "<agent-name>", ... })`；已有 worker / plan-writer 修复优先使用 `SendMessage({ to: "<agent_id>", ... })` resume。
-- Agent 名使用 Claude plugin 现有连字符：`pack-executor`、`complex-pack-executor`、`code-explorer`、`complex-code-explorer`、`root-cause-analyst`、`plan-writer`。
-- Review 修复后的 targeted re-review 使用现有 `codex-companion.mjs` review dispatch；repair gate 使用独立 gate 名，不能覆盖 baseline 结果。
-- 本分流块只定义 owner 和升级条件；各 phase 的 round 上限、state 写入和 release gate 仍以所在 reference 为准。
-
-**回归证据要求 (REQUIRED in repair return)**：
-
-Repair agent 或 Coordinator Path A 返回时必须提供回归证据；不要求每个 finding 都新增一个测试。优先选择能证明用户可见行为、合同或发布风险已修好的证据，不新增低价值实现细节测试。
-
-回归证据必须包含以下至少一项：
-- 先失败后通过的 public-behavior test、contract test、migration / schema test 或 build/template check。
-- 相关验证命令及结果，能覆盖 accepted finding 的修复面。
-- 无法自动化时写明 `manual validation gate`：人工检查对象、检查步骤、通过标准和 release 前责任人。
-
-Release Gate 在宣布 review repair 完成前，必须确认每个 accepted finding 都有回归证据或 `manual validation gate`。
-<!-- END: repair-routing -->
+**Read** `plugin/skills/_shared/repair-routing.md` 并按其流程处理 review findings。
 
 Plan Review 三条路径：
 
@@ -121,14 +41,17 @@ Plan Review 三条路径：
    SendMessage({
      to: "<plan_writer_agent_id>",
      summary: "Plan Review 修复 round <N>: <finding_ids>",
-     message: "<含 DISPATCH_ENVELOPE 的修复 prompt，repair_round >= 1>"
+     message: "<DISPATCH_ENVELOPE>\n\n修复任务：包含 accepted findings、Coordinator 亲验证据、需要修改的 plan/issue sections、verification commands 和 Return Contract。"
    })
    ```
+   SendMessage inline 发送完整修复 prompt，直接写入 `message` 字段，不先写到文件再引用。
 4. 等待 SendMessage 返回（同步）
 5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
 5b. 验证 plan 文件格式 + pack count validator
 5c. `state.sh self-verify append --run-id <run_id> --repair-round <N> --verification-passed <yes|no>`
 6. 回到 Plan Review 重审
+
+Compaction recovery: 从 `workflow-state.cursor` + plan/design 文档重建 repair context；dispatch prompt 不需要 durable copy。
 <!-- END: sendmessage-resume -->
 
 → 重跑 Gate → Step 17
@@ -144,7 +67,14 @@ Plan Review 三条路径：
 | architecture friction | `Skill({ skill: "improve-codebase-architecture" })` | design doc / plan anchors |
 | domain 术语冲突 | `Skill({ skill: "grill-with-docs" })` | CONTEXT.md + design document |
 
-## Step 17：Targeted Re-Review
+## Coordinator checkbox toggle 权威规则（D4 source-of-truth）
+
+Plan Implementation Review pass 后，Coordinator Edit plan 文档勾选 checkbox 的 source-of-truth 是 `plan-return.per_pack[*]` where `status == committed`：
+1. Read `.claude/multi-model-workflow/plan-returns/<run_id>/<plan_id>/plan-return.json`
+2. 对每个 `per_pack[i].status == "committed"` 的 Pack，按 Pack ID 精确匹配 `docs/orchestrate/plans/<slug>/<plan-file>.md` 中 `- [ ] **Pack N.M**` 行，Edit toggle 为 `- [x] **Pack N.M**`
+3. `status` 不是 `committed`（pending / in_progress / blocked / skipped）的 Pack 不勾选
+
+## Step 17：Re-Review
 
 修复完成后，只重审 accepted findings 涉及的变更部分。不做 full review rerun。
 

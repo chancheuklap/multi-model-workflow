@@ -6,6 +6,10 @@
   "required": ["run_id", "plans"],
   "properties": {
     "run_id": { "type": "string" },
+    "current_plan_id": {
+      "type": ["string", "null"],
+      "description": "Top-level pointer to the plan currently in flight (set by state.sh execution-plan start). Surfaces what `cmd_execution_plan_start` already writes; schema now declares it."
+    },
     "plans": {
       "type": "object",
       "description": "Keyed by plan ID (e.g., '001', '002')",
@@ -13,6 +17,27 @@
         "type": "object",
         "required": ["packs"],
         "properties": {
+          "status": {
+            "type": ["string", "null"],
+            "description": "Plan-level status (e.g. 'in_progress', 'committed'). Distinct from pack-level status."
+          },
+          "start_commit": {
+            "type": ["string", "null"],
+            "description": "Commit SHA captured at plan-execution start (state.sh execution-plan start). Used as base for Plan Implementation Review diff."
+          },
+          "end_commit": {
+            "type": ["string", "null"],
+            "description": "Commit SHA of the last pack commit in this plan; written by track-execution-state hook when all packs in the plan are committed."
+          },
+          "worker_agent_id": {
+            "type": ["string", "null"],
+            "description": "Agent identity of the plan-level worker (autonomous-mode dispatch). Tracks the worker that owns this plan end-to-end; per-pack worker IDs still live under packs[N].agent_id when needed."
+          },
+          "pack_summary": {
+            "type": "array",
+            "description": "Aggregated view of pack-returns/*.json for this plan, written by track-execution-state hook on PLAN_DONE so reviewers can jq this field instead of asking Coordinator to assemble a Pack summary table.",
+            "items": { "type": "object" }
+          },
           "packs": {
             "type": "object",
             "description": "Keyed by pack ID (e.g., '1.1', '1.2')",

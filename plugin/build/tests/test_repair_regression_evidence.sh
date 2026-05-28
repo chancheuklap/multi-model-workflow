@@ -2,6 +2,7 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+CANONICAL="$PLUGIN_DIR/skills/_shared/repair-routing.md"
 TEMPLATE="$PLUGIN_DIR/build/templates/repair-routing.md.tmpl"
 
 AGENTS=(
@@ -27,12 +28,18 @@ run_test() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then echo "  PASS:
 
 echo "=== test_repair_regression_evidence.sh ==="
 
+# Canonical reference contains the regression evidence contract (D1)
+run_test "canonical repair-routing requires regression evidence" \
+  grep -q "回归证据" "$CANONICAL"
+
+run_test "canonical repair-routing allows manual validation gate" \
+  grep -q "manual validation gate" "$CANONICAL"
+
+# Template source still contains the contract
 run_test "repair-routing template requires regression evidence" \
   grep -q "回归证据" "$TEMPLATE"
 
-run_test "repair-routing template allows manual validation gate" \
-  grep -q "manual validation gate" "$TEMPLATE"
-
+# Agent files still have inline regression evidence requirement (from worker-loop template)
 for file in "${AGENTS[@]}"; do
   agent="$(basename "$file")"
   run_test "$agent requires regression evidence" \
@@ -41,9 +48,10 @@ for file in "${AGENTS[@]}"; do
     grep -q "低价值实现细节测试" "$file"
 done
 
+# References now point to canonical via Read directive
 for ref in "${REFERENCES[@]}"; do
-  run_test "$(basename "$ref") includes regression evidence contract" \
-    grep -q "回归证据" "$ref"
+  run_test "$(basename "$ref") references canonical repair-routing" \
+    grep -q "plugin/skills/_shared/repair-routing.md" "$ref"
 done
 
 echo ""

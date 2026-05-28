@@ -17,8 +17,6 @@ tools:
   - Grep
   - Glob
   - Skill
-skills:
-  - grill-with-docs
 memory: project
 maxTurns: 20
 color: blue

@@ -5,9 +5,6 @@ description: "按需调用 Codex Reviewer 对任意内容做一次独立审查�
 
 # Ad-hoc Codex Review
 
-<!-- TEMPLATE_DEPS: control-envelope(L37-52 envelope 字段结构), review-dispatch(L74-86 confidence/pre-emit/bias, L95-120 dispatch 命令) -->
-<!-- 本文件未接入构建系统（无锚点）。上述模板变更时须同步检查此文件。 -->
-
 对用户指定的任意内容派发一次 Codex 独立审查，不经过 Orchestrate Workflow。
 
 ## Step 1 — 确定审查对象
@@ -74,6 +71,7 @@ PROMPT_FILE="${REVIEW_DIR}/review-${TIMESTAMP}.md"
 
 不需要关注：风格、命名、注释数量。
 
+<!-- BEGIN: review-dispatch [variant=content-only] -->
 **Confidence rubric (REQUIRED)**:
 - 1-3: low confidence. 可能是误报。
 - 4-6: medium. 需要更多证据确认。
@@ -94,6 +92,10 @@ Reviewer 必须在 `### Evidence` 下填写半结构化证据表：
 | Finding 证据 | 支撑 finding 的路径、行号、diff、命令输出或可复现行为。 |
 | 假设 | 影响 verdict 的前提和未被源码直接证明的判断。 |
 | 未验证项 | 相关但未能验证的内容，以及原因。 |
+
+**Bias indicators (REQUIRED at end of review output)**:
+Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
+<!-- END: review-dispatch -->
 
 **输出格式**：
 - verdict: pass | needs_repair
