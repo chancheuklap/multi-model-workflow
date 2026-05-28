@@ -138,8 +138,6 @@ Bad:  "经过全面审查，代码质量达到了预期标准。"
 
 **Read** `references/final-review-disposition.md`（Coordinator 主动验证 + 6 disposition + Gap 分类 + Backflow 路由）。通过 → Step 13；有 accepted findings → Step 9。
 
-通过 → Step 13。有 accepted findings → 读取 `references/final-review-repair.md`。
-
 ## Steps 9-12：修复分流 + 截断（仅 needs repair 时）
 
 **Read** `references/final-review-repair.md`（路径 A/B/C + 回 Execution 判定 + Targeted Re-Review + 3 轮截断 + RCA）。修复后回 Step 6 re-review 或 Step 13。
