@@ -206,7 +206,7 @@ flowchart TD
 | validate-pack-manifest.sh | PreToolUse Agent hook | Manifest 表 / Pack 正文 / execution-state.plans[plan_id].packs **三方对账**，缺失方向不同各自 exit 2 |
 | Worker Loop | Sub-Agent（pack-executor / complex-pack-executor） | 5 步启动 + Pack 循环 + 6 verdict + Repair Mode + Context 自监控（详见 §0.2 和 §5） |
 | state.sh pack-progress | Worker 调用 | 每 Pack commit 后写 `execution-state.plans[plan_id].packs[pack_id]` 的 status / commit_sha |
-| state.sh agent-context-check | Worker 自检 | 输出 `need-fresh-worker` 或 `ok`（阈值：完成 ≥ 5 Pack + 剩余 ≥ 2） |
+| Worker in-memory counter | Worker 自检 | `packs_in_session` 本地计数（阈值：≥ 5 Pack + 剩余 ≥ 2 → need-fresh-worker）；启动/recovery 时从 execution-state 重建 |
 | state.sh execution-plan complete | Worker 调用 | Plan 内全部 Pack 处理完后写 finished_at + worker_verdict |
 | agent-return-handler.sh | PostToolUse Agent hook | 读 `plan-returns/<run_id>/<plan_id>/plan-return.json` → 调 `plan-return-parser.sh` 校验 schema → 调 `state.sh plan-returns ingest` → 按 5 verdict 注入 NEXT |
 | Open Items 处置 | Coordinator | Plan 边界批量处置；Worker 没有"非阻塞项"概念 |
@@ -346,7 +346,7 @@ FOR each pack:
     git commit "Pack N.M: <title> — <summary>"   # enforce-plan-commit hook 校验
     append open_items to plan-returns/open-items.json
     state.sh pack-progress --plan-id ... --pack-id ... --status committed --commit-sha ...
-    state.sh agent-context-check → 若 need-fresh-worker → break
+    Worker 本地 counter 判断 → 若 need-fresh-worker → break
 END
 write plan-return.json (verdict + per_pack)
 state.sh execution-plan complete --plan-id ... --verdict ...
@@ -713,7 +713,6 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 | `execution-plan start/complete` | start：初始化 execution-state plan 条目；complete：写 finished_at + worker_verdict |
 | `plan-returns ingest` | agent-return-handler 调用；读取 plan-return.json → 校验 schema → 展开 per_pack 到 execution-state |
 | `agent-id set/get --plan-id` | plan-level worker_agent_id 写读（与 --pack-id 互斥） |
-| `agent-context-check` | Worker 自检：完成 ≥ 5 Pack + 剩余 ≥ 2 → 返回 need-fresh-worker |
 | `merge-brief init/stage/verify` | Pack 6.8 新增；init 创建含 MERGE_BRIEF_META 元数据块的 markdown；stage 推进 current_stage；verify 校验 meta 合法性 |
 
 ### 8.5 状态转换矩阵（`state-schema/state-transition-matrix.md`）
@@ -1177,7 +1176,7 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 | 1 | 取消 "dispatch prompt 写文件"（Codex `--prompt-file` 例外） | 所有 SKILL.md 与 dispatch reference 更新；Worker / SendMessage inline 传递 |
 | 2 | 保留 `pack-executor` 命名（不改名） | agent 定义保持原名，Worker Loop 锚点追加 |
 | 3 | `plan-returns/` 路径 = `.claude/multi-model-workflow/plan-returns/<run_id>/<plan_id>/` | state-schema 注释 + worker-loop.md.tmpl + agent-return-handler.sh |
-| 4 | Context 阈值 = 5 Pack；触发后 verdict=`need-fresh-worker` | `state.sh agent-context-check` + worker-loop.md.tmpl 段 6 |
+| 4 | Context 阈值 = 5 Pack；触发后 verdict=`need-fresh-worker` | Worker in-memory counter + execution-state 重建 + worker-loop.md.tmpl segment 5 双路径 |
 | 5 | `pack-executor` / `complex-pack-executor` effort 权重 = 实际 Pack 数；need-fresh-worker 续派 +0.5 | track-effort-budget.sh |
 | 6 | Coordinator checkbox toggle = Plan Implementation Review 通过后 | Coordinator 按 per_pack[*].status==committed Edit plan 文档 checkbox |
 | 7 | 失败封顶 = per-pack TDD 内三次失败（沿用）；per-plan 不额外封顶，Worker 走 partial-pass | worker-loop.md.tmpl 段 2/3；SendMessage 续修不另设上限 |
@@ -1264,7 +1263,7 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 |------|-------|---------|
 | `build/tests/` | 14 | preamble resolver、review model tier、confidence injection、sendmessage resume、resolver 逻辑、voice injection、review segmentation、disposition audit、trust boundary、build check、cross-plan contract map、repair regression evidence、repair routing、review evidence table |
 | `hooks/tests/` | 20 | 幂等性重放、disposition refs 校验、gate-codex-review、effort budget 加权（含计划级）、agent-id hook guard、envelope 解析、sendmessage resume、validate-plan-dispatch、validate-pack-manifest、validate-multi-pr-dispatch（14 项）、multi-pr-merge end-to-end（25 项）、worker scope drift、track-execution-state（pack summary / next suppression）、enforce-plan-commit、need-fresh-worker |
-| `scripts/tests/` | 18 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_context_check、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、learnings append、learnings 投毒检测、pack count validator、run summary、hotfix post-push review、budget direction check、route keyword routing、trust gate、generate pack manifest、complete review dispatch history、plan return parser |
+| `scripts/tests/` | 17 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、learnings append、learnings 投毒检测、pack count validator、run summary、hotfix post-push review、budget direction check、route keyword routing、trust gate、generate pack manifest、complete review dispatch history、plan return parser |
 
 运行方式：`bash plugin/scripts/run-all-tests.sh`（全量）或 `bash plugin/scripts/verify-maturity.sh`（含测试 + 构建 + schema + 结构 12 大类检查）。
 

@@ -108,9 +108,9 @@ for pack in sorted_packs:
   # 通知 state 层：pack 完成
   bash state.sh pack-progress --plan-id <plan.id> --pack-id <pack.id> --status committed --commit-sha <sha>
 
-  # Context 自监控
-  ctx=$(bash state.sh agent-context-check --plan-id <plan.id>)
-  if ctx.verdict == "need-fresh-worker":
+  # Context 自监控（in-memory counter）
+  packs_in_session += 1
+  if packs_in_session >= 5 and remaining_packs >= 2:
     break  # 跳出 for，进入收尾段写 verdict=need-fresh-worker
 
 # 全部 Pack 完成 / context 触发 / partial-fail 收尾
@@ -147,15 +147,23 @@ return  # SubagentStop → agent-return-handler.sh 处理
 
 ### Context 自监控
 
-每完成一个 Pack commit + write pack-returns 后立即调用：
+Worker 维护本地 in-memory counter `packs_in_session`，用于判断是否需要 fresh worker。
 
+**正常路径**（每完成 1 个 Pack）:
 ```
-bash state.sh agent-context-check --plan-id <plan.id>
+packs_in_session += 1
+if packs_in_session >= 5 and remaining_packs >= 2:
+    verdict = "need-fresh-worker"
+    break
 ```
 
-阈值（决策 4）：
-- `packs_in_session >= 5` AND `remaining_packs >= 2` → 返回 `{"verdict":"need-fresh-worker", ...}`
-- 其他 → `{"verdict":"ok", ...}`
+**启动 / Compaction recovery 路径**（Worker 启动 Step 3 必须执行，用于 in-memory counter 丢失场景）:
+```
+# 从 execution-state.plans[plan_id].packs[*].status == "committed" 计数作为 packs_in_session 初值
+packs_in_session = count(execution-state.plans[plan_id].packs[*] where status == "committed")
+```
+
+`execution-state` 由 `track-execution-state.sh` 自动维护，是单一真相源。Compaction 后内存丢失时，启动 recovery 路径精确反映已完成 Pack 数，无需"猜"。
 
 收到 `need-fresh-worker` 后：
 - 立即跳出 Pack 循环
@@ -179,7 +187,7 @@ bash state.sh agent-context-check --plan-id <plan.id>
 
 ## 高风险自检（每 Pack 完成后强制执行）
 
-每个 Pack commit 后，在 `state.sh agent-context-check` 之前先做一轮高风险自检 checklist：
+每个 Pack commit 后，在 verdict 判断之前先做一轮高风险自检 checklist：
 
 1. **Migration 链路**：本 Pack 改动是否含 migration？若是，列出 up / down 是否对称、是否有 schema_version 同步、是否需要 deploy order 标注。
 2. **Contract 闭合**：触碰 Pydantic / JSON registry / catalog 时，producer 和 consumer 的 schema_version 是否一致；compatibility window 是否在 commit message 或 open_items 中明确。
