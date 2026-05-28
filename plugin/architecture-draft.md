@@ -419,8 +419,7 @@ PreToolUse Agent hook，guard pack-executor / complex-pack-executor 派发。15 
 4. 无 pending Direction Check（阻断非 codex-reviewer）
 5. Plan-level 路径（envelope.plan_id 非空）：plan_path 文件存在 → plan.md 含 `## Pack Execution Manifest` → execution-state 中 plan 条目存在 → plan 未被其他 Worker 占用（status=in_progress + worker_agent_id 已设）
 6. 遗留 Pack-level 路径：pack status 必须为 pending + agent_id 未设
-7. Path A 耗尽时拦截非 Worker agent_role
-8. `repair_round ≥ 1` → `disposition_refs` 中每个 finding_id 在 review_dispositions 中已 accepted 且有 evidence
+7. `repair_round ≥ 1` → `disposition_refs` 中每个 finding_id 在 review_dispositions 中已 accepted 且有 evidence
 9. 通过后写 idempotency_key
 
 **validate-pack-manifest.sh**（新增）
@@ -696,7 +695,7 @@ track-execution-state.sh 的 Pack ID 提取保留 sed 模式（`sed -n 's/.*Pack
 ### 8.2 双文件模型（Ruling 2）
 
 设计原文将 budget 和 execution-state 合并为单一 workflow-state。实现采用双文件：
-- **workflow-state-<run_id>.json**：run_id / slug / route（4 值 enum）/ cursor / budget / plans 元信息 / plan_count / plan_writer_agent_id / idempotency_keys / review_dispositions / path_a_escalation / self_verifications / pending_direction_check / pending_post_push_reviews / execution_reflux_count / last_gate_phase/timestamp / phase_skip / commit_format_override / mutations（append-only 审计日志）
+- **workflow-state-<run_id>.json**：run_id / slug / route（4 值 enum）/ cursor / budget / plans 元信息 / plan_count / plan_writer_agent_id / idempotency_keys / review_dispositions / self_verifications / pending_direction_check / pending_post_push_reviews / execution_reflux_count / last_gate_phase/timestamp / phase_skip / commit_format_override / mutations（append-only 审计日志）
 - **execution-state-<run_id>.json**：pack-level data（plans[plan_id].packs[pack_id] 含 status / agent_id / commit_sha / worker_verdict / repair_round / drift_warnings[] / pack_summary）
 
 分离原因：pack-level 被 3 个 hook 并发写入（agent-return-handler / track-execution-state / track-effort-budget），合并到单文件会加剧竞态。两文件通过 `plan_id` + `pack_id` 关联。
@@ -716,7 +715,6 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 | `validate` | 校验 state 合规性 |
 | `disposition append` | 追加 review_finding 处置；`--plan-id` 选填，`--coordinator-verified-evidence` Plan 002 新增 |
 | `self-verify append` | Coordinator 自验项 |
-| `path-a-escalation start/update/clear` | Path A 再审升级管理 |
 | `budget initialize/unlimited/check/increment-review` | review budget 计数和阈值 |
 | `direction-check trigger/ack` | budget 方向检查（trigger 写 pending_direction_check；ack 接受 continue/stop/adjust） |
 | `idempotency check/append` | 幂等 key 管理 |
@@ -826,7 +824,7 @@ bash plugin/build/build.sh --apply --plugin-dir plugin   # 应用（原子写入
 
 | 文件 | 描述 | 产生 | 消费 | 新增? |
 |------|------|------|------|------|
-| `workflow-state-v1.json` | Workflow 主状态 schema（route 4 值 enum / budget / cursor / plans / dispositions / effectiveness / path_a_escalation / self_verifications / phase_skip / commit_format_override / mutations） | Coordinator (state.sh) | Coordinator, hooks, all skills | 否（扩展） |
+| `workflow-state-v1.json` | Workflow 主状态 schema（route 4 值 enum / budget / cursor / plans / dispositions / self_verifications / phase_skip / commit_format_override / mutations） | Coordinator (state.sh) | Coordinator, hooks, all skills | 否（扩展） |
 | `execution-state-v1.json` | Pack-level 执行状态（plans[plan_id].packs[pack_id]：status 5 enum / agent_id / commit_sha / worker_verdict / repair_round） | Coordinator / hooks | Coordinator, Worker | 否（plans 二级结构 Plan-level 扩展） |
 | `dispatch-envelope-v1.json` | Dispatch envelope schema（13 字段，详见 §7.1） | Coordinator | Worker / hooks | 扩展（plan_id 新增） |
 | `pack-returns-v1.json` | Pack 级返回 schema | pack-executor / complex-pack-executor | agent-return-handler / Coordinator | 否 |
@@ -870,7 +868,6 @@ Coordinator **不是传话筒**——必须亲验每条 finding（读代码、�
 | `accepted` | 进入修复流程；**必须附 evidence** |
 | `rejected` | 附技术理由，finding 不进入修复 |
 | `suppress` | 低 confidence（1-4）默认处置 |
-| `path-a` | Coordinator 直接修复（≤ 2 文件，confidence ≥ 7），修后强制 targeted re-review |
 | `path-b` | 派 Worker 修复（SendMessage resume 原 worker 或新 dispatch） |
 | `needs-evidence` | 派 code-explorer 子调查 → 再定 disposition |
 | `duplicate` | 标记为重复 |
@@ -888,16 +885,9 @@ Coordinator **不是传话筒**——必须亲验每条 finding（读代码、�
 
 **Plan Review `accepted` 的五种子路由**：plan repair / design gap / issue-plan mismatch（大 issue → Coordinator；小 issue → plan-writer Step 3c） / issue quality / architecture friction。
 
-### 11.2 Path A / Path B 修复路径
+### 11.2 修复路径
 
-**Path A**（Coordinator 直接修复）：confidence ≥ 7、≤ 2 文件。流程：
-1. `state.sh path-a-escalation start` 记录进入 Path A
-2. Coordinator 直接修复 + 跑测试
-3. Dispatch targeted re-review（`review_intent: path-a-re-review`）
-4. Codex 返回 `approved` → `state.sh path-a-escalation clear` → 继续
-5. Codex 返回 `needs_repair` → 自动设 `blocked_for_self_fix = true` → **必须升级 Path B**
-
-`gate-codex-review.sh` 阻止无 `path_a_escalation` entry 时发起 `path-a-re-review`。`validate-plan-dispatch.sh` 检查 `blocked_for_self_fix` 阻止后续 Path A 尝试。
+**Path A**（Coordinator 直接修复）：≤ 2 文件、不碰合同边界。Coordinator 修后 baseline re-review，失败升级 Path B。
 
 **Path B**（Worker 修复）：SendMessage resume 原 worker 或新 dispatch。Plan-level 改造后 SendMessage 是 Worker 续修主路径。
 
@@ -907,19 +897,17 @@ Coordinator **不是传话筒**——必须亲验每条 finding（读代码、�
 
 ```
 Round 1-2：三路分流
-  Path A — Coordinator 直接修复（≤ 2 文件，confidence ≥ 7）
-            修复后强制 targeted re-review（review_intent: path-a-re-review）
-            Codex 返回 needs_repair → blocked_for_self_fix = true → 升级 Path B
+  Path A — Coordinator 直接修复（≤ 2 文件），修后 baseline re-review
   Path B — Worker 修复（SendMessage resume 原 worker；若无 agent_id 则 BLOCKED）
   Path C — code-explorer 只读调查（根因不明时）
-  → Targeted Re-Review
+  → Baseline Re-Review
 
 Round 3（截断轮）：
   停止 worker 循环 → 派 root-cause-analyst（带前 2 轮完整上下文）
   RCA 五种结论：
-    fixed                     → Targeted Re-Review
+    fixed                     → Baseline Re-Review
     root cause found not fixed → worker 按 RCA 结论修复
-    root cause in design/plan → 回流 Discovery（创建 bug seed file）
+    root cause in design/plan → 回流 Discovery
     unable to reproduce       → 降级为 non-blocking + 开 GitHub Issue
     unable to determine       → BLOCKED
 
@@ -1254,7 +1242,6 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 - **合并策略铁律**：只用 `git merge --no-ff`，禁止 squash merge（`guard-premature-push.sh` 进程级强制）
 - **Review 双预算**：Review Budget `3P + 12` + Effort Budget `2 × (3P+12)`。三级耗尽（80% Direction Check → 溢出停派 → 100% 硬停）。Routes 4-7 预算 unlimited
 - **修复截断**：所有修复循环 3 轮封顶（2 轮 A/B/C + 1 轮 RCA），超出 → BLOCKED
-- **Path A 升级强制**：Coordinator 直接修复后 Codex 仍报 needs_repair → 自动 `blocked_for_self_fix`，必须升级 Path B
 - **回流守卫**：Final Review → Execution 回流最多 1 次（`execution_reflux_count`）
 - **跨会话稳定性**：恢复时检查 source artifact 是否在 gate 后被修改——有改动则重进 gate review
 - **`AGENT_TEAMS` 硬依赖**：`session-start.sh` 阻断未设置 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 的会话
@@ -1263,7 +1250,6 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 - **Dispatch 幂等性**：每次 dispatch 附 `idempotency_key`，`validate-plan-dispatch.sh` 阻止重复 dispatch
 - **状态文件锁**：所有状态写入使用 `lib/state-lock.sh` 目录级自旋锁（50 次 × 100ms，TTL 60s），原子写入通过 tmp → rename
 - **Disposition 证据强制**：`accepted` disposition 必须附 `evidence` 和 `coordinator_verified_evidence`，state.sh validate 校验
-- **Review Effectiveness 可选诊断**：reject > 60% / suppress > 30% / path-a > 50% 触发健康告警；该指标**不**作为 review correctness gate
 - **Learnings 信任门**：Worker 返回的 learnings 必须通过 7 类投毒检测 + 高频检测 + 时间衰减
 - **doc-patch apply 时机**：Plan Implementation Review 通过后才 apply，且只能 toggle plan 文档 checkbox（guard-plan-doc-patch.sh 校验）
 - **Plan-level Worker 唯一性**：同一 plan 同一时刻只能有一个 Worker 持有 worker_agent_id（validate-plan-dispatch 检查）
@@ -1306,7 +1292,7 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 |------|-------|---------|
 | `build/tests/` | 14 | preamble resolver、review model tier、confidence injection、sendmessage resume、resolver 逻辑、voice injection、review segmentation、disposition audit、trust boundary、build check、cross-plan contract map、repair regression evidence、repair routing、review evidence table |
 | `hooks/tests/` | 21 | 幂等性重放、disposition refs 校验、gate-codex-review、effort budget 加权（含计划级）、agent-id hook guard、envelope 解析、sendmessage resume、validate-plan-dispatch、validate-pack-manifest、validate-multi-pr-dispatch（14 项）、multi-pr-merge end-to-end（25 项）、worker scope drift、guard-plan-doc-patch、track-execution-state（pack summary / next suppression）、enforce-plan-commit、need-fresh-worker |
-| `scripts/tests/` | 20 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_context_check、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、learnings append、learnings 投毒检测、pack count validator、run summary、hotfix post-push review、budget direction check、route keyword routing、trust gate、path-a re-review、doc-patch apply、generate pack manifest、complete review dispatch history、plan return parser |
+| `scripts/tests/` | 19 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_context_check、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、learnings append、learnings 投毒检测、pack count validator、run summary、hotfix post-push review、budget direction check、route keyword routing、trust gate、doc-patch apply、generate pack manifest、complete review dispatch history、plan return parser |
 
 运行方式：`bash plugin/scripts/run-all-tests.sh`（全量）或 `bash plugin/scripts/verify-maturity.sh`（含测试 + 构建 + schema + 结构 12 大类检查）。
 

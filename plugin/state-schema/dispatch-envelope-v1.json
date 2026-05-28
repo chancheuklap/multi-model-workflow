@@ -24,7 +24,7 @@
     },
     "review_intent": {
       "oneOf": [
-        { "type": "string", "enum": ["baseline", "path-a-re-review"] },
+        { "type": "string", "enum": ["baseline"] },
         { "type": "null" }
       ]
     },

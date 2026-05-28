@@ -20,7 +20,7 @@
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
   --run-id "<run_id>" --review-round <r> --finding-id <id> \
-  --disposition <accepted|rejected|suppress|path-a|path-b> \
+  --disposition <accepted|rejected|suppress|path-b> \
   --confidence <1-10> --severity <H|M|L> \
   --evidence "<一行理由>" --path "<file:line>"
 ```
@@ -40,8 +40,3 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 | `user decision` | 停止执行，一次只问一个会改变设计、计划或发布策略的问题 |
 
 冲突按 evidence quality 判断，不按 reviewer 数量投票。
-
-**Path A re-review 规则** (仅 confidence >= 7 的 accepted findings):
-- Coordinator Path A 直接修复 -> 强制 targeted Codex re-review
-- Codex 返回 `needs_repair` -> 必须升级 Path B 派 worker
-- 用 `state.sh path-a-escalation start/update/clear` 追踪

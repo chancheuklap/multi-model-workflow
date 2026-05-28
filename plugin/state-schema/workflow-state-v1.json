@@ -8,7 +8,7 @@
     "cursor", "budget", "plans", "idempotency_keys",
     "plan_writer_agent_id", "review_dispositions",
     "pending_post_push_reviews",
-    "path_a_escalation", "self_verifications",
+    "self_verifications",
     "pending_direction_check",
     "execution_reflux_count", "last_gate_phase", "last_gate_timestamp"
   ],
@@ -87,7 +87,6 @@
       }
     },
     "pending_post_push_reviews": { "type": "array" },
-    "path_a_escalation": { "type": "array" },
     "self_verifications": {
       "type": "array",
       "items": {

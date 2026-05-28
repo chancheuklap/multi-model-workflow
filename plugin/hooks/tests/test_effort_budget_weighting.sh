@@ -44,7 +44,7 @@ cat > "$BUDGET_DIR/workflow-state-${RUN_ID}.json" <<'EOF'
   "plan_writer_agent_id": null,
   "review_dispositions": [],
   "pending_post_push_reviews": [],
-  "path_a_escalation": [],
+
   "self_verifications": [],
   "pending_direction_check": null,
   "execution_reflux_count": 0,
