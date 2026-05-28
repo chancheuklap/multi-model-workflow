@@ -169,7 +169,7 @@ Coordinator validates this block with an explicit dispatch script before `Agent(
 
 ## Steps 11-12b：Plan Entry Gate + Task Pack Inventory Gate + Budget 赋值 + 跨计划合同锚点
 
-**Read** `references/plan-gates.md`（gate 检查 + budget_total = `3P + 12`，P = plan 文件总数；写入 design.md `## Cross-Plan Contract Anchors` section）。
+**Read** `references/plan-gates.md`（gate 检查 + budget_total = `2P + 6`，P = plan 文件总数；写入 design.md `## Cross-Plan Contract Anchors` section）。
 
 通过后进入 Steps 13-14 review。
 

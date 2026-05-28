@@ -372,7 +372,7 @@ Coordinator 写入 execution state：
 
 ### Re-Entry from Final Review
 
-`NEEDS_EXECUTION`（跨 Plan 系统性问题）：affected plans status = `repairing`（`repair_round` 不递增）；diff scope = `plans[N].end_commit..HEAD`；读 `references/execution-repair-truncation.md` → targeted re-review → Git Checkpoint → 全部通过后返回 Final Review。
+`NEEDS_EXECUTION`（跨 Plan 系统性问题）：affected plans status = `repairing`（`repair_round` 不递增）；diff scope = `plans[N].end_commit..HEAD`；读 `references/execution-repair-truncation.md` → baseline review → Git Checkpoint → 全部通过后返回 Final Review。
 
 ### 不存在"非阻塞项"
 
