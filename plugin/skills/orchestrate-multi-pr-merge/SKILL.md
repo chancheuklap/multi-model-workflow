@@ -111,6 +111,52 @@ Bad:  "检测到多个 PR 之间存在潜在的兼容性问题，需要进一步
 
 ---
 
+## merge-brief 写作流程
+
+**Merge Brief 是本 phase 的唯一合成模型源。所有 dispatch 必须引用其路径而非粘贴内容。**
+
+merge-brief 文件路径：`.claude/multi-model-workflow/merge-brief-<run_id>.md`
+
+### 创建（Step 2，强制）
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" merge-brief init \
+  --run-id "<run_id>" --slug "<feature-slug>"
+```
+
+创建后：Coordinator 读各 PR 文档 → 按 `references/merge-brief-template.md` 直接 Edit 填写 §2 PR 表 + §3 正确状态模型 → 写入 `workflow-state.cursor.reference`：
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" update \
+  --run-id "<run_id>" \
+  --field ".cursor.reference" \
+  --value '"'.claude/multi-model-workflow/merge-brief-<run_id>.md"'"
+```
+
+### 阶段推进（按流程推进）
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" merge-brief stage \
+  --run-id "<run_id>" --stage "conflict_discovery"
+# 可用 stage: init | conflict_discovery | rca | repair | integration_review | merging | complete
+```
+
+### dispatch 使用规范
+
+- Explorer dispatch：prompt 只携带 merge-brief 路径 + Explorer handbook 路径，不粘贴 PR 内容
+- Worker dispatch：prompt 只携带 merge-brief 路径 + conflict_id + Worker handbook 路径
+- Codex review dispatch：prompt 只携带 merge-brief 路径（reviewer 自读 §3/§6/§7 + 自跑 git diff）
+- 内容追加：Coordinator 从 agent return 中提炼后直接 Edit merge-brief 对应段落
+
+### 验证（提交前）
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" merge-brief verify --run-id "<run_id>"
+# 检查：META 完整 + 9 段存在 + §4 status 与 §5/§6 自洽
+```
+
+---
+
 ## Steps 1-3：入口 + 文档理解
 
 **Read** `references/merge-preparation.md`（读全部文档 + 建立合并后正确状态模型 + Scope Contract + Git State）。读完进入 Steps 4-8 冲突发现。
