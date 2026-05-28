@@ -87,28 +87,5 @@ docs/orchestrate/issues/<slug>/
 
 **`## Design context refs` 必填至少一条**——Discovery 自检：每个大 issue 至少有一条 design 锚点链接。
 
-## Step 12f：发布 GitHub Issue
-
-按依赖顺序（blocker 在前）为每个大 issue 发布 GitHub Issue。使用以下模板：
-
-```markdown
-## Parent
-<父 issue 引用（如源自已有 issue），否则省略>
-
-## What to build
-<端到端行为描述，不写具体文件路径或代码片段>
-
-## Acceptance criteria
-- [ ] Criterion 1
-- [ ] Criterion 2
-
-## Blocked by
-- <blocking issue 引用> 或 "None - can start immediately"
-```
-
-发布后将 GitHub Issue 编号和链接回写到本地大 issue 文档。
-
-不关闭或修改任何父 issue。
-
 ---
 > **下一步**：大 issue 文件写完 → 返回 SKILL.md（verdict: `DISCOVERY_READY`，issue hierarchy status: `large_issues_ready`）。

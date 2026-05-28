@@ -141,7 +141,7 @@ Coordinator 亲验 findings → disposition → 直接修设计文档（不派 w
 
 ## Step 12：大 issue 拆分
 
-已有 issue hierarchy（`docs/orchestrate/issues/<slug>/` 下有大 issue 文件）→ 返回进入 plan-writing。缺 issue hierarchy → **Read** `references/issue-splitting.md` 并严格执行（vertical slice 拆分 + 用户确认 + 写大 issue 骨架 + 发布 GitHub Issue）。
+已有 issue hierarchy（`docs/orchestrate/issues/<slug>/` 下有大 issue 文件）→ 返回进入 plan-writing。缺 issue hierarchy → **Read** `references/issue-splitting.md` 并严格执行（vertical slice 拆分 + 用户确认 + 写大 issue 骨架）。
 
 ## 外部 Skill
 

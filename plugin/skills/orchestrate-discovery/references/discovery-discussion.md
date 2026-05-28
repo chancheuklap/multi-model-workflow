@@ -77,7 +77,5 @@
 | 功能行为、接口合同、验收 | 设计文档 | 讨论充分后 |
 | 架构取舍满足 ADR 三条件 | docs/adr/ | 用户确认后 |
 
-**grill-with-docs 的角色**：不是辅助工具——是 Domain Alignment 的核心执行方式。始终用其方法论挑战术语、交叉验证代码、更新 CONTEXT.md。
-
 ---
 > **下一步**：讨论充分后 → Steps 7-9（discovery-design-document.md）生成设计文档。

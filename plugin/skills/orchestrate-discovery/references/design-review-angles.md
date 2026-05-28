@@ -2,16 +2,6 @@
 
 > **流程位置**：`orchestrate-discovery` Steps 10-11 · Design Review 派发 + 修复 · 通过后回到 SKILL.md Step 12
 
-## Self-Read Protocol
-
-你是 codex-reviewer（执行 Design Review）。启动时按以下顺序执行：
-
-1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`gate`、feature slug。
-2. 读 `<project_root>/CLAUDE.md` 和 `<project_root>/CONTEXT.md`（若存在）获取项目基线、不变量、contract wall。
-3. 读 `docs/orchestrate/design/<slug>.md` 获取设计文档全文。
-4. 读本文件（你正在读的这份手册），理解 Review Angles 与 Return Contract 格式。
-5. 按两个 Baseline Review angle 独立验证，遵守 Pre-emit Verification Gate，输出 findings。
-
 ## Codex Dispatch 公共部分
 
 两个 review angle 分别提交 Codex review 任务，可并行提交，结果独立返回。
