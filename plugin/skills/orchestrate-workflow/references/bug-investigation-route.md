@@ -2,6 +2,16 @@
 
 > **流程位置**：`orchestrate-workflow` Steps 15-18 · Route 2 Bug Investigation
 
+## Self-Read Protocol
+
+你是 root-cause-analyst。启动时按以下顺序执行：
+
+1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`bug_context`（包含 `description`、`error_log`、`file_paths[]`、`previous_attempts`）。
+2. 读 `bug_context.file_paths[]` 中列出的所有相关源文件，理解 bug 所在上下文。
+3. 读本文件（你正在读的这份手册），理解 Return Contract 格式与 Coordinator 处置路由。
+4. 独立调查根因，遵循假设驱动流程：列假设 → 寻证据 → 排除 → 得结论。
+5. 输出 Verdict，说明 Resolution、Root cause、Fix（若已修复）、Excluded hypotheses、Regression risk。
+
 ## Step 15：Dispatch root-cause-analyst
 
 ```
@@ -12,17 +22,14 @@ Agent({
     ## 调度场景
     Bug Investigation 入口。用户报告 bug/error/regression，根因不明，从零调查。
 
-    ## Bug report
-    <paste user's bug description>
+    ## Bug context
+    读 `DISPATCH_ENVELOPE.bug_context`，该字段包含：
+    - `description`: 用户报告的 bug 描述
+    - `error_log`: 错误日志、失败测试、regression 描述（若有）
+    - `file_paths`: 相关文件路径列表（若已知）
+    - `previous_attempts`: 用户提到的已尝试修复方式（若有）
 
-    ## Reproduction / symptoms
-    <paste error log, failing test, regression description>
-
-    ## Relevant files (if known)
-    <paste file paths, modules>
-
-    ## What has been tried
-    <paste if user mentioned previous attempts>
+    注：`envelope.bug_context` 由 Coordinator 在派发时填入 `DISPATCH_ENVELOPE` JSON 块。
 
     ## Return contract
     ### Verdict
@@ -287,6 +294,15 @@ Repair Return Contract 必须补充：
 | `needs repair` | 读 concerns；正确性问题 → SendMessage worker 修复；观察性意见 → 记录，进 Codex review |
 | `needs context` | SendMessage 补充上下文给 worker |
 | `blocked` | 技术阻塞：换更强模型 / 拆 scope；业务阻塞：询问用户 |
+
+## Coordinator 端最小职责
+
+Coordinator 在派发 root-cause-analyst 时只需完成以下动作，其余由 analyst 自读：
+
+1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`phase: "bug-investigation"`、`agent_role: "root-cause-analyst"`。
+2. 在 `envelope.bug_context` 中写入 `description`、`error_log`（若有）、`file_paths[]`（若已知）、`previous_attempts`（若有）。
+3. 触发 `state.sh` 记录 analyst 派发状态，保存 `agentId` 以备 SendMessage 补充上下文。
+4. 等待 analyst 返回，按 Step 16 路由表处置 Resolution。
 
 ---
 > **下一步**：修复通过 Codex review → Closing（`workflow-closing.md`）。root cause in design/plan → 创建 budget file + 转入 Route 1（SKILL.md Steps 7-14）。
