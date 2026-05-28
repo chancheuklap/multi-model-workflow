@@ -796,6 +796,99 @@ cmd_execution_plan_start() {
   mv "$tmp" "$esf"
 }
 
+# --- agent-context-check subcommand (Plan 005 Pack 5.4) ---
+# Reads execution-state.plans[plan_id].packs and decides whether the current
+# Worker should keep going (verdict=ok) or hand off to a fresh Agent
+# (verdict=need-fresh-worker). Threshold (Decision 4): packs_in_session >= 5
+# AND remaining_packs >= 2.
+#
+# packs_in_session counts how many packs the *current* Worker session has
+# committed in this plan. Since the only signal we have is per-pack status,
+# we approximate by counting all committed packs in the plan (worker_agent_id
+# isn't per-pack; the only Worker per plan is the active one until
+# need-fresh-worker fires, at which point continuation packs become committed
+# under a new Worker — but those previous-Worker committed packs no longer
+# count against the new Worker's session because the new Worker skips them
+# via partial-fail recovery and their commit is "for free" from its
+# perspective).
+#
+# For simplicity (and to match the design's intent of "stop this Worker
+# before context blows up"), packs_in_session = count of committed packs
+# whose state was written during this Worker run. We can't reliably tell
+# that from execution-state alone, so we use: packs_in_session = total
+# committed packs minus committed packs that landed before the current
+# Worker's start. State doesn't surface per-Worker commit timing, so the
+# simple heuristic used here is "all currently-committed packs in this
+# plan". The Worker calls this *after* each commit, so as long as new
+# Workers receive a state.sh agent-id --plan-id on dispatch, this is the
+# right number. The remaining_packs = packs with status not in
+# {committed, skipped}.
+cmd_agent_context_check() {
+  local plan_id=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --help|-h)
+        cat <<USAGE
+Usage: state.sh agent-context-check --run-id <id> --plan-id <id>
+
+Output: JSON {"verdict": "ok"|"need-fresh-worker", "reason": "...",
+              "packs_in_session": N, "remaining_packs": N}
+
+Threshold (Plan 005 Decision 4): packs_in_session >= 5 AND remaining_packs >= 2
+→ need-fresh-worker; otherwise ok.
+USAGE
+        return 0 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$plan_id" ]]; then
+    echo "Error: --plan-id required for agent-context-check" >&2
+    exit 2
+  fi
+
+  local esf
+  esf="$(execution_state_file)"
+  if [[ ! -f "$esf" ]]; then
+    echo "Error: execution-state file not found: $esf" >&2
+    exit 2
+  fi
+
+  if ! jq -e --arg pid "$plan_id" '.plans[$pid] != null' "$esf" >/dev/null 2>&1; then
+    echo "Error: plan_id $plan_id not found in execution-state" >&2
+    exit 2
+  fi
+
+  local committed remaining
+  committed=$(jq --arg pid "$plan_id" \
+    '[.plans[$pid].packs | to_entries[] | select(.value.status == "committed")] | length' \
+    "$esf")
+  remaining=$(jq --arg pid "$plan_id" \
+    '[.plans[$pid].packs | to_entries[] | select(.value.status != "committed" and .value.status != "skipped")] | length' \
+    "$esf")
+
+  local verdict reason
+  if [[ "$committed" -ge 5 && "$remaining" -ge 2 ]]; then
+    verdict="need-fresh-worker"
+    reason="packs_in_session ($committed) >= 5 and remaining_packs ($remaining) >= 2; hand off to fresh Agent (Plan 005 Decision 4)"
+  else
+    verdict="ok"
+    if [[ "$committed" -ge 5 ]]; then
+      reason="packs_in_session ($committed) >= 5 but remaining_packs ($remaining) < 2; not worth the churn — keep going"
+    else
+      reason="packs_in_session ($committed) < 5; below threshold — keep going"
+    fi
+  fi
+
+  jq -n \
+    --arg verdict "$verdict" \
+    --arg reason "$reason" \
+    --argjson c "$committed" \
+    --argjson r "$remaining" \
+    '{verdict: $verdict, reason: $reason, packs_in_session: $c, remaining_packs: $r}'
+}
+
 # --- budget subcommand ---
 cmd_budget() {
   local subcmd="$1"; shift
@@ -1646,6 +1739,7 @@ case "$CMD" in
   self-verify) cmd_self_verify "$@" ;;
   path-a-escalation) cmd_path_a_escalation "$@" ;;
   agent-id) cmd_agent_id "$@" ;;
+  agent-context-check) cmd_agent_context_check "$@" ;;
   execution-plan) cmd_execution_plan "$@" ;;
   budget) cmd_budget "$@" ;;
   direction-check) cmd_direction_check "$@" ;;
