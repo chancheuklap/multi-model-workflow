@@ -260,8 +260,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" self-verify append \
 
 **BLOCKED 双层报告**（发给用户）：
 
-> **业务层**：功能 X 在 Pack N.M 遇到障碍。影响：<用户可见影响>。不修后果：<>。需要：<具体帮助 + 时间>
-> **技术层**：Round N: <问题> → <修复尝试> → <结果>。Root cause: <>。Recommendation: <>
+> **业务影响层**：功能 X 在 Pack N.M 遇到障碍。影响：<用户可见影响>。不修后果：<>。需要：<具体帮助 + 时间>
+> **技术详情层**：Round N: <问题> → <修复尝试> → <结果>。Root cause: <>。Recommendation: <>
 
 **Scope drift**：Changed files 超出 Owned files → 属于同 scope 其它 pack 记录不 revert；超出当前 scope → revert。
 
@@ -288,7 +288,7 @@ Plan 完成后统一处置所有 Pack 的 `### Open Items`（不在单 Pack 返�
 
 #### Step 7：Plan Implementation Review（所有 Pack 完成后）
 
-**Read** `references/execution-review-dispatch.md` 获取完整 review prompt 结构和 reviewer 自跑命令列表。
+**Read** `references/execution-review-dispatch.md` 获取完整 review prompt 结构（含 Review 分段规则、Cross-Pack Coherence、Neighbor interface contracts）和 reviewer 自跑命令列表。
 
 <!-- BEGIN: review-dispatch -->
 **Codex review dispatch** (`CODEX_SCRIPT` unset: `CODEX_SCRIPT="$(find ~/.claude/plugins -path '*/codex/scripts/codex-companion.mjs' -type f 2>/dev/null | head -1)"`)

@@ -247,7 +247,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 
 **Required before returning：** 所有 plan 写完 / Entry+Inventory Gate 通过 / budget_total 赋值 / Plan Review 通过 / Git Checkpoint / `cursor.phase` transition 到 `plan-writing_done`。
 
-**Re-run**：plan 已存在且 plan-writer 已返回 → 跳 Step 9；Plan Review 已有结果 → 跳 Steps 13-14。
+**Re-run behavior**：plan 已存在且 plan-writer 已返回 → 跳 Step 9；Plan Review 已有结果 → 跳 Steps 13-14。
 
 ## Step 20：返回
 
