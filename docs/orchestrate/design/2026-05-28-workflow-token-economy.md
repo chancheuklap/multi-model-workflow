@@ -169,7 +169,11 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - `doc_patch_path` 字段（plan-return-v1.json）— 删除
 - Worker `agent-context-check` 状态查询 — 改为 Worker 本地决策（不调 state.sh）
 
-### 4.2 实现决策（核心改动 12 类）
+### 4.2 实现决策（核心改动 17 类）
+
+> Round 2 决策分两批：
+> - **决策 1-12**：v3.8.0 → token economy 基础重构（模板去重 / 死代码删除 / route 折叠 等）
+> - **决策 13-17**：用户讨论 Discovery 环节后补充（删 targeted re-review / Explorer 集成 / grill-with-docs 升级 / 外部精华补齐 / Discovery 压缩）
 
 > 这一节列出本轮改动的全部范畴。每一条都对应后续大 issue 拆分时的一个候选 vertical slice。具体实现细节由计划文档承担，本节只到决策层面。
 
@@ -297,7 +301,7 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 | validate-plan-dispatch.sh | Step 8: Path A 检查 | exit 2 | 删除（决策 3 已删 Path A） |
 | validate-multi-pr-dispatch.sh | (b): repair_round≥1 + stage=init | exit 2 | **保持 exit 2**（Alignment Review C5：repair 不能在 init 状态执行，会污染 merge-brief resolution log） |
 | validate-multi-pr-dispatch.sh | (d): prompt 含 merge-brief 路径字符串 | exit 2 | **保持 exit 2**（Alignment Review C5：缺路径会让 agent 走 paste-content anti-pattern，破坏 Document-as-Context 单一权威源 + compaction 恢复） |
-| gate-codex-review.sh | targeted-re-review 必须 `--resume` | exit 2 | **保持 exit 2**（Alignment Review C4：`--resume` 是 reviewer JOB_ID registry + budget durability + result provenance 合同硬保护，不是质量问题） |
+| gate-codex-review.sh | targeted-re-review 必须 `--resume` | exit 2 | **整段删除**（决策 13：targeted re-review 机制全局删除，--resume 检查无意义） |
 
 **保留 exit 2 的检查**（不动）：
 - session-start.sh 全部
@@ -351,15 +355,123 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 
 **Verify-maturity 加检查**：所有 `plugin/skills/*/references/*.md`（除 `_shared/`）顶部 5 行内必须含 `> 流程位置` / `> 使用场景` / `> 完成后回到` 任一路标 blockquote，无则报错
 
+#### 决策 13：删除 Targeted Re-review 机制（全局 / 最高优先级）
+
+**当前**：Codex Review 体系含两类 review intent：
+- `baseline`：首轮全量审查
+- `targeted-re-review`：Coordinator 修复后再请 reviewer 对 specific finding 复核闭合
+
+`targeted-re-review` 是 plugin 自身最大的 token 漏洞——每次小修复都触发一次 reviewer 重启（即使带 `--resume`，prompt + 工作树读取仍是新 round 的开销），review budget `3P + 12` 中的 `+12` 主要给 targeted re-review 用。
+
+**改动**：**全局删除 targeted re-review 机制**。每个产出（design / plan / pack / final / multi-pr）只走一轮 review + 一轮修复，封顶。
+
+- **review_intent enum**（dispatch-envelope-v1.json）：从 `baseline / targeted-re-review` 收敛为 `baseline` 单值（或直接删除 review_intent 字段）
+- **gate-codex-review.sh**：删除 `targeted-re-review` 分支全部代码（约 20 行）+ `--resume` 强制检查 + `exception_code` 强制检查
+- **parse-envelope.sh**：删除 review_intent 枚举约束 + targeted-re-review 必须含 exception_code 的 validation
+- **review-dispatch.md.tmpl**：删除 `[variant=targeted-re-review]` 子模板及对应 resolver 入参
+- **validate-review-dispatch.sh / record-review-dispatch.sh**（合并后 `dispatch-review.sh`）：删除 targeted re-review 的 agent_id 匹配 / baseline JOB_ID 复用 / disposition_refs 必填 等逻辑
+- **workflow-state-v1.json**：删除 `self_verifications` 数组中 targeted-re-review 相关字段（exception / exception_code）；保留 `disposition_refs` 作为 Coordinator 自验的可选证据
+- **all SKILL.md / references**：grep 删除所有"targeted re-review" / "targeted-re-review" 描述（架构 / Hook / dispatch 模板 / 流程图 全清）
+- **architecture-draft.md**：删除 §11.4 targeted re-review 章节 + §13 review intent 表中对应行 + 任何流程图中的 targeted re-review 分支
+- **review budget 公式**：`3P + 12` → **`2P + 6`** 或 `1.5P + 6`（具体由 plan 阶段实测决定）。`+6` 仅保留给 Discovery / Plan-writing / Final / Multi-PR 各 1 次 baseline review
+- **修复后处置**：每次 baseline review → Coordinator 验证 findings → Worker 修复 → **不再 review 闭合**。改为：
+  - Coordinator 自验闭合（用 grep + Read 验证修复点已落地）
+  - 留作 disposition 痕迹写入 workflow-state.review_dispositions 即可
+  - 若 Coordinator 自验仍有疑虑 → 升级 BLOCKED 报告用户，由用户决定是否人工请 Codex 再审；不在自动流程内
+- **修复仍失败的极端情况**：进入 `root-cause-analyst` 调查路径（已有），不再走 targeted re-review
+
+**理由**：用户明确指出 — 产出 review 一次 + 修复一次封顶就够。targeted re-review 在 baseline review 已给出 evidence locator 的前提下，本身是 redundancy；Coordinator 验证 finding + Worker 修复 + Coordinator 自验是更便宜的闭合方式。该机制是 plugin 自身最大的 token 漏洞之一。
+
+**收益估算**：每个 phase review 平均省 1-2 次 targeted re-review × ≈10k tokens / 次 = 节省 **≈20-40k tokens / phase**；review budget 总量约减 50%。
+
+**注意**：决策 9 中关于 `gate-codex-review.sh --resume` "保持 exit 2" 在本决策落地后**自动作废**（targeted-re-review 不复存在，无 `--resume` 强制约束）。决策 9 / §5.6 / §7.1 verify-maturity 需要同步更新——这部分由 plan-writing 时一次性处理。
+
+#### 决策 14：Discovery 阶段 Explorer agent 并行派发集成（与 Plan-writing 对称）
+
+**当前**：调研 A 确认 — orchestrate-discovery/SKILL.md **零次** `Agent({ code-explorer })` 调用；Coordinator 在 Steps 1-2 自己读 CLAUDE.md / SPEC / ADR / CONTEXT.md / commits，承担全部仓库探索上下文压力。code-explorer / complex-code-explorer 仅在 design-review-angles.md L274 / L295 作为 Review 补证用，**主流程未利用**。Plan Writing 阶段并行派 plan-writer，Discovery 阶段无对称机制。
+
+**改动**：
+- **orchestrate-discovery/SKILL.md Steps 1-2 重写**：把"Coordinator 自己读"改为"Coordinator 判断范围后**并行派 N 个 Explorer**"：
+  - 窄范围（单模块 / 单文件链）→ `code-explorer`
+  - 多模块 / 历史行为 / 架构摩擦 → `complex-code-explorer`
+  - 已知根因不清且涉及 bug → `root-cause-analyst`
+- **派发模式**：模糊设计意图触发**多 Explorer 并行**调研（5 个并行是常见模式，如本次 Round 2 Discovery 自身已使用过）
+- **Coordinator 职责收窄**：Coordinator 主要读 sub-agent 返回的浓缩报告 + 与用户讨论；不主动 grep 大范围仓库
+- **派发清单**写入 SKILL.md 主流程（不是 references / 附录），与 plan-writing 的并行派发对称
+- **删除 SKILL.md 中"Coordinator 自己读 CLAUDE.md / SPEC / ADR / CONTEXT.md / agents.overrides.md / 近期 commits"措辞**，改为"按需派 Explorer 调研，Coordinator 仅读 Explorer 返回的浓缩报告 + 用户原话"
+
+**收益估算**：Coordinator 在 Discovery 阶段消耗减半（不再读大量原始代码 / 文件），上下文密度大幅提高。
+
+**对齐**：本决策让 Discovery 与 Plan-writing 在 sub-agent 派发密度上对称——这是用户明确的设计意图（充分利用自定义 sub-agent 代替 Claude Code 内置 general-purpose agent）。
+
+#### 决策 15：grill-with-docs 提升为 Discovery 主流程同步入口，CONTEXT.md 与 Design 同等地位
+
+**当前**：调研 B 确认 — grill-with-docs 在 SKILL.md 仅出现 1 次（L134"外部 Skill"汇总段，标注"全程使用"）；discovery-discussion.md L80 称其为"Domain Alignment 核心执行方式"，**但 SKILL.md 主流程 Steps 3-6 / 7-9 未显式 surface**。CONTEXT.md 在 Step 1-2 只是"读"输入；**无"设计文档落笔前 CONTEXT.md 已就绪"门控**；无"第一轮对话前同步启动 grill-with-docs"指引。
+
+**改动**：
+- **orchestrate-discovery/SKILL.md Step 0 新增**（在 Steps 1-2 之前）："**Step 0：同步启动 grill-with-docs**。在第一轮用户对话前调用 `Skill({ skill: "grill-with-docs" })`，由该 skill 全程负责 CONTEXT.md 维护。CONTEXT.md 与 design document 是 Discovery 阶段的**双交付物**，地位等同。"
+- **CONTEXT.md 路径写入 Scope Contract** 作为 Discovery 权威文档之一（与 design path 并列）
+- **discovery-design-document.md Step 7（写设计文档前）增加门控**：grep 设计文档草稿中所有术语，必须在 CONTEXT.md 中有定义；缺失术语先回 grill-with-docs 补齐再继续
+- **CONTEXT.md schema**：术语表 + 对象关系 + 角色 + 状态四段（已有，强化）。新增"Discovery 完成时 CONTEXT.md 必须包含本次设计涉及的所有领域术语"硬约束
+- **删除 discovery-discussion.md L80 单独的"grill-with-docs 的角色"段**（200 chars 与 SKILL.md L134 重叠，移到 SKILL.md Step 0）
+- **architecture-draft.md Document-as-Context 主线段同步**：把 CONTEXT.md 提升为与 design / issue / plan / merge-brief 同级的"领域级权威文档"，明确"CONTEXT.md 跨多次 Discovery 累积，design 是单次 Discovery 产出"
+
+**收益估算**：设计文档术语一致性硬保证；下游 plan / pack 不再因术语漂移产生隐性 review finding。
+
+#### 决策 16：Discovery 补齐外部精华（从 Brainstorming / to-PRD / office-hours 吸收缺失项）
+
+调研 C / D 列出本地未吸收或吸收稀释的精华，本决策补齐：
+
+**Brainstorming（obra/superpowers）补齐**：
+- **Visual Companion 独立消息协议**：discovery-discussion.md 视觉判断段（L63）增加"Visual Companion 提议必须独立消息发出，用户同意后逐题判断 'see beats read'"
+
+**to-PRD（mattpocock）补齐**：
+- **synthesize fast-path**：SKILL.md Step 1-2 增加"若用户传入的 PRD / issue / 上下文已覆盖 Problem / Solution / Acceptance，跳过 Steps 3-6 一问一答，直接 Steps 7-9 起草设计文档，再让用户审稿"
+- **Deep modules sketch 显式 step**：discovery-design-document.md 在写设计文档前增加 Step 6.5："列出本次涉及的 deep modules（rich functionality + simple testable interface + stable API）并与用户对齐"
+- **prototype-snippet 例外类型列出**：design-document.md L29 补"例外类型：state machine / reducer / schema / type shape"
+
+**office-hours / GSTack 补齐（仅 Discovery 适用的部分）**：
+- **Forcing Questions 三问锚点**（新功能 Discovery 强制问）：
+  1. Demand Reality：谁现在愿意为这个付钱 / 投入时间？说出具体人或机构，不是类别
+  2. Status Quo：用户现在用什么拼凑解决这个问题？（spreadsheet + Slack 也是真竞品）
+  3. Narrowest Wedge：最小可付费 / 可演示 / 可验证的切片是什么？
+- **Push twice 规则**：voice-directive 增加"第一个回答默认是抛光过的，至少追问一轮才相信"
+- **Premises 显式 gate**：分段呈现设计前，先列 3-5 条 premise 让用户逐条 agree / disagree（比"分段呈现"更早暴露根本假设）
+- **Alternatives 三档强制 + 结构化字段**：discovery-discussion.md L52"2-3 方案"升级为强制三档模板：Minimal Viable / Ideal Architecture / Creative Lateral，每档含 Summary / Effort / Risk / Pros / Cons / Reuses 五字段
+
+**不吸收（参考 ≠ 复刻）**：
+- "10-star product" / Scope Modes / Dual-Voice consensus table / autoplan 自动流水线 — 这些是 Plan 阶段或与本地架构哲学冲突，不在 Discovery 引入
+
+#### 决策 17：Discovery 文档压缩（在保留所有精华前提下）
+
+调研 E 给出具体压缩清单，本决策落地：
+
+**孤儿 / 死内容删除**：
+- 删除 `discovery-formats.md` 整文件，折叠为 `discovery-design-document.md` 的"CONTEXT.md 格式 / ADR 格式"注脚（约 15 行）— 净省 ≈1,900 chars
+- 删除 `design-review-angles.md` L5-13 `Self-Read Protocol` 段 — 该段写"你是 codex-reviewer"，但 Coordinator 读此文件时是派发者不是 reviewer；reviewer 角色由 Coordinator 写出的 review prompt 自己声明 — 省 614 chars
+- 删除 SKILL.md L37 `Route Dispatch` 行（preamble T2 内的错位内容，Discovery 是 route 终点非 router）— 省 60 chars
+- 删除 SKILL.md L134 `Skill({ skill: "zoom-out" })` 行（zoom-out skill 实际不存在 — 孤儿引用）— 省 20 chars
+- 删除 discovery-discussion.md L80 "grill-with-docs 的角色"段（已被决策 15 移到 SKILL.md Step 0）— 省 200 chars
+
+**结构优化**：
+- 合并 issue-splitting.md 中两套 issue body 模板（本地大 issue 文件 + GitHub Issue body）为一套 — 本地文件 = GH body + `## Design context refs` + `## Small issues` 两节
+- design-review-angles.md：`Coordinator 端最小职责` 段上移至 review-dispatch 块内（L19 前），逻辑顺序优化
+
+**保留**：
+- review-dispatch / disposition-table 模板注入（决策 1 已处理 — 改为 canonical reference）
+- discovery-discussion.md / discovery-design-document.md / issue-splitting.md 三个核心 reference（这些是外部 skill 精华的本地化版本，是真正不可减的内容）
+
+**收益估算**：Discovery phase baseline 加载从 ≈38,453 chars 降至 ≈32,000 chars（≈17% 减），与决策 1 / 2 叠加后 ≤30,000 chars。
+
 ### 4.3 改动总览图
 
 ```
 v3.8.0                         本轮 round 2 后
 ─────────────────────         ────────────────────
-13 hooks                      ≤ 10 hooks（删 guard-plan-doc-patch + 部分降级 WARN）
+13 hooks                      ≤ 10 hooks（删 guard-plan-doc-patch + 降级 1 项 + 简化 gate-codex-review）
 13 build templates            10 build templates（删 forbidden-shortcuts / state-write / trust-boundary；review-dispatch.content-only 本轮保留 §10 第 15 条）
-50 references                 ≤ 40 references（删孤儿 7 + 合并多层跳 3） + 3 个 _shared canonical
-20 state.sh subcommands       16 subcommands（删 business-summary / plans / path-a-escalation / agent-context-check；idempotency 保留 — 调研误判已纠正）
+50 references                 ≤ 38 references（删孤儿 7 + 合并多层跳 3 + 删 discovery-formats）+ 3 个 _shared canonical
+20 state.sh subcommands       16 subcommands（删 business-summary / plans / path-a-escalation / agent-context-check；idempotency 保留）
 6 scripts/lib                 3 scripts/lib（合并/删 doc-patch-apply / review-effectiveness / learnings-poison-detector）
 13 scripts                    10 scripts（合并 review-dispatch 对 / route-worker-dispatch 对 + shim 兼容期）
 8 route enum values           4 route enum values（runtime 全称 formal / bug-investigation / multi-pr-merge / direct-repair）+ phase_skip[] flags
@@ -367,6 +479,9 @@ v3.8.0                         本轮 round 2 后
 2 修复路径（A + B）           1 修复路径（B / SendMessage）
 独立 bug seed 文件             直接以 RCA findings 进 Discovery
 doc-patch 系统                 Coordinator 直接 Edit plan checkbox
+review_intent: 2 值            review_intent: 1 值（baseline 单值，删除 targeted-re-review；review budget 3P+12 → 2P+6）
+Discovery: Coordinator 自读     Discovery: 并行派 N 个 Explorer + Coordinator 读浓缩报告
+grill-with-docs: 全程提及       grill-with-docs: Step 0 同步入口；CONTEXT.md 与 Design 同级
 ```
 
 ---
@@ -381,7 +496,9 @@ doc-patch 系统                 Coordinator 直接 Edit plan checkbox
 
 | 字段 | 当前 | 改为 |
 |------|------|-----|
-| `review_intent` enum | `baseline / targeted-re-review / path-a-re-review` | `baseline / targeted-re-review`（删 path-a-re-review） |
+| `review_intent` enum | `baseline / targeted-re-review / path-a-re-review` | **`baseline` 单值**（决策 13 删 targeted-re-review + 决策 3 删 path-a-re-review）；可考虑直接删除该字段 |
+| `exception_code` | string\|null | **删除**（仅服务 targeted-re-review，机制被删） |
+| `disposition_refs` | array of finding-id | 保留（baseline review 后 Coordinator 修复时仍可填，作为自验痕迹） |
 
 **Owner**：plan 涉及决策 3（删 Path A）的 plan
 **Producer**：所有 dispatch Codex review 的 reference（review-dispatch.md.tmpl 或 canonical reference 文件）
@@ -460,7 +577,9 @@ doc-patch 系统                 Coordinator 直接 Edit plan checkbox
 | `validate-plan-dispatch.sh` Step 8 Path A | exit 2 | 删除（无 Path A 概念） |
 | `validate-multi-pr-dispatch.sh` (b) | exit 2 | **保持 exit 2**（Alignment Review C5） |
 | `validate-multi-pr-dispatch.sh` (d) | exit 2 | **保持 exit 2**（Alignment Review C5：Document-as-Context 单一权威源保护） |
-| `gate-codex-review.sh` `--resume` 检查 | exit 2 | **保持 exit 2**（Alignment Review C4：reviewer registry + budget + provenance durability） |
+| `gate-codex-review.sh` `--resume` 检查 | exit 2 | **整段删除**（决策 13：targeted re-review 机制被删，无 --resume 强制约束） |
+| `gate-codex-review.sh` `targeted-re-review` 分支 | exit 2 | **整段删除**（决策 13） |
+| `gate-codex-review.sh` `path-a-re-review` 分支 | exit 2 | **整段删除**（决策 3 已删 Path A） |
 | 其他 hook 行为 | — | 保持 |
 
 **Owner**：决策 9 的 plan（+ 决策 4 关于 guard-plan-doc-patch）
@@ -658,7 +777,7 @@ TBD（plan writing 完成后填充）
 1. 不改 Worker Loop 6 段合同（启动 5 步 / Pack 循环 / 6 个 verdict / repair mode / context 自监控 / artifact schema）。决策 4 删除 doc-patch 不算改 6 段——artifact 段保留 plan-return.json + pack-returns/，只是 `doc_patch_path` 可选字段被删除，per_pack 必填结构不动
 2. 不改 Document-as-Context 主线（设计 → issue → plan → merge-brief → 代码 链路）
 3. 不改 Codex Review 5 步派发协议（`codex-companion.mjs task --background ... result`）
-4. 不改 review budget 公式（`3P + 12`）和 effort budget 公式（`2 × review_total`）
+4. ~~不改 review budget 公式~~ — **决策 13 推翻**：删除 targeted re-review 后，review budget 从 `3P + 12` 降为 `2P + 6`（baseline review 每 phase 1 次 + 修复后 Coordinator 自验闭合，不再 reviewer 闭合复审）。effort budget 公式 `2 × review_total` 保持
 5. 不引入新的 sub-agent 类型（继续用现有 7 个）
 6. 不引入新的 review provider（仍只用 Codex）
 7. 不改 mockup 系统 / frontend-design skill 集成
