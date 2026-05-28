@@ -97,25 +97,13 @@ Skill({ skill: "multi-model-workflow:orchestrate-discovery" })
 
 **更新 workflow-state**：`last_gate_phase: "discovery"`, `last_gate_timestamp: <now>`。
 
-#### Step 8b：大 issue 拆分（缺 issue hierarchy 时）
+#### Step 8b：大 issue 拆分
 
-重新进入 `orchestrate-discovery` Step 12（大 issue 拆分）。Coordinator 执行前必须：
+Read Scope Contract + design doc → 重进 `orchestrate-discovery` Step 12。（compact 后设计内容须重新 Read。）
 
-1. **Read** Scope Contract（`.claude/multi-model-workflow/scope-<run_id>.md`）获取 slug
-2. **Read** 设计文档（`docs/orchestrate/design/<slug>.md`）确认内容在上下文中
-3. 进入 `Skill({ skill: "multi-model-workflow:orchestrate-discovery" })` 的 Step 12 流程
+#### Step 8a：Direct Repair
 
-大 issue 拆分需要设计文档的完整内容。如果 Coordinator 上下文中已无设计文档内容（因 compact 或 phase 切换），必须重新 Read。
-
-#### Step 8a：Direct Repair（READY_FOR_REPAIR mini-route）
-
-先将 workflow-state 转为 Direct Repair unlimited budget：
-
-```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" budget unlimited --run-id "<run_id>" --route direct-repair
-```
-
-**Read** `references/workflow-direct-repair.md` 并严格执行（Worker 修复 + Codex review + Closing）。修复后进入 Closing。
+`state.sh budget unlimited --run-id "<run_id>" --route direct-repair` → **Read** `references/workflow-direct-repair.md` → Closing。
 
 ---
 
@@ -226,8 +214,6 @@ Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
 > Root cause: <阻塞根因>
 > Attempted: <已尝试的解决方案>
 
-**Sub-agent 隔离**：dispatch prompt 必须自足。Sub-agent 不读 SKILL.md、不读 references/。Agent frontmatter `skills:` 自动预加载指定 skill。
-
-**Commit 纪律**：Executor worker 直接在 Coordinator 分支上自行 commit。Plan-writer 等非 executor sub-agent 不 commit，Coordinator 统一提交。不 stage 非当前 scope 文件。
+**Sub-agent 隔离**：prompt 必须自足；Sub-agent 不读 SKILL.md / references/；`skills:` frontmatter 自动预加载。**Commit 纪律**：Executor worker 直接在 Coordinator 分支 commit；Plan-writer 等不 commit，Coordinator 统一提交。不 stage 非 scope 文件。
 
 **禁止**：跳过 Discovery / Plan Review / Final Review / 用技术语言汇报 / 自己写生产代码 / 每 task 一个 sub-agent / 超循环上限不处理。
