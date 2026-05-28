@@ -1,0 +1,702 @@
+# Workflow Token Economy 设计文档
+
+> **Slug**：`2026-05-28-workflow-token-economy`
+> **Run ID**：`2026-05-28-token-economy-45273`
+> **Route**：Formal Orchestrate（Route 1）
+> **Baseline**：v3.8.0（Plan-level Worker Autonomy 完成后）
+> **设计目标**：在不动 Worker Loop / Document-as-Context 主线的前提下，对整个 plugin 进行系统级 token 减负 + 流畅度优化
+
+---
+
+## 1. 背景和问题
+
+### 1.1 现状
+
+上一轮 Plan-level Worker Autonomy 改造（v3.8.0）已经把执行阶段的 Pack-level 派发收敛为 Plan-level Worker 自治，把 35-55 次 Pack-level dispatch 压到 7-11 次。但 plugin 本身的 token 开销没有同步压缩，反而因为新增的辅助机制（doc-patch 系统 / Pack Manifest 三方对账 / merge-brief 状态机 / Worker Loop 5 步启动）变得更重。
+
+通过 5 个并行调研（token 热点 / hook 阻断分层 / state.sh + scripts 真实使用率 / reference 跳跃路径 / 外部 skill 集成现状）+ 上一轮架构重写过程中的观察，得到一组可观测的事实：
+
+| 维度 | 当前数字 | 痛点 |
+|------|---------|-----|
+| 最大 SKILL.md | orchestrate-execution **530 行 / 28507 chars** | 进入一次 Execution phase 单 SKILL.md 就 ≈7000 tokens |
+| Phase 进入 baseline 加载 | final-review **84855 chars** / execution **83114 chars** | 进入一次 phase ≈21000 tokens 起步 |
+| 单个 reference 最大 | `merge-integration-review.md` **358 行 / 23269 chars** | 单 reference ≈6000 tokens |
+| Build 模板 review-dispatch 注入 | 11 个 .md 文件 × 79 行 = **869 行复制** | 同一段内容随各 phase SKILL.md 重复加载 |
+| Build 模板 repair-routing 注入 | 9 个 .md 文件 × 42 行 = 378 行复制 | 同上 |
+| Build 模板 disposition-table 注入 | 6 个 .md 文件 × 47 行 = 282 行复制 | 同上 |
+| 孤儿 reference 文件 | 7 个文件 / **共 ~700 行无人引用** | plugin 装载时仍占体积 |
+| state.sh 子命令 | 20 个顶层，其中 **3 个 0 生产调用** | dead code |
+| scripts/lib 库 | 6 个，其中 **2 个 0 生产 source** | dead code |
+| Reference 总数 | 50 个 `.md` reference 文件 | 24% 无顶部路标，含多层跳 |
+| 4-7 路线 route-extensions | workflow 和 execution 各 4 份共 **8 个文件**，execution 副本是 DEPRECATED | 重复 |
+| 外部 skill 内联 | `to-issues` 等 4 个外部 skill 完全 inline 到 references，共 **~650 行** | 应可外部调用 |
+
+### 1.2 问题归纳
+
+把这些事实归纳成五类问题：
+
+**问题 A：同一内容在 6+ 个文档里复制粘贴**
+Build 模板系统本意是 DRY，但实现成了"把同样的内容 inject 到 N 个文件里"——加载时还是要把 N 份重复内容读进 Coordinator 的上下文。`review-dispatch`（79 行）×11、`repair-routing`（42 行）×9、`disposition-table`（47 行）×6、`voice-directive` 各 variant 各一份在 6 个 SKILL.md。这违背了 DRY 的本意。
+
+**问题 B：为了绕开自己设的规矩，造了一整套工具**
+最典型是 doc-patch 系统：Worker 想给 plan 文档勾几个 checkbox，但被 `guard-doc-edit.sh` 拦住，于是发明了"Worker 写 `doc-patch.diff` → `guard-plan-doc-patch.sh` 验证 → `doc-patch-apply.sh` lib 等审查通过再 apply → Decision 6 描述时机"——一个 schema + 一条 hook + 一个 lib + 一个 decision。同类还有 Path A 修复路径（4 个状态字段 + 1 个 hook 检查 + 1 个独立 reference）、bug-seed-file（RCA 发现根因不直接回 Discovery，先造 seed file 再进）、`agent-context-check` state.sh 子命令（Worker 数自己的 Pack 数还要绕一圈）。
+
+**问题 C：7 条路线本质是 1 条主线 + 几个开关**
+Route 1（Formal）+ Route 2（Bug）+ Route 3（Multi-PR）是真正不同的流程。Routes 4-7（Hotfix/Quickfix/Spike/Maintenance）都是"Route 1 跳过某些 phase + budget 不限"，却被当作独立 route，配了独立 `route-extensions/` 目录（workflow 和 execution 各一份，共 8 个文件）+ 独立 budget 策略 + 独立 commit 格式。
+
+**问题 D：Hook 缺少分层，把"提醒"做成了"硬阻断"**
+用户阐明的设计意图：hook 是关键时刻的提醒和规范，不应过度死板。当前 13 条 hook 脚本里：
+- 5 条是必要的硬墙（session-start / guard-doc-edit / guard-premature-push / enforce-plan-commit / track-execution-state pack ID 提取依赖的格式）
+- 4 条是必要的记账（agent-return-handler / track-review-budget / track-execution-state / track-effort-budget）
+- 4 条混杂了"该阻断"和"该提醒"的逻辑（validate-plan-dispatch / validate-multi-pr-dispatch / gate-codex-review）
+- 多条因为服务于自挖坑的工具而存在（guard-plan-doc-patch 服务 doc-patch / 部分 validate-plan-dispatch 步骤服务 Path A）
+
+**问题 E：渐进式加载做过头，agent 在文档间反复跳**
+50 个 reference 文件、24% 缺顶部路标、若干 reference 内部又引用另一个 reference 形成 3 层跳。3 个 multi-pr handbook 是孤儿（没有任何 .md 引用它们）。`execution-worker-handbook.md` 在 SKILL.md 里被引用但文件实际不存在（实际文件是 `execution-worker-dispatch.md`，文件名 bug）。`route-extensions/` 在 workflow 和 execution 各存一份，execution 副本已经是 DEPRECATED 但没删。
+
+### 1.3 用户阐述的设计原则（必须遵循）
+
+用户在本次会话中明确阐述了 plugin 的设计原则，本次优化必须沿着这些原则走，不能背离：
+
+1. **文档传递上下文 = 防压缩 + 可回顾审查**：design / issue / plan / merge-brief 是唯一的上下文媒介，Coordinator 在 compaction 后能从磁盘恢复
+2. **Sub-agent 分担 Coordinator 上下文 + 提升专项输出质量**：把专项工作（写设计 / 写 plan / 写代码 / 调研根因）下放
+3. **每阶段 Codex Review 防止下游偏离上游**：design / issue / plan / code 各有 Review
+4. **Review 配额防止无限循环**：review budget = 3P + 12，硬封顶
+5. **Schema / contract 减少 agent I/O 随机性 + 减少思考时间**：DISPATCH_ENVELOPE / plan-return / merge-brief 等都是为此
+6. **模板 = 让 agent 不漏细节**：build template 注入的内容是行为契约
+7. **运行时记录 = 对抗 compaction 进度丢失**：workflow-state / execution-state / pack-returns / plan-returns
+8. **Hook = 关键时刻提醒和规范，不应过度死板造成意外断点**
+9. **渐进式加载 vs 过度拆分**：renderless 加载好，但拆得太碎会让 agent 反复跳；每个文档要有"路标"指引进入和离开
+10. **外部 skill 集成有三种模式**：(a) 作为外部 Skill 调用 (b) 内容 inline 到 plugin reference (c) 放到 sub-agent 定义里直接指导
+
+这十条原则是衡量本次优化每个改动的标尺。
+
+---
+
+## 2. 目标结果
+
+### 2.1 可观测目标
+
+完成本轮优化后，达到以下可验证状态：
+
+| 指标 | 当前 | 目标 |
+|------|------|-----|
+| `orchestrate-execution/SKILL.md` 行数 | 530 | ≤ 300 |
+| `orchestrate-execution` phase 进入 baseline 加载（chars） | 83114 | ≤ 50000 |
+| `orchestrate-final-review` phase 进入 baseline 加载（chars） | 84855 | ≤ 50000 |
+| `orchestrate-multi-pr-merge` phase 进入 baseline 加载（chars） | 74557 | ≤ 50000 |
+| Build 模板 inject 到 5+ 文件的锚点数 | 3（review-dispatch / repair-routing / disposition-table） | 0 — 改为引用 canonical reference |
+| 单个 reference 最大行数 | 358 | ≤ 250 |
+| 孤儿 reference（无任何 .md 引用） | 7 | 0 — 删除或被引用 |
+| state.sh 0 生产调用的子命令 | 3 | 0 — 删除或合并 |
+| scripts/lib 0 生产 source 的库 | 2 | 0 — 删除或合并 |
+| route-extensions 副本目录数 | 2（workflow + execution） | 1（只在 workflow） |
+| Route 枚举值 | 8（formal / bug / multi-pr / hotfix / quickfix / spike / maintenance / direct-repair） | ≤ 4（formal / bug / multi-pr / direct-repair） + flags |
+| Hook 脚本数 | 13 | ≤ 10 |
+| Reference 无顶部路标数 | 8 / 50（16%） | 0 / N |
+| 不变量：Worker Loop 6 段合同 | 保持 | 保持 |
+| 不变量：Document-as-Context 主线 | 保持 | 保持 |
+| 不变量：Codex Review 5 步派发协议 | 保持 | 保持 |
+
+### 2.2 不可观测但必须保证的能力
+
+- Coordinator 在 compaction 后能从 workflow-state + scope + 设计/计划/issue/merge-brief 完整恢复进度
+- 每个 phase 之间通过 review 抓住下游偏离上游的风险
+- Worker 能在一次 dispatch 中完整执行一个 Plan 的所有 Pack
+- 长任务（≥ 30 Pack）能完整落地不漏 Pack
+
+---
+
+## 3. 用户场景
+
+本任务是 plugin 自身的优化，"用户"是开发者（项目负责人）通过 plugin 调度 workflow。场景：
+
+### 3.1 Happy Path
+
+开发者发起一次中等规模的功能开发任务（≈ 5 Plan / 25 Pack）：
+1. Coordinator 进 Discovery → 写设计文档 → Design Review pass
+2. Coordinator 拆大 issue → 走 Plan Writing → 5 个 plan-writer 并行写 5 份 plan → Plan Review pass
+3. Coordinator 进 Execution，逐 plan 派 Worker：
+   - 每个 Worker 在一次 dispatch 内串行做完 5 Pack，写 plan-return.json
+   - Coordinator 派 Plan Implementation Review，pass 后直接 Edit plan 文档勾选 checkbox（不再有 doc-patch 中间步骤）
+4. 全部 Plan pass → Final Review → Closing
+
+期望：整个流程 Coordinator 消耗 ≤ 上一轮同等任务的 65%。
+
+### 3.2 Repair Path
+
+Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走 SendMessage Path B 给原 Worker（不再有 Path A 自修分叉）→ Worker 修完写 plan-return.json → targeted re-review。
+
+期望：repair 路径状态字段减少 4 个（path_a_escalation / blocked_for_self_fix / 等），相关 hook 检查减少。
+
+### 3.3 Compaction Recovery
+
+会话在 Execution 中途 compact。Coordinator 恢复：
+1. SessionStart hook 注入恢复规则
+2. Coordinator 读 workflow-state 的 `cursor.phase` 和 `cursor.reference` 确定位置
+3. Coordinator 读 scope + design + plan + execution-state 重建上下文
+4. 从 cursor.step 继续
+
+期望：恢复时读取的文档总量 ≤ 当前的 65%（因为各文档已瘦身、模板内容不再 6 处重复）。
+
+### 3.4 Hotfix
+
+紧急生产事故，用户喊"hotfix"：
+1. Coordinator 不再走独立 Route 4，而是 Route 1 with `phase_skip: [discovery, plan-writing, final-review]` + `budget_status: unlimited`
+2. 单 Pack 执行 + 单 review
+3. 先 push 再事后 review（保留现有 pending_post_push_reviews 机制）
+
+期望：route-extensions/route-4-hotfix.md 不再是独立文件，行为通过 Route 1 + flags 实现。
+
+---
+
+## 4. 方案设计
+
+### 4.1 业务对象、角色和状态
+
+**保持不变的对象 / 角色 / 状态**：
+- `Coordinator` / `Worker` / `Plan-writer` / `Code-explorer` / `Root-cause-analyst` / `Docs-worker` 角色
+- `Workflow phase` 枚举：discovery / plan-writing / execution / final-review / closed
+- `Plan` / `Task Pack` / `Pack execution status` 五值（pending / in_progress / committed / blocked / skipped）
+- DISPATCH_ENVELOPE 核心字段（protocol_version / run_id / phase / agent_role / repair_round / idempotency_key / plan_id / pack_id）
+- Worker Loop 6 段合同（启动 / 循环 / verdict / repair / context / artifact）
+- Plan-return / pack-returns / open-items / merge-brief schema 顶层结构
+
+**简化的对象 / 状态**：
+- `Route` 枚举从 8 值（formal / bug / multi-pr / hotfix / quickfix / spike / maintenance / direct-repair）简化为 4 值（formal / bug / multi-pr / direct-repair）+ flags（`phase_skip` 数组 + `budget_status` 已有）
+- `Path A escalation` 状态字段 + `blocked_for_self_fix` 字段 — 删除
+- `bug_seed_path` 概念 — 删除（RCA findings 直接作为 Discovery 输入）
+- `doc_patch_path` 字段（plan-return-v1.json）— 删除
+- Worker `agent-context-check` 状态查询 — 改为 Worker 本地决策（不调 state.sh）
+
+### 4.2 实现决策（核心改动 11 类）
+
+> 这一节列出本轮改动的全部范畴。每一条都对应后续大 issue 拆分时的一个候选 vertical slice。具体实现细节由计划文档承担，本节只到决策层面。
+
+#### 决策 1：模板系统去重——5 个高频 inject 锚点改为 canonical reference
+
+**当前**：`review-dispatch` / `repair-routing` / `disposition-table` 通过 build template 注入到 11 / 9 / 6 个 .md 文件。每次加载文件都读一遍。
+
+**改动**：
+- 把 `review-dispatch.md.tmpl` / `repair-routing.md.tmpl` / `disposition-table.md.tmpl` 三个模板的内容**抽到独立 reference 文件**（位置：`plugin/skills/orchestrate-execution/references/_shared/`），命名 `_shared/review-dispatch.md` / `_shared/repair-routing.md` / `_shared/disposition-table.md`（下划线前缀表示共享，避免被当作 phase 私有）。
+- SKILL.md 和原本 inject 这些锚点的 reference 文件，改为在需要时**用 `Read` 引用 canonical reference 路径**，不再 inject 内容。
+- 修改 `build.sh`：保留锚点系统，但这 3 个模板不再 active；模板文件可以保留作为内容源（避免破坏向后兼容），但 BEGIN/END 注释从所有目标文件中移除。
+- 保留 inject 模式的锚点：`worker-loop`（仅 2 个 agent，DRY 合理）/ `control-envelope`（3 个紧密耦合文件）/ `preamble` 和 `voice-directive`（每个 SKILL.md 自己的 persona，逻辑上是文件元数据不是共享内容）。
+
+**收益估算**：减少 (11+9+6) × ~50 行平均 = ≈1300 行复制；每次进 phase 节省 ≈5-8k tokens。
+
+#### 决策 2：删除死模板和孤儿文件
+
+- `forbidden-shortcuts.md.tmpl` + resolver — 0 实际 BEGIN 引用，**整套删除**
+- `state-write.md.tmpl` + resolver — 单一目标使用，**inline 回 orchestrate-execution/SKILL.md**，删模板
+- `trust-boundary.md.tmpl` + resolver — 单一目标使用，**inline 回 orchestrate-execution/SKILL.md**（保留 worker variant 段落），删模板
+- `review-dispatch.content-only.md.tmpl` — 仅 codex-review/SKILL.md 1 处用，**inline 回 codex-review/SKILL.md**，删模板（decision 1 也删 review-dispatch 主模板）
+- 孤儿 reference 文件 7 个：
+  - `multi-pr-conflict-worker-handbook.md` / `multi-pr-explorer-handbook.md` / `multi-pr-integration-review-handbook.md`（共 455 行 / 16721 chars）— **删除**（内容已被 merge-brief 覆盖；merge-brief 是唯一权威源）
+  - `learnings-confidence-audit.md`（60 行）— **折回** orchestrate-execution/SKILL.md 的 Worker 返回处理段
+  - `learnings-trust-gate.md`（21 行）— **折回** 同上
+  - `path-a-re-review.md`（59 行）— **删除**（决策 3 删除 Path A）
+  - `execution-worker-handbook.md` — SKILL.md 引用但文件不存在（实际是 `execution-worker-dispatch.md`），**修正引用** / 重命名
+- 删除 `plugin/skills/orchestrate-execution/references/route-extensions/` 整个目录（4 个文件），保留 workflow 一侧的 route-extensions/
+
+**收益估算**：删除 ≈800-1000 行 + 模板系统 4 项
+
+#### 决策 3：删除 Path A 自修分叉，所有修复走 Path B SendMessage
+
+**当前**：审查发现问题后两条路径——Coordinator 自己改（Path A，限 ≤2 文件 + 置信 ≥7）/ 派 Worker（Path B）。Path A 加了 4 个状态字段 + 1 条 hook 检查 + 强制 targeted re-review + 自动升级。
+
+**改动**：
+- 删除 `state.sh path-a-escalation` 子命令 + 4 个状态字段（path_a_escalation / blocked_for_self_fix / path_a_count 等）
+- 删除 `gate-codex-review.sh` 中 path-a-re-review 分支检查
+- 删除 `path-a-re-review` review_intent 枚举值（dispatch-envelope-v1.json）
+- 删除 `path-a-re-review.md` reference（决策 2 已包含）
+- 删除 `disposition-table` 中的 `path-a` disposition 选项 — disposition 枚举从 10 个降到 9 个（accepted / rejected / suppress / **path-b** / needs-evidence / duplicate / out-of-scope / needs-evaluation / user-decision）
+- 所有 repair → SendMessage 原 Worker
+- 边角情况：单 Plan 已 closed / Worker 不可达时 → 新 dispatch（envelope 含 `resume_from_pack_id`），不是新增 Path 类型
+
+**理由**：用户已表达 effort budget 加权计算（Decision 5）后，Worker 修一次 finding 的 effort 成本本就很低；省一次 dispatch 不值得 4 字段 + 1 hook + 1 reference 的复杂度。
+
+#### 决策 4：删除 doc-patch 系统，Coordinator 直接 Edit plan checkbox
+
+**当前**：Worker 写 `doc-patch.diff` 到 `plan-returns/<plan_id>/` → guard-plan-doc-patch hook 验证只勾 checkbox → Coordinator 在 Plan Implementation Review 通过后调用 `doc-patch-apply.sh` lib `git apply` 并 `git add`。
+
+**改动**：
+- 删除 `plugin/hooks/guard-plan-doc-patch.sh` 和 `hooks.json` 中对应条目
+- 删除 `plugin/scripts/lib/doc-patch-apply.sh`
+- 删除 `plan-return-v1.json` 中 `doc_patch_path` 字段（保留 `per_pack` — 已含足够信息）
+- 删除 Decision 6 的"timing"决策（apply 时机）— 不再需要
+- 修改 `agent-return-handler.sh`：verdict=pass 时不再暂存 doc-patch.diff；改为输出 NEXT 指令包含"Coordinator: Plan Implementation Review pass 后，Edit plan 文件勾选 per_pack[*].status=committed 的 Pack"
+- Worker Loop 模板（worker-loop.md.tmpl）：删除"写 doc-patch.diff"步骤；plan-return.json 的 `per_pack` 字段是唯一权威信息源
+- Coordinator 在 Plan Implementation Review pass 后用 Edit 工具勾选（直接 toggle `- [ ]` → `- [x]`），不通过 lib
+
+**理由**：Worker 不能改 docs/ 仍然成立（guard-doc-edit.sh 保留），但 Coordinator 可以改——它本来就是 plan 文档的唯一作者方。doc-patch 这一整套系统是为绕开自己设的规矩造的，移除它对 Document-as-Context 主线无影响。
+
+#### 决策 5：删除 bug-seed-file 中间文档，RCA findings 直接进 Discovery
+
+**当前**：root-cause-analyst 返回 `root cause in design/plan` → Coordinator 创建 `bug-seed-<run_id>.md` 中间文档 → 更新 Scope Contract 加入此 seed → 以 seed 为种子进 Route 1。
+
+**改动**：
+- 删除 bug-seed-file 创建步骤
+- RCA agent 返回 verdict=`root cause in design/plan` 时，其完整 findings 报告**直接作为 Discovery 的 Source artifact**（写到 scope.md 的 Source artifacts 段）
+- 删除 architecture-draft §17（Bug Seed File）
+- 删除 bug-investigation-route.md 中相关步骤
+- 删除 scope contract 中可选的 `bug_seed_path` 字段（如有）
+
+**理由**：RCA 报告本身已经足够结构化（Bug Investigation route 输出严格规范）；额外建一个中间文档是多此一举。
+
+#### 决策 6：删除 state.sh `agent-context-check` 子命令，Worker 本地判断
+
+**当前**：Worker 完成一个 Pack 后调用 `state.sh agent-context-check`，state.sh 读 execution-state JSON 返回 `need-fresh-worker` 或 `ok`。
+
+**改动**：
+- 删除 `state.sh agent-context-check` 子命令
+- Worker Loop 模板更新：Worker 在内存里维护一个 `packs_in_session` 计数（每完 Pack +1），不再调 state.sh；判断逻辑就是 `if packs_in_session >= 5 and remaining >= 2: verdict = need-fresh-worker`
+- 删除 18 个 state.sh agent-context-check 的引用方调用代码（多数在 worker-loop.md.tmpl 内）
+
+**理由**：Worker 自己手上就有 packs_in_session 信息（每完一个 Pack 自增），绕一圈 state.sh 没有意义。
+
+#### 决策 7：删除 state.sh 三个 0 生产调用子命令
+
+- `business-summary` — 0 生产调用，删除
+- `idempotency` — 0 生产调用（独立子命令；idempotency_key 字段仍由其他子命令写入），删除子命令本身
+- `plans` — 0 生产调用，删除
+
+scripts/lib 0 生产 source 的：
+- `review-effectiveness.sh` — 评估保留诊断价值。如保留则改为按需调用（不放 lib，放 scripts/）；如删除则一并删 `review_effectiveness` 字段维护逻辑。**决策**：删除 lib 文件，保留 `review_effectiveness` 字段定义（仅作可选诊断字段，由 Coordinator 在 Final Review 时手动统计，不再自动聚合）。
+- `learnings-jsonl.sh` + `learnings-poison-detector.sh` — 合并成一个脚本（`learnings-jsonl.sh` 内联 poison detector 调用，poison-detector 作为 function 而非独立脚本）
+
+#### 决策 8：合并 review-dispatch / route-worker-dispatch 重复脚本对
+
+**当前**：
+- `record-review-dispatch.sh` + `validate-review-dispatch.sh` 总是成对出现于同一 skills
+- `record-route-worker-dispatch.sh` + `validate-route-worker-dispatch.sh` 同模式
+
+**改动**：
+- 合并为 `dispatch-review.sh`，子命令 `validate` / `record` 二合一
+- 合并为 `dispatch-route-worker.sh`，同模式
+- 修改所有 skills/build/templates 引用方
+
+**理由**：每次派发 review 或 route worker 总是先 validate 再 record；分两脚本意味着每次至少调两次 bash，合一减半。
+
+#### 决策 9：Hook 行为降级（阻断 → WARN）
+
+按调研 G 的逐项分析，把以下 hook 检查从 `exit 2` 降级为 `additionalContext WARN`：
+
+| Hook | 检查 | 当前 | 改为 |
+|------|------|------|------|
+| validate-plan-dispatch.sh | Step 6: Manifest 缺失 | exit 2 | WARN（Worker 可从 plan 正文工作） |
+| validate-plan-dispatch.sh | Step 8: Path A 检查 | exit 2 | 删除（决策 3 已删 Path A） |
+| validate-multi-pr-dispatch.sh | (b): repair_round≥1 + stage=init | exit 2 | WARN |
+| validate-multi-pr-dispatch.sh | (d): prompt 含 merge-brief 路径字符串 | exit 2 | WARN（粘贴内容也能跑） |
+| gate-codex-review.sh | targeted-re-review 必须 `--resume` | exit 2 | WARN（resume 是质量问题不是正确性） |
+
+**保留 exit 2 的检查**（不动）：
+- session-start.sh 全部
+- enforce-plan-commit.sh（track-execution-state 依赖此格式）
+- validate-plan-dispatch.sh 的幂等 / budget 已初始化 / Direction Check pending / plan_path 存在 / execution-state 注册 / plan 未占用 / Pack 状态 / disposition refs evidence
+- validate-pack-manifest.sh 全部三方对账（A≠B / stray_C 都是真错误）
+- validate-multi-pr-dispatch.sh (a)(c)（文件存在 + conflict_id 状态）
+- guard-doc-edit.sh（Worker 不能改 docs/ 是核心硬墙）
+- gate-codex-review.sh uncommitted packs 检查
+- guard-premature-push.sh
+
+#### 决策 10：Routes 4-7 折叠为 Route 1 + flags
+
+**当前**：8 个 Route 枚举值 + workflow 和 execution 各 4 份 route-extensions 文件
+
+**改动**：
+- `workflow-state-v1.json` 的 `route` 枚举从 8 值收敛为 4 值：`formal` / `bug` / `multi-pr` / `direct-repair`
+- 新增字段 `phase_skip`（array of phase enum，默认空数组）
+- `budget_status` 已有，复用：`initialized` / `unlimited` / `pending_plan_count`
+- 新增字段 `commit_format_override`（string \| null，默认 null；hotfix 时设为 `"hotfix-unreviewed"`）
+- `orchestrate-workflow/SKILL.md` 的 Entry Gate 入口判定关键词路由：识别到"hotfix"/"quickfix"/"spike"/"maintenance"关键词 → 还是 Route 1，但同时设置对应的 `phase_skip` + `budget_status: unlimited`
+- 删除 `orchestrate-workflow/references/route-extensions/` 中 4 个文件，把每个文件的核心规则（≈20-30 行/文件）整合为 SKILL.md 中一个统一的"Route 1 Variant Table"小节（≈80-120 行）
+- 删除 `orchestrate-execution/references/route-extensions/` 整个目录（已是 DEPRECATED 副本）
+- Hotfix 的 `pending_post_push_reviews` 机制保留（这是真正特殊的状态字段）
+
+**收益估算**：减少 8 个文件 + ≈600 行，且 entry routing 逻辑统一在 SKILL.md 一处。
+
+#### 决策 11：外部 Skill 集成对齐 + agent frontmatter 瘦身
+
+**外部 Skill 调用规范化**：用户列出的外部参考（grill-with-docs / brainstorming / to-PRD / to-issue / Writing Plans / TDD）当前几乎全部 inline 到了 plugin 的 reference 文件。本次保持基本 inline 模式（因为这些 inline 内容已经经过 plugin 上下文裁剪），但做以下对齐：
+- `orchestrate-discovery/SKILL.md` 的 Steps 3-6 段落显式加入 `Skill({ skill: "grill-with-docs" })` 调用指令（当前只在文末"外部 Skill"汇总段提及"全程使用"）
+- `discovery-discussion.md` 第 80 行的描述文字改为可执行的 `Skill()` 调用引导
+- 不引入对 `to-issues` / `to-PRD` skill 的外部调用（避免依赖外部 plugin 状态；当前 inline 经过裁剪已足够）
+
+**Sub-agent frontmatter 瘦身**：
+- `docs-worker.md` frontmatter `skills: grill-with-docs` — **移除**，改为 body 按需 `Skill({ skill: "grill-with-docs" })` 调用（很多 docs-worker 任务是机械整理，不需要 grill）
+- `plan-writer.md` frontmatter `skills: improve-codebase-architecture` — **移除**，改为 body 在 Step 3d 按需调用（不是每个 plan 都涉及架构）
+- 保留：`pack-executor` / `complex-pack-executor` 的 `tdd`、`root-cause-analyst` 的 `diagnose, tdd`（这些每次都用得到）
+
+#### 决策 12：Reference 跳跃精简 + 路标补齐
+
+**消除多层跳**：
+- `execution-completion.md` 内部对 `execution-release-gate.md` 和 `execution-repair-truncation.md` 的引用 — 改为 SKILL.md 中"Step 13/14"直接列出条件分支，不在 reference 中嵌套引用
+- `final-review-completion.md` 内部对 `final-review-release-gate.md` 的引用 — 同处理
+- `merge-rca-investigation.md` Self-Read Protocol Step 4 对 `rca-pr-conflict-methodology.md` 的跳 — 把方法论正文折回 `merge-rca-investigation.md` 作为 `## 方法论` 章节
+
+**补全路标**：
+- `route-6-spike.md`：补顶部 `> 流程位置` blockquote
+- `merge-brief-template.md`：补顶部 `> 使用场景 + 完成后回到` blockquote
+- `learnings-trust-gate.md`（如保留为独立 reference）：补顶部 `> 流程位置`（如折回 SKILL.md 则不需要 — 决策 2 已处理）
+
+### 4.3 改动总览图
+
+```
+v3.8.0                         本轮 round 2 后
+─────────────────────         ────────────────────
+13 hooks                      ≤ 10 hooks（删 guard-plan-doc-patch + 部分降级 WARN）
+13 build templates            9 build templates（删 forbidden / state-write / trust-boundary / review-dispatch.content-only）
+50 references                 ≤ 40 references（删孤儿 7 + 合并多层跳 3）
+20 state.sh subcommands       17 subcommands（删 business-summary / idempotency / plans / path-a-escalation / agent-context-check；agent-context-check 是决策 6）
+6 scripts/lib                 3 scripts/lib（合并/删 doc-patch-apply / review-effectiveness / learnings-poison-detector）
+13 scripts                    10 scripts（合并 review-dispatch 对 / route-worker-dispatch 对）
+8 route enum values           4 route enum values + phase_skip[] flags
+6 SKILL.md phase variants     6 SKILL.md（瘦身 30-40%）
+2 修复路径（A + B）           1 修复路径（B / SendMessage）
+独立 bug seed 文件             直接以 RCA findings 进 Discovery
+doc-patch 系统                 Coordinator 直接 Edit plan checkbox
+```
+
+---
+
+## 5. 合同边界
+
+本节列出所有跨 Plan / 跨模块的合同变化。计划写作和 review 必须重点对照本节。
+
+### 5.1 DISPATCH_ENVELOPE schema 变化
+
+`plugin/state-schema/dispatch-envelope-v1.json`：
+
+| 字段 | 当前 | 改为 |
+|------|------|-----|
+| `review_intent` enum | `baseline / targeted-re-review / path-a-re-review` | `baseline / targeted-re-review`（删 path-a-re-review） |
+
+**Owner**：plan 涉及决策 3（删 Path A）的 plan
+**Producer**：所有 dispatch Codex review 的 reference（review-dispatch.md.tmpl 或 canonical reference 文件）
+**Consumer**：`gate-codex-review.sh` / `parse-envelope.sh`
+
+### 5.2 workflow-state-v1.json schema 变化
+
+| 字段 | 当前 | 改为 |
+|------|------|-----|
+| `route` enum | 8 值 | 4 值：`formal / bug / multi-pr / direct-repair` |
+| `phase_skip` | — | 新增 array of phase enum，默认 `[]` |
+| `commit_format_override` | — | 新增 string\|null，默认 null |
+| `path_a_escalation` | object | 删除 |
+| `blocked_for_self_fix` | boolean | 删除 |
+| `review_dispositions[*].disposition` enum | 10 值含 `path-a` | 9 值不含 `path-a` |
+| `bug_seed_path` | string\|null | 删除（如存在） |
+
+**Owner**：决策 3（Path A 删除）+ 决策 5（bug seed 删除）+ 决策 10（路线折叠）的 plan
+**Producer**：`state.sh init / update / disposition append`
+**Consumer**：所有读 workflow-state 的 hook 和 SKILL.md
+
+### 5.3 plan-return-v1.json schema 变化
+
+| 字段 | 当前 | 改为 |
+|------|------|-----|
+| `doc_patch_path` | string\|null | 删除 |
+
+**Owner**：决策 4（doc-patch 系统删除）的 plan
+**Producer**：Worker Loop (worker-loop.md.tmpl)
+**Consumer**：`agent-return-handler.sh` + `plan-return-parser.sh`
+
+### 5.4 Build template anchor 合同变化
+
+| 锚点 | 当前 | 改为 |
+|------|------|-----|
+| `review-dispatch` | inject 到 11 文件 | inject 到 0 文件（删 BEGIN/END 注释）；保留 .tmpl 文件作为 canonical reference 内容源 |
+| `repair-routing` | inject 到 9 文件 | inject 到 0 文件 |
+| `disposition-table` | inject 到 6 文件 | inject 到 0 文件 |
+| `forbidden-shortcuts` | inject 到 2 文件 | 整个模板 + resolver 删除 |
+| `state-write` | inject 到 1 文件 | inline 后删除 |
+| `trust-boundary` | inject 到 1 文件 | inline 后删除 |
+| `review-dispatch [variant=content-only]` | inject 到 1 文件 | inline 后删除（与决策 1 一致） |
+| `worker-loop` / `control-envelope` / `preamble` / `voice-directive` / `signpost` / `sendmessage-resume` | 保留 | 保留 |
+
+**Owner**：决策 1 + 决策 2 的 plan
+**Producer**：`build/templates/*.tmpl` + `build/resolvers/*.sh`
+**Consumer**：所有含 `<!-- BEGIN: -->` 锚点的 SKILL.md / agent.md / reference.md
+
+### 5.5 Canonical reference 新增
+
+新增 3 个 canonical reference（放在 `plugin/skills/orchestrate-execution/references/_shared/`）：
+- `_shared/review-dispatch.md`（≈79 行，从 review-dispatch.md.tmpl 抽取）
+- `_shared/repair-routing.md`（≈42 行）
+- `_shared/disposition-table.md`（≈47 行）
+
+各 phase 的 SKILL.md / reference 文件需要这些内容时，**改为在文本中说"Read `_shared/review-dispatch.md`"**，不再 inject。
+
+**Owner**：决策 1 的 plan
+**Producer**：新建文件
+**Consumer**：6 个 SKILL.md + ≈10 个其他 reference 文件
+
+### 5.6 Hook 行为契约变化
+
+| Hook | 当前 | 改为 |
+|------|------|-----|
+| `guard-plan-doc-patch.sh` | exit 2 阻断 | 整脚本删除 |
+| `validate-plan-dispatch.sh` Step 6 Manifest 检查 | exit 2 | WARN |
+| `validate-plan-dispatch.sh` Step 8 Path A | exit 2 | 删除（无 Path A 概念） |
+| `validate-multi-pr-dispatch.sh` (b) | exit 2 | WARN |
+| `validate-multi-pr-dispatch.sh` (d) | exit 2 | WARN |
+| `gate-codex-review.sh` `--resume` 检查 | exit 2 | WARN |
+| 其他 hook 行为 | — | 保持 |
+
+**Owner**：决策 9 的 plan（+ 决策 4 关于 guard-plan-doc-patch）
+**Producer**：`plugin/hooks/*.sh`
+**Consumer**：Claude Code hooks 触发系统
+
+### 5.7 state.sh 子命令合同变化
+
+| 子命令 | 当前 | 改为 |
+|--------|------|-----|
+| `business-summary` | exists | 删除 |
+| `idempotency` | exists | 删除 |
+| `plans` | exists | 删除 |
+| `path-a-escalation` | exists | 删除 |
+| `agent-context-check` | exists | 删除 |
+
+**Owner**：决策 3 / 6 / 7 的 plan
+**Producer**：`plugin/scripts/state.sh`
+**Consumer**：所有 grep `state.sh <subcommand>` 调用方
+
+---
+
+## Cross-Plan Contract Anchors
+
+> 本节由 plan-writing Step 12b 在所有 plan 完成后写入。当前 placeholder。
+
+```
+TBD（plan writing 完成后填充）
+```
+
+---
+
+## 6. 发布风险和人工门禁
+
+### 6.1 高风险点
+
+**风险 1：模板系统去重可能引入"找不到内容"**
+- 风险：把 `review-dispatch` 从 inject 改为 canonical reference，如果某个 SKILL.md 路径里漏了 `Read _shared/review-dispatch.md` 指令，Coordinator 不知道怎么派 review
+- 缓解：grep 全量验证旧 `<!-- BEGIN: review-dispatch -->` 锚点位置 → 每处对应替换为 `Read` 指令，verify-maturity 加新检查
+- HITL：Plan Implementation Review 需要 Coordinator 亲跑一次完整 Codex review 派发，验证 SKILL.md 引用链完整
+
+**风险 2：Route 折叠破坏 hotfix 路径**
+- 风险：hotfix 流程依赖某些只在 route-4-hotfix.md 里描述的边角逻辑，折叠到 SKILL.md 后可能遗漏
+- 缓解：折叠前并行对照原文，列出所有"特殊行为"逐项归入 SKILL.md Route 1 Variant Table
+- HITL：需要用户确认 hotfix 流程在 Route 1 + flags 下能完整跑通（决策 10 的 Open Decision 之一）
+
+**风险 3：Path A 删除影响已有 review 流程**
+- 风险：当前 Plan Implementation Review pass 后还会清理 path-a-escalation 状态；删除字段后旧 workflow-state JSON 可能出现 dangling references
+- 缓解：在 hooks 中加 graceful fallback（字段不存在视为已清理）
+- HITL：决策 3 是否完全删 Path A vs 保留作为 deprecated path 由用户决定
+
+**风险 4：doc-patch 删除后 Coordinator 漏勾 checkbox**
+- 风险：当前是 Worker 写 diff + Coordinator 自动 apply；改后 Coordinator 必须主动 Edit
+- 缓解：`agent-return-handler.sh` 输出明确 NEXT 指令包含勾选清单；Plan Implementation Review pass 后的 SKILL.md Step 13 加入"Coordinator 必须 Edit plan 文档勾选 committed Pack" 硬约束 + `guard-premature-push.sh` 已有"plan 未勾完不能 push"的 hook，作为兜底
+- HITL：无
+
+### 6.2 不变量必须保持
+
+- Worker Loop 6 段合同不动（启动 5 步 / Pack 循环 / 6 verdict / repair mode / context 自监控 / artifact schema）
+- Document-as-Context 主线不动（design / issue / plan / merge-brief 文档链）
+- Codex Review 5 步派发协议不动（write prompt → select model → submit → poll → result）
+- guard-doc-edit.sh Worker 写 docs/ 硬墙不动
+- track-execution-state.sh + agent-return-handler.sh 自动状态机不动
+
+### 6.3 Release Gate
+
+本轮不涉及任何"用户能感知"的功能变化——是 plugin 自身重构。Release Gate **不触发**，无需 Release Review。
+
+---
+
+## 7. 测试和验收
+
+### 7.1 自动化测试
+
+- 所有现有 `plugin/hooks/tests/*.sh` 套件继续通过（57 suites baseline）
+- 所有现有 `plugin/scripts/tests/*.sh` 套件继续通过
+- 新增 `verify-maturity.sh` 检查项：
+  - canonical references 存在且引用链完整（决策 1）
+  - 没有任何 .md 文件含已删除的 `<!-- BEGIN: forbidden-shortcuts -->` / `<!-- BEGIN: state-write -->` / `<!-- BEGIN: trust-boundary -->` / `<!-- BEGIN: review-dispatch.content-only -->` 锚点（决策 2）
+  - 没有任何 .md 文件含 `path-a` 字符串（决策 3）
+  - 没有任何 .md 文件含 `doc-patch` 字符串（决策 4，除非是 deprecated 标注）
+  - state.sh 不再支持 5 个删除的子命令（决策 3 / 6 / 7）
+  - hooks 数 ≤ 10
+  - SKILL.md 行数符合目标（决策 §2.1 表）
+  - route enum 4 值
+  - 所有 .md reference 顶部含 `> 流程位置` 或等效路标
+- 全量 `bash plugin/scripts/run-all-tests.sh` 通过
+
+### 7.2 验收路径
+
+完成本轮后，跑一次完整 mock 流程（用 fixture）：
+1. Mock Coordinator 走 Discovery → Plan Writing → Execution → Final Review
+2. 测量每个 phase 进入时 Read 到的总 chars 量，对照 §2.1 目标
+3. Mock 一次 needs_repair → Path B SendMessage 修复
+4. Mock 一次 multi-pr-merge 完整流程
+5. Mock 一次 hotfix（Route 1 + phase_skip flags）
+
+### 7.3 人工验收清单
+
+完成后 Coordinator 必须能在不依赖任何 build template inject 的 inject 行为下：
+- [ ] 拿到一份 design 写一份 plan
+- [ ] 派 Worker 完成 Plan
+- [ ] 派 Codex review
+- [ ] 处置 finding
+- [ ] 派 SendMessage repair
+- [ ] 推 Closing
+
+每条流程都能从 SKILL.md / canonical reference / 自己的认知中找到下一步指引，**不需要新增任何文件**。
+
+---
+
+## 8. UI/UX 状态
+
+不适用（plugin 内部重构，无 UI）。
+
+---
+
+## 9. 失败场景和异常处理
+
+### 9.1 关键失败场景
+
+**场景 1：Coordinator 在 Plan Implementation Review pass 后忘记 Edit plan checkbox**
+- 检测：`guard-premature-push.sh` 在 push 时扫到未勾选的 `- [ ]` → exit 2 阻断
+- 恢复：Coordinator 收到阻断 → 回头 Edit plan → 重新 push
+
+**场景 2：模板系统改动后某个 SKILL.md 漏了 canonical reference 引用**
+- 检测：verify-maturity.sh 加检查："所有原 BEGIN review-dispatch 锚点位置必须替换为 Read 引用"
+- 恢复：Plan Implementation Review 抓到 → repair
+
+**场景 3：旧 workflow-state JSON 含已删除字段**
+- 检测：`state.sh validate` 警告
+- 恢复：state.sh read/update 对未知字段 graceful ignore；不强制 migration（每个新 run 自带 fresh state）
+
+**场景 4：Path A 删除后某个旧 reference 仍提到 Path A**
+- 检测：verify-maturity grep 检查
+- 恢复：plan 完成前清理
+
+### 9.2 不可恢复失败
+
+- 用户在 Round 2 落地中途要求中止 → 已 committed 的改动留存（每个 Pack 独立 commit，可 cherry-pick）；未 committed 的 Worker 进度通过 `state.sh agent-id` 找到 worker_agent_id 后 SendMessage 续修或新 dispatch
+
+---
+
+## 10. 不在本次范围
+
+本轮**明确不做**的事项（即使发现也不触碰）：
+
+1. 不改 Worker Loop 6 段合同（启动 / 循环 / verdict / repair / context / artifact）
+2. 不改 Document-as-Context 主线（设计 → issue → plan → merge-brief → 代码 链路）
+3. 不改 Codex Review 5 步派发协议（`codex-companion.mjs task --background ... result`）
+4. 不改 review budget 公式（`3P + 12`）和 effort budget 公式（`2 × review_total`）
+5. 不引入新的 sub-agent 类型（继续用现有 7 个）
+6. 不引入新的 review provider（仍只用 Codex）
+7. 不改 mockup 系统 / frontend-design skill 集成
+8. 不改 Route 2（Bug Investigation）和 Route 3（Multi-PR Merge）的主流程结构（决策 5 仅简化 bug-seed-file 这个边角概念）
+9. 不动 plan-return-v1.json 的 `per_pack` 必填字段结构（仅删 `doc_patch_path` 可选字段）
+10. 不动 merge-brief-v1.json 的 9 段结构（仅可选简化 stage 状态机若发现冗余 — 这条留作 Open Decision）
+11. 不引入新的状态文件类型
+12. 不动 `guard-doc-edit.sh` Worker 写 docs/ 硬墙
+13. 不动 `cleanup-before-push.sh` 清理逻辑
+14. 不引入"分支管理"功能（continue stay on the current `claude/upbeat-mclaren-d7ef86` branch；本轮成果与 round 1 一并 push）
+15. 不动 codex-review skill（独立 ad-hoc 路径，已最小化）
+
+---
+
+## 11. Open Decisions
+
+需要用户确认的决策：
+
+### D1 — Path A 删除 vs 保留 deprecated path
+
+**问题**：决策 3 提议彻底删 Path A（Coordinator 自修分叉）。当前 Path A 是节省一次 Worker dispatch 的优化路径，但代价是 4 个状态字段 + 1 条 hook 检查 + 路径升级机制。是否完全删除？
+
+**通俗说明**：现在审查发现问题后，Coordinator 可以选择自己改（路径 A）或派 Worker 改（路径 B）。路径 A 是优化但加了一堆"防止滥用"的辅助机制。删了之后所有修都派 Worker，多花一次 dispatch 但代码简洁很多。
+
+**选项**：
+- **A（推荐）**：完全删除 Path A，所有 repair → Path B（SendMessage Worker）
+  优势：删 4 状态字段 + 1 hook + 1 reference + 1 review_intent enum + 1 disposition 选项；状态机大幅简化
+  代价：每次小修都派一次 Worker（≈每次小修多 1 个 effort 单元；按重构后 Decision 5 加权计算，单 finding 修复 effort = 1-2，影响可控）
+- **B**：保留 Path A 作为 deprecated path（不再激活但代码留作向后兼容）
+  优势：旧 run 不会因恢复时找不到字段而炸
+  代价：复杂度没真正消除；新代码里仍要处理 path-a-related 字段
+
+**建议**：A。本轮已经在做大改造，向后兼容靠 graceful ignore 处理（state.sh validate 对未知字段 warn 不 fail）。
+
+### D2 — 外部 Skill 是否真的引入 `Skill()` 调用
+
+**问题**：决策 11 当前保留 inline 模式，不引入对 `to-issues` / `to-PRD` / Writing Plans 等外部 skill 的 `Skill()` 调用。
+
+**通俗说明**：你列举了 Plugin 借鉴的几个外部 Skill（MattPocock to-issue / Superpowers Writing Plans 等），它们的方法论现在 inline 在 Plugin 内部的 reference 文件里。本来可以改为运行时调用外部 Skill 节省 plugin 体积，但运行时调用会引入外部依赖（如果外部 plugin 更新或卸载，我们这边会断）。
+
+**选项**：
+- **A（推荐）**：保持 inline（决策 11 当前方案）
+  优势：plugin 自洽，无外部依赖；inline 内容已经过 plugin 上下文裁剪
+  代价：plugin 体积稍大
+- **B**：把 `to-issues` / Writing Plans 改为外部 `Skill()` 调用
+  优势：plugin 减重 ≈300-500 行 reference 内容
+  代价：依赖外部 plugin 持续可用；如果外部 plugin 接口变动，我们要跟随升级
+
+**建议**：A。当前 plugin 还在 v3.x 频繁迭代期，引入外部 plugin 依赖会让协调成本增加。
+
+### D3 — `review_effectiveness` 字段处理
+
+**问题**：决策 7 提议删除 `scripts/lib/review-effectiveness.sh`（0 生产 source）。但 `workflow-state.review_effectiveness` 字段本身有用吗？
+
+**通俗说明**：这是个观察指标——统计 reject/suppress/path-a 比例，超阈值发警告。当前是自动聚合，但没人真的看告警；用户主要靠 plan-level review verdict 判断质量。
+
+**选项**：
+- **A（推荐）**：删除 lib + 字段
+  优势：彻底简化；可选诊断本来就没真正起到 review gate 作用
+  代价：失去一个可选观察维度
+- **B**：保留字段，删除 lib，Coordinator 手动统计填字段（只在 Final Review 时）
+  优势：保留观察价值
+  代价：Coordinator 多一步手工动作
+
+**建议**：A。
+
+### D4 — merge-brief 7 状态枚举是否简化
+
+**问题**：决策"不在本次范围"列了 merge-brief 9 段结构不动，但 `current_stage` 7 值枚举（init / conflict_discovery / rca / repair / integration_review / merging / complete）+ `state.sh merge-brief init/stage/verify` 三 helper 是否过细？
+
+**通俗说明**：multi-pr-merge 流程的"阶段标记"现在有 7 个值 + 3 个 state.sh 子命令做状态机。可能可以简化为 4 阶段（discover / fix / review / merge）。
+
+**选项**：
+- **A（推荐）**：本轮不动 merge-brief 状态机，作为下轮课题
+  优势：本轮已经够大；merge-brief 还较新，运行不久，让真实使用反馈攒一会儿
+  代价：暂时保留这部分冗余
+- **B**：本轮一并简化为 4 阶段
+  优势：一次性收尾
+  代价：multi-pr-merge 路线本身使用频次低，得失比难判断；可能改完发现重要细节漏掉
+
+**建议**：A。
+
+---
+
+## 12. Business Summary Inputs
+
+> 由 Final Review 时 Coordinator 写入。当前 placeholder。
+
+```
+TBD（Final Review 时填充）
+```
+
+预填关键点（供 Final Review 时参考）：
+- 系统级 token 减负：plugin 进入每个 phase 的 baseline 加载减少 ≈30-40%
+- Worker dispatch 数：与 round 1 持平（不再有 Path A 优化，但通过模板去重抵消）
+- 流程稳定性：Worker Loop 6 段合同 + Document-as-Context 主线 + Codex Review 5 步协议 全部保留
+- 复杂度净减：13 → ≤10 hooks / 50 → ≤40 references / 20 → 17 state.sh subcommands / 8 → 4 routes / 13 → 9 build templates / 6 → 3 scripts/lib
+
+---
+
+## Review History
+
+> 由 `state.sh review-history append` 写入。当前 placeholder。
+
+| Round | Verdict | Reviewer | Findings | Disposition Summary |
+|-------|---------|----------|----------|--------------------|
+| TBD   | TBD     | TBD      | TBD      | TBD                |
