@@ -127,15 +127,6 @@ Agent({
 
 Explorer 返回后：用 explorer findings 补充 analyst prompt，重新 dispatch `root-cause-analyst`（Step 9）。**Analyst ↔ Explorer 循环最多 1 次**（analyst → explorer → analyst）。第 2 轮 analyst 仍返回 `unable_to_determine` → BLOCKED，报告用户。
 
-## Coordinator 端最小职责
-
-Coordinator 在派发时只需完成以下动作，其余由 analyst 自读：
-
-1. 写 `merge-brief-<run_id>.md`（若已写则复用），确保包含 PR 列表、设计文档路径、冲突列表、合同地图、正确状态理解。
-2. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`phase: "multi-pr-merge"`、`agent_role: "root-cause-analyst"`。
-3. 触发 analyst 派发，保存 `agentId`。
-4. 等待 analyst 返回后按 Step 11 路由表处置。
-
 ---
 
 ## 方法论

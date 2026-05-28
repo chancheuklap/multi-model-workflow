@@ -44,11 +44,9 @@ git merge origin/<pr-branch> --no-ff -m "Merge PR #<number>: <title>"
 
 ---
 
-## 不存在非阻塞项
+## 清扫纪律
 
-**铁律同样适用于 Multi-PR Merge。**
-
-合并完成后，检查：
+清扫纪律同 Final Review Step 13（详见 `final-review-completion.md`）。Multi-PR 独有清扫来源：
 - 所有冲突解决记录中标记为 "out of scope" 的项 → 确认已开 GitHub issue
 - 合并过程中 worker Open Items → 逐项处置（修复 / 开 issue / 确认不是问题）
 - `git diff <base>..HEAD` 范围内新增的 TODO/FIXME → 处置

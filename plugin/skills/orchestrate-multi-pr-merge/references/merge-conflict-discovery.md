@@ -136,14 +136,5 @@ Coordinator 逐个审阅 explorer 发现的冲突，做修复路由判定：
 4. 跑相关测试确认修复
 5. 进入 Step 14（Coordinator 验证）
 
-## Coordinator 端最小职责
-
-Coordinator 在派发时只需完成以下动作，其余由 explorer 自读：
-
-1. 写 `merge-brief-<run_id>.md`，包含 PR 列表、大设计文档路径、合同地图、文件交叉矩阵。
-2. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`phase: "multi-pr-merge"`、`agent_role: "code-explorer"（或 complex-code-explorer）`。
-3. 触发 explorer 派发，保存 `agentId`。
-4. 等待 explorer 返回后按 Step 6 路由表处置。
-
 ---
 > **下一步**：无冲突 → Step 16（merge-integration-review.md）。简单冲突已修 → Step 14（Coordinator 验证）。复杂冲突 → Step 12（merge-conflict-repair.md）。系统性冲突 → Step 9（merge-rca-investigation.md）。

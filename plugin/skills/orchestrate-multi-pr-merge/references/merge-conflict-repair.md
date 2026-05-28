@@ -168,14 +168,5 @@ Agent({
 
 **不在循环中做的事**：不逐冲突派 Codex review。Codex 审查在所有冲突解决后做一次集成审查。这避免 review 消耗激增。
 
-## Coordinator 端最小职责
-
-Coordinator 在派发 conflict repair worker 时只需完成以下动作，其余由 worker 自读：
-
-1. 写 `merge-brief-<run_id>.md`（若 merge-conflict-discovery 已写则复用）。
-2. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`phase: "multi-pr-merge"`、冲突详情摘要（analyst findings 或 Coordinator 分析）。
-3. 触发 worker 派发，保存 `agentId` 以备 SendMessage 修复路径。
-4. 等待 worker 返回后按 Step 13 路由表处置，执行 Step 14 验证。
-
 ---
 > **下一步**：所有冲突解决 → Step 16（`merge-integration-review.md`）。3 轮未解决 → BLOCKED。
