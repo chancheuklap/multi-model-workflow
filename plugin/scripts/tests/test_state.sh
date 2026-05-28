@@ -435,32 +435,42 @@ run_test "business-summary block appears" \
 run_test "business-summary append idempotent (replace)" \
   bash -c "cd '$REVHIST_WORKDIR' && bash '$STATE_SH' business-summary append --run-id '$RUN_ID8' --slug bs-test --plan-id 001 --summary 'updated feature X' --evidence 'new screenshot' --risks '-' && [[ \$(grep -c -F '### Plan 001' '$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md') -eq 1 ]] && grep -qF 'updated feature X' '$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md' && ! grep -qF 'launches feature X' '$REVHIST_WORKDIR/docs/orchestrate/design/bs-test.md'"
 
-# --- merge-brief lifecycle ---
+# --- merge-brief lifecycle (Pack 6.8: 9-section schema, ephemeral path) ---
 RUN_ID9="test-mb"
 run_test "init for merge-brief test" \
   bash "$STATE_SH" init --run-id "$RUN_ID9" --slug "mb-test" --route "multi-pr-merge"
 
-MB_DIR=$(mktemp -d)
+# merge-brief init now uses STATE_BASE path, no --brief-path needed
+run_test "merge-brief init creates file in STATE_BASE" \
+  bash "$STATE_SH" merge-brief init --run-id "$RUN_ID9" --slug "mb-test"
 
-run_test "merge-brief init creates file" \
-  bash "$STATE_SH" merge-brief init --run-id "$RUN_ID9" --brief-path "$MB_DIR/brief.md"
+run_test "merge-brief init idempotent (second call is OK)" \
+  bash "$STATE_SH" merge-brief init --run-id "$RUN_ID9" --slug "mb-test"
 
-run_test "merge-brief init idempotent" \
-  bash "$STATE_SH" merge-brief init --run-id "$RUN_ID9" --brief-path "$MB_DIR/brief.md"
+# merge-brief stage uses valid stage enum value
+run_test "merge-brief stage to conflict_discovery" \
+  bash -c "bash '$STATE_SH' merge-brief stage --run-id '$RUN_ID9' --stage 'conflict_discovery'"
 
-run_test "merge-brief stage updates stage line" \
-  bash -c "bash '$STATE_SH' merge-brief stage --run-id '$RUN_ID9' --brief-path '$MB_DIR/brief.md' --stage 'compositional-model' && grep -qF '**Stage:** compositional-model' '$MB_DIR/brief.md'"
+run_test "merge-brief stage updates META current_stage" \
+  bash -c "grep -q '\"current_stage\": \"conflict_discovery\"' '$FIXTURE_DIR/merge-brief-$RUN_ID9.md'"
+
+run_test "merge-brief stage to rca (enum progress)" \
+  bash "$STATE_SH" merge-brief stage --run-id "$RUN_ID9" --stage "rca"
+
+run_test_expect_fail "merge-brief stage invalid enum fails" \
+  bash "$STATE_SH" merge-brief stage --run-id "$RUN_ID9" --stage "compositional-model"
 
 run_test "merge-brief verify passes on scaffold" \
-  bash "$STATE_SH" merge-brief verify --run-id "$RUN_ID9" --brief-path "$MB_DIR/brief.md"
+  bash "$STATE_SH" merge-brief verify --run-id "$RUN_ID9"
 
 # Corrupt the brief by removing a required section, verify must fail
-sed -i.bak '/合同地图/d' "$MB_DIR/brief.md" 2>/dev/null || sed -i '' '/合同地图/d' "$MB_DIR/brief.md"
+MB_FILE="$FIXTURE_DIR/merge-brief-$RUN_ID9.md"
+sed -i.bak '/## 3\. 合并后正确状态模型/d' "$MB_FILE" 2>/dev/null || sed -i '' '/## 3\. 合并后正确状态模型/d' "$MB_FILE"
 run_test_expect_fail "merge-brief verify fails when section missing" \
-  bash "$STATE_SH" merge-brief verify --run-id "$RUN_ID9" --brief-path "$MB_DIR/brief.md"
+  bash "$STATE_SH" merge-brief verify --run-id "$RUN_ID9"
 
 # Cleanup temp dirs
-rm -rf "$REVHIST_WORKDIR" "$MB_DIR"
+rm -rf "$REVHIST_WORKDIR"
 
 # === Pack 2.14 transition matrix: plan-level transitions ===
 echo ""

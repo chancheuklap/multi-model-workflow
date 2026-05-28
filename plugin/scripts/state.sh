@@ -1724,10 +1724,15 @@ cmd_business_summary_append() {
   echo "OK"
 }
 
-# --- merge-brief subcommand (Pack 2.8) ---
-# Lifecycle scaffold for multi-pr-merge artifact. Implementation surface here is
-# minimal — Plan 005/Phase 5 (merge-preparation reshape) will fill richer
-# semantics. We expose init / stage / verify so the CLI surface is stable now.
+# --- merge-brief subcommand (Pack 6.8) ---
+# Lifecycle helper for merge-brief-v1 9-section artifact.
+# Path: ${STATE_BASE}/merge-brief-<run_id>.md (ephemeral, not docs/).
+# Content sections are Coordinator-authored markdown; these helpers only manage
+# the structured MERGE_BRIEF_META comment block. Decision 8: per-run conflict_id,
+# new PR = new run, no archive by default.
+#
+# Does NOT expose: conflict add / rca write / resolution append
+# (those are markdown content — Coordinator edits directly, avoiding template-fill anti-pattern).
 cmd_merge_brief() {
   local subcmd="$1"; shift
   for a in "$@"; do
@@ -1740,11 +1745,16 @@ cmd_merge_brief() {
     --help|-h|help)
       cat <<'MBHELP'
 Usage:
-  state.sh merge-brief init   --run-id <id> [--brief-path <path>]
-  state.sh merge-brief stage  --run-id <id> --stage <name> [--brief-path <path>]
-  state.sh merge-brief verify --run-id <id> [--brief-path <path>]
+  state.sh merge-brief init   --run-id <id> --slug <slug>
+  state.sh merge-brief stage  --run-id <id> --stage <stage>
+  state.sh merge-brief verify --run-id <id>
 
-Manages docs/orchestrate/merge-briefs/merge-brief-<run_id>.md scaffolding.
+Path: <STATE_BASE>/merge-brief-<run_id>.md
+Stages: init | conflict_discovery | rca | repair | integration_review | merging | complete
+
+Manages only the MERGE_BRIEF_META structured block. Content sections are
+written by Coordinator via Edit. No conflict/rca/resolution subcommands
+(avoids template-fill anti-pattern).
 MBHELP
       exit 0
       ;;
@@ -1752,73 +1762,118 @@ MBHELP
   esac
 }
 
-merge_brief_path() {
-  local override="$1"
-  if [[ -n "$override" ]]; then
-    echo "$override"
-  else
-    echo "docs/orchestrate/merge-briefs/merge-brief-${RUN_ID}.md"
-  fi
+# Valid stages for merge-brief current_stage (matches merge-brief-v1.json schema enum)
+MERGE_BRIEF_STAGES=(init conflict_discovery rca repair integration_review merging complete)
+
+merge_brief_default_path() {
+  echo "${STATE_BASE}/merge-brief-${RUN_ID}.md"
+}
+
+merge_brief_is_valid_stage() {
+  local s="$1"
+  for vs in "${MERGE_BRIEF_STAGES[@]}"; do
+    [[ "$s" == "$vs" ]] && return 0
+  done
+  return 1
 }
 
 cmd_merge_brief_init() {
-  local brief_path=""
+  local slug=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --brief-path) brief_path="$2"; shift 2 ;;
+      --slug) slug="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
+
+  if [[ -z "$slug" ]]; then
+    echo "Error: --slug is required for merge-brief init" >&2
+    exit 2
+  fi
+
   local target
-  target="$(merge_brief_path "$brief_path")"
+  target="$(merge_brief_default_path)"
 
   acquire_lock
   trap release_lock EXIT
 
+  # Idempotent: if file exists, do not overwrite
   if [[ -f "$target" ]]; then
-    echo "OK (already initialized)"
+    echo "OK (already initialized: $target)"
     return 0
   fi
 
   mkdir -p "$(dirname "$target")"
   local now
   now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
   cat > "$target" <<MBEOF
-# Merge Brief — ${RUN_ID}
+<!-- MERGE_BRIEF_META
+{
+  "schema_version": "1",
+  "run_id": "${RUN_ID}",
+  "slug": "${slug}",
+  "created_at": "${now}",
+  "last_updated_at": "${now}",
+  "current_stage": "init",
+  "integration_review_gate": null
+}
+-->
 
-**Created:** ${now}
-**Stage:** init
+# Merge Brief: ${RUN_ID}
 
-## 合成模型 / Compositional Model
+> Read merge-brief-template.md for section writing guidance.
+> Coordinator: fill sections below by editing this file directly (state.sh merge-brief does not fill content).
 
-<filled by Coordinator during merge-preparation>
+## 1. Meta
 
-## 合同地图 / Contract Map
+- **run_id**: \`${RUN_ID}\`
+- **slug**: \`${slug}\`
+- **route**: \`multi-pr-merge\`
+- **created_at**: \`${now}\`
+- **current_stage**: \`init\`
+- **关联 workflow-state 路径**: \`.claude/multi-model-workflow/workflow-state-${RUN_ID}.json\`
 
-<cross-PR contract surfaces touched>
+## 2. 参与 PR（Big Picture）
 
-## 文件矩阵 / File Matrix
+<Coordinator fills: PR table with branch, design path, plan path, final-review verdict, core_behavior>
 
-| File | PRs | Owner | Conflict notes |
-| --- | --- | --- | --- |
+## 3. 合并后正确状态模型（Step 2 强制产出）
 
-## 冲突追加段 / Conflicts Append Log
+<Coordinator fills: behaviors, contract_surfaces, file_cross_matrix, merge_order, risk_hotspots>
 
-<append-only entries during merge-conflict-repair>
+## 4. Conflict Findings（Steps 5-7 持续追加）
 
-## 解决日志 / Resolution Log
+<Coordinator appends after Explorer returns: per-conflict block with conflict_id C-001, C-002...>
 
-<append-only resolution decisions>
+## 5. Root Cause Analysis（Step 10 追加；仅 systemic conflict）
+
+<Coordinator appends after Analyst returns: per-conflict RCA block>
+
+## 6. Resolution Log（Steps 13-15 追加）
+
+<Coordinator appends after verifying worker fix: per-conflict resolution record>
+
+## 7. Integration Review Pointers（Step 16 前补写）
+
+<Coordinator fills before dispatching Codex integration review>
+
+## 8. Open Items / Out-of-scope
+
+<Coordinator appends: non-blocking items, out-of-scope conflicts, user decisions needed>
+
+## 9. Verdict（Step 22 写入）
+
+<Coordinator fills after all conflicts resolved and integration review passes>
 MBEOF
   echo "Created: $target"
 }
 
 cmd_merge_brief_stage() {
-  local stage="" brief_path=""
+  local stage=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --stage) stage="$2"; shift 2 ;;
-      --brief-path) brief_path="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
@@ -1828,8 +1883,13 @@ cmd_merge_brief_stage() {
     exit 2
   fi
 
+  if ! merge_brief_is_valid_stage "$stage"; then
+    echo "Error: invalid stage '$stage'. Valid: ${MERGE_BRIEF_STAGES[*]}" >&2
+    exit 2
+  fi
+
   local target
-  target="$(merge_brief_path "$brief_path")"
+  target="$(merge_brief_default_path)"
   if [[ ! -f "$target" ]]; then
     echo "Error: merge brief not found: $target (run 'merge-brief init' first)" >&2
     exit 2
@@ -1838,49 +1898,188 @@ cmd_merge_brief_stage() {
   acquire_lock
   trap release_lock EXIT
 
+  local now
+  now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+  # Update current_stage and last_updated_at inside MERGE_BRIEF_META JSON comment
   local tmp="${target}.stg.tmp"
-  awk -v stage="$stage" '
-    BEGIN { done=0 }
-    /^\*\*Stage:\*\*/ {
-      if (done == 0) { print "**Stage:** " stage; done=1; next }
-    }
-    { print }
-  ' "$target" > "$tmp"
+  python3 - "$target" "$stage" "$now" "$tmp" <<'PYEOF'
+import sys, re
+
+filepath, new_stage, now, outpath = sys.argv[1:]
+
+with open(filepath, 'r') as f:
+    content = f.read()
+
+# Update current_stage in META block
+content = re.sub(
+    r'("current_stage"\s*:\s*)"[^"]*"',
+    r'\g<1>"' + new_stage + '"',
+    content, count=1
+)
+# Update last_updated_at in META block
+content = re.sub(
+    r'("last_updated_at"\s*:\s*)"[^"]*"',
+    r'\g<1>"' + now + '"',
+    content, count=1
+)
+# Also update the Stage line in §1 Meta section if present
+content = re.sub(
+    r'(\*\*current_stage\*\*:\s*)`[^`]*`',
+    r'\g<1>`' + new_stage + '`',
+    content, count=1
+)
+
+with open(outpath, 'w') as f:
+    f.write(content)
+PYEOF
   mv "$tmp" "$target"
   echo "OK (stage=$stage)"
 }
 
 cmd_merge_brief_verify() {
-  local brief_path=""
   while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --brief-path) brief_path="$2"; shift 2 ;;
-      *) shift ;;
-    esac
+    shift
   done
 
   local target
-  target="$(merge_brief_path "$brief_path")"
+  target="$(merge_brief_default_path)"
   if [[ ! -f "$target" ]]; then
     echo "Error: merge brief not found: $target" >&2
+    echo "Fix: run 'state.sh merge-brief init --run-id $RUN_ID --slug <slug>'" >&2
     exit 2
   fi
 
-  local missing=()
-  for section in "## 合成模型 / Compositional Model" "## 合同地图 / Contract Map" \
-                 "## 文件矩阵 / File Matrix" "## 冲突追加段 / Conflicts Append Log" \
-                 "## 解决日志 / Resolution Log"; do
-    if ! grep -qF "$section" "$target"; then
-      missing+=("$section")
+  local errors=()
+
+  # 1. META block must be parseable and contain required fields
+  local meta_block
+  meta_block=$(python3 - "$target" <<'PYEOF' 2>/dev/null
+import sys, re, json
+
+filepath = sys.argv[1]
+with open(filepath, 'r') as f:
+    content = f.read()
+
+m = re.search(r'<!--\s*MERGE_BRIEF_META\s*(.*?)\s*-->', content, re.DOTALL)
+if not m:
+    print('ERROR: MERGE_BRIEF_META comment block not found')
+    sys.exit(1)
+
+try:
+    meta = json.loads(m.group(1))
+except json.JSONDecodeError as e:
+    print(f'ERROR: MERGE_BRIEF_META is not valid JSON: {e}')
+    sys.exit(1)
+
+required_fields = ['schema_version', 'run_id', 'slug', 'created_at', 'last_updated_at', 'current_stage']
+missing = [f for f in required_fields if f not in meta]
+if missing:
+    print(f'ERROR: META missing fields: {", ".join(missing)}')
+    sys.exit(1)
+
+valid_stages = ['init', 'conflict_discovery', 'rca', 'repair', 'integration_review', 'merging', 'complete']
+if meta['current_stage'] not in valid_stages:
+    print(f'ERROR: META current_stage "{meta["current_stage"]}" not in valid stages: {valid_stages}')
+    sys.exit(1)
+
+print(f'META OK (stage={meta["current_stage"]})')
+PYEOF
+)
+  if [[ $? -ne 0 ]] || echo "$meta_block" | grep -q "^ERROR:"; then
+    errors+=("META: $meta_block")
+  fi
+
+  # 2. All 9 sections must be present (by section heading number)
+  local missing_sections=()
+  for heading in "## 1. Meta" "## 2. 参与 PR" "## 3. 合并后正确状态模型" \
+                 "## 4. Conflict Findings" "## 5. Root Cause Analysis" \
+                 "## 6. Resolution Log" "## 7. Integration Review Pointers" \
+                 "## 8. Open Items" "## 9. Verdict"; do
+    if ! grep -qF "$heading" "$target"; then
+      missing_sections+=("$heading")
     fi
   done
+  if [[ ${#missing_sections[@]} -gt 0 ]]; then
+    errors+=("Missing sections: ${missing_sections[*]}")
+  fi
 
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    echo "Error: merge brief missing required sections:" >&2
-    for s in "${missing[@]}"; do echo "  - $s" >&2; done
+  # 3. §4 status self-consistency check:
+  # - status=resolved must have a corresponding entry in §6 (Resolution Log)
+  # - status=rca-in-progress must have a §5 entry with analyst_agent_id
+  python3 - "$target" <<'PYEOF' >> /tmp/merge_brief_verify_$$.txt 2>&1
+import sys, re
+
+filepath = sys.argv[1]
+with open(filepath, 'r') as f:
+    content = f.read()
+
+# Extract all conflict_ids and their statuses from §4
+conflicts = {}
+for m in re.finditer(r'conflict_id[^:]*:\s*[`"]?([^`"\s,]+)[`"]?', content):
+    cid = m.group(1)
+    # find adjacent status line (within 20 chars context)
+    snippet = content[m.start():m.start()+500]
+    sm = re.search(r'status[^:]*:\s*[`"]?([^`"\n,]+)[`"]?', snippet)
+    if sm:
+        conflicts[cid] = sm.group(1).strip('` ')
+
+def extract_section(text, start_heading, end_heading=None):
+    """Extract content between start_heading and end_heading (exclusive)."""
+    start_idx = text.find(start_heading)
+    if start_idx == -1:
+        return ''
+    if end_heading:
+        end_idx = text.find(end_heading, start_idx + len(start_heading))
+        return text[start_idx:end_idx] if end_idx != -1 else text[start_idx:]
+    return text[start_idx:]
+
+# Extract §4, §5, §6 as bounded sections (not open-ended)
+section4 = extract_section(content, '## 4. Conflict', '## 5. Root Cause')
+section5 = extract_section(content, '## 5. Root Cause', '## 6. Resolution')
+section6 = extract_section(content, '## 6. Resolution', '## 7. Integration')
+
+# Only check conflict_ids found in §4 (not the whole document)
+conflicts4 = {}
+for m in re.finditer(r'conflict_id[^:]*:\s*[`"]?([^`"\s,]+)[`"]?', section4):
+    cid = m.group(1)
+    snippet = section4[m.start():m.start()+500]
+    sm = re.search(r'\bstatus[^:]*:\s*[`"]?([^`"\n,]+)[`"]?', snippet)
+    if sm:
+        conflicts4[cid] = sm.group(1).strip('` ')
+
+errors = []
+for cid, status in conflicts4.items():
+    if status == 'resolved':
+        # §6 (bounded) must mention this conflict_id
+        if cid not in section6:
+            errors.append(f'{cid} status=resolved but no §6 entry found (fix: add Resolution Log for {cid})')
+    elif status == 'rca-in-progress':
+        # §5 (bounded) must mention this conflict_id
+        if cid not in section5:
+            errors.append(f'{cid} status=rca-in-progress but no §5 RCA entry found (fix: add RCA block or mark as pending)')
+
+if errors:
+    for e in errors:
+        print(f'ERROR: {e}')
+    sys.exit(1)
+else:
+    print('STATUS OK')
+PYEOF
+  local status_check
+  status_check=$(cat /tmp/merge_brief_verify_$$.txt 2>/dev/null)
+  rm -f /tmp/merge_brief_verify_$$.txt
+  if echo "$status_check" | grep -q "^ERROR:"; then
+    errors+=("§4 status self-consistency: $(echo "$status_check" | grep "^ERROR:" | tr '\n' '; ')")
+  fi
+
+  if [[ ${#errors[@]} -gt 0 ]]; then
+    echo "BLOCKED: merge brief verification failed" >&2
+    for e in "${errors[@]}"; do echo "  - $e" >&2; done
+    echo "Fix: edit $target and address the issues above" >&2
     exit 2
   fi
-  echo "Valid: $target"
+  echo "Valid: $target ($meta_block)"
 }
 
 # --- Main ---
