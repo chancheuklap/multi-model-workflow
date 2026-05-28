@@ -67,7 +67,14 @@ Compaction recovery: 从 `workflow-state.cursor` + plan/design 文档重建 repa
 | architecture friction | `Skill({ skill: "improve-codebase-architecture" })` | design doc / plan anchors |
 | domain 术语冲突 | `Skill({ skill: "grill-with-docs" })` | CONTEXT.md + design document |
 
-## Step 17：Targeted Re-Review
+## Coordinator checkbox toggle 权威规则（D4 source-of-truth）
+
+Plan Implementation Review pass 后，Coordinator Edit plan 文档勾选 checkbox 的 source-of-truth 是 `plan-return.per_pack[*]` where `status == committed`：
+1. Read `.claude/multi-model-workflow/plan-returns/<run_id>/<plan_id>/plan-return.json`
+2. 对每个 `per_pack[i].status == "committed"` 的 Pack，按 Pack ID 精确匹配 `docs/orchestrate/plans/<slug>/<plan-file>.md` 中 `- [ ] **Pack N.M**` 行，Edit toggle 为 `- [x] **Pack N.M**`
+3. `status` 不是 `committed`（pending / in_progress / blocked / skipped）的 Pack 不勾选
+
+## Step 17：Re-Review
 
 修复完成后，只重审 accepted findings 涉及的变更部分。不做 full review rerun。
 

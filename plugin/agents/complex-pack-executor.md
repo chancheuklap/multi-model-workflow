@@ -114,12 +114,8 @@ for pack in sorted_packs:
     break  # 跳出 for，进入收尾段写 verdict=need-fresh-worker
 
 # 全部 Pack 完成 / context 触发 / partial-fail 收尾
-write doc-patch.diff to ${STATE_DIR}/plan-returns/<run_id>/<plan_id>/doc-patch.diff
-  # doc-patch 内容 = 仅 plan 文档 acceptance checkbox 行 `- [ ]` ↔ `- [x]`
-  # 不在 handler 中 apply（决策 6：Plan Implementation Review pass 后 Coordinator 流程 apply）
-
 write plan-return.json to ${STATE_DIR}/plan-returns/<run_id>/<plan_id>/plan-return.json
-  # 含 schema_version, run_id, plan_id, verdict, per_pack{}, open_items_path, doc_patch_path
+  # 含 schema_version, run_id, plan_id, verdict, per_pack{}, open_items_path, context_pressure
 
 bash state.sh execution-plan complete --plan-id <plan.id> --verdict <verdict>
 
@@ -177,9 +173,8 @@ bash state.sh agent-context-check --plan-id <plan.id>
 
 写入的 3 个 artifact 必须符合：
 
-- `plan-return.json` ← `plugin/state-schema/plan-return-v1.json`（schema_version, run_id, plan_id, started_at, finished_at, verdict, per_pack, open_items_path, doc_patch_path, context_pressure）
+- `plan-return.json` ← `plugin/state-schema/plan-return-v1.json`（schema_version, run_id, plan_id, started_at, finished_at, verdict, per_pack, open_items_path, context_pressure）
 - `open-items.json` ← `plugin/state-schema/open-items-v1.json`（schema_version, plan_id, items[]）
-- `doc-patch.diff` ← unified diff，**仅** 改动 plan 文档的 acceptance checkbox 行（`- [ ]` ↔ `- [x]`）；`guard-plan-doc-patch.sh` PreToolUse 校验
 <!-- END: worker-loop -->
 
 ## 高风险自检（每 Pack 完成后强制执行）

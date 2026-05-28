@@ -55,7 +55,7 @@
 3. **Verdict 6 枚举**：`pass / partial-pass / blocked / need-fresh-worker / needs-context / needs-plan-revision`
 4. **Repair Mode**：`repair_round ≥ 1 + disposition_refs 非空` 时 SendMessage 同 worker 续修（不重读 plan，按 Pack 独立 commit）
 5. **Context 自监控**：完成 ≥ 5 Pack 且剩余 ≥ 2 → 立即 break + verdict=`need-fresh-worker`（Coordinator 新派 Agent 续做，不 SendMessage）
-6. **Artifact Schema**：3 个产物全部写到 `.claude/multi-model-workflow/plan-returns/<run_id>/<plan_id>/`——`plan-return.json` / `open-items.json` / `doc-patch.diff`
+6. **Artifact Schema**：2 个产物全部写到 `.claude/multi-model-workflow/plan-returns/<run_id>/<plan_id>/`——`plan-return.json` / `open-items.json`
 
 详见 §5（Agents）§7（Document protocol）。
 
@@ -169,7 +169,7 @@ flowchart TD
     WC -->|"是"| WNF["Worker 写 verdict=need-fresh-worker\n→ return"]:::agent
     WC -->|"否"| WN{"还有 Pack?"}:::agent
     WN -->|"是"| WL
-    WN -->|"否"| WP["Worker 写\nplan-return.json + open-items.json + doc-patch.diff\n→ return"]:::agent
+    WN -->|"否"| WP["Worker 写\nplan-return.json + open-items.json\n→ return"]:::agent
     WNF --> NEXTW["Coordinator 新派 Agent\n（resume_from_pack_id，新 agent_id）"]:::agent
     NEXTW --> WL
     WP --> AR["agent-return-handler.sh\n读 plan-returns/.../plan-return.json\n调用 plan-return-parser.sh 校验\nstate.sh plan-returns ingest\n按 5 verdict 路由"]:::coord
@@ -186,7 +186,7 @@ flowchart TD
     RCA --> RE
     RE --> F
 
-    F -->|"pass"| DPA["apply doc-patch.diff\n（Decision 6: Review 通过后才 apply）\nCoordinator commit"]:::coord
+    F -->|"pass"| DPA["Coordinator Edit plan checkbox\n（per_pack[*].status==committed）\nCoordinator commit"]:::coord
     DPA --> RG{"Early Release Gate\nPlan 触碰风险面?"}:::coord
     RG -->|"是"| RGR["Release Review\nCodex review"]:::review
     RG -->|"否"| NP
@@ -213,7 +213,7 @@ flowchart TD
 | Plan Implementation Review | 外部 Codex review | 覆盖整个 Plan 的 diff |
 | Path A 修复 | Coordinator 直接修 | ≤ 2 文件 + confidence ≥ 7；修后 baseline re-review；失败自动升级 Path B |
 | Path B 修复 | SendMessage 同 worker | 不重读 plan / 按 Pack 独立 commit / 修完重写 plan-return.json |
-| doc-patch apply | Coordinator | **Decision 6**：Plan Implementation Review 通过后才 `git apply` doc-patch.diff（plan 文档 checkbox 勾选） |
+| Checkpoint toggle | Coordinator | Plan Implementation Review 通过后 Coordinator Edit plan 文档 toggle checkbox（per_pack[*].status==committed） |
 | Early Release Gate | Coordinator + Codex review | Plan 触碰风险面时触发 |
 
 ---
@@ -348,7 +348,6 @@ FOR each pack:
     state.sh pack-progress --plan-id ... --pack-id ... --status committed --commit-sha ...
     state.sh agent-context-check → 若 need-fresh-worker → break
 END
-write doc-patch.diff (只含 checkbox 勾选行) to plan-returns/<plan_id>/doc-patch.diff
 write plan-return.json (verdict + per_pack)
 state.sh execution-plan complete --plan-id ... --verdict ...
 ```
@@ -370,7 +369,7 @@ state.sh execution-plan complete --plan-id ... --verdict ...
 **段 6：Context 自监控 + Artifact Schema**
 - 阈值：`packs_in_session ≥ 5` AND `remaining ≥ 2` → 立即 break + verdict=`need-fresh-worker`
 - Coordinator 通过新 Agent dispatch 续做（**不是** SendMessage），新 envelope 含 `resume_from_pack_id`
-- 3 个 artifact schema 引用：`plan-return-v1.json` / `open-items-v1.json` / `doc-patch.diff`（纯 checkbox 行，guard-plan-doc-patch.sh 校验）
+- 2 个 artifact schema 引用：`plan-return-v1.json` / `open-items-v1.json`
 
 ### 5.2 其他 Agent
 
@@ -449,16 +448,13 @@ PreToolUse Bash hook，检测 codex-companion + `task` 关键字。按 envelope.
 **guard-doc-edit.sh**
 PreToolUse Edit/Write hook。worker-active marker 存在 + 路径在 `docs/` 下 → exit 2。Coordinator 上下文（无 marker）放行。`plan-returns/` 在 `.claude/multi-model-workflow/` 下不受影响。
 
-**guard-plan-doc-patch.sh**（新增）
-PreToolUse Write hook，只拦截 `doc-patch.diff` 结尾路径。用 Python 解析 diff：目标必须在 `docs/orchestrate/plans/<slug>/<file>.md`；每条 +/- 行必须是 Markdown checkbox（`- [ ] / - [x]`）；配对 -/+ 文字必须一致（纯 toggle，不得改 checkbox 后文本）。
-
 **agent-return-handler.sh**（5-路 verdict 重写）
 PostToolUse Agent hook。Plan-level 路径（envelope.plan_id 非空）：
 1. 读 `plan-returns/{run_id}/{plan_id}/plan-return.json`
 2. 调 `lib/plan-return-parser.sh` 校验 schema
 3. 调 `state.sh plan-returns ingest` 展开 per_pack 到 execution-state
 4. 按 verdict 注入 NEXT additionalContext：
-   - `pass` → 派 Plan Implementation Review；doc-patch 暂存不 apply（Decision 6）
+   - `pass` → 派 Plan Implementation Review；review pass 后 Coordinator Edit per_pack[*].status==committed 的 checkbox
    - `partial-pass` → 派 Review，open-items 带阻塞原因
    - `blocked` → BLOCKED，Coordinator triage
    - `need-fresh-worker` → 派新 Agent 含 resume_from_pack_id（或无剩余 pack 时等效 pass）
@@ -506,7 +502,6 @@ PostToolUse Agent hook，按 agent_role 加权：
 - `enforce-plan-commit.sh`（改名）
 - `agent-return-handler.sh`（5-路 verdict 完全重写）
 - `detect-worker-scope-drift.sh`（新增）
-- `guard-plan-doc-patch.sh`（新增）
 - `track-effort-budget.sh`（权重计算改造）
 
 **基本沿用**：`session-start.sh` / `gate-codex-review.sh` / `guard-doc-edit.sh` / `track-execution-state.sh`（含新增 worker_agent_id 检测以抑制提前 NEXT） / `track-review-budget.sh` / `lib/parse-envelope.sh`
@@ -547,7 +542,7 @@ Worker 完成 Plan 后写入 `.claude/multi-model-workflow/plan-returns/<run_id>
 - `verdict` — 6 枚举：`pass / partial-pass / blocked / need-fresh-worker / needs-context / needs-plan-revision`
 - `per_pack` — object，key = pack_id，value 含 `status / commit_sha / verdict / reason / attempts`
 
-**选填字段**：`started_at` / `finished_at` / `open_items_path` / `doc_patch_path` / `context_pressure`（含 `completed_packs` + `triggered`） / `repair_round` / `concerns`
+**选填字段**：`started_at` / `finished_at` / `open_items_path` / `context_pressure`（含 `completed_packs` + `triggered`） / `repair_round` / `concerns`
 
 ### 7.3 pack-returns（`state-schema/pack-returns-v1.json`）
 
@@ -567,18 +562,7 @@ Worker 跨 Pack 累积写入 `.claude/multi-model-workflow/plan-returns/<run_id>
 - `needs-evaluation` → Coordinator 独立判断
 - `bug` → 立即修或开 ticket
 
-### 7.5 doc-patch（plan checkbox 勾选）
-
-Worker 完成所有 Pack 后写 `.claude/multi-model-workflow/plan-returns/<run_id>/<plan_id>/doc-patch.diff`。
-
-**内容约束**：标准 git diff 格式，**只能改 plan 文档的 checkbox 行**（`- [ ]` → `- [x]`），配对的 +/- 行文字必须一致（不得改 checkbox 后文本）。`guard-plan-doc-patch.sh` hook 校验。
-
-**应用时机（Decision 6）**：Worker 不立即 apply。Coordinator 在 **Plan Implementation Review 通过后**调用 `scripts/lib/doc-patch-apply.sh apply_doc_patch <path>`：
-1. `git apply --check`（校验）
-2. `git apply`（应用）
-3. `git add` 已变更文件（不 commit，commit 边界由 Coordinator 控制）
-
-### 7.6 merge-brief（`state-schema/merge-brief-v1.json`，新增）
+### 7.5 merge-brief（`state-schema/merge-brief-v1.json`，新增）
 
 Multi-PR Merge route 唯一权威源。9 个 section + MERGE_BRIEF_META JSON 块。
 
@@ -642,7 +626,7 @@ DISPATCH_ENVELOPE（plan_id 非空，pack_id null）
 Worker Loop（自读 plan + handbook + execution-state + open-items + CLAUDE.md）
     │
     ▼
-plan-returns/<run_id>/<plan_id>/{plan-return.json, open-items.json, doc-patch.diff}
+plan-returns/<run_id>/<plan_id>/{plan-return.json, open-items.json}
     │
     ▼
 agent-return-handler → state.sh plan-returns ingest → Plan Implementation Review
@@ -675,7 +659,6 @@ Worker Plan 完成时（Plan-level 新增）
   └─ .claude/multi-model-workflow/plan-returns/<run_id>/<plan_id>/
      ├─ plan-return.json                                                 ← Plan Return
      ├─ open-items.json                                                  ← 累积 Open Items
-     └─ doc-patch.diff                                                   ← Plan checkbox patch
 每次 review 完成
   └─ workflow-state-<run_id>.json: budget.review_used += 1              ← Budget 消耗
 每个 phase verdict 后
@@ -749,7 +732,6 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 | `scripts/lib/state-lock.sh` | 共享 flock 原语；TTL 60s，50 次重试，自动清 stale lock |
 | `scripts/lib/learnings-poison-detector.sh` | 7 类 learnings 污染检测（指令注入 / 跨 run 污染 / 高量 flooding / scope 逃逸 / 来源可信度 / 过期引用 / contested learning） |
 | `scripts/lib/plan-return-parser.sh` | **新增**；source 后调用 `parse_plan_return <path>`；校验 schema_version=1、必填字段；导出 PLAN_RETURN_* bash 变量 |
-| `scripts/lib/doc-patch-apply.sh` | **新增**；source 后调用 `apply_doc_patch <patch>`；先 git apply --check 再 git apply + git add；空 patch no-op；不 commit |
 | `hooks/lib/parse-envelope.sh` | DISPATCH_ENVELOPE 解析原语（被多个 hook 共用） |
 
 ### 8.7 其他 scripts/
@@ -1197,7 +1179,7 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 | 3 | `plan-returns/` 路径 = `.claude/multi-model-workflow/plan-returns/<run_id>/<plan_id>/` | state-schema 注释 + worker-loop.md.tmpl + agent-return-handler.sh |
 | 4 | Context 阈值 = 5 Pack；触发后 verdict=`need-fresh-worker` | `state.sh agent-context-check` + worker-loop.md.tmpl 段 6 |
 | 5 | `pack-executor` / `complex-pack-executor` effort 权重 = 实际 Pack 数；need-fresh-worker 续派 +0.5 | track-effort-budget.sh |
-| 6 | doc-patch apply 时机 = Plan Implementation Review 通过后 | agent-return-handler.sh 明确不 apply；Coordinator 在 review pass 后调 doc-patch-apply.sh |
+| 6 | Coordinator checkbox toggle = Plan Implementation Review 通过后 | Coordinator 按 per_pack[*].status==committed Edit plan 文档 checkbox |
 | 7 | 失败封顶 = per-pack TDD 内三次失败（沿用）；per-plan 不额外封顶，Worker 走 partial-pass | worker-loop.md.tmpl 段 2/3；SendMessage 续修不另设上限 |
 | 8 | merge-brief 追加 PR = 新 run；conflict_id per-run（C-001 起编）；默认不归档 | merge-brief-v1.json schema 注释 + state.sh merge-brief init |
 | 9 | 不新增 stop-conditions / blocked-report build template | 各 SKILL.md 各自手写 stop conditions |
@@ -1241,7 +1223,7 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 - **状态文件锁**：所有状态写入使用 `lib/state-lock.sh` 目录级自旋锁（50 次 × 100ms，TTL 60s），原子写入通过 tmp → rename
 - **Disposition 证据强制**：`accepted` disposition 必须附 `evidence` 和 `coordinator_verified_evidence`，state.sh validate 校验
 - **Learnings 信任门**：Worker 返回的 learnings 必须通过 7 类投毒检测 + 高频检测 + 时间衰减
-- **doc-patch apply 时机**：Plan Implementation Review 通过后才 apply，且只能 toggle plan 文档 checkbox（guard-plan-doc-patch.sh 校验）
+- **Coordinator checkbox toggle**：Plan Implementation Review 通过后 Coordinator 按 per_pack[*].status==committed Edit plan 文档 checkbox
 - **Plan-level Worker 唯一性**：同一 plan 同一时刻只能有一个 Worker 持有 worker_agent_id（validate-plan-dispatch 检查）
 
 ---
@@ -1281,8 +1263,8 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 | 目录 | 测试数 | 覆盖范围 |
 |------|-------|---------|
 | `build/tests/` | 14 | preamble resolver、review model tier、confidence injection、sendmessage resume、resolver 逻辑、voice injection、review segmentation、disposition audit、trust boundary、build check、cross-plan contract map、repair regression evidence、repair routing、review evidence table |
-| `hooks/tests/` | 21 | 幂等性重放、disposition refs 校验、gate-codex-review、effort budget 加权（含计划级）、agent-id hook guard、envelope 解析、sendmessage resume、validate-plan-dispatch、validate-pack-manifest、validate-multi-pr-dispatch（14 项）、multi-pr-merge end-to-end（25 项）、worker scope drift、guard-plan-doc-patch、track-execution-state（pack summary / next suppression）、enforce-plan-commit、need-fresh-worker |
-| `scripts/tests/` | 19 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_context_check、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、learnings append、learnings 投毒检测、pack count validator、run summary、hotfix post-push review、budget direction check、route keyword routing、trust gate、doc-patch apply、generate pack manifest、complete review dispatch history、plan return parser |
+| `hooks/tests/` | 20 | 幂等性重放、disposition refs 校验、gate-codex-review、effort budget 加权（含计划级）、agent-id hook guard、envelope 解析、sendmessage resume、validate-plan-dispatch、validate-pack-manifest、validate-multi-pr-dispatch（14 项）、multi-pr-merge end-to-end（25 项）、worker scope drift、track-execution-state（pack summary / next suppression）、enforce-plan-commit、need-fresh-worker |
+| `scripts/tests/` | 18 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_context_check、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、learnings append、learnings 投毒检测、pack count validator、run summary、hotfix post-push review、budget direction check、route keyword routing、trust gate、generate pack manifest、complete review dispatch history、plan return parser |
 
 运行方式：`bash plugin/scripts/run-all-tests.sh`（全量）或 `bash plugin/scripts/verify-maturity.sh`（含测试 + 构建 + schema + 结构 12 大类检查）。
 
@@ -1304,7 +1286,7 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 - 改 review_intent enum → 同步 `dispatch-envelope-v1.json` + `gate-codex-review.sh` + `review-dispatch.md.tmpl`
 - 改 Worker Loop 行为 → 改 `build/templates/worker-loop.md.tmpl` → 跑 `build.sh --apply` → 检查 pack-executor.md / complex-pack-executor.md 注入正确
 - 改 plan-return / open-items / merge-brief schema → 同步 plan-return-parser.sh / agent-return-handler.sh / state.sh plan-returns ingest
-- 改 doc-patch apply 时机 → 同步 agent-return-handler.sh + guard-plan-doc-patch.sh + execution-review-dispatch.md
+- 改 Coordinator checkbox toggle 流程 → 同步 agent-return-handler.sh + execution SKILL.md Step 14 + plan-review-resolution.md
 - 改 Pack Execution Manifest 列定义 → 同步 generate-pack-manifest.sh + validate-pack-manifest.sh + plan-writing-methodology.md
 
 ---
@@ -1324,6 +1306,6 @@ CI 验证：`diff <(jq -r .version plugin/.claude-plugin/plugin.json) <(jq -r '.
 - `docs/orchestrate/plans/` 下有未勾选任务（`- [ ]`）时，`git push` 和 `gh pr create` 被 `guard-premature-push.sh` hook 阻断
 - `git merge --squash` 被 `guard-premature-push.sh` 永久禁止
 - Worker agent（含 `worker-active` marker 的上下文）不能修改 `docs/` 下文件（`guard-doc-edit.sh` 进程级强制）
-- Worker 写 `doc-patch.diff` 只能 toggle plan 文档 checkbox 行（`guard-plan-doc-patch.sh` 进程级强制）
+- Coordinator 按 per_pack[*].status==committed toggle plan 文档 checkbox（agent-return-handler.sh NEXT 指令 + SKILL.md Step 14 权威规则）
 - 未设置 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 时 session 启动被阻断（`session-start.sh`）
 - 未通过 build `--check` 时 CI 失败（`build.sh --check` 返回 exit 1）

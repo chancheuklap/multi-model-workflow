@@ -11,10 +11,9 @@
 # Plan 005 note: Worker writes to ${STATE_DIR}/plan-returns/<run_id>/<plan_id>/
 # (.claude/multi-model-workflow/plan-returns/...) are LEGITIMATE — they live
 # outside docs/ and this hook does NOT intercept them. The Worker artifacts
-# (plan-return.json, doc-patch.diff, open-items.json) are control-plane data,
-# not source-of-truth design docs; guard-plan-doc-patch.sh validates the
-# doc-patch.diff content separately to ensure it only touches plan-doc
-# checkbox lines.
+# (plan-return.json, open-items.json) are control-plane data,
+# not source-of-truth design docs. Coordinator owns plan-doc checkbox
+# toggling per per_pack[*].status==committed (read from plan-return.json).
 set -euo pipefail
 
 INPUT=$(cat)

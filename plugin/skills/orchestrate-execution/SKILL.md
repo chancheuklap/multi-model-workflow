@@ -349,6 +349,12 @@ Coordinator 写入 execution state：`plans[N].status = review_pending`。
 
 ### Step 14：标记 Plan 完成 + 推进
 
+**Coordinator checkbox toggle 权威规则**（D4 source-of-truth）：
+Plan Implementation Review pass 后，Coordinator Edit plan 文档勾选 checkbox 的 source-of-truth 是 `plan-return.per_pack[*]` where `status == committed`：
+1. Read `.claude/multi-model-workflow/plan-returns/<run_id>/<plan_id>/plan-return.json`
+2. 对每个 `per_pack[i].status == "committed"` 的 Pack，按 Pack ID 精确匹配 `docs/orchestrate/plans/<slug>/<plan-file>.md` 中 `- [ ] **Pack N.M**` 行，Edit toggle 为 `- [x] **Pack N.M**`
+3. `status` 不是 `committed`（pending / in_progress / blocked / skipped）的 Pack 不勾选
+
 Coordinator 写入 execution state：
 - `plans[N].status = completed`
 - `plans[N].release_gate_triggered = true/false`

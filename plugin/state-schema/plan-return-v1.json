@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "plan-return-v1",
-  "description": "Schema for Worker-written plan-returns/<run_id>/<plan_id>/plan-return.json. Source of truth for the Plan-level envelope produced by pack-executor / complex-pack-executor in autonomous mode (Plan 005). Read by agent-return-handler hook on SubagentStop to drive verdict routing (pass / partial-pass / blocked / need-fresh-worker / needs-context / needs-plan-revision). Sibling artifacts in the same directory: doc-patch.diff (plan checkbox patch, applied by Coordinator after Plan Implementation Review passes — Decision 6) and open-items.json (accumulated open items across packs).",
+  "description": "Schema for Worker-written plan-returns/<run_id>/<plan_id>/plan-return.json. Source of truth for the Plan-level envelope produced by pack-executor / complex-pack-executor in autonomous mode (Plan 005). Read by agent-return-handler hook on SubagentStop to drive verdict routing (pass / partial-pass / blocked / need-fresh-worker / needs-context / needs-plan-revision). per_pack[*].status == committed is the Coordinator checkbox toggle source-of-truth: after Plan Implementation Review passes, Coordinator Edit plan doc to toggle checkboxes for committed packs. Sibling artifact: open-items.json (accumulated open items across packs).",
   "type": "object",
   "required": ["schema_version", "run_id", "plan_id", "verdict", "per_pack"],
   "additionalProperties": true,
@@ -36,7 +36,7 @@
         "needs-context",
         "needs-plan-revision"
       ],
-      "description": "Plan-level verdict. Drives agent-return-handler routing: pass / partial-pass → Plan Implementation Review (doc-patch NOT yet applied); blocked → BLOCKED route; need-fresh-worker → Coordinator dispatches new Agent with resume_from_pack_id; needs-context / needs-plan-revision → routed back to plan-writing / discovery."
+      "description": "Plan-level verdict. Drives agent-return-handler routing: pass / partial-pass → Plan Implementation Review; blocked → BLOCKED route; need-fresh-worker → Coordinator dispatches new Agent with resume_from_pack_id; needs-context / needs-plan-revision → routed back to plan-writing / discovery."
     },
     "per_pack": {
       "type": "object",
@@ -72,10 +72,6 @@
     "open_items_path": {
       "type": ["string", "null"],
       "description": "Relative path to open-items.json — typically 'plan-returns/<run_id>/<plan_id>/open-items.json'."
-    },
-    "doc_patch_path": {
-      "type": ["string", "null"],
-      "description": "Relative path to doc-patch.diff — typically 'plan-returns/<run_id>/<plan_id>/doc-patch.diff'. Decision 6: NOT applied at handler time; Coordinator applies after Plan Implementation Review passes."
     },
     "context_pressure": {
       "type": ["object", "null"],

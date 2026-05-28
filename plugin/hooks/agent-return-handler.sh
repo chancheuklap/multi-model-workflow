@@ -10,7 +10,6 @@
 #   3. Call `state.sh plan-returns ingest` → write per_pack + worker_verdict
 #   4. Route by verdict (5 routes):
 #        pass / partial-pass → NEXT: Dispatch Plan Implementation Review
-#          (doc-patch NOT applied here — Decision 6: applied by Coordinator AFTER review pass)
 #        blocked            → NEXT: BLOCKED, coordinator triage
 #        need-fresh-worker  → NEXT: dispatch new Agent with resume_from_pack_id
 #        needs-plan-revision → NEXT: route to plan-writing for revision
@@ -91,9 +90,6 @@ if [ -n "$PLAN_ID" ] && [ "$PLAN_ID" != "null" ]; then
     exit 0
   fi
 
-  # NOTE: doc-patch.diff is NOT applied here (Decision 6).
-  # Coordinator applies after Plan Implementation Review passes (orchestrate-execution Step 14).
-
   # Find the next pack to resume from (for need-fresh-worker)
   NEXT_PACK=""
   if [ -f "$ESF" ]; then
@@ -105,13 +101,13 @@ if [ -n "$PLAN_ID" ] && [ "$PLAN_ID" != "null" ]; then
   # Route by verdict (5 routes)
   case "$VERDICT" in
     pass)
-      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=pass. Dispatch Plan Implementation Review (Codex). doc-patch.diff at ${BUDGET_DIR}/plan-returns/${RUN_ID}/${PLAN_ID}/doc-patch.diff is STAGED for apply AFTER review pass (Decision 6 — do NOT git apply now)."
+      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=pass. Dispatch Plan Implementation Review (Codex). After review pass, Coordinator MUST Edit plan doc: toggle checkbox '- [ ]' → '- [x]' for each Pack where per_pack[*].status == committed (read plan-return.json at ${BUDGET_DIR}/plan-returns/${RUN_ID}/${PLAN_ID}/plan-return.json)."
       ;;
     partial-pass)
-      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=partial-pass (${PLAN_RETURN_COMMITTED_COUNT} committed, ${PLAN_RETURN_BLOCKED_COUNT} blocked). Dispatch Plan Implementation Review against committed packs. open-items.json carries blocked-pack reasoning. doc-patch.diff stays in plan-returns/ until review pass."
+      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=partial-pass (${PLAN_RETURN_COMMITTED_COUNT} committed, ${PLAN_RETURN_BLOCKED_COUNT} blocked). Dispatch Plan Implementation Review against committed packs. open-items.json carries blocked-pack reasoning. After review pass, Coordinator MUST Edit plan doc: toggle checkbox for per_pack[*].status == committed only."
       ;;
     blocked)
-      emit_next "[multi-model-workflow] BLOCKED: Plan ${PLAN_ID} Worker returned verdict=blocked. Coordinator: read plan-return.json per_pack[].reason + open-items.json for diagnosis. Decide SendMessage repair / re-plan / abort. doc-patch.diff NOT applied."
+      emit_next "[multi-model-workflow] BLOCKED: Plan ${PLAN_ID} Worker returned verdict=blocked. Coordinator: read plan-return.json per_pack[].reason + open-items.json for diagnosis. Decide SendMessage repair / re-plan / abort."
       ;;
     need-fresh-worker)
       if [ -n "$NEXT_PACK" ]; then
@@ -121,10 +117,10 @@ if [ -n "$PLAN_ID" ] && [ "$PLAN_ID" != "null" ]; then
       fi
       ;;
     needs-context)
-      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=needs-context. Coordinator: fetch missing Contract anchors / Mockup specs / verification commands, augment plan, then re-dispatch. doc-patch.diff NOT applied."
+      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=needs-context. Coordinator: fetch missing Contract anchors / Mockup specs / verification commands, augment plan, then re-dispatch."
       ;;
     needs-plan-revision)
-      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=needs-plan-revision (plan doc missing required fields). Route back to plan-writing for revision. After plan-writer fix + re-review, re-dispatch this Worker. doc-patch.diff NOT applied."
+      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=needs-plan-revision (plan doc missing required fields). Route back to plan-writing for revision. After plan-writer fix + re-review, re-dispatch this Worker."
       ;;
     *)
       emit_next "[multi-model-workflow] BLOCKED: Plan ${PLAN_ID} Worker returned unknown verdict '${VERDICT}'. Inspect plan-return.json."
