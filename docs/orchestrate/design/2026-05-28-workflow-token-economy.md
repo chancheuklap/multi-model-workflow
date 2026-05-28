@@ -607,11 +607,11 @@ TBD（plan writing 完成后填充）
 
 ---
 
-## 11. Open Decisions
+## 11. Decisions（用户已确认 2026-05-28）
 
-需要用户确认的决策：
+> 4 个 Open Decisions 已由用户全部采纳推荐选项 A。本节作为审计追溯。
 
-### D1 — Path A 删除 vs 保留 deprecated path
+### D1 — Path A 完全删除 ✅
 
 **问题**：决策 3 提议彻底删 Path A（Coordinator 自修分叉）。当前 Path A 是节省一次 Worker dispatch 的优化路径，但代价是 4 个状态字段 + 1 条 hook 检查 + 路径升级机制。是否完全删除？
 
@@ -625,9 +625,9 @@ TBD（plan writing 完成后填充）
   优势：旧 run 不会因恢复时找不到字段而炸
   代价：复杂度没真正消除；新代码里仍要处理 path-a-related 字段
 
-**建议**：A。本轮已经在做大改造，向后兼容靠 graceful ignore 处理（state.sh validate 对未知字段 warn 不 fail）。
+**用户决策**：A — 完全删除 Path A。向后兼容靠 graceful ignore（state.sh validate 对未知字段 warn 不 fail）。
 
-### D2 — 外部 Skill 是否真的引入 `Skill()` 调用
+### D2 — 外部 Skill 保持 inline ✅
 
 **问题**：决策 11 当前保留 inline 模式，不引入对 `to-issues` / `to-PRD` / Writing Plans 等外部 skill 的 `Skill()` 调用。
 
@@ -641,9 +641,9 @@ TBD（plan writing 完成后填充）
   优势：plugin 减重 ≈300-500 行 reference 内容
   代价：依赖外部 plugin 持续可用；如果外部 plugin 接口变动，我们要跟随升级
 
-**建议**：A。当前 plugin 还在 v3.x 频繁迭代期，引入外部 plugin 依赖会让协调成本增加。
+**用户决策**：A — 保持当前 inline。plugin 自洽，不引入外部依赖。
 
-### D3 — `review_effectiveness` 字段处理
+### D3 — review_effectiveness 字段 + lib 删除 ✅
 
 **问题**：决策 7 提议删除 `scripts/lib/review-effectiveness.sh`（0 生产 source）。但 `workflow-state.review_effectiveness` 字段本身有用吗？
 
@@ -657,9 +657,9 @@ TBD（plan writing 完成后填充）
   优势：保留观察价值
   代价：Coordinator 多一步手工动作
 
-**建议**：A。
+**用户决策**：A — 删除 lib + 字段。可选诊断本来就没真正起到 review gate 作用。
 
-### D4 — merge-brief 7 状态枚举是否简化
+### D4 — merge-brief 状态机本轮不动 ✅
 
 **问题**：决策"不在本次范围"列了 merge-brief 9 段结构不动，但 `current_stage` 7 值枚举（init / conflict_discovery / rca / repair / integration_review / merging / complete）+ `state.sh merge-brief init/stage/verify` 三 helper 是否过细？
 
@@ -673,7 +673,7 @@ TBD（plan writing 完成后填充）
   优势：一次性收尾
   代价：multi-pr-merge 路线本身使用频次低，得失比难判断；可能改完发现重要细节漏掉
 
-**建议**：A。
+**用户决策**：A — 本轮不动 merge-brief 状态机，作为下轮课题。
 
 ---
 
