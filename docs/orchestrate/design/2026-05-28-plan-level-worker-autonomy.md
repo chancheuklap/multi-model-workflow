@@ -530,3 +530,163 @@ Coordinator 内部做了大量"决策性"判断（修复方向、风险评估、
 6. **TEMPLATE_DEPS 手工同步注释是反模式自承认**。删掉它，信任 build template 是单点维护源。
 7. **Plan-level Worker 自治是 Document-as-Context 的最大单点应用**，但不是孤立改造——所有 skill 都按同一原则收敛 dispatch。
 
+
+---
+
+## 第三轮深度调研 + 最终落地决策（5 个调研报告汇总）
+
+### 调研方法
+基于设计文档基线（commit d7f9b96），派 5 个 sub-agent 深度调研：A 文档 schema 全链路、B SKILL/dispatch 反转清单、C Worker Loop 行为契约、D Hook/State/Build 连带、E merge-brief 完整设计。
+
+### 用户拍板的最终决策
+
+#### 决策 1：取消"dispatch prompt 写文件"这一步（除 Codex 必须保留外）
+**洞察**：当 Document-as-Context 原则落地后，dispatch prompt 本来就是 ~300 token 极简；真正的 durable 上下文在 plan / design / merge-brief / workflow-state（这些才是 compaction 恢复的真源）；「prompt 写文件」反而是双重浪费（Write 调用 + 文件被忽视）。
+
+| 场景 | 新模式 |
+| --- | --- |
+| Codex review | **保留**写 `review-prompts/<gate>.md`（Codex CLI 硬要求 `--prompt-file`）|
+| Worker Agent 派发 | **inline**，不写文件（当前已是）|
+| SendMessage 修复 | **inline**，删除"先 Write 到 worker-prompts/ 文件"指令 |
+| Compaction 恢复 | 完全依赖 plan/design/merge-brief/workflow-state（不依赖 dispatch prompt 文件）|
+
+#### 决策 2：保留 `pack-executor.md` 名字（不改名）
+最小改动原则。所有 hook matcher 和 state.sh case 全部保持兼容。Worker Loop 作为 50-150 字段追加到现有 pack-executor.md / complex-pack-executor.md。
+
+#### 决策 3：`plan-returns/` 路径定在 state dir
+`.claude/multi-model-workflow/plan-returns/<run_id>/<plan_id>/`（与 pack-returns 同 level，不触发 guard-doc-edit）。
+
+#### 决策 4：Context 阈值 = 5 packs
+Worker 完成第 5 个 Pack commit 后自检超阈值则停止，写 `verdict=need-fresh-worker` 返回。Coordinator 通过新派 Agent 续做（不是 SendMessage，同 session 不解决累积）。
+
+#### 决策 5：Effort budget 权重调整
+`pack-executor` / `complex-pack-executor` dispatch 计 effort 权重 = 实际 Pack 数（而非固定 1）。避免 Plan-level Worker 自治后 effort_total 严重失真。
+
+#### 决策 6：doc-patch apply 时机 = Plan Implementation Review 通过后
+避免 review 中途回滚 plan 文档勾选。Worker 写到 `plan-returns/<plan_id>/doc-patch.diff`，Coordinator 在 review pass 后 `git apply` + commit。
+
+#### 决策 7：失败次数封顶 = per-pack 三次失败
+per-pack TDD 内三次失败协议（沿用现有 pack-executor.md）；per-plan 不额外封顶——Worker 走 partial-pass 返回，Coordinator 通过 SendMessage 续修或拍 BLOCKED 决定。
+
+#### 决策 8：merge-brief 追加 PR 视为新 run
+不在同 brief 增量。Conflict_id 命名 per-run（C-001 起编）。merge-brief 默认不归档，随 worktree 清理一起删（避免污染 final-review 上下文）。
+
+#### 决策 9：不新增 stop-conditions / blocked-report build template
+保留现有 SKILL.md 各自手写。用户原则"不增加新东西"。
+
+### Worker Loop 完整行为契约（Phase 4 落地的核心）
+
+**5 步严格启动序列**：
+1. Read plan 文档全文，验证 5 必备字段（Pack Manifest、Dependencies、Acceptance、Verification、owned files）；缺则 `NEEDS_PLAN_REVISION`
+2. Read `execution-worker-handbook.md`（reference）
+3. Read `execution-state-<run_id>.json` `plans[plan_id].packs`，区分首派 vs 续派
+4. Read `plan-returns/<run_id>/<plan_id>/open-items.json`（若存在）继承前任 worker 累积
+5. Read 项目 CLAUDE.md + 链入规则
+
+**Pack 循环主体**：
+```
+sorted_packs = topo_sort(plan.packs, by="Dependencies")
+for pack in sorted_packs:
+  if execution_state.packs[pack.id].status == "committed": continue   # partial-fail recovery
+  TDD: write_failing_test → red → minimal_code → green       # trivial 例外
+  run verification_commands → 失败 → on_pack_fail
+  scope_drift_check(changed_files ⊆ pack.owned_files)
+  write pack-returns/<pack_id>.json
+  git commit "Pack N.M: <title> — <summary>"               # hook 校验
+  append open_items to plan-returns/open-items.json
+  if completed_pack_count >= 5: verdict=need-fresh-worker → return
+write doc-patch.diff to plan-returns/<plan_id>/doc-patch.diff
+return plan-level verdict + per-pack 状态 + open_items + doc_patch_path
+```
+
+**Verdict 枚举**：`pass | partial-pass | blocked | need-fresh-worker | needs-context | needs-plan-revision`
+
+**Repair Mode**（envelope `repair_round >= 1` + `disposition_refs` 非空）：
+- SendMessage 同 worker（worker 已有 plan 全部上下文）
+- 读 disposition_refs 中每个 finding 的 `[Pack N.M]` 归属标记，按 Pack 独立 commit `Pack N.M: <title> — repair: <summary>`
+
+### merge-brief Schema（Phase 5 落地）
+
+文件：`.claude/multi-model-workflow/merge-brief-<run_id>.md`
+
+9 段结构：
+1. **Meta**（META JSON 头：schema_version, run_id, slug, current_stage, integration_review_gate）
+2. **参与 PR 表**（PR / branch / 各 design+plan path / final-review verdict / 核心行为）
+3. **合并后正确状态模型**（行为清单 / 合同地图 / 文件交叉矩阵 / 合并顺序 / 风险热点）
+4. **Conflict Findings**（per-conflict 块：conflict_id / type / involved_prs / files / severity / classification / route / status）
+5. **Root Cause Analysis**（仅 systemic conflict：analyst_agent_id / resolution / root_cause_type / fix_direction / related_conflicts）
+6. **Resolution Log**（per-conflict 修复记录 + Coordinator 验证证据 + status_after）
+7. **Integration Review Pointers**（base_diff_range / contract_surfaces / resolved_conflicts / regression_focus）
+8. **Open Items / Out-of-scope**
+9. **Verdict**（MERGE_COMPLETE / NEEDS_DISCOVERY / NEEDS_USER_DECISION / BLOCKED）
+
+**state.sh 3 个 helper**（不做全 schema CLI，避免回到"模板填空"反模式）：
+- `merge-brief init --run-id X --slug Y`（仅模板写入）
+- `merge-brief stage --run-id X --stage S`（更新 META.current_stage）
+- `merge-brief verify --run-id X`（META 完整 + § 4 status 自洽）
+
+### 9 项必须新增的 Enforcement 机制
+
+| 类型 | 名称 | 强制对象 |
+| --- | --- | --- |
+| state.sh 子命令 | `review-history append --doc design\|plan --slug X --plan-id N --round R --verdict V --gotchas "..."` | design / plan 的 Review History 字段 |
+| state.sh 子命令 | `business-summary append --slug X --plan-id N --summary "..."` | design 的 Business Summary Inputs 字段 |
+| state.sh 扩展 | `disposition record` 新增 `--plan-id` / `--coordinator-verified-evidence` 参数 | workflow-state.review_dispositions[] 新字段 |
+| state.sh 扩展 | `agent-id set/get` 新增 `--plan-id` 参数（与 `--pack-id` 互斥）| execution-state.plans[N].worker_agent_id |
+| state.sh 新增 | `execution-plan complete` + `plan-returns ingest` | Worker 自治返回处理 |
+| state.sh 新增 | `merge-brief init / stage / verify` | merge-brief 文档管理 |
+| hook | `validate-pack-manifest.sh`（PreToolUse Agent for plan-executor）| Manifest pack_id 三方对账（plan 文档 + execution-state + commit）|
+| hook 扩展 | `complete-review-dispatch.sh` 匹配 `design-review-*` / `plan-review-*` gate 时附加 Review History append | 自动写 Review History |
+| hook 扩展 | `track-execution-state.sh` 在 PLAN_DONE 时聚合 pack-returns 写入 `pack_summary` | execution-state 自动聚合 |
+| 构建脚本 | `generate-pack-manifest.sh` 从 plan 主体生成 Manifest 段 | Pack Execution Manifest 字段 |
+| schema 校验 | `pack-returns/*.json` 加 JSON schema | Worker 返回格式约束 |
+| 校验扩展 | state.sh `validate` 加「accepted disposition 必须有 coordinator_verified_evidence」 | 防 repair 用未验 evidence |
+
+### 严格 Phase 顺序约束
+
+**必须 Phase 0 → 1 → 2 → 3 串行**（来自调研 B + D）：
+- Phase 2/3 删除前，Phase 1 文档 schema 字段必须完成；否则 sub-agent 自读时拿不到信息
+- Phase 4 Worker Loop 上线前，Phase 1 的 Pack Execution Manifest 字段必须就绪（Worker 自读依赖）
+- Phase 5 merge-brief 与 Phase 2/3 multi-pr-merge skill 改造可并行
+- Phase 6 测试更新依赖 Phase 0-5 全部完成
+
+### 21 项断裂风险汇总（A: 10 + D: 11）
+
+**最高风险（阻塞性）**：
+- R1: Cross-Plan Contract Anchors 前移（3 处硬编码 reader）必须原子改造
+- R2: Pack Execution Manifest pack_id 三方不一致（Manifest / Pack 主体 / execution-state.packs keys）
+- R3: coordinator_verified_evidence 缺失 → repair 用未验 evidence
+- R6: Worker 自治读 Manifest 失败导致 Pack 漏跑
+- D1: 设计文档自身两层结论冲突（已通过决策 2 解决）
+- D2: plan-returns 落地路径未钉死（已通过决策 3 解决）
+
+**中等风险（降级性）**：R4/R5/R7/R8/R9/R10 + D3-D11，全部通过 enforcement 机制 + Phase 顺序 + fallback 分支缓解。
+
+### 改造影响最终估算
+
+| 维度 | 数量 |
+| --- | --- |
+| SKILL.md 净删除 | ~850 行（execution: -641 是大头）|
+| Dispatch reference 净删除 | ~180 行 |
+| 文档 schema 字段新增 | 7 处（无新增文档，全部补到现有）|
+| 中介文档新增 | 1 个（merge-brief）|
+| state.sh 子命令变更 | 8 项（5 扩展 + 3 新增 / 含 merge-brief 3 helper）|
+| Hook 改动 | 4 必改 + 2 可选新增 + 1 删除（孤儿 template）|
+| Build template 改动 | 8 改动 + 1 删除 |
+| 新增测试 | 3+ 项（plan-level dispatch / partial-fail / doc-patch）|
+| verify-maturity 检查 | +5 / -1 |
+| Sub-agent 文件补段 | 2 处约 200 字（Worker Loop + context 自监控）|
+| Build template 补段 | 1 处约 80 字（targeted re-review scope 收窄）|
+
+---
+
+## 实施计划文档
+
+详见 `docs/orchestrate/plans/2026-05-28-plan-level-worker-autonomy/`，按 6 phase 拆 Plan：
+
+- Plan 001：Phase 0 清理 + 决策项落地（删 TEMPLATE_DEPS / 删孤儿 template / 简化 dispatch prompt 写文件）
+- Plan 002：Phase 1 文档 schema 字段补全 + 9 项 enforcement
+- Plan 003：Phase 2 SKILL.md 瘦身（~850 行删除）
+- Plan 004：Phase 3 dispatch reference 反转
+- Plan 005：Phase 4 Worker Loop 落地 + agent-return-handler 重写
+- Plan 006：Phase 5 merge-brief 中介文档 + multi-pr-merge skill 改造 + Phase 6 测试/maturity 同步

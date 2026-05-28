@@ -1,0 +1,254 @@
+# Plan 003：Phase 2 SKILL.md 瘦身（~850 行删除）
+
+**Design source**: `docs/orchestrate/design/2026-05-28-plan-level-worker-autonomy.md`（改造分类 A + 推荐改造顺序 Phase 2）
+**调研依据**: 调研 B 「SKILL.md 改造清单」
+**Blocked by**: Plan 002（schema 字段必须先就绪，否则删除后 sub-agent 自读拿不到信息）
+**Risk profile**: normal（大量删除但全部依赖已存在的 reference）
+**Worker type**: `pack-executor`
+
+## Plan Goal Behavior
+
+把 7 个 SKILL.md 内嵌的 dispatch reference 全文（与对应 reference 文件 1:1 重复）删除，改为「流程位置 + Read references/X.md」指针。SKILL.md 退化为"流程指挥脚本"，详细执行内容下沉到 reference。
+
+参考 lean 样板：`orchestrate-final-review/SKILL.md` 238 行（已是 lean 模式）。
+
+## Plan Acceptance Criteria
+
+- [ ] `orchestrate-execution/SKILL.md` 881 → ~240 行（净删 ~640 行）
+- [ ] `orchestrate-plan-writing/SKILL.md` 303 → ~200 行
+- [ ] `orchestrate-workflow/SKILL.md` 233 → ~215 行
+- [ ] `orchestrate-final-review` / `orchestrate-discovery` / `orchestrate-multi-pr-merge` 微调
+- [ ] `codex-review/SKILL.md` 接入 `<!-- BEGIN: review-dispatch -->` 锚点（替代手工副本）
+- [ ] 所有保留的「灰色边界」内容（Worker 类型选择表 / BLOCKED 双层报告 / Pre-execution checklist / 不存在非阻塞项铁律）完整保留
+- [ ] `bash plugin/build/build.sh --check --plugin-dir plugin` 通过
+- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
+- [ ] `bash plugin/scripts/verify-maturity.sh` 通过
+
+## File / Responsibility Map
+
+| 文件 | 当前 | 预期 | 主要工作 |
+| --- | --- | --- | --- |
+| `plugin/skills/orchestrate-execution/SKILL.md` | 881 | ~240 | 删 Step 5 Pack Brief + Step 8 review prompt 全文 |
+| `plugin/skills/orchestrate-plan-writing/SKILL.md` | 303 | ~200 | 精简 Step 9-10 派发描述 |
+| `plugin/skills/orchestrate-workflow/SKILL.md` | 233 | ~215 | 缩短 dispatch 调用代码段 |
+| `plugin/skills/orchestrate-final-review/SKILL.md` | 238 | ~210 | 微调（已 lean） |
+| `plugin/skills/orchestrate-discovery/SKILL.md` | 157 | ~150 | 微调 |
+| `plugin/skills/orchestrate-multi-pr-merge/SKILL.md` | 183 | ~170 | 微调 |
+| `plugin/skills/codex-review/SKILL.md` | 152 | ~110 | 接入 review-dispatch 锚点 |
+
+## Pack Execution Manifest
+
+| pack_id | title | risk | dependencies | owned_files |
+| --- | --- | --- | --- | --- |
+| 3.1 | orchestrate-execution SKILL.md 瘦身 | normal | — | `orchestrate-execution/SKILL.md` |
+| 3.2 | orchestrate-plan-writing SKILL.md 瘦身 | normal | — | `orchestrate-plan-writing/SKILL.md` |
+| 3.3 | orchestrate-workflow SKILL.md 瘦身 | trivial | — | `orchestrate-workflow/SKILL.md` |
+| 3.4 | orchestrate-final-review + discovery + multi-pr-merge 微调 | trivial | — | 3 个 SKILL.md |
+| 3.5 | codex-review SKILL.md 接入 review-dispatch 锚点 | normal | Plan 001 Pack 1.1 完成 | `codex-review/SKILL.md` |
+
+---
+
+## Pack 3.1：orchestrate-execution SKILL.md 瘦身
+
+### Goal behavior
+删除 L131-216 (Step 1-3，已在 execution-preparation.md)、L236-368 (Step 5/5a/5b Pack Brief，Worker 自治后不需要)、L513-712 (Step 8 review prompt 全文，已在 execution-review-dispatch.md)。保留 Step 4 (Worker 类型选择表)、流程总览、verdict 路由、git checkpoint 协调、forbidden-shortcuts。
+
+### Implementation tasks
+1. Read `plugin/skills/orchestrate-execution/SKILL.md`（全文，881 行）
+2. 对照调研 B 给出的逐段标注，执行以下删除：
+   - L131-216 Step 1-3：改为 1 段「Read `references/execution-preparation.md`」+ 保留 NEEDS_PLAN_REVISION 出口
+   - L236-368 Step 5/5a/5b Pack Brief：**全部删除**（Worker 自治后 Coordinator 不构造 Pack Brief）
+   - L376-408 Step 6 派发：**重写**为 Plan-level dispatch（subagent_type 仍 pack-executor / complex-pack-executor，但 prompt 缩为 ~300 token：envelope + plan 路径 + run_id + STATE_DIR + handbook 指针）
+   - L449-498 Step 7 + 7a：改为「Worker 返回 plan-level；批量处置 open items 在 Plan 边界」
+   - L500-511 Step 7b Git Checkpoint：保留但改写为「apply plan-doc 勾选 patch + 一次 plan-doc commit」
+   - L513-712 Step 8：**全部 replace 为 Read pointer**（已在 execution-review-dispatch.md）
+3. 保留的内容（明确不动）：L6-129、L220-235 (Worker 类型选择表)、L246-274 (control-envelope 锚点)、L369-374 (trust-boundary)、L410-447 (state-write 锚点)、L527-604 (review-dispatch 锚点)、L713-771 (disposition-table 锚点)、L773-881 (后续 lean 段)
+4. 跑 `bash plugin/build/build.sh --apply` 让 template 注入（锚点内容由 template 维护）
+5. 跑 `bash plugin/build/build.sh --check` 验证
+
+### Owned files
+- Edit: `plugin/skills/orchestrate-execution/SKILL.md`
+
+### Read first
+- 当前 `orchestrate-execution/SKILL.md` 全文
+- `plugin/skills/orchestrate-execution/references/execution-preparation.md`（确认覆盖 Step 1-3）
+- `plugin/skills/orchestrate-execution/references/execution-review-dispatch.md`（确认覆盖 Step 8）
+- `plugin/skills/orchestrate-final-review/SKILL.md`（lean 样板）
+
+### Acceptance criteria
+- [ ] 行数 881 → ~240（误差 ±20 可接受）
+- [ ] Worker 类型选择表完整保留
+- [ ] 流程指挥 verdict 路由表完整保留
+- [ ] 「不存在非阻塞项」铁律保留
+- [ ] BLOCKED 双层报告格式保留
+- [ ] 所有 build template 锚点保留
+- [ ] `build.sh --apply` + `--check` 通过
+
+### Verification commands
+- `[[ $(wc -l < plugin/skills/orchestrate-execution/SKILL.md) -le 260 ]]` → Expected: exit 0
+- `grep -q '不存在非阻塞项' plugin/skills/orchestrate-execution/SKILL.md` → Expected: exit 0
+- `grep -q 'BEGIN: review-dispatch' plugin/skills/orchestrate-execution/SKILL.md` → Expected: exit 0
+- `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
+- `bash plugin/scripts/run-all-tests.sh` → Expected: exit 0
+
+### Risk flags
+normal（最大删除量，但全部目标内容已在 reference）
+
+### Out of scope
+- 不动 reference 文件本身（Phase 3 反转 reference 在 Plan 004）
+- 不动 Worker 自治行为（Plan 005）
+
+---
+
+## Pack 3.2：orchestrate-plan-writing SKILL.md 瘦身
+
+### Goal behavior
+精简 Step 9-10 的 dispatch 描述段（粘贴段已移除），其他保持 lean。
+
+### Implementation tasks
+1. Read `plugin/skills/orchestrate-plan-writing/SKILL.md`
+2. 按调研 B 标注：
+   - L176-188 Steps 9-10：精简为 3 行（详细派发协议已在 plan-writer-dispatch.md）
+   - 其他段保留（已是 lean）
+3. `bash plugin/build/build.sh --apply` + `--check`
+
+### Owned files
+- Edit: `plugin/skills/orchestrate-plan-writing/SKILL.md`
+
+### Read first
+- `plugin/skills/orchestrate-plan-writing/SKILL.md`
+- `plugin/skills/orchestrate-plan-writing/references/plan-writer-dispatch.md`
+
+### Acceptance criteria
+- [ ] 行数 303 → ~200
+- [ ] Pack 数量检查表 / budget_total 验收节点保留
+- [ ] `build.sh --check` 通过
+
+### Verification commands
+- `[[ $(wc -l < plugin/skills/orchestrate-plan-writing/SKILL.md) -le 220 ]]` → Expected: exit 0
+- `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
+
+### Risk flags
+normal
+
+---
+
+## Pack 3.3：orchestrate-workflow SKILL.md 瘦身
+
+### Goal behavior
+缩短 Discovery / Plan Writing / Execution / Final Review / Multi-PR / Closing 各 phase 段的 dispatch 调用代码段。Entry Gate 路由表完整保留。
+
+### Implementation tasks
+1. Read `plugin/skills/orchestrate-workflow/SKILL.md`
+2. 按调研 B：
+   - L51-55：可考虑迁到 `workflow-infrastructure.md`，SKILL 留指针
+   - L82-85, L100-118：缩短 dispatch 调用代码片段
+   - 其他保留
+3. `bash plugin/build/build.sh --apply` + `--check`
+
+### Owned files
+- Edit: `plugin/skills/orchestrate-workflow/SKILL.md`
+
+### Read first
+- 现有 SKILL.md 全文
+
+### Acceptance criteria
+- [ ] 行数 233 → ~215
+- [ ] Entry Gate 路由表 + 5 类 verdict 表 + Global Constraints 完整保留
+
+### Verification commands
+- `[[ $(wc -l < plugin/skills/orchestrate-workflow/SKILL.md) -le 220 ]]` → Expected: exit 0
+- `grep -q 'Entry Gate' plugin/skills/orchestrate-workflow/SKILL.md` → Expected: exit 0
+- `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
+
+### Risk flags
+trivial
+
+---
+
+## Pack 3.4：orchestrate-final-review + discovery + multi-pr-merge 微调
+
+### Goal behavior
+3 个 SKILL.md 都已是 lean 模式，仅做小幅清理（多余空行、过时注释）。
+
+### Implementation tasks
+1. Read 3 个 SKILL.md
+2. 各自删除 5-15 行多余空行 / 过时注释 / 与 reference 1:1 重复的小段
+3. `build.sh --apply` + `--check`
+
+### Owned files
+- Edit: `plugin/skills/orchestrate-final-review/SKILL.md`
+- Edit: `plugin/skills/orchestrate-discovery/SKILL.md`
+- Edit: `plugin/skills/orchestrate-multi-pr-merge/SKILL.md`
+
+### Acceptance criteria
+- [ ] 三个 SKILL.md 各净删 5-30 行
+- [ ] 所有 lean 模式特征保留
+- [ ] `build.sh --check` 通过
+
+### Verification commands
+- `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
+
+### Risk flags
+trivial
+
+---
+
+## Pack 3.5：codex-review SKILL.md 接入 review-dispatch 锚点
+
+### Goal behavior
+Plan 001 Pack 1.1 已删除 TEMPLATE_DEPS 注释。本 Pack 完成"接入"：让 SKILL.md 通过 `<!-- BEGIN: review-dispatch -->` 锚点拿到 confidence rubric / pre-emit gate / 证据表 / bias indicators（替代 L77-97 的手工副本）。
+
+### Implementation tasks
+1. Read `plugin/skills/codex-review/SKILL.md`
+2. 在 Step 2 后或合适位置插入 `<!-- BEGIN: review-dispatch -->` / `<!-- END: review-dispatch -->` 锚点对
+3. 删除 L77-97 中与 template 内容重复的手工副本（confidence rubric / pre-emit gate / 证据表 / bias indicators）
+4. Read `plugin/build/resolvers/review-dispatch.sh` 或同等 resolver 注册表，确认 codex-review/SKILL.md 在注入目标列表中（若不在，加上）
+5. `bash plugin/build/build.sh --apply --plugin-dir plugin` 让 template 注入
+6. `bash plugin/build/build.sh --check --plugin-dir plugin` 验证
+
+### Owned files
+- Edit: `plugin/skills/codex-review/SKILL.md`
+- 可能：Edit `plugin/build/resolvers/review-dispatch.sh`（如需加 target）
+
+### Read first
+- `plugin/skills/codex-review/SKILL.md`
+- `plugin/build/templates/review-dispatch.md.tmpl`
+- `plugin/build/resolvers/review-dispatch.sh`（确认 target 列表）
+
+### Acceptance criteria
+- [ ] codex-review/SKILL.md 含 `BEGIN: review-dispatch` 锚点
+- [ ] 手工副本（confidence rubric / pre-emit gate / 证据表 / bias indicators）已被锚点内容替代
+- [ ] `build.sh --apply` + `--check` 通过
+- [ ] grep 检查：codex-review SKILL.md 没有 TEMPLATE_DEPS 注释（Plan 001 Pack 1.1 已删除，本 Pack 验证）
+
+### Verification commands
+- `grep -q 'BEGIN: review-dispatch' plugin/skills/codex-review/SKILL.md` → Expected: exit 0
+- `! grep -q 'TEMPLATE_DEPS' plugin/skills/codex-review/SKILL.md` → Expected: exit 0
+- `bash plugin/build/build.sh --apply --plugin-dir plugin && bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
+
+### Risk flags
+normal（涉及 build resolver target 注册）
+
+### Dependencies
+- Plan 001 Pack 1.1（TEMPLATE_DEPS 已删除）
+
+---
+
+## Plan-level 验证
+
+```bash
+bash plugin/build/build.sh --apply --plugin-dir plugin
+bash plugin/build/build.sh --check --plugin-dir plugin
+bash plugin/scripts/run-all-tests.sh
+bash plugin/scripts/verify-maturity.sh
+
+# 行数检查
+for f in plugin/skills/*/SKILL.md; do echo "$(wc -l < $f) $f"; done
+```
+
+全部通过 → Plan 003 完成。
+
+## Plan Review History
+
+（待 Plan Implementation Review 后追加）
