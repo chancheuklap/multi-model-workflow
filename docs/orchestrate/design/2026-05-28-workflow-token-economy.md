@@ -418,9 +418,9 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 
 **收益估算**：设计文档术语一致性硬保证；下游 plan / pack 不再因术语漂移产生隐性 review finding。
 
-#### 决策 16：Discovery 外部精华轻量引入（4 条，零/负 token 增量）
+#### 决策 16：Discovery 外部精华轻量引入（3 条，零/负 token 增量）
 
-经过"是否加重流程/token"的逐条评估，从 10 条候选中筛选出 4 条**不明显加重流程和 token**的精华引入：
+经过"是否加重流程/token"的逐条评估，从 10 条候选中筛选出 3 条**不明显加重流程和 token**的精华引入：
 
 **1. to-PRD synthesize fast-path（减负型 — token 净负增量）**：
 - `orchestrate-discovery/SKILL.md` Step 1-2 增加一句：
@@ -432,26 +432,20 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
   > 例外类型仅限：state machine / reducer / schema / type shape。
 - 收益：防止 design 文档被滥用嵌入大段实现代码
 
-**3. Forcing Questions 三问锚点（限定新功能场景）**：
-- `discovery-discussion.md` Step 2 "按输入类型澄清" 在"新功能"分支增加三个提示锚点（不强制每次都问，作为 Coordinator 在意图模糊时的引导工具）：
-  - **Demand Reality**：谁现在愿意为这个付钱 / 投入时间？说出具体人或机构
-  - **Status Quo**：用户现在用什么拼凑解决这个问题？（spreadsheet + Slack 也是真竞品）
-  - **Narrowest Wedge**：最小可付费 / 可演示 / 可验证的切片是什么？
-- 收益：新功能 Discovery 入口质量提升；不适用 plugin 自身重构等内部任务
-
-**4. Push twice 规则（一句话规则进 voice-directive）**：
+**3. Push twice 规则（一句话规则进 voice-directive）**：
 - `build/templates/voice-directive.md.tmpl` Anti-Sycophancy 段增加一行：
   > Push twice：第一个回答默认是抛光过的，至少追问一轮才相信。
 - 收益：与现有"立场+证据+质疑最强版本"互补；暴露用户初次回应中的妥协式回答
 
 ---
 
-**不引入的 6 条**（理由列在表中，记录决策痕迹）：
+**不引入的 7 条**（理由列在表中，记录决策痕迹）：
 
 | 候选 | 不引入理由 |
 |------|----------|
 | Brainstorming Visual Companion 独立消息协议 | 已被决策 19 覆盖（用户主动驱动 mockup）|
 | to-PRD Deep modules sketch 显式 Step | 加上游 token 流程过重；决策 14 Explorer 并行调研已隐含承担"模块边界探查" |
+| office-hours Forcing Questions 三问锚点 | 用户判断不引入——增量虽轻（≈3 行）但属于"业务直觉"层，不应硬编码在 plugin 流程文本里 |
 | office-hours Premises 显式 gate | 与"分段呈现，每段确认"重叠（每段开头就是 premise）|
 | GSTack Alternatives 三档结构化 + 五字段 | 当前"2-3 方案对比 + 推荐 + YAGNI"已覆盖核心；强制三档是过度规范化 |
 | plan-ceo-review 10-star / Scope Modes | 不属 Discovery 范畴 |
