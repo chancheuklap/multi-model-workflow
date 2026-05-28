@@ -283,13 +283,13 @@
 ### Task Pack 3.3: Plan Writing 压缩 + budget 公式同步（D20）
 
 **Issue:** Small issue #3
-**Goal behavior:** plan-writer / Plan-Review dispatch reference 顶部死 Self-Read Protocol 清零；budget 公式从 `3P + 12` 降为 `2P + 6`，对应分配文字（每 Plan 2 review + 6 固定额度）在两处权威位置（plan-gates.md 与 SKILL.md）同步落地。
+**Goal behavior:** plan-writer / Plan-Review dispatch reference 顶部死 Self-Read Protocol 清零；验证 budget 公式 `2P + 6` 已由 Issue 002 Pack 2.2 落地（本 Pack 不重复编辑，仅验证 + 补充分配文字细节如需要）。
 
 **Owned files / responsibilities:**
 - Modify: `plugin/skills/orchestrate-plan-writing/references/plan-writer-dispatch.md` — 删除顶部 `## Self-Read Protocol` 整段（约 10 行）
 - Modify: `plugin/skills/orchestrate-plan-writing/references/plan-review-dispatch.md` — 删除顶部 `## Self-Read Protocol` 整段（约 10 行）
-- Modify: `plugin/skills/orchestrate-plan-writing/references/plan-gates.md` — budget 公式数字 + 分配文字同步改写
-- Modify: `plugin/skills/orchestrate-plan-writing/SKILL.md` — budget_total 公式数字改写
+- Verify: `plugin/skills/orchestrate-plan-writing/references/plan-gates.md` — 确认 budget 公式 `2P + 6` 已由 Issue 002 Pack 2.2 落地；如分配文字细节不足（缺少决策 20 权威表述的完整分配解释），补充完善
+- Verify: `plugin/skills/orchestrate-plan-writing/SKILL.md` — 确认 `budget_total = 2P + 6` 已由 Issue 002 Pack 2.2 落地
 
 **Read first:**
 - `docs/orchestrate/design/2026-05-28-workflow-token-economy.md` §4.2 决策 20（公式分配权威表述）
@@ -297,8 +297,8 @@
 - 4 个目标文件全文
 
 **Contract anchors:**
-- Owner: Pack 3.3
-- Provider: 公式权威表述（`plan-gates.md` 即新唯一源）
+- Owner: Pack 3.3（Self-Read Protocol 清理）；budget 公式由 Issue 002 Pack 2.2 负责（本 Pack 仅验证 + 补充分配细节）
+- Provider: 公式权威表述（`plan-gates.md` 即新唯一源，Issue 002 Pack 2.2 已落地基础公式）
 - Consumer: `state.sh budget initialize` / `track-review-budget.sh` / `gate-codex-review.sh`（budget 余量检查）/ 所有 phase 内 review dispatch
 - Verification: grep `3P + 12` 在 plan-writing/ 整树清零；grep `2P + 6` 命中 2 处权威位置
 
@@ -337,28 +337,15 @@
 - [ ] Step 2: 删除 `plan-review-dispatch.md` 顶部 Self-Read Protocol
   - 文件：`plugin/skills/orchestrate-plan-writing/references/plan-review-dispatch.md`
   - 同 Step 1 模式
-- [ ] Step 3: 修改 `plan-gates.md` budget 公式行（决策 20 权威表述）
+- [ ] Step 3: 验证 `plan-gates.md` budget 公式已由 Issue 002 Pack 2.2 落地 + 补充分配细节
   - 文件：`plugin/skills/orchestrate-plan-writing/references/plan-gates.md`
-  - 旧文本：
-    ```
-    此命令写入 `budget.review_total = 3P + 12`、`budget.effort_total = (3P + 12) * 2`、`budget.budget_status = "initialized"`。
-
-    公式分配：`3P`（每个 Plan 1 次 baseline + 最多 2 次 repair re-review）+ `12`（Design Review 2-4 + Plan Document Review 1 + Final Review 2 + Release Gate ≤2 + 修复余量 3-5）。
-    ```
-  - 新文本：
-    ```
-    此命令写入 `budget.review_total = 2P + 6`、`budget.effort_total = (2P + 6) * 2`、`budget.budget_status = "initialized"`。
-
-    公式分配：
-    - `2P`：每 Plan 2 次 review = 1 Plan Review（plan-writing 阶段）+ 1 Plan Implementation Review（execution 阶段）
-    - `+6` 固定额度：Design Review 2（Content + Alignment）+ Final Review 2（Regression+Intent+Cross-Plan + Code-Level）+ Release Gate 1（条件触发，diff 触碰发布风险面时）+ Multi-PR Integration Review 1（仅 Route 3 触发；非 formal route 时此额度未使用，不滚动）
-
-    修复后由 Coordinator 自验闭合，不再消耗 review budget（targeted re-review 机制已全局删除）。
-    ```
-- [ ] Step 4: 修改 `orchestrate-plan-writing/SKILL.md` 公式数字行
+  - 验证：`grep "2P + 6" plugin/skills/orchestrate-plan-writing/references/plan-gates.md` → Expected: ≥ 1 行命中（Issue 002 Pack 2.2 已改）
+  - 如 Pack 2.2 的分配文字仅写了简要说明，补充为决策 20 权威表述（完整分配：`2P` = 每 Plan 2 review + `+6` = Design Review 2 + Final Review 2 + Release Gate 1 + Multi-PR Integration Review 1 + "修复后由 Coordinator 自验闭合"）
+  - 如已完整：跳过本步
+- [ ] Step 4: 验证 `orchestrate-plan-writing/SKILL.md` 公式已由 Issue 002 Pack 2.2 落地
   - 文件：`plugin/skills/orchestrate-plan-writing/SKILL.md`
-  - 旧文本：`**Read** `references/plan-gates.md`（gate 检查 + budget_total = `3P + 12`，P = plan 文件总数；写入 design.md `## Cross-Plan Contract Anchors` section）。`
-  - 新文本：`**Read** `references/plan-gates.md`（gate 检查 + budget_total = `2P + 6`，P = plan 文件总数；写入 design.md `## Cross-Plan Contract Anchors` section）。`
+  - 验证：`grep "2P + 6" plugin/skills/orchestrate-plan-writing/SKILL.md` → Expected: ≥ 1 行命中（Issue 002 Pack 2.2 已改）
+  - 如命中：跳过本步
 - [ ] Step 5: 跑 verification
   - Run: `grep -r "3P + 12\|3P+12" plugin/skills/orchestrate-plan-writing/` → Expected: 0 命中
   - Run: `grep "2P + 6" plugin/skills/orchestrate-plan-writing/references/plan-gates.md` → Expected: ≥ 2 行
@@ -378,7 +365,7 @@
 - Modify: `plugin/agents/pack-executor.md` — Read handbook 步骤路径修正
 - Modify: `plugin/agents/complex-pack-executor.md` — 同上
 - Modify: `plugin/build/templates/worker-loop.md.tmpl` — Step 2 Read handbook 路径修正（critical runtime bug）
-- Modify: `plugin/architecture-draft.md` — 4 处 `execution-worker-handbook` 引用：L53 区段 / L286 区段 reference 清单整段删除 `execution-worker-handbook（Worker 自读）`项 / L299 区段同处理 / L338 区段 Read handbook 步骤
+- Modify: `plugin/architecture-draft.md` — 2 处 `execution-worker-handbook` 引用：L53 区段 `读 execution-worker-handbook` → `读 execution-worker-dispatch` / L338 区段 `Read execution-worker-handbook.md` → `Read execution-worker-dispatch.md`（L286 / L299 两处已由 Issue 001 Pack 5 删除，本 Pack 不重复处理）
 - Modify: `plugin/skills/orchestrate-execution/references/execution-review-dispatch.md` — 删除顶部 `## Self-Read Protocol` 整段
 - Build apply: 跑 `bash plugin/build/build.sh --apply --plugin-dir plugin` 同步 worker-loop.md.tmpl 改动到所有目标文件
 
@@ -401,7 +388,7 @@
 - [ ] `plugin/agents/pack-executor.md` Read handbook 步骤路径为 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-dispatch.md`
 - [ ] `plugin/agents/complex-pack-executor.md` 同上
 - [ ] `plugin/build/templates/worker-loop.md.tmpl` Step 2 Read handbook 路径为 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-dispatch.md`
-- [ ] `plugin/architecture-draft.md` L286 / L299 区段 reference 清单整体删除 `execution-worker-handbook（Worker 自读）` 项；L53 / L338 区段 Read handbook 步骤改为 `execution-worker-dispatch.md`
+- [ ] `plugin/architecture-draft.md` L53 / L338 区段 Read handbook 步骤改为 `execution-worker-dispatch.md`（L286 / L299 已由 Issue 001 Pack 5 处理）
 - [ ] `execution-review-dispatch.md` 顶部无 `## Self-Read Protocol` 段
 - [ ] `bash plugin/build/build.sh --apply --plugin-dir plugin` 跑过；`--check` 通过
 - [ ] `bash plugin/scripts/run-all-tests.sh` 通过
@@ -415,7 +402,7 @@
 - `bash plugin/scripts/run-all-tests.sh` → Expected: 全 PASS
 - `bash plugin/scripts/verify-maturity.sh` → Expected: exit 0
 
-**Commit boundary:** 1 个 atomic commit `fix(execution): 8 处 handbook 路径修正 + 删 Self-Read 死内容 (critical runtime bug)`
+**Commit boundary:** 1 个 atomic commit `fix(execution): 6 处 handbook 路径修正 + 删 Self-Read 死内容 (critical runtime bug)`
 **Risk flags:** runtime / production-risk（worker-loop.md.tmpl 注入 worker-prompts，Worker 实际 Read 此路径——本 Pack 修复 runtime bug）
 **发布风险:** 见 plan 顶部表（Worker 启动失败风险）
 **AFK / HITL:** AFK（Plan Implementation Review 必须亲跑一次 Worker dispatch 验证 Read 路径不报错）
@@ -438,11 +425,9 @@
   - 文件：`plugin/build/templates/worker-loop.md.tmpl`
   - 旧文本：`Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-handbook.md``
   - 新文本：`Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-dispatch.md``
-- [ ] Step 5: 修正 `architecture-draft.md` 4 处 handbook 引用
+- [ ] Step 5: 修正 `architecture-draft.md` 2 处 handbook 引用（L286 / L299 已由 Issue 001 Pack 5 处理）
   - 文件：`plugin/architecture-draft.md`
   - L53 区段（"5 步严格启动序列"段）：`读 execution-worker-handbook` → `读 execution-worker-dispatch`
-  - L286 区段（reference 清单段）：删除 ` / execution-worker-handbook（Worker 自读）` 项
-  - L299 区段（文件清单）：从 `execution-worker-dispatch.md / execution-review-dispatch.md / execution-worker-handbook.md` 改为 `execution-worker-dispatch.md / execution-review-dispatch.md`
   - L338 区段（Read handbook 步骤）：`Read execution-worker-handbook.md` → `Read execution-worker-dispatch.md`
 - [ ] Step 6: 删除 `execution-review-dispatch.md` 顶部 Self-Read Protocol
   - 文件：`plugin/skills/orchestrate-execution/references/execution-review-dispatch.md`
@@ -456,7 +441,7 @@
   - Run: `bash plugin/scripts/run-all-tests.sh` → Expected: 全 PASS
   - Run: `bash plugin/scripts/verify-maturity.sh` → Expected: exit 0
 - [ ] Step 9: Suggested commit
-  - Message: `fix(execution): 8 处 handbook 路径修正 + 删 Self-Read 死内容 (critical runtime bug)`
+  - Message: `fix(execution): 6 处 handbook 路径修正 + 删 Self-Read 死内容 (critical runtime bug)`
 
 ---
 

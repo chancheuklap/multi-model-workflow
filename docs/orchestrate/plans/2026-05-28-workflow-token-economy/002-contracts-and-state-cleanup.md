@@ -535,6 +535,7 @@
 - Modify: `plugin/hooks/gate-codex-review.sh` — 删除 `path-a-re-review)` case（约 10 行）
 - Modify: `plugin/hooks/validate-plan-dispatch.sh` — 删除 Step 8 Path A 检查代码段
 - Modify: `plugin/build/templates/disposition-table.md.tmpl` — 删除 `path-a` 选项 + 删除 L44-47 "Path A re-review 规则" 整段（4 行）（亲验：CLI disposition enum L23 当前 5 值 `accepted|rejected|suppress|path-a|path-b`，删除 `path-a` 后 4 值；设计文档 §4.2 D3 "disposition 枚举 10→9" 表述含其他 SKILL/reference 中 disposition 枚举累计，本 Pack 仅处理 .tmpl 中实际存在的 path-a 引用）
+- Modify: `plugin/skills/_shared/disposition-table.md` — 删除 `path-a` 选项（Issue 001 Pack 9 canonical 抽取时保留了 path-a，本 Pack 在 live canonical 中同步清理）
 - Modify: 5 处 SKILL/reference 中 `state.sh path-a-escalation` 描述：
   - `plugin/skills/orchestrate-discovery/references/design-review-angles.md` L306
   - `plugin/skills/orchestrate-plan-writing/SKILL.md` L235
@@ -585,6 +586,7 @@
 - `jq -r '.properties.review_intent.oneOf[0].enum' plugin/state-schema/dispatch-envelope-v1.json` → Expected: `["baseline"]`
 - `grep -n "path-a-re-review" plugin/hooks/gate-codex-review.sh` → Expected: 无输出
 - `grep -n "path-a" plugin/build/templates/disposition-table.md.tmpl` → Expected: 无输出
+- `grep -n "path-a" plugin/skills/_shared/disposition-table.md` → Expected: 无输出
 - `test ! -e plugin/skills/orchestrate-execution/references/path-a-re-review.md` → Expected: exit 0
 - `test ! -e plugin/scripts/tests/test_path_a_re_review.sh` → Expected: exit 0
 - `grep -n "path_a_escalation" plugin/hooks/tests/` → Expected: 无输出
@@ -640,6 +642,11 @@
   - 动作 b: 删除 L44-47 "Path A re-review 规则" 整段（4 行）
   - 验证: `grep -n "path-a" plugin/build/templates/disposition-table.md.tmpl` → 无输出
   - 注意: disposition 主表 L32-40 不变（7 个 markdown table row：accepted / rejected / needs evidence / duplicate / out of scope / needs evaluation / user decision——不含 path-a 行，无需改动）
+
+- [ ] Step 8b: 修改 canonical disposition-table.md（live 文件）
+  - 文件: `plugin/skills/_shared/disposition-table.md`（Issue 001 Pack 9 抽取时保留了 path-a，本步在 live canonical 中同步清理）
+  - 动作: 与 Step 8 同模式——删除 CLI enum 中 `path-a` + 删除 "Path A re-review 规则" 整段
+  - 验证: `grep -n "path-a" plugin/skills/_shared/disposition-table.md` → 无输出
 
 - [ ] Step 9: 删除 path-a-re-review.md reference + test_path_a_re_review.sh
   - Run: `rm plugin/skills/orchestrate-execution/references/path-a-re-review.md plugin/scripts/tests/test_path_a_re_review.sh`
