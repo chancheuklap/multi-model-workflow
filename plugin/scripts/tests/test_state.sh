@@ -462,6 +462,26 @@ run_test_expect_fail "merge-brief verify fails when section missing" \
 # Cleanup temp dirs
 rm -rf "$REVHIST_WORKDIR" "$MB_DIR"
 
+# === Pack 2.14 transition matrix: plan-level transitions ===
+echo ""
+echo "=== Pack 2.14 plan-level transitions ==="
+
+RUN_ID10="test-plan-trans"
+run_test "init for plan-level transition test" \
+  bash "$STATE_SH" init --run-id "$RUN_ID10" --slug "plan-trans" --route "formal"
+
+# Coordinator pending → in_progress (plan-level Worker first dispatch)
+run_test "Coordinator pending → in_progress allowed (plan-level dispatch)" \
+  bash -c "bash '$STATE_SH' update --run-id '$RUN_ID10' --field '.cursor.phase' --value '\"pending\"' && bash '$STATE_SH' transition --run-id '$RUN_ID10' --actor Coordinator --from pending --to in_progress"
+
+# agent-return-handler in_progress → returned (Worker auto-return)
+run_test "agent-return-handler in_progress → returned allowed" \
+  bash -c "bash '$STATE_SH' update --run-id '$RUN_ID10' --field '.cursor.phase' --value '\"in_progress\"' && bash '$STATE_SH' transition --run-id '$RUN_ID10' --actor agent-return-handler --from in_progress --to returned"
+
+# Coordinator returned → review_pending (enter Plan Implementation Review)
+run_test "Coordinator returned → review_pending allowed (Plan Implementation Review)" \
+  bash -c "bash '$STATE_SH' update --run-id '$RUN_ID10' --field '.cursor.phase' --value '\"returned\"' && bash '$STATE_SH' transition --run-id '$RUN_ID10' --actor Coordinator --from returned --to review_pending"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

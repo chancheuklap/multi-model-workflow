@@ -75,8 +75,10 @@ ensure_state_exists() {
 # Format: "actor:from:to" — wildcard * matches any value in that position
 TRANSITION_MATRIX=(
   "Coordinator:pending:dispatched"
+  "Coordinator:pending:in_progress"        # Pack 2.14 / plan-level Worker first dispatch (Plan 005)
   "Coordinator:dispatched:returned"
   "Coordinator:returned:committed"
+  "Coordinator:returned:review_pending"    # Pack 2.14 / plan-level Worker → Plan Implementation Review
   "Coordinator:review_pending:pass"
   "Coordinator:review_pending:needs_repair"
   "Coordinator:*:blocked"
@@ -94,6 +96,7 @@ TRANSITION_MATRIX=(
   "Coordinator:*:execution_done"
   "Coordinator:*:closed"
   "agent-return-handler:dispatched:returned"
+  "agent-return-handler:in_progress:returned"  # Pack 2.14 / plan-level Worker auto-return (Plan 005)
   "track-execution-state:returned:committed"
 )
 

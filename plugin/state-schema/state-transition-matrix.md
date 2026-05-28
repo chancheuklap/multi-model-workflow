@@ -6,8 +6,11 @@
 | Actor | From | To | 触发描述 |
 | --- | --- | --- | --- |
 | Coordinator | pending | dispatched | Worker 首次派发 |
+| Coordinator | pending | in_progress | plan-level Worker 首次派发（Worker 自治模式，Plan 005 落地）|
 | Coordinator | dispatched | returned | Worker 返回（Coordinator 手动路由） |
+| Coordinator | returned | review_pending | plan-level Worker 返回后进入 Plan Implementation Review（Worker 自治模式）|
 | Coordinator | returned | committed | Git Checkpoint 完成 |
+| agent-return-handler | in_progress | returned | plan-level Worker 自治 PostToolUse hook 自动标记（Plan 005 落地）|
 | Coordinator | review_pending | pass | Review 通过 |
 | Coordinator | review_pending | needs_repair | Review 需要修复 |
 | Coordinator | * | blocked | 任意状态 → 阻塞 |
@@ -32,3 +35,4 @@
 - `actor` 是硬性身份标识，不可伪造——由调用方（hook/Coordinator）传入
 - `repairing` 转换必须附带 `--disposition-refs`，且所有引用的 finding 必须在 `review_dispositions` 中状态为 `accepted` 且有 `evidence`
 - `--from` 必须匹配当前 `cursor.phase`，除非传入 `--force`
+- 当 plan-level Worker 自治模式落地（Plan 005）时，`pending → in_progress`（Coordinator 派发整 Plan）、`in_progress → returned`（agent-return-handler 自动）、`returned → review_pending`（Coordinator 进入 Plan Implementation Review）覆盖 plan-level 流转。`returned → committed`（track-execution-state 自动）保持 per-pack 含义；plan-level 不直接复用此 transition
