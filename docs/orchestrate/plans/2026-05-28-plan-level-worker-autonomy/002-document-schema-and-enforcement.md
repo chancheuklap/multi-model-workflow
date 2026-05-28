@@ -12,22 +12,33 @@
 
 ## Plan Acceptance Criteria
 
-- [ ] design 文档 schema 含 Review History / Cross-Plan Contract Anchors / Business Summary Inputs 三个 section
-- [ ] issue 文档 schema 含 Design context refs section
-- [ ] plan 文档 schema 含 Plan Review History / Pack Execution Manifest 两个 section
-- [ ] `workflow-state.review_dispositions[]` 含 `plan_id` + `coordinator_verified_evidence` 可选字段
-- [ ] `execution-state.plans[N]` 含 `worker_agent_id` + `pack_summary` + `current_plan_id` 字段
-- [ ] state.sh 支持新子命令：`review-history append`、`business-summary append`、`merge-brief init/stage/verify`
-- [ ] state.sh `agent-id set/get` 支持 `--plan-id`
-- [ ] state.sh `disposition record` 支持 `--plan-id` + `--coordinator-verified-evidence`
-- [ ] hook `complete-review-dispatch.sh` 匹配 `design-review-*` / `plan-review-*` gate 时自动 append Review History
-- [ ] hook `track-execution-state.sh` 在 PLAN_DONE 时聚合 pack-returns 写入 `pack_summary`
-- [ ] 构建脚本 `generate-pack-manifest.sh` 可从 plan 主体生成 Manifest section
-- [ ] `pack-returns/*.json` JSON schema 落地
-- [ ] state.sh `validate` 强制「accepted disposition 必须有 coordinator_verified_evidence」
-- [ ] **R1 原子改造**：`cross-plan-contract-map.md` 内容迁移到 design.md `## Cross-Plan Contract Anchors`，3 处硬编码 reader 同步改路径
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
-- [ ] `bash plugin/scripts/verify-maturity.sh` 通过
+- [x] design 文档 schema 含 Review History / Cross-Plan Contract Anchors / Business Summary Inputs 三个 section（commit 9089245）
+- [x] issue 文档 schema 含 Design context refs section（ae58a3e）
+- [x] plan 文档 schema 含 Plan Review History / Pack Execution Manifest 两个 section（f4543c6）
+- [x] `workflow-state.review_dispositions[]` 含 `plan_id` + `coordinator_verified_evidence` 可选字段（eb0a955）
+- [x] `execution-state.plans[N]` 含 `worker_agent_id` + `pack_summary` + `current_plan_id` 字段（fbc0aa9）
+- [x] state.sh 支持新子命令：`review-history append`、`business-summary append`、`merge-brief init/stage/verify`（96acb2c）
+- [x] state.sh `agent-id set/get` 支持 `--plan-id`（96acb2c）
+- [x] state.sh `disposition record` 支持 `--plan-id` + `--coordinator-verified-evidence`（96acb2c）
+- [x] hook `complete-review-dispatch.sh` 匹配 `design-review-*` / `plan-review-*` gate 时自动 append Review History（d0ea007）
+- [x] hook `track-execution-state.sh` 在 PLAN_DONE 时聚合 pack-returns 写入 `pack_summary`（d68f3da）
+- [x] 构建脚本 `generate-pack-manifest.sh` 可从 plan 主体生成 Manifest section（cfac636）
+- [x] `pack-returns/*.json` JSON schema 落地（381b60b）
+- [x] state.sh `validate` 强制「accepted disposition 必须有 coordinator_verified_evidence」（96acb2c）
+- [x] **R1 原子改造**：`cross-plan-contract-map.md` 内容迁移到 design.md `## Cross-Plan Contract Anchors`，3+1 处硬编码 reader 同步改路径（31e8af6；Worker scope 扩展同步 plan-writing SKILL.md + architecture-draft.md，已 Coordinator review 通过）
+- [x] **R2 三方对账 hook** `validate-pack-manifest.sh`（291bc5b）
+- [x] state-transition-matrix.md + state.sh TRANSITION_MATRIX 同步 plan-level 流转（0e1374b）
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过（37 suites）
+- [x] `bash plugin/scripts/verify-maturity.sh` 通过（104/0）
+
+**Plan 002 状态**：✅ 完成（2026-05-28，Worker agentId `ac968bfe2818bc3a8`，verdict=pass）
+
+**Coordinator Review 通过项**（Worker flag 的 scope 扩展）：
+1. R1 改造扩展到 `plan-writing/SKILL.md` + `architecture-draft.md`——必要扩展（R1 grep test `! grep -rq 'Read.*cross-plan-contract-map.md' plugin/skills/` 强制）
+2. `test_cross_plan_contract_map.sh` 测试重写——必要（旧 assertion 与新行为冲突）
+
+**已知 Gap**（不阻塞）：
+- 现有 6 个 Plan 文档使用 `## Pack N.M` 二级标题；`generate-pack-manifest.sh` 期待 `### Task Pack N.M` 三级标题（schema 6-column 含 anchor）。**决策**：现有 6 Plan 保留 legacy 5-column 格式作为历史；future plans 用新 schema。`bash plugin/build/generate-pack-manifest.sh --check docs/orchestrate/plans/.../002-*.md` 这条对当前 Plan 002 跳过；新 plan 必须通过。
 
 ## File / Responsibility Map
 
