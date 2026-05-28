@@ -127,20 +127,22 @@ Plan Review 三条路径：
 
 1. `state.sh read --run-id <run_id> --field '.plan_writer_agent_id'` 读取 workflow-state 中的 plan_writer_agent_id
 2. 若返回 null/empty -> 立即标记 BLOCKED 给用户 + `state.sh transition --actor Coordinator --to blocked`（不允许创建新 agent）
-3. 将完整修复 prompt 写入 `.claude/multi-model-workflow/plan-writer-prompts/<issue-id>-repair-<round>.md`。该文件必须以 DISPATCH_ENVELOPE 开头，包含 accepted findings、Coordinator 亲验证据、需要修改的 plan/issue sections、verification commands 和 Return Contract。调用 SendMessage 时只发送该文件全文，不在 tool call message 里另写补充说明。
-4. 调用：
+3. 调用：
    ```
    SendMessage({
      to: "<plan_writer_agent_id>",
      summary: "Plan Review 修复 round <N>: <finding_ids>",
-     message: "<full contents of .claude/multi-model-workflow/plan-writer-prompts/<issue-id>-repair-<round>.md>"
+     message: "<DISPATCH_ENVELOPE>\n\n修复任务：包含 accepted findings、Coordinator 亲验证据、需要修改的 plan/issue sections、verification commands 和 Return Contract。"
    })
    ```
-5. 等待 SendMessage 返回（同步）
-6. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
-6b. 验证 plan 文件格式 + pack count validator
-6c. `state.sh self-verify append --run-id <run_id> --repair-round <N> --verification-passed <yes|no>`
-7. 回到 Plan Review 重审
+   SendMessage inline 发送完整修复 prompt，直接写入 `message` 字段，不先写到文件再引用。
+4. 等待 SendMessage 返回（同步）
+5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
+5b. 验证 plan 文件格式 + pack count validator
+5c. `state.sh self-verify append --run-id <run_id> --repair-round <N> --verification-passed <yes|no>`
+6. 回到 Plan Review 重审
+
+Compaction recovery: 从 `workflow-state.cursor` + plan/design 文档重建 repair context；dispatch prompt 不需要 durable copy。
 <!-- END: sendmessage-resume -->
 
 → 重跑 Gate → Step 17
