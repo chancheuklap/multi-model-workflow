@@ -2,7 +2,7 @@
 
 > **流程位置**：`orchestrate-final-review` Steps 13-20 · 含 verdict 判定 · 完成后回到 SKILL.md 返回区
 
-两个 baseline review 的 accepted findings 全部修复并通过 Targeted Re-Review 后（或两个 baseline 直接 pass），进入 Coordinator 主导的后续流程。
+两个 baseline review 的 accepted findings 全部修复并由 Coordinator 自验闭合后（或两个 baseline 直接 pass），进入 Coordinator 主导的后续流程。
 
 ---
 
@@ -51,8 +51,8 @@ git diff <starting_commit>..HEAD --diff-filter=AM --name-only | xargs grep -n "T
 如果 Step 14 产生了代码修改：
 1. 跑完整测试套件确认不回归
 2. 跑所有 pack 的 verification commands
-3. 简单修复（Coordinator 直接改）→ 不需要额外 review
-4. 复杂修复（派了 worker）→ 做 baseline re-review（Budget 消耗 1）
+3. 简单修复（Coordinator 直接改）→ Coordinator 自验闭合
+4. 复杂修复（派了 worker）→ Coordinator 自验闭合（不再派 targeted re-review；自验仍有疑虑 → RCA 或 BLOCKED）
 
 ---
 

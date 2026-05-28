@@ -138,7 +138,7 @@ Agent({
 ```
 
 4. 需要用户决策（如 rollback 策略选择）→ 询问用户
-5. 修复后做 targeted release re-review：只审修复变更 + 原 release risk surface。不重跑 baseline review（除非修复改变了 source design / plan / shared contract / migration / permission / billing / runtime baseline）
+5. 修复后由 Coordinator 自验：对照 release risk surface + 跑 verification commands 验证修复点已落地；不再派发 targeted release re-review。
 
 Release blocker 修复最多 2 轮。超过 → BLOCKED，报告用户。
 

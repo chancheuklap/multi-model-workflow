@@ -6,7 +6,7 @@
 
 **Read** `plugin/skills/_shared/repair-routing.md` 并按其流程处理 review findings。
 
-所有 repair prompt 只携带 accepted findings。Repair 返回后 Coordinator 默认自验收（verification commands + acceptance criteria 对照）。仅当满足 exception 条件（3+ 文件控制流修改 / 用户要求 / RCA 根因修复 / Path A 自修）时派发 targeted Codex re-review。Targeted re-review 必须用 `codex-companion.mjs task --background --resume` 复用 baseline reviewer 的 JOB_ID；只有 source baseline 改变时才 full phase review rerun。gate-codex-review.sh 强制此规则。
+所有 repair prompt 只携带 accepted findings。Repair 返回后 Coordinator 自验收（verification commands + acceptance criteria 对照）即闭合，不再派发 targeted Codex re-review；自验仍有疑虑 → 升级 RCA 或 BLOCKED 报告用户。
 
 - **路径 A**（≤ 2 文件、不碰合同边界、意图明确）：Coordinator 直接修 → 跑验证 → Step 11
 - **路径 B**（多文件、根因已知）：
@@ -117,62 +117,15 @@ Explorer 返回后路由：
 
 ---
 
-## Step 11：Targeted Re-Review
+## Step 12：修复截断（repair-once + RCA escalation）
 
-修复完成后，只重审 accepted findings 涉及的变更部分。不做 full review rerun。
+每个 gap 最多 1 个 repair round + 1 个 RCA escalation。
 
-**Read** `plugin/skills/_shared/review-dispatch.md` 并按其格式派发 Codex review。
-
-Review prompt 写入 `.claude/multi-model-workflow/review-prompts/final-review-repair-<round>.md`：
-
-```markdown
-## Scope
-Targeted re-review for Final Review repair.
-Only review the changes made to address the listed findings.
-
-## Original findings
-<paste accepted findings>
-
-## Repair diff
-<git diff of repair changes>
-
-## Changed files
-<repair-affected files only>
-
-## Contract anchors
-<if repair touches contract boundaries>
-
-## Review focus
-- Each accepted finding has been addressed
-- Repair does not introduce new issues
-- Verification commands pass
-
-## Calibration
-只验证修复是否解决了原始 finding。不做全面重审。
-
-## Return Contract
-### Verdict
-pass / needs repair / blocked
-### Evidence
-### Result
-Per-finding status:
-- <finding 1>: resolved / still present / new issue
-### Verification
-### Open Items
-```
-
-
----
-
-## Step 12：修复截断
-
-每个 gap 最多 3 个 repair round（2 个 Worker/Coordinator round + 1 个 root-cause-analyst round）。
-
-| Round | 动作 |
+| 阶段 | 动作 |
 | --- | --- |
-| Round 1 | 路径 A/B/C 修复 → Targeted Re-Review |
-| Round 2 | 仍 needs repair → 路径 A/B/C 修复 → Targeted Re-Review |
-| Round 3（截断） | 仍 needs repair → **截断 Worker 循环**，新建 `root-cause-analyst` |
+| Round 1 | 路径 B（SendMessage Worker）修复 → Coordinator 自验（grep / Read + verification commands 对照 acceptance criteria） |
+| RCA escalation | Coordinator 自验仍 needs repair → 新建 `root-cause-analyst` 调度（见下方 dispatch 模板） |
+| BLOCKED | Analyst Resolution 仍 `unable to determine` / `root cause in design/plan` 已写回上游 → 报告用户 |
 
 **Root-Cause-Analyst 截断调度**：
 
@@ -184,11 +137,9 @@ Agent({
     ## 调度场景
     Repair Truncation（Final Review）。Final Review 修了两轮，reviewer 仍报 needs repair。
 
-    ## 前两轮上下文
+    ## Round 1 上下文
     - Round 1 accepted findings: <paste>
     - Round 1 修复内容: <paste>
-    - Round 2 accepted findings: <paste>
-    - Round 2 修复内容: <paste>
     - Git diff scope: <paste>
 
     ## Source context
@@ -197,7 +148,7 @@ Agent({
     - Affected packs: <list>
 
     ## 你的任务
-    不要重复前两轮的修复方法。从不同维度切入——时序、状态污染、隐式依赖、配置漂移、跨 pack 交互。
+    不要重复 Round 1 的修复方法。从不同维度切入——时序、状态污染、隐式依赖、配置漂移、跨 pack 交互。
 
     ## Return contract
     ### Verdict
@@ -219,15 +170,15 @@ Agent({
 
 | Resolution | 下一步 |
 | --- | --- |
-| `fixed` | Targeted Re-Review（消耗 Round 3 的 review budget） |
-| `root cause found, not fixed` | 用 analyst findings dispatch worker（消耗 Round 3） |
+| `fixed` | Coordinator 自验闭合（不再派 Targeted Re-Review）|
+| `root cause found, not fixed` | 用 analyst findings dispatch worker → Coordinator 自验 |
 | `root cause in design/plan` | 写回 design doc / plan → 返回对应 upstream verdict |
 | `unable to reproduce` | 报告用户，附 analyst 排除路径，请求更多重现信息 |
 | `unable to determine` | BLOCKED，报告用户，附 analyst 排除路径 |
 
-Round 3 的 Targeted Re-Review 仍 needs repair → BLOCKED，报告用户附完整排查记录。
+RCA escalation 产出的不是 Codex review 派发，不消耗 review budget。Analyst 路径仍失败 → BLOCKED，报告用户附完整排查记录。
 
-**Phase 内部 review dispatch 软上限**：10（2 baseline + 最多 3 gaps × 2 rounds + analyst round + final re-review）。
+**Phase 内部 review dispatch 软上限**：3（2 baseline + 0 targeted + 最多 1 release gate）。
 
 ---
 > **下一步**：修复通过 → Step 13（`final-review-completion.md`）。BLOCKED → 返回 verdict。

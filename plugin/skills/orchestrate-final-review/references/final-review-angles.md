@@ -2,18 +2,6 @@
 
 > **流程位置**：`orchestrate-final-review` Steps 4-5 · 派发后 → Steps 6-8（`final-review-disposition.md`）
 
-## Self-Read Protocol
-
-你是 codex-reviewer（执行 Final Review）。启动时按以下顺序执行：
-
-1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`gate`、feature slug。
-2. 自读 `<project_root>/CLAUDE.md` 和 `<project_root>/CONTEXT.md`（若存在）获取项目基线。
-3. 自读 `docs/orchestrate/design/<slug>.md`、`docs/orchestrate/plans/<slug>/`、`docs/orchestrate/issues/<slug>/`。
-4. 自行运行 `git log --oneline` 获取 starting commit，再运行 `git diff <starting_commit>..HEAD` 获取完整 diff。
-5. 自行运行 `ls docs/orchestrate/plans/<slug>/` 获取所有 plan 文件列表。
-6. 读本文件（你正在读的这份手册），理解 Review Angles 与 Return Contract 格式。
-7. 按三个 Review Angles 独立验证，遵守 Pre-emit Verification Gate，输出 findings。
-
 ## 与 Plan Implementation Review 的分工
 
 每个 Plan 已经独立通过了 spec compliance + code quality + cross-pack coherence review。Final Review 增加三层 Plan Implementation Review 结构性看不到的覆盖：

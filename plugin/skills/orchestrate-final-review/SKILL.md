@@ -140,7 +140,7 @@ Bad:  "经过全面审查，代码质量达到了预期标准。"
 
 ## Steps 9-12：修复分流 + 截断（仅 needs repair 时）
 
-**Read** `references/final-review-repair.md`（路径 A/B/C + 回 Execution 判定 + Re-Review + 3 轮截断 + RCA）。修复后回 Step 6 re-review 或 Step 13。
+**Read** `references/final-review-repair.md`（路径 A/B/C + 回 Execution 判定 + repair-once + RCA escalation）。修复后 Coordinator 自验闭合或 Step 13。
 
 ## Steps 13-15, 19-20：清扫 + 业务汇报 + Verdict
 
