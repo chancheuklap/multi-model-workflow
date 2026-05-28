@@ -189,6 +189,8 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - 修改 `build.sh`：保留锚点系统，但这 3 个模板不再 active；模板文件可以保留作为内容源（避免破坏向后兼容），但 BEGIN/END 注释从所有目标文件中移除。
 - 保留 inject 模式的锚点：`worker-loop`（仅 2 个 agent，DRY 合理）/ `control-envelope`（3 个紧密耦合文件）/ `preamble` 和 `voice-directive`（每个 SKILL.md 自己的 persona，逻辑上是文件元数据不是共享内容）。
 
+**与决策 13 的执行顺序**（Content Review I1 闭合）：Plan-writer 在拆 Pack 时必须保证 **D13 在 D1 之前执行**——即：先在 `.tmpl` 源文件中删除 `[variant=targeted-re-review]` 子模板（D13），再把 .tmpl 内容抽到 `plugin/skills/_shared/<name>.md`（D1）。否则 canonical reference 会带 5 处 `targeted-re-review` 残留进入 `_shared/`，与决策 13 全局删除目标矛盾。或等价做法：抽取后立即跑 D13 清扫，但必须在同一 Pack 内闭合。
+
 **收益估算**：减少 (11+9+6) × ~50 行平均 = ≈1300 行复制；每次进 phase 节省 ≈5-8k tokens。
 
 #### 决策 2：删除死模板和孤儿文件
@@ -200,7 +202,7 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - `review-dispatch.content-only.md.tmpl` — **本轮不动**（§10 第 15 条明确不动 codex-review skill；该模板仅 codex-review/SKILL.md 1 处用，留作下轮）
 
 **孤儿 reference 文件清理**：
-- `multi-pr-conflict-worker-handbook.md` / `multi-pr-explorer-handbook.md` / `multi-pr-integration-review-handbook.md`（共 455 行 / 16721 chars）— **删除**（内容已被 merge-brief 覆盖；merge-brief 是唯一权威源）。**同步**：删除 `verify-maturity.sh` 中的 6.11 节 6 项 existence checks（3 个 -f 检查 + 3 个 Self-Read 检查）；改为验证 merge-brief / merge-* references 已覆盖各角色 Self-Read 内容
+- `multi-pr-conflict-worker-handbook.md` / `multi-pr-explorer-handbook.md` / `multi-pr-integration-review-handbook.md`（共 455 行 / 16721 chars）— **删除**（内容已被 merge-brief 覆盖；merge-brief 是唯一权威源）。**同步删除 verify-maturity.sh §6.11 共 6 行**（Alignment Review I5 闭合——具体行号需 plan-writer 在 Pack 内 grep `verify-maturity.sh` 中 `multi-pr-explorer-handbook` / `multi-pr-conflict-worker-handbook` / `multi-pr-integration-review-handbook` 三个文件名定位，预计 3 个 `test -f` 检查 + 3 个 `grep -q 'Self-Read Protocol'` 检查共 6 行）；改为验证 merge-brief / merge-* references 已覆盖各角色 Self-Read 内容
 - `learnings-confidence-audit.md`（60 行）— **折回** orchestrate-execution/SKILL.md 的 Worker 返回处理段
 - `learnings-trust-gate.md`（21 行）— **折回** 同上
 - `path-a-re-review.md`（59 行）— **删除**（决策 3 删除 Path A）
@@ -239,7 +241,16 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - Worker Loop 模板（worker-loop.md.tmpl）：删除"写 doc-patch.diff"步骤；plan-return.json 的 `per_pack` 字段是唯一权威信息源
 - Coordinator 在 Plan Implementation Review pass 后用 Edit 工具勾选（直接 toggle `- [ ]` → `- [x]`），不通过 lib
 
-**理由**：Worker 不能改 docs/ 仍然成立（guard-doc-edit.sh 保留），但 Coordinator 可以改——它本来就是 plan 文档的唯一作者方。doc-patch 这一整套系统是为绕开自己设的规矩造的，移除它对 Document-as-Context 主线无影响。
+**Coordinator checkbox toggle 权威规则**（Alignment Review C3 闭合）：
+
+doc-patch.diff 删除后，Worker 不再向 Coordinator 发送"应勾选哪些 checkbox"的 signal。新规则——**Coordinator Edit 的 source-of-truth = `plan-return.per_pack[*]` where `status == committed`**：
+
+1. Coordinator 收到 Plan Implementation Review pass 后，Read `.claude/multi-model-workflow/plan-returns/<plan_id>/plan-return.json`
+2. 对每个 `per_pack[i].status == "committed"` 的 Pack，在 `docs/orchestrate/plans/<slug>/<plan-file>.md` 中找到该 Pack 的 `- [ ] **Pack N.M**` 行（按 Pack ID 精确匹配），Edit 工具 toggle 为 `- [x] **Pack N.M**`
+3. `status` 不是 `committed` 的 Pack 不勾选（即使 Worker 标 `pass` 也不算 committed——`committed` 是 Worker 完成本地 git commit 后的状态）
+4. 该规则必须写入 `orchestrate-execution/SKILL.md` Step 14（Plan 推进）和 `orchestrate-plan-writing/references/plan-review-resolution.md`
+
+**理由**：Worker 不能改 docs/ 仍然成立（guard-doc-edit.sh 保留），但 Coordinator 可以改——它本来就是 plan 文档的唯一作者方。doc-patch 这一整套系统是为绕开自己设的规矩造的，移除它对 Document-as-Context 主线无影响。signal 从 Worker→Coordinator 的 doc-patch.diff 推送，变成 Coordinator 主动读 plan-return.per_pack 决定，控制权回到 Coordinator。
 
 #### 决策 5：删除 bug-seed-file 中间文档，RCA findings 直接进 Discovery
 
@@ -263,7 +274,15 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - Worker Loop 模板更新：Worker 在内存里维护一个 `packs_in_session` 计数（每完 Pack +1），不再调 state.sh；判断逻辑就是 `if packs_in_session >= 5 and remaining >= 2: verdict = need-fresh-worker`
 - 删除 18 个 state.sh agent-context-check 的引用方调用代码（多数在 worker-loop.md.tmpl 内）
 
-**理由**：Worker 自己手上就有 packs_in_session 信息（每完一个 Pack 自增），绕一圈 state.sh 没有意义。
+**worker-loop.md.tmpl Segment 5（Context 自监控）完整重写规则**（Alignment Review C4 闭合）：
+
+segment 5 必须包含两条路径，缺一不可：
+- **正常路径**：Worker 完成一个 Pack 后，本地 in-memory counter `packs_in_session += 1`
+- **启动 / Compaction recovery 路径**（启动步骤 3 必须执行）：Worker 启动时从 `execution-state.plans[plan_id].packs[*]` 中统计 `status == "committed"` 的 Pack 数，作为 `packs_in_session` 初值；用于 compaction 后 in-memory counter 丢失的场景
+
+不在 main flow（segment 5）写 recovery 路径 = 启动后 counter 始终从 0 开始，触发 5+2 阈值会被推迟，导致 long-running worker context 溢出。§9.1 场景 5 给出的 recovery 规则必须前移到 worker-loop.md.tmpl segment 5 模板内，不能只留在失败场景描述里。
+
+**理由**：Worker 自己手上就有 packs_in_session 信息（每完一个 Pack 自增），绕一圈 state.sh 没有意义。但本地 counter 在 compaction 时会丢失，必须有 startup 重建路径写入合同。
 
 #### 决策 7：删除 state.sh 死命令 + scripts/lib 清理
 
@@ -274,7 +293,14 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 **注意：idempotency 子命令保留不动**：调研误判为 0 调用，实际有 4 处生产调用方（`validate-route-worker-dispatch.sh` / `record-route-worker-dispatch.sh` / `validate-plan-dispatch.sh` / state.sh init 字段维护）。Codex Content Review C1 + Alignment Review C2 已纠正。**保留 `state.sh idempotency check/append`**。
 
 **scripts/lib 清理（按用户 D3 确认）**：
-- `review-effectiveness.sh` — 0 生产 source，**删除 lib 文件**。**同步删除 `workflow-state-v1.json` 中 `review_effectiveness` 字段**（schema required 列移除 + properties 段移除）；同步删除 `state.sh init` 中该字段的初始化（state.sh 第 ~170 行）+ tests 中相关 fixture + verify-maturity 中对该 lib 存在性的检查。**Consumer 引用清理**（grep `review_effectiveness` / `review-effectiveness` 全仓库）：包括但不限于 `scripts/lib/learnings-confidence-audit.sh` 中读取该字段的代码、`scripts/run-summary.sh` 中聚合该字段的代码、任何 SKILL.md / reference 中提及该字段的描述、architecture-draft.md 中的相关章节
+- `review-effectiveness.sh` — 0 生产 source，**删除 lib 文件**。**同步删除 `workflow-state-v1.json` 中 `review_effectiveness` 字段**（schema required 列移除 + properties 段移除）；同步删除 `state.sh init` 中该字段的初始化 + tests 中相关 fixture + verify-maturity 中对该 lib 存在性的检查。**真实 Consumer 引用清理清单**（Alignment Review C2 修正——原列表中 `scripts/lib/learnings-confidence-audit.sh` 不存在 / `scripts/run-summary.sh` 不含此引用，已纠正）：
+  1. `plugin/state-schema/workflow-state-v1.json` L10（required 数组）+ L83（properties 段）—— **删除**
+  2. `plugin/scripts/state.sh` L170（init 字段）+ L347（required_fields 校验列表）—— **删除**
+  3. `plugin/hooks/tests/test_agent_id_hook_guard.sh` L59（fixture）+ `plugin/hooks/tests/test_effort_budget_weighting.sh` L46（fixture）—— **删除字段**
+  4. `plugin/scripts/tests/test_review_effectiveness.sh` 整个文件 —— **删除**
+  5. `plugin/skills/orchestrate-execution/references/learnings-confidence-audit.md` L44 —— **删除引用段**
+  6. `plugin/scripts/verify-maturity.sh` L73 —— **删除 review_effectiveness 字段存在性检查**
+  7. `plugin/architecture-draft.md` 相关章节 —— **删除**
 - `learnings-jsonl.sh` + `learnings-poison-detector.sh` — 合并成一个脚本（`learnings-jsonl.sh` 内联 poison detector 调用，poison-detector 作为 function 而非独立脚本）
 
 #### 决策 8：合并 review-dispatch / route-worker-dispatch 重复脚本对
@@ -375,7 +401,7 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - **workflow-state-v1.json**：删除 `self_verifications` 数组中 targeted-re-review 相关字段（exception / exception_code）；保留 `disposition_refs` 作为 Coordinator 自验的可选证据
 - **all SKILL.md / references**：grep 删除所有"targeted re-review" / "targeted-re-review" 描述（架构 / Hook / dispatch 模板 / 流程图 全清）
 - **architecture-draft.md**：删除 §11.4 targeted re-review 章节 + §13 review intent 表中对应行 + 任何流程图中的 targeted re-review 分支
-- **review budget 公式**：`3P + 12` → **`2P + 6`** 或 `1.5P + 6`（具体由 plan 阶段实测决定）。`+6` 仅保留给 Discovery / Plan-writing / Final / Multi-PR 各 1 次 baseline review
+- **review budget 公式**：`3P + 12` → **`2P + 6`**（具体分配由决策 20 详细列出，本处仅声明总公式）
 - **修复后处置**：每次 baseline review → Coordinator 验证 findings → Worker 修复 → **不再 review 闭合**。改为：
   - Coordinator 自验闭合（用 grep + Read 验证修复点已落地）
   - 留作 disposition 痕迹写入 workflow-state.review_dispositions 即可
@@ -559,10 +585,18 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - `plan-writer-dispatch.md` L5-15 Self-Read Protocol（≈10 行）— plan-writer sub-agent 启动时通过 dispatch prompt 显式接收 Read 指令（Read methodology.md），dispatch prompt 没要求 Read 此 reference。Self-Read Protocol "你是 plan-writer，读本文件" 是循环引用，实际无 reader
 - `plan-review-dispatch.md` L5-13 Self-Read Protocol（≈10 行）— codex-reviewer 读的是 Coordinator 写的 review prompt 文件，不读此 reference
 
-**Budget 公式同步**（决策 13 删 targeted re-review 后的具体落地清单）：
+**Budget 公式同步**（决策 13 删 targeted re-review 后的统一公式 — 唯一权威表述，决策 13/22/23 均指向本段）：
 - `plan-gates.md` L46：`budget.review_total = 3P + 12` → **改为** `2P + 6`；`budget.effort_total = (3P + 12) * 2` → **改为** `(2P + 6) * 2`
 - `orchestrate-plan-writing/SKILL.md` L172：`budget_total = 3P + 12` → **改为** `2P + 6`
-- 公式分配重写：`2P`（每 Plan 1 次 baseline）+ `6`（Design Review 2 + Plan Review 1 + Final Review 2 + 修复余量 1）。删除 "每 Plan 最多 2 次 repair re-review" 表述（决策 13 删了 targeted re-review）
+- **公式分配（统一表述）**：
+  - `2P`：每 Plan 2 次 review = 1 Plan Review（在 plan-writing 阶段）+ 1 Plan Implementation Review（在 execution 阶段，每 Plan 完成后）
+  - `+6` 固定额度分配：
+    - Design Review：**2**（Discovery 阶段 Design Content Review + Project Alignment Review）
+    - Final Review：**2**（Regression+Intent+Cross-Plan Integration + Code-Level Audit）
+    - Release Gate：**1**（条件触发——diff 触碰发布风险面时）
+    - Multi-PR Integration Review：**1**（仅 Route 3 触发——非 formal route 时此额度未使用，不滚动）
+- 删除"每 Plan 最多 2 次 repair re-review"表述（决策 13 删了 targeted re-review，修复后由 Coordinator 自验闭合，不消耗 review budget）
+- Phase 软上限与公式对齐：Final Review ≤ 3（2 baseline + 1 release gate，与决策 22 一致）；Multi-PR ≤ 1（1 integration review，与决策 23 一致）；Plan Review ≤ 1 per Plan；Plan Impl Review ≤ 1 per Plan
 
 **收益估算**：≈1,000 chars Plan Writing 减负 + budget 公式与决策 13 一致性闭合。
 
@@ -588,11 +622,22 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - 同 Discovery design-review-angles.md / Plan Writing plan-review-dispatch.md 同模式——"你是 codex-reviewer" 但 Codex 读 Coordinator 写的 review prompt 文件，**不读此 reference**
 - 删除约 10 行 / 500 chars
 
-**2. execution-worker-handbook.md 路径 bug 明确修正**：
-- SKILL.md L202 dispatch 模板写 `Handbook: <$(pwd)/plugin/skills/orchestrate-execution/references/execution-worker-handbook.md>`，但**实际文件名是 `execution-worker-dispatch.md`**
-- pack-executor / complex-pack-executor 启动后 Read 此路径会失败
-- 决策 2 已识别此问题但未明确修正位置；本决策具体化：**修正 SKILL.md L202 引用为 `execution-worker-dispatch.md`**（不重命名文件，文件名已是正确语义"dispatch 协议"）
-- 同时检查 agent-return-handler.sh / dispatch script / verify-maturity 中类似引用
+**2. execution-worker-handbook.md 路径 bug 明确修正（完整 8 处引用枚举）**：
+
+Alignment Review C1 验证：实际有 **8 处引用** `execution-worker-handbook.md`（不存在的文件），不止 SKILL.md 一处。所有 7 处其他引用都会让 Worker 启动 Step 2 `Read execution-worker-handbook.md` 失败：
+
+| # | 文件 | 行 | 修复 |
+|---|---|---|---|
+| 1 | `plugin/skills/orchestrate-execution/SKILL.md` | L202 | 改为 `execution-worker-dispatch.md` |
+| 2 | `plugin/agents/pack-executor.md` | L71 | 改为 `execution-worker-dispatch.md` |
+| 3 | `plugin/agents/complex-pack-executor.md` | L69 | 改为 `execution-worker-dispatch.md` |
+| 4 | `plugin/build/templates/worker-loop.md.tmpl` | L12 | 改为 `execution-worker-dispatch.md`（**critical**——此 template 注入到 worker-prompts/<pack-id>.md，Worker 启动时实际 Read 此路径，是真实 runtime bug，不是 doc-only 引用）|
+| 5 | `plugin/architecture-draft.md` | L53 | 改为 `execution-worker-dispatch` |
+| 6 | `plugin/architecture-draft.md` | L286 | 删除 `execution-worker-handbook（Worker 自读）`（决策 2 已折回，无独立 handbook 文件） |
+| 7 | `plugin/architecture-draft.md` | L299 | 同 L286 |
+| 8 | `plugin/architecture-draft.md` | L338 | 改为 `execution-worker-dispatch.md` |
+
+不重命名实际文件（`execution-worker-dispatch.md` 已是正确语义"dispatch 协议"）。需要在 `verify-maturity.sh` 加一条 grep：`plugin/` 全树无 `execution-worker-handbook` 字符串残留。
 
 **不动的**（已是必要复杂度）：
 - DISPATCH_ENVELOPE schema（决策 1 列入"保留 inject" — 3 个紧密耦合文件）
@@ -620,7 +665,7 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 4. **`final-review-release-gate.md` Step 18 修复路由**（L264）"修复后做 targeted release re-review" —— 删除，改为 Coordinator 自验
 5. **`final-review-completion.md` Step 15 L54-56** "复杂修复（派了 worker）→ 做 targeted re-review（Budget 消耗 1）" —— 删除
 6. **`SKILL.md` L52** preamble "Baseline review 使用 task --background；targeted re-review 使用 task --background --resume" —— 删除第二句
-7. **`final-review-repair.md` L353** "Phase 内部 review dispatch 软上限：10（2 baseline + 最多 3 gaps × 2 rounds + analyst round + final re-review）" —— 重算为 **3**（2 baseline + 0 targeted + 最多 1 release gate）
+7. **`final-review-repair.md` L353** "Phase 内部 review dispatch 软上限：10（2 baseline + 最多 3 gaps × 2 rounds + analyst round + final re-review）" —— 重算为 **3**（2 baseline + 0 targeted + 最多 1 release gate）。**RCA 升级 review 不计入此上限**（Alignment Review I3 闭合）——决策 13 已删 targeted re-review，RCA 路径产出的不是 Codex review 派发而是 root-cause-analyst 分析，不消耗 review budget；若 RCA findings 触发新 Worker dispatch，Worker 返回后 Coordinator 自验，仍不增加 review 次数
 8. **Disposition Path A re-review 规则** —— 决策 1 共享 inject 已处理，本决策仅在 Final Review consumer 处确认对齐
 
 亲查后新发现的可压缩项（仅 1 条新增）：
@@ -726,11 +771,11 @@ Coordinator 端最小职责 ×5 处   提取为 SKILL.md 顶部通用 4 step 模
 **累计减负估算**（按 phase 分布）：
 - **Discovery**：≈600 chars 死内容 + Discovery 文档压缩 ≈350 行
 - **Plan Writing**：≈600 chars + budget 公式同步 ≈100 行
-- **Execution**：≈430 行（模板去重 130 + handbook 折回 200 + Path A 30 + doc-patch 20 + agent-context-check 50）+ 500 chars Self-Read + 1 路径 bug
+- **Execution**：≈230 行（模板去重 130 + Path A 30 + doc-patch 20 + agent-context-check 50）+ 500 chars Self-Read + 8 处 `execution-worker-handbook` 路径 bug 修复（Alignment Review C1）。注：原估算的"handbook 折回 200"系误把 Round 1 已完成的工作量算入 Round 2 — 已修正（Content Review I4 闭合）
 - **Final Review**：≈280 行（共享 inject 30 + targeted re-review 级联 250）+ 550 chars Self-Read
 - **Multi-PR Merge**：≈550 行（共享 inject 30 + 3 handbook 455 + targeted re-review 65）+ 45 行新优化
 - **横切**：sub-agent 事实校验 / grill-with-docs / mockup 留空间 / GitHub Issue 全删 等
-- **总估算 ≈ 2,400 行 + 2,250 chars** 跨全部 6 个 phase skill
+- **总估算 ≈ 2,200 行 + 2,250 chars** 跨全部 6 个 phase skill（Execution 估算修正后从 2,400 调整为 2,200；不再引用 architecture-draft §11.1——该 anchor 不存在，Alignment Review I4 闭合）
 
 ---
 
@@ -783,7 +828,7 @@ Coordinator 端最小职责 ×5 处   提取为 SKILL.md 顶部通用 4 step 模
 
 | 锚点 | 当前 | 改为 |
 |------|------|-----|
-| `review-dispatch` | inject 到 11 文件 | inject 到 0 文件（删 BEGIN/END 注释）；保留 .tmpl 文件作为 canonical reference 内容源 |
+| `review-dispatch` | inject 到 11 文件（**+ 1 个 `[variant=content-only]` 见下行**）| inject 到 0 文件（删 BEGIN/END 注释）；保留 .tmpl 文件作为 canonical reference 内容源（Alignment Review I2 闭合——actual grep 12 处 anchor，其中 11 为 standard、1 为 content-only 变体） |
 | `repair-routing` | inject 到 9 文件 | inject 到 0 文件 |
 | `disposition-table` | inject 到 6 文件 | inject 到 0 文件 |
 | `forbidden-shortcuts` | inject 到 2 文件 | 整个模板 + resolver 删除 |
@@ -828,6 +873,7 @@ Coordinator 端最小职责 ×5 处   提取为 SKILL.md 顶部通用 4 step 模
 | `gate-codex-review.sh` `--resume` 检查 | exit 2 | **整段删除**（决策 13：targeted re-review 机制被删，无 --resume 强制约束） |
 | `gate-codex-review.sh` `targeted-re-review` 分支 | exit 2 | **整段删除**（决策 13） |
 | `gate-codex-review.sh` `path-a-re-review` 分支 | exit 2 | **整段删除**（决策 3 已删 Path A） |
+| `agent-return-handler.sh` 输出 NEXT 指令行为 | 暂存 doc-patch.diff 并提示 apply | 不暂存 doc-patch.diff；输出"Coordinator 须 Edit plan checkbox per per_pack[*].status=committed"（Alignment Review I1 闭合——D4 cascade） |
 | 其他 hook 行为 | — | 保持 |
 
 **Owner**：决策 9 的 plan（+ 决策 4 关于 guard-plan-doc-patch）
@@ -957,6 +1003,16 @@ TBD（plan writing 完成后填充）
   - **Phase 内部 review dispatch 软上限**：`final-review-repair.md` 写明 ≤ 3（2 baseline + 0 targeted + 最多 1 release gate）；`merge-integration-review.md` 末尾写明 ≤ 1（1 integration review + 0 targeted）（决策 22 + 23）
   - **Multi-PR Coordinator dispatch 通用模板**（决策 23）：`orchestrate-multi-pr-merge/SKILL.md` 顶部 "merge-brief 写作流程" 后含 "Coordinator dispatch 通用步骤" 一段（4 step 模板）；`merge-preparation.md` / `merge-conflict-discovery.md` / `merge-rca-investigation.md` / `merge-conflict-repair.md` / `merge-integration-review.md` 末尾的 "Coordinator 端最小职责" section 已删除或改为引用顶部模板
   - **Multi-PR handbook 删除确认**（决策 2 在 Multi-PR 的落地）：`multi-pr-explorer-handbook.md` / `multi-pr-conflict-worker-handbook.md` / `multi-pr-integration-review-handbook.md` 不存在；4 类 dispatch prompt 中无对这 3 个 handbook 的引用
+  - **`execution-worker-handbook` 全树清零**（决策 21 完整版 / Alignment Review C1）：grep `plugin/` 全树（含 agents / build / architecture-draft / SKILL.md / references）无 `execution-worker-handbook` 字符串残留
+  - **Sub-agent 事实校验落地**（决策 18 / Content Review C3）：
+    - grep `plugin/agents/code-explorer.md` / `complex-code-explorer.md` / `root-cause-analyst.md` 的 description 字段含 "Coordinator must verify" 或同义中文表述
+    - grep `plugin/skills/orchestrate-discovery/SKILL.md` 含 `Step 1.5` 或 "Explorer 报告校验门控" 字符串
+    - grep `plugin/skills/orchestrate-plan-writing/SKILL.md` / `orchestrate-execution/SKILL.md` / `orchestrate-multi-pr-merge/SKILL.md` 含 sub-agent 事实校验同义表述
+    - grep `plugin/hooks/agent-return-handler.sh` 含 "校验本次返回的事实声明" 输出
+    - grep `plugin/architecture-draft.md` 含"Sub-agent 信任边界"章节
+  - **Mockup 留空间表述落地**（决策 19 / Content Review I3）：grep `plugin/skills/orchestrate-discovery/SKILL.md` 或对应 reference 含 "mockup" 相关"用户驱动 / 给时间" 表述（轻量验证，不强制具体措辞）
+  - **D4 Coordinator checkbox toggle 规则落地**（Alignment Review C3）：grep `plugin/skills/orchestrate-execution/SKILL.md` Step 14 含 `per_pack[*].status == committed` 表述；grep `plugin/skills/orchestrate-plan-writing/references/plan-review-resolution.md` 含同规则
+  - **D6 worker-loop.md.tmpl segment 5 fallback path 落地**（Alignment Review C4）：grep `plugin/build/templates/worker-loop.md.tmpl` 同时含 `packs_in_session += 1`（正常路径）和 `execution-state.plans[*].packs[*].status` 或同义"从 execution-state 重建 counter"表述（启动 / recovery 路径）
 - 全量 `bash plugin/scripts/run-all-tests.sh` 通过
 
 ### 7.2 验收路径
@@ -1028,7 +1084,10 @@ TBD（plan writing 完成后填充）
 
 本轮**明确不做**的事项（即使发现也不触碰）：
 
-1. 不改 Worker Loop 6 段合同（启动 5 步 / Pack 循环 / 6 个 verdict / repair mode / context 自监控 / artifact schema）。决策 4 删除 doc-patch 不算改 6 段——artifact 段保留 plan-return.json + pack-returns/，只是 `doc_patch_path` 可选字段被删除，per_pack 必填结构不动
+1. 不改 Worker Loop 6 段合同的 **semantics**（启动 5 步 / Pack 循环 / 6 个 verdict / repair mode / context 自监控 / artifact schema 的契约语义）。**承认 mechanism 层面有调整**（Alignment Review §1 修正）：
+   - 决策 4 改 segment 6（Artifact Schema）的**机制**：删除 `doc-patch.diff` artifact，per_pack 必填结构保留，signal 从 Worker 推送改为 Coordinator 主动读 `plan-return.per_pack[*].status==committed` 决定 checkbox toggle。**Worker→Coordinator 的 checkbox signal 语义不变**（仍由 Worker 的 commit 状态决定），只是传递机制变了
+   - 决策 6 改 segment 5（Context 自监控）的**机制**：删除 `state.sh agent-context-check` 调用，Worker 改本地 counter + 启动时从 execution-state 重建（D6 中已声明）。**5+2 阈值判断语义不变**
+   - **Per_pack 必填结构不动**（与决策 4 一致），`doc_patch_path` 仅可选字段被删除
 2. 不改 Document-as-Context 主线（设计 → issue → plan → merge-brief → 代码 链路）
 3. 不改 Codex Review 5 步派发协议（`codex-companion.mjs task --background ... result`）
 4. ~~不改 review budget 公式~~ — **决策 13 推翻**：删除 targeted re-review 后，review budget 从 `3P + 12` 降为 `2P + 6`（baseline review 每 phase 1 次 + 修复后 Coordinator 自验闭合，不再 reviewer 闭合复审）。effort budget 公式 `2 × review_total` 保持
