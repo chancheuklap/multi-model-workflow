@@ -2,23 +2,33 @@
 
 > **流程位置**：`orchestrate-plan-writing` Steps 9-10 · 派发后 → Steps 11-12a（`plan-gates.md`）
 
+## Self-Read Protocol
+
+你是 plan-writer。启动时按以下顺序执行：
+
+1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`plan_id`、`phase`。
+2. 读 `Source artifacts:` 列出的所有路径：design.md、你的 issue 文件、mockup 目录（若存在）、CLAUDE.md。
+3. 读 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-plan-writing/references/plan-writing-methodology.md`，按其中 Steps 3-8 执行计划编写。
+4. 读本文件（你正在读的这份手册），理解 Return Contract 格式。
+5. 按 plan-writing-methodology.md 执行，输出 plan 文件到 `docs/orchestrate/plans/<slug>/00N-*.md`。
+
 ## Step 9：构造 Dispatch Brief
 
-Dispatch prompt 必须自足——plan-writer 不读 SKILL.md、不读 Coordinator 的上下文。**Coordinator 必须把 plan-writer 需要的所有信息写进 prompt**。
+你（plan-writer）按 Self-Read Protocol 自读所有上下文，Coordinator 只需在 envelope 中写明 `plan_id` 和 source artifact 路径。
 
-### Step 9a：Pre-dispatch Context Transfer（强制，每个 issue 执行一次）
+### Step 9a：Pre-dispatch Readiness Check（强制，每个 issue 执行一次）
 
-派发当前 issue 的 plan-writer 之前，Coordinator 必须用 Read tool 确认以下内容在上下文中：
+派发当前 issue 的 plan-writer 之前，Coordinator 确认以下路径存在（存在则 plan-writer 自读）：
 
-1. **Read** Scope Contract（`.claude/multi-model-workflow/scope-<run_id>.md`）→ 获取 slug、run_id（首个 issue 时读取，后续复用）
-2. **Read** 设计文档（`docs/orchestrate/design/<slug>.md`）→ 提取设计摘要（首个 issue 时读取，后续复用）
-3. **Read** 当前这个 issue 文件（`docs/orchestrate/issues/<slug>/00N-<issue-slug>.md`）→ 提取 What to build、Small issues、Blocked by
+1. Scope Contract 路径：`.claude/multi-model-workflow/scope-<run_id>.md`（从中获取 slug、run_id）
+2. 设计文档路径：`docs/orchestrate/design/<slug>.md`
+3. 当前 issue 文件路径：`docs/orchestrate/issues/<slug>/00N-<issue-slug>.md`
 
-如果以上任何一个 Read 失败（文件不存在），停止派发，返回对应的 upstream verdict。
+如果以上任何路径不存在，停止派发，返回对应的 upstream verdict。
 
 ### Step 9b：填充 Dispatch Prompt
 
-将 Step 9a 读到的内容填入以下模板。**所有 `<>` 占位符都必须替换为实际值**。每个 issue 用同一模板、不同的 issue 文件路径和内容。
+将路径填入以下模板的 `Source artifacts:` 字段。每个 issue 用同一模板、不同的 issue 文件路径。
 
 ```
 Agent({
@@ -59,24 +69,18 @@ Agent({
     - **Mockups:** docs/orchestrate/mockups/<slug>/（如目录存在，是与设计文档平级的源头工件，不是可选参考。你必须 Read mockup 文件和设计文档中的 `## UI / UX 状态` 视觉规格表，把视觉规格原子级拆解写入每个 UI pack 的 acceptance criteria。不能只写"见 mockup 目录"。）
     - CLAUDE.md: <project root>/CLAUDE.md
 
-    ## 设计摘要（Coordinator 从设计文档提取）
-    **Goal:** <从设计文档 Goal 节提取>
-    **Architecture:** <从设计文档 Architecture 节提取关键架构决策>
-    **与本 issue 相关的行为:** <只列出与当前 issue 相关的设计要点>
+    ## 设计摘要
+    你自读 `docs/orchestrate/design/<slug>.md` 获取 Goal、Architecture、与本 issue 相关的行为。
 
-    ## Issue 内容（Coordinator 从 issue 文件提取）
-    **Issue title:** <大 issue 标题>
-    **What to build:** <从 issue 文件的 What to build 节提取>
-    **Small issues 状态:** <已有完整小 issue 列表 / PENDING（需 plan-writer 在 Step 3c 拆分）>
-    **Blocked by:** <从 issue 文件的 Blocked by 节提取>
+    ## Issue 内容
+    你自读 `docs/orchestrate/issues/<slug>/00N-<issue-slug>.md` 获取 Issue title、What to build、Small issues 状态、Blocked by。
 
     ## Plan output
     - Plan 保存路径: docs/orchestrate/plans/<slug>/00N-<issue-slug>.md
     - Execution owner: Orchestrate Workflow（必须写入 plan header）
 
     ## 补充上下文
-    - Design Review 中 reviewer 的重点建议: <无则写「无」>
-    - 已知 gotcha / 路径变更: <无则写「无」>
+    你自读 Scope Contract（`.claude/multi-model-workflow/scope-<run_id>.md`）获取 Design Review 的重点建议和已知 gotcha。若 Scope Contract 无相关字段，跳过此节。
 
     ## Out of scope
     - 其他 issue 的内容（不属于你的 scope）
@@ -118,6 +122,15 @@ Agent({
 | `BLOCKED` | 无法完成 | 报告用户，附 plan-writer 的阻塞原因 |
 
 upstream skill 结论必须写回 design document / issue hierarchy，再 SendMessage 给原 plan-writer 继续。
+
+## Coordinator 端最小职责
+
+Coordinator 在派发时只需完成以下动作，其余由 plan-writer 自读：
+
+1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`plan_id`、`phase: "plan-writing"`、`agent_role: "plan-writer"`。
+2. 在 `Source artifacts:` 中列出 design.md、issue 文件、mockup 目录路径（plan-writer 自读内容）。
+3. 触发 `state.sh` 记录 plan-writer 派发状态，保存 `agentId` 以备 SendMessage 修复路径。
+4. 等待 plan-writer 返回 Verdict，按 Step 10 路由表处置。
 
 ---
 > **下一步**：plan-writer 返回后 → Steps 11-12a（`plan-gates.md`）。
