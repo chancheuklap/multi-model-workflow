@@ -66,6 +66,8 @@
 | 2.10 | hook track-execution-state 聚合 pack_summary | normal | 2.5, 2.7 | `track-execution-state.sh` |
 | 2.11 | 构建脚本 generate-pack-manifest.sh | normal | 2.3 | 新文件 |
 | 2.12 | **R1 原子改造**：cross-plan-contract-map 迁移 | **high-risk** | 2.1 | 多文件同步 |
+| 2.13 | hook validate-pack-manifest.sh 三方对账 | normal | 2.3, 2.5, 2.11 | 新文件 |
+| 2.14 | state-transition-matrix.md 同步 plan-level 流转 | trivial | 2.5 | 文档 |
 
 ---
 
@@ -588,6 +590,107 @@ normal
 
 ### Out of scope
 - 不动本 Plan 自己的 `cross-plan-contract-map.md`（这是本计划的中间产物，不是被 reader 引用的旧文件）
+
+---
+
+## Pack 2.13：hook validate-pack-manifest.sh 三方对账（设计 R2 + 9 项 enforcement #7）
+
+### Goal behavior
+
+设计文档 R2 列为阻塞性风险：Pack Execution Manifest pack_id 必须与 (a) plan 文档 `### Task Pack N.M` 主体 (b) execution-state.plans[N].packs keys (c) Worker commit 中的 Pack N.M ID **三方一致**。任一偏移 → Worker 跑错 Pack 或漏跑。本 Pack 实现 PreToolUse Agent hook，派 pack-executor / complex-pack-executor 之前自动三方对账，不一致 → BLOCKED。
+
+### Implementation tasks
+
+1. 创建 `plugin/hooks/validate-pack-manifest.sh`
+2. 触发：PreToolUse Agent matcher `(pack-executor|complex-pack-executor)`
+3. 解析：
+   - envelope.plan_id + envelope.run_id
+   - plan 文档路径：`docs/orchestrate/plans/<slug>/<plan_id>-*.md`
+4. 三方对账：
+   - grep `## Pack Execution Manifest` 段提取 pack_id 列表（A）
+   - grep `### Task Pack N.M` 主体提取 pack_id 列表（B）
+   - jq 读 `execution-state.plans[plan_id].packs` keys（C）
+   - 必须 A == B；C 必须是 A 的子集（首派时 C 为空也通过）
+5. 失败时输出明确诊断：「Manifest 中 Pack 1.3 未出现在主体」/「主体 Pack 2.1 未出现在 Manifest」
+6. 调用 `generate-pack-manifest.sh --check` 作为另一层校验
+7. 测试 fixture：pass / fail 两路径
+
+### Owned files
+
+- Create: `plugin/hooks/validate-pack-manifest.sh`
+- Edit: `plugin/hooks/hooks.json`（注册 hook，Plan 005 Pack 5.14 统一处理 hook 注册，本 Pack 仅创建文件 + 单测）
+- Create: `tests/hooks/validate-pack-manifest.bats`
+
+### Read first
+
+- `plugin/hooks/validate-pack-dispatch.sh`（参考 hook 风格）
+- `plugin/build/generate-pack-manifest.sh`（Pack 2.11）
+- `plugin/skills/orchestrate-plan-writing/references/plan-writing-methodology.md`（Manifest schema）
+
+### Acceptance criteria
+
+- [ ] hook 存在且可执行
+- [ ] 三方一致 → allow
+- [ ] Manifest 缺 pack → BLOCKED + 诊断
+- [ ] 主体缺 pack → BLOCKED + 诊断
+- [ ] execution-state 含 Manifest 外的 pack → BLOCKED + 诊断
+- [ ] 测试覆盖
+
+### Verification commands
+
+- `test -x plugin/hooks/validate-pack-manifest.sh` → Expected: exit 0
+- `bash tests/hooks/validate-pack-manifest.bats` → Expected: exit 0
+- `shellcheck plugin/hooks/validate-pack-manifest.sh` → Expected: exit 0
+
+### Risk flags
+
+normal（新 hook，需保证不影响现有 pack-executor 派发）
+
+### Dependencies
+
+- 2.3（Manifest schema 必须存在）
+- 2.5（execution-state schema）
+- 2.11（generate-pack-manifest.sh）
+
+---
+
+## Pack 2.14：state-transition-matrix.md 同步 plan-level 流转（调研 D）
+
+### Goal behavior
+
+调研 D 明确指出 state-transition-matrix 文档需要补 plan-level 4 个新流转：`Coordinator: pending → in_progress`、`agent-return-handler: in_progress → returned`、`Coordinator: returned → review_pending`、`track-execution-state: returned → committed`（保留 per-pack）。同步更新 state.sh 内的 `TRANSITION_MATRIX` 数组。
+
+### Implementation tasks
+
+1. Read `plugin/scripts/state-transition-matrix.md`（或同等位置文档）
+2. 加 4 条 plan-level 流转条目
+3. Read `plugin/scripts/state.sh` 找 `TRANSITION_MATRIX` 数组
+4. 同步加 4 条 transition 规则
+5. 单测：跑 `state.sh transition --from pending --to in_progress --actor coordinator --plan-id 001` 应允许
+
+### Owned files
+
+- Edit: `plugin/scripts/state-transition-matrix.md`（或同等文档）
+- Edit: `plugin/scripts/state.sh`
+
+### Acceptance criteria
+
+- [ ] 文档含 4 条新流转
+- [ ] state.sh TRANSITION_MATRIX 同步
+- [ ] 单测通过
+
+### Verification commands
+
+- `grep -c 'plan-level' plugin/scripts/state-transition-matrix.md` → Expected: ≥ 1
+- `bash plugin/scripts/tests/test_state.sh` → Expected: exit 0
+
+### Risk flags
+
+trivial
+
+### Dependencies
+
+- 2.5
 
 ---
 

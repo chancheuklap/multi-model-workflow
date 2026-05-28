@@ -13,7 +13,12 @@
 
 ## Plan Acceptance Criteria
 
-- [ ] `merge-brief-v1.json` schema 定义（9 段：scope_summary / pr_inventory / contract_conflicts / state_divergence / shared_files / merge_strategy / verification_plan / rollback_plan / decision_log）
+- [ ] `merge-brief-v1.json` schema 定义（9 段，严格对齐设计 §merge-brief Schema：Meta / 参与 PR / 正确状态模型 / Conflict Findings / RCA / Resolution Log / Integration Review Pointers / Open Items / Verdict）
+- [ ] 决策 8 写入 schema 注释（per-run conflict_id / 追加 PR 视为新 run / 默认不归档）
+- [ ] `state.sh merge-brief init/stage/verify` 3 helper（设计 9 项 enforcement #6）
+- [ ] `validate-multi-pr-dispatch.sh` 新 hook（强制 dispatch prompt 引用 merge-brief 路径）
+- [ ] `review-dispatch.md.tmpl` 追加 targeted re-review scope 收窄段（设计 Phase 6 通用收尾）
+- [ ] 3 个 multi-pr handbook（explorer / worker / integration-review）
 - [ ] `orchestrate-multi-pr-merge/references/merge-brief-template.md` 模板文件
 - [ ] `orchestrate-multi-pr-merge/SKILL.md` 加 merge-brief 写作指针 + workflow-state.cursor.reference 写入指引
 - [ ] workflow-state.cursor.reference 接受 merge-brief 路径（schema 已 Plan 002 加，本 Plan 校验消费）
@@ -51,6 +56,10 @@
 | 6.5 | verify-maturity.sh 扩 6 类校验 | normal | Plan 002-005 全完成 | `verify-maturity.sh` |
 | 6.6 | full-workflow-e2e 集成测试 | normal | 6.5 | `tests/integration/full-workflow-e2e.bats` |
 | 6.7 | architecture-draft.md 更新 + 版本号 bump | trivial | 6.1-6.6 | 3 个文件 |
+| 6.8 | state.sh merge-brief init/stage/verify 3 helper | normal | 6.1 | `state.sh` |
+| 6.9 | validate-multi-pr-dispatch.sh 新 hook | normal | 6.1, 6.3 | 新文件 |
+| 6.10 | review-dispatch.md.tmpl 追加 targeted re-review 收窄 scope 段 | trivial | — | template |
+| 6.11 | 3 个 multi-pr handbook 新增（explorer / worker / integration-review）| normal | 6.1 | 新文件 ×3 |
 
 ---
 
@@ -63,18 +72,22 @@
 ### Implementation tasks
 
 1. Read `plugin/state-schema/`（参考样式）
-2. 创建 `plugin/state-schema/merge-brief-v1.json`，含 9 段：
-   - `scope_summary`: 合并目标范围
-   - `pr_inventory[]`: PR 列表 {pr_url, branch, design_path, plan_paths[]}
-   - `contract_conflicts[]`: 跨 PR 合同冲突 {surface, prs, conflict_type, resolution}
-   - `state_divergence[]`: 状态机差异 {state_file, prs, divergence, resolution}
-   - `shared_files[]`: 多 PR 同改文件 {path, prs, merge_strategy}
-   - `merge_strategy`: 整体策略 {order[], rebase|merge, conflict_handling}
-   - `verification_plan[]`: 合并后验证步骤
-   - `rollback_plan`: 回滚预案
-   - `decision_log[]`: 关键决策 {at, decision, rationale}
-3. schema_version = "1"
-4. 加 README 索引
+2. 创建 `plugin/state-schema/merge-brief-v1.json`，**严格对齐设计文档 §merge-brief Schema（L608-621）的 9 段**：
+   - **§1 Meta** META JSON 头：`schema_version, run_id, slug, created_at, last_updated_at, current_stage (enum: init|conflict_discovery|rca|repair|integration_review|merging|complete), integration_review_gate`
+   - **§2 参与 PR 表** `pr_inventory[]`: `{pr, branch, big_design_path, big_plan_path, single_pr_design_path, single_pr_plan_path, final_review_verdict, core_behavior}`
+   - **§3 合并后正确状态模型**：`behaviors[]`, `contract_surfaces[]` (surface, type, provider_pr, consumer_prs, modification_direction), `file_cross_matrix[][]`, `merge_order[]`, `risk_hotspots[]`
+   - **§4 Conflict Findings**: per-conflict 块 `{conflict_id: "C-001", type: enum, involved_prs[], files[], description, severity, classification: simple|complex-clear|systemic, route: coordinator-fix|worker-fix|analyst-then-worker, status: open|rca-in-progress|repair-in-progress|resolved|escalated, discovered_by, discovered_at}`
+   - **§5 Root Cause Analysis**: per-systemic-conflict `{analyst_agent_id, resolution, root_cause_type, root_cause_detail, fix_direction, target_pr, related_conflicts[], design_impact, regression_risk}`
+   - **§6 Resolution Log**: `{owner, repair_round, changed_files, summary, verification: {commands, tests, coordinator_verified, evidence}, status_after, resolved_at}`
+   - **§7 Integration Review Pointers**: `{base_diff_range, contract_surfaces_to_audit[], resolved_conflicts_summary[], per_pr_final_review_verdict_refs[], regression_focus_files[], integration_review_gate_name}`
+   - **§8 Open Items / Out-of-scope**
+   - **§9 Verdict**: enum `MERGE_COMPLETE|NEEDS_DISCOVERY|NEEDS_USER_DECISION|BLOCKED` + 证据指针
+3. **决策 8 写入 schema 注释**：
+   - `conflict_id` per-run（C-001 起编，跨 run 不重用）
+   - 追加 PR 视为新 run，不在同 brief 增量
+   - 默认不归档到 `docs/orchestrate/merge-briefs/`，随 worktree 清理一起删
+4. schema_version = "1"
+5. 加 README 索引
 
 ### Owned files
 
@@ -370,6 +383,198 @@ trivial
 ### Dependencies
 
 - 6.1-6.6
+
+---
+
+## Pack 6.8：state.sh merge-brief init / stage / verify 3 helper
+
+### Goal behavior
+
+设计文档 §merge-brief Schema 末段 + 9 项 enforcement #6 明确：不做"全 schema CLI"避免回到模板填空反模式；只提供 3 个轻量 helper 管 META 结构化字段，内容由 multi-pr-merge agent 直接 Edit。
+
+### Implementation tasks
+
+1. Read `plugin/scripts/state.sh`
+2. 加 `merge-brief init --run-id X --slug Y`：
+   - 仅当 `${STATE_DIR}/merge-brief-<run_id>.md` 不存在时，按 merge-brief-template.md（Pack 6.2）写入文件
+   - 文件 META 段填 schema_version=1, run_id, slug, created_at, current_stage=init
+3. 加 `merge-brief stage --run-id X --stage S`：
+   - 更新 META.current_stage（enum 校验）
+   - 更新 META.last_updated_at
+4. 加 `merge-brief verify --run-id X`：
+   - 解析 META 完整性
+   - 校验 §4 中所有 conflict status 自洽（resolved 必须有 §6 对应记录；rca-in-progress 必须有 §5 anaylst_agent_id 或挂起标记）
+   - 不深度 lint 全部段（深度校验放 verify-maturity.sh C5）
+5. 单测
+
+### Owned files
+
+- Edit: `plugin/scripts/state.sh`
+- Create: `tests/state/merge-brief.bats`
+
+### Read first
+
+- 设计文档 §merge-brief Schema
+- Plan 006 Pack 6.1 schema + Pack 6.2 template
+
+### Acceptance criteria
+
+- [ ] 3 个子命令存在
+- [ ] init 幂等（已存在则保留不覆盖）
+- [ ] stage 校验 enum
+- [ ] verify 检测 META 缺失 / status 不自洽 → BLOCKED
+- [ ] 不引入 conflict/rca/resolution CLI 操作（避免回到模板填空）
+
+### Verification commands
+
+- `bash plugin/scripts/state.sh merge-brief init --run-id test-r1 --slug test` → Expected: exit 0
+- `bash plugin/scripts/state.sh merge-brief stage --run-id test-r1 --stage rca` → Expected: exit 0
+- `bash plugin/scripts/state.sh merge-brief verify --run-id test-r1` → Expected: exit 0
+- `bash tests/state/merge-brief.bats` → Expected: exit 0
+
+### Risk flags
+
+normal
+
+### Dependencies
+
+- 6.1（schema 必须存在）
+
+---
+
+## Pack 6.9：validate-multi-pr-dispatch.sh 新 hook
+
+### Goal behavior
+
+调研 E §6.1：dispatch envelope 中 `phase=multi-pr-merge` 时强制校验 `${STATE_DIR}/merge-brief-<run_id>.md` 已存在 + META 与 envelope `repair_round` / `conflict_id` 一致。防止 dispatch 携带 paste 段反模式。
+
+### Implementation tasks
+
+1. 创建 `plugin/hooks/validate-multi-pr-dispatch.sh`
+2. 触发：PreToolUse Agent matcher when envelope.phase == multi-pr-merge
+3. 校验：
+   - `${STATE_DIR}/merge-brief-<run_id>.md` 存在
+   - META 可解析、`current_stage` 与 envelope `repair_round` 一致性（如 round=1 时 stage 不能是 init）
+   - 若 envelope 含 `conflict_id`：§4 中存在该 id 且 status ≠ resolved
+   - dispatch prompt body **强制包含字符串 `merge-brief-<run_id>.md`**（防 paste 反模式）
+4. 失败 → BLOCKED + actionable error
+5. hooks.json 注册
+6. 测试 fixture
+
+### Owned files
+
+- Create: `plugin/hooks/validate-multi-pr-dispatch.sh`
+- Edit: `plugin/hooks/hooks.json`
+- Create: `tests/hooks/validate-multi-pr-dispatch.bats`
+
+### Acceptance criteria
+
+- [ ] hook 存在
+- [ ] 4 个校验项全部实现
+- [ ] grep 检查强制引用 merge-brief 路径
+- [ ] 测试覆盖 pass / 4 类 fail 路径
+
+### Verification commands
+
+- `test -x plugin/hooks/validate-multi-pr-dispatch.sh` → Expected: exit 0
+- `bash tests/hooks/validate-multi-pr-dispatch.bats` → Expected: exit 0
+
+### Risk flags
+
+normal
+
+### Dependencies
+
+- 6.1, 6.3
+
+---
+
+## Pack 6.10：review-dispatch.md.tmpl 追加 targeted re-review 收窄 scope 段
+
+### Goal behavior
+
+设计文档 Phase 6 通用收尾 (L520-521) + 调研 C §6 第 3 段草稿（~160 字）：追加规则——当 envelope `review_intent=targeted-re-review` 且 `disposition_refs` 非空时，reviewer 只审 disposition_refs 中 finding 关联的 [Pack N.M] 对应 owned files；不重审全 Plan diff。新增问题超出 disposition scope → 列入 `Out of scope observations` 而非 finding。
+
+### Implementation tasks
+
+1. Read `plugin/build/templates/review-dispatch.md.tmpl`
+2. 在末尾追加段（按调研 C §6 第 3 段草稿 ~160 字）：
+   ```
+   **Targeted re-review scope 收窄**：
+   当 envelope `review_intent=targeted-re-review` 且 `disposition_refs` 非空时，reviewer 只审 disposition_refs 中 finding 关联的 [Pack N.M] 对应 owned files；
+   不重审全 Plan diff。新增问题超出 disposition scope → 列入 `Out of scope observations` 而非 finding。
+   ```
+3. `build.sh --apply --plugin-dir plugin` 让 template 注入到 11 个 review skill 文件
+4. `build.sh --check` 验证
+
+### Owned files
+
+- Edit: `plugin/build/templates/review-dispatch.md.tmpl`
+
+### Acceptance criteria
+
+- [ ] template 含 "Targeted re-review scope 收窄" 段
+- [ ] `build.sh --apply` 后 11 个 review 锚点全部含该段
+- [ ] `build.sh --check` 通过
+
+### Verification commands
+
+- `grep -q 'Targeted re-review scope 收窄' plugin/build/templates/review-dispatch.md.tmpl` → Expected: exit 0
+- `grep -rq 'Targeted re-review scope 收窄' plugin/skills/orchestrate-final-review/SKILL.md plugin/skills/orchestrate-execution/SKILL.md` → Expected: exit 0
+- `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
+
+### Risk flags
+
+trivial
+
+---
+
+## Pack 6.11：3 个 multi-pr handbook 新增
+
+### Goal behavior
+
+调研 E §8.2 明确：dispatch reference 反转后（Plan 004 Pack 4.9）explorer / worker / integration-reviewer 在 multi-pr-merge route 的角色规范需要落到独立 handbook 让 sub-agent 自读。
+
+### Implementation tasks
+
+1. 创建 `plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-explorer-handbook.md`：5 维冲突分析 + 严重程度 + 输出规范
+2. 创建 `plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-conflict-worker-handbook.md`：Scope / Acceptance 通用 + commit 规范 + verification
+3. 创建 `plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-integration-review-handbook.md`：7 review angles + calibration + return contract
+4. 每个 handbook 顶部加 `## Self-Read Protocol`（envelope → merge-brief → 本 handbook → 执行）
+5. Plan 004 Pack 4.9 中 dispatch reference 反转时引用这 3 个 handbook 路径
+
+### Owned files
+
+- Create: 3 个 handbook 文件
+
+### Read first
+
+- 现有 merge-conflict-discovery / merge-conflict-repair / merge-integration-review reference（提取角色规范）
+
+### Acceptance criteria
+
+- [ ] 3 个 handbook 文件存在
+- [ ] 每个含 Self-Read Protocol
+- [ ] 内容来自现有 merge-* reference 反转后剩余的角色规范
+
+### Verification commands
+
+- `test -f plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-explorer-handbook.md` → Expected: exit 0
+- `test -f plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-conflict-worker-handbook.md` → Expected: exit 0
+- `test -f plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-integration-review-handbook.md` → Expected: exit 0
+- `grep -l 'Self-Read Protocol' plugin/skills/orchestrate-multi-pr-merge/references/multi-pr-*-handbook.md | wc -l` → Expected: 3
+
+### Risk flags
+
+normal
+
+### Dependencies
+
+- 6.1（merge-brief 路径出现在 Self-Read Protocol）
+
+### 重要说明
+
+这 3 个 handbook 是 **multi-pr-merge skill 的 reference 内部沉淀**，**不算用户拍板"不新增"原则违反**——它们是把现有 dispatch reference 中的角色规范段"搬家"到独立 handbook（与 Plan 003 SKILL.md 瘦身把内嵌段抽到 reference 是同类操作）。
 
 ---
 

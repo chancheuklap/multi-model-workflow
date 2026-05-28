@@ -64,6 +64,24 @@
 
 ## 风险热点
 
-- Plan 002 Pack 2.11（cross-plan-contract-map 迁移）= R1 阻塞性，必须原子改造
+- Plan 002 Pack 2.12（cross-plan-contract-map 迁移）= R1 阻塞性，必须原子改造
+- Plan 002 Pack 2.13（validate-pack-manifest.sh 三方对账）= R2 阻塞性，Worker 自治读 Manifest 前提
 - Plan 005 Pack 5.9（agent-return-handler.sh 重写）= 结构性重写，需独立测试 fixture
-- Plan 002 Pack 2.6 + Plan 005 Pack 5.12 = state.sh 多子命令变更，需 lock 一致
+- Plan 005 Pack 5.10（track-execution-state.sh NEXT 抑制）= 改 NEXT 文案，避免误派 Review
+- Plan 005 Pack 5.18-5.19（guard-plan-doc-patch + detect-worker-scope-drift）= Worker 自治兜底，缺失会让 Coordinator 失去中途介入点
+- Plan 002 Pack 2.8 + Plan 005 Pack 5.5/5.6/5.7 = state.sh 多子命令变更，需 lock 一致
+
+## 新增合同边界（修复后）
+
+| Surface | 类型 | Provider | Consumer |
+| --- | --- | --- | --- |
+| `dispatch-envelope-v1.json` +`bug_context` inline 对象 | JSON schema | Plan 002 Pack 2.6 + Plan 004 Pack 4.7 | bug-investigation-route.md analyst |
+| `dispatch-envelope-v1.json` +`repair_context` inline 对象 | JSON schema | Plan 002 Pack 2.6 + Plan 004 Pack 4.8 | workflow-direct-repair.md worker |
+| `state.sh execution-plan complete` + `plan-returns ingest` | CLI | Plan 005 Pack 5.7 | agent-return-handler.sh |
+| `state.sh merge-brief init/stage/verify` | CLI | Plan 006 Pack 6.8 | multi-pr-merge agent + Coordinator |
+| `validate-pack-manifest.sh` hook | hook | Plan 002 Pack 2.13 | pack-executor / complex-pack-executor 派发 |
+| `validate-multi-pr-dispatch.sh` hook | hook | Plan 006 Pack 6.9 | multi-pr-merge phase dispatch |
+| `guard-plan-doc-patch.sh` hook | hook | Plan 005 Pack 5.18 | Worker 写 doc-patch.diff |
+| `detect-worker-scope-drift.sh` hook | hook | Plan 005 Pack 5.19 | Worker Edit 期间兜底 |
+| `multi-pr-explorer-handbook.md` + `multi-pr-conflict-worker-handbook.md` + `multi-pr-integration-review-handbook.md` | reference | Plan 006 Pack 6.11 | Plan 004 Pack 4.9 dispatch reference 反转 |
+| `review-dispatch.md.tmpl` +"targeted re-review scope 收窄"段 | template | Plan 006 Pack 6.10 | 11 个 review skill 文件（build template 注入）|

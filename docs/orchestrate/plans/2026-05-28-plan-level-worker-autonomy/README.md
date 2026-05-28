@@ -16,14 +16,16 @@ Phase 0 (清理) → Phase 1 (schema 字段) → Phase 2 (SKILL 瘦身) → Phas
 
 ## 计划文档清单
 
-| Plan | Phase | 标题 | 风险 | Blocked by |
-| --- | --- | --- | --- | --- |
-| 001 | 0 | 清理 + dispatch prompt 简化 | trivial | — |
-| 002 | 1 | 文档 schema 字段补全 + Enforcement 机制 | high | 001 |
-| 003 | 2 | SKILL.md 瘦身（~850 行删除）| normal | 002 |
-| 004 | 3 | Dispatch reference 反转（让 sub-agent 自读）| normal | 003 |
-| 005 | 4 | Worker Loop 自治 + agent-return-handler 重写 | high | 002, 004 |
-| 006 | 5+6 | merge-brief 中介文档 + 测试/maturity 同步 | normal | 005 |
+| Plan | Phase | 标题 | Pack 数 | 风险 | Blocked by |
+| --- | --- | --- | --- | --- | --- |
+| 001 | 0 | 清理 + dispatch prompt 简化 | 4 | trivial | — |
+| 002 | 1 | 文档 schema 字段补全 + Enforcement 机制 | 14 | high | 001 |
+| 003 | 2 | SKILL.md 瘦身（~850 行删除）| 5 | normal | 002 |
+| 004 | 3 | Dispatch reference 反转（让 sub-agent 自读）| 9 | normal | 003 |
+| 005 | 4 | Worker Loop 自治 + agent-return-handler 重写 | 19 | high | 002, 004 |
+| 006 | 5+6 | merge-brief 中介文档 + 测试/maturity 同步 | 11 | normal | 005 |
+
+**Total: 62 Pack**（修正后含新增 enforcement / handbook / 兜底 hook / dispatch reference 反转）
 
 ## 跨 Plan 合同边界
 
@@ -36,5 +38,15 @@ Phase 0 (清理) → Phase 1 (schema 字段) → Phase 2 (SKILL 瘦身) → Phas
 ## Budget
 
 - Plan 总数：6
-- Pack 总数：~38（见各 Plan 文档统计）
+- Pack 总数：62（见各 Plan 文档统计）
 - 该工作本身是 plugin 自我改造，不走 review budget（用户 ad-hoc 决策）
+
+## 设计文档同步状态
+
+本计划集与 design 文档第三轮决策（决策 1-9）+ 9 项 enforcement 机制 + Worker Loop 完整契约对齐。修复版（2026-05-28 第二轮）已落实：
+- 决策 2/3/5/6/7 → Plan 005 顶部「决策记录」段 + 各 Pack 实现
+- 决策 8 → Plan 006 Pack 6.1 schema 注释
+- 决策 9 → 不加 stop-conditions/blocked-report template
+- 9 项 enforcement → 全部映射到 Plan 002 / 005 / 006 具体 Pack
+- Worker Loop 5 步启动序列 + Repair Mode + Context 自监控 → Plan 005 Pack 5.1 worker-loop.md.tmpl
+- 决策 1（取消 prompt 写文件）→ Plan 001 Pack 1.3 + 1.4

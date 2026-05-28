@@ -12,14 +12,20 @@
 
 **反转后命名**：含「dispatch」语义保留（向后兼容），但内部段落改写为「Sub-agent 自读手册」视角——主语从「Coordinator 必须 …」改为「Sub-agent（你）必须 …」。
 
+## 决策注记（不新增中介文档）
+
+按用户 USER #8 + 决策 9「不要新增更多东西」原则：本 Plan 反转 `bug-investigation-route.md` 与 `workflow-direct-repair.md` 时**不创建** `bug-seed-<run_id>.md` 与 `repair-brief-<run_id>.md` 中介文档模板。Coordinator 把用户原话 / 错误日志 / 偏差描述作为「运行时变量」inline 写到 dispatch envelope（类比 DISPATCH_ENVELOPE 字段），sub-agent 自读 envelope 即获取。这保留了 Document-as-Context 原则（不让 Coordinator 现场创作业务内容），同时避免新增模板文件。
+
 ## Plan Acceptance Criteria
 
-- [ ] 6 个 dispatch reference 文件完成视角反转
-- [ ] 每个 reference 顶部加 `## Self-Read Protocol` 段（sub-agent 启动时必读 5 步）
+- [ ] **9 个** dispatch / route reference 文件完成视角反转（含 bug-investigation-route + workflow-direct-repair）
+- [ ] 每个 reference 顶部加 `## Self-Read Protocol` 段
 - [ ] 删除「Coordinator 必须把以下内容粘贴到 prompt」类指引
 - [ ] 删除与 SKILL.md 重复的流程概述
-- [ ] Coordinator 端 dispatch 调用 prompt 缩为 envelope + 路径（验收信号：dispatch 调用代码不超过 12 行）
-- [ ] 每个 reference 末尾保留「Coordinator 端最小职责」段（≤ 10 行，仅列状态写入 / hook 触发义务）
+- [ ] Coordinator 端 dispatch 调用 prompt 缩为 envelope + 路径
+- [ ] 每个 reference 末尾保留「Coordinator 端最小职责」段
+- [ ] design-review-angles / final-review-angles / merge-* 中所有 `<paste …>` 段已删
+- [ ] bug-investigation envelope 加 `bug_context` inline 字段语义说明 / direct-repair envelope 加 `repair_context` inline 字段
 - [ ] `bash plugin/build/build.sh --check --plugin-dir plugin` 通过
 - [ ] `bash plugin/scripts/run-all-tests.sh` 通过
 
@@ -44,6 +50,9 @@
 | 4.4 | plan-review-dispatch.md 反转 | normal | — | `plan-review-dispatch.md` |
 | 4.5 | discovery-dispatch.md 反转 | trivial | — | `discovery-dispatch.md` |
 | 4.6 | final-review-dispatch.md 反转 | trivial | — | `final-review-dispatch.md` |
+| 4.7 | bug-investigation-route.md 反转 | normal | — | `bug-investigation-route.md` |
+| 4.8 | workflow-direct-repair.md 反转 | normal | — | `workflow-direct-repair.md` |
+| 4.9 | design-review-angles.md / final-review-angles.md / merge-conflict-* 删除 paste 段 | normal | Plan 002 (schema 字段就绪) | 多文件 |
 
 ---
 
@@ -315,6 +324,148 @@ Final Reviewer 自读视角。Coordinator 端 prompt 缩为 envelope + design.md
 ### Risk flags
 
 trivial
+
+---
+
+## Pack 4.7：bug-investigation-route.md 反转
+
+### Goal behavior
+
+把 `plugin/skills/orchestrate-workflow/references/bug-investigation-route.md` 中 L16/L19/L22/L25 四处 `<paste user's bug description>` / `<paste error log>` / `<paste file paths>` / `<paste previous attempts>` 粘贴段反转。按本 Plan 决策注记：不新建 bug-seed.md 模板，而是把这些用户输入作为 dispatch envelope 的 inline 字段（envelope 扩展加 `bug_context` object），analyst agent 自读 envelope.bug_context 即获取。
+
+### Implementation tasks
+
+1. Read `plugin/skills/orchestrate-workflow/references/bug-investigation-route.md`
+2. 顶部加 `## Self-Read Protocol`（envelope → envelope.bug_context → 本手册 → 进入 RCA 流程）
+3. 删除 4 处 `<paste …>` 段
+4. 改写为：「Coordinator 在 dispatch envelope 中以 inline 字段 `bug_context: {description, error_log, file_paths[], previous_attempts}` 传入。Analyst（你）从 envelope 提取即可。」
+5. 末尾加 `## Coordinator 端最小职责`：把用户原话/错误日志组装到 envelope.bug_context 字段，不写文件
+6. 在 Plan 005 Pack 5.13 已扩展 envelope schema 的基础上 piggyback（envelope 扩展加 `bug_context` 字段，本 Pack 仅在 reference 中声明用法，schema 加字段建议挂到 Plan 002 Pack 2.6 envelope 扩展中）
+7. `bash plugin/build/build.sh --apply` + `--check`
+
+### Owned files
+
+- Edit: `plugin/skills/orchestrate-workflow/references/bug-investigation-route.md`
+
+### Read first
+
+- 当前 `bug-investigation-route.md`
+- `plugin/state-schema/dispatch-envelope-v1.json`（Plan 002 已加字段）
+
+### Acceptance criteria
+
+- [ ] 含 `## Self-Read Protocol` + `## Coordinator 端最小职责`
+- [ ] 4 处 paste 段已删
+- [ ] reference 中明确 `envelope.bug_context` 字段语义
+- [ ] `build.sh --check` 通过
+
+### Verification commands
+
+- `grep -q 'Self-Read Protocol' plugin/skills/orchestrate-workflow/references/bug-investigation-route.md` → Expected: exit 0
+- `! grep -q 'paste user' plugin/skills/orchestrate-workflow/references/bug-investigation-route.md` → Expected: exit 0
+- `grep -q 'bug_context' plugin/skills/orchestrate-workflow/references/bug-investigation-route.md` → Expected: exit 0
+
+### Risk flags
+
+normal
+
+### Out of scope
+
+- 不创建 bug-seed.md 模板文件（决策：不新增中介文档）
+
+---
+
+## Pack 4.8：workflow-direct-repair.md 反转
+
+### Goal behavior
+
+同 Pack 4.7 思路：把 `plugin/skills/orchestrate-workflow/references/workflow-direct-repair.md` L13 区域 worker dispatch 段中粘贴的 deviation 描述 / Source design / Fix scope / Acceptance 反转。Coordinator 把这些信息组装到 envelope inline 字段 `repair_context: {deviation, source_design_path, fix_scope, acceptance}`，worker 自读。
+
+### Implementation tasks
+
+1. Read `plugin/skills/orchestrate-workflow/references/workflow-direct-repair.md`
+2. 顶部加 `## Self-Read Protocol`
+3. 删除 worker dispatch 段中粘贴指令
+4. 改写为 envelope inline 模式
+5. 末尾加 `## Coordinator 端最小职责`
+6. `build.sh --apply` + `--check`
+
+### Owned files
+
+- Edit: `plugin/skills/orchestrate-workflow/references/workflow-direct-repair.md`
+
+### Read first
+
+- 当前 `workflow-direct-repair.md`
+
+### Acceptance criteria
+
+- [ ] 含 `## Self-Read Protocol` + `## Coordinator 端最小职责`
+- [ ] 粘贴段已删
+- [ ] envelope.repair_context 字段语义明确
+
+### Verification commands
+
+- `grep -q 'Self-Read Protocol' plugin/skills/orchestrate-workflow/references/workflow-direct-repair.md` → Expected: exit 0
+- `grep -q 'repair_context' plugin/skills/orchestrate-workflow/references/workflow-direct-repair.md` → Expected: exit 0
+
+### Risk flags
+
+normal
+
+---
+
+## Pack 4.9：design-review-angles + final-review-angles + merge-conflict-* 删除 paste 段
+
+### Goal behavior
+
+调研 B 列出额外的 paste 段反转：
+- `design-review-angles.md` L100/L107/L182-184 三处 `<paste project docs>` / `<paste contract anchors>` → 删除，reviewer 自读 CLAUDE.md + design.md `## Cross-Plan Contract Anchors`（Plan 002 已迁）
+- `final-review-angles.md` L122/L132/L137/L140-148/L156/L158 多处 paste → 改为 reviewer 自跑 `ls docs/orchestrate/plans/`、jq 读 execution-state.plans[N].pack_summary（Plan 002 Pack 2.10 已聚合）、git diff 自跑、读 design/plan
+- `merge-conflict-discovery.md` / `merge-conflict-repair.md` / `merge-rca-investigation.md` / `merge-integration-review.md` 中粘贴段全部改为「Read `.claude/multi-model-workflow/merge-brief-<run_id>.md` 中对应段」
+
+### Implementation tasks
+
+1. Read 5 个 reference 文件
+2. 按调研 B 标注逐一删除 `<paste …>` 段
+3. 改为指针引用（design.md / plan.md / execution-state / merge-brief）
+4. 各文件顶部已有的 Self-Read Protocol（Pack 4.6/4.x 已加）补充新指针
+5. `build.sh --apply` + `--check`
+
+### Owned files
+
+- Edit: `plugin/skills/orchestrate-discovery/references/design-review-angles.md`
+- Edit: `plugin/skills/orchestrate-final-review/references/final-review-angles.md`
+- Edit: `plugin/skills/orchestrate-multi-pr-merge/references/merge-conflict-discovery.md`
+- Edit: `plugin/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md`
+- Edit: `plugin/skills/orchestrate-multi-pr-merge/references/merge-rca-investigation.md`
+- Edit: `plugin/skills/orchestrate-multi-pr-merge/references/merge-integration-review.md`
+
+### Read first
+
+- 上述 6 个文件
+- 调研 B 报告中各文件的 paste 段位置标注
+- Plan 002 Pack 2.10 (pack_summary 聚合) + Plan 006 (merge-brief schema)
+
+### Acceptance criteria
+
+- [ ] `grep -rn '<paste' plugin/skills/orchestrate-discovery/references/design-review-angles.md plugin/skills/orchestrate-final-review/references/final-review-angles.md plugin/skills/orchestrate-multi-pr-merge/references/` 无匹配
+- [ ] merge-* reference 全部含 merge-brief 路径引用
+- [ ] `build.sh --check` 通过
+
+### Verification commands
+
+- `! grep -rq '<paste' plugin/skills/orchestrate-discovery/references/design-review-angles.md plugin/skills/orchestrate-final-review/references/final-review-angles.md plugin/skills/orchestrate-multi-pr-merge/references/` → Expected: exit 0
+- `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
+
+### Risk flags
+
+normal
+
+### Dependencies
+
+- Plan 002 Pack 2.1/2.10/2.12（design schema + pack_summary + cross-plan migration）
+- Plan 006 Pack 6.1/6.2（merge-brief schema 必须先存在）
 
 ---
 
