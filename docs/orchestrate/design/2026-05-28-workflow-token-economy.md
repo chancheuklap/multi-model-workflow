@@ -178,8 +178,8 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 **当前**：`review-dispatch` / `repair-routing` / `disposition-table` 通过 build template 注入到 11 / 9 / 6 个 .md 文件。每次加载文件都读一遍。
 
 **改动**：
-- 把 `review-dispatch.md.tmpl` / `repair-routing.md.tmpl` / `disposition-table.md.tmpl` 三个模板的内容**抽到独立 reference 文件**（位置：`plugin/skills/orchestrate-execution/references/_shared/`），命名 `_shared/review-dispatch.md` / `_shared/repair-routing.md` / `_shared/disposition-table.md`（下划线前缀表示共享，避免被当作 phase 私有）。
-- SKILL.md 和原本 inject 这些锚点的 reference 文件，改为在需要时**用 `Read` 引用 canonical reference 路径**，不再 inject 内容。
+- 把 `review-dispatch.md.tmpl` / `repair-routing.md.tmpl` / `disposition-table.md.tmpl` 三个模板的内容**抽到独立 reference 文件**，位置统一为 **`plugin/skills/_shared/`**（plugin-rooted；**不**放在某个 phase 的 `references/_shared/` 下，避免跨 phase 相对路径解析问题）。完整路径见 §5.5。
+- SKILL.md 和原本 inject 这些锚点的 reference 文件，改为在需要时**用 plugin-rooted 绝对路径 `Read plugin/skills/_shared/<name>.md`** 引用，不再 inject 内容；禁止使用相对路径（`_shared/...` / `../_shared/...`）。
 - 修改 `build.sh`：保留锚点系统，但这 3 个模板不再 active；模板文件可以保留作为内容源（避免破坏向后兼容），但 BEGIN/END 注释从所有目标文件中移除。
 - 保留 inject 模式的锚点：`worker-loop`（仅 2 个 agent，DRY 合理）/ `control-envelope`（3 个紧密耦合文件）/ `preamble` 和 `voice-directive`（每个 SKILL.md 自己的 persona，逻辑上是文件元数据不是共享内容）。
 
@@ -268,7 +268,7 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 **注意：idempotency 子命令保留不动**：调研误判为 0 调用，实际有 4 处生产调用方（`validate-route-worker-dispatch.sh` / `record-route-worker-dispatch.sh` / `validate-plan-dispatch.sh` / state.sh init 字段维护）。Codex Content Review C1 + Alignment Review C2 已纠正。**保留 `state.sh idempotency check/append`**。
 
 **scripts/lib 清理（按用户 D3 确认）**：
-- `review-effectiveness.sh` — 0 生产 source，**删除 lib 文件**。**同步删除 `workflow-state-v1.json` 中 `review_effectiveness` 字段**（schema required 列移除 + properties 段移除）；同步删除 `state.sh init` 中该字段的初始化（state.sh 第 ~170 行）+ tests 中相关 fixture + verify-maturity 中对该 lib 存在性的检查
+- `review-effectiveness.sh` — 0 生产 source，**删除 lib 文件**。**同步删除 `workflow-state-v1.json` 中 `review_effectiveness` 字段**（schema required 列移除 + properties 段移除）；同步删除 `state.sh init` 中该字段的初始化（state.sh 第 ~170 行）+ tests 中相关 fixture + verify-maturity 中对该 lib 存在性的检查。**Consumer 引用清理**（grep `review_effectiveness` / `review-effectiveness` 全仓库）：包括但不限于 `scripts/lib/learnings-confidence-audit.sh` 中读取该字段的代码、`scripts/run-summary.sh` 中聚合该字段的代码、任何 SKILL.md / reference 中提及该字段的描述、architecture-draft.md 中的相关章节
 - `learnings-jsonl.sh` + `learnings-poison-detector.sh` — 合并成一个脚本（`learnings-jsonl.sh` 内联 poison detector 调用，poison-detector 作为 function 而非独立脚本）
 
 #### 决策 8：合并 review-dispatch / route-worker-dispatch 重复脚本对
@@ -295,9 +295,9 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 |------|------|------|------|
 | validate-plan-dispatch.sh | Step 6: Manifest 缺失 | exit 2 | WARN（Worker 可从 plan 正文工作） |
 | validate-plan-dispatch.sh | Step 8: Path A 检查 | exit 2 | 删除（决策 3 已删 Path A） |
-| ~~validate-multi-pr-dispatch.sh~~ | ~~(b): repair_round≥1 + stage=init~~ | ~~exit 2~~ | **保持 exit 2**（Alignment Review C5：repair 不能在 init 状态执行，会污染 merge-brief resolution log） |
-| validate-multi-pr-dispatch.sh | (d): prompt 含 merge-brief 路径字符串 | exit 2 | WARN（粘贴内容也能跑） |
-| gate-codex-review.sh | targeted-re-review 必须 `--resume` | exit 2 | WARN（resume 是质量问题不是正确性） |
+| validate-multi-pr-dispatch.sh | (b): repair_round≥1 + stage=init | exit 2 | **保持 exit 2**（Alignment Review C5：repair 不能在 init 状态执行，会污染 merge-brief resolution log） |
+| validate-multi-pr-dispatch.sh | (d): prompt 含 merge-brief 路径字符串 | exit 2 | **保持 exit 2**（Alignment Review C5：缺路径会让 agent 走 paste-content anti-pattern，破坏 Document-as-Context 单一权威源 + compaction 恢复） |
+| gate-codex-review.sh | targeted-re-review 必须 `--resume` | exit 2 | **保持 exit 2**（Alignment Review C4：`--resume` 是 reviewer JOB_ID registry + budget durability + result provenance 合同硬保护，不是质量问题） |
 
 **保留 exit 2 的检查**（不动）：
 - session-start.sh 全部
@@ -398,7 +398,7 @@ doc-patch 系统                 Coordinator 直接 Edit plan checkbox
 | `blocked_for_self_fix` | boolean | 删除 |
 | `review_dispositions[*].disposition` enum | 10 值含 `path-a` | 9 值不含 `path-a` |
 | `bug_seed_path` | string\|null | 删除（如存在） |
-| `review_effectiveness` | object | 删除（D3：lib 删除 + 字段删除 + state.sh init 中初始化删除 + tests fixture 同步） |
+| `review_effectiveness` | object | 删除（D3：lib 删除 + 字段删除 + state.sh init 中初始化删除 + tests fixture 同步 + **所有 consumer 引用清理**：`scripts/lib/learnings-confidence-audit.sh` / `scripts/run-summary.sh` / architecture-draft.md 相关章节 / 任何 SKILL.md 提及） |
 
 **Owner**：决策 3（Path A 删除）+ 决策 5（bug seed 删除）+ 决策 10（路线折叠）的 plan
 **Producer**：`state.sh init / update / disposition append`
@@ -458,9 +458,9 @@ doc-patch 系统                 Coordinator 直接 Edit plan checkbox
 | `guard-plan-doc-patch.sh` | exit 2 阻断 | 整脚本删除 |
 | `validate-plan-dispatch.sh` Step 6 Manifest 检查 | exit 2 | WARN |
 | `validate-plan-dispatch.sh` Step 8 Path A | exit 2 | 删除（无 Path A 概念） |
-| `validate-multi-pr-dispatch.sh` (b) | exit 2 | WARN |
-| `validate-multi-pr-dispatch.sh` (d) | exit 2 | WARN |
-| `gate-codex-review.sh` `--resume` 检查 | exit 2 | WARN |
+| `validate-multi-pr-dispatch.sh` (b) | exit 2 | **保持 exit 2**（Alignment Review C5） |
+| `validate-multi-pr-dispatch.sh` (d) | exit 2 | **保持 exit 2**（Alignment Review C5：Document-as-Context 单一权威源保护） |
+| `gate-codex-review.sh` `--resume` 检查 | exit 2 | **保持 exit 2**（Alignment Review C4：reviewer registry + budget + provenance durability） |
 | 其他 hook 行为 | — | 保持 |
 
 **Owner**：决策 9 的 plan（+ 决策 4 关于 guard-plan-doc-patch）
@@ -576,6 +576,7 @@ TBD（plan writing 完成后填充）
   - **死字符串清理**：所有 .md 无 `path-a` 字符串（决策 3）；无 `doc-patch` 字符串（决策 4，除 git 历史和 deprecated 标注）；无 `bug-seed-path` / `bug-seed-file` 字符串（决策 5）
   - **State machine 命令删除**：state.sh 不再支持 `business-summary` / `plans` / `path-a-escalation` / `agent-context-check` 4 个子命令；**仍支持** `idempotency check/append`
   - **Lib 死代码删除**：`scripts/lib/review-effectiveness.sh` 不存在；`scripts/lib/learnings-poison-detector.sh` 不存在（合并入 learnings-jsonl.sh）；`scripts/lib/doc-patch-apply.sh` 不存在
+  - **review_effectiveness consumer 引用全清**：grep `review_effectiveness` / `review-effectiveness` 全仓库无非历史引用（git history 除外）；特别检查 `scripts/lib/learnings-confidence-audit.sh` / `scripts/run-summary.sh` / `plugin/architecture-draft.md` / 所有 SKILL.md 已清理
   - **Hook 数**：`plugin/hooks/*.sh` 数量 ≤ 10；`hooks.json` 无 `guard-plan-doc-patch` 条目
   - **Route enum 长度**：`workflow-state-v1.json` 的 `route` enum 值数 = 4
   - **Route extensions 副本**：`plugin/skills/orchestrate-execution/references/route-extensions/` 目录不存在；`plugin/skills/orchestrate-workflow/references/route-extensions/` 目录不存在（已折叠回 SKILL.md）
