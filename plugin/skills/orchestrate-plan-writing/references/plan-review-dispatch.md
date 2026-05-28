@@ -2,6 +2,16 @@
 
 > **流程位置**：`orchestrate-plan-writing` Steps 13-14 · Plan Review Codex 派发 · 派发后 → Steps 15-18（`plan-review-resolution.md`）
 
+## Self-Read Protocol
+
+你是 codex-reviewer（执行 Plan Review）。启动时按以下顺序执行：
+
+1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`plan_id`（或 feature slug）、`gate`。
+2. 读 `Source artifacts:` 列出的所有路径：plan 文件目录、design.md、issues 目录、Scope Contract。
+3. 读本文件（你正在读的这份手册），理解 Review Angles 与 Return Contract 格式。
+4. 按 Review Angles（Issue Quality / Coverage & Task Quality / Compliance & Verification / Cross-Verification）独立验证。
+5. 遵守 Pre-emit Verification Gate，输出 findings，填写 Evidence 证据表。
+
 <!-- BEGIN: review-dispatch -->
 **Codex review dispatch** (`CODEX_SCRIPT` unset: `CODEX_SCRIPT="$(find ~/.claude/plugins -path '*/codex/scripts/codex-companion.mjs' -type f 2>/dev/null | head -1)"`)
 
@@ -167,6 +177,16 @@ Disposition required:
 ```
 
 Plan finding 必须说明是 plan 自身问题、design-plan mismatch、source design gap、issue-plan mismatch、context ambiguity，还是 architecture friction。
+
+## Coordinator 端最小职责
+
+Coordinator 在派发时只需完成以下动作，其余由 Reviewer 自读：
+
+1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`plan_id`、`gate`（`plan-review`）、`review_intent: "baseline"`。
+2. 在 `Source artifacts:` 中列出 plan 目录、design.md、issues 目录路径（reviewer 自读内容）。
+3. 写 `review-prompts/plan-review.md`，运行 validate/record 脚本，触发 Codex job。
+4. 等待 job 完成后运行 result/complete 脚本，触发 `track-review-budget` hook。
+5. 读取 review-results 文件，进入 Steps 15-18 disposition 流程。
 
 ---
 > **下一步**：Review 派发后 → Steps 15-18（`plan-review-resolution.md`）。
