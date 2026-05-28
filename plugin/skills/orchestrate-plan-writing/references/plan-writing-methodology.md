@@ -133,6 +133,25 @@ Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked 
 ## 发布风险和人工门禁
 | 风险面 | Task Pack | Risk flag | 提前 review | Manual gate owner |
 | --- | --- | --- | --- | --- |
+
+## Plan Review History
+
+| Round | Verdict | Reviewer | 重点建议 | 已知 gotcha | 日期 |
+| --- | --- | --- | --- | --- | --- |
+| 1 | pass | codex-gpt-5.5 | <重点建议摘要> | <gotcha 列表> | 2026-05-28 |
+
+（append-only，每轮 Plan Review / Plan Implementation Review 通过后由 Coordinator / hook 追加；plan-executor 读取此 section 了解已审角度，避免回退已修问题）
+
+## Pack Execution Manifest
+
+Worker 入口查询表。每行：pack_id → 章节锚点 + 关键字段索引。Worker 自治读 Manifest 即可定位每个 Pack 的实现段落与依赖，不必线性扫描全文。
+
+| pack_id | title | anchor | risk | dependencies | owned_files (核心) |
+| --- | --- | --- | --- | --- | --- |
+| 1.1 | <title> | `#pack-1-1-<slug>` | normal | — | `path/to/file.py` |
+| 1.2 | <title> | `#pack-1-2-<slug>` | normal | 1.1 | `path/to/other.py` |
+
+（由 plan-writer 手写或构建脚本 `plugin/build/generate-pack-manifest.sh` 生成；Coordinator 派 Worker 前用 `validate-pack-manifest.sh` 三方对账：Manifest / Pack 主体 / execution-state.packs keys）
 ```
 
 Execution owner 必须是 Orchestrate Workflow。
@@ -274,6 +293,10 @@ verification 必须证明 pack 行为：
 - [ ] File / Responsibility Map 每个路径被 Task Pack 消费
 - [ ] 后文引用 type / field / fixture / command / path 与前文一致（类型一致性：Task 3 叫 `clearLayers()` 但 Task 7 叫 `clearFullLayers()` 就是 bug）
 - [ ] 发布风险覆盖所有 production-risk pack
+
+### Schema 完整性
+- [ ] `## Plan Review History` section 存在（可为空表头，由 hook 后续 append）
+- [ ] `## Pack Execution Manifest` section 存在且 pack_id 与 Pack 主体 `### Task Pack N.M` 编号一致（Coordinator 派 Worker 前会用 `validate-pack-manifest.sh` 三方对账）
 
 发现问题直接修正。如果发现 spec 需求没有对应 task，补上。
 
