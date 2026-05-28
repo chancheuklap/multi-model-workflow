@@ -169,11 +169,11 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - `doc_patch_path` 字段（plan-return-v1.json）— 删除
 - Worker `agent-context-check` 状态查询 — 改为 Worker 本地决策（不调 state.sh）
 
-### 4.2 实现决策（核心改动 18 类）
+### 4.2 实现决策（核心改动 19 类）
 
 > Round 2 决策分两批：
 > - **决策 1-12**：v3.8.0 → token economy 基础重构（模板去重 / 死代码删除 / route 折叠 等）
-> - **决策 13-18**：用户讨论 Discovery 环节后补充（删 targeted re-review / Explorer 集成 / grill-with-docs 升级 / 外部精华占位 / Discovery 压缩 / **Sub-agent 事实校验机制**）
+> - **决策 13-19**：用户讨论 Discovery 环节后补充（删 targeted re-review / Explorer 集成 / grill-with-docs 升级 / 外部精华占位 / Discovery 压缩 / Sub-agent 事实校验 / **Mockup 生成留空间**）
 
 > 这一节列出本轮改动的全部范畴。每一条都对应后续大 issue 拆分时的一个候选 vertical slice。具体实现细节由计划文档承担，本节只到决策层面。
 
@@ -494,6 +494,25 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 **收益估算**：避免"sub-agent 误判 → 设计文档错 → 下游 plan/pack 全错"的连锁失败。Coordinator 校验本身消耗很小（grep / Read 几次），但救一次大错节省的成本巨大。
 
 **注意**：决策 18 不引入新的 Hook 阻断（保持决策 9 hook 简化方向）；只在 SKILL.md / agent description / agent-return-handler 输出层加提醒。强约束在主流程文本中体现，不在 Hook 中。
+
+#### 决策 19：Discovery 阶段给 mockup 生成留出时间和空间
+
+**当前**：plugin 已经完整覆盖了 mockup 的下游链路——"mockup 与设计文档地位平等"明示 4 处 / 原子级拆解到 pack acceptance criteria 硬要求 / "不能只写 mockup 目录"反向硬限 / Review 平等审查。这一部分**已足够，不动**。
+
+**唯一缺口**：Discovery 主流程没有显式承认"用户可能在设计文档涉及 UI/UX 时主动暂停讨论去生成 mockup"这一行为模式。Coordinator 可能因为追求流程推进而催促用户、并行启动其他 Step、或没意识到"等 mockup 定稿"是合理状态。
+
+**改动**（最小）：
+- `orchestrate-discovery/SKILL.md` Step 3-9 之间增加**一段轻量说明**：
+  > 当设计涉及 UI/UX 且用户表达要生成 mockup 时，Coordinator 暂停当前 Step，给用户调用 `frontend-design` / `prototype` / 其他用户选用的 UI 设计 skill 留出完整时间和空间。Mockup 的生成方式、迭代节奏由用户主动驱动，Coordinator 不催促、不并行启动后续 Step、不替用户决定何时定稿。Mockup 与设计文档地位平等且迭代可能交叉——用户切回设计讨论 Step 时，按当前 Step 继续。
+
+**不做的事**（避免过度设计）：
+- 不规定 mockup 何时该生成（用户判断）
+- 不规定 mockup 由哪个 skill 生成（用户选择 frontend-design / prototype / Impeccable / 其他）
+- 不引入 mockup ↔ design ↔ CONTEXT.md 三方自动同步机制
+- 不引入 mockup 变更触发已派 pack 重夸 needs-context 的硬机制
+- 不规定 mockup 迭代轮次或定稿门控
+
+**理由**：已实现的下游硬规则保证 mockup 一旦定稿就能原子级进入 plan / pack。Discovery 阶段唯一需要的是"给空间"——剩下都是用户主动行为，plugin 不该越俎代庖。
 
 ### 4.3 改动总览图
 
