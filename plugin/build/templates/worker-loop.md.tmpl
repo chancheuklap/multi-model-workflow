@@ -9,7 +9,7 @@
 每次接到 Plan dispatch（首派或 need-fresh-worker 续派）按顺序执行 5 步；缺一返回 `NEEDS_PLAN_REVISION`：
 
 1. **Read plan 文档全文**：从 envelope.plan_path 读完整 plan.md。验证 5 必备字段——`## Pack Execution Manifest`、`Dependencies`（per pack）、`Acceptance criteria`（per pack）、`Verification commands`（per pack）、`Owned files`（per pack）。缺任一字段或 Manifest 为空 → 立即返回 `verdict=needs-plan-revision`，不试图脑补。
-2. **Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-handbook.md`**——固定行为规范（TDD 纪律、commit 规范、failure modes）。
+2. **Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-dispatch.md`**——固定行为规范（TDD 纪律、commit 规范、failure modes）。
 3. **Read `${STATE_DIR}/execution-state-<run_id>.json`**，提取 `plans[<plan_id>].packs` 当前 status 字典。区分**首派 vs 续派**：`status=="committed"` 的 pack 跳过（partial-fail recovery / need-fresh-worker 续派回到此 Worker），不重复执行。
 4. **Read `${STATE_DIR}/plan-returns/<run_id>/<plan_id>/open-items.json`**（若存在）——继承前任 worker 累积的 Open Items，新发现追加。
 5. **Read 项目 CLAUDE.md + 链入规则**（PROJECT.md / ENGINEERING-RULES.md / AGENTS.md）——理解日志规范、合同墙、命名约定。

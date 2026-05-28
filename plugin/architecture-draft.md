@@ -50,7 +50,7 @@
 **改造后**：Coordinator 按 Plan 派 Worker。Worker 在一次 dispatch 中独立完成整个 Plan 内的所有 Pack（串行 TDD + commit），最后产出一个 Plan-level 返回信封。Coordinator 只在 Plan 边界（Plan Implementation Review）介入。一个 7-Plan 任务降到 ~7-11 次 dispatch。
 
 **Worker 自治 6 大段行为合同**（写在 `build/templates/worker-loop.md.tmpl`，注入到 pack-executor / complex-pack-executor）：
-1. **5 步严格启动序列**：读 plan 全文（验证 5 必备字段）→ 读 execution-worker-handbook → 读 execution-state（区分首派/续派）→ 继承前任 worker 的 open-items.json → 读 CLAUDE.md
+1. **5 步严格启动序列**：读 plan 全文（验证 5 必备字段）→ 读 execution-worker-dispatch → 读 execution-state（区分首派/续派）→ 继承前任 worker 的 open-items.json → 读 CLAUDE.md
 2. **Pack 循环主体**：topo_sort by Dependencies → 跳过已 committed → TDD red/green/refactor → 验证 → scope-drift 自检 → 写 pack-return → git commit → 累积 open-items
 3. **Verdict 6 枚举**：`pass / partial-pass / blocked / need-fresh-worker / needs-context / needs-plan-revision`
 4. **Repair Mode**：`repair_round ≥ 1 + disposition_refs 非空` 时 SendMessage 同 worker 续修（不重读 plan，按 Pack 独立 commit）
@@ -329,7 +329,7 @@ Coordinator 端的"最小职责"被压缩到 4 步（构造 envelope → 写 pla
 
 **段 2：5 步严格启动序列**
 1. Read plan 文档全文，验证 5 必备字段（Pack Manifest / Dependencies / Acceptance / Verification / owned files）；缺则 verdict=`needs-plan-revision`
-2. Read `execution-worker-handbook.md`（TDD 纪律 / commit 规范 / failure modes）
+2. Read `execution-worker-dispatch.md`（TDD 纪律 / commit 规范 / failure modes）
 3. Read `execution-state-<run_id>.json` 的 `.plans[plan_id].packs`，区分首派 vs 续派
 4. Read `plan-returns/<run_id>/<plan_id>/open-items.json`（若存在）继承前任 worker 累积
 5. Read 项目 CLAUDE.md + 链入规则

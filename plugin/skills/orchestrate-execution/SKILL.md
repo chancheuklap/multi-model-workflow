@@ -197,7 +197,7 @@ Review 只基于代码实际行为的独立分析。
 Agent({
   subagent_type: "<pack-executor | complex-pack-executor>",
   description: "Execute Plan N: <title>",
-  prompt: "<DISPATCH_ENVELOPE>\n\n你是 plan-level worker。\nPlan 文件：<plan 文件绝对路径>\nRun ID：<run_id>\nState directory：<$(pwd)/.claude/multi-model-workflow 绝对路径>\nHandbook：<$(pwd)/plugin/skills/orchestrate-execution/references/execution-worker-handbook.md>\nRead handbook first，然后按 pack Dependencies 顺序串行执行所有未完成 Pack。",
+  prompt: "<DISPATCH_ENVELOPE>\n\n你是 plan-level worker。\nPlan 文件：<plan 文件绝对路径>\nRun ID：<run_id>\nState directory：<$(pwd)/.claude/multi-model-workflow 绝对路径>\nHandbook：<$(pwd)/plugin/skills/orchestrate-execution/references/execution-worker-dispatch.md>\nRead handbook first，然后按 pack Dependencies 顺序串行执行所有未完成 Pack。",
   run_in_background: true
 })
 ```

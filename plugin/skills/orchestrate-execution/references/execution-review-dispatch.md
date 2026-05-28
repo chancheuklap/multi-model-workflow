@@ -2,16 +2,6 @@
 
 > **流程位置**：`orchestrate-execution` Step 8 · 同一 Plan 内所有 Pack 完成后派发
 
-## Self-Read Protocol
-
-你是 codex-reviewer（执行 Plan Implementation Review）。启动时按以下顺序执行：
-
-1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`plan_id`、`gate`。
-2. 读 `Source artifacts:` 列出的所有路径：plan 文件、design.md、issue 文件、Scope Contract。
-3. 自行运行 `git diff <plan-start-commit>..<plan-end-commit>` 获取 aggregate diff。
-4. 读本文件（你正在读的这份手册），理解 Review Angles 与 Return Contract 格式。
-5. 按 Review Angles 独立验证，输出 findings，遵守 Pre-emit Verification Gate。
-
 同一 Plan 内所有 Pack 完成 Open Items 处置 + Git Checkpoint 后，派发 **1 个** baseline Codex reviewer 覆盖该 Plan 全部代码变更。
 
 **Read** `plugin/skills/_shared/review-dispatch.md` 并按其格式派发 Codex review。
