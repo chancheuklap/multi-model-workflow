@@ -91,7 +91,7 @@ Route 1（Formal）+ Route 2（Bug）+ Route 3（Multi-PR）是真正不同的�
 | state.sh 0 生产调用的子命令 | 2（business-summary / plans；idempotency 调研误判已纠正为 4 处生产调用） | 0 — 删除（path-a-escalation / agent-context-check 因决策 3/6 一并删除） |
 | scripts/lib 0 生产 source 的库 | 2 | 0 — 删除或合并 |
 | route-extensions 副本目录数 | 2（workflow + execution） | 1（只在 workflow） |
-| Route 枚举值 | 8（formal / bug / multi-pr / hotfix / quickfix / spike / maintenance / direct-repair） | ≤ 4（formal / bug / multi-pr / direct-repair） + flags |
+| Route 枚举值 | 8（formal / bug-investigation / multi-pr-merge / hotfix / quickfix / spike / maintenance / direct-repair） | 4（保留 runtime 全称 formal / bug-investigation / multi-pr-merge / direct-repair） + phase_skip[] flags |
 | Hook 脚本数 | 13 | ≤ 10 |
 | Reference 无顶部路标数 | 8 / 50（16%） | 0 / N |
 | 不变量：Worker Loop 6 段合同 | 保持 | 保持 |
@@ -163,7 +163,7 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - Plan-return / pack-returns / open-items / merge-brief schema 顶层结构
 
 **简化的对象 / 状态**：
-- `Route` 枚举从 8 值（formal / bug / multi-pr / hotfix / quickfix / spike / maintenance / direct-repair）简化为 4 值（formal / bug / multi-pr / direct-repair）+ flags（`phase_skip` 数组 + `budget_status` 已有）
+- `Route` 枚举从 8 值简化为 4 值（**保留 runtime 既有全称**：`formal` / `bug-investigation` / `multi-pr-merge` / `direct-repair`；不重命名为短名）+ flags（`phase_skip` 数组 + `budget_status` 已有）。删除 4 个：`hotfix` / `quickfix` / `spike` / `maintenance`，由 `phase_skip[] + budget_status` 实现
 - `Path A escalation` 状态字段 + `blocked_for_self_fix` 字段 — 删除
 - `bug_seed_path` 概念 — 删除（RCA findings 直接作为 Discovery 输入）
 - `doc_patch_path` 字段（plan-return-v1.json）— 删除
@@ -314,7 +314,7 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 **当前**：8 个 Route 枚举值 + workflow 和 execution 各 4 份 route-extensions 文件
 
 **改动**：
-- `workflow-state-v1.json` 的 `route` 枚举从 8 值收敛为 4 值：`formal` / `bug` / `multi-pr` / `direct-repair`
+- `workflow-state-v1.json` 的 `route` 枚举从 8 值收敛为 4 值：**保留 runtime 既有全称** `formal` / `bug-investigation` / `multi-pr-merge` / `direct-repair`（不重命名为短名 — 避免对 state.sh / hooks / tests / skills 中已存在的字符串引用造成跨模块迁移）。删除 4 个：`hotfix` / `quickfix` / `spike` / `maintenance`
 - 新增字段 `phase_skip`（array of phase enum，默认空数组）
 - `budget_status` 已有，复用：`initialized` / `unlimited` / `pending_plan_count`
 - 新增字段 `commit_format_override`（string \| null，默认 null；hotfix 时设为 `"hotfix-unreviewed"`）
@@ -362,7 +362,7 @@ v3.8.0                         本轮 round 2 后
 20 state.sh subcommands       16 subcommands（删 business-summary / plans / path-a-escalation / agent-context-check；idempotency 保留 — 调研误判已纠正）
 6 scripts/lib                 3 scripts/lib（合并/删 doc-patch-apply / review-effectiveness / learnings-poison-detector）
 13 scripts                    10 scripts（合并 review-dispatch 对 / route-worker-dispatch 对 + shim 兼容期）
-8 route enum values           4 route enum values（formal / bug / multi-pr / direct-repair）+ phase_skip[] flags
+8 route enum values           4 route enum values（runtime 全称 formal / bug-investigation / multi-pr-merge / direct-repair）+ phase_skip[] flags
 6 SKILL.md phase variants     6 SKILL.md（瘦身 30-40%）
 2 修复路径（A + B）           1 修复路径（B / SendMessage）
 独立 bug seed 文件             直接以 RCA findings 进 Discovery
@@ -391,7 +391,7 @@ doc-patch 系统                 Coordinator 直接 Edit plan checkbox
 
 | 字段 | 当前 | 改为 |
 |------|------|-----|
-| `route` enum | 8 值 | 4 值：`formal / bug / multi-pr / direct-repair` |
+| `route` enum | 8 值 | 4 值（**保留 runtime 全称**）：`formal / bug-investigation / multi-pr-merge / direct-repair`；删除 `hotfix / quickfix / spike / maintenance` |
 | `phase_skip` | — | 新增 array of phase enum，默认 `[]` |
 | `commit_format_override` | — | 新增 string\|null，默认 null |
 | `path_a_escalation` | object | 删除 |
@@ -424,7 +424,7 @@ doc-patch 系统                 Coordinator 直接 Edit plan checkbox
 | `forbidden-shortcuts` | inject 到 2 文件 | 整个模板 + resolver 删除 |
 | `state-write` | inject 到 1 文件 | inline 后删除 |
 | `trust-boundary` | inject 到 1 文件 | inline 后删除 |
-| `review-dispatch [variant=content-only]` | inject 到 1 文件 | inline 后删除（与决策 1 一致） |
+| `review-dispatch [variant=content-only]` | inject 到 1 文件 | **本轮保留，不迁移，不删除**（§10 第 15 条：codex-review skill 不动；留待下轮） |
 | `worker-loop` / `control-envelope` / `preamble` / `voice-directive` / `signpost` / `sendmessage-resume` | 保留 | 保留 |
 
 **Owner**：决策 1 + 决策 2 的 plan
@@ -568,6 +568,9 @@ TBD（plan writing 完成后填充）
 - 新增 / 修改 `verify-maturity.sh` 检查项：
   - **Canonical reference**：`plugin/skills/_shared/{review-dispatch,repair-routing,disposition-table}.md` 存在 + 所有原 inject 位置已替换为 plugin-rooted `Read` 指令（grep 无残留 `<!-- BEGIN: review-dispatch -->` / `<!-- BEGIN: repair-routing -->` / `<!-- BEGIN: disposition-table -->` 锚点；引用一律 plugin-rooted 绝对路径，不允许 `../_shared/` 相对形式）
   - **Phase 进入 baseline chars 上限**：每个 phase 的 SKILL.md + frontmatter `read:` 列出的 references 总 chars ≤ §2.1 目标（execution / final-review / multi-pr-merge 各 ≤ 50000）
+  - **每个 SKILL.md 行数上限**（独立于 phase chars，直接 `wc -l` 检查）：
+    - `orchestrate-execution/SKILL.md` ≤ 300 行（§2.1）
+    - 其他 5 个 SKILL.md（discovery / workflow / plan-writing / final-review / multi-pr-merge）≤ 当前基线 × 0.7 — 具体值由 plan 阶段从当前 wc -l 计算填入 verify-maturity
   - **单 reference 最大行数** ≤ 250（决策 §2.1）
   - **死锚点清理**：无 `<!-- BEGIN: forbidden-shortcuts -->` / `<!-- BEGIN: state-write -->` / `<!-- BEGIN: trust-boundary -->` 锚点存在（决策 2）；review-dispatch.content-only 本轮不删
   - **死字符串清理**：所有 .md 无 `path-a` 字符串（决策 3）；无 `doc-patch` 字符串（决策 4，除 git 历史和 deprecated 标注）；无 `bug-seed-path` / `bug-seed-file` 字符串（决策 5）
