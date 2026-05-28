@@ -33,7 +33,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 
 | disposition | Coordinator 动作 |
 | --- | --- |
-| `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、targeted re-review scope |
+| `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、re-review scope |
 | `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
 | `needs evidence` | 派 explorer 补证据（窄范围用 `code-explorer`，多模块用 `complex-code-explorer`）；补证前不 repair |
 | `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |

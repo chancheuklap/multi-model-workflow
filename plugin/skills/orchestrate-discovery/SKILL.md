@@ -123,7 +123,7 @@ CONTEXT.md 和 ADR 格式 → `references/discovery-formats.md`
 
 **Read** `references/design-review-angles.md`（2 个 baseline Codex reviewer：Design Content Review + Project Alignment Review）。通过后回到 Step 12 大 issue 拆分。
 
-Coordinator 亲验 findings → disposition → 直接修设计文档（不派 worker）→ targeted re-review。一轮 review + 修复。Pass 条件：两个 baseline 通过 + 无 Critical。
+Coordinator 亲验 findings → disposition → 直接修设计文档（不派 worker）→ baseline re-review。一轮 review + 修复。Pass 条件：两个 baseline 通过 + 无 Critical。
 
 ## Step 12：大 issue 拆分
 

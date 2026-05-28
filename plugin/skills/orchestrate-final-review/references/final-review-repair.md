@@ -98,7 +98,7 @@ Explorer 返回后路由：
 
 | 情况 | 路由 |
 | --- | --- |
-| 所有 affected packs 属于**同一 Plan** | **留在 Final Review**——按 Path B 修复 + 该 Plan targeted re-review（Step 11）。不回 Execution |
+| 所有 affected packs 属于**同一 Plan** | **留在 Final Review**——按 Path B 修复 + 该 Plan baseline re-review（Step 11）。不回 Execution |
 | Affected packs **跨越多个 Plan** 且系统性（shared contract / migration 顺序 / cross-plan state） | → Step 10b（回 Execution 判定） |
 
 ### Step 10b：回 Execution 的条件（任一成立）

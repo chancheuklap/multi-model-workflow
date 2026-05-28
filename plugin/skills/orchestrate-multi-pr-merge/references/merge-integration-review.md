@@ -117,9 +117,9 @@ Multi-PR 增加验证维度：对照大设计文档确认 spec 判断 + 对照�
 - 简单修复（≤ 2 文件、不碰合同）→ Coordinator 直接修
 - 复杂修复 → 派 worker
 
-修复后做 **Targeted Re-Review**。按以下步骤派发 Codex review（复用已有 `CODEX_SCRIPT`）：
-1. 写 prompt → `review-prompts/<gate>.md`，并以前缀 `DISPATCH_ENVELOPE` 声明 `agent_role: "codex-reviewer"`、`review_intent: "targeted-re-review"`、`exception_code: "user_requested"` 和非空 `disposition_refs`。
-2. 按 Step 16 的共享 `review-dispatch` 执行；gate 名包含 `-repair-`，因此 dispatch 命令必须使用 `--resume` 继续 baseline reviewer session。
+修复后做 **Repair Re-Review**。按以下步骤派发 Codex review（复用已有 `CODEX_SCRIPT`）：
+1. 写 prompt → `review-prompts/<gate>.md`，并以前缀 `DISPATCH_ENVELOPE` 声明 `agent_role: "codex-reviewer"`、`review_intent: "baseline"` 和非空 `disposition_refs`。
+2. 按 Step 16 的共享 `review-dispatch` 执行。
 3. 等待和读取结果也按 Step 16 的共享 `review-dispatch` 执行，结果写入 `review-results/<gate>.md`。
 
 Compaction 恢复：有 `.job-id` 无对应 `review-results/` → 从 Step 3 继续。
@@ -140,13 +140,13 @@ Review prompt 写入 `.claude/multi-model-workflow/review-prompts/multi-pr-repai
   "repair_round": 1,
   "idempotency_key": "<run_id>/multi-pr-repair-1",
   "disposition_refs": ["<accepted finding ids>"],
-  "review_intent": "targeted-re-review",
-  "exception_code": "user_requested"
+  "review_intent": "baseline",
+  "exception_code": null
 }
 -->
 
 ## Scope
-Targeted re-review for Multi-PR integration repair.
+Repair re-review for Multi-PR integration repair.
 Only review the changes made to address the listed findings.
 
 ## Original findings

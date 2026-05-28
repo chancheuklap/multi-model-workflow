@@ -20,7 +20,7 @@ Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问�
 
 4. 修订后重跑 Plan Entry Gate（Step 11）+ Task Pack Inventory Gate（Step 12）
 5. 如果 pack_count 变化 → 更新 budget file（Step 12a）
-6. 重跑 Plan Review（Step 13-18），scope 缩小到修改的部分（targeted re-review 优先）
+6. 重跑 Plan Review（Step 13-18），scope 缩小到修改的部分（baseline re-review）
 
 ## Step 1：缺件路由表
 

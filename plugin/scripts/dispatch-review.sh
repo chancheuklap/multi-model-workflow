@@ -49,15 +49,6 @@ case "$SUBCMD" in
 
     canonical_plan_id() { printf "%03d" "$1"; }
 
-    baseline_gate_for_targeted() {
-      local gate="$1"
-      if [[ "$gate" =~ ^(.+)-repair-[0-9]+$ ]]; then
-        echo "${BASH_REMATCH[1]}"
-        return 0
-      fi
-      echo ""
-    }
-
     validate_plan_impl_gate() {
       local gate="$1"
       [[ "$gate" =~ ^plan-impl-review-([0-9]+)$ ]] || return 0
@@ -103,59 +94,6 @@ case "$SUBCMD" in
       fi
     }
 
-    validate_targeted_continuity() {
-      local gate="$1"
-      local baseline_gate
-      baseline_gate="$(baseline_gate_for_targeted "$gate")"
-
-      local expected_agent=""
-      if [[ -n "$baseline_gate" && -f "${BUDGET_DIR}/review-agents/${baseline_gate}.agent-id" ]]; then
-        expected_agent=$(cat "${BUDGET_DIR}/review-agents/${baseline_gate}.agent-id")
-      fi
-
-      if [[ -z "$expected_agent" ]]; then
-        expected_agent=$(find "${BUDGET_DIR}/review-registry" -name '*.json' -type f 2>/dev/null \
-          -exec jq -r --arg run "$RUN_ID" --arg agent "$AGENT_ID" 'select(.run_id == $run and .agent_id == $agent and (.review_intent // "baseline") == "baseline") | .agent_id' {} \; \
-          | head -1)
-      fi
-
-      if [[ -z "$expected_agent" || "$expected_agent" == "null" ]]; then
-        echo "Error: targeted re-review could not find recorded baseline reviewer JOB_ID" >&2
-        exit 2
-      fi
-
-      if [[ "$AGENT_ID" != "$expected_agent" ]]; then
-        echo "Error: targeted re-review agent_id does not match recorded baseline reviewer JOB_ID" >&2
-        exit 2
-      fi
-
-      if [[ -n "$baseline_gate" && ! -s "${BUDGET_DIR}/review-results/${baseline_gate}.md" ]]; then
-        echo "Error: targeted re-review requires baseline review result for $baseline_gate" >&2
-        exit 2
-      fi
-
-      if [[ "$REPAIR_ROUND" -lt 1 ]] 2>/dev/null; then
-        echo "Error: targeted re-review requires repair_round >= 1" >&2
-        exit 2
-      fi
-
-      local sf="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
-      while IFS= read -r ref; do
-        [[ -n "$ref" ]] || continue
-        local accepted evidence
-        accepted=$(jq -r --arg fid "$ref" '[.review_dispositions[] | select(.finding_id == $fid and .disposition == "accepted")] | length' "$sf" 2>/dev/null || echo "0")
-        if [[ "$accepted" -eq 0 ]]; then
-          echo "Error: targeted re-review disposition_ref $ref is not accepted" >&2
-          exit 2
-        fi
-        evidence=$(jq -r --arg fid "$ref" '[.review_dispositions[] | select(.finding_id == $fid and .disposition == "accepted") | .evidence // ""] | first // ""' "$sf" 2>/dev/null)
-        if [[ -z "$evidence" || "$evidence" == "null" ]]; then
-          echo "Error: targeted re-review disposition_ref $ref has no evidence" >&2
-          exit 2
-        fi
-      done < <(echo "$ENVELOPE" | jq -r '.disposition_refs // [] | .[]')
-    }
-
     if [[ "$AGENT_ROLE" != "codex-reviewer" ]]; then
       echo "Error: review dispatch envelope agent_role must be codex-reviewer" >&2
       exit 2
@@ -173,19 +111,8 @@ case "$SUBCMD" in
         fi
         validate_plan_impl_gate "$GATE"
         ;;
-      targeted-re-review)
-        if [[ -z "$AGENT_ID" || "$AGENT_ID" == "null" ]]; then
-          echo "Error: targeted re-review must include baseline reviewer JOB_ID as agent_id" >&2
-          exit 2
-        fi
-        if [[ -z "$EXCEPTION_CODE" || "$EXCEPTION_CODE" == "null" ]]; then
-          echo "Error: targeted re-review must include exception_code" >&2
-          exit 2
-        fi
-        validate_targeted_continuity "$GATE"
-        ;;
       *)
-        echo "Error: review_intent must be baseline or targeted-re-review (got: ${REVIEW_INTENT:-empty})" >&2
+        echo "Error: review_intent must be baseline (got: ${REVIEW_INTENT:-empty})" >&2
         exit 2
         ;;
     esac

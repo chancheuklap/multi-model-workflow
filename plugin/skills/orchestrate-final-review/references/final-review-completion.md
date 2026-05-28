@@ -52,7 +52,7 @@ git diff <starting_commit>..HEAD --diff-filter=AM --name-only | xargs grep -n "T
 1. 跑完整测试套件确认不回归
 2. 跑所有 pack 的 verification commands
 3. 简单修复（Coordinator 直接改）→ 不需要额外 review
-4. 复杂修复（派了 worker）→ 做 targeted re-review（Budget 消耗 1）
+4. 复杂修复（派了 worker）→ 做 baseline re-review（Budget 消耗 1）
 
 ---
 

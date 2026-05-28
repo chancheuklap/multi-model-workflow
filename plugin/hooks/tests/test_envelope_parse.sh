@@ -34,9 +34,9 @@ run_test_fail "repair_round=2 + null disposition_refs → exit 2" bash -c "echo 
 CODEX_NO_INTENT='<!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"r1","phase":"execution","agent_role":"codex-reviewer","pack_id":null,"repair_round":0,"idempotency_key":"r1/review/r0","disposition_refs":null,"review_intent":null,"exception_code":null} -->'
 run_test_fail "codex-reviewer + null review_intent → exit 2" bash -c "echo '$CODEX_NO_INTENT' | bash '$PARSE'"
 
-# targeted-re-review without exception_code
-TARGETED_NO_EX='<!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"r1","phase":"execution","agent_role":"codex-reviewer","pack_id":null,"repair_round":0,"idempotency_key":"r1/review/r0","disposition_refs":null,"review_intent":"targeted-re-review","exception_code":null} -->'
-run_test_fail "targeted-re-review + null exception_code → exit 2" bash -c "echo '$TARGETED_NO_EX' | bash '$PARSE'"
+# targeted-re-review is no longer valid → parse must reject
+TARGETED_INVALID='<!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"r1","phase":"execution","agent_role":"codex-reviewer","pack_id":null,"repair_round":0,"idempotency_key":"r1/review/r0","disposition_refs":null,"review_intent":"targeted-re-review","exception_code":"user_requested"} -->'
+run_test_fail "targeted-re-review rejected (enum removed)" bash -c "echo '$TARGETED_INVALID' | bash '$PARSE'"
 
 # Valid codex-reviewer with baseline
 BASELINE='<!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"r1","phase":"execution","agent_role":"codex-reviewer","pack_id":null,"repair_round":0,"idempotency_key":"r1/review/r0","disposition_refs":null,"review_intent":"baseline","exception_code":null} -->'

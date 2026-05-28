@@ -125,7 +125,7 @@ pass / needs repair / blocked
 | Verdict | 动作 |
 | --- | --- |
 | `pass` | Step 21（Closing） |
-| `needs repair` | Coordinator 验证 finding → 路径 A（Coordinator 直接修，≤2 文件）或路径 B（新建 worker 修复）→ targeted re-review（重用 Step 17 模板，scope 缩小到修复 diff）→ 最多 2 轮 → Closing |
+| `needs repair` | Coordinator 验证 finding → 路径 A（Coordinator 直接修，≤2 文件）或路径 B（新建 worker 修复）→ baseline re-review（重用 Step 17 模板，scope 缩小到修复 diff）→ 最多 2 轮 → Closing |
 | `blocked` | 报告用户 |
 
 ## Step 18：Complex Bug — Worker Dispatch

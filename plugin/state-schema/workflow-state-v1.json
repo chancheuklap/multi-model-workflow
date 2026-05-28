@@ -76,7 +76,7 @@
           "resolved_at": { "type": ["string", "null"] },
           "plan_id": {
             "type": ["string", "null"],
-            "description": "Optional: bind disposition to a specific Plan (e.g. '001') so targeted re-review can narrow scope to one plan instead of the whole workflow."
+            "description": "Optional: bind disposition to a specific Plan (e.g. '001') so re-review can narrow scope to one plan instead of the whole workflow."
           },
           "coordinator_verified_evidence": {
             "type": ["string", "null"],

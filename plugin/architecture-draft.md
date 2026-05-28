@@ -211,7 +211,7 @@ flowchart TD
 | agent-return-handler.sh | PostToolUse Agent hook | 读 `plan-returns/<run_id>/<plan_id>/plan-return.json` → 调 `plan-return-parser.sh` 校验 schema → 调 `state.sh plan-returns ingest` → 按 5 verdict 注入 NEXT |
 | Open Items 处置 | Coordinator | Plan 边界批量处置；Worker 没有"非阻塞项"概念 |
 | Plan Implementation Review | 外部 Codex review | 覆盖整个 Plan 的 diff |
-| Path A 修复 | Coordinator 直接修 | ≤ 2 文件 + confidence ≥ 7；修后 targeted re-review；失败自动升级 Path B |
+| Path A 修复 | Coordinator 直接修 | ≤ 2 文件 + confidence ≥ 7；修后 baseline re-review；失败自动升级 Path B |
 | Path B 修复 | SendMessage 同 worker | 不重读 plan / 按 Pack 独立 commit / 修完重写 plan-return.json |
 | doc-patch apply | Coordinator | **Decision 6**：Plan Implementation Review 通过后才 `git apply` doc-patch.diff（plan 文档 checkbox 勾选） |
 | Early Release Gate | Coordinator + Codex review | Plan 触碰风险面时触发 |
@@ -443,10 +443,9 @@ PreToolUse Agent hook，自行检测 phase=multi-pr-merge。**直接内联解析
 PreToolUse Bash hook，git commit 触发。commit 消息以 `Pack ` 开头但不符合 `Pack N.M: <text>` 格式 → exit 2。非 Pack commit 静默放行。
 
 **gate-codex-review.sh**
-PreToolUse Bash hook，检测 codex-companion + `task` 关键字。按 envelope.review_intent 三路：
+PreToolUse Bash hook，检测 codex-companion + `task` 关键字。按 envelope.review_intent：
 - `baseline` → 校验 prompt-file 名称中 plan 编号对应 execution-state 中所有 pack 已 committed（Plan Implementation Review 前置门）
-- `path-a-re-review` → 检查 workflow-state.path_a_escalation 有条目
-- `targeted-re-review` → 必须含 `--resume`；exception_code=user_requested 直接放行，否则检查 qualified exception
+- 其他值 → 透传（default case exit 0）
 
 **guard-doc-edit.sh**
 PreToolUse Edit/Write hook。worker-active marker 存在 + 路径在 `docs/` 下 → exit 2。Coordinator 上下文（无 marker）放行。`plan-returns/` 在 `.claude/multi-model-workflow/` 下不受影响。
@@ -494,7 +493,7 @@ PostToolUse Agent hook，按 agent_role 加权：
 
 ### 6.3 共享原语
 
-`hooks/lib/parse-envelope.sh` — DISPATCH_ENVELOPE 解析（支持单行/多行格式）。验证 6 必填字段：`protocol_version / run_id / phase / agent_role / repair_round / idempotency_key`。`repair_round ≥ 1` 强制 `disposition_refs` 非空；`agent_role = codex-reviewer` 强制 `review_intent`；`targeted-re-review` 强制 `exception_code`。解析失败 exit 2。
+`hooks/lib/parse-envelope.sh` — DISPATCH_ENVELOPE 解析（支持单行/多行格式）。验证 6 必填字段：`protocol_version / run_id / phase / agent_role / repair_round / idempotency_key`。`repair_round ≥ 1` 强制 `disposition_refs` 非空；`agent_role = codex-reviewer` 强制 `review_intent`（仅 baseline 合法）。解析失败 exit 2。
 
 被以下 hook 共用：`gate-codex-review.sh` / `validate-plan-dispatch.sh` / `agent-return-handler.sh` / `track-effort-budget.sh`。
 **不被** `validate-multi-pr-dispatch.sh` 使用——后者直接内联解析以避免 disposition_refs 误触发。
@@ -533,8 +532,8 @@ PostToolUse Agent hook，按 agent_role 加权：
 | `pack_id` | string\|null | — | 遗留 Pack-level 路径用，Plan-level 应为 null |
 | `plan_id` | string\|null | — | **Plan-level 新增**：plan_id 非空 + pack_id null = Plan-level Worker 首派 |
 | `disposition_refs` | array\|null | repair 时必填 | 引用的 finding_id 列表，每个必须 accepted + 有 evidence |
-| `review_intent` | enum\|null | reviewer 必填 | baseline / targeted-re-review / path-a-re-review |
-| `exception_code` | enum\|null | targeted re-review 必填 | 3plus_files_control_flow / user_requested / rca_root_cause |
+| `review_intent` | enum\|null | reviewer 必填 | baseline |
+| `exception_code` | enum\|null | — | 3plus_files_control_flow / user_requested / rca_root_cause |
 | `correlation_id` | string\|null | — | 格式 `{run_id}/{pack_id}` |
 
 **注意**：`plan_path` / `pack_count` / `manifest_path` **不在 envelope JSON 字段内**，这些信息通过 dispatch prompt 正文以文档路径 + 运行时变量形式传递。
@@ -848,8 +847,7 @@ bash plugin/build/build.sh --apply --plugin-dir plugin   # 应用（原子写入
                      代码 diff 包裹在 --- BEGIN UNTRUSTED CODE DIFF --- / --- END UNTRUSTED CODE DIFF ---
 2. 选模型           Discovery/Plan Writing → gpt-5.5 --effort xhigh
                      Execution/Final Review → gpt-5.4 --effort xhigh
-3. 提交 + 持久化    node "$CODEX_SCRIPT" task --background --prompt-file <path>（baseline）
-                     或 --resume（targeted re-review，gate 名含 -repair-）
+3. 提交 + 持久化    node "$CODEX_SCRIPT" task --background --prompt-file <path>（baseline review）
                      → JOB_ID，写入 review-prompts/<gate>.job-id
 4. 等待完成          node "$CODEX_SCRIPT" status <JOB_ID> --wait --timeout-ms 600000（run_in_background）
 5. 取回结果          node "$CODEX_SCRIPT" result <JOB_ID> → 写入 review-results/<gate>.md

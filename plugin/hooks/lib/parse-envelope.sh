@@ -63,19 +63,12 @@ if [[ "$AGENT_ROLE" == "codex-reviewer" ]]; then
     exit 2
   fi
   case "$REVIEW_INTENT" in
-    baseline|targeted-re-review) ;;
+    baseline) ;;
     *)
-      echo "Error: codex-reviewer review_intent must be baseline or targeted-re-review" >&2
+      echo "Error: codex-reviewer review_intent must be baseline" >&2
       exit 2
       ;;
   esac
-fi
-
-if [[ "$REVIEW_INTENT" == "targeted-re-review" ]]; then
-  if [[ -z "$EXCEPTION_CODE" || "$EXCEPTION_CODE" == "null" ]]; then
-    echo "Error: targeted-re-review must include exception_code" >&2
-    exit 2
-  fi
 fi
 
 echo "$ENVELOPE_JSON"

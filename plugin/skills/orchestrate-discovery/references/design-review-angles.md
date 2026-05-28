@@ -187,4 +187,4 @@ Coordinator 在派发时只需完成以下动作，其余由 Reviewer 自读：
 3. 写 review-prompts 文件，运行 validate/record 脚本，触发 Codex job。
 4. 等待 job 完成后运行 result/complete 脚本，进入 Disposition 流程。
 
-> **下一步**：Design Review 通过 → 回到 SKILL.md Step 12（大 issue 拆分）。needs repair → Coordinator 直接修设计文档 → targeted re-review。
+> **下一步**：Design Review 通过 → 回到 SKILL.md Step 12（大 issue 拆分）。needs repair → Coordinator 直接修设计文档 → baseline re-review。

@@ -76,7 +76,7 @@ if [[ ! -f "$REGISTRY_FILE" ]]; then
       run_id: $run_id,
       gate: $gate,
       phase: null,
-      review_intent: "targeted-re-review",
+      review_intent: "baseline",
       agent_id: $agent_id,
       prompt_file: null,
       result_file: null,

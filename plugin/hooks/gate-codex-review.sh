@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PreToolUse Bash hook (if: "Bash(*codex-companion.mjs task*)")
-# Gates Codex review dispatch — blocks targeted re-review without exception.
+# Gates Codex review dispatch — validates review_intent and pack completion.
 set -euo pipefail
 
 INPUT=$(cat)
