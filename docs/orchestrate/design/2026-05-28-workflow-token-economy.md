@@ -486,6 +486,13 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - 合并 issue-splitting.md 中两套 issue body 模板（本地大 issue 文件 + GitHub Issue body）为一套 — 本地文件 = GH body + `## Design context refs` + `## Small issues` 两节
 - design-review-angles.md：`Coordinator 端最小职责` 段上移至 review-dispatch 块内（L19 前），逻辑顺序优化
 
+**GitHub Issue 发布改为可选**（流程减负）：
+- 当前 issue-splitting.md Step 12f 强制为每个大 issue 发布 GitHub Issue
+- **改为按需发布**：默认跳过；用户在 Discovery 时明确说"需要发布 GH Issue"才走这一步
+- **本地大 issue 文件永远写入**（不可选）— Document-as-Context 单一源不动
+- 若用户未要求发布但项目有团队协作需要，用户可手动 `gh issue create` 或事后追加
+- 理由：plugin 主要使用场景是个人项目，GH Issue 在当前场景下无真实功能价值（本地 issue 文件 + workflow-state 已覆盖跟踪 / 依赖 / Blocked by）；保留能力但不强制，与决策 13（删 targeted re-review = 留能力降默认）一致的设计哲学
+
 **保留**：
 - review-dispatch / disposition-table 模板注入（决策 1 已处理 — 改为 canonical reference）
 - discovery-discussion.md / discovery-design-document.md / issue-splitting.md 三个核心 reference（这些是外部 skill 精华的本地化版本，是真正不可减的内容）
