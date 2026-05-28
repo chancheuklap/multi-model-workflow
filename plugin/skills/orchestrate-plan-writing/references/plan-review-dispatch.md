@@ -89,6 +89,9 @@ Compaction recovery:
 - `.job-id` present but no `review-results/<gate>.md` -> resume from Step 4 (status + result) using that JOB_ID; once the result is saved and bookkeeping is complete, proceed to Step 6.
 - `review-registry/<gate>.json` status is `completed` or `disposition_started`, and `review-results/<gate>.md` exists -> Read that exact result file and continue Coordinator disposition. Do not re-dispatch review and do not proceed to repair until `record-review-disposition.sh --status completed` has been recorded.
 - If the `.job-id` is missing for a targeted re-review, mark BLOCKED; do not create a new reviewer for the same baseline.
+
+**Targeted re-review scope 收窄**：
+当 envelope `review_intent=targeted-re-review` 且 `disposition_refs` 非空时，reviewer 只审 disposition_refs 中 finding 关联的 [Pack N.M] 对应 owned files；不重审全 Plan diff。新增问题超出 disposition scope → 列入 `Out of scope observations` 而非 finding。
 <!-- END: review-dispatch -->
 
 以下是 review prompt 内容（写入 `.claude/multi-model-workflow/review-prompts/plan-review.md`）：
