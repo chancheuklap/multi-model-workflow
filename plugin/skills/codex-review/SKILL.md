@@ -71,6 +71,7 @@ PROMPT_FILE="${REVIEW_DIR}/review-${TIMESTAMP}.md"
 
 不需要关注：风格、命名、注释数量。
 
+<!-- BEGIN: review-dispatch [variant=content-only] -->
 **Confidence rubric (REQUIRED)**:
 - 1-3: low confidence. 可能是误报。
 - 4-6: medium. 需要更多证据确认。
@@ -91,6 +92,10 @@ Reviewer 必须在 `### Evidence` 下填写半结构化证据表：
 | Finding 证据 | 支撑 finding 的路径、行号、diff、命令输出或可复现行为。 |
 | 假设 | 影响 verdict 的前提和未被源码直接证明的判断。 |
 | 未验证项 | 相关但未能验证的内容，以及原因。 |
+
+**Bias indicators (REQUIRED at end of review output)**:
+Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
+<!-- END: review-dispatch -->
 
 **输出格式**：
 - verdict: pass | needs_repair
