@@ -67,7 +67,15 @@
           "path": { "type": ["string", "null"] },
           "reviewer_agent_id": { "type": ["string", "null"] },
           "dispatched_at": { "type": ["string", "null"] },
-          "resolved_at": { "type": ["string", "null"] }
+          "resolved_at": { "type": ["string", "null"] },
+          "plan_id": {
+            "type": ["string", "null"],
+            "description": "Optional: bind disposition to a specific Plan (e.g. '001') so targeted re-review can narrow scope to one plan instead of the whole workflow."
+          },
+          "coordinator_verified_evidence": {
+            "type": ["string", "null"],
+            "description": "Optional: Coordinator-verified evidence text/pointer captured at disposition time. When disposition='accepted' this should be populated; state.sh validate enforces this when present."
+          }
         },
         "required": ["finding_id", "disposition"]
       }
