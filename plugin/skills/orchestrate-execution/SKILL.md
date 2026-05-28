@@ -317,6 +317,8 @@ Worker 返回的 learnings 必须经过信任门才能写入 learnings.jsonl。
 
 ---
 
+**Worker / RCA 返回事实校验**：Coordinator 收到 pack-executor / complex-pack-executor / root-cause-analyst 返回的 commit hash、文件路径、行号、grep 结果、Pack 状态等事实，必须抽验（至少 1 个事实 grep / Read / git show）后再进入 Plan Implementation Review 或下一 Pack 派发。事实失实 -> 重派或 Coordinator 亲查。
+
 #### Step 7：Plan Implementation Review（所有 Pack 完成后）
 
 **Read** `references/execution-review-dispatch.md` 获取完整 review prompt 结构（含 Review 分段规则、Cross-Pack Coherence、Neighbor interface contracts）和 reviewer 自跑命令列表。

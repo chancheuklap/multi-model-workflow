@@ -53,6 +53,7 @@ ESF="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
 
 emit_next() {
   local msg="$1"
+  echo "⚠️ 写入交付物前必须校验本次返回的事实声明（行号 / 计数 / 存在性 / grep 结果 / 引用关系）" >&2
   jq -n --arg msg "$msg" \
     '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $msg}}'
 }

@@ -1227,6 +1227,24 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 
 ---
 
+## Sub-agent 信任边界
+
+Plugin 采用 Coordinator-Worker 分担架构：Coordinator 把专项工作（写设计 / 写 plan / 写代码 / 调研根因）下放到 sub-agent 以分担上下文压力 + 提升专项输出质量。但 sub-agent 的返回不是 ground truth。
+
+**核心原则**：sub-agent 是劳动力，Coordinator 是事实的唯一权威。
+
+**强约束**：sub-agent 返回的任何事实声明（行号 / 计数 / 文件路径 / 存在性 / grep 结果 / 引用关系 / Pack 状态 / commit hash）由 Coordinator 必须亲验后再写入交付物（design / plan / merge-brief / issue / commit message）或汇报给用户。
+
+**强约束在主流程文本中体现**（不在 hook 中）：
+- `agents/code-explorer.md` / `complex-code-explorer.md` / `root-cause-analyst.md` description 中明确事实校验责任
+- `orchestrate-discovery/SKILL.md` Step 1.5「Explorer 报告校验门控」
+- `orchestrate-plan-writing/SKILL.md` / `orchestrate-execution/SKILL.md` / `orchestrate-multi-pr-merge/SKILL.md` 主流程含 sub-agent 返回事实校验 Step
+- `hooks/agent-return-handler.sh` 输出 NEXT 指令含"写入交付物前必须校验本次返回的事实声明"提醒
+
+**不引入新的 Hook 阻断**：本机制是提醒层而非阻断层，保持 hook 简化方向。Coordinator 的校验责任由文本强制，不由 hook 强制。
+
+---
+
 ## 22. 其他设计决策（保留自前次审计）
 
 - Bug 路线不走 Final Review——`bug-investigation-route.md` Step 17/18 → Closing

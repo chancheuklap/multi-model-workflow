@@ -166,6 +166,8 @@ Multi-PR Merge 阶段 4 类 dispatch（explorer / analyst / worker / reviewer）
 
 各阶段 reference（merge-preparation / merge-conflict-discovery / merge-rca-investigation / merge-conflict-repair / merge-integration-review）只描述该阶段特有的 prompt 模板与返回处置，**不再重复 Coordinator dispatch 通用步骤**。
 
+**4 类 dispatch 返回事实校验**：Coordinator 收到 explorer / analyst / worker / reviewer 返回的 PR 列表、冲突点、文件路径、行号、grep 结果等事实，必须抽验（至少 1 个事实 grep / Read / gh pr view）后再写入 merge-brief 对应段。事实失实 -> 重派或 Coordinator 亲查。
+
 ---
 
 ## Steps 1-3：入口 + 文档理解

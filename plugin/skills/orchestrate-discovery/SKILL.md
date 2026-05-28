@@ -123,6 +123,17 @@ Coordinator 不再自己读大范围仓库；按问题范围**并行派 N 个 Ex
 
 **to-PRD synthesize fast-path**：若用户传入的 PRD / issue / 完整上下文已覆盖 Problem / Solution / Acceptance，跳过 Steps 3-6 一问一答 fast-path，直接进入 Steps 7-9 起草设计文档，最后让用户审稿。
 
+## Step 1.5：Explorer 报告校验门控
+
+对每个 Explorer 返回的报告，Coordinator 必须在写入设计文档输入或与用户讨论前完成事实校验：
+
+1. **高置信度声明（confidence >= 7）**：抽样验 -- 至少 grep / Read 1 个关键事实
+2. **中低置信度（confidence <= 6）或"存在性 / 不存在性"声明**：逐条 grep / Read 验
+3. **跨用户 skills / 跨外部仓库 / 跨主仓库的事实**：必须二次验（Explorer 默认只读 `plugin/`，会漏外部）
+4. **任何验证失败**：该声明从设计文档输入中剔除 -> 重派 Explorer 或 Coordinator 亲查
+
+通过校验门控后再进入 Step 3 与用户讨论。
+
 ## Steps 3-6：与用户讨论
 
 **Read** `references/discovery-discussion.md` 并严格执行（一问一答迭代 + 按输入类型澄清 + 提出方案 + 分段呈现 + Domain Alignment）。读完进入 Steps 7-9 生成设计文档。

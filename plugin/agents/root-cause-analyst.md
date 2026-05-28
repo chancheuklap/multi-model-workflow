@@ -8,6 +8,7 @@ description: |
   <example>集成后出现新故障——单独都过，合一起挂</example>
   <example>多个并行 PR 合并时发现系统性冲突——每个 PR 各自正确但交互产生矛盾</example>
   Do NOT use for: known issues with clear fix location (use pack-executor/complex-pack-executor), read-only investigation without fix (use complex-code-explorer), document/plan issues (coordinator handles directly), code review (dispatched to Codex).
+  返回的事实声明（行号 / 计数 / 文件存在性 / 引用关系）由 Coordinator 必须亲验后再写入交付物或汇报。本 agent 是劳动力不是 ground truth，Coordinator 是事实的唯一权威。
 model: claude-opus-4-7[1m]
 effort: xhigh
 tools:

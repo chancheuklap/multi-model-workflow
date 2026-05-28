@@ -167,6 +167,8 @@ Coordinator validates this block with an explicit dispatch script before `Agent(
 
 **Read** `references/plan-writer-dispatch.md` 并严格执行。按 issue 编号顺序遍历 `docs/orchestrate/issues/<slug>/`，逐个 issue 派发 plan-writer（design doc + issue 文件 → plan-writer → `plans/<slug>/00N-*.md`）。全部返回 `PLAN_CREATED` 后进入 Step 11；任一返回 upstream verdict → 按路由处理后重进。
 
+**Plan-writer 返回事实校验**：Coordinator 收到 plan-writer 返回的 plan 文件路径、文件存在性、行号引用、Pack 数量声明等事实，必须抽验（至少 1 个事实 grep / Read）后再进入 Plan Entry Gate。事实失实 -> 重派 plan-writer 或 Coordinator 亲查。
+
 ## Steps 11-12b：Plan Entry Gate + Task Pack Inventory Gate + Budget 赋值 + 跨计划合同锚点
 
 **Read** `references/plan-gates.md`（gate 检查 + budget_total = `2P + 6`，P = plan 文件总数；写入 design.md `## Cross-Plan Contract Anchors` section）。
