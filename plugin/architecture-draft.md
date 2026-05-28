@@ -142,17 +142,11 @@ flowchart TD
 
 | Route | 名称 | Discovery | Plan Writing | Plan Review | Execution | Final Review | Budget | 特殊行为 |
 |-------|------|-----------|-------------|-------------|-----------|-------------|--------|---------|
-| 1 | Formal | ✅ | ✅ | ✅ | ✅ | ✅ | `3P+12` | 完整流程 |
+| 1 | Formal | ✅ | ✅ | ✅ | ✅ | ✅ | `3P+12` | 完整流程；hotfix/quickfix/spike/maintenance 通过 `phase_skip` + `commit_format_override` flags 路由到 Route 1 变体（见 orchestrate-workflow/SKILL.md Route 1 Variant Table） |
 | 2 | Bug Investigation | ❌ | ❌ | ❌ | ❌ | ❌ | unlimited | RCA → worker → review → Closing |
 | 3 | Multi-PR Merge | ❌ | ❌ | ❌ | ❌ | ❌ | unlimited | merge-brief 驱动；冲突发现 → 修复 → 集成审查 → 合并 |
-| 4 | Hotfix | ❌ | ❌ | ❌ | 单 Pack | ❌ | unlimited | 先 push 再事后 review |
-| 5 | Quick Fix | ❌ | 简化（Coordinator 自写） | ❌ | 单 Pack + 单 review | ❌ | unlimited | 不允许 3 轮截断 |
-| 6 | Spike | ❌ | ❌ | ❌ | 探索性 | ❌ | unlimited | 不产出生产代码 |
-| 7 | Maintenance | ❌ | ❌ | ❌ | ✅ | ❌ | unlimited | chore 类任务 |
 
-Routes 4-7 的行为定义分布在两处 `route-extensions/` 目录（内容不同，不是拷贝）：
-- `orchestrate-workflow/references/route-extensions/` — 入口路由判定、phase 跳过规则、budget 策略
-- `orchestrate-execution/references/route-extensions/` — Pack 循环内行为差异（commit 格式、review scope、执行约束）
+Route enum 4 值（`formal` / `direct-repair` / `bug-investigation` / `multi-pr-merge`）。原 Routes 4-7（hotfix/quickfix/spike/maintenance）已折叠为 Route 1 + `phase_skip` / `commit_format_override` flags（D10）。
 
 ---
 
@@ -280,7 +274,7 @@ Skill 是按需加载到主线程的 Coordinator 逻辑。每个 skill 由 SKILL
 
 | Skill | 行数 | 主要 Steps | 关键 references |
 |-------|------|-----------|----------------|
-| `orchestrate-workflow` | 219 | 0-2（环境检测 + 入口） / 7-14（Route 1） / 15-18（Route 2 Bug） / 19-20（Route 3 Multi-PR） / 21-24（Closing） | bug-investigation-route / direction-check / workflow-closing / workflow-direct-repair / workflow-infrastructure / route-extensions/{hotfix,quickfix,spike,maintenance} |
+| `orchestrate-workflow` | 219 | 0-2（环境检测 + 入口） / 7-14（Route 1） / 15-18（Route 2 Bug） / 19-20（Route 3 Multi-PR） / 21-24（Closing） | bug-investigation-route / direction-check / workflow-closing / workflow-direct-repair / workflow-infrastructure |
 | `orchestrate-discovery` | 155 | 1-2（探索） / 3-6（与用户讨论） / 7-9（设计文档） / 10-11（Design Review） / 12（大 issue 拆分） | design-review-angles / discovery-design-document / discovery-discussion / discovery-formats / issue-splitting |
 | `orchestrate-plan-writing` | 271 | 0（Re-entry） / 1-2（前置） / 3-8（写作方法论） / 9-10（派 plan-writer + 收返） / 11-12b（Plan Entry Gate + Inventory Gate + Budget 赋值 + 跨计划合同锚点） / 13-14（Plan Review） / 15-18（disposition + repair + 截断） / 19（Git Checkpoint） | plan-writer-dispatch（Self-Read Protocol） / plan-writing-methodology / plan-gates / plan-preconditions / plan-review-dispatch / plan-review-resolution |
 | `orchestrate-execution` | 530 | 1-3（预执行） / 4-9（Plan 执行 + Review 循环 per Plan） / 10-12（修复分流 + 截断） / 13（Early Release Gate） / 14-16（Plan 推进 + 过渡） | execution-worker-dispatch（Self-Read Protocol） / execution-review-dispatch / execution-preparation / execution-completion / execution-release-gate / execution-repair-truncation |
@@ -311,11 +305,11 @@ Coordinator 端的"最小职责"被压缩到 4 步（构造 envelope → 写 pla
 |-------|------|--------|----------|-----------------|-------------------|
 | `pack-executor` | sonnet | xhigh | — | ✅ `<!-- BEGIN: worker-loop -->` | tdd |
 | `complex-pack-executor` | claude-opus-4-7 | high | — | ✅ `<!-- BEGIN: worker-loop -->` | tdd |
-| `plan-writer` | claude-opus-4-7[1m] | xhigh | — | — | improve-codebase-architecture |
+| `plan-writer` | claude-opus-4-7[1m] | xhigh | — | — | —（D11 瘦身） |
 | `code-explorer` | sonnet | high | 20 | — | — |
 | `complex-code-explorer` | claude-opus-4-7 | high | 30 | — | — |
 | `root-cause-analyst` | claude-opus-4-7[1m] | xhigh | 40 | — | diagnose, tdd |
-| `docs-worker` | sonnet | high | 20 | — | grill-with-docs |
+| `docs-worker` | sonnet | high | 20 | — | —（D11 瘦身） |
 
 另有 `persona.md`：非 agent 定义，是 voice/persona 规范参考文档，权威来源 `build/templates/voice-directive.md.tmpl`。
 
@@ -703,7 +697,7 @@ track-execution-state.sh 的 Pack ID 提取保留 sed 模式（`sed -n 's/.*Pack
 ### 8.2 双文件模型（Ruling 2）
 
 设计原文将 budget 和 execution-state 合并为单一 workflow-state。实现采用双文件：
-- **workflow-state-<run_id>.json**：run_id / slug / route（8 值 enum）/ cursor / budget / plans 元信息 / plan_count / plan_writer_agent_id / idempotency_keys / review_dispositions / review_effectiveness / path_a_escalation / self_verifications / pending_direction_check / pending_post_push_reviews / execution_reflux_count / last_gate_phase/timestamp / mutations（append-only 审计日志）
+- **workflow-state-<run_id>.json**：run_id / slug / route（4 值 enum）/ cursor / budget / plans 元信息 / plan_count / plan_writer_agent_id / idempotency_keys / review_dispositions / review_effectiveness / path_a_escalation / self_verifications / pending_direction_check / pending_post_push_reviews / execution_reflux_count / last_gate_phase/timestamp / phase_skip / commit_format_override / mutations（append-only 审计日志）
 - **execution-state-<run_id>.json**：pack-level data（plans[plan_id].packs[pack_id] 含 status / agent_id / commit_sha / worker_verdict / repair_round / drift_warnings[] / pack_summary）
 
 分离原因：pack-level 被 3 个 hook 并发写入（agent-return-handler / track-execution-state / track-effort-budget），合并到单文件会加剧竞态。两文件通过 `plan_id` + `pack_id` 关联。
@@ -770,7 +764,6 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 | `complete-review-dispatch.sh` | review registry 写 durability marker（不计 budget） |
 | `guard-premature-push.sh` | PreToolUse hook；双重防护：①plan 有未勾选任务时阻 push/PR；②永久禁 `git merge --squash` |
 | `learnings-jsonl.sh` | learnings.jsonl 管理（append/read，append 前调 poison-detector） |
-| `pack-count-validator.sh` | 校验 plan Pack 数量（WARN 阈值 8 / OVER 阈值 12） |
 | `record-review-dispatch.sh` | 记录 Codex reviewer 成功派发 |
 | `record-review-disposition.sh` | 记录 Coordinator 消费 reviewer 结果 |
 | `record-route-worker-dispatch.sh` | 记录非执行类 Worker 派发 |

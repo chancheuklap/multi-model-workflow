@@ -73,7 +73,7 @@ check "review-effectiveness optional diagnostic script exists" test -x "$PLUGIN_
 echo ""
 echo "## Defense"
 check "learnings-poison-detector.sh exists" test -x "$PLUGIN_DIR/scripts/lib/learnings-poison-detector.sh"
-check "pack-count-validator.sh exists" test -x "$PLUGIN_DIR/scripts/pack-count-validator.sh"
+check "pack-count-validator.sh removed (D24)" test ! -f "$PLUGIN_DIR/scripts/pack-count-validator.sh"
 
 echo ""
 echo "## State Machine Contracts"

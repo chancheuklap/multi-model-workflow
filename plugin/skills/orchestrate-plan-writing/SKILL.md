@@ -171,14 +171,6 @@ Coordinator validates this block with an explicit dispatch script before `Agent(
 
 **Read** `references/plan-gates.md`（gate 检查 + budget_total = `3P + 12`，P = plan 文件总数；写入 design.md `## Cross-Plan Contract Anchors` section）。
 
-**Pack 数量检查**（每 plan 文件）：`bash "${CLAUDE_PLUGIN_ROOT}/scripts/pack-count-validator.sh" <plan-file>`
-
-| 结果 | 动作 |
-| --- | --- |
-| OK (≤8) | 继续 |
-| WARN (9-12) | Direction Check：告知用户，确认继续或拆分 |
-| OVER_THRESHOLD (>12) | `NEEDS_ISSUE_SPLIT` + 拆分建议 |
-
 通过后进入 Steps 13-14 review。
 
 ## Steps 13-14：Plan Review
