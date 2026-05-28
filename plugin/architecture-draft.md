@@ -1,8 +1,8 @@
 # Plugin 架构文档（基于 2026-05-23 审计）
 
 > **审计基准**：`plugin/` 目录下的实际代码（skills/ agents/ hooks/）。
-> **审计日期**：2026-05-23。
-> **Plugin 版本**：3.6.3。
+> **审计日期**：2026-05-28。
+> **Plugin 版本**：3.8.0。
 
 ## 图例
 
@@ -261,6 +261,8 @@ orchestrate-plan-writing Step 12a
   └─ workflow-state-<run_id>.json: budget.review_total = 3P + 12, effort_total = 2 × review_total  ← Budget 赋值（P = plan 数，不可变）
 orchestrate-execution Step 2a
   └─ .claude/multi-model-workflow/execution-state-<run_id>.json ← Execution State（pack-level status/agent_id/commit_sha）
+orchestrate-multi-pr-merge Step 2（Route 3 only）
+  └─ .claude/multi-model-workflow/merge-brief-<run_id>.md ← Merge Brief（合成模型唯一权威源；9 段 Markdown + MERGE_BRIEF_META JSON 块；阶段：init→conflict_discovery→rca→repair→integration_review→merging→complete）
 每个 Worker 完成时
   └─ .claude/multi-model-workflow/pack-returns/<pack-id>.json  ← Worker Durable Return
 每次 review 完成
@@ -556,7 +558,7 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 - 所有 agent 均设 `memory: project`（跨 session 记忆写入 `.claude/agent-memory/<agent-name>/`）。
 - 所有 agent 均设 `color` 字段用于 UI 区分。
 
-### Hooks（11 个脚本 / 13 条 hooks.json 条目）
+### Hooks（12 个脚本 / 14 条 hooks.json 条目）
 
 | 事件 | Matcher / if 条件 | 做什么 | 强制行为 |
 |------|-------------------|--------|---------|
@@ -566,6 +568,7 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 | `PreToolUse` | `Bash` | `gate-codex-review.sh`：Codex review dispatch gate | 自过滤 `codex-companion`/`CODEX_SCRIPT` + `task`。按 `review_intent` 三路判定：`baseline` → 放行；`path-a-re-review` → 需 `path_a_escalation` 非空；`targeted-re-review` → 需 `--resume` + exception 条件（`3plus_files_control_flow` / `user_requested` / `rca_root_cause`）。缺失或畸形 DISPATCH_ENVELOPE → exit 2 |
 | `PreToolUse` | `Agent(pack-executor*)` | `validate-pack-dispatch.sh`：Worker dispatch 13 步校验 | DISPATCH_ENVELOPE 解析 → 必填字段校验 → 幂等性检查 → budget 初始化检查 → Direction Check 待处理检查 → Pack 状态必须为 pending → agent_id 已存在时阻止（repair 须 SendMessage） → Path A escalation 检查 → repair round 的 disposition_refs 验证 → 登记幂等键 → 设 Pack 状态为 dispatched。任一步失败 → exit 2 |
 | `PreToolUse` | `Agent(complex-pack-executor*)` | `validate-pack-dispatch.sh`：同上脚本 | 同上 |
+| `PreToolUse` | `Agent` | `validate-multi-pr-dispatch.sh`：multi-pr-merge phase dispatch 4 项校验 | 自过滤非 `multi-pr-merge` phase。校验：(a) merge-brief 文件存在；(b) META `current_stage` 与 `repair_round` 一致（round=0 → stage 非 complete；round≥1 → stage 非 init）；(c) 若有 `conflict_id` → §4 中存在且 `status ≠ resolved`；(d) prompt 包含 `merge-brief-<run_id>.md` 路径引用（防粘贴反模式）。直接内联解析 DISPATCH_ENVELOPE（不通过 parse-envelope.sh，避免 disposition_refs 误触发）。任一条件失败 → exit 2 |
 | `PreToolUse` | `Edit` | `guard-doc-edit.sh`：阻止 Worker 修改 docs/ | Worker 上下文（workflow 目录存在但无 `active-run-id`）中 Edit `docs/` 路径 → exit 2。Coordinator 上下文放行 |
 | `PreToolUse` | `Write` | `guard-doc-edit.sh`：同上脚本 | 同上 |
 | `PostToolUse` | `Bash` | `track-review-budget.sh`：review budget 自动追踪 | 检测 `codex-companion`/`CODEX_SCRIPT` + `result` 成功执行 → 递增 `review_used`。≥ 80% → `state.sh direction-check trigger`；≥ 100% → BUDGET EXHAUSTED |
@@ -574,7 +577,7 @@ Skill 命名空间：`multi-model-workflow:orchestrate-*`（全限定名，通�
 | `PostToolUse` | `Bash(git push *)` | `cleanup-before-push.sh`：push 成功后清理 `.claude/multi-model-workflow/` | push 成功后执行。Hotfix route 检测到 `route = "hotfix"` 时延迟清理（事后 review 仍需 state）。其他 route 删除整个 `.claude/multi-model-workflow/` 目录。拒绝删除符号链接。支持 `--force` 参数跳过 hook 输入解析和 route 检查（Hotfix Closing 手动调用） |
 | `PostToolUse` | `Agent` | `agent-return-handler.sh`：Worker 返回后更新 execution state | 从 `tool_input` 提取 DISPATCH_ENVELOPE → 读 `pack-returns/<run_id>/<pack-id>.json`（或解析 `tool_response` 作 fallback）→ 更新 `packs[N.M].status = returned` + `worker_verdict`。非 execution 路线（无 execution-state）静默放行 |
 
-**共享库**：`hooks/lib/parse-envelope.sh` — DISPATCH_ENVELOPE 解析原语，被 `gate-codex-review.sh`、`validate-pack-dispatch.sh`、`agent-return-handler.sh` 共用。从 prompt 提取 `<!-- DISPATCH_ENVELOPE {...} -->` JSON 块，校验必填字段和条件规则。
+**共享库**：`hooks/lib/parse-envelope.sh` — DISPATCH_ENVELOPE 解析原语，被 `gate-codex-review.sh`、`validate-pack-dispatch.sh`、`agent-return-handler.sh` 共用。从 prompt 提取 `<!-- DISPATCH_ENVELOPE {...} -->` JSON 块，校验必填字段和条件规则。`validate-multi-pr-dispatch.sh` **不使用** parse-envelope.sh — 直接内联解析，避免 repair_round≥1 的 disposition_refs 校验误触发（multi-pr-merge repair 轮次使用 conflict_id 而非 disposition_refs）。
 
 ### 外部 Skill
 
@@ -968,7 +971,7 @@ bash plugin/build/build.sh --apply --plugin-dir plugin   # 应用（原子写入
 
 | 脚本 | 用途 |
 |------|------|
-| `state.sh`（26 KB） | 核心状态机 CLI：transition / agent-id / budget / direction-check / idempotency / plans / disposition / path-a-escalation 子命令 |
+| `state.sh`（26 KB） | 核心状态机 CLI：transition / agent-id / budget / direction-check / idempotency / plans / disposition / path-a-escalation / merge-brief（init/stage/verify）子命令 |
 | `guard-premature-push.sh` | PreToolUse hook：阻止未完成时 push/PR，阻止 squash merge |
 | `cleanup-before-push.sh` | PostToolUse hook：push 成功后清理 `.claude/multi-model-workflow/` |
 | `learnings-jsonl.sh` | Learnings JSONL 管理：append / read / read --with-trust-gate |
@@ -991,9 +994,9 @@ bash plugin/build/build.sh --apply --plugin-dir plugin   # 应用（原子写入
 
 | 目录 | 测试数 | 覆盖范围 |
 |------|-------|---------|
-| `build/tests/` | 9 | preamble resolver、review model tier、confidence injection、sendmessage resume、resolver 逻辑、voice injection、review segmentation、disposition audit、trust boundary |
-| `hooks/tests/` | 7 | 幂等性重放、disposition refs 校验、gate-codex-review、effort budget 加权、agent-id hook guard、envelope 解析、sendmessage resume |
-| `scripts/tests/` | 11 | state.sh、learnings append、learnings 投毒检测、pack count validator、run summary、review effectiveness、hotfix post-push review、budget direction check、route keyword routing、trust gate、path-a re-review |
+| `build/tests/` | 15 | preamble resolver、review model tier、confidence injection、sendmessage resume、resolver 逻辑、voice injection、review segmentation、disposition audit、trust boundary、build check、cross-plan contract map、repair regression evidence、repair routing、review evidence table、review effectiveness optional |
+| `hooks/tests/` | 21 | 幂等性重放、disposition refs 校验、gate-codex-review、effort budget 加权（含计划级）、agent-id hook guard、envelope 解析、sendmessage resume、validate-plan-dispatch、validate-pack-manifest、validate-multi-pr-dispatch（14 项）、multi-pr-merge end-to-end（25 项）、worker scope drift、guard-plan-doc-patch、track-execution-state（pack summary / next suppression）、enforce-plan-commit、need-fresh-worker |
+| `scripts/tests/` | 21 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_context_check、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、learnings append、learnings 投毒检测、pack count validator、run summary、review effectiveness、hotfix post-push review、budget direction check、route keyword routing、trust gate、path-a re-review、doc-patch apply、generate pack manifest、complete review dispatch history、plan return parser |
 
 运行方式：`bash plugin/scripts/run-all-tests.sh`（全量）或 `bash plugin/scripts/verify-maturity.sh`（含测试 + 构建 + schema + 结构检查）。
 
@@ -1006,6 +1009,7 @@ bash plugin/build/build.sh --apply --plugin-dir plugin   # 应用（原子写入
 | `workflow-state-v1.json` | Workflow 主状态 schema（route 8 值 enum、budget、cursor、plans、dispositions、effectiveness、path_a_escalation、self_verifications、mutations 等） |
 | `execution-state-v1.json` | Pack-level 执行状态 schema（per pack: status 5 值 enum / agent_id / commit_sha / worker_verdict / repair_round） |
 | `dispatch-envelope-v1.json` | Dispatch envelope schema（required: protocol_version / run_id / phase / agent_role / repair_round / idempotency_key；optional: review_intent 3 值 / exception_code 3 值 / correlation_id） |
+| `merge-brief-v1.json` | Merge Brief artifact schema（Route 3 专用；10 个顶级属性对应 9 个文档段；current_stage 7 值 enum；conflict_findings 数组含 status 5 值 enum；encode Decision 8: conflict_id per-run, C-001+, no archival by default） |
 | `state-transition-matrix.md` | 状态转换矩阵（上节） |
 
 ---
