@@ -600,6 +600,45 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 
 **收益估算**：约 500 chars 减负 + 1 个路径 bug 修复（防止 worker 启动失败）
 
+#### 决策 22：Final Review 阶段微调（已被决策 1/13 大量覆盖后的剩余清单）
+
+亲查 Final Review 阶段（SKILL.md 236 行 + 6 reference / total 1,461 行，全 plugin 第二重，仅次于 Execution）发现：**round 2 决策 1/13 已累计减负 ≈280 行**（决策 1 review-dispatch / repair-routing / disposition-table 三个 inject 在 5 个文件夹的去重 ≈30；决策 13 删除 targeted re-review 机制级联到 Final Review ≈250），post-round-2 估算 ≈1,180 行——这是验收 + 清扫 + 业务汇报合一的合理体量。
+
+**Final Review 重的本质不是过度设计**：
+- 两个 baseline review angle 真正正交（Regression+Intent+Cross-Plan / Code-Level Audit），不能合并
+- Release Gate（条件触发，懒加载已优化）
+- Step 13 清扫遗留尾巴（Coordinator 自做工作，三层来源 = Worker Open Items 验证 + TODO/FIXME 扫描 + Disposition 验证）
+- 业务汇报组装（Closing 呈现给用户的唯一权威源）
+- 跨 Plan 集成层（Plan Implementation Review 看不到的层级）
+
+**决策 13（取消 targeted re-review）级联到 Final Review 的具体清理点**（设计文档已确立机制级删除，本决策明确落地位置）：
+
+1. **`final-review-repair.md` Step 11 整段**（L163-285，约 122 行）——Targeted Re-Review dispatch + review-dispatch inject + repair prompt template，全删
+2. **`final-review-repair.md` Step 12 截断**（L290-353，约 64 行）——3-round 模型（2 worker + 1 RCA）压缩为 **repair-once + RCA escalation 二段**：Round 1 修复 → Coordinator 自验 → 失败则 RCA → 仍失败 BLOCKED。删除 "Round 3 的 Targeted Re-Review" 整段路由
+3. **`final-review-repair.md` L52** "Repair 返回后 Coordinator 默认自验收... 仅当满足 exception 条件...时派发 targeted Codex re-review" —— 删除条件 + targeted 派发，只留 Coordinator 自验
+4. **`final-review-release-gate.md` Step 18 修复路由**（L264）"修复后做 targeted release re-review" —— 删除，改为 Coordinator 自验
+5. **`final-review-completion.md` Step 15 L54-56** "复杂修复（派了 worker）→ 做 targeted re-review（Budget 消耗 1）" —— 删除
+6. **`SKILL.md` L52** preamble "Baseline review 使用 task --background；targeted re-review 使用 task --background --resume" —— 删除第二句
+7. **`final-review-repair.md` L353** "Phase 内部 review dispatch 软上限：10（2 baseline + 最多 3 gaps × 2 rounds + analyst round + final re-review）" —— 重算为 **3**（2 baseline + 0 targeted + 最多 1 release gate）
+8. **Disposition Path A re-review 规则** —— 决策 1 共享 inject 已处理，本决策仅在 Final Review consumer 处确认对齐
+
+亲查后新发现的可压缩项（仅 1 条新增）：
+
+**`final-review-angles.md` L5-15 Self-Read Protocol 死内容**：
+- 同 Discovery design-review-angles.md / Plan Writing plan-review-dispatch.md / Execution execution-review-dispatch.md 同模式——"你是 codex-reviewer" 但 Codex 实际读 Coordinator 写的 `review-prompts/<gate>.md` 派发文件，**不读此 reference**
+- 删除约 11 行 / 550 chars
+
+**不动的**（已是必要复杂度）：
+- 两个 baseline review angles（Regression+Intent+Cross-Plan 与 Code-Level Audit 真正正交，合并 = 单 reviewer 双倍工作量 + 更慢更差）
+- Step 13 清扫三层来源（13a Worker Open Items 验证 + 13b TODO/FIXME 扫描 + 13c Disposition 验证）——Coordinator 自做的必要工作，缺一项即留尾巴
+- Release Gate（条件触发 + 独立 reference 文件 = 不触发即不读，已是最优形态）
+- Mockup baseline read（用户已确认 mockup 与 design 同等权威，reviewer 必须 Read）
+- 业务汇报四段（19a 新增能力 / 19b 验证证据 / 19c 残余风险 / 19d 发布检查）——Closing 呈现给用户的唯一权威源
+- `final-review-preconditions.md` 33 行——已是最薄
+- `final-review-completion.md` 130 行——清扫 + 汇报 + Verdict 合一，结构清晰
+
+**收益估算**：决策 13 级联落地 ≈250 行 + Self-Read 死内容 ≈550 chars + Step 12 三轮截断 → 二段（repair-once + RCA）≈30 行 + Phase 软上限 10→3 修正 + 路径校准
+
 ### 4.3 改动总览图
 
 ```
