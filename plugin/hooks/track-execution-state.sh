@@ -65,6 +65,40 @@ if [ "$PLAN_DONE" -eq "$PLAN_TOTAL" ] && [ "$PLAN_TOTAL" -gt 0 ]; then
   jq --arg pid "$PLAN_ID" --arg sha "$COMMIT_SHA" '
     .plans[$pid].end_commit = $sha
   ' "$ESF" > "${ESF}.tmp" && mv "${ESF}.tmp" "$ESF"
+
+  # Pack 2.10: aggregate pack-returns/*.json belonging to this plan into
+  # execution-state.plans[PLAN_ID].pack_summary. Reviewers consume this via
+  # `jq '.plans["NNN"].pack_summary'` instead of asking Coordinator to
+  # assemble a Pack summary table on demand.
+  #
+  # We filter to pack-returns whose `.pack_id` is one of the packs declared
+  # under .plans[PLAN_ID].packs. Aggregation writes the full array (not
+  # append) — idempotent if the hook re-fires.
+  PACK_RETURNS_DIR="${BUDGET_DIR}/pack-returns/${RUN_ID}"
+  if [ -d "$PACK_RETURNS_DIR" ]; then
+    PLAN_PACK_IDS=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].packs | keys[]' "$ESF" 2>/dev/null)
+    if [ -n "$PLAN_PACK_IDS" ]; then
+      AGGREGATE='[]'
+      for pid in $PLAN_PACK_IDS; do
+        # pack-returns file convention: <pack-id>.json (Worker writes via
+        # docs/orchestrate/...; see execution-worker-dispatch.md L81).
+        PR_FILE="${PACK_RETURNS_DIR}/${pid}.json"
+        if [ -f "$PR_FILE" ] && python3 -m json.tool "$PR_FILE" >/dev/null 2>&1; then
+          # Filter only when the file's own .pack_id matches (defense against
+          # mis-named files); otherwise skip.
+          FILE_PACK=$(jq -r '.pack_id // empty' "$PR_FILE")
+          if [ "$FILE_PACK" = "$pid" ]; then
+            AGGREGATE=$(jq --slurpfile entry "$PR_FILE" --argjson acc "$AGGREGATE" \
+              -n '$acc + $entry')
+          fi
+        fi
+      done
+      jq --arg pid "$PLAN_ID" --argjson summary "$AGGREGATE" \
+        '.plans[$pid].pack_summary = $summary' \
+        "$ESF" > "${ESF}.tmp" && mv "${ESF}.tmp" "$ESF"
+    fi
+  fi
+
   MSG="[multi-model-workflow] NEXT: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${COMMIT_SHA}). Dispatch Plan Implementation Review."
 else
   MSG="[multi-model-workflow] STATE: Pack ${PACK_ID} committed (${PLAN_DONE}/${PLAN_TOTAL} in Plan ${PLAN_ID})."
