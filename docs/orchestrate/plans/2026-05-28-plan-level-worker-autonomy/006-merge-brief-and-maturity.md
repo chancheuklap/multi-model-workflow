@@ -13,23 +13,23 @@
 
 ## Plan Acceptance Criteria
 
-- [ ] `merge-brief-v1.json` schema 定义（9 段，严格对齐设计 §merge-brief Schema：Meta / 参与 PR / 正确状态模型 / Conflict Findings / RCA / Resolution Log / Integration Review Pointers / Open Items / Verdict）
-- [ ] 决策 8 写入 schema 注释（per-run conflict_id / 追加 PR 视为新 run / 默认不归档）
-- [ ] `state.sh merge-brief init/stage/verify` 3 helper（设计 9 项 enforcement #6）
-- [ ] `validate-multi-pr-dispatch.sh` 新 hook（强制 dispatch prompt 引用 merge-brief 路径）
-- [ ] `review-dispatch.md.tmpl` 追加 targeted re-review scope 收窄段（设计 Phase 6 通用收尾）
-- [ ] 3 个 multi-pr handbook（explorer / worker / integration-review）
-- [ ] `orchestrate-multi-pr-merge/references/merge-brief-template.md` 模板文件
-- [ ] `orchestrate-multi-pr-merge/SKILL.md` 加 merge-brief 写作指针 + workflow-state.cursor.reference 写入指引
-- [ ] workflow-state.cursor.reference 接受 merge-brief 路径（schema 已 Plan 002 加，本 Plan 校验消费）
-- [ ] `verify-maturity.sh` 校验新增 schema 字段全部就绪（Plan 002 加的 4 条 + Plan 005 加的 2 条）
-- [ ] `verify-maturity.sh` 校验新 hook 全部就位 + 旧 hook 全部清除
-- [ ] `verify-maturity.sh` 校验所有 dispatch reference 含 Self-Read Protocol
-- [ ] `verify-maturity.sh` 校验所有 SKILL.md 行数符合 Plan 003 目标
-- [ ] `run-all-tests.sh` 通过
-- [ ] 新增端到端测试：Discovery → Plan Writing → Execution → Final Review 全链路 mock fixture
-- [ ] 文档：plugin/architecture-draft.md 更新 Plan-level Worker 段
-- [ ] 版本号 bump：plugin.json + marketplace.json 同步
+- [x] `merge-brief-v1.json` schema 定义（9 段，严格对齐设计 §merge-brief Schema：Meta / 参与 PR / 正确状态模型 / Conflict Findings / RCA / Resolution Log / Integration Review Pointers / Open Items / Verdict）
+- [x] 决策 8 写入 schema 注释（per-run conflict_id / 追加 PR 视为新 run / 默认不归档）
+- [x] `state.sh merge-brief init/stage/verify` 3 helper（设计 9 项 enforcement #6）
+- [x] `validate-multi-pr-dispatch.sh` 新 hook（强制 dispatch prompt 引用 merge-brief 路径）
+- [x] `review-dispatch.md.tmpl` 追加 targeted re-review scope 收窄段（设计 Phase 6 通用收尾）
+- [x] 3 个 multi-pr handbook（explorer / worker / integration-review）
+- [x] `orchestrate-multi-pr-merge/references/merge-brief-template.md` 模板文件
+- [x] `orchestrate-multi-pr-merge/SKILL.md` 加 merge-brief 写作指针 + workflow-state.cursor.reference 写入指引
+- [x] workflow-state.cursor.reference 接受 merge-brief 路径（schema 已 Plan 002 加，本 Plan 校验消费）
+- [x] `verify-maturity.sh` 校验新增 schema 字段全部就绪（Plan 002 加的 4 条 + Plan 005 加的 2 条）
+- [x] `verify-maturity.sh` 校验新 hook 全部就位 + 旧 hook 全部清除
+- [x] `verify-maturity.sh` 校验所有 dispatch reference 含 Self-Read Protocol
+- [x] `verify-maturity.sh` 校验所有 SKILL.md 行数符合 Plan 003 目标
+- [x] `run-all-tests.sh` 通过
+- [x] 新增端到端测试：Discovery → Plan Writing → Execution → Final Review 全链路 mock fixture
+- [x] 文档：plugin/architecture-draft.md 更新 Plan-level Worker 段
+- [x] 版本号 bump：plugin.json + marketplace.json 同步
 
 ## File / Responsibility Map
 
@@ -96,9 +96,9 @@
 
 ### Acceptance criteria
 
-- [ ] schema JSON 合法
-- [ ] 含 9 段字段
-- [ ] schema_version = "1"
+- [x] schema JSON 合法
+- [x] 含 9 段字段
+- [x] schema_version = "1"
 
 ### Verification commands
 
@@ -135,9 +135,9 @@ normal
 
 ### Acceptance criteria
 
-- [ ] 模板含 9 段
-- [ ] 每段含写作指引 + 边界说明
-- [ ] 末尾含示例
+- [x] 模板含 9 段
+- [x] 每段含写作指引 + 边界说明
+- [x] 末尾含示例
 
 ### Verification commands
 
@@ -176,9 +176,9 @@ dispatch reference（Plan 004 已反转视角）需加段：merge agent 自读�
 
 ### Acceptance criteria
 
-- [ ] SKILL.md 含 merge-brief 写作流程段
-- [ ] dispatch reference Self-Read Protocol 含 merge-brief 起草步骤
-- [ ] `build.sh --check` 通过
+- [x] SKILL.md 含 merge-brief 写作流程段
+- [x] dispatch reference Self-Read Protocol 含 merge-brief 起草步骤
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 
@@ -216,9 +216,9 @@ Plan 002 已加 workflow-state.cursor.reference 字段。本 Pack 校验 state.s
 
 ### Acceptance criteria
 
-- [ ] state.sh cursor --reference 接收路径
-- [ ] 单测覆盖写入 + 读回
-- [ ] hook 消费链路正常
+- [x] state.sh cursor --reference 接收路径
+- [x] 单测覆盖写入 + 读回
+- [x] hook 消费链路正常
 
 ### Verification commands
 
@@ -265,9 +265,9 @@ normal
 
 ### Acceptance criteria
 
-- [ ] 新增 6 段校验
-- [ ] 每段失败诊断清晰
-- [ ] 在 Plan 002-005 全完成的前提下，verify-maturity.sh 全 pass
+- [x] 新增 6 段校验
+- [x] 每段失败诊断清晰
+- [x] 在 Plan 002-005 全完成的前提下，verify-maturity.sh 全 pass
 
 ### Verification commands
 
@@ -317,9 +317,9 @@ normal
 
 ### Acceptance criteria
 
-- [ ] 全链路 e2e 跑通
-- [ ] 每 phase 状态字段断言通过
-- [ ] schema 校验通过
+- [x] 全链路 e2e 跑通
+- [x] 每 phase 状态字段断言通过
+- [x] schema 校验通过
 
 ### Verification commands
 
@@ -366,9 +366,9 @@ normal
 
 ### Acceptance criteria
 
-- [ ] architecture-draft.md 反映 Plan-level Worker
-- [ ] 两处版本号一致
-- [ ] verify-maturity.sh 通过
+- [x] architecture-draft.md 反映 Plan-level Worker
+- [x] 两处版本号一致
+- [x] verify-maturity.sh 通过
 
 ### Verification commands
 
@@ -419,11 +419,11 @@ trivial
 
 ### Acceptance criteria
 
-- [ ] 3 个子命令存在
-- [ ] init 幂等（已存在则保留不覆盖）
-- [ ] stage 校验 enum
-- [ ] verify 检测 META 缺失 / status 不自洽 → BLOCKED
-- [ ] 不引入 conflict/rca/resolution CLI 操作（避免回到模板填空）
+- [x] 3 个子命令存在
+- [x] init 幂等（已存在则保留不覆盖）
+- [x] stage 校验 enum
+- [x] verify 检测 META 缺失 / status 不自洽 → BLOCKED
+- [x] 不引入 conflict/rca/resolution CLI 操作（避免回到模板填空）
 
 ### Verification commands
 
@@ -469,10 +469,10 @@ normal
 
 ### Acceptance criteria
 
-- [ ] hook 存在
-- [ ] 4 个校验项全部实现
-- [ ] grep 检查强制引用 merge-brief 路径
-- [ ] 测试覆盖 pass / 4 类 fail 路径
+- [x] hook 存在
+- [x] 4 个校验项全部实现
+- [x] grep 检查强制引用 merge-brief 路径
+- [x] 测试覆盖 pass / 4 类 fail 路径
 
 ### Verification commands
 
@@ -513,9 +513,9 @@ normal
 
 ### Acceptance criteria
 
-- [ ] template 含 "Targeted re-review scope 收窄" 段
-- [ ] `build.sh --apply` 后 11 个 review 锚点全部含该段
-- [ ] `build.sh --check` 通过
+- [x] template 含 "Targeted re-review scope 收窄" 段
+- [x] `build.sh --apply` 后 11 个 review 锚点全部含该段
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 
@@ -553,9 +553,9 @@ trivial
 
 ### Acceptance criteria
 
-- [ ] 3 个 handbook 文件存在
-- [ ] 每个含 Self-Read Protocol
-- [ ] 内容来自现有 merge-* reference 反转后剩余的角色规范
+- [x] 3 个 handbook 文件存在
+- [x] 每个含 Self-Read Protocol
+- [x] 内容来自现有 merge-* reference 反转后剩余的角色规范
 
 ### Verification commands
 
