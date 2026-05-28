@@ -101,15 +101,7 @@ Bad:  "制定了全面的实施计划，涵盖所有功能模块。"
 
 Source design + issue hierarchy → **逐个 issue 派发 plan-writer** → 全部 plan 写完后 Plan Review → Git Checkpoint → 进入 Execution。
 
-**每个大 issue 对应一份 plan 文件**。Coordinator 读取 `issues/<slug>/` 目录，逐个 issue 派发 plan-writer，每个 plan-writer 只写一份 plan。Plan 文件编号与 issue 文件编号一一对应。
-
-**Only stop for：**
-- Plan-writer 返回 upstream verdict 需要用户决策
-- BLOCKED
-
-**Never stop for：**
-- Issue 之间的切换（连续逐 issue 派发 plan-writer）
-- Plan Review findings（按修复分流处理）
+**每个大 issue 对应一份 plan 文件**（编号一一对应）。**Only stop for**：upstream verdict 需用户决策 / BLOCKED。**Never stop for**：issue 之间切换 / Plan Review findings（按修复分流处理）。
 
 ---
 
@@ -119,11 +111,7 @@ Source design + issue hierarchy → **逐个 issue 派发 plan-writer** → 全�
 - [ ] Scope Contract 和 Budget file 存在
 - [ ] 状态锚写入：`cursor.phase` 已由 transition 设为 `plan-writing`
 
-**Dispatch 协议**：所有 plan-writer Agent 调用必须使用 `run_in_background: true`，以确保 Coordinator 能获取 agentId 用于后续 SendMessage 修复路径。
-
-**agentId 持久化**：dispatch 完成后立即从 Agent tool result 中提取 `agentId`，调用 `bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" agent-id set --run-id "<run_id>" --pack-id "plan-writer-<issue_num>" --agent-id "<agentId>"`。如果 agentId 为空 → 记录警告但继续（Plan Review 修复路径将 fallback 到新建 dispatch）。
-
-> **已知限制**：`state.sh agent-id set` 依赖 execution-state 文件（execution phase 才创建）。当前 plan-writing phase 调用时会静默失败。当 state.sh 支持 `--scope plan-writer` 参数后此步骤将完全生效。
+**Dispatch 协议**：所有 plan-writer Agent 调用必须使用 `run_in_background: true`。dispatch 后立即提取 `agentId` 并调用 `state.sh agent-id set`（若失败静默继续，修复路径 fallback 新建 dispatch）。
 
 ---
 
@@ -137,11 +125,11 @@ Source design + issue hierarchy → **逐个 issue 派发 plan-writer** → 全�
 
 ## Steps 1-2：前置条件
 
-验证 source design 已 reviewed + issue hierarchy 已就绪 + Scope Contract + Budget File 存在。缺件时 **Read** `references/plan-preconditions.md` 路由。读完进入 Steps 3-8 方法论。
+缺件时 **Read** `references/plan-preconditions.md` 路由。
 
 ## Steps 3-8：写作方法论
 
-**Read** `references/plan-writing-methodology.md`（plan-writer 消费；Coordinator 按此理解 plan 结构，为 dispatch brief 构造做准备）。Coordinator 理解后进入 Steps 9-10 派发。
+**Read** `references/plan-writing-methodology.md`，理解后进入 Steps 9-10。
 
 <!-- BEGIN: control-envelope -->
 ## DISPATCH_ENVELOPE (required prefix for every Agent dispatch)
@@ -177,37 +165,21 @@ Coordinator validates this block with an explicit dispatch script before `Agent(
 
 ## Steps 9-10：逐 issue 派发 plan-writer + 处理返回
 
-**Read** `references/plan-writer-dispatch.md` 并严格执行。派发后进入 Steps 11-12a gate。
-
-Coordinator 列出 `docs/orchestrate/issues/<slug>/` 目录下的所有大 issue 文件（`001-*.md, 002-*.md, ...`），然后**逐个 issue 派发 plan-writer**：
-
-1. 按 issue 编号顺序遍历
-2. 每次派发一个 plan-writer，传入设计文档 + 当前这个 issue 文件
-3. plan-writer 写出 `docs/orchestrate/plans/<slug>/00N-<issue-slug>.md`（编号与 issue 文件对应）
-4. 处理 plan-writer 返回（verdict 路由见 dispatch 文档）
-5. 下一个 issue，直到全部完成
-
-全部 plan-writer 返回 `PLAN_CREATED` 后，进入 Step 11。任一 plan-writer 返回 upstream verdict → 按 verdict 路由处理后重新进入。
+**Read** `references/plan-writer-dispatch.md` 并严格执行。按 issue 编号顺序遍历 `docs/orchestrate/issues/<slug>/`，逐个 issue 派发 plan-writer（design doc + issue 文件 → plan-writer → `plans/<slug>/00N-*.md`）。全部返回 `PLAN_CREATED` 后进入 Step 11；任一返回 upstream verdict → 按路由处理后重进。
 
 ## Steps 11-12b：Plan Entry Gate + Task Pack Inventory Gate + Budget 赋值 + 跨计划合同锚点
 
-**Read** `references/plan-gates.md`（对 `plans/<slug>/` 下所有 plan 文件做 gate 检查 + budget_total 首次赋值 `3P + 12`，P = plan 文件总数；随后写入 `docs/orchestrate/design/<slug>.md` 的 `## Cross-Plan Contract Anchors` section）。通过后进入 Pack 数量检查。
+**Read** `references/plan-gates.md`（gate 检查 + budget_total = `3P + 12`，P = plan 文件总数；写入 design.md `## Cross-Plan Contract Anchors` section）。
 
-> Schema 演进：跨计划合同已从独立 plans/<slug>/ 文件前移到 design.md section。老 run 若仍存在旧的 contract-map 文件，请人工迁移到 design.md 同名 section 后删除。
+**Pack 数量检查**（每 plan 文件）：`bash "${CLAUDE_PLUGIN_ROOT}/scripts/pack-count-validator.sh" <plan-file>`
 
-**Pack 数量检查**（对每个 plan 文件运行）：
-
-```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/pack-count-validator.sh" <plan-file>
-```
-
-| 结果 | Coordinator 动作 |
+| 结果 | 动作 |
 | --- | --- |
 | OK (≤8) | 继续 |
-| WARN (9-12) | Direction Check — 告知用户 pack 数超出建议范围，建议拆分。用户确认继续或拆分 |
-| OVER_THRESHOLD (>12) | 返回 `NEEDS_ISSUE_SPLIT` + 建议拆分方案（哪些 pack 可合并为独立 issue） |
+| WARN (9-12) | Direction Check：告知用户，确认继续或拆分 |
+| OVER_THRESHOLD (>12) | `NEEDS_ISSUE_SPLIT` + 拆分建议 |
 
-Pack 数量检查和跨计划合同图生成都完成后进入 Steps 13-14 review。
+通过后进入 Steps 13-14 review。
 
 ## Steps 13-14：Plan Review
 
@@ -273,17 +245,9 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 
 ---
 
-**Required before returning（返回前验证）：**
-- [ ] 所有 issue 的 plan 文件已写完
-- [ ] Plan Entry Gate + Task Pack Inventory Gate 通过
-- [ ] budget_total 已赋值（3P + 12）
-- [ ] Plan Review 通过
-- [ ] Git Checkpoint 完成
-- [ ] 状态锚更新：`cursor.phase` transition 到 `plan-writing_done`
+**Required before returning：** 所有 plan 写完 / Entry+Inventory Gate 通过 / budget_total 赋值 / Plan Review 通过 / Git Checkpoint / `cursor.phase` transition 到 `plan-writing_done`。
 
-**Re-run behavior:**
-- Step 9: 如果 plan 文件已存在且 plan-writer 已返回 → 跳过该 issue 的 dispatch
-- Steps 13-14: 如果 Plan Review 已有结果 → 跳过 dispatch
+**Re-run**：plan 已存在且 plan-writer 已返回 → 跳 Step 9；Plan Review 已有结果 → 跳 Steps 13-14。
 
 ## Step 20：返回
 
