@@ -2,6 +2,16 @@
 
 > **流程位置**：`orchestrate-workflow` Step 8a · 仅 Discovery 返回 `READY_FOR_REPAIR` 时进入
 
+## Self-Read Protocol
+
+你是 pack-executor 或 complex-pack-executor（执行 Direct Repair）。启动时按以下顺序执行：
+
+1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`repair_context`（包含 `deviation`、`source_design_path`、`fix_scope`、`acceptance`）。
+2. 读 `repair_context.source_design_path` 中的设计文档，理解 design intent。
+3. 读 `repair_context.fix_scope` 中列出的所有受影响文件。
+4. 读本文件（你正在读的这份手册），理解 Return Contract 格式与 Coordinator 处置路由。
+5. 修复偏离：使行为与 design intent 一致，通过回归测试，不引入设计未要求的功能。
+
 已批准 design 下的明确实现偏离。不走完整 Formal Orchestrate——派 worker 修复 + Codex review + Closing。
 
 ## 1. 派 Worker（按 risk flags 选择 agent）
@@ -14,22 +24,14 @@ Agent({
     ## Scope
     修复已批准 design 下的实现偏离。
 
-    ## Source design
-    <path>（已通过 Design Review）
+    ## Repair context
+    读 `DISPATCH_ENVELOPE.repair_context`，该字段包含：
+    - `source_design_path`: 设计文档路径（已通过 Design Review）——你自读此文档理解 design intent
+    - `deviation`: 当前行为与设计意图的偏离描述
+    - `fix_scope`: 受影响文件列表——你自读这些文件理解修复范围
+    - `acceptance`: 本次修复的验收标准列表
 
-    ## Deviation
-    <current behavior vs design intent>
-
-    ## Fix scope
-    <affected files>
-
-    ## Acceptance criteria
-    - [ ] 行为与 design intent 一致
-    - [ ] 回归测试通过
-    - [ ] 不引入 design 未要求的新功能
-
-    ## Contract anchors
-    <if deviation touches contract boundaries>
+    注：`envelope.repair_context` 由 Coordinator 在派发时填入 `DISPATCH_ENVELOPE` JSON 块。
 
     ## Return contract
     ### Verdict
@@ -208,6 +210,15 @@ Repair Return Contract 必须补充：
 - `Test choice`: 说明为何使用现有测试、新增高层测试、合同检查或 manual gate；不得为纯实现细节新增脆弱测试。
 - `Unverified`: 仍未验证的边界和原因；没有则写 `无`。
 <!-- END: repair-routing -->
+
+## Coordinator 端最小职责
+
+Coordinator 在派发 Direct Repair worker 时只需完成以下动作，其余由 worker 自读：
+
+1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`phase: "direct-repair"`、`agent_role: "pack-executor"（或 complex-pack-executor）`。
+2. 在 `envelope.repair_context` 中写入 `source_design_path`、`deviation`、`fix_scope`（文件列表）、`acceptance`（验收标准）。
+3. 触发 `state.sh` 记录 worker 派发状态，保存 `agentId` 以备 SendMessage 修复路径。
+4. 等待 worker 返回后，按 Section 2 触发 Codex review 流程。
 
 ---
 > **下一步**：Codex review 通过 → Closing（`workflow-closing.md`）。BLOCKED → 返回 verdict。
