@@ -169,12 +169,13 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - `doc_patch_path` 字段（plan-return-v1.json）— 删除
 - Worker `agent-context-check` 状态查询 — 改为 Worker 本地决策（不调 state.sh）
 
-### 4.2 实现决策（核心改动 20 类）
+### 4.2 实现决策（核心改动 23 类）
 
-> Round 2 决策分三批：
+> Round 2 决策分四批：
 > - **决策 1-12**：v3.8.0 → token economy 基础重构（模板去重 / 死代码删除 / route 折叠 等）
 > - **决策 13-19**：用户讨论 Discovery 环节后补充（删 targeted re-review / Explorer 集成 / grill-with-docs 升级 / 外部精华 3 条引入 / Discovery 压缩 / Sub-agent 事实校验 / Mockup 生成留空间）
 > - **决策 20**：用户讨论 Plan Writing 环节后补充（死 Self-Read Protocol 删除 + budget 公式同步落地）
+> - **决策 21-23**：用户分别讨论 Execution / Final Review / Multi-PR Merge 三个剩余 phase 环节后补充（Execution 路径 bug 修正 + Self-Read 死内容 / Final Review repair-once + RCA 二段 + Phase 软上限 10→3 / Multi-PR Coordinator 端最小职责通用模板提取 + 决策 13 在 Multi-PR 的 5 处级联落地）
 
 > 这一节列出本轮改动的全部范畴。每一条都对应后续大 issue 拆分时的一个候选 vertical slice。具体实现细节由计划文档承担，本节只到决策层面。
 
@@ -714,7 +715,22 @@ doc-patch 系统                 Coordinator 直接 Edit plan checkbox
 review_intent: 2 值            review_intent: 1 值（baseline 单值，删除 targeted-re-review；review budget 3P+12 → 2P+6）
 Discovery: Coordinator 自读     Discovery: 并行派 N 个 Explorer + Coordinator 读浓缩报告
 grill-with-docs: 全程提及       grill-with-docs: Step 0 同步入口；CONTEXT.md 与 Design 同级
+SKILL.md L202 handbook 路径 bug Execution worker dispatch 引用修正为 execution-worker-dispatch.md
+Final Review repair: 3 轮截断   Final Review repair: 1 轮 + Coordinator 自验 → 失败 RCA → 仍失败 BLOCKED
+Final Review Phase 软上限：10   Final Review Phase 软上限：3（2 baseline + 0 targeted + 最多 1 release gate）
+Multi-PR Phase 软上限：未定义   Multi-PR Phase 软上限：1（1 integration review + 0 targeted）
+Coordinator 端最小职责 ×5 处   提取为 SKILL.md 顶部通用 4 step 模板
+4 处 Self-Read 死内容           全删（Discovery/Plan Writing/Execution/Final Review 各 1 处 codex-reviewer Self-Read）
 ```
+
+**累计减负估算**（按 phase 分布）：
+- **Discovery**：≈600 chars 死内容 + Discovery 文档压缩 ≈350 行
+- **Plan Writing**：≈600 chars + budget 公式同步 ≈100 行
+- **Execution**：≈430 行（模板去重 130 + handbook 折回 200 + Path A 30 + doc-patch 20 + agent-context-check 50）+ 500 chars Self-Read + 1 路径 bug
+- **Final Review**：≈280 行（共享 inject 30 + targeted re-review 级联 250）+ 550 chars Self-Read
+- **Multi-PR Merge**：≈550 行（共享 inject 30 + 3 handbook 455 + targeted re-review 65）+ 45 行新优化
+- **横切**：sub-agent 事实校验 / grill-with-docs / mockup 留空间 / GitHub Issue 全删 等
+- **总估算 ≈ 2,400 行 + 2,250 chars** 跨全部 6 个 phase skill
 
 ---
 
@@ -935,6 +951,12 @@ TBD（plan writing 完成后填充）
   - **Orphan reference**：无 .md reference 文件未被任何 SKILL.md / 其他 reference / agent.md / build template 引用
   - **Dispatch script shim 期检查**：合并完成期内允许 `record-/validate-review-dispatch.sh` / `record-/validate-route-worker-dispatch.sh` shim 存在；shim 期结束后必须全部删除（由 Plan 关闭时切换检查模式）
   - **Workflow-state JSON 不含废弃字段**：新 init 的 workflow-state 不包含 `path_a_escalation` / `blocked_for_self_fix` / `bug_seed_path` / `review_effectiveness`（旧 run 通过 graceful ignore 容忍）
+  - **Execution handbook 路径修正**（决策 21）：`orchestrate-execution/SKILL.md` 中所有 `execution-worker-handbook.md` 引用已修正为 `execution-worker-dispatch.md`（grep 整个 plugin/ 无 `execution-worker-handbook.md` 字符串残留）
+  - **Codex-reviewer Self-Read 死内容清理**（决策 20-22）：以下 4 个 dispatch reference 顶部不存在 `## Self-Read Protocol\n\n你是 codex-reviewer` 块：`design-review-angles.md` / `plan-review-dispatch.md` / `execution-review-dispatch.md` / `final-review-angles.md`（Codex 实际读 review-prompts/<gate>.md 派发文件，不读这些 reference）
+  - **Final Review repair 二段截断**（决策 22）：`final-review-repair.md` Step 12 仅含 "repair-once + Coordinator 自验 → 失败 RCA → 仍失败 BLOCKED"，不再含 Round 3 Targeted Re-Review 路径
+  - **Phase 内部 review dispatch 软上限**：`final-review-repair.md` 写明 ≤ 3（2 baseline + 0 targeted + 最多 1 release gate）；`merge-integration-review.md` 末尾写明 ≤ 1（1 integration review + 0 targeted）（决策 22 + 23）
+  - **Multi-PR Coordinator dispatch 通用模板**（决策 23）：`orchestrate-multi-pr-merge/SKILL.md` 顶部 "merge-brief 写作流程" 后含 "Coordinator dispatch 通用步骤" 一段（4 step 模板）；`merge-preparation.md` / `merge-conflict-discovery.md` / `merge-rca-investigation.md` / `merge-conflict-repair.md` / `merge-integration-review.md` 末尾的 "Coordinator 端最小职责" section 已删除或改为引用顶部模板
+  - **Multi-PR handbook 删除确认**（决策 2 在 Multi-PR 的落地）：`multi-pr-explorer-handbook.md` / `multi-pr-conflict-worker-handbook.md` / `multi-pr-integration-review-handbook.md` 不存在；4 类 dispatch prompt 中无对这 3 个 handbook 的引用
 - 全量 `bash plugin/scripts/run-all-tests.sh` 通过
 
 ### 7.2 验收路径
