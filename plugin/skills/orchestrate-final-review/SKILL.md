@@ -152,14 +152,12 @@ Bad:  "经过全面审查，代码质量达到了预期标准。"
 
 ---
 
-<!-- BEGIN: forbidden-shortcuts -->
 **Forbidden shortcuts**（违反任何一条 = 立即停止并报告）：
 - 不跳过 review（哪怕"只改了一行"）
 - 不合并未 review 的代码
 - 不在 review 未通过时继续下一个 Pack
 - 不修改 scope contract 中排除的文件
 - 不 force push 到 main/master
-<!-- END: forbidden-shortcuts -->
 
 **Required before returning（返回前验证）：**
 - [ ] 两个 baseline review 有结果

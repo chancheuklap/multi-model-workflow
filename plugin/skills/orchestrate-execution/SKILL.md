@@ -307,16 +307,12 @@ Claude-native flow split-of-concerns:
 2. Select model by phase:
    - `cursor.phase in {discovery, plan-writing}` -> `--model gpt-5.5 --effort xhigh`
    - `cursor.phase in {execution, final-review, bug-investigation, direct-repair, multi-pr-merge, hotfix, quickfix, maintenance}` -> `--model gpt-5.4 --effort xhigh`
-3. Validate envelope and dispatch (baseline vs targeted re-review — derived from `review_intent`):
-   - **Baseline review** (envelope `review_intent: "baseline"`; gate name does not contain `-repair-`):
+3. Validate envelope and dispatch:
+   - **Baseline review** (envelope `review_intent: "baseline"`):
      Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".claude/multi-model-workflow/review-prompts/<gate>.md" --gate "<gate>"`.
      `node "$CODEX_SCRIPT" task --background --prompt-file <path> <model flags>`
      -> record JOB_ID into `review-prompts/<gate>.job-id`
      Then write the registry entry: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/record-review-dispatch.sh" --prompt-file ".claude/multi-model-workflow/review-prompts/<gate>.md" --gate "<gate>" --agent-id "<JOB_ID>"`.
-   - **Targeted re-review** (envelope `review_intent: "targeted-re-review"`; gate name contains `-repair-`):
-     Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/validate-review-dispatch.sh" --prompt-file ".claude/multi-model-workflow/review-prompts/<gate>.md" --gate "<gate>"`.
-     `node "$CODEX_SCRIPT" task --background --resume --prompt-file <path> <model flags>`
-     -> record JOB_ID into `review-prompts/<gate>.job-id`. The targeted prompt envelope MUST set `review_intent: "targeted-re-review"`, `exception_code`, and `agent_id` to the baseline reviewer's recorded JOB_ID.
    - **Over-budget escape hatch**: if Review Budget is exhausted and the user explicitly authorizes another review, append `--allow-over-budget --override-reason "<brief user authorization>"` to the validate command (lets the dispatch through) and to the later complete command (records the override in the registry). Do not use this flag for convenience or for Effort Budget.
 4. Wait: `node "$CODEX_SCRIPT" status "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)" --wait --timeout-ms 600000` (run_in_background: true)
 5. Result: `node "$CODEX_SCRIPT" result "$(cat .claude/multi-model-workflow/review-prompts/<gate>.job-id)"` -> `review-results/<gate>.md`
@@ -366,10 +362,6 @@ Reviewer must declare which modules/stacks they lack experience with and which f
 Compaction recovery:
 - `.job-id` present but no `review-results/<gate>.md` -> resume from Step 4 (status + result) using that JOB_ID; once the result is saved and bookkeeping is complete, proceed to Step 6.
 - `review-registry/<gate>.json` status is `completed` or `disposition_started`, and `review-results/<gate>.md` exists -> Read that exact result file and continue Coordinator disposition. Do not re-dispatch review and do not proceed to repair until `record-review-disposition.sh --status completed` has been recorded.
-- If the `.job-id` is missing for a targeted re-review, mark BLOCKED; do not create a new reviewer for the same baseline.
-
-**Targeted re-review scope 收窄**：
-当 envelope `review_intent=targeted-re-review` 且 `disposition_refs` 非空时，reviewer 只审 disposition_refs 中 finding 关联的 [Pack N.M] 对应 owned files；不重审全 Plan diff。新增问题超出 disposition scope → 列入 `Out of scope observations` 而非 finding。
 <!-- END: review-dispatch -->
 
 Coordinator 写入 execution state：`plans[N].status = review_pending`。
@@ -477,14 +469,12 @@ Coordinator 写入 execution state：
 
 ---
 
-<!-- BEGIN: forbidden-shortcuts -->
 **Forbidden shortcuts**（违反任何一条 = 立即停止并报告）：
 - 不跳过 review（哪怕"只改了一行"）
 - 不合并未 review 的代码
 - 不在 review 未通过时继续下一个 Pack
 - 不修改 scope contract 中排除的文件
 - 不 force push 到 main/master
-<!-- END: forbidden-shortcuts -->
 
 **Required before returning（返回前验证）：**
 - [ ] 所有 Plan 有 pass 或 blocked 状态（execution-state 确认）
