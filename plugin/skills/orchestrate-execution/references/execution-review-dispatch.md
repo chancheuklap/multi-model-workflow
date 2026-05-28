@@ -2,6 +2,16 @@
 
 > **流程位置**：`orchestrate-execution` Step 8 · 同一 Plan 内所有 Pack 完成后派发
 
+## Self-Read Protocol
+
+你是 codex-reviewer（执行 Plan Implementation Review）。启动时按以下顺序执行：
+
+1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`plan_id`、`gate`。
+2. 读 `Source artifacts:` 列出的所有路径：plan 文件、design.md、issue 文件、Scope Contract。
+3. 自行运行 `git diff <plan-start-commit>..<plan-end-commit>` 获取 aggregate diff。
+4. 读本文件（你正在读的这份手册），理解 Review Angles 与 Return Contract 格式。
+5. 按 Review Angles 独立验证，输出 findings，遵守 Pre-emit Verification Gate。
+
 同一 Plan 内所有 Pack 完成 Open Items 处置 + Git Checkpoint 后，派发 **1 个** baseline Codex reviewer 覆盖该 Plan 全部代码变更。
 
 <!-- BEGIN: review-dispatch -->
@@ -99,19 +109,19 @@ All Task Packs within this plan have been executed and committed.
 
 ## Pack summary
 | Pack | Worker verdict | Repair rounds | Changed files |
-<paste per-pack summary within this plan>
+自读 `.claude/multi-model-workflow/pack-returns/<run_id>/` 目录下各 pack JSON，汇总此表。
 
 ## Aggregate diff
-git diff <plan-start-commit>..<plan-end-commit>
+自行运行：`git diff <plan-start-commit>..<plan-end-commit>`（commit hash 从 Scope Contract 的 `plan_start_commit` 字段读取）
 
 ## Changed files (all packs combined)
-<combined file list with pack ownership>
+自读 pack-returns JSON 中各 `changed_files` 字段，合并去重。
 
 ## Contract anchors
-<paste all contract anchors from all packs in this plan>
+自读 `docs/orchestrate/plans/<slug>/00N-*.md` 中各 pack 的 Contract anchors 段。
 
 ## Mockup anchors
-<paste if any pack in this plan has UI work>
+自读 plan 文件中各 pack 的 Mockup specs 段（若无 UI work 则跳过此节）。
 
 ## Review angles (single integrated review)
 
@@ -187,6 +197,16 @@ Disposition required:
 ```
 
 Plan Implementation Review finding 必须标注 `[Pack N.M]` 归属。`Affected packs` 字段列出所有涉及 finding 的 Pack 编号，Coordinator 据此路由 repair。
+
+## Coordinator 端最小职责
+
+Coordinator 在派发时只需完成以下动作，其余由 Reviewer 自读：
+
+1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`plan_id`、`gate`（`plan-impl-review-N`）、`review_intent: "baseline"`。
+2. 在 `Source artifacts:` 中列出 plan 文件路径（reviewer 自读内容）。
+3. 写 `review-prompts/<gate>.md`，运行 validate/record 脚本，触发 Codex job。
+4. 等待 job 完成后运行 result/complete 脚本，触发 `track-review-budget` hook。
+5. 读取 review-results 文件，进入 disposition 流程。
 
 ---
 > **回到**：SKILL.md Step 9（接收 Review Findings + Disposition）。
