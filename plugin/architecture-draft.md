@@ -764,11 +764,13 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 | `complete-review-dispatch.sh` | review registry 写 durability marker（不计 budget） |
 | `guard-premature-push.sh` | PreToolUse hook；双重防护：①plan 有未勾选任务时阻 push/PR；②永久禁 `git merge --squash` |
 | `learnings-jsonl.sh` | learnings.jsonl 管理（append/read，append 前调 poison-detector） |
-| `record-review-dispatch.sh` | 记录 Codex reviewer 成功派发 |
+| `dispatch-review.sh` | 合并脚本（D8）；子命令 `validate` / `record`——Codex reviewer 派发前校验 + 成功记录 |
+| `dispatch-route-worker.sh` | 合并脚本（D8）；子命令 `validate` / `record`——非执行类 Worker 派发前校验 + 成功记录 |
+| `record-review-dispatch.sh` | **shim**（D8）→ 转发到 `dispatch-review.sh record` |
 | `record-review-disposition.sh` | 记录 Coordinator 消费 reviewer 结果 |
-| `record-route-worker-dispatch.sh` | 记录非执行类 Worker 派发 |
-| `validate-review-dispatch.sh` | 派 Codex reviewer 前的 Coordinator 校验门 |
-| `validate-route-worker-dispatch.sh` | 非执行类 Worker 派发前校验 |
+| `record-route-worker-dispatch.sh` | **shim**（D8）→ 转发到 `dispatch-route-worker.sh record` |
+| `validate-review-dispatch.sh` | **shim**（D8）→ 转发到 `dispatch-review.sh validate` |
+| `validate-route-worker-dispatch.sh` | **shim**（D8）→ 转发到 `dispatch-route-worker.sh validate` |
 | `run-summary.sh` | 读 workflow-state 生成 run 汇总指标 |
 | `run-all-tests.sh` | 遍历 tests/ 下 21 个 test_*.sh 套件 |
 | `verify-maturity.sh` | 端到端成熟度 harness（12 大类 section） |
@@ -802,7 +804,7 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 | `signpost.md.tmpl` | 各 SKILL.md | Phase 过渡时更新 cursor / status 的 bash 命令模板 |
 | `voice-directive.md.tmpl` | 所有 agents/*.md 和各 SKILL.md（10+ variant） | 各 agent / Coordinator persona 与沟通基调 |
 | ~~`state-write.md.tmpl`~~ | **deleted (D2)** — 内联到 orchestrate-execution/SKILL.md | state.sh 操作参考 |
-| `trust-boundary.md.tmpl` | orchestrate-execution/SKILL.md（variant=worker） | 用户仓库内容不可信声明 + 唯一权威来源声明 |
+| ~~`trust-boundary.md.tmpl`~~ | **deleted (D2)** — 内联到 orchestrate-execution/SKILL.md | 用户仓库内容不可信声明 + 唯一权威来源声明 |
 
 ### 9.3 generate-pack-manifest.sh
 
@@ -826,7 +828,7 @@ bash plugin/build/build.sh --apply --plugin-dir plugin   # 应用（原子写入
 
 | 文件 | 描述 | 产生 | 消费 | 新增? |
 |------|------|------|------|------|
-| `workflow-state-v1.json` | Workflow 主状态 schema（route 8 值 enum / budget / cursor / plans / dispositions / effectiveness / path_a_escalation / self_verifications / mutations） | Coordinator (state.sh) | Coordinator, hooks, all skills | 否（扩展） |
+| `workflow-state-v1.json` | Workflow 主状态 schema（route 4 值 enum / budget / cursor / plans / dispositions / effectiveness / path_a_escalation / self_verifications / phase_skip / commit_format_override / mutations） | Coordinator (state.sh) | Coordinator, hooks, all skills | 否（扩展） |
 | `execution-state-v1.json` | Pack-level 执行状态（plans[plan_id].packs[pack_id]：status 5 enum / agent_id / commit_sha / worker_verdict / repair_round） | Coordinator / hooks | Coordinator, Worker | 否（plans 二级结构 Plan-level 扩展） |
 | `dispatch-envelope-v1.json` | Dispatch envelope schema（13 字段，详见 §7.1） | Coordinator | Worker / hooks | 扩展（plan_id 新增） |
 | `pack-returns-v1.json` | Pack 级返回 schema | pack-executor / complex-pack-executor | agent-return-handler / Coordinator | 否 |
@@ -879,7 +881,7 @@ Coordinator **不是传话筒**——必须亲验每条 finding（读代码、�
 | `needs-evaluation` | Coordinator 评估后归入其他 disposition |
 | `user-decision` | 暂停，询问用户 |
 
-**Confidence 分层处理**（`learnings-confidence-audit.md`）：
+**Confidence 分层处理**（内联到 orchestrate-execution/SKILL.md Learnings 信任门章节）：
 
 | Confidence | 默认动作 | 覆写条件 |
 |-----------|---------|---------|
