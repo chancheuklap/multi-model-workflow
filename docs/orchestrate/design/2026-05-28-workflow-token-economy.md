@@ -169,11 +169,12 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - `doc_patch_path` 字段（plan-return-v1.json）— 删除
 - Worker `agent-context-check` 状态查询 — 改为 Worker 本地决策（不调 state.sh）
 
-### 4.2 实现决策（核心改动 19 类）
+### 4.2 实现决策（核心改动 20 类）
 
-> Round 2 决策分两批：
+> Round 2 决策分三批：
 > - **决策 1-12**：v3.8.0 → token economy 基础重构（模板去重 / 死代码删除 / route 折叠 等）
-> - **决策 13-19**：用户讨论 Discovery 环节后补充（删 targeted re-review / Explorer 集成 / grill-with-docs 升级 / 外部精华占位 / Discovery 压缩 / Sub-agent 事实校验 / **Mockup 生成留空间**）
+> - **决策 13-19**：用户讨论 Discovery 环节后补充（删 targeted re-review / Explorer 集成 / grill-with-docs 升级 / 外部精华 3 条引入 / Discovery 压缩 / Sub-agent 事实校验 / Mockup 生成留空间）
+> - **决策 20**：用户讨论 Plan Writing 环节后补充（死 Self-Read Protocol 删除 + budget 公式同步落地）
 
 > 这一节列出本轮改动的全部范畴。每一条都对应后续大 issue 拆分时的一个候选 vertical slice。具体实现细节由计划文档承担，本节只到决策层面。
 
@@ -548,6 +549,26 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - 不规定 mockup 迭代轮次或定稿门控
 
 **理由**：已实现的下游硬规则保证 mockup 一旦定稿就能原子级进入 plan / pack。Discovery 阶段唯一需要的是"给空间"——剩下都是用户主动行为，plugin 不该越俎代庖。
+
+#### 决策 20：Plan Writing 文档压缩 + budget 公式同步
+
+亲查 Plan Writing 阶段（7 个文件 / 1244 行 / 6 个 reference），外部精华吸收已较完整，无新增引入需求。可压缩清单：
+
+**死内容删除（2 处 Self-Read Protocol — 同 Discovery `design-review-angles.md` 模式）**：
+- `plan-writer-dispatch.md` L5-15 Self-Read Protocol（≈10 行）— plan-writer sub-agent 启动时通过 dispatch prompt 显式接收 Read 指令（Read methodology.md），dispatch prompt 没要求 Read 此 reference。Self-Read Protocol "你是 plan-writer，读本文件" 是循环引用，实际无 reader
+- `plan-review-dispatch.md` L5-13 Self-Read Protocol（≈10 行）— codex-reviewer 读的是 Coordinator 写的 review prompt 文件，不读此 reference
+
+**Budget 公式同步**（决策 13 删 targeted re-review 后的具体落地清单）：
+- `plan-gates.md` L46：`budget.review_total = 3P + 12` → **改为** `2P + 6`；`budget.effort_total = (3P + 12) * 2` → **改为** `(2P + 6) * 2`
+- `orchestrate-plan-writing/SKILL.md` L172：`budget_total = 3P + 12` → **改为** `2P + 6`
+- 公式分配重写：`2P`（每 Plan 1 次 baseline）+ `6`（Design Review 2 + Plan Review 1 + Final Review 2 + 修复余量 1）。删除 "每 Plan 最多 2 次 repair re-review" 表述（决策 13 删了 targeted re-review）
+
+**收益估算**：≈1,000 chars Plan Writing 减负 + budget 公式与决策 13 一致性闭合。
+
+**不动的**（已是核心内容或结构合理）：
+- plan-writing-methodology.md 328 行——plan-writer 工作手册，每段核心内容
+- plan-gates.md Plan Entry Gate / Inventory Gate / Cross-Plan Contract section ——结构清晰
+- plan-review-resolution.md 187 行——disposition + 修复 + 截断，与决策 13 兼容
 
 ### 4.3 改动总览图
 
