@@ -30,23 +30,29 @@
 
 ## Plan Acceptance Criteria
 
-- [ ] `pack-executor.md` + `complex-pack-executor.md` 加 Worker Loop 段（template 注入；保留原文件名按决策 2）
-- [ ] Worker Loop template **含设计文档 §Worker Loop（L579-606）完整 5 步启动序列 + Pack 循环主体 + Repair Mode + Context 自监控**
-- [ ] Worker 在 Plan 边界写 3 个 artifact 至 **`${STATE_DIR}/plan-returns/<run_id>/<plan_id>/`**（决策 3 钉死路径）
-- [ ] `validate-pack-dispatch.sh` 改为 `validate-plan-dispatch.sh`
-- [ ] `agent-return-handler.sh` 重写：解析 artifact → **Review 通过后才 apply doc-patch**（决策 6）→ 路由 4 路 verdict
-- [ ] `track-execution-state.sh` 改为聚合 pack_summary
-- [ ] `enforce-pack-commit.sh` 改为 enforce-plan-commit
-- [ ] `guard-doc-edit.sh` 保留 + 加白名单允许 Worker 写 `${STATE_DIR}/plan-returns/`
-- [ ] `track-effort-budget.sh` 计费 = **实际 Pack 数**（决策 5）；need-fresh-worker 续派计 0.5
-- [ ] `state.sh` 新增/改写：`agent-id --plan-id`、`disposition --plan-id`、`agent-context-check`、`pack-progress`、**`execution-plan complete`** + **`plan-returns ingest`**（与设计 9 项 enforcement #5 命名对齐）
-- [ ] `dispatch-envelope-v1.json` 加 `plan_id` 字段（Plan 002 Pack 2.6 完成）
-- [ ] Worker Loop 启动 5 步 + Pack 循环 + Repair Mode + need-fresh-worker 全部测试覆盖
-- [ ] `track-execution-state.sh` NEXT 消息修正：worker_agent_id 非空时抑制「Dispatch Plan Implementation Review」（避免误导，调研 D 漏项 #10）
-- [ ] **可选** hook `guard-plan-doc-patch.sh`（校验 doc-patch 只动 plan checkbox 行）
-- [ ] **可选** hook `detect-worker-scope-drift.sh`（PostToolUse Edit 兜底）
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
-- [ ] `bash plugin/scripts/verify-maturity.sh` 通过
+**Plan 005 状态**：✅ 完成（2026-05-28，Worker agentId `a1721d257b5c1d257`，verdict=pass）
+
+19/19 Pack 全部 committed：5.1 worker-loop template + resolver / 5.2 pack-executor + complex-pack-executor 锚点 / 5.3 plan-return + open-items schema / 5.4-5.7 state.sh 4 子命令（含 execution-plan complete / plan-returns ingest 命名对齐设计）/ 5.8 validate-plan-dispatch.sh / 5.9 agent-return-handler.sh 重写（决策 6: 不 apply doc-patch）/ 5.10 track-execution-state.sh + NEXT 抑制 / 5.11 enforce-plan-commit.sh / 5.12 effort budget 按实际 Pack 数（决策 5）/ 5.13 parse-envelope.sh + plan_id 消费 / 5.14 hooks.json 集中重命名 + 注册 / 5.15 lib/plan-return-parser.sh + lib/doc-patch-apply.sh / 5.16 e2e fixture 14 assertions / 5.17 continuation 21 invariants（additive per_pack merge + effort 5.5）/ 5.18 guard-plan-doc-patch.sh + 5.19 detect-worker-scope-drift.sh 兜底。
+
+Plan-level 验证：run-all-tests **53 suites pass** + verify-maturity **104/0** + build.sh --check 通过 + e2e + continuation 测试全绿。
+
+- [x] `pack-executor.md` + `complex-pack-executor.md` 加 Worker Loop 段（template 注入；保留原文件名按决策 2）
+- [x] Worker Loop template **含设计文档 §Worker Loop（L579-606）完整 5 步启动序列 + Pack 循环主体 + Repair Mode + Context 自监控**
+- [x] Worker 在 Plan 边界写 3 个 artifact 至 **`${STATE_DIR}/plan-returns/<run_id>/<plan_id>/`**（决策 3 钉死路径）
+- [x] `validate-pack-dispatch.sh` 改为 `validate-plan-dispatch.sh`
+- [x] `agent-return-handler.sh` 重写：解析 artifact → **Review 通过后才 apply doc-patch**（决策 6）→ 路由 4 路 verdict
+- [x] `track-execution-state.sh` 改为聚合 pack_summary
+- [x] `enforce-pack-commit.sh` 改为 enforce-plan-commit
+- [x] `guard-doc-edit.sh` 保留 + 加白名单允许 Worker 写 `${STATE_DIR}/plan-returns/`
+- [x] `track-effort-budget.sh` 计费 = **实际 Pack 数**（决策 5）；need-fresh-worker 续派计 0.5
+- [x] `state.sh` 新增/改写：`agent-id --plan-id`、`disposition --plan-id`、`agent-context-check`、`pack-progress`、**`execution-plan complete`** + **`plan-returns ingest`**（与设计 9 项 enforcement #5 命名对齐）
+- [x] `dispatch-envelope-v1.json` 加 `plan_id` 字段（Plan 002 Pack 2.6 完成）
+- [x] Worker Loop 启动 5 步 + Pack 循环 + Repair Mode + need-fresh-worker 全部测试覆盖
+- [x] `track-execution-state.sh` NEXT 消息修正：worker_agent_id 非空时抑制「Dispatch Plan Implementation Review」（避免误导，调研 D 漏项 #10）
+- [x] **可选** hook `guard-plan-doc-patch.sh`（校验 doc-patch 只动 plan checkbox 行）
+- [x] **可选** hook `detect-worker-scope-drift.sh`（PostToolUse Edit 兜底）
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过
+- [x] `bash plugin/scripts/verify-maturity.sh` 通过
 
 ## File / Responsibility Map
 
@@ -168,12 +174,12 @@
 
 ### Acceptance criteria
 
-- [ ] worker-loop.md.tmpl 存在且含 6 段（A 启动 / B 循环 / C verdict / D Repair Mode / E Context / F 失败次数）
-- [ ] worker-loop.sh resolver 可执行
-- [ ] `build.sh --apply` 能注入到 pack-executor.md（验证 Pack 5.2）
-- [ ] 模板含 plan-return.json schema 引用
-- [ ] 模板路径全部用 `${STATE_DIR}/plan-returns/<run_id>/<plan_id>/`（决策 3）
-- [ ] 模板含 Repair Mode 段 + `repair:` commit message 规范
+- [x] worker-loop.md.tmpl 存在且含 6 段（A 启动 / B 循环 / C verdict / D Repair Mode / E Context / F 失败次数）
+- [x] worker-loop.sh resolver 可执行
+- [x] `build.sh --apply` 能注入到 pack-executor.md（验证 Pack 5.2）
+- [x] 模板含 plan-return.json schema 引用
+- [x] 模板路径全部用 `${STATE_DIR}/plan-returns/<run_id>/<plan_id>/`（决策 3）
+- [x] 模板含 Repair Mode 段 + `repair:` commit message 规范
 
 ### Verification commands
 
@@ -217,9 +223,9 @@ normal（纯新增 template）
 
 ### Acceptance criteria
 
-- [ ] 两个 agent 文件含 `BEGIN: worker-loop` 锚点
-- [ ] `build.sh --apply` + `--check` 通过
-- [ ] complex-pack-executor 含高风险自检 checklist
+- [x] 两个 agent 文件含 `BEGIN: worker-loop` 锚点
+- [x] `build.sh --apply` + `--check` 通过
+- [x] complex-pack-executor 含高风险自检 checklist
 
 ### Verification commands
 
@@ -273,9 +279,9 @@ normal
 
 ### Acceptance criteria
 
-- [ ] 2 个 schema 文件存在且 JSON 合法
-- [ ] verdict 枚举完整（`complete|partial|blocked|need-fresh-worker`）
-- [ ] schema_version = "1"
+- [x] 2 个 schema 文件存在且 JSON 合法
+- [x] verdict 枚举完整（`complete|partial|blocked|need-fresh-worker`）
+- [x] schema_version = "1"
 
 ### Verification commands
 
@@ -317,9 +323,9 @@ Worker 在 Pack 循环中调用 `state.sh agent-context-check`，根据 executio
 
 ### Acceptance criteria
 
-- [ ] state.sh agent-context-check 子命令存在
-- [ ] mock 测试：packs_in_session=5, remaining=2 → need-fresh-worker
-- [ ] mock 测试：packs_in_session=3, remaining=5 → ok
+- [x] state.sh agent-context-check 子命令存在
+- [x] mock 测试：packs_in_session=5, remaining=2 → need-fresh-worker
+- [x] mock 测试：packs_in_session=3, remaining=5 → ok
 
 ### Verification commands
 
@@ -357,9 +363,9 @@ normal
 
 ### Acceptance criteria
 
-- [ ] state.sh agent-id --plan-id <id> 可正确写入
-- [ ] 无 --plan-id 时保持向后兼容（旧行为）
-- [ ] lock 保护正常
+- [x] state.sh agent-id --plan-id <id> 可正确写入
+- [x] 无 --plan-id 时保持向后兼容（旧行为）
+- [x] lock 保护正常
 
 ### Verification commands
 
@@ -395,9 +401,9 @@ normal
 
 ### Acceptance criteria
 
-- [ ] disposition 写入含 plan_id 字段
-- [ ] 无 --plan-id 时保持向后兼容
-- [ ] 单测通过
+- [x] disposition 写入含 plan_id 字段
+- [x] 无 --plan-id 时保持向后兼容
+- [x] 单测通过
 
 ### Verification commands
 
@@ -447,10 +453,10 @@ normal
 
 ### Acceptance criteria
 
-- [ ] 3 个子命令存在且正确写状态
-- [ ] 写入受 lock 保护
-- [ ] 命名与设计文档 9 项 enforcement #5 一致（`execution-plan complete` / `plan-returns ingest`）
-- [ ] 单测通过
+- [x] 3 个子命令存在且正确写状态
+- [x] 写入受 lock 保护
+- [x] 命名与设计文档 9 项 enforcement #5 一致（`execution-plan complete` / `plan-returns ingest`）
+- [x] 单测通过
 
 ### Verification commands
 
@@ -505,11 +511,11 @@ normal
 
 ### Acceptance criteria
 
-- [ ] validate-plan-dispatch.sh 存在且可执行
-- [ ] envelope 缺 plan_id → deny
-- [ ] plan.md 缺 Pack Execution Manifest → deny
-- [ ] 正常 envelope → allow
-- [ ] 旧 validate-pack-dispatch.sh 已删除
+- [x] validate-plan-dispatch.sh 存在且可执行
+- [x] envelope 缺 plan_id → deny
+- [x] plan.md 缺 Pack Execution Manifest → deny
+- [x] 正常 envelope → allow
+- [x] 旧 validate-pack-dispatch.sh 已删除
 
 ### Verification commands
 
@@ -571,12 +577,12 @@ Worker SubagentStop 触发，handler 按 **Plan 边界**处理：
 
 ### Acceptance criteria
 
-- [ ] 5 路 verdict 均有显式分支
-- [ ] **doc-patch.diff 在 handler 中绝不 apply**（决策 6：留到 Review pass 后 Coordinator 流程 apply）
-- [ ] handler 输出明确 NEXT 指令引导 Coordinator 下一步
-- [ ] need-fresh-worker → 输出"派新 Agent 含 resume_from_pack_id"指令
-- [ ] 缺 artifact → BLOCKED 输出
-- [ ] 调用 `state.sh plan-returns ingest` 写状态
+- [x] 5 路 verdict 均有显式分支
+- [x] **doc-patch.diff 在 handler 中绝不 apply**（决策 6：留到 Review pass 后 Coordinator 流程 apply）
+- [x] handler 输出明确 NEXT 指令引导 Coordinator 下一步
+- [x] need-fresh-worker → 输出"派新 Agent 含 resume_from_pack_id"指令
+- [x] 缺 artifact → BLOCKED 输出
+- [x] 调用 `state.sh plan-returns ingest` 写状态
 
 ### Verification commands
 
@@ -628,10 +634,10 @@ high（结构性重写，多路状态写入）
 
 ### Acceptance criteria
 
-- [ ] hook 监听 state.sh pack-progress → 追加 packs[]
-- [ ] hook 监听 state.sh plan-complete → 聚合 summary
-- [ ] lock 保护，并发写无丢失
-- [ ] 测试覆盖 Pack→Plan 整链路
+- [x] hook 监听 state.sh pack-progress → 追加 packs[]
+- [x] hook 监听 state.sh plan-complete → 聚合 summary
+- [x] lock 保护，并发写无丢失
+- [x] 测试覆盖 Pack→Plan 整链路
 
 ### Verification commands
 
@@ -676,10 +682,10 @@ high（多 hook + state 多写入并发风险）
 
 ### Acceptance criteria
 
-- [ ] 重命名完成
-- [ ] commit 缺失 → deny
-- [ ] commit 数 < 完成 Pack 数 → deny
-- [ ] 测试覆盖 pass / fail
+- [x] 重命名完成
+- [x] commit 缺失 → deny
+- [x] commit 数 < 完成 Pack 数 → deny
+- [x] 测试覆盖 pass / fail
 
 ### Verification commands
 
@@ -718,11 +724,11 @@ normal
 
 ### Acceptance criteria
 
-- [ ] Plan dispatch effort = 实际 Pack 数（决策 5）
-- [ ] need-fresh-worker 续派 +0.5
-- [ ] Codex review 仍计 1
-- [ ] 老 envelope fallback 计 1
-- [ ] 测试覆盖：5-pack plan → effort +5；need-fresh-worker 续派后 → effort +0.5
+- [x] Plan dispatch effort = 实际 Pack 数（决策 5）
+- [x] need-fresh-worker 续派 +0.5
+- [x] Codex review 仍计 1
+- [x] 老 envelope fallback 计 1
+- [x] 测试覆盖：5-pack plan → effort +5；need-fresh-worker 续派后 → effort +0.5
 
 ### Verification commands
 
@@ -759,9 +765,9 @@ Plan 002 Pack 2.10 已加 schema 字段，本 Pack 校验所有消费侧 hook / 
 
 ### Acceptance criteria
 
-- [ ] parse-envelope.sh 输出 PLAN_ID
-- [ ] 5 个 hook 统一调用 lib
-- [ ] envelope 无 plan_id → 5 个 hook 均能给出明确错误
+- [x] parse-envelope.sh 输出 PLAN_ID
+- [x] 5 个 hook 统一调用 lib
+- [x] envelope 无 plan_id → 5 个 hook 均能给出明确错误
 
 ### Verification commands
 
@@ -806,9 +812,9 @@ normal
 
 ### Acceptance criteria
 
-- [ ] hooks.json JSON 合法
-- [ ] 所有旧 hook 名替换完成
-- [ ] run-all-tests 通过
+- [x] hooks.json JSON 合法
+- [x] 所有旧 hook 名替换完成
+- [x] run-all-tests 通过
 
 ### Verification commands
 
@@ -866,10 +872,10 @@ high（hook 触发链路总入口，错一行整个 plugin 失效）
 
 ### Acceptance criteria
 
-- [ ] 2 个 lib 文件可 source
-- [ ] parser 输出变量正确
-- [ ] doc-patch-apply 冲突时不污染 working tree
-- [ ] 单测覆盖
+- [x] 2 个 lib 文件可 source
+- [x] parser 输出变量正确
+- [x] doc-patch-apply 冲突时不污染 working tree
+- [x] 单测覆盖
 
 ### Verification commands
 
@@ -914,9 +920,9 @@ normal
 
 ### Acceptance criteria
 
-- [ ] 4 路 verdict 端到端测试全部通过
-- [ ] doc-patch apply 后 git working tree 干净 + 文件已修改
-- [ ] state 写入符合 schema
+- [x] 4 路 verdict 端到端测试全部通过
+- [x] doc-patch apply 后 git working tree 干净 + 文件已修改
+- [x] state 写入符合 schema
 
 ### Verification commands
 
@@ -956,10 +962,10 @@ normal
 
 ### Acceptance criteria
 
-- [ ] need-fresh-worker 路径完整跑通
-- [ ] 接续后 pack_summary 累积正确
-- [ ] budget 计费 = 1.5
-- [ ] 边界条件（剩余 < 2）不触发
+- [x] need-fresh-worker 路径完整跑通
+- [x] 接续后 pack_summary 累积正确
+- [x] budget 计费 = 1.5
+- [x] 边界条件（剩余 < 2）不触发
 
 ### Verification commands
 
@@ -1002,11 +1008,11 @@ normal
 
 ### Acceptance criteria
 
-- [ ] guard-doc-edit.sh 含 plan-returns 路径说明注释
-- [ ] guard-plan-doc-patch.sh 存在 + 校验逻辑正确
-- [ ] 合法 patch（只动 checkbox）→ allow
-- [ ] 违规 patch（动设计文档 / 动非 checkbox 行）→ BLOCKED
-- [ ] 测试通过
+- [x] guard-doc-edit.sh 含 plan-returns 路径说明注释
+- [x] guard-plan-doc-patch.sh 存在 + 校验逻辑正确
+- [x] 合法 patch（只动 checkbox）→ allow
+- [x] 违规 patch（动设计文档 / 动非 checkbox 行）→ BLOCKED
+- [x] 测试通过
 
 ### Verification commands
 
@@ -1048,11 +1054,11 @@ Worker 自治后 Coordinator 失去中途介入点。Worker 单 session 内连�
 
 ### Acceptance criteria
 
-- [ ] hook 存在且可执行
-- [ ] 在 owned_files 内 → 静默通过
-- [ ] 跨 plan → WARN + 写入 drift_warnings
-- [ ] 不 BLOCKED（避免打断 Worker）
-- [ ] 测试覆盖 3 种场景
+- [x] hook 存在且可执行
+- [x] 在 owned_files 内 → 静默通过
+- [x] 跨 plan → WARN + 写入 drift_warnings
+- [x] 不 BLOCKED（避免打断 Worker）
+- [x] 测试覆盖 3 种场景
 
 ### Verification commands
 
