@@ -189,9 +189,11 @@ Coordinator 列出 `docs/orchestrate/issues/<slug>/` 目录下的所有大 issue
 
 全部 plan-writer 返回 `PLAN_CREATED` 后，进入 Step 11。任一 plan-writer 返回 upstream verdict → 按 verdict 路由处理后重新进入。
 
-## Steps 11-12b：Plan Entry Gate + Task Pack Inventory Gate + Budget 赋值 + 跨计划合同图
+## Steps 11-12b：Plan Entry Gate + Task Pack Inventory Gate + Budget 赋值 + 跨计划合同锚点
 
-**Read** `references/plan-gates.md`（对 `plans/<slug>/` 下所有 plan 文件做 gate 检查 + budget_total 首次赋值 `3P + 12`，P = plan 文件总数；随后生成 `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`）。通过后进入 Pack 数量检查。
+**Read** `references/plan-gates.md`（对 `plans/<slug>/` 下所有 plan 文件做 gate 检查 + budget_total 首次赋值 `3P + 12`，P = plan 文件总数；随后写入 `docs/orchestrate/design/<slug>.md` 的 `## Cross-Plan Contract Anchors` section）。通过后进入 Pack 数量检查。
+
+> Schema 演进：跨计划合同已从独立 plans/<slug>/ 文件前移到 design.md section。老 run 若仍存在旧的 contract-map 文件，请人工迁移到 design.md 同名 section 后删除。
 
 **Pack 数量检查**（对每个 plan 文件运行）：
 

@@ -889,13 +889,15 @@ git log --oneline --since="<last_gate_timestamp>" -- \
 
 ---
 
-## 跨计划合同图
+## 跨计划合同锚点
 
-Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，生成宿主无关的 artifact：
+Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 plan 合同写入：
 
-`docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`
+`docs/orchestrate/design/<slug>.md` 的 `## Cross-Plan Contract Anchors` section
 
-该文件由 Coordinator 写入，记录跨 plan 连接面的 producer、consumer、ownership 和 verification。Plan Review 必须审查这份合同图是否覆盖共享合同、migration、state、hook、template、schema、UI 行为或共享模块。Final Review 再用 `git diff <starting_commit>..HEAD` 对照合同图，确认集成后的 producer / consumer / ownership / verification 没有漂移。没有跨 plan 连接面时，合同图也必须写明“无跨计划共享合同”，Final Review 只确认独立性。
+该 section 由 Coordinator 写入，记录跨 plan 连接面的 owner / provider / consumer / 关键字段。Plan Review 必须审查这段是否覆盖共享合同、migration、state、hook、template、schema、UI 行为或共享模块。Final Review 再用 `git diff <starting_commit>..HEAD` 对照该 section，确认集成后的 owner / provider / consumer 没有漂移。没有跨 plan 连接面时，section 也必须写明 "无跨计划共享合同"，Final Review 只确认独立性。
+
+> 前移自历史的独立 `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md` 文件——统一在 design.md 内维护，单一源；老 run 若仍存在该独立文件，请人工迁移内容到 design.md 同名 section 后删除原文件。
 
 ---
 

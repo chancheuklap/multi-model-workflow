@@ -121,8 +121,8 @@ docs/orchestrate/design/<slug>.md（已通过 Design Review）
 ## Plans（已通过 Plan Review）
 docs/orchestrate/plans/<slug>/（目录，逐个列出所有 plan 文件路径）
 
-## Cross-plan contract map（已通过 Plan Review）
-docs/orchestrate/plans/<slug>/cross-plan-contract-map.md
+## Cross-plan contract anchors（已通过 Plan Review）
+docs/orchestrate/design/<slug>.md#cross-plan-contract-anchors （前移自独立 cross-plan-contract-map.md；老 run 若仍有此文件请人工迁移到 design.md 同名 section）
 
 ## Issue hierarchy
 docs/orchestrate/issues/<slug>/
@@ -179,7 +179,7 @@ docs/orchestrate/mockups/<slug>/（如有 UI 工作）
 
 ### 3. Cross-Plan Integration
 只检查**跨 Plan** 的集成（Plan 内跨 Pack 已由 Plan Implementation Review 的 Cross-Pack Coherence 覆盖）：
-- Cross-plan contract map：逐行读取 `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`，用 `git diff <starting_commit>..HEAD` 验证 producer / consumer / ownership / verification 是否在合并结果中成立
+- Cross-plan contract anchors：逐行读取 `docs/orchestrate/design/<slug>.md` 的 `## Cross-Plan Contract Anchors` section，用 `git diff <starting_commit>..HEAD` 验证 producer / consumer / ownership 是否在合并结果中成立（老 run 若 design.md 没有该 section，请检查是否还有遗留 `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md`——人工迁移后再继续）
 - Shared contract surface：跨 Plan 的 Pydantic model / schema_version / API 是否一致
 - Migration 顺序：跨 Plan 的 migration 执行顺序是否正确
 - Import 关系：跨 Plan 的 import 是否循环
