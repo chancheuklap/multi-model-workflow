@@ -445,12 +445,14 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 
 调研 E 给出具体压缩清单，本决策落地：
 
-**孤儿 / 死内容删除**：
-- 删除 `discovery-formats.md` 整文件，折叠为 `discovery-design-document.md` 的"CONTEXT.md 格式 / ADR 格式"注脚（约 15 行）— 净省 ≈1,900 chars
+**死内容删除**（已用户亲验 — sub-agent 误判已剔除）：
 - 删除 `design-review-angles.md` L5-13 `Self-Read Protocol` 段 — 该段写"你是 codex-reviewer"，但 Coordinator 读此文件时是派发者不是 reviewer；reviewer 角色由 Coordinator 写出的 review prompt 自己声明 — 省 614 chars
 - 删除 SKILL.md L37 `Route Dispatch` 行（preamble T2 内的错位内容，Discovery 是 route 终点非 router）— 省 60 chars
-- 删除 SKILL.md L134 `Skill({ skill: "zoom-out" })` 行（zoom-out skill 实际不存在 — 孤儿引用）— 省 20 chars
 - 删除 discovery-discussion.md L80 "grill-with-docs 的角色"段（已被决策 15 移到 SKILL.md Step 0）— 省 200 chars
+
+**Sub-agent 误判已纠正（不动）**：
+- `discovery-formats.md` — **保留**。它有两处指针引用（`architecture-draft.md:284` reference 清单 + `SKILL.md:104` 按需读指针），是有效的"指针式渐进加载"，不是孤儿。Sub-agent 把"无 `**Read**` 强制指令"等同于"未加载"，这是错误推论。本文件按需读模式是合理的——CONTEXT.md / ADR 格式不是每次 Discovery 都用得到。
+- `zoom-out` skill — **保留引用**。实际位于 `/Users/cheuklapchan/.claude/skills/zoom-out`（mattpocock-skills 软链）。Sub-agent 只 grep 了 plugin 内而未查用户 skills 目录，误判为"不存在"。
 
 **结构优化**：
 - 合并 issue-splitting.md 中两套 issue body 模板（本地大 issue 文件 + GitHub Issue body）为一套 — 本地文件 = GH body + `## Design context refs` + `## Small issues` 两节
@@ -469,7 +471,7 @@ v3.8.0                         本轮 round 2 后
 ─────────────────────         ────────────────────
 13 hooks                      ≤ 10 hooks（删 guard-plan-doc-patch + 降级 1 项 + 简化 gate-codex-review）
 13 build templates            10 build templates（删 forbidden-shortcuts / state-write / trust-boundary；review-dispatch.content-only 本轮保留 §10 第 15 条）
-50 references                 ≤ 38 references（删孤儿 7 + 合并多层跳 3 + 删 discovery-formats）+ 3 个 _shared canonical
+50 references                 ≤ 39 references（删孤儿 7 + 合并多层跳 3）+ 3 个 _shared canonical（discovery-formats 保留 — sub-agent 误判已纠正）
 20 state.sh subcommands       16 subcommands（删 business-summary / plans / path-a-escalation / agent-context-check；idempotency 保留）
 6 scripts/lib                 3 scripts/lib（合并/删 doc-patch-apply / review-effectiveness / learnings-poison-detector）
 13 scripts                    10 scripts（合并 review-dispatch 对 / route-worker-dispatch 对 + shim 兼容期）
