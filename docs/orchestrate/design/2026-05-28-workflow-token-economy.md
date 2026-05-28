@@ -418,29 +418,28 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 
 **收益估算**：设计文档术语一致性硬保证；下游 plan / pack 不再因术语漂移产生隐性 review finding。
 
-#### 决策 16：Discovery 补齐外部精华（从 Brainstorming / to-PRD / office-hours 吸收缺失项）
+#### 决策 16：Discovery 外部精华吸收审查（占位 — 由用户挑选）
 
-调研 C / D 列出本地未吸收或吸收稀释的精华，本决策补齐：
+调研 C / D 列出了本地与外部 skill（Brainstorming / to-PRD / to-issues / GSTack office-hours / plan-ceo-review）的差距清单。但用户原则明确：**参考 ≠ 复刻**——很多差距是故意省略的复杂度，不是缺口。
 
-**Brainstorming（obra/superpowers）补齐**：
-- **Visual Companion 独立消息协议**：discovery-discussion.md 视觉判断段（L63）增加"Visual Companion 提议必须独立消息发出，用户同意后逐题判断 'see beats read'"
+**本节作为占位**，等待用户从以下候选清单中**逐项判断**"要 / 不要 / 不确定"。任何条目未经用户确认前，**不写入 plugin**。
 
-**to-PRD（mattpocock）补齐**：
-- **synthesize fast-path**：SKILL.md Step 1-2 增加"若用户传入的 PRD / issue / 上下文已覆盖 Problem / Solution / Acceptance，跳过 Steps 3-6 一问一答，直接 Steps 7-9 起草设计文档，再让用户审稿"
-- **Deep modules sketch 显式 step**：discovery-design-document.md 在写设计文档前增加 Step 6.5："列出本次涉及的 deep modules（rich functionality + simple testable interface + stable API）并与用户对齐"
-- **prototype-snippet 例外类型列出**：design-document.md L29 补"例外类型：state machine / reducer / schema / type shape"
+候选清单（仅供讨论，不构成实施承诺）：
 
-**office-hours / GSTack 补齐（仅 Discovery 适用的部分）**：
-- **Forcing Questions 三问锚点**（新功能 Discovery 强制问）：
-  1. Demand Reality：谁现在愿意为这个付钱 / 投入时间？说出具体人或机构，不是类别
-  2. Status Quo：用户现在用什么拼凑解决这个问题？（spreadsheet + Slack 也是真竞品）
-  3. Narrowest Wedge：最小可付费 / 可演示 / 可验证的切片是什么？
-- **Push twice 规则**：voice-directive 增加"第一个回答默认是抛光过的，至少追问一轮才相信"
-- **Premises 显式 gate**：分段呈现设计前，先列 3-5 条 premise 让用户逐条 agree / disagree（比"分段呈现"更早暴露根本假设）
-- **Alternatives 三档强制 + 结构化字段**：discovery-discussion.md L52"2-3 方案"升级为强制三档模板：Minimal Viable / Ideal Architecture / Creative Lateral，每档含 Summary / Effort / Risk / Pros / Cons / Reuses 五字段
+| 来源 | 候选精华 | 默认状态 |
+|------|---------|---------|
+| Brainstorming | Visual Companion 独立消息协议 | 不引入（除非用户明说要）|
+| to-PRD | synthesize fast-path（上下文足够时跳过追问） | 不引入 |
+| to-PRD | Deep modules sketch 显式 step | 不引入 |
+| to-PRD | prototype-snippet 例外类型列出 | 不引入 |
+| office-hours | Forcing Questions 三问锚点 | 不引入 |
+| office-hours | Push twice 规则 | 不引入 |
+| office-hours | Premises 显式 gate | 不引入 |
+| GSTack | Alternatives 三档结构化（minimal/ideal/creative）| 不引入 |
+| plan-ceo-review | 10-star product / Scope Modes | 不引入（且不属 Discovery 范畴）|
+| autoplan | Dual-Voice / 自动流水线 | 不引入（与本地架构哲学冲突）|
 
-**不吸收（参考 ≠ 复刻）**：
-- "10-star product" / Scope Modes / Dual-Voice consensus table / autoplan 自动流水线 — 这些是 Plan 阶段或与本地架构哲学冲突，不在 Discovery 引入
+**保留原则**：调研 C / D 只是揭示差距事实，不代表必须补齐。用户原话："如果上面的这些参考技能之间或者与我们现在这个 plugin 相关的地方之间存在冲突的话……参考是为了获取他们的精华，并不是为了复刻他们的流程"。差距清单留作未来按需取用，不在本轮强行 inline。
 
 #### 决策 17：Discovery 文档压缩（在保留所有精华前提下）
 
