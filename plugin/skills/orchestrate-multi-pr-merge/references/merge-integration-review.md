@@ -2,6 +2,17 @@
 
 > **流程位置**：`orchestrate-multi-pr-merge` Steps 16-18 · 所有冲突解决后（或 explorer 未发现冲突）进入 · 通过后 → Steps 19-22（`merge-completion.md`）
 
+## Self-Read Protocol
+
+你是 codex-reviewer（执行 Multi-PR 集成审查）。启动时按以下顺序执行：
+
+1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`gate`、`phase: "multi-pr-merge"`。
+2. 读 `.claude/multi-model-workflow/merge-brief-<run_id>.md`，获取大设计文档路径、PR 列表、合同地图、冲突解决记录。
+3. 读大设计文档（来自 merge-brief）理解整体目标。
+4. 自行运行 `git diff` 获取所有 PR 合并后的 combined diff。
+5. 读本文件（你正在读的这份手册），理解 Review Angles 与 Return Contract 格式。
+6. 按 7 个 Review Angles 独立验证，遵守 Pre-emit Verification Gate，输出 findings。
+
 这不是 Plan Implementation Review（审查单个 Plan 的全部 pack），不是 Final Review（审查 design intent coverage）——这是**跨 PR 集成审查**，验证多个 PR 合在一起后系统是否正确。
 
 ## Step 16：构造 Codex Dispatch
@@ -92,22 +103,15 @@ Review prompt 写入 `.claude/multi-model-workflow/review-prompts/multi-pr-integ
 跨 PR 集成审查。多个并行 PR 来自同一大设计，各自已通过 Final Review。
 本次审查验证它们合在一起后是否正确。
 
-## 大设计文档
-<path>
-
-## PRs included
-| PR | Branch | 核心行为 | Final Review verdict |
-<paste>
-
-## 冲突解决记录
-<paste resolved conflicts + how they were fixed>
-<if no conflicts: 'Explorer 确认无 PR 间冲突'>
+## Merge context
+读 `.claude/multi-model-workflow/merge-brief-<run_id>.md` 获取：
+- 大设计文档路径（你自读该文档）
+- PRs included（PR / Branch / 核心行为 / Final Review verdict）
+- 冲突解决记录（resolved conflicts + how they were fixed；或 'Explorer 确认无 PR 间冲突'）
+- 合同地图（all cross-PR contract surfaces）
 
 ## Combined diff
-<combined diff of all PRs against base>
-
-## 合同地图
-<all cross-PR contract surfaces>
+自行运行 `git diff <base-branch>..HEAD`（或对每个 PR branch 分别 diff 后合并）。
 
 ## Review angles
 
@@ -314,7 +318,7 @@ Targeted re-review for Multi-PR integration repair.
 Only review the changes made to address the listed findings.
 
 ## Original findings
-<paste accepted findings>
+读 `DISPATCH_ENVELOPE.disposition_refs` 对应的 accepted findings（由 Coordinator 在 repair dispatch 时填入）。
 
 ## Repair diff
 <git diff of repair changes>
@@ -337,6 +341,15 @@ Per-finding status:
 ```
 
 最多 2 轮修复。超过 → BLOCKED。
+
+## Coordinator 端最小职责
+
+Coordinator 在派发时只需完成以下动作，其余由 Reviewer 自读：
+
+1. 写 `merge-brief-<run_id>.md`（若已写则复用），确保包含 PR 列表、设计文档路径、合同地图、冲突解决记录。
+2. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`gate`（`multi-pr-integration-review`）、`review_intent: "baseline"`。
+3. 写 review-prompts 文件，运行 validate/record 脚本，触发 Codex job。
+4. 等待 job 完成后运行 result/complete 脚本，进入 Steps 17-18 disposition 流程。
 
 ---
 > **下一步**：通过 → Steps 19-22（`merge-completion.md`）。BLOCKED → 返回 verdict。

@@ -2,6 +2,17 @@
 
 > **流程位置**：`orchestrate-multi-pr-merge` Steps 12-15 · 冲突修复 + 验证循环
 
+## Self-Read Protocol
+
+你是 pack-executor 或 complex-pack-executor（执行 Multi-PR 冲突修复）。启动时按以下顺序执行：
+
+1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`phase: "multi-pr-merge"`。
+2. 读 `.claude/multi-model-workflow/merge-brief-<run_id>.md`，获取大设计文档路径、PR 列表、合同地图。
+3. 读大设计文档（来自 merge-brief）理解大设计目标和正确状态。
+4. 读 dispatch 中的冲突描述和修复方向（来自 Coordinator 分析或 analyst findings）。
+5. 读本文件（你正在读的这份手册），理解 Return Contract 格式。
+6. 执行冲突修复，通过回归测试，输出修复摘要。
+
 ## Step 12：构造 Worker Dispatch
 
 根据冲突是否经过 analyst 调查，dispatch prompt 的内容不同。
@@ -40,28 +51,15 @@ Agent({
     ## Scope
     修复 Multi-PR Merge 中发现的 PR 间冲突。
 
-    ## 大设计文档
-    <path>
+    ## Merge context
+    读 `.claude/multi-model-workflow/merge-brief-<run_id>.md` 获取：
+    - 大设计文档路径（你自读该文档）
+    - PR 列表和各 branch（你自行 git diff 获取相关代码段）
+    - 合同地图（cross-PR contract surfaces）
 
     ## 冲突详情（来自 root-cause-analyst 调查）
     | # | 冲突 | 根因类型 | 涉及 PR | 修复方向 | 需改哪个 PR |
-    <paste from analyst return>
-
-    ## 根因分析
-    <paste analyst's detailed root cause analysis>
-
-    ## 修复顺序
-    <paste if analyst identified dependency between conflicts>
-
-    ## 涉及的 PR 代码
-    PR A (<branch>):
-    <relevant diff sections>
-
-    PR B (<branch>):
-    <relevant diff sections>
-
-    ## 合同地图
-    <paste affected contract surfaces>
+    读 dispatch prompt 中 Coordinator 传入的 analyst findings 摘要。
 
     ## Acceptance criteria
     - [ ] 每个列出的冲突已解决
@@ -93,20 +91,17 @@ Agent({
     ## Scope
     修复 Multi-PR Merge 中发现的 PR 间冲突。
 
-    ## 大设计文档
-    <path>
+    ## Merge context
+    读 `.claude/multi-model-workflow/merge-brief-<run_id>.md` 获取：
+    - 大设计文档路径（你自读该文档）
+    - PR 列表和各 branch（你自行 git diff 获取相关代码段）
+    - 合同地图（若有合同边界）
 
     ## 冲突详情（来自 explorer 发现 + Coordinator 分析）
-    <paste conflict description + Coordinator's fix direction>
-
-    ## 涉及的 PR 代码
-    <relevant diff sections from both PRs>
-
-    ## 合同地图
-    <paste if contract boundary involved>
+    读 dispatch prompt 中 Coordinator 传入的冲突描述和修复方向。
 
     ## Coordinator 判定的修复方向
-    <which PR should win on each point + why>
+    读 dispatch prompt 中 Coordinator 的修复方向说明（哪个 PR 应该 win + 原因）。
 
     ## Acceptance criteria
     - [ ] 冲突已解决
@@ -215,6 +210,15 @@ Repair Return Contract 必须补充：
 **循环上限**：每个冲突最多 3 轮修复尝试（与 Execution 修复截断对齐）。第 2 轮仍未解决 → 升级为系统性冲突走 RCA。第 3 轮仍未解决 → BLOCKED。
 
 **不在循环中做的事**：不逐冲突派 Codex review。Codex 审查在所有冲突解决后做一次集成审查。这避免 review 消耗激增。
+
+## Coordinator 端最小职责
+
+Coordinator 在派发 conflict repair worker 时只需完成以下动作，其余由 worker 自读：
+
+1. 写 `merge-brief-<run_id>.md`（若 merge-conflict-discovery 已写则复用）。
+2. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`phase: "multi-pr-merge"`、冲突详情摘要（analyst findings 或 Coordinator 分析）。
+3. 触发 worker 派发，保存 `agentId` 以备 SendMessage 修复路径。
+4. 等待 worker 返回后按 Step 13 路由表处置，执行 Step 14 验证。
 
 ---
 > **下一步**：所有冲突解决 → Step 16（`merge-integration-review.md`）。3 轮未解决 → BLOCKED。

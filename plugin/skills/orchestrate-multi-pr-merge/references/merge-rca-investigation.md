@@ -2,6 +2,17 @@
 
 > **流程位置**：`orchestrate-multi-pr-merge` Steps 9-11 · 仅系统性冲突时进入
 
+## Self-Read Protocol
+
+你是 root-cause-analyst（执行 Multi-PR 系统性冲突调查）。启动时按以下顺序执行：
+
+1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`phase: "multi-pr-merge"`。
+2. 读 `.claude/multi-model-workflow/merge-brief-<run_id>.md`，获取大设计文档路径、PR 列表、合同地图。
+3. 读大设计文档（来自 merge-brief）理解整体目标 + 架构方案 + 模块划分。
+4. 读 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-multi-pr-merge/references/rca-pr-conflict-methodology.md`，按其中 5 步方法论执行调查。
+5. 读本文件（你正在读的这份手册），理解 Return Contract 格式。
+6. 使用 Multi-PR Conflict Investigation 方法论，从"交互"而非"错误"的视角调查。
+
 这是 Multi-PR Merge 独特的调查场景。与 Bug Investigation（从零查 bug）和 Repair Truncation（worker 修两轮不过）不同，PR 冲突调查的对象是"两个各自正确的 PR 合在一起为什么出问题"。
 
 ## Step 9：构造 Analyst Dispatch
@@ -16,22 +27,13 @@ Agent({
     合并时发现的系统性冲突。每个 PR 各自正确（已通过 Final Review），但它们的
     交互产生了冲突。
 
-    ## 大设计文档
-    <path>（整体目标 + 架构方案 + 模块划分）
-
-    ## 参与合并的 PR
-    | PR | Branch | 核心行为 | 对应 Issue |
-    | --- | --- | --- | --- |
-    <paste>
-
-    ## Explorer 发现的冲突
-    <paste conflict list from explorer — type / PRs / files / description / severity>
-
-    ## Coordinator 的正确状态理解
-    <paste from Step 2 — 合并后系统应该是什么样子>
-
-    ## 合同地图
-    <paste cross-PR contract surfaces>
+    ## Merge context
+    读 `.claude/multi-model-workflow/merge-brief-<run_id>.md` 获取：
+    - 大设计文档路径（你自读该文档，获取整体目标 + 架构方案 + 模块划分）
+    - 参与合并的 PR 列表（PR / Branch / 核心行为 / 对应 Issue）
+    - Explorer 发现的冲突列表（type / PRs / files / description / severity）
+    - Coordinator 的正确状态理解（合并后系统应该是什么样子）
+    - 合同地图（cross-PR contract surfaces）
 
     ## Methodology
     启动后立即 Read 以下文件，按其中 5 步方法论执行调查：
@@ -96,15 +98,13 @@ Agent({
     ## Analyst 已排除的假设
     <paste from analyst return — excluded hypotheses with evidence>
 
+    ## Merge context
+    读 `.claude/multi-model-workflow/merge-brief-<run_id>.md` 获取：
+    - PR 列表和各 branch（你自行 git diff 获取相关代码段）
+    - 大设计文档路径（你自读该文档）
+
     ## 待澄清的冲突
-    <paste unresolved conflicts from analyst return>
-
-    ## PRs involved
-    | PR | Branch | 核心行为 |
-    <paste>
-
-    ## 大设计文档
-    <path>
+    读 dispatch prompt 中 Coordinator 传入的 analyst 未解决冲突摘要。
 
     ## 调查方向
     <Coordinator 根据 analyst 排除路径判断的下一步方向——
@@ -127,6 +127,15 @@ Agent({
 ```
 
 Explorer 返回后：用 explorer findings 补充 analyst prompt，重新 dispatch `root-cause-analyst`（Step 9）。**Analyst ↔ Explorer 循环最多 1 次**（analyst → explorer → analyst）。第 2 轮 analyst 仍返回 `unable_to_determine` → BLOCKED，报告用户。
+
+## Coordinator 端最小职责
+
+Coordinator 在派发时只需完成以下动作，其余由 analyst 自读：
+
+1. 写 `merge-brief-<run_id>.md`（若已写则复用），确保包含 PR 列表、设计文档路径、冲突列表、合同地图、正确状态理解。
+2. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`phase: "multi-pr-merge"`、`agent_role: "root-cause-analyst"`。
+3. 触发 analyst 派发，保存 `agentId`。
+4. 等待 analyst 返回后按 Step 11 路由表处置。
 
 ---
 > **下一步**：root_cause_identified / implementation_deviation → Step 12（`merge-conflict-repair.md`）。design_conflict → 返回 verdict。unable_to_determine → 派 explorer 补信息或 BLOCKED。
