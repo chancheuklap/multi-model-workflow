@@ -88,7 +88,7 @@ Route 1（Formal）+ Route 2（Bug）+ Route 3（Multi-PR）是真正不同的�
 | Build 模板 inject 到 5+ 文件的锚点数 | 3（review-dispatch / repair-routing / disposition-table） | 0 — 改为引用 canonical reference |
 | 单个 reference 最大行数 | 358 | ≤ 250 |
 | 孤儿 reference（无任何 .md 引用） | 7 | 0 — 删除或被引用 |
-| state.sh 0 生产调用的子命令 | 3 | 0 — 删除或合并 |
+| state.sh 0 生产调用的子命令 | 2（business-summary / plans；idempotency 调研误判已纠正为 4 处生产调用） | 0 — 删除（path-a-escalation / agent-context-check 因决策 3/6 一并删除） |
 | scripts/lib 0 生产 source 的库 | 2 | 0 — 删除或合并 |
 | route-extensions 副本目录数 | 2（workflow + execution） | 1（只在 workflow） |
 | Route 枚举值 | 8（formal / bug / multi-pr / hotfix / quickfix / spike / maintenance / direct-repair） | ≤ 4（formal / bug / multi-pr / direct-repair） + flags |
@@ -169,7 +169,7 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 - `doc_patch_path` 字段（plan-return-v1.json）— 删除
 - Worker `agent-context-check` 状态查询 — 改为 Worker 本地决策（不调 state.sh）
 
-### 4.2 实现决策（核心改动 11 类）
+### 4.2 实现决策（核心改动 12 类）
 
 > 这一节列出本轮改动的全部范畴。每一条都对应后续大 issue 拆分时的一个候选 vertical slice。具体实现细节由计划文档承担，本节只到决策层面。
 
@@ -187,19 +187,23 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 
 #### 决策 2：删除死模板和孤儿文件
 
-- `forbidden-shortcuts.md.tmpl` + resolver — 0 实际 BEGIN 引用，**整套删除**
-- `state-write.md.tmpl` + resolver — 单一目标使用，**inline 回 orchestrate-execution/SKILL.md**，删模板
-- `trust-boundary.md.tmpl` + resolver — 单一目标使用，**inline 回 orchestrate-execution/SKILL.md**（保留 worker variant 段落），删模板
-- `review-dispatch.content-only.md.tmpl` — 仅 codex-review/SKILL.md 1 处用，**inline 回 codex-review/SKILL.md**，删模板（decision 1 也删 review-dispatch 主模板）
-- 孤儿 reference 文件 7 个：
-  - `multi-pr-conflict-worker-handbook.md` / `multi-pr-explorer-handbook.md` / `multi-pr-integration-review-handbook.md`（共 455 行 / 16721 chars）— **删除**（内容已被 merge-brief 覆盖；merge-brief 是唯一权威源）
-  - `learnings-confidence-audit.md`（60 行）— **折回** orchestrate-execution/SKILL.md 的 Worker 返回处理段
-  - `learnings-trust-gate.md`（21 行）— **折回** 同上
-  - `path-a-re-review.md`（59 行）— **删除**（决策 3 删除 Path A）
-  - `execution-worker-handbook.md` — SKILL.md 引用但文件不存在（实际是 `execution-worker-dispatch.md`），**修正引用** / 重命名
-- 删除 `plugin/skills/orchestrate-execution/references/route-extensions/` 整个目录（4 个文件），保留 workflow 一侧的 route-extensions/
+**模板清理（含同步 verify-maturity / build check）**：
+- `forbidden-shortcuts.md.tmpl` + resolver — 当前 **2 个 active anchors**（orchestrate-execution/SKILL.md + orchestrate-final-review/SKILL.md）；先 **inline 到目标 SKILL.md**，再删除模板 + resolver + build check 同步
+- `state-write.md.tmpl` + resolver — 单一目标使用（orchestrate-execution/SKILL.md），**inline 后删模板**
+- `trust-boundary.md.tmpl` + resolver — 单一目标使用（orchestrate-execution/SKILL.md `[variant=worker]`），**inline 后删模板**
+- `review-dispatch.content-only.md.tmpl` — **本轮不动**（§10 第 15 条明确不动 codex-review skill；该模板仅 codex-review/SKILL.md 1 处用，留作下轮）
 
-**收益估算**：删除 ≈800-1000 行 + 模板系统 4 项
+**孤儿 reference 文件清理**：
+- `multi-pr-conflict-worker-handbook.md` / `multi-pr-explorer-handbook.md` / `multi-pr-integration-review-handbook.md`（共 455 行 / 16721 chars）— **删除**（内容已被 merge-brief 覆盖；merge-brief 是唯一权威源）。**同步**：删除 `verify-maturity.sh` 中的 6.11 节 6 项 existence checks（3 个 -f 检查 + 3 个 Self-Read 检查）；改为验证 merge-brief / merge-* references 已覆盖各角色 Self-Read 内容
+- `learnings-confidence-audit.md`（60 行）— **折回** orchestrate-execution/SKILL.md 的 Worker 返回处理段
+- `learnings-trust-gate.md`（21 行）— **折回** 同上
+- `path-a-re-review.md`（59 行）— **删除**（决策 3 删除 Path A）
+- `execution-worker-handbook.md` 文件名 bug — SKILL.md 引用此文件但实际文件是 `execution-worker-dispatch.md`，**修正 SKILL.md 引用** 或在仓库中创建正确名称的文件
+
+**目录清理**：
+- 删除 `plugin/skills/orchestrate-execution/references/route-extensions/` 整个目录（4 个 DEPRECATED 副本），保留 workflow 一侧的 route-extensions/（但决策 10 会进一步折叠它）
+
+**收益估算**：删除 ≈800-1000 行 + 模板系统 3 项（不再含 review-dispatch.content-only）
 
 #### 决策 3：删除 Path A 自修分叉，所有修复走 Path B SendMessage
 
@@ -255,38 +259,43 @@ Plan Implementation Review 报 needs_repair，Coordinator 验证 finding → 走
 
 **理由**：Worker 自己手上就有 packs_in_session 信息（每完一个 Pack 自增），绕一圈 state.sh 没有意义。
 
-#### 决策 7：删除 state.sh 三个 0 生产调用子命令
+#### 决策 7：删除 state.sh 死命令 + scripts/lib 清理
 
-- `business-summary` — 0 生产调用，删除
-- `idempotency` — 0 生产调用（独立子命令；idempotency_key 字段仍由其他子命令写入），删除子命令本身
-- `plans` — 0 生产调用，删除
+**state.sh 死子命令（已亲验 0 生产调用）**：
+- `business-summary` — 0 生产调用，**删除子命令**
+- `plans` — 0 生产调用（仅在 hook 错误消息字符串中提及，非真实调用），**删除子命令**
 
-scripts/lib 0 生产 source 的：
-- `review-effectiveness.sh` — 评估保留诊断价值。如保留则改为按需调用（不放 lib，放 scripts/）；如删除则一并删 `review_effectiveness` 字段维护逻辑。**决策**：删除 lib 文件，保留 `review_effectiveness` 字段定义（仅作可选诊断字段，由 Coordinator 在 Final Review 时手动统计，不再自动聚合）。
+**注意：idempotency 子命令保留不动**：调研误判为 0 调用，实际有 4 处生产调用方（`validate-route-worker-dispatch.sh` / `record-route-worker-dispatch.sh` / `validate-plan-dispatch.sh` / state.sh init 字段维护）。Codex Content Review C1 + Alignment Review C2 已纠正。**保留 `state.sh idempotency check/append`**。
+
+**scripts/lib 清理（按用户 D3 确认）**：
+- `review-effectiveness.sh` — 0 生产 source，**删除 lib 文件**。**同步删除 `workflow-state-v1.json` 中 `review_effectiveness` 字段**（schema required 列移除 + properties 段移除）；同步删除 `state.sh init` 中该字段的初始化（state.sh 第 ~170 行）+ tests 中相关 fixture + verify-maturity 中对该 lib 存在性的检查
 - `learnings-jsonl.sh` + `learnings-poison-detector.sh` — 合并成一个脚本（`learnings-jsonl.sh` 内联 poison detector 调用，poison-detector 作为 function 而非独立脚本）
 
 #### 决策 8：合并 review-dispatch / route-worker-dispatch 重复脚本对
 
 **当前**：
-- `record-review-dispatch.sh` + `validate-review-dispatch.sh` 总是成对出现于同一 skills
-- `record-route-worker-dispatch.sh` + `validate-route-worker-dispatch.sh` 同模式
+- `record-review-dispatch.sh` + `validate-review-dispatch.sh` 总是成对出现于同一 skills（≈13-15 处引用）
+- `record-route-worker-dispatch.sh` + `validate-route-worker-dispatch.sh` 同模式（≈11 处引用）
 
 **改动**：
 - 合并为 `dispatch-review.sh`，子命令 `validate` / `record` 二合一
 - 合并为 `dispatch-route-worker.sh`，同模式
-- 修改所有 skills/build/templates 引用方
+- 修改所有 skills / build / templates 引用方（详见 §5.8 scripts CLI 合同变化）
+- 兼容策略：保留旧 4 个脚本作为 shim（内部转发到新合并脚本），允许渐进迁移（每个 SKILL.md / reference / build template 在自己的 Pack 内迁移）。所有 producer 迁移完成 + 一轮 Plan Implementation Review 通过后再删除 shim
 
 **理由**：每次派发 review 或 route worker 总是先 validate 再 record；分两脚本意味着每次至少调两次 bash，合一减半。
 
-#### 决策 9：Hook 行为降级（阻断 → WARN）
+**注意**：本决策对应的合同变化（旧脚本名 → 新脚本名 + subcommand）已列入 §5.8。Codex Content Review C4 提示必须在 §5 闭合 scripts CLI 合同，否则 Pack 拆分会遗漏 producer/consumer。
 
-按调研 G 的逐项分析，把以下 hook 检查从 `exit 2` 降级为 `additionalContext WARN`：
+#### 决策 9：Hook 行为降级（阻断 → WARN，已收窄至 1 项）
+
+经过 Codex Alignment Review C4 + C5 的纠正，**multi-pr-dispatch (b)(d)** 和 **gate-codex-review --resume** 三处**不能降级**——它们是 Document-as-Context 单一权威源和 targeted re-review durability/registry 合同的硬保护。本轮只降级 1 项：
 
 | Hook | 检查 | 当前 | 改为 |
 |------|------|------|------|
 | validate-plan-dispatch.sh | Step 6: Manifest 缺失 | exit 2 | WARN（Worker 可从 plan 正文工作） |
 | validate-plan-dispatch.sh | Step 8: Path A 检查 | exit 2 | 删除（决策 3 已删 Path A） |
-| validate-multi-pr-dispatch.sh | (b): repair_round≥1 + stage=init | exit 2 | WARN |
+| ~~validate-multi-pr-dispatch.sh~~ | ~~(b): repair_round≥1 + stage=init~~ | ~~exit 2~~ | **保持 exit 2**（Alignment Review C5：repair 不能在 init 状态执行，会污染 merge-brief resolution log） |
 | validate-multi-pr-dispatch.sh | (d): prompt 含 merge-brief 路径字符串 | exit 2 | WARN（粘贴内容也能跑） |
 | gate-codex-review.sh | targeted-re-review 必须 `--resume` | exit 2 | WARN（resume 是质量问题不是正确性） |
 
@@ -335,10 +344,12 @@ scripts/lib 0 生产 source 的：
 - `final-review-completion.md` 内部对 `final-review-release-gate.md` 的引用 — 同处理
 - `merge-rca-investigation.md` Self-Read Protocol Step 4 对 `rca-pr-conflict-methodology.md` 的跳 — 把方法论正文折回 `merge-rca-investigation.md` 作为 `## 方法论` 章节
 
-**补全路标**：
-- `route-6-spike.md`：补顶部 `> 流程位置` blockquote
+**补全路标**（执行时先 grep 顶部缺路标的全部 reference，下列为已知样本，**完整清单由 Pack 执行时枚举**）：
 - `merge-brief-template.md`：补顶部 `> 使用场景 + 完成后回到` blockquote
 - `learnings-trust-gate.md`（如保留为独立 reference）：补顶部 `> 流程位置`（如折回 SKILL.md 则不需要 — 决策 2 已处理）
+- 注意：`route-6-spike.md` / `route-4-hotfix.md` / `route-5-quickfix.md` / `route-7-maintenance.md` 由决策 10 整体删除并折叠回 SKILL.md，不在此处补路标
+
+**Verify-maturity 加检查**：所有 `plugin/skills/*/references/*.md`（除 `_shared/`）顶部 5 行内必须含 `> 流程位置` / `> 使用场景` / `> 完成后回到` 任一路标 blockquote，无则报错
 
 ### 4.3 改动总览图
 
@@ -346,12 +357,12 @@ scripts/lib 0 生产 source 的：
 v3.8.0                         本轮 round 2 后
 ─────────────────────         ────────────────────
 13 hooks                      ≤ 10 hooks（删 guard-plan-doc-patch + 部分降级 WARN）
-13 build templates            9 build templates（删 forbidden / state-write / trust-boundary / review-dispatch.content-only）
-50 references                 ≤ 40 references（删孤儿 7 + 合并多层跳 3）
-20 state.sh subcommands       17 subcommands（删 business-summary / idempotency / plans / path-a-escalation / agent-context-check；agent-context-check 是决策 6）
+13 build templates            10 build templates（删 forbidden-shortcuts / state-write / trust-boundary；review-dispatch.content-only 本轮保留 §10 第 15 条）
+50 references                 ≤ 40 references（删孤儿 7 + 合并多层跳 3） + 3 个 _shared canonical
+20 state.sh subcommands       16 subcommands（删 business-summary / plans / path-a-escalation / agent-context-check；idempotency 保留 — 调研误判已纠正）
 6 scripts/lib                 3 scripts/lib（合并/删 doc-patch-apply / review-effectiveness / learnings-poison-detector）
-13 scripts                    10 scripts（合并 review-dispatch 对 / route-worker-dispatch 对）
-8 route enum values           4 route enum values + phase_skip[] flags
+13 scripts                    10 scripts（合并 review-dispatch 对 / route-worker-dispatch 对 + shim 兼容期）
+8 route enum values           4 route enum values（formal / bug / multi-pr / direct-repair）+ phase_skip[] flags
 6 SKILL.md phase variants     6 SKILL.md（瘦身 30-40%）
 2 修复路径（A + B）           1 修复路径（B / SendMessage）
 独立 bug seed 文件             直接以 RCA findings 进 Discovery
@@ -387,6 +398,7 @@ doc-patch 系统                 Coordinator 直接 Edit plan checkbox
 | `blocked_for_self_fix` | boolean | 删除 |
 | `review_dispositions[*].disposition` enum | 10 值含 `path-a` | 9 值不含 `path-a` |
 | `bug_seed_path` | string\|null | 删除（如存在） |
+| `review_effectiveness` | object | 删除（D3：lib 删除 + 字段删除 + state.sh init 中初始化删除 + tests fixture 同步） |
 
 **Owner**：决策 3（Path A 删除）+ 决策 5（bug seed 删除）+ 决策 10（路线折叠）的 plan
 **Producer**：`state.sh init / update / disposition append`
@@ -421,16 +433,23 @@ doc-patch 系统                 Coordinator 直接 Edit plan checkbox
 
 ### 5.5 Canonical reference 新增
 
-新增 3 个 canonical reference（放在 `plugin/skills/orchestrate-execution/references/_shared/`）：
-- `_shared/review-dispatch.md`（≈79 行，从 review-dispatch.md.tmpl 抽取）
-- `_shared/repair-routing.md`（≈42 行）
-- `_shared/disposition-table.md`（≈47 行）
+新增 3 个 canonical reference，**统一放在 `plugin/skills/_shared/`**（plugin-rooted，**不**放在某个 phase 的 references/ 下——避免 phase 互相依赖 + 路径相对解析问题）：
+- `plugin/skills/_shared/review-dispatch.md`（≈79 行，从 review-dispatch.md.tmpl 抽取）
+- `plugin/skills/_shared/repair-routing.md`（≈42 行）
+- `plugin/skills/_shared/disposition-table.md`（≈47 行）
 
-各 phase 的 SKILL.md / reference 文件需要这些内容时，**改为在文本中说"Read `_shared/review-dispatch.md`"**，不再 inject。
+各 phase 的 SKILL.md / reference 文件需要这些内容时，**用 plugin-rooted 绝对路径引用**：
+
+```
+**Read** `plugin/skills/_shared/review-dispatch.md` 并按其格式派 Codex review。
+```
+
+**禁止使用相对路径**（`../_shared/...` 或 `_shared/...`）——sub-agent 在不同 cwd 下调用 Read 会解析失败。所有引用一律 plugin-rooted 绝对路径。
 
 **Owner**：决策 1 的 plan
-**Producer**：新建文件
-**Consumer**：6 个 SKILL.md + ≈10 个其他 reference 文件
+**Producer**：新建 3 个文件 + 新建 `plugin/skills/_shared/` 目录
+**Consumer**：6 个 SKILL.md + ≈10 个其他 reference 文件（grep `<!-- BEGIN: review-dispatch -->` / `<!-- BEGIN: repair-routing -->` / `<!-- BEGIN: disposition-table -->` 找全）
+**Verify-maturity 加检查**：所有原 inject 锚点位置必须替换为 plugin-rooted `Read` 引用，不允许出现相对路径形式
 
 ### 5.6 Hook 行为契约变化
 
@@ -452,15 +471,43 @@ doc-patch 系统                 Coordinator 直接 Edit plan checkbox
 
 | 子命令 | 当前 | 改为 |
 |--------|------|-----|
-| `business-summary` | exists | 删除 |
-| `idempotency` | exists | 删除 |
-| `plans` | exists | 删除 |
-| `path-a-escalation` | exists | 删除 |
-| `agent-context-check` | exists | 删除 |
+| `business-summary` | exists | 删除（0 生产调用） |
+| `plans` | exists | 删除（0 生产调用） |
+| `path-a-escalation` | exists | 删除（决策 3） |
+| `agent-context-check` | exists | 删除（决策 6 — Worker 本地决策） |
+| `idempotency check/append` | exists | **保留**（4 处生产调用——调研误判已纠正） |
 
 **Owner**：决策 3 / 6 / 7 的 plan
 **Producer**：`plugin/scripts/state.sh`
-**Consumer**：所有 grep `state.sh <subcommand>` 调用方
+**Consumer**：所有 grep `state.sh <subcommand>` 调用方（删除前用 grep 全验证 0 残留）
+
+### 5.8 Scripts CLI 合同变化（决策 8）
+
+`record-review-dispatch.sh` / `validate-review-dispatch.sh` → 合并为 `dispatch-review.sh`：
+
+| 旧调用 | 新调用 |
+|--------|--------|
+| `bash plugin/scripts/validate-review-dispatch.sh <args>` | `bash plugin/scripts/dispatch-review.sh validate <args>` |
+| `bash plugin/scripts/record-review-dispatch.sh <args>` | `bash plugin/scripts/dispatch-review.sh record <args>` |
+
+`record-route-worker-dispatch.sh` / `validate-route-worker-dispatch.sh` → 合并为 `dispatch-route-worker.sh`：
+
+| 旧调用 | 新调用 |
+|--------|--------|
+| `bash plugin/scripts/validate-route-worker-dispatch.sh <args>` | `bash plugin/scripts/dispatch-route-worker.sh validate <args>` |
+| `bash plugin/scripts/record-route-worker-dispatch.sh <args>` | `bash plugin/scripts/dispatch-route-worker.sh record <args>` |
+
+**兼容策略**：旧 4 个脚本保留为 shim（内部转发 `exec "$DIR/dispatch-<x>.sh" <validate|record> "$@"`），允许 producer 渐进迁移。所有 producer（SKILL.md / reference / build template / hook） 完成迁移 + 一轮 Plan Implementation Review 通过后再删除 shim。
+
+**Owner**：决策 8 的 plan
+**Producer**：新建 2 个合并脚本 + 改写 4 个旧脚本为 shim
+**Consumer**：
+- ≈13-15 处 review-dispatch 调用（SKILL.md / references / build templates）
+- ≈11 处 route-worker-dispatch 调用
+- hook（如 `validate-plan-dispatch.sh` 内部 source 这些 lib）
+- tests/*.sh
+
+**Verify-maturity 加检查**：shim 期结束后 grep 全仓库无 `record-review-dispatch.sh` / `validate-review-dispatch.sh` / `record-route-worker-dispatch.sh` / `validate-route-worker-dispatch.sh` 直接调用
 
 ---
 
@@ -518,16 +565,21 @@ TBD（plan writing 完成后填充）
 
 - 所有现有 `plugin/hooks/tests/*.sh` 套件继续通过（57 suites baseline）
 - 所有现有 `plugin/scripts/tests/*.sh` 套件继续通过
-- 新增 `verify-maturity.sh` 检查项：
-  - canonical references 存在且引用链完整（决策 1）
-  - 没有任何 .md 文件含已删除的 `<!-- BEGIN: forbidden-shortcuts -->` / `<!-- BEGIN: state-write -->` / `<!-- BEGIN: trust-boundary -->` / `<!-- BEGIN: review-dispatch.content-only -->` 锚点（决策 2）
-  - 没有任何 .md 文件含 `path-a` 字符串（决策 3）
-  - 没有任何 .md 文件含 `doc-patch` 字符串（决策 4，除非是 deprecated 标注）
-  - state.sh 不再支持 5 个删除的子命令（决策 3 / 6 / 7）
-  - hooks 数 ≤ 10
-  - SKILL.md 行数符合目标（决策 §2.1 表）
-  - route enum 4 值
-  - 所有 .md reference 顶部含 `> 流程位置` 或等效路标
+- 新增 / 修改 `verify-maturity.sh` 检查项：
+  - **Canonical reference**：`plugin/skills/_shared/{review-dispatch,repair-routing,disposition-table}.md` 存在 + 所有原 inject 位置已替换为 plugin-rooted `Read` 指令（grep 无残留 `<!-- BEGIN: review-dispatch -->` / `<!-- BEGIN: repair-routing -->` / `<!-- BEGIN: disposition-table -->` 锚点；引用一律 plugin-rooted 绝对路径，不允许 `../_shared/` 相对形式）
+  - **Phase 进入 baseline chars 上限**：每个 phase 的 SKILL.md + frontmatter `read:` 列出的 references 总 chars ≤ §2.1 目标（execution / final-review / multi-pr-merge 各 ≤ 50000）
+  - **单 reference 最大行数** ≤ 250（决策 §2.1）
+  - **死锚点清理**：无 `<!-- BEGIN: forbidden-shortcuts -->` / `<!-- BEGIN: state-write -->` / `<!-- BEGIN: trust-boundary -->` 锚点存在（决策 2）；review-dispatch.content-only 本轮不删
+  - **死字符串清理**：所有 .md 无 `path-a` 字符串（决策 3）；无 `doc-patch` 字符串（决策 4，除 git 历史和 deprecated 标注）；无 `bug-seed-path` / `bug-seed-file` 字符串（决策 5）
+  - **State machine 命令删除**：state.sh 不再支持 `business-summary` / `plans` / `path-a-escalation` / `agent-context-check` 4 个子命令；**仍支持** `idempotency check/append`
+  - **Lib 死代码删除**：`scripts/lib/review-effectiveness.sh` 不存在；`scripts/lib/learnings-poison-detector.sh` 不存在（合并入 learnings-jsonl.sh）；`scripts/lib/doc-patch-apply.sh` 不存在
+  - **Hook 数**：`plugin/hooks/*.sh` 数量 ≤ 10；`hooks.json` 无 `guard-plan-doc-patch` 条目
+  - **Route enum 长度**：`workflow-state-v1.json` 的 `route` enum 值数 = 4
+  - **Route extensions 副本**：`plugin/skills/orchestrate-execution/references/route-extensions/` 目录不存在；`plugin/skills/orchestrate-workflow/references/route-extensions/` 目录不存在（已折叠回 SKILL.md）
+  - **路标完整性**：所有 `plugin/skills/*/references/*.md`（除 `_shared/`）顶部 5 行内必须含路标 blockquote
+  - **Orphan reference**：无 .md reference 文件未被任何 SKILL.md / 其他 reference / agent.md / build template 引用
+  - **Dispatch script shim 期检查**：合并完成期内允许 `record-/validate-review-dispatch.sh` / `record-/validate-route-worker-dispatch.sh` shim 存在；shim 期结束后必须全部删除（由 Plan 关闭时切换检查模式）
+  - **Workflow-state JSON 不含废弃字段**：新 init 的 workflow-state 不包含 `path_a_escalation` / `blocked_for_self_fix` / `bug_seed_path` / `review_effectiveness`（旧 run 通过 graceful ignore 容忍）
 - 全量 `bash plugin/scripts/run-all-tests.sh` 通过
 
 ### 7.2 验收路径
@@ -579,6 +631,16 @@ TBD（plan writing 完成后填充）
 - 检测：verify-maturity grep 检查
 - 恢复：plan 完成前清理
 
+**场景 5：Worker 在 Loop 中途 compact，本地 `packs_in_session` 计数丢失（决策 6）**
+- 背景：决策 6 把 `state.sh agent-context-check` 删除，改为 Worker 内存计数。但 Worker 自身也可能 compact，导致内存丢失
+- 检测：Worker 在 compaction 恢复时 SessionStart hook 注入恢复指令
+- 恢复：Worker Loop 启动 Step 3 增加"如内存计数缺失，读 `execution-state.plans[plan_id].packs[*].status` 统计 `status=committed` 的 Pack 数 = `packs_in_session` 初值"。`execution-state` 由 `track-execution-state.sh` 自动维护，是单一真相源
+- 不变量：恢复后的计数精确反映已完成 Pack；Worker 不需要"猜"
+
+**场景 6：合并的 dispatch script shim 期内 producer 漏迁移**
+- 检测：每个 Plan 完成时 grep 该 Plan 触及的 producer 文件是否仍含旧脚本名
+- 恢复：Plan Implementation Review 抓到 → repair；所有 producer 完成迁移后 + 一轮 PIR 通过后再删除 shim
+
 ### 9.2 不可恢复失败
 
 - 用户在 Round 2 落地中途要求中止 → 已 committed 的改动留存（每个 Pack 独立 commit，可 cherry-pick）；未 committed 的 Worker 进度通过 `state.sh agent-id` 找到 worker_agent_id 后 SendMessage 续修或新 dispatch
@@ -589,7 +651,7 @@ TBD（plan writing 完成后填充）
 
 本轮**明确不做**的事项（即使发现也不触碰）：
 
-1. 不改 Worker Loop 6 段合同（启动 / 循环 / verdict / repair / context / artifact）
+1. 不改 Worker Loop 6 段合同（启动 5 步 / Pack 循环 / 6 个 verdict / repair mode / context 自监控 / artifact schema）。决策 4 删除 doc-patch 不算改 6 段——artifact 段保留 plan-return.json + pack-returns/，只是 `doc_patch_path` 可选字段被删除，per_pack 必填结构不动
 2. 不改 Document-as-Context 主线（设计 → issue → plan → merge-brief → 代码 链路）
 3. 不改 Codex Review 5 步派发协议（`codex-companion.mjs task --background ... result`）
 4. 不改 review budget 公式（`3P + 12`）和 effort budget 公式（`2 × review_total`）
