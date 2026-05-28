@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "plan-return-v1",
+  "description": "Schema for Worker-written plan-returns/<run_id>/<plan_id>/plan-return.json. Source of truth for the Plan-level envelope produced by pack-executor / complex-pack-executor in autonomous mode (Plan 005). Read by agent-return-handler hook on SubagentStop to drive verdict routing (pass / partial-pass / blocked / need-fresh-worker / needs-context / needs-plan-revision). Sibling artifacts in the same directory: doc-patch.diff (plan checkbox patch, applied by Coordinator after Plan Implementation Review passes — Decision 6) and open-items.json (accumulated open items across packs).",
+  "type": "object",
+  "required": ["schema_version", "run_id", "plan_id", "verdict", "per_pack"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Run identifier — must match the active run."
+    },
+    "plan_id": {
+      "type": "string",
+      "description": "Plan identifier (e.g. '005')."
+    },
+    "started_at": {
+      "type": ["string", "null"],
+      "description": "ISO-8601 timestamp of Worker dispatch start."
+    },
+    "finished_at": {
+      "type": ["string", "null"],
+      "description": "ISO-8601 timestamp of Worker return."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "partial-pass",
+        "blocked",
+        "need-fresh-worker",
+        "needs-context",
+        "needs-plan-revision"
+      ],
+      "description": "Plan-level verdict. Drives agent-return-handler routing: pass / partial-pass → Plan Implementation Review (doc-patch NOT yet applied); blocked → BLOCKED route; need-fresh-worker → Coordinator dispatches new Agent with resume_from_pack_id; needs-context / needs-plan-revision → routed back to plan-writing / discovery."
+    },
+    "per_pack": {
+      "type": "object",
+      "description": "Per-pack status, keyed by pack_id (e.g. '5.1', '5.2').",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["committed", "blocked", "skipped"],
+            "description": "committed = pack TDD + verification passed and commit landed; blocked = three-failure protocol exhausted; skipped = pack pre-empted (e.g. need-fresh-worker break before reaching it)."
+          },
+          "commit_sha": {
+            "type": ["string", "null"],
+            "description": "Git commit SHA of the Pack commit (only when status=committed)."
+          },
+          "verdict": {
+            "type": ["string", "null"],
+            "description": "Per-pack verdict surfaced in pack-returns/<pack_id>.json (e.g. 'pass', 'needs repair'). Mirrored here for fast lookup."
+          },
+          "reason": {
+            "type": ["string", "null"],
+            "description": "When status=blocked or skipped, short reason text."
+          },
+          "attempts": {
+            "type": ["integer", "null"],
+            "description": "Number of TDD attempts before blocked (for diagnostics)."
+          }
+        }
+      }
+    },
+    "open_items_path": {
+      "type": ["string", "null"],
+      "description": "Relative path to open-items.json — typically 'plan-returns/<run_id>/<plan_id>/open-items.json'."
+    },
+    "doc_patch_path": {
+      "type": ["string", "null"],
+      "description": "Relative path to doc-patch.diff — typically 'plan-returns/<run_id>/<plan_id>/doc-patch.diff'. Decision 6: NOT applied at handler time; Coordinator applies after Plan Implementation Review passes."
+    },
+    "context_pressure": {
+      "type": ["object", "null"],
+      "description": "Context-self-monitor signal (Plan 005 Decision 4).",
+      "properties": {
+        "completed_packs": {
+          "type": "integer",
+          "description": "How many packs this Worker session committed before returning."
+        },
+        "triggered": {
+          "type": "boolean",
+          "description": "True when packs_in_session >= 5 AND remaining_packs >= 2 — verdict will be need-fresh-worker."
+        }
+      }
+    },
+    "repair_round": {
+      "type": ["integer", "null"],
+      "description": "Repair Mode marker: 0/null on initial dispatch, >=1 when SendMessage repair triggered this return."
+    },
+    "concerns": {
+      "type": ["string", "null"],
+      "description": "Free-form Worker concerns the reviewer should see."
+    }
+  }
+}
