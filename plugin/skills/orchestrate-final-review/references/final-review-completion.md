@@ -60,7 +60,7 @@ git diff <starting_commit>..HEAD --diff-filter=AM --name-only | xargs grep -n "T
 
 清扫完成后，检查最终 diff 是否触碰发布风险面（migration / billing / permission / runtime / cross-service contract / deploy order / manual gate / API compatibility）。
 
-- **触发** → 读取 `final-review-release-gate.md` 执行 Release Gate 流程
+- **触发** → 详见 SKILL.md Step 18（Release Gate 条件分支）
 - **不触发** → Step 19
 
 ---

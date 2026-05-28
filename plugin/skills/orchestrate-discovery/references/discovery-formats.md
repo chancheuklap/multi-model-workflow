@@ -1,6 +1,6 @@
 # CONTEXT.md + ADR 格式
 
-> **参考文档**：`orchestrate-discovery` 全程可查阅 · CONTEXT.md + ADR 格式参考 · 非流程步骤
+> **使用场景**：起草 CONTEXT.md / ADR / scope.md 时按本文件 schema 输出 · **完成后回到**：调用方（discovery-discussion.md / discovery-design-document.md）
 
 ## CONTEXT.md 格式
 

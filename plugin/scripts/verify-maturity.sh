@@ -121,8 +121,8 @@ check "agent_id guard in validate-plan-dispatch" bash -c "
   grep -q 'already has agent_id\|agent_id.*BLOCKED' '$PLUGIN_DIR/hooks/validate-plan-dispatch.sh'
 "
 
-check "targeted-re-review requires --resume" bash -c "
-  grep -q 'Targeted re-review.*--resume' '$PLUGIN_DIR/hooks/gate-codex-review.sh'
+check "targeted-re-review removed from gate-codex-review" bash -c "
+  ! grep -q 'targeted-re-review' '$PLUGIN_DIR/hooks/gate-codex-review.sh'
 "
 
 check "worker spec no review finding in mode 2b" bash -c "
@@ -172,13 +172,13 @@ check "C2: review dispatch template marks disposition recovery" bash -c \
 check "C2: review dispatch template completes through bookkeeping script" \
   grep -q 'complete-review-dispatch.sh' "$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
 check "C2: review dispatch template records baseline reviewer agent" \
-  grep -q 'record-review-dispatch.sh' "$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
+  grep -q 'dispatch-review.sh.*record' "$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
 check "C2: state.sh supports budget unlimited subcommand" \
   bash -c "grep -q 'cmd_budget_unlimited' '$PLUGIN_DIR/scripts/state.sh'"
 check "C2: direct-repair / multi-pr-merge / bug-investigation init as unlimited" bash -c \
   "grep -q 'direct-repair|multi-pr-merge|bug-investigation' '$PLUGIN_DIR/scripts/state.sh'"
 check "C2: route worker dispatch used by merge-conflict-repair" \
-  grep -q 'validate-route-worker-dispatch.sh' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md"
+  grep -q 'dispatch-route-worker.sh.*validate' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md"
 
 # C3: track-effort-budget uses state lock for concurrent safety
 check "C3: track-effort-budget uses state lock" \
@@ -384,6 +384,19 @@ check "6.11: merge-integration-review has signpost" \
 check "6.11: orchestrate-multi-pr-merge SKILL.md ≥100 lines" bash -c "
   [ \$(wc -l < '$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/SKILL.md') -ge 100 ]
 "
+
+# 6.12: Reference signpost completeness (D12)
+echo ""
+echo "=== 6.12: Reference signpost completeness (D12) ==="
+missing=$(for f in $(find "$PLUGIN_DIR/skills" -type f -name '*.md' -not -path '*/_shared/*' -path '*/references/*'); do head -5 "$f" | grep -qE '流程位置|使用场景|完成后回到' || echo "$f"; done)
+if [[ -n "$missing" ]]; then
+  echo "FAIL: missing signpost blockquote (top-5 lines) in:"
+  echo "$missing"
+  fail=$((fail+1))
+else
+  echo "PASS: all references have signpost blockquote"
+  pass=$((pass+1))
+fi
 
 echo ""
 echo "=== Results: $pass passed, $fail failed ==="

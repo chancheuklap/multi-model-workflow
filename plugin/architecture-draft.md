@@ -285,7 +285,7 @@ Skill 是按需加载到主线程的 Coordinator 逻辑。每个 skill 由 SKILL
 | `orchestrate-plan-writing` | 271 | 0（Re-entry） / 1-2（前置） / 3-8（写作方法论） / 9-10（派 plan-writer + 收返） / 11-12b（Plan Entry Gate + Inventory Gate + Budget 赋值 + 跨计划合同锚点） / 13-14（Plan Review） / 15-18（disposition + repair + 截断） / 19（Git Checkpoint） | plan-writer-dispatch（Self-Read Protocol） / plan-writing-methodology / plan-gates / plan-preconditions / plan-review-dispatch / plan-review-resolution |
 | `orchestrate-execution` | 530 | 1-3（预执行） / 4-9（Plan 执行 + Review 循环 per Plan） / 10-12（修复分流 + 截断） / 13（Early Release Gate） / 14-16（Plan 推进 + 过渡） | execution-worker-dispatch（Self-Read Protocol） / execution-review-dispatch / execution-preparation / execution-completion / execution-release-gate / execution-repair-truncation |
 | `orchestrate-final-review` | 236 | 1-3（前置） / 4-5（2 baseline Codex dispatch） / 6-8（接收 + disposition） / 9-12（修复分流 + 截断） / 13-15,19-20（清扫 + 业务汇报 + Verdict） / 16-18（Final Release Gate） | final-review-angles / final-review-preconditions / final-review-disposition / final-review-repair / final-review-release-gate / final-review-completion |
-| `orchestrate-multi-pr-merge` | 229 | 1-3（入口 + 文档理解） / 4-8（并行 PR 分析 + 冲突分类） / 9-11（系统性冲突 RCA） / 12-15（Worker 修复 + 验证 + 循环） / 16-18（Codex 集成审查） / 19-22（顺序合并 + 清扫 + 返回） | merge-brief-template / merge-preparation / merge-conflict-discovery / merge-rca-investigation / merge-conflict-repair / merge-integration-review / merge-completion / rca-pr-conflict-methodology |
+| `orchestrate-multi-pr-merge` | 229 | 1-3（入口 + 文档理解） / 4-8（并行 PR 分析 + 冲突分类） / 9-11（系统性冲突 RCA） / 12-15（Worker 修复 + 验证 + 循环） / 16-18（Codex 集成审查） / 19-22（顺序合并 + 清扫 + 返回） | merge-brief-template / merge-preparation / merge-conflict-discovery / merge-rca-investigation / merge-conflict-repair / merge-integration-review / merge-completion |
 | `codex-review` | 154 | 1（确定审查对象） / 2（构建 prompt） / 3（派发 Codex） / 4（等待） / 5（汇报） | 无 references（单文件 ad-hoc skill） |
 
 **Skill 命名空间**：`multi-model-workflow:orchestrate-*`（全限定名，通过 `Skill({ skill: "..." })` 调用）。`codex-review` 是独立的轻量 ad-hoc 路径，与正规 orchestrate workflow 隔离（prompt 写入 `.claude/codex-review/`，不污染 `review-prompts/`）。
@@ -405,7 +405,6 @@ state.sh execution-plan complete --plan-id ... --verdict ...
 | PreToolUse | Agent | validate-multi-pr-dispatch.sh | — |
 | PreToolUse | Edit | guard-doc-edit.sh | — |
 | PreToolUse | Write | guard-doc-edit.sh | — |
-| PreToolUse | Write | guard-plan-doc-patch.sh | — |
 | PostToolUse | Bash | track-review-budget.sh | — |
 | PostToolUse | Bash | track-execution-state.sh | git commit |
 | PostToolUse | Agent | agent-return-handler.sh | — |
@@ -696,6 +695,10 @@ Closing 前（cleanup-before-push.sh）
   └─ 清除 active-run-id + scope + workflow-state + execution-state +
      pack-returns + plan-returns + merge-brief + review temp files
 ```
+
+### 8.1 Ruling 1 — track-execution-state Pack ID 提取保留 sed 模式
+
+track-execution-state.sh 的 Pack ID 提取保留 sed 模式（`sed -n 's/.*Pack \([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p'`），因为此 hook 的输入源是 commit message（受 enforce-pack-commit.sh 格式保证），不是 prompt/控制平面。
 
 ### 8.2 双文件模型（Ruling 2）
 

@@ -1,6 +1,6 @@
 # Merge Brief 写作模板
 
-> **使用说明**：本模板用于 multi-pr-merge agent 在 Step 2 创建 merge-brief 时参考。
+> **使用场景**：multi-pr-merge 流程的 9 段 merge-brief 合成模板 · **完成后回到**：调用方 phase skill
 > 创建命令：`bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" merge-brief init --run-id <run_id> --slug <slug>`
 > 文件路径：`.claude/multi-model-workflow/merge-brief-<run_id>.md`
 > 
