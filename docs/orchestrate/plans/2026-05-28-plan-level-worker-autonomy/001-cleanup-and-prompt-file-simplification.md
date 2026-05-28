@@ -12,13 +12,17 @@
 
 ## Plan Acceptance Criteria
 
-- [ ] `codex-review/SKILL.md` 的 `TEMPLATE_DEPS` 手工同步注释已删除
-- [ ] 孤儿 `decision-brief.md.tmpl` 模板 + resolver 已删除
-- [ ] `sendmessage-resume.md.tmpl` 移除"先 Write 到 `worker-prompts/...md`"指令，改为直接 inline SendMessage
-- [ ] 所有 dispatch reference 中的 `worker-prompts/` 路径引用已清理
-- [ ] `bash plugin/build/build.sh --check` 通过
-- [ ] `bash plugin/scripts/run-all-tests.sh` 通过
-- [ ] `bash plugin/scripts/verify-maturity.sh` 通过
+- [x] `codex-review/SKILL.md` 的 `TEMPLATE_DEPS` 手工同步注释已删除（commit 7886e7a）
+- [x] 孤儿 `decision-brief.md.tmpl` 模板 + resolver 已删除（commit b1f86dd）
+- [x] `sendmessage-resume.md.tmpl` 移除"先 Write 到 `worker-prompts/...md`"指令，改为直接 inline SendMessage（commit eb86658）
+- [x] 所有 dispatch reference 中的 `worker-prompts/` 路径引用已清理（commit 8a2decc）
+- [x] `bash plugin/build/build.sh --check` 通过
+- [x] `bash plugin/scripts/run-all-tests.sh` 通过（33/33）
+- [x] `bash plugin/scripts/verify-maturity.sh` 通过（103/103）
+
+**Plan 001 状态**：✅ 完成（2026-05-28，Worker agentId `ad28a86043081b5b5`，verdict=pass）
+
+**已推迟项**：Pack 1.1 的「`<!-- BEGIN: review-dispatch -->` 锚点接入」推到 Plan 003 Pack 3.5——因 worker 发现 `review-dispatch.md.tmpl` 是 77 行 formal workflow 完整模板（含 registry / validate-review-dispatch.sh / formal prompts/ 路径），直接注入会覆盖 codex-review ad-hoc skill 的 Step 2-5 内容。Plan 003 Pack 3.5 需先拆 template variant（narrow 版仅含 confidence rubric + pre-emit gate + 证据表 + bias indicators）。
 
 ## File / Responsibility Map
 
@@ -44,14 +48,13 @@
 ## Pack 1.1：删除 codex-review TEMPLATE_DEPS 手工同步注释
 
 ### Goal behavior
-消除"Coordinator 手工维护副本"反模式信号。`codex-review/SKILL.md` 的 review angles / confidence rubric / pre-emit gate / 证据表内容由 build template `review-dispatch.md.tmpl` 注入，不再需要手工同步注释。
+消除"Coordinator 手工维护副本"反模式信号。`codex-review/SKILL.md` 的 review angles / confidence rubric / pre-emit gate / 证据表内容由 build template 注入。**本 Pack 仅删除手工同步注释；anchor 接入推到 Plan 003 Pack 3.5 处理**（需要 template 拆 variant，详见 Plan 003）。
 
 ### Implementation tasks
 1. Read `plugin/skills/codex-review/SKILL.md`，定位 L8-9 的 `TEMPLATE_DEPS` HTML 注释段
 2. 删除该注释段（保留正常 frontmatter 和正文）
-3. 确认 `<!-- BEGIN: review-dispatch -->` 锚点存在于 SKILL.md（若无则补 anchor，让 build template 注入）
-4. 跑 `bash plugin/build/build.sh --apply --plugin-dir plugin` 让模板注入
-5. 跑 `bash plugin/build/build.sh --check --plugin-dir plugin` 验证
+3. **anchor 接入**：推到 Plan 003 Pack 3.5。本 Pack 不补 anchor（直接注入完整 review-dispatch.md.tmpl 会覆盖 ad-hoc skill 的 Step 2-5）
+4. 跑 `bash plugin/build/build.sh --check --plugin-dir plugin` 验证 build 不受影响
 
 ### Owned files
 - Edit: `plugin/skills/codex-review/SKILL.md` — 删除手工同步注释 + 确认 review-dispatch 锚点
@@ -61,13 +64,12 @@
 - `plugin/build/resolvers/review-dispatch.sh`（确认 resolver 包含 codex-review SKILL）
 
 ### Acceptance criteria
-- [ ] L8-9 的 `TEMPLATE_DEPS` 注释已删除
-- [ ] `<!-- BEGIN: review-dispatch -->` 锚点存在于 SKILL.md
-- [ ] `build.sh --apply` + `build.sh --check` 全部通过
+- [x] L8-9 的 `TEMPLATE_DEPS` 注释已删除
+- [ ] ~~`<!-- BEGIN: review-dispatch -->` 锚点存在于 SKILL.md~~（推到 Plan 003 Pack 3.5）
+- [x] `build.sh --check` 通过
 
 ### Verification commands
 - `! grep -q 'TEMPLATE_DEPS' plugin/skills/codex-review/SKILL.md` → Expected: exit 0
-- `grep -q 'BEGIN: review-dispatch' plugin/skills/codex-review/SKILL.md` → Expected: exit 0
 - `bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
 
 ### Risk flags

@@ -194,44 +194,79 @@ trivial
 
 ---
 
-## Pack 3.5：codex-review SKILL.md 接入 review-dispatch 锚点
+## Pack 3.5：codex-review SKILL.md 接入 narrow review-dispatch variant
 
 ### Goal behavior
-Plan 001 Pack 1.1 已删除 TEMPLATE_DEPS 注释。本 Pack 完成"接入"：让 SKILL.md 通过 `<!-- BEGIN: review-dispatch -->` 锚点拿到 confidence rubric / pre-emit gate / 证据表 / bias indicators（替代 L77-97 的手工副本）。
+
+**Plan 001 Pack 1.1 落地时发现的真问题**（Worker agentId `ad28a86043081b5b5`，2026-05-28）：`review-dispatch.md.tmpl` 是 77 行 formal workflow 完整模板（含 `validate-review-dispatch.sh` 调用、registry bookkeeping、formal `prompts/<gate>.md` 路径），直接注入 codex-review SKILL.md 会覆盖 Step 2-5 ad-hoc 流程。
+
+**修正方案**：
+1. 拆 `review-dispatch.md.tmpl` 为两个 variant：
+   - `[variant=formal]`（现状内容，11 个 formal workflow skill 用）
+   - `[variant=content-only]`（仅 confidence rubric + pre-emit gate + 证据表 + bias indicators，codex-review ad-hoc skill 用）
+2. codex-review SKILL.md 加 `<!-- BEGIN: review-dispatch -->` 锚点 + variant=content-only 指示，resolver 注入 narrow variant
+3. 删除 codex-review SKILL.md L77-97 手工副本
 
 ### Implementation tasks
-1. Read `plugin/skills/codex-review/SKILL.md`
-2. 在 Step 2 后或合适位置插入 `<!-- BEGIN: review-dispatch -->` / `<!-- END: review-dispatch -->` 锚点对
-3. 删除 L77-97 中与 template 内容重复的手工副本（confidence rubric / pre-emit gate / 证据表 / bias indicators）
-4. Read `plugin/build/resolvers/review-dispatch.sh` 或同等 resolver 注册表，确认 codex-review/SKILL.md 在注入目标列表中（若不在，加上）
-5. `bash plugin/build/build.sh --apply --plugin-dir plugin` 让 template 注入
-6. `bash plugin/build/build.sh --check --plugin-dir plugin` 验证
+
+1. Read `plugin/build/templates/review-dispatch.md.tmpl` 全文，识别 (a) formal workflow 段 (b) 纯角色规范段（confidence/pre-emit/证据表/bias）
+2. 把 template 拆为两 variant：
+   - `[variant=formal]` —— 包含 (a) + (b)，给 11 个 formal review skill
+   - `[variant=content-only]` —— 仅 (b)，给 codex-review
+3. Read `plugin/build/resolvers/review-dispatch.sh` 或同等 resolver，加 codex-review/SKILL.md 到注入目标 + 指定 variant=content-only
+4. Read `plugin/skills/codex-review/SKILL.md`
+5. 在 Step 2 后插入 `<!-- BEGIN: review-dispatch variant=content-only -->` / `<!-- END: review-dispatch -->` 锚点对
+6. 删除 L77-97 与 content-only variant 重复的手工副本
+7. `bash plugin/build/build.sh --apply --plugin-dir plugin` 让 template 注入
+8. `bash plugin/build/build.sh --check --plugin-dir plugin` 验证：
+   - codex-review SKILL.md 含锚点 + 注入的 content-only 内容
+   - 11 个 formal skill 仍含完整 formal 段
+9. 跑 `bash plugin/scripts/run-all-tests.sh` 验证没破现有测试
 
 ### Owned files
-- Edit: `plugin/skills/codex-review/SKILL.md`
-- 可能：Edit `plugin/build/resolvers/review-dispatch.sh`（如需加 target）
+
+- Edit: `plugin/build/templates/review-dispatch.md.tmpl`（拆 variant）
+- Edit: `plugin/build/resolvers/review-dispatch.sh`（加 target + variant 选择）
+- Edit: `plugin/skills/codex-review/SKILL.md`（加锚点 + 删手工副本）
 
 ### Read first
-- `plugin/skills/codex-review/SKILL.md`
+
+- `plugin/skills/codex-review/SKILL.md`（当前 Step 2-5 流程，避免破坏）
 - `plugin/build/templates/review-dispatch.md.tmpl`
-- `plugin/build/resolvers/review-dispatch.sh`（确认 target 列表）
+- `plugin/build/resolvers/review-dispatch.sh`
+- 任一现有 formal skill SKILL.md（如 `orchestrate-final-review/SKILL.md`）确认 formal variant 行为
 
 ### Acceptance criteria
-- [ ] codex-review/SKILL.md 含 `BEGIN: review-dispatch` 锚点
-- [ ] 手工副本（confidence rubric / pre-emit gate / 证据表 / bias indicators）已被锚点内容替代
-- [ ] `build.sh --apply` + `--check` 通过
-- [ ] grep 检查：codex-review SKILL.md 没有 TEMPLATE_DEPS 注释（Plan 001 Pack 1.1 已删除，本 Pack 验证）
+
+- [ ] template 拆为 formal + content-only 两 variant
+- [ ] resolver 注册 codex-review 用 content-only variant
+- [ ] codex-review/SKILL.md 含 `BEGIN: review-dispatch variant=content-only` 锚点
+- [ ] codex-review/SKILL.md 的 ad-hoc Step 2-5 流程**完整保留**（不被注入覆盖）
+- [ ] codex-review/SKILL.md 不含 TEMPLATE_DEPS 注释（Plan 001 Pack 1.1 已删，本 Pack 验证）
+- [ ] 11 个 formal review skill 行为不变（仍获完整 formal 段）
+- [ ] `build.sh --apply` + `--check` + `run-all-tests.sh` 通过
 
 ### Verification commands
-- `grep -q 'BEGIN: review-dispatch' plugin/skills/codex-review/SKILL.md` → Expected: exit 0
+
+- `grep -q 'BEGIN: review-dispatch variant=content-only' plugin/skills/codex-review/SKILL.md` → Expected: exit 0
 - `! grep -q 'TEMPLATE_DEPS' plugin/skills/codex-review/SKILL.md` → Expected: exit 0
+- `! grep -q 'validate-review-dispatch.sh' plugin/skills/codex-review/SKILL.md` → Expected: exit 0（content-only 不应注入 formal workflow 调用）
+- `grep -q 'validate-review-dispatch.sh' plugin/skills/orchestrate-final-review/SKILL.md` → Expected: exit 0（formal skill 仍含完整模板）
 - `bash plugin/build/build.sh --apply --plugin-dir plugin && bash plugin/build/build.sh --check --plugin-dir plugin` → Expected: exit 0
+- `bash plugin/scripts/run-all-tests.sh` → Expected: exit 0
 
 ### Risk flags
-normal（涉及 build resolver target 注册）
+
+normal → **bumped to high**（涉及 build template variant 拆分；错拆会破 11 个 formal review skill）
 
 ### Dependencies
-- Plan 001 Pack 1.1（TEMPLATE_DEPS 已删除）
+
+- Plan 001 Pack 1.1（TEMPLATE_DEPS 已删除，本 Pack 把 anchor 接入做完）
+
+### Out of scope
+
+- 不动 codex-review SKILL 的 Step 1 (审查对象判定) / Step 3 (dispatch 命令) / Step 4-5 (Result/Backflow)
+- 不改 11 个 formal review skill 的注入内容
 
 ---
 
