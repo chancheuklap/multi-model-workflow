@@ -79,10 +79,10 @@ if [[ -n "$PLAN_ID" && "$PLAN_ID" != "null" ]]; then
     exit 2
   fi
 
-  # plan.md must contain Pack Execution Manifest
+  # plan.md should contain Pack Execution Manifest (D9 降级: WARN instead of BLOCK)
   if ! grep -q '## Pack Execution Manifest' "$PLAN_PATH"; then
-    echo "[multi-model-workflow] BLOCKED: plan $PLAN_ID at $PLAN_PATH missing '## Pack Execution Manifest'." >&2
-    exit 2
+    echo "[multi-model-workflow] WARN: plan $PLAN_ID at $PLAN_PATH missing '## Pack Execution Manifest' — Worker may work from plan body. (D9 降级)" >&2
+    # 不 exit 2，继续后续 step
   fi
 
   # plans entry exists in execution-state
@@ -119,15 +119,6 @@ if [[ -n "$PACK_ID" && "$PACK_ID" != "null" && -f "$ESF" ]]; then
     echo "[multi-model-workflow] BLOCKED: Pack $PACK_ID already has agent_id=$EXISTING_AGENT_ID. Repair must use SendMessage({to: \"$EXISTING_AGENT_ID\"}) to resume the original worker." >&2
     exit 2
   fi
-fi
-
-# Step 8: Path A escalation
-PA_BLOCKED=$(jq '[.path_a_escalation[] | select(.blocked_for_self_fix == true)] | length' "$SF" 2>/dev/null || echo "0")
-if [[ "$PA_BLOCKED" -gt 0 ]]; then
-  case "$AGENT_ROLE" in
-    pack-executor|complex-pack-executor|plan-executor|complex-plan-executor) ;;
-    *) echo "[multi-model-workflow] BLOCKED: Path A exhausted, must use Path B worker." >&2; exit 2 ;;
-  esac
 fi
 
 # Step 9: Disposition refs validation for repair dispatch (repair_round >= 1)

@@ -96,12 +96,12 @@ ENV=$(jq -nc \
   '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"plan-executor",repair_round:0,idempotency_key:"k3",plan_id:"005",pack_id:null,plan_path:"docs/nonexistent.md"}')
 run_block "plan_path does not exist" "$ENV"
 
-# Test 4: plan.md missing Pack Execution Manifest → block
+# Test 4: plan.md missing Pack Execution Manifest → WARN (D9 降级, no longer blocks)
 mkdir -p docs/orchestrate/plans/empty
 echo "# Empty plan" > docs/orchestrate/plans/empty/001-bad.md
 ENV=$(jq -nc \
   '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"plan-executor",repair_round:0,idempotency_key:"k4",plan_id:"005",pack_id:null,plan_path:"docs/orchestrate/plans/empty/001-bad.md"}')
-run_block "plan.md missing Pack Execution Manifest" "$ENV"
+run_allow "plan.md missing Pack Execution Manifest (WARN not block)" "$ENV"
 
 # Test 5: unknown plan_id in execution-state → block
 ENV=$(jq -nc \
