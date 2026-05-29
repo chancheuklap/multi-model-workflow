@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Tests validate-pack-dispatch.sh agent_id existence guard (Step 8).
-# Per Ruling 2 + A7: if a pack already has agent_id in execution-state,
-# re-dispatch via Agent() is BLOCKED — repair must use SendMessage to resume.
+# Tests validate-plan-dispatch.sh plan-level worker re-dispatch guard.
+# Execution is plan-level only: a Plan already in_progress with a worker_agent_id
+# cannot be re-dispatched via Agent() — repair must use SendMessage to resume the
+# plan worker. A fresh Plan (no worker_agent_id) is allowed.
 #
 # Fixture strategy: the hook uses hardcoded BUDGET_DIR=".claude/multi-model-workflow",
-# so we create a temp workspace, set up the state files there, and cd into it.
+# so we create a temp workspace, set up the state + plan files there, and cd into it.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -12,8 +13,9 @@ HOOK="$SCRIPT_DIR/../validate-plan-dispatch.sh"
 
 WORKSPACE=$(mktemp -d)
 trap 'rm -rf "$WORKSPACE"' EXIT
+cd "$WORKSPACE"
 
-BUDGET_DIR="$WORKSPACE/.claude/multi-model-workflow"
+BUDGET_DIR=".claude/multi-model-workflow"
 mkdir -p "$BUDGET_DIR"
 
 pass=0; fail=0
@@ -41,82 +43,87 @@ run_test_expect_fail() {
 echo "=== test_agent_id_hook_guard.sh ==="
 
 RUN_ID="test-guard"
+echo "$RUN_ID" > "$BUDGET_DIR/active-run-id"
 
-# Create workflow-state with initialized budget
+# workflow-state with initialized budget
 cat > "$BUDGET_DIR/workflow-state-${RUN_ID}.json" <<'EOF'
 {
   "run_id": "test-guard",
-  "slug": "test",
-  "route": "formal",
-  "started_at": "2025-01-01T00:00:00Z",
-  "cursor": {"phase": "execution", "reference": null, "step": null},
   "budget": {"budget_status": "initialized", "review_total": 18, "review_used": 0, "effort_total": 36, "effort_used": 0, "direction_check_count": 0},
-  "plan_count": 2,
-  "plans": [],
-  "idempotency_keys": [],
-  "plan_writer_agent_id": null,
-  "review_dispositions": [],
-  "pending_post_push_reviews": [],
-
-  "self_verifications": [],
   "pending_direction_check": null,
-  "execution_reflux_count": 0,
-  "last_gate_phase": null,
-  "last_gate_timestamp": null
+  "idempotency_keys": [],
+  "review_dispositions": []
 }
 EOF
 
-# Create execution-state: pack 1.1 has agent_id, pack 1.2 does not
+# execution-state: plan 001 already in_progress with a worker; plan 002 is fresh
 cat > "$BUDGET_DIR/execution-state-${RUN_ID}.json" <<'EOF'
 {
   "run_id": "test-guard",
   "plans": {
-    "001": {
-      "packs": {
-        "1.1": {"status": "returned", "agent_id": "agent-abc-123", "commit_sha": "abc123", "worker_verdict": "pass", "repair_round": 0},
-        "1.2": {"status": "pending", "agent_id": null, "commit_sha": null, "worker_verdict": null, "repair_round": 0}
-      }
-    }
+    "001": {"status": "in_progress", "worker_agent_id": "agent-abc-123", "packs": {"1.1": {"status": "committed"}}},
+    "002": {"status": "pending", "worker_agent_id": null, "packs": {"2.1": {"status": "pending"}}}
   }
 }
 EOF
 
-# Build properly escaped JSON input for the hook using jq
-# Pack 1.1 (has agent_id -> should be BLOCKED)
-PROMPT_BLOCKED='<!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"test-guard","phase":"execution","agent_role":"pack-executor","pack_id":"1.1","repair_round":0,"idempotency_key":"test-key-blocked","disposition_refs":[],"review_intent":null,"exception_code":null} -->
-Do the work for pack 1.1'
+# Plan docs (Step 6 requires plan_path to resolve)
+mkdir -p docs/orchestrate/plans/test
+cat > docs/orchestrate/plans/test/001-foo.md <<'EOF'
+# Plan 001
 
-INPUT_BLOCKED=$(jq -n --arg p "$PROMPT_BLOCKED" '{"tool_input":{"prompt":$p}}')
+## Pack Execution Manifest
 
-# Pack 1.2 (no agent_id -> should be ALLOWED)
-PROMPT_ALLOWED='<!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"test-guard","phase":"execution","agent_role":"pack-executor","pack_id":"1.2","repair_round":0,"idempotency_key":"test-key-allowed","disposition_refs":[],"review_intent":null,"exception_code":null} -->
-Do the work for pack 1.2'
+| pack_id | title |
+| --- | --- |
+| 1.1 | foo |
+EOF
+cat > docs/orchestrate/plans/test/002-bar.md <<'EOF'
+# Plan 002
 
-INPUT_ALLOWED=$(jq -n --arg p "$PROMPT_ALLOWED" '{"tool_input":{"prompt":$p}}')
+## Pack Execution Manifest
 
-# Test 1: Pack 1.1 (has agent_id) should be BLOCKED by the hook
-run_test_expect_fail "hook blocks dispatch to pack with existing agent_id" \
-  bash -c "cd '$WORKSPACE' && echo '$INPUT_BLOCKED' | bash '$HOOK'"
+| pack_id | title |
+| --- | --- |
+| 2.1 | bar |
+EOF
 
-# Test 2: Pack 1.2 (no agent_id) should PASS the hook
-run_test "hook allows dispatch to pack without agent_id" \
-  bash -c "cd '$WORKSPACE' && echo '$INPUT_ALLOWED' | bash '$HOOK'"
+make_input() {
+  local envelope="$1"
+  local prompt="<!-- DISPATCH_ENVELOPE $envelope -->\nrun"
+  jq -n --arg p "$(printf '%b' "$prompt")" \
+    '{tool_input:{subagent_type:"pack-executor",prompt:$p}}'
+}
 
-# Test 3: Verify the BLOCKED message mentions the blocking reason (Step 7 pack status or Step 8 agent_id)
-run_test "block message references pack status or SendMessage" \
-  bash -c "cd '$WORKSPACE' && STDERR=\$(echo '$INPUT_BLOCKED' | bash '$HOOK' 2>&1 >/dev/null || true); echo \"\$STDERR\" | grep -qE 'SendMessage|Cannot re-dispatch'"
+# Plan 001 (already in_progress with worker_agent_id) → re-dispatch BLOCKED
+ENV_BLOCKED=$(jq -nc --arg pp "docs/orchestrate/plans/test/001-foo.md" \
+  '{protocol_version:"1",run_id:"test-guard",phase:"execution",agent_role:"pack-executor",repair_round:0,idempotency_key:"k-blocked",plan_id:"001",pack_id:null,plan_path:$pp}')
+INPUT_BLOCKED=$(make_input "$ENV_BLOCKED")
 
-# Test 4: Verify idempotency was NOT appended for the blocked dispatch
+# Plan 002 (fresh, no worker) → ALLOWED
+ENV_ALLOWED=$(jq -nc --arg pp "docs/orchestrate/plans/test/002-bar.md" \
+  '{protocol_version:"1",run_id:"test-guard",phase:"execution",agent_role:"pack-executor",repair_round:0,idempotency_key:"k-allowed",plan_id:"002",pack_id:null,plan_path:$pp}')
+INPUT_ALLOWED=$(make_input "$ENV_ALLOWED")
+
+# Test 1: Plan 001 (in_progress with worker) re-dispatch is BLOCKED
+run_test_expect_fail "hook blocks re-dispatch of plan in_progress with worker" \
+  bash -c "echo '$INPUT_BLOCKED' | bash '$HOOK'"
+
+# Test 2: Plan 002 (fresh) is ALLOWED
+run_test "hook allows dispatch of fresh plan without worker" \
+  bash -c "echo '$INPUT_ALLOWED' | bash '$HOOK'"
+
+# Test 3: BLOCKED message references the plan-level guard (in_progress / SendMessage)
+run_test "block message references in_progress worker / SendMessage" \
+  bash -c "STDERR=\$(echo '$INPUT_BLOCKED' | bash '$HOOK' 2>&1 >/dev/null || true); echo \"\$STDERR\" | grep -qE 'already in_progress with worker|SendMessage'"
+
+# Test 4: blocked dispatch did NOT append idempotency key
 run_test "blocked dispatch did not append idempotency key" \
-  bash -c "! jq -e '.idempotency_keys | index(\"test-key-blocked\")' '$BUDGET_DIR/workflow-state-${RUN_ID}.json' >/dev/null 2>&1"
+  bash -c "! jq -e '.idempotency_keys | index(\"k-blocked\")' '$BUDGET_DIR/workflow-state-${RUN_ID}.json' >/dev/null 2>&1"
 
-# Test 5: Verify idempotency WAS appended for the allowed dispatch
+# Test 5: allowed dispatch appended idempotency key
 run_test "allowed dispatch appended idempotency key" \
-  bash -c "jq -e '.idempotency_keys | index(\"test-key-allowed\") != null' '$BUDGET_DIR/workflow-state-${RUN_ID}.json' >/dev/null 2>&1"
-
-# Test 6: Pack 1.2 status should now be "dispatched" in execution-state
-run_test "allowed dispatch updated pack status to dispatched" \
-  bash -c "[[ \$(jq -r '.plans[\"001\"].packs[\"1.2\"].status' '$BUDGET_DIR/execution-state-${RUN_ID}.json') == 'dispatched' ]]"
+  bash -c "jq -e '.idempotency_keys | index(\"k-allowed\") != null' '$BUDGET_DIR/workflow-state-${RUN_ID}.json' >/dev/null 2>&1"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

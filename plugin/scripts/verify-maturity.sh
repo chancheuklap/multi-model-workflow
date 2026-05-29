@@ -117,7 +117,7 @@ check "DISPATCH_ENVELOPE in worker dispatch" bash -c "
 "
 
 check "agent_id guard in validate-plan-dispatch" bash -c "
-  grep -q 'already has agent_id\|agent_id.*BLOCKED' '$PLUGIN_DIR/hooks/validate-plan-dispatch.sh'
+  grep -q 'already in_progress with worker' '$PLUGIN_DIR/hooks/validate-plan-dispatch.sh'
 "
 
 check "targeted-re-review removed from gate-codex-review" bash -c "
@@ -183,9 +183,13 @@ check "C2: route worker dispatch used by merge-conflict-repair" \
 check "C3: track-effort-budget uses state lock" \
   grep -q 'state_lock_acquire' "$PLUGIN_DIR/hooks/track-effort-budget.sh"
 
-# C4: agent-return-handler uses lock for execution-state write
-check "C4: agent-return-handler uses state lock" \
-  grep -q 'state_lock_acquire' "$PLUGIN_DIR/hooks/agent-return-handler.sh"
+# C4: agent-return-handler's execution-state mutation is lock-protected. Plan-level
+# handler delegates the write to `state.sh plan-returns ingest`, which acquires the
+# state lock internally (cmd_plan_returns_ingest → acquire_lock).
+check "C4: agent-return-handler state write is lock-protected via state.sh ingest" bash -c "
+  grep -q 'plan-returns ingest' '$PLUGIN_DIR/hooks/agent-return-handler.sh' && \
+  grep -q 'acquire_lock' '$PLUGIN_DIR/scripts/state.sh'
+"
 
 # I1: all active resolvers have at least one consuming anchor
 for resolver in sendmessage-resume signpost; do
@@ -203,9 +207,9 @@ check "I3: plan-writing SKILL.md has anchors" bash -c \
 check "I3: workflow SKILL.md has anchors" bash -c \
   "[ \$(grep -c 'BEGIN:' '$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md') -ge 1 ]"
 
-# I4: validate-plan-dispatch Step 7 implemented (not deferred)
-check "I4: validate-plan-dispatch Step 7 pack status check" \
-  grep -q 'PACK_STATUS' "$PLUGIN_DIR/hooks/validate-plan-dispatch.sh"
+# I4: validate-plan-dispatch enforces plan-level execution (legacy pack-level path removed)
+check "I4: validate-plan-dispatch blocks per-pack execution dispatch" \
+  grep -q 'execution dispatch must be plan-level' "$PLUGIN_DIR/hooks/validate-plan-dispatch.sh"
 
 # I5: state.sh plans subcommand removed (D7b)
 check "I5: state.sh plans subcommand removed" bash -c \

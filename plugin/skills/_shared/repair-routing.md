@@ -18,7 +18,7 @@
 
 调度纪律：
 - Targeted repair 默认优先 `SendMessage` 续修原 agent；但高风险 finding 不能被原普通 worker 绑定。如果原 worker 是 `pack-executor`，Coordinator 必须写明 `escalation_reason`，并按当前 route 的状态模型升级 owner。
-- Formal Execution 的升级不能对同一个 `pack_id` 再次 `Agent({...})`：`validate-pack-dispatch.sh` 只允许 pending pack 首次派发，已有 `agent_id` 的同一 pack 普通修复只能 `SendMessage` 原 agent。若 accepted finding 证明必须换成 `complex-pack-executor`，Coordinator 必须回到 Execution/Plan 边界，把修复表达成新的 repair Pack 或 plan revision，使其拥有新的 `pack_id`、pending status、完整 Pack Brief 和独立 dispatch；不能用第二个 agent 冒充同一 Pack 的续修。
+- Formal Execution 的升级不能对同一个 `plan_id` 再次 `Agent({...})`：`validate-plan-dispatch.sh` 只允许首次 Plan 派发，已有 `worker_agent_id` 且 in_progress 的同一 Plan 普通修复只能 `SendMessage` 续修原 plan worker。若 accepted finding 证明必须换成 `complex-pack-executor`，Coordinator 必须回到 Execution/Plan 边界，把修复表达成新的 repair Pack（进该 Plan 的 Manifest）或 plan revision，让该 Plan 以更高 risk tier 重新 in_progress 后独立 dispatch；不能用第二个 agent 冒充同一 Plan 的续修。
 - Non-execution route 的升级派发不是原 worker 的续修：使用 `dispatch-route-worker.sh validate --transport Agent`，envelope 里 `agent_id: null`、`pack_id: null`、`repair_round` 保留当前轮次、`idempotency_key` 使用新的 escalation key，并用 `dispatch-route-worker.sh record` 写入独立 `.agent-id` 文件。只有同一 owner 的普通 follow-up 才使用 `SendMessage` 续修原 agent；缺失原 `agent_id` 仍然 BLOCKED，不能用新 worker 冒充续修。
 - 升级派发 prompt 必须带上 `original_agent_id`、`context_ref`、`disposition_ref`、accepted findings、已确认风险面和回归证据要求，保证新 `complex-pack-executor` 能追溯原 context。
 - `Path A` 只适用于真正小范围修复；失败或 re-review 返回 `needs repair` 时必须升级，不重复同一修法。

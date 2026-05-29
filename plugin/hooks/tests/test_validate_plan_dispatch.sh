@@ -101,7 +101,7 @@ mkdir -p docs/orchestrate/plans/empty
 echo "# Empty plan" > docs/orchestrate/plans/empty/001-bad.md
 ENV=$(jq -nc \
   '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"plan-executor",repair_round:0,idempotency_key:"k4",plan_id:"005",pack_id:null,plan_path:"docs/orchestrate/plans/empty/001-bad.md"}')
-run_allow "plan.md missing Pack Execution Manifest (WARN not block)" "$ENV"
+run_pass "plan.md missing Pack Execution Manifest (WARN not block)" "$ENV"
 
 # Test 5: unknown plan_id in execution-state → block
 ENV=$(jq -nc \
@@ -121,10 +121,20 @@ jq '.idempotency_keys = []' "$BUDGET_DIR/workflow-state-${RUN_ID}.json" \
   > "$BUDGET_DIR/workflow-state-${RUN_ID}.json.tmp" && \
   mv "$BUDGET_DIR/workflow-state-${RUN_ID}.json.tmp" "$BUDGET_DIR/workflow-state-${RUN_ID}.json"
 
-# Test 7: pack-level (legacy) envelope still works
+# Test 7: pack-level execution envelope is now BLOCKED (legacy path removed)
 ENV=$(jq -nc \
   '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"pack-executor",repair_round:0,idempotency_key:"k7",pack_id:"5.1",plan_id:null}')
-run_pass "pack-level legacy envelope" "$ENV"
+run_block "pack-level execution envelope rejected (plan-level only)" "$ENV"
+
+# Test 8: execution envelope carrying BOTH plan_id and pack_id → block (must leave pack_id null)
+ENV=$(jq -nc --arg pp "docs/orchestrate/plans/test/005-foo.md" \
+  '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"pack-executor",repair_round:0,idempotency_key:"k8",plan_id:"005",pack_id:"5.1",plan_path:$pp}')
+run_block "execution envelope with non-null pack_id rejected" "$ENV"
+
+# Test 9: non-execution route-worker envelope (plan_id + pack_id both null) passes the gate
+ENV=$(jq -nc \
+  '{protocol_version:"1",run_id:"vpd-test",phase:"bug-investigation",agent_role:"pack-executor",repair_round:0,idempotency_key:"k9",pack_id:null,plan_id:null}')
+run_pass "non-execution route-worker envelope (both null) passes" "$ENV"
 
 echo ""
 echo "Result: $pass passed, $fail failed"

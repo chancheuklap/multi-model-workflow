@@ -59,7 +59,7 @@ case "$SUBCMD" in
     fi
 
     if [[ -n "$PACK_ID" && "$PACK_ID" != "null" ]]; then
-      echo "Error: route worker dispatch must set pack_id to null; execution Packs use validate-pack-dispatch.sh" >&2
+      echo "Error: route worker dispatch must set pack_id to null; execution dispatch is plan-level (validate-plan-dispatch.sh)" >&2
       exit 2
     fi
 

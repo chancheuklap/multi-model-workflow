@@ -30,7 +30,7 @@ workflow-state 写入：
 ```
 
 ### Step 2: Block
-`validate-pack-dispatch.sh` 检查 `pending_direction_check.ack_status`：
+`validate-plan-dispatch.sh` 检查 `pending_direction_check.ack_status`：
 - `"pending"` → 阻止新 Worker dispatch（codex-reviewer 除外）
 - `"acknowledged"` 或 null → 放行
 

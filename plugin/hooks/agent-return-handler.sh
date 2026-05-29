@@ -2,7 +2,8 @@
 # PostToolUse hook for Agent tool.
 #
 # Plan 005 Pack 5.9: structural rewrite for Plan-level Worker autonomous mode.
-# Handles BOTH legacy pack-level returns (no plan_id) and new plan-level returns.
+# Handles plan-level returns (envelope.plan_id non-empty); non-plan-level returns
+# (route-worker phases) are a graceful no-op. Pack-level execution returns removed.
 #
 # Plan-level flow (envelope.plan_id non-empty):
 #   1. Parse envelope → extract plan_id + run_id
@@ -14,9 +15,6 @@
 #        need-fresh-worker  → NEXT: dispatch new Agent with resume_from_pack_id
 #        needs-plan-revision → NEXT: route to plan-writing for revision
 #   5. Failure to parse / missing artifact → BLOCKED with explicit message.
-#
-# Legacy pack-level fallback retained for transitional Repair Mode dispatches
-# that still ship via pack_id envelopes.
 set -euo pipefail
 
 INPUT=$(cat)
@@ -131,64 +129,8 @@ if [ -n "$PLAN_ID" ] && [ "$PLAN_ID" != "null" ]; then
   exit 0
 fi
 
-# ============================================================================
-# LEGACY PACK-LEVEL RETURN (pre-Plan-005 / transitional)
-# ============================================================================
-if [ -z "$PACK_ID" ] || [ "$PACK_ID" = "null" ]; then exit 0; fi
-
-RETURN_DIR="${BUDGET_DIR}/pack-returns/${RUN_ID}"
-RETURN_FILE="${RETURN_DIR}/${PACK_ID}.json"
-VERDICT=""
-
-if [ -f "$RETURN_FILE" ] && jq empty "$RETURN_FILE" 2>/dev/null; then
-  VERDICT=$(jq -r '.verdict // empty' "$RETURN_FILE")
-fi
-
-if [ -z "$VERDICT" ]; then
-  RESPONSE_TEXT=$(echo "$INPUT" | jq -r '.tool_response // empty' 2>/dev/null || true)
-  if [ -n "$RESPONSE_TEXT" ]; then
-    VERDICT_LINE=$(echo "$RESPONSE_TEXT" | grep -iE '^[#]*[[:space:]]*verdict' | head -1 || true)
-    if [ -n "$VERDICT_LINE" ]; then
-      VERDICT=$(echo "$VERDICT_LINE" | sed 's/.*[Vv]erdict[[:space:]]*:*[[:space:]]*//' | tr -d '[:space:]#' || true)
-    fi
-  fi
-fi
-
-if [ -z "$VERDICT" ] || ! echo "$VERDICT" | grep -qiE '^(pass|blocked|needs|unknown)'; then
-  VERDICT="unknown"
-fi
-
-# Update execution-state (pack-level)
-if [ -f "$ESF" ]; then
-  source "$SCRIPT_DIR/../scripts/lib/state-lock.sh"
-  LOCK_DIR="${BUDGET_DIR}/${RUN_ID}.lock"
-  state_lock_acquire "$LOCK_DIR"
-  jq --arg pack "$PACK_ID" --arg v "$VERDICT" --arg at "$AGENT_TYPE" '
-    .plans |= with_entries(
-      .value.packs |= with_entries(
-        if .key == $pack then
-          .value.status = "returned" | .value.worker_verdict = $v
-        else . end
-      )
-    )
-  ' "$ESF" > "${ESF}.tmp" && mv "${ESF}.tmp" "$ESF"
-  state_lock_release "$LOCK_DIR"
-fi
-
-REMAINING=999
-CUR_PLAN=""
-if [ -f "$ESF" ]; then
-  CUR_PLAN=$(jq -r --arg pack "$PACK_ID" '[.plans | to_entries[] | select(.value.packs[$pack] != null) | .key] | first // empty' "$ESF")
-  if [ -n "$CUR_PLAN" ]; then
-    REMAINING=$(jq --arg pid "$CUR_PLAN" '[.plans[$pid].packs | to_entries[] | select(.value.status == "pending" or .value.status == "dispatched")] | length' "$ESF")
-  fi
-fi
-
-if [ "$REMAINING" -eq 0 ]; then
-  MSG="[multi-model-workflow] NEXT: Pack ${PACK_ID} returned (verdict: ${VERDICT}). All packs in Plan ${CUR_PLAN} have returned. Process Open Items → scope drift check → Git Checkpoint for each → then Step 8 (Plan Implementation Review). Do NOT dispatch review until all Git Checkpoints complete."
-else
-  MSG="[multi-model-workflow] NEXT: Pack ${PACK_ID} returned (verdict: ${VERDICT}). Process Open Items → scope drift check → Git Checkpoint. ${REMAINING} packs still pending/dispatched in Plan ${CUR_PLAN}."
-fi
-
-emit_next "$MSG"
+# Non-plan-level returns (route-worker / bug-investigation / direct-repair / etc.)
+# carry no plan_id. Pack-level execution return handling has been removed —
+# execution is plan-level only (one autonomous Worker per Plan). Those phases manage
+# their own return handling, so this is a graceful no-op.
 exit 0

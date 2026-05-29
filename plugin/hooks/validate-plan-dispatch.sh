@@ -10,11 +10,11 @@
 #   3. plan.md contains "## Pack Execution Manifest" with at least one pack row
 #   4. envelope.run_id matches workflow-state active run_id
 #
-# Legacy pack-level checks (idempotency, repair_round disposition_refs validation,
-# Path A escalation, pack status pending) still apply when the envelope carries
-# a pack_id instead of plan_id (Repair Mode via SendMessage still uses pack-level
-# envelopes — though same Worker, so the PreToolUse hook on Agent doesn't fire
-# for SendMessage; this path is here for transitional safety).
+# Execution dispatch is plan-level ONLY: phase==execution requires plan_id non-empty
+# and pack_id null (Step 5b hard-blocks any per-pack execution dispatch). Non-execution
+# route-worker phases (bug-investigation / direct-repair / multi-pr-merge / hotfix /
+# quickfix / maintenance) carry plan_id=null + pack_id=null and pass through untouched.
+# Repair Mode uses SendMessage, which does not fire this PreToolUse Agent hook.
 set -euo pipefail
 
 INPUT=$(cat)
@@ -39,6 +39,7 @@ PLAN_PATH=$(echo "$ENVELOPE" | jq -r '.plan_path // empty')
 REPAIR_ROUND=$(echo "$ENVELOPE" | jq -r '.repair_round')
 IDEMPOTENCY_KEY=$(echo "$ENVELOPE" | jq -r '.idempotency_key')
 AGENT_ROLE=$(echo "$ENVELOPE" | jq -r '.agent_role')
+PHASE=$(echo "$ENVELOPE" | jq -r '.phase // empty')
 
 BUDGET_DIR=".claude/multi-model-workflow"
 
@@ -66,6 +67,18 @@ DC=$(jq -r '.pending_direction_check.ack_status // empty' "$SF")
 if [[ "$DC" == "pending" ]]; then
   if [[ "$AGENT_ROLE" != "codex-reviewer" ]]; then
     echo "[multi-model-workflow] BLOCKED: Direction Check pending." >&2
+    exit 2
+  fi
+fi
+
+# Step 5b: execution phase MUST be plan-level (legacy pack-level execution path removed)
+if [[ "$PHASE" == "execution" ]]; then
+  if [[ -z "$PLAN_ID" || "$PLAN_ID" == "null" ]]; then
+    echo "[multi-model-workflow] BLOCKED: execution dispatch must be plan-level — envelope.plan_id is empty. Per-pack execution dispatch is no longer supported; dispatch one autonomous Worker per Plan (set plan_id, leave pack_id null)." >&2
+    exit 2
+  fi
+  if [[ -n "$PACK_ID" && "$PACK_ID" != "null" ]]; then
+    echo "[multi-model-workflow] BLOCKED: execution dispatch must leave pack_id null (plan-level autonomous Worker owns the whole Plan). Per-pack execution dispatch is no longer supported." >&2
     exit 2
   fi
 fi
@@ -102,24 +115,9 @@ if [[ -n "$PLAN_ID" && "$PLAN_ID" != "null" ]]; then
   fi
 fi
 
-# Step 7: PACK-LEVEL (legacy / transitional) — when envelope carries pack_id
-if [[ -n "$PACK_ID" && "$PACK_ID" != "null" && -f "$ESF" ]]; then
-  PACK_STATUS=$(jq -r --arg pid "$PACK_ID" \
-    '[.plans | to_entries[] | .value.packs // {} | to_entries[] | select(.key == $pid) | .value.status // "unknown"] | first // "unknown"' \
-    "$ESF" 2>/dev/null || echo "unknown")
-  if [[ "$PACK_STATUS" != "pending" && "$PACK_STATUS" != "unknown" ]]; then
-    echo "[multi-model-workflow] BLOCKED: Pack $PACK_ID status is '$PACK_STATUS', expected 'pending'. Cannot re-dispatch." >&2
-    exit 2
-  fi
-
-  EXISTING_AGENT_ID=$(jq -r --arg pid "$PACK_ID" \
-    '[.plans | to_entries[] | .value.packs // {} | to_entries[] | select(.key == $pid) | .value.agent_id // empty] | first // empty' \
-    "$ESF" 2>/dev/null || echo "")
-  if [[ -n "$EXISTING_AGENT_ID" && "$EXISTING_AGENT_ID" != "null" ]]; then
-    echo "[multi-model-workflow] BLOCKED: Pack $PACK_ID already has agent_id=$EXISTING_AGENT_ID. Repair must use SendMessage({to: \"$EXISTING_AGENT_ID\"}) to resume the original worker." >&2
-    exit 2
-  fi
-fi
+# (Step 7 removed: per-pack execution dispatch gating no longer exists — execution is
+# plan-level only. The plan-level "already in_progress with worker" guard in Step 6 is
+# the agent_id re-dispatch guard. Repair resumes the plan Worker via SendMessage.)
 
 # Step 9: Disposition refs validation for repair dispatch (repair_round >= 1)
 if [[ "$REPAIR_ROUND" -ge 1 ]] 2>/dev/null; then
@@ -142,21 +140,8 @@ fi
 export STATE_BASE="$BUDGET_DIR"
 bash "$STATE_SH" idempotency append --run-id "$RUN_ID" --key "$IDEMPOTENCY_KEY" 2>/dev/null || true
 
-# Step 11: write pack status dispatched (pack-level) OR mark plan in_progress (plan-level)
-if [[ -n "$PACK_ID" && "$PACK_ID" != "null" && -f "$ESF" ]]; then
-  source "$SCRIPT_DIR/../scripts/lib/state-lock.sh"
-  LOCK_DIR="${BUDGET_DIR}/${RUN_ID}.lock"
-  state_lock_acquire "$LOCK_DIR"
-  jq --arg pid "$PACK_ID" '
-    .plans |= with_entries(
-      .value.packs |= with_entries(
-        if .key == $pid then .value.status = "dispatched" else . end
-      )
-    )
-  ' "$ESF" > "${ESF}.tmp" && mv "${ESF}.tmp" "$ESF"
-  state_lock_release "$LOCK_DIR"
-fi
-# (Plan-level dispatch: status will move to in_progress when Worker first calls
-# state.sh agent-id set --plan-id; we don't pre-mutate here to avoid races.)
+# Step 11: Plan-level dispatch — plans[N].status moves to in_progress when the Worker
+# first calls `state.sh agent-id set --plan-id`. We don't pre-mutate here to avoid
+# races. (Pack-level status mutation removed: execution is plan-level only.)
 
 exit 0
