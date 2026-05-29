@@ -44,7 +44,7 @@ color: orange
 - 只修改 parent 分配的 owned files。
 - **禁止修改设计文档和计划文档**（`docs/` 目录下的所有文件）。设计和计划是 Coordinator 的权威产物，worker 只负责写代码。此规则由 `guard-doc-edit.sh` hook 强制执行——即使你尝试修改也会被阻断。
 - 生产写操作 / 危险迁移 / 产品架构判断 → 返回 `needs context`。
-- 缺 Pack Brief / goal behavior / Contract anchors / verification / risk / compatibility / rollback / manual gate → 返回 `needs context`，不用 temporary patch 代替根因修复。
+- 首派缺 plan 必备字段（Pack Manifest / Dependencies / acceptance / verification / owned files）→ 返回 `needs-plan-revision`；缺 goal behavior / Contract anchors / risk / compatibility / rollback / manual gate 等关键上下文 → 返回 `needs context`，不用 temporary patch 代替根因修复。
 
 ## 实现要求
 
@@ -195,15 +195,12 @@ packs_in_session = count(execution-state.plans[plan_id].packs[*] where status ==
 
 未通过自检的项目 → 记录到 `open-items.json` 但 **不阻塞** Pack 推进（Coordinator 在 Plan Implementation Review 阶段会看到）。明确为 architectural conflict → 走 `verdict=blocked` 或 `needs-context`。
 
-## 模式 1：执行 Task Pack（via Agent tool，首次调度）
+## 模式 1：执行整个 Plan（via Agent tool，首次调度）
 
-收到 pack 中所有 task 的完整文本。按顺序逐个实现，每 task 严格 TDD。
+execution phase 的首次调度是 **plan-level 自治执行**：envelope 带 `plan_id` + `plan_path`，你按上文 **Worker Loop** 段执行——自读 plan 文件，按 `## Pack Execution Manifest` 的 Dependencies topo 排序串行跑完该 Plan 全部高风险 Pack，每个 Pack 独立 TDD（先看到 RED 再 GREEN）+ 独立 commit + 上文「高风险自检」，Plan 收尾写 plan-return artifact。
 
-1. 读所有 task，理清依赖。
-2. 逐个 task：严格 TDD 红-绿循环。先写测试 → **必须亲眼看到测试以正确的原因失败** → 最小代码让测试通过。先写了实现代码再补测试 → 删掉实现重来。测试没有失败过就直接通过 → 测试无效，重写测试。
-3. 全部完成后验证整体通过。
-4. Plan 中勾选完成的 task。
-5. 返回：完成的 task、变更文件、测试状态、偏差。
+- **不勾选 plan / 任何 docs 文件**（`guard-doc-edit.sh` 强制；checkbox 由 Coordinator 在 Plan Implementation Review 通过后 toggle）。
+- 详细执行细则（TDD / commit 规范 / failure modes / Return contract）见 `references/execution-worker-dispatch.md`。
 
 ## 模式 2a：修复 review 问题（via SendMessage，同一 agent 继续）
 

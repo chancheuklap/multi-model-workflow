@@ -1,6 +1,6 @@
 # Execution 预执行准备
 
-> **流程位置**：`orchestrate-execution` Steps 1-3 · 完成后 → SKILL.md Steps 4-9（pack 循环）
+> **流程位置**：`orchestrate-execution` Steps 1-3 · 完成后 → SKILL.md Steps 4-9（逐 Plan 派发自治 Worker）
 
 **状态锚写入**（进入时）：`state.sh update` 写 `cursor.reference = "execution-preparation.md"`, `cursor.step = 1`。`cursor.phase` 已由 `state.sh transition` 设为 `"execution"`。
 
@@ -19,19 +19,17 @@
 
 **验证 Plan 完整性**：每个 pack 必须有 goal behavior / owned files / acceptance criteria / verification commands / contract anchors（触碰合同时）/ mockup specs（mockup 目录存在时必填，且必须含具体视觉规格而非仅目录路径）/ commit boundary / risk flags。缺字段的 pack 不进入执行——返回 `NEEDS_PLAN_REVISION`，让 orchestrate-plan-writing 修复。
 
-## Step 2：构建两级执行队列
+## Step 2：构建 Plan 执行队列（仅第一级）
 
-**第一级：Plan 执行顺序**（串行）。根据各 plan header 中的 `Blocked by` 字段排序。无依赖关系的 Plan 按编号顺序执行。
+**Coordinator 只维护第一级：Plan 执行顺序**（串行）。根据各 plan header 中的 `Blocked by` 字段排序。无依赖关系的 Plan 按编号顺序执行。逐个 Plan 派 1 个自治 Worker。
 
-**第二级：Pack 执行顺序**（同 Plan 内，严格串行）。根据 pack 间的 `Dependencies` 字段排序，逐个执行。
+**第二级 Pack 顺序不由 Coordinator 维护**：每个 Plan 内 Pack 间的 `Dependencies` 由该 Plan 的自治 Worker 自读 `## Pack Execution Manifest` 后内部 topo 排序串行执行。Coordinator 不构建 pack_queue、不逐 Pack 派发。
 
 排列结果：
 
 ```
-plan_queue = [Plan001, Plan002, Plan003]  ← 按 Blocked by 排序
-  Plan001.pack_queue = [[1.1], [1.2, 1.3], [1.4]]  ← 内部按 Dependencies 排序
-  Plan002.pack_queue = [[2.1, 2.2], [2.3]]
-  Plan003.pack_queue = [[3.1], [3.2]]
+plan_queue = [Plan001, Plan002, Plan003]  ← Coordinator 按 Blocked by 排序，逐个派 1 个自治 Worker
+  # 每个 Plan 内的 Pack 顺序（如 [[1.1], [1.2, 1.3], [1.4]]）由 Worker 自读 Manifest 内部决定，Coordinator 不介入
 ```
 
 ### Step 2a：创建 Execution State File
@@ -41,18 +39,23 @@ plan_queue = [Plan001, Plan002, Plan003]  ← 按 Blocked by 排序
 ```json
 {
   "run_id": "<run_id>",
+  "current_plan_id": null,
   "plans": {
     "001": {
+      "status": "pending",
+      "start_commit": null,
+      "end_commit": null,
+      "worker_agent_id": null,
       "packs": {
-        "1.1": { "status": "pending", "agent_id": null, "commit_sha": null, "worker_verdict": null },
-        "1.2": { "status": "pending", "agent_id": null, "commit_sha": null, "worker_verdict": null }
+        "1.1": { "status": "pending", "commit_sha": null, "worker_verdict": null },
+        "1.2": { "status": "pending", "commit_sha": null, "worker_verdict": null }
       }
     }
   }
 }
 ```
 
-注意：execution-state 只存 pack-level 数据（status, agent_id, commit_sha, worker_verdict）。
+注意：execution-state 同时存 **plan-level**（status / start_commit / end_commit / worker_agent_id / pack_summary）和 **pack-level**（status / commit_sha / worker_verdict）数据。Plan-level 自治 Worker 的 agentId 写在 `plans[N].worker_agent_id`。
 Cursor, budget, review dispositions 存在 workflow-state-<run_id>.json 中。
 
 填入所有 Plan 和 Pack 的初始状态。
@@ -67,16 +70,15 @@ Worker 的 durable return file 写入此目录（按 run_id 隔离，防止跨 r
 
 ### Step 2b：记录 Plan start_commit
 
-每个 Plan 的第一个 Pack dispatch 之前：
+派发该 Plan 的自治 Worker 之前，用 `state.sh execution-plan start` 记录 start_commit（即第一个 Pack commit 之前的 SHA）：
 
 ```bash
-SHA=$(git rev-parse HEAD)
-# 写入 execution-state: plans[N].start_commit = $SHA
-# 写入 execution-state: plans[N].status = "in_progress"
-# 写入 execution-state: current_plan_id = N
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" execution-plan start \
+  --run-id "<run_id>" --plan-id <N> --start-commit "$(git rev-parse HEAD)"
+# 该命令写入 plans[N].start_commit / plans[N].status = "in_progress" / current_plan_id = N
 ```
 
-此步由 Coordinator 执行，不由 hook 代劳——因为 start_commit 需要的是"第一个 Pack commit 之前"的 SHA。`validate-pack-dispatch.sh` hook 会拦截缺少 start_commit 的 dispatch。
+此步由 Coordinator 执行，不由 hook 代劳——因为 start_commit 需要的是"Worker 第一个 Pack commit 之前"的 SHA。`validate-plan-dispatch.sh` hook 会拦截缺少 start_commit 的 dispatch。
 
 ## Step 3：验证 Scope Contract + Git Checkpoint
 
@@ -90,4 +92,4 @@ SHA=$(git rev-parse HEAD)
 **Budget File**：读取 `.claude/multi-model-workflow/active-run-id` 找到 budget file，确认 `pack_count` 与 plan 中 Task Pack 数量一致。**不一致时不得自行修改 budget file**——`budget_total` 只在 plan-writing Step 12a 赋值，执行阶段不可变。不一致说明 plan 文件与 budget file 脱节，返回 `NEEDS_PLAN_REVISION` 让 plan-writing 重新计算。
 
 ---
-> **下一步**：预执行准备完成 → SKILL.md Steps 4-9（Pack 循环）。`NEEDS_PLAN_REVISION` → 返回 orchestrate-workflow。
+> **下一步**：预执行准备完成 → SKILL.md Steps 4-9（逐 Plan 派发自治 Worker）。`NEEDS_PLAN_REVISION` → 返回 orchestrate-workflow。

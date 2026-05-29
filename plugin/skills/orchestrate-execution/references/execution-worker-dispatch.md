@@ -1,16 +1,12 @@
-# Worker Dispatch — Pack Brief Template
+# Plan-level Worker 行为规范（固定 handbook）
 
-> **流程位置**：`orchestrate-execution` Step 5 · 构造 Pack Brief 时读取
-
-## Self-Read Protocol
-
-你是 pack-executor 或 complex-pack-executor。启动时按以下顺序执行：
-
-1. 读 dispatch prompt 头部的 `DISPATCH_ENVELOPE`，提取 `run_id`、`pack_id`、`plan_id`。
-2. 读 `DISPATCH_ENVELOPE` 中 `Read first:` 列出的所有源文件（design.md、ADR、mockup 目录等）。
-3. 读本文件（你正在读的这份手册），理解 Pack Brief 字段含义与 Return Contract 格式。
-4. 进入 Worker Loop：按 `Implementation tasks:` 逐条执行，TDD 红绿循环，每 task 完成后提交 commit。
-5. 完成所有 task 后写 durable return JSON，再输出最终 Verdict。
+> **流程位置**：`orchestrate-execution` Step 5 · Worker 在 `Worker Loop` 启动序列 Step 2 读取本文件
+>
+> 本文件是 **plan-level 自治 Worker**（pack-executor / complex-pack-executor）的固定行为规范，与 agent 定义中的
+> `Worker Loop` 段配套：`Worker Loop` 给出**循环骨架**（5 步启动 / Pack 循环 / verdict 枚举 / repair / context 自监控），
+> 本文件给出**执行细则**（TDD 纪律 / commit 规范 / failure modes / Durable Return 与 Return Contract 格式）。
+> Coordinator 派发时只在 DISPATCH_ENVELOPE 写 `plan_id` + `plan_path` + 运行时变量，**不粘贴任何 Pack 内容**——
+> Worker 自读 plan 文件的 `## Pack Execution Manifest` 与每个 Pack 的完整定义。
 
 <!-- BEGIN: control-envelope -->
 ## DISPATCH_ENVELOPE (required prefix for every Agent dispatch)
@@ -44,91 +40,75 @@ For plan-level autonomous worker first dispatch: set `plan_id` to the plan id (e
 Coordinator validates this block with an explicit dispatch script before `Agent({...})` / `SendMessage({...})`. Missing/malformed envelope = dispatch BLOCKED.
 <!-- END: control-envelope -->
 
-你（worker）按 `Self-Read Protocol` 自读本手册与 envelope 中的 `Read first:` 路径，不依赖 Coordinator 粘贴所有字段。Coordinator 只需在 envelope 中写明 `plan_id`（或 `pack_id`），其余上下文由你自读获取。
+你（worker）按 `Worker Loop` 段的 5 步启动序列自读 plan 文件与本 handbook，不依赖 Coordinator 粘贴 Pack 字段。Coordinator 只在 envelope 写明 `plan_id` + `plan_path` + 运行时变量。每个 Pack 的完整定义（goal / owned files / acceptance / verification / contract anchors / mockup specs / dependencies / risk flags）由你从 plan 文件自读。
 
-## 必需字段（每个 pack 都写）
+## TDD 纪律
 
-```text
-Pack: <pack number + title>
-Goal behavior: <end-to-end behavior description>
-Implementation tasks:
-  <列出本 pack 的所有 task 标题；worker 自读 plan 文件获取完整文本>
-Owned files:
-  - Create: <path — responsibility>
-  - Modify: <path — responsibility>
-  - Test: <path — behavior covered>
-Read first:
-  - <source docs, ADRs, project rules, docs/orchestrate/mockups/<slug>/ (如有)>
-Acceptance criteria:
-  - [ ] <each criterion>
-Verification commands:
-  - <command> → Expected: <result>
-Verification discipline:
-  - For code behavior: use focused public-behavior tests, with RED/GREEN when risk is normal or higher.
-  - For trivial docs/config/style sync: use proof-oriented checks such as `git diff --check`, build/generator check, manifest/schema validation, or path/link verification. Do not add tests that only assert wording exists unless that wording is a generated artifact or runtime contract anchor.
-Risk flags: <trivial / normal / high-risk / ...>
-Out of scope: <what NOT to touch>
-Context hint: Your code will be reviewed alongside packs <N.1..N.M> within Plan N.
-State directory: <absolute path to .claude/multi-model-workflow — Coordinator 用 $(pwd)/.claude/multi-model-workflow 填入>
-Return contract:
-  ### Verdict
-  pass / blocked / needs repair / needs context
-  ### Evidence
-  ### Result
-  - Changed files
-  - Completed behavior (each with verification evidence)
-  - Known gaps
-  - Needs review
-  ### Verification
-  ### Open Items
-  每条标记一个分类标签：
-  - [out-of-scope] 不属于当前 pack 或整个 scope 的问题
-  - [needs-evaluation] 需要独立评估才能判断是否修复的问题
-  - [bug] 执行中发现的已有代码 bug（非本次引入）
-  格式：`- [标签] 简述问题 — 发现位置 — 影响判断`
+- 每个 Pack：先写 failing public-behavior test → **亲眼确认 RED** → 最小实现 → GREEN。先写实现再补测试 → 删实现重来；测试没失败过 → 测试无效，重写。
+- 例外：`risk_flags: trivial`（配置常量 / 文档更新 / 样式调整）——验证通过即可，不强制红-绿。
+- 测 public behavior，不测 private helper / 内部调用顺序；mock 只用于外部边界。
+- trivial docs/config/style 同步：用 proof-oriented 检查（`git diff --check` / build/generator 检查 / manifest/schema 校验 / 路径链接验证），不为"措辞存在"加测试，除非该措辞是生成产物或 runtime contract anchor。
 
-  ## Durable return（必须在最终 verdict 之前执行）
-  写入 `<STATE_DIR>/pack-returns/<run_id>/<pack-id>.json`（绝对路径，Coordinator 在 dispatch 时填入）：
-  {
-    "pack_id": "<N.M>",
-    "verdict": "<pass | blocked | needs repair | needs context>",
-    "changed_files": ["<path1>", "<path2>"],
-    "open_items": [{"tag": "<out-of-scope|needs-evaluation|bug>", "summary": "..."}],
-    "concerns": "<如有>"
-  }
-  注意：必须使用此绝对路径写入（不是相对路径），确保 Coordinator 和 hooks 能读到该文件。
+## Commit 规范
+
+- 每个 Pack 完成后**独立 commit**，格式：`Pack <plan.id>.<pack.id>: <title> — <summary>`（`enforce-plan-commit.sh` hook 校验格式）。
+- repair 模式：`Pack <plan.id>.<pack.id>: <title> — repair: <finding 摘要>`，每 finding 一个 commit，不批量。
+- 不 push。
+
+## Failure modes
+
+- per-pack **三次失败协议**（每次换方法）；三次后该 Pack 标 `blocked`，写 pack-return verdict=blocked，**继续下一个 Pack**（除非依赖它）。
+- per-plan 不额外封顶：走 `partial-pass` 返回，Coordinator 决定 SendMessage 续修或拍 BLOCKED。
+- Plan 文档缺 5 必备字段（`## Pack Execution Manifest` / `Dependencies` / `Acceptance criteria` / `Verification commands` / `Owned files`）或 topo 有环 → `needs-plan-revision`，不脑补。
+- 缺关键 Contract anchors / Mockup specs / verification → `needs-context`。
+- context 累积（packs_in_session ≥ 5 且 remaining ≥ 2）→ `need-fresh-worker`。
+
+## Durable Return（每 Pack + Plan 收尾，必须在最终 verdict 之前）
+
+- **每 Pack**：写 `<STATE_DIR>/pack-returns/<run_id>/<pack-id>.json`（绝对路径；`<STATE_DIR>` 由 envelope 提供）：
+
+```json
+{
+  "pack_id": "<N.M>",
+  "verdict": "<pass | blocked | needs repair | needs context>",
+  "changed_files": ["<path1>", "<path2>"],
+  "open_items": [{"tag": "<out-of-scope|needs-evaluation|bug>", "summary": "..."}],
+  "concerns": "<如有>"
+}
 ```
 
-## 条件字段（仅在相关时包含，不写 N/A 占位）
+- **Plan 收尾**：写 `<STATE_DIR>/plan-returns/<run_id>/<plan_id>/plan-return.json`（schema `plan-return-v1.json`）+ `open-items.json`（schema `open-items-v1.json`）。必须用绝对路径，确保 Coordinator 和 hooks 能读到。
+- Open Items 三标签，格式 `- [标签] 简述问题 — 发现位置 — 影响判断`：
+  - `[out-of-scope]` 不属于当前 Pack 或整个 scope 的问题
+  - `[needs-evaluation]` 需要独立评估才能判断是否修复的问题
+  - `[bug]` 执行中发现的已有代码 bug（非本次引入）
+
+## Return Contract（最终输出格式）
 
 ```text
-Contract anchors:          # 跨边界 pack（触碰 Pydantic / registry / migration / API contract）
-  - boundary type / owner / provider / consumer / verifier
-Mockup specs:              # mockup 目录存在时必填（从 plan 的 Mockup specs 字段原样复制）
-  - 目录 / 涉及页面 / 视觉规格 / 交互行为 / 状态变体 / 验证方式
-Dependencies:              # 有前置 pack 依赖
-  - <pack N.M must complete first — reason>
-发布风险:                   # high-risk / production-risk / migration / billing / permission / runtime
-  - <risk surface + mitigation>
-AFK / HITL:                # 有人工门禁
-  - <manual gate requirements>
+### Verdict
+plan-level：pass / partial-pass / blocked / need-fresh-worker / needs-context / needs-plan-revision
+### Evidence
+### Result
+- Changed files
+- Completed behavior（each with verification evidence）
+- Known gaps
+- Needs review
+### Verification（回归证据）
+### Open Items
 ```
 
 ## 关键规则
 
-- Pack Brief 必须来自已通过 Plan Review 的 plan。无效 pack 先修回 plan，不在 dispatch prompt 里临场重切。
-- 你自读 `Read first:` 路径中的 plan 文件获取 task 完整文本；Coordinator 只需列出 task 标题作为索引。
-- 条件字段只在 plan 中该 pack 有对应内容时才包含——不写空字段和 N/A，减少无效 token 消耗。
+- Pack 定义必须来自已通过 Plan Review 的 plan。无效字段先修回 plan（`needs-plan-revision`），不在派发时临场重切。
+- 条件字段（Contract anchors / Mockup specs / Dependencies / 发布风险 / AFK·HITL）只在 plan 中该 Pack 有对应内容时才适用——plan 没写就不存在，不脑补。
 
 ## Coordinator 端最小职责
 
-Coordinator 在派发时只需完成以下动作，其余由 Worker 自读：
-
-1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`plan_id`（或 `pack_id`）、`phase`、`agent_role`。
-2. 在 `Read first:` 中列出 plan 文件路径（worker 自读 task 全文）。
-3. 触发 `state.sh` 记录 pack 开始状态。
-4. 等待 `SubagentStop` hook 回收 worker 返回值。
-5. 读取 `pack-returns/<run_id>/<pack_id>.json`，推进下一步编排。
+1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`plan_id`、`plan_path`、`phase=execution`、`agent_role`。
+2. 触发 `state.sh execution-plan start` 记录 Plan start_commit。
+3. 等待 `SubagentStop` / `agent-return-handler.sh` 回收 plan-level 返回值。
+4. 读取 `plan-returns/<run_id>/<plan_id>/plan-return.json`，推进下一步编排。
 
 ---
-> **回到**：SKILL.md Step 5b 继续填充 Pack Brief → Step 6 派发 Worker。
+> **回到**：agent `Worker Loop` 段继续 Pack 循环 → Plan 收尾写 artifact → return。

@@ -1,6 +1,6 @@
 ---
 name: orchestrate-execution
-description: "已有 reviewed plan + Task Pack inventory 时使用。Plan 级两层循环：外层逐 Plan 串行，内层逐 Pack 派 Worker → Git Checkpoint → 全部 Pack 完成后 Plan Implementation Review → Disposition → 修复 → Release Gate。产出：所有 Plan 通过 + review budget 消耗。"
+description: "已有 reviewed plan + Task Pack inventory 时使用。逐 Plan 串行：每个 Plan 派 1 个自治 Worker（Worker 内部按 Dependencies 跑完该 Plan 全部 Pack）→ Git Checkpoint → Plan Implementation Review → Disposition → 修复 → Release Gate。产出：所有 Plan 通过 + review budget 消耗。"
 ---
 
 <!-- BEGIN: signpost -->
@@ -99,7 +99,7 @@ Bad:  "执行进展顺利，各模块按计划推进中。"
 
 # Orchestrate Execution
 
-Plan Review 通过 → 两级循环（Plan → Pack）→ Pack 执行 + Git Checkpoint → Plan Implementation Review → 修复 → Release Gate → 循环 → 全部 Plan 通过 → Final Review。
+Plan Review 通过 → 逐 Plan 串行循环 → 每个 Plan 派 1 个自治 Worker（Worker 内部按 Dependencies 跑完该 Plan 全部 Pack，每 Pack 独立 commit）+ Git Checkpoint → Plan Implementation Review → 修复 → Release Gate → 循环 → 全部 Plan 通过 → Final Review。
 
 **Only stop for：**
 - Worker 返回 blocked（业务阻塞才停，技术阻塞自行处理）
@@ -142,11 +142,13 @@ Plan Review 通过 → 两级循环（Plan → Pack）→ Pack 执行 + Git Chec
 
 ### FOR EACH Plan（按 Blocked by 排序）
 
-#### Steps 4-7c：Pack 执行循环（per pack within current Plan）
+#### Steps 4-7c：派发 1 个自治 Worker 执行整个 Plan
 
 ##### Step 4：选择 Worker 类型
 
-| Risk flags | Agent | 模型 | TDD |
+整个 Plan 派 **1 个** Worker，类型按 **Plan 内最高 Risk flags** 决定（Worker 内部按 Dependencies 串行跑完所有 Pack；Coordinator 不逐 Pack 派发）：
+
+| Risk flags（取 Plan 内最高） | Agent | 模型 | TDD |
 | --- | --- | --- | --- |
 | `trivial`（配置常量 / 文档更新 / 样式调整） | `pack-executor` | Sonnet | 宽松（验证通过即可，不强制红-绿循环） |
 | `normal` | `pack-executor` | Sonnet | 严格 |
@@ -202,9 +204,9 @@ Agent({
 })
 ```
 
-`validate-pack-dispatch.sh` hook 拦截缺少 DISPATCH_ENVELOPE、budget 未初始化或 Plan 已有 agent_id 的 dispatch。
+`validate-plan-dispatch.sh` hook 拦截缺少 DISPATCH_ENVELOPE、budget 未初始化、Plan 已有 worker agent_id，或在 execution phase 误用 pack 级 dispatch（`plan_id` 为空或 `pack_id` 非空）的派发。
 
-返回后立即：extract `agentId` → `state.sh agent-id set` → `plans[N].status = dispatched`。`run_in_background: true` 是必需的（否则 agentId 丢失，repair path BLOCKED）。修复时 SendMessage resume 原 worker，不得新建 Agent dispatch。
+返回后立即：extract `agentId` → `state.sh agent-id set --plan-id <N>` → `plans[N].status = in_progress`。`run_in_background: true` 是必需的（否则 agentId 丢失，repair path BLOCKED）。修复时 SendMessage resume 原 worker，不得新建 Agent dispatch。
 
 **State 操作参考**（通过 `state.sh` 执行所有状态变更）：
 
@@ -230,10 +232,10 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 ```
 `--evidence` 对 `--disposition accepted` 必填且非空。
 
-**Agent-ID Set**（Worker 派发后记录 agentId）：
+**Agent-ID Set**（Worker 派发后记录 agentId，Plan-level）：
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" agent-id set \
-  --run-id "<run_id>" --pack-id <N.M> --agent-id <agentId>
+  --run-id "<run_id>" --plan-id <N> --agent-id <agentId>
 ```
 
 **Self-Verify Append**（修复后自检记录）：
@@ -245,13 +247,16 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" self-verify append \
 
 ##### Step 6：接收 Worker 返回
 
-`agent-return-handler.sh`（PostToolUse Agent hook）自动提取 Plan ID、读 `pack-returns/` 并通过 `additionalContext` 输出 `NEXT` 指令。
+`agent-return-handler.sh`（PostToolUse Agent hook）自动提取 `plan_id`、读 `plan-returns/<run_id>/<plan_id>/plan-return.json`（`state.sh plan-returns ingest` 写回 per_pack + worker_verdict）并通过 `additionalContext` 输出 `NEXT` 指令。
 
-| Worker Verdict | Coordinator 动作 |
+Worker 返回的是 **plan-level verdict**（见 `worker-loop` 段枚举），不是逐 Pack verdict：
+
+| Plan Worker Verdict | Coordinator 动作 |
 | --- | --- |
-| `pass` | 进 Step 6a → 6b → Step 7 |
-| `needs repair` | 读 concerns → 按 Step 10 修复 → 修完进 Step 6a |
-| `needs context` | SendMessage 补充上下文；继续 |
+| `pass` / `partial-pass` | 进 Step 6a → 6b → Step 7；`partial-pass` 的 blocked Pack 在 Step 6a 处置或 SendMessage 续修 |
+| `need-fresh-worker` | context 累积触发：已完成 Pack 均已 committed，派**新 Agent**（非 SendMessage）续做剩余 Pack（envelope 带 `resume_from_pack_id`） |
+| `needs-plan-revision` | Plan 文档缺必备字段 → 返回 `NEEDS_PLAN_REVISION`，交 orchestrate-plan-writing 修复 |
+| `needs-context` | SendMessage 补充上下文；继续 |
 | `blocked` | `plans[N].status = blocked` → Plan 停止 → 返回 `BLOCKED` |
 
 **BLOCKED 双层报告**（发给用户）：
