@@ -6,9 +6,7 @@
 
 **整体 Verdict 前置检查**：如果 reviewer 返回整体 `needs context`（不是某条 finding 的 `needs evidence`），说明 reviewer 无法完成审查。Coordinator 补充 reviewer 所需的上下文后重新 dispatch，不进入 per-finding disposition。
 
-**Read** `plugin/skills/_shared/disposition-table.md` 并按其 disposition 选项处理 findings。
-
-**`needs evidence` 补证**：派 `code-explorer`（窄范围单文件/单调用链）或 `complex-code-explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
+**Read** `plugin/skills/_shared/disposition-table.md` 并按其 disposition 选项处理 findings（含 `needs evidence` 补证的 explorer 选型 + prompt + 返回契约）。
 
 Plan Review 的 `accepted` 细分为 5 种路由：
 

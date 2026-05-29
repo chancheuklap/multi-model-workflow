@@ -35,7 +35,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
 | --- | --- |
 | `accepted` | 转成 repair payload；写明 affected artifacts、repair scope、re-review scope |
 | `rejected` | 记录反证；不派 repair，不让同一 finding 反复进入 review |
-| `needs evidence` | 派 explorer 补证据（窄范围用 `code-explorer`，多模块用 `complex-code-explorer`）；补证前不 repair |
+| `needs evidence` | 派只读 explorer 补证（窄范围/单文件/单调用链用 `code-explorer`，多模块/跨边界用 `complex-code-explorer`）。prompt 含：finding 待验证 + reviewer 主张 + Coordinator 存疑点 + 相关文件。explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition；补证前不 repair |
 | `duplicate / already covered` | 链到已有 finding、pack、commit、test 或文档；不新增路线 |
 | `out of scope` | 从当前 scope 移出；**立即**开 GitHub issue（Durable Handoff Brief 格式，先查重） |
 | `needs evaluation` | 不在当前 pack 可修范围但需独立评估；**立即**开 GitHub issue，标明评估要点 |

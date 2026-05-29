@@ -10,7 +10,7 @@
 
 Final Review 增加一层验证：**对照 plan/pack completion summary**——确认 finding 不是 Plan Implementation Review 已验证且 regression sweep 确认 intact 的行为重复。
 
-**`needs evidence` 补证**：派 `code-explorer`（窄范围单文件/单调用链）或 `complex-code-explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
+`needs evidence` 补证的 explorer 选型 + prompt + 返回契约见上述 disposition-table.md。
 
 ## Step 8：Gap 分类
 

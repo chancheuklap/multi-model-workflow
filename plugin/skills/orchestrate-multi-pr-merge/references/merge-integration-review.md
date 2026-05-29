@@ -91,7 +91,7 @@ Disposition required:
 
 Multi-PR 增加验证维度：对照大设计文档确认 spec 判断 + 对照冲突解决记录确认修复判断。
 
-**`needs evidence` 补证**：派 `code-explorer`（窄范围单文件/单调用链）或 `complex-code-explorer`（多模块/跨边界）做只读调查。Prompt 包含：finding 待验证、reviewer 主张、Coordinator 存疑点、相关文件。Explorer 返回 confirmed / refuted / partially confirmed 后再给最终 disposition。
+`needs evidence` 补证的 explorer 选型 + prompt + 返回契约见上述 disposition-table.md。
 
 **Review 通过** → Step 19（`merge-completion.md`）。
 

@@ -43,9 +43,9 @@ bash .claude/multi-model-workflow/../plugin/scripts/state.sh budget initialize \
   --run-id "$RUN_ID" --plan-count P
 ```
 
-此命令写入 `budget.review_total = 2P + 6`、`budget.effort_total = (2P + 6) * 2`、`budget.budget_status = "initialized"`。
+此命令写入 `budget.review_total = 3P + 12`、`budget.effort_total = (3P + 12) * 2`、`budget.budget_status = "initialized"`。
 
-公式分配：`2P` = 每 Plan 2 次 review（Plan Review + Plan Implementation Review）；`+6` 固定分配：Design Review 2 + Final Review 2 + Release Gate 1 + Multi-PR Integration Review 1。
+公式分配：`3P` = 每 Plan 3 次 review（1 baseline Plan Implementation Review + 最多 2 次 repair re-review）；`+12` 固定预留：Design Review 2-4 + Plan Review 1 + Final Review 2 + Release Gate 2 + 修复余量 3-5。
 
 **这是 budget 的首次有效赋值**——workflow entry gate 创建时 budget_status 为 pending_plan_count，此处确认。
 
