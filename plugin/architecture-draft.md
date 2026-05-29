@@ -405,8 +405,6 @@ state.sh execution-plan complete --plan-id ... --verdict ...
 | PostToolUse | Bash | track-execution-state.sh | git commit |
 | PostToolUse | Agent | agent-return-handler.sh | — |
 | PostToolUse | Agent | track-effort-budget.sh | — |
-| PostToolUse | Edit | detect-worker-scope-drift.sh | — |
-| PostToolUse | Write | detect-worker-scope-drift.sh | — |
 
 ### 6.2 每条 hook 关键行为
 
@@ -467,15 +465,10 @@ PostToolUse Agent hook。Plan-level 路径（envelope.plan_id 非空）：
 plan-return.json 缺失或无效 JSON → BLOCKED。
 非 plan-level 返回（route-worker 等 phase，envelope 无 plan_id）：graceful no-op（pack 级 execution 返回处理已移除，execution 仅 plan 级）。
 
-**detect-worker-scope-drift.sh**（新增）
-PostToolUse Edit/Write hook，只在 worker-active marker 存在时触发。
-- 解析 plan.md `### Owned files` 节得到全 plan owned_files 集合
-- 编辑路径在集合内 → 放行
-- 不在集合内 → 追加到 `execution-state.plans[plan_id].drift_warnings[]`，发 WARN additionalContext
-- **永不 exit 2**，不阻断 Worker（设计：警告优于阻断，避免 false positive 卡死）
-
 **track-execution-state.sh**
-PostToolUse Bash hook，git commit + exit_code=0 触发。从 commit 消息提取 `Pack N.M`，写 execution-state pack status=committed + commit_sha。plan 内所有 pack 均 committed 时：写 end_commit；若 worker_agent_id 已设（Worker 仍在运行）→ 发 STATE 消息要求等待 agent-return-handler；否则发 NEXT: 派 Plan Implementation Review。同时聚合 pack-returns/*.json 到 execution-state.plans[N].pack_summary。
+PostToolUse Bash hook，git commit + exit_code=0 触发。从 commit 消息提取 `Pack N.M`，写 execution-state pack status=committed + commit_sha。plan 内所有 pack 均 committed 时：写 end_commit；若 worker_agent_id 已设（Worker 仍在运行）→ 发 STATE 消息要求等待 agent-return-handler；否则发 NEXT: 派 Plan Implementation Review。
+
+> Scope drift 不再由独立 hook 兜底：Worker 在 Worker Loop 内自查 `changed_files ⊆ pack.owned_files`，越界即 revert + 记 open_items（out-of-scope）。docs/ 越界由 `guard-doc-edit.sh` 硬阻断。原 detect-worker-scope-drift.sh（每次 Edit/Write 重跑 plan 全解析、只写无人读的 drift_warnings[]）已删除。
 
 **track-review-budget.sh**
 PostToolUse Bash hook，检测 codex-companion `result` 命令且 exit_code=0。递增 `workflow-state.budget.review_used`；100% → BUDGET EXHAUSTED；80% 且无 pending DC → 触发 direction-check + DIRECTION CHECK 警告。
@@ -504,7 +497,6 @@ PostToolUse Agent hook，按 agent_role 加权：
 - `validate-multi-pr-dispatch.sh`（新增）
 - `enforce-plan-commit.sh`（改名）
 - `agent-return-handler.sh`（5-路 verdict 完全重写）
-- `detect-worker-scope-drift.sh`（新增）
 - `track-effort-budget.sh`（权重计算改造）
 
 **基本沿用**：`session-start.sh` / `gate-codex-review.sh` / `guard-doc-edit.sh` / `track-execution-state.sh`（含新增 worker_agent_id 检测以抑制提前 NEXT） / `track-review-budget.sh` / `lib/parse-envelope.sh`
@@ -682,7 +674,7 @@ track-execution-state.sh 的 Pack ID 提取保留 sed 模式（`sed -n 's/.*Pack
 
 设计原文将 budget 和 execution-state 合并为单一 workflow-state。实现采用双文件：
 - **workflow-state-<run_id>.json**：run_id / slug / route（4 值 enum）/ cursor / budget / plans 元信息 / plan_count / plan_writer_agent_id / idempotency_keys / review_dispositions / self_verifications / pending_direction_check / pending_post_push_reviews / execution_reflux_count / last_gate_phase/timestamp / phase_skip / commit_format_override / mutations（append-only 审计日志）
-- **execution-state-<run_id>.json**：pack-level data（plans[plan_id].packs[pack_id] 含 status / agent_id / commit_sha / worker_verdict / repair_round / drift_warnings[] / pack_summary）
+- **execution-state-<run_id>.json**：pack-level data（plans[plan_id].packs[pack_id] 含 status / agent_id / commit_sha / worker_verdict / repair_round）
 
 分离原因：pack-level 被 3 个 hook 并发写入（agent-return-handler / track-execution-state / track-effort-budget），合并到单文件会加剧竞态。两文件通过 `plan_id` + `pack_id` 关联。
 
@@ -1182,7 +1174,6 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 | 6 | state.sh 新增 | `merge-brief init / stage / verify` | merge-brief 文档生命周期管理 |
 | 7 | hook 新增 | `validate-pack-manifest.sh` | Manifest / Pack 正文 / execution-state 三方对账 |
 | 8 | hook 扩展 | `complete-review-dispatch.sh` 附加 Review History append | review 历史强制持久化 |
-| 9 | hook 扩展 | `track-execution-state.sh` 聚合 pack-returns 写入 `pack_summary` | Plan 边界写入聚合摘要 |
 | — | 构建脚本 | `generate-pack-manifest.sh` | 从 plan 主体生成 Manifest 段 |
 | — | schema 校验 | `pack-returns/*.json` schema | JSON 合法性校验 |
 | — | state.sh `validate` 扩展 | accepted disposition 必须有 coordinator_verified_evidence | 防止 disposition 无证据 |
@@ -1202,7 +1193,7 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 - **跨会话稳定性**：恢复时检查 source artifact 是否在 gate 后被修改——有改动则重进 gate review
 - **`AGENT_TEAMS` 硬依赖**：`session-start.sh` 阻断未设置 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 的会话
 - **Worker docs/ 写保护**：`guard-doc-edit.sh` hook 阻止 Worker agent 修改 `docs/` 下任何文件，只有 Coordinator 可写
-- **Worker scope 漂移检测**：worker 修改 Owned files 之外的文件 → WARN 写入 drift_warnings[]（不阻断）
+- **Worker scope 漂移自治**：Worker 在 Worker Loop 内自查 `changed_files ⊆ pack.owned_files`，越界即 revert + 记 open_items（不阻断、无独立 hook 兜底；docs/ 越界由 `guard-doc-edit.sh` 硬阻断）
 - **Dispatch 幂等性**：每次 dispatch 附 `idempotency_key`，`validate-plan-dispatch.sh` 阻止重复 dispatch
 - **状态文件锁**：所有状态写入使用 `lib/state-lock.sh` 目录级自旋锁（50 次 × 100ms，TTL 60s），原子写入通过 tmp → rename
 - **Disposition 证据强制**：`accepted` disposition 必须附 `evidence` 和 `coordinator_verified_evidence`，state.sh validate 校验
@@ -1264,7 +1255,7 @@ Plugin 采用 Coordinator-Worker 分担架构：Coordinator 把专项工作（�
 | 目录 | 测试数 | 覆盖范围 |
 |------|-------|---------|
 | `build/tests/` | 14 | preamble resolver、review model tier、confidence injection、sendmessage resume、resolver 逻辑、voice injection、review segmentation、disposition audit、trust boundary、build check、cross-plan contract map、repair regression evidence、repair routing、review evidence table |
-| `hooks/tests/` | 20 | 幂等性重放、disposition refs 校验、gate-codex-review、effort budget 加权（含计划级）、agent-id hook guard、envelope 解析、sendmessage resume、validate-plan-dispatch、validate-pack-manifest、validate-multi-pr-dispatch（14 项）、multi-pr-merge end-to-end（25 项）、worker scope drift、track-execution-state（pack summary / next suppression）、enforce-plan-commit、need-fresh-worker |
+| `hooks/tests/` | 18 | 幂等性重放、disposition refs 校验、gate-codex-review、effort budget 加权（含计划级）、agent-id hook guard、envelope 解析、sendmessage resume、validate-plan-dispatch、validate-pack-manifest、validate-multi-pr-dispatch（14 项）、multi-pr-merge end-to-end（25 项）、track-execution-state（next suppression）、enforce-plan-commit、need-fresh-worker |
 | `scripts/tests/` | 12 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、hotfix post-push review、budget direction check、route keyword routing、generate pack manifest、complete review dispatch history、plan return parser |
 
 运行方式：`bash plugin/scripts/run-all-tests.sh`（全量）或 `bash plugin/scripts/verify-maturity.sh`（含测试 + 构建 + schema + 结构 12 大类检查）。

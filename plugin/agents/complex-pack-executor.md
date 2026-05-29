@@ -94,7 +94,7 @@ for pack in sorted_packs:
     if changed_file in 同 plan 其他 pack.owned_files:
       记录 drift_note 到 open_items（tag=needs-evaluation）
     if changed_file ∉ 整个 plan owned_files:
-      revert + 记录 drift_warning（PostToolUse hook 兜底也会写 drift_warnings[]）
+      revert + 记录 drift_note 到 open_items（tag=out-of-scope）
 
   # 写 pack-return artifact（commit 前，便于 commit 失败时还能复用）
   write ${STATE_DIR}/pack-returns/<run_id>/<pack.id>.json

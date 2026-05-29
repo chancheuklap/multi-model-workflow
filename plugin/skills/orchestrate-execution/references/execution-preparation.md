@@ -55,7 +55,7 @@ plan_queue = [Plan001, Plan002, Plan003]  ← Coordinator 按 Blocked by 排序�
 }
 ```
 
-注意：execution-state 同时存 **plan-level**（status / start_commit / end_commit / worker_agent_id / pack_summary）和 **pack-level**（status / commit_sha / worker_verdict）数据。Plan-level 自治 Worker 的 agentId 写在 `plans[N].worker_agent_id`。
+注意：execution-state 同时存 **plan-level**（status / start_commit / end_commit / worker_agent_id）和 **pack-level**（status / commit_sha / worker_verdict）数据。Plan-level 自治 Worker 的 agentId 写在 `plans[N].worker_agent_id`。
 Cursor, budget, review dispositions 存在 workflow-state-<run_id>.json 中。
 
 填入所有 Plan 和 Pack 的初始状态。

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "pack-returns-v1",
-  "description": "Schema for Worker-written pack-returns/<run_id>/<pack-id>.json files. Source of truth for the JSON envelope produced by pack-executor / complex-pack-executor at the end of a Pack. Read by agent-return-handler hook (per-pack) and track-execution-state hook (aggregates into execution-state.plans[N].pack_summary on PLAN_DONE).",
+  "description": "Schema for Worker-written pack-returns/<run_id>/<pack-id>.json files. Source of truth for the JSON envelope produced by pack-executor / complex-pack-executor at the end of a Pack. Read by agent-return-handler hook (per-pack).",
   "type": "object",
   "required": ["pack_id", "verdict"],
   "additionalProperties": true,

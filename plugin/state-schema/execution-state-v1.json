@@ -33,11 +33,6 @@
             "type": ["string", "null"],
             "description": "Agent identity of the plan-level worker (autonomous-mode dispatch). Tracks the worker that owns this plan end-to-end; per-pack worker IDs still live under packs[N].agent_id when needed."
           },
-          "pack_summary": {
-            "type": "array",
-            "description": "Aggregated view of pack-returns/*.json for this plan, written by track-execution-state hook on PLAN_DONE so reviewers can jq this field instead of asking Coordinator to assemble a Pack summary table.",
-            "items": { "type": "object" }
-          },
           "packs": {
             "type": "object",
             "description": "Keyed by pack ID (e.g., '1.1', '1.2')",
