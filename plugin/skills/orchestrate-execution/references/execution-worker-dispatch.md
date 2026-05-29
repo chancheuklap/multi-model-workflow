@@ -8,37 +8,7 @@
 > Coordinator 派发时只在 DISPATCH_ENVELOPE 写 `plan_id` + `plan_path` + 运行时变量，**不粘贴任何 Pack 内容**——
 > Worker 自读 plan 文件的 `## Pack Execution Manifest` 与每个 Pack 的完整定义。
 
-<!-- BEGIN: control-envelope -->
-## DISPATCH_ENVELOPE (required prefix for every Agent dispatch)
-
-Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin its `prompt` with:
-
-```
-<!-- DISPATCH_ENVELOPE
-{
-  "protocol_version": "1",
-  "run_id": "<run_id>",
-  "phase": "<discovery|plan-writing|execution|final-review|bug-investigation|direct-repair|multi-pr-merge|hotfix|quickfix|maintenance>",
-  "agent_role": "<pack-executor|complex-pack-executor|plan-writer|codex-reviewer|root-cause-analyst|code-explorer|complex-code-explorer>",
-  "agent_id": "<existing agent_id or null for first dispatch>",
-  "pack_id": "<N.M or null>",
-  "plan_id": "<plan id (e.g. '001') or null>",
-  "repair_round": 0,
-  "idempotency_key": "<run_id>/<pack_id>/r<repair_round>",
-  "disposition_refs": null,
-  "review_intent": null,
-  "exception_code": null,
-  "correlation_id": "<run_id>/<pack_id>"
-}
--->
-```
-
-For repair (repair_round >= 1): set `disposition_refs` to array of accepted finding IDs or route-worker follow-up references.
-For codex-reviewer dispatches: set `review_intent` to `baseline`.
-For plan-level autonomous worker first dispatch: set `plan_id` to the plan id (e.g. "001") and leave `pack_id` null; for pack-level dispatch leave `plan_id` null. Exactly one of {pack_id, plan_id} must be non-null during execution.
-
-Coordinator validates this block with an explicit dispatch script before `Agent({...})` / `SendMessage({...})`. Missing/malformed envelope = dispatch BLOCKED.
-<!-- END: control-envelope -->
+> **Incoming envelope**：你的 dispatch prompt 以 Coordinator 构造的 `DISPATCH_ENVELOPE` 块开头。你只需读取 `repair_round`（≥1 → 进入 Repair Mode，见 `Worker Loop` 段）与 `disposition_refs`（accepted findings 引用）；其余字段（protocol_version / agent_role / idempotency_key / correlation_id 等）是 Coordinator 派发与 hook 校验职责，worker 端不构造、不校验。完整 envelope 规范见 `orchestrate-execution` SKILL.md。
 
 你（worker）按 `Worker Loop` 段的 5 步启动序列自读 plan 文件与本 handbook，不依赖 Coordinator 粘贴 Pack 字段。Coordinator 只在 envelope 写明 `plan_id` + `plan_path` + 运行时变量。每个 Pack 的完整定义（goal / owned files / acceptance / verification / contract anchors / mockup specs / dependencies / risk flags）由你从 plan 文件自读。
 

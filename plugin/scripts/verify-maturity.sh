@@ -107,7 +107,7 @@ check "run_in_background in dispatch" bash -c "
 "
 
 check "DISPATCH_ENVELOPE in worker dispatch" bash -c "
-  grep -q 'DISPATCH_ENVELOPE' '$PLUGIN_DIR/skills/orchestrate-execution/references/execution-worker-dispatch.md'
+  grep -q 'DISPATCH_ENVELOPE' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'
 "
 
 check "agent_id guard in validate-plan-dispatch" bash -c "
