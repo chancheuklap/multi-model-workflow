@@ -100,9 +100,7 @@ Bad:  "这是一个有趣的方向！我们可以从多个角度来探索这个�
 
 **读写规则**：进入项目时优先查 `CONTEXT-MAP.md`；存在则按 map 索引读取/写入对应子 context 文件；不存在则回退到根 `CONTEXT.md`；两者皆无则懒创建（默认创建 `CONTEXT.md`，规模膨胀时再拆为 `CONTEXT-MAP.md` + 子文件）。
 
-设计文档术语**必须**与 CONTEXT.md / CONTEXT-MAP.md 体系一致。新术语先进 context 体系再引用。不能只写设计不维护 context。
-
-CONTEXT.md / CONTEXT-MAP.md 和 ADR 格式 → `references/discovery-formats.md`
+设计文档术语**必须**与 CONTEXT.md / CONTEXT-MAP.md 体系一致。新术语先进 context 体系再引用。不能只写设计不维护 context。CONTEXT / CONTEXT-MAP / ADR 的具体格式由 Step 0 调用的 `grill-with-docs` 全权负责（其 CONTEXT-FORMAT.md / ADR-FORMAT.md）。
 
 ---
 
