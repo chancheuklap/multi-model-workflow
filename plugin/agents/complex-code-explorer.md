@@ -8,7 +8,7 @@ description: |
   <example>架构摩擦导致反复 repair，需要深入分析</example>
   Do NOT use for: narrow-scope lookup (use code-explorer), root cause investigation WITH fix (use root-cause-analyst), code writing (use pack-executor/complex-pack-executor).
   返回的事实声明（行号 / 计数 / 文件存在性 / 引用关系）由 Coordinator 必须亲验后再写入交付物或汇报。本 agent 是劳动力不是 ground truth，Coordinator 是事实的唯一权威。
-model: claude-opus-4-7
+model: claude-opus-4-8
 effort: high
 tools:
   - Read

@@ -119,7 +119,7 @@ flowchart TD
     %% 文档阶段（线性，不回流）
     C --> DR["Design Review\n（2 baseline Codex review）"]:::review
     DR --> E["大 Issue 拆分\n（Coordinator 内嵌方法论）"]:::coord
-    E --> F["orchestrate-plan-writing\n（plan-writer Opus 4.7 1M\n含小 issue 拆分 + plan 写作）"]:::skill
+    E --> F["orchestrate-plan-writing\n（plan-writer Opus 4.8 1M\n含小 issue 拆分 + plan 写作）"]:::skill
     F --> PR["Plan Review\n（Codex review）"]:::review
     PR --> H["orchestrate-execution\n（Plan-level Worker Loop — 见图 2）"]:::skill
     H -->|"finding → repair"| H
@@ -304,11 +304,11 @@ Coordinator 端的"最小职责"被压缩到 4 步（构造 envelope → 写 pla
 | Agent | 模型 | effort | maxTurns | Worker Loop 锚点 | `skills:` 自动加载 |
 |-------|------|--------|----------|-----------------|-------------------|
 | `pack-executor` | sonnet | xhigh | — | ✅ `<!-- BEGIN: worker-loop -->` | tdd |
-| `complex-pack-executor` | claude-opus-4-7 | high | — | ✅ `<!-- BEGIN: worker-loop -->` | tdd |
-| `plan-writer` | claude-opus-4-7[1m] | xhigh | — | — | —（D11 瘦身） |
+| `complex-pack-executor` | claude-opus-4-8 | high | — | ✅ `<!-- BEGIN: worker-loop -->` | tdd |
+| `plan-writer` | claude-opus-4-8[1m] | xhigh | — | — | —（D11 瘦身） |
 | `code-explorer` | sonnet | high | 20 | — | — |
-| `complex-code-explorer` | claude-opus-4-7 | high | 30 | — | — |
-| `root-cause-analyst` | claude-opus-4-7[1m] | xhigh | 40 | — | diagnose, tdd |
+| `complex-code-explorer` | claude-opus-4-8 | high | 30 | — | — |
+| `root-cause-analyst` | claude-opus-4-8[1m] | xhigh | 40 | — | diagnose, tdd |
 | `docs-worker` | sonnet | high | 20 | — | —（D11 瘦身） |
 
 另有 `persona.md`：非 agent 定义，是 voice/persona 规范参考文档，权威来源 `build/templates/voice-directive.md.tmpl`。
@@ -411,15 +411,15 @@ state.sh execution-plan complete --plan-id ... --verdict ...
 检查 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` / `jq` / `python3` / `plugin.json` / Claude Code ≥ 2.1.147，任一失败 exit 2。通过后注入 additionalContext：路由规则、硬门、compaction 恢复步骤；活跃 run_id 存在时追加 phase/reference/step/budget 摘要（RESUME 协议）。
 
 **validate-plan-dispatch.sh**（Plan-level 重写，从 validate-pack-dispatch.sh 升级）
-PreToolUse Agent hook，guard pack-executor / complex-pack-executor 派发。15 步校验链：
+PreToolUse Agent hook，guard pack-executor / complex-pack-executor 派发。校验链：
 1. 调 `lib/parse-envelope.sh` 解析 DISPATCH_ENVELOPE，必填字段全验
 2. 幂等 key 重复 → exit 2
 3. budget 已初始化（非 `pending_plan_count`）
 4. 无 pending Direction Check（阻断非 codex-reviewer）
-5. Plan-level 路径（envelope.plan_id 非空）：plan_path 文件存在 → plan.md 含 `## Pack Execution Manifest` → execution-state 中 plan 条目存在 → plan 未被其他 Worker 占用（status=in_progress + worker_agent_id 已设）
-6. 遗留 Pack-level 路径：pack status 必须为 pending + agent_id 未设
+5. **execution phase 强制 plan-level**（phase=execution 且 plan_id 为空，或 pack_id 非空 → exit 2；pack 级 execution 派发已移除）。非 execution route-worker phase（plan_id+pack_id 皆 null）放行
+6. Plan-level 路径（envelope.plan_id 非空）：plan_path 文件存在 → plan.md 含 `## Pack Execution Manifest` → execution-state 中 plan 条目存在 → plan 未被其他 Worker 占用（status=in_progress + worker_agent_id 已设）
 7. `repair_round ≥ 1` → `disposition_refs` 中每个 finding_id 在 review_dispositions 中已 accepted 且有 evidence
-9. 通过后写 idempotency_key
+8. 通过后写 idempotency_key
 
 **validate-pack-manifest.sh**（新增）
 PreToolUse Agent hook，phase=execution 才触发。**三方对账**：
@@ -462,7 +462,7 @@ PostToolUse Agent hook。Plan-level 路径（envelope.plan_id 非空）：
    - `needs-plan-revision` → 路由回 plan-writing
 
 plan-return.json 缺失或无效 JSON → BLOCKED。
-遗留 Pack-level fallback（envelope 无 plan_id）：从 pack-returns/.json 或 response 文本提取 verdict。
+非 plan-level 返回（route-worker 等 phase，envelope 无 plan_id）：graceful no-op（pack 级 execution 返回处理已移除，execution 仅 plan 级）。
 
 **detect-worker-scope-drift.sh**（新增）
 PostToolUse Edit/Write hook，只在 worker-active marker 存在时触发。
