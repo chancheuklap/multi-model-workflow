@@ -12,7 +12,7 @@ Review the implementation plan for: <feature>
 
 ## Source artifacts（路径从 Scope Contract feature slug 推导）
 - Plans: docs/orchestrate/plans/<slug>/（目录，每个大 issue 一份 plan 文件）
-- Cross-plan contract anchors: docs/orchestrate/design/<slug>.md#cross-plan-contract-anchors （前移自独立 cross-plan-contract-map.md；老 run 若仍有此文件请人工迁移）
+- Cross-plan contract anchors: docs/orchestrate/design/<slug>.md#cross-plan-contract-anchors
 - Source design: docs/orchestrate/design/<slug>.md
 - Source issues: docs/orchestrate/issues/<slug>/
 - Scope Contract: .claude/multi-model-workflow/scope-<run_id>.md
@@ -32,7 +32,7 @@ Review the implementation plan for: <feature>
 - 每条 source intent 映射到 Task Pack
 - issue acceptance 进入 pack acceptance
 - large→small→pack 映射完整
-- design.md `## Cross-Plan Contract Anchors` section 覆盖所有跨 plan producer / consumer / ownership 连接面（前移自独立 cross-plan-contract-map.md 文件）
+- design.md `## Cross-Plan Contract Anchors` section 覆盖所有跨 plan producer / consumer / ownership 连接面
 - read-only context 未误纳入 editable scope
 - mockup 已拆解为具体视觉规格写入 pack acceptance criteria（不是只给目录路径）
 - 无含混行为（worker 需猜 desired behavior）

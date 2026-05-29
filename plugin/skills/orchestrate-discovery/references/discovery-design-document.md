@@ -66,7 +66,7 @@ mockup 索引: docs/orchestrate/mockups/<feature-slug>/README.md
 
 ## Cross-Plan Contract Anchors
 
-跨 Plan 共享的合同 / 接口 / 文件所有权（**前移自独立 cross-plan-contract-map.md，统一在 design.md 内维护，单一源**）。
+跨 Plan 共享的合同 / 接口 / 文件所有权（统一在 design.md 内维护，单一源）。
 
 | Surface | 类型 (Pydantic/API/DB/migration/registry) | Owner Plan | Provider Plan | Consumer Plan(s) | 关键字段/路径 |
 | --- | --- | --- | --- | --- | --- |
@@ -108,7 +108,7 @@ mockup 索引: docs/orchestrate/mockups/<feature-slug>/README.md
 
 **Schema 完整性**：
 - [ ] `## Review History` section 存在（即使首版为空表头）
-- [ ] `## Cross-Plan Contract Anchors` section 存在（替代独立 cross-plan-contract-map.md 文件）
+- [ ] `## Cross-Plan Contract Anchors` section 存在
 - [ ] `## Business Summary Inputs` section 存在（每 Plan 完成后由 Coordinator 追加）
 
 ## Step 9：用户确认

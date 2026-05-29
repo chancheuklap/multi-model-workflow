@@ -55,7 +55,7 @@ bash .claude/multi-model-workflow/../plugin/scripts/state.sh budget initialize \
 
 `docs/orchestrate/design/<slug>.md` 内的 **`## Cross-Plan Contract Anchors`** section
 
-**前移自独立 `cross-plan-contract-map.md` 文件——统一在 design.md 内维护，单一源**（详见 design 模板 schema）。没有跨 plan 连接面时也要写明 "无跨计划共享合同"，并说明 Final Review 只需确认独立性。
+**统一在 design.md 内维护，单一源**（详见 design 模板 schema）。没有跨 plan 连接面时也要写明 "无跨计划共享合同"，并说明 Final Review 只需确认独立性。
 
 合同表格必须包含：
 
