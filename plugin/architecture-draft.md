@@ -765,15 +765,15 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 
 ### 9.2 模板（7 个活跃）
 
-canonical 化的 review-dispatch / repair-routing / disposition-table 内容现唯一权威在 `skills/_shared/*.md`，各 phase skill 通过 Read directive 引用；只有 review-dispatch 的 content-only variant 仍走 resolver 注入 codex-review/SKILL.md。
+canonical 化的 review-dispatch / repair-routing / disposition-table / decision-brief 内容现唯一权威在 `skills/_shared/*.md`，各 phase skill 通过 Read directive 引用；只有 review-dispatch 的 content-only variant 仍走 resolver 注入 codex-review/SKILL.md。decision-brief 由 preamble 模板 T2/T3 的一行按需指针引用——决策时才 Read，无用户决策的 phase 不加载。
 
 | 模板 | 注入目标 | 注入内容 |
 |------|---------|---------|
 | `worker-loop.md.tmpl` | agents/pack-executor.md / agents/complex-pack-executor.md | **Plan 级 Worker 自治循环** —— 6 大段合同（启动 / 循环 / verdict / repair / context / artifact） |
 | `review-dispatch.content-only.md.tmpl` | codex-review/SKILL.md（`[variant=content-only]`） | confidence rubric + 证据表 + bias 声明（ad-hoc Codex review 派发段） |
 | `sendmessage-resume.md.tmpl` | execution-repair-truncation / final-review-repair / plan-review-resolution | Worker / plan-writer SendMessage 续修操作模板（variant: worker / plan-writer） |
-| `control-envelope.md.tmpl` | orchestrate-execution/SKILL.md / orchestrate-plan-writing/SKILL.md / execution-worker-dispatch.md | 每次 Agent dispatch 的 DISPATCH_ENVELOPE 前缀格式 |
-| `preamble.md.tmpl` | 各 SKILL.md 顶部（variant T1/T2/T3） | Hard Gate / Compaction Recovery 指引 |
+| `control-envelope.md.tmpl` | orchestrate-execution/SKILL.md / orchestrate-plan-writing/SKILL.md | 每次 Agent dispatch 的 DISPATCH_ENVELOPE 前缀格式（仅 Coordinator 端；worker handbook 只留 incoming-envelope 轻引用） |
+| `preamble.md.tmpl` | 各 SKILL.md 顶部（variant T1/T2/T3） | Hard Gate / Compaction Recovery 指引；Decision Brief 格式按需指向 `_shared/decision-brief.md` |
 | `signpost.md.tmpl` | 各 SKILL.md | Phase 过渡时更新 cursor / status 的 bash 命令模板 |
 | `voice-directive.md.tmpl` | 所有 agents/*.md 和各 SKILL.md（10+ variant） | 各 agent / Coordinator persona 与沟通基调 |
 
