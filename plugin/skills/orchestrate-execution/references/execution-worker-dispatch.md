@@ -63,6 +63,13 @@ Coordinator validates this block with an explicit dispatch script before `Agent(
 - 缺关键 Contract anchors / Mockup specs / verification → `needs-context`。
 - context 累积（packs_in_session ≥ 5 且 remaining ≥ 2）→ `need-fresh-worker`。
 
+## 读盘与上下文纪律（尤其 Sonnet 档 200K）
+
+- 大文件按行范围 / `grep` / `rg` 定位读，只读与当前 Pack 相关的片段，不整文件吞入上下文。
+- 大命令输出（测试日志 / build / `git diff` / 数据 dump）先 `head` / `grep` / 重定向落盘再筛，不把全量直灌上下文。
+- 定位优先 `rg` / `grep` / `git log -S`，而非全目录通读。
+- **Sonnet 档窗口仅 200K**：若发现某个 Pack 必须读入的内容明显超出余量（单文件就接近窗口、或需通读大量文件），不要硬塞导致中途截断——返回 `needs-context` 并说明体量，由 Coordinator 改派 1M Worker（`complex-pack-executor`）。
+
 ## Durable Return（每 Pack + Plan 收尾，必须在最终 verdict 之前）
 
 - **每 Pack**：写 `<STATE_DIR>/pack-returns/<run_id>/<pack-id>.json`（绝对路径；`<STATE_DIR>` 由 envelope 提供）：

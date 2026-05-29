@@ -306,17 +306,20 @@ Coordinator 端的"最小职责"被压缩到 4 步（构造 envelope → 写 pla
 | `pack-executor` | sonnet | xhigh | — | ✅ `<!-- BEGIN: worker-loop -->` | tdd |
 | `complex-pack-executor` | claude-opus-4-8[1m] | high | — | ✅ `<!-- BEGIN: worker-loop -->` | tdd |
 | `plan-writer` | claude-opus-4-8[1m] | xhigh | — | — | —（D11 瘦身） |
-| `code-explorer` | sonnet | high | 20 | — | — |
-| `complex-code-explorer` | claude-opus-4-8[1m] | high | 30 | — | — |
-| `root-cause-analyst` | claude-opus-4-8[1m] | xhigh | 40 | — | diagnose, tdd |
-| `docs-worker` | sonnet | high | 20 | — | —（D11 瘦身） |
+| `code-explorer` | sonnet | high | — | — | — |
+| `complex-code-explorer` | claude-opus-4-8[1m] | high | — | — | — |
+| `root-cause-analyst` | claude-opus-4-8[1m] | xhigh | — | — | diagnose, tdd |
+| `docs-worker` | sonnet | high | — | — | —（D11 瘦身） |
 
 另有 `persona.md`：非 agent 定义，是 voice/persona 规范参考文档，权威来源 `build/templates/voice-directive.md.tmpl`。
 
 **通用约定**：
 - 所有 agent 均设 `memory: project`（跨 session 记忆写入 `.claude/agent-memory/<agent-name>/`）
 - 所有 agent 均设 `color` 字段用于 UI 区分
+- 所有 agent 均**不设 `maxTurns`**——不限制 turn 数，让 agent 跑到任务自然完成，避免中途被 turn 上限截断
 - Plugin **没有 `code-reviewer` 和 `release-reviewer` agent**——所有 review 通过 `codex-companion.mjs` 派发
+
+**Worker 选型（execution）= Risk ∨ Context 双维度升档**：Coordinator 选 Worker 时，risk flags 或上下文体量任一超标即从 Sonnet `pack-executor`（200K）升到 `complex-pack-executor`（Opus 4.8 1M）。上下文体量信号：单文件过大 / 文件数多 / 需读大体量产物 / plan+spec 体量大。详见 `orchestrate-execution/SKILL.md` Step 4。
 
 ### 5.1 Worker Loop（pack-executor / complex-pack-executor）
 

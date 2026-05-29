@@ -17,7 +17,6 @@ tools:
   - Glob
   - Skill
 memory: project
-maxTurns: 30
 color: cyan
 ---
 

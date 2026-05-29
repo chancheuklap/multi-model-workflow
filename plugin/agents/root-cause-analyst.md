@@ -23,7 +23,6 @@ skills:
   - diagnose
   - tdd
 memory: project
-maxTurns: 40
 color: red
 ---
 

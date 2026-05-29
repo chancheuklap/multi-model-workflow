@@ -146,13 +146,24 @@ Plan Review 通过 → 逐 Plan 串行循环 → 每个 Plan 派 1 个自治 Wor
 
 ##### Step 4：选择 Worker 类型
 
-整个 Plan 派 **1 个** Worker，类型按 **Plan 内最高 Risk flags** 决定（Worker 内部按 Dependencies 串行跑完所有 Pack；Coordinator 不逐 Pack 派发）：
+整个 Plan 派 **1 个** Worker（Worker 内部按 Dependencies 串行跑完所有 Pack；Coordinator 不逐 Pack 派发）。Worker 类型由 **Risk** 和 **Context** 两个维度共同决定——**任一维度触发升档，即升到 `complex-pack-executor`（Opus 4.8 1M，订阅内含、不计 Extra Usage）**。
+
+**Risk 维度**（取 Plan 内最高 risk flags）：
 
 | Risk flags（取 Plan 内最高） | Agent | 模型 | TDD |
 | --- | --- | --- | --- |
 | `trivial`（配置常量 / 文档更新 / 样式调整） | `pack-executor` | Sonnet | 宽松（验证通过即可，不强制红-绿循环） |
 | `normal` | `pack-executor` | Sonnet | 严格 |
 | `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex-pack-executor` | Opus 4.8 1M | 严格 |
+
+**Context 维度**（升档不降档）：`pack-executor` 是 Sonnet **200K** 窗口，没有 1M，遇超大单次输入会硬顶截断。即使 risk 仅 trivial/normal，只要 Plan 命中下列任一上下文体量信号，也升到 `complex-pack-executor`（1M 窗口）——
+
+- 任一 owned/touched 文件过大（≈ ≥ 1500 行，或单文件 ≈ ≥ 50K token）；
+- owned/touched 文件数量多（≈ ≥ 8 个）；
+- Pack 需读入大体量产物：生成代码 / fixtures / 快照 / 日志 / lockfile / migration dump / 大 JSON·CSV 数据；
+- Plan 文档本身 + 其引用的 spec/mockup 体量大。
+
+判断不准时**按升档处理**（宁可给 1M，不让 Sonnet 中途截断）。阈值是启发式，可按项目调整。Sonnet 档只接「真正塞得进 200K」的活。
 
 <!-- BEGIN: control-envelope -->
 ## DISPATCH_ENVELOPE (required prefix for every Agent dispatch)
@@ -338,7 +349,7 @@ Coordinator 写入 execution state：`plans[N].status = review_pending`。
 
 **Read** `plugin/skills/_shared/disposition-table.md` 并按其 disposition 选项处理 findings。
 
-**`needs evidence`**：派 `code-explorer`（窄范围）或 `complex-code-explorer`（跨模块），返回 confirmed/refuted 后再定 disposition。
+**`needs evidence`**：派 `code-explorer`（窄范围 / 单点查证 / 预计只读少量文件）或 `complex-code-explorer`（跨模块 / 预计读取体量大 / 需通读多文件）。`code-explorer` 是 Sonnet 200K——预计要翻很多文件或读大文件的调查直接走 `complex-code-explorer`（1M），不要硬塞 Sonnet。返回 confirmed/refuted 后再定 disposition。
 
 写入：`plans[N].review_verdict = pass/needs repair`，`plans[N].status` 更新。**通过** → Step 13。**Needs repair** → Step 10。
 
