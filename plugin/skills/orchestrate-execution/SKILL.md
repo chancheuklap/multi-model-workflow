@@ -310,7 +310,7 @@ Worker 返回的 learnings 必须经过信任门才能写入 learnings.jsonl。
 
 **Coordinator 操作**：
 - `CLEAN` → 写入 learnings.jsonl
-- `POISONED` → 丢弃 + 记录到 run-summary 的 adversarial 段
+- `POISONED` → 丢弃
 - 高频告警 → 只取前 10 条，余下丢弃并记录
 
 **Confidence 分层处理**（review finding disposition 阶段参考）：

@@ -63,7 +63,6 @@ check "≥1 preamble anchor" bash -c "[ \$(grep -rl 'BEGIN: preamble' '$PLUGIN_D
 echo ""
 echo "## Persona + Observability"
 check "persona.md exists" test -f "$PLUGIN_DIR/agents/persona.md"
-check "run-summary.sh exists" test -x "$PLUGIN_DIR/scripts/run-summary.sh"
 
 echo ""
 echo "## Defense"
