@@ -100,29 +100,29 @@ if [ -n "$PLAN_ID" ] && [ "$PLAN_ID" != "null" ]; then
   # Route by verdict (5 routes)
   case "$VERDICT" in
     pass)
-      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=pass. Dispatch Plan Implementation Review (Codex). After review pass, Coordinator MUST Edit plan doc: toggle checkbox '- [ ]' → '- [x]' for each Pack where per_pack[*].status == committed (read plan-return.json at ${BUDGET_DIR}/plan-returns/${RUN_ID}/${PLAN_ID}/plan-return.json)."
+      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} verdict=pass. Dispatch Plan Implementation Review. After review pass, toggle committed-pack checkboxes per execution SKILL Step 14."
       ;;
     partial-pass)
-      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=partial-pass (${PLAN_RETURN_COMMITTED_COUNT} committed, ${PLAN_RETURN_BLOCKED_COUNT} blocked). Dispatch Plan Implementation Review against committed packs. open-items.json carries blocked-pack reasoning. After review pass, Coordinator MUST Edit plan doc: toggle checkbox for per_pack[*].status == committed only."
+      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} verdict=partial-pass (${PLAN_RETURN_COMMITTED_COUNT} committed, ${PLAN_RETURN_BLOCKED_COUNT} blocked). Dispatch Plan Implementation Review on committed packs; open-items.json has blocked reasoning. Toggle committed checkboxes per execution SKILL Step 14."
       ;;
     blocked)
-      emit_next "[multi-model-workflow] BLOCKED: Plan ${PLAN_ID} Worker returned verdict=blocked. Coordinator: read plan-return.json per_pack[].reason + open-items.json for diagnosis. Decide SendMessage repair / re-plan / abort."
+      emit_next "[multi-model-workflow] BLOCKED: Plan ${PLAN_ID} verdict=blocked. Read plan-return.json per_pack[].reason + open-items.json; decide SendMessage repair / re-plan / abort."
       ;;
     need-fresh-worker)
       if [ -n "$NEXT_PACK" ]; then
-        emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=need-fresh-worker (context pressure). ${PLAN_RETURN_COMMITTED_COUNT} packs committed; ${NEXT_PACK} is next. Coordinator: dispatch NEW Agent (not SendMessage — same session won't help) with envelope.resume_from_pack_id=${NEXT_PACK}. New Worker will skip committed packs via partial-fail recovery."
+        emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} verdict=need-fresh-worker (context pressure, ${PLAN_RETURN_COMMITTED_COUNT} committed, next=${NEXT_PACK}). Dispatch NEW Agent (not SendMessage) with envelope.resume_from_pack_id=${NEXT_PACK}; it skips committed packs."
       else
-        emit_next "[multi-model-workflow] WARN: Plan ${PLAN_ID} verdict=need-fresh-worker but no remaining pack found; effective verdict is pass. Dispatch Plan Implementation Review."
+        emit_next "[multi-model-workflow] WARN: Plan ${PLAN_ID} need-fresh-worker but no remaining pack; effective pass. Dispatch Plan Implementation Review."
       fi
       ;;
     needs-context)
-      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=needs-context. Coordinator: fetch missing Contract anchors / Mockup specs / verification commands, augment plan, then re-dispatch."
+      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} verdict=needs-context. Fetch missing Contract anchors / Mockup specs / verification, augment plan, re-dispatch."
       ;;
     needs-plan-revision)
-      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} Worker returned verdict=needs-plan-revision (plan doc missing required fields). Route back to plan-writing for revision. After plan-writer fix + re-review, re-dispatch this Worker."
+      emit_next "[multi-model-workflow] NEXT: Plan ${PLAN_ID} verdict=needs-plan-revision (plan doc missing required fields). Route to plan-writing for revision; re-dispatch Worker after fix + re-review."
       ;;
     *)
-      emit_next "[multi-model-workflow] BLOCKED: Plan ${PLAN_ID} Worker returned unknown verdict '${VERDICT}'. Inspect plan-return.json."
+      emit_next "[multi-model-workflow] BLOCKED: Plan ${PLAN_ID} unknown verdict '${VERDICT}'. Inspect plan-return.json."
       ;;
   esac
 
