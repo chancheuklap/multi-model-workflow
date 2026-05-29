@@ -102,8 +102,6 @@ Skill({ skill: "multi-model-workflow:orchestrate-discovery" })
 | `NEEDS_USER_DECISION` | 询问用户（一次只问一个），回答后重新进入 discovery |
 | `BLOCKED` | 报告用户 |
 
-**更新 workflow-state**：`last_gate_phase: "discovery"`, `last_gate_timestamp: <now>`。
-
 #### Step 8b：大 issue 拆分
 
 Read Scope Contract + design doc → 重进 `orchestrate-discovery` Step 12。（compact 后设计内容须重新 Read。）
@@ -137,8 +135,6 @@ Skill({ skill: "multi-model-workflow:orchestrate-plan-writing" })
 | `NEEDS_CONTEXT` | 派 `code-explorer` / `Skill({ skill: "zoom-out" })` → 补充后 Step 9 |
 | `BLOCKED` | 报告用户 |
 
-**更新 workflow-state**：`last_gate_phase: "plan-writing"`, `last_gate_timestamp: <now>`。
-
 ---
 
 ### Step 11：orchestrate-execution
@@ -158,8 +154,6 @@ Skill({ skill: "multi-model-workflow:orchestrate-execution" })
 | `NEEDS_PLAN_REVISION` | 回到 Step 9 |
 | `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` → 只影响当前 pack → 回 Step 11；改变 plan → 回 Step 9 |
 | `BLOCKED` | 报告用户 |
-
-**更新 workflow-state**：`last_gate_phase: "execution"`, `last_gate_timestamp: <now>`。
 
 ---
 
@@ -182,7 +176,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
 | `NEEDS_PLAN_REVISION` | 回到 Step 9 |
 | `BLOCKED` | 报告用户 |
 
-**更新 workflow-state**：`last_gate_phase: "final-review"`, `last_gate_timestamp: <now>`。回流不重置 budget usage。Plan revision 改变 plan count → plan-writing Step 12a 重新确认 budget。
+**回流处理**：回流不重置 budget usage。Plan revision 改变 plan count → plan-writing Step 12a 重新确认 budget。
 
 ## Steps 15-18：Route 2 — Bug Investigation
 

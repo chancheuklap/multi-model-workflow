@@ -31,7 +31,7 @@ RUN_ID=$(cat .claude/multi-model-workflow/active-run-id)
 SLUG=$(grep -A1 '^## Feature slug' ".claude/multi-model-workflow/scope-${RUN_ID}.md" | tail -1 | xargs)
 ```
 
-**Source Stability 检查**：Budget file 记录 `last_gate_phase` 和 `last_gate_timestamp`。检查 source artifacts 自上次 gate 通过后是否被修改：
+**Source Stability 检查**：`state.sh transition` 在每次 phase 流转时自动写入 `last_gate_phase` / `last_gate_timestamp`（无需 Coordinator 手动写）。检查 source artifacts 自上次 gate 通过后是否被修改：
 
 ```bash
 git log --oneline --since="<last_gate_timestamp>" -- \
@@ -198,7 +198,7 @@ state.sh update --run-id <run_id> --field '.cursor.reference' --value 'null'
 2. 如果 `cursor.reference` 不为 null → 重新 Read 该 reference，从 `cursor.step` 位置继续
 3. 如果 `cursor.reference` 为 null → 在 SKILL.md 的 `cursor.step` 位置继续
 
-**与 `last_gate_phase` 的区别**：`last_gate_phase` 记录最近通过的 gate（粗粒度，phase 级，用于断点续传），`cursor.*` 记录当前精确位置（reference + step 级，用于 compaction recovery）。两者共存。
+**与 `last_gate_phase` 的区别**：`last_gate_phase` / `last_gate_timestamp` 由 `state.sh transition` 自动写入（phase 级粗粒度——记当前流转到的 phase；timestamp 供 Source Stability 检查的 `git log --since`），`cursor.*` 记录当前精确位置（reference + step 级，用于 compaction recovery）。两者共存。
 
 ---
 
