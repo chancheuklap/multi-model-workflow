@@ -3,8 +3,8 @@
 > **流程位置**：`orchestrate-execution` Step 5 · Worker 在 `Worker Loop` 启动序列 Step 2 读取本文件
 >
 > 本文件是 **plan-level 自治 Worker**（pack-executor / complex-pack-executor）的固定行为规范，与 agent 定义中的
-> `Worker Loop` 段配套：`Worker Loop` 给出**循环骨架**（5 步启动 / Pack 循环 / verdict 枚举 / repair / context 自监控），
-> 本文件给出**执行细则**（TDD 纪律 / commit 规范 / failure modes / Durable Return 与 Return Contract 格式）。
+> `Worker Loop` 段配套：`Worker Loop` 给出**循环骨架**（5 步启动 / Pack 循环 / verdict 枚举 / 失败次数协议 / repair / context 自监控），
+> 本文件给出**执行细则**（TDD 纪律 / commit 规范 / Durable Return 与 Return Contract 格式）。
 > Coordinator 派发时只在 DISPATCH_ENVELOPE 写 `plan_id` + `plan_path` + 运行时变量，**不粘贴任何 Pack 内容**——
 > Worker 自读 plan 文件的 `## Pack Execution Manifest` 与每个 Pack 的完整定义。
 
@@ -57,11 +57,7 @@ Coordinator validates this block with an explicit dispatch script before `Agent(
 
 ## Failure modes
 
-- per-pack **三次失败协议**（每次换方法）；三次后该 Pack 标 `blocked`，写 pack-return verdict=blocked，**继续下一个 Pack**（除非依赖它）。
-- per-plan 不额外封顶：走 `partial-pass` 返回，Coordinator 决定 SendMessage 续修或拍 BLOCKED。
-- Plan 文档缺 5 必备字段（`## Pack Execution Manifest` / `Dependencies` / `Acceptance criteria` / `Verification commands` / `Owned files`）或 topo 有环 → `needs-plan-revision`，不脑补。
-- 缺关键 Contract anchors / Mockup specs / verification → `needs-context`。
-- context 累积（packs_in_session ≥ 5 且 remaining ≥ 2）→ `need-fresh-worker`。
+见 agent `Worker Loop` 段「失败次数协议」+ verdict 枚举（始终在 worker 系统提示中，不在此重复）：三次失败→`blocked`、partial-pass、`needs-plan-revision`、`needs-context`、`need-fresh-worker` 的判定与阈值均以该段为准。
 
 ## 读盘与上下文纪律（尤其 Sonnet 档 200K）
 
