@@ -197,29 +197,7 @@ Agent({
 
 返回后立即：extract `agentId` → `state.sh agent-id set --plan-id <N>` → `plans[N].status = in_progress`。`run_in_background: true` 是必需的（否则 agentId 丢失，repair path BLOCKED）。修复时 SendMessage resume 原 worker，不得新建 Agent dispatch。
 
-**State 操作参考**（通过 `state.sh` 执行所有状态变更）：
-
-**Transition**（phase / pack 状态流转）：
-```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" transition \
-  --run-id "<run_id>" --actor Coordinator --from "<from>" --to "<to>"
-```
-
-**Update**（任意字段更新）：
-```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" update \
-  --run-id "<run_id>" --field '<jq-path>' --value '<json-value>'
-```
-
-**Disposition Append**（review finding 逐条 disposition）：
-```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" disposition append \
-  --run-id "<run_id>" --review-round <r> --finding-id <id> \
-  --disposition <accepted|rejected|suppress|path-a|path-b> \
-  --confidence <1-10> --severity <H|M|L> \
-  --evidence "<一行理由>" --path "<file:line>"
-```
-`--evidence` 对 `--disposition accepted` 必填且非空。
+**State 操作参考**（通过 `state.sh` 执行所有状态变更）。本步直接用到的两条：
 
 **Agent-ID Set**（Worker 派发后记录 agentId，Plan-level）：
 ```bash
@@ -227,12 +205,13 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" agent-id set \
   --run-id "<run_id>" --plan-id <N> --agent-id <agentId>
 ```
 
-**Self-Verify Append**（修复后自检记录）：
+**Update**（任意字段更新，各步通用）：
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" self-verify append \
-  --run-id "<run_id>" --pack-id <pack_id> --repair-round <N> \
-  --verification-passed <yes|no> --exception <none|...>
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" update \
+  --run-id "<run_id>" --field '<jq-path>' --value '<json-value>'
 ```
+
+其余命令的完整语法在使用它的步骤所 Read 的文件里，不在此重复：`state.sh transition` 见顶部 signpost；`state.sh disposition append`（含 `--evidence` 对 accepted 必填且非空）见 Step 8 读的 `_shared/disposition-table.md`；`state.sh self-verify append` 见 Step 10 读的 `references/execution-repair-truncation.md`。
 
 ##### Step 6：接收 Worker 返回
 

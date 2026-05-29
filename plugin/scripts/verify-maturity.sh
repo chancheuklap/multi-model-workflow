@@ -98,8 +98,8 @@ check "gate-codex-review hard-fails on missing envelope" bash -c "
     | bash '$PLUGIN_DIR/hooks/gate-codex-review.sh' 2>/dev/null; [ \$? -eq 2 ]
 "
 
-check "disposition append injected" bash -c "
-  grep -q 'state\.sh.*disposition append' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'
+check "disposition routed to canonical table" bash -c "
+  grep -q '_shared/disposition-table.md' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'
 "
 
 check "run_in_background in dispatch" bash -c "
