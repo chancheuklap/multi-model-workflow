@@ -8,16 +8,16 @@ run_test() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then echo "  PASS:
 
 echo "=== test_review_segmentation.sh ==="
 
-# Verify review-dispatch template has baseline review only (D13a: targeted-re-review removed)
-TMPL="$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
+# Verify review-dispatch canonical has baseline review only (D13a: targeted-re-review removed)
+TMPL="$PLUGIN_DIR/skills/_shared/review-dispatch.md"
 
-run_test "template has baseline review" \
+run_test "canonical has baseline review" \
   grep -q "Baseline review" "$TMPL"
 
-run_test "targeted re-review removed from template" \
+run_test "targeted re-review removed from canonical" \
   bash -c "! grep -q 'Targeted re-review' '$TMPL'"
 
-run_test "no --resume in template" \
+run_test "no --resume in canonical" \
   bash -c "! grep -q '\-\-resume' '$TMPL'"
 
 run_test "baseline does NOT use --resume" \

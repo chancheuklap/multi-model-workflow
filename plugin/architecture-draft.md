@@ -770,21 +770,19 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 
 `build.sh --check` 模式仅比较生成结果与当前文件，差异则 exit 1（CI）。不含锚点的文件静默跳过，支持渐进式接入。variant 标签嵌在 BEGIN 注释内，resolver 按 variant 提取 .tmpl 中对应 `[variant=X]...[/variant]` 段落。
 
-### 9.2 模板（13 个）
+### 9.2 模板（7 个活跃）
+
+canonical 化的 review-dispatch / repair-routing / disposition-table 内容现唯一权威在 `skills/_shared/*.md`，各 phase skill 通过 Read directive 引用；只有 review-dispatch 的 content-only variant 仍走 resolver 注入 codex-review/SKILL.md。
 
 | 模板 | 注入目标 | 注入内容 |
 |------|---------|---------|
 | `worker-loop.md.tmpl` | agents/pack-executor.md / agents/complex-pack-executor.md | **Plan 级 Worker 自治循环** —— 6 大段合同（启动 / 循环 / verdict / repair / context / artifact） |
-| `review-dispatch.md.tmpl` | **inactive (canonical 化)** — 内容迁移到 `skills/_shared/review-dispatch.md`；`[variant=content-only]` 仍由 resolver 注入 codex-review/SKILL.md | 完整 Codex review 派发 + confidence rubric |
-| `repair-routing.md.tmpl` | **inactive (canonical 化)** — 内容迁移到 `skills/_shared/repair-routing.md` | 按 finding 风险面 / 根因清晰度决定修复 owner |
-| `disposition-table.md.tmpl` | **inactive (canonical 化)** — 内容迁移到 `skills/_shared/disposition-table.md` | Coordinator 亲验 → disposition 四选一流程 |
+| `review-dispatch.content-only.md.tmpl` | codex-review/SKILL.md（`[variant=content-only]`） | confidence rubric + 证据表 + bias 声明（ad-hoc Codex review 派发段） |
 | `sendmessage-resume.md.tmpl` | execution-repair-truncation / final-review-repair / plan-review-resolution | Worker / plan-writer SendMessage 续修操作模板（variant: worker / plan-writer） |
 | `control-envelope.md.tmpl` | orchestrate-execution/SKILL.md / orchestrate-plan-writing/SKILL.md / execution-worker-dispatch.md | 每次 Agent dispatch 的 DISPATCH_ENVELOPE 前缀格式 |
 | `preamble.md.tmpl` | 各 SKILL.md 顶部（variant T1/T2/T3） | Hard Gate / Compaction Recovery 指引 |
 | `signpost.md.tmpl` | 各 SKILL.md | Phase 过渡时更新 cursor / status 的 bash 命令模板 |
 | `voice-directive.md.tmpl` | 所有 agents/*.md 和各 SKILL.md（10+ variant） | 各 agent / Coordinator persona 与沟通基调 |
-| ~~`state-write.md.tmpl`~~ | **deleted (D2)** — 内联到 orchestrate-execution/SKILL.md | state.sh 操作参考 |
-| ~~`trust-boundary.md.tmpl`~~ | **deleted (D2)** — 内联到 orchestrate-execution/SKILL.md | 用户仓库内容不可信声明 + 唯一权威来源声明 |
 
 ### 9.3 generate-pack-manifest.sh
 
@@ -1303,7 +1301,7 @@ Plugin 采用 Coordinator-Worker 分担架构：Coordinator 把专项工作（�
 - 改 build template → 跑 `build.sh --apply` 然后 `build.sh --check`
 - 改 route enum → 同步 `state-schema/workflow-state-v1.json` + `state.sh init` + `session-start.sh` route 判定
 - 改 disposition enum → 同步 `state.sh disposition append` 校验 + `validate-plan-dispatch.sh` disposition_refs 检查 + disposition 表模板
-- 改 review_intent enum → 同步 `dispatch-envelope-v1.json` + `gate-codex-review.sh` + `review-dispatch.md.tmpl`
+- 改 review_intent enum → 同步 `dispatch-envelope-v1.json` + `gate-codex-review.sh` + `skills/_shared/review-dispatch.md`
 - 改 Worker Loop 行为 → 改 `build/templates/worker-loop.md.tmpl` → 跑 `build.sh --apply` → 检查 pack-executor.md / complex-pack-executor.md 注入正确
 - 改 plan-return / open-items / merge-brief schema → 同步 plan-return-parser.sh / agent-return-handler.sh / state.sh plan-returns ingest
 - 改 Coordinator checkbox toggle 流程 → 同步 agent-return-handler.sh + execution SKILL.md Step 14 + plan-review-resolution.md

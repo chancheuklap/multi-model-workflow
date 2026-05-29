@@ -2,9 +2,7 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-TEMPLATE="$PLUGIN_DIR/build/templates/repair-routing.md.tmpl"
 CANONICAL="$PLUGIN_DIR/skills/_shared/repair-routing.md"
-RESOLVER="$PLUGIN_DIR/build/resolvers/repair-routing.sh"
 
 FILES=(
   "$PLUGIN_DIR/skills/orchestrate-plan-writing/references/plan-review-resolution.md"
@@ -23,10 +21,6 @@ run_test() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then echo "  PASS:
 
 echo "=== test_repair_routing.sh ==="
 
-# Template and resolver still exist (for potential future use)
-run_test "repair-routing template exists" test -f "$TEMPLATE"
-run_test "repair-routing resolver exists" test -x "$RESOLVER"
-
 # Canonical reference (D1) contains the core content
 run_test "canonical repair-routing is Claude native" bash -c \
   "grep -q 'SendMessage' '$CANONICAL' && grep -q 'complex-pack-executor' '$CANONICAL' && grep -q 'root-cause-analyst' '$CANONICAL'"
@@ -40,7 +34,7 @@ for file in "${FILES[@]}"; do
 done
 
 run_test "repair routing does not introduce Codex-only dispatch terms" bash -c \
-  "! grep -R 'spawn_agent\\|send_input\\|wait_agent\\|\\.codex/multi-model-workflow\\|codex_reviewer\\|pack_executor\\|complex_pack_executor\\|root_cause_analyst' '$PLUGIN_DIR/build/templates/repair-routing.md.tmpl' >/dev/null"
+  "! grep -R 'spawn_agent\\|send_input\\|wait_agent\\|\\.codex/multi-model-workflow\\|codex_reviewer\\|pack_executor\\|complex_pack_executor\\|root_cause_analyst' '$CANONICAL' >/dev/null"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

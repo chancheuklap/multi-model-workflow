@@ -48,10 +48,10 @@ resolve_anchor() {
   local variant="$2"
   local resolver_base="${anchor_name}"
 
-  # Skip canonical-converted anchors (D1) — content now lives in plugin/skills/_shared/
-  # Only content-only variant (used by codex-review/SKILL.md) is still resolved via template
+  # Canonical-converted anchors — content now lives in plugin/skills/_shared/
+  # Only review-dispatch's content-only variant (used by codex-review/SKILL.md) is still template-resolved
   case "$anchor_name" in
-    review-dispatch|repair-routing|disposition-table)
+    review-dispatch)
       if [[ "$variant" != "content-only" ]]; then
         return 1
       fi

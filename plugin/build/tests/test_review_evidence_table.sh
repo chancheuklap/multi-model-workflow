@@ -3,7 +3,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CANONICAL="$PLUGIN_DIR/skills/_shared/review-dispatch.md"
-TEMPLATE="$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
+TEMPLATE="$PLUGIN_DIR/build/templates/review-dispatch.content-only.md.tmpl"
 ADHOC="$PLUGIN_DIR/skills/codex-review/SKILL.md"
 
 pass=0; fail=0
@@ -18,11 +18,11 @@ run_test "canonical review-dispatch requires evidence table" \
 run_test "canonical review-dispatch requires unverified items" \
   grep -q "未验证项" "$CANONICAL"
 
-# Template source (still exists for content-only variant)
-run_test "review-dispatch template requires evidence table" \
+# Content-only template source (codex-review ad-hoc variant)
+run_test "review-dispatch content-only template requires evidence table" \
   grep -q "证据表 (REQUIRED)" "$TEMPLATE"
 
-run_test "review-dispatch template requires unverified items" \
+run_test "review-dispatch content-only template requires unverified items" \
   grep -q "未验证项" "$TEMPLATE"
 
 # Codex-review ad-hoc (content-only variant still injected via build)

@@ -19,8 +19,16 @@ for resolver in "$BUILD_DIR"/resolvers/*.sh; do
     continue
   fi
 
+  # review-dispatch is canonical-converted: only its content-only variant template remains
+  if [[ "$name" == "review-dispatch" ]]; then
+    variant="content-only"
+    tmpl="$BUILD_DIR/templates/${name}.${variant}.md.tmpl"
+  else
+    variant=""
+    tmpl="$BUILD_DIR/templates/${name}.md.tmpl"
+  fi
+
   # Check corresponding template exists
-  tmpl="$BUILD_DIR/templates/${name}.md.tmpl"
   if [[ ! -f "$tmpl" ]]; then
     echo "  FAIL: $name template missing ($tmpl)"
     fail=$((fail + 1))
@@ -28,7 +36,7 @@ for resolver in "$BUILD_DIR"/resolvers/*.sh; do
   fi
 
   # Run resolver and verify it outputs something
-  output=$(bash "$resolver" "$BUILD_DIR/templates" "$name" "" 2>&1) || {
+  output=$(bash "$resolver" "$BUILD_DIR/templates" "$name" "$variant" 2>&1) || {
     echo "  FAIL: $name resolver exit non-zero"
     fail=$((fail + 1))
     continue
@@ -53,11 +61,11 @@ done
 
 # Verify total resolver count
 count=$(ls -1 "$BUILD_DIR"/resolvers/*.sh | wc -l | tr -d ' ')
-if [[ "$count" -ge 9 ]]; then
-  echo "  PASS: $count resolvers found (>= 9)"
+if [[ "$count" -ge 7 ]]; then
+  echo "  PASS: $count resolvers found (>= 7)"
   pass=$((pass + 1))
 else
-  echo "  FAIL: only $count resolvers found (expected >= 9)"
+  echo "  FAIL: only $count resolvers found (expected >= 7)"
   fail=$((fail + 1))
 fi
 

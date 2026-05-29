@@ -26,8 +26,8 @@ echo ""
 echo "## Build System"
 check "build.sh exists and executable" test -x "$PLUGIN_DIR/build/build.sh"
 check "build.sh --check passes" bash "$PLUGIN_DIR/build/build.sh" --check --plugin-dir "$PLUGIN_DIR"
-check "≥9 resolvers" bash -c "[ \$(ls -1 '$PLUGIN_DIR/build/resolvers/'*.sh | wc -l) -ge 9 ]"
-check "≥9 templates" bash -c "[ \$(ls -1 '$PLUGIN_DIR/build/templates/'*.tmpl | wc -l) -ge 9 ]"
+check "≥7 resolvers" bash -c "[ \$(ls -1 '$PLUGIN_DIR/build/resolvers/'*.sh | wc -l) -ge 7 ]"
+check "≥7 templates" bash -c "[ \$(ls -1 '$PLUGIN_DIR/build/templates/'*.tmpl | wc -l) -ge 7 ]"
 
 echo ""
 echo "## State Machine"
@@ -166,12 +166,12 @@ check "C2: review budget auto-counted by PostToolUse hook (Claude-native)" bash 
   "grep -q 'review_used += 1' '$PLUGIN_DIR/hooks/track-review-budget.sh' && grep -q 'track-review-budget.sh' '$PLUGIN_DIR/hooks/hooks.json'"
 check "C2: complete-review-dispatch is durability-only (no double-counting)" bash -c \
   "! grep -q 'budget increment-review' '$PLUGIN_DIR/scripts/complete-review-dispatch.sh' && grep -q 'status = \"completed\"' '$PLUGIN_DIR/scripts/complete-review-dispatch.sh'"
-check "C2: review dispatch template marks disposition recovery" bash -c \
-  "grep -q 'record-review-disposition.sh' '$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl' && grep -q 'disposition_started' '$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl'"
-check "C2: review dispatch template completes through bookkeeping script" \
-  grep -q 'complete-review-dispatch.sh' "$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
-check "C2: review dispatch template records baseline reviewer agent" \
-  grep -q 'dispatch-review.sh.*record' "$PLUGIN_DIR/build/templates/review-dispatch.md.tmpl"
+check "C2: review dispatch canonical marks disposition recovery" bash -c \
+  "grep -q 'record-review-disposition.sh' '$PLUGIN_DIR/skills/_shared/review-dispatch.md' && grep -q 'disposition_started' '$PLUGIN_DIR/skills/_shared/review-dispatch.md'"
+check "C2: review dispatch canonical completes through bookkeeping script" \
+  grep -q 'complete-review-dispatch.sh' "$PLUGIN_DIR/skills/_shared/review-dispatch.md"
+check "C2: review dispatch canonical records baseline reviewer agent" \
+  grep -q 'dispatch-review.sh.*record' "$PLUGIN_DIR/skills/_shared/review-dispatch.md"
 check "C2: state.sh supports budget unlimited subcommand" \
   bash -c "grep -q 'cmd_budget_unlimited' '$PLUGIN_DIR/scripts/state.sh'"
 check "C2: direct-repair / multi-pr-merge / bug-investigation init as unlimited" bash -c \
