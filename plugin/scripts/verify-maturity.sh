@@ -66,7 +66,6 @@ check "persona.md exists" test -f "$PLUGIN_DIR/agents/persona.md"
 
 echo ""
 echo "## Defense"
-check "poison detection function inlined in learnings-jsonl.sh" bash -c "grep -q 'detect_learning_poison' '$PLUGIN_DIR/scripts/learnings-jsonl.sh'"
 check "pack-count-validator.sh removed (D24)" test ! -f "$PLUGIN_DIR/scripts/pack-count-validator.sh"
 
 echo ""
@@ -130,7 +129,6 @@ check "Path B uses SendMessage not Agent()" bash -c "
 echo ""
 echo "## Missing Files"
 check "state-lock.sh exists" test -f "$PLUGIN_DIR/scripts/lib/state-lock.sh"
-check "learnings-jsonl.sh executable" test -x "$PLUGIN_DIR/scripts/learnings-jsonl.sh"
 check "execution-state-v1.json valid" python3 -m json.tool "$PLUGIN_DIR/state-schema/execution-state-v1.json"
 check "pack-returns-v1.json exists and valid" python3 -m json.tool "$PLUGIN_DIR/state-schema/pack-returns-v1.json"
 check "direction-check.md exists" test -f "$PLUGIN_DIR/skills/orchestrate-workflow/references/direction-check.md"
@@ -209,10 +207,6 @@ check "I4: validate-plan-dispatch blocks per-pack execution dispatch" \
 # I5: state.sh plans subcommand removed (D7b)
 check "I5: state.sh plans subcommand removed" bash -c \
   "! bash '$PLUGIN_DIR/scripts/state.sh' 2>&1 | grep -q '^  plans '"
-
-# I7: no macOS-only date -j in learnings (cross-platform)
-check "I7: learnings-jsonl no macOS-only date" bash -c \
-  "! grep -q 'date -j' '$PLUGIN_DIR/scripts/learnings-jsonl.sh'"
 
 # M3: state.sh disposition enum validation
 check "M3: state.sh has disposition enum validation" bash -c \

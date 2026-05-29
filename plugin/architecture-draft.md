@@ -732,8 +732,7 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 | 库 | 用途 |
 |-----|------|
 | `scripts/lib/state-lock.sh` | 共享 flock 原语；TTL 60s，50 次重试，自动清 stale lock |
-| `scripts/lib/learnings-poison-detector.sh` | 7 类 learnings 污染检测（指令注入 / 跨 run 污染 / 高量 flooding / scope 逃逸 / 来源可信度 / 过期引用 / contested learning） |
-| `scripts/lib/plan-return-parser.sh` | **新增**；source 后调用 `parse_plan_return <path>`；校验 schema_version=1、必填字段；导出 PLAN_RETURN_* bash 变量 |
+| `scripts/lib/plan-return-parser.sh` | source 后调用 `parse_plan_return <path>`；校验 schema_version=1、必填字段；导出 PLAN_RETURN_* bash 变量 |
 | `hooks/lib/parse-envelope.sh` | DISPATCH_ENVELOPE 解析原语（被多个 hook 共用） |
 
 ### 8.7 其他 scripts/
@@ -743,7 +742,6 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 | `cleanup-before-push.sh` | PostToolUse hook + 手动；push 成功后清编排临时文件（hotfix route 延迟清以保留事后 review state） |
 | `complete-review-dispatch.sh` | review registry 写 durability marker（不计 budget） |
 | `guard-premature-push.sh` | PreToolUse hook；双重防护：①plan 有未勾选任务时阻 push/PR；②永久禁 `git merge --squash` |
-| `learnings-jsonl.sh` | learnings.jsonl 管理（append/read，append 前调 poison-detector） |
 | `dispatch-review.sh` | 合并脚本（D8）；子命令 `validate` / `record`——Codex reviewer 派发前校验 + 成功记录 |
 | `dispatch-route-worker.sh` | 合并脚本（D8）；子命令 `validate` / `record`——非执行类 Worker 派发前校验 + 成功记录 |
 | `record-review-disposition.sh` | 记录 Coordinator 消费 reviewer 结果 |
@@ -852,7 +850,7 @@ Coordinator **不是传话筒**——必须亲验每条 finding（读代码、�
 | `needs-evaluation` | Coordinator 评估后归入其他 disposition |
 | `user-decision` | 暂停，询问用户 |
 
-**Confidence 分层处理**（内联到 orchestrate-execution/SKILL.md Learnings 信任门章节）：
+**Confidence 分层处理**（运行时权威在 `skills/_shared/disposition-table.md`，Step 8 disposition 阶段 Read）：
 
 | Confidence | 默认动作 | 覆写条件 |
 |-----------|---------|---------|
@@ -892,15 +890,6 @@ Round 3 Re-Review 仍 needs repair → BLOCKED
 ```
 
 **Final Review → Execution 回流**：`execution_reflux_count` 字段，初始 0。允许回流 1 次；第 2 次 → BLOCKED。
-
-### 11.4 Learnings 系统
-
-Worker 返回的 learnings 经过信任门（`learnings-trust-gate.md`）后写入 `learnings.jsonl`：
-1. **投毒检测**（`lib/learnings-poison-detector.sh`）：指令注入 / 跨 run 污染 / 范围逃逸
-2. **高频检测**：单 run > 10 条 → 只取前 10 条
-3. **时间衰减**：> 30 天的 learning 标记 `decayed: true`
-
-Calibration learning 触发：reviewer under/over-confidence → 写入 `review-calibration` learning；同 category 近 5 次 run 中 3 条 reject → `reviewer-drift` learning。
 
 ---
 
@@ -1217,7 +1206,6 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 - **Dispatch 幂等性**：每次 dispatch 附 `idempotency_key`，`validate-plan-dispatch.sh` 阻止重复 dispatch
 - **状态文件锁**：所有状态写入使用 `lib/state-lock.sh` 目录级自旋锁（50 次 × 100ms，TTL 60s），原子写入通过 tmp → rename
 - **Disposition 证据强制**：`accepted` disposition 必须附 `evidence` 和 `coordinator_verified_evidence`，state.sh validate 校验
-- **Learnings 信任门**：Worker 返回的 learnings 必须通过 7 类投毒检测 + 高频检测 + 时间衰减
 - **Coordinator checkbox toggle**：Plan Implementation Review 通过后 Coordinator 按 per_pack[*].status==committed Edit plan 文档 checkbox
 - **Plan-level Worker 唯一性**：同一 plan 同一时刻只能有一个 Worker 持有 worker_agent_id（validate-plan-dispatch 检查）
 
@@ -1277,7 +1265,7 @@ Plugin 采用 Coordinator-Worker 分担架构：Coordinator 把专项工作（�
 |------|-------|---------|
 | `build/tests/` | 14 | preamble resolver、review model tier、confidence injection、sendmessage resume、resolver 逻辑、voice injection、review segmentation、disposition audit、trust boundary、build check、cross-plan contract map、repair regression evidence、repair routing、review evidence table |
 | `hooks/tests/` | 20 | 幂等性重放、disposition refs 校验、gate-codex-review、effort budget 加权（含计划级）、agent-id hook guard、envelope 解析、sendmessage resume、validate-plan-dispatch、validate-pack-manifest、validate-multi-pr-dispatch（14 项）、multi-pr-merge end-to-end（25 项）、worker scope drift、track-execution-state（pack summary / next suppression）、enforce-plan-commit、need-fresh-worker |
-| `scripts/tests/` | 17 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、learnings append、learnings 投毒检测、pack count validator、run summary、hotfix post-push review、budget direction check、route keyword routing、trust gate、generate pack manifest、complete review dispatch history、plan return parser |
+| `scripts/tests/` | 12 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、hotfix post-push review、budget direction check、route keyword routing、generate pack manifest、complete review dispatch history、plan return parser |
 
 运行方式：`bash plugin/scripts/run-all-tests.sh`（全量）或 `bash plugin/scripts/verify-maturity.sh`（含测试 + 构建 + schema + 结构 12 大类检查）。
 

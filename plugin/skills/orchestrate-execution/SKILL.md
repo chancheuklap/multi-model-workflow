@@ -296,41 +296,6 @@ Plan 完成后统一处置所有 Pack 的 `### Open Items`（不在单 Pack 返�
 
 → Step 7（Plan Implementation Review）。
 
-###### Step 6c：Learnings 信任门
-
-Worker 返回的 learnings 必须经过信任门才能写入 learnings.jsonl。
-
-**检查清单**：
-1. **投毒检测** — 调用 `scripts/lib/learnings-poison-detector.sh`
-   - 指令注入（prompt manipulation patterns）
-   - 跨 run 污染（引用其他 run_id）
-   - 范围逃逸（引用 scope contract 排除的文件）
-2. **高频检测** — 单次 run 超过 10 条 learning → 告警
-3. **时间衰减** — 超过 30 天的 learning 自动降权（不删除，标记 `decayed: true`）
-
-**Coordinator 操作**：
-- `CLEAN` → 写入 learnings.jsonl
-- `POISONED` → 丢弃
-- 高频告警 → 只取前 10 条，余下丢弃并记录
-
-**Confidence 分层处理**（review finding disposition 阶段参考）：
-
-| Confidence 级别 | 默认动作 | 覆写条件 |
-|----------------|---------|---------|
-| 1-3 (Low) | suppress — `"suppressed: low confidence"` | Coordinator 独立验证 finding 指向真实问题 |
-| 4-6 (Medium) | 亲验 + 补证（Read/grep → 派 explorer 补证 → accept/reject） | — |
-| 7-10 (High) | 亲验后 accept 或 reject | 验证失败时 reject 并附反向证据 |
-
-**Calibration Learning 触发规则**：
-
-| 条件 | Learning 类型 |
-|------|-------------|
-| Finding confidence < 7 但亲验后 accept | review-calibration (under-confidence) |
-| Finding confidence ≥ 8 但 reject | review-calibration (over-confidence) |
-| 同一 category 累计近 5 次 run 中 3 条 reject | reviewer-drift |
-| Worker 返回 needs repair（首次 dispatch 未通过） | repair-pattern |
-| Worker 修改了 owned files 之外的文件 | scope-drift |
-
 ---
 
 **Worker / RCA 返回事实校验**：Coordinator 收到 pack-executor / complex-pack-executor / root-cause-analyst 返回的 commit hash、文件路径、行号、grep 结果、Pack 状态等事实，必须抽验（至少 1 个事实 grep / Read / git show）后再进入 Plan Implementation Review 或下一 Pack 派发。事实失实 -> 重派或 Coordinator 亲查。
