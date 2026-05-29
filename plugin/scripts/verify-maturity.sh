@@ -41,12 +41,8 @@ check "hooks.json valid JSON" python3 -m json.tool "$PLUGIN_DIR/hooks/hooks.json
 check "gate-codex-review.sh exists" test -x "$PLUGIN_DIR/hooks/gate-codex-review.sh"
 check "parse-envelope.sh exists" test -x "$PLUGIN_DIR/hooks/lib/parse-envelope.sh"
 check "validate-plan-dispatch.sh exists" test -x "$PLUGIN_DIR/hooks/validate-plan-dispatch.sh"
-check "validate-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-review-dispatch.sh"
-check "record-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/record-review-dispatch.sh"
 check "complete-review-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/complete-review-dispatch.sh"
 check "record-review-disposition.sh exists" test -x "$PLUGIN_DIR/scripts/record-review-disposition.sh"
-check "validate-route-worker-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/validate-route-worker-dispatch.sh"
-check "record-route-worker-dispatch.sh exists" test -x "$PLUGIN_DIR/scripts/record-route-worker-dispatch.sh"
 
 echo ""
 echo "## Fallback Removal"

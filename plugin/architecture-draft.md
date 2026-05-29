@@ -746,11 +746,7 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 | `learnings-jsonl.sh` | learnings.jsonl 管理（append/read，append 前调 poison-detector） |
 | `dispatch-review.sh` | 合并脚本（D8）；子命令 `validate` / `record`——Codex reviewer 派发前校验 + 成功记录 |
 | `dispatch-route-worker.sh` | 合并脚本（D8）；子命令 `validate` / `record`——非执行类 Worker 派发前校验 + 成功记录 |
-| `record-review-dispatch.sh` | **shim**（D8）→ 转发到 `dispatch-review.sh record` |
 | `record-review-disposition.sh` | 记录 Coordinator 消费 reviewer 结果 |
-| `record-route-worker-dispatch.sh` | **shim**（D8）→ 转发到 `dispatch-route-worker.sh record` |
-| `validate-review-dispatch.sh` | **shim**（D8）→ 转发到 `dispatch-review.sh validate` |
-| `validate-route-worker-dispatch.sh` | **shim**（D8）→ 转发到 `dispatch-route-worker.sh validate` |
 | `run-summary.sh` | 读 workflow-state 生成 run 汇总指标 |
 | `run-all-tests.sh` | 遍历 tests/ 下 21 个 test_*.sh 套件 |
 | `verify-maturity.sh` | 端到端成熟度 harness（12 大类 section） |
