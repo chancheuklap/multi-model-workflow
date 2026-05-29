@@ -73,20 +73,6 @@
       "type": ["string", "null"],
       "description": "Relative path to open-items.json — typically 'plan-returns/<run_id>/<plan_id>/open-items.json'."
     },
-    "context_pressure": {
-      "type": ["object", "null"],
-      "description": "Context-self-monitor signal (Plan 005 Decision 4).",
-      "properties": {
-        "completed_packs": {
-          "type": "integer",
-          "description": "How many packs this Worker session committed before returning."
-        },
-        "triggered": {
-          "type": "boolean",
-          "description": "True when packs_in_session >= 5 AND remaining_packs >= 2 — verdict will be need-fresh-worker."
-        }
-      }
-    },
     "repair_round": {
       "type": ["integer", "null"],
       "description": "Repair Mode marker: 0/null on initial dispatch, >=1 when SendMessage repair triggered this return."

@@ -545,7 +545,7 @@ Worker 完成 Plan 后写入 `.claude/multi-model-workflow/plan-returns/<run_id>
 - `verdict` — 6 枚举：`pass / partial-pass / blocked / need-fresh-worker / needs-context / needs-plan-revision`
 - `per_pack` — object，key = pack_id，value 含 `status / commit_sha / verdict / reason / attempts`
 
-**选填字段**：`started_at` / `finished_at` / `open_items_path` / `context_pressure`（含 `completed_packs` + `triggered`） / `repair_round` / `concerns`
+**选填字段**：`started_at` / `finished_at` / `open_items_path` / `repair_round` / `concerns`
 
 ### 7.3 pack-returns（`state-schema/pack-returns-v1.json`）
 

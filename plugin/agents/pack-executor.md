@@ -117,7 +117,7 @@ for pack in sorted_packs:
 
 # 全部 Pack 完成 / context 触发 / partial-fail 收尾
 write plan-return.json to ${STATE_DIR}/plan-returns/<run_id>/<plan_id>/plan-return.json
-  # 含 schema_version, run_id, plan_id, verdict, per_pack{}, open_items_path, context_pressure
+  # 含 schema_version, run_id, plan_id, verdict, per_pack{}, open_items_path
 
 bash state.sh execution-plan complete --plan-id <plan.id> --verdict <verdict>
 
@@ -183,7 +183,7 @@ packs_in_session = count(execution-state.plans[plan_id].packs[*] where status ==
 
 写入的 3 个 artifact 必须符合：
 
-- `plan-return.json` ← `plugin/state-schema/plan-return-v1.json`（schema_version, run_id, plan_id, started_at, finished_at, verdict, per_pack, open_items_path, context_pressure）
+- `plan-return.json` ← `plugin/state-schema/plan-return-v1.json`（schema_version, run_id, plan_id, started_at, finished_at, verdict, per_pack, open_items_path）
 - `open-items.json` ← `plugin/state-schema/open-items-v1.json`（schema_version, plan_id, items[]）
 <!-- END: worker-loop -->
 
