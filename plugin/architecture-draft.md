@@ -304,10 +304,10 @@ Coordinator 端的"最小职责"被压缩到 4 步（构造 envelope → 写 pla
 | Agent | 模型 | effort | maxTurns | Worker Loop 锚点 | `skills:` 自动加载 |
 |-------|------|--------|----------|-----------------|-------------------|
 | `pack-executor` | sonnet | xhigh | — | ✅ `<!-- BEGIN: worker-loop -->` | tdd |
-| `complex-pack-executor` | claude-opus-4-8 | high | — | ✅ `<!-- BEGIN: worker-loop -->` | tdd |
+| `complex-pack-executor` | claude-opus-4-8[1m] | high | — | ✅ `<!-- BEGIN: worker-loop -->` | tdd |
 | `plan-writer` | claude-opus-4-8[1m] | xhigh | — | — | —（D11 瘦身） |
 | `code-explorer` | sonnet | high | 20 | — | — |
-| `complex-code-explorer` | claude-opus-4-8 | high | 30 | — | — |
+| `complex-code-explorer` | claude-opus-4-8[1m] | high | 30 | — | — |
 | `root-cause-analyst` | claude-opus-4-8[1m] | xhigh | 40 | — | diagnose, tdd |
 | `docs-worker` | sonnet | high | 20 | — | —（D11 瘦身） |
 

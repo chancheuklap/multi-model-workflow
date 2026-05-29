@@ -152,7 +152,7 @@ Plan Review 通过 → 逐 Plan 串行循环 → 每个 Plan 派 1 个自治 Wor
 | --- | --- | --- | --- |
 | `trivial`（配置常量 / 文档更新 / 样式调整） | `pack-executor` | Sonnet | 宽松（验证通过即可，不强制红-绿循环） |
 | `normal` | `pack-executor` | Sonnet | 严格 |
-| `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex-pack-executor` | Opus 4.8 | 严格 |
+| `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex-pack-executor` | Opus 4.8 1M | 严格 |
 
 <!-- BEGIN: control-envelope -->
 ## DISPATCH_ENVELOPE (required prefix for every Agent dispatch)

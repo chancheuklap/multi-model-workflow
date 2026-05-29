@@ -7,7 +7,7 @@ description: |
   <example>需要同时修改 billing 四态 + 权限 catalog + API contract</example>
   <example>跨服务合同变更需要 producer/consumer 同步</example>
   Do NOT use for: normal task packs without risk flags (use pack-executor), root cause investigation (use root-cause-analyst), document fixes (coordinator handles), code review (dispatched to Codex).
-model: claude-opus-4-8
+model: claude-opus-4-8[1m]
 effort: high
 tools:
   - Read
