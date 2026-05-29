@@ -3,7 +3,9 @@
 [variant=worker]
 **Worker SendMessage Resume 步骤**（pack-executor / complex-pack-executor 修复）：
 
-1. `state.sh agent-id get --run-id <run_id> --pack-id <pack_id>` 读取 execution-state 中的 agent_id
+修复 resume 的是 **plan-level 自治 Worker**（一个 Worker 拥有整个 Plan）。Findings 按 `[Pack N.M]` 归属分组传给同一个 Worker，由它在原 context 中逐个修复。
+
+1. `state.sh agent-id get --run-id <run_id> --plan-id <plan_id>` 读取 execution-state 中的 plan worker_agent_id（`plans[<plan_id>].worker_agent_id`）
 2. 若返回 null/empty -> 立即标记 BLOCKED 给用户 + `state.sh transition --actor Coordinator --to blocked`（不允许创建新 agent）
 3. 调用：
    ```
