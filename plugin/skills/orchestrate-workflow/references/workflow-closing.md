@@ -61,6 +61,23 @@ Push + PR 完成后，退出工作树：
 
 工作树保留直到 PR 合并后由 `clean_gone` 统一清理（删除工作树 + 分支 + 残留状态文件）。
 
+## Step 22b：事后补审（pending_post_push_reviews）
+
+> **机器消费契约**：hotfix submode 先 push 后审，把"欠一次审"记成磁盘状态。Closing 必须兑付，否则不算完成。
+
+Push + PR 完成后，读 workflow-state 的 `pending_post_push_reviews`：
+
+```bash
+jq '.pending_post_push_reviews' .claude/multi-model-workflow/workflow-state-<run_id>.json
+```
+
+| 状态 | 动作 |
+| --- | --- |
+| `[]`（空） | 无欠审 → 直接进 Step 23 |
+| 非空（有条目） | **必须**对已 push 的 commit 派一次事后 regression review（走 `_shared/review-dispatch.md` 派发契约，Execution tier GPT-5.4 xhigh）。review 返回后由 Coordinator 验证结论（子代理必验），再清空数组：`state.sh update --run-id <run_id> --field '.pending_post_push_reviews' --value '[]'`。**数组非空时 Closing 不返回完成 verdict** |
+
+补审发现新问题 → 按 finding 派修复并补 commit（生产已 push，修复作为后续 commit），再清空。补审清空后才进 Step 23。
+
 ## Step 23：Report to User
 
 一到两句话汇报。不做长篇总结。

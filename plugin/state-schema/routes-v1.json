@@ -49,7 +49,7 @@
       ],
       "gate_exemptions": ["discovery", "plan-review"],
       "dispatch_shape": { "execution": "plan-level" },
-      "budget": { "init": "pending_plan_count", "formula": "3P+12" },
+      "budget": { "init": "unlimited", "formula": null },
       "commit_format": null
     },
     "direct-repair": {

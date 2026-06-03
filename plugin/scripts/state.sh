@@ -22,7 +22,7 @@ Commands:
   self-verify       Manage self-verification records (append)
   agent-id          Get/set agent_id in execution-state (per Ruling 2)
   execution-plan    Manage execution-state plan boundaries (start)
-  budget            Budget subcommands (initialize, unlimited, check, increment-review)
+  budget            Budget subcommands (initialize, reinitialize, unlimited, check, increment-review)
   direction-check   Direction Check flow (trigger, ack)
   idempotency       Idempotency key management (check, append)
   review-history    Append a row to a design/plan document's Review History table
@@ -942,10 +942,11 @@ cmd_budget() {
   local subcmd="$1"; shift
   case "$subcmd" in
     initialize) cmd_budget_initialize "$@" ;;
+    reinitialize) cmd_budget_reinitialize "$@" ;;
     unlimited) cmd_budget_unlimited "$@" ;;
     check) cmd_budget_check "$@" ;;
     increment-review) cmd_budget_increment_review "$@" ;;
-    *) echo "Error: unknown budget subcommand: $subcmd (use initialize|unlimited|check|increment-review)" >&2; exit 2 ;;
+    *) echo "Error: unknown budget subcommand: $subcmd (use initialize|reinitialize|unlimited|check|increment-review)" >&2; exit 2 ;;
   esac
 }
 
@@ -983,6 +984,57 @@ cmd_budget_initialize() {
   local tmp="${sf}.tmp"
   jq --argjson rt "$review_total" --argjson et "$effort_total" --argjson pc "$plan_count" \
     '.budget.budget_status = "initialized" | .budget.review_total = $rt | .budget.effort_total = $et | .plan_count = $pc' \
+    "$sf" > "$tmp"
+  mv "$tmp" "$sf"
+}
+
+# cmd_budget_reinitialize — one-way Light→Formal escape-hatch upgrade.
+# Mirror image of cmd_budget_initialize's entry guard: this command ONLY accepts
+# an `unlimited` entry (light run), converting it to a bounded formal budget.
+# initialize protects "fresh formal run starts from pending_plan_count"; this
+# command serves the escape hatch (light discovered to be a big change). Atomically:
+#   budget_status unlimited → initialized + review_total/effort_total + plan_count
+#   route → "formal" (升级门同步翻 formal so every formal gate auto re-arms).
+# Formula stays identical to initialize (3*P+12 / effort=review_total*2); P4 will
+# parameterize both together.
+cmd_budget_reinitialize() {
+  local plan_count=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plan-count) plan_count="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$plan_count" ]]; then
+    echo "Error: --plan-count required for budget reinitialize" >&2
+    exit 2
+  fi
+
+  ensure_state_exists
+  acquire_lock
+  trap release_lock EXIT
+
+  local sf
+  sf="$(state_file)"
+
+  local current_status
+  current_status=$(jq -r '.budget.budget_status // "unknown"' "$sf")
+  if [[ "$current_status" != "unlimited" ]]; then
+    echo "Error: reinitialize only valid from unlimited (escape-hatch Light→Formal upgrade, status=$current_status). Use 'budget initialize' for fresh formal runs." >&2
+    exit 2
+  fi
+
+  local review_total=$((3 * plan_count + 12))
+  local effort_total=$((review_total * 2))
+
+  local tmp="${sf}.tmp"
+  jq --argjson rt "$review_total" --argjson et "$effort_total" --argjson pc "$plan_count" \
+    '.budget.budget_status = "initialized"
+     | .budget.review_total = $rt
+     | .budget.effort_total = $et
+     | .plan_count = $pc
+     | .route = "formal"' \
     "$sf" > "$tmp"
   mv "$tmp" "$sf"
 }

@@ -55,13 +55,84 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 
 ## Step 1：Entry Gate
 
+### D1 判定线：默认 Light，命中升级条件才转 Formal
+
+**默认 `route=light`（轻量旁路）。** 只有命中以下任一升级条件，才升 `route=formal`：
+
+1. **用户明说大改造/新功能信号**："大改造" / "新功能" / "重构整个 X" / "新增一个模块/系统"。
+2. **改动触碰核心红线**（北极星：必升）。用 `scripts/redline-check.sh` 辅助判定——把改动路径 / diff 文本 / 关键词喂给它（args 或 stdin），命中（exit 0）则打印命中类别：
+
+   ```bash
+   bash scripts/redline-check.sh "<改动路径 / 关键词 / diff 文本>"
+   # exit 0 + 类别名 → 触碰红线，升 formal；exit 1 → 未触碰
+   ```
+
+   | 红线类别 | 关键词（redline-check.sh 匹配） |
+   | --- | --- |
+   | 计费 | billing / pricing / charge / quota / idempotency / metering / subscription |
+   | 权限 | auth / permission / role / acl / rbac / token / session / credential |
+   | 数据权威 | schema / migration / LINEAGE |
+   | 用户可见合同 | public api / endpoint / pricing |
+
+   redline-check.sh 是 **advisory**（给信号、不强拦）；拿不准（灰色地带，业务决策红线）就升 formal。误判 light 的兜底是一键升级门（见下文 Light Lane）——一句话即可补升，所有 formal 护栏自动回岗。
+
 | 路线 | 输入信号 | 下一步 |
 | --- | --- | --- |
-| **Route 1: Formal Orchestrate** | 新功能、改造、feedback、缺 design/issue/plan、已有 design/plan 要 review/执行 | Step 2 |
+| **Route 0: Light Lane（默认）** | 日常小改、单点修复、未命中升级条件 | `state.sh init --route light`（unlimited）→ Light Lane 流程段 |
+| **Route 1: Formal Orchestrate** | 命中 D1 升级条件：新功能、改造、feedback、缺 design/issue/plan、已有 design/plan 要 review/执行 | Step 2 |
 | **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Step 2（Git + Scope + unlimited workflow-state）→ Step 15 |
 | **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Step 2（Git + Scope + unlimited workflow-state）→ Step 19 |
 
 模糊输入 → 一次只问一个问题收窄。概念/事实问题 → 直接回答不进 orchestrate。
+
+### Route 0：Light Lane 流程（默认轻档）
+
+Light Lane 是日常小改的快路：跳过 Discovery / 独立 Plan-writing / Plan Review / Final Review 的完整 Codex 增强审查，但保留北极星质量门最小集。
+
+流程：
+
+1. **intent 一句确认**：`"这是个小改：<一句话>，我直接动手了"`——不阻塞，除非用户喊停。
+2. `state.sh init --run-id <rid> --slug <slug> --route light`——budget 默认 unlimited（routes 清单声明），因此自然跳过 `validate-plan-dispatch.sh` 的 budget-init 门（budget_status=unlimited，非 pending_plan_count）。
+3. **直派 Worker**（plan-level dispatch，走现有 envelope 契约）：Coordinator 自写一份简短 plan（或轻量内联 plan），`plan_path` 指向它。transition `workflow→execution` 对 light 合法（routes 清单声明），对 formal 仍非法。
+4. **Coordinator 自审**：Read/grep 验证 Worker 返回的 hash / 路径 / 计数后才采信。
+5. **Closing**：commit；push 前未勾选任务阻断照常生效。
+
+**保留的三条硬线（北极星质量门最小集，Light Lane 不豁免）**：
+
+1. **子代理返回必验**：Coordinator 必 Read/grep 验证 Worker/reviewer 返回的 hash/路径/计数后才采信。
+2. **Worker 禁改 docs/**：`guard-doc-edit.sh` worker-active marker 原样生效。
+3. **未勾选任务阻断 push**：plans 下有 `- [ ]` 时 `git push` / `gh pr create` 被 hook 阻断。
+
+**D2 外审策略**：Light Lane **默认不派 Codex**（Coordinator 自审）。保留手动入口——用户明说"这个让 Codex 看一眼" → Coordinator 单次派一个 Codex reviewer（走 `_shared/review-dispatch.md` 派发契约 + Execution tier GPT-5.4 xhigh）。默认不主动派，不做强 hook。
+
+**一键升级门（逃逸，单向 light→formal）**：Light Lane 跑到一半发现"这其实是大改造/触碰红线"时升级：
+
+```bash
+state.sh budget reinitialize --run-id <rid> --plan-count <暂估或 1>
+# unlimited → initialized + route light→formal（原子，单命令）
+```
+
+升级后 `route=formal` + `budget_status=initialized`，所有 formal 护栏（budget-init 门、严格 transition 链）自动回岗。随后补建 design/issue/plan 占位，已 commit 的 light 改动作为既成事实纳入 plan manifest，再 `transition --to discovery --force` 回流到 formal 起点。
+
+### Light Lane 子模式：hotfix 与 spike
+
+子模式不是新 route，是 Light Lane 上额外声明机器锚点的变体（`route=light` + 一个 submode 约定）。
+
+**hotfix（先 push 后审 · 生产救火）**：
+
+- 流程：Light Lane 直派 Worker → **先 push**（救火）→ 事后补审。
+- commit：`commit_format_override="hotfix-unreviewed"`（标记未审提交，便于事后定位）。
+- 未勾选阻断 push：**豁免**（生产救火必须能立即 push），但 push 后**必须**写一条 `pending_post_push_reviews` 作为"欠一次审"的磁盘记账。
+- 事后补审：Closing 读 `pending_post_push_reviews`，非空则派一次事后 regression review 并清空，否则 Closing 不算完成（见 `references/workflow-closing.md` Step 22b）。
+
+**spike / POC（产出 verdict 即弃）**：
+
+- 目录：临时目录 `.claude/multi-model-workflow/spikes/<slug>/`，物理隔离，不进 `docs/orchestrate/` 正式树。
+- 编号：**不占 plan/issue 编号**（不写 `docs/orchestrate/plans/` `issues/`，不调用占编号的写入路径）。
+- 产出：throwaway code + 1-page verdict 文档（可行/不可行 + 证据）；verdict 是唯一交付物，code 不要求 commit 到主分支。
+- budget：unlimited（spike 是探索，不卡预算）。
+- release gate：不触发——spike 终点是 verdict 返回，不进 Closing 的 push/PR。
+- 升级：verdict=可行且用户要落地 → 走一键升级门转 formal，spike 产物作为 design 输入。
 
 ### Route 1 Variant Table
 

@@ -51,6 +51,15 @@
 - 偏离记录：dispatch-route-worker 用 PHASE 作 route key（envelope 无 route 字段、route-worker 路由 phase 名恒等 route 名，已核验）；state.sh 另 3 处 `Plan 005 Pack 5.7` 是函数头"谁调用"说明、非 transition 历史、不在本期删注释范围，保留。
 - 验收：全量 45 套件全绿；build --check exit 0；verify-maturity 115/0。CLAUDE.md 的 8 行外部仓库 URL 是用户开场改动，未 stage。
 
+#### P3 Light Lane + 升级门 + 红线守卫 + 子模式 ✅（派 sub-agent，主线程重点亲验）
+
+- P3 是 D1"激进默认轻档"的安全闸所在，主线程重点亲验：三件套重跑 + 4 项头号行为手动复验 + 审 cmd_budget_reinitialize/redline-check 源码 + 3 条设计约束核对。
+- **修跨文档矛盾（代码即权威）**：doc02 把 light.budget 误抄成 pending_plan_count，doc03 §3.3 权威 light=unlimited → manifest 改 unlimited。
+- 改/增：schema route enum +light（5 值）；routes-v1.json light.budget→unlimited；**新命令 `cmd_budget_reinitialize`**（只从 unlimited 入、原子写 budget initialized+公式+route 翻 formal = 一键升级门，补 unlimited→bounded 缺口）；**新 `redline-check.sh`** advisory CLI（4 类红线关键词，命中 exit0+类别名，**不注册 hooks.json**）；SKILL.md Entry Gate 加 D1 判定线+Light Lane 流程+hotfix/spike 子模式（全在 build 锚点外）；workflow-closing.md 加 Step 22b 读 pending_post_push_reviews（修 hotfix 事后补审缺口）；3 新测试（budget_reinitialize/redline_check/light_lane_dispatch）。
+- **主线程手动复验通过**：① light init=unlimited；② reinitialize→initialized+route=formal+review_total=18；③ 从 formal(pending) 调 reinitialize 被拒 exit2；④ redline billing/auth 命中、纯文案不中。**3 约束核对**：redline 不在 hooks.json（advisory 非强 hook，符 #14+doc03§3.1）；workflow-closing 读 pending_post_push_reviews（缺口已修）；phase_skip 未提前删（留 P6）。
+- 落地决策 D-A..D-E（light=unlimited / gate 豁免靠 unlimited 不加 hook 读 gate_exemptions / 红线 advisory 非 hook / 不删 phase_skip / reinitialize 公式暂同 initialize 待 P4 参数化）均落实。偏离：redline-check 用并行 case 替 `declare -A`（macOS bash 3.2 兼容，行为不变）。
+- 验收：全量 48 套件全绿；build --check exit 0；verify-maturity 115/0。
+
 ## 待用户复核的关键项
 
 - **worktree 改道**（R3）：本次在 main 按新设计实现，未续 `control-flow-codification` worktree。若你本意是续那个 worktree，回来一句话我改道。

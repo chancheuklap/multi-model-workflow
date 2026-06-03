@@ -15,7 +15,7 @@
   "properties": {
     "run_id": { "type": "string" },
     "slug": { "type": "string" },
-    "route": { "type": "string", "enum": ["formal", "direct-repair", "multi-pr-merge", "bug-investigation"] },
+    "route": { "type": "string", "enum": ["formal", "light", "direct-repair", "multi-pr-merge", "bug-investigation"] },
     "phase_skip": {
       "type": "array",
       "items": { "type": "string", "enum": ["discovery", "plan-writing", "execution", "final-review", "plan-review"] },
