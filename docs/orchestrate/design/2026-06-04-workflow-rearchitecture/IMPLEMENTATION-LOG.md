@@ -75,6 +75,20 @@
 - 偏离/遗留：① verify-maturity C3 check 从"track-effort 存在"改为"不存在"（更有语义价值，验删除意图）；② 6 个测试 fixture 的旧 effort 字段一并清理到新 schema；③ `architecture-draft.md`（架构权威文档）与 `reviews/*.md`（历史审计快照）仍含 effort_total 描述——前者属架构文档漂移，**归 P5 漂移根治**统一处理；后者是历史快照不动。
 - 验收：全量 47 套件全绿；build --check exit 0；verify-maturity 115/0；json.tool 干净。
 
+#### P5 拆 4 子期（05/06/07 三册捆绑，按风险低→高串行）
+
+P5 涵盖 doc 05（Skill 瘦身+漂移根治）、06（外部 skill 战略）、07（Agent+Hook 层）共 ~15 工作流，多处标"承重风险/零 diff 铁律"。按 doc07 §6 + doc08 §1.4 内部排序拆为 P5a–P5d，各独立 commit + 主线程亲验。
+
+##### P5a 漂移根治 + embed矩阵 + 外部skill接线 ✅（派 sub-agent + 主线程补修扩面）
+
+- 纯文档/frontmatter/数据接线，零 build/schema/hook 逻辑。派 agent 实现，主线程亲验三件套 + 接线 grep。
+- **doc06 D5 外部 skill 战略**：embed 矩阵 L1-L3（complex-code-explorer/plan-writer +`improve-codebase-architecture`、docs-worker +`frontend-design`）；zoom-out 方案 B（替换删除，grep 全 plugin 零命中，6 处 NEEDS_CONTEXT 路由改 code-explorer/improve-codebase-architecture）；frontend-design+impeccable 补 session-start 声明 + impeccable 接 Discovery mockup 段；issue-splitting 顶部 to-issues 内化溯源注释。
+- **doc05 §4 漂移根治**：architecture-draft 版本头 3.8.0→3.10.0、bug-seed:1226 对齐 bug-investigation-route.md:63、§12 预算节重写为单 review 维度 + attendance 双模式。
+- **主线程亲验中发现 agent 漏清扩面（已补修）**：agent 只处理了 §12 主节，遗漏 ① :1185 "Review 双预算"汇总行 ② 测试表计数（14/18/12 旧基线 vs 实际 13/16/18=47）③ §12 小节编号断裂（12.1→12.3）④ §12.5 三级耗尽散文（仍单模式 + "Budget 不因回流重置"已被 P4 review_credit 推翻）⑤ 6 处 `track-effort-budget.sh` 活引用（hook 注册表/§6.2 子节/§6.3 共用/§6.4 改造分类/§8.2 竞态/Decision-5 表）——全是 P4 删 hook 引入的真实漂移。主线程逐处外科手术补修，effort 漂移彻底归零（剩余 effort 词仅 `effort:` frontmatter 列/`--effort xhigh` Codex flag/P4 删除说明）。
+- **落地决策（AFK 自决，供复核）**：D-P5a-1 zoom-out 取 doc 推荐的方案 B（替换，doc 标 A/B 为业务可见决策，AFK 下采纳推荐项，语义被 improve-codebase-architecture+code-explorer 覆盖无能力损失）；D-P5a-2 L8 skills build 单源跳过（frontmatter 字段同 model 不可 build 注入，保手维护，#14）；D-P5a-3 internalize 走 L7 溯源注释非完全退回 invoke（to-issues 可用性无法从 plugin 源码确证，保内化+显性化债）；D-P5a-4 采信 doc06 §4 核验结论（frontend-design/impeccable 可用、zoom-out 独缺）。
+- **遗留给 P6 architecture-draft 回填**：routes 清单/参数化切片/统一截断的"新事实回填"（doc05 §4.1 第3条明确 待 P6/03/04 落地后统一回填），本期只清"已删机制仍被描述为活"的反向漂移。
+- 验收：全量 47 套件全绿；build --check exit 0；verify-maturity 115/0。
+
 ## 待用户复核的关键项
 
 - **worktree 改道**（R3）：本次在 main 按新设计实现，未续 `control-flow-codification` worktree。若你本意是续那个 worktree，回来一句话我改道。
