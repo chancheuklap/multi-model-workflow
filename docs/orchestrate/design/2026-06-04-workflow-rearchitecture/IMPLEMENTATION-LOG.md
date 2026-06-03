@@ -89,6 +89,15 @@ P5 涵盖 doc 05（Skill 瘦身+漂移根治）、06（外部 skill 战略）、
 - **遗留给 P6 architecture-draft 回填**：routes 清单/参数化切片/统一截断的"新事实回填"（doc05 §4.1 第3条明确 待 P6/03/04 落地后统一回填），本期只清"已删机制仍被描述为活"的反向漂移。
 - 验收：全量 47 套件全绿；build --check exit 0；verify-maturity 115/0。
 
+##### P5b build 层收口塌缩 ✅（拆 P5b-1/P5b-2 两 commit 隔离回滚，最高风险期）
+
+doc07 §1+§4，全程最高风险（build 核心 13 注入点，doc08 R4）。拆两个独立 commit + 主线程独立硬验。
+
+- **P5b-1 resolver 塌缩 + footer 单源 + 删 dead variant（零 diff 铁律）**：7 个 `build/resolvers/*.sh` 内联进 `build.sh` 的 `resolve_anchor` 3 类 case（纯cat / 文件级variant+cat / 同段sed），保留 review-dispatch content-only 守卫；禁止词 footer 从 14 个 variant 块各写一遍 → build.sh 内联 `VOICE_FOOTER` 常量统一追加一次；删 voice codex-reviewer dead variant。**主线程独立硬验**：重新 apply 后 `git diff plugin/agents plugin/skills` **完全为空**（渲染产物逐字节不变）；footer 仍正确注入 pack-executor + execution SKILL 的 voice anchor（单源化没丢 footer）。test_resolvers/test_voice_injection/test_preamble_resolver/test_build_check + verify-maturity resolver check 全部改测内联形态。
+- **P5b-2 executor failure-protocol 收口**：两 executor 逐字相同的「## 三次失败协议」整段（426B）抽为 `failure-protocol.md.tmpl`，两文件锚点化，resolve_anchor 纯cat分支加该锚点。**主线程独立硬验**：两 executor 各仅 +2 锚点标记行、正文逐字不变、apply 后字节零变化。
+- **有据偏离（doc07 §1.6 explorer-shared 未收口）**：主线程独立 `diff` 两 explorer，确认 description/核心纪律/调查方法/项目感知/Memory/Return Contract 各段实质性不同（仅 2-8 行碎片相同且被独有段打断），无大块逐字相同段。强抽碎片增模板复杂度无收益 → 符 doc07 §1.3「差异不强求」+ #14，保守保持手写。`code-explorer` BEGIN anchor 仍=1（非 ≥2），是此保守决定的直接后果，已记录。
+- 验收（两 commit 各自）：run-all-tests 47 全绿、build --check exit 0、verify-maturity 115/0。
+
 ## 待用户复核的关键项
 
 - **worktree 改道**（R3）：本次在 main 按新设计实现，未续 `control-flow-codification` worktree。若你本意是续那个 worktree，回来一句话我改道。
