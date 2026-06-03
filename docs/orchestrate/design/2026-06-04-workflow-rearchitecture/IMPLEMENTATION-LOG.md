@@ -98,6 +98,16 @@ doc07 §1+§4，全程最高风险（build 核心 13 注入点，doc08 R4）。�
 - **有据偏离（doc07 §1.6 explorer-shared 未收口）**：主线程独立 `diff` 两 explorer，确认 description/核心纪律/调查方法/项目感知/Memory/Return Contract 各段实质性不同（仅 2-8 行碎片相同且被独有段打断），无大块逐字相同段。强抽碎片增模板复杂度无收益 → 符 doc07 §1.3「差异不强求」+ #14，保守保持手写。`code-explorer` BEGIN anchor 仍=1（非 ≥2），是此保守决定的直接后果，已记录。
 - 验收（两 commit 各自）：run-all-tests 47 全绿、build --check exit 0、verify-maturity 115/0。
 
+##### P5c state.sh/schema 瘦身 ✅（承重 merge-brief，主线程独立硬验）
+
+doc07 §3。派 sub-agent，主线程独立硬验（含一次姿势错纠正）。
+
+- **mutations/self_verifications 降 STATE_DEBUG**：cmd_update(:302)/cmd_transition(:391)/cmd_self_verify_append(:594) 的 append 包进 `STATE_DEBUG=1` 开关（运行时零消费，默认不写盘）；init 模板仍初始化空数组（向后兼容，schema 不破）；self-verify DEBUG off 时 no-op exit 0（references 仍调不报错）；test_state 断言改为 STATE_DEBUG=1 后验证。verify-maturity R3-12 grep "mutations" 仍命中（init 字段名在）。
+- **merge-brief 293→41 行**：293 行嵌套 JSON Schema（运行时不读——`MERGE_BRIEF_STAGES` 是 bash 数组、python 校验消费 markdown 产物）降为 41 行精简参考 JSON：保全部承重字面量（META 6 必填 / current_stage 7 枚举 / conflict_id pattern / conflict status 5 枚举 / section heading `## 4/5/6` / verdict 4 枚举 + contract_surfaces/file_cross_matrix/severity/rca/repair/open_items 全子结构枚举）+ 显式列 7 个消费方行号；保持合法 .json（properties 留 10 条满足 verify-maturity `.properties|length>=10`）。
+- **承重守卫同 commit（doc08 §5.3）**：test_state_merge_brief(39)/test_validate_multi_pr_dispatch(14)/test_multi_pr_merge_e2e(25) 单跑全绿。
+- **主线程独立硬验**：① STATE_DEBUG off→mutations 0、on→mutations 1 含完整记录（首次测试漏 field 前导点报 `cursor/0 not defined`，纠正为 `.cursor.step` 后通过——姿势错非实现 bug，同 P2 教训）；② merge-brief 41 行合法 JSON + 承重字面量 grep 全命中；③ 三回归测试 + 三件套全绿。
+- 验收：run-all-tests 47 全绿；build --check exit 0；verify-maturity 115/0。
+
 ## 待用户复核的关键项
 
 - **worktree 改道**（R3）：本次在 main 按新设计实现，未续 `control-flow-codification` worktree。若你本意是续那个 worktree，回来一句话我改道。
