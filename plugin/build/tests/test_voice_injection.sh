@@ -14,12 +14,17 @@ for agent in code-explorer complex-code-explorer complex-pack-executor docs-work
     grep -q "BEGIN: voice-directive" "$PLUGIN_DIR/agents/${agent}.md"
 done
 
-# Verify voice-directive variants are extractable
+# Verify voice-directive variants are extractable via inlined resolve_anchor
+BUILD_SH="$PLUGIN_DIR/build/build.sh"
 run_test "pack-executor variant extractable" \
-  bash -c "bash '$PLUGIN_DIR/build/resolvers/voice-directive.sh' '$PLUGIN_DIR/build/templates' voice-directive pack-executor | grep -q '执行者'"
+  bash -c "$(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$PLUGIN_DIR/build/templates'
+  resolve_anchor voice-directive pack-executor | grep -q '执行者'"
 
 run_test "workflow variant extractable" \
-  bash -c "bash '$PLUGIN_DIR/build/resolvers/voice-directive.sh' '$PLUGIN_DIR/build/templates' voice-directive workflow | grep -q 'Coordinator'"
+  bash -c "$(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$PLUGIN_DIR/build/templates'
+  resolve_anchor voice-directive workflow | grep -q 'Coordinator'"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

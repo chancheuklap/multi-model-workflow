@@ -26,7 +26,8 @@ echo ""
 echo "## Build System"
 check "build.sh exists and executable" test -x "$PLUGIN_DIR/build/build.sh"
 check "build.sh --check passes" bash "$PLUGIN_DIR/build/build.sh" --check --plugin-dir "$PLUGIN_DIR"
-check "≥7 resolvers" bash -c "[ \$(ls -1 '$PLUGIN_DIR/build/resolvers/'*.sh | wc -l) -ge 7 ]"
+check "resolve_anchor inlined (≥3 case branches)" bash -c \
+  "grep -q 'worker-loop' '$PLUGIN_DIR/build/build.sh' && grep -q 'control-envelope' '$PLUGIN_DIR/build/build.sh' && grep -q 'voice-directive' '$PLUGIN_DIR/build/build.sh'"
 check "≥7 templates" bash -c "[ \$(ls -1 '$PLUGIN_DIR/build/templates/'*.tmpl | wc -l) -ge 7 ]"
 
 echo ""
@@ -254,9 +255,10 @@ check "R3-05: Route 7 maintenance in workflow Entry Gate" \
 check "R3-06: NEEDS_ISSUE_SPLIT in plan-writing SKILL.md" \
   grep -q "NEEDS_ISSUE_SPLIT" "$PLUGIN_DIR/skills/orchestrate-plan-writing/SKILL.md"
 
-# Forbidden words in voice-directive template
+# Forbidden words footer is single-sourced in build.sh VOICE_FOOTER constant
+# and injected into every voice variant at render time (not stored in template).
 check "R3-01: forbidden words in voice-directive template" \
-  grep -q "delve" "$PLUGIN_DIR/build/templates/voice-directive.md.tmpl"
+  grep -q "delve" "$PLUGIN_DIR/build/build.sh"
 
 # Review segmentation in execution SKILL.md
 check "R3-07: review segmentation in execution SKILL.md" bash -c \

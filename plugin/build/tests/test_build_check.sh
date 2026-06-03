@@ -44,7 +44,7 @@ run_test "build.sh exists" test -x "$BUILD_SH"
 # --- Test 2: --check on a SKILL.md with up-to-date anchors exits 0 ---
 # Create a fixture SKILL.md with a preamble anchor containing expected content
 mkdir -p "$FIXTURE_DIR/skills/test-skill"
-mkdir -p "$FIXTURE_DIR/build/templates" "$FIXTURE_DIR/build/resolvers"
+mkdir -p "$FIXTURE_DIR/build/templates"
 
 cat > "$FIXTURE_DIR/skills/test-skill/SKILL.md" <<'FIXTURE'
 ---
@@ -65,8 +65,6 @@ FIXTURE
 cat > "$FIXTURE_DIR/build/templates/preamble.md.tmpl" <<'TMPL'
 This is the preamble content.
 TMPL
-
-cp "$BUILD_DIR/resolvers/preamble.sh" "$FIXTURE_DIR/build/resolvers/"
 
 run_test "--check exits 0 when content matches" \
   bash "$BUILD_SH" --check --plugin-dir "$FIXTURE_DIR"

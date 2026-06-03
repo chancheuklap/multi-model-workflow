@@ -1,73 +1,177 @@
 #!/usr/bin/env bash
+# Tests for the inlined resolve_anchor logic in build.sh.
+# Resolvers are no longer separate .sh files; this test validates
+# each case branch produces correct output via build.sh --apply on fixtures.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PLUGIN_DIR="$(cd "$BUILD_DIR/.." && pwd)"
+BUILD_SH="$BUILD_DIR/build.sh"
 
 pass=0
 fail=0
 
 echo "=== test_resolvers.sh ==="
 
-for resolver in "$BUILD_DIR"/resolvers/*.sh; do
-  name="$(basename "$resolver" .sh)"
-
-  # Check resolver is executable
-  if [[ ! -x "$resolver" ]]; then
-    echo "  FAIL: $name resolver not executable"
-    fail=$((fail + 1))
-    continue
-  fi
-
-  # review-dispatch is canonical-converted: only its content-only variant template remains
-  if [[ "$name" == "review-dispatch" ]]; then
-    variant="content-only"
-    tmpl="$BUILD_DIR/templates/${name}.${variant}.md.tmpl"
-  else
-    variant=""
-    tmpl="$BUILD_DIR/templates/${name}.md.tmpl"
-  fi
-
-  # Check corresponding template exists
-  if [[ ! -f "$tmpl" ]]; then
-    echo "  FAIL: $name template missing ($tmpl)"
-    fail=$((fail + 1))
-    continue
-  fi
-
-  # Run resolver and verify it outputs something
-  output=$(bash "$resolver" "$BUILD_DIR/templates" "$name" "$variant" 2>&1) || {
-    echo "  FAIL: $name resolver exit non-zero"
-    fail=$((fail + 1))
-    continue
-  }
-
-  if [[ -z "$output" ]]; then
-    echo "  FAIL: $name resolver output is empty"
-    fail=$((fail + 1))
-    continue
-  fi
-
-  # Verify resolver outputs template content
-  expected=$(cat "$tmpl")
-  if [[ "$output" == "$expected" ]]; then
-    echo "  PASS: $name (output matches template)"
+run_test() {
+  local name="$1"; shift
+  if "$@" >/dev/null 2>&1; then
+    echo "  PASS: $name"
     pass=$((pass + 1))
   else
-    echo "  FAIL: $name (output differs from template)"
+    echo "  FAIL: $name"
     fail=$((fail + 1))
   fi
-done
+}
 
-# Verify total resolver count
-count=$(ls -1 "$BUILD_DIR"/resolvers/*.sh | wc -l | tr -d ' ')
-if [[ "$count" -ge 7 ]]; then
-  echo "  PASS: $count resolvers found (>= 7)"
-  pass=$((pass + 1))
-else
-  echo "  FAIL: only $count resolvers found (expected >= 7)"
-  fail=$((fail + 1))
+# Helper: source resolve_anchor from build.sh into current shell.
+# build.sh calls `usage` (exit 1) without args; we just need the function defined.
+# We source with MODE and TEMPLATE_DIR set so set -e / usage guard is bypassed.
+_source_resolve_anchor() {
+  local tmpl_dir="$1"
+  # Extract only the VOICE_FOOTER and resolve_anchor function from build.sh,
+  # then eval it so we can call resolve_anchor directly.
+  eval "$(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")"
+  TEMPLATE_DIR="$tmpl_dir"
+}
+
+REAL_TMPL="$PLUGIN_DIR/build/templates"
+
+# ── Type 1: worker-loop (pure cat) ──────────────────────────────────────────
+run_test "worker-loop: output matches template" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  out=\$(resolve_anchor worker-loop '')
+  expected=\$(cat '$REAL_TMPL/worker-loop.md.tmpl')
+  [[ \"\$out\" == \"\$expected\" ]]
+"
+
+run_test "worker-loop: output is non-empty" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  out=\$(resolve_anchor worker-loop '')
+  [[ -n \"\$out\" ]]
+"
+
+# ── Type 2: control-envelope (file-level variant + cat) ─────────────────────
+run_test "control-envelope: no-variant falls back to .md.tmpl" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  out=\$(resolve_anchor control-envelope '')
+  expected=\$(cat '$REAL_TMPL/control-envelope.md.tmpl')
+  [[ \"\$out\" == \"\$expected\" ]]
+"
+
+# ── Type 2: review-dispatch (content-only guard) ────────────────────────────
+run_test "review-dispatch: content-only variant resolves" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  out=\$(resolve_anchor review-dispatch content-only)
+  [[ -n \"\$out\" ]]
+"
+
+run_test "review-dispatch: non-content-only returns 1 (guard preserved)" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  resolve_anchor review-dispatch baseline 2>/dev/null; [[ \$? -ne 0 ]]
+"
+
+run_test "review-dispatch: empty variant returns 1 (guard preserved)" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  resolve_anchor review-dispatch '' 2>/dev/null; [[ \$? -ne 0 ]]
+"
+
+# ── Type 3: preamble (inline sed variant) ───────────────────────────────────
+# preamble uses variants; extract one and verify output is non-empty
+if ls "$REAL_TMPL"/preamble.md.tmpl >/dev/null 2>&1; then
+  FIRST_PREAMBLE_VARIANT=$(grep -m1 '^\[variant=' "$REAL_TMPL/preamble.md.tmpl" | sed 's/\[variant=\(.*\)\]/\1/' || true)
+  if [[ -n "$FIRST_PREAMBLE_VARIANT" ]]; then
+    run_test "preamble: variant '$FIRST_PREAMBLE_VARIANT' extracts non-empty" bash -c "
+      $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+      TEMPLATE_DIR='$REAL_TMPL'
+      out=\$(resolve_anchor preamble '$FIRST_PREAMBLE_VARIANT')
+      [[ -n \"\$out\" ]]
+    "
+  fi
 fi
+
+# ── Type 3: signpost (inline sed variant, uses \${anchor_name}.md.tmpl) ─────
+if ls "$REAL_TMPL"/signpost.md.tmpl >/dev/null 2>&1; then
+  FIRST_SIGNPOST_VARIANT=$(grep -m1 '^\[variant=' "$REAL_TMPL/signpost.md.tmpl" | sed 's/\[variant=\(.*\)\]/\1/' || true)
+  if [[ -n "$FIRST_SIGNPOST_VARIANT" ]]; then
+    run_test "signpost: variant '$FIRST_SIGNPOST_VARIANT' extracts non-empty" bash -c "
+      $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+      TEMPLATE_DIR='$REAL_TMPL'
+      out=\$(resolve_anchor signpost '$FIRST_SIGNPOST_VARIANT')
+      [[ -n \"\$out\" ]]
+    "
+  fi
+fi
+
+# ── Type 3 (voice): voice-directive with footer single-source ───────────────
+VOICE_FOOTER_LINE="禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal."
+
+run_test "voice-directive: pack-executor contains body text" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  out=\$(resolve_anchor voice-directive pack-executor)
+  echo \"\$out\" | grep -q '执行者'
+"
+
+run_test "voice-directive: pack-executor output ends with footer" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  out=\$(resolve_anchor voice-directive pack-executor)
+  last=\$(echo \"\$out\" | tail -1)
+  [[ \"\$last\" == '$VOICE_FOOTER_LINE' ]]
+"
+
+run_test "voice-directive: workflow contains Coordinator + footer" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  out=\$(resolve_anchor voice-directive workflow)
+  echo \"\$out\" | grep -q 'Coordinator' && echo \"\$out\" | grep -q 'delve'
+"
+
+run_test "voice-directive: code-explorer contains body + footer" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  out=\$(resolve_anchor voice-directive code-explorer)
+  echo \"\$out\" | grep -q '只读调查员' && echo \"\$out\" | grep -q 'delve'
+"
+
+run_test "voice-directive: footer appears exactly once in pack-executor output" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  out=\$(resolve_anchor voice-directive pack-executor)
+  count=\$(echo \"\$out\" | grep -c 'delve, robust')
+  [[ \"\$count\" -eq 1 ]]
+"
+
+# ── codex-reviewer dead variant: must NOT be resolvable ────────────────────
+run_test "voice-directive: codex-reviewer dead variant returns empty (not in template)" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  out=\$(resolve_anchor voice-directive codex-reviewer 2>/dev/null || true)
+  # sed finds no matching block → empty output; footer still appended but no body
+  # The important thing: no 独立审查者 content
+  ! echo \"\$out\" | grep -q '独立审查者'
+"
+
+# ── Unknown anchor: must return 1 ──────────────────────────────────────────
+run_test "unknown anchor returns 1" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  resolve_anchor nonexistent-anchor '' 2>/dev/null; [[ \$? -ne 0 ]]
+"
+
+# ── Resolver files are gone ─────────────────────────────────────────────────
+run_test "resolvers directory is empty (no .sh files)" bash -c "
+  count=\$(ls '$BUILD_DIR/resolvers/'*.sh 2>/dev/null | wc -l | tr -d ' ')
+  [[ \"\$count\" -eq 0 ]]
+"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

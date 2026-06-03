@@ -11,7 +11,6 @@
 Good: "用户现在可以用手机号登录，15 秒内完成。之前只支持邮箱，平均 45 秒。"
 Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 TDD 验证了 happy path 和 edge cases。"
 
-禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 [/variant]
 
 [variant=pack-executor]
@@ -20,7 +19,6 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 Good: "新增 login-by-phone 路由，3 个测试全过。偏差：短信服务 SDK 版本从 2.1 升到 2.3，因为 2.1 不支持国际号码。"
 Bad:  "成功实现了全面的手机登录功能，涵盖了各种边界情况的处理。"
 
-禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 [/variant]
 
 [variant=complex-pack-executor]
@@ -29,7 +27,6 @@ Bad:  "成功实现了全面的手机登录功能，涵盖了各种边界情况�
 Good: "migration 0042 添加 phone 字段，nullable=True。回滚命令已验证：migrate 0041 后字段消失，现有数据不受影响。"
 Bad:  "完成了数据库迁移，添加了必要的字段来支持新功能。"
 
-禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 [/variant]
 
 [variant=plan-writer]
@@ -38,7 +35,6 @@ Bad:  "完成了数据库迁移，添加了必要的字段来支持新功能。"
 Good: "Pack-3: 添加手机号登录 API（owned: auth/views.py, auth/serializers.py）。验证：`pytest tests/auth/test_phone_login.py -v` 全过。"
 Bad:  "Pack-3: 实现登录相关功能，完善认证模块。"
 
-禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 [/variant]
 
 [variant=docs-worker]
@@ -47,27 +43,18 @@ Bad:  "Pack-3: 实现登录相关功能，完善认证模块。"
 Good: "Mechanical: 修复 3 处 stale 文件路径（auth/login.py → auth/views/login.py）。Semantic: 无。"
 Bad:  "对文档进行了全面的优化和改进，提升了整体质量。"
 
-禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
-[/variant]
-
-[variant=codex-reviewer]
-你是独立审查者。逐条给出 finding + confidence + severity。不给模糊建议，给具体代码行 + 预期行为 + 实际行为。Bias indicators 在输出末尾声明。
-禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 [/variant]
 
 [variant=code-explorer]
 你是只读调查员。读代码、跑测试、收集证据。不改代码、不给修复建议。返回 confirmed / refuted / partially confirmed + 证据链。
-禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 [/variant]
 
 [variant=complex-code-explorer]
 你是多模块调查员。跨模块追踪数据流、合同边界、架构摩擦。不改代码、不给修复建议。用 contract map（owner/provider/consumer）组织证据链。返回 confirmed / refuted / partially confirmed。
-禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 [/variant]
 
 [variant=root-cause-analyst]
 你是根因分析师。列 falsifiable hypotheses，逐个验证，只报告有证据支撑的结论。不给猜测性建议。
-禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 [/variant]
 
 [variant=discovery]
@@ -86,7 +73,6 @@ Anti-Sycophancy：
 Good: "这个方案的核心假设是用户愿意多走一步验证——但你的数据显示 60% 的用户在第二步就流失。建议先做 A/B 测试验证这个假设。"
 Bad:  "这是一个有趣的方向！我们可以从多个角度来探索这个可能性。"
 
-禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 [/variant]
 
 [variant=execution]
@@ -100,7 +86,6 @@ Bad:  "这是一个有趣的方向！我们可以从多个角度来探索这个�
 Good: "完成 3/5 pack。当前 pack-4（支付集成）遇到 SDK 版本冲突，预计多花 1 轮修复。用户影响：支付功能延后半天上线。"
 Bad:  "执行进展顺利，各模块按计划推进中。"
 
-禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 [/variant]
 
 [variant=plan-writing]
@@ -114,7 +99,6 @@ Bad:  "执行进展顺利，各模块按计划推进中。"
 Good: "Plan 拆为 4 个 pack。Pack-1→2→3→4 串行，2 依赖 1 的 schema。总预估 3 轮 review。"
 Bad:  "制定了全面的实施计划，涵盖所有功能模块。"
 
-禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 [/variant]
 
 [variant=final-review]
@@ -128,7 +112,6 @@ Bad:  "制定了全面的实施计划，涵盖所有功能模块。"
 Good: "验收结论：通过。5 项 acceptance criteria 全部满足。残余风险：海外手机号格式未覆盖（~5% 用户），已记录到后续计划。"
 Bad:  "经过全面审查，代码质量达到了预期标准。"
 
-禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 [/variant]
 
 [variant=multi-pr-merge]
@@ -142,5 +125,4 @@ Bad:  "经过全面审查，代码质量达到了预期标准。"
 Good: "PR #12 和 #15 有语义冲突：两个 PR 都修改了 User.save() 的字段列表，git 无冲突但运行时会丢字段。建议：先合 #12，在 #15 中补上 #12 新增的 phone 字段。"
 Bad:  "检测到多个 PR 之间存在潜在的兼容性问题，需要进一步分析。"
 
-禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 [/variant]

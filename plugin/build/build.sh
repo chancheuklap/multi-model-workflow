@@ -4,7 +4,6 @@ set -euo pipefail
 BUILD_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_DIR="${PLUGIN_DIR:-$(cd "$BUILD_DIR/.." && pwd)}"
 TEMPLATE_DIR="$BUILD_DIR/templates"
-RESOLVER_DIR="$BUILD_DIR/resolvers"
 
 MODE=""
 
@@ -33,7 +32,6 @@ if [[ -z "$MODE" ]]; then
 fi
 
 TEMPLATE_DIR="${PLUGIN_DIR}/build/templates"
-RESOLVER_DIR="${PLUGIN_DIR}/build/resolvers"
 
 if [[ ! -d "$TEMPLATE_DIR" ]]; then
   echo "Warning: no templates directory at $TEMPLATE_DIR" >&2
@@ -43,10 +41,12 @@ fi
 DIFF_FLAG_FILE=$(mktemp)
 echo "0" > "$DIFF_FLAG_FILE"
 
+# Shared footer appended to every voice-directive variant (single source of truth).
+VOICE_FOOTER="禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal."
+
 resolve_anchor() {
   local anchor_name="$1"
   local variant="$2"
-  local resolver_base="${anchor_name}"
 
   # Canonical-converted anchors — content now lives in plugin/skills/_shared/
   # Only review-dispatch's content-only variant (used by codex-review/SKILL.md) is still template-resolved
@@ -58,12 +58,74 @@ resolve_anchor() {
       ;;
   esac
 
-  local resolver_path="$RESOLVER_DIR/${resolver_base}.sh"
-  if [[ ! -f "$resolver_path" ]]; then
-    return 1
-  fi
+  case "$anchor_name" in
 
-  bash "$resolver_path" "$TEMPLATE_DIR" "$anchor_name" "$variant"
+    # ── Type 1: pure cat ─────────────────────────────────────────────────────
+    worker-loop)
+      local tmpl="$TEMPLATE_DIR/${anchor_name}.md.tmpl"
+      if [[ ! -f "$tmpl" ]]; then
+        echo "Error: template not found: $tmpl" >&2
+        return 1
+      fi
+      cat "$tmpl"
+      ;;
+
+    # ── Type 2: file-level variant + cat ────────────────────────────────────
+    # control-envelope and review-dispatch: look for <anchor>.<variant>.md.tmpl,
+    # fall back to <anchor>.md.tmpl if not found.
+    control-envelope|review-dispatch)
+      local tmpl
+      if [[ -n "$variant" ]]; then
+        tmpl="$TEMPLATE_DIR/${anchor_name}.${variant}.md.tmpl"
+        if [[ ! -f "$tmpl" ]]; then
+          tmpl="$TEMPLATE_DIR/${anchor_name}.md.tmpl"
+        fi
+      else
+        tmpl="$TEMPLATE_DIR/${anchor_name}.md.tmpl"
+      fi
+      if [[ ! -f "$tmpl" ]]; then
+        echo "Error: template not found: $tmpl" >&2
+        return 1
+      fi
+      cat "$tmpl"
+      ;;
+
+    # ── Type 3: inline variant sed extraction ───────────────────────────────
+    # preamble, sendmessage-resume, signpost: extract [variant=X]...[/variant] block.
+    preamble|sendmessage-resume|signpost)
+      local tmpl="$TEMPLATE_DIR/${anchor_name}.md.tmpl"
+      if [[ ! -f "$tmpl" ]]; then
+        echo "Error: template not found: $tmpl" >&2
+        return 1
+      fi
+      if [[ -n "$variant" ]]; then
+        sed -n "/\[variant=$variant\]/,/\[\/variant\]/{ /\[variant=/d; /\[\/variant\]/d; p; }" "$tmpl"
+      else
+        cat "$tmpl"
+      fi
+      ;;
+
+    # ── Type 3 (voice): inline variant sed + footer single-source ──────────
+    # voice-directive: extract variant body, then append shared footer once.
+    voice-directive)
+      local tmpl="$TEMPLATE_DIR/${anchor_name}.md.tmpl"
+      if [[ ! -f "$tmpl" ]]; then
+        echo "Error: template not found: $tmpl" >&2
+        return 1
+      fi
+      if [[ -n "$variant" ]]; then
+        sed -n "/\[variant=$variant\]/,/\[\/variant\]/{ /\[variant=/d; /\[\/variant\]/d; p; }" "$tmpl"
+        printf '%s\n' "$VOICE_FOOTER"
+      else
+        cat "$tmpl"
+      fi
+      ;;
+
+    # ── Unknown anchor ────────────────────────────────────────────────────
+    *)
+      return 1
+      ;;
+  esac
 }
 
 process_skill_file() {
