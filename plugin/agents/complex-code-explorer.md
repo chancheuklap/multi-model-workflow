@@ -10,6 +10,8 @@ description: |
   返回的事实声明（行号 / 计数 / 文件存在性 / 引用关系）由 Coordinator 必须亲验后再写入交付物或汇报。本 agent 是劳动力不是 ground truth，Coordinator 是事实的唯一权威。
 model: claude-opus-4-8[1m]
 effort: high
+skills:
+  - improve-codebase-architecture
 tools:
   - Read
   - Bash

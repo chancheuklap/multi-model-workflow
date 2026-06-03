@@ -309,7 +309,7 @@ Coordinator 写入 execution state：
 | design/domain gap | `orchestrate-discovery` | design doc |
 | architecture friction | `improve-codebase-architecture` | design doc / plan anchors |
 | 术语/domain 冲突 | `grill-with-docs` | domain docs |
-| module map | `zoom-out` | plan anchors |
+| module map | `code-explorer` / `improve-codebase-architecture` | plan anchors |
 | bug reproduction | `diagnose` | bug brief |
 
 ### Plan Checkbox + 进度

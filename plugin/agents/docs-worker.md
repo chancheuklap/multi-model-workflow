@@ -9,6 +9,8 @@ description: |
   Do NOT use for: code changes (use pack-executor/complex-pack-executor), changing business decisions or architecture conclusions, code review (dispatched to Codex).
 model: sonnet
 effort: high
+skills:
+  - frontend-design
 tools:
   - Read
   - Edit

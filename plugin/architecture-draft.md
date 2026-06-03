@@ -1,8 +1,8 @@
 # Plugin 架构文档
 
 > **审计基准**：`plugin/` 目录下的实际代码（skills/ agents/ hooks/ scripts/ build/ state-schema/）。
-> **审计日期**：2026-05-28（Plan-level Worker Autonomy + Document-as-Context 重构完成后）。
-> **Plugin 版本**：3.8.0。
+> **审计日期**：2026-06-04（P5a 漂移根治：版本头 / bug-seed 描述 / effort 维度校准）。
+> **Plugin 版本**：3.10.0。
 > **本文目标**：作为理解 plugin 整体 workflow 和所有影响行为的设计细节的**唯一**入口文档。
 
 ---
@@ -404,7 +404,6 @@ state.sh execution-plan complete --plan-id ... --verdict ...
 | PostToolUse | Bash | track-review-budget.sh | — |
 | PostToolUse | Bash | track-execution-state.sh | git commit |
 | PostToolUse | Agent | agent-return-handler.sh | — |
-| PostToolUse | Agent | track-effort-budget.sh | — |
 
 ### 6.2 每条 hook 关键行为
 
@@ -470,23 +469,16 @@ PostToolUse Bash hook，git commit + exit_code=0 触发。从 commit 消息提�
 
 > Scope drift 不再由独立 hook 兜底：Worker 在 Worker Loop 内自查 `changed_files ⊆ pack.owned_files`，越界即 revert + 记 open_items（out-of-scope）。docs/ 越界由 `guard-doc-edit.sh` 硬阻断。原 detect-worker-scope-drift.sh（每次 Edit/Write 重跑 plan 全解析、只写无人读的 drift_warnings[]）已删除。
 
-**track-review-budget.sh**
-PostToolUse Bash hook，检测 codex-companion `result` 命令且 exit_code=0。递增 `workflow-state.budget.review_used`；100% → BUDGET EXHAUSTED；80% 且无 pending DC → 触发 direction-check + DIRECTION CHECK 警告。
+**track-review-budget.sh**（P4 双模式改造）
+PostToolUse Bash hook，检测 codex-companion `result` 命令且 exit_code=0。递增 `workflow-state.budget.review_used`，阈值判断用 `effective_used = review_used − review_credit`。按 `attendance_mode` 分叉：`attended` 80% 写 `pending_direction_check`（停顿）；`afk` 80% 仅 `additionalContext` 软信号续跑；任意模式 100% 写 DC（escape hatch，threshold 100）。
 
-**track-effort-budget.sh**（Decision 5 改造）
-PostToolUse Agent hook，按 agent_role 加权：
-- `pack-executor` / `complex-pack-executor` — 从 plan-return.json 读 committed pack 数作为权重（默认 1 fallback）
-- `need-fresh-worker` 续发 — +0.5
-- `code-explorer` — +1
-- `root-cause-analyst` — +2
-
-100% → EXHAUSTED；80% 且无 DC → 记录 pending_direction_check + 发 DIRECTION CHECK。
+> **P4 删除**：原 `track-effort-budget.sh`（按 agent_role 加权计 effort budget）已完整删除——effort 维度零独立 gate，仅抢 DC 槽位，属冗余。预算只剩 review 单维度。
 
 ### 6.3 共享原语
 
 `hooks/lib/parse-envelope.sh` — DISPATCH_ENVELOPE 解析（支持单行/多行格式）。验证 6 必填字段：`protocol_version / run_id / phase / agent_role / repair_round / idempotency_key`。`repair_round ≥ 1` 强制 `disposition_refs` 非空；`agent_role = codex-reviewer` 强制 `review_intent`（仅 baseline 合法）。解析失败 exit 2。
 
-被以下 hook 共用：`gate-codex-review.sh` / `validate-plan-dispatch.sh` / `agent-return-handler.sh` / `track-effort-budget.sh`。
+被以下 hook 共用：`gate-codex-review.sh` / `validate-plan-dispatch.sh` / `agent-return-handler.sh`。
 **不被** `validate-multi-pr-dispatch.sh` 使用——后者直接内联解析以避免 disposition_refs 误触发。
 
 ### 6.4 Plan-level 改造分类
@@ -497,7 +489,6 @@ PostToolUse Agent hook，按 agent_role 加权：
 - `validate-multi-pr-dispatch.sh`（新增）
 - `enforce-plan-commit.sh`（改名）
 - `agent-return-handler.sh`（5-路 verdict 完全重写）
-- `track-effort-budget.sh`（权重计算改造）
 
 **基本沿用**：`session-start.sh` / `gate-codex-review.sh` / `guard-doc-edit.sh` / `track-execution-state.sh`（含新增 worker_agent_id 检测以抑制提前 NEXT） / `track-review-budget.sh` / `lib/parse-envelope.sh`
 
@@ -642,8 +633,7 @@ orchestrate-workflow Step 2c
   ├─ .claude/multi-model-workflow/workflow-state-<run_id>.json          ← Workflow State
   └─ .claude/multi-model-workflow/active-run-id                          ← Active Run ID
 orchestrate-plan-writing Step 12a
-  └─ workflow-state-<run_id>.json: budget.review_total = 3P + 12,
-     effort_total = 2 × review_total                                     ← Budget 赋值（不可变）
+  └─ workflow-state-<run_id>.json: budget.review_total = 3P + 12        ← Budget 赋值（不可变）
 orchestrate-execution Step 2a
   └─ .claude/multi-model-workflow/execution-state-<run_id>.json         ← Execution State
 orchestrate-multi-pr-merge Step 2（Route 3 only）
@@ -676,7 +666,7 @@ track-execution-state.sh 的 Pack ID 提取保留 sed 模式（`sed -n 's/.*Pack
 - **workflow-state-<run_id>.json**：run_id / slug / route（4 值 enum）/ cursor / budget / plans 元信息 / plan_count / plan_writer_agent_id / idempotency_keys / review_dispositions / self_verifications / pending_direction_check / pending_post_push_reviews / execution_reflux_count / last_gate_phase/timestamp / phase_skip / commit_format_override / mutations（append-only 审计日志）
 - **execution-state-<run_id>.json**：pack-level data（plans[plan_id].packs[pack_id] 含 status / agent_id / commit_sha / worker_verdict / repair_round）
 
-分离原因：pack-level 被 3 个 hook 并发写入（agent-return-handler / track-execution-state / track-effort-budget），合并到单文件会加剧竞态。两文件通过 `plan_id` + `pack_id` 关联。
+分离原因：pack-level 被 2 个 hook 并发写入（agent-return-handler / track-execution-state），合并到单文件会加剧竞态。两文件通过 `plan_id` + `pack_id` 关联。
 
 ### 8.3 Ruling 3 — PostToolUse 信封解析失败行为
 
@@ -887,33 +877,29 @@ Round 3 Re-Review 仍 needs repair → BLOCKED
 
 ## 12. Budget 预算系统
 
-### 12.1 双预算系统
+### 12.1 单一 Review 预算系统（P4 已删除 Effort 维度）
 
 | 预算 | 公式 | 追踪 hook | 计量单位 |
 |------|------|----------|---------|
-| **Review Budget** | `review_total = 3P + 12` | `track-review-budget.sh` | Codex review dispatch 次数 |
-| **Effort Budget** | `effort_total = review_total × 2` | `track-effort-budget.sh` | 加权 agent dispatch 次数 |
+| **Review Budget** | `review_total = 3P + 12`（可 per-run 覆盖 `--review-total`） | `track-review-budget.sh` | Codex review dispatch 次数 |
 
-P = plan 文件总数。两者在 plan-writing Step 12a 由 `state.sh budget initialize --plan-count N` **首次且唯一赋值**，执行阶段不可变。
+P = plan 文件总数。在 plan-writing Step 12a 由 `state.sh budget initialize --plan-count N` **首次且唯一赋值**，执行阶段不可变。
 
-Routes 4-7（hotfix / quickfix / spike / maintenance）在 workflow 初始化时设 `budget_status = "unlimited"`，两种预算均不限。
+> **P4 说明**：Effort Budget 维度（`effort_total = review_total × 2` / `track-effort-budget.sh` / 加权 agent dispatch 计数）已在 P4 重构中完整删除。`workflow-state` 不再有 `effort_total` / `effort_used` 字段；`track-effort-budget.sh` 已从 hooks/ 移除。
 
-### 12.2 Effort Budget 加权（Decision 5）
+**双模式（`attendance_mode`）**：
+- `afk`（默认）：`effective_used ≥ 80%` 触发 soft 续授权提醒；`≥ 100%` escape hatch 停止。
+- `attended`：`effective_used ≥ 80%` 立即停止并请求用户确认。
 
-| Agent 角色 | 权重 |
-|-----------|------|
-| `pack-executor` / `complex-pack-executor` | **实际 Pack 数**（从 plan-return.json `per_pack` committed 数读取，默认 1） |
-| `need-fresh-worker` 续派 | +0.5（防止 Worker 续做时重复计费） |
-| `code-explorer` / `complex-code-explorer` | +1 |
-| `root-cause-analyst` | +2 |
+**Review Credit 归还（`review_credit`）**：reflux 场景（Final Review 回流 Execution）归还已消耗 review，`effective_used = review_used − review_credit`。历史 `review_used` 保留为真相，不覆写。
 
-Plan-level Worker 自治后，一个 dispatch 可能完成多个 Pack，按实际 Pack 数计费避免 effort_total 失真。
+Routes 4-7（hotfix / quickfix / spike / maintenance）在 workflow 初始化时设 `budget_status = "unlimited"`，预算不限。
 
-### 12.3 Review Budget `3P` 分配
+### 12.2 Review Budget `3P` 分配
 
 每个 Plan：1 次 baseline Plan Implementation Review + 最多 2 次 repair re-review = 3 dispatch per Plan。
 
-### 12.4 Review Budget `+12` 分配
+### 12.3 Review Budget `+12` 分配
 
 | 预留 | 数量 | 用途 |
 |------|------|------|
@@ -925,15 +911,16 @@ Plan-level Worker 自治后，一个 dispatch 可能完成多个 Pack，按实�
 
 Discovery 阶段 `review_total` 尚未赋值（plan_count 未知），Coordinator 用 `review_used` 做 per-phase 上限检查（≤ 4 dispatch）。Step 12a 赋值时，`review_used` 已包含 Discovery 消耗。
 
-### 12.5 三级耗尽行为
+### 12.4 双模式耗尽行为（P4：`attendance_mode` 分叉）
 
-| 阈值 | 行为 |
-|------|------|
-| `used ≥ 80%` | Direction Check：`state.sh direction-check trigger`，Coordinator 汇报进度 + 剩余 pack + 累计 findings |
-| 下一动作将超 `total` | 停止 dispatch，请求用户授权追加预算或简化 |
-| `used ≥ total` | 硬停。Hook 输出 BUDGET EXHAUSTED |
+阈值判断用 `effective_used = review_used − review_credit`。按 `attendance_mode`（`attended` / `afk`，默认 `afk`）分叉：
 
-Budget **不因 phase 回流而重置**。Plan revision 改变 pack_count 时必须回 plan-writing Step 12a 重算。
+| 进度 | `attended`（在场） | `afk`（无人值守，默认） |
+|------|------|------|
+| `effective ≥ 80%` | 停顿：写 `pending_direction_check`，`validate-plan-dispatch.sh` 拦非 reviewer 派发 → 用户业务决策 | 软提醒并继续：只写 `additionalContext` 软信号，**不阻断**；到顶才停 |
+| `effective ≥ 100%`（到顶） | escape hatch 硬停 | escape hatch 硬停：写 DC（threshold 100）拦派发一次 → Coordinator 显式 `--allow-over-budget` 放行（`override_count` 上限 2）或 stop |
+
+Budget `review_total` 一旦初始化执行期不可变；reflux/重写按受影响 Plan 数 `budget credit --reason reflux --plans <n>` 归还额度（增 `review_credit`，不动 `review_total`，保 `review_used` 审计真相）。Plan revision 改变 plan_count 时回 plan-writing Step 12a 重算。
 
 ---
 
@@ -1154,7 +1141,7 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 | 2 | 保留 `pack-executor` 命名（不改名） | agent 定义保持原名，Worker Loop 锚点追加 |
 | 3 | `plan-returns/` 路径 = `.claude/multi-model-workflow/plan-returns/<run_id>/<plan_id>/` | state-schema 注释 + worker-loop.md.tmpl + agent-return-handler.sh |
 | 4 | Context 阈值 = 5 Pack；触发后 verdict=`need-fresh-worker` | Worker in-memory counter + execution-state 重建 + worker-loop.md.tmpl segment 5 双路径 |
-| 5 | `pack-executor` / `complex-pack-executor` effort 权重 = 实际 Pack 数；need-fresh-worker 续派 +0.5 | track-effort-budget.sh |
+| 5 | ~~effort 权重 = 实际 Pack 数；need-fresh-worker +0.5~~ **（P4 废止：effort 维度连同 track-effort-budget.sh 已删除，预算只剩 review 单维度）** | — |
 | 6 | Coordinator checkbox toggle = Plan Implementation Review 通过后 | Coordinator 按 per_pack[*].status==committed Edit plan 文档 checkbox |
 | 7 | 失败封顶 = per-pack TDD 内三次失败（沿用）；per-plan 不额外封顶，Worker 走 partial-pass | worker-loop.md.tmpl 段 2/3；SendMessage 续修不另设上限 |
 | 8 | merge-brief 追加 PR = 新 run；conflict_id per-run（C-001 起编）；默认不归档 | merge-brief-v1.json schema 注释 + state.sh merge-brief init |
@@ -1187,7 +1174,7 @@ Plan Writing 在所有 plan 文件完成并通过 Plan Entry Gate 后，把跨 p
 - **Agent 定义 = 行为权威**：TDD、自检、scope 边界、Worker Loop 等通用规则写 agent 定义（构建系统注入），dispatch template 只写场景信息
 - **Reviewer 独立验证**：所有 Calibration 包含"不信任上游报告"；Coordinator 亲验后才给 disposition
 - **合并策略铁律**：只用 `git merge --no-ff`，禁止 squash merge（`guard-premature-push.sh` 进程级强制）
-- **Review 双预算**：Review Budget `3P + 12` + Effort Budget `2 × (3P+12)`。三级耗尽（80% Direction Check → 溢出停派 → 100% 硬停）。Routes 4-7 预算 unlimited
+- **Review 预算（P4 单维度）**：Review Budget `3P + 12`（可 per-run `--review-total`/`--profile` 覆盖）。双模式耗尽：`afk` 80% 软续、100% escape hatch；`attended` 80% 停。`effective_used = review_used − review_credit`（reflux 归还）。Routes 4-7 预算 unlimited
 - **修复截断**：所有修复循环 3 轮封顶（2 轮 A/B/C + 1 轮 RCA），超出 → BLOCKED
 - **回流守卫**：Final Review → Execution 回流最多 1 次（`execution_reflux_count`）
 - **跨会话稳定性**：恢复时检查 source artifact 是否在 gate 后被修改——有改动则重进 gate review
@@ -1223,7 +1210,7 @@ Plugin 采用 Coordinator-Worker 分担架构：Coordinator 把专项工作（�
 ## 22. 其他设计决策（保留自前次审计）
 
 - Bug 路线不走 Final Review——`bug-investigation-route.md` Step 17/18 → Closing
-- Bug RCA 发现设计问题 → 不直接回 Discovery，先创建 bug seed file 再以 seed 进入 Route 1
+- Bug RCA 发现设计问题 → Coordinator 整理 analyst report 的 RCA findings 直接作为 Discovery Source artifact 传入 orchestrate-discovery。不创建中间 bug-seed 文件，RCA findings 报告路径直接加入 Scope Contract 的 Source artifacts（对齐 `bug-investigation-route.md:63`）
 - 文档阶段线性不回流——Discovery → Design Review → 大 issue 拆分 → Plan Writing → Plan Review，各一轮 review + 修复
 - Release Review 最多两次——Execution Early Release Gate + Final Release Gate，共享 ≤ 2 dispatch 配额
 - Coding Worker 无"非阻塞项"——要么当场修，要么累积到 open-items.json
@@ -1254,9 +1241,9 @@ Plugin 采用 Coordinator-Worker 分担架构：Coordinator 把专项工作（�
 
 | 目录 | 测试数 | 覆盖范围 |
 |------|-------|---------|
-| `build/tests/` | 14 | preamble resolver、review model tier、confidence injection、sendmessage resume、resolver 逻辑、voice injection、review segmentation、disposition audit、trust boundary、build check、cross-plan contract map、repair regression evidence、repair routing、review evidence table |
-| `hooks/tests/` | 18 | 幂等性重放、disposition refs 校验、gate-codex-review、effort budget 加权（含计划级）、agent-id hook guard、envelope 解析、sendmessage resume、validate-plan-dispatch、validate-pack-manifest、validate-multi-pr-dispatch（14 项）、multi-pr-merge end-to-end（25 项）、track-execution-state（next suppression）、enforce-plan-commit、need-fresh-worker |
-| `scripts/tests/` | 12 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、hotfix post-push review、budget direction check、route keyword routing、generate pack manifest、complete review dispatch history、plan return parser |
+| `build/tests/` | 13 | preamble resolver、review model tier、confidence injection、sendmessage resume、resolver 逻辑、voice injection、review segmentation、disposition audit、trust boundary、build check、cross-plan contract map、repair regression evidence、repair routing、review evidence table |
+| `hooks/tests/` | 16 | 幂等性重放、disposition refs 校验、gate-codex-review、agent-id hook guard、envelope 解析、sendmessage resume、validate-plan-dispatch、validate-pack-manifest、validate-multi-pr-dispatch（14 项）、multi-pr-merge end-to-end（25 项）、track-execution-state（next suppression）、enforce-plan-commit、need-fresh-worker、worker-loop e2e（P4 删 effort budget 加权 2 套） |
+| `scripts/tests/` | 18 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、hotfix post-push review、budget direction check、route keyword routing、generate pack manifest、complete review dispatch history、plan return parser、routes manifest（P1）、routes transition（P2）、budget reinitialize（P3）、redline check（P3）、light lane dispatch（P3）、budget instrument（P4） |
 
 运行方式：`bash plugin/scripts/run-all-tests.sh`（全量）或 `bash plugin/scripts/verify-maturity.sh`（含测试 + 构建 + schema + 结构 12 大类检查）。
 

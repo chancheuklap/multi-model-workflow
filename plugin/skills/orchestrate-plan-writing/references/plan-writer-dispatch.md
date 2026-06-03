@@ -108,7 +108,7 @@ Agent({
 | `NEEDS_DIAGNOSIS` | bug 缺复现或 hypothesis | `Skill({ skill: "diagnose" })` |
 | `NEEDS_DECISION` | 需要产品/业务决策 | 询问用户（一次只问一个问题） |
 | `NEEDS_ARCHITECTURE` | 架构假设与代码现实不符 | `Skill({ skill: "improve-codebase-architecture" })` |
-| `NEEDS_CONTEXT` | 缺代码上下文 | 派 code-explorer / `Skill({ skill: "zoom-out" })`，补充后 SendMessage 给原 plan-writer |
+| `NEEDS_CONTEXT` | 缺代码上下文 | 派 `code-explorer`（窄事实）/ `Skill({ skill: "improve-codebase-architecture" })`（模块边界），补充后 SendMessage 给原 plan-writer |
 | `BLOCKED` | 无法完成 | 报告用户，附 plan-writer 的阻塞原因 |
 
 upstream skill 结论必须写回 design document / issue hierarchy，再 SendMessage 给原 plan-writer 继续。

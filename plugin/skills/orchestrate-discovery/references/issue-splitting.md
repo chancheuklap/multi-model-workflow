@@ -1,5 +1,7 @@
 # 大 Issue 拆分方法论
 
+<!-- 溯源：本方法论内化自外部 skill `to-issues`（obra/superpowers）的 tracer-bullet / vertical-slice 拆分内核。上游更新需手动同步（参见 docs/orchestrate/design/2026-06-04-workflow-rearchitecture/06-external-skill-strategy.md §6 upstream-sync routine）。 -->
+
 > **流程位置**：`orchestrate-discovery` Step 12 · Design Review 通过后 · 完成后返回 SKILL.md（verdict）
 
 Coordinator 在 Design Review 通过后执行本方法论，将设计文档拆分为大 issue（vertical slice 级）。**小 issue 拆分不在此阶段进行**——由 plan-writer 在 plan-writing 阶段完成。

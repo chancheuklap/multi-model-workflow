@@ -203,7 +203,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-plan-writing" })
 | `NEEDS_DIAGNOSIS` | `Skill({ skill: "diagnose" })` → 写回 → 重新 Step 9 |
 | `NEEDS_DECISION` | 询问用户 → 回答后 Step 9 |
 | `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` → 写回 → Step 9 |
-| `NEEDS_CONTEXT` | 派 `code-explorer` / `Skill({ skill: "zoom-out" })` → 补充后 Step 9 |
+| `NEEDS_CONTEXT` | 派 `code-explorer`（窄事实）/ `Skill({ skill: "improve-codebase-architecture" })`（模块边界）→ 补充后 Step 9 |
 | `BLOCKED` | 报告用户 |
 
 ---

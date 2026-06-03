@@ -34,7 +34,7 @@ Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问�
 | bug 缺复现或 hypothesis | `NEEDS_DIAGNOSIS` | `Skill({ skill: "diagnose" })` |
 | 需要方案比较 | `NEEDS_DECISION` | user / `Skill({ skill: "prototype" })` |
 | 架构摩擦反复阻塞 | `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` |
-| 模块地图不足 | `NEEDS_CONTEXT` | `Skill({ skill: "zoom-out" })`/ code-explorer |
+| 模块地图不足 | `NEEDS_CONTEXT` | `code-explorer`（窄事实）/ `Skill({ skill: "improve-codebase-architecture" })`（模块边界） |
 
 ## Step 2：Scope Contract + Budget File
 
