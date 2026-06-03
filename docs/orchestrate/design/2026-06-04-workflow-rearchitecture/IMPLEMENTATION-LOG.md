@@ -126,7 +126,32 @@ doc05 §1 切片（review-dispatch 12 / repair-routing 9 / disposition-table 6 =
 
 → 登记为 TaskList #16，建议有人值守时：先解 §1.3/§1.4 粒度张力 → 按 doc08 §3.4 实测定粒度 → 跑真实 formal-lane 循环 live 验证。state.sh 死 transition 行（doc07 §3.1 :75 等）一并推迟（fallback 矩阵保持完整更安全，#14）。
 
+#### P6 删假 phase_skip ✅（收尾减法，最精细，主线程独立硬验）
+
+doc08 §1.3 P6 + §5.2。Light Lane（P3）已功能取代 phase_skip 变体机制 + hook 层零消费 → 安全删。
+
+- state.sh cmd_init 删 `"phase_skip": []` 写入（写入方）；SKILL.md 删 "Route 1 Variant Table"（phase_skip flags 旧机制），4 组变体关键词折叠进 Light Lane Entry Gate（quickfix/maintenance 走 Light 基流、hotfix/spike 走子模式）；schema phase_skip 属性按 doc08 §5.2 标 **DEPRECATED 但保留**（default []，降回滚面，下版本周期物理删）；commit_format_override 保留（hotfix 仍用）。
+- 测试改写：test_route_keyword_routing（phase_skip 断言 → light route + 新增"init 不写 phase_skip"断言）、test_hotfix_post_push_review（formal+phase_skip → light+commit_format_override 子模式）。
+- architecture-draft phase_skip→Light Lane 回填 + route enum **4→5 值**（含 light）。
+- **主线程独立硬验**：phase_skip 仅剩 deprecated 说明/schema 属性/schema 注释/测试不存在断言（无活跃写入/Variant Table）；R3-05 hotfix(4)/spike(7)/maintenance(1) 关键词全在；state.sh init 实测 `has(phase_skip)=false`；schema 属性保留未硬删；2 测试绿。
+- 验收：run-all-tests 48 全绿、build --check exit 0、verify-maturity 115/0。
+
+---
+
+## 收尾：版本 bump + 最终状态
+
+- **R7 单次 bump 落实**：6 期增量未发布，收尾一次性 `3.10.0 → 3.11.0`（plugin.json + marketplace.json + architecture-draft 版本头三处同步，verify-maturity 版本一致检查过）。非破坏性 minor（schema 新字段带 default 向后兼容、route 加 light 增量、Light Lane 新增能力、预算降仪表行为改进——旧 run 续传不破）。切片推迟故未夸大到 3.16/4.0。
+- **最终全量验收**：run-all-tests **48 套件全绿**、build --check **exit 0**、verify-maturity **115/0**、版本三处一致、所有 JSON 合法。
+- **commit 序列（main，未 push）**：P1 e307f26 → P2 → P3 74c683d → P4 a5b364f → P5a 0011aaf → P5b-1 fe5ba06 → P5b-2 4a9948e → P5c 468b15b → P5d-1 b5824ae → P5d-1b 669664b → P6 2bfd0f4 → 版本 8d67f27（各期另有 impl-log doc commit）。
+
 ## 待用户复核的关键项
+
+1. **切片 + SKILL phase-散文移出 推迟（最重要复核项）**：doc05 §1 参数化切片（唯一真降运行时 token 的改造）+ §2 phase 序列散文移出，**主线程拍板不在 AFK 盲做**——27 处 Read 指向重连的 live 行为 test 抓不到、AFK 无法 live 验证；且 doc05 §1.3 与 §1.4 对 disposition step 读哪些 fragment 自相矛盾、切片粒度边界文档里未定死、doc08 §3.4 要求落地后实测才能定粒度。已登记 TaskList #16。**若你要我现在就做，回来一句话**——但建议有人值守时做（可 live 验证 + 实测粒度）。Light Lane（P3）已交付头号 token win，切片是增量。
+2. **worktree 改道（R3）**：本次全程在 main 按新设计实现，未续 `control-flow-codification` worktree（它 v4.0.2、净增硬门、落后 main）。若你本意是续那个 worktree，回来一句话改道。
+3. **Codex 设计评审（R5）**：未跑——AFK 全程靠主线程亲验 + 子代理纪律（每个子代理返回的事实都重跑三件套 + 关键行为独立复验）兜底。若要外部对抗评审，可在你回来后对高风险期（P5b build 塌缩 / P5c merge-brief 降级 / P5d 轮次 hook）跑一轮。
+4. **版本号 3.11.0**：取非破坏性 minor（R7 + doc08 §6.1）。若你想用 4.0.0 标志这次结构重构，告诉我改。
+5. **architecture-draft 更广回填**：本次只清"已删机制仍被描述为活"的反向漂移 + phase_skip→Light Lane + route 4→5；routes 清单/切片/截断的"新事实正向回填"随切片一起推迟（doc08 §3.4/05 §4.1 第3条本就排 P6 后/收口）。
+6. **CLAUDE.md 未 stage**：你开场加的 4 个外部仓库 URL + 原则 #14 全程未纳入任何 commit。
 
 - **worktree 改道**（R3）：本次在 main 按新设计实现，未续 `control-flow-codification` worktree。若你本意是续那个 worktree，回来一句话我改道。
 - **Codex 设计评审**（R5）：见实施中决定（若 codex 就绪则对高风险代码做评审）。
