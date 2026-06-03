@@ -167,8 +167,14 @@ check "C2: review dispatch canonical records baseline reviewer agent" \
   grep -q 'dispatch-review.sh.*record' "$PLUGIN_DIR/skills/_shared/review-dispatch.md"
 check "C2: state.sh supports budget unlimited subcommand" \
   bash -c "grep -q 'cmd_budget_unlimited' '$PLUGIN_DIR/scripts/state.sh'"
+# C2: route→budget init profile now lives in routes-v1.json (P2: cmd_init reads
+# routes[route].budget.init instead of a hardcoded `case "$route"`). Assert both
+# the manifest declares the three unlimited routes AND state.sh reads budget.init.
 check "C2: direct-repair / multi-pr-merge / bug-investigation init as unlimited" bash -c \
-  "grep -q 'direct-repair|multi-pr-merge|bug-investigation' '$PLUGIN_DIR/scripts/state.sh'"
+  "for r in direct-repair multi-pr-merge bug-investigation; do
+     [ \"\$(jq -r --arg r \"\$r\" '.routes[\$r].budget.init' '$PLUGIN_DIR/state-schema/routes-v1.json')\" = unlimited ] || exit 1
+   done
+   grep -q 'route_field \"\$route\" \".budget.init\"' '$PLUGIN_DIR/scripts/state.sh'"
 check "C2: route worker dispatch used by merge-conflict-repair" \
   grep -q 'dispatch-route-worker.sh.*validate' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md"
 

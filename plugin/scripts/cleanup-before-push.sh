@@ -39,17 +39,31 @@ if [ ! -d "$WORKFLOW_DIR" ]; then
   exit 0
 fi
 
-# Hotfix route: defer cleanup — post-push review still needs state files.
+# Hotfix sub-mode: defer cleanup — post-push review still needs state files.
 # Closing calls this script with --force after post-push review completes.
+#
+# Judgement is the live commit_format flag, not the dead route=="hotfix" check
+# (route enum has no "hotfix" value — hotfix is a formal sub-mode marked via
+# commit_format_override="hotfix-unreviewed"). We read the per-run state flag
+# first (commit_format / commit_format_override), then fall back to the route's
+# manifest commit_format. Fail-open: if no hotfix marker is found, cleanup runs.
 if [ "$FORCE" = false ]; then
   RUN_ID_FILE="${WORKFLOW_DIR}/active-run-id"
   if [ -f "$RUN_ID_FILE" ]; then
     RUN_ID=$(cat "$RUN_ID_FILE" 2>/dev/null)
     STATE_FILE="${WORKFLOW_DIR}/workflow-state-${RUN_ID}.json"
     if [ -f "$STATE_FILE" ] && command -v jq >/dev/null 2>&1; then
-      ROUTE=$(jq -r '.route // empty' "$STATE_FILE" 2>/dev/null)
-      if [ "$ROUTE" = "hotfix" ]; then
-        echo "[multi-model-workflow] Hotfix route: deferring cleanup until post-push review completes." >&2
+      COMMIT_FORMAT=$(jq -r '.commit_format // .commit_format_override // empty' "$STATE_FILE" 2>/dev/null)
+      if [ -z "$COMMIT_FORMAT" ]; then
+        # Fall back to the route's declared commit_format in routes-v1.json.
+        ROUTE=$(jq -r '.route // empty' "$STATE_FILE" 2>/dev/null)
+        ROUTES_MANIFEST="$(cd "$(dirname "$0")" && pwd)/../state-schema/routes-v1.json"
+        if [ -n "$ROUTE" ] && [ -f "$ROUTES_MANIFEST" ]; then
+          COMMIT_FORMAT=$(jq -r --arg r "$ROUTE" '.routes[$r].commit_format // empty' "$ROUTES_MANIFEST" 2>/dev/null)
+        fi
+      fi
+      if [ "$COMMIT_FORMAT" = "hotfix-unreviewed" ]; then
+        echo "[multi-model-workflow] Hotfix sub-mode: deferring cleanup until post-push review completes." >&2
         exit 0
       fi
     fi

@@ -21,6 +21,8 @@ INPUT=$(cat)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PARSE_ENVELOPE="$SCRIPT_DIR/lib/parse-envelope.sh"
 STATE_SH="$SCRIPT_DIR/../scripts/state.sh"
+# shellcheck source=lib/routes.sh
+source "$SCRIPT_DIR/lib/routes.sh"
 
 # Step 1: parse envelope
 PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty' 2>/dev/null)
@@ -71,8 +73,20 @@ if [[ "$DC" == "pending" ]]; then
   fi
 fi
 
-# Step 5b: execution phase MUST be plan-level (legacy pack-level execution path removed)
-if [[ "$PHASE" == "execution" ]]; then
+# Step 5b: plan-level dispatch phases MUST be plan-level (legacy pack-level path removed).
+# Machine source: routes-v1.json[route].dispatch_shape[PHASE] == "plan-level".
+# Fail-open: if the manifest is unreadable or yields no shape, fall back to the
+# legacy literal PHASE == "execution".
+ROUTE=$(jq -r '.route // empty' "$SF" 2>/dev/null)
+DISPATCH_SHAPE=$(routes_dispatch_shape "$ROUTE" "$PHASE")
+IS_PLAN_LEVEL=false
+if [[ -n "$DISPATCH_SHAPE" ]]; then
+  [[ "$DISPATCH_SHAPE" == "plan-level" ]] && IS_PLAN_LEVEL=true
+else
+  [[ "$PHASE" == "execution" ]] && IS_PLAN_LEVEL=true
+fi
+
+if [[ "$IS_PLAN_LEVEL" == "true" ]]; then
   if [[ -z "$PLAN_ID" || "$PLAN_ID" == "null" ]]; then
     echo "[multi-model-workflow] BLOCKED: execution dispatch must be plan-level — envelope.plan_id is empty. Per-pack execution dispatch is no longer supported; dispatch one autonomous Worker per Plan (set plan_id, leave pack_id null)." >&2
     exit 2

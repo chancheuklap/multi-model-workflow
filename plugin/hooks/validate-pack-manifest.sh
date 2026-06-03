@@ -30,6 +30,8 @@ set -euo pipefail
 INPUT=$(cat)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PARSE_ENVELOPE="$SCRIPT_DIR/lib/parse-envelope.sh"
+# shellcheck source=lib/routes.sh
+source "$SCRIPT_DIR/lib/routes.sh"
 
 PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty' 2>/dev/null)
 if [[ -z "$PROMPT" ]]; then exit 0; fi
@@ -41,15 +43,21 @@ PACK_ID=$(echo "$ENVELOPE" | jq -r '.pack_id // empty')
 ENV_PLAN_ID=$(echo "$ENVELOPE" | jq -r '.plan_id // empty')
 PHASE=$(echo "$ENVELOPE" | jq -r '.phase // empty')
 
-# Only police execution-phase Worker dispatches.
-case "$PHASE" in
-  execution) ;;
-  *) exit 0 ;;
-esac
-
 BUDGET_DIR=".claude/multi-model-workflow"
 SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
 ESF="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
+
+# Only police plan-level (Manifest-model) Worker dispatches.
+# Machine source: routes-v1.json[route].dispatch_shape[PHASE] == "plan-level".
+# Fail-open: manifest unreadable / no shape → legacy literal PHASE == "execution".
+ROUTE=""
+if [[ -f "$SF" ]]; then ROUTE=$(jq -r '.route // empty' "$SF" 2>/dev/null); fi
+DISPATCH_SHAPE=$(routes_dispatch_shape "$ROUTE" "$PHASE")
+if [[ -n "$DISPATCH_SHAPE" ]]; then
+  [[ "$DISPATCH_SHAPE" == "plan-level" ]] || exit 0
+else
+  [[ "$PHASE" == "execution" ]] || exit 0
+fi
 
 # If state files don't exist, this is not a real workflow run — let the dispatch
 # proceed (some test routes have no execution-state).

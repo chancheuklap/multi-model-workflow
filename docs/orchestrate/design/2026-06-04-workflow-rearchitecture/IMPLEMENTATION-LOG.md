@@ -42,6 +42,15 @@
 - **行为等价锚点**：test 断言 `global ∪ formal.phase_transitions` 覆盖旧 TRANSITION_MATRIX 全部 8 条 Coordinator phase 推进 + 12 条 work-item → 保证 P2 改读清单后 formal 零回归。
 - 验收：test_routes_manifest 46/46；全量 44 套件全绿；build --check 干净；verify-maturity 115/0。零行为变更（无读取方）。
 
+#### P2 state.sh/hook 改读 routes 清单 ✅（派 sub-agent 实现，主线程复核）
+
+- 派一个聚焦 sub-agent 实现，主线程亲验：重跑三件套全绿 + 读 state.sh 核心 diff + **正确姿势手动复验** 6 条 transition 行为。
+- 改动：state.sh（`routes_load`/`route_field`/`_matrix_match`/`transition_allowed` route-aware+fail-open、`cmd_init` 读 `budget.init`、`cmd_transition` 传 route、删 :75/:78/:96 行尾历史注释、TRANSITION_MATRIX 留作 fallback）；新增 `hooks/lib/routes.sh`（共享 jq helper：dispatch_shape/commit_format/readable）；3 hook 改读 dispatch_shape 带 fail-open（validate-plan-dispatch / validate-pack-manifest / dispatch-route-worker）；cleanup-before-push 死 `route=="hotfix"` 改读 commit_format；state-transition-matrix.md 降级人读说明；verify-maturity C2 check 对齐新数据源（§4.4 要求，未弱化）；新增 `test_routes_transition.sh`（15 断言：formal 等价 / light 拦 discovery / fail-open）。
+- **头号新行为已主线程手动复验**：formal workflow→discovery 允许、light workflow→discovery **拒绝**、light workflow→plan-writing 允许、fail-open（清单缺失/未知 route）回退旧矩阵放行但非法 actor 仍拒。
+- **复核中纠错**：我首次手动测试误报"formal 被拒"，根因是没先 `update .cursor.phase`（cmd_transition 校验 --from==current）→ 姿势问题非 bug，正确姿势复验全过。
+- 偏离记录：dispatch-route-worker 用 PHASE 作 route key（envelope 无 route 字段、route-worker 路由 phase 名恒等 route 名，已核验）；state.sh 另 3 处 `Plan 005 Pack 5.7` 是函数头"谁调用"说明、非 transition 历史、不在本期删注释范围，保留。
+- 验收：全量 45 套件全绿；build --check exit 0；verify-maturity 115/0。CLAUDE.md 的 8 行外部仓库 URL 是用户开场改动，未 stage。
+
 ## 待用户复核的关键项
 
 - **worktree 改道**（R3）：本次在 main 按新设计实现，未续 `control-flow-codification` worktree。若你本意是续那个 worktree，回来一句话我改道。

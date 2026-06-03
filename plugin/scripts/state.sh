@@ -68,14 +68,19 @@ ensure_state_exists() {
   fi
 }
 
-# --- Transition Matrix ---
-# Format: "actor:from:to" — wildcard * matches any value in that position
+# --- Transition Matrix (fallback) ---
+# Format: "actor:from:to" — wildcard * matches any value in that position.
+# Machine source of truth is state-schema/routes-v1.json (global_transitions ∪
+# routes[route].phase_transitions). This array is retained as the fail-open
+# fallback: if the manifest is unreadable or the route is unknown,
+# transition_allowed() matches against this full matrix (legacy behavior, never
+# stricter). Keep it equivalent to (global_transitions ∪ formal.phase_transitions).
 TRANSITION_MATRIX=(
   "Coordinator:pending:dispatched"
-  "Coordinator:pending:in_progress"        # Pack 2.14 / plan-level Worker first dispatch (Plan 005)
+  "Coordinator:pending:in_progress"
   "Coordinator:dispatched:returned"
   "Coordinator:returned:committed"
-  "Coordinator:returned:review_pending"    # Pack 2.14 / plan-level Worker → Plan Implementation Review
+  "Coordinator:returned:review_pending"
   "Coordinator:review_pending:pass"
   "Coordinator:review_pending:needs_repair"
   "Coordinator:*:blocked"
@@ -93,14 +98,35 @@ TRANSITION_MATRIX=(
   "Coordinator:*:execution_done"
   "Coordinator:*:closed"
   "agent-return-handler:dispatched:returned"
-  "agent-return-handler:in_progress:returned"  # Pack 2.14 / plan-level Worker auto-return (Plan 005)
+  "agent-return-handler:in_progress:returned"
   "track-execution-state:returned:committed"
 )
 
-transition_allowed() {
+# --- routes-v1.json reader (thin jq lookups) ---
+ROUTES_MANIFEST="${SCRIPT_DIR}/../state-schema/routes-v1.json"
+
+# routes_load — succeed (0) iff the manifest exists and parses as JSON.
+routes_load() {
+  [[ -f "$ROUTES_MANIFEST" ]] && jq -e . "$ROUTES_MANIFEST" >/dev/null 2>&1
+}
+
+# route_field <route> <jq-path>
+# Echo a field from routes[<route>] using the given jq path (relative to the
+# route record). Returns empty string on any failure. Thin helper for cmd_init.
+route_field() {
+  local route="$1" path="$2"
+  routes_load || { echo ""; return 0; }
+  jq -r --arg r "$route" ".routes[\$r]${path} // empty" "$ROUTES_MANIFEST" 2>/dev/null || echo ""
+}
+
+# _matrix_match <actor> <from> <to> <candidate...> (reads candidate set on stdin)
+# Apply the existing actor:from:to wildcard match against a newline-separated
+# candidate set read from stdin. Returns 0 on match, 1 otherwise.
+_matrix_match() {
   local actor="$1" from="$2" to="$3"
-  for entry in "${TRANSITION_MATRIX[@]}"; do
-    local m_actor m_from m_to
+  local entry m_actor m_from m_to
+  while IFS= read -r entry; do
+    [[ -z "$entry" ]] && continue
     IFS=':' read -r m_actor m_from m_to <<< "$entry"
     if [[ "$m_actor" == "$actor" || "$m_actor" == "*" ]]; then
       if [[ "$m_from" == "$from" || "$m_from" == "*" ]]; then
@@ -111,6 +137,34 @@ transition_allowed() {
     fi
   done
   return 1
+}
+
+# transition_allowed <actor> <from> <to> [route]
+# Route-aware + fail-open. When a route is supplied AND the manifest is readable
+# AND routes[route] exists, the candidate set is
+#   global_transitions ∪ routes[route].phase_transitions
+# and the existing wildcard match runs against it (light is thereby denied
+# workflow:discovery — the P2 core behavior). Otherwise (no route / unreadable
+# manifest / unknown route) it falls back to the built-in TRANSITION_MATRIX full
+# match — legacy behavior, never stricter.
+transition_allowed() {
+  local actor="$1" from="$2" to="$3" route="${4:-}"
+
+  if [[ -n "$route" ]] && routes_load; then
+    if jq -e --arg r "$route" '.routes[$r]' "$ROUTES_MANIFEST" >/dev/null 2>&1; then
+      local candidates
+      candidates=$(jq -r --arg r "$route" \
+        '(.global_transitions + .routes[$r].phase_transitions)[]' \
+        "$ROUTES_MANIFEST" 2>/dev/null)
+      if [[ -n "$candidates" ]]; then
+        _matrix_match "$actor" "$from" "$to" <<< "$candidates"
+        return $?
+      fi
+    fi
+  fi
+
+  # Fail-open fallback: built-in matrix (legacy behavior).
+  printf '%s\n' "${TRANSITION_MATRIX[@]}" | _matrix_match "$actor" "$from" "$to"
 }
 
 cmd_init() {
@@ -130,9 +184,15 @@ cmd_init() {
   local now
   now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-  local budget_status review_total effort_total
-  case "$route" in
-    direct-repair|multi-pr-merge|bug-investigation)
+  # route → initial budget profile, read from routes-v1.json[route].budget.init.
+  # unlimited        → budget_status/review_total/effort_total all "unlimited"
+  # pending_plan_count → budget_status="pending_plan_count", totals null (formal)
+  # Fail-open: manifest unreadable / route unknown → pending_plan_count default
+  # (matches the legacy `case "$route"` *) branch).
+  local budget_status review_total effort_total budget_init
+  budget_init=$(route_field "$route" ".budget.init")
+  case "$budget_init" in
+    unlimited)
       budget_status='"unlimited"'
       review_total='"unlimited"'
       effort_total='"unlimited"'
@@ -268,6 +328,10 @@ cmd_transition() {
   local current_phase
   current_phase=$(jq -r '.cursor.phase // "unknown"' "$sf")
 
+  # Read route for route-aware transition validation (fail-open if absent).
+  local route
+  route=$(jq -r '.route // empty' "$sf" 2>/dev/null)
+
   # If --from not provided, use current cursor.phase
   if [[ -z "$from" ]]; then
     from="$current_phase"
@@ -279,8 +343,8 @@ cmd_transition() {
     exit 2
   fi
 
-  # Validate against transition matrix
-  if ! transition_allowed "$actor" "$from" "$to"; then
+  # Validate against transition matrix (route-aware; fail-open to full matrix)
+  if ! transition_allowed "$actor" "$from" "$to" "$route"; then
     echo "Transition denied: actor=$actor from=$from to=$to" >&2
     exit 2
   fi

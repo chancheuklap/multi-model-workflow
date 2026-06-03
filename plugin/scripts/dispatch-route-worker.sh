@@ -27,6 +27,8 @@ case "$SUBCMD" in
     [[ "$TRANSPORT" == "Agent" || "$TRANSPORT" == "SendMessage" ]] || { echo "Error: --transport must be Agent or SendMessage" >&2; exit 2; }
 
     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    # shellcheck source=../hooks/lib/routes.sh
+    source "$SCRIPT_DIR/../hooks/lib/routes.sh"
     ENVELOPE=$(bash "$SCRIPT_DIR/../hooks/lib/parse-envelope.sh" "$PROMPT_FILE")
 
     RUN_ID=$(echo "$ENVELOPE" | jq -r '.run_id // empty')
@@ -45,13 +47,26 @@ case "$SUBCMD" in
         ;;
     esac
 
-    case "$PHASE" in
-      bug-investigation|direct-repair|multi-pr-merge|hotfix|quickfix|spike|maintenance) ;;
-      *)
-        echo "Error: route worker dispatch phase must be a non-execution route phase" >&2
+    # Route-worker phases are legal iff routes-v1.json[PHASE].dispatch_shape[PHASE]
+    # == "route-worker". For route-worker routes the phase equals the route name
+    # (e.g. bug-investigation route → bug-investigation phase). This eliminates the
+    # legacy whitelist drift (the old case still listed hotfix/quickfix/spike/
+    # maintenance, which are no longer route-worker routes).
+    # Fail-open: manifest unreadable → fall back to the legacy whitelist.
+    if routes_manifest_readable; then
+      if [[ "$(routes_dispatch_shape "$PHASE" "$PHASE")" != "route-worker" ]]; then
+        echo "Error: route worker dispatch phase must be a non-execution route-worker phase (routes-v1.json)" >&2
         exit 2
-        ;;
-    esac
+      fi
+    else
+      case "$PHASE" in
+        bug-investigation|direct-repair|multi-pr-merge|hotfix|quickfix|spike|maintenance) ;;
+        *)
+          echo "Error: route worker dispatch phase must be a non-execution route phase" >&2
+          exit 2
+          ;;
+      esac
+    fi
 
     if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
       echo "Error: route worker dispatch requires run_id" >&2
