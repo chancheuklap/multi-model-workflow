@@ -7,6 +7,8 @@ JSON Schema 定义目录，用于验证 multi-model-workflow 运行时状态文�
 | 文件 | 描述 |
 | --- | --- |
 | `workflow-state-v1.json` | 主工作流状态（cursor / budget / dispositions / plans） |
+| `routes-v1.json` | 声明式 route 流程形态清单（phases / phase_transitions / gate_exemptions / dispatch_shape / budget），单一数据源，state.sh + hook 运行时 jq 读 |
+| `routes-v1.schema.json` | `routes-v1.json` 的 meta-schema（结构契约文档，无运行时 validator，由 `test_routes_manifest.sh` 用 jq 校验） |
 | `dispatch-envelope-v1.json` | Agent dispatch envelope（protocol_version / run_id / phase / plan_id / pack_id） |
 | `execution-state-v1.json` | Pack 级执行状态（per-pack status / agent_id / commit_sha） |
 | `pack-returns-v1.json` | Pack worker 返回结构 |

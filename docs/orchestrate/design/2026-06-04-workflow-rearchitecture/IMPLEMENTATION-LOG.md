@@ -32,7 +32,15 @@
 
 ### 落地决策（按实施推进逐条追加）
 
-_（每期遇到的问题、我的判断、依据、影响在此追加。）_
+**R7 版本号不逐期 bump（偏离 doc 08 §6.1）**：08 建议每期 minor+1（3.11→3.16）。但 6 期是一次重构的增量落地、未发布（不 push/不上架），逐期 bump 6 次是无意义 churn（违 #14）。改为整个重构完成时一次性 bump，中间各期维持 plugin.json/marketplace.json=3.10.0 一致（verify-maturity 版本同步检查照过）。最终版本号在收尾定（倾向 3.11.0，非破坏性对外 API；如需标志结构重构可 4.0.0）。
+
+#### P1 建 routes-v1.json 数据清单 ✅
+
+- 新建 `plugin/state-schema/routes-v1.json`（4 enum: formal/direct-repair/bug-investigation/multi-pr-merge + 预置 light 子形态）、`routes-v1.schema.json`（meta-schema）、`plugin/scripts/tests/test_routes_manifest.sh`（46 断言）；更新 `state-schema/README.md` 索引。
+- **流程形态切分决策**：work-item 状态机（pending/dispatched/returned/...）+ route-worker 入口（workflow:dispatched）+ 终态（*:closed/*:blocked/*:execution_done）→ `global_transitions`（route 无关）；phase 推进（workflow→discovery 等）→ `routes[r].phase_transitions`（route 相关）。`workflow:dispatched` 归 global（消解一致性审查指出的 02 formal 示例把它放 phase_transitions 的小瑕疵）。
+- **light 数据形态预置但不接 hook**（留 P3）：light.phase_transitions 不含 `workflow:discovery`/`discovery:plan-writing` → 机器层 transition 不存在即拦轻档误跳（D4 物理实现的数据前提）。
+- **行为等价锚点**：test 断言 `global ∪ formal.phase_transitions` 覆盖旧 TRANSITION_MATRIX 全部 8 条 Coordinator phase 推进 + 12 条 work-item → 保证 P2 改读清单后 formal 零回归。
+- 验收：test_routes_manifest 46/46；全量 44 套件全绿；build --check 干净；verify-maturity 115/0。零行为变更（无读取方）。
 
 ## 待用户复核的关键项
 
