@@ -20,6 +20,25 @@
         "type": "object",
         "required": ["phases", "phase_transitions", "gate_exemptions", "dispatch_shape", "budget", "commit_format"],
         "properties": {
+          "repair_policy": {
+            "type": "object",
+            "description": "Per-phase 修复轮次策略。键为 phase 名（execution / final-review / plan-review），值含 max_repair_rounds（worker/coordinator 修复轮上限）与 escalate_to_rca（超限后是否升级 root-cause-analyst）。由 enforce-repair-round-cap.sh hook 在运行时读取做机器强制。不含本字段的 route 对该 phase 无轮次上限检查（fail-open）。",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["max_repair_rounds", "escalate_to_rca"],
+              "properties": {
+                "max_repair_rounds": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Worker/Coordinator 修复轮上限（不含 RCA escalation 轮）。"
+                },
+                "escalate_to_rca": {
+                  "type": "boolean",
+                  "description": "达到上限后是否升级 root-cause-analyst（再给 1 轮）。false = 直接 BLOCKED。"
+                }
+              }
+            }
+          },
           "phases": {
             "type": "array",
             "description": "本 route 实际经过的 phase 有序序列。",

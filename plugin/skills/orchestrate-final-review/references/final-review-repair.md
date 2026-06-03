@@ -121,7 +121,7 @@ Explorer 返回后路由：
 
 ## Step 12：修复截断（repair-once + RCA escalation）
 
-每个 gap 最多 1 个 repair round + 1 个 RCA escalation。
+Worker repair 轮次上限由 `routes-v1.json` 的 `repair_policy.max_repair_rounds`（final-review phase）持有，`enforce-repair-round-cap.sh` hook 机器强制。当前值：`max_repair_rounds=1, escalate_to_rca=true`（等价于旧散文的"每个 gap 最多 1 个 repair round + 1 个 RCA escalation"）。
 
 | 阶段 | 动作 |
 | --- | --- |

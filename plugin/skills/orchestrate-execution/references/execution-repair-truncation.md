@@ -110,7 +110,7 @@ Explorer 返回后路由：
 
 ## Step 12：修复截断
 
-每个 Plan Implementation Review 最多 **2 Worker repair round + 1 root-cause-analyst round = 3 repair round**。
+Worker repair 轮次上限由 `routes-v1.json` 的 `repair_policy.max_repair_rounds`（execution phase）持有，`enforce-repair-round-cap.sh` hook 机器强制——超限 Targeted Re-Review 派发被 exit 2 拦截。当前值：`max_repair_rounds=2, escalate_to_rca=true`（等价于旧散文的"2 Worker round + 1 RCA round"）。
 
 | Round | 动作 |
 | --- | --- |

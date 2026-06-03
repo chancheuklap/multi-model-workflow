@@ -82,7 +82,7 @@ Plan Implementation Review pass 后，Coordinator Edit plan 文档勾选 checkbo
 
 ## Step 18：修复截断
 
-Plan Review 最多 **2 个 repair round**。
+Plan Review repair 轮次上限由 `routes-v1.json` 的 `repair_policy.max_repair_rounds`（plan-review phase）持有，`enforce-repair-round-cap.sh` hook 机器强制——超限 Re-Review 派发被 exit 2 拦截。当前值：`max_repair_rounds=2, escalate_to_rca=false`（等价于旧散文的"最多 2 个 repair round"）。
 
 | Round | 动作 |
 | --- | --- |

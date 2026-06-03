@@ -94,6 +94,25 @@ for t in "${OLD_WORK_ITEM[@]}"; do
     bash -c "echo '$GLOBALS' | grep -qx '$t'"
 done
 
+# --- repair_policy 断言（P5d-1：三套修复截断统一为 routes 参数）---
+# formal / light 必须有 repair_policy；各 phase 取值与现状等价
+for r in formal light; do
+  run_test "route '$r' has repair_policy" \
+    bash -c "jq -e --arg r '$r' '.routes[\$r].repair_policy != null' '$ROUTES'"
+  run_test "route '$r' repair_policy.execution.max_repair_rounds == 2" \
+    bash -c "[[ \$(jq -r --arg r '$r' '.routes[\$r].repair_policy.execution.max_repair_rounds' '$ROUTES') == '2' ]]"
+  run_test "route '$r' repair_policy.execution.escalate_to_rca == true" \
+    bash -c "[[ \$(jq -r --arg r '$r' '.routes[\$r].repair_policy.execution.escalate_to_rca' '$ROUTES') == 'true' ]]"
+  run_test "route '$r' repair_policy.final-review.max_repair_rounds == 1" \
+    bash -c "[[ \$(jq -r --arg r '$r' '.routes[\$r][\"repair_policy\"][\"final-review\"].max_repair_rounds' '$ROUTES') == '1' ]]"
+  run_test "route '$r' repair_policy.final-review.escalate_to_rca == true" \
+    bash -c "[[ \$(jq -r --arg r '$r' '.routes[\$r][\"repair_policy\"][\"final-review\"].escalate_to_rca' '$ROUTES') == 'true' ]]"
+  run_test "route '$r' repair_policy.plan-review.max_repair_rounds == 2" \
+    bash -c "[[ \$(jq -r --arg r '$r' '.routes[\$r][\"repair_policy\"][\"plan-review\"].max_repair_rounds' '$ROUTES') == '2' ]]"
+  run_test "route '$r' repair_policy.plan-review.escalate_to_rca == false" \
+    bash -c "[[ \$(jq -r --arg r '$r' '.routes[\$r][\"repair_policy\"][\"plan-review\"].escalate_to_rca' '$ROUTES') == 'false' ]]"
+done
+
 # --- 无历史注释泄漏（JSON 天然无注释，防有人塞进字符串）---
 run_test "no Pack 2.14 / Plan 005 history leaked into manifest" \
   bash -c "! grep -qE 'Pack 2\\.14|Plan 005' '$ROUTES'"

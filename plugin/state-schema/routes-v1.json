@@ -35,7 +35,12 @@
       "gate_exemptions": [],
       "dispatch_shape": { "execution": "plan-level" },
       "budget": { "init": "pending_plan_count", "formula": "3P+12" },
-      "commit_format": null
+      "commit_format": null,
+      "repair_policy": {
+        "execution":    { "max_repair_rounds": 2, "escalate_to_rca": true },
+        "final-review": { "max_repair_rounds": 1, "escalate_to_rca": true },
+        "plan-review":  { "max_repair_rounds": 2, "escalate_to_rca": false }
+      }
     },
     "light": {
       "phases": ["plan-writing", "execution", "final-review"],
@@ -50,7 +55,12 @@
       "gate_exemptions": ["discovery", "plan-review"],
       "dispatch_shape": { "execution": "plan-level" },
       "budget": { "init": "unlimited", "formula": null },
-      "commit_format": null
+      "commit_format": null,
+      "repair_policy": {
+        "execution":    { "max_repair_rounds": 2, "escalate_to_rca": true },
+        "final-review": { "max_repair_rounds": 1, "escalate_to_rca": true },
+        "plan-review":  { "max_repair_rounds": 2, "escalate_to_rca": false }
+      }
     },
     "direct-repair": {
       "phases": ["direct-repair"],

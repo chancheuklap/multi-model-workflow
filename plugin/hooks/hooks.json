@@ -28,6 +28,11 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate-codex-review.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforce-repair-round-cap.sh\"",
+            "if": "Bash(*codex*task*)"
           }
         ]
       },
