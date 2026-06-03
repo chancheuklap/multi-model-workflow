@@ -235,6 +235,7 @@ SendMessage resume 原 worker"。
 
 如果修复要求不正确或 acceptance criteria 矛盾，说明技术原因推回。不盲目实现。
 
+<!-- BEGIN: failure-protocol -->
 ## 三次失败协议
 
 遇到失败时，BLOCKED 之前先自救三轮。**每轮必须换方法——绝不重复同一个失败动作。**
@@ -247,6 +248,7 @@ SendMessage resume 原 worker"。
 | 3 次后 | 返回 BLOCKED，附上三轮尝试记录 | parent 拿到记录决定下一步 |
 
 **关键规则**：`if action_failed: next_action != same_action`。记录每次尝试了什么，确保不走回头路。
+<!-- END: failure-protocol -->
 
 ## Memory 策略
 

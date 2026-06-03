@@ -239,6 +239,7 @@ SendMessage resume 原 worker"。
 你处理**已知问题**：dispatch prompt 告诉你"file:line 有 X 问题"，你就去改。
 如果修复中发现问题比预想深（改了 A 但 B 又坏了，不清楚关联），走三次失败协议。三次后返回 BLOCKED，让 parent 决定下一步。
 
+<!-- BEGIN: failure-protocol -->
 ## 三次失败协议
 
 遇到失败时，BLOCKED 之前先自救三轮。**每轮必须换方法——绝不重复同一个失败动作。**
@@ -251,6 +252,7 @@ SendMessage resume 原 worker"。
 | 3 次后 | 返回 BLOCKED，附上三轮尝试记录 | parent 拿到记录决定下一步 |
 
 **关键规则**：`if action_failed: next_action != same_action`。记录每次尝试了什么，确保不走回头路。
+<!-- END: failure-protocol -->
 
 ## 交付前自检（返回前强制执行）
 

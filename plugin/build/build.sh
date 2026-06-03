@@ -61,7 +61,7 @@ resolve_anchor() {
   case "$anchor_name" in
 
     # ── Type 1: pure cat ─────────────────────────────────────────────────────
-    worker-loop)
+    worker-loop|failure-protocol)
       local tmpl="$TEMPLATE_DIR/${anchor_name}.md.tmpl"
       if [[ ! -f "$tmpl" ]]; then
         echo "Error: template not found: $tmpl" >&2
