@@ -108,6 +108,24 @@ doc07 §3。派 sub-agent，主线程独立硬验（含一次姿势错纠正）�
 - **主线程独立硬验**：① STATE_DEBUG off→mutations 0、on→mutations 1 含完整记录（首次测试漏 field 前导点报 `cursor/0 not defined`，纠正为 `.cursor.step` 后通过——姿势错非实现 bug，同 P2 教训）；② merge-brief 41 行合法 JSON + 承重字面量 grep 全命中；③ 三回归测试 + 三件套全绿。
 - 验收：run-all-tests 47 全绿；build --check exit 0；verify-maturity 115/0。
 
+##### P5d 截断机器化 + routes 化 + if 降频 ✅（切片/散文移出 推迟，见下）
+
+doc05 §3 + doc07 §2.3/§2.2。拆 P5d-1 / P5d-1b 两 commit。
+
+- **P5d-1 修复轮次截断机器强制**：routes-v1.json formal/light 加 `repair_policy`（execution 2/escalate、final-review 1/escalate、plan-review 2/no-escalate）；新增 `enforce-repair-round-cap.sh`（PreToolUse Bash, if Bash(*codex*task*)）从 gate 名 `plan-impl-review-N-repair-<round>`/`plan-review-repair-<round>` 解析 round 比 max_repair_rounds，超限 exit2，每个不确定分支 fail-open；三套截断 reference 硬数字 → 引用 repair_policy+hook（保 Round 表 + RCA 模板）。诚实边界：final-review 走 Agent RCA 不经 Bash hook → 对其 fail-open（doc07 §2.3 已交代）。主线程独立硬验新 test 11/11 真实（round=3>max=2 拦、round=2 边界放行、fail-open 多路）。
+- **P5d-1b hook routes 化 + if 降频**：hooks.json 给 gate-codex-review 加 `if Bash(*codex*task*)`（修脚本 :2 自注释声称有 but hooks.json 没注册的漂移）、track-review-budget 加 `if Bash(*codex*result*)`（双层保险，行为不变）；validate-multi-pr-dispatch.sh:47 phase 字面量 → 读 routes dispatch_shape + fail-open 退字面量（照 P2 套路）；guard-premature-push 保留无 if（doc07 §2.2 裁决）。跳过 gate-codex-review intent-routes 化（非明确 phase 字面量漂移，#14）。承重 test_validate_multi_pr_dispatch(16)/test_multi_pr_merge_e2e(25) 绿。
+- 验收（各 commit）：run-all-tests 48 全绿、build --check exit 0、verify-maturity 115/0。
+
+##### P5d-2 切片 + §2 phase-散文移出 → **推迟到有人值守（AFK 自决，重点复核项）**
+
+doc05 §1 切片（review-dispatch 12 / repair-routing 9 / disposition-table 6 = 27 处 Read 指向重连）+ §2 signpost phase 序列散文移出，**主线程拍板不在 AFK 盲做**：
+1. **test 抓不到 live Read**：27 处 Read 重连改的是运行时主线程读哪个文件，切片错 = 运行时静默降级，全套 test（含三件套）都不会红——AFK 无法 live 验证。
+2. **doc05 内部张力（亲验发现）**：§1.3 说 disposition step 读 options+discipline 两 fragment，§1.4 表却说 Step 8 只读 options ≈900B 省 1860——**切片粒度边界文档里未定死**；§1.5 自标"切太碎增 Read 次数/切太粗没省"风险；doc08 §3.4 把"切片省量实测（wc -c 量每步实际 Read 字节）"列为**落地后**测量步骤。盲切违背设计自身方法论。
+3. **Light Lane 已交付头号 token win**：P3 小改跳过整个 Discovery/plan-review/final-review + Codex job，是 D4 主 token 杠杆；切片是 formal-lane review 循环的增量优化，非唯一来源。
+4. **D4 地板=流程稳定**：切片错静默降级违地板。**透明推迟 > 静默破坏**——前者进报告让用户复核（用户明示"觉得不对就改"），后者可能真跑才暴露、绕过用户复核环。
+
+→ 登记为 TaskList #16，建议有人值守时：先解 §1.3/§1.4 粒度张力 → 按 doc08 §3.4 实测定粒度 → 跑真实 formal-lane 循环 live 验证。state.sh 死 transition 行（doc07 §3.1 :75 等）一并推迟（fallback 矩阵保持完整更安全，#14）。
+
 ## 待用户复核的关键项
 
 - **worktree 改道**（R3）：本次在 main 按新设计实现，未续 `control-flow-codification` worktree。若你本意是续那个 worktree，回来一句话我改道。
