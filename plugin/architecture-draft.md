@@ -1,8 +1,8 @@
 # Plugin 架构文档
 
 > **审计基准**：`plugin/` 目录下的实际代码（skills/ agents/ hooks/ scripts/ build/ state-schema/）。
-> **审计日期**：2026-06-04（P5a 漂移根治：版本头 / bug-seed 描述 / effort 维度校准）。
-> **Plugin 版本**：3.10.0。
+> **审计日期**：2026-06-04（workflow 精简重构 P1–P6：routes 数据化 / Light Lane / 预算仪表 / build 塌缩 / 删假 phase_skip）。
+> **Plugin 版本**：3.11.0。
 > **本文目标**：作为理解 plugin 整体 workflow 和所有影响行为的设计细节的**唯一**入口文档。
 
 ---
