@@ -142,11 +142,12 @@ flowchart TD
 
 | Route | 名称 | Discovery | Plan Writing | Plan Review | Execution | Final Review | Budget | 特殊行为 |
 |-------|------|-----------|-------------|-------------|-----------|-------------|--------|---------|
-| 1 | Formal | ✅ | ✅ | ✅ | ✅ | ✅ | `3P+12` | 完整流程；hotfix/quickfix/spike/maintenance 通过 `phase_skip` + `commit_format_override` flags 路由到 Route 1 变体（见 orchestrate-workflow/SKILL.md Route 1 Variant Table） |
+| 0 | Light Lane | ❌ | ❌ | ❌ | ✅ | ❌ | unlimited | 默认轻档；hotfix/quickfix/spike/maintenance 变体由 Light Lane（route=light + routes gate_exemptions + 子模式）承载；`phase_skip` 已 DEPRECATED（P6，被 Light Lane 取代，零消费） |
+| 1 | Formal | ✅ | ✅ | ✅ | ✅ | ✅ | `3P+12` | 完整流程；核心红线/大改造升 formal |
 | 2 | Bug Investigation | ❌ | ❌ | ❌ | ❌ | ❌ | unlimited | RCA → worker → review → Closing |
 | 3 | Multi-PR Merge | ❌ | ❌ | ❌ | ❌ | ❌ | unlimited | merge-brief 驱动；冲突发现 → 修复 → 集成审查 → 合并 |
 
-Route enum 4 值（`formal` / `direct-repair` / `bug-investigation` / `multi-pr-merge`）。原 Routes 4-7（hotfix/quickfix/spike/maintenance）已折叠为 Route 1 + `phase_skip` / `commit_format_override` flags（D10）。
+Route enum 5 值（`formal` / `light` / `direct-repair` / `bug-investigation` / `multi-pr-merge`）。hotfix/quickfix/spike/maintenance 变体由 **Light Lane（route=light + routes 清单 gate_exemptions + 子模式）** 承载。`phase_skip` 已 DEPRECATED（P6）——被 Light Lane 取代，零消费，保留一个版本周期后物理删。
 
 ---
 
@@ -663,7 +664,7 @@ track-execution-state.sh 的 Pack ID 提取保留 sed 模式（`sed -n 's/.*Pack
 ### 8.2 双文件模型（Ruling 2）
 
 设计原文将 budget 和 execution-state 合并为单一 workflow-state。实现采用双文件：
-- **workflow-state-<run_id>.json**：run_id / slug / route（4 值 enum）/ cursor / budget / plans 元信息 / plan_count / plan_writer_agent_id / idempotency_keys / review_dispositions / self_verifications / pending_direction_check / pending_post_push_reviews / execution_reflux_count / last_gate_phase/timestamp / phase_skip / commit_format_override / mutations（append-only 审计日志）
+- **workflow-state-<run_id>.json**：run_id / slug / route（5 值 enum：formal/light/direct-repair/bug-investigation/multi-pr-merge）/ cursor / budget / plans 元信息 / plan_count / plan_writer_agent_id / idempotency_keys / review_dispositions / self_verifications / pending_direction_check / pending_post_push_reviews / execution_reflux_count / last_gate_phase/timestamp / commit_format_override / mutations（append-only 审计日志）；`phase_skip` DEPRECATED（P6，被 Light Lane 取代）
 - **execution-state-<run_id>.json**：pack-level data（plans[plan_id].packs[pack_id] 含 status / agent_id / commit_sha / worker_verdict / repair_round）
 
 分离原因：pack-level 被 2 个 hook 并发写入（agent-return-handler / track-execution-state），合并到单文件会加剧竞态。两文件通过 `plan_id` + `pack_id` 关联。
@@ -781,7 +782,7 @@ bash plugin/build/build.sh --apply --plugin-dir plugin   # 应用（原子写入
 
 | 文件 | 描述 | 产生 | 消费 | 新增? |
 |------|------|------|------|------|
-| `workflow-state-v1.json` | Workflow 主状态 schema（route 4 值 enum / budget / cursor / plans / dispositions / self_verifications / phase_skip / commit_format_override / mutations） | Coordinator (state.sh) | Coordinator, hooks, all skills | 否（扩展） |
+| `workflow-state-v1.json` | Workflow 主状态 schema（route 5 值 enum：formal/light/direct-repair/bug-investigation/multi-pr-merge / budget / cursor / plans / dispositions / self_verifications / commit_format_override / mutations；`phase_skip` DEPRECATED P6） | Coordinator (state.sh) | Coordinator, hooks, all skills | 否（扩展） |
 | `execution-state-v1.json` | Pack-level 执行状态（plans[plan_id].packs[pack_id]：status 5 enum / agent_id / commit_sha / worker_verdict / repair_round） | Coordinator / hooks | Coordinator, Worker | 否（plans 二级结构 Plan-level 扩展） |
 | `dispatch-envelope-v1.json` | Dispatch envelope schema（13 字段，详见 §7.1） | Coordinator | Worker / hooks | 扩展（plan_id 新增） |
 | `pack-returns-v1.json` | Pack 级返回 schema | pack-executor / complex-pack-executor | agent-return-handler / Coordinator | 否 |

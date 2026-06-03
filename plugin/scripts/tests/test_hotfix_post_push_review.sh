@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Tests hotfix variant post-push review: push writes pending_post_push_reviews.
-# Hotfix is now Route 1 + phase_skip flags (D10 collapse).
+# Hotfix is now Light Lane (route=light) + commit_format_override="hotfix-unreviewed"
+# + pending_post_push_reviews as post-push review ledger.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -16,23 +17,25 @@ run_test() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then echo "  PASS:
 echo "=== test_hotfix_post_push_review.sh ==="
 
 RUN_ID="test-hotfix"
-# Hotfix now uses formal route + phase_skip + commit_format_override (D10)
-bash "$STATE_SH" init --run-id "$RUN_ID" --slug "hotfix-1" --route "formal" >/dev/null
+# Hotfix uses Light Lane: route=light (unlimited), commit_format_override=hotfix-unreviewed
+bash "$STATE_SH" init --run-id "$RUN_ID" --slug "hotfix-1" --route "light" >/dev/null
 
-# Simulate hotfix variant setup: set phase_skip + budget + commit_format_override
-bash "$STATE_SH" update --run-id "$RUN_ID" \
-  --field '.phase_skip' \
-  --value '["discovery","plan-writing","plan-review","final-review"]' >/dev/null
+# Simulate hotfix submode setup: set commit_format_override (no phase_skip — deprecated P6)
 bash "$STATE_SH" update --run-id "$RUN_ID" \
   --field '.commit_format_override' \
   --value '"hotfix-unreviewed"' >/dev/null
-bash "$STATE_SH" update --run-id "$RUN_ID" \
-  --field '.budget.budget_status' \
-  --value '"unlimited"' >/dev/null
 
-# Verify hotfix variant has unlimited budget
+# Verify hotfix variant has unlimited budget (Light Lane default)
 run_test "hotfix variant has unlimited budget" \
   bash -c "[[ \$(jq -r '.budget.budget_status' '$FIXTURE_DIR/workflow-state-${RUN_ID}.json') == 'unlimited' ]]"
+
+# Verify route is light
+run_test "hotfix variant uses route=light" \
+  bash -c "[[ \$(jq -r '.route' '$FIXTURE_DIR/workflow-state-${RUN_ID}.json') == 'light' ]]"
+
+# Verify commit_format_override is hotfix-unreviewed
+run_test "hotfix variant has commit_format_override=hotfix-unreviewed" \
+  bash -c "[[ \$(jq -r '.commit_format_override' '$FIXTURE_DIR/workflow-state-${RUN_ID}.json') == 'hotfix-unreviewed' ]]"
 
 # Verify pending_post_push_reviews starts empty
 run_test "pending_post_push_reviews starts empty" \

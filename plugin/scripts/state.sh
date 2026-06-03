@@ -213,7 +213,6 @@ cmd_init() {
   "run_id": "${RUN_ID}",
   "slug": "${slug}",
   "route": "${route}",
-  "phase_skip": [],
   "commit_format_override": null,
   "started_at": "${now}",
   "cursor": { "phase": "workflow", "reference": null, "step": null },

@@ -78,7 +78,7 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 
 | 路线 | 输入信号 | 下一步 |
 | --- | --- | --- |
-| **Route 0: Light Lane（默认）** | 日常小改、单点修复、未命中升级条件 | `state.sh init --route light`（unlimited）→ Light Lane 流程段 |
+| **Route 0: Light Lane（默认）** | 日常小改、单点修复、未命中升级条件；quickfix / 小改动 / 一行修复 / trivial fix；maintenance / 依赖更新 / 文档更新 / chore / cleanup / refactor / bump；**hotfix** 子模式（route=light + `commit_format_override="hotfix-unreviewed"` + `pending_post_push_reviews`）；**spike** 子模式（route=light + 临时目录隔离，不占编号） | `state.sh init --route light`（unlimited）→ Light Lane 流程段 |
 | **Route 1: Formal Orchestrate** | 命中 D1 升级条件：新功能、改造、feedback、缺 design/issue/plan、已有 design/plan 要 review/执行 | Step 2 |
 | **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Step 2（Git + Scope + unlimited workflow-state）→ Step 15 |
 | **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Step 2（Git + Scope + unlimited workflow-state）→ Step 19 |
@@ -133,17 +133,6 @@ state.sh budget reinitialize --run-id <rid> --plan-count <暂估或 1>
 - budget：unlimited（spike 是探索，不卡预算）。
 - release gate：不触发——spike 终点是 verdict 返回，不进 Closing 的 push/PR。
 - 升级：verdict=可行且用户要落地 → 走一键升级门转 formal，spike 产物作为 design 输入。
-
-### Route 1 Variant Table
-
-Entry Gate 识别以下关键词时，路由到 Route 1 + 对应 flags。`state.sh init` 后立即 `state.sh update` 设置 `phase_skip` 和 `commit_format_override`。`budget_status` / `review_total` 均设为 `"unlimited"`。
-
-| Variant 关键词 | phase_skip | budget_status | commit_format_override | 备注 |
-| --- | --- | --- | --- | --- |
-| hotfix / 紧急 / production fire / P0 / 生产事故 | `["discovery","plan-writing","plan-review","final-review"]` | unlimited | `"hotfix-unreviewed"` | 先 push 再事后 review；`pending_post_push_reviews` 保留；Closing 阶段手动清理 |
-| quickfix / 快速修复 / 小改动 / 一行修复 / trivial fix | `["discovery","plan-review"]` | unlimited | `null` | 单 Pack、单 Worker、单 review round；Coordinator 自己写 plan |
-| spike / 调研 / 探索 / POC / prototype / 可行性验证 | `["plan-review","final-review"]` | unlimited | `null` | Discovery 简化为 1-page spike brief；产出 throwaway code + verdict 文档；不触发 release gate |
-| maintenance / 依赖更新 / 文档更新 / chore / cleanup / refactor / bump | `["discovery","plan-review"]` | unlimited | `null` | Coordinator 直接写 plan；Final Review 降级为 lint + test pass check |
 
 **Within-Conversation Resume**：同一对话内 phase skill 返回的 verdict → 直接路由到下方对应 phase 的 Handle Return 步骤，不重走 Steps 0-2。
 
