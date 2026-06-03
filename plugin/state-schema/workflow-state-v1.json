@@ -32,14 +32,20 @@
       },
       "required": ["phase"]
     },
+    "attendance_mode": {
+      "type": "string",
+      "enum": ["attended", "afk"],
+      "default": "afk"
+    },
     "budget": {
       "type": "object",
       "properties": {
         "budget_status": { "type": "string", "enum": ["pending_plan_count", "initialized", "unlimited"] },
         "review_total": { "oneOf": [{ "type": "number" }, { "type": "string", "const": "unlimited" }, { "type": "null" }] },
         "review_used": { "type": "number" },
-        "effort_total": { "oneOf": [{ "type": "number" }, { "type": "string", "const": "unlimited" }, { "type": "null" }] },
-        "effort_used": { "type": "number" },
+        "review_credit": { "type": "number", "default": 0 },
+        "budget_profile": { "type": "string", "default": "standard" },
+        "override_count": { "type": "number", "default": 0 },
         "direction_check_count": { "type": "number" }
       },
       "required": ["budget_status", "review_used"]

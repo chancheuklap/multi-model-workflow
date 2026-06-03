@@ -86,7 +86,8 @@ check "state.sh budget initialize computes correctly" bash -c "
   export STATE_BASE=\$(mktemp -d)
   bash '$PLUGIN_DIR/scripts/state.sh' init --run-id mtest --slug s --route formal >/dev/null
   bash '$PLUGIN_DIR/scripts/state.sh' budget initialize --run-id mtest --plan-count 2 >/dev/null
-  [ \"\$(jq '.budget.effort_total' \$STATE_BASE/workflow-state-mtest.json)\" = '36' ]
+  [ \"\$(jq -r '.budget.review_total' \$STATE_BASE/workflow-state-mtest.json)\" = '18' ] &&
+  [ \"\$(jq -r '.budget.budget_profile' \$STATE_BASE/workflow-state-mtest.json)\" = 'standard' ]
 "
 
 check "no regex Pack ID in agent-return-handler" bash -c "
@@ -178,9 +179,9 @@ check "C2: direct-repair / multi-pr-merge / bug-investigation init as unlimited"
 check "C2: route worker dispatch used by merge-conflict-repair" \
   grep -q 'dispatch-route-worker.sh.*validate' "$PLUGIN_DIR/skills/orchestrate-multi-pr-merge/references/merge-conflict-repair.md"
 
-# C3: track-effort-budget uses state lock for concurrent safety
-check "C3: track-effort-budget uses state lock" \
-  grep -q 'state_lock_acquire' "$PLUGIN_DIR/hooks/track-effort-budget.sh"
+# C3: effort dimension deleted (P4) — track-effort-budget.sh must not exist
+check "C3: track-effort-budget deleted (P4 effort dimension removed)" \
+  test ! -f "$PLUGIN_DIR/hooks/track-effort-budget.sh"
 
 # C4: agent-return-handler's execution-state mutation is lock-protected. Plan-level
 # handler delegates the write to `state.sh plan-returns ingest`, which acquires the

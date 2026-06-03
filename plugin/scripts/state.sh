@@ -5,6 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STATE_BASE="${STATE_BASE:-.claude/multi-model-workflow}"
 LOCK_TTL=60
 
+# Budget formula constants (P4: extracted for auditability and override support)
+REVIEW_PER_PLAN=3
+REVIEW_FIXED_RESERVE=12
+MAX_OVERRIDES=2
+
 # Source shared lock primitives
 source "$SCRIPT_DIR/lib/state-lock.sh"
 
@@ -22,7 +27,8 @@ Commands:
   self-verify       Manage self-verification records (append)
   agent-id          Get/set agent_id in execution-state (per Ruling 2)
   execution-plan    Manage execution-state plan boundaries (start)
-  budget            Budget subcommands (initialize, reinitialize, unlimited, check, increment-review)
+  budget            Budget subcommands (initialize, reinitialize, unlimited, check, increment-review, credit)
+  set-attendance    Set attendance mode (attended|afk)
   direction-check   Direction Check flow (trigger, ack)
   idempotency       Idempotency key management (check, append)
   review-history    Append a row to a design/plan document's Review History table
@@ -185,22 +191,20 @@ cmd_init() {
   now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
   # route → initial budget profile, read from routes-v1.json[route].budget.init.
-  # unlimited        → budget_status/review_total/effort_total all "unlimited"
+  # unlimited        → budget_status/review_total all "unlimited"
   # pending_plan_count → budget_status="pending_plan_count", totals null (formal)
   # Fail-open: manifest unreadable / route unknown → pending_plan_count default
   # (matches the legacy `case "$route"` *) branch).
-  local budget_status review_total effort_total budget_init
+  local budget_status review_total budget_init
   budget_init=$(route_field "$route" ".budget.init")
   case "$budget_init" in
     unlimited)
       budget_status='"unlimited"'
       review_total='"unlimited"'
-      effort_total='"unlimited"'
       ;;
     *)
       budget_status='"pending_plan_count"'
       review_total='null'
-      effort_total='null'
       ;;
   esac
 
@@ -213,12 +217,14 @@ cmd_init() {
   "commit_format_override": null,
   "started_at": "${now}",
   "cursor": { "phase": "workflow", "reference": null, "step": null },
+  "attendance_mode": "afk",
   "budget": {
     "budget_status": ${budget_status},
     "review_total": ${review_total},
     "review_used": 0,
-    "effort_total": ${effort_total},
-    "effort_used": 0,
+    "review_credit": 0,
+    "budget_profile": "standard",
+    "override_count": 0,
     "direction_check_count": 0
   },
   "plan_count": null,
@@ -946,15 +952,18 @@ cmd_budget() {
     unlimited) cmd_budget_unlimited "$@" ;;
     check) cmd_budget_check "$@" ;;
     increment-review) cmd_budget_increment_review "$@" ;;
-    *) echo "Error: unknown budget subcommand: $subcmd (use initialize|reinitialize|unlimited|check|increment-review)" >&2; exit 2 ;;
+    credit) cmd_budget_credit "$@" ;;
+    *) echo "Error: unknown budget subcommand: $subcmd (use initialize|reinitialize|unlimited|check|increment-review|credit)" >&2; exit 2 ;;
   esac
 }
 
 cmd_budget_initialize() {
-  local plan_count=""
+  local plan_count="" review_total_override="" profile_override=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --plan-count) plan_count="$2"; shift 2 ;;
+      --review-total) review_total_override="$2"; shift 2 ;;
+      --profile) profile_override="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
@@ -978,12 +987,31 @@ cmd_budget_initialize() {
     exit 2
   fi
 
-  local review_total=$((3 * plan_count + 12))
-  local effort_total=$((review_total * 2))
+  local review_total budget_profile
+  if [[ -n "$review_total_override" ]]; then
+    # Direct override: skip formula
+    review_total="$review_total_override"
+    budget_profile="custom"
+  elif [[ -n "$profile_override" ]]; then
+    # Profile-based formula
+    local per_plan fixed_reserve
+    case "$profile_override" in
+      standard) per_plan=$REVIEW_PER_PLAN; fixed_reserve=$REVIEW_FIXED_RESERVE ;;
+      generous)  per_plan=4; fixed_reserve=16 ;;
+      tight)     per_plan=2; fixed_reserve=6 ;;
+      *) echo "Error: unknown --profile '$profile_override' (use standard|generous|tight)" >&2; exit 2 ;;
+    esac
+    review_total=$(( per_plan * plan_count + fixed_reserve ))
+    budget_profile="$profile_override"
+  else
+    # Default: standard formula using constants
+    review_total=$(( REVIEW_PER_PLAN * plan_count + REVIEW_FIXED_RESERVE ))
+    budget_profile="standard"
+  fi
 
   local tmp="${sf}.tmp"
-  jq --argjson rt "$review_total" --argjson et "$effort_total" --argjson pc "$plan_count" \
-    '.budget.budget_status = "initialized" | .budget.review_total = $rt | .budget.effort_total = $et | .plan_count = $pc' \
+  jq --argjson rt "$review_total" --argjson pc "$plan_count" --arg bp "$budget_profile" \
+    '.budget.budget_status = "initialized" | .budget.review_total = $rt | .budget.budget_profile = $bp | .plan_count = $pc' \
     "$sf" > "$tmp"
   mv "$tmp" "$sf"
 }
@@ -993,10 +1021,10 @@ cmd_budget_initialize() {
 # an `unlimited` entry (light run), converting it to a bounded formal budget.
 # initialize protects "fresh formal run starts from pending_plan_count"; this
 # command serves the escape hatch (light discovered to be a big change). Atomically:
-#   budget_status unlimited → initialized + review_total/effort_total + plan_count
+#   budget_status unlimited → initialized + review_total + plan_count
 #   route → "formal" (升级门同步翻 formal so every formal gate auto re-arms).
-# Formula stays identical to initialize (3*P+12 / effort=review_total*2); P4 will
-# parameterize both together.
+# Formula: standard profile (REVIEW_PER_PLAN*P + REVIEW_FIXED_RESERVE).
+# reinitialize does not accept --profile/--review-total; use initialize for custom budgets.
 cmd_budget_reinitialize() {
   local plan_count=""
   while [[ $# -gt 0 ]]; do
@@ -1025,14 +1053,13 @@ cmd_budget_reinitialize() {
     exit 2
   fi
 
-  local review_total=$((3 * plan_count + 12))
-  local effort_total=$((review_total * 2))
+  local review_total=$(( REVIEW_PER_PLAN * plan_count + REVIEW_FIXED_RESERVE ))
 
   local tmp="${sf}.tmp"
-  jq --argjson rt "$review_total" --argjson et "$effort_total" --argjson pc "$plan_count" \
+  jq --argjson rt "$review_total" --argjson pc "$plan_count" \
     '.budget.budget_status = "initialized"
      | .budget.review_total = $rt
-     | .budget.effort_total = $et
+     | .budget.budget_profile = "standard"
      | .plan_count = $pc
      | .route = "formal"' \
     "$sf" > "$tmp"
@@ -1067,14 +1094,12 @@ cmd_budget_unlimited() {
     jq --arg route "$route" '
       .route = $route |
       .budget.budget_status = "unlimited" |
-      .budget.review_total = "unlimited" |
-      .budget.effort_total = "unlimited"
+      .budget.review_total = "unlimited"
     ' "$sf" > "$tmp"
   else
     jq '
       .budget.budget_status = "unlimited" |
-      .budget.review_total = "unlimited" |
-      .budget.effort_total = "unlimited"
+      .budget.review_total = "unlimited"
     ' "$sf" > "$tmp"
   fi
   mv "$tmp" "$sf"
@@ -1112,20 +1137,37 @@ cmd_budget_check() {
     exit 0
   fi
 
-  local review_total review_used
+  local review_total review_used review_credit effective_used
   review_total=$(jq -r '.budget.review_total' "$sf")
   review_used=$(jq -r '.budget.review_used' "$sf")
+  review_credit=$(jq -r '.budget.review_credit // 0' "$sf")
+  effective_used=$(( review_used - review_credit ))
 
-  if [[ "$review_used" -ge "$review_total" ]] 2>/dev/null; then
+  if [[ "$effective_used" -ge "$review_total" ]] 2>/dev/null; then
     if [[ "$allow_over_budget" == "true" ]]; then
-      echo "OK: over-budget override ${review_used}/${review_total}"
+      # R1 override cap: prevent Coordinator from self-releasing indefinitely
+      local override_count
+      override_count=$(jq -r '.budget.override_count // 0' "$sf")
+      if [[ "$override_count" -ge "$MAX_OVERRIDES" ]]; then
+        echo "BLOCKED: over-budget override 上限已达 (${override_count}/${MAX_OVERRIDES})，必须报告用户，不可继续自我放行" >&2
+        exit 2
+      fi
+      # Increment override_count (requires lock)
+      acquire_lock
+      trap release_lock EXIT
+      local tmp="${sf}.tmp"
+      jq '.budget.override_count = ((.budget.override_count // 0) + 1)' "$sf" > "$tmp"
+      mv "$tmp" "$sf"
+      release_lock
+      trap - EXIT
+      echo "OK: over-budget override ${effective_used}/${review_total} (credit=${review_credit})"
       exit 0
     fi
-    echo "EXHAUSTED: review budget ${review_used}/${review_total}" >&2
+    echo "EXHAUSTED: review budget ${effective_used}/${review_total} (raw_used=${review_used}, credit=${review_credit})" >&2
     exit 2
   fi
 
-  echo "OK: ${review_used}/${review_total}"
+  echo "OK: ${effective_used}/${review_total} (raw_used=${review_used}, credit=${review_credit})"
   exit 0
 }
 
@@ -1158,49 +1200,148 @@ cmd_budget_increment_review() {
     exit 2
   fi
 
-  local used total
+  local used total credit effective
   used=$(jq -r '.budget.review_used' "$sf")
   total=$(jq -r '.budget.review_total' "$sf")
+  credit=$(jq -r '.budget.review_credit // 0' "$sf")
+  effective=$(( used - credit ))
 
-  if [[ "$total" != "unlimited" && "$used" -ge "$total" ]] 2>/dev/null; then
+  # Cap-guard: refuse to count past effective exhaustion (uses effective_used)
+  if [[ "$total" != "unlimited" && "$effective" -ge "$total" ]] 2>/dev/null; then
     if [[ "$allow_over_budget" != "true" ]]; then
-      echo "Error: review budget exhausted (${used}/${total}); refusing to count another review." >&2
+      echo "Error: review budget exhausted (effective=${effective}/${total}, raw=${used}, credit=${credit}); refusing to count another review." >&2
       exit 2
     fi
-    echo "Warning: review budget exhausted (${used}/${total}); applying explicit over-budget override." >&2
+    echo "Warning: review budget exhausted (effective=${effective}/${total}); applying explicit over-budget override." >&2
   fi
 
   local tmp="${sf}.tmp"
   jq '.budget.review_used += 1' "$sf" > "$tmp"
   mv "$tmp" "$sf"
 
-  local needs_dc=false msg
+  local needs_dc=false dc_threshold=80 msg
   used=$(jq -r '.budget.review_used' "$sf")
   total=$(jq -r '.budget.review_total' "$sf")
+  credit=$(jq -r '.budget.review_credit // 0' "$sf")
+  effective=$(( used - credit ))
+  local attendance
+  attendance=$(jq -r '.attendance_mode // "afk"' "$sf")
 
   if [[ "$total" == "unlimited" ]]; then
     msg="Review budget: ${used} dispatches used (unlimited)."
-  elif [[ "$used" -ge "$total" ]] 2>/dev/null; then
-    msg="BUDGET EXHAUSTED: ${used}/${total}. Stop dispatching reviews and report to user."
-  elif [[ "$used" -ge "$(( total * 80 / 100 ))" ]] 2>/dev/null; then
+  elif [[ "$effective" -ge "$total" ]] 2>/dev/null; then
+    # 100%: both modes → needs_dc (escape hatch) + MSG
     local current_dc
     current_dc=$(jq -r '.pending_direction_check // "null"' "$sf")
     if [[ "$current_dc" == "null" ]]; then
       needs_dc=true
+      dc_threshold=100
     fi
-    msg="DIRECTION CHECK: Review budget at ${used}/${total} (>=80%). Confirm with user."
+    msg="⚠ BUDGET EXHAUSTED: ${effective}/${total} (raw=${used}, credit=${credit}). Escape hatch: 报告用户，需显式 --allow-over-budget 或 stop。"
+  elif [[ "$effective" -ge "$(( total * 80 / 100 ))" ]] 2>/dev/null; then
+    # 80-100%: mode-dependent
+    if [[ "$attendance" == "attended" ]]; then
+      local current_dc
+      current_dc=$(jq -r '.pending_direction_check // "null"' "$sf")
+      if [[ "$current_dc" == "null" ]]; then
+        needs_dc=true
+        dc_threshold=80
+      fi
+      msg="DIRECTION CHECK: Review budget at ${effective}/${total} (≥80%, attended). Confirm with user."
+    else
+      # AFK: soft signal only, no DC
+      msg="⚠ Review budget ${effective}/${total} (≥80%)，AFK 继续中，到顶将停。"
+    fi
   else
-    msg="Review budget: ${used}/${total} dispatches used."
+    msg="Review budget: ${effective}/${total} dispatches used (raw=${used}, credit=${credit})."
   fi
 
   release_lock
   trap - EXIT
 
   if [[ "$needs_dc" == "true" ]]; then
-    cmd_dc_trigger --type review --threshold-percent 80 >/dev/null
+    cmd_dc_trigger --type review --threshold-percent "$dc_threshold" >/dev/null
   fi
 
   echo "$msg"
+}
+
+# cmd_budget_credit — reflux/重写归还额度
+# 归还量 = --reviews m (若给) 否则 plans * REVIEW_PER_PLAN
+# 执行 .budget.review_credit += 归还量，保留 review_used 作历史累计真相
+cmd_budget_credit() {
+  local reason="" plans="" reviews=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --reason) reason="$2"; shift 2 ;;
+      --plans)  plans="$2"; shift 2 ;;
+      --reviews) reviews="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$reason" ]]; then
+    echo "Error: --reason required for budget credit (e.g. --reason reflux)" >&2
+    exit 2
+  fi
+  if [[ -z "$plans" && -z "$reviews" ]]; then
+    echo "Error: --plans <n> or --reviews <m> required for budget credit" >&2
+    exit 2
+  fi
+
+  local credit_amount
+  if [[ -n "$reviews" ]]; then
+    credit_amount="$reviews"
+  else
+    credit_amount=$(( plans * REVIEW_PER_PLAN ))
+  fi
+
+  ensure_state_exists
+  acquire_lock
+  trap release_lock EXIT
+
+  local sf
+  sf="$(state_file)"
+  local tmp="${sf}.tmp"
+  jq --argjson ca "$credit_amount" \
+    '.budget.review_credit = ((.budget.review_credit // 0) + $ca)' \
+    "$sf" > "$tmp"
+  mv "$tmp" "$sf"
+
+  local new_credit used total
+  new_credit=$(jq -r '.budget.review_credit' "$sf")
+  used=$(jq -r '.budget.review_used' "$sf")
+  total=$(jq -r '.budget.review_total' "$sf")
+  echo "Budget credit applied: +${credit_amount} (reason=${reason}). review_credit=${new_credit}, effective_used=$((used - new_credit))/${total}"
+}
+
+# cmd_set_attendance — write attendance_mode to top-level state field
+cmd_set_attendance() {
+  local mode=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --mode) mode="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  case "$mode" in
+    attended|afk) ;;
+    "") echo "Error: --mode required (attended|afk)" >&2; exit 2 ;;
+    *) echo "Error: invalid --mode '$mode' (use attended|afk)" >&2; exit 2 ;;
+  esac
+
+  ensure_state_exists
+  acquire_lock
+  trap release_lock EXIT
+
+  local sf
+  sf="$(state_file)"
+  local tmp="${sf}.tmp"
+  jq --arg m "$mode" '.attendance_mode = $m' "$sf" > "$tmp"
+  mv "$tmp" "$sf"
+
+  echo "attendance_mode set to: $mode"
 }
 
 # --- direction-check subcommand ---
@@ -1882,6 +2023,7 @@ case "$CMD" in
   plan-returns) cmd_plan_returns "$@" ;;
   execution-plan) cmd_execution_plan "$@" ;;
   budget) cmd_budget "$@" ;;
+  set-attendance) cmd_set_attendance "$@" ;;
   direction-check) cmd_direction_check "$@" ;;
   idempotency) cmd_idempotency "$@" ;;
   review-history) cmd_review_history "$@" ;;

@@ -168,7 +168,7 @@ Budget 在 plan count 确认后初始化（plan-writing Step 12a）：
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" budget initialize --run-id "<run_id>" --plan-count <N>
 ```
 
-Budget 一旦初始化（`budget_status = initialized`），`review_total` 和 `effort_total` **不可变**——执行阶段、Final Review 阶段均不得修改。如果执行阶段发现 pack 数与 plan 不一致，返回 `NEEDS_PLAN_REVISION`，不得静默更新。Bug / Multi-PR route 使用 `--route hotfix` 等，budget 自动设为 `unlimited`。
+Budget 一旦初始化（`budget_status = initialized`），`review_total` **不可变**——上限在 initialize 时按 profile/覆盖确定，确定后执行阶段、Final Review 阶段均不得修改。如果执行阶段发现 pack 数与 plan 不一致，返回 `NEEDS_PLAN_REVISION`，不得静默更新。Bug / Multi-PR route 使用 `--route hotfix` 等，budget 自动设为 `unlimited`。reflux/重写时可通过 `budget credit --reason reflux --plans <n>` 归还额度（effective_used = review_used − review_credit），review_total 本身不变。
 
 ### 状态锚字段（Compaction Recovery）
 

@@ -12,11 +12,10 @@
 #      merge guarantees this.
 #   B. After Worker 2 ingest, worker_verdict = "pass" (Worker 2 supersedes
 #      Worker 1's need-fresh-worker).
-#   C. Effort budget: Worker 1 = 3 packs; Worker 2 = 2 packs + 0.5 resume
-#      penalty (Decision 5). Total spend = 5.5.
 #   D. Worker 2's agent-id set overwrites worker_agent_id (Worker 1 released).
 #   E. plan-returns ingest is idempotent — calling it twice with the same
 #      Worker 2 plan-return.json doesn't double-count or corrupt state.
+# NOTE: Invariant C (effort budget) removed — effort dimension deleted in P4.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -40,7 +39,7 @@ export STATE_BASE="$BUDGET_DIR"
 
 # Workflow-state with budget
 cat > "$BUDGET_DIR/workflow-state-${RUN_ID}.json" <<EOF
-{"run_id":"$RUN_ID","budget":{"budget_status":"initialized","review_total":24,"review_used":0,"effort_total":48,"effort_used":0,"direction_check_count":0},"pending_direction_check":null,"idempotency_keys":[],"review_dispositions":[],"self_verifications":[]}
+{"run_id":"$RUN_ID","attendance_mode":"afk","budget":{"budget_status":"initialized","review_total":24,"review_used":0,"review_credit":0,"budget_profile":"standard","override_count":0,"direction_check_count":0},"pending_direction_check":null,"idempotency_keys":[],"review_dispositions":[],"self_verifications":[]}
 EOF
 
 # Plan doc
@@ -117,14 +116,6 @@ bash "$STATE_SH" execution-plan complete --run-id "$RUN_ID" --plan-id "006" \
   --verdict "need-fresh-worker" 2>/dev/null
 bash "$STATE_SH" plan-returns ingest --run-id "$RUN_ID" --plan-id "006" 2>/dev/null
 
-# Track effort budget for Worker 1: 3 packs committed, no resume
-INPUT=$(jq -n --arg p "<!-- DISPATCH_ENVELOPE {\"protocol_version\":\"1\",\"run_id\":\"continuation-test\",\"phase\":\"execution\",\"agent_role\":\"pack-executor\",\"plan_id\":\"006\",\"repair_round\":0,\"idempotency_key\":\"k1\"} -->" \
-  '{tool_name:"Agent",tool_input:{subagent_type:"pack-executor",prompt:$p},tool_response:"done"}')
-echo "$INPUT" | bash "$HOOKS_DIR/track-effort-budget.sh" >/dev/null 2>&1
-
-EU_AFTER_W1=$(jq -r '.budget.effort_used' "$BUDGET_DIR/workflow-state-${RUN_ID}.json")
-assert_eq "Worker 1: effort_used = 3 (committed pack count)" "$EU_AFTER_W1" "3"
-
 W1_VERDICT=$(jq -r '.plans["006"].worker_verdict' "$ESF")
 assert_eq "Worker 1: worker_verdict = need-fresh-worker" "$W1_VERDICT" "need-fresh-worker"
 
@@ -166,6 +157,7 @@ bash "$STATE_SH" plan-returns ingest --run-id "$RUN_ID" --plan-id "006" 2>/dev/n
 # ============================================================================
 # INVARIANT A: Worker 1's 3 packs NOT clobbered after Worker 2 ingest
 # ============================================================================
+
 S61_FINAL=$(jq -r '.plans["006"].packs["6.1"].status' "$ESF")
 S62_FINAL=$(jq -r '.plans["006"].packs["6.2"].status' "$ESF")
 S63_FINAL=$(jq -r '.plans["006"].packs["6.3"].status' "$ESF")
@@ -186,17 +178,6 @@ assert_eq "Invariant A: 6.1 commit_sha preserved (Worker 1's)" "$SHA61" "$SHA1"
 # ============================================================================
 FINAL_VERDICT=$(jq -r '.plans["006"].worker_verdict' "$ESF")
 assert_eq "Invariant B: worker_verdict updated to pass" "$FINAL_VERDICT" "pass"
-
-# ============================================================================
-# INVARIANT C: Effort budget — Worker 2 = 2 packs + 0.5 resume penalty
-# Total should be 3 (Worker 1) + 2.5 (Worker 2) = 5.5
-# ============================================================================
-INPUT=$(jq -n --arg p "<!-- DISPATCH_ENVELOPE {\"protocol_version\":\"1\",\"run_id\":\"continuation-test\",\"phase\":\"execution\",\"agent_role\":\"pack-executor\",\"plan_id\":\"006\",\"repair_round\":0,\"idempotency_key\":\"k2\",\"resume_from_pack_id\":\"6.4\"} -->" \
-  '{tool_name:"Agent",tool_input:{subagent_type:"pack-executor",prompt:$p},tool_response:"done"}')
-echo "$INPUT" | bash "$HOOKS_DIR/track-effort-budget.sh" >/dev/null 2>&1
-
-EU_AFTER_W2=$(jq -r '.budget.effort_used' "$BUDGET_DIR/workflow-state-${RUN_ID}.json")
-assert_eq "Invariant C: total effort_used = 5.5 (3 + 2 + 0.5)" "$EU_AFTER_W2" "5.5"
 
 # ============================================================================
 # INVARIANT E: Idempotency — ingest twice should not corrupt

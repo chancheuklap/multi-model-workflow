@@ -49,7 +49,8 @@ echo "$RUN_ID" > "$BUDGET_DIR/active-run-id"
 cat > "$BUDGET_DIR/workflow-state-${RUN_ID}.json" <<'EOF'
 {
   "run_id": "test-guard",
-  "budget": {"budget_status": "initialized", "review_total": 18, "review_used": 0, "effort_total": 36, "effort_used": 0, "direction_check_count": 0},
+  "attendance_mode": "afk",
+  "budget": {"budget_status": "initialized", "review_total": 18, "review_used": 0, "review_credit": 0, "budget_profile": "standard", "override_count": 0, "direction_check_count": 0},
   "pending_direction_check": null,
   "idempotency_keys": [],
   "review_dispositions": []

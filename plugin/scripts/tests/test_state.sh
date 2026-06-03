@@ -66,8 +66,8 @@ run_test "init formal has budget_status pending_plan_count" \
 run_test "init formal has review_total null" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.budget.review_total') == 'null' ]]"
 
-run_test "init formal has effort_total null" \
-  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.budget.effort_total') == 'null' ]]"
+run_test "init formal has attendance_mode afk" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.attendance_mode') == 'afk' ]]"
 
 # --- budget initialize ---
 run_test "budget initialize with plan-count 4" \
@@ -76,8 +76,8 @@ run_test "budget initialize with plan-count 4" \
 run_test "budget initialize sets review_total to 24 (3*4+12)" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.budget.review_total') == '24' ]]"
 
-run_test "budget initialize sets effort_total to 48 (24*2)" \
-  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.budget.effort_total') == '48' ]]"
+run_test "budget initialize sets budget_profile to standard" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.budget.budget_profile') == 'standard' ]]"
 
 run_test "budget initialize sets budget_status to initialized" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.budget.budget_status') == 'initialized' ]]"
@@ -185,9 +185,6 @@ run_test "direct-repair review_total is unlimited" \
 
 run_test "direct-repair budget_status is unlimited" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID2' --field '.budget.budget_status') == 'unlimited' ]]"
-
-run_test "direct-repair effort_total is unlimited" \
-  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID2' --field '.budget.effort_total') == 'unlimited' ]]"
 
 # --- Lock: stale lock cleanup ---
 STALE_LOCK="$FIXTURE_DIR/${RUN_ID}.lock"

@@ -136,7 +136,7 @@ state.sh budget reinitialize --run-id <rid> --plan-count <暂估或 1>
 
 ### Route 1 Variant Table
 
-Entry Gate 识别以下关键词时，路由到 Route 1 + 对应 flags。`state.sh init` 后立即 `state.sh update` 设置 `phase_skip` 和 `commit_format_override`。`budget_status` / `review_total` / `effort_total` 均设为 `"unlimited"`。
+Entry Gate 识别以下关键词时，路由到 Route 1 + 对应 flags。`state.sh init` 后立即 `state.sh update` 设置 `phase_skip` 和 `commit_format_override`。`budget_status` / `review_total` 均设为 `"unlimited"`。
 
 | Variant 关键词 | phase_skip | budget_status | commit_format_override | 备注 |
 | --- | --- | --- | --- | --- |
@@ -247,7 +247,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
 | `NEEDS_PLAN_REVISION` | 回到 Step 9 |
 | `BLOCKED` | 报告用户 |
 
-**回流处理**：回流不重置 budget usage。Plan revision 改变 plan count → plan-writing Step 12a 重新确认 budget。
+**回流处理**：回流按受影响 Plan 数 `budget credit` 归还额度（effective_used = review_used − review_credit）。Plan revision 改变 plan count → plan-writing Step 12a 重新确认 budget。
 
 ## Steps 15-18：Route 2 — Bug Investigation
 

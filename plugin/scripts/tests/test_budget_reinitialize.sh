@@ -2,7 +2,7 @@
 # Tests the Light→Formal escape-hatch upgrade command `budget reinitialize`:
 #   - init --route light → budget unlimited (D-A)
 #   - budget reinitialize --plan-count 2 → budget_status=initialized,
-#     route=formal, review_total=3*2+12=18, effort_total=36
+#     route=formal, review_total=3*2+12=18, budget_profile=standard
 #   - reinitialize from a non-unlimited (formal pending_plan_count) entry errors (exit≠0)
 set -euo pipefail
 
@@ -37,8 +37,8 @@ run_test "reinitialize flips route → formal" \
   bash -c "[[ \$(jq -r '.route' '$SF') == 'formal' ]]"
 run_test "reinitialize review_total == 18 (3*2+12)" \
   bash -c "[[ \$(jq -r '.budget.review_total' '$SF') == '18' ]]"
-run_test "reinitialize effort_total == 36 (review_total*2)" \
-  bash -c "[[ \$(jq -r '.budget.effort_total' '$SF') == '36' ]]"
+run_test "reinitialize budget_profile == standard" \
+  bash -c "[[ \$(jq -r '.budget.budget_profile' '$SF') == 'standard' ]]"
 run_test "reinitialize plan_count == 2" \
   bash -c "[[ \$(jq -r '.plan_count' '$SF') == '2' ]]"
 

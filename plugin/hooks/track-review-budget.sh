@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # PostToolUse hook for Bash tool.
 # Detects codex-companion "result" commands → increments review budget in workflow-state.
+#
+# Dual-mode (P4 D3):
+#   attendance_mode=attended: ≥80% → writes pending_direction_check (stops dispatch)
+#   attendance_mode=afk:      ≥80% → soft signal only (no DC, continues); 100% → DC (escape hatch)
+# effective_used = review_used - review_credit (credit归还合理回流额度)
 set -euo pipefail
 
 INPUT=$(cat)
@@ -29,32 +34,51 @@ trap 'state_lock_release "$LOCK_DIR"' EXIT
 
 USED=$(jq -r '.budget.review_used' "$SF")
 TOTAL=$(jq -r '.budget.review_total' "$SF")
+CREDIT=$(jq -r '.budget.review_credit // 0' "$SF")
+EFFECTIVE=$(( USED - CREDIT ))
 
-# Cap guard: refuse to count past exhaustion (mirrors state.sh budget increment-review).
+# Cap guard: refuse to count past effective exhaustion.
 # Hook is observational — dispatch validation already enforces budget upstream.
-if [ "$TOTAL" != "unlimited" ] && [ "$USED" -ge "$TOTAL" ] 2>/dev/null; then
+if [ "$TOTAL" != "unlimited" ] && [ "$EFFECTIVE" -ge "$TOTAL" ] 2>/dev/null; then
   SKIPPED=true
 else
   SKIPPED=false
   jq '.budget.review_used += 1' "$SF" > "${SF}.tmp" && mv "${SF}.tmp" "$SF"
   USED=$(jq -r '.budget.review_used' "$SF")
+  EFFECTIVE=$(( USED - CREDIT ))
 fi
 
+ATTENDANCE=$(jq -r '.attendance_mode // "afk"' "$SF")
+
 NEEDS_DC=false
+DC_THRESHOLD=80
 if [ "$TOTAL" = "unlimited" ]; then
   MSG="Review budget: ${USED} dispatches used (unlimited)."
 elif [ "$SKIPPED" = "true" ]; then
-  MSG="⚠ BUDGET EXHAUSTED: ${USED}/${TOTAL}. Skipped counting an over-cap dispatch — stop dispatching reviews and report to user."
-elif [ "$USED" -ge "$TOTAL" ] 2>/dev/null; then
-  MSG="⚠ BUDGET EXHAUSTED: ${USED}/${TOTAL}. Stop dispatching reviews and report to user."
-elif [ "$USED" -ge "$(( TOTAL * 80 / 100 ))" ] 2>/dev/null; then
+  MSG="⚠ BUDGET EXHAUSTED: ${EFFECTIVE}/${TOTAL} (raw=${USED}, credit=${CREDIT}). Skipped counting an over-cap dispatch — stop dispatching reviews and report to user."
+elif [ "$EFFECTIVE" -ge "$TOTAL" ] 2>/dev/null; then
+  # 100%: both modes → escape hatch DC
   CURRENT_DC=$(jq -r '.pending_direction_check // "null"' "$SF")
   if [ "$CURRENT_DC" = "null" ]; then
     NEEDS_DC=true
+    DC_THRESHOLD=100
   fi
-  MSG="⚠ DIRECTION CHECK: Review budget at ${USED}/${TOTAL} (≥80%). Confirm with user."
+  MSG="⚠ BUDGET EXHAUSTED: ${EFFECTIVE}/${TOTAL} (raw=${USED}, credit=${CREDIT}). Escape hatch: 报告用户，需显式 --allow-over-budget 或 stop。"
+elif [ "$EFFECTIVE" -ge "$(( TOTAL * 80 / 100 ))" ] 2>/dev/null; then
+  # 80-100%: mode-dependent
+  if [ "$ATTENDANCE" = "attended" ]; then
+    CURRENT_DC=$(jq -r '.pending_direction_check // "null"' "$SF")
+    if [ "$CURRENT_DC" = "null" ]; then
+      NEEDS_DC=true
+      DC_THRESHOLD=80
+    fi
+    MSG="⚠ DIRECTION CHECK: Review budget at ${EFFECTIVE}/${TOTAL} (≥80%, attended). Confirm with user."
+  else
+    # AFK: soft signal only, no DC written
+    MSG="⚠ Review budget ${EFFECTIVE}/${TOTAL} (≥80%)，AFK 继续中，到顶将停。"
+  fi
 else
-  MSG="Review budget: ${USED}/${TOTAL} dispatches used."
+  MSG="Review budget: ${EFFECTIVE}/${TOTAL} dispatches used (raw=${USED}, credit=${CREDIT})."
 fi
 
 # Release lock before calling state.sh (which acquires the same lock)
@@ -63,7 +87,7 @@ trap - EXIT
 
 if [ "$NEEDS_DC" = "true" ]; then
   bash "$SCRIPT_DIR/../scripts/state.sh" direction-check trigger \
-    --run-id "$RUN_ID" --type review --threshold-percent 80 2>/dev/null || true
+    --run-id "$RUN_ID" --type review --threshold-percent "$DC_THRESHOLD" 2>/dev/null || true
 fi
 
 jq -n --arg msg "[multi-model-workflow] $MSG" \
