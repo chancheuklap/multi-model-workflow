@@ -27,7 +27,8 @@
           },
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate-codex-review.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate-codex-review.sh\"",
+            "if": "Bash(*codex*task*)"
           },
           {
             "type": "command",
@@ -92,6 +93,7 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/track-review-budget.sh\"",
+            "if": "Bash(*codex*result*)",
             "timeout": 10
           },
           {

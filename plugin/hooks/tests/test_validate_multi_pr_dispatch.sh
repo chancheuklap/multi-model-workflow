@@ -202,5 +202,52 @@ run_test "no-op when prompt is empty" \
   bash -c "echo '{}' | bash '$HOOK'"
 
 echo ""
+echo "--- routes fail-open: manifest unreadable → fall back to literal PHASE comparison ---"
+
+RUN_FO="run-fo-test"
+make_merge_brief "$RUN_FO" "init"
+
+# With a poisoned ROUTES_MANIFEST env or by temporarily pointing the lib at /dev/null,
+# simulate unreadable manifest by overriding the manifest path via a wrapper script.
+FAILOPEN_HOOK="$FIXTURE_DIR/validate-multi-pr-dispatch-failopen-wrapper.sh"
+cat > "$FAILOPEN_HOOK" <<WRAPPER
+#!/usr/bin/env bash
+# Wrapper: replaces routes.sh with a stub that always returns empty (simulates unreadable manifest)
+# so the hook exercises the literal-fallback path.
+set -euo pipefail
+INPUT=\$(cat)
+ORIG_HOOK="$HOOK"
+STUB_LIB="$FIXTURE_DIR/stub-routes.sh"
+
+# Create stub that mimics routes_dispatch_shape returning empty
+cat > "\$STUB_LIB" <<'STUBEOF'
+routes_manifest_readable() { return 1; }
+routes_dispatch_shape() { echo ""; return 0; }
+STUBEOF
+
+# Patch: source stub instead of real lib by prepending to PATH and wrapping bash source
+# We use env var to tell the hook to use our stub — but hook sources from fixed path.
+# Simpler approach: run hook with the state-schema routes file temporarily absent.
+ROUTES_FILE="$SCRIPT_DIR/../../state-schema/routes-v1.json"
+BACKUP="\${ROUTES_FILE}.failopen-backup"
+mv "\$ROUTES_FILE" "\$BACKUP"
+trap 'mv "\$BACKUP" "\$ROUTES_FILE"' EXIT
+echo "\$INPUT" | bash "\$ORIG_HOOK"
+WRAPPER
+chmod +x "$FAILOPEN_HOOK"
+
+# Test 1: multi-pr-merge phase with manifest absent → fail-open to literal → activates → gate checks run → merge-brief found → PASS
+PAYLOAD_FO="$FIXTURE_DIR/payload-fo.json"
+make_prompt "$RUN_FO" "multi-pr-merge" 0 "" "yes" > "$PAYLOAD_FO"
+run_test "fail-open: multi-pr-merge phase activates gate (literal fallback)" \
+  bash -c "bash '$FAILOPEN_HOOK' < '$PAYLOAD_FO'"
+
+# Test 2: non-multi-pr phase with manifest absent → fail-open to literal → exits 0 silently
+PAYLOAD_FO2="$FIXTURE_DIR/payload-fo2.json"
+make_prompt "$RUN_FO" "execution" 0 "" "yes" > "$PAYLOAD_FO2"
+run_test "fail-open: non-multi-pr phase is no-op when manifest unreadable (literal fallback)" \
+  bash -c "bash '$FAILOPEN_HOOK' < '$PAYLOAD_FO2'"
+
+echo ""
 echo "Results: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

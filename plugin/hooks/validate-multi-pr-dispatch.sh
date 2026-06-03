@@ -11,10 +11,25 @@
 #   (c) if envelope contains conflict_id → §4 has that id AND status ≠ resolved
 #   (d) dispatch prompt body contains string "merge-brief-<run_id>.md"
 #       (prevents paste-content anti-pattern; if missing → agent would paste instead of referencing)
+#
+# Phase activation: routes-v1.json[multi-pr-merge].dispatch_shape[multi-pr-merge] == "route-worker"
+# is the machine source of truth. Fail-open: if manifest unreadable → fall back to literal
+# PHASE == "multi-pr-merge" (P2 validate-plan-dispatch pattern).
 set -euo pipefail
 
 INPUT=$(cat)
 STATE_DIR="${STATE_DIR:-.claude/multi-model-workflow}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Source routes library (fail-open if unavailable)
+# shellcheck source=lib/routes.sh
+if [[ -f "$SCRIPT_DIR/lib/routes.sh" ]]; then
+  source "$SCRIPT_DIR/lib/routes.sh"
+else
+  # Stub: treat manifest as unreadable, fall-open to literal
+  routes_manifest_readable() { return 1; }
+  routes_dispatch_shape() { echo ""; }
+fi
 
 # --- Parse prompt and extract DISPATCH_ENVELOPE directly ---
 # We parse the envelope ourselves (not via parse-envelope.sh) because:
@@ -43,8 +58,23 @@ if [[ -z "$ENVELOPE_JSON" ]] || ! echo "$ENVELOPE_JSON" | jq empty 2>/dev/null; 
 fi
 
 PHASE=$(echo "$ENVELOPE_JSON" | jq -r '.phase // empty')
-# Only activate for multi-pr-merge phase
-if [[ "$PHASE" != "multi-pr-merge" ]]; then
+
+# --- Routes-based phase activation (doc07 §2.3) ---
+# Machine source: routes-v1.json[multi-pr-merge].dispatch_shape[multi-pr-merge] == "route-worker"
+# confirms this is a multi-pr-merge route-worker dispatch.
+# Fail-open: if manifest unreadable or shape empty → fall back to literal PHASE == "multi-pr-merge".
+IS_MULTI_PR_MERGE=false
+DISPATCH_SHAPE=$(routes_dispatch_shape "multi-pr-merge" "$PHASE" 2>/dev/null || echo "")
+if [[ -n "$DISPATCH_SHAPE" ]]; then
+  # Routes manifest readable: activate iff dispatch_shape for this phase is "route-worker"
+  # (multi-pr-merge route only has one phase; "route-worker" is the sentinel for merge-brief gate)
+  [[ "$DISPATCH_SHAPE" == "route-worker" ]] && IS_MULTI_PR_MERGE=true
+else
+  # Fail-open: manifest unreadable or phase not in routes → fall back to literal comparison
+  [[ "$PHASE" == "multi-pr-merge" ]] && IS_MULTI_PR_MERGE=true
+fi
+
+if [[ "$IS_MULTI_PR_MERGE" != "true" ]]; then
   exit 0
 fi
 
