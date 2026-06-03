@@ -287,21 +287,25 @@ cmd_update() {
   sf="$(state_file)"
   local tmp="${sf}.tmp"
 
-  # Capture old value for mutation log
-  local old_value
-  old_value=$(jq "$field" "$sf" 2>/dev/null || echo "null")
+  # Capture old value before write (only needed for DEBUG mutation log)
+  local old_value="null"
+  if [[ "${STATE_DEBUG:-}" == "1" ]]; then
+    old_value=$(jq "$field" "$sf" 2>/dev/null || echo "null")
+  fi
 
   jq "$field = $value" "$sf" > "$tmp"
   mv "$tmp" "$sf"
 
-  # Append mutation record
-  local now
-  now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  jq --arg f "$field" --argjson old "$old_value" --argjson new "$value" \
-     --arg w "cmd_update" --arg ts "$now" \
-    '.mutations += [{"field": $f, "old": $old, "new": $new, "writer": $w, "timestamp": $ts}]' \
-    "$sf" > "$tmp"
-  mv "$tmp" "$sf"
+  # Append mutation record only when STATE_DEBUG=1
+  if [[ "${STATE_DEBUG:-}" == "1" ]]; then
+    local now
+    now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    jq --arg f "$field" --argjson old "$old_value" --argjson new "$value" \
+       --arg w "cmd_update" --arg ts "$now" \
+      '.mutations += [{"field": $f, "old": $old, "new": $new, "writer": $w, "timestamp": $ts}]' \
+      "$sf" > "$tmp"
+    mv "$tmp" "$sf"
+  fi
 }
 
 cmd_transition() {
@@ -385,12 +389,14 @@ cmd_transition() {
     "$sf" > "$tmp"
   mv "$tmp" "$sf"
 
-  # Append mutation record for transition
-  jq --arg f ".cursor.phase" --arg old "$from" --arg new "$to" \
-     --arg w "cmd_transition:${actor}" --arg ts "$now" \
-    '.mutations += [{"field": $f, "old": $old, "new": $new, "writer": $w, "timestamp": $ts}]' \
-    "$sf" > "$tmp"
-  mv "$tmp" "$sf"
+  # Append mutation record for transition only when STATE_DEBUG=1
+  if [[ "${STATE_DEBUG:-}" == "1" ]]; then
+    jq --arg f ".cursor.phase" --arg old "$from" --arg new "$to" \
+       --arg w "cmd_transition:${actor}" --arg ts "$now" \
+      '.mutations += [{"field": $f, "old": $old, "new": $new, "writer": $w, "timestamp": $ts}]' \
+      "$sf" > "$tmp"
+    mv "$tmp" "$sf"
+  fi
 }
 
 cmd_validate() {
@@ -580,6 +586,13 @@ cmd_self_verify_append() {
   done
 
   ensure_state_exists
+
+  # When STATE_DEBUG is not set, this is a no-op (exit 0) — callers in SKILL references
+  # still invoke it without error; the field remains an empty array in production.
+  if [[ "${STATE_DEBUG:-}" != "1" ]]; then
+    return 0
+  fi
+
   acquire_lock
   trap release_lock EXIT
 

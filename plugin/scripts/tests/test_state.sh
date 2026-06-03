@@ -120,13 +120,20 @@ run_test "disposition F1 evidence readable" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.review_dispositions[0].evidence') == 'verified by grep' ]]"
 
 # --- self-verify append ---
-run_test "self-verify append" \
+# self-verify append is a no-op by default (STATE_DEBUG off); must use STATE_DEBUG=1 to assert records.
+run_test "self-verify append (no-op without STATE_DEBUG)" \
   bash "$STATE_SH" self-verify append --run-id "$RUN_ID" --pack-id "P1" --repair-round 1 --verification-passed yes --exception none
 
-run_test "self-verify readable" \
+run_test "self-verify: no record when STATE_DEBUG off (stays empty)" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.self_verifications | length') == '0' ]]"
+
+run_test "self-verify append with STATE_DEBUG=1 writes record" \
+  bash -c "STATE_DEBUG=1 bash '$STATE_SH' self-verify append --run-id '$RUN_ID' --pack-id 'P1' --repair-round 1 --verification-passed yes --exception none"
+
+run_test "self-verify readable with STATE_DEBUG=1" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.self_verifications | length') == '1' ]]"
 
-run_test "self-verify exception is none" \
+run_test "self-verify exception is none (STATE_DEBUG=1 record)" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.self_verifications[0].exception') == 'none' ]]"
 
 # --- transition matrix tests ---
@@ -238,14 +245,26 @@ run_test_expect_fail "idempotency check duplicate key" \
   bash "$STATE_SH" idempotency check --run-id "$RUN_ID" --key "test/1.1/r0"
 
 # --- R3-12: mutation log ---
+# mutations are only written when STATE_DEBUG=1; default off → stays empty array.
 run_test "mutations array exists after init" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.mutations | type') == 'array' ]]"
 
-run_test "mutations array has records after updates" \
-  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.mutations | length') -gt 0 ]]"
+run_test "mutations array stays empty without STATE_DEBUG" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.mutations | length') == '0' ]]"
 
-run_test "mutation record has field and writer" \
-  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.mutations[0].field') != 'null' ]] && [[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.mutations[0].writer') != 'null' ]]"
+# Seed a STATE_DEBUG=1 update and verify records appear
+RUN_ID_DBG="test-mutations-debug"
+run_test "init run for STATE_DEBUG mutation test" \
+  bash "$STATE_SH" init --run-id "$RUN_ID_DBG" --slug "dbgtest" --route "formal"
+
+run_test "STATE_DEBUG=1 update writes mutation record" \
+  bash -c "STATE_DEBUG=1 bash '$STATE_SH' update --run-id '$RUN_ID_DBG' --field '.cursor.step' --value '99'"
+
+run_test "mutations array has records with STATE_DEBUG=1" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID_DBG' --field '.mutations | length') -gt 0 ]]"
+
+run_test "mutation record has field and writer (STATE_DEBUG=1)" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID_DBG' --field '.mutations[0].field') != 'null' ]] && [[ \$(bash '$STATE_SH' read --run-id '$RUN_ID_DBG' --field '.mutations[0].writer') != 'null' ]]"
 
 # --- R3-14: cross-file consistency (committed pack without commit_sha) ---
 RUN_ID4="test-validate-xfile"

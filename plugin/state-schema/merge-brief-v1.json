@@ -1,293 +1,41 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "merge-brief-v1",
-  "description": "Merge-brief 中介文档 schema — multi-pr-merge route 的合成模型载体。9 段固定结构：Meta / 参与PR / 正确状态模型 / Conflict Findings / RCA / Resolution Log / Integration Review Pointers / Open Items / Verdict。文档格式为 Markdown，META 嵌入 HTML 注释结构化字段。Decision 8：conflict_id per-run（C-001 起编，跨 run 不重用）；追加 PR 视为新 run，不在同 brief 增量；默认不归档到 docs/orchestrate/merge-briefs/，随 worktree 清理一起删。",
-  "type": "object",
-  "properties": {
-    "schema_version": {
-      "type": "string",
-      "const": "1",
-      "description": "Schema 版本，固定为 '1'"
-    },
-    "meta": {
-      "type": "object",
-      "description": "§1 META — 嵌入 merge-brief-<run_id>.md 头部 HTML 注释中的结构化字段",
-      "properties": {
-        "schema_version": { "type": "string", "const": "1" },
-        "run_id": { "type": "string", "description": "与 workflow-state run_id 对齐" },
-        "slug": { "type": "string", "description": "功能 slug，与 workflow-state.slug 一致" },
-        "created_at": { "type": "string", "format": "date-time" },
-        "last_updated_at": { "type": "string", "format": "date-time" },
-        "current_stage": {
-          "type": "string",
-          "enum": ["init", "conflict_discovery", "rca", "repair", "integration_review", "merging", "complete"],
-          "description": "merge-brief 当前阶段，由 state.sh merge-brief stage 更新"
-        },
-        "integration_review_gate": {
-          "type": ["string", "null"],
-          "description": "集成审查 gate 名称，null 表示尚未建立"
-        }
-      },
-      "required": ["schema_version", "run_id", "slug", "created_at", "last_updated_at", "current_stage"]
-    },
-    "pr_inventory": {
-      "type": "array",
-      "description": "§2 参与 PR 表 — 本次合并涉及的所有 PR",
-      "items": {
-        "type": "object",
-        "properties": {
-          "pr": { "type": "string", "description": "PR 编号，如 '#123'" },
-          "branch": { "type": "string" },
-          "big_design_path": { "type": ["string", "null"], "description": "大设计文档路径（docs/orchestrate/design/）" },
-          "big_plan_path": { "type": ["string", "null"], "description": "大计划文档路径（docs/orchestrate/plans/）" },
-          "single_pr_design_path": { "type": ["string", "null"], "description": "单 PR 设计文档路径（若存在）" },
-          "single_pr_plan_path": { "type": ["string", "null"], "description": "单 PR 计划文档路径（若存在）" },
-          "final_review_verdict": { "type": ["string", "null"], "description": "单 PR Final Review verdict（pass/needs_repair/blocked）" },
-          "core_behavior": { "type": "string", "description": "≤2 句话描述该 PR 的核心行为" }
-        },
-        "required": ["pr", "branch", "core_behavior"]
-      }
-    },
-    "correct_state_model": {
-      "type": "object",
-      "description": "§3 合并后正确状态模型 — Coordinator 读完所有 PR docs 后合成，Step 2 强制产出",
-      "properties": {
-        "behaviors": {
-          "type": "array",
-          "description": "合并后系统应展示的行为清单，每条标注由哪些 PR 共同支撑",
-          "items": {
-            "type": "object",
-            "properties": {
-              "description": { "type": "string" },
-              "supporting_prs": { "type": "array", "items": { "type": "string" } }
-            },
-            "required": ["description"]
-          }
-        },
-        "contract_surfaces": {
-          "type": "array",
-          "description": "跨 PR 合同地图（Cross-PR Contract Surfaces）",
-          "items": {
-            "type": "object",
-            "properties": {
-              "surface": { "type": "string" },
-              "type": {
-                "type": "string",
-                "enum": ["Pydantic", "API", "DB schema", "JSON", "registry", "migration", "other"]
-              },
-              "provider_pr": { "type": "string" },
-              "consumer_prs": { "type": "array", "items": { "type": "string" } },
-              "modification_direction": { "type": "string" }
-            },
-            "required": ["surface", "type", "provider_pr"]
-          }
-        },
-        "file_cross_matrix": {
-          "type": "array",
-          "description": "文件交叉矩阵，按文件列出涉及的 PR 和交叉类型",
-          "items": {
-            "type": "object",
-            "properties": {
-              "file": { "type": "string" },
-              "involved_prs": { "type": "array", "items": { "type": "string" } },
-              "cross_type": {
-                "type": "string",
-                "enum": ["parallel-edit", "single-edit-dependency", "rename", "delete-dependency", "other"]
-              }
-            },
-            "required": ["file", "involved_prs"]
-          }
-        },
-        "merge_order": {
-          "type": "array",
-          "description": "依赖驱动的合并顺序（基于 contract_surfaces 的 provider/consumer 关系）",
-          "items": {
-            "type": "object",
-            "properties": {
-              "pr": { "type": "string" },
-              "reason": { "type": "string" }
-            },
-            "required": ["pr", "reason"]
-          }
-        },
-        "risk_hotspots": {
-          "type": "array",
-          "description": "风险热点：shared state / migration / UI 集成点 / 跨 PR contract",
-          "items": {
-            "type": "object",
-            "properties": {
-              "description": { "type": "string" },
-              "severity": { "type": "string", "enum": ["low", "medium", "high", "blocker"] }
-            },
-            "required": ["description", "severity"]
-          }
-        }
-      }
-    },
-    "conflict_findings": {
-      "type": "array",
-      "description": "§4 Conflict Findings — Steps 5-7 持续追加，Explorer 返回后写入，conflict_id per-run（C-001 起编）",
-      "items": {
-        "type": "object",
-        "properties": {
-          "conflict_id": {
-            "type": "string",
-            "pattern": "^C-\\d{3}$",
-            "description": "per-run 唯一标识，C-001 起编，跨 run 不重用"
-          },
-          "type": {
-            "type": "string",
-            "enum": ["code", "function", "intent", "contract", "implicit-dep", "migration-order"]
-          },
-          "involved_prs": { "type": "array", "items": { "type": "string" } },
-          "files": { "type": "array", "items": { "type": "string" }, "description": "file:line 列表" },
-          "description": { "type": "string" },
-          "severity": { "type": "string", "enum": ["low", "medium", "high", "blocker"] },
-          "classification": {
-            "type": "string",
-            "enum": ["simple", "complex-clear", "systemic"],
-            "description": "Step 7 三级分类"
-          },
-          "route": {
-            "type": "string",
-            "enum": ["coordinator-fix", "worker-fix", "analyst-then-worker"]
-          },
-          "status": {
-            "type": "string",
-            "enum": ["open", "rca-in-progress", "repair-in-progress", "resolved", "escalated"]
-          },
-          "discovered_by": { "type": "string", "description": "explorer agent_id 或 'Coordinator'" },
-          "discovered_at": { "type": "string", "format": "date-time" }
-        },
-        "required": ["conflict_id", "type", "involved_prs", "description", "severity", "status"]
-      }
-    },
-    "root_cause_analysis": {
-      "type": "array",
-      "description": "§5 Root Cause Analysis — Step 10 Analyst 返回后追加；仅 systemic conflict",
-      "items": {
-        "type": "object",
-        "properties": {
-          "conflict_id": { "type": "string", "pattern": "^C-\\d{3}$" },
-          "analyst_agent_id": { "type": "string" },
-          "resolution": {
-            "type": "string",
-            "enum": ["root_cause_identified", "design_conflict", "implementation_deviation", "unable_to_determine"]
-          },
-          "root_cause_type": {
-            "type": "string",
-            "description": "设计遗漏 / 实现偏离 / 缺失协调 / 隐式耦合 / 合同版本冲突 / 迁移顺序冲突"
-          },
-          "root_cause_detail": { "type": "string" },
-          "fix_direction": { "type": "string", "description": "修复方向，不写代码" },
-          "target_pr": { "type": "string" },
-          "related_conflicts": { "type": "array", "items": { "type": "string", "pattern": "^C-\\d{3}$" } },
-          "design_impact": { "type": "string", "description": "大设计需更新 / 无" },
-          "regression_risk": { "type": "string" }
-        },
-        "required": ["conflict_id", "analyst_agent_id", "resolution", "root_cause_type", "fix_direction"]
-      }
-    },
-    "resolution_log": {
-      "type": "array",
-      "description": "§6 Resolution Log — Steps 13-15 修复后追加，Coordinator 验证后落盘",
-      "items": {
-        "type": "object",
-        "properties": {
-          "conflict_id": { "type": "string", "pattern": "^C-\\d{3}$" },
-          "owner": {
-            "type": "string",
-            "description": "coordinator-path-a 或 worker:<agent_id>"
-          },
-          "repair_round": { "type": "integer", "minimum": 1 },
-          "changed_files": { "type": "array", "items": { "type": "string" } },
-          "summary": { "type": "string" },
-          "verification": {
-            "type": "object",
-            "properties": {
-              "commands": { "type": "array", "items": { "type": "string" } },
-              "tests": { "type": "string", "enum": ["pass", "fail", "skipped"] },
-              "coordinator_verified": { "type": "boolean" },
-              "evidence": { "type": "string" }
-            }
-          },
-          "status_after": {
-            "type": "string",
-            "enum": ["resolved", "escalated-to-systemic", "new-conflict-spawned"]
-          },
-          "new_conflict_id": {
-            "type": ["string", "null"],
-            "description": "status_after=new-conflict-spawned 时的新 conflict_id，如 C-008"
-          },
-          "resolved_at": { "type": "string", "format": "date-time" }
-        },
-        "required": ["conflict_id", "owner", "repair_round", "summary", "status_after"]
-      }
-    },
-    "integration_review_pointers": {
-      "type": "object",
-      "description": "§7 Integration Review Pointers — Step 16 前补，喂给 Codex prompt",
-      "properties": {
-        "base_diff_range": {
-          "type": "string",
-          "description": "git merge-base <main> HEAD..HEAD 命令"
-        },
-        "contract_surfaces_to_audit": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "§3.2 表中条目的指针（路径锚点）"
-        },
-        "resolved_conflicts_summary": {
-          "type": "array",
-          "items": { "type": "string", "pattern": "^C-\\d{3}$" },
-          "description": "§6 中 status=resolved 的 C-id 列表"
-        },
-        "per_pr_final_review_verdict_refs": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "各 PR 的 review-results 路径"
-        },
-        "regression_focus_files": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "§3.5 风险热点中已被 §6 触及的文件"
-        },
-        "integration_review_gate_name": {
-          "type": "string",
-          "description": "集成审查 gate 名称，如 multi-pr-integration-review"
-        }
-      }
-    },
-    "open_items": {
-      "type": "array",
-      "description": "§8 Open Items / Out-of-scope — 合并过程累积的 worker open items + out-of-scope conflict refs + 待用户决策清单",
-      "items": {
-        "type": "object",
-        "properties": {
-          "type": { "type": "string", "enum": ["worker-open-item", "out-of-scope", "user-decision-needed"] },
-          "description": { "type": "string" },
-          "ref": { "type": ["string", "null"], "description": "GitHub issue ref 或 conflict_id" }
-        },
-        "required": ["type", "description"]
-      }
-    },
-    "verdict": {
-      "type": "object",
-      "description": "§9 Verdict — Step 22 写入，归档前定稿。归档决策：默认不归档（随 worktree 删除），仅在 verdict=MERGE_COMPLETE 时由 Coordinator 可选归档到 docs/orchestrate/merge-briefs/，不强制。",
-      "properties": {
-        "value": {
-          "type": "string",
-          "enum": ["MERGE_COMPLETE", "NEEDS_DISCOVERY", "NEEDS_USER_DECISION", "BLOCKED"]
-        },
-        "evidence_pointers": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "关键证据指针（per-PR merge commit、集成审查 verdict、全量测试结果）"
-        },
-        "decided_at": { "type": "string", "format": "date-time" }
-      },
-      "required": ["value"]
+  "description": "Multi-PR merge 合成模型中介文档参考规范。实际产物是 Markdown 文件（带 MERGE_BRIEF_META HTML 注释），运行时由 state.sh merge-brief 命令和 validate-multi-pr-dispatch.sh 正则消费，不读本文件。9 段固定结构：§1 Meta / §2 参与PR / §3 正确状态模型 / §4 Conflict Findings / §5 Root Cause / §6 Resolution Log / §7 Integration Review Pointers / §8 Open Items / §9 Verdict。",
+  "承重字段": {
+    "META必填6项": ["schema_version", "run_id", "slug", "created_at", "last_updated_at", "current_stage"],
+    "current_stage枚举": ["init", "conflict_discovery", "rca", "repair", "integration_review", "merging", "complete"],
+    "conflict_id格式": "^C-\\d{3}$（per-run，C-001起编，跨run不重用）",
+    "conflict_status枚举": ["open", "rca-in-progress", "repair-in-progress", "resolved", "escalated"],
+    "section_heading字面量": ["## 4. Conflict", "## 5. Root Cause", "## 6. Resolution"],
+    "verdict枚举": ["MERGE_COMPLETE", "NEEDS_DISCOVERY", "NEEDS_USER_DECISION", "BLOCKED"],
+    "contract_surfaces_type枚举": ["Pydantic", "API", "DB schema", "JSON", "registry", "migration", "other"],
+    "file_cross_matrix_cross_type枚举": ["parallel-edit", "single-edit-dependency", "rename", "delete-dependency", "other"],
+    "severity枚举": ["low", "medium", "high", "blocker"],
+    "rca_resolution枚举": ["root_cause_identified", "design_conflict", "implementation_deviation", "unable_to_determine"],
+    "repair_status_after枚举": ["resolved", "escalated-to-systemic", "new-conflict-spawned"],
+    "open_items_type枚举": ["worker-open-item", "out-of-scope", "user-decision-needed"],
+    "消费方": {
+      "state.sh:1617": "校验 META 6 必填字段",
+      "state.sh:1623": "校验 current_stage 7 枚举（与 MERGE_BRIEF_STAGES bash 数组一致）",
+      "state.sh:1637-1640": "校验 9 个 section heading 字面量",
+      "state.sh:1661": "正则抽取 conflict_id（pattern: conflict_id[^:]*:）",
+      "state.sh:1689": "正则抽取 status",
+      "state.sh:1695-1702": "status=resolved→§6有条目 / status=rca-in-progress→§5有条目",
+      "validate-multi-pr-dispatch.sh:142-165": "正则消费 §4 conflict_id + status"
     }
+  },
+  "properties": {
+    "schema_version": { "type": "string", "const": "1" },
+    "meta": { "type": "object", "description": "§1 META — MERGE_BRIEF_META HTML注释中的结构化字段" },
+    "pr_inventory": { "type": "array", "description": "§2 参与PR表" },
+    "correct_state_model": { "type": "object", "description": "§3 合并后正确状态模型（behaviors / contract_surfaces / file_cross_matrix / merge_order / risk_hotspots）" },
+    "conflict_findings": { "type": "array", "description": "§4 Conflict Findings — conflict_id(C-001起) / type / severity / status / involved_prs / description" },
+    "root_cause_analysis": { "type": "array", "description": "§5 Root Cause Analysis — conflict_id / analyst_agent_id / resolution / root_cause_type / fix_direction" },
+    "resolution_log": { "type": "array", "description": "§6 Resolution Log — conflict_id / owner / repair_round / summary / status_after" },
+    "integration_review_pointers": { "type": "object", "description": "§7 Integration Review Pointers — 喂给 Codex 集成审查 prompt 的锚点集合" },
+    "open_items": { "type": "array", "description": "§8 Open Items — type(worker-open-item/out-of-scope/user-decision-needed) / description / ref" },
+    "verdict": { "type": "object", "description": "§9 Verdict — value(MERGE_COMPLETE/NEEDS_DISCOVERY/NEEDS_USER_DECISION/BLOCKED) / evidence_pointers / decided_at" }
   },
   "required": ["schema_version"]
 }
