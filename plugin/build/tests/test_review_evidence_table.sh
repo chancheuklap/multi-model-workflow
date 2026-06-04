@@ -3,6 +3,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CANONICAL="$PLUGIN_DIR/skills/_shared/review-dispatch.md"
+QUARTET="$PLUGIN_DIR/skills/_shared/review-prompt-quartet.md"
 TEMPLATE="$PLUGIN_DIR/build/templates/review-dispatch.content-only.md.tmpl"
 ADHOC="$PLUGIN_DIR/skills/codex-review/SKILL.md"
 
@@ -11,12 +12,21 @@ run_test() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then echo "  PASS:
 
 echo "=== test_review_evidence_table.sh ==="
 
-# Canonical reference (D1)
-run_test "canonical review-dispatch requires evidence table" \
-  grep -q "证据表 (REQUIRED)" "$CANONICAL"
+# Evidence table moved to review-prompt-quartet.md (§1: auto-injected into每个 review prompt
+# by dispatch-review.sh validate, out of the Coordinator's dispatch read path)
+run_test "review-prompt-quartet requires evidence table" \
+  grep -q "证据表 (REQUIRED)" "$QUARTET"
 
-run_test "canonical review-dispatch requires unverified items" \
-  grep -q "未验证项" "$CANONICAL"
+run_test "review-prompt-quartet requires unverified items" \
+  grep -q "未验证项" "$QUARTET"
+
+# dispatch-review.sh auto-injects the quartet into the prompt
+run_test "dispatch-review.sh injects review-prompt-quartet" \
+  grep -q "review-prompt-quartet" "$PLUGIN_DIR/scripts/dispatch-review.sh"
+
+# Canonical review-dispatch points at the quartet (single source, not inlined)
+run_test "canonical review-dispatch references quartet" \
+  grep -q "review-prompt-quartet" "$CANONICAL"
 
 # Content-only template source (codex-review ad-hoc variant)
 run_test "review-dispatch content-only template requires evidence table" \

@@ -12,8 +12,9 @@ echo "=== test_confidence_injection.sh ==="
 run_test "confidence in canonical disposition-table" \
   grep -q "8-10 (high)" "$PLUGIN_DIR/skills/_shared/disposition-table.md"
 
-run_test "confidence in canonical review-dispatch" \
-  grep -q "7-10: high" "$PLUGIN_DIR/skills/_shared/review-dispatch.md"
+# Confidence rubric moved to review-prompt-quartet.md (§1: auto-injected into每个 review prompt)
+run_test "confidence rubric in review-prompt-quartet" \
+  grep -q "7-10: high" "$PLUGIN_DIR/skills/_shared/review-prompt-quartet.md"
 
 # Files referencing canonical disposition-table (have Read directives)
 run_test "execution SKILL.md references disposition-table canonical" \

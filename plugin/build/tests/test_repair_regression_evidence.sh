@@ -3,6 +3,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CANONICAL="$PLUGIN_DIR/skills/_shared/repair-routing.md"
+EVIDENCE_FRAGMENT="$PLUGIN_DIR/skills/_shared/repair-regression-evidence.md"
 
 AGENTS=(
   "$PLUGIN_DIR/agents/pack-executor.md"
@@ -27,12 +28,20 @@ run_test() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then echo "  PASS:
 
 echo "=== test_repair_regression_evidence.sh ==="
 
-# Canonical reference contains the regression evidence contract (D1)
+# Canonical repair-routing keeps the requirement + points at the evidence fragment
+# (§1: detailed finding-type→evidence table moved to repair-regression-evidence.md)
 run_test "canonical repair-routing requires regression evidence" \
   grep -q "回归证据" "$CANONICAL"
 
-run_test "canonical repair-routing allows manual validation gate" \
-  grep -q "manual validation gate" "$CANONICAL"
+run_test "canonical repair-routing points at evidence fragment" \
+  grep -q "repair-regression-evidence" "$CANONICAL"
+
+# Detailed evidence table lives in the fragment (worker reads on demand)
+run_test "evidence fragment has finding-type→evidence table" \
+  grep -q "回归证据要求" "$EVIDENCE_FRAGMENT"
+
+run_test "evidence fragment allows manual validation gate" \
+  grep -q "manual validation gate" "$EVIDENCE_FRAGMENT"
 
 # Agent files still have inline regression evidence requirement (from worker-loop template)
 for file in "${AGENTS[@]}"; do

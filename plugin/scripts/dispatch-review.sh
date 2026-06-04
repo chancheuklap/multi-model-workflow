@@ -125,6 +125,18 @@ case "$SUBCMD" in
       bash "$SCRIPT_DIR/state.sh" budget check "${BUDGET_ARGS[@]}" >/dev/null
     fi
 
+    # Auto-inject the anti-hallucination quartet into the review prompt (§1 切片).
+    # The quartet (Confidence rubric / Pre-emit Gate / 证据表 / Bias indicators) is
+    # review-prompt content copied verbatim into every Codex prompt — moving it out
+    # of the Coordinator's read path (review-dispatch.md) and injecting it here keeps
+    # it out of the main-thread context window while guaranteeing every prompt carries
+    # it. Idempotent (marker-guarded) so re-running validate on resume won't double it.
+    QUARTET="$SCRIPT_DIR/../skills/_shared/review-prompt-quartet.md"
+    QUARTET_MARKER="<!-- REVIEW-PROMPT-QUARTET (auto-injected by dispatch-review.sh) -->"
+    if [[ -f "$QUARTET" ]] && ! grep -qF "$QUARTET_MARKER" "$PROMPT_FILE"; then
+      { printf '\n%s\n\n' "$QUARTET_MARKER"; cat "$QUARTET"; } >> "$PROMPT_FILE"
+    fi
+
     echo "OK"
     ;;
 
