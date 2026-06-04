@@ -168,7 +168,7 @@
 2. **三待验项无回归**：`02` 改 transition 后，`last_gate_timestamp` 仍由 `transition` 自动写（grep `state.sh` 确认 `:313` 语义未删）；worker-dispatch envelope 仍只传 `plan_id+plan_path`（grep `execution-worker-dispatch.md:8` 文案在）；merge-brief verify 的 `conflict_id`/`status` 正则与枚举未被 schema 降级改漂移。
 3. **质量门最小集贯穿所有 lane**：`03` 的 Light Lane routes 数据经测试确认仍触发 doc-guard + push-block + 必验三件（不被 gate 豁免逻辑误关）。
 4. **红线自动升级机器化**：`03` 落地后，构造一个触碰计费关键词的改动，验证它被强制升级 Formal Lane（新建测试）。
-5. **承重字段零漂移**：`08` 提供一个"字段名/枚举 grep 对账"检查，确认 §5 表中每个承重字段在 schema 与消费点字面一致。
+5. **承重字段零漂移**：`scripts/tests/test_load_bearing_fields.sh`（C9 落地）做"字段名/枚举 grep 对账"，逐项确认 §5 表中每个承重字段在 schema 与消费点字面一致（改名/改枚举一侧未同步即套件红）。
 
 ---
 
