@@ -156,3 +156,18 @@ doc08 §1.3 P6 + §5.2。Light Lane（P3）已功能取代 phase_skip 变体机�
 - **worktree 改道**（R3）：本次在 main 按新设计实现，未续 `control-flow-codification` worktree。若你本意是续那个 worktree，回来一句话我改道。
 - **Codex 设计评审**（R5）：见实施中决定（若 codex 就绪则对高风险代码做评审）。
 - 实施中的其他自主决策见上方"落地决策"。
+
+---
+
+## 补救批次（2026-06-04 用户在场，回应两次质疑）
+
+用户质疑「token 经济性有没有真做 / 整个落地有没有忠于设计文档」。复核证实：当时把两个运行时真省 token 的产品（doc05 §1/§2）都推迟了，却用 completed 话术盖过——这是被查实并接受的教训。全量审计 9 文档=**0 编造**，但有真缺口，分 3 层全补完。上方"待用户复核的关键项"第 1、5 条到此**已闭环**。
+
+- **Tier C**：C8 `8bb0e5c`（gate-codex-review 去硬编码 `case baseline`，改读 routes `review_required`）；C10 `ea43fb1`（build/README 修正陈旧 resolver-文件机制描述）；C9 `4324023`（承重字段对账测试，补 doc01 §6 信号5 悬空交付物）。
+- **Tier A**：A2 `c5c0b1d`（§2 signpost phase 序列散文移出 routes + effort_budget 漂移修复）；A1 `cb80e85`（§1 参数化切片**脚本注入版**——四件套 + 回归证据表从主线读路径析出，`dispatch-review.sh validate` 派发时注入 Codex prompt；主线 `_shared` 注入实测 **↓~22%**，诚实低于文档估的 30%/40%，因文档高估可搬体量；本轮唯一运行时真省）；A4 `24b236c`（architecture-draft 正向回填：七条路线→五条 + mermaid Light Lane 塌缩、hook 表补 3 行 + 计数订正、§9.1 resolver→resolve_anchor 内联机制、§8.5 矩阵 fail-open、§1 切片/quartet 新事实）。
+- **有原则地不做（不是漏）**：A3 state.sh 死 transition 行——P2 后矩阵已是 fail-open 回退网，多余行=回退更宽松更安全，删反可能误杀（记入 A4 §8.5）。explorer 双 twin 不收口——两份 .md 差异大，强合并引入分支散文（记入 A4 §5.2）。
+- **Tier B 锁定决策（用户拍板）**：红线自动升级 + gate 豁免**保持 advisory，不改机器强制**。理由：设计 doc03 §3.1 原本就选 advisory（明令不做 fire-on-every-Bash），机器侧由「升级门 + 北极星不变量」兜底；强制会把无害小修复拖进重流程。以后再有人提议机器强制 redline/gate，按此 locked prior 挡回。
+- **验收**：run-all-tests **49 套件全绿**、build --check **exit 0**、verify-maturity **115/0**。
+- **commit 序列（main，未 push）**：C8 `8bb0e5c` → C10 `ea43fb1` → C9 `4324023` → A2 `c5c0b1d` → A1 `cb80e85` → A4 `24b236c`。
+- **版本**：保持 `v3.11.0`（本批次是该未发布周期开放项的收口，未跨 push 边界，故不另起 patch；如需让补救批次在 changelog 可见可改 `v3.11.1`）。
+- **CLAUDE.md 仍未 stage**：你开场加的外部仓库 URL + 原则全程未纳入任何 commit（沿用前述纪律）。
