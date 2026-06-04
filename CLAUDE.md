@@ -90,3 +90,11 @@ diff <(jq -r .version plugin/.claude-plugin/plugin.json) \
 | `hooks/hooks.json` | `python3 -m json.tool` 验证格式 |
 | `plugin.json` 版本号 | 同步更新 `marketplace.json` → `diff` 验证 |
 | 任何改动（提交前） | `verify-maturity.sh` |
+
+https://github.com/mattpocock/skills/tree/main/skills/engineering
+
+https://github.com/pbakaus/impeccable/tree/main
+
+https://github.com/garrytan/gstack
+
+https://github.com/obra/superpowers

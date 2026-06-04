@@ -9,8 +9,6 @@ description: |
   Do NOT use for: pre-condition checking / routing (coordinator handles), plan review (dispatched to Codex), code execution (use pack-executor/complex-pack-executor), investigation (use code-explorer/root-cause-analyst), large issue splitting (coordinator handles in Discovery).
 model: claude-opus-4-8[1m]
 effort: xhigh
-skills:
-  - improve-codebase-architecture
 tools:
   - Read
   - Edit
