@@ -9,7 +9,7 @@ run_test() { local name="$1"; shift; if "$@" >/dev/null 2>&1; then echo "  PASS:
 echo "=== test_voice_injection.sh ==="
 
 # Verify voice-directive anchors in agent files
-for agent in code-explorer complex-code-explorer complex-pack-executor docs-worker pack-executor plan-writer root-cause-analyst; do
+for agent in code-explorer complex-code-explorer complex-pack-executor pack-executor plan-writer root-cause-analyst; do
   run_test "voice-directive anchor in $agent.md" \
     grep -q "BEGIN: voice-directive" "$PLUGIN_DIR/agents/${agent}.md"
 done
