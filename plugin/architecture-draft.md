@@ -130,10 +130,11 @@ flowchart TD
 
 | Route | 名称 | Discovery | Plan Writing | Plan Review | Execution | Final Review | Budget | 特殊行为 |
 |-------|------|-----------|-------------|-------------|-----------|-------------|--------|---------|
-| 0 | Light Lane | ❌ | ❌ | ❌ | ✅ | ❌ | unlimited | 默认轻档；hotfix/quickfix/spike/maintenance 变体由 Light Lane（route=light + routes gate_exemptions + 子模式）承载；`phase_skip` 已 DEPRECATED（P6，被 Light Lane 取代，零消费） |
+| 0 | Light Lane | ❌ | ✅ | ❌ | ✅ | ✅ | unlimited | 实际数据（`routes-v1.json`）：跳过 Discovery + Plan Review 门（`gate_exemptions: [discovery, plan-review]`），**保留** Plan Writing / Execution / Final Review（`review_required: [baseline]` 仍走实现审）；hotfix/quickfix/spike/maintenance 为**行为子模式**（单 pack / 事后审 / verdict-only），不另立 route；`phase_skip` 已 DEPRECATED（P6，被 Light Lane 取代，零消费） |
 | 1 | Formal | ✅ | ✅ | ✅ | ✅ | ✅ | `3P+12` | 完整流程；核心红线/大改造升 formal |
-| 2 | Bug Investigation | ❌ | ❌ | ❌ | ❌ | ❌ | unlimited | RCA → worker → review → Closing |
-| 3 | Multi-PR Merge | ❌ | ❌ | ❌ | ❌ | ❌ | unlimited | merge-brief 驱动；冲突发现 → 修复 → 集成审查 → 合并 |
+| 2 | Bug Investigation | ❌ | ❌ | ❌ | ❌ | ❌ | unlimited | 单 `bug-investigation` phase；RCA → worker → review → Closing；route-worker 派发 |
+| 3 | Multi-PR Merge | ❌ | ❌ | ❌ | ❌ | ❌ | unlimited | 单 `multi-pr-merge` phase；merge-brief 驱动；冲突发现 → 修复 → 集成审查 → 合并 |
+| 4 | Direct Repair | ❌ | ❌ | ❌ | ❌ | ❌ | unlimited | 单 `direct-repair` phase；**最激进轻档**——豁免全部 formal 门、`review_required: []` 无 Codex 审、route-worker 派发；用于根因清楚的直接修复 |
 
 Route enum 5 值（`formal` / `light` / `direct-repair` / `bug-investigation` / `multi-pr-merge`）。hotfix/quickfix/spike/maintenance 变体由 **Light Lane（route=light + routes 清单 gate_exemptions + 子模式）** 承载。`phase_skip` 已 DEPRECATED（P6）——被 Light Lane 取代，零消费，保留一个版本周期后物理删。
 
