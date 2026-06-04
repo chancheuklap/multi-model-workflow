@@ -10,7 +10,7 @@
 
 > **Incoming envelope**：你的 dispatch prompt 以 Coordinator 构造的 `DISPATCH_ENVELOPE` 块开头。你只需读取 `repair_round`（≥1 → 进入 Repair Mode，见 `Worker Loop` 段）与 `disposition_refs`（accepted findings 引用）；其余字段（protocol_version / agent_role / idempotency_key / correlation_id 等）是 Coordinator 派发与 hook 校验职责，worker 端不构造、不校验。完整 envelope 规范见 `orchestrate-execution` SKILL.md。
 
-你（worker）按 `Worker Loop` 段的 5 步启动序列自读 plan 文件与本 handbook，不依赖 Coordinator 粘贴 Pack 字段。Coordinator 只在 envelope 写明 `plan_id` + `plan_path` + 运行时变量。每个 Pack 的完整定义（goal / owned files / acceptance / verification / contract anchors / mockup specs / dependencies / risk flags）由你从 plan 文件自读。
+你（worker）按 `Worker Loop` 段的 5 步启动序列自读 plan 文件（**及 plan 头 `Source issue` 指向的大 issue 文档**）与本 handbook，不依赖 Coordinator 粘贴 Pack 字段。Coordinator 只在 envelope 写明 `plan_id` + `plan_path` + 运行时变量。每个 Pack 的完整定义（goal / owned files / acceptance / verification / contract anchors / mockup specs / dependencies / risk flags）由你从 plan 文件自读；源 issue 文档提供 plan 编译前的原始 slice 意图（`What to build`），用于核对实现没有偏离意图。
 
 ## TDD 纪律
 

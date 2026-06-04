@@ -8,7 +8,8 @@
 
 每次接到 Plan dispatch（首派或 need-fresh-worker 续派）按顺序执行 5 步；缺一返回 `NEEDS_PLAN_REVISION`：
 
-1. **Read plan 文档全文**：从 envelope.plan_path 读完整 plan.md。验证 5 必备字段——`## Pack Execution Manifest`、`Dependencies`（per pack）、`Acceptance criteria`（per pack）、`Verification commands`（per pack）、`Owned files`（per pack）。缺任一字段或 Manifest 为空 → 立即返回 `verdict=needs-plan-revision`，不试图脑补。
+1. **Read plan 文档全文 + 其源 issue**：从 envelope.plan_path 读完整 plan.md。验证 5 必备字段——`## Pack Execution Manifest`、`Dependencies`（per pack）、`Acceptance criteria`（per pack）、`Verification commands`（per pack）、`Owned files`（per pack）。缺任一字段或 Manifest 为空 → 立即返回 `verdict=needs-plan-revision`，不试图脑补。
+   - **再顺着 plan 头的 `**Source issue:**` 路径 Read 那份大 issue 文档**（`What to build` / `Design context refs` / `Blocked by`）——这是本 Plan 的**原始意图来源**，让你看到 plan 编译之前的 slice 目标。你的实现必须**同时满足** plan 的 Pack 验收**和** issue 声明的 slice 意图。**若 plan 的 Pack 与 issue 的 `What to build` 意图冲突、或漏掉 issue 要求的行为 → 返回 `verdict=needs-plan-revision`，不照着可能 lossy 的 plan 闷头做。** Source issue 路径缺失或文件不存在时跳过本子步（不阻断）。
 2. **Read `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate-execution/references/execution-worker-dispatch.md`**——固定行为规范（TDD 纪律、commit 规范、failure modes）。
 3. **Read `${STATE_DIR}/execution-state-<run_id>.json`**，提取 `plans[<plan_id>].packs` 当前 status 字典。区分**首派 vs 续派**：`status=="committed"` 的 pack 跳过（partial-fail recovery / need-fresh-worker 续派回到此 Worker），不重复执行。
 4. **Read `${STATE_DIR}/plan-returns/<run_id>/<plan_id>/open-items.json`**（若存在）——继承前任 worker 累积的 Open Items，新发现追加。

@@ -183,7 +183,7 @@ Skill 是按需加载到主线程的 Coordinator 逻辑(骨架 + 步骤 + 决策
 
 | 名称 | 模型 | 内嵌 skill | 启动自读 | 被调用流程 | 核心功能 / 边界 |
 |------|------|-----------|---------|-----------|---------------|
-| `pack-executor` | Sonnet | `tdd` | `worker-loop`(内置) + `execution-worker-dispatch.md` | Execution(每 Plan 一个) | TDD 逐 Pack 实现 + 提交;只改代码,禁碰 `docs/` |
+| `pack-executor` | Sonnet | `tdd` | `worker-loop`(内置) + `execution-worker-dispatch.md` + **plan 全文及 plan 头 `Source issue` 指向的大 issue 文档** | Execution(每 Plan 一个) | TDD 逐 Pack 实现 + 提交;实现须同时满足 plan 验收与 issue 意图,冲突则 `needs-plan-revision`;只改代码,禁碰 `docs/` |
 | `complex-pack-executor` | Opus 1M | `tdd` | 同 `pack-executor` | Execution(高风险/大体量) | 承接跨模块/迁移/计费/权限类高风险 Pack |
 | `plan-writer` | Opus 1M | `improve-codebase-architecture` | dispatch 的 `## Methodology` 方法论文件 | Plan Writing(每 issue 一个,并行) | 把 issue 写成含 Pack Manifest 的可执行 plan;不做 Coordinator 判断 |
 | `code-explorer` | Sonnet | (无) | dispatch 指定范围 | 任何阶段只读补证 | 只读调查返回证据;80% turn 强制返回 |
@@ -257,8 +257,8 @@ flowchart LR
 | 范围契约 | 基础设施(Step 2) | 全程 | 圈定改动范围 / 可改文件 / 只读上下文 |
 | 设计文档 `design/` | Discovery(Coordinator + Explorer) | Plan Writing、Review | 方案权威源,LINEAGE 起点 |
 | Mockup | Discovery | Plan Writing、UI 实现 | UI 视觉规格,与文字设计平级的源头工件 |
-| Issue 文档 | issue 拆分 | Plan Writing | 把设计拆成 thin vertical slice(端到端可独立验证) |
-| Plan 文档(+Pack Manifest) | `plan-writer` | Execution worker、Review | 可执行计划,**worker 自读的唯一指令源** |
+| Issue 文档 | issue 拆分 | Plan Writing、**Execution worker(核对意图)** | 把设计拆成 thin vertical slice(端到端可独立验证);worker 顺 plan 头 `Source issue` 读它核对实现没偏离原始意图 |
+| Plan 文档(+Pack Manifest) | `plan-writer` | Execution worker、Review | 可执行计划,worker 自读的**主**指令源(并顺读源 issue 核对意图) |
 | DISPATCH_ENVELOPE | Coordinator | Worker + 校验 hook | 窄接口,只传 `plan_id`+`plan_path`+运行时变量,**不粘贴 Pack 内容** |
 | plan-return / open-items | Worker | agent-return-handler、Coordinator | 回报 verdict + per-pack 状态 + 遗留项 |
 | merge-brief | Multi-PR 流程 | state.sh 校验 + worker | 合并冲突的单一真相源 |
