@@ -113,6 +113,17 @@ for r in formal light; do
     bash -c "[[ \$(jq -r --arg r '$r' '.routes[\$r][\"repair_policy\"][\"plan-review\"].escalate_to_rca' '$ROUTES') == 'false' ]]"
 done
 
+# --- review_required 闸门白名单（C8：gate-codex-review.sh 去硬编码 case baseline）---
+# execution 承载路由声明 baseline；route-worker 路由声明 []（无 Plan Impl Review 闸门）
+for r in formal light; do
+  run_test "route '$r' review_required contains baseline" \
+    bash -c "jq -e --arg r '$r' '.routes[\$r].review_required | index(\"baseline\")' '$ROUTES'"
+done
+for r in direct-repair bug-investigation multi-pr-merge; do
+  run_test "route '$r' review_required is empty" \
+    bash -c "[[ \$(jq -r --arg r '$r' '.routes[\$r].review_required | length' '$ROUTES') == '0' ]]"
+done
+
 # --- 无历史注释泄漏（JSON 天然无注释，防有人塞进字符串）---
 run_test "no Pack 2.14 / Plan 005 history leaked into manifest" \
   bash -c "! grep -qE 'Pack 2\\.14|Plan 005' '$ROUTES'"

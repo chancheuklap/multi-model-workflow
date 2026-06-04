@@ -70,6 +70,11 @@
           "commit_format": {
             "type": ["string", "null"],
             "description": "取代假 commit_format_override。如 hotfix 子变体用 'hotfix-unreviewed'。"
+          },
+          "review_required": {
+            "type": "array",
+            "description": "本 route 触发 Codex review 闸门的 review_intent 白名单（取代 gate-codex-review.sh 的硬编码 case baseline）。execution 承载路由（formal/light）声明 'baseline' → Plan Implementation Review 的 pack-completion 闸门生效；route-worker 路由声明 []（无 Plan Implementation Review）。由 gate-codex-review.sh 运行时读取；缺本字段 = fail-open 回退旧字面量。",
+            "items": { "type": "string", "enum": ["baseline"] }
           }
         }
       }

@@ -43,3 +43,18 @@ routes_commit_format() {
   jq -r --arg r "$route" \
     '.routes[$r].commit_format // empty' "$mf" 2>/dev/null || echo ""
 }
+
+# routes_review_required <route>
+# Echo the route's review_required intents one per line (e.g. "baseline"), or
+# empty if the manifest is unreadable / route unknown / field absent. This is the
+# per-route review-gate intent whitelist (execution-bearing routes declare
+# "baseline" → Plan Implementation Review pack-completion gate; route-worker
+# routes declare []). Empty output = fail-open: caller falls back to the legacy
+# intent literal.
+routes_review_required() {
+  local route="$1" mf
+  mf="$(_routes_manifest_path)"
+  [[ -f "$mf" ]] || { echo ""; return 0; }
+  jq -r --arg r "$route" \
+    '.routes[$r].review_required // [] | .[]' "$mf" 2>/dev/null || echo ""
+}

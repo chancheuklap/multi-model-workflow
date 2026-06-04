@@ -36,6 +36,7 @@
       "dispatch_shape": { "execution": "plan-level" },
       "budget": { "init": "pending_plan_count", "formula": "3P+12" },
       "commit_format": null,
+      "review_required": ["baseline"],
       "repair_policy": {
         "execution":    { "max_repair_rounds": 2, "escalate_to_rca": true },
         "final-review": { "max_repair_rounds": 1, "escalate_to_rca": true },
@@ -56,6 +57,7 @@
       "dispatch_shape": { "execution": "plan-level" },
       "budget": { "init": "unlimited", "formula": null },
       "commit_format": null,
+      "review_required": ["baseline"],
       "repair_policy": {
         "execution":    { "max_repair_rounds": 2, "escalate_to_rca": true },
         "final-review": { "max_repair_rounds": 1, "escalate_to_rca": true },
@@ -68,7 +70,8 @@
       "gate_exemptions": ["discovery", "plan-writing", "plan-review", "execution", "final-review"],
       "dispatch_shape": { "direct-repair": "route-worker" },
       "budget": { "init": "unlimited", "formula": null },
-      "commit_format": null
+      "commit_format": null,
+      "review_required": []
     },
     "bug-investigation": {
       "phases": ["bug-investigation"],
@@ -76,7 +79,8 @@
       "gate_exemptions": ["discovery", "plan-writing", "plan-review", "execution", "final-review"],
       "dispatch_shape": { "bug-investigation": "route-worker" },
       "budget": { "init": "unlimited", "formula": null },
-      "commit_format": null
+      "commit_format": null,
+      "review_required": []
     },
     "multi-pr-merge": {
       "phases": ["multi-pr-merge"],
@@ -84,7 +88,8 @@
       "gate_exemptions": ["discovery", "plan-writing", "plan-review", "execution", "final-review"],
       "dispatch_shape": { "multi-pr-merge": "route-worker" },
       "budget": { "init": "unlimited", "formula": null },
-      "commit_format": null
+      "commit_format": null,
+      "review_required": []
     }
   }
 }
