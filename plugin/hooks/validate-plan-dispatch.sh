@@ -114,7 +114,7 @@ if [[ -n "$PLAN_ID" && "$PLAN_ID" != "null" ]]; then
 
   # plans entry exists in execution-state
   if [[ -f "$ESF" ]] && ! jq -e --arg pid "$PLAN_ID" '.plans[$pid] != null' "$ESF" >/dev/null 2>&1; then
-    echo "[multi-model-workflow] BLOCKED: plan_id $PLAN_ID has no entry in execution-state. Coordinator must run 'state.sh plans add' first." >&2
+    echo "[multi-model-workflow] BLOCKED: plan_id $PLAN_ID has no entry in execution-state. Coordinator must run 'state.sh execution-plan start --plan-id $PLAN_ID --start-commit <sha>' first." >&2
     exit 2
   fi
 
