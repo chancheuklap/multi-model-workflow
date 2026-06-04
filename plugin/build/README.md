@@ -1,6 +1,6 @@
 # Build System
 
-源码模块化 + 运行时组合。`.tmpl` 模板和 resolver 在 build time 组合成 SKILL.md / agent.md 中 agent 读到的最终内容。
+源码模块化 + 运行时组合。`.tmpl` 模板由 `build.sh` 的内联 resolve 逻辑（`resolve_anchor()`）在 build time 组合成 SKILL.md / agent.md 中 agent 读到的最终内容。
 
 ## 锚点约定
 
@@ -10,7 +10,7 @@
 <!-- END: <anchor-name> -->
 ```
 
-- 锚点由 `build.sh` 识别，resolver 负责生成替换内容
+- 锚点由 `build.sh` 识别，`resolve_anchor()` 按 anchor 名生成替换内容
 - 锚点不存在的文件会被跳过（不报错），便于渐进式接入
 - 支持 variant：`<!-- BEGIN: review-dispatch [variant=execution] -->`
 
@@ -27,12 +27,21 @@ bash plugin/build/build.sh --apply --plugin-dir plugin
 bash plugin/build/build.sh --apply --plugin-dir plugin --resolver=preamble
 ```
 
-## 新增 Resolver 步骤
+## 新增锚点步骤
 
-1. 在 `resolvers/` 下新建 `<name>.sh`，接收 3 个参数：`TEMPLATE_DIR` / `ANCHOR_NAME` / `VARIANT`
-2. 在 `templates/` 下新建对应 `.md.tmpl`
+resolve 逻辑已从早期的 `resolvers/*.sh`（每锚点一个脚本）塌缩为 `build.sh` 内
+`resolve_anchor()` 的内联 `case "$anchor_name"`，分三类（不再有 `resolvers/` 目录）：
+
+- **Type 1（纯 cat）**：模板整份注入，无 variant。
+- **Type 2（文件级 variant）**：按 variant 选 `templates/<name>.<variant>.md.tmpl` 再 cat。
+- **Type 3（内联 variant）**：从单一 `.tmpl` 用 sed 抽取 `[variant=X]` 段；voice 子型还在尾部单源追加 `VOICE_FOOTER`。
+
+新增一个锚点：
+
+1. 在 `templates/` 下新建对应 `.md.tmpl`
+2. 在 `build.sh` 的 `resolve_anchor()` 里给新 anchor 加一个 `case` 分支（归入上面三类之一）
 3. 在目标文件中插入 `<!-- BEGIN: <name> -->` / `<!-- END: <name> -->` 锚点对
-4. 运行 `build.sh --apply` 注入内容
+4. 运行 `build.sh --apply` 注入内容（`--resolver=<name>` 可只跑该锚点）
 5. 在 `tests/` 下新建 `test_<name>.sh` 验证
 
 ## macOS 注意事项
