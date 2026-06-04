@@ -55,7 +55,7 @@
 
 **Required Outputs**：本 phase 必须产出的文件/状态变更。完成前逐项检查。
 
-**Budget 检查**：每次 dispatch 前检查 review_budget 和 effort_budget 余量。余量不足时走 Direction Check。
+**Budget 检查**：每次 dispatch 前检查 review_budget 余量。余量不足时走 Direction Check。
 
 **Review Dispatch Protocol**：Codex review dispatch 必须携带 DISPATCH_ENVELOPE，review_intent 正确设置（baseline）。Baseline review 使用 `codex-companion.mjs task --background` 启动 background job。Dispatch 前必须 `dispatch-review.sh validate` 校验 envelope；result 写入后用 `complete-review-dispatch.sh` 标记 durable 并记录 review budget；disposition 开始/完成时用 `record-review-disposition.sh` 打 anchor。gate-codex-review.sh 强制此规则。
 

@@ -14,11 +14,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" transition \
   --from "<current_phase>" --to "<next_phase>"
 ```
 
-Phase 序列（formal route）：
-`workflow` → `discovery` → `plan-writing` → `execution` → `final-review` → `execution_done` → `closed`
-
-每个 phase skill 返回前必须通过 transition 写入下一个 phase。
-Compaction 恢复时读取 `cursor.phase` 确定当前位置。
+`--to` 由本 phase skill 流程指定，合法跳转以 `routes-v1.json[route].phase_transitions` 为准并机器校验（非法即 `exit 2`）——phase 序列不在散文写死。Compaction 恢复读 `cursor.phase`。
 
 Phase complete. 返回 orchestrate-workflow 主循环。
 <!-- END: signpost -->
@@ -74,7 +70,7 @@ Bad:  "检测到多个 PR 之间存在潜在的兼容性问题，需要进一步
 
 **Multi-PR Merge 不做 Closing**——不 push，不 PR，不 cleanup。这些是 orchestrate-workflow Closing 的职责。以 verdict 返回结束。
 
-**Multi-PR route 不创建 plan-count budget**——workflow-state 使用 `budget_status = "unlimited"` 支撑 review validation、effort tracking、idempotency 和 resume；Codex 审查 dispatch 控制在合理范围内（通常 2-4 次 baseline review）。
+**Multi-PR route 不创建 plan-count budget**——workflow-state 使用 `budget_status = "unlimited"` 支撑 review validation、idempotency 和 resume；Codex 审查 dispatch 控制在合理范围内（通常 2-4 次 baseline review）。
 
 **Only stop for：**
 - 冲突解决需要用户决策（NEEDS_USER_DECISION）

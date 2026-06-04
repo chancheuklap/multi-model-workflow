@@ -14,11 +14,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" transition \
   --from "<current_phase>" --to "<next_phase>"
 ```
 
-Phase 序列（formal route）：
-`workflow` → `discovery` → `plan-writing` → `execution` → `final-review` → `execution_done` → `closed`
-
-每个 phase skill 返回前必须通过 transition 写入下一个 phase。
-Compaction 恢复时读取 `cursor.phase` 确定当前位置。
+`--to` 由本 phase skill 流程指定，合法跳转以 `routes-v1.json[route].phase_transitions` 为准并机器校验（非法即 `exit 2`）——phase 序列不在散文写死。Compaction 恢复读 `cursor.phase`。
 
 Phase complete. 返回 orchestrate-workflow 主循环。
 <!-- END: signpost -->
@@ -47,7 +43,7 @@ Phase complete. 返回 orchestrate-workflow 主循环。
 
 **Required Outputs**：本 phase 必须产出的文件/状态变更。完成前逐项检查。
 
-**Budget 检查**：每次 dispatch 前检查 review_budget 和 effort_budget 余量。余量不足时走 Direction Check。
+**Budget 检查**：每次 dispatch 前检查 review_budget 余量。余量不足时走 Direction Check。
 
 **Review Dispatch Protocol**：Codex review dispatch 必须携带 DISPATCH_ENVELOPE，review_intent 正确设置（baseline）。Baseline review 使用 `codex-companion.mjs task --background` 启动 background job。Dispatch 前必须 `dispatch-review.sh validate` 校验 envelope；result 写入后用 `complete-review-dispatch.sh` 标记 durable 并记录 review budget；disposition 开始/完成时用 `record-review-disposition.sh` 打 anchor。gate-codex-review.sh 强制此规则。
 
@@ -79,11 +75,10 @@ Bad:  "执行进展顺利，各模块按计划推进中。"
 
 Plan Review 通过 → 逐 Plan 串行循环 → 每个 Plan 派 1 个自治 Worker（Worker 内部按 Dependencies 跑完该 Plan 全部 Pack，每 Pack 独立 commit）+ Git Checkpoint → Plan Implementation Review → 修复 → Release Gate → 循环 → 全部 Plan 通过 → Final Review。
 
-**Only stop for：**
+**Only stop for（execution 专属，通用条目如 BLOCKED 见上方 preamble）：**
 - Worker 返回 blocked（业务阻塞才停，技术阻塞自行处理）
 - Review 的 user decision disposition
 - Intra-Plan Blocker
-- BLOCKED
 
 **Never stop for：**
 - Pack 之间（连续执行，不暂停汇报）
