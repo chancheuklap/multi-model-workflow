@@ -40,7 +40,7 @@
 | 层 | 位置 | 职责 |
 |----|------|------|
 | L1：行为权威 | `agents/*.md` | TDD、scope 边界、Worker Loop、persona 等通用合同写在 agent 定义内（构建系统注入），所有 dispatch 不再重复 |
-| L2：模板 | `build/templates/*.tmpl` | 共享内容片段（preamble / voice / review-dispatch / worker-loop 等 13 个模板），由 resolver 注入到 agent.md / SKILL.md / reference.md 的 `<!-- BEGIN: xxx -->` 锚点 |
+| L2：模板 | `build/templates/*.tmpl` | 共享内容片段（preamble / voice / review-dispatch / worker-loop 等 8 个活跃模板），由 build.sh 内联 `resolve_anchor` 注入到 agent.md / SKILL.md / reference.md 的 `<!-- BEGIN: xxx -->` 锚点（无独立 `resolvers/` 目录） |
 | L3：场景指针 | `skills/*/references/*.md` | 每个 reference 的 Self-Read Protocol 告诉 sub-agent "下一步该读哪些文件 + 用哪份方法论"。Coordinator dispatch 时引用这个 reference 路径即可 |
 
 ### 0.2 Plan-level Worker Autonomy（计划级 Worker 自治）
@@ -61,7 +61,7 @@
 
 ---
 
-## 1. 全局流程（七条路线）
+## 1. 全局流程（五条路线）
 
 ```mermaid
 flowchart TD
@@ -92,29 +92,17 @@ flowchart TD
     B -->|"多 PR 合并审查"| INFRA3["Step 2：Scope + Git\n（跳过 Budget File）"]:::coord
     INFRA3 --> MPR["orchestrate-multi-pr-merge\n（merge-brief 驱动 — 见图 3）"]:::skill
 
-    %% 路线 4：Hotfix
-    B -->|"紧急 / P0 / 生产事故"| HF_INFRA["Scope + Git\n（budget = unlimited）"]:::coord
-    HF_INFRA --> HF_WORK["Coordinator 或 single\npack-executor 修复"]:::agent
-    HF_WORK --> HF_PUSH["先 push\n（[hotfix-unreviewed] 标签）"]:::coord
-    HF_PUSH --> HF_REVIEW["事后 Codex Review\n（pending_post_push_reviews）"]:::review
-    HF_REVIEW --> K
-
-    %% 路线 5：Quick Fix
-    B -->|"小改动 / trivial fix"| QF_INFRA["Scope + Git\n（budget = unlimited）"]:::coord
-    QF_INFRA --> QF_WORK["Single pack-executor\n（Coordinator 写单 Pack plan）"]:::agent
-    QF_WORK --> QF_REVIEW["Single review round\nCodex review"]:::review
-    QF_REVIEW --> K
-
-    %% 路线 6：Spike
-    B -->|"探索 / prototype / spike"| SP_INFRA["Scope + Git\n（budget = unlimited）"]:::coord
-    SP_INFRA --> SP_WORK["探索性执行\n（throwaway code + verdict）"]:::agent
-    SP_WORK --> SP_OUT["产出 verdict + 发现\n（不产出生产代码）"]:::coord
-
-    %% 路线 7：Maintenance
-    B -->|"升级 / refactor / tech debt"| MT_INFRA["Scope + Git\n（budget = unlimited）"]:::coord
-    MT_INFRA --> MT_WORK["Maintenance worker"]:::agent
-    MT_WORK --> MT_REVIEW["Codex Review"]:::review
-    MT_REVIEW --> K
+    %% 路线 0：Light Lane（hotfix / quickfix / spike / maintenance 为子模式）
+    B -->|"紧急 / 小改动 / 探索 / 升级维护"| LL_INFRA["Step 2：Scope + Git\n（budget = unlimited）"]:::coord
+    LL_INFRA --> LL_MODE{"Light Lane 子模式\n（route=light + routes gate_exemptions）"}:::coord
+    LL_MODE -->|"hotfix：P0 / 生产事故"| HF_WORK["Coordinator 或 single\npack-executor 修复 → 先 push\n（[hotfix-unreviewed] 标签）\n→ 事后 Codex Review"]:::agent
+    LL_MODE -->|"quickfix：trivial fix"| QF_WORK["Single pack-executor\n+ single review round"]:::agent
+    LL_MODE -->|"spike：探索 / prototype"| SP_WORK["throwaway code + verdict\n（不产出生产代码）"]:::agent
+    LL_MODE -->|"maintenance：升级 / refactor"| MT_WORK["Maintenance worker\n+ Codex Review"]:::agent
+    HF_WORK --> K
+    QF_WORK --> K
+    MT_WORK --> K
+    SP_WORK --> SP_OUT["产出 verdict + 发现"]:::coord
 
     %% 文档阶段（线性，不回流）
     C --> DR["Design Review\n（2 baseline Codex review）"]:::review
@@ -379,12 +367,13 @@ state.sh execution-plan complete --plan-id ... --verdict ...
 
 - **plan-writer**：启动后 Read dispatch prompt 中 `## Methodology` 指定的 methodology 文件（Self-Read Protocol），不加载 SKILL.md；并行 dispatch（每 issue 一个 agent，`run_in_background: true`）
 - **code-explorer** / **complex-code-explorer**：只读 agent，80% turn budget 时强制返回部分结果
+  - **不收口为单 twin（设计决策）**：doc07 §1.3 曾设想把这对 explorer 像 pack-executor twin 那样合并。审计实测两份 .md 无大块逐字相同段（model tier / context window / persona 全异，共享内容已在 voice-directive + worker 选型规则里单源化），强行合并只会引入分支 if 散文、违反「不过度设计」。**故保留双 agent**，区分维持在 Coordinator 选型规则（Risk ∨ Context 双维度），不在 agent 定义体内。
 - **root-cause-analyst**：3 种模式（Bug Investigation / Repair Truncation / Multi-PR Conflict）通过 dispatch prompt 信号自检测；模式 3 通过 `## Methodology` 字段读取 `rca-pr-conflict-methodology.md`
 - **docs-worker**：只做机械性清理，不改业务决策；Return Contract 区分 semantic vs mechanical changes
 
 ---
 
-## 6. Hook 层（13 脚本 / 17 hooks.json 条目）
+## 6. Hook 层（13 脚本 / 16 hooks.json 条目）
 
 所有 hook 入口集中在 `plugin/hooks/hooks.json`。
 
@@ -393,8 +382,10 @@ state.sh execution-plan complete --plan-id ... --verdict ...
 | Event | Matcher | 脚本 | if 条件 |
 |-------|---------|------|---------|
 | SessionStart | startup\|clear\|compact | session-start.sh | — |
-| PreToolUse | Bash | enforce-plan-commit.sh | git commit |
-| PreToolUse | Bash | gate-codex-review.sh | — |
+| PreToolUse | Bash | guard-premature-push.sh（`scripts/`） | — |
+| PreToolUse | Bash | enforce-plan-commit.sh | `git commit *` |
+| PreToolUse | Bash | gate-codex-review.sh | `*codex*task*` |
+| PreToolUse | Bash | enforce-repair-round-cap.sh | `*codex*task*` |
 | PreToolUse | Agent | validate-plan-dispatch.sh | Agent(pack-executor*) |
 | PreToolUse | Agent | validate-plan-dispatch.sh | Agent(complex-pack-executor*) |
 | PreToolUse | Agent | validate-pack-manifest.sh | Agent(pack-executor*) |
@@ -402,8 +393,9 @@ state.sh execution-plan complete --plan-id ... --verdict ...
 | PreToolUse | Agent | validate-multi-pr-dispatch.sh | — |
 | PreToolUse | Edit | guard-doc-edit.sh | — |
 | PreToolUse | Write | guard-doc-edit.sh | — |
-| PostToolUse | Bash | track-review-budget.sh | — |
-| PostToolUse | Bash | track-execution-state.sh | git commit |
+| PostToolUse | Bash | track-review-budget.sh | `*codex*result*` |
+| PostToolUse | Bash | track-execution-state.sh | `git commit *` |
+| PostToolUse | Bash | cleanup-before-push.sh（`scripts/`） | `git push *` |
 | PostToolUse | Agent | agent-return-handler.sh | — |
 
 ### 6.2 每条 hook 关键行为
@@ -441,10 +433,11 @@ PreToolUse Agent hook，自行检测 phase=multi-pr-merge。**直接内联解析
 **enforce-plan-commit.sh**（从 enforce-pack-commit.sh 改名）
 PreToolUse Bash hook，git commit 触发。commit 消息以 `Pack ` 开头但不符合 `Pack N.M: <text>` 格式 → exit 2。非 Pack commit 静默放行。
 
-**gate-codex-review.sh**
-PreToolUse Bash hook，检测 codex-companion + `task` 关键字。按 envelope.review_intent：
-- `baseline` → 校验 prompt-file 名称中 plan 编号对应 execution-state 中所有 pack 已 committed（Plan Implementation Review 前置门）
-- 其他值 → 透传（default case exit 0）
+**gate-codex-review.sh**（C8 routes 化）
+PreToolUse Bash hook，`if: Bash(*codex*task*)`。**门控由 routes 清单驱动**：从 workflow-state 读 `route`，按 `routes-v1.json[route].review_required` 决定哪些 `review_intent` 受门控——`formal` / `light` = `["baseline"]`；`direct-repair` / `bug-investigation` / `multi-pr-merge` = `[]`（整路豁免）。命中且 intent=`baseline` 时，校验 prompt-file 名中 plan 编号对应 execution-state 所有 pack 已 committed（Plan Implementation Review 前置门）。manifest 不可读时 **fail-open 回退到旧硬编码**（仅 `baseline` 受门）。其余 intent 透传（exit 0）。
+
+**enforce-repair-round-cap.sh**（P5d 新增，routes `repair_policy` 驱动）
+PreToolUse Bash hook，`if: Bash(*codex*task*)`，与 gate-codex-review.sh 同触发面。每轮 repair 闭环必含一次 Targeted Re-Review（codex-companion task 派发）。hook 从 gate 名（`plan-impl-review-N-repair-<round>` / `plan-review-repair-<round>`）提取当前轮次，与 `routes-v1.json[route].repair_policy[phase].max_repair_rounds` 比较，超限即 exit 2 拦截：`escalate_to_rca=true` 提示走 `root-cause-analyst`，否则提示标 BLOCKED 报告用户。fail-open 硬要求：解析失败 / routes 不可读 / 非 re-review 派发 → exit 0 放行。
 
 **guard-doc-edit.sh**
 PreToolUse Edit/Write hook。worker-active marker 存在 + 路径在 `docs/` 下 → exit 2。Coordinator 上下文（无 marker）放行。`plan-returns/` 在 `.claude/multi-model-workflow/` 下不受影响。
@@ -489,9 +482,11 @@ PostToolUse Bash hook，检测 codex-companion `result` 命令且 exit_code=0。
 - `validate-pack-manifest.sh`（新增）
 - `validate-multi-pr-dispatch.sh`（新增）
 - `enforce-plan-commit.sh`（改名）
+- `enforce-repair-round-cap.sh`（P5d 新增，routes `repair_policy` 驱动轮次截断）
 - `agent-return-handler.sh`（5-路 verdict 完全重写）
+- `gate-codex-review.sh`（C8 改 routes `review_required` 驱动门控，不再硬编码 `case baseline`）
 
-**基本沿用**：`session-start.sh` / `gate-codex-review.sh` / `guard-doc-edit.sh` / `track-execution-state.sh`（含新增 worker_agent_id 检测以抑制提前 NEXT） / `track-review-budget.sh` / `lib/parse-envelope.sh`
+**基本沿用**：`session-start.sh` / `guard-doc-edit.sh` / `track-execution-state.sh`（含新增 worker_agent_id 检测以抑制提前 NEXT） / `track-review-budget.sh` / `lib/parse-envelope.sh`。`scripts/` 下 `guard-premature-push.sh` / `cleanup-before-push.sh` 经 hooks.json 注册为 push 守卫，详见 §8.7。
 
 ---
 
@@ -701,14 +696,16 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 | `agent-id set/get --plan-id` | plan-level worker_agent_id 写读（与 --pack-id 互斥） |
 | `merge-brief init/stage/verify` | Pack 6.8 新增；init 创建含 MERGE_BRIEF_META 元数据块的 markdown；stage 推进 current_stage；verify 校验 meta 合法性 |
 
-### 8.5 状态转换矩阵（`state-schema/state-transition-matrix.md`）
+### 8.5 状态转换校验（routes 优先 + 矩阵 fail-open 回退）
 
-24 条 transition 规则，3 类 actor：
+transition 规则，3 类 actor：
 - **Coordinator** — 承担绝大多数 transition（phase 推进、dispatch、review、repair 路由）
 - **agent-return-handler** — PostToolUse hook 自动 `dispatched → returned`（Plan-level 含 in_progress → returned）
 - **track-execution-state** — PostToolUse hook 自动 `returned → committed`
 
-所有 `state.sh transition` 调用必须匹配矩阵中的一行，否则 exit 2。state.sh 内联强制执行。
+**P2 后数据源反转**：合法 transition 的**主数据源是 `routes-v1.json`**（`global_transitions ∪ routes[route].phase_transitions`）。`state.sh transition` 拿到 route 且 manifest 可读时，按该并集校验；否则 **fail-open 回退**到 state.sh 内置的 `TRANSITION_MATRIX` 全量数组（legacy 行为）。任一路径下不匹配即 exit 2，state.sh 内联强制执行。
+
+> **`TRANSITION_MATRIX` 是回退安全网，不是死代码（A3 决策）**：doc07 §3.1 当初标记的几条「多余」transition 行，是在矩阵还是主数据源时分析的。P2 反转后矩阵只在 manifest 不可读/route 未知时兜底，且按设计保持 `⊇ (global_transitions ∪ formal.phase_transitions)`——**多几条只会让回退更宽松、更安全**，删掉反而可能让回退比 manifest 更严而误杀。故保留全量，不做删减。`state-transition-matrix.md` 文档与该数组同步维护。
 
 ### 8.6 共享 lib
 
@@ -735,20 +732,30 @@ PostToolUse hook（agent-return-handler）在信封解析失败时 **exit 0 跳�
 
 ## 9. Build 系统（3 层复用的 L2 层）
 
-`build/` 目录实现 template + resolver + anchor 模式，将共享内容注入 SKILL.md / agent .md / reference .md。
+`build/` 目录实现 template + `resolve_anchor`（build.sh 内联函数）+ anchor 模式，将共享内容注入 SKILL.md / agent .md / reference .md。
 
 ### 9.1 锚点系统工作原理
 
 `build.sh --apply` 扫描 plugin 目录下所有含 `<!-- BEGIN: <anchor-name> [variant=X] -->` / `<!-- END: <anchor-name> -->` 注释对的文件。对每个锚点：
-1. 查找 `resolvers/<anchor-name>.sh` 并执行
+1. 调 `build.sh` 内联函数 `resolve_anchor "$anchor_name" "$variant"`（**无独立 `resolvers/` 目录**——P5b 已塌缩，旧的 per-anchor resolver 脚本全删，统一为一个 case 分发）
 2. 将返回内容替换锚点之间的现有内容（用 python3 做字符串替换，避免 BSD/GNU sed 差异）
 3. 替换采用 tmp 文件原子写入（tmp → rename）
 
-`build.sh --check` 模式仅比较生成结果与当前文件，差异则 exit 1（CI）。不含锚点的文件静默跳过，支持渐进式接入。variant 标签嵌在 BEGIN 注释内，resolver 按 variant 提取 .tmpl 中对应 `[variant=X]...[/variant]` 段落。
+`resolve_anchor()` 的 case 按锚点分 4 类注入方式：
+- **Type 1（纯 cat）**：直接 `cat <anchor>.md.tmpl`（如 `worker-loop`）。
+- **Type 2（文件级 variant + cat）**：按 variant 找 `<anchor>.<variant>.md.tmpl` 再 cat（如 `control-envelope` / `review-dispatch` 的 content-only）。
+- **Type 3（行内 variant sed 抽取）**：从单一 .tmpl 用 sed 抽 `[variant=X]...[/variant]` 段（如 `preamble` / `sendmessage-resume` / `signpost`）。
+- **Type 3-voice（行内 variant + footer 单源）**：`voice-directive` 抽 variant 段后追加共享 `VOICE_FOOTER`（禁止词清单单一来源，不在每个 variant 里重复）。
 
-### 9.2 模板（7 个活跃）
+前置守卫：canonical 化后只有 `review-dispatch` 的 `content-only` variant 仍走模板注入；其余 _shared 内容（review-dispatch / repair-routing / disposition-table / decision-brief 等）改由 Read directive 引用，不再有锚点。
 
-canonical 化的 review-dispatch / repair-routing / disposition-table / decision-brief 内容现唯一权威在 `skills/_shared/*.md`，各 phase skill 通过 Read directive 引用；只有 review-dispatch 的 content-only variant 仍走 resolver 注入 codex-review/SKILL.md。decision-brief 由 preamble 模板 T2/T3 的一行按需指针引用——决策时才 Read，无用户决策的 phase 不加载。
+`build.sh --check` 模式仅比较生成结果与当前文件，差异则 exit 1（CI）。不含锚点的文件静默跳过，支持渐进式接入。variant 标签嵌在 BEGIN 注释内。
+
+### 9.2 模板（8 个活跃）
+
+canonical 化的 review-dispatch / repair-routing / disposition-table / decision-brief 内容现唯一权威在 `skills/_shared/*.md`，各 phase skill 通过 Read directive 引用；只有 review-dispatch 的 content-only variant 仍走 `resolve_anchor` Type 2 模板注入 codex-review/SKILL.md。decision-brief 由 preamble 模板 T2/T3 的一行按需指针引用——决策时才 Read，无用户决策的 phase 不加载。
+
+> **§1 切片 / 脚本注入（A1）**：anti-hallucination 四件套（confidence rubric / pre-emit gate / rationalization prevention / 证据表）从 `review-dispatch.md` 析出到 `_shared/review-prompt-quartet.md`，回归证据表从 `repair-routing.md` 析出到 `_shared/repair-regression-evidence.md`。这两块**不再被主线 Coordinator dispatch 读路径加载**——`dispatch-review.sh validate` 在派发时把 quartet 自动注入 Codex prompt 文件（带 `<!-- REVIEW-PROMPT-QUARTET ... -->` marker 防重复注入）；repair-regression-evidence 由 worker 构造 repair return 时按需自读。这是本轮唯一**运行时真省 token**（非 build-time 单源化）的改动，实测主线读路径降幅 ~22%。
 
 | 模板 | 注入目标 | 注入内容 |
 |------|---------|---------|
@@ -759,6 +766,7 @@ canonical 化的 review-dispatch / repair-routing / disposition-table / decision
 | `preamble.md.tmpl` | 各 SKILL.md 顶部（variant T1/T2/T3） | Hard Gate / Compaction Recovery 指引；Decision Brief 格式按需指向 `_shared/decision-brief.md` |
 | `signpost.md.tmpl` | 各 SKILL.md | Phase 过渡时更新 cursor / status 的 bash 命令模板 |
 | `voice-directive.md.tmpl` | 所有 agents/*.md 和各 SKILL.md（10+ variant） | 各 agent / Coordinator persona 与沟通基调 |
+| `failure-protocol.md.tmpl` | agents/pack-executor.md / agents/complex-pack-executor.md | 三次失败协议（BLOCKED 前自救三轮，每轮换方法） |
 
 ### 9.3 generate-pack-manifest.sh
 
@@ -813,7 +821,7 @@ bash plugin/build/build.sh --apply --plugin-dir plugin   # 应用（原子写入
 - Review budget 计数器在 Step 5 触发（`track-review-budget.sh` 检测 `result` 命令成功执行）
 - Targeted re-review 文件名加 `-repair-<round>` 后缀，不覆盖 baseline 结果
 - 600 秒超时是单次 review 的硬上限
-- `gate-codex-review.sh` hook 在 Step 3 拦截，按 envelope.review_intent 校验权限
+- `gate-codex-review.sh` hook 在 Step 3 拦截，按当前 route 的 `review_required` 清单 + envelope.review_intent 校验权限（详见 §6.2）
 
 **Decision 1 例外**：所有其他 dispatch（Worker / SendMessage 修复）**不再**预写 prompt 文件，inline 传递。
 
@@ -1232,7 +1240,7 @@ Plugin 采用 Coordinator-Worker 分担架构：Coordinator 把专项工作（�
 |------|--------|---------------|
 | Skill 调用语法 | `Skill({ skill: "multi-model-workflow:..." })` | 裸名 `orchestrate-*` |
 | 状态文件路径 | `.claude/multi-model-workflow/` | `.codex/multi-model-workflow/` |
-| Review 派发 | `codex-companion.mjs` Bash 调用 | `codex-companion.mjs`（统一通过 `review-dispatch` resolver 派发） |
+| Review 派发 | `codex-companion.mjs` Bash 调用 | `dispatch-review.sh validate`（注入 review-prompt-quartet）→ `codex-companion.mjs` 执行 |
 | Agent 命名 | `plan-writer`（连字符） | `plan_writer`（下划线） |
 | Worker 隔离 | 串行执行，同分支 | disjoint write sets |
 
@@ -1242,9 +1250,9 @@ Plugin 采用 Coordinator-Worker 分担架构：Coordinator 把专项工作（�
 
 | 目录 | 测试数 | 覆盖范围 |
 |------|-------|---------|
-| `build/tests/` | 13 | preamble resolver、review model tier、confidence injection、sendmessage resume、resolver 逻辑、voice injection、review segmentation、disposition audit、trust boundary、build check、cross-plan contract map、repair regression evidence、repair routing、review evidence table |
-| `hooks/tests/` | 16 | 幂等性重放、disposition refs 校验、gate-codex-review、agent-id hook guard、envelope 解析、sendmessage resume、validate-plan-dispatch、validate-pack-manifest、validate-multi-pr-dispatch（14 项）、multi-pr-merge end-to-end（25 项）、track-execution-state（next suppression）、enforce-plan-commit、need-fresh-worker、worker-loop e2e（P4 删 effort budget 加权 2 套） |
-| `scripts/tests/` | 18 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、hotfix post-push review、budget direction check、route keyword routing、generate pack manifest、complete review dispatch history、plan return parser、routes manifest（P1）、routes transition（P2）、budget reinitialize（P3）、redline check（P3）、light lane dispatch（P3）、budget instrument（P4） |
+| `build/tests/` | 13 | preamble resolver、review model tier、confidence injection、sendmessage resume、resolver 逻辑、voice injection、review segmentation、disposition audit、build check、cross-plan contract map、repair regression evidence、repair routing、review evidence table |
+| `hooks/tests/` | 17 | 幂等性重放、disposition refs 校验、gate-codex-review（routes review_required 化）、agent-id hook guard、envelope 解析、envelope plan_id consumers、sendmessage resume、validate-plan-dispatch、validate-pack-manifest、validate-multi-pr-dispatch（14 项）、multi-pr-merge end-to-end（25 项）、track-execution-state（next suppression）、enforce-plan-commit、enforce-repair-round-cap（P5d 轮次截断）、need-fresh-worker、worker-loop e2e、agent-return-handler plan-level（P4 删 effort budget 加权 2 套） |
+| `scripts/tests/` | 19 | state.sh（全子命令）、state_merge_brief（39 项）、state_cursor_reference（7 项）、state_agent_id_plan_level、state_disposition_plan_level、state_pack_progress、hotfix post-push review、budget direction check、route keyword routing、generate pack manifest、complete review dispatch history、plan return parser、routes manifest（P1）、routes transition（P2）、budget reinitialize（P3）、redline check（P3）、light lane dispatch（P3）、budget instrument（P4）、承重字段对账（C9 load-bearing fields） |
 
 运行方式：`bash plugin/scripts/run-all-tests.sh`（全量）或 `bash plugin/scripts/verify-maturity.sh`（含测试 + 构建 + schema + 结构 12 大类检查）。
 
