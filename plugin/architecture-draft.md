@@ -320,6 +320,16 @@ flowchart LR
 
 会话启动时 `session-start` hook 读这些状态,把"你在哪、下一步做什么"重新注入,流程接着跑。状态写入用目录级自旋锁保证并发安全。
 
+### 三条关键架构裁决(为什么这么设计)
+
+这三条是当前活跃的设计约束,不是历史。改动状态层 / hook 前必读,交叉引用见 `docs/orchestrate/design/2025-05-22-plugin-maturity.md`。
+
+| 裁决 | 决定了什么 | 为什么 |
+| --- | --- | --- |
+| **Ruling 1** —— commit-message 解析保留 sed | `track-execution-state.sh` 提取 Pack ID 用 sed,不走渐进迁移 | 输入源是 commit message(已被 `enforce-pack-commit.sh` 格式保证),不是 prompt/控制平面。"无渐进迁移"只约束 Agent dispatch 信封,不约束已有格式保证的 commit 解析。 |
+| **Ruling 2** —— 状态双文件模型 | `workflow-state`(budget/phase/dispositions,plan-level)+ `execution-state`(pack-level data,keyed by plan_id),两文件靠 plan_id/pack_id 关联 | pack-level 数据被多个 hook 并发写入,分离两文件降低竞态风险。 |
+| **Ruling 3** —— PostToolUse fail-open | `agent-return-handler`(PostToolUse)信封解析失败时 exit 0 跳过,而非 exit 2 硬停 | PostToolUse 无法撤回已完成的 agent,硬停只会中断正常流程。"无 fallback / 硬失败"只适用于 PreToolUse dispatch gate,不适用于 PostToolUse 后处理。 |
+
 ---
 
 ## 附录 A:版本号管理
