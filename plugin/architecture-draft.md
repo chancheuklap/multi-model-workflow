@@ -92,6 +92,8 @@ flowchart TD
 
 每个阶段之间有 **gate**(Codex 评审),通过才往下走;评审发现问题就地修复,不污染下一阶段。
 
+> **跨计划合同锚点(Cross-Plan Contract Anchors)**:多个 Plan 并行时,每个 Plan 在设计文档里声明自己**产出 / 消费的合同**(接口、schema、状态)。Plan Writing 写进去、Plan Review 检查、Final Review 据此核对跨 Plan 的 producer-consumer 是否对得上——接不上就退回 Execution 修。这是多个 Plan 之间保持一致、不互相打架的机制。
+
 ### 2.2 Execution 循环(Plan 级 Worker 自治)
 
 这是最核心的循环:Coordinator 把整个 Plan 交给一个 worker,worker 自己读懂、逐 Pack 实现、逐 Pack 提交,跑完回报。
@@ -175,19 +177,20 @@ Skill 是按需加载到主线程的 Coordinator 逻辑(骨架 + 步骤 + 决策
 | `orchestrate-multi-pr-merge` | Multi-PR | merge-brief 驱动的多 PR 合并 |
 | `codex-review` | 任意 | 临时发起一次 Codex 对抗评审(ad-hoc) |
 
-### 3.2 Subagents(7 个)
+### 3.2 Subagents(6 个)
 
-| 名称 | 模型 | 启动自动加载 | 被调用的流程 | 核心功能 | 边界 |
-|------|------|------------|------------|---------|------|
-| `pack-executor` | Sonnet | 内嵌 `worker-loop`;启动读 `execution-worker-dispatch.md` | Execution(每 Plan 一个) | 读懂 Plan,按 Pack 顺序 TDD 实现,逐 Pack commit,回报 | 只改代码,禁碰 `docs/` |
-| `complex-pack-executor` | Opus 1M | 同 `pack-executor` | Execution(高风险/大体量 Plan) | 同上,承接跨模块/迁移/计费类高风险 Pack | 同上 |
-| `plan-writer` | Opus 1M | 启动读 dispatch 的 `## Methodology` 方法论文件;可调 `improve-codebase-architecture` | Plan Writing(每 issue 一个,并行) | 把 issue 写成含 Pack Manifest 的可执行 plan | 不加载 SKILL.md,不做 Coordinator 判断 |
-| `code-explorer` | Sonnet | 内嵌 `voice`;读 dispatch 指定范围 | 任何阶段需只读补证 | 只读调查,返回证据;80% turn 强制返回 | 只读,不改代码 |
-| `complex-code-explorer` | Opus 1M | 同 `code-explorer` | 大体量/深层只读调查 | 同上,处理大上下文 | 只读 |
-| `root-cause-analyst` | Opus 1M | 启动读 `## Methodology` 方法论文件(5 步) | Bug 调查 / 修复截断 / Multi-PR 冲突 | 列可证伪假设 + 排除证据 + 回归验证 | 三模式自检测 |
-| `docs-worker` | Sonnet | 内嵌 `voice` | 收尾机械清理 | 机械性文档清理,区分语义/机械改动 | 不改业务决策 |
+每个 agent 的 frontmatter 声明 `model`(模型)、`skills`(内嵌技能,启动自动加载)、`memory`。**"内嵌 skill"是外部方法论技能,agent 一启动就自动加载进它的上下文**;"启动自读"是它额外要读的操作手册/方法论文件。
 
-> **选型规则**:Execution 派 worker 时,改动风险高(跨模块/迁移/计费/权限)或体量大,从 Sonnet 的 `pack-executor` 升到 Opus 1M 的 `complex-pack-executor`。Explorer 同理。
+| 名称 | 模型 | 内嵌 skill | 启动自读 | 被调用流程 | 核心功能 / 边界 |
+|------|------|-----------|---------|-----------|---------------|
+| `pack-executor` | Sonnet | `tdd` | `worker-loop`(内置) + `execution-worker-dispatch.md` | Execution(每 Plan 一个) | TDD 逐 Pack 实现 + 提交;只改代码,禁碰 `docs/` |
+| `complex-pack-executor` | Opus 1M | `tdd` | 同 `pack-executor` | Execution(高风险/大体量) | 承接跨模块/迁移/计费/权限类高风险 Pack |
+| `plan-writer` | Opus 1M | `improve-codebase-architecture` | dispatch 的 `## Methodology` 方法论文件 | Plan Writing(每 issue 一个,并行) | 把 issue 写成含 Pack Manifest 的可执行 plan;不做 Coordinator 判断 |
+| `code-explorer` | Sonnet | (无) | dispatch 指定范围 | 任何阶段只读补证 | 只读调查返回证据;80% turn 强制返回 |
+| `complex-code-explorer` | Opus 1M | `improve-codebase-architecture` | dispatch 指定范围 | 大体量/深层只读调查 | 同上,处理大上下文 |
+| `root-cause-analyst` | Opus 1M | `diagnose` `tdd` | `## Methodology` 方法论文件(5 步) | Bug 调查 / 修复截断 / Multi-PR 冲突 | 列可证伪假设 + 排除证据 + 回归验证 |
+
+> **模型分层 = 省 token 的核心手段之一**:简单/窄范围用 Sonnet(`pack-executor` / `code-explorer`),高风险/大体量/写计划用 Opus 1M。Execution 选型规则:改动碰跨模块/迁移/计费/权限或体量大,从 `pack-executor` 升 `complex-pack-executor`。**用对模型而不是一律用最贵的,是整套省 token 设计的一环**(另一环是 Codex 评审的模型分层,见 5.4)。
 
 ### 3.3 Hooks(13 个机器护栏)
 
@@ -208,6 +211,21 @@ Hook 是自动触发的拦截/记录脚本,违反硬约束直接 `exit 2` 阻断
 | `track-execution-state` | `git commit` 成功后 | 记录该 Pack committed + commit_sha;Plan 全部 committed 则推进 |
 | `cleanup-before-push` | `git push` 成功后 | 清理编排临时文件 |
 | `agent-return-handler` | 任何 agent 返回后 | 读 plan-return,按 5 种 verdict 路由下一步 |
+
+---
+
+### 3.4 外部技能(Mattpocock / gstack 系列)
+
+Plugin 在关键环节直接 `Skill()` 调用外部方法论技能,而不是把方法论抄进自己的文档——避免与上游脱节、悄悄漂移。
+
+| 技能 | 在哪调用 | 作用 |
+|------|---------|------|
+| `grill-with-docs` | Discovery Step 0(开场即调用) | 全程维护 `CONTEXT.md` / `CONTEXT-MAP.md`(仓库级领域模型/术语表),与设计文档**并列为 Discovery 双交付物** |
+| `to-issues` | Discovery 大 issue 拆分(Step 12c) | 提供 tracer-bullet / vertical-slice 拆分内核。**混合接法**:调用内核保证权威最新,plugin 保留 issue 文档格式与 AFK/HITL 约定 |
+| `improve-codebase-architecture` | `plan-writer` / `complex-code-explorer` 内嵌;拆分时按需 | 理解模块边界、职责分布、合同表面 |
+| `frontend-design` / `impeccable` / `prototype` | Discovery 按需(UI) | mockup 生成 / 界面打磨审计 / 原型 |
+
+> **为什么调用而非内嵌**:像 `to-issues` 这种决定拆分质量、进而决定代码落地完整性的核心方法论,内嵌会随上游更新悄悄漂移;直接调用保证单一权威、永远最新。
 
 ---
 
@@ -276,6 +294,18 @@ flowchart LR
 | Final Review 回流 Execution 最多 1 次 | `execution_reflux_count` |
 | 未设 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 阻断启动 | `session-start` |
 | Coordinator 是事实唯一权威,sub-agent 返回必亲验 | 主流程文本强制(非 hook) |
+
+### 5.4 Codex 评审:派发方式 + 模型分层
+
+- **派发方式(必须用对)**:Codex review 通过 `codex-companion.mjs` 脚本派发(由 `dispatch-review.sh validate/record` 校验信封 + Coordinator 用 Bash 调用),**不是** Claude Code 里装的 codex-rescue skill——用错会出上下文问题。送审的代码 diff 必须包在 `--- BEGIN/END UNTRUSTED CODE DIFF ---` 之间(防 prompt 注入)。
+- **模型分层(省 token 的另一支柱)**:按当前阶段选不同价位 / 能力的 Codex 模型——
+
+  | 评审什么 | 阶段 | 模型 |
+  |---------|------|------|
+  | **设计 / 计划**(方案对错) | discovery / plan-writing | `gpt-5.5 --effort xhigh`(更强) |
+  | **代码** | execution / final-review / bug / direct-repair / multi-pr / 各轻档子模式 | `gpt-5.4 --effort xhigh` |
+
+  > 配合 sub-agent 的模型分层(3.2 用 Sonnet vs Opus),**"什么阶段用什么 model"是整套省 token 设计的两大支柱**:贵而强的模型只用在最需要判断力的环节,其余用够用的便宜模型。
 
 ---
 
