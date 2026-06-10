@@ -2071,8 +2071,10 @@ if meta['current_stage'] not in valid_stages:
 
 print(f'META OK (stage={meta["current_stage"]})')
 PYEOF
-)
-  if [[ $? -ne 0 ]] || echo "$meta_block" | grep -q "^ERROR:"; then
+) || true
+  # || true 同 §4:META 无效时 python sys.exit(1) 会被 set -e 杀掉裸赋值(local 单独声明、
+  # 此处是裸赋值,不享 local 的屏蔽),使下面的检查成死代码。python 已打印 ERROR: 行,靠 grep 捕获。
+  if echo "$meta_block" | grep -q "^ERROR:"; then
     errors+=("META: $meta_block")
   fi
 
@@ -2093,7 +2095,9 @@ PYEOF
   # 3. §4 status self-consistency check:
   # - status=resolved must have a corresponding entry in §6 (Resolution Log)
   # - status=rca-in-progress must have a §5 entry with analyst_agent_id
-  python3 - "$target" <<'PYEOF' >> /tmp/merge_brief_verify_$$.txt 2>&1
+  # || true:python 发现 §4 不一致时 sys.exit(1),裸命令会被 set -e 当场杀掉,
+  # 使下方读临时文件、拼 BLOCKED 诊断的逻辑全成死代码(最该报警时反而静默失败)。
+  python3 - "$target" <<'PYEOF' >> /tmp/merge_brief_verify_$$.txt 2>&1 || true
 import sys, re
 
 filepath = sys.argv[1]
