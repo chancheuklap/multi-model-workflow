@@ -41,8 +41,7 @@ run_test "light route gets unlimited budget" \
 run_test "light route has commit_format_override null by default" \
   bash -c "[[ \$(jq -r '.commit_format_override // \"null\"' '$FIXTURE_DIR/workflow-state-${RUN_ID}.json') == 'null' ]]"
 
-# Verify gate_exemptions field is absent (routes manifest declares it, not state init)
-# phase_skip is deprecated (P6) and no longer written by state.sh init
+# phase_skip 已物理删除（schema 与 init 均无）；gate 豁免语义由 routes phases 数组编码
 run_test "state init does not write phase_skip field" \
   bash -c "! jq -e 'has(\"phase_skip\")' '$FIXTURE_DIR/workflow-state-${RUN_ID}.json' >/dev/null 2>&1"
 

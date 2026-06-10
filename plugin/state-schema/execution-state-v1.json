@@ -42,7 +42,7 @@
               "properties": {
                 "status": {
                   "type": "string",
-                  "enum": ["pending", "dispatched", "returned", "committed", "blocked"]
+                  "enum": ["pending", "dispatched", "returned", "committed", "blocked", "skipped"]
                 },
                 "agent_id": { "type": ["string", "null"] },
                 "commit_sha": { "type": ["string", "null"] },

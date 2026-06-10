@@ -103,9 +103,6 @@ TRANSITION_MATRIX=(
   "Coordinator:final-review:closed"
   "Coordinator:*:execution_done"
   "Coordinator:*:closed"
-  "agent-return-handler:dispatched:returned"
-  "agent-return-handler:in_progress:returned"
-  "track-execution-state:returned:committed"
 )
 
 # --- routes-v1.json reader (thin jq lookups) ---

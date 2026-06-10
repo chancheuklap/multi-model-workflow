@@ -1,6 +1,6 @@
 {
   "schema_version": "1",
-  "description": "声明式 route 流程形态清单。把'有哪些 phase、允许怎么跳、每 phase 的 gate 豁免与 budget 初始档'从 state.sh/hook 的硬编码（TRANSITION_MATRIX / cmd_init case / validate-* 字面量）抽成单一数据源。state.sh 与 hook 在运行时 jq 读取。work-item 状态机（route 无关）放 global_transitions；phase 推进（route 相关）放 routes[r].phase_transitions。",
+  "description": "声明式 route 流程形态清单。把'有哪些 phase、允许怎么跳、budget 初始档、verdict 机械路由'从 state.sh/hook 的硬编码与 SKILL.md 散文抽成单一数据源。state.sh 与 hook 在运行时 jq 读取。work-item 状态机（route 无关）放 global_transitions；phase 推进（route 相关）放 routes[r].phase_transitions；workflow-level verdict 的机械跳转放 verdict_routing（判断类分支留 SKILL.md 散文）。gate 豁免语义由 phases 数组本身编码（route 的 phases 不含某 phase 即豁免），无独立字段。",
   "global_transitions": [
     "Coordinator:pending:dispatched",
     "Coordinator:pending:in_progress",
@@ -14,10 +14,7 @@
     "Coordinator:workflow:dispatched",
     "Coordinator:*:blocked",
     "Coordinator:*:execution_done",
-    "Coordinator:*:closed",
-    "agent-return-handler:dispatched:returned",
-    "agent-return-handler:in_progress:returned",
-    "track-execution-state:returned:committed"
+    "Coordinator:*:closed"
   ],
   "routes": {
     "formal": {
@@ -32,9 +29,8 @@
         "Coordinator:execution:final-review",
         "Coordinator:final-review:closed"
       ],
-      "gate_exemptions": [],
       "dispatch_shape": { "execution": "plan-level" },
-      "budget": { "init": "pending_plan_count", "formula": "3P+12" },
+      "budget": { "init": "pending_plan_count" },
       "commit_format": null,
       "review_required": ["baseline"],
       "repair_policy": {
@@ -53,9 +49,8 @@
         "Coordinator:execution:final-review",
         "Coordinator:final-review:closed"
       ],
-      "gate_exemptions": ["discovery", "plan-review"],
       "dispatch_shape": { "execution": "plan-level" },
-      "budget": { "init": "unlimited", "formula": null },
+      "budget": { "init": "unlimited" },
       "commit_format": null,
       "review_required": ["baseline"],
       "repair_policy": {
@@ -67,27 +62,24 @@
     "direct-repair": {
       "phases": ["direct-repair"],
       "phase_transitions": [],
-      "gate_exemptions": ["discovery", "plan-writing", "plan-review", "execution", "final-review"],
       "dispatch_shape": { "direct-repair": "route-worker" },
-      "budget": { "init": "unlimited", "formula": null },
+      "budget": { "init": "unlimited" },
       "commit_format": null,
       "review_required": []
     },
     "bug-investigation": {
       "phases": ["bug-investigation"],
       "phase_transitions": [],
-      "gate_exemptions": ["discovery", "plan-writing", "plan-review", "execution", "final-review"],
       "dispatch_shape": { "bug-investigation": "route-worker" },
-      "budget": { "init": "unlimited", "formula": null },
+      "budget": { "init": "unlimited" },
       "commit_format": null,
       "review_required": []
     },
     "multi-pr-merge": {
       "phases": ["multi-pr-merge"],
       "phase_transitions": [],
-      "gate_exemptions": ["discovery", "plan-writing", "plan-review", "execution", "final-review"],
       "dispatch_shape": { "multi-pr-merge": "route-worker" },
-      "budget": { "init": "unlimited", "formula": null },
+      "budget": { "init": "unlimited" },
       "commit_format": null,
       "review_required": []
     }

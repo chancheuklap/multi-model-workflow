@@ -18,7 +18,7 @@
       "description": "每个 route 一条记录，键为 route 名（须覆盖 workflow-state-v1.json route enum 的全部值）。",
       "additionalProperties": {
         "type": "object",
-        "required": ["phases", "phase_transitions", "gate_exemptions", "dispatch_shape", "budget", "commit_format"],
+        "required": ["phases", "phase_transitions", "dispatch_shape", "budget", "commit_format"],
         "properties": {
           "repair_policy": {
             "type": "object",
@@ -49,11 +49,6 @@
             "description": "本 route 合法的 phase 推进，格式 'Coordinator:from:to'。轻档不含 workflow:discovery 即机器拦截误跳。",
             "items": { "type": "string", "pattern": "^[A-Za-z*-]+:[A-Za-z*_-]+:[A-Za-z*_-]+$" }
           },
-          "gate_exemptions": {
-            "type": "array",
-            "description": "本 route 豁免的 gate 名（取代假 phase_skip）。",
-            "items": { "type": "string", "enum": ["discovery", "plan-writing", "plan-review", "execution", "final-review"] }
-          },
           "dispatch_shape": {
             "type": "object",
             "description": "phase→派发形态。取代 validate-plan-dispatch / dispatch-route-worker / validate-pack-manifest 的 phase 字面量。",
@@ -62,9 +57,9 @@
           "budget": {
             "type": "object",
             "required": ["init"],
+            "description": "预算初始档。公式与档位常量的唯一权威源是 state.sh（REVIEW_PER_PLAN / REVIEW_FIXED_RESERVE + profile 分支），routes 不声明公式。",
             "properties": {
-              "init": { "type": "string", "enum": ["pending_plan_count", "unlimited"] },
-              "formula": { "type": ["string", "null"], "description": "仅 init=pending_plan_count 时有意义；公式参数化交由 04 分册（P4）。" }
+              "init": { "type": "string", "enum": ["pending_plan_count", "unlimited"] }
             }
           },
           "commit_format": {
