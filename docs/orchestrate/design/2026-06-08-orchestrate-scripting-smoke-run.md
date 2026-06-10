@@ -50,5 +50,5 @@ C5 Claude 直审通过（实现与测试均为 public-behavior 风格、`set -eu
 
 ## 遗留事项
 
-- **Codex 宿主侧装有 multi-model-workflow 3.6.2 旧版插件**，其 skill 路由会在 session 启动时把 orchestrate-execution 当成 Codex 自己的 skill 激活，是读旧缓存的根源。handbook 禁令已把影响压到零偏离，根治需在 Codex 侧同步升级或移除旧版插件（超出本仓库范围，需用户在 Codex 侧操作）。
+- **Codex 宿主侧曾装有 multi-model-workflow 3.6.2 旧版插件**（读旧缓存的根源），已于 2026-06-10 经用户授权彻底卸载：config.toml 插件段 + 8 个 hooks 注册段、插件缓存目录、7 个 agent toml（`~/.codex/agents/`）全部移除（config.toml 留有 `bak-mmw-uninstall-*` 备份）。卸载后 handbook 中临时加的「禁读旧缓存」禁令同步删除——根源已除，防御文本多余。
 - C 试跑门（发布后首份真实 Plan 串行试跑通过才开放并行）维持不变，本记录不替代该门。

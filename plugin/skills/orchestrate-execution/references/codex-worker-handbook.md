@@ -18,8 +18,7 @@
 | `guard-doc-edit.sh hook 强制拦截 docs/` | hook 拦不到你。**纪律照旧成立**：禁改任何 docs/ 下文件——合并前有 `git diff -- docs/` 机器检查，触碰 = 整个 Plan 被隔离拒收 |
 | `enforce-plan-commit hook 校验 commit 格式` | hook 拦不到你。**格式照旧强制**：`Pack <pack_id>: <title> — <summary>`，pack_id 形如 `1.1`（本身已含 plan 内序号，**不要再拼 plan_id 前缀**，`Pack 001.1.1:` 是错误格式）。记账靠它匹配；写错 = 记账丢失 |
 | Claude 的 agent memory / voice 规则 | 无对应物，忽略；项目约定读 worktree 内 AGENTS.md / AGENTS.override.md（你原生自动读） |
-| 启动序列 Step 2「Read execution-worker-dispatch.md」 | 该文件是 Claude executor 版规范，**已被本文件整体取代**——你正在读的就是行为规范，Step 2 视为已完成 |
-| 你侧本地安装的 `multi-model-workflow` 插件缓存（`~/.codex/plugins/cache/...`） | **禁止读取**。那是旧版本快照，其 orchestrate-* SKILL.md / execution-worker-dispatch.md 与本 handbook 矛盾（如「worker 不读 plan 文件」）。你的全部行为规范 = 本文件 + 派工 prompt，不需要任何插件内部文档补充 |
+| 启动序列 Step 2「Read execution-worker-dispatch.md」 | 该文件是 Claude executor 版规范，**已被本文件整体取代**——你正在读的就是行为规范，Step 2 视为已完成。你的全部行为规范 = 本文件 + 派工 prompt，不需要任何其他插件内部文档补充 |
 
 ## 路径纪律（一票否决项）
 
