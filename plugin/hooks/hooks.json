@@ -18,7 +18,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/guard-premature-push.sh\""
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/guard-premature-push.sh\"",
+            "timeout": 5
           },
           {
             "type": "command",
