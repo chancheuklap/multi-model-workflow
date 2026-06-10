@@ -139,7 +139,7 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
 - **版本号同步**：`plugin.json` + 根 `marketplace.json` 两处版本号必须同步更新。
 - **构建系统**：改 SKILL.md 锚点内内容须同步 `.tmpl` 模板并 `build.sh --apply`；新增共享脚本化指令片段走模板五步流程。
 - 人工门禁：本设计涉及重开「worktree-per-worker」已否决决策——已经用户明确授权重开（2026-06-09）；C 块执行者换轨 + 审查方向翻转——已经用户拍板（2026-06-10）。
-- **C 块先试跑后铺开**：C 落地后第一份真实 Plan 必须单独试跑（单 Plan、串行、人工盯产出质量与中断行为），试跑通过才开放并行 + 多 Plan；试跑不通过则 C 块回炉，A/B 成果不受影响。
+- **C 块先试跑后铺开**：C 落地后第一份真实 Plan 必须单独试跑（单 Plan、串行、人工盯产出质量与中断行为），试跑通过才开放并行 + 多 Plan；试跑不通过则 C 块回炉，A/B 成果不受影响。落地后的迷你假任务试跑记录（两轮、三个根因修复、端到端回收合并验证）见 [2026-06-08-orchestrate-scripting-smoke-run.md](2026-06-08-orchestrate-scripting-smoke-run.md)——该记录不替代本试跑门。
 - **计费结构变化**：execution 从 Claude 订阅转移到 Codex 订阅额度（用户已知悉并拍板）。
 
 ## 测试和验收
