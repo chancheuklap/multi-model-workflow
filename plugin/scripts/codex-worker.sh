@@ -164,6 +164,7 @@ $envelope_block
 - Run ID：$RUN_ID
 - 工作树（你的唯一源码写入区）：$worktree_path
 - 状态目录（绝对路径；所有 state.sh 调用前缀 STATE_BASE="$ABS_STATE_DIR"）：$ABS_STATE_DIR
+- state.sh 绝对路径（handbook 中的 state.sh / <plugin>/scripts/state.sh 一律指它）：$STATE_SH
 - plan-return 写入路径：$ABS_STATE_DIR/plan-returns/$RUN_ID/$plan_id/plan-return.json
 
 路径纪律：所有文件操作以工作树 $worktree_path 为根解析；除状态目录外不得写其外任何路径；禁改任何 docs/ 下文件（合并前有 diff 检查）。
