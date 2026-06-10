@@ -482,9 +482,13 @@ run_test "init for plan-level transition test" \
 run_test "Coordinator pending → in_progress allowed (plan-level dispatch)" \
   bash -c "bash '$STATE_SH' update --run-id '$RUN_ID10' --field '.cursor.phase' --value '\"pending\"' && bash '$STATE_SH' transition --run-id '$RUN_ID10' --actor Coordinator --from pending --to in_progress"
 
-# agent-return-handler in_progress → returned (Worker auto-return)
-run_test "agent-return-handler in_progress → returned allowed" \
+# A6: agent-return-handler actor entries removed from transition matrices —
+# that hook never calls state.sh transition (work-item state goes through
+# execution-state via plan-returns ingest). Denied now.
+run_test_expect_fail "agent-return-handler in_progress → returned DENIED (A6 dangling entry removed)" \
   bash -c "bash '$STATE_SH' update --run-id '$RUN_ID10' --field '.cursor.phase' --value '\"in_progress\"' && bash '$STATE_SH' transition --run-id '$RUN_ID10' --actor agent-return-handler --from in_progress --to returned"
+# restore cursor for the next assertion (the denied transition leaves phase untouched)
+bash "$STATE_SH" update --run-id "$RUN_ID10" --field '.cursor.phase' --value '"in_progress"' >/dev/null
 
 # Coordinator returned → review_pending (enter Plan Implementation Review)
 run_test "Coordinator returned → review_pending allowed (Plan Implementation Review)" \

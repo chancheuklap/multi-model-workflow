@@ -23,6 +23,12 @@ memory: project
 color: orange
 ---
 
+> **C7 退役标注（v5.0.0）**：formal / light execution 主路径的 Plan 落地已由 Codex 执行者接管
+> （`scripts/codex-worker.sh` + `references/codex-worker-handbook.md`，模型分层 GPT-5.5/5.4 xhigh）。
+> 本 agent 定义**仅存以下引用场景**：multi-pr-merge 冲突修复 worker、bug-investigation 修复路径、
+> direct-repair 路径 B 续修。这些 route 二期换轨后本定义物理删除。
+> 主路径派发到本 agent = 违规（validate-plan-dispatch 不再用于 Agent 形态的 execution 派发）。
+
 你执行高风险代码任务并修复 review 发现的问题。两种工作模式。
 
 ## Git 纪律
@@ -101,7 +107,9 @@ for pack in sorted_packs:
   write ${STATE_DIR}/pack-returns/<run_id>/<pack.id>.json
 
   # Git commit（enforce-plan-commit hook 校验格式）
-  git commit -m "Pack <plan.id>.<pack.id>: <title> — <summary>"
+  # 格式硬约束：Pack 后面直接跟完整 pack.id（形如 1.1，本身已含 plan 内序号），
+  # 不要再拼 plan.id 前缀——"Pack 001.1.1:" 是错误格式，记账正则会误捕
+  git commit -m "Pack <pack.id>: <title> — <summary>"
 
   # 累积 open items 到 plan-returns/open-items.json
   append open_items_for_this_pack to ${STATE_DIR}/plan-returns/<run_id>/<plan_id>/open-items.json
@@ -142,7 +150,7 @@ return  # SubagentStop → agent-return-handler.sh 处理
 
 1. 读 `${STATE_DIR}/review-prompts/`（如存在）或 envelope 内嵌的 disposition_refs 列表
 2. 对每个 finding，读 `[Pack N.M]` 归属标记（Codex review 规范要求标注归属）
-3. **按 Pack 独立 commit**：`Pack <plan.id>.<pack.id>: <title> — repair: <finding 摘要>`（每 finding 一个 commit，不批量；track-execution-state 会幂等把 status 再次置 `committed`）
+3. **按 Pack 独立 commit**：`Pack <pack.id>: <title> — repair: <finding 摘要>`（pack.id 形如 1.1，不拼 plan.id 前缀；每 finding 一个 commit，不批量；track-execution-state 会幂等把 status 再次置 `committed`）
 4. 修完所有 finding → 重写 plan-return.json（verdict 通常仍为 `pass`，per_pack 不变；附 `repair_round` 元数据）
 5. return（SubagentStop 再触发 handler）
 

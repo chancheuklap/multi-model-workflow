@@ -6,9 +6,10 @@
   "required": ["run_id", "plans"],
   "properties": {
     "run_id": { "type": "string" },
-    "current_plan_id": {
-      "type": ["string", "null"],
-      "description": "Top-level pointer to the plan currently in flight (set by state.sh execution-plan start). Surfaces what `cmd_execution_plan_start` already writes; schema now declares it."
+    "active_plan_ids": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "并行批次内同时在飞的 Plan id 列表（B3）。execution-plan start 追加、execution-plan finish 移除。compaction 恢复以此重建全部 in-flight Plan；串行模式退化为至多 1 个元素。取代旧 current_plan_id（单数指针，已删）。"
     },
     "plans": {
       "type": "object",
@@ -33,6 +34,23 @@
             "type": ["string", "null"],
             "description": "Agent identity of the plan-level worker (autonomous-mode dispatch). Tracks the worker that owns this plan end-to-end; per-pack worker IDs still live under packs[N].agent_id when needed."
           },
+          "session_id": {
+            "type": ["string", "null"],
+            "description": "Codex exec session id（C4）。修复轮 `codex exec resume <session_id>` 续会话的记账依据；Claude worker 场景为 null。"
+          },
+          "worktree_path": {
+            "type": ["string", "null"],
+            "description": "本 Plan 隔离工作树绝对路径（B2）。Coordinator 显式 `git worktree add <path> HEAD` 创建；串行模式指向 Coordinator 工作树。"
+          },
+          "branch": {
+            "type": ["string", "null"],
+            "description": "隔离工作树对应的 plan 分支名（B6 回收 `git merge --no-ff <branch>` 的对象）。"
+          },
+          "isolation_status": {
+            "type": ["string", "null"],
+            "enum": ["active", "isolated", "merged", null],
+            "description": "B5 失败隔离状态机：active=在飞；isolated=失败隔离（worktree 保留不合并，不污染他人）；merged=已回收合并。"
+          },
           "packs": {
             "type": "object",
             "description": "Keyed by pack ID (e.g., '1.1', '1.2')",
@@ -42,7 +60,7 @@
               "properties": {
                 "status": {
                   "type": "string",
-                  "enum": ["pending", "dispatched", "returned", "committed", "blocked"]
+                  "enum": ["pending", "dispatched", "returned", "committed", "blocked", "skipped"]
                 },
                 "agent_id": { "type": ["string", "null"] },
                 "commit_sha": { "type": ["string", "null"] },

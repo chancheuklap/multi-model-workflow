@@ -73,7 +73,7 @@ Bad:  "执行进展顺利，各模块按计划推进中。"
 
 # Orchestrate Execution
 
-Plan Review 通过 → 逐 Plan 串行循环 → 每个 Plan 派 1 个自治 Worker（Worker 内部按 Dependencies 跑完该 Plan 全部 Pack，每 Pack 独立 commit）+ Git Checkpoint → Plan Implementation Review → 修复 → Release Gate → 循环 → 全部 Plan 通过 → Final Review。
+Plan Review 通过 → `dep-batches` 算并行批次 → **批次内全部 Plan 并行派发**（每 Plan：隔离 worktree + 1 个 Codex 自治 Worker session，按 Dependencies 跑完全部 Pack，每 Pack 独立 commit）→ 返回事件先到先审（Claude Plan Implementation Review）→ 修复（resume 续会话）→ Release Gate → 批次全员终态后按依赖序回收合并 → 下一批次 → 全部 Plan 通过 → Final Review。单 Plan 自动退化串行（仍走 worktree，零额外机制）。
 
 **Only stop for（execution 专属，通用条目如 BLOCKED 见上方 preamble）：**
 - Worker 返回 blocked（业务阻塞才停，技术阻塞自行处理）
@@ -82,7 +82,8 @@ Plan Review 通过 → 逐 Plan 串行循环 → 每个 Plan 派 1 个自治 Wor
 
 **Never stop for：**
 - Pack 之间（连续执行，不暂停汇报）
-- Plan 之间（串行推进，不暂停汇报）
+- Plan 之间 / 批次之间（连续推进，不暂停汇报）
+- 某并行 Plan 失败（自动隔离，其余继续——隔离本身不停，只在隔离 Plan 也修不动时按 BLOCKED 停）
 - Worker 返回 needs repair（进入修复分流）
 - Review findings 需要 disposition（Coordinator 逐条处理）
 
@@ -109,39 +110,69 @@ Plan Review 通过 → 逐 Plan 串行循环 → 每个 Plan 派 1 个自治 Wor
 
 ---
 
-## Steps 4-9：Plan 执行 + Review 循环（per plan）
+## Steps 4-9：批次并行执行 + Review 循环（B7 事件驱动）
 
-> **流程位置**：per-plan 循环 · 通过 → Step 13；needs repair → Step 10
+> **流程位置**：批次派发 + 返回事件处理双层结构 · 单 Plan 通过 → Step 13；needs repair → Step 10
 
-### FOR EACH Plan（按 Blocked by 排序）
+### Step 4：批次计算 + 模型档位
 
-#### Steps 4-7c：派发 1 个自治 Worker 执行整个 Plan
+**批次**（B1）：
 
-##### Step 4：选择 Worker 类型
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" dep-batches \
+  --run-id "<run_id>" --plans-dir "docs/orchestrate/plans/<slug>"
+# → {"levels": [["001","003"],["002"]], ...}：同 level 互不依赖、全部并行；level 间串行
+```
 
-整个 Plan 派 **1 个** Worker（Worker 内部按 Dependencies 串行跑完所有 Pack；Coordinator 不逐 Pack 派发）。Worker 类型由 **Risk** 和 **Context** 两个维度共同决定——**任一维度触发升档，即升到 `complex-pack-executor`（Opus 4.8 1M，订阅内含、不计 Extra Usage）**。
+**模型档位**（C 块拍板：执行者 = Codex，分两档；Coordinator 按 Plan 内最高 risk flags 判）：
 
-**Risk 维度**（取 Plan 内最高 risk flags）：
-
-| Risk flags（取 Plan 内最高） | Agent | 模型 | TDD |
+| Risk flags（取 Plan 内最高） | model-tier | 模型 | TDD |
 | --- | --- | --- | --- |
-| `trivial`（配置常量 / 文档更新 / 样式调整） | `pack-executor` | Sonnet | 宽松（验证通过即可，不强制红-绿循环） |
-| `normal` | `pack-executor` | Sonnet | 严格 |
-| `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex-pack-executor` | Opus 4.8 1M | 严格 |
+| `trivial` / `normal` | `standard` | GPT-5.4 xhigh | trivial 宽松；normal 严格 |
+| `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex` | GPT-5.5 xhigh | 严格 |
 
-**Context 维度**（升档不降档）：`pack-executor` 是 Sonnet **200K** 窗口，没有 1M，遇超大单次输入会硬顶截断。即使 risk 仅 trivial/normal，只要 Plan 命中下列任一上下文体量信号，也升到 `complex-pack-executor`（1M 窗口）——
+（旧的 Sonnet 200K 上下文升档维度已随 Claude executor 退出主路径而废止；Codex 两档同窗口。）
 
-- 任一 owned/touched 文件过大（≈ ≥ 1500 行，或单文件 ≈ ≥ 50K token）；
-- owned/touched 文件数量多（≈ ≥ 8 个）；
-- Pack 需读入大体量产物：生成代码 / fixtures / 快照 / 日志 / lockfile / migration dump / 大 JSON·CSV 数据；
-- Plan 文档本身 + 其引用的 spec/mockup 体量大。
+### Step 4b：FOR EACH 批次（level 顺序）——批内每个 Plan 依次做三件事后并行起飞
 
-判断不准时**按升档处理**（宁可给 1M，不让 Sonnet 中途截断）。阈值是启发式，可按项目调整。Sonnet 档只接「真正塞得进 200K」的活。
+```bash
+# 1) 隔离工作树（B2 硬约束：显式以当前 HEAD 为基；禁用 harness 自动 worktree）
+git worktree add -b "plan-<NNN>" ".claude/worktrees/plan-<NNN>" HEAD
+
+# 2) 状态登记（start_commit = 派发前 HEAD；写 worktree/branch/active_plan_ids）
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" execution-plan start \
+  --run-id "<run_id>" --plan-id <NNN> --start-commit "$(git rev-parse HEAD)" \
+  --worktree-path "$(pwd)/.claude/worktrees/plan-<NNN>" --branch "plan-<NNN>"
+```
+
+3) 派发——**唯一通道是 `codex-worker.sh`**（封装 envelope 生成→dispatch 校验→per-plan marker→沙箱参数→模型分层→session 记账→plan-return ingest→NEXT 输出；不得手拼 `codex exec`）。每个 Plan 一条 Bash 调用，`run_in_background: true`：
+
+```
+Bash({
+  command: "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/codex-worker.sh\" dispatch --run-id <run_id> --plan-id <NNN> --plan-path \"$(pwd)/docs/orchestrate/plans/<slug>/<NNN>-*.md\" --worktree-path \"$(pwd)/.claude/worktrees/plan-<NNN>\" --branch plan-<NNN> --model-tier <standard|complex>",
+  run_in_background: true
+})
+```
+
+批内全部 Plan 派发完成后进入**返回处理态**（Step 6）。单 Plan 批次 = 同样流程跑一个，自动退化。
 
 <!-- BEGIN: control-envelope -->
-## DISPATCH_ENVELOPE (required prefix for every Agent dispatch)
+## DISPATCH_ENVELOPE (required prefix for every dispatch)
 
-Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin its `prompt` with:
+Every dispatch（`Agent({...})`、`codex exec` 派工、`SendMessage({...})` 修复）的 prompt 必须以 DISPATCH_ENVELOPE 块开头。**不要手拼**——用生成器（A3，与 `hooks/lib/parse-envelope.sh` 校验对称、生成时自检）：
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" envelope build \
+  --run-id "<run_id>" --phase "<phase>" --agent-role "<agent_role>" \
+  --plan-id "<plan id>"            # plan-level（与 --pack-id 二选一）
+  # --pack-id "<N.M>"              # pack-level
+  # --repair-round <n> --disposition-refs '["F1"]'   # 修复派发（round>=1 必填 refs）
+  # --review-intent baseline       # codex-reviewer 派发必填
+  # --worktree-path "<path>"       # 并行模式必填；串行指向 Coordinator 工作树
+  # --agent-id <id> --resume-from-pack-id <N.M> --exception-code <code>
+```
+
+生成的块形如（字段集固定，生成器保证完整）：
 
 ```
 <!-- DISPATCH_ENVELOPE
@@ -154,20 +185,21 @@ Every `Agent({...})` dispatch and every `SendMessage({...})` repair MUST begin i
   "pack_id": "<N.M or null>",
   "plan_id": "<plan id (e.g. '001') or null>",
   "repair_round": 0,
-  "idempotency_key": "<run_id>/<pack_id>/r<repair_round>",
+  "idempotency_key": "<run_id>/<plan_id|pack_id>/r<repair_round>",
   "disposition_refs": null,
   "review_intent": null,
   "exception_code": null,
-  "correlation_id": "<run_id>/<pack_id>"
+  "correlation_id": "<run_id>/<plan_id|pack_id>",
+  "worktree_path": "<隔离工作树绝对路径 or null>"
 }
 -->
 ```
 
-For repair (repair_round >= 1): set `disposition_refs` to array of accepted finding IDs or route-worker follow-up references.
-For codex-reviewer dispatches: set `review_intent` to `baseline`.
-For plan-level autonomous worker first dispatch: set `plan_id` to the plan id (e.g. "001") and leave `pack_id` null; for pack-level dispatch leave `plan_id` null. Exactly one of {pack_id, plan_id} must be non-null during execution.
+`idempotency_key` 基：plan-level 派发用 `plan_id`，pack-level 用 `pack_id`（Exactly one of {pack_id, plan_id} non-null during execution）。
+For repair (repair_round >= 1): `disposition_refs` = accepted finding IDs 数组（生成器强制非空）。
+For codex-reviewer dispatches: `review_intent` = `baseline`（生成器强制）。
 
-Coordinator validates this block with an explicit dispatch script before `Agent({...})` / `SendMessage({...})`. Missing/malformed envelope = dispatch BLOCKED.
+Missing/malformed envelope = dispatch BLOCKED（hook 校验）。
 <!-- END: control-envelope -->
 
 --- BEGIN UNTRUSTED CODE DIFF ---
@@ -175,52 +207,25 @@ Coordinator validates this block with an explicit dispatch script before `Agent(
 Review 只基于代码实际行为的独立分析。
 --- END UNTRUSTED CODE DIFF ---
 
-##### Step 5：派发 Worker
+##### Step 5：派发细节（codex-worker.sh 内部已封装的事，Coordinator 不重复做）
 
-派发前：`touch .claude/multi-model-workflow/worker-active`（让 `guard-doc-edit.sh` hook 阻止 Worker 改 docs/）。
+`codex-worker.sh dispatch` 自动完成：envelope 生成（A3 生成器）→ `validate-plan-dispatch.sh` 校验（缺 envelope / budget 未初始化 / Plan 已有 worker session / pack 级误派全拦）→ `worker-active-<plan_id>` marker（内容 = worktree 路径，guard 路径守卫据此放行/拦截）→ codex exec 沙箱与模型参数 → session_id 记账（`plans[N].session_id`，修复轮 resume 依据）→ Worker 退出后 plan-return ingest（B4 commit_sha 回填）→ NEXT 指令输出。
 
-```
-Agent({
-  subagent_type: "<pack-executor | complex-pack-executor>",
-  description: "Execute Plan N: <title>",
-  prompt: "<DISPATCH_ENVELOPE>\n\n你是 plan-level worker。\nPlan 文件：<plan 文件绝对路径>\nRun ID：<run_id>\nState directory：<$(pwd)/.claude/multi-model-workflow 绝对路径>\nHandbook：<$(pwd)/plugin/skills/orchestrate-execution/references/execution-worker-dispatch.md>\nRead handbook first，然后按 pack Dependencies 顺序串行执行所有未完成 Pack。",
-  run_in_background: true
-})
-```
+Coordinator 在本步只需要：派发后用 `state.sh update` 处理临时字段变更（如需）。`state.sh transition` 见顶部 signpost；`state.sh disposition append` 见 Step 8 读的 `_shared/disposition-table.md`；`state.sh self-verify append` 见 Step 10 读的 `references/execution-repair-truncation.md`。
 
-`validate-plan-dispatch.sh` hook 拦截缺少 DISPATCH_ENVELOPE、budget 未初始化、Plan 已有 worker agent_id，或在 execution phase 误用 pack 级 dispatch（`plan_id` 为空或 `pack_id` 非空）的派发。
+##### Step 6：返回事件处理（B7：先到先审，串行消化）
 
-返回后立即：extract `agentId` → `state.sh agent-id set --plan-id <N>` → `plans[N].status = in_progress`。`run_in_background: true` 是必需的（否则 agentId 丢失，repair path BLOCKED）。修复时 SendMessage resume 原 worker，不得新建 Agent dispatch。
-
-**State 操作参考**（通过 `state.sh` 执行所有状态变更）。本步直接用到的两条：
-
-**Agent-ID Set**（Worker 派发后记录 agentId，Plan-level）：
-```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" agent-id set \
-  --run-id "<run_id>" --plan-id <N> --agent-id <agentId>
-```
-
-**Update**（任意字段更新，各步通用）：
-```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" update \
-  --run-id "<run_id>" --field '<jq-path>' --value '<json-value>'
-```
-
-其余命令的完整语法在使用它的步骤所 Read 的文件里，不在此重复：`state.sh transition` 见顶部 signpost；`state.sh disposition append`（含 `--evidence` 对 accepted 必填且非空）见 Step 8 读的 `_shared/disposition-table.md`；`state.sh self-verify append` 见 Step 10 读的 `references/execution-repair-truncation.md`。
-
-##### Step 6：接收 Worker 返回
-
-`agent-return-handler.sh`（PostToolUse Agent hook）自动提取 `plan_id`、读 `plan-returns/<run_id>/<plan_id>/plan-return.json`（`state.sh plan-returns ingest` 写回 per_pack + worker_verdict）并通过 `additionalContext` 输出 `NEXT` 指令。
+每个后台 Bash 完成通知到达 = 一个 Worker 返回事件。任务输出尾部已含 ingest 结果 + `NEXT` 指令。**处理纪律**：返回按到达顺序逐个消化（处理期间其余 Worker 继续跑，不受影响）；多个返回排队时不并发处理、不丢弃；当前返回走完 Step 6a→6b→7→…→14 的单 Plan 流程后，再取下一个排队返回。批次内全部 Plan 终态（completed / isolated）后 → Step 14b 回收。
 
 Worker 返回的是 **plan-level verdict**（见 `worker-loop` 段枚举），不是逐 Pack verdict：
 
 | Plan Worker Verdict | Coordinator 动作 |
 | --- | --- |
-| `pass` / `partial-pass` | 进 Step 6a → 6b → Step 7；`partial-pass` 的 blocked Pack 在 Step 6a 处置或 SendMessage 续修 |
-| `need-fresh-worker` | context 累积触发：已完成 Pack 均已 committed，派**新 Agent**（非 SendMessage）续做剩余 Pack（envelope 带 `resume_from_pack_id`） |
+| `pass` / `partial-pass` | 进 Step 6a → 6b → Step 7；`partial-pass` 的 blocked Pack 在 Step 6a 处置或 resume 续修 |
+| `need-fresh-worker` | session 累积触发：已完成 Pack 均已 committed，`codex-worker.sh dispatch` 开**新 session**（带 `--resume-from-pack-id`），新 worker 读 execution-state 自动跳过 committed |
 | `needs-plan-revision` | Plan 文档缺必备字段 → 返回 `NEEDS_PLAN_REVISION`，交 orchestrate-plan-writing 修复 |
-| `needs-context` | SendMessage 补充上下文；继续 |
-| `blocked` | `plans[N].status = blocked` → Plan 停止 → 返回 `BLOCKED` |
+| `needs-context` | 补齐上下文（Contract anchors / Mockup specs / verification）后 `codex-worker.sh resume` 续会话 |
+| `blocked` | **失败隔离（B5）**：`state.sh execution-plan finish --plan-id N --status isolated`——worktree 保留不合并、其余在飞 Plan 不受影响、不回滚任何已通过 Plan；视情况待批次结束后基于最新主干 HEAD 重建 worktree 单独串行重试；业务措辞按下方双层报告 |
 
 **BLOCKED 双层报告**（发给用户）：
 
@@ -240,11 +245,10 @@ Plan 完成后统一处置所有 Pack 的 `### Open Items`（不在单 Pack 返�
 | `[bug]` | 影响当前功能 → 当前 repair；否则 → 开 GitHub issue |
 | 无标记观察 | 记录，不开 issue |
 
-###### Step 6b：Git Checkpoint
+###### Step 6b：Git Checkpoint（worktree 模式）
 
-1. `rm -f .claude/multi-model-workflow/worker-active`
-2. `git log --oneline -5` 确认 Worker Pack commit 在分支上
-3. `git add <plan doc>` + `git commit -m "plans: Plan N checkboxes updated"`（`track-execution-state.sh` hook 自动更新 `end_commit`）
+1. `git log --oneline -5 plan-<NNN>` 确认 Worker 的 Pack commit 都在 plan 分支上（marker 此时**不删**——Plan 终态后由回收/隔离步骤清理）
+2. 抽验记账：`jq '.plans["<NNN>"].packs' execution-state` 的 commit_sha 与 `git log plan-<NNN>` 实际 SHA 一致（ingest 回填的是 Worker 上报值，B4）
 
 → Step 7（Plan Implementation Review）。
 
@@ -252,11 +256,14 @@ Plan 完成后统一处置所有 Pack 的 `### Open Items`（不在单 Pack 返�
 
 **Worker / RCA 返回事实校验**：Coordinator 收到 pack-executor / complex-pack-executor / root-cause-analyst 返回的 commit hash、文件路径、行号、grep 结果、Pack 状态等事实，必须抽验（至少 1 个事实 grep / Read / git show）后再进入 Plan Implementation Review 或下一 Pack 派发。事实失实 -> 重派或 Coordinator 亲查。
 
-#### Step 7：Plan Implementation Review（所有 Pack 完成后）
+#### Step 7：Plan Implementation Review（所有 Pack 完成后）——**Claude 审（C5 翻转）**
 
-**Read** `references/execution-review-dispatch.md` 获取完整 review prompt 结构（含 Review 分段规则、Cross-Pack Coherence、Neighbor interface contracts）和 reviewer 自跑命令列表。
+写代码的是 Codex → 按「写审异家」红线，本 review 由 **Claude（Coordinator）直审**，不派 Codex 审自己写的代码。
 
-**Read** `plugin/skills/_shared/review-dispatch.md` 并按其格式派发 Codex review。
+1. **Read** `references/execution-review-dispatch.md` 获取 review 维度结构（Review 分段规则、Cross-Pack Coherence、Neighbor interface contracts）和自跑命令列表——**维度与标准照用，执行者从 Codex reviewer 换成你自己**。
+2. Review 对象 = `start_commit..plan-<NNN>` 分支 diff（在 worktree 或主树 `git diff start..branch` 均可），逐 Pack 对照 acceptance criteria + verification commands 自跑验证，按既有 finding 格式（含 `[Pack N.M]` 归属标记）产出 findings。
+3. 记账：review 完成后 `state.sh budget increment-review --run-id <run_id> --gate plan-impl-review-<NNN>`（Claude 审不经 codex hook，预算手动递增）。
+4. 文档类产物（design / plan）的审查仍走 Codex，不受本翻转影响。
 
 Coordinator 写入 execution state：`plans[N].status = review_pending`。
 
@@ -274,7 +281,15 @@ Coordinator 写入 execution state：`plans[N].status = review_pending`。
 
 ## Steps 10-12：修复分流 + 截断（仅 needs repair 时）
 
-**Read** `references/execution-repair-truncation.md` 并严格执行（Affected packs 归属 → 路径 A/B/C → Targeted Re-Review → 最多 3 轮 → RCA 截断）。修复通过后 → Step 13（Release Gate，条件触发）→ Step 14。读完回到 Step 13。
+**Read** `references/execution-repair-truncation.md` 并严格执行（Affected packs 归属 → 路径 A/B/C → Targeted Re-Review → 最多 3 轮 → RCA 截断）。**Codex 换轨适配**：reference 中「SendMessage resume 原 worker」一律换载体为——
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/codex-worker.sh" resume \
+  --run-id "<run_id>" --plan-id <NNN> --repair-round <n> \
+  --disposition-refs '["<finding-id>", ...]' --instructions-file <修复指令文件>
+```
+
+（续原 session、disposition_refs 校验、修完自动 re-ingest + NEXT 输出均由脚本完成；Targeted Re-Review 仍按 reference 流程，reviewer = Claude，C5。）修复通过后 → Step 13（Release Gate，条件触发）→ Step 14。读完回到 Step 13。
 
 ## Step 13：Early Release Gate（条件触发）
 
@@ -284,18 +299,40 @@ Coordinator 写入 execution state：`plans[N].status = review_pending`。
 
 ### Step 14：标记 Plan 完成 + 推进
 
-**Coordinator checkbox toggle 权威规则**（D4 source-of-truth）：
-Plan Implementation Review pass 后，Coordinator Edit plan 文档勾选 checkbox 的 source-of-truth 是 `plan-return.per_pack[*]` where `status == committed`：
-1. Read `.claude/multi-model-workflow/plan-returns/<run_id>/<plan_id>/plan-return.json`
-2. 对每个 `per_pack[i].status == "committed"` 的 Pack，按 Pack ID 精确匹配 `docs/orchestrate/plans/<slug>/<plan-file>.md` 中 `- [ ] **Pack N.M**` 行，Edit toggle 为 `- [x] **Pack N.M**`
-3. `status` 不是 `committed`（pending / in_progress / blocked / skipped）的 Pack 不勾选
+**Checkbox toggle（A2 已脚本化，source-of-truth = plan-return per_pack committed，D4）**——Plan Implementation Review pass 后：
 
-Coordinator 写入 execution state：
-- `plans[N].status = completed`
-- `plans[N].release_gate_triggered = true/false`
-- `current_plan_id` 更新为下一个 Plan 编号
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" checkbox toggle \
+  --run-id "<run_id>" --plan-id <NNN> \
+  --plan-file "docs/orchestrate/plans/<slug>/<plan-file>.md"
+# committed 勾选 / 非 committed 不勾 / Pack ID 精确匹配，脚本保证；
+# 注意：须在该 Plan 的 marker 清理后执行（guard 飞行期间拦 docs/）——
+# 正常时序是 Step 14b 回收（recycle 清 marker）后统一勾选并 commit plan doc
+```
 
-回到 Steps 4-9 执行下一个 Plan。
+**状态收口**：
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" execution-plan finish \
+  --run-id "<run_id>" --plan-id <NNN> --status completed
+# plans[N].status=completed + 从 active_plan_ids 摘除
+```
+
+`plans[N].release_gate_triggered` 用 `state.sh update` 写。该 Plan 到终态；**继续处理下一个排队返回**（Step 6），批次内还有在飞 Plan 时不进入回收。
+
+### Step 14b：批次回收（批内全部 Plan 终态后，按依赖序逐个）
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/recycle-plan.sh" --run-id "<run_id>" --plan-id <NNN>
+# 内含：C6 docs 守卫（plan 分支触碰 docs/ → 拒收标 isolated）→ git merge --no-ff
+# → finish --status merged → worktree/branch/marker 清理
+```
+
+- 合并冲突 → 脚本中止合并并退出：派 explorer 做冲突发现，系统性冲突走 `root-cause-analyst`（借鉴 multi-pr-merge 方法论，不套整套）；解决后重跑回收。
+- isolated 的 Plan 不回收：批次结束后裁决——基于合并后的最新 HEAD 重建 worktree 单独串行重试，或 BLOCKED 报告用户。
+- 全部合并后：执行各 Plan 的 checkbox toggle + `git add <plan docs> && git commit -m "plans: batch <L> checkboxes updated"`。
+
+回收完成 → 下一批次（Step 4b）；全部批次完成 → Steps 15-16。
 
 ### Backflow 路由
 

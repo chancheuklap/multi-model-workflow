@@ -1,6 +1,6 @@
 ---
 name: orchestrate-final-review
-description: "EXECUTION_PASSED 后使用。增强型 Codex 审查（regression + intent coverage + cross-plan integration + code-level）→ Disposition → 修复 → 遗留清扫 → Release Gate → 业务汇报。产出：verdict + business report。"
+description: "EXECUTION_PASSED 后使用。增强型终审（regression + intent coverage + cross-plan integration + code-level；C5 写审异家——代码由 Codex 落地，终审由 Claude 直审）→ Disposition → 修复 → 遗留清扫 → Release Gate → 业务汇报。产出：verdict + business report。"
 ---
 
 <!-- BEGIN: signpost -->
@@ -106,7 +106,7 @@ Bad:  "经过全面审查，代码质量达到了预期标准。"
 
 ## Steps 4-5：增强型审查派发
 
-**Read** `references/final-review-angles.md`（与 Plan Implementation Review 分工 + 2 baseline Codex dispatch templates）。派发后进入 Steps 6-8。
+**Read** `references/final-review-angles.md`（与 Plan Implementation Review 分工 + 2 个 baseline review 模板）。**C5 翻转**：execution 主路径代码由 Codex 落地 → 本 phase 的代码审查由 **Claude（Coordinator）直审**——模板中的审查维度 / 自跑命令 / finding 格式照用，执行者从 Codex dispatch 换成你自己；每完成一个 review 用 `state.sh budget increment-review` 手动记账（Claude 审不经 codex hook）。设计/计划文档面的审查仍派 Codex。完成后进入 Steps 6-8。
 
 ## Steps 6-8：接收 + Disposition
 

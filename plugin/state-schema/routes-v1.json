@@ -1,6 +1,6 @@
 {
   "schema_version": "1",
-  "description": "声明式 route 流程形态清单。把'有哪些 phase、允许怎么跳、每 phase 的 gate 豁免与 budget 初始档'从 state.sh/hook 的硬编码（TRANSITION_MATRIX / cmd_init case / validate-* 字面量）抽成单一数据源。state.sh 与 hook 在运行时 jq 读取。work-item 状态机（route 无关）放 global_transitions；phase 推进（route 相关）放 routes[r].phase_transitions。",
+  "description": "声明式 route 流程形态清单。把'有哪些 phase、允许怎么跳、budget 初始档、verdict 机械路由'从 state.sh/hook 的硬编码与 SKILL.md 散文抽成单一数据源。state.sh 与 hook 在运行时 jq 读取。work-item 状态机（route 无关）放 global_transitions；phase 推进（route 相关）放 routes[r].phase_transitions；workflow-level verdict 的机械跳转放 verdict_routing（判断类分支留 SKILL.md 散文）。gate 豁免语义由 phases 数组本身编码（route 的 phases 不含某 phase 即豁免），无独立字段。",
   "global_transitions": [
     "Coordinator:pending:dispatched",
     "Coordinator:pending:in_progress",
@@ -14,11 +14,55 @@
     "Coordinator:workflow:dispatched",
     "Coordinator:*:blocked",
     "Coordinator:*:execution_done",
-    "Coordinator:*:closed",
-    "agent-return-handler:dispatched:returned",
-    "agent-return-handler:in_progress:returned",
-    "track-execution-state:returned:committed"
+    "Coordinator:*:closed"
   ],
+  "verdict_routing": {
+    "discovery": {
+      "DISCOVERY_READY": { "action": "goto", "target": "plan-writing", "judgment": false, "note": "缺 issue hierarchy → 先重进 discovery Step 12 大 issue 拆分再 plan-writing" },
+      "DISCOVERY_NOT_NEEDED": { "action": "goto", "target": "plan-writing", "judgment": false, "note": "同样先检查 issue hierarchy" },
+      "READY_FOR_REPAIR": { "action": "goto", "target": "direct-repair", "judgment": false, "note": "已批准 design 下的实现偏离 → Direct Repair" },
+      "NEEDS_USER_DECISION": { "action": "ask-user", "target": "discovery", "judgment": true, "note": "一次只问一个，回答后重进 discovery" },
+      "BLOCKED": { "action": "report-user", "target": null, "judgment": true, "note": "业务措辞由散文组织" }
+    },
+    "plan-writing": {
+      "PLAN_CREATED": { "action": "goto", "target": "execution", "judgment": false, "note": "先确认 workflow-state budget 已初始化" },
+      "NEEDS_DISCOVERY": { "action": "goto", "target": "discovery", "judgment": false },
+      "NEEDS_DESIGN_REVIEW": { "action": "goto", "target": "discovery", "judgment": false, "note": "直入 discovery 的 Design Review 步" },
+      "NEEDS_ISSUES": { "action": "candidates", "target": null, "judgment": true, "note": "判缺件类型：缺大 issue → discovery 大 issue 拆分；缺小 issue → 重派 plan-writer" },
+      "NEEDS_TRIAGE": { "action": "invoke-skill", "target": "triage", "judgment": false, "note": "完成后重进 plan-writing" },
+      "NEEDS_DIAGNOSIS": { "action": "invoke-skill", "target": "diagnose", "judgment": false, "note": "结论写回后重进 plan-writing" },
+      "NEEDS_DECISION": { "action": "ask-user", "target": "plan-writing", "judgment": true },
+      "NEEDS_ARCHITECTURE": { "action": "invoke-skill", "target": "improve-codebase-architecture", "judgment": false, "note": "结论写回后重进 plan-writing" },
+      "NEEDS_CONTEXT": { "action": "candidates", "target": null, "judgment": true, "note": "窄事实 → code-explorer；模块边界 → improve-codebase-architecture" },
+      "BLOCKED": { "action": "report-user", "target": null, "judgment": true }
+    },
+    "execution": {
+      "EXECUTION_PASSED": { "action": "goto", "target": "final-review", "judgment": false },
+      "NEEDS_DISCOVERY": { "action": "goto", "target": "discovery", "judgment": false },
+      "NEEDS_PLAN_REVISION": { "action": "goto", "target": "plan-writing", "judgment": false },
+      "NEEDS_ARCHITECTURE": { "action": "candidates", "target": null, "judgment": true, "note": "只影响当前 pack → 回 execution；改变 plan → 回 plan-writing" },
+      "BLOCKED": { "action": "report-user", "target": null, "judgment": true }
+    },
+    "final-review": {
+      "FINAL_REVIEW_PASSED": { "action": "goto", "target": "closing", "judgment": false },
+      "FINAL_REVIEW_PASSED_WITH_RELEASE_RISK": { "action": "goto", "target": "closing", "judgment": false, "note": "release review 已内部处理" },
+      "NEEDS_EXECUTION": { "action": "reflux-counter", "target": "execution", "judgment": false, "note": "execution_reflux_count 0→递增回 execution；≥1→report-user" },
+      "NEEDS_DISCOVERY": { "action": "goto", "target": "discovery", "judgment": false },
+      "NEEDS_PLAN_REVISION": { "action": "goto", "target": "plan-writing", "judgment": false },
+      "BLOCKED": { "action": "report-user", "target": null, "judgment": true }
+    },
+    "multi-pr-merge": {
+      "MERGE_COMPLETE": { "action": "goto", "target": "closing", "judgment": false },
+      "NEEDS_DISCOVERY": { "action": "goto", "target": "discovery", "judgment": false, "note": "analyst 发现设计/意图冲突" },
+      "NEEDS_USER_DECISION": { "action": "ask-user", "target": "multi-pr-merge", "judgment": true, "note": "拿到决策后重新进入" },
+      "BLOCKED": { "action": "report-user", "target": null, "judgment": true }
+    },
+    "direct-repair": {
+      "pass": { "action": "goto", "target": "closing", "judgment": false },
+      "needs repair": { "action": "candidates", "target": null, "judgment": true, "note": "路径 A（≤2 文件直修）或路径 B（worker 续修）→ baseline re-review → 最多 2 轮" },
+      "blocked": { "action": "report-user", "target": null, "judgment": true }
+    }
+  },
   "routes": {
     "formal": {
       "phases": ["discovery", "plan-writing", "execution", "final-review"],
@@ -32,9 +76,8 @@
         "Coordinator:execution:final-review",
         "Coordinator:final-review:closed"
       ],
-      "gate_exemptions": [],
       "dispatch_shape": { "execution": "plan-level" },
-      "budget": { "init": "pending_plan_count", "formula": "3P+12" },
+      "budget": { "init": "pending_plan_count" },
       "commit_format": null,
       "review_required": ["baseline"],
       "repair_policy": {
@@ -53,9 +96,8 @@
         "Coordinator:execution:final-review",
         "Coordinator:final-review:closed"
       ],
-      "gate_exemptions": ["discovery", "plan-review"],
       "dispatch_shape": { "execution": "plan-level" },
-      "budget": { "init": "unlimited", "formula": null },
+      "budget": { "init": "unlimited" },
       "commit_format": null,
       "review_required": ["baseline"],
       "repair_policy": {
@@ -67,27 +109,24 @@
     "direct-repair": {
       "phases": ["direct-repair"],
       "phase_transitions": [],
-      "gate_exemptions": ["discovery", "plan-writing", "plan-review", "execution", "final-review"],
       "dispatch_shape": { "direct-repair": "route-worker" },
-      "budget": { "init": "unlimited", "formula": null },
+      "budget": { "init": "unlimited" },
       "commit_format": null,
       "review_required": []
     },
     "bug-investigation": {
       "phases": ["bug-investigation"],
       "phase_transitions": [],
-      "gate_exemptions": ["discovery", "plan-writing", "plan-review", "execution", "final-review"],
       "dispatch_shape": { "bug-investigation": "route-worker" },
-      "budget": { "init": "unlimited", "formula": null },
+      "budget": { "init": "unlimited" },
       "commit_format": null,
       "review_required": []
     },
     "multi-pr-merge": {
       "phases": ["multi-pr-merge"],
       "phase_transitions": [],
-      "gate_exemptions": ["discovery", "plan-writing", "plan-review", "execution", "final-review"],
       "dispatch_shape": { "multi-pr-merge": "route-worker" },
-      "budget": { "init": "unlimited", "formula": null },
+      "budget": { "init": "unlimited" },
       "commit_format": null,
       "review_required": []
     }

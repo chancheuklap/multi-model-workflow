@@ -36,15 +36,19 @@ done
 run_test "light sub-form pre-placed" bash -c "jq -e '.routes.light' '$ROUTES'"
 run_test "light has no workflow:discovery transition (机器拦误跳前提)" \
   bash -c "! jq -e '.routes.light.phase_transitions | index(\"Coordinator:workflow:discovery\")' '$ROUTES'"
-run_test "light exempts discovery+plan-review gates" \
-  bash -c "[[ \$(jq -r '.routes.light.gate_exemptions | sort | join(\",\")' '$ROUTES') == 'discovery,plan-review' ]]"
+run_test "light gate exemption encoded by phases (no discovery in phases)" \
+  bash -c "! jq -e '.routes.light.phases | index(\"discovery\")' '$ROUTES'"
+run_test "gate_exemptions field physically removed from all routes" \
+  bash -c "[[ \$(jq -r '[.routes[] | has(\"gate_exemptions\")] | any' '$ROUTES') == 'false' ]]"
 
 # --- 每条 route 记录字段完整 + budget.init 合法 ---
 for r in $(jq -r '.routes | keys[]' "$ROUTES"); do
   run_test "route '$r' has all required fields" \
-    bash -c "jq -e --arg r '$r' '.routes[\$r] | has(\"phases\") and has(\"phase_transitions\") and has(\"gate_exemptions\") and has(\"dispatch_shape\") and has(\"budget\") and has(\"commit_format\")' '$ROUTES'"
+    bash -c "jq -e --arg r '$r' '.routes[\$r] | has(\"phases\") and has(\"phase_transitions\") and has(\"dispatch_shape\") and has(\"budget\") and has(\"commit_format\")' '$ROUTES'"
   run_test "route '$r' budget.init valid" \
     bash -c "[[ \$(jq -r --arg r '$r' '.routes[\$r].budget.init' '$ROUTES') =~ ^(pending_plan_count|unlimited)\$ ]]"
+  run_test "route '$r' budget has no formula string (state.sh constants are the single source)" \
+    bash -c "! jq -e --arg r '$r' '.routes[\$r].budget | has(\"formula\")' '$ROUTES' >/dev/null 2>&1 || [[ \$(jq -r --arg r '$r' '.routes[\$r].budget | has(\"formula\")' '$ROUTES') == 'false' ]]"
 done
 
 # --- budget 一致性：unlimited-init routes vs formal/light pending_plan_count ---
@@ -84,14 +88,20 @@ OLD_WORK_ITEM=(
   "Coordinator:review_pending:needs_repair"
   "Coordinator:returned:repairing"
   "Coordinator:repairing:returned"
-  "agent-return-handler:dispatched:returned"
-  "agent-return-handler:in_progress:returned"
-  "track-execution-state:returned:committed"
 )
 GLOBALS=$(jq -r '.global_transitions[]' "$ROUTES")
 for t in "${OLD_WORK_ITEM[@]}"; do
   run_test "global_transitions has work-item '$t'" \
     bash -c "echo '$GLOBALS' | grep -qx '$t'"
+done
+
+# --- A6: 空挂 actor 条目已删除 ---
+# agent-return-handler / track-execution-state 从不调用 state.sh transition
+# （work-item 状态走 execution-state 的 pack-progress / plan-returns ingest 路径），
+# 其 global_transitions 条目是无消费者声明，已物理删除。
+for dead in "agent-return-handler" "track-execution-state"; do
+  run_test "global_transitions has no dangling '$dead' actor entries" \
+    bash -c "! echo '$GLOBALS' | grep -q '^$dead:'"
 done
 
 # --- repair_policy 断言（P5d-1：三套修复截断统一为 routes 参数）---

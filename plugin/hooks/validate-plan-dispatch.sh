@@ -119,12 +119,22 @@ if [[ -n "$PLAN_ID" && "$PLAN_ID" != "null" ]]; then
   fi
 
   # plan is not already in_progress with a different worker
+  # （Claude 路径看 worker_agent_id；Codex 路径看 session_id——修复轮必须
+  #   codex-worker.sh resume 续会话，不得重新 dispatch 开新 session）
   if [[ -f "$ESF" ]]; then
     EXISTING_WID=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].worker_agent_id // empty' "$ESF" 2>/dev/null)
+    EXISTING_SID=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].session_id // empty' "$ESF" 2>/dev/null)
     PLAN_STATUS=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].status // empty' "$ESF" 2>/dev/null)
-    if [[ -n "$EXISTING_WID" && "$EXISTING_WID" != "null" && "$PLAN_STATUS" == "in_progress" ]]; then
-      echo "[multi-model-workflow] BLOCKED: plan $PLAN_ID already in_progress with worker $EXISTING_WID. Use SendMessage to resume." >&2
-      exit 2
+    RESUME_FROM=$(echo "$ENVELOPE" | jq -r '.resume_from_pack_id // empty' 2>/dev/null)
+    if [[ "$PLAN_STATUS" == "in_progress" && -z "$RESUME_FROM" ]]; then
+      if [[ -n "$EXISTING_WID" && "$EXISTING_WID" != "null" ]]; then
+        echo "[multi-model-workflow] BLOCKED: plan $PLAN_ID already in_progress with worker $EXISTING_WID. Use SendMessage to resume." >&2
+        exit 2
+      fi
+      if [[ -n "$EXISTING_SID" && "$EXISTING_SID" != "null" ]]; then
+        echo "[multi-model-workflow] BLOCKED: plan $PLAN_ID already in_progress with codex session $EXISTING_SID. Use codex-worker.sh resume（修复轮续会话），need-fresh-worker 续派须带 resume_from_pack_id。" >&2
+        exit 2
+      fi
     fi
   fi
 fi

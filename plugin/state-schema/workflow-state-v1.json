@@ -16,12 +16,6 @@
     "run_id": { "type": "string" },
     "slug": { "type": "string" },
     "route": { "type": "string", "enum": ["formal", "light", "direct-repair", "multi-pr-merge", "bug-investigation"] },
-    "phase_skip": {
-      "description": "DEPRECATED (P6): 被 Light Lane route=light + routes gate_exemptions 取代，零消费，保留一个版本周期后物理删",
-      "type": "array",
-      "items": { "type": "string", "enum": ["discovery", "plan-writing", "execution", "final-review", "plan-review"] },
-      "default": []
-    },
     "commit_format_override": { "type": ["string", "null"], "default": null },
     "started_at": { "type": "string", "format": "date-time" },
     "cursor": {

@@ -21,8 +21,8 @@
 
 ## Commit 规范
 
-- 每个 Pack 完成后**独立 commit**，格式：`Pack <plan.id>.<pack.id>: <title> — <summary>`（`enforce-plan-commit.sh` hook 校验格式）。
-- repair 模式：`Pack <plan.id>.<pack.id>: <title> — repair: <finding 摘要>`，每 finding 一个 commit，不批量。
+- 每个 Pack 完成后**独立 commit**，格式：`Pack <pack_id>: <title> — <summary>`（pack_id 形如 `1.1`，已含 plan 内序号，不拼 plan_id 前缀；`enforce-plan-commit.sh` hook 校验格式）。
+- repair 模式：`Pack <pack_id>: <title> — repair: <finding 摘要>`，每 finding 一个 commit，不批量。
 - 不 push。
 
 ## Failure modes

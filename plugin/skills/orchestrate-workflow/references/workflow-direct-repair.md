@@ -81,10 +81,11 @@ pass / needs repair / blocked
 
 ## 3. Handle Review Return
 
-| Verdict | 动作 |
+机械 verdict 查 `state.sh verdict-route --phase direct-repair --verdict <V>`（`pass` → Closing）。判断分支：
+
+| Verdict（判断） | 动作 |
 | --- | --- |
-| `pass` | Closing |
-| `needs repair` | 路径 A（≤2 文件直接修）或路径 B（SendMessage worker）→ baseline re-review → 最多 2 轮 → Closing |
+| `needs repair` | 路径 A（≤2 文件直接修）或路径 B（worker 续修）→ baseline re-review → 最多 2 轮 → Closing |
 | `blocked` | 报告用户 |
 
 Direct Repair 不创建 budget file。
