@@ -482,7 +482,7 @@ cmd_validate() {
 }
 
 cmd_disposition() {
-  local subcmd="$1"; shift
+  local subcmd="${1:-}"; shift || true
   case "$subcmd" in
     append) cmd_disposition_append "$@" ;;
     *) echo "Error: unknown disposition subcommand: $subcmd" >&2; exit 2 ;;
@@ -568,7 +568,7 @@ cmd_disposition_append() {
 }
 
 cmd_self_verify() {
-  local subcmd="$1"; shift
+  local subcmd="${1:-}"; shift || true
   case "$subcmd" in
     append) cmd_self_verify_append "$@" ;;
     *) echo "Error: unknown self-verify subcommand: $subcmd" >&2; exit 2 ;;
@@ -613,7 +613,7 @@ cmd_self_verify_append() {
 
 # --- agent-id subcommand (operates on execution-state per Ruling 2) ---
 cmd_agent_id() {
-  local subcmd="$1"; shift
+  local subcmd="${1:-}"; shift || true
   case "$subcmd" in
     set) cmd_agent_id_set "$@" ;;
     get) cmd_agent_id_get "$@" ;;
@@ -722,7 +722,7 @@ cmd_agent_id_get() {
 
 # --- execution-plan subcommand (operates on execution-state plan boundaries) ---
 cmd_execution_plan() {
-  local subcmd="$1"; shift
+  local subcmd="${1:-}"; shift || true
   case "$subcmd" in
     start) cmd_execution_plan_start "$@" ;;
     complete) cmd_execution_plan_complete "$@" ;;
@@ -928,7 +928,7 @@ cmd_pack_progress() {
 # Reads plan-returns/<run_id>/<plan_id>/plan-return.json, validates schema,
 # expands per_pack into execution-state, mirrors verdict.
 cmd_plan_returns() {
-  local subcmd="$1"; shift
+  local subcmd="${1:-}"; shift || true
   case "$subcmd" in
     ingest) cmd_plan_returns_ingest "$@" ;;
     *) echo "Error: unknown plan-returns subcommand: $subcmd (use ingest)" >&2; exit 2 ;;
@@ -1132,7 +1132,7 @@ PYEOF
 
 # --- budget subcommand ---
 cmd_budget() {
-  local subcmd="$1"; shift
+  local subcmd="${1:-}"; shift || true
   case "$subcmd" in
     initialize) cmd_budget_initialize "$@" ;;
     reinitialize) cmd_budget_reinitialize "$@" ;;
@@ -1533,7 +1533,7 @@ cmd_set_attendance() {
 
 # --- direction-check subcommand ---
 cmd_direction_check() {
-  local subcmd="$1"; shift
+  local subcmd="${1:-}"; shift || true
   case "$subcmd" in
     trigger) cmd_dc_trigger "$@" ;;
     ack) cmd_dc_ack "$@" ;;
@@ -1611,7 +1611,7 @@ cmd_dc_ack() {
 
 # --- idempotency subcommand ---
 cmd_idempotency() {
-  local subcmd="$1"; shift
+  local subcmd="${1:-}"; shift || true
   case "$subcmd" in
     check) cmd_idempotency_check "$@" ;;
     append) cmd_idempotency_append "$@" ;;
@@ -1679,7 +1679,7 @@ cmd_idempotency_append() {
 # already exists. Locking via the workflow-state lock — even though we don't write the
 # state file, we serialize concurrent writers against the same target document.
 cmd_review_history() {
-  local subcmd="$1"; shift
+  local subcmd="${1:-}"; shift || true
   # Forward --help on the subcommand line to the help text below.
   for a in "$@"; do
     case "$a" in --help|-h) subcmd="help"; break ;; esac
@@ -1820,7 +1820,7 @@ cmd_review_history_append() {
 # Does NOT expose: conflict add / rca write / resolution append
 # (those are markdown content — Coordinator edits directly, avoiding template-fill anti-pattern).
 cmd_merge_brief() {
-  local subcmd="$1"; shift
+  local subcmd="${1:-}"; shift || true
   for a in "$@"; do
     case "$a" in --help|-h) subcmd="help"; break ;; esac
   done
@@ -2234,7 +2234,7 @@ cmd_verdict_route() {
 # Source-of-truth = plan-return.per_pack[*].status == committed（D4 裁决）。
 # 按 Pack ID 精确匹配 `- [ ] **Pack N.M**` 行 toggle 为 `- [x]`；非 committed 不动。
 cmd_checkbox() {
-  local subcmd="$1"; shift
+  local subcmd="${1:-}"; shift || true
   case "$subcmd" in
     toggle) cmd_checkbox_toggle "$@" ;;
     *) echo "Error: unknown checkbox subcommand: $subcmd (use toggle)" >&2; exit 2 ;;
@@ -2302,7 +2302,7 @@ cmd_checkbox_toggle() {
 # plan_id，pack-level 用 pack_id，消除旧模板只写 pack_id 的歧义）。
 # 生成后立即过一遍 hooks/lib/parse-envelope.sh 自检，保证生成与校验不漂移。
 cmd_envelope() {
-  local subcmd="$1"; shift
+  local subcmd="${1:-}"; shift || true
   case "$subcmd" in
     build) cmd_envelope_build "$@" ;;
     *) echo "Error: unknown envelope subcommand: $subcmd (use build)" >&2; exit 2 ;;
