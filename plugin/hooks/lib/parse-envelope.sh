@@ -45,12 +45,19 @@ for field in protocol_version run_id phase agent_role repair_round idempotency_k
 done
 
 REPAIR_ROUND=$(echo "$ENVELOPE_JSON" | jq -r '.repair_round')
+# repair_round 必须是非负整数,从源头收口:非数字("abc")会让下面的 [[ -ge ]] 在 set -u 下
+# 把字符串当变量名而崩(rc=1 静默,且下游 dispatch-* 裸调用会被一起带崩);小数("1.5")会判
+# false 而静默跳过 disposition_refs 必填校验(fail-open)。在此显式拒绝,得到干净的 exit 2。
+if ! [[ "$REPAIR_ROUND" =~ ^[0-9]+$ ]]; then
+  echo "Error: repair_round must be a non-negative integer, got '$REPAIR_ROUND'" >&2
+  exit 2
+fi
 AGENT_ROLE=$(echo "$ENVELOPE_JSON" | jq -r '.agent_role')
 REVIEW_INTENT=$(echo "$ENVELOPE_JSON" | jq -r '.review_intent // empty')
 EXCEPTION_CODE=$(echo "$ENVELOPE_JSON" | jq -r '.exception_code // empty')
 DISPOSITION_REFS=$(echo "$ENVELOPE_JSON" | jq -r '.disposition_refs // empty')
 
-if [[ "$REPAIR_ROUND" -ge 1 ]] 2>/dev/null; then
+if [[ "$REPAIR_ROUND" -ge 1 ]]; then
   if [[ -z "$DISPOSITION_REFS" || "$DISPOSITION_REFS" == "null" || "$DISPOSITION_REFS" == "[]" ]]; then
     echo "Error: repair dispatch (round=$REPAIR_ROUND) must include non-empty disposition_refs" >&2
     exit 2
