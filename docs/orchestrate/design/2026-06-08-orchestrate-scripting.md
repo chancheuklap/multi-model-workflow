@@ -51,24 +51,29 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
 
 倒置原则不变：Coordinator 是对话模型、始终在最外层；脚本下沉到其底下。下沉对象一律是闭枚举 / 查表 / 计数 / 套模板 / 数据搬运。
 
-- **A1. Workflow-level verdict 路由数据化（最小版本）**。把 6 张 verdict 路由表的**机械跳转部分**（verdict → 目标 phase/step 的纯映射）抽成声明数据：`routes-v1.json` 内新增 `verdict_routing` 段，**不另开新文件**（已定，原 Open Decision 收口）。`state.sh` 新增一条查询命令返回 verdict 对应的机械动作；含判断的分支（如 `NEEDS_ISSUES` 判缺件类型、`NEEDS_ARCHITECTURE` 判影响范围）在散文里保留为「数据给出候选动作 + 散文补判断」。`NEEDS_EXECUTION` 的 `execution_reflux_count` 计数路由是纯机械且有状态，是唯一**完全下沉**项。
+- **A1. Workflow-level verdict 路由数据化（最小版本）**。把 6 张 verdict 路由表的**机械跳转部分**（verdict → 目标 phase/step 的纯映射）抽成声明数据：`routes-v1.json` 内新增 `verdict_routing` 段，**不另开新文件**（已定，原 Open Decision 收口）。
+  **6 张表的精确清单（范围边界，防蔓延）**：`orchestrate-workflow/SKILL.md` 内 5 张（Discovery `:157` / Plan-writing `:185` / Execution `:210` / Final Review `:230` / Multi-PR Merge `:249`）+ `references/workflow-direct-repair.md:84` 1 张。references 里其余 verdict 表（bug-investigation 2 张、multi-pr-merge 各 reference、plan-writer-dispatch、release-gate、execution SKILL `:217` plan worker 表）是 **phase 内部表，不在 A1 范围**——其中 plan worker 表已由 `agent-return-handler.sh` hook 化，无需重复。`state.sh` 新增一条查询命令返回 verdict 对应的机械动作；含判断的分支（如 `NEEDS_ISSUES` 判缺件类型、`NEEDS_ARCHITECTURE` 判影响范围）在散文里保留为「数据给出候选动作 + 散文补判断」。`NEEDS_EXECUTION` 的 `execution_reflux_count` 计数路由是纯机械且有状态，是唯一**完全下沉**项。
   **预期边界（防止高估收益）**：plan-level 路由之所以能 hook 强制，是因为 Worker 是子代理、返回时有 `agent-return-handler` 拦截点；而 5 个 phase skill 在主对话内运行，返回的 verdict 只是对话文本，**不存在 hook 拦截点**。A1 做完后仍是「Coordinator 主动查命令」，收益是散文 token 下降 + 路由单源可测试，**不是机器强制**；phase 跳转合法性本就由 `phase_transitions` + `state.sh transition` 兜底。因此 A1 按最小版本实施，不为它新增 hook、不追求强制力。
 - **A2. Checkbox toggle 脚本化**。新增 `state.sh checkbox toggle --run-id --plan-id`：读 `plan-return.per_pack[*] where status==committed`，按 Pack ID 正则在 plan 文档里把 `- [ ] **Pack N.M**` toggle 为 `- [x]`。零判断，替代模型手 Edit。
-- **A3. DISPATCH_ENVELOPE 生成器**。新增 `state.sh envelope build`：按固定字段集 + `idempotency_key` 模式（`<run_id>/<pack_id>/r<repair_round>`）生成 envelope 骨架，可变 payload（repair_context / bug_context / merge）由调用方补。校验已在 `parse-envelope.sh`，生成对称下沉。envelope 字段集新增 `worktree_path`（并行模式必填、串行模式指向 Coordinator 工作树），为 B 块的 Worker 路径纪律提供载体。
-- **A4. 预算公式单源化（常量为源，已定）**。消除双轨的方向锁定为：**`state.sh` 常量为唯一权威源**。理由：`state.sh` 内已有 profile 分支逻辑（generous → 4P+16），预算计算的真实权威本就在脚本里；给 bash 写 `"3P+12"` 字符串解析器属于过度设计，不做。routes 里的 `budget.formula` 字符串降级为纯文档字段（或直接删除，schema 同步），并补一条「routes 文档字段与 `state.sh` 常量一致」的测试，杜绝漂移。
+- **A3. DISPATCH_ENVELOPE 生成器**。新增 `state.sh envelope build`：按现行字段集生成 envelope 骨架（required 6 字段：`protocol_version` / `run_id` / `phase` / `agent_role` / `repair_round` / `idempotency_key`；可选：`agent_id` / `pack_id` / `plan_id` / `disposition_refs` / `review_intent` / `exception_code` / `correlation_id`），可变 payload（repair_context / bug_context / merge）由调用方补。校验已在 `hooks/lib/parse-envelope.sh`（注意在 `lib/` 下），生成对称下沉。
+  **顺手修正一个现存缺口**：SKILL.md 模板里 `idempotency_key` 写死 `<run_id>/<pack_id>/r<n>`，但 plan-level 派发时 `pack_id` 为 null——生成器统一为 `<run_id>/<plan_id|pack_id>/r<n>`（plan-level 用 plan_id，pack-level 用 pack_id），消除歧义。
+  envelope 字段集新增 `worktree_path`（并行模式必填、串行模式指向 Coordinator 工作树），为 B 块的 Worker 路径纪律提供载体。
+- **A4. 预算公式单源化（常量为源，已定）**。消除双轨的方向锁定为：**`state.sh` 常量为唯一权威源**。调查坐实：三档 profile 全在 `state.sh` `cmd_budget_initialize`（standard 3P+12 / generous 4P+16 / tight 2P+6），预算计算的真实权威本就在脚本里；给 bash 写 `"3P+12"` 字符串解析器属于过度设计，不做。死字符串只有一处——routes 五条 route 里仅 formal 有 `formula: "3P+12"`，其余四条均为 `null`，直接删除该字段最干净（schema 同步），并补一条「routes 声明与 `state.sh` 常量一致」的测试杜绝漂移（若保留为文档字段）。
 - **A5. gate_exemptions 删除（默认方向）**。`gate_exemptions` 当前声明无消费者，且其语义已被现有字段编码：light 跳过 discovery 这件事由 `phases` 数组本身表达（light 的 phases 里没有 discovery），review 豁免由 `review_required` 表达。为同一语义再接一条 gate 豁免读取链路是重复建设，**不接线，直接删除字段**。删除时同步三处依赖：`routes-v1.schema.json` 的 required 列表、`test_routes_manifest.sh:40,45`、`test_route_keyword_routing.sh:44`；顺带清掉 `workflow-state-v1.json:20` 引用它的 DEPRECATED 注释。唯一保留条件：Design Review 找到 `phases` + `review_required` 覆盖不了的豁免场景——届时再改接线，否则删。
 - **A6. work-item transition 空挂条目厘清**。`global_transitions` 里 `agent-return-handler`/`track-execution-state` 等 actor 的 work-item 条目无运行时调用方。两条路：(a) 让这些 hook 真调 `state.sh transition` 把 work-item 机也纳入统一校验；(b) 确认 work-item 机走 execution-state 路径已足够后，删除这批无消费者条目。同时收口 pack-progress 白名单（`state.sh:798-804` 的 `committed|blocked|skipped`）与 schema enum（`execution-state-v1.json:45` 的 `pending/dispatched/returned/committed/blocked`）的不一致。
 
 ### B. Execution 并行 + 轻量回收
 
 - **B1. Plan 依赖图与并行批次**。plan header 的 `Blocked by` 从「串行排序键」升级为机器可读 DAG。`state.sh` 新增命令计算可并行批次（topo level）：同一 level 内的 Plan 互不依赖、可并行；level 间串行。无依赖时所有 Plan 在 level 0，全并行；单 Plan 退化串行。
+  **落地必踩的坑（调查发现）**：现状 plan 文档头部的 `**Blocked by:**` 写的是**从 issue 文件继承的 issue 编号**（`plan-writing-methodology.md:122`），不是 plan 编号。DAG 解析前必须先收口约定：plan-writer 写 plan 时把 `Blocked by` 翻译成 **plan 编号**（或 "None"），`plan-writing-methodology.md` 模板同步改；`state.sh dep-batches` 只认 plan 编号，遇到非 plan 编号值报错而非猜测。
 - **B2. 隔离工作树（硬约束）+ Worker 路径纪律**。并行批次内每个 Plan 由 Coordinator 显式 `git worktree add <path> HEAD` 创建隔离工作树，**以当前讨论 worktree 的 HEAD 为基**。禁用 harness 自动 worktree（`isolation: worktree` + `baseRef: head` 在嵌套场景解析到主 checkout 的 HEAD=main，2026-05 实测，是当年否决 worktree-per-worker 的根因之一）。Worker 在分配给它的隔离工作树内执行、commit、写 plan-return。
-  **Worker 路径纪律**（真实失败模式，必须前置防住）：plan 文档里写的全是仓库相对路径，Worker 作为子代理继承主会话 cwd，极易把相对路径拼到 Coordinator 工作树上写错地方。防线两道：(1) dispatch envelope 携带 `worktree_path`（A3 生成器产出），Worker prompt 模板写死「所有文件操作以 `envelope.worktree_path` 为根解析」；(2) 路径守卫——`guard-doc-edit.sh` 的 per-plan marker（B3）顺带校验 Worker 的 Edit/Write 目标路径落在分配给它的 worktree 内，越界即拦。一攻一守配套，不另建机制。
-- **B3. 状态平面并行化改造**。`execution-state-v1.json`：`current_plan_id`（单数）→ `active_plan_ids[]`（或以 plan-level `status==in_progress` 推断同时在飞的 Plan）；plan-level 新增 `worktree_path` / `branch` / `isolation_status`（active/isolated/merged）字段。`worker-active` 单一全局 marker → per-Plan marker（`worker-active-<plan_id>`），`guard-doc-edit.sh` 改读 per-Plan marker，避免一个 Worker 收尾误清其他在跑 Worker 的保护。
-- **B4. Commit 记账修正**。`track-execution-state.sh:28` 当前 `git rev-parse HEAD` 取 Coordinator 工作树 HEAD——并行隔离工作树下失效。改为：Worker 在 plan-return.json 里上报自己 worktree 的 commit_sha（首选，解耦 hook 对 Coordinator HEAD 的依赖），或 hook 按 Worker 所在 worktree 路径取 SHA。`start_commit..end_commit` 的 Plan Review diff 基底改为 per-worktree 记录。
+  **Worker 路径纪律**（真实失败模式，必须前置防住）：plan 文档里写的全是仓库相对路径，Worker 作为子代理继承主会话 cwd，极易把相对路径拼到 Coordinator 工作树上写错地方。防线两道：(1) dispatch envelope 携带 `worktree_path`（A3 生成器产出），Worker prompt 模板写死「所有文件操作以 `envelope.worktree_path` 为根解析」；(2) 路径守卫——扩展 `guard-doc-edit.sh`（见下方守卫规则）。一攻一守配套，不另建机制。
+  **路径守卫规则（受 hook 能力约束的设计）**：调查确认 PreToolUse hook 的输入**拿不到调用者的 agent 身份**（现有 `guard-doc-edit.sh` 就是靠全局 marker 文件判断上下文，不分谁在调），所以守卫不能做成「按 Worker 区分各自 worktree」，必须是对所有调用者都安全的全局规则：**并行飞行期间（存在任一 `worker-active-<plan_id>` marker），Coordinator 主工作树进入只读源码区**——具体放行/拦截：① docs/ 照现状拦；② 主树 `.claude/multi-model-workflow/` 控制面（plan-returns 等）放行（Worker 写 plan-return 的合法通道）；③ 主树其余路径（源码）拦截；④ 已登记 worktree 内的路径全放行（marker 文件内容携带该 Plan 的 `worktree_path`，守卫由此获得登记清单）。该规则与「Coordinator 在 formal 流程中不直接写生产代码」的现有 hard gate 自洽，Coordinator 不会被误伤；markers 清空后主树恢复可写。
+- **B3. 状态平面并行化改造**。`execution-state-v1.json`：`current_plan_id`（单数）→ `active_plan_ids[]`（或以 plan-level `status==in_progress` 推断同时在飞的 Plan）；plan-level 新增 `worktree_path` / `branch` / `isolation_status`（active/isolated/merged）字段。`worker-active` 单一全局 marker → per-Plan marker（`worker-active-<plan_id>`，**文件内容写该 Plan 的 `worktree_path`**，供路径守卫读取登记清单），`guard-doc-edit.sh` 改读 per-Plan marker，避免一个 Worker 收尾误清其他在跑 Worker 的保护。
+- **B4. Commit 记账修正（已收口：Worker 上报）**。`track-execution-state.sh:28` 当前 `git rev-parse HEAD` 取 Coordinator 工作树 HEAD——并行隔离工作树下失效（Worker 在 worktree 里 commit，hook 在主会话 cwd 取 SHA，必错）。调查发现**上报通道已经存在**：`plan-return-v1.json` 的 `per_pack[*].commit_sha` 字段早已定义（"Git commit SHA of the Pack commit (only when status=committed)"），改动量比预想小三件套：① Worker handbook 明确要求填自己 worktree 里的真实 SHA；② `state.sh plan-returns ingest` 把 per_pack.commit_sha 回填 execution-state（覆盖 hook 写的错值）；③ `track-execution-state.sh` 的 `rev-parse HEAD` 降级为串行模式 fallback（并行模式以 ingest 回填为准）。`start_commit..end_commit` 的 Plan Review diff 基底改为 per-worktree 记录。另一并行顾虑已排除：Pack ID `N.M` 的 N 即 plan 号、全局唯一，多 worktree 同时 commit 不会互相误记，唯一问题就是 SHA 来源，本条已解。
 - **B5. 失败自动隔离**。某并行 Plan 的 Worker 返回 blocked / Plan Implementation Review 失败时：标记该 Plan `isolation_status=isolated`，其隔离工作树保留不合并、不回滚其他 Plan 的产出；该批次其余 Plan 继续。被隔离的 Plan 视情况单独回退串行重试（基于最新主干 HEAD 重建工作树）。失败隔离是激进默认的兜底前提——没有它，激进并行不成立。
 - **B6. 轻量串行回收**。一个并行批次全部通过各自 Plan Implementation Review 后，Coordinator 按依赖顺序逐个 `git merge --no-ff <plan-branch>` 合并回 Coordinator 分支。合并冲突的**发现与根因分析借鉴 multi-pr-merge 方法论**（派 explorer 发现冲突、系统性冲突走 root-cause-analyst），但**不套用 multi-pr-merge 整套**（它假设已 push 的远程 PR 分支 `git fetch origin`，与本地 worktree 分支不匹配）。multi-pr-merge 整套路线保留给真·跨 PR 场景。回收完成后清理已合并的隔离工作树。
-- **B7. 并行返回的事件驱动处理模型**。并行后 execution 的控制流从「FOR EACH Plan → 派 → 等 → 收」的同步循环，改写为「**批次派发 + 返回事件处理**」双层结构：Coordinator 一次性并行派发同一 level 的全部 Worker，之后进入返回处理态——Worker 返回陆续到达，Coordinator **串行**处理（先到先审），处理一个返回（Plan Implementation Review → Disposition → 该 Plan 标记完成或隔离）期间，其余 Worker 不受影响继续执行；多个返回同时排队时按到达顺序逐个消化，不丢、不并发处理。该批次全部 Plan 达到终态（completed / isolated）后才进入 B6 回收，再开下一 level。execution SKILL.md 的循环段按此模型改写。
+- **B7. 并行返回的事件驱动处理模型（机制零新发明）**。调查确认现有派发**本来就是后台模式**：execution SKILL Step 5 的 Agent 调用已是 `run_in_background: true`（agentId 提取依赖它，串行时也必需），且 `agent-return-handler.sh` 挂在 PostToolUse Agent 上、**每个 Worker 返回各自触发一次**并 emit NEXT 指令——事件驱动的全部机制零件已在运行，并行批次派发只是「连续发 N 个后台 Agent」，无新机制。并行后 execution 的控制流从「FOR EACH Plan → 派 → 等 → 收」的同步循环，改写为「**批次派发 + 返回事件处理**」双层结构：Coordinator 一次性并行派发同一 level 的全部 Worker，之后进入返回处理态——Worker 返回陆续到达，Coordinator **串行**处理（先到先审），处理一个返回（Plan Implementation Review → Disposition → 该 Plan 标记完成或隔离）期间，其余 Worker 不受影响继续执行；多个返回同时排队时按到达顺序逐个消化，不丢、不并发处理。该批次全部 Plan 达到终态（completed / isolated）后才进入 B6 回收，再开下一 level。execution SKILL.md 的循环段按此模型改写。
 
 ### 业务对象、角色和状态
 
@@ -92,7 +97,7 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
 | --- | --- | --- | --- | --- | --- | --- |
 | routes 声明数据 | JSON 数据 | 维护者 | `routes-v1.json`（+ verdict_routing 段） | `state.sh`、gate/dispatch hooks | `verdict_routing`（新增）、`budget.formula`（降级文档字段）、`gate_exemptions`（删除） | A1/A4/A5 |
 | execution-state schema | JSON schema + 手写 jq 校验 | Coordinator | `execution-state-v1.json` | `state.sh`、`track-execution-state.sh`、`validate-plan-dispatch.sh` | `active_plan_ids`、`plans[].worktree_path/branch/isolation_status` | B3 |
-| plan-return schema | JSON + 手写 jq 校验 | Worker | `plan-return-v1.json` | `plan-return-parser.sh`、`agent-return-handler.sh` | 新增 `per_pack[].commit_sha` 或 plan 级 commit_sha | B4 |
+| plan-return schema | JSON + 手写 jq 校验 | Worker | `plan-return-v1.json` | `plan-return-parser.sh`、`agent-return-handler.sh` | `per_pack[].commit_sha`（字段已存在，B4 接通 ingest 回填） | B4 |
 | state.sh 新命令 | CLI 接口 | Coordinator | `state.sh` | SKILL.md 流程、hooks | `checkbox toggle`、`envelope build`、`dep-batches`、`verdict-route` | A1/A2/A3/B1 |
 | hook 行为 | exit code + additionalContext | 维护者 | `track-execution-state.sh`、`guard-doc-edit.sh`、`agent-return-handler.sh` | Coordinator | commit_sha 来源、per-plan marker、写路径越界守卫 | B2/B3/B4 |
 | build 模板 | 锚点 + .tmpl | 维护者 | `build/templates/` | 各 SKILL.md / agent.md | 新增共享脚本化指令片段须走模板五步流程 | 跨 A/B |
@@ -118,8 +123,9 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
   - A4 预算单源（常量为源）：routes 文档字段与 `state.sh` 常量一致性（P=4 → 24/48，杜绝当年 `3P+12` vs `2P+6` 漂移类问题）。
   - A5 删除收口：`gate_exemptions` 全仓无残留引用（schema required、两个测试文件、workflow-state DEPRECATED 注释同步清净）。
   - A6：pack-progress 白名单与 schema enum 对齐。
-  - B1 依赖批次：无依赖全 level 0、依赖链正确分层、单 Plan 退化。
-  - B2 隔离工作树：以讨论 worktree HEAD 为基（非 main）；路径守卫——Worker 写路径越界被 guard 拦截、界内放行。
+  - B1 依赖批次：无依赖全 level 0、依赖链正确分层、单 Plan 退化；`Blocked by` 含非 plan 编号值时报错不猜测。
+  - B2 隔离工作树：以讨论 worktree HEAD 为基（非 main）；路径守卫四规则——docs/ 拦、主树控制面（`.claude/multi-model-workflow/`）放行、主树源码拦、登记 worktree 内放行；markers 清空后主树恢复可写。
+  - B4 记账：ingest 回填的 per_pack.commit_sha 覆盖 hook fallback 值；串行模式 fallback 仍工作。
   - B5 失败隔离：失败 Plan 不污染其他、不回滚已通过、可回退串行。
   - B6 轻量合并：依赖序合并、冲突触发借鉴 multi-pr-merge 的发现路径。
   - B7 返回处理：多 Worker 返回排队时按到达顺序逐个处理、不丢返回；处理期间其余 Worker 状态不受影响。
@@ -149,13 +155,13 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
 
 ## Open Decisions
 
-- A6：work-item transition 空挂条目——接线（hook 真调 `state.sh transition`）还是删除？（取决于 work-item 机走 execution-state 路径是否已足够，Design Review 定）
-- B4：commit_sha 来源取「Worker 上报」还是「hook 按 worktree 取」？（倾向 Worker 上报，解耦 Coordinator HEAD 依赖）
+- A6：work-item transition 空挂条目——接线（hook 真调 `state.sh transition`）还是删除？（取决于 work-item 机走 execution-state 路径是否已足够；落地前由实现者按「删空挂、不留兼容」纪律核实后定，倾向删除 + enum 对齐）
 
 已收口（2026-06-10，原 Open Decision）：
-- A1：verdict 路由数据放 `routes-v1.json` 内新增段，不另开新文件；按最小版本实施（见 A1 预期边界）。
-- A4：预算单源取「`state.sh` 常量为源」，不写公式解析器；routes 字符串降级文档字段 + 一致性测试。
-- A5：`gate_exemptions` 默认删除不接线（语义已被 `phases` + `review_required` 编码）；仅当 Design Review 找到未覆盖豁免场景才改接线。
+- A1：verdict 路由数据放 `routes-v1.json` 内新增段，不另开新文件；按最小版本实施（见 A1 预期边界）；范围限定 6 张表精确清单。
+- A4：预算单源取「`state.sh` 常量为源」，不写公式解析器；routes 死字符串仅 formal 一处，删除（或降级文档字段 + 一致性测试）。
+- A5：`gate_exemptions` 默认删除不接线（语义已被 `phases` + `review_required` 编码）；仅当落地核查发现未覆盖豁免场景才改接线。
+- B4：commit_sha 来源取「Worker 上报」——`plan-return-v1.json` 的 `per_pack[*].commit_sha` 字段已存在，改动收敛为 handbook 要求 + ingest 回填 + hook rev-parse 降级 fallback 三件套（见 B4）。
 
 ## Review History
 
