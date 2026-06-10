@@ -23,7 +23,8 @@
 1. **机械控制流由脚本/数据驱动**：workflow-level verdict 路由、checkbox 勾选、dispatch envelope 生成、预算公式单源化——这些确定性动作不再靠模型读散文执行，流程更稳定、SKILL.md 散文体量下降带来 token 改善。判断类步骤（finding 处置、route 选择、scope drift、Pack 排序、BLOCKED 措辞）保持散文，不僵化。
 2. **Execution 阶段独立 Plan 并行执行**：无 Blocked-by 依赖的 Plan 自动并行（激进默认），各自在隔离工作树工作；某 Plan 失败时自动隔离、不污染其他、必要时单独回退串行；完成后按依赖顺序轻量合并回主干。wall-clock 从「各 Plan 之和」降到「最长依赖链」。
 3. **五条 route 全部保留且不僵化**：formal / light / direct-repair / bug-investigation / multi-pr-merge 在脚本化后行为不变，路径灵活性不丢。
-4. **三根命脉不受损**：人在环业务门、跨会话/抗 compaction 状态平面、跨模型 Codex 独立审查——脚本化与并行都不触碰。
+4. **三根命脉不受损**：人在环业务门、跨会话/抗 compaction 状态平面、跨模型独立审查——脚本化与并行都不触碰。独立审查红线表述泛化为「**writer 与 reviewer 必须异家模型**」（写审异家）：Claude 写的文档由 Codex 审（现状不变），Codex 落地的代码由 Claude 审（C 块新增方向）——原「不得用 Claude 审查替代 Codex 审查」是这条原则在「Claude 写代码」时代的特例表述。
+5. **执行者换轨（C 块）**：formal / light route 的 execution 阶段 Plan 落地由 Codex 无人值守执行（每 Plan 一个 `codex exec` 会话，在隔离 worktree 内），Claude Coordinator 保持最外层编排——讨论、文档、派工、验收、汇报。双模型各用所长：Claude 管意图与文档，Codex 管代码落地。
 
 ## 用户场景
 
@@ -39,13 +40,15 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
 | Coordinator | 回收合并 | 并行 Plan 全部通过各自 Plan Implementation Review | 按依赖顺序逐个 `git merge --no-ff` 回 Coordinator 分支；冲突走借鉴 multi-pr-merge 方法论的发现/RCA |
 | Coordinator | verdict 路由 | phase skill 返回 verdict | 机械跳转部分由声明数据驱动（verdict→target），判断分支仍读散文 |
 | Coordinator | checkbox 勾选 | Plan Implementation Review pass | 脚本按 plan-return committed 列表自动 toggle，不靠模型手 Edit |
-| 用户 | route 不变性 | 走 light / direct-repair / bug-investigation | 脚本化后这些 route 行为与现状一致 |
+| 用户 | route 不变性 | 走 direct-repair / bug-investigation / multi-pr-merge | 脚本化后这些 route 行为与现状一致（其修复 worker 不换轨） |
+| Codex Worker | Plan 落地（C 块） | 在隔离 worktree 内按 plan 文档 TDD 实现全部 Pack | 沙箱围栏内完成 commit，写 plan-return.json，session_id 可续 |
+| Coordinator | 审查翻转（C 块） | Codex 产出代码送 Plan Implementation Review | reviewer 为 Claude；文档审查仍为 Codex；写审异家全程成立 |
 | Coordinator | 多 Worker 同时返回 | 批次内两个 Worker 几乎同时返回 | 按到达顺序串行处理（先到先审），处理期间其余 Worker 继续执行，无返回丢失 |
 | Coordinator | compaction 恢复 | 并行执行中途 compaction | 从状态平面恢复所有 in-flight Plan（active_plan_ids），不丢并行进度 |
 
 ## 方案设计
 
-分两大工作块。**A（脚本化）优先级高于 B（并行）**：A 是低风险纯收益，B 重开了已否决的 worktree-per-worker 决策、风险高。两块都完整设计，落地按优先级推进，不允许只做 A。
+分三大工作块，落地顺序 **A → B → C**（2026-06-10 用户拍板 C 并入本设计、排 B 后）。A（脚本化）是低风险纯收益；B（并行）重开了已否决的 worktree-per-worker 决策、风险居中；C（执行者换轨 Codex）改动面最大，但其全部基建依赖恰好由 A（envelope 生成器、plan-return 回收）和 B（隔离 worktree）提供。三块都完整设计，落地按顺序推进，不允许只做前面的块。
 
 ### A. 机械控制流脚本化下沉
 
@@ -75,6 +78,22 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
 - **B6. 轻量串行回收**。一个并行批次全部通过各自 Plan Implementation Review 后，Coordinator 按依赖顺序逐个 `git merge --no-ff <plan-branch>` 合并回 Coordinator 分支。合并冲突的**发现与根因分析借鉴 multi-pr-merge 方法论**（派 explorer 发现冲突、系统性冲突走 root-cause-analyst），但**不套用 multi-pr-merge 整套**（它假设已 push 的远程 PR 分支 `git fetch origin`，与本地 worktree 分支不匹配）。multi-pr-merge 整套路线保留给真·跨 PR 场景。回收完成后清理已合并的隔离工作树。
 - **B7. 并行返回的事件驱动处理模型（机制零新发明）**。调查确认现有派发**本来就是后台模式**：execution SKILL Step 5 的 Agent 调用已是 `run_in_background: true`（agentId 提取依赖它，串行时也必需），且 `agent-return-handler.sh` 挂在 PostToolUse Agent 上、**每个 Worker 返回各自触发一次**并 emit NEXT 指令——事件驱动的全部机制零件已在运行，并行批次派发只是「连续发 N 个后台 Agent」，无新机制。并行后 execution 的控制流从「FOR EACH Plan → 派 → 等 → 收」的同步循环，改写为「**批次派发 + 返回事件处理**」双层结构：Coordinator 一次性并行派发同一 level 的全部 Worker，之后进入返回处理态——Worker 返回陆续到达，Coordinator **串行**处理（先到先审），处理一个返回（Plan Implementation Review → Disposition → 该 Plan 标记完成或隔离）期间，其余 Worker 不受影响继续执行；多个返回同时排队时按到达顺序逐个消化，不丢、不并发处理。该批次全部 Plan 达到终态（completed / isolated）后才进入 B6 回收，再开下一 level。execution SKILL.md 的循环段按此模型改写。
 
+### C. 执行者换轨：Codex 落地 + 审查方向翻转
+
+可行性已实证（2026-06-10）：本机 codex-cli 0.138.0；`codex exec` 无人值守冒烟测试通过（产出经 `-o` 落盘读回无误）；现行 plugin 的全部 Codex 审查本就是 Claude Code 经 Bash 驱动 `codex-companion.mjs` 完成——「Claude 控制 Codex」是已运行多月的事实，C 块把这条通路从「只审查」扩展到「也落地」。
+
+- **C1. 派发通道**。execution 阶段的 Plan 落地派发从 `Agent({subagent_type: "pack-executor|complex-pack-executor"})` 换为 Bash 驱动 `codex exec`：`-C <worktree_path>`（工作根 = B2 隔离工作树）+ `--sandbox workspace-write`（OS 级写围栏，物理隔离强于 hook 守卫）+ `--add-dir <主树 .claude/multi-model-workflow/plan-returns/<run_id>/<plan_id>/>`（放行 plan-return 控制面写入）+ `-o <最终消息落盘路径>`。并行 = 多个 `run_in_background: true` 的 Bash 调用，与 B7 事件驱动模型同构（background Bash 完成即通知）。
+- **C2. 合同机器强制**。plan-return 合同对 Codex 比对 Claude 子代理更可强制：`--output-schema <plan-return-v1 派生 schema>` 强制最终回复结构，或直接要求 Codex 写 `plan-return.json`（`--add-dir` 已放行）。TDD 纪律、Pack Dependencies 顺序、commit message 格式（`Pack N.M` 触发记账）进 Codex 派工 prompt（复用现 execution-worker-dispatch handbook 内容改写）。
+- **C3. 返回处理适配**。`agent-return-handler.sh`（PostToolUse **Agent** hook）对 Bash 调用不触发——新增 PostToolUse **Bash** hook（匹配 codex exec 执行形态）做 plan-return ingest + NEXT 提示，逻辑复用 agent-return-handler 的 plan-level 路由段。B4 的「Worker 上报 commit_sha + ingest 回填」对 Codex 同样成立且更必要（Codex 的 commit 不经过 Claude 工具层，`track-execution-state.sh` 完全看不见——ingest 回填成为唯一记账来源）。
+- **C4. 修复轮**。`SendMessage` 续修 → `codex exec resume <session_id>`（CLI 原生支持）。`session_id` 记入 execution-state plan-level 字段（替代/并列 `worker_agent_id`），修复轮上限与 disposition_refs 纪律照旧。
+- **C5. 审查方向翻转**。execution 的 Plan Implementation Review 与 Final Review 审的是 Codex 产出的代码 → reviewer 翻转为 **Claude**（Coordinator 派 Claude reviewer 或主对话直审，复用现有 review 模板与 disposition 流程）；design / plan 文档继续由 Codex 审（不变）。写审异家原则全程成立且方向对称。
+- **C6. 守卫与门禁适配**。现有按 `*codex*task*` / `*codex*result*` 匹配的 hooks（`gate-codex-review.sh`、`enforce-repair-round-cap.sh`、`track-review-budget.sh`）的匹配边界须收窄——C1 的执行派发是 coding 任务不是 review，不得误触 review gate / review budget 记账。docs/ 保护对 Codex 不可用 Claude hook 拦截（Codex 的文件写不经过 Claude 工具层）→ 改为合并前机器检查：`git diff --stat <base>..<plan-branch> -- docs/` 非空 → 该 Plan isolated、人工裁决。
+- **C7. Claude executor 退役盘点**。按「不做兼容、删干净」纪律：C 全面接管 formal/light execution 后，`pack-executor` / `complex-pack-executor` 在 execution 主路径的引用退役；落地时盘点其余引用面（multi-pr-merge 冲突修复 worker、bug-investigation 修复路径等本次不换轨的 route），无引用者删除定义，有引用者保留并在文档标注仅存引用场景。
+
+**C 块范围限定**：仅替换 formal / light route 的 execution 阶段 plan-level Worker。direct-repair 的小修、bug-investigation 的修复 worker、multi-pr-merge 的冲突修复 worker 保持现状（避免一次摊大；这些 route 的换轨待 C 块稳定后另议）。
+
+**计费结构变化（用户已知悉）**：execution 工作量从 Claude 订阅（Opus 1M token）转移到 Codex 订阅额度；Claude 端消耗显著下降，Codex 端上升。
+
 ### 业务对象、角色和状态
 
 | 对象 | owner | writer | reader | verifier | 状态 / 生命周期 |
@@ -83,7 +102,8 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
 | `execution-state-<run_id>.json` | Coordinator | `state.sh`、hooks（经 state-lock） | Coordinator、hooks | `state.sh validate` | per-run，随 worktree 删除清除 |
 | Plan 隔离工作树 | Coordinator | Coordinator（建/合/删）、Worker（commit） | — | git / 测试 | active → (isolated \| merged) → cleaned |
 | Plan 依赖 DAG | Coordinator | plan-writer（声明 Blocked by） | `state.sh` 批次计算 | — | 随 plan 文档 |
-| plan-return.json | Worker | Worker | Coordinator、`agent-return-handler` | Coordinator 亲验 | per-plan，含上报的 commit_sha（B4 新增） |
+| plan-return.json | Worker | Worker（Claude 子代理或 Codex，C 块后为 Codex） | Coordinator、ingest hook | Coordinator 亲验 | per-plan，含上报的 commit_sha（B4 接通） |
+| Codex 执行会话 | Coordinator | Codex（worktree 内 commit） | Coordinator（resume / 读产出） | Claude review（C5） | dispatched → (returned \| resumed) → reviewed |
 
 ### 实现决策
 
@@ -100,7 +120,8 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
 | plan-return schema | JSON + 手写 jq 校验 | Worker | `plan-return-v1.json` | `plan-return-parser.sh`、`agent-return-handler.sh` | `per_pack[].commit_sha`（字段已存在，B4 接通 ingest 回填） | B4 |
 | state.sh 新命令 | CLI 接口 | Coordinator | `state.sh` | SKILL.md 流程、hooks | `checkbox toggle`、`envelope build`、`dep-batches`、`verdict-route` | A1/A2/A3/B1 |
 | hook 行为 | exit code + additionalContext | 维护者 | `track-execution-state.sh`、`guard-doc-edit.sh`、`agent-return-handler.sh` | Coordinator | commit_sha 来源、per-plan marker、写路径越界守卫 | B2/B3/B4 |
-| build 模板 | 锚点 + .tmpl | 维护者 | `build/templates/` | 各 SKILL.md / agent.md | 新增共享脚本化指令片段须走模板五步流程 | 跨 A/B |
+| build 模板 | 锚点 + .tmpl | 维护者 | `build/templates/` | 各 SKILL.md / agent.md | 新增共享脚本化指令片段须走模板五步流程 | 跨 A/B/C |
+| Codex 执行调用面 | CLI（Bash 驱动） | Coordinator | `codex exec`（codex-cli ≥0.138.0） | execution SKILL、C3 ingest hook | `-C` / `--sandbox workspace-write` / `--add-dir` / `-o` / `--output-schema` / `resume <session_id>` | C1-C4 |
 
 注：本设计无 JSON-Schema 校验器（全仓无 jsonschema/ajv），运行时校验一律手写 jq 字段检查——「schema 扩面」实际是「补手写校验 + 闭枚举」，不是引入校验框架。
 
@@ -111,7 +132,9 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
 - **并行失败隔离是关键风险点**：必须有测试覆盖「某 Plan 失败不污染其他、不回滚已通过 Plan、可单独回退串行」。
 - **版本号同步**：`plugin.json` + 根 `marketplace.json` 两处版本号必须同步更新。
 - **构建系统**：改 SKILL.md 锚点内内容须同步 `.tmpl` 模板并 `build.sh --apply`；新增共享脚本化指令片段走模板五步流程。
-- 人工门禁：本设计涉及重开「worktree-per-worker」已否决决策——已经用户明确授权重开（2026-06-09）。
+- 人工门禁：本设计涉及重开「worktree-per-worker」已否决决策——已经用户明确授权重开（2026-06-09）；C 块执行者换轨 + 审查方向翻转——已经用户拍板（2026-06-10）。
+- **C 块先试跑后铺开**：C 落地后第一份真实 Plan 必须单独试跑（单 Plan、串行、人工盯产出质量与中断行为），试跑通过才开放并行 + 多 Plan；试跑不通过则 C 块回炉，A/B 成果不受影响。
+- **计费结构变化**：execution 从 Claude 订阅转移到 Codex 订阅额度（用户已知悉并拍板）。
 
 ## 测试和验收
 
@@ -129,6 +152,13 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
   - B5 失败隔离：失败 Plan 不污染其他、不回滚已通过、可回退串行。
   - B6 轻量合并：依赖序合并、冲突触发借鉴 multi-pr-merge 的发现路径。
   - B7 返回处理：多 Worker 返回排队时按到达顺序逐个处理、不丢返回；处理期间其余 Worker 状态不受影响。
+  - C1 派发：codex exec 在指定 worktree 内执行、产出落盘可读（冒烟已过 2026-06-10）；并行多 session 互不干扰。
+  - C2 合同：plan-return 结构经 output-schema / 文件写入两路之一机器校验通过；缺字段被拒。
+  - C3 ingest：Codex 返回触发 Bash hook 完成 plan-return ingest + commit_sha 回填；Agent hook 不误触。
+  - C4 修复轮：resume 续会话生效、session_id 记账正确、修复轮上限照旧生效。
+  - C5 审查翻转：execution review 派给 Claude、文档 review 仍派 Codex；写审同家被测试断言拒绝。
+  - C6 门禁边界：执行派发不误触 review gate / review budget；合并前 docs/ diff 检查拦截 Worker 改 docs。
+  - C7 退役收口：pack-executor / complex-pack-executor 残留引用与实际保留场景一致，无空挂。
 - 五条 route 行为不变的回归验证（light / direct-repair / bug-investigation / multi-pr-merge / formal）。
 
 ## UI / UX 状态
@@ -148,14 +178,17 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
 
 - 整体转换为 Dynamic Workflow（已评估否决）。
 - Pack 级并行（会推翻 Worker 自治排 Pack 顺序裁决）。
-- 用原生 Claude review 替代 Codex 审查（红线）。
+- 打破「写审异家」原则（红线原表述「不得用 Claude 审替代 Codex 审」是 Claude 写代码时代的特例；C 块翻转后红线本体不变：writer 与 reviewer 不得同家——Codex 写的代码 Claude 审合规，Claude 写的文档仍须 Codex 审）。
+- direct-repair / bug-investigation / multi-pr-merge 的修复 worker 换轨 Codex（C 块范围仅 formal/light execution 的 plan-level Worker；其余 route 待 C 稳定后另议）。
 - light / direct-repair / bug-investigation 等非并行 route 的串行执行改造（这些 route 的串行不在并行化范围）。
 - 计费 / 权限 / 数据权威等业务红线逻辑（plugin 不引入业务红线）。
-- 引入 JSON-Schema 校验框架（维持手写 jq 校验风格）。
+- 引入 JSON-Schema 校验框架（维持手写 jq 校验风格；C2 的 `--output-schema` 是 Codex CLI 自带能力，非本仓引入框架）。
 
 ## Open Decisions
 
 - A6：work-item transition 空挂条目——接线（hook 真调 `state.sh transition`）还是删除？（取决于 work-item 机走 execution-state 路径是否已足够；落地前由实现者按「删空挂、不留兼容」纪律核实后定，倾向删除 + enum 对齐）
+- C：Codex 执行的模型档位与 effort（默认走 companion 配置；是否按 Pack 风险分层选型，待 C 试跑数据后定）。
+- C2：plan-return 合同强制走 `--output-schema`（最终回复结构化）还是「Codex 直接写 plan-return.json 文件」？（倾向写文件——与现有 ingest 通道零适配，schema 校验复用 plan-return-parser）
 
 已收口（2026-06-10，原 Open Decision）：
 - A1：verdict 路由数据放 `routes-v1.json` 内新增段，不另开新文件；按最小版本实施（见 A1 预期边界）；范围限定 6 张表精确清单。
@@ -178,7 +211,8 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
 | `routes-v1.json` 数据扩展 | JSON 数据 | 脚本化 Plan | 脚本化 Plan | gate/dispatch hooks、state.sh | verdict_routing 新增 / budget.formula 降级 / gate_exemptions 删除 |
 | `execution-state-v1.json` schema | JSON schema | 并行 Plan | 并行 Plan | track-execution-state / validate-plan-dispatch | active_plan_ids / worktree_path / isolation_status |
 | `state.sh` 新命令集 | CLI | 脚本化 Plan | 脚本化 Plan | 并行 Plan、SKILL.md | checkbox toggle / envelope build（含 worktree_path） / dep-batches / verdict-route |
-| `plan-return-v1.json` commit_sha | JSON | 并行 Plan | Worker | track-execution-state、回收逻辑 | per_pack[].commit_sha 或 plan 级 |
+| `plan-return-v1.json` commit_sha | JSON | 并行 Plan | Worker | track-execution-state、回收逻辑 | per_pack[].commit_sha（已存在，接通 ingest 回填） |
+| Codex 派发/返回通道 | Bash CLI + hook | 换轨 Plan（C） | `codex exec` 调用模板 + C3 ingest hook | execution SKILL、修复轮逻辑 | session_id 记账 / plan-return 写入路径 / 门禁匹配边界 |
 
 （plan-writer 写 Pack 时 Read 本 section 同步 Contract anchors；Coordinator 在 Plan Review / Final Review 以本 section 为权威）
 
