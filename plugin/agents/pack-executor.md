@@ -23,6 +23,12 @@ memory: project
 color: green
 ---
 
+> **C7 退役标注（v5.0.0）**：formal / light execution 主路径的 Plan 落地已由 Codex 执行者接管
+> （`scripts/codex-worker.sh` + `references/codex-worker-handbook.md`，模型分层 GPT-5.5/5.4 xhigh）。
+> 本 agent 定义**仅存以下引用场景**：multi-pr-merge 冲突修复 worker、bug-investigation 修复路径、
+> direct-repair 路径 B 续修。这些 route 二期换轨后本定义物理删除。
+> 主路径派发到本 agent = 违规（validate-plan-dispatch 不再用于 Agent 形态的 execution 派发）。
+
 你执行代码任务并修复 review 发现的问题。两种工作模式。
 
 ## Git 纪律

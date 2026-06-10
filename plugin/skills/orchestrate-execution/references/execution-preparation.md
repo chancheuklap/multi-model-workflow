@@ -27,9 +27,12 @@
 
 排列结果：
 
-```
-plan_queue = [Plan001, Plan002, Plan003]  ← Coordinator 按 Blocked by 排序，逐个派 1 个自治 Worker
-  # 每个 Plan 内的 Pack 顺序（如 [[1.1], [1.2, 1.3], [1.4]]）由 Worker 自读 Manifest 内部决定，Coordinator 不介入
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" dep-batches \
+  --run-id "<run_id>" --plans-dir "docs/orchestrate/plans/<slug>"
+# → {"levels": [["001","003"],["002"]]}：同 level 并行（每 Plan 一个隔离 worktree + Codex worker），
+#   level 间串行；plan 头 Blocked by 必须是 plan 编号（plan-writing 约定），非法值脚本报错不猜测
+# 每个 Plan 内的 Pack 顺序（如 [[1.1], [1.2, 1.3], [1.4]]）由 Worker 自读 Manifest 内部决定，Coordinator 不介入
 ```
 
 ### Step 2a：创建 Execution State File
@@ -39,7 +42,7 @@ plan_queue = [Plan001, Plan002, Plan003]  ← Coordinator 按 Blocked by 排序�
 ```json
 {
   "run_id": "<run_id>",
-  "current_plan_id": null,
+  "active_plan_ids": [],
   "plans": {
     "001": {
       "status": "pending",
@@ -74,8 +77,10 @@ Worker 的 durable return file 写入此目录（按 run_id 隔离，防止跨 r
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" execution-plan start \
-  --run-id "<run_id>" --plan-id <N> --start-commit "$(git rev-parse HEAD)"
-# 该命令写入 plans[N].start_commit / plans[N].status = "in_progress" / current_plan_id = N
+  --run-id "<run_id>" --plan-id <N> --start-commit "$(git rev-parse HEAD)" \
+  --worktree-path "$(pwd)/.claude/worktrees/plan-<N>" --branch "plan-<N>"
+# 写入 plans[N].start_commit / status="in_progress" / worktree_path / branch /
+# isolation_status="active"，并把 N 追加进 active_plan_ids（B3；并行批次内每个 Plan 各跑一次）
 ```
 
 此步由 Coordinator 执行，不由 hook 代劳——因为 start_commit 需要的是"Worker 第一个 Pack commit 之前"的 SHA。`validate-plan-dispatch.sh` hook 会拦截缺少 start_commit 的 dispatch。

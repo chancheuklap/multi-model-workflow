@@ -93,14 +93,14 @@ Light Lane 是日常小改的快路：跳过 Discovery / 独立 Plan-writing / P
 
 1. **intent 一句确认**：`"这是个小改：<一句话>，我直接动手了"`——不阻塞，除非用户喊停。
 2. `state.sh init --run-id <rid> --slug <slug> --route light`——budget 默认 unlimited（routes 清单声明），因此自然跳过 `validate-plan-dispatch.sh` 的 budget-init 门（budget_status=unlimited，非 pending_plan_count）。
-3. **直派 Worker**（plan-level dispatch，走现有 envelope 契约）：Coordinator 自写一份简短 plan（或轻量内联 plan），`plan_path` 指向它。transition `workflow→execution` 对 light 合法（routes 清单声明），对 formal 仍非法。
+3. **直派 Worker**（plan-level dispatch，走现有 envelope 契约；执行者 = Codex，C 块）：Coordinator 自写一份简短 plan（或轻量内联 plan），`plan_path` 指向它；派发走 `bash "${CLAUDE_PLUGIN_ROOT}/scripts/codex-worker.sh" dispatch --model-tier standard`，串行退化形态 `--worktree-path` 直接指向当前工作树（marker 内容 = 主树路径，guard 自动等价于旧行为）。transition `workflow→execution` 对 light 合法（routes 清单声明），对 formal 仍非法。
 4. **Coordinator 自审**：Read/grep 验证 Worker 返回的 hash / 路径 / 计数后才采信。
 5. **Closing**：commit；push 前未勾选任务阻断照常生效。
 
 **保留的三条硬线（北极星质量门最小集，Light Lane 不豁免）**：
 
 1. **子代理返回必验**：Coordinator 必 Read/grep 验证 Worker/reviewer 返回的 hash/路径/计数后才采信。
-2. **Worker 禁改 docs/**：`guard-doc-edit.sh` worker-active marker 原样生效。
+2. **Worker 禁改 docs/**：`guard-doc-edit.sh` 四规则路径守卫（per-plan `worker-active-<plan_id>` marker，内容=worktree 路径）；Codex worker 不经 Claude hook，由沙箱围栏 + 回收前 docs diff 检查兜底。
 3. **未勾选任务阻断 push**：plans 下有 `- [ ]` 时 `git push` / `gh pr create` 被 hook 阻断。
 
 **D2 外审策略**：Light Lane **默认不派 Codex**（Coordinator 自审）。保留手动入口——用户明说"这个让 Codex 看一眼" → Coordinator 单次派一个 Codex reviewer（走 `_shared/review-dispatch.md` 派发契约 + Execution tier GPT-5.4 xhigh）。默认不主动派，不做强 hook。
