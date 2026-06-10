@@ -36,6 +36,7 @@ Commands:
   verdict-route     Query mechanical verdict routing from routes-v1.json (--phase, --verdict)
   checkbox          Toggle committed-pack checkboxes in plan doc (toggle --plan-id --plan-file)
   envelope          Build DISPATCH_ENVELOPE block (build --phase --agent-role [--plan-id|--pack-id] ...)
+  dep-batches       Compute parallel plan batches from Blocked-by DAG (--plans-dir)
 
 Options:
   --run-id <id>     Run identifier (required for most commands)
@@ -723,8 +724,97 @@ cmd_execution_plan() {
   case "$subcmd" in
     start) cmd_execution_plan_start "$@" ;;
     complete) cmd_execution_plan_complete "$@" ;;
-    *) echo "Error: unknown execution-plan subcommand: $subcmd (use start|complete)" >&2; exit 2 ;;
+    finish) cmd_execution_plan_finish "$@" ;;
+    session) cmd_execution_plan_session "$@" ;;
+    *) echo "Error: unknown execution-plan subcommand: $subcmd (use start|complete|finish|session)" >&2; exit 2 ;;
   esac
+}
+
+# B3/B5: execution-plan finish — Plan 到达终态（review 通过或失败隔离），
+# 写 plan status + isolation_status 并从 active_plan_ids 摘除。
+#   completed → isolation_status 不变（merged 由 B6 回收后另行 finish --status merged 标记）
+#   isolated  → 失败隔离：worktree 保留不合并，不污染其他在飞 Plan
+cmd_execution_plan_finish() {
+  local plan_id="" status=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --status) status="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  if [[ -z "$plan_id" || -z "$status" ]]; then
+    echo "Error: --plan-id and --status required for execution-plan finish" >&2
+    exit 2
+  fi
+  case "$status" in
+    completed|isolated|merged) ;;
+    *) echo "Error: invalid status '$status'. Allowed: completed|isolated|merged" >&2; exit 2 ;;
+  esac
+
+  local esf
+  esf="$(execution_state_file)"
+  if [[ ! -f "$esf" ]]; then
+    echo "Error: execution-state file not found: $esf" >&2
+    exit 2
+  fi
+  if ! jq -e --arg pid "$plan_id" '.plans[$pid] != null' "$esf" >/dev/null 2>&1; then
+    echo "Error: plan_id $plan_id not found in execution-state" >&2
+    exit 2
+  fi
+
+  acquire_lock
+  trap release_lock EXIT
+  local tmp="${esf}.tmp"
+  if [[ "$status" == "completed" ]]; then
+    jq --arg pid "$plan_id" '
+      .plans[$pid].status = "completed"
+      | .active_plan_ids = ((.active_plan_ids // []) - [$pid])
+    ' "$esf" > "$tmp"
+  elif [[ "$status" == "isolated" ]]; then
+    jq --arg pid "$plan_id" '
+      .plans[$pid].status = "isolated"
+      | .plans[$pid].isolation_status = "isolated"
+      | .active_plan_ids = ((.active_plan_ids // []) - [$pid])
+    ' "$esf" > "$tmp"
+  else
+    jq --arg pid "$plan_id" '
+      .plans[$pid].isolation_status = "merged"
+    ' "$esf" > "$tmp"
+  fi
+  mv "$tmp" "$esf"
+}
+
+# C4: execution-plan session — 记录 Codex exec session_id（修复轮 resume 依据）。
+cmd_execution_plan_session() {
+  local plan_id="" session_id=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --session-id) session_id="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  if [[ -z "$plan_id" || -z "$session_id" ]]; then
+    echo "Error: --plan-id and --session-id required for execution-plan session" >&2
+    exit 2
+  fi
+  local esf
+  esf="$(execution_state_file)"
+  if [[ ! -f "$esf" ]]; then
+    echo "Error: execution-state file not found: $esf" >&2
+    exit 2
+  fi
+  if ! jq -e --arg pid "$plan_id" '.plans[$pid] != null' "$esf" >/dev/null 2>&1; then
+    echo "Error: plan_id $plan_id not found in execution-state" >&2
+    exit 2
+  fi
+  acquire_lock
+  trap release_lock EXIT
+  local tmp="${esf}.tmp"
+  jq --arg pid "$plan_id" --arg sid "$session_id" \
+    '.plans[$pid].session_id = $sid' "$esf" > "$tmp"
+  mv "$tmp" "$esf"
 }
 
 # Plan 005 Pack 5.7: execution-plan complete — marks a Plan as worker-finished.
@@ -910,11 +1000,13 @@ cmd_plan_returns_ingest() {
 }
 
 cmd_execution_plan_start() {
-  local plan_id="" start_commit=""
+  local plan_id="" start_commit="" worktree_path="" branch=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --plan-id) plan_id="$2"; shift 2 ;;
       --start-commit) start_commit="$2"; shift 2 ;;
+      --worktree-path) worktree_path="$2"; shift 2 ;;
+      --branch) branch="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
@@ -947,12 +1039,93 @@ cmd_execution_plan_start() {
   trap release_lock EXIT
 
   local tmp="${esf}.tmp"
-  jq --arg pid "$plan_id" --arg sha "$start_commit" '
-    .current_plan_id = $pid
+  jq --arg pid "$plan_id" --arg sha "$start_commit" \
+     --arg wt "$worktree_path" --arg br "$branch" '
+    .active_plan_ids = ((.active_plan_ids // []) + [$pid] | unique)
     | .plans[$pid].status = "in_progress"
     | .plans[$pid].start_commit = $sha
+    | (if $wt != "" then .plans[$pid].worktree_path = $wt
+         | .plans[$pid].isolation_status = "active" else . end)
+    | (if $br != "" then .plans[$pid].branch = $br else . end)
   ' "$esf" > "$tmp"
   mv "$tmp" "$esf"
+}
+
+# B1: dep-batches — 从 plans 目录解析 Blocked-by 依赖 DAG，输出可并行批次（topo levels）。
+# 约定（B1 收口）：plan 文件名以 3 位 plan id 开头（如 001-xxx.md）；plan 头部
+# `**Blocked by:**` 的值是其他 plan 编号（"001"/"Plan 001"/逗号分隔）或 "None"。
+# 遇到无法解析为 plan 编号的 token 报错退出（不猜测）；有环报错退出。
+cmd_dep_batches() {
+  local plans_dir=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plans-dir) plans_dir="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  if [[ -z "$plans_dir" || ! -d "$plans_dir" ]]; then
+    echo "Error: --plans-dir required and must exist for dep-batches" >&2
+    exit 2
+  fi
+
+  python3 - "$plans_dir" <<'PYEOF'
+import sys, os, re, json
+
+plans_dir = sys.argv[1]
+deps = {}
+errors = []
+
+for fname in sorted(os.listdir(plans_dir)):
+    m = re.match(r'^(\d{3}).*\.md$', fname)
+    if not m:
+        continue
+    pid = m.group(1)
+    path = os.path.join(plans_dir, fname)
+    with open(path, encoding='utf-8') as f:
+        text = f.read()
+    bm = re.search(r'^\*\*Blocked by:\*\*\s*(.+)$', text, re.MULTILINE)
+    blocked = []
+    if bm:
+        raw = bm.group(1).strip()
+        if raw and raw.lower() not in ('none', '<none>', '无'):
+            for token in re.split(r'[,，;；]\s*|\s+和\s+', raw):
+                token = token.strip()
+                if not token:
+                    continue
+                tm = re.fullmatch(r'(?:Plan\s*)?(\d{3})', token, re.IGNORECASE)
+                if tm:
+                    blocked.append(tm.group(1))
+                else:
+                    errors.append(f"{fname}: Blocked-by token '{token}' is not a plan id (expected 'NNN' / 'Plan NNN' / 'None')")
+    deps[pid] = blocked
+
+if errors:
+    for e in errors:
+        print(f"ERROR: {e}", file=sys.stderr)
+    sys.exit(2)
+
+unknown = [(p, d) for p, ds in deps.items() for d in ds if d not in deps]
+if unknown:
+    for p, d in unknown:
+        print(f"ERROR: plan {p} blocked by unknown plan {d}", file=sys.stderr)
+    sys.exit(2)
+
+# Kahn topo levels
+levels = []
+remaining = dict(deps)
+resolved = set()
+while remaining:
+    level = sorted(p for p, ds in remaining.items() if all(d in resolved for d in ds))
+    if not level:
+        print(f"ERROR: dependency cycle among plans: {sorted(remaining)}", file=sys.stderr)
+        sys.exit(2)
+    levels.append(level)
+    for p in level:
+        resolved.add(p)
+        del remaining[p]
+
+print(json.dumps({"levels": levels, "plan_count": len(resolved)}))
+PYEOF
 }
 
 # --- budget subcommand ---
@@ -2273,5 +2446,6 @@ case "$CMD" in
   verdict-route) cmd_verdict_route "$@" ;;
   checkbox) cmd_checkbox "$@" ;;
   envelope) cmd_envelope "$@" ;;
+  dep-batches) cmd_dep_batches "$@" ;;
   *) echo "Error: unknown command: $CMD" >&2; usage ;;
 esac

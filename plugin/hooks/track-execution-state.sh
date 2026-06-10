@@ -25,6 +25,10 @@ else
 fi
 if [ -z "$PACK_ID" ]; then exit 0; fi
 
+# B4: 此处取的是 hook cwd（主会话工作树）的 HEAD——串行模式正确；并行隔离
+# worktree 模式下 Worker 在自己的树里 commit，这个值必错，仅作 fallback 记账。
+# 权威 SHA 来源是 Worker 上报：plan-return.per_pack[*].commit_sha 经
+# `state.sh plan-returns ingest` 整值合并回填，覆盖本 fallback 值。
 COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
