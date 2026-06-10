@@ -12,7 +12,13 @@ state_lock_acquire() {
   while ! mkdir "$lock_dir" 2>/dev/null; do
     if [[ -f "$lock_dir/ts" ]]; then
       local ts
-      ts=$(cat "$lock_dir/ts")
+      ts=$(cat "$lock_dir/ts" 2>/dev/null || echo "")
+      # ts 损坏(非数字/空)即视为陈旧锁清理——否则下面的算术会在 set -u 下
+      # 把字符串当变量名解引用而崩,拖死所有 source 本库的 state 操作。
+      if ! [[ "$ts" =~ ^[0-9]+$ ]]; then
+        rm -rf "$lock_dir"
+        continue
+      fi
       local now
       now=$(date +%s)
       if (( now - ts > STATE_LOCK_TTL )); then
@@ -49,7 +55,12 @@ state_lock_check_stale() {
 
   if [[ -f "$lock_dir/ts" ]]; then
     local ts
-    ts=$(cat "$lock_dir/ts")
+    ts=$(cat "$lock_dir/ts" 2>/dev/null || echo "")
+    # ts 损坏即按 stale 处理,交上层清理,而非在算术处崩
+    if ! [[ "$ts" =~ ^[0-9]+$ ]]; then
+      echo "stale"
+      return 0
+    fi
     local now
     now=$(date +%s)
     if (( now - ts > ttl_seconds )); then
