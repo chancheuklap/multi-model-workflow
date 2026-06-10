@@ -33,6 +33,9 @@ Commands:
   idempotency       Idempotency key management (check, append)
   review-history    Append a row to a design/plan document's Review History table
   merge-brief       Manage merge-brief lifecycle (init, stage, verify)
+  verdict-route     Query mechanical verdict routing from routes-v1.json (--phase, --verdict)
+  checkbox          Toggle committed-pack checkboxes in plan doc (toggle --plan-id --plan-file)
+  envelope          Build DISPATCH_ENVELOPE block (build --phase --agent-role [--plan-id|--pack-id] ...)
 
 Options:
   --run-id <id>     Run identifier (required for most commands)
@@ -1990,6 +1993,236 @@ PYEOF
   echo "Valid: $target ($meta_block)"
 }
 
+# --- A1: verdict-route — workflow-level verdict 机械路由查询 ---
+# 查 routes-v1.json .verdict_routing[phase][verdict]，输出机械动作 JSON。
+# 判断类分支（judgment=true）只给候选动作，最终选择留给 Coordinator 散文判断。
+# 特例 reflux-counter（final-review NEEDS_EXECUTION）：读写 workflow-state
+# execution_reflux_count——0 → 递增并 goto execution；≥1 → blocked。
+# Fail-open：verdict_routing 缺数据 → exit 0 输出 no-data 提示（never stricter）。
+cmd_verdict_route() {
+  local phase="" verdict=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --phase) phase="$2"; shift 2 ;;
+      --verdict) verdict="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$phase" || -z "$verdict" ]]; then
+    echo "Error: --phase and --verdict required for verdict-route" >&2
+    exit 2
+  fi
+
+  if ! routes_load; then
+    echo "[multi-model-workflow] VERDICT-ROUTE no-data (routes manifest unreadable) — follow SKILL.md prose."
+    exit 0
+  fi
+
+  local record
+  record=$(jq -c --arg p "$phase" --arg v "$verdict" \
+    '.verdict_routing[$p][$v] // empty' "$ROUTES_MANIFEST" 2>/dev/null)
+  if [[ -z "$record" ]]; then
+    echo "[multi-model-workflow] VERDICT-ROUTE no-data for phase=$phase verdict=$verdict — follow SKILL.md prose."
+    exit 0
+  fi
+
+  local action
+  action=$(echo "$record" | jq -r '.action')
+
+  if [[ "$action" == "reflux-counter" ]]; then
+    ensure_state_exists
+    local sf count
+    sf="$(state_file)"
+    count=$(jq -r '.execution_reflux_count // 0' "$sf")
+    if [[ "$count" -eq 0 ]]; then
+      acquire_lock
+      trap release_lock EXIT
+      local tmp="${sf}.tmp"
+      jq '.execution_reflux_count = 1' "$sf" > "$tmp"
+      mv "$tmp" "$sf"
+      echo "$record" | jq -c '. + {action: "goto", reflux_count: 1, resolved: "reflux 0→1，回 execution"}'
+    else
+      echo "$record" | jq -c '. + {action: "report-user", target: null, reflux_count: '"$count"', resolved: "reflux 已达上限，BLOCKED 报告用户"}'
+    fi
+    return 0
+  fi
+
+  echo "$record"
+}
+
+# --- A2: checkbox toggle — Plan Implementation Review 通过后勾选 committed Pack ---
+# Source-of-truth = plan-return.per_pack[*].status == committed（D4 裁决）。
+# 按 Pack ID 精确匹配 `- [ ] **Pack N.M**` 行 toggle 为 `- [x]`；非 committed 不动。
+cmd_checkbox() {
+  local subcmd="$1"; shift
+  case "$subcmd" in
+    toggle) cmd_checkbox_toggle "$@" ;;
+    *) echo "Error: unknown checkbox subcommand: $subcmd (use toggle)" >&2; exit 2 ;;
+  esac
+}
+
+cmd_checkbox_toggle() {
+  local plan_id="" plan_file=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --plan-file) plan_file="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$plan_id" || -z "$plan_file" ]]; then
+    echo "Error: --plan-id and --plan-file required for checkbox toggle" >&2
+    exit 2
+  fi
+  if [[ ! -f "$plan_file" ]]; then
+    echo "Error: plan file not found: $plan_file" >&2
+    exit 2
+  fi
+
+  local pr_file="${STATE_BASE}/plan-returns/${RUN_ID}/${plan_id}/plan-return.json"
+  if [[ ! -f "$pr_file" ]]; then
+    echo "Error: plan-return.json not found at: $pr_file" >&2
+    exit 2
+  fi
+
+  local committed_packs
+  committed_packs=$(jq -r '.per_pack | to_entries[] | select(.value.status == "committed") | .key' "$pr_file")
+  if [[ -z "$committed_packs" ]]; then
+    echo "[multi-model-workflow] checkbox toggle: no committed packs in plan-return — nothing to toggle."
+    return 0
+  fi
+
+  local toggled=0 already=0 missing=0 pack escaped
+  while IFS= read -r pack; do
+    [[ -z "$pack" ]] && continue
+    escaped=$(printf '%s' "$pack" | sed 's/\./\\./g')
+    if grep -qE "^[[:space:]]*- \[x\] \*\*Pack ${escaped}\*\*" "$plan_file"; then
+      already=$((already + 1))
+      continue
+    fi
+    if grep -qE "^[[:space:]]*- \[ \] \*\*Pack ${escaped}\*\*" "$plan_file"; then
+      # macOS/BSD sed -i 需要后缀参数；用 portable tmp 写法
+      local tmp="${plan_file}.tmp.$$"
+      sed -E "s/^([[:space:]]*)- \[ \] (\*\*Pack ${escaped}\*\*)/\1- [x] \2/" "$plan_file" > "$tmp"
+      mv "$tmp" "$plan_file"
+      toggled=$((toggled + 1))
+    else
+      missing=$((missing + 1))
+      echo "Warning: checkbox line for Pack ${pack} not found in $plan_file" >&2
+    fi
+  done <<< "$committed_packs"
+
+  echo "[multi-model-workflow] checkbox toggle: ${toggled} toggled, ${already} already checked, ${missing} missing."
+  [[ "$missing" -eq 0 ]] || exit 2
+}
+
+# --- A3: envelope build — DISPATCH_ENVELOPE 生成器（与 parse-envelope.sh 校验对称）---
+# idempotency_key 统一为 <run_id>/<plan_id|pack_id>/r<repair_round>（plan-level 用
+# plan_id，pack-level 用 pack_id，消除旧模板只写 pack_id 的歧义）。
+# 生成后立即过一遍 hooks/lib/parse-envelope.sh 自检，保证生成与校验不漂移。
+cmd_envelope() {
+  local subcmd="$1"; shift
+  case "$subcmd" in
+    build) cmd_envelope_build "$@" ;;
+    *) echo "Error: unknown envelope subcommand: $subcmd (use build)" >&2; exit 2 ;;
+  esac
+}
+
+cmd_envelope_build() {
+  local phase="" agent_role="" plan_id="" pack_id="" repair_round="0"
+  local agent_id="" worktree_path="" review_intent="" exception_code=""
+  local disposition_refs="" resume_from_pack_id=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --phase) phase="$2"; shift 2 ;;
+      --agent-role) agent_role="$2"; shift 2 ;;
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --pack-id) pack_id="$2"; shift 2 ;;
+      --repair-round) repair_round="$2"; shift 2 ;;
+      --agent-id) agent_id="$2"; shift 2 ;;
+      --worktree-path) worktree_path="$2"; shift 2 ;;
+      --review-intent) review_intent="$2"; shift 2 ;;
+      --exception-code) exception_code="$2"; shift 2 ;;
+      --disposition-refs) disposition_refs="$2"; shift 2 ;;
+      --resume-from-pack-id) resume_from_pack_id="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$phase" || -z "$agent_role" ]]; then
+    echo "Error: --phase and --agent-role required for envelope build" >&2
+    exit 2
+  fi
+  if [[ -n "$plan_id" && -n "$pack_id" ]]; then
+    echo "Error: exactly one of --plan-id / --pack-id may be set (got both)" >&2
+    exit 2
+  fi
+
+  # idempotency 基（plan-level 优先 plan_id；pack-level 用 pack_id；route-worker 无两者用 phase）
+  local key_base="${plan_id:-${pack_id:-$phase}}"
+  local idempotency_key="${RUN_ID}/${key_base}/r${repair_round}"
+  local correlation_id="${RUN_ID}/${key_base}"
+
+  if [[ "$repair_round" -ge 1 ]] && [[ -z "$disposition_refs" || "$disposition_refs" == "null" || "$disposition_refs" == "[]" ]]; then
+    echo "Error: repair dispatch (round=$repair_round) requires non-empty --disposition-refs" >&2
+    exit 2
+  fi
+  if [[ "$agent_role" == "codex-reviewer" && "$review_intent" != "baseline" ]]; then
+    echo "Error: codex-reviewer dispatch requires --review-intent baseline" >&2
+    exit 2
+  fi
+
+  local envelope
+  envelope=$(jq -cn \
+    --arg run_id "$RUN_ID" \
+    --arg phase "$phase" \
+    --arg agent_role "$agent_role" \
+    --arg agent_id "$agent_id" \
+    --arg pack_id "$pack_id" \
+    --arg plan_id "$plan_id" \
+    --argjson repair_round "$repair_round" \
+    --arg idempotency_key "$idempotency_key" \
+    --arg correlation_id "$correlation_id" \
+    --arg review_intent "$review_intent" \
+    --arg exception_code "$exception_code" \
+    --arg worktree_path "$worktree_path" \
+    --arg resume_from "$resume_from_pack_id" \
+    --arg drefs "$disposition_refs" \
+    '{
+      protocol_version: "1",
+      run_id: $run_id,
+      phase: $phase,
+      agent_role: $agent_role,
+      agent_id: (if $agent_id == "" then null else $agent_id end),
+      pack_id: (if $pack_id == "" then null else $pack_id end),
+      plan_id: (if $plan_id == "" then null else $plan_id end),
+      repair_round: $repair_round,
+      idempotency_key: $idempotency_key,
+      disposition_refs: (if $drefs == "" then null else ($drefs | fromjson? // $drefs) end),
+      review_intent: (if $review_intent == "" then null else $review_intent end),
+      exception_code: (if $exception_code == "" then null else $exception_code end),
+      correlation_id: $correlation_id,
+      worktree_path: (if $worktree_path == "" then null else $worktree_path end)
+    }
+    + (if $resume_from == "" then {} else {resume_from_pack_id: $resume_from} end)')
+
+  local block="<!-- DISPATCH_ENVELOPE ${envelope} -->"
+
+  # 自检：生成物必须通过 parse-envelope.sh（生成与校验对称，杜绝漂移）
+  local parser="$SCRIPT_DIR/../hooks/lib/parse-envelope.sh"
+  if [[ -f "$parser" ]]; then
+    if ! echo "$block" | bash "$parser" >/dev/null 2>&1; then
+      echo "Error: generated envelope failed parse-envelope.sh self-check" >&2
+      echo "$block" >&2
+      exit 2
+    fi
+  fi
+
+  echo "$block"
+}
+
 # --- Main ---
 if [[ $# -lt 1 ]]; then usage; fi
 
@@ -2037,5 +2270,8 @@ case "$CMD" in
   idempotency) cmd_idempotency "$@" ;;
   review-history) cmd_review_history "$@" ;;
   merge-brief) cmd_merge_brief "$@" ;;
+  verdict-route) cmd_verdict_route "$@" ;;
+  checkbox) cmd_checkbox "$@" ;;
+  envelope) cmd_envelope "$@" ;;
   *) echo "Error: unknown command: $CMD" >&2; usage ;;
 esac

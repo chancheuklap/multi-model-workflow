@@ -16,6 +16,53 @@
     "Coordinator:*:execution_done",
     "Coordinator:*:closed"
   ],
+  "verdict_routing": {
+    "discovery": {
+      "DISCOVERY_READY": { "action": "goto", "target": "plan-writing", "judgment": false, "note": "缺 issue hierarchy → 先重进 discovery Step 12 大 issue 拆分再 plan-writing" },
+      "DISCOVERY_NOT_NEEDED": { "action": "goto", "target": "plan-writing", "judgment": false, "note": "同样先检查 issue hierarchy" },
+      "READY_FOR_REPAIR": { "action": "goto", "target": "direct-repair", "judgment": false, "note": "已批准 design 下的实现偏离 → Direct Repair" },
+      "NEEDS_USER_DECISION": { "action": "ask-user", "target": "discovery", "judgment": true, "note": "一次只问一个，回答后重进 discovery" },
+      "BLOCKED": { "action": "report-user", "target": null, "judgment": true, "note": "业务措辞由散文组织" }
+    },
+    "plan-writing": {
+      "PLAN_CREATED": { "action": "goto", "target": "execution", "judgment": false, "note": "先确认 workflow-state budget 已初始化" },
+      "NEEDS_DISCOVERY": { "action": "goto", "target": "discovery", "judgment": false },
+      "NEEDS_DESIGN_REVIEW": { "action": "goto", "target": "discovery", "judgment": false, "note": "直入 discovery 的 Design Review 步" },
+      "NEEDS_ISSUES": { "action": "candidates", "target": null, "judgment": true, "note": "判缺件类型：缺大 issue → discovery 大 issue 拆分；缺小 issue → 重派 plan-writer" },
+      "NEEDS_TRIAGE": { "action": "invoke-skill", "target": "triage", "judgment": false, "note": "完成后重进 plan-writing" },
+      "NEEDS_DIAGNOSIS": { "action": "invoke-skill", "target": "diagnose", "judgment": false, "note": "结论写回后重进 plan-writing" },
+      "NEEDS_DECISION": { "action": "ask-user", "target": "plan-writing", "judgment": true },
+      "NEEDS_ARCHITECTURE": { "action": "invoke-skill", "target": "improve-codebase-architecture", "judgment": false, "note": "结论写回后重进 plan-writing" },
+      "NEEDS_CONTEXT": { "action": "candidates", "target": null, "judgment": true, "note": "窄事实 → code-explorer；模块边界 → improve-codebase-architecture" },
+      "BLOCKED": { "action": "report-user", "target": null, "judgment": true }
+    },
+    "execution": {
+      "EXECUTION_PASSED": { "action": "goto", "target": "final-review", "judgment": false },
+      "NEEDS_DISCOVERY": { "action": "goto", "target": "discovery", "judgment": false },
+      "NEEDS_PLAN_REVISION": { "action": "goto", "target": "plan-writing", "judgment": false },
+      "NEEDS_ARCHITECTURE": { "action": "candidates", "target": null, "judgment": true, "note": "只影响当前 pack → 回 execution；改变 plan → 回 plan-writing" },
+      "BLOCKED": { "action": "report-user", "target": null, "judgment": true }
+    },
+    "final-review": {
+      "FINAL_REVIEW_PASSED": { "action": "goto", "target": "closing", "judgment": false },
+      "FINAL_REVIEW_PASSED_WITH_RELEASE_RISK": { "action": "goto", "target": "closing", "judgment": false, "note": "release review 已内部处理" },
+      "NEEDS_EXECUTION": { "action": "reflux-counter", "target": "execution", "judgment": false, "note": "execution_reflux_count 0→递增回 execution；≥1→report-user" },
+      "NEEDS_DISCOVERY": { "action": "goto", "target": "discovery", "judgment": false },
+      "NEEDS_PLAN_REVISION": { "action": "goto", "target": "plan-writing", "judgment": false },
+      "BLOCKED": { "action": "report-user", "target": null, "judgment": true }
+    },
+    "multi-pr-merge": {
+      "MERGE_COMPLETE": { "action": "goto", "target": "closing", "judgment": false },
+      "NEEDS_DISCOVERY": { "action": "goto", "target": "discovery", "judgment": false, "note": "analyst 发现设计/意图冲突" },
+      "NEEDS_USER_DECISION": { "action": "ask-user", "target": "multi-pr-merge", "judgment": true, "note": "拿到决策后重新进入" },
+      "BLOCKED": { "action": "report-user", "target": null, "judgment": true }
+    },
+    "direct-repair": {
+      "pass": { "action": "goto", "target": "closing", "judgment": false },
+      "needs repair": { "action": "candidates", "target": null, "judgment": true, "note": "路径 A（≤2 文件直修）或路径 B（worker 续修）→ baseline re-review → 最多 2 轮" },
+      "blocked": { "action": "report-user", "target": null, "judgment": true }
+    }
+  },
   "routes": {
     "formal": {
       "phases": ["discovery", "plan-writing", "execution", "final-review"],

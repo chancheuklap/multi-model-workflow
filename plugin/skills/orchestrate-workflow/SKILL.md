@@ -144,6 +144,15 @@ state.sh budget reinitialize --run-id <rid> --plan-count <暂估或 1>
 
 线性管线：Discovery → Plan Writing → Execution → Final Review → Closing。每个 phase skill 通过 `Skill({ skill: "multi-model-workflow:<name>" })` 加载到主线程。
 
+**Verdict 机械路由（Steps 8/10/12/14/20 通用）**：phase skill 返回 verdict 后先查数据——
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" verdict-route \
+  --run-id "<run_id>" --phase <phase> --verdict "<VERDICT>"
+```
+
+返回 `judgment=false` → 照 `action`/`target` 机械执行，不读表；`judgment=true` → 按各 Handle 步的判断表散文裁决；`no-data` → 回退判断表。`target` → Step 映射：`discovery`→Step 7 · `plan-writing`→Step 9 · `execution`→Step 11 · `final-review`→Step 13 · `direct-repair`→Step 8a · `closing`→Closing。`action=invoke-skill` → `Skill({ skill: "<target>" })` 完成后重进原 phase；`action=reflux-counter` 由命令内部完成计数与裁决（NEEDS_EXECUTION 不再手读 `execution_reflux_count`）。
+
 ### Step 7：orchestrate-discovery
 
 ```
@@ -154,11 +163,11 @@ Skill({ skill: "multi-model-workflow:orchestrate-discovery" })
 
 > **Phase complete.** Discovery: [设计文档状态, Design Review 结果]。Passing to [next phase]。
 
-| Discovery Verdict | Coordinator 动作 |
+机械 verdict 查 verdict-route（READY_FOR_REPAIR → Step 8a 等）。判断分支：
+
+| Discovery Verdict（判断） | Coordinator 动作 |
 | --- | --- |
-| `DISCOVERY_READY` | 检查 issue hierarchy：有 → Step 9；无 → 重新进入 orchestrate-discovery Step 12（大 issue 拆分）→ Step 9 |
-| `DISCOVERY_NOT_NEEDED` | 已有足够清晰的 design → 检查 issue hierarchy → Step 9 |
-| `READY_FOR_REPAIR` | 已批准 design 下的实现偏离 → Step 8a（Direct Repair） |
+| `DISCOVERY_READY` / `DISCOVERY_NOT_NEEDED` | goto Step 9 前检查 issue hierarchy：有 → Step 9；无 → 先 Step 8b（大 issue 拆分）再 Step 9 |
 | `NEEDS_USER_DECISION` | 询问用户（一次只问一个），回答后重新进入 discovery |
 | `BLOCKED` | 报告用户 |
 
@@ -182,16 +191,12 @@ Skill({ skill: "multi-model-workflow:orchestrate-plan-writing" })
 
 > **Phase complete.** Plan-writing: [plan 数量, task pack 数量, budget]。Passing to [next phase]。
 
-| Plan-writing Verdict | Coordinator 动作 |
+机械 verdict 查 verdict-route（PLAN_CREATED 须先确认 budget 已初始化；NEEDS_TRIAGE / NEEDS_DIAGNOSIS / NEEDS_ARCHITECTURE 走 invoke-skill 写回后重进 Step 9）。判断分支：
+
+| Plan-writing Verdict（判断） | Coordinator 动作 |
 | --- | --- |
-| `PLAN_CREATED` | 确认 workflow-state budget 已初始化 → Step 11 |
-| `NEEDS_DISCOVERY` | 回到 Step 7 |
-| `NEEDS_DESIGN_REVIEW` | 回到 discovery Design Review |
 | `NEEDS_ISSUES` | 判断缺件类型：缺大 issue → Step 8b（大 issue 拆分）；缺小 issue → 重新 Step 9（plan-writer 内部处理） |
-| `NEEDS_TRIAGE` | `Skill({ skill: "triage" })` → 重新 Step 9 |
-| `NEEDS_DIAGNOSIS` | `Skill({ skill: "diagnose" })` → 写回 → 重新 Step 9 |
 | `NEEDS_DECISION` | 询问用户 → 回答后 Step 9 |
-| `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` → 写回 → Step 9 |
 | `NEEDS_CONTEXT` | 派 `code-explorer`（窄事实）/ `Skill({ skill: "improve-codebase-architecture" })`（模块边界）→ 补充后 Step 9 |
 | `BLOCKED` | 报告用户 |
 
@@ -207,11 +212,10 @@ Skill({ skill: "multi-model-workflow:orchestrate-execution" })
 
 > **Phase complete.** Execution: [pack 通过数/总数, repair rounds, budget 消耗]。Passing to [next phase]。
 
-| Execution Verdict | Coordinator 动作 |
+机械 verdict 查 verdict-route。判断分支：
+
+| Execution Verdict（判断） | Coordinator 动作 |
 | --- | --- |
-| `EXECUTION_PASSED` | Step 13 |
-| `NEEDS_DISCOVERY` | 回到 Step 7 |
-| `NEEDS_PLAN_REVISION` | 回到 Step 9 |
 | `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` → 只影响当前 pack → 回 Step 11；改变 plan → 回 Step 9 |
 | `BLOCKED` | 报告用户 |
 
@@ -227,13 +231,10 @@ Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
 
 > **Phase complete.** Final Review: [verdict, release risk 状态]。Passing to [next phase]。
 
-| Final Review Verdict | Coordinator 动作 |
+机械 verdict 查 verdict-route（`NEEDS_EXECUTION` 的回流计数已完全下沉到命令内部——返回 goto 即回 Step 11，返回 report-user 即 BLOCKED）。判断分支：
+
+| Final Review Verdict（判断） | Coordinator 动作 |
 | --- | --- |
-| `FINAL_REVIEW_PASSED` | Closing |
-| `FINAL_REVIEW_PASSED_WITH_RELEASE_RISK` | Closing（release review 已内部处理） |
-| `NEEDS_EXECUTION` | 读 workflow-state 的 `execution_reflux_count`：0 → 递增为 1，回到 Step 11；≥1 → BLOCKED 报告用户 |
-| `NEEDS_DISCOVERY` | 回到 Step 7 |
-| `NEEDS_PLAN_REVISION` | 回到 Step 9 |
 | `BLOCKED` | 报告用户 |
 
 **回流处理**：回流按受影响 Plan 数 `budget credit` 归还额度（effective_used = review_used − review_credit）。Plan revision 改变 plan count → plan-writing Step 12a 重新确认 budget。
@@ -246,10 +247,10 @@ Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
 
 `Skill({ skill: "multi-model-workflow:orchestrate-multi-pr-merge" })`。
 
-| Multi-PR Merge Verdict | Coordinator 动作 |
+机械 verdict 查 verdict-route（`--phase multi-pr-merge`）。判断分支：
+
+| Multi-PR Merge Verdict（判断） | Coordinator 动作 |
 | --- | --- |
-| `MERGE_COMPLETE` | Closing |
-| `NEEDS_DISCOVERY` | analyst 发现设计/意图冲突 → 回到 Discovery |
 | `NEEDS_USER_DECISION` | 冲突解决需要用户决策 → 询问用户 → 拿到决策后重新进入 |
 | `BLOCKED` | 报告用户 |
 
