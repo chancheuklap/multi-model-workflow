@@ -19,6 +19,19 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/guard-premature-push.sh\"",
+            "if": "Bash(*git push*)",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/guard-premature-push.sh\"",
+            "if": "Bash(*gh pr*)",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/guard-premature-push.sh\"",
+            "if": "Bash(*git merge*)",
             "timeout": 5
           },
           {
