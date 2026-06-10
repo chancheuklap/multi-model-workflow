@@ -29,7 +29,9 @@ if [ ! -f "$SF" ]; then exit 0; fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/../scripts/lib/state-lock.sh"
 LOCK_DIR="${BUDGET_DIR}/${RUN_ID}.lock"
-state_lock_acquire "$LOCK_DIR"
+# 裸调用时 acquire 抢锁失败(return 2)会被 set -e 静默杀掉钩子,预算不计数且无 stderr;
+# 显式降级为可见的 no-op(钩子是观测性的,丢一次计数可接受)。
+state_lock_acquire "$LOCK_DIR" || { echo "[multi-model-workflow] WARN: state lock busy, skipping review-budget update." >&2; exit 0; }
 trap 'state_lock_release "$LOCK_DIR"' EXIT
 
 USED=$(jq -r '.budget.review_used // 0' "$SF")
