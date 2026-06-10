@@ -2306,13 +2306,14 @@ cmd_envelope() {
 cmd_envelope_build() {
   local phase="" agent_role="" plan_id="" pack_id="" repair_round="0"
   local agent_id="" worktree_path="" review_intent="" exception_code=""
-  local disposition_refs="" resume_from_pack_id=""
+  local disposition_refs="" resume_from_pack_id="" plan_path=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --phase) phase="$2"; shift 2 ;;
       --agent-role) agent_role="$2"; shift 2 ;;
       --plan-id) plan_id="$2"; shift 2 ;;
       --pack-id) pack_id="$2"; shift 2 ;;
+      --plan-path) plan_path="$2"; shift 2 ;;
       --repair-round) repair_round="$2"; shift 2 ;;
       --agent-id) agent_id="$2"; shift 2 ;;
       --worktree-path) worktree_path="$2"; shift 2 ;;
@@ -2362,6 +2363,7 @@ cmd_envelope_build() {
     --arg exception_code "$exception_code" \
     --arg worktree_path "$worktree_path" \
     --arg resume_from "$resume_from_pack_id" \
+    --arg plan_path "$plan_path" \
     --arg drefs "$disposition_refs" \
     '{
       protocol_version: "1",
@@ -2379,6 +2381,7 @@ cmd_envelope_build() {
       correlation_id: $correlation_id,
       worktree_path: (if $worktree_path == "" then null else $worktree_path end)
     }
+    + (if $plan_path == "" then {} else {plan_path: $plan_path} end)
     + (if $resume_from == "" then {} else {resume_from_pack_id: $resume_from} end)')
 
   local block="<!-- DISPATCH_ENVELOPE ${envelope} -->"
