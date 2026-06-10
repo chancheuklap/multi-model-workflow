@@ -46,9 +46,17 @@ if [[ "$STATUS" != "completed" ]]; then
   exit 2
 fi
 
-# 1. C6 docs 守卫
+# 1. C6 docs 守卫(安全边界,fail-closed)
 if [[ -n "$START" ]]; then
-  DOCS_TOUCHED=$(git diff --name-only "$START" "$BRANCH" -- docs/ 2>/dev/null || true)
+  # 分离退出码与输出:git diff 失败(START/BRANCH ref 异常)= 无法核验 = 拒绝合并。
+  # 不能用 `|| true` 把"验不了"误当成"没碰 docs"而放行——那会让带 docs 改动的分支被合并。
+  if ! DOCS_TOUCHED=$(git diff --name-only "$START" "$BRANCH" -- docs/ 2>&1); then
+    echo "[multi-model-workflow] BLOCKED: plan $PLAN_ID docs 守卫无法核验（git diff 失败，ref 异常）：" >&2
+    echo "$DOCS_TOUCHED" >&2
+    bash "$STATE_SH" execution-plan finish --run-id "$RUN_ID" --plan-id "$PLAN_ID" --status isolated
+    echo "已标 isolated；人工裁决后再处理。" >&2
+    exit 2
+  fi
   if [[ -n "$DOCS_TOUCHED" ]]; then
     echo "[multi-model-workflow] BLOCKED: plan $PLAN_ID 分支触碰了 docs/（Worker 禁区）：" >&2
     echo "$DOCS_TOUCHED" >&2
