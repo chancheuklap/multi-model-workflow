@@ -11,7 +11,7 @@
 
 ## 前置条件
 
-Plugin 启动时 `session-start.sh` 会硬检查以下条件，缺一个就阻断：
+Plugin 启动时 `session-start.sh` 会检查以下条件，缺任意一项发一条 stderr 告警后继续（SessionStart 钩子无法阻断会话，且提前退出会废掉脚本末尾的 workflow 断点恢复注入）：
 - 环境变量 `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 已设置
 - `jq` 和 `python3` 在 PATH 中
 - Claude Code 版本 ≥ 2.1.147

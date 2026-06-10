@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # multi-model-workflow: SessionStart hook
 # Prerequisites check + behavioral override injection + state recovery.
-# Missing prerequisites = exit 2 (block session startup).
+# 守门改为告警、不阻断:SessionStart 钩子无法阻断会话——官方文档明确 exit 2 对
+# SessionStart 只显示 stderr、不拦启动。而提前 exit 还会让脚本末尾的 workflow 断点恢复
+# JSON 永远跑不到(守门没守住、反而废掉自己的核心功能)。故缺前置条件时只发一条可操作的
+# 告警,放会话继续跑。
 
-check_prerequisite() {
+warn_prerequisite() {
   local name="$1" check="$2"
   if ! eval "$check" >/dev/null 2>&1; then
-    echo "[multi-model-workflow] BLOCKED: prerequisite missing — $name" >&2
-    exit 2
+    echo "[multi-model-workflow] WARNING: prerequisite missing — $name. Plugin features may not work until resolved." >&2
   fi
 }
 
@@ -16,21 +18,21 @@ check_prerequisite() {
 HOOK_INPUT=$(cat 2>/dev/null || true)
 HOOK_SOURCE=$(printf '%s' "$HOOK_INPUT" | jq -r '.source // empty' 2>/dev/null || true)
 
-check_prerequisite "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS" \
+warn_prerequisite "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS" \
   '[ -n "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" ]'
 
-check_prerequisite "jq in PATH" \
+warn_prerequisite "jq in PATH" \
   'command -v jq'
 
-check_prerequisite "python3 in PATH" \
+warn_prerequisite "python3 in PATH" \
   'command -v python3'
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-check_prerequisite "plugin.json readable" \
+warn_prerequisite "plugin.json readable" \
   "[ -f '$PLUGIN_ROOT/.claude-plugin/plugin.json' ]"
 
 PLUGIN_VERSION=$(jq -r '.version // empty' "$PLUGIN_ROOT/.claude-plugin/plugin.json" 2>/dev/null)
-check_prerequisite "plugin.json has version field" \
+warn_prerequisite "plugin.json has version field" \
   '[ -n "$PLUGIN_VERSION" ]'
 
 # Claude Code version check (silent skip if claude not in PATH)
@@ -39,7 +41,7 @@ if command -v claude >/dev/null 2>&1; then
   if [[ -n "$CLAUDE_VERSION" ]]; then
     IFS='.' read -r major minor patch <<< "$CLAUDE_VERSION"
     if [[ "$major" -lt 2 ]] || [[ "$major" -eq 2 && "$minor" -lt 1 ]] || [[ "$major" -eq 2 && "$minor" -eq 1 && "$patch" -lt 147 ]]; then
-      check_prerequisite "Claude Code >= 2.1.147" "false"
+      warn_prerequisite "Claude Code >= 2.1.147" "false"
     fi
   fi
 fi
@@ -81,6 +83,9 @@ RULES
   fi
 fi
 
-jq -n --arg context "$CONTEXT" \
-  '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $context}}'
+# jq 缺失时无法构造 JSON——告警已发出,会话仍需正常起步,故跳过注入而非崩溃。
+if command -v jq >/dev/null 2>&1; then
+  jq -n --arg context "$CONTEXT" \
+    '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $context}}'
+fi
 exit 0
