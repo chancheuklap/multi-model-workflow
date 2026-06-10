@@ -16,9 +16,10 @@
 | `SubagentStop → agent-return-handler 解析路由` | 不存在。你写完 `plan-return.json` 正常退出即可——派发包装脚本在你退出后自动 ingest 并路由 |
 | `SendMessage 续派 / Repair Mode 经 SendMessage` | 不存在。修复轮由 Coordinator 用 `codex exec resume` 续你的 session，修复指令出现在续会话输入里 |
 | `guard-doc-edit.sh hook 强制拦截 docs/` | hook 拦不到你。**纪律照旧成立**：禁改任何 docs/ 下文件——合并前有 `git diff -- docs/` 机器检查，触碰 = 整个 Plan 被隔离拒收 |
-| `enforce-plan-commit hook 校验 commit 格式` | hook 拦不到你。**格式照旧强制**：`Pack <plan.id>.<pack.id>: <title> — <summary>`（记账靠它匹配；写错 = 记账丢失） |
+| `enforce-plan-commit hook 校验 commit 格式` | hook 拦不到你。**格式照旧强制**：`Pack <pack_id>: <title> — <summary>`，pack_id 形如 `1.1`（本身已含 plan 内序号，**不要再拼 plan_id 前缀**，`Pack 001.1.1:` 是错误格式）。记账靠它匹配；写错 = 记账丢失 |
 | Claude 的 agent memory / voice 规则 | 无对应物，忽略；项目约定读 worktree 内 AGENTS.md / AGENTS.override.md（你原生自动读） |
 | 启动序列 Step 2「Read execution-worker-dispatch.md」 | 该文件是 Claude executor 版规范，**已被本文件整体取代**——你正在读的就是行为规范，Step 2 视为已完成 |
+| 你侧本地安装的 `multi-model-workflow` 插件缓存（`~/.codex/plugins/cache/...`） | **禁止读取**。那是旧版本快照，其 orchestrate-* SKILL.md / execution-worker-dispatch.md 与本 handbook 矛盾（如「worker 不读 plan 文件」）。你的全部行为规范 = 本文件 + 派工 prompt，不需要任何插件内部文档补充 |
 
 ## 路径纪律（一票否决项）
 
@@ -37,8 +38,8 @@
 
 ## Commit 规范
 
-- 每个 Pack 完成后**独立 commit**（在你的 worktree 分支上），格式：`Pack <plan.id>.<pack.id>: <title> — <summary>`。
-- repair 模式：`Pack <plan.id>.<pack.id>: <title> — repair: <finding 摘要>`，每 finding 一个 commit，不批量。
+- 每个 Pack 完成后**独立 commit**（在你的 worktree 分支上），格式：`Pack <pack_id>: <title> — <summary>`（pack_id 形如 `1.1`，已含 plan 内序号，不拼 plan_id 前缀）。
+- repair 模式：`Pack <pack_id>: <title> — repair: <finding 摘要>`，每 finding 一个 commit，不批量。
 - **不 push**；合并回主干由 Coordinator 回收脚本完成。
 - commit 后必须上报（SHA 取你 worktree 里的真实值）：
 
@@ -107,7 +108,9 @@ for pack in sorted_packs:
   write ${STATE_DIR}/pack-returns/<run_id>/<pack.id>.json
 
   # Git commit（enforce-plan-commit hook 校验格式）
-  git commit -m "Pack <plan.id>.<pack.id>: <title> — <summary>"
+  # 格式硬约束：Pack 后面直接跟完整 pack.id（形如 1.1，本身已含 plan 内序号），
+  # 不要再拼 plan.id 前缀——"Pack 001.1.1:" 是错误格式，记账正则会误捕
+  git commit -m "Pack <pack.id>: <title> — <summary>"
 
   # 累积 open items 到 plan-returns/open-items.json
   append open_items_for_this_pack to ${STATE_DIR}/plan-returns/<run_id>/<plan_id>/open-items.json
@@ -148,7 +151,7 @@ return  # SubagentStop → agent-return-handler.sh 处理
 
 1. 读 `${STATE_DIR}/review-prompts/`（如存在）或 envelope 内嵌的 disposition_refs 列表
 2. 对每个 finding，读 `[Pack N.M]` 归属标记（Codex review 规范要求标注归属）
-3. **按 Pack 独立 commit**：`Pack <plan.id>.<pack.id>: <title> — repair: <finding 摘要>`（每 finding 一个 commit，不批量；track-execution-state 会幂等把 status 再次置 `committed`）
+3. **按 Pack 独立 commit**：`Pack <pack.id>: <title> — repair: <finding 摘要>`（pack.id 形如 1.1，不拼 plan.id 前缀；每 finding 一个 commit，不批量；track-execution-state 会幂等把 status 再次置 `committed`）
 4. 修完所有 finding → 重写 plan-return.json（verdict 通常仍为 `pass`，per_pack 不变；附 `repair_round` 元数据）
 5. return（SubagentStop 再触发 handler）
 

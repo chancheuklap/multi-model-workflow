@@ -107,7 +107,9 @@ for pack in sorted_packs:
   write ${STATE_DIR}/pack-returns/<run_id>/<pack.id>.json
 
   # Git commit（enforce-plan-commit hook 校验格式）
-  git commit -m "Pack <plan.id>.<pack.id>: <title> — <summary>"
+  # 格式硬约束：Pack 后面直接跟完整 pack.id（形如 1.1，本身已含 plan 内序号），
+  # 不要再拼 plan.id 前缀——"Pack 001.1.1:" 是错误格式，记账正则会误捕
+  git commit -m "Pack <pack.id>: <title> — <summary>"
 
   # 累积 open items 到 plan-returns/open-items.json
   append open_items_for_this_pack to ${STATE_DIR}/plan-returns/<run_id>/<plan_id>/open-items.json
@@ -148,7 +150,7 @@ return  # SubagentStop → agent-return-handler.sh 处理
 
 1. 读 `${STATE_DIR}/review-prompts/`（如存在）或 envelope 内嵌的 disposition_refs 列表
 2. 对每个 finding，读 `[Pack N.M]` 归属标记（Codex review 规范要求标注归属）
-3. **按 Pack 独立 commit**：`Pack <plan.id>.<pack.id>: <title> — repair: <finding 摘要>`（每 finding 一个 commit，不批量；track-execution-state 会幂等把 status 再次置 `committed`）
+3. **按 Pack 独立 commit**：`Pack <pack.id>: <title> — repair: <finding 摘要>`（pack.id 形如 1.1，不拼 plan.id 前缀；每 finding 一个 commit，不批量；track-execution-state 会幂等把 status 再次置 `committed`）
 4. 修完所有 finding → 重写 plan-return.json（verdict 通常仍为 `pass`，per_pack 不变；附 `repair_round` 元数据）
 5. return（SubagentStop 再触发 handler）
 
