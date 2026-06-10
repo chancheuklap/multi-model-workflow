@@ -21,8 +21,15 @@ INPUT=$(cat)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PARSE_ENVELOPE="$SCRIPT_DIR/lib/parse-envelope.sh"
 STATE_SH="$SCRIPT_DIR/../scripts/state.sh"
+# Source routes library (fail-open if unavailable) —— 裸 source 在 set -e 下,
+# routes.sh 缺失会让脚本 rc=1 退出,PreToolUse 非 2 即放行未校验的派发(fail-open)。
 # shellcheck source=lib/routes.sh
-source "$SCRIPT_DIR/lib/routes.sh"
+if [[ -f "$SCRIPT_DIR/lib/routes.sh" ]]; then
+  source "$SCRIPT_DIR/lib/routes.sh"
+else
+  routes_manifest_readable() { return 1; }
+  routes_dispatch_shape() { echo ""; }
+fi
 
 # Step 1: parse envelope
 PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty' 2>/dev/null)
