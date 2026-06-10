@@ -82,7 +82,7 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
 
 可行性已实证（2026-06-10）：本机 codex-cli 0.138.0；`codex exec` 无人值守冒烟测试通过（产出经 `-o` 落盘读回无误）；现行 plugin 的全部 Codex 审查本就是 Claude Code 经 Bash 驱动 `codex-companion.mjs` 完成——「Claude 控制 Codex」是已运行多月的事实，C 块把这条通路从「只审查」扩展到「也落地」。
 
-- **C1. 派发通道**。execution 阶段的 Plan 落地派发从 `Agent({subagent_type: "pack-executor|complex-pack-executor"})` 换为 Bash 驱动 `codex exec`：`-C <worktree_path>`（工作根 = B2 隔离工作树）+ `--sandbox workspace-write`（OS 级写围栏，物理隔离强于 hook 守卫）+ `--add-dir <主树 .claude/multi-model-workflow/>`（放行**整个状态目录**——Worker Loop 的机器协议调用 `state.sh pack-progress`、pack-returns、plan-returns、open-items、目录锁全在其下；只放行 plan-returns 会挡住 state.sh 上报）+ `-o <最终消息落盘路径>`。并行 = 多个 `run_in_background: true` 的 Bash 调用，与 B7 事件驱动模型同构（background Bash 完成即通知）。Worker Loop 内的 shell 协议（`state.sh pack-progress` 上报、artifact 写入）Codex 原样执行，零迁移。
+- **C1. 派发通道**。execution 阶段的 Plan 落地派发从 `Agent({subagent_type: "pack-executor|complex-pack-executor"})` 换为 Bash 驱动 `codex exec`：`-C <worktree_path>`（工作根 = B2 隔离工作树）+ `--sandbox workspace-write`（OS 级写围栏，物理隔离强于 hook 守卫）+ `--add-dir <主树 .claude/multi-model-workflow/>`（放行**整个状态目录**——Worker Loop 的机器协议调用 `state.sh pack-progress`、pack-returns、plan-returns、open-items、目录锁全在其下；只放行 plan-returns 会挡住 state.sh 上报）+ `-o <最终消息落盘路径>` + 模型分层参数（risk flags 命中 → `-m <GPT-5.5 系> --effort xhigh`；普通 → `-m <GPT-5.4 系> --effort xhigh`，2026-06-10 拍板）。并行 = 多个 `run_in_background: true` 的 Bash 调用，与 B7 事件驱动模型同构（background Bash 完成即通知）。Worker Loop 内的 shell 协议（`state.sh pack-progress` 上报、artifact 写入）Codex 原样执行，零迁移。
 - **C2. 合同机器强制 + 执行纪律三层迁移**。plan-return 合同对 Codex 比对 Claude 子代理更可强制：`--output-schema <plan-return-v1 派生 schema>` 强制最终回复结构，或直接要求 Codex 写 `plan-return.json`（`--add-dir` 已放行）。
   现 `pack-executor.md` / `complex-pack-executor.md`（293/298 行）承载的执行纪律**重写为 `codex-worker-handbook`，不是搬运**——两份文档已全文逐段盘点（2026-06-10），按三类处置：
   1. **原样保留（约六成，跨平台工程纪律）**：5 步启动序列、Pack 循环 + topo 排序、TDD 红绿（含 trivial 例外）、三次失败协议（每轮换方法）、scope drift 自检、owned files 边界、verdict 六值枚举、pack-return / plan-return / open-items artifact 写入、`state.sh` 上报、Repair Mode 执行流程、交付前四项自检、实现要求（public behavior 测试 / mock 政策 / contract / Mockup specs）。
@@ -193,7 +193,6 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
 ## Open Decisions
 
 - A6：work-item transition 空挂条目——接线（hook 真调 `state.sh transition`）还是删除？（取决于 work-item 机走 execution-state 路径是否已足够；落地前由实现者按「删空挂、不留兼容」纪律核实后定，倾向删除 + enum 对齐）
-- C：Codex 执行的模型档位与 effort（默认走 companion 配置；是否按 Pack 风险分层选型，待 C 试跑数据后定）。
 - C2：plan-return 合同强制走 `--output-schema`（最终回复结构化）还是「Codex 直接写 plan-return.json 文件」？（倾向写文件——与现有 ingest 通道零适配，schema 校验复用 plan-return-parser）
 
 已收口（2026-06-10，原 Open Decision）：
@@ -201,6 +200,7 @@ actor / action / benefit，覆盖 happy path、失败、空状态、并发、回
 - A4：预算单源取「`state.sh` 常量为源」，不写公式解析器；routes 死字符串仅 formal 一处，删除（或降级文档字段 + 一致性测试）。
 - A5：`gate_exemptions` 默认删除不接线（语义已被 `phases` + `review_required` 编码）；仅当落地核查发现未覆盖豁免场景才改接线。
 - B4：commit_sha 来源取「Worker 上报」——`plan-return-v1.json` 的 `per_pack[*].commit_sha` 字段已存在，改动收敛为 handbook 要求 + ingest 回填 + hook rev-parse 降级 fallback 三件套（见 B4）。
+- C 执行模型分层（2026-06-10 用户拍板）：**complex 档（risk flags 命中）→ GPT-5.5 effort xhigh；普通档 → GPT-5.4 effort xhigh**。与既有审查分层（Design/Plan 审 GPT-5.5 xhigh、Execution 审 GPT-5.4 xhigh）同一档位逻辑。现有「按 risk flags 选 executor」的 Coordinator 判断逻辑保留，选择结果从 agent 类型映射为 `codex exec -m <model> --effort xhigh` 参数；具体 model 字符串以 codex CLI 当前命名为准（落地时确认）。
 
 ## Review History
 
