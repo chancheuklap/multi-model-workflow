@@ -32,9 +32,14 @@ LOCK_DIR="${BUDGET_DIR}/${RUN_ID}.lock"
 state_lock_acquire "$LOCK_DIR"
 trap 'state_lock_release "$LOCK_DIR"' EXIT
 
-USED=$(jq -r '.budget.review_used' "$SF")
-TOTAL=$(jq -r '.budget.review_total' "$SF")
+USED=$(jq -r '.budget.review_used // 0' "$SF")
+TOTAL=$(jq -r '.budget.review_total // "unlimited"' "$SF")
 CREDIT=$(jq -r '.budget.review_credit // 0' "$SF")
+# jq // 兜得住 null/缺失,但兜不住"字段存在但是损坏字符串"(string 为真值)。再补数字归一,
+# 否则下面的 $(( USED - CREDIT )) / $(( TOTAL * 80 / 100 )) 会在 set -u 下把字符串当变量名而崩。
+[[ "$USED" =~ ^[0-9]+$ ]] || USED=0
+[[ "$CREDIT" =~ ^[0-9]+$ ]] || CREDIT=0
+[[ "$TOTAL" =~ ^[0-9]+$ || "$TOTAL" == "unlimited" ]] || TOTAL="unlimited"
 EFFECTIVE=$(( USED - CREDIT ))
 
 # Cap guard: refuse to count past effective exhaustion.
