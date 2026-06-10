@@ -21,7 +21,7 @@ ENVELOPE_JSON=$(echo "$PROMPT_TEXT" | sed -n 's/.*<!-- DISPATCH_ENVELOPE \(.*\) 
 if [[ -z "$ENVELOPE_JSON" ]]; then
   ENVELOPE_JSON=$(echo "$PROMPT_TEXT" | awk '
     /<!-- DISPATCH_ENVELOPE/ { found=1; next }
-    /^-->/ { if (found) exit }
+    /^[[:space:]]*-->/ { if (found) exit }
     found { printf "%s", $0 }
   ')
 fi
