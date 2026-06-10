@@ -198,7 +198,7 @@ Hook 是自动触发的拦截/记录脚本,违反硬约束直接 `exit 2` 阻断
 
 | Hook | 触发时机 | 触发后效果 |
 |------|---------|-----------|
-| `session-start` | 会话启动 / clear / compact | 检查环境(env / jq / python3 / 版本≥2.1.147),缺则阻断;通过则注入路由规则 + 断点恢复摘要 |
+| `session-start` | 会话启动 / clear / compact | 检查环境(env / jq / python3 / 版本≥2.1.147),缺则阻断;**按需注入**——仅存在 active run 时注入断点恢复 + 续跑约束,普通会话零注入(路由靠 skill description,Hard Gates 靠 SKILL.md + PreToolUse guard) |
 | `guard-premature-push` | 任何 Bash 命令前 | ①有未勾选任务时拦 `git push` / `gh pr create`;②拦 `git merge --squash` |
 | `enforce-plan-commit` | `git commit` 前 | Pack commit 消息不符 `Pack N.M:` 格式则拦下 |
 | `gate-codex-review` | 派 Codex review 前 | 按当前路线的 `review_required`;baseline 审要求该 Plan 所有 Pack 已 committed,否则拦 |
