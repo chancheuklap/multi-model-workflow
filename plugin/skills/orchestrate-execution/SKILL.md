@@ -1,6 +1,6 @@
 ---
 name: orchestrate-execution
-description: "已有 reviewed plan + Task Pack inventory 时使用。逐 Plan 串行：每个 Plan 派 1 个自治 Worker（Worker 内部按 Dependencies 跑完该 Plan 全部 Pack）→ Git Checkpoint → Plan Implementation Review → Disposition → 修复 → Release Gate。产出：所有 Plan 通过 + review budget 消耗。"
+description: "已有 reviewed plan + Task Pack inventory 时使用。批次并行：dep-batches 算依赖 level，level 内 Plan 并行（各自隔离 worktree + Codex 自治 Worker，按 Dependencies 跑完该 Plan 全部 Pack，每 Pack 独立 commit）→ 返回事件先到先审（Claude Plan Implementation Review）→ Disposition → 修复 → Release Gate → 按依赖序回收合并；单 Plan 自动退化串行。产出：所有 Plan 通过 + review budget 消耗。"
 ---
 
 <!-- BEGIN: signpost -->
