@@ -56,12 +56,23 @@ if [[ "$GATE_INTENT" == "true" && "$REVIEW_INTENT" == "baseline" ]]; then
     PLAN_NUM=$(printf "%03d" "$PLAN_NUM")
     ESF="${BUDGET_DIR}/execution-state-${RUN_ID}.json"
     if [ -f "$ESF" ]; then
-      PLAN_EXISTS=$(jq --arg pid "$PLAN_NUM" '.plans[$pid] != null' "$ESF")
+      # 这是安全门:无法核验 = 拒绝(fail-closed),不能让 jq 报错被 set -e 杀脚本后
+      # PreToolUse 非 2 退出而把未核验的 review 放过去(fail-open)。
+      if ! jq empty "$ESF" 2>/dev/null; then
+        echo "[multi-model-workflow] BLOCKED: execution-state malformed, cannot verify pack completion." >&2
+        exit 2
+      fi
+      PLAN_EXISTS=$(jq --arg pid "$PLAN_NUM" '.plans[$pid] != null' "$ESF" 2>/dev/null || echo "false")
       if [ "$PLAN_EXISTS" != "true" ]; then
         echo "[multi-model-workflow] BLOCKED: Plan ${PLAN_NUM} not found in execution-state. Cannot verify pack completion." >&2
         exit 2
       fi
-      UNCOMMITTED=$(jq --arg pid "$PLAN_NUM" '[.plans[$pid].packs | to_entries[] | select(.value.status != "committed")] | length' "$ESF")
+      # packs 缺失/为 null 时 // {} 兜底为 0 未提交(无 pack 可提交);仍非数字则 fail-closed。
+      UNCOMMITTED=$(jq --arg pid "$PLAN_NUM" '[(.plans[$pid].packs // {}) | to_entries[] | select(.value.status != "committed")] | length' "$ESF" 2>/dev/null || echo "")
+      if ! [[ "$UNCOMMITTED" =~ ^[0-9]+$ ]]; then
+        echo "[multi-model-workflow] BLOCKED: cannot determine pack completion for Plan ${PLAN_NUM}." >&2
+        exit 2
+      fi
       if [ "$UNCOMMITTED" -gt 0 ]; then
         echo "[multi-model-workflow] BLOCKED: Plan ${PLAN_NUM} has ${UNCOMMITTED} uncommitted packs. Complete all packs before dispatching Plan Implementation Review." >&2
         exit 2
