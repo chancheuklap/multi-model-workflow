@@ -300,10 +300,11 @@ flowchart LR
 - **派发方式(必须用对)**:Codex review 通过 `codex-companion.mjs` 脚本派发(由 `dispatch-review.sh validate/record` 校验信封 + Coordinator 用 Bash 调用),**不是** Claude Code 里装的 codex-rescue skill——用错会出上下文问题。送审的代码 diff 必须包在 `--- BEGIN/END UNTRUSTED CODE DIFF ---` 之间(防 prompt 注入)。
 - **模型分层(省 token 的另一支柱)**:按当前阶段选不同价位 / 能力的 Codex 模型——
 
-  | 评审什么 | 阶段 | 模型 |
+  | 评审什么 | 阶段 | reviewer |
   |---------|------|------|
-  | **设计 / 计划**(方案对错) | discovery / plan-writing | `gpt-5.5 --effort xhigh`(更强) |
-  | **代码** | execution / final-review / bug / direct-repair / multi-pr / 各轻档子模式 | `gpt-5.4 --effort xhigh` |
+  | **设计 / 计划**(方案对错,Claude 写) | discovery / plan-writing | Codex `gpt-5.5 --effort xhigh`(更强) |
+  | **代码**(execution 主路径,Codex 写——C5 写审异家翻转) | execution / final-review | **Claude 直审**(Coordinator,手动 `budget increment-review` 记账) |
+  | **代码**(Claude worker 写的场景) | bug / direct-repair / multi-pr / light 手动外审 | Codex `gpt-5.4 --effort xhigh` |
 
   > 配合 sub-agent 的模型分层(3.2 用 Sonnet vs Opus),**"什么阶段用什么 model"是整套省 token 设计的两大支柱**:贵而强的模型只用在最需要判断力的环节,其余用够用的便宜模型。
 
@@ -329,6 +330,37 @@ flowchart LR
 | **Ruling 1** —— commit-message 解析保留 sed | `track-execution-state.sh` 提取 Pack ID 用 sed,不走渐进迁移 | 输入源是 commit message(已被 `enforce-pack-commit.sh` 格式保证),不是 prompt/控制平面。"无渐进迁移"只约束 Agent dispatch 信封,不约束已有格式保证的 commit 解析。 |
 | **Ruling 2** —— 状态双文件模型 | `workflow-state`(budget/phase/dispositions,plan-level)+ `execution-state`(pack-level data,keyed by plan_id),两文件靠 plan_id/pack_id 关联 | pack-level 数据被多个 hook 并发写入,分离两文件降低竞态风险。 |
 | **Ruling 3** —— PostToolUse fail-open | `agent-return-handler`(PostToolUse)信封解析失败时 exit 0 跳过,而非 exit 2 硬停 | PostToolUse 无法撤回已完成的 agent,硬停只会中断正常流程。"无 fallback / 硬失败"只适用于 PreToolUse dispatch gate,不适用于 PostToolUse 后处理。 |
+
+---
+
+## 7. v5.0.0 升级:脚本化(A) / 并行(B) / Codex 换轨(C)
+
+设计权威:`docs/orchestrate/design/2026-06-08-orchestrate-scripting.md`。三块按 A→B→C 落地,全部完成。
+
+### 7.1 A 块:机械控制流脚本化
+
+- `routes-v1.json` 新增 `verdict_routing` 段(6 张 workflow-level verdict 表的机械映射;judgment=true 的分支只给候选,判断留 SKILL 散文)。`state.sh verdict-route` 查询;`NEEDS_EXECUTION` 回流计数完全下沉(命令内部读写 `execution_reflux_count`)。
+- 新命令:`state.sh checkbox toggle`(committed pack 勾选,source-of-truth = plan-return)/ `state.sh envelope build`(DISPATCH_ENVELOPE 生成器,与 `hooks/lib/parse-envelope.sh` 对称自检;idempotency key 统一 `<run>/<plan_id|pack_id>/r<n>`;新增 `worktree_path`/`plan_path` 字段)/ `state.sh dep-batches`(Blocked-by DAG → 并行批次)。
+- 物理删除:routes `gate_exemptions`(语义由 phases 数组编码)、`budget.formula` 死字符串(唯一权威 = state.sh 常量+profile)、workflow-state `phase_skip`、global_transitions 三条空挂 actor 条目。pack 状态 enum 补 `skipped`。
+
+### 7.2 B 块:execution 并行
+
+- **并行模型**:`dep-batches` 算 topo level → 同 level 全部并行,level 间串行;单 Plan 自动退化。每 Plan 一个隔离 worktree(Coordinator 显式 `git worktree add -b plan-NNN <path> HEAD`,禁用 harness 自动 worktree)。
+- **状态平面**:`current_plan_id` → `active_plan_ids[]`;plan-level 新增 `worktree_path`/`branch`/`isolation_status`(active|isolated|merged)/`session_id`。`execution-plan finish`(completed|isolated|merged)管理终态与 active 摘除。
+- **路径守卫**:`guard-doc-edit.sh` 四规则(docs/ 一律拦 → 状态目录放行 → 登记 worktree 放行 → 飞行期间主树只读);per-plan marker `worker-active-<plan_id>`(内容=worktree 路径)。hook 拿不到 agent 身份,守卫是全员安全的全局规则。
+- **记账(B4)**:权威 SHA = Worker 上报 `per_pack[].commit_sha` 经 `plan-returns ingest` 回填;`track-execution-state` 的主树 HEAD 取值降级为串行 fallback。
+- **回收(B6)**:`scripts/recycle-plan.sh` —— docs diff 守卫(触碰 → isolated 拒收)→ `merge --no-ff` → finish merged → worktree/branch/marker 清理;冲突中止走 multi-pr-merge 借鉴的发现/RCA 方法论。
+- **失败隔离(B5)**:blocked Plan → isolated,worktree 保留不合并,其余在飞 Plan 不受影响;批次结束后基于最新 HEAD 重建单独重试或 BLOCKED。
+
+### 7.3 C 块:执行者换轨 Codex
+
+- **派发唯一通道** `scripts/codex-worker.sh`(dispatch/resume):envelope 生成 → `validate-plan-dispatch` 校验 → marker → `codex exec -C <worktree> --sandbox workspace-write --add-dir <状态目录>` → session_id 记账 → **同进程** plan-return ingest + NEXT 输出(后台 Bash 完成通知携带,不依赖 hook 时序)。
+- **模型分层**(2026-06-10 拍板,常量在 codex-worker.sh 顶部):risk flags 命中 → `complex` = gpt-5.5 xhigh;普通 → `standard` = gpt-5.4 xhigh。
+- **行为规范** `references/codex-worker-handbook.md`:与 Claude executor 共享 worker-loop / failure-protocol 构建锚点(单一源),Codex 载体差异在「适配层」换算表(STATE_BASE 前缀、skill 调用、hook 不可达项的纪律替代)。
+- **审查翻转(C5)**:execution 代码 Plan Implementation Review 与 Final Review 由 Claude 直审(写审异家,方向对称);设计/计划文档仍 Codex 审。
+- **修复轮(C4)**:`codex-worker.sh resume` 续 session(取代 SendMessage);`validate-plan-dispatch` 重派守卫扩展 session_id。
+- **退役(C7)**:`pack-executor`/`complex-pack-executor` 退出 execution 主路径,定义保留并标注仅存场景(multi-pr-merge 冲突修复 / bug-investigation 修复 / direct-repair 路径 B);二期换轨后物理删除。
+- **试跑门(发布后第一道运行时门)**:C 落地后首份真实 Plan 必须单 Plan 串行试跑、人工盯质量,通过才开放并行。
 
 ---
 
