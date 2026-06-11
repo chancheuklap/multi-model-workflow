@@ -294,8 +294,7 @@ else
     },
     "pending_direction_check": null,
     "idempotency_keys": [],
-    "review_dispositions": [],
-    "self_verifications": []
+    "review_dispositions": []
   }' > "$HOOK_SF"
 
   # Increment to 8/10 = 80% in AFK mode → should NOT write DC
@@ -337,8 +336,7 @@ else
     },
     "pending_direction_check": null,
     "idempotency_keys": [],
-    "review_dispositions": [],
-    "self_verifications": []
+    "review_dispositions": []
   }' > "$HOOK_SF2"
 
   # 7→8/10 = 80% in attended mode → DC should be written

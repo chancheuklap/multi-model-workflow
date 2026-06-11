@@ -40,7 +40,7 @@ export STATE_BASE="$BUDGET_DIR"
 
 # Workflow state
 cat > "$BUDGET_DIR/workflow-state-${RUN_ID}.json" <<EOF
-{"run_id":"$RUN_ID","attendance_mode":"afk","budget":{"budget_status":"initialized","review_total":24,"review_used":0,"review_credit":0,"budget_profile":"standard","override_count":0,"direction_check_count":0},"pending_direction_check":null,"idempotency_keys":[],"review_dispositions":[],"self_verifications":[]}
+{"run_id":"$RUN_ID","attendance_mode":"afk","budget":{"budget_status":"initialized","review_total":24,"review_used":0,"review_credit":0,"budget_profile":"standard","override_count":0,"direction_check_count":0},"pending_direction_check":null,"idempotency_keys":[],"review_dispositions":[]}
 EOF
 
 # Plan doc

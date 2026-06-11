@@ -263,7 +263,7 @@ Review 只基于代码实际行为的独立分析。
 
 `codex-worker.sh dispatch` 自动完成：envelope 生成（A3 生成器）→ `validate-plan-dispatch.sh` 校验（缺 envelope / budget 未初始化 / Plan 已有 worker session / pack 级误派全拦）→ `worker-active-<plan_id>` marker（内容 = worktree 路径，guard 路径守卫据此放行/拦截）→ codex exec 沙箱与模型参数 → session_id 记账（`plans[N].session_id`，修复轮 resume 依据）→ Worker 退出后 plan-return ingest（B4 commit_sha 回填）→ NEXT 指令输出。
 
-Coordinator 在本步只需要：派发后用 `state.sh update` 处理临时字段变更（如需）。`state.sh transition` 见顶部 signpost；`state.sh disposition append` 见 Step 8 读的 `_shared/disposition-table.md`；`state.sh self-verify append` 见 Step 10 读的 `references/execution-repair-truncation.md`。
+Coordinator 在本步只需要：派发后用 `state.sh update` 处理临时字段变更（如需）。`state.sh transition` 见顶部 signpost；`state.sh disposition append` 见 Step 8 读的 `_shared/disposition-table.md`。
 
 ##### Step 6：返回事件处理（B7：先到先审，串行消化）
 

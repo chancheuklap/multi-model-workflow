@@ -34,7 +34,6 @@ Accepted findings 按 `Affected packs` 字段分组 → 每组复用现有三路
 4. 等待 SendMessage 返回（同步）
 5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
 5b. 修复完成后运行 verification commands + 对照 acceptance criteria + grep 确认变更
-5c. `state.sh self-verify append --run-id <run_id> --pack-id <pack_id> --repair-round <N> --verification-passed <yes|no> --exception <none|3plus_files_control_flow|user_requested|rca_root_cause|path_a_self_fix>`
 6. 写 `state.sh disposition append` 或 `state.sh update --field plans[N].packs[M].repair_round`
 
 Compaction recovery: 从 `workflow-state.cursor` + plan/design 文档重建 repair context；dispatch prompt 不需要 durable copy。

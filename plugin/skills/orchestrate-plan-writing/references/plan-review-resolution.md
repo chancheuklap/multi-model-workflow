@@ -46,7 +46,6 @@ Plan Review 三条路径：
 4. 等待 SendMessage 返回（同步）
 5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
 5b. 验证 plan 文件格式 + pack count validator
-5c. `state.sh self-verify append --run-id <run_id> --repair-round <N> --verification-passed <yes|no>`
 6. 回到 Plan Review 重审
 
 Compaction recovery: 从 `workflow-state.cursor` + plan/design 文档重建 repair context；dispatch prompt 不需要 durable copy。

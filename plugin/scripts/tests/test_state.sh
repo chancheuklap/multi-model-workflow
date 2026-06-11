@@ -53,9 +53,6 @@ run_test "read route" \
 run_test "read default arrays are empty" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.review_dispositions | length') == '0' ]]"
 
-run_test "read self_verifications is empty array" \
-  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.self_verifications | length') == '0' ]]"
-
 run_test "read plan_writer_agent_id is null" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.plan_writer_agent_id') == 'null' ]]"
 
@@ -118,23 +115,6 @@ run_test "dispositions count is 2" \
 
 run_test "disposition F1 evidence readable" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.review_dispositions[0].evidence') == 'verified by grep' ]]"
-
-# --- self-verify append ---
-# self-verify append is a no-op by default (STATE_DEBUG off); must use STATE_DEBUG=1 to assert records.
-run_test "self-verify append (no-op without STATE_DEBUG)" \
-  bash "$STATE_SH" self-verify append --run-id "$RUN_ID" --pack-id "P1" --repair-round 1 --verification-passed yes --exception none
-
-run_test "self-verify: no record when STATE_DEBUG off (stays empty)" \
-  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.self_verifications | length') == '0' ]]"
-
-run_test "self-verify append with STATE_DEBUG=1 writes record" \
-  bash -c "STATE_DEBUG=1 bash '$STATE_SH' self-verify append --run-id '$RUN_ID' --pack-id 'P1' --repair-round 1 --verification-passed yes --exception none"
-
-run_test "self-verify readable with STATE_DEBUG=1" \
-  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.self_verifications | length') == '1' ]]"
-
-run_test "self-verify exception is none (STATE_DEBUG=1 record)" \
-  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.self_verifications[0].exception') == 'none' ]]"
 
 # --- transition matrix tests ---
 

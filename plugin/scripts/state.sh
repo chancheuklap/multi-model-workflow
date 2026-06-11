@@ -24,7 +24,6 @@ Commands:
   transition        State machine transition with matrix validation
   validate          Validate state file against schema
   disposition       Manage review dispositions (append)
-  self-verify       Manage self-verification records (append)
   agent-id          Get/set agent_id in execution-state (per Ruling 2)
   pack-progress     Update pack status in execution-state (--plan-id --pack-id --status [--commit-sha])
   plan-returns      Ingest plan-return.json into execution-state (ingest --plan-id)
@@ -235,7 +234,6 @@ cmd_init() {
   "plan_writer_agent_id": null,
   "review_dispositions": [],
   "pending_post_push_reviews": [],
-  "self_verifications": [],
   "pending_direction_check": null,
   "execution_reflux_count": 0,
   "last_gate_phase": null,
@@ -413,7 +411,6 @@ cmd_validate() {
 
   local required_fields=("run_id" "slug" "route" "cursor" "budget" "plans"
     "idempotency_keys" "review_dispositions"
-    "self_verifications"
     "execution_reflux_count" "last_gate_phase"
     "last_gate_timestamp" "pending_direction_check"
     "pending_post_push_reviews" "plan_writer_agent_id" "started_at")
@@ -563,50 +560,6 @@ cmd_disposition_append() {
      --arg ev "${evidence:-}" --arg p "${path:-}" --arg ts "$now" \
      --argjson pid "$plan_id_json" --argjson cve "$cve_json" \
     '.review_dispositions += [{"review_round": ($rr|tonumber), "finding_id": $fid, "disposition": $disp, "confidence": ($conf|tonumber), "severity": $sev, "evidence": $ev, "path": $p, "dispatched_at": $ts, "resolved_at": null, "plan_id": $pid, "coordinator_verified_evidence": $cve}]' \
-    "$sf" > "$tmp"
-  mv "$tmp" "$sf"
-}
-
-cmd_self_verify() {
-  local subcmd="${1:-}"; shift || true
-  case "$subcmd" in
-    append) cmd_self_verify_append "$@" ;;
-    *) echo "Error: unknown self-verify subcommand: $subcmd" >&2; exit 2 ;;
-  esac
-}
-
-cmd_self_verify_append() {
-  local pack_id="" repair_round="" verification_passed="" exception=""
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --pack-id) pack_id="$2"; shift 2 ;;
-      --repair-round) repair_round="$2"; shift 2 ;;
-      --verification-passed) verification_passed="$2"; shift 2 ;;
-      --exception) exception="$2"; shift 2 ;;
-      *) shift ;;
-    esac
-  done
-
-  ensure_state_exists
-
-  # When STATE_DEBUG is not set, this is a no-op (exit 0) — callers in SKILL references
-  # still invoke it without error; the field remains an empty array in production.
-  if [[ "${STATE_DEBUG:-}" != "1" ]]; then
-    return 0
-  fi
-
-  acquire_lock
-  trap release_lock EXIT
-
-  local sf
-  sf="$(state_file)"
-  local now
-  now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  local tmp="${sf}.tmp"
-
-  jq --arg rid "$RUN_ID" --arg pid "${pack_id:-}" --arg rr "${repair_round:-0}" \
-     --arg vp "${verification_passed:-yes}" --arg ex "${exception:-none}" --arg ts "$now" \
-    '.self_verifications += [{"run_id": $rid, "pack_id": $pid, "repair_round": ($rr|tonumber), "verification_passed": $vp, "exception": $ex, "verified_at": $ts}]' \
     "$sf" > "$tmp"
   mv "$tmp" "$sf"
 }
@@ -2441,7 +2394,6 @@ case "$CMD" in
   transition) cmd_transition "$@" ;;
   validate) cmd_validate "$@" ;;
   disposition) cmd_disposition "$@" ;;
-  self-verify) cmd_self_verify "$@" ;;
   agent-id) cmd_agent_id "$@" ;;
   pack-progress) cmd_pack_progress "$@" ;;
   plan-returns) cmd_plan_returns "$@" ;;

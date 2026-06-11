@@ -8,7 +8,6 @@
     "cursor", "budget", "plans", "idempotency_keys",
     "plan_writer_agent_id", "review_dispositions",
     "pending_post_push_reviews",
-    "self_verifications",
     "pending_direction_check",
     "execution_reflux_count", "last_gate_phase", "last_gate_timestamp"
   ],
@@ -94,20 +93,6 @@
       }
     },
     "pending_post_push_reviews": { "type": "array" },
-    "self_verifications": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "run_id": { "type": "string" },
-          "pack_id": { "type": "string" },
-          "repair_round": { "type": "number" },
-          "verification_passed": { "type": "string" },
-          "exception": { "type": "string" },
-          "verified_at": { "type": "string" }
-        }
-      }
-    },
     "pending_direction_check": { "type": ["object", "null"] },
     "execution_reflux_count": { "type": "number" },
     "last_gate_phase": { "type": ["string", "null"] },
