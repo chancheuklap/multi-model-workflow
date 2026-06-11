@@ -71,31 +71,7 @@ PROMPT_FILE="${REVIEW_DIR}/review-${TIMESTAMP}.md"
 
 不需要关注：风格、命名、注释数量。
 
-<!-- BEGIN: review-dispatch [variant=content-only] -->
-**Confidence rubric (REQUIRED)**:
-- 1-3: low confidence. 可能是误报。
-- 4-6: medium. 需要更多证据确认。
-- 7-10: high. 应该默认接受。
-
-**Pre-emit Verification Gate**：
-每个 finding 必须引用触发它的具体代码行（file:line + 原始文本）。
-无法引用 = confidence 强制设为 4-5，移入附录。
-
-**证据表 (REQUIRED)**：
-Reviewer 必须在 `### Evidence` 下填写半结构化证据表：
-
-| 字段 | 必填内容 |
-| --- | --- |
-| 已读设计 / mockup / plan 来源 | 实际读过的文档、计划、mockup 或用户上下文。 |
-| 已检查代码或产物路径 | 已检查的源码、生成产物、state schema、hooks、templates 或文档路径。 |
-| 已运行命令或验证 | 实际执行的命令、脚本、测试、build check 或人工验证。 |
-| Finding 证据 | 支撑 finding 的路径、行号、diff、命令输出或可复现行为。 |
-| 假设 | 影响 verdict 的前提和未被源码直接证明的判断。 |
-| 未验证项 | 相关但未能验证的内容，以及原因。 |
-
-**Bias indicators (REQUIRED at end of review output)**:
-Reviewer must declare which modules/stacks they lack experience with and which findings may be affected.
-<!-- END: review-dispatch -->
+（防幻觉四件套——Confidence rubric / Pre-emit Gate / 证据表 / Bias indicators——在 Step 2 末尾由脚本统一追加，见下。）
 
 **输出格式**：
 - verdict: pass | needs_repair
@@ -105,6 +81,14 @@ Reviewer must declare which modules/stacks they lack experience with and which f
 ```
 
 如果用户提供了额外的审查重点或上下文，追加到 `## 审查要求` 之后。
+
+**追加防幻觉四件套**（单源，与主流程 `dispatch-review.sh` 注入的同一份 `review-prompt-quartet.md`）：派发前把它追加到 prompt 文件末尾：
+
+```bash
+QUARTET="${CLAUDE_PLUGIN_ROOT:-}/skills/_shared/review-prompt-quartet.md"
+[ -f "$QUARTET" ] || QUARTET="$(find ~/.claude/plugins -path '*/skills/_shared/review-prompt-quartet.md' -type f 2>/dev/null | head -1)"
+[ -f "$QUARTET" ] && cat "$QUARTET" >> "$PROMPT_FILE"
+```
 
 ## Step 3 — 派发 Codex
 

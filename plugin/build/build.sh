@@ -48,16 +48,6 @@ resolve_anchor() {
   local anchor_name="$1"
   local variant="$2"
 
-  # Canonical-converted anchors — content now lives in plugin/skills/_shared/
-  # Only review-dispatch's content-only variant (used by codex-review/SKILL.md) is still template-resolved
-  case "$anchor_name" in
-    review-dispatch)
-      if [[ "$variant" != "content-only" ]]; then
-        return 1
-      fi
-      ;;
-  esac
-
   case "$anchor_name" in
 
     # ── Type 1: pure cat ─────────────────────────────────────────────────────
@@ -71,11 +61,11 @@ resolve_anchor() {
       ;;
 
     # ── Type 2: file-level variant + cat ────────────────────────────────────
-    # control-envelope, review-dispatch, worker-loop: look for <anchor>.<variant>.md.tmpl,
+    # control-envelope, worker-loop: look for <anchor>.<variant>.md.tmpl,
     # fall back to <anchor>.md.tmpl if not found.
     # worker-loop has no base .md.tmpl — every anchor must carry an explicit
     # [variant=codex|claude]; a bare worker-loop anchor will error (intentional).
-    control-envelope|review-dispatch|worker-loop)
+    control-envelope|worker-loop)
       local tmpl
       if [[ -n "$variant" ]]; then
         tmpl="$TEMPLATE_DIR/${anchor_name}.${variant}.md.tmpl"

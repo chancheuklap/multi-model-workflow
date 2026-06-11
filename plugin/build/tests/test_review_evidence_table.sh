@@ -4,7 +4,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CANONICAL="$PLUGIN_DIR/skills/_shared/review-dispatch.md"
 QUARTET="$PLUGIN_DIR/skills/_shared/review-prompt-quartet.md"
-TEMPLATE="$PLUGIN_DIR/build/templates/review-dispatch.content-only.md.tmpl"
 ADHOC="$PLUGIN_DIR/skills/codex-review/SKILL.md"
 
 pass=0; fail=0
@@ -28,16 +27,10 @@ run_test "dispatch-review.sh injects review-prompt-quartet" \
 run_test "canonical review-dispatch references quartet" \
   grep -q "review-prompt-quartet" "$CANONICAL"
 
-# Content-only template source (codex-review ad-hoc variant)
-run_test "review-dispatch content-only template requires evidence table" \
-  grep -q "证据表 (REQUIRED)" "$TEMPLATE"
-
-run_test "review-dispatch content-only template requires unverified items" \
-  grep -q "未验证项" "$TEMPLATE"
-
-# Codex-review ad-hoc (content-only variant still injected via build)
-run_test "ad-hoc codex-review requires evidence table" \
-  grep -q "证据表 (REQUIRED)" "$ADHOC"
+# Codex-review ad-hoc now appends the quartet at dispatch time (single source,
+# not inlined) — evidence table comes from review-prompt-quartet.md, asserted above
+run_test "ad-hoc codex-review appends review-prompt-quartet" \
+  grep -q "review-prompt-quartet" "$ADHOC"
 
 # Files referencing canonical via Read directive
 while IFS= read -r ref; do

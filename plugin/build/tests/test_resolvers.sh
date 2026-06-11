@@ -79,26 +79,6 @@ run_test "control-envelope: no-variant falls back to .md.tmpl" bash -c "
   [[ \"\$out\" == \"\$expected\" ]]
 "
 
-# ── Type 2: review-dispatch (content-only guard) ────────────────────────────
-run_test "review-dispatch: content-only variant resolves" bash -c "
-  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
-  TEMPLATE_DIR='$REAL_TMPL'
-  out=\$(resolve_anchor review-dispatch content-only)
-  [[ -n \"\$out\" ]]
-"
-
-run_test "review-dispatch: non-content-only returns 1 (guard preserved)" bash -c "
-  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
-  TEMPLATE_DIR='$REAL_TMPL'
-  resolve_anchor review-dispatch baseline 2>/dev/null; [[ \$? -ne 0 ]]
-"
-
-run_test "review-dispatch: empty variant returns 1 (guard preserved)" bash -c "
-  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
-  TEMPLATE_DIR='$REAL_TMPL'
-  resolve_anchor review-dispatch '' 2>/dev/null; [[ \$? -ne 0 ]]
-"
-
 # ── Type 3: preamble (inline sed variant) ───────────────────────────────────
 # preamble uses variants; extract one and verify output is non-empty
 if ls "$REAL_TMPL"/preamble.md.tmpl >/dev/null 2>&1; then
