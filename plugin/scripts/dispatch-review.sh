@@ -118,11 +118,23 @@ case "$SUBCMD" in
     esac
 
     if [[ "$RUN_ID" != adhoc-* ]]; then
-      BUDGET_ARGS=(--run-id "$RUN_ID")
-      if [[ "$ALLOW_OVER_BUDGET" == "true" ]]; then
-        BUDGET_ARGS+=(--allow-over-budget --override-reason "$OVERRIDE_REASON")
+      # Budget is initialized at plan-writing (after plan_count is known). Design
+      # review — the only baseline review dispatched during discovery — runs while
+      # budget_status is still pending_plan_count. That pre-init window is the
+      # legitimate early state, not an error, so skip the gate there. A
+      # plan-impl-review-N always runs in execution (budget long since
+      # initialized), so pending there is a real fault and must still surface.
+      SF="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
+      BUDGET_STATUS=$(jq -r '.budget.budget_status // empty' "$SF" 2>/dev/null || echo "")
+      if [[ "$BUDGET_STATUS" == "pending_plan_count" && ! "$GATE" =~ ^plan-impl-review-[0-9]+$ ]]; then
+        : # pre-init discovery window — design review not yet on the budget ledger
+      else
+        BUDGET_ARGS=(--run-id "$RUN_ID")
+        if [[ "$ALLOW_OVER_BUDGET" == "true" ]]; then
+          BUDGET_ARGS+=(--allow-over-budget --override-reason "$OVERRIDE_REASON")
+        fi
+        bash "$SCRIPT_DIR/state.sh" budget check "${BUDGET_ARGS[@]}" >/dev/null
       fi
-      bash "$SCRIPT_DIR/state.sh" budget check "${BUDGET_ARGS[@]}" >/dev/null
     fi
 
     # Auto-inject the anti-hallucination quartet into the review prompt (§1 切片).

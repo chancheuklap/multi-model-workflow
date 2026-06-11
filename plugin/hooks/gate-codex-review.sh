@@ -13,9 +13,19 @@ COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
 if [[ -z "$COMMAND" ]]; then exit 0; fi
 if ! echo "$COMMAND" | grep -qE '(codex-companion|CODEX_SCRIPT).*[[:space:]]task([[:space:]]|$)'; then exit 0; fi
 
-PROMPT_FILE=$(echo "$COMMAND" | sed -n 's/.*--prompt-file[[:space:]]*\([^[:space:]]*\).*/\1/p')
-if [[ -z "$PROMPT_FILE" || ! -f "$PROMPT_FILE" ]]; then
-  echo "[multi-model-workflow] BLOCKED: codex review dispatch missing --prompt-file or file unreadable." >&2
+# Extract --prompt-file from the raw (unexpanded) command text. A PreToolUse hook
+# sees the command before the shell runs it, so quotes are literal and variables
+# are NOT expanded. Try double-quoted, then single-quoted (both may contain
+# spaces), then a bare token — this lets callers quote paths the normal way.
+PROMPT_FILE=$(echo "$COMMAND" | sed -n 's/.*--prompt-file[[:space:]]*"\([^"]*\)".*/\1/p')
+[[ -z "$PROMPT_FILE" ]] && PROMPT_FILE=$(echo "$COMMAND" | sed -n "s/.*--prompt-file[[:space:]]*'\([^']*\)'.*/\1/p")
+[[ -z "$PROMPT_FILE" ]] && PROMPT_FILE=$(echo "$COMMAND" | sed -n 's/.*--prompt-file[[:space:]]*\([^[:space:]]*\).*/\1/p')
+if [[ -z "$PROMPT_FILE" ]]; then
+  echo "[multi-model-workflow] BLOCKED: codex review dispatch missing --prompt-file." >&2
+  exit 2
+fi
+if [[ ! -f "$PROMPT_FILE" ]]; then
+  echo "[multi-model-workflow] BLOCKED: prompt file unreadable: '${PROMPT_FILE}'. Pass a literal absolute path after --prompt-file — this PreToolUse hook reads the raw, unexpanded command, so shell variables (\$VAR) and ~ are not resolved." >&2
   exit 2
 fi
 

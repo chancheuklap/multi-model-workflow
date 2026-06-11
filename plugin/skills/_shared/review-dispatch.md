@@ -19,7 +19,8 @@ Claude-native flow split-of-concerns:
 3. Validate envelope and dispatch:
    - **Baseline review** (envelope `review_intent: "baseline"`):
      Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/dispatch-review.sh" validate --prompt-file ".claude/multi-model-workflow/review-prompts/<gate>.md" --gate "<gate>"`.
-     `node "$CODEX_SCRIPT" task --background --prompt-file <path> <model flags>`
+     `node "$CODEX_SCRIPT" task --background --prompt-file <abs-path> <model flags>`
+     - `<abs-path>` 必须是**字面绝对路径**：`gate-codex-review.sh` 在 shell 展开前读原始命令文本，`$VAR` / `~` 不会被解析（引号可以，路径含空格时用引号包裹）。
      -> record JOB_ID into `review-prompts/<gate>.job-id`
      Then write the registry entry: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/dispatch-review.sh" record --prompt-file ".claude/multi-model-workflow/review-prompts/<gate>.md" --gate "<gate>" --agent-id "<JOB_ID>"`.
    - **Over-budget escape hatch**: if Review Budget is exhausted and the user explicitly authorizes another review, append `--allow-over-budget --override-reason "<brief user authorization>"` to the validate command (lets the dispatch through) and to the later complete command (records the override in the registry). Do not use this flag for convenience or for Effort Budget.
