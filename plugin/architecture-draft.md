@@ -10,11 +10,13 @@
 
 在 Claude Code 里编排一套**"设计 → 计划 → 执行 → 审查"**的多模型软件工作流。三种角色各司其职:
 
-- **Claude 当 Coordinator(总协调)**:判路线、派活、验收、收口;并且**亲自审 execution 阶段 Codex 写的代码**(见下方"写审异家")。
-- **Codex 当执行者 + 文档评审**:
-  - **执行者**——execution 主路径的代码由 Codex 在隔离工作树里落地(`codex-worker.sh` 派发),不再用 Claude sub-agent。
-  - **文档评审**——在 Design / Plan 这两道 gate 做独立对抗审查,抓 Coordinator 自己看不到的方案问题。
-- **Sub-agent 当劳动力**:写计划(`plan-writer`)、只读补证(`code-explorer`)、查根因(`root-cause-analyst`),在工作树里干活,把上下文压力从主线程卸下来。
+- **Claude 当 Coordinator(总协调)**:判路线、派活、验收、收口。execution 阶段可亲自当**执行者**(claude lane,派内置 sub-agent)或当**审查者**(codex lane 下亲审 Codex 写的代码),取决于用户选的载体。
+- **Codex 当执行者 / 文档评审**:
+  - **执行者(codex lane)**——execution 选 codex lane 时,代码由 Codex 在隔离工作树里落地(`codex-worker.sh` 派发)。
+  - **文档评审 + 代码评审(claude lane)**——Design / Plan 两道 gate 恒做独立对抗审查;claude lane 下还反过来审 Claude sub-agent 写的代码。
+- **Sub-agent 当劳动力**:写计划(`plan-writer`)、只读补证(`code-explorer`)、查根因(`root-cause-analyst`);claude lane 下 `pack-executor`/`complex-pack-executor` 也是 execution 落地者。都在工作树里干活,把上下文压力从主线程卸下来。
+
+> **execution 双执行载体**:用户在 execution 入口选一次(整个 run 生效)——**codex lane**(Codex 落地 + 并行批次 + Claude 审)或 **claude lane**(内置 sub-agent 落地 + 共享工作树串行 + Codex 审)。详见 §2.2 / §5.4。
 
 四条贯穿全局的核心理念:
 
@@ -22,8 +24,8 @@
 |------|-------|------------|
 | **Document-as-Context**(文档即上下文) | 指令不塞进对话,写进磁盘文档与 `state.sh` 状态,agent 启动后自读 | 省 token、抗漂移、可断点续传 |
 | **Plan 级 Worker 自治** | 一个 Plan 派一个 worker 从头跑到尾,而不是一个 Pack 派一次 | 派发次数从几十次降到一次/Plan,大幅省 token |
-| **并行批次执行** | 互不依赖的 Plan 各占一个隔离工作树,同批次并行落地 | 多 Plan 不串行等待,缩短墙钟时间 |
-| **写审异家(写者与审者异家)** | 谁写的不审谁写的:Codex 写代码 → Claude 审;Claude 写设计/计划 → Codex 审 | 审查独立性,避免自审自盲 |
+| **并行批次执行**(codex lane) | 互不依赖的 Plan 各占一个隔离工作树,同批次并行落地 | 多 Plan 不串行等待,缩短墙钟时间 |
+| **写审异家(写者与审者异家)** | 谁写的不审谁写的:Codex 写代码 → Claude 审;Claude 写代码 → Codex 审;设计/计划恒 Codex 审 | 审查独立性,避免自审自盲 |
 
 > **省 token 的两大支柱**:① **模型分层**——简单/窄范围用便宜模型,高风险/大体量用强模型(sub-agent 与 Codex 两端都分层);② **Document-as-Context + 控制流脚本化**——机械的路由/校验/记账下沉到 `state.sh` 与 hook,主线程只留判断。
 
@@ -56,9 +58,9 @@ flowchart TD
     DR --> E["大 Issue 拆分"]:::coord
     E --> F["orchestrate-plan-writing<br/>派 plan-writer 写可执行计划"]:::skill
     F --> PR["Plan Review<br/>Codex gpt-5.5"]:::review
-    PR --> H["orchestrate-execution<br/>Codex Worker 并行批次 (见图 2)<br/>🔒 validate-plan-dispatch"]:::skill
-    H -->|"Claude 直审→finding→repair"| H
-    H -->|"all plans pass"| I["orchestrate-final-review<br/>意图验证+清扫尾巴(Claude 直审)"]:::skill
+    PR --> H["orchestrate-execution<br/>选 lane:Codex 并行 / Claude 串行 (见图 2)<br/>🔒 validate-plan-dispatch"]:::skill
+    H -->|"审查(随 lane 翻转)→finding→repair"| H
+    H -->|"all plans pass"| I["orchestrate-final-review<br/>意图验证+清扫尾巴"]:::skill
     I -->|"实现有缺口"| H
     I -->|"通过,有发布风险"| J["Release Review<br/>Codex"]:::review
     I -->|"通过,无风险"| K
@@ -94,18 +96,26 @@ flowchart TD
 |------|-------|------------|---------|
 | **Discovery** | `orchestrate-discovery` | 和用户 Q&A 迭代方案,派 explorer 只读补证,写设计文档 + CONTEXT.md/CONTEXT-MAP.md + mockup,拆大 issue | 设计文档、Mockup、Issue |
 | **Plan Writing** | `orchestrate-plan-writing` | 把每个 issue 并行派给 `plan-writer`,写成含 Pack Manifest 的可执行计划,首次赋预算 | Plan 文档 |
-| **Execution** | `orchestrate-execution` | 按依赖批次并行派 Codex Worker 自治执行,逐 Plan 由 Claude 直审 + 修复(见图 2) | 代码 commit、plan-return |
-| **Final Review** | `orchestrate-final-review` | 验证实现是否兑现设计意图(Claude 直审代码),清扫遗留尾巴,判断是否需发布审查 | 验收结论 |
+| **Execution** | `orchestrate-execution` | 入口选 lane → 按 lane 派执行者(codex 并行 / claude 串行)自治执行,逐 Plan 审查(审查方随 lane 翻转)+ 修复(见图 2) | 代码 commit、plan-return |
+| **Final Review** | `orchestrate-final-review` | 验证实现是否兑现设计意图(代码审查方随 lane 翻转),清扫遗留尾巴,判断是否需发布审查 | 验收结论 |
 
 每个阶段之间有 **gate**;Design / Plan 两道是 Codex 文档评审,通过才往下走;评审发现问题就地修复,不污染下一阶段。
 
 > **跨计划合同锚点(Cross-Plan Contract Anchors)**:多个 Plan 并行时,每个 Plan 在设计文档里声明自己**产出 / 消费的合同**(接口、schema、状态)。Plan Writing 写进去、Plan Review 检查、Final Review 据此核对跨 Plan 的 producer-consumer 是否对得上——接不上就退回 Execution 修。这是多个 Plan 之间保持一致、不互相打架的机制。
 
-### 2.2 Execution 循环(Codex Worker 自治 + 并行批次)
+### 2.2 Execution 循环(双执行载体)
 
-这是最核心也是 v5.0.0 改动最大的循环。三个关键变化:**执行者从 Claude sub-agent 换成 Codex**(`codex-worker.sh`)、**按依赖批次并行**、**代码审查从 Codex 翻转为 Claude 直审**(写审异家)。
+这是最核心也是 v5.0.0 改动最大的循环。**进入 execution 先选载体**(Step 3b,AskUserQuestion,整个 run 一次性),两条 lane 形态不同:
 
-整体节奏:`dep-batches` 算依赖 level → 同 level 的 Plan 全部并行(各占一个隔离工作树 + 一个 Codex 自治 Worker session)→ 返回事件先到先审(Claude 直审)→ 修复(`resume` 续会话)→ 批次全员终态后按依赖序回收合并 → 下一批次。单 Plan 自动退化串行(仍走工作树,零额外机制)。
+| | **codex lane** | **claude lane** |
+|---|---|---|
+| 落地者 | Codex 执行者(`codex-worker.sh` → `codex exec`) | 内置 `pack-executor` / `complex-pack-executor` sub-agent(`Agent` 派) |
+| 隔离/并行 | 每 Plan 一个隔离工作树,`dep-batches` 同 level 并行 | 共享 Coordinator 工作树,按 topo 顺序**串行**(sub-agent 钉不到独立 worktree) |
+| 回收 | `recycle-plan.sh` 按依赖序 merge 各 plan 分支 | commit 就在 Coordinator 工作树,无 worktree 回收 |
+| 收尾信号 | `codex-worker.sh` 同进程 ingest + NEXT | `SubagentStop` → `agent-return-handler.sh` |
+| 审查方(写审异家) | Codex 写 → **Claude 直审**(C5) | Claude 写 → **Codex 审**(gpt-5.4 baseline) |
+
+下图是 **codex lane** 的节奏:`dep-batches` 算依赖 level → 同 level 的 Plan 全部并行 → 返回事件先到先审(Claude 直审)→ 修复(`resume` 续会话)→ 批次全员终态后按依赖序回收合并 → 下一批次。单 Plan 自动退化串行(仍走工作树)。
 
 ```mermaid
 flowchart TD
@@ -141,9 +151,11 @@ flowchart TD
 - **修复轮**:`codex-worker.sh resume` 续原 Codex session(取代 SendMessage),≤2 轮自修,超限走 RCA 或标 BLOCKED。
 - **失败隔离**:blocked Plan → `isolated`,worktree 保留不合并,批次内其余 Plan 不受影响;批次结束后基于最新 HEAD 单独重试或标 BLOCKED。
 
+**claude lane 的节奏**(串行、无 worktree):按 topo 顺序逐 Plan → `Agent` 派内置 executor 在共享工作树就地执行 → `SubagentStop` 触发 `agent-return-handler.sh` 解析 plan-return 路由 → Claude 验收事实后派 **Codex 审**该 Plan 代码 → 修复(SendMessage 续派)→ 处理下一个 Plan。commit 留在 Coordinator 工作树,记账靠 `track-execution-state` hook(共享树主树 HEAD 正确,无需 Worker 回填)。
+
 ### 2.3 Multi-PR 合并流程(merge-brief 驱动)
 
-把同一大设计下的多个并行 PR 合并。全程由一份 **merge-brief** 文档当单一真相源,所有 sub-agent 只引用它的路径,不粘贴 PR 内容。冲突修复仍走 Claude sub-agent(`pack-executor` / `complex-pack-executor` 的残留场景之一)。
+把同一大设计下的多个并行 PR 合并。全程由一份 **merge-brief** 文档当单一真相源,所有 sub-agent 只引用它的路径,不粘贴 PR 内容。冲突修复走 `pack-executor` / `complex-pack-executor`(与 claude lane 同一对 executor agent)。
 
 ```mermaid
 flowchart TD
@@ -191,8 +203,8 @@ Skill 是按需加载到主线程的 Coordinator 逻辑(骨架 + 步骤 + 决策
 | `orchestrate-workflow` | 总入口 | 环境检测、路线判定(默认 Light)、断点续传、Closing 收口 |
 | `orchestrate-discovery` | Discovery | 与用户迭代方案、写设计文档 + CONTEXT.md + mockup、Design Review(Codex)、拆大 issue |
 | `orchestrate-plan-writing` | Plan Writing | 派 plan-writer、Plan 门校验、预算赋值、Plan Review(Codex) |
-| `orchestrate-execution` | Execution | 算并行批次、派 Codex Worker、Claude 直审、修复分流、回收合并、发布门 |
-| `orchestrate-final-review` | Final Review | 意图验证、清扫尾巴(Claude 直审代码)、决定是否发布审查 |
+| `orchestrate-execution` | Execution | 选 lane、按 lane 派执行者、审查(随 lane 翻转)、修复分流、回收合并、发布门 |
+| `orchestrate-final-review` | Final Review | 意图验证、清扫尾巴(代码审查随 lane 翻转)、决定是否发布审查 |
 | `orchestrate-multi-pr-merge` | Multi-PR | merge-brief 驱动的多 PR 合并 |
 | `codex-review` | 任意 | 临时发起一次 Codex 对抗评审(ad-hoc,不写 workflow-state、不耗预算) |
 
@@ -206,12 +218,12 @@ Skill 是按需加载到主线程的 Coordinator 逻辑(骨架 + 步骤 + 决策
 | `code-explorer` | Sonnet | (无) | 任何阶段只读补证 | 只读调查返回证据;不写文件、不给修复建议 |
 | `complex-code-explorer` | Opus 4.8 1M | (无) | 大体量/深层只读调查 | 跨模块/历史/迁移链路的只读调查 |
 | `root-cause-analyst` | Opus 4.8 1M (xhigh) | `diagnose` `tdd` | Bug 调查 / 修复截断 / Multi-PR 系统性冲突 | 列可证伪假设 + 排除证据 + 回归验证;可写代码修复 |
-| `pack-executor` ⚠️退役 | Opus 4.6 1M | `tdd` | **仅残留场景**:multi-pr 冲突修复 / bug 修复 / direct-repair 路径 B | C7 退役:execution 主路径已换 Codex,主路径派此 agent = 违规 |
-| `complex-pack-executor` ⚠️退役 | Opus 4.8 1M | `tdd` | 同上(高风险残留场景) | 同上;二期换轨后物理删除 |
+| `pack-executor` | Opus 4.6 1M | `tdd` | **claude lane execution**(normal/trivial 档)+ multi-pr 冲突修复 / bug 修复 / direct-repair 路径 B | TDD 逐 Pack 落地整个 Plan;只改代码,禁碰 `docs/` |
+| `complex-pack-executor` | Opus 4.8 1M | `tdd` | **claude lane execution**(高风险档)+ 上述残留修复场景 | 承接跨模块/迁移/计费/权限类高风险 Plan |
 
-> **execution 主路径不再用 Claude sub-agent**:Plan 落地由 Codex 执行者(`codex-worker.sh` + `references/codex-worker-handbook.md`)接管。两个 `*-pack-executor` 已 **C7 退役**,定义保留仅为 multi-pr-merge 冲突修复、bug-investigation 修复、direct-repair 路径 B 三个残留场景,二期换轨后物理删除。
+> **execution 有两条执行载体**(用户在 execution 入口选,见 §2.2 / §5.4):**codex lane** 由 Codex 执行者(`codex-worker.sh` + `references/codex-worker-handbook.md`)落地;**claude lane** 由这两个 `*-pack-executor` sub-agent 落地。两者共享 `worker-loop` 执行骨架,但构建系统注入不同 variant——Codex 拿 `worker-loop.codex`(原生 Codex 语言),executor agent 拿 `worker-loop.claude`(Claude 载体)。审查方向随载体翻转(写审异家)。
 >
-> **模型分层 = 省 token 的核心手段之一**:只读窄范围用 Sonnet(`code-explorer`),写计划/深调查/高风险用 Opus 1M。
+> **模型分层 = 省 token 的核心手段之一**:只读窄范围用 Sonnet(`code-explorer`),写计划/深调查/高风险用 Opus 1M;两条 lane 同一套 risk→tier 映射。
 >
 > `agents/persona.md` **不是 agent**,是 7 个角色(含 codex-reviewer)的人设规格(Role/Voice/Forbidden)的人类可读源;实际注入各 agent 的 voice 内容由 `build/templates/voice-directive.md.tmpl` 权威生成,改 persona 须同步模板。
 
@@ -323,18 +335,19 @@ Codex 在本 plugin 有**两条互不相同**的调用通道,别混:
 
 | 通道 | 脚本 | 干什么 | 沙箱 |
 |------|------|-------|------|
-| **执行通道** | `codex-worker.sh` → `codex exec` | execution 主路径**写代码**,在隔离工作树里逐 Pack 落地 | `--sandbox workspace-write` 物理围栏 |
-| **评审通道** | `codex-companion.mjs task` ←由 `dispatch-review.sh validate/record` 校验记账 | **审文档**(设计 / 计划),及 Claude worker 写代码场景的外审 | 只读,送审 diff 包在 `--- BEGIN/END UNTRUSTED CODE DIFF ---`(防注入) |
+| **执行通道**(仅 codex lane) | `codex-worker.sh` → `codex exec` | execution **写代码**,在隔离工作树里逐 Pack 落地 | `--sandbox workspace-write` 物理围栏 |
+| **评审通道** | `codex-companion.mjs task` ←由 `dispatch-review.sh validate/record` 校验记账 | **审文档**(设计 / 计划恒走此),及 **claude lane 代码**的外审 | 只读,送审 diff 包在 `--- BEGIN/END UNTRUSTED CODE DIFF ---`(防注入) |
 
-**写审异家(C5 翻转)——谁写的不审谁写的**:
+**写审异家——谁写的不审谁写的**(execution 代码的审查方随 lane 翻转):
 
 | 审什么 | 阶段 | 谁审 | reviewer / 记账 |
 |---------|------|------|------|
 | **设计 / 计划**(Claude 写) | discovery / plan-writing | **Codex** | `gpt-5.5 --effort xhigh`(更强);经 hook 记账 |
-| **execution 主路径代码 + 终审代码**(Codex 写) | execution / final-review | **Claude 直审**(Coordinator) | 维度/命令/finding 格式照用,手动 `budget increment-review` |
-| **代码**(Claude worker 写的场景) | bug / direct-repair / multi-pr / light 手动外审 | **Codex** | `gpt-5.4 --effort xhigh` |
+| **execution / 终审代码 · codex lane**(Codex 写) | execution / final-review | **Claude 直审**(Coordinator) | 维度/命令/finding 格式照用,手动 `budget increment-review` |
+| **execution / 终审代码 · claude lane**(sub-agent 写) | execution / final-review | **Codex** | `gpt-5.4 --effort xhigh`,经 hook 自动记账 |
+| **代码**(其余 Claude worker 写的场景) | bug / direct-repair / multi-pr / light 手动外审 | **Codex** | `gpt-5.4 --effort xhigh` |
 
-> **执行者也分层**(`codex-worker.sh` 顶部常量,唯一权威源):risk flags 命中(高风险/迁移/计费/权限/runtime/HITL)→ complex 档 `gpt-5.5 xhigh`;普通 → standard 档 `gpt-5.4 xhigh`。
+> **执行者也分层**:codex lane 的 Codex 模型档由 `codex-worker.sh` 顶部常量定(risk flags 命中 → complex `gpt-5.5 xhigh`;普通 → standard `gpt-5.4 xhigh`);claude lane 的 executor agent 档由 risk 选 `pack-executor`(Opus 4.6)或 `complex-pack-executor`(Opus 4.8)。同一套 risk→tier 映射,落到不同载体。
 >
 > 配合 sub-agent 的模型分层(3.2),**"什么阶段、什么角色用什么 model"是整套省 token 设计的支柱**:贵而强的模型只用在最需要判断力的环节,其余用够用的便宜模型。
 
@@ -380,7 +393,7 @@ Codex 在本 plugin 有**两条互不相同**的调用通道,别混:
 | `state-schema/routes-v1.json` | 流程形态真相源:phase 序列、合法跳转、预算档、verdict 机械路由、repair_policy |
 | `docs/orchestrate/design/2026-06-08-orchestrate-scripting.md` | v5.0.0 三块改造的设计权威:控制流脚本化(A)、execution 并行(B)、执行者换轨 Codex(C) |
 | `docs/orchestrate/design/2025-05-22-plugin-maturity.md` | 成熟度阶段的三条架构裁决(§6.2)出处 |
-| `skills/orchestrate-execution/references/codex-worker-handbook.md` | Codex 执行者行为规范:与 Claude executor 共享的 worker-loop / failure-protocol 锚点 + Codex 载体差异适配层 |
+| `skills/orchestrate-execution/references/codex-worker-handbook.md` | Codex 执行者(codex lane)行为规范:注入 `worker-loop` 的 **codex variant**(原生 Codex 语言,无适配层)+ `failure-protocol`。claude lane 的 `pack-executor` 拿 `worker-loop` 的 claude variant |
 
 > **C 块的运行时门**:执行者换轨 Codex 落地后,首份真实 Plan 须**单 Plan 串行试跑、人工盯质量**,通过才开放并行。
 
