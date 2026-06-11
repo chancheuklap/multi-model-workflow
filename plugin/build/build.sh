@@ -61,7 +61,7 @@ resolve_anchor() {
   case "$anchor_name" in
 
     # ── Type 1: pure cat ─────────────────────────────────────────────────────
-    worker-loop|failure-protocol)
+    failure-protocol)
       local tmpl="$TEMPLATE_DIR/${anchor_name}.md.tmpl"
       if [[ ! -f "$tmpl" ]]; then
         echo "Error: template not found: $tmpl" >&2
@@ -71,9 +71,11 @@ resolve_anchor() {
       ;;
 
     # ── Type 2: file-level variant + cat ────────────────────────────────────
-    # control-envelope and review-dispatch: look for <anchor>.<variant>.md.tmpl,
+    # control-envelope, review-dispatch, worker-loop: look for <anchor>.<variant>.md.tmpl,
     # fall back to <anchor>.md.tmpl if not found.
-    control-envelope|review-dispatch)
+    # worker-loop has no base .md.tmpl — every anchor must carry an explicit
+    # [variant=codex|claude]; a bare worker-loop anchor will error (intentional).
+    control-envelope|review-dispatch|worker-loop)
       local tmpl
       if [[ -n "$variant" ]]; then
         tmpl="$TEMPLATE_DIR/${anchor_name}.${variant}.md.tmpl"

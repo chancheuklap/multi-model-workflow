@@ -38,20 +38,36 @@ _source_resolve_anchor() {
 
 REAL_TMPL="$PLUGIN_DIR/build/templates"
 
-# ── Type 1: worker-loop (pure cat) ──────────────────────────────────────────
-run_test "worker-loop: output matches template" bash -c "
+# ── Type 2: worker-loop (file-level variant: codex / claude, no base) ────────
+run_test "worker-loop: codex variant matches template" bash -c "
   $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
   TEMPLATE_DIR='$REAL_TMPL'
-  out=\$(resolve_anchor worker-loop '')
-  expected=\$(cat '$REAL_TMPL/worker-loop.md.tmpl')
+  out=\$(resolve_anchor worker-loop codex)
+  expected=\$(cat '$REAL_TMPL/worker-loop.codex.md.tmpl')
   [[ \"\$out\" == \"\$expected\" ]]
 "
 
-run_test "worker-loop: output is non-empty" bash -c "
+run_test "worker-loop: claude variant matches template" bash -c "
   $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
   TEMPLATE_DIR='$REAL_TMPL'
-  out=\$(resolve_anchor worker-loop '')
-  [[ -n \"\$out\" ]]
+  out=\$(resolve_anchor worker-loop claude)
+  expected=\$(cat '$REAL_TMPL/worker-loop.claude.md.tmpl')
+  [[ \"\$out\" == \"\$expected\" ]]
+"
+
+run_test "worker-loop: codex and claude variants differ" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  c=\$(resolve_anchor worker-loop codex)
+  l=\$(resolve_anchor worker-loop claude)
+  [[ -n \"\$c\" && -n \"\$l\" && \"\$c\" != \"\$l\" ]]
+"
+
+run_test "worker-loop: codex variant has no Claude carriers" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  out=\$(resolve_anchor worker-loop codex)
+  ! grep -qE 'SubagentStop|SendMessage|CLAUDE_PLUGIN_ROOT|execution-worker-dispatch' <<<\"\$out\"
 "
 
 # ── Type 2: control-envelope (file-level variant + cat) ─────────────────────

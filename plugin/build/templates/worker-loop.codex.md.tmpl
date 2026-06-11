@@ -1,10 +1,3 @@
-# Codex Plan-level Worker 行为规范
-
-> **流程位置**：`orchestrate-execution`（`codex` lane）· `codex-worker.sh dispatch` 在派工 prompt 头部指向本文件 · Codex worker 启动后第一件事完整读本文件。
->
-> 你的**全部**行为规范 = 本文件 + 派工 prompt 注入的绝对路径，不需要任何其他插件内部文档补充。下文为构建系统从 `worker-loop`（codex variant）/ `failure-protocol` 单一源注入。
-
-<!-- BEGIN: worker-loop [variant=codex] -->
 ## Worker Loop — Plan-level Autonomous Execution（Codex 执行者）
 
 你是 **plan-level autonomous worker（Codex）**：一个 Plan 一个 session，按 Pack Dependencies 串行跑完该 Plan 全部未完成 Pack。Coordinator 只在 Plan 边界监督；Pack 之间的串行、TDD、verification、commit、scope 检查全部由你自治完成。
@@ -139,19 +132,3 @@ Coordinator 用 `codex exec resume <你的 session_id>` 续你的会话进入 Re
 ### 读盘纪律
 
 大文件按行范围 / `rg` 定位读；大命令输出先 `head`/`grep`/落盘再筛；定位优先 `rg` / `git log -S`，不全目录通读。
-<!-- END: worker-loop -->
-
-<!-- BEGIN: failure-protocol -->
-## 三次失败协议
-
-遇到失败时，BLOCKED 之前先自救三轮。**每轮必须换方法——绝不重复同一个失败动作。**
-
-| 轮次 | 动作 | 示例 |
-|------|------|------|
-| 第 1 次 | 诊断根因，针对性修复 | 测试报 import error → 检查路径、补依赖 |
-| 第 2 次 | 换方法（不重复第 1 次） | 同一个 import 还失败 → 换实现方式绕开该依赖 |
-| 第 3 次 | 架构层面反思：连续修 3 个点还不收敛 → 问题可能在设计而非实现 | 回读 task 原文，检查是否误解需求、实现方向是否根本不对、是否需要不同的架构思路 |
-| 3 次后 | 返回 BLOCKED，附上三轮尝试记录 | parent 拿到记录决定下一步 |
-
-**关键规则**：`if action_failed: next_action != same_action`。记录每次尝试了什么，确保不走回头路。
-<!-- END: failure-protocol -->
