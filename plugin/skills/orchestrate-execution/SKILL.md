@@ -1,6 +1,6 @@
 ---
 name: orchestrate-execution
-description: "已有 reviewed plan + Task Pack inventory 时使用。批次并行：dep-batches 算依赖 level，level 内 Plan 并行（各自隔离 worktree + Codex 自治 Worker，按 Dependencies 跑完该 Plan 全部 Pack，每 Pack 独立 commit）→ 返回事件先到先审（Claude Plan Implementation Review）→ Disposition → 修复 → Release Gate → 按依赖序回收合并；单 Plan 自动退化串行。产出：所有 Plan 通过 + review budget 消耗。"
+description: "已有 reviewed plan + Task Pack inventory 时使用。入口先问用户选执行载体（executor lane，整个 run 一次性）：codex lane = Codex 执行者 + dep-batches 并行 + 每 Plan 隔离 worktree + Claude 直审；claude lane = 内置 pack-executor + 共享工作树串行 + Codex 审。审查方向随执行方翻转（写审异家）。返回事件先到先审 → Disposition → 修复 → Release Gate → 回收合并。产出：所有 Plan 通过 + review budget 消耗。"
 ---
 
 <!-- BEGIN: signpost -->
@@ -73,7 +73,12 @@ Bad:  "执行进展顺利，各模块按计划推进中。"
 
 # Orchestrate Execution
 
-Plan Review 通过 → `dep-batches` 算并行批次 → **批次内全部 Plan 并行派发**（每 Plan：隔离 worktree + 1 个 Codex 自治 Worker session，按 Dependencies 跑完全部 Pack，每 Pack 独立 commit）→ 返回事件先到先审（Claude Plan Implementation Review）→ 修复（resume 续会话）→ Release Gate → 批次全员终态后按依赖序回收合并 → 下一批次 → 全部 Plan 通过 → Final Review。单 Plan 自动退化串行（仍走 worktree，零额外机制）。
+Plan Review 通过 → **Step 3b 选 executor lane**（整个 run 一次性）→ 按 lane 执行：
+
+- **codex lane**：`dep-batches` 算并行批次 → 批次内全部 Plan 并行派发（每 Plan：隔离 worktree + 1 个 Codex 自治 Worker session，按 Dependencies 跑完全部 Pack，每 Pack 独立 commit）→ 返回事件先到先审（**Claude 直审**）→ 修复（resume 续会话）→ Release Gate → 批次全员终态后按依赖序回收合并 → 下一批次。单 Plan 自动退化串行（仍走 worktree）。
+- **claude lane**：按 topo 顺序**串行逐 Plan**（共享工作树就地 + `Agent` 派内置 executor → SubagentStop 回收 → **Codex 审**），无 worktree 回收。
+
+两条都跑完全部 Plan → Final Review。
 
 **Only stop for（execution 专属，通用条目如 BLOCKED 见上方 preamble）：**
 - Worker 返回 blocked（业务阻塞才停，技术阻塞自行处理）
@@ -106,7 +111,28 @@ Plan Review 通过 → `dep-batches` 算并行批次 → **批次内全部 Plan 
 
 **NEEDS_PLAN_REVISION 出口**：plan 文件中有 pack 缺必需字段（goal behavior / owned files / acceptance criteria / verification commands / contract anchors / mockup specs）时，返回 `NEEDS_PLAN_REVISION`，让 orchestrate-plan-writing 修复，不进入执行。
 
-预执行准备完成 → 进入 Steps 4-9（Pack 循环）。`NEEDS_PLAN_REVISION` → 返回 orchestrate-workflow。
+预执行准备完成 → 进入 Step 3b（选执行载体）。`NEEDS_PLAN_REVISION` → 返回 orchestrate-workflow。
+
+---
+
+## Step 3b：执行载体选择（executor lane · 整个 run 一次性）
+
+预执行准备完成、批次计算之前，用 **AskUserQuestion** 问用户本次 execution 走哪条执行路径。**选定后整个 run 的所有 Plan 都用这条路径落地，中途不切换。**
+
+| Lane | 落地者 | 并行性 | 审查方（写审异家） |
+| --- | --- | --- | --- |
+| **`codex`** | Codex 执行者（`codex-worker.sh`） | dep-batches 并行，每 Plan 隔离 worktree | Codex 写 → **Claude 直审**（C5） |
+| **`claude`** | 内置 `pack-executor` / `complex-pack-executor` sub-agent | **共享工作树串行**（sub-agent 无法各自钉独立 worktree） | Claude 写 → **Codex 审**（baseline gpt-5.4 xhigh） |
+
+问法（两选项，让用户清楚并行/审查差异）：
+
+> 本次执行走哪条载体？① **Codex**——并行更快、Claude 审；② **Claude 内置 Agent**——串行、Codex 审。
+
+**持久化**：`bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" update --run-id "<run_id>" --field '.executor_lane' --value '"<codex|claude>"'`。
+
+**断点续传**：compaction 后读 `workflow-state.executor_lane`，已设则不再问。字段缺失（旧 run）按 `codex` 处理。
+
+设置完成 → 进入 Steps 4-9。
 
 ---
 
@@ -124,16 +150,17 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" dep-batches \
 # → {"levels": [["001","003"],["002"]], ...}：同 level 互不依赖、全部并行；level 间串行
 ```
 
-**模型档位**（C 块拍板：执行者 = Codex，分两档；Coordinator 按 Plan 内最高 risk flags 判）：
+- **codex lane**：同 level 全部并行，level 间串行（下方 Step 4b）。
+- **claude lane**：同样用 `dep-batches` 定序，但**不并行**——按 topo 顺序（先 level 0 再 level 1…，同 level 内任意序）串行逐 Plan，一次一个（sub-agent 共享工作树，并行写会互撞）。
 
-| Risk flags（取 Plan 内最高） | model-tier | 模型 | TDD |
-| --- | --- | --- | --- |
-| `trivial` / `normal` | `standard` | GPT-5.4 xhigh | trivial 宽松；normal 严格 |
-| `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex` | GPT-5.5 xhigh | 严格 |
+**模型档位**（Coordinator 按 Plan 内最高 risk flags 判；两条 lane 同一套 risk 映射，只是落到不同载体）：
 
-（旧的 Sonnet 200K 上下文升档维度已随 Claude executor 退出主路径而废止；Codex 两档同窗口。）
+| Risk flags（取 Plan 内最高） | tier | codex lane 模型 | claude lane agent | TDD |
+| --- | --- | --- | --- | --- |
+| `trivial` / `normal` | `standard` | GPT-5.4 xhigh | `pack-executor`（Opus 4.6 1M） | trivial 宽松；normal 严格 |
+| `high-risk` / `production-risk` / `billing` / `permission` / `migration` / `runtime` / `HITL` | `complex` | GPT-5.5 xhigh | `complex-pack-executor`（Opus 4.8 1M） | 严格 |
 
-### Step 4b：FOR EACH 批次（level 顺序）——批内每个 Plan 依次做三件事后并行起飞
+### Step 4b（codex lane）：FOR EACH 批次（level 顺序）——批内每个 Plan 依次做三件事后并行起飞
 
 ```bash
 # 1) 隔离工作树（B2 硬约束：显式以当前 HEAD 为基；禁用 harness 自动 worktree）
@@ -155,6 +182,31 @@ Bash({
 ```
 
 批内全部 Plan 派发完成后进入**返回处理态**（Step 6）。单 Plan 批次 = 同样流程跑一个，自动退化。
+
+### Step 4b'（claude lane）：按 topo 顺序串行逐 Plan（一次一个）
+
+claude lane 不开 per-plan worktree、不并行——在 **Coordinator 工作树就地** 串行执行，靠 hook 回收（`SubagentStop` → `agent-return-handler.sh` 解析 plan-return，无需 codex-worker 同进程回收）。FOR EACH Plan（dep-batches topo 顺序）：
+
+```bash
+# 1) marker（guard-doc-edit 据此知道飞行中；内容 = 当前工作树路径，串行等价旧单树行为）
+printf '%s\n' "$(pwd)" > .claude/multi-model-workflow/worker-active-<NNN>
+
+# 2) 状态登记（worktree-path 指向当前工作树，串行）
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" execution-plan start \
+  --run-id "<run_id>" --plan-id <NNN> --start-commit "$(git rev-parse HEAD)" \
+  --worktree-path "$(pwd)" --branch "<work-branch>"
+```
+
+3) 派发——`Agent({...})` 派内置 executor（按 Step 4 模型档位选 `pack-executor` / `complex-pack-executor`），envelope 走 `state.sh envelope build`（同契约，`--worktree-path` = 当前树）。`validate-plan-dispatch` / `validate-pack-manifest` hook 在 Agent 形态自动校验：
+
+```
+Agent({
+  subagent_type: "<pack-executor | complex-pack-executor>",
+  prompt: "<DISPATCH_ENVELOPE 块>\n\n你是 plan-level autonomous worker。读 plan 全文按 worker-loop 执行整个 Plan。Plan: <plan_path>"
+})
+```
+
+派完**等这一个 Plan 返回**（SubagentStop → handler 路由），走完 Step 6→7→…→14（commit 留在 Coordinator 工作树，无需 worktree 回收），再派 topo 顺序的下一个 Plan。全部 Plan 终态 → Final Review。
 
 <!-- BEGIN: control-envelope -->
 ## DISPATCH_ENVELOPE (required prefix for every dispatch)
@@ -245,7 +297,7 @@ Plan 完成后统一处置所有 Pack 的 `### Open Items`（不在单 Pack 返�
 | `[bug]` | 影响当前功能 → 当前 repair；否则 → 开 GitHub issue |
 | 无标记观察 | 记录，不开 issue |
 
-###### Step 6b：Git Checkpoint（worktree 模式）
+###### Step 6b：Git Checkpoint（codex lane = plan 分支；claude lane = Coordinator 工作树 work branch）
 
 1. `git log --oneline -5 plan-<NNN>` 确认 Worker 的 Pack commit 都在 plan 分支上（marker 此时**不删**——Plan 终态后由回收/隔离步骤清理）
 2. 抽验记账：`jq '.plans["<NNN>"].packs' execution-state` 的 commit_sha 与 `git log plan-<NNN>` 实际 SHA 一致（ingest 回填的是 Worker 上报值，B4）
@@ -256,14 +308,14 @@ Plan 完成后统一处置所有 Pack 的 `### Open Items`（不在单 Pack 返�
 
 **Worker / RCA 返回事实校验**：Coordinator 收到 pack-executor / complex-pack-executor / root-cause-analyst 返回的 commit hash、文件路径、行号、grep 结果、Pack 状态等事实，必须抽验（至少 1 个事实 grep / Read / git show）后再进入 Plan Implementation Review 或下一 Pack 派发。事实失实 -> 重派或 Coordinator 亲查。
 
-#### Step 7：Plan Implementation Review（所有 Pack 完成后）——**Claude 审（C5 翻转）**
+#### Step 7：Plan Implementation Review（所有 Pack 完成后）——审查方随 lane 翻转（写审异家）
 
-写代码的是 Codex → 按「写审异家」红线，本 review 由 **Claude（Coordinator）直审**，不派 Codex 审自己写的代码。
+谁写代码就不由谁审：
 
-1. **Read** `references/execution-review-dispatch.md` 获取 review 维度结构（Review 分段规则、Cross-Pack Coherence、Neighbor interface contracts）和自跑命令列表——**维度与标准照用，执行者从 Codex reviewer 换成你自己**。
-2. Review 对象 = `start_commit..plan-<NNN>` 分支 diff（在 worktree 或主树 `git diff start..branch` 均可），逐 Pack 对照 acceptance criteria + verification commands 自跑验证，按既有 finding 格式（含 `[Pack N.M]` 归属标记）产出 findings。
-3. 记账：review 完成后 `state.sh budget increment-review --run-id <run_id> --gate plan-impl-review-<NNN>`（Claude 审不经 codex hook，预算手动递增）。
-4. 文档类产物（design / plan）的审查仍走 Codex，不受本翻转影响。
+- **codex lane**（Codex 写）→ 由 **Claude（Coordinator）直审**（C5）。维度/标准照用 `references/execution-review-dispatch.md`，执行者 = 你自己；review 对象 = `start_commit..plan-<NNN>` 分支 diff，逐 Pack 对照 acceptance criteria + verification commands 自跑验证，按既有 finding 格式（含 `[Pack N.M]` 归属）产出。**记账手动**：`state.sh budget increment-review --run-id <run_id> --gate plan-impl-review-<NNN>`（Claude 审不经 codex hook）。
+- **claude lane**（内置 sub-agent 写）→ 派 **Codex 审**（baseline，gpt-5.4 xhigh）。走 `_shared/review-dispatch.md` 的 Codex 派发流程（`dispatch-review.sh validate` → `codex-companion.mjs task --background` → `complete-review-dispatch.sh` 标 durable + **自动记账**，无需手动 increment）；review 对象 = 该 Plan 的 commit diff，维度照用 `references/execution-review-dispatch.md`。
+
+两条 lane 共用同一套 review 维度与 finding 格式（Review 分段规则、Cross-Pack Coherence、Neighbor interface contracts，见 `references/execution-review-dispatch.md`），区别只在执行者。**文档类产物（design / plan）的审查恒走 Codex，不受 lane 影响。**
 
 Coordinator 写入 execution state：`plans[N].status = review_pending`。
 
@@ -321,6 +373,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" execution-plan finish \
 `plans[N].release_gate_triggered` 用 `state.sh update` 写。该 Plan 到终态；**继续处理下一个排队返回**（Step 6），批次内还有在飞 Plan 时不进入回收。
 
 ### Step 14b：批次回收（批内全部 Plan 终态后，按依赖序逐个）
+
+> **仅 codex lane**。claude lane 串行就地执行、commit 已在 Coordinator 工作树，无 worktree/分支可回收——逐 Plan 终态后直接 `state.sh checkbox toggle` + commit plan docs（marker 删除靠 `state.sh execution-plan finish --status completed`），跳过本步。
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/recycle-plan.sh" --run-id "<run_id>" --plan-id <NNN>

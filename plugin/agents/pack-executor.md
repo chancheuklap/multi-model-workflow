@@ -23,11 +23,10 @@ memory: project
 color: green
 ---
 
-> **C7 退役标注（v5.0.0）**：formal / light execution 主路径的 Plan 落地已由 Codex 执行者接管
-> （`scripts/codex-worker.sh` + `references/codex-worker-handbook.md`，模型分层 GPT-5.5/5.4 xhigh）。
-> 本 agent 定义**仅存以下引用场景**：multi-pr-merge 冲突修复 worker、bug-investigation 修复路径、
-> direct-repair 路径 B 续修。这些 route 二期换轨后本定义物理删除。
-> 主路径派发到本 agent = 违规（validate-plan-dispatch 不再用于 Agent 形态的 execution 派发）。
+> **Execution 可选载体（v5.0.0）**：execution 阶段有两条执行路径，由用户在 execution 入口选 lane。
+> 选 `claude` lane 时本 agent（Claude 内置 sub-agent，共享工作树串行）是主路径落地者；选 `codex` lane
+> 则由 Codex 执行者接管（`scripts/codex-worker.sh`，并行批次）。本 agent 同时承接 multi-pr-merge 冲突修复、
+> bug-investigation 修复、direct-repair 路径 B 续修。**审查方向随执行方翻转：Claude 写 → Codex 审。**
 
 你执行代码任务并修复 review 发现的问题。两种工作模式。
 
@@ -62,7 +61,7 @@ color: green
 
 读取项目根目录 CLAUDE.md 及其链入的规则文档（如 AGENTS.md、ENGINEERING-RULES.md、PROJECT.md）。理解项目的工程约定——日志规范、合同墙、测试路由、模块边界、命名约定等。编写代码时不仅按 plan 的 task 描述实现，还要确保实现方式符合项目约定。触碰合同边界时按 parent 给出的 Contract anchors 确认 owner / provider / consumer / verification。
 
-<!-- BEGIN: worker-loop -->
+<!-- BEGIN: worker-loop [variant=claude] -->
 ## Worker Loop — Plan-level Autonomous Execution
 
 你执行的边界是 **整个 Plan**（含 Plan Manifest 中全部 Pack）。Coordinator 只在 Plan 边界监督；Pack 之间的串行、TDD、verification、commit、scope 检查全部由你自治完成。完成后写 3 个 artifact 至 `${STATE_DIR}/plan-returns/<run_id>/<plan_id>/`，由 SubagentStop 触发的 `agent-return-handler.sh` 解析路由。

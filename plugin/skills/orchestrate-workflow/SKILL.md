@@ -93,7 +93,10 @@ Light Lane 是日常小改的快路：跳过 Discovery / 独立 Plan-writing / P
 
 1. **intent 一句确认**：`"这是个小改：<一句话>，我直接动手了"`——不阻塞，除非用户喊停。
 2. `state.sh init --run-id <rid> --slug <slug> --route light`——budget 默认 unlimited（routes 清单声明），因此自然跳过 `validate-plan-dispatch.sh` 的 budget-init 门（budget_status=unlimited，非 pending_plan_count）。
-3. **直派 Worker**（plan-level dispatch，走现有 envelope 契约；执行者 = Codex，C 块）：Coordinator 自写一份简短 plan（或轻量内联 plan），`plan_path` 指向它；派发走 `bash "${CLAUDE_PLUGIN_ROOT}/scripts/codex-worker.sh" dispatch --model-tier standard`，串行退化形态 `--worktree-path` 直接指向当前工作树（marker 内容 = 主树路径，guard 自动等价于旧行为）。transition `workflow→execution` 对 light 合法（routes 清单声明），对 formal 仍非法。
+3. **选执行载体 + 直派 Worker**（plan-level dispatch，走现有 envelope 契约）：先用 **AskUserQuestion** 问走 `codex` 还是 `claude` lane（同 execution Step 3b，整个 light run 一次性，写 `state.sh update --field '.executor_lane'`）。Coordinator 自写一份简短 plan，`plan_path` 指向它。
+   - **codex lane**：`bash "${CLAUDE_PLUGIN_ROOT}/scripts/codex-worker.sh" dispatch --model-tier standard`，串行退化形态 `--worktree-path` 直接指向当前工作树（marker 内容 = 主树路径，guard 自动等价于旧行为）。
+   - **claude lane**：`Agent({ subagent_type: "pack-executor", prompt: "<envelope>\n..." })` 在当前工作树就地执行，SubagentStop → `agent-return-handler.sh` 回收。
+   transition `workflow→execution` 对 light 合法（routes 清单声明），对 formal 仍非法。
 4. **Coordinator 自审**：Read/grep 验证 Worker 返回的 hash / 路径 / 计数后才采信。
 5. **Closing**：commit；push 前未勾选任务阻断照常生效。
 

@@ -32,6 +32,12 @@
       "enum": ["attended", "afk"],
       "default": "afk"
     },
+    "executor_lane": {
+      "type": "string",
+      "enum": ["codex", "claude"],
+      "default": "codex",
+      "description": "Execution carrier chosen once per run at the execution entry (Step 3b). 'codex' = Codex executor via codex-worker.sh, parallel batches, isolated worktree per Plan, reviewed by Claude (C5). 'claude' = built-in pack-executor/complex-pack-executor sub-agent, shared worktree serial, reviewed by Codex. Absent → treat as 'codex'."
+    },
     "budget": {
       "type": "object",
       "properties": {
