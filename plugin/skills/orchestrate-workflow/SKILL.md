@@ -73,7 +73,7 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 
 | 路线 | 输入信号 | 下一步 |
 | --- | --- | --- |
-| **Route 0: Light Lane（默认）** | 日常小改、单点修复、未命中升级条件；quickfix / 小改动 / 一行修复 / trivial fix；maintenance / 依赖更新 / 文档更新 / chore / cleanup / refactor / bump；**hotfix** 子模式（route=light + `commit_format_override="hotfix-unreviewed"` + `pending_post_push_reviews`）；**spike** 子模式（route=light + 临时目录隔离，不占编号） | `state.sh init --route light`（unlimited）→ Light Lane 流程段 |
+| **Route 0: Light Lane（默认）** | 日常小改、单点修复、未命中升级条件。触发关键词 quickfix / 一行修复 / trivial fix / maintenance / 依赖更新 / chore / cleanup / refactor / bump 均为**普通 Light Lane**（无独立逻辑，只是路由信号）；唯一带机器行为的子模式是 **hotfix**（route=light + `commit_format_override="hotfix-unreviewed"` + `pending_post_push_reviews`）；**spike** 是目录约定（临时目录隔离，不占编号，无独立路由） | `state.sh init --route light`（unlimited）→ Light Lane 流程段 |
 | **Route 1: Formal Orchestrate** | 命中 D1 升级条件：新功能、改造、feedback、缺 design/issue/plan、已有 design/plan 要 review/执行 | Step 2 |
 | **Route 2: Bug Investigation** | bug / error log / regression / failing test，根因不明 | Step 2（Git + Scope + unlimited workflow-state）→ Step 15 |
 | **Route 3: Multi-PR Merge** | 多个并行 PR 需要合并审查 | Step 2（Git + Scope + unlimited workflow-state）→ Step 19 |

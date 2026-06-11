@@ -243,12 +243,13 @@ check "no set -e anti-pattern in hooks" bash -c \
 echo ""
 echo "## R3 Gap Coverage"
 
-# Route 4-7 keywords in workflow SKILL.md Entry Gate
-check "R3-05: Route 4 hotfix in workflow Entry Gate" \
+# Light Lane sub-mode keywords in workflow SKILL.md Entry Gate
+# (post-D10: hotfix is the only sub-mode with machine behavior; quickfix/maintenance are plain keywords)
+check "R3-05: hotfix sub-mode keyword in workflow Entry Gate" \
   grep -q "hotfix" "$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md"
-check "R3-05: Route 6 spike in workflow Entry Gate" \
+check "R3-05: spike keyword in workflow Entry Gate" \
   grep -q "spike" "$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md"
-check "R3-05: Route 7 maintenance in workflow Entry Gate" \
+check "R3-05: maintenance keyword in workflow Entry Gate" \
   grep -q "maintenance" "$PLUGIN_DIR/skills/orchestrate-workflow/SKILL.md"
 
 # NEEDS_ISSUE_SPLIT in plan-writing SKILL.md
