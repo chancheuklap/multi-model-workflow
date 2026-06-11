@@ -183,7 +183,7 @@ flowchart TD
 
 | 路线 | 跳过什么 | 怎么走 |
 |------|---------|-------|
-| **Light Lane**(默认) | Discovery + Plan Review 门 | 直接进计划/执行/终审,执行仍走 Codex Worker(`codex-worker.sh dispatch --model-tier standard`);子模式:hotfix(先 push 后审)、quickfix(单 pack 单审)、spike(只产 verdict)、maintenance(worker+审) |
+| **Light Lane**(默认) | Discovery + Plan Review 门 | 直接进计划/执行/终审,执行同样先选 lane(codex `codex-worker.sh` / claude `Agent` 派 pack-executor);子模式:hotfix(先 push 后审)、quickfix(单 pack 单审)、spike(只产 verdict)、maintenance(worker+审) |
 | **Direct Repair** | 全部 formal 门 + Codex 审 | 根因清楚时,route-worker 直接修 |
 | **Bug Investigation** | 全部 formal 门 | `root-cause-analyst` 调查 → worker 修 → Codex 审 → Closing |
 | **Multi-PR Merge** | 全部 formal 门 | merge-brief 驱动(见图 3) |
@@ -243,7 +243,7 @@ Hook 是自动触发的拦截/记录脚本,违反硬约束直接 `exit 2` 阻断
 | `validate-multi-pr-dispatch` | 派 multi-pr worker 前(Agent) | 校验 merge-brief 存在 / 阶段一致 / conflict_id 有效 / prompt 引用 brief |
 | `guard-doc-edit` | 编辑 / 写文件前(Edit/Write) | **四规则**:①`docs/` 一律拦 → ②状态目录放行 → ③登记 worktree 内放行 → ④飞行期间主树只读;无 `worker-active-*` marker 则全放行 |
 | `track-review-budget` | Codex review 完成后(`codex*result`) | 递增 `review_used`;attended 80% 写 pending_direction_check;afk 80% 软信号、100% 兜底;credit 归还回流额度 |
-| `track-execution-state` | `git commit` 成功后 | 记录该 Pack committed;主树 HEAD 取的 commit_sha 仅作串行 fallback,权威值由 `plan-returns ingest` 覆盖 |
+| `track-execution-state` | `git commit` 成功后 | 记录该 Pack committed;主树 HEAD 取的 commit_sha 在 claude lane(共享主树)即权威,在 codex lane(隔离 worktree)仅作 fallback、由 `plan-returns ingest` 覆盖 |
 | `cleanup-before-push` | `git push` 成功后 | 清理编排临时状态目录;hotfix-unreviewed 延迟到事后审完由 Closing `--force` 清 |
 | `agent-return-handler` | 任何 agent 返回后(PostToolUse) | 读 plan-return,按 6 种 verdict 路由;**信封解析失败 exit 0 放行**(PostToolUse 撤不回已完成 agent) |
 
@@ -256,7 +256,7 @@ Plugin 在关键环节直接 `Skill()` 调用外部方法论技能,而不是把�
 | `grill-with-docs` | Discovery 开场即调用 | 全程维护 `CONTEXT.md` / `CONTEXT-MAP.md`(仓库级领域模型/术语表),与设计文档**并列为 Discovery 双交付物** |
 | `to-issues` | Discovery 大 issue 拆分 | 提供 tracer-bullet / vertical-slice 拆分内核。**混合接法**:调用内核保证权威最新,plugin 保留 issue 文档格式与 AFK/HITL 约定 |
 | `improve-codebase-architecture` | `plan-writer` / `complex-code-explorer` 用;拆分时按需 | 理解模块边界、职责分布、合同表面 |
-| `tdd` / `diagnose` | `*-pack-executor`(残留)/ `root-cause-analyst` 内嵌 | 红绿重构;根因诊断五步 |
+| `tdd` / `diagnose` | `*-pack-executor`(claude lane execution + 残留修复)/ `root-cause-analyst` 内嵌 | 红绿重构;根因诊断五步 |
 | `frontend-design` / `impeccable` / `prototype` | Discovery 按需(UI) | mockup 生成 / 界面打磨审计 / 原型 |
 
 > **为什么调用而非内嵌**:像 `to-issues` 这种决定拆分质量、进而决定代码落地完整性的核心方法论,内嵌会随上游更新悄悄漂移;直接调用保证单一权威、永远最新。
@@ -277,8 +277,8 @@ flowchart LR
     MK["Mockup<br/>mockups/*"]:::doc
     IS["Issue 文档<br/>issues/*.md"]:::doc
     PL["Plan 文档<br/>plans/*.md<br/>(含 Pack Manifest)"]:::doc
-    EN["DISPATCH_ENVELOPE<br/>(Coord→Codex Worker)"]:::doc
-    RT["plan-return / open-items<br/>(Worker→Coord)"]:::doc
+    EN["DISPATCH_ENVELOPE<br/>(Coord→执行者)"]:::doc
+    RT["plan-return / open-items<br/>(执行者→Coord)"]:::doc
     ST[("workflow-state /<br/>execution-state<br/>磁盘状态")]:::state
 
     SC --> DD --> IS --> PL --> EN --> RT
@@ -295,8 +295,8 @@ flowchart LR
 | Mockup | Discovery | Plan Writing、UI 实现 | UI 视觉规格,与文字设计平级的源头工件 |
 | Issue 文档 | issue 拆分 | Plan Writing、**Execution worker(核对意图)** | 把设计拆成 thin vertical slice;worker 顺 plan 头 `Source issue` 读它核对实现没偏离原始意图 |
 | Plan 文档(+Pack Manifest) | `plan-writer` | Execution worker、Review | 可执行计划,worker 自读的**主**指令源(并顺读源 issue 核对意图) |
-| DISPATCH_ENVELOPE | Coordinator(`state.sh envelope build`) | Codex Worker + 校验 hook | 窄接口,只传 `plan_id`+`plan_path`+`worktree_path`+运行时变量,**不粘贴 Pack 内容** |
-| plan-return / open-items | Codex Worker | `plan-returns ingest`、Coordinator | 回报 verdict + per-pack 状态 + **权威 commit_sha** + 遗留项 |
+| DISPATCH_ENVELOPE | Coordinator(`state.sh envelope build`) | 执行者(Codex worker / Claude sub-agent)+ 校验 hook | 窄接口,只传 `plan_id`+`plan_path`+`worktree_path`+运行时变量,**不粘贴 Pack 内容** |
+| plan-return / open-items | 执行者(两条 lane 都产) | codex lane→`plan-returns ingest`;claude lane→`agent-return-handler`、Coordinator | 回报 verdict + per-pack 状态 + **权威 commit_sha** + 遗留项 |
 | merge-brief | Multi-PR 流程 | state.sh 校验 + worker | 合并冲突的单一真相源 |
 | 磁盘状态 | state.sh / hooks | 全程 + compaction 恢复 | 进度记忆(cursor / committed / budget / active_plan_ids),**断点续传的唯一可信源** |
 
@@ -307,7 +307,7 @@ flowchart LR
 ### 5.1 预算(单一 Review 维度)
 
 - **公式 `3P+12`**:P = Plan 总数。`3P` = 每个 Plan 1 次实现审查 + 最多 2 次修复复审;`+12` = Design / Plan / Final / Release 评审 + 修复余量。常量 `REVIEW_PER_PLAN=3` / `REVIEW_FIXED_RESERVE=12` 在 `state.sh` 里,Plan Writing 阶段**首次且唯一**赋值,执行期不可变。
-- **计量单位 = review 派发次数**(不是 token),且**两类 review 都计入**:Codex 文档评审(经 hook 自动记账)与 **Claude 直审 execution 代码**(C5 翻转,Coordinator 手动 `state.sh budget increment-review`)。
+- **计量单位 = review 派发次数**(不是 token)。记账方式随谁审而不同:**经 hook 自动记账**——Codex 文档评审(design/plan)、claude lane 的 Codex 代码评审;**Coordinator 手动 `state.sh budget increment-review`**——codex lane 的 Claude 直审 execution/终审代码(Claude 审不经 codex hook)。两类都计入预算。
 - **双模式(在场 / 无人值守)**:无人值守(默认)用到 80% 只软提醒、继续跑,100% 才硬停;在场用到 80% 立即停下请你决策。
 - **轻量路线预算 unlimited**(Light / Direct Repair / Bug / Multi-PR 不限)。
 
@@ -359,8 +359,8 @@ Codex 在本 plugin 有**两条互不相同**的调用通道,别混:
 
 - `cursor`:当前在哪个 phase / reference / step —— 压缩后从这里续。
 - `last_gate_phase` / `last_gate_timestamp`:上次 gate 通过的位置和时间 —— 用来检测"评审后 source 又被改了没",改了就强制重审(`state.sh transition` 自动写,无需手动)。
-- `active_plan_ids[]`:**并行模型下同时在飞的 Plan 集合**(取代单值 `current_plan_id`);每个 plan-level 条目带 `worktree_path` / `branch` / `isolation_status`(active|isolated|merged)/ `session_id`。
-- per-pack `committed` + `commit_sha`:每个 Pack 是否已提交(权威 SHA 由 `plan-returns ingest` 回填)。
+- `active_plan_ids[]`:在飞的 Plan 集合(取代单值 `current_plan_id`)——codex lane 并行时多个,claude lane 串行时恒一个;每个 plan-level 条目带 `worktree_path` / `branch` / `isolation_status`(active|isolated|merged)/ `session_id`(`session_id` 为 codex lane 字段,claude lane 用 `worker_agent_id`)。
+- per-pack `committed` + `commit_sha`:每个 Pack 是否已提交。权威 SHA 来源随 lane:codex lane 由 Worker 上报经 `plan-returns ingest` 回填;claude lane 由 `track-execution-state` hook 在共享主树 commit 时直接记(主树 HEAD 正确)。
 - `idempotency_keys`:已派发过的 key(统一 `<run>/<plan_id|pack_id>/r<n>`),防重复派。
 
 会话启动时 `session-start` hook 读这些状态,按需把"你在哪、下一步做什么"重新注入,流程接着跑。状态写入用目录级自旋锁(`scripts/lib/state-lock.sh`)保证并发安全——这在并行批次下尤其关键。
