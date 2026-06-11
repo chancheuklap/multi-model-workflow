@@ -182,25 +182,6 @@ echo $(($(date +%s) - 120)) > "$STALE_LOCK/ts"
 run_test "stale lock cleaned and operation succeeds" \
   bash "$STATE_SH" update --run-id "$RUN_ID" --field '.cursor.step' --value '10'
 
-# --- agent-id subcommand (execution-state) ---
-RUN_ID3="test-agent-id-001"
-run_test "init for agent-id test" \
-  bash "$STATE_SH" init --run-id "$RUN_ID3" --slug "agent-test" --route "formal"
-
-# Create execution-state file for agent-id tests
-cat > "$FIXTURE_DIR/execution-state-${RUN_ID3}.json" <<'ESJSON'
-{"run_id":"test-agent-id-001","plans":{"001":{"packs":{"1.1":{"status":"pending","agent_id":null,"commit_sha":null,"worker_verdict":null},"1.2":{"status":"pending","agent_id":null,"commit_sha":null,"worker_verdict":null}}}}}
-ESJSON
-
-run_test "agent-id set writes to execution-state" \
-  bash "$STATE_SH" agent-id set --run-id "$RUN_ID3" --pack-id "1.1" --agent-id "agent-xyz"
-
-run_test "agent-id get returns set value" \
-  bash -c "[[ \$(bash '$STATE_SH' agent-id get --run-id '$RUN_ID3' --pack-id '1.1') == 'agent-xyz' ]]"
-
-run_test "agent-id get on unset pack returns empty" \
-  bash -c "[[ -z \$(bash '$STATE_SH' agent-id get --run-id '$RUN_ID3' --pack-id '1.2') ]]"
-
 # --- direction-check ---
 run_test "direction-check trigger" \
   bash "$STATE_SH" direction-check trigger --run-id "$RUN_ID" --type review --threshold-percent 80
@@ -292,10 +273,7 @@ run_test "agent-id get --plan-id returns set value" \
 run_test "agent-id get --plan-id on unset plan returns empty" \
   bash -c "[[ -z \$(bash '$STATE_SH' agent-id get --run-id '$RUN_ID5' --plan-id 002) ]]"
 
-run_test_expect_fail "agent-id set with both --pack-id and --plan-id rejected" \
-  bash "$STATE_SH" agent-id set --run-id "$RUN_ID5" --pack-id 1.1 --plan-id 001 --agent-id "x"
-
-run_test_expect_fail "agent-id set with neither --pack-id nor --plan-id rejected" \
+run_test_expect_fail "agent-id set without --plan-id rejected" \
   bash "$STATE_SH" agent-id set --run-id "$RUN_ID5" --agent-id "x"
 
 run_test_expect_fail "agent-id set --plan-id on missing plan rejected" \

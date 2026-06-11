@@ -575,22 +575,17 @@ cmd_agent_id() {
 }
 
 cmd_agent_id_set() {
-  local pack_id="" plan_id="" agent_id=""
+  local plan_id="" agent_id=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --pack-id) pack_id="$2"; shift 2 ;;
       --plan-id) plan_id="$2"; shift 2 ;;
       --agent-id) agent_id="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
 
-  if [[ -n "$pack_id" && -n "$plan_id" ]]; then
-    echo "Error: --pack-id and --plan-id are mutually exclusive for agent-id set" >&2
-    exit 2
-  fi
-  if [[ -z "$pack_id" && -z "$plan_id" ]]; then
-    echo "Error: one of --pack-id or --plan-id required for agent-id set" >&2
+  if [[ -z "$plan_id" ]]; then
+    echo "Error: --plan-id required for agent-id set" >&2
     exit 2
   fi
   if [[ -z "$agent_id" ]]; then
@@ -609,44 +604,27 @@ cmd_agent_id_set() {
   trap release_lock EXIT
 
   local tmp="${esf}.tmp"
-  if [[ -n "$plan_id" ]]; then
-    # plan-level: write to .plans[plan_id].worker_agent_id (per Pack 2.5 schema)
-    if ! jq -e --arg pid "$plan_id" '.plans[$pid] != null' "$esf" >/dev/null; then
-      echo "Error: plan_id $plan_id not found in execution-state" >&2
-      exit 2
-    fi
-    jq --arg pid "$plan_id" --arg aid "$agent_id" \
-      '.plans[$pid].worker_agent_id = $aid' "$esf" > "$tmp"
-    mv "$tmp" "$esf"
-  else
-    # pack-level: legacy path under .plans[*].packs[pack_id].agent_id
-    jq --arg pid "$pack_id" --arg aid "$agent_id" '
-      .plans |= with_entries(
-        .value.packs |= with_entries(
-          if .key == $pid then .value.agent_id = $aid else . end
-        )
-      )
-    ' "$esf" > "$tmp"
-    mv "$tmp" "$esf"
+  # plan-level: write to .plans[plan_id].worker_agent_id (per Pack 2.5 schema)
+  if ! jq -e --arg pid "$plan_id" '.plans[$pid] != null' "$esf" >/dev/null; then
+    echo "Error: plan_id $plan_id not found in execution-state" >&2
+    exit 2
   fi
+  jq --arg pid "$plan_id" --arg aid "$agent_id" \
+    '.plans[$pid].worker_agent_id = $aid' "$esf" > "$tmp"
+  mv "$tmp" "$esf"
 }
 
 cmd_agent_id_get() {
-  local pack_id="" plan_id=""
+  local plan_id=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --pack-id) pack_id="$2"; shift 2 ;;
       --plan-id) plan_id="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
 
-  if [[ -n "$pack_id" && -n "$plan_id" ]]; then
-    echo "Error: --pack-id and --plan-id are mutually exclusive for agent-id get" >&2
-    exit 2
-  fi
-  if [[ -z "$pack_id" && -z "$plan_id" ]]; then
-    echo "Error: one of --pack-id or --plan-id required for agent-id get" >&2
+  if [[ -z "$plan_id" ]]; then
+    echo "Error: --plan-id required for agent-id get" >&2
     exit 2
   fi
 
@@ -658,13 +636,7 @@ cmd_agent_id_get() {
   fi
 
   local result
-  if [[ -n "$plan_id" ]]; then
-    result=$(jq -r --arg pid "$plan_id" '.plans[$pid].worker_agent_id // empty' "$esf" 2>/dev/null || echo "")
-  else
-    result=$(jq -r --arg pid "$pack_id" '
-      [.plans | to_entries[] | .value.packs // {} | to_entries[] | select(.key == $pid) | .value.agent_id // empty] | first // empty
-    ' "$esf" 2>/dev/null || echo "")
-  fi
+  result=$(jq -r --arg pid "$plan_id" '.plans[$pid].worker_agent_id // empty' "$esf" 2>/dev/null || echo "")
 
   if [[ "$result" == "null" ]]; then
     echo ""

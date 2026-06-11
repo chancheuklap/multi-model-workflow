@@ -16,22 +16,22 @@ echo "=== test_sendmessage_resume.sh ==="
 RUN_ID="test-sendmsg"
 bash "$STATE_SH" init --run-id "$RUN_ID" --slug "test" --route "formal" >/dev/null
 
-# Create execution-state with agent_id
+# Create execution-state with plan-level worker_agent_id
 cat > "$FIXTURE_DIR/execution-state-${RUN_ID}.json" <<'EOF'
-{"run_id":"test-sendmsg","plans":{"001":{"packs":{"1.1":{"status":"returned","agent_id":"agent-abc","commit_sha":"abc123","worker_verdict":"pass"},"1.2":{"status":"pending","agent_id":null,"commit_sha":null,"worker_verdict":null}}}}}
+{"run_id":"test-sendmsg","plans":{"001":{"worker_agent_id":"agent-abc","packs":{"1.1":{"status":"returned","commit_sha":"abc123","worker_verdict":"pass"}}},"002":{"worker_agent_id":null,"packs":{"2.1":{"status":"pending","commit_sha":null,"worker_verdict":null}}}}}
 EOF
 
-# 1. agent_id present -> get returns value
+# 1. worker_agent_id present -> get returns value
 run_test "agent-id get returns value when present" \
-  bash -c "[[ \$(bash '$STATE_SH' agent-id get --run-id '$RUN_ID' --pack-id '1.1') == 'agent-abc' ]]"
+  bash -c "[[ \$(bash '$STATE_SH' agent-id get --run-id '$RUN_ID' --plan-id '001') == 'agent-abc' ]]"
 
-# 2. agent_id null -> get returns empty
+# 2. worker_agent_id null -> get returns empty
 run_test "agent-id get returns empty when null" \
-  bash -c "[[ -z \$(bash '$STATE_SH' agent-id get --run-id '$RUN_ID' --pack-id '1.2') ]]"
+  bash -c "[[ -z \$(bash '$STATE_SH' agent-id get --run-id '$RUN_ID' --plan-id '002') ]]"
 
-# 3. Verify agent_id existence is detectable for guard
+# 3. Verify worker_agent_id existence is detectable for guard
 run_test "agent_id exists is detectable" \
-  bash -c "EXISTING=\$(jq -r --arg pid '1.1' '[.plans | to_entries[] | .value.packs // {} | to_entries[] | select(.key == \$pid) | .value.agent_id // empty] | first // empty' '$FIXTURE_DIR/execution-state-${RUN_ID}.json'); [[ \"\$EXISTING\" == 'agent-abc' ]]"
+  bash -c "EXISTING=\$(jq -r --arg pid '001' '.plans[\$pid].worker_agent_id // empty' '$FIXTURE_DIR/execution-state-${RUN_ID}.json'); [[ \"\$EXISTING\" == 'agent-abc' ]]"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

@@ -48,20 +48,6 @@ GET2=$(bash "$STATE_SH" agent-id get --run-id "$RUN_ID" --plan-id "002" 2>/dev/n
 assert_eq "plan 001 still has worker-X" "$GET1" "worker-X"
 assert_eq "plan 002 has worker-Y" "$GET2" "worker-Y"
 
-# Pack-level still works (backward compat)
-bash "$STATE_SH" agent-id set --run-id "$RUN_ID" --pack-id "1.1" --agent-id "worker-A" 2>/dev/null
-PACK_AID=$(jq -r '.plans["001"].packs["1.1"].agent_id' "$ESF")
-assert_eq "agent-id set --pack-id (backward compat) writes pack.agent_id" "$PACK_AID" "worker-A"
-
-# Mutual exclusion
-if bash "$STATE_SH" agent-id set --run-id "$RUN_ID" --plan-id "001" --pack-id "1.1" --agent-id "z" 2>/dev/null; then
-  echo "  FAIL: --plan-id + --pack-id should be mutually exclusive"
-  fail=$((fail + 1))
-else
-  echo "  PASS: --plan-id + --pack-id correctly rejected"
-  pass=$((pass + 1))
-fi
-
 # Unknown plan_id
 if bash "$STATE_SH" agent-id set --run-id "$RUN_ID" --plan-id "nonexistent" --agent-id "z" 2>/dev/null; then
   echo "  FAIL: unknown plan_id should error"
