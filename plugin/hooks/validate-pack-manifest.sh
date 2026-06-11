@@ -81,7 +81,7 @@ elif [[ -n "$PACK_ID" && "$PACK_ID" != "null" && -f "$ESF" ]]; then
 fi
 
 # If we still can't resolve a plan, exit 0 — this is a route that does not use
-# the Plan/Pack Manifest model (e.g. quickfix, hotfix, spike).
+# the Plan/Pack Manifest model (e.g. the route-worker routes).
 if [[ -z "$PLAN_ID" ]]; then exit 0; fi
 
 # Resolve plan file path. Slug comes from workflow-state.slug.

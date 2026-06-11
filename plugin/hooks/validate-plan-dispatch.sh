@@ -12,8 +12,8 @@
 #
 # Execution dispatch is plan-level ONLY: phase==execution requires plan_id non-empty
 # and pack_id null (Step 5b hard-blocks any per-pack execution dispatch). Non-execution
-# route-worker phases (bug-investigation / direct-repair / multi-pr-merge / hotfix /
-# quickfix / maintenance) carry plan_id=null + pack_id=null and pass through untouched.
+# route-worker phases (bug-investigation / direct-repair / multi-pr-merge) carry
+# plan_id=null + pack_id=null and pass through untouched.
 # Repair Mode uses SendMessage, which does not fire this PreToolUse Agent hook.
 set -euo pipefail
 

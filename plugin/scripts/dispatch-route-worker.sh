@@ -49,10 +49,8 @@ case "$SUBCMD" in
 
     # Route-worker phases are legal iff routes-v1.json[PHASE].dispatch_shape[PHASE]
     # == "route-worker". For route-worker routes the phase equals the route name
-    # (e.g. bug-investigation route → bug-investigation phase). This eliminates the
-    # legacy whitelist drift (the old case still listed hotfix/quickfix/spike/
-    # maintenance, which are no longer route-worker routes).
-    # Fail-open: manifest unreadable → fall back to the legacy whitelist.
+    # (e.g. bug-investigation route → bug-investigation phase).
+    # Fail-open: manifest unreadable → fall back to the route-worker route whitelist.
     if routes_manifest_readable; then
       if [[ "$(routes_dispatch_shape "$PHASE" "$PHASE")" != "route-worker" ]]; then
         echo "Error: route worker dispatch phase must be a non-execution route-worker phase (routes-v1.json)" >&2
@@ -60,7 +58,7 @@ case "$SUBCMD" in
       fi
     else
       case "$PHASE" in
-        bug-investigation|direct-repair|multi-pr-merge|hotfix|quickfix|spike|maintenance) ;;
+        bug-investigation|direct-repair|multi-pr-merge) ;;
         *)
           echo "Error: route worker dispatch phase must be a non-execution route phase" >&2
           exit 2

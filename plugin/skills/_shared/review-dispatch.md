@@ -15,7 +15,7 @@ Claude-native flow split-of-concerns:
      `--- BEGIN UNTRUSTED CODE DIFF ---` / `--- END UNTRUSTED CODE DIFF ---`
 2. Select model by phase:
    - `cursor.phase in {discovery, plan-writing}` -> `--model gpt-5.5 --effort xhigh`
-   - `cursor.phase in {execution, final-review, bug-investigation, direct-repair, multi-pr-merge, hotfix, quickfix, maintenance}` -> `--model gpt-5.4 --effort xhigh`
+   - `cursor.phase in {execution, final-review, bug-investigation, direct-repair, multi-pr-merge}` -> `--model gpt-5.4 --effort xhigh`
 3. Validate envelope and dispatch:
    - **Baseline review** (envelope `review_intent: "baseline"`):
      Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/dispatch-review.sh" validate --prompt-file ".claude/multi-model-workflow/review-prompts/<gate>.md" --gate "<gate>"`.

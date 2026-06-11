@@ -231,7 +231,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" envelope build \
 {
   "protocol_version": "1",
   "run_id": "<run_id>",
-  "phase": "<discovery|plan-writing|execution|final-review|bug-investigation|direct-repair|multi-pr-merge|hotfix|quickfix|maintenance>",
+  "phase": "<discovery|plan-writing|execution|final-review|bug-investigation|direct-repair|multi-pr-merge>",
   "agent_role": "<pack-executor|complex-pack-executor|plan-writer|codex-reviewer|root-cause-analyst|code-explorer|complex-code-explorer>",
   "agent_id": "<existing agent_id or null for first dispatch>",
   "pack_id": "<N.M or null>",
