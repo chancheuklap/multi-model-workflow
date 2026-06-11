@@ -60,21 +60,16 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 **默认 `route=light`（轻量旁路）。** 只有命中以下任一升级条件，才升 `route=formal`：
 
 1. **用户明说大改造/新功能信号**："大改造" / "新功能" / "重构整个 X" / "新增一个模块/系统"。
-2. **改动触碰核心红线**（北极星：必升）。用 `scripts/redline-check.sh` 辅助判定——把改动路径 / diff 文本 / 关键词喂给它（args 或 stdin），命中（exit 0）则打印命中类别：
+2. **改动触碰核心红线**（北极星：必升）。改动路径 / diff / 关键词命中以下任一类别即升 formal：
 
-   ```bash
-   bash scripts/redline-check.sh "<改动路径 / 关键词 / diff 文本>"
-   # exit 0 + 类别名 → 触碰红线，升 formal；exit 1 → 未触碰
-   ```
-
-   | 红线类别 | 关键词（redline-check.sh 匹配） |
+   | 红线类别 | 关键词 |
    | --- | --- |
    | 计费 | billing / pricing / charge / quota / idempotency / metering / subscription |
    | 权限 | auth / permission / role / acl / rbac / token / session / credential |
    | 数据权威 | schema / migration / LINEAGE |
    | 用户可见合同 | public api / endpoint / pricing |
 
-   redline-check.sh 是 **advisory**（给信号、不强拦）；拿不准（灰色地带，业务决策红线）就升 formal。误判 light 的兜底是一键升级门（见下文 Light Lane）——一句话即可补升，所有 formal 护栏自动回岗。
+   红线判定是 **advisory**（给信号、不强拦，由 Coordinator 据上表判断）；拿不准（灰色地带，业务决策红线）就升 formal。误判 light 的兜底是一键升级门（见下文 Light Lane）——一句话即可补升，所有 formal 护栏自动回岗。
 
 | 路线 | 输入信号 | 下一步 |
 | --- | --- | --- |
