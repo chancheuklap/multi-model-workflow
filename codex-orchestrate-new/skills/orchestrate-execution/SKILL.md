@@ -114,16 +114,31 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" dep-batches \
 
 ## Step 5：Plan Worker Dispatch
 
-每个 Plan 派发前先登记 execution-state：
+先按 `references/execution-worker-dispatch.md` 的 Coordinator checklist 核对派发要素。
+
+每个 Plan 派发前先创建隔离 worktree。Coordinator 保持在主工作树；Worker 只在 plan worktree 内改源码。
 
 ```bash
+COORDINATOR_ROOT="$(git rev-parse --show-toplevel)"
+STATE_DIR="${COORDINATOR_ROOT}/.codex/multi-model-workflow"
+PLAN_WORKTREE="${STATE_DIR}/worktrees/plan-<NNN>"
+PLAN_BRANCH="codex/<run_id>-plan-<NNN>"
+START_COMMIT="$(git rev-parse HEAD)"
+
+mkdir -p "${STATE_DIR}/worktrees"
+if [ ! -d "$PLAN_WORKTREE" ]; then
+  git worktree add -b "$PLAN_BRANCH" "$PLAN_WORKTREE" "$START_COMMIT"
+fi
+
 bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" execution-plan start \
   --run-id "<run_id>" \
   --plan-id "<NNN>" \
-  --start-commit "$(git rev-parse HEAD)" \
-  --worktree-path "$(pwd)" \
-  --branch "$(git branch --show-current)"
+  --start-commit "$START_COMMIT" \
+  --worktree-path "$PLAN_WORKTREE" \
+  --branch "$PLAN_BRANCH"
 ```
+
+`execution-plan start` 会同时写入 `worker-active-<plan_id>` marker。飞行期间，`guard-doc-edit.sh` 只允许 Worker 写自己的 plan worktree 和 `.codex/multi-model-workflow/` 控制面；主工作树源码区保持只读，直到该 Plan terminal status 后 marker 被清理。
 
 生成 envelope：
 
@@ -137,6 +152,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" envelope build \
   --run-id "<run_id>" --phase "<phase>" --agent-role "<agent_role>" \
   --plan-id "<plan id>"            # plan-level（与 --pack-id 二选一）
   # --pack-id "<N.M>"              # pack-level
+  # --plan-path "<path>"           # plan-level dispatch 必填
   # --repair-round <n> --disposition-refs '["F1"]'   # 修复派发（round>=1 必填 refs）
   # --review-intent baseline       # codex_reviewer 派发必填
   # --worktree-path "<path>"       # 当前 worker 工作树
@@ -162,7 +178,8 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" envelope build \
   "review_intent": null,
   "exception_code": null,
   "correlation_id": "<run_id>/<plan_id|pack_id>",
-  "worktree_path": "<绝对路径 or null>"
+  "worktree_path": "<绝对路径 or null>",
+  "plan_path": "<plan path>"
 }
 -->
 ```
@@ -179,10 +196,12 @@ Missing/malformed envelope = dispatch BLOCKED（显式脚本校验）。
 
 - envelope
 - Plan path
+- Worker worktree path
 - Source issue path
 - Scope Contract path
 - execution-state path
 - plan-return / open-items / pack-returns 写入路径
+- state.sh absolute path and STATE_BASE absolute path
 - Worker Loop 规则（可引用 agent TOML 中已有规则，但 prompt 必须自足到足以执行）
 
 派发前执行：

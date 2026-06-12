@@ -107,7 +107,7 @@ Coordinator 先 `resume_agent({ id: "<agent_id>" })` 恢复你的会话，再用
 
 **启动 / 恢复路径**（启动 Step 2 必须执行）：从 `execution-state.plans[plan_id].packs[*].status == "committed"` 计数作为 `packs_in_session` 初值。`execution-state` 是单一真相源，session 累积或中断后从这里精确恢复已完成 Pack 数，无需"猜"。
 
-收到 `need-fresh-worker` 后：立即跳出 Pack 循环 → 已完成 pack 状态已 committed（不丢失）→ 写 plan-return.json verdict=need-fresh-worker → 退出。Coordinator 会用 `spawn_agent({ agent_type, message })` 开**新 session**（dispatch envelope 带 `--resume-from-pack-id`），新 session 走完整 5 步启动，Step 2 读 execution-state 自动跳过 committed 的 pack。
+收到 `need-fresh-worker` 后：立即跳出 Pack 循环 → 已完成 pack 状态已 committed（不丢失）→ 写 plan-return.json verdict=need-fresh-worker → 退出。Coordinator 会用 `spawn_agent({ agent_type, message })` 开**新 session**（dispatch envelope 带 `--resume-from-pack-id`），新 session 走完整 4 步启动，Step 2 读 execution-state 自动跳过 committed 的 pack。
 
 ### 失败次数协议
 

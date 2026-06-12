@@ -78,12 +78,10 @@ run_test "two parallel starts → active_plan_ids has both" \
   bash -c "[[ \$(jq -c '.active_plan_ids' '$ESF') == '[\"001\",\"003\"]' ]]"
 run_test "worktree_path / branch / isolation_status=active recorded" \
   bash -c "[[ \$(jq -r '.plans[\"001\"].worktree_path + \"|\" + .plans[\"001\"].branch + \"|\" + .plans[\"001\"].isolation_status' '$ESF') == '/tmp/wt-001|plan-001|active' ]]"
+run_test "execution-plan start creates worker-active marker" \
+  bash -c "[[ \$(cat '$FIXTURE_DIR/worker-active-001') == '/tmp/wt-001' && \$(cat '$FIXTURE_DIR/worker-active-003') == '/tmp/wt-003' ]]"
 run_test "current_plan_id no longer written (deleted, no compat)" \
   bash -c "[[ \$(jq 'has(\"current_plan_id\")' '$ESF') == 'false' ]]"
-
-# 终态前各自挂一个 worker-active marker（guard-doc-edit 据此拦 docs/ 编辑）
-echo /tmp/wt-001 > "$FIXTURE_DIR/worker-active-001"
-echo /tmp/wt-003 > "$FIXTURE_DIR/worker-active-003"
 
 # B5: 003 失败隔离 → 不影响 001 在飞
 bash "$STATE_SH" execution-plan finish --run-id "$RUN_ID" --plan-id 003 --status isolated >/dev/null

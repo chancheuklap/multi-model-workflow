@@ -1012,6 +1012,10 @@ cmd_execution_plan_start() {
     | (if $br != "" then .plans[$pid].branch = $br else . end)
   ' "$esf" > "$tmp"
   mv "$tmp" "$esf"
+
+  if [[ -n "$worktree_path" ]]; then
+    printf '%s\n' "$worktree_path" > "${STATE_BASE}/worker-active-${plan_id}"
+  fi
 }
 
 # B1: dep-batches — 从 plans 目录解析 Blocked-by 依赖 DAG，输出可并行批次（topo levels）。

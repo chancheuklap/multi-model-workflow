@@ -62,9 +62,15 @@ check "multi-pr route-worker runs dedicated gate" grep -q 'validate-multi-pr-dis
 check "resume repair uses Codex target field" grep -q 'send_input({' "$PLUGIN_DIR/build/templates/send-input-resume.md.tmpl"
 check "resume repair does not use legacy to field" bash -c "! grep -q 'to: \"<' '$PLUGIN_DIR/build/templates/send-input-resume.md.tmpl'"
 check "worker resume docs use Codex tool split" bash -c "! rg -q 'send_input resume' '$PLUGIN_DIR/agents' '$PLUGIN_DIR/build' '$PLUGIN_DIR/hooks' '$PLUGIN_DIR/scripts' '$PLUGIN_DIR/skills' '$PLUGIN_DIR/state-schema' --glob '!**/tests/**' --glob '!**/verify-maturity.sh'"
+check "worker startup sequence consistently says four steps" bash -c "! rg -q '5 步启动|5 步严格|完整 5 步' '$PLUGIN_DIR/agents' '$PLUGIN_DIR/build' '$PLUGIN_DIR/skills' --glob '!**/tests/**'"
+check "executor agents avoid relative execution reference dependency" bash -c "! rg -q 'references/execution-worker-dispatch\\.md' '$PLUGIN_DIR/agents' --glob '!**/tests/**'"
 check "no legacy plan-executor role in source" bash -c "! rg -q 'plan-executor' '$PLUGIN_DIR/agents' '$PLUGIN_DIR/hooks' '$PLUGIN_DIR/scripts' '$PLUGIN_DIR/skills' '$PLUGIN_DIR/state-schema' --glob '!**/tests/**' --glob '!**/verify-maturity.sh'"
 check "review docs avoid external job/result wording" bash -c "! rg -q 'Codex job|job 完成|result/complete' '$PLUGIN_DIR/skills' --glob '!**/tests/**'"
 check "execution dispatch docs keep plan and manifest validators" bash -c "grep -q 'validate-plan-dispatch.sh' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md' && grep -q 'validate-pack-manifest.sh' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'"
+check "workflow docs avoid host worktree pseudo tools" bash -c "! rg -q 'EnterWorktree|ExitWorktree|clean_gone' '$PLUGIN_DIR/skills/orchestrate-workflow' --glob '!**/tests/**'"
+check "execution dispatch creates plan worktree" bash -c "grep -q 'git worktree add -b' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md' && grep -q 'PLAN_WORKTREE' '$PLUGIN_DIR/skills/orchestrate-execution/references/execution-preparation.md'"
+check "execution-plan start creates worker-active marker" grep -q 'worker-active-${plan_id}' "$PLUGIN_DIR/scripts/state.sh"
+check "cleanup waits for PR create/edit not git push" bash -c "grep -q 'gh pr (create|edit)' '$PLUGIN_DIR/scripts/cleanup-before-push.sh' && ! grep -q 'git push|gh pr create' '$PLUGIN_DIR/scripts/cleanup-before-push.sh'"
 
 echo
 echo "## Hooks"

@@ -73,14 +73,26 @@ Worker 的 durable return file 写入此目录（按 run_id 隔离，防止跨 r
 
 ### Step 2b：记录 Plan start_commit
 
-派发该 Plan 的自治 Worker 之前，用 `state.sh execution-plan start` 记录 start_commit（即第一个 Pack commit 之前的 SHA）：
+派发该 Plan 的自治 Worker 之前，先为该 Plan 创建隔离 worktree，再用 `state.sh execution-plan start` 记录 start_commit（即第一个 Pack commit 之前的 SHA）：
 
 ```bash
+COORDINATOR_ROOT="$(git rev-parse --show-toplevel)"
+STATE_DIR="${COORDINATOR_ROOT}/.codex/multi-model-workflow"
+PLAN_WORKTREE="${STATE_DIR}/worktrees/plan-<N>"
+PLAN_BRANCH="codex/<run_id>-plan-<N>"
+START_COMMIT="$(git rev-parse HEAD)"
+
+mkdir -p "${STATE_DIR}/worktrees"
+if [ ! -d "$PLAN_WORKTREE" ]; then
+  git worktree add -b "$PLAN_BRANCH" "$PLAN_WORKTREE" "$START_COMMIT"
+fi
+
 bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" execution-plan start \
-  --run-id "<run_id>" --plan-id <N> --start-commit "$(git rev-parse HEAD)" \
-  --worktree-path "$(pwd)/.codex/worktrees/plan-<N>" --branch "plan-<N>"
+  --run-id "<run_id>" --plan-id <N> --start-commit "$START_COMMIT" \
+  --worktree-path "$PLAN_WORKTREE" --branch "$PLAN_BRANCH"
 # 写入 plans[N].start_commit / status="in_progress" / worktree_path / branch /
-# isolation_status="active"，并把 N 追加进 active_plan_ids（B3；并行批次内每个 Plan 各跑一次）
+# isolation_status="active"，并把 N 追加进 active_plan_ids（B3；并行批次内每个 Plan 各跑一次）。
+# 同时写入 worker-active-<N> marker，guard-doc-edit 据此保护主工作树。
 ```
 
 此步由 Coordinator 执行，不由 hook 代劳——因为 start_commit 需要的是"Worker 第一个 Pack commit 之前"的 SHA。`validate-plan-dispatch.sh` hook 会拦截缺少 start_commit 的 dispatch。

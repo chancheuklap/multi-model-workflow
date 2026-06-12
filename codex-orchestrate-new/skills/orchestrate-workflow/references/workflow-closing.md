@@ -19,12 +19,36 @@ git commit -m "Fix: <bug title — root cause and fix summary>"
 
 Formal Orchestrate 的 pack commits 已在 execution 完成。此处只处理 Final Review repair commit（如有）。
 
-## Step 22：Push + Open PR
+## Step 22：Push
 
-临时文件由 `cleanup-before-push.sh` PreToolUse hook 自动清理——`git push` 或 `gh pr create` 执行前，hook 删除 `.codex/multi-model-workflow/` 下的 active-run-id、budget、scope 文件。
+`git push` 成功后暂不清理 `.codex/multi-model-workflow/`。这些状态文件仍要用于 pending post-push review、PR body 和最终汇报。
 
 ```bash
 git push -u origin <branch>
+```
+
+## Step 22a：事后补审（pending_post_push_reviews）
+
+> **机器消费契约**：hotfix submode 先 push 后审，把"欠一次审"记成磁盘状态。Closing 必须兑付，否则不算完成。
+
+Push 完成后、PR 创建/更新前，读 workflow-state 的 `pending_post_push_reviews`：
+
+```bash
+jq '.pending_post_push_reviews' .codex/multi-model-workflow/workflow-state-<run_id>.json
+```
+
+| 状态 | 动作 |
+| --- | --- |
+| `[]`（空） | 无欠审 → 继续 Step 22b |
+| 非空（有条目） | **必须**对已 push 的 commit 派一次事后 regression review（走 `_shared/review-dispatch.md` 派发契约，Execution tier GPT-5.4 xhigh）。review 返回后由 Coordinator 验证结论（子代理必验），再清空数组：`state.sh update --run-id <run_id> --field '.pending_post_push_reviews' --value '[]'`。**数组非空时 Closing 不返回完成 verdict** |
+
+补审发现新问题 → 按 finding 派修复并补 commit（生产已 push，修复作为后续 commit），再清空。补审清空后才进 Step 22b。
+
+## Step 22b：Open PR
+
+临时文件由 `cleanup-before-push.sh` PostToolUse hook 自动清理——`gh pr create` 或 `gh pr edit` 成功后，hook 删除 `.codex/multi-model-workflow/` 下的 active-run-id、workflow-state、execution-state、scope 和临时 artifacts。hotfix submode 若仍有 `pending_post_push_reviews`，hook 会延期清理；补审清空后下一次 PR create/edit 或显式 `cleanup-before-push.sh --force` 才会清理。
+
+```bash
 gh pr list --head <branch> --json number --jq '.[0].number'
 ```
 
@@ -53,30 +77,17 @@ PR body：
 Generated with Codex + multi-model-workflow
 ```
 
-## Step 22a：退出工作树
+## Step 22c：工作树收口
 
-Push + PR 完成后，退出工作树：
-
-1. `ExitWorktree({ action: "keep" })` — 保留工作树（PR 可能需要后续修改）
-
-工作树保留直到 PR 合并后由 `clean_gone` 统一清理（删除工作树 + 分支 + 残留状态文件）。
-
-## Step 22b：事后补审（pending_post_push_reviews）
-
-> **机器消费契约**：hotfix submode 先 push 后审，把"欠一次审"记成磁盘状态。Closing 必须兑付，否则不算完成。
-
-Push + PR 完成后，读 workflow-state 的 `pending_post_push_reviews`：
+Push + PR 完成后，Codex 只记录当前工作树位置和分支，供后续 PR 修改或人工清理使用：
 
 ```bash
-jq '.pending_post_push_reviews' .codex/multi-model-workflow/workflow-state-<run_id>.json
+pwd
+git branch --show-current
+git status --short
 ```
 
-| 状态 | 动作 |
-| --- | --- |
-| `[]`（空） | 无欠审 → 直接进 Step 23 |
-| 非空（有条目） | **必须**对已 push 的 commit 派一次事后 regression review（走 `_shared/review-dispatch.md` 派发契约，Execution tier GPT-5.4 xhigh）。review 返回后由 Coordinator 验证结论（子代理必验），再清空数组：`state.sh update --run-id <run_id> --field '.pending_post_push_reviews' --value '[]'`。**数组非空时 Closing 不返回完成 verdict** |
-
-补审发现新问题 → 按 finding 派修复并补 commit（生产已 push，修复作为后续 commit），再清空。补审清空后才进 Step 23。
+工作树保留直到 PR 合并后再由维护者或仓库清理脚本删除（删除工作树 + 分支 + 残留状态文件）。
 
 ## Step 23：Report to User
 

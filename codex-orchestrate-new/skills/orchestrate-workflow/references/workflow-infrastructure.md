@@ -114,15 +114,40 @@ Entry Gate（Step 1）完成后执行。创建工作树、写入状态文件。
 [ -f "$(git rev-parse --show-toplevel)/.git" ] && echo "IN_WORKTREE" || echo "MAIN_REPO"
 ```
 
-**创建工作树**（仅 MAIN_REPO 时执行）：
+**创建 / 确认 Coordinator 工作树**：
 
-1. 创建并进入工作树：
-   ```
-   EnterWorktree({ name: "<short-scope>" })
-   ```
-2. 确认分支名：`git branch --show-current`
+Codex 工作树必须用 git 命令显式创建。
 
-工作树创建后，后续所有状态文件（Scope Contract、workflow-state、execution-state、pack-returns）写在工作树的 `.codex/multi-model-workflow/` 中。工作树删除时，状态文件随之清除。
+1. 先确定 run id、feature slug 和分支名：
+
+   ```bash
+   RUN_ID="<YYYYMMDD-HHMMSS>-<short-scope>"
+   SLUG="<YYYY-MM-DD-feature>"
+   BRANCH="codex/<short-scope>"
+   ```
+
+2. 已在 Codex App worktree 中时，原地创建命名分支；不要切回主仓库：
+
+   ```bash
+   CURRENT_BRANCH=$(git branch --show-current)
+   if [ -z "$CURRENT_BRANCH" ] || [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then
+     git switch -c "$BRANCH"
+   fi
+   git branch --show-current
+   ```
+
+3. 在主仓库中时，创建独立 Coordinator worktree，并进入它：
+
+   ```bash
+   REPO_ROOT=$(git rev-parse --show-toplevel)
+   WORKTREE_PATH="${REPO_ROOT}/.codex/multi-model-workflow/worktrees/coordinator-${RUN_ID}"
+   mkdir -p "$(dirname "$WORKTREE_PATH")"
+   git worktree add -b "$BRANCH" "$WORKTREE_PATH" HEAD
+   cd "$WORKTREE_PATH"
+   git branch --show-current
+   ```
+
+工作树创建后，后续所有状态文件（Scope Contract、workflow-state、execution-state、pack-returns）写在当前 Coordinator 工作树的 `.codex/multi-model-workflow/` 中。工作树删除时，状态文件随之清除。
 
 ### Step 2b：Write Scope Contract
 

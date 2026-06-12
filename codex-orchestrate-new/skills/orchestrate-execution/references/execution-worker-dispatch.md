@@ -1,16 +1,15 @@
-# Plan-level Worker 行为规范（固定 handbook）
+# Plan-level Worker Dispatch Checklist
 
-> **流程位置**：`orchestrate-execution` Step 5 · Worker 在 `Worker Loop` 启动序列 Step 2 读取本文件
+> **流程位置**：`orchestrate-execution` Step 5 · Coordinator 派发 Plan Worker 前的检查清单
 >
-> 本文件是 **plan-level 自治 Worker**（pack_executor / complex_pack_executor）的固定行为规范，与 agent 定义中的
-> `Worker Loop` 段配套：`Worker Loop` 给出**循环骨架**（5 步启动 / Pack 循环 / verdict 枚举 / 失败次数协议 / repair / context 自监控），
-> 本文件给出**执行细则**（TDD 纪律 / commit 规范 / Durable Return 与 Return Contract 格式）。
+> Worker 的运行时行为合同以内嵌在 `pack_executor` / `complex_pack_executor` TOML 的 `Worker Loop` 为准。
+> 本文件只帮助 Coordinator 检查派发 prompt 是否把必要路径和合同交代完整。
 > Coordinator 派发时只在 DISPATCH_ENVELOPE 写 `plan_id` + `plan_path` + 运行时变量，**不粘贴任何 Pack 内容**——
 > Worker 自读 plan 文件的 `## Pack Execution Manifest` 与每个 Pack 的完整定义。
 
 > **Incoming envelope**：你的 dispatch prompt 以 Coordinator 构造的 `DISPATCH_ENVELOPE` 块开头。你只需读取 `repair_round`（≥1 → 进入 Repair Mode，见 `Worker Loop` 段）与 `disposition_refs`（accepted findings 引用）；其余字段（protocol_version / agent_role / idempotency_key / correlation_id 等）是 Coordinator 派发与 hook 校验职责，worker 端不构造、不校验。完整 envelope 规范见 `orchestrate-execution` SKILL.md。
 
-你（worker）按 `Worker Loop` 段的 5 步启动序列自读 plan 文件（**及 plan 头 `Source issue` 指向的大 issue 文档**）与本 handbook，不依赖 Coordinator 粘贴 Pack 字段。Coordinator 只在 envelope 写明 `plan_id` + `plan_path` + 运行时变量。每个 Pack 的完整定义（goal / owned files / acceptance / verification / contract anchors / mockup specs / dependencies / risk flags）由你从 plan 文件自读；源 issue 文档提供 plan 编译前的原始 slice 意图（`What to build`），用于核对实现没有偏离意图。
+Worker 按 `Worker Loop` 段的 4 步启动序列自读 plan 文件（**及 plan 头 `Source issue` 指向的大 issue 文档**），不依赖 Coordinator 粘贴 Pack 字段。Coordinator 只在 envelope 和派工 prompt 写明 `plan_id`、`plan_path`、`worktree_path`、状态目录、`state.sh` 绝对路径和 artifact 写入路径。每个 Pack 的完整定义（goal / owned files / acceptance / verification / contract anchors / mockup specs / dependencies / risk flags）由 Worker 从 plan 文件自读；源 issue 文档提供 plan 编译前的原始 slice 意图（`What to build`），用于核对实现没有偏离意图。
 
 ## TDD 纪律
 
@@ -78,10 +77,14 @@ plan-level：pass / partial-pass / blocked / need-fresh-worker / needs-context /
 
 ## Coordinator 端最小职责
 
-1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`plan_id`、`plan_path`、`phase=execution`、`agent_role`。
-2. 触发 `state.sh execution-plan start` 记录 Plan start_commit。
-3. 使用 `wait_agent` 等待 worker final message；`SubagentStop` / `agent-return-handler.sh` 作为返回 artifact 解析与恢复锚点。
-4. 读取 `plan-returns/<run_id>/<plan_id>/plan-return.json`，推进下一步编排。
+1. 为该 Plan 创建隔离 worktree 和分支：`git worktree add -b "codex/<run_id>-plan-<plan_id>" "$STATE_DIR/worktrees/plan-<plan_id>" "$START_COMMIT"`。
+2. 触发 `state.sh execution-plan start` 记录 `start_commit`、`worktree_path` 和 `branch`；该命令会写 `worker-active-<plan_id>` marker。
+3. 用 `state.sh envelope build` 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`plan_id`、`plan_path`、`worktree_path`、`phase=execution`、`agent_role`。
+4. 派工 prompt 必须给出绝对路径：Plan 文件、Worker worktree、Scope Contract、execution-state、状态目录、`state.sh`、plan-return / open-items / pack-returns 写入路径。
+5. 运行 `validate-plan-dispatch.sh` 和 `validate-pack-manifest.sh`。
+6. 使用 `spawn_agent(agent_type="pack_executor|complex_pack_executor")` 派发。
+7. 使用 `wait_agent` 等待 worker final message；`SubagentStop` / `agent-return-handler.sh` 作为返回 artifact 解析与恢复锚点。
+8. 读取 `plan-returns/<run_id>/<plan_id>/plan-return.json`，推进下一步编排。
 
 ---
 > **回到**：agent `Worker Loop` 段继续 Pack 循环 → Plan 收尾写 artifact → return。

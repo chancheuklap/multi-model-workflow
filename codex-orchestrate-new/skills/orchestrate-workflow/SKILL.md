@@ -272,6 +272,6 @@ Read Scope Contract + design doc → 重进 `orchestrate-discovery` Step 12。�
 > Root cause: <阻塞根因>
 > Attempted: <已尝试的解决方案>
 
-**Sub-agent 隔离**：prompt 必须自足；Sub-agent 不读 SKILL.md / references/；`skills:` frontmatter 自动预加载。**Commit 纪律**：Executor worker 直接在 Coordinator 分支 commit；Plan-writer 等不 commit，Coordinator 统一提交。不 stage 非 scope 文件。
+**Sub-agent 隔离**：prompt 必须自足；Sub-agent 不读 SKILL.md / references/；`skills:` frontmatter 自动预加载。**Commit 纪律**：Formal execution worker 在分配的 plan worktree 分支内按 Pack 独立 commit，Coordinator 通过 `recycle-plan.sh` 回收合并；Light Lane / route-worker 若无隔离 worktree，才在当前工作树提交。Plan-writer 等不 commit，Coordinator 统一提交。不 stage 非 scope 文件。
 
 **禁止**：跳过 Discovery / Plan Review / Final Review / 用技术语言汇报 / 自己写生产代码 / 每 task 一个 sub-agent / 超循环上限不处理。

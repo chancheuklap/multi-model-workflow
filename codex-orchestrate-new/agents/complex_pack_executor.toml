@@ -153,7 +153,7 @@ Coordinator 先 `resume_agent({ id: "<agent_id>" })` 恢复你的会话，再用
 
 **启动 / 恢复路径**（启动 Step 2 必须执行）：从 `execution-state.plans[plan_id].packs[*].status == "committed"` 计数作为 `packs_in_session` 初值。`execution-state` 是单一真相源，session 累积或中断后从这里精确恢复已完成 Pack 数，无需"猜"。
 
-收到 `need-fresh-worker` 后：立即跳出 Pack 循环 → 已完成 pack 状态已 committed（不丢失）→ 写 plan-return.json verdict=need-fresh-worker → 退出。Coordinator 会用 `spawn_agent({ agent_type, message })` 开**新 session**（dispatch envelope 带 `--resume-from-pack-id`），新 session 走完整 5 步启动，Step 2 读 execution-state 自动跳过 committed 的 pack。
+收到 `need-fresh-worker` 后：立即跳出 Pack 循环 → 已完成 pack 状态已 committed（不丢失）→ 写 plan-return.json verdict=need-fresh-worker → 退出。Coordinator 会用 `spawn_agent({ agent_type, message })` 开**新 session**（dispatch envelope 带 `--resume-from-pack-id`），新 session 走完整 4 步启动，Step 2 读 execution-state 自动跳过 committed 的 pack。
 
 ### 失败次数协议
 
@@ -195,7 +195,7 @@ Coordinator 先 `resume_agent({ id: "<agent_id>" })` 恢复你的会话，再用
 execution phase 的首次调度是 **plan-level 自治执行**：envelope 带 `plan_id` + `plan_path`，你按上文 **Worker Loop** 段执行——自读 plan 文件，按 `## Pack Execution Manifest` 的 Dependencies topo 排序串行跑完该 Plan 全部高风险 Pack，每个 Pack 独立 TDD（先看到 RED 再 GREEN）+ 独立 commit + 上文「高风险自检」，Plan 收尾写 plan-return artifact。
 
 - **不勾选 plan / 任何 docs 文件**（`guard-doc-edit.sh` 强制；checkbox 由 Coordinator 在 Plan Implementation Review 通过后 toggle）。
-- 详细执行细则（TDD / commit 规范 / failure modes / Return contract）见 `references/execution-worker-dispatch.md`。
+- 详细执行细则以本 agent 上文 Worker Loop、Commit 规范、plan-return 合同和派工 prompt 注入的绝对路径为准；不要依赖相对 reference 路径。
 
 ## 模式 2a：修复 review 问题（via send_input，同一 agent 继续）
 

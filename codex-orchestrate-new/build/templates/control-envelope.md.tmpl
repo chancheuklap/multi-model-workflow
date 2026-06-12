@@ -7,6 +7,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" envelope build \
   --run-id "<run_id>" --phase "<phase>" --agent-role "<agent_role>" \
   --plan-id "<plan id>"            # plan-level（与 --pack-id 二选一）
   # --pack-id "<N.M>"              # pack-level
+  # --plan-path "<path>"           # plan-level dispatch 必填
   # --repair-round <n> --disposition-refs '["F1"]'   # 修复派发（round>=1 必填 refs）
   # --review-intent baseline       # codex_reviewer 派发必填
   # --worktree-path "<path>"       # 当前 worker 工作树
@@ -32,7 +33,8 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" envelope build \
   "review_intent": null,
   "exception_code": null,
   "correlation_id": "<run_id>/<plan_id|pack_id>",
-  "worktree_path": "<绝对路径 or null>"
+  "worktree_path": "<绝对路径 or null>",
+  "plan_path": "<plan path>"
 }
 -->
 ```

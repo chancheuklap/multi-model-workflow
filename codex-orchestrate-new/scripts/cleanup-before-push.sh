@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# PostToolUse hook for Bash tool (if: "Bash(git push *)").
-# Cleans up orchestration temp files AFTER a successful push.
+# PostToolUse hook for Bash tool.
+# Cleans up orchestration temp files AFTER a successful PR create/edit.
 #
 # Also callable directly: cleanup-before-push.sh --force
 # Used by Closing after hotfix post-push review completes.
@@ -18,7 +18,7 @@ if [ "$FORCE" = false ]; then
 
   COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
 
-  if ! echo "$COMMAND" | grep -qE 'git push|gh pr create'; then
+  if ! echo "$COMMAND" | grep -qE 'gh pr (create|edit)'; then
     exit 0
   fi
 fi
@@ -39,8 +39,8 @@ if [ ! -d "$WORKFLOW_DIR" ]; then
   exit 0
 fi
 
-# Hotfix sub-mode: defer cleanup — post-push review still needs state files.
-# Closing calls this script with --force after post-push review completes.
+# Hotfix sub-mode: defer cleanup while post-push review still needs state files.
+# Once pending_post_push_reviews is empty, PR create/edit cleanup may proceed.
 #
 # Judgement is the live commit_format flag, not the dead route=="hotfix" check
 # (route enum has no "hotfix" value — hotfix is a formal sub-mode marked via
@@ -63,8 +63,11 @@ if [ "$FORCE" = false ]; then
         fi
       fi
       if [ "$COMMIT_FORMAT" = "hotfix-unreviewed" ]; then
-        echo "[multi-model-workflow] Hotfix sub-mode: deferring cleanup until post-push review completes." >&2
-        exit 0
+        PENDING_REVIEWS=$(jq '.pending_post_push_reviews | length' "$STATE_FILE" 2>/dev/null || echo 0)
+        if [ "$PENDING_REVIEWS" -gt 0 ]; then
+          echo "[multi-model-workflow] Hotfix sub-mode: deferring cleanup until post-push review completes." >&2
+          exit 0
+        fi
       fi
     fi
   fi
