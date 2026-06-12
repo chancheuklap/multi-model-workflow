@@ -128,7 +128,7 @@ Codex manifest 自动注册 `hooks.json`。Hook 使用 Codex payload helper，�
 | Hook | 时机 | 职责 |
 | --- | --- | --- |
 | `session-start.sh` | SessionStart | 输出 plugin root、active run、state recovery 指引。 |
-| `guard-premature-push.sh` | PreToolUse Bash | 防止 active run 或本分支改动的 plan 未闭合时提前 push；无 plan scope 的普通 push 不扫描历史 plans。 |
+| `guard-premature-push.sh` | PreToolUse Bash | 防止 active run 绑定的 plan 未闭合时提前 push；无 active run 的普通 push / PR 不扫描历史 plans，也不按分支 diff 猜测 plan scope。 |
 | `enforce-plan-commit.sh` | PreToolUse Bash | 校验 Pack commit message。 |
 | `guard-doc-edit.sh` | PreToolUse Edit/Write/apply_patch | worker in-flight 时保护 docs 与主树。 |
 | `track-execution-state.sh` | PostToolUse Bash | git commit 后更新 execution-state。 |

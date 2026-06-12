@@ -74,8 +74,8 @@ mkdir -p "$ROOT_CHANGED/docs/orchestrate/plans/current"
 printf '# Current plan\n\n- [ ] current task\n' > "$ROOT_CHANGED/docs/orchestrate/plans/current/001-current.md"
 git -C "$ROOT_CHANGED" add docs/orchestrate/plans/current/001-current.md
 git -C "$ROOT_CHANGED" commit -q -m "add current plan"
-run_test "changed plan with unchecked task blocks push" \
-  expect_block "$ROOT_CHANGED" "git push"
+run_test "changed plan without active run does not block push" \
+  expect_allow "$ROOT_CHANGED" "git push"
 
 ROOT_ACTIVE="$FIXTURE_DIR/active-run"
 make_repo "$ROOT_ACTIVE"
