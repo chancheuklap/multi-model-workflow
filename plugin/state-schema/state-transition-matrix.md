@@ -21,7 +21,6 @@
 | Coordinator | returned | repairing | 进入修复流程（需 disposition_refs） |
 | Coordinator | repairing | returned | 修复完成返回 |
 | Coordinator | workflow | dispatched | Workflow 初始派发 |
-| Coordinator | * | execution_done | Execution 完成 |
 | Coordinator | * | closed | 工作流关闭 |
 | agent-return-handler | dispatched | returned | PostToolUse hook 自动标记 Worker 返回 |
 | track-execution-state | returned | committed | PostToolUse hook 自动标记 commit 完成 |

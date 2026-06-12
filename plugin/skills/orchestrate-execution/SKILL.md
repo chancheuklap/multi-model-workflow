@@ -427,7 +427,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/recycle-plan.sh" --run-id "<run_id>" --plan-
 - [ ] Git Checkpoint 完成
 - [ ] Plan checkboxes 已更新
 - [ ] Budget 消耗已记录
-- [ ] 状态锚更新：`cursor.phase` transition 到 `execution_done`
+- [ ] 状态锚更新：`cursor.phase` 直接 transition `execution → final-review`（EXECUTION_PASSED 的 next phase，见本 skill 顶部 signpost 与 `routes-v1.json` phase_transitions；无中间 waypoint）
 
 **Re-run behavior:**
 - Step 5: 如果 Plan 已 dispatched/returned/committed → 跳过 dispatch，从当前状态继续

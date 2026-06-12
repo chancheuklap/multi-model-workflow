@@ -179,7 +179,7 @@ Missing/malformed envelope = dispatch BLOCKED（hook 校验）。
 
 ---
 
-**Required before returning：** 所有 plan 写完 / Entry+Inventory Gate 通过 / budget_total 赋值 / Plan Review 通过 / Git Checkpoint / `cursor.phase` transition 到 `plan-writing_done`。
+**Required before returning：** 所有 plan 写完 / Entry+Inventory Gate 通过 / budget_total 赋值 / Plan Review 通过 / Git Checkpoint / `cursor.phase` 直接 transition `plan-writing → execution`（PLAN_CREATED 的 next phase，见 signpost 与 `routes-v1.json` phase_transitions；无中间 waypoint）。
 
 **Re-run behavior**：plan 已存在且 plan-writer 已返回 → 跳 Step 9；Plan Review 已有结果 → 跳 Steps 13-14。
 
