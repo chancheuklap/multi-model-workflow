@@ -69,9 +69,8 @@ if [ "${#PLAN_ROOTS[@]}" -eq 0 ] && git -C "$WORKSPACE_ROOT" rev-parse --is-insi
 fi
 
 # 无 active run、且本分支(BASE..HEAD)未改动任何 plan 文件 => 本次 push / PR 不挂在
-# 任何具体计划上,直接放行。旧版在这里退回扫整个 docs/orchestrate/plans 目录,会把仓库里
-# 无关的既有未勾选任务全算进来误拦(false positive：改个文案/修个无关 bug 也推不动)。
-# 门禁只应锚定「当前在做的那个计划」——由 active run 或本分支改动的 plan 文件识别。
+# 任何具体计划上，直接放行。旧版在这里退回扫整个 docs/orchestrate/plans 目录，会把仓库里
+# 无关的既有未勾选任务全算进来误拦。
 if [ "${#PLAN_ROOTS[@]}" -eq 0 ]; then
   exit 0
 fi
