@@ -374,7 +374,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" execution-plan finish \
 
 ### Step 14b：批次回收（批内全部 Plan 终态后，按依赖序逐个）
 
-> **仅 codex lane**。claude lane 串行就地执行、commit 已在 Coordinator 工作树，无 worktree/分支可回收——逐 Plan 终态后直接 `state.sh checkbox toggle` + commit plan docs（marker 删除靠 `state.sh execution-plan finish --status completed`），跳过本步。
+> **仅 codex lane**。claude lane 串行就地执行、commit 已在 Coordinator 工作树，无 worktree/分支可回收——逐 Plan 终态后直接 `state.sh checkbox toggle` + commit plan docs，跳过本步。claude lane 的 `worker-active-<NNN>` marker 由上方 Step 14 的 `execution-plan finish --status completed`（或 `--status isolated`）清除（脚本内 `rm -f`，幂等），保证 guard-doc-edit 在 Plan 终态后放行 docs/ 提交。
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/recycle-plan.sh" --run-id "<run_id>" --plan-id <NNN>

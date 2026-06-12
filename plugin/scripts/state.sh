@@ -709,6 +709,15 @@ cmd_execution_plan_finish() {
     ' "$esf" > "$tmp"
   fi
   mv "$tmp" "$esf"
+
+  # Plan 到达终态（completed = claude/codex lane Plan 完成；isolated = 失败隔离）
+  # 时清除 per-plan worker-active marker——否则 guard-doc-edit.sh 会据残留 marker
+  # 持续拦截 docs/ 编辑，Coordinator 无法 commit plan doc。claude lane 没有 recycle
+  # 步骤，这里是它唯一的 marker 清理点。codex lane 的 merged 由 recycle-plan.sh 另行
+  # rm -f（幂等，不冲突）；merged 不在此清理，marker 已在 completed 阶段删除。
+  if [[ "$status" == "completed" || "$status" == "isolated" ]]; then
+    rm -f "${STATE_BASE}/worker-active-${plan_id}"
+  fi
 }
 
 # C4: execution-plan session — 记录 Codex exec session_id（修复轮 resume 依据）。
