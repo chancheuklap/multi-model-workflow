@@ -5,7 +5,7 @@
 - `plugin/`：上游插件源码和行为蓝本，只读对照。
 - `codex-orchestrate-new/`：Codex 原生 plugin 源码权威。
 
-旧 Codex 实现保留在 `codex-orchestrate/`，只作为迁移前版本参考，不再作为当前 runtime 依据。更早的旧实现归档在 `archive/2026-05-24-codex-pre-atomic/`。
+当前 Codex runtime 只以 `codex-orchestrate-new/` 为 source；旧源码树不得作为当前行为依据。
 
 ## Codex 当前权威
 

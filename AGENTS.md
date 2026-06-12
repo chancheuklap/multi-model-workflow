@@ -9,7 +9,6 @@
 - 本仓库保存同一套编排思想的两个源码入口。
 - `plugin/` 是上游插件源码和行为蓝本。Codex 可以只读它来做 parity 对照，但不能修改、格式化、构建、安装或暂存 `plugin/` 下的文件。
 - `codex-orchestrate-new/` 是 Codex 原生源码权威。skills、TOML agents、hooks、scripts、state schema、build templates、manifest 和运行时合同都应落在这里。
-- `codex-orchestrate/` 是上一版 Codex 复刻源码，只作迁移前参考，不是当前权威。
 - `.agents/plugins/marketplace.json` 负责把 Codex plugin 暴露给 repo-local marketplace；source path 必须指向 `./codex-orchestrate-new`。
 - `codex-orchestrate-new/.codex-plugin/plugin.json` 是 Codex plugin manifest；版本号以该文件为准，并且必须声明 `skills: "./skills/"` 与 `hooks: "./hooks.json"`。
 - Source 改动不等于 runtime 已生效。发布或安装类任务必须在受影响时核对 plugin cache、custom agent runtime、hook wiring 和 SessionStart 输出。
