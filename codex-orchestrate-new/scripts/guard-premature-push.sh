@@ -53,24 +53,9 @@ if [ -f "$ACTIVE_RUN_FILE" ]; then
   fi
 fi
 
-if [ "${#PLAN_ROOTS[@]}" -eq 0 ] && git -C "$WORKSPACE_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  BASE_REF="$(git -C "$WORKSPACE_ROOT" merge-base HEAD origin/main 2>/dev/null || true)"
-  if [ -n "$BASE_REF" ]; then
-    while IFS= read -r changed_plan_root; do
-      if [ -n "$changed_plan_root" ] && [ -d "$changed_plan_root" ]; then
-        PLAN_ROOTS+=("$changed_plan_root")
-      fi
-    done < <(
-      git -C "$WORKSPACE_ROOT" diff --name-only "${BASE_REF}..HEAD" -- docs/orchestrate/plans 2>/dev/null \
-        | awk -F/ -v root="$WORKSPACE_ROOT" 'NF >= 4 {print root "/" $1 "/" $2 "/" $3 "/" $4}' \
-        | sort -u
-    )
-  fi
-fi
-
-# 无 active run、且本分支(BASE..HEAD)未改动任何 plan 文件 => 本次 push / PR 不挂在
-# 任何具体计划上，直接放行。旧版在这里退回扫整个 docs/orchestrate/plans 目录，会把仓库里
-# 无关的既有未勾选任务全算进来误拦。
+# 无 active run => 本次 push / PR 不挂在当前 workflow，直接放行。
+# 不能用 "本分支改过 docs/orchestrate/plans" 作为替代 scope：归档计划、历史补文档、
+# 或整分支 PR 都可能改到旧 plan，而这些旧 checkbox 不是当前 push 的完成门。
 if [ "${#PLAN_ROOTS[@]}" -eq 0 ]; then
   exit 0
 fi
