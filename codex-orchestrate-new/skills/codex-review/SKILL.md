@@ -31,25 +31,22 @@ TIMESTAMP=$(date +%s)
 PROMPT_FILE="${REVIEW_DIR}/review-${TIMESTAMP}.md"
 ```
 
+先用同一套生成器构造 ad-hoc envelope：
+
+```bash
+STATE_SH="${MMW_PLUGIN_ROOT:-}/scripts/state.sh"
+[ -f "$STATE_SH" ] || STATE_SH="$(find ~/.codex/plugins -path '*/scripts/state.sh' -type f 2>/dev/null | head -1)"
+ENVELOPE="$(bash "$STATE_SH" envelope build \
+  --run-id "adhoc-${TIMESTAMP}" \
+  --phase execution \
+  --agent-role codex_reviewer \
+  --review-intent ad-hoc)"
+```
+
 写入 prompt 文件，格式：
 
 ```markdown
-<!-- DISPATCH_ENVELOPE
-{
-  "protocol_version": "1",
-  "run_id": "adhoc-<TIMESTAMP>",
-  "phase": "execution",
-  "agent_role": "codex_reviewer",
-  "agent_id": null,
-  "pack_id": null,
-  "repair_round": 0,
-  "idempotency_key": "adhoc-<TIMESTAMP>/review/r0",
-  "disposition_refs": null,
-  "review_intent": "ad-hoc",
-  "exception_code": null,
-  "correlation_id": "adhoc-<TIMESTAMP>/review"
-}
--->
+<ENVELOPE>
 
 # Ad-hoc Code Review
 

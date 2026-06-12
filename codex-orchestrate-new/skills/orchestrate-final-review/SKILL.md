@@ -135,7 +135,7 @@ Bad:  "经过全面审查，代码质量达到了预期标准。"
 
 **Required before returning（返回前验证）：**
 - [ ] 两个 baseline review 有结果
-- [ ] 所有 accepted findings 已修复并通过 re-review
+- [ ] 所有 accepted findings 已修复并经 Coordinator 自验闭合；如触发 baseline/release gate rerun，对应 review 已通过
 - [ ] 遗留清扫完成（无未处置项）
 - [ ] Release Gate 通过（如触发）
 - [ ] 业务汇报已组装

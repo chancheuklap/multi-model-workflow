@@ -23,9 +23,7 @@
 ```
 spawn_agent({
   agent_type: "plan_writer",
-  description: "Write plan for issue 00N: <issue title>",
-  wait_agent lifecycle,
-  prompt: "
+  message: "
     <DISPATCH_ENVELOPE>
     <!-- DISPATCH_ENVELOPE
     {
@@ -91,11 +89,12 @@ spawn_agent({
 **注意**：`${MMW_PLUGIN_ROOT}` 在 Coordinator 主线程中会被 Codex 运行时解析为 plugin 安装目录的绝对路径，Sub-agent 收到的 prompt 中已经是解析后的路径。
 
 **After each subagent call returns**（强制执行）：
-1. Extract `agentId` from return value
+1. `wait_agent({targets:["<AGENT_ID>"], timeout_ms:600000})` 等待 final message
 2. `state.sh update --run-id <run_id> --field '.plan_writer_agent_id' --value '"<agentId>"'`
-3. 若后续需要修复/补充上下文，必须使用 send_input({to: "<agentId>"}) resume 原 plan_writer
+3. 保存 plan_writer final message 后立即 `close_agent({target:"<AGENT_ID>"})` 释放并发容量
+4. 若后续需要修复/补充上下文，必须先 `resume_agent({ id: "<AGENT_ID>" })`，再 `send_input({ target: "<AGENT_ID>", message: "..." })` 续修原 plan_writer
 
-**Critical**: `wait_agent lifecycle` ensures Coordinator gets agentId. Without agentId, plan_writer repair path is BLOCKED.
+**Critical**: 没有 agent_id 时，plan_writer repair path 是 BLOCKED，不能新建另一个 plan_writer 冒充续修。
 
 ## Step 10：处理 Plan-writer 返回
 
@@ -104,11 +103,11 @@ spawn_agent({
 | `PLAN_CREATED` | plan 写完，自检通过 | 进入 Step 11（Plan Entry Gate） |
 | `NEEDS_DISCOVERY` | 业务意图/术语不清 | 回到 orchestrate-discovery |
 | `NEEDS_ISSUES` | 缺大 issue 文件 / scope 过大 | 返回 Coordinator → 重新进入 orchestrate-discovery Step 12（大 issue 拆分） |
-| `NEEDS_TRIAGE` | issue ready state 不清 | `Skill({ skill: "triage" })` |
-| `NEEDS_DIAGNOSIS` | bug 缺复现或 hypothesis | `Skill({ skill: "diagnose" })` |
+| `NEEDS_TRIAGE` | issue ready state 不清 | `加载 skill `triage`` |
+| `NEEDS_DIAGNOSIS` | bug 缺复现或 hypothesis | `加载 skill `diagnose`` |
 | `NEEDS_DECISION` | 需要产品/业务决策 | 询问用户（一次只问一个问题） |
-| `NEEDS_ARCHITECTURE` | 架构假设与代码现实不符 | `Skill({ skill: "improve-codebase-architecture" })` |
-| `NEEDS_CONTEXT` | 缺代码上下文 | 派 `code_explorer`（窄事实）/ `Skill({ skill: "improve-codebase-architecture" })`（模块边界），补充后 send_input 给原 plan_writer |
+| `NEEDS_ARCHITECTURE` | 架构假设与代码现实不符 | `加载 skill `improve-codebase-architecture`` |
+| `NEEDS_CONTEXT` | 缺代码上下文 | 派 `code_explorer`（窄事实）/ `加载 skill `improve-codebase-architecture``（模块边界），补充后 send_input 给原 plan_writer |
 | `BLOCKED` | 无法完成 | 报告用户，附 plan_writer 的阻塞原因 |
 
 upstream skill 结论必须写回 design document / issue hierarchy，再 send_input 给原 plan_writer 继续。

@@ -80,7 +80,7 @@ plan-level：pass / partial-pass / blocked / need-fresh-worker / needs-context /
 
 1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`plan_id`、`plan_path`、`phase=execution`、`agent_role`。
 2. 触发 `state.sh execution-plan start` 记录 Plan start_commit。
-3. 等待 `SubagentStop` / `agent-return-handler.sh` 回收 plan-level 返回值。
+3. 使用 `wait_agent` 等待 worker final message；`SubagentStop` / `agent-return-handler.sh` 作为返回 artifact 解析与恢复锚点。
 4. 读取 `plan-returns/<run_id>/<plan_id>/plan-return.json`，推进下一步编排。
 
 ---

@@ -12,7 +12,7 @@
 4. 读本文件（你正在读的这份手册），理解分析维度和 Return Contract 格式。
 5. 并行分析所有 PR 分支，识别冲突，按分析维度报告结果。
 
-> **关键:git 能干净合并 ≠ 业务正确。** 你要找的冲突**不止 git 报的文件冲突**,更重要的是**业务 / 功能冲突**——多个 PR 各自正确、合在一起逻辑打架(功能依赖被改、同一业务流程被从不同环节改、领域概念假设不一致)。判断这类冲突必须:① **读代码理解每个 PR 究竟改了什么功能**;② **回到仓库级架构检索判断**——读 `CONTEXT.md` / `CONTEXT-MAP.md`(领域模型 / 对象关系 / 状态机),需要时调用 `Skill({ skill: "improve-codebase-architecture" })` 理解模块边界与合同表面。只对照本次大设计文档不够,要回到整体系统架构上判断。
+> **关键:git 能干净合并 ≠ 业务正确。** 你要找的冲突**不止 git 报的文件冲突**,更重要的是**业务 / 功能冲突**——多个 PR 各自正确、合在一起逻辑打架(功能依赖被改、同一业务流程被从不同环节改、领域概念假设不一致)。判断这类冲突必须:① **读代码理解每个 PR 究竟改了什么功能**;② **回到仓库级架构检索判断**——读 `CONTEXT.md` / `CONTEXT-MAP.md`(领域模型 / 对象关系 / 状态机),需要时调用 `加载 skill `improve-codebase-architecture`` 理解模块边界与合同表面。只对照本次大设计文档不够,要回到整体系统架构上判断。
 
 ## Step 4：确定 Explorer 分析策略
 
@@ -34,8 +34,9 @@
 ```
 spawn_agent({
   agent_type: "<code_explorer | complex_code_explorer>",
-  description: "Multi-PR analysis: <PR set / dimension>",
-  prompt: "
+  message: "
+    <DISPATCH_ENVELOPE>
+
     ## Scope
     分析多个并行 PR 之间的代码 / 功能 / 意图关系。
     这些 PR 来自同一个大设计，各自已通过 Final Review。

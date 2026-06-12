@@ -16,7 +16,7 @@ Plan Review 的 `accepted` 细分为 5 种路由：
 | `design gap` | 回到 orchestrate-discovery → Design Review → 写回后 re-review plan |
 | `issue-plan mismatch` | 判断：大 issue 级问题 → 返回 Coordinator 走大 issue 拆分；小 issue 级问题 → send_input plan_writer 重新执行 Step 3c 拆分 → re-review plan |
 | `issue quality` | 小 issue 拆分质量问题（覆盖度/粒度/验收标准/依赖）→ send_input plan_writer 重新执行 Step 3c 修正小 issue → re-review plan |
-| `architecture friction` | `Skill({ skill: "improve-codebase-architecture" })` → 写回后 re-review |
+| `architecture friction` | `加载 skill `improve-codebase-architecture`` → 写回后 re-review |
 
 **通过** → Step 19（Git Checkpoint）。**Needs repair** → Step 16。
 
@@ -34,16 +34,16 @@ Plan Review 三条路径：
 
 1. `state.sh read --run-id <run_id> --field '.plan_writer_agent_id'` 读取 workflow-state 中的 plan_writer_agent_id
 2. 若返回 null/empty -> 立即标记 BLOCKED 给用户 + `state.sh transition --actor Coordinator --to blocked`（不允许创建新 agent）
-3. 调用：
+3. 恢复并发送：
    ```
+   resume_agent({ id: "<plan_writer_agent_id>" })
    send_input({
-     to: "<plan_writer_agent_id>",
-     summary: "Plan Review 修复 round <N>: <finding_ids>",
+     target: "<plan_writer_agent_id>",
      message: "<DISPATCH_ENVELOPE>\n\n修复任务：包含 accepted findings、Coordinator 亲验证据、需要修改的 plan/issue sections、verification commands 和 Return Contract。"
    })
    ```
    send_input inline 发送完整修复 prompt，直接写入 `message` 字段，不先写到文件再引用。
-4. 等待 send_input 返回（同步）
+4. `wait_agent({targets:["<plan_writer_agent_id>"], timeout_ms:600000})` 等待 final message；如 agent 仍需继续修，重复 resume + send_input，不新建 plan_writer
 5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
 5b. 验证 plan 文件格式 + pack count validator
 6. 回到 Plan Review 重审
@@ -61,8 +61,8 @@ Compaction recovery: 从 `workflow-state.cursor` + plan/design 文档重建 repa
 | design gap / 需求不清 | orchestrate-discovery | design document |
 | issue-plan mismatch | 大 issue 级：Coordinator 走大 issue 拆分；小 issue 级：send_input plan_writer Step 3c | issue hierarchy |
 | issue quality | send_input plan_writer 重新执行 Step 3c | issue hierarchy（小 issue 章节） |
-| architecture friction | `Skill({ skill: "improve-codebase-architecture" })` | design doc / plan anchors |
-| domain 术语冲突 | `Skill({ skill: "grill-with-docs" })` | CONTEXT.md（或 CONTEXT-MAP.md 对应子 context 文件） + design document |
+| architecture friction | `加载 skill `improve-codebase-architecture`` | design doc / plan anchors |
+| domain 术语冲突 | `加载 skill `grill-with-docs`` | CONTEXT.md（或 CONTEXT-MAP.md 对应子 context 文件） + design document |
 
 ## Coordinator checkbox toggle 权威规则（D4 source-of-truth）
 
@@ -94,7 +94,7 @@ Plan Review repair 轮次上限由 `routes-v1.json` 的 `repair_policy.max_repai
 | --- | --- |
 | Plan 层面问题（结构、coverage、task quality） | BLOCKED，报告用户附 2 轮 findings 汇总 |
 | Source artifact 问题（design gap / issue mismatch） | 强制 upstream backflow（路径 C） |
-| 项目规则 / 代码现实 mismatch | `Skill({ skill: "improve-codebase-architecture" })` 补充上下文后 re-run |
+| 项目规则 / 代码现实 mismatch | `加载 skill `improve-codebase-architecture`` 补充上下文后 re-run |
 
 ---
 > **下一步**：通过 → Step 19 回到 SKILL.md（Git Checkpoint）。BLOCKED → 返回 verdict。upstream backflow → 返回对应 phase。

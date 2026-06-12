@@ -7,8 +7,8 @@
 | Finding / 修复形态 | 修复 owner |
 | --- | --- |
 | 范围小、本地化、意图清楚、不碰合同边界 | Coordinator Path A 可自修；修完必须验证，Path A re-review 失败时升级 Path B。 |
-| 同一个 pack 内的普通修复，原 worker 能胜任 | 使用 `send_input({ to: "<agent_id>", ... })` 续修原 `pack_executor`；已有 agent_id 时不得新建同类 worker。 |
-| 高风险或跨边界修复：跨模块、migration、billing、permission、runtime、共享合同、state machine、生成模板 | 如果原 worker 是 `complex_pack_executor` 且仍适合承接，使用 `send_input` 续修原 agent；如果原 worker 是 `pack_executor`，或 finding 证明原 owner 不具备高风险合同能力，必须升级 owner。Formal Execution 中先形成新的 repair Pack / 回到 Execution 边界，再按新的 pending pack 派发 `complex_pack_executor`；non-execution route 中使用新的 route-worker escalation dispatch。两种情况都必须记录 `original_agent_id`、`context_ref`、`disposition_ref` 和 accepted finding refs。 |
+| 同一个 pack 内的普通修复，原 worker 能胜任 | 先 `resume_agent({ id: "<agent_id>" })`，再 `send_input({ target: "<agent_id>", message: "..." })` 续修原 `pack_executor`；已有 agent_id 时不得新建同类 worker。 |
+| 高风险或跨边界修复：跨模块、migration、billing、permission、runtime、共享合同、state machine、生成模板 | 如果原 worker 是 `complex_pack_executor` 且仍适合承接，先 `resume_agent` 再 `send_input` 续修原 agent；如果原 worker 是 `pack_executor`，或 finding 证明原 owner 不具备高风险合同能力，必须升级 owner。Formal Execution 中先形成新的 repair Pack / 回到 Execution 边界，再按新的 pending pack 派发 `complex_pack_executor`；non-execution route 中使用新的 route-worker escalation dispatch。两种情况都必须记录 `original_agent_id`、`context_ref`、`disposition_ref` 和 accepted finding refs。 |
 | 根因不清，只知道症状 | 先派 `code_explorer` 或 `complex_code_explorer` 做只读补证；确认根因前不 patch。 |
 | 系统性 bug、重复修复失败、未知 regression | 派 `root_cause_analyst`，要求列可证伪假设、排除证据和回归验证。 |
 | Final Review 发现跨 plan 合同问题 | 返回一次 `NEEDS_EXECUTION`，附 affected plans / packs / 连接面 / producer-consumer 断点，通过 execution repair 处理。 |
@@ -17,7 +17,7 @@
 | Multi-PR 合并冲突 | 简单冲突可 Coordinator 修；跨 PR 合同、迁移、状态或依赖冲突派 `complex_pack_executor`；系统性冲突派 `root_cause_analyst`。 |
 
 调度纪律：
-- Targeted repair 默认优先 `send_input` 续修原 agent；但高风险 finding 不能被原普通 worker 绑定。如果原 worker 是 `pack_executor`，Coordinator 必须写明 `escalation_reason`，并按当前 route 的状态模型升级 owner。
+- Targeted repair 默认优先 `resume_agent` + `send_input` 续修原 agent；但高风险 finding 不能被原普通 worker 绑定。如果原 worker 是 `pack_executor`，Coordinator 必须写明 `escalation_reason`，并按当前 route 的状态模型升级 owner。
 - Formal Execution 的升级不能对同一个 `plan_id` 再次 `spawn_agent({...})`：`validate-plan-dispatch.sh` 只允许首次 Plan 派发，已有 `worker_agent_id` 且 in_progress 的同一 Plan 普通修复只能 `send_input` 续修原 plan worker。若 accepted finding 证明必须换成 `complex_pack_executor`，Coordinator 必须回到 Execution/Plan 边界，把修复表达成新的 repair Pack（进该 Plan 的 Manifest）或 plan revision，让该 Plan 以更高 risk tier 重新 in_progress 后独立 dispatch；不能用第二个 agent 冒充同一 Plan 的续修。
 - Non-execution route 的升级派发不是原 worker 的续修：使用 `dispatch-route-worker.sh validate --transport subagent`，envelope 里 `agent_id: null`、`pack_id: null`、`repair_round` 保留当前轮次、`idempotency_key` 使用新的 escalation key，并用 `dispatch-route-worker.sh record` 写入独立 `.agent-id` 文件。只有同一 owner 的普通 follow-up 才使用 `send_input` 续修原 agent；缺失原 `agent_id` 仍然 BLOCKED，不能用新 worker 冒充续修。
 - 升级派发 prompt 必须带上 `original_agent_id`、`context_ref`、`disposition_ref`、accepted findings、已确认风险面和回归证据要求，保证新 `complex_pack_executor` 能追溯原 context。

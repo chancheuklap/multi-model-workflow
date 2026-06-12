@@ -138,7 +138,7 @@ state.sh budget reinitialize --run-id <rid> --plan-count <暂估或 1>
 
 ## Steps 7-14：Route 1 — Formal Orchestrate
 
-线性管线：Discovery → Plan Writing → Execution → Final Review → Closing。每个 phase skill 通过 `Skill({ skill: "multi-model-workflow:<name>" })` 加载到主线程。
+线性管线：Discovery → Plan Writing → Execution → Final Review → Closing。每个 phase skill 通过 `加载 skill `multi-model-workflow:<name>`` 加载到主线程。
 
 **Verdict 机械路由（Steps 8/10/12/14/20 通用）**：phase skill 返回 verdict 后先查数据——
 
@@ -147,12 +147,12 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" verdict-route \
   --run-id "<run_id>" --phase <phase> --verdict "<VERDICT>"
 ```
 
-返回 `judgment=false` → 照 `action`/`target` 机械执行，不读表；`judgment=true` → 按各 Handle 步的判断表散文裁决；`no-data` → 回退判断表。`target` → Step 映射：`discovery`→Step 7 · `plan-writing`→Step 9 · `execution`→Step 11 · `final-review`→Step 13 · `direct-repair`→Step 8a · `closing`→Closing。`action=invoke-skill` → `Skill({ skill: "<target>" })` 完成后重进原 phase；`action=reflux-counter` 由命令内部完成计数与裁决（NEEDS_EXECUTION 不再手读 `execution_reflux_count`）。
+返回 `judgment=false` → 照 `action`/`target` 机械执行，不读表；`judgment=true` → 按各 Handle 步的判断表散文裁决；`no-data` → 回退判断表。`target` → Step 映射：`discovery`→Step 7 · `plan-writing`→Step 9 · `execution`→Step 11 · `final-review`→Step 13 · `direct-repair`→Step 8a · `closing`→Closing。`action=invoke-skill` → `加载 skill `<target>`` 完成后重进原 phase；`action=reflux-counter` 由命令内部完成计数与裁决（NEEDS_EXECUTION 不再手读 `execution_reflux_count`）。
 
 ### Step 7：orchestrate-discovery
 
 ```
-Skill({ skill: "multi-model-workflow:orchestrate-discovery" })
+加载 skill `multi-model-workflow:orchestrate-discovery`
 ```
 
 ### Step 8：Handle Discovery Return
@@ -180,7 +180,7 @@ Read Scope Contract + design doc → 重进 `orchestrate-discovery` Step 12。�
 ### Step 9：orchestrate-plan-writing
 
 ```
-Skill({ skill: "multi-model-workflow:orchestrate-plan-writing" })
+加载 skill `multi-model-workflow:orchestrate-plan-writing`
 ```
 
 ### Step 10：Handle Plan-writing Return
@@ -193,7 +193,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-plan-writing" })
 | --- | --- |
 | `NEEDS_ISSUES` | 判断缺件类型：缺大 issue → Step 8b（大 issue 拆分）；缺小 issue → 重新 Step 9（plan_writer 内部处理） |
 | `NEEDS_DECISION` | 询问用户 → 回答后 Step 9 |
-| `NEEDS_CONTEXT` | 派 `code_explorer`（窄事实）/ `Skill({ skill: "improve-codebase-architecture" })`（模块边界）→ 补充后 Step 9 |
+| `NEEDS_CONTEXT` | 派 `code_explorer`（窄事实）/ `加载 skill `improve-codebase-architecture``（模块边界）→ 补充后 Step 9 |
 | `BLOCKED` | 报告用户 |
 
 ---
@@ -201,7 +201,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-plan-writing" })
 ### Step 11：orchestrate-execution
 
 ```
-Skill({ skill: "multi-model-workflow:orchestrate-execution" })
+加载 skill `multi-model-workflow:orchestrate-execution`
 ```
 
 ### Step 12：Handle Execution Return
@@ -212,7 +212,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-execution" })
 
 | Execution Verdict（判断） | Coordinator 动作 |
 | --- | --- |
-| `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` → 只影响当前 pack → 回 Step 11；改变 plan → 回 Step 9 |
+| `NEEDS_ARCHITECTURE` | `加载 skill `improve-codebase-architecture`` → 只影响当前 pack → 回 Step 11；改变 plan → 回 Step 9 |
 | `BLOCKED` | 报告用户 |
 
 ---
@@ -220,7 +220,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-execution" })
 ### Step 13：orchestrate-final-review
 
 ```
-Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
+加载 skill `multi-model-workflow:orchestrate-final-review`
 ```
 
 ### Step 14：Handle Final Review Return
@@ -241,7 +241,7 @@ Skill({ skill: "multi-model-workflow:orchestrate-final-review" })
 
 ## Steps 19-20：Route 3 — Multi-PR Merge
 
-`Skill({ skill: "multi-model-workflow:orchestrate-multi-pr-merge" })`。
+`加载 skill `multi-model-workflow:orchestrate-multi-pr-merge``。
 
 机械 verdict 查 verdict-route（`--phase multi-pr-merge`）。判断分支：
 

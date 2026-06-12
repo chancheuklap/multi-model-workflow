@@ -19,8 +19,9 @@
 ```
 spawn_agent({
   agent_type: "<pack_executor | complex_pack_executor>",
-  description: "Direct repair: <deviation summary>",
-  prompt: "
+  message: "
+    <DISPATCH_ENVELOPE>
+
     ## Scope
     修复已批准 design 下的实现偏离。
 

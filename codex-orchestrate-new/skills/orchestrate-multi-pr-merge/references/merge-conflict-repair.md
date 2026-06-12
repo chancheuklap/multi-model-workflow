@@ -25,7 +25,7 @@ Multi-PR conflict repair 是非 execution Pack 的 coding worker：不创建 exe
    - `agent_id: null`
    - `pack_id: null`
    - `idempotency_key: "<run_id>/multi-pr-conflict-<conflict-id>/r0"`
-2. Dispatch 前运行：
+2. Dispatch 前运行（该命令会在 `phase=multi-pr-merge` 时主动调用 `validate-multi-pr-dispatch.sh`，检查 merge brief、stage、conflict_id 和 prompt 引用）：
    ```bash
    bash "${MMW_PLUGIN_ROOT}/scripts/dispatch-route-worker.sh" validate \
      --prompt-file ".codex/multi-model-workflow/worker-prompts/multi-pr-conflict-<conflict-id>.md" \
@@ -39,15 +39,16 @@ Multi-PR conflict repair 是非 execution Pack 的 coding worker：不创建 exe
      --agent-id "<agent_id>" \
      --agent-file ".codex/multi-model-workflow/worker-agents/multi-pr-conflict-<conflict-id>.agent-id"
    ```
-5. subagent 返回后将 final message 保存到 `.codex/multi-model-workflow/worker-results/multi-pr-conflict-<conflict-id>.md`。后续如需同一 worker 继续修复，使用 `send_input({ to: "<agent_id>", ... })`。
+5. 使用 `wait_agent({targets:["<agent_id>"], timeout_ms:600000})` 等待 final message，保存到 `.codex/multi-model-workflow/worker-results/multi-pr-conflict-<conflict-id>.md`，再 `close_agent({target:"<agent_id>"})` 释放并发容量。后续如需同一 worker 继续修复，先 `resume_agent({ id: "<agent_id>" })`，再 `send_input({ target: "<agent_id>", message: "..." })`。
 
 ### 12a：有 Analyst Findings 的 Worker Dispatch
 
 ```
 spawn_agent({
   agent_type: "<pack_executor | complex_pack_executor>",
-  description: "Multi-PR conflict fix: <conflict summary>",
-  prompt: "
+  message: "
+    <DISPATCH_ENVELOPE>
+
     ## Scope
     修复 Multi-PR Merge 中发现的 PR 间冲突。
 
@@ -86,8 +87,9 @@ spawn_agent({
 ```
 spawn_agent({
   agent_type: "<pack_executor | complex_pack_executor>",
-  description: "Multi-PR conflict fix: <conflict summary>",
-  prompt: "
+  message: "
+    <DISPATCH_ENVELOPE>
+
     ## Scope
     修复 Multi-PR Merge 中发现的 PR 间冲突。
 

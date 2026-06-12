@@ -1,4 +1,4 @@
-# 修复分流 + Targeted Re-Review + 截断
+# 修复分流 + 自验闭合 + 截断
 
 > **流程位置**：`orchestrate-execution` Steps 10-12 · 仅 needs repair 时进入
 
@@ -10,7 +10,7 @@ Accepted findings 按 `Affected packs` 字段分组 → 每组复用现有三路
 
 **Read** `${MMW_PLUGIN_ROOT}/skills/_shared/repair-routing.md` 并按其流程处理 review findings。
 
-所有 repair prompt 只携带 accepted findings。Repair 返回后 Coordinator 默认自验收（verification commands + acceptance criteria 对照）。仅当满足 exception 条件（3+ 文件控制流修改 / 用户要求 / RCA 根因修复 / Path A 自修）时派发 targeted Codex re-review。Targeted re-review 必须用 `spawn_agent(agent_type="codex_reviewer") --resume` 复用 baseline reviewer 的 JOB_ID；只有 source baseline 改变时才 full phase review rerun。gate-codex-review.sh 强制此规则。
+所有 repair prompt 只携带 accepted findings。Repair 返回后 Coordinator 默认自验收（verification commands + acceptance criteria 对照）。如果修复改变了 Plan baseline、用户明确要求独立复核，或 RCA 根因修复风险高到无法靠 Coordinator 自验闭合，则重新派发一次 baseline Codex review，走 `_shared/review-dispatch.md` 的 `spawn_agent` / `wait_agent` / `close_agent` / durable result 流程；不续用旧 reviewer session 或旧 job id 概念。
 
 - **路径 A**（≤ 2 文件、不碰合同边界、意图明确）：Coordinator 直接修 → 跑验证 → Step 11
 - **路径 B**（多文件、根因已知）：
@@ -22,24 +22,22 @@ Accepted findings 按 `Affected packs` 字段分组 → 每组复用现有三路
 
 1. `state.sh agent-id get --run-id <run_id> --plan-id <plan_id>` 读取 execution-state 中的 plan worker_agent_id（`plans[<plan_id>].worker_agent_id`）
 2. 若返回 null/empty -> 立即标记 BLOCKED 给用户 + `state.sh transition --actor Coordinator --to blocked`（不允许创建新 agent）
-3. 调用：
+3. 恢复并发送：
    ```
+   resume_agent({ id: "<agent_id>" })
    send_input({
-     to: "<agent_id>",
-     summary: "修复 <finding_ids>",
+     target: "<agent_id>",
      message: "<DISPATCH_ENVELOPE>\n\n修复任务：包含 accepted findings、Coordinator 亲验证据、repair scope、verification commands 和 Return Contract。"
    })
    ```
    send_input inline 发送完整修复 prompt，直接写入 `message` 字段，不先写到文件再引用。
-4. 等待 send_input 返回（同步）
+4. `wait_agent({targets:["<agent_id>"], timeout_ms:600000})` 等待 final message；如 agent 仍需继续修，重复 resume + send_input，不新建同类 worker
 5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
 5b. 修复完成后运行 verification commands + 对照 acceptance criteria + grep 确认变更
 6. 写 `state.sh disposition append` 或 `state.sh update --field plans[N].packs[M].repair_round`
 
 Compaction recovery: 从 `workflow-state.cursor` + plan/design 文档重建 repair context；dispatch prompt 不需要 durable copy。
 <!-- END: send-input-resume -->
-
-Targeted Re-Review 使用 `--resume` 继续 baseline reviewer session。
 
 → Step 11
 
@@ -50,8 +48,9 @@ Targeted Re-Review 使用 `--resume` 继续 baseline reviewer session。
 ```
 spawn_agent({
   agent_type: "complex_code_explorer",
-  description: "Investigate unknown root cause: Plan N finding",
-  prompt: "
+  message: "
+    <DISPATCH_ENVELOPE>
+
     ## Scope
     只读调查。Reviewer 报告了症状但无法确定根因。找到根因，不写代码。
 
@@ -99,22 +98,23 @@ Explorer 返回后路由：
 
 **Coordinator 写入 execution state**：`plans[N].repair_round += 1`、`plans[N].status = repairing`。
 
-## Step 11：Targeted Re-Review
+## Step 11：修复后闭合
 
-修复完成后，只重审 accepted findings 涉及的变更部分。不做 full review rerun。
+修复完成后，默认由 Coordinator 自验闭合，不另建缩小范围审查。
 
-派发方式同 Step 8（读取 `execution-review-dispatch.md`），但：
-- gate 名使用 `plan-impl-review-N-repair-<round>`（`<round>` = 当前修复轮次 1/2/3），不覆盖 baseline 结果
-- scope 缩小到：changed files（修复涉及的文件）/ accepted findings（原 finding 是否解决）/ 受影响 angle
+只有 source baseline 改变、用户明确要求，或 RCA 根因修复风险高到必须独立复核时，重新派发 baseline Codex review：
+- 按 Step 8 读取 `execution-review-dispatch.md` 和 `_shared/review-dispatch.md`
+- 新 gate 使用 `plan-impl-review-N-baseline-rerun-<round>`，不覆盖原 baseline result
+- scope 写明 changed files、accepted findings、受影响 angle 和重新 review 的原因
 
 ## Step 12：修复截断
 
-Worker repair 轮次上限由 `routes-v1.json` 的 `repair_policy.max_repair_rounds`（execution phase）持有，`enforce-repair-round-cap.sh` hook 机器强制——超限 Targeted Re-Review 派发被 exit 2 拦截。当前值：`max_repair_rounds=2, escalate_to_rca=true`（等价于旧散文的"2 Worker round + 1 RCA round"）。
+Worker repair 轮次上限由 `routes-v1.json` 的 `repair_policy.max_repair_rounds`（execution phase）持有，`dispatch-review.sh validate` 和 repair flow 共同强制；超限后不再续修，进入 RCA 或 BLOCKED。当前值：`max_repair_rounds=2, escalate_to_rca=true`（等价于旧散文的"2 Worker round + 1 RCA round"）。
 
 | Round | 动作 |
 | --- | --- |
-| Round 1 | 路径 A/B/C 修复 → Targeted Re-Review |
-| Round 2 | 仍 needs repair → 路径 A/B/C 修复 → Targeted Re-Review |
+| Round 1 | 路径 A/B/C 修复 → Coordinator 自验；必要时 baseline rerun |
+| Round 2 | 仍 needs repair → 路径 A/B/C 修复 → Coordinator 自验；必要时 baseline rerun |
 | Round 3（截断） | 仍 needs repair → 截断 Worker 循环，新建 `root_cause_analyst`（见下方模板） |
 
 ### Root-Cause-Analyst 截断 Dispatch
@@ -122,8 +122,9 @@ Worker repair 轮次上限由 `routes-v1.json` 的 `repair_policy.max_repair_rou
 ```
 spawn_agent({
   agent_type: "root_cause_analyst",
-  description: "Investigate repair failure: Plan N",
-  prompt: "
+  message: "
+    <DISPATCH_ENVELOPE>
+
     ## 调度场景
     Repair Truncation（Plan Implementation Review）。Worker 修了两轮，reviewer 仍报 needs repair。
 
@@ -159,13 +160,13 @@ spawn_agent({
 
 | Resolution | 下一步 |
 | --- | --- |
-| `fixed` | Targeted Re-Review（消耗 Round 3） |
+| `fixed` | Coordinator 自验闭合；必要时 baseline rerun |
 | `root cause found, not fixed` | 用 analyst findings 重新 dispatch worker（消耗 Round 3） |
 | `root cause in design/plan` | 写回 design doc / plan → 回到 orchestrate-discovery 或 orchestrate-plan-writing |
 | `unable to reproduce` | 报告用户，附 analyst 排除路径，请求更多重现信息 |
 | `unable to determine` | BLOCKED，报告用户，附 analyst 排除路径 |
 
-Round 3 Targeted Re-Review 仍 needs repair → BLOCKED，报告用户。
+Round 3 自验或 baseline rerun 仍 needs repair → BLOCKED，报告用户。
 
 ---
 > **下一步**：修复通过 → SKILL.md Step 13（Release Gate，条件触发）→ Step 14（completion）。BLOCKED → 返回 verdict。

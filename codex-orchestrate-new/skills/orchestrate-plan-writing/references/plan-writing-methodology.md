@@ -1,6 +1,6 @@
 # Plan 写作方法论
 
-> **流程位置**：`orchestrate-plan-writing` Steps 3-8 · plan_writer 写作方法论 · Coordinator 按此构造 dispatch brief → Steps 9-10（`plan_writer-dispatch.md`）
+> **流程位置**：`orchestrate-plan-writing` Steps 3-8 · plan_writer 写作方法论 · Coordinator 按此构造 dispatch brief → Steps 9-10（`plan-writer-dispatch.md`）
 
 plan_writer agent 通过 dispatch prompt 中指定的路径读取本文件执行写作。Coordinator 按本文件内容构造 plan_writer dispatch prompt。
 
@@ -97,7 +97,7 @@ Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked 
 
 ### 3d：探索代码库
 
-用 `rg` / `find` / `Skill({ skill: "improve-codebase-architecture" })` 验证 source design 涉及的路径、模块、合同面、已有模式。
+用 `rg` / `find` / `加载 skill `improve-codebase-architecture`` 验证 source design 涉及的路径、模块、合同面、已有模式。
 
 读取项目根目录 AGENTS.md 及其链入的规则文档。理解模块边界、测试路由、合同墙、命名约定——plan 中的 File/Responsibility Map、verification commands、contract anchors 必须符合项目实际。
 
@@ -328,4 +328,4 @@ Plan-writer 通过 send_input 收到 accepted findings 后：
 - 不创建新的大 issue——大 issue 由 Coordinator 在 Discovery 阶段产出。你只负责在已有大 issue 内拆分小 issue 并映射为 Task Pack。
 
 ---
-> **下一步**：方法论指导完成 → Steps 9-10（`plan_writer-dispatch.md`）派发 plan_writer。
+> **下一步**：方法论指导完成 → Steps 9-10（`plan-writer-dispatch.md`）派发 plan_writer。

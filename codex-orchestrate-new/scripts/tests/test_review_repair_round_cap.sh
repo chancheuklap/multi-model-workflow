@@ -61,11 +61,11 @@ PF=$(make_prompt "plan-impl-review-1-repair-2" 2 "execution" "$RUN_ID")
 run_test "execution round=2 (= max=2) passes" \
   bash "$DISPATCH_SH" validate --prompt-file "$PF" --gate "plan-impl-review-1-repair-2"
 
-PF=$(make_prompt "plan-review-repair-3" 3 "plan-review" "$RUN_ID")
+PF=$(make_prompt "plan-review-repair-3" 3 "plan-writing" "$RUN_ID")
 run_test_expect_fail "plan-review round=3 (> max=2) blocked" \
   bash "$DISPATCH_SH" validate --prompt-file "$PF" --gate "plan-review-repair-3"
 
-PF=$(make_prompt "plan-review-repair-2" 2 "plan-review" "$RUN_ID")
+PF=$(make_prompt "plan-review-repair-2" 2 "plan-writing" "$RUN_ID")
 run_test "plan-review round=2 (= max=2) passes" \
   bash "$DISPATCH_SH" validate --prompt-file "$PF" --gate "plan-review-repair-2"
 

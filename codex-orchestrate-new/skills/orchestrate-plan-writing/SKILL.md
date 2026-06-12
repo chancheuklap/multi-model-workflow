@@ -119,6 +119,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" envelope build \
   # --review-intent baseline       # codex_reviewer 派发必填
   # --worktree-path "<path>"       # 当前 worker 工作树
   # --agent-id <id> --resume-from-pack-id <N.M> --exception-code <code>
+  # --conflict-id <C-NNN>        # multi-pr-merge repair dispatch
 ```
 
 生成的块形如（字段集固定，生成器保证完整）：
@@ -146,14 +147,15 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" envelope build \
 
 `idempotency_key` 基：plan-level 派发用 `plan_id`，pack-level 用 `pack_id`（Exactly one of {pack_id, plan_id} non-null during execution）。
 For repair (repair_round >= 1): `disposition_refs` = accepted finding IDs 数组（生成器强制非空）。
-For codex_reviewer dispatches: `review_intent` = `baseline`（生成器强制）。
+For multi-pr-merge repair: `conflict_id` 指向 merge brief 中未 resolved 的冲突条目。
+For codex_reviewer workflow dispatches: `review_intent` = `baseline`（生成器强制）；ad-hoc `codex-review` 使用 `review_intent=ad-hoc`，不进入 workflow registry / budget。
 
 Missing/malformed envelope = dispatch BLOCKED（显式脚本校验）。
 <!-- END: control-envelope -->
 
 ## Steps 9-10：逐 issue 派发 plan_writer + 处理返回
 
-**Read** `references/plan_writer-dispatch.md` 并严格执行。按 issue 编号顺序遍历 `docs/orchestrate/issues/<slug>/`，逐个 issue 派发 plan_writer（design doc + issue 文件 → plan_writer → `plans/<slug>/00N-*.md`）。全部返回 `PLAN_CREATED` 后进入 Step 11；任一返回 upstream verdict → 按路由处理后重进。
+**Read** `references/plan-writer-dispatch.md` 并严格执行。按 issue 编号顺序遍历 `docs/orchestrate/issues/<slug>/`，逐个 issue 派发 plan_writer（design doc + issue 文件 → plan_writer → `plans/<slug>/00N-*.md`）。全部返回 `PLAN_CREATED` 后进入 Step 11；任一返回 upstream verdict → 按路由处理后重进。
 
 **Plan-writer 返回事实校验**：Coordinator 收到 plan_writer 返回的 plan 文件路径、文件存在性、行号引用、Pack 数量声明等事实，必须抽验（至少 1 个事实 grep / Read）后再进入 Plan Entry Gate。事实失实 -> 重派 plan_writer 或 Coordinator 亲查。
 

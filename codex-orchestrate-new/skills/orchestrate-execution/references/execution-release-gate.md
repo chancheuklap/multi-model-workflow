@@ -80,8 +80,9 @@ Deploy order assessment:
 ```
 spawn_agent({
   agent_type: "complex_pack_executor",
-  description: "Fix release blocker: Plan N <blocker summary>",
-  prompt: "
+  message: "
+    <DISPATCH_ENVELOPE>
+
     [repair-round-N]
     ## Scope
     修复 Early Release Gate 发现的 release blocker。

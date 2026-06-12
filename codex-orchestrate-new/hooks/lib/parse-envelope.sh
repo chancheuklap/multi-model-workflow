@@ -52,13 +52,25 @@ if ! [[ "$REPAIR_ROUND" =~ ^[0-9]+$ ]]; then
   echo "Error: repair_round must be a non-negative integer, got '$REPAIR_ROUND'" >&2
   exit 2
 fi
+PHASE=$(echo "$ENVELOPE_JSON" | jq -r '.phase // empty')
 AGENT_ROLE=$(echo "$ENVELOPE_JSON" | jq -r '.agent_role')
 REVIEW_INTENT=$(echo "$ENVELOPE_JSON" | jq -r '.review_intent // empty')
 EXCEPTION_CODE=$(echo "$ENVELOPE_JSON" | jq -r '.exception_code // empty')
 DISPOSITION_REFS=$(echo "$ENVELOPE_JSON" | jq -r '.disposition_refs // empty')
+CONFLICT_ID=$(echo "$ENVELOPE_JSON" | jq -r '.conflict_id // empty')
+
+case "$PHASE" in
+  discovery|plan-writing|execution|final-review|bug-investigation|direct-repair|multi-pr-merge) ;;
+  *)
+    echo "Error: dispatch phase is not supported: ${PHASE:-empty}" >&2
+    exit 2
+    ;;
+esac
 
 if [[ "$REPAIR_ROUND" -ge 1 ]]; then
-  if [[ -z "$DISPOSITION_REFS" || "$DISPOSITION_REFS" == "null" || "$DISPOSITION_REFS" == "[]" ]]; then
+  if [[ "$PHASE" == "multi-pr-merge" && -n "$CONFLICT_ID" && "$CONFLICT_ID" != "null" ]]; then
+    : # merge repair rounds are keyed by conflict_id, not review disposition ids
+  elif [[ -z "$DISPOSITION_REFS" || "$DISPOSITION_REFS" == "null" || "$DISPOSITION_REFS" == "[]" ]]; then
     echo "Error: repair dispatch (round=$REPAIR_ROUND) must include non-empty disposition_refs" >&2
     exit 2
   fi

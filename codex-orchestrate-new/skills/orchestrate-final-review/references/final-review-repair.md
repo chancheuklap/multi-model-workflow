@@ -18,16 +18,16 @@
 
 1. `state.sh agent-id get --run-id <run_id> --plan-id <plan_id>` 读取 execution-state 中的 plan worker_agent_id（`plans[<plan_id>].worker_agent_id`）
 2. 若返回 null/empty -> 立即标记 BLOCKED 给用户 + `state.sh transition --actor Coordinator --to blocked`（不允许创建新 agent）
-3. 调用：
+3. 恢复并发送：
    ```
+   resume_agent({ id: "<agent_id>" })
    send_input({
-     to: "<agent_id>",
-     summary: "修复 <finding_ids>",
+     target: "<agent_id>",
      message: "<DISPATCH_ENVELOPE>\n\n修复任务：包含 accepted findings、Coordinator 亲验证据、repair scope、verification commands 和 Return Contract。"
    })
    ```
    send_input inline 发送完整修复 prompt，直接写入 `message` 字段，不先写到文件再引用。
-4. 等待 send_input 返回（同步）
+4. `wait_agent({targets:["<agent_id>"], timeout_ms:600000})` 等待 final message；如 agent 仍需继续修，重复 resume + send_input，不新建同类 worker
 5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
 5b. 修复完成后运行 verification commands + 对照 acceptance criteria + grep 确认变更
 6. 写 `state.sh disposition append` 或 `state.sh update --field plans[N].packs[M].repair_round`
@@ -44,8 +44,9 @@ Worker 修复后返回 → 进入 Step 11
 ```
 spawn_agent({
   agent_type: "complex_code_explorer",
-  description: "Investigate unknown root cause: Final Review finding",
-  prompt: "
+  message: "
+    <DISPATCH_ENVELOPE>
+
     ## Scope
     只读调查。Final Review 报告了症状但无法确定根因。找到根因，不写代码。
 
@@ -133,8 +134,9 @@ Worker repair 轮次上限由 `routes-v1.json` 的 `repair_policy.max_repair_rou
 ```
 spawn_agent({
   agent_type: "root_cause_analyst",
-  description: "Investigate Final Review repair failure: <finding>",
-  prompt: "
+  message: "
+    <DISPATCH_ENVELOPE>
+
     ## 调度场景
     Repair Truncation（Final Review）。Final Review 修了两轮，reviewer 仍报 needs repair。
 

@@ -17,8 +17,9 @@
 ```
 spawn_agent({
   agent_type: "root_cause_analyst",
-  description: "Bug Investigation: <bug title>",
-  prompt: "
+  message: "
+    <DISPATCH_ENVELOPE>
+
     ## 调度场景
     Bug Investigation 入口。用户报告 bug/error/regression，根因不明，从零调查。
 
@@ -121,8 +122,9 @@ Analyst 找到根因但无法修复。按 risk flags 选择 worker：
 ```
 spawn_agent({
   agent_type: "<pack_executor | complex_pack_executor>",
-  description: "Fix bug: <bug title>",
-  prompt: "
+  message: "
+    <DISPATCH_ENVELOPE>
+
     ## Bug
     <original bug description>
 

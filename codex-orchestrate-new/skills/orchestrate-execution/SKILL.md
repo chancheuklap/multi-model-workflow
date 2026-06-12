@@ -141,6 +141,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" envelope build \
   # --review-intent baseline       # codex_reviewer 派发必填
   # --worktree-path "<path>"       # 当前 worker 工作树
   # --agent-id <id> --resume-from-pack-id <N.M> --exception-code <code>
+  # --conflict-id <C-NNN>        # multi-pr-merge repair dispatch
 ```
 
 生成的块形如（字段集固定，生成器保证完整）：
@@ -168,7 +169,8 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" envelope build \
 
 `idempotency_key` 基：plan-level 派发用 `plan_id`，pack-level 用 `pack_id`（Exactly one of {pack_id, plan_id} non-null during execution）。
 For repair (repair_round >= 1): `disposition_refs` = accepted finding IDs 数组（生成器强制非空）。
-For codex_reviewer dispatches: `review_intent` = `baseline`（生成器强制）。
+For multi-pr-merge repair: `conflict_id` 指向 merge brief 中未 resolved 的冲突条目。
+For codex_reviewer workflow dispatches: `review_intent` = `baseline`（生成器强制）；ad-hoc `codex-review` 使用 `review_intent=ad-hoc`，不进入 workflow registry / budget。
 
 Missing/malformed envelope = dispatch BLOCKED（显式脚本校验）。
 <!-- END: control-envelope -->

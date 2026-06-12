@@ -4,7 +4,7 @@ Use when: narrow-scope code investigation — file locations, function definitio
 <example>需要确认某个函数的调用链和所有 consumer</example>
 <example>查找某个配置项的来源和传播路径</example>
 <example>确认测试入口和 fixture 位置</example>
-Do NOT use for: multi-module investigation (use complex-code_explorer), root cause investigation with fix (use root_cause_analyst), code writing (use pack_executor/complex-pack_executor).
+Do NOT use for: multi-module investigation (use complex_code_explorer), root cause investigation with fix (use root_cause_analyst), code writing (use pack_executor/complex_pack_executor).
 返回的事实声明（行号 / 计数 / 文件存在性 / 引用关系）由 Coordinator 必须亲验后再写入交付物或汇报。本 agent 是劳动力不是 ground truth，Coordinator 是事实的唯一权威。'''
 model = "gpt-5.4-mini"
 model_reasoning_effort = "high"

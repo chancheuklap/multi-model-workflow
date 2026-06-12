@@ -1,4 +1,4 @@
-**send_input Resume 操作模板**（修复路径必须使用 send_input 续修原 agent，禁止创建新 agent）：
+**send_input Resume 操作模板**（修复路径必须先 resume 原 agent，再用 send_input 续修，禁止创建新 agent）：
 
 [variant=worker]
 **Worker send_input Resume 步骤**（pack_executor / complex_pack_executor 修复）：
@@ -7,16 +7,16 @@
 
 1. `state.sh agent-id get --run-id <run_id> --plan-id <plan_id>` 读取 execution-state 中的 plan worker_agent_id（`plans[<plan_id>].worker_agent_id`）
 2. 若返回 null/empty -> 立即标记 BLOCKED 给用户 + `state.sh transition --actor Coordinator --to blocked`（不允许创建新 agent）
-3. 调用：
+3. 恢复并发送：
    ```
+   resume_agent({ id: "<agent_id>" })
    send_input({
-     to: "<agent_id>",
-     summary: "修复 <finding_ids>",
+     target: "<agent_id>",
      message: "<DISPATCH_ENVELOPE>\n\n修复任务：包含 accepted findings、Coordinator 亲验证据、repair scope、verification commands 和 Return Contract。"
    })
    ```
    send_input inline 发送完整修复 prompt，直接写入 `message` 字段，不先写到文件再引用。
-4. 等待 send_input 返回（同步）
+4. `wait_agent({targets:["<agent_id>"], timeout_ms:600000})` 等待 final message；如 agent 仍需继续修，重复 resume + send_input，不新建同类 worker
 5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
 5b. 修复完成后运行 verification commands + 对照 acceptance criteria + grep 确认变更
 6. 写 `state.sh disposition append` 或 `state.sh update --field plans[N].packs[M].repair_round`
@@ -29,16 +29,16 @@ Compaction recovery: 从 `workflow-state.cursor` + plan/design 文档重建 repa
 
 1. `state.sh read --run-id <run_id> --field '.plan_writer_agent_id'` 读取 workflow-state 中的 plan_writer_agent_id
 2. 若返回 null/empty -> 立即标记 BLOCKED 给用户 + `state.sh transition --actor Coordinator --to blocked`（不允许创建新 agent）
-3. 调用：
+3. 恢复并发送：
    ```
+   resume_agent({ id: "<plan_writer_agent_id>" })
    send_input({
-     to: "<plan_writer_agent_id>",
-     summary: "Plan Review 修复 round <N>: <finding_ids>",
+     target: "<plan_writer_agent_id>",
      message: "<DISPATCH_ENVELOPE>\n\n修复任务：包含 accepted findings、Coordinator 亲验证据、需要修改的 plan/issue sections、verification commands 和 Return Contract。"
    })
    ```
    send_input inline 发送完整修复 prompt，直接写入 `message` 字段，不先写到文件再引用。
-4. 等待 send_input 返回（同步）
+4. `wait_agent({targets:["<plan_writer_agent_id>"], timeout_ms:600000})` 等待 final message；如 agent 仍需继续修，重复 resume + send_input，不新建 plan_writer
 5. 解析返回结果 → `state.sh transition --actor Coordinator --to returned`
 5b. 验证 plan 文件格式 + pack count validator
 6. 回到 Plan Review 重审

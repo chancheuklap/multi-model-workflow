@@ -100,6 +100,11 @@ case "$SUBCMD" in
     bash "$SCRIPT_DIR/state.sh" budget check --run-id "$RUN_ID" >/dev/null
     bash "$SCRIPT_DIR/state.sh" idempotency check --run-id "$RUN_ID" --key "$IDEMPOTENCY_KEY" >/dev/null
 
+    if [[ "$PHASE" == "multi-pr-merge" ]]; then
+      jq -Rs '{tool_input:{prompt:.}}' < "$PROMPT_FILE" \
+        | STATE_DIR="${STATE_BASE:-.codex/multi-model-workflow}" bash "$SCRIPT_DIR/../hooks/validate-multi-pr-dispatch.sh"
+    fi
+
     echo "OK"
     ;;
 

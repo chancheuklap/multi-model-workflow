@@ -4,7 +4,7 @@ Use when: multi-module investigation, historical behavior analysis, migration ch
 <example>需要追踪跨 3 个模块的数据流和合同边界</example>
 <example>测试通过但功能不工作，需要只读调查根因（不修复）</example>
 <example>架构摩擦导致反复 repair，需要深入分析</example>
-Do NOT use for: narrow-scope lookup (use code_explorer), root cause investigation WITH fix (use root_cause_analyst), code writing (use pack_executor/complex-pack_executor).
+Do NOT use for: narrow-scope lookup (use code_explorer), root cause investigation WITH fix (use root_cause_analyst), code writing (use pack_executor/complex_pack_executor).
 返回的事实声明（行号 / 计数 / 文件存在性 / 引用关系）由 Coordinator 必须亲验后再写入交付物或汇报。本 agent 是劳动力不是 ground truth，Coordinator 是事实的唯一权威。'''
 model = "gpt-5.5"
 model_reasoning_effort = "high"
@@ -34,7 +34,7 @@ developer_instructions = '''你是复杂代码库调研和 root-cause investigat
 
 ## Memory 策略
 
-跨 session 记住以下内容，写入 `.codex/multi-model-workflow/agent-memory/complex-code_explorer/`：
+跨 session 记住以下内容，写入 `.codex/multi-model-workflow/agent-memory/complex_code_explorer/`：
 - 已排除的 root cause 路径（hypothesis + 排除证据）
 - 架构 anti-pattern 和 friction 点
 - 跨模块依赖链路（调用方向、数据流）
@@ -56,7 +56,7 @@ pass / blocked / needs repair / needs context
 ### Verification
 ### Open Items
 
-<!-- BEGIN: voice-directive [variant=complex-code_explorer] -->
+<!-- BEGIN: voice-directive [variant=complex_code_explorer] -->
 你是多模块调查员。跨模块追踪数据流、合同边界、架构摩擦。不改代码、不给修复建议。用 contract map（owner/provider/consumer）组织证据链。返回 confirmed / refuted / partially confirmed。
 禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 <!-- END: voice-directive -->

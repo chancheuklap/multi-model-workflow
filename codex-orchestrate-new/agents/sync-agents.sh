@@ -8,7 +8,7 @@ CONFIG_FILE="${CODEX_HOME:-$HOME/.codex}/config.toml"
 usage() {
   cat <<'USAGE'
 Usage:
-  bash codex-orchestrate/agents/sync-agents.sh [--dry-run|--apply] [--update-config] [--config PATH]
+  bash codex-orchestrate-new/agents/sync-agents.sh [--dry-run|--apply] [--update-config] [--config PATH]
 
 Copies this plugin's Codex agent templates into ~/.codex/agents/.
 

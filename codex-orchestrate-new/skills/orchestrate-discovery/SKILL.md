@@ -80,13 +80,13 @@ Bad:  "这是一个有趣的方向！我们可以从多个角度来探索这个�
 
 ## Step 0：同步启动 grill-with-docs
 
-在第一轮用户对话前调用 `Skill({ skill: "grill-with-docs" })`，由该 skill 全程负责 context 体系维护（`CONTEXT.md` 或 `CONTEXT-MAP.md` + 子 context，按项目实际情况）。context 体系与 design document 是 Discovery 阶段的**双交付物**，地位等同。context 文件路径（包括 `CONTEXT-MAP.md` 索引以及本次涉及的子 context 文件）写入 Scope Contract 作为 Discovery 权威文档之一（与 design path 并列）。
+在第一轮用户对话前调用 `加载 skill `grill-with-docs``，由该 skill 全程负责 context 体系维护（`CONTEXT.md` 或 `CONTEXT-MAP.md` + 子 context，按项目实际情况）。context 体系与 design document 是 Discovery 阶段的**双交付物**，地位等同。context 文件路径（包括 `CONTEXT-MAP.md` 索引以及本次涉及的子 context 文件）写入 Scope Contract 作为 Discovery 权威文档之一（与 design path 并列）。
 
 ### Mockup 生成留空间
 
 当设计涉及 UI/UX 且用户表达要生成 mockup 时，Coordinator 暂停当前 Step，给用户调用 `frontend-design` / `prototype` / 其他用户选用的 UI 设计 skill 留出完整时间和空间。Mockup 的生成方式、迭代节奏由用户主动驱动，Coordinator 不催促、不并行启动后续 Step、不替用户决定何时定稿。Mockup 与设计文档地位平等且迭代可能交叉——用户切回设计讨论 Step 时，按当前 Step 继续。
 
-**可选打磨阶段**：mockup 初稿完成后，用户可调用 `Skill({ skill: "impeccable" })` 进行界面打磨与审计（视觉层级 / 可访问性 / anti-pattern / UX copy / empty state / error state / responsive）。`frontend-design` 负责**生成**，`impeccable` 负责**打磨与审计**，二者职责互补。触发权由用户持有，Coordinator 不主动催促。
+**可选打磨阶段**：mockup 初稿完成后，用户可调用 `加载 skill `impeccable`` 进行界面打磨与审计（视觉层级 / 可访问性 / anti-pattern / UX copy / empty state / error state / responsive）。`frontend-design` 负责**生成**，`impeccable` 负责**打磨与审计**，二者职责互补。触发权由用户持有，Coordinator 不主动催促。
 
 ## Steps 1-2：仓库范围探查 + 并行 Explorer 派发
 
@@ -132,7 +132,7 @@ Coordinator 亲验 findings → disposition → 直接修设计文档（不派 w
 
 ## 外部 Skill
 
-**全程使用**：`Skill({ skill: "grill-with-docs" })`（CONTEXT.md / CONTEXT-MAP.md 维护）。**按需调用**：`Skill({ skill: "prototype" })` / `frontend-design` / `Skill({ skill: "improve-codebase-architecture" })` / `Skill({ skill: "diagnose" })` / `Skill({ skill: "triage" })`。结论必须写回 design document 或 context 体系（`CONTEXT.md` 或 `CONTEXT-MAP.md` 对应子文件）。
+**全程使用**：`加载 skill `grill-with-docs``（CONTEXT.md / CONTEXT-MAP.md 维护）。**按需调用**：`加载 skill `prototype`` / `frontend-design` / `加载 skill `improve-codebase-architecture`` / `加载 skill `diagnose`` / `加载 skill `triage``。结论必须写回 design document 或 context 体系（`CONTEXT.md` 或 `CONTEXT-MAP.md` 对应子文件）。
 
 ## 边界规则
 

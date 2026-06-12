@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Pack 6.9: validate-multi-pr-dispatch.sh
 #
-# PreToolUse hook (subagent matcher) for multi-pr-merge phase dispatches.
-# Fires when envelope.phase == "multi-pr-merge".
+# Hook-compatible explicit gate for Codex multi-pr-merge route-worker dispatches.
+# Codex calls this from dispatch-route-worker.sh validate when envelope.phase == "multi-pr-merge".
 #
 # 4 validation checks:
 #   (a) merge-brief file exists at STATE_DIR/merge-brief-<run_id>.md

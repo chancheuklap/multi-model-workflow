@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Unified Codex review dispatch script — replaces validate-review-dispatch.sh + record-review-dispatch.sh.
+# Unified Codex review dispatch script.
 # Subcommands: validate | record
 # Usage:
 #   dispatch-review.sh validate --prompt-file PATH [--gate GATE] [--allow-over-budget --override-reason TEXT]
@@ -11,7 +11,7 @@ shift 2>/dev/null || true
 
 case "$SUBCMD" in
   validate)
-    # --- validate subcommand (from validate-review-dispatch.sh) ---
+    # --- validate subcommand ---
     PROMPT_FILE=""
     GATE=""
     ALLOW_OVER_BUDGET="false"
@@ -194,7 +194,7 @@ case "$SUBCMD" in
     ;;
 
   record)
-    # --- record subcommand (from record-review-dispatch.sh) ---
+    # --- record subcommand ---
     PROMPT_FILE=""
     GATE=""
     AGENT_ID=""
@@ -226,7 +226,7 @@ case "$SUBCMD" in
     fi
 
     if [[ "$REVIEW_INTENT" != "baseline" ]]; then
-      echo "Error: record-review-dispatch only records baseline reviewer dispatches" >&2
+      echo "Error: dispatch-review record only records baseline reviewer dispatches" >&2
       exit 2
     fi
 
@@ -266,7 +266,7 @@ dispatch-review.sh — Unified Codex review dispatch (validate + record)
 
 Subcommands:
   validate  Validate a Codex review dispatch envelope before sending
-  record    Record a successful baseline dispatch after receiving JOB_ID
+  record    Record a successful baseline dispatch after receiving agent_id
 
 Usage:
   dispatch-review.sh validate --prompt-file PATH [--gate GATE] [--allow-over-budget --override-reason TEXT]

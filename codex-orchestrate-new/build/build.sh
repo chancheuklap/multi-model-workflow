@@ -214,7 +214,7 @@ if [[ -d "$PLUGIN_DIR/skills" ]]; then
 fi
 
 if [[ -d "$PLUGIN_DIR/agents" ]]; then
-  find "$PLUGIN_DIR/agents" -name "*.md" -type f | sort | while IFS= read -r f; do
+  find "$PLUGIN_DIR/agents" \( -name "*.md" -o -name "*.toml" \) -type f | sort | while IFS= read -r f; do
     process_skill_file "$f"
   done || true
 fi

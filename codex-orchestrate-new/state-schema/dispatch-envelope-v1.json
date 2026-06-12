@@ -6,7 +6,7 @@
   "properties": {
     "protocol_version": { "type": "string", "const": "1" },
     "run_id": { "type": "string" },
-    "phase": { "type": "string", "enum": ["plan-writing", "execution", "final-review", "discovery", "multi-pr-merge"] },
+    "phase": { "type": "string", "enum": ["discovery", "plan-writing", "execution", "final-review", "bug-investigation", "direct-repair", "multi-pr-merge"] },
     "agent_role": { "type": "string" },
     "agent_id": { "type": ["string", "null"] },
     "pack_id": { "type": ["string", "null"] },
@@ -24,7 +24,7 @@
     },
     "review_intent": {
       "oneOf": [
-        { "type": "string", "enum": ["baseline"] },
+        { "type": "string", "enum": ["baseline", "ad-hoc"] },
         { "type": "null" }
       ]
     },
@@ -37,6 +37,13 @@
     "correlation_id": {
       "type": ["string", "null"],
       "description": "{run_id}/{pack_id} — 跨 dispatch 追踪同一 pack 的 dispatch → return → review → repair 链路"
+    },
+    "worktree_path": { "type": ["string", "null"] },
+    "plan_path": { "type": ["string", "null"] },
+    "resume_from_pack_id": { "type": ["string", "null"] },
+    "conflict_id": {
+      "type": ["string", "null"],
+      "description": "multi-pr-merge conflict id from merge-brief §4, used instead of disposition_refs for merge conflict repair rounds"
     }
   }
 }

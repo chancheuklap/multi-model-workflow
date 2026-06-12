@@ -20,8 +20,9 @@
 ```
 spawn_agent({
   agent_type: "root_cause_analyst",
-  description: "Multi-PR conflict investigation: <conflict cluster summary>",
-  prompt: "
+  message: "
+    <DISPATCH_ENVELOPE>
+
     ## 调度场景
     Multi-PR Merge 冲突调查。这不是 bug，不是 repair 截断——这是多个并行 PR
     合并时发现的系统性冲突。每个 PR 各自正确（已通过 Final Review），但它们的
@@ -89,8 +90,9 @@ Coordinator 审阅 analyst findings，不是盲目接受——主动验证：
 ```
 spawn_agent({
   agent_type: "complex_code_explorer",
-  description: "Supplement PR conflict investigation: <conflict cluster>",
-  prompt: "
+  message: "
+    <DISPATCH_ENVELOPE>
+
     ## Scope
     只读调查。Root-cause-analyst 无法确定 PR 间冲突的根因，需要更多信息。
 

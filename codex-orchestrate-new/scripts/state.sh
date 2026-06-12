@@ -22,7 +22,7 @@ Commands:
   read              Read a field from state
   update            Update a field in state
   transition        State machine transition with matrix validation
-  validate          Validate state file against schema
+  validate          Validate state file invariants
   disposition       Manage review dispositions (append)
   agent-id          Get/set agent_id in execution-state (per Ruling 2)
   pack-progress     Update pack status in execution-state (--plan-id --pack-id --status [--commit-sha])
@@ -2243,7 +2243,7 @@ cmd_envelope() {
 cmd_envelope_build() {
   local phase="" agent_role="" plan_id="" pack_id="" repair_round="0"
   local agent_id="" worktree_path="" review_intent="" exception_code=""
-  local disposition_refs="" resume_from_pack_id="" plan_path=""
+  local disposition_refs="" resume_from_pack_id="" plan_path="" conflict_id=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --phase) phase="$2"; shift 2 ;;
@@ -2258,6 +2258,7 @@ cmd_envelope_build() {
       --exception-code) exception_code="$2"; shift 2 ;;
       --disposition-refs) disposition_refs="$2"; shift 2 ;;
       --resume-from-pack-id) resume_from_pack_id="$2"; shift 2 ;;
+      --conflict-id) conflict_id="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
@@ -2266,6 +2267,10 @@ cmd_envelope_build() {
     echo "Error: --phase and --agent-role required for envelope build" >&2
     exit 2
   fi
+  case "$phase" in
+    discovery|plan-writing|execution|final-review|bug-investigation|direct-repair|multi-pr-merge) ;;
+    *) echo "Error: unsupported dispatch phase: $phase" >&2; exit 2 ;;
+  esac
   if [[ -n "$plan_id" && -n "$pack_id" ]]; then
     echo "Error: exactly one of --plan-id / --pack-id may be set (got both)" >&2
     exit 2
@@ -2276,12 +2281,20 @@ cmd_envelope_build() {
   local idempotency_key="${RUN_ID}/${key_base}/r${repair_round}"
   local correlation_id="${RUN_ID}/${key_base}"
 
-  if [[ "$repair_round" -ge 1 ]] && [[ -z "$disposition_refs" || "$disposition_refs" == "null" || "$disposition_refs" == "[]" ]]; then
+  if [[ "$repair_round" -ge 1 && "$phase" == "multi-pr-merge" && -n "$conflict_id" ]]; then
+    : # merge repair rounds are keyed by conflict_id
+  elif [[ "$repair_round" -ge 1 ]] && [[ -z "$disposition_refs" || "$disposition_refs" == "null" || "$disposition_refs" == "[]" ]]; then
     echo "Error: repair dispatch (round=$repair_round) requires non-empty --disposition-refs" >&2
     exit 2
   fi
-  if [[ "$agent_role" == "codex_reviewer" && "$review_intent" != "baseline" ]]; then
-    echo "Error: codex_reviewer dispatch requires --review-intent baseline" >&2
+  if [[ "$agent_role" == "codex_reviewer" ]]; then
+    case "$review_intent" in
+      baseline|ad-hoc) ;;
+      *) echo "Error: codex_reviewer dispatch requires --review-intent baseline or ad-hoc" >&2; exit 2 ;;
+    esac
+  fi
+  if [[ "$review_intent" == "ad-hoc" && "$RUN_ID" != adhoc-* ]]; then
+    echo "Error: ad-hoc review_intent requires run_id prefix adhoc-" >&2
     exit 2
   fi
 
@@ -2301,6 +2314,7 @@ cmd_envelope_build() {
     --arg worktree_path "$worktree_path" \
     --arg resume_from "$resume_from_pack_id" \
     --arg plan_path "$plan_path" \
+    --arg conflict_id "$conflict_id" \
     --arg drefs "$disposition_refs" \
     '{
       protocol_version: "1",
@@ -2319,7 +2333,8 @@ cmd_envelope_build() {
       worktree_path: (if $worktree_path == "" then null else $worktree_path end)
     }
     + (if $plan_path == "" then {} else {plan_path: $plan_path} end)
-    + (if $resume_from == "" then {} else {resume_from_pack_id: $resume_from} end)')
+    + (if $resume_from == "" then {} else {resume_from_pack_id: $resume_from} end)
+    + (if $conflict_id == "" then {} else {conflict_id: $conflict_id} end)')
 
   local block="<!-- DISPATCH_ENVELOPE ${envelope} -->"
 

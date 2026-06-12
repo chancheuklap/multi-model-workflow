@@ -18,13 +18,13 @@
 
 ```bash
 # 检查：生成内容与当前文件是否一致（CI 用）
-bash codex-orchestrate-new/build/build.sh --check --plugin-dir plugin
+bash codex-orchestrate-new/build/build.sh --check --plugin-dir codex-orchestrate-new
 
 # 应用：把生成内容写入文件（原子写入：tmp → rename）
-bash codex-orchestrate-new/build/build.sh --apply --plugin-dir plugin
+bash codex-orchestrate-new/build/build.sh --apply --plugin-dir codex-orchestrate-new
 
 # 只跑单个 resolver（调试用）
-bash codex-orchestrate-new/build/build.sh --apply --plugin-dir plugin --resolver=preamble
+bash codex-orchestrate-new/build/build.sh --apply --plugin-dir codex-orchestrate-new --resolver=preamble
 ```
 
 ## 新增锚点步骤

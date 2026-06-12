@@ -29,12 +29,12 @@ Execution 返回 `NEEDS_PLAN_REVISION` 时，workflow 附带具体的 plan 问�
 | 无 source design | `NEEDS_DISCOVERY` | orchestrate-discovery |
 | design 未 review | `NEEDS_DESIGN_REVIEW` | Design Review |
 | 缺大 issue 文件 | `NEEDS_ISSUES` | 返回 Coordinator → 重新进入 orchestrate-discovery Step 12（大 issue 拆分） |
-| issue ready state 不清 | `NEEDS_TRIAGE` | `Skill({ skill: "triage" })` |
-| 业务术语或验收不清 | `NEEDS_DISCOVERY` | `Skill({ skill: "multi-model-workflow:orchestrate-discovery" })` |
-| bug 缺复现或 hypothesis | `NEEDS_DIAGNOSIS` | `Skill({ skill: "diagnose" })` |
-| 需要方案比较 | `NEEDS_DECISION` | user / `Skill({ skill: "prototype" })` |
-| 架构摩擦反复阻塞 | `NEEDS_ARCHITECTURE` | `Skill({ skill: "improve-codebase-architecture" })` |
-| 模块地图不足 | `NEEDS_CONTEXT` | `code_explorer`（窄事实）/ `Skill({ skill: "improve-codebase-architecture" })`（模块边界） |
+| issue ready state 不清 | `NEEDS_TRIAGE` | `加载 skill `triage`` |
+| 业务术语或验收不清 | `NEEDS_DISCOVERY` | `加载 skill `multi-model-workflow:orchestrate-discovery`` |
+| bug 缺复现或 hypothesis | `NEEDS_DIAGNOSIS` | `加载 skill `diagnose`` |
+| 需要方案比较 | `NEEDS_DECISION` | user / `加载 skill `prototype`` |
+| 架构摩擦反复阻塞 | `NEEDS_ARCHITECTURE` | `加载 skill `improve-codebase-architecture`` |
+| 模块地图不足 | `NEEDS_CONTEXT` | `code_explorer`（窄事实）/ `加载 skill `improve-codebase-architecture``（模块边界） |
 
 ## Step 2：Scope Contract + Budget File
 
