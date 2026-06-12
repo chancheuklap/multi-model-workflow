@@ -158,10 +158,12 @@ Execution owner 必须是 Orchestrate Workflow。
 
 ## Step 6：写 Task Pack
 
-每个 small issue 对应一个 Task Pack：
+每个 small issue 对应一个 Task Pack。每个 Pack body 第一行必须是 `- [ ] **Pack N.M**: <title>` 完成 checkbox——这是 `state.sh checkbox toggle` 的勾选目标（Plan Implementation Review pass 后按 committed pack 精确匹配 toggle 为 `- [x]`）。它在 Pack body 内、与 `## Pack Execution Manifest` 表（Worker 入口查询表，validate-pack-manifest.sh 解析）分属两处，互不干扰：
 
 ```markdown
 ### Task Pack N.M: <small issue title>
+
+- [ ] **Pack N.M**: <small issue title>
 
 **Issue:** <path or issue reference>
 **Goal behavior:** <end-to-end behavior>
@@ -297,6 +299,7 @@ verification 必须证明 pack 行为：
 ### Schema 完整性
 - [ ] `## Plan Review History` section 存在（可为空表头，由 hook 后续 append）
 - [ ] `## Pack Execution Manifest` section 存在且 pack_id 与 Pack 主体 `### Task Pack N.M` 编号一致（Coordinator 派 Worker 前会用 `validate-pack-manifest.sh` 三方对账）
+- [ ] 每个 `### Task Pack N.M` body 首行有 `- [ ] **Pack N.M**: <title>` 完成 checkbox（`state.sh checkbox toggle` 的勾选目标；缺失 → review pass 后无法勾选 committed pack）
 
 发现问题直接修正。如果发现 spec 需求没有对应 task，补上。
 

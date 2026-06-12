@@ -374,7 +374,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/state.sh" execution-plan finish \
 
 ### Step 14b：批次回收（批内全部 Plan 终态后，按依赖序逐个）
 
-> **仅 codex lane**。claude lane 串行就地执行、commit 已在 Coordinator 工作树，无 worktree/分支可回收——逐 Plan 终态后直接 `state.sh checkbox toggle` + commit plan docs（marker 删除靠 `state.sh execution-plan finish --status completed`），跳过本步。
+> **仅 codex lane**。claude lane 串行就地执行、commit 已在 Coordinator 工作树，无 worktree/分支可回收——逐 Plan 终态后直接 `state.sh checkbox toggle` + commit plan docs，跳过本步。claude lane 的 `worker-active-<NNN>` marker 由上方 Step 14 的 `execution-plan finish --status completed`（或 `--status isolated`）清除（脚本内 `rm -f`，幂等），保证 guard-doc-edit 在 Plan 终态后放行 docs/ 提交。
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/recycle-plan.sh" --run-id "<run_id>" --plan-id <NNN>
@@ -427,7 +427,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/recycle-plan.sh" --run-id "<run_id>" --plan-
 - [ ] Git Checkpoint 完成
 - [ ] Plan checkboxes 已更新
 - [ ] Budget 消耗已记录
-- [ ] 状态锚更新：`cursor.phase` transition 到 `execution_done`
+- [ ] 状态锚更新：`cursor.phase` 直接 transition `execution → final-review`（EXECUTION_PASSED 的 next phase，见本 skill 顶部 signpost 与 `routes-v1.json` phase_transitions；无中间 waypoint）
 
 **Re-run behavior:**
 - Step 5: 如果 Plan 已 dispatched/returned/committed → 跳过 dispatch，从当前状态继续

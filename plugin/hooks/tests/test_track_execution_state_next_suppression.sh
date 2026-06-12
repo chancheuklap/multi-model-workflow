@@ -86,6 +86,33 @@ else
   fail=$((fail + 1))
 fi
 
+# Case D: Plan already reviewed (review_verdict=pass), all packs committed →
+# 不能再发 review NEXT（已审完 Plan 被 commit_sha 污染重复触发的根因防线）
+cat > "$BUDGET_DIR/execution-state-${RUN_ID}.json" <<EOF
+{"run_id":"$RUN_ID","plans":{"001":{"worker_agent_id":null,"review_verdict":"pass","packs":{"1.1":{"status":"committed"},"1.2":{"status":"committed"}}}}}
+EOF
+OUT=$(run_hook "001" "1.2")
+if echo "$OUT" | grep -q "Dispatch Plan Implementation Review"; then
+  echo "  FAIL: D) review_verdict=pass 的 Plan 不应再提示 Dispatch Review (actual: $OUT)"
+  fail=$((fail + 1))
+else
+  echo "  PASS: D) review_verdict=pass → Dispatch Review NEXT 被抑制"
+  pass=$((pass + 1))
+fi
+
+# Case E: Plan finalized (status=completed), all packs committed → 同样抑制
+cat > "$BUDGET_DIR/execution-state-${RUN_ID}.json" <<EOF
+{"run_id":"$RUN_ID","plans":{"002":{"worker_agent_id":null,"status":"completed","packs":{"2.1":{"status":"committed"}}}}}
+EOF
+OUT=$(run_hook "002" "2.1")
+if echo "$OUT" | grep -q "Dispatch Plan Implementation Review"; then
+  echo "  FAIL: E) status=completed 的 Plan 不应再提示 Dispatch Review (actual: $OUT)"
+  fail=$((fail + 1))
+else
+  echo "  PASS: E) status=completed → Dispatch Review NEXT 被抑制"
+  pass=$((pass + 1))
+fi
+
 echo ""
 echo "Result: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

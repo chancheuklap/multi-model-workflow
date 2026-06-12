@@ -13,7 +13,6 @@
     "Coordinator:repairing:returned",
     "Coordinator:workflow:dispatched",
     "Coordinator:*:blocked",
-    "Coordinator:*:execution_done",
     "Coordinator:*:closed"
   ],
   "verdict_routing": {

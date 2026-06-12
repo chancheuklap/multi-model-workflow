@@ -68,7 +68,7 @@ Compaction recovery: 从 `workflow-state.cursor` + plan/design 文档重建 repa
 
 Plan Implementation Review pass 后，Coordinator Edit plan 文档勾选 checkbox 的 source-of-truth 是 `plan-return.per_pack[*]` where `status == committed`：
 1. Read `.claude/multi-model-workflow/plan-returns/<run_id>/<plan_id>/plan-return.json`
-2. 对每个 `per_pack[i].status == "committed"` 的 Pack，按 Pack ID 精确匹配 `docs/orchestrate/plans/<slug>/<plan-file>.md` 中 `- [ ] **Pack N.M**` 行，Edit toggle 为 `- [x] **Pack N.M**`
+2. 对每个 `per_pack[i].status == "committed"` 的 Pack，按 Pack ID 精确匹配 `docs/orchestrate/plans/<slug>/<plan-file>.md` 中该 Pack body 首行的 `- [ ] **Pack N.M**` 完成 checkbox（不是 `## Pack Execution Manifest` 表行——表行是 Worker 入口查询表，无 checkbox），Edit toggle 为 `- [x] **Pack N.M**`。脚本 `state.sh checkbox toggle` 已实现此精确匹配
 3. `status` 不是 `committed`（pending / in_progress / blocked / skipped）的 Pack 不勾选
 
 ## Step 17：Re-Review

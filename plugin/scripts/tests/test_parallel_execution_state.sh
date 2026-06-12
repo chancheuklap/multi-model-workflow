@@ -81,17 +81,27 @@ run_test "worktree_path / branch / isolation_status=active recorded" \
 run_test "current_plan_id no longer written (deleted, no compat)" \
   bash -c "[[ \$(jq 'has(\"current_plan_id\")' '$ESF') == 'false' ]]"
 
+# 终态前各自挂一个 worker-active marker（guard-doc-edit 据此拦 docs/ 编辑）
+echo /tmp/wt-001 > "$FIXTURE_DIR/worker-active-001"
+echo /tmp/wt-003 > "$FIXTURE_DIR/worker-active-003"
+
 # B5: 003 失败隔离 → 不影响 001 在飞
 bash "$STATE_SH" execution-plan finish --run-id "$RUN_ID" --plan-id 003 --status isolated >/dev/null
 run_test "isolated plan removed from active, marked isolated" \
   bash -c "[[ \$(jq -c '.active_plan_ids' '$ESF') == '[\"001\"]' && \$(jq -r '.plans[\"003\"].isolation_status' '$ESF') == 'isolated' ]]"
 run_test "other in-flight plan untouched by isolation" \
   bash -c "[[ \$(jq -r '.plans[\"001\"].status' '$ESF') == 'in_progress' ]]"
+run_test "isolated 终态清除 003 的 worker-active marker（guard 放行 docs）" \
+  bash -c "[[ ! -f '$FIXTURE_DIR/worker-active-003' ]]"
+run_test "001 仍在飞 → 其 marker 不被 003 隔离误删" \
+  bash -c "[[ -f '$FIXTURE_DIR/worker-active-001' ]]"
 
 # 001 完成 → active 清空；B6 回收后标 merged
 bash "$STATE_SH" execution-plan finish --run-id "$RUN_ID" --plan-id 001 --status completed >/dev/null
 run_test "completed plan removed from active" \
   bash -c "[[ \$(jq -c '.active_plan_ids' '$ESF') == '[]' && \$(jq -r '.plans[\"001\"].status' '$ESF') == 'completed' ]]"
+run_test "completed 终态清除 001 的 worker-active marker（claude lane 唯一清理点）" \
+  bash -c "[[ ! -f '$FIXTURE_DIR/worker-active-001' ]]"
 bash "$STATE_SH" execution-plan finish --run-id "$RUN_ID" --plan-id 001 --status merged >/dev/null
 run_test "merged marks isolation_status=merged" \
   bash -c "[[ \$(jq -r '.plans[\"001\"].isolation_status' '$ESF') == 'merged' ]]"

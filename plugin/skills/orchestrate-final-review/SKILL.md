@@ -144,7 +144,7 @@ Bad:  "经过全面审查，代码质量达到了预期标准。"
 - [ ] 遗留清扫完成（无未处置项）
 - [ ] Release Gate 通过（如触发）
 - [ ] 业务汇报已组装
-- [ ] 状态锚更新：`cursor.phase` transition 到 `final-review_done`
+- [ ] 状态锚更新：FINAL_REVIEW_PASSED 返回主循环后进入 Closing；终点 `cursor.phase` 由 `final-review → closed` transition 落定（`routes-v1.json` phase_transitions 的合法终态；无中间 waypoint）
 
 ## 返回
 

@@ -19,15 +19,37 @@ echo "=== test_checkbox_envelope.sh ==="
 RUN_ID="test-ce"
 
 # --- A2 fixture: plan doc + plan-return ---
+# 真实 plan 形态：`## Pack Execution Manifest` 是 validate-pack-manifest.sh 解析的
+# 表（cell1 = bare pack_id，无 checkbox），完成 checkbox 在各 Pack body 首行
+# `- [ ] **Pack N.M**`。toggle 必须命中 body checkbox，不能依赖 Manifest 表里有
+# checkbox（早期 bug：toggle 期望 Manifest 含 checkbox，真实 plan 用表 → 0 toggled）。
 PLAN_FILE="$FIXTURE_DIR/plan-001.md"
 cat > "$PLAN_FILE" <<'EOF'
 # Plan 001
 
 ## Pack Execution Manifest
 
+| pack_id | title | risk | dependencies | owned_files |
+| --- | --- | --- | --- | --- |
+| 1.1 | first pack | normal | — | `a.py` |
+| 1.2 | second pack | normal | 1.1 | `b.py` |
+| 1.10 | tenth pack | normal | — | `c.py` |
+| 1.3 | blocked pack | normal | — | `d.py` |
+
+### Task Pack 1.1: first pack
+
 - [ ] **Pack 1.1**: first pack
+
+### Task Pack 1.2: second pack
+
 - [ ] **Pack 1.2**: second pack
-- [ ] **Pack 1.10**: tenth pack (prefix-collision probe for 1.1)
+
+### Task Pack 1.10: tenth pack (prefix-collision probe for 1.1)
+
+- [ ] **Pack 1.10**: tenth pack
+
+### Task Pack 1.3: blocked pack
+
 - [ ] **Pack 1.3**: blocked pack
 EOF
 
@@ -57,6 +79,8 @@ run_test "Pack 1.10 (skipped) NOT toggled — precise ID match, no prefix bleed"
   bash -c "grep -q -- '- \[ \] \*\*Pack 1.10\*\*' '$PLAN_FILE'"
 run_test "Pack 1.3 (blocked) NOT toggled" \
   bash -c "grep -q -- '- \[ \] \*\*Pack 1.3\*\*' '$PLAN_FILE'"
+run_test "Manifest 表行（bare pack_id）不被 toggle 触碰——toggle 只命中 body checkbox" \
+  bash -c "grep -qE '^\| 1\.1 \| first pack \|' '$PLAN_FILE'"
 run_test "second run idempotent (already-checked counted, exit 0)" \
   bash -c "bash '$STATE_SH' checkbox toggle --run-id '$RUN_ID' --plan-id 001 --plan-file '$PLAN_FILE' | grep -q '2 already checked'"
 run_test_expect_fail "missing plan-return → exit 2" \
