@@ -8,7 +8,7 @@
       "name": "multi-model-workflow",
       "source": {
         "source": "local",
-        "path": "./codex-orchestrate"
+        "path": "./codex-orchestrate-new"
       },
       "policy": {
         "installation": "AVAILABLE",

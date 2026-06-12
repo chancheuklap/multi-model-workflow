@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "merge-brief-v1",
+  "description": "Multi-PR merge 合成模型中介文档参考规范。实际产物是 Markdown 文件（带 MERGE_BRIEF_META HTML 注释），运行时由 state.sh merge-brief 命令和 validate-multi-pr-dispatch.sh 正则消费，不读本文件。9 段固定结构：§1 Meta / §2 参与PR / §3 正确状态模型 / §4 Conflict Findings / §5 Root Cause / §6 Resolution Log / §7 Integration Review Pointers / §8 Open Items / §9 Verdict。",
+  "承重字段": {
+    "META必填6项": ["schema_version", "run_id", "slug", "created_at", "last_updated_at", "current_stage"],
+    "current_stage枚举": ["init", "conflict_discovery", "rca", "repair", "integration_review", "merging", "complete"],
+    "conflict_id格式": "^C-\\d{3}$（per-run，C-001起编，跨run不重用）",
+    "conflict_status枚举": ["open", "rca-in-progress", "repair-in-progress", "resolved", "escalated"],
+    "section_heading字面量": ["## 4. Conflict", "## 5. Root Cause", "## 6. Resolution"],
+    "verdict枚举": ["MERGE_COMPLETE", "NEEDS_DISCOVERY", "NEEDS_USER_DECISION", "BLOCKED"],
+    "contract_surfaces_type枚举": ["Pydantic", "API", "DB schema", "JSON", "registry", "migration", "other"],
+    "file_cross_matrix_cross_type枚举": ["parallel-edit", "single-edit-dependency", "rename", "delete-dependency", "other"],
+    "severity枚举": ["low", "medium", "high", "blocker"],
+    "rca_resolution枚举": ["root_cause_identified", "design_conflict", "implementation_deviation", "unable_to_determine"],
+    "repair_status_after枚举": ["resolved", "escalated-to-systemic", "new-conflict-spawned"],
+    "open_items_type枚举": ["worker-open-item", "out-of-scope", "user-decision-needed"],
+    "消费方": {
+      "state.sh:1617": "校验 META 6 必填字段",
+      "state.sh:1623": "校验 current_stage 7 枚举（与 MERGE_BRIEF_STAGES bash 数组一致）",
+      "state.sh:1637-1640": "校验 9 个 section heading 字面量",
+      "state.sh:1661": "正则抽取 conflict_id（pattern: conflict_id[^:]*:）",
+      "state.sh:1689": "正则抽取 status",
+      "state.sh:1695-1702": "status=resolved→§6有条目 / status=rca-in-progress→§5有条目",
+      "validate-multi-pr-dispatch.sh:142-165": "正则消费 §4 conflict_id + status"
+    }
+  },
+  "properties": {
+    "schema_version": { "type": "string", "const": "1" },
+    "meta": { "type": "object", "description": "§1 META — MERGE_BRIEF_META HTML注释中的结构化字段" },
+    "pr_inventory": { "type": "array", "description": "§2 参与PR表" },
+    "correct_state_model": { "type": "object", "description": "§3 合并后正确状态模型（behaviors / contract_surfaces / file_cross_matrix / merge_order / risk_hotspots）" },
+    "conflict_findings": { "type": "array", "description": "§4 Conflict Findings — conflict_id(C-001起) / type / severity / status / involved_prs / description" },
+    "root_cause_analysis": { "type": "array", "description": "§5 Root Cause Analysis — conflict_id / analyst_agent_id / resolution / root_cause_type / fix_direction" },
+    "resolution_log": { "type": "array", "description": "§6 Resolution Log — conflict_id / owner / repair_round / summary / status_after" },
+    "integration_review_pointers": { "type": "object", "description": "§7 Integration Review Pointers — 喂给 Codex 集成审查 prompt 的锚点集合" },
+    "open_items": { "type": "array", "description": "§8 Open Items — type(worker-open-item/out-of-scope/user-decision-needed) / description / ref" },
+    "verdict": { "type": "object", "description": "§9 Verdict — value(MERGE_COMPLETE/NEEDS_DISCOVERY/NEEDS_USER_DECISION/BLOCKED) / evidence_pointers / decided_at" }
+  },
+  "required": ["schema_version"]
+}

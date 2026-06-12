@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "open-items-v1",
+  "description": "Schema for plan-returns/<run_id>/<plan_id>/open-items.json. Worker accumulates open items across all packs in a plan into this single file (one per plan). Coordinator processes the items at Plan boundary — triage by tag: out-of-scope → backlog / next plan; needs-evaluation → independent judgment; bug → file ticket or fix immediately. Tag set aligned with pack-returns-v1.json .open_items[].tag (Plan 002 Pack 2.7).",
+  "type": "object",
+  "required": ["schema_version", "plan_id", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1"
+    },
+    "plan_id": {
+      "type": "string",
+      "description": "Plan identifier (e.g. '005')."
+    },
+    "items": {
+      "type": "array",
+      "description": "Accumulated open items across all packs in the plan. Empty array allowed (no items found).",
+      "items": {
+        "type": "object",
+        "required": ["tag", "pack_id", "finding"],
+        "additionalProperties": false,
+        "properties": {
+          "tag": {
+            "type": "string",
+            "enum": ["out-of-scope", "needs-evaluation", "bug"],
+            "description": "Triage tag — same enum as pack-returns-v1.json .open_items[].tag."
+          },
+          "pack_id": {
+            "type": "string",
+            "description": "Pack identifier where the item was surfaced (e.g. '5.3')."
+          },
+          "finding": {
+            "type": "string",
+            "description": "Short human-readable description; include 'where found' + 'impact judgment'."
+          },
+          "suggested_action": {
+            "type": ["string", "null"],
+            "description": "Optional suggested action for the Coordinator (e.g. 'file ticket', 'add to next plan')."
+          }
+        }
+      }
+    }
+  }
+}

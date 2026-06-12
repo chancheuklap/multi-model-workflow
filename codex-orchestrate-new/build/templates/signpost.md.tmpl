@@ -1,0 +1,13 @@
+**Phase 过渡标记**：
+
+完成当前 phase 时，更新 workflow-state 的 cursor 和 status 锚：
+
+```bash
+bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" transition \
+  --run-id "<run_id>" --actor Coordinator \
+  --from "<current_phase>" --to "<next_phase>"
+```
+
+`--to` 由本 phase skill 流程指定，合法跳转以 `routes-v1.json[route].phase_transitions` 为准并机器校验（非法即 `exit 2`）——phase 序列不在散文写死。Compaction 恢复读 `cursor.phase`。
+
+Phase complete. 返回 orchestrate-workflow 主循环。
