@@ -25,10 +25,10 @@
 在 diff 范围内扫描遗留标记：
 
 ```bash
-git diff <starting_commit>..HEAD --diff-filter=AM --name-only | xargs grep -n "TODO\|FIXME\|TBD\|XXX\|HACK\|defer\|later\|placeholder\|temporary\|workaround" 2>/dev/null || true
+git diff <implementation_base_commit>..HEAD --diff-filter=AM --name-only | xargs grep -n "TODO\|FIXME\|TBD\|XXX\|HACK\|defer\|later\|placeholder\|temporary\|workaround" 2>/dev/null || true
 ```
 
-过滤掉 starting commit 之前已存在的遗留标记（`git show <starting_commit>:<file>` 对比）。只关注本次实现新增的。
+过滤掉 implementation base commit 之前已存在的遗留标记（`git show <implementation_base_commit>:<file>` 对比）。只关注本次实现新增的。
 
 **13c：Plan Implementation Review Disposition 记录 — 验证 issue 已开**
 

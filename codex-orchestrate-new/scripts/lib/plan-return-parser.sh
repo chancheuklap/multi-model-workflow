@@ -49,6 +49,10 @@ parse_plan_return() {
     echo "Error: plan-return missing per_pack object" >&2
     return 2
   fi
+  if ! jq -e '.per_pack | to_entries | all(.value.status as $s | ($s == "committed" or $s == "blocked" or $s == "skipped"))' "$file" >/dev/null 2>&1; then
+    echo "Error: plan-return per_pack statuses must be committed, blocked, or skipped" >&2
+    return 2
+  fi
 
   PLAN_RETURN_VERDICT="$verdict"
   PLAN_RETURN_RUN_ID="$run_id"

@@ -118,7 +118,7 @@ worker_return() {
 
   # Run agent-return-handler.sh (PostToolUse subagent on Worker return)
   local envelope
-  envelope=$(jq -nc '{protocol_version:"1",run_id:"e2e-test",phase:"execution",agent_role:"plan-executor",repair_round:0,idempotency_key:"e2e-k1",plan_id:"005",pack_id:null,plan_path:"docs/orchestrate/plans/e2e/005-loop.md"}')
+  envelope=$(jq -nc '{protocol_version:"1",run_id:"e2e-test",phase:"execution",agent_role:"pack_executor",repair_round:0,idempotency_key:"e2e-k1",plan_id:"005",pack_id:null,plan_path:"docs/orchestrate/plans/e2e/005-loop.md"}')
   local prompt="<!-- DISPATCH_ENVELOPE $envelope -->"
   local input
   input=$(jq -n --arg p "$prompt" \

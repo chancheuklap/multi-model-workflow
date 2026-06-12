@@ -1,6 +1,6 @@
 # Build System
 
-源码模块化 + 运行时组合。`.tmpl` 模板由 `build.sh` 的内联 resolve 逻辑（`resolve_anchor()`）在 build time 组合成 SKILL.md / agent.md 中 agent 读到的最终内容。
+源码模块化 + 运行时组合。`.tmpl` 模板由 `build.sh` 的内联 resolve 逻辑（`resolve_anchor()`）在 build time 组合成 skill、reference 和 TOML agent 中 agent 读到的最终内容。
 
 ## 锚点约定
 
@@ -11,7 +11,7 @@
 ```
 
 - 锚点由 `build.sh` 识别，`resolve_anchor()` 按 anchor 名生成替换内容
-- 锚点不存在的文件会被跳过（不报错），便于渐进式接入
+- 没有锚点的文件会被跳过；存在锚点但 resolver 无法解析时必须失败，防止旧宿主 anchor 静默回流
 - 支持 variant：`<!-- BEGIN: review-dispatch [variant=execution] -->`
 
 ## 命令
@@ -40,7 +40,7 @@ resolve 逻辑已从早期的 `resolvers/*.sh`（每锚点一个脚本）塌缩�
 
 1. 在 `templates/` 下新建对应 `.md.tmpl`
 2. 在 `build.sh` 的 `resolve_anchor()` 里给新 anchor 加一个 `case` 分支（归入上面三类之一）
-3. 在目标文件中插入 `<!-- BEGIN: <name> -->` / `<!-- END: <name> -->` 锚点对
+3. 在目标 skill、reference 或 TOML agent 文件中插入 `<!-- BEGIN: <name> -->` / `<!-- END: <name> -->` 锚点对
 4. 运行 `build.sh --apply` 注入内容（`--resolver=<name>` 可只跑该锚点）
 5. 在 `tests/` 下新建 `test_<name>.sh` 验证
 
@@ -50,4 +50,4 @@ resolve 逻辑已从早期的 `resolvers/*.sh`（每锚点一个脚本）塌缩�
 
 ## 紧急修复
 
-直接编辑 SKILL.md（立即生效），然后补改 `.tmpl` 源文件 + 重新 `--apply`。等同于编译语言的 hotfix 模型。
+直接编辑生成后的 skill/reference/TOML（立即生效），然后补改 `.tmpl` 源文件 + 重新 `--apply`。等同于编译语言的 hotfix 模型。

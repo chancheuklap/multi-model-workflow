@@ -104,14 +104,17 @@ run_test "disposition append accepted with evidence" \
 run_test "disposition append rejected (no evidence needed)" \
   bash "$STATE_SH" disposition append --run-id "$RUN_ID" --finding-id "F2" --disposition "rejected" --confidence 3 --severity L
 
+run_test "disposition append path-a (schema enum)" \
+  bash "$STATE_SH" disposition append --run-id "$RUN_ID" --finding-id "F2A" --disposition "path-a" --confidence 6 --severity M
+
 run_test_expect_fail "disposition append accepted without evidence -> exit 2" \
   bash "$STATE_SH" disposition append --run-id "$RUN_ID" --finding-id "F3" --disposition "accepted" --confidence 7 --severity M
 
 run_test_expect_fail "disposition append accepted with empty evidence -> exit 2" \
   bash "$STATE_SH" disposition append --run-id "$RUN_ID" --finding-id "F4" --disposition "accepted" --confidence 7 --severity M --evidence ""
 
-run_test "dispositions count is 2" \
-  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.review_dispositions | length') == '2' ]]"
+run_test "dispositions count is 3" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.review_dispositions | length') == '3' ]]"
 
 run_test "disposition F1 evidence readable" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.review_dispositions[0].evidence') == 'verified by grep' ]]"

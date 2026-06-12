@@ -42,7 +42,7 @@ run_test "final review preconditions read Cross-Plan Contract Anchors" \
   grep -q "Cross-Plan Contract Anchors" "$FINAL_PRE"
 
 run_test "final review angles validate Cross-Plan Contract Anchors with git diff" bash -c \
-  "grep -q 'Cross-Plan Contract Anchors' '$FINAL_ANGLES' && grep -q 'git diff <starting_commit>..HEAD' '$FINAL_ANGLES'"
+  "grep -q 'Cross-Plan Contract Anchors' '$FINAL_ANGLES' && grep -q 'git diff <implementation_base_commit>..HEAD' '$FINAL_ANGLES'"
 
 run_test "final review can return NEEDS_EXECUTION for cross-plan contract failure" \
   grep -q "NEEDS_EXECUTION" "$FINAL_ANGLES"

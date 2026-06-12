@@ -511,10 +511,10 @@ cmd_disposition_append() {
 
   # Enum validation: only allow known disposition values
   case "$disposition" in
-    accepted|rejected|suppress|path-b|duplicate|out-of-scope|needs-evidence|needs-evaluation|user-decision)
+    accepted|rejected|suppress|path-a|path-b|duplicate|out-of-scope|needs-evidence|needs-evaluation|user-decision)
       ;;
     *)
-      echo "Error: invalid disposition '$disposition'. Allowed: accepted|rejected|suppress|path-b|duplicate|out-of-scope|needs-evidence|needs-evaluation|user-decision" >&2
+      echo "Error: invalid disposition '$disposition'. Allowed: accepted|rejected|suppress|path-a|path-b|duplicate|out-of-scope|needs-evidence|needs-evaluation|user-decision" >&2
       exit 2
       ;;
   esac
@@ -890,12 +890,23 @@ cmd_plan_returns_ingest() {
     exit 2
   fi
 
-  # Minimal schema check: schema_version=1, has run_id/plan_id/verdict/per_pack
-  local sv verdict
+  # Schema guard: schema_version=1, run_id/plan_id match caller, verdict enum,
+  # per_pack is an object with only committed/blocked/skipped statuses.
+  local sv verdict pr_run_id pr_plan_id
   sv=$(jq -r '.schema_version // empty' "$pr_file")
   verdict=$(jq -r '.verdict // empty' "$pr_file")
+  pr_run_id=$(jq -r '.run_id // empty' "$pr_file")
+  pr_plan_id=$(jq -r '.plan_id // empty' "$pr_file")
   if [[ "$sv" != "1" ]]; then
     echo "Error: plan-return schema_version expected '1', got '$sv'" >&2
+    exit 2
+  fi
+  if [[ "$pr_run_id" != "$RUN_ID" ]]; then
+    echo "Error: plan-return run_id mismatch: expected '$RUN_ID', got '$pr_run_id'" >&2
+    exit 2
+  fi
+  if [[ "$pr_plan_id" != "$plan_id" ]]; then
+    echo "Error: plan-return plan_id mismatch: expected '$plan_id', got '$pr_plan_id'" >&2
     exit 2
   fi
   case "$verdict" in
@@ -906,11 +917,30 @@ cmd_plan_returns_ingest() {
     echo "Error: plan-return missing per_pack object" >&2
     exit 2
   fi
+  if ! jq -e '.per_pack | to_entries | all(.value.status as $s | ($s == "committed" or $s == "blocked" or $s == "skipped"))' "$pr_file" >/dev/null 2>&1; then
+    echo "Error: plan-return per_pack statuses must be committed, blocked, or skipped" >&2
+    exit 2
+  fi
 
   local esf
   esf="$(execution_state_file)"
   if [[ ! -f "$esf" ]]; then
     echo "Error: execution-state file not found: $esf" >&2
+    exit 2
+  fi
+  if ! jq -e --arg pid "$plan_id" '.plans[$pid] != null' "$esf" >/dev/null 2>&1; then
+    echo "Error: plan_id $plan_id not found in execution-state" >&2
+    exit 2
+  fi
+  local unknown_packs
+  unknown_packs=$(jq -r --arg pid "$plan_id" --slurpfile pr "$pr_file" '
+    (.plans[$pid].packs // {}) as $known
+    | $pr[0].per_pack
+    | keys[]
+    | select(($known[.] // null) == null)
+  ' "$esf")
+  if [[ -n "$unknown_packs" ]]; then
+    echo "Error: plan-return references unknown pack_id(s): $(echo "$unknown_packs" | paste -sd ',' -)" >&2
     exit 2
   fi
 

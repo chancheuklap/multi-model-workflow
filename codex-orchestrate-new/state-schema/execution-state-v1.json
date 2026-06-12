@@ -36,7 +36,7 @@
           },
           "session_id": {
             "type": ["string", "null"],
-            "description": "Codex exec session id（C4）。修复轮 `send_input resume <session_id>` 续会话的记账依据；Codex worker 场景为 null。"
+            "description": "Codex exec session id（C4）。修复轮先 resume_agent({ id }) 再 send_input({ target, message }) 续会话；Codex worker 场景为 null。"
           },
           "worktree_path": {
             "type": ["string", "null"],

@@ -59,13 +59,18 @@ bash codex-orchestrate-new/scripts/validate-plugin-contract.sh codex-orchestrate
 
 Source 覆盖审计完成后再执行安装；不要用安装动作替代复刻验收。
 
-本仓库通过 repo-local marketplace 暴露 `codex-orchestrate-new/`，入口是 `.agents/plugins/marketplace.json`。
+本仓库通过 repo-local marketplace 暴露 `codex-orchestrate-new/`，source 入口是 `.agents/plugins/marketplace.json`。当前机器上的 Codex CLI marketplace discovery 可能不会自动列出 repo-local marketplace；`codex plugin marketplace list` 或 `codex plugin add` 不能作为完整安装证明。
+
+完整 runtime 生效必须同时满足：
+
+1. Codex app runtime 按 `.agents/plugins/marketplace.json` 安装 plugin，且版本化 cache 与 `codex-orchestrate-new/` 一致。
+2. 7 个 custom agent TOML 已同步到 `~/.codex/agents/`，并写入 `~/.codex/config.toml`。
+3. Bundled hooks 已在新的 Codex session 中 review/trust，hook trust records 已持久化。
+4. 新 session 的 SessionStart 输出当前 plugin root、active run 和 hook context。
+
+Agent 同步和 runtime parity 验证：
 
 ```bash
-codex plugin marketplace list
-codex plugin list --marketplace multi-model-workflow
-codex plugin add multi-model-workflow@multi-model-workflow
+bash codex-orchestrate-new/agents/sync-agents.sh --apply --update-config
 bash codex-orchestrate-new/scripts/verify-runtime-parity.sh codex-orchestrate-new
 ```
-
-安装后还要在新的 Codex session 里 review/trust plugin hook definitions，并确认 SessionStart 输出当前 plugin root、active run 和 hook context。

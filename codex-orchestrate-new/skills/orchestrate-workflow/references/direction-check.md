@@ -13,7 +13,7 @@
 | ≥ 100%（到顶） | 同 AFK：escape hatch 硬停 | **escape hatch 硬停**：写 `pending_direction_check`（threshold_type=`review`, threshold_percent=100）→ 拦派发一次 |
 
 - **有效用量（effective_used）= review_used − review_credit**（credit 记录合理回流归还的额度，不破坏 review_used 历史真相）
-- `track-review-budget.sh` 读 `attendance_mode`，按上表分叉 80%/100% 行为
+- `complete-review-dispatch.sh` 在 result 持久化后调用 `state.sh budget increment-review`；state 层读取 `attendance_mode`，按上表分叉 80%/100% 行为
 - `validate-plan-dispatch.sh:66-72` 不变，仍是 DC 的 `exit 2` 执行点
 
 ### 触发命令
@@ -36,7 +36,7 @@ workflow-state 写入：
 ## 流程
 
 ### Step 1: Trigger
-Hook 检测到阈值 → 调用 `state.sh direction-check trigger`。
+Review complete 计数后，`state.sh budget increment-review` 检测到阈值 → 写入 `pending_direction_check`。
 
 ### Step 2: Block
 `validate-plan-dispatch.sh` 检查 `pending_direction_check.ack_status`：

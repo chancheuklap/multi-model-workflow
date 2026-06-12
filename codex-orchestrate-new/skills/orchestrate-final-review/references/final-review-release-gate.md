@@ -33,7 +33,7 @@ Code quality and spec compliance have already passed.
 Only assess release risk.
 
 ## Full diff
-git diff <starting_commit>..HEAD
+git diff <implementation_base_commit>..HEAD
 
 ## Risk surface
 <specific risk areas triggered>
@@ -139,7 +139,7 @@ spawn_agent({
 ```
 
 4. 需要用户决策（如 rollback 策略选择）→ 询问用户
-5. 修复后由 Coordinator 自验：对照 release risk surface + 跑 verification commands 验证修复点已落地；不再派发 targeted release re-review。
+5. 修复后由 Coordinator 自验：对照 release risk surface + 跑 verification commands 验证修复点已落地；不再派发额外 review。
 
 Release blocker 修复最多 2 轮。超过 → BLOCKED，报告用户。
 

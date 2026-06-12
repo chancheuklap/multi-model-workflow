@@ -326,6 +326,9 @@ JSON
 run_test "complete-review-dispatch skips budget before plan count is known" \
   bash -c "STATE_BASE='$FIXTURE_DIR' bash '$COMPLETE_SH' --run-id '$RUN_ID_PENDING' --gate '$GATE_PENDING' --agent-id reviewer-pending --result-file '$RESULT_PENDING' >/dev/null && [[ \$(jq -r '.budget_count_skip_reason' '$FIXTURE_DIR/review-registry/$GATE_PENDING.json') == 'pending_plan_count' ]]"
 
+run_test "complete-review-dispatch retries budget after pending plan count is initialized" \
+  bash -c "bash '$STATE_SH' budget initialize --run-id '$RUN_ID_PENDING' --plan-count 1 >/dev/null && STATE_BASE='$FIXTURE_DIR' bash '$COMPLETE_SH' --run-id '$RUN_ID_PENDING' --gate '$GATE_PENDING' --agent-id reviewer-pending --result-file '$RESULT_PENDING' >/dev/null && [[ \$(bash '$STATE_SH' read --run-id '$RUN_ID_PENDING' --field '.budget.review_used') == '1' ]] && [[ \$(jq -r '.budget_counted' '$FIXTURE_DIR/review-registry/$GATE_PENDING.json') == 'true' ]]"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

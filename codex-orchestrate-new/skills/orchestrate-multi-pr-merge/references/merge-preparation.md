@@ -33,7 +33,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" update \
   --value '".codex/multi-model-workflow/merge-brief-<run_id>.md"'
 ```
 
-然后 Coordinator 读完所有 PR 文档后，按 `references/merge-brief-template.md` 直接 Edit merge-brief，填写以下内容（写完后禁止进入 Step 4）：
+然后 Coordinator 读完所有 PR 文档后，按 `references/merge-brief-template.md` 直接 Edit merge-brief，填写以下内容（写完并通过 verify 后才能进入 Step 4）：
 
 1. **§2 PR 表**：每个 PR 的 branch、大设计 path、大计划 path、Final Review verdict、核心行为（≤2 句）
 2. **§3.1 行为清单**：合并后系统应该具备的所有行为（从大设计文档提取）

@@ -61,6 +61,9 @@ check "schema covers route-worker phases" jq -e '(.properties.phase.enum | index
 check "multi-pr route-worker runs dedicated gate" grep -q 'validate-multi-pr-dispatch.sh' "$PLUGIN_DIR/scripts/dispatch-route-worker.sh"
 check "resume repair uses Codex target field" grep -q 'send_input({' "$PLUGIN_DIR/build/templates/send-input-resume.md.tmpl"
 check "resume repair does not use legacy to field" bash -c "! grep -q 'to: \"<' '$PLUGIN_DIR/build/templates/send-input-resume.md.tmpl'"
+check "worker resume docs use Codex tool split" bash -c "! rg -q 'send_input resume' '$PLUGIN_DIR/agents' '$PLUGIN_DIR/build' '$PLUGIN_DIR/hooks' '$PLUGIN_DIR/scripts' '$PLUGIN_DIR/skills' '$PLUGIN_DIR/state-schema' --glob '!**/tests/**' --glob '!**/verify-maturity.sh'"
+check "no legacy plan-executor role in source" bash -c "! rg -q 'plan-executor' '$PLUGIN_DIR/agents' '$PLUGIN_DIR/hooks' '$PLUGIN_DIR/scripts' '$PLUGIN_DIR/skills' '$PLUGIN_DIR/state-schema' --glob '!**/tests/**' --glob '!**/verify-maturity.sh'"
+check "review docs avoid external job/result wording" bash -c "! rg -q 'Codex job|job 完成|result/complete' '$PLUGIN_DIR/skills' --glob '!**/tests/**'"
 check "execution dispatch docs keep plan and manifest validators" bash -c "grep -q 'validate-plan-dispatch.sh' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md' && grep -q 'validate-pack-manifest.sh' '$PLUGIN_DIR/skills/orchestrate-execution/SKILL.md'"
 
 echo

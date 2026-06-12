@@ -150,6 +150,58 @@ else
   pass=$((pass + 1))
 fi
 
+# plan-return run_id mismatch → error
+MISMATCH_DIR="$FIXTURE_DIR/plan-returns/$RUN_ID/005"
+cat > "$MISMATCH_DIR/plan-return.json" <<EOF
+{"schema_version":"1","run_id":"wrong-run","plan_id":"005","verdict":"pass","per_pack":{"5.1":{"status":"committed"}}}
+EOF
+cat > "$ESF" <<EOF
+{"run_id":"$RUN_ID","plans":{"005":{"packs":{"5.1":{"status":"pending"}}}}}
+EOF
+if bash "$STATE_SH" plan-returns ingest --run-id "$RUN_ID" --plan-id "005" 2>/dev/null; then
+  echo "  FAIL: ingest with wrong run_id should fail"
+  fail=$((fail + 1))
+else
+  echo "  PASS: ingest with wrong run_id correctly fails"
+  pass=$((pass + 1))
+fi
+
+# plan-return plan_id mismatch → error
+cat > "$MISMATCH_DIR/plan-return.json" <<EOF
+{"schema_version":"1","run_id":"$RUN_ID","plan_id":"999","verdict":"pass","per_pack":{"5.1":{"status":"committed"}}}
+EOF
+if bash "$STATE_SH" plan-returns ingest --run-id "$RUN_ID" --plan-id "005" 2>/dev/null; then
+  echo "  FAIL: ingest with wrong plan_id should fail"
+  fail=$((fail + 1))
+else
+  echo "  PASS: ingest with wrong plan_id correctly fails"
+  pass=$((pass + 1))
+fi
+
+# plan-return illegal per_pack status → error
+cat > "$MISMATCH_DIR/plan-return.json" <<EOF
+{"schema_version":"1","run_id":"$RUN_ID","plan_id":"005","verdict":"pass","per_pack":{"5.1":{"status":"done"}}}
+EOF
+if bash "$STATE_SH" plan-returns ingest --run-id "$RUN_ID" --plan-id "005" 2>/dev/null; then
+  echo "  FAIL: ingest with illegal pack status should fail"
+  fail=$((fail + 1))
+else
+  echo "  PASS: ingest with illegal pack status correctly fails"
+  pass=$((pass + 1))
+fi
+
+# plan-return unknown pack_id → error
+cat > "$MISMATCH_DIR/plan-return.json" <<EOF
+{"schema_version":"1","run_id":"$RUN_ID","plan_id":"005","verdict":"pass","per_pack":{"5.99":{"status":"committed"}}}
+EOF
+if bash "$STATE_SH" plan-returns ingest --run-id "$RUN_ID" --plan-id "005" 2>/dev/null; then
+  echo "  FAIL: ingest with unknown pack_id should fail"
+  fail=$((fail + 1))
+else
+  echo "  PASS: ingest with unknown pack_id correctly fails"
+  pass=$((pass + 1))
+fi
+
 echo ""
 echo "Result: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

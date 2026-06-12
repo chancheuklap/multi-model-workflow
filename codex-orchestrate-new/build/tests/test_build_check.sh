@@ -120,6 +120,53 @@ else
   fail=$((fail + 1))
 fi
 
+# --- Test 8: TOML agent anchors are checked and applied ---
+mkdir -p "$FIXTURE_DIR/agents"
+cat > "$FIXTURE_DIR/build/templates/voice-directive.md.tmpl" <<'TMPL'
+[variant=pack_executor]
+Original TOML voice.
+[/variant]
+TMPL
+cat > "$FIXTURE_DIR/agents/pack_executor.toml" <<'TOML'
+name = "pack_executor"
+developer_instructions = '''
+<!-- BEGIN: voice-directive [variant=pack_executor] -->
+Original TOML voice.
+禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
+<!-- END: voice-directive -->
+'''
+TOML
+
+run_test "--check scans TOML anchors" \
+  bash "$BUILD_SH" --check --plugin-dir "$FIXTURE_DIR"
+
+cat > "$FIXTURE_DIR/build/templates/voice-directive.md.tmpl" <<'TMPL'
+[variant=pack_executor]
+Modified TOML voice.
+[/variant]
+TMPL
+
+run_test_expect_fail "--check fails on TOML generated drift" \
+  bash "$BUILD_SH" --check --plugin-dir "$FIXTURE_DIR"
+
+bash "$BUILD_SH" --apply --plugin-dir "$FIXTURE_DIR" 2>/dev/null
+run_test "--apply updates TOML anchors" \
+  grep -q "Modified TOML voice" "$FIXTURE_DIR/agents/pack_executor.toml"
+
+# --- Test 9: unresolved anchors fail instead of being silently skipped ---
+mkdir -p "$FIXTURE_DIR/skills/bad-skill"
+cat > "$FIXTURE_DIR/skills/bad-skill/SKILL.md" <<'BAD'
+# Bad Skill
+
+<!-- BEGIN: missing-anchor -->
+stale content
+<!-- END: missing-anchor -->
+BAD
+
+run_test_expect_fail "unresolved anchor fails build check" \
+  bash "$BUILD_SH" --check --plugin-dir "$FIXTURE_DIR"
+rm -rf "$FIXTURE_DIR/skills/bad-skill"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

@@ -120,7 +120,7 @@ spawn_agent({
 })
 ```
 
-修复后只做 targeted release re-review（scope 缩小到修复 diff + 原 release risk surface）。
+修复后由 Coordinator 自验：对照 release risk surface、修复 diff 和 verification commands 确认 blocker 已闭合；自验仍有疑虑时升级 RCA 或 BLOCKED，不派发额外 review。
 
 ---
-> **下一步**：通过 → Step 14（SKILL.md 主体「标记 Plan 完成 + 推进」）。需修复 → targeted release re-review。BLOCKED → 返回 verdict。
+> **下一步**：通过 → Step 14（SKILL.md 主体「标记 Plan 完成 + 推进」）。需修复 → Coordinator 自验闭合或升级 RCA。BLOCKED → 返回 verdict。

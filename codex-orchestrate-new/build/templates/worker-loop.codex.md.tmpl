@@ -12,15 +12,15 @@
 - `plan-return.json` / `open-items.json` / pack-returns 写到状态目录绝对路径下（沙箱已放行）。
 - 任何 `docs/` 路径（工作树内也算）：**只读，永不写**。合并前有 `git diff -- docs/` 机器检查，触碰 = 整个 Plan 被隔离拒收。
 
-### 5 步严格启动序列
+### 4 步严格启动序列
 
-每次接到 Plan dispatch（首派或 need-fresh-worker 续派）按顺序执行；缺一返回 `verdict=needs-plan-revision`：
+每次接到 Plan dispatch（首派或 need-fresh-worker 续派）按顺序执行 4 步；缺一返回 `verdict=needs-plan-revision`：
 
 1. **Read plan 文档全文 + 其源 issue**：从派工 prompt 的 plan 路径读完整 plan.md。验证 5 必备字段——`## Pack Execution Manifest`、`Dependencies`（per pack）、`Acceptance criteria`（per pack）、`Verification commands`（per pack）、`Owned files`（per pack）。缺任一字段或 Manifest 为空 → 立即返回 `verdict=needs-plan-revision`，不试图脑补。
    - **再顺着 plan 头的 `**Source issue:**` 路径 Read 那份大 issue 文档**（`What to build` / `Design context refs` / `Blocked by`）——这是本 Plan 的**原始意图来源**，让你看到 plan 编译之前的 slice 目标。你的实现必须**同时满足** plan 的 Pack 验收**和** issue 声明的 slice 意图。**若 plan 的 Pack 与 issue 的 `What to build` 意图冲突、或漏掉 issue 要求的行为 → 返回 `verdict=needs-plan-revision`，不照着可能 lossy 的 plan 闷头做。** Source issue 路径缺失或文件不存在时跳过本子步（不阻断）。
 2. **Read `<状态目录>/execution-state-<run_id>.json`**，提取 `plans[<plan_id>].packs` 当前 status 字典。区分**首派 vs 续派**：`status=="committed"` 的 pack 跳过（partial-fail recovery / need-fresh-worker 续派回到此 Worker），不重复执行。同时用 committed 数初始化 `packs_in_session`（见 Context 自监控）。
 3. **Read `<状态目录>/plan-returns/<run_id>/<plan_id>/open-items.json`**（若存在）——继承前任 worker 累积的 Open Items，新发现追加。
-4. **Read 工作树内项目规则**（AGENTS.md / AGENTS.md / AGENTS.override.md / PROJECT.md / ENGINEERING-RULES.md）——理解日志规范、合同墙、命名约定。Codex 原生自动读 AGENTS.md，其余手动读。
+4. **Read 工作树内项目规则**（AGENTS.md / AGENTS.override.md / PROJECT.md / ENGINEERING-RULES.md）——理解日志规范、合同墙、命名约定。Codex 原生自动读 AGENTS.md，其余手动读。
 
 ### Pack 循环主体
 
@@ -91,7 +91,7 @@ return
 
 ### Repair Mode（修复轮）
 
-Coordinator 用 `send_input resume <你的 session_id>` 续你的会话进入 Repair Mode（envelope `repair_round >= 1` + `disposition_refs` 非空），修复指令出现在续会话输入里。**不重新读 plan 全文**——你已有完整上下文。
+Coordinator 先 `resume_agent({ id: "<agent_id>" })` 恢复你的会话，再用 `send_input({ target: "<agent_id>", message: "..." })` 续修进入 Repair Mode（envelope `repair_round >= 1` + `disposition_refs` 非空），修复指令出现在续会话输入里。**不重新读 plan 全文**——你已有完整上下文。
 
 1. 读 envelope 内嵌的 disposition_refs 列表（accepted findings）
 2. 对每个 finding，读 `[Pack N.M]` 归属标记

@@ -140,7 +140,7 @@ Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked 
 | --- | --- | --- | --- | --- | --- |
 | 1 | pass | codex-gpt-5.5 | <重点建议摘要> | <gotcha 列表> | 2026-05-28 |
 
-（append-only，每轮 Plan Review / Plan Implementation Review 通过后由 Coordinator / hook 追加；plan-executor 读取此 section 了解已审角度，避免回退已修问题）
+（append-only，每轮 Plan Review / Plan Implementation Review 通过后由 Coordinator / hook 追加；`pack_executor` / `complex_pack_executor` 读取此 section 了解已审角度，避免回退已修问题）
 
 ## Pack Execution Manifest
 

@@ -85,7 +85,7 @@ Source design + issue hierarchy → **逐个 issue 派发 plan_writer** → 全�
 - [ ] Scope Contract 和 Budget file 存在
 - [ ] 状态锚写入：`cursor.phase` 已由 transition 设为 `plan-writing`
 
-**Dispatch 协议**：所有 plan_writer spawn_agent 调用必须使用 `wait_agent lifecycle`。dispatch 后立即提取 `agentId` 并调用 `state.sh agent-id set`（若失败静默继续，修复路径 fallback 新建 dispatch）。
+**Dispatch 协议**：所有 plan_writer spawn_agent 调用必须使用 `wait_agent lifecycle`。dispatch 后立即提取 `agentId`，并用 `state.sh update --field '.plan_writer_agent_id'` 写入 workflow-state。写入失败必须 BLOCKED；后续 repair 没有 agent id 时不能新建 plan_writer 冒充续修。
 
 ---
 

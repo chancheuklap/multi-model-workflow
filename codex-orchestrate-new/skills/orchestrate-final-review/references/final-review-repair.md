@@ -58,7 +58,7 @@ spawn_agent({
     - Plan: <path>
     - Affected packs: <list>
     - 相关文件: <affected files>
-    - Git diff scope: git diff <starting_commit>..HEAD
+    - Git diff scope: git diff <implementation_base_commit>..HEAD（base 从 execution-state 最早 start_commit 取得）
 
     ## 调查方向
     <Coordinator 初步判断——跨 pack 交互 / 时序 / 隐式依赖 / 合同闭合 / 状态污染等>
@@ -100,7 +100,7 @@ Explorer 返回后路由：
 
 | 情况 | 路由 |
 | --- | --- |
-| 所有 affected packs 属于**同一 Plan** | **留在 Final Review**——按 Path B 修复 + 该 Plan baseline re-review（Step 11）。不回 Execution |
+| 所有 affected packs 属于**同一 Plan** | **留在 Final Review**——按 Path B 修复 + Step 11 Coordinator 自验闭合。不回 Execution |
 | Affected packs **跨越多个 Plan** 且系统性（shared contract / migration 顺序 / cross-plan state） | → Step 10b（回 Execution 判定） |
 
 ### Step 10b：回 Execution 的条件（任一成立）
@@ -116,6 +116,16 @@ Explorer 返回后路由：
 - 不需要新 pack
 
 回 Execution → 读 budget file `execution_reflux_count`：0 → 可回流，返回 `NEEDS_EXECUTION` verdict，附 accepted findings 和 affected packs 及所属 Plan；≥1 → BLOCKED 报告用户。
+
+---
+
+## Step 11：Coordinator 自验闭合
+
+修复返回后，Coordinator 必须直接对 accepted findings 做闭合验证：
+
+1. 对照每条 finding 的 evidence、affected packs 和 acceptance criteria 检查修复 diff。
+2. 运行相关 verification commands；涉及全局行为时运行 Final Review 前置检查中的 diff / grep / test 命令。
+3. 用 `state.sh disposition append` 记录 resolved evidence。自验仍有疑虑时进入 Step 12 RCA escalation 或 BLOCKED，不派发 targeted re-review。
 
 ---
 
@@ -138,7 +148,7 @@ spawn_agent({
     <DISPATCH_ENVELOPE>
 
     ## 调度场景
-    Repair Truncation（Final Review）。Final Review 修了两轮，reviewer 仍报 needs repair。
+    Repair Truncation（Final Review）。Final Review 修复一轮后，Coordinator 自验仍无法闭合。
 
     ## Round 1 上下文
     - Round 1 accepted findings: <paste>

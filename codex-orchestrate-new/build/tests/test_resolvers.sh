@@ -47,11 +47,18 @@ run_test "worker-loop: codex variant matches template" bash -c "
   [[ \"\$out\" == \"\$expected\" ]]
 "
 
-run_test "worker-loop: codex variant contains Codex-native carriers" bash -c "
+run_test "worker-loop: codex variant contains Codex-native dispatch terms" bash -c "
   $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
   TEMPLATE_DIR='$REAL_TMPL'
   out=\$(resolve_anchor worker-loop codex)
-  grep -qE 'SubagentStop|send_input|MMW_PLUGIN_ROOT|execution-worker-dispatch' <<<\"\$out\"
+  grep -q 'send_input' <<<\"\$out\" && grep -q 'spawn_agent' <<<\"\$out\"
+"
+
+run_test "worker-loop: codex variant rejects old worker carriers" bash -c "
+  $(sed -n '/^VOICE_FOOTER=/p; /^resolve_anchor()/,/^}/p' "$BUILD_SH")
+  TEMPLATE_DIR='$REAL_TMPL'
+  out=\$(resolve_anchor worker-loop codex)
+  ! grep -qE 'SendMessage|CLAUDE_PLUGIN_ROOT|execution-worker-dispatch|plan-executor' <<<\"\$out\"
 "
 
 # ── Type 2: control-envelope (file-level variant + cat) ─────────────────────

@@ -51,10 +51,10 @@ docs/orchestrate/design/<slug>.md#cross-plan-contract-anchors
 docs/orchestrate/issues/<slug>/
 
 ## Starting commit
-自行运行 `git log --oneline docs/orchestrate/plans/<slug>/` 或读 Scope Contract 的 `plan_start_commit` 字段获取。
+从 `.codex/multi-model-workflow/execution-state-<run_id>.json` 读取各 completed Plan 的 `start_commit` / `end_commit`。需要全局 diff 时，使用最早的 non-null `start_commit` 作为 `<implementation_base_commit>`。
 
 ## Full diff
-自行运行：`git diff <starting_commit>..HEAD`
+自行运行：`git diff <implementation_base_commit>..HEAD`，并按 execution-state 中每个 Plan 的 `start_commit..end_commit` 复核分 Plan 变更。
 
 ## Changed files
 自读 `.codex/multi-model-workflow/pack-returns/<run_id>/` 目录下各 pack JSON 的 `changed_files` 字段，合并去重（带 pack ownership 标注）。
@@ -102,7 +102,7 @@ docs/orchestrate/mockups/<slug>/（如有 UI 工作）
 
 ### 3. Cross-Plan Integration
 只检查**跨 Plan** 的集成（Plan 内跨 Pack 已由 Plan Implementation Review 的 Cross-Pack Coherence 覆盖）：
-- Cross-plan contract anchors：逐行读取 `docs/orchestrate/design/<slug>.md` 的 `## Cross-Plan Contract Anchors` section，用 `git diff <starting_commit>..HEAD` 验证 producer / consumer / ownership 是否在合并结果中成立
+- Cross-plan contract anchors：逐行读取 `docs/orchestrate/design/<slug>.md` 的 `## Cross-Plan Contract Anchors` section，用 `git diff <implementation_base_commit>..HEAD` 验证 producer / consumer / ownership 是否在合并结果中成立
 - Shared contract surface：跨 Plan 的 Pydantic model / schema_version / API 是否一致
 - Migration 顺序：跨 Plan 的 migration 执行顺序是否正确
 - Import 关系：跨 Plan 的 import 是否循环
@@ -170,10 +170,10 @@ All Plans have individually passed Plan Implementation Review.
 You are the second reviewer — your perspective is independent of Baseline 1.
 
 ## Starting commit
-自行运行 `git log --oneline docs/orchestrate/plans/<slug>/` 或读 Scope Contract 的 `plan_start_commit` 字段获取。
+从 `.codex/multi-model-workflow/execution-state-<run_id>.json` 读取各 completed Plan 的 `start_commit` / `end_commit`。需要全局 diff 时，使用最早的 non-null `start_commit` 作为 `<implementation_base_commit>`。
 
 ## Full diff
-自行运行：`git diff <starting_commit>..HEAD`
+自行运行：`git diff <implementation_base_commit>..HEAD`，并按 execution-state 中每个 Plan 的 `start_commit..end_commit` 复核分 Plan 变更。
 
 ## Source design
 docs/orchestrate/design/<slug>.md（已通过 Design Review）
@@ -237,7 +237,7 @@ Disposition required:
 
 ## Step 5：并行提交
 
-两个 baseline 可同时提交（两个 Codex background task）。Budget 消耗 2。
+两个 baseline 可同时提交（两个 `codex_reviewer` subagent）。Budget 消耗 2。
 
 ## Coordinator 端最小职责
 
@@ -245,8 +245,8 @@ Coordinator 在派发时只需完成以下动作，其余由 Reviewer 自读：
 
 1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`gate`（`final-review-baseline-1` / `final-review-baseline-2`）、`review_intent: "baseline"`。
 2. 在 `Source design:` 中列出 design 文件路径（reviewer 自读全文和 diff）。
-3. 写两个 review-prompts 文件，运行 validate/record 脚本，并行触发两个 Codex job。
-4. 等待两个 job 完成后运行 result/complete 脚本，进入 Steps 6-8 disposition 流程。
+3. 写两个 review-prompts 文件，分别运行 `dispatch-review.sh validate`，并行 `spawn_agent(agent_type="codex_reviewer")`，再用 `dispatch-review.sh record` 保存两个 agent id。
+4. 用 `wait_agent` 等待两个 reviewer final message，保存各自 review-results 后立即 `close_agent`，再分别运行 `complete-review-dispatch.sh`，进入 Steps 6-8 disposition 流程。
 
 ---
 > **下一步**：两个 baseline 提交后 → Steps 6-8（final-review-disposition.md）。

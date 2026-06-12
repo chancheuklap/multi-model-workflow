@@ -91,9 +91,14 @@ if [[ "$RECORDED_AGENT" != "$AGENT_ID" ]]; then
   exit 2
 fi
 
-if [[ "$(jq -r '.status // empty' "$REGISTRY_FILE")" == "completed" ]] \
-   || [[ "$(jq -r '.status // empty' "$REGISTRY_FILE")" == "disposition_started" ]] \
-   || [[ "$(jq -r '.status // empty' "$REGISTRY_FILE")" == "disposition_done" ]]; then
+STATUS="$(jq -r '.status // empty' "$REGISTRY_FILE")"
+BUDGET_COUNTED="$(jq -r '.budget_counted // false' "$REGISTRY_FILE")"
+DURABLE_ALREADY="false"
+case "$STATUS" in
+  completed|disposition_started|disposition_done) DURABLE_ALREADY="true" ;;
+esac
+
+if [[ "$DURABLE_ALREADY" == "true" && ( "$RUN_ID" == adhoc-* || "$BUDGET_COUNTED" == "true" ) ]]; then
   echo "OK (already durable)"
   exit 0
 fi
@@ -106,15 +111,17 @@ else
   OVER_BUDGET_JSON="false"
 fi
 
-jq --arg result_file "$RESULT_FILE" --arg completed_at "$now" \
-  --argjson over_budget "$OVER_BUDGET_JSON" --arg override_reason "$OVERRIDE_REASON" '
-  .result_file = $result_file
-  | .status = "completed"
-  | .completed_at = $completed_at
-  | .over_budget_allowed = $over_budget
-  | .over_budget_reason = (if $over_budget then $override_reason else null end)
-' "$REGISTRY_FILE" > "$tmp"
-mv "$tmp" "$REGISTRY_FILE"
+if [[ "$DURABLE_ALREADY" != "true" ]]; then
+  jq --arg result_file "$RESULT_FILE" --arg completed_at "$now" \
+    --argjson over_budget "$OVER_BUDGET_JSON" --arg override_reason "$OVERRIDE_REASON" '
+    .result_file = $result_file
+    | .status = "completed"
+    | .completed_at = $completed_at
+    | .over_budget_allowed = $over_budget
+    | .over_budget_reason = (if $over_budget then $override_reason else null end)
+  ' "$REGISTRY_FILE" > "$tmp"
+  mv "$tmp" "$REGISTRY_FILE"
+fi
 
 if [[ "$RUN_ID" != adhoc-* ]] && [[ "$(jq -r '.budget_counted // false' "$REGISTRY_FILE")" != "true" ]]; then
   WF_STATE="${BUDGET_DIR}/workflow-state-${RUN_ID}.json"
@@ -124,14 +131,14 @@ if [[ "$RUN_ID" != adhoc-* ]] && [[ "$(jq -r '.budget_counted // false' "$REGIST
     jq '.budget_counted = false | .budget_count_skip_reason = "pending_plan_count"' "$REGISTRY_FILE" > "$tmp"
     mv "$tmp" "$REGISTRY_FILE"
   else
-  BUDGET_ARGS=(--run-id "$RUN_ID" --gate "$GATE")
-  if [[ "$ALLOW_OVER_BUDGET" == "true" ]]; then
-    BUDGET_ARGS+=(--allow-over-budget --override-reason "$OVERRIDE_REASON")
-  fi
-  bash "$SCRIPT_DIR/state.sh" budget increment-review "${BUDGET_ARGS[@]}" >/dev/null
-  tmp="${REGISTRY_FILE}.tmp"
-  jq '.budget_counted = true' "$REGISTRY_FILE" > "$tmp"
-  mv "$tmp" "$REGISTRY_FILE"
+    BUDGET_ARGS=(--run-id "$RUN_ID" --gate "$GATE")
+    if [[ "$ALLOW_OVER_BUDGET" == "true" ]]; then
+      BUDGET_ARGS+=(--allow-over-budget --override-reason "$OVERRIDE_REASON")
+    fi
+    bash "$SCRIPT_DIR/state.sh" budget increment-review "${BUDGET_ARGS[@]}" >/dev/null
+    tmp="${REGISTRY_FILE}.tmp"
+    jq '.budget_counted = true | del(.budget_count_skip_reason)' "$REGISTRY_FILE" > "$tmp"
+    mv "$tmp" "$REGISTRY_FILE"
   fi
 fi
 
@@ -205,19 +212,21 @@ elif [[ "$GATE" =~ -repair-([0-9]+)$ ]]; then
   ROUND="${BASH_REMATCH[1]}"
 fi
 
-case "$GATE" in
-  design-review-*)
-    append_review_history_row design "$ROUND" ""
-    ;;
-  plan-review-*)
-    # Gate convention: plan-review-<plan_id>-... where <plan_id> is the
-    # zero-padded numeric segment (e.g. plan-review-001-coverage-1).
-    PLAN_ID=""
-    if [[ "$GATE" =~ ^plan-review-([0-9]+)- ]]; then
-      PLAN_ID="${BASH_REMATCH[1]}"
-    fi
-    append_review_history_row plan "$ROUND" "$PLAN_ID"
-    ;;
-esac
+if [[ "$DURABLE_ALREADY" != "true" ]]; then
+  case "$GATE" in
+    design-review-*)
+      append_review_history_row design "$ROUND" ""
+      ;;
+    plan-review-*)
+      # Gate convention: plan-review-<plan_id>-... where <plan_id> is the
+      # zero-padded numeric segment (e.g. plan-review-001-coverage-1).
+      PLAN_ID=""
+      if [[ "$GATE" =~ ^plan-review-([0-9]+)- ]]; then
+        PLAN_ID="${BASH_REMATCH[1]}"
+      fi
+      append_review_history_row plan "$ROUND" "$PLAN_ID"
+      ;;
+  esac
+fi
 
 echo "OK"

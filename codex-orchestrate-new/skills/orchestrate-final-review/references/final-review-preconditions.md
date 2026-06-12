@@ -15,9 +15,9 @@
 | **Cross-plan contract anchors** | `docs/orchestrate/design/<slug>.md` 的 `## Cross-Plan Contract Anchors` section——producer、consumer、ownership、verification、Final Review 重点 |
 | **Plan completion summary** | 每个 Plan 的 Plan Implementation Review verdict、repair rounds；每个 pack 的 worker verdict、已验证行为、Open Items |
 | **Scope Contract** | `.codex/multi-model-workflow/scope-<run_id>.md`——source artifacts、editable artifacts、out of scope |
-| **Git state** | `git log <starting_commit>..HEAD --oneline` 获取所有 pack commits；`git diff <starting_commit>..HEAD --stat` 获取完整变更文件列表 |
+| **Git state** | 从 execution-state 读取所有 completed Plan 的 `start_commit` / `end_commit`；用各 Plan commit range 汇总 pack commits 和完整变更文件列表 |
 
-**starting commit**：从 budget file 的 `starting_commit` 字段读取（在 Infrastructure Setup Step 6 记录）。
+**Implementation diff base**：execution-state 是 commit range 权威。Final Review 使用各 Plan 的 `start_commit..end_commit` 做精确审查；需要单个全局 diff 时，取 execution-state 中最早的 non-null `start_commit` 作为 `<implementation_base_commit>`。缺少 start/end commit 时返回 `NEEDS_EXECUTION`，不要从 budget 或 Scope Contract 猜测。
 
 ## Step 2：验证前置条件
 
@@ -27,7 +27,7 @@
 | Source design 存在且已通过 Design Review | 返回 `NEEDS_DISCOVERY` |
 | Scope Contract 存在 | BLOCKED |
 | Execution state file 中所有 Plan status = completed | 返回 `NEEDS_EXECUTION` |
-| Budget file 存在 | 由 `track-review-budget.sh` hook 自动追踪和警告 |
+| Workflow-state budget 存在 | Review result complete 时由 `complete-review-dispatch.sh` exactly-once 计数，Direction Check 由 state 层触发 |
 
 ---
 > **下一步**：前置条件通过 → Steps 4-5（final-review-angles.md）。缺件 → 按上方路由表返回对应 upstream phase。

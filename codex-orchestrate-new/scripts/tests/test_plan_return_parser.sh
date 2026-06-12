@@ -80,10 +80,17 @@ echo '{"schema_version":"1","run_id":"r","plan_id":"p","verdict":"awesome","per_
 RC=$?
 assert_eq "invalid verdict → return 2" "$RC" "2"
 
+# Invalid per_pack status
+IPS="$FIXTURE_DIR/ips.json"
+echo '{"schema_version":"1","run_id":"r","plan_id":"p","verdict":"pass","per_pack":{"1.1":{"status":"done"}}}' > "$IPS"
+( source "$PARSER_LIB" && parse_plan_return "$IPS" ) >/dev/null 2>&1
+RC=$?
+assert_eq "invalid per_pack status → return 2" "$RC" "2"
+
 # Each verdict enum accepted
 for v in pass partial-pass blocked need-fresh-worker needs-context needs-plan-revision; do
   TMP="$FIXTURE_DIR/$v.json"
-  printf '{"schema_version":"1","run_id":"r","plan_id":"p","verdict":"%s","per_pack":{}}\n' "$v" > "$TMP"
+  printf '{"schema_version":"1","run_id":"r","plan_id":"p","verdict":"%s","per_pack":{"1.1":{"status":"skipped"}}}\n' "$v" > "$TMP"
   ( source "$PARSER_LIB" && parse_plan_return "$TMP" ) >/dev/null 2>&1
   RC=$?
   assert_eq "verdict '$v' accepted" "$RC" "0"

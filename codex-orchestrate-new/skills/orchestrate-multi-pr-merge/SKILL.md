@@ -135,8 +135,8 @@ Multi-PR Merge 阶段 4 类 dispatch（explorer / analyst / worker / reviewer）
 
 1. 写 `merge-brief-<run_id>.md`（若已写则复用），确保包含 PR 列表、设计文档路径、合同地图、冲突解决记录、各阶段当前 stage
 2. 写 `DISPATCH_ENVELOPE`：填入 `run_id`、`gate`（对应阶段名）、`review_intent: "baseline"`（reviewer 类）或 agent_role（其他类）
-3. 写 dispatch prompt 文件 / 派发：reviewer 类走 review-prompts + validate/record；其他类直接 spawn_agent 调用
-4. 等待返回 → 跑 result/complete 脚本 → Coordinator 校验返回事实 → 写入 merge-brief 对应段
+3. 写 dispatch prompt 文件 / 派发：reviewer 类走 review-prompts + validate / `spawn_agent(agent_type="codex_reviewer")` / record；其他类直接 `spawn_agent` 调用
+4. 等待返回：reviewer 类保存 review-results、`close_agent` 后运行 `complete-review-dispatch.sh`；其他类保存 worker / analyst / explorer final message 后 `close_agent`。Coordinator 校验返回事实，再写入 merge-brief 对应段。
 
 各阶段 reference（merge-preparation / merge-conflict-discovery / merge-rca-investigation / merge-conflict-repair / merge-integration-review）只描述该阶段特有的 prompt 模板与返回处置，**不再重复 Coordinator dispatch 通用步骤**。
 

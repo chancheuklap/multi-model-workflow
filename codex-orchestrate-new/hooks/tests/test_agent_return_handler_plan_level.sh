@@ -63,7 +63,7 @@ make_input() {
   local plan_id="$1" agent_id="$2" subagent="${3:-pack_executor}"
   local envelope
   envelope=$(jq -nc --arg rid "$RUN_ID" --arg pid "$plan_id" \
-    '{protocol_version:"1",run_id:$rid,phase:"execution",agent_role:"plan-executor",repair_round:0,idempotency_key:"k",plan_id:$pid,agent_id:"placeholder"}')
+    '{protocol_version:"1",run_id:$rid,phase:"execution",agent_role:"pack_executor",repair_round:0,idempotency_key:"k",plan_id:$pid,agent_id:"placeholder"}')
   local prompt="<!-- DISPATCH_ENVELOPE $envelope -->\nrun"
   jq -n --arg t "$subagent" --arg p "$(printf '%b' "$prompt")" \
     '{tool_name:"subagent",tool_input:{agent_type:$t,prompt:$p},tool_response:"Verdict: pass"}'

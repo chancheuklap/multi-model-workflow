@@ -83,29 +83,29 @@ fi
 
 # Test 1: valid plan-level envelope passes
 ENV=$(jq -nc --arg pp "docs/orchestrate/plans/test/005-foo.md" \
-  '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"plan-executor",repair_round:0,idempotency_key:"k1",plan_id:"005",pack_id:null,plan_path:$pp}')
+  '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"pack_executor",repair_round:0,idempotency_key:"k1",plan_id:"005",pack_id:null,plan_path:$pp}')
 run_pass "valid plan-level envelope" "$ENV"
 
 # Test 2: missing plan_path → block
 ENV=$(jq -nc \
-  '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"plan-executor",repair_round:0,idempotency_key:"k2",plan_id:"005",pack_id:null,plan_path:null}')
+  '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"pack_executor",repair_round:0,idempotency_key:"k2",plan_id:"005",pack_id:null,plan_path:null}')
 run_block "missing plan_path" "$ENV"
 
 # Test 3: plan_path does not exist → block
 ENV=$(jq -nc \
-  '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"plan-executor",repair_round:0,idempotency_key:"k3",plan_id:"005",pack_id:null,plan_path:"docs/nonexistent.md"}')
+  '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"pack_executor",repair_round:0,idempotency_key:"k3",plan_id:"005",pack_id:null,plan_path:"docs/nonexistent.md"}')
 run_block "plan_path does not exist" "$ENV"
 
 # Test 4: plan.md missing Pack Execution Manifest → WARN (D9 降级, no longer blocks)
 mkdir -p docs/orchestrate/plans/empty
 echo "# Empty plan" > docs/orchestrate/plans/empty/001-bad.md
 ENV=$(jq -nc \
-  '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"plan-executor",repair_round:0,idempotency_key:"k4",plan_id:"005",pack_id:null,plan_path:"docs/orchestrate/plans/empty/001-bad.md"}')
+  '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"pack_executor",repair_round:0,idempotency_key:"k4",plan_id:"005",pack_id:null,plan_path:"docs/orchestrate/plans/empty/001-bad.md"}')
 run_pass "plan.md missing Pack Execution Manifest (WARN not block)" "$ENV"
 
 # Test 5: unknown plan_id in execution-state → block
 ENV=$(jq -nc \
-  '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"plan-executor",repair_round:0,idempotency_key:"k5",plan_id:"999",pack_id:null,plan_path:"docs/orchestrate/plans/test/005-foo.md"}')
+  '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"pack_executor",repair_round:0,idempotency_key:"k5",plan_id:"999",pack_id:null,plan_path:"docs/orchestrate/plans/test/005-foo.md"}')
 run_block "unknown plan_id in execution-state" "$ENV"
 
 # Test 6: duplicate idempotency_key → block
@@ -114,7 +114,7 @@ jq '.idempotency_keys = ["dup-k"]' "$BUDGET_DIR/workflow-state-${RUN_ID}.json" \
   > "$BUDGET_DIR/workflow-state-${RUN_ID}.json.tmp" && \
   mv "$BUDGET_DIR/workflow-state-${RUN_ID}.json.tmp" "$BUDGET_DIR/workflow-state-${RUN_ID}.json"
 ENV=$(jq -nc \
-  '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"plan-executor",repair_round:0,idempotency_key:"dup-k",plan_id:"005",pack_id:null,plan_path:"docs/orchestrate/plans/test/005-foo.md"}')
+  '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"pack_executor",repair_round:0,idempotency_key:"dup-k",plan_id:"005",pack_id:null,plan_path:"docs/orchestrate/plans/test/005-foo.md"}')
 run_block "duplicate idempotency_key" "$ENV"
 # Clean idempotency_keys back
 jq '.idempotency_keys = []' "$BUDGET_DIR/workflow-state-${RUN_ID}.json" \
@@ -135,6 +135,11 @@ run_block "execution envelope with non-null pack_id rejected" "$ENV"
 ENV=$(jq -nc \
   '{protocol_version:"1",run_id:"vpd-test",phase:"bug-investigation",agent_role:"pack_executor",repair_round:0,idempotency_key:"k9",pack_id:null,plan_id:null}')
 run_pass "non-execution route-worker envelope (both null) passes" "$ENV"
+
+# Test 10: unknown plan-level execution agent_role is blocked
+ENV=$(jq -nc --arg pp "docs/orchestrate/plans/test/005-foo.md" \
+  '{protocol_version:"1",run_id:"vpd-test",phase:"execution",agent_role:"plan-executor",repair_round:0,idempotency_key:"k10",plan_id:"005",pack_id:null,plan_path:$pp}')
+run_block "unknown execution agent_role rejected" "$ENV"
 
 echo ""
 echo "Result: $pass passed, $fail failed"

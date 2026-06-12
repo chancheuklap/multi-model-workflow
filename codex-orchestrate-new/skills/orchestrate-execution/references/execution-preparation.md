@@ -21,7 +21,7 @@
 
 ## Step 2：构建 Plan 执行队列（仅第一级）
 
-**Coordinator 只维护第一级：Plan 执行顺序**（串行）。根据各 plan header 中的 `Blocked by` 字段排序。无依赖关系的 Plan 按编号顺序执行。逐个 Plan 派 1 个自治 Worker。
+**Coordinator 只维护第一级：Plan dependency level**。根据各 plan header 中的 `Blocked by` 字段排序：level 间串行，同 level 内可并行；每个 Plan 派 1 个自治 Worker。
 
 **第二级 Pack 顺序不由 Coordinator 维护**：每个 Plan 内 Pack 间的 `Dependencies` 由该 Plan 的自治 Worker 自读 `## Pack Execution Manifest` 后内部 topo 排序串行执行。Coordinator 不构建 pack_queue、不逐 Pack 派发。
 

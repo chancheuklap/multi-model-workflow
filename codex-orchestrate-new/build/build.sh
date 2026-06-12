@@ -10,7 +10,7 @@ MODE=""
 usage() {
   echo "Usage: build.sh [--check|--apply] [--plugin-dir <dir>] [--resolver=<name>]"
   echo "  --check   Dry-run: compare generated vs current, exit 1 on diff"
-  echo "  --apply   Write generated content into SKILL.md files"
+  echo "  --apply   Write generated content into skills, references, and agent files"
   exit 1
 }
 
@@ -149,7 +149,11 @@ process_skill_file() {
     fi
 
     local resolved
-    resolved="$(resolve_anchor "$anchor_name" "$variant" 2>/dev/null)" || continue
+    if ! resolved="$(resolve_anchor "$anchor_name" "$variant" 2>/dev/null)"; then
+      echo "ERROR: unresolved build anchor '$anchor_full' in $skill_file" >&2
+      echo "1" > "$DIFF_FLAG_FILE"
+      continue
+    fi
 
     local begin_pat="<!-- BEGIN: ${anchor_full} -->"
     local end_pat="<!-- END: ${anchor_name} -->"
@@ -221,7 +225,11 @@ fi
 
 has_diff=$(cat "$DIFF_FLAG_FILE")
 rm -f "$DIFF_FLAG_FILE"
-if [[ "$MODE" == "check" && "$has_diff" != "0" ]]; then
-  echo "Build check failed: generated content differs from source." >&2
+if [[ "$has_diff" != "0" ]]; then
+  if [[ "$MODE" == "apply" ]]; then
+    echo "Build apply failed: unresolved generated anchor(s)." >&2
+  else
+    echo "Build check failed: generated content differs from source or unresolved anchor(s) exist." >&2
+  fi
   exit 1
 fi

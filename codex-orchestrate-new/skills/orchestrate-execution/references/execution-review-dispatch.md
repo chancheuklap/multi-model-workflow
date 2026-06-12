@@ -25,7 +25,7 @@ All Task Packs within this plan have been executed and committed.
 自读 `.codex/multi-model-workflow/pack-returns/<run_id>/` 目录下各 pack JSON，汇总此表。
 
 ## Aggregate diff
-自行运行：`git diff <plan-start-commit>..<plan-end-commit>`（commit hash 从 Scope Contract 的 `plan_start_commit` 字段读取）
+从 `.codex/multi-model-workflow/execution-state-<run_id>.json` 读取 `.plans["<plan_id>"].start_commit` 和 `.plans["<plan_id>"].end_commit`。自行运行：`git diff <start_commit>..<end_commit>`。任一 commit 缺失时返回 `needs context`，不要从 Scope Contract 猜测。
 
 ## Changed files (all packs combined)
 自读 pack-returns JSON 中各 `changed_files` 字段，合并去重。
@@ -117,8 +117,8 @@ Coordinator 在派发时只需完成以下动作，其余由 Reviewer 自读：
 
 1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`plan_id`、`gate`（`plan-impl-review-N`）、`review_intent: "baseline"`。
 2. 在 `Source artifacts:` 中列出 plan 文件路径（reviewer 自读内容）。
-3. 写 `review-prompts/<gate>.md`，运行 validate/record 脚本，触发 Codex job。
-4. 等待 job 完成后运行 result/complete 脚本，触发 `track-review-budget` hook。
+3. 写 `review-prompts/<gate>.md`，运行 `dispatch-review.sh validate`，用 `spawn_agent(agent_type="codex_reviewer")` 派发 reviewer，再运行 `dispatch-review.sh record` 保存 agent id。
+4. 用 `wait_agent` 等待 reviewer final message，保存到 `review-results/<gate>.md` 后立即 `close_agent`，再运行 `complete-review-dispatch.sh` 标记 durable result 并计入 review budget。
 5. 读取 review-results 文件，进入 disposition 流程。
 
 ---
