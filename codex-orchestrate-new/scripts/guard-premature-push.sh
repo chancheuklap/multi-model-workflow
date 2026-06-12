@@ -68,8 +68,11 @@ if [ "${#PLAN_ROOTS[@]}" -eq 0 ] && git -C "$WORKSPACE_ROOT" rev-parse --is-insi
   fi
 fi
 
+# 无 active run、且本分支(BASE..HEAD)未改动任何 plan 文件 => 本次 push / PR 不挂在
+# 任何具体计划上，直接放行。旧版在这里退回扫整个 docs/orchestrate/plans 目录，会把仓库里
+# 无关的既有未勾选任务全算进来误拦。
 if [ "${#PLAN_ROOTS[@]}" -eq 0 ]; then
-  PLAN_ROOTS=("$DEFAULT_PLAN_ROOT")
+  exit 0
 fi
 
 UNCHECKED=0
