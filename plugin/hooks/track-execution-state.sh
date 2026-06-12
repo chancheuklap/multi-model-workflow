@@ -79,7 +79,16 @@ if [ "$PLAN_DONE" -eq "$PLAN_TOTAL" ] && [ "$PLAN_TOTAL" -gt 0 ]; then
   # Emitting Review NEXT here would mislead Coordinator into dispatching review
   # before Worker returns the plan-return.json artifact.
   WORKER_AGENT_ID=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].worker_agent_id // empty' "$ESF" 2>/dev/null || echo "")
-  if [ -n "$WORKER_AGENT_ID" ] && [ "$WORKER_AGENT_ID" != "null" ]; then
+  # 已审完 / 已收口的 Plan 不该再被提示去 review。Plan Implementation Review pass 后
+  # Coordinator 写 plans[N].review_verdict=pass；execution-plan finish 写
+  # plans[N].status=completed。任一为真 → 该 Plan 终态，后续 commit（含 commit_sha
+  # 数据污染场景）再次满足「全 pack committed」也不能重发 review NEXT，否则对已审完
+  # Plan 制造误导噪声、诱导 Coordinator 重复派审。
+  REVIEW_VERDICT=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].review_verdict // empty' "$ESF" 2>/dev/null || echo "")
+  PLAN_STATUS=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].status // empty' "$ESF" 2>/dev/null || echo "")
+  if [ "$REVIEW_VERDICT" = "pass" ] || [ "$PLAN_STATUS" = "completed" ]; then
+    MSG="[multi-model-workflow] STATE: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${COMMIT_SHA}). Plan already reviewed/finalized (review_verdict=${REVIEW_VERDICT:-none}, status=${PLAN_STATUS:-none}) — no further Plan Implementation Review needed."
+  elif [ -n "$WORKER_AGENT_ID" ] && [ "$WORKER_AGENT_ID" != "null" ]; then
     MSG="[multi-model-workflow] STATE: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${COMMIT_SHA}). Worker ${WORKER_AGENT_ID} still in session — wait for SubagentStop / agent-return-handler.sh. Do NOT dispatch Plan Implementation Review yet."
   else
     MSG="[multi-model-workflow] NEXT: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${COMMIT_SHA}). Dispatch Plan Implementation Review."
