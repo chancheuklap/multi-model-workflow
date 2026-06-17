@@ -94,6 +94,31 @@ make_repo "$ROOT_MERGE"
 run_test "git merge --squash remains blocked" \
   expect_block "$ROOT_MERGE" "git merge --squash feature/test"
 
+ROOT_EXTERNAL="$FIXTURE_DIR/external-env"
+make_repo "$ROOT_EXTERNAL"
+mkdir -p "$ROOT_EXTERNAL/.codex/multi-model-workflow"
+printf 'run-external\n' > "$ROOT_EXTERNAL/.codex/multi-model-workflow/active-run-id"
+cat > "$ROOT_EXTERNAL/.codex/multi-model-workflow/workflow-state-run-external.json" <<'JSON'
+{"run_id":"run-external","slug":"external"}
+JSON
+run_test "active run blocks VM start command" \
+  expect_block "$ROOT_EXTERNAL" "vmrun start /Users/test/Windows.vmwarevm"
+run_test "active run blocks opening VM bundle" \
+  expect_block "$ROOT_EXTERNAL" "open /Users/test/Windows.vmwarevm"
+run_test "active run blocks Win-PC ssh command" \
+  expect_block "$ROOT_EXTERNAL" "ssh pc echo ok"
+run_test "active run allows external command after explicit approval marker" \
+  expect_allow "$ROOT_EXTERNAL" "MMW_EXTERNAL_ENV_APPROVED=1 vmrun start /Users/test/Windows.vmwarevm"
+run_test "active run does not let unrelated approval text authorize later VM command" \
+  expect_block "$ROOT_EXTERNAL" "MMW_EXTERNAL_ENV_APPROVED=1 echo approved; vmrun start /Users/test/Windows.vmwarevm"
+run_test "active run does not block text search mentioning VM command" \
+  expect_allow "$ROOT_EXTERNAL" "grep -R \"vmrun start\" docs"
+
+ROOT_EXTERNAL_NO_SCOPE="$FIXTURE_DIR/external-env-no-scope"
+make_repo "$ROOT_EXTERNAL_NO_SCOPE"
+run_test "no active run allows VM status/control command guard scope" \
+  expect_allow "$ROOT_EXTERNAL_NO_SCOPE" "vmrun start /Users/test/Windows.vmwarevm"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

@@ -320,6 +320,8 @@ Plan 边界统一处置 Open Items：
 
 不存在“先跳过以后再说”。要么修，要么开 issue，要么 BLOCKED。
 
+**外部环境证据硬门禁**：Open Items 或 verification 缺口如果需要 VM、Win-PC、ECS、production、签名机、客户机器、真实浏览器登录态或 Windows release host，默认结论是 `BLOCKED / manual validation gate`。Coordinator 不得自行启动、连接、探测或修复这些外部环境，不得用 `vmrun`、`open *.vmwarevm`、`ssh pc/vm`、`scp/rsync` 等命令补证据。需要这些证据时，先向用户说明业务影响、要碰的具体环境和最小命令；只有用户在当前 thread 明确授权后，才可以在命令前加 `MMW_EXTERNAL_ENV_APPROVED=1` 执行。没有授权时，把该项写入 `open-items.json` / business report，不把未验证项伪装成 pass。
+
 ---
 
 ## Step 10：Plan 完成、checkbox 和批次推进

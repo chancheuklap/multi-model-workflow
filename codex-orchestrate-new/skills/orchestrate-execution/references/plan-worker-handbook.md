@@ -19,6 +19,12 @@
 - `plan-return.json` / `open-items.json` / pack-returns 写到状态目录绝对路径下（沙箱已放行）。
 - 任何 `docs/` 路径（工作树内也算）：**只读，永不写**。合并前有 `git diff -- docs/` 机器检查，触碰 = 整个 Plan 被隔离拒收。
 
+### 外部环境门禁（一票否决项）
+
+- 未经用户在当前 thread 明确授权，不启动、不连接、不探测 VM、Win-PC、ECS、production、签名机、客户机器、真实浏览器登录态或其他外部运行环境。
+- 如果 Pack 的 verification 需要这些环境，把该验证写成 blocked / manual validation gate，记录需要的证据、环境和用户影响；不要用本地猜测、伪证据或擅自启动外部环境来补齐。
+- 用户明确授权后，才允许 Coordinator 给出带 `MMW_EXTERNAL_ENV_APPROVED=1` 的具体命令；worker 不自行使用这个 override。
+
 ### 4 步严格启动序列
 
 每次接到 Plan dispatch（首派或 need-fresh-worker 续派）按顺序执行 4 步；缺一返回 `verdict=needs-plan-revision`：

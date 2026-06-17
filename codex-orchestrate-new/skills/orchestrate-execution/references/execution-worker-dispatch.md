@@ -74,6 +74,7 @@ plan-level：pass / partial-pass / blocked / need-fresh-worker / needs-context /
 
 - Pack 定义必须来自已通过 Plan Review 的 plan。无效字段先修回 plan（`needs-plan-revision`），不在派发时临场重切。
 - 条件字段（Contract anchors / Mockup specs / Dependencies / 发布风险 / AFK·HITL）只在 plan 中该 Pack 有对应内容时才适用——plan 没写就不存在，不脑补。
+- VM、Win-PC、ECS、production、签名机、客户机器、真实浏览器登录态和 Windows release host 都属于用户授权环境。派工 prompt 不能要求 worker 自行启动、连接或探测这些环境；需要这类证据时写成 blocked / manual validation gate，由 Coordinator 向用户请求授权。
 
 ## Coordinator 端最小职责
 
