@@ -49,6 +49,14 @@ case "$SUBCMD" in
 
     canonical_plan_id() { printf "%03d" "$1"; }
 
+    validate_gate_name() {
+      local gate="$1"
+      if [[ "$gate" == *targeted* ]]; then
+        echo "Error: targeted review gates are deprecated; use baseline review plus Coordinator self-verification/RCA per phase repair policy." >&2
+        exit 2
+      fi
+    }
+
     validate_plan_impl_gate() {
       local gate="$1"
       [[ "$gate" =~ ^plan-impl-review-([0-9]+)$ ]] || return 0
@@ -142,6 +150,7 @@ case "$SUBCMD" in
     if [[ -z "$GATE" ]]; then
       GATE="$(gate_from_prompt_file)"
     fi
+    validate_gate_name "$GATE"
 
     case "$REVIEW_INTENT" in
       baseline)
