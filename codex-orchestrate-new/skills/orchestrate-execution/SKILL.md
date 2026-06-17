@@ -206,6 +206,8 @@ Missing/malformed envelope = dispatch BLOCKED（显式脚本校验）。
 - state.sh absolute path and STATE_BASE absolute path
 - Worker Loop 规则（可引用 agent TOML 中已有规则，但 prompt 必须自足到足以执行）
 
+写 prompt 时只能用编辑器 / `apply_patch` / 单引号 heredoc（`cat <<'EOF'`）这类不会展开内容的方式；不得用未引用 heredoc、`echo` 或会让 Markdown 反引号触发 shell command substitution 的拼接方式。
+
 派发前执行：
 
 ```bash

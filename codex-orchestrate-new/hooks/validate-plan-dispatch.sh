@@ -173,7 +173,10 @@ fi
 
 # Step 10: mutating idempotency append
 export STATE_BASE="$BUDGET_DIR"
-bash "$STATE_SH" idempotency append --run-id "$RUN_ID" --key "$IDEMPOTENCY_KEY" 2>/dev/null || true
+if ! bash "$STATE_SH" idempotency append --run-id "$RUN_ID" --key "$IDEMPOTENCY_KEY" >/dev/null; then
+  echo "[multi-model-workflow] BLOCKED: failed to record idempotency_key=$IDEMPOTENCY_KEY." >&2
+  exit 2
+fi
 
 # Step 11: Plan-level dispatch — plans[N].status moves to in_progress when the Worker
 # first calls `state.sh agent-id set --plan-id`. We don't pre-mutate here to avoid

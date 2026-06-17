@@ -40,12 +40,19 @@ echo "=== test_state.sh ==="
 run_test "init creates state file" \
   bash "$STATE_SH" init --run-id "$RUN_ID" --slug "test-slug" --route "formal"
 
+RUN_ID_PREFIX="test-run-prefix"
+run_test "global --run-id before command is accepted" \
+  bash "$STATE_SH" --run-id "$RUN_ID_PREFIX" init --slug "prefix-slug" --route "formal"
+
 run_test "init file is valid JSON" \
   python3 -m json.tool "$FIXTURE_DIR/workflow-state-${RUN_ID}.json"
 
 # --- read ---
 run_test "read run_id" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.run_id') == '$RUN_ID' ]]"
+
+run_test "global --run-id before read returns state" \
+  bash -c "[[ \$(bash '$STATE_SH' --run-id '$RUN_ID_PREFIX' read --field '.run_id') == '$RUN_ID_PREFIX' ]]"
 
 run_test "read route" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.route') == 'formal' ]]"

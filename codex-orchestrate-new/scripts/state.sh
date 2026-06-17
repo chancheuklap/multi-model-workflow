@@ -15,7 +15,7 @@ source "$SCRIPT_DIR/lib/state-lock.sh"
 
 usage() {
   cat <<'USAGE'
-Usage: state.sh <command> [options]
+Usage: state.sh [--run-id <id>] <command> [options]
 
 Commands:
   init              Create initial workflow-state file
@@ -1033,6 +1033,7 @@ cmd_execution_plan_start() {
 # B1: dep-batches — 从 plans 目录解析 Blocked-by 依赖 DAG，输出可并行批次（topo levels）。
 # 约定（B1 收口）：plan 文件名以 3 位 plan id 开头（如 001-xxx.md）；plan 头部
 # `**Blocked by:**` 的值是其他 plan 编号（"001"/"Plan 001"/逗号分隔）或 "None"。
+# 兼容旧 plan-writer 偶发写出的 `- **Blocked by**:`，但缺 header 必须报错，不能静默当无依赖。
 # 遇到无法解析为 plan 编号的 token 报错退出（不猜测）；有环报错退出。
 cmd_dep_batches() {
   local plans_dir=""
@@ -1062,9 +1063,11 @@ for fname in sorted(os.listdir(plans_dir)):
     path = os.path.join(plans_dir, fname)
     with open(path, encoding='utf-8') as f:
         text = f.read()
-    bm = re.search(r'^\*\*Blocked by:\*\*\s*(.+)$', text, re.MULTILINE)
+    bm = re.search(r'^\s*(?:[-*]\s*)?\*\*Blocked by(?::)?\*\*:?\s*(.+)$', text, re.MULTILINE)
     blocked = []
-    if bm:
+    if not bm:
+        errors.append(f"{fname}: missing '**Blocked by:**' plan header")
+    else:
         raw = bm.group(1).strip()
         if raw and raw.lower() not in ('none', '<none>', '无'):
             for token in re.split(r'[,，;；]\s*|\s+和\s+', raw):
@@ -2503,16 +2506,34 @@ cmd_envelope_build() {
 }
 
 # --- Main ---
+RUN_ID=""
+
+if [[ $# -lt 1 ]]; then usage; fi
+
+# Accept both `state.sh <command> --run-id X` and `state.sh --run-id X <command>`.
+# Live workflow recovery often starts from copied examples; this keeps the CLI
+# forgiving without adding new subcommands.
+if [[ "${1:-}" == "--run-id" ]]; then
+  RUN_ID="${2:-}"
+  shift 2
+fi
+
 if [[ $# -lt 1 ]]; then usage; fi
 
 CMD="$1"; shift
-RUN_ID=""
 
 # Extract --run-id from remaining args
 REMAINING_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --run-id) RUN_ID="$2"; shift 2 ;;
+    --run-id)
+      if [[ -n "$RUN_ID" && "$RUN_ID" != "${2:-}" ]]; then
+        echo "Error: conflicting --run-id values: $RUN_ID vs ${2:-}" >&2
+        exit 2
+      fi
+      RUN_ID="$2"
+      shift 2
+      ;;
     *) REMAINING_ARGS+=("$1"); shift ;;
   esac
 done

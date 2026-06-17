@@ -35,6 +35,18 @@ EOF
 run_test "no-dep plans land in level 0 together, dependent in level 1" \
   bash -c "[[ \$(bash '$STATE_SH' dep-batches --run-id '$RUN_ID' --plans-dir '$PLANS_DIR' | jq -c '.levels') == '[[\"001\",\"003\"],[\"002\"]]' ]]"
 
+LEGACY_HEADER_DIR="$FIXTURE_DIR/legacy-header"; mkdir -p "$LEGACY_HEADER_DIR"
+cat > "$LEGACY_HEADER_DIR/001-alpha.md" <<'EOF'
+# Alpha Implementation Plan
+- **Blocked by**: None
+EOF
+cat > "$LEGACY_HEADER_DIR/002-beta.md" <<'EOF'
+# Beta Implementation Plan
+- **Blocked by**: Plan 001
+EOF
+run_test "dep-batches accepts legacy bullet Blocked-by header without dropping dependency" \
+  bash -c "[[ \$(bash '$STATE_SH' dep-batches --run-id '$RUN_ID' --plans-dir '$LEGACY_HEADER_DIR' | jq -c '.levels') == '[[\"001\"],[\"002\"]]' ]]"
+
 # 单 Plan 退化
 SOLO_DIR="$FIXTURE_DIR/solo"; mkdir -p "$SOLO_DIR"
 cp "$PLANS_DIR/001-alpha.md" "$SOLO_DIR/001-alpha.md"
@@ -48,6 +60,13 @@ cat > "$BAD_DIR/001-x.md" <<'EOF'
 EOF
 run_test_expect_fail "non-plan-id Blocked-by token rejected (no guessing)" \
   bash "$STATE_SH" dep-batches --run-id "$RUN_ID" --plans-dir "$BAD_DIR"
+
+MISSING_HEADER_DIR="$FIXTURE_DIR/missing-header"; mkdir -p "$MISSING_HEADER_DIR"
+cat > "$MISSING_HEADER_DIR/001-x.md" <<'EOF'
+# Missing Header
+EOF
+run_test_expect_fail "missing Blocked-by header rejected instead of treated as no-dep" \
+  bash "$STATE_SH" dep-batches --run-id "$RUN_ID" --plans-dir "$MISSING_HEADER_DIR"
 
 # 环 → 报错
 CYC_DIR="$FIXTURE_DIR/cyc"; mkdir -p "$CYC_DIR"
