@@ -136,6 +136,26 @@ else
   fail=$((fail + 1))
 fi
 
+# Case G: worker_agent_id 是可恢复 owner；worker 已 final 后不代表仍在跑。
+cat > "$BUDGET_DIR/execution-state-${RUN_ID}.json" <<EOF
+{"run_id":"$RUN_ID","plans":{"008":{"worker_agent_id":"worker-done","worker_verdict":"pass","finished_at":"2026-06-17T00:00:00Z","packs":{"8.1":{"status":"committed","commit_sha":"worker-pack-8-1-sha"},"8.2":{"status":"committed","commit_sha":"worker-pack-8-2-sha"}}}}}
+EOF
+OUT=$(run_hook "008" "8.2")
+if echo "$OUT" | grep -q "Dispatch Plan Implementation Review"; then
+  echo "  PASS: G) returned worker with retained worker_agent_id can dispatch review"
+  pass=$((pass + 1))
+else
+  echo "  FAIL: G) returned worker should allow review dispatch (actual: $OUT)"
+  fail=$((fail + 1))
+fi
+if echo "$OUT" | grep -q "still in session"; then
+  echo "  FAIL: G) returned worker must not be reported as still in session (actual: $OUT)"
+  fail=$((fail + 1))
+else
+  echo "  PASS: G) returned worker no longer emits still-in-session warning"
+  pass=$((pass + 1))
+fi
+
 echo ""
 echo "Result: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]
