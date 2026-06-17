@@ -22,8 +22,9 @@ usage() {
   cat <<'USAGE'
 Usage: complete-review-dispatch.sh --run-id RUN_ID --gate GATE --agent-id AGENT_ID --result-file PATH [--allow-over-budget --override-reason TEXT]
 
-The agent-id is the reviewer identity returned by
-`spawn_agent(agent_type="codex_reviewer")`.
+The agent-id is the reviewer identity returned by the phase-specific reviewer
+`spawn_agent(...)` call (`codex_planning_reviewer` for Discovery / Plan Review,
+`codex_reviewer` otherwise).
 USAGE
   exit 2
 }

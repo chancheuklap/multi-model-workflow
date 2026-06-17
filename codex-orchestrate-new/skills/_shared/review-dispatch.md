@@ -8,7 +8,7 @@ Codex 版 review 是原生 subagent 工作流，不调用外部 companion 或 jo
 
 - Coordinator 写 review prompt，并以 `DISPATCH_ENVELOPE` 开头。
 - `dispatch-review.sh validate` 校验 envelope、gate、budget、repair round 和 plan implementation 前置条件。
-- Coordinator 调用 `spawn_agent(agent_type="codex_reviewer")`。
+- Coordinator 按 review phase 调用 reviewer agent_type：Discovery / Plan Review 用 `codex_planning_reviewer`；execution / final review / direct repair / bug investigation / multi-PR merge / ad-hoc review 用 `codex_reviewer`。
 - `dispatch-review.sh record` 保存 reviewer agent id、registry entry 和 prompt 内容摘要；record 成功后该 prompt 冻结。
 - Coordinator 用 `wait_agent` 等 final message，把结果写入 `review-results/<gate>.md`。
 - `complete-review-dispatch.sh` 核对 prompt 未被改写后标记 durable result，并 exactly-once 递增 review budget。
@@ -29,10 +29,10 @@ Codex 版 review 是原生 subagent 工作流，不调用外部 companion 或 jo
    --- END UNTRUSTED CODE DIFF ---
    ```
 
-3. 按 phase 选择 reviewer 模型：
+3. 按 phase 选择 reviewer agent_type。`DISPATCH_ENVELOPE.agent_role` 仍固定为 `"codex_reviewer"`；这里选择的是实际 `spawn_agent` 的自定义 agent 类型。
 
-   - `discovery, plan-writing`：`spawn_agent` 可显式指定 `model: "gpt-5.5"`、`reasoning_effort: "xhigh"`。
-   - `execution, final-review, bug-investigation, direct-repair, multi-pr-merge`：默认 `codex_reviewer` 配置（`gpt-5.4` / `xhigh`）即可，除非风险要求升级。
+   - `discovery, plan-writing`：`codex_planning_reviewer`（`gpt-5.5` / `xhigh`）。
+   - `execution, final-review, bug-investigation, direct-repair, multi-pr-merge, ad-hoc`：`codex_reviewer`（`gpt-5.4` / `xhigh`）。
 
 4. validate：
 
@@ -54,7 +54,7 @@ Codex 版 review 是原生 subagent 工作流，不调用外部 companion 或 jo
 
    ```text
    spawn_agent({
-     agent_type: "codex_reviewer",
+     agent_type: "<codex_planning_reviewer|codex_reviewer>",
      message: "Read this review prompt file and return the requested review: <absolute prompt path>"
    })
    ```
