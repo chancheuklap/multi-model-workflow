@@ -61,6 +61,15 @@ PROMPT
 run_test_expect_fail "validate blocks deprecated targeted review gate names" \
   bash "$DISPATCH_SH" validate --prompt-file "$TARGETED_GATE" --gate "final-review-targeted-repair-2"
 
+RERUN_GATE="$FIXTURE_DIR/prompts/plan-impl-review-4-rerun-1.md"
+cat > "$RERUN_GATE" <<PROMPT
+<!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"$RUN_ID","phase":"execution","agent_role":"codex_reviewer","agent_id":null,"pack_id":null,"plan_id":null,"repair_round":1,"idempotency_key":"$RUN_ID/review/rerun-1","disposition_refs":["F-001"],"review_intent":"baseline","exception_code":null} -->
+Review prompt content
+PROMPT
+
+run_test_expect_fail "validate blocks deprecated rerun review gate names" \
+  bash "$DISPATCH_SH" validate --prompt-file "$RERUN_GATE" --gate "plan-impl-review-4-rerun-1"
+
 BASELINE="$FIXTURE_DIR/prompts/plan-impl-review-1.md"
 cat > "$BASELINE" <<PROMPT
 <!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"$RUN_ID","phase":"execution","agent_role":"codex_reviewer","agent_id":null,"pack_id":null,"plan_id":null,"repair_round":0,"idempotency_key":"$RUN_ID/review/r0","disposition_refs":null,"review_intent":"baseline","exception_code":null} -->

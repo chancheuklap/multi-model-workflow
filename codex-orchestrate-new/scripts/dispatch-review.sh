@@ -62,8 +62,8 @@ case "$SUBCMD" in
 
     validate_gate_name() {
       local gate="$1"
-      if [[ "$gate" == *targeted* ]]; then
-        echo "Error: targeted review gates are deprecated; use baseline review plus Coordinator self-verification/RCA per phase repair policy." >&2
+      if [[ "$gate" == *targeted* || "$gate" == *rerun* ]]; then
+        echo "Error: targeted/rerun review gates are deprecated; use baseline review plus Coordinator self-verification/RCA per phase repair policy." >&2
         exit 2
       fi
     }
