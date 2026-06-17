@@ -182,9 +182,15 @@ PROMPT
   printf '%s\n' "$worktree_path" > "$STATE_BASE/worker-active-${plan_id}"
 
   # 5. 驱动 codex + 同进程回收
+  #    worktree 的 git 控制目录在 git common dir（.git/worktrees/<name> + 共享 objects/refs），
+  #    worktree-of-worktree 时更在父仓库 .git 下；workspace-write 默认只覆盖 cwd，
+  #    必须显式放行 git common dir，否则 git commit 写 index.lock/objects 被沙箱拒（Operation not permitted）。
+  local git_common_dir
+  git_common_dir=$(cd "$worktree_path" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
   run_codex_and_ingest "$plan_id" 0 "$prompt_file" \
     exec -C "$worktree_path" --sandbox workspace-write \
     --add-dir "$ABS_STATE_DIR" \
+    ${git_common_dir:+--add-dir "$git_common_dir"} \
     -m "$model" -c "model_reasoning_effort=\"$CODEX_EFFORT\""
 }
 
