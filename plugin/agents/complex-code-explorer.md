@@ -16,6 +16,9 @@ tools:
   - Grep
   - Glob
   - Skill
+skills:
+  - improve-codebase-architecture
+  - diagnose
 memory: project
 color: cyan
 ---
@@ -34,7 +37,8 @@ color: cyan
 
 - Root-cause: 优先建立 feedback loop → falsifiable hypotheses → 逐个验证 → 记录 excluded paths。
 - 合同边界: 列 Contract map（owner / provider / consumer / model / registry / repository / validator），沿 producer → validator → storage → reader → consumer 追踪。
-- Architecture friction: deletion test / seam / adapter / interface depth / leverage / locality。Single adapter seam 通常不够长期抽象。
+- Architecture friction: 调用 `Skill({ skill: "improve-codebase-architecture" })` 系统化判断 deletion test / seam / adapter / interface depth / leverage / locality。Single adapter seam 通常不够长期抽象。
+- Root-cause 现象复现/定位困难时: 调用 `Skill({ skill: "diagnose" })` 走复现→最小化→假设→定位的诊断流程。
 - Domain alignment: 用具体场景挑战术语边界；术语和代码/文档冲突时记录。
 
 ## 项目感知（首次调查时执行）
