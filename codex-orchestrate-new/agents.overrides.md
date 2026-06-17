@@ -13,6 +13,6 @@
 - Review Budget 默认是硬停。只有用户明确授权继续 review 时，Coordinator 才能在 validate 和 complete 两步同时传 `--allow-over-budget --override-reason "<授权原因>"`。
 - 当前 workflow state paths 是 `.codex/multi-model-workflow/*`。不要给旧 runtime 加 fallback。
 - Coordinator delegation 有 ownership 语义：任务派给 subagent 后，Coordinator 不得并行重复做同一个 investigation、implementation 或 review。
-- Coordinator 必须管理 subagent 生命周期：`wait_agent` 返回 final status 且结果已保存/写入 state 后立即 `close_agent`；续修先 `resume_agent` 再 `send_input`。
+- Coordinator 必须管理 subagent 生命周期：`wait_agent` 返回 final status 后，先保存 final message 并完成 registry / state ingest / result file 等 durable 收口，再 `close_agent` 释放容量；`close_agent` 后仍可通过已记录的 agent id `resume_agent`。续修先 `resume_agent` 再 `send_input`。
 - Pack、review repair、plan doc 和 workflow rule 改动必须按真实完成边界及时 commit。不要把多个 pack、多个 phase 或多轮修复堆到 closing 前统一提交。
 - 文档、规则、计划、prompt-only 改动只做有证明力的验证：format、build check、manifest、schema、路径链接、maturity gate 或人工可审查 diff。

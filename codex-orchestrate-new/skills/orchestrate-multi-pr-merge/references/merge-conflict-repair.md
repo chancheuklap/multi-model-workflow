@@ -39,7 +39,7 @@ Multi-PR conflict repair 是非 execution Pack 的 coding worker：不创建 exe
      --agent-id "<agent_id>" \
      --agent-file ".codex/multi-model-workflow/worker-agents/multi-pr-conflict-<conflict-id>.agent-id"
    ```
-5. 使用 `wait_agent({targets:["<agent_id>"], timeout_ms:600000})` 等待 final message，保存到 `.codex/multi-model-workflow/worker-results/multi-pr-conflict-<conflict-id>.md`，再 `close_agent({target:"<agent_id>"})` 释放并发容量。后续如需同一 worker 继续修复，先 `resume_agent({ id: "<agent_id>" })`，再 `send_input({ target: "<agent_id>", message: "..." })`。
+5. 使用 `wait_agent({targets:["<agent_id>"], timeout_ms:600000})` 等待 final message，保存到 `.codex/multi-model-workflow/worker-results/multi-pr-conflict-<conflict-id>.md`，Coordinator 校验返回事实并写入 merge brief 后，再 `close_agent({target:"<agent_id>"})` 释放并发容量。后续如需同一 worker 继续修复，先 `resume_agent({ id: "<agent_id>" })`，再 `send_input({ target: "<agent_id>", message: "..." })`。
 
 ### 12a：有 Analyst Findings 的 Worker Dispatch
 

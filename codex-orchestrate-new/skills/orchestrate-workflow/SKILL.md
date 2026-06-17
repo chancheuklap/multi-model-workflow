@@ -88,7 +88,7 @@ Light Lane 是日常小改的快路：跳过 Discovery / 独立 Plan-writing / P
 
 1. **intent 一句确认**：`"这是个小改：<一句话>，我直接动手了"`——不阻塞，除非用户喊停。
 2. `state.sh init --run-id <rid> --slug <slug> --route light`——budget 默认 unlimited（routes 清单声明），因此自然跳过 `validate-plan-dispatch.sh` 的 budget-init 门（budget_status=unlimited，非 pending_plan_count）。
-3. **直派 Codex-native Worker**（plan-level dispatch，走现有 envelope 契约）：Coordinator 自写一份简短 plan，`plan_path` 指向它；按风险选择 `pack_executor` 或 `complex_pack_executor`，使用 `spawn_agent` 派发、`wait_agent` 等待、保存结果后 `close_agent`。
+3. **直派 Codex-native Worker**（plan-level dispatch，走现有 envelope 契约）：Coordinator 自写一份简短 plan，`plan_path` 指向它；按风险选择 `pack_executor` 或 `complex_pack_executor`，使用 `spawn_agent` 派发、`wait_agent` 等待，保存结果并完成必要状态收口后 `close_agent`。
    transition `workflow→execution` 对 light 合法（routes 清单声明），对 formal 仍非法。
 4. **Coordinator 自审**：Read/grep 验证 Worker 返回的 hash / 路径 / 计数后才采信。
 5. **Closing**：commit；push 前只检查 active run 绑定的 plan scope，未勾选任务阻断照常生效；无 active run 的 push / PR 直接放行。

@@ -125,6 +125,8 @@ VERDICT=$(jq -r '.plans["005"].worker_verdict' "$ESF")
 assert_eq "ingest: 5.1 status committed" "$S51" "committed"
 assert_eq "ingest: 5.3 status blocked" "$S53" "blocked"
 assert_eq "ingest: worker_verdict mirrored" "$VERDICT" "partial-pass"
+END_COMMIT=$(jq -r '.plans["005"].end_commit' "$ESF")
+assert_eq "ingest: end_commit uses last committed pack sha" "$END_COMMIT" "def"
 
 # Ingest missing plan-return.json → error
 if bash "$STATE_SH" plan-returns ingest --run-id "$RUN_ID" --plan-id "nonexistent" 2>/dev/null; then

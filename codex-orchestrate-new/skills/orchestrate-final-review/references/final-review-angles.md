@@ -246,7 +246,7 @@ Coordinator 在派发时只需完成以下动作，其余由 Reviewer 自读：
 1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`gate`（`final-review-baseline-1` / `final-review-baseline-2`）、`review_intent: "baseline"`。
 2. 在 `Source design:` 中列出 design 文件路径（reviewer 自读全文和 diff）。
 3. 写两个 review-prompts 文件，分别运行 `dispatch-review.sh validate`，并行 `spawn_agent(agent_type="codex_reviewer")`，再用 `dispatch-review.sh record` 保存两个 agent id。
-4. 用 `wait_agent` 等待两个 reviewer final message，保存各自 review-results 后立即 `close_agent`，再分别运行 `complete-review-dispatch.sh`，进入 Steps 6-8 disposition 流程。
+4. 用 `wait_agent` 等待两个 reviewer final message，保存各自 review-results，再分别运行 `complete-review-dispatch.sh`；complete 成功后 `close_agent` 释放容量，进入 Steps 6-8 disposition 流程。
 
 ---
 > **下一步**：两个 baseline 提交后 → Steps 6-8（final-review-disposition.md）。

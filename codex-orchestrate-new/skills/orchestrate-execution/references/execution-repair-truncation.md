@@ -10,7 +10,7 @@ Accepted findings 按 `Affected packs` 字段分组 → 每组复用现有三路
 
 **Read** `${MMW_PLUGIN_ROOT}/skills/_shared/repair-routing.md` 并按其流程处理 review findings。
 
-所有 repair prompt 只携带 accepted findings。Repair 返回后 Coordinator 默认自验收（verification commands + acceptance criteria 对照）。如果修复改变了 Plan baseline、用户明确要求独立复核，或 RCA 根因修复风险高到无法靠 Coordinator 自验闭合，则重新派发一次 baseline Codex review，走 `_shared/review-dispatch.md` 的 `spawn_agent` / `wait_agent` / `close_agent` / durable result 流程；不续用旧 reviewer session 或旧 job id 概念。
+所有 repair prompt 只携带 accepted findings。Repair 返回后 Coordinator 默认自验收（verification commands + acceptance criteria 对照）。如果修复改变了 Plan baseline、用户明确要求独立复核，或 RCA 根因修复风险高到无法靠 Coordinator 自验闭合，则重新派发一次 baseline Codex review，走 `_shared/review-dispatch.md` 的 `spawn_agent` / `wait_agent` / durable result / `close_agent` 流程；不续用旧 reviewer session 或旧 job id 概念。
 
 - **路径 A**（≤ 2 文件、不碰合同边界、意图明确）：Coordinator 直接修 → 跑验证 → Step 11
 - **路径 B**（多文件、根因已知）：

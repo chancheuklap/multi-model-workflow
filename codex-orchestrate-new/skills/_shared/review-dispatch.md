@@ -12,6 +12,7 @@ Codex 版 review 是原生 subagent 工作流，不调用外部 companion 或 jo
 - `dispatch-review.sh record` 保存 reviewer agent id 和 registry entry。
 - Coordinator 用 `wait_agent` 等 final message，把结果写入 `review-results/<gate>.md`。
 - `complete-review-dispatch.sh` 标记 durable result，并 exactly-once 递增 review budget。
+- durable complete 成功后再 `close_agent` 释放容量；closed reviewer 仍可用 registry 里的 agent id `resume_agent`，但 workflow 默认从 durable result 继续 disposition，不重新派同一 review。
 - Coordinator 完成 finding disposition 后用 `record-review-disposition.sh` 标记 started / completed。
 
 ## 流程
@@ -73,11 +74,7 @@ Codex 版 review 是原生 subagent 工作流，不调用外部 companion 或 jo
    wait_agent({targets:["<AGENT_ID>"], timeout_ms:600000})
    ```
 
-   把 final message 原文保存到 `.codex/multi-model-workflow/review-results/<gate>.md`，然后立即：
-
-   ```text
-   close_agent({target:"<AGENT_ID>"})
-   ```
+   把 final message 原文保存到 `.codex/multi-model-workflow/review-results/<gate>.md`。
 
 8. durable complete：
 
@@ -89,7 +86,13 @@ Codex 版 review 是原生 subagent 工作流，不调用外部 companion 或 jo
      --result-file ".codex/multi-model-workflow/review-results/<gate>.md"
    ```
 
-9. disposition recovery anchor：
+9. 释放 reviewer 容量：
+
+   ```text
+   close_agent({target:"<AGENT_ID>"})
+   ```
+
+10. disposition recovery anchor：
 
    ```bash
    bash "${MMW_PLUGIN_ROOT}/scripts/record-review-disposition.sh" --run-id "<run_id>" --gate "<gate>" --status started
@@ -99,7 +102,7 @@ Codex 版 review 是原生 subagent 工作流，不调用外部 companion 或 jo
 
 ## Compaction Recovery
 
-- 有 `review-registry/<gate>.json` 且 status 为 `dispatched`：读取其中的 `agent_id`，先 `wait_agent`；如果 agent 已关闭或结果不可取，报告 BLOCKED，不重新派同一 review。
+- 有 `review-registry/<gate>.json` 且 status 为 `dispatched`：读取其中的 `agent_id`，先 `wait_agent`；如果 agent 已关闭但无 result file，先 `resume_agent` 再 `wait_agent`。仍不可取时报告 BLOCKED，不重新派同一 review。
 - status 为 `completed` 或 `disposition_started` 且 result file 存在：直接读该 result file 继续 disposition。
 - disposition 未 completed 前，不进入 repair。
 

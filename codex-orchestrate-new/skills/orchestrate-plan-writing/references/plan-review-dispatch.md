@@ -98,7 +98,7 @@ Coordinator 在派发时只需完成以下动作，其余由 Reviewer 自读：
 1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`plan_id`、`gate`（`plan-review`）、`review_intent: "baseline"`。
 2. 在 `Source artifacts:` 中列出 plan 目录、design.md、issues 目录路径（reviewer 自读内容）。
 3. 写 `review-prompts/plan-review.md`，运行 `dispatch-review.sh validate`，用 `spawn_agent(agent_type="codex_reviewer")` 派发 reviewer，再运行 `dispatch-review.sh record` 保存 agent id。
-4. 用 `wait_agent` 等待 reviewer final message，保存到 `review-results/plan-review.md` 后立即 `close_agent`，再运行 `complete-review-dispatch.sh` 标记 durable result 并计入 review budget。
+4. 用 `wait_agent` 等待 reviewer final message，保存到 `review-results/plan-review.md`，再运行 `complete-review-dispatch.sh` 标记 durable result 并计入 review budget；complete 成功后 `close_agent` 释放容量。
 5. 读取 review-results 文件，进入 Steps 15-18 disposition 流程。
 
 ---

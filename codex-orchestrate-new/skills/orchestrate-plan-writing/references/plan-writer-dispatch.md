@@ -119,7 +119,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" plan-writer-session set \
 
 如果任一 writer 登记失败，当前 phase 进入 `BLOCKED`；Coordinator 先等待、保存并关闭已经派出的 writer，再向用户报告阻塞原因。不得留下未登记的 writer 继续运行。
 
-### Step 9d：统一 wait + save + close
+### Step 9d：统一 wait + save + durable close
 
 整批 writer 都成功登记后，再统一等待：
 
@@ -131,8 +131,9 @@ wait_agent({targets:["<AGENT_ID_001>", "<AGENT_ID_002>", "..."], timeout_ms:6000
 
 1. 保存返回结果到 `.codex/multi-model-workflow/plan-writer-results/<run_id>/<NNN>.md`
 2. `state.sh plan-writer-session set --run-id <run_id> --plan-id <NNN> --status returned --result-file ".codex/multi-model-workflow/plan-writer-results/<run_id>/<NNN>.md"`
-3. `close_agent({target:"<AGENT_ID>"})` 释放并发容量
-4. 亲自抽验返回里声明的 plan path、issue mapping 和文件存在性，再进入 Step 10
+3. 亲自抽验返回里声明的 plan path、issue mapping 和文件存在性
+4. `close_agent({target:"<AGENT_ID>"})` 释放并发容量；closed writer 仍可用已记录 agent id `resume_agent`
+5. 进入 Step 10
 
 若后续需要修复/补充上下文，必须按 plan id 读取原 writer：
 

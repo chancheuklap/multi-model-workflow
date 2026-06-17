@@ -112,7 +112,7 @@ echo "<AGENT_ID>" > "${REVIEW_DIR}/review-${TIMESTAMP}.agent-id"
 RESULT_FILE="${REVIEW_DIR}/review-${TIMESTAMP}-result.md"
 ```
 
-保存完成后立即 `close_agent({target:"<AGENT_ID>"})` 释放并发容量。
+保存完成后 `close_agent({target:"<AGENT_ID>"})` 释放并发容量；关闭不删除 reviewer 记录，后续仍可用 agent id `resume_agent`，但 ad-hoc review 默认以已保存结果为准。
 
 ## Step 5 — 收集并报告
 

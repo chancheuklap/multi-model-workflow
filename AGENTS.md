@@ -34,7 +34,7 @@
 - Codex App 启动的 workflow 常位于 `.codex/worktrees/...` detached HEAD。进入正式执行前必须先在当前 worktree 创建命名分支；如果当前目录是主仓库，则只允许先创建独立 worktree，不得在主仓库直接切任务分支。
 - 派发必须是 Codex-native：使用 `spawn_agent`、`resume_agent`、`send_input`、`wait_agent`、`close_agent`，并调用已注册的 `pack_executor`、`complex_pack_executor`、`plan_writer`、`codex_reviewer`、`root_cause_analyst` 和 explorer agents。
 - 派发后必须尊重 sub-agent ownership：Coordinator 不重复执行已派发的同一任务，不用短间隔轮询催促，不在未完成时要求中间结论，不中断或关闭仍在运行的 agent。等待期间只能做不重叠的协调工作；需要结果才能继续时就等待 `wait_agent` 返回。
-- sub-agent 生命周期必须闭合：`wait_agent` 返回 final status 且结果已保存/写入 state 后，立即 `close_agent` 释放容量；后续需要同一 owner 续修或 targeted re-review 时，先 `resume_agent` 再 `send_input`，再次等待、保存结果并关闭。不得让 completed agents 长期挂起占用并发上限。
+- sub-agent 生命周期必须闭合：`wait_agent` 返回 final status 后，先把 final message / result file / registry / state ingest 全部 durable 落盘，再 `close_agent` 释放容量。`close_agent` 不丢 owner，上游 Codex 工具允许之后用 `resume_agent` 重新打开 closed agent；因此 agent id 必须先写入 state / registry。后续需要同一 owner 续修时，先 `resume_agent` 再 `send_input`，再次等待、保存结果并关闭。不得让 completed agents 长期挂起占用并发上限。
 - Pack / review prompt 必须自带 scope、anchors、return contract 和 routing vocabulary。不要假设 worker 或 reviewer 能从父 skill 隐式推断上下文。
 - 高风险合同栈是 `workflow-state` / `execution-state`、`DISPATCH_ENVELOPE`、dispatch validators、hook registration、template-generated text、review budget 和 verify harness。成熟度或 runtime 变更必须逐层核。
 - Hook 的价值在于从 Codex plugin manifest 自动触发。能手动运行的 helper script 不等于 hook wiring 已生效。

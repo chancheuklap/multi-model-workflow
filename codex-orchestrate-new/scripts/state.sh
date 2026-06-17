@@ -949,16 +949,27 @@ cmd_plan_returns_ingest() {
   trap release_lock EXIT
 
   local tmp="${esf}.tmp"
-  # Merge per_pack entries into .plans[plan_id].packs and write worker_verdict
+  # Merge per_pack entries into .plans[plan_id].packs and write worker_verdict.
+  # plan-return commit_sha values are the worker worktree authority; use the
+  # last committed pack as the Plan end_commit for implementation review diff.
   jq --arg pid "$plan_id" --slurpfile pr "$pr_file" '
     . as $base
     | ($pr[0].per_pack // {}) as $pp
+    | ([
+        $pp
+        | to_entries[]
+        | select(.value.status == "committed" and ((.value.commit_sha // "") != ""))
+        | {pack_id: .key, commit_sha: .value.commit_sha}
+      ]
+      | sort_by(.pack_id | split(".") | map(tonumber))
+      | .[-1].commit_sha // null) as $end_commit
     | .plans[$pid].worker_verdict = $pr[0].verdict
     | .plans[$pid].packs = (
         ($base.plans[$pid].packs // {}) as $cur
         | reduce ($pp | to_entries[]) as $e
           ($cur; .[$e.key] = ((.[$e.key] // {}) + ($e.value)))
       )
+    | if $end_commit != null then .plans[$pid].end_commit = $end_commit else . end
   ' "$esf" > "$tmp"
   mv "$tmp" "$esf"
 }

@@ -100,9 +100,10 @@ Worker 的合法 verdict：
 3. `dispatch-review.sh validate` 校验 envelope、gate、budget、repair round 和 execution 前置条件。
 4. Coordinator 调用 `spawn_agent(agent_type="codex_reviewer")`。
 5. `dispatch-review.sh record` 写 review registry 和 agent id。
-6. `wait_agent` 返回后，Coordinator 保存 result，立即 `close_agent`。
+6. `wait_agent` 返回后，Coordinator 保存 result。
 7. `complete-review-dispatch.sh` durable 标记结果，并 exactly-once 递增 review budget。
-8. disposition 开始和完成分别由 `record-review-disposition.sh` 标记。
+8. durable complete 成功后，Coordinator `close_agent` 释放容量；closed reviewer 仍可用 registry 中的 agent id `resume_agent`。
+9. disposition 开始和完成分别由 `record-review-disposition.sh` 标记。
 
 Codex hook 不从 Bash 命令文本猜测 native subagent prompt。真实 review gate 在显式 validate 脚本里。
 
