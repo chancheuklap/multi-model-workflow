@@ -124,11 +124,11 @@ Coordinator 不再自己读大范围仓库；按问题范围**并行派 N 个 Ex
 
 **Read** `references/design-review-angles.md`（2 个 baseline Codex reviewer：Design Content Review + Project Alignment Review）。通过后回到 Step 12 大 issue 拆分。
 
-Coordinator 亲验 findings → disposition → 直接修设计文档（不派 worker）→ baseline re-review。一轮 review + 修复。Pass 条件：两个 baseline 通过 + 无 Critical。
+Coordinator 亲验 findings → disposition → 直接修设计文档（不派 worker）→ 窄范围修复复审。修复复审只覆盖 accepted findings、Coordinator 修改的 sections 和对应 review angle；只有修复同时改变内容完整性与项目对齐假设时才同时重跑两个 angle。Pass 条件：两个 baseline angle 均已有 pass 或本轮修复复审 pass，且无 Critical。
 
 ## Step 12：大 issue 拆分
 
-已有 issue hierarchy（`docs/orchestrate/issues/<slug>/` 下有大 issue 文件）→ 返回进入 plan-writing。缺 issue hierarchy → **Read** `references/issue-splitting.md` 并严格执行（vertical slice 拆分 + 用户确认 + 写大 issue 骨架）。
+已有 issue hierarchy（`docs/orchestrate/issues/<slug>/` 下有大 issue 文件）→ 返回进入 plan-writing。缺 issue hierarchy → **Read** `references/issue-splitting.md` 并严格执行（vertical slice 拆分 + 自检 + 写大 issue 骨架；只有拆分改变业务范围、引入新 HITL 决策或设计锚点不足时才问用户）。
 
 ## 外部 Skill
 

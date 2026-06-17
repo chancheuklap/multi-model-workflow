@@ -177,4 +177,4 @@ Coordinator 在派发时只需完成以下动作，其余由 Reviewer 自读：
 3. 写 review-prompts 文件，运行 `dispatch-review.sh validate`，用 `spawn_agent(agent_type="codex_reviewer")` 派发 reviewer，再运行 `dispatch-review.sh record` 保存 agent id。
 4. 用 `wait_agent` 等待 reviewer final message，保存到 review-results 后立即 `close_agent`，再运行 `complete-review-dispatch.sh` 标记 durable result 并计入 review budget，进入 Disposition 流程。
 
-> **下一步**：Design Review 通过 → 回到 SKILL.md Step 12（大 issue 拆分）。needs repair → Coordinator 直接修设计文档 → baseline re-review。
+> **下一步**：Design Review 通过 → 回到 SKILL.md Step 12（大 issue 拆分）。needs repair → Coordinator 直接修设计文档 → 窄范围修复复审。修复复审只审 accepted findings、Coordinator 修改的 sections 和对应 review angle；只有修复同时改变内容完整性与项目对齐假设时才同时重跑两个 angle。
