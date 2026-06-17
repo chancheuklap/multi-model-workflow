@@ -53,8 +53,8 @@ run_test "read route" \
 run_test "read default arrays are empty" \
   bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.review_dispositions | length') == '0' ]]"
 
-run_test "read plan_writer_agent_id is null" \
-  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.plan_writer_agent_id') == 'null' ]]"
+run_test "read plan_writer_sessions is empty" \
+  bash -c "[[ \$(bash '$STATE_SH' read --run-id '$RUN_ID' --field '.plan_writer_sessions | length') == '0' ]]"
 
 # --- init formal: budget_status = pending_plan_count, review_total = null ---
 run_test "init formal has budget_status pending_plan_count" \
@@ -81,6 +81,25 @@ run_test "budget initialize sets budget_status to initialized" \
 
 run_test_expect_fail "budget initialize fails when already initialized" \
   bash "$STATE_SH" budget initialize --run-id "$RUN_ID" --plan-count 5
+
+# --- plan-writer-session ---
+run_test "plan-writer-session set records per-plan agent" \
+  bash "$STATE_SH" plan-writer-session set --run-id "$RUN_ID" --plan-id 001 --agent-id writer-001 --status dispatched --issue-path docs/orchestrate/issues/test/001-a.md --plan-path docs/orchestrate/plans/test/001-a.md
+
+run_test "plan-writer-session get reads correct agent" \
+  bash -c "[[ \$(bash '$STATE_SH' plan-writer-session get --run-id '$RUN_ID' --plan-id 001 --field agent_id) == 'writer-001' ]]"
+
+run_test "plan-writer-session supports parallel second writer" \
+  bash "$STATE_SH" plan-writer-session set --run-id "$RUN_ID" --plan-id 002 --agent-id writer-002 --status dispatched --issue-path docs/orchestrate/issues/test/002-b.md --plan-path docs/orchestrate/plans/test/002-b.md
+
+run_test "plan-writer-session keeps writers keyed by plan id" \
+  bash -c "[[ \$(bash '$STATE_SH' plan-writer-session get --run-id '$RUN_ID' --plan-id 001 --field agent_id) == 'writer-001' && \$(bash '$STATE_SH' plan-writer-session get --run-id '$RUN_ID' --plan-id 002 --field agent_id) == 'writer-002' ]]"
+
+run_test "plan-writer-session can mark returned result" \
+  bash "$STATE_SH" plan-writer-session set --run-id "$RUN_ID" --plan-id 001 --status returned --result-file .codex/multi-model-workflow/plan-writer-results/test-run-001/001.md
+
+run_test "plan-writer-session preserves existing agent on status update" \
+  bash -c "[[ \$(bash '$STATE_SH' plan-writer-session get --run-id '$RUN_ID' --plan-id 001 --field agent_id) == 'writer-001' && \$(bash '$STATE_SH' plan-writer-session get --run-id '$RUN_ID' --plan-id 001 --field status) == 'returned' ]]"
 
 # --- budget check ---
 run_test "budget check passes when initialized" \

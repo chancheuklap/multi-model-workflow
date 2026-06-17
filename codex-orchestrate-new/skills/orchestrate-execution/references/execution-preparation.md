@@ -78,11 +78,13 @@ Worker 的 durable return file 写入此目录（按 run_id 隔离，防止跨 r
 ```bash
 COORDINATOR_ROOT="$(git rev-parse --show-toplevel)"
 STATE_DIR="${COORDINATOR_ROOT}/.codex/multi-model-workflow"
-PLAN_WORKTREE="${STATE_DIR}/worktrees/plan-<N>"
+REPO_NAME="$(basename "$COORDINATOR_ROOT")"
+CODEX_WORKTREE_ROOT="${CODEX_WORKTREE_ROOT:-${CODEX_HOME:-$HOME/.codex}/worktrees}"
+PLAN_WORKTREE="${CODEX_WORKTREE_ROOT}/<run_id>/plan-<N>/${REPO_NAME}"
 PLAN_BRANCH="codex/<run_id>-plan-<N>"
 START_COMMIT="$(git rev-parse HEAD)"
 
-mkdir -p "${STATE_DIR}/worktrees"
+mkdir -p "$(dirname "$PLAN_WORKTREE")"
 if [ ! -d "$PLAN_WORKTREE" ]; then
   git worktree add -b "$PLAN_BRANCH" "$PLAN_WORKTREE" "$START_COMMIT"
 fi

@@ -6,7 +6,7 @@
   "required": [
     "run_id", "slug", "route", "started_at",
     "cursor", "budget", "plans", "idempotency_keys",
-    "plan_writer_agent_id", "review_dispositions",
+    "plan_writer_sessions", "review_dispositions",
     "pending_post_push_reviews",
     "pending_direction_check",
     "execution_reflux_count", "last_gate_phase", "last_gate_timestamp"
@@ -58,7 +58,23 @@
       }
     },
     "idempotency_keys": { "type": "array", "items": { "type": "string" } },
-    "plan_writer_agent_id": { "type": ["string", "null"] },
+    "plan_writer_sessions": {
+      "type": "object",
+      "description": "Plan-writing agent ownership keyed by plan/issue id (e.g. '001'). Parallel plan_writer dispatches must record each agent separately so repair can resume the correct writer.",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "agent_id": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["dispatched", "returned", "closed", "blocked"] },
+          "issue_path": { "type": ["string", "null"] },
+          "plan_path": { "type": ["string", "null"] },
+          "result_file": { "type": ["string", "null"] },
+          "repair_round": { "type": "integer", "default": 0 },
+          "updated_at": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "required": ["agent_id", "status"]
+      }
+    },
     "review_dispositions": {
       "type": "array",
       "items": {

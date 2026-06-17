@@ -77,7 +77,7 @@ plan-level：pass / partial-pass / blocked / need-fresh-worker / needs-context /
 
 ## Coordinator 端最小职责
 
-1. 为该 Plan 创建隔离 worktree 和分支：`git worktree add -b "codex/<run_id>-plan-<plan_id>" "$STATE_DIR/worktrees/plan-<plan_id>" "$START_COMMIT"`。
+1. 为该 Plan 创建隔离 worktree 和分支：使用 `${CODEX_WORKTREE_ROOT:-${CODEX_HOME:-$HOME/.codex}/worktrees}/<run_id>/plan-<plan_id>/<repo-name>` 作为 `PLAN_WORKTREE`，再执行 `git worktree add -b "codex/<run_id>-plan-<plan_id>" "$PLAN_WORKTREE" "$START_COMMIT"`。
 2. 触发 `state.sh execution-plan start` 记录 `start_commit`、`worktree_path` 和 `branch`；该命令会写 `worker-active-<plan_id>` marker。
 3. 用 `state.sh envelope build` 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`plan_id`、`plan_path`、`worktree_path`、`phase=execution`、`agent_role`。
 4. 派工 prompt 必须给出绝对路径：Plan 文件、Worker worktree、Scope Contract、execution-state、状态目录、`state.sh`、plan-return / open-items / pack-returns 写入路径。

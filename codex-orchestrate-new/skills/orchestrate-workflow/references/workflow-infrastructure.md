@@ -140,14 +140,16 @@ Codex 工作树必须用 git 命令显式创建。
 
    ```bash
    REPO_ROOT=$(git rev-parse --show-toplevel)
-   WORKTREE_PATH="${REPO_ROOT}/.codex/multi-model-workflow/worktrees/coordinator-${RUN_ID}"
+   REPO_NAME="$(basename "$REPO_ROOT")"
+   CODEX_WORKTREE_ROOT="${CODEX_WORKTREE_ROOT:-${CODEX_HOME:-$HOME/.codex}/worktrees}"
+   WORKTREE_PATH="${CODEX_WORKTREE_ROOT}/${RUN_ID}/${REPO_NAME}"
    mkdir -p "$(dirname "$WORKTREE_PATH")"
    git worktree add -b "$BRANCH" "$WORKTREE_PATH" HEAD
    cd "$WORKTREE_PATH"
    git branch --show-current
    ```
 
-工作树创建后，后续所有状态文件（Scope Contract、workflow-state、execution-state、pack-returns）写在当前 Coordinator 工作树的 `.codex/multi-model-workflow/` 中。工作树删除时，状态文件随之清除。
+工作树路径使用 Codex 用户级 worktree root，默认是 `${CODEX_HOME:-$HOME/.codex}/worktrees`，可用 `CODEX_WORKTREE_ROOT` 覆盖；不要把跨项目 workflow worktree 放进某个项目仓库的 orchestration state 目录下。工作树创建后，后续所有状态文件（Scope Contract、workflow-state、execution-state、pack-returns）写在当前 Coordinator 工作树的 `.codex/multi-model-workflow/` 中。工作树删除时，状态文件随之清除。
 
 ### Step 2b：Write Scope Contract
 

@@ -73,9 +73,9 @@ Bad:  "制定了全面的实施计划，涵盖所有功能模块。"
 
 # Orchestrate Plan Writing
 
-Source design + issue hierarchy → **逐个 issue 派发 plan_writer** → 全部 plan 写完后 Plan Review → Git Checkpoint → 进入 Execution。
+Source design + issue hierarchy → **按 issue 批量并行派发 plan_writer** → 全部 plan 写完后 Plan Review → Git Checkpoint → 进入 Execution。
 
-**每个大 issue 对应一份 plan 文件**（编号一一对应）。**Only stop for**：upstream verdict 需用户决策 / BLOCKED。**Never stop for**：issue 之间切换 / Plan Review findings（按修复分流处理）。
+**每个大 issue 对应一份 plan 文件**（编号一一对应）。同一批 plan_writer 互不共享写入范围：只允许写自己的 issue 文件和对应 plan 文件。**Only stop for**：upstream verdict 需用户决策 / BLOCKED。**Never stop for**：issue 之间切换 / Plan Review findings（按修复分流处理）。
 
 ---
 
@@ -85,7 +85,7 @@ Source design + issue hierarchy → **逐个 issue 派发 plan_writer** → 全�
 - [ ] Scope Contract 和 Budget file 存在
 - [ ] 状态锚写入：`cursor.phase` 已由 transition 设为 `plan-writing`
 
-**Dispatch 协议**：所有 plan_writer spawn_agent 调用必须使用 `wait_agent lifecycle`。dispatch 后立即提取 `agentId`，并用 `state.sh update --field '.plan_writer_agent_id'` 写入 workflow-state。写入失败必须 BLOCKED；后续 repair 没有 agent id 时不能新建 plan_writer 冒充续修。
+**Dispatch 协议**：所有 plan_writer spawn_agent 调用必须使用 `wait_agent lifecycle`。每个 issue dispatch 后立即提取 `agentId`，并用 `state.sh plan-writer-session set --plan-id <NNN> --agent-id <agentId> ...` 写入 workflow-state 的 `plan_writer_sessions[<NNN>]`。写入失败必须 BLOCKED；后续 repair 没有对应 plan id 的 agent id 时不能新建 plan_writer 冒充续修。
 
 ---
 
@@ -155,9 +155,9 @@ For codex_reviewer workflow dispatches: `review_intent` = `baseline`（生成器
 Missing/malformed envelope = dispatch BLOCKED（显式脚本校验）。
 <!-- END: control-envelope -->
 
-## Steps 9-10：逐 issue 派发 plan_writer + 处理返回
+## Steps 9-10：并行派发 plan_writer + 处理返回
 
-**Read** `references/plan-writer-dispatch.md` 并严格执行。按 issue 编号顺序遍历 `docs/orchestrate/issues/<slug>/`，逐个 issue 派发 plan_writer（design doc + issue 文件 → plan_writer → `plans/<slug>/00N-*.md`）。全部返回 `PLAN_CREATED` 后进入 Step 11；任一返回 upstream verdict → 按路由处理后重进。
+**Read** `references/plan-writer-dispatch.md` 并严格执行。遍历 `docs/orchestrate/issues/<slug>/`，为每个大 issue 并行派发一个 plan_writer（design doc + issue 文件 → plan_writer → `plans/<slug>/00N-*.md`）。全部 writer 返回 `PLAN_CREATED` 后进入 Step 11；任一返回 upstream verdict → 先保存并关闭所有已返回 writer，再按路由处理后重进。
 
 **Plan-writer 返回事实校验**：Coordinator 收到 plan_writer 返回的 plan 文件路径、文件存在性、行号引用、Pack 数量声明等事实，必须抽验（至少 1 个事实 grep / Read）后再进入 Plan Entry Gate。事实失实 -> 重派 plan_writer 或 Coordinator 亲查。
 

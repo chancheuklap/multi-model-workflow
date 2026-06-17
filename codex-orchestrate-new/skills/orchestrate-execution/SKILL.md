@@ -121,11 +121,13 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" dep-batches \
 ```bash
 COORDINATOR_ROOT="$(git rev-parse --show-toplevel)"
 STATE_DIR="${COORDINATOR_ROOT}/.codex/multi-model-workflow"
-PLAN_WORKTREE="${STATE_DIR}/worktrees/plan-<NNN>"
+REPO_NAME="$(basename "$COORDINATOR_ROOT")"
+CODEX_WORKTREE_ROOT="${CODEX_WORKTREE_ROOT:-${CODEX_HOME:-$HOME/.codex}/worktrees}"
+PLAN_WORKTREE="${CODEX_WORKTREE_ROOT}/<run_id>/plan-<NNN>/${REPO_NAME}"
 PLAN_BRANCH="codex/<run_id>-plan-<NNN>"
 START_COMMIT="$(git rev-parse HEAD)"
 
-mkdir -p "${STATE_DIR}/worktrees"
+mkdir -p "$(dirname "$PLAN_WORKTREE")"
 if [ ! -d "$PLAN_WORKTREE" ]; then
   git worktree add -b "$PLAN_BRANCH" "$PLAN_WORKTREE" "$START_COMMIT"
 fi

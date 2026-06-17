@@ -33,6 +33,7 @@ Commands:
   direction-check   Direction Check flow (trigger, ack)
   idempotency       Idempotency key management (check, append)
   review-history    Append a row to a design/plan document's Review History table
+  plan-writer-session Manage plan_writer sessions (set|get)
   merge-brief       Manage merge-brief lifecycle (init, stage, verify)
   verdict-route     Query mechanical verdict routing from routes-v1.json (--phase, --verdict)
   checkbox          Toggle committed-pack checkboxes in plan doc (toggle --plan-id --plan-file)
@@ -230,7 +231,7 @@ cmd_init() {
   "plan_count": null,
   "plans": [],
   "idempotency_keys": [],
-  "plan_writer_agent_id": null,
+  "plan_writer_sessions": {},
   "review_dispositions": [],
   "pending_post_push_reviews": [],
   "pending_direction_check": null,
@@ -412,7 +413,7 @@ cmd_validate() {
     "idempotency_keys" "review_dispositions"
     "execution_reflux_count" "last_gate_phase"
     "last_gate_timestamp" "pending_direction_check"
-    "pending_post_push_reviews" "plan_writer_agent_id" "started_at")
+    "pending_post_push_reviews" "plan_writer_sessions" "started_at")
 
   for field in "${required_fields[@]}"; do
     local val
@@ -1774,6 +1775,111 @@ cmd_review_history_append() {
   echo "OK"
 }
 
+# --- plan-writer-session subcommand ---
+# Tracks parallel plan_writer ownership by plan id. Each large issue can have a
+# dedicated plan_writer session; repair must resume the writer recorded for that
+# plan instead of using a global singleton agent id.
+cmd_plan_writer_session() {
+  local subcmd="${1:-}"; shift || true
+  case "$subcmd" in
+    set) cmd_plan_writer_session_set "$@" ;;
+    get) cmd_plan_writer_session_get "$@" ;;
+    *) echo "Error: unknown plan-writer-session subcommand: $subcmd (use set|get)" >&2; exit 2 ;;
+  esac
+}
+
+cmd_plan_writer_session_set() {
+  local plan_id="" agent_id="" status="dispatched" issue_path="" plan_path="" result_file="" repair_round=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --agent-id) agent_id="$2"; shift 2 ;;
+      --status) status="$2"; shift 2 ;;
+      --issue-path) issue_path="$2"; shift 2 ;;
+      --plan-path) plan_path="$2"; shift 2 ;;
+      --result-file) result_file="$2"; shift 2 ;;
+      --repair-round) repair_round="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$plan_id" ]]; then
+    echo "Error: --plan-id required for plan-writer-session set" >&2
+    exit 2
+  fi
+  case "$status" in
+    dispatched|returned|closed|blocked) ;;
+    *) echo "Error: invalid plan_writer session status: $status" >&2; exit 2 ;;
+  esac
+
+  ensure_state_exists
+  acquire_lock
+  trap release_lock EXIT
+
+  local sf tmp now rr_json
+  sf="$(state_file)"
+  tmp="${sf}.tmp"
+  now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  if [[ -n "$repair_round" ]]; then
+    rr_json="$repair_round"
+  else
+    rr_json="$(jq --arg pid "$plan_id" '.plan_writer_sessions[$pid].repair_round // 0' "$sf")"
+  fi
+
+  jq --arg pid "$plan_id" \
+     --arg aid "$agent_id" \
+     --arg status "$status" \
+     --arg issue_path "$issue_path" \
+     --arg plan_path "$plan_path" \
+     --arg result_file "$result_file" \
+     --arg updated_at "$now" \
+     --argjson rr "$rr_json" '
+    (.plan_writer_sessions[$pid] // {}) as $existing |
+    .plan_writer_sessions[$pid] = ($existing +
+      {
+        agent_id: (if $aid == "" then ($existing.agent_id // null) else $aid end),
+        status: $status,
+        issue_path: (if $issue_path == "" then ($existing.issue_path // null) else $issue_path end),
+        plan_path: (if $plan_path == "" then ($existing.plan_path // null) else $plan_path end),
+        result_file: (if $result_file == "" then ($existing.result_file // null) else $result_file end),
+        repair_round: $rr,
+        updated_at: $updated_at
+      })
+  ' "$sf" > "$tmp"
+  mv "$tmp" "$sf"
+  echo "OK"
+}
+
+cmd_plan_writer_session_get() {
+  local plan_id="" field="agent_id"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --plan-id) plan_id="$2"; shift 2 ;;
+      --field) field="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+
+  if [[ -z "$plan_id" ]]; then
+    echo "Error: --plan-id required for plan-writer-session get" >&2
+    exit 2
+  fi
+  case "$field" in
+    agent_id|status|issue_path|plan_path|result_file|repair_round|updated_at|json) ;;
+    *) echo "Error: unsupported plan-writer-session field: $field" >&2; exit 2 ;;
+  esac
+
+  ensure_state_exists
+  local sf
+  sf="$(state_file)"
+
+  if [[ "$field" == "json" ]]; then
+    jq --arg pid "$plan_id" '.plan_writer_sessions[$pid] // null' "$sf"
+  else
+    jq -r --arg pid "$plan_id" --arg field "$field" '.plan_writer_sessions[$pid][$field] // empty' "$sf"
+  fi
+}
+
 
 # --- merge-brief subcommand (Pack 6.8) ---
 # Lifecycle helper for merge-brief-v1 9-section artifact.
@@ -2430,6 +2536,7 @@ case "$CMD" in
   direction-check) cmd_direction_check "$@" ;;
   idempotency) cmd_idempotency "$@" ;;
   review-history) cmd_review_history "$@" ;;
+  plan-writer-session) cmd_plan_writer_session "$@" ;;
   merge-brief) cmd_merge_brief "$@" ;;
   verdict-route) cmd_verdict_route "$@" ;;
   checkbox) cmd_checkbox "$@" ;;
