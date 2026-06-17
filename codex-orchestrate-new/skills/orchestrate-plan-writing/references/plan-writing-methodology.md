@@ -138,9 +138,8 @@ Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked 
 
 | Round | Verdict | Reviewer | 重点建议 | 已知 gotcha | 日期 |
 | --- | --- | --- | --- | --- | --- |
-| 1 | pass | codex-gpt-5.5 | <重点建议摘要> | <gotcha 列表> | 2026-05-28 |
 
-（append-only，每轮 Plan Review / Plan Implementation Review 通过后由 Coordinator / hook 追加；`pack_executor` / `complex_pack_executor` 读取此 section 了解已审角度，避免回退已修问题）
+（append-only，每轮 Plan Review / Plan Implementation Review 通过后由 Coordinator / hook 追加；plan_writer 只写表头和分隔线，不编造 reviewer、verdict 或日期。`pack_executor` / `complex_pack_executor` 读取此 section 了解已审角度，避免回退已修问题）
 
 ## Pack Execution Manifest
 
@@ -297,8 +296,10 @@ verification 必须证明 pack 行为：
 - [ ] 发布风险覆盖所有 production-risk pack
 
 ### Schema 完整性
+- [ ] `## 发布风险和人工门禁` section 存在；没有风险也写一行 `N/A`
 - [ ] `## Plan Review History` section 存在（可为空表头，由 hook 后续 append）
 - [ ] `## Pack Execution Manifest` section 存在且 pack_id 与 Pack 主体 `### Task Pack N.M` 编号一致（Coordinator 派 Worker 前会用 `validate-pack-manifest.sh` 三方对账）
+- [ ] Manifest 表头使用 `| pack_id | title | anchor | risk | dependencies | owned_files (核心) |`，列名是 `dependencies`，不是 `blocked_by`
 - [ ] 每个 `### Task Pack N.M` body 首行有 `- [ ] **Pack N.M**: <title>` 完成 checkbox（`state.sh checkbox toggle` 的勾选目标；缺失 → review pass 后无法勾选 committed pack）
 
 发现问题直接修正。如果发现 spec 需求没有对应 task，补上。

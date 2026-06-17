@@ -82,6 +82,11 @@ spawn_agent({
     NEEDS_DIAGNOSIS / NEEDS_DECISION / NEEDS_ARCHITECTURE / NEEDS_CONTEXT / BLOCKED
     ### Plan path
     ### Issue mapping
+    ### Gate Readiness
+    - Plan path
+    - Issue path
+    - Pack count
+    - Schema checklist: risk table / Plan Review History / Pack Execution Manifest / exact Pack checkbox / dependencies column
     ### Quality gate
     ### Open items
   "

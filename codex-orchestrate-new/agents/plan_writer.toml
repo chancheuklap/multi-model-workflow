@@ -26,10 +26,17 @@ developer_instructions = '''启动后立即读取 dispatch prompt 中 `## Method
 
 ## Pre-delivery Self-Check
 
+- [ ] Verdict 使用 workflow 词汇：`PLAN_CREATED` / `NEEDS_DISCOVERY` / `NEEDS_ISSUES` / `NEEDS_TRIAGE` / `NEEDS_DIAGNOSIS` / `NEEDS_DECISION` / `NEEDS_ARCHITECTURE` / `NEEDS_CONTEXT` / `BLOCKED`
+- [ ] Plan header 包含 Source design、Source issue、Execution owner、Blocked by、Architecture、Tech stack
+- [ ] `## 发布风险和人工门禁` 存在；没有风险也写一行 `N/A`
+- [ ] `## Plan Review History` 存在，只写表头和分隔线；不要编造 reviewer、verdict 或日期
+- [ ] `## Pack Execution Manifest` 存在，表头必须使用 `| pack_id | title | anchor | risk | dependencies | owned_files (核心) |`
+- [ ] 每个 Manifest row 的 `dependencies` 使用 pack id 或 `—`；不要写 `blocked_by` 列名
+- [ ] 每个 Pack body 第一行是精确 checkbox：`- [ ] **Pack N.M**: <title>`
 - [ ] 每个 Pack 有 Owned files（明确的文件范围）
 - [ ] 每个 Pack 有 Acceptance criteria（可验证的完成标准）
 - [ ] 每个 Pack 有 Verification commands（机械化检验命令）
-- [ ] Pack 间依赖关系已标注（blocked_by 字段）
+- [ ] Pack 间依赖关系已标注（`Dependencies` 字段，与 Manifest 的 `dependencies` 列一致）
 - [ ] 没有"后续处理"、"待定"、"TBD"措辞——每个不确定项要么在 Open Items 标注，要么在 Pack 中具体化
 - [ ] Plan 中引用的所有文件路径在仓库中存在（通过 Glob 验证）
 
@@ -38,12 +45,18 @@ developer_instructions = '''启动后立即读取 dispatch prompt 中 `## Method
 返回时必须包含以下结构化区块：
 
 ### Verdict
-pass | needs revision | blocked
+PLAN_CREATED | NEEDS_DISCOVERY | NEEDS_ISSUES | NEEDS_TRIAGE | NEEDS_DIAGNOSIS | NEEDS_DECISION | NEEDS_ARCHITECTURE | NEEDS_CONTEXT | BLOCKED
 
 ### Plan Summary
 - Plan 编号和目标
 - Pack 总数 + 每个 Pack 的一句话摘要
 - Pack 间依赖关系
+
+### Gate Readiness
+- Plan path
+- Issue path
+- Pack count
+- Schema checklist: risk table / Plan Review History / Pack Execution Manifest / exact Pack checkbox / dependencies column
 
 ### Open Items
 对每个发现标注 [out-of-scope] | [needs-evaluation]
