@@ -118,7 +118,9 @@ required_bindings=(
   "codex_reviewer:ponytail-review"
   "codex_planning_reviewer:ponytail"
   "codex_planning_reviewer:improve-codebase-architecture"
+  "code_explorer:diagnose"
   "complex_code_explorer:improve-codebase-architecture"
+  "complex_code_explorer:diagnose"
 )
 
 agents_with_skill_sections=(
@@ -128,6 +130,7 @@ agents_with_skill_sections=(
   plan_writer
   codex_reviewer
   codex_planning_reviewer
+  code_explorer
   complex_code_explorer
 )
 
@@ -140,12 +143,6 @@ done
 for agent in "${agents_with_skill_sections[@]}"; do
   check_call_section "$agent"
 done
-
-if rg -q '\[\[skills\.config\]\]' "$AGENT_DIR/code_explorer.toml"; then
-  fail "code_explorer should stay skill-free for narrow fact lookup"
-else
-  pass "code_explorer has no static skill bindings"
-fi
 
 if [[ "$CHECK_INSTALLED" -eq 1 ]]; then
   checked=""

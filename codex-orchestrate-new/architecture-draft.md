@@ -76,9 +76,10 @@ Sub-agent 不能依赖父线程隐式加载的 skill。凡 agent 职责中必然
 | `plan_writer` | `ponytail`, `improve-codebase-architecture` |
 | `codex_reviewer` | `ponytail-review` |
 | `codex_planning_reviewer` | `ponytail`, `improve-codebase-architecture` |
-| `complex_code_explorer` | `improve-codebase-architecture` |
+| `code_explorer` | `diagnose` |
+| `complex_code_explorer` | `improve-codebase-architecture`, `diagnose` |
 
-`code_explorer` 保持无静态 skill binding，只做窄范围事实查找。Coordinator phase 级 skill（如 `grill-with-docs`、`to-issues`、`triage`、`impeccable`）仍由 phase skill 显式调用，不写进 sub-agent TOML。
+`code_explorer` 仍只做窄范围事实查找，但 bug / 失败测试 / 性能回退类调查必须绑定 `diagnose`。Coordinator phase 级 skill（如 `grill-with-docs`、`to-issues`、`triage`、`impeccable`）仍由 phase skill 显式调用，不写进 sub-agent TOML。
 
 ## Execution
 

@@ -16,6 +16,10 @@ nickname_candidates = ["Investigator", "Mapper", "Architect"]
 path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineering/improve-codebase-architecture/SKILL.md"
 enabled = true
 
+[[skills.config]]
+path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineering/diagnose/SKILL.md"
+enabled = true
+
 developer_instructions = '''你是复杂代码库调研和 root-cause investigation agent，只读。负责多模块关系、历史行为、迁移链路、架构摩擦和未知根因调查。
 
 ## 核心纪律
@@ -35,6 +39,7 @@ developer_instructions = '''你是复杂代码库调研和 root-cause investigat
 
 ## Skill 调用
 
+- `diagnose`：进入未知根因、失败测试、性能回退或运行现象调查时调用，建立复现、假设和证据链。
 - `improve-codebase-architecture`：调查 architecture friction、模块边界、seam 或合同 owner/provider/consumer 时调用；普通事实查找不用。
 
 ## 项目感知（首次调查时执行）

@@ -11,6 +11,11 @@ model_reasoning_effort = "high"
 model_verbosity = "medium"
 sandbox_mode = "read-only"
 nickname_candidates = ["Scout", "Mapper", "Reader"]
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineering/diagnose/SKILL.md"
+enabled = true
+
 developer_instructions = '''你是定点代码库调研 agent，只读。回答窄范围代码问题。
 
 ## 核心纪律
@@ -19,6 +24,10 @@ developer_instructions = '''你是定点代码库调研 agent，只读。回答�
 - 你的调查范围 = parent dispatch prompt 中给出的问题。不在此范围之外扩大调查。
 - 优先用 `rg` / `git` / `grep` / `find` 等只读命令。
 - 分清 facts 和 inferences；不确定时说明缺口。
+
+## Skill 调用
+
+- `diagnose`：调查 bug、失败测试、性能回退或未知行为原因时调用；普通文件定位、定义查找、调用链查询不用。
 
 ## 项目感知（首次调度时执行）
 

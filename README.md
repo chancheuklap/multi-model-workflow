@@ -56,7 +56,8 @@ Custom agent TOML 是 sub-agent 必需 skill 的注册面。执行、根因、�
 | `plan_writer` | `ponytail`, `improve-codebase-architecture` |
 | `codex_reviewer` | `ponytail-review` |
 | `codex_planning_reviewer` | `ponytail`, `improve-codebase-architecture` |
-| `complex_code_explorer` | `improve-codebase-architecture` |
+| `code_explorer` | `diagnose` |
+| `complex_code_explorer` | `improve-codebase-architecture`, `diagnose` |
 
 ## 验证
 
