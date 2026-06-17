@@ -13,7 +13,7 @@
 | **Source design** | 目标行为、用户场景、验收标准、合同边界、发布风险、人工门禁 |
 | **Plan** | Task Pack inventory、Source Coverage Map、File/Responsibility Map、发布风险和人工门禁表 |
 | **Cross-plan contract anchors** | `docs/orchestrate/design/<slug>.md` 的 `## Cross-Plan Contract Anchors` section——producer、consumer、ownership、verification、Final Review 重点 |
-| **Plan completion summary** | 每个 Plan 的 Plan Implementation Review verdict、repair rounds；每个 pack 的 worker verdict、已验证行为、Open Items |
+| **Plan completion summary** | 每个 Plan 的 Plan Implementation Review verdict、repair rounds；每个 pack 的 worker verdict、已验证行为、Open Items；条件门禁未放行的 Plan 要标成 gate-closed，并列出 evidence 路径和 blocked/skipped packs |
 | **Scope Contract** | `.codex/multi-model-workflow/scope-<run_id>.md`——source artifacts、editable artifacts、out of scope |
 | **Git state** | 从 execution-state 读取所有 completed Plan 的 `start_commit` / `end_commit`；用各 Plan commit range 汇总 pack commits 和完整变更文件列表 |
 
@@ -23,10 +23,10 @@
 
 | 条件 | 不满足时 |
 | --- | --- |
-| 所有 Plan 通过 Plan Implementation Review + Release Gate（如触发） | 返回 `NEEDS_EXECUTION` |
+| 所有必须执行的 Plan 通过 Plan Implementation Review + Release Gate（如触发）；条件门禁未放行的 Plan 已有 gate-closed evidence、blocked/skipped pack return，且没有写业务代码 | 返回 `NEEDS_EXECUTION` |
 | Source design 存在且已通过 Design Review | 返回 `NEEDS_DISCOVERY` |
 | Scope Contract 存在 | BLOCKED |
-| Execution state file 中所有 Plan status = completed | 返回 `NEEDS_EXECUTION` |
+| Execution state file 中所有 Plan status = completed；这里的 `completed` 表示本轮执行决策终态，包含已实现并审查通过，也包含按证据关闭的条件门禁 Plan | 返回 `NEEDS_EXECUTION` |
 | Workflow-state budget 存在 | Review result complete 时由 `complete-review-dispatch.sh` exactly-once 计数，Direction Check 由 state 层触发 |
 
 ---

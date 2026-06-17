@@ -333,6 +333,13 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" checkbox toggle \
 
 提交 plan checkbox 更新。批次内所有 Plan 终态后进入下一批次；所有批次完成后：
 
+如果某个 Plan 是设计或 Plan 文档明确声明的**条件门禁 Plan**，且上游 evidence 明确给出 `pause` / `do-not-run` / 未授权等结论，Coordinator 不派 worker、不写业务代码。此时按控制面终态收口：
+
+- 写该 Plan 的 `plan-return.json` / `open-items.json`，把被门禁阻断的首个 Pack 标为 `blocked`，后续 Pack 标为 `skipped`，reason 写明门禁证据路径和业务原因。
+- execution-state 中 `start_commit == end_commit == 当前协调分支 HEAD`，`worker_agent_id == null`，`worker_verdict == "blocked"`。
+- 仍运行 `execution-plan finish --status completed`，含义是“该 Plan 的本轮决策已完成”，不是“代码已实现”。
+- 不勾选该 Plan 中 blocked / skipped Pack 的 checkbox；final review prompt 必须把它标成 gate-closed plan，避免 reviewer 误报成漏实现。
+
 ```bash
 bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" transition \
   --run-id "<run_id>" --actor Coordinator \

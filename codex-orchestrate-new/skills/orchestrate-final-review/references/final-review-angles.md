@@ -29,8 +29,12 @@ Review prompt 写入 `.codex/multi-model-workflow/review-prompts/final-review-ba
 
 ```markdown
 ## Scope
-Final Review for a completed implementation. All Plans have individually
-passed Plan Implementation Review. Your job is to verify the COMBINED result.
+Final Review for a completed implementation. Every executable Plan has
+individually passed Plan Implementation Review. A Plan may instead be
+gate-closed when the design/Plan declares a conditional evidence gate and the
+Coordinator has recorded blocked/skipped pack returns with the evidence path.
+Your job is to verify the COMBINED result and that any gate-closed Plan was not
+silently implemented or silently omitted.
 
 ## Read first
 自读：`<project_root>/AGENTS.md`、`<project_root>/CONTEXT.md` 或 `<project_root>/CONTEXT-MAP.md` + map 索引的子 context 文件（若存在）、相关 ADR。
@@ -61,7 +65,7 @@ docs/orchestrate/issues/<slug>/
 
 ## Plan completion summary
 | Plan | Plan Impl Review verdict | Repair rounds | Packs | Release gate |
-自读 `.codex/multi-model-workflow/review-registry/` 目录下各 plan-impl-review JSON 获取 verdict 和 repair rounds。
+自读 `.codex/multi-model-workflow/review-registry/` 目录下各 plan-impl-review JSON 获取 verdict 和 repair rounds。对 gate-closed Plan，从 `plan-returns/<run_id>/<plan_id>/plan-return.json` 和 pack returns 读取 blocked/skipped reason；不要要求它有 Plan Implementation Review verdict。
 
 ## Pack completion summary
 | Pack | Plan | Worker verdict | Verified behaviors | Open Items |
@@ -82,7 +86,7 @@ docs/orchestrate/mockups/<slug>/（如有 UI 工作）
 
 ## Review angles
 
-重要：每个 Plan 已独立通过 Plan Implementation Review（含 spec compliance + code quality + cross-pack coherence）。
+重要：每个已执行 Plan 已独立通过 Plan Implementation Review（含 spec compliance + code quality + cross-pack coherence）。gate-closed Plan 的审查对象是门禁证据和“未写代码是否符合设计”，不是代码实现质量。
 不要重新审查 Plan 内部已验证的行为。聚焦以下三个层面：
 
 ### 1. Regression Sweep
@@ -166,7 +170,10 @@ Review prompt 写入 `.codex/multi-model-workflow/review-prompts/final-review-ba
 ```markdown
 ## Scope
 Independent code-level audit for a completed implementation.
-All Plans have individually passed Plan Implementation Review.
+Every executable Plan has individually passed Plan Implementation Review.
+Gate-closed Plans are terminal only because their evidence gate did not pass;
+review their control evidence and confirm they did not introduce unreviewed
+business-code changes.
 You are the second reviewer — your perspective is independent of Baseline 1.
 
 ## Starting commit
