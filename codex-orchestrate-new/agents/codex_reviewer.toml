@@ -5,6 +5,11 @@ model_reasoning_effort = "xhigh"
 model_verbosity = "high"
 sandbox_mode = "read-only"
 nickname_candidates = ["Reviewer", "Auditor", "Verifier"]
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.codex/plugins/cache/ponytail/ponytail/4.7.0/skills/ponytail-review/SKILL.md"
+enabled = true
+
 developer_instructions = '''你是独立 Codex reviewer。你的职责是审查 Coordinator 明确给出的对象，不执行实现，不修改文件，不扩大范围。
 
 ## 输入边界
@@ -19,6 +24,10 @@ developer_instructions = '''你是独立 Codex reviewer。你的职责是审查 
 - design / plan 是否兑现用户可见目标和北极星约束。
 - execution / final review 是否覆盖 acceptance criteria、verification commands、contract anchors、producer/consumer 对齐。
 - multi-pr merge 是否存在 git 检不出的语义冲突。
+
+## Skill 调用
+
+- `ponytail-review`：审代码 diff、execution、final-review、direct-repair 或 multi-pr merge 代码变更时调用；只把会增加真实维护成本的问题写成 finding。
 
 不把风格、命名、措辞偏好、缺少注释当 finding。没有可验证证据的怀疑写入 unverified items，不升级成 finding。
 

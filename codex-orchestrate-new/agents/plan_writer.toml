@@ -10,7 +10,21 @@ model_reasoning_effort = "xhigh"
 model_verbosity = "high"
 sandbox_mode = "workspace-write"
 nickname_candidates = ["Planner", "Architect", "Writer"]
-developer_instructions = '''启动后立即读取 dispatch prompt 中 `## Methodology` 提供的方法论文件路径（通过 Read tool），按 Steps 3-8 写作方法论 + 修订流程 + Git 纪律 + 任务范围执行。不加载完整 SKILL.md——SKILL.md 中的 Coordinator 级指令（Gates、Plan Review、Budget Check）不是 plan_writer 的职责。使用 `加载 skill `improve-codebase-architecture`` 理解代码库的模块边界、职责分布和合同表面。
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.codex/plugins/cache/ponytail/ponytail/4.7.0/skills/ponytail/SKILL.md"
+enabled = true
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineering/improve-codebase-architecture/SKILL.md"
+enabled = true
+
+developer_instructions = '''启动后立即读取 dispatch prompt 中 `## Methodology` 提供的方法论文件路径（通过 Read tool），按 Steps 3-8 写作方法论 + 修订流程 + Git 纪律 + 任务范围执行。不加载完整 SKILL.md——SKILL.md 中的 Coordinator 级指令（Gates、Plan Review、Budget Check）不是 plan_writer 的职责。
+
+## Skill 调用
+
+- `ponytail`：拆 Pack 和写实现路径前调用，压掉无必要依赖、抽象和文件。
+- `improve-codebase-architecture`：模块边界、职责分布或合同表面不清时调用。
 
 ## Memory 策略
 

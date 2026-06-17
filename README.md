@@ -44,6 +44,20 @@ Codex 派发使用：
 
 Review 统一派 `codex_reviewer`；执行按 Plan risk 派 `pack_executor` 或 `complex_pack_executor`。
 
+Custom agent TOML 是 sub-agent 必需 skill 的注册面。执行、根因、计划和审查 agent 必须用 `[[skills.config]]` 绑定各自必需的 skill，并在 `developer_instructions` 的 `Skill 调用` 段写明何时调用；不要依赖父线程、全局 hook 或自然语言提示隐式传递。
+
+当前必需绑定：
+
+| Agent | Required skills |
+| --- | --- |
+| `pack_executor` | `ponytail`, `tdd`, `diagnose`, `prototype`, `frontend-testing-debugging` |
+| `complex_pack_executor` | `ponytail`, `tdd`, `diagnose`, `improve-codebase-architecture`, `prototype`, `frontend-testing-debugging` |
+| `root_cause_analyst` | `ponytail`, `diagnose`, `tdd` |
+| `plan_writer` | `ponytail`, `improve-codebase-architecture` |
+| `codex_reviewer` | `ponytail-review` |
+| `codex_planning_reviewer` | `ponytail`, `improve-codebase-architecture` |
+| `complex_code_explorer` | `improve-codebase-architecture` |
+
 ## 验证
 
 ```bash
@@ -51,6 +65,7 @@ bash codex-orchestrate-new/build/build.sh --check --plugin-dir codex-orchestrate
 bash codex-orchestrate-new/scripts/run-all-tests.sh
 bash codex-orchestrate-new/scripts/verify-maturity.sh codex-orchestrate-new
 bash codex-orchestrate-new/scripts/validate-plugin-contract.sh codex-orchestrate-new
+bash codex-orchestrate-new/scripts/verify-agent-skill-bindings.sh codex-orchestrate-new
 ```
 
 如果系统级 validator 拒绝 `.codex-plugin/plugin.json` 的 `hooks` 字段，不代表本仓库 manifest 错误。Codex Orchestrate 的 manifest 必须声明 `"hooks": "./hooks.json"`；此时以 build check、run-all-tests、verify-maturity 和本仓库 plugin contract validator 作为 source 验证。
@@ -74,3 +89,5 @@ Agent 同步和 runtime parity 验证：
 bash codex-orchestrate-new/agents/sync-agents.sh --apply --update-config
 bash codex-orchestrate-new/scripts/verify-runtime-parity.sh codex-orchestrate-new
 ```
+
+Runtime parity 会检查 `~/.codex/agents/*.toml` 与 source TOML 一致、必需 skill binding 存在，以及本机能解析到 Ponytail、TDD、diagnose、architecture、prototype 和 frontend testing skills。

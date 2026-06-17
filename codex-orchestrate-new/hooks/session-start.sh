@@ -39,6 +39,7 @@ BASE_CONTEXT=$(cat <<RULES
 - Before copying shell examples from skills, set: export MMW_PLUGIN_ROOT="${PLUGIN_ROOT}"
 - State files live under: .codex/multi-model-workflow
 - Dispatch must be Codex-native: spawn_agent, wait_agent, close_agent, resume_agent, send_input.
+- Coordinator user-facing replies default to installed skill caveman (file: /Users/cheuklapchan/.codex/skills/caveman/SKILL.md).
 RULES
 )
 
@@ -72,6 +73,7 @@ if [ -f "$RUN_ID_FILE" ]; then
 - 进入任何 phase skill 前 re-read ${BUDGET_DIR}/scope-${RUN_ID}.md 确认 Scope Contract
 - git status --short --branch 验证 branch 和 dirty state
 - Resume Gate: source artifacts 改过 → 重进该 gate
+- Coordinator user-facing replies default to installed skill caveman (file: /Users/cheuklapchan/.codex/skills/caveman/SKILL.md).
 RULES
 )
     else

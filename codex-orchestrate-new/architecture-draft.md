@@ -64,6 +64,22 @@ Light Lane 是路线名，表示跳过完整 discovery / plan review 的轻量�
 
 Coordinator 不采信 subagent 未验证事实。任何路径、计数、commit、测试输出或文件存在性，在写入正式交付前都要由 Coordinator 亲自核验。
 
+### Sub-Agent Skill Bindings
+
+Sub-agent 不能依赖父线程隐式加载的 skill。凡 agent 职责中必然需要的工作流能力，都必须在对应 TOML 里用 `[[skills.config]]` 静态绑定，并在 `developer_instructions` 的 `Skill 调用` 段写清何时调用。
+
+| Agent | 必需 skill |
+| --- | --- |
+| `pack_executor` | `ponytail`, `tdd`, `diagnose`, `prototype`, `frontend-testing-debugging` |
+| `complex_pack_executor` | `ponytail`, `tdd`, `diagnose`, `improve-codebase-architecture`, `prototype`, `frontend-testing-debugging` |
+| `root_cause_analyst` | `ponytail`, `diagnose`, `tdd` |
+| `plan_writer` | `ponytail`, `improve-codebase-architecture` |
+| `codex_reviewer` | `ponytail-review` |
+| `codex_planning_reviewer` | `ponytail`, `improve-codebase-architecture` |
+| `complex_code_explorer` | `improve-codebase-architecture` |
+
+`code_explorer` 保持无静态 skill binding，只做窄范围事实查找。Coordinator phase 级 skill（如 `grill-with-docs`、`to-issues`、`triage`、`impeccable`）仍由 phase skill 显式调用，不写进 sub-agent TOML。
+
 ## Execution
 
 Execution 是 Plan 级自治执行：
@@ -175,6 +191,7 @@ bash codex-orchestrate-new/build/build.sh --check --plugin-dir codex-orchestrate
 bash codex-orchestrate-new/scripts/run-all-tests.sh
 bash codex-orchestrate-new/scripts/verify-maturity.sh codex-orchestrate-new
 bash codex-orchestrate-new/scripts/validate-plugin-contract.sh codex-orchestrate-new
+bash codex-orchestrate-new/scripts/verify-agent-skill-bindings.sh codex-orchestrate-new
 ```
 
 安装或发布类任务还要验证 runtime parity：
