@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DISPATCH_SH="$SCRIPT_DIR/../dispatch-review.sh"
+COMPLETE_SH="$SCRIPT_DIR/../complete-review-dispatch.sh"
 STATE_SH="$SCRIPT_DIR/../state.sh"
 HOOK="$SCRIPT_DIR/../../hooks/gate-codex-review.sh"
 
@@ -88,6 +89,26 @@ mv "$STATE_BASE/execution-state-$RUN_ID.tmp" "$STATE_BASE/execution-state-$RUN_I
 
 run_test "validate passes plan implementation review after packs are committed" \
   bash "$DISPATCH_SH" validate --prompt-file "$BASELINE" --gate "plan-impl-review-1"
+
+IMMUTABLE="$FIXTURE_DIR/prompts/custom-review.md"
+cat > "$IMMUTABLE" <<PROMPT
+<!-- DISPATCH_ENVELOPE {"protocol_version":"1","run_id":"$RUN_ID","phase":"execution","agent_role":"codex_reviewer","agent_id":null,"pack_id":null,"plan_id":null,"repair_round":0,"idempotency_key":"$RUN_ID/review/immutable","disposition_refs":null,"review_intent":"baseline","exception_code":null} -->
+Review prompt content
+PROMPT
+
+RESULT_IMMUTABLE="$FIXTURE_DIR/prompts/custom-review-result.md"
+cat > "$RESULT_IMMUTABLE" <<'RESULT'
+### Verdict
+pass
+RESULT
+
+run_test "record stores review prompt sha256" \
+  bash -c "bash '$DISPATCH_SH' record --prompt-file '$IMMUTABLE' --gate 'custom-review' --agent-id 'reviewer-immutable' && jq -e '.prompt_sha256 | test(\"^[0-9a-f]{64}$\")' '$STATE_BASE/review-registry/custom-review.json'"
+
+printf '\nchanged after dispatch\n' >> "$IMMUTABLE"
+
+run_test_expect_fail "complete blocks mutated review prompt" \
+  bash "$COMPLETE_SH" --run-id "$RUN_ID" --gate "custom-review" --agent-id "reviewer-immutable" --result-file "$RESULT_IMMUTABLE"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

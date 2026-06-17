@@ -9,9 +9,9 @@ Codex 版 review 是原生 subagent 工作流，不调用外部 companion 或 jo
 - Coordinator 写 review prompt，并以 `DISPATCH_ENVELOPE` 开头。
 - `dispatch-review.sh validate` 校验 envelope、gate、budget、repair round 和 plan implementation 前置条件。
 - Coordinator 调用 `spawn_agent(agent_type="codex_reviewer")`。
-- `dispatch-review.sh record` 保存 reviewer agent id 和 registry entry。
+- `dispatch-review.sh record` 保存 reviewer agent id、registry entry 和 prompt 内容摘要；record 成功后该 prompt 冻结。
 - Coordinator 用 `wait_agent` 等 final message，把结果写入 `review-results/<gate>.md`。
-- `complete-review-dispatch.sh` 标记 durable result，并 exactly-once 递增 review budget。
+- `complete-review-dispatch.sh` 核对 prompt 未被改写后标记 durable result，并 exactly-once 递增 review budget。
 - durable complete 成功后再 `close_agent` 释放容量；closed reviewer 仍可用 registry 里的 agent id `resume_agent`，但 workflow 默认从 durable result 继续 disposition，不重新派同一 review。
 - Coordinator 完成 finding disposition 后用 `record-review-disposition.sh` 标记 started / completed。
 
@@ -67,6 +67,8 @@ Codex 版 review 是原生 subagent 工作流，不调用外部 companion 或 jo
      --gate "<gate>" \
      --agent-id "<AGENT_ID>"
    ```
+
+   从这一步开始，`review-prompts/<gate>.md` 是 reviewer 正在审的冻结合同。目标 commit、scope 或 gate 变化时，写新的 prompt 并重新派发 reviewer；不要修改已 record 的 prompt 后继续用旧 agent result 收口。
 
 7. 等结果：
 

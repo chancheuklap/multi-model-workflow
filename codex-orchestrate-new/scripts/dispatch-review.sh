@@ -9,6 +9,17 @@ set -euo pipefail
 SUBCMD="${1:-}"
 shift 2>/dev/null || true
 
+file_sha256() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    echo "Error: shasum or sha256sum is required to record review prompt integrity" >&2
+    exit 2
+  fi
+}
+
 case "$SUBCMD" in
   validate)
     # --- validate subcommand ---
@@ -244,6 +255,7 @@ case "$SUBCMD" in
 
     echo "$AGENT_ID" > "$BUDGET_DIR/review-agents/${GATE}.agent-id"
 
+    PROMPT_SHA256=$(file_sha256 "$PROMPT_FILE")
     now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     jq -n \
       --arg run_id "$RUN_ID" \
@@ -251,6 +263,7 @@ case "$SUBCMD" in
       --arg phase "$PHASE" \
       --arg agent_id "$AGENT_ID" \
       --arg prompt_file "$PROMPT_FILE" \
+      --arg prompt_sha256 "$PROMPT_SHA256" \
       --arg created_at "$now" \
       '{
         run_id: $run_id,
@@ -259,6 +272,7 @@ case "$SUBCMD" in
         review_intent: "baseline",
         agent_id: $agent_id,
         prompt_file: $prompt_file,
+        prompt_sha256: $prompt_sha256,
         result_file: null,
         status: "dispatched",
         created_at: $created_at,

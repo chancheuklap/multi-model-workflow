@@ -54,6 +54,17 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUDGET_DIR="${STATE_BASE:-.codex/multi-model-workflow}"
 REGISTRY_FILE="$BUDGET_DIR/review-registry/${GATE}.json"
 
+file_sha256() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    echo "Error: shasum or sha256sum is required to verify review prompt integrity" >&2
+    exit 2
+  fi
+}
+
 if [[ ! -f "$REGISTRY_FILE" ]]; then
   BASELINE_REGISTRY=$(find "$BUDGET_DIR/review-registry" -name '*.json' -type f 2>/dev/null \
     -exec jq -r --arg run "$RUN_ID" --arg agent "$AGENT_ID" 'select(.run_id == $run and .agent_id == $agent and (.review_intent // "baseline") == "baseline") | input_filename' {} \; \
@@ -77,6 +88,7 @@ if [[ ! -f "$REGISTRY_FILE" ]]; then
       review_intent: "baseline",
       agent_id: $agent_id,
       prompt_file: null,
+      prompt_sha256: null,
       result_file: null,
       status: "dispatched",
       created_at: $created_at,
@@ -101,6 +113,22 @@ esac
 if [[ "$DURABLE_ALREADY" == "true" && ( "$RUN_ID" == adhoc-* || "$BUDGET_COUNTED" == "true" ) ]]; then
   echo "OK (already durable)"
   exit 0
+fi
+
+if [[ "$DURABLE_ALREADY" != "true" ]]; then
+  PROMPT_FILE_RECORDED="$(jq -r '.prompt_file // empty' "$REGISTRY_FILE")"
+  PROMPT_SHA_RECORDED="$(jq -r '.prompt_sha256 // empty' "$REGISTRY_FILE")"
+  if [[ -n "$PROMPT_FILE_RECORDED" && "$PROMPT_FILE_RECORDED" != "null" && -n "$PROMPT_SHA_RECORDED" && "$PROMPT_SHA_RECORDED" != "null" ]]; then
+    if [[ ! -f "$PROMPT_FILE_RECORDED" ]]; then
+      echo "Error: recorded review prompt missing: $PROMPT_FILE_RECORDED" >&2
+      exit 2
+    fi
+    CURRENT_PROMPT_SHA="$(file_sha256 "$PROMPT_FILE_RECORDED")"
+    if [[ "$CURRENT_PROMPT_SHA" != "$PROMPT_SHA_RECORDED" ]]; then
+      echo "Error: review prompt changed after dispatch for gate $GATE; dispatch a fresh review instead of completing a stale result." >&2
+      exit 2
+    fi
+  fi
 fi
 
 now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
