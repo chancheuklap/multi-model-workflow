@@ -113,6 +113,29 @@ else
   pass=$((pass + 1))
 fi
 
+# Case F: plan-returns ingest 已写入 Worker worktree 的真实 SHA 后，hook cwd
+# HEAD 只能作 fallback，不能覆盖 pack commit_sha 或 end_commit。
+cat > "$BUDGET_DIR/execution-state-${RUN_ID}.json" <<EOF
+{"run_id":"$RUN_ID","plans":{"002":{"worker_agent_id":null,"end_commit":"worker-end-sha","packs":{"2.1":{"status":"committed","commit_sha":"worker-pack-2-1-sha"},"2.2":{"status":"committed","commit_sha":"worker-end-sha"}}}}}
+EOF
+OUT=$(run_hook "002" "2.1")
+PACK_SHA=$(jq -r '.plans["002"].packs["2.1"].commit_sha' "$BUDGET_DIR/execution-state-${RUN_ID}.json")
+END_SHA=$(jq -r '.plans["002"].end_commit' "$BUDGET_DIR/execution-state-${RUN_ID}.json")
+if [[ "$PACK_SHA" == "worker-pack-2-1-sha" ]]; then
+  echo "  PASS: F) existing Worker pack commit_sha preserved"
+  pass=$((pass + 1))
+else
+  echo "  FAIL: F) pack commit_sha was overwritten (actual: $PACK_SHA; hook output: $OUT)"
+  fail=$((fail + 1))
+fi
+if [[ "$END_SHA" == "worker-end-sha" ]]; then
+  echo "  PASS: F) existing Worker end_commit preserved"
+  pass=$((pass + 1))
+else
+  echo "  FAIL: F) end_commit was overwritten (actual: $END_SHA; hook output: $OUT)"
+  fail=$((fail + 1))
+fi
+
 echo ""
 echo "Result: $pass passed, $fail failed"
 [[ $fail -eq 0 ]]

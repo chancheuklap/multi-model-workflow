@@ -31,7 +31,8 @@ if [ -z "$PACK_ID" ]; then exit 0; fi
 # B4: 此处取的是 hook cwd（主会话工作树）的 HEAD——串行模式正确；并行隔离
 # worktree 模式下 Worker 在自己的树里 commit，这个值必错，仅作 fallback 记账。
 # 权威 SHA 来源是 Worker 上报：plan-return.per_pack[*].commit_sha 经
-# `state.sh plan-returns ingest` 整值合并回填，覆盖本 fallback 值。
+# `state.sh plan-returns ingest` 整值合并回填。hook 只能补空值，不能覆盖已
+# 回收的 Worker SHA。
 COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
 source "$SCRIPT_DIR/../scripts/lib/state-lock.sh"
@@ -47,7 +48,12 @@ jq --arg pack "$PACK_ID" --arg sha "$COMMIT_SHA" '
   .plans |= with_entries(
     .value.packs |= with_entries(
       if .key == $pack then
-        .value.status = "committed" | .value.commit_sha = $sha
+        .value.status = "committed"
+        | if ((.value.commit_sha // "") == "") then
+            .value.commit_sha = $sha
+          else
+            .
+          end
       else . end
     )
   )
@@ -69,10 +75,34 @@ if [ -n "$PLAN_ID" ]; then
 fi
 
 if [ "$PLAN_DONE" -eq "$PLAN_TOTAL" ] && [ "$PLAN_TOTAL" -gt 0 ]; then
-  # Write end_commit for plan review diff (start_commit..end_commit)
-  jq --arg pid "$PLAN_ID" --arg sha "$COMMIT_SHA" '
-    .plans[$pid].end_commit = $sha
+  EFFECTIVE_END_COMMIT=$(jq -r --arg pid "$PLAN_ID" '
+    [
+      .plans[$pid].packs
+      | to_entries[]
+      | select(.value.status == "committed" and ((.value.commit_sha // "") != ""))
+      | {pack_id: .key, commit_sha: .value.commit_sha}
+    ]
+    | sort_by(.pack_id | split(".") | map(tonumber))
+    | .[-1].commit_sha // empty
+  ' "$ESF")
+  if [ -z "$EFFECTIVE_END_COMMIT" ]; then
+    EFFECTIVE_END_COMMIT="$COMMIT_SHA"
+  fi
+
+  # Write end_commit for plan review diff (start_commit..end_commit). In
+  # parallel worker mode, existing end_commit from plan-returns ingest is
+  # authoritative and must not be overwritten by hook cwd HEAD.
+  jq --arg pid "$PLAN_ID" --arg sha "$EFFECTIVE_END_COMMIT" '
+    if ((.plans[$pid].end_commit // "") == "") then
+      .plans[$pid].end_commit = $sha
+    else
+      .
+    end
   ' "$ESF" > "${ESF}.tmp" && mv "${ESF}.tmp" "$ESF"
+  PLAN_END_COMMIT=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].end_commit // empty' "$ESF")
+  if [ -z "$PLAN_END_COMMIT" ]; then
+    PLAN_END_COMMIT="$EFFECTIVE_END_COMMIT"
+  fi
 
   # Plan 005 Pack 5.10: when worker_agent_id is set (autonomous-mode Worker still
   # in flight), suppress the "Dispatch Plan Implementation Review" NEXT — the
@@ -89,11 +119,11 @@ if [ "$PLAN_DONE" -eq "$PLAN_TOTAL" ] && [ "$PLAN_TOTAL" -gt 0 ]; then
   REVIEW_VERDICT=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].review_verdict // empty' "$ESF" 2>/dev/null || echo "")
   PLAN_STATUS=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].status // empty' "$ESF" 2>/dev/null || echo "")
   if [ "$REVIEW_VERDICT" = "pass" ] || [ "$PLAN_STATUS" = "completed" ]; then
-    MSG="[multi-model-workflow] STATE: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${COMMIT_SHA}). Plan already reviewed/finalized (review_verdict=${REVIEW_VERDICT:-none}, status=${PLAN_STATUS:-none}) — no further Plan Implementation Review needed."
+    MSG="[multi-model-workflow] STATE: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${PLAN_END_COMMIT}). Plan already reviewed/finalized (review_verdict=${REVIEW_VERDICT:-none}, status=${PLAN_STATUS:-none}) — no further Plan Implementation Review needed."
   elif [ -n "$WORKER_AGENT_ID" ] && [ "$WORKER_AGENT_ID" != "null" ]; then
-    MSG="[multi-model-workflow] STATE: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${COMMIT_SHA}). Worker ${WORKER_AGENT_ID} still in session — wait for subagent final result / agent-return-handler.sh. Do NOT dispatch Plan Implementation Review yet."
+    MSG="[multi-model-workflow] STATE: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${PLAN_END_COMMIT}). Worker ${WORKER_AGENT_ID} still in session — wait for subagent final result / agent-return-handler.sh. Do NOT dispatch Plan Implementation Review yet."
   else
-    MSG="[multi-model-workflow] NEXT: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${COMMIT_SHA}). Dispatch Plan Implementation Review."
+    MSG="[multi-model-workflow] NEXT: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${PLAN_END_COMMIT}). Dispatch Plan Implementation Review."
   fi
 else
   MSG="[multi-model-workflow] STATE: Pack ${PACK_ID} committed (${PLAN_DONE}/${PLAN_TOTAL} in Plan ${PLAN_ID})."
