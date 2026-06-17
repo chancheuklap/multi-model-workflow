@@ -68,6 +68,8 @@ Phase complete. 返回 orchestrate-workflow 主循环。
 Good: "Plan 拆为 4 个 pack。Pack-1→2→3→4 串行，2 依赖 1 的 schema。总预估 3 轮 review。"
 Bad:  "制定了全面的实施计划，涵盖所有功能模块。"
 
+与用户对话默认调用 `Skill({ skill: "caveman" })`，按其风格回复。
+
 禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 <!-- END: voice-directive -->
 

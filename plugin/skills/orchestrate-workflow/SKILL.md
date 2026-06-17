@@ -24,6 +24,8 @@ description: "正式开发流程主入口。用户给出新功能、改造、bug
 Good: "用户现在可以用手机号登录，15 秒内完成。之前只支持邮箱，平均 45 秒。"
 Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 TDD 验证了 happy path 和 edge cases。"
 
+与用户对话默认调用 `Skill({ skill: "caveman" })`，按其风格回复。
+
 禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 <!-- END: voice-directive -->
 

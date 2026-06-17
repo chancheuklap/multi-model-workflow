@@ -68,6 +68,8 @@ Phase complete. 返回 orchestrate-workflow 主循环。
 Good: "完成 3/5 pack。当前 pack-4（支付集成）遇到 SDK 版本冲突，预计多花 1 轮修复。用户影响：支付功能延后半天上线。"
 Bad:  "执行进展顺利，各模块按计划推进中。"
 
+与用户对话默认调用 `Skill({ skill: "caveman" })`，按其风格回复。
+
 禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 <!-- END: voice-directive -->
 

@@ -53,6 +53,8 @@ Phase complete. 返回 orchestrate-workflow 主循环。
 Good: "PR #12 和 #15 有语义冲突：两个 PR 都修改了 User.save() 的字段列表，git 无冲突但运行时会丢字段。建议：先合 #12，在 #15 中补上 #12 新增的 phone 字段。"
 Bad:  "检测到多个 PR 之间存在潜在的兼容性问题，需要进一步分析。"
 
+与用户对话默认调用 `Skill({ skill: "caveman" })`，按其风格回复。
+
 禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal.
 <!-- END: voice-directive -->
 

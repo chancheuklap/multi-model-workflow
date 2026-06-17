@@ -18,6 +18,7 @@ tools:
   - Glob
   - Skill
 skills:
+  - ponytail
   - tdd
 memory: project
 color: green
@@ -55,7 +56,7 @@ color: green
 
 ## 方法论
 
-使用 `tdd` 严格 TDD。遇到执行中无法解释的 bug → `Skill({ skill: "diagnose" })`。需要快速验证某个技术方案是否可行 → `Skill({ skill: "prototype" })`。
+每个 Pack 写实现前先 `Skill({ skill: "ponytail" })` 选最小可交付改动（先问要不要写、能不能用标准库/现有依赖/一行解决），再用 `tdd` 严格 TDD。遇到执行中无法解释的 bug → `Skill({ skill: "diagnose" })`。需要快速验证某个技术方案是否可行 → `Skill({ skill: "prototype" })`。
 
 ## 项目感知（首次调度时执行）
 

@@ -17,11 +17,14 @@ tools:
   - Grep
   - Glob
   - Skill
+skills:
+  - ponytail
+  - improve-codebase-architecture
 memory: project
 color: cyan
 ---
 
-启动后立即读取 dispatch prompt 中 `## Methodology` 提供的方法论文件路径（通过 Read tool），按 Steps 3-8 写作方法论 + 修订流程 + Git 纪律 + 任务范围执行。不加载完整 SKILL.md——SKILL.md 中的 Coordinator 级指令（Gates、Plan Review、Budget Check）不是 plan-writer 的职责。使用 `Skill({ skill: "improve-codebase-architecture" })` 理解代码库的模块边界、职责分布和合同表面。
+启动后立即读取 dispatch prompt 中 `## Methodology` 提供的方法论文件路径（通过 Read tool），按 Steps 3-8 写作方法论 + 修订流程 + Git 纪律 + 任务范围执行。不加载完整 SKILL.md——SKILL.md 中的 Coordinator 级指令（Gates、Plan Review、Budget Check）不是 plan-writer 的职责。使用 `Skill({ skill: "improve-codebase-architecture" })` 理解代码库的模块边界、职责分布和合同表面。规划每个 Pack 的实现路径前先 `Skill({ skill: "ponytail" })`，倾向最小实现（先问 Pack 要不要存在、能不能用现有能力/标准库/一处改动达成），避免把过度设计写进 acceptance criteria。
 
 ## Memory 策略
 

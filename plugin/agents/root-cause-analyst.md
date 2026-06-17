@@ -20,6 +20,7 @@ tools:
   - Glob
   - Skill
 skills:
+  - ponytail
   - diagnose
   - tdd
 memory: project
@@ -45,6 +46,10 @@ color: red
 ### Git 纪律
 
 **不要运行 git commit、git merge 或 git push。** 所有改动保持 unstaged。Parent 在 review 通过后统一处理。
+
+### 修复纪律
+
+确认根因后写修复前先 `Skill({ skill: "ponytail" })` 选最小修复（针对根因的最短改动，不顺手重构、不扩面），再用 `tdd` 给回归证据。
 
 ### 项目感知（首次调度时执行）
 
