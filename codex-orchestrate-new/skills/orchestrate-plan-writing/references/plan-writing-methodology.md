@@ -23,13 +23,22 @@ plan_writer agent 通过 dispatch prompt 中指定的路径读取本文件执行
 2. 提取每个页面的视觉规格（布局/颜色/字体/间距/组件结构）、交互行为、状态变体
 3. 后续写 Task Pack 时，mockup 拆解出的视觉规格必须写入对应 pack 的 acceptance criteria——不是作为"去看 mockup 目录"的指针，而是作为具体的、可验证的视觉目标
 
-### 3b：读取你的 issue 文件
+### 3b：读取你的 issue 文件 + Large issue index
 
 Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked by。
+
+同时读取 dispatch prompt 中的 `## Large issue index`，只用于理解本轮 plan 编号、直接依赖、条件项和 HITL 决策边界。不得读取或修改其他 issue 全文。
 
 检查 `## Small issues` 章节：
 - 如果已有完整的小 issue 列表 → 跳过 Step 3c，直接进入 Step 3d
 - 如果为空或标记 `<!-- PENDING -->` → 进入 Step 3c 拆分小 issue
+
+依赖与条件项检查：
+
+- 将当前 issue 的 `Blocked by` 逐项翻译成 plan 编号；Plan header 的 `Blocked by` 必须保留这些直接依赖。
+- 如果当前 issue 消费某个 producer surface、度量结论或人工决策，但该 producer / decision 没在当前 issue 的 `Blocked by` 中，返回 `NEEDS_ISSUES`，说明缺哪个直接依赖；不要自行补写其他 issue。
+- 度量 / spike / 条件项 issue 只产出证据和 disposition。除非 source issue 明确写了已 review 的固定阈值，否则不得把阈值写成自动通过 / 自动执行逻辑；应写成 Coordinator / user HITL 决策门。
+- HITL issue 的计划必须写清楚人工决策 owner、输入证据和可能结论；不得把 HITL 内容降级成 AFK。
 
 ### 3c：拆分小 issue（大 issue 内部的实现步骤拆解）
 
@@ -70,6 +79,7 @@ Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked 
 - [ ] 每个小 issue 可独立验证（有明确的验收标准）
 - [ ] 小 issue 的并集覆盖大 issue 的 `What to build` 全部行为
 - [ ] 依赖关系正确（不存在循环依赖）
+- [ ] 条件项 / HITL / 度量输出没有被写成未 review 的自动阈值或自动落地决策
 - [ ] 没有过粗的小 issue（单个小 issue 不应需要超过 8 个 implementation steps）
 - [ ] 没有过细的小 issue（单文件内的单函数修改不值得独立成 issue）
 
@@ -91,6 +101,7 @@ Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked 
 | 状况 | 返回 |
 | --- | --- |
 | 术语 / 验收不清 | `NEEDS_DISCOVERY`："业务意图不清，需要 discovery" |
+| 当前 issue 缺直接 producer / decision 依赖 | `NEEDS_ISSUES`：说明应补哪个 issue 编号和原因 |
 | 架构假设与代码现实不符 | `NEEDS_ARCHITECTURE`：具体说明哪个假设不成立 |
 
 只处理你的 issue 文件中的内容。其他 issue 不属于你的 scope。
@@ -120,6 +131,7 @@ Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked 
 **Source issue:** docs/orchestrate/issues/<slug>/00N-<issue-slug>.md
 **Execution owner:** Orchestrate Workflow
 **Blocked by:** <其他 plan 的编号（"001" / "Plan 001"，逗号分隔）或 "None"。**必须翻译成 plan 编号**——issue 文件里的 Blocked by 是 issue 编号，写 plan 时按 issue→plan 对应关系换算；`state.sh dep-batches` 据此计算并行批次，遇到非 plan 编号值会报错拒绝>
+**Dependency rationale:** <每个 blocker 对应的 producer surface / 度量结论 / 人工决策；None 时写 N/A>
 **Architecture:** <与本 issue 相关的实现方向>
 **Tech stack:** <实际涉及的框架、服务、测试工具>
 **Quality gate:** 进入 Plan Review 前必须通过过度设计 / 设计不足自审。
@@ -285,6 +297,8 @@ verification 必须证明 pack 行为：
 - [ ] UI 工作无从 mockup 拆解的具体视觉规格（只有 mockup 目录路径不算）
 - [ ] issue acceptance 没进 pack acceptance
 - [ ] blocked-by 没进 dependencies，或真串行写成并行
+- [ ] 条件项 / HITL 依赖只写度量门、漏写直接 producer plan
+- [ ] 把“量完由人决定”的 source issue 写成自动阈值或自动执行
 - [ ] pack 改 shared contract 却无 consumer 同步和 migration gate
 - [ ] RED / GREEN expected result 不清楚
 
@@ -294,6 +308,7 @@ verification 必须证明 pack 行为：
 - [ ] File / Responsibility Map 每个路径被 Task Pack 消费
 - [ ] 后文引用 type / field / fixture / command / path 与前文一致（类型一致性：Task 3 叫 `clearLayers()` 但 Task 7 叫 `clearFullLayers()` 就是 bug）
 - [ ] 发布风险覆盖所有 production-risk pack
+- [ ] Plan header `Blocked by` 与 source issue `Blocked by` 的直接依赖一致；若不一致，返回 `NEEDS_ISSUES` 或修正 plan header，不静默改依赖
 
 ### Schema 完整性
 - [ ] `## 发布风险和人工门禁` section 存在；没有风险也写一行 `N/A`

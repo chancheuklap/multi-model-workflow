@@ -28,6 +28,7 @@ Coordinator 在 Design Review 通过后执行本方法论，将设计文档拆�
 
 - 优先拆出多个 thin slice，而非少数 thick slice
 - 每个 slice 标记 **AFK**（可无人值守实现）或 **HITL**（需人工决策），AFK 优先——此标记驱动后续 Execution 的值守分叉
+- `Blocked by` 写**直接依赖**，不靠传递依赖暗示。条件项 / HITL slice 必须同时列出决策门和它直接消费的 producer slice；例如 #4 既消费 #2 的数据合同、又需要 #3 的度量结论时，`Blocked by` 必须写 #2、#3。
 
 ## Step 12d：拆分自检 + 用户决策边界
 
@@ -44,6 +45,7 @@ Coordinator 在 Design Review 通过后执行本方法论，将设计文档拆�
 - **Title**：简短描述性名称
 - **Type**：AFK / HITL
 - **Blocked by**：依赖哪些其他 slice（如有）
+- **直接依赖闭合**：本 slice 消费的状态、接口、文件所有权、度量结论或人工决策，是否都在 `Blocked by` 中逐项列出
 - **覆盖的用户场景**：本 slice 覆盖设计文档中的哪些场景
 - **用户可读结果**：完成后用户、系统或后续计划能稳定做到什么
 - **验收/决策输出**：如果是度量、spike 或条件项，必须写清楚要量什么、用什么证据、结果决定做/不做哪件事
@@ -56,6 +58,7 @@ Coordinator 在 Design Review 通过后执行本方法论，将设计文档拆�
 - 度量类 slice 必须命名为“用真实数据决定 X 是否落地”这类决策问题，不写“条件项度量门”这类抽象名。
 - `What to build` 第一段必须能让产品负责人读懂：为什么要做、量什么、量完会取消/延后/解锁什么。
 - HITL slice 必须说明需要用户拍板的具体问题；AFK slice 不得暗含用户决策。
+- 条件项不得只依赖“度量门”。如果条件项实现还依赖另一个必做 slice 产出的数据模型、接口、测试支撑或目录规则，也必须把那个必做 slice 写进 `Blocked by`。
 
 ## Step 12e：写入大 issue 文件
 
@@ -95,7 +98,7 @@ docs/orchestrate/issues/<slug>/
 <!-- PENDING: plan_writer 将在 plan-writing 阶段补全小 issue 拆分 -->
 
 ## Blocked by
-- <其他大 issue 编号或 "None">
+- <其他大 issue 编号或 "None"> — <为什么必须先完成：producer surface / 度量结论 / 人工决策>
 ```
 
 **`## Small issues` 章节留空**——标记 `<!-- PENDING -->`，由 plan_writer 在 plan-writing 阶段填充。

@@ -10,6 +10,7 @@
 - Source issue（path，指向对应的 issue 文件）
 - Execution owner: Orchestrate Workflow
 - Blocked by（从 issue 文件继承的大 issue 级依赖）
+- Dependency rationale（每个 blocker 对应的 producer surface / 度量结论 / 人工决策）
 - File / Responsibility Map
 - 发布风险和人工门禁表
 
@@ -49,7 +50,7 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget initialize \
 
 **这是 budget 的首次有效赋值**——workflow entry gate 创建时 budget_status 为 pending_plan_count，此处确认。
 
-## Step 12b：写入跨计划合同锚点 section
+## Step 12b：收敛跨计划合同锚点 section
 
 所有 plan 文件完成并通过 Step 11-12a 后，Coordinator 读取 `docs/orchestrate/plans/<slug>/` 下全部 plan，把跨 plan 合同写入：
 
@@ -68,11 +69,13 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" budget initialize \
 | Consumer Plan(s) | 依赖该 surface 的 plan |
 | 关键字段/路径 | 具体字段名、文件路径或 anchor |
 
+这里是对已锁定 issue 依赖和 plan contract anchors 的收敛，不是重新设计依赖图。不得在 Step 12b 首次引入新的 plan dependency、HITL 决策或条件项落地口径；如果扫描发现缺直接依赖、条件项 owner 或 producer / consumer 语义，按 issue quality / issue-plan mismatch 处理：先修 source issue 或 design anchor，再用原 plan_writer `send_input` 修对应 plan，不由 Coordinator 手工补多份 plan 正文。
+
 生成步骤：
 1. 扫描每份 plan 的 File / Responsibility Map、Contract anchors、migration / registry / hook / state / generated artifact 条目。
 2. 只提取跨 plan 连接面，记录 owner / provider / consumer 和关键字段。
 3. 对 provider 缺失、consumer 缺失、ownership 冲突或字段不清的连接面标记 `needs plan repair`。
-4. 直接 Edit `docs/orchestrate/design/<slug>.md`，把表格写入 `## Cross-Plan Contract Anchors` section 下（schema 模板已就位）。
+4. 直接 Edit `docs/orchestrate/design/<slug>.md`，把表格写入 `## Cross-Plan Contract Anchors` section 下（schema 模板已就位）；这次 edit 只同步 contract index，不改 issue / plan 的业务语义。
 5. 写完后再进入 Plan Review；Plan Review dispatch 必须把该 section 列为 source anchor。
 
 > **Fallback（兼容期）**：若历史 run 还存在 `docs/orchestrate/plans/<slug>/cross-plan-contract-map.md` 文件，请人工把内容迁移进 design.md 的 `## Cross-Plan Contract Anchors` section 后删除原文件；reader 仍优先读 design.md section。

@@ -12,7 +12,7 @@ Plan Review 的 `accepted` 细分为 5 种路由：
 
 | `accepted` 子类型 | 动作 |
 | --- | --- |
-| `plan repair` | Coordinator 直接修框架性内容，或 send_input plan_writer 修 Task Pack 内容 |
+| `plan repair` | Coordinator 只直接修非语义框架性内容；Task Pack / owned files / verification / dependency / HITL 决策口径必须 send_input 原 plan_writer |
 | `design gap` | 回到 orchestrate-discovery → Design Review → 写回后 re-review plan |
 | `issue-plan mismatch` | 判断：大 issue 级问题 → 返回 Coordinator 走大 issue 拆分；小 issue 级问题 → send_input plan_writer 重新执行 Step 3c 拆分 → re-review plan |
 | `issue quality` | 小 issue 拆分质量问题（覆盖度/粒度/验收标准/依赖）→ send_input plan_writer 重新执行 Step 3c 修正小 issue → re-review plan |
@@ -24,9 +24,9 @@ Plan Review 的 `accepted` 细分为 5 种路由：
 
 **Read** `${MMW_PLUGIN_ROOT}/skills/_shared/repair-routing.md` 并按其流程处理 review findings。
 
-Plan Review 三条路径：
+Plan Review 三条路径。原则：Coordinator 可以修 source-of-truth 和非语义格式，不手工重写 plan body 来代替原 plan_writer；否则同一类遗漏会在下一轮 review 继续出现。
 
-- **路径 A**（框架性内容：header / coverage map / scope check / 发布风险表）：Coordinator 直接修 → Step 17
+- **路径 A**（非语义框架性内容：缺 section header / Review History 表头 / Manifest 列名 / 明显路径拼写）：Coordinator 直接修 → Step 17。只要修复会改变 Task Pack 内容、依赖、HITL/AFK、owned files、verification 或 contract anchors，就改走路径 B/C。
 - **路径 B**（Task Pack 内容：implementation tasks / verification / owned files / contract anchors）：
 
 <!-- BEGIN: send-input-resume [variant=plan_writer] -->
@@ -54,7 +54,7 @@ Compaction recovery: 从 `workflow-state.cursor` + plan/design 文档重建 repa
 <!-- END: send-input-resume -->
 
 → 重跑 Gate → Step 17
-- **路径 C**（source artifact 问题）：Upstream backflow → 写回后 re-review
+- **路径 C**（source artifact 问题）：Upstream backflow → 写回 source issue / design 后，send_input 受影响的原 plan_writer 修对应 plan → re-review
 
 路径 C 路由表：
 
@@ -65,6 +65,8 @@ Compaction recovery: 从 `workflow-state.cursor` + plan/design 文档重建 repa
 | issue quality | send_input plan_writer 重新执行 Step 3c | issue hierarchy（小 issue 章节） |
 | architecture friction | `加载 skill `improve-codebase-architecture`` | design doc / plan anchors |
 | domain 术语冲突 | `加载 skill `grill-with-docs`` | CONTEXT.md（或 CONTEXT-MAP.md 对应子 context 文件） + design document |
+
+路径 C 收口规则：修完 source artifact 后，不由 Coordinator 手工同步多份 plan 正文。Coordinator 只负责列出 accepted findings、亲验证据、变更后的 source artifact 路径和 affected plan ids，然后按路径 B 的 send_input Resume 流程交回原 plan_writer。若缺少对应 `plan_writer_sessions[<NNN>].agent_id`，该修复路径 BLOCKED；不得新建 writer 冒充续修。
 
 ## Coordinator checkbox toggle 权威规则（D4 source-of-truth）
 
