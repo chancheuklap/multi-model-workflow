@@ -129,6 +129,7 @@ Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked 
 **Source issue:** docs/orchestrate/issues/<slug>/00N-<issue-slug>.md
 **Execution owner:** Orchestrate Workflow
 **Blocked by:** <其他 plan 的编号（"001" / "Plan 001"，逗号分隔）或 "None"。**必须翻译成 plan 编号**——issue 文件里的 Blocked by 是 issue 编号，写 plan 时按 issue→plan 对应关系换算；`state.sh dep-batches` 据此计算并行批次，遇到非 plan 编号值会报错拒绝>
+**Dependency rationale:** <每个 blocker 对应的 producer surface / 度量结论 / 人工决策；None 时写 N/A>
 **Architecture:** <与本 issue 相关的实现方向>
 **Tech stack:** <实际涉及的框架、服务、测试工具>
 **Quality gate:** 进入 Plan Review 前必须通过过度设计 / 设计不足自审。

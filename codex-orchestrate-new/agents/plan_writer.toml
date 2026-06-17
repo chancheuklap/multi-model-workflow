@@ -54,6 +54,10 @@ PLAN_CREATED | NEEDS_DISCOVERY | NEEDS_ISSUES | NEEDS_TRIAGE | NEEDS_DIAGNOSIS |
 - Pack 总数 + 每个 Pack 的一句话摘要
 - Pack 间依赖关系
 
+### Dependency Mapping
+- Source issue Blocked by -> Plan header Blocked by
+- Missing direct producer dependency: NONE or NEEDS_ISSUES with evidence
+
 ### Gate Readiness
 - Plan path
 - Issue path

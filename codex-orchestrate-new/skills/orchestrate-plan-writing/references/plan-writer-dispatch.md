@@ -71,6 +71,11 @@ spawn_agent({
     ## Issue 内容
     你自读 `docs/orchestrate/issues/<slug>/00N-<issue-slug>.md` 获取 Issue title、What to build、Small issues 状态、Blocked by。
 
+    ## Large issue index（只读依赖索引）
+    Coordinator 已从本轮所有大 issue 提取以下索引。你只用它理解 plan 编号、直接依赖、条件项和 HITL 决策边界；不得读取或修改其他 issue 全文。
+    | plan_id | title | type | blocked_by | decision_output | dependency_rationale |
+    | ... |
+
     ## Plan output
     - Plan 保存路径: docs/orchestrate/plans/<slug>/00N-<issue-slug>.md
     - Execution owner: Orchestrate Workflow（必须写入 plan header）
@@ -90,6 +95,9 @@ spawn_agent({
     NEEDS_DIAGNOSIS / NEEDS_DECISION / NEEDS_ARCHITECTURE / NEEDS_CONTEXT / BLOCKED
     ### Plan path
     ### Issue mapping
+    ### Dependency mapping
+    - Source issue Blocked by -> Plan header Blocked by
+    - Any missing direct producer dependency: NONE or NEEDS_ISSUES with evidence
     ### Gate Readiness
     - Plan path
     - Issue path
