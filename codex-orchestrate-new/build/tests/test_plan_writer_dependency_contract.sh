@@ -23,8 +23,8 @@ echo "=== test_plan_writer_dependency_contract.sh ==="
 run_test "issue splitting requires direct dependencies for conditional/HITL slices" bash -c \
   "grep -q 'Blocked by.*直接依赖' '$ISSUE_SPLIT' && grep -q '条件项 / HITL slice 必须同时列出决策门和它直接消费的 producer slice' '$ISSUE_SPLIT'"
 
-run_test "plan writer dispatch includes a Large issue index before spawning writers" bash -c \
-  "grep -q 'Large issue index' '$PLAN_DISPATCH' && grep -q '不得先派 plan_writer 后让 Plan Review 再发现' '$PLAN_DISPATCH'"
+run_test "plan writer dispatch keeps dependency facts in issue hierarchy, not a new index" bash -c \
+  "grep -q '不新增派发索引或中间文档' '$PLAN_DISPATCH' && ! grep -q 'Large issue index' '$PLAN_DISPATCH' && ! grep -q 'Large issue index' '$PLAN_METHOD'"
 
 run_test "plan writer methodology returns NEEDS_ISSUES for missing direct producer dependency" bash -c \
   "grep -q '当前 issue 缺直接 producer / decision 依赖' '$PLAN_METHOD' && grep -q 'NEEDS_ISSUES' '$PLAN_METHOD'"

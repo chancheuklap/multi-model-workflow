@@ -23,11 +23,9 @@ plan_writer agent 通过 dispatch prompt 中指定的路径读取本文件执行
 2. 提取每个页面的视觉规格（布局/颜色/字体/间距/组件结构）、交互行为、状态变体
 3. 后续写 Task Pack 时，mockup 拆解出的视觉规格必须写入对应 pack 的 acceptance criteria——不是作为"去看 mockup 目录"的指针，而是作为具体的、可验证的视觉目标
 
-### 3b：读取你的 issue 文件 + Large issue index
+### 3b：读取你的 issue 文件
 
 Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked by。
-
-同时读取 dispatch prompt 中的 `## Large issue index`，只用于理解本轮 plan 编号、直接依赖、条件项和 HITL 决策边界。不得读取或修改其他 issue 全文。
 
 检查 `## Small issues` 章节：
 - 如果已有完整的小 issue 列表 → 跳过 Step 3c，直接进入 Step 3d
@@ -36,7 +34,7 @@ Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked 
 依赖与条件项检查：
 
 - 将当前 issue 的 `Blocked by` 逐项翻译成 plan 编号；Plan header 的 `Blocked by` 必须保留这些直接依赖。
-- 如果当前 issue 消费某个 producer surface、度量结论或人工决策，但该 producer / decision 没在当前 issue 的 `Blocked by` 中，返回 `NEEDS_ISSUES`，说明缺哪个直接依赖；不要自行补写其他 issue。
+- 如果从当前 issue 的 `What to build`、`Design context refs` 或 source design 可见当前 issue 消费某个 producer surface、度量结论或人工决策，但该 producer / decision 没在当前 issue 的 `Blocked by` 中，返回 `NEEDS_ISSUES`，说明缺哪个直接依赖；不要自行补写其他 issue。
 - 度量 / spike / 条件项 issue 只产出证据和 disposition。除非 source issue 明确写了已 review 的固定阈值，否则不得把阈值写成自动通过 / 自动执行逻辑；应写成 Coordinator / user HITL 决策门。
 - HITL issue 的计划必须写清楚人工决策 owner、输入证据和可能结论；不得把 HITL 内容降级成 AFK。
 
@@ -131,7 +129,6 @@ Read dispatch prompt 中指定的 issue 文件。提取 What to build、Blocked 
 **Source issue:** docs/orchestrate/issues/<slug>/00N-<issue-slug>.md
 **Execution owner:** Orchestrate Workflow
 **Blocked by:** <其他 plan 的编号（"001" / "Plan 001"，逗号分隔）或 "None"。**必须翻译成 plan 编号**——issue 文件里的 Blocked by 是 issue 编号，写 plan 时按 issue→plan 对应关系换算；`state.sh dep-batches` 据此计算并行批次，遇到非 plan 编号值会报错拒绝>
-**Dependency rationale:** <每个 blocker 对应的 producer surface / 度量结论 / 人工决策；None 时写 N/A>
 **Architecture:** <与本 issue 相关的实现方向>
 **Tech stack:** <实际涉及的框架、服务、测试工具>
 **Quality gate:** 进入 Plan Review 前必须通过过度设计 / 设计不足自审。

@@ -10,7 +10,6 @@
 - Source issue（path，指向对应的 issue 文件）
 - Execution owner: Orchestrate Workflow
 - Blocked by（从 issue 文件继承的大 issue 级依赖）
-- Dependency rationale（每个 blocker 对应的 producer surface / 度量结论 / 人工决策）
 - File / Responsibility Map
 - 发布风险和人工门禁表
 

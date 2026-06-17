@@ -16,18 +16,7 @@
 
 如果任一 issue 缺少以上路径，停止整批派发，返回对应的 upstream verdict；不得先派出部分 writer 再补缺件。
 
-Coordinator 同时构造一个**只读 Large issue index**，内联进每个 plan_writer prompt。index 只放跨 issue 规划所需的事实，不让 writer 读取或修改其他 issue 全文：
-
-| 字段 | 来源 |
-| --- | --- |
-| Plan id | issue 文件名前缀 `NNN` |
-| Title | issue H1 |
-| Type | issue 中的 AFK / HITL 标记 |
-| Blocked by | issue 的 `## Blocked by` 列表 |
-| Decision output | 度量 / spike / 条件项 issue 的“决策结果”表 |
-| Dependency rationale | `Blocked by` 行里的 producer surface / 度量结论 / 人工决策说明 |
-
-整批派发前做一次轻量语义检查：
+整批派发前对 issue hierarchy 做一次轻量语义检查，检查结果直接写回 issue 文件，不新增派发索引或中间文档：
 
 - `Blocked by` 必须是直接依赖，不接受“只依赖中间 issue、实际还消费更早 producer”的传递依赖捷径。
 - 条件项 / HITL issue 必须同时列出决策门和直接 producer；缺任一项时先修 issue hierarchy，再派 writer。
@@ -37,7 +26,7 @@ Coordinator 同时构造一个**只读 Large issue index**，内联进每个 pla
 
 ### Step 9b：为每个 issue 填充 Dispatch Prompt
 
-将路径和 Large issue index 填入以下模板。每个 issue 用同一模板、不同的 `plan_id`、issue 文件路径和 plan 输出路径。
+将路径填入以下模板。每个 issue 用同一模板、不同的 `plan_id`、issue 文件路径和 plan 输出路径。
 
 ```
 spawn_agent({
@@ -82,11 +71,6 @@ spawn_agent({
     ## Issue 内容
     你自读 `docs/orchestrate/issues/<slug>/00N-<issue-slug>.md` 获取 Issue title、What to build、Small issues 状态、Blocked by。
 
-    ## Large issue index（只读依赖索引）
-    Coordinator 已从本轮所有大 issue 提取以下索引。你只用它理解 plan 编号、直接依赖、条件项和 HITL 决策边界；不得读取或修改其他 issue 全文。
-    | plan_id | title | type | blocked_by | decision_output | dependency_rationale |
-    | ... |
-
     ## Plan output
     - Plan 保存路径: docs/orchestrate/plans/<slug>/00N-<issue-slug>.md
     - Execution owner: Orchestrate Workflow（必须写入 plan header）
@@ -106,9 +90,6 @@ spawn_agent({
     NEEDS_DIAGNOSIS / NEEDS_DECISION / NEEDS_ARCHITECTURE / NEEDS_CONTEXT / BLOCKED
     ### Plan path
     ### Issue mapping
-    ### Dependency mapping
-    - Source issue Blocked by -> Plan header Blocked by
-    - Any missing direct producer dependency: NONE or NEEDS_ISSUES with evidence
     ### Gate Readiness
     - Plan path
     - Issue path
