@@ -33,6 +33,8 @@ Bad:  "实现了 PhoneAuthProvider 并集成到 AuthStrategy pipeline，通过 T
 
 **Workflow 只做路由和基础设施**——不写设计、不写计划、不派 worker、不做 review。每个 phase 由对应 skill 负责。
 
+**Paused Plan 恢复规则**：如果用户在同一 workflow 后续明确要求执行先前被 `pause` / `do-not-run` / 条件门禁挡住的已有 Plan，沿用原 reviewed design/issue/plan，路由回 `orchestrate-execution`。这不是 Light Lane、不是 direct-repair，也不是 Coordinator 亲自写代码；Coordinator 只记录用户决策证据，然后按 Execution 的 Plan worker dispatch 继续。
+
 **Only stop for：**
 - 模糊输入需要收窄（一次只问一个）
 - BLOCKED verdict

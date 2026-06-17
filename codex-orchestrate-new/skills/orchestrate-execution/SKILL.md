@@ -346,6 +346,8 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" checkbox toggle \
 - 仍运行 `execution-plan finish --status completed`，含义是“该 Plan 的本轮决策已完成”，不是“代码已实现”。
 - 不勾选该 Plan 中 blocked / skipped Pack 的 checkbox；final review prompt 必须把它标成 gate-closed plan，避免 reviewer 误报成漏实现。
 
+如果用户后续在当前 thread 明确推翻 `pause` / `do-not-run` 结论并要求执行该 Plan，Coordinator 只更新用户决策证据和控制面状态，然后从 Step 5 重新派该 Plan 的 worker。不得把它改走 Light Lane，不得由 Coordinator 直接改源码，也不得在原 gate-closed `worker_agent_id == null` 状态下手工完成 Pack。
+
 ```bash
 bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" transition \
   --run-id "<run_id>" --actor Coordinator \
