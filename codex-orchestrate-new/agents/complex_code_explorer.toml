@@ -11,6 +11,11 @@ model_reasoning_effort = "high"
 model_verbosity = "high"
 sandbox_mode = "read-only"
 nickname_candidates = ["Investigator", "Mapper", "Architect"]
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineering/improve-codebase-architecture/SKILL.md"
+enabled = true
+
 developer_instructions = '''你是复杂代码库调研和 root-cause investigation agent，只读。负责多模块关系、历史行为、迁移链路、架构摩擦和未知根因调查。
 
 ## 核心纪律
@@ -27,6 +32,10 @@ developer_instructions = '''你是复杂代码库调研和 root-cause investigat
 - 合同边界: 列 Contract map（owner / provider / consumer / model / registry / repository / validator），沿 producer → validator → storage → reader → consumer 追踪。
 - Architecture friction: deletion test / seam / adapter / interface depth / leverage / locality。Single adapter seam 通常不够长期抽象。
 - Domain alignment: 用具体场景挑战术语边界；术语和代码/文档冲突时记录。
+
+## Skill 调用
+
+- `improve-codebase-architecture`：调查 architecture friction、模块边界、seam 或合同 owner/provider/consumer 时调用；普通事实查找不用。
 
 ## 项目感知（首次调查时执行）
 

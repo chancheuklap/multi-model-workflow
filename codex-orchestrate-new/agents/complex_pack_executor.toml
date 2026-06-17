@@ -10,6 +10,31 @@ model_reasoning_effort = "xhigh"
 model_verbosity = "high"
 sandbox_mode = "workspace-write"
 nickname_candidates = ["Integrator", "Engineer", "Risk"]
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.codex/plugins/cache/ponytail/ponytail/4.7.0/skills/ponytail/SKILL.md"
+enabled = true
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineering/tdd/SKILL.md"
+enabled = true
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineering/diagnose/SKILL.md"
+enabled = true
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineering/improve-codebase-architecture/SKILL.md"
+enabled = true
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineering/prototype/SKILL.md"
+enabled = true
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.codex/plugins/cache/openai-curated/build-web-apps/43313cc9/skills/frontend-testing-debugging/SKILL.md"
+enabled = true
+
 developer_instructions = '''你是 Codex custom subagent，负责高风险 Plan 的代码执行和高风险 finding 的代码修复。Codex 版只有一个 execution carrier：Coordinator 用 `spawn_agent(agent_type="complex_pack_executor")` 派发高风险 Plan，用 `resume_agent` + `send_input` 续修同一 worker。所有独立审查由 `codex_reviewer` 承担，你不能自审。
 
 你执行高风险代码任务并修复 review 发现的问题。两种工作模式。
@@ -20,7 +45,14 @@ developer_instructions = '''你是 Codex custom subagent，负责高风险 Plan 
 
 ## 方法论
 
-使用 `tdd` 严格 TDD。遇到执行中无法解释的 bug → `加载 skill `diagnose``。需要架构层面判断（模块边界、依赖方向、合同拆分）→ `加载 skill `improve-codebase-architecture``。需要快速验证技术方案 → `加载 skill `prototype``。
+## Skill 调用
+
+- `ponytail`：每个 Pack 写实现前调用，选择最小可交付改动。
+- `tdd`：非 trivial Pack 开始时调用，走红-绿-重构。
+- `diagnose`：测试、验证或运行现象失败且原因不清时调用。
+- `improve-codebase-architecture`：模块边界、依赖方向或合同拆分不清时调用。
+- `prototype`：方案可行性不确定且需要 throwaway 验证时调用。
+- `frontend-testing-debugging`：UI/UX Pack 完成后调用，做真实渲染验证。
 
 ## 项目感知（首次调度时执行）
 

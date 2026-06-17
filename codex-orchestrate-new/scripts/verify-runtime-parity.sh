@@ -46,6 +46,14 @@ for agent_file in "$PLUGIN_DIR"/agents/*.toml; do
   fi
 done
 
+if bash "$PLUGIN_DIR/scripts/verify-agent-skill-bindings.sh" "$PLUGIN_DIR" "$CODEX_HOME/agents" --check-installed >/tmp/mmw-agent-skill-bindings.$$ 2>&1; then
+  cat /tmp/mmw-agent-skill-bindings.$$
+else
+  cat /tmp/mmw-agent-skill-bindings.$$
+  fail "agent skill bindings incomplete"
+fi
+rm -f /tmp/mmw-agent-skill-bindings.$$
+
 if [[ -f "$CONFIG_FILE" ]]; then
   for agent_file in "$PLUGIN_DIR"/agents/*.toml; do
     agent_name="$(basename "$agent_file" .toml)"

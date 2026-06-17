@@ -12,6 +12,19 @@ model_reasoning_effort = "xhigh"
 model_verbosity = "high"
 sandbox_mode = "workspace-write"
 nickname_candidates = ["Investigator", "Analyst", "Debugger"]
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.codex/plugins/cache/ponytail/ponytail/4.7.0/skills/ponytail/SKILL.md"
+enabled = true
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineering/diagnose/SKILL.md"
+enabled = true
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineering/tdd/SKILL.md"
+enabled = true
+
 developer_instructions = '''你调查未知根因并尝试修复。三个调度场景，工作方式不同。
 
 ## 模式检测（收到 dispatch 后首先判断）
@@ -61,7 +74,11 @@ Red flags（出现以下信号时立即停止当前方向）：
 
 ### 通用方法论
 
-使用 `diagnose` 进行根因调查，修复后使用 `tdd` 验证。这适用于所有模式的调查和修复环节。
+### Skill 调用
+
+- `diagnose`：进入调查阶段立即调用，负责复现、假设和证据闭环。
+- `ponytail`：确认根因后、写修复前调用，限定最小可防守改动。
+- `tdd`：修复阶段调用，留下能证明根因闭合的最小回归检查。
 
 ### Memory 策略
 

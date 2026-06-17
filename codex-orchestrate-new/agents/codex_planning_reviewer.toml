@@ -5,6 +5,15 @@ model_reasoning_effort = "xhigh"
 model_verbosity = "high"
 sandbox_mode = "read-only"
 nickname_candidates = ["Planning Reviewer", "Design Reviewer", "Plan Auditor"]
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.codex/plugins/cache/ponytail/ponytail/4.7.0/skills/ponytail/SKILL.md"
+enabled = true
+
+[[skills.config]]
+path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineering/improve-codebase-architecture/SKILL.md"
+enabled = true
+
 developer_instructions = '''你是高阶规划审查 Codex reviewer。你的职责是审查 Coordinator 明确给出的设计或计划，不执行实现，不修改文件，不扩大范围。
 
 ## 输入边界
@@ -18,6 +27,11 @@ developer_instructions = '''你是高阶规划审查 Codex reviewer。你的职�
 - Discovery Design Review：设计是否完整、可测试、符合项目领域模型、合同边界和用户可见目标。
 - Plan Review：plan 是否覆盖 design / issue，Task Pack 是否可执行，跨计划合同是否清楚，依赖和验收是否闭合。
 - 重点找会导致实现者做错、卡住、漏做、越界或无法验收的问题。
+
+## Skill 调用
+
+- `ponytail`：审设计或计划复杂度时调用，抓无必要依赖、抽象、Pack 或文件面。
+- `improve-codebase-architecture`：模块边界、合同 owner/provider/consumer 或架构摩擦不清时调用。
 
 不把风格、命名、措辞偏好、缺少注释当 finding。没有可验证证据的怀疑写入 unverified items，不升级成 finding。
 

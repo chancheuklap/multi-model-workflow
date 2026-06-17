@@ -37,13 +37,14 @@ done
 
 echo
 echo "## Codex agents"
-for agent in pack_executor complex_pack_executor plan_writer codex_reviewer root_cause_analyst code_explorer complex_code_explorer; do
+for agent in pack_executor complex_pack_executor plan_writer codex_reviewer codex_planning_reviewer root_cause_analyst code_explorer complex_code_explorer; do
   check "agent TOML exists: $agent" test -f "$PLUGIN_DIR/agents/${agent}.toml"
   check "sync script registers: $agent" grep -q "\"$agent\"" "$PLUGIN_DIR/agents/sync-agents.sh"
 done
 check "no legacy markdown agent configs" bash -c "! find '$PLUGIN_DIR/agents' -maxdepth 1 -type f -name '*.md' ! -name 'persona.md' ! -name 'agents.overrides.md' | grep -q ."
 check "docs_worker not registered by clean migration" bash -c "! grep -q 'docs_worker' '$PLUGIN_DIR/agents/sync-agents.sh'"
 check "plan_writer can write plans" grep -q 'sandbox_mode = "workspace-write"' "$PLUGIN_DIR/agents/plan_writer.toml"
+check "agent required skill bindings are declared" bash "$PLUGIN_DIR/scripts/verify-agent-skill-bindings.sh" "$PLUGIN_DIR"
 check "Codex agent TOML generated anchors are checked" grep -q -- '-name "\*.toml"' "$PLUGIN_DIR/build/build.sh"
 check "all voice-directive variants resolve" bash -c 'for v in pack_executor complex_pack_executor plan_writer code_explorer complex_code_explorer root_cause_analyst discovery execution plan-writing final-review multi-pr-merge workflow; do grep -q "^\[variant=$v\]" "$1"; done' _ "$PLUGIN_DIR/build/templates/voice-directive.md.tmpl"
 
