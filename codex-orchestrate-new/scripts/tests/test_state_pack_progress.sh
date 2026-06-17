@@ -72,12 +72,25 @@ bash "$STATE_SH" execution-plan complete --run-id "$RUN_ID" --plan-id "005" \
   --verdict pass 2>/dev/null
 PVERDICT=$(jq -r '.plans["005"].worker_verdict' "$ESF")
 PFINISHED=$(jq -r '.plans["005"].finished_at' "$ESF")
+PRETURN_HANDLER=$(jq -r '.plans["005"].return_handler_completed_at // empty' "$ESF")
 assert_eq "execution-plan complete writes worker_verdict" "$PVERDICT" "pass"
 if [[ "$PFINISHED" == "null" ]] || [[ -z "$PFINISHED" ]]; then
   echo "  FAIL: execution-plan complete should write finished_at (got null)"
   fail=$((fail + 1))
 else
   echo "  PASS: execution-plan complete writes finished_at ($PFINISHED)"
+  pass=$((pass + 1))
+fi
+assert_eq "execution-plan complete default does not write return_handler_completed_at" "$PRETURN_HANDLER" ""
+
+bash "$STATE_SH" execution-plan complete --run-id "$RUN_ID" --plan-id "005" \
+  --verdict pass --source return-handler 2>/dev/null
+PRETURN_HANDLER=$(jq -r '.plans["005"].return_handler_completed_at // empty' "$ESF")
+if [[ "$PRETURN_HANDLER" == "null" ]] || [[ -z "$PRETURN_HANDLER" ]]; then
+  echo "  FAIL: execution-plan complete --source return-handler should write return_handler_completed_at"
+  fail=$((fail + 1))
+else
+  echo "  PASS: execution-plan complete --source return-handler writes return_handler_completed_at ($PRETURN_HANDLER)"
   pass=$((pass + 1))
 fi
 

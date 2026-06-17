@@ -81,6 +81,7 @@ cat > "$STATE_BASE/execution-state-$RUN_ID.json" <<JSON
   "plans": {
     "001": {
       "start_commit": "abc123",
+      "worker_agent_id": "worker-001",
       "packs": {
         "1.1": { "status": "pending", "commit_sha": null }
       }
@@ -96,7 +97,15 @@ jq '.plans["001"].packs["1.1"].status = "committed" | .plans["001"].packs["1.1"]
   "$STATE_BASE/execution-state-$RUN_ID.json" > "$STATE_BASE/execution-state-$RUN_ID.tmp"
 mv "$STATE_BASE/execution-state-$RUN_ID.tmp" "$STATE_BASE/execution-state-$RUN_ID.json"
 
-run_test "validate passes plan implementation review after packs are committed" \
+run_test_expect_fail "validate blocks plan implementation review before worker final return handling" \
+  bash "$DISPATCH_SH" validate --prompt-file "$BASELINE" --gate "plan-impl-review-1"
+
+run_test_expect_fail "validate still blocks worker self-complete without SubagentStop return handler" \
+  bash -c "bash '$STATE_SH' execution-plan complete --run-id '$RUN_ID' --plan-id '001' --verdict pass >/dev/null && bash '$DISPATCH_SH' validate --prompt-file '$BASELINE' --gate 'plan-impl-review-1'"
+
+bash "$STATE_SH" execution-plan complete --run-id "$RUN_ID" --plan-id "001" --verdict pass --source return-handler >/dev/null
+
+run_test "validate passes plan implementation review after durable return handling" \
   bash "$DISPATCH_SH" validate --prompt-file "$BASELINE" --gate "plan-impl-review-1"
 
 IMMUTABLE="$FIXTURE_DIR/prompts/custom-review.md"

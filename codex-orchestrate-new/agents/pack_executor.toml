@@ -118,11 +118,9 @@ for pack in sorted_packs:
 # 全部 Pack 完成 / context 触发 / partial-fail 收尾
 write plan-return.json to <状态目录>/plan-returns/<run_id>/<plan_id>/plan-return.json
 
-STATE_BASE="<状态目录>" bash "<state.sh 绝对路径>" execution-plan complete \
-  --run-id <run_id> --plan-id <plan.id> --verdict <verdict>
-
-# 正常退出即可——派发包装脚本在你退出后自动 ingest plan-return + 路由下一步，
-# 你不需要触发任何额外信号。
+# 正常退出即可。SubagentStop hook 会在你退出后 ingest plan-return、写入
+# return_handler_completed_at，并路由下一步。不要在 final 之前自己标记 Plan
+# 可 review；Coordinator 只认 return-handler 完成标记。
 return
 ```
 

@@ -11,10 +11,10 @@
 #   3. Between commits, simulate the track-execution-state hook running
 #   4. Verify NEXT-message suppression while worker_agent_id is set
 #   5. Worker writes plan-return.json + doc-patch.diff + open-items.json
-#   6. Worker calls execution-plan complete
-#   7. agent-return-handler.sh fires → ingests artifact → routes verdict
-#   8. Verify doc-patch.diff NOT applied (Decision 6)
-#   9. Verify execution-state has worker_verdict, per_pack statuses, finished_at
+#   6. agent-return-handler.sh fires → ingests artifact, marks durable return, routes verdict
+#   7. Verify doc-patch.diff NOT applied (Decision 6)
+#   8. Verify execution-state has worker_verdict, per_pack statuses, finished_at,
+#      and return_handler_completed_at
 #
 # 4 verdict paths covered: pass / partial-pass / blocked / need-fresh-worker.
 set -uo pipefail
@@ -112,10 +112,6 @@ worker_return() {
   echo "# sentinel" > "$prdir/doc-patch.diff"
   jq -n '{schema_version:"1",plan_id:"005",items:[]}' > "$prdir/open-items.json"
 
-  # Mark Worker complete
-  bash "$STATE_SH" execution-plan complete --run-id "$RUN_ID" --plan-id "005" \
-    --verdict "$verdict" 2>/dev/null
-
   # Run agent-return-handler.sh (PostToolUse subagent on Worker return)
   local envelope
   envelope=$(jq -nc '{protocol_version:"1",run_id:"e2e-test",phase:"execution",agent_role:"pack_executor",repair_round:0,idempotency_key:"e2e-k1",plan_id:"005",pack_id:null,plan_path:"docs/orchestrate/plans/e2e/005-loop.md"}')
@@ -188,12 +184,20 @@ assert_contains "pass: handler NEXT mentions Plan Implementation Review" "$HANDL
 ESF="$BUDGET_DIR/execution-state-${RUN_ID}.json"
 WV=$(jq -r '.plans["005"].worker_verdict' "$ESF")
 FINISHED=$(jq -r '.plans["005"].finished_at' "$ESF")
+RETURN_HANDLER_COMPLETED=$(jq -r '.plans["005"].return_handler_completed_at' "$ESF")
 assert_eq "pass: worker_verdict ingested" "$WV" "pass"
 if [[ "$FINISHED" != "null" ]] && [[ -n "$FINISHED" ]]; then
   echo "  PASS: pass: finished_at populated"
   pass=$((pass + 1))
 else
   echo "  FAIL: pass: finished_at not populated"
+  fail=$((fail + 1))
+fi
+if [[ "$RETURN_HANDLER_COMPLETED" != "null" ]] && [[ -n "$RETURN_HANDLER_COMPLETED" ]]; then
+  echo "  PASS: pass: return_handler_completed_at populated"
+  pass=$((pass + 1))
+else
+  echo "  FAIL: pass: return_handler_completed_at not populated"
   fail=$((fail + 1))
 fi
 

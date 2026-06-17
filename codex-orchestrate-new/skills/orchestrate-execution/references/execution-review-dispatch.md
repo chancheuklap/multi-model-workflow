@@ -2,7 +2,7 @@
 
 > **流程位置**：`orchestrate-execution` Step 8 · 同一 Plan 内所有 Pack 完成后派发
 
-同一 Plan 内所有 Pack 完成 Open Items 处置 + Git Checkpoint 后，派发 **1 个** baseline Codex reviewer 覆盖该 Plan 全部代码变更。
+同一 Plan 内所有 Pack 完成 Open Items 处置 + Git Checkpoint 后，派发 **1 个** baseline Codex reviewer 覆盖该 Plan 全部代码变更。这里的“完成”必须来自 worker final + `agent-return-handler.sh` durable return handling；worker worktree 里出现 commit / plan-return 文件不算完成。
 
 **Read** `${MMW_PLUGIN_ROOT}/skills/_shared/review-dispatch.md` 并按其格式派发 Codex review。
 
@@ -115,6 +115,7 @@ Plan Implementation Review finding 必须标注 `[Pack N.M]` 归属。`Affected 
 
 Coordinator 在派发时只需完成以下动作，其余由 Reviewer 自读：
 
+0. 确认 execution-state 中该 Plan 已有 `return_handler_completed_at`（或该 Plan 没有 worker owner），且 `worker_verdict` 为 `pass` / `partial-pass`；否则继续 `wait_agent` 或按 crash recovery，不写 review prompt。
 1. 写 `DISPATCH_ENVELOPE`，填入 `run_id`、`plan_id`、`gate`（`plan-impl-review-N`）、`review_intent: "baseline"`。
 2. 在 `Source artifacts:` 中列出 plan 文件路径（reviewer 自读内容）。
 3. 写 `review-prompts/<gate>.md`，运行 `dispatch-review.sh validate`，用 `spawn_agent(agent_type="codex_reviewer")` 派发 reviewer，再运行 `dispatch-review.sh record` 保存 agent id。

@@ -136,23 +136,45 @@ else
   fail=$((fail + 1))
 fi
 
-# Case G: worker_agent_id 是可恢复 owner；worker 已 final 后不代表仍在跑。
+# Case G: worker 自己写 worker_verdict / finished_at 仍不代表 SubagentStop
+# return-handler 已完成；继续抑制 review NEXT。
 cat > "$BUDGET_DIR/execution-state-${RUN_ID}.json" <<EOF
 {"run_id":"$RUN_ID","plans":{"008":{"worker_agent_id":"worker-done","worker_verdict":"pass","finished_at":"2026-06-17T00:00:00Z","packs":{"8.1":{"status":"committed","commit_sha":"worker-pack-8-1-sha"},"8.2":{"status":"committed","commit_sha":"worker-pack-8-2-sha"}}}}}
 EOF
 OUT=$(run_hook "008" "8.2")
 if echo "$OUT" | grep -q "Dispatch Plan Implementation Review"; then
-  echo "  PASS: G) returned worker with retained worker_agent_id can dispatch review"
+  echo "  FAIL: G) worker self-complete should not allow review dispatch before return handler (actual: $OUT)"
+  fail=$((fail + 1))
+else
+  echo "  PASS: G) worker self-complete does not emit Dispatch Review NEXT"
+  pass=$((pass + 1))
+fi
+if echo "$OUT" | grep -q "still in session"; then
+  echo "  PASS: G) worker without return-handler marker still emits still-in-session warning"
   pass=$((pass + 1))
 else
-  echo "  FAIL: G) returned worker should allow review dispatch (actual: $OUT)"
+  echo "  FAIL: G) worker without return-handler marker should still emit wait warning (actual: $OUT)"
+  fail=$((fail + 1))
+fi
+
+# Case H: return-handler marker is the durable final signal; retained worker_agent_id
+# is now only a resumable owner and may dispatch review.
+cat > "$BUDGET_DIR/execution-state-${RUN_ID}.json" <<EOF
+{"run_id":"$RUN_ID","plans":{"009":{"worker_agent_id":"worker-done","worker_verdict":"pass","finished_at":"2026-06-17T00:00:00Z","return_handler_completed_at":"2026-06-17T00:00:01Z","packs":{"9.1":{"status":"committed","commit_sha":"worker-pack-9-1-sha"},"9.2":{"status":"committed","commit_sha":"worker-pack-9-2-sha"}}}}}
+EOF
+OUT=$(run_hook "009" "9.2")
+if echo "$OUT" | grep -q "Dispatch Plan Implementation Review"; then
+  echo "  PASS: H) return-handler marker allows Dispatch Review NEXT"
+  pass=$((pass + 1))
+else
+  echo "  FAIL: H) return-handler marker should allow review dispatch (actual: $OUT)"
   fail=$((fail + 1))
 fi
 if echo "$OUT" | grep -q "still in session"; then
-  echo "  FAIL: G) returned worker must not be reported as still in session (actual: $OUT)"
+  echo "  FAIL: H) return-handler marker must not be reported as still in session (actual: $OUT)"
   fail=$((fail + 1))
 else
-  echo "  PASS: G) returned worker no longer emits still-in-session warning"
+  echo "  PASS: H) returned worker no longer emits still-in-session warning"
   pass=$((pass + 1))
 fi
 

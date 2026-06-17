@@ -86,5 +86,7 @@ plan-level：pass / partial-pass / blocked / need-fresh-worker / needs-context /
 7. 使用 `wait_agent` 等待 worker final message；`SubagentStop` / `agent-return-handler.sh` 作为返回 artifact 解析与恢复锚点。
 8. 读取 `plan-returns/<run_id>/<plan_id>/plan-return.json`，推进下一步编排。
 
+**不要用 worker worktree 中间状态代替 final**：看到 pack commit、worktree clean、pack-return 或 plan-return 文件，不代表 worker session 已结束。只有 `wait_agent` 返回 final 且 `agent-return-handler.sh` 写入 `return_handler_completed_at` 后，Coordinator 才能派 Plan Implementation Review、merge、checkbox 或关闭 worker。长时间无 final 时继续等待，或在工具明确报错 / 用户授权后按 crash recovery 处理。
+
 ---
 > **回到**：agent `Worker Loop` 段继续 Pack 循环 → Plan 收尾写 artifact → return。

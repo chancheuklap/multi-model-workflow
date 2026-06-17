@@ -9,6 +9,8 @@
 #   1. Parse envelope → extract plan_id + run_id
 #   2. Read ${STATE_DIR}/plan-returns/<run_id>/<plan_id>/plan-return.json
 #   3. Call `state.sh plan-returns ingest` → write per_pack + worker_verdict
+#      and `state.sh execution-plan complete --source return-handler` → mark the
+#      SubagentStop return as durable for review dispatch gates
 #   4. Route by verdict (5 routes):
 #        pass / partial-pass → NEXT: Dispatch Plan Implementation Review
 #        blocked            → NEXT: BLOCKED, coordinator triage
@@ -88,10 +90,14 @@ if [ -n "$PLAN_ID" ] && [ "$PLAN_ID" != "null" ]; then
 
   VERDICT="$PLAN_RETURN_VERDICT"
 
-  # Ingest into execution-state (writes per_pack + worker_verdict + finished_at)
+  # Ingest into execution-state (writes per_pack + worker_verdict).
   export STATE_BASE="$BUDGET_DIR"
   if ! bash "$STATE_SH" plan-returns ingest --run-id "$RUN_ID" --plan-id "$PLAN_ID" 2>/dev/null; then
     emit_next "[multi-model-workflow] BLOCKED: state.sh plan-returns ingest failed for plan ${PLAN_ID}. Inspect plan-return.json structure."
+    exit 0
+  fi
+  if ! bash "$STATE_SH" execution-plan complete --run-id "$RUN_ID" --plan-id "$PLAN_ID" --verdict "$VERDICT" --source return-handler 2>/dev/null; then
+    emit_next "[multi-model-workflow] BLOCKED: state.sh execution-plan complete failed for plan ${PLAN_ID}. Inspect execution-state before dispatching review."
     exit 0
   fi
 

@@ -104,15 +104,16 @@ if [ "$PLAN_DONE" -eq "$PLAN_TOTAL" ] && [ "$PLAN_TOTAL" -gt 0 ]; then
     PLAN_END_COMMIT="$EFFECTIVE_END_COMMIT"
   fi
 
-  # Plan 005 Pack 5.10: when worker_agent_id is set and no final worker verdict
-  # has been written yet, suppress the "Dispatch Plan Implementation Review"
+  # Plan 005 Pack 5.10: when worker_agent_id is set and no SubagentStop
+  # return-handler completion has been written yet, suppress the
+  # "Dispatch Plan Implementation Review"
   # NEXT — the Worker is committing all packs in a single session and will return
   # through agent-return-handler.sh, which is the authoritative routing decision
-  # point. Once worker_verdict exists, worker_agent_id is only the reusable owner
-  # session id; it must not be interpreted as "still in flight".
+  # point. A worker can write plan-return / worker_verdict before its final
+  # message; that is not enough to review or close the Plan.
   WORKER_AGENT_ID=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].worker_agent_id // empty' "$ESF" 2>/dev/null || echo "")
   WORKER_VERDICT=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].worker_verdict // empty' "$ESF" 2>/dev/null || echo "")
-  FINISHED_AT=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].finished_at // empty' "$ESF" 2>/dev/null || echo "")
+  RETURN_HANDLER_COMPLETED_AT=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].return_handler_completed_at // empty' "$ESF" 2>/dev/null || echo "")
   # 已审完 / 已收口的 Plan 不该再被提示去 review。Plan Implementation Review pass 后
   # Coordinator 写 plans[N].review_verdict=pass；execution-plan finish 写
   # plans[N].status=completed。任一为真 → 该 Plan 终态，后续 commit（含 commit_sha
@@ -122,8 +123,8 @@ if [ "$PLAN_DONE" -eq "$PLAN_TOTAL" ] && [ "$PLAN_TOTAL" -gt 0 ]; then
   PLAN_STATUS=$(jq -r --arg pid "$PLAN_ID" '.plans[$pid].status // empty' "$ESF" 2>/dev/null || echo "")
   if [ "$REVIEW_VERDICT" = "pass" ] || [ "$PLAN_STATUS" = "completed" ]; then
     MSG="[multi-model-workflow] STATE: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${PLAN_END_COMMIT}). Plan already reviewed/finalized (review_verdict=${REVIEW_VERDICT:-none}, status=${PLAN_STATUS:-none}) — no further Plan Implementation Review needed."
-  elif [ -n "$WORKER_AGENT_ID" ] && [ "$WORKER_AGENT_ID" != "null" ] && [ -z "$WORKER_VERDICT" ] && [ -z "$FINISHED_AT" ]; then
-    MSG="[multi-model-workflow] STATE: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${PLAN_END_COMMIT}). Worker ${WORKER_AGENT_ID} still in session — wait for subagent final result / agent-return-handler.sh. Do NOT dispatch Plan Implementation Review yet."
+  elif [ -n "$WORKER_AGENT_ID" ] && [ "$WORKER_AGENT_ID" != "null" ] && [ -z "$RETURN_HANDLER_COMPLETED_AT" ]; then
+    MSG="[multi-model-workflow] STATE: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${PLAN_END_COMMIT}). Worker ${WORKER_AGENT_ID} still in session or return handling not durable — wait for subagent final result / agent-return-handler.sh. Do NOT dispatch Plan Implementation Review yet."
   elif [ -n "$WORKER_VERDICT" ] && [ "$WORKER_VERDICT" != "pass" ] && [ "$WORKER_VERDICT" != "partial-pass" ]; then
     MSG="[multi-model-workflow] STATE: All ${PLAN_TOTAL} packs in Plan ${PLAN_ID} committed (end_commit: ${PLAN_END_COMMIT}). Worker returned ${WORKER_VERDICT}; follow agent-return-handler route instead of dispatching Plan Implementation Review from this hook."
   else

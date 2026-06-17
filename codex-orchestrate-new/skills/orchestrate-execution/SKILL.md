@@ -260,11 +260,15 @@ bash "${MMW_PLUGIN_ROOT}/scripts/state.sh" execution-plan session \
 
 worker 到 final status 后，必须先保存 final message、校验 `plan-return.json`、完成 `plan-returns ingest` / `agent-return-handler` 收口，再 `close_agent({target:"<AGENT_ID>"})` 释放容量。
 
+**Subagent ownership hard gate**：worker 还没有 `wait_agent` final / `SubagentStop` return-handler 完成时，不得用 worker worktree 里的 commit、干净状态、pack-return 或 plan-return 推断“已经完成”。这些只能说明 worker 可能接近完成，不能触发 review、merge、checkbox、repair 或关闭。等待期间不要探查 worker worktree 来收割中间结果；只能做不重叠的协调工作。若长时间无 final，继续 `wait_agent`，或在工具明确返回失败 / 用户授权后按 blocked/crash recovery 处理。
+
 ---
 
 ## Step 7：Plan Implementation Review
 
 每个 Plan 的实现完成后，派 `codex_reviewer` 做独立审查。Review 对象是该 Plan 的 diff、Plan acceptance criteria、verification commands、contract anchors 和 worker return artifacts。
+
+Plan Implementation Review 的前置条件是：worker final message 已保存，`agent-return-handler` 已把 `return_handler_completed_at` 写入 execution-state（或该 Plan 没有 worker owner），且 `worker_verdict` 为 `pass` / `partial-pass`。`dispatch-review.sh validate` 会硬拦截未完成 SubagentStop return handling 的 Plan；不要手工绕过。
 
 严格按 `_shared/review-dispatch.md`：
 

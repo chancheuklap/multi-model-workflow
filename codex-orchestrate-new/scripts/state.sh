@@ -753,12 +753,16 @@ cmd_execution_plan_session() {
 
 # Plan 005 Pack 5.7: execution-plan complete — marks a Plan as worker-finished.
 # Writes .plans[plan_id].finished_at + .plans[plan_id].worker_verdict.
+# With --source return-handler, also writes return_handler_completed_at; Plan
+# Implementation Review gates use that field so a Worker cannot make review
+# eligible before its SubagentStop return is durable.
 cmd_execution_plan_complete() {
-  local plan_id="" verdict=""
+  local plan_id="" verdict="" source="coordinator"
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --plan-id) plan_id="$2"; shift 2 ;;
       --verdict) verdict="$2"; shift 2 ;;
+      --source) source="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
@@ -772,6 +776,13 @@ cmd_execution_plan_complete() {
     pass|partial-pass|blocked|need-fresh-worker|needs-context|needs-plan-revision) ;;
     *)
       echo "Error: invalid verdict '$verdict'. Allowed: pass|partial-pass|blocked|need-fresh-worker|needs-context|needs-plan-revision" >&2
+      exit 2
+      ;;
+  esac
+  case "$source" in
+    coordinator|return-handler) ;;
+    *)
+      echo "Error: invalid source '$source'. Allowed: coordinator|return-handler" >&2
       exit 2
       ;;
   esac
@@ -793,9 +804,14 @@ cmd_execution_plan_complete() {
   local now
   now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   local tmp="${esf}.tmp"
-  jq --arg pid "$plan_id" --arg v "$verdict" --arg ts "$now" '
+  jq --arg pid "$plan_id" --arg v "$verdict" --arg ts "$now" --arg source "$source" '
     .plans[$pid].finished_at = $ts
     | .plans[$pid].worker_verdict = $v
+    | if $source == "return-handler" then
+        .plans[$pid].return_handler_completed_at = $ts
+      else
+        .
+      end
   ' "$esf" > "$tmp"
   mv "$tmp" "$esf"
 }

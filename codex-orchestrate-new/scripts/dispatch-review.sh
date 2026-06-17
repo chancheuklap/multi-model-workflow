@@ -93,6 +93,19 @@ case "$SUBCMD" in
         exit 2
       fi
 
+      local worker_agent_id worker_verdict return_handler_completed_at
+      worker_agent_id=$(jq -r --arg pid "$plan_id" '.plans[$pid].worker_agent_id // empty' "$esf")
+      worker_verdict=$(jq -r --arg pid "$plan_id" '.plans[$pid].worker_verdict // empty' "$esf")
+      return_handler_completed_at=$(jq -r --arg pid "$plan_id" '.plans[$pid].return_handler_completed_at // empty' "$esf")
+      if [[ -n "$worker_agent_id" && "$worker_agent_id" != "null" && -z "$return_handler_completed_at" ]]; then
+        echo "Error: Plan $plan_id worker $worker_agent_id has not completed SubagentStop return handling; wait_agent final + agent-return-handler must finish before Plan Implementation Review." >&2
+        exit 2
+      fi
+      if [[ -n "$worker_verdict" && "$worker_verdict" != "pass" && "$worker_verdict" != "partial-pass" ]]; then
+        echo "Error: Plan $plan_id worker_verdict=$worker_verdict cannot enter Plan Implementation Review; follow agent-return-handler route." >&2
+        exit 2
+      fi
+
       local pack_count unfinished missing_commit
       pack_count=$(jq --arg pid "$plan_id" '.plans[$pid].packs // {} | length' "$esf")
       if [[ "$pack_count" -eq 0 ]]; then

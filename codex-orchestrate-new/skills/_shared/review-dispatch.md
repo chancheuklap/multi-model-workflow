@@ -40,7 +40,9 @@ Codex 版 review 是原生 subagent 工作流，不调用外部 companion 或 jo
    bash "${MMW_PLUGIN_ROOT}/scripts/dispatch-review.sh" validate \
      --prompt-file ".codex/multi-model-workflow/review-prompts/<gate>.md" \
      --gate "<gate>"
-   ```
+	   ```
+
+   对 `plan-impl-review-N`，validate 会确认该 Plan 的 worker 已经经过 `SubagentStop` return-handler durable handling（execution-state 里有 `return_handler_completed_at`，或该 Plan 没有 worker owner）。不要在 worker 仍在 session 中时用 worktree commit / plan-return 文件抢先派审。
 
    如果 Review Budget 已耗尽，且用户明确授权继续 review，validate 和 complete 两步都必须传：
 

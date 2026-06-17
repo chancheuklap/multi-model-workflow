@@ -85,6 +85,14 @@ assert_eq "pass: handler exits 0" "$RC" "0"
 # Verify execution-state updated
 WV=$(jq -r '.plans["005"].worker_verdict' "$BUDGET_DIR/execution-state-${RUN_ID}.json")
 assert_eq "pass: worker_verdict mirrored" "$WV" "pass"
+RHC=$(jq -r '.plans["005"].return_handler_completed_at' "$BUDGET_DIR/execution-state-${RUN_ID}.json")
+if [[ "$RHC" != "null" ]] && [[ -n "$RHC" ]]; then
+  echo "  PASS: pass: return_handler_completed_at populated"
+  pass=$((pass + 1))
+else
+  echo "  FAIL: pass: return_handler_completed_at not populated"
+  fail=$((fail + 1))
+fi
 S51=$(jq -r '.plans["005"].packs["5.1"].status' "$BUDGET_DIR/execution-state-${RUN_ID}.json")
 assert_eq "pass: per_pack status ingested" "$S51" "committed"
 
@@ -111,6 +119,14 @@ make_pr "005" "partial-pass" "5.1" "committed" "5.2" "blocked"
 OUT=$(run_handler "005" "worker-X" 2>&1)
 WV=$(jq -r '.plans["005"].worker_verdict' "$BUDGET_DIR/execution-state-${RUN_ID}.json")
 assert_eq "partial-pass: worker_verdict mirrored" "$WV" "partial-pass"
+RHC=$(jq -r '.plans["005"].return_handler_completed_at' "$BUDGET_DIR/execution-state-${RUN_ID}.json")
+if [[ "$RHC" != "null" ]] && [[ -n "$RHC" ]]; then
+  echo "  PASS: partial-pass: return_handler_completed_at populated"
+  pass=$((pass + 1))
+else
+  echo "  FAIL: partial-pass: return_handler_completed_at not populated"
+  fail=$((fail + 1))
+fi
 if echo "$OUT" | grep -qE "Plan Implementation Review|partial"; then
   echo "  PASS: partial-pass → NEXT routes to Review or partial-handling"
   pass=$((pass + 1))
