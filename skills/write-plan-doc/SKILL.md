@@ -106,3 +106,12 @@ plan 存好后给落地者选执行方式：
 写 plan 阶段不 commit、不 push，改动保持 unstaged，落地通过后统一提交。落地执行用 `tdd` skill 或 `tdd-executor` agent。
 
 **收尾自检**：写 Task Pack、做自检/就绪门这几步，是否每步都现读了对应 reference 全文、没凭骨架记忆默写？漏了就回去补读再过一遍。
+
+## 下一步路由（本 skill 完成后，向用户报下一站）
+
+计划写好、自检 + Pack 就绪门过后，按产出状态给一句建议：
+
+- 重大 / 碰红线 → 交 `second-model-review` 阶段②独立审
+- 计划通过、落地 → 见上「执行交接」：`tdd` skill（内联单块）或 `tdd-executor` agent（隔离 worktree 并行，逐 Pack）
+- 落地遇未知根因 bug → `root-cause-analyst` agent
+- 一个 plan 全 Pack 提交 → `second-model-review` 阶段③（落地审）；全部 plan 合并 → 阶段④ final

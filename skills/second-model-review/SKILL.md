@@ -54,3 +54,12 @@ findings 和派发隔了很多轮,别凭记忆。整体 `needs context`(非某�
 - 派了两个并行 reviewer、各指向对应阶段段、给了 Source?
 - findings 分开亲验、只动 accepted、按 Gap 路由?
 - 向用户汇报 verdict + 每条一句话摘要 + 修复方向,不自动越权修。
+
+## 下一步路由（汇报 verdict 后，向用户报下一站）
+
+上面 Gap 路由表是「单条 accepted finding 修到哪」;这里是「整轮审完整体走哪」,按阶段 + verdict:
+
+- 阶段① pass → `to-issues` 拆 issue / `write-plan-doc`;needs repair(design gap)→ 回 `write-design-doc`
+- 阶段② pass → 落地(`tdd` / `tdd-executor`);needs repair → 回 `write-plan-doc`
+- 阶段③ pass → 下个 plan 落地 或 阶段④;有 accepted 落地 finding → 派 `tdd-executor` 定向修后重审
+- 阶段④ pass → `verify` / `code-review` 收口 → done

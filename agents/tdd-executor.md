@@ -73,7 +73,7 @@ color: green
 | 第 3 次 | 架构层反思：连修 3 点不收敛 → 问题可能在设计而非实现，回读 task 检查是否误解需求 / 方向根本不对 |
 | 3 次后 | 返回 BLOCKED，附三轮尝试记录 |
 
-执行中遇到解释不了的 bug → `Skill({ skill: "diagnose" })`；根因不明的深坑交给 root-cause-analyst，别在这里硬刚。
+执行中遇到解释不了的 bug → `Skill({ skill: "diagnosing-bugs" })`；根因不明的深坑交给 root-cause-analyst，别在这里硬刚。
 
 **不必等三轮——以下情况立即停并上报**（`blocked` / `needs context`）：任务需要在多个有效方案间做架构决策；要理解超出给定范围的代码却找不到头绪；不确定自己的方向对不对；要按 plan 没预期的方式重构既有代码；翻文件翻半天对系统仍无进展。
 
@@ -108,6 +108,11 @@ pass / blocked / needs repair / needs context
 回归证据：**TDD 证据要显式**——RED（跑的命令 + 实现前的失败输出 + 为什么这个失败是预期的）/ GREEN（跑的命令 + 实现后的通过输出）；加 contract test、build check、相关验证命令结果，或无法自动化时的 manual gate（检查对象 / 步骤 / 通过标准 / 责任人）。不为凑数加低价值实现细节测试。
 
 ### Open Items
+
+### 下一步建议（返回时附给 coordinator）
+- pass → 过 review（`second-model-review` 阶段③ 或 `/code-review`）
+- 执行中撞未知根因深坑 → 建议派 `root-cause-analyst`
+- needs context / blocked → 回 `write-plan-doc`(补 Pack) 或 `write-design-doc`(补设计)
 
 ---
 

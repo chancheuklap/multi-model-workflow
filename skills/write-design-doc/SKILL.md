@@ -72,7 +72,7 @@ Bad: "这是个有趣的方向！我们可以从多个角度探索。"
 
 **澄清维度（按输入类型选）：**
 - **新功能 / 系统性改造 / 模糊讨论**：用户是谁 / 现在的问题 / 完成后能做什么；要新增或改变什么行为；哪些对象、状态、权限、生命周期；成功 / 失败 / 空状态 / 重复提交 / 权限不足 / 并发 / 回滚怎么处理；什么在 / 不在范围；怎么验证完成。
-- **Bug / 错误 / 性能回归**：current / desired behavior、复现 / 症状；已确认 / 已排除假设、根因或可疑边界；regression check；合同 / UI / 权限 / 计费影响。缺复现 → 先用 `diagnose` skill。出现 bad seam / shallow module → 用 `improve-codebase-architecture` skill。修复会改正式行为 → 必须产出或修订设计文档。
+- **Bug / 错误 / 性能回归**：current / desired behavior、复现 / 症状；已确认 / 已排除假设、根因或可疑边界；regression check；合同 / UI / 权限 / 计费影响。缺复现 → 先用 `diagnosing-bugs` skill。出现 bad seam / shallow module → 用 `improve-codebase-architecture` skill。修复会改正式行为 → 必须产出或修订设计文档。
 - **Issue / backlog / 已有 PRD**：source 路径；problem / solution / user stories / 验收；依赖 / blocked-by、AFK / HITL、open decisions、out of scope。intent 不清 → 用 `triage` skill 或继续问。
 - **UI / UX / 截图 / 验收反馈**：反馈来源 / 截图 / 测试 / 人工验收记录；目标状态、角色 / viewport / 文案 / 交互；视觉或 DOM 验证方式、验收标准。
 
@@ -123,3 +123,11 @@ Bad: "这是个有趣的方向！我们可以从多个角度探索。"
 没有设计文档前不进写 plan。已批准设计下的纯实现偏离不重走本流程——直接修代码。
 
 **收尾自检**：写文档 / 自检 / 自评这几步，是否每步都现读了对应 reference 全文、没凭骨架记忆默写？漏了就回去补读再过一遍。
+
+## 下一步路由（本 skill 完成后，向用户报下一站）
+
+设计文档写好、自检过、用户确认方向后，按产出状态给一句建议（支援 skill 如 `grill-with-docs`/`improve-codebase-architecture`/`prototype` 是讨论过程中调的，不是这里的交棒目标）：
+
+- 重大 / 碰不变量 → 交 `second-model-review` 阶段①独立审（**Critical 必修才进 plan**）
+- 设计通过、要落地 → `to-issues` 拆 vertical-slice issue → 再 `write-plan-doc` 写实施计划
+- 审出 design gap 被打回 → 停在本 skill 改设计，改完重审，不往下走
