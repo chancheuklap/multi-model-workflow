@@ -42,7 +42,7 @@ Bad: "制定了全面的实施计划，涵盖所有功能模块。"
 
 提取 goal、architecture、tech stack、合同边界、**设计期定下的测试 seam**（plan 的 verification 锚到它）；只聚焦与本 issue 相关的部分。
 
-**Mockup 与文字设计平等**：若 `docs/orchestrate/mockups/<slug>/` 存在，读索引 + 设计文档 `## UI / UX 状态` 视觉规格表，提取每页视觉规格 / 交互 / 状态变体写进对应 pack 的 acceptance criteria——**作为具体可验证的视觉目标，不是"去看 mockup 目录"的指针**。
+**Mockup 与文字设计平等**：若 `docs/mockups/<slug>/` 存在，读索引 + 设计文档 `## UI / UX 状态` 视觉规格表，提取每页视觉规格 / 交互 / 状态变体写进对应 pack 的 acceptance criteria——**作为具体可验证的视觉目标，不是"去看 mockup 目录"的指针**。
 
 读 issue，提取 What to build、Blocked by。检查 `## Small issues`：已有完整列表 → Step 2；为空 / `<!-- PENDING -->` → 用 `to-issues` skill 拆(vertical-slice / tracer-bullet 方法论、HITL·AFK、依赖、粒度与用户确认都在它那)，拆完写回 `## Small issues` 再回来做映射。**拆分方法论不在本 skill 复述——`to-issues` 是单一权威,它更新本 skill 不漂移。**
 
@@ -57,12 +57,14 @@ Bad: "制定了全面的实施计划，涵盖所有功能模块。"
 
 ## Step 3：写 Plan Header
 
+plan 落 `docs/plans/<YYYY-MM-DD>-<slug>/`（slug 与 source design / issue 对齐；多 pack 时一个 plan 目录含多份 pack 文件）。Header：
+
 ```markdown
 # <Issue Title> Implementation Plan
 
 **Goal:** <一句话目标>
-**Source design:** docs/orchestrate/design/<slug>.md
-**Source issue:** docs/orchestrate/issues/<slug>/00N-<issue-slug>.md
+**Source design:** docs/design/<YYYY-MM-DD>-<slug>.md
+**Source issue:** docs/issues/<YYYY-MM-DD>-<slug>/00N-<issue-slug>.md
 **Blocked by:** <其他 plan 编号或 "None">
 **Architecture:** <与本 issue 相关的实现方向>
 **Tech stack:** <实际涉及的框架、服务、测试工具>

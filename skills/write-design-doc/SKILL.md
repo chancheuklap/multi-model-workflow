@@ -50,7 +50,7 @@ Bad: "这是个有趣的方向！我们可以从多个角度探索。"
 
 读写规则：进项目优先查 `CONTEXT-MAP.md`，存在则按索引读写对应子 context；不存在回退根 `CONTEXT.md`；皆无则懒创建。**设计文档术语必须与领域文档体系一致，新术语先进体系再引用。**
 
-> agentflow：领域文档体系 = `CONTEXT-MAP.md` + `docs/context/**` leaf；设计文档落 `docs/orchestrate/design/<feature-slug>.md`。
+**文档落点**：领域文档体系 = `CONTEXT-MAP.md` + `docs/context/**` leaf；设计文档落 `docs/design/<YYYY-MM-DD>-<slug>.md`（单文件）或 `docs/design/<YYYY-MM-DD>-<slug>/`（多文件：主文档 + research / evidence）。
 
 ## 流程
 
@@ -116,7 +116,7 @@ Bad: "这是个有趣的方向！我们可以从多个角度探索。"
 
 ## 拆 issue
 
-设计通过后用 `to-issues` skill 拆成可独立认领的 issue（vertical-slice 方法论在它那,本文件不复述）。agentflow：大 issue 落 `docs/orchestrate/issues/<slug>/`，标 AFK / HITL，填至少一条指向设计章节的 `## Design context refs`；`## Small issues` 留 `<!-- PENDING -->` 给写 plan 阶段补。
+设计通过后用 `to-issues` skill 拆成可独立认领的 issue（vertical-slice 方法论在它那,本文件不复述）。大 issue 落 `docs/issues/<YYYY-MM-DD>-<slug>/`（slug 与设计文档对齐），标 AFK / HITL，填至少一条指向设计章节的 `## Design context refs`；`## Small issues` 留 `<!-- PENDING -->` 给写 plan 阶段补。
 
 ## 边界 + 收尾自检
 

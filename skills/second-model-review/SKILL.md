@@ -54,6 +54,7 @@ findings 和派发隔了很多轮,别凭记忆。整体 `needs context`(非某�
 - 派了两个并行 reviewer、各指向对应阶段段、给了 Source?
 - findings 分开亲验、只动 accepted、按 Gap 路由?
 - 向用户汇报 verdict + 每条一句话摘要 + 修复方向,不自动越权修。
+- 需留档时,审查报告 / findings 落 `docs/working/<YYYY-MM-DD>-<slug>-review.md`(scratch 审计与评审产物的统一落点)。
 
 ## 下一步路由（汇报 verdict 后，向用户报下一站）
 
