@@ -47,7 +47,7 @@ Bad: "制定了全面的实施计划，涵盖所有功能模块。"
 读 issue，提取 What to build、Blocked by。检查 `## Small issues`：已有完整列表 → Step 2；为空 / `<!-- PENDING -->` → 用 `to-issues` skill 拆(vertical-slice / tracer-bullet 方法论、HITL·AFK、依赖、粒度与用户确认都在它那)，拆完写回 `## Small issues` 再回来做映射。**拆分方法论不在本 skill 复述——`to-issues` 是单一权威,它更新本 skill 不漂移。**
 
 **映射规则：** source design → plan 全局上下文（只读）；issue 文件 → plan scope；小 issue → 一个 Task Pack；小 issue 验收 → Pack 验收；小 issue blocked-by → Pack dependencies。
-映射不成立：术语 / 验收不清 → 回 `write-design-doc`；架构假设与代码现实不符 → 用 `improve-codebase-architecture` skill 厘清后再写。
+映射不成立：术语 / 验收不清 → 回 `write-design-doc`；架构假设与代码现实不符 → 用 `codebase-design` skill 的深模块视角厘清后再写。
 
 **探索代码库 + 核实现状**：用 `rg` / `find` 验证 source design 涉及的路径、模块、合同面、已有模式；现状描述引具体 `file:line` + 真实行为，可能漂移的标核实日期。读项目根 CLAUDE.md 及链入规则（模块边界、测试路由、合同墙、命名）。**测试框架探测**：先读 CLAUDE.md `## Testing` 拿权威测试命令 / 框架，没有再按 `pyproject.toml`/`package.json`/`go.mod` 探测。**写进 plan 的每条路径 / 类型 / 函数 / fixture，要么前文定义，要么 `rg`/`find` 验真，不凭印象。**
 

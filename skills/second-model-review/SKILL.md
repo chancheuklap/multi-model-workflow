@@ -43,7 +43,7 @@ findings 和派发隔了很多轮,别凭记忆。整体 `needs context`(非某�
 |---|---|---|
 | Implementation | 设计对、代码没做到 | 当前层改(小)/ 派 `tdd-executor`(大) |
 | Design | 设计承诺不可实现 / 漏约束 | 回 `write-design-doc` → 再审 |
-| Context | 需确认术语 / owner / target | `grill-with-docs` / 回讨论 → 写回 |
+| Context | 需确认术语 / owner / target | `domain-modeling` / 回讨论 → 写回 |
 | Plan | plan 与代码不一致 / 遗漏 | 回 `write-plan-doc` → 再审 |
 | Architecture friction | 反复撞同一结构 | `improve-codebase-architecture` → 写回 |
 | Unverifiable | 环境 / 账号 / 生产 gate 缺 | 写清证据 + manual gate owner,不算 blocker |
