@@ -7,7 +7,7 @@ description: "把已评审的设计文档 + issue 拆成一份执行者零上下
 
 已评审的设计文档 + issue → 一份完整的实施计划文档。
 
-**手动驱动**：你（或你派的执行者）按设计和 issue 写出 plan，让落地者照做。没有 budget / DISPATCH_ENVELOPE / 自动 Codex 派发 / gate 脚本。需要第二意见时主动把 plan 交给 Codex / `/code-review`。落地用 `tdd` skill 或 `tdd-executor` agent。
+**手动驱动**：你（或你派的执行者）按设计和 issue 写出 plan，让落地者照做，无自动派发或 gate 脚本。需要第二意见时主动把 plan 交给 Codex / `/code-review`。落地用 `tdd` skill 或 `tdd-executor` agent。
 
 ## 渐进式加载（走到那步再读对应 reference，读全文，别凭记忆）
 
