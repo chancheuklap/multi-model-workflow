@@ -39,8 +39,8 @@ actor / action / benefit。覆盖 happy path、失败、空状态、权限不足
 讨论中做出的实现决策。**不写会过时的实现细节路径 / code snippet**（prototype snippet 例外——仅 state machine / reducer / schema / type shape）；点名稳定模块 / 接口面用于复用图与合同锚点是允许的。
 
 ## 合同边界
-涉及 API / Pydantic / DB / JSON / sync / task payload / UI action / billing / permission / runtime 时填：
-boundary type / owner / provider / consumer / Pydantic model / schema_version / registry / migration / catalog / repository / read model / verification。
+涉及 API / 跨边界数据合同 / DB / JSON / sync / task payload / UI action / billing / permission / runtime 时填：
+boundary type / owner / provider / consumer / 合同类型 / schema 版本 / 登记 / 迁移 / verification（agentflow 落点: Pydantic model · schema_version · registry · migration · catalog · repository · read model）。
 
 ## 发布风险和人工门禁
 涉及 migration / billing / permission / runtime / cross-service / deploy order / rollback / manual gate 时填；新交付物（CLI / 包 / 镜像 / 独立应用）补"用户怎么拿到它"（发布渠道 + CI）。部署不是原子的——为部分状态、回滚、feature flag 留计划。
@@ -76,6 +76,6 @@ mockup 目录: docs/orchestrate/mockups/<feature-slug>/
 
 ## Cross-Plan Contract Anchors
 跨 Plan 共享的合同 / 接口 / 文件所有权（多 plan 设计时填，单一源）。
-| Surface | 类型 (Pydantic/API/DB/migration/registry) | Owner Plan | Provider Plan | Consumer Plan(s) | 关键字段/路径 |
+| Surface | 类型 (合同/API/DB/迁移/登记;agentflow: Pydantic/registry) | Owner Plan | Provider Plan | Consumer Plan(s) | 关键字段/路径 |
 | --- | --- | --- | --- | --- | --- |
 ```

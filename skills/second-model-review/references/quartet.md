@@ -34,5 +34,7 @@ severity(Critical/Important/Minor) · confidence(1-10) · locator(file:line) · 
 整体 `needs context` = 没拿到审查上下文,在 Verdict 说明缺什么,别硬凑 finding。
 
 ## 附录:禁用捷径（仅 plan 落地 / final 引用）
-agentflow 示例,命中即 finding;影响验收 / 数据 / 权限 / 账务 / runtime / 发布时升 Critical:
+普适原则(任何项目):跨边界用弱类型裸结构绕过正式**合同** / 新增可被外部引用之物不**登记** / 绕过项目的数据校验与迁移机制 / 把行为测在非**权威层**——命中即 finding;影响验收 / 数据 / 权限 / 账务 / runtime / 发布时升 Critical。
+
+agentflow 具体清单(命中即 finding):
 bare dict 作跨模块合同 / route·host 内拼 nested dict 绕 contract / route-local schema·helper 不入 domain service·shared contract / public API 返 `dict[str,Any]` / silent unknown-field drop 或 `extra=allow` 无版本策略 / 写 JSONB·SQLite JSON 不注册不走 validator / 新 DB 字段无 migration·repository·read model·回归测试 / 新 port·command·收费动作·capability 不入 registry·catalog / 测试 mock 仓库内部业务模块 / helper 只为绕边界。

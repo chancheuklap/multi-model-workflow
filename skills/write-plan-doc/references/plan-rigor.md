@@ -15,7 +15,7 @@
 
 ### 测试质量评级
 ★★★ 测行为 + 边界 + 错误路径 / ★★ 只测 happy path / ★ 烟雾测试或存在性断言。plan 目标是 ★★★，别只写 ★。
-**对齐 agentflow**：每个行为在其权威层测一次（五层：billing / contracts / module / journeys / guards），不为凑数加脆弱的实现细节测试，同一行为禁跨层重复断言——不追求"100% 覆盖"这种数字最大化。
+**权威层(authoritative layer)**：每个行为在拥有它的那一层测一次,不为凑数加脆弱的实现细节测试,同一行为禁跨层重复断言——不追求"100% 覆盖"这种数字最大化（agentflow 的层 = billing / contracts / module / journeys / guards 五层）。
 
 ### 回归铁律（强制，无需问用户）
 覆盖审计发现 diff 改了既有行为、既有测试没覆盖该路径、给既有调用方引入新失败模式 → 回归测试作为 **CRITICAL** 加进 plan，写明什么坏了。拿不准是不是回归就写测试。

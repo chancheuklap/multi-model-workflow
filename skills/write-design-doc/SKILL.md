@@ -1,6 +1,6 @@
 ---
 name: write-design-doc
-description: "把模糊的功能想法 / bug / 反馈 / 截图 / PRD 讨论成一份完整、可评审、可拆分的设计文档。用户说『写个设计文档』『把这个想法理一理』『正式设计第一步』『设计这个功能 / 改造』时使用。含讨论方法论、设计文档模板、自检清单、设计自评角度——手动驱动，无状态机无自动派发。"
+description: "把模糊的功能想法 / bug / 反馈 / 截图 / PRD 讨论成一份完整、可评审、可拆分的设计文档。用户说『写个设计文档』『把这个想法理一理』『正式设计第一步』『设计这个功能 / 改造』时使用。"
 ---
 
 # write-design-doc
@@ -19,7 +19,7 @@ description: "把模糊的功能想法 / bug / 反馈 / 截图 / PRD 讨论成�
 | 填 UI / UX 状态那一节 | `references/design-rigor.md`（AI Slop 黑名单 / UI 硬规则 / UX 行为定律 / 架构判断本能） |
 | 保存前自检 | `references/design-self-check.md` 全文 |
 
-提方案时也会用到 `design-rigor.md` 的「架构判断本能」。**别从本骨架的记忆里默写模板或自检清单——到那步打开 reference。**
+提方案时也会用到 `design-rigor.md` 的「架构判断本能」。
 
 ## 角色与声音
 

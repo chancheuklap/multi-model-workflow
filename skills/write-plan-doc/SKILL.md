@@ -1,6 +1,6 @@
 ---
 name: write-plan-doc
-description: "把已评审的设计文档 + issue 拆成一份执行者零上下文也能照做的实施计划文档（Task Pack + TDD 步骤 + 验收命令）。用户说『写实施计划』『把设计拆成计划』『写 plan』『按这个设计落地』时使用。含计划模板、Task Pack 模板、TDD 任务拆解、无 placeholder 规则、过度/不足/覆盖自检——手动驱动，无状态机无自动派发。"
+description: "把已评审的设计文档 + issue 拆成一份执行者零上下文也能照做的实施计划文档（Task Pack + TDD 步骤 + 验收命令）。用户说『写实施计划』『把设计拆成计划』『写 plan』『按这个设计落地』时使用。"
 ---
 
 # write-plan-doc
@@ -18,8 +18,6 @@ description: "把已评审的设计文档 + issue 拆成一份执行者零上下
 | 写 Task Pack + Implementation 步骤（每个 pack） | `references/task-pack.md` 全文 |
 | 规划测试 / Issue 质量 / 查反模式 | `references/plan-rigor.md`（覆盖追踪 / E2E·EVAL·unit 矩阵 / ★ 评级 / 回归铁律 / Issue 质量标准 / 反模式） |
 | 写完自检 + Pack 就绪门 | `references/plan-self-check.md` 全文 |
-
-**别从本骨架的记忆里默写 Task Pack 模板或自检清单——到那步打开 reference。**
 
 ## 角色与声音
 
@@ -70,7 +68,7 @@ Bad: "制定了全面的实施计划，涵盖所有功能模块。"
 **Tech stack:** <实际涉及的框架、服务、测试工具>
 
 ## Global Constraints
-项目级硬约束，每条一行，**值从设计 / 项目规则逐字抄来**（版本下限、依赖限制、命名与文案规则、平台要求、北极星不变量、计费/权限红线）。**每个 Task Pack 的要求都隐含包含本节**——执行者和审查者都以它为准绳。
+项目级硬约束，每条一行，**值从设计 / 项目规则逐字抄来**（版本下限、依赖限制、命名与文案规则、平台要求、项目不变量、计费/权限红线等——agentflow 例:北极星不变量）。**每个 Task Pack 的要求都隐含包含本节**——执行者和审查者都以它为准绳。
 
 ## File / Responsibility Map
 **Create / Modify / Test / Docs·rules·registry·migration:** `path` — responsibility / behavior / why it changes
@@ -101,7 +99,7 @@ plan 存好后给落地者选执行方式：
 - **子代理逐 task 驱动（推荐）**：每个 Task Pack 派一个 `tdd-executor` agent，task 间过 review，全部完成做一次整分支 review；互不依赖的 pack 用 isolation worktree 并行。每个 dispatch 只给该 pack 的 brief + Interfaces + Global Constraints，**不要把前面 task 的历史粘进去**。
 - **本会话内联**：用 `tdd` skill 按步骤逐个跑，带 checkpoint。
 
-节奏（两种都遵守）：TDD 走预先定下的 seam；regularly 跑 typecheck 和单个测试文件；**末尾跑相关套件 + 针对性命令（不强制全套——agentflow 大套件含已知垃圾测试，优先针对性测试 + 真机 E2E）**；落地完用 `/code-review` / `second-model-review` 收口；commit 到当前分支、不 push。
+节奏（两种都遵守）：TDD 走预先定下的 seam；regularly 跑 typecheck 和单个测试文件；**末尾跑相关套件 + 针对性命令（不强制全套;大套件含已知垃圾测试的项目优先针对性测试 + 真机 E2E——agentflow 即如此）**；落地完用 `/code-review` / `second-model-review` 收口；commit 到当前分支、不 push。
 
 ## Git 纪律 + 收尾自检
 

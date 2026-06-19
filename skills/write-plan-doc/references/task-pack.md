@@ -63,9 +63,9 @@
 
 **验证规划**（plan 让实现自带测试，不留后续补；追覆盖 / E2E·EVAL·unit 决策矩阵 / ★ 质量评级 / 回归铁律的细则见 `plan-rigor.md`）：
 - 追每条 codepath 的分支 / 错误路径 / 边界 + 每条用户流与交互边界，逐一对应测试。
-- 测**真行为 + 边界 + 错误路径**（★★★），别只烟雾测试；**对齐 agentflow：每个行为在权威层测一次，不为凑数加脆弱测试，不追"100% 覆盖"数字最大化**。
+- 测**真行为 + 边界 + 错误路径**（★★★），别只烟雾测试；**每个行为在其权威层测一次,不为凑数加脆弱测试,不追"100% 覆盖"数字最大化**（权威层定义与 agentflow 五层例见 `plan-rigor.md`）。
 - diff 改了既有行为且没被覆盖 → 回归测试作为 **CRITICAL** 加进 plan（强制，无需问用户）。
-- **验证语言对照**：API/contract → route test / Pydantic parse；DB/migration → migration / repository test + downgrade；JSON/registry → validator / unknown-field test；billing/permission → service test / 用户可见 gate test；runtime/browser → focused unit + log evidence；UI/UX → DOM 断言 / screenshot / responsive / manual visual gate。
+- **验证语言对照**：API/contract → route test / 合同类型 parse（agentflow: Pydantic）；DB/migration → migration / repository test + downgrade；JSON/登记 → validator / unknown-field test；billing/permission → service test / 用户可见 gate test；runtime/browser → focused unit + log evidence；UI/UX → DOM 断言 / screenshot / responsive / manual visual gate。
 - seam 锚到设计期定下的 seam，选最高层、别增殖插桩点。
 
 **无 Placeholder 规则**（出现即 plan failure）：`TBD`/`TODO`/`later`；`add validation`/`handle edge cases`/`appropriate error handling`；`write tests` 无行为描述；`similar to Task N`；引用未定义/未验真的 type/function/field/fixture；描述做什么但没展示怎么做；只写大套测试无 pack-local focused command。

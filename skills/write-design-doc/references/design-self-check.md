@@ -16,4 +16,4 @@
 
 ## 重大 / 碰红线 → 交外部审
 
-判断重大或触碰不变量(计费 / 合同墙 / 数据权威 / LINEAGE)时,自检过后把文档交 `second-model-review` 阶段①独立审。**Critical 必须修掉才能进 plan。**
+判断重大或触碰不变量(agentflow 例:计费 / 合同墙 / 数据权威 / LINEAGE)时,自检过后把文档交 `second-model-review` 阶段①独立审。**Critical 必须修掉才能进 plan。**

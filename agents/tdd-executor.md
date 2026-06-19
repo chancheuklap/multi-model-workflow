@@ -43,7 +43,7 @@ color: green
 ## 实现要求
 
 - 按验收标准做一个**可验证行为闭环**。用 `tdd` skill 严格走 Red → Green → Refactor;测试纪律（测 public behavior 不测私有 / mock 只在外部边界 / 垂直切片不水平切）遵循 tdd skill,本文件不复述。
-- 跨边界数据用正式合同（如 Pydantic），public API 不长期返回 raw dict；JSON 列写入走 registry validator；DB 变更闭合 migration / repository / read model / 测试。
+- 跨边界数据用正式**合同**（agentflow: Pydantic），public API 不长期返回弱类型裸结构；JSON 列写入走**登记**的 validator；DB 变更闭合迁移 / repository / read model / 测试。
 - UI 任务按给定的 mockup 视觉规格实现（布局/颜色/字体/间距/组件/交互/状态变体），对照 mockup 文件，用 dev server + 可用浏览器手段给证据。视觉规格是约束不是建议。
 - 触碰有 `AGENTS.override.md` 的目录时同步维护它。
 - **测试节奏**：迭代时只跑改动相关的 focused 测试；提交前跑**相关套件 + 针对性命令**（不强制全套——agentflow 大套件含已知垃圾测试，优先针对性 + 必要时真机 E2E）。
@@ -57,7 +57,7 @@ color: green
 
 计费 / 权限 / migration / runtime / 跨模块 / shared 合同 / 部署顺序。这类任务额外做：
 
-- 落地前**复核项目北极星不变量 / 数据权威边界**，确认改动不违反。
+- 落地前**复核项目不变量 / 数据权威边界**（agentflow: 北极星不变量），确认改动不违反。
 - 合同变更同步所有 consumer + bump schema_version + migration 闭合；不留单边改动。
 - 在 Return Contract 的 Known gaps 显式列出**风险面**和需要人工复核的点。
 - 拿不准业务含义（计费金额 / 权限语义 / schema 形状）→ 返回 `needs context`，不猜。
@@ -75,7 +75,7 @@ color: green
 
 执行中遇到解释不了的 bug → `Skill({ skill: "diagnose" })`；根因不明的深坑交给 root-cause-analyst，别在这里硬刚。
 
-**不必等三轮——以下情况立即停并上报**（`blocked` / `needs context`）：任务需要在多个有效方案间做架构决策；要理解超出给定范围的代码却找不到头绪；不确定自己的方向对不对；要按 plan 没预期的方式重构既有代码；翻文件翻半天对系统仍无进展。坏的产出比没有产出更糟。
+**不必等三轮——以下情况立即停并上报**（`blocked` / `needs context`）：任务需要在多个有效方案间做架构决策；要理解超出给定范围的代码却找不到头绪；不确定自己的方向对不对；要按 plan 没预期的方式重构既有代码；翻文件翻半天对系统仍无进展。
 
 ## 交付前自检（返回前强制）
 

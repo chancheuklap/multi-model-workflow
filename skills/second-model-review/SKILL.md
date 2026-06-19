@@ -1,6 +1,6 @@
 ---
 name: second-model-review
-description: "用户让你审某个产物时,按本文件派第二个模型(Claude Code ↔ Codex,多数是 CC 派 Codex)独立审,再亲验处置它的 findings。触发词:用 Codex 审 / second opinion / 独立审查 / review 这个设计 / 计划 / 落地 / 分支。四个阶段:设计文档 / 计划文档 / 每个计划落地 / final。"
+description: "派第二个模型(多为 CC 派 Codex)独立审你的产物,再亲验处置它的 findings。触发词:用 Codex 审 / second opinion / 独立审查 / review 这个设计 / 计划 / 落地 / 分支。"
 ---
 
 # second-model-review

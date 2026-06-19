@@ -14,7 +14,7 @@
 ## 轴 B 项目对齐 + 质量
 审合不合硬约束、踩没踩坑。标准 = 项目领域定义 + 工程规则:
 - 术语 / 数据权威:用词和落点对得上项目定义,不跨系统复制 schema。
-- 不变量:计费四态 / LINEAGE / 合同墙 / 单一权威源 没被违反。
-- 登记:新端口 / 命令 / 收费动作 / capability / migration / ADR 设计层面点到要登记。
+- 不变量:项目声明的硬约束(违反即数据/钱/权限出错)没被违反(agentflow 例:计费四态 / LINEAGE / 合同墙 / 单一权威源)。
+- 登记:新增的可被外部引用之物设计层面点到要登记(agentflow 例:端口 / 命令 / 收费动作 / capability / migration / ADR)。
 - 质量:AI slop / 架构直觉(高频路径常驻复用、抽象边界)/ UI·UX 设计语言硬规则。
-- Critical(必修才进 plan):违反不变量 / 依赖不存在的基础设施 / 跨服务合同缺 producer-consumer / 绕过 Pydantic·registry·migration / 未设计生产风险。
+- Critical(必修才进 plan):违反不变量 / 依赖不存在的基础设施 / 跨边界合同缺 producer-consumer / 绕过项目的合同·登记·迁移机制(agentflow: Pydantic·registry·migration)/ 未设计生产风险。
