@@ -104,7 +104,7 @@ Bad: "这是个有趣的方向！我们可以从多个角度探索。"
 
 ## 写设计文档（→ 读 `references/design-doc-template.md` 全文）
 
-信息足够且用户确认方向后，**打开 `references/design-doc-template.md` 按模板一次成文**（用项目正式术语 / 不写聊天才懂的句子 / 不用 TODO/TBD / 不写实现 plan）。文档骨架（知道有哪些 section，细则在 reference）：背景和问题 / 目标结果 / 用户场景（含交互边界 case）/ 方案设计（架构与边界 + 数据流与失败路径 + 已有什么·复用vs重建 + 业务对象角色状态 + 实现决策）/ 合同边界 / 发布风险和人工门禁 / 测试和验收（seam）/ UI·UX 状态（交互状态表，细则查 `design-rigor.md`）/ 不在本次范围 / Open Decisions / Review History / Cross-Plan Contract Anchors。
+信息足够且用户确认方向后，**打开 `references/design-doc-template.md` 按模板一次成文**（用项目正式术语 / 不写聊天才懂的句子 / 不用 TODO/TBD / 不写实现 plan）。文档骨架（知道有哪些 section，细则在 reference）：背景和问题 / 目标结果 / 用户场景（含交互边界 case）/ 方案设计（架构与边界 + 数据流与失败路径 + 已有什么·复用vs重建 + 业务对象角色状态 + 实现决策）/ 合同边界 / 发布风险和人工门禁 / 测试和验收（seam）/ UI·UX 状态（交互状态表，细则查 `design-rigor.md`）/ 不在本次范围 / Open Decisions / Review History / Cross-Plan Contract Anchors（**设计阶段只留占位标题，不填表**；该节由 `write-plan-doc` 在所有 plan 写完后回填，是跨阶段交接的单一源）。
 
 ## 保存前自检 + 用户确认（→ 读 `references/design-self-check.md` 全文）
 

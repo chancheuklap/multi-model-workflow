@@ -75,7 +75,7 @@ mockup 目录: docs/mockups/<slug>/
 （可选，每轮 review 通过后追加一行；写 plan 时读它避免重复犯错）
 
 ## Cross-Plan Contract Anchors
-跨 Plan 共享的合同 / 接口 / 文件所有权（多 plan 设计时填，单一源）。
-| Surface | 类型 (合同/API/DB/迁移/登记;agentflow: Pydantic/registry) | Owner Plan | Provider Plan | Consumer Plan(s) | 关键字段/路径 |
-| --- | --- | --- | --- | --- | --- |
+<!-- 设计阶段不填本表：表里的 Owner / Provider / Consumer 都是 plan 名，plan 还不存在，设计期无从填起。 -->
+<!-- 设计阶段只留本标题 + 这两行注释作占位锚点；由 write-plan-doc 在所有 plan 写完后回填（plan skill 的「跨计划合同锚点」步骤是单一源）。 -->
+<!-- 这不算 TODO/TBD —— 是跨阶段交接的占位，回填责任明确在 plan 阶段。 -->
 ```
