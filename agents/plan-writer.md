@@ -21,6 +21,7 @@ tools:
 skills:
   - ponytail
   - codebase-design
+  - to-issues
 memory: project
 color: cyan
 ---
@@ -32,7 +33,7 @@ color: cyan
 启动后立即 Read 以下，理解后再动手：
 
 - **源设计文档**：框架合同在这里——architecture / `## 合同边界` / global constraints / 测试 seam。你的 plan header 里的 Global Constraints 逐字从这抄。**`## Cross-Plan Contract Anchors` 节是主 Agent 派你之前写好的合同骨架，划定了你这份 plan 的硬边界**：你能碰哪些共享文件（别认领别的 plan owner 的文件）、你要 provide / consume 哪些跨 plan 接口（按它命名的接口对接）——照办，标 `(字段待 plan 回填)` 的精确字段由你写 plan 时定，主 Agent 事后回填。
-- **你负责的那个大 issue 文件**：它的 `## Small issues` 每条 → 你 plan 里一个 Task Pack；小 issue 验收 → Pack 验收；小 issue blocked-by → Pack dependencies。
+- **你负责的那个大 issue 文件**：提取 What to build、Blocked by。看 `## Small issues`——已有完整列表 → 直接映射；为空 / `<!-- PENDING -->`（常态，设计阶段故意留白）→ **你来拆**（见下「拆小 issue」），拆完用 Edit 写回该 issue 文件再映射。每条小 issue → 你 plan 里一个 Task Pack；小 issue 验收 → Pack 验收；小 issue blocked-by → Pack dependencies。
 - **方法论 reference**：`skills/write-plan-doc/references/task-pack.md`（Task Pack 模板 + TDD Implementation 步骤 + 无 Placeholder 规则 + 不合格信号）、`skills/write-plan-doc/references/plan-rigor.md`（覆盖追踪 / 测试矩阵 / ★ 评级 / 回归铁律 / 反模式）。**写每个 pack 前现读 task-pack.md 全文**，别凭记忆默写。
 - **mockup 目录**（若 dispatch 给了）：每页视觉规格 / 交互 / 状态变体拆进对应 pack 的 acceptance criteria——作为具体可验证的视觉目标，不是"去看 mockup 目录"的指针。
 
@@ -47,6 +48,7 @@ color: cyan
 ## 任务范围
 
 - **只写分配给你的那一份 plan 文件**：dispatch 给的落点 `docs/plans/<YYYY-MM-DD>-<slug>/00N-<issue-slug>.md`。
+- **可写回你自己那个大 issue 文件的 `## Small issues`**（拆分结果）——仅这一节，不碰别的 issue。
 - **不改设计文档、不碰别的 plan**——跨 plan 合同锚点回填是主 Agent 的活，你只写自己这份。
 - file ownership 边界以设计文档 + dispatch 划定为准；不把别的 plan 已认领的文件写进你的 Owned files。
 
@@ -55,6 +57,16 @@ color: cyan
 用 `Skill({ skill: "codebase-design" })` 理解代码库的模块边界、职责分布、合同表面。写进 plan 的**每条路径 / 类型 / 函数 / fixture**，要么前文定义、要么 `rg`/`find` 验真——不验真不写。现状描述引具体 `file:line` + 真实行为，可能漂移的标核实日期。读项目根 CLAUDE.md 及链入规则（模块边界、测试路由、合同墙、命名）。**测试框架探测**：先读 CLAUDE.md `## Testing` 拿权威测试命令 / 框架，没有再按 `pyproject.toml`/`package.json`/`go.mod` 探测。
 
 规划每个 Pack 的实现路径前先 `Skill({ skill: "ponytail" })`，倾向最小实现（先问 Pack 要不要存在、能不能用现有能力 / 标准库 / 一处改动达成），避免把过度设计写进 acceptance criteria。
+
+## 拆小 issue（你的活，逼你认真读+规划）
+
+`## Small issues` 为空 / `<!-- PENDING -->` 时，结合设计上下文 + 代码探索结果把大 issue 拆成小 issue：
+
+- 小 issue **不是再切一层 vertical slice**——大 issue 本身已是完整 slice。小 issue 是这个 slice 内部的**实现步骤拆解**，每个可独立实现、可独立验证。
+- 拆分维度：按功能边界（schema → API → UI）或行为边界（创建 → 编辑 → 删除）。
+- 每个小 issue 写：Type（AFK / HITL）、What to build、Acceptance criteria、Blocked by（其他小 issue 编号或 None）。
+- 自检：并集覆盖大 issue `What to build` 全部行为 / 无循环依赖 / 不过粗（单个不超 8 个 impl step）/ 不过细（单文件单函数不值得独立）。
+- 拆完用 Edit 写回该 issue 文件的 `## Small issues`，替换 `<!-- PENDING -->`。深层 vertical-slice 哲学查 `to-issues` skill，本处不复述。
 
 ## 写作步骤
 

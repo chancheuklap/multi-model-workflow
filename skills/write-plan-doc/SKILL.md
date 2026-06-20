@@ -5,16 +5,16 @@ description: "把已评审的设计文档 + issue 拆成一份执行者零上下
 
 # write-plan-doc
 
-已评审的设计文档 + issue → 主 Agent 拆小 issue + 写跨 plan 合同骨架 → 逐 issue 并行派 `plan-writer` 各写一份 plan → 主 Agent 亲验 + 回填合同细节 + 就绪门。
+已评审的设计文档 + issue → 主 Agent 写跨 plan 合同骨架 → 逐 issue 并行派 `plan-writer`（各自拆小 issue + 写 plan）→ 主 Agent 亲验 + 回填合同细节 + 就绪门。
 
-**手动驱动**：你（主 Agent）读 design + issue、拆小 issue、把跨 plan 合同骨架写进设计文档，再逐 issue 派 `plan-writer` sub-agent（互不依赖的并行）各写各的 plan；你编排、划边界、验收、回填、路由，不亲自写 Task Pack。无自动派发或 gate 脚本。需要第二意见时主动把 plan 交给 `second-model-review` / `/code-review`。落地用 `tdd` skill 或 `tdd-executor` agent。
+**手动驱动**：你（主 Agent）读 design + issue、把跨 plan 合同骨架写进设计文档，再逐 issue 派 `plan-writer` sub-agent（互不依赖的并行）各写各的 plan；你编排、划边界、验收、回填、路由，不亲自拆小 issue、不亲自写 Task Pack。无自动派发或 gate 脚本。需要第二意见时主动把 plan 交给 `second-model-review` / `/code-review`。落地用 `tdd` skill 或 `tdd-executor` agent。
 
 ## 两个角色（写作下放，编排上收）
 
 | 角色 | 谁 | 职责 |
 |---|---|---|
-| **主 Agent（你）** | 本 skill 驱动者 | 读 design + issue → 拆小 issue → 写跨 plan 合同骨架进设计文档 → fan-out plan-writer → 亲验返回 → 回填合同细节 → 就绪门 → 路由 |
-| **plan-writer** | 派出的 sub-agent（`agents/plan-writer.md`） | 拿到（带合同骨架的）设计文档 + 单个 issue + 方法论 reference，写出一份自洽 plan（Header + Task Pack + TDD 步骤 + 验收）。写作纪律、核心原则、Self-Check 都在它身上 |
+| **主 Agent（你）** | 本 skill 驱动者 | 读 design + issue → 写跨 plan 合同骨架进设计文档 → fan-out plan-writer → 亲验返回 → 回填合同细节 → 就绪门 → 路由 |
+| **plan-writer** | 派出的 sub-agent（`agents/plan-writer.md`） | 拿到（带合同骨架的）设计文档 + 单个大 issue + 方法论 reference，**自己把大 issue 拆成小 issue**（逼它认真读+规划），再写出一份自洽 plan（Header + Task Pack + TDD 步骤 + 验收）。拆分、写作纪律、核心原则、Self-Check 都在它身上 |
 
 **合同分两层写**（实测：设计阶段只在设计文档留 `## Cross-Plan Contract Anchors` 占位标题，真正内容是**本阶段**才写的）：
 - **跨 plan 合同骨架** = 主 Agent 派 writer **之前**写进设计文档：哪份 plan 拥有哪些文件、哪些接口跨 plan provide / consume——**粗粒度边界先划死**（精确字段 / 签名留待回填）。目的：给并行 writer 不撞车的硬边界。
@@ -48,9 +48,9 @@ Bad: "制定了全面的实施计划，涵盖所有功能模块。"
 
 读源设计文档，提取 goal / architecture / 合同边界 / 测试 seam——**只读，作为派发时给 plan-writer 的上下文**，不在主线程展开写作。
 
-读 issue，提取 What to build、Blocked by。检查每个大 issue 的 `## Small issues`：已有完整列表 → 映射；为空 / `<!-- PENDING -->` → 用 `to-issues` skill 拆（vertical-slice / tracer-bullet、HITL·AFK、依赖、粒度与用户确认都在它那），拆完写回再回来。**拆分方法论不在本 skill 复述——`to-issues` 是单一权威。**
+读每个大 issue，提取 What to build、Blocked by，确定 **plan 清单**（一个大 issue → 一份 plan → 一个 plan-writer）。**小 issue 不在这拆**——它的 `## Small issues` 通常是 `<!-- PENDING -->`（设计阶段故意留白），由 plan-writer 接手时自己拆，逼它认真读代码 + 规划。主 Agent 只到大 issue 粒度。
 
-**映射规则：** 源设计 → 全局上下文（喂给每个 writer，只读）；大 issue → 一份 plan（一个 plan-writer 负责）；小 issue → 一个 Task Pack（writer 写）；小 issue 验收 → Pack 验收；小 issue blocked-by → Pack dependencies。
+**映射规则：** 源设计 → 全局上下文（喂给每个 writer，只读）；大 issue → 一份 plan（一个 plan-writer 负责，它再拆小 issue）；小 issue → 一个 Task Pack（writer 拆 + 写）；小 issue 验收 → Pack 验收；小 issue blocked-by → Pack dependencies。
 映射不成立：术语 / 验收不清 → 回 `write-design-doc`；架构假设与代码现实不符 → 用 `codebase-design` skill 厘清后再派。
 
 **轻量核现状**：用 `rg`/`find` 确认设计涉及的 plan 落点目录、关键路径真实存在——够你判断派几个 writer、各管哪个 issue 即可。**深度代码理解由 plan-writer 各自用 `codebase-design` 做**，主 Agent 不抢着探全。
@@ -72,7 +72,7 @@ Bad: "制定了全面的实施计划，涵盖所有功能模块。"
 
 - **落点**：`docs/plans/<YYYY-MM-DD>-<slug>/00N-<issue-slug>.md`（slug 与源设计 / issue 对齐；多 plan 时同一 plan 目录）
 - **源设计文档路径**（含 Step 2 写好的合同骨架：architecture / `## 合同边界` / `## Cross-Plan Contract Anchors` 文件所有权 + 跨 plan 接口边界——writer 据此知道自己能碰哪些文件、要 provide/consume 哪些接口）
-- **该 writer 负责的 issue 文件路径**
+- **该 writer 负责的 issue 文件路径**（它的 `## Small issues` 多为 `<!-- PENDING -->`，writer 自己拆 + 写回该文件）
 - **方法论 reference 路径**：`skills/write-plan-doc/references/task-pack.md` + `skills/write-plan-doc/references/plan-rigor.md`
 - **mockup 目录**（若 `docs/mockups/<slug>/` 存在）
 
@@ -80,7 +80,7 @@ Bad: "制定了全面的实施计划，涵盖所有功能模块。"
 
 ## Step 4：亲验返回（主 Agent）
 
-每份 `plan-writer` 返回 `pass` 后，对它声明的事实（plan 文件存在、Pack 数量、引用的 `file:line`）至少抽验 1 个（`grep`/`Read`）再采信。失实 → 重派该 writer 或主 Agent 亲查修正。任一返回 `needs context` / `needs revision` / `blocked` → 按其内容补上下文或修源设计后重派。全部 `pass` + 验过 → Step 5。
+每份 `plan-writer` 返回 `pass` 后，对它声明的事实（plan 文件存在、Pack 数量、引用的 `file:line`、**小 issue 已写回 issue 文件 `## Small issues`**）至少抽验 1 个（`grep`/`Read`）再采信。失实 → 重派该 writer 或主 Agent 亲查修正。任一返回 `needs context` / `needs revision` / `blocked` → 按其内容补上下文或修源设计后重派。全部 `pass` + 验过 → Step 5。
 
 ## Step 5：回填合同细节 + 核边界（多 plan 时，主 Agent）
 
