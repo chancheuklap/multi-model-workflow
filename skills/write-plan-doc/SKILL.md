@@ -5,18 +5,22 @@ description: "把已评审的设计文档 + issue 拆成一份执行者零上下
 
 # write-plan-doc
 
-已评审的设计文档（含框架合同）+ issue → 逐 issue 并行派 `plan-writer` agent 各写一份 plan → 主 Agent 亲验 + 跨 plan 锚点回填 + 就绪门。
+已评审的设计文档 + issue → 主 Agent 拆小 issue + 写跨 plan 合同骨架 → 逐 issue 并行派 `plan-writer` 各写一份 plan → 主 Agent 亲验 + 回填合同细节 + 就绪门。
 
-**手动驱动**：你（主 Agent）读 design + issue 映射出 plan 清单，逐 issue 派 `plan-writer` sub-agent（互不依赖的并行）各写各的 plan；你只编排、验收、回填、路由，不亲自写 Task Pack。无自动派发或 gate 脚本。需要第二意见时主动把 plan 交给 `second-model-review` / `/code-review`。落地用 `tdd` skill 或 `tdd-executor` agent。
+**手动驱动**：你（主 Agent）读 design + issue、拆小 issue、把跨 plan 合同骨架写进设计文档，再逐 issue 派 `plan-writer` sub-agent（互不依赖的并行）各写各的 plan；你编排、划边界、验收、回填、路由，不亲自写 Task Pack。无自动派发或 gate 脚本。需要第二意见时主动把 plan 交给 `second-model-review` / `/code-review`。落地用 `tdd` skill 或 `tdd-executor` agent。
 
 ## 两个角色（写作下放，编排上收）
 
 | 角色 | 谁 | 职责 |
 |---|---|---|
-| **主 Agent（你）** | 本 skill 驱动者 | 读 design + issue → 映射 plan 清单 → fan-out plan-writer → 亲验返回 → 跨 plan 锚点回填设计文档 → 就绪门 → 路由 |
-| **plan-writer** | 派出的 sub-agent（`agents/plan-writer.md`） | 拿到设计文档 + 单个 issue + 方法论 reference，写出一份自洽 plan（Header + Task Pack + TDD 步骤 + 验收）。写作纪律、核心原则、Self-Check 都在它身上 |
+| **主 Agent（你）** | 本 skill 驱动者 | 读 design + issue → 拆小 issue → 写跨 plan 合同骨架进设计文档 → fan-out plan-writer → 亲验返回 → 回填合同细节 → 就绪门 → 路由 |
+| **plan-writer** | 派出的 sub-agent（`agents/plan-writer.md`） | 拿到（带合同骨架的）设计文档 + 单个 issue + 方法论 reference，写出一份自洽 plan（Header + Task Pack + TDD 步骤 + 验收）。写作纪律、核心原则、Self-Check 都在它身上 |
 
-**框架合同已在设计文档里**（architecture / global constraints / 测试 seam / `## Cross-Plan Contract Anchors` 占位）——主 Agent 不另写合同，连同 issue 一起喂给 plan-writer，它从设计文档逐字抄 Global Constraints 进自己的 plan header。
+**合同分两层写**（实测：设计阶段只在设计文档留 `## Cross-Plan Contract Anchors` 占位标题，真正内容是**本阶段**才写的）：
+- **跨 plan 合同骨架** = 主 Agent 派 writer **之前**写进设计文档：哪份 plan 拥有哪些文件、哪些接口跨 plan provide / consume——**粗粒度边界先划死**（精确字段 / 签名留待回填）。目的：给并行 writer 不撞车的硬边界。
+- **每份 plan 的 Global Constraints / File Map / 本 plan 内 Dependency Graph** = writer 从设计文档抄 + 自己写进 plan header，不归主 Agent。
+
+派 writer 时把（带骨架的）设计文档 + 该 issue 一起喂给它。
 
 ## 渐进式加载（走到那步再读对应 reference，读全文，别凭记忆）
 
@@ -51,29 +55,38 @@ Bad: "制定了全面的实施计划，涵盖所有功能模块。"
 
 **轻量核现状**：用 `rg`/`find` 确认设计涉及的 plan 落点目录、关键路径真实存在——够你判断派几个 writer、各管哪个 issue 即可。**深度代码理解由 plan-writer 各自用 `codebase-design` 做**，主 Agent 不抢着探全。
 
-## Step 2：Fan-out 派 plan-writer
+## Step 2：写跨 plan 合同骨架进设计文档（多 plan 时；单 plan 跳过）
+
+派 writer **之前**，主 Agent 从设计文档 `## 合同边界` + architecture + 大 issue 依赖图，判断有没有跨 plan 连接面（共享文件 / 模块 / schema、一份 plan 产出另一份消费的接口）。有就把**骨架**写进设计文档的 `## Cross-Plan Contract Anchors` 占位：
+
+- **文件所有权划分**：哪份 plan 可碰哪些共享文件——一文件一 owner，防两个 writer 并行改同一文件。
+- **跨 plan 接口**：owner / provider / consumer 按 plan 编号写（"001 provide 鉴权 token 接口，002 consume"），命名到位、**精确字段 / 签名先标 `(字段待 plan 回填)`**——这是骨架，细节 Step 5 回填，不是 TBD。
+
+无跨 plan 连接面 → 写明"无跨计划共享合同"，跳到 Step 3。骨架是给 writer 的硬边界：dispatch 时它随设计文档一起进 writer 上下文，writer 不许认领别的 plan owner 的文件。
+
+## Step 3：Fan-out 派 plan-writer
 
 每个大 issue 派一个 `plan-writer` agent（`subagent_type: "plan-writer"`）。**互不依赖的 plan 用 `run_in_background: true` 并行；有 blocked_by 链的按依赖序派。**
 
 每个 dispatch 给（且只给）该 writer 它那份 plan 需要的：
 
 - **落点**：`docs/plans/<YYYY-MM-DD>-<slug>/00N-<issue-slug>.md`（slug 与源设计 / issue 对齐；多 plan 时同一 plan 目录）
-- **源设计文档路径**（框架合同在此：architecture / global constraints / `## Cross-Plan Contract Anchors` 占位）
+- **源设计文档路径**（含 Step 2 写好的合同骨架：architecture / `## 合同边界` / `## Cross-Plan Contract Anchors` 文件所有权 + 跨 plan 接口边界——writer 据此知道自己能碰哪些文件、要 provide/consume 哪些接口）
 - **该 writer 负责的 issue 文件路径**
 - **方法论 reference 路径**：`skills/write-plan-doc/references/task-pack.md` + `skills/write-plan-doc/references/plan-rigor.md`
 - **mockup 目录**（若 `docs/mockups/<slug>/` 存在）
 
 **不要**把别的 writer 的历史 / 别的 plan 内容粘进去——每个 dispatch 独立、零交叉污染。单 issue → 单 plan：派一个就行，不强行并行。
 
-## Step 3：亲验返回（主 Agent）
+## Step 4：亲验返回（主 Agent）
 
-每份 `plan-writer` 返回 `pass` 后，对它声明的事实（plan 文件存在、Pack 数量、引用的 `file:line`）至少抽验 1 个（`grep`/`Read`）再采信。失实 → 重派该 writer 或主 Agent 亲查修正。任一返回 `needs context` / `needs revision` / `blocked` → 按其内容补上下文或修源设计后重派。全部 `pass` + 验过 → Step 4。
+每份 `plan-writer` 返回 `pass` 后，对它声明的事实（plan 文件存在、Pack 数量、引用的 `file:line`）至少抽验 1 个（`grep`/`Read`）再采信。失实 → 重派该 writer 或主 Agent 亲查修正。任一返回 `needs context` / `needs revision` / `blocked` → 按其内容补上下文或修源设计后重派。全部 `pass` + 验过 → Step 5。
 
-## Step 4：跨 plan 合同锚点回填（多 plan 时，主 Agent）
+## Step 5：回填合同细节 + 核边界（多 plan 时，主 Agent）
 
-全部 plan 到齐后，扫每份 plan 的 File/Responsibility Map + Contract anchors + migration/registry（plan-writer 返回的 `Cross-plan touchpoints` 区块是入口），只取跨 plan 连接面，把共享合同 / 接口 / 文件所有权汇总**回填进设计文档的 `## Cross-Plan Contract Anchors` 占位**（单一源，覆盖设计阶段留的注释占位）：记 owner / provider / consumer / 关键字段。provider 或 consumer 缺失、ownership 冲突 → 标 `needs plan repair`，`SendMessage` 对应 writer 修。无跨 plan 连接面时写明"无跨计划共享合同"。
+Step 2 的骨架已划好边界，本步把**精确字段 / 签名**填实并核 writer 有没有越界。扫每份 plan 的 File/Responsibility Map + Contract anchors + migration/registry（plan-writer 返回的 `Cross-plan touchpoints` 区块是入口），把 Step 2 标 `(字段待 plan 回填)` 的格子补成真实 owner / provider / consumer / 字段，写回设计文档 `## Cross-Plan Contract Anchors`（单一源）。核边界：writer 有没有认领别的 plan owner 的文件、provider 接口与 consumer 期望对不对得上。provider 或 consumer 缺失、ownership 冲突、接口签名不匹配 → 标 `needs plan repair`，`SendMessage` 对应 writer 修。
 
-## Step 5：就绪门 + 跨 plan 覆盖自检（→ 读 `references/plan-self-check.md` 全文）
+## Step 6：就绪门 + 跨 plan 覆盖自检（→ 读 `references/plan-self-check.md` 全文）
 
 plan-writer 已对各自 plan 过了 Pre-delivery Self-Check。主 Agent **打开 `references/plan-self-check.md`**，从跨 plan 视角再过一遍：每个大 issue 都映射到一份 plan、File-Responsibility Map 每路径被某 Pack 消费、plan 间引用一致、无 ownership 冲突。重大或触碰红线 → 交 `second-model-review` 阶段②独立审（reviewer prompt + findings 处置在那边）。
 

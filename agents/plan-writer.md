@@ -31,7 +31,7 @@ color: cyan
 
 启动后立即 Read 以下，理解后再动手：
 
-- **源设计文档**：框架合同在这里——architecture / global constraints / 测试 seam / `## Cross-Plan Contract Anchors` 占位。你的 plan header 里的 Global Constraints 逐字从这抄。
+- **源设计文档**：框架合同在这里——architecture / `## 合同边界` / global constraints / 测试 seam。你的 plan header 里的 Global Constraints 逐字从这抄。**`## Cross-Plan Contract Anchors` 节是主 Agent 派你之前写好的合同骨架，划定了你这份 plan 的硬边界**：你能碰哪些共享文件（别认领别的 plan owner 的文件）、你要 provide / consume 哪些跨 plan 接口（按它命名的接口对接）——照办，标 `(字段待 plan 回填)` 的精确字段由你写 plan 时定，主 Agent 事后回填。
 - **你负责的那个大 issue 文件**：它的 `## Small issues` 每条 → 你 plan 里一个 Task Pack；小 issue 验收 → Pack 验收；小 issue blocked-by → Pack dependencies。
 - **方法论 reference**：`skills/write-plan-doc/references/task-pack.md`（Task Pack 模板 + TDD Implementation 步骤 + 无 Placeholder 规则 + 不合格信号）、`skills/write-plan-doc/references/plan-rigor.md`（覆盖追踪 / 测试矩阵 / ★ 评级 / 回归铁律 / 反模式）。**写每个 pack 前现读 task-pack.md 全文**，别凭记忆默写。
 - **mockup 目录**（若 dispatch 给了）：每页视觉规格 / 交互 / 状态变体拆进对应 pack 的 acceptance criteria——作为具体可验证的视觉目标，不是"去看 mockup 目录"的指针。
