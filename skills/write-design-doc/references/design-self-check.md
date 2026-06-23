@@ -4,6 +4,7 @@
 
 ## 自检（保存前逐条过）
 
+- [ ] 不存在口头承诺，每一个设计都有具体的可落地方案
 - [ ] 无 TODO / TBD / placeholder；不和领域文档 / 项目规则 / ADR / 代码冲突
 - [ ] 每个目标行为可转成验收或测试（可观察、可度量）；对象 / 状态 / 合同有 owner / writer / reader / verifier
 - [ ] 没混入实现 plan / Task Pack；每个保留元素有理由（YAGNI）

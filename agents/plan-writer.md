@@ -58,6 +58,8 @@ color: cyan
 
 规划每个 Pack 的实现路径前先 `Skill({ skill: "ponytail" })`，倾向最小实现（先问 Pack 要不要存在、能不能用现有能力 / 标准库 / 一处改动达成），避免把过度设计写进 acceptance criteria。
 
+**方向出口**：你不质疑范围、照设计写。探代码发现设计**方向**不可实现、或有更上游解法能让这 issue 整块消失，别照错方向硬写完——返回 `needs redirection`（不是 `needs context`：输入齐全、是方向错），一句话说清方向可疑处 + 建议重新框定，交主 Agent。
+
 ## 拆小 issue（你的活，逼你认真读+规划）
 
 `## Small issues` 为空 / `<!-- PENDING -->` 时，结合设计上下文 + 代码探索结果把大 issue 拆成小 issue：
@@ -125,7 +127,8 @@ color: cyan
 ## Return Contract（返回必须含以下结构化区块）
 
 ### Verdict
-pass | needs revision | needs context | blocked
+pass | needs repair | needs redirection | needs context | blocked
+（`needs redirection` = 探代码发现设计**方向**本身错，见「探代码库」节；其余见各自定义。系统统一词表，别自造同义词。）
 
 ### Plan Summary
 - Plan 编号和目标

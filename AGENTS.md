@@ -6,12 +6,54 @@
 
 ## 当前真相
 
-- 本仓库保存同一套编排思想的两个源码入口。
+- 本仓库有**两类**系统，互不耦合：(1) **编排插件系统**（`plugin/` + `codex-orchestrate-new/`，下面 当前真相 余下条目 + 目录合同 + Workflow 合同 管它）；(2) **独立 skill / agent 系统**（`skills/` + `agents/`，由下面「## 独立 skill / agent 系统」单独管）。改其中一类不波及另一类。
+- 编排插件系统保存同一套编排思想的两个源码入口。
 - `plugin/` 是上游插件源码和行为蓝本。Codex 可以只读它来做 parity 对照，但不能修改、格式化、构建、安装或暂存 `plugin/` 下的文件。
 - `codex-orchestrate-new/` 是 Codex 原生源码权威。skills、TOML agents、hooks、scripts、state schema、build templates、manifest 和运行时合同都应落在这里。
 - `.agents/plugins/marketplace.json` 负责把 Codex plugin 暴露给 repo-local marketplace；source path 必须指向 `./codex-orchestrate-new`。
 - `codex-orchestrate-new/.codex-plugin/plugin.json` 是 Codex plugin manifest；版本号以该文件为准，并且必须声明 `skills: "./skills/"` 与 `hooks: "./hooks.json"`。
 - Source 改动不等于 runtime 已生效。发布或安装类任务必须在受影响时核对 plugin cache、custom agent runtime、hook wiring 和 SessionStart 输出。
+
+## 独立 skill / agent 系统（design→plan→review 链）
+
+这套是从编排插件里**拆出来的独立系统**，不依赖 orchestrate coordinator / `spawn_agent` / `codex-orchestrate-new` 的 state·dispatch·hook 机制。Claude 和 Codex **都直接用**：Claude 经 Skill / Agent 工具调；Codex 直接 Read 对应 `.md` 全文照做。两边对称，无主从。
+
+**成员（权威落点）：**
+
+| 类 | 文件 | 角色 |
+| --- | --- | --- |
+| skill | `skills/write-design-doc/` | 模糊输入 → 设计文档（A 访谈 / B 综合两条路）+ 领域文档 |
+| skill | `skills/write-plan-doc/` | 已评审设计 + issue → 实施计划（fan-out `plan-writer`）|
+| skill | `skills/second-model-review/` | 派第二个模型审①设计/②计划/③落地/④final，亲验处置 findings |
+| agent | `agents/plan-writer.md` | 单个大 issue → 一份自洽 plan（被 write-plan-doc 派）|
+| agent | `agents/tdd-executor.md` | 一份 Task Pack → TDD 落地代码 |
+| agent | `agents/root-cause-analyst.md` | 未知根因 bug → 调查 + 修 |
+
+`agents/plan-writer.md` 是本系统权威；`plugin/agents/plan-writer.md` 属编排插件世界，与本系统无关，不管、不同步。
+
+**链路（谁交给谁）：**
+
+```
+write-design-doc ──①审──> to-issues ──> write-plan-doc ──②审──> tdd-executor ──③/④审──> done
+       ^                                      │ (派 plan-writer)
+       └──────── needs redirection / design gap 回流 ───────┘
+```
+
+**Gap 回流单一源**：设计文档 `## Cross-Plan Contract Anchors` 由 write-design-doc 留占位、write-plan-doc 主 Agent 回填；plan-writer 不碰设计文档。
+
+**统一 verdict 词表（本系统所有 skill + agent 只用这五个，禁自造同义词）：**
+
+| verdict | 含义 |
+| --- | --- |
+| `pass` | 产物合格，往下走 |
+| `needs repair` | 产物方向对、但有缺陷要修（原 plan-writer 用的 `needs revision` 已并入此词）|
+| `needs redirection` | 源意图 / 方向本身错——别对着错方向修产物，停下交用户拍 |
+| `needs context` | 缺输入（设计 / issue / 路径 / 术语不清）才没法继续 |
+| `blocked` | 连续 3 次返修仍不过，停，带完整历史返回 |
+
+**"第二个模型"对称原则**：reviewer 与作者只要**不同上下文**即可，不绑定具体模型——Claude 驱动派 Codex，Codex 驱动派 Claude 或全新 Codex 实例。详见 `skills/second-model-review/SKILL.md`。
+
+**讨论连贯性**：write-design-doc 访谈模式要求每轮先锚定当前基线、把反馈当局部 delta、方案只提一次、确认的决定立刻落进设计文档草稿——基线在文件里，不靠会话记忆。Codex 驱动设计讨论时尤其按此守，避免每轮重摆全新方案。
 
 ## 目录合同
 
