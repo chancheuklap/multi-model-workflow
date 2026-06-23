@@ -2,9 +2,11 @@
 
 ## 边界
 
-本仓库有两套系统。Claude Code 只管 `plugin/`（当前活跃的 Claude Code Plugin 源码）。
+Claude Code 管两类系统：
+- **编排插件**：`plugin/`（活跃 Claude Code Plugin 源码，下面整份文档管它）
+- **独立 skill/agent 系统**：`skills/` + `agents/`（design→plan→review 链，权威说明在 `AGENTS.md` 的「独立 skill/agent 系统」节，两边对称、不重复维护）
 
-**禁区**（除非用户明确指令，否则不读不改）：
+**禁区**（用户明确指令才读改）：
 - `.agents/` — Codex skill source
 - `codex/` — Codex agent/hook/sync source
 - `archive/` — 历史归档
