@@ -1,15 +1,20 @@
 ---
 name: second-model-review
-description: "派第二个模型(多为 CC 派 Codex)独立审你的产物,再亲验处置它的 findings。触发词:用 Codex 审 / second opinion / 独立审查 / review 这个设计 / 计划 / 落地 / 分支。"
+description: "派第二个模型(多为 CC 派 Codex)独立审你的产物,再亲验处置它的 findings;用户也可叫你亲自充当 reviewer(自审第二路径)。触发词:用 Codex 审 / 你来审 / second opinion / 独立审查 / review 这个设计 / 计划 / 落地 / 分支。"
 ---
 
 # second-model-review
 
-你是 coordinator。用户让你审什么,你按本文件派**第二个模型**去审,收回后亲验处置。**references/ 全是给 reviewer 读的,你不读、只点名让它读;你只读本文件。**
+你是 coordinator。用户让你审什么,你按本文件让**第二个模型**审,收回后亲验处置。
 
-**"第二个模型" = 非驱动者的另一模型(对称)**:Claude 驱动派 Codex,Codex 驱动派 Claude 或全新 Codex 实例。独立性来自 reviewer 与作者**不同上下文**,不来自具体哪个模型。
+**"第二个模型" = 与作者不同上下文的 reviewer**——独立性来自 reviewer 与作者**不同上下文**,不来自具体哪个模型。两条路:
 
-## 选阶段（决定让 Codex 读哪份 reference）
+- **默认 · 派发(Step 2a)**:你派另一模型审(Claude 驱动多派 Codex / 全新实例),独立 context。`references/` 你不读、只点名让 reviewer 读;你只读本文件。
+- **第二路径 · 自审(Step 2b)**:用户明确叫你充当 reviewer 时,你不派、亲自审——这时你**就是** reviewer,自己读 `references/`。独立性更弱(可能与作者同上下文),用同样纪律补偿,见 2b。
+
+Step 1 / Step 3 / Step 4 两路通用(确定对象 / 处置 findings / Gap 路由 与"谁审"无关)。
+
+## 选阶段（决定 reviewer 读哪份 reference）
 
 | 阶段 | 时机 | reviewer 读 |
 |---|---|---|
@@ -23,7 +28,7 @@ description: "派第二个模型(多为 CC 派 Codex)独立审你的产物,再�
 ## Step 1 确定审查对象
 按用户说的取内容:commit→`git show <hash>`;分支→`git diff <base>...HEAD`;未提交→`git diff HEAD`;文件 / 文档→路径。
 
-## Step 2 派 Codex（两个并行）
+## Step 2a 派发审查（默认）
 每阶段派**两个**独立 reviewer(①②③ = 轴 A + 轴 B;④ = 基线 1 + 基线 2),单条消息并行起、各自干净 context。给每个的指令:
 > 读 `<本skill>/references/quartet.md` + `references/<阶段>.md` 的〔轴 A / 基线 1〕,按它审。Source:〔源意图路径 + 待审内容 / diff〕。
 
@@ -31,6 +36,14 @@ description: "派第二个模型(多为 CC 派 Codex)独立审你的产物,再�
 
 跑 `codex exec -C . --sandbox read-only - < <prompt>`(或 `/code-review`),`run_in_background: true`。Codex 侧没装本 skill 时,把 `quartet.md` + 该段拼成自包含 prompt 给它。
 模式:**质疑地基 = 默认**(quartet 已焊,每轮必先挑地基[重造轮子 / 样本非证据 / 抽象选错]再过闸);Review 过闸 / Consult 开放咨询是侧重变体,Challenge(假设它错、专找反证)按需加压。高风险加 specialist(按 diff 选):security / performance / data-migration / api-contract / red-team / testing。
+
+## Step 2b 自审（第二路径——用户叫你充当 reviewer 时）
+不派,你亲自审,但**reviewer 纪律一分不减**:像派给 Codex 一样,自己先 Read `references/quartet.md` + `references/<阶段>.md` 对应轴,按它审——先挑方向、再挑地基、最后过闸,防幻觉四件套(置信度 / 引 `file:line` 原文 / 不自我合理化 / 证据表),产出 quartet 的 Return Contract。
+
+独立性补偿(你可能与作者同上下文,这是这条路唯一短板):
+- **审你自己刚写的最危险**——主动找反证、假设自己错(Challenge 模式),别复述当时的理由。高风险产物(计费 / 合同 / 数据权威 / 迁移)优先回 2a 派发;自审只作快速低风险、或你没参与撰写时用。
+- 两轴 / 两基线仍**分两遍**跑(同一次自审里切两个视角,别一遍混过)。
+- reviewer 和 coordinator 都是你,**Step 3 的亲验照样逐条做**——自己审出的 finding 也要 Read/grep 坐实,不因"自己审的"就免验。
 
 ## Step 3 处置 findings（两个结果分开处置，不合并不重排）
 findings 和派发隔了很多轮,别凭记忆。整体 `needs context`(非某条 `needs evidence`)= reviewer 没完成,补上下文重派。整体 `needs redirection` = reviewer 判源意图/方向本身存疑:**别当普通 finding 修产物**,停下来把方向怀疑原样转给用户决策(一次一个业务问题),用户拍「换方向」就回 `write-design-doc` 重做、拍「方向不变」才继续处置其余 findings。逐条:
@@ -56,7 +69,7 @@ findings 和派发隔了很多轮,别凭记忆。整体 `needs context`(非某�
 修复顺序:阻塞 / 安全 → 简单(typo / import)→ 复杂(重构 / 逻辑),每条单独测、验无回归。回归证据按类型:behavior bug→behavior test;合同 / schema / migration→对应 check;UI→browser smoke;billing / runtime / 权限→integration 或带 owner 步骤的 manual gate。别用代码 patch 盖设计 / 计划的洞。
 
 ## 收尾自检
-- 派了两个并行 reviewer、各指向对应阶段段、给了 Source?
+- 两个 reviewer 视角都过了(派发 = 两个并行 / 自审 = 两轴分两遍)、各对应阶段段、Source 给/读齐?
 - findings 分开亲验、只动 accepted、按 Gap 路由?
 - 向用户汇报 verdict + 每条一句话摘要 + 修复方向,不自动越权修。
 - 需留档时,审查报告 / findings 落 `docs/working/<YYYY-MM-DD>-<slug>-review.md`(scratch 审计与评审产物的统一落点)。
