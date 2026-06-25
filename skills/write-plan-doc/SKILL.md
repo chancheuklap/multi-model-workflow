@@ -85,7 +85,7 @@ plan-writer 已各自过 Pre-delivery Self-Check（保自己那份）。主 Agen
 
 plan 存好后给落地者选执行方式：
 
-- **子代理逐 task 驱动（推荐）**：每个 Task Pack 派一个 `tdd-executor` agent，task 间过 review，全部完成做一次整分支 review；互不依赖的 pack 用 isolation worktree 并行。每个 dispatch 只给该 pack 的 brief + Interfaces + Global Constraints，**不要把前面 task 的历史粘进去**。
+- **子代理逐 plan 驱动（推荐）**：**一份 plan 派一个 `tdd-executor` agent**，它按 plan 内依赖序跑完该 plan 全部 Task Pack（Pack 间原子提交），plan 落地完做一次该 plan 的整分支 review（= `second-model-review` 阶段③）；**互不依赖的 plan** 用 isolation worktree 并行。每个 dispatch 给该 plan 文档 + Global Constraints，不跨 plan 粘历史。plan 太大 executor 报 `pass` + Open Items「剩 Pack 待续派」→ 派续接 executor 接着做。
 - **本会话内联**：用 `tdd` skill 按步骤逐个跑，带 checkpoint。
 
 节奏（两种都遵守）：TDD 走预先定下的 seam；regularly 跑 typecheck 和单个测试文件；**末尾跑相关套件 + 针对性命令（不强制全套；大套件含已知垃圾测试的项目优先针对性测试 + 真机 E2E）**；落地完用 `/code-review` / `second-model-review` 收口；commit 到当前分支、不 push。
@@ -99,6 +99,6 @@ plan 存好后给落地者选执行方式：
 计划写好、亲验 + 回填 + 就绪门过后，按产出状态给一句建议：
 
 - 重大 / 碰红线 → 交 `second-model-review` 阶段②独立审
-- 计划通过、落地 → 见上「执行交接」：`tdd` skill（内联单块）或 `tdd-executor` agent（隔离 worktree 并行，逐 Pack）
+- 计划通过、落地 → 见上「执行交接」：`tdd` skill（内联单块）或 `tdd-executor` agent（隔离 worktree 并行，**逐 plan**）
 - 落地遇未知根因 bug → `root-cause-analyst` agent
 - 一个 plan 全 Pack 提交 → `second-model-review` 阶段③（落地审）；全部 plan 合并 → 阶段④ final
