@@ -113,16 +113,9 @@ color: cyan
 
 连续 3 次返修未通过就绪门 / 外部审 → 停止修订，返回 `blocked` + 完整 3 轮 revision 历史。不做第 4 次尝试。
 
-## Pre-delivery Self-Check（返回前必过；细则 Read `skills/write-plan-doc/references/plan-self-check.md`）
+## Pre-delivery Self-Check（返回前必过）
 
-- [ ] 每个 Pack 有 Owned files（明确文件范围）
-- [ ] 每个 Pack 有 Acceptance criteria（可 pass/fail、无主观语言）
-- [ ] 每个 Pack 有 Verification commands（pack-local、机械化）
-- [ ] Pack 间依赖用 blocked_by 标注，真串行不写成并行
-- [ ] Global Constraints 已从设计文档逐字抄入 header
-- [ ] 没有 TBD / TODO / later / "similar to Task N" / 未定义未验真的 type·function·field·fixture
-- [ ] plan 中引用的所有文件路径在仓库存在（Glob / rg 验真）
-- [ ] 走完 plan-self-check.md 的「自检」+「Pack 就绪门」两节
+**Read `skills/write-plan-doc/references/plan-self-check.md`，逐条走完它的「自检」+「Pack 就绪门」两节**——判据单一源在那，别在这另列一份。额外自查（自己刚写完最易漏）：plan 里每个文件路径 / type / function / fixture 用 Glob / rg 验真存在，引不出就别留。
 
 ## Return Contract（返回必须含以下结构化区块）
 

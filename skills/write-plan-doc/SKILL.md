@@ -7,27 +7,18 @@ description: "把已评审的设计文档 + issue 拆成一份执行者零上下
 
 已评审的设计文档 + issue → 主 Agent 写跨 plan 合同骨架 → 逐 issue 并行派 `plan-writer`（各自拆小 issue + 写 plan）→ 主 Agent 亲验 + 回填合同细节 + 就绪门。
 
-**手动驱动**：你（主 Agent）读 design + issue、把跨 plan 合同骨架写进设计文档，再逐 issue 派 `plan-writer` sub-agent（互不依赖的并行）各写各的 plan；你编排、划边界、验收、回填、路由，不亲自拆小 issue、不亲自写 Task Pack。无自动派发或 gate 脚本。需要第二意见时主动把 plan 交给 `second-model-review` / `/code-review`。落地用 `tdd` skill 或 `tdd-executor` agent。
+**手动驱动**：你（主 Agent）编排——划边界、验收、回填、路由，**不亲自拆小 issue、不亲自写 Task Pack**（那是 plan-writer 的活）。无自动派发 / gate 脚本；第二意见和落地都要你主动发起，去向见 §执行交接 + §下一步路由。
 
 ## 两个角色（写作下放，编排上收）
 
 | 角色 | 谁 | 职责 |
 |---|---|---|
 | **主 Agent（你）** | 本 skill 驱动者 | 读 design + issue → 写跨 plan 合同骨架进设计文档 → fan-out plan-writer → 亲验返回 → 回填合同细节 → 就绪门 → 路由 |
-| **plan-writer** | 派出的 sub-agent（`agents/plan-writer.md`） | 拿到（带合同骨架的）设计文档 + 单个大 issue + 方法论 reference，**自己把大 issue 拆成小 issue**（逼它认真读+规划），再写出一份自洽 plan（Header + Task Pack + TDD 步骤 + 验收）。拆分、写作纪律、核心原则、Self-Check 都在它身上 |
+| **plan-writer** | 派出的 sub-agent（`agents/plan-writer.md`） | 拿到（带合同骨架的）设计文档 + 单个大 issue + 方法论 reference，**自己把大 issue 拆成小 issue**，再写出一份自洽 plan（Header + Task Pack + TDD 步骤 + 验收）。拆分、写作纪律、核心原则、Self-Check 都在它身上 |
 
-**合同分两层写**（实测：设计阶段只在设计文档留 `## Cross-Plan Contract Anchors` 占位标题，真正内容是**本阶段**才写的）：
-- **跨 plan 合同骨架** = 主 Agent 派 writer **之前**写进设计文档：哪份 plan 拥有哪些文件、哪些接口跨 plan provide / consume——**粗粒度边界先划死**（精确字段 / 签名留待回填）。目的：给并行 writer 不撞车的硬边界。
-- **每份 plan 的 Global Constraints / File Map / 本 plan 内 Dependency Graph** = writer 从设计文档抄 + 自己写进 plan header，不归主 Agent。
-
-派 writer 时把（带骨架的）设计文档 + 该 issue 一起喂给它。
-
-## 渐进式加载（走到那步再读对应 reference，读全文，别凭记忆）
-
-| 角色 | 走到这步 | 读这个 reference |
-|---|---|---|
-| plan-writer | 写 Task Pack / 规划测试 / 查反模式 | `references/task-pack.md` + `references/plan-rigor.md`（dispatch 给它路径，它现读——主 Agent 不复述写作细则） |
-| 主 Agent | 就绪门 + 跨 plan 覆盖自检 | `references/plan-self-check.md` 全文 |
+**合同分两层写**（设计阶段只在设计文档留 `## Cross-Plan Contract Anchors` 占位，内容本阶段才写）：
+- **跨 plan 合同骨架**：主 Agent 在 Step 2 写进设计文档，给并行 writer 不撞车的硬边界（哪份 plan 拥有哪些文件、provide / consume 哪些接口——细节见 Step 2）。
+- **每份 plan 的 Global Constraints / File Map / plan 内 Dependency Graph**：writer 从设计文档抄 + 自己写进 plan header，不归主 Agent。
 
 ## 角色与声音（主 Agent）
 
@@ -50,7 +41,7 @@ Bad: "制定了全面的实施计划，涵盖所有功能模块。"
 
 读每个大 issue，提取 What to build、Blocked by，确定 **plan 清单**（一个大 issue → 一份 plan → 一个 plan-writer）。**小 issue 不在这拆**——它的 `## Small issues` 通常是 `<!-- PENDING -->`（设计阶段故意留白），由 plan-writer 接手时自己拆，逼它认真读代码 + 规划。主 Agent 只到大 issue 粒度。
 
-**映射规则：** 源设计 → 全局上下文（喂给每个 writer，只读）；大 issue → 一份 plan（一个 plan-writer 负责，它再拆小 issue）；小 issue → 一个 Task Pack（writer 拆 + 写）；小 issue 验收 → Pack 验收；小 issue blocked-by → Pack dependencies。
+**映射规则：** 源设计 → 全局上下文（喂给每个 writer，只读）；大 issue → 一份 plan（一个 plan-writer 负责）；小 issue → 一个 Task Pack（writer 拆 + 写）；小 issue 验收 → Pack 验收；小 issue blocked-by → Pack dependencies。
 映射不成立：术语 / 验收不清 → 回 `write-design-doc`；架构假设与代码现实不符 → 用 `codebase-design` skill 厘清后再派。
 
 **轻量核现状**：用 `rg`/`find` 确认设计涉及的 plan 落点目录、关键路径真实存在——够你判断派几个 writer、各管哪个 issue 即可。**深度代码理解由 plan-writer 各自用 `codebase-design` 做**，主 Agent 不抢着探全。
@@ -88,7 +79,7 @@ Step 2 的骨架已划好边界，本步把**精确字段 / 签名**填实并核
 
 ## Step 6：就绪门 + 跨 plan 覆盖自检（→ 读 `references/plan-self-check.md` 全文）
 
-plan-writer 已对各自 plan 过了 Pre-delivery Self-Check。主 Agent **打开 `references/plan-self-check.md`**，从跨 plan 视角再过一遍：每个大 issue 都映射到一份 plan、File-Responsibility Map 每路径被某 Pack 消费、plan 间引用一致、无 ownership 冲突。重大或触碰红线 → 交 `second-model-review` 阶段②独立审（reviewer prompt + findings 处置在那边）。
+plan-writer 已各自过 Pre-delivery Self-Check（保自己那份）。主 Agent **打开 `references/plan-self-check.md`**，从**跨 plan 视角**再过一遍覆盖与 ownership——跨 plan 一致性归你，判据按那份文件。重大或触碰红线 → 交 `second-model-review` 阶段②独立审。
 
 ## 执行交接
 
@@ -101,7 +92,7 @@ plan 存好后给落地者选执行方式：
 
 ## Git 纪律
 
-写 plan 阶段不 commit、不 push，改动保持 unstaged，落地通过后统一提交。**plan-writer 不 commit；主 Agent 统一提交**（设计文档回填和 plan 文档分别提交）。落地执行用 `tdd` skill 或 `tdd-executor` agent。
+写 plan 阶段不 commit、不 push，改动保持 unstaged，落地通过后统一提交。**plan-writer 不 commit；主 Agent 统一提交**（设计文档回填和 plan 文档分别提交）。
 
 ## 下一步路由（本 skill 完成后，向用户报下一站）
 

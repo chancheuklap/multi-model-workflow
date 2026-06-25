@@ -20,6 +20,10 @@
 ### 回归铁律（强制，无需问用户）
 覆盖审计发现 diff 改了既有行为、既有测试没覆盖该路径、给既有调用方引入新失败模式 → 回归测试作为 **CRITICAL** 加进 plan，写明什么坏了。拿不准是不是回归就写测试。
 
+### 验证语言对照 + seam
+- API/contract → route test / 合同类型 parse（agentflow: Pydantic）；DB/migration → migration / repository test + downgrade；JSON/登记 → validator / unknown-field test；billing/permission → service test / 用户可见 gate test；runtime/browser → focused unit + log evidence；UI/UX → DOM 断言 / screenshot / responsive / manual visual gate。
+- seam 锚到设计期定下的 seam，选最高层、别增殖插桩点。
+
 ## Issue 质量标准
 
 - **Verified Current State**：改既有行为前先写现状真实行为 + `file:line` + 核实日期。

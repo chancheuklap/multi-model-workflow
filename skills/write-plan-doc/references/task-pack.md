@@ -61,13 +61,8 @@
 正确：RED→GREEN: test1→impl1 → RED→GREEN: test2→impl2
 ```
 
-**验证规划**（plan 让实现自带测试，不留后续补；追覆盖 / E2E·EVAL·unit 决策矩阵 / ★ 质量评级 / 回归铁律的细则见 `plan-rigor.md`）：
-- 追每条 codepath 的分支 / 错误路径 / 边界 + 每条用户流与交互边界，逐一对应测试。
-- 测**真行为 + 边界 + 错误路径**（★★★），别只烟雾测试；**每个行为在其权威层测一次,不为凑数加脆弱测试,不追"100% 覆盖"数字最大化**（权威层定义与 agentflow 五层例见 `plan-rigor.md`）。
-- diff 改了既有行为且没被覆盖 → 回归测试作为 **CRITICAL** 加进 plan（强制，无需问用户）。
-- **验证语言对照**：API/contract → route test / 合同类型 parse（agentflow: Pydantic）；DB/migration → migration / repository test + downgrade；JSON/登记 → validator / unknown-field test；billing/permission → service test / 用户可见 gate test；runtime/browser → focused unit + log evidence；UI/UX → DOM 断言 / screenshot / responsive / manual visual gate。
-- seam 锚到设计期定下的 seam，选最高层、别增殖插桩点。
+**验证规划**：plan 让实现自带测试、不留后续补——追覆盖 / 决策矩阵 / 质量评级 / 回归铁律 / 验证语言对照 / seam 全在 `plan-rigor.md`，按它规划，本文件不复述。
 
 **无 Placeholder 规则**（出现即 plan failure）：`TBD`/`TODO`/`later`；`add validation`/`handle edge cases`/`appropriate error handling`；`write tests` 无行为描述；`similar to Task N`；引用未定义/未验真的 type/function/field/fixture；描述做什么但没展示怎么做；只写大套测试无 pack-local focused command。
 
-**不合格 Pack 信号**：落地者要自决 desired behavior/文案/角色/billing/permission/schema shape；pack 只写"实现 mockup"或只给目录没拆视觉规格进 acceptance；把未验证路径/fixture/class 写成现有事实；把真实依赖隐藏成"可并行"；只产 schema/helper 无 public behavior verification；需人工决策/真实账号/生产确认却标 AFK；**plan 强制了评审会判为缺陷的东西（空断言测试、整段逻辑逐字复制）**——别 mandate 反模式，落地者会照做、审查会打回。
+**不合格 Pack 信号**：落地者要自决 desired behavior/文案/角色/billing/permission/schema shape；pack 只写"实现 mockup"或只给目录没拆视觉规格进 acceptance；把未验证路径/fixture/class 写成现有事实；把真实依赖隐藏成"可并行"；只产 schema/helper 无 public behavior verification；需人工决策/真实账号/生产确认却标 AFK。完整反模式（含"别 mandate 评审会判缺陷的东西"）见 `plan-rigor.md`。
