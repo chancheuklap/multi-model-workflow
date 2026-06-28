@@ -18,7 +18,7 @@ BASE="$(git rev-parse HEAD)"
 SLUG="2026-06-28-test-feature"
 
 # --- new ---
-OUT="$(bash "$PREPARE" new --scenario new-design --slug "$SLUG" --title "测试任务" 2>/dev/null)"
+OUT="$(bash "$PREPARE" new --scenario develop --slug "$SLUG" --title "测试任务" 2>/dev/null)"
 WT="$TMP/.claude/worktrees/$SLUG"
 echo "$OUT" | grep -q "^PREPARED" && ok "new 返回 PREPARED" || no "new 返回 PREPARED"
 [ -d "$WT" ] && ok "worktree 目录建好" || no "worktree 目录建好"
@@ -30,9 +30,9 @@ MAN="$WT/.claude/multi-model-workflow/task.json"
 [ -f "$MAN" ] && ok "manifest 存在" || no "manifest 存在"
 jq -e . "$MAN" >/dev/null 2>&1 && ok "manifest 合法 JSON" || no "manifest 合法 JSON"
 [ "$(jq -r .slug "$MAN")" = "$SLUG" ] && ok "manifest.slug" || no "manifest.slug"
-[ "$(jq -r .scenario "$MAN")" = "new-design" ] && ok "manifest.scenario" || no "manifest.scenario"
-[ "$(jq -r .phase "$MAN")" = "design" ] && ok "new-design→首阶段 design" || no "new-design→design"
-[ "$(jq -rc .phases "$MAN")" = '["design","plan","build","verify","closing"]' ] && ok "phases 固化进 manifest" || no "phases 固化"
+[ "$(jq -r .scenario "$MAN")" = "develop" ] && ok "manifest.scenario" || no "manifest.scenario"
+[ "$(jq -r .phase "$MAN")" = "investigate" ] && ok "develop→首阶段 investigate" || no "develop→investigate"
+[ "$(jq -rc .phases "$MAN")" = '["investigate","design","plan","build","verify","closing"]' ] && ok "phases 固化进 manifest" || no "phases 固化"
 [ "$(jq -r .base_commit "$MAN")" = "$BASE" ] && ok "base_commit=本地HEAD" || no "base_commit=本地HEAD"
 [ "$(jq -r .phase_index "$MAN")" = "0" ] && ok "phase_index=0" || no "phase_index=0"
 [ "$(jq -r '.repair_count,.turnaround_count' "$MAN" | tr '\n' ',')" = "0,0," ] && ok "计数器归零" || no "计数器归零"
@@ -42,11 +42,11 @@ jq -e . "$MAN" >/dev/null 2>&1 && ok "manifest 合法 JSON" || no "manifest 合�
 [ "$(git -C "$WT" rev-parse HEAD)" = "$BASE" ] && ok "worktree HEAD=base" || no "worktree HEAD=base"
 
 # --- 重复 new 应拒绝 ---
-if bash "$PREPARE" new --scenario new-design --slug "$SLUG" --title x >/dev/null 2>&1; then
+if bash "$PREPARE" new --scenario develop --slug "$SLUG" --title x >/dev/null 2>&1; then
   no "重复 slug 被拒"; else ok "重复 slug 被拒"; fi
 
 # --- 坏 slug 拒绝 ---
-if bash "$PREPARE" new --scenario new-design --slug "Bad Slug" --title x >/dev/null 2>&1; then
+if bash "$PREPARE" new --scenario develop --slug "Bad Slug" --title x >/dev/null 2>&1; then
   no "坏 slug 被拒"; else ok "坏 slug 被拒"; fi
 
 # --- resume(worktree 内) ---

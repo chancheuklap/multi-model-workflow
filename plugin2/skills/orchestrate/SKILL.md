@@ -29,22 +29,21 @@ bash "${SCRIPTS}/prepare.sh" resume
 | 你怎么开口 | 预设 `scenario` | 默认走的阶段(前置可中途翻开关) |
 | --- | --- | --- |
 | 明确的小改 | `small-change` | 落地 → 验收 → 收尾 |
-| 新想法/功能(清晰或模糊),要一起设计 | `new-design` | 想方案 → 拆计划 → 落地 → 验收 → 收尾 |
-| 反馈/真机发现要优化,要先查清现状 | `optimize` | 查清 → 想方案 → 拆计划 → 落地 → 验收 → 收尾 |
+| 新想法/功能 或 要优化改进(要设计) | `develop` | 查清 → 想方案 → 拆计划 → 落地 → 验收 → 收尾 |
 | bug/报错/regression,根因不明 | `bug` | 查清 → 落地(修) → 验收 → 收尾 |
 | 多个并行 worktree 要合并 | (merge,不开 worktree) | 见下 merge |
 
-新设计和优化是同一主干,只是优化默认多开"查清"。判不准就问一句收窄(一次只问一个)。概念/事实问题直接答,不进 orchestrate。
+新想法和优化是同一条完整主干(`develop`),不分两个预设。判不准就问一句收窄(一次只问一个)。概念/事实问题直接答,不进 orchestrate。
 
 ## Step 2 · 准备(机器一条命令)
 
-### small-change / new-design / optimize / bug —— 建 worktree
+### small-change / develop / bug —— 建 worktree
 
 1. **起名**:从对话主题提一个人类可读、切题的 slug,格式 `YYYY-MM-DD-<theme>`(kebab,如 `2026-06-28-phone-login`)。这个名贯穿 worktree / 分支 / docs 目录,你要在 VSCode 里认得出。**向用户确认一次**(可同时让他改名)。
 
 2. **一条命令建好**(从本地最新 HEAD 分叉,scaffold docs,写 manifest):
    ```bash
-   bash "${SCRIPTS}/prepare.sh" new --scenario <small-change|new-design|optimize|bug> --slug <slug> --title "<人类可读标题>"
+   bash "${SCRIPTS}/prepare.sh" new --scenario <small-change|develop|bug> --slug <slug> --title "<人类可读标题>"
    ```
    回执给出 `worktree_path`。prepare 据预设把开着的阶段序列固化进进度记录(`phases`)。
 

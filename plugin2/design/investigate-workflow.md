@@ -92,4 +92,4 @@ investigate 阶段 reference 指示主线程「跑这个 Workflow」= 合法 Wor
 
 ## 9. 对 routes 的后果
 
-investigate 对 **new-design + optimize + bug** 都 ON(small-change 不开)。new-design 预设加 investigate 后 = optimize 完全相同(都是完整主干)——两个标签保留(开口语义不同:新想法 vs 改现有),phase 列表相同。
+investigate 对 **develop + bug** 都 ON(small-change 不开)。新想法和优化合成一个 `develop` 预设(同一条完整主干、同一阶段序列),不再各列一个标签——曾经的 new-design / optimize 拆分只是无意义的复杂度。

@@ -30,10 +30,10 @@ cmd_new() {
       *) die "未知参数: $1" ;;
     esac
   done
-  [ -n "$scenario" ] || die "--scenario 必填(small-change|new-design|optimize|bug)"
+  [ -n "$scenario" ] || die "--scenario 必填(small-change|develop|bug)"
   [ -n "$slug" ]     || die "--slug 必填"
   [ -n "$title" ]    || die "--title 必填"
-  case "$scenario" in small-change|new-design|optimize|bug) ;; *) die "--scenario 只能 small-change|new-design|optimize|bug(merge 不开 worktree)" ;; esac
+  case "$scenario" in small-change|develop|bug) ;; *) die "--scenario 只能 small-change|develop|bug(merge 不开 worktree)" ;; esac
   printf '%s' "$slug" | grep -Eq '^[a-z0-9][a-z0-9._-]{0,63}$' || die "slug 非法(小写字母数字 . _ -,≤64):$slug"
 
   local top; top="$(git_toplevel)"

@@ -20,8 +20,7 @@
 
   "presets": {
     "small-change": ["build", "verify", "closing"],
-    "new-design":   ["design", "plan", "build", "verify", "closing"],
-    "optimize":     ["investigate", "design", "plan", "build", "verify", "closing"],
+    "develop":      ["investigate", "design", "plan", "build", "verify", "closing"],
     "bug":          ["investigate", "build", "verify", "closing"]
   }
 }

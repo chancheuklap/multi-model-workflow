@@ -20,8 +20,8 @@
     },
     "title": { "type": "string", "description": "人类可读任务标题(中文 OK)" },
     "scenario": {
-      "enum": ["small-change", "new-design", "optimize", "bug"],
-      "description": "开口预设(routes.json presets),只决定默认开主干哪几个阶段。merge 不开 worktree、无 manifest。"
+      "enum": ["small-change", "develop", "bug"],
+      "description": "开口预设(routes.json presets),只决定默认开主干哪几个阶段。develop=新想法或优化(同一完整主干)。merge 不开 worktree、无 manifest。"
     },
     "phases": {
       "type": "array", "items": { "type": "string" }, "minItems": 1,
