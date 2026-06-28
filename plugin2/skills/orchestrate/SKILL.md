@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: "开发工作流主入口。用户给出想法/功能/改造、报 bug、要优化、或要合并多个并行 worktree 时主动使用。入口只做两件事:断点恢复 + 四场景路由(LLM 当场判),随后把机械准备交给 prepare.sh。"
+description: "开发工作流主入口。用户给出想法/功能/改造、报 bug、要优化、或要合并多个并行 worktree 时主动使用。入口只做两件事:断点恢复 + 选预设路由(LLM 当场判),随后把机械准备交给 prepare.sh。"
 ---
 
 # Orchestrate · 入口
