@@ -141,28 +141,7 @@ flowchart TD
 
 ### 停了怎么续:不白死、不重做已做的
 
-```mermaid
-sequenceDiagram
-    participant H as 你
-    participant C as 协调者
-    participant W as 帮手(常驻)
-    participant L as 步账(磁盘)
-
-    C->>W: 派一次(后台)
-    loop 自驱
-        W->>L: 做一步 → 提交 → 脚本记"这步 done"
-        alt 撞必停 / 在场软停
-            W-->>C: 停住返回"要你定 X@第N步"(帮手不死,context 留着)
-            C->>H: 业务措辞问你
-            H->>C: 答复
-            C->>W: 续(同一帮手,context 原封,从那步接着跑)
-        end
-    end
-    W-->>C: 全做完 → 阶段结论词
-    Note over W,L: 帮手当普通 sub-agent · context 长了自动压缩 · 步账兼作进度可视与看守核对
-```
-
-三条续接路,代价不同:
+续接路,代价不同(机制序列见落地文档 `design/loop-engineering.md` §1):
 
 | 出口 | 何时 | 怎么续 | 代价 |
 |---|---|---|---|
