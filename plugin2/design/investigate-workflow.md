@@ -1,0 +1,95 @@
+# Investigate 阶段 · 自建 Workflow 落地规格
+
+> 设计/落地前的「查清现状」。形态 = 主线程跑一个**自建 dynamic Workflow**(仿 deep-research),并行专题投查;**内部代码库 + 外部方案两用**。
+> OVERVIEW 是设计,本文是落地。冲突以 OVERVIEW + 代码为准。
+
+---
+
+## 1. 为什么用 Workflow,不手搓 fan-out
+
+仓库自评估(`dynamic-workflow-assessment.md`)的准入规则 4 条,investigate **全满足**,是评估点名的「最佳契合」环节:
+
+| 准入规则 | investigate |
+|---|---|
+| 纯 Claude-agent 并行 fan-out | ✓ 只读投查全 Claude |
+| 全程自治、无 mid-run HITL | ✓ fan-out 跑完才回主线程,问用户在之后 |
+| 内部不含 Codex | ✓ Codex 是审,不在这 |
+| 不依赖磁盘状态平面 | ✓ 返证据,综合后主线程才写盘 |
+
+Workflow 工具**原生给**:`parallel()` 并行、`agent(...,{schema})` 强制结构化返回、对抗验证 stage——不重造。deep-research 是同款现成证明。
+
+---
+
+## 2. 两用:内部代码库 + 外部方案
+
+同一个 workflow,topic 标 `mode: internal|external`:
+
+| mode | 查什么 | 角度 → 运行时 invoke 的 skill |
+|---|---|---|
+| **internal** | 现状 / 模块边界 / seam / 根因 | `codebase-design` · `improve-codebase-architecture` · `diagnosing-bugs` · `Explore`(内置 agent) |
+| **external** | 现有方案 / 库 / 最佳实践 | `deep-research`(网搜)· `context7`(库文档 MCP) |
+
+---
+
+## 3. 技能原生融入,不摘抄
+
+- workflow 的 `agent()` prompt **指示它运行时 `Skill({ skill: "<角度 skill>" })`** 加载方法论——**引用名字,不拷内容**。
+- 好处:**upstream 原作者维护**,我们定期更新即受益,不漂移、不维护负担。
+- 我们的 workflow 脚本**只编排**(拆题 / 并行 / 验证 / 综合),**不内嵌任何方法论散文**。
+
+---
+
+## 4. 主线程控数量,不无脑 fan out
+
+- 进 investigate,主线程**先评估任务难度 / 广度** → 判定**哪些角度 + 几个 agent**(判断,不脚本化)。
+- 把 `topics` 列表作为 args 传给 Workflow,每项 `{ angle, skill, mode, question }`。
+- Workflow **只 parallel 这几个**——数量由主线程定、有上限:简单 1–2,复杂 4–6,不堆无数个。
+
+---
+
+## 5. Workflow 内部流程(仿 deep-research)
+
+```mermaid
+flowchart LR
+    A["args: 主线程传入 topics(已限量)"] --> P["parallel():每 topic 一个<br/>只读 agent(invoke 角度 skill · schema 返回)"]
+    P --> AV["对抗验证 stage<br/>弱 claim 过滤(取证,非判定)"]
+    AV --> SY["综合 → 带引用现状报告"]
+```
+
+- 每 agent 返回 schema 强制:`{ topic, findings:[{ claim, locator(file:line|url), confidence }], summary, gaps }`。
+- 对抗验证只做**取证**(filter 弱证据);**不做审查判定**——`agent()` 只派 Claude,Claude 评 Claude 有盲区相关 + 假信心(评估红线),审仍归 Codex(后面 ①设计审 loop)。
+
+---
+
+## 6. 返回 + 收口(主线程)
+
+1. Workflow 返结构化证据 + 引用报告。
+2. 主线程**亲验承重事实**(grep/Read 坐实 file:line / 存在性,**子代理是劳动力不是信源**)。
+3. 写 `docs/context`(领域文档,`domain-modeling` 横切维护)+ 一份 research 笔记。
+4. `flow.sh handoff --conclusion pass` → design 阶段用现状报告选 A/B、扎根提问,**不再重探查**。
+
+---
+
+## 7. 红线(评估,守住)
+
+- `agent()` 只派 Claude → 对抗验证当**取证**,绝不当**审查判定**。
+- 只读;fan-out 期间不写状态平面(综合后主线程才写盘)。
+- 同会话 resume 够用(单次 fan-out 断了重跑;阶段级 resume 靠 `manifest.phases`,在 Workflow 之外)。
+- Workflow `agent()` 绕过 Agent-tool 派发门 hook——investigate 只读、本就不需那些门,无影响。
+
+---
+
+## 8. 落点
+
+| 件 | 落到 |
+|---|---|
+| investigate workflow 脚本(只编排) | plugin2(Workflow `scriptPath` / 命名 workflow) |
+| investigate 阶段 reference(指示主线程评估难度→传 topics→跑 Workflow→亲验→综合→handoff) | `plugin2/skills/orchestrate/references/investigate.md` |
+
+investigate 阶段 reference 指示主线程「跑这个 Workflow」= 合法 Workflow opt-in(skill 指令触发)。
+
+---
+
+## 9. 对 routes 的后果
+
+investigate 对 **new-design + optimize + bug** 都 ON(small-change 不开)。new-design 预设加 investigate 后 = optimize 完全相同(都是完整主干)——两个标签保留(开口语义不同:新想法 vs 改现有),phase 列表相同。
