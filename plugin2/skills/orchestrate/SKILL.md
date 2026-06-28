@@ -64,6 +64,7 @@ bash "${SCRIPTS}/prepare.sh" resume
 
 | 阶段 | 加载 | 谁跑 |
 |---|---|---|
+| investigate(查清) | `${SKILL_DIR}/references/investigate.md` | 主线程(评估难度→定 topics→跑自建 Workflow→亲验→综合) |
 | design(想方案) | `Skill({ skill: "write-design-doc" })` | 主线程(跟用户讨论、写设计文档) |
 
 ## Step 3 · 推进(进 worktree 之后的自循环)
