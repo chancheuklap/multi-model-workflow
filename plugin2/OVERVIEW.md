@@ -313,8 +313,8 @@ flowchart TD
     OUT --> SPIN["分叉登记子任务"]:::done
     OUT --> CAP["返工/掉头/上限/停下"]:::done
     OUT --> RES["断点恢复"]:::done
-    OUT --> INNER["内层 loop engineering<br/>(架构已定·待建)"]:::todo
-    OUT --> CONTENT["阶段真实内容<br/>(现空壳)"]:::todo
+    OUT --> INNER["内层 loop 机器<br/>(引擎+看守+红线+记进度)"]:::done
+    OUT --> CONTENT["真内容:worker指令/审提示词/<br/>agent方法论(待忠实搬运)"]:::todo
     IN --> MERGE["merge 合并"]:::todo
     OUT --> UP["中途整体升级"]:::todo
 
@@ -322,8 +322,8 @@ flowchart TD
     classDef todo fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray:4 3
 ```
 
-🟢 已完成并空跑验证(53 项断言):进入路由 · 开工/恢复/清理 · 外层自动换阶段 · 分叉/返工/掉头/上限/停下 · 一份进度记录管全部。
-⬜ 待建:**内层 loop engineering**(架构已定,§4)· 阶段真实内容 · merge · 中途升级。
+🟢 已完成并空跑验证(81 项断言):进入路由 · 开工/恢复/清理 · 外层自动换阶段 · 分叉/返工/掉头/上限/停下 · **内层机器(引擎 loop.sh + 看守/红线/记进度三 hook)** · 一份进度记录管全部。
+⬜ 待建:**真内容**(从旧 plugin 忠实搬:worker 指令 / 审提示词 / agent 方法论)· merge · 中途升级。
 
 ---
 
