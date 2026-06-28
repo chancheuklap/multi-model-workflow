@@ -59,13 +59,13 @@ bash "${SCRIPTS}/prepare.sh" resume
 
 `git worktree list` 列全队 → 逐个读 `<wt>/.claude/multi-model-workflow/task.json` 拿各任务身份与状态 → 进 merge 流程(待建)。
 
-## 阶段内容(从旧/独立系统逐步忠实搬运)
+## 阶段内容
 
-进到某阶段,按该阶段方法论干活。已搬:
+主线程进到某阶段,加载该阶段的 reference/skill 干活,做完按 Step 3 handoff 交还。绑定:
 
-- **想方案 / design** → `Skill({ skill: "write-design-doc" })` —— 主线程跑(跟用户讨论、写设计文档),做完按下方 handoff 交还。
-
-其余阶段(查清 / 拆计划 / 落地 / 验收 / 收尾)内容待搬。
+| 阶段 | 加载 | 谁跑 |
+|---|---|---|
+| design(想方案) | `Skill({ skill: "write-design-doc" })` | 主线程(跟用户讨论、写设计文档) |
 
 ## Step 3 · 推进(进 worktree 之后的自循环)
 
