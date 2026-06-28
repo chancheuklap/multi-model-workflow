@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# loop.sh 内层引擎空跑:看守 exit-check、软停×在场、冒泡、审核 checklist、合同门。
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+LOOP="$SCRIPT_DIR/../loop.sh"
+
+pass=0; fail=0
+ok() { echo "  PASS: $1"; pass=$((pass+1)); }
+no() { echo "  FAIL: $1"; fail=$((fail+1)); }
+ec() { bash "$LOOP" exit-check; }   # exit-check 输出
+
+echo "=== test_loop.sh ==="
+TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+cd "$TMP"; git init -q; git config user.email t@t; git config user.name t; echo s>s; git add -A; git commit -qm s
+
+# ===== 落地 loop:看守逼做完 =====
+bash "$LOOP" init --kind execution >/dev/null
+bash "$LOOP" step add --id 1.1 --desc a >/dev/null
+bash "$LOOP" step add --id 1.2 --desc b >/dev/null
+[ "$(ec)" = "NOT-DONE:steps=1.1,1.2" ] && ok "未做完 → NOT-DONE 列剩余" || no "NOT-DONE ($(ec))"
+bash "$LOOP" step done --id 1.1 --commit abc >/dev/null
+[ "$(ec)" = "NOT-DONE:steps=1.2" ] && ok "做一半仍 NOT-DONE" || no "做一半 ($(ec))"
+bash "$LOOP" step done --id 1.2 >/dev/null
+[ "$(ec)" = "DONE" ] && ok "全 done → DONE(看守放停)" || no "全 done ($(ec))"
+
+# ===== 软停 × 在场开关 =====
+bash "$LOOP" init --kind execution >/dev/null
+bash "$LOOP" step add --id 2.1 --desc x >/dev/null
+# afk:自决+留痕,不写 pause
+bash "$LOOP" attendance --mode afk >/dev/null
+OUT="$(bash "$LOOP" softstop --question "用默认超时?" --default 30s --at-step 2.1)"
+echo "$OUT" | grep -q "AUTO-DECIDED" && ok "afk 软停 → 自决" || no "afk 自决"
+f=".claude/multi-model-workflow/loop-state.json"
+[ "$(jq -r '.decisions|length' "$f")" = "1" ] && ok "afk 自决留痕(decisions)" || no "afk 留痕"
+[ "$(jq -r '.pause' "$f")" = "null" ] && ok "afk 不写 pause、不停" || no "afk 不停"
+# attended:写 pause、停
+bash "$LOOP" attendance --mode attended >/dev/null
+OUT2="$(bash "$LOOP" softstop --question "用默认超时?" --at-step 2.1)"
+echo "$OUT2" | grep -q "PAUSED-SOFT" && ok "在场软停 → 停下问" || no "在场软停"
+[ "$(ec)" = "PAUSED:soft" ] && ok "停着 exit-check=PAUSED(不算 done)" || no "PAUSED ($(ec))"
+bash "$LOOP" resume >/dev/null
+[ "$(jq -r '.pause' "$f")" = "null" ] && ok "resume 清 pause" || no "resume 清"
+
+# ===== 冒泡:永远停 =====
+bash "$LOOP" attendance --mode afk >/dev/null
+bash "$LOOP" surface --kind needs-redirection --question "方向是不是错了?" >/dev/null
+[ "$(ec)" = "PAUSED:needs-redirection" ] && ok "冒泡 afk 也停(needs-redirection)" || no "冒泡停 ($(ec))"
+
+# ===== 审核 loop:checklist 没全 covered 不放 pass =====
+bash "$LOOP" init --kind review >/dev/null
+bash "$LOOP" checklist add --item intent-1 --source design.md:10 >/dev/null
+bash "$LOOP" checklist add --item intent-2 --source design.md:20 >/dev/null
+echo "$(ec)" | grep -q "^NOT-DONE:checklist=intent-1,intent-2" && ok "审:清单没覆盖 → NOT-DONE" || no "审 NOT-DONE ($(ec))"
+bash "$LOOP" checklist cover --item intent-1 --evidence "测过" >/dev/null
+bash "$LOOP" checklist cover --item intent-2 --evidence "测过" >/dev/null
+[ "$(ec)" = "DONE" ] && ok "审:清单全覆盖 + 无 Critical → DONE" || no "审 DONE ($(ec))"
+bash "$LOOP" finding add --severity Critical --confidence 8 --locator foo.py:3 >/dev/null
+echo "$(ec)" | grep -q "open_critical=1" && ok "审:有开口 Critical → 不放 DONE" || no "审 Critical ($(ec))"
+
+# ===== ③合同门:全 pack committed + 合同存在 =====
+bash "$LOOP" init --kind contract-gate >/dev/null
+bash "$LOOP" step add --id p1 --desc pack1 >/dev/null
+bash "$LOOP" checklist add --item contractA --source plan.md >/dev/null
+echo "$(ec)" | grep -q "NOT-DONE:packs=p1;contracts=contractA" && ok "合同门:未达 → NOT-DONE" || no "合同门 NOT-DONE ($(ec))"
+bash "$LOOP" step done --id p1 --commit z >/dev/null
+bash "$LOOP" checklist cover --item contractA --evidence "接上了" >/dev/null
+[ "$(ec)" = "DONE" ] && ok "合同门:全提交+合同在 → DONE" || no "合同门 DONE ($(ec))"
+
+# ===== fail-closed:坏 kind / 缺参 =====
+if bash "$LOOP" init --kind bogus >/dev/null 2>&1; then no "坏 kind 被拒"; else ok "坏 kind 被拒"; fi
+if bash "$LOOP" surface --kind needs-context >/dev/null 2>&1; then no "surface 缺 question 被拒"; else ok "surface 缺 question 被拒"; fi
+
+echo ""; echo "Results: $pass passed, $fail failed"; [ "$fail" -eq 0 ]

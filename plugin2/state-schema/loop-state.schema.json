@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "loop-state",
+  "description": "内层 loop 的状态 ledger,独立于外层 task.json(并列执行档,旧 plugin 双文件模型的思路)。落 <worktree>/.claude/multi-model-workflow/loop-state.json。进一个 loop 阶段时 init,退出时清。看守 hook 和 exit-check 都读它。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "attendance", "steps", "checklist", "findings", "decisions", "pause", "round"],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "kind": {
+      "enum": ["execution", "review", "contract-gate"],
+      "description": "execution=落地 loop(steps);review=审核 loop(checklist+findings);contract-gate=③便宜合同门(steps+checklist 机器核,无判断)"
+    },
+    "attendance": { "enum": ["attended", "afk"], "description": "在场开关,只动软停一档" },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "desc", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "desc": { "type": "string" },
+          "status": { "enum": ["pending", "done", "blocked"] },
+          "commit": { "type": ["string", "null"] }
+        }
+      },
+      "description": "落地=pack;contract-gate=待提交的 pack。主线程展开(steps expand),commit hook 记 done"
+    },
+    "checklist": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["item", "source", "status"],
+        "properties": {
+          "item": { "type": "string" },
+          "source": { "type": "string", "description": "从哪份文档/行抽出" },
+          "status": { "enum": ["open", "covered"] },
+          "evidence": { "type": ["string", "null"] }
+        }
+      },
+      "description": "审核 loop 的覆盖清单(主线程从设计/issue 抽);contract-gate 的合同清单"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["severity", "confidence", "locator"],
+        "properties": {
+          "severity": { "enum": ["Critical", "Important", "Minor"] },
+          "confidence": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "locator": { "type": "string" },
+          "status": { "enum": ["open", "resolved"] }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["at_step", "chose", "why", "at"],
+        "properties": {
+          "at_step": { "type": "string" },
+          "chose": { "type": "string" },
+          "why": { "type": "string" },
+          "at": { "type": "string" }
+        }
+      },
+      "description": "无人值守软停自决留痕,不偷跳"
+    },
+    "pause": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["at_step", "kind", "question"],
+      "properties": {
+        "at_step": { "type": "string" },
+        "kind": { "enum": ["soft", "surface"], "description": "soft=有默认的判断(在场停);surface=缺输入/方向疑(永远停)" },
+        "reason": { "enum": ["needs-context", "needs-redirection", "soft"] },
+        "question": { "type": "string" }
+      },
+      "description": "停了写这里,resume 清空。非 null = 等人答复"
+    },
+    "round": { "type": "integer", "minimum": 0, "description": "修复轮,超 routes.json caps 转第三态" }
+  }
+}
