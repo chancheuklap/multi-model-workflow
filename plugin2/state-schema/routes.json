@@ -1,0 +1,27 @@
+{
+  "schema_version": "1",
+  "description": "流程数据(不是散文)。只有一条主干流程;每种开口(preset)默认开主干里的哪几个阶段。'新设计'和'优化'是同一主干,只是默认开的前置不同——不再各列一张阶段清单。任务建好时把开着的阶段序列固化进进度记录的 phases;flow 据 phases 推进,升级/掉头就是改 phases。merge 不走主干、单列。",
+
+  "conclusions": ["pass", "needs-repair", "needs-redirection", "needs-context", "blocked"],
+
+  "actions": {
+    "pass":              { "do": "advance",     "judgment": false, "note": "本阶段过,进下一开着的阶段;已是末阶段则待收尾" },
+    "needs-repair":      { "do": "repair",      "judgment": false, "note": "本阶段产出有缺,原地返工,计 repair_count,超上限转 blocked" },
+    "needs-redirection": { "do": "turn-around", "judgment": true,  "note": "方向本身错,掉头回首个开着的阶段重来,计 turnaround_count,超上限转 blocked" },
+    "needs-context":     { "do": "ask-user",    "judgment": true,  "note": "缺输入才没法继续,停下问用户,补齐后 resume" },
+    "blocked":           { "do": "report-user", "judgment": true,  "note": "卡住,带完整经过上报用户" }
+  },
+
+  "caps": { "max_repair": 2, "max_turnaround": 1 },
+
+  "spinoff_tags": ["bug", "optimize", "out-of-scope", "needs-evaluation"],
+
+  "backbone": ["investigate", "design", "plan", "build", "verify", "closing"],
+
+  "presets": {
+    "small-change": ["build", "verify", "closing"],
+    "new-design":   ["design", "plan", "build", "verify", "closing"],
+    "optimize":     ["investigate", "design", "plan", "build", "verify", "closing"],
+    "bug":          ["investigate", "build", "verify", "closing"]
+  }
+}
