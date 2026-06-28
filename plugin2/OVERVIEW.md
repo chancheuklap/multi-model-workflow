@@ -6,6 +6,91 @@
 
 ---
 
+## 0. 全局架构 —— 一张图把握
+
+整套系统一张图。颜色 = 谁在干:<span>🟡 主线程(Claude Code,唯一能问你)</span> · <span>🟣 Claude 帮手(隔离上下文劳动力,SendMessage 续)</span> · <span>🔴 Codex 审者(headless,喂我们的审题)</span> · <span>🔵 脚本/hook(确定层,不手搓)</span> · <span>🟢 文档/状态(真相源)</span> · <span>🩷 用户(HITL)</span>。
+
+三个层次:**① 入口**(断点恢复 + 路由)→ **② 外层循环**(六个阶段怎么换,每阶段配一个审)→ 中间 **③ 真相源 + 看守**(状态面 + hooks 兜住确定性)。build 阶段里再嵌一台**内层循环**(loop engineering 自驱落地)。
+
+```mermaid
+flowchart TB
+    USER([用户 · 唯一可被 AskUserQuestion 问]):::user
+
+    subgraph ENTRY["① 入口 orchestrate skill —— 只做断点恢复 + 路由"]
+        direction TB
+        E0["prepare.sh resume<br/>MANAGED 续 / UNMANAGED 新"]:::sh
+        E1{"LLM 路由<br/>看对话当场判,零脚本"}:::ai
+        E2["prepare.sh new<br/>建命名 worktree + scaffold docs<br/>+ 写 task.json,固化 phases"]:::sh
+        E3["EnterWorktree 切 cwd"]:::sh
+        E0 -->|UNMANAGED| E1 -->|"small-change / develop / bug"| E2 --> E3
+    end
+    USER -->|"想法 / 功能 / bug / 优化 / 合并"| E0
+    E0 -->|"MANAGED 断点续传"| HANDOFF
+    E1 -.->|merge| MERGE["合并:不开 worktree<br/>读全队 task.json"]:::sh
+
+    subgraph OUTER["② 外层循环 —— 阶段怎么换(主干 + 预设过滤后的 phases)"]
+        direction TB
+        subgraph PH1["查清 investigate"]
+            W["主线程跑自建 Workflow:parallel 专题<br/>只读 agent(invoke 角度 skill)<br/>→ 取证过滤 → 综合带引用报告"]:::worker
+        end
+        subgraph PH2["想方案 design"]
+            D["write-design-doc<br/>主线程 + 用户讨论"]:::ai --> R1["①设计审 loop"]:::codex
+        end
+        subgraph PH3["拆计划 plan"]
+            PL["plan-writer 帮手<br/>并行多 issue"]:::worker --> R2["②计划审 loop"]:::codex
+        end
+        subgraph PH4["落地 build —— 内层 loop engineering"]
+            direction TB
+            LI["loop.sh init"]:::sh --> WK["Claude 帮手自驱<br/>写测试→实现→验证→commit<br/>SendMessage 续,不重派"]:::worker
+            WK --> RS["record-step hook · PostToolUse<br/>commit→step done"]:::sh
+            RS --> GL{"guard-loop hook · SubagentStop<br/>exit-check 三件套"}:::sh
+            GL -->|"NOT-DONE 还有步"| WK
+            GL -->|"DONE 清单全绿"| R3["③落地审 loop"]:::codex
+        end
+        subgraph PH5["验收 verify"]
+            R4["④终审 loop · 预算最大"]:::codex
+        end
+        subgraph PH6["收尾 closing"]
+            CL["prepare.sh cleanup<br/>合并后删 worktree+分支+状态"]:::sh
+        end
+        PH1 --> PH2 --> PH3 --> PH4 --> PH5 --> PH6
+    end
+    E3 --> PH1
+
+    HANDOFF{"flow.sh handoff 引擎<br/>查 routes.json 算下一步"}:::sh
+    PH1 & PH2 & PH3 & PH4 & PH5 -->|"一个结论词"| HANDOFF
+    HANDOFF ==>|"pass · 进下一开着的阶段"| OUTER
+    HANDOFF -->|"needs-repair 原地返工 · 超 2 次 blocked"| OUTER
+    HANDOFF -->|"needs-redirection 掉头 · 超 1 次 blocked"| OUTER
+    HANDOFF -->|"needs-context 停下问"| USER
+    HANDOFF -->|"blocked 带经过上报"| USER
+    GL -->|"PAUSED 软停/冒泡"| USER
+
+    subgraph STATE["③ 真相源 + 看守(确定层,机器读写)"]
+        direction LR
+        TJ[("task.json 进度档<br/>阶段游标·计数·待办·子任务·history")]:::doc
+        LS[("loop-state.json<br/>步账·清单·findings·attendance")]:::doc
+        RJ[("routes.json<br/>主干·结论·动作·上限")]:::doc
+        GR{"guard-redline hook · PreToolUse<br/>merge/deploy 红线"}:::sh
+    end
+    HANDOFF <-->|"读写游标"| TJ
+    GL <-->|"读写步账"| LS
+    HANDOFF -.->|"查走向"| RJ
+    PH6 -.->|"git merge / push / deploy"| GR
+    GR -->|"无 release-approval → 拒,问你"| USER
+
+    classDef ai fill:#fef3c7,stroke:#d97706,color:#000
+    classDef sh fill:#dbeafe,stroke:#2563eb,color:#000
+    classDef doc fill:#dcfce7,stroke:#16a34a,color:#000
+    classDef worker fill:#ede9fe,stroke:#7c3aed,color:#000
+    classDef codex fill:#fee2e2,stroke:#dc2626,color:#000
+    classDef user fill:#fce7f3,stroke:#db2777,color:#000
+```
+
+怎么读:实线粗箭头 `pass` 是阶段过、往下走的主路;细实线是返工/掉头/上报的分叉;虚线是查状态/查红线。唯一会停下来找你的两类:`needs-context`/`blocked`(外层)和内层软停/冒泡 `PAUSED`,加上发布红线 `guard-redline`。其余全自驱。下面 §1–§12 是这张图每一块的展开。
+
+---
+
 ## 1. 三层结构 —— 整套架构的根
 
 只有三层。**而且这三层既管"阶段之间怎么换",也管"阶段内部怎么落地"——同一条线,用在两个尺度。**
