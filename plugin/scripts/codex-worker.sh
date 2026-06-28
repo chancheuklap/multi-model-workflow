@@ -186,7 +186,7 @@ PROMPT
   #    worktree-of-worktree 时更在父仓库 .git 下；workspace-write 默认只覆盖 cwd，
   #    必须显式放行 git common dir，否则 git commit 写 index.lock/objects 被沙箱拒（Operation not permitted）。
   local git_common_dir
-  git_common_dir=$(cd "$worktree_path" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+  git_common_dir=$(cd "$worktree_path" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || git_common_dir=""
   run_codex_and_ingest "$plan_id" 0 "$prompt_file" \
     exec -C "$worktree_path" --sandbox workspace-write \
     --add-dir "$ABS_STATE_DIR" \
