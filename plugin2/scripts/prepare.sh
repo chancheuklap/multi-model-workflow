@@ -47,8 +47,8 @@ cmd_new() {
   # 从本地最新 HEAD 分叉
   git -C "$top" worktree add -b "$slug" "$wt" HEAD >&2
 
-  local docs_root="docs/orchestrate/$slug"
-  mkdir -p "$wt/$docs_root" "$wt/$STATE_SUBDIR"
+  # 文档落点(write-design-doc 布局):design/issues 按 date-slug,context 项目级共享
+  mkdir -p "$wt/docs/design" "$wt/docs/issues" "$wt/docs/context" "$wt/$STATE_SUBDIR"
 
   # 阶段序列从预设解析:主干被 preset 过滤后的开着阶段(单源,prepare 不硬编码)
   [ -f "$ROUTES" ] || die "找不到 routes.json: $ROUTES"
@@ -61,10 +61,11 @@ cmd_new() {
     --arg sv "1" --arg slug "$slug" --arg title "$title" --arg scenario "$scenario" \
     --argjson phases "$phases_json" \
     --arg status "active" --arg phase "$phase" --arg created "$created" \
-    --arg base "$base" --arg branch "$slug" --arg wt "$wt" --arg docs "$docs_root" \
+    --arg base "$base" --arg branch "$slug" --arg wt "$wt" \
+    --arg ddoc "docs/design/$slug" --arg idir "docs/issues/$slug" --arg ctx "docs/context" \
     '{schema_version:$sv, slug:$slug, title:$title, scenario:$scenario, phases:$phases,
       status:$status, phase:$phase, phase_index:0, created_at:$created, base_commit:$base,
-      branch:$branch, worktree_path:$wt, docs_root:$docs,
+      branch:$branch, worktree_path:$wt, docs:{design:$ddoc, issues:$idir, context:$ctx},
       repair_count:0, turnaround_count:0,
       artifacts:[], open_items:[], subtasks:[], history:[]}' \
     > "$wt/$STATE_SUBDIR/$MANIFEST_NAME"
@@ -76,7 +77,7 @@ worktree_path=$wt
 branch=$slug
 scenario=$scenario
 phase=$phase
-docs_root=$docs_root
+design_doc=docs/design/$slug
 NEXT=EnterWorktree({ path: "$wt" }) 然后进入 $scenario 的 $phase 阶段
 EOF
 }

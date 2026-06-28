@@ -53,7 +53,7 @@ bash "${SCRIPTS}/prepare.sh" resume
    EnterWorktree({ path: "<回执里的 worktree_path>" })
    ```
 
-4. 进入对应场景的第一阶段(见上表)。后续所有产出文档落 `docs_root`(交付物,提交进分支),所有临时状态落 `.claude/multi-model-workflow/`(随 worktree 删除消失)。
+4. 进入对应场景的第一阶段(见上表)。产出文档按 write-design-doc 布局:设计 `docs/design/<slug>.md`、issue `docs/issues/<slug>/`、领域文档项目级 `docs/context/`+CONTEXT-MAP(跨任务共享);全是交付物,提交进分支。临时状态落 `.claude/multi-model-workflow/`(随 worktree 删除消失)。
 
 ### merge —— 不开 worktree
 
