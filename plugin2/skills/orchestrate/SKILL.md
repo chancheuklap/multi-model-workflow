@@ -58,7 +58,7 @@ mmw task resume
 
 ### merge —— 不开 worktree
 
-`git worktree list` 列全队 → 逐个读 `<wt>/.claude/multi-model-workflow/task.json` 拿各任务身份与状态 → 进 merge 流程(待建)。
+加载 `${SKILL_DIR}/references/merge.md`,按它走:`mmw task team` 列全队身份/状态/设计文档 → 排合并序 + 扫业务/设计冲突(非纯 git)→ 逐个 `--no-ff` 合(红线,要人批)+ 解冲突 + cleanup。**在主仓库做,不开新 worktree。**
 
 ## 阶段运行契约(进 worktree 后的主循环)
 
@@ -83,7 +83,7 @@ mmw task resume
 | closing(收尾) | `${SKILL_DIR}/references/closing.md` | 主线程收口 + 合并红线 + 清理 |
 | 审闸(`NEXT_ACTION=review`) | `${SKILL_DIR}/references/review.md` | 主线程起审 loop + 派 Codex 协调帮手 |
 
-> merge(多 worktree 合并)是独立场景、待接;backbone 六阶段已全部接满,接法都照本契约(进/钉/交不变,只填各自的「干」)。
+> merge(多 worktree 合并)是独立场景(不开 worktree、不走 backbone),见 `references/merge.md`。backbone 六阶段 + merge 已全部接满,接法都照本契约。
 
 **③ 钉 + ④ 交 —— 一条 handoff:**
 

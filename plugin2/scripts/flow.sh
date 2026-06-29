@@ -29,11 +29,12 @@ write_manifest() { local m="$1" tmp; tmp="$(mktemp)"; cat > "$tmp"; mv "$tmp" "$
 
 # ---------- handoff ----------
 cmd_handoff() {
-  local conclusion="" ; local -a produced=()
+  local conclusion="" to_phase="" ; local -a produced=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --conclusion) conclusion="$2"; shift 2 ;;
       --produced)   produced+=("$2"); shift 2 ;;
+      --to-phase)   to_phase="$2"; shift 2 ;;   # needs-redirection 回到指定上游阶段(默认首阶段)
       *) die "未知参数: $1" ;;
     esac
   done
@@ -103,9 +104,17 @@ cmd_handoff() {
         new_status="blocked"; next_action="report-user"
         human="掉头已达上限 $max_turn → blocked,上报用户"
       else
-        new_pidx=0; new_rc=0; new_phase="$first_phase"
-        next_action="turn-around"; next_phase="$first_phase"
-        human="方向错 → 掉头回 [$first_phase](第 $new_tc/$max_turn 次)"
+        # 默认回首阶段;--to-phase 指定回上游任一开着的阶段(必须在 phases 内且不晚于当前)
+        local tgt_idx=0 tgt_phase="$first_phase"
+        if [ -n "$to_phase" ]; then
+          tgt_idx="$(jq -r --arg p "$to_phase" '.phases | index($p) // -1' "$m")"
+          [ "$tgt_idx" != "-1" ] || die "--to-phase 不在本任务 phases 内: $to_phase"
+          [ "$tgt_idx" -le "$pidx" ] || die "--to-phase 必须是上游(≤当前阶段),不能往前跳: $to_phase"
+          tgt_phase="$to_phase"
+        fi
+        new_pidx="$tgt_idx"; new_rc=0; new_phase="$tgt_phase"; new_gate=""
+        next_action="turn-around"; next_phase="$tgt_phase"
+        human="方向错 → 掉头回 [$tgt_phase](第 $new_tc/$max_turn 次)"
       fi
       ;;
     needs-context)

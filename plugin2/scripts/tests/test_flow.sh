@@ -110,6 +110,26 @@ if ( cd "$WE" && bash "$FLOW" handoff >/dev/null 2>&1 ); then no "缺结论被�
 if ( cd "$WE" && bash "$FLOW" handoff --conclusion bogus >/dev/null 2>&1 ); then no "非法结论词被拒"; else ok "非法结论词被拒"; fi
 if ( cd "$WE" && bash "$FLOW" spinoff --tag nope --finding x >/dev/null 2>&1 ); then no "非法 tag 被拒"; else ok "非法 tag 被拒"; fi
 
+# ===== D2: needs-redirection --to-phase 回上游任一指定阶段 =====
+WD2="$(newtask develop 2026-06-28-task-d2)"
+( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # investigate→design
+( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # design→①审闸
+( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # ①审过→plan
+[ "$(mphase "$WD2")" = "plan" ] && ok "D2 到 plan" || no "D2 到 plan ($(mphase "$WD2"))"
+( cd "$WD2" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design >/dev/null )
+[ "$(mphase "$WD2")" = "design" ] && ok "掉头 --to-phase design 回到 design(非首阶段)" || no "to-phase design ($(mphase "$WD2"))"
+[ "$(mfield "$WD2" phase_index)" = "1" ] && ok "--to-phase 回到正确下标" || no "to-phase 下标"
+# 不带 --to-phase 默认回首阶段
+WD3="$(newtask develop 2026-06-28-task-d3)"
+( cd "$WD3" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # →design
+( cd "$WD3" && bash "$FLOW" handoff --conclusion needs-redirection >/dev/null )  # 无 to-phase
+[ "$(mphase "$WD3")" = "investigate" ] && ok "无 --to-phase 默认回首阶段" || no "默认首阶段"
+# --to-phase 非法(不在 phases / 往前跳)被拒
+WD4="$(newtask develop 2026-06-28-task-d4)"
+( cd "$WD4" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # →design(idx1)
+if ( cd "$WD4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase nope >/dev/null 2>&1 ); then no "to-phase 不存在被拒"; else ok "to-phase 不存在被拒"; fi
+if ( cd "$WD4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase build >/dev/null 2>&1 ); then no "to-phase 往前跳被拒"; else ok "to-phase 往前跳被拒(只能上游)"; fi
+
 # ===== F: small-change 只走 build→verify→closing(验证预设开关) =====
 WSC="$(newtask small-change 2026-06-28-task-sc)"
 [ "$(mphase "$WSC")" = "build" ] && ok "small-change 起于 build(前置全关)" || no "small-change 起于 build ($(mphase "$WSC"))"

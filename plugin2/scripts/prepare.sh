@@ -117,9 +117,30 @@ cmd_cleanup() {
   echo "CLEANED slug=$slug"
 }
 
+# ---------- team(merge 用:列全队在管 worktree 的身份与状态) ----------
+cmd_team() {
+  local top; top="$(git_toplevel)"
+  in_worktree "$top" && die "在 worktree 内;merge 回主仓库执行"
+  local wtroot="$top/.claude/worktrees"
+  [ -d "$wtroot" ] || { echo "TEAM 空(无在管 worktree)"; return 0; }
+  echo "TEAM"
+  local found=0
+  for d in "$wtroot"/*/; do
+    local man="$d$STATE_SUBDIR/$MANIFEST_NAME"
+    [ -f "$man" ] || continue
+    found=1
+    # 每队员一行 JSON:身份 + 状态 + 设计文档(merge 据此查业务/设计冲突,非纯 git)
+    jq -c '{slug, title, scenario, phase, status, branch, base_commit,
+            design: .docs.design, worktree: .worktree_path,
+            open_items: (.open_items|length), subtasks: (.subtasks|length)}' "$man"
+  done
+  [ "$found" = 1 ] || echo "(无合法 manifest)"
+}
+
 case "${1:-}" in
   new)     shift; cmd_new "$@" ;;
   resume)  shift; cmd_resume "$@" ;;
   cleanup) shift; cmd_cleanup "$@" ;;
-  *) die "用法: prepare.sh new|resume|cleanup ..." ;;
+  team)    shift; cmd_team "$@" ;;
+  *) die "用法: prepare.sh new|resume|cleanup|team ..." ;;
 esac

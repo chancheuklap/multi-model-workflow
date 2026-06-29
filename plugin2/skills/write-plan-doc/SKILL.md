@@ -15,6 +15,16 @@ description: "把已评审的设计文档 + issue 拆成执行者零上下文也
 
 设计已评审通过 + issue 已就绪(design 阶段产出,从 `prev_outputs` 读)。缺设计 → handoff `needs-context` 回 design。一个大 issue 对应一份 plan。
 
+## 模式(先判,决定派不派 subagent)
+
+| | 单计划 · 主线程内联 | 多计划 · subagent fan-out(默认) |
+|---|---|---|
+| 何时 | **只一个大 issue、且不大不复杂** | 多个大 issue,或单个但大/需深探代码 |
+| 怎么写 | **主线程自己**照 `references/task-pack.md` + `plan-rigor.md` 直接写这份 plan(自己拆小 issue + Task Pack),不派 plan-writer——省一次派发往返 | 见 Step 3,逐 issue 派 `plan-writer` |
+| 跨 plan 合同 | 无(单计划),跳 Step 2 / Step 5 | Step 2 写骨架、Step 5 回填 |
+
+判据是**规模与并行收益**:单计划主线程内联更快(无 subagent 开销);多计划/大计划才下放 plan-writer 换并行 + 上下文隔离。下面 Step 1–6 是多计划全流程;单计划内联只走 Step 1(映射,这里就一份)+ 自己写 + Step 6 就绪门 + 收尾 handoff。
+
 ## 两个角色（写作下放，编排上收）
 
 | 角色 | 谁 | 职责 |

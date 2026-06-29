@@ -60,6 +60,12 @@ echo "$ROUT" | tail -n +2 | jq -e --arg s "$SLUG" '.slug==$s' >/dev/null 2>&1 &&
 RMAIN="$(bash "$PREPARE" resume 2>/dev/null)"
 [ "$RMAIN" = "UNMANAGED" ] && ok "主仓库 resume=UNMANAGED" || no "主仓库 resume=UNMANAGED"
 
+# --- team(merge 用:列全队 manifest)---
+TEAM="$(bash "$PREPARE" team 2>/dev/null)"
+echo "$TEAM" | head -1 | grep -q "^TEAM" && ok "team 返回 TEAM" || no "team 返回 TEAM"
+echo "$TEAM" | tail -n +2 | jq -e --arg s "$SLUG" '.slug==$s and (.design|type=="string")' >/dev/null 2>&1 \
+  && ok "team 列出队员身份 + 设计文档路径(供 merge 查冲突)" || no "team 列队员"
+
 # 在 worktree 里做一次真提交,让分支与主线分叉(否则 base==HEAD,trivially merged)
 ( cd "$WT" && echo work > feature.txt && git add -A && git commit -qm "feature work" )
 
