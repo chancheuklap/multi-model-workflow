@@ -5,7 +5,7 @@ description: "把模糊的功能想法 / bug / 反馈 / 截图 / PRD 讨论成�
 
 # write-design-doc
 
-读 propose 钉的选定方向 + investigate 现状报告 → 选路（访谈 A / 综合 B）→ 与用户讨论细化选定方向 → 设计文档（+ 项目领域文档）→ 自检 → 拆 issue 立骨架 → handoff。
+读 propose 钉的选定方向 + investigate 现状报告 → 与用户讨论细化选定方向（涉 UI/UX 则 prototype + mockup）→ 设计文档（+ 项目领域文档）→ 自检 → 拆 issue 立骨架 → handoff。
 
 > **方向已定**：给 2-3 方案、HITL 指定哪个,是上游 propose 阶段做的(`prev_outputs` 带来 `docs/design/<slug>-direction.md`)。本 skill 不再提方案、不重选向——只把**已选定的方向**细化成设计文档。被事实击穿要换向 → handoff `needs-redirection` 回上游,别在这重摆备选。
 
@@ -19,8 +19,9 @@ description: "把模糊的功能想法 / bug / 反馈 / 截图 / PRD 讨论成�
 
 | 步 | 干什么 | 读哪份（整份） |
 |---|---|---|
-| **讨论** | 选路 A/B、Step 0–4、挑战前提、定 scope、细化方向、领域对齐——设计阶段全部讨论方法论 + 角色声音 + Hard Gate 细则 | `references/discussion.md` |
+| **讨论** | Step 0–4、挑战前提、定 scope、细化选定方向、领域对齐——设计阶段全部讨论方法论 + 角色声音 + Hard Gate 细则 | `references/discussion.md` |
 | **架构严谨度** | 细化方向时的架构判断本能 | `references/design-rigor.md` |
+| **prototype / mockup** | 设计涉 UI/UX 或非平凡状态模型时:prototype 验状态模型、html mockup 定 UI/UX,产物原子拆进 acceptance | `references/prototype-mockup.md` |
 | **写文档** | 信息足 + 方向确认后按模板一次成文（写作规则 / section 清单 / 每节细则 / UI 对照 / Cross-Plan Anchors 占位全在模板里，单一源） | `references/design-doc-template.md` |
 | **自检** | 保存前逐条过，再告诉用户"设计文档已写入 `<path>`，请审阅" | `references/design-self-check.md` |
 
