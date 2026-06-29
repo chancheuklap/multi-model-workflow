@@ -13,16 +13,17 @@ description: "开发工作流主入口。用户给出想法/功能/改造、报 
 
 ---
 
-## Step 0 · 先试断点恢复
+## Step 0 · 先跑 `mmw where`(它自带指路)
 
 无脑先跑一次(无论在哪):
 
 ```bash
-mmw task resume
+mmw where
 ```
 
-- 输出 `MANAGED` + 一段 JSON → **当前 worktree 是个在管任务**。再跑一次 `mmw where` 拿精确位置(阶段/下标/计数/待办数),一句话告诉用户"你在 `<title>`,场景 `<scenario>`,阶段 `<phase>`",直接进该 phase 继续。**跳过 Step 1。**
-- 输出 `UNMANAGED` → 当前不是在管任务(在主仓库,或 worktree 里没 manifest)→ 进 Step 1。
+`where` 一条命令同时管冷启动和在途,**照它的输出走,不背流程**:
+- **在管任务**(在 worktree 里)→ 报 `phase` / `gate` / `prev_outputs` + `load`(读哪)/ `do`(干啥)/ `then`(交啥)。一句话告诉用户"你在 `<phase>`",然后照 `load`/`do`/`then` 干。**跳过 Step 1。**
+- **`UNMANAGED` + 起始选项菜单**(在主仓库)→ 不是在管任务。菜单列全了所有开口(small-change / develop / bug / merge),进 Step 1 据对话选一个。
 
 ## Step 1 · 路由(LLM 判,零脚本)
 
@@ -66,25 +67,26 @@ mmw task resume
 
 | 动作 | 做什么 | 命令 / 机制 |
 |---|---|---|
-| **① 进** | `where` 告诉你在哪阶段、在不在审闸、上阶段钉了什么产出(`prev_outputs` 照单读,不自己找);按当前阶段查下表加载该阶段指南 | `mmw where` |
-| **② 干** | 跑该阶段方法论(唯一因阶段而异)。读 `prev_outputs` 当输入 | 见下「阶段 → 加载」表 |
+| **① 进** | `where` 直接报:在哪阶段、在不在审闸、上阶段钉了什么(`prev_outputs` 照单读)、**`load`=读哪份、`do`=干什么、`then`=交什么**。照 `load` 加载,不用背下表 | `mmw where` |
+| **② 干** | 按 `where` 给的 `do` 跑该阶段方法论(唯一因阶段而异),读 `prev_outputs` 当输入 | `load` 指向的 reference / Skill |
 | **③ 钉** | 把本阶段产出钉进接力单,下阶段照单读 | handoff 的 `--produced` |
 | **④ 交** | 给一个结论词,引擎算下一步、写进度、回执;**照回执跳(见下「回执 → 怎么跳」表)**,不自己猜下一步、不手写状态 | `mmw handoff` |
 
 **这是个循环**:④ 交完拿到回执 → 按回执跳到目标阶段 → 回 ① 进(`mmw where` 读新阶段位置)→ ② 干 → ③ 钉 → ④ 交……直到回执说收尾。阶段间的"跳"全靠回执驱动,你不预判、不跳号。
 
-**② 干 —— 阶段 → 加载该阶段指南:**
+**② 干 —— `where` 的 `load` 指到哪就读哪(下表是 `routes.json` 的 `phase_bindings` 镜像,运行时不用背,`where` 会直接报):**
 
-| 阶段 | 加载 | 谁跑 |
+| 阶段 | `load`(读哪) | 谁跑 |
 |---|---|---|
-| investigate(查清) | `${SKILL_DIR}/references/investigate.md` | 主线程跑自建 Workflow |
-| design(想方案) | `Skill({ skill: "write-design-doc" })` | 主线程跟用户讨论 |
-| plan(拆计划) | `Skill({ skill: "write-plan-doc" })` | 主线程编排 + 派 plan-writer |
-| build(落地) | `${SKILL_DIR}/references/build.md` | 主线程派帮手跑落地 loop |
-| verify(验收=④终审) | `${SKILL_DIR}/references/review.md`(final) | 主线程起终审 loop |
-| closing(收尾) | `${SKILL_DIR}/references/closing.md` | 主线程收口 + 合并红线 + 清理 |
-| 审闸(`NEXT_ACTION=review`) | `${SKILL_DIR}/references/review.md` | 主线程起审 loop + 派 Codex 协调帮手 |
+| investigate(查清) | `references/investigate.md` | 主线程跑自建 Workflow |
+| design(想方案) | `Skill:write-design-doc` | 主线程跟用户讨论 |
+| plan(拆计划) | `Skill:write-plan-doc` | 主线程编排 + 派 plan-writer |
+| build(落地) | `references/build.md` | 主线程派 Codex 落地 + 自己验 |
+| verify(验收=④终审) | `references/review.md` | 主线程起终审 loop |
+| closing(收尾) | `references/closing.md` | 主线程收口 + 合并红线 + 清理 |
+| 审闸(`gate` 非空) | `references/review.md` | 主线程起审 loop + 派 Codex 协调帮手 |
 
+> reference 路径相对 `${SKILL_DIR}`;`Skill:X` = `Skill({ skill: "X" })`。改阶段绑定改 `routes.json` 的 `phase_bindings` 单源,本表跟着同步。
 > merge(多 worktree 合并)是独立场景(不开 worktree、不走 backbone),见 `references/merge.md`。backbone 六阶段 + merge 已全部接满,接法都照本契约。
 
 **③ 钉 + ④ 交 —— 一条 handoff:**

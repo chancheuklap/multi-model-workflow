@@ -176,9 +176,27 @@ cmd_spinoff() {
   echo "SPUN-OFF tag=$tag from=$cur_phase(已登记为关联子任务,主流程继续)"
 }
 
-# ---------- where(只读,算下一步,不推进) ----------
+# 找 manifest,没有不报错(冷启动用)
+find_manifest() {
+  local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
+  local m="$top/$STATE_SUBDIR/$MANIFEST_NAME"
+  [ -f "$m" ] || return 1
+  echo "$m"
+}
+
+# ---------- where(只读,算"你在哪 + 下一步具体干嘛",不推进) ----------
+# 自带指路:冷启动枚举起始选项;在途按 phase_bindings 报 load/do/then,不靠背 SKILL。
 cmd_where() {
-  local m; m="$(manifest_path)"
+  local m
+  if ! m="$(find_manifest)"; then
+    # 冷启动:不是在管任务 → 枚举起始选项(单源 routes.start_options),指向 task new
+    echo "UNMANAGED"
+    echo "当前不是在管任务。看需求选一个起始选项,再 mmw task new:"
+    jq -r '.start_options[] | "  [\(.scenario)] \(.when) → \(.phases_note)"' "$ROUTES"
+    echo "命令: mmw task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title \"<标题>\""
+    echo "merge: 不开 worktree,直接走 references/merge.md;概念/事实问题不进 orchestrate,直接答。"
+    return 0
+  fi
   local scenario phase pidx status rc tc
   scenario="$(jq -r .scenario "$m")"; phase="$(jq -r .phase "$m")"
   pidx="$(jq -r .phase_index "$m")"; status="$(jq -r .status "$m")"
@@ -186,16 +204,28 @@ cmd_where() {
   local phases gate prev_out; phases="$(jq -rc '.phases' "$m")"; gate="$(jq -r '.gate // "null"' "$m")"
   # 接力单:上一个开着阶段的钉死产出(给"进"动作照单读,不靠自己找)
   prev_out="$(jq -rc --argjson i "$pidx" 'if $i>0 then (.phase_outputs[.phases[$i-1]] // []) else [] end' "$m")"
+  # 指路:gate 非空(在审闸里)用 review_gate 绑定,否则用当前阶段绑定
+  local bkey="$phase"
+  { [ "$gate" != "null" ] && [ -n "$gate" ]; } && bkey="review_gate"
+  local b_load b_do b_prod
+  b_load="$(jq -r --arg k "$bkey" '.phase_bindings[$k].load // "?"' "$ROUTES")"
+  b_do="$(jq -r --arg k "$bkey" '.phase_bindings[$k].do // "?"' "$ROUTES")"
+  b_prod="$(jq -r --arg k "$bkey" '.phase_bindings[$k].produced // ""' "$ROUTES")"
+  local then_cmd="mmw handoff --conclusion <pass|needs-repair|needs-redirection|needs-context|blocked>"
+  [ -n "$b_prod" ] && then_cmd="$then_cmd --produced $b_prod"
   cat <<EOF
 scenario=$scenario
 phase=$phase
 phase_index=$pidx
 gate=$gate
 status=$status
+load=$b_load
+do=$b_do
+then=$then_cmd
+prev_outputs=$prev_out
 repair_count=$rc
 turnaround_count=$tc
 phases=$phases
-prev_outputs=$prev_out
 phase_outputs=$(jq -rc '.phase_outputs' "$m")
 subtasks=$(jq -r '.subtasks | length' "$m")
 open_items=$(jq -r '.open_items | length' "$m")
