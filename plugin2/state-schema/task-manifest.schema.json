@@ -48,7 +48,7 @@
       "required": ["investigating", "design", "issues", "context"],
       "properties": {
         "investigating": { "type": "string", "description": "查清报告存档基路径,investigate 写 <base>.md(命名同设计文档)" },
-        "design": { "type": "string", "description": "设计文档基路径,write-design-doc 写 <base>.md(单)或 <base>/(多)" },
+        "design": { "type": "string", "description": "设计文档基路径,design 阶段写 <base>.md(单)或 <base>/(多)" },
         "issues": { "type": "string", "description": "本任务 issue 目录" },
         "context": { "type": "string", "description": "项目级领域文档目录(跨任务共享,domain-modeling 在 design 阶段维护,非本任务私有)" }
       },

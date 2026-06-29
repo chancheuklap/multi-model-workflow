@@ -16,7 +16,7 @@
 
 | 角色 | 谁 | 职责 |
 |---|---|---|
-| **主 Agent(你)** | 本 skill 驱动者 | 读 design + issue → 写跨 plan 合同骨架进设计文档 → fan-out plan-writer → 亲验返回 → 回填合同细节 → 就绪门 → handoff |
+| **主 Agent(你)** | 本阶段 驱动者 | 读 design + issue → 写跨 plan 合同骨架进设计文档 → fan-out plan-writer → 亲验返回 → 回填合同细节 → 就绪门 → handoff |
 | **plan-writer** | 派出的 sub-agent(`subagent_type: "plan-writer"`) | 拿(带合同骨架的)设计文档 + 单个大 issue + 方法论 reference,**自己把大 issue 拆成小 issue**,写出一份自洽 plan(Header + Task Pack + TDD 步骤 + 验收)。拆分、写作纪律、Self-Check 都在它身上 |
 
 **合同分两层**:跨 plan 合同骨架(主 Agent 在 Step 2 写进设计文档 `## Cross-Plan Contract Anchors`,给并行 writer 不撞车的硬边界);每份 plan 的 Global Constraints / File Map / 内部 Dependency Graph(writer 从设计抄 + 自己写进 plan header)。
@@ -57,7 +57,7 @@ Bad: "制定了全面的实施计划,涵盖所有功能模块。"
 - **落点**:`docs/plans/<slug>/00N-<issue-slug>.md`(slug 与源设计 / issue 对齐,已含日期;多 plan 同一目录)
 - **源设计文档路径**(含 Step 2 的合同骨架:architecture / `## 合同边界` / `## Cross-Plan Contract Anchors`——writer 据此知道能碰哪些文件、provide/consume 哪些接口)
 - **该 writer 负责的 issue 文件路径**(`## Small issues` 多为 `<!-- PENDING -->`,writer 自己拆 + 写回)
-- **方法论 reference 路径**:`${SKILL_DIR}/references/task-pack.md` + `${SKILL_DIR}/references/plan-rigor.md`
+- **方法论 reference 路径**:`task-pack.md` + `plan-rigor.md`(同目录)
 - **mockup 目录**(若 `docs/mockups/<slug>/` 存在)
 
 **不要**把别的 writer 的历史 / 别的 plan 内容粘进去——每个 dispatch 独立、零交叉污染。单 issue → 单 plan:派一个就行,不强行并行。
