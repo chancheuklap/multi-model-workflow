@@ -69,7 +69,9 @@ mmw task resume
 | **① 进** | `where` 告诉你在哪阶段、在不在审闸、上阶段钉了什么产出(`prev_outputs` 照单读,不自己找);按当前阶段查下表加载该阶段指南 | `mmw where` |
 | **② 干** | 跑该阶段方法论(唯一因阶段而异)。读 `prev_outputs` 当输入 | 见下「阶段 → 加载」表 |
 | **③ 钉** | 把本阶段产出钉进接力单,下阶段照单读 | handoff 的 `--produced` |
-| **④ 交** | 给一个结论词,引擎算下一步、写进度、回执;你照回执走,**不自己猜下一步、不手写状态** | `mmw handoff` |
+| **④ 交** | 给一个结论词,引擎算下一步、写进度、回执;**照回执跳(见下「回执 → 怎么跳」表)**,不自己猜下一步、不手写状态 | `mmw handoff` |
+
+**这是个循环**:④ 交完拿到回执 → 按回执跳到目标阶段 → 回 ① 进(`mmw where` 读新阶段位置)→ ② 干 → ③ 钉 → ④ 交……直到回执说收尾。阶段间的"跳"全靠回执驱动,你不预判、不跳号。
 
 **② 干 —— 阶段 → 加载该阶段指南:**
 
@@ -91,12 +93,23 @@ mmw task resume
 mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 ```
 
-- **结论词**统一五选一(`pass` / `needs-repair` / `needs-redirection` / `needs-context` / `blocked`),选哪个是你的判断;选完引擎查 `routes.json` 算 `NEXT_ACTION` / `NEXT_PHASE` / `STATUS`。缺结论或词非法当场拦(fail-closed)。
+- **结论词**统一五选一(`pass` / `needs-repair` / `needs-redirection` / `needs-context` / `blocked`),选哪个是你的判断;选完引擎查 `routes.json` 算回执。缺结论或词非法当场拦(fail-closed)。
 - **`--produced` 必带本阶段的承重产出**(investigate→现状报告;design→设计文档;plan→plan 目录;build→提交范围;verify→终审报告)——它钉进接力单,下阶段靠它接,不靠"自己找"。
-- **回执 `NEXT_ACTION=review`**(design/plan 产物过 → 进审闸,见 `REVIEW_STAGE`):别 advance,先按 `references/review.md` 跑该阶段审 loop,审完再 handoff verdict——`pass` 才进下一阶段,`needs-repair` 回本阶段返工。
+
+**回执 → 怎么跳**(回执三行 `NEXT_ACTION` / `NEXT_PHASE` / `STATUS`,照这张表行动,这就是阶段间流转的全部规则):
+
+| `NEXT_ACTION` | `STATUS` | 你下一步 |
+|---|---|---|
+| `advance` | active | 往下跳:回 ① 进,对 `NEXT_PHASE` 跑 `mmw where`,按加载表干新阶段。**正常前进就是这条。** |
+| `review` | active | 别 advance(phase 没动)。进审闸:按 `references/review.md` 跑 `REVIEW_STAGE` 的审 loop;审完再 `handoff` 一次 verdict —— `pass` 才真 advance,`needs-repair` 回本阶段返工。 |
+| `repair` | active | 留在本阶段返工:回 ② 干按缺陷改,改完再 `handoff`。 |
+| `turn-around` | active | 掉头回上游:对 `NEXT_PHASE`(上游阶段)回 ① 进重跑。 |
+| `ask-user` | waiting-user | 停。把缺的输入问用户(在场 `AskUserQuestion`);补齐后 `mmw task resume` 续本阶段。 |
+| `report-user` | blocked | 停。带完整经过上报用户,等指示——别自己硬闯。 |
+| `done` | ready-to-close | 末阶段过 → 回主仓库 `mmw task cleanup` 收尾(见下)。 |
+
 - 中途挖到 bug / 旁路优化 → 登记关联子任务,主流程不动:`mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`。
-- 返工/掉头有上限,命令计数强制,到顶自动转 `blocked`,绝不无限往返。
-- `STATUS=ready-to-close` → 末阶段过,回主仓库 cleanup 收尾。
+- `repair`/`turn-around` 有上限(引擎命令计数强制),到顶自动转 `report-user`(STATUS=blocked),绝不无限往返。
 
 **断点续传**:任何时候 `mmw where` + 接力单就够你接着跑——进度、游标、各阶段产出全在 manifest,不靠会话记忆。
 
