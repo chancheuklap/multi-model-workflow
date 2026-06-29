@@ -8,20 +8,21 @@
   "plugins": [
     {
       "name": "multi-model-workflow",
-      "description": "Multi-model orchestration: Claude agents for coding + Codex agents for independent review. Task Pack batching, automated review loops, worktree isolation.",
-      "version": "5.2.1",
+      "description": "多模型开发编排:设计/计划阶段与主线程对齐(HITL 集中在此),落地/审阶段放权自主跑——Codex 写码 + Claude 验收、四审 loop、worktree 隔离、断点续传。",
+      "version": "6.0.0",
       "author": {
         "name": "Cheuk Lap Chan",
         "email": "chancheuklapincn@gmail.com"
       },
-      "source": "./plugin",
+      "source": "./plugin2",
       "category": "development",
       "tags": [
         "multi-model",
         "orchestration",
+        "codex",
+        "worktree",
         "code-review",
-        "task-pack",
-        "codex-review"
+        "hitl"
       ]
     }
   ]

@@ -58,7 +58,7 @@ Bad: "制定了全面的实施计划,涵盖所有功能模块。"
 - **源设计文档路径**(含 Step 2 的合同骨架:architecture / `## 合同边界` / `## Cross-Plan Contract Anchors`——writer 据此知道能碰哪些文件、provide/consume 哪些接口)
 - **该 writer 负责的 issue 文件路径**(`## Small issues` 多为 `<!-- PENDING -->`,writer 自己拆 + 写回)
 - **方法论 reference 路径**:`task-pack.md` + `plan-rigor.md`(同目录)
-- **mockup 目录**(若 `docs/mockups/<slug>/` 存在)
+- **mockup 目录**(若 `docs/design/<slug>/mockup/` 存在)
 
 **不要**把别的 writer 的历史 / 别的 plan 内容粘进去——每个 dispatch 独立、零交叉污染。单 issue → 单 plan:派一个就行,不强行并行。
 
