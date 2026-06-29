@@ -30,6 +30,10 @@ WA="$(newtask develop 2026-06-28-task-a)"
 ( cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/design.md >/dev/null )  # investigate→design
 [ "$(mphase "$WA")" = "design" ] && ok "investigate pass→design" || no "investigate→design ($(mphase "$WA"))"
 [ "$(mfield "$WA" 'artifacts|length')" = "1" ] && ok "产出登记进 artifacts" || no "产出登记"
+# 接力单:产出钉进 phase_outputs[investigate],下阶段 where 照单读
+[ "$(mfield "$WA" 'phase_outputs.investigate[0]')" = "docs/design.md" ] && ok "产出钉进接力单 phase_outputs[investigate]" || no "接力单钉死"
+WPO="$(cd "$WA" && bash "$FLOW" where)"
+echo "$WPO" | grep -q 'prev_outputs=\["docs/design.md"\]' && ok "where 报上阶段产出(prev_outputs 照单读)" || no "prev_outputs 照单读"
 
 ( cd "$WA" && bash "$FLOW" spinoff --tag bug --finding "中途挖到登录态丢失" >/dev/null )
 [ "$(mfield "$WA" 'subtasks|length')" = "1" ] && ok "甩支线→子任务登记" || no "甩支线登记"

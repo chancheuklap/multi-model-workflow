@@ -52,39 +52,50 @@ bash "${SCRIPTS}/prepare.sh" resume
    EnterWorktree({ path: "<回执里的 worktree_path>" })
    ```
 
-4. 进入对应场景的第一阶段(见上表)。产出文档按 write-design-doc 布局:设计 `docs/design/<slug>.md`、issue `docs/issues/<slug>/`、领域文档项目级 `docs/context/`+CONTEXT-MAP(跨任务共享);全是交付物,提交进分支。临时状态落 `.claude/multi-model-workflow/`(随 worktree 删除消失)。
+4. 进 worktree 后,按下面**阶段运行契约**逐阶段推进(第一阶段见路由表)。文档产出提交进分支(设计 `docs/design/`、issue `docs/issues/`、领域 `docs/context/`);临时状态落 `.claude/multi-model-workflow/`(随 worktree 删)。
 
 ### merge —— 不开 worktree
 
 `git worktree list` 列全队 → 逐个读 `<wt>/.claude/multi-model-workflow/task.json` 拿各任务身份与状态 → 进 merge 流程(待建)。
 
-## 阶段内容
+## 阶段运行契约(进 worktree 后的主循环)
 
-主线程进到某阶段,加载该阶段的 reference/skill 干活,做完按 Step 3 handoff 交还。绑定:
+**进 worktree 后,你对每个阶段都做同样 4 个动作。** 阶段之间唯一变的是「干」用哪套方法论;进 / 钉 / 交完全一样。这是整条 run 的骨架——别给某个阶段另搞一套流程。
+
+| 动作 | 做什么 | 命令 / 机制 |
+|---|---|---|
+| **① 进** | `where` 告诉你在哪阶段、在不在审闸、上阶段钉了什么产出(`prev_outputs` 照单读,不自己找);按当前阶段查下表加载该阶段指南 | `bash "${SCRIPTS}/flow.sh" where` |
+| **② 干** | 跑该阶段方法论(唯一因阶段而异)。读 `prev_outputs` 当输入 | 见下「阶段 → 加载」表 |
+| **③ 钉** | 把本阶段产出钉进接力单,下阶段照单读 | handoff 的 `--produced` |
+| **④ 交** | 给一个结论词,引擎算下一步、写进度、回执;你照回执走,**不自己猜下一步、不手写状态** | `bash "${SCRIPTS}/flow.sh" handoff` |
+
+**② 干 —— 阶段 → 加载该阶段指南:**
 
 | 阶段 | 加载 | 谁跑 |
 |---|---|---|
-| investigate(查清) | `${SKILL_DIR}/references/investigate.md` | 主线程(评估难度→定 topics→跑自建 Workflow→亲验→综合) |
-| design(想方案) | `Skill({ skill: "write-design-doc" })` | 主线程(跟用户讨论、写设计文档) |
-| 审闸(handoff 回 `NEXT_ACTION=review`) | `${SKILL_DIR}/references/review.md` | 主线程起 loop + 派 Codex 协调帮手,审完 handoff verdict |
+| investigate(查清) | `${SKILL_DIR}/references/investigate.md` | 主线程跑自建 Workflow |
+| design(想方案) | `Skill({ skill: "write-design-doc" })` | 主线程跟用户讨论 |
+| plan(拆计划) | `Skill({ skill: "write-plan-doc" })` | 主线程编排 + 派 plan-writer |
+| build(落地) | `${SKILL_DIR}/references/build.md` | 主线程派帮手跑落地 loop |
+| verify(验收=④终审) | `${SKILL_DIR}/references/review.md`(final) | 主线程起终审 loop |
+| 审闸(`NEXT_ACTION=review`) | `${SKILL_DIR}/references/review.md` | 主线程起审 loop + 派 Codex 协调帮手 |
 
-## Step 3 · 推进(进 worktree 之后的自循环)
+> build / plan / verify / merge 待接满,接法照本契约(进/钉/交不变,只填各自的「干」)。
 
-进入某场景后,每个阶段(或派出去的帮手)干完,**只调一条命令交接 + 推进**:
+**③ 钉 + ④ 交 —— 一条 handoff:**
 
 ```bash
-bash "${SCRIPTS}/flow.sh" handoff --conclusion <结论词> [--produced <产出文件>]...
+bash "${SCRIPTS}/flow.sh" handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 ```
 
-- **结论词**是统一一套(`pass` / `needs-repair` / `needs-redirection` / `needs-context` / `blocked`),选哪个是你的判断(灵活);选完命令查 `routes.json` 算出下一步、写进度档、回执 `NEXT_ACTION` / `NEXT_PHASE` / `STATUS`。你照回执走,**不自己猜下一步、不手写状态**。
-- **回执 `NEXT_ACTION=review`**(design/plan 产物过 → 进审闸,见 `REVIEW_STAGE`):别 advance,先按 `references/review.md` 跑该阶段的审 loop(Codex),审完再 handoff 一次 verdict——`pass` 才进下一阶段,`needs-repair` 回本阶段返工。
-- 缺结论或词非法 → 命令当场拦(fail-closed),不让带残缺往下走。
-- 调查中挖到 bug / 旁路优化,别 out-of-scope,登记成关联子任务,主流程继续:
-  ```bash
-  bash "${SCRIPTS}/flow.sh" spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"
-  ```
-- 返工/掉头有次数上限,命令计数强制,到顶自动转 `blocked` 上报,绝不无限往返。
-- `STATUS=ready-to-close` → 末阶段过,回主仓库 `prepare.sh cleanup --slug <slug>` 收尾。
+- **结论词**统一五选一(`pass` / `needs-repair` / `needs-redirection` / `needs-context` / `blocked`),选哪个是你的判断;选完引擎查 `routes.json` 算 `NEXT_ACTION` / `NEXT_PHASE` / `STATUS`。缺结论或词非法当场拦(fail-closed)。
+- **`--produced` 必带本阶段的承重产出**(investigate→现状报告;design→设计文档;plan→plan 目录;build→提交范围;verify→终审报告)——它钉进接力单,下阶段靠它接,不靠"自己找"。
+- **回执 `NEXT_ACTION=review`**(design/plan 产物过 → 进审闸,见 `REVIEW_STAGE`):别 advance,先按 `references/review.md` 跑该阶段审 loop,审完再 handoff verdict——`pass` 才进下一阶段,`needs-repair` 回本阶段返工。
+- 中途挖到 bug / 旁路优化 → 登记关联子任务,主流程不动:`bash "${SCRIPTS}/flow.sh" spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`。
+- 返工/掉头有上限,命令计数强制,到顶自动转 `blocked`,绝不无限往返。
+- `STATUS=ready-to-close` → 末阶段过,回主仓库 cleanup 收尾。
+
+**断点续传**:任何时候 `flow.sh where` + 接力单就够你接着跑——进度、游标、各阶段产出全在 manifest,不靠会话记忆。
 
 ## 收尾 · 合并后删干净
 

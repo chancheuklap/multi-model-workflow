@@ -132,6 +132,7 @@ cmd_handoff() {
     '.phase=$phase | .phase_index=$pidx | .repair_count=$rc | .turnaround_count=$tc | .status=$status
      | .gate=(if $gate=="" then null else $gate end)
      | .artifacts += $produced
+     | (if ($produced|length)>0 then .phase_outputs[$hphase] = ((.phase_outputs[$hphase] // []) + $produced) else . end)
      | .history += [{phase:$hphase, conclusion:$hconc, at:$at}]' \
     "$m" | write_manifest "$m"
 
@@ -173,7 +174,9 @@ cmd_where() {
   scenario="$(jq -r .scenario "$m")"; phase="$(jq -r .phase "$m")"
   pidx="$(jq -r .phase_index "$m")"; status="$(jq -r .status "$m")"
   rc="$(jq -r .repair_count "$m")"; tc="$(jq -r .turnaround_count "$m")"
-  local phases gate; phases="$(jq -rc '.phases' "$m")"; gate="$(jq -r '.gate // "null"' "$m")"
+  local phases gate prev_out; phases="$(jq -rc '.phases' "$m")"; gate="$(jq -r '.gate // "null"' "$m")"
+  # 接力单:上一个开着阶段的钉死产出(给"进"动作照单读,不靠自己找)
+  prev_out="$(jq -rc --argjson i "$pidx" 'if $i>0 then (.phase_outputs[.phases[$i-1]] // []) else [] end' "$m")"
   cat <<EOF
 scenario=$scenario
 phase=$phase
@@ -183,6 +186,8 @@ status=$status
 repair_count=$rc
 turnaround_count=$tc
 phases=$phases
+prev_outputs=$prev_out
+phase_outputs=$(jq -rc '.phase_outputs' "$m")
 subtasks=$(jq -r '.subtasks | length' "$m")
 open_items=$(jq -r '.open_items | length' "$m")
 EOF

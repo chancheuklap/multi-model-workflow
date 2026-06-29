@@ -9,7 +9,7 @@
     "status", "phase", "phase_index", "gate", "created_at", "base_commit",
     "branch", "worktree_path", "docs",
     "repair_count", "turnaround_count",
-    "artifacts", "open_items", "subtasks", "history"
+    "artifacts", "phase_outputs", "open_items", "subtasks", "history"
   ],
   "properties": {
     "schema_version": { "const": "1" },
@@ -60,6 +60,11 @@
     "artifacts": {
       "type": "array", "items": { "type": "string" },
       "description": "累积产出的文件路径(只存路径不存内容)。交接单的'我产出了什么'落这里"
+    },
+    "phase_outputs": {
+      "type": "object",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } },
+      "description": "接力单:每阶段产出钉成 phase→[路径]。handoff --produced 钉进对应阶段名,下阶段照单读上阶段产出(不靠'自己找')。investigate→现状报告;design→设计文档;plan→plan 目录;build→改动/提交标识;verify→终审报告"
     },
     "open_items": {
       "type": "array",

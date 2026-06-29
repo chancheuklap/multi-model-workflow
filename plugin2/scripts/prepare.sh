@@ -67,7 +67,7 @@ cmd_new() {
       status:$status, phase:$phase, phase_index:0, gate:null, created_at:$created, base_commit:$base,
       branch:$branch, worktree_path:$wt, docs:{design:$ddoc, issues:$idir, context:$ctx},
       repair_count:0, turnaround_count:0,
-      artifacts:[], open_items:[], subtasks:[], history:[]}' \
+      artifacts:[], phase_outputs:{}, open_items:[], subtasks:[], history:[]}' \
     > "$wt/$STATE_SUBDIR/$MANIFEST_NAME"
 
   # 给 SKILL/LLM 的回执:下一步去 EnterWorktree(path),再进对应 phase
