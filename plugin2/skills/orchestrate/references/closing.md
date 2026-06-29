@@ -24,7 +24,7 @@ mmw handoff --conclusion pass
 
 **合并回主分支 = 唯一硬红线**(不可逆对外动作)。`guard-redline`(PreToolUse)拦 `git merge`/`push`/部署,**要用户亲自批**,不分在场/无人值守:
 
-1. 用户确认要合并 → `mmw release-approve`(造一次性批准令牌)→ `git merge --no-ff <branch>`(禁 `--squash`)。令牌放行这一次后即被消费,再发布需用户重新批。
+1. 用户确认要合并 → `mmw release-approve` → `git merge --no-ff <branch>`(禁 `--squash`)。
 2. 合并进主线后,回主仓库删干净:
    ```bash
    mmw task cleanup --slug <slug>

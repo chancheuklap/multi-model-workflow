@@ -268,7 +268,7 @@ cmd_release_approve() {
   local dir="$top/$STATE_SUBDIR"
   mkdir -p "$dir"
   printf 'release approved at %s\n' "$(now)" > "$dir/release-approval"
-  echo "RELEASE-APPROVED token=$dir/release-approval(一次性:guard-redline 放行一次 merge/push/deploy 后即消费,再发布需重新批)"
+  echo "RELEASE-APPROVED token=$dir/release-approval(一次性,放行一次 merge/push/deploy 后消费)"
 }
 
 case "${1:-}" in

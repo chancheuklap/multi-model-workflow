@@ -22,7 +22,7 @@ mmw task team
 
 合回主分支是**唯一硬红线**(`guard-redline` PreToolUse 拦)。逐个:
 
-1. 用户批准 → `mmw release-approve`(造一次性令牌)→ `git merge --no-ff <branch>`(**禁 `--squash`**,保留分支历史);令牌放行后即消费,下一个合并需重新批。
+1. 用户批准 → `mmw release-approve` → `git merge --no-ff <branch>`(**禁 `--squash`**)。
 2. **git 文本冲突**:常规解。
 3. **业务/设计冲突**(第 2 步扫出的):按 HITL 拍定的方向解,改的是让两份设计语义自洽,不是单纯选一边的文本。解完确保合并结果仍符合两份设计的意图(必要时跑相关测试)。
 4. 合进主线后:`mmw task cleanup --slug <slug>` 删该 worktree + 分支 + 临时状态。
