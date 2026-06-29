@@ -146,6 +146,9 @@ WF="$(newtask develop 2026-06-28-task-f)"
 WHERE="$(cd "$WF" && bash "$FLOW" where)"
 echo "$WHERE" | grep -q "phase=propose" && ok "where 报精确阶段" || no "where 精确阶段"
 echo "$WHERE" | grep -q "phase_index=1" && ok "where 报精确下标" || no "where 下标"
+# then 的 produced 必须解析掉 <slug> 模板,直接可粘贴跑(不让 agent 手搓)
+echo "$WHERE" | grep "^then=" | grep -q "<slug>" && no "then 仍含字面 <slug>" \
+  || { echo "$WHERE" | grep "^then=" | grep -q "2026-06-28-task-f-direction.md" && ok "then 已解析真 slug" || no "then 未解析 slug"; }
 RES="$(cd "$WF" && bash "$PREPARE" resume 2>/dev/null)"
 echo "$RES" | head -1 | grep -q "MANAGED" && echo "$RES" | tail -n +2 | jq -e '.phase=="propose"' >/dev/null \
   && ok "resume 读到 propose(断点续传)" || no "resume 断点续传"

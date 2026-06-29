@@ -214,10 +214,13 @@ cmd_where() {
   # 指路:gate 非空(在审闸里)用 review_gate 绑定,否则用当前阶段绑定
   local bkey="$phase"
   { [ "$gate" != "null" ] && [ -n "$gate" ]; } && bkey="review_gate"
-  local b_load b_do b_prod
+  local b_load b_do b_prod slug
   b_load="$(jq -r --arg k "$bkey" '.phase_bindings[$k].load // "?"' "$ROUTES")"
   b_do="$(jq -r --arg k "$bkey" '.phase_bindings[$k].do // "?"' "$ROUTES")"
   b_prod="$(jq -r --arg k "$bkey" '.phase_bindings[$k].produced // ""' "$ROUTES")"
+  # produced 模板里的 <slug> 用 manifest 真 slug 解析,让 then 直接可粘贴跑,不让 agent 手搓
+  slug="$(jq -r '.slug' "$m")"
+  b_prod="${b_prod//<slug>/$slug}"
   local then_cmd="mmw handoff --conclusion <pass|needs-repair|needs-redirection|needs-context|blocked>"
   [ -n "$b_prod" ] && then_cmd="$then_cmd --produced $b_prod"
   cat <<EOF
