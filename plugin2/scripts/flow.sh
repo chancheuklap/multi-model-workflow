@@ -260,9 +260,21 @@ EOF
   if [ -n "$review_line" ]; then echo "$review_line"; fi
 }
 
+# ---------- release-approve(造发布红线批准令牌,用户亲批后由主线程跑) ----------
+# guard-redline(PreToolUse)查 <toplevel>/.claude/multi-model-workflow/release-approval 才放行
+# merge/push/deploy。令牌一次性:guard-redline 放行后即消费(防长期站着批所有发布)。
+cmd_release_approve() {
+  local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
+  local dir="$top/$STATE_SUBDIR"
+  mkdir -p "$dir"
+  printf 'release approved at %s\n' "$(now)" > "$dir/release-approval"
+  echo "RELEASE-APPROVED token=$dir/release-approval(一次性:guard-redline 放行一次 merge/push/deploy 后即消费,再发布需重新批)"
+}
+
 case "${1:-}" in
-  handoff) shift; cmd_handoff "$@" ;;
-  spinoff) shift; cmd_spinoff "$@" ;;
-  where)   shift; cmd_where "$@" ;;
-  *) die "用法: flow.sh handoff|spinoff|where ..." ;;
+  handoff)         shift; cmd_handoff "$@" ;;
+  spinoff)         shift; cmd_spinoff "$@" ;;
+  where)           shift; cmd_where "$@" ;;
+  release-approve) shift; cmd_release_approve "$@" ;;
+  *) die "用法: flow.sh handoff|spinoff|where|release-approve ..." ;;
 esac

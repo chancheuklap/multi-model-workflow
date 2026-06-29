@@ -1,6 +1,6 @@
 # plan-rigor — 计划期查询清单
 
-> `write-plan-doc` 的"查得到就行"细则:测试规划（覆盖追踪 / E2E 决策矩阵 / 质量评级 / 回归铁律）+ Issue 质量标准 + 反模式。编排主流程在 `plan-flow.md`,Task Pack 模板在 `task-pack.md`;写到对应章节翻本文对照(这三份随 dispatch 一起给 plan-writer,读者手里有整套)。
+> plan 阶段的"查得到就行"细则:测试规划（覆盖追踪 / E2E 决策矩阵 / 质量评级 / 回归铁律）+ Issue 质量标准 + 反模式。编排主流程在 `plan-flow.md`,Task Pack 模板在 `task-pack.md`;写到对应章节翻本文对照(这三份随 dispatch 一起给 plan-writer,读者手里有整套)。
 
 ## 测试规划（plan 必须自带完整测试，不留到后续补）
 

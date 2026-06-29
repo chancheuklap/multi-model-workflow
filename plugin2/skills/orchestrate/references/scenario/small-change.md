@@ -56,7 +56,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 | `NEXT_ACTION` | `STATUS` | 你下一步 |
 |---|---|---|
 | `advance` | active | 往下跳:回 ① 进,对 `NEXT_PHASE` 跑 `mmw where`。**正常前进就是这条。** |
-| `review` | active | 别 advance(phase 没动)。进审闸:`where` 的 `load` 自动切到 `review.md`,跑 `REVIEW_STAGE` 的审 loop;审完再 `handoff` 一次 verdict —— `pass` 才真 advance,`needs-repair` 回本阶段返工。 |
+| `review` | active | 别 advance(phase 没动)。进审闸:`where` 的 `load` 自动切到 `review/review.md`,跑 `REVIEW_STAGE` 的审 loop;审完再 `handoff` 一次 verdict —— `pass` 才真 advance,`needs-repair` 回本阶段返工。 |
 | `repair` | active | 留在本阶段返工:回 ② 干按缺陷改,改完再 `handoff`。 |
 | `turn-around` | active | 掉头回上游:对 `NEXT_PHASE` 回 ① 进重跑。 |
 | `ask-user` | waiting-user | 停。把缺的输入问用户(在场 `AskUserQuestion`);补齐后 `mmw task resume` 续本阶段。 |
@@ -69,7 +69,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 <!-- BEGIN: closing-cleanup -->
 ## 收尾 · 合并后删干净
 
-回执 `done`(STATUS=ready-to-close)= 末阶段过。任务分支 merge 进主线后(合并是红线,要人批,在 closing 阶段做),worktree 连同里面的临时状态一起删:
+回执 `done`(STATUS=ready-to-close)= 末阶段过。合并是红线:用户确认后 `mmw release-approve`(造一次性令牌)→ `git merge --no-ff <branch>`(禁 `--squash`),`guard-redline` 放行后即消费令牌。任务分支 merge 进主线后,worktree 连同里面的临时状态一起删:
 
 ```bash
 mmw task cleanup --slug <slug>   # 回主仓库执行

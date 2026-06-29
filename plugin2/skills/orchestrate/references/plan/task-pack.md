@@ -37,7 +37,7 @@
 | 层 | 测什么 | 数量 |
 
 **Rollback:**（触碰数据 / 基础设施 / 共享状态时）怎么撤——哪怕"revert PR"也写明。
-**Complexity:** cheap（触 1-2 文件、spec 完整）/ standard（跨模块、集成）/ capable（计费 / 权限 / migration / 跨服务）——给派 tdd-executor 选模型与升级谨慎度用。
+**Complexity:** cheap（触 1-2 文件、spec 完整）/ standard（跨模块、集成）/ capable（计费 / 权限 / migration / 跨服务）——给 build 阶段派 Codex 落地选模型与升级谨慎度用。
 **Commit boundary / Risk flags / 发布风险 / AFK·HITL / Dependencies / Out of scope:** ...
 ```
 

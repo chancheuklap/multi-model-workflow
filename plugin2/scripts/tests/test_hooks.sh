@@ -38,9 +38,12 @@ P_SAFE='{"tool_input":{"command":"git status"}}'
 [ "$(run_hook guard-redline.sh "$P_MERGE")" = "2" ] && ok "merge 无批准 → deny" || no "merge deny"
 [ "$(run_hook guard-redline.sh "$P_PUSH")" = "2" ] && ok "push 无批准 → deny" || no "push deny"
 [ "$(run_hook guard-redline.sh "$P_SAFE")" = "0" ] && ok "git status → 放行" || no "safe 放行"
-touch .claude/multi-model-workflow/release-approval
-[ "$(run_hook guard-redline.sh "$P_MERGE")" = "0" ] && ok "有 release-approval → merge 放行" || no "批准后放行"
-rm -f .claude/multi-model-workflow/release-approval
+# release-approve 造一次性令牌 → merge 放行 → 令牌被消费 → 再 merge 又被拦(防长期站着批)
+bash "$SCRIPT_DIR/../flow.sh" release-approve >/dev/null
+[ -f .claude/multi-model-workflow/release-approval ] && ok "mmw release-approve 造令牌" || no "release-approve 造令牌"
+[ "$(run_hook guard-redline.sh "$P_MERGE")" = "0" ] && ok "有令牌 → merge 放行" || no "批准后放行"
+[ ! -f .claude/multi-model-workflow/release-approval ] && ok "放行后令牌被消费(一次性)" || no "令牌未消费"
+[ "$(run_hook guard-redline.sh "$P_MERGE")" = "2" ] && ok "消费后再 merge → 重新拦" || no "消费后未拦"
 
 # ===== record-step(PostToolUse commit)=====
 bash "$LOOP" init --kind execution >/dev/null

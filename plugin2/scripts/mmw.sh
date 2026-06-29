@@ -19,6 +19,8 @@
 #     mmw review start --stage <design|plan|plan-impl|final> --source <...>
 #   Codex 落地派发:
 #     mmw codex dispatch --plan <p> --worktree <wt> | codex resume --worktree <wt> --instructions <f>
+#   发布红线(收尾/merge,用户亲批后跑):
+#     mmw release-approve                      造一次性批准令牌,放行下一次 merge/push/deploy
 set -euo pipefail
 D="$(cd "$(dirname "$0")" && pwd)"
 
@@ -26,7 +28,7 @@ usage() { sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; }
 
 cmd="${1:-help}"; shift || true
 case "$cmd" in
-  where|handoff|spinoff) exec bash "$D/flow.sh" "$cmd" "$@" ;;
+  where|handoff|spinoff|release-approve) exec bash "$D/flow.sh" "$cmd" "$@" ;;
   task)   exec bash "$D/prepare.sh" "$@" ;;
   loop)   exec bash "$D/loop.sh" "$@" ;;
   review) exec bash "$D/review.sh" "$@" ;;

@@ -23,7 +23,7 @@
    ```bash
    mmw review start --stage <design|plan|final> --source "<源意图路径/待审内容>"
    ```
-   它 init `kind=review` 的 loop、定好该阶段审题(`references/review/<阶段>.md` + `quartet.md`)、**打印好协调帮手 brief**。你照打印的往下走。
+   `--stage` 按当前审闸阶段(design/plan)或 verify(final);**`--source` 用 `mmw where` 在审闸里报的 `review_source`(当前阶刚产的待审产物,已解析成真路径),不用自己回忆**。它 init `kind=review` 的 loop、定好该阶段审题(`references/review/<阶段>.md` + `quartet.md`)、**打印好协调帮手 brief**。你照打印的往下走。
 2. **抽覆盖清单**(判断,留你做):从设计/计划/issue/意图逐条抽"要审到什么",`source` 记从哪份文档哪行抽。客观项(② issue 数=plan 数、④ 意图逐条)标清楚:
    ```bash
    mmw loop checklist add --item "<要审到的维度>" --source "<doc:line>"   # 逐条

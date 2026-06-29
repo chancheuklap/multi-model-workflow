@@ -77,6 +77,6 @@ mockup 目录: docs/design/<YYYY-MM-DD>-<slug>/mockup/（设计目录下,prototy
 
 ## Cross-Plan Contract Anchors
 <!-- 设计阶段不填本表：表里的 Owner / Provider / Consumer 都是 plan 名，plan 还不存在，设计期无从填起。 -->
-<!-- 设计阶段只留本标题 + 这两行注释作占位锚点；由 write-plan-doc 在所有 plan 写完后回填（plan skill 的「跨计划合同锚点」步骤是单一源）。 -->
+<!-- 设计阶段只留本标题 + 这两行注释作占位锚点；由 plan 阶段在所有 plan 写完后回填（plan-flow.md 的「回填合同细节」步骤是单一源）。 -->
 <!-- 这不算 TODO/TBD —— 是跨阶段交接的占位，回填责任明确在 plan 阶段。 -->
 ```

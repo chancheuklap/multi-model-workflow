@@ -5,7 +5,7 @@
 | `NEXT_ACTION` | `STATUS` | 你下一步 |
 |---|---|---|
 | `advance` | active | 往下跳:回 ① 进,对 `NEXT_PHASE` 跑 `mmw where`。**正常前进就是这条。** |
-| `review` | active | 别 advance(phase 没动)。进审闸:`where` 的 `load` 自动切到 `review.md`,跑 `REVIEW_STAGE` 的审 loop;审完再 `handoff` 一次 verdict —— `pass` 才真 advance,`needs-repair` 回本阶段返工。 |
+| `review` | active | 别 advance(phase 没动)。进审闸:`where` 的 `load` 自动切到 `review/review.md`,跑 `REVIEW_STAGE` 的审 loop;审完再 `handoff` 一次 verdict —— `pass` 才真 advance,`needs-repair` 回本阶段返工。 |
 | `repair` | active | 留在本阶段返工:回 ② 干按缺陷改,改完再 `handoff`。 |
 | `turn-around` | active | 掉头回上游:对 `NEXT_PHASE` 回 ① 进重跑。 |
 | `ask-user` | waiting-user | 停。把缺的输入问用户(在场 `AskUserQuestion`);补齐后 `mmw task resume` 续本阶段。 |

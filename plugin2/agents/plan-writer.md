@@ -6,7 +6,7 @@ description: |
   <example>设计文档通过评审、issue 拆好，主 Agent 逐 issue 并行派 plan-writer 写各自 plan</example>
   <example>三个互不依赖的大 issue，并行派三个 plan-writer 各写一份 plan</example>
   <example>就绪门 / 第二模型审返回 findings，主 Agent 要求按 findings 修订对应 plan</example>
-  Do NOT use for: 读 design+issue 做映射 / 跨 plan 锚点回填 / 就绪门（主 Agent 干）、plan review（派第二模型）、代码落地（用 tdd-executor）、未知根因调查（用 root-cause-analyst）、拆大 issue（主 Agent 在设计阶段干）。
+  Do NOT use for: 读 design+issue 做映射 / 跨 plan 锚点回填 / 就绪门（主 Agent 干）、plan review（派 Codex 审）、代码落地（build 阶段派 Codex）、拆大 issue（design 阶段干）。
   返回的事实声明（路径 / 行号 / Pack 数 / 文件存在性）写入交付物前必须主 Agent 亲验。本 agent 是劳动力不是 ground truth。
 model: opus
 effort: xhigh

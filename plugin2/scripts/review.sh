@@ -73,7 +73,7 @@ EOF
 EOF
   fi
   cat <<EOF
-3. 协调帮手停下后,主线程读 loop-state(pause/findings),按 review.md §2 收口 handoff verdict。
+3. 协调帮手停下后,主线程读 loop-state(pause/findings),回 review/review.md 的收口步 handoff verdict。
 EOF
 }
 

@@ -25,9 +25,9 @@
     "design":      { "load": "references/design/design.md", "do": "拿已定方向产出设计文档(HITL 集中在此;不再提方案)",            "produced": ["docs/design/<slug>.md", "docs/issues/<slug>/"], "reads": ["investigate", "propose"] },
     "plan":        { "load": "references/plan/plan.md",     "do": "编排 + 派 plan-writer 拆计划(单计划则主线程内联)",            "produced": "docs/plans/<slug>/" },
     "build":       { "load": "references/build.md",        "do": "派 Codex 落地(各 plan 一 worktree)+ 你按计划验收",            "produced": "<提交范围,如 base..HEAD>" },
-    "verify":      { "load": "references/review.md",       "do": "起 ④终审 loop(Codex 审 + 你按意图清单验)",                    "produced": "<终审报告路径>" },
+    "verify":      { "load": "references/review/review.md",       "do": "起 ④终审 loop(Codex 审 + 你按意图清单验)",                    "produced": "<终审报告路径>" },
     "closing":     { "load": "references/closing.md",      "do": "确认真完整、收口;合并/清理是合并后红线动作",                   "produced": "" },
-    "review_gate": { "load": "references/review.md",       "do": "起该阶段审 loop(Codex 审者 + Claude 协调帮手),审完 handoff verdict", "produced": "" }
+    "review_gate": { "load": "references/review/review.md",       "do": "起该阶段审 loop(Codex 审者 + Claude 协调帮手),审完 handoff verdict", "produced": "" }
   },
 
   "presets": {
