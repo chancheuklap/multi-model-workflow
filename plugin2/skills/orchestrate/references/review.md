@@ -1,6 +1,6 @@
 # Review · 审核 loop(阶段操作指南)
 
-> 主线程进审核闸时加载本文。审 = loop engineering 的 `kind=review` 实例,载体换成 Codex 审者 + Claude 协调帮手。机制全貌见 `plugin2/design/review-loop.md`(单源,这里不复述);审题在 `references/review/`(喂 Codex,本文不复述)。
+> 审核闸操作指南。审者 = Codex,协调验收 = Claude(你)。审题在 `references/review/`(喂 Codex)。
 
 红线:**审者必须 Codex,不 Claude 审 Claude**;**完工靠 `exit-check` 机器核,不靠 reporter 自报审完**。
 
@@ -37,7 +37,7 @@
 
 - `pause != null`(surface 冒泡)→ 按 `reason` handoff `needs-redirection` / `needs-context`,交用户。
 - `exit-check` = DONE 且无 accepted 缺陷 → `mmw handoff --conclusion pass`,进下一阶段。
-- 有 accepted finding → 按 Gap 路由(详 `review-loop.md` §5)选结论词:Implementation/Design/Plan 缺陷→`needs-repair`(回对应阶段修,改完 handoff 重审);Direction→`needs-redirection`;Context→`needs-context`。
+- 有 accepted finding → 按 Gap 选结论词:Implementation/Design/Plan 缺陷→`needs-repair`(回对应阶段修,改完 handoff 重审);Direction→`needs-redirection`;Context→`needs-context`。
 - 超熔断仍不收敛 → `mmw handoff --conclusion blocked`,带经过上报。
 
 **Critical 必须修掉**才能让对应阶段往下走。

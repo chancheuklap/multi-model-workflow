@@ -4,8 +4,6 @@
 #   start --stage <design|plan|plan-impl|final> --source <源意图路径/描述>
 #       按阶段映射 kind + angle 审题,init loop-state,打印好协调帮手 brief。
 #       主线程拿到后:抽覆盖清单进 loop(判断,留你) → 用打印的 brief 派协调帮手。
-#
-# 机制全貌见 design/review-loop.md;审题在 references/review/*。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

@@ -451,6 +451,8 @@ flowchart LR
 
 ## 12. 文件对照
 
+> 运行件路径相对仓库 `plugin2/`(本设计文档 + `design/` 在 `docs/plugin2/`,不随 plugin 发布)。
+
 | 能力 | 文件 |
 |---|---|
 | 统一 CLI(所有命令一个入口)| `scripts/mmw.sh` |
