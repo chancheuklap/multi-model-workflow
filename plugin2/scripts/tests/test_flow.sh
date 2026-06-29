@@ -35,17 +35,41 @@ WA="$(newtask develop 2026-06-28-task-a)"
 [ "$(mfield "$WA" 'subtasks|length')" = "1" ] && ok "甩支线→子任务登记" || no "甩支线登记"
 [ "$(mphase "$WA")" = "design" ] && ok "甩支线后主流程不动" || no "甩支线后主流程不动"
 
-( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # design→plan
-( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # plan→build
-( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # build→verify
-[ "$(mphase "$WA")" = "verify" ] && ok "design→plan→build→verify" || no "推进到 verify ($(mphase "$WA"))"
+# design 产物过 → 进 ①审闸(phase 不动,gate=design)
+OUTG="$(cd "$WA" && bash "$FLOW" handoff --conclusion pass)"       # design→gate:design
+echo "$OUTG" | grep -q "NEXT_ACTION=review" && ok "design pass→进审闸(review)" || no "design→审闸"
+echo "$OUTG" | grep -q "REVIEW_STAGE=design" && ok "审闸报阶段 design" || no "REVIEW_STAGE"
+[ "$(mphase "$WA")" = "design" ] && ok "审闸里 phase 不动" || no "审闸 phase 不动 ($(mphase "$WA"))"
+[ "$(mfield "$WA" gate)" = "design" ] && ok "gate=design" || no "gate=design ($(mfield "$WA" gate))"
 
-( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # verify→closing
-[ "$(mphase "$WA")" = "closing" ] && ok "→closing" || no "→closing"
+( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # ①审 verdict pass → plan
+[ "$(mphase "$WA")" = "plan" ] && ok "①审过→进 plan" || no "①审过→plan ($(mphase "$WA"))"
+[ "$(mfield "$WA" gate)" = "null" ] && ok "进下一阶段 gate 清空" || no "gate 清空 ($(mfield "$WA" gate))"
+
+( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # plan→gate:plan
+[ "$(mfield "$WA" gate)" = "plan" ] && ok "plan pass→进 ②审闸" || no "②审闸 ($(mfield "$WA" gate))"
+( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # ②审 verdict→build
+[ "$(mphase "$WA")" = "build" ] && ok "②审过→进 build" || no "②审过→build ($(mphase "$WA"))"
+
+( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # build→verify(build 不 gated)
+[ "$(mphase "$WA")" = "verify" ] && ok "build→verify(无闸)" || no "推进到 verify ($(mphase "$WA"))"
+
+( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # verify→closing(verify=④,不 gated)
+[ "$(mphase "$WA")" = "closing" ] && ok "verify→closing(无闸)" || no "→closing"
 OUT="$(cd "$WA" && bash "$FLOW" handoff --conclusion pass)"        # closing→ready-to-close
 echo "$OUT" | grep -q "STATUS=ready-to-close" && ok "末阶段 pass→ready-to-close" || no "ready-to-close"
 echo "$OUT" | grep -q "NEXT_ACTION=done" && ok "末阶段 NEXT=done" || no "NEXT=done"
-[ "$(mfield "$WA" 'history|length')" = "6" ] && ok "history 记满 6 步" || no "history 6 步 ($(mfield "$WA" 'history|length'))"
+[ "$(mfield "$WA" 'history|length')" = "8" ] && ok "history 记满 8 步(含两审闸)" || no "history 8 步 ($(mfield "$WA" 'history|length'))"
+
+# ===== A2: 审打回 → 清 gate 回该阶段返工 =====
+WA2="$(newtask develop 2026-06-28-task-a2)"
+( cd "$WA2" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # investigate→design
+( cd "$WA2" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # design→gate:design
+[ "$(mfield "$WA2" gate)" = "design" ] && ok "A2 进 ①审闸" || no "A2 ①审闸"
+( cd "$WA2" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )  # 审打回
+[ "$(mfield "$WA2" gate)" = "null" ] && ok "审打回→gate 清空" || no "审打回 gate 清空 ($(mfield "$WA2" gate))"
+[ "$(mphase "$WA2")" = "design" ] && ok "审打回→停在 design 返工" || no "审打回停 design"
+[ "$(mfield "$WA2" repair_count)" = "1" ] && ok "审打回计返工=1" || no "审打回返工计数"
 
 # ===== B: bug 掉头 + 上限拦截 (investigate→build→verify→closing) =====
 WB="$(newtask bug 2026-06-28-task-b)"

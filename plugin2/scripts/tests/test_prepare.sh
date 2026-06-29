@@ -35,6 +35,7 @@ jq -e . "$MAN" >/dev/null 2>&1 && ok "manifest 合法 JSON" || no "manifest 合�
 [ "$(jq -rc .phases "$MAN")" = '["investigate","design","plan","build","verify","closing"]' ] && ok "phases 固化进 manifest" || no "phases 固化"
 [ "$(jq -r .base_commit "$MAN")" = "$BASE" ] && ok "base_commit=本地HEAD" || no "base_commit=本地HEAD"
 [ "$(jq -r .phase_index "$MAN")" = "0" ] && ok "phase_index=0" || no "phase_index=0"
+[ "$(jq -r .gate "$MAN")" = "null" ] && ok "gate 初始 null" || no "gate 初始 null"
 [ "$(jq -r '.repair_count,.turnaround_count' "$MAN" | tr '\n' ',')" = "0,0," ] && ok "计数器归零" || no "计数器归零"
 [ "$(jq -r '.artifacts,.open_items,.subtasks,.history|length' "$MAN" | paste -sd, -)" = "0,0,0,0" ] && ok "数组初始为空" || no "数组初始为空"
 

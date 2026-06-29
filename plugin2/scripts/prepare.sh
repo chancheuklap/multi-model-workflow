@@ -64,7 +64,7 @@ cmd_new() {
     --arg base "$base" --arg branch "$slug" --arg wt "$wt" \
     --arg ddoc "docs/design/$slug" --arg idir "docs/issues/$slug" --arg ctx "docs/context" \
     '{schema_version:$sv, slug:$slug, title:$title, scenario:$scenario, phases:$phases,
-      status:$status, phase:$phase, phase_index:0, created_at:$created, base_commit:$base,
+      status:$status, phase:$phase, phase_index:0, gate:null, created_at:$created, base_commit:$base,
       branch:$branch, worktree_path:$wt, docs:{design:$ddoc, issues:$idir, context:$ctx},
       repair_count:0, turnaround_count:0,
       artifacts:[], open_items:[], subtasks:[], history:[]}' \

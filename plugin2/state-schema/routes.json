@@ -18,6 +18,8 @@
 
   "backbone": ["investigate", "design", "plan", "build", "verify", "closing"],
 
+  "review_gates": ["design", "plan"],
+
   "presets": {
     "small-change": ["build", "verify", "closing"],
     "develop":      ["investigate", "design", "plan", "build", "verify", "closing"],

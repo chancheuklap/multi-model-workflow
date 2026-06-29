@@ -66,6 +66,7 @@ bash "${SCRIPTS}/prepare.sh" resume
 |---|---|---|
 | investigate(查清) | `${SKILL_DIR}/references/investigate.md` | 主线程(评估难度→定 topics→跑自建 Workflow→亲验→综合) |
 | design(想方案) | `Skill({ skill: "write-design-doc" })` | 主线程(跟用户讨论、写设计文档) |
+| 审闸(handoff 回 `NEXT_ACTION=review`) | `${SKILL_DIR}/references/review.md` | 主线程起 loop + 派 Codex 协调帮手,审完 handoff verdict |
 
 ## Step 3 · 推进(进 worktree 之后的自循环)
 
@@ -76,6 +77,7 @@ bash "${SCRIPTS}/flow.sh" handoff --conclusion <结论词> [--produced <产出�
 ```
 
 - **结论词**是统一一套(`pass` / `needs-repair` / `needs-redirection` / `needs-context` / `blocked`),选哪个是你的判断(灵活);选完命令查 `routes.json` 算出下一步、写进度档、回执 `NEXT_ACTION` / `NEXT_PHASE` / `STATUS`。你照回执走,**不自己猜下一步、不手写状态**。
+- **回执 `NEXT_ACTION=review`**(design/plan 产物过 → 进审闸,见 `REVIEW_STAGE`):别 advance,先按 `references/review.md` 跑该阶段的审 loop(Codex),审完再 handoff 一次 verdict——`pass` 才进下一阶段,`needs-repair` 回本阶段返工。
 - 缺结论或词非法 → 命令当场拦(fail-closed),不让带残缺往下走。
 - 调查中挖到 bug / 旁路优化,别 out-of-scope,登记成关联子任务,主流程继续:
   ```bash

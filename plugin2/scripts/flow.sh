@@ -45,11 +45,15 @@ cmd_handoff() {
     || die "结论词非法: $conclusion(只能 $(jq -rc .conclusions "$ROUTES"))"
 
   local m; m="$(manifest_path)"
-  local cur_phase pidx rc tc
+  local cur_phase pidx rc tc gate gated
   cur_phase="$(jq -r .phase "$m")"
   pidx="$(jq -r .phase_index "$m")"
   rc="$(jq -r .repair_count "$m")"
   tc="$(jq -r .turnaround_count "$m")"
+  gate="$(jq -r '.gate // empty' "$m")"   # "" = 不在审闸;非空 = 正在该阶段审 loop 里
+  # 本阶段是不是 review-gated(routes.review_gates)
+  gated=no
+  jq -e --arg p "$cur_phase" '(.review_gates // []) | index($p) != null' "$ROUTES" >/dev/null 2>&1 && gated=yes
 
   # 阶段序列读进度记录的 phases(本任务开着的阶段),不按 scenario 查 routes
   local phases_len last max_repair max_turn first_phase
@@ -60,19 +64,27 @@ cmd_handoff() {
   max_turn="$(jq -r '.caps.max_turnaround' "$ROUTES")"
   first_phase="$(jq -r '.phases[0]' "$m")"
 
-  # 按结论算动作(引擎核心)
-  local new_phase="$cur_phase" new_pidx="$pidx" new_rc="$rc" new_tc="$tc" new_status="active"
+  # 按结论算动作(引擎核心)。new_gate 默认清空;只有"进审闸"那一支把它设成当前阶段。
+  local new_phase="$cur_phase" new_pidx="$pidx" new_rc="$rc" new_tc="$tc" new_status="active" new_gate=""
   local next_action next_phase="" human
   case "$conclusion" in
     pass)
-      if [ "$pidx" -ge "$last" ]; then
+      if [ -z "$gate" ] && [ "$gated" = yes ]; then
+        # 阶段产物刚过、还没审:进审闸,phase 不动、不 advance,等审的 verdict 再来一次 handoff
+        new_gate="$cur_phase"
+        next_action="review"; next_phase="$cur_phase"
+        human="[$cur_phase] 产物通过 → 进审闸(review/$cur_phase.md),审过 handoff pass 才进下一阶段"
+      elif [ "$pidx" -ge "$last" ]; then
+        # 不在闸(或非 gated)且是末阶段 → 待收尾
         new_status="ready-to-close"; next_action="done"; next_phase=""
         human="末阶段 [$cur_phase] 通过 → 待收尾(回主仓库 prepare.sh cleanup)"
       else
+        # 不在闸的普通过 或 审 verdict pass(gate 清空)→ advance
         new_pidx=$(( pidx + 1 )); new_rc=0
         new_phase="$(jq -r --argjson i "$new_pidx" '.phases[$i]' "$m")"
         next_action="advance"; next_phase="$new_phase"
-        human="[$cur_phase] 通过 → 进入 [$new_phase]"
+        if [ -n "$gate" ]; then human="[$cur_phase] 审通过 → 进入 [$new_phase]"
+        else human="[$cur_phase] 通过 → 进入 [$new_phase]"; fi
       fi
       ;;
     needs-repair)
@@ -114,10 +126,11 @@ cmd_handoff() {
 
   jq \
     --arg phase "$new_phase" --argjson pidx "$new_pidx" --argjson rc "$new_rc" \
-    --argjson tc "$new_tc" --arg status "$new_status" \
+    --argjson tc "$new_tc" --arg status "$new_status" --arg gate "$new_gate" \
     --arg hphase "$cur_phase" --arg hconc "$conclusion" --arg at "$(now)" \
     --argjson produced "$produced_json" \
     '.phase=$phase | .phase_index=$pidx | .repair_count=$rc | .turnaround_count=$tc | .status=$status
+     | .gate=(if $gate=="" then null else $gate end)
      | .artifacts += $produced
      | .history += [{phase:$hphase, conclusion:$hconc, at:$at}]' \
     "$m" | write_manifest "$m"
@@ -126,8 +139,9 @@ cmd_handoff() {
 NEXT_ACTION=$next_action
 NEXT_PHASE=$next_phase
 STATUS=$new_status
-$human
 EOF
+  [ "$next_action" = review ] && echo "REVIEW_STAGE=$cur_phase"
+  echo "$human"
 }
 
 # ---------- spinoff ----------
@@ -159,11 +173,12 @@ cmd_where() {
   scenario="$(jq -r .scenario "$m")"; phase="$(jq -r .phase "$m")"
   pidx="$(jq -r .phase_index "$m")"; status="$(jq -r .status "$m")"
   rc="$(jq -r .repair_count "$m")"; tc="$(jq -r .turnaround_count "$m")"
-  local phases; phases="$(jq -rc '.phases' "$m")"
+  local phases gate; phases="$(jq -rc '.phases' "$m")"; gate="$(jq -r '.gate // "null"' "$m")"
   cat <<EOF
 scenario=$scenario
 phase=$phase
 phase_index=$pidx
+gate=$gate
 status=$status
 repair_count=$rc
 turnaround_count=$tc
