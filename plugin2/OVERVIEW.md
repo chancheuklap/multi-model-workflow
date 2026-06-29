@@ -39,13 +39,14 @@ flowchart TB
         subgraph PH3["拆计划 plan"]
             PL["plan-writer 帮手<br/>并行多 issue"]:::worker --> R2["②计划审 loop"]:::codex
         end
-        subgraph PH4["落地 build —— 内层 loop engineering"]
+        subgraph PH4["落地 build —— Codex 写 + Claude 验"]
             direction TB
-            LI["loop.sh init"]:::sh --> WK["Claude 帮手自驱<br/>写测试→实现→验证→commit<br/>SendMessage 续,不重派"]:::worker
-            WK --> RS["record-step hook · PostToolUse<br/>commit→step done"]:::sh
-            RS --> GL{"guard-loop hook · SubagentStop<br/>exit-check 三件套"}:::sh
-            GL -->|"NOT-DONE 还有步"| WK
-            GL -->|"DONE 清单全绿"| R3["③落地审 loop"]:::codex
+            CX["Codex 写代码(codex exec -C worktree<br/>固定 prompt 严防过度设计;每 Pack 提交)"]:::codex
+            CX --> VF{"Claude 验收:跑测试/读 diff 坐实<br/>acceptance + 设计一致性"}:::ai
+            VF -->|"没过 → codex resume 发回修"| CX
+            VF -->|"过 → 记 step done"| GL{"exit-check 清单全绿?"}:::sh
+            GL -->|"还有 plan 没验"| CX
+            GL -->|"全绿"| R3["③合同门"]:::sh
         end
         subgraph PH5["验收 verify"]
             R4["④终审 loop · 预算最大"]:::codex
@@ -196,31 +197,29 @@ flowchart TD
 
 ## 4. 内层:阶段里怎么自驱落地(loop engineering)
 
-进了"落地"这种阶段,协调者派**一个 Claude subagent 帮手**(后台跑),帮手自己跑这个循环,不每步回来(**small-change 小活例外:协调者就地做,不派帮手、不 SendMessage**):
+进了"落地"这种阶段,**Codex 写代码、Claude(主线程)验收**——分两个模型:跟你对齐了设计/计划的是 Claude,让它当"落地不偏离设计"的验收闸;Codex 是并行苦力,不持有这份对齐。写者≠验者,独立性成立。(**small-change 小活例外:主线程就地做,不派 Codex。**)
 
 ```
-读步账 → 找下一个没做的步
-循环:
-  判这步要不要停下问人(三类停,见下)
-  写失败测试 → 确认它真失败 → 最小实现 → 确认它真通过   ← 验收吃测试,不吃"我觉得对了"
-  提交                                              ← 提交即记一步完成(脚本记,不手写)
-  下一步…
-全做完 → 交一次阶段交接单 → 回外层
+主线程读计划 → 给每份 plan 开 worktree → 派 Codex 进去(codex exec,固定 prompt 严防过度设计/兜底/思考)
+Codex 自驱:写失败测试 → 实现 → 通过 → 提交(每 Pack 一提交,带 Pack N.M);互不依赖的 plan 并行
+Codex 返回 → 主线程验收:跑测试/读 diff 坐实 acceptance + 设计一致性   ← 命门,不信 Codex 自述
+  过 → 记这步完成        没过 → codex exec resume 发回修(context 原封)
+全 plan 验过 → ③合同门 → 合并回任务分支 → 交一次阶段交接单 → 回外层
 ```
 
-**为什么帮手不会"扫一眼就宣布完工"**(业界实测的真失败模式):帮手想停时,一个看守脚本拿步账一核——还有步没做完、又没到该停的地方,就**当场把它顶回去继续**。完工信号是**步账全绿**,不是帮手自我感觉。
+**为什么不会"扫一眼就宣布完工"**:完工信号是**主线程按 plan 验收清单逐条坐实(exit-check 机器核清单全绿)**,不是 Codex 自报"我做完了"。Codex 是劳动力不是信源,它说的改了啥/测试过了,主线程自己 grep/跑去坐实。
 
 ### 自动化和 HITL 怎么融合
 
 **唯一的硬红线 = 上线发布**(合并回主分支 / 部署云端)——不可逆的对外动作,**机器硬闸(PreToolUse 直接拦),要你亲自批,不分在场还是无人值守**。它在**收尾/merge 边界**,不在执行循环里。计费/权限/数据/用户可见合同这些,**在设计审+计划审就约定死**,执行中不再为它们停——那才是规划它们的地方。
 
-执行循环内部只有这几种打断,一个在场开关调"软停":
+执行循环内部只有这几种打断,一个在场开关调"软停"(Codex 停下时在最后消息说清,主线程读到后按下面处置):
 
 | 执行中 | 什么情况 | 你在场 | 无人值守 |
 |---|---|---|---|
-| **软停** | 有合理默认的判断、风险中等 | 停下问你 | 自己拍板 **+ 留痕**,继续 |
+| **软停** | 有合理默认的判断、风险中等 | 主线程停下问你 | 主线程自己拍板 **+ 留痕**,`codex resume` 续 |
 | **冒泡** | 真缺输入 / 怀疑方向错 | 停下问你 | 同(needs-context / needs-redirection 太重,AFK 也停) |
-| **不停** | 纯机械(写测试、让它过、提交) | 不停 | 不停 |
+| **不停** | 纯机械(Codex 写测试、让它过、提交) | 不停 | 不停 |
 
 "在场 / 无人值守"开关**只动软停那一档**:冒泡永远停、不停永远不停、红线(merge/deploy)永远要人批。
 
@@ -230,10 +229,10 @@ flowchart TD
 
 | 出口 | 何时 | 怎么续 | 代价 |
 |---|---|---|---|
-| 暂停问人 | 软停 / 冒泡 | 答完**续同一帮手,context 原封** | 零重读 |
-| 修复 | 审查给了要改的点 | 续同一帮手改 | 零重读 |
+| 暂停问人 | 软停 / 冒泡 | 答完 `codex exec resume` 续同一会话,context 原封 | 零重读 |
+| 修复 | 验收/审查给了要改的点 | `codex exec resume` 发回修 | 零重读 |
 
-**续接不重做**靠每步一次提交(已提交的步永不重跑)+ 续同一帮手保上下文(SendMessage)。帮手当**普通 sub-agent** 用,context 长了它自己自动压缩,不用我们管换帮手——省 token 的核心是续同帮手、零重读。
+**续接不重做**靠每 Pack 一次提交(已提交的 Pack 永不重跑)+ `codex exec resume` 续同一 Codex 会话保上下文。落地载体是 Codex(不吃 SendMessage/SubagentStop);**审核 loop 的协调帮手是 Claude subagent,续接才走 SendMessage**——两套别混(§5b)。
 
 ---
 
@@ -292,28 +291,33 @@ flowchart LR
 ```mermaid
 flowchart LR
     U["你<br/>给方向 · 拍业务决策"]:::p
-    C["协调 AI<br/>判路 · 派活 · 问你 · 收口"]:::ai
-    W["帮手 AI<br/>阶段内自驱落地<br/>(常驻 · SendMessage 可续 · 自动压缩)"]:::ai
-    K["脚本/hook<br/>开工 · 换阶段 · 看守循环 · 拦红线 · 记进度"]:::sh
+    C["协调 AI = Claude 主线程<br/>判路 · 派活 · 问你 · **验收** · 收口"]:::ai
+    X["Codex 苦力<br/>落地写码 / 审出审查<br/>(codex exec · resume 续)"]:::cx
+    W["Claude 帮手<br/>写计划(plan-writer)/ 协调审<br/>(SendMessage 续)"]:::ai
+    K["脚本/hook<br/>开工 · 换阶段 · 看守 · 拦红线 · 记进度"]:::sh
 
     U --> C
+    C -->|"派 + 验收 + resume"| X
     C -->|"派一次 + 续接"| W
+    X -.->|"停下/返回要决策"| C
     W -.->|"停下要决策"| C
     C <-->|"结论词 / 下一步回执"| K
 
     classDef p fill:#ede9fe,stroke:#7c3aed
     classDef ai fill:#fef3c7,stroke:#d97706
+    classDef cx fill:#fee2e2,stroke:#dc2626
     classDef sh fill:#dbeafe,stroke:#2563eb
 ```
 
 | 角色 | 干什么 | 不干什么 |
 |---|---|---|
 | 你 | 给方向、给真实体感、拍业务决策 | 不管机械细节 |
-| 协调 AI | 判活、派帮手、问你、验收、收尾 | 不亲自写生产代码 |
-| 帮手 AI | 阶段内自驱落地;停下时把问题抛回协调者 | 不直接问用户(只有主线程能问)、不改文档、不越界 |
-| 脚本/hook | 开工、换阶段、看守循环、拦红线、记进度、续接管线 | 不做判断 |
+| 协调 AI(Claude 主线程) | 判活、派 Codex/帮手、问你、**验收(落地不偏离设计)**、收尾 | 不亲自写生产代码(小改例外) |
+| Codex 苦力 | 落地写码(workspace-write)/ 审出审查(read-only);自驱、不同模型 | 不直接问用户(抛回主线程)、不改 docs、不越界 |
+| Claude 帮手 | 写计划(plan-writer)、协调审(派 Codex+亲验) | 不直接问用户、不越界 |
+| 脚本/hook | 开工、换阶段、看守、拦红线、记进度、续接管线 | 不做判断 |
 
-**写审异家 = 不同模型**:设计讨论用 **Claude**;审核派 **Codex**(审者与作者不同模型,独立性最强);落地帮手**倾向 Claude**(顺手,未最终定)。审者必须 ≠ 作者,这是审查可信的前提。
+**写审异家 = 不同模型**:设计/计划讨论用 **Claude**(跟你对齐);**落地 = Codex 写 + Claude 验**(Codex 苦力,Claude 是对齐了设计的验收闸);**审 = Codex 出审查 + Claude 验**。写者≠验者 = 独立性,这是审查/验收可信的前提。(据用户工作流 PDF 定,推翻早前"落地倾向 Claude"。)
 
 ---
 
@@ -324,10 +328,10 @@ flowchart LR
 | 载体 | 是什么 | 能 | 不能 / 注意 | 怎么续 |
 |---|---|---|---|---|
 | **主线程 = Claude Code** | 协调者(这个对话) | **唯一能问用户**(AskUserQuestion);派 subagent;Bash 调 Codex;跑 hook;**就地做 small-change** | —— | —— |
-| **Claude subagent** | Agent 派,独立 context,回摘要 | 自驱干活;后台跑;SubagentStop 看守;自动压缩 | 不能问用户(抛回主线程);Explore/Plan 一次性不可续 | **SendMessage** |
-| **Codex 无头 CLI** | codex exec,外部进程、**不同模型** | 审 = `codex exec` **喂我们自己的 review 提示词**(quartet+阶段 angle,`--sandbox read-only`);落地 = `codex exec --sandbox workspace-write`;`--output-schema`=结构化回执;`-m`/effort 分层 | **不是 Claude subagent**:经 Bash 调,不吃 SendMessage/SubagentStop/Claude hook;不能问用户。**`codex review` 用 Codex 内置提示词,绕过我们的方法论 → 不用** | **codex exec resume** |
+| **Claude subagent** | Agent 派,独立 context,回摘要 | **写计划(plan-writer)/ 协调审(派 Codex+亲验)**;后台跑;SubagentStop 看守;自动压缩。**不是落地 worker(落地归 Codex)** | 不能问用户(抛回主线程);Explore/Plan 一次性不可续 | **SendMessage** |
+| **Codex 无头 CLI** | codex exec,外部进程、**不同模型** | **落地写码 = `codex exec -C <worktree> --sandbox workspace-write`**(build 主力,固定 prompt 严防过度设计);审 = `codex exec --sandbox read-only` **喂我们的 review 提示词**(quartet+阶段 angle);`-m`/effort 分层 | **不是 Claude subagent**:经 Bash 调,不吃 SendMessage/SubagentStop/Claude hook;不能问用户。**`codex review` 绕过我们方法论 → 不用** | **codex exec resume** |
 
-**五条硬规矩**:① 续接两套别混(Claude=SendMessage,Codex=exec resume);② SubagentStop 只看守 Claude 帮手,Codex 靠 `--output-schema` 回执核;③ 只有主线程能问用户,subagent/Codex 都抛回主线程;④ **审用 `codex exec` 喂我们的 review 提示词,不用 `codex review`**(那是 Codex 内置提示词,绕过 quartet/阶段 angle);⑤ small-change 主线程就地做,不派帮手、不 SendMessage。
+**五条硬规矩**:① 续接两套别混(Claude subagent=SendMessage,Codex=exec resume);② SubagentStop 只看守 Claude subagent(plan-writer/审协调);**build 的 Codex 落地不吃 SubagentStop,防过早完工靠主线程按 plan 验收清单 verify + exit-check 机器核**;③ 只有主线程能问用户,subagent/Codex 都抛回主线程;④ **审/落地都用 `codex exec`,不用 `codex review`**(那绕过我们方法论);⑤ small-change 主线程就地做,不派 Codex/帮手。
 
 ---
 
@@ -404,21 +408,23 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    IN["进入·选预设"]:::done --> PREP["开工准备"]:::done --> OUT["外层:自动换阶段"]:::done
+    IN["进入·选预设"]:::done --> PREP["开工准备 + 接力单"]:::done --> OUT["外层:统一运行契约换阶段 + 审闸"]:::done
     OUT --> SPIN["分叉登记子任务"]:::done
-    OUT --> CAP["返工/掉头/上限/停下"]:::done
+    OUT --> CAP["返工/掉头(可回上游任一)/上限/停下"]:::done
     OUT --> RES["断点恢复"]:::done
-    OUT --> INNER["内层 loop 机器<br/>(引擎+看守+红线+记进度)"]:::done
-    OUT --> CONTENT["真内容:worker指令/审提示词/<br/>agent方法论(待忠实搬运)"]:::todo
-    IN --> MERGE["merge 合并"]:::todo
+    OUT --> PHASES["六阶段全接满 + 各阶段方法论<br/>investigate/design/plan/build/verify/closing"]:::done
+    OUT --> REVIEW["四审 loop(Codex 出审查+Claude 验)"]:::done
+    OUT --> BUILD["落地:Codex 写+Claude 验(codex-worker)"]:::done
+    IN --> MERGE["merge 合并(team+冲突)"]:::done
+    OUT --> RUN["真任务端到端跑(内容级验收)"]:::todo
     OUT --> UP["中途整体升级"]:::todo
 
     classDef done fill:#dcfce7,stroke:#16a34a
     classDef todo fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray:4 3
 ```
 
-🟢 已完成并空跑验证(81 项断言):进入路由 · 开工/恢复/清理 · 外层自动换阶段 · 分叉/返工/掉头/上限/停下 · **内层机器(引擎 loop.sh + 看守/红线/记进度三 hook)** · 一份进度记录管全部。
-⬜ 待建:**真内容**(从旧 plugin 忠实搬:worker 指令 / 审提示词 / agent 方法论)· merge · 中途升级。
+🟢 已落地并空跑验证(164 项断言):进入路由 · 开工/恢复/清理 · 接力单 · 统一运行契约 + 审闸 · 分叉/返工(可 `--to-phase`)/上限/停下 · 六阶段方法论全接(含 Codex 落地派发 + 四审 loop)· merge · 统一 CLI `mmw`。
+⬜ 未验:**内容级端到端真跑**(真派 Codex 落地/审、真 resume 修、真 surface 冒泡——单测够不着,要拿真 develop 任务跑)· 中途整体升级。
 
 ---
 
@@ -436,7 +442,8 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    N1["① 搭内层骨架<br/>自驱+看守+暂停续接+红线(空跑)"]:::nx --> N2["② 拿最短场景装真内容跑通"]:::nx --> N3["③ merge 合并"]:::nx --> N4["④ 中途升级"]:::nx
+    N1["① 骨架+六阶段+审+merge<br/>(已落地·164 断言)"]:::done --> N2["② 拿真 develop 任务端到端跑<br/>一边跑一边修(内容级验收)"]:::nx --> N3["③ 中途整体升级"]:::nx
+    classDef done fill:#dcfce7,stroke:#16a34a
     classDef nx fill:#dbeafe,stroke:#2563eb
 ```
 
@@ -446,10 +453,15 @@ flowchart LR
 
 | 能力 | 文件 |
 |---|---|
-| 进入 + 路由 + 准备 + 推进说明 | `skills/orchestrate/SKILL.md` |
-| 开工 / 恢复 / 清理 | `scripts/prepare.sh` |
-| 交单 / 换阶段 / 分叉 / 查位置 | `scripts/flow.sh` |
-| 进度记录结构 | `state-schema/task-manifest.schema.json` |
-| 流程数据(主干+预设+结论+上限) | `state-schema/routes.json` |
-| 内层 loop engineering(自驱/看守/暂停续接/红线) | 待建(§4) |
-| 空跑验证 | `scripts/tests/` |
+| 统一 CLI(所有命令一个入口)| `scripts/mmw.sh` |
+| 进入 + 路由 + 阶段运行契约 + 各阶段绑定 | `skills/orchestrate/SKILL.md` |
+| 各阶段方法论 / 操作指南 | `skills/orchestrate/references/{investigate,review,build,closing,merge}.md` · `skills/write-design-doc/` · `skills/write-plan-doc/` |
+| 审题(喂 Codex)| `skills/orchestrate/references/review/{quartet,design,plan,plan-impl,final}.md` |
+| 开工 / 恢复 / 清理 / 全队(merge)| `scripts/prepare.sh`(new/resume/cleanup/team)|
+| 交单 / 换阶段 / 审闸 / 分叉 / 接力单 / 查位置 | `scripts/flow.sh` |
+| 内层 loop 引擎(steps/checklist/退出三件套)| `scripts/loop.sh` |
+| 审闸一条命令 / Codex 落地派发 | `scripts/review.sh` · `scripts/codex-worker.sh` |
+| 看守(SubagentStop)/ 红线(PreToolUse)/ 记进度(commit)| `hooks/{guard-loop,guard-redline,record-step}.sh` |
+| 进度记录 / 流程数据 / loop 状态 | `state-schema/{task-manifest.schema,routes,loop-state.schema}.json` |
+| 落地规格 | `design/{loop-engineering,investigate-workflow,review-loop}.md` |
+| 空跑验证 | `scripts/tests/`(164 断言)|

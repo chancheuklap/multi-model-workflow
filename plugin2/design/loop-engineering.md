@@ -7,60 +7,54 @@
 
 ## 1. 范围:两类内层 loop,一台机器
 
-| loop | 干什么 | "一步" | verify 吃 |
-|---|---|---|---|
-| **落地 loop**(execution) | 自驱写代码 | 一个 pack:写测试→实现→提交 | 跑测试 |
-| **审核 loop ×4**(①设计②计划③落地④final) | 自驱查证 | 一个维度 / 一条 finding | grep/读/跑去坐实 finding 真假 |
+| loop | 干什么 | 载体写 | "一步" | Claude 验吃 |
+|---|---|---|---|---|
+| **落地 loop**(execution) | 自驱写代码 | **Codex** 在 worktree | 一个 pack:写测试→实现→提交 | 跑测试/读 diff 坐实 acceptance |
+| **审核 loop ×4**(①设计②计划③落地④final) | 自驱查证 | **Codex** 出审查 | 一个维度 / 一条 finding | grep/读/跑去坐实 finding 真假 |
 
-同一台机器、同一套退出三件套(§6),载体和数据不同。**small-change 不进 loop**:主线程就地做,不派帮手、不 SendMessage。**③落地审**不开判断 loop,降成机器合同门(§2)。
+**统一规律:Codex 是苦力(落地写码 / 审出审查),Claude 是对齐了设计的验收脑。** 同一台机器、同一套退出三件套(§6),载体和数据不同。**small-change 不进 loop**:主线程就地做,不派 Codex。**③落地审**不开判断 loop,降成机器合同门(§2)。
 
-### 落地 loop 机制(序列)
+### 落地 loop 机制(序列):Codex 写 + Claude 验
 
 ```mermaid
 sequenceDiagram
     participant H as 你
-    participant C as 主线程(协调者)
-    participant W as 落地 worker(Claude subagent)
-    participant K as hooks
+    participant C as 主线程(Claude 协调+验收)
+    participant X as Codex(worktree 内写码)
     participant L as 进度记录(steps/pause)
 
-    C->>L: steps expand(从计划展开步账)
-    C->>W: Agent 派(后台)
-    loop 自驱
-        W->>W: 做一步 TDD
-        W->>K: 提交 → PostToolUse 记 step done
-        K->>L: status=done + commit
-        alt 软停(在场) / 冒泡
-            W-->>C: yield "要你定 X@step N"(不死·context 留)
-            C->>H: AskUserQuestion(只有主线程能问)
-            H->>C: 答
-            C->>W: SendMessage(答)
-            Note over W: 同帮手·context 原封·从那步续
-        else 软停(无人值守)
-            W->>L: 记 decisions(留痕)·继续
-        end
+    C->>L: steps expand(从计划展开 Pack)
+    C->>X: codex-worker dispatch(开 worktree + 固定 prompt 严防过度设计;并行 plan 并行派)
+    X->>X: 自驱 TDD,每 Pack 一提交(Pack N.M)
+    X-->>C: 返回最后消息(逐 Pack done/blocked + acceptance + 改了啥)
+    C->>C: 验收:跑测试/读 diff 坐实(不信 Codex 自述)
+    alt 没过 / 要修
+        C->>X: codex exec resume(发回修·context 原封)
+    else 过
+        C->>L: 记 step done
     end
-    W->>K: 想停 → SubagentStop 核 steps
-    K-->>W: 没全 done → exit2 + 顶回去续
-    K-->>C: 全 done → 放停 → 阶段结论词
-    Note over H,K: merge/deploy 时 PreToolUse 拦·要你批(红线)
+    alt Codex 停下说缺输入/方向疑
+        C->>H: 在场→AskUserQuestion;afk→软停自决留痕 / 冒泡停
+    end
+    C->>L: 全 plan 验过 → exit-check DONE → ③合同门 → 合并 → 结论词
+    Note over H,C: merge/deploy 时 PreToolUse 拦·要你批(红线)
 ```
 
-审核 loop 同构:载体换 Codex(`codex exec` + 我们的提示词),续接换 `codex exec resume`,看守换 `--output-schema` 回执核 checklist。
+审核 loop 同构:Codex 出审查(`codex exec --sandbox read-only` + 我们的提示词),Claude 协调帮手亲验 + cover 清单;续接 `codex exec resume`。**防过早完工:落地/审都靠 Claude 按清单 verify + exit-check 机器核(Codex 不吃 SubagentStop)**;审协调帮手是 Claude subagent,才受 SubagentStop 看守。
 
 ---
 
 ## 2. 载体分配(落地必须照这个调,角色不混)
 
-| loop | 载体 | 派发 | 续接 | 看守 |
+| loop | 写者载体 | 派发 | 续接 | 防过早完工 |
 |---|---|---|---|---|
-| 落地 worker | **Claude subagent** | `Agent(background)` | `SendMessage` | `SubagentStop` hook 核 steps |
-| 审 ①②④ | **Codex**(不同模型) | Bash:`codex exec --sandbox read-only -C . --output-schema <f> - < <prompt>`,prompt = 我们的 `quartet.md` + 阶段 angle | `codex exec resume <id>` | `--output-schema` 结构化回执核(Claude hook 管不到 Codex) |
+| 落地 worker | **Codex** | `codex-worker dispatch`(`codex exec -C <wt> --sandbox workspace-write` + 固定 prompt) | `codex exec resume` | 主线程按 plan 验收清单 verify + `exit-check`(Codex 不吃 SubagentStop) |
+| 审 ①②④ | **Codex 出审查** + Claude 协调帮手验 | `review.sh start` → 协调帮手 `codex exec --sandbox read-only` 喂 `quartet`+阶段 angle | `codex exec resume`(Codex)/ `SendMessage`(协调帮手) | `SubagentStop` 看守协调帮手 + `exit-check` 清单 |
 | 审 ③(合同门) | **脚本**(无模型) | 机器核:全 pack committed + 声明的跨 plan 合同存在 | — | — |
 
-**铁律**(§5b):审用 `codex exec` 喂我们的提示词,**不用 `codex review`**(那是 Codex 内置提示词);Claude 续接=SendMessage、Codex 续接=exec resume,别混;只有主线程能问用户,worker/Codex 都把问题抛回主线程。
+**铁律**(§5b):审/落地都用 `codex exec`,**不用 `codex review`**;续接两套别混(Codex=exec resume,Claude subagent=SendMessage);只有主线程能问用户,Codex/帮手都抛回主线程。
 
-> 我们的 review 提示词现住 `skills/second-model-review/`(`quartet.md` + 四阶段 angle)。plugin2 审时要能拿到喂给 codex exec——复制进 plugin2 还是引用,搭审核 loop 时定。
+> review 提示词已迁到 `plugin2/skills/orchestrate/references/review/`(`quartet.md` + 四阶段 angle),`review.sh` 配好喂给 codex exec。
 
 ---
 
@@ -108,11 +102,11 @@ verdict:     pass | needs-repair | needs-redirection | needs-context | blocked
 
 | hook | 事件 | 逻辑 |
 |---|---|---|
-| **看守** | `SubagentStop`(仅 Claude worker) | 核 `steps`(落地)或 `checklist`(若 Claude 审):没全绿且没到该停 → `exit 2` + `additionalContext` 顶回去续 |
+| **看守** | `SubagentStop`(仅 Claude subagent:审协调 / Claude 直修) | 核 `steps`/`checklist`:没全绿且没到该停 → `exit 2` + `additionalContext` 顶回去续 |
 | **红线** | `PreToolUse` | 命中 merge 回主分支 / push / 部署命令 且无 `release_approval` → deny,要主线程拿用户批准 |
-| **记进度** | `PostToolUse`(commit) | 调 `step done` 记 step 完成 |
+| **记进度** | `PostToolUse`(commit) | 抽 `Pack N.M` 调 `step done`——**仅对 Claude 经 Bash 的提交生效**(small-change / Claude 直修) |
 
-> Codex 审者是外部进程,不吃 SubagentStop——它的"审完没"靠 `--output-schema` 回执 + 主线程核 checklist。
+> **Codex 落地 + Codex 审都是外部进程,不吃 SubagentStop / PostToolUse**:Codex 在 worktree 自提交不触发 record-step;build 的 `step done` 由**主线程 verify 通过后手记**,防过早完工靠主线程按 plan 验收清单 verify + `exit-check`(不靠 hook)。SubagentStop 现只看守 Claude subagent(审协调 / Claude 直修)。
 
 ---
 
@@ -141,17 +135,16 @@ verdict:     pass | needs-repair | needs-redirection | needs-context | blocked
 
 ## 7. 骨架空跑断言(先空跑,再装真内容)
 
-**落地 loop**:
-- worker stub 跑通整串 steps;`SubagentStop` 逼它做完才放停。
-- 软停随 attendance 变(attended 停问 / afk 自决+留 decisions)。
-- 冒泡(needs-context / needs-redirection)停下抛主线程。
-- 提交→commit hook 记 step done。
+**落地 loop**(`codex-worker dispatch` 用 **fake codex** stub,见 `test_codex_worker.sh`):
+- dispatch 组对 prompt 铁律(严防过度设计 / TDD / Pack N.M / 禁改 docs)+ codex 参数(`-C <wt>` / `--sandbox workspace-write` / `--add-dir`)+ 抓 session;`resume` 走 `codex exec resume`。
+- 主线程 verify 后 `mmw loop step done`;`exit-check` steps 全 done 才放行(防过早完工)。
+- 软停随 attendance 变(attended 停问 / afk 自决+留 decisions);冒泡停下抛主线程。
 - merge/deploy 被 PreToolUse 拦,要 `release_approval` 才放。
-- small-change 路径:主线程就地做,不派 subagent、不 SendMessage。
+- small-change 路径:主线程就地做,不派 Codex。
 
 **审核 loop**:
-- 主线程 `checklist expand` 抽出覆盖清单;`checklist` 没全 covered 不让出 pass。
-- `review dispatch` 用 **fake codex** stub:断言传了 `--sandbox read-only`、prompt 含 quartet+angle、`--output-schema`;`review ingest` 收结构化 findings。
+- 主线程 / 协调帮手抽覆盖清单;`checklist` 没全 covered 不让出 pass。
+- `review.sh start` 按阶段映射 kind + angle、init loop、出协调帮手 brief(断言见 `test_review.sh`)。
 - 轮上限到顶→转第三态。
 - ③合同门:全 pack committed + 合同存在 → 过;缺→回落地。
 
