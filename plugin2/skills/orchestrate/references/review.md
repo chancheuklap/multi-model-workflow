@@ -17,24 +17,19 @@
 
 ③ 是便宜合同门,不派 Codex 判断(见 §3);①②④ 是真审 loop(§1–§2)。
 
-## 1. 主线程:抽清单 → 起 loop → 派协调帮手(①②④)
+## 1. 主线程:一条命令起审 → 抽清单 → 派协调帮手(①②④)
 
-1. **抽覆盖清单**(你有源文档 context,这步你做):从设计/计划/issue/意图逐条抽出"要审到什么",`source` 记从哪份文档哪行抽的。客观项(② issue 数=plan 数、④ 意图逐条)能机器核的标清楚。
+1. **一条命令起审**(把 init loop + 配审题 + 出 brief 收成一步):
    ```bash
-   bash "${SCRIPTS}/loop.sh" init --kind review
+   bash "${SCRIPTS}/review.sh" start --stage <design|plan|final> --source "<源意图路径/待审内容>"
+   ```
+   它 init `kind=review` 的 loop、定好该阶段审题(`references/review/<阶段>.md` + `quartet.md`)、**打印好协调帮手 brief**。你照打印的往下走。
+2. **抽覆盖清单**(判断,留你做):从设计/计划/issue/意图逐条抽"要审到什么",`source` 记从哪份文档哪行抽。客观项(② issue 数=plan 数、④ 意图逐条)标清楚:
+   ```bash
    bash "${SCRIPTS}/loop.sh" checklist add --item "<要审到的维度>" --source "<doc:line>"   # 逐条
    bash "${SCRIPTS}/loop.sh" attendance --mode <attended|afk>
    ```
-2. **派审核协调帮手**(Claude sub-agent,SubagentStop 受 guard-loop 看守)。给它这份简报(只给 Source + 点名 references,**别塞你自己的问题清单**):
-
-   > 你是审核协调帮手,跑一台 `kind=review` 的审核 loop,不自己写结论也不自己改产物。
-   > **Source**:〔源意图路径(design/issue/意图)+ 待审内容/diff〕。
-   > **派两个独立 Codex 审者**(①②③=轴A+轴B;④=基线1+基线2),单条消息并行起、各自干净 context,每个跑:
-   > `codex exec -C . --sandbox read-only - < <prompt>`,`run_in_background: true`;prompt = 点名让它读 `references/review/quartet.md` + `references/review/<阶段>.md` 的〔轴A/基线1〕+ 给 Source。Codex 侧没装本 skill 就把那两段拼成自包含 prompt。续接用 `codex exec resume <id>`。
-   > **收回后亲验**:每条 finding 自己 Read/grep/跑坐实(Codex 是劳动力不是信源),引不出 `file:line` 原文 = 降置信。坐实一个覆盖维度就 `loop.sh checklist cover --item <i> --evidence <file:line>`;真 finding `loop.sh finding add --severity <C/I/M> --confidence <1-10> --locator <file:line>`。
-   > **收敛**:两视角跑完追一轮没新高置信 finding = 收敛;`round` 到阶段上限(①②=2,④=1-2)还没收敛 → `loop.sh surface --kind needs-redirection --question "<审不收敛/卡在哪>"`。
-   > **方向疑 / 缺输入**(需用户拍)→ `loop.sh surface`,别自己当产物缺陷修。
-   > 清单全绿 + 无开口 Critical 前 `guard-loop` 不让你停;做完再停。
+3. **派审核协调帮手**(Claude sub-agent,SubagentStop 受 guard-loop 看守):用 `review.sh` 打印的 brief 原样派。brief 已含派两个独立 Codex(`codex exec --sandbox read-only` 喂 quartet+角度、续接 `codex exec resume`)、亲验后 `checklist cover` / `finding add`、收敛与熔断 `surface`、清单全绿+无 Critical 前不准停。**只给 Source + 点名审题,别塞你自己的问题清单。**
 
 ## 2. 主线程:收口(协调帮手停下后)
 
@@ -52,7 +47,7 @@
 ③ 跟 TDD 每步验重叠,只查跨 plan 合同兑现,降成机器门:
 
 ```bash
-bash "${SCRIPTS}/loop.sh" init --kind contract-gate
+bash "${SCRIPTS}/review.sh" start --stage plan-impl --source "<plan 目录>"   # init kind=contract-gate
 bash "${SCRIPTS}/loop.sh" step add --id <pack-id> ...           # 待提交的 pack(record-step hook 提交即标 done)
 bash "${SCRIPTS}/loop.sh" checklist add --item "<跨 plan 合同>" --source <plan:line>
 # 逐条机器核合同兑现 → checklist cover;全 Pack 提交 + 合同全 cover → exit-check DONE
