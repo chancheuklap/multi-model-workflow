@@ -78,9 +78,10 @@ bash "${SCRIPTS}/prepare.sh" resume
 | plan(拆计划) | `Skill({ skill: "write-plan-doc" })` | 主线程编排 + 派 plan-writer |
 | build(落地) | `${SKILL_DIR}/references/build.md` | 主线程派帮手跑落地 loop |
 | verify(验收=④终审) | `${SKILL_DIR}/references/review.md`(final) | 主线程起终审 loop |
+| closing(收尾) | `${SKILL_DIR}/references/closing.md` | 主线程收口 + 合并红线 + 清理 |
 | 审闸(`NEXT_ACTION=review`) | `${SKILL_DIR}/references/review.md` | 主线程起审 loop + 派 Codex 协调帮手 |
 
-> build / plan / verify / merge 待接满,接法照本契约(进/钉/交不变,只填各自的「干」)。
+> merge(多 worktree 合并)是独立场景、待接;backbone 六阶段已全部接满,接法都照本契约(进/钉/交不变,只填各自的「干」)。
 
 **③ 钉 + ④ 交 —— 一条 handoff:**
 
