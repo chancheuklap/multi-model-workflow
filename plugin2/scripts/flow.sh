@@ -208,9 +208,17 @@ cmd_where() {
   scenario="$(jq -r .scenario "$m")"; phase="$(jq -r .phase "$m")"
   pidx="$(jq -r .phase_index "$m")"; status="$(jq -r .status "$m")"
   rc="$(jq -r .repair_count "$m")"; tc="$(jq -r .turnaround_count "$m")"
-  local phases gate prev_out; phases="$(jq -rc '.phases' "$m")"; gate="$(jq -r '.gate // "null"' "$m")"
-  # 接力单:上一个开着阶段的钉死产出(给"进"动作照单读,不靠自己找)
-  prev_out="$(jq -rc --argjson i "$pidx" 'if $i>0 then (.phase_outputs[.phases[$i-1]] // []) else [] end' "$m")"
+  local phases gate prev_out reads_json; phases="$(jq -rc '.phases' "$m")"; gate="$(jq -r '.gate // "null"' "$m")"
+  # 接力单:本阶段声明读哪些上游(routes phase_bindings.reads),where 照声明拼,下阶段一单读全、不自己找。
+  # 没声明 → 默认读上一个开着阶段;design 这种跨两阶(查清现状 + 选定方向)的用 reads 把上游列全。
+  reads_json="$(jq -rc --arg k "$phase" '.phase_bindings[$k].reads // empty' "$ROUTES")"
+  if { [ "$gate" = "null" ] || [ -z "$gate" ]; } && [ -n "$reads_json" ]; then
+    # 按声明序取各上游阶段产出(只取本任务 phases 里真实开着的,preset 关掉的跳过),拼成一张单
+    prev_out="$(jq -rc --argjson reads "$reads_json" '. as $m
+      | [ $reads[] | select($m.phases | index(.)) | ($m.phase_outputs[.] // []) ] | add // []' "$m")"
+  else
+    prev_out="$(jq -rc --argjson i "$pidx" 'if $i>0 then (.phase_outputs[.phases[$i-1]] // []) else [] end' "$m")"
+  fi
   # 指路:gate 非空(在审闸里)用 review_gate 绑定,否则用当前阶段绑定
   local bkey="$phase"
   { [ "$gate" != "null" ] && [ -n "$gate" ]; } && bkey="review_gate"

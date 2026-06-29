@@ -153,6 +153,16 @@ RES="$(cd "$WF" && bash "$PREPARE" resume 2>/dev/null)"
 echo "$RES" | head -1 | grep -q "MANAGED" && echo "$RES" | tail -n +2 | jq -e '.phase=="propose"' >/dev/null \
   && ok "resume 读到 propose(断点续传)" || no "resume 断点续传"
 
+# ===== H: design 跨两阶接力单(reads = investigate + propose 都进 prev_outputs) =====
+WH="$(newtask develop 2026-06-29-task-h)"
+( cd "$WH" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/2026-06-29-task-h.md >/dev/null )  # investigate→propose
+( cd "$WH" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-06-29-task-h-direction.md >/dev/null )  # propose→design
+WHD="$(cd "$WH" && bash "$FLOW" where)"
+PREVH="$(echo "$WHD" | sed -n 's/^prev_outputs=//p')"
+echo "$WHD" | grep -q "phase=design" || no "task-h 应在 design"
+echo "$PREVH" | jq -e 'index("docs/investigating/2026-06-29-task-h.md")!=null and index("docs/design/2026-06-29-task-h-direction.md")!=null' >/dev/null \
+  && ok "design prev_outputs 含 现状报告 + 方向(跨两阶接力)" || no "design prev_outputs 漏上游 ($PREVH)"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

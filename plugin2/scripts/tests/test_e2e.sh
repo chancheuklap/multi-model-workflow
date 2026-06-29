@@ -27,14 +27,16 @@ WT="$(bash "$PREPARE" new --scenario develop --slug 2026-06-29-e2e --title "端�
 [ "$(ph)" = "investigate" ] && ok "起于 investigate" || no "起点 ($(ph))"
 
 # investigate → propose(产出现状报告,钉接力单)
-( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/context/report.md >/dev/null )
+( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/e2e.md >/dev/null )
 [ "$(ph)" = "propose" ] && ok "investigate→propose" || no "→propose ($(ph))"
-[ "$(prevout)" = '["docs/context/report.md"]' ] && ok "propose 照单读到 investigate 报告" || no "接力单 investigate→propose ($(prevout))"
+[ "$(prevout)" = '["docs/investigating/e2e.md"]' ] && ok "propose 照单读到 investigate 报告" || no "接力单 investigate→propose ($(prevout))"
 
 # propose → design(给方案选定方向,钉接力单)
 ( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/design/e2e-direction.md >/dev/null )
 [ "$(ph)" = "design" ] && ok "propose→design(方向选定)" || no "→design ($(ph))"
-[ "$(prevout)" = '["docs/design/e2e-direction.md"]' ] && ok "design 照单读到选定方向" || no "接力单 propose→design ($(prevout))"
+# design 跨两阶 reads:现状报告 + 方向都进 prev_outputs(照单读全,不自己找)
+[ "$(prevout)" = '["docs/investigating/e2e.md","docs/design/e2e-direction.md"]' ] \
+  && ok "design 照单读到 现状报告 + 选定方向" || no "接力单 propose→design ($(prevout))"
 
 # design → ①审闸(产出设计文档)
 OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/design/e2e.md)"
