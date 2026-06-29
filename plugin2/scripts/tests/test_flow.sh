@@ -27,13 +27,16 @@ mfield() { jq -r ".$2" "$1/.claude/multi-model-workflow/task.json"; }
 WA="$(newtask develop 2026-06-28-task-a)"
 [ "$(mphase "$WA")" = "investigate" ] && ok "A 起于 investigate" || no "A 起于 investigate ($(mphase "$WA"))"
 
-( cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/design.md >/dev/null )  # investigate→design
-[ "$(mphase "$WA")" = "design" ] && ok "investigate pass→design" || no "investigate→design ($(mphase "$WA"))"
+( cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/ctx.md >/dev/null )  # investigate→propose
+[ "$(mphase "$WA")" = "propose" ] && ok "investigate pass→propose" || no "investigate→propose ($(mphase "$WA"))"
 [ "$(mfield "$WA" 'artifacts|length')" = "1" ] && ok "产出登记进 artifacts" || no "产出登记"
 # 接力单:产出钉进 phase_outputs[investigate],下阶段 where 照单读
-[ "$(mfield "$WA" 'phase_outputs.investigate[0]')" = "docs/design.md" ] && ok "产出钉进接力单 phase_outputs[investigate]" || no "接力单钉死"
+[ "$(mfield "$WA" 'phase_outputs.investigate[0]')" = "docs/ctx.md" ] && ok "产出钉进接力单 phase_outputs[investigate]" || no "接力单钉死"
 WPO="$(cd "$WA" && bash "$FLOW" where)"
-echo "$WPO" | grep -q 'prev_outputs=\["docs/design.md"\]' && ok "where 报上阶段产出(prev_outputs 照单读)" || no "prev_outputs 照单读"
+echo "$WPO" | grep -q 'prev_outputs=\["docs/ctx.md"\]' && ok "where 报上阶段产出(prev_outputs 照单读)" || no "prev_outputs 照单读"
+
+( cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/dir.md >/dev/null )  # propose→design(给方案选定→进设计)
+[ "$(mphase "$WA")" = "design" ] && ok "propose pass→design" || no "propose→design ($(mphase "$WA"))"
 
 ( cd "$WA" && bash "$FLOW" spinoff --tag bug --finding "中途挖到登录态丢失" >/dev/null )
 [ "$(mfield "$WA" 'subtasks|length')" = "1" ] && ok "甩支线→子任务登记" || no "甩支线登记"
@@ -63,11 +66,12 @@ echo "$OUTG" | grep -q "REVIEW_STAGE=design" && ok "审闸报阶段 design" || n
 OUT="$(cd "$WA" && bash "$FLOW" handoff --conclusion pass)"        # closing→ready-to-close
 echo "$OUT" | grep -q "STATUS=ready-to-close" && ok "末阶段 pass→ready-to-close" || no "ready-to-close"
 echo "$OUT" | grep -q "NEXT_ACTION=done" && ok "末阶段 NEXT=done" || no "NEXT=done"
-[ "$(mfield "$WA" 'history|length')" = "8" ] && ok "history 记满 8 步(含两审闸)" || no "history 8 步 ($(mfield "$WA" 'history|length'))"
+[ "$(mfield "$WA" 'history|length')" = "9" ] && ok "history 记满 9 步(含 propose + 两审闸)" || no "history 9 步 ($(mfield "$WA" 'history|length'))"
 
 # ===== A2: 审打回 → 清 gate 回该阶段返工 =====
 WA2="$(newtask develop 2026-06-28-task-a2)"
-( cd "$WA2" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # investigate→design
+( cd "$WA2" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # investigate→propose
+( cd "$WA2" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # propose→design
 ( cd "$WA2" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # design→gate:design
 [ "$(mfield "$WA2" gate)" = "design" ] && ok "A2 进 ①审闸" || no "A2 ①审闸"
 ( cd "$WA2" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )  # 审打回
@@ -112,13 +116,14 @@ if ( cd "$WE" && bash "$FLOW" spinoff --tag nope --finding x >/dev/null 2>&1 ); 
 
 # ===== D2: needs-redirection --to-phase 回上游任一指定阶段 =====
 WD2="$(newtask develop 2026-06-28-task-d2)"
-( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # investigate→design
+( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # investigate→propose
+( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # propose→design
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # design→①审闸
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # ①审过→plan
 [ "$(mphase "$WD2")" = "plan" ] && ok "D2 到 plan" || no "D2 到 plan ($(mphase "$WD2"))"
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design >/dev/null )
 [ "$(mphase "$WD2")" = "design" ] && ok "掉头 --to-phase design 回到 design(非首阶段)" || no "to-phase design ($(mphase "$WD2"))"
-[ "$(mfield "$WD2" phase_index)" = "1" ] && ok "--to-phase 回到正确下标" || no "to-phase 下标"
+[ "$(mfield "$WD2" phase_index)" = "2" ] && ok "--to-phase 回到正确下标" || no "to-phase 下标"
 # 不带 --to-phase 默认回首阶段
 WD3="$(newtask develop 2026-06-28-task-d3)"
 ( cd "$WD3" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # →design
@@ -137,13 +142,13 @@ WSC="$(newtask small-change 2026-06-28-task-sc)"
 
 # ===== G: 断点恢复 =====
 WF="$(newtask develop 2026-06-28-task-f)"
-( cd "$WF" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # investigate→design
+( cd "$WF" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # investigate→propose
 WHERE="$(cd "$WF" && bash "$FLOW" where)"
-echo "$WHERE" | grep -q "phase=design" && ok "where 报精确阶段" || no "where 精确阶段"
+echo "$WHERE" | grep -q "phase=propose" && ok "where 报精确阶段" || no "where 精确阶段"
 echo "$WHERE" | grep -q "phase_index=1" && ok "where 报精确下标" || no "where 下标"
 RES="$(cd "$WF" && bash "$PREPARE" resume 2>/dev/null)"
-echo "$RES" | head -1 | grep -q "MANAGED" && echo "$RES" | tail -n +2 | jq -e '.phase=="design"' >/dev/null \
-  && ok "resume 读到 design(断点续传)" || no "resume 断点续传"
+echo "$RES" | head -1 | grep -q "MANAGED" && echo "$RES" | tail -n +2 | jq -e '.phase=="propose"' >/dev/null \
+  && ok "resume 读到 propose(断点续传)" || no "resume 断点续传"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

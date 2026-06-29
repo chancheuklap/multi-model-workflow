@@ -1,8 +1,9 @@
 # Develop · 新功能 / 优化改造完整主干
 
 > orchestrate 路由到这:**新想法 / 功能,或旧系统优化改造**(要设计)。这条路从头到尾就读这一份,不用回 SKILL。
-> **预设 `develop`**,阶段序列:查清 → 想方案 → 拆计划 → 落地 → 验收 → 收尾(investigate→design→plan→build→verify→closing)。design / plan 产物过后各进一道审闸。
-> HITL 集中在 design / plan;进了 build 默认放权自主跑,只有缺输入 / 方向疑 / 合并红线才停。
+> **预设 `develop`**,阶段序列:查清 → 给方案 → 想方案 → 拆计划 → 落地 → 验收 → 收尾(investigate→propose→design→plan→build→verify→closing)。design / plan 产物过后各进一道审闸。
+> HITL 集中在 propose(选方向)/ design / plan;进了 build 默认放权自主跑,只有缺输入 / 方向疑 / 合并红线才停。
+> **propose 给方案 + 用户拍(选一个进 design,或全否回上游),不在 investigate 也不在 design 里。**
 
 <!-- BEGIN: worktree-setup -->
 ## 建 worktree(进去之后才开干)

@@ -5,7 +5,9 @@ description: "把模糊的功能想法 / bug / 反馈 / 截图 / PRD 讨论成�
 
 # write-design-doc
 
-读 investigate 现状报告 → 选路（访谈 A / 综合 B）→ 综合粗方案 + HITL 指定方向 → 与用户讨论细化 → 设计文档（+ 项目领域文档）→ 自检 → 拆 issue 立骨架 → handoff。
+读 propose 钉的选定方向 + investigate 现状报告 → 选路（访谈 A / 综合 B）→ 与用户讨论细化选定方向 → 设计文档（+ 项目领域文档）→ 自检 → 拆 issue 立骨架 → handoff。
+
+> **方向已定**：给 2-3 方案、HITL 指定哪个,是上游 propose 阶段做的(`prev_outputs` 带来 `docs/design/<slug>-direction.md`)。本 skill 不再提方案、不重选向——只把**已选定的方向**细化成设计文档。被事实击穿要换向 → handoff `needs-redirection` 回上游,别在这重摆备选。
 
 **手动驱动**：你自己读报告、和用户讨论、写文档，无自动状态机、无自动 reviewer。
 

@@ -26,10 +26,15 @@ WT="$(bash "$PREPARE" new --scenario develop --slug 2026-06-29-e2e --title "端�
 [ -n "$WT" ] && ok "入口:prepare 建 develop worktree" || { no "prepare 失败"; exit 1; }
 [ "$(ph)" = "investigate" ] && ok "起于 investigate" || no "起点 ($(ph))"
 
-# investigate → design(产出现状报告,钉接力单)
+# investigate → propose(产出现状报告,钉接力单)
 ( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/context/report.md >/dev/null )
-[ "$(ph)" = "design" ] && ok "investigate→design" || no "→design ($(ph))"
-[ "$(prevout)" = '["docs/context/report.md"]' ] && ok "design 照单读到 investigate 报告" || no "接力单 investigate→design ($(prevout))"
+[ "$(ph)" = "propose" ] && ok "investigate→propose" || no "→propose ($(ph))"
+[ "$(prevout)" = '["docs/context/report.md"]' ] && ok "propose 照单读到 investigate 报告" || no "接力单 investigate→propose ($(prevout))"
+
+# propose → design(给方案选定方向,钉接力单)
+( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/design/e2e-direction.md >/dev/null )
+[ "$(ph)" = "design" ] && ok "propose→design(方向选定)" || no "→design ($(ph))"
+[ "$(prevout)" = '["docs/design/e2e-direction.md"]' ] && ok "design 照单读到选定方向" || no "接力单 propose→design ($(prevout))"
 
 # design → ①审闸(产出设计文档)
 OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/design/e2e.md)"
@@ -67,8 +72,8 @@ echo "$OUT" | grep -q "NEXT_ACTION=review" && ok "plan 过→进②审闸" || no
 OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass)"
 echo "$OUT" | grep -q "STATUS=ready-to-close" && ok "closing→ready-to-close(端到端贯通)" || no "ready-to-close"
 
-# history 完整:investigate,design,①审,plan,②审,build,verify,closing = 8 步
-[ "$(jq -r '.history|length' "$WT/.claude/multi-model-workflow/task.json")" = "8" ] && ok "history 记满 8 步(全程留痕)" || no "history 8 ($(jq -r '.history|length' "$WT/.claude/multi-model-workflow/task.json"))"
+# history 完整:investigate,propose,design,①审,plan,②审,build,verify,closing = 9 步
+[ "$(jq -r '.history|length' "$WT/.claude/multi-model-workflow/task.json")" = "9" ] && ok "history 记满 9 步(全程留痕)" || no "history 9 ($(jq -r '.history|length' "$WT/.claude/multi-model-workflow/task.json"))"
 
 echo ""
 echo "Results: $pass passed, $fail failed"
