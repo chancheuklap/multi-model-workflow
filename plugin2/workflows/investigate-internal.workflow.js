@@ -9,7 +9,11 @@ export const meta = {
 }
 
 // args.topics: [{ angle, question, skill? }]  —— 派几个 agent = 几个 topic,无上限,一题一 agent。
-const topics = (args && Array.isArray(args.topics)) ? args.topics : []
+// args 可能以 JSON 字符串送达(Workflow 工具 args 编码差异),防御解析,不崩。
+const A = (typeof args === 'string')
+  ? (() => { try { return JSON.parse(args) } catch (e) { return {} } })()
+  : (args || {})
+const topics = Array.isArray(A.topics) ? A.topics : []
 if (!topics.length) {
   throw new Error('investigate-internal 需要 args.topics(非空),主线程先定好再传')
 }
