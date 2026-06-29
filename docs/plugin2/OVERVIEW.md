@@ -408,6 +408,8 @@ flowchart LR
     classDef doc fill:#dcfce7,stroke:#16a34a
 ```
 
+**接力单怎么拼(`where` 报 `prev_outputs`,下阶段照单读不自己找)**:默认读上一个开着阶段的产出;阶段在 `routes.json phase_bindings.reads` 声明跨多阶上游时按声明拼(design `reads:[investigate,propose]` → 现状报告 + 选定方向都进 `prev_outputs`)。一阶段产多件时 `produced` 用数组(design 钉设计文档 + issue 骨架)。在审闸里 `where` 另报 `review_source` = 当前阶刚产的待审产物,直接喂 `mmw review start --source`。
+
 ---
 
 ## 9. 现状叠在架构上
