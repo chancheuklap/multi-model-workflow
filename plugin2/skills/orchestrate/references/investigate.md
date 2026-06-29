@@ -19,7 +19,18 @@
 
 ## 2. Checkpoint → 跑 workflow
 
-**fire 前先把 topics 亮给用户**(方向 + 各 topic 的 angle/question,一句话或小表),等用户批 / 改再跑——别闷头烧 token。批了跑对应 workflow(scriptPath 固定,只填 topics):
+**fire 前必停,按下面固定格式把投查计划亮给用户**(别每次自创格式),等用户批 / 改再跑——别闷头烧 token:
+
+```
+投查方向:<内部 / 外部 / 两者>(外部非必做)
+| # | angle | question | skill |
+|---|---|---|---|
+| 1 | <角度名> | <这一题要回答什么> | <角度 skill 或 —> |
+| 2 | ... | ... | ... |
+```
+亮完跟一句:「批 / 改 / 增删 topic?批了跑 `investigate-<internal|external>`」。等用户回应再 fire,不擅自跑。
+
+批了跑对应 workflow(scriptPath 固定,只填 topics):
 
 ```
 Workflow({
