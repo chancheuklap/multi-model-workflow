@@ -24,15 +24,16 @@ description: "把模糊的功能想法 / bug / 反馈 / 截图 / PRD 讨论成�
 | **prototype / mockup** | 设计涉 UI/UX 或非平凡状态模型时:prototype 验状态模型、html mockup 定 UI/UX,产物原子拆进 acceptance | `references/prototype-mockup.md` |
 | **写文档** | 信息足 + 方向确认后按模板一次成文（写作规则 / section 清单 / 每节细则 / UI 对照 / Cross-Plan Anchors 占位全在模板里，单一源） | `references/design-doc-template.md` |
 | **自检** | 保存前逐条过，再告诉用户"设计文档已写入 `<path>`，请审阅" | `references/design-self-check.md` |
+| **拆 issue 立骨架** | 设计通过后把设计拆成 issue 骨架，落 `docs/issues/<slug>/`，钉进接力单 | `references/to-issue-skeleton.md` |
 
-## 收尾：拆 issue → handoff
+## 收尾：handoff 交还 flow（不自己跳阶段，不自派审）
 
-1. **拆 issue 立骨架**：用 `to-issues` skill 拆成可独立认领的 issue，**只立骨架、内容由 plan 阶段丰富**：大 issue 落 `docs/issues/<YYYY-MM-DD>-<slug>/`（slug 与设计对齐），标 AFK / HITL，填至少一条指向设计章节的 `## Design context refs`；`## Small issues` 留 `<!-- PENDING -->`，由 `write-plan-doc` 补全。（vertical-slice 方法论在 to-issues。）
-2. **handoff 交还 flow**（不自己跳阶段，不自派审）：
-   - 设计 OK → `mmw handoff --conclusion pass --produced docs/design/<slug>.md` → flow 触发 ①设计审（Codex 独立审），审过再进 plan。
-   - 缺关键输入没法定稿 → `--conclusion needs-context`。
-   - 方向本身存疑（解错问题 / 该换框架）→ `--conclusion needs-redirection`。
-   - ①设计审打回 design gap → flow 回 design（`needs-repair`），停在本 skill 改设计、改完 handoff 重审，不绕过。**Critical 必须修掉才能进 plan。**
+设计自检过、issue 骨架立好后,`mmw handoff` 交还引擎。结论词照判断选;**`mmw where` 的 `then` 已给好钉全产物（设计文档 + issue 骨架两样）的命令模板,照抄即可**:
+
+- 设计 OK → `mmw handoff --conclusion pass --produced docs/design/<slug>.md --produced docs/issues/<slug>/` → flow 触发 ①设计审（Codex 独立审），审过再进 plan。
+- 缺关键输入没法定稿 → `--conclusion needs-context`。
+- 方向本身存疑（解错问题 / 该换框架）→ `--conclusion needs-redirection`。
+- ①设计审打回 design gap → flow 回 design（`needs-repair`），停在本 skill 改设计、改完 handoff 重审，不绕过。**Critical 必须修掉才能进 plan。**
 
 ## 边界
 

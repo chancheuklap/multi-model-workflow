@@ -222,15 +222,24 @@ cmd_where() {
   # 指路:gate 非空(在审闸里)用 review_gate 绑定,否则用当前阶段绑定
   local bkey="$phase"
   { [ "$gate" != "null" ] && [ -n "$gate" ]; } && bkey="review_gate"
-  local b_load b_do b_prod slug
+  local b_load b_do slug
   b_load="$(jq -r --arg k "$bkey" '.phase_bindings[$k].load // "?"' "$ROUTES")"
   b_do="$(jq -r --arg k "$bkey" '.phase_bindings[$k].do // "?"' "$ROUTES")"
-  b_prod="$(jq -r --arg k "$bkey" '.phase_bindings[$k].produced // ""' "$ROUTES")"
-  # produced 模板里的 <slug> 用 manifest 真 slug 解析,让 then 直接可粘贴跑,不让 agent 手搓
   slug="$(jq -r '.slug' "$m")"
-  b_prod="${b_prod//<slug>/$slug}"
+  # produced 可为字符串(单产物)或数组(多产物,如 design=设计文档+issue 骨架),统一逐个吐;
+  # 每个解析 <slug> 用真 slug,then 直接可粘贴跑、钉全本阶段所有产物,不让 agent 手搓/漏钉
   local then_cmd="mmw handoff --conclusion <pass|needs-repair|needs-redirection|needs-context|blocked>"
-  [ -n "$b_prod" ] && then_cmd="$then_cmd --produced $b_prod"
+  local p
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    p="${p//<slug>/$slug}"
+    then_cmd="$then_cmd --produced $p"
+  done < <(jq -r --arg k "$bkey" '.phase_bindings[$k].produced // "" | if type=="array" then .[] else . end' "$ROUTES")
+  # 审闸里:把"审什么"(当前阶刚产的产物)报成 review_source,直接喂 mmw review start --source,不让 agent 自己记
+  local review_line=""
+  if [ "$gate" != "null" ] && [ -n "$gate" ]; then
+    review_line="review_source=$(jq -rc --arg p "$phase" '.phase_outputs[$p] // []' "$m")"
+  fi
   cat <<EOF
 scenario=$scenario
 phase=$phase
@@ -248,6 +257,7 @@ phase_outputs=$(jq -rc '.phase_outputs' "$m")
 subtasks=$(jq -r '.subtasks | length' "$m")
 open_items=$(jq -r '.open_items | length' "$m")
 EOF
+  if [ -n "$review_line" ]; then echo "$review_line"; fi
 }
 
 case "${1:-}" in
