@@ -72,8 +72,8 @@ decisions:   [ { at_step, chose, why, at } ]                          # afk 软�
 ```
 checklist:   [ { item, source, status: open|covered, evidence } ]    # 主线程从设计/issue 文档抽
 findings:    [ { severity, confidence, locator, evidence, impact, remediation } ]  # quartet 字段
-review_round: int
 verdict:     pass | needs-repair | needs-redirection | needs-context | blocked
+# 收敛轮由协调帮手自管,不落 loop-state;routes.json caps 是外层重派兜底上限
 ```
 
 **merge/deploy 红线**:不在进度记录,是 PreToolUse hook 的判定 + 一条 `release_approval`(用户批准令牌)。
@@ -82,19 +82,21 @@ verdict:     pass | needs-repair | needs-redirection | needs-context | blocked
 
 ---
 
-## 4. 命令(flow.sh 新增)
+## 4. 命令(实际落在 `loop.sh` / `review.sh`,统一经 `mmw` 调)
 
 | 命令 | 谁调 | 干什么 |
 |---|---|---|
-| `steps expand` | 主线程 | 从计划展开 `steps[]` |
-| `step done` | commit hook | 提交成功→记 `status=done` + commit |
-| `pause` | worker | 写 `pause`、yield 返回主线程 |
-| `checklist expand` | 主线程 | 从设计/issue 文档抽 `checklist[]`(审核 loop 的覆盖清单) |
-| `review dispatch` | 主线程 | 拼 `quartet + angle` prompt、`codex exec --output-schema` 起审 |
-| `review ingest` | 主线程 | 收 Codex 结构化回执,落 `findings` |
-| `exit check` | 看守 / 主线程 | 核退出三件套(§6):完成判据 + 熔断 + 第三态 |
+| `mmw loop init --kind <execution\|review\|contract-gate>` | 主线程 | 起一台内层 loop |
+| `mmw loop step add` | 主线程 | 从计划逐项展开 `steps[]` |
+| `mmw loop step done` | 主线程 verify 后 / record-step hook(仅 Claude 经 Bash 的提交) | 记 `status=done` + commit |
+| `mmw loop checklist add` | 主线程 | 从设计/issue 文档抽覆盖清单(审核 loop) |
+| `mmw loop checklist cover` | 协调帮手 | 亲验坐实一个维度,记 evidence |
+| `mmw loop finding add` | 协调帮手 | 收 Codex 亲验后的真 finding 落 `findings` |
+| `mmw loop softstop` / `surface` | 主线程 / 协调帮手 | 软停(有默认)/ 冒泡(缺输入/方向疑)yield 回主线程 |
+| `mmw loop exit-check` | 看守 hook / 主线程 | 核退出三件套(§6):完成判据 + 熔断 + 第三态 |
+| `mmw review start --stage <...> --source <...>` | 主线程 | 一条命令 init 审 loop + 配审题 + 出协调帮手 brief |
 
-续接走载体原语(SendMessage / codex exec resume),不另造命令。
+续接走载体原语(SendMessage / codex exec resume),不另造命令。审者派 Codex 由协调帮手用 Bash 跑 `codex exec`,无专用脚本。
 
 ---
 

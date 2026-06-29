@@ -68,8 +68,8 @@ flowchart LR
 
 1. Workflow 返结构化证据 + 引用报告。
 2. 主线程**亲验承重事实**(grep/Read 坐实 file:line / 存在性,**子代理是劳动力不是信源**)。
-3. 写 `docs/context`(领域文档,`domain-modeling` 横切维护)+ 一份 research 笔记。
-4. `flow.sh handoff --conclusion pass` → design 阶段用现状报告选 A/B、扎根提问,**不再重探查**。
+3. 把带引用的现状报告写进 `docs/investigating/<slug>.md`(本任务存档,命名同设计/计划文档)。**领域文档 `docs/context` 不在这维护**——它由 design 阶段的 `domain-modeling` 在产出设计文档之后横切维护,investigate 别越权写。
+4. `flow.sh handoff --conclusion pass --produced docs/investigating/<slug>.md` → design 阶段照接力单读现状报告、扎根提问、细化选定方向,**不再重探查、不再选 A/B**(方向已由 propose 阶段定)。
 
 ---
 

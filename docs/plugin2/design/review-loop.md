@@ -72,7 +72,7 @@ flowchart TB
 | ③ | 全 Pack 提交 + 声明的跨 plan 合同兑现(全机器核) | 合同不达→回落地 | 合同根上错→升级 |
 | ④ | 意图清单逐条坐实 + 每条跨 plan 合同真接上 + 两基线过 + 无 Critical;验=跑测试/读大 diff/对抗输入 | 1–2 轮→根因调查/人 | 回流落地(上限1)/ 发布风险→人 |
 
-- **收敛**:两个 Codex 视角跑完后,追一轮没有新的高置信 finding = 收敛。`loop-state.round` 计内部收敛轮。
+- **收敛**:两个 Codex 视角跑完后,追一轮没有新的高置信 finding = 收敛。收敛轮由**协调帮手自己计**(它知道自己跑到第几轮),不落 loop-state——`routes.json caps` 是外层重派的兜底上限。
 - **熔断**:协调帮手自己看 `round` 到阶段上限还没收敛 → `loop.sh surface --kind needs-redirection`(或主线程 handoff `blocked`),不在 loop.sh 写死每阶段不同的轮上限(帮手知道自己是第几审,它管;`routes.json caps` 是外层重派的兜底)。
 - **第三态**:不是 pass/fail 二选一。方向疑 / 缺输入 / 卡死 → `surface` 冒泡回主线程 → 主线程 `flow.sh handoff` 用对应结论词交人。
 
@@ -86,7 +86,7 @@ accepted finding 修在哪(Gap 路由),决定主线程 handoff 用哪个结论�
 
 | Gap | 含义 | handoff 结论 → 去哪 |
 |---|---|---|
-| Implementation | 设计对、代码没做到 | `needs-repair` → 当前层小改 / 派 `tdd-executor` 大改 |
+| Implementation | 设计对、代码没做到 | `needs-repair` → 当前层小改 / build 阶段派 Codex 大改 |
 | Design | 设计承诺不可实现/漏约束 | `needs-repair` → 回 design 阶段改设计 |
 | Direction | 解错问题/该换框架 | `needs-redirection` → 交用户拍方向 |
 | Context | 缺术语/owner/target | `needs-context` → 问用户 / domain-modeling 写回 |
@@ -117,7 +117,7 @@ accepted finding 修在哪(Gap 路由),决定主线程 handoff 用哪个结论�
 | 件 | 落到 |
 |---|---|
 | 审题:防幻觉四件套 + 阶段 angle(喂 Codex,faithful 迁移自 second-model-review) | `plugin2/skills/orchestrate/references/review/{quartet,design,plan,plan-impl,final}.md` |
-| 审核 loop 阶段 reference(指示主线程抽清单→派协调帮手→处置 verdict→handoff) | `plugin2/skills/orchestrate/references/review.md` |
+| 审核 loop 阶段 reference(指示主线程抽清单→派协调帮手→处置 verdict→handoff) | `plugin2/skills/orchestrate/references/review/review.md`(与审题同住 review/ 文件夹,自包含) |
 | loop 机器(init/checklist/finding/exit-check kind=review·contract-gate) | 已有 `scripts/loop.sh` + `hooks/guard-loop.sh`,无需改 |
 | Codex 派发 | 协调帮手用 Bash 跑 `codex exec`,无需专用脚本 |
 

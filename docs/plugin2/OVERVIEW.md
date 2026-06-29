@@ -38,7 +38,7 @@ flowchart TB
             PR{"综合现状 → 亮 2-3 方案 → HITL<br/>选一个→design / 全否→needs-redirection 回上游"}:::ai
         end
         subgraph PH2["想方案 design"]
-            D["write-design-doc<br/>拿已定方向 + 用户讨论(不再提方案)"]:::ai --> R1["①设计审 loop"]:::codex
+            D["design 方法论(references/design/)<br/>拿已定方向 + 用户讨论(不再提方案)"]:::ai --> R1["①设计审 loop"]:::codex
         end
         subgraph PH3["拆计划 plan"]
             PL["plan-writer 帮手<br/>并行多 issue"]:::worker --> R2["②计划审 loop"]:::codex
