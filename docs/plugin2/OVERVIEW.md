@@ -16,17 +16,18 @@
 flowchart TB
     USER([用户 · 唯一可被 AskUserQuestion 问]):::user
 
-    subgraph ENTRY["① 入口 orchestrate skill —— 只做断点恢复 + 路由"]
+    subgraph ENTRY["① 入口 orchestrate skill(纯路由)—— mmw where + 选路"]
         direction TB
-        E0["prepare.sh resume<br/>MANAGED 续 / UNMANAGED 新"]:::sh
+        E0["mmw where<br/>在管→报 load/do/then 续<br/>UNMANAGED→列起始选项菜单"]:::sh
         E1{"LLM 路由<br/>看对话当场判,零脚本"}:::ai
+        SCEN["读该路径 reference(scenario/*.md)<br/>建 worktree + 契约 + 回执 + 收尾<br/>各一份干净完整;共用步骤 build 去重"]:::ai
         E2["prepare.sh new<br/>建命名 worktree + scaffold docs<br/>+ 写 task.json,固化 phases"]:::sh
         E3["EnterWorktree 切 cwd"]:::sh
-        E0 -->|UNMANAGED| E1 -->|"small-change / develop / bug"| E2 --> E3
+        E0 -->|UNMANAGED| E1 -->|"small-change / develop / bug"| SCEN --> E2 --> E3
     end
     USER -->|"想法 / 功能 / bug / 优化 / 合并"| E0
     E0 -->|"MANAGED 断点续传"| HANDOFF
-    E1 -.->|merge| MERGE["合并:不开 worktree<br/>读全队 task.json"]:::sh
+    E1 -.->|merge| MERGE["合并:不开 worktree<br/>scenario/merge.md 读全队 task.json"]:::sh
 
     subgraph OUTER["② 外层循环 —— 阶段怎么换(主干 + 预设过滤后的 phases)"]
         direction TB
@@ -423,7 +424,7 @@ flowchart TD
     classDef todo fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray:4 3
 ```
 
-🟢 已落地并空跑验证(164 项断言):进入路由 · 开工/恢复/清理 · 接力单 · 统一运行契约 + 审闸 · 分叉/返工(可 `--to-phase`)/上限/停下 · 六阶段方法论全接(含 Codex 落地派发 + 四审 loop)· merge · 统一 CLI `mmw`。
+🟢 已落地并空跑验证(173 项断言:脚本 166 + build 7):入口纯路由(每条路径一份干净完整 reference,共用步骤 build 去重)· `mmw where` 自指路(冷启动列起始选项;在途报 `load`/`do`/`then`)· 开工/恢复/清理 · 接力单 · 统一运行契约 + 审闸 · 分叉/返工(可 `--to-phase`)/上限/停下 · 六阶段方法论全接(含 Codex 落地派发 + 四审 loop)· merge · 统一 CLI `mmw`。
 ⬜ 未验:**内容级端到端真跑**(真派 Codex 落地/审、真 resume 修、真 surface 冒泡——单测够不着,要拿真 develop 任务跑)· 中途整体升级。
 
 ---
@@ -442,7 +443,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    N1["① 骨架+六阶段+审+merge<br/>(已落地·164 断言)"]:::done --> N2["② 拿真 develop 任务端到端跑<br/>一边跑一边修(内容级验收)"]:::nx --> N3["③ 中途整体升级"]:::nx
+    N1["① 骨架+六阶段+审+merge+路径拆分<br/>(已落地·173 断言)"]:::done --> N2["② 拿真 develop 任务端到端跑<br/>一边跑一边修(内容级验收)"]:::nx --> N3["③ 中途整体升级"]:::nx
     classDef done fill:#dcfce7,stroke:#16a34a
     classDef nx fill:#dbeafe,stroke:#2563eb
 ```
@@ -456,8 +457,11 @@ flowchart LR
 | 能力 | 文件 |
 |---|---|
 | 统一 CLI(所有命令一个入口)| `scripts/mmw.sh` |
-| 进入 + 路由 + 阶段运行契约 + 各阶段绑定 | `skills/orchestrate/SKILL.md` |
-| 各阶段方法论 / 操作指南 | `skills/orchestrate/references/{investigate,review,build,closing,merge}.md` · `skills/write-design-doc/` · `skills/write-plan-doc/` |
+| 入口(**纯路由**:断点恢复 + 选路,随后交给该路径 reference)| `skills/orchestrate/SKILL.md` |
+| 每条路径一份干净完整走法(建 worktree + 契约 + 回执 + 收尾)| `skills/orchestrate/references/scenario/{small-change,develop,bug,merge}.md` |
+| 路径间共用步骤的单源 + 多文档构建(改一处跑 `build.sh --apply` 覆盖全部)| `build/fragments/*.md` · `build/build.sh`(`--check`/`--apply`)|
+| 各阶段方法论 / 操作指南 | `skills/orchestrate/references/{investigate,review,build,closing}.md` · `skills/write-design-doc/` · `skills/write-plan-doc/` |
+| 阶段→`load`/`do`/`then` 绑定(`mmw where` 自指路单源)| `state-schema/routes.json` 的 `phase_bindings` |
 | 审题(喂 Codex)| `skills/orchestrate/references/review/{quartet,design,plan,plan-impl,final}.md` |
 | 开工 / 恢复 / 清理 / 全队(merge)| `scripts/prepare.sh`(new/resume/cleanup/team)|
 | 交单 / 换阶段 / 审闸 / 分叉 / 接力单 / 查位置 | `scripts/flow.sh` |

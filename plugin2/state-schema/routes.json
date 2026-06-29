@@ -24,7 +24,7 @@
     { "scenario": "small-change", "when": "明确的小改,根因清楚",                  "phases_note": "落地→验收→收尾" },
     { "scenario": "develop",      "when": "新想法/功能 或 旧系统优化改造(要设计)", "phases_note": "查清→想方案→拆计划→落地→验收→收尾" },
     { "scenario": "bug",          "when": "bug/报错/regression,根因不明",          "phases_note": "查清→落地(修)→验收→收尾" },
-    { "scenario": "merge",        "when": "多个并行 worktree/PR 要合并",            "phases_note": "不开 worktree,走 references/merge.md" }
+    { "scenario": "merge",        "when": "多个并行 worktree/PR 要合并",            "phases_note": "不开 worktree,走 references/scenario/merge.md" }
   ],
 
   "phase_bindings": {

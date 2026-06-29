@@ -194,7 +194,7 @@ cmd_where() {
     echo "当前不是在管任务。看需求选一个起始选项,再 mmw task new:"
     jq -r '.start_options[] | "  [\(.scenario)] \(.when) → \(.phases_note)"' "$ROUTES"
     echo "命令: mmw task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title \"<标题>\""
-    echo "merge: 不开 worktree,直接走 references/merge.md;概念/事实问题不进 orchestrate,直接答。"
+    echo "merge: 不开 worktree,直接走 references/scenario/merge.md;概念/事实问题不进 orchestrate,直接答。"
     return 0
   fi
   local scenario phase pidx status rc tc

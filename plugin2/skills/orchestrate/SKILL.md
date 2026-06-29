@@ -1,17 +1,13 @@
 ---
 name: orchestrate
-description: "开发工作流主入口。用户给出想法/功能/改造、报 bug、要优化、或要合并多个并行 worktree 时主动使用。入口只做两件事:断点恢复 + 选预设路由(LLM 当场判),随后把机械准备交给 prepare.sh。"
+description: "开发工作流主入口。用户给出想法/功能/改造、报 bug、要优化、或要合并多个并行 worktree 时主动使用。入口只做两件事:断点恢复 + 选路由(LLM 当场判),随后把你交给那条路自己的 reference。"
 ---
 
 # Orchestrate · 入口
 
-主线程入口。**只做两件事:断点恢复、路由。** 路由是 LLM 语义判断,不跑脚本、不读关键词表。机械准备(建 worktree、scaffold、写状态)全交给 `prepare.sh`,一条命令做完。
+主线程入口。**只做两件事:断点恢复、路由。** 判出这是哪条路,就把你交给那条路自己的 reference——那一份从头到尾讲清这条路怎么走(建 worktree、阶段契约、回执跳转、收尾全在里面),本文不重复、你也不用回来。
 
-`${SKILL_DIR}` = 本 skill 目录;`${SCRIPTS}` = `${CLAUDE_PLUGIN_ROOT}/scripts`。
-
-**全 plugin 命令走统一 CLI**:`mmw` ≡ `bash "${SCRIPTS}/mmw.sh"`。读完 skill 直接用 `mmw <命令>` 推进/登记/派发,不用记各脚本路径(`mmw help` 看全表)。下文 `mmw …` 都指这个。
-
----
+`${SKILL_DIR}` = 本 skill 目录;`${SCRIPTS}` = `${CLAUDE_PLUGIN_ROOT}/scripts`;`mmw` ≡ `bash "${SCRIPTS}/mmw.sh"`(`mmw help` 看全表)。
 
 ## Step 0 · 先跑 `mmw where`(它自带指路)
 
@@ -21,114 +17,23 @@ description: "开发工作流主入口。用户给出想法/功能/改造、报 
 mmw where
 ```
 
-`where` 一条命令同时管冷启动和在途,**照它的输出走,不背流程**:
-- **在管任务**(在 worktree 里)→ 报 `phase` / `gate` / `prev_outputs` + `load`(读哪)/ `do`(干啥)/ `then`(交啥)。一句话告诉用户"你在 `<phase>`",然后照 `load`/`do`/`then` 干。**跳过 Step 1。**
-- **`UNMANAGED` + 起始选项菜单**(在主仓库)→ 不是在管任务。菜单列全了所有开口(small-change / develop / bug / merge),进 Step 1 据对话选一个。
+- **在管任务**(在 worktree 里)→ `where` 报 `scenario` + `phase` + `load`/`do`/`then`。一句话告诉用户"你在 `<phase>`",然后**读 `references/scenario/<scenario>.md`**,按它的契约从当前 phase 续(断点恢复靠 `where` + 接力单,不靠会话记忆)。**跳过 Step 1。**
+- **`UNMANAGED` + 起始选项菜单**(在主仓库)→ 不是在管任务。菜单列全了所有开口 → 进 Step 1。
 
-## Step 1 · 路由(LLM 判,零脚本)
+## Step 1 · 路由 → 进该路径的 reference
 
-只有一条主干流程:`查清 → 想方案 → 拆计划 → 落地 → 验收 → 收尾`(investigate / design / plan / build / verify / closing)。开口的差别**不是走不同流程,是默认开主干里的哪几个前置**。看对话判这是哪种开口,选一个预设:
+看对话判这是哪条路,选一个,**直接读那份 reference,本文到此为止**:
 
-| 你怎么开口 | 预设 `scenario` | 默认走的阶段(前置可中途翻开关) |
+| 你怎么开口 | 路径 | 读这份(从头到尾就靠它) |
 | --- | --- | --- |
-| 明确的小改 | `small-change` | 落地 → 验收 → 收尾 |
-| 新想法/功能 或 要优化改进(要设计) | `develop` | 查清 → 想方案 → 拆计划 → 落地 → 验收 → 收尾 |
-| bug/报错/regression,根因不明 | `bug` | 查清 → 落地(修) → 验收 → 收尾 |
-| 多个并行 worktree 要合并 | (merge,不开 worktree) | 见下 merge |
+| 明确的小改 | `small-change` | `${SKILL_DIR}/references/scenario/small-change.md` |
+| 新想法 / 功能 或 要优化改造(要设计) | `develop` | `${SKILL_DIR}/references/scenario/develop.md` |
+| bug / 报错 / regression,根因不明 | `bug` | `${SKILL_DIR}/references/scenario/bug.md` |
+| 多个并行 worktree 要合并 | `merge` | `${SKILL_DIR}/references/scenario/merge.md` |
 
-新想法和优化是同一条完整主干(`develop`),不分两个预设。判不准就问一句收窄(一次只问一个)。概念/事实问题直接答,不进 orchestrate。
-
-## Step 2 · 准备(机器一条命令)
-
-### small-change / develop / bug —— 建 worktree
-
-1. **起名**:从对话主题提一个人类可读、切题的 slug,格式 `YYYY-MM-DD-<theme>`(kebab,如 `2026-06-28-phone-login`)。这个名贯穿 worktree / 分支 / docs 目录,你要在 VSCode 里认得出。**向用户确认一次**(可同时让他改名)。
-
-2. **一条命令建好**(从本地最新 HEAD 分叉,scaffold docs,写 manifest):
-   ```bash
-   mmw task new --scenario <small-change|develop|bug> --slug <slug> --title "<人类可读标题>"
-   ```
-   回执给出 `worktree_path`。prepare 据预设把开着的阶段序列固化进进度记录(`phases`)。
-
-3. **进 worktree**(只有这步能切会话 cwd,脚本切不了):
-   ```
-   EnterWorktree({ path: "<回执里的 worktree_path>" })
-   ```
-
-4. 进 worktree 后,按下面**阶段运行契约**逐阶段推进(第一阶段见路由表)。文档产出提交进分支(设计 `docs/design/`、issue `docs/issues/`、领域 `docs/context/`);临时状态落 `.claude/multi-model-workflow/`(随 worktree 删)。
-
-### merge —— 不开 worktree
-
-加载 `${SKILL_DIR}/references/merge.md`,按它走:`mmw task team` 列全队身份/状态/设计文档 → 排合并序 + 扫业务/设计冲突(非纯 git)→ 逐个 `--no-ff` 合(红线,要人批)+ 解冲突 + cleanup。**在主仓库做,不开新 worktree。**
-
-## 阶段运行契约(进 worktree 后的主循环)
-
-**进 worktree 后,你对每个阶段都做同样 4 个动作。** 阶段之间唯一变的是「干」用哪套方法论;进 / 钉 / 交完全一样。这是整条 run 的骨架——别给某个阶段另搞一套流程。
-
-| 动作 | 做什么 | 命令 / 机制 |
-|---|---|---|
-| **① 进** | `where` 直接报:在哪阶段、在不在审闸、上阶段钉了什么(`prev_outputs` 照单读)、**`load`=读哪份、`do`=干什么、`then`=交什么**。照 `load` 加载,不用背下表 | `mmw where` |
-| **② 干** | 按 `where` 给的 `do` 跑该阶段方法论(唯一因阶段而异),读 `prev_outputs` 当输入 | `load` 指向的 reference / Skill |
-| **③ 钉** | 把本阶段产出钉进接力单,下阶段照单读 | handoff 的 `--produced` |
-| **④ 交** | 给一个结论词,引擎算下一步、写进度、回执;**照回执跳(见下「回执 → 怎么跳」表)**,不自己猜下一步、不手写状态 | `mmw handoff` |
-
-**这是个循环**:④ 交完拿到回执 → 按回执跳到目标阶段 → 回 ① 进(`mmw where` 读新阶段位置)→ ② 干 → ③ 钉 → ④ 交……直到回执说收尾。阶段间的"跳"全靠回执驱动,你不预判、不跳号。
-
-**② 干 —— `where` 的 `load` 指到哪就读哪(下表是 `routes.json` 的 `phase_bindings` 镜像,运行时不用背,`where` 会直接报):**
-
-| 阶段 | `load`(读哪) | 谁跑 |
-|---|---|---|
-| investigate(查清) | `references/investigate.md` | 主线程跑自建 Workflow |
-| design(想方案) | `Skill:write-design-doc` | 主线程跟用户讨论 |
-| plan(拆计划) | `Skill:write-plan-doc` | 主线程编排 + 派 plan-writer |
-| build(落地) | `references/build.md` | 主线程派 Codex 落地 + 自己验 |
-| verify(验收=④终审) | `references/review.md` | 主线程起终审 loop |
-| closing(收尾) | `references/closing.md` | 主线程收口 + 合并红线 + 清理 |
-| 审闸(`gate` 非空) | `references/review.md` | 主线程起审 loop + 派 Codex 协调帮手 |
-
-> reference 路径相对 `${SKILL_DIR}`;`Skill:X` = `Skill({ skill: "X" })`。改阶段绑定改 `routes.json` 的 `phase_bindings` 单源,本表跟着同步。
-> merge(多 worktree 合并)是独立场景(不开 worktree、不走 backbone),见 `references/merge.md`。backbone 六阶段 + merge 已全部接满,接法都照本契约。
-
-**③ 钉 + ④ 交 —— 一条 handoff:**
-
-```bash
-mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
-```
-
-- **结论词**统一五选一(`pass` / `needs-repair` / `needs-redirection` / `needs-context` / `blocked`),选哪个是你的判断;选完引擎查 `routes.json` 算回执。缺结论或词非法当场拦(fail-closed)。
-- **`--produced` 必带本阶段的承重产出**(investigate→现状报告;design→设计文档;plan→plan 目录;build→提交范围;verify→终审报告)——它钉进接力单,下阶段靠它接,不靠"自己找"。
-
-**回执 → 怎么跳**(回执三行 `NEXT_ACTION` / `NEXT_PHASE` / `STATUS`,照这张表行动,这就是阶段间流转的全部规则):
-
-| `NEXT_ACTION` | `STATUS` | 你下一步 |
-|---|---|---|
-| `advance` | active | 往下跳:回 ① 进,对 `NEXT_PHASE` 跑 `mmw where`,按加载表干新阶段。**正常前进就是这条。** |
-| `review` | active | 别 advance(phase 没动)。进审闸:按 `references/review.md` 跑 `REVIEW_STAGE` 的审 loop;审完再 `handoff` 一次 verdict —— `pass` 才真 advance,`needs-repair` 回本阶段返工。 |
-| `repair` | active | 留在本阶段返工:回 ② 干按缺陷改,改完再 `handoff`。 |
-| `turn-around` | active | 掉头回上游:对 `NEXT_PHASE`(上游阶段)回 ① 进重跑。 |
-| `ask-user` | waiting-user | 停。把缺的输入问用户(在场 `AskUserQuestion`);补齐后 `mmw task resume` 续本阶段。 |
-| `report-user` | blocked | 停。带完整经过上报用户,等指示——别自己硬闯。 |
-| `done` | ready-to-close | 末阶段过 → 回主仓库 `mmw task cleanup` 收尾(见下)。 |
-
-- 中途挖到 bug / 旁路优化 → 登记关联子任务,主流程不动:`mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`。
-- `repair`/`turn-around` 有上限(引擎命令计数强制),到顶自动转 `report-user`(STATUS=blocked),绝不无限往返。
-
-**断点续传**:任何时候 `mmw where` + 接力单就够你接着跑——进度、游标、各阶段产出全在 manifest,不靠会话记忆。
-
-## 收尾 · 合并后删干净
-
-任务分支已 merge 进主线后,worktree 连同里面的临时状态一起删:
-
-```bash
-mmw task cleanup --slug <slug>   # 回主仓库执行
-```
-
-worktree 在**使用期**持久(可跨天,别中途删);**合并后**才 cleanup,worktree + 分支 + `.claude/` 临时状态一并清除。
-
----
+判不准就问一句收窄(一次只问一个)。概念 / 事实问题直接答,不进 orchestrate。
 
 ## 边界
 
-- 入口不写设计/计划/代码、不派 worker、不做 review —— 那些是各 phase 的活。
-- 路由是 LLM 判断,不要把它脚本化。准备是机器活,不要让模型手搓 JSON / markdown。
-- worktree 一律从本地最新 HEAD 建;建完必 `EnterWorktree`;命名必人类可读切题。
+- 入口只路由:**不讲流程、不建 worktree、不写设计 / 计划 / 代码、不派 worker、不做 review**——那些都在各路径 reference 和各阶段方法论里。
+- 路由是 LLM 语义判断,不要脚本化、不读关键词表。
