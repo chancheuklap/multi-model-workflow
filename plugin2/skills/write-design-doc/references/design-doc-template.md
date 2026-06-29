@@ -41,7 +41,7 @@ actor / action / benefit。覆盖 happy path、失败、空状态、权限不足
 
 ## 合同边界
 涉及 API / 跨边界数据合同 / DB / JSON / sync / task payload / UI action / billing / permission / runtime 时填：
-boundary type / owner / provider / consumer / 合同类型 / schema 版本 / 登记 / 迁移 / verification（agentflow 落点: Pydantic model · schema_version · registry · migration · catalog · repository · read model）。
+boundary type / owner / provider / consumer / 合同类型 / schema 版本 / 登记 / 迁移 / verification（按项目自身的合同载体、版本字段、registry / migration / repository 机制落点）。
 
 ## 发布风险和人工门禁
 涉及 migration / billing / permission / runtime / cross-service / deploy order / rollback / manual gate 时填；新交付物（CLI / 包 / 镜像 / 独立应用）补"用户怎么拿到它"（发布渠道 + CI）。部署不是原子的——为部分状态、回滚、feature flag 留计划。
