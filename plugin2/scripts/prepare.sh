@@ -111,8 +111,14 @@ cmd_cleanup() {
     git -C "$top" merge-base --is-ancestor "$slug" HEAD 2>/dev/null \
       || die "分支 $slug 未并入当前 HEAD,拒绝清理(先 merge,确认要丢弃再手动 git worktree remove)"
   fi
-  # 过门:worktree 内含 .claude 临时状态(gitignore),--force 一并删;分支已验证合并,-D 安全
-  [ -e "$wt" ] && git -C "$top" worktree remove --force "$wt" >/dev/null 2>&1 || git -C "$top" worktree prune >/dev/null 2>&1 || true
+  # 过门:worktree 内含 .claude 临时状态(gitignore),--force 一并删。
+  # worktree 真删失败 → 直接拒,绝不接着删分支(防留下悬空 worktree 却把分支删了,失败不可见)。
+  if [ -e "$wt" ]; then
+    git -C "$top" worktree remove --force "$wt" >/dev/null 2>&1 \
+      || die "worktree remove 失败:$wt(没删成,分支保留不动,请人查后手动处理)"
+  fi
+  git -C "$top" worktree prune >/dev/null 2>&1 || true   # 清理已消失 worktree 的残留记录(安全)
+  # 分支已验证并入 HEAD,-D 安全;删失败让它 surface(set -e 中止)
   git -C "$top" show-ref --verify --quiet "refs/heads/$slug" && git -C "$top" branch -D "$slug" >/dev/null
   echo "CLEANED slug=$slug"
 }

@@ -20,7 +20,7 @@ WT="$(bash "$MMW" task new --scenario develop --slug 2026-06-29-mmw --title t 2>
 # where / handoff / spinoff → flow.sh
 ( cd "$WT" && bash "$MMW" where | grep -q "phase=investigate" ) && ok "mmw where → flow.sh where" || no "mmw where"
 ( cd "$WT" && bash "$MMW" handoff --conclusion pass --produced docs/x.md >/dev/null ) && \
-  [ "$(jq -r .phase "$WT/.claude/multi-model-workflow/task.json")" = "design" ] && ok "mmw handoff → flow.sh handoff" || no "mmw handoff"
+  [ "$(jq -r .phase "$WT/.claude/multi-model-workflow/task.json")" = "propose" ] && ok "mmw handoff → flow.sh handoff" || no "mmw handoff"
 ( cd "$WT" && bash "$MMW" spinoff --tag bug --finding "x" >/dev/null ) && \
   [ "$(jq -r '.subtasks|length' "$WT/.claude/multi-model-workflow/task.json")" = "1" ] && ok "mmw spinoff → flow.sh spinoff" || no "mmw spinoff"
 

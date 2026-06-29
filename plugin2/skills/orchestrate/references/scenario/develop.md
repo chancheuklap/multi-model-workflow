@@ -1,8 +1,9 @@
 # Develop · 新功能 / 优化改造完整主干
 
 > orchestrate 路由到这:**新想法 / 功能,或旧系统优化改造**(要设计)。这条路从头到尾就读这一份,不用回 SKILL。
-> **预设 `develop`**,阶段序列:查清 → 想方案 → 拆计划 → 落地 → 验收 → 收尾(investigate→design→plan→build→verify→closing)。design / plan 产物过后各进一道审闸。
-> HITL 集中在 design / plan;进了 build 默认放权自主跑,只有缺输入 / 方向疑 / 合并红线才停。
+> **预设 `develop`**,阶段序列:查清 → 给方案 → 想方案 → 拆计划 → 落地 → 验收 → 收尾(investigate→propose→design→plan→build→verify→closing)。design / plan 产物过后各进一道审闸。
+> HITL 集中在 propose(选方向)/ design / plan;进了 build 默认放权自主跑,只有缺输入 / 方向疑 / 合并红线才停。
+> **propose 给方案 + 用户拍(选一个进 design,或全否回上游),不在 investigate 也不在 design 里。**
 
 <!-- BEGIN: worktree-setup -->
 ## 建 worktree(进去之后才开干)
@@ -33,7 +34,7 @@
 | **① 进** | `mmw where` 直接报:在哪阶段、在不在审闸、上阶段钉了什么(`prev_outputs` 照单读,不自己找)、`load`(读哪份)/ `do`(干什么)/ `then`(交什么)。照 `load` 加载 | `mmw where` |
 | **② 干** | 按 `where` 的 `do` 跑该阶段方法论(唯一因阶段而异),读 `prev_outputs` 当输入 | `load` 指向的 reference / Skill |
 | **③ 钉** | 把本阶段承重产出钉进接力单,下阶段照单读 | handoff 的 `--produced` |
-| **④ 交** | 给一个结论词,引擎算下一步、写进度、回执;照回执跳(见下「回执 → 怎么跳」) | `mmw handoff` |
+| **④ 交** | 给一个结论词,引擎算下一步、写进度、回执;照本文「回执 → 怎么跳」表行动 | `mmw handoff` |
 
 **③ 钉 + ④ 交 —— 一条 handoff:**
 
@@ -61,7 +62,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 | `turn-around` | active | 掉头回上游:对 `NEXT_PHASE` 回 ① 进重跑。 |
 | `ask-user` | waiting-user | 停。把缺的输入问用户(在场 `AskUserQuestion`);补齐后 `mmw task resume` 续本阶段。 |
 | `report-user` | blocked | 停。带完整经过上报用户,等指示——别自己硬闯。 |
-| `done` | ready-to-close | 末阶段过 → 收尾(见下)。 |
+| `done` | ready-to-close | 末阶段过 → 走本文「收尾」。 |
 
 `repair` / `turn-around` 有上限(引擎命令计数强制),到顶自动转 `report-user`(STATUS=blocked),绝不无限往返。
 <!-- END: receipt-jump -->

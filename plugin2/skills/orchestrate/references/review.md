@@ -15,7 +15,7 @@
 | ③ 落地审 | 每个 plan 全 Pack 提交后 | `contract-gate` | `references/review/plan-impl.md` |
 | ④ final | verify 阶段(全合并后) | `review` | `references/review/final.md` |
 
-③ 是便宜合同门,不派 Codex 判断(见 §3);①②④ 是真审 loop(§1–§2)。
+③ 是便宜合同门、不派 Codex 判断,①②④ 是真审 loop——本文下面分别讲。
 
 ## 1. 主线程:一条命令起审 → 抽清单 → 派协调帮手(①②④)
 

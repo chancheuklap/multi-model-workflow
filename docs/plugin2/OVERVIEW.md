@@ -10,7 +10,7 @@
 
 整套系统一张图。颜色 = 谁在干:<span>🟡 主线程(Claude Code,唯一能问你)</span> · <span>🟣 Claude 帮手(隔离上下文劳动力,SendMessage 续)</span> · <span>🔴 Codex 审者(headless,喂我们的审题)</span> · <span>🔵 脚本/hook(确定层,不手搓)</span> · <span>🟢 文档/状态(真相源)</span> · <span>🩷 用户(HITL)</span>。
 
-三个层次:**① 入口**(断点恢复 + 路由)→ **② 外层循环**(六个阶段怎么换,每阶段配一个审)→ 中间 **③ 真相源 + 看守**(状态面 + hooks 兜住确定性)。build 阶段里再嵌一台**内层循环**(loop engineering 自驱落地)。
+三个层次:**① 入口**(断点恢复 + 路由)→ **② 外层循环**(七个阶段怎么换,design/plan 各配一个审)→ 中间 **③ 真相源 + 看守**(状态面 + hooks 兜住确定性)。build 阶段里再嵌一台**内层循环**(loop engineering 自驱落地)。
 
 ```mermaid
 flowchart TB
@@ -34,8 +34,11 @@ flowchart TB
         subgraph PH1["查清 investigate"]
             W["两个自建 Workflow(内/外分开)<br/>topics 定数·fire 前 checkpoint<br/>只读 agent → 取证过滤 → 带引用报告"]:::worker
         end
+        subgraph PHP["给方案 propose"]
+            PR{"综合现状 → 亮 2-3 方案 → HITL<br/>选一个→design / 全否→needs-redirection 回上游"}:::ai
+        end
         subgraph PH2["想方案 design"]
-            D["write-design-doc<br/>主线程 + 用户讨论"]:::ai --> R1["①设计审 loop"]:::codex
+            D["write-design-doc<br/>拿已定方向 + 用户讨论(不再提方案)"]:::ai --> R1["①设计审 loop"]:::codex
         end
         subgraph PH3["拆计划 plan"]
             PL["plan-writer 帮手<br/>并行多 issue"]:::worker --> R2["②计划审 loop"]:::codex
@@ -55,7 +58,8 @@ flowchart TB
         subgraph PH6["收尾 closing"]
             CL["prepare.sh cleanup<br/>合并后删 worktree+分支+状态"]:::sh
         end
-        PH1 --> PH2 --> PH3 --> PH4 --> PH5 --> PH6
+        PH1 --> PHP --> PH2 --> PH3 --> PH4 --> PH5 --> PH6
+        PHP -.->|"全否 needs-redirection"| PH1
     end
     E3 --> PH1
 
@@ -414,7 +418,7 @@ flowchart TD
     OUT --> SPIN["分叉登记子任务"]:::done
     OUT --> CAP["返工/掉头(可回上游任一)/上限/停下"]:::done
     OUT --> RES["断点恢复"]:::done
-    OUT --> PHASES["六阶段全接满 + 各阶段方法论<br/>investigate/design/plan/build/verify/closing"]:::done
+    OUT --> PHASES["七阶段全接满 + 各阶段方法论<br/>investigate/propose/design/plan/build/verify/closing"]:::done
     OUT --> REVIEW["四审 loop(Codex 出审查+Claude 验)"]:::done
     OUT --> BUILD["落地:Codex 写+Claude 验(codex-worker)"]:::done
     IN --> MERGE["merge 合并(team+冲突)"]:::done
@@ -425,7 +429,7 @@ flowchart TD
     classDef todo fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray:4 3
 ```
 
-🟢 已落地并空跑验证(173 项断言:脚本 166 + build 7):入口纯路由(每条路径一份干净完整 reference,共用步骤 build 去重)· `mmw where` 自指路(冷启动列起始选项;在途报 `load`/`do`/`then`)· 开工/恢复/清理 · 接力单 · 统一运行契约 + 审闸 · 分叉/返工(可 `--to-phase`)/上限/停下 · 六阶段方法论全接(含 Codex 落地派发 + 四审 loop)· merge · 统一 CLI `mmw`。
+🟢 已落地并空跑验证(176 项断言:脚本 169 + build 7):入口纯路由(每条路径一份干净完整 reference,共用步骤 build 去重)· `mmw where` 自指路(冷启动列起始选项;在途报 `load`/`do`/`then`)· 开工/恢复/清理 · 接力单 · 统一运行契约 + 审闸 · 分叉/返工(可 `--to-phase`)/上限/停下 · 七阶段方法论全接(含 propose 给方案+两路出口、Codex 落地派发 + 四审 loop)· merge · 统一 CLI `mmw`。
 ⬜ 未验:**内容级端到端真跑**(真派 Codex 落地/审、真 resume 修、真 surface 冒泡——单测够不着,要拿真 develop 任务跑)· 中途整体升级。
 
 ---
@@ -444,7 +448,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    N1["① 骨架+六阶段+审+merge+路径拆分<br/>(已落地·173 断言)"]:::done --> N2["② 拿真 develop 任务端到端跑<br/>一边跑一边修(内容级验收)"]:::nx --> N3["③ 中途整体升级"]:::nx
+    N1["① 骨架+七阶段(含 propose)+审+merge+路径拆分<br/>(已落地·176 断言)"]:::done --> N2["② 拿真 develop 任务端到端跑<br/>一边跑一边修(内容级验收)"]:::nx --> N3["③ 中途整体升级"]:::nx
     classDef done fill:#dcfce7,stroke:#16a34a
     classDef nx fill:#dbeafe,stroke:#2563eb
 ```
@@ -461,7 +465,7 @@ flowchart LR
 | 入口(**纯路由**:断点恢复 + 选路,随后交给该路径 reference)| `skills/orchestrate/SKILL.md` |
 | 每条路径一份干净完整走法(建 worktree + 契约 + 回执 + 收尾)| `skills/orchestrate/references/scenario/{small-change,develop,bug,merge}.md` |
 | 路径间共用步骤的单源 + 多文档构建(改一处跑 `build.sh --apply` 覆盖全部)| `build/fragments/*.md` · `build/build.sh`(`--check`/`--apply`)|
-| 各阶段方法论 / 操作指南 | `skills/orchestrate/references/{investigate,review,build,closing}.md` · `skills/write-design-doc/` · `skills/write-plan-doc/` |
+| 各阶段方法论 / 操作指南 | `skills/orchestrate/references/{investigate,propose,review,build,closing}.md` · `skills/write-design-doc/` · `skills/write-plan-doc/` |
 | 阶段→`load`/`do`/`then` 绑定(`mmw where` 自指路单源)| `state-schema/routes.json` 的 `phase_bindings` |
 | 审题(喂 Codex)| `skills/orchestrate/references/review/{quartet,design,plan,plan-impl,final}.md` |
 | 开工 / 恢复 / 清理 / 全队(merge)| `scripts/prepare.sh`(new/resume/cleanup/team)|

@@ -10,6 +10,6 @@
 | `turn-around` | active | 掉头回上游:对 `NEXT_PHASE` 回 ① 进重跑。 |
 | `ask-user` | waiting-user | 停。把缺的输入问用户(在场 `AskUserQuestion`);补齐后 `mmw task resume` 续本阶段。 |
 | `report-user` | blocked | 停。带完整经过上报用户,等指示——别自己硬闯。 |
-| `done` | ready-to-close | 末阶段过 → 收尾(见下)。 |
+| `done` | ready-to-close | 末阶段过 → 走本文「收尾」。 |
 
 `repair` / `turn-around` 有上限(引擎命令计数强制),到顶自动转 `report-user`(STATUS=blocked),绝不无限往返。

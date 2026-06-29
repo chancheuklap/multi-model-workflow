@@ -25,7 +25,15 @@ loop_file() {
   echo "$top/$STATE_SUBDIR/$LOOP_NAME"
 }
 need_loop() { local f; f="$(loop_file)"; [ -f "$f" ] || die "无 loop-state(先 loop.sh init)"; echo "$f"; }
-write() { local f="$1" tmp; tmp="$(mktemp)"; cat > "$tmp"; mv "$tmp" "$f"; }
+# 原子写 + fail-closed:上游 jq 失败会送来空/非法内容,验过非空且合法 JSON 才 mv,
+# 否则保留原文件并报错退非零(绝不把状态截成 0 字节,违"不搞静默兜底")。
+write() {
+  local f="$1" tmp; tmp="$(mktemp)"; cat > "$tmp"
+  if [ ! -s "$tmp" ] || ! jq -e . "$tmp" >/dev/null 2>&1; then
+    rm -f "$tmp"; echo "ERROR: 拒绝写入空/非法 JSON 到 $f(上游 jq 可能失败);原文件保留" >&2; return 1
+  fi
+  mv "$tmp" "$f"
+}
 edit() { local f="$1"; shift; jq "$@" "$f" | write "$f"; }
 
 cmd_init() {
@@ -35,7 +43,7 @@ cmd_init() {
   local f top; top="$(git rev-parse --show-toplevel)"; f="$top/$STATE_SUBDIR/$LOOP_NAME"
   mkdir -p "$top/$STATE_SUBDIR"
   jq -n --arg k "$kind" '{schema_version:"1", kind:$k, attendance:"afk",
-    steps:[], checklist:[], findings:[], decisions:[], pause:null, round:0}' > "$f"
+    steps:[], checklist:[], findings:[], decisions:[], pause:null}' > "$f"
   echo "INIT kind=$kind"
 }
 
@@ -136,6 +144,8 @@ cmd_resume() { edit "$(need_loop)" '.pause=null'; echo "RESUMED"; }
 # 退出三件套核对:DONE / NOT-DONE:<剩> / PAUSED:<因>。给看守 hook 用(它据此 exit2 顶回去 or 放停)
 cmd_exit_check() {
   local f; f="$(need_loop)"
+  # fail-closed:状态文件损坏/空/非法 JSON 不能当 done/PAUSED 放行,报 CORRUPT 让看守拦
+  jq -e . "$f" >/dev/null 2>&1 || { echo "CORRUPT:loop-state 空/非法 JSON"; return 0; }
   local kind; kind="$(jq -r .kind "$f")"
   # 暂停优先:停着就是停着,不算 done
   if [ "$(jq -r '.pause // "null"' "$f")" != "null" ]; then

@@ -27,6 +27,9 @@ bash "$LOOP" step add --id 1.2 --desc b >/dev/null
 bash "$LOOP" attendance --mode attended >/dev/null
 bash "$LOOP" softstop --question "?" --at-step 1.2 >/dev/null
 [ "$(run_hook guard-loop.sh '{}')" = "0" ] && ok "PAUSED → 放停(等人)" || no "PAUSED 放停"
+# 损坏 loop-state → 看守 fail-closed(不放停),不把损坏当 PAUSED 静默放行
+echo 'garbage{' > .claude/multi-model-workflow/loop-state.json
+[ "$(run_hook guard-loop.sh '{}')" = "2" ] && ok "损坏 loop-state → 看守 exit2(fail-closed)" || no "损坏态看守 fail-closed"
 
 # ===== guard-redline(PreToolUse)=====
 P_MERGE='{"tool_input":{"command":"git merge feat --no-ff"}}'

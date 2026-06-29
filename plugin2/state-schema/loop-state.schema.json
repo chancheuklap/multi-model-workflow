@@ -4,7 +4,7 @@
   "description": "内层 loop 的状态 ledger,独立于外层 task.json(并列执行档,旧 plugin 双文件模型的思路)。落 <worktree>/.claude/multi-model-workflow/loop-state.json。进一个 loop 阶段时 init,退出时清。看守 hook 和 exit-check 都读它。",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "kind", "attendance", "steps", "checklist", "findings", "decisions", "pause", "round"],
+  "required": ["schema_version", "kind", "attendance", "steps", "checklist", "findings", "decisions", "pause"],
   "properties": {
     "schema_version": { "const": "1" },
     "kind": {
@@ -78,7 +78,6 @@
         "question": { "type": "string" }
       },
       "description": "停了写这里,resume 清空。非 null = 等人答复"
-    },
-    "round": { "type": "integer", "minimum": 0, "description": "修复轮,超 routes.json caps 转第三态" }
+    }
   }
 }
