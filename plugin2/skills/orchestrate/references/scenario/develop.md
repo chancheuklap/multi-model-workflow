@@ -21,7 +21,7 @@
    EnterWorktree({ path: "<回执里的 worktree_path>" })
    ```
 
-文档产出提交进分支(设计 `docs/design/`、issue `docs/issues/`、领域 `docs/context/`);临时状态落 `.claude/multi-model-workflow/`(随 worktree 删)。
+文档产出提交进分支(查清 `docs/investigating/`、设计 `docs/design/`、issue `docs/issues/`、领域 `docs/context/`);临时状态落 `.claude/multi-model-workflow/`(随 worktree 删)。
 <!-- END: worktree-setup -->
 
 <!-- BEGIN: phase-contract -->

@@ -47,8 +47,8 @@ cmd_new() {
   # 从本地最新 HEAD 分叉
   git -C "$top" worktree add -b "$slug" "$wt" HEAD >&2
 
-  # 文档落点(write-design-doc 布局):design/issues 按 date-slug,context 项目级共享
-  mkdir -p "$wt/docs/design" "$wt/docs/issues" "$wt/docs/context" "$wt/$STATE_SUBDIR"
+  # 文档落点:investigating(查清报告存档)/ design / issues 按 slug,context 项目级共享(domain-modeling 维护)
+  mkdir -p "$wt/docs/investigating" "$wt/docs/design" "$wt/docs/issues" "$wt/docs/context" "$wt/$STATE_SUBDIR"
 
   # 阶段序列从预设解析:主干被 preset 过滤后的开着阶段(单源,prepare 不硬编码)
   [ -f "$ROUTES" ] || die "找不到 routes.json: $ROUTES"
@@ -62,10 +62,10 @@ cmd_new() {
     --argjson phases "$phases_json" \
     --arg status "active" --arg phase "$phase" --arg created "$created" \
     --arg base "$base" --arg branch "$slug" --arg wt "$wt" \
-    --arg ddoc "docs/design/$slug" --arg idir "docs/issues/$slug" --arg ctx "docs/context" \
+    --arg inv "docs/investigating/$slug" --arg ddoc "docs/design/$slug" --arg idir "docs/issues/$slug" --arg ctx "docs/context" \
     '{schema_version:$sv, slug:$slug, title:$title, scenario:$scenario, phases:$phases,
       status:$status, phase:$phase, phase_index:0, gate:null, created_at:$created, base_commit:$base,
-      branch:$branch, worktree_path:$wt, docs:{design:$ddoc, issues:$idir, context:$ctx},
+      branch:$branch, worktree_path:$wt, docs:{investigating:$inv, design:$ddoc, issues:$idir, context:$ctx},
       repair_count:0, turnaround_count:0,
       artifacts:[], phase_outputs:{}, open_items:[], subtasks:[], history:[]}' \
     > "$wt/$STATE_SUBDIR/$MANIFEST_NAME"
