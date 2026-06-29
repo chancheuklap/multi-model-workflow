@@ -4,14 +4,6 @@
 
   "conclusions": ["pass", "needs-repair", "needs-redirection", "needs-context", "blocked"],
 
-  "actions": {
-    "pass":              { "do": "advance",     "judgment": false, "note": "本阶段过,进下一开着的阶段;已是末阶段则待收尾" },
-    "needs-repair":      { "do": "repair",      "judgment": false, "note": "本阶段产出有缺,原地返工,计 repair_count,超上限转 blocked" },
-    "needs-redirection": { "do": "turn-around", "judgment": true,  "note": "方向本身错,掉头回首个开着的阶段重来,计 turnaround_count,超上限转 blocked" },
-    "needs-context":     { "do": "ask-user",    "judgment": true,  "note": "缺输入才没法继续,停下问用户,补齐后 resume" },
-    "blocked":           { "do": "report-user", "judgment": true,  "note": "卡住,带完整经过上报用户" }
-  },
-
   "caps": { "max_repair": 2, "max_turnaround": 1 },
 
   "spinoff_tags": ["bug", "optimize", "out-of-scope", "needs-evaluation"],

@@ -12,9 +12,12 @@ top="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 f="$top/.claude/multi-model-workflow/loop-state.json"
 [ -f "$f" ] || exit 0
 
-res="$(cd "$top" && bash "$LOOP" exit-check 2>/dev/null)" || exit 0
+# exit-check 自身执行失败 = 不放停(fail-closed),别静默放行
+res="$(cd "$top" && bash "$LOOP" exit-check 2>/dev/null)" \
+  || { echo "看守:exit-check 执行失败,不放停,请人查 loop-state。" >&2; exit 2; }
 case "$res" in
   DONE|PAUSED:*) exit 0 ;;                                  # 放它停
   NOT-DONE:*) echo "内层未完成($res),做完再停。" >&2; exit 2 ;;   # 顶回去续
-  *) exit 0 ;;
+  CORRUPT:*)  echo "看守:loop-state 损坏($res),不放停,请人查。" >&2; exit 2 ;;  # fail-closed
+  *) echo "看守:exit-check 输出异常($res),不放停。" >&2; exit 2 ;;          # 默认 fail-closed
 esac

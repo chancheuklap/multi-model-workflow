@@ -24,8 +24,15 @@ manifest_path() {
   echo "$m"
 }
 
-# 原子写:tmp + mv
-write_manifest() { local m="$1" tmp; tmp="$(mktemp)"; cat > "$tmp"; mv "$tmp" "$m"; }
+# 原子写 + fail-closed:验过非空且合法 JSON 才 mv,上游 jq 失败时保留原 manifest 报错退非零
+# (绝不把 task.json 截成 0 字节,违"不搞静默兜底")。
+write_manifest() {
+  local m="$1" tmp; tmp="$(mktemp)"; cat > "$tmp"
+  if [ ! -s "$tmp" ] || ! jq -e . "$tmp" >/dev/null 2>&1; then
+    rm -f "$tmp"; echo "ERROR: 拒绝写入空/非法 JSON 到 $m;原 manifest 保留" >&2; return 1
+  fi
+  mv "$tmp" "$m"
+}
 
 # ---------- handoff ----------
 cmd_handoff() {

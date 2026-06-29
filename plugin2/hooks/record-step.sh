@@ -18,5 +18,8 @@ top="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 [ -f "$top/.claude/multi-model-workflow/loop-state.json" ] || exit 0
 sha="$(git -C "$top" rev-parse HEAD 2>/dev/null || echo "")"
 
-( cd "$top" && bash "$LOOP" step done --id "$id" --commit "$sha" ) >/dev/null 2>&1 || true
+# 记进度失败不拦提交(PostToolUse 撤不回),但留痕——不静默吞
+if ! ( cd "$top" && bash "$LOOP" step done --id "$id" --commit "$sha" ) >/dev/null 2>&1; then
+  echo "record-step: 提交含 $pack 但 step done 失败(id=$id 可能不在 steps,或 loop-state 损坏);进度未记,请人核。" >&2
+fi
 exit 0

@@ -70,4 +70,16 @@ bash "$LOOP" checklist cover --item contractA --evidence "接上了" >/dev/null
 if bash "$LOOP" init --kind bogus >/dev/null 2>&1; then no "坏 kind 被拒"; else ok "坏 kind 被拒"; fi
 if bash "$LOOP" surface --kind needs-context >/dev/null 2>&1; then no "surface 缺 question 被拒"; else ok "surface 缺 question 被拒"; fi
 
+# ===== fail-open 防护:上游 jq 失败不把状态截成 0 字节(违"不搞静默兜底")=====
+LF=".claude/multi-model-workflow/loop-state.json"
+bash "$LOOP" init --kind review >/dev/null
+SZB="$(wc -c < "$LF")"
+# 非数字 confidence → --argjson 失败 → 应拒写、退非零、原文件保留
+if bash "$LOOP" finding add --severity Critical --confidence "8/10" --locator a:1 >/dev/null 2>&1; then no "非数字 confidence 应被拒"; else ok "非数字 confidence 被拒(--argjson 失败)"; fi
+[ "$(wc -c < "$LF")" = "$SZB" ] && ok "拒写后原状态保留(没截空)" || no "状态被截空!"
+jq -e . "$LF" >/dev/null 2>&1 && ok "拒写后状态仍合法 JSON" || no "状态损坏"
+# 损坏状态 → exit-check 报 CORRUPT(不假 PAUSED 放行)
+echo 'garbage{' > "$LF"
+[ "$(ec)" = "CORRUPT:loop-state 空/非法 JSON" ] && ok "损坏状态 exit-check 报 CORRUPT(不假 PAUSED)" || no "CORRUPT ($(ec))"
+
 echo ""; echo "Results: $pass passed, $fail failed"; [ "$fail" -eq 0 ]

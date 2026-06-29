@@ -63,6 +63,8 @@ run_codex() {  # $1=worktree $2=prompt_file $3..=codex args(不含 stdin)
   echo "SESSION=${sid:-unknown}"
   echo "--- codex 最后消息(验收读这个,事实需主线程亲验)---"
   cat "$last" 2>/dev/null || echo "(无最后消息;读 $log 排障)"
+  # codex 非零退出 = 真失败,把退出码透给调用方,不伪装成功(输出已留痕 CODEX_EXIT + log)
+  return "$ec"
 }
 
 cmd_dispatch() {
@@ -88,11 +90,13 @@ cmd_dispatch() {
   local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
 
   local pf; pf="$(mktemp)"; build_prompt "$plan" "$wt" > "$pf"
+  local rc=0
   run_codex "$wt" "$pf" \
     exec -C "$wt" --sandbox workspace-write \
     ${gcd:+--add-dir "$gcd"} \
-    -m "$model" -c "model_reasoning_effort=\"$effort\""
+    -m "$model" -c "model_reasoning_effort=\"$effort\"" || rc=$?
   rm -f "$pf"
+  return "$rc"   # codex 失败时透给主线程,不伪装成功(输出已留 CODEX_EXIT + log)
 }
 
 cmd_resume() {
