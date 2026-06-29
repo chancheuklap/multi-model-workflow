@@ -51,14 +51,14 @@ A / B 产出同一份设计文档、走同样的自检 / 审 / 拆 issue，只�
 
 ### Step 0：起 domain-modeling
 
-第一轮用户对话前调 `domain-modeling` skill，全程维护领域文档（见上「双文档产出」与下「Domain Alignment」）。领域文档与设计文档**地位等同**，不能只写设计不维护领域。
+第一轮用户对话前调 `domain-modeling` skill，全程维护领域文档（本文「双文档产出」「Domain Alignment」给规则）。领域文档与设计文档**地位等同**，不能只写设计不维护领域。
 
 ### Step 1：读选定方向 + 现状报告，选路
 
 **方向已由上游 propose 阶段定**:`prev_outputs` 带来 `docs/design/<slug>-direction.md`(选定方向 + 取舍),外加 investigate 的现状报告(`docs/context/**`)。读这两份确认起点——**不重做系统探查、不重提方案**;零星细节随手 `rg`/`Read`(验证后再用,子代理是劳动力不是事实源)。
 
 - **提问扎根现状**：问任何能从报告 / 代码查到的问题前，先引报告条目或 `path:line`。报告没覆盖且查不到 → 明说"investigate 没查到 X，按 greenfield 处理"。
-- **选路**（判据见上「两条路」）:就**选定方向**判——已聊透且核心假设被对抗过 → 走 B 直接起草;否则走 A → Steps 2-4 细化。一句话告诉用户。
+- **选路**（判据按本文「两条路」）:就**选定方向**判——已聊透且核心假设被对抗过 → 走 B 直接起草;否则走 A → Steps 2-4 细化。一句话告诉用户。
 - **方向被事实击穿**(细看才发现选错):别在这重选,`mmw handoff --conclusion needs-redirection` 回上游 propose/investigate 换向。
 
 ### 按需补充上下文（问答中触发，HITL 集中在设计阶段的抓手）

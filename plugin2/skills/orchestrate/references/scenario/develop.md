@@ -34,7 +34,7 @@
 | **① 进** | `mmw where` 直接报:在哪阶段、在不在审闸、上阶段钉了什么(`prev_outputs` 照单读,不自己找)、`load`(读哪份)/ `do`(干什么)/ `then`(交什么)。照 `load` 加载 | `mmw where` |
 | **② 干** | 按 `where` 的 `do` 跑该阶段方法论(唯一因阶段而异),读 `prev_outputs` 当输入 | `load` 指向的 reference / Skill |
 | **③ 钉** | 把本阶段承重产出钉进接力单,下阶段照单读 | handoff 的 `--produced` |
-| **④ 交** | 给一个结论词,引擎算下一步、写进度、回执;照回执跳(见下「回执 → 怎么跳」) | `mmw handoff` |
+| **④ 交** | 给一个结论词,引擎算下一步、写进度、回执;照本文「回执 → 怎么跳」表行动 | `mmw handoff` |
 
 **③ 钉 + ④ 交 —— 一条 handoff:**
 
@@ -62,7 +62,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 | `turn-around` | active | 掉头回上游:对 `NEXT_PHASE` 回 ① 进重跑。 |
 | `ask-user` | waiting-user | 停。把缺的输入问用户(在场 `AskUserQuestion`);补齐后 `mmw task resume` 续本阶段。 |
 | `report-user` | blocked | 停。带完整经过上报用户,等指示——别自己硬闯。 |
-| `done` | ready-to-close | 末阶段过 → 收尾(见下)。 |
+| `done` | ready-to-close | 末阶段过 → 走本文「收尾」。 |
 
 `repair` / `turn-around` 有上限(引擎命令计数强制),到顶自动转 `report-user`(STATUS=blocked),绝不无限往返。
 <!-- END: receipt-jump -->
