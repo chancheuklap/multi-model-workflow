@@ -9,6 +9,8 @@ description: "开发工作流主入口。用户给出想法/功能/改造、报 
 
 `${SKILL_DIR}` = 本 skill 目录;`${SCRIPTS}` = `${CLAUDE_PLUGIN_ROOT}/scripts`。
 
+**全 plugin 命令走统一 CLI**:`mmw` ≡ `bash "${SCRIPTS}/mmw.sh"`。读完 skill 直接用 `mmw <命令>` 推进/登记/派发,不用记各脚本路径(`mmw help` 看全表)。下文 `mmw …` 都指这个。
+
 ---
 
 ## Step 0 · 先试断点恢复
@@ -16,10 +18,10 @@ description: "开发工作流主入口。用户给出想法/功能/改造、报 
 无脑先跑一次(无论在哪):
 
 ```bash
-bash "${SCRIPTS}/prepare.sh" resume
+mmw task resume
 ```
 
-- 输出 `MANAGED` + 一段 JSON → **当前 worktree 是个在管任务**。再跑一次 `bash "${SCRIPTS}/flow.sh" where` 拿精确位置(阶段/下标/计数/待办数),一句话告诉用户"你在 `<title>`,场景 `<scenario>`,阶段 `<phase>`",直接进该 phase 继续。**跳过 Step 1。**
+- 输出 `MANAGED` + 一段 JSON → **当前 worktree 是个在管任务**。再跑一次 `mmw where` 拿精确位置(阶段/下标/计数/待办数),一句话告诉用户"你在 `<title>`,场景 `<scenario>`,阶段 `<phase>`",直接进该 phase 继续。**跳过 Step 1。**
 - 输出 `UNMANAGED` → 当前不是在管任务(在主仓库,或 worktree 里没 manifest)→ 进 Step 1。
 
 ## Step 1 · 路由(LLM 判,零脚本)
@@ -43,7 +45,7 @@ bash "${SCRIPTS}/prepare.sh" resume
 
 2. **一条命令建好**(从本地最新 HEAD 分叉,scaffold docs,写 manifest):
    ```bash
-   bash "${SCRIPTS}/prepare.sh" new --scenario <small-change|develop|bug> --slug <slug> --title "<人类可读标题>"
+   mmw task new --scenario <small-change|develop|bug> --slug <slug> --title "<人类可读标题>"
    ```
    回执给出 `worktree_path`。prepare 据预设把开着的阶段序列固化进进度记录(`phases`)。
 
@@ -64,10 +66,10 @@ bash "${SCRIPTS}/prepare.sh" resume
 
 | 动作 | 做什么 | 命令 / 机制 |
 |---|---|---|
-| **① 进** | `where` 告诉你在哪阶段、在不在审闸、上阶段钉了什么产出(`prev_outputs` 照单读,不自己找);按当前阶段查下表加载该阶段指南 | `bash "${SCRIPTS}/flow.sh" where` |
+| **① 进** | `where` 告诉你在哪阶段、在不在审闸、上阶段钉了什么产出(`prev_outputs` 照单读,不自己找);按当前阶段查下表加载该阶段指南 | `mmw where` |
 | **② 干** | 跑该阶段方法论(唯一因阶段而异)。读 `prev_outputs` 当输入 | 见下「阶段 → 加载」表 |
 | **③ 钉** | 把本阶段产出钉进接力单,下阶段照单读 | handoff 的 `--produced` |
-| **④ 交** | 给一个结论词,引擎算下一步、写进度、回执;你照回执走,**不自己猜下一步、不手写状态** | `bash "${SCRIPTS}/flow.sh" handoff` |
+| **④ 交** | 给一个结论词,引擎算下一步、写进度、回执;你照回执走,**不自己猜下一步、不手写状态** | `mmw handoff` |
 
 **② 干 —— 阶段 → 加载该阶段指南:**
 
@@ -86,24 +88,24 @@ bash "${SCRIPTS}/prepare.sh" resume
 **③ 钉 + ④ 交 —— 一条 handoff:**
 
 ```bash
-bash "${SCRIPTS}/flow.sh" handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
+mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 ```
 
 - **结论词**统一五选一(`pass` / `needs-repair` / `needs-redirection` / `needs-context` / `blocked`),选哪个是你的判断;选完引擎查 `routes.json` 算 `NEXT_ACTION` / `NEXT_PHASE` / `STATUS`。缺结论或词非法当场拦(fail-closed)。
 - **`--produced` 必带本阶段的承重产出**(investigate→现状报告;design→设计文档;plan→plan 目录;build→提交范围;verify→终审报告)——它钉进接力单,下阶段靠它接,不靠"自己找"。
 - **回执 `NEXT_ACTION=review`**(design/plan 产物过 → 进审闸,见 `REVIEW_STAGE`):别 advance,先按 `references/review.md` 跑该阶段审 loop,审完再 handoff verdict——`pass` 才进下一阶段,`needs-repair` 回本阶段返工。
-- 中途挖到 bug / 旁路优化 → 登记关联子任务,主流程不动:`bash "${SCRIPTS}/flow.sh" spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`。
+- 中途挖到 bug / 旁路优化 → 登记关联子任务,主流程不动:`mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`。
 - 返工/掉头有上限,命令计数强制,到顶自动转 `blocked`,绝不无限往返。
 - `STATUS=ready-to-close` → 末阶段过,回主仓库 cleanup 收尾。
 
-**断点续传**:任何时候 `flow.sh where` + 接力单就够你接着跑——进度、游标、各阶段产出全在 manifest,不靠会话记忆。
+**断点续传**:任何时候 `mmw where` + 接力单就够你接着跑——进度、游标、各阶段产出全在 manifest,不靠会话记忆。
 
 ## 收尾 · 合并后删干净
 
 任务分支已 merge 进主线后,worktree 连同里面的临时状态一起删:
 
 ```bash
-bash "${SCRIPTS}/prepare.sh" cleanup --slug <slug>   # 回主仓库执行
+mmw task cleanup --slug <slug>   # 回主仓库执行
 ```
 
 worktree 在**使用期**持久(可跨天,别中途删);**合并后**才 cleanup,worktree + 分支 + `.claude/` 临时状态一并清除。

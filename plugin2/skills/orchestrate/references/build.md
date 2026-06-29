@@ -1,70 +1,80 @@
-# Build · 自循环落地(阶段操作指南)
+# Build · 落地(阶段操作指南)
 
-> 主线程进 build 阶段加载本文。落地 = loop engineering 的 `kind=execution` 实例:派一个 Claude 帮手按对齐好的计划自驱 TDD,看守 hook 保证做完才停。机制全貌见 `plugin2/design/loop-engineering.md`(单源)。
+> 主线程进 build 阶段加载本文。落地 = **Codex 写代码 + Claude(你)按计划验收**:Codex 是并行苦力(在 worktree 里自驱 TDD),你是对齐了设计的验收闸。机制全貌见 `plugin2/design/loop-engineering.md`。
 
-阶段目标:把 ②计划审过的 plan **完整落地、不偏离设计**。这是用户放权自主跑的阶段——对齐在前(design/plan 审过),执行在此放手。
+阶段目标:把 ②计划审过的 plan **完整落地、不偏离设计**。HITL 集中在设计/计划;**这阶段默认放权自主跑**(`attended` 才停问),只有真缺输入 / 方向疑 / 合并红线才停。
+
+为什么 Codex 写、Claude 验:跟你对齐设计的是 Claude(设计/计划阶段都在),所以 Claude 当"落地没偏离设计"的验收闸最合适;Codex 不持有这份对齐,只出力。两者不同模型 = 写者≠验者,独立性成立。
 
 **红线:**
-- 帮手(worker)**只改代码、不碰 `docs/`**(设计/计划是上游权威,executor 禁改)。
-- **每个 Pack 一次提交**,commit message 含 `Pack N.M`(record-step hook 据此记步完成;不写就不记、看守会顶回)。
-- **afk 放权只动软停**:缺输入 / 方向疑(surface)永远停下抛你;merge/deploy 永远要人批(guard-redline,在收尾不在这)。
+- Codex **只改源码、禁碰 `docs/`**(已焊进派发 prompt);每 Pack 一提交带 `Pack N.M`。
+- **Codex 返回的事实(改了啥、测试结果)是劳动力不是信源**——你 verify 时自己 grep/读/跑坐实。
+- afk 放权只动软停;merge/deploy 永远要人批(收尾阶段)。
 
 ---
 
 ## 1. 进 + 起落地 loop
 
-`flow.sh where` → `prev_outputs` = plan 阶段钉的 plan 目录。读该目录的 plan 文档拿 Task Pack 清单 + 依赖序。然后起 loop、把 Pack 展开成步账:
+`mmw where` → `prev_outputs` = plan 阶段钉的 plan 目录。读该目录拿 Task Pack 清单、acceptance、plan 间依赖。起 loop、把 plan 展开成步账(一份 plan 一步,或按 Pack 更细):
 
 ```bash
-bash "${SCRIPTS}/loop.sh" init --kind execution
-bash "${SCRIPTS}/loop.sh" attendance --mode <attended|afk>          # 放权跑设 afk
-bash "${SCRIPTS}/loop.sh" step add --id <N.M> --desc "<Pack N.M 标题>"   # 逐 Pack,id 用 Pack 号 N.M
+mmw loop init --kind execution
+mmw loop attendance --mode afk           # 放权自主跑;盯着调试设 attended
+mmw loop step add --id <plan-或-pack-id> --desc "<标题>"   # 逐项
 ```
 
-多份 plan:按 plan 间依赖序,一份一份过(每份:落地 loop → ③合同门)。互不依赖的 plan 可并行派 worker(共享工作树,Pack 号不撞)。
+判哪些 plan 互不依赖 → 并行;有 blocked_by 链 → 按序。
 
-## 2. 派落地 worker(tdd-executor,后台)
+## 2. 派 Codex 落地(一条命令进 worktree)
 
-派 `tdd-executor`(`subagent_type: "tdd-executor"`,`run_in_background: true`),给它(且只给它)这份 plan 需要的:
-
-> Source:plan 文档路径 + Global Constraints。按 plan 内依赖序逐个 Task Pack 落地,严格 TDD:**写失败测试 → 确认真失败 → 最小实现 → 确认真通过 → 提交**。
-> **每个 Pack 一次提交,message 含 `Pack N.M`**(进度靠它记)。只改代码,**不碰 `docs/`**。
-> 停下规则(不自己问用户,抛回主线程):有合理默认的判断 → `loop.sh softstop --question ... --at-step <N.M> --default <你的默认>`;真缺输入 / 怀疑方向错 → `loop.sh surface --kind <needs-context|needs-redirection> --question ... --at-step <N.M>`。
-> 全 Pack 做完再停;没做完想停会被看守顶回来续。
-
-worker 自驱期间:提交 → record-step hook 自动记 `step done`;`guard-loop`(SubagentStop)在 steps 没全 done 时 `exit 2` 顶它回去续。
-
-## 3. 暂停怎么处理(放权与盯防的融合)
-
-| worker 写了 | attended(你在) | afk(放权) |
-|---|---|---|
-| `softstop`(有默认的判断) | loop-state `pause` → 你 `AskUserQuestion` → `loop.sh resume` → `SendMessage` 把答复续给同一帮手(context 原封) | worker 自决 + 写 `decisions` 留痕,继续(不偷跳) |
-| `surface`(缺输入/方向疑) | 永远停 → 抛你拍 | 同左,**afk 也停** |
-
-续接靠 `SendMessage` 续**同一**帮手(零重读),不重派、不重做已提交的 Pack。
-
-## 4. ③ 合同门(每份 plan 落完)
-
-一份 plan 全 Pack 提交后,起便宜合同门(不派 Codex 判断):
+每份 plan 派一个 Codex(脚本代劳开 worktree + 组装规范 prompt + codex exec):
 
 ```bash
-bash "${SCRIPTS}/review.sh" start --stage plan-impl --source "<plan 目录>"
+mmw codex dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree 绝对路径>
 ```
 
-按打印提示:列待提交 Pack(`step add`)+ 跨 plan 合同清单(`checklist add`)→ 逐条机器核合同兑现(`checklist cover`)→ 全齐 `exit-check` DONE。合同不达 → 回本 plan 落地(落地自己的轮上限);合同根上错 → 升级。
+- 并行:互不依赖的 plan,各自一个 worktree,`run_in_background: true` 同时派(寻找一切安全的并行机会加快进度)。
+- 脚本已把铁律焊进 prompt:严防过度设计/兜底/思考、严格 TDD、每 Pack 提交带 `Pack N.M`、禁改 `docs/`、缺输入就停下说清。
+- Codex 在自己 worktree 提交(不走你的 Bash,所以 record-step 不记;进度靠你 verify 后 `mmw loop step done`)。
 
-## 5. 钉产出 → handoff
+## 3. 验收(命门:你按计划验,不信 Codex 自述)
 
-全部 plan 落地 + ③门过后:
+Codex 返回后,读它最后消息 + **自己核**(亲验):
+
+- **完整性**:plan 的每条 acceptance 真达成?跑验收命令、读 diff,不认"我做完了"。
+- **设计一致性**:落地有没有偏离设计/计划的意图、合同、边界?
+- 过了这两关 → `mmw loop step done --id <plan-或-pack-id>`。
+- 有缺陷 / 没达成 → 写修复指令,**发回原对话**(keep context):
+  ```bash
+  mmw codex resume --worktree <wt> --instructions <fix.md>
+  ```
+  verify ↔ resume 直至这份 plan 验收通过。
+
+**Codex 停下说"缺输入/计划与现实冲突"**:你判——小问题有合理默认 → afk 直接给指令 resume(留痕);真缺输入 / 怀疑方向错 → 停下抛用户(`mmw handoff --conclusion needs-context` / `needs-redirection`),别替用户拍方向。
+
+## 4. ③ 合同门(每份 plan 验完)
+
+一份 plan 全 Pack 落地 + 验过后,起便宜合同门核跨 plan 合同兑现:
 
 ```bash
-bash "${SCRIPTS}/flow.sh" handoff --conclusion pass --produced "<分支提交范围,如 base..HEAD>"
+mmw review start --stage plan-impl --source "<plan 目录>"
 ```
 
-→ flow advance 到 verify(④终审 loop)。落地中途撞破设计/计划(根因在上游)→ `--conclusion needs-repair`(回 plan)或 `needs-redirection`(方向,交用户);卡死或超轮上限 → `blocked`。
+按提示机器核(合同清单 cover);合同不达 → 回本 plan 补;合同根上错 → 升级。不派 Codex 判断。
+
+## 5. 合并 + 钉产出 → handoff
+
+并行 plan 各在自己 worktree,验完 + ③门过 → 合并回任务分支(解 git 冲突 + 业务/功能冲突),`mmw loop exit-check` 应为 DONE。然后:
+
+```bash
+mmw handoff --conclusion pass --produced "<分支提交范围,如 base..HEAD>"
+```
+
+→ advance 到 verify(④终审)。落地撞破设计/计划(根因在上游)→ `needs-repair`(回 plan)/ `needs-redirection`(方向);卡死或超轮 → `blocked`。
 
 ## 6. 守住的红线
 
-- worker 不改 `docs/`;每 Pack 一提交且 message 带 `Pack N.M`,否则看守顶回。
-- 完工靠 steps 全 done(看守机器核),不靠帮手自报"做完了"。
-- afk 只放软停;surface 永远停;merge/deploy 永远要人批(收尾阶段的 guard-redline)。
+- Codex 写、Claude 验;验收吃跑测试/读 diff 的 ground truth,不吃 Codex 自述。
+- Codex 禁改 `docs/`;每 Pack 一提交带 `Pack N.M`。
+- afk 只放软停;真缺输入/方向疑/合并红线必停。
+- 修复走 `codex resume` 续原会话(keep context,不重派、不重做已提交 Pack)。

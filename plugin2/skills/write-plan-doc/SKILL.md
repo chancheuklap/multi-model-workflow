@@ -9,7 +9,7 @@ description: "把已评审的设计文档 + issue 拆成执行者零上下文也
 
 **手动驱动**：你（主 Agent）编排——划边界、验收、回填、就绪门，**不亲自拆小 issue、不亲自写 Task Pack**（那是 plan-writer 的活）。
 
-> **在 plugin2 编排里**：这是「拆计划 / plan」阶段,**主线程跑**。输入从接力单读(`flow.sh where` 的 `prev_outputs` = design 阶段钉的设计文档 + issue 目录);②计划审与换阶段归 flow 引擎,**本 skill 不自派审、不自己跳阶段、不选执行方式**,就绪门过后 `flow.sh handoff` 交还,产出钉 plan 目录。
+> **在 plugin2 编排里**：这是「拆计划 / plan」阶段,**主线程跑**。输入从接力单读(`mmw where` 的 `prev_outputs` = design 阶段钉的设计文档 + issue 目录);②计划审与换阶段归 flow 引擎,**本 skill 不自派审、不自己跳阶段、不选执行方式**,就绪门过后 `mmw handoff` 交还,产出钉 plan 目录。
 
 ## 前置
 
@@ -85,7 +85,7 @@ plan-writer 已各自过 Pre-delivery Self-Check（保自己那份）。主 Agen
 
 就绪门过后,**钉 plan 目录进接力单 + 一条 handoff**（执行方式由 build 阶段定,本 skill 不交接 tdd/tdd-executor;②计划审由 flow 触发，不自派):
 
-- 计划就绪 → `flow.sh handoff --conclusion pass --produced docs/plans/<slug>/` → flow 触发 ②计划审（Codex 独立审），审过再进 build。
+- 计划就绪 → `mmw handoff --conclusion pass --produced docs/plans/<slug>/` → flow 触发 ②计划审（Codex 独立审），审过再进 build。
 - 设计 / 验收不清没法拆 → `--conclusion needs-repair`（回 design）或 `needs-context`（问用户）。
 - 探代码撞破设计方向 → `--conclusion needs-redirection`。
 - ②计划审打回 → flow 回 plan（`needs-repair`），停在本 skill 改、改完 handoff 重审。**Critical 必须修掉才能进 build。**

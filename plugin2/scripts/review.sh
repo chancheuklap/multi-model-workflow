@@ -10,6 +10,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOOP="$SCRIPT_DIR/loop.sh"
+MMW="bash $SCRIPT_DIR/mmw.sh"   # 打印给协调帮手的命令走统一 CLI
 REVIEW_REF_DIR="$SCRIPT_DIR/../skills/orchestrate/references/review"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -46,8 +47,8 @@ QUARTET=$REVIEW_REF_DIR/quartet.md
 
 下一步(主线程):
 1. 抽覆盖清单进 loop(判断,从源文档逐条抽):
-   bash "$LOOP" checklist add --item "<要审到的维度>" --source "<doc:line>"
-   bash "$LOOP" attendance --mode <attended|afk>
+   $MMW loop checklist add --item "<要审到的维度>" --source "<doc:line>"
+   $MMW loop attendance --mode <attended|afk>
 EOF
 
   if [ "$kind" = "contract-gate" ]; then
@@ -66,10 +67,10 @@ EOF
    >   prompt = 点名读 $REVIEW_REF_DIR/quartet.md + $REVIEW_REF_DIR/$angle 的对应视角 + 给 Source。
    >   Codex 侧没装本 skill 就把那两段拼成自包含 prompt;续接用 codex exec resume <id>。
    > 收回亲验:每条 finding 自己 Read/grep/跑坐实(Codex 是劳动力不是信源),引不出 file:line 降置信。
-   >   坐实一个维度: bash "$LOOP" checklist cover --item <i> --evidence <file:line>
-   >   真 finding:   bash "$LOOP" finding add --severity <C/I/M> --confidence <1-10> --locator <file:line>
+   >   坐实一个维度: $MMW loop checklist cover --item <i> --evidence <file:line>
+   >   真 finding:   $MMW loop finding add --severity <C/I/M> --confidence <1-10> --locator <file:line>
    > 收敛:两视角跑完追一轮无新高置信 finding = 收敛;round 到上限(①②=2,④=1-2)未收敛 →
-   >   bash "$LOOP" surface --kind needs-redirection --question "<审不收敛/卡在哪>"
+   >   $MMW loop surface --kind needs-redirection --question "<审不收敛/卡在哪>"
    > 方向疑/缺输入 → surface,别当产物缺陷修。清单全绿+无开口 Critical 前 guard-loop 不让你停。
 EOF
   fi

@@ -9,7 +9,7 @@ description: "把模糊的功能想法 / bug / 反馈 / 截图 / PRD 讨论成�
 
 **手动驱动**：你自己读报告、和用户讨论、写文档，无自动状态机、无自动 reviewer。阶段细则在 `references/`，走到对应步现读全文，别凭记忆默写。
 
-> **在 plugin2 编排里**：这是「想方案 / design」阶段，**主线程跑**（只有主线程能跟用户讨论）。系统探查已由 investigate 阶段做完、不在此重做；①设计审与换阶段归 flow 引擎，**本 skill 不自派审、不自己跳阶段**，做完 `flow.sh handoff` 交还。
+> **在 plugin2 编排里**：这是「想方案 / design」阶段，**主线程跑**（只有主线程能跟用户讨论）。系统探查已由 investigate 阶段做完、不在此重做；①设计审与换阶段归 flow 引擎，**本 skill 不自派审、不自己跳阶段**，做完 `mmw handoff` 交还。
 
 ## 角色与声音
 
@@ -123,7 +123,7 @@ investigate 已并行投查、产出带引用的现状报告（`docs/context/**`
 1. **自检**（→ 读 `references/design-self-check.md` 全文）：保存前逐条过，然后告诉用户"设计文档已写入 `<path>`，请审阅"。
 2. **拆 issue 立骨架**：用 `to-issues` skill 拆成可独立认领的 issue，**只立骨架、内容由 plan 阶段丰富**：大 issue 落 `docs/issues/<YYYY-MM-DD>-<slug>/`（slug 与设计对齐），标 AFK / HITL，填至少一条指向设计章节的 `## Design context refs`；`## Small issues` 留 `<!-- PENDING -->`，由 `write-plan-doc` 补全。（vertical-slice 方法论在 to-issues。）
 3. **handoff 交还 flow**（不自己跳阶段，不自派审）：
-   - 设计 OK → `flow.sh handoff --conclusion pass --produced docs/design/<slug>.md` → flow 触发 ①设计审（Codex 独立审），审过再进 plan。
+   - 设计 OK → `mmw handoff --conclusion pass --produced docs/design/<slug>.md` → flow 触发 ①设计审（Codex 独立审），审过再进 plan。
    - 缺关键输入没法定稿 → `--conclusion needs-context`。
    - 方向本身存疑（解错问题 / 该换框架）→ `--conclusion needs-redirection`。
    - ①设计审打回 design gap → flow 回 design（`needs-repair`），停在本 skill 改设计、改完 handoff 重审，不绕过。**Critical 必须修掉才能进 plan。**

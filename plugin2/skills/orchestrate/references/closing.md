@@ -2,7 +2,7 @@
 
 > 主线程进 closing 阶段加载本文。末阶段:确认任务真完整、可合并,然后交还。合并/清理是合并后的红线动作,见 §合并红线。
 
-`flow.sh where` → `prev_outputs` = verify 阶段钉的终审报告。
+`mmw where` → `prev_outputs` = verify 阶段钉的终审报告。
 
 ## 1. 收口清单(逐条确认,机器能核的就核)
 
@@ -14,7 +14,7 @@
 ## 2. 钉产出 → handoff
 
 ```bash
-bash "${SCRIPTS}/flow.sh" handoff --conclusion pass
+mmw handoff --conclusion pass
 ```
 
 → `STATUS=ready-to-close`:任务内容完成,等合并 + 清理(下面红线)。
@@ -27,7 +27,7 @@ bash "${SCRIPTS}/flow.sh" handoff --conclusion pass
 1. 你确认要合并 → 给批准令牌 → `git merge --no-ff <branch>`(禁 `--squash`)。
 2. 合并进主线后,回主仓库删干净:
    ```bash
-   bash "${SCRIPTS}/prepare.sh" cleanup --slug <slug>
+   mmw task cleanup --slug <slug>
    ```
    cleanup 有安全门:分支没并入当前 HEAD 直接拒,绝不先删后悔。worktree + 分支 + `.claude/` 临时状态一并清除。
 

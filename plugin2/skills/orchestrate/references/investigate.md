@@ -53,11 +53,11 @@ Workflow({
 2. **写 `docs/context`**:把查清的领域现状落领域文档(跨任务共享),外加一份 research 笔记。
 3. **旁路登记**:`report.spinoff_candidates` 里亲验为真的,逐条
    ```bash
-   bash "${SCRIPTS}/flow.sh" spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"
+   mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"
    ```
    不顺手在这阶段修。
 4. **handoff**:
-   - 查清了、够 design/build 用 → `bash "${SCRIPTS}/flow.sh" handoff --conclusion pass --produced docs/context/<...>`
+   - 查清了、够 design/build 用 → `mmw handoff --conclusion pass --produced docs/context/<...>`
    - `open_questions` 里有必须用户拍板才能继续的 → `--conclusion needs-context`
 
 ## 5. 守住的红线

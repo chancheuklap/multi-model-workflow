@@ -21,13 +21,13 @@
 
 1. **一条命令起审**(把 init loop + 配审题 + 出 brief 收成一步):
    ```bash
-   bash "${SCRIPTS}/review.sh" start --stage <design|plan|final> --source "<源意图路径/待审内容>"
+   mmw review start --stage <design|plan|final> --source "<源意图路径/待审内容>"
    ```
    它 init `kind=review` 的 loop、定好该阶段审题(`references/review/<阶段>.md` + `quartet.md`)、**打印好协调帮手 brief**。你照打印的往下走。
 2. **抽覆盖清单**(判断,留你做):从设计/计划/issue/意图逐条抽"要审到什么",`source` 记从哪份文档哪行抽。客观项(② issue 数=plan 数、④ 意图逐条)标清楚:
    ```bash
-   bash "${SCRIPTS}/loop.sh" checklist add --item "<要审到的维度>" --source "<doc:line>"   # 逐条
-   bash "${SCRIPTS}/loop.sh" attendance --mode <attended|afk>
+   mmw loop checklist add --item "<要审到的维度>" --source "<doc:line>"   # 逐条
+   mmw loop attendance --mode <attended|afk>
    ```
 3. **派审核协调帮手**(Claude sub-agent,SubagentStop 受 guard-loop 看守):用 `review.sh` 打印的 brief 原样派。brief 已含派两个独立 Codex(`codex exec --sandbox read-only` 喂 quartet+角度、续接 `codex exec resume`)、亲验后 `checklist cover` / `finding add`、收敛与熔断 `surface`、清单全绿+无 Critical 前不准停。**只给 Source + 点名审题,别塞你自己的问题清单。**
 
@@ -36,9 +36,9 @@
 读 `loop-state.json` 的 `pause` 和 `findings`,按情况 handoff(结论词由 Gap 决定):
 
 - `pause != null`(surface 冒泡)→ 按 `reason` handoff `needs-redirection` / `needs-context`,交用户。
-- `exit-check` = DONE 且无 accepted 缺陷 → `flow.sh handoff --conclusion pass`,进下一阶段。
+- `exit-check` = DONE 且无 accepted 缺陷 → `mmw handoff --conclusion pass`,进下一阶段。
 - 有 accepted finding → 按 Gap 路由(详 `review-loop.md` §5)选结论词:Implementation/Design/Plan 缺陷→`needs-repair`(回对应阶段修,改完 handoff 重审);Direction→`needs-redirection`;Context→`needs-context`。
-- 超熔断仍不收敛 → `flow.sh handoff --conclusion blocked`,带经过上报。
+- 超熔断仍不收敛 → `mmw handoff --conclusion blocked`,带经过上报。
 
 **Critical 必须修掉**才能让对应阶段往下走。
 
@@ -47,9 +47,9 @@
 ③ 跟 TDD 每步验重叠,只查跨 plan 合同兑现,降成机器门:
 
 ```bash
-bash "${SCRIPTS}/review.sh" start --stage plan-impl --source "<plan 目录>"   # init kind=contract-gate
-bash "${SCRIPTS}/loop.sh" step add --id <pack-id> ...           # 待提交的 pack(record-step hook 提交即标 done)
-bash "${SCRIPTS}/loop.sh" checklist add --item "<跨 plan 合同>" --source <plan:line>
+mmw review start --stage plan-impl --source "<plan 目录>"   # init kind=contract-gate
+mmw loop step add --id <pack-id> ...           # 待提交的 pack(record-step hook 提交即标 done)
+mmw loop checklist add --item "<跨 plan 合同>" --source <plan:line>
 # 逐条机器核合同兑现 → checklist cover;全 Pack 提交 + 合同全 cover → exit-check DONE
 ```
 
