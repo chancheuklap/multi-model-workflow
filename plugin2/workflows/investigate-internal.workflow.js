@@ -1,27 +1,25 @@
 export const meta = {
-  name: 'investigate',
-  description: '查清现状:主线程传入限量 topics,每题一个只读 agent 并行投查(原生 invoke 角度 skill),取证过滤后综合成带引用的现状报告。内部代码库 + 外部方案两用。',
-  whenToUse: '进入 investigate 阶段、主线程已按任务难度/广度定好 topics(角度+skill+mode+问题)时调用。',
+  name: 'investigate-internal',
+  description: '查仓库现状:主线程传入 topics,每题一个只读 agent 并行查代码(Read/grep/Glob,locator=file:line),取证过滤后综合成带引用现状报告。只查内部,不碰外部。',
+  whenToUse: '投查方向 = 内部仓库现状(模块边界/seam/数据流/根因)。主线程定好 topics 后跑;外部方案另跑 investigate-external。',
   phases: [
-    { title: 'Investigate', detail: '每 topic 一个只读 agent,运行时 invoke 角度 skill' },
+    { title: 'Investigate', detail: '每 topic 一个只读 agent,运行时 invoke 角度 skill,只读查代码' },
     { title: 'Synthesize', detail: '跨 topic 综合成带引用现状报告' },
   ],
 }
 
-// args.topics: [{ angle, skill, mode: 'internal'|'external', question }]
-//   主线程定量(简单 1-2,复杂 4-6),本脚本只 parallel 这几个,不自行扩张。
+// args.topics: [{ angle, question, skill? }]  —— 派几个 agent = 几个 topic,无上限,一题一 agent。
 const topics = (args && Array.isArray(args.topics)) ? args.topics : []
 if (!topics.length) {
-  throw new Error('investigate workflow 需要 args.topics(非空),主线程按难度/广度先定好再传')
+  throw new Error('investigate-internal 需要 args.topics(非空),主线程先定好再传')
 }
 
 const TOPIC_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['topic', 'mode', 'findings', 'summary', 'gaps'],
+  required: ['topic', 'findings', 'summary', 'gaps'],
   properties: {
     topic: { type: 'string' },
-    mode: { enum: ['internal', 'external'] },
     findings: {
       type: 'array',
       items: {
@@ -30,7 +28,7 @@ const TOPIC_SCHEMA = {
         required: ['claim', 'locator', 'confidence'],
         properties: {
           claim: { type: 'string', description: '一句话事实,不是判断/方案' },
-          locator: { type: 'string', description: 'internal=file:line;external=url。无凭据留空字符串' },
+          locator: { type: 'string', description: 'file:line。无凭据留空字符串' },
           confidence: { enum: ['high', 'medium', 'low'] },
         },
       },
@@ -45,7 +43,7 @@ const REPORT_SCHEMA = {
   additionalProperties: false,
   required: ['markdown', 'open_questions', 'spinoff_candidates'],
   properties: {
-    markdown: { type: 'string', description: '带引用的现状报告(给 design/build 阶段扎根用),只摆证据不拍方案' },
+    markdown: { type: 'string', description: '带引用的现状报告(给 design/build 扎根用),只摆证据不拍方案' },
     open_questions: { type: 'array', items: { type: 'string' } },
     spinoff_candidates: {
       type: 'array',
@@ -64,20 +62,16 @@ const REPORT_SCHEMA = {
 }
 
 function topicPrompt(t) {
-  const where = t.mode === 'internal'
-    ? '调查本仓库现状:模块边界 / seam / 数据流 / 根因。只读,用 Read/grep/Glob,每条结论给 file:line。'
-    : '调查外部方案:现有库 / 已有实现 / 最佳实践。每条结论给 url;库文档优先用 context7。'
-  // 角度方法论原生融入:指示运行时加载 upstream skill,不在本脚本内嵌散文(原作者维护)。
   const loadSkill = t.skill
     ? `先 Skill({ skill: "${t.skill}" }) 加载该角度方法论再投查(引用,不照抄)。`
     : ''
   return [
-    `你是 investigate 阶段的一名专题调查员,只查这一个专题,不查别的。`,
+    `你是 investigate 阶段的一名仓库调查员,只查这一个专题,不查别的。`,
     `专题角度:${t.angle}`,
     `要回答:${t.question}`,
     loadSkill,
-    where,
-    `红线:取证不判定——只摆事实和出处,绝不在这里提方案、选 A/B、下设计结论(那是后面 design 阶段的事)。`,
+    `调查本仓库现状:模块边界 / seam / 数据流 / 根因。只读,用 Read/grep/Glob,每条结论给 file:line。`,
+    `红线:取证不判定——只摆事实和出处,绝不提方案、选 A/B、下设计结论(那是后面 design 的事)。`,
     `没查清的诚实写进 gaps,不要编。撞到与本题无关的 bug/旁路优化记进 summary 末尾,别顺手修。`,
     `返回结构化结果(schema 强制)。`,
   ].filter(Boolean).join('\n')
@@ -87,19 +81,18 @@ phase('Investigate')
 const raw = await parallel(
   topics.map((t, i) => () =>
     agent(topicPrompt(t), {
-      label: `${t.mode || 'internal'}:${t.angle || ('topic-' + i)}`,
+      label: `internal:${t.angle || ('topic-' + i)}`,
       phase: 'Investigate',
       schema: TOPIC_SCHEMA,
     })
   )
 )
 
-// 取证过滤:机械丢掉无出处/低信心的 claim——纯过滤,不让 agent 评判 agent(评估红线)。
-// 被丢的留痕进 dropped,不静默吞,主线程能看见查了什么没坐实。
+// 取证过滤:机械丢无出处/低信心 claim(纯过滤,不让 agent 评判 agent)。被丢留痕进 dropped,不静默吞。
 const verified = raw.filter(Boolean).map((r) => {
   const kept = r.findings.filter((f) => f.locator && f.locator.trim() && f.confidence !== 'low')
   const dropped = r.findings.filter((f) => !(f.locator && f.locator.trim()) || f.confidence === 'low')
-  return { ...r, findings: kept, dropped }
+  return { ...r, mode: 'internal', findings: kept, dropped }
 })
 
 if (!verified.length) {
@@ -108,9 +101,9 @@ if (!verified.length) {
 
 phase('Synthesize')
 const synthPrompt = [
-  '把下面各专题的调查证据综合成一份现状报告(markdown),供后续 design/build 阶段扎根。',
-  '规则:跨专题去重、把相关 finding 串起来、每条结论保留出处(file:line 或 url)。',
-  '红线:只摆证据和现状,绝不替 design 拍方案、选路线。把没查清的列进 open_questions。',
+  '把下面各专题的仓库调查证据综合成一份现状报告(markdown),供后续 design/build 扎根。',
+  '规则:跨专题去重、把相关 finding 串起来、每条结论保留出处(file:line)。',
+  '红线:只摆证据和现状,绝不替 design 拍方案、选路线。没查清的列进 open_questions。',
   '撞到的旁路 bug/优化提进 spinoff_candidates(候选,不是结论)。',
   '',
   '证据(JSON):',

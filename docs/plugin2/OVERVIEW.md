@@ -32,7 +32,7 @@ flowchart TB
     subgraph OUTER["② 外层循环 —— 阶段怎么换(主干 + 预设过滤后的 phases)"]
         direction TB
         subgraph PH1["查清 investigate"]
-            W["主线程跑自建 Workflow:parallel 专题<br/>只读 agent(invoke 角度 skill)<br/>→ 取证过滤 → 综合带引用报告"]:::worker
+            W["两个自建 Workflow(内/外分开)<br/>topics 定数·fire 前 checkpoint<br/>只读 agent → 取证过滤 → 带引用报告"]:::worker
         end
         subgraph PH2["想方案 design"]
             D["write-design-doc<br/>主线程 + 用户讨论"]:::ai --> R1["①设计审 loop"]:::codex
@@ -371,14 +371,15 @@ flowchart LR
 
 查清(investigate)对 `develop`、`bug` 都开(小改不开)。新想法和优化合成一个 `develop` 预设——同一条主干、同一阶段序列,不再各列一个标签。前置开关中途能翻:小改做着发现是设计问题→升级打开前置。
 
-### 查清(investigate)的形态:自建 Workflow
+### 查清(investigate)的形态:两个自建 Workflow(内 / 外分开)
 
-查清跟想方案(主线程跟你讨论)、落地(帮手自驱)都不同——它是**主线程跑一个自建 dynamic Workflow**(仿 deep-research)做并行专题投查,**内部代码库 + 外部方案两用**:
+查清跟想方案(主线程跟你讨论)、落地(帮手自驱)都不同——它是**主线程跑自建 dynamic Workflow**(仿 deep-research)做并行专题投查。**内部仓库现状、外部成熟方案各一个 workflow,分开跑**(`investigate-internal` / `investigate-external`),不在一个脚本里用 mode 混:
 
-- **主线程控数量**:先评估任务难度/广度,定哪些角度、几个 agent(简单 1-2,复杂 4-6),不无脑 fan out。
-- **技能原生融入不摘抄**:agent 运行时 `Skill()` 加载 codebase-design / improve-codebase-architecture / diagnosing-bugs(内部)、deep-research / context7(外部)——引用名字,upstream 维护。
-- **只读取证**:并行查 → 对抗验证(取证,非判定)→ 综合带引用报告 → **主线程亲验承重事实** → 写 CONTEXT + research 笔记 → handoff 给想方案。
-- 审查判定仍归 Codex(后面 ①设计审),`agent()` 只派 Claude 不当判定。
+- **方向分脚本**:内部 → `investigate-internal`(只读 Read/grep,locator=file:line);外部 → `investigate-external`(web/context7,locator=url)。**外部非必做**;只查内部就只跑 internal。
+- **数量由 topics 定,不设上限**:一个 topic 一个 agent,按调查真实需要定几个(`parallel(topics.map(...))`),别凑废 topic 也不卡数字。
+- **fire 前一个 checkpoint**:主线程定好 topics 先亮给用户批 / 改,再跑(不闷头烧 token)。
+- **技能原生融入不摘抄**:agent 运行时 `Skill()` 加载角度 skill(codebase-design 类 / deep-research·context7)——引用名字,upstream 维护。
+- **只读取证**:并行查 → 机械过滤无出处 claim(取证,非判定)→ 综合带引用报告 → **主线程亲验承重事实** → 写 CONTEXT + research 笔记 → handoff 给想方案。判定仍归 Codex(后面 ①设计审),`agent()` 只派 Claude。
 
 详见落地规格 `design/investigate-workflow.md`。
 

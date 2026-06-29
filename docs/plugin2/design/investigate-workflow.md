@@ -1,6 +1,6 @@
 # Investigate 阶段 · 自建 Workflow 落地规格
 
-> 设计/落地前的「查清现状」。形态 = 主线程跑一个**自建 dynamic Workflow**(仿 deep-research),并行专题投查;**内部代码库 + 外部方案两用**。
+> 设计/落地前的「查清现状」。形态 = 主线程跑**自建 dynamic Workflow**(仿 deep-research)并行专题投查;**内部仓库现状、外部成熟方案各一个 workflow,分开跑**。
 > OVERVIEW 是设计,本文是落地。冲突以 OVERVIEW + 代码为准。
 
 ---
@@ -20,14 +20,16 @@ Workflow 工具**原生给**:`parallel()` 并行、`agent(...,{schema})` 强制�
 
 ---
 
-## 2. 两用:内部代码库 + 外部方案
+## 2. 内 / 外各一个 workflow,分开跑
 
-同一个 workflow,topic 标 `mode: internal|external`:
+两个方向 = 两个 workflow 脚本,各自自包含、无 mode 分支(确定逻辑焊在脚本里,主线程不手搓):
 
-| mode | 查什么 | 角度 → 运行时 invoke 的 skill |
-|---|---|---|
-| **internal** | 现状 / 模块边界 / seam / 根因 | `codebase-design` · `improve-codebase-architecture` · `diagnosing-bugs` · `Explore`(内置 agent) |
-| **external** | 现有方案 / 库 / 最佳实践 | `deep-research`(网搜)· `context7`(库文档 MCP) |
+| workflow | 查什么 | locator | 角度 → 运行时 invoke 的 skill |
+|---|---|---|---|
+| **investigate-internal** | 现状 / 模块边界 / seam / 根因 | `file:line` | `codebase-design` · `improve-codebase-architecture` · `diagnosing-bugs` · `Explore` |
+| **investigate-external**(非必做) | 现有方案 / 库 / 最佳实践 | `url` | `deep-research`(网搜)· `context7`(库文档 MCP) |
+
+只查内部就只跑 internal;要对比外部再跑 external;两个都要先后各跑一次。
 
 ---
 
@@ -39,11 +41,12 @@ Workflow 工具**原生给**:`parallel()` 并行、`agent(...,{schema})` 强制�
 
 ---
 
-## 4. 主线程控数量,不无脑 fan out
+## 4. 数量由 topics 定,不卡死;fire 前一个 checkpoint
 
-- 进 investigate,主线程**先评估任务难度 / 广度** → 判定**哪些角度 + 几个 agent**(判断,不脚本化)。
-- 把 `topics` 列表作为 args 传给 Workflow,每项 `{ angle, skill, mode, question }`。
-- Workflow **只 parallel 这几个**——数量由主线程定、有上限:简单 1–2,复杂 4–6,不堆无数个。
+- 进 investigate,主线程判定**查哪个方向 + 哪些角度**(判断,不脚本化)。
+- 把 `topics` 列表作为 args 传给对应 workflow,每项 `{ angle, question, skill? }`(方向由跑哪个脚本决定,topic 不再带 mode)。
+- **一个 topic 一个 agent,无上限**:`parallel(topics.map(...))`,派几个 = 定几个,按调查真实需要,不凑废 topic 也不卡数字。
+- **checkpoint**:fire 前把方向 + topics 亮给用户批 / 改,再跑——一个干净 gate,不闷头烧 token。
 
 ---
 
@@ -56,7 +59,7 @@ flowchart LR
     AV --> SY["综合 → 带引用现状报告"]
 ```
 
-- 每 agent 返回 schema 强制:`{ topic, findings:[{ claim, locator(file:line|url), confidence }], summary, gaps }`。
+- 每 agent 返回 schema 强制:`{ topic, findings:[{ claim, locator, confidence }], summary, gaps }`(locator:internal=file:line,external=url,由脚本定,topic 不带 mode)。
 - 对抗验证只做**取证**(filter 弱证据);**不做审查判定**——`agent()` 只派 Claude,Claude 评 Claude 有盲区相关 + 假信心(评估红线),审仍归 Codex(后面 ①设计审 loop)。
 
 ---
@@ -83,7 +86,7 @@ flowchart LR
 
 | 件 | 落到 |
 |---|---|
-| investigate workflow 脚本(只编排) | plugin2(Workflow `scriptPath` / 命名 workflow) |
+| 两个 investigate workflow 脚本(只编排,内/外各一) | `plugin2/workflows/investigate-{internal,external}.workflow.js` |
 | investigate 阶段 reference(指示主线程评估难度→传 topics→跑 Workflow→亲验→综合→handoff) | `plugin2/skills/orchestrate/references/investigate.md` |
 
 investigate 阶段 reference 指示主线程「跑这个 Workflow」= 合法 Workflow opt-in(skill 指令触发)。
