@@ -1,20 +1,31 @@
-# ③ 每个计划落地 review
+# ③ 落地合同门(contract-gate · 机器核,不派 Codex 判断)
 
-一份 plan 全部 Pack 提交后,审这个 plan 的 diff。
+> ③ 不是 Codex 审 loop——它跟 TDD 每步验重叠,降成**便宜机器合同门**:只核"全 Pack 提交"+"声明的跨 plan 合同兑现",两个都机器可核。代码质量 / 正确性 / 边界归 ④final,不在这判。重判预算砸 ④。
 
-**Source**:源意图(plan 文档 + 各 Pack acceptance / Interfaces)· 待审产物(本 plan diff / 分支范围)
+一份 plan 全部 Pack 提交后起本门(`mmw review start --stage plan-impl`,`kind=contract-gate`)。主线程逐条机器核,不开 Codex:
 
-## 轴 A spec + 风险收口
-- 逐 Pack 对账:每个 Pack 的 acceptance / Produces 达成,对照 plan 报 Missing / Extra / Misunderstood。
-- 合同 & 风险:跨边界合同 bump schema 版本 + 同步全部 consumer;DB 字段配套迁移 + repository + read model;项目不变量在落地处真正收口(如金额状态机禁估算、血缘穿透 handoff / 日志)。
-- 落在未改代码 / 跨 Pack 无法从 diff 验 → 标 `⚠️ Cannot verify from diff`,不扩大搜索。
+## 核什么(两项,都机器可核)
 
-## 轴 B 代码质量 + 跨 Pack 一致
-- 代码质量:职责分离;错误处理无 catch-all 吞错;DRY 不过早抽象;边界 case;测试测行为不测 mock,输出 pristine(warning = finding)。
-- 跨 Pack 一致:Pack 间接口对得上;无两个 Pack 各写一份同逻辑;共享合同类型 / schema 版本一致;迁移顺序对;跨 Pack import 无环;共享 state 并发安全(无共享面 → 一行"已确认独立")。
-- 撑大文件:本改动新建已过大 / 显著撑大既有文件(只看本改动贡献的)。
-- 禁用捷径:见 `quartet.md` 附录。
-- 回归:破坏既有功能没;必要时跑相关套件(不强制全套)。
-- 只为具名风险(锁序 / 合同 / 共享可变状态)查 diff 外调用点,不漫游。
+1. **全 Pack 提交**:plan 的每个 Task Pack 都有对应提交(`Pack N.M`),`mmw loop step` 全 done。缺提交 = 没落完,回落地补。
+2. **跨 plan 合同兑现**:对设计文档 `## Cross-Plan Contract Anchors` 里**每条**跨 plan 合同,机器核它在合并后的代码里真兑现:
+   - **provider** 声明的接口 / 类型 / 端点 / schema 真存在(`grep`/`Read` 到定义,给 `file:line`)。
+   - **consumer** 真按该接口对接(调用点签名对得上)。
+   - schema / 合同**版本号**一致;新字段配套 **migration** 在位;新增可被外部引用之物入**登记**(registry / catalog)。
 
-每条 finding 标 `[Pack N.M]`,结尾列 Affected packs。不信任 worker 报告,独立验证。
+## 怎么走
+
+```bash
+mmw loop step add --id <pack-id> ...                       # 列本 plan 待提交的 Pack
+mmw loop checklist add --item "<一条跨 plan 合同>" --source <design:line>   # 逐条合同
+# 逐条 grep/Read 机器核兑现 → 坐实就 cover(给证据)
+mmw loop checklist cover --item <i> --evidence <file:line>
+# 全 Pack 提交 + 合同清单全 cover → exit-check DONE → handoff pass
+```
+
+## 出口
+
+- 全 Pack 提交 + 合同全兑现 → `mmw handoff --conclusion pass`(进下一 plan 或 verify)。
+- 合同没兑现(provider/consumer 对不上、版本不一致、缺迁移/登记)→ 回本 plan 落地补(落地自己的 2 轮)。
+- 合同**根上**就错(设计的跨 plan 合同本身不成立)→ 升级:`mmw handoff --conclusion needs-redirection`。
+
+> 机器核要 `file:line` 证据才 cover,核不出不算兑现。不在这做主观代码评审。
