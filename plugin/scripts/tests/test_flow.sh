@@ -232,6 +232,17 @@ echo "$WIP" | grep -q "load=references/plan/plan-flow.md" && ok "plan orchestrat
 echo "$(cd "$WI" && bash "$FLOW" step next)" | grep -q "step=write (2/3)" && ok "plan step next → write(task-pack)" || no "plan write"
 echo "$(cd "$WI" && bash "$FLOW" step next)" | grep -q "step=selfcheck (3/3)" && ok "plan step next → selfcheck(plan-self-check)" || no "plan selfcheck"
 
+# ===== J: source-stability(gated 产物过闸后被改 → where 报 stale_gate)=====
+WSS="$(newtask develop 2026-06-30-task-ss)"
+( cd "$WSS" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/ss.md >/dev/null )  # inv->propose
+( cd "$WSS" && bash "$FLOW" handoff --conclusion pass --produced docs/design/ss-dir.md >/dev/null )     # propose->design
+echo "# design v1" > "$WSS/docs/design/ss.md"
+( cd "$WSS" && bash "$FLOW" handoff --conclusion pass --produced docs/design/ss.md >/dev/null )         # design->gate
+( cd "$WSS" && bash "$FLOW" handoff --conclusion pass >/dev/null )                                       # 审 pass(记指纹)->to-issue
+( cd "$WSS" && bash "$FLOW" where ) | grep -q "stale_gate" && no "未改不该报 stale" || ok "过闸产物没改:where 不报 stale"
+echo "# design CHANGED" > "$WSS/docs/design/ss.md"   # 过闸后改设计文档
+( cd "$WSS" && bash "$FLOW" where ) | grep -q "stale_gate=design" && ok "过闸后改设计→where 报 stale_gate=design(该回审)" || no "stale_gate 未报"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

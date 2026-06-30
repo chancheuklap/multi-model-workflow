@@ -69,6 +69,11 @@
       "additionalProperties": { "type": "array", "items": { "type": "string" } },
       "description": "接力单:每阶段产出钉成 phase→[路径]。handoff --produced 钉进对应阶段名,下阶段照单读上阶段产出(不靠'自己找')。investigate→现状报告;design→设计文档;plan→plan 目录;build→改动/提交标识 +(④终审闸)终审报告"
     },
+    "gate_fingerprints": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "source-stability:gated 阶段过闸(审 verdict pass)时记下被审产物的内容指纹(phase→hash)。mmw where 再算一次比对,不同=过闸后被改→提示回该阶段重审。可选,首次过闸时由 flow.sh 写入"
+    },
     "open_items": {
       "type": "array",
       "items": {

@@ -34,6 +34,21 @@ write_manifest() {
   mv "$tmp" "$m"
 }
 
+# source-stability:算某阶段产物(phase_outputs[phase] 列的文件/目录)在工作树上的内容指纹。
+# 过闸时记一次,where 再算一次比对——不同 = 过闸后被改,该回该阶段重审。空产物返回 "none"。
+fingerprint_outputs() {  # $1=manifest $2=phase
+  local m="$1" ph="$2" top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo ""; return; }
+  local paths; paths="$(jq -r --arg p "$ph" '(.phase_outputs[$p] // [])[]' "$m" 2>/dev/null)"
+  [ -n "$paths" ] || { echo "none"; return; }
+  { while IFS= read -r rel; do
+      [ -n "$rel" ] || continue
+      local abs="$top/$rel"
+      if [ -f "$abs" ]; then git hash-object "$abs" 2>/dev/null
+      elif [ -d "$abs" ]; then ( cd "$abs" && find . -type f ! -path '*/.git/*' | sort | while IFS= read -r f; do git hash-object "$f" 2>/dev/null; done )
+      fi
+    done <<< "$paths"; } | git hash-object --stdin 2>/dev/null || echo "err"
+}
+
 # ---------- handoff ----------
 cmd_handoff() {
   local conclusion="" to_phase="" ; local -a produced=()
@@ -142,16 +157,25 @@ cmd_handoff() {
     produced_json="$(printf '%s\n' "${produced[@]}" | jq -R . | jq -s .)"
   fi
 
+  # source-stability:这一手是"清掉 gate 过闸"(审 verdict pass)→ 记下被审产物此刻指纹,
+  # 下游 where 再算一次比对,过闸后被改就警告回审。被审产物来自上一手(进闸时)已钉的 phase_outputs。
+  local fp_phase="" fp_val=""
+  if [ "$conclusion" = "pass" ] && [ -n "$gate" ] && [ "$next_action" = "advance" ]; then
+    fp_phase="$cur_phase"; fp_val="$(fingerprint_outputs "$m" "$cur_phase")"
+  fi
+
   jq \
     --arg phase "$new_phase" --argjson pidx "$new_pidx" --argjson rc "$new_rc" \
     --argjson tc "$new_tc" --arg status "$new_status" --arg gate "$new_gate" \
     --arg hphase "$cur_phase" --arg hconc "$conclusion" --arg at "$(now)" \
     --argjson produced "$produced_json" --argjson nstep "$new_step" \
+    --arg fpphase "$fp_phase" --arg fpval "$fp_val" \
     '.phase=$phase | .phase_index=$pidx | .repair_count=$rc | .turnaround_count=$tc | .status=$status
      | .gate=(if $gate=="" then null else $gate end)
      | .step_index=$nstep
      | .artifacts += $produced
      | (if ($produced|length)>0 then .phase_outputs[$hphase] = ((.phase_outputs[$hphase] // []) + $produced) else . end)
+     | (if $fpphase!="" then .gate_fingerprints[$fpphase]=$fpval else . end)
      | .history += [{phase:$hphase, conclusion:$hconc, at:$at}]' \
     "$m" | write_manifest "$m"
 
@@ -299,6 +323,20 @@ open_items=$(jq -r '.open_items | length' "$m")
 EOF
   if [ -n "$review_line" ]; then echo "$review_line"; fi
   if [ -n "$review_start_line" ]; then echo "$review_start_line"; fi
+
+  # source-stability:已过闸的 gated 阶段,产物指纹和当下不一致 = 过闸后被改 → 提示回审
+  local stale=""
+  while IFS= read -r gphase; do
+    [ -n "$gphase" ] || continue
+    local stored cur_fp
+    stored="$(jq -r --arg p "$gphase" '.gate_fingerprints[$p] // ""' "$m")"
+    [ -n "$stored" ] || continue
+    cur_fp="$(fingerprint_outputs "$m" "$gphase")"
+    [ "$cur_fp" = "$stored" ] || stale="$stale $gphase"
+  done < <(jq -r '(.gate_fingerprints // {}) | keys[]' "$m" 2>/dev/null)
+  if [ -n "$stale" ]; then
+    echo "stale_gate=${stale# }  # 这些阶段产物过闸后被改了,回 mmw handoff --conclusion needs-redirection --to-phase <阶段> 重审"
+  fi
 }
 
 # ---------- step(阶段内步骤游标:推进到下一步,报那一步的 load/do) ----------
