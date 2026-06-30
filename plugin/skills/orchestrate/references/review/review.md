@@ -8,14 +8,15 @@
 
 ## 0. 选阶段(决定喂哪份 angle + loop kind)
 
-| 审 | 触发点 | kind | angle 文件 |
-|---|---|---|---|
-| ① 设计审 | design pass 后 | `review` | `references/review/design.md` |
-| ② 计划审 | plan pass 后 | `review` | `references/review/plan.md` |
-| ③ 落地审 | 全 plan 合并后(一次) | `contract-gate` | `references/review/plan-impl.md` |
-| ④ final | verify 阶段(全合并后) | `review` | `references/review/final.md` |
+**三个产出阶段各被引擎强制审一次,触发方式统一**:design/plan/build 的产物 `pass` 后,引擎(`routes.review_gates` map)把阶段冻住、强制进审闸——`mmw where` 直接吐出 `review_start=mmw review start --stage <X>`,你照跑,不自己猜 stage。
 
-③ 是便宜机器合同门、不派 Codex 判断,在 build 阶段末跑一次(由 build 流程驱动,本文不展开)。本文讲 ①②④ 三个真审 loop。
+| 审 | 触发点(引擎强制) | stage | kind | angle 文件 |
+|---|---|---|---|---|
+| ① 设计审 | design pass → 引擎审闸 | `design` | `review` | `references/review/design.md` |
+| ② 计划审 | plan pass → 引擎审闸 | `plan` | `review` | `references/review/plan.md` |
+| ④ final | build pass → 引擎审闸 | `final` | `review` | `references/review/final.md` |
+
+另有 **③ 落地合同门**:不是引擎审闸,是 build **内部**机器合同检查——全 plan 合并后、build handoff 前跑一次(`--stage plan-impl`,`kind=contract-gate`,不派 Codex),像跑测试套一样是 build 完工的一部分(由 build 流程驱动,本文不展开)。本文讲 ①②④ 三个引擎审闸 loop。
 
 ## 1. 主线程:一条命令起审 → 抽清单 → 派协调帮手(①②④)
 
@@ -23,7 +24,7 @@
    ```bash
    mmw review start --stage <design|plan|final> --source "<源意图路径/待审内容>"
    ```
-   `--stage` 按当前审闸阶段(design/plan)或 verify(final);`--source` 用 `mmw where` 报的 `review_source`。它 init `kind=review` 的 loop、定好该阶段审题(`references/review/<阶段>.md` + `quartet.md`)、**打印好协调帮手 brief**。你照打印的往下走。
+   **直接用 `mmw where` 吐的 `review_start` 整行**(stage 与 `--source` 都填好了:design 闸→design、plan 闸→plan、build 闸→final)。它 init `kind=review` 的 loop、定好该阶段审题(`references/review/<阶段>.md` + `quartet.md`)、**打印好协调帮手 brief**。你照打印的往下走。
 2. **抽覆盖清单**(判断,留你做):从设计/计划/issue/意图逐条抽"要审到什么",`source` 记从哪份文档哪行抽。客观项(② issue 数=plan 数、④ 意图逐条)标清楚:
    ```bash
    mmw loop checklist add --item "<要审到的维度>" --source "<doc:line>"   # 逐条
@@ -37,13 +38,13 @@
 
 - `pause != null`(surface 冒泡)→ 按 `reason` handoff `needs-redirection` / `needs-context`,交用户。
 - `exit-check` = DONE 且无 accepted 缺陷 → `mmw handoff --conclusion pass`,进下一阶段。
-  - **仅 ④final(verify 阶段):handoff `pass` 前先写终审报告**到 `docs/<slug>-final-review.md`(照 `mmw where` 的 `then` 钉 `--produced`),closing 阶段照单读它收口。三段:
+  - **仅 ④final(build 审闸):handoff `pass` 前先写终审报告**到 `docs/<slug>-final-review.md`(照 `mmw where` 的 `then` 钉 `--produced`),closing 阶段照单读它收口。三段:
     1. **终审结论**:verdict + 两基线各自结果(回归/意图/跨 plan;独立代码审)+ 放行的 waived 项(环境/账号 gate,带 owner)。
     2. **意图清单逐条**:最初 design + issue 提取的每条可验证 intent → 达成/未达成 + 证据(`file:line` 或测试名)。
     3. **业务语言交付摘要**(给项目负责人看,**不用技术术语**):新增能力(每条一个用户可感知的行为变化,如「用户现在可以用手机号登录,15 秒内完成」,不列函数名/文件路径/类名)· 验证证据(跑了哪些验收、什么结果)· 残余风险(已知没覆盖的、需人盯的,诚实列不藏)。
     ①②审是闸、不产文件,这条不适用。
 - 有 accepted finding → 按 Gap 选结论词(`needs-repair` 是**原地返工当前阶段**;回上游别的阶段必须 `needs-redirection --to-phase <阶段>`):
-  - 缺陷在**当前被审阶段**(①审=design、②审=plan,gate 的 cur_phase 就是它;④final 的代码缺陷可在 verify loop 里就地修)→ `needs-repair`,改完 handoff 重审。
+  - 缺陷在**当前被审阶段**(①审=design、②审=plan、④final=build,gate 的 cur_phase 就是它;④final 的代码缺陷在 build 审闸 loop 里就地修)→ `needs-repair`,改完 handoff 重审。
   - 根因在**更上游阶段**(②审发现 design 问题、④final 撞破 plan/design)→ `needs-redirection --to-phase <design|plan|build>`,回那阶段改。
   - Direction(解错问题)→ `needs-redirection`;Context(缺输入)→ `needs-context`。
 - 超熔断仍不收敛 → `mmw handoff --conclusion blocked`,带经过上报。

@@ -42,7 +42,7 @@
 mmw handoff --conclusion pass --produced "<分支提交范围,如 base..HEAD>"
 ```
 
-→ advance 到 verify(④终审验修复 + 回归)。修着撞出超范围问题 → `mmw spinoff` 登记,别就地扩;根因其实是系统性设计级(要重做设计/拆计划)→ 原地升级完整设计路 `mmw task escalate --to develop`(worktree 不重开、已查成果留着,游标回 investigate 带设计意图重查),升级前先一句话告诉用户。
+→ build 产物通过,**引擎强制进 ④终审闸**(`mmw where` 会吐 `review_start` 直接起审,审过再 handoff pass 才到 closing)。修着撞出超范围问题 → `mmw spinoff` 登记,别就地扩;根因其实是系统性设计级(要重做设计/拆计划)→ 原地升级完整设计路 `mmw task escalate --to develop`(worktree 不重开、已查成果留着,游标回 investigate 带设计意图重查),升级前先一句话告诉用户。
 
 ---
 
@@ -83,7 +83,7 @@ mmw codex dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree 
 Codex 返回后,读它最后消息 + **自己核**(亲验):
 
 - **完整性**:plan 的每条 acceptance 真达成?跑验收命令、读 diff,不认"我做完了"。
-- **测试质量(对标仓库标准,防 Codex 写垃圾测试自己绿)**:Codex 写的测试它自己说了不算,你审。先**定位并读仓库测试治理文档**(常见:仓库根或 tests/ 下 TESTING.md、AGENTS.md / CLAUDE.md 测试节、tests 目录 README);**定位不到必须在 verify 回执里标 `no-test-standard waiver`,不准默默跳过**。审 Codex 这份 plan 新增/改动的测试,达不达标:
+- **测试质量(对标仓库标准,防 Codex 写垃圾测试自己绿)**:Codex 写的测试它自己说了不算,你审。先**定位并读仓库测试治理文档**(常见:仓库根或 tests/ 下 TESTING.md、AGENTS.md / CLAUDE.md 测试节、tests 目录 README);**定位不到必须在 B3 验收回执里标 `no-test-standard waiver`,不准默默跳过**。审 Codex 这份 plan 新增/改动的测试,达不达标:
   - 测**公开可观察行为**(系统读接口 / HTTP 响应 / 文件产物 / 账本行),不断言私有函数 / 内部调用顺序 / 源码文本;
   - mock **只在外部供应商边界**(网络 / 时钟 / 三方),**不 mock 仓库内部自家接缝**;
   - 每个行为在**拥有它的权威层测一次**,不跨层重复断言、不凑覆盖率;
@@ -114,13 +114,13 @@ mmw review start --stage plan-impl --source "<设计文档 ## Cross-Plan Contrac
 
 按打印的 brief:逐条合同 `checklist add` → grep/Read 坐实 provider/consumer/版本/迁移/登记 → `checklist cover --evidence <file:line>`;清单全 cover → `exit-check` DONE。合同不达 → `needs-redirection --to-phase build`(回落地补);合同根上错(设计的合同本身不成立)→ `needs-redirection --to-phase design`。**不派 Codex 判断、不列 pack**(全 Pack 提交已由 B4 exit-check 保证)。
 
-### B6. 钉产出 → handoff
+### B6. 钉产出 → handoff(引擎随即强制 ④终审闸)
 
 ```bash
 mmw handoff --conclusion pass --produced "<分支提交范围,如 base..HEAD>"
 ```
 
-→ advance 到 verify(④终审)。落地撞破设计/计划(根因在上游)→ `needs-redirection --to-phase plan`(或 `--to-phase design`)回上游改;卡死或超轮 → `blocked`。(`needs-repair` 只原地返工 build,回不到上游。)
+→ build 产物通过,**引擎强制进 ④终审闸**(build ∈ `review_gates`,phase 冻住;`mmw where` 吐 `review_start=mmw review start --stage final`,照跑;审过再 handoff pass 才到 closing)。落地撞破设计/计划(根因在上游)→ `needs-redirection --to-phase plan`(或 `--to-phase design`)回上游改;卡死或超轮 → `blocked`。(`needs-repair` 只原地返工 build,回不到上游。)
 
 ---
 

@@ -1,12 +1,12 @@
 # Bug · 根因不明的修复
 
 > orchestrate 路由到这:**bug / 报错 / regression,根因不明**。这条路从头到尾就读这一份,不用回 SKILL。
-> **预设 `bug`**,阶段序列:查清(查根因)→ 落地(修)→ 验收 → 收尾(investigate→build→verify→closing)。无 design / plan、无审闸——bug 是定点修,不走设计/计划的重流程。
+> **预设 `bug`**,阶段序列:查清(查根因)→ 落地(修,含 ④终审闸)→ 收尾(investigate→build→closing)。无 design / plan(不走设计/计划的重流程),但**落地产物过后照样进 ④终审闸**(引擎强制,跟 develop 一致)。
 >
 > **三个 bug 专属点**(方法论在各阶段 reference,这里点明这条路怎么用它们):
 > - **查清 = 跑 `diagnosing-bugs` 查根因**:investigate 阶段用 `diagnosing-bugs` skill 复现 → 隔离 → 定位根因(`investigate-internal` workflow 的 angle 选 `diagnosing-bugs`),产出带 `file:line` 的根因报告,不泛泛查现状。够窄(单函数/已知文件)就主线程直接 `diagnosing-bugs` + `rg`/`Read` 查完,别起 workflow。
 > - **落地 = 主线程就地 TDD 定点修**(不派 Codex):build 阶段按 `mmw where` 报的 `scenario=bug` 就地 TDD 定点修(build 自按 scenario 选落地模式)——先按根因写一条**复现失败测试**,再最小修、转绿、提交。改动跨多文件 → 先写一份**单计划**(主线程自己写,不派 plan-writer、不进计划审)理清 Task Pack 再逐个 TDD;简单定点修直接修。
-> - **根因是系统性设计问题 → 原地升级 develop**:investigate 发现根因不是局部 bug 而是设计级缺陷(要重做设计 / 拆计划)→ `mmw task escalate --to develop` 把剩余流水线换成 develop 完整设计路(investigate→propose→design→to-issue→plan→build→verify→closing),**worktree 不重开、已查的根因投查成果全留**,游标回 investigate 带设计意图重查。升级前先一句话告诉用户"这不是局部 bug,是设计级问题,升级到设计路",别闷头升。
+> - **根因是系统性设计问题 → 原地升级 develop**:investigate 发现根因不是局部 bug 而是设计级缺陷(要重做设计 / 拆计划)→ `mmw task escalate --to develop` 把剩余流水线换成 develop 完整设计路(investigate→propose→design→to-issue→plan→build→closing),**worktree 不重开、已查的根因投查成果全留**,游标回 investigate 带设计意图重查。升级前先一句话告诉用户"这不是局部 bug,是设计级问题,升级到设计路",别闷头升。
 
 <!-- BEGIN: worktree-setup -->
 ## 建 worktree(进去之后才开干)

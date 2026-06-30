@@ -37,7 +37,7 @@
     "step_index": { "type": "integer", "minimum": 0, "description": "阶段内步骤游标(phase 有 steps 时):where 报第 step_index 步的 load/do,mmw step next +1,handoff 换阶段时重置 0。断点恢复到精确步" },
     "gate": {
       "type": ["string", "null"],
-      "description": "审闸状态(routes.review_gates):null=不在闸里;非 null=本阶段产物已过、正在跑该阶段的审 loop(值=阶段名,审题=review/<值>.md)。审过 handoff pass 才 advance,审打回则清空回该阶段返工"
+      "description": "审闸状态(routes.review_gates map 的键):null=不在闸里;非 null=本阶段产物已过、正在跑该阶段的审 loop(值=阶段名,审 stage 由 review_gates[值].stage 定:design→design / plan→plan / build→final)。审过 handoff pass 才 advance,审打回则清空回该阶段返工"
     },
 
     "created_at": { "type": "string" },
@@ -67,7 +67,7 @@
     "phase_outputs": {
       "type": "object",
       "additionalProperties": { "type": "array", "items": { "type": "string" } },
-      "description": "接力单:每阶段产出钉成 phase→[路径]。handoff --produced 钉进对应阶段名,下阶段照单读上阶段产出(不靠'自己找')。investigate→现状报告;design→设计文档;plan→plan 目录;build→改动/提交标识;verify→终审报告"
+      "description": "接力单:每阶段产出钉成 phase→[路径]。handoff --produced 钉进对应阶段名,下阶段照单读上阶段产出(不靠'自己找')。investigate→现状报告;design→设计文档;plan→plan 目录;build→改动/提交标识 +(④终审闸)终审报告"
     },
     "open_items": {
       "type": "array",

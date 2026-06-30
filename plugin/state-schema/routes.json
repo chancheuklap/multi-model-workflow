@@ -8,9 +8,13 @@
 
   "spinoff_tags": ["bug", "optimize", "out-of-scope", "needs-evaluation"],
 
-  "backbone": ["investigate", "propose", "design", "to-issue", "plan", "build", "verify", "closing"],
+  "backbone": ["investigate", "propose", "design", "to-issue", "plan", "build", "closing"],
 
-  "review_gates": ["design", "plan"],
+  "review_gates": {
+    "design": { "stage": "design" },
+    "plan":   { "stage": "plan" },
+    "build":  { "stage": "final", "produced": "docs/<slug>-final-review.md" }
+  },
 
   "start_options": [
     { "scenario": "small-change", "when": "明确的小改,根因清楚",                  "phases_note": "落地→验收→收尾" },
@@ -36,15 +40,14 @@
         { "id": "write",       "load": "references/plan/task-pack.md",       "do": "单计划:主线程在本步照 task-pack 写整份 plan;多计划:已由 plan-writer 写完 → step next 跳过" },
         { "id": "selfcheck",   "load": "references/plan/plan-self-check.md", "do": "跨 plan 覆盖与 ownership 就绪门自检,过了 handoff 交还" }
       ] },
-    "build":       { "load": "references/build.md",        "do": "落地:small-change/bug 主线程就地 TDD;develop 派 Codex(各 plan 一 worktree)+ 你按计划验收",  "produced": "<提交范围,如 base..HEAD>" },
-    "verify":      { "load": "references/review/review.md",       "do": "起 ④终审 loop(Codex 审 + 你按意图清单验),写终审报告(含业务语言交付摘要)", "produced": "docs/<slug>-final-review.md", "reads": ["design", "to-issue", "build"] },
-    "closing":     { "load": "references/closing.md",      "do": "确认真完整、收口;合并/清理是合并后红线动作",                   "produced": "" },
-    "review_gate": { "load": "references/review/review.md",       "do": "起该阶段审 loop(Codex 审者 + Claude 协调帮手),审完 handoff verdict", "produced": "" }
+    "build":       { "load": "references/build.md",        "do": "落地:small-change/bug 主线程就地 TDD;develop 派 Codex(各 plan 一 worktree)+ 你按计划验收;落完跑 ③合同门(内部机器核),再 handoff(引擎强制进 ④终审闸)",  "produced": "<提交范围,如 base..HEAD>" },
+    "closing":     { "load": "references/closing.md",      "do": "确认真完整、收口;合并/清理是合并后红线动作",                   "produced": "", "reads": ["design", "to-issue", "build"] },
+    "review_gate": { "load": "references/review/review.md",       "do": "起该阶段审 loop(Codex 审者 + Claude 协调帮手):where 报 review_start 直接跑哪条、审完 handoff verdict", "produced": "" }
   },
 
   "presets": {
-    "small-change": ["build", "verify", "closing"],
-    "develop":      ["investigate", "propose", "design", "to-issue", "plan", "build", "verify", "closing"],
-    "bug":          ["investigate", "build", "verify", "closing"]
+    "small-change": ["build", "closing"],
+    "develop":      ["investigate", "propose", "design", "to-issue", "plan", "build", "closing"],
+    "bug":          ["investigate", "build", "closing"]
   }
 }

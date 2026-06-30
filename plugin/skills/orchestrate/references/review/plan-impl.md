@@ -23,7 +23,7 @@ mmw loop checklist cover --item <i> --evidence <file:line>
 
 ## 出口
 
-- 合同全兑现 → `mmw handoff --conclusion pass`(进 verify ④终审)。
+- 合同全兑现 → 回 build 收尾(B6)`mmw handoff --conclusion pass`,引擎随即强制进 ④终审闸。
 - 合同没兑现(provider/consumer 对不上、版本不一致、缺迁移/登记)→ `mmw handoff --conclusion needs-redirection --to-phase build`(回落地补)。
 - 合同**根上**就错(设计的跨 plan 合同本身不成立)→ `mmw handoff --conclusion needs-redirection --to-phase design`。
 

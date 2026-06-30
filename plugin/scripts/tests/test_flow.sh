@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # flow.sh 骨架空跑:每阶段只回个结论词,验证引擎换阶段对、分叉掉头对、上限拦得住、断点能续。
-# 流程模型:一条主干 + 预设开关。阶段词=投/想/拆/落/验/收(investigate/design/plan/build/verify/closing)。
+# 流程模型:一条主干 + 预设开关。阶段词=投/想/设计/切/拆/落/收(investigate/propose/design/to-issue/plan/build/closing)。
+# 审闸 map(routes.review_gates):design→①/plan→②/build→④,三个产出阶段产物过后引擎强制审。
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREPARE="$SCRIPT_DIR/../prepare.sh"
@@ -23,7 +24,7 @@ newtask() { # preset slug -> echoes worktree path
 mphase() { jq -r .phase "$1/.claude/multi-model-workflow/task.json"; }
 mfield() { jq -r ".$2" "$1/.claude/multi-model-workflow/task.json"; }
 
-# ===== A: develop 全程空跑 + 中途甩支线 (investigate→design→plan→build→verify→closing) =====
+# ===== A: develop 全程空跑 + 中途甩支线 (investigate→design→plan→build(④闸)→closing) =====
 WA="$(newtask develop 2026-06-28-task-a)"
 [ "$(mphase "$WA")" = "investigate" ] && ok "A 起于 investigate" || no "A 起于 investigate ($(mphase "$WA"))"
 
@@ -61,15 +62,23 @@ echo "$OUTG" | grep -q "REVIEW_STAGE=design" && ok "审闸报阶段 design" || n
 ( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # ②审 verdict→build
 [ "$(mphase "$WA")" = "build" ] && ok "②审过→进 build" || no "②审过→build ($(mphase "$WA"))"
 
-( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # build→verify(build 不 gated)
-[ "$(mphase "$WA")" = "verify" ] && ok "build→verify(无闸)" || no "推进到 verify ($(mphase "$WA"))"
+# build 产物过 → 进 ④终审闸(build 现在也 gated:phase 不动,gate=build)
+OUTBG="$(cd "$WA" && bash "$FLOW" handoff --conclusion pass)"      # build→gate:build
+echo "$OUTBG" | grep -q "NEXT_ACTION=review" && ok "build pass→进 ④终审闸(review)" || no "build→审闸"
+echo "$OUTBG" | grep -q "REVIEW_STAGE=build" && ok "审闸报阶段 build" || no "build REVIEW_STAGE"
+[ "$(mphase "$WA")" = "build" ] && ok "build 审闸里 phase 不动" || no "build 审闸 phase 不动 ($(mphase "$WA"))"
+[ "$(mfield "$WA" gate)" = "build" ] && ok "gate=build" || no "gate=build ($(mfield "$WA" gate))"
+# where 在 build 审闸里吐确切 review_start(stage=final,引擎给命令不靠散文猜)
+WBG="$(cd "$WA" && bash "$FLOW" where)"
+echo "$WBG" | grep -q "review_start=mmw review start --stage final" && ok "build 闸 where 吐 review_start --stage final" || no "review_start final ($(echo "$WBG" | grep review_start))"
 
-( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # verify→closing(verify=④,不 gated)
-[ "$(mphase "$WA")" = "closing" ] && ok "verify→closing(无闸)" || no "→closing"
+( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # ④审 verdict pass → closing
+[ "$(mphase "$WA")" = "closing" ] && ok "④审过→closing" || no "④审过→closing ($(mphase "$WA"))"
+[ "$(mfield "$WA" gate)" = "null" ] && ok "④审过 gate 清空" || no "④审过 gate 清空 ($(mfield "$WA" gate))"
 OUT="$(cd "$WA" && bash "$FLOW" handoff --conclusion pass)"        # closing→ready-to-close
 echo "$OUT" | grep -q "STATUS=ready-to-close" && ok "末阶段 pass→ready-to-close" || no "ready-to-close"
 echo "$OUT" | grep -q "NEXT_ACTION=done" && ok "末阶段 NEXT=done" || no "NEXT=done"
-[ "$(mfield "$WA" 'history|length')" = "10" ] && ok "history 记满 10 步(含 propose + to-issue + 两审闸)" || no "history 10 步 ($(mfield "$WA" 'history|length'))"
+[ "$(mfield "$WA" 'history|length')" = "10" ] && ok "history 记满 10 步(含 propose + to-issue + 三审闸 ①②④)" || no "history 10 步 ($(mfield "$WA" 'history|length'))"
 
 # ===== A2: 审打回 → 清 gate 回该阶段返工 =====
 WA2="$(newtask develop 2026-06-28-task-a2)"
@@ -82,7 +91,7 @@ WA2="$(newtask develop 2026-06-28-task-a2)"
 [ "$(mphase "$WA2")" = "design" ] && ok "审打回→停在 design 返工" || no "审打回停 design"
 [ "$(mfield "$WA2" repair_count)" = "1" ] && ok "审打回计返工=1" || no "审打回返工计数"
 
-# ===== B: bug 掉头 + 上限拦截 (investigate→build→verify→closing) =====
+# ===== B: bug 掉头 + 上限拦截 (investigate→build(④闸)→closing) =====
 WB="$(newtask bug 2026-06-28-task-b)"
 [ "$(mphase "$WB")" = "investigate" ] && ok "B 起于 investigate" || no "B 起于 investigate"
 OUTB="$(cd "$WB" && bash "$FLOW" handoff --conclusion needs-redirection)"
@@ -98,7 +107,7 @@ WBE="$(newtask bug 2026-06-29-task-be)"
 ESC="$(cd "$WBE" && bash "$PREPARE" escalate --to develop)"
 echo "$ESC" | grep -q "ESCALATED from=bug to=develop" && ok "escalate bug→develop" || no "escalate 回执"
 [ "$(mfield "$WBE" scenario)" = "develop" ] && ok "升级后 scenario=develop" || no "scenario 升级 ($(mfield "$WBE" scenario))"
-[ "$(mfield "$WBE" 'phases|join(",")')" = "investigate,propose,design,to-issue,plan,build,verify,closing" ] && ok "升级后 phases=develop 八阶段" || no "phases 升级 ($(mfield "$WBE" 'phases|join(",")'))"
+[ "$(mfield "$WBE" 'phases|join(",")')" = "investigate,propose,design,to-issue,plan,build,closing" ] && ok "升级后 phases=develop 七阶段" || no "phases 升级 ($(mfield "$WBE" 'phases|join(",")'))"
 [ "$(mphase "$WBE")" = "investigate" ] && [ "$(mfield "$WBE" phase_index)" = "0" ] && ok "游标回 investigate" || no "游标回首阶段"
 [ "$(mfield "$WBE" 'phase_outputs.investigate[0]')" = "docs/investigating/be.md" ] && ok "投查成果保留(phase_outputs 不丢)" || no "投查成果丢失"
 [ "$(mfield "$WBE" 'history[-1].conclusion')" = "escalate→develop" ] && ok "history 记一笔升级" || no "history 升级留痕"
@@ -156,10 +165,13 @@ WD4="$(newtask develop 2026-06-28-task-d4)"
 if ( cd "$WD4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase nope >/dev/null 2>&1 ); then no "to-phase 不存在被拒"; else ok "to-phase 不存在被拒"; fi
 if ( cd "$WD4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase build >/dev/null 2>&1 ); then no "to-phase 往前跳被拒"; else ok "to-phase 往前跳被拒(只能上游)"; fi
 
-# ===== F: small-change 只走 build→verify→closing(验证预设开关) =====
+# ===== F: small-change 只走 build(④闸)→closing(验证预设开关) =====
 WSC="$(newtask small-change 2026-06-28-task-sc)"
 [ "$(mphase "$WSC")" = "build" ] && ok "small-change 起于 build(前置全关)" || no "small-change 起于 build ($(mphase "$WSC"))"
-[ "$(mfield "$WSC" 'phases|length')" = "3" ] && ok "small-change 只 3 个阶段" || no "small-change 3 阶段"
+[ "$(mfield "$WSC" 'phases|length')" = "2" ] && ok "small-change 只 2 个阶段(build,closing)" || no "small-change 2 阶段 ($(mfield "$WSC" 'phases|length'))"
+# build 仍被 ④终审闸冻住(放权也不跳质量门)
+( cd "$WSC" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # build→gate:build
+[ "$(mfield "$WSC" gate)" = "build" ] && ok "small-change build 也进 ④终审闸" || no "small-change build 闸 ($(mfield "$WSC" gate))"
 
 # ===== G: 断点恢复 =====
 WF="$(newtask develop 2026-06-28-task-f)"

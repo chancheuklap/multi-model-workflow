@@ -69,21 +69,26 @@ echo "$OUT" | grep -q "NEXT_ACTION=review" && ok "plan 过→进②审闸" || no
   && bash "$LOOP" step done --id 1.1 >/dev/null ) && ok "build:起 execution loop + 步账走通" || no "build loop"
 [ "$(cd "$WT" && bash "$LOOP" exit-check)" = "DONE" ] && ok "build:步账全 done→exit-check DONE" || no "build exit-check"
 ( cd "$WT" && bash "$REVIEW" start --stage plan-impl --source docs/plans/e2e/ >/dev/null 2>&1 ) && ok "build:③合同门起得来" || no "③合同门"
-# build → verify
-( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced "seed..HEAD" >/dev/null )
-[ "$(ph)" = "verify" ] && ok "build→verify(无闸)" || no "build→verify ($(ph))"
+# build 产物过 → ④终审闸(build 也 gated:phase 不动,gate=build)
+OUTBG="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced "seed..HEAD")"
+echo "$OUTBG" | grep -q "NEXT_ACTION=review" && ok "build 过→进④终审闸(引擎强制)" || no "build→④闸"
+[ "$(ph)" = "build" ] && [ "$(gate)" = "build" ] && ok "build 审闸:phase 不动 gate=build" || no "build 闸 ($(ph)/$(gate))"
+# where 在 build 闸吐确切 review_start --stage final(引擎给命令,不靠散文猜)
+( cd "$WT" && bash "$FLOW" where | grep -q "review_start=mmw review start --stage final" ) && ok "build 闸 where 吐 review_start --stage final" || no "review_start final"
 
-# verify(④终审)→ closing
-( cd "$WT" && bash "$REVIEW" start --stage final --source docs/design/e2e.md >/dev/null 2>&1 ) && ok "verify:④终审 loop 起得来" || no "④终审"
-( cd "$WT" && bash "$FLOW" handoff --conclusion pass >/dev/null )
-[ "$(ph)" = "closing" ] && ok "verify→closing" || no "verify→closing ($(ph))"
+# ④终审 loop 起得来 → 审过钉终审报告 → closing
+( cd "$WT" && bash "$REVIEW" start --stage final --source "seed..HEAD" >/dev/null 2>&1 ) && ok "④终审 loop 起得来" || no "④终审"
+( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/e2e-final-review.md >/dev/null )
+[ "$(ph)" = "closing" ] && [ "$(gate)" = "null" ] && ok "④审过→closing(gate 清空)" || no "④审过→closing ($(ph)/$(gate))"
+# 终审报告钉进 build 接力单,closing 照单读得到
+echo "$(prevout)" | grep -q "docs/e2e-final-review.md" && ok "终审报告进接力单(closing 读 build 产物)" || no "终审报告接力单 ($(prevout))"
 
 # closing → ready-to-close
 OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass)"
 echo "$OUT" | grep -q "STATUS=ready-to-close" && ok "closing→ready-to-close(端到端贯通)" || no "ready-to-close"
 
-# history 完整:investigate,propose,design,①审,to-issue,plan,②审,build,verify,closing = 10 步
-[ "$(jq -r '.history|length' "$WT/.claude/multi-model-workflow/task.json")" = "10" ] && ok "history 记满 10 步(全程留痕)" || no "history 10 ($(jq -r '.history|length' "$WT/.claude/multi-model-workflow/task.json"))"
+# history 完整:investigate,propose,design,①审,to-issue,plan,②审,build,④审,closing = 10 步
+[ "$(jq -r '.history|length' "$WT/.claude/multi-model-workflow/task.json")" = "10" ] && ok "history 记满 10 步(三审闸 ①②④ 全程留痕)" || no "history 10 ($(jq -r '.history|length' "$WT/.claude/multi-model-workflow/task.json"))"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

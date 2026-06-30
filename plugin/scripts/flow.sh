@@ -62,7 +62,7 @@ cmd_handoff() {
   local cur_step; cur_step="$(jq -r '.step_index // 0' "$m")"
   # 本阶段是不是 review-gated(routes.review_gates)
   gated=no
-  jq -e --arg p "$cur_phase" '(.review_gates // []) | index($p) != null' "$ROUTES" >/dev/null 2>&1 && gated=yes
+  jq -e --arg p "$cur_phase" '(.review_gates // {}) | has($p)' "$ROUTES" >/dev/null 2>&1 && gated=yes
 
   # 阶段序列读进度记录的 phases(本任务开着的阶段),不按 scenario 查 routes
   local phases_len last max_repair max_turn first_phase
@@ -83,7 +83,7 @@ cmd_handoff() {
         # 阶段产物刚过、还没审:进审闸,phase 不动、不 advance,等审的 verdict 再来一次 handoff
         new_gate="$cur_phase"
         next_action="review"; next_phase="$cur_phase"
-        human="[$cur_phase] 产物通过 → 进审闸(review/$cur_phase.md),审过 handoff pass 才进下一阶段"
+        human="[$cur_phase] 产物通过 → 进审闸(跑 mmw where 拿 review_start 直接起审),审过 handoff pass 才进下一阶段"
       elif [ "$pidx" -ge "$last" ]; then
         # 不在闸(或非 gated)且是末阶段 → 待收尾
         new_status="ready-to-close"; next_action="done"; next_phase=""
@@ -253,18 +253,31 @@ cmd_where() {
     then_cmd="mmw step next   # 本步干完推进下一步(下一步 load 那时现读)"
   else
     then_cmd="mmw handoff --conclusion <pass|needs-repair|needs-redirection|needs-context|blocked>"
+    # 产物源:在审闸里取 review_gates[gate].produced(审闸该钉啥由 map 定,如 build 闸钉终审报告);
+    # 否则取当前阶段绑定的 produced。审是闸不产文件的(design/plan)→ produced 空,不带 --produced。
+    local produced_src
+    if { [ "$gate" != "null" ] && [ -n "$gate" ]; }; then
+      produced_src="$(jq -r --arg p "$gate" '.review_gates[$p].produced // ""' "$ROUTES")"
+    else
+      produced_src="$(jq -r --arg k "$bkey" '.phase_bindings[$k].produced // "" | if type=="array" then .[] else . end' "$ROUTES")"
+    fi
     local p
     while IFS= read -r p; do
       [ -n "$p" ] || continue
       p="${p//<slug>/$slug}"
       then_cmd="$then_cmd --produced $p"
-    done < <(jq -r --arg k "$bkey" '.phase_bindings[$k].produced // "" | if type=="array" then .[] else . end' "$ROUTES")
+    done <<< "$produced_src"
   fi
-  # 审闸里:把"审什么"(当前阶刚产的产物)报成 review_source,直接喂 mmw review start --source,不让 agent 自己记
-  local review_line=""
+  # 审闸里:stage 由 review_gates[gate].stage 定(design→design / plan→plan / build→final),
+  # where 直接吐确切的 review_start 命令 + review_source,agent 照跑不靠散文猜哪个 stage。
+  local review_line="" review_start_line=""
   if [ "$gate" != "null" ] && [ -n "$gate" ]; then
+    local g_stage g_source
+    g_stage="$(jq -r --arg p "$gate" '.review_gates[$p].stage // "?"' "$ROUTES")"
     # 吐裸路径喂 review start --source(不吐 JSON 数组,省 agent 拆 ["x"]→x);多产物空格连
-    review_line="review_source=$(jq -r --arg p "$phase" '(.phase_outputs[$p] // []) | join(" ")' "$m")"
+    g_source="$(jq -r --arg p "$phase" '(.phase_outputs[$p] // []) | join(" ")' "$m")"
+    review_line="review_source=$g_source"
+    review_start_line="review_start=mmw review start --stage $g_stage --source $g_source"
   fi
   cat <<EOF
 scenario=$scenario
@@ -285,6 +298,7 @@ subtasks=$(jq -r '.subtasks | length' "$m")
 open_items=$(jq -r '.open_items | length' "$m")
 EOF
   if [ -n "$review_line" ]; then echo "$review_line"; fi
+  if [ -n "$review_start_line" ]; then echo "$review_start_line"; fi
 }
 
 # ---------- step(阶段内步骤游标:推进到下一步,报那一步的 load/do) ----------
