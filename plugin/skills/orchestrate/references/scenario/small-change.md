@@ -65,6 +65,8 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 | `done` | ready-to-close | 末阶段过 → 走本文「收尾」。 |
 
 `repair` / `turn-around` 有上限(引擎命令计数强制),到顶自动转 `report-user`(STATUS=blocked),绝不无限往返。
+
+**`report-user`(blocked)上报用两层**(别只甩一句"卡住了"):**业务影响层**(给用户,非技术:这事卡住对用户能力 / 数据 / 交付意味着什么)+ **技术详情层**(在哪个 phase、什么 verdict、根因、已试过什么),让用户能拍下一步。
 <!-- END: receipt-jump -->
 
 <!-- BEGIN: closing-cleanup -->

@@ -30,11 +30,12 @@ cmd_start() {
 
   local kind angle views
   case "$stage" in
-    design)    kind="review";        angle="design.md";    views="轴A 设计内容 / 轴B 项目对齐" ;;
-    plan)      kind="review";        angle="plan.md";      views="轴A 覆盖与质量 / 轴B 合规与交叉验证" ;;
-    plan-impl) kind="contract-gate"; angle="plan-impl.md"; views="(③合同门:机器核合同兑现,不派 Codex 判断)" ;;
-    final)     kind="review";        angle="final.md";     views="基线1 回归+意图+跨plan / 基线2 独立代码审计" ;;
-    *) die "--stage 只能 design|plan|plan-impl|final" ;;
+    design)     kind="review";        angle="design.md";           views="轴A 设计内容 / 轴B 项目对齐" ;;
+    plan)       kind="review";        angle="plan.md";             views="轴A 覆盖与质量 / 轴B 合规与交叉验证" ;;
+    plan-impl)  kind="contract-gate"; angle="plan-impl.md";        views="(③合同门:机器核合同兑现,不派 Codex 判断)" ;;
+    final)      kind="review";        angle="final.md";            views="基线1 回归+意图+跨plan / 基线2 独立代码审计" ;;
+    merge-impl) kind="review";        angle="merge-integration.md"; views="跨 PR 集成审 7 角度(组合行为/合同/迁移/状态/import/回归/修复质量)" ;;
+    *) die "--stage 只能 design|plan|plan-impl|final|merge-impl" ;;
   esac
   [ -f "$REVIEW_REF_DIR/$angle" ] || die "找不到审题: $REVIEW_REF_DIR/$angle"
   [ -f "$REVIEW_REF_DIR/quartet.md" ] || die "找不到 quartet.md"

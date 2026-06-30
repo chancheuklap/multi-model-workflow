@@ -48,6 +48,7 @@ Workflow({
 3. **存档 + handoff**:把现状报告写进 `docs/investigating/<slug>.md`(prepare 已 scaffold 该目录),钉进接力单:
    - 够 design / build 用 → `mmw handoff --conclusion pass --produced docs/investigating/<slug>.md`
    - `open_questions` 里有必须用户拍板才能继续的 → `--conclusion needs-context`
+   - **bug 查根因两种诚实收口**(查不动别假装查到):**无法重现** → `needs-context`,报告附**已试的重现路径**,请用户补重现步骤 / 环境;**无法定位根因**(重现了但定不到) → `needs-context`,报告附**已排除的假设(带证据)**,请用户给方向 / 补信息。别硬编个根因往下走。
 
 > **investigate 不维护 `docs/context`**:领域文档(术语 / 对象关系 / 角色 / 状态,跨任务持久)由 **design 阶段的 `domain-modeling`** 在产出设计文档之后维护,investigate 别多管。现状报告存 `docs/investigating/`(本任务存档),不是领域文档,别往 `docs/context` 塞。
 

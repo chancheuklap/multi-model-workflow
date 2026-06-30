@@ -4,3 +4,4 @@
 - **跨模块边界传数据用正式契约类型**(项目用的 schema / model / typed struct),不传裸 dict / map;public API 不长期返回 raw 字典。
 - **新增可被外部引用之物**(端口 / 命令 / 迁移 / capability / 接口)按项目机制**登记 + 走校验器**,不绕项目的合同 / 登记 / 迁移机制。数据迁移要 up/down **对称**、给出执行顺序。
 - 遇到带 `AGENTS.override.md` 的目录,先读该 override 再动,改动同步维护它。
+- **owned files 自检**:你改的文件应落在计划该 Pack 声明的 `Owned files` 内。要改计划没列的文件才能完成 → **停下报清**(在最后消息说要动哪个计外文件、为什么),不擅自扩范围。

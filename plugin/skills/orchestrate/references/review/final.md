@@ -18,6 +18,7 @@
 - 设计对齐:实现匹配 design 声明 intent。
 - 边界:空态 / 错误路径 / retry·rollback / 竞态 / 测试没覆盖的。
 - 禁用捷径:跨边界用弱类型裸结构绕正式合同 / 新增可被外部引用之物不登记 / 绕数据校验与迁移机制 / 行为测在非权威层——命中即 finding,影响验收/数据/权限/账务/runtime/发布时升 Critical。
+- **发布风险**(放权落地后的兜底,逐条核):**migration 顺序 / 部署顺序**(改了 model 有没有配套 migration、up/down 对称、执行序)· **回滚**(出错能不能撤、怎么撤)· **账务 / 权限**(计费动作、权限 gate 改动有没有破不变量)· **registry-migration 闭合**(新增端口/命令/收费动作/capability 登记齐了)· **API 兼容**(破坏性改动有没有走版本协商)。命中 = Release blocker(数据丢失 / 权限绕过 / 账务不一致 / 合同未同步)→ Critical,实际发布动作另由 closing 的 `guard-redline` 拦人批。
 - 只为具名风险查 diff 外代码,不漫游。
 
 两基线都:不信任 plan / pack summary,独立验证。
