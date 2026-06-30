@@ -7,7 +7,7 @@
 | | 单计划 · 主线程内联 | 多计划 · subagent fan-out(默认) |
 |---|---|---|
 | 何时 | **只一个大 issue、且不大不复杂** | 多个大 issue,或单个但大/需深探代码 |
-| 怎么写 | **主线程自己**照 `plan-authoring.md` 直接写这份 plan(自己拆小 issue + Task Pack),不派 plan-writer——省一次派发往返 | Step 3 逐 issue 派 `plan-writer` |
+| 怎么写 | **主线程自己**照 `task-pack.md`（+ 测试细则 `plan-rigor.md`）直接写这份 plan(自己拆小 issue + Task Pack),不派 plan-writer——省一次派发往返 | Step 3 逐 issue 派 `plan-writer` |
 | 跨 plan 合同 | 无(单计划),跳 Step 2 / Step 5 | Step 2 写骨架、Step 5 回填 |
 
 判据是**规模与并行收益**:单计划主线程内联更快(无 subagent 开销);多计划/大计划才下放 plan-writer 换并行 + 上下文隔离。下面 Step 1–6 是多计划全流程;单计划内联只走 Step 1(映射,这里就一份)+ 自己写 + Step 6 就绪门 + 收尾 handoff。
@@ -57,7 +57,7 @@ Bad: "制定了全面的实施计划,涵盖所有功能模块。"
 - **落点**:`docs/plans/<slug>/00N-<issue-slug>.md`(slug 与源设计 / issue 对齐,已含日期;多 plan 同一目录)
 - **源设计文档路径**(含 Step 2 的合同骨架:architecture / `## 合同边界` / `## Cross-Plan Contract Anchors`——writer 据此知道能碰哪些文件、provide/consume 哪些接口)
 - **该 writer 负责的 issue 文件路径**(`## Small issues` 多为 `<!-- PENDING -->`,writer 自己拆 + 写回)
-- **方法论 reference 路径**:`${CLAUDE_PLUGIN_ROOT}/skills/orchestrate/references/plan/plan-authoring.md`(一份读完,给绝对路径)
+- **方法论 reference 路径**:`${CLAUDE_PLUGIN_ROOT}/skills/orchestrate/references/plan/task-pack.md` + `plan-rigor.md`(给绝对路径,writer 按需现读)
 - **mockup 目录**(若 `docs/design/<slug>/mockup/` 存在)
 
 **不要**把别的 writer 的历史 / 别的 plan 内容粘进去——每个 dispatch 独立、零交叉污染。单 issue → 单 plan:派一个就行,不强行并行。
@@ -72,7 +72,7 @@ Step 2 的骨架已划好边界,本步把**精确字段 / 签名**填实并核 w
 
 ## Step 6:就绪门 + 跨 plan 覆盖自检
 
-plan-writer 已各自过 Pre-delivery Self-Check(保自己那份)。主 Agent 按 `plan-authoring.md` 的「保存前自检」+「Pack 就绪门」两节,从**跨 plan 视角**再过一遍覆盖与 ownership——跨 plan 一致性归你。
+plan-writer 已各自过 Pre-delivery Self-Check(保自己那份)。主 Agent 现读 `plan-self-check.md` 全文,从**跨 plan 视角**再过一遍覆盖与 ownership——跨 plan 一致性归你。
 
 ## Git 纪律
 

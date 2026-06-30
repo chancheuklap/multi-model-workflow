@@ -19,7 +19,8 @@
 | 步 | 干什么 | 读哪份(整份) |
 |---|---|---|
 | **编排** | 判单/多计划模式、映射 plan 清单、写跨 plan 合同骨架、fan-out plan-writer、亲验、回填、就绪门,含角色声音 + Git 纪律——拆计划的全套编排方法论 | `plan-flow.md` |
-| **写 plan(单计划主线程自己写,或派发时给 plan-writer)** | Task Pack 模板 + TDD 步骤 + 测试严谨度 + 反模式 + 自检 + 就绪门(一份读完) | `plan-authoring.md` |
+| **写 plan(单计划主线程自己写,或派发时给 plan-writer)** | 写 pack 时 → `task-pack.md`(模板 + TDD 步骤 + 无 Placeholder);规划测试 → `plan-rigor.md`(覆盖/矩阵/回归铁律/反模式) |
+| **就绪门自检** | 跨 plan 覆盖与 ownership 逐条过 | `plan-self-check.md` |
 
 ## 收尾:钉产出 → handoff(交还 flow,不自己选执行方式)
 

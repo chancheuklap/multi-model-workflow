@@ -17,7 +17,7 @@
 | 改动面 | 怎么做 |
 |---|---|
 | **定点小改 / 单文件单点修** | 跳过计划,直接 A2 逐步 TDD。 |
-| **跨多文件 / 多步骤** | 先写**一份单计划**理清 Task Pack:主线程自己读 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate/references/plan/plan-authoring.md` 的模板,落 `docs/plans/<slug>/001-<slug>.md`(**主线程自己写,不派 plan-writer、不进 ②计划审**——bug/小改无审闸),再按 Pack 逐个 TDD。 |
+| **跨多文件 / 多步骤** | 先写**一份单计划**理清 Task Pack:主线程自己读 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate/references/plan/task-pack.md` 的模板,落 `docs/plans/<slug>/001-<slug>.md`(**主线程自己写,不派 plan-writer、不进 ②计划审**——bug/小改无审闸),再按 Pack 逐个 TDD。 |
 
 ### A2. 逐步 TDD（用 `/tdd`）
 
