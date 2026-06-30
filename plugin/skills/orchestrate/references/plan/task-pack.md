@@ -16,7 +16,7 @@
 **Why this matters:** <谁受益、交付什么价值——执行者要懂价值不只懂机械>
 **Owned files:** Create `path` / Modify `path:line` / Test `path`
 
-**Verified current state:**（改既有行为时填）现状真实行为 + `file:line` + 核实日期;改一族成员之一时给 landscape 审计表（见下「Issue 质量」）。
+**Verified current state:**（改既有行为时填）现状真实行为 + `file:line` + 核实日期;改一族成员之一时给 landscape 审计表（组件 × 有无 × 缺口,防隧道视野）。
 
 **Read first:** <source docs, ADRs, project rules>
 
@@ -31,7 +31,7 @@
 **Do Not Touch:**（refactor / audit pack 必填）哪些看着像目标但正确、不许动——防把没坏的"修"成回归。
 **Root cause:**（bug pack 必填）问题为什么存在,再谈修法。
 
-**Acceptance criteria:**（编号、pass/fail、无主观语言;正反例见下「Issue 质量·Testable AC」）
+**Acceptance criteria:**（编号、pass/fail、无主观语言;✅"30 天以上订单 4 角色全返 HTTP 410" ❌"功能正常"）
 - [ ] ...
 
 **Verification commands:** `command` → Expected: ...

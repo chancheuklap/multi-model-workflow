@@ -17,7 +17,7 @@
 
 ## 全貌 + 工作流权威
 
-- plugin 架构总览:`docs/plugin/OVERVIEW.md`(一张主图 + 三层结构 + 七阶段)。改 plugin 前先读。OVERVIEW 是**全貌不是流水账**。
+- plugin 架构总览:`docs/plugin/OVERVIEW.md`(一张主图 + 三层结构 + 八阶段)。改 plugin 前先读。OVERVIEW 是**全貌不是流水账**。
 - 工作流权威:`~/Documents/multi model workflow.pdf`——日常工作流的源,plugin 照它的节点和箭头建。
 
 ## Skill 创建法则(改 plugin 的 skill / reference 必须照这 11 条)

@@ -1,6 +1,6 @@
-# 设计文档模板（写文档阶段读全文，按它写入）
+# Design · write 步(写设计文档时读这一份)
 
-**按本模板写入设计文档：用项目正式术语 / 不写只在聊天里能懂的句子 / 不用 TODO/TBD / 不写实现 plan 或 Task Pack。**
+> design 阶段 write 步:按本模板把选定方向写成设计文档。一份读完、按它写入。**用项目正式术语 / 不写只在聊天里能懂的句子 / 不用 TODO·TBD / 不写实现 plan 或 Task Pack。** 自检在下一步(selfcheck)。
 
 ```markdown
 # <功能 / 问题> 设计文档
@@ -82,6 +82,6 @@ UI/UX 细则逐条对照填(**AI Slop 黑名单命中 = 重做**):
 
 ## Cross-Plan Contract Anchors
 <!-- 设计阶段不填本表：表里的 Owner / Provider / Consumer 都是 plan 名，plan 还不存在，设计期无从填起。 -->
-<!-- 设计阶段只留本标题 + 这两行注释作占位锚点；由 plan 阶段在所有 plan 写完后回填（plan-flow.md 的「回填合同细节」步骤是单一源）。 -->
+<!-- 设计阶段只留本标题 + 这两行注释作占位锚点；由 plan 阶段在所有 plan 写完后回填。 -->
 <!-- 这不算 TODO/TBD —— 是跨阶段交接的占位，回填责任明确在 plan 阶段。 -->
 ```

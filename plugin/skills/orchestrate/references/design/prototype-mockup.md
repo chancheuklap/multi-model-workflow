@@ -1,4 +1,4 @@
-# Prototype 验证 + HTML Mockup(设计涉 UI/UX 时读本文全文)
+# Design · prototype 步(设计涉 UI/UX 时读这一份)
 
 > 触发:设计触 UI/UX,或状态模型非平凡(多状态 / 复杂转移 / 时序)。**只在设计涉这两类时读本文**,纯后端 / 纯逻辑设计跳过。
 >

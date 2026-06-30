@@ -254,15 +254,14 @@ loop engineering **不是落地专用**,是通用内层机器。审核也是它�
 |---|---|---|---|---|
 | ①设计审 | 写计划前 | grep/读仓库(有没有现成库、合同对不对) | 浅 | **留**·便宜最高杠杆(代码前抓方向/设计错) |
 | ②计划审 | 写代码前 | 同上 + 覆盖/合规 | 浅 | **留**·便宜高杠杆 |
-| ③落地审 | 每个 plan 提交后 | —— | **降成便宜合同门**(只查跨 plan 合同兑现) | 低·跟 TDD 重叠、孤立看不到跨 plan |
+| ③落地审 | 全 plan 合并后一次 | —— | **降成便宜合同门**(只查跨 plan 合同兑现) | 低·跟 TDD 重叠、孤立看不到跨 plan |
 | ④final | 全合并后 | 跑测试、读大 diff、对抗输入 | **深** | **集中**·跨 plan 缝隙+兑没兑现意图+独立代码审 |
 
 ```mermaid
 flowchart LR
     D["①设计审<br/>浅·便宜·留"]:::keep --> PL["②计划审<br/>浅·便宜·留"]:::keep --> B["落地 loop<br/>TDD 每步验"]:::core
-    B --> G{"③per-plan<br/>便宜合同门"}:::light
-    G --> B
-    B --> F["④final 深 loop<br/>独立模型·预算集中"]:::heavy
+    B --> G{"③合同门<br/>全 plan 合并后一次"}:::light
+    G --> F["④final 深 loop<br/>独立模型·预算集中"]:::heavy
     classDef keep fill:#dcfce7,stroke:#16a34a
     classDef core fill:#fef3c7,stroke:#d97706
     classDef light fill:#dbeafe,stroke:#2563eb
@@ -434,7 +433,7 @@ flowchart TD
     classDef todo fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray:4 3
 ```
 
-🟢 已落地并空跑验证(201 项断言:脚本 194 + build 7):入口纯路由(每条路径一份干净完整 reference,共用步骤 build 去重)· `mmw where` 自指路(冷启动列起始选项;在途报 `load`/`do`/`then`)· 开工/恢复/清理 · 接力单 · 统一运行契约 + 审闸 · 分叉/返工(可 `--to-phase`)/上限/停下 · 八阶段方法论全接(含 propose 给方案+两路出口、to-issue 审后切片、Codex 落地派发 + 四审 loop)· bug→develop 原地升级(`mmw task escalate`)· merge · 统一 CLI `mmw`。
+🟢 已落地并空跑验证(220 项断言:脚本 213 + build 7):入口纯路由(每条路径一份干净完整 reference,共用步骤 build 去重)· `mmw where` 自指路(冷启动列起始选项;在途报 `load`/`do`/`then`)· 开工/恢复/清理 · 接力单 · 统一运行契约 + 审闸 · 分叉/返工(可 `--to-phase`)/上限/停下 · 八阶段方法论全接(含 propose 给方案+两路出口、to-issue 审后切片、Codex 落地派发 + 四审 loop)· bug→develop 原地升级(`mmw task escalate`)· merge · 统一 CLI `mmw`。
 ⬜ 未验:**内容级端到端真跑**(真派 Codex 落地/审、真 resume 修、真 surface 冒泡——单测够不着,要拿真 develop 任务跑)。
 
 ---
@@ -453,7 +452,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    N1["① 骨架+八阶段(含 propose+to-issue)+审+merge+路径拆分<br/>(已落地·201 断言)"]:::done --> N2["② 拿真 develop 任务端到端跑<br/>一边跑一边修(内容级验收)"]:::nx --> N3["③ 中途整体升级"]:::nx
+    N1["① 骨架+八阶段(含 propose+to-issue)+审+merge+路径拆分<br/>(已落地·220 断言)"]:::done --> N2["② 拿真 develop 任务端到端跑<br/>一边跑一边修(内容级验收)"]:::nx --> N3["③ 中途整体升级"]:::nx
     classDef done fill:#dcfce7,stroke:#16a34a
     classDef nx fill:#dbeafe,stroke:#2563eb
 ```
@@ -481,4 +480,4 @@ flowchart LR
 | 看守(SubagentStop)/ 红线(PreToolUse)/ 记进度(commit)| `hooks/{guard-loop,guard-redline,record-step}.sh` |
 | 进度记录 / 流程数据 / loop 状态 | `state-schema/{task-manifest.schema,routes,loop-state.schema}.json` |
 | 落地规格 | `design/{loop-engineering,investigate-workflow,review-loop}.md` |
-| 空跑验证 | `scripts/tests/`(194 断言)|
+| 空跑验证 | `scripts/tests/`(213 断言)|

@@ -64,7 +64,7 @@ Bad: "制定了全面的实施计划,涵盖所有功能模块。"
 
 ## Step 4:亲验返回
 
-每份 `plan-writer` 返回 `pass` 后,对它声明的事实(plan 文件存在、Pack 数量、引用的 `file:line`、**小 issue 已写回 issue 文件 `## Small issues`**)至少抽验 1 个(`grep`/`Read`)再采信。失实 → 重派该 writer 或主 Agent 亲查修正。任一返回 `needs context` / `needs repair` / `blocked` → 按其内容补上下文或修源设计后重派;返回 `needs redirection`(探代码撞破设计方向)→ handoff `needs-redirection` 交用户拍方向。全部 `pass` + 验过 → Step 5。
+每份 `plan-writer` 返回 `pass` 后,对它声明的事实(plan 文件存在、Pack 数量、引用的 `file:line`、**小 issue 已写回 issue 文件 `## Small issues`**)至少抽验 1 个(`grep`/`Read`)再采信。失实 → 重派该 writer 或主 Agent 亲查修正。任一返回 `needs-context` / `needs-repair` / `blocked` → 按其内容补上下文或修源设计后重派;返回 `needs-redirection`(探代码撞破设计方向)→ handoff `needs-redirection` 交用户拍方向。全部 `pass` + 验过 → Step 5。
 
 ## Step 5:回填合同细节 + 核边界(多 plan 时)
 

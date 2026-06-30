@@ -12,10 +12,10 @@
 |---|---|---|---|
 | ① 设计审 | design pass 后 | `review` | `references/review/design.md` |
 | ② 计划审 | plan pass 后 | `review` | `references/review/plan.md` |
-| ③ 落地审 | 每个 plan 全 Pack 提交后 | `contract-gate` | `references/review/plan-impl.md` |
+| ③ 落地审 | 全 plan 合并后(一次) | `contract-gate` | `references/review/plan-impl.md` |
 | ④ final | verify 阶段(全合并后) | `review` | `references/review/final.md` |
 
-③ 是便宜合同门、不派 Codex 判断,①②④ 是真审 loop——本文下面分别讲。
+③ 是便宜机器合同门、不派 Codex 判断,在 build 阶段末跑一次(由 build 流程驱动,本文不展开)。本文讲 ①②④ 三个真审 loop。
 
 ## 1. 主线程:一条命令起审 → 抽清单 → 派协调帮手(①②④)
 
@@ -37,7 +37,11 @@
 
 - `pause != null`(surface 冒泡)→ 按 `reason` handoff `needs-redirection` / `needs-context`,交用户。
 - `exit-check` = DONE 且无 accepted 缺陷 → `mmw handoff --conclusion pass`,进下一阶段。
-  - **仅 ④final(verify 阶段):handoff 前先写终审报告**,照 `mmw where` 的 `then`(已含 `--produced docs/<slug>-final-review.md`)钉它。报告内容见 `references/review/final.md` 末节(终审 verdict + 意图清单逐条结果 + **业务语言交付摘要**);closing 阶段照单读它收口。①②审是闸、不产文件,这条不适用。
+  - **仅 ④final(verify 阶段):handoff `pass` 前先写终审报告**到 `docs/<slug>-final-review.md`(照 `mmw where` 的 `then` 钉 `--produced`),closing 阶段照单读它收口。三段:
+    1. **终审结论**:verdict + 两基线各自结果(回归/意图/跨 plan;独立代码审)+ 放行的 waived 项(环境/账号 gate,带 owner)。
+    2. **意图清单逐条**:最初 design + issue 提取的每条可验证 intent → 达成/未达成 + 证据(`file:line` 或测试名)。
+    3. **业务语言交付摘要**(给项目负责人看,**不用技术术语**):新增能力(每条一个用户可感知的行为变化,如「用户现在可以用手机号登录,15 秒内完成」,不列函数名/文件路径/类名)· 验证证据(跑了哪些验收、什么结果)· 残余风险(已知没覆盖的、需人盯的,诚实列不藏)。
+    ①②审是闸、不产文件,这条不适用。
 - 有 accepted finding → 按 Gap 选结论词(`needs-repair` 是**原地返工当前阶段**;回上游别的阶段必须 `needs-redirection --to-phase <阶段>`):
   - 缺陷在**当前被审阶段**(①审=design、②审=plan,gate 的 cur_phase 就是它;④final 的代码缺陷可在 verify loop 里就地修)→ `needs-repair`,改完 handoff 重审。
   - 根因在**更上游阶段**(②审发现 design 问题、④final 撞破 plan/design)→ `needs-redirection --to-phase <design|plan|build>`,回那阶段改。
@@ -46,19 +50,7 @@
 
 **Critical 必须修掉**才能让对应阶段往下走。
 
-## 3. ③ 便宜合同门(contract-gate,不派 Codex)
-
-③ 全 plan 合并后跑**一次**,只查跨 plan 合同兑现,降成机器门(全 Pack 提交已由 build 执行 loop `exit-check` 保证,不在这重核)。完整走法见 `references/review/plan-impl.md`:
-
-```bash
-mmw review start --stage plan-impl --source "<设计文档 ## Cross-Plan Contract Anchors>"   # init kind=contract-gate
-mmw loop checklist add --item "<跨 plan 合同>" --source <design:line>
-# 逐条 grep/Read 机器核合同兑现 → checklist cover;合同全 cover → exit-check DONE(steps 空即满足)
-```
-
-合同不达 → `needs-redirection --to-phase build`(回落地补);合同根上错 → `--to-phase design`。不列 pack、不开 Codex 判断 loop。
-
-## 4. 守住的红线
+## 3. 守住的红线
 
 - 审者 Codex,不用 `codex review`(走它内置提示词、绕过我们方法论),用 `codex exec` 喂我们的 quartet+angle。
 - 每条 finding 引 `file:line` 原文才采信;协调帮手亲验后才 accept,主线程落 handoff 前再核承重的。

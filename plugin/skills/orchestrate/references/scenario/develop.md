@@ -12,7 +12,7 @@
 
 2. **一条命令建好**(从本地最新 HEAD 分叉,scaffold docs,写 manifest):
    ```bash
-   mmw task new --scenario <本路径预设(见本文开头)> --slug <slug> --title "<人类可读标题>"
+   mmw task new --scenario <你这条路径:small-change|develop|bug> --slug <slug> --title "<人类可读标题>"
    ```
    回执给出 `worktree_path`;prepare 把本路径的阶段序列固化进 manifest 的 `phases`。
 

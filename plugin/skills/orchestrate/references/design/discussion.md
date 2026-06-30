@@ -41,7 +41,7 @@ Bad: "这是个有趣的方向!我们可以从多个角度探索。"
 
 ### Step 0:起 domain-modeling
 
-第一轮用户对话前调 `domain-modeling` skill,全程维护领域文档(本文「双文档产出」「Domain Alignment」给规则)。领域文档与设计文档**地位等同**,不能只写设计不维护领域。
+第一轮用户对话前调 `domain-modeling` skill,全程维护领域文档(规则在后面「双文档产出」「Domain Alignment」)。领域文档与设计文档**地位等同**,不能只写设计不维护领域。
 
 ### Step 1:读选定方向 + 现状报告
 

@@ -22,7 +22,7 @@
 
 ## 防幻觉四件套
 1. 置信度:每条 finding 标 1-3 低 / 4-6 中 / 7-10 高。
-2. 验证门:每条引用触发它的 `file:line` + 原始行("字段 X 不在 model Y"→引 class Y 定义体;"race"→引两处)。引不出 = 未验证,confidence 压到 4-5 移附录。元编程(ORM 元类 / 装饰器 / 代码生成)引生成该符号的元构造。
+2. 验证门:每条引用触发它的 `file:line` + 原始行("字段 X 不在 model Y"→引 class Y 定义体;"race"→引两处)。引不出 = 未验证,confidence 压到 4-5 移到低置信观察区。元编程(ORM 元类 / 装饰器 / 代码生成)引生成该符号的元构造。
 3. 防自我合理化:"看着没问题"→引证据或标 unknown;"应该别处处理了"→读并引用;"大概测过"→给测试文件 + 方法名。
 4. 证据表 + 偏见声明:`### Evidence` 列已读产物 / 已查代码路径 / 已跑命令 / 假设(影响 verdict 的前提)/ 未验证项;无对应写"不适用"不留空。结尾声明不熟的模块 / 栈 + 受影响的 finding。
 
@@ -37,14 +37,14 @@ severity(Critical/Important/Minor) · confidence(1-10) · locator(file:line) · 
 
 ## Return Contract
 ```
-### Verdict — pass / needs repair / needs redirection / blocked / needs context
+### Verdict — pass / needs-repair / needs-redirection / blocked / needs-context
 ### Evidence — 证据表 + 偏见声明
 ### Result — 对应 angle 文件规定的结果字段
 ### Critical / Important / 低置信度观察 — 每条按 Finding 字段
 ### Assessment — 1-2 句
 ```
-整体 `needs context` = 没拿到审查上下文,在 Verdict 说明缺什么,别硬凑 finding。
-`needs redirection` = 方向/源意图本身存疑(方向级第一问命中),不是产物有缺陷(那才是 needs repair);Verdict 一句话说清「源意图哪里可疑 + 建议重新框定」,交人决策。
+整体 `needs-context` = 没拿到审查上下文,在 Verdict 说明缺什么,别硬凑 finding。
+`needs-redirection` = 方向/源意图本身存疑(方向级第一问命中),不是产物有缺陷(那才是 needs-repair);Verdict 一句话说清「源意图哪里可疑 + 建议重新框定」,交人决策。
 
-## 附录:禁用捷径（仅 plan 落地 / final 引用）
+## 禁用捷径（普适红线）
 普适原则(任何项目):跨边界用弱类型裸结构绕过正式**合同** / 新增可被外部引用之物不**登记** / 绕过项目的数据校验与迁移机制 / 把行为测在非**权威层**——命中即 finding;影响验收 / 数据 / 权限 / 账务 / runtime / 发布时升 Critical。按被审项目自身的合同 / 登记 / 迁移机制具体化,别套别的项目的清单。
