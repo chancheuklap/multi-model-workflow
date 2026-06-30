@@ -59,6 +59,7 @@ cmd_handoff() {
   rc="$(jq -r .repair_count "$m")"
   tc="$(jq -r .turnaround_count "$m")"
   gate="$(jq -r '.gate // empty' "$m")"   # "" = 不在审闸;非空 = 正在该阶段审 loop 里
+  local cur_step; cur_step="$(jq -r '.step_index // 0' "$m")"
   # 本阶段是不是 review-gated(routes.review_gates)
   gated=no
   jq -e --arg p "$cur_phase" '(.review_gates // []) | index($p) != null' "$ROUTES" >/dev/null 2>&1 && gated=yes
@@ -73,7 +74,8 @@ cmd_handoff() {
   first_phase="$(jq -r '.phases[0]' "$m")"
 
   # 按结论算动作(引擎核心)。new_gate 默认清空;只有"进审闸"那一支把它设成当前阶段。
-  local new_phase="$cur_phase" new_pidx="$pidx" new_rc="$rc" new_tc="$tc" new_status="active" new_gate=""
+  # new_step 默认 0(换阶段/原地返工/掉头都从头走该阶段步序);needs-context/blocked 停在原地→保留游标,resume 续上当前步
+  local new_phase="$cur_phase" new_pidx="$pidx" new_rc="$rc" new_tc="$tc" new_status="active" new_gate="" new_step=0
   local next_action next_phase="" human
   case "$conclusion" in
     pass)
@@ -125,11 +127,11 @@ cmd_handoff() {
       fi
       ;;
     needs-context)
-      new_status="waiting-user"; next_action="ask-user"; next_phase="$cur_phase"
+      new_status="waiting-user"; next_action="ask-user"; next_phase="$cur_phase"; new_step="$cur_step"
       human="[$cur_phase] 缺输入 → 停下问用户,补齐后 resume"
       ;;
     blocked)
-      new_status="blocked"; next_action="report-user"
+      new_status="blocked"; next_action="report-user"; new_step="$cur_step"
       human="[$cur_phase] 卡住 → 上报用户(带完整经过)"
       ;;
   esac
@@ -144,10 +146,10 @@ cmd_handoff() {
     --arg phase "$new_phase" --argjson pidx "$new_pidx" --argjson rc "$new_rc" \
     --argjson tc "$new_tc" --arg status "$new_status" --arg gate "$new_gate" \
     --arg hphase "$cur_phase" --arg hconc "$conclusion" --arg at "$(now)" \
-    --argjson produced "$produced_json" \
+    --argjson produced "$produced_json" --argjson nstep "$new_step" \
     '.phase=$phase | .phase_index=$pidx | .repair_count=$rc | .turnaround_count=$tc | .status=$status
      | .gate=(if $gate=="" then null else $gate end)
-     | .step_index=0
+     | .step_index=$nstep
      | .artifacts += $produced
      | (if ($produced|length)>0 then .phase_outputs[$hphase] = ((.phase_outputs[$hphase] // []) + $produced) else . end)
      | .history += [{phase:$hphase, conclusion:$hconc, at:$at}]' \
@@ -236,6 +238,7 @@ cmd_where() {
   fi
   if [ "$step_total" -gt 0 ]; then
     step_idx="$(jq -r '.step_index // 0' "$m")"
+    [ "$step_idx" -lt 0 ] && step_idx=0
     [ "$step_idx" -ge "$step_total" ] && step_idx=$(( step_total - 1 ))
     step_id="$(jq -r --arg k "$phase" --argjson i "$step_idx" '.phase_bindings[$k].steps[$i].id' "$ROUTES")"
     b_load="$(jq -r --arg k "$phase" --argjson i "$step_idx" '.phase_bindings[$k].steps[$i].load' "$ROUTES")"
@@ -309,7 +312,7 @@ cmd_step() {
   sload="$(jq -r --arg k "$phase" --argjson i "$nidx" '.phase_bindings[$k].steps[$i].load' "$ROUTES")"
   sdo="$(jq -r --arg k "$phase" --argjson i "$nidx" '.phase_bindings[$k].steps[$i].do' "$ROUTES")"
   cat <<EOF
-STEP=$sid ($(( nidx + 1 ))/$total)
+step=$sid ($(( nidx + 1 ))/$total)
 load=$sload
 do=$sdo
 EOF

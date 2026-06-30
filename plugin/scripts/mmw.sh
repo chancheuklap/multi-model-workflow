@@ -26,7 +26,7 @@
 set -euo pipefail
 D="$(cd "$(dirname "$0")" && pwd)"
 
-usage() { sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; }
 
 cmd="${1:-help}"; shift || true
 case "$cmd" in

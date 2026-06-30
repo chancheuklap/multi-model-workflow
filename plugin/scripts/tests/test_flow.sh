@@ -193,8 +193,11 @@ echo "$WID" | grep -q "step=discuss (1/4)" && ok "design 入步:where 报 step=d
 echo "$WID" | grep -q "load=references/design/discussion.md" && ok "discuss 步只 load discussion.md(懒加载)" || no "discuss load"
 echo "$WID" | grep -q "then=mmw step next" && ok "非末步 then=mmw step next(脚本导航)" || no "then step next"
 SN="$(cd "$WI" && bash "$FLOW" step next)"
-echo "$SN" | grep -q "STEP=prototype (2/4)" && ok "step next → prototype(2/4)" || no "step next prototype ($SN)"
+echo "$SN" | grep -q "step=prototype (2/4)" && ok "step next → prototype(2/4)" || no "step next prototype ($SN)"
 [ "$(mfield "$WI" step_index)" = "1" ] && ok "step_index 落盘=1(断点恢复靠它)" || no "step_index 落盘"
+# needs-context 停下问用户 = 原地等,resume 要续当前步,不能把游标清 0
+( cd "$WI" && bash "$FLOW" handoff --conclusion needs-context >/dev/null )
+[ "$(mfield "$WI" step_index)" = "1" ] && ok "needs-context 保留 step_index=1(resume 续当前步)" || no "needs-context 不该清 step_index"
 ( cd "$WI" && bash "$FLOW" step next >/dev/null )   # →write
 ( cd "$WI" && bash "$FLOW" step next >/dev/null )   # →selfcheck(末步)
 WIL="$(cd "$WI" && bash "$FLOW" where)"
@@ -214,8 +217,8 @@ if ( cd "$WI2" && bash "$FLOW" step next >/dev/null 2>&1 ); then no "无步骤�
 WIP="$(cd "$WI" && bash "$FLOW" where)"
 echo "$WIP" | grep -q "step=orchestrate (1/3)" && ok "plan 也步骤化:step=orchestrate(1/3)load=plan-flow" || no "plan step=orchestrate ($(echo "$WIP"|grep step=))"
 echo "$WIP" | grep -q "load=references/plan/plan-flow.md" && ok "plan orchestrate 步 load plan-flow.md" || no "plan load"
-echo "$(cd "$WI" && bash "$FLOW" step next)" | grep -q "STEP=write (2/3)" && ok "plan step next → write(task-pack)" || no "plan write"
-echo "$(cd "$WI" && bash "$FLOW" step next)" | grep -q "STEP=selfcheck (3/3)" && ok "plan step next → selfcheck(plan-self-check)" || no "plan selfcheck"
+echo "$(cd "$WI" && bash "$FLOW" step next)" | grep -q "step=write (2/3)" && ok "plan step next → write(task-pack)" || no "plan write"
+echo "$(cd "$WI" && bash "$FLOW" step next)" | grep -q "step=selfcheck (3/3)" && ok "plan step next → selfcheck(plan-self-check)" || no "plan selfcheck"
 
 echo ""
 echo "Results: $pass passed, $fail failed"
