@@ -1,0 +1,384 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - heading "Plugin 工作流 · 全细节流程图" [level=1] [ref=e4]
+    - paragraph [ref=e5]: 每个节点 = 一步,填了 读哪份文档 / 跑哪条命令 / 输入 / 输出。所有「出」字段是实跑 plugin 抓的真 stdout,不抄文档。 走 develop 全程(slug=demo)。
+    - generic [ref=e6]:
+      - generic [ref=e7]: 脚本/状态机
+      - generic [ref=e9]: Claude 判断
+      - generic [ref=e11]: Codex 苦力
+      - generic [ref=e13]: Hook
+      - generic [ref=e15]: 审闸
+      - generic [ref=e17]: 绿底=真实 stdout
+  - generic [ref=e18]:
+    - generic [ref=e19]:
+      - generic [ref=e20]:
+        - generic [ref=e21]: 脚本
+        - generic [ref=e22]: A 建任务
+        - generic [ref=e23]: prepare.sh:23
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - generic [ref=e26]: 读
+          - generic [ref=e27]: skills/orchestrate/SKILL.md(只路由)
+        - generic [ref=e28]:
+          - generic [ref=e29]: 命令
+          - generic [ref=e30]: mmw task new --scenario develop --slug demo --title 演示
+        - generic [ref=e31]:
+          - generic [ref=e32]: 入
+          - generic [ref=e33]: scenario=develop · slug=demo · title
+        - generic [ref=e34]:
+          - generic [ref=e35]: 出
+          - generic [ref=e36]: PREPARED · worktree_path=…/.claude/worktrees/demo · branch=demo · phase=investigate · 写 task.json(phases=develop 预设)· NEXT=EnterWorktree
+    - generic [ref=e38]: EnterWorktree → 读 scenario/develop.md → 进阶段循环
+    - generic [ref=e39]:
+      - generic [ref=e40]:
+        - text: "每阶段三拍:"
+        - code [ref=e41]: mmw where
+        - text: (脚本报 load/do/then/prev_outputs)→ Claude 干活 →
+        - code [ref=e42]: mmw handoff --conclusion <词>
+        - text: 。引擎按结论词跳(真 stdout：
+        - code [ref=e43]: NEXT_ACTION/NEXT_PHASE/STATUS
+        - text: "):"
+      - generic [ref=e44]:
+        - generic [ref=e45]: pass
+        - generic [ref=e46]: 普通阶段→advance;gated(design/plan/build)→phase 冻结+强制审;末阶段→ready-to-close
+      - generic [ref=e47]:
+        - generic [ref=e48]: needs-repair
+        - generic [ref=e49]: 原地返工本阶段(repair+1,超 2→blocked)
+      - generic [ref=e50]:
+        - generic [ref=e51]: needs-redirection
+        - generic [ref=e52]: 掉头回 --to-phase 上游(turnaround+1,超 1→blocked)
+      - generic [ref=e53]:
+        - generic [ref=e54]: needs-context
+        - generic [ref=e55]: 停下问你,留步游标 resume
+      - generic [ref=e56]:
+        - generic [ref=e57]: blocked
+        - generic [ref=e58]: 上报你,带经过 · flow.sh:80-137,词非法当场拒 :52
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]: Claude
+        - generic [ref=e63]: investigate 查清现状
+        - generic [ref=e64]: routes.json:23
+      - generic [ref=e65]:
+        - generic [ref=e66]:
+          - generic [ref=e67]: 读
+          - generic [ref=e68]: references/investigate.md
+        - generic [ref=e69]:
+          - generic [ref=e70]: 做
+          - generic [ref=e71]: 并行投查现状(自建 Workflow),取证不判定
+        - generic [ref=e72]:
+          - generic [ref=e73]: 入
+          - generic [ref=e74]: prev_outputs=[](首阶段无上游)
+        - generic [ref=e75]:
+          - generic [ref=e76]: 命令
+          - generic [ref=e77]: mmw handoff --conclusion pass --produced docs/investigating/demo.md
+        - generic [ref=e78]:
+          - generic [ref=e79]: 出
+          - generic [ref=e80]: NEXT_ACTION=advance · NEXT_PHASE=propose · 产物钉 phase_outputs[investigate]
+    - generic [ref=e82]:
+      - generic [ref=e83]:
+        - generic [ref=e84]: Claude
+        - generic [ref=e85]: propose 给方案
+        - generic [ref=e86]: HITL 选向
+        - generic [ref=e87]: routes.json:24
+      - generic [ref=e88]:
+        - generic [ref=e89]:
+          - generic [ref=e90]: 读
+          - generic [ref=e91]: references/propose.md
+        - generic [ref=e92]:
+          - generic [ref=e93]: 做
+          - generic [ref=e94]: 综合现状亮 2-3 方案,停下让你指定一个(全否→needs-redirection)
+        - generic [ref=e95]:
+          - generic [ref=e96]: 入
+          - generic [ref=e97]: prev_outputs=["docs/investigating/demo.md"]
+        - generic [ref=e98]:
+          - generic [ref=e99]: 命令
+          - generic [ref=e100]: mmw handoff --conclusion pass --produced docs/design/demo-direction.md
+        - generic [ref=e101]:
+          - generic [ref=e102]: 出
+          - generic [ref=e103]: NEXT_PHASE=design
+    - generic [ref=e105]:
+      - generic [ref=e106]:
+        - generic [ref=e107]: Claude
+        - generic [ref=e108]: design 设计
+        - generic [ref=e109]: ① 审闸
+        - generic [ref=e110]: HITL 集中
+        - generic [ref=e111]: routes.json:25-30
+      - generic [ref=e112]:
+        - generic [ref=e113]:
+          - generic [ref=e114]: 读
+          - generic [ref=e115]:
+            - text: 4 步游标(
+            - code [ref=e116]: mmw step next
+            - text: "推进,每步现读):"
+        - generic [ref=e119]: 1 discuss → design/discussion.md · 2 prototype → prototype-mockup.md · 3 write → design-doc-template.md · 4 selfcheck → design-self-check.md
+        - generic [ref=e120]:
+          - generic [ref=e121]: 入
+          - generic [ref=e122]: prev_outputs=["…/demo.md(现状)","…/demo-direction.md(方向)"]
+        - generic [ref=e123]:
+          - generic [ref=e124]: 命令
+          - generic [ref=e125]: step×3 完 → mmw handoff --conclusion pass --produced docs/design/demo.md
+        - generic [ref=e126]:
+          - generic [ref=e127]: 出
+          - generic [ref=e128]: NEXT_ACTION=review · REVIEW_STAGE=design · gate=design(phase 冻结,不 advance)
+    - generic [ref=e130]: pass + gated → 引擎冻结,强制进审闸 ▼
+    - generic [ref=e131]:
+      - generic [ref=e132]: ① 审闸子流程(design)· kind=review
+      - generic [ref=e133]:
+        - generic [ref=e134]:
+          - generic [ref=e135]:
+            - generic [ref=e136]: 脚本
+            - generic [ref=e137]: where 在闸里吐起审命令
+            - generic [ref=e138]: flow.sh:264-274
+          - generic [ref=e139]:
+            - generic [ref=e140]:
+              - generic [ref=e141]: 命令
+              - generic [ref=e142]: mmw where
+            - generic [ref=e143]:
+              - generic [ref=e144]: 出
+              - generic [ref=e145]: gate=design · load=references/review/review.md · review_source=docs/design/demo.md · review_start=mmw review start --stage design --source docs/design/demo.md
+        - generic [ref=e147]:
+          - generic [ref=e148]:
+            - generic [ref=e149]: 脚本
+            - generic [ref=e150]: 起审 loop
+            - generic [ref=e151]: review.sh:19
+          - generic [ref=e152]:
+            - generic [ref=e153]:
+              - generic [ref=e154]: 命令
+              - generic [ref=e155]: mmw review start --stage design --source docs/design/demo.md
+            - generic [ref=e156]:
+              - generic [ref=e157]: 入
+              - generic [ref=e158]: stage=design · source=产物
+            - generic [ref=e159]:
+              - generic [ref=e160]: 出
+              - generic [ref=e161]: INIT kind=review · REVIEW_STARTED · ANGLE=review/design.md · QUARTET=review/quartet.md · 打印协调帮手 brief
+        - generic [ref=e163]:
+          - generic [ref=e164]:
+            - generic [ref=e165]: Claude
+            - generic [ref=e166]: 抽覆盖清单
+            - generic [ref=e167]: loop.sh:80
+          - generic [ref=e168]:
+            - generic [ref=e169]:
+              - generic [ref=e170]: 命令
+              - generic [ref=e171]: mmw loop checklist add --item "源意图与方案对齐" --source docs/design/demo.md:1
+            - generic [ref=e172]:
+              - generic [ref=e173]: 出
+              - generic [ref=e174]: CHECK-ADD 源意图与方案对齐(写进 loop-state.checklist)
+        - generic [ref=e176]:
+          - generic [ref=e177]:
+            - generic [ref=e178]: Codex×2
+            - generic [ref=e179]: 两独立审者并行(协调帮手派)
+            - generic [ref=e180]: review.sh:68
+          - generic [ref=e181]:
+            - generic [ref=e182]:
+              - generic [ref=e183]: 读
+              - generic [ref=e184]: review/quartet.md + review/design.md(轴A 设计内容 / 轴B 项目对齐)
+            - generic [ref=e185]:
+              - generic [ref=e186]: 命令
+              - generic [ref=e187]: codex exec --sandbox read-only -m gpt-5.5 -c model_reasoning_effort=xhigh - < prompt
+            - generic [ref=e188]:
+              - generic [ref=e189]: 入
+              - generic [ref=e190]: quartet+angle+Source(不用 codex review,绕方法论)
+            - generic [ref=e191]:
+              - generic [ref=e192]: 出
+              - generic [ref=e193]: Codex findings(原文,是劳动力不是信源)
+        - generic [ref=e195]:
+          - generic [ref=e196]:
+            - generic [ref=e197]: Claude
+            - generic [ref=e198]: 收回 finding 亲验
+            - generic [ref=e199]: loop.sh:90,102
+          - generic [ref=e200]:
+            - generic [ref=e201]:
+              - generic [ref=e202]: 命令
+              - generic [ref=e203]: mmw loop checklist cover --item … --evidence file:line / loop finding add
+            - generic [ref=e204]:
+              - generic [ref=e205]: 入
+              - generic [ref=e206]: Codex findings(引不出 file:line 降置信)
+            - generic [ref=e207]:
+              - generic [ref=e208]: 出
+              - generic [ref=e209]: CHECK-COVER … / FINDING-ADD …
+        - generic [ref=e210]: ⟲ guard-loop(SubagentStop):exit-check NOT-DONE → exit2 顶回续审 · guard-loop.sh:16-22
+        - generic [ref=e211]:
+          - generic [ref=e212]:
+            - generic [ref=e213]: 脚本
+            - generic [ref=e214]: 退出核 + 收口
+            - generic [ref=e215]: loop.sh:145 · flow.sh:38
+          - generic [ref=e216]:
+            - generic [ref=e217]:
+              - generic [ref=e218]: 命令
+              - generic [ref=e219]: mmw loop exit-check → mmw handoff --conclusion pass
+            - generic [ref=e220]:
+              - generic [ref=e221]: 出
+              - generic [ref=e222]: "exit-check=DONE(清单全 cover、无开口 Critical)· handoff: 清 gate · NEXT_PHASE=to-issue"
+    - generic [ref=e224]: 审过(verdict pass)→ 清 gate,advance ▼
+    - generic [ref=e225]:
+      - generic [ref=e226]:
+        - generic [ref=e227]: Claude
+        - generic [ref=e228]: to-issue 切片
+        - generic [ref=e229]: routes.json:31
+      - generic [ref=e230]:
+        - generic [ref=e231]:
+          - generic [ref=e232]: 读
+          - generic [ref=e233]: references/design/to-issue-skeleton.md
+        - generic [ref=e234]:
+          - generic [ref=e235]: 入
+          - generic [ref=e236]: prev_outputs=["docs/design/demo.md"](reads 声明带 design)
+        - generic [ref=e237]:
+          - generic [ref=e238]: 命令
+          - generic [ref=e239]: mmw handoff --conclusion pass --produced docs/issues/demo/
+        - generic [ref=e240]:
+          - generic [ref=e241]: 出
+          - generic [ref=e242]: NEXT_PHASE=plan(非 gated,直通)
+    - generic [ref=e244]:
+      - generic [ref=e245]:
+        - generic [ref=e246]: Claude
+        - generic [ref=e247]: plan 拆计划
+        - generic [ref=e248]: ② 审闸
+        - generic [ref=e249]: HITL
+        - generic [ref=e250]: routes.json:33-37
+      - generic [ref=e251]:
+        - generic [ref=e252]:
+          - generic [ref=e253]: 读
+          - generic [ref=e254]: 3 步:orchestrate→plan/plan-flow.md(多计划 fan-out plan-writer)· write→plan/task-pack.md · selfcheck→plan/plan-self-check.md
+        - generic [ref=e255]:
+          - generic [ref=e256]: 入
+          - generic [ref=e257]: prev_outputs=["docs/design/demo.md"]
+        - generic [ref=e258]:
+          - generic [ref=e259]: 命令
+          - generic [ref=e260]: step×2 完 → mmw handoff --conclusion pass --produced docs/plans/demo/
+        - generic [ref=e261]:
+          - generic [ref=e262]: 出
+          - generic [ref=e263]: gate=plan · review_start=mmw review start --stage plan --source docs/issues/demo/
+    - generic [ref=e265]: ② 审闸子流程 = 同 ① 一字不差,只 stage=plan、angle=review/plan.md ▼ 审过→advance build
+    - generic [ref=e266]:
+      - generic [ref=e267]:
+        - generic [ref=e268]: Claude
+        - generic [ref=e269]: build 落地
+        - generic [ref=e270]: ④ 审闸 final
+        - generic [ref=e271]: routes.json:39
+      - generic [ref=e272]:
+        - generic [ref=e273]:
+          - generic [ref=e274]: 读
+          - generic [ref=e275]: references/build.md
+        - generic [ref=e276]:
+          - generic [ref=e277]: 入
+          - generic [ref=e278]: prev_outputs=["docs/issues/demo/","docs/plans/demo/"]
+        - generic [ref=e279]:
+          - generic [ref=e280]: 做
+          - generic [ref=e281]: ▼ 先进「落地内层」把代码落地,再 B6 handoff 触发 ④ 审闸
+    - generic [ref=e283]:
+      - generic [ref=e284]: 落地内层 · kind=execution(模式 B 派 Codex)
+      - generic [ref=e285]:
+        - generic [ref=e286]:
+          - generic [ref=e287]:
+            - generic [ref=e288]: 脚本
+            - generic [ref=e289]: 起落地 loop + 登步
+            - generic [ref=e290]: loop.sh:39-67
+          - generic [ref=e291]:
+            - generic [ref=e292]:
+              - generic [ref=e293]: 命令
+              - generic [ref=e294]: mmw loop init --kind execution → attendance --mode afk → step add --id 1.1 --desc "Pack 1.1"
+            - generic [ref=e295]:
+              - generic [ref=e296]: 出
+              - generic [ref=e297]: INIT kind=execution · ATTENDANCE=afk · STEP-ADD 1.1
+        - generic [ref=e299]:
+          - generic [ref=e300]:
+            - generic [ref=e301]: Codex
+            - generic [ref=e302]: 派进 worktree 写代码
+            - generic [ref=e303]: codex-worker.sh:79
+          - generic [ref=e304]:
+            - generic [ref=e305]:
+              - generic [ref=e306]: 入
+              - generic [ref=e307]: "--plan docs/plans/demo/001.md · --worktree …/wt-demo-1(固定 prompt:严防过度设计/兜底、严格 TDD、测试按仓库治理文档、每 Pack 一提交、禁改 docs/)"
+            - generic [ref=e308]:
+              - generic [ref=e309]: 命令
+              - generic [ref=e310]: mmw codex dispatch --plan … --worktree …(内部 codex exec --sandbox workspace-write -m gpt-5.4)
+            - generic [ref=e311]:
+              - generic [ref=e312]: 出
+              - generic [ref=e313]: "建 worktree · CODEX_EXIT=0 · SESSION=sess-abc(供 resume)· 最后消息「Pack 1.1 done: 改了 src/x.py,测试绿」"
+        - generic [ref=e315]:
+          - generic [ref=e316]:
+            - generic [ref=e317]: Claude
+            - generic [ref=e318]: B3 验收三关(命门,不信 Codex 自述)
+            - generic [ref=e319]: build.md:81-94
+          - generic [ref=e320]:
+            - generic [ref=e321]:
+              - generic [ref=e322]: 读
+              - generic [ref=e323]: 仓库测试治理文档(TESTING.md / AGENTS.md 测试节)
+            - generic [ref=e324]:
+              - generic [ref=e325]: 入
+              - generic [ref=e326]: Codex 最后消息 + plan acceptance + 仓库测试标准
+            - generic [ref=e327]:
+              - generic [ref=e328]: 做
+              - generic [ref=e329]: ① 完整性(跑验收/读 diff)· ② 测试质量(防垃圾测试自绿)· ③ 设计一致性
+            - generic [ref=e330]:
+              - generic [ref=e331]: 出
+              - generic [ref=e332]: 过 → step done;不过 → codex resume
+        - generic [ref=e334]:
+          - generic [ref=e335]:
+            - generic [ref=e336]: 脚本
+            - generic [ref=e337]: 记步 + 退出核
+            - generic [ref=e338]: loop.sh:68,145 · record-step.sh
+          - generic [ref=e339]:
+            - generic [ref=e340]:
+              - generic [ref=e341]: 命令
+              - generic [ref=e342]: mmw loop step done --id 1.1 → mmw loop exit-check
+            - generic [ref=e343]:
+              - generic [ref=e344]: 入
+              - generic [ref=e345]: commit 含「Pack 1.1」→ record-step hook 自动记(PostToolUse)
+            - generic [ref=e346]:
+              - generic [ref=e347]: 出
+              - generic [ref=e348]: STEP-DONE 1.1 · exit-check=DONE
+        - generic [ref=e349]: ⟲ 验不过 → mmw codex resume --worktree … --instructions fix.md(续 sess-abc,不重做已过 Pack)· codex-worker.sh:111
+        - generic [ref=e350]:
+          - generic [ref=e351]:
+            - generic [ref=e352]: 脚本
+            - generic [ref=e353]: ③ 合同门(机器核,不派 Codex)
+            - generic [ref=e354]: review.sh:35
+          - generic [ref=e355]:
+            - generic [ref=e356]:
+              - generic [ref=e357]: 读
+              - generic [ref=e358]: review/plan-impl.md
+            - generic [ref=e359]:
+              - generic [ref=e360]: 命令
+              - generic [ref=e361]: mmw review start --stage plan-impl → loop checklist add(逐条合同)→ loop exit-check
+            - generic [ref=e362]:
+              - generic [ref=e363]: 出
+              - generic [ref=e364]: INIT kind=contract-gate · 合同未 cover 时 exit-check=NOT-DONE:packs=none;contracts=<合同> · 全 cover→DONE
+    - generic [ref=e366]: "B6: mmw handoff pass --produced base..HEAD → gate=build → review_start --stage final(④ 审闸,同 ①,产 docs/demo-final-review.md)▼"
+    - generic [ref=e367]:
+      - generic [ref=e368]:
+        - generic [ref=e369]: Claude
+        - generic [ref=e370]: closing 收尾
+        - generic [ref=e371]: routes.json:40
+      - generic [ref=e372]:
+        - generic [ref=e373]:
+          - generic [ref=e374]: 读
+          - generic [ref=e375]: references/closing.md
+        - generic [ref=e376]:
+          - generic [ref=e377]: 入
+          - generic [ref=e378]: prev_outputs=build 产物(含终审报告);git status / open_items / subtasks
+        - generic [ref=e379]:
+          - generic [ref=e380]: 命令
+          - generic [ref=e381]: mmw handoff --conclusion pass
+        - generic [ref=e382]:
+          - generic [ref=e383]: 出
+          - generic [ref=e384]: STATUS=ready-to-close · NEXT_ACTION=done
+    - generic [ref=e386]:
+      - generic [ref=e387]:
+        - generic [ref=e388]: Hook+脚本
+        - generic [ref=e389]: 发布红线 + 清理(回主仓库)
+        - generic [ref=e390]: guard-redline.sh · prepare.sh:99
+      - generic [ref=e391]:
+        - generic [ref=e392]:
+          - generic [ref=e393]: 命令
+          - generic [ref=e394]: mmw release-approve → git merge --no-ff → mmw task cleanup --slug demo
+        - generic [ref=e395]:
+          - generic [ref=e396]: 入
+          - generic [ref=e397]: 你亲批;merge/push/deploy 无令牌被 guard-redline(PreToolUse)deny
+        - generic [ref=e398]:
+          - generic [ref=e399]: 出
+          - generic [ref=e400]: RELEASE-APPROVED token=…/release-approval(一次性,放行一次即消费)· CLEANED slug=demo(先验分支并入 HEAD,fail-closed)
+    - generic [ref=e402]: ✓ 任务完成
+  - paragraph [ref=e403]:
+    - text: 「出」字段全部来自实跑 plugin 抓的真实 stdout(临时 develop 任务 slug=demo,fake codex 代真 codex)。读文档/命令来自 routes.json 引擎数据 + 各脚本真实接口。
+    - text: 脚本依据 · SKILL.md · flow.sh · routes.json · prepare.sh · loop.sh · review.sh · codex-worker.sh · hooks.json · guard-loop.sh · guard-redline.sh · record-step.sh —— 非抄文档、非工作总结。

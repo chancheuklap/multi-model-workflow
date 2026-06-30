@@ -1,0 +1,46 @@
+# to-issue 阶段 · 垂直切片立 issue 骨架(读本文全文)
+
+> `to-issue` 是 ①设计审**之后**、plan **之前**的独立阶段:把已评审的设计垂直切片成可独立认领的 issue 骨架,钉进接力单交给 plan。主线程做。**只立骨架,实施细节由 plan 阶段(`write-plan-doc` / plan-writer)按计划 schema 丰富**——这里不写 Task Pack。
+>
+> `prev_outputs` = design 钉的设计文档(已过 ①设计审)。读它来切片;不重提方案、不改设计(要改设计 → `mmw handoff --conclusion needs-redirection --to-phase design`)。
+
+## 怎么拆:委托外部 `to-issues` skill(方法论单源,不在此复制)
+
+切片方法论本体在外部 `to-issues` skill —— tracer-bullet / vertical-slice(每个 issue 切穿所有集成层、端到端可独立验证)+ **Step4 向用户编号列表确认粒度/依赖,迭代到用户认可**。用它来拆,**这一步的质量闸就是 to-issues 自带的用户确认**(不是无质量门;plugin 不再叠一道审闸,②计划审再兜底一次)。
+
+plugin 在 `to-issues` 结果上做两件**适配**(它默认发 GitHub issue tracker,我们是文件系统):
+
+**适配 1 · 产物落文件,不发 tracker**:每个大 issue 落 `docs/issues/<YYYY-MM-DD>-<slug>/<issue>.md`(slug 与设计文档对齐,prepare 已 scaffold `docs/issues/<slug>/`)。**override `to-issues` 的 Step5「publish to issue tracker」**——不发远端,写本地文件。
+
+**适配 2 · issue 文件模板**(= `to-issues` 模板 + plugin 扩展两节,缺一下游读不到):
+
+```markdown
+## What to build
+<这条 vertical slice 的端到端行为,不写逐层实现、不写文件路径>
+
+## Acceptance criteria
+- [ ] ...
+
+## Blocked by
+<依赖的其它 issue,或 "None - 可立即开始">
+
+## Design context refs        ← plugin 扩展,至少一条
+<指向设计文档对应章节,下游零上下文靠它回设计找依据>
+
+## Small issues               ← plugin 扩展
+<!-- PENDING -->              ← 小 issue 由 write-plan-doc 在 plan 阶段补全,这里不填
+```
+
+每个大 issue 头部标 **AFK**(可无人值守落地)或 **HITL**(要人盯)。**优先多个 thin slice,而非少数 thick slice。**
+
+## 收尾:钉进接力单 → handoff
+
+本阶段只产 **issue 骨架**(设计文档已由 design 阶段钉过,plan 的 `prev_outputs` 按 `reads:[design,to-issue]` 一单读全):
+
+```bash
+mmw handoff --conclusion pass --produced docs/issues/<slug>/
+```
+
+`mmw where` 的 `then` 已给好命令模板,照抄即可。→ advance 到 plan。
+
+切片中发现设计本身缺口 / 方向错 → 别硬切,回上游:`mmw handoff --conclusion needs-redirection --to-phase design`(`needs-repair` 是原地返工、回不到 design)。

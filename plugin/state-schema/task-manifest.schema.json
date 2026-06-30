@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "task-manifest",
+  "description": "单一真相源(进度档)。每个 worktree 一份,落 <worktree>/.claude/multi-model-workflow/task.json(gitignore,随 worktree 删除)。机器建、机器读写,agent 永不手写。入口靠它断点恢复;merge 场景靠 git worktree list + 读各家 manifest 拿全队视图。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "slug", "title", "scenario", "phases",
+    "status", "phase", "phase_index", "step_index", "gate", "created_at", "base_commit",
+    "branch", "worktree_path", "docs",
+    "repair_count", "turnaround_count",
+    "artifacts", "phase_outputs", "open_items", "subtasks", "history"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+
+    "slug": {
+      "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$", "maxLength": 64,
+      "description": "worktree 名 = 分支名 = docs 目录名,一名贯穿。建议 YYYY-MM-DD-<theme>。"
+    },
+    "title": { "type": "string", "description": "人类可读任务标题(中文 OK)" },
+    "scenario": {
+      "enum": ["small-change", "develop", "bug"],
+      "description": "开口预设(routes.json presets),只决定默认开主干哪几个阶段。develop=新想法或优化(同一完整主干)。merge 不开 worktree、无 manifest。"
+    },
+    "phases": {
+      "type": "array", "items": { "type": "string" }, "minItems": 1,
+      "description": "本任务开着的阶段序列(主干被预设过滤后的结果,固化进来)。flow 据它推进;升级/掉头=改它"
+    },
+
+    "status": {
+      "enum": ["active", "waiting-user", "blocked", "ready-to-close", "merged"],
+      "description": "active 进行中;waiting-user 等用户拍板;blocked 卡住;ready-to-close 末阶段过待收尾;merged 已合并待清理"
+    },
+    "phase": { "type": "string", "description": "当前阶段名,phases[phase_index]" },
+    "phase_index": { "type": "integer", "minimum": 0, "description": "当前阶段在 phases 里的下标。推进/恢复都靠它,O(1) 不靠推断" },
+    "step_index": { "type": "integer", "minimum": 0, "description": "阶段内步骤游标(phase 有 steps 时):where 报第 step_index 步的 load/do,mmw step next +1,handoff 换阶段时重置 0。断点恢复到精确步" },
+    "gate": {
+      "type": ["string", "null"],
+      "description": "审闸状态(routes.review_gates map 的键):null=不在闸里;非 null=本阶段产物已过、正在跑该阶段的审 loop(值=阶段名,审 stage 由 review_gates[值].stage 定:design→design / plan→plan / build→final)。审过 handoff pass 才 advance,审打回则清空回该阶段返工"
+    },
+
+    "created_at": { "type": "string" },
+    "base_commit": { "type": "string", "description": "创建时本地 HEAD sha" },
+    "branch": { "type": "string" },
+    "worktree_path": { "type": "string" },
+    "docs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["investigating", "design", "issues", "plans", "context"],
+      "properties": {
+        "investigating": { "type": "string", "description": "查清报告存档基路径,investigate 写 <base>.md(命名同设计文档)" },
+        "design": { "type": "string", "description": "设计文档基路径,design 阶段写 <base>.md(单)或 <base>/(多)" },
+        "issues": { "type": "string", "description": "本任务 issue 目录" },
+        "plans": { "type": "string", "description": "计划文档目录,plan 阶段写 <base>/00N-<issue-slug>.md" },
+        "context": { "type": "string", "description": "项目级领域文档目录(跨任务共享,domain-modeling 在 design 阶段维护,非本任务私有)" }
+      },
+      "description": "文档落点:investigating/design/issues/plans 按 slug,context 项目级共享(domain-modeling 维护)"
+    },
+
+    "repair_count": { "type": "integer", "minimum": 0, "description": "当前阶段已返工次数,进下一阶段清零;超 caps.max_repair 转 blocked" },
+    "turnaround_count": { "type": "integer", "minimum": 0, "description": "全程掉头次数;超 caps.max_turnaround 转 blocked" },
+
+    "artifacts": {
+      "type": "array", "items": { "type": "string" },
+      "description": "累积产出的文件路径(只存路径不存内容)。交接单的'我产出了什么'落这里"
+    },
+    "phase_outputs": {
+      "type": "object",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } },
+      "description": "接力单:每阶段产出钉成 phase→[路径]。handoff --produced 钉进对应阶段名,下阶段照单读上阶段产出(不靠'自己找')。investigate→现状报告;design→设计文档;plan→plan 目录;build→改动/提交标识 +(④终审闸)终审报告"
+    },
+    "gate_fingerprints": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "source-stability:gated 阶段过闸(审 verdict pass)时记下被审产物的内容指纹(phase→hash)。mmw where 再算一次比对,不同=过闸后被改→提示回该阶段重审。可选,首次过闸时由 flow.sh 写入"
+    },
+    "open_items": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["tag", "finding", "from_phase"],
+        "properties": {
+          "tag": { "enum": ["bug", "optimize", "out-of-scope", "needs-evaluation"] },
+          "finding": { "type": "string" },
+          "from_phase": { "type": "string" }
+        }
+      },
+      "description": "待办/遗留,不丢"
+    },
+    "subtasks": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["tag", "finding", "from_phase", "status"],
+        "properties": {
+          "tag": { "enum": ["bug", "optimize", "out-of-scope", "needs-evaluation"] },
+          "finding": { "type": "string" },
+          "from_phase": { "type": "string" },
+          "status": { "enum": ["pending", "spun-off"] }
+        }
+      },
+      "description": "调查中甩出的关联子任务,挂在主任务名下,不盲目 out-of-scope"
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["phase", "conclusion", "at"],
+        "properties": {
+          "phase": { "type": "string" },
+          "conclusion": { "type": "string" },
+          "at": { "type": "string" }
+        }
+      },
+      "description": "每次推进的流水(阶段+结论+时刻),供审计与恢复上下文"
+    }
+  }
+}

@@ -1,0 +1,254 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - heading "Multi-Model Workflow Plugin · 全景工作流" [level=1] [ref=e4]
+    - paragraph [ref=e5]: 按 plugin/ 真实代码逐节点画的控制流。分工:脚本/Hook 管确定的机械活,Claude 管判断、Codex 当苦力 —— 判断是这 plugin 的核心,不是兜底。 HITL 集中在设计/计划,执行放权自跑。主线走 develop(全开)。
+    - generic [ref=e6]:
+      - generic [ref=e7]: Claude 判断/协调
+      - generic [ref=e9]: Codex 苦力
+      - generic [ref=e11]: 脚本/状态机
+      - generic [ref=e13]: Hook 看守
+      - generic [ref=e15]: 引擎审闸
+      - generic [ref=e17]: HITL 停问你
+  - heading "主流程 · 一张图走完一次开发" [level=2] [ref=e19]: 主流程 · 一张图走完一次开发
+  - generic [ref=e21]:
+    - text: 中间竖线 = 主干 7 阶段(routes.json:11)。design / plan / build 是引擎审闸(产物 pass→phase 冻结→强制审→审过才放行)。右侧灰框 = 每次
+    - code [ref=e22]: mmw handoff
+    - text: 引擎按结论词怎么跳。红虚线 = 掉头回上游。两个浅绿框 = 阶段内部展开(详见下方图文)。
+  - img [ref=e24]:
+    - generic [ref=e25]:
+      - generic [ref=e27]: A · 进门(主仓库)
+      - generic [ref=e28]: mmw where → LLM 路由 → mmw task new → git worktree + task.json → 进 worktree
+      - generic [ref=e29]: SKILL.md:12-33 · flow.sh:199 · prepare.sh:23-83
+    - generic [ref=e30]:
+      - generic [ref=e32]: investigate
+      - generic [ref=e33]: 查清现状(并行投查,取证不判定)
+      - generic [ref=e34]: routes:23
+    - generic [ref=e35]:
+      - generic [ref=e37]: propose
+      - generic [ref=e38]: 综合现状亮 2-3 方案
+      - generic [ref=e40]: HITL 选方向
+    - generic [ref=e41]:
+      - generic [ref=e43]: design
+      - generic [ref=e44]: 设计文档(4 步:讨论/原型/写/自检)
+      - generic [ref=e45]: 产 docs/design/<slug>.md
+      - generic [ref=e47]: ① 审闸 design
+      - generic [ref=e49]: HITL 集中
+    - generic [ref=e50]:
+      - generic [ref=e52]: to-issue
+      - generic [ref=e53]: 设计垂直切片成 issue 骨架
+      - generic [ref=e54]: routes:31
+    - generic [ref=e55]:
+      - generic [ref=e57]: plan
+      - generic [ref=e58]: 拆计划(单/多;多则 fan-out plan-writer)
+      - generic [ref=e59]: 产 docs/plans/<slug>/
+      - generic [ref=e61]: ② 审闸 plan
+      - generic [ref=e63]: HITL
+    - generic [ref=e64]:
+      - generic [ref=e66]: build
+      - generic [ref=e67]: 落地:Codex 写 + Claude 验(模式 B)
+      - generic [ref=e69]: ▼ 内含「落地内层」
+      - generic [ref=e71]: ④ 审闸 final
+      - generic [ref=e72]: routes:39
+    - generic [ref=e73]:
+      - generic [ref=e75]: closing
+      - generic [ref=e76]: 收口确认 + 合并红线
+      - generic [ref=e77]: routes:40
+    - generic [ref=e80]: ✓ 完成 → cleanup
+    - generic [ref=e85]:
+      - generic [ref=e86]: 审(过)放行
+      - generic [ref=e87]: 审(过)放行
+      - generic [ref=e88]: 审(过)放行
+    - generic [ref=e90]: needs-redirection 掉头回上游(≤1次)
+    - generic [ref=e91]:
+      - generic [ref=e93]: 每个阶段 mmw handoff --conclusion <词>
+      - generic [ref=e94]: 引擎按结论词算下一步(词只 5 个,写别的当场拒)
+      - generic [ref=e95]:
+        - generic [ref=e97]: pass
+        - generic [ref=e98]: 普通阶段 → advance 下一阶段
+        - generic [ref=e99]: gated(design/plan/build)→ phase 冻结、强制审 → 审过再 pass 才 advance
+        - generic [ref=e100]: 末阶段 closing → ready-to-close
+        - generic [ref=e102]: needs-repair
+        - generic [ref=e103]: 原地返工本阶段
+        - generic [ref=e104]: repair+1,超 2 次 → blocked
+        - generic [ref=e106]: needs-redirection
+        - generic [ref=e107]: 掉头回 --to-phase 上游
+        - generic [ref=e108]: turnaround+1,超 1 次 → blocked(只能往上游,不能前跳)
+        - generic [ref=e110]: needs-context
+        - generic [ref=e111]: 停下问你,留步游标 resume
+        - generic [ref=e113]: blocked
+        - generic [ref=e114]: 上报你,带完整经过
+      - generic [ref=e115]: 产物钉进 phase_outputs[phase];下阶段照 reads 拼接力单。
+      - generic [ref=e116]: 审闸里 where 直接吐 review_start=mmw review start --stage X
+      - generic [ref=e117]: stage 由 review_gates map 定,不靠散文猜。
+      - generic [ref=e118]: flow.sh:80-137,264-274 · routes.json:5,7,13-17
+    - generic [ref=e120]: 每次 handoff
+  - heading "放大 1 · 审闸内部怎么转(design / plan / build 冻结后)" [level=2] [ref=e121]: 放大 1 · 审闸内部怎么转(design / plan / build 冻结后)
+  - generic [ref=e123]: 触发:gated 阶段 pass → 引擎冻 phase、设 gate。审者永远是独立 Codex,协调是 Claude,完工靠机器核清单不靠自报。三道审同一台 loop(kind=review)。
+  - generic [ref=e124]:
+    - img [ref=e126]:
+      - generic [ref=e127]:
+        - generic [ref=e129]: 脚本 review start
+        - generic [ref=e130]: init loop · 出 brief
+        - generic [ref=e132]: Claude 抽覆盖清单
+        - generic [ref=e133]: checklist add
+        - generic [ref=e135]: Codex×2 独立审
+        - generic [ref=e136]: exec read-only · quartet
+        - generic [ref=e138]: Claude 亲验 finding
+        - generic [ref=e139]: 引不出 file:line 降置信
+        - generic [ref=e141]: verdict → handoff
+        - generic [ref=e142]: pass / repair / redirect
+      - generic [ref=e144]: ⟲ guard-loop:没绿不许停,顶回续审
+    - list [ref=e145]:
+      - listitem [ref=e146]:
+        - generic [ref=e147]: 脚本
+        - code [ref=e148]: mmw review start --stage X
+        - text: → 映射 kind+angle、
+        - code [ref=e149]: loop init --kind review
+        - text: 、打印协调帮手 brief。review.sh:19-82
+      - listitem [ref=e150]:
+        - generic [ref=e151]: Codex×2
+        - code [ref=e152]: codex exec --sandbox read-only -m gpt-5.5
+        - text: 读 quartet.md + 该阶段 angle 并行审,不用
+        - code [ref=e153]: codex review
+        - text: (会绕方法论)。review.sh:68 · review.md:55
+      - listitem [ref=e154]:
+        - generic [ref=e155]: Claude
+        - text: 每条 finding 自己 grep/Read 坐实才采信 →
+        - code [ref=e156]: checklist cover --evidence file:line
+        - text: 。loop.sh:90-111
+      - listitem [ref=e157]:
+        - generic [ref=e158]: guard-loop
+        - text: "SubagentStop:"
+        - code [ref=e159]: exit-check
+        - text: 没 DONE → exit2 顶回去续。清单全绿 + 无开口 Critical 才放停。guard-loop.sh:16-22
+      - listitem [ref=e160]:
+        - text: ①②审是闸不产文件;仅 ④(build 闸)先写终审报告
+        - code [ref=e161]: docs/<slug>-final-review.md
+        - text: 再 pass。
+  - heading "放大 2 · 落地内层怎么转(build 阶段「干活」那一拍)" [level=2] [ref=e162]: 放大 2 · 落地内层怎么转(build 阶段「干活」那一拍)
+  - generic [ref=e164]: build 先把代码落地(模式 B 派 Codex / 模式 A 主线程自己 TDD),③合同门机器核完,再 B6 handoff —— 这一下才触发上面的 ④终审闸。
+  - generic [ref=e165]:
+    - img [ref=e167]:
+      - generic [ref=e168]:
+        - generic [ref=e170]: 脚本 起 loop
+        - generic [ref=e171]: init execution · step add
+        - generic [ref=e173]: Codex 写代码
+        - generic [ref=e174]: codex dispatch · 每 Pack 提交
+        - generic [ref=e176]: Claude 验收 3 关
+        - generic [ref=e177]: 完整性·测试质量·设计一致
+        - generic [ref=e179]: ③ 合同门(机器核)
+        - generic [ref=e180]: exit-check DONE 后
+        - generic [ref=e182]: B6 handoff pass
+        - generic [ref=e183]: → 触发 ④ 审闸
+      - generic [ref=e185]: ⟲ 验不过 → codex resume 续会话重做(不重跑已过 Pack)
+    - list [ref=e186]:
+      - listitem [ref=e187]:
+        - generic [ref=e188]: Codex
+        - code [ref=e189]: mmw codex dispatch --plan … --worktree …
+        - text: :固定 prompt 严防过度设计/兜底、严格 TDD、测试按仓库治理文档、每 Pack 一提交、禁改 docs/。互不依赖 plan 并行。codex-worker.sh:26-108
+      - listitem [ref=e190]:
+        - generic [ref=e191]: Claude
+        - text: B3 三关(命门,不信自述):① 完整性跑验收读 diff · ② 测试质量对标仓库测试治理文档防垃圾测试自绿 · ③ 设计一致性。过 →
+        - code [ref=e192]: step done
+        - text: ",不过 →"
+        - code [ref=e193]: codex resume
+        - text: 。build.md:81-94 · codex-worker.sh:111-125
+      - listitem [ref=e194]:
+        - generic [ref=e195]: record-step
+        - text: commit 含
+        - code [ref=e196]: Pack N.M
+        - text: → 自动记 step done。record-step.sh:13-22
+      - listitem [ref=e197]:
+        - generic [ref=e198]: ③合同门
+        - text: 全 plan 合并后机器核跨 plan 合同(
+        - code [ref=e199]: "--stage plan-impl"
+        - text: ",不派 Codex,像跑测试套),非 HITL 审。review.sh:35 · plan-impl.md"
+  - heading "支撑 · 状态文件 + Hook + 分工原则" [level=2] [ref=e200]: 支撑 · 状态文件 + Hook + 分工原则
+  - generic [ref=e202]:
+    - generic [ref=e203]:
+      - heading "状态 两个真状态文件" [level=3] [ref=e204]:
+        - generic [ref=e205]: 状态
+        - text: 两个真状态文件
+      - paragraph [ref=e206]: 整台机器靠它俩转;"你在哪/下一步"全靠现读它算,不靠记忆。
+      - generic [ref=e207]:
+        - table [ref=e208]:
+          - rowgroup [ref=e209]:
+            - row "task.json 外层·flow.sh" [ref=e210]:
+              - cell "task.json 外层·flow.sh" [ref=e211]
+            - row "phases[]/phase 开着的阶段序列 + 当前" [ref=e212]:
+              - cell "phases[]/phase" [ref=e213]
+              - cell "开着的阶段序列 + 当前" [ref=e214]
+            - row "phase_index/step_index 阶段游标 + 阶段内步游标" [ref=e215]:
+              - cell "phase_index/step_index" [ref=e216]
+              - cell "阶段游标 + 阶段内步游标" [ref=e217]
+            - row "gate 在哪道审闸(null=不在)" [ref=e218]:
+              - cell "gate" [ref=e219]
+              - cell "在哪道审闸(null=不在)" [ref=e220]
+            - row "repair/turnaround 返工/掉头计数(对 caps)" [ref=e221]:
+              - cell "repair/turnaround" [ref=e222]
+              - cell "返工/掉头计数(对 caps)" [ref=e223]
+            - row "phase_outputs/history 接力单 + 全程留痕" [ref=e224]:
+              - cell "phase_outputs/history" [ref=e225]
+              - cell "接力单 + 全程留痕" [ref=e226]
+        - table [ref=e227]:
+          - rowgroup [ref=e228]:
+            - row "loop-state.json 内层·loop.sh" [ref=e229]:
+              - cell "loop-state.json 内层·loop.sh" [ref=e230]
+            - row "kind execution/review/contract-gate" [ref=e231]:
+              - cell "kind" [ref=e232]
+              - cell "execution/review/contract-gate" [ref=e233]
+            - row "attendance afk 放权 / attended 盯" [ref=e234]:
+              - cell "attendance" [ref=e235]
+              - cell "afk 放权 / attended 盯" [ref=e236]
+            - row "steps[] 落地步账(Pack done)" [ref=e237]:
+              - cell "steps[]" [ref=e238]
+              - cell "落地步账(Pack done)" [ref=e239]
+            - row "checklist[]/findings[] 审覆盖清单 + 发现" [ref=e240]:
+              - cell "checklist[]/findings[]" [ref=e241]
+              - cell "审覆盖清单 + 发现" [ref=e242]
+            - row "pause 软停/冒泡(缺输入/方向疑)" [ref=e243]:
+              - cell "pause" [ref=e244]
+              - cell "软停/冒泡(缺输入/方向疑)" [ref=e245]
+      - list [ref=e246]:
+        - listitem [ref=e247]: 写入 fail-closed:空/非法 JSON 拒写,绝不截空伪装成功。flow.sh:29-35 · loop.sh:30-36
+    - generic [ref=e248]:
+      - heading "Hook 三个全程看守" [level=3] [ref=e249]:
+        - generic [ref=e250]: Hook
+        - text: 三个全程看守
+      - paragraph [ref=e251]: PreToolUse / PostToolUse / SubagentStop,Agent 绕不过。
+      - table [ref=e252]:
+        - rowgroup [ref=e253]:
+          - row "guard-redline merge/push/deploy 无令牌 → deny。唯一硬红线,要你亲批 mmw release-approve。guard-redline.sh:11-20" [ref=e254]:
+            - cell "guard-redline" [ref=e255]
+            - cell "merge/push/deploy 无令牌 → deny。唯一硬红线,要你亲批 mmw release-approve。guard-redline.sh:11-20" [ref=e256]:
+              - text: merge/push/deploy 无令牌 → deny。唯一硬红线,要你亲批
+              - code [ref=e257]: mmw release-approve
+              - text: 。guard-redline.sh:11-20
+          - row "guard-loop 内层 loop 没 DONE → exit2 顶回,审/落地没完不许停。guard-loop.sh:16-22" [ref=e258]:
+            - cell "guard-loop" [ref=e259]
+            - cell "内层 loop 没 DONE → exit2 顶回,审/落地没完不许停。guard-loop.sh:16-22" [ref=e260]
+          - row "record-step commit 含 Pack N.M → 自动记进度(机器记,不让帮手手写)。record-step.sh:13-22" [ref=e261]:
+            - cell "record-step" [ref=e262]
+            - cell "commit 含 Pack N.M → 自动记进度(机器记,不让帮手手写)。record-step.sh:13-22" [ref=e263]
+    - generic [ref=e264]:
+      - heading "原则 确定的归脚本,判断归 LLM —— 判断是核心,不是兜底" [level=3] [ref=e265]:
+        - generic [ref=e266]: 原则
+        - text: 确定的归脚本,判断归 LLM —— 判断是核心,不是兜底
+      - paragraph [ref=e267]: 这条线是整个架构的组织方式:把机械、可固化的步骤压进脚本/Hook,把判断留给 Agent。Agent 的判断不是"待消除的风险",是这 plugin 的价值所在;全是脚本就不需要 Agent 了。
+      - generic [ref=e268]:
+        - generic [ref=e269]:
+          - generic [ref=e270]: 脚本 / Hook 管(确定)
+          - list [ref=e271]:
+            - listitem [ref=e272]: 阶段推进、审闸冻结、返工/掉头计数、caps
+            - listitem [ref=e273]: 建 worktree / scaffold / 写状态(fail-closed)
+            - listitem [ref=e274]: 派 Codex 落地、起审、记步、拦红线
+        - generic [ref=e275]:
+          - generic [ref=e276]: Agent 管(判断)
+          - list [ref=e277]:
+            - listitem [ref=e278]: 路由选路、每步选结论词
+            - listitem [ref=e279]: 方案/设计/计划/代码的内容
+            - listitem [ref=e280]: 验收 Codex 产物真假、finding 真假
+            - listitem [ref=e281]: 执行放权:afk 下自己拍小决策、留痕继续(loop.sh softstop)
+      - list [ref=e282]:
+        - listitem [ref=e283]: HITL 集中在 propose/design/plan(要你拍方向);进 build 默认放权,只有真缺输入/方向疑/合并红线才停。
+  - paragraph [ref=e284]: "真实代码依据 · SKILL.md · flow.sh · routes.json · prepare.sh · loop.sh · review.sh · codex-worker.sh · hooks.json · guard-loop.sh · guard-redline.sh · record-step.sh · build.md · review/{review,final,plan-impl,quartet}.md · plan/task-pack.md · closing.md · scenario/{develop,bug,small-change}.md —— 每节点 file:line 可逐条核对,非造假、非工作总结。"

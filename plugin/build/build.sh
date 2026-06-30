@@ -1,227 +1,68 @@
 #!/usr/bin/env bash
+# build.sh —— 极简多文档构建:把共用片段注入各路径 reference 的锚点区。
+#
+#   每条路径的 reference(references/scenario/*.md)里写锚点:
+#     <!-- BEGIN: worktree-setup -->
+#     ...(构建时由 build/fragments/worktree-setup.md 填充,手改无效)...
+#     <!-- END: worktree-setup -->
+#   改共用步骤 → 只改 build/fragments/<name>.md → 跑 --apply 覆盖所有路径。
+#   重复内容只此一份源;各 reference 读者看到的是各自一份干净完整文档。
+#
+#   build.sh --check    干跑:生成 vs 现状有差异就报 DRIFT 并 exit 1
+#   build.sh --apply    把片段写进各 reference 锚点区
 set -euo pipefail
 
 BUILD_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_DIR="${PLUGIN_DIR:-$(cd "$BUILD_DIR/.." && pwd)}"
-TEMPLATE_DIR="$BUILD_DIR/templates"
+FRAG_DIR="$BUILD_DIR/fragments"
 
 MODE=""
-
-usage() {
-  echo "Usage: build.sh [--check|--apply] [--plugin-dir <dir>] [--resolver=<name>]"
-  echo "  --check   Dry-run: compare generated vs current, exit 1 on diff"
-  echo "  --apply   Write generated content into SKILL.md files"
-  exit 1
-}
-
-while [[ $# -gt 0 ]]; do
+while [ $# -gt 0 ]; do
   case "$1" in
     --check) MODE="check"; shift ;;
     --apply) MODE="apply"; shift ;;
     --plugin-dir) PLUGIN_DIR="$2"; shift 2 ;;
-    --plugin-dir=*) PLUGIN_DIR="${1#--plugin-dir=}"; shift ;;
-    --resolver=*) FILTER_RESOLVER="${1#--resolver=}"; shift ;;
-    -h|--help) usage ;;
-    *) echo "Unknown option: $1" >&2; usage ;;
+    *) echo "用法: build.sh [--check|--apply] [--plugin-dir <dir>]" >&2; exit 1 ;;
   esac
 done
+[ -n "$MODE" ] || { echo "ERROR: 要 --check 或 --apply" >&2; exit 1; }
 
-if [[ -z "$MODE" ]]; then
-  echo "Error: must specify --check or --apply" >&2
-  usage
-fi
+SCEN_DIR="$PLUGIN_DIR/skills/orchestrate/references/scenario"
+[ -d "$SCEN_DIR" ] || { echo "ERROR: 找不到 $SCEN_DIR" >&2; exit 1; }
 
-TEMPLATE_DIR="${PLUGIN_DIR}/build/templates"
-
-if [[ ! -d "$TEMPLATE_DIR" ]]; then
-  echo "Warning: no templates directory at $TEMPLATE_DIR" >&2
-  exit 0
-fi
-
-DIFF_FLAG_FILE=$(mktemp)
-echo "0" > "$DIFF_FLAG_FILE"
-
-# Shared footer appended to every voice-directive variant (single source of truth).
-VOICE_FOOTER="禁止词：delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal."
-
-resolve_anchor() {
-  local anchor_name="$1"
-  local variant="$2"
-
-  case "$anchor_name" in
-
-    # ── Type 1: pure cat ─────────────────────────────────────────────────────
-    failure-protocol)
-      local tmpl="$TEMPLATE_DIR/${anchor_name}.md.tmpl"
-      if [[ ! -f "$tmpl" ]]; then
-        echo "Error: template not found: $tmpl" >&2
-        return 1
-      fi
-      cat "$tmpl"
-      ;;
-
-    # ── Type 2: file-level variant + cat ────────────────────────────────────
-    # control-envelope, worker-loop: look for <anchor>.<variant>.md.tmpl,
-    # fall back to <anchor>.md.tmpl if not found.
-    # worker-loop has no base .md.tmpl — every anchor must carry an explicit
-    # [variant=codex|claude]; a bare worker-loop anchor will error (intentional).
-    control-envelope|worker-loop)
-      local tmpl
-      if [[ -n "$variant" ]]; then
-        tmpl="$TEMPLATE_DIR/${anchor_name}.${variant}.md.tmpl"
-        if [[ ! -f "$tmpl" ]]; then
-          tmpl="$TEMPLATE_DIR/${anchor_name}.md.tmpl"
-        fi
-      else
-        tmpl="$TEMPLATE_DIR/${anchor_name}.md.tmpl"
-      fi
-      if [[ ! -f "$tmpl" ]]; then
-        echo "Error: template not found: $tmpl" >&2
-        return 1
-      fi
-      cat "$tmpl"
-      ;;
-
-    # ── Type 3: inline variant sed extraction ───────────────────────────────
-    # preamble, sendmessage-resume, signpost: extract [variant=X]...[/variant] block.
-    preamble|sendmessage-resume|signpost)
-      local tmpl="$TEMPLATE_DIR/${anchor_name}.md.tmpl"
-      if [[ ! -f "$tmpl" ]]; then
-        echo "Error: template not found: $tmpl" >&2
-        return 1
-      fi
-      if [[ -n "$variant" ]]; then
-        sed -n "/\[variant=$variant\]/,/\[\/variant\]/{ /\[variant=/d; /\[\/variant\]/d; p; }" "$tmpl"
-      else
-        cat "$tmpl"
-      fi
-      ;;
-
-    # ── Type 3 (voice): inline variant sed + footer single-source ──────────
-    # voice-directive: extract variant body, then append shared footer once.
-    voice-directive)
-      local tmpl="$TEMPLATE_DIR/${anchor_name}.md.tmpl"
-      if [[ ! -f "$tmpl" ]]; then
-        echo "Error: template not found: $tmpl" >&2
-        return 1
-      fi
-      if [[ -n "$variant" ]]; then
-        sed -n "/\[variant=$variant\]/,/\[\/variant\]/{ /\[variant=/d; /\[\/variant\]/d; p; }" "$tmpl"
-        printf '%s\n' "$VOICE_FOOTER"
-      else
-        cat "$tmpl"
-      fi
-      ;;
-
-    # ── Unknown anchor ────────────────────────────────────────────────────
-    *)
-      return 1
-      ;;
-  esac
+# 渲染一个文件:遇到 BEGIN 锚点,打印锚点行 + 对应片段全文,跳过原内容直到 END。
+render() {
+  awk -v fragdir="$FRAG_DIR" '
+    /<!-- BEGIN: / {
+      print
+      name=$0; sub(/.*<!-- BEGIN: /,"",name); sub(/ -->.*/,"",name)
+      file=fragdir"/"name".md"
+      n=0
+      while ((getline line < file) > 0) { print line; n++ }
+      close(file)
+      if (n==0) { print "BUILD_ERROR_MISSING_OR_EMPTY_FRAGMENT:" name > "/dev/stderr"; exit 3 }
+      skip=1; next
+    }
+    /<!-- END: / { skip=0; print; next }
+    skip!=1 { print }
+  ' "$1"
 }
 
-process_skill_file() {
-  local skill_file="$1"
-  local content
-  content="$(cat "$skill_file")"
-
-  local anchors
-  anchors="$(grep -n '<!-- BEGIN:' "$skill_file" 2>/dev/null || true)"
-  if [[ -z "$anchors" ]]; then
-    return 0
+fail=0
+shopt -s nullglob
+for f in "$SCEN_DIR"/*.md; do
+  grep -q '<!-- BEGIN: ' "$f" || continue   # 没锚点的(如 merge.md)跳过
+  out="$(render "$f")" || { echo "ERROR: 渲染失败 $f" >&2; exit 3; }
+  if [ "$MODE" = check ]; then
+    if ! diff -q <(printf '%s\n' "$out") "$f" >/dev/null; then
+      echo "DRIFT: ${f#$PLUGIN_DIR/}(片段已改但没 --apply)"; fail=1
+    else
+      echo "OK:    ${f#$PLUGIN_DIR/}"
+    fi
+  else
+    printf '%s\n' "$out" > "$f"
+    echo "APPLIED: ${f#$PLUGIN_DIR/}"
   fi
+done
 
-  local generated="$content"
-
-  while IFS= read -r line; do
-    [[ -z "$line" ]] && continue
-
-    local anchor_full
-    anchor_full="$(echo "$line" | sed -n 's/.*<!-- BEGIN: \([^>]*\) -->.*/\1/p')"
-    [[ -z "$anchor_full" ]] && continue
-
-    local anchor_name variant=""
-    anchor_name="$(echo "$anchor_full" | sed 's/ *\[.*\]//')"
-    variant="$(echo "$anchor_full" | sed -n 's/.*\[variant=\([^]]*\)\].*/\1/p')"
-
-    if [[ -n "${FILTER_RESOLVER:-}" && "$anchor_name" != "$FILTER_RESOLVER" ]]; then
-      continue
-    fi
-
-    local resolved
-    resolved="$(resolve_anchor "$anchor_name" "$variant" 2>/dev/null)" || continue
-
-    local begin_pat="<!-- BEGIN: ${anchor_full} -->"
-    local end_pat="<!-- END: ${anchor_name} -->"
-
-    local tmp_in=$(mktemp)
-    local tmp_resolved=$(mktemp)
-    printf '%s' "$generated" > "$tmp_in"
-    printf '%s' "$resolved" > "$tmp_resolved"
-    generated="$(python3 -c "
-import sys
-with open('$tmp_in') as f:
-    lines = f.readlines()
-with open('$tmp_resolved') as f:
-    resolved_text = f.read().rstrip('\n')
-
-begin_marker = '''$begin_pat'''
-end_marker = '''$end_pat'''
-
-result = []
-inside = False
-for line in lines:
-    stripped = line.strip()
-    if stripped == begin_marker:
-        result.append(line)
-        result.append(resolved_text + '\n')
-        inside = True
-    elif stripped == end_marker:
-        result.append(line)
-        inside = False
-    elif not inside:
-        result.append(line)
-
-sys.stdout.write(''.join(result))
-")"
-    rm -f "$tmp_in" "$tmp_resolved"
-  done <<< "$anchors"
-
-  if [[ "$MODE" == "check" ]]; then
-    if ! diff -q <(echo "$content") <(echo "$generated") >/dev/null 2>&1; then
-      echo "DIFF: $skill_file"
-      diff --unified=3 <(echo "$content") <(echo "$generated") || true
-      echo "1" > "$DIFF_FLAG_FILE"
-    fi
-  elif [[ "$MODE" == "apply" ]]; then
-    if ! diff -q <(echo "$content") <(echo "$generated") >/dev/null 2>&1; then
-      local tmp_file="${skill_file}.build.tmp"
-      echo "$generated" > "$tmp_file"
-      mv "$tmp_file" "$skill_file"
-      echo "UPDATED: $skill_file"
-    fi
-  fi
-}
-
-if [[ -d "$PLUGIN_DIR/skills" ]]; then
-  find "$PLUGIN_DIR/skills" -name "SKILL.md" -type f | sort | while IFS= read -r f; do
-    process_skill_file "$f"
-  done || true
-
-  find "$PLUGIN_DIR/skills" -path "*/references/*.md" -type f | sort | while IFS= read -r f; do
-    process_skill_file "$f"
-  done || true
-fi
-
-if [[ -d "$PLUGIN_DIR/agents" ]]; then
-  find "$PLUGIN_DIR/agents" -name "*.md" -type f | sort | while IFS= read -r f; do
-    process_skill_file "$f"
-  done || true
-fi
-
-has_diff=$(cat "$DIFF_FLAG_FILE")
-rm -f "$DIFF_FLAG_FILE"
-if [[ "$MODE" == "check" && "$has_diff" != "0" ]]; then
-  echo "Build check failed: generated content differs from source." >&2
-  exit 1
-fi
+[ "$fail" -eq 0 ] || { echo "" >&2; echo "有 DRIFT,跑 build.sh --apply 同步" >&2; exit 1; }
