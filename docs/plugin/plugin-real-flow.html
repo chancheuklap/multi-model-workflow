@@ -3,365 +3,332 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Plugin 工作流 · 全景流程图</title>
+<title>Plugin 工作流 · 全细节流程图</title>
 <style>
   :root{
-    --bg:#f4f6f9; --card:#ffffff; --ink:#1f2328; --dim:#5b6573; --faint:#8b95a3;
-    --border:#d3dae3; --border2:#bcc6d2;
-    --claude:#0969da; --codex:#b8500a; --script:#1a7f37; --hook:#7c3aed; --gate:#9a6700; --hitl:#0e7490; --red:#cf222e;
-    --gatefill:#fff7e0; --gateborder:#e0bb4e;
-    --mono:"SF Mono",ui-monospace,Menlo,monospace;
+    --bg:#eef1f5; --card:#ffffff; --ink:#1f2328; --dim:#5b6573; --faint:#8b95a3;
+    --border:#cfd7e0; --claude:#0969da; --codex:#b8500a; --script:#1a7f37; --hook:#7c3aed;
+    --gate:#9a6700; --gatebd:#e0bb4e; --gatebg:#fff8e6; --hitl:#0e7490; --red:#cf222e;
+    --outbg:#eefaf1; --mono:"SF Mono",ui-monospace,Menlo,monospace;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 -apple-system,"PingFang SC","Segoe UI",sans-serif;padding:0 0 80px}
-  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
-  header{padding:34px 0 8px}
-  h1{font-size:24px;margin:0}
-  .sub{color:var(--dim);font-size:14px;margin-top:8px;max-width:900px}
+  body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 -apple-system,"PingFang SC","Segoe UI",sans-serif;padding:0 0 70px}
+  .wrap{max-width:880px;margin:0 auto;padding:0 22px}
+  header{padding:30px 0 6px}
+  h1{font-size:21px;margin:0}
+  .sub{color:var(--dim);font-size:13px;margin-top:7px}
   .sub b{color:var(--ink)}
-  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0 0;font-size:12px;color:var(--dim)}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin:13px 0 0;font-size:11.5px;color:var(--dim)}
   .legend span{display:inline-flex;align-items:center;gap:6px}
-  .led{width:10px;height:10px;border-radius:50%;display:inline-block}
+  .led{width:10px;height:10px;border-radius:3px;display:inline-block}
   .bg-claude{background:var(--claude)}.bg-codex{background:var(--codex)}.bg-script{background:var(--script)}
-  .bg-hook{background:var(--hook)}.bg-gate{background:var(--gateborder)}.bg-hitl{background:var(--hitl)}
-  .mono{font-family:var(--mono)}
-  code{font-family:var(--mono);font-size:.88em;background:#eef1f5;border:1px solid var(--border);border-radius:4px;padding:.5px 5px}
+  .bg-hook{background:var(--hook)}.bg-gate{background:var(--gatebd)}.bg-hitl{background:var(--hitl)}
 
-  h2{font-size:15px;margin:42px 0 4px;color:var(--ink);font-weight:700;display:flex;align-items:center;gap:9px}
-  h2 .b{width:5px;height:18px;border-radius:3px;background:var(--claude);display:inline-block}
-  .scn{color:var(--dim);font-size:13px;margin:6px 0 16px;max-width:920px}
+  .flow{display:flex;flex-direction:column;align-items:stretch;margin-top:18px}
 
-  .chart{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:10px 6px;box-shadow:0 2px 14px rgba(31,35,40,.05)}
-  svg{width:100%;height:auto;display:block}
+  /* rich node */
+  .nd{background:var(--card);border:1px solid var(--border);border-left-width:4px;border-radius:9px;
+      box-shadow:0 1px 5px rgba(31,35,40,.05);overflow:hidden}
+  .nd .hd{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid #eef1f5;flex-wrap:wrap}
+  .nd .hd b{font-size:13.5px}
+  .nd .loc{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .badge{font-size:10px;font-weight:700;padding:1.5px 7px;border-radius:9px;font-family:var(--mono)}
+  .b-claude{background:#dcebfb00;background:#ddeeff;color:var(--claude)}
+  .b-codex{background:#fbe6d4;color:var(--codex)}.b-script{background:#daf5e2;color:var(--script)}
+  .b-hook{background:#ede2fc;color:var(--hook)}
+  .tag{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:8px}
+  .t-hitl{background:#d6eef2;color:var(--hitl)}.t-gate{background:var(--gatebg);color:var(--gate);border:1px solid var(--gatebd)}
+  .rows{padding:6px 12px 9px}
+  .r{display:grid;grid-template-columns:30px 1fr;gap:8px;padding:2.5px 0;align-items:baseline}
+  .r .k{font-size:10px;color:var(--faint);font-weight:700;text-align:right;padding-top:1px}
+  .r .v{font-size:12px}
+  .r .v.doc{font-family:var(--mono);font-size:11px;color:var(--hook)}
+  .r .v.cmd{font-family:var(--mono);font-size:11px;color:var(--claude);word-break:break-all}
+  .r.outrow{background:var(--outbg);margin:3px -12px -9px;padding:6px 12px;border-top:1px solid #d7eede}
+  .r.outrow .k{color:var(--script)}
+  .r .v.out{font-family:var(--mono);font-size:11px;color:#10612a;word-break:break-all}
+  .nd.gate-nd{border-left-color:var(--gatebd);background:var(--gatebg)}
+  .nd.n-claude{border-left-color:var(--claude)}.nd.n-codex{border-left-color:var(--codex)}
+  .nd.n-script{border-left-color:var(--script)}.nd.n-hook{border-left-color:var(--hook)}
 
-  /* 图文并茂 cards */
-  .cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:6px}
-  @media(max-width:820px){.cards{grid-template-columns:1fr}}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:16px 18px;box-shadow:0 1px 8px rgba(31,35,40,.04)}
-  .card h3{margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:8px}
-  .card .lead{color:var(--dim);font-size:12.5px;margin:0 0 11px}
-  .card .minisvg{background:#fafbfc;border:1px solid var(--border);border-radius:9px;padding:8px;margin-bottom:11px}
-  .card ul{margin:0;padding-left:17px;font-size:12.8px;color:var(--ink)}
-  .card li{margin:4px 0}
-  .card li .src{color:var(--faint);font-family:var(--mono);font-size:10.5px}
-  .card.full{grid-column:1 / -1}
-  .pill{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;padding:1.5px 8px;border-radius:10px}
-  .p-claude{background:#ddeeff;color:var(--claude)}.p-codex{background:#fbe6d4;color:var(--codex)}
-  .p-script{background:#daf5e2;color:var(--script)}.p-hook{background:#ede2fc;color:var(--hook)}
-  .p-gate{background:var(--gatefill);color:var(--gate)}.p-hitl{background:#d6eef2;color:var(--hitl)}
-  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-  @media(max-width:620px){.two{grid-template-columns:1fr}}
-  .kvt{font-size:12.3px;width:100%;border-collapse:collapse}
-  .kvt td{padding:4px 6px;border-bottom:1px solid #eef1f5;vertical-align:top}
-  .kvt td:first-child{font-family:var(--mono);color:var(--dim);white-space:nowrap;width:42%}
-  .foot{margin-top:34px;font-size:11px;color:var(--faint);font-family:var(--mono);line-height:1.8}
+  /* connector */
+  .cn{height:20px;width:2px;background:#aeb8c4;align-self:center;position:relative}
+  .cn::after{content:"";position:absolute;bottom:-1px;left:-4px;border:5px solid transparent;border-top-color:#aeb8c4;border-bottom:0}
+  .cn.lbl{height:30px}
+  .cn .t{position:absolute;left:9px;top:5px;white-space:nowrap;font-size:10.5px;color:var(--script);font-family:var(--mono)}
+  .cn.gate .t{color:var(--gate)}
+
+  /* handoff rule strip */
+  .rule{background:#f7f9fb;border:1px solid var(--border);border-radius:9px;padding:9px 13px}
+  .rule .rt{font-weight:700;font-size:12.5px;margin-bottom:5px}
+  .rule .rt code{font-family:var(--mono);font-size:11.5px}
+  .rbr{display:grid;grid-template-columns:150px 1fr;gap:8px;font-size:11.5px;padding:2.5px 0;border-top:1px dashed #dde3ea}
+  .rbr:first-of-type{border-top:0}
+  .rbr .c{font-family:var(--mono);font-weight:700;text-align:right}
+
+  /* inset subflow */
+  .inset{border:1.5px dashed var(--gatebd);border-radius:12px;background:rgba(224,187,78,.06);padding:12px 12px 12px;margin:2px 0;position:relative}
+  .inset.exec{border-color:#86d29b;background:rgba(26,127,55,.05)}
+  .inset .it{position:absolute;top:-9px;left:16px;background:var(--bg);padding:0 8px;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--gate)}
+  .inset.exec .it{color:var(--script)}
+  .inset .flow{margin-top:6px}
+  .loopback{align-self:center;font-family:var(--mono);font-size:10.5px;color:var(--codex);border:1px dashed #e3a877;border-radius:8px;padding:3px 10px;margin:4px 0;background:#fff}
+
+  .term{align-self:center;background:#daf5e2;border:1px solid #86d29b;border-radius:22px;padding:8px 22px;font-weight:700;color:var(--script);font-size:13px}
+  .secnote{font-size:11.5px;color:var(--dim);margin:4px 0 2px;align-self:center;text-align:center}
+  .foot{margin-top:26px;font-size:10.5px;color:var(--faint);font-family:var(--mono);line-height:1.7}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header>
-  <h1>Multi-Model Workflow Plugin · 全景工作流</h1>
-  <p class="sub">按 <span class="mono">plugin/</span> 真实代码逐节点画的控制流。<b>分工:脚本/Hook 管确定的机械活,Claude 管判断、Codex 当苦力 —— 判断是这 plugin 的核心,不是兜底。</b> HITL 集中在设计/计划,执行放权自跑。主线走 develop(全开)。</p>
+  <h1>Plugin 工作流 · 全细节流程图</h1>
+  <p class="sub">每个节点 = 一步,填了 <b>读哪份文档 / 跑哪条命令 / 输入 / 输出</b>。<b>所有「出」字段是实跑 plugin 抓的真 stdout,不抄文档。</b> 走 develop 全程(slug=demo)。</p>
   <div class="legend">
-    <span><i class="led bg-claude"></i>Claude 判断/协调</span>
-    <span><i class="led bg-codex"></i>Codex 苦力</span>
     <span><i class="led bg-script"></i>脚本/状态机</span>
-    <span><i class="led bg-hook"></i>Hook 看守</span>
-    <span><i class="led bg-gate"></i>引擎审闸</span>
-    <span><i class="led bg-hitl"></i>HITL 停问你</span>
+    <span><i class="led bg-claude"></i>Claude 判断</span>
+    <span><i class="led bg-codex"></i>Codex 苦力</span>
+    <span><i class="led bg-hook"></i>Hook</span>
+    <span><i class="led bg-gate"></i>审闸</span>
+    <span style="color:var(--script)">绿底=真实 stdout</span>
   </div>
 </header>
 
-<h2><span class="b"></span>主流程 · 一张图走完一次开发</h2>
-<div class="scn">中间竖线 = 主干 7 阶段(routes.json:11)。design / plan / build 是<span style="color:var(--gate);font-weight:700">引擎审闸</span>(产物 pass→phase 冻结→强制审→审过才放行)。右侧灰框 = 每次 <code>mmw handoff</code> 引擎按结论词怎么跳。红虚线 = 掉头回上游。两个浅绿框 = 阶段内部展开(详见下方图文)。</div>
-<div class="chart">
-<svg viewBox="0 0 1120 858" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'PingFang SC','Segoe UI',sans-serif">
-  <defs>
-    <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#7a8595"/></marker>
-    <marker id="ahr" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#cf222e"/></marker>
-    <marker id="ahg" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#9a6700"/></marker>
-  </defs>
+<div class="flow">
 
-  <!-- vertical spine arrows -->
-  <g stroke="#7a8595" stroke-width="2" marker-end="url(#ah)">
-    <line x1="330" y1="92" x2="330" y2="116"/>
-    <line x1="330" y1="168" x2="330" y2="192"/>
-    <line x1="330" y1="244" x2="330" y2="268"/>
-    <line x1="330" y1="352" x2="330" y2="376"/>
-    <line x1="330" y1="428" x2="330" y2="452"/>
-    <line x1="330" y1="536" x2="330" y2="560"/>
-    <line x1="330" y1="688" x2="330" y2="712"/>
-    <line x1="330" y1="772" x2="330" y2="796"/>
-  </g>
+  <!-- task new -->
+  <div class="nd n-script">
+    <div class="hd"><span class="badge b-script">脚本</span><b>A 建任务</b><span class="loc">prepare.sh:23</span></div>
+    <div class="rows">
+      <div class="r"><span class="k">读</span><span class="v doc">skills/orchestrate/SKILL.md(只路由)</span></div>
+      <div class="r"><span class="k">命令</span><span class="v cmd">mmw task new --scenario develop --slug demo --title 演示</span></div>
+      <div class="r"><span class="k">入</span><span class="v">scenario=develop · slug=demo · title</span></div>
+      <div class="r outrow"><span class="k">出</span><span class="v out">PREPARED · worktree_path=…/.claude/worktrees/demo · branch=demo · phase=investigate · 写 task.json(phases=develop 预设)· NEXT=EnterWorktree</span></div>
+    </div>
+  </div>
+  <div class="cn lbl"><span class="t">EnterWorktree → 读 scenario/develop.md → 进阶段循环</span></div>
 
-  <!-- ENTRY -->
-  <g>
-    <rect x="120" y="34" width="420" height="58" rx="10" fill="#eaf2fd" stroke="#9ec5f0"/>
-    <text x="330" y="56" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0969da">A · 进门(主仓库)</text>
-    <text x="330" y="76" text-anchor="middle" font-size="11.5" font-family="SF Mono,monospace" fill="#1f2328">mmw where → LLM 路由 → mmw task new → git worktree + task.json → 进 worktree</text>
-    <text x="330" y="89" text-anchor="middle" font-size="9" font-family="SF Mono,monospace" fill="#8b95a3">SKILL.md:12-33 · flow.sh:199 · prepare.sh:23-83</text>
-  </g>
+  <!-- handoff rule -->
+  <div class="rule">
+    <div class="rt">每阶段三拍:<code>mmw where</code>(脚本报 load/do/then/prev_outputs)→ Claude 干活 → <code>mmw handoff --conclusion &lt;词&gt;</code>。引擎按结论词跳(真 stdout：<code>NEXT_ACTION/NEXT_PHASE/STATUS</code>):</div>
+    <div class="rbr"><span class="c" style="color:var(--script)">pass</span><span>普通阶段→advance;gated(design/plan/build)→<b style="color:var(--gate)">phase 冻结+强制审</b>;末阶段→ready-to-close</span></div>
+    <div class="rbr"><span class="c" style="color:var(--gate)">needs-repair</span><span>原地返工本阶段(repair+1,超 2→blocked)</span></div>
+    <div class="rbr"><span class="c" style="color:var(--red)">needs-redirection</span><span>掉头回 --to-phase 上游(turnaround+1,超 1→blocked)</span></div>
+    <div class="rbr"><span class="c" style="color:var(--hitl)">needs-context</span><span>停下问你,留步游标 resume</span></div>
+    <div class="rbr"><span class="c" style="color:#57606a">blocked</span><span>上报你,带经过 · <span style="color:var(--faint)">flow.sh:80-137,词非法当场拒 :52</span></span></div>
+  </div>
+  <div class="cn"></div>
 
   <!-- investigate -->
-  <g>
-    <rect x="180" y="118" width="300" height="50" rx="9" fill="#fff" stroke="#bcc6d2"/>
-    <text x="200" y="139" font-size="13" font-weight="600">investigate</text>
-    <text x="200" y="156" font-size="11" fill="#5b6573">查清现状(并行投查,取证不判定)</text>
-    <text x="468" y="146" text-anchor="end" font-size="9" font-family="SF Mono,monospace" fill="#8b95a3">routes:23</text>
-  </g>
+  <div class="nd n-claude">
+    <div class="hd"><span class="badge b-claude">Claude</span><b>investigate 查清现状</b><span class="loc">routes.json:23</span></div>
+    <div class="rows">
+      <div class="r"><span class="k">读</span><span class="v doc">references/investigate.md</span></div>
+      <div class="r"><span class="k">做</span><span class="v">并行投查现状(自建 Workflow),取证不判定</span></div>
+      <div class="r"><span class="k">入</span><span class="v">prev_outputs=[](首阶段无上游)</span></div>
+      <div class="r"><span class="k">命令</span><span class="v cmd">mmw handoff --conclusion pass --produced docs/investigating/demo.md</span></div>
+      <div class="r outrow"><span class="k">出</span><span class="v out">NEXT_ACTION=advance · NEXT_PHASE=propose · 产物钉 phase_outputs[investigate]</span></div>
+    </div>
+  </div>
+  <div class="cn"></div>
+
   <!-- propose -->
-  <g>
-    <rect x="180" y="194" width="300" height="50" rx="9" fill="#fff" stroke="#bcc6d2"/>
-    <text x="200" y="215" font-size="13" font-weight="600">propose</text>
-    <text x="200" y="232" font-size="11" fill="#5b6573">综合现状亮 2-3 方案</text>
-    <rect x="372" y="204" width="96" height="18" rx="9" fill="#d6eef2"/><text x="420" y="217" text-anchor="middle" font-size="10" font-weight="700" fill="#0e7490">HITL 选方向</text>
-  </g>
-  <!-- design (gate) -->
-  <g>
-    <rect x="180" y="270" width="300" height="56" rx="9" fill="#fff7e0" stroke="#e0bb4e" stroke-width="1.5"/>
-    <text x="200" y="291" font-size="13" font-weight="700">design</text>
-    <text x="200" y="308" font-size="11" fill="#5b6573">设计文档(4 步:讨论/原型/写/自检)</text>
-    <text x="200" y="321" font-size="9.5" font-family="SF Mono,monospace" fill="#9a6700">产 docs/design/&lt;slug&gt;.md</text>
-    <rect x="360" y="278" width="108" height="18" rx="9" fill="#fff0c2" stroke="#e0bb4e"/><text x="414" y="291" text-anchor="middle" font-size="10" font-weight="700" fill="#9a6700">① 审闸 design</text>
-    <rect x="384" y="300" width="84" height="17" rx="8" fill="#d6eef2"/><text x="426" y="312" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0e7490">HITL 集中</text>
-  </g>
+  <div class="nd n-claude">
+    <div class="hd"><span class="badge b-claude">Claude</span><b>propose 给方案</b><span class="tag t-hitl">HITL 选向</span><span class="loc">routes.json:24</span></div>
+    <div class="rows">
+      <div class="r"><span class="k">读</span><span class="v doc">references/propose.md</span></div>
+      <div class="r"><span class="k">做</span><span class="v">综合现状亮 2-3 方案,停下让你指定一个(全否→needs-redirection)</span></div>
+      <div class="r"><span class="k">入</span><span class="v">prev_outputs=["docs/investigating/demo.md"]</span></div>
+      <div class="r"><span class="k">命令</span><span class="v cmd">mmw handoff --conclusion pass --produced docs/design/demo-direction.md</span></div>
+      <div class="r outrow"><span class="k">出</span><span class="v out">NEXT_PHASE=design</span></div>
+    </div>
+  </div>
+  <div class="cn"></div>
+
+  <!-- design (4 steps) -->
+  <div class="nd gate-nd">
+    <div class="hd"><span class="badge b-claude">Claude</span><b>design 设计</b><span class="tag t-gate">① 审闸</span><span class="tag t-hitl">HITL 集中</span><span class="loc">routes.json:25-30</span></div>
+    <div class="rows">
+      <div class="r"><span class="k">读</span><span class="v">4 步游标(<code>mmw step next</code> 推进,每步现读):</span></div>
+      <div class="r"><span class="k"></span><span class="v doc">1 discuss → design/discussion.md · 2 prototype → prototype-mockup.md · 3 write → design-doc-template.md · 4 selfcheck → design-self-check.md</span></div>
+      <div class="r"><span class="k">入</span><span class="v">prev_outputs=["…/demo.md(现状)","…/demo-direction.md(方向)"]</span></div>
+      <div class="r"><span class="k">命令</span><span class="v cmd">step×3 完 → mmw handoff --conclusion pass --produced docs/design/demo.md</span></div>
+      <div class="r outrow"><span class="k">出</span><span class="v out">NEXT_ACTION=review · REVIEW_STAGE=design · gate=design(phase 冻结,不 advance)</span></div>
+    </div>
+  </div>
+  <div class="cn gate lbl"><span class="t">pass + gated → 引擎冻结,强制进审闸 ▼</span></div>
+
+  <!-- GATE inset (full detail, design) -->
+  <div class="inset"><span class="it">① 审闸子流程(design)· kind=review</span>
+  <div class="flow">
+    <div class="nd n-script">
+      <div class="hd"><span class="badge b-script">脚本</span><b>where 在闸里吐起审命令</b><span class="loc">flow.sh:264-274</span></div>
+      <div class="rows">
+        <div class="r"><span class="k">命令</span><span class="v cmd">mmw where</span></div>
+        <div class="r outrow"><span class="k">出</span><span class="v out">gate=design · load=references/review/review.md · review_source=docs/design/demo.md · review_start=mmw review start --stage design --source docs/design/demo.md</span></div>
+      </div>
+    </div>
+    <div class="cn"></div>
+    <div class="nd n-script">
+      <div class="hd"><span class="badge b-script">脚本</span><b>起审 loop</b><span class="loc">review.sh:19</span></div>
+      <div class="rows">
+        <div class="r"><span class="k">命令</span><span class="v cmd">mmw review start --stage design --source docs/design/demo.md</span></div>
+        <div class="r"><span class="k">入</span><span class="v">stage=design · source=产物</span></div>
+        <div class="r outrow"><span class="k">出</span><span class="v out">INIT kind=review · REVIEW_STARTED · ANGLE=review/design.md · QUARTET=review/quartet.md · 打印协调帮手 brief</span></div>
+      </div>
+    </div>
+    <div class="cn"></div>
+    <div class="nd n-claude">
+      <div class="hd"><span class="badge b-claude">Claude</span><b>抽覆盖清单</b><span class="loc">loop.sh:80</span></div>
+      <div class="rows">
+        <div class="r"><span class="k">命令</span><span class="v cmd">mmw loop checklist add --item "源意图与方案对齐" --source docs/design/demo.md:1</span></div>
+        <div class="r outrow"><span class="k">出</span><span class="v out">CHECK-ADD 源意图与方案对齐(写进 loop-state.checklist)</span></div>
+      </div>
+    </div>
+    <div class="cn"></div>
+    <div class="nd n-codex">
+      <div class="hd"><span class="badge b-codex">Codex×2</span><b>两独立审者并行(协调帮手派)</b><span class="loc">review.sh:68</span></div>
+      <div class="rows">
+        <div class="r"><span class="k">读</span><span class="v doc">review/quartet.md + review/design.md(轴A 设计内容 / 轴B 项目对齐)</span></div>
+        <div class="r"><span class="k">命令</span><span class="v cmd">codex exec --sandbox read-only -m gpt-5.5 -c model_reasoning_effort=xhigh - &lt; prompt</span></div>
+        <div class="r"><span class="k">入</span><span class="v">quartet+angle+Source(不用 codex review,绕方法论)</span></div>
+        <div class="r outrow"><span class="k">出</span><span class="v out">Codex findings(原文,是劳动力不是信源)</span></div>
+      </div>
+    </div>
+    <div class="cn"></div>
+    <div class="nd n-claude">
+      <div class="hd"><span class="badge b-claude">Claude</span><b>收回 finding 亲验</b><span class="loc">loop.sh:90,102</span></div>
+      <div class="rows">
+        <div class="r"><span class="k">命令</span><span class="v cmd">mmw loop checklist cover --item … --evidence file:line / loop finding add</span></div>
+        <div class="r"><span class="k">入</span><span class="v">Codex findings(引不出 file:line 降置信)</span></div>
+        <div class="r outrow"><span class="k">出</span><span class="v out">CHECK-COVER … / FINDING-ADD …</span></div>
+      </div>
+    </div>
+    <div class="loopback">⟲ guard-loop(SubagentStop):exit-check NOT-DONE → exit2 顶回续审 · guard-loop.sh:16-22</div>
+    <div class="nd n-script">
+      <div class="hd"><span class="badge b-script">脚本</span><b>退出核 + 收口</b><span class="loc">loop.sh:145 · flow.sh:38</span></div>
+      <div class="rows">
+        <div class="r"><span class="k">命令</span><span class="v cmd">mmw loop exit-check → mmw handoff --conclusion pass</span></div>
+        <div class="r outrow"><span class="k">出</span><span class="v out">exit-check=DONE(清单全 cover、无开口 Critical)· handoff: 清 gate · NEXT_PHASE=to-issue</span></div>
+      </div>
+    </div>
+  </div></div>
+  <div class="cn gate lbl"><span class="t">审过(verdict pass)→ 清 gate,advance ▼</span></div>
+
   <!-- to-issue -->
-  <g>
-    <rect x="180" y="378" width="300" height="50" rx="9" fill="#fff" stroke="#bcc6d2"/>
-    <text x="200" y="399" font-size="13" font-weight="600">to-issue</text>
-    <text x="200" y="416" font-size="11" fill="#5b6573">设计垂直切片成 issue 骨架</text>
-    <text x="468" y="406" text-anchor="end" font-size="9" font-family="SF Mono,monospace" fill="#8b95a3">routes:31</text>
-  </g>
-  <!-- plan (gate) -->
-  <g>
-    <rect x="180" y="454" width="300" height="56" rx="9" fill="#fff7e0" stroke="#e0bb4e" stroke-width="1.5"/>
-    <text x="200" y="475" font-size="13" font-weight="700">plan</text>
-    <text x="200" y="492" font-size="11" fill="#5b6573">拆计划(单/多;多则 fan-out plan-writer)</text>
-    <text x="200" y="505" font-size="9.5" font-family="SF Mono,monospace" fill="#9a6700">产 docs/plans/&lt;slug&gt;/</text>
-    <rect x="372" y="462" width="96" height="18" rx="9" fill="#fff0c2" stroke="#e0bb4e"/><text x="420" y="475" text-anchor="middle" font-size="10" font-weight="700" fill="#9a6700">② 审闸 plan</text>
-    <rect x="420" y="484" width="48" height="17" rx="8" fill="#d6eef2"/><text x="444" y="496" text-anchor="middle" font-size="9.5" font-weight="700" fill="#0e7490">HITL</text>
-  </g>
-  <!-- build (gate) -->
-  <g>
-    <rect x="180" y="562" width="300" height="72" rx="9" fill="#fff7e0" stroke="#e0bb4e" stroke-width="1.5"/>
-    <text x="200" y="583" font-size="13" font-weight="700">build</text>
-    <text x="200" y="600" font-size="11" fill="#5b6573">落地:Codex 写 + Claude 验(模式 B)</text>
-    <rect x="196" y="608" width="150" height="18" rx="9" fill="#daf5e2" stroke="#86d29b"/><text x="271" y="621" text-anchor="middle" font-size="9.5" font-weight="700" fill="#1a7f37">▼ 内含「落地内层」</text>
-    <rect x="352" y="570" width="116" height="18" rx="9" fill="#fff0c2" stroke="#e0bb4e"/><text x="410" y="583" text-anchor="middle" font-size="10" font-weight="700" fill="#9a6700">④ 审闸 final</text>
-    <text x="468" y="623" text-anchor="end" font-size="9" font-family="SF Mono,monospace" fill="#8b95a3">routes:39</text>
-  </g>
+  <div class="nd n-claude">
+    <div class="hd"><span class="badge b-claude">Claude</span><b>to-issue 切片</b><span class="loc">routes.json:31</span></div>
+    <div class="rows">
+      <div class="r"><span class="k">读</span><span class="v doc">references/design/to-issue-skeleton.md</span></div>
+      <div class="r"><span class="k">入</span><span class="v">prev_outputs=["docs/design/demo.md"](reads 声明带 design)</span></div>
+      <div class="r"><span class="k">命令</span><span class="v cmd">mmw handoff --conclusion pass --produced docs/issues/demo/</span></div>
+      <div class="r outrow"><span class="k">出</span><span class="v out">NEXT_PHASE=plan(非 gated,直通)</span></div>
+    </div>
+  </div>
+  <div class="cn"></div>
+
+  <!-- plan -->
+  <div class="nd gate-nd">
+    <div class="hd"><span class="badge b-claude">Claude</span><b>plan 拆计划</b><span class="tag t-gate">② 审闸</span><span class="tag t-hitl">HITL</span><span class="loc">routes.json:33-37</span></div>
+    <div class="rows">
+      <div class="r"><span class="k">读</span><span class="v doc">3 步:orchestrate→plan/plan-flow.md(多计划 fan-out plan-writer)· write→plan/task-pack.md · selfcheck→plan/plan-self-check.md</span></div>
+      <div class="r"><span class="k">入</span><span class="v">prev_outputs=["docs/design/demo.md"]</span></div>
+      <div class="r"><span class="k">命令</span><span class="v cmd">step×2 完 → mmw handoff --conclusion pass --produced docs/plans/demo/</span></div>
+      <div class="r outrow"><span class="k">出</span><span class="v out">gate=plan · review_start=mmw review start --stage plan --source docs/issues/demo/</span></div>
+    </div>
+  </div>
+  <div class="cn gate lbl"><span class="t">② 审闸子流程 = 同 ① 一字不差,只 stage=plan、angle=review/plan.md ▼ 审过→advance build</span></div>
+
+  <!-- build -->
+  <div class="nd gate-nd">
+    <div class="hd"><span class="badge b-claude">Claude</span><b>build 落地</b><span class="tag t-gate">④ 审闸 final</span><span class="loc">routes.json:39</span></div>
+    <div class="rows">
+      <div class="r"><span class="k">读</span><span class="v doc">references/build.md</span></div>
+      <div class="r"><span class="k">入</span><span class="v">prev_outputs=["docs/issues/demo/","docs/plans/demo/"]</span></div>
+      <div class="r"><span class="k">做</span><span class="v">▼ 先进「落地内层」把代码落地,再 B6 handoff 触发 ④ 审闸</span></div>
+    </div>
+  </div>
+  <div class="cn exec" style="background:#86d29b"></div>
+
+  <!-- BUILD INNER inset -->
+  <div class="inset exec"><span class="it">落地内层 · kind=execution(模式 B 派 Codex)</span>
+  <div class="flow">
+    <div class="nd n-script">
+      <div class="hd"><span class="badge b-script">脚本</span><b>起落地 loop + 登步</b><span class="loc">loop.sh:39-67</span></div>
+      <div class="rows">
+        <div class="r"><span class="k">命令</span><span class="v cmd">mmw loop init --kind execution → attendance --mode afk → step add --id 1.1 --desc "Pack 1.1"</span></div>
+        <div class="r outrow"><span class="k">出</span><span class="v out">INIT kind=execution · ATTENDANCE=afk · STEP-ADD 1.1</span></div>
+      </div>
+    </div>
+    <div class="cn"></div>
+    <div class="nd n-codex">
+      <div class="hd"><span class="badge b-codex">Codex</span><b>派进 worktree 写代码</b><span class="loc">codex-worker.sh:79</span></div>
+      <div class="rows">
+        <div class="r"><span class="k">入</span><span class="v">--plan docs/plans/demo/001.md · --worktree …/wt-demo-1(固定 prompt:严防过度设计/兜底、严格 TDD、测试按仓库治理文档、每 Pack 一提交、禁改 docs/)</span></div>
+        <div class="r"><span class="k">命令</span><span class="v cmd">mmw codex dispatch --plan … --worktree …(内部 codex exec --sandbox workspace-write -m gpt-5.4)</span></div>
+        <div class="r outrow"><span class="k">出</span><span class="v out">建 worktree · CODEX_EXIT=0 · SESSION=sess-abc(供 resume)· 最后消息「Pack 1.1 done: 改了 src/x.py,测试绿」</span></div>
+      </div>
+    </div>
+    <div class="cn"></div>
+    <div class="nd n-claude">
+      <div class="hd"><span class="badge b-claude">Claude</span><b>B3 验收三关(命门,不信 Codex 自述)</b><span class="loc">build.md:81-94</span></div>
+      <div class="rows">
+        <div class="r"><span class="k">读</span><span class="v doc">仓库测试治理文档(TESTING.md / AGENTS.md 测试节)</span></div>
+        <div class="r"><span class="k">入</span><span class="v">Codex 最后消息 + plan acceptance + 仓库测试标准</span></div>
+        <div class="r"><span class="k">做</span><span class="v">① 完整性(跑验收/读 diff)· ② 测试质量(防垃圾测试自绿)· ③ 设计一致性</span></div>
+        <div class="r outrow"><span class="k">出</span><span class="v out">过 → step done;不过 → codex resume</span></div>
+      </div>
+    </div>
+    <div class="cn"></div>
+    <div class="nd n-script">
+      <div class="hd"><span class="badge b-script">脚本</span><b>记步 + 退出核</b><span class="loc">loop.sh:68,145 · record-step.sh</span></div>
+      <div class="rows">
+        <div class="r"><span class="k">命令</span><span class="v cmd">mmw loop step done --id 1.1 → mmw loop exit-check</span></div>
+        <div class="r"><span class="k">入</span><span class="v">commit 含「Pack 1.1」→ record-step hook 自动记(PostToolUse)</span></div>
+        <div class="r outrow"><span class="k">出</span><span class="v out">STEP-DONE 1.1 · exit-check=DONE</span></div>
+      </div>
+    </div>
+    <div class="loopback">⟲ 验不过 → mmw codex resume --worktree … --instructions fix.md(续 sess-abc,不重做已过 Pack)· codex-worker.sh:111</div>
+    <div class="nd n-script">
+      <div class="hd"><span class="badge b-script">脚本</span><b>③ 合同门(机器核,不派 Codex)</b><span class="loc">review.sh:35</span></div>
+      <div class="rows">
+        <div class="r"><span class="k">读</span><span class="v doc">review/plan-impl.md</span></div>
+        <div class="r"><span class="k">命令</span><span class="v cmd">mmw review start --stage plan-impl → loop checklist add(逐条合同)→ loop exit-check</span></div>
+        <div class="r outrow"><span class="k">出</span><span class="v out">INIT kind=contract-gate · 合同未 cover 时 exit-check=NOT-DONE:packs=none;contracts=&lt;合同&gt; · 全 cover→DONE</span></div>
+      </div>
+    </div>
+  </div></div>
+  <div class="cn gate lbl"><span class="t">B6: mmw handoff pass --produced base..HEAD → gate=build → review_start --stage final(④ 审闸,同 ①,产 docs/demo-final-review.md)▼</span></div>
+
   <!-- closing -->
-  <g>
-    <rect x="180" y="714" width="300" height="50" rx="9" fill="#fff" stroke="#bcc6d2"/>
-    <text x="200" y="735" font-size="13" font-weight="600">closing</text>
-    <text x="200" y="752" font-size="11" fill="#5b6573">收口确认 + 合并红线</text>
-    <text x="468" y="742" text-anchor="end" font-size="9" font-family="SF Mono,monospace" fill="#8b95a3">routes:40</text>
-  </g>
-  <!-- done -->
-  <g>
-    <rect x="244" y="798" width="172" height="40" rx="20" fill="#daf5e2" stroke="#86d29b"/>
-    <text x="330" y="823" text-anchor="middle" font-size="13" font-weight="700" fill="#1a7f37">✓ 完成 → cleanup</text>
-  </g>
-
-  <!-- GATE loop badges: small arc right of each gate -->
-  <g stroke="#9a6700" stroke-width="1.6" fill="none" marker-end="url(#ahg)">
-    <path d="M480,290 q44,0 44,30 q0,26 -40,26" />
-    <path d="M480,478 q44,0 44,30 q0,26 -40,26" />
-    <path d="M480,592 q52,0 52,34 q0,30 -46,30" />
-  </g>
-  <g font-size="9.5" font-family="SF Mono,monospace" fill="#9a6700">
-    <text x="528" y="318">审(过)放行</text>
-    <text x="528" y="506">审(过)放行</text>
-    <text x="540" y="632">审(过)放行</text>
-  </g>
-
-  <!-- upstream redirect (left) -->
-  <path d="M180,588 q-78,0 -78,-100 l0,-180 q0,-22 70,-22" fill="none" stroke="#cf222e" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#ahr)"/>
-  <text x="60" y="396" font-size="10" font-family="SF Mono,monospace" fill="#cf222e" transform="rotate(-90 60 396)">needs-redirection 掉头回上游(≤1次)</text>
-
-  <!-- HANDOFF rule panel (right) -->
-  <g>
-    <rect x="600" y="150" width="500" height="372" rx="12" fill="#f7f9fb" stroke="#bcc6d2"/>
-    <text x="620" y="176" font-size="13.5" font-weight="700" fill="#1f2328">每个阶段 <tspan font-family="SF Mono,monospace">mmw handoff --conclusion &lt;词&gt;</tspan></text>
-    <text x="620" y="194" font-size="11" fill="#5b6573">引擎按结论词算下一步(词只 5 个,写别的当场拒)</text>
-    <line x1="620" y1="204" x2="1080" y2="204" stroke="#e1e6ec"/>
-
-    <g font-size="12">
-      <circle cx="628" cy="228" r="4" fill="#1a7f37"/><text x="642" y="232" font-weight="700" fill="#1a7f37">pass</text>
-      <text x="700" y="232" fill="#1f2328">普通阶段 → advance 下一阶段</text>
-      <text x="642" y="250" fill="#5b6573" font-size="11.5">gated(design/plan/build)→ phase 冻结、强制审 → 审过再 pass 才 advance</text>
-      <text x="642" y="267" fill="#5b6573" font-size="11.5">末阶段 closing → ready-to-close</text>
-
-      <circle cx="628" cy="293" r="4" fill="#9a6700"/><text x="642" y="297" font-weight="700" fill="#9a6700">needs-repair</text>
-      <text x="772" y="297" fill="#1f2328">原地返工本阶段</text>
-      <text x="642" y="314" fill="#5b6573" font-size="11.5">repair+1,超 2 次 → blocked</text>
-
-      <circle cx="628" cy="340" r="4" fill="#cf222e"/><text x="642" y="344" font-weight="700" fill="#cf222e">needs-redirection</text>
-      <text x="800" y="344" fill="#1f2328">掉头回 --to-phase 上游</text>
-      <text x="642" y="361" fill="#5b6573" font-size="11.5">turnaround+1,超 1 次 → blocked(只能往上游,不能前跳)</text>
-
-      <circle cx="628" cy="387" r="4" fill="#0e7490"/><text x="642" y="391" font-weight="700" fill="#0e7490">needs-context</text>
-      <text x="782" y="391" fill="#1f2328">停下问你,留步游标 resume</text>
-
-      <circle cx="628" cy="414" r="4" fill="#57606a"/><text x="642" y="418" font-weight="700" fill="#57606a">blocked</text>
-      <text x="724" y="418" fill="#1f2328">上报你,带完整经过</text>
-    </g>
-    <line x1="620" y1="438" x2="1080" y2="438" stroke="#e1e6ec"/>
-    <text x="620" y="460" font-size="11" fill="#5b6573">产物钉进 <tspan font-family="SF Mono,monospace">phase_outputs[phase]</tspan>;下阶段照 reads 拼接力单。</text>
-    <text x="620" y="478" font-size="11" fill="#5b6573">审闸里 where 直接吐 <tspan font-family="SF Mono,monospace" fill="#0969da">review_start=mmw review start --stage X</tspan></text>
-    <text x="620" y="496" font-size="11" fill="#5b6573">stage 由 review_gates map 定,不靠散文猜。</text>
-    <text x="620" y="514" font-size="9.5" font-family="SF Mono,monospace" fill="#8b95a3">flow.sh:80-137,264-274 · routes.json:5,7,13-17</text>
-  </g>
-  <!-- brace from spine to panel -->
-  <path d="M482,400 q60,0 60,-30 l0,-150 q0,-30 56,-30" fill="none" stroke="#c2cad4" stroke-width="1.4" stroke-dasharray="3 3"/>
-  <text x="512" y="240" font-size="9.5" font-family="SF Mono,monospace" fill="#8b95a3" transform="rotate(0)">每次 handoff</text>
-</svg>
-</div>
-
-<!-- ===================== 图文并茂 ===================== -->
-<h2><span class="b" style="background:var(--gate)"></span>放大 1 · 审闸内部怎么转(design / plan / build 冻结后)</h2>
-<div class="scn">触发:gated 阶段 pass → 引擎冻 phase、设 gate。审者永远是独立 Codex,协调是 Claude,完工靠机器核清单不靠自报。三道审同一台 loop(kind=review)。</div>
-<div class="card full">
-  <div class="minisvg">
-  <svg viewBox="0 0 1080 150" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'PingFang SC',sans-serif">
-    <defs><marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#7a8595"/></marker></defs>
-    <g stroke="#7a8595" stroke-width="1.8" marker-end="url(#a2)">
-      <line x1="172" y1="70" x2="198" y2="70"/><line x1="372" y1="70" x2="398" y2="70"/>
-      <line x1="588" y1="70" x2="614" y2="70"/><line x1="806" y1="70" x2="832" y2="70"/>
-    </g>
-    <g>
-      <rect x="20" y="48" width="152" height="46" rx="9" fill="#eaf2fd" stroke="#9ec5f0"/>
-      <text x="96" y="68" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0969da">脚本 review start</text>
-      <text x="96" y="84" text-anchor="middle" font-size="9.5" font-family="SF Mono,monospace" fill="#5b6573">init loop · 出 brief</text>
-      <rect x="200" y="48" width="172" height="46" rx="9" fill="#fff" stroke="#bcc6d2"/>
-      <text x="286" y="68" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0969da">Claude 抽覆盖清单</text>
-      <text x="286" y="84" text-anchor="middle" font-size="9.5" font-family="SF Mono,monospace" fill="#5b6573">checklist add</text>
-      <rect x="400" y="48" width="188" height="46" rx="9" fill="#fbe6d4" stroke="#e3a877"/>
-      <text x="494" y="68" text-anchor="middle" font-size="11.5" font-weight="700" fill="#b8500a">Codex×2 独立审</text>
-      <text x="494" y="84" text-anchor="middle" font-size="9.5" font-family="SF Mono,monospace" fill="#5b6573">exec read-only · quartet</text>
-      <rect x="616" y="48" width="190" height="46" rx="9" fill="#fff" stroke="#bcc6d2"/>
-      <text x="711" y="68" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0969da">Claude 亲验 finding</text>
-      <text x="711" y="84" text-anchor="middle" font-size="9.5" font-family="SF Mono,monospace" fill="#5b6573">引不出 file:line 降置信</text>
-      <rect x="834" y="48" width="224" height="46" rx="9" fill="#fff7e0" stroke="#e0bb4e"/>
-      <text x="946" y="66" text-anchor="middle" font-size="11.5" font-weight="700" fill="#9a6700">verdict → handoff</text>
-      <text x="946" y="83" text-anchor="middle" font-size="9.5" font-family="SF Mono,monospace" fill="#5b6573">pass / repair / redirect</text>
-    </g>
-    <path d="M711,96 q0,30 -120,30 l-200,0 q-120,0 -120,-26" fill="none" stroke="#b8500a" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#a2)"/>
-    <text x="430" y="142" font-size="10" font-family="SF Mono,monospace" fill="#b8500a">⟲ guard-loop:没绿不许停,顶回续审</text>
-  </svg>
-  </div>
-  <ul>
-    <li><span class="pill p-script">脚本</span> <code>mmw review start --stage X</code> → 映射 kind+angle、<code>loop init --kind review</code>、打印协调帮手 brief。<span class="src">review.sh:19-82</span></li>
-    <li><span class="pill p-codex">Codex×2</span> <code>codex exec --sandbox read-only -m gpt-5.5</code> 读 quartet.md + 该阶段 angle 并行审,<b>不用</b> <code>codex review</code>(会绕方法论)。<span class="src">review.sh:68 · review.md:55</span></li>
-    <li><span class="pill p-claude">Claude</span> 每条 finding 自己 grep/Read 坐实才采信 → <code>checklist cover --evidence file:line</code>。<span class="src">loop.sh:90-111</span></li>
-    <li><span class="pill p-hook">guard-loop</span> SubagentStop:<code>exit-check</code> 没 DONE → exit2 顶回去续。清单全绿 + 无开口 Critical 才放停。<span class="src">guard-loop.sh:16-22</span></li>
-    <li>①②审是闸不产文件;<b>仅 ④(build 闸)</b>先写终审报告 <code>docs/&lt;slug&gt;-final-review.md</code> 再 pass。</li>
-  </ul>
-</div>
-
-<h2><span class="b" style="background:var(--script)"></span>放大 2 · 落地内层怎么转(build 阶段「干活」那一拍)</h2>
-<div class="scn">build 先把代码落地(模式 B 派 Codex / 模式 A 主线程自己 TDD),③合同门机器核完,再 B6 handoff —— 这一下才触发上面的 ④终审闸。</div>
-<div class="card full">
-  <div class="minisvg">
-  <svg viewBox="0 0 1080 160" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,'PingFang SC',sans-serif">
-    <defs><marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#7a8595"/></marker></defs>
-    <g stroke="#7a8595" stroke-width="1.8" marker-end="url(#a3)">
-      <line x1="180" y1="60" x2="206" y2="60"/><line x1="402" y1="60" x2="428" y2="60"/>
-      <line x1="640" y1="60" x2="666" y2="60"/><line x1="858" y1="60" x2="884" y2="60"/>
-    </g>
-    <g>
-      <rect x="20" y="38" width="160" height="46" rx="9" fill="#eaf2fd" stroke="#9ec5f0"/>
-      <text x="100" y="58" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0969da">脚本 起 loop</text>
-      <text x="100" y="74" text-anchor="middle" font-size="9" font-family="SF Mono,monospace" fill="#5b6573">init execution · step add</text>
-      <rect x="208" y="38" width="194" height="46" rx="9" fill="#fbe6d4" stroke="#e3a877"/>
-      <text x="305" y="58" text-anchor="middle" font-size="11.5" font-weight="700" fill="#b8500a">Codex 写代码</text>
-      <text x="305" y="74" text-anchor="middle" font-size="9" font-family="SF Mono,monospace" fill="#5b6573">codex dispatch · 每 Pack 提交</text>
-      <rect x="430" y="38" width="210" height="46" rx="9" fill="#fff" stroke="#bcc6d2"/>
-      <text x="535" y="56" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0969da">Claude 验收 3 关</text>
-      <text x="535" y="73" text-anchor="middle" font-size="9" font-family="SF Mono,monospace" fill="#5b6573">完整性·测试质量·设计一致</text>
-      <rect x="668" y="38" width="190" height="46" rx="9" fill="#daf5e2" stroke="#86d29b"/>
-      <text x="763" y="56" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1a7f37">③ 合同门(机器核)</text>
-      <text x="763" y="73" text-anchor="middle" font-size="9" font-family="SF Mono,monospace" fill="#5b6573">exit-check DONE 后</text>
-      <rect x="886" y="38" width="178" height="46" rx="9" fill="#fff7e0" stroke="#e0bb4e"/>
-      <text x="975" y="56" text-anchor="middle" font-size="11.5" font-weight="700" fill="#9a6700">B6 handoff pass</text>
-      <text x="975" y="73" text-anchor="middle" font-size="9" font-family="SF Mono,monospace" fill="#5b6573">→ 触发 ④ 审闸</text>
-    </g>
-    <path d="M535,86 q0,32 -115,32 l-100,0 q-115,0 -115,-28" fill="none" stroke="#b8500a" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#a3)"/>
-    <text x="300" y="150" font-size="10" font-family="SF Mono,monospace" fill="#b8500a">⟲ 验不过 → codex resume 续会话重做(不重跑已过 Pack)</text>
-  </svg>
-  </div>
-  <ul>
-    <li><span class="pill p-codex">Codex</span> <code>mmw codex dispatch --plan … --worktree …</code>:固定 prompt 严防过度设计/兜底、严格 TDD、测试按仓库治理文档、每 Pack 一提交、禁改 docs/。互不依赖 plan 并行。<span class="src">codex-worker.sh:26-108</span></li>
-    <li><span class="pill p-claude">Claude</span> B3 三关(命门,不信自述):① 完整性跑验收读 diff · ② <b>测试质量</b>对标仓库测试治理文档防垃圾测试自绿 · ③ 设计一致性。过 → <code>step done</code>,不过 → <code>codex resume</code>。<span class="src">build.md:81-94 · codex-worker.sh:111-125</span></li>
-    <li><span class="pill p-hook">record-step</span> commit 含 <code>Pack N.M</code> → 自动记 step done。<span class="src">record-step.sh:13-22</span></li>
-    <li><span class="pill p-script">③合同门</span> 全 plan 合并后机器核跨 plan 合同(<code>--stage plan-impl</code>,不派 Codex,像跑测试套),非 HITL 审。<span class="src">review.sh:35 · plan-impl.md</span></li>
-  </ul>
-</div>
-
-<h2><span class="b" style="background:var(--hook)"></span>支撑 · 状态文件 + Hook + 分工原则</h2>
-<div class="cards">
-  <div class="card">
-    <h3><span class="pill p-script">状态</span> 两个真状态文件</h3>
-    <p class="lead">整台机器靠它俩转;"你在哪/下一步"全靠现读它算,不靠记忆。</p>
-    <div class="two">
-      <table class="kvt">
-        <tr><td colspan="2"><b>task.json</b> <span class="src">外层·flow.sh</span></td></tr>
-        <tr><td>phases[]/phase</td><td>开着的阶段序列 + 当前</td></tr>
-        <tr><td>phase_index/step_index</td><td>阶段游标 + 阶段内步游标</td></tr>
-        <tr><td>gate</td><td>在哪道审闸(null=不在)</td></tr>
-        <tr><td>repair/turnaround</td><td>返工/掉头计数(对 caps)</td></tr>
-        <tr><td>phase_outputs/history</td><td>接力单 + 全程留痕</td></tr>
-      </table>
-      <table class="kvt">
-        <tr><td colspan="2"><b>loop-state.json</b> <span class="src">内层·loop.sh</span></td></tr>
-        <tr><td>kind</td><td>execution/review/contract-gate</td></tr>
-        <tr><td>attendance</td><td>afk 放权 / attended 盯</td></tr>
-        <tr><td>steps[]</td><td>落地步账(Pack done)</td></tr>
-        <tr><td>checklist[]/findings[]</td><td>审覆盖清单 + 发现</td></tr>
-        <tr><td>pause</td><td>软停/冒泡(缺输入/方向疑)</td></tr>
-      </table>
+  <div class="nd n-claude">
+    <div class="hd"><span class="badge b-claude">Claude</span><b>closing 收尾</b><span class="loc">routes.json:40</span></div>
+    <div class="rows">
+      <div class="r"><span class="k">读</span><span class="v doc">references/closing.md</span></div>
+      <div class="r"><span class="k">入</span><span class="v">prev_outputs=build 产物(含终审报告);git status / open_items / subtasks</span></div>
+      <div class="r"><span class="k">命令</span><span class="v cmd">mmw handoff --conclusion pass</span></div>
+      <div class="r outrow"><span class="k">出</span><span class="v out">STATUS=ready-to-close · NEXT_ACTION=done</span></div>
     </div>
-    <ul style="margin-top:10px"><li>写入 fail-closed:空/非法 JSON 拒写,绝不截空伪装成功。<span class="src">flow.sh:29-35 · loop.sh:30-36</span></li></ul>
   </div>
+  <div class="cn"></div>
 
-  <div class="card">
-    <h3><span class="pill p-hook">Hook</span> 三个全程看守</h3>
-    <p class="lead">PreToolUse / PostToolUse / SubagentStop,Agent 绕不过。</p>
-    <table class="kvt">
-      <tr><td>guard-redline</td><td>merge/push/deploy 无令牌 → <b style="color:var(--red)">deny</b>。唯一硬红线,要你亲批 <code>mmw release-approve</code>。<span class="src">guard-redline.sh:11-20</span></td></tr>
-      <tr><td>guard-loop</td><td>内层 loop 没 DONE → exit2 顶回,审/落地没完不许停。<span class="src">guard-loop.sh:16-22</span></td></tr>
-      <tr><td>record-step</td><td>commit 含 Pack N.M → 自动记进度(机器记,不让帮手手写)。<span class="src">record-step.sh:13-22</span></td></tr>
-    </table>
-  </div>
-
-  <div class="card full">
-    <h3><span class="pill p-claude">原则</span> 确定的归脚本,判断归 LLM —— 判断是核心,不是兜底</h3>
-    <p class="lead">这条线是整个架构的组织方式:把机械、可固化的步骤压进脚本/Hook,把判断留给 Agent。Agent 的判断不是"待消除的风险",是这 plugin 的价值所在;全是脚本就不需要 Agent 了。</p>
-    <div class="two">
-      <div>
-        <div style="font-weight:700;color:var(--script);margin-bottom:5px">脚本 / Hook 管(确定)</div>
-        <ul style="margin:0">
-          <li>阶段推进、审闸冻结、返工/掉头计数、caps</li>
-          <li>建 worktree / scaffold / 写状态(fail-closed)</li>
-          <li>派 Codex 落地、起审、记步、拦红线</li>
-        </ul>
-      </div>
-      <div>
-        <div style="font-weight:700;color:var(--claude);margin-bottom:5px">Agent 管(判断)</div>
-        <ul style="margin:0">
-          <li>路由选路、每步选结论词</li>
-          <li>方案/设计/计划/代码的内容</li>
-          <li>验收 Codex 产物真假、finding 真假</li>
-          <li><b>执行放权</b>:afk 下自己拍小决策、留痕继续(loop.sh softstop)</li>
-        </ul>
-      </div>
+  <!-- release + cleanup -->
+  <div class="nd n-hook">
+    <div class="hd"><span class="badge b-hook">Hook+脚本</span><b>发布红线 + 清理(回主仓库)</b><span class="loc">guard-redline.sh · prepare.sh:99</span></div>
+    <div class="rows">
+      <div class="r"><span class="k">命令</span><span class="v cmd">mmw release-approve → git merge --no-ff → mmw task cleanup --slug demo</span></div>
+      <div class="r"><span class="k">入</span><span class="v">你亲批;merge/push/deploy 无令牌被 guard-redline(PreToolUse)deny</span></div>
+      <div class="r outrow"><span class="k">出</span><span class="v out">RELEASE-APPROVED token=…/release-approval(一次性,放行一次即消费)· CLEANED slug=demo(先验分支并入 HEAD,fail-closed)</span></div>
     </div>
-    <ul style="margin-top:11px"><li>HITL 集中在 propose/design/plan(要你拍方向);进 build 默认放权,只有真缺输入/方向疑/合并红线才停。</li></ul>
   </div>
+  <div class="cn"></div>
+  <div class="term">✓ 任务完成</div>
+
 </div>
 
 <p class="foot">
-真实代码依据 · SKILL.md · flow.sh · routes.json · prepare.sh · loop.sh · review.sh · codex-worker.sh · hooks.json · guard-loop.sh · guard-redline.sh · record-step.sh · build.md · review/{review,final,plan-impl,quartet}.md · plan/task-pack.md · closing.md · scenario/{develop,bug,small-change}.md —— 每节点 file:line 可逐条核对,非造假、非工作总结。
+「出」字段全部来自实跑 plugin 抓的真实 stdout(临时 develop 任务 slug=demo,fake codex 代真 codex)。读文档/命令来自 routes.json 引擎数据 + 各脚本真实接口。<br>
+脚本依据 · SKILL.md · flow.sh · routes.json · prepare.sh · loop.sh · review.sh · codex-worker.sh · hooks.json · guard-loop.sh · guard-redline.sh · record-step.sh —— 非抄文档、非工作总结。
 </p>
 </div>
 </body>
