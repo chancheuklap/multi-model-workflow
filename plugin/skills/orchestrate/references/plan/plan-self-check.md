@@ -1,21 +1,26 @@
-# Plan 自检 + Pack 就绪门（写完 / 保存前读全文）
+# Plan · selfcheck 步(本步读这一份)
 
-作者保存前自己过的闸。②计划审由 flow 触发(plan handoff pass 后,独立 Codex 审),本阶段 不自派、不复制审题。
+plan 阶段末步:就绪门自检过了就 `mmw handoff` 交还引擎(引擎触发 ②计划审,独立 Codex 审,本阶段不自派审、不自己跳阶段)。多计划时主 Agent 从**跨 plan 视角**再过一遍覆盖与 ownership。
 
-## 自检（保存前）
+## 自检（保存前逐条过）
 
 - **spec 覆盖**：逐条扫 source design / issue 需求，每条能指到一个实现它的 Task；缺口补上。
 - **类型一致**：后续 task 用的类型 / 签名 / 字段名与前文定义一致（Task 3 `clearLayers()` 但 Task 7 `clearFullLayers()` 就是 bug）。
 - **过度设计（删减）**：为一个 small issue 新增多个长期对象但只要一个可验证行为 / 提前塞未来功能 / 无重复证据就抽 shared helper / 全大套矩阵无 pack-local focused command。
 - **设计不足（补齐）**：pack 只写"实现功能"无行为/结果/failure state / 只写路径无 owner/provider/consumer/anchors / UI 无视觉规格 / issue 验收没进 pack / blocked-by 没进 dependencies 或真串行写成并行 / 改 shared contract 无 consumer 同步和 migration gate / RED-GREEN expected 不清 / 改既有行为无 Verified current state / 触碰数据无 Rollback / 验收用主观语言。
 - **覆盖**：每条 design intent 映射到 Pack / 每个 small issue 映射到一个 Pack / File-Responsibility Map 每路径被 Pack 消费 / 后文引用与前文一致 / 发布风险覆盖所有 production-risk pack。
-- **反模式**：见 `plan-rigor.md`，命中即修。
+- **反模式**：write 步 task-pack 列的反模式一条没命中(模糊验收 / 模糊文件引用 / mandate 评审会判缺陷的东西等)。
 
 ## Pack 就绪门（写完逐 pack 过一遍）
 
 能进落地：对应 confirmed small issue / vertical slice 可独立验证 / owned files + 职责 / Interfaces（Consumes·Produces）/ acceptance（可 pass/fail）/ verification commands（pack-local）/ 触合同有 anchors / mockup 存在有具体视觉规格 / commit boundary / risk flags / dependencies / Complexity / 改既有行为有 Verified current state + Rollback。
 不能进：横切 pack（分层不能单独验证）/ UI 只写"实现 mockup"无状态交互 / 缺目标行为需猜 / 多人写同一文件 / 只写 helper 无 public behavior / 需人工决策却标 AFK / 抽不出独立 brief（依赖"看上一个 pack"）。
 
-## 重大 / 碰红线
+触碰不变量 / 合同 / 数据权威 / 发布风险时,尤其确保上面每条都过。审回的 findings 自己亲验再改,外部模型是劳动力不是事实源。
 
-自检 + Pack 就绪门逐条过后 handoff,**②计划审由 flow 触发**(独立 Codex 审,见编排的审核 loop)——本阶段 不自派审、不自己跳阶段。触碰不变量 / 合同 / 数据权威 / 发布风险时尤其确保上面每条都过。审回的 findings 自己亲验再改,外部模型是劳动力不是事实源。
+## 收尾:handoff 交还引擎(`mmw where` 的 `then` 已给好钉产物的命令模板,照抄即可)
+
+- 计划就绪 → `mmw handoff --conclusion pass --produced docs/plans/<slug>/` → 引擎触发 ②计划审,审过再进 build。
+- 设计 / 验收不清没法拆 → 回 design 改:`--conclusion needs-redirection --to-phase design`(`needs-repair` 是原地返工、回不到 design);缺用户输入 → `needs-context`。
+- 探代码撞破设计方向 → `--conclusion needs-redirection`。
+- ②计划审打回 → 引擎回 plan(`needs-repair`),停在本阶段改、改完 handoff 重审。**Critical 必须修掉才能进 build。**

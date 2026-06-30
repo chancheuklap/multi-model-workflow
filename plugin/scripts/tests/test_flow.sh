@@ -208,6 +208,14 @@ echo "$DONE" | grep -q "STEPS_DONE" && ok "末步再 step next → STEPS_DONE" |
 WI2="$(newtask develop 2026-06-30-nostep)"
 echo "$(cd "$WI2" && bash "$FLOW" where)" | grep -q "step=" && no "investigate 不该有 step=" || ok "无步骤阶段 where 不报 step="
 if ( cd "$WI2" && bash "$FLOW" step next >/dev/null 2>&1 ); then no "无步骤阶段 step next 该被拒"; else ok "无步骤阶段 step next 被拒(直接 handoff)"; fi
+# plan 阶段与 design 同构:也三步走脚本游标(架构/操作一致)
+( cd "$WI" && bash "$FLOW" handoff --conclusion pass >/dev/null )   # ①审 verdict → to-issue
+( cd "$WI" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/2026-06-30-steps/ >/dev/null )  # to-issue→plan
+WIP="$(cd "$WI" && bash "$FLOW" where)"
+echo "$WIP" | grep -q "step=orchestrate (1/3)" && ok "plan 也步骤化:step=orchestrate(1/3)load=plan-flow" || no "plan step=orchestrate ($(echo "$WIP"|grep step=))"
+echo "$WIP" | grep -q "load=references/plan/plan-flow.md" && ok "plan orchestrate 步 load plan-flow.md" || no "plan load"
+echo "$(cd "$WI" && bash "$FLOW" step next)" | grep -q "STEP=write (2/3)" && ok "plan step next → write(task-pack)" || no "plan write"
+echo "$(cd "$WI" && bash "$FLOW" step next)" | grep -q "STEP=selfcheck (3/3)" && ok "plan step next → selfcheck(plan-self-check)" || no "plan selfcheck"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

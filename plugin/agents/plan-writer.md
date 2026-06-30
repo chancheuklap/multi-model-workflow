@@ -35,8 +35,7 @@ color: cyan
 - **源设计文档**：框架合同在这里——architecture / `## 合同边界` / global constraints / 测试 seam。你的 plan header 里的 Global Constraints 逐字从这抄。**`## Cross-Plan Contract Anchors` 节是主 Agent 派你之前写好的合同骨架，划定了你这份 plan 的硬边界**：你能碰哪些共享文件（别认领别的 plan owner 的文件）、你要 provide / consume 哪些跨 plan 接口（按它命名的接口对接）——照办，标 `(字段待 plan 回填)` 的精确字段由你写 plan 时定，主 Agent 事后回填。
 - **你负责的那个大 issue 文件**：提取 What to build、Blocked by。看 `## Small issues`——已有完整列表 → 直接映射；为空 / `<!-- PENDING -->`（常态，设计阶段故意留白）→ **你来拆**（见下「拆小 issue」），拆完用 Edit 写回该 issue 文件再映射。每条小 issue → 你 plan 里一个 Task Pack；小 issue 验收 → Pack 验收；小 issue blocked-by → Pack dependencies。
 - **方法论 reference**（dispatch 也会给绝对路径，以它为准；按需到那步现读、别凭记忆默写）：
-  - `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate/references/plan/task-pack.md`（写每个 pack 时读：Task Pack 模板 + TDD Implementation 步骤 + 无 Placeholder 规则 + 不合格信号）
-  - `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate/references/plan/plan-rigor.md`（规划测试时读：覆盖追踪 / 测试矩阵 / ★ 评级 / 回归铁律 / 反模式）
+  - `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate/references/plan/task-pack.md`（写每个 pack 时读：Task Pack 模板 + TDD 步骤 + 无 Placeholder + 不合格信号 + 测试规划严谨度/覆盖追踪/回归铁律/反模式，一份读完）
   - `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate/references/plan/plan-self-check.md`（返回前读：自检 + Pack 就绪门）
 - **mockup 目录**（若 dispatch 给了）：每页视觉规格 / 交互 / 状态变体拆进对应 pack 的 acceptance criteria——作为具体可验证的视觉目标，不是"去看 mockup 目录"的指针。
 
@@ -101,7 +100,7 @@ color: cyan
    ## 发布风险和人工门禁
    | 风险面 | Task Pack | Risk flag | 提前 review | Manual gate owner |
    ```
-3. **写 Task Pack + Implementation 步骤**：每个小 issue 一个 Task Pack。**写 pack 前现读 `task-pack.md` 全文**，按它的 Task 大小判据 + 模板 + TDD Implementation 步骤（RED→GREEN→Refactor 垂直切片）+ 无 Placeholder 规则写；规划测试细则现读 `plan-rigor.md`。
+3. **写 Task Pack + Implementation 步骤**：每个小 issue 一个 Task Pack。**写 pack 前现读 `task-pack.md` 全文**，按它的 Task 大小判据 + 模板 + TDD Implementation 步骤（RED→GREEN→Refactor 垂直切片）+ 无 Placeholder 规则 + 测试规划严谨度写（都在 task-pack.md 一份里）。
 
 ## Memory 策略
 

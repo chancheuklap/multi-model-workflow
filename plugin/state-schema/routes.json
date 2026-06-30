@@ -30,7 +30,12 @@
         { "id": "selfcheck", "load": "references/design/design-self-check.md",   "do": "保存前逐条自检,告诉用户设计文档已写入、请审阅" }
       ] },
     "to-issue":    { "load": "references/design/to-issue-skeleton.md", "do": "①设计审过后:把设计垂直切片成可独立认领的 issue 骨架(主线程)", "produced": "docs/issues/<slug>/", "reads": ["design"] },
-    "plan":        { "load": "references/plan/plan.md",     "do": "编排 + 派 plan-writer 拆计划(单计划则主线程内联)",            "produced": "docs/plans/<slug>/", "reads": ["design", "to-issue"] },
+    "plan":        { "load": "references/plan/plan-flow.md", "do": "编排 + 派 plan-writer 拆计划(单计划则主线程内联)",            "produced": "docs/plans/<slug>/", "reads": ["design", "to-issue"],
+      "steps": [
+        { "id": "orchestrate", "load": "references/plan/plan-flow.md",       "do": "判单/多计划、映射 plan 清单、写跨 plan 合同骨架;多计划则 fan-out plan-writer + 亲验返回 + 回填合同" },
+        { "id": "write",       "load": "references/plan/task-pack.md",       "do": "单计划:主线程在本步照 task-pack 写整份 plan;多计划:已由 plan-writer 写完 → step next 跳过" },
+        { "id": "selfcheck",   "load": "references/plan/plan-self-check.md", "do": "跨 plan 覆盖与 ownership 就绪门自检,过了 handoff 交还" }
+      ] },
     "build":       { "load": "references/build.md",        "do": "落地:small-change/bug 主线程就地 TDD;develop 派 Codex(各 plan 一 worktree)+ 你按计划验收",  "produced": "<提交范围,如 base..HEAD>" },
     "verify":      { "load": "references/review/review.md",       "do": "起 ④终审 loop(Codex 审 + 你按意图清单验),写终审报告(含业务语言交付摘要)", "produced": "docs/<slug>-final-review.md", "reads": ["design", "to-issue", "build"] },
     "closing":     { "load": "references/closing.md",      "do": "确认真完整、收口;合并/清理是合并后红线动作",                   "produced": "" },
