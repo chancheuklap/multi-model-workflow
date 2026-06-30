@@ -1,15 +1,61 @@
 # Build · 落地(阶段操作指南)
 
-> 落地 = **Codex 写代码 + Claude(你)按计划验收**。把 ②计划审过的 plan 完整落地、不偏离设计。**默认放权自主跑**(`attended` 才停问),只有真缺输入 / 方向疑 / 合并红线才停。
+> 落地阶段。**两种落地模式,进来先看 `mmw where` 报的 `scenario` 选一种**:
+> - **模式 A · 主线程就地 TDD**(`scenario=small-change` 小改 / `scenario=bug` 定点修):改动小、根因清楚 → 主线程自己用 `/tdd` 写测试 → 实现 → 验证 → 提交,**不派 Codex、不开子 worktree**(已在任务 worktree 内)。
+> - **模式 B · Codex 派发**(`scenario=develop` 大活):多份 ②计划审过的 plan → Codex 写 + Claude 验,各 plan 一 worktree、可并行。
+>
+> 两模式共同红线:验收吃**跑测试 / 读 diff 的 ground truth**,不吃自述;**默认放权自主跑**(`attended` 才停问),只有真缺输入 / 方向疑 / 合并红线才停;merge/deploy 永远要人批(收尾阶段)。
+
+---
+
+## 模式 A · 主线程就地 TDD(small-change / bug)
+
+主线程自己落地,**不派 Codex**。`prev_outputs`:small-change 没上游产物;bug 带 investigate 钉的根因报告(`docs/investigating/<slug>.md`)。
+
+### A1. 判改动面 → 要不要先写一份单计划
+
+| 改动面 | 怎么做 |
+|---|---|
+| **定点小改 / 单文件单点修** | 跳过计划,直接 A2 逐步 TDD。 |
+| **跨多文件 / 多步骤** | 先写**一份单计划**理清 Task Pack:主线程自己读 `plan/task-pack.md` 的模板,落 `docs/plans/<slug>/001-<slug>.md`(**主线程自己写,不派 plan-writer、不进 ②计划审**——bug/小改无审闸),再按 Pack 逐个 TDD。 |
+
+### A2. 逐步 TDD（用 `/tdd`）
+
+起 loop 记步账（一步一 Pack，或小改就一步），afk 放权：
+
+```bash
+mmw loop init --kind execution
+mmw loop attendance --mode afk
+mmw loop step add --id <pack-或-step-id> --desc "<标题>"   # 逐项
+```
+
+每步严格 TDD：
+
+- **bug 定点修**:先按根因报告写一条**复现失败测试**(没复现就先复现,这步等于坐实根因)→ 最小修 → 测试转绿 → 提交。
+- **small-change**:写失败测试 → 最小实现 → 转绿 → 提交。
+- 主线程在任务 worktree 内提交,`record-step` hook 提交即标 done;一步一提交,commit message 含步标。
+
+### A3. 收口 → handoff
+
+全步绿 + `mmw loop exit-check` = DONE 后:
+
+```bash
+mmw handoff --conclusion pass --produced "<分支提交范围,如 base..HEAD>"
+```
+
+→ advance 到 verify(④终审验修复 + 回归)。修着撞出超范围问题 → `mmw spinoff` 登记,别就地扩;根因其实是设计级 → `needs-redirection`(bug 见 `scenario/bug.md` 的升级说明)。
+
+---
+
+## 模式 B · Codex 派发(develop)
+
+> 落地 = **Codex 写代码 + Claude(你)按计划验收**。把 ②计划审过的 plan 完整落地、不偏离设计。
 
 **红线:**
 - Codex **只改源码、禁碰 `docs/`**(已焊进派发 prompt);每 Pack 一提交带 `Pack N.M`。
 - **Codex 返回的事实(改了啥、测试结果)是劳动力不是信源**——你 verify 时自己 grep/读/跑坐实。
-- afk 放权只动软停;merge/deploy 永远要人批(收尾阶段)。
 
----
-
-## 1. 进 + 起落地 loop
+### B1. 进 + 起落地 loop
 
 `mmw where` → `prev_outputs` = plan 阶段钉的 plan 目录。读该目录拿 Task Pack 清单、acceptance、plan 间依赖。起 loop、把 plan 展开成步账(一份 plan 一步,或按 Pack 更细):
 
@@ -21,7 +67,7 @@ mmw loop step add --id <plan-或-pack-id> --desc "<标题>"   # 逐项
 
 判哪些 plan 互不依赖 → 并行;有 blocked_by 链 → 按序。
 
-## 2. 派 Codex 落地(一条命令进 worktree)
+### B2. 派 Codex 落地(一条命令进 worktree)
 
 每份 plan 派一个 Codex(脚本代劳开 worktree + 组装规范 prompt + codex exec):
 
@@ -33,7 +79,7 @@ mmw codex dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree 
 - 脚本已把铁律焊进 prompt:严防过度设计/兜底/思考、严格 TDD、每 Pack 提交带 `Pack N.M`、禁改 `docs/`、缺输入就停下说清。
 - Codex 在自己 worktree 提交(不走你的 Bash,所以 record-step 不记;进度靠你 verify 后 `mmw loop step done`)。
 
-## 3. 验收(命门:你按计划验,不信 Codex 自述)
+### B3. 验收(命门:你按计划验,不信 Codex 自述)
 
 Codex 返回后,读它最后消息 + **自己核**(亲验):
 
@@ -48,7 +94,7 @@ Codex 返回后,读它最后消息 + **自己核**(亲验):
 
 **Codex 停下说"缺输入/计划与现实冲突"**:你判——小问题有合理默认 → afk 直接给指令 resume(留痕);真缺输入 / 怀疑方向错 → 停下抛用户(`mmw handoff --conclusion needs-context` / `needs-redirection`),别替用户拍方向。
 
-## 4. ③ 合同门(每份 plan 验完)
+### B4. ③ 合同门(每份 plan 验完)
 
 一份 plan 全 Pack 落地 + 验过后,起便宜合同门核跨 plan 合同兑现:
 
@@ -58,7 +104,7 @@ mmw review start --stage plan-impl --source "<plan 目录>"
 
 按提示机器核(合同清单 cover);合同不达 → 回本 plan 补;合同根上错 → 升级。不派 Codex 判断。
 
-## 5. 合并 + 钉产出 → handoff
+### B5. 合并 + 钉产出 → handoff
 
 并行 plan 各在自己 worktree,验完 + ③门过 → 合并回任务分支(解 git 冲突 + 业务/功能冲突),`mmw loop exit-check` 应为 DONE。然后:
 
@@ -68,9 +114,11 @@ mmw handoff --conclusion pass --produced "<分支提交范围,如 base..HEAD>"
 
 → advance 到 verify(④终审)。落地撞破设计/计划(根因在上游)→ `needs-repair`(回 plan)/ `needs-redirection`(方向);卡死或超轮 → `blocked`。
 
-## 6. 守住的红线
+---
 
-- Codex 写、Claude 验;验收吃跑测试/读 diff 的 ground truth,不吃 Codex 自述。
-- Codex 禁改 `docs/`;每 Pack 一提交带 `Pack N.M`。
+## 守住的红线(两模式)
+
+- 验收吃跑测试/读 diff 的 ground truth,不吃自述。
+- 模式 A 主线程就地 TDD、不派 Codex;模式 B Codex 写、Claude 验,Codex 禁改 `docs/`、每 Pack 一提交带 `Pack N.M`。
 - afk 只放软停;真缺输入/方向疑/合并红线必停。
-- 修复走 `codex resume` 续原会话(keep context,不重派、不重做已提交 Pack)。
+- 模式 B 修复走 `codex resume` 续原会话(keep context,不重派、不重做已提交 Pack)。

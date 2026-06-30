@@ -1,8 +1,12 @@
 # Bug · 根因不明的修复
 
 > orchestrate 路由到这:**bug / 报错 / regression,根因不明**。这条路从头到尾就读这一份,不用回 SKILL。
-> **预设 `bug`**,阶段序列:查清(含查根因)→ 落地(修)→ 验收 → 收尾(investigate→build→verify→closing)。无 design / plan,无审闸。
-> investigate 重点是定位根因(后续会接 diagnosing 方法论,走到再细化);build 按根因定点修 + 补回归测试。根因牵出设计级问题 → `mmw handoff --conclusion needs-redirection` 抛回,别在 bug 路里硬塞设计。
+> **预设 `bug`**,阶段序列:查清(查根因)→ 落地(修)→ 验收 → 收尾(investigate→build→verify→closing)。无 design / plan、无审闸——bug 是定点修,不走设计/计划的重流程。
+>
+> **三个 bug 专属点**(方法论在各阶段 reference,这里点明这条路怎么用它们):
+> - **查清 = 跑 `diagnosing-bugs` 查根因**:investigate 阶段用 `diagnosing-bugs` skill 复现 → 隔离 → 定位根因(`investigate-internal` workflow 的 angle 选 `diagnosing-bugs`),产出带 `file:line` 的根因报告,不泛泛查现状。够窄(单函数/已知文件)就主线程直接 `diagnosing-bugs` + `rg`/`Read` 查完,别起 workflow。
+> - **落地 = 主线程就地 TDD 定点修**(不派 Codex):build 阶段按 `mmw where` 报的 `scenario=bug` 走 `build.md` 的「模式 A · 主线程就地 TDD」——先按根因写一条**复现失败测试**,再最小修、转绿、提交。改动跨多文件 → 先写一份**单计划**(主线程自己写,不派 plan-writer、不进计划审)理清 Task Pack 再逐个 TDD;简单定点修直接修。
+> - **根因是系统性设计问题 → 停下升级**:investigate 发现根因不是局部 bug 而是设计级缺陷 → `mmw handoff --conclusion needs-redirection` 停下报用户,**作为 `develop` 任务重开走完整设计路**(bug 预设里没有 design/plan 阶段,不在 bug 路里硬塞设计;「中途自动转预设」是待建能力,现在靠重开)。
 
 <!-- BEGIN: worktree-setup -->
 ## 建 worktree(进去之后才开干)

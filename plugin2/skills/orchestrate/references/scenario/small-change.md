@@ -2,6 +2,7 @@
 
 > orchestrate 路由到这:**明确的小改,根因清楚、不需要设计**。这条路从头到尾就读这一份,不用回 SKILL。
 > **预设 `small-change`**,阶段序列:落地 → 验收 → 收尾(build→verify→closing)。无 investigate / design / plan,无审闸。
+> **落地 = 主线程就地 TDD**(不派 Codex):build 阶段按 `mmw where` 报的 `scenario=small-change` 走 `build.md` 的「模式 A · 主线程就地 TDD」。
 > 改动小但仍走验收闸,不跳质量门;落地撞出超范围问题 → `mmw spinoff` 登记,别就地扩。
 
 <!-- BEGIN: worktree-setup -->
