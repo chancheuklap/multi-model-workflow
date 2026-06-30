@@ -120,7 +120,7 @@ verdict:     pass | needs-repair | needs-redirection | needs-context | blocked
 | **熔断** | 修复轮上限(数据持有,见下),到顶转第三态 |
 | **第三态** | `needs-redirection`(方向)/ `needs-context`(缺输入)/ `blocked`(卡死或超限)→ 抛主线程交人 |
 
-**轮上限矩阵**(放 routes.json caps):①设计=2 · ②计划=2 · ③合同门=不开 loop · ④final=1–2 + 超限转根因调查。
+**轮上限矩阵**(审核 loop 的收敛轮由协调帮手自己计、自己到顶 `surface`,**不写进 loop.sh / routes.json**;`routes.json caps` 是外层 handoff 重派/掉头的兜底上限,与审内轮上限是两套):①设计=2 · ②计划=2 · ③合同门=不开 loop · ④final=1–2 + 超限转根因调查。详见 `review-loop.md §4`。
 
 **per-review 退出判据**:
 

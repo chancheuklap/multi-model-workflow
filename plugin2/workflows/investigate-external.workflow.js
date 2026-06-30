@@ -116,5 +116,5 @@ const synthPrompt = [
 
 const report = await agent(synthPrompt, { label: 'synthesize', phase: 'Synthesize', schema: REPORT_SCHEMA })
 
-// 返结构化证据 + 引用报告。主线程亲验承重事实(子代理是劳动力不是信源)后才写 docs/context。
+// 返结构化证据 + 引用报告。主线程亲验承重事实(子代理是劳动力不是信源)后才写 docs/investigating/<slug>.md。
 return { topics: verified, report }

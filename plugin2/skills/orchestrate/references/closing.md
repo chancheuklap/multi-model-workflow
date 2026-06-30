@@ -7,6 +7,11 @@
 ## 1. 收口清单(逐条确认,机器能核的就核)
 
 - **落地完整**:分支无未提交改动(`git status` 干净);相关测试绿(跑一遍)。
+- **遗留标记扫描**(本任务新引入的,git 看 open_items 看不到):扫分支 diff 找新留下的临时标记——
+  ```bash
+  git diff <base_commit>..HEAD | grep -nE 'TODO|FIXME|TBD|XXX|HACK|placeholder|temporary|workaround|暂时|占位'
+  ```
+  **没有"非阻塞项"**:每条要么当场修掉,要么开成明确的独立后续(`mmw spinoff` 或 GitHub issue),要么确认它不是问题——三选一,不许留着含糊。
 - **遗留处置**:`task.json` 的 `open_items` / `subtasks`(spinoff)逐条——要么本任务做了,要么明确登记成独立后续(不静默丢)。
 - **审都过**:①②③④ 都过、无开口 Critical(verify 的终审报告为准)。
 - **文档对齐**:设计/计划与最终落地一致(③④已核;这里只确认没有事后漂移)。

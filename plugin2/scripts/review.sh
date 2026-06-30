@@ -10,6 +10,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOOP="$SCRIPT_DIR/loop.sh"
 MMW="bash $SCRIPT_DIR/mmw.sh"   # 打印给协调帮手的命令走统一 CLI
 REVIEW_REF_DIR="$SCRIPT_DIR/../skills/orchestrate/references/review"
+# 审 = 高判断,审者 Codex 跑高档(不吃 codex 默认档);可 env 覆盖
+CODEX_REVIEW_MODEL="${CODEX_REVIEW_MODEL:-gpt-5.5}"
+CODEX_REVIEW_EFFORT="${CODEX_REVIEW_EFFORT:-xhigh}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
@@ -62,7 +65,7 @@ EOF
    > 你是审核协调帮手,跑 kind=review 审 loop,不自己写结论也不改产物。
    > Source: $source
    > 派两个独立 Codex 审者($views),单条消息并行起、各自干净 context,每个跑:
-   >   codex exec -C . --sandbox read-only - < <prompt>   (run_in_background)
+   >   codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>   (run_in_background)
    >   prompt = 点名读 $REVIEW_REF_DIR/quartet.md + $REVIEW_REF_DIR/$angle 的对应视角 + 给 Source。
    >   Codex 侧没装本 skill 就把那两段拼成自包含 prompt;续接用 codex exec resume <id>。
    > 收回亲验:每条 finding 自己 Read/grep/跑坐实(Codex 是劳动力不是信源),引不出 file:line 降置信。

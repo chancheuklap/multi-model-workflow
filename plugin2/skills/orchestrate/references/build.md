@@ -17,33 +17,32 @@
 | 改动面 | 怎么做 |
 |---|---|
 | **定点小改 / 单文件单点修** | 跳过计划,直接 A2 逐步 TDD。 |
-| **跨多文件 / 多步骤** | 先写**一份单计划**理清 Task Pack:主线程自己读 `plan/task-pack.md` 的模板,落 `docs/plans/<slug>/001-<slug>.md`(**主线程自己写,不派 plan-writer、不进 ②计划审**——bug/小改无审闸),再按 Pack 逐个 TDD。 |
+| **跨多文件 / 多步骤** | 先写**一份单计划**理清 Task Pack:主线程自己读 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate/references/plan/plan-authoring.md` 的模板,落 `docs/plans/<slug>/001-<slug>.md`(**主线程自己写,不派 plan-writer、不进 ②计划审**——bug/小改无审闸),再按 Pack 逐个 TDD。 |
 
 ### A2. 逐步 TDD（用 `/tdd`）
 
-起 loop 记步账（一步一 Pack，或小改就一步），afk 放权：
+**起不起 loop 看改动面**(spec:small-change 不进 loop):
 
-```bash
-mmw loop init --kind execution
-mmw loop attendance --mode afk
-mmw loop step add --id <pack-或-step-id> --desc "<标题>"   # 逐项
-```
+| 改动面 | loop |
+|---|---|
+| **真一两处的小改**(single-change) | **不起 loop**,直接 TDD 改完提交 → A3 handoff。 |
+| **多步**(bug 定点修跨多文件 / A1 的单计划) | 起 execution loop 记步账,逐步走完再 handoff:`mmw loop init --kind execution` → `mmw loop attendance --mode afk` → 每步 `mmw loop step add --id <N.M> --desc "<标题>"`。 |
 
-每步严格 TDD：
+每步严格 TDD:
 
 - **bug 定点修**:先按根因报告写一条**复现失败测试**(没复现就先复现,这步等于坐实根因)→ 最小修 → 测试转绿 → 提交。
 - **small-change**:写失败测试 → 最小实现 → 转绿 → 提交。
-- 主线程在任务 worktree 内提交,`record-step` hook 提交即标 done;一步一提交,commit message 含步标。
+- 主线程在任务 worktree 内提交,**commit message 含 `Pack N.M`**——起了 loop 时 `record-step` hook 据此自动标 step done(没起 loop 则无需,直接提交)。一步一提交。
 
 ### A3. 收口 → handoff
 
-全步绿 + `mmw loop exit-check` = DONE 后:
+改完测试全绿(起了 loop 的话 `mmw loop exit-check` = DONE)后:
 
 ```bash
 mmw handoff --conclusion pass --produced "<分支提交范围,如 base..HEAD>"
 ```
 
-→ advance 到 verify(④终审验修复 + 回归)。修着撞出超范围问题 → `mmw spinoff` 登记,别就地扩;根因其实是设计级 → `needs-redirection`(bug 见 `scenario/bug.md` 的升级说明)。
+→ advance 到 verify(④终审验修复 + 回归)。修着撞出超范围问题 → `mmw spinoff` 登记,别就地扩;根因其实是系统性设计级(要重做设计/拆计划)→ 原地升级完整设计路 `mmw task escalate --to develop`(worktree 不重开、已查成果留着,游标回 investigate 带设计意图重查),升级前先一句话告诉用户。
 
 ---
 

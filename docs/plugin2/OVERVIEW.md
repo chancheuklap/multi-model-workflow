@@ -470,7 +470,7 @@ flowchart LR
 | 入口(**纯路由**:断点恢复 + 选路,随后交给该路径 reference)| `skills/orchestrate/SKILL.md` |
 | 每条路径一份干净完整走法(建 worktree + 契约 + 回执 + 收尾)| `skills/orchestrate/references/scenario/{small-change,develop,bug,merge}.md` |
 | 路径间共用步骤的单源 + 多文档构建(改一处跑 `build.sh --apply` 覆盖全部)| `build/fragments/*.md` · `build/build.sh`(`--check`/`--apply`)|
-| 各阶段方法论 / 操作指南 | `skills/orchestrate/references/{investigate,propose,review,build,closing}.md` · `skills/orchestrate/references/design/`(design.md + discussion/rigor/template/self-check/prototype-mockup/to-issue-skeleton)· `skills/orchestrate/references/plan/`(plan.md + plan-flow/task-pack/plan-rigor/plan-self-check)·to-issue 阶段读 `references/design/to-issue-skeleton.md`—— 八阶段方法论同住 orchestrate 体内、按路径加载,无 `Skill:` 名索引 |
+| 各阶段方法论 / 操作指南 | `skills/orchestrate/references/{investigate,propose,review,build,closing}.md` · `skills/orchestrate/references/design/`(design.md + discussion/rigor/template/self-check/prototype-mockup/to-issue-skeleton)· `skills/orchestrate/references/plan/`(plan.md 路由 + plan-flow 编排 + plan-authoring 撰写一份读完)·to-issue 阶段读 `references/design/to-issue-skeleton.md`—— 八阶段方法论同住 orchestrate 体内、按路径加载,无 `Skill:` 名索引 |
 | 插件接线(可安装)| `.claude-plugin/plugin.json`(清单)· `hooks/hooks.json`(只接 3 个 hook)· `agents/plan-writer.md`(plan 阶段 fan-out)· `commands/gather-context.md`(设计问答补上下文)|
 | 阶段→`load`/`do`/`then` 绑定(`mmw where` 自指路单源)| `state-schema/routes.json` 的 `phase_bindings` |
 | 审题(喂 Codex)| `skills/orchestrate/references/review/{quartet,design,plan,plan-impl,final}.md` |
