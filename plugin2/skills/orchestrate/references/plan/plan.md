@@ -28,7 +28,7 @@
 就绪门过后,**钉 plan 目录进接力单 + 一条 handoff**(落地由 build 阶段派 Codex,本阶段不交接执行方式;②计划审由 flow 触发,不自派):
 
 - 计划就绪 → `mmw handoff --conclusion pass --produced docs/plans/<slug>/` → flow 触发 ②计划审(Codex 独立审),审过再进 build。
-- 设计 / 验收不清没法拆 → `--conclusion needs-repair`(回 design)或 `needs-context`(问用户)。
+- 设计 / 验收不清没法拆 → 回 design 改:`--conclusion needs-redirection --to-phase design`(`needs-repair` 是原地返工、回不到 design);缺用户输入 → `needs-context`。
 - 探代码撞破设计方向 → `--conclusion needs-redirection`。
 - ②计划审打回 → flow 回 plan(`needs-repair`),停在本阶段改、改完 handoff 重审。**Critical 必须修掉才能进 build。**
 

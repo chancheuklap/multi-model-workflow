@@ -94,25 +94,27 @@ Codex 返回后,读它最后消息 + **自己核**(亲验):
 
 **Codex 停下说"缺输入/计划与现实冲突"**:你判——小问题有合理默认 → afk 直接给指令 resume(留痕);真缺输入 / 怀疑方向错 → 停下抛用户(`mmw handoff --conclusion needs-context` / `needs-redirection`),别替用户拍方向。
 
-### B4. ③ 合同门(每份 plan 验完)
+### B4. 全 plan 验完 + 合并
 
-一份 plan 全 Pack 落地 + 验过后,起便宜合同门核跨 plan 合同兑现:
+每份 plan 验过(B3)→ `mmw loop step done`。所有 plan 都 done 后 `mmw loop exit-check` 应为 DONE(执行 loop 收工)。并行 plan 各在自己 worktree → 合并回任务分支(解 git 冲突 + 业务/功能冲突)。
+
+### B5. ③ 合同门(一次,全 plan 合并后)
+
+**跨 plan 合同要等所有 plan 都在场才能核**(provider 在 A、consumer 在 B),所以 ③ 在这跑一次、不per-plan。执行 loop 已 DONE(全 Pack 已提交,B4 已机器核),③ 只核**跨 plan 合同兑现**,不再列 pack:
 
 ```bash
-mmw review start --stage plan-impl --source "<plan 目录>"
+mmw review start --stage plan-impl --source "<设计文档 ## Cross-Plan Contract Anchors>"
 ```
 
-按提示机器核(合同清单 cover);合同不达 → 回本 plan 补;合同根上错 → 升级。不派 Codex 判断。
+按打印的 brief:逐条合同 `checklist add` → grep/Read 坐实 provider/consumer/版本/迁移/登记 → `checklist cover --evidence <file:line>`;清单全 cover → `exit-check` DONE。合同不达 → `needs-redirection --to-phase build`(回落地补);合同根上错(设计的合同本身不成立)→ `needs-redirection --to-phase design`。**不派 Codex 判断、不列 pack**(全 Pack 提交已由 B4 exit-check 保证)。
 
-### B5. 合并 + 钉产出 → handoff
-
-并行 plan 各在自己 worktree,验完 + ③门过 → 合并回任务分支(解 git 冲突 + 业务/功能冲突),`mmw loop exit-check` 应为 DONE。然后:
+### B6. 钉产出 → handoff
 
 ```bash
 mmw handoff --conclusion pass --produced "<分支提交范围,如 base..HEAD>"
 ```
 
-→ advance 到 verify(④终审)。落地撞破设计/计划(根因在上游)→ `needs-repair`(回 plan)/ `needs-redirection`(方向);卡死或超轮 → `blocked`。
+→ advance 到 verify(④终审)。落地撞破设计/计划(根因在上游)→ `needs-redirection --to-phase plan`(或 `--to-phase design`)回上游改;卡死或超轮 → `blocked`。(`needs-repair` 只原地返工 build,回不到上游。)
 
 ---
 

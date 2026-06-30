@@ -37,23 +37,26 @@
 
 - `pause != null`(surface 冒泡)→ 按 `reason` handoff `needs-redirection` / `needs-context`,交用户。
 - `exit-check` = DONE 且无 accepted 缺陷 → `mmw handoff --conclusion pass`,进下一阶段。
-- 有 accepted finding → 按 Gap 选结论词:Implementation/Design/Plan 缺陷→`needs-repair`(回对应阶段修,改完 handoff 重审);Direction→`needs-redirection`;Context→`needs-context`。
+  - **仅 ④final(verify 阶段):handoff 前先写终审报告**,照 `mmw where` 的 `then`(已含 `--produced docs/<slug>-final-review.md`)钉它。报告内容见 `references/review/final.md` 末节(终审 verdict + 意图清单逐条结果 + **业务语言交付摘要**);closing 阶段照单读它收口。①②审是闸、不产文件,这条不适用。
+- 有 accepted finding → 按 Gap 选结论词(`needs-repair` 是**原地返工当前阶段**;回上游别的阶段必须 `needs-redirection --to-phase <阶段>`):
+  - 缺陷在**当前被审阶段**(①审=design、②审=plan,gate 的 cur_phase 就是它;④final 的代码缺陷可在 verify loop 里就地修)→ `needs-repair`,改完 handoff 重审。
+  - 根因在**更上游阶段**(②审发现 design 问题、④final 撞破 plan/design)→ `needs-redirection --to-phase <design|plan|build>`,回那阶段改。
+  - Direction(解错问题)→ `needs-redirection`;Context(缺输入)→ `needs-context`。
 - 超熔断仍不收敛 → `mmw handoff --conclusion blocked`,带经过上报。
 
 **Critical 必须修掉**才能让对应阶段往下走。
 
 ## 3. ③ 便宜合同门(contract-gate,不派 Codex)
 
-③ 跟 TDD 每步验重叠,只查跨 plan 合同兑现,降成机器门:
+③ 全 plan 合并后跑**一次**,只查跨 plan 合同兑现,降成机器门(全 Pack 提交已由 build 执行 loop `exit-check` 保证,不在这重核)。完整走法见 `references/review/plan-impl.md`:
 
 ```bash
-mmw review start --stage plan-impl --source "<plan 目录>"   # init kind=contract-gate
-mmw loop step add --id <pack-id> ...           # 待提交的 pack(record-step hook 提交即标 done)
-mmw loop checklist add --item "<跨 plan 合同>" --source <plan:line>
-# 逐条机器核合同兑现 → checklist cover;全 Pack 提交 + 合同全 cover → exit-check DONE
+mmw review start --stage plan-impl --source "<设计文档 ## Cross-Plan Contract Anchors>"   # init kind=contract-gate
+mmw loop checklist add --item "<跨 plan 合同>" --source <design:line>
+# 逐条 grep/Read 机器核合同兑现 → checklist cover;合同全 cover → exit-check DONE(steps 空即满足)
 ```
 
-合同不达 → 回落地阶段(落地自己的 2 轮);合同根上错 → 升级。不开 Codex 判断 loop。
+合同不达 → `needs-redirection --to-phase build`(回落地补);合同根上错 → `--to-phase design`。不列 pack、不开 Codex 判断 loop。
 
 ## 4. 守住的红线
 

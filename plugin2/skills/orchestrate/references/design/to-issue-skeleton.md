@@ -23,4 +23,4 @@ mmw handoff --conclusion pass --produced docs/issues/<slug>/
 
 `mmw where` 的 `then` 已给好这条命令模板,照抄即可。→ advance 到 plan(无审闸:切片质量在 ②计划审随计划一起兜)。
 
-切片中发现设计本身缺口 / 方向错 → 别在这硬切,`mmw handoff --conclusion needs-repair`(回 design 改)或 `needs-redirection`(方向)。
+切片中发现设计本身缺口 / 方向错 → 别在这硬切,回上游 design 改:`mmw handoff --conclusion needs-redirection --to-phase design`(`needs-repair` 是原地返工、回不到 design)。

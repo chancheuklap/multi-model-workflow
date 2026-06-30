@@ -25,8 +25,8 @@
     "design":      { "load": "references/design/design.md", "do": "拿已定方向产出设计文档(HITL 集中在此;不再提方案;只产设计文档,issue 切片在 ①设计审之后的 to-issue 阶段)", "produced": "docs/design/<slug>.md", "reads": ["investigate", "propose"] },
     "to-issue":    { "load": "references/design/to-issue-skeleton.md", "do": "①设计审过后:把设计垂直切片成可独立认领的 issue 骨架(主线程)", "produced": "docs/issues/<slug>/", "reads": ["design"] },
     "plan":        { "load": "references/plan/plan.md",     "do": "编排 + 派 plan-writer 拆计划(单计划则主线程内联)",            "produced": "docs/plans/<slug>/", "reads": ["design", "to-issue"] },
-    "build":       { "load": "references/build.md",        "do": "派 Codex 落地(各 plan 一 worktree)+ 你按计划验收",            "produced": "<提交范围,如 base..HEAD>" },
-    "verify":      { "load": "references/review/review.md",       "do": "起 ④终审 loop(Codex 审 + 你按意图清单验)",                    "produced": "<终审报告路径>" },
+    "build":       { "load": "references/build.md",        "do": "落地:small-change/bug 主线程就地 TDD;develop 派 Codex(各 plan 一 worktree)+ 你按计划验收",  "produced": "<提交范围,如 base..HEAD>" },
+    "verify":      { "load": "references/review/review.md",       "do": "起 ④终审 loop(Codex 审 + 你按意图清单验),写终审报告(含业务语言交付摘要)", "produced": "docs/<slug>-final-review.md", "reads": ["design", "to-issue", "build"] },
     "closing":     { "load": "references/closing.md",      "do": "确认真完整、收口;合并/清理是合并后红线动作",                   "produced": "" },
     "review_gate": { "load": "references/review/review.md",       "do": "起该阶段审 loop(Codex 审者 + Claude 协调帮手),审完 handoff verdict", "produced": "" }
   },

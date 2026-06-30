@@ -18,7 +18,7 @@ mmw handoff --conclusion pass
 ```
 
 → `STATUS=ready-to-close`:任务内容完成,等合并 + 清理(下面红线)。
-还有没处理的遗留 / 测试没绿 → `--conclusion needs-repair`（回 build 补）。
+还有没处理的遗留 / 测试没绿 → 回 build 补:`--conclusion needs-redirection --to-phase build`（`needs-repair` 是原地返工、回不到 build）。
 
 ## 3. 合并红线(合并后才清理)
 
