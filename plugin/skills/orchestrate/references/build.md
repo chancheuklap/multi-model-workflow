@@ -28,7 +28,7 @@
 | **真一两处的小改**(single-change) | **不起 loop**,直接 TDD 改完提交 → A3 handoff。 |
 | **多步**(bug 定点修跨多文件 / A1 的单计划) | 起 execution loop 记步账,逐步走完再 handoff:`mmw loop init --kind execution` → `mmw loop attendance --mode afk` → 每步 `mmw loop step add --id <N.M> --desc "<标题>"`。 |
 
-每步严格 TDD:
+每步严格 TDD(**测试按仓库测试治理文档的分层 + 写作规范写**——定位 TESTING.md / AGENTS.md 测试节 / tests 规则,找不到才用通用 TDD 纪律;跑通仓库自己的 test guards / lint):
 
 - **bug 定点修**:先按根因报告写一条**复现失败测试**(没复现就先复现,这步等于坐实根因)→ 最小修 → 测试转绿 → 提交。
 - **small-change**:写失败测试 → 最小实现 → 转绿 → 提交。
@@ -83,8 +83,15 @@ mmw codex dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree 
 Codex 返回后,读它最后消息 + **自己核**(亲验):
 
 - **完整性**:plan 的每条 acceptance 真达成?跑验收命令、读 diff,不认"我做完了"。
+- **测试质量(对标仓库标准,防 Codex 写垃圾测试自己绿)**:Codex 写的测试它自己说了不算,你审。先**定位并读仓库测试治理文档**(常见:仓库根或 tests/ 下 TESTING.md、AGENTS.md / CLAUDE.md 测试节、tests 目录 README);**定位不到必须在 verify 回执里标 `no-test-standard waiver`,不准默默跳过**。审 Codex 这份 plan 新增/改动的测试,达不达标:
+  - 测**公开可观察行为**(系统读接口 / HTTP 响应 / 文件产物 / 账本行),不断言私有函数 / 内部调用顺序 / 源码文本;
+  - mock **只在外部供应商边界**(网络 / 时钟 / 三方),**不 mock 仓库内部自家接缝**;
+  - 每个行为在**拥有它的权威层测一次**,不跨层重复断言、不凑覆盖率;
+  - 断言**非空、非纯存在性**(`assert True` / 只断"对象存在" = 垃圾);无整段逻辑逐字复制粘贴;
+  - 跨模块边界用**正式契约类型**,不裸 dict;违反**仓库声明的禁形态**(若有)即缺陷;
+  - 跑通**仓库自己的 test guards / lint / 类型检查**(它们绿是机器底线,但绿 ≠ 测得对)。
 - **设计一致性**:落地有没有偏离设计/计划的意图、合同、边界?
-- 过了这两关 → `mmw loop step done --id <plan-或-pack-id>`。
+- 过了这三关 → `mmw loop step done --id <plan-或-pack-id>`。测试不达标也算"有缺陷":写修复指令 resume 打回**重写测试**,别将就。
 - 有缺陷 / 没达成 → 写修复指令,**发回原对话**(keep context):
   ```bash
   mmw codex resume --worktree <wt> --instructions <fix.md>
@@ -119,7 +126,7 @@ mmw handoff --conclusion pass --produced "<分支提交范围,如 base..HEAD>"
 
 ## 守住的红线(两模式)
 
-- 验收吃跑测试/读 diff 的 ground truth,不吃自述。
-- 模式 A 主线程就地 TDD、不派 Codex;模式 B Codex 写、Claude 验,Codex 禁改 `docs/`、每 Pack 一提交带 `Pack N.M`。
+- 验收吃跑测试/读 diff 的 ground truth,不吃自述。**测试本身也要对标仓库标准审**:绿 ≠ 测得对,垃圾测试(空断言 / mock 自家 / 测私有 / 非权威层)当缺陷打回重写。
+- 模式 A 主线程就地 TDD、不派 Codex;模式 B Codex 写、Claude 验,Codex 禁改 `docs/`、每 Pack 一提交带 `Pack N.M`。模式 A 是 Claude 自写自验(无独立 checker,偏弱),适用面就是小改 / 定点修;重型落地走模式 B 的 Codex 写 + Claude 独立审测试。
 - afk 只放软停;真缺输入/方向疑/合并红线必停。
 - 模式 B 修复走 `codex resume` 续原会话(keep context,不重派、不重做已提交 Pack)。

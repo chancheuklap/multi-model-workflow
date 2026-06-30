@@ -39,6 +39,7 @@ echo "$PROMPT" | grep -q "禁改 docs/" && ok "prompt 含禁改 docs" || no "禁
 echo "$PROMPT" | grep -q 'Pack N.M' && ok "prompt 含 Pack N.M 提交格式" || no "Pack N.M"
 echo "$PROMPT" | grep -q "TDD" && ok "prompt 含 TDD 纪律" || no "TDD"
 echo "$PROMPT" | grep -q "公开行为" && ok "prompt 含 测公开行为/不测 private 纪律" || no "测公开行为"
+echo "$PROMPT" | grep -q "项目自己的测试治理文档为准" && ok "prompt 含 测试绑定仓库标准文档" || no "测试绑仓库标准"
 echo "$PROMPT" | grep -q "正式契约类型" && ok "prompt 含 跨边界正式契约/不裸 dict 纪律" || no "正式契约"
 echo "$PROMPT" | grep -q "登记 + 走校验器" && ok "prompt 含 登记+校验器/迁移对称 纪律" || no "登记校验"
 ARGV="$(cat "$FAKE_CAP/argv")"

@@ -18,7 +18,7 @@
 
 **Verified current state:**（改既有行为时填）现状真实行为 + `file:line` + 核实日期;改一族成员之一时给 landscape 审计表（组件 × 有无 × 缺口,防隧道视野）。
 
-**Read first:** <source docs, ADRs, project rules>
+**Read first:** <source docs, ADRs, project rules + **仓库测试治理文档**(TESTING.md / AGENTS.md 测试节 / tests 规则)——落地者写测试要照它,plan 在此点名路径>
 
 **Interfaces:**
 - **Consumes:** <本 pack 用到的、来自前序 pack 的东西——精确签名>
@@ -68,6 +68,8 @@
 ---
 
 ## 测试规划（plan 必须自带完整测试,不留到后续补）
+
+写测试规划前先**定位仓库测试治理文档**(TESTING.md / AGENTS.md 测试节 / tests 规则):分层、写作规范、mock 边界、禁形态一律以它为准,下面是无此文档时的通用底。
 
 ### 追覆盖
 - **追每条 codepath**:每个分支（if/else / guard / early return）、每个错误路径（try/catch / fallback）、每条边界（null / 空集 / 非法类型 / 超长）都要有测试。
