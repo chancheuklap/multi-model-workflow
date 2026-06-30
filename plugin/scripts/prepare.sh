@@ -48,7 +48,7 @@ cmd_new() {
   git -C "$top" worktree add -b "$slug" "$wt" HEAD >&2
 
   # 文档落点:investigating / design / issues / plans 按 slug,context 项目级共享(domain-modeling 维护)
-  mkdir -p "$wt/docs/investigating" "$wt/docs/design" "$wt/docs/issues" "$wt/docs/plans" "$wt/docs/context" "$wt/$STATE_SUBDIR"
+  mkdir -p "$wt/docs/investigating" "$wt/docs/design" "$wt/docs/issues" "$wt/docs/plans" "$wt/docs/context" "$wt/docs/reviews" "$wt/$STATE_SUBDIR"
 
   # 阶段序列从预设解析:主干被 preset 过滤后的开着阶段(单源,prepare 不硬编码)
   [ -f "$ROUTES" ] || die "找不到 routes.json: $ROUTES"

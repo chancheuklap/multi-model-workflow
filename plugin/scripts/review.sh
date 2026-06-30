@@ -68,6 +68,7 @@ EOF
    >   codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>   (run_in_background)
    >   prompt = 点名读 $REVIEW_REF_DIR/quartet.md + $REVIEW_REF_DIR/$angle 的对应视角 + 给 Source。
    >   Codex 侧没装本 skill 就把那两段拼成自包含 prompt;续接用 codex exec resume <id>。
+   > 留痕(必做):把两个 Codex 审者的结构化 findings **原样落盘** docs/reviews/<slug>-$stage.md(不重写不摘要,保真+省主线程 context);亲验后把每条 verdict/处置(accepted/rejected/duplicate/needs-evidence)就近标该条下,文末写一句总 verdict。
    > 收回亲验:每条 finding 自己 Read/grep/跑坐实(Codex 是劳动力不是信源),引不出 file:line 降置信。
    >   坐实一个维度: $MMW loop checklist cover --item <i> --evidence <file:line>
    >   真 finding:   $MMW loop finding add --severity <C/I/M> --confidence <1-10> --locator <file:line>

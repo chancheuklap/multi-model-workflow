@@ -32,6 +32,8 @@
    ```
 3. **派审核协调帮手**(Claude sub-agent,SubagentStop 受 guard-loop 看守):用 `review.sh` 打印的 brief 原样派。brief 已含派两个独立 Codex(`codex exec --sandbox read-only` 喂 quartet+角度、续接 `codex exec resume`)、亲验后 `checklist cover` / `finding add`、收敛与熔断 `surface`、清单全绿+无 Critical 前不准停。**只给 Source + 点名审题,别塞你自己的问题清单。**
 
+   **每个审都留痕(①②④ 都要,不只 ④)**:协调帮手把**两个 Codex 审者的结构化 findings 原样落盘**到 `docs/reviews/<slug>-<stage>.md`(reviewer 产出即留痕内容,**不重写、不摘要**——保真且省主线程 context),亲验后把每条的 verdict/处置(accepted / rejected / duplicate / needs-evidence)就近标在该条下,文末写一句总 verdict。主线程收口只**读这份文档的 verdict 段**,不把全部 findings 拉进自己 context。
+
 ## 2. 主线程:收口(协调帮手停下后)
 
 读 `loop-state.json` 的 `pause` 和 `findings`,按情况 handoff(结论词由 Gap 决定):
