@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": [
     "schema_version", "slug", "title", "scenario", "phases",
-    "status", "phase", "phase_index", "gate", "created_at", "base_commit",
+    "status", "phase", "phase_index", "step_index", "gate", "created_at", "base_commit",
     "branch", "worktree_path", "docs",
     "repair_count", "turnaround_count",
     "artifacts", "phase_outputs", "open_items", "subtasks", "history"
@@ -34,6 +34,7 @@
     },
     "phase": { "type": "string", "description": "当前阶段名,phases[phase_index]" },
     "phase_index": { "type": "integer", "minimum": 0, "description": "当前阶段在 phases 里的下标。推进/恢复都靠它,O(1) 不靠推断" },
+    "step_index": { "type": "integer", "minimum": 0, "description": "阶段内步骤游标(phase 有 steps 时):where 报第 step_index 步的 load/do,mmw step next +1,handoff 换阶段时重置 0。断点恢复到精确步" },
     "gate": {
       "type": ["string", "null"],
       "description": "审闸状态(routes.review_gates):null=不在闸里;非 null=本阶段产物已过、正在跑该阶段的审 loop(值=阶段名,审题=review/<值>.md)。审过 handoff pass 才 advance,审打回则清空回该阶段返工"

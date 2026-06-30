@@ -184,6 +184,31 @@ echo "$WHD" | grep -q "phase=design" || no "task-h 应在 design"
 echo "$PREVH" | jq -e 'index("docs/investigating/2026-06-29-task-h.md")!=null and index("docs/design/2026-06-29-task-h-direction.md")!=null' >/dev/null \
   && ok "design prev_outputs 含 现状报告 + 方向(跨两阶接力)" || no "design prev_outputs 漏上游 ($PREVH)"
 
+# ===== I: 阶段内步骤游标(design 4 步,脚本导航 + 懒加载 + 断点恢复 + handoff 重置) =====
+WI="$(newtask develop 2026-06-30-steps)"
+( cd "$WI" && bash "$FLOW" handoff --conclusion pass >/dev/null )   # investigate→propose
+( cd "$WI" && bash "$FLOW" handoff --conclusion pass >/dev/null )   # propose→design
+WID="$(cd "$WI" && bash "$FLOW" where)"
+echo "$WID" | grep -q "step=discuss (1/4)" && ok "design 入步:where 报 step=discuss(1/4)" || no "design step=discuss ($(echo "$WID"|grep step=))"
+echo "$WID" | grep -q "load=references/design/discussion.md" && ok "discuss 步只 load discussion.md(懒加载)" || no "discuss load"
+echo "$WID" | grep -q "then=mmw step next" && ok "非末步 then=mmw step next(脚本导航)" || no "then step next"
+SN="$(cd "$WI" && bash "$FLOW" step next)"
+echo "$SN" | grep -q "STEP=prototype (2/4)" && ok "step next → prototype(2/4)" || no "step next prototype ($SN)"
+[ "$(mfield "$WI" step_index)" = "1" ] && ok "step_index 落盘=1(断点恢复靠它)" || no "step_index 落盘"
+( cd "$WI" && bash "$FLOW" step next >/dev/null )   # →write
+( cd "$WI" && bash "$FLOW" step next >/dev/null )   # →selfcheck(末步)
+WIL="$(cd "$WI" && bash "$FLOW" where)"
+echo "$WIL" | grep -q "step=selfcheck (4/4)" && ok "末步 where 报 selfcheck(4/4)" || no "selfcheck step"
+echo "$WIL" | grep -q "then=mmw handoff" && echo "$WIL" | grep -q -- "--produced docs/design/2026-06-30-steps.md" && ok "末步 then 回 handoff 钉产物" || no "末步 then handoff"
+DONE="$(cd "$WI" && bash "$FLOW" step next)"
+echo "$DONE" | grep -q "STEPS_DONE" && ok "末步再 step next → STEPS_DONE" || no "STEPS_DONE"
+( cd "$WI" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-06-30-steps.md >/dev/null )  # design→①审
+[ "$(mfield "$WI" step_index)" = "0" ] && ok "handoff 后 step_index 重置=0(新阶段从头)" || no "step_index 重置"
+# 无步骤阶段(investigate)不报 step=,step next 被拒
+WI2="$(newtask develop 2026-06-30-nostep)"
+echo "$(cd "$WI2" && bash "$FLOW" where)" | grep -q "step=" && no "investigate 不该有 step=" || ok "无步骤阶段 where 不报 step="
+if ( cd "$WI2" && bash "$FLOW" step next >/dev/null 2>&1 ); then no "无步骤阶段 step next 该被拒"; else ok "无步骤阶段 step next 被拒(直接 handoff)"; fi
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -64,7 +64,7 @@ cmd_new() {
     --arg base "$base" --arg branch "$slug" --arg wt "$wt" \
     --arg inv "docs/investigating/$slug" --arg ddoc "docs/design/$slug" --arg idir "docs/issues/$slug" --arg pdir "docs/plans/$slug" --arg ctx "docs/context" \
     '{schema_version:$sv, slug:$slug, title:$title, scenario:$scenario, phases:$phases,
-      status:$status, phase:$phase, phase_index:0, gate:null, created_at:$created, base_commit:$base,
+      status:$status, phase:$phase, phase_index:0, step_index:0, gate:null, created_at:$created, base_commit:$base,
       branch:$branch, worktree_path:$wt, docs:{investigating:$inv, design:$ddoc, issues:$idir, plans:$pdir, context:$ctx},
       repair_count:0, turnaround_count:0,
       artifacts:[], phase_outputs:{}, open_items:[], subtasks:[], history:[]}' \
@@ -155,7 +155,7 @@ cmd_escalate() {
   local at; at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   local tmp; tmp="$(mktemp)"
   jq --arg sc "$to" --argjson ph "$phases_json" --arg first "$first" --arg cur "$cur_phase" --arg at "$at" \
-    '.scenario=$sc | .phases=$ph | .phase=$first | .phase_index=0 | .gate=null | .status="active"
+    '.scenario=$sc | .phases=$ph | .phase=$first | .phase_index=0 | .step_index=0 | .gate=null | .status="active"
      | .repair_count=0 | .turnaround_count=0
      | .history += [{phase:$cur, conclusion:("escalate→"+$sc), at:$at}]' \
     "$man" > "$tmp"

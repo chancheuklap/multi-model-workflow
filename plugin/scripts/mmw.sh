@@ -9,6 +9,7 @@
 #   推进(最常用,主线程每阶段):
 #     mmw where                                查我在哪阶段/审闸/上阶段产出(prev_outputs)
 #     mmw handoff --conclusion <词> [--produced <产出>]...   交接 + 推进
+#     mmw step next                            阶段内多步:干完当前步推进到下一步(报下一步 load/do)
 #     mmw spinoff --tag <t> --finding <s>      中途挖到的旁路登记成关联子任务
 #   任务(入口/收尾,主仓库):
 #     mmw task new --scenario <small-change|develop|bug> --slug <s> --title <t>
@@ -29,7 +30,7 @@ usage() { sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; }
 
 cmd="${1:-help}"; shift || true
 case "$cmd" in
-  where|handoff|spinoff|release-approve) exec bash "$D/flow.sh" "$cmd" "$@" ;;
+  where|handoff|spinoff|step|release-approve) exec bash "$D/flow.sh" "$cmd" "$@" ;;
   task)   exec bash "$D/prepare.sh" "$@" ;;
   loop)   exec bash "$D/loop.sh" "$@" ;;
   review) exec bash "$D/review.sh" "$@" ;;

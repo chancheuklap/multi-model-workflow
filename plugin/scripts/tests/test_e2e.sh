@@ -42,10 +42,9 @@ WT="$(bash "$PREPARE" new --scenario develop --slug 2026-06-29-e2e --title "端�
 OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/design/e2e.md)"
 echo "$OUT" | grep -q "NEXT_ACTION=review" && ok "design 过→进①审闸(不直接 advance)" || no "①审闸"
 [ "$(gate)" = "design" ] && ok "gate=design" || no "gate ($(gate))"
-# G2:审闸里 where 报 review_source = 当前阶产物(审什么),直接喂 review start --source
+# G2:审闸里 where 报 review_source = 当前阶产物(审什么),裸路径直接喂 review start --source
 RS="$(cd "$WT" && bash "$FLOW" where | sed -n 's/^review_source=//p')"
-echo "$RS" | jq -e 'index("docs/design/e2e.md")!=null' >/dev/null && ok "审闸报 review_source(审对象)" || no "review_source ($RS)"
-echo "$RS" | jq -e 'length==1' >/dev/null && ok "①审 source 只设计文档(切片不在 design 审)" || no "①审 source 应只设计文档 ($RS)"
+[ "$RS" = "docs/design/e2e.md" ] && ok "审闸报 review_source 裸路径(直接喂 --source,只设计文档)" || no "review_source ($RS)"
 # 起审一条命令(init review loop + 出 brief)
 ( cd "$WT" && bash "$REVIEW" start --stage design --source docs/design/e2e.md >/dev/null 2>&1 ) && ok "review.sh start 起①审 loop" || no "review.sh start"
 # 审过 → advance to-issue(审后再切片)

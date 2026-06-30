@@ -147,6 +147,7 @@ cmd_handoff() {
     --argjson produced "$produced_json" \
     '.phase=$phase | .phase_index=$pidx | .repair_count=$rc | .turnaround_count=$tc | .status=$status
      | .gate=(if $gate=="" then null else $gate end)
+     | .step_index=0
      | .artifacts += $produced
      | (if ($produced|length)>0 then .phase_outputs[$hphase] = ((.phase_outputs[$hphase] // []) + $produced) else . end)
      | .history += [{phase:$hphase, conclusion:$hconc, at:$at}]' \
@@ -226,25 +227,48 @@ cmd_where() {
   b_load="$(jq -r --arg k "$bkey" '.phase_bindings[$k].load // "?"' "$ROUTES")"
   b_do="$(jq -r --arg k "$bkey" '.phase_bindings[$k].do // "?"' "$ROUTES")"
   slug="$(jq -r '.slug' "$m")"
-  # produced 可为字符串(单产物)或数组(多产物,如 design=设计文档+issue 骨架),统一逐个吐;
-  # 每个解析 <slug> 用真 slug,then 直接可粘贴跑、钉全本阶段所有产物,不让 agent 手搓/漏钉
-  local then_cmd="mmw handoff --conclusion <pass|needs-repair|needs-redirection|needs-context|blocked>"
-  local p
-  while IFS= read -r p; do
-    [ -n "$p" ] || continue
-    p="${p//<slug>/$slug}"
-    then_cmd="$then_cmd --produced $p"
-  done < <(jq -r --arg k "$bkey" '.phase_bindings[$k].produced // "" | if type=="array" then .[] else . end' "$ROUTES")
+
+  # 阶段内步骤游标:phase(不在审闸)有 steps 时,where 只报当前那一步的 load/do——
+  # 到那步才加载那一份干净文档,导航走脚本(mmw step next),不在 reference 里文字跳转、不 upfront 全load。
+  local step_total=0 step_idx=0 step_id="" step_line=""
+  if [ "$bkey" = "$phase" ]; then
+    step_total="$(jq -r --arg k "$phase" '(.phase_bindings[$k].steps // []) | length' "$ROUTES")"
+  fi
+  if [ "$step_total" -gt 0 ]; then
+    step_idx="$(jq -r '.step_index // 0' "$m")"
+    [ "$step_idx" -ge "$step_total" ] && step_idx=$(( step_total - 1 ))
+    step_id="$(jq -r --arg k "$phase" --argjson i "$step_idx" '.phase_bindings[$k].steps[$i].id' "$ROUTES")"
+    b_load="$(jq -r --arg k "$phase" --argjson i "$step_idx" '.phase_bindings[$k].steps[$i].load' "$ROUTES")"
+    b_do="$(jq -r --arg k "$phase" --argjson i "$step_idx" '.phase_bindings[$k].steps[$i].do' "$ROUTES")"
+    step_line="step=$step_id ($(( step_idx + 1 ))/$step_total)"
+  fi
+
+  # then:有步骤且未到末步 → 推进到下一步走脚本;否则(末步或无步骤)→ 阶段 handoff 钉产物。
+  # produced 可为字符串(单产物)或数组,逐个吐,解析 <slug> 用真 slug,then 直接可粘贴跑、钉全、不让 agent 手搓/漏钉。
+  local then_cmd
+  if [ "$step_total" -gt 0 ] && [ "$step_idx" -lt $(( step_total - 1 )) ]; then
+    then_cmd="mmw step next   # 本步干完推进下一步(下一步 load 那时现读)"
+  else
+    then_cmd="mmw handoff --conclusion <pass|needs-repair|needs-redirection|needs-context|blocked>"
+    local p
+    while IFS= read -r p; do
+      [ -n "$p" ] || continue
+      p="${p//<slug>/$slug}"
+      then_cmd="$then_cmd --produced $p"
+    done < <(jq -r --arg k "$bkey" '.phase_bindings[$k].produced // "" | if type=="array" then .[] else . end' "$ROUTES")
+  fi
   # 审闸里:把"审什么"(当前阶刚产的产物)报成 review_source,直接喂 mmw review start --source,不让 agent 自己记
   local review_line=""
   if [ "$gate" != "null" ] && [ -n "$gate" ]; then
-    review_line="review_source=$(jq -rc --arg p "$phase" '.phase_outputs[$p] // []' "$m")"
+    # 吐裸路径喂 review start --source(不吐 JSON 数组,省 agent 拆 ["x"]→x);多产物空格连
+    review_line="review_source=$(jq -r --arg p "$phase" '(.phase_outputs[$p] // []) | join(" ")' "$m")"
   fi
   cat <<EOF
 scenario=$scenario
 phase=$phase
 phase_index=$pidx
-gate=$gate
+${step_line:+$step_line
+}gate=$gate
 status=$status
 load=$b_load
 do=$b_do
@@ -258,6 +282,39 @@ subtasks=$(jq -r '.subtasks | length' "$m")
 open_items=$(jq -r '.open_items | length' "$m")
 EOF
   if [ -n "$review_line" ]; then echo "$review_line"; fi
+}
+
+# ---------- step(阶段内步骤游标:推进到下一步,报那一步的 load/do) ----------
+# 阶段有 steps 时,agent 干完当前步调 step next:游标 +1、报下一步要读哪份/干什么(到那步才加载)。
+cmd_step() {
+  local verb="${1:-}"; shift || true
+  [ "$verb" = "next" ] || die "用法: mmw step next"
+  local m; m="$(manifest_path)"
+  [ -f "$ROUTES" ] || die "找不到 routes.json: $ROUTES"
+  local phase gate total idx
+  phase="$(jq -r .phase "$m")"
+  gate="$(jq -r '.gate // empty' "$m")"
+  [ -z "$gate" ] || die "审闸里不走阶段步骤;审完 mmw handoff 报 verdict"
+  total="$(jq -r --arg k "$phase" '(.phase_bindings[$k].steps // []) | length' "$ROUTES")"
+  [ "$total" -gt 0 ] || die "[$phase] 阶段无步骤,直接 mmw handoff"
+  idx="$(jq -r '.step_index // 0' "$m")"
+  local nidx=$(( idx + 1 ))
+  if [ "$nidx" -ge "$total" ]; then
+    echo "STEPS_DONE [$phase] 步骤走完 → mmw handoff(产物钉法见 mmw where 的 then)"
+    return 0
+  fi
+  jq --argjson i "$nidx" '.step_index=$i' "$m" | write_manifest "$m"
+  local sid sload sdo
+  sid="$(jq -r --arg k "$phase" --argjson i "$nidx" '.phase_bindings[$k].steps[$i].id' "$ROUTES")"
+  sload="$(jq -r --arg k "$phase" --argjson i "$nidx" '.phase_bindings[$k].steps[$i].load' "$ROUTES")"
+  sdo="$(jq -r --arg k "$phase" --argjson i "$nidx" '.phase_bindings[$k].steps[$i].do' "$ROUTES")"
+  cat <<EOF
+STEP=$sid ($(( nidx + 1 ))/$total)
+load=$sload
+do=$sdo
+EOF
+  if [ "$nidx" -lt $(( total - 1 )) ]; then echo "then=mmw step next"
+  else echo "then=mmw handoff --conclusion <...>(产物钉法见 mmw where 的 then)"; fi
 }
 
 # ---------- release-approve(造发布红线批准令牌,用户亲批后由主线程跑) ----------
@@ -275,6 +332,7 @@ case "${1:-}" in
   handoff)         shift; cmd_handoff "$@" ;;
   spinoff)         shift; cmd_spinoff "$@" ;;
   where)           shift; cmd_where "$@" ;;
+  step)            shift; cmd_step "$@" ;;
   release-approve) shift; cmd_release_approve "$@" ;;
-  *) die "用法: flow.sh handoff|spinoff|where|release-approve ..." ;;
+  *) die "用法: flow.sh handoff|spinoff|where|step|release-approve ..." ;;
 esac

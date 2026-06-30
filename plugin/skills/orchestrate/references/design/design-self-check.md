@@ -1,6 +1,6 @@
-# 设计自检（保存前 / 用户确认后读全文）
+# Design · selfcheck 步(本步读这一份)
 
-作者保存前自己过的闸。①设计审由 flow 触发(独立 Codex,本阶段 不自派)——见末节。
+design 阶段末步:保存前自己过这道闸,过了就 `mmw handoff` 交还引擎(引擎触发 ①设计审,本阶段不自派审、不自己跳阶段)。
 
 ## 自检（保存前逐条过）
 
@@ -15,6 +15,11 @@
 - [ ] **UI（有界面时）**：交互状态表填全；空状态有主操作；信息层级明确；响应式 + a11y；AI Slop 黑名单命中 = 0
 - [ ] 各 section 无矛盾、架构与功能一致、无歧义需求；触碰合同 / 发布风险时有 anchors 和风险面
 
-## 重大 / 碰红线
+触碰不变量 / 合同 / 数据权威 / 权限 / 计费 / 发布风险时,尤其确保上面每条都过。
 
-自检逐条过后 handoff,**①设计审由 flow 触发**(独立 Codex 审,见编排的审核 loop)——本自检不自派审、不自己跳阶段。触碰不变量 / 合同 / 数据权威 / 权限 / 计费 / 发布风险时尤其确保上面每条都过。**Critical 必须修掉才能进 plan。**
+## 收尾:handoff 交还引擎(`mmw where` 的 `then` 已给好钉产物的命令模板,照抄即可)
+
+- 设计 OK → `mmw handoff --conclusion pass --produced docs/design/<slug>.md` → 引擎触发 ①设计审(独立 Codex 审,只审设计文档),审过进 `to-issue` 阶段切片。
+- 缺关键输入没法定稿 → `--conclusion needs-context`。
+- 方向本身存疑(解错问题 / 该换框架)→ `--conclusion needs-redirection`。
+- ①设计审打回 design gap → 引擎回 design(`needs-repair`),停在本阶段改、改完 handoff 重审。**Critical 必须修掉才能进 to-issue / plan。**
