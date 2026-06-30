@@ -14,7 +14,7 @@
         "name": "Cheuk Lap Chan",
         "email": "chancheuklapincn@gmail.com"
       },
-      "source": "./plugin2",
+      "source": "./plugin",
       "category": "development",
       "tags": [
         "multi-model",

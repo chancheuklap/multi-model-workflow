@@ -86,8 +86,8 @@ flowchart LR
 
 | 件 | 落到 |
 |---|---|
-| 两个 investigate workflow 脚本(只编排,内/外各一) | `plugin2/workflows/investigate-{internal,external}.workflow.js` |
-| investigate 阶段 reference(指示主线程评估难度→传 topics→跑 Workflow→亲验→综合→handoff) | `plugin2/skills/orchestrate/references/investigate.md` |
+| 两个 investigate workflow 脚本(只编排,内/外各一) | `plugin/workflows/investigate-{internal,external}.workflow.js` |
+| investigate 阶段 reference(指示主线程评估难度→传 topics→跑 Workflow→亲验→综合→handoff) | `plugin/skills/orchestrate/references/investigate.md` |
 
 investigate 阶段 reference 指示主线程「跑这个 Workflow」= 合法 Workflow opt-in(skill 指令触发)。
 

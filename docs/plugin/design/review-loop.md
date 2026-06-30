@@ -116,8 +116,8 @@ accepted finding 修在哪(Gap 路由),决定主线程 handoff 用哪个结论�
 
 | 件 | 落到 |
 |---|---|
-| 审题:防幻觉四件套 + 阶段 angle(喂 Codex,faithful 迁移自 second-model-review) | `plugin2/skills/orchestrate/references/review/{quartet,design,plan,plan-impl,final}.md` |
-| 审核 loop 阶段 reference(指示主线程抽清单→派协调帮手→处置 verdict→handoff) | `plugin2/skills/orchestrate/references/review/review.md`(与审题同住 review/ 文件夹,自包含) |
+| 审题:防幻觉四件套 + 阶段 angle(喂 Codex,faithful 迁移自 second-model-review) | `plugin/skills/orchestrate/references/review/{quartet,design,plan,plan-impl,final}.md` |
+| 审核 loop 阶段 reference(指示主线程抽清单→派协调帮手→处置 verdict→handoff) | `plugin/skills/orchestrate/references/review/review.md`(与审题同住 review/ 文件夹,自包含) |
 | loop 机器(init/checklist/finding/exit-check kind=review·contract-gate) | 已有 `scripts/loop.sh` + `hooks/guard-loop.sh`,无需改 |
 | Codex 派发 | 协调帮手用 Bash 跑 `codex exec`,无需专用脚本 |
 

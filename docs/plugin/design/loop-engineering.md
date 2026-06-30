@@ -54,7 +54,7 @@ sequenceDiagram
 
 **铁律**(§5b):审/落地都用 `codex exec`,**不用 `codex review`**;续接两套别混(Codex=exec resume,Claude subagent=SendMessage);只有主线程能问用户,Codex/帮手都抛回主线程。
 
-> review 提示词已迁到 `plugin2/skills/orchestrate/references/review/`(`quartet.md` + 四阶段 angle),`review.sh` 配好喂给 codex exec。
+> review 提示词已迁到 `plugin/skills/orchestrate/references/review/`(`quartet.md` + 四阶段 angle),`review.sh` 配好喂给 codex exec。
 
 ---
 
