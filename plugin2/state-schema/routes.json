@@ -8,7 +8,7 @@
 
   "spinoff_tags": ["bug", "optimize", "out-of-scope", "needs-evaluation"],
 
-  "backbone": ["investigate", "propose", "design", "plan", "build", "verify", "closing"],
+  "backbone": ["investigate", "propose", "design", "to-issue", "plan", "build", "verify", "closing"],
 
   "review_gates": ["design", "plan"],
 
@@ -22,8 +22,9 @@
   "phase_bindings": {
     "investigate": { "load": "references/investigate.md",  "do": "并行投查现状(自建 Workflow),产出带引用的现状报告存 docs/investigating(取证不判定;不写 docs/context)", "produced": "docs/investigating/<slug>.md" },
     "propose":     { "load": "references/propose.md",      "do": "综合现状+外部,固定格式亮 2-3 方案,HITL 指定一个(或全否→needs-redirection 回上游)", "produced": "docs/design/<slug>-direction.md" },
-    "design":      { "load": "references/design/design.md", "do": "拿已定方向产出设计文档(HITL 集中在此;不再提方案)",            "produced": ["docs/design/<slug>.md", "docs/issues/<slug>/"], "reads": ["investigate", "propose"] },
-    "plan":        { "load": "references/plan/plan.md",     "do": "编排 + 派 plan-writer 拆计划(单计划则主线程内联)",            "produced": "docs/plans/<slug>/" },
+    "design":      { "load": "references/design/design.md", "do": "拿已定方向产出设计文档(HITL 集中在此;不再提方案;只产设计文档,issue 切片在 ①设计审之后的 to-issue 阶段)", "produced": "docs/design/<slug>.md", "reads": ["investigate", "propose"] },
+    "to-issue":    { "load": "references/design/to-issue-skeleton.md", "do": "①设计审过后:把设计垂直切片成可独立认领的 issue 骨架(主线程)", "produced": "docs/issues/<slug>/", "reads": ["design"] },
+    "plan":        { "load": "references/plan/plan.md",     "do": "编排 + 派 plan-writer 拆计划(单计划则主线程内联)",            "produced": "docs/plans/<slug>/", "reads": ["design", "to-issue"] },
     "build":       { "load": "references/build.md",        "do": "派 Codex 落地(各 plan 一 worktree)+ 你按计划验收",            "produced": "<提交范围,如 base..HEAD>" },
     "verify":      { "load": "references/review/review.md",       "do": "起 ④终审 loop(Codex 审 + 你按意图清单验)",                    "produced": "<终审报告路径>" },
     "closing":     { "load": "references/closing.md",      "do": "确认真完整、收口;合并/清理是合并后红线动作",                   "produced": "" },
@@ -32,7 +33,7 @@
 
   "presets": {
     "small-change": ["build", "verify", "closing"],
-    "develop":      ["investigate", "propose", "design", "plan", "build", "verify", "closing"],
+    "develop":      ["investigate", "propose", "design", "to-issue", "plan", "build", "verify", "closing"],
     "bug":          ["investigate", "build", "verify", "closing"]
   }
 }

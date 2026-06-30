@@ -49,9 +49,12 @@ echo "$OUTG" | grep -q "REVIEW_STAGE=design" && ok "审闸报阶段 design" || n
 [ "$(mphase "$WA")" = "design" ] && ok "审闸里 phase 不动" || no "审闸 phase 不动 ($(mphase "$WA"))"
 [ "$(mfield "$WA" gate)" = "design" ] && ok "gate=design" || no "gate=design ($(mfield "$WA" gate))"
 
-( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # ①审 verdict pass → plan
-[ "$(mphase "$WA")" = "plan" ] && ok "①审过→进 plan" || no "①审过→plan ($(mphase "$WA"))"
+( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # ①审 verdict pass → to-issue
+[ "$(mphase "$WA")" = "to-issue" ] && ok "①审过→进 to-issue(审后切片)" || no "①审过→to-issue ($(mphase "$WA"))"
 [ "$(mfield "$WA" gate)" = "null" ] && ok "进下一阶段 gate 清空" || no "gate 清空 ($(mfield "$WA" gate))"
+
+( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # to-issue→plan(无审闸)
+[ "$(mphase "$WA")" = "plan" ] && ok "to-issue→进 plan(无审闸)" || no "to-issue→plan ($(mphase "$WA"))"
 
 ( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # plan→gate:plan
 [ "$(mfield "$WA" gate)" = "plan" ] && ok "plan pass→进 ②审闸" || no "②审闸 ($(mfield "$WA" gate))"
@@ -66,7 +69,7 @@ echo "$OUTG" | grep -q "REVIEW_STAGE=design" && ok "审闸报阶段 design" || n
 OUT="$(cd "$WA" && bash "$FLOW" handoff --conclusion pass)"        # closing→ready-to-close
 echo "$OUT" | grep -q "STATUS=ready-to-close" && ok "末阶段 pass→ready-to-close" || no "ready-to-close"
 echo "$OUT" | grep -q "NEXT_ACTION=done" && ok "末阶段 NEXT=done" || no "NEXT=done"
-[ "$(mfield "$WA" 'history|length')" = "9" ] && ok "history 记满 9 步(含 propose + 两审闸)" || no "history 9 步 ($(mfield "$WA" 'history|length'))"
+[ "$(mfield "$WA" 'history|length')" = "10" ] && ok "history 记满 10 步(含 propose + to-issue + 两审闸)" || no "history 10 步 ($(mfield "$WA" 'history|length'))"
 
 # ===== A2: 审打回 → 清 gate 回该阶段返工 =====
 WA2="$(newtask develop 2026-06-28-task-a2)"
@@ -119,7 +122,8 @@ WD2="$(newtask develop 2026-06-28-task-d2)"
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # investigate→propose
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # propose→design
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # design→①审闸
-( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # ①审过→plan
+( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # ①审过→to-issue
+( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # to-issue→plan
 [ "$(mphase "$WD2")" = "plan" ] && ok "D2 到 plan" || no "D2 到 plan ($(mphase "$WD2"))"
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design >/dev/null )
 [ "$(mphase "$WD2")" = "design" ] && ok "掉头 --to-phase design 回到 design(非首阶段)" || no "to-phase design ($(mphase "$WD2"))"

@@ -1,6 +1,6 @@
 # Plan · 拆计划 / 出实施计划(阶段操作指南)
 
-> plan 阶段:**主线程跑**。`prev_outputs` 带来 design 钉的两份——设计文档 + issue 目录,照单读。主 Agent 编排:划边界、验收、回填、就绪门,**不亲自拆小 issue、不亲自写 Task Pack**(那是 `plan-writer` 的活)。
+> plan 阶段:**主线程跑**。`prev_outputs` 带来两份(按 `reads:[design,to-issue]`)——design 钉的设计文档 + to-issue 钉的 issue 目录,照单读。主 Agent 编排:划边界、验收、回填、就绪门,**不亲自拆小 issue、不亲自写 Task Pack**(那是 `plan-writer` 的活)。
 >
 > 红线:**②计划审与换阶段归 flow 引擎,本阶段不自派审、不自己跳阶段、不选执行方式**(执行方式 build 阶段定)。就绪门过后 `mmw handoff` 交还,产出钉 plan 目录。
 

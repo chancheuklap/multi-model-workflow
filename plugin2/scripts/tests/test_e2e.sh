@@ -38,20 +38,25 @@ WT="$(bash "$PREPARE" new --scenario develop --slug 2026-06-29-e2e --title "端�
 [ "$(prevout)" = '["docs/investigating/e2e.md","docs/design/e2e-direction.md"]' ] \
   && ok "design 照单读到 现状报告 + 选定方向" || no "接力单 propose→design ($(prevout))"
 
-# design → ①审闸(产出两样:设计文档 + issue 骨架)
-OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/design/e2e.md --produced docs/issues/e2e/)"
+# design → ①审闸(只产设计文档,①审只审它)
+OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/design/e2e.md)"
 echo "$OUT" | grep -q "NEXT_ACTION=review" && ok "design 过→进①审闸(不直接 advance)" || no "①审闸"
 [ "$(gate)" = "design" ] && ok "gate=design" || no "gate ($(gate))"
 # G2:审闸里 where 报 review_source = 当前阶产物(审什么),直接喂 review start --source
 RS="$(cd "$WT" && bash "$FLOW" where | sed -n 's/^review_source=//p')"
 echo "$RS" | jq -e 'index("docs/design/e2e.md")!=null' >/dev/null && ok "审闸报 review_source(审对象)" || no "review_source ($RS)"
+echo "$RS" | jq -e 'length==1' >/dev/null && ok "①审 source 只设计文档(切片不在 design 审)" || no "①审 source 应只设计文档 ($RS)"
 # 起审一条命令(init review loop + 出 brief)
 ( cd "$WT" && bash "$REVIEW" start --stage design --source docs/design/e2e.md >/dev/null 2>&1 ) && ok "review.sh start 起①审 loop" || no "review.sh start"
-# 审过 → advance plan
+# 审过 → advance to-issue(审后再切片)
 ( cd "$WT" && bash "$FLOW" handoff --conclusion pass >/dev/null )
-[ "$(ph)" = "plan" ] && [ "$(gate)" = "null" ] && ok "①审过→plan,gate 清空" || no "①审过→plan ($(ph)/$(gate))"
-# G1:design 钉两样 → plan 一单读全(设计文档 + issue 骨架)
-[ "$(prevout)" = '["docs/design/e2e.md","docs/issues/e2e/"]' ] && ok "plan 照单读到 设计文档 + issue 骨架" || no "接力单 design→plan ($(prevout))"
+[ "$(ph)" = "to-issue" ] && [ "$(gate)" = "null" ] && ok "①审过→to-issue(审后切片),gate 清空" || no "①审过→to-issue ($(ph)/$(gate))"
+[ "$(prevout)" = '["docs/design/e2e.md"]' ] && ok "to-issue 照单读到 设计文档" || no "接力单 design→to-issue ($(prevout))"
+# to-issue → plan(产出 issue 骨架,无审闸)
+( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/e2e/ >/dev/null )
+[ "$(ph)" = "plan" ] && [ "$(gate)" = "null" ] && ok "to-issue→plan(无审闸)" || no "to-issue→plan ($(ph)/$(gate))"
+# G1:plan reads [design,to-issue] → 一单读全(设计文档 + issue 骨架)
+[ "$(prevout)" = '["docs/design/e2e.md","docs/issues/e2e/"]' ] && ok "plan 照单读到 设计文档 + issue 骨架" || no "接力单 →plan ($(prevout))"
 
 # plan → ②审闸(产出 plan 目录)
 OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/e2e/)"
@@ -78,8 +83,8 @@ echo "$OUT" | grep -q "NEXT_ACTION=review" && ok "plan 过→进②审闸" || no
 OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass)"
 echo "$OUT" | grep -q "STATUS=ready-to-close" && ok "closing→ready-to-close(端到端贯通)" || no "ready-to-close"
 
-# history 完整:investigate,propose,design,①审,plan,②审,build,verify,closing = 9 步
-[ "$(jq -r '.history|length' "$WT/.claude/multi-model-workflow/task.json")" = "9" ] && ok "history 记满 9 步(全程留痕)" || no "history 9 ($(jq -r '.history|length' "$WT/.claude/multi-model-workflow/task.json"))"
+# history 完整:investigate,propose,design,①审,to-issue,plan,②审,build,verify,closing = 10 步
+[ "$(jq -r '.history|length' "$WT/.claude/multi-model-workflow/task.json")" = "10" ] && ok "history 记满 10 步(全程留痕)" || no "history 10 ($(jq -r '.history|length' "$WT/.claude/multi-model-workflow/task.json"))"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

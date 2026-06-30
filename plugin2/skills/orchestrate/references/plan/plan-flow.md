@@ -34,7 +34,7 @@ Bad: "制定了全面的实施计划,涵盖所有功能模块。"
 
 读源设计文档(`prev_outputs` 里的设计文档路径),提取 goal / architecture / 合同边界 / 测试 seam——**只读,作为派发时给 plan-writer 的上下文**,不在主线程展开写作。
 
-读每个大 issue(design 阶段在 `docs/issues/<slug>/` 立的骨架),提取 What to build、Blocked by,定 **plan 清单**(一个大 issue → 一份 plan → 一个 plan-writer)。**小 issue 不在这拆**——它的 `## Small issues` 通常是 `<!-- PENDING -->`(设计阶段故意留白),由 plan-writer 接手时自己拆,逼它认真读代码 + 规划。主 Agent 只到大 issue 粒度。
+读每个大 issue(`to-issue` 阶段在 `docs/issues/<slug>/` 立的骨架),提取 What to build、Blocked by,定 **plan 清单**(一个大 issue → 一份 plan → 一个 plan-writer)。**小 issue 不在这拆**——它的 `## Small issues` 通常是 `<!-- PENDING -->`(to-issue 阶段故意留白),由 plan-writer 接手时自己拆,逼它认真读代码 + 规划。主 Agent 只到大 issue 粒度。
 
 **映射规则**:源设计 → 全局上下文(喂每个 writer,只读);大 issue → 一份 plan;小 issue → 一个 Task Pack(writer 拆 + 写);小 issue 验收 → Pack 验收;小 issue blocked-by → Pack dependencies。
 映射不成立:术语 / 验收不清 → handoff `needs-repair` 回 design;架构假设与代码现实不符 → 用 `codebase-design` skill 厘清后再派。

@@ -1,6 +1,8 @@
-# 拆 issue 立骨架(设计通过、handoff 前读本文全文)
+# to-issue 阶段 · 垂直切片立 issue 骨架(读本文全文)
 
-> 设计自检过、用户确认方向后的收尾步:把设计拆成可独立认领的 issue 骨架,钉进接力单交给 plan。**只立骨架,内容由 plan 阶段(`write-plan-doc`)按计划 schema 丰富**——这里不写实施细节、不写 Task Pack。
+> `to-issue` 是 ①设计审**之后**、plan **之前**的独立阶段:把已评审的设计垂直切片成可独立认领的 issue 骨架,钉进接力单交给 plan。主线程做。**只立骨架,内容由 plan 阶段(`write-plan-doc` / plan-writer)按计划 schema 丰富**——这里不写实施细节、不写 Task Pack。
+>
+> `prev_outputs` = design 钉的设计文档(已过 ①设计审)。读它来切片;不重提方案、不改设计(要改设计 → `mmw handoff --conclusion needs-redirection` 回 design)。
 
 ## 怎么拆
 
@@ -11,12 +13,14 @@
 - **`## Design context refs`**:至少一条,指向设计文档对应章节(下游零上下文靠它回设计找依据)。
 - **`## Small issues` 留 `<!-- PENDING -->`**:小 issue 由 `write-plan-doc` 在 plan 阶段补全,这里不填。
 
-## 钉进接力单(handoff 带两样)
+## 收尾:钉进接力单 → handoff
 
-design 阶段产**两样**:设计文档 + issue 骨架。handoff 两个都 `--produced`(`mmw where` 的 `then` 已给好钉全的命令模板),plan 的 `prev_outputs` 才能一单读全、不自己找:
+本阶段只产 **issue 骨架**(设计文档已由 design 阶段钉过,plan 的 `prev_outputs` 会按 `reads:[design,to-issue]` 一单读全):
 
 ```bash
-mmw handoff --conclusion pass --produced docs/design/<slug>.md --produced docs/issues/<slug>/
+mmw handoff --conclusion pass --produced docs/issues/<slug>/
 ```
 
-> 设计是多文件目录(带 mockup / research)时,第一个 `--produced` 钉目录 `docs/design/<slug>/` 而非单文件。
+`mmw where` 的 `then` 已给好这条命令模板,照抄即可。→ advance 到 plan(无审闸:切片质量在 ②计划审随计划一起兜)。
+
+切片中发现设计本身缺口 / 方向错 → 别在这硬切,`mmw handoff --conclusion needs-repair`(回 design 改)或 `needs-redirection`(方向)。

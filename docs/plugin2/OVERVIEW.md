@@ -10,7 +10,7 @@
 
 整套系统一张图。颜色 = 谁在干:<span>🟡 主线程(Claude Code,唯一能问你)</span> · <span>🟣 Claude 帮手(隔离上下文劳动力,SendMessage 续)</span> · <span>🔴 Codex 审者(headless,喂我们的审题)</span> · <span>🔵 脚本/hook(确定层,不手搓)</span> · <span>🟢 文档/状态(真相源)</span> · <span>🩷 用户(HITL)</span>。
 
-三个层次:**① 入口**(断点恢复 + 路由)→ **② 外层循环**(七个阶段怎么换,design/plan 各配一个审)→ 中间 **③ 真相源 + 看守**(状态面 + hooks 兜住确定性)。build 阶段里再嵌一台**内层循环**(loop engineering 自驱落地)。
+三个层次:**① 入口**(断点恢复 + 路由)→ **② 外层循环**(八个阶段怎么换,design/plan 各配一个审)→ 中间 **③ 真相源 + 看守**(状态面 + hooks 兜住确定性)。build 阶段里再嵌一台**内层循环**(loop engineering 自驱落地)。
 
 ```mermaid
 flowchart TB
@@ -38,7 +38,10 @@ flowchart TB
             PR{"综合现状 → 亮 2-3 方案 → HITL<br/>选一个→design / 全否→needs-redirection 回上游"}:::ai
         end
         subgraph PH2["想方案 design"]
-            D["design 方法论(references/design/)<br/>拿已定方向 + 用户讨论(不再提方案)"]:::ai --> R1["①设计审 loop"]:::codex
+            D["design 方法论(references/design/)<br/>拿已定方向 + 用户讨论(不再提方案)<br/>只产设计文档"]:::ai --> R1["①设计审 loop<br/>只审设计文档"]:::codex
+        end
+        subgraph PHT["切片 to-issue(①审后,无审闸)"]
+            TI["主线程垂直切片<br/>立 issue 骨架喂 plan"]:::ai
         end
         subgraph PH3["拆计划 plan"]
             PL["plan-writer 帮手<br/>并行多 issue"]:::worker --> R2["②计划审 loop"]:::codex
@@ -58,7 +61,7 @@ flowchart TB
         subgraph PH6["收尾 closing"]
             CL["prepare.sh cleanup<br/>合并后删 worktree+分支+状态"]:::sh
         end
-        PH1 --> PHP --> PH2 --> PH3 --> PH4 --> PH5 --> PH6
+        PH1 --> PHP --> PH2 --> PHT --> PH3 --> PH4 --> PH5 --> PH6
         PHP -.->|"全否 needs-redirection"| PH1
     end
     E3 --> PH1
@@ -357,11 +360,11 @@ flowchart LR
 
 ## 7. 主干 + 预设开关
 
-只有一条主干。前三个阶段是可开关的前置——你怎么开口只决定默认开哪几个。新想法和优化是同一条完整主干(`develop` 预设),不分两个标签。
+只有一条主干。落地前的阶段都是可开关的前置——你怎么开口只决定默认开哪几个。新想法和优化是同一条完整主干(`develop` 预设),不分两个标签。
 
 ```mermaid
 flowchart LR
-    I["查清<br/>(可关)"]:::opt --> D["想方案<br/>(可关)"]:::opt --> P["拆计划<br/>(可关)"]:::opt --> B["落地"]:::core --> V["验收"]:::core --> C["收尾"]:::core
+    I["查清<br/>(可关)"]:::opt --> PR["给方案<br/>(可关)"]:::opt --> D["想方案<br/>(可关)"]:::opt --> TI["切片<br/>(可关)"]:::opt --> P["拆计划<br/>(可关)"]:::opt --> B["落地"]:::core --> V["验收"]:::core --> C["收尾"]:::core
     classDef opt fill:#fef9c3,stroke:#ca8a04,stroke-dasharray:4 3
     classDef core fill:#dcfce7,stroke:#16a34a
 ```
@@ -369,7 +372,7 @@ flowchart LR
 | 你怎么开口 | 预设 | 默认开的阶段 |
 |---|---|---|
 | 明确的小改 | `small-change` | 落地 → 验收 → 收尾 |
-| 新想法/功能 或 要优化改进 | `develop` | 查清 → 想方案 → 拆计划 → 落地 → 验收 → 收尾 |
+| 新想法/功能 或 要优化改进 | `develop` | 查清 → 给方案 → 想方案 → 切片 → 拆计划 → 落地 → 验收 → 收尾 |
 | bug(根因不明) | `bug` | 查清 → 落地(修) → 验收 → 收尾 |
 | 合并 | (merge) | 独立,不走主干 |
 
@@ -408,7 +411,7 @@ flowchart LR
     classDef doc fill:#dcfce7,stroke:#16a34a
 ```
 
-**接力单怎么拼(`where` 报 `prev_outputs`,下阶段照单读不自己找)**:默认读上一个开着阶段的产出;阶段在 `routes.json phase_bindings.reads` 声明跨多阶上游时按声明拼(design `reads:[investigate,propose]` → 现状报告 + 选定方向都进 `prev_outputs`)。一阶段产多件时 `produced` 用数组(design 钉设计文档 + issue 骨架)。在审闸里 `where` 另报 `review_source` = 当前阶刚产的待审产物,直接喂 `mmw review start --source`。
+**接力单怎么拼(`where` 报 `prev_outputs`,下阶段照单读不自己找)**:默认读上一个开着阶段的产出;阶段在 `routes.json phase_bindings.reads` 声明跨多阶上游时按声明拼(design `reads:[investigate,propose]` → 现状报告 + 选定方向都进 `prev_outputs`;plan `reads:[design,to-issue]` → 设计文档 + issue 骨架都进)。一阶段产多件时 `produced` 可用数组。**design 只产设计文档,issue 骨架由 ①设计审后的独立阶段 to-issue 产**(审后再切片,①审只审设计文档)。在审闸里 `where` 另报 `review_source` = 当前阶刚产的待审产物,直接喂 `mmw review start --source`。
 
 ---
 
@@ -420,7 +423,7 @@ flowchart TD
     OUT --> SPIN["分叉登记子任务"]:::done
     OUT --> CAP["返工/掉头(可回上游任一)/上限/停下"]:::done
     OUT --> RES["断点恢复"]:::done
-    OUT --> PHASES["七阶段全接满 + 各阶段方法论<br/>investigate/propose/design/plan/build/verify/closing"]:::done
+    OUT --> PHASES["八阶段全接满 + 各阶段方法论<br/>investigate/propose/design/to-issue/plan/build/verify/closing"]:::done
     OUT --> REVIEW["四审 loop(Codex 出审查+Claude 验)"]:::done
     OUT --> BUILD["落地:Codex 写+Claude 验(codex-worker)"]:::done
     IN --> MERGE["merge 合并(team+冲突)"]:::done
@@ -431,7 +434,7 @@ flowchart TD
     classDef todo fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray:4 3
 ```
 
-🟢 已落地并空跑验证(176 项断言:脚本 169 + build 7):入口纯路由(每条路径一份干净完整 reference,共用步骤 build 去重)· `mmw where` 自指路(冷启动列起始选项;在途报 `load`/`do`/`then`)· 开工/恢复/清理 · 接力单 · 统一运行契约 + 审闸 · 分叉/返工(可 `--to-phase`)/上限/停下 · 七阶段方法论全接(含 propose 给方案+两路出口、Codex 落地派发 + 四审 loop)· merge · 统一 CLI `mmw`。
+🟢 已落地并空跑验证(192 项断言:脚本 185 + build 7):入口纯路由(每条路径一份干净完整 reference,共用步骤 build 去重)· `mmw where` 自指路(冷启动列起始选项;在途报 `load`/`do`/`then`)· 开工/恢复/清理 · 接力单 · 统一运行契约 + 审闸 · 分叉/返工(可 `--to-phase`)/上限/停下 · 八阶段方法论全接(含 propose 给方案+两路出口、to-issue 审后切片、Codex 落地派发 + 四审 loop)· merge · 统一 CLI `mmw`。
 ⬜ 未验:**内容级端到端真跑**(真派 Codex 落地/审、真 resume 修、真 surface 冒泡——单测够不着,要拿真 develop 任务跑)· 中途整体升级。
 
 ---
@@ -450,7 +453,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    N1["① 骨架+七阶段(含 propose)+审+merge+路径拆分<br/>(已落地·176 断言)"]:::done --> N2["② 拿真 develop 任务端到端跑<br/>一边跑一边修(内容级验收)"]:::nx --> N3["③ 中途整体升级"]:::nx
+    N1["① 骨架+八阶段(含 propose+to-issue)+审+merge+路径拆分<br/>(已落地·192 断言)"]:::done --> N2["② 拿真 develop 任务端到端跑<br/>一边跑一边修(内容级验收)"]:::nx --> N3["③ 中途整体升级"]:::nx
     classDef done fill:#dcfce7,stroke:#16a34a
     classDef nx fill:#dbeafe,stroke:#2563eb
 ```
@@ -467,7 +470,7 @@ flowchart LR
 | 入口(**纯路由**:断点恢复 + 选路,随后交给该路径 reference)| `skills/orchestrate/SKILL.md` |
 | 每条路径一份干净完整走法(建 worktree + 契约 + 回执 + 收尾)| `skills/orchestrate/references/scenario/{small-change,develop,bug,merge}.md` |
 | 路径间共用步骤的单源 + 多文档构建(改一处跑 `build.sh --apply` 覆盖全部)| `build/fragments/*.md` · `build/build.sh`(`--check`/`--apply`)|
-| 各阶段方法论 / 操作指南 | `skills/orchestrate/references/{investigate,propose,review,build,closing}.md` · `skills/orchestrate/references/design/`(design.md + discussion/rigor/template/self-check/prototype-mockup/to-issue-skeleton)· `skills/orchestrate/references/plan/`(plan.md + plan-flow/task-pack/plan-rigor/plan-self-check)—— 七阶段方法论同住 orchestrate 体内、按路径加载,无 `Skill:` 名索引 |
+| 各阶段方法论 / 操作指南 | `skills/orchestrate/references/{investigate,propose,review,build,closing}.md` · `skills/orchestrate/references/design/`(design.md + discussion/rigor/template/self-check/prototype-mockup/to-issue-skeleton)· `skills/orchestrate/references/plan/`(plan.md + plan-flow/task-pack/plan-rigor/plan-self-check)·to-issue 阶段读 `references/design/to-issue-skeleton.md`—— 八阶段方法论同住 orchestrate 体内、按路径加载,无 `Skill:` 名索引 |
 | 插件接线(可安装)| `.claude-plugin/plugin.json`(清单)· `hooks/hooks.json`(只接 3 个 hook)· `agents/plan-writer.md`(plan 阶段 fan-out)· `commands/gather-context.md`(设计问答补上下文)|
 | 阶段→`load`/`do`/`then` 绑定(`mmw where` 自指路单源)| `state-schema/routes.json` 的 `phase_bindings` |
 | 审题(喂 Codex)| `skills/orchestrate/references/review/{quartet,design,plan,plan-impl,final}.md` |
@@ -478,4 +481,4 @@ flowchart LR
 | 看守(SubagentStop)/ 红线(PreToolUse)/ 记进度(commit)| `hooks/{guard-loop,guard-redline,record-step}.sh` |
 | 进度记录 / 流程数据 / loop 状态 | `state-schema/{task-manifest.schema,routes,loop-state.schema}.json` |
 | 落地规格 | `design/{loop-engineering,investigate-workflow,review-loop}.md` |
-| 空跑验证 | `scripts/tests/`(164 断言)|
+| 空跑验证 | `scripts/tests/`(185 断言)|
