@@ -71,11 +71,13 @@ mmw loop step add --id <plan-或-pack-id> --desc "<标题>"   # 逐项
 每份 plan 派一个 Codex(脚本代劳开 worktree + 组装规范 prompt + codex exec):
 
 ```bash
-mmw codex dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree 绝对路径>
+mmw codex dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree 绝对路径> \
+  --design <设计文档绝对路径> --issue <该 plan 对应 issue 绝对路径>
 ```
 
+- **三文档都传**:Codex 开工要读设计(意图/合同)+ 它的 issue(边界)+ 它的计划(实施权威),不能只给计划。
 - 并行:互不依赖的 plan,各自一个 worktree,`run_in_background: true` 同时派(寻找一切安全的并行机会加快进度)。
-- 脚本已把铁律焊进 prompt:严防过度设计/兜底/思考、严格 TDD、每 Pack 提交带 `Pack N.M`、禁改 `docs/`、缺输入就停下说清。
+- **铁律不在 prompt、在 Codex 侧 `worktree-build` skill**(渐进加载,开工前不占 context):prompt 只给角色 + worktree + 三文档路径 + 指向 skill。skill 管:严格 TDD(用 /tdd)、防过度设计/兜底、测试对标仓库标准、每 Pack 提交带 `Pack N.M`、禁改 `docs/`、卡住停下报清。
 - Codex 在自己 worktree 提交(不走你的 Bash,所以 record-step 不记;进度靠你 verify 后 `mmw loop step done`)。
 
 ### B3. 验收(命门:你按计划验,不信 Codex 自述)

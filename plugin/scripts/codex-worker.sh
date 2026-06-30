@@ -5,9 +5,9 @@
 # 手搓 git worktree + codex CLI + session 记账。Codex 写代码(workspace-write 物理
 # 围在 worktree),Claude 主线程在脚本外按 plan 验收清单 verify(命门,不脚本化)。
 #
-#   dispatch  --plan <abs.md> --worktree <abs> [--base <ref>] [--model <m>] [--effort <e>]
-#             worktree 不存在则从 --base(默认 HEAD)建;组装固定前言 prompt;codex exec 落地;
-#             记 session id(供 resume);打印 SESSION= + Codex 最后消息。
+#   dispatch  --plan <abs.md> --worktree <abs> [--design <abs.md>] [--issue <abs.md>] [--base <ref>] [--model <m>] [--effort <e>]
+#             worktree 不存在则从 --base(默认 HEAD)建;组装瘦前言 prompt(铁律在 Codex 侧 worktree-build
+#             skill,prompt 只给三文档路径 + 指向 skill);codex exec 落地;记 session id(供 resume);打印 SESSION= + Codex 最后消息。
 #   resume    --worktree <abs> --instructions <abs.md>
 #             从 worktree 记的 session 续会话修复(keep context),发回修复指令。
 #
@@ -22,34 +22,22 @@ STATE_SUBDIR=".claude/multi-model-workflow"
 
 die() { echo "ERROR: $*" >&2; exit 2; }
 
-# 固定前言:PDF「严防过度设计/兜底/思考」+ 落地纪律(规范 Codex 行为,不给自由发挥)
-build_prompt() {  # $1=plan_path $2=worktree
+# 瘦派发前言:不内联铁律(铁律在 Codex 侧已装的 worktree-build skill 里,渐进加载,
+# 开工前不占 context)。这里只给角色 + worktree + 三文档路径 + 指向 skill。
+build_prompt() {  # $1=plan_path $2=worktree $3=design_path(可空) $4=issue_path(可空)
   cat <<PROMPT
-你是落地执行者(Codex),严格按计划落地,不发挥、不扩张。
-计划文件(唯一权威,照它做): $1
+你是落地执行者(Codex),被主线程 Claude 派进一个 worktree 落地一份计划。
+**读你已装的 \`worktree-build\` skill,照它走整个落地流程**(它是总纲,细纪律在它的 references,到那步再读)。
+
 工作树(你唯一可写的源码区): $2
+开工前读这几份(worktree 内路径,顺序读):
+${3:+- 设计文档(意图/合同边界/发布风险): $3
+}${4:+- 你的 issue(What to build / Acceptance / Blocked by): $4
+}- 你的计划(实施唯一权威): $1
 
-铁律:
-- 严防过度设计 / 过度兜底 / 过度思考:只实现计划写明的;不加计划没要求的抽象 / 配置项 /
-  防御分支 / 未来功能 / "顺手优化"。拿不准就少做,不多做。
-- 严格 TDD(用已装的 /tdd):写失败测试 → 确认它真失败 → 最小实现 → 确认它真通过 → 提交。
-- 测试以**项目自己的测试治理文档为准**:动手前定位并读它(常见:仓库根或 tests/ 下的 TESTING.md、
-  AGENTS.md / CLAUDE.md 的测试节、tests 目录 README),测试按它声明的分层与写作规范写,新测试进它要求的
-  目录。**找不到这类文档**才用下面通用纪律兜底。项目自己的 test guards / lint 也要跑通。
-- 测**公开行为**,不测 private helper / 内部调用顺序。mock **只用于外部边界**(网络 / 时钟 /
-  三方服务),不 mock 仓库内部业务模块。每个行为在拥有它的那一层测一次,不跨层重复断言。
-- 跨模块边界传数据用**正式契约类型**(项目用的 schema / model / typed struct),不传裸 dict / map;
-  public API 不长期返回 raw 字典。
-- 新增可被外部引用之物(端口 / 命令 / 迁移 / capability / 接口)按项目机制**登记 + 走校验器**,
-  不绕过项目的合同 / 登记 / 迁移机制。数据迁移要 up/down **对称**、给出执行顺序。
-- 一个 Task Pack 一次提交,commit message 含 "Pack N.M"。
-- 只改源码,**禁改 docs/ 下任何文件**(设计 / 计划是上游权威,你不碰)。触碰带 override 规则的目录,
-  同步维护该目录的 override 文件。
-- 同一个动作连续失败别重复试:换方法;第 3 次仍不通 → 停下,在最后消息里报完整尝试历史,
-  不做第 4 次盲试。
-- 缺输入,或计划与代码现实冲突 → 停下,在最后消息里讲清,**不自己猜着改方向**。
-
-最后消息(主线程靠它验收): 逐 Pack 报 done / blocked + 每个 acceptance 达没达成 + 改了哪些文件 + 跑了哪些测试结果。
+落地铁律全在 worktree-build skill:逐 Task Pack 严格 TDD(用已装的 /tdd)、每 Pack 一次提交带 "Pack N.M"、
+防过度设计/兜底/思考、测试对标仓库测试治理文档、禁改 docs/、卡住就停下报清不猜方向。
+收工最后消息按 skill 的"收工"格式回(逐 Pack done/blocked + 每条 acceptance 达没达成 + 改了哪些文件 + 测试结果)——主线程靠它验收。
 PROMPT
 }
 
@@ -80,10 +68,12 @@ run_codex() {  # $1=worktree $2=prompt_file $3..=codex args(不含 stdin)
 }
 
 cmd_dispatch() {
-  local plan="" wt="" base="HEAD" model="$CODEX_MODEL" effort="$CODEX_EFFORT"
+  local plan="" wt="" base="HEAD" model="$CODEX_MODEL" effort="$CODEX_EFFORT" design="" issue=""
   while [ $# -gt 0 ]; do case "$1" in
     --plan) plan="$2"; shift 2 ;;
     --worktree) wt="$2"; shift 2 ;;
+    --design) design="$2"; shift 2 ;;   # 设计文档路径(develop 必给;small-change/bug 无设计可空)
+    --issue) issue="$2"; shift 2 ;;      # 该 plan 对应的 issue 路径(develop 给;无 issue 可空)
     --base) base="$2"; shift 2 ;;
     --model) model="$2"; shift 2 ;;
     --effort) effort="$2"; shift 2 ;;
@@ -101,7 +91,7 @@ cmd_dispatch() {
   # 沙箱放行 git common dir(worktree 的 objects/refs 在父仓库,否则 commit 被拒)
   local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
 
-  local pf; pf="$(mktemp)"; build_prompt "$plan" "$wt" > "$pf"
+  local pf; pf="$(mktemp)"; build_prompt "$plan" "$wt" "$design" "$issue" > "$pf"
   local rc=0
   run_codex "$wt" "$pf" \
     exec -C "$wt" --sandbox workspace-write \

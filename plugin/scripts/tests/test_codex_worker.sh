@@ -29,19 +29,21 @@ export FAKE_CAP="$TMP/cap"; mkdir -p "$FAKE_CAP"
 export CODEX_BIN="$FAKEBIN/codex"
 
 PLAN="$TMP/plan.md"; echo "# plan" > "$PLAN"
+DESIGN="$TMP/design.md"; echo "# design" > "$DESIGN"
+ISSUE="$TMP/issue.md"; echo "# issue" > "$ISSUE"
 WT="$TMP/wt-001"
 
-OUT="$(bash "$CW" dispatch --plan "$PLAN" --worktree "$WT" 2>/dev/null)"
+OUT="$(bash "$CW" dispatch --plan "$PLAN" --worktree "$WT" --design "$DESIGN" --issue "$ISSUE" 2>/dev/null)"
 [ -d "$WT" ] && ok "worktree 不存在则建好" || no "建 worktree"
 PROMPT="$(cat "$FAKE_CAP/stdin")"
-echo "$PROMPT" | grep -q "严防过度设计" && ok "prompt 含严防过度设计铁律" || no "反过度设计"
-echo "$PROMPT" | grep -q "禁改 docs/" && ok "prompt 含禁改 docs" || no "禁改 docs"
-echo "$PROMPT" | grep -q 'Pack N.M' && ok "prompt 含 Pack N.M 提交格式" || no "Pack N.M"
-echo "$PROMPT" | grep -q "TDD" && ok "prompt 含 TDD 纪律" || no "TDD"
-echo "$PROMPT" | grep -q "公开行为" && ok "prompt 含 测公开行为/不测 private 纪律" || no "测公开行为"
-echo "$PROMPT" | grep -q "项目自己的测试治理文档为准" && ok "prompt 含 测试绑定仓库标准文档" || no "测试绑仓库标准"
-echo "$PROMPT" | grep -q "正式契约类型" && ok "prompt 含 跨边界正式契约/不裸 dict 纪律" || no "正式契约"
-echo "$PROMPT" | grep -q "登记 + 走校验器" && ok "prompt 含 登记+校验器/迁移对称 纪律" || no "登记校验"
+# 瘦派发:prompt 只给指针(指向 worktree-build skill)+ 三文档路径;铁律本体在 Codex 侧 skill,不在 prompt
+echo "$PROMPT" | grep -q "worktree-build" && ok "prompt 指向 worktree-build skill(铁律渐进加载)" || no "指向 build skill"
+echo "$PROMPT" | grep -q "禁改 docs/" && ok "prompt 含禁改 docs 边界" || no "禁改 docs"
+echo "$PROMPT" | grep -q 'Pack N.M' && ok "prompt 含 Pack N.M 提交格式(回执契约)" || no "Pack N.M"
+echo "$PROMPT" | grep -q "TDD" && ok "prompt 含 TDD 指向" || no "TDD"
+echo "$PROMPT" | grep -q "$DESIGN" && ok "prompt 传了设计文档路径" || no "传设计路径"
+echo "$PROMPT" | grep -q "$ISSUE" && ok "prompt 传了 issue 路径" || no "传 issue 路径"
+echo "$PROMPT" | grep -q "$PLAN" && ok "prompt 传了计划路径(实施权威)" || no "传计划路径"
 ARGV="$(cat "$FAKE_CAP/argv")"
 echo "$ARGV" | grep -q -- "-C $WT" && ok "codex -C <worktree>" || no "-C worktree"
 echo "$ARGV" | grep -q -- "--sandbox workspace-write" && ok "--sandbox workspace-write" || no "sandbox"
@@ -49,6 +51,10 @@ echo "$ARGV" | grep -q -- "--add-dir" && ok "--add-dir 放行 git common dir" ||
 echo "$OUT" | grep -q "SESSION=sess-123" && ok "抓到并打印 session id" || no "session 记账"
 [ "$(cat "$WT/.claude/multi-model-workflow/codex-session")" = "sess-123" ] && ok "session 落盘供 resume" || no "session 落盘"
 echo "$OUT" | grep -q "codex done" && ok "打印 codex 最后消息(供验收)" || no "最后消息"
+# design/issue 可空(small-change/bug):空时不应出现裸标签行(放最后,免得覆盖上面 argv 断言)
+bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-nodoc" >/dev/null 2>&1
+PROMPT2="$(cat "$FAKE_CAP/stdin")"
+echo "$PROMPT2" | grep -q "设计文档(意图" && no "无 design 时不该出现设计行" || ok "design 可空:无则不出设计行"
 
 # resume:用记的 session 续会话
 INSTR="$TMP/fix.md"; echo "fix this" > "$INSTR"
