@@ -427,15 +427,15 @@ flowchart TD
     OUT --> REVIEW["四审 loop(Codex 出审查+Claude 验)"]:::done
     OUT --> BUILD["落地:Codex 写+Claude 验(codex-worker)"]:::done
     IN --> MERGE["merge 合并(team+冲突)"]:::done
+    OUT --> ESC["bug→develop 升级(escalate)"]:::done
     OUT --> RUN["真任务端到端跑(内容级验收)"]:::todo
-    OUT --> UP["中途整体升级"]:::todo
 
     classDef done fill:#dcfce7,stroke:#16a34a
     classDef todo fill:#f3f4f6,stroke:#9ca3af,stroke-dasharray:4 3
 ```
 
-🟢 已落地并空跑验证(192 项断言:脚本 185 + build 7):入口纯路由(每条路径一份干净完整 reference,共用步骤 build 去重)· `mmw where` 自指路(冷启动列起始选项;在途报 `load`/`do`/`then`)· 开工/恢复/清理 · 接力单 · 统一运行契约 + 审闸 · 分叉/返工(可 `--to-phase`)/上限/停下 · 八阶段方法论全接(含 propose 给方案+两路出口、to-issue 审后切片、Codex 落地派发 + 四审 loop)· merge · 统一 CLI `mmw`。
-⬜ 未验:**内容级端到端真跑**(真派 Codex 落地/审、真 resume 修、真 surface 冒泡——单测够不着,要拿真 develop 任务跑)· 中途整体升级。
+🟢 已落地并空跑验证(201 项断言:脚本 194 + build 7):入口纯路由(每条路径一份干净完整 reference,共用步骤 build 去重)· `mmw where` 自指路(冷启动列起始选项;在途报 `load`/`do`/`then`)· 开工/恢复/清理 · 接力单 · 统一运行契约 + 审闸 · 分叉/返工(可 `--to-phase`)/上限/停下 · 八阶段方法论全接(含 propose 给方案+两路出口、to-issue 审后切片、Codex 落地派发 + 四审 loop)· bug→develop 原地升级(`mmw task escalate`)· merge · 统一 CLI `mmw`。
+⬜ 未验:**内容级端到端真跑**(真派 Codex 落地/审、真 resume 修、真 surface 冒泡——单测够不着,要拿真 develop 任务跑)。
 
 ---
 
@@ -453,7 +453,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    N1["① 骨架+八阶段(含 propose+to-issue)+审+merge+路径拆分<br/>(已落地·192 断言)"]:::done --> N2["② 拿真 develop 任务端到端跑<br/>一边跑一边修(内容级验收)"]:::nx --> N3["③ 中途整体升级"]:::nx
+    N1["① 骨架+八阶段(含 propose+to-issue)+审+merge+路径拆分<br/>(已落地·201 断言)"]:::done --> N2["② 拿真 develop 任务端到端跑<br/>一边跑一边修(内容级验收)"]:::nx --> N3["③ 中途整体升级"]:::nx
     classDef done fill:#dcfce7,stroke:#16a34a
     classDef nx fill:#dbeafe,stroke:#2563eb
 ```
@@ -481,4 +481,4 @@ flowchart LR
 | 看守(SubagentStop)/ 红线(PreToolUse)/ 记进度(commit)| `hooks/{guard-loop,guard-redline,record-step}.sh` |
 | 进度记录 / 流程数据 / loop 状态 | `state-schema/{task-manifest.schema,routes,loop-state.schema}.json` |
 | 落地规格 | `design/{loop-engineering,investigate-workflow,review-loop}.md` |
-| 空跑验证 | `scripts/tests/`(185 断言)|
+| 空跑验证 | `scripts/tests/`(194 断言)|

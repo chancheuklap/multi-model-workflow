@@ -123,6 +123,53 @@ cmd_cleanup() {
   echo "CLEANED slug=$slug"
 }
 
+# ---------- escalate(bug/small-change 中途发现系统性设计问题 → 原地升级到 develop 完整设计路) ----------
+# PDF:bug「了解仓库现状 → 系统性设计问题 → create worktree(develop)」。worktree 已在,
+# 升级 = 把剩余流水线从当前预设换成 develop 预设,游标回首阶段(investigate,带设计意图重查),
+# 投查成果(phase_outputs/artifacts/subtasks)全留、history 记一笔。不开新 worktree、不丢已查。
+cmd_escalate() {
+  local to=""
+  while [ $# -gt 0 ]; do
+    case "$1" in --to) to="$2"; shift 2 ;; *) die "未知参数: $1" ;; esac
+  done
+  [ -n "$to" ] || die "--to 必填(目标预设,目前只支持 develop)"
+  case "$to" in develop) ;; *) die "--to 目前只支持 develop(系统性设计问题升级到完整设计路)" ;; esac
+
+  local top; top="$(git_toplevel)"
+  in_worktree "$top" || die "escalate 在任务 worktree 内执行(当前不在 worktree)"
+  local man="$top/$STATE_SUBDIR/$MANIFEST_NAME"
+  [ -f "$man" ] || die "当前不是在管任务(无 manifest)"
+  jq -e . "$man" >/dev/null 2>&1 || die "manifest 损坏:$man"
+  [ -f "$ROUTES" ] || die "找不到 routes.json: $ROUTES"
+
+  local cur_scenario cur_phase
+  cur_scenario="$(jq -r .scenario "$man")"
+  cur_phase="$(jq -r .phase "$man")"
+  [ "$cur_scenario" != "$to" ] || die "已是 $to,无需升级"
+
+  local phases_json first
+  phases_json="$(jq -c --arg s "$to" '.presets[$s] // empty' "$ROUTES")"
+  [ -n "$phases_json" ] || die "routes.json 未定义预设 $to"
+  first="$(printf '%s' "$phases_json" | jq -r '.[0]')"
+
+  local at; at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  local tmp; tmp="$(mktemp)"
+  jq --arg sc "$to" --argjson ph "$phases_json" --arg first "$first" --arg cur "$cur_phase" --arg at "$at" \
+    '.scenario=$sc | .phases=$ph | .phase=$first | .phase_index=0 | .gate=null | .status="active"
+     | .repair_count=0 | .turnaround_count=0
+     | .history += [{phase:$cur, conclusion:("escalate→"+$sc), at:$at}]' \
+    "$man" > "$tmp"
+  if [ ! -s "$tmp" ] || ! jq -e . "$tmp" >/dev/null 2>&1; then
+    rm -f "$tmp"; die "升级写入失败(空/非法 JSON),manifest 保留不动"
+  fi
+  mv "$tmp" "$man"
+  cat <<EOF
+ESCALATED from=$cur_scenario to=$to
+phase=$first(回 investigate,带设计意图重查;投查成果与 history 全保留)
+NEXT=mmw where(按 develop 续:investigate→propose→design→…)
+EOF
+}
+
 # ---------- team(merge 用:列全队在管 worktree 的身份与状态) ----------
 cmd_team() {
   local top; top="$(git_toplevel)"
@@ -144,9 +191,10 @@ cmd_team() {
 }
 
 case "${1:-}" in
-  new)     shift; cmd_new "$@" ;;
-  resume)  shift; cmd_resume "$@" ;;
-  cleanup) shift; cmd_cleanup "$@" ;;
-  team)    shift; cmd_team "$@" ;;
-  *) die "用法: prepare.sh new|resume|cleanup|team ..." ;;
+  new)      shift; cmd_new "$@" ;;
+  resume)   shift; cmd_resume "$@" ;;
+  cleanup)  shift; cmd_cleanup "$@" ;;
+  escalate) shift; cmd_escalate "$@" ;;
+  team)     shift; cmd_team "$@" ;;
+  *) die "用法: prepare.sh new|resume|cleanup|escalate|team ..." ;;
 esac

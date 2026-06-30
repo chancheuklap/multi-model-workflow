@@ -92,6 +92,23 @@ echo "$OUTB" | grep -q "NEXT_ACTION=turn-around" && ok "掉头动作" || no "掉
 OUTB2="$(cd "$WB" && bash "$FLOW" handoff --conclusion needs-redirection)"
 echo "$OUTB2" | grep -q "STATUS=blocked" && ok "掉头超上限→blocked" || no "掉头超上限"
 
+# ===== B2: bug 系统性设计问题 → mmw task escalate --to develop(原地升级,投查成果留着) =====
+WBE="$(newtask bug 2026-06-29-task-be)"
+( cd "$WBE" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/be.md >/dev/null )  # bug investigate 查出根因
+ESC="$(cd "$WBE" && bash "$PREPARE" escalate --to develop)"
+echo "$ESC" | grep -q "ESCALATED from=bug to=develop" && ok "escalate bug→develop" || no "escalate 回执"
+[ "$(mfield "$WBE" scenario)" = "develop" ] && ok "升级后 scenario=develop" || no "scenario 升级 ($(mfield "$WBE" scenario))"
+[ "$(mfield "$WBE" 'phases|join(",")')" = "investigate,propose,design,to-issue,plan,build,verify,closing" ] && ok "升级后 phases=develop 八阶段" || no "phases 升级 ($(mfield "$WBE" 'phases|join(",")'))"
+[ "$(mphase "$WBE")" = "investigate" ] && [ "$(mfield "$WBE" phase_index)" = "0" ] && ok "游标回 investigate" || no "游标回首阶段"
+[ "$(mfield "$WBE" 'phase_outputs.investigate[0]')" = "docs/investigating/be.md" ] && ok "投查成果保留(phase_outputs 不丢)" || no "投查成果丢失"
+[ "$(mfield "$WBE" 'history[-1].conclusion')" = "escalate→develop" ] && ok "history 记一笔升级" || no "history 升级留痕"
+# 升级后真能按 develop 走到 propose(原 bug 走不到的阶段)
+( cd "$WBE" && bash "$FLOW" handoff --conclusion pass >/dev/null )
+[ "$(mphase "$WBE")" = "propose" ] && ok "升级后 investigate→propose(develop 路打通)" || no "升级后走 develop ($(mphase "$WBE"))"
+# 已是 develop 再 escalate 被拒;非法目标被拒
+if ( cd "$WBE" && bash "$PREPARE" escalate --to develop >/dev/null 2>&1 ); then no "重复升级被拒"; else ok "已是 develop 再升级被拒"; fi
+if ( cd "$WBE" && bash "$PREPARE" escalate --to bogus >/dev/null 2>&1 ); then no "非法目标被拒"; else ok "非法升级目标被拒"; fi
+
 # ===== C: 返工 + 上限拦截 =====
 WC="$(newtask develop 2026-06-28-task-c)"
 ( cd "$WC" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )

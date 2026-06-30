@@ -13,6 +13,7 @@
 #   任务(入口/收尾,主仓库):
 #     mmw task new --scenario <small-change|develop|bug> --slug <s> --title <t>
 #     mmw task resume | mmw task cleanup --slug <s>
+#     mmw task escalate --to develop          bug/小改撞出系统性设计问题→原地升级完整设计路
 #   内层 loop(落地/审):
 #     mmw loop init --kind <execution|review|contract-gate> | attendance | step | checklist | finding | softstop | surface | resume | exit-check
 #   审闸一条命令:
