@@ -35,9 +35,7 @@ ${3:+- 设计文档(意图/合同边界/发布风险): $3
 }${4:+- 你的 issue(What to build / Acceptance / Blocked by): $4
 }- 你的计划(实施唯一权威): $1
 
-落地铁律全在 worktree-build skill:逐 Task Pack 严格 TDD(用已装的 /tdd)、每 Pack 一次提交带 "Pack N.M"、
-防过度设计/兜底/思考、测试对标仓库测试治理文档、禁改 docs/、卡住就停下报清不猜方向。
-收工最后消息按 skill 的"收工"格式回(逐 Pack done/blocked + 每条 acceptance 达没达成 + 改了哪些文件 + 测试结果)——主线程靠它验收。
+落地铁律、逐 Pack TDD、每 Pack 提交格式、禁改 docs/、卡住协议、收工回执格式 —— **全在 worktree-build skill,照它做,本消息不重复**(skill 是唯一权威;读不到就停下报,别猜别硬上)。
 PROMPT
 }
 

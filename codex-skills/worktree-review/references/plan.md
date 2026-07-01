@@ -1,4 +1,4 @@
-# ② 计划文档 review
+# stage=plan · 计划文档审查角度(配 method.md 读)
 
 **Source**:源意图(source design + issue 层级)· 待审产物(plan 文档,含 Plan Header / Global Constraints / Dependency Graph / Task Pack)
 

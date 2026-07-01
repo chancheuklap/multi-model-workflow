@@ -49,12 +49,12 @@ sequenceDiagram
 | loop | 写者载体 | 派发 | 续接 | 防过早完工 |
 |---|---|---|---|---|
 | 落地 worker | **Codex** | `codex-worker dispatch`(`codex exec -C <wt> --sandbox workspace-write` + 固定 prompt) | `codex exec resume` | 主线程按 plan 验收清单 verify + `exit-check`(Codex 不吃 SubagentStop) |
-| 审 ①②④ | **Codex 出审查** + Claude 协调帮手验 | `review.sh start` → 协调帮手 `codex exec --sandbox read-only` 喂 `quartet`+阶段 angle | `codex exec resume`(Codex)/ `SendMessage`(协调帮手) | `SubagentStop` 看守协调帮手 + `exit-check` 清单 |
+| 审 ①②④ | **Codex 出审查** + Claude 协调帮手验 | `review.sh start` → 协调帮手 `codex exec --sandbox read-only` 读已装 `worktree-review` skill(按 stage) | `codex exec resume`(Codex)/ `SendMessage`(协调帮手) | `SubagentStop` 看守协调帮手 + `exit-check` 清单 |
 | 审 ③(合同门) | **脚本**(无模型) | 机器核:全 pack committed + 声明的跨 plan 合同存在 | — | — |
 
 **铁律**(§5b):审/落地都用 `codex exec`,**不用 `codex review`**;续接两套别混(Codex=exec resume,Claude subagent=SendMessage);只有主线程能问用户,Codex/帮手都抛回主线程。
 
-> review 提示词已迁到 `plugin/skills/orchestrate/references/review/`(`quartet.md` + 四阶段 angle),`review.sh` 配好喂给 codex exec。
+> review 审查方法+stage 角度在 Codex 侧 `codex-skills/worktree-review`(`method.md` + 四 stage angle);`review.sh` 派发只给 stage+Source、指向该已装 skill,**不给 Codex plugin 路径**(它读不到 Claude 的 `plugin/`)。③合同门 `plan-impl.md` 与审核编排 `review.md` 留 plugin(Claude 侧)。
 
 ---
 
@@ -71,7 +71,7 @@ decisions:   [ { at_step, chose, why, at } ]                          # afk 软�
 **审核 loop**(每轮审):
 ```
 checklist:   [ { item, source, status: open|covered, evidence } ]    # 主线程从设计/issue 文档抽
-findings:    [ { severity, confidence, locator, evidence, impact, remediation } ]  # quartet 字段
+findings:    [ { severity, confidence, locator, evidence, impact, remediation } ]  # worktree-review method.md 字段
 verdict:     pass | needs-repair | needs-redirection | needs-context | blocked
 # 收敛轮由协调帮手自管,不落 loop-state;routes.json caps 是外层重派兜底上限
 ```

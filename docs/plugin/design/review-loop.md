@@ -26,7 +26,7 @@
 flowchart TB
     MT["主线程:init review loop<br/>从设计/计划/issue 抽覆盖清单进 loop-state"]:::ai
     MT --> CO["审核协调帮手(Claude sub-agent,kind=review)<br/>SubagentStop 受 guard-loop 看守"]:::worker
-    CO -->|"codex exec --sandbox read-only<br/>喂 quartet + 阶段 angle"| CX1["Codex 审者 · 轴A/基线1"]:::codex
+    CO -->|"codex exec --sandbox read-only<br/>读已装 worktree-review skill(按 stage)"| CX1["Codex 审者 · 轴A/基线1"]:::codex
     CO -->|"并行 run_in_background"| CX2["Codex 审者 · 轴B/基线2"]:::codex
     CX1 & CX2 -->|结构化 findings| CO
     CO -->|"亲验:grep/读/跑坐实 → cover 清单 / add finding"| LS[("loop-state.json")]:::doc
@@ -42,7 +42,7 @@ flowchart TB
 
 - **主线程**:进 review 阶段,`loop.sh init --kind review`,**从源文档抽覆盖清单**(§4b「覆盖清单由主线程抽」)写进 loop-state,再派审核协调帮手。
 - **审核协调帮手**(Claude sub-agent):派 Codex、收 findings、**亲验**、cover 清单、add finding、按 Gap 路由产出 verdict。它想停时 `guard-loop` 用 `exit-check` 拦——清单没全绿/有开口 Critical 就顶回去续审。
-- **Codex 审者**:`codex exec -C . --sandbox read-only - < <prompt>`,喂我们的 `quartet.md` + 阶段 angle(**不用 `codex review`**——那走 Codex 内置提示词绕过我们方法论);续接 `codex exec resume <id>`。每阶段两个独立视角(①②③ = 轴A+轴B;④ = 基线1+基线2),并行起、各自干净 context。**只给 Source + 点名 references,不塞自己的问题清单**(塞 = 把 Codex 框死,跳不出去质疑地基)。
+- **Codex 审者**:`codex exec -C . --sandbox read-only - < <prompt>`,读它已装的 `worktree-review` skill 按 stage 审(审查方法+角度在 Codex 侧,**不给 Codex plugin 路径**——它读不到 Claude 的 `plugin/`;**不用 `codex review`**——那走 Codex 内置提示词绕过我们方法论);续接 `codex exec resume <id>`。每阶段两个独立视角(①②③ = 轴A+轴B;④ = 基线1+基线2),并行起、各自干净 context。**只给 Source + stage,不塞自己的问题清单**(塞 = 把 Codex 框死,跳不出去质疑地基)。
 
 为什么协调帮手是 Claude 不是主线程:guard-loop 靠 SubagentStop 拦,主线程没有 SubagentStop。放进帮手 = 审核也吃同一台看守机器,和落地 loop 对称。帮手不能 AskUserQuestion,需要用户拍板的(方向疑)走 `surface` 冒泡回主线程,同落地 loop。
 
@@ -93,7 +93,7 @@ accepted finding 修在哪(Gap 路由),决定主线程 handoff 用哪个结论�
 | Plan | plan 与代码不一致 | `needs-repair` → 回 plan 阶段 |
 | Unverifiable | 环境/账号/生产 gate 缺 | 写清证据 + manual gate owner,不算 blocker |
 
-审题、防幻觉四件套、五问、Return Contract 全在迁移过来的 `references/review/*`(quartet + 四阶段 angle),协调帮手 dispatch 时点名给 Codex 读,本文不复述。
+审题、防幻觉四件套、五问、Return Contract 全在 Codex 侧 `codex-skills/worktree-review`(`method.md` + 四 stage angle),Codex 读它已装的 skill,协调帮手 dispatch 只传 stage + Source(不给 plugin 路径),本文不复述。
 
 ---
 
@@ -116,7 +116,8 @@ accepted finding 修在哪(Gap 路由),决定主线程 handoff 用哪个结论�
 
 | 件 | 落到 |
 |---|---|
-| 审题:防幻觉四件套 + 阶段 angle(喂 Codex,faithful 迁移自 second-model-review) | `plugin/skills/orchestrate/references/review/{quartet,design,plan,plan-impl,final}.md` |
+| 审题:防幻觉四件套 + stage angle(Codex 审者读它已装的 skill,不给 plugin 路径) | `codex-skills/worktree-review/references/{method,design,plan,final,merge}.md` |
+| ③合同门审题(Claude 机器核,留 plugin) | `plugin/skills/orchestrate/references/review/plan-impl.md` |
 | 审核 loop 阶段 reference(指示主线程抽清单→派协调帮手→处置 verdict→handoff) | `plugin/skills/orchestrate/references/review/review.md`(与审题同住 review/ 文件夹,自包含) |
 | loop 机器(init/checklist/finding/exit-check kind=review·contract-gate) | 已有 `scripts/loop.sh` + `hooks/guard-loop.sh`,无需改 |
 | Codex 派发 | 协调帮手用 Bash 跑 `codex exec`,无需专用脚本 |

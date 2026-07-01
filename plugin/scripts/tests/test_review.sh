@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# review.sh 空跑:审闸一条命令——阶段映射 kind/angle 对、init loop、bad stage 拦。
+# review.sh 空跑:审闸一条命令——阶段映射 kind/视角 对、init loop、纯路由指向 Codex skill(不给 plugin 路径)、bad stage 拦。
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REVIEW="$SCRIPT_DIR/../review.sh"
@@ -19,7 +19,8 @@ for s in design plan final; do
   OUT="$(bash "$REVIEW" start --stage "$s" --source "src-$s" 2>/dev/null)"
   echo "$OUT" | grep -q "REVIEW_STARTED stage=$s kind=review" && ok "$s → kind=review" || no "$s kind"
   [ "$(jq -r .kind "$LOOPF")" = "review" ] && ok "$s init loop kind=review" || no "$s loop kind"
-  echo "$OUT" | grep -q "review/$s.md" && ok "$s → angle review/$s.md" || no "$s angle"
+  echo "$OUT" | grep -q "worktree-review skill,按 stage=$s" && ok "$s → 纯路由指向 worktree-review skill" || no "$s skill 指针"
+  if echo "$OUT" | grep -qE "references/review/|quartet"; then no "$s 仍给 Codex plugin 路径/quartet(不该)"; else ok "$s 无 plugin 路径喂 Codex"; fi
 done
 
 # plan-impl → contract-gate,且不派 Codex
