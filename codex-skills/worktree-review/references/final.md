@@ -1,4 +1,4 @@
-# ④ final review
+# stage=final · 整分支终审角度(配 method.md 读)
 
 所有 plan 合并后审整个分支。不重复阶段③(不再逐 Pack 对 acceptance),专审单 plan 看不到的:plan 之间的缝隙 / plan A 碰坏 plan B / 整条意图闭环。
 

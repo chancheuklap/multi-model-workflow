@@ -77,7 +77,7 @@ mmw task team
 mmw review start --stage merge-impl --source docs/<slug>-merge-brief.md
 ```
 
-派两个独立 Codex 审者(读 `review/merge-integration.md` 七角度 + quartet.md),**不信各 PR 的 ④终审、独立验组合行为**。findings 走 review 留痕(`docs/reviews/<slug>-merge-impl.md`)、亲验、disposition。**修复软上限 1 轮**(简单 Coordinator 修、复杂派 Codex);修完自验(对照 merge-brief 合同地图 + 七角度 + 跑验收)→ 过即闭合,不过 → BLOCKED 报用户。
+派两个独立 Codex 审者(读它已装的 `worktree-review` skill,按 `stage=merge-impl` 走七角度),**不信各 PR 的 ④终审、独立验组合行为**。findings 走 review 留痕(`docs/reviews/<slug>-merge-impl.md`)、亲验、disposition。**修复软上限 1 轮**(简单 Coordinator 修、复杂派 Codex);修完自验(对照 merge-brief 合同地图 + 七角度 + 跑验收)→ 过即闭合,不过 → BLOCKED 报用户。
 
 ## 7. 清扫 + 返回
 

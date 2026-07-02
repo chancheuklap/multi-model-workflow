@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # review.sh —— 审闸一条命令(把"起一道审"的机械 6 步收成 1 步)
 #
-#   start --stage <design|plan|plan-impl|final> --source <源意图路径/描述>
-#       按阶段映射 kind + angle 审题,init loop-state,打印好协调帮手 brief。
+#   start --stage <design|plan|plan-impl|final|merge-impl> --source <源意图路径/描述>
+#       按阶段映射 kind + 两路视角,init loop-state,打印好协调帮手 brief。
+#       审者 = Codex,读它已装的 worktree-review skill(审查方法本体单源在那,plugin 不重复、
+#       不给 Codex 任何 plugin 内路径——Codex 读不到 Claude 的 plugin/)。派发只给 stage + 视角 + Source。
 #       主线程拿到后:抽覆盖清单进 loop(判断,留你) → 用打印的 brief 派协调帮手。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOOP="$SCRIPT_DIR/loop.sh"
 MMW="bash $SCRIPT_DIR/mmw.sh"   # 打印给协调帮手的命令走统一 CLI
-REVIEW_REF_DIR="$SCRIPT_DIR/../skills/orchestrate/references/review"
 # 审 = 高判断,审者 Codex 跑高档(不吃 codex 默认档);可 env 覆盖
 CODEX_REVIEW_MODEL="${CODEX_REVIEW_MODEL:-gpt-5.5}"
 CODEX_REVIEW_EFFORT="${CODEX_REVIEW_EFFORT:-xhigh}"
@@ -25,27 +26,24 @@ cmd_start() {
       *) die "未知参数: $1" ;;
     esac
   done
-  [ -n "$stage" ]  || die "--stage 必填(design|plan|plan-impl|final)"
+  [ -n "$stage" ]  || die "--stage 必填(design|plan|plan-impl|final|merge-impl)"
   [ -n "$source" ] || die "--source 必填(源意图路径/描述,派给 Codex 用)"
 
-  local kind angle views
+  # stage → loop kind + 两路视角(审查方法/角度本体在 Codex 侧 worktree-review skill,这里只留视角标签做派发路由)
+  local kind views
   case "$stage" in
-    design)     kind="review";        angle="design.md";           views="轴A 设计内容 / 轴B 项目对齐" ;;
-    plan)       kind="review";        angle="plan.md";             views="轴A 覆盖与质量 / 轴B 合规与交叉验证" ;;
-    plan-impl)  kind="contract-gate"; angle="plan-impl.md";        views="(③合同门:机器核合同兑现,不派 Codex 判断)" ;;
-    final)      kind="review";        angle="final.md";            views="基线1 回归+意图+跨plan / 基线2 独立代码审计" ;;
-    merge-impl) kind="review";        angle="merge-integration.md"; views="跨 PR 集成审 7 角度(组合行为/合同/迁移/状态/import/回归/修复质量)" ;;
+    design)     kind="review";        views="轴A 设计内容 / 轴B 项目对齐" ;;
+    plan)       kind="review";        views="轴A 覆盖与质量 / 轴B 合规与交叉验证" ;;
+    plan-impl)  kind="contract-gate"; views="(③合同门:机器核合同兑现,不派 Codex 判断)" ;;
+    final)      kind="review";        views="基线1 回归+意图+跨plan / 基线2 独立代码审计" ;;
+    merge-impl) kind="review";        views="跨 PR 集成审 7 角度(组合行为/合同/迁移/状态/import/回归/修复质量)" ;;
     *) die "--stage 只能 design|plan|plan-impl|final|merge-impl" ;;
   esac
-  [ -f "$REVIEW_REF_DIR/$angle" ] || die "找不到审题: $REVIEW_REF_DIR/$angle"
-  [ -f "$REVIEW_REF_DIR/quartet.md" ] || die "找不到 quartet.md"
 
   bash "$LOOP" init --kind "$kind" >&2
 
   cat <<EOF
 REVIEW_STARTED stage=$stage kind=$kind
-ANGLE=$REVIEW_REF_DIR/$angle
-QUARTET=$REVIEW_REF_DIR/quartet.md
 
 下一步(主线程):
 1. 抽覆盖清单进 loop(判断,从源文档逐条抽):
@@ -67,8 +65,8 @@ EOF
    > Source: $source
    > 派两个独立 Codex 审者($views),单条消息并行起、各自干净 context,每个跑:
    >   codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>   (run_in_background)
-   >   prompt = 点名读 $REVIEW_REF_DIR/quartet.md + $REVIEW_REF_DIR/$angle 的对应视角 + 给 Source。
-   >   Codex 侧没装本 skill 就把那两段拼成自包含 prompt;续接用 codex exec resume <id>。
+   >   prompt(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=$stage 审;你负责其中一路视角(两审者分走 $views);Source: $source;按 skill 的 Return Contract 回结构化 findings。
+   >   续接用 codex exec resume <id>。
    > 留痕(必做):把两个 Codex 审者的结构化 findings **原样落盘** docs/reviews/<slug>-$stage.md(不重写不摘要,保真+省主线程 context);亲验后把每条 verdict/处置(accepted/rejected/duplicate/needs-evidence)就近标该条下,文末写一句总 verdict。
    > 收回亲验:每条 finding 自己 Read/grep/跑坐实(Codex 是劳动力不是信源),引不出 file:line 降置信。
    >   坐实一个维度: $MMW loop checklist cover --item <i> --evidence <file:line>
@@ -85,5 +83,5 @@ EOF
 
 case "${1:-}" in
   start) shift; cmd_start "$@" ;;
-  *) die "用法: review.sh start --stage <design|plan|plan-impl|final> --source <...>" ;;
+  *) die "用法: review.sh start --stage <design|plan|plan-impl|final|merge-impl> --source <...>" ;;
 esac

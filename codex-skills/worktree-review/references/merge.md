@@ -1,6 +1,6 @@
-# ③merge 跨 PR 集成审(Codex 审者读这份 + quartet.md)
+# stage=merge-impl · 跨 PR 集成审角度(配 method.md 读)
 
-不是单 plan 落地审、不是 ④final 意图审 —— 这是**多个并行 PR 合在一起后,系统是否正确**。各 PR 各自已过自己的 ④终审,但它们的**交互**没验过。
+不是单 plan 落地审、不是 final 意图审 —— 这是**多个并行 PR 合在一起后,系统是否正确**。各 PR 各自已过自己的 final 终审,但它们的**交互**没验过。
 
 **Source** = merge-brief(PR 表 / 合同地图 / 冲突解决记录 / 大设计文档路径)。自跑 `git diff <base>..HEAD` 看合并后全貌。
 
@@ -16,8 +16,8 @@
 
 ## Calibration
 
-**不信各 PR 的 ④终审结论 —— 独立验组合行为。** 审基于合并后代码事实,不基于各 PR 独立审的结论。只标会导致实际问题的 finding,每条带 evidence。单 PR 内部代码质量已在各自 ④终审覆盖,不重复;措辞/命名/风格不是 finding。
+**不信各 PR 的 final 终审结论 —— 独立验组合行为。** 审基于合并后代码事实,不基于各 PR 独立审的结论。只标会导致实际问题的 finding,每条带 evidence。单 PR 内部代码质量已在各自 final 终审覆盖,不重复;措辞/命名/风格不是 finding。
 
-## Result 字段(除 quartet.md 的 Finding/Verdict 外,逐角度给一行)
+## Result 字段(除 method.md 的 Finding/Verdict 外,逐角度给一行)
 
 组合行为 / 合同一致 / 迁移完整 / 状态一致 / import依赖 / 回归 / 冲突修复质量 —— 各一行结论 + 证据。

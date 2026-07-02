@@ -1,20 +1,20 @@
 # Review · 审核 loop(阶段操作指南)
 
-> 审核闸操作指南。审者 = Codex,协调验收 = Claude(你)。审题在 `references/review/`(喂 Codex)。
+> 审核闸操作指南。审者 = Codex,协调验收 = Claude(你)。审查方法 + 各 stage 角度在 **Codex 侧 `worktree-review` skill**(Codex 读它已装的 skill;plugin 不给 Codex 任何内部路径——Codex 读不到 Claude 的 `plugin/`)。plugin 侧只留 `plan-impl.md`(③合同门,Claude 机器核)与本文(Claude 编排)。
 
 红线:**审者必须 Codex,不 Claude 审 Claude**;**完工靠 `exit-check` 机器核,不靠 reporter 自报审完**。
 
 ---
 
-## 0. 选阶段(决定喂哪份 angle + loop kind)
+## 0. 选阶段(决定 stage + loop kind)
 
-**三个产出阶段各被引擎强制审一次,触发方式统一**:design/plan/build 的产物 `pass` 后,引擎(`routes.review_gates` map)把阶段冻住、强制进审闸——`mmw where` 直接吐出 `review_start=mmw review start --stage <X>`,你照跑,不自己猜 stage。
+**三个产出阶段各被引擎强制审一次,触发方式统一**:design/plan/build 的产物 `pass` 后,引擎(`routes.review_gates` map)把阶段冻住、强制进审闸——`mmw where` 直接吐出 `review_start=mmw review start --stage <X>`,你照跑,不自己猜 stage。审查角度由 Codex 侧 `worktree-review` skill 按 stage 自取(下表只给 stage 对应哪路视角)。
 
-| 审 | 触发点(引擎强制) | stage | kind | angle 文件 |
+| 审 | 触发点(引擎强制) | stage | kind | Codex 审查角度(worktree-review skill) |
 |---|---|---|---|---|
-| ① 设计审 | design pass → 引擎审闸 | `design` | `review` | `references/review/design.md` |
-| ② 计划审 | plan pass → 引擎审闸 | `plan` | `review` | `references/review/plan.md` |
-| ④ final | build pass → 引擎审闸 | `final` | `review` | `references/review/final.md` |
+| ① 设计审 | design pass → 引擎审闸 | `design` | `review` | 轴A 设计内容 / 轴B 项目对齐 |
+| ② 计划审 | plan pass → 引擎审闸 | `plan` | `review` | 轴A 覆盖与质量 / 轴B 合规与交叉验证 |
+| ④ final | build pass → 引擎审闸 | `final` | `review` | 基线1 回归+意图+跨plan / 基线2 独立代码审计 |
 
 另有 **③ 落地合同门**:不是引擎审闸,是 build **内部**机器合同检查——全 plan 合并后、build handoff 前跑一次(`--stage plan-impl`,`kind=contract-gate`,不派 Codex),像跑测试套一样是 build 完工的一部分(由 build 流程驱动,本文不展开)。本文讲 ①②④ 三个引擎审闸 loop。
 
@@ -24,13 +24,13 @@
    ```bash
    mmw review start --stage <design|plan|final> --source "<源意图路径/待审内容>"
    ```
-   **直接用 `mmw where` 吐的 `review_start` 整行**(stage 与 `--source` 都填好了:design 闸→design、plan 闸→plan、build 闸→final)。它 init `kind=review` 的 loop、定好该阶段审题(`references/review/<阶段>.md` + `quartet.md`)、**打印好协调帮手 brief**。你照打印的往下走。
+   **直接用 `mmw where` 吐的 `review_start` 整行**(stage 与 `--source` 都填好了:design 闸→design、plan 闸→plan、build 闸→final)。它 init `kind=review` 的 loop、定好该阶段 stage 与两路视角(审查方法+角度在 Codex 侧 `worktree-review` skill,派发只传 stage + Source)、**打印好协调帮手 brief**。你照打印的往下走。
 2. **抽覆盖清单**(判断,留你做):从设计/计划/issue/意图逐条抽"要审到什么",`source` 记从哪份文档哪行抽。客观项(② issue 数=plan 数、④ 意图逐条)标清楚:
    ```bash
    mmw loop checklist add --item "<要审到的维度>" --source "<doc:line>"   # 逐条
    mmw loop attendance --mode <attended|afk>
    ```
-3. **派审核协调帮手**(Claude sub-agent,SubagentStop 受 guard-loop 看守):用 `review.sh` 打印的 brief 原样派。brief 已含派两个独立 Codex(`codex exec --sandbox read-only` 喂 quartet+角度、续接 `codex exec resume`)、亲验后 `checklist cover` / `finding add`、收敛与熔断 `surface`、清单全绿+无 Critical 前不准停。**只给 Source + 点名审题,别塞你自己的问题清单。**
+3. **派审核协调帮手**(Claude sub-agent,SubagentStop 受 guard-loop 看守):用 `review.sh` 打印的 brief 原样派。brief 已含派两个独立 Codex(`codex exec --sandbox read-only`,prompt 纯路由:读已装 `worktree-review` skill 按 stage 审、续接 `codex exec resume`)、亲验后 `checklist cover` / `finding add`、收敛与熔断 `surface`、清单全绿+无 Critical 前不准停。**只给 Source + stage,别塞你自己的问题清单、别给 Codex plugin 内路径。**
 
    **每个审都留痕(①②④ 都要,不只 ④)**:协调帮手把**两个 Codex 审者的结构化 findings 原样落盘**到 `docs/reviews/<slug>-<stage>.md`(reviewer 产出即留痕内容,**不重写、不摘要**——保真且省主线程 context),亲验后把每条的 verdict/处置(accepted / rejected / duplicate / needs-evidence)就近标在该条下,文末写一句总 verdict。主线程收口只**读这份文档的 verdict 段**,不把全部 findings 拉进自己 context。
 
@@ -55,6 +55,6 @@
 
 ## 3. 守住的红线
 
-- 审者 Codex,不用 `codex review`(走它内置提示词、绕过我们方法论),用 `codex exec` 喂我们的 quartet+angle。
+- 审者 Codex,不用 `codex review`(走它内置提示词、绕过我们方法论),用 `codex exec`,prompt 指向 Codex 侧已装的 `worktree-review` skill(按 stage 审)——审查方法本体在那,不给 Codex plugin 内路径。
 - 每条 finding 引 `file:line` 原文才采信;协调帮手亲验后才 accept,主线程落 handoff 前再核承重的。
 - ③ 不判断、只核合同;重判预算砸 ④final。
