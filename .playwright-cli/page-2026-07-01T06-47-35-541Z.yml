@@ -1,0 +1,167 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - heading "Plugin 全貌 · 一张大图" [level=1] [ref=e4]
+    - paragraph [ref=e5]: 一张图 = plugin 全貌 + 细节:4 开口路径分叉→汇合 · 外层 phase 引擎(flow.sh)+ 内层 loop 引擎(loop.sh) · 审闸 / 落地画成真循环 loop(NOT-DONE 被 guard-loop 顶回)。节点内直接写读哪份 / 跑哪条 mmw 命令 / 出什么(真跑当前 plugin 抓的输出;build 派真 Codex gpt-5.4、审派 gpt-5.5)。
+    - generic [ref=e6]:
+      - generic [ref=e7]: 脚本/状态机
+      - generic [ref=e9]: Claude 判断
+      - generic [ref=e11]: Codex 苦力
+      - generic [ref=e13]: Hook
+      - generic [ref=e15]: 审闸
+      - generic [ref=e17]: 绿底=真实 stdout
+  - document [ref=e20]:
+    - generic [ref=e22]:
+      - generic [ref=e55]:
+        - paragraph [ref=e61]: develop 新设计/旧系统改造
+        - paragraph [ref=e67]: bug 根因不明
+        - paragraph [ref=e73]: small-change 明确小改
+        - paragraph [ref=e79]: merge 多分支/PR
+        - paragraph [ref=e85]: HITL 指定一个方案
+        - paragraph [ref=e91]: 全否 → needs-redirection 回上游
+        - paragraph [ref=e97]:
+          - text: NOT-DONE:checklist=<剩>;open_critical=N
+          - text: guard-loop(SubagentStop)exit2 顶回续审,不准停
+        - paragraph [ref=e103]:
+          - text: PAUSED:<因> → surface(needs-context/redirection 写 pause)
+          - text: softstop:attended 停问你 · afk 自决留 decisions 续
+        - paragraph [ref=e109]:
+          - text: DONE(清单全 cover + 无开口 Critical)
+          - text: mmw handoff --conclusion pass · 清 gate + 记产物指纹
+          - text: source-stability:过闸后改产物 → mmw where 报 stale_gate=design 回审
+        - paragraph [ref=e115]: needs-repair 原地返工(≤2)
+        - paragraph [ref=e121]: 审过
+        - paragraph [ref=e127]: needs-redirection 回 design
+        - paragraph [ref=e133]: 不过
+        - paragraph [ref=e139]: 过
+        - paragraph [ref=e145]: NOT-DONE:steps=<剩> → 派下一 Pack
+        - paragraph [ref=e151]: DONE 步全 done
+        - paragraph [ref=e157]: 审过 · 产终审报告
+        - paragraph [ref=e163]: needs-redirection 回 build/plan
+        - paragraph [ref=e169]: 阶段中途挖到 bug/旁路
+        - paragraph [ref=e175]: 根因清(bug 态一:定点修)
+        - paragraph [ref=e181]: bug 态二:撞系统性设计问题
+      - generic [ref=e182]:
+        - paragraph [ref=e191]:
+          - text: mmw where(冷启动 · 读 skills/orchestrate/SKILL.md 只路由)
+          - text: 出 UNMANAGED · 枚举四开口:[small-change 小改根因清]/[develop 要设计]/[bug 根因不明]/[merge 不开 worktree]
+          - text: 断点续传:阶段级 task.json + 内层 loop-state.json,任何点 resume
+        - paragraph [ref=e198]:
+          - generic [ref=e199]: mmw task new --scenario --slug --title ..
+          - generic [ref=e200]:
+            - text: 出 PREPARED · worktree_path=.claude/worktrees/ · branch=
+            - text: 写 task.json(phases=该 scenario 预设)· phase=首阶段 · NEXT=EnterWorktree
+        - paragraph [ref=e207]:
+          - text: EnterWorktree → 读 references/scenario/develop.md → 进阶段循环
+          - text: 外层 phase 引擎 flow.sh · 每阶段三拍:mmw where(报 load/do/then/prev_outputs)→ Claude 干 → mmw handoff --conclusion <词>
+          - text: pass→advance(gated 阶段先冻结强制审)· needs-repair→原地返工(repair+1,超2→blocked)
+          - text: needs-redirection→回 --to-phase 上游(turn+1,超1→blocked)· needs-context→停问留游标 · blocked→上报
+        - paragraph [ref=e214]: 建 worktree
+        - paragraph [ref=e221]: 建 worktree
+        - paragraph [ref=e228]:
+          - text: merge 不开 worktree · 走 references/scenario/merge.md
+          - text: 解 git 文本冲突之外的业务意图 / 功能设计冲突 · 各 PR 已过各自 ④终审,交互没验过
+        - paragraph [ref=e235]:
+          - text: investigate 查现状 · 读 references/investigate.md · 并行投查(自建 Workflow)取证不判定
+          - text: 入 prev_outputs=[](首阶段无上游)
+          - text: mmw handoff --conclusion pass --produced docs/investigating/.md
+          - text: 出 NEXT_ACTION=advance · NEXT_PHASE=propose · 产物钉 phase_outputs[investigate]
+        - paragraph [ref=e242]:
+          - text: propose 给方案 · 读 references/propose.md · 综合现状+外部固定格式亮 2-3 方案
+          - text: 入 prev_outputs=[docs/investigating/.md]
+          - text: handoff pass --produced docs/design/-direction.md → NEXT_PHASE=design
+        - paragraph [ref=e249]:
+          - text: design 设计(HITL 集中在此)· 4 步游标 mmw step next
+          - text: discuss(1/4 discussion.md)→prototype(2/4 prototype-mockup.md,纯后端跳过)→write(3/4 design-doc-template.md)→selfcheck(4/4)
+          - text: 入 prev_outputs=[investigating/.md(现状), design/-direction.md(方向)](reads 声明)
+          - text: handoff pass --produced docs/design/.md
+          - text: 出 NEXT_ACTION=review · REVIEW_STAGE=design · gate=design(phase 冻结,不 advance)
+        - paragraph [ref=e256]:
+          - text: ① design 审闸(pass+gated 引擎强制审)
+          - text: mmw where 在闸里吐:gate=design · load=references/review/review.md
+          - text: review_source=docs/design/.md · review_start=mmw review start --stage design --source docs/design/.md
+        - paragraph [ref=e263]:
+          - text: mmw review start --stage design → INIT kind=review · REVIEW_STARTED stage=design
+          - text: 协调帮手派 Codex×2 并行(各自干净 context)· codex exec --sandbox read-only -m gpt-5.5 -c effort=xhigh
+          - text: 读它已装的 worktree-review skill 按 stage=design 审 · 不给 Codex 任何 plugin 路径(它读不到 Claude 的 plugin/)
+          - text: 轴A 设计内容 / 轴B 项目对齐 · 不用 codex review 子命令(绕方法论)
+        - paragraph [ref=e270]:
+          - text: Claude 收 finding 亲验(Codex 是劳动力不是信源,引不出 file:line 降置信)
+          - text: mmw loop attendance --mode afk(出 ATTENDANCE=afk)
+          - text: mmw loop checklist add(CHECK-ADD)/ cover --evidence file:line(CHECK-COVER)· finding add --severity C/I/M --confidence 1-10
+          - text: 两审者 findings 原样落盘 docs/reviews/-design.md(不重写不摘要),就近标 verdict/处置
+        - paragraph [ref=e277]: mmw loop exit-check
+        - paragraph [ref=e284]:
+          - text: to-issue 切片 · 读 references/design/to-issue-skeleton.md · 垂直切片成可独立认领 issue 骨架
+          - text: 入 prev_outputs=[docs/design/.md](reads 声明 design)
+          - text: handoff pass --produced docs/issues// → NEXT_PHASE=plan(非 gated 直通)
+        - paragraph [ref=e291]:
+          - text: plan 拆计划 · 3 步 orchestrate(1/3 plan-flow.md)→write(2/3 task-pack.md)→selfcheck(3/3)
+          - text: 多计划:fan-out plan-writer + 跨 plan 合同骨架 + 亲验返回回填;单计划主线程内联
+          - text: 入 prev_outputs=[design/.md, issues//]
+          - text: handoff pass --produced docs/plans// → REVIEW_STAGE=plan · gate=plan
+        - paragraph [ref=e298]:
+          - text: ② plan 审闸 · review_start=mmw review start --stage plan --source docs/plans//
+          - text: → 同一 review loop(RA→RC)· 轴A 覆盖与质量 / 轴B 合规与交叉验证
+          - text: 落盘 docs/reviews/-plan.md · 审过 advance build
+        - paragraph [ref=e305]:
+          - text: build 落地 · develop=模式B 派 Codex(进落地默认 afk 无人值守,不轻易停问)
+          - text: 入 prev_outputs=[docs/issues//, docs/plans//]
+          - text: 先进落地内层把代码落地 → ③合同门 → B6 handoff 触发 ④终审闸
+        - paragraph [ref=e312]:
+          - text: 落地内层 · mmw loop init --kind execution(INIT kind=execution)· attendance afk · step add --id 1.1(STEP-ADD 1.1)
+          - text: mmw codex dispatch --plan docs/plans//001.md --worktree ..(内部 codex exec --sandbox workspace-write -m gpt-5.4 -c effort=xhigh)
+          - text: 读已装 worktree-build skill · 瘦派发只传三文档路径 + 指向 skill(铁律在 Codex 侧,严防过度设计/兜底/思考、每 Pack 一提交 Pack N.M、禁改 docs/)
+          - text: 出 CODEX_EXIT=0 · SESSION=(供 resume)· 收工回执:逐 Pack done/blocked + 每条 acceptance 达没达成 + 改文件 + 测试结果
+        - paragraph [ref=e319]:
+          - text: Claude 验收三关(命门,不信 Codex 自述)· 读仓库测试治理文档(TESTING.md/AGENTS.md 测试节)
+          - text: ① 完整性(跑验收/读 diff)② 测试质量(防垃圾测试自绿)③ 设计一致性
+        - paragraph [ref=e326]:
+          - text: mmw codex resume --worktree .. --instructions fix.md
+          - text: 续 SESSION · 不重做已过 Pack
+        - paragraph [ref=e333]:
+          - text: mmw loop step done --id 1.1(STEP-DONE 1.1)
+          - text: commit 含 'Pack N.M' → record-step hook(PostToolUse)自动标 done
+        - paragraph [ref=e340]: mmw loop exit-check
+        - paragraph [ref=e347]:
+          - text: ③ 合同门 contract-gate(内部机器核,不派 Codex)
+          - text: mmw review start --stage plan-impl(INIT kind=contract-gate)· 读 review/plan-impl.md
+          - text: checklist add 逐条跨 plan 合同 → 未 cover:NOT-DONE:packs=none;contracts=<合同> → grep/Read 机器核 → 全 cover:DONE
+          - text: mmw handoff --conclusion pass --produced base..HEAD → REVIEW_STAGE=build · gate=build
+        - paragraph [ref=e354]:
+          - text: ④ final 审闸 · where 吐 review_start=mmw review start --stage final --source base..HEAD
+          - text: → 同一 review loop(RA→RC)· 基线1 回归+意图+跨plan / 基线2 独立代码审计 · 落盘 docs/reviews/-final.md
+          - text: handoff pass --produced docs/-final-review.md → advance closing
+        - paragraph [ref=e361]:
+          - text: closing 收尾 · 读 references/closing.md · 确认真完整、收口
+          - text: 入 prev_outputs=[design/.md, issues//, base..HEAD, -final-review.md]
+          - text: mmw handoff --conclusion pass → STATUS=ready-to-close · NEXT_ACTION=done
+        - paragraph [ref=e368]:
+          - text: 发布红线(回主仓库,你亲批)· mmw release-approve(RELEASE-APPROVED token=..release-approval,一次性放行一次即消费)
+          - text: git merge --no-ff → mmw task cleanup --slug
+          - generic [ref=e369]:
+            - text: (CLEANED · 先验分支已并入 HEAD 才删,fail-closed)
+            - text: merge/push/deploy 无令牌 → guard-redline(PreToolUse)deny
+        - paragraph [ref=e376]:
+          - text: mmw spinoff --tag --finding ..
+          - text: 出 SPUN-OFF · 登记关联子任务(subtasks)· 主流程不停
+        - paragraph [ref=e383]:
+          - text: investigate · diagnosing 查根因 · 读 references/scenario/bug.md
+          - text: handoff pass --produced docs/investigating/.md
+        - paragraph [ref=e390]:
+          - text: build 模式A · 主线程就地 TDD 定点修(不派 Codex)
+          - text: 先按根因写复现失败测试 → 最小修 → 转绿 → 提交
+        - paragraph [ref=e397]:
+          - text: mmw task escalate --to develop
+          - text: 剩余流水线换 develop 预设 · 游标回 investigate(带设计意图重查)
+          - text: 已查成果 phase_outputs/subtasks 全留,不开新 worktree
+        - paragraph [ref=e404]:
+          - text: build 模式A · 就地 TDD(不派 Codex)
+          - text: 预设 phases=[build, closing] · 无 ①② 审闸(无设计/计划)· 真一两处小改不起 loop
+        - paragraph [ref=e411]:
+          - text: mmw review start --stage merge-impl
+          - text: → 同一 review loop(kind=review)· 7 角度:组合行为/合同一致/迁移完整/状态一致/import依赖/回归/冲突修复质量
+          - text: 落盘 docs/reviews/-merge-impl.md · 修复软上限 1 轮
+        - paragraph [ref=e418]: 清扫(out-of-scope 开后续/open_items 处置/扫新 TODO)+ 返回主分支跑全测试
+  - paragraph [ref=e419]:
+    - text: 绿底「出」字段 = 实跑当前 plugin 抓的真 stdout(develop 任务 slug=realflow;build 派真 Codex gpt-5.4、审闸派真 Codex gpt-5.5)。
+    - text: "依据文件 · SKILL.md · flow.sh · routes.json · prepare.sh · loop.sh · review.sh · codex-worker.sh · hooks.json · guard-loop.sh · guard-redline.sh · record-step.sh · codex-skills/worktree-{build,review}"

@@ -1,0 +1,425 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - heading "Plugin 全貌 · 一张大图" [level=1] [ref=e4]
+    - paragraph [ref=e5]: 上图 = 全貌:4 开口路径分叉→汇合 · 外层 phase 引擎(flow.sh)+ 内层 loop 引擎(loop.sh)· 审闸 / 落地是画成真循环的 loop。下方 = 逐节点细节:真 mmw 命令 + 绿底真 stdout(develop 全程 slug=realflow;build 派真 Codex gpt-5.4、审派真 Codex gpt-5.5)。
+    - generic [ref=e6]:
+      - generic [ref=e7]: 脚本/状态机
+      - generic [ref=e9]: Claude 判断
+      - generic [ref=e11]: Codex 苦力
+      - generic [ref=e13]: Hook
+      - generic [ref=e15]: 审闸
+      - generic [ref=e17]: 绿底=真实 stdout
+  - img [ref=e21]
+  - heading "▼ 逐节点细节 · develop 全程(命令 / 真 stdout)" [level=2] [ref=e22]
+  - paragraph [ref=e23]: 下面按 develop 全程逐节点展开:读哪份文档 / 跑哪条命令 / 输入 / 输出。绿底「出」= 实跑真 stdout。
+  - generic [ref=e24]:
+    - generic [ref=e25]:
+      - generic [ref=e26]:
+        - generic [ref=e27]: 脚本
+        - generic [ref=e28]: 入口 · 冷启动路由(未管任务)
+        - generic [ref=e29]: flow.sh:223
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - generic [ref=e32]: 读
+          - generic [ref=e33]: skills/orchestrate/SKILL.md(只路由)
+        - generic [ref=e34]:
+          - generic [ref=e35]: 命令
+          - generic [ref=e36]: mmw where
+        - generic [ref=e37]:
+          - generic [ref=e38]: 出
+          - generic [ref=e39]: UNMANAGED · 枚举四开口:[small-change] 小改根因清 · [develop] 新想法/改造(要设计) · [bug] 根因不明 · [merge] 不开 worktree · 指令 mmw task new …
+    - generic [ref=e41]: 选 develop → mmw task new
+    - generic [ref=e42]:
+      - generic [ref=e43]:
+        - generic [ref=e44]: 脚本
+        - generic [ref=e45]: A 建任务
+        - generic [ref=e46]: prepare.sh:23
+      - generic [ref=e47]:
+        - generic [ref=e48]:
+          - generic [ref=e49]: 命令
+          - generic [ref=e50]: mmw task new --scenario develop --slug realflow --title 真流程抓取
+        - generic [ref=e51]:
+          - generic [ref=e52]: 入
+          - generic [ref=e53]: scenario=develop · slug=realflow · title
+        - generic [ref=e54]:
+          - generic [ref=e55]: 出
+          - generic [ref=e56]: "PREPARED · worktree_path=…/.claude/worktrees/realflow · branch=realflow · scenario=develop · phase=investigate · 写 task.json(phases=develop 预设)· NEXT=EnterWorktree({path:…/realflow}) 然后进入 develop 的 investigate"
+    - generic [ref=e58]: EnterWorktree → 读 scenario/develop.md → 进阶段循环
+    - generic [ref=e59]:
+      - generic [ref=e60]:
+        - text: "每阶段三拍:"
+        - code [ref=e61]: mmw where
+        - text: (脚本报 load/do/then/prev_outputs)→ Claude 干活 →
+        - code [ref=e62]: mmw handoff --conclusion <词>
+        - text: 。引擎按结论词跳(真 stdout：
+        - code [ref=e63]: NEXT_ACTION/NEXT_PHASE/STATUS
+        - text: "):"
+      - generic [ref=e64]:
+        - generic [ref=e65]: pass
+        - generic [ref=e66]: 普通阶段→advance;gated(design/plan/build)→phase 冻结+强制审;末阶段→ready-to-close
+      - generic [ref=e67]:
+        - generic [ref=e68]: needs-repair
+        - generic [ref=e69]: 原地返工本阶段(repair+1,超 2→blocked)
+      - generic [ref=e70]:
+        - generic [ref=e71]: needs-redirection
+        - generic [ref=e72]: 掉头回 --to-phase 上游(turnaround+1,超 1→blocked)
+      - generic [ref=e73]:
+        - generic [ref=e74]: needs-context
+        - generic [ref=e75]: 停下问你,留步游标 resume
+      - generic [ref=e76]:
+        - generic [ref=e77]: blocked
+        - generic [ref=e78]: 上报你,带经过 · flow.sh:95-152,词非法当场拒 :67
+      - generic [ref=e79]:
+        - generic [ref=e80]: spinoff
+        - generic [ref=e81]:
+          - text: "阶段中途挖到 bug/旁路:"
+          - code [ref=e82]: mmw spinoff --tag <bug|optimize|…>
+          - text: 登记关联子任务,主流程不停 · flow.sh:192
+    - generic [ref=e84]:
+      - generic [ref=e85]:
+        - generic [ref=e86]: Claude
+        - generic [ref=e87]: investigate 查清现状
+        - generic [ref=e88]: routes.json:investigate
+      - generic [ref=e89]:
+        - generic [ref=e90]:
+          - generic [ref=e91]: 读
+          - generic [ref=e92]: references/investigate.md
+        - generic [ref=e93]:
+          - generic [ref=e94]: 做
+          - generic [ref=e95]: 并行投查现状(自建 Workflow),取证不判定,存 docs/investigating
+        - generic [ref=e96]:
+          - generic [ref=e97]: 入
+          - generic [ref=e98]: prev_outputs=[](首阶段无上游)
+        - generic [ref=e99]:
+          - generic [ref=e100]: 命令
+          - generic [ref=e101]: mmw handoff --conclusion pass --produced docs/investigating/realflow.md
+        - generic [ref=e102]:
+          - generic [ref=e103]: 出
+          - generic [ref=e104]: NEXT_ACTION=advance · NEXT_PHASE=propose · STATUS=active · 产物钉 phase_outputs[investigate]
+    - generic [ref=e106]:
+      - generic [ref=e107]:
+        - generic [ref=e108]: Claude
+        - generic [ref=e109]: propose 给方案
+        - generic [ref=e110]: HITL 选向
+        - generic [ref=e111]: routes.json:propose
+      - generic [ref=e112]:
+        - generic [ref=e113]:
+          - generic [ref=e114]: 读
+          - generic [ref=e115]: references/propose.md
+        - generic [ref=e116]:
+          - generic [ref=e117]: 做
+          - generic [ref=e118]: 综合现状+外部,固定格式亮 2-3 方案,停下让你指定一个(全否→needs-redirection 回上游)
+        - generic [ref=e119]:
+          - generic [ref=e120]: 入
+          - generic [ref=e121]: prev_outputs=["docs/investigating/realflow.md"]
+        - generic [ref=e122]:
+          - generic [ref=e123]: 命令
+          - generic [ref=e124]: mmw handoff --conclusion pass --produced docs/design/realflow-direction.md
+        - generic [ref=e125]:
+          - generic [ref=e126]: 出
+          - generic [ref=e127]: NEXT_ACTION=advance · NEXT_PHASE=design
+    - generic [ref=e129]:
+      - generic [ref=e130]:
+        - generic [ref=e131]: Claude
+        - generic [ref=e132]: design 设计
+        - generic [ref=e133]: ① 审闸
+        - generic [ref=e134]: HITL 集中
+        - generic [ref=e135]: routes.json:design.steps
+      - generic [ref=e136]:
+        - generic [ref=e137]:
+          - generic [ref=e138]: 读
+          - generic [ref=e139]:
+            - text: 4 步游标(
+            - code [ref=e140]: mmw step next
+            - text: "推进,每步现读那一份):"
+        - generic [ref=e143]: discuss(1/4)→design/discussion.md · prototype(2/4)→prototype-mockup.md(纯后端 step next 跳过)· write(3/4)→design-doc-template.md · selfcheck(4/4)→design-self-check.md
+        - generic [ref=e144]:
+          - generic [ref=e145]: 入
+          - generic [ref=e146]: prev_outputs=["…/realflow.md(现状)","…/realflow-direction.md(方向)"](reads 声明 investigate+propose)
+        - generic [ref=e147]:
+          - generic [ref=e148]: 命令
+          - generic [ref=e149]: step next×3 走完 4 步 → mmw handoff --conclusion pass --produced docs/design/realflow.md
+        - generic [ref=e150]:
+          - generic [ref=e151]: 出
+          - generic [ref=e152]: NEXT_ACTION=review · REVIEW_STAGE=design · gate=design(phase 冻结,不 advance)· 「产物通过 → 进审闸」
+    - generic [ref=e154]: pass + gated → 引擎冻结,强制进审闸 ▼
+    - generic [ref=e155]:
+      - generic [ref=e156]: ① 审闸子流程(design)· kind=review
+      - generic [ref=e157]:
+        - generic [ref=e158]:
+          - generic [ref=e159]:
+            - generic [ref=e160]: 脚本
+            - generic [ref=e161]: where 在闸里吐起审命令
+            - generic [ref=e162]: flow.sh:297-305
+          - generic [ref=e163]:
+            - generic [ref=e164]:
+              - generic [ref=e165]: 命令
+              - generic [ref=e166]: mmw where
+            - generic [ref=e167]:
+              - generic [ref=e168]: 出
+              - generic [ref=e169]: gate=design · load=references/review/review.md · review_source=docs/design/realflow.md · review_start=mmw review start --stage design --source docs/design/realflow.md
+        - generic [ref=e171]:
+          - generic [ref=e172]:
+            - generic [ref=e173]: 脚本
+            - generic [ref=e174]: 起审 loop
+            - generic [ref=e175]: review.sh:19
+          - generic [ref=e176]:
+            - generic [ref=e177]:
+              - generic [ref=e178]: 命令
+              - generic [ref=e179]: mmw review start --stage design --source docs/design/realflow.md
+            - generic [ref=e180]:
+              - generic [ref=e181]: 入
+              - generic [ref=e182]: stage=design · source=产物
+            - generic [ref=e183]:
+              - generic [ref=e184]: 出
+              - generic [ref=e185]: INIT kind=review · REVIEW_STARTED stage=design kind=review · 打印协调帮手 brief(纯路由:Codex prompt 指向已装 worktree-review skill 按 stage 审,不含任何 plugin 路径)
+        - generic [ref=e187]:
+          - generic [ref=e188]:
+            - generic [ref=e189]: Claude
+            - generic [ref=e190]: 抽覆盖清单 + 设在场
+            - generic [ref=e191]: loop.sh
+          - generic [ref=e192]:
+            - generic [ref=e193]:
+              - generic [ref=e194]: 命令
+              - generic [ref=e195]: mmw loop attendance --mode afk · mmw loop checklist add --item "源意图与方案对齐" --source docs/design/realflow.md:1
+            - generic [ref=e196]:
+              - generic [ref=e197]: 出
+              - generic [ref=e198]: ATTENDANCE=afk · CHECK-ADD 源意图与方案对齐(写进 loop-state.checklist)
+        - generic [ref=e200]:
+          - generic [ref=e201]:
+            - generic [ref=e202]: Codex×2
+            - generic [ref=e203]: 两独立审者并行(协调帮手派)
+            - generic [ref=e204]: review.sh:65
+          - generic [ref=e205]:
+            - generic [ref=e206]:
+              - generic [ref=e207]: 读
+              - generic [ref=e208]: 各自已装的 worktree-review skill:method.md(共享审查纪律)+ 按 stage 读 design.md(轴A 设计内容 / 轴B 项目对齐)—— Codex 读不到 plugin,方法在它自己那侧
+            - generic [ref=e209]:
+              - generic [ref=e210]: 命令
+              - generic [ref=e211]: codex exec --sandbox read-only -m gpt-5.5 -c model_reasoning_effort=xhigh - < prompt(run_in_background)
+            - generic [ref=e212]:
+              - generic [ref=e213]: 入
+              - generic [ref=e214]: 纯路由 prompt:stage=design + 负责哪路视角 + Source(worktree 内路径)+ "读你已装的 worktree-review skill";零 plugin 路径;不用 codex review 子命令(绕它的方法论)
+            - generic [ref=e215]:
+              - generic [ref=e216]: 出
+              - generic [ref=e217]: Codex findings(原文,是劳动力不是信源)
+        - generic [ref=e219]:
+          - generic [ref=e220]:
+            - generic [ref=e221]: Claude
+            - generic [ref=e222]: findings 原样落盘 + 亲验
+            - generic [ref=e223]: review.sh:留痕行
+          - generic [ref=e224]:
+            - generic [ref=e225]:
+              - generic [ref=e226]: 做
+              - generic [ref=e227]: 两审者 findings 原样落盘 docs/reviews/realflow-design.md(不重写不摘要,保真+省主线程 context);每条亲验后就近标 verdict(accepted/rejected/duplicate/needs-evidence),文末写总 verdict
+            - generic [ref=e228]:
+              - generic [ref=e229]: 命令
+              - generic [ref=e230]: mmw loop checklist cover --item … --evidence file:line · mmw loop finding add --severity C/I/M --confidence 1-10 --locator file:line
+            - generic [ref=e231]:
+              - generic [ref=e232]: 入
+              - generic [ref=e233]: Codex findings(引不出 file:line 降置信)
+            - generic [ref=e234]:
+              - generic [ref=e235]: 出
+              - generic [ref=e236]: CHECK-COVER 源意图与方案对齐 / FINDING-ADD …
+        - generic [ref=e237]: ⟲ guard-loop(SubagentStop):exit-check NOT-DONE → exit2 顶回续审 · guard-loop.sh
+        - generic [ref=e238]:
+          - generic [ref=e239]:
+            - generic [ref=e240]: 脚本
+            - generic [ref=e241]: 退出核 + 收口
+            - generic [ref=e242]: loop.sh · flow.sh:96-113
+          - generic [ref=e243]:
+            - generic [ref=e244]:
+              - generic [ref=e245]: 命令
+              - generic [ref=e246]: mmw loop exit-check → mmw handoff --conclusion pass
+            - generic [ref=e247]:
+              - generic [ref=e248]: 出
+              - generic [ref=e249]: "exit-check=DONE(清单全 cover、无开口 Critical)· handoff: NEXT_ACTION=advance · NEXT_PHASE=to-issue · 清 gate + 记产物指纹(source-stability)"
+    - generic [ref=e251]: 审过(verdict pass)→ 清 gate,advance ▼
+    - generic [ref=e252]:
+      - text: "▲ source-stability: 过闸时记被审产物指纹;之后再动它,下一次"
+      - code [ref=e253]: mmw where
+      - text: "比对发现不一致,吐:"
+      - text: "stale_gate=design # 这些阶段产物过闸后被改了,回 mmw handoff --conclusion needs-redirection --to-phase design 重审"
+      - text: 防"审过的东西被偷改还当审过用"。
+    - generic [ref=e255]:
+      - generic [ref=e256]:
+        - generic [ref=e257]: Claude
+        - generic [ref=e258]: to-issue 切片
+        - generic [ref=e259]: routes.json:to-issue
+      - generic [ref=e260]:
+        - generic [ref=e261]:
+          - generic [ref=e262]: 读
+          - generic [ref=e263]: references/design/to-issue-skeleton.md
+        - generic [ref=e264]:
+          - generic [ref=e265]: 做
+          - generic [ref=e266]: 设计审过后,把设计垂直切片成可独立认领的 issue 骨架(主线程)
+        - generic [ref=e267]:
+          - generic [ref=e268]: 入
+          - generic [ref=e269]: prev_outputs=["docs/design/realflow.md"](reads 声明带 design)
+        - generic [ref=e270]:
+          - generic [ref=e271]: 命令
+          - generic [ref=e272]: mmw handoff --conclusion pass --produced docs/issues/realflow/
+        - generic [ref=e273]:
+          - generic [ref=e274]: 出
+          - generic [ref=e275]: NEXT_ACTION=advance · NEXT_PHASE=plan(非 gated,直通)
+    - generic [ref=e277]:
+      - generic [ref=e278]:
+        - generic [ref=e279]: Claude
+        - generic [ref=e280]: plan 拆计划
+        - generic [ref=e281]: ② 审闸
+        - generic [ref=e282]: HITL
+        - generic [ref=e283]: routes.json:plan.steps
+      - generic [ref=e284]:
+        - generic [ref=e285]:
+          - generic [ref=e286]: 读
+          - generic [ref=e287]: 3 步游标:orchestrate(1/3)→plan/plan-flow.md(多计划 fan-out plan-writer)· write(2/3)→plan/task-pack.md · selfcheck(3/3)→plan/plan-self-check.md
+        - generic [ref=e288]:
+          - generic [ref=e289]: 入
+          - generic [ref=e290]: prev_outputs=["docs/design/realflow.md","docs/issues/realflow/"]
+        - generic [ref=e291]:
+          - generic [ref=e292]: 命令
+          - generic [ref=e293]: step next×2 走完 → mmw handoff --conclusion pass --produced docs/plans/realflow/
+        - generic [ref=e294]:
+          - generic [ref=e295]: 出
+          - generic [ref=e296]: NEXT_ACTION=review · REVIEW_STAGE=plan · gate=plan · review_start=mmw review start --stage plan --source docs/plans/realflow/
+    - generic [ref=e298]: ② 审闸子流程 = 同 ① 结构一样,只 stage=plan(Codex 读已装 worktree-review skill 的 plan.md:轴A 覆盖与质量 / 轴B 合规与交叉验证)、落盘 docs/reviews/realflow-plan.md ▼ 审过→advance build
+    - generic [ref=e299]:
+      - generic [ref=e300]:
+        - generic [ref=e301]: Claude
+        - generic [ref=e302]: build 落地
+        - generic [ref=e303]: ④ 审闸 final
+        - generic [ref=e304]: routes.json:build
+      - generic [ref=e305]:
+        - generic [ref=e306]:
+          - generic [ref=e307]: 读
+          - generic [ref=e308]: references/build.md(模式 A:small-change/bug 主线程就地 TDD;模式 B:develop 派 Codex)
+        - generic [ref=e309]:
+          - generic [ref=e310]: 入
+          - generic [ref=e311]: prev_outputs=["docs/plans/realflow/"]
+        - generic [ref=e312]:
+          - generic [ref=e313]: 做
+          - generic [ref=e314]: develop 走模式 B:▼ 先进「落地内层」派 Codex 落代码,再 ③合同门,再 B6 handoff 触发 ④ 终审闸
+    - generic [ref=e316]:
+      - generic [ref=e317]: 落地内层 · kind=execution(模式 B 派真 Codex)
+      - generic [ref=e318]:
+        - generic [ref=e319]:
+          - generic [ref=e320]:
+            - generic [ref=e321]: 脚本
+            - generic [ref=e322]: 起落地 loop + 登步
+            - generic [ref=e323]: loop.sh:39-67
+          - generic [ref=e324]:
+            - generic [ref=e325]:
+              - generic [ref=e326]: 命令
+              - generic [ref=e327]: mmw loop init --kind execution → attendance --mode afk → step add --id 1.1 --desc "Pack 1.1"
+            - generic [ref=e328]:
+              - generic [ref=e329]: 出
+              - generic [ref=e330]: INIT kind=execution · ATTENDANCE=afk · STEP-ADD 1.1
+        - generic [ref=e332]:
+          - generic [ref=e333]:
+            - generic [ref=e334]: Codex
+            - generic [ref=e335]: 瘦派发进 worktree 写代码
+            - generic [ref=e336]: codex-worker.sh:70
+          - generic [ref=e337]:
+            - generic [ref=e338]:
+              - generic [ref=e339]: 入
+              - generic [ref=e340]:
+                - text: 纯路由前言:dispatch 只传角色 + worktree + 三文档路径(--design 设计 / --issue / --plan) + 指向 Codex 侧已装的
+                - code [ref=e341]: worktree-build
+                - text: skill(逐 Pack TDD、每 Pack 一提交、防过度设计/兜底、禁改 docs/ 全在 skill 里,派发不重复)
+            - generic [ref=e342]:
+              - generic [ref=e343]: 命令
+              - generic [ref=e344]: mmw codex dispatch --plan docs/plans/realflow/001.md --worktree …/wt-1(内部 codex exec --sandbox workspace-write -m gpt-5.4 -c model_reasoning_effort=xhigh)
+            - generic [ref=e345]:
+              - generic [ref=e346]: 出
+              - generic [ref=e347]: 建 worktree · CODEX_EXIT=0 · SESSION=<uuid>(供 resume)· 最后消息按 skill 收工格式:逐 Pack done/blocked + 每条 acceptance 达没达成(跑了啥命令)+ 改了哪些文件 + 测试结果
+        - generic [ref=e349]:
+          - generic [ref=e350]:
+            - generic [ref=e351]: Claude
+            - generic [ref=e352]: B3 验收三关(命门,不信 Codex 自述)
+            - generic [ref=e353]: build.md
+          - generic [ref=e354]:
+            - generic [ref=e355]:
+              - generic [ref=e356]: 读
+              - generic [ref=e357]: 仓库测试治理文档(TESTING.md / AGENTS.md 测试节)
+            - generic [ref=e358]:
+              - generic [ref=e359]: 入
+              - generic [ref=e360]: Codex 最后消息 + plan acceptance + 仓库测试标准
+            - generic [ref=e361]:
+              - generic [ref=e362]: 做
+              - generic [ref=e363]: ① 完整性(跑验收/读 diff)· ② 测试质量(防垃圾测试自绿,对标仓库治理文档)· ③ 设计一致性
+            - generic [ref=e364]:
+              - generic [ref=e365]: 出
+              - generic [ref=e366]: 过 → step done;不过 → codex resume
+        - generic [ref=e368]:
+          - generic [ref=e369]:
+            - generic [ref=e370]: 脚本
+            - generic [ref=e371]: 记步 + 退出核
+            - generic [ref=e372]: loop.sh · record-step.sh
+          - generic [ref=e373]:
+            - generic [ref=e374]:
+              - generic [ref=e375]: 命令
+              - generic [ref=e376]: mmw loop step done --id 1.1 → mmw loop exit-check
+            - generic [ref=e377]:
+              - generic [ref=e378]: 入
+              - generic [ref=e379]: commit 含「Pack 1.1」→ record-step hook 自动记(PostToolUse)
+            - generic [ref=e380]:
+              - generic [ref=e381]: 出
+              - generic [ref=e382]: STEP-DONE 1.1 · exit-check=DONE
+        - generic [ref=e383]: ⟲ 验不过 → mmw codex resume --worktree … --instructions fix.md(续 SESSION,不重做已过 Pack)· codex-worker.sh:104
+        - generic [ref=e384]:
+          - generic [ref=e385]:
+            - generic [ref=e386]: 脚本
+            - generic [ref=e387]: ③ 合同门(机器核,不派 Codex)
+            - generic [ref=e388]: review.sh:35
+          - generic [ref=e389]:
+            - generic [ref=e390]:
+              - generic [ref=e391]: 读
+              - generic [ref=e392]: review/plan-impl.md
+            - generic [ref=e393]:
+              - generic [ref=e394]: 命令
+              - generic [ref=e395]: mmw review start --stage plan-impl → loop checklist add(逐条合同)→ loop exit-check
+            - generic [ref=e396]:
+              - generic [ref=e397]: 出
+              - generic [ref=e398]: INIT kind=contract-gate · 合同未 cover 时 exit-check=NOT-DONE:packs=none;contracts=跨plan合同:接口X · 全 cover→DONE
+    - generic [ref=e400]: "B6: mmw handoff pass --produced base..HEAD → REVIEW_STAGE=build → gate=build → review_start --stage final --source base..HEAD(④ 审闸,同 ①,基线1 回归+意图+跨plan / 基线2 独立代码审计,产 docs/realflow-final-review.md)▼"
+    - generic [ref=e401]:
+      - generic [ref=e402]:
+        - generic [ref=e403]: Claude
+        - generic [ref=e404]: closing 收尾
+        - generic [ref=e405]: routes.json:closing
+      - generic [ref=e406]:
+        - generic [ref=e407]:
+          - generic [ref=e408]: 读
+          - generic [ref=e409]: references/closing.md
+        - generic [ref=e410]:
+          - generic [ref=e411]: 入
+          - generic [ref=e412]: prev_outputs=["docs/design/realflow.md","docs/issues/realflow/","base..HEAD","docs/realflow-final-review.md"](reads design+to-issue+build);git status / open_items / subtasks
+        - generic [ref=e413]:
+          - generic [ref=e414]: 命令
+          - generic [ref=e415]: mmw handoff --conclusion pass
+        - generic [ref=e416]:
+          - generic [ref=e417]: 出
+          - generic [ref=e418]: NEXT_ACTION=done · NEXT_PHASE= · STATUS=ready-to-close · 「末阶段通过 → 待收尾」
+    - generic [ref=e420]:
+      - generic [ref=e421]:
+        - generic [ref=e422]: Hook+脚本
+        - generic [ref=e423]: 发布红线 + 清理(回主仓库)
+        - generic [ref=e424]: guard-redline.sh · prepare.sh:cleanup
+      - generic [ref=e425]:
+        - generic [ref=e426]:
+          - generic [ref=e427]: 命令
+          - generic [ref=e428]: mmw release-approve → git merge --no-ff → mmw task cleanup --slug realflow
+        - generic [ref=e429]:
+          - generic [ref=e430]: 入
+          - generic [ref=e431]: 你亲批;merge/push/deploy 无令牌被 guard-redline(PreToolUse)deny
+        - generic [ref=e432]:
+          - generic [ref=e433]: 出
+          - generic [ref=e434]: RELEASE-APPROVED token=…/release-approval(一次性,放行一次即消费)· CLEANED slug=realflow(先验分支已并入 HEAD 才删,未并入拒删,fail-closed)
+    - generic [ref=e436]: ✓ 任务完成
+    - generic [ref=e437]:
+      - text: 旁支(非 develop 主干,同一引擎):bug 两态(定点修 / 撞系统性设计问题 →
+      - code [ref=e438]: mmw task escalate --to develop
+      - text: 原地升级,已查成果全留)· small-change 预设只开 build→closing,build 走模式 A 主线程就地 TDD、不派 Codex · merge 不开 worktree,走 references/scenario/merge.md 解业务意图/功能设计冲突(stage=merge-impl 跨 PR 集成审 7 角度)
+  - paragraph [ref=e439]:
+    - text: 绿底「出」字段 = 实跑当前 plugin 抓的真 stdout(develop 任务 slug=realflow;build 派真 Codex gpt-5.4、审闸派真 Codex gpt-5.5)。
+    - text: "依据文件 · SKILL.md · flow.sh · routes.json · prepare.sh · loop.sh · review.sh · codex-worker.sh · hooks.json · guard-loop.sh · guard-redline.sh · record-step.sh · codex-skills/worktree-{build,review}"
