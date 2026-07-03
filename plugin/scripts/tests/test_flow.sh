@@ -243,6 +243,26 @@ echo "# design v1" > "$WSS/docs/design/ss.md"
 echo "# design CHANGED" > "$WSS/docs/design/ss.md"   # 过闸后改设计文档
 ( cd "$WSS" && bash "$FLOW" where ) | grep -q "stale_gate=design" && ok "过闸后改设计→where 报 stale_gate=design(该回审)" || no "stale_gate 未报"
 
+# ===== K: where 报内层 loop(断点恢复)+ handoff 结论落定清 loop-state(无残留)=====
+LOOP="$SCRIPT_DIR/../loop.sh"
+lf() { echo "$1/.claude/multi-model-workflow/loop-state.json"; }
+WK="$(newtask small-change 2026-07-03-loopvis)"
+( cd "$WK" && bash "$LOOP" init --kind execution >/dev/null )
+( cd "$WK" && bash "$LOOP" step add --id 1.1 --desc x >/dev/null )
+WKW="$(cd "$WK" && bash "$FLOW" where)"
+echo "$WKW" | grep -q "inner_loop=execution" && ok "where 报 inner_loop=execution(内层可见)" || no "inner_loop kind ($(echo "$WKW"|grep inner_loop))"
+echo "$WKW" | grep -q "inner_loop_load=references/build.md" && ok "where 报内层该读哪份(routes.loop_bindings)" || no "inner_loop_load"
+echo "$WKW" | grep -q "inner_loop_state=NOT-DONE:steps=1.1" && ok "where 借 exit-check 报内层进度(单源)" || no "inner_loop_state ($(echo "$WKW"|grep inner_loop_state))"
+[ -f "$(lf "$WK")" ] && ok "handoff 前 loop-state 在" || no "loop-state 应在"
+( cd "$WK" && bash "$FLOW" handoff --conclusion pass --produced base..HEAD >/dev/null )
+[ ! -f "$(lf "$WK")" ] && ok "handoff pass → loop close 清 loop-state(schema「退出时清」落地)" || no "loop-state 未清(残留)"
+echo "$(cd "$WK" && bash "$FLOW" where)" | grep -q "inner_loop=" && no "清后 where 仍报 inner_loop(残留污染)" || ok "清后 where 无 inner_loop(无残留)"
+# needs-context 是原地等 resume:保留 loop 现场,不清
+WK2="$(newtask small-change 2026-07-03-loopkeep)"
+( cd "$WK2" && bash "$LOOP" init --kind execution >/dev/null )
+( cd "$WK2" && bash "$FLOW" handoff --conclusion needs-context >/dev/null )
+[ -f "$(lf "$WK2")" ] && ok "needs-context 保留 loop-state(resume 续现场)" || no "needs-context 误清 loop"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

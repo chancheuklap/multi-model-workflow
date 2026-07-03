@@ -28,6 +28,7 @@ OUT="$(bash "$REVIEW" start --stage plan-impl --source x 2>/dev/null)"
 echo "$OUT" | grep -q "kind=contract-gate" && ok "plan-impl → contract-gate" || no "plan-impl kind"
 [ "$(jq -r .kind "$LOOPF")" = "contract-gate" ] && ok "plan-impl init contract-gate" || no "plan-impl loop"
 echo "$OUT" | grep -q "不派 Codex" && ok "③合同门不派 Codex" || no "③不派 Codex"
+echo "$OUT" | grep -q "references/review/plan-impl.md" && ok "③ brief 纯路由指向 plan-impl.md(方法论单源)" || no "③ brief 未指 plan-impl.md"
 
 # review 阶段 brief 含派两个 Codex + 续接 resume
 OUT="$(bash "$REVIEW" start --stage final --source x 2>/dev/null)"

@@ -16,9 +16,9 @@
 #     mmw task resume | mmw task cleanup --slug <s>
 #     mmw task escalate --to develop          bug/小改撞出系统性设计问题→原地升级完整设计路
 #   内层 loop(落地/审):
-#     mmw loop init --kind <execution|review|contract-gate> | attendance | step | checklist | finding | softstop | surface | resume | exit-check
+#     mmw loop init --kind <execution|review|contract-gate> | attendance | step | checklist | finding | softstop | surface | resume | close | exit-check
 #   审闸一条命令:
-#     mmw review start --stage <design|plan|plan-impl|final> --source <...>
+#     mmw review start --stage <design|plan|plan-impl|final|merge-impl> --source <...>
 #   Codex 落地派发:
 #     mmw codex dispatch --plan <p> --worktree <wt> | codex resume --worktree <wt> --instructions <f>
 #   发布红线(收尾/merge,用户亲批后跑):

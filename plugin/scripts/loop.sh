@@ -13,6 +13,7 @@
 #   surface     缺输入/方向疑:永远写 pause(needs-context|needs-redirection)
 #   resume      清 pause(答复后续)
 #   exit-check  退出判据核:DONE / NOT-DONE:<剩> / PAUSED:<因>(给看守 hook 用)
+#   close       loop 收束:删 loop-state(schema「退出时清」的落地)。由 flow.sh handoff 结论落定时调,防残留污染下阶段 where。幂等,无 loop 也不报错。
 set -euo pipefail
 
 STATE_SUBDIR=".claude/multi-model-workflow"
@@ -141,6 +142,14 @@ cmd_surface() {
 
 cmd_resume() { edit "$(need_loop)" '.pause=null'; echo "RESUMED"; }
 
+# 收束:删 loop-state(schema「进 loop 时 init,退出时清」的落地)。幂等——无 loop / 不在 git 都安静退 0,
+# 绝不让清理失败反过来阻断上游 handoff 的回执。
+cmd_close() {
+  local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "NO-GIT"; return 0; }
+  rm -f "$top/$STATE_SUBDIR/$LOOP_NAME"
+  echo "CLOSED"
+}
+
 # 退出三件套核对:DONE / NOT-DONE:<剩> / PAUSED:<因>。给看守 hook 用(它据此 exit2 顶回去 or 放停)
 cmd_exit_check() {
   local f; f="$(need_loop)"
@@ -179,6 +188,7 @@ case "${1:-}" in
   softstop)    shift; cmd_softstop "$@" ;;
   surface)     shift; cmd_surface "$@" ;;
   resume)      shift; cmd_resume "$@" ;;
+  close)       shift; cmd_close "$@" ;;
   exit-check)  shift; cmd_exit_check "$@" ;;
-  *) die "用法: loop.sh init|attendance|step|checklist|finding|softstop|surface|resume|exit-check ..." ;;
+  *) die "用法: loop.sh init|attendance|step|checklist|finding|softstop|surface|resume|close|exit-check ..." ;;
 esac

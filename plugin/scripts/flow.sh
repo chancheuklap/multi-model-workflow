@@ -179,6 +179,13 @@ cmd_handoff() {
      | .history += [{phase:$hphase, conclusion:$hconc, at:$at}]' \
     "$m" | write_manifest "$m"
 
+  # loop 生命周期:结论落定 = 当前内层 loop(若有)收束——清 loop-state(schema「退出时清」的落地),
+  # 防上一个 loop 的残留污染下阶段 where。往前(pass)/返工(needs-repair)/掉头(needs-redirection)都清;
+  # needs-context/blocked 是原地等 resume,保留 loop 现场不清。新 loop 由下阶段 init 重建。
+  case "$conclusion" in
+    pass|needs-repair|needs-redirection) bash "$SCRIPT_DIR/loop.sh" close >/dev/null ;;
+  esac
+
   cat <<EOF
 NEXT_ACTION=$next_action
 NEXT_PHASE=$next_phase
@@ -323,6 +330,22 @@ open_items=$(jq -r '.open_items | length' "$m")
 EOF
   if [ -n "$review_line" ]; then echo "$review_line"; fi
   if [ -n "$review_start_line" ]; then echo "$review_start_line"; fi
+
+  # 内层 loop 可见性:有 loop-state = 正在某内层 loop(execution 落地 / review 审 / contract-gate 合同门)。
+  # 断点恢复靠 where —— 报 loop 种类、进度(借 loop.sh exit-check,单源不重算)、该读哪份(routes.loop_bindings)。
+  # loop-state 由 handoff 结论落定时清(loop close),文件在 = loop 真活着,不是上阶段残留。
+  local top loopf
+  top="${m%/$STATE_SUBDIR/$MANIFEST_NAME}"
+  loopf="$top/$STATE_SUBDIR/loop-state.json"
+  if [ -f "$loopf" ]; then
+    local lkind lstate lload
+    lkind="$(jq -r '.kind // "?"' "$loopf" 2>/dev/null || echo "?")"
+    lstate="$(cd "$top" && bash "$SCRIPT_DIR/loop.sh" exit-check 2>/dev/null || echo "?")"
+    lload="$(jq -r --arg k "$lkind" '.loop_bindings[$k].load // "?"' "$ROUTES")"
+    echo "inner_loop=$lkind"
+    echo "inner_loop_state=$lstate"
+    echo "inner_loop_load=$lload"
+  fi
 
   # source-stability:已过闸的 gated 阶段,产物指纹和当下不一致 = 过闸后被改 → 提示回审
   local stale=""

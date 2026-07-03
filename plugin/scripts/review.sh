@@ -54,8 +54,8 @@ EOF
   if [ "$kind" = "contract-gate" ]; then
     cat <<EOF
 2. ③合同门不派 Codex、不列 pack(全 Pack 提交已由 build 执行 loop exit-check 保证):
-   只列跨 plan 合同清单(checklist add)→ 逐条 grep/Read 机器核兑现 → checklist cover;
-   合同全 cover → exit-check DONE(steps 空即满足)→ handoff pass。
+   **读 references/review/plan-impl.md,照它走**——核什么(跨 plan 合同兑现)、怎么走 checklist、
+   三个出口(全兑现 pass / 没兑现回 build / 合同根上错回 design)全在那份,方法论只此一源。
 EOF
   else
     cat <<EOF

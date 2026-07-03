@@ -66,6 +66,14 @@ bash "$LOOP" step done --id p1 --commit z >/dev/null
 bash "$LOOP" checklist cover --item contractA --evidence "接上了" >/dev/null
 [ "$(ec)" = "DONE" ] && ok "合同门:全提交+合同在 → DONE" || no "合同门 DONE ($(ec))"
 
+# ===== close:收束删 loop-state(schema「退出时清」的落地),幂等 =====
+bash "$LOOP" init --kind execution >/dev/null
+CF=".claude/multi-model-workflow/loop-state.json"
+[ -f "$CF" ] && ok "close 前 loop-state 在" || no "close 前应有 loop-state"
+echo "$(bash "$LOOP" close)" | grep -q "CLOSED" && ok "close 报 CLOSED" || no "close 回执"
+[ ! -f "$CF" ] && ok "close 删掉 loop-state" || no "close 未删 loop-state"
+echo "$(bash "$LOOP" close)" | grep -q "CLOSED" && [ ! -f "$CF" ] && ok "close 幂等(无 loop 也安静退)" || no "close 非幂等"
+
 # ===== fail-closed:坏 kind / 缺参 =====
 if bash "$LOOP" init --kind bogus >/dev/null 2>&1; then no "坏 kind 被拒"; else ok "坏 kind 被拒"; fi
 if bash "$LOOP" surface --kind needs-context >/dev/null 2>&1; then no "surface 缺 question 被拒"; else ok "surface 缺 question 被拒"; fi

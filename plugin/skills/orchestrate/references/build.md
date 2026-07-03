@@ -109,13 +109,13 @@ Codex 返回后,读它最后消息 + **自己核**(亲验):
 
 ### B5. ③ 合同门(一次,全 plan 合并后)
 
-**跨 plan 合同要等所有 plan 都在场才能核**(provider 在 A、consumer 在 B),所以 ③ 在这跑一次、不per-plan。执行 loop 已 DONE(全 Pack 已提交,B4 已机器核),③ 只核**跨 plan 合同兑现**,不再列 pack:
+**跨 plan 合同要等所有 plan 都在场才能核**(provider 在 A、consumer 在 B),所以 ③ 在这跑一次、不 per-plan。执行 loop 已 DONE(全 Pack 已提交,B4 已机器核),③ 只核**跨 plan 合同兑现**:
 
 ```bash
 mmw review start --stage plan-impl --source "<设计文档 ## Cross-Plan Contract Anchors>"
 ```
 
-按打印的 brief:逐条合同 `checklist add` → grep/Read 坐实 provider/consumer/版本/迁移/登记 → `checklist cover --evidence <file:line>`;清单全 cover → `exit-check` DONE。合同不达 → `needs-redirection --to-phase build`(回落地补);合同根上错(设计的合同本身不成立)→ `needs-redirection --to-phase design`。**不派 Codex 判断、不列 pack**(全 Pack 提交已由 B4 exit-check 保证)。
+照它打印的 brief 走——**核什么、怎么 checklist、三个出口全在 `references/review/plan-impl.md`**(到这步才读那一份,方法论只此一源)。**不派 Codex、不列 pack**(全 Pack 提交已由 B4 exit-check 保证)。
 
 ### B6. 钉产出 → handoff(引擎随即强制 ④终审闸)
 

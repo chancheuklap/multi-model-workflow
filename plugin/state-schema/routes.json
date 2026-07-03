@@ -16,6 +16,12 @@
     "build":  { "stage": "final", "produced": "docs/<slug>-final-review.md" }
   },
 
+  "loop_bindings": {
+    "execution":     { "load": "references/build.md" },
+    "contract-gate": { "load": "references/review/plan-impl.md" },
+    "review":        { "load": "references/review/review.md" }
+  },
+
   "start_options": [
     { "scenario": "small-change", "when": "明确的小改,根因清楚",                  "phases_note": "落地→验收→收尾" },
     { "scenario": "develop",      "when": "新想法/功能 或 旧系统优化改造(要设计)", "phases_note": "查清→给方案→想方案→拆计划→落地→验收→收尾" },
