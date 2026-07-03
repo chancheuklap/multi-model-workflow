@@ -3,17 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Plugin 工作流 · 全细节流程图(真实运行)</title>
+<title>Plugin 全貌 · 一张大图</title>
 <style>
   :root{
     --bg:#eef1f5; --card:#ffffff; --ink:#1f2328; --dim:#5b6573; --faint:#8b95a3;
     --border:#cfd7e0; --claude:#0969da; --codex:#b8500a; --script:#1a7f37; --hook:#7c3aed;
     --gate:#9a6700; --gatebd:#e0bb4e; --gatebg:#fff8e6; --hitl:#0e7490; --red:#cf222e;
-    --outbg:#eefaf1; --mono:"SF Mono",ui-monospace,Menlo,monospace;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 -apple-system,"PingFang SC","Segoe UI",sans-serif;padding:0 0 70px}
-  .wrap{max-width:880px;margin:0 auto;padding:0 22px}
+  .wrap{max-width:none;margin:0;padding:0 30px}
+  header .sub,header h1{max-width:1150px}
   header{padding:30px 0 6px}
   h1{font-size:21px;margin:0}
   .sub{color:var(--dim);font-size:13px;margin-top:7px}
@@ -22,343 +23,107 @@
   .legend span{display:inline-flex;align-items:center;gap:6px}
   .led{width:10px;height:10px;border-radius:3px;display:inline-block}
   .bg-claude{background:var(--claude)}.bg-codex{background:var(--codex)}.bg-script{background:var(--script)}
-  .bg-hook{background:var(--hook)}.bg-gate{background:var(--gatebd)}.bg-hitl{background:var(--hitl)}
-
-  .flow{display:flex;flex-direction:column;align-items:stretch;margin-top:18px}
-
-  /* rich node */
-  .nd{background:var(--card);border:1px solid var(--border);border-left-width:4px;border-radius:9px;
-      box-shadow:0 1px 5px rgba(31,35,40,.05);overflow:hidden}
-  .nd .hd{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid #eef1f5;flex-wrap:wrap}
-  .nd .hd b{font-size:13.5px}
-  .nd .loc{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--faint)}
-  .badge{font-size:10px;font-weight:700;padding:1.5px 7px;border-radius:9px;font-family:var(--mono)}
-  .b-claude{background:#dcebfb00;background:#ddeeff;color:var(--claude)}
-  .b-codex{background:#fbe6d4;color:var(--codex)}.b-script{background:#daf5e2;color:var(--script)}
-  .b-hook{background:#ede2fc;color:var(--hook)}
-  .tag{font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:8px}
-  .t-hitl{background:#d6eef2;color:var(--hitl)}.t-gate{background:var(--gatebg);color:var(--gate);border:1px solid var(--gatebd)}
-  .t-new{background:#ffe0e6;color:var(--red);border:1px solid #f3a8b6}
-  .rows{padding:6px 12px 9px}
-  .r{display:grid;grid-template-columns:30px 1fr;gap:8px;padding:2.5px 0;align-items:baseline}
-  .r .k{font-size:10px;color:var(--faint);font-weight:700;text-align:right;padding-top:1px}
-  .r .v{font-size:12px}
-  .r .v.doc{font-family:var(--mono);font-size:11px;color:var(--hook)}
-  .r .v.cmd{font-family:var(--mono);font-size:11px;color:var(--claude);word-break:break-all}
-  .r.outrow{background:var(--outbg);margin:3px -12px -9px;padding:6px 12px;border-top:1px solid #d7eede}
-  .r.outrow .k{color:var(--script)}
-  .r .v.out{font-family:var(--mono);font-size:11px;color:#10612a;word-break:break-all}
-  .nd.gate-nd{border-left-color:var(--gatebd);background:var(--gatebg)}
-  .nd.n-claude{border-left-color:var(--claude)}.nd.n-codex{border-left-color:var(--codex)}
-  .nd.n-script{border-left-color:var(--script)}.nd.n-hook{border-left-color:var(--hook)}
-
-  /* connector */
-  .cn{height:20px;width:2px;background:#aeb8c4;align-self:center;position:relative}
-  .cn::after{content:"";position:absolute;bottom:-1px;left:-4px;border:5px solid transparent;border-top-color:#aeb8c4;border-bottom:0}
-  .cn.lbl{height:30px}
-  .cn .t{position:absolute;left:9px;top:5px;white-space:nowrap;font-size:10.5px;color:var(--script);font-family:var(--mono)}
-  .cn.gate .t{color:var(--gate)}
-
-  /* handoff rule strip */
-  .rule{background:#f7f9fb;border:1px solid var(--border);border-radius:9px;padding:9px 13px}
-  .rule .rt{font-weight:700;font-size:12.5px;margin-bottom:5px}
-  .rule .rt code{font-family:var(--mono);font-size:11.5px}
-  .rbr{display:grid;grid-template-columns:150px 1fr;gap:8px;font-size:11.5px;padding:2.5px 0;border-top:1px dashed #dde3ea}
-  .rbr:first-of-type{border-top:0}
-  .rbr .c{font-family:var(--mono);font-weight:700;text-align:right}
-
-  /* inset subflow */
-  .inset{border:1.5px dashed var(--gatebd);border-radius:12px;background:rgba(224,187,78,.06);padding:12px 12px 12px;margin:2px 0;position:relative}
-  .inset.exec{border-color:#86d29b;background:rgba(26,127,55,.05)}
-  .inset .it{position:absolute;top:-9px;left:16px;background:var(--bg);padding:0 8px;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--gate)}
-  .inset.exec .it{color:var(--script)}
-  .inset .flow{margin-top:6px}
-  .loopback{align-self:center;font-family:var(--mono);font-size:10.5px;color:var(--codex);border:1px dashed #e3a877;border-radius:8px;padding:3px 10px;margin:4px 0;background:#fff}
-
-  .term{align-self:center;background:#daf5e2;border:1px solid #86d29b;border-radius:22px;padding:8px 22px;font-weight:700;color:var(--script);font-size:13px}
-  .secnote{font-size:11.5px;color:var(--dim);margin:4px 0 2px;align-self:center;text-align:center}
-  .callout{align-self:stretch;background:#fff4f5;border:1px solid #f3a8b6;border-left:4px solid var(--red);border-radius:9px;padding:8px 12px;margin:2px 0;font-size:11.5px}
-  .callout b{color:var(--red)}
-  .callout .c{font-family:var(--mono);font-size:11px;color:#10612a}
+  .bg-gate{background:var(--gatebd)}
+  .graphbox{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-top:18px;overflow-x:auto}
+  /* 节点内分层:读/命令/入/出 左对齐 */
+  .mermaid .k{font-weight:700}
   .foot{margin-top:26px;font-size:10.5px;color:var(--faint);font-family:var(--mono);line-height:1.7}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header>
-  <h1>Plugin 工作流 · 全细节流程图(真实运行)</h1>
-  <p class="sub">每个节点 = 一步,填了 <b>读哪份文档 / 跑哪条命令 / 输入 / 输出</b>。<b>所有绿底「出」字段 = 实跑当前 plugin 抓的真 stdout。</b>
-  走 develop 全程,任务 <b>slug=realflow</b>;<b>build 阶段派的是真 Codex(gpt-5.4),真落地出提交 9515f67、真 TDD(红→绿)</b>——不是 fake。红标 <span class="tag t-new">新</span> = HTML 上次(bd8a8c1)之后新增、这次补上的。</p>
+  <h1>Plugin 全貌 · 一张大图</h1>
+  <p class="sub">一张图 = plugin 全貌 + 细节。<b>规范性</b>:每个阶段同一套三拍 <b>mmw where → 干 → mmw handoff --conclusion ⟨词⟩</b>;<b>脚本接管统一性</b>:确定步骤全走 <b>mmw</b> 命令(不手搓),节点内「命令」行都是 <code style="font-family:var(--mono)">mmw …</code>。<b>4 开口路径</b>分叉→汇合;<b>外层 phase 引擎 flow.sh + 内层 loop 引擎 loop.sh</b>;审闸/落地是<b>真循环 loop</b>(exit-check NOT-DONE 被 guard-loop 顶回)。节点内 <b>读 / 命令 / 入 / 出</b> 分层,输出取真跑 stdout(slug=realflow;build 真 Codex gpt-5.4、审 gpt-5.5)。</p>
   <div class="legend">
-    <span><i class="led bg-script"></i>脚本/状态机</span>
+    <span><i class="led bg-script"></i>脚本 / 状态机(mmw / flow.sh / loop.sh)</span>
     <span><i class="led bg-claude"></i>Claude 判断</span>
     <span><i class="led bg-codex"></i>Codex 苦力</span>
-    <span><i class="led bg-hook"></i>Hook</span>
-    <span><i class="led bg-gate"></i>审闸</span>
-    <span style="color:var(--script)">绿底=真实 stdout</span>
+    <span><i class="led bg-gate"></i>审闸 / 判定</span>
+    <span>实线=推进 · 虚线=返工/掉头/旁路</span>
   </div>
 </header>
 
-<div class="flow">
+<div class="graphbox">
+<pre class="mermaid">
+flowchart TD
+  classDef script fill:#daf5e2,stroke:#1a7f37,color:#10612a,text-align:left;
+  classDef claude fill:#ddeeff,stroke:#0969da,color:#0a3d7a,text-align:left;
+  classDef codex fill:#fbe6d4,stroke:#b8500a,color:#7a3607,text-align:left;
+  classDef gate fill:#fff8e6,stroke:#e0bb4e,color:#9a6700,text-align:left;
 
-  <!-- cold entry -->
-  <div class="nd n-script">
-    <div class="hd"><span class="badge b-script">脚本</span><b>入口 · 冷启动路由(未管任务)</b><span class="loc">flow.sh:223</span></div>
-    <div class="rows">
-      <div class="r"><span class="k">读</span><span class="v doc">skills/orchestrate/SKILL.md(只路由)</span></div>
-      <div class="r"><span class="k">命令</span><span class="v cmd">mmw where</span></div>
-      <div class="r outrow"><span class="k">出</span><span class="v out">UNMANAGED · 枚举四开口:[small-change] 小改根因清 · [develop] 新想法/改造(要设计) · [bug] 根因不明 · [merge] 不开 worktree · 指令 mmw task new …</span></div>
-    </div>
-  </div>
-  <div class="cn lbl"><span class="t">选 develop → mmw task new</span></div>
+  START(["<div style='text-align:left'><b>入口 · mmw where</b>(冷启动)<br/><span class='k'>读</span> skills/orchestrate/SKILL.md(只路由)<br/><span class='k'>出</span> UNMANAGED · 枚举四开口<br/><span class='k'>续传</span> task.json(阶段级)+ loop-state.json(内层),任意点 resume</div>"]):::script --> OPEN{"<div style='text-align:left'><b>mmw task new --scenario ⟨scenario⟩ --slug ⟨name⟩</b><br/><span class='k'>出</span> PREPARED · 建 worktree(.claude/worktrees/⟨slug⟩)· branch=⟨slug⟩<br/>写 task.json(phases=该 scenario 预设)· phase=首阶段 · NEXT=EnterWorktree</div>"}:::script
+  OPEN -->|"develop 新设计 / 旧系统改造"| DWT
+  OPEN -->|"bug 根因不明"| BWT
+  OPEN -->|"small-change 明确小改"| SWT
+  OPEN -->|"merge 多分支 / PR"| MG
 
-  <!-- task new -->
-  <div class="nd n-script">
-    <div class="hd"><span class="badge b-script">脚本</span><b>A 建任务</b><span class="loc">prepare.sh:23</span></div>
-    <div class="rows">
-      <div class="r"><span class="k">命令</span><span class="v cmd">mmw task new --scenario develop --slug realflow --title 真流程抓取</span></div>
-      <div class="r"><span class="k">入</span><span class="v">scenario=develop · slug=realflow · title</span></div>
-      <div class="r outrow"><span class="k">出</span><span class="v out">PREPARED · worktree_path=…/.claude/worktrees/realflow · branch=realflow · scenario=develop · phase=investigate · 写 task.json(phases=develop 预设)· NEXT=EnterWorktree({path:…/realflow}) 然后进入 develop 的 investigate</span></div>
-    </div>
-  </div>
-  <div class="cn lbl"><span class="t">EnterWorktree → 读 scenario/develop.md → 进阶段循环</span></div>
+  %% ===== develop 主干(超集)· 每阶段同一套三拍,确定步骤走 mmw(脚本接管统一) =====
+  DWT["<div style='text-align:left'><b>EnterWorktree → 读 scenario/develop.md</b><br/><b>外层 phase 引擎 flow.sh · 每阶段统一三拍</b><br/>① mmw where(报 load / do / then / prev_outputs)<br/>② Claude 干活<br/>③ mmw handoff --conclusion ⟨词⟩<br/><span class='k'>词</span> pass→advance(gated 先强制审)· needs-repair→返工(≤2)· needs-redirection→回上游(≤1)· needs-context→停问 · blocked→上报</div>"]:::script --> INV
+  INV["<div style='text-align:left'><b>investigate · 查清现状</b><br/><span class='k'>读</span> references/investigate.md<br/><span class='k'>命令</span> 并行 Workflow 取证不判定 → mmw handoff --conclusion pass --produced docs/investigating/realflow.md<br/><span class='k'>入</span> prev_outputs=[](首阶段)<br/><span class='k'>出</span> NEXT_ACTION=advance · NEXT_PHASE=propose</div>"]:::claude --> PRO
+  PRO["<div style='text-align:left'><b>propose · 给方案</b>(HITL 选向)<br/><span class='k'>读</span> references/propose.md<br/><span class='k'>命令</span> 亮 2-3 方案 → mmw handoff --conclusion pass --produced docs/design/realflow-direction.md<br/><span class='k'>入</span> prev_outputs=[docs/investigating/realflow.md]<br/><span class='k'>出</span> NEXT_PHASE=design(全否 → needs-redirection 回上游)</div>"]:::claude
+  PRO -->|"HITL 指定一个方案"| DES
+  PRO -.->|"全否 → needs-redirection"| INV
+  DES["<div style='text-align:left'><b>design · 设计</b>(HITL 集中在此)<br/><span class='k'>读</span> 4 步游标 mmw step next:discuss → prototype(纯后端跳过)→ write → selfcheck<br/><span class='k'>命令</span> mmw handoff --conclusion pass --produced docs/design/realflow.md<br/><span class='k'>入</span> prev_outputs=[realflow.md(现状), realflow-direction.md(方向)]<br/><span class='k'>出</span> NEXT_ACTION=review · REVIEW_STAGE=design · gate=design(phase 冻结)</div>"]:::claude --> G1
+  G1{"<div style='text-align:left'><b>① design 审闸</b>(gated 引擎强制审)<br/><span class='k'>命令</span> mmw where 吐 review_start=<br/>mmw review start --stage design --source docs/design/realflow.md</div>"}:::gate --> RA
 
-  <!-- handoff rule -->
-  <div class="rule">
-    <div class="rt">每阶段三拍:<code>mmw where</code>(脚本报 load/do/then/prev_outputs)→ Claude 干活 → <code>mmw handoff --conclusion &lt;词&gt;</code>。引擎按结论词跳(真 stdout：<code>NEXT_ACTION/NEXT_PHASE/STATUS</code>):</div>
-    <div class="rbr"><span class="c" style="color:var(--script)">pass</span><span>普通阶段→advance;gated(design/plan/build)→<b style="color:var(--gate)">phase 冻结+强制审</b>;末阶段→ready-to-close</span></div>
-    <div class="rbr"><span class="c" style="color:var(--gate)">needs-repair</span><span>原地返工本阶段(repair+1,超 2→blocked)</span></div>
-    <div class="rbr"><span class="c" style="color:var(--red)">needs-redirection</span><span>掉头回 --to-phase 上游(turnaround+1,超 1→blocked)</span></div>
-    <div class="rbr"><span class="c" style="color:var(--hitl)">needs-context</span><span>停下问你,留步游标 resume</span></div>
-    <div class="rbr"><span class="c" style="color:#57606a">blocked</span><span>上报你,带经过 · <span style="color:var(--faint)">flow.sh:95-152,词非法当场拒 :67</span></span></div>
-    <div class="rbr"><span class="c" style="color:var(--codex)">spinoff</span><span>阶段中途挖到 bug/旁路:<code>mmw spinoff --tag &lt;bug|optimize|…&gt;</code> 登记关联子任务,主流程不停 · flow.sh:192</span></div>
-  </div>
-  <div class="cn"></div>
+  RA["<div style='text-align:left'><b>起审 · Codex×2 独立并行审</b><br/><span class='k'>命令</span> mmw review start --stage design(INIT kind=review)→ 协调帮手派 codex exec --sandbox read-only -m gpt-5.5<br/><span class='k'>读</span> 各自<b>已装的 worktree-review skill</b> 按 stage 审 · <b>不给 Codex plugin 路径</b><br/>轴A 设计内容 / 轴B 项目对齐 · 不用 codex review 子命令(绕方法论)</div>"]:::codex --> RB
+  RB["<div style='text-align:left'><b>收 finding · Claude 亲验</b>(Codex 是劳动力不是信源,引不出 file:line 降置信)<br/><span class='k'>命令</span> mmw loop attendance --mode afk · checklist add / cover --evidence file:line · finding add<br/><span class='k'>出</span> 两审者 findings 原样落盘 docs/reviews/realflow-design.md · 就近标 verdict / 处置</div>"]:::claude --> RC
+  RC{"<b>mmw loop exit-check</b>"}:::script
+  RC -->|"NOT-DONE:checklist=⟨剩⟩;open_critical=N<br/>guard-loop(SubagentStop)exit2 顶回续审,不准停"| RA
+  RC -->|"PAUSED:⟨因⟩ → surface 写 pause<br/>softstop:attended 停问 · afk 自决留 decisions 续"| RA
+  RC -->|"DONE(清单全 cover + 无开口 Critical)<br/>mmw handoff --conclusion pass · 清 gate + 记指纹<br/>source-stability:过闸后改产物 → where 报 stale_gate 回审"| TI
+  G1 -.->|"needs-repair 原地返工(≤2)"| DES
 
-  <!-- investigate -->
-  <div class="nd n-claude">
-    <div class="hd"><span class="badge b-claude">Claude</span><b>investigate 查清现状</b><span class="loc">routes.json:investigate</span></div>
-    <div class="rows">
-      <div class="r"><span class="k">读</span><span class="v doc">references/investigate.md</span></div>
-      <div class="r"><span class="k">做</span><span class="v">并行投查现状(自建 Workflow),取证不判定,存 docs/investigating</span></div>
-      <div class="r"><span class="k">入</span><span class="v">prev_outputs=[](首阶段无上游)</span></div>
-      <div class="r"><span class="k">命令</span><span class="v cmd">mmw handoff --conclusion pass --produced docs/investigating/realflow.md</span></div>
-      <div class="r outrow"><span class="k">出</span><span class="v out">NEXT_ACTION=advance · NEXT_PHASE=propose · STATUS=active · 产物钉 phase_outputs[investigate]</span></div>
-    </div>
-  </div>
-  <div class="cn"></div>
+  TI["<div style='text-align:left'><b>to-issue · 垂直切片</b><br/><span class='k'>读</span> references/design/to-issue-skeleton.md<br/><span class='k'>命令</span> mmw handoff --conclusion pass --produced docs/issues/realflow/<br/><span class='k'>入</span> prev_outputs=[docs/design/realflow.md]<br/><span class='k'>出</span> NEXT_PHASE=plan(非 gated 直通)</div>"]:::claude --> PL
+  PL["<div style='text-align:left'><b>plan · 拆计划</b><br/><span class='k'>读</span> 3 步 orchestrate → write → selfcheck;多计划 fan-out plan-writer + 跨 plan 合同骨架<br/><span class='k'>命令</span> mmw handoff --conclusion pass --produced docs/plans/realflow/<br/><span class='k'>入</span> prev_outputs=[design/realflow.md, issues/realflow/]<br/><span class='k'>出</span> REVIEW_STAGE=plan · gate=plan</div>"]:::claude --> G2
+  G2{"<div style='text-align:left'><b>② plan 审闸</b> · stage=plan<br/><span class='k'>命令</span> mmw review start --stage plan --source docs/plans/realflow/<br/>→ 同一 review loop(RA→RC)· 轴A 覆盖与质量 / 轴B 合规与交叉验证 · 落盘 docs/reviews/realflow-plan.md</div>"}:::gate
+  G2 -->|"审过 advance"| BD
+  G2 -.->|"needs-redirection 回 design"| DES
 
-  <!-- propose -->
-  <div class="nd n-claude">
-    <div class="hd"><span class="badge b-claude">Claude</span><b>propose 给方案</b><span class="tag t-hitl">HITL 选向</span><span class="loc">routes.json:propose</span></div>
-    <div class="rows">
-      <div class="r"><span class="k">读</span><span class="v doc">references/propose.md</span></div>
-      <div class="r"><span class="k">做</span><span class="v">综合现状+外部,固定格式亮 2-3 方案,停下让你指定一个(全否→needs-redirection 回上游)</span></div>
-      <div class="r"><span class="k">入</span><span class="v">prev_outputs=["docs/investigating/realflow.md"]</span></div>
-      <div class="r"><span class="k">命令</span><span class="v cmd">mmw handoff --conclusion pass --produced docs/design/realflow-direction.md</span></div>
-      <div class="r outrow"><span class="k">出</span><span class="v out">NEXT_ACTION=advance · NEXT_PHASE=design</span></div>
-    </div>
-  </div>
-  <div class="cn"></div>
+  BD["<div style='text-align:left'><b>build · 落地</b>(develop=模式B 派 Codex · 进落地默认 afk 无人值守)<br/><span class='k'>读</span> references/build.md<br/><span class='k'>入</span> prev_outputs=[issues/realflow/, plans/realflow/]<br/>先落地内层 → ③ 合同门 → ④ 终审闸</div>"]:::claude --> EA
+  EA["<div style='text-align:left'><b>落地内层 · 派 Codex 写码</b><br/><span class='k'>命令</span> mmw loop init --kind execution · step add 1.1 · <b>mmw codex dispatch --plan .. --worktree ..</b>(codex exec --sandbox workspace-write -m gpt-5.4)<br/><span class='k'>读</span> 已装 worktree-build skill · 瘦派发(铁律在 Codex 侧:严防过度设计 / 兜底 / 思考、每 Pack 提交 Pack N.M、禁改 docs/)<br/><span class='k'>出</span> CODEX_EXIT=0 · SESSION=⟨uuid⟩(供 resume)· 收工回执:逐 Pack + 每条 acceptance + 改文件 + 测试结果</div>"]:::codex --> EB
+  EB["<div style='text-align:left'><b>验收三关</b>(命门,不信 Codex 自述)<br/><span class='k'>读</span> 仓库测试治理文档(TESTING.md / AGENTS.md 测试节)<br/>① 完整性(跑验收 / 读 diff)② 测试质量(防垃圾测试自绿)③ 设计一致性</div>"]:::claude
+  EB -->|"不过"| ECx["<div style='text-align:left'><b>mmw codex resume</b><br/>续 SESSION · 不重做已过 Pack</div>"]:::codex
+  ECx --> EB
+  EB -->|"过"| ED["<div style='text-align:left'><b>mmw loop step done</b>(STEP-DONE 1.1)<br/>commit 含 Pack N.M → record-step hook(PostToolUse)自动记</div>"]:::script
+  ED --> EE{"<b>mmw loop exit-check</b>"}:::script
+  EE -->|"NOT-DONE:steps=⟨剩⟩ → 派下一 Pack"| EA
+  EE -->|"DONE 步全 done"| CG
+  CG{"<div style='text-align:left'><b>③ 合同门 · contract-gate</b>(机器核,不派 Codex)<br/><span class='k'>命令</span> mmw review start --stage plan-impl(INIT kind=contract-gate)· 读 review/plan-impl.md · checklist 逐条合同 → grep / Read 核<br/><span class='k'>出</span> 未 cover:NOT-DONE:packs=none;contracts=⟨合同⟩ → 全 cover:DONE → mmw handoff --conclusion pass --produced base..HEAD · gate=build</div>"}:::gate --> G4
+  G4{"<div style='text-align:left'><b>④ final 审闸</b> · stage=final<br/><span class='k'>命令</span> mmw review start --stage final --source base..HEAD → 同一 review loop(RA→RC)<br/>基线1 回归+意图+跨plan / 基线2 独立代码审计 · 落盘 docs/reviews/realflow-final.md<br/><span class='k'>命令</span> mmw handoff --conclusion pass --produced docs/realflow-final-review.md → advance closing</div>"}:::gate
+  G4 -->|"审过 · 产终审报告"| CL
+  G4 -.->|"needs-redirection 回 build / plan"| BD
+  CL["<div style='text-align:left'><b>closing · 收尾</b>(确认真完整、收口)<br/><span class='k'>读</span> references/closing.md<br/><span class='k'>命令</span> mmw handoff --conclusion pass<br/><span class='k'>入</span> prev_outputs=[design/realflow.md, issues/realflow/, base..HEAD, realflow-final-review.md]<br/><span class='k'>出</span> STATUS=ready-to-close · NEXT_ACTION=done</div>"]:::claude --> REL
+  REL["<div style='text-align:left'><b>发布红线</b>(回主仓库 · 你亲批)<br/><span class='k'>命令</span> mmw release-approve(RELEASE-APPROVED,一次性)→ git merge --no-ff → mmw task cleanup --slug realflow(CLEANED · 验并入 HEAD 才删,fail-closed)<br/>merge / push / deploy 无令牌 → guard-redline(PreToolUse)deny</div>"]:::script
 
-  <!-- design (4 steps) -->
-  <div class="nd gate-nd">
-    <div class="hd"><span class="badge b-claude">Claude</span><b>design 设计</b><span class="tag t-gate">① 审闸</span><span class="tag t-hitl">HITL 集中</span><span class="loc">routes.json:design.steps</span></div>
-    <div class="rows">
-      <div class="r"><span class="k">读</span><span class="v">4 步游标(<code>mmw step next</code> 推进,每步现读那一份):</span></div>
-      <div class="r"><span class="k"></span><span class="v doc">discuss(1/4)→design/discussion.md · prototype(2/4)→prototype-mockup.md(纯后端 step next 跳过)· write(3/4)→design-doc-template.md · selfcheck(4/4)→design-self-check.md</span></div>
-      <div class="r"><span class="k">入</span><span class="v">prev_outputs=["…/realflow.md(现状)","…/realflow-direction.md(方向)"](reads 声明 investigate+propose)</span></div>
-      <div class="r"><span class="k">命令</span><span class="v cmd">step next×3 走完 4 步 → mmw handoff --conclusion pass --produced docs/design/realflow.md</span></div>
-      <div class="r outrow"><span class="k">出</span><span class="v out">NEXT_ACTION=review · REVIEW_STAGE=design · gate=design(phase 冻结,不 advance)· 「产物通过 → 进审闸」</span></div>
-    </div>
-  </div>
-  <div class="cn gate lbl"><span class="t">pass + gated → 引擎冻结,强制进审闸 ▼</span></div>
+  %% ===== spinoff(任一阶段中途挖到旁路)=====
+  SPIN["<div style='text-align:left'><b>mmw spinoff --tag ⟨bug | optimize | out-of-scope | needs-evaluation⟩</b><br/><span class='k'>出</span> SPUN-OFF · 登记关联子任务(subtasks)· 主流程不停</div>"]:::script
+  BD -.->|"阶段中途挖到 bug / 旁路"| SPIN
 
-  <!-- GATE inset (full detail, design) -->
-  <div class="inset"><span class="it">① 审闸子流程(design)· kind=review</span>
-  <div class="flow">
-    <div class="nd n-script">
-      <div class="hd"><span class="badge b-script">脚本</span><b>where 在闸里吐起审命令</b><span class="loc">flow.sh:297-305</span></div>
-      <div class="rows">
-        <div class="r"><span class="k">命令</span><span class="v cmd">mmw where</span></div>
-        <div class="r outrow"><span class="k">出</span><span class="v out">gate=design · load=references/review/review.md · review_source=docs/design/realflow.md · review_start=mmw review start --stage design --source docs/design/realflow.md</span></div>
-      </div>
-    </div>
-    <div class="cn"></div>
-    <div class="nd n-script">
-      <div class="hd"><span class="badge b-script">脚本</span><b>起审 loop</b><span class="loc">review.sh:19</span></div>
-      <div class="rows">
-        <div class="r"><span class="k">命令</span><span class="v cmd">mmw review start --stage design --source docs/design/realflow.md</span></div>
-        <div class="r"><span class="k">入</span><span class="v">stage=design · source=产物</span></div>
-        <div class="r outrow"><span class="k">出</span><span class="v out">INIT kind=review · REVIEW_STARTED stage=design kind=review · 打印协调帮手 brief(纯路由:Codex prompt 指向已装 worktree-review skill 按 stage 审,<b>不含任何 plugin 路径</b>)</span></div>
-      </div>
-    </div>
-    <div class="cn"></div>
-    <div class="nd n-claude">
-      <div class="hd"><span class="badge b-claude">Claude</span><b>抽覆盖清单 + 设在场</b><span class="loc">loop.sh</span></div>
-      <div class="rows">
-        <div class="r"><span class="k">命令</span><span class="v cmd">mmw loop attendance --mode afk · mmw loop checklist add --item "源意图与方案对齐" --source docs/design/realflow.md:1</span></div>
-        <div class="r outrow"><span class="k">出</span><span class="v out">ATTENDANCE=afk · CHECK-ADD 源意图与方案对齐(写进 loop-state.checklist)</span></div>
-      </div>
-    </div>
-    <div class="cn"></div>
-    <div class="nd n-codex">
-      <div class="hd"><span class="badge b-codex">Codex×2</span><b>两独立审者并行(协调帮手派)</b><span class="tag t-new">改</span><span class="loc">review.sh:65</span></div>
-      <div class="rows">
-        <div class="r"><span class="k">读</span><span class="v doc"><b>各自已装的 worktree-review skill</b>:method.md(共享审查纪律)+ 按 stage 读 design.md(轴A 设计内容 / 轴B 项目对齐)—— Codex 读不到 plugin,方法在它自己那侧</span></div>
-        <div class="r"><span class="k">命令</span><span class="v cmd">codex exec --sandbox read-only -m gpt-5.5 -c model_reasoning_effort=xhigh - &lt; prompt(run_in_background)</span></div>
-        <div class="r"><span class="k">入</span><span class="v">纯路由 prompt:stage=design + 负责哪路视角 + Source(worktree 内路径)+ "读你已装的 worktree-review skill";<b>零 plugin 路径</b>;不用 codex review 子命令(绕它的方法论)</span></div>
-        <div class="r outrow"><span class="k">出</span><span class="v out">Codex findings(原文,是劳动力不是信源)</span></div>
-      </div>
-    </div>
-    <div class="cn"></div>
-    <div class="nd n-claude">
-      <div class="hd"><span class="badge b-claude">Claude</span><b>findings 原样落盘 + 亲验</b><span class="tag t-new">新 64af2d3</span><span class="loc">review.sh:留痕行</span></div>
-      <div class="rows">
-        <div class="r"><span class="k">做</span><span class="v">两审者 findings <b>原样落盘 docs/reviews/realflow-design.md</b>(不重写不摘要,保真+省主线程 context);每条亲验后就近标 verdict(accepted/rejected/duplicate/needs-evidence),文末写总 verdict</span></div>
-        <div class="r"><span class="k">命令</span><span class="v cmd">mmw loop checklist cover --item … --evidence file:line · mmw loop finding add --severity C/I/M --confidence 1-10 --locator file:line</span></div>
-        <div class="r"><span class="k">入</span><span class="v">Codex findings(引不出 file:line 降置信)</span></div>
-        <div class="r outrow"><span class="k">出</span><span class="v out">CHECK-COVER 源意图与方案对齐 / FINDING-ADD …</span></div>
-      </div>
-    </div>
-    <div class="loopback">⟲ guard-loop(SubagentStop):exit-check NOT-DONE → exit2 顶回续审 · guard-loop.sh</div>
-    <div class="nd n-script">
-      <div class="hd"><span class="badge b-script">脚本</span><b>退出核 + 收口</b><span class="loc">loop.sh · flow.sh:96-113</span></div>
-      <div class="rows">
-        <div class="r"><span class="k">命令</span><span class="v cmd">mmw loop exit-check → mmw handoff --conclusion pass</span></div>
-        <div class="r outrow"><span class="k">出</span><span class="v out">exit-check=DONE(清单全 cover、无开口 Critical)· handoff: NEXT_ACTION=advance · NEXT_PHASE=to-issue · 清 gate + <b>记产物指纹</b>(source-stability)</span></div>
-      </div>
-    </div>
-  </div></div>
-  <div class="cn gate lbl"><span class="t">审过(verdict pass)→ 清 gate,advance ▼</span></div>
-
-  <!-- source-stability callout NEW -->
-  <div class="callout">
-    <b>▲ source-stability(新 71f6bee):</b> 过闸后再动被审产物,下一次 <code style="font-family:var(--mono)">mmw where</code> 比对指纹发现不一致,吐:<br>
-    <span class="c">stale_gate=design  # 这些阶段产物过闸后被改了,回 mmw handoff --conclusion needs-redirection --to-phase design 重审</span><br>
-    真跑实证:过 design 闸后往 realflow.md 追一行 → where 立即报 <span class="c">stale_gate=design</span>。防"审过的东西被偷改还当审过用"。
-  </div>
-  <div class="cn"></div>
-
-  <!-- to-issue -->
-  <div class="nd n-claude">
-    <div class="hd"><span class="badge b-claude">Claude</span><b>to-issue 切片</b><span class="loc">routes.json:to-issue</span></div>
-    <div class="rows">
-      <div class="r"><span class="k">读</span><span class="v doc">references/design/to-issue-skeleton.md(新 64af2d3:补 adapter 衔接 + 发布风险边界入 issue)</span></div>
-      <div class="r"><span class="k">做</span><span class="v">设计审过后,把设计垂直切片成可独立认领的 issue 骨架(主线程)</span></div>
-      <div class="r"><span class="k">入</span><span class="v">prev_outputs=["docs/design/realflow.md"](reads 声明带 design)</span></div>
-      <div class="r"><span class="k">命令</span><span class="v cmd">mmw handoff --conclusion pass --produced docs/issues/realflow/</span></div>
-      <div class="r outrow"><span class="k">出</span><span class="v out">NEXT_ACTION=advance · NEXT_PHASE=plan(非 gated,直通)</span></div>
-    </div>
-  </div>
-  <div class="cn"></div>
-
-  <!-- plan -->
-  <div class="nd gate-nd">
-    <div class="hd"><span class="badge b-claude">Claude</span><b>plan 拆计划</b><span class="tag t-gate">② 审闸</span><span class="tag t-hitl">HITL</span><span class="loc">routes.json:plan.steps</span></div>
-    <div class="rows">
-      <div class="r"><span class="k">读</span><span class="v doc">3 步游标:orchestrate(1/3)→plan/plan-flow.md(多计划 fan-out plan-writer)· write(2/3)→plan/task-pack.md · selfcheck(3/3)→plan/plan-self-check.md</span></div>
-      <div class="r"><span class="k">入</span><span class="v">prev_outputs=["docs/design/realflow.md","docs/issues/realflow/"]</span></div>
-      <div class="r"><span class="k">命令</span><span class="v cmd">step next×2 走完 → mmw handoff --conclusion pass --produced docs/plans/realflow/</span></div>
-      <div class="r outrow"><span class="k">出</span><span class="v out">NEXT_ACTION=review · REVIEW_STAGE=plan · gate=plan · review_start=mmw review start --stage plan --source docs/plans/realflow/</span></div>
-    </div>
-  </div>
-  <div class="cn gate lbl"><span class="t">② 审闸子流程 = 同 ① 结构一样,只 stage=plan(Codex 读已装 worktree-review skill 的 plan.md:轴A 覆盖与质量 / 轴B 合规与交叉验证)、落盘 docs/reviews/realflow-plan.md ▼ 审过→advance build</span></div>
-
-  <!-- build -->
-  <div class="nd gate-nd">
-    <div class="hd"><span class="badge b-claude">Claude</span><b>build 落地</b><span class="tag t-gate">④ 审闸 final</span><span class="loc">routes.json:build</span></div>
-    <div class="rows">
-      <div class="r"><span class="k">读</span><span class="v doc">references/build.md(模式 A:small-change/bug 主线程就地 TDD;模式 B:develop 派 Codex)</span></div>
-      <div class="r"><span class="k">入</span><span class="v">prev_outputs=["docs/plans/realflow/"]</span></div>
-      <div class="r"><span class="k">做</span><span class="v">develop 走模式 B:▼ 先进「落地内层」派 Codex 落代码,再 ③合同门,再 B6 handoff 触发 ④ 终审闸</span></div>
-    </div>
-  </div>
-  <div class="cn exec" style="background:#86d29b"></div>
-
-  <!-- BUILD INNER inset -->
-  <div class="inset exec"><span class="it">落地内层 · kind=execution(模式 B 派真 Codex)</span>
-  <div class="flow">
-    <div class="nd n-script">
-      <div class="hd"><span class="badge b-script">脚本</span><b>起落地 loop + 登步</b><span class="loc">loop.sh:39-67</span></div>
-      <div class="rows">
-        <div class="r"><span class="k">命令</span><span class="v cmd">mmw loop init --kind execution → attendance --mode afk → step add --id 1.1 --desc "Pack 1.1"</span></div>
-        <div class="r outrow"><span class="k">出</span><span class="v out">INIT kind=execution · ATTENDANCE=afk · STEP-ADD 1.1</span></div>
-      </div>
-    </div>
-    <div class="cn"></div>
-    <div class="nd n-codex">
-      <div class="hd"><span class="badge b-codex">Codex</span><b>瘦派发进 worktree 写代码</b><span class="tag t-new">改 0a5e5bd</span><span class="loc">codex-worker.sh:70</span></div>
-      <div class="rows">
-        <div class="r"><span class="k">入</span><span class="v"><b>瘦前言:铁律不再内联</b>,dispatch 只传角色 + worktree + <b>三文档路径(--design 设计 / --issue / --plan)</b> + 指向 Codex 侧已装的 <code>worktree-build</code> skill(逐 Pack TDD、每 Pack 一提交、防过度设计/兜底、禁改 docs/ 全在 skill 里,渐进加载不占 context)</span></div>
-        <div class="r"><span class="k">命令</span><span class="v cmd">mmw codex dispatch --plan docs/plans/realflow/001.md --worktree …/codexprobe(内部 codex exec --sandbox workspace-write -m gpt-5.4 -c model_reasoning_effort=xhigh)</span></div>
-        <div class="r outrow"><span class="k">出</span><span class="v out"><b>真 Codex 真跑</b>:建 worktree · CODEX_EXIT=0 · SESSION=019f1c27-9173-72e0-af14-01a5d96cd008(供 resume)· 最后消息「Pack 1.1 done,提交 9515f67;Acceptance 达成(python3 -c import mathutil;assert add(2,3)==5 退出0);改 mathutil.py + test_mathutil.py;红阶段验证 ModuleNotFoundError→绿;git diff --check pass」</span></div>
-      </div>
-    </div>
-    <div class="cn"></div>
-    <div class="nd n-claude">
-      <div class="hd"><span class="badge b-claude">Claude</span><b>B3 验收三关(命门,不信 Codex 自述)</b><span class="loc">build.md</span></div>
-      <div class="rows">
-        <div class="r"><span class="k">读</span><span class="v doc">仓库测试治理文档(TESTING.md / AGENTS.md 测试节)</span></div>
-        <div class="r"><span class="k">入</span><span class="v">Codex 最后消息 + plan acceptance + 仓库测试标准</span></div>
-        <div class="r"><span class="k">做</span><span class="v">① 完整性(跑验收/读 diff)· ② 测试质量(防垃圾测试自绿,对标仓库治理文档)· ③ 设计一致性</span></div>
-        <div class="r outrow"><span class="k">出</span><span class="v out">过 → step done;不过 → codex resume</span></div>
-      </div>
-    </div>
-    <div class="cn"></div>
-    <div class="nd n-script">
-      <div class="hd"><span class="badge b-script">脚本</span><b>记步 + 退出核</b><span class="loc">loop.sh · record-step.sh</span></div>
-      <div class="rows">
-        <div class="r"><span class="k">命令</span><span class="v cmd">mmw loop step done --id 1.1 → mmw loop exit-check</span></div>
-        <div class="r"><span class="k">入</span><span class="v">commit 含「Pack 1.1」→ record-step hook 自动记(PostToolUse)</span></div>
-        <div class="r outrow"><span class="k">出</span><span class="v out">STEP-DONE 1.1 · exit-check=DONE</span></div>
-      </div>
-    </div>
-    <div class="loopback">⟲ 验不过 → mmw codex resume --worktree … --instructions fix.md(续 SESSION,不重做已过 Pack)· codex-worker.sh:104</div>
-    <div class="nd n-script">
-      <div class="hd"><span class="badge b-script">脚本</span><b>③ 合同门(机器核,不派 Codex)</b><span class="loc">review.sh:35</span></div>
-      <div class="rows">
-        <div class="r"><span class="k">读</span><span class="v doc">review/plan-impl.md</span></div>
-        <div class="r"><span class="k">命令</span><span class="v cmd">mmw review start --stage plan-impl → loop checklist add(逐条合同)→ loop exit-check</span></div>
-        <div class="r outrow"><span class="k">出</span><span class="v out">INIT kind=contract-gate · 合同未 cover 时 exit-check=<b>NOT-DONE:packs=none;contracts=跨plan合同:接口X</b> · 全 cover→DONE</span></div>
-      </div>
-    </div>
-  </div></div>
-  <div class="cn gate lbl"><span class="t">B6: mmw handoff pass --produced base..HEAD → REVIEW_STAGE=build → gate=build → review_start --stage final --source base..HEAD(④ 审闸,同 ①,基线1 回归+意图+跨plan / 基线2 独立代码审计,产 docs/realflow-final-review.md)▼</span></div>
-
-  <!-- closing -->
-  <div class="nd n-claude">
-    <div class="hd"><span class="badge b-claude">Claude</span><b>closing 收尾</b><span class="loc">routes.json:closing</span></div>
-    <div class="rows">
-      <div class="r"><span class="k">读</span><span class="v doc">references/closing.md</span></div>
-      <div class="r"><span class="k">入</span><span class="v">prev_outputs=["docs/design/realflow.md","docs/issues/realflow/","base..HEAD","docs/realflow-final-review.md"](reads design+to-issue+build);git status / open_items / subtasks</span></div>
-      <div class="r"><span class="k">命令</span><span class="v cmd">mmw handoff --conclusion pass</span></div>
-      <div class="r outrow"><span class="k">出</span><span class="v out">NEXT_ACTION=done · NEXT_PHASE= · STATUS=ready-to-close · 「末阶段通过 → 待收尾」</span></div>
-    </div>
-  </div>
-  <div class="cn"></div>
-
-  <!-- release + cleanup -->
-  <div class="nd n-hook">
-    <div class="hd"><span class="badge b-hook">Hook+脚本</span><b>发布红线 + 清理(回主仓库)</b><span class="loc">guard-redline.sh · prepare.sh:cleanup</span></div>
-    <div class="rows">
-      <div class="r"><span class="k">命令</span><span class="v cmd">mmw release-approve → git merge --no-ff → mmw task cleanup --slug realflow</span></div>
-      <div class="r"><span class="k">入</span><span class="v">你亲批;merge/push/deploy 无令牌被 guard-redline(PreToolUse)deny</span></div>
-      <div class="r outrow"><span class="k">出</span><span class="v out">RELEASE-APPROVED token=…/release-approval(一次性,放行一次即消费)· CLEANED slug=realflow(先验分支已并入 HEAD 才删,未并入拒删,fail-closed)</span></div>
-    </div>
-  </div>
-  <div class="cn"></div>
-  <div class="term">✓ 任务完成</div>
-
-  <div class="secnote">旁支(非 develop 主干,同一引擎):<b>bug</b> 两态(定点修 / 撞系统性设计问题 → <code>mmw task escalate --to develop</code> 原地升级,已查成果全留)· <b>merge</b> 不开 worktree,走 references/scenario/merge.md 解业务意图/功能设计冲突(stage=merge-impl 跨 PR 集成审 7 角度)· 均为 2ff7063 补齐</div>
-
+  %% ===== bug 路径(投查成果留,汇入 develop 的 ④ 闸)=====
+  BWT["<b>建 worktree</b>"]:::script --> BINV["<div style='text-align:left'><b>investigate · 查根因(diagnosing)</b><br/><span class='k'>读</span> references/scenario/bug.md<br/><span class='k'>命令</span> mmw handoff --conclusion pass --produced docs/investigating/realflow.md</div>"]:::claude
+  BINV -->|"根因清 · bug 态一 定点修"| BB["<div style='text-align:left'><b>build 模式A · 定点修</b>(主线程就地 TDD,不派 Codex)<br/>先按根因写复现失败测试 → 最小修 → 转绿 → 提交</div>"]:::claude
+  BINV -.->|"bug 态二 撞系统性设计问题"| ESC["<div style='text-align:left'><b>mmw task escalate --to develop</b><br/>剩余流水线换 develop 预设 · 游标回 investigate(带设计意图重查)<br/>已查成果 phase_outputs / subtasks 全留,不开新 worktree</div>"]:::script
+  ESC -.-> INV
+  BB --> G4
+  %% ===== small-change 路径(预设只 build→closing)=====
+  SWT["<b>建 worktree</b>"]:::script --> SB["<div style='text-align:left'><b>build 模式A · 就地 TDD</b>(不派 Codex)<br/>预设 phases=[build, closing] · 无 ①② 审闸 · 真一两处小改不起 loop</div>"]:::claude
+  SB --> G4
+  %% ===== merge 路径(不开 worktree)=====
+  MG["<div style='text-align:left'><b>merge · 不开 worktree</b><br/><span class='k'>读</span> references/scenario/merge.md<br/>解 git 文本冲突之外的<b>业务意图 / 功能设计冲突</b> · 各 PR 已过各自 ④ 终审,交互没验过</div>"]:::script --> MRV{"<div style='text-align:left'><b>merge-impl 集成审</b><br/><span class='k'>命令</span> mmw review start --stage merge-impl → 同一 review loop<br/>7 角度:组合 / 合同 / 迁移 / 状态 / import / 回归 / 修复质量 · 落盘 docs/reviews/realflow-merge-impl.md · 修复软上限 1 轮</div>"}:::gate
+  MRV --> MCL["<div style='text-align:left'><b>清扫 + 返回主分支</b><br/>out-of-scope 开后续 · open_items 处置 · 扫新 TODO · 主分支跑全测试</div>"]:::claude
+</pre>
 </div>
 
 <p class="foot">
-「出」字段全部来自实跑<b>当前 plugin</b> 抓的真实 stdout(真 develop 任务 slug=realflow;build 派<b>真 Codex gpt-5.4</b>,真出提交 9515f67 + 真 TDD 红→绿)。<br>
-本次相对上版(bd8a8c1)补齐:① source-stability / stale_gate(71f6bee)· ② review 每审 findings 落盘 docs/reviews(64af2d3)· ③ codex 瘦派发传三文档 + 铁律移 Codex 侧 worktree-build skill(0a5e5bd)· ④ 发布风险闸 / model 分层 / merge 方法论 / bug 两态(2ff7063)。<br>
-脚本依据 · SKILL.md · flow.sh · routes.json · prepare.sh · loop.sh · review.sh · codex-worker.sh · hooks.json · guard-loop.sh · guard-redline.sh · record-step.sh —— 非抄文档、非工作总结。
+绿底节点内「出」= 实跑当前 plugin 抓的真 stdout(develop 任务 slug=realflow;build 派真 Codex gpt-5.4、审闸派真 Codex gpt-5.5)。<br>
+依据文件 · SKILL.md · flow.sh · routes.json · prepare.sh · loop.sh · review.sh · codex-worker.sh · hooks.json · guard-loop.sh · guard-redline.sh · record-step.sh · codex-skills/worktree-{build,review}
 </p>
 </div>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', flowchart: { useMaxWidth: false, htmlLabels: true, nodeSpacing: 40, rankSpacing: 50 } });
+</script>
 </body>
 </html>
