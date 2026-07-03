@@ -434,7 +434,7 @@ flowchart TD
 ```
 
 🟢 已落地并空跑验证(220 项断言:脚本 213 + build 7):入口纯路由(每条路径一份干净完整 reference,共用步骤 build 去重)· `mmw where` 自指路(冷启动列起始选项;在途报 `load`/`do`/`then`)· 开工/恢复/清理 · 接力单 · 统一运行契约 + 审闸 · 分叉/返工(可 `--to-phase`)/上限/停下 · 八阶段方法论全接(含 propose 给方案+两路出口、to-issue 审后切片、Codex 落地派发 + 四审 loop)· bug→develop 原地升级(`mmw task escalate`)· merge · 统一 CLI `mmw`。
-⬜ 未验:**内容级端到端真跑**(真派 Codex 落地/审、真 resume 修、真 surface 冒泡——单测够不着,要拿真 develop 任务跑)。
+⬜ 未验:**真 Codex 内容级端到端**(真派 Codex 落地/审、真 resume 修的产出质量)。已做(2026-07-03):一条 develop 任务全流程半真跑——投查 workflow 真跑、引擎/hook/审闸/合同门/收尾全真、Codex 用 stub 走通派发管线;挖出并修掉状态平面污染 / 子 worktree detached / 文档提交时机 / 投查仓库根四缺口。
 
 ---
 
