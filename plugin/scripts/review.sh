@@ -42,8 +42,13 @@ cmd_start() {
 
   # 换审/门 loop 前先收束上一个内层 loop(如 ③ 前的 execution:执行已 DONE、git 提交为准,
   # ledger 显式归零而非被 init 静默覆盖)。close 幂等,无 loop 也安静过。
+  # 审 loop 配轮上限(round next 机器计数,到顶自动 surface 熔断);③合同门机械核不设轮。
   bash "$LOOP" close >&2
-  bash "$LOOP" init --kind "$kind" >&2
+  if [ "$kind" = "review" ]; then
+    bash "$LOOP" init --kind "$kind" --max-rounds 2 >&2
+  else
+    bash "$LOOP" init --kind "$kind" >&2
+  fi
 
   cat <<EOF
 REVIEW_STARTED stage=$stage kind=$kind
@@ -74,9 +79,10 @@ EOF
    > 收回亲验:每条 finding 自己 Read/grep/跑坐实(Codex 是劳动力不是信源),引不出 file:line 降置信。
    >   坐实一个维度: $MMW loop checklist cover --item <i> --evidence <file:line>
    >   真 finding:   $MMW loop finding add --severity <C/I/M> --confidence <1-10> --locator <file:line>
-   > 收敛:两视角跑完追一轮无新高置信 finding = 收敛;round 到上限(①②=2,④=1-2)未收敛 →
-   >   $MMW loop surface --kind needs-redirection --question "<审不收敛/卡在哪>"
-   > 方向疑/缺输入 → surface,别当产物缺陷修。清单全绿+无开口 Critical 前 guard-loop 不让你停。
+   > 收敛:两视角跑完追一轮无新高置信 finding = 收敛;每跑完一整轮(两视角覆盖+修复重验)未收敛 →
+   >   $MMW loop round next   (轮账机器计数;到上限引擎自动 surface 熔断,不靠自觉)
+   > 方向疑/缺输入 → $MMW loop surface --kind <needs-context|needs-redirection> --question "<...>",别当产物缺陷修。
+   > 清单全绿+无开口 Critical 前 guard-loop 不让你停。
 EOF
   fi
   cat <<EOF

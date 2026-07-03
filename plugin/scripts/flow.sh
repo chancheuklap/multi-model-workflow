@@ -88,6 +88,28 @@ cmd_handoff() {
   max_turn="$(jq -r '.caps.max_turnaround' "$ROUTES")"
   first_phase="$(jq -r '.phases[0]' "$m")"
 
+  # 交接单产出校验(fail-closed:交接靠固定单子,缺了当场拒收):
+  # ① 空手 pass 拒收——routes 声明本阶段(或本审闸)有产出的,pass 必须 --produced 钉上;
+  # ② 幽灵路径拒收——钉的产出必须真实存在(文件/目录),或是合法提交范围(build 的 base..HEAD)。
+  if [ "$conclusion" = "pass" ] && [ "${#produced[@]}" -eq 0 ]; then
+    local expected
+    if [ -n "$gate" ]; then
+      expected="$(jq -r --arg p "$gate" '.review_gates[$p].produced // ""' "$ROUTES")"
+    else
+      expected="$(jq -r --arg k "$cur_phase" '.phase_bindings[$k].produced // "" | if type=="array" then join(" ") else . end' "$ROUTES")"
+    fi
+    [ -z "$expected" ] || die "[$cur_phase] pass 必须钉产出(本阶段声明产 $expected);空手 pass 拒收"
+  fi
+  local top_wt pp
+  top_wt="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
+  for pp in ${produced[@]+"${produced[@]}"}; do
+    if { [ -n "$top_wt" ] && [ -e "$top_wt/$pp" ]; } || [ -e "$pp" ]; then continue; fi
+    case "$pp" in
+      *..*) git rev-list -n 1 "$pp" >/dev/null 2>&1 && continue ;;
+    esac
+    die "--produced 不存在(拒收,防幽灵产出进接力单): $pp"
+  done
+
   # 按结论算动作(引擎核心)。new_gate 默认清空;只有"进审闸"那一支把它设成当前阶段。
   # new_step 默认 0(换阶段/原地返工/掉头都从头走该阶段步序);needs-context/blocked 停在原地→保留游标,resume 续上当前步
   local new_phase="$cur_phase" new_pidx="$pidx" new_rc="$rc" new_tc="$tc" new_status="active" new_gate="" new_step=0
@@ -279,7 +301,8 @@ cmd_where() {
     step_id="$(jq -r --arg k "$phase" --argjson i "$step_idx" '.phase_bindings[$k].steps[$i].id' "$ROUTES")"
     b_load="$(jq -r --arg k "$phase" --argjson i "$step_idx" '.phase_bindings[$k].steps[$i].load' "$ROUTES")"
     b_do="$(jq -r --arg k "$phase" --argjson i "$step_idx" '.phase_bindings[$k].steps[$i].do' "$ROUTES")"
-    step_line="step=$step_id ($(( step_idx + 1 ))/$step_total)"
+    step_line="step=$step_id ($(( step_idx + 1 ))/$step_total)
+step_note=断点回来时:本步产物若已完成,核一眼直接 mmw step next,别重做"
   fi
 
   # then:有步骤且未到末步 → 推进到下一步走脚本;否则(末步或无步骤)→ 阶段 handoff 钉产物。
@@ -403,22 +426,10 @@ EOF
   else echo "then=mmw handoff --conclusion <...>(产物钉法见 mmw where 的 then)"; fi
 }
 
-# ---------- release-approve(造发布红线批准令牌,用户亲批后由主线程跑) ----------
-# guard-redline(PreToolUse)查 <toplevel>/.claude/multi-model-workflow/release-approval 才放行
-# merge/push/deploy。令牌一次性:guard-redline 放行后即消费(防长期站着批所有发布)。
-cmd_release_approve() {
-  local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
-  local dir="$top/$STATE_SUBDIR"
-  mkdir -p "$dir"
-  printf 'release approved at %s\n' "$(now)" > "$dir/release-approval"
-  echo "RELEASE-APPROVED token=$dir/release-approval(一次性,放行一次 merge/push/deploy 后消费)"
-}
-
 case "${1:-}" in
   handoff)         shift; cmd_handoff "$@" ;;
   spinoff)         shift; cmd_spinoff "$@" ;;
   where)           shift; cmd_where "$@" ;;
   step)            shift; cmd_step "$@" ;;
-  release-approve) shift; cmd_release_approve "$@" ;;
-  *) die "用法: flow.sh handoff|spinoff|where|step|release-approve ..." ;;
+  *) die "用法: flow.sh handoff|spinoff|where|step ..." ;;
 esac

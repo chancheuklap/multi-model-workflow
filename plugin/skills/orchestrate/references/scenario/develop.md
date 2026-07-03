@@ -2,7 +2,7 @@
 
 > orchestrate 路由到这:**新想法 / 功能,或旧系统优化改造**(要设计)。这条路从头到尾就读这一份,不用回 SKILL。
 > **预设 `develop`**,阶段序列:查清 → 给方案 → 想方案 → 切片 → 拆计划 → 落地(含 ④终审闸)→ 收尾(investigate→propose→design→to-issue→plan→build→closing)。**design / plan / build 三个产出阶段,产物过后各被引擎强制审一道闸**(①设计审 / ②计划审 / ④终审,stage 由 `mmw where` 的 `review_start` 报);to-issue(垂直切片立 issue 骨架)在 ①设计审之后、无审闸。
-> HITL 集中在 propose(选方向)/ design / plan;进了 build 默认放权自主跑,只有缺输入 / 方向疑 / 合并红线才停。
+> HITL 集中在 propose(选方向)/ design;**plan 起放权自主跑**(计划审是 Codex 闸,不问人),只有缺输入 / 方向疑 / 合并红线才停。
 > **propose 给方案 + 用户拍(选一个进 design,或全否回上游),不在 investigate 也不在 design 里。**
 
 <!-- BEGIN: worktree-setup -->
@@ -72,7 +72,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 <!-- BEGIN: closing-cleanup -->
 ## 收尾 · 合并后删干净
 
-回执 `done`(STATUS=ready-to-close)= 末阶段过。合并是红线:用户确认后 `mmw release-approve` → `git merge --no-ff <branch>`(禁 `--squash`)。任务分支 merge 进主线后,worktree 连同里面的临时状态一起删:
+回执 `done`(STATUS=ready-to-close)= 末阶段过。合并是红线:回主仓库直接跑 `git merge --no-ff <branch>`(禁 `--squash`)——`guard-redline` 对"合并进主分支"弹权限框,**用户在框里亲批**(无令牌可代批,不分在场/无人值守)。任务分支 merge 进主线后,worktree 连同里面的临时状态一起删:
 
 ```bash
 mmw task cleanup --slug <slug>   # 回主仓库执行

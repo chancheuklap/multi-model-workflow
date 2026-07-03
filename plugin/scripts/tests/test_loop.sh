@@ -22,6 +22,10 @@ bash "$LOOP" step done --id 1.1 --commit abc >/dev/null
 [ "$(ec)" = "NOT-DONE:steps=1.2" ] && ok "做一半仍 NOT-DONE" || no "做一半 ($(ec))"
 bash "$LOOP" step done --id 1.2 >/dev/null
 [ "$(ec)" = "DONE" ] && ok "全 done → DONE(看守放停)" || no "全 done ($(ec))"
+# 回归:step done 不带 --commit 不许把元素从步账蒸发(旧 jq select 写法之坑)
+f0=".claude/multi-model-workflow/loop-state.json"
+[ "$(jq -r '.steps|length' "$f0")" = "2" ] && ok "done 不带 commit 步账元素保留(不蒸发)" || no "步账蒸发!($(jq -r '.steps|length' "$f0"))"
+[ "$(jq -r '.steps[1].commit' "$f0")" = "null" ] && ok "无 commit 时字段保持 null" || no "commit 字段"
 
 # ===== 软停 × 在场开关 =====
 bash "$LOOP" close >/dev/null   # 换 loop 前收束上一个(init 拒覆盖未收束 loop)
@@ -86,6 +90,37 @@ bash "$LOOP" step add --id 9.9 --desc x >/dev/null
 echo "$(bash "$LOOP" close)" | grep -q "CLOSED" && ok "close 报 CLOSED" || no "close 回执"
 [ ! -f "$CF" ] && ok "close 删掉 loop-state" || no "close 未删 loop-state"
 echo "$(bash "$LOOP" close)" | grep -q "CLOSED" && [ ! -f "$CF" ] && ok "close 幂等(无 loop 也安静退)" || no "close 非幂等"
+
+# ===== 空账本不算 DONE(防漏登记静默过门)=====
+bash "$LOOP" close >/dev/null
+bash "$LOOP" init --kind execution >/dev/null
+echo "$(ec)" | grep -q "NOT-DONE:steps=EMPTY" && ok "execution 空步账 → NOT-DONE(不静默过)" || no "execution 空账 ($(ec))"
+bash "$LOOP" close >/dev/null
+bash "$LOOP" init --kind review >/dev/null
+echo "$(ec)" | grep -q "NOT-DONE:checklist=EMPTY" && ok "review 空清单 → NOT-DONE" || no "review 空账 ($(ec))"
+bash "$LOOP" close >/dev/null
+bash "$LOOP" init --kind contract-gate >/dev/null
+echo "$(ec)" | grep -q "NOT-DONE:contracts=EMPTY" && ok "③合同门空清单 → NOT-DONE(无合同也要显式登记)" || no "合同门空账 ($(ec))"
+bash "$LOOP" checklist add --item no-cross-plan-contracts --source design.md:83 >/dev/null
+bash "$LOOP" checklist cover --item no-cross-plan-contracts --evidence "design.md:83(anchors 空)" >/dev/null
+[ "$(ec)" = "DONE" ] && ok "显式登记 no-cross-plan-contracts 并 cover → DONE" || no "显式空合同 ($(ec))"
+
+# ===== 审 loop 轮账:round next 机器计数,到 max_rounds 自动 surface 熔断 =====
+bash "$LOOP" close >/dev/null
+bash "$LOOP" init --kind review --max-rounds 2 >/dev/null
+[ "$(jq -r '.round' ".claude/multi-model-workflow/loop-state.json")" = "1" ] && ok "init round=1" || no "init round"
+[ "$(jq -r '.max_rounds' ".claude/multi-model-workflow/loop-state.json")" = "2" ] && ok "init max_rounds=2" || no "init max_rounds"
+OUTR="$(bash "$LOOP" round next)"
+echo "$OUTR" | grep -q "ROUND=2/2" && ok "round next → 2/2" || no "round next ($OUTR)"
+OUTR2="$(bash "$LOOP" round next)"
+echo "$OUTR2" | grep -q "ROUND-CAP" && ok "超 max_rounds → ROUND-CAP 熔断" || no "ROUND-CAP ($OUTR2)"
+echo "$(ec)" | grep -q "PAUSED:needs-redirection" && ok "熔断自动 surface(exit-check=PAUSED,机器不靠自觉)" || no "熔断 surface ($(ec))"
+# cover 不带 --evidence 不蒸发元素(与 step done 同坑回归)
+bash "$LOOP" resume >/dev/null
+bash "$LOOP" checklist add --item x1 --source s:1 >/dev/null
+bash "$LOOP" checklist cover --item x1 >/dev/null
+[ "$(jq -r '.checklist|length' ".claude/multi-model-workflow/loop-state.json")" = "1" ] && ok "cover 不带 evidence 清单元素保留(不蒸发)" || no "清单蒸发!"
+bash "$LOOP" close >/dev/null
 
 # ===== fail-closed:坏 kind / 缺参 =====
 if bash "$LOOP" init --kind bogus >/dev/null 2>&1; then no "坏 kind 被拒"; else ok "坏 kind 被拒"; fi

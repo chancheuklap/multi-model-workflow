@@ -21,6 +21,13 @@ mmw loop checklist cover --item <i> --evidence <file:line>
 # 合同清单全 cover → exit-check DONE(无 step,steps 空即满足)→ handoff pass
 ```
 
+**没有跨 plan 合同(单 plan / anchors 节为空)也不许空清单过门**——空账本引擎直接 NOT-DONE。登记一条显式空项并用证据坐实:
+
+```bash
+mmw loop checklist add --item "no-cross-plan-contracts" --source "<design.md:anchors 节行号>"
+mmw loop checklist cover --item "no-cross-plan-contracts" --evidence "<design.md:line(anchors 节确认为空)>"
+```
+
 ## 出口
 
 - 合同全兑现 → 回 build 收尾(B6)`mmw handoff --conclusion pass`,引擎随即强制进 ④终审闸。

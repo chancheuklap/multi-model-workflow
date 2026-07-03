@@ -4,7 +4,7 @@
 
 ## 这个项目在做什么
 
-`plugin/` = 正式启用的多模型开发编排 plugin(由 plugin2 重建而来、已替换 v1)。**目标**:做成能落地、被用户长期持续使用的商业化 plugin——让用户在**设计 / 计划阶段与主线程对齐(HITL 集中在此)**,在**执行阶段(落地 / 审)放权自主跑**,从而多线程工作、不从头盯到尾。
+`plugin/` = 正式启用的多模型开发编排 plugin(由 plugin2 重建而来、已替换 v1)。**目标**:做成能落地、被用户长期持续使用的商业化 plugin——让用户在**讨论 / 设计阶段与主线程对齐(HITL 集中在 propose/design)**,从**计划阶段起放权自主跑**(计划审是 Codex 闸,不问人),从而多线程工作、不从头盯到尾。
 
 **验收标准**:第二个零上下文 agent 能照 plugin 独立跑通,不靠我临场解释。
 
@@ -38,7 +38,7 @@
 
 四开口(新设计 / 优化改造 / bug / 合并)→ **investigate**(内部仓库 + 外部方案,两个独立 workflow,取证不判定)→ **propose 给方案**(综合现状亮 2-3 方案,HITL:选一个进 design / 全否回上游)→ **design**(domain 对齐 + 设计审 + to-issue 切片)→ **plan**(单 / 多计划,跨计划合同骨架,fan out plan-writer,计划审)→ **Codex 落地**(主线程开 worktree 分配给 Codex,CLI,固定 prompt 严防过度设计 / 兜底 / 思考,返回后主线程做完整性 + 设计一致性检查)→ **final review**。
 
-- **HITL 集中在设计 / 计划阶段**;进了计划 / 落地默认无人值守,不轻易停下问。
+- **HITL 集中在 propose / design 阶段**;进了计划 / 落地默认无人值守,不轻易停下问。
 - 断点续传:阶段级 + 内层 loop。
 - merge:解 git 文本冲突之外的**业务意图 / 功能设计冲突**。
 - 又稳又快:确定的用脚本固定,流程不绕不卡。
@@ -76,4 +76,4 @@ bash plugin/build/build.sh --apply
 python3 -m json.tool plugin/state-schema/routes.json >/dev/null
 ```
 
-> 接线已完成:`plugin/.claude-plugin/plugin.json` + `hooks/hooks.json`(3 hook)+ `agents/plan-writer.md` + `commands/gather-context.md`,`marketplace.json` source 指 `./plugin`。改版本号要 `plugin.json` 与 `marketplace.json` 两处同步(现都 6.0.0)。
+> 接线已完成:`plugin/.claude-plugin/plugin.json` + `hooks/hooks.json`(3 hook)+ `agents/plan-writer.md` + `commands/gather-context.md`,`marketplace.json` source 指 `./plugin`。改版本号要 `plugin.json` 与 `marketplace.json` 两处同步。

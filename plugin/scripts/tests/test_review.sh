@@ -19,6 +19,8 @@ for s in design plan final; do
   OUT="$(bash "$REVIEW" start --stage "$s" --source "src-$s" 2>/dev/null)"
   echo "$OUT" | grep -q "REVIEW_STARTED stage=$s kind=review" && ok "$s → kind=review" || no "$s kind"
   [ "$(jq -r .kind "$LOOPF")" = "review" ] && ok "$s init loop kind=review" || no "$s loop kind"
+  [ "$(jq -r .max_rounds "$LOOPF")" = "2" ] && ok "$s 审 loop 配轮上限 max_rounds=2(机器熔断)" || no "$s max_rounds"
+  echo "$OUT" | grep -q "loop round next" && ok "$s brief 指示轮账 round next" || no "$s brief round"
   echo "$OUT" | grep -q "worktree-review skill,按 stage=$s" && ok "$s → 纯路由指向 worktree-review skill" || no "$s skill 指针"
   if echo "$OUT" | grep -qE "references/review/|quartet"; then no "$s 仍给 Codex plugin 路径/quartet(不该)"; else ok "$s 无 plugin 路径喂 Codex"; fi
 done

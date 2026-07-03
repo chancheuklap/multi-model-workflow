@@ -12,6 +12,10 @@
       "description": "execution=落地 loop(steps);review=审核 loop(checklist+findings);contract-gate=③便宜合同门(steps+checklist 机器核,无判断)"
     },
     "attendance": { "enum": ["attended", "afk"], "description": "在场开关,只动软停一档" },
+    "round": { "type": "integer", "minimum": 1, "description": "审 loop 当前轮次(loop round next 推进)" },
+    "max_rounds": { "type": "integer", "minimum": 0, "description": "审 loop 轮上限,0=不限;round next 到顶自动 surface 熔断(机器计数,防无限打转)" },
+    "guard_blocks": { "type": "integer", "minimum": 0, "description": "guard-loop 连续零进展顶回计数;≥6 熔断写 pause 交人(机器抓手)" },
+    "guard_sig": { "type": "string", "description": "guard-loop 上次顶回时的账本进展签名(done/covered/findings/decisions 计数),签名不变=零进展" },
     "steps": {
       "type": "array",
       "items": {

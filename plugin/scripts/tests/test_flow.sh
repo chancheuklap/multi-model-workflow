@@ -23,11 +23,16 @@ newtask() { # preset slug -> echoes worktree path
 }
 mphase() { jq -r .phase "$1/.claude/multi-model-workflow/task.json"; }
 mfield() { jq -r ".$2" "$1/.claude/multi-model-workflow/task.json"; }
+# handoff 现在拒收幽灵产出:钉之前先把产出真建出来(文件/目录/合法提交范围)
+mkf() { mkdir -p "$1/$(dirname "$2")"; : > "$1/$2"; }
+mkd() { mkdir -p "$1/$2"; }
+hrange() { (cd "$1" && echo "$(git rev-parse HEAD)..HEAD"); }
 
 # ===== A: develop 全程空跑 + 中途甩支线 (investigate→design→plan→build(④闸)→closing) =====
 WA="$(newtask develop 2026-06-28-task-a)"
 [ "$(mphase "$WA")" = "investigate" ] && ok "A 起于 investigate" || no "A 起于 investigate ($(mphase "$WA"))"
 
+mkf "$WA" docs/ctx.md
 ( cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/ctx.md >/dev/null )  # investigate→propose
 [ "$(mphase "$WA")" = "propose" ] && ok "investigate pass→propose" || no "investigate→propose ($(mphase "$WA"))"
 [ "$(mfield "$WA" 'artifacts|length')" = "1" ] && ok "产出登记进 artifacts" || no "产出登记"
@@ -36,6 +41,7 @@ WA="$(newtask develop 2026-06-28-task-a)"
 WPO="$(cd "$WA" && bash "$FLOW" where)"
 echo "$WPO" | grep -q 'prev_outputs=\["docs/ctx.md"\]' && ok "where 报上阶段产出(prev_outputs 照单读)" || no "prev_outputs 照单读"
 
+mkf "$WA" docs/dir.md
 ( cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/dir.md >/dev/null )  # propose→design(给方案选定→进设计)
 [ "$(mphase "$WA")" = "design" ] && ok "propose pass→design" || no "propose→design ($(mphase "$WA"))"
 
@@ -43,8 +49,10 @@ echo "$WPO" | grep -q 'prev_outputs=\["docs/ctx.md"\]' && ok "where 报上阶段
 [ "$(mfield "$WA" 'subtasks|length')" = "1" ] && ok "甩支线→子任务登记" || no "甩支线登记"
 [ "$(mphase "$WA")" = "design" ] && ok "甩支线后主流程不动" || no "甩支线后主流程不动"
 
-# design 产物过 → 进 ①审闸(phase 不动,gate=design)
-OUTG="$(cd "$WA" && bash "$FLOW" handoff --conclusion pass)"       # design→gate:design
+# design 产物过 → 进 ①审闸(phase 不动,gate=design);声明了产出的阶段禁空手 pass
+if ( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 ); then no "design 空手 pass 该被拒"; else ok "design 空手 pass 被拒(产出必钉)"; fi
+mkf "$WA" docs/design/a.md
+OUTG="$(cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/design/a.md)"       # design→gate:design
 echo "$OUTG" | grep -q "NEXT_ACTION=review" && ok "design pass→进审闸(review)" || no "design→审闸"
 echo "$OUTG" | grep -q "REVIEW_STAGE=design" && ok "审闸报阶段 design" || no "REVIEW_STAGE"
 [ "$(mphase "$WA")" = "design" ] && ok "审闸里 phase 不动" || no "审闸 phase 不动 ($(mphase "$WA"))"
@@ -54,16 +62,18 @@ echo "$OUTG" | grep -q "REVIEW_STAGE=design" && ok "审闸报阶段 design" || n
 [ "$(mphase "$WA")" = "to-issue" ] && ok "①审过→进 to-issue(审后切片)" || no "①审过→to-issue ($(mphase "$WA"))"
 [ "$(mfield "$WA" gate)" = "null" ] && ok "进下一阶段 gate 清空" || no "gate 清空 ($(mfield "$WA" gate))"
 
-( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # to-issue→plan(无审闸)
+mkd "$WA" docs/issues/a
+( cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/a/ >/dev/null )  # to-issue→plan(无审闸)
 [ "$(mphase "$WA")" = "plan" ] && ok "to-issue→进 plan(无审闸)" || no "to-issue→plan ($(mphase "$WA"))"
 
-( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # plan→gate:plan
+mkd "$WA" docs/plans/a
+( cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/a/ >/dev/null )  # plan→gate:plan
 [ "$(mfield "$WA" gate)" = "plan" ] && ok "plan pass→进 ②审闸" || no "②审闸 ($(mfield "$WA" gate))"
 ( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # ②审 verdict→build
 [ "$(mphase "$WA")" = "build" ] && ok "②审过→进 build" || no "②审过→build ($(mphase "$WA"))"
 
 # build 产物过 → 进 ④终审闸(build 现在也 gated:phase 不动,gate=build)
-OUTBG="$(cd "$WA" && bash "$FLOW" handoff --conclusion pass)"      # build→gate:build
+OUTBG="$(cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced "$(hrange "$WA")")"      # build→gate:build
 echo "$OUTBG" | grep -q "NEXT_ACTION=review" && ok "build pass→进 ④终审闸(review)" || no "build→审闸"
 echo "$OUTBG" | grep -q "REVIEW_STAGE=build" && ok "审闸报阶段 build" || no "build REVIEW_STAGE"
 [ "$(mphase "$WA")" = "build" ] && ok "build 审闸里 phase 不动" || no "build 审闸 phase 不动 ($(mphase "$WA"))"
@@ -72,7 +82,8 @@ echo "$OUTBG" | grep -q "REVIEW_STAGE=build" && ok "审闸报阶段 build" || no
 WBG="$(cd "$WA" && bash "$FLOW" where)"
 echo "$WBG" | grep -q "review_start=mmw review start --stage final" && ok "build 闸 where 吐 review_start --stage final" || no "review_start final ($(echo "$WBG" | grep review_start))"
 
-( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # ④审 verdict pass → closing
+mkf "$WA" docs/2026-06-28-task-a-final-review.md
+( cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/2026-06-28-task-a-final-review.md >/dev/null )  # ④审 verdict pass → closing(④闸要钉终审报告)
 [ "$(mphase "$WA")" = "closing" ] && ok "④审过→closing" || no "④审过→closing ($(mphase "$WA"))"
 [ "$(mfield "$WA" gate)" = "null" ] && ok "④审过 gate 清空" || no "④审过 gate 清空 ($(mfield "$WA" gate))"
 OUT="$(cd "$WA" && bash "$FLOW" handoff --conclusion pass)"        # closing→ready-to-close
@@ -82,9 +93,10 @@ echo "$OUT" | grep -q "NEXT_ACTION=done" && ok "末阶段 NEXT=done" || no "NEXT
 
 # ===== A2: 审打回 → 清 gate 回该阶段返工 =====
 WA2="$(newtask develop 2026-06-28-task-a2)"
-( cd "$WA2" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # investigate→propose
-( cd "$WA2" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # propose→design
-( cd "$WA2" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # design→gate:design
+mkf "$WA2" docs/i.md; mkf "$WA2" docs/p.md; mkf "$WA2" docs/d.md
+( cd "$WA2" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )  # investigate→propose
+( cd "$WA2" && bash "$FLOW" handoff --conclusion pass --produced docs/p.md >/dev/null )  # propose→design
+( cd "$WA2" && bash "$FLOW" handoff --conclusion pass --produced docs/d.md >/dev/null )  # design→gate:design
 [ "$(mfield "$WA2" gate)" = "design" ] && ok "A2 进 ①审闸" || no "A2 ①审闸"
 ( cd "$WA2" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )  # 审打回
 [ "$(mfield "$WA2" gate)" = "null" ] && ok "审打回→gate 清空" || no "审打回 gate 清空 ($(mfield "$WA2" gate))"
@@ -103,6 +115,7 @@ echo "$OUTB2" | grep -q "STATUS=blocked" && ok "掉头超上限→blocked" || no
 
 # ===== B2: bug 系统性设计问题 → mmw task escalate --to develop(原地升级,投查成果留着) =====
 WBE="$(newtask bug 2026-06-29-task-be)"
+mkf "$WBE" docs/investigating/be.md
 ( cd "$WBE" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/be.md >/dev/null )  # bug investigate 查出根因
 ESC="$(cd "$WBE" && bash "$PREPARE" escalate --to develop)"
 echo "$ESC" | grep -q "ESCALATED from=bug to=develop" && ok "escalate bug→develop" || no "escalate 回执"
@@ -112,7 +125,8 @@ echo "$ESC" | grep -q "ESCALATED from=bug to=develop" && ok "escalate bug→deve
 [ "$(mfield "$WBE" 'phase_outputs.investigate[0]')" = "docs/investigating/be.md" ] && ok "投查成果保留(phase_outputs 不丢)" || no "投查成果丢失"
 [ "$(mfield "$WBE" 'history[-1].conclusion')" = "escalate→develop" ] && ok "history 记一笔升级" || no "history 升级留痕"
 # 升级后真能按 develop 走到 propose(原 bug 走不到的阶段)
-( cd "$WBE" && bash "$FLOW" handoff --conclusion pass >/dev/null )
+mkf "$WBE" docs/investigating/be2.md
+( cd "$WBE" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/be2.md >/dev/null )
 [ "$(mphase "$WBE")" = "propose" ] && ok "升级后 investigate→propose(develop 路打通)" || no "升级后走 develop ($(mphase "$WBE"))"
 # 已是 develop 再 escalate 被拒;非法目标被拒
 if ( cd "$WBE" && bash "$PREPARE" escalate --to develop >/dev/null 2>&1 ); then no "重复升级被拒"; else ok "已是 develop 再升级被拒"; fi
@@ -128,7 +142,8 @@ OUTC="$(cd "$WC" && bash "$FLOW" handoff --conclusion needs-repair)"
 echo "$OUTC" | grep -q "STATUS=blocked" && ok "返工超上限(>2)→blocked" || no "返工超上限"
 WC2="$(newtask develop 2026-06-28-task-c2)"
 ( cd "$WC2" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
-( cd "$WC2" && bash "$FLOW" handoff --conclusion pass >/dev/null )
+mkf "$WC2" docs/i.md
+( cd "$WC2" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )
 [ "$(mfield "$WC2" repair_count)" = "0" ] && ok "进下一阶段返工计数清零" || no "返工清零"
 
 # ===== D: needs-context 停下等用户 =====
@@ -145,23 +160,26 @@ if ( cd "$WE" && bash "$FLOW" spinoff --tag nope --finding x >/dev/null 2>&1 ); 
 
 # ===== D2: needs-redirection --to-phase 回上游任一指定阶段 =====
 WD2="$(newtask develop 2026-06-28-task-d2)"
-( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # investigate→propose
-( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # propose→design
-( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # design→①审闸
-( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # ①审过→to-issue
-( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # to-issue→plan
+mkf "$WD2" docs/i.md; mkf "$WD2" docs/p.md; mkf "$WD2" docs/d.md; mkd "$WD2" docs/issues/x
+( cd "$WD2" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )        # investigate→propose
+( cd "$WD2" && bash "$FLOW" handoff --conclusion pass --produced docs/p.md >/dev/null )        # propose→design
+( cd "$WD2" && bash "$FLOW" handoff --conclusion pass --produced docs/d.md >/dev/null )        # design→①审闸
+( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # ①审过→to-issue(审闸不产文件)
+( cd "$WD2" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/x/ >/dev/null )        # to-issue→plan
 [ "$(mphase "$WD2")" = "plan" ] && ok "D2 到 plan" || no "D2 到 plan ($(mphase "$WD2"))"
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design >/dev/null )
 [ "$(mphase "$WD2")" = "design" ] && ok "掉头 --to-phase design 回到 design(非首阶段)" || no "to-phase design ($(mphase "$WD2"))"
 [ "$(mfield "$WD2" phase_index)" = "2" ] && ok "--to-phase 回到正确下标" || no "to-phase 下标"
 # 不带 --to-phase 默认回首阶段
 WD3="$(newtask develop 2026-06-28-task-d3)"
-( cd "$WD3" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # →design
+mkf "$WD3" docs/i.md
+( cd "$WD3" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )        # →propose
 ( cd "$WD3" && bash "$FLOW" handoff --conclusion needs-redirection >/dev/null )  # 无 to-phase
 [ "$(mphase "$WD3")" = "investigate" ] && ok "无 --to-phase 默认回首阶段" || no "默认首阶段"
 # --to-phase 非法(不在 phases / 往前跳)被拒
 WD4="$(newtask develop 2026-06-28-task-d4)"
-( cd "$WD4" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # →design(idx1)
+mkf "$WD4" docs/i.md
+( cd "$WD4" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )        # →propose(idx1)
 if ( cd "$WD4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase nope >/dev/null 2>&1 ); then no "to-phase 不存在被拒"; else ok "to-phase 不存在被拒"; fi
 if ( cd "$WD4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase build >/dev/null 2>&1 ); then no "to-phase 往前跳被拒"; else ok "to-phase 往前跳被拒(只能上游)"; fi
 
@@ -170,12 +188,13 @@ WSC="$(newtask small-change 2026-06-28-task-sc)"
 [ "$(mphase "$WSC")" = "build" ] && ok "small-change 起于 build(前置全关)" || no "small-change 起于 build ($(mphase "$WSC"))"
 [ "$(mfield "$WSC" 'phases|length')" = "2" ] && ok "small-change 只 2 个阶段(build,closing)" || no "small-change 2 阶段 ($(mfield "$WSC" 'phases|length'))"
 # build 仍被 ④终审闸冻住(放权也不跳质量门)
-( cd "$WSC" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # build→gate:build
+( cd "$WSC" && bash "$FLOW" handoff --conclusion pass --produced "$(hrange "$WSC")" >/dev/null )  # build→gate:build
 [ "$(mfield "$WSC" gate)" = "build" ] && ok "small-change build 也进 ④终审闸" || no "small-change build 闸 ($(mfield "$WSC" gate))"
 
 # ===== G: 断点恢复 =====
 WF="$(newtask develop 2026-06-28-task-f)"
-( cd "$WF" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # investigate→propose
+mkf "$WF" docs/i.md
+( cd "$WF" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )  # investigate→propose
 WHERE="$(cd "$WF" && bash "$FLOW" where)"
 echo "$WHERE" | grep -q "phase=propose" && ok "where 报精确阶段" || no "where 精确阶段"
 echo "$WHERE" | grep -q "phase_index=1" && ok "where 报精确下标" || no "where 下标"
@@ -188,6 +207,7 @@ echo "$RES" | head -1 | grep -q "MANAGED" && echo "$RES" | tail -n +2 | jq -e '.
 
 # ===== H: design 跨两阶接力单(reads = investigate + propose 都进 prev_outputs) =====
 WH="$(newtask develop 2026-06-29-task-h)"
+mkf "$WH" docs/investigating/2026-06-29-task-h.md; mkf "$WH" docs/design/2026-06-29-task-h-direction.md
 ( cd "$WH" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/2026-06-29-task-h.md >/dev/null )  # investigate→propose
 ( cd "$WH" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-06-29-task-h-direction.md >/dev/null )  # propose→design
 WHD="$(cd "$WH" && bash "$FLOW" where)"
@@ -198,8 +218,9 @@ echo "$PREVH" | jq -e 'index("docs/investigating/2026-06-29-task-h.md")!=null an
 
 # ===== I: 阶段内步骤游标(design 4 步,脚本导航 + 懒加载 + 断点恢复 + handoff 重置) =====
 WI="$(newtask develop 2026-06-30-steps)"
-( cd "$WI" && bash "$FLOW" handoff --conclusion pass >/dev/null )   # investigate→propose
-( cd "$WI" && bash "$FLOW" handoff --conclusion pass >/dev/null )   # propose→design
+mkf "$WI" docs/i.md; mkf "$WI" docs/p.md
+( cd "$WI" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )   # investigate→propose
+( cd "$WI" && bash "$FLOW" handoff --conclusion pass --produced docs/p.md >/dev/null )   # propose→design
 WID="$(cd "$WI" && bash "$FLOW" where)"
 echo "$WID" | grep -q "step=discuss (1/4)" && ok "design 入步:where 报 step=discuss(1/4)" || no "design step=discuss ($(echo "$WID"|grep step=))"
 echo "$WID" | grep -q "load=references/design/discussion.md" && ok "discuss 步只 load discussion.md(懒加载)" || no "discuss load"
@@ -217,6 +238,7 @@ echo "$WIL" | grep -q "step=selfcheck (4/4)" && ok "末步 where 报 selfcheck(4
 echo "$WIL" | grep -q "then=mmw handoff" && echo "$WIL" | grep -q -- "--produced docs/design/2026-06-30-steps.md" && ok "末步 then 回 handoff 钉产物" || no "末步 then handoff"
 DONE="$(cd "$WI" && bash "$FLOW" step next)"
 echo "$DONE" | grep -q "STEPS_DONE" && ok "末步再 step next → STEPS_DONE" || no "STEPS_DONE"
+mkf "$WI" docs/design/2026-06-30-steps.md
 ( cd "$WI" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-06-30-steps.md >/dev/null )  # design→①审
 [ "$(mfield "$WI" step_index)" = "0" ] && ok "handoff 后 step_index 重置=0(新阶段从头)" || no "step_index 重置"
 # 无步骤阶段(investigate)不报 step=,step next 被拒
@@ -225,6 +247,7 @@ echo "$(cd "$WI2" && bash "$FLOW" where)" | grep -q "step=" && no "investigate �
 if ( cd "$WI2" && bash "$FLOW" step next >/dev/null 2>&1 ); then no "无步骤阶段 step next 该被拒"; else ok "无步骤阶段 step next 被拒(直接 handoff)"; fi
 # plan 阶段与 design 同构:也三步走脚本游标(架构/操作一致)
 ( cd "$WI" && bash "$FLOW" handoff --conclusion pass >/dev/null )   # ①审 verdict → to-issue
+mkd "$WI" docs/issues/2026-06-30-steps
 ( cd "$WI" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/2026-06-30-steps/ >/dev/null )  # to-issue→plan
 WIP="$(cd "$WI" && bash "$FLOW" where)"
 echo "$WIP" | grep -q "step=orchestrate (1/3)" && ok "plan 也步骤化:step=orchestrate(1/3)load=plan-flow" || no "plan step=orchestrate ($(echo "$WIP"|grep step=))"
@@ -234,6 +257,7 @@ echo "$(cd "$WI" && bash "$FLOW" step next)" | grep -q "step=selfcheck (3/3)" &&
 
 # ===== J: source-stability(gated 产物过闸后被改 → where 报 stale_gate)=====
 WSS="$(newtask develop 2026-06-30-task-ss)"
+mkf "$WSS" docs/investigating/ss.md; mkf "$WSS" docs/design/ss-dir.md
 ( cd "$WSS" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/ss.md >/dev/null )  # inv->propose
 ( cd "$WSS" && bash "$FLOW" handoff --conclusion pass --produced docs/design/ss-dir.md >/dev/null )     # propose->design
 echo "# design v1" > "$WSS/docs/design/ss.md"
@@ -255,7 +279,7 @@ echo "$WKW" | grep -q "inner_loop=execution" && ok "where 报 inner_loop=executi
 echo "$WKW" | grep -q "inner_loop_load=references/build-a.md" && ok "execution 内层文档=阶段 load(build-a,回落不重配)" || no "inner_loop_load ($(echo "$WKW"|grep inner_loop_load))"
 echo "$WKW" | grep -q "inner_loop_state=NOT-DONE:steps=1.1" && ok "where 借 exit-check 报内层进度(单源)" || no "inner_loop_state ($(echo "$WKW"|grep inner_loop_state))"
 [ -f "$(lf "$WK")" ] && ok "handoff 前 loop-state 在" || no "loop-state 应在"
-( cd "$WK" && bash "$FLOW" handoff --conclusion pass --produced base..HEAD >/dev/null )
+( cd "$WK" && bash "$FLOW" handoff --conclusion pass --produced "$(hrange "$WK")" >/dev/null )
 [ ! -f "$(lf "$WK")" ] && ok "handoff pass → loop close 清 loop-state(schema「退出时清」落地)" || no "loop-state 未清(残留)"
 echo "$(cd "$WK" && bash "$FLOW" where)" | grep -q "inner_loop=" && no "清后 where 仍报 inner_loop(残留污染)" || ok "清后 where 无 inner_loop(无残留)"
 # needs-context 是原地等 resume:保留 loop 现场,不清
@@ -270,7 +294,14 @@ WK2="$(newtask small-change 2026-07-03-loopkeep)"
 
 # develop 到 build → 脚本给 build-b.md(派 Codex 模式),不与 small-change 同份
 WBB="$(newtask develop 2026-07-03-modeb)"
-for i in 1 2 3 4 5 6 7; do ( cd "$WBB" && bash "$FLOW" handoff --conclusion pass >/dev/null ); done
+mkf "$WBB" docs/i.md; mkf "$WBB" docs/p.md; mkf "$WBB" docs/d.md; mkd "$WBB" docs/issues/x; mkd "$WBB" docs/plans/x
+( cd "$WBB" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )       # investigate→propose
+( cd "$WBB" && bash "$FLOW" handoff --conclusion pass --produced docs/p.md >/dev/null )       # propose→design
+( cd "$WBB" && bash "$FLOW" handoff --conclusion pass --produced docs/d.md >/dev/null )       # design→①审闸
+( cd "$WBB" && bash "$FLOW" handoff --conclusion pass >/dev/null )                            # ①审过→to-issue
+( cd "$WBB" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/x/ >/dev/null )  # to-issue→plan
+( cd "$WBB" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/x/ >/dev/null )   # plan→②审闸
+( cd "$WBB" && bash "$FLOW" handoff --conclusion pass >/dev/null )                            # ②审过→build
 [ "$(mphase "$WBB")" = "build" ] && ok "develop 七 pass 到 build" || no "develop 到 build ($(mphase "$WBB"))"
 echo "$(cd "$WBB" && bash "$FLOW" where)" | grep -q "load=references/build-b.md" && ok "develop build 阶段 load=build-b.md(脚本按 scenario 选模式)" || no "develop load build-b"
 

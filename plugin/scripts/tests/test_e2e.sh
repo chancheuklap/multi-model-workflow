@@ -15,6 +15,8 @@ no() { echo "  FAIL: $1"; fail=$((fail+1)); }
 ph() { jq -r .phase "$WT/.claude/multi-model-workflow/task.json"; }
 gate() { jq -r '.gate // "null"' "$WT/.claude/multi-model-workflow/task.json"; }
 prevout() { (cd "$WT" && bash "$FLOW" where) | sed -n 's/^prev_outputs=//p'; }
+mkf() { mkdir -p "$WT/$(dirname "$1")"; : > "$WT/$1"; }   # handoff 拒收幽灵产出:先真建
+mkd() { mkdir -p "$WT/$1"; }
 
 echo "=== test_e2e.sh — 一条 develop 端到端空跑 ==="
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
@@ -27,11 +29,13 @@ WT="$(bash "$PREPARE" new --scenario develop --slug 2026-06-29-e2e --title "端�
 [ "$(ph)" = "investigate" ] && ok "起于 investigate" || no "起点 ($(ph))"
 
 # investigate → propose(产出现状报告,钉接力单)
+mkf docs/investigating/e2e.md
 ( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/e2e.md >/dev/null )
 [ "$(ph)" = "propose" ] && ok "investigate→propose" || no "→propose ($(ph))"
 [ "$(prevout)" = '["docs/investigating/e2e.md"]' ] && ok "propose 照单读到 investigate 报告" || no "接力单 investigate→propose ($(prevout))"
 
 # propose → design(给方案选定方向,钉接力单)
+mkf docs/design/e2e-direction.md
 ( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/design/e2e-direction.md >/dev/null )
 [ "$(ph)" = "design" ] && ok "propose→design(方向选定)" || no "→design ($(ph))"
 # design 跨两阶 reads:现状报告 + 方向都进 prev_outputs(照单读全,不自己找)
@@ -39,6 +43,7 @@ WT="$(bash "$PREPARE" new --scenario develop --slug 2026-06-29-e2e --title "端�
   && ok "design 照单读到 现状报告 + 选定方向" || no "接力单 propose→design ($(prevout))"
 
 # design → ①审闸(只产设计文档,①审只审它)
+mkf docs/design/e2e.md
 OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/design/e2e.md)"
 echo "$OUT" | grep -q "NEXT_ACTION=review" && ok "design 过→进①审闸(不直接 advance)" || no "①审闸"
 [ "$(gate)" = "design" ] && ok "gate=design" || no "gate ($(gate))"
@@ -52,12 +57,14 @@ RS="$(cd "$WT" && bash "$FLOW" where | sed -n 's/^review_source=//p')"
 [ "$(ph)" = "to-issue" ] && [ "$(gate)" = "null" ] && ok "①审过→to-issue(审后切片),gate 清空" || no "①审过→to-issue ($(ph)/$(gate))"
 [ "$(prevout)" = '["docs/design/e2e.md"]' ] && ok "to-issue 照单读到 设计文档" || no "接力单 design→to-issue ($(prevout))"
 # to-issue → plan(产出 issue 骨架,无审闸)
+mkd docs/issues/e2e
 ( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/e2e/ >/dev/null )
 [ "$(ph)" = "plan" ] && [ "$(gate)" = "null" ] && ok "to-issue→plan(无审闸)" || no "to-issue→plan ($(ph)/$(gate))"
 # G1:plan reads [design,to-issue] → 一单读全(设计文档 + issue 骨架)
 [ "$(prevout)" = '["docs/design/e2e.md","docs/issues/e2e/"]' ] && ok "plan 照单读到 设计文档 + issue 骨架" || no "接力单 →plan ($(prevout))"
 
 # plan → ②审闸(产出 plan 目录)
+mkd docs/plans/e2e
 OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/e2e/)"
 echo "$OUT" | grep -q "NEXT_ACTION=review" && ok "plan 过→进②审闸" || no "②审闸"
 ( cd "$WT" && bash "$FLOW" handoff --conclusion pass >/dev/null )   # ②审过
@@ -69,15 +76,17 @@ echo "$OUT" | grep -q "NEXT_ACTION=review" && ok "plan 过→进②审闸" || no
   && bash "$LOOP" step done --id 1.1 >/dev/null ) && ok "build:起 execution loop + 步账走通" || no "build loop"
 [ "$(cd "$WT" && bash "$LOOP" exit-check)" = "DONE" ] && ok "build:步账全 done→exit-check DONE" || no "build exit-check"
 ( cd "$WT" && bash "$REVIEW" start --stage plan-impl --source docs/plans/e2e/ >/dev/null 2>&1 ) && ok "build:③合同门起得来" || no "③合同门"
-# build 产物过 → ④终审闸(build 也 gated:phase 不动,gate=build)
-OUTBG="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced "seed..HEAD")"
+# build 产物过 → ④终审闸(build 也 gated:phase 不动,gate=build);产出=真提交范围(幽灵范围会被拒)
+RANGE="$(cd "$WT" && git rev-parse HEAD)..HEAD"
+OUTBG="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced "$RANGE")"
 echo "$OUTBG" | grep -q "NEXT_ACTION=review" && ok "build 过→进④终审闸(引擎强制)" || no "build→④闸"
 [ "$(ph)" = "build" ] && [ "$(gate)" = "build" ] && ok "build 审闸:phase 不动 gate=build" || no "build 闸 ($(ph)/$(gate))"
 # where 在 build 闸吐确切 review_start --stage final(引擎给命令,不靠散文猜)
 ( cd "$WT" && bash "$FLOW" where | grep -q "review_start=mmw review start --stage final" ) && ok "build 闸 where 吐 review_start --stage final" || no "review_start final"
 
 # ④终审 loop 起得来 → 审过钉终审报告 → closing
-( cd "$WT" && bash "$REVIEW" start --stage final --source "seed..HEAD" >/dev/null 2>&1 ) && ok "④终审 loop 起得来" || no "④终审"
+( cd "$WT" && bash "$REVIEW" start --stage final --source "$RANGE" >/dev/null 2>&1 ) && ok "④终审 loop 起得来" || no "④终审"
+mkf docs/e2e-final-review.md
 ( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/e2e-final-review.md >/dev/null )
 [ "$(ph)" = "closing" ] && [ "$(gate)" = "null" ] && ok "④审过→closing(gate 清空)" || no "④审过→closing ($(ph)/$(gate))"
 # 终审报告钉进 build 接力单,closing 照单读得到

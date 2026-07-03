@@ -86,7 +86,7 @@ flowchart TB
     GL <-->|"读写步账"| LS
     HANDOFF -.->|"查走向"| RJ
     PH6 -.->|"git merge / push / deploy"| GR
-    GR -->|"无 release-approval → 拒,问你"| USER
+    GR -->|"permissionDecision=ask → 权限框要你亲批(无令牌可代批)"| USER
 
     classDef ai fill:#fef3c7,stroke:#d97706,color:#000
     classDef sh fill:#dbeafe,stroke:#2563eb,color:#000
@@ -284,8 +284,8 @@ flowchart LR
 
 | 审 | 完成判据(覆盖 + 怎么验) | 熔断 | 第三态 |
 |---|---|---|---|
-| ①设计 | 两轴过 + 方向级五问都明答(不许跳)+ 无 Critical;验=grep 仓库(现成库?调用方?合同?) | **2 轮**(旧 plugin 这里忘了设,要补) | 方向疑→交人 / 缺输入 |
-| ②计划 | 两轴过 + 每个 issue 有对应 plan、每个 pack 有验收命令、引用的符号 grep 得到 + 无 Critical | 2 轮 → blocked | 方向疑 / blocked |
+| ①设计 | 两轴过 + 方向级五问都明答(不许跳)+ 无 Critical;验=grep 仓库(现成库?调用方?合同?) | **2 轮**(`loop round next` 机器计数,到顶自动 surface) | 方向疑→交人 / 缺输入 |
+| ②计划 | 两轴过 + 每个 issue 有对应 plan、每个 pack 有验收命令、引用的符号 grep 得到 + 无 Critical | 2 轮(机器计数)→ blocked | 方向疑 / blocked |
 | ③落地 | 全 Pack 提交 + 声明的跨 plan 合同兑现(都可机器核);不开判断 loop | 合同不达→回落地(落地自己的 2 轮) | 合同根上错→升级 |
 | ④final | 意图清单逐条坐实(不是"提到")+ 每条跨 plan 合同真接上 + 两基线过 + 无 Critical;验=真跑测试/读大 diff/对抗输入 | 1–2 轮 + 超限转根因调查/人 | 回流落地(上限1)/ 发布风险→人 |
 
