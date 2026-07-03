@@ -38,7 +38,9 @@ case "$res" in
     if jq --arg s "$sig" --argjson b "$blocks" '.guard_sig=$s | .guard_blocks=$b' "$f" > "$tmp" 2>/dev/null && [ -s "$tmp" ]; then
       mv "$tmp" "$f"
     else rm -f "$tmp"; fi
-    echo "内层未完成($res),做完再停。" >&2; exit 2 ;;   # 顶回去续
+    hint=""
+    [ "$(jq -r '.kind // ""' "$f" 2>/dev/null)" = "review" ] && hint="审 loop 整轮跑完记得 loop round next 记轮(轮账熔断靠它)。"
+    echo "内层未完成($res),做完再停。$hint" >&2; exit 2 ;;   # 顶回去续
   CORRUPT:*)  echo "看守:loop-state 损坏($res),不放停,请人查。" >&2; exit 2 ;;  # fail-closed
   *) echo "看守:exit-check 输出异常($res),不放停。" >&2; exit 2 ;;          # 默认 fail-closed
 esac

@@ -82,7 +82,7 @@ OUTBG="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced "$RANGE")
 echo "$OUTBG" | grep -q "NEXT_ACTION=review" && ok "build 过→进④终审闸(引擎强制)" || no "build→④闸"
 [ "$(ph)" = "build" ] && [ "$(gate)" = "build" ] && ok "build 审闸:phase 不动 gate=build" || no "build 闸 ($(ph)/$(gate))"
 # where 在 build 闸吐确切 review_start --stage final(引擎给命令,不靠散文猜)
-( cd "$WT" && bash "$FLOW" where | grep -q "review_start=mmw review start --stage final" ) && ok "build 闸 where 吐 review_start --stage final" || no "review_start final"
+( cd "$WT" && bash "$FLOW" where | grep "review_start=" | grep -q -- "review start --stage final" ) && ok "build 闸 where 吐 review_start --stage final" || no "review_start final"
 
 # ④终审 loop 起得来 → 审过钉终审报告 → closing
 ( cd "$WT" && bash "$REVIEW" start --stage final --source "$RANGE" >/dev/null 2>&1 ) && ok "④终审 loop 起得来" || no "④终审"

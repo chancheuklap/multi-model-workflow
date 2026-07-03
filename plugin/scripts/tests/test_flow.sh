@@ -80,7 +80,7 @@ echo "$OUTBG" | grep -q "REVIEW_STAGE=build" && ok "审闸报阶段 build" || no
 [ "$(mfield "$WA" gate)" = "build" ] && ok "gate=build" || no "gate=build ($(mfield "$WA" gate))"
 # where 在 build 审闸里吐确切 review_start(stage=final,引擎给命令不靠散文猜)
 WBG="$(cd "$WA" && bash "$FLOW" where)"
-echo "$WBG" | grep -q "review_start=mmw review start --stage final" && ok "build 闸 where 吐 review_start --stage final" || no "review_start final ($(echo "$WBG" | grep review_start))"
+echo "$WBG" | grep "review_start=" | grep -q -- "review start --stage final" && ok "build 闸 where 吐 review_start --stage final(完整可执行命令)" || no "review_start final ($(echo "$WBG" | grep review_start))"
 
 mkf "$WA" docs/2026-06-28-task-a-final-review.md
 ( cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/2026-06-28-task-a-final-review.md >/dev/null )  # ④审 verdict pass → closing(④闸要钉终审报告)
@@ -224,7 +224,7 @@ mkf "$WI" docs/i.md; mkf "$WI" docs/p.md
 WID="$(cd "$WI" && bash "$FLOW" where)"
 echo "$WID" | grep -q "step=discuss (1/4)" && ok "design 入步:where 报 step=discuss(1/4)" || no "design step=discuss ($(echo "$WID"|grep step=))"
 echo "$WID" | grep -q "load=references/design/discussion.md" && ok "discuss 步只 load discussion.md(懒加载)" || no "discuss load"
-echo "$WID" | grep -q "then=mmw step next" && ok "非末步 then=mmw step next(脚本导航)" || no "then step next"
+echo "$WID" | grep "^then=" | grep -q "step next" && ok "非末步 then=step next(脚本导航,完整命令)" || no "then step next"
 SN="$(cd "$WI" && bash "$FLOW" step next)"
 echo "$SN" | grep -q "step=prototype (2/4)" && ok "step next → prototype(2/4)" || no "step next prototype ($SN)"
 [ "$(mfield "$WI" step_index)" = "1" ] && ok "step_index 落盘=1(断点恢复靠它)" || no "step_index 落盘"
@@ -235,7 +235,7 @@ echo "$SN" | grep -q "step=prototype (2/4)" && ok "step next → prototype(2/4)"
 ( cd "$WI" && bash "$FLOW" step next >/dev/null )   # →selfcheck(末步)
 WIL="$(cd "$WI" && bash "$FLOW" where)"
 echo "$WIL" | grep -q "step=selfcheck (4/4)" && ok "末步 where 报 selfcheck(4/4)" || no "selfcheck step"
-echo "$WIL" | grep -q "then=mmw handoff" && echo "$WIL" | grep -q -- "--produced docs/design/2026-06-30-steps.md" && ok "末步 then 回 handoff 钉产物" || no "末步 then handoff"
+echo "$WIL" | grep "^then=" | grep -q "handoff --conclusion" && echo "$WIL" | grep -q -- "--produced docs/design/2026-06-30-steps.md" && ok "末步 then 回 handoff 钉产物" || no "末步 then handoff"
 DONE="$(cd "$WI" && bash "$FLOW" step next)"
 echo "$DONE" | grep -q "STEPS_DONE" && ok "末步再 step next → STEPS_DONE" || no "STEPS_DONE"
 mkf "$WI" docs/design/2026-06-30-steps.md

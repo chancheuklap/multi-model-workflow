@@ -52,6 +52,14 @@ cmd_new() {
   # 状态平面对 git 不可见:.claude/ 下全部忽略(task.json/loop-state/codex-logs),
   # 防 worker `git add -A` 把 plugin 状态污染进代码提交、防 closing 的 status 干净核查永远过不了
   printf '*\n' > "$wt/.claude/.gitignore"
+  # 过程产物不永久存档(随 worktree 删):现状报告 / 审查留痕 / 终审报告 / merge-brief。
+  # 提交进分支的只有:设计(含 mockup/prototype)/ issue / 计划 / 领域文档(docs/context 项目级资产)。
+  cat > "$wt/docs/.gitignore" <<'IGN'
+investigating/
+reviews/
+*-final-review.md
+*-merge-brief.md
+IGN
 
   # 阶段序列从预设解析:主干被 preset 过滤后的开着阶段(单源,prepare 不硬编码)
   [ -f "$ROUTES" ] || die "找不到 routes.json: $ROUTES"

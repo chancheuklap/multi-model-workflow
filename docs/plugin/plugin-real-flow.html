@@ -160,7 +160,7 @@
   <div class="row">
     <div class="n hitl"><div class="t">slug 确认 <span class="b hitl">HITL</span></div><div class="d">YYYY-MM-DD-&lt;theme&gt;,向你确认一次(可改名)</div></div>
     <div class="ar">→</div>
-    <div class="n script"><div class="t">mmw task new</div><div class="d">建 <code>.claude/worktrees/&lt;slug&gt;</code> + 同名分支 · scaffold docs/{investigating,design,issues,plans,context,reviews} · 写 task.json(phases 按预设固化)· <b>.claude/.gitignore 隔离状态平面</b>(worker add -A 污染不了提交)</div></div>
+    <div class="n script"><div class="t">mmw task new</div><div class="d">建 <code>.claude/worktrees/&lt;slug&gt;</code> + 同名分支 · scaffold docs/* · 写 task.json(phases 按预设固化)· <b>.claude/.gitignore 隔离状态平面</b> · <b>docs/.gitignore 过程产物不存档</b>(investigating/reviews/终审报告随 worktree 删;设计·issue·计划·领域文档才提交)</div></div>
     <div class="ar">→</div>
     <div class="n claude"><div class="t">EnterWorktree</div><div class="d">切会话 cwd 进工作区(只有这步能切)</div></div>
     <div class="ar">→</div>
@@ -250,7 +250,7 @@
   <div class="back"><span class="rp">needs-repair 回 design 改(≤2)</span><span class="rd">方向疑 → needs-redirection 交你</span></div>
   <div class="chead"><span class="ph">①设计审闸</span><span class="who gate">stage=design</span><span class="who codex">Codex ×2</span><span class="io">mmw where 吐 review_start 照跑</span></div>
   <div class="row">
-    <div class="n script"><div class="t">mmw review start</div><div class="d">收束旧 loop → init kind=review <b>max_rounds=2</b> → 打印协调帮手 brief</div></div>
+    <div class="n script"><div class="t">mmw review start</div><div class="d">收束旧 loop → init kind=review <b>max_rounds=2</b> → <b>brief 落盘状态目录</b>,派帮手只传文件路径(brief 不过主线程 context)</div></div>
     <div class="ar">→</div>
     <div class="n claude"><div class="t">主线程抽覆盖清单</div><div class="d">从设计文档逐条抽「要审到什么」入 checklist(带 doc:line)· attendance attended/afk</div></div>
     <div class="ar">→</div>
@@ -316,7 +316,7 @@
 <!-- ═══════════════ ④final ═══════════════ -->
 <div class="card gate">
   <div class="back"><span class="rp">代码缺陷就地修 needs-repair(≤2)</span><span class="rd">撞破 plan/design → needs-redirection 回上游</span></div>
-  <div class="chead"><span class="ph">④终审闸 · 双模型 2×2 = 4 审者</span><span class="who gate">stage=final</span><span class="who codex">Codex ×2</span><span class="who claude">Claude ×2</span><span class="io">source=base..HEAD 全 diff · 预算最大</span></div>
+  <div class="chead"><span class="ph">④终审闸 · 双模型 2×2 = 4 审者(small-change/bug 自动降档:1×Codex 一肩挑两视角)</span><span class="who gate">stage=final</span><span class="who codex">Codex ×2</span><span class="who claude">Claude ×2</span><span class="io">source=base..HEAD 全 diff · 预算最大</span></div>
   <div class="row">
     <div class="grid22">
       <div class="n codex"><div class="t">Codex · 基线1 <span class="b model">gpt-5.5 high</span></div><div class="d">回归扫描全 diff / 意图逐条(回最初 design+issue)/ 跨 plan 缝隙:A 碰坏 B?合同数据流迁移序 import 一致?</div></div>
@@ -338,7 +338,7 @@
   <div class="back"><span class="rd">遗留没清/测试没绿 → needs-redirection --to-phase build</span></div>
   <div class="chead"><span class="ph">closing · 收尾</span><span class="who claude">主线程</span><span class="io">load=closing.md · prev_outputs=设计+issues+提交范围+终审报告</span></div>
   <div class="row">
-    <div class="n claude"><div class="t">收口清单逐条</div><div class="d">docs 产出集中提交 → git status 干净(.claude 已 ignore)· 测试绿 · 扫分支 diff 新 TODO/FIXME/占位:<b>当场修/开后续/确认非问题三选一,不许含糊</b> · open_items+subtasks 逐条处置不静默丢 · ①②③④ 全过无开口 Critical · 设计与落地无事后漂移</div></div>
+    <div class="n claude"><div class="t">收口清单逐条</div><div class="d">设计/issue/plan/领域文档集中提交(过程产物已 ignore 不存档)→ git status 干净· 测试绿 · 扫分支 diff 新 TODO/FIXME/占位:<b>当场修/开后续/确认非问题三选一,不许含糊</b> · open_items+subtasks 逐条处置不静默丢 · ①②③④ 全过无开口 Critical · 设计与落地无事后漂移</div></div>
     <div class="ar">→</div>
     <div class="n script"><div class="t">handoff pass</div><div class="d">STATUS=ready-to-close</div></div>
     <div class="ar">→</div>
