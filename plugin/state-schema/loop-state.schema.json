@@ -20,11 +20,13 @@
         "properties": {
           "id": { "type": "string" },
           "desc": { "type": "string" },
-          "status": { "enum": ["pending", "done", "blocked"] },
-          "commit": { "type": ["string", "null"] }
+          "status": { "enum": ["pending", "done"] },
+          "commit": { "type": ["string", "null"] },
+          "plan": { "type": ["string", "null"], "description": "该步对应的 plan 文档路径(模式B 一 plan 一步);断点恢复靠它重建步→plan" },
+          "worktree": { "type": ["string", "null"], "description": "该 plan 派 Codex 的子 worktree 路径。pending+有 worktree = 已派(去那 worktree 读 codex-session verify/resume);pending+无 worktree = 未派。session 存该 worktree 内 codex-session(一 plan 一 worktree,不共享、无竞争)" }
         }
       },
-      "description": "落地=pack;contract-gate=待提交的 pack。主线程展开(steps expand),commit hook 记 done"
+      "description": "落地=pack/plan;contract-gate=待提交的 pack。主线程展开(steps expand),commit hook 记 done。plan/worktree 支撑模式B 并行 Codex 的内层断点恢复"
     },
     "checklist": {
       "type": "array",

@@ -40,6 +40,9 @@ cmd_start() {
     *) die "--stage 只能 design|plan|plan-impl|final|merge-impl" ;;
   esac
 
+  # 换审/门 loop 前先收束上一个内层 loop(如 ③ 前的 execution:执行已 DONE、git 提交为准,
+  # ledger 显式归零而非被 init 静默覆盖)。close 幂等,无 loop 也安静过。
+  bash "$LOOP" close >&2
   bash "$LOOP" init --kind "$kind" >&2
 
   cat <<EOF

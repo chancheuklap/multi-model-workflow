@@ -46,6 +46,7 @@ bash "$SCRIPT_DIR/../flow.sh" release-approve >/dev/null
 [ "$(run_hook guard-redline.sh "$P_MERGE")" = "2" ] && ok "消费后再 merge → 重新拦" || no "消费后未拦"
 
 # ===== record-step(PostToolUse commit)=====
+bash "$LOOP" close >/dev/null   # 清掉上一段(含损坏态)再起新 loop(init 拒覆盖未收束 loop)
 bash "$LOOP" init --kind execution >/dev/null
 bash "$LOOP" step add --id 2.1 --desc x >/dev/null
 echo change > c.txt; git add -A; git commit -qm "Pack 2.1: do the thing"

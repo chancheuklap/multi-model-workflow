@@ -263,6 +263,10 @@ WK2="$(newtask small-change 2026-07-03-loopkeep)"
 ( cd "$WK2" && bash "$LOOP" init --kind execution >/dev/null )
 ( cd "$WK2" && bash "$FLOW" handoff --conclusion needs-context >/dev/null )
 [ -f "$(lf "$WK2")" ] && ok "needs-context 保留 loop-state(resume 续现场)" || no "needs-context 误清 loop"
+# resume:用户答完回来 → waiting-user 翻回 active(否则状态挂 waiting 到下次 handoff)
+[ "$(mfield "$WK2" status)" = "waiting-user" ] && ok "needs-context → status=waiting-user" || no "waiting-user 状态"
+( cd "$WK2" && bash "$PREPARE" resume >/dev/null )
+[ "$(mfield "$WK2" status)" = "active" ] && ok "task resume → 翻回 active" || no "resume 未翻 active ($(mfield "$WK2" status))"
 
 # develop 到 build → 脚本给 build-b.md(派 Codex 模式),不与 small-change 同份
 WBB="$(newtask develop 2026-07-03-modeb)"

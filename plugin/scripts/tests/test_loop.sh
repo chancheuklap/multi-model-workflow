@@ -24,6 +24,7 @@ bash "$LOOP" step done --id 1.2 >/dev/null
 [ "$(ec)" = "DONE" ] && ok "全 done → DONE(看守放停)" || no "全 done ($(ec))"
 
 # ===== 软停 × 在场开关 =====
+bash "$LOOP" close >/dev/null   # 换 loop 前收束上一个(init 拒覆盖未收束 loop)
 bash "$LOOP" init --kind execution >/dev/null
 bash "$LOOP" step add --id 2.1 --desc x >/dev/null
 # afk:自决+留痕,不写 pause
@@ -47,6 +48,7 @@ bash "$LOOP" surface --kind needs-redirection --question "方向是不是错了?
 [ "$(ec)" = "PAUSED:needs-redirection" ] && ok "冒泡 afk 也停(needs-redirection)" || no "冒泡停 ($(ec))"
 
 # ===== 审核 loop:checklist 没全 covered 不放 pass =====
+bash "$LOOP" close >/dev/null
 bash "$LOOP" init --kind review >/dev/null
 bash "$LOOP" checklist add --item intent-1 --source design.md:10 >/dev/null
 bash "$LOOP" checklist add --item intent-2 --source design.md:20 >/dev/null
@@ -58,6 +60,7 @@ bash "$LOOP" finding add --severity Critical --confidence 8 --locator foo.py:3 >
 echo "$(ec)" | grep -q "open_critical=1" && ok "审:有开口 Critical → 不放 DONE" || no "审 Critical ($(ec))"
 
 # ===== ③合同门:全 pack committed + 合同存在 =====
+bash "$LOOP" close >/dev/null
 bash "$LOOP" init --kind contract-gate >/dev/null
 bash "$LOOP" step add --id p1 --desc pack1 >/dev/null
 bash "$LOOP" checklist add --item contractA --source plan.md >/dev/null
@@ -66,9 +69,19 @@ bash "$LOOP" step done --id p1 --commit z >/dev/null
 bash "$LOOP" checklist cover --item contractA --evidence "接上了" >/dev/null
 [ "$(ec)" = "DONE" ] && ok "合同门:全提交+合同在 → DONE" || no "合同门 DONE ($(ec))"
 
-# ===== close:收束删 loop-state(schema「退出时清」的落地),幂等 =====
-bash "$LOOP" init --kind execution >/dev/null
+# ===== 模式B 步账记 plan/worktree(内层断点恢复)+ init 守卫 + close 幂等 =====
 CF=".claude/multi-model-workflow/loop-state.json"
+bash "$LOOP" close >/dev/null   # 收束上一个 contract-gate loop
+bash "$LOOP" init --kind execution >/dev/null
+# init 守卫:已有未收束 loop 再 init 被拒(防手滑抹掉 execution 进度/子 worktree 映射)
+if bash "$LOOP" init --kind review >/dev/null 2>&1; then no "已有 loop 再 init 应被拒"; else ok "init 守卫:未收束 loop 拒覆盖"; fi
+# 步账记 plan + 子 worktree(pending+有 worktree = 已派,断点恢复据此认哪步派到哪)
+bash "$LOOP" step add --id planA --desc "计划A" --plan docs/plans/x/001.md --worktree /wt/planA >/dev/null
+[ "$(jq -r '.steps[0].plan' "$CF")" = "docs/plans/x/001.md" ] && ok "步账记 plan 路径(恢复认哪步=哪 plan)" || no "step.plan 未记"
+[ "$(jq -r '.steps[0].worktree' "$CF")" = "/wt/planA" ] && ok "步账记子 worktree(恢复认派到哪)" || no "step.worktree 未记"
+# 不带 plan/worktree 的步 → null(模式A 小改步)
+bash "$LOOP" step add --id 9.9 --desc x >/dev/null
+[ "$(jq -r '.steps[1].plan' "$CF")" = "null" ] && ok "无 plan 步记 null(模式A 兼容)" || no "step.plan 应 null"
 [ -f "$CF" ] && ok "close 前 loop-state 在" || no "close 前应有 loop-state"
 echo "$(bash "$LOOP" close)" | grep -q "CLOSED" && ok "close 报 CLOSED" || no "close 回执"
 [ ! -f "$CF" ] && ok "close 删掉 loop-state" || no "close 未删 loop-state"

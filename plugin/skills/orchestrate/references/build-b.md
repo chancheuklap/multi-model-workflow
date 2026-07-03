@@ -5,14 +5,25 @@
 > - Codex **只改源码、禁碰 `docs/`**(已焊进派发 prompt);每 Pack 一提交带 `Pack N.M`。
 > - **Codex 返回的事实(改了啥、测试结果)是劳动力不是信源**——你 verify 时自己 grep / 读 / 跑坐实。
 
+## 断点恢复(context 断了 / 中途回来,先跑这个)
+
+`mmw where` 报 `inner_loop=execution` = 落地 loop 没走完。读 `loop-state.json` 的 `steps`,**认步账不认记忆**——哪步派了、派到哪全在里面:
+
+| step 状态 | 含义 | 接着做 |
+|---|---|---|
+| `done` | 该 plan 已验收提交 | 跳过 |
+| `pending` + 有 `worktree` + 该 worktree 内有 `codex-session` | 已派 Codex(可能已在子 worktree 提交) | **别重派**:进那 worktree 读 codex 最后消息 → 走 B3 验收;要补改用 `mmw codex resume --worktree <wt> --instructions <f>` |
+| `pending` + 有 `worktree` + 无 `codex-session` | 记了映射但没派成(dispatch 崩) | 重派:回 B2 `mmw codex dispatch` |
+| `pending` + 无 `worktree` | 还没轮到 | 正常 B1→B2 派 |
+
 ## B1. 进 + 起落地 loop
 
-`mmw where` → `prev_outputs` = plan 阶段钉的 plan 目录。读该目录拿 Task Pack 清单、acceptance、plan 间依赖。起 loop、把 plan 展开成步账(一份 plan 一步,或按 Pack 更细):
+`mmw where` → `prev_outputs` = plan 阶段钉的 plan 目录。读该目录拿 Task Pack 清单、acceptance、plan 间依赖。起 loop、把 plan 展开成步账(**一份 plan 一步**,派前把 plan 路径 + 分配的子 worktree 记进步账——断点恢复靠它认"哪步=哪 plan=派到哪"):
 
 ```bash
 mmw loop init --kind execution
 mmw loop attendance --mode afk           # 放权自主跑;盯着调试设 attended
-mmw loop step add --id <plan-或-pack-id> --desc "<标题>"   # 逐项
+mmw loop step add --id <plan-id> --desc "<标题>" --plan <plan 绝对路径> --worktree <该 plan 的子 worktree 绝对路径>   # 逐项
 ```
 
 判哪些 plan 互不依赖 → 并行;有 blocked_by 链 → 按序。

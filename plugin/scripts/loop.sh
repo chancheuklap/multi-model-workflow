@@ -42,6 +42,11 @@ cmd_init() {
   while [ $# -gt 0 ]; do case "$1" in --kind) kind="$2"; shift 2;; *) die "未知参数 $1";; esac; done
   case "$kind" in execution|review|contract-gate) ;; *) die "--kind 只能 execution|review|contract-gate";; esac
   local f top; top="$(git rev-parse --show-toplevel)"; f="$top/$STATE_SUBDIR/$LOOP_NAME"
+  # fail-closed:已有未收束 loop 不许覆盖(防手滑 re-init 抹掉 execution 进度/子 worktree 映射)。
+  # 换 loop 前必须显式 close(handoff 会自动 close;review start 换审 loop 前也先 close)。
+  if [ -f "$f" ]; then
+    die "已有未收束 loop(kind=$(jq -r '.kind // "?"' "$f" 2>/dev/null));先 mmw loop close 再 init,或复用当前 loop"
+  fi
   mkdir -p "$top/$STATE_SUBDIR"
   jq -n --arg k "$kind" '{schema_version:"1", kind:$k, attendance:"afk",
     steps:[], checklist:[], findings:[], decisions:[], pause:null}' > "$f"
@@ -61,10 +66,14 @@ cmd_step() {
   local f; f="$(need_loop)"
   case "$verb" in
     add)
-      local id="" desc=""
-      while [ $# -gt 0 ]; do case "$1" in --id) id="$2"; shift 2;; --desc) desc="$2"; shift 2;; *) die "未知参数 $1";; esac; done
+      local id="" desc="" plan="" worktree=""
+      while [ $# -gt 0 ]; do case "$1" in --id) id="$2"; shift 2;; --desc) desc="$2"; shift 2;; --plan) plan="$2"; shift 2;; --worktree) worktree="$2"; shift 2;; *) die "未知参数 $1";; esac; done
       [ -n "$id" ] || die "--id 必填"
-      edit "$f" --arg id "$id" --arg d "$desc" '.steps += [{id:$id, desc:$d, status:"pending", commit:null}]'
+      # plan/worktree 可空(模式A 小改步无 plan);模式B 一 plan 一步,派前记好映射供断点恢复
+      edit "$f" --arg id "$id" --arg d "$desc" --arg p "$plan" --arg w "$worktree" \
+        '.steps += [{id:$id, desc:$d, status:"pending", commit:null,
+                     plan:(if $p=="" then null else $p end),
+                     worktree:(if $w=="" then null else $w end)}]'
       echo "STEP-ADD $id" ;;
     done)
       local id="" commit=""

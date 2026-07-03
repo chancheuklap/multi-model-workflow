@@ -91,6 +91,16 @@ cmd_resume() {
     exit 0
   fi
   jq -e . "$manifest" >/dev/null 2>&1 || die "manifest 损坏:$manifest"
+  # resume = 用户答完回来继续:waiting-user 翻回 active(否则状态一直挂 waiting 到下次 handoff)。
+  # 只翻这一种,别的状态原样;fail-closed 写(空/非法 JSON 拒写、保留原档)。
+  if [ "$(jq -r .status "$manifest")" = "waiting-user" ]; then
+    local tmp; tmp="$(mktemp)"
+    if jq '.status="active"' "$manifest" > "$tmp" && [ -s "$tmp" ] && jq -e . "$tmp" >/dev/null 2>&1; then
+      mv "$tmp" "$manifest"
+    else
+      rm -f "$tmp"; die "resume 翻 active 写入失败,manifest 保留不动"
+    fi
+  fi
   echo "MANAGED"
   cat "$manifest"
 }
