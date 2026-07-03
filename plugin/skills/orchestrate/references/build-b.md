@@ -37,6 +37,8 @@ mmw codex dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree 
   --design <设计文档绝对路径> --issue <该 plan 对应 issue 绝对路径>
 ```
 
+- **子 worktree 落点定死**:`<主仓库>/.claude/worktrees/<slug>-plan-<NNN>`(与任务 worktree 同层,别散落);脚本会自动挂 `codex/<目录名>` 分支并从 `--base`(默认 HEAD)分叉。
+
 - **三文档都传**:Codex 开工要读设计(意图 / 合同)+ 它的 issue(边界)+ 它的计划(实施权威),不能只给计划。
 - **按 plan 的 `Complexity` 切模型档**(plan header / Task Pack 的 `Complexity` 字段):`capable`(计费 / 权限 / migration / 跨服务等高风险)→ 加 `--model gpt-5.5 --effort xhigh`;`cheap` / `standard` 用默认(gpt-5.4 xhigh)。高风险 plan 别用低档模型落地。
 - 并行:互不依赖的 plan,各自一个 worktree,`run_in_background: true` 同时派(寻找一切安全的并行机会加快进度)。
@@ -67,7 +69,7 @@ Codex 返回后,读它最后消息 + **自己核**(亲验):
 
 ## B4. 全 plan 验完 + 合并
 
-每份 plan 验过(B3)→ `mmw loop step done`。所有 plan 都 done 后 `mmw loop exit-check` 应为 DONE(执行 loop 收工)。并行 plan 各在自己 worktree → 合并回任务分支(解 git 冲突 + 业务 / 功能冲突)。
+每份 plan 验过(B3)→ `mmw loop step done`。所有 plan 都 done 后 `mmw loop exit-check` 应为 DONE(执行 loop 收工)。并行 plan 各在自己 worktree → 合并回任务分支(解 git 冲突 + 业务 / 功能冲突;`guard-redline` 只拦主分支,任务分支间合并放行)。**每合完一个 plan 就清它的子 worktree**(不留孤儿):`git worktree remove <子 worktree>` + `git branch -d codex/<目录名>`。
 
 ## B5. ③ 合同门(一次,全 plan 合并后)
 

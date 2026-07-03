@@ -17,6 +17,11 @@ const topics = Array.isArray(A.topics) ? A.topics : []
 if (!topics.length) {
   throw new Error('investigate-internal 需要 args.topics(非空),主线程先定好再传')
 }
+// 仓库根必传(fail-closed):不钉死目标仓库,agent 会在自己 cwd 取证,产出整份无关结论。
+const repoRoot = (typeof A.repoRoot === 'string') ? A.repoRoot.trim() : ''
+if (!repoRoot) {
+  throw new Error('investigate-internal 需要 args.repoRoot(目标仓库/worktree 绝对路径),防 agent 在错误 cwd 取证')
+}
 
 const TOPIC_SCHEMA = {
   type: 'object',
@@ -71,10 +76,11 @@ function topicPrompt(t) {
     : ''
   return [
     `你是 investigate 阶段的一名仓库调查员,只查这一个专题,不查别的。`,
+    `目标仓库根(只在此路径下取证,别查你 cwd 的其它仓库):${repoRoot}`,
     `专题角度:${t.angle}`,
     `要回答:${t.question}`,
     loadSkill,
-    `调查本仓库现状:模块边界 / seam / 数据流 / 根因。只读,用 Read/grep/Glob,每条结论给 file:line。`,
+    `调查目标仓库现状:模块边界 / seam / 数据流 / 根因。只读,用 Read/grep/Glob,每条结论给 file:line。`,
     `红线:取证不判定——只摆事实和出处,绝不提方案、选 A/B、下设计结论(那是后面 design 的事)。`,
     `没查清的诚实写进 gaps,不要编。撞到与本题无关的 bug/旁路优化记进 summary 末尾,别顺手修。`,
     `返回结构化结果(schema 强制)。`,

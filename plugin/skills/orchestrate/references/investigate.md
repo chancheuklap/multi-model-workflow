@@ -35,7 +35,8 @@
 ```
 Workflow({
   scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/investigate-internal.workflow.js",   // 外部则 investigate-external
-  args: { topics: [ /* { angle, question, skill? } ... */ ] }
+  args: { repoRoot: "<任务 worktree 绝对路径>",   // internal 必传,钉死取证目标(external 无此参数)
+          topics: [ /* { angle, question, skill? } ... */ ] }
 })
 ```
 

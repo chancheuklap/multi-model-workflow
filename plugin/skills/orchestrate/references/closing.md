@@ -6,7 +6,8 @@
 
 ## 1. 收口清单(逐条确认,机器能核的就核)
 
-- **落地完整**:分支无未提交改动(`git status` 干净);相关测试绿(跑一遍)。
+- **文档产出集中提交**:把本任务 `docs/`(现状报告 / 设计 / issue / plan / reviews / 终审报告)统一 commit 进分支——plan 阶段刻意不 commit,收口在这一步补上,不留未提交文档。
+- **落地完整**:分支无未提交改动(`git status` 干净;`.claude/` 状态平面已被 gitignore,不算脏);相关测试绿(跑一遍)。
 - **遗留标记扫描**(本任务新引入的,git 看 open_items 看不到):扫分支 diff 找新留下的临时标记——
   ```bash
   git diff <base_commit>..HEAD | grep -nE 'TODO|FIXME|TBD|XXX|HACK|placeholder|temporary|workaround|暂时|占位'

@@ -82,10 +82,15 @@ cmd_dispatch() {
   [ -n "$wt" ]   || die "--worktree 必填"
   [ -f "$plan" ] || die "plan 文件不存在: $plan"
 
-  # worktree 不存在则从 base 建(主线程开好 worktree 分配给 codex 的"开好"这步,脚本代劳)
+  # worktree 不存在则从 base 建(主线程开好 worktree 分配给 codex 的"开好"这步,脚本代劳)。
+  # 挂命名分支(不留 detached HEAD):Codex 提交挂在分支上,清 worktree 不成孤儿,B4 按分支合并。
   if [ ! -d "$wt" ]; then
-    git worktree add "$wt" "$base" >&2 || die "建 worktree 失败: $wt"
+    git worktree add -b "codex/$(basename "$wt")" "$wt" "$base" >&2 \
+      || die "建 worktree 失败: $wt(分支 codex/$(basename "$wt") 已存在?先清理旧分支)"
   fi
+  # 状态平面对 git 不可见(同 prepare.sh):防 Codex add -A 把 codex-logs/session 记账提交进代码
+  mkdir -p "$wt/.claude"
+  [ -f "$wt/.claude/.gitignore" ] || printf '*\n' > "$wt/.claude/.gitignore"
 
   # 沙箱放行 git common dir(worktree 的 objects/refs 在父仓库,否则 commit 被拒)
   local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
