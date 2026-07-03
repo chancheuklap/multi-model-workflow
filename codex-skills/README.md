@@ -2,14 +2,16 @@
 
 给 **Codex Worker** 用的 skill 源(Codex 读不到 Claude 的 `plugin/`,所以派给 Codex 的纪律 / 方法得自包含在这里)。plugin 派 Codex 时,prompt **只给 stage / worktree / 文档路径 + 指向对应 skill**,方法本体在 skill 里渐进加载(开工前不占 Codex context),**不在 prompt 里重复**。
 
-## 安装(软链到 Codex skill 目录)
+## 安装(软链进 Codex 自动扫描的 skill hub)
+
+Codex 自动扫描 skill hub `~/.agents/skills/`(与 `/tdd`、`write-design-doc` 等同一套,靠扫描发现、**不需要写 `~/.codex/config.toml`**)。把两份 skill 软链进去即可:
 
 ```bash
-ln -s "$(pwd)/codex-skills/worktree-build"  <Codex skill 目录>/worktree-build
-ln -s "$(pwd)/codex-skills/worktree-review" <Codex skill 目录>/worktree-review
+ln -s "$(pwd)/codex-skills/worktree-build"  ~/.agents/skills/worktree-build
+ln -s "$(pwd)/codex-skills/worktree-review" ~/.agents/skills/worktree-review
 ```
 
-装好后 Codex 侧 `worktree-build` / `worktree-review` 可用,与已装的 `/tdd` 配合。**装是硬前提**:没装则派发失败可见(Codex 报找不到 skill),不搞"没装也能跑"的降级。
+装好后 Codex 侧 `worktree-build` / `worktree-review` 可用,与已装的 `/tdd`(worktree-build 硬依赖)配合。**装是硬前提**:没装则派发失败可见(Codex 报找不到 skill),不搞"没装也能跑"的降级。
 
 ## worktree-build(build 阶段落地)
 
