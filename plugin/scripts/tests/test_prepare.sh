@@ -24,6 +24,8 @@ echo "$OUT" | grep -q "^PREPARED" && ok "new 返回 PREPARED" || no "new 返回 
 [ -d "$WT" ] && ok "worktree 目录建好" || no "worktree 目录建好"
 git show-ref --verify --quiet "refs/heads/$SLUG" && ok "分支建好" || no "分支建好"
 [ -d "$WT/docs/investigating" ] && [ -d "$WT/docs/design" ] && [ -d "$WT/docs/issues" ] && [ -d "$WT/docs/plans" ] && [ -d "$WT/docs/context" ] && ok "docs 布局 scaffold(investigating/design/issues/plans/context 全)" || no "docs 布局 scaffold"
+[ "$(cat "$WT/.claude/.gitignore" 2>/dev/null)" = "*" ] && ok "状态平面 .claude/ 已 gitignore(git status 不脏)" || no ".claude gitignore"
+grep -q "investigating/" "$WT/docs/.gitignore" && grep -q "reviews/" "$WT/docs/.gitignore" && grep -q -- "-final-review.md" "$WT/docs/.gitignore" && ok "过程产物 docs/.gitignore(investigating/reviews/终审报告不存档)" || no "docs gitignore"
 [ "$(jq -r .docs.plans "$WT/.claude/multi-model-workflow/task.json")" = "docs/plans/$SLUG" ] && ok "manifest.docs.plans 路径" || no "docs.plans 路径"
 [ "$(jq -r .docs.design "$WT/.claude/multi-model-workflow/task.json")" = "docs/design/$SLUG" ] && ok "manifest.docs.design 路径" || no "docs.design 路径"
 

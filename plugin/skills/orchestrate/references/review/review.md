@@ -1,8 +1,8 @@
 # Review · 审核 loop(阶段操作指南)
 
-> 审核闸操作指南。审者 = Codex,协调验收 = Claude(你)。审查方法 + 各 stage 角度在 **Codex 侧 `worktree-review` skill**(Codex 读它已装的 skill;plugin 不给 Codex 任何内部路径——Codex 读不到 Claude 的 `plugin/`)。plugin 侧只留 `plan-impl.md`(③合同门,Claude 机器核)与本文(Claude 编排)。
+> 审核闸操作指南。审者 = 无头 CLI(①② Codex;④final Codex+Claude 双模型),协调验收 = Claude(你)。审查方法 + 各 stage 角度单源在已装的 **`worktree-review` skill**(审者自己读;不给审者任何 plugin 内路径)。plugin 侧只留 `plan-impl.md`(③合同门,Claude 机器核)与本文(Claude 编排)。
 
-红线:**审者必须 Codex,不 Claude 审 Claude**;**完工靠 `exit-check` 机器核,不靠 reporter 自报审完**。
+红线:**写者≠验者**(①②产物是 Claude 写的→审者必须 Codex;④产物是 Codex 写的→双模型都可审);**完工靠 `exit-check` 机器核,不靠 reporter 自报审完**。
 
 ---
 
@@ -14,9 +14,9 @@
 |---|---|---|---|---|
 | ① 设计审 | design pass → 引擎审闸 | `design` | `review` | 轴A 设计内容 / 轴B 项目对齐 |
 | ② 计划审 | plan pass → 引擎审闸 | `plan` | `review` | 轴A 覆盖与质量 / 轴B 合规与交叉验证 |
-| ④ final | build pass → 引擎审闸 | `final` | `review` | 基线1 回归+意图+跨plan / 基线2 独立代码审计 |
+| ④ final | build pass → 引擎审闸 | `final` | `review` | 基线1 回归+意图+跨plan / 基线2 独立代码审计;**develop = 双模型 2×2 = 4 审者**(每视角 Codex + Claude 无头 CLI 各一,prompt 同一段、方法论同源 worktree-review skill);**small-change/bug 降档 = 1×Codex 一肩挑两视角**(diff 小,review.sh 按 scenario 自动分档) |
 
-另有 **③ 落地合同门**:不是引擎审闸,是 build **内部**机器合同检查——全 plan 合并后、build handoff 前跑一次(`--stage plan-impl`,`kind=contract-gate`,不派 Codex),像跑测试套一样是 build 完工的一部分(由 build 流程驱动,本文不展开)。本文讲 ①②④ 三个引擎审闸 loop。
+另有 **③ 落地合同门**:不是引擎审闸,是 build **内部**机器合同检查——全 plan 合并后、build handoff 前跑一次(`--stage plan-impl`,`kind=contract-gate`,不派 Codex),由 build 流程驱动(build-b B5),本文只讲 ①②④ 三个引擎审闸 loop。
 
 ## 1. 主线程:一条命令起审 → 抽清单 → 派协调帮手(①②④)
 
@@ -30,9 +30,9 @@
    mmw loop checklist add --item "<要审到的维度>" --source "<doc:line>"   # 逐条
    mmw loop attendance --mode <attended|afk>
    ```
-3. **派审核协调帮手**(Claude sub-agent,SubagentStop 受 guard-loop 看守):用 `review.sh` 打印的 brief 原样派。brief 已含派两个独立 Codex(`codex exec --sandbox read-only`,prompt 纯路由:读已装 `worktree-review` skill 按 stage 审、续接 `codex exec resume`)、亲验后 `checklist cover` / `finding add`、收敛与熔断 `surface`、清单全绿+无 Critical 前不准停。**只给 Source + stage,别塞你自己的问题清单、别给 Codex plugin 内路径。**
+3. **派审核协调帮手**(Claude sub-agent,SubagentStop 受 guard-loop 看守):prompt 只给一句「读 `.claude/multi-model-workflow/review-brief.md` 照做」——brief 由 `review start` 机器生成落盘(派审者/留痕/亲验/收敛熔断全在里面),不过主线程 context。**别塞你自己的问题清单、别给审者 plugin 内路径。**
 
-   **每个审都留痕(①②④ 都要,不只 ④)**:协调帮手把**两个 Codex 审者的结构化 findings 原样落盘**到 `docs/reviews/<slug>-<stage>.md`(reviewer 产出即留痕内容,**不重写、不摘要**——保真且省主线程 context),亲验后把每条的 verdict/处置(accepted / rejected / duplicate / needs-evidence)就近标在该条下,文末写一句总 verdict。主线程收口只**读这份文档的 verdict 段**,不把全部 findings 拉进自己 context。
+   **每个审都留痕(①②④ 都要,不只 ④)**:协调帮手把**全部审者的结构化 findings 原样落盘**到 `docs/reviews/<slug>-<stage>.md`(不重写、不摘要),亲验后把每条的 verdict/处置(accepted / rejected / duplicate / needs-evidence)就近标在该条下,文末写一句总 verdict。主线程收口只**读这份文档的 verdict 段**。留痕是过程产物:已被 `docs/.gitignore` 忽略,随 worktree 删,不进 git 历史。
 
 ## 2. 主线程:收口(协调帮手停下后)
 
@@ -55,6 +55,6 @@
 
 ## 3. 守住的红线
 
-- 审者 Codex,不用 `codex review`(走它内置提示词、绕过我们方法论),用 `codex exec`,prompt 指向 Codex 侧已装的 `worktree-review` skill(按 stage 审)——审查方法本体在那,不给 Codex plugin 内路径。
+- ①②审者必须 Codex(设计/计划是 Claude 写的,不 Claude 审 Claude);④final 产物是 Codex 写的,双模型(Codex + Claude)都可审且互为交叉。不用 `codex review`(走它内置提示词、绕过我们方法论),一律 `codex exec` / `claude -p`,prompt 指向已装的 `worktree-review` skill(按 stage 审)——审查方法本体单源在那,不给审者 plugin 内路径。
 - 每条 finding 引 `file:line` 原文才采信;协调帮手亲验后才 accept,主线程落 handoff 前再核承重的。
 - ③ 不判断、只核合同;重判预算砸 ④final。

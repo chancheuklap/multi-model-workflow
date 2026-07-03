@@ -10,7 +10,7 @@
 | 怎么写 | **主线程自己**在 **write 步**(本步映射完 `mmw step next` 进)照 `task-pack.md` 写这份 plan,不派 plan-writer——省一次派发往返 | 本步 Step 3 逐 issue 派 `plan-writer` |
 | 跨 plan 合同 | 无(单计划),跳 Step 2 / Step 5 | Step 2 写骨架、Step 5 回填 |
 
-判据是**规模与并行收益**:单计划主线程内联更快(无 subagent 开销);多计划/大计划才下放 plan-writer 换并行 + 上下文隔离。下面 Step 1–5 是本(orchestrate)步内容:**单计划**只走 Step 1 映射 → `mmw step next` 进 write 步自己写;**多计划**走 Step 1–5(映射→骨架→fan-out→亲验→回填)→ `mmw step next` 进 selfcheck 步。就绪门 + 收尾 handoff 都在 selfcheck 步。
+下面 Step 1–5 是本(orchestrate)步内容:**单计划**只走 Step 1 映射 → `mmw step next` 进 write 步自己写;**多计划**走 Step 1–5(映射→骨架→fan-out→亲验→回填)→ `mmw step next` 进 selfcheck 步。就绪门 + 收尾 handoff 都在 selfcheck 步。
 
 ## 两个角色(写作下放,编排上收)
 

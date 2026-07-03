@@ -6,7 +6,8 @@
 
 ## 1. 收口清单(逐条确认,机器能核的就核)
 
-- **落地完整**:分支无未提交改动(`git status` 干净);相关测试绿(跑一遍)。
+- **文档产出集中提交**:把设计 / issue / plan / 领域文档统一 commit 进分支(plan 阶段刻意不 commit,收口在这补上)。过程产物(investigating / reviews / 终审报告)已被 `docs/.gitignore` 忽略,不提交、随 cleanup 删。
+- **落地完整**:分支无未提交改动(`git status` 干净;`.claude/` 状态平面已被 gitignore,不算脏);相关测试绿(跑一遍)。
 - **遗留标记扫描**(本任务新引入的,git 看 open_items 看不到):扫分支 diff 找新留下的临时标记——
   ```bash
   git diff <base_commit>..HEAD | grep -nE 'TODO|FIXME|TBD|XXX|HACK|placeholder|temporary|workaround|暂时|占位'
@@ -27,9 +28,9 @@ mmw handoff --conclusion pass
 
 ## 3. 合并红线(合并后才清理)
 
-**合并回主分支 = 唯一硬红线**(不可逆对外动作)。`guard-redline`(PreToolUse)拦 `git merge`/`push`/部署,**要用户亲自批**,不分在场/无人值守:
+**合并回主分支 = 唯一硬红线**(不可逆对外动作)。`guard-redline`(PreToolUse)对合并进主分支 / `git push` / 部署弹权限框,**要用户在框里亲批**(无令牌可代批),不分在场/无人值守:
 
-1. 用户确认要合并 → `mmw release-approve` → `git merge --no-ff <branch>`(禁 `--squash`)。
+1. 用户确认要合并 → 直接跑 `git merge --no-ff <branch>`(禁 `--squash`),权限框弹出由用户亲批。
 2. 合并进主线后,回主仓库删干净:
    ```bash
    mmw task cleanup --slug <slug>

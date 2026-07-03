@@ -8,7 +8,7 @@
 # 用法(读完 skill 直接用):
 #   推进(最常用,主线程每阶段):
 #     mmw where                                查我在哪阶段/审闸/上阶段产出(prev_outputs)
-#     mmw handoff --conclusion <词> [--produced <产出>]...   交接 + 推进
+#     mmw handoff --conclusion <词> [--produced <产出>]...   交接 + 推进(产出必须真实存在,声明了产出的阶段禁空手 pass)
 #     mmw step next                            阶段内多步:干完当前步推进到下一步(报下一步 load/do)
 #     mmw spinoff --tag <t> --finding <s>      中途挖到的旁路登记成关联子任务
 #   任务(入口/收尾,主仓库):
@@ -16,13 +16,12 @@
 #     mmw task resume | mmw task cleanup --slug <s>
 #     mmw task escalate --to develop          bug/小改撞出系统性设计问题→原地升级完整设计路
 #   内层 loop(落地/审):
-#     mmw loop init --kind <execution|review|contract-gate> | attendance | step | checklist | finding | softstop | surface | resume | close | exit-check
+#     mmw loop init --kind <execution|review|contract-gate> [--max-rounds N] | attendance | step | round | checklist | finding | softstop | surface | resume | close | exit-check
 #   审闸一条命令:
 #     mmw review start --stage <design|plan|plan-impl|final|merge-impl> --source <...>
 #   Codex 落地派发:
 #     mmw codex dispatch --plan <p> --worktree <wt> | codex resume --worktree <wt> --instructions <f>
-#   发布红线(收尾/merge,用户亲批后跑):
-#     mmw release-approve                      造一次性批准令牌,放行下一次 merge/push/deploy
+#   发布红线:merge 回主分支 / push / 部署由 guard-redline(PreToolUse)弹权限框要用户亲批,无令牌可自铸。
 set -euo pipefail
 D="$(cd "$(dirname "$0")" && pwd)"
 
@@ -30,7 +29,7 @@ usage() { sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; }
 
 cmd="${1:-help}"; shift || true
 case "$cmd" in
-  where|handoff|spinoff|step|release-approve) exec bash "$D/flow.sh" "$cmd" "$@" ;;
+  where|handoff|spinoff|step) exec bash "$D/flow.sh" "$cmd" "$@" ;;
   task)   exec bash "$D/prepare.sh" "$@" ;;
   loop)   exec bash "$D/loop.sh" "$@" ;;
   review) exec bash "$D/review.sh" "$@" ;;

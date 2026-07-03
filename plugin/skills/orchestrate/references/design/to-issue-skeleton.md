@@ -6,7 +6,7 @@
 
 ## 怎么拆:委托外部 `to-issues` skill(方法论单源,不在此复制)
 
-切片方法论本体在外部 `to-issues` skill —— tracer-bullet / vertical-slice(每个 issue 切穿所有集成层、端到端可独立验证)+ **Step4 向用户编号列表确认粒度/依赖,迭代到用户认可**。用它来拆,**这一步的质量闸就是 to-issues 自带的用户确认**(不是无质量门;plugin 不再叠一道审闸,②计划审再兜底一次)。
+切片方法论本体在外部 `to-issues` skill —— tracer-bullet / vertical-slice(每个 issue 切穿所有集成层、端到端可独立验证)+ **Step4 向用户编号列表确认粒度/依赖,迭代到用户认可**。用它来拆;质量闸 = to-issues 自带的用户确认,②计划审再兜底一次。
 
 plugin 在 `to-issues` 结果上做两件**适配**(它默认发 GitHub issue tracker,我们是文件系统):
 

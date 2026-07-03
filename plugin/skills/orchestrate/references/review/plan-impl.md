@@ -1,7 +1,6 @@
 # ③ 落地合同门(contract-gate · 机器核,不派 Codex 判断)
 
-> ③ 不是 Codex 审 loop——降成**便宜机器合同门**:全 plan 合并后跑**一次**,只核"声明的跨 plan 合同兑现"。代码质量 / 正确性 / 边界归 ④final,不在这判。重判预算砸 ④。
-> **全 Pack 提交不在这核**——build 的执行 loop `exit-check` DONE 已保证(B4)。跨 plan 合同要等所有 plan 在场才能核,所以 ③ 跑一次、不 per-plan。
+> ③ = 便宜机器合同门:全 plan 合并后跑**一次**,只核"声明的跨 plan 合同兑现"。代码质量 / 正确性 / 边界归 ④final。全 Pack 提交已由 build 执行 loop `exit-check`(B4)保证,不在这核。
 
 全 plan 合并后起本门(`mmw review start --stage plan-impl`,`kind=contract-gate`)。主线程逐条机器核,不开 Codex、不列 pack:
 
@@ -19,6 +18,13 @@ mmw loop checklist add --item "<一条跨 plan 合同>" --source <design:line>  
 # 逐条 grep/Read 机器核兑现 → 坐实就 cover(给 file:line 证据)
 mmw loop checklist cover --item <i> --evidence <file:line>
 # 合同清单全 cover → exit-check DONE(无 step,steps 空即满足)→ handoff pass
+```
+
+**没有跨 plan 合同(单 plan / anchors 节为空)也不许空清单过门**——空账本引擎直接 NOT-DONE。登记一条显式空项并用证据坐实:
+
+```bash
+mmw loop checklist add --item "no-cross-plan-contracts" --source "<design.md:anchors 节行号>"
+mmw loop checklist cover --item "no-cross-plan-contracts" --evidence "<design.md:line(anchors 节确认为空)>"
 ```
 
 ## 出口

@@ -86,7 +86,7 @@ flowchart TB
     GL <-->|"读写步账"| LS
     HANDOFF -.->|"查走向"| RJ
     PH6 -.->|"git merge / push / deploy"| GR
-    GR -->|"无 release-approval → 拒,问你"| USER
+    GR -->|"permissionDecision=ask → 权限框要你亲批(无令牌可代批)"| USER
 
     classDef ai fill:#fef3c7,stroke:#d97706,color:#000
     classDef sh fill:#dbeafe,stroke:#2563eb,color:#000
@@ -246,7 +246,7 @@ Codex 返回 → 主线程验收:跑测试/读 diff 坐实 acceptance + 设计�
 
 ## 4b. 同一台 loop 的另一组实例:四个审
 
-loop engineering **不是落地专用**,是通用内层机器。审核也是它的实例,只是"一步"从"写一个 pack"换成"查一个维度/坐实一条 finding",verify 从"跑测试"换成"grep/读/跑去坐实 finding 真假"。**审者载体 = Codex**(`codex exec --sandbox read-only`,读它已装的 `worktree-review` skill 按 stage 审——审查方法+角度在 Codex 侧,派发不给 Codex 任何 plugin 路径;**不用 `codex review`**——那走 Codex 内置提示词、绕过我们的方法论;续接走 `codex exec resume`,不走 SendMessage——见 §5b),否则自审自盲。
+loop engineering **不是落地专用**,是通用内层机器。审核也是它的实例,只是"一步"从"写一个 pack"换成"查一个维度/坐实一条 finding",verify 从"跑测试"换成"grep/读/跑去坐实 finding 真假"。**审者载体 = 无头 CLI**(①② Codex;④final Codex+Claude 双模型同 prompt。`codex exec --sandbox read-only` / `claude -p`,读已装的 `worktree-review` skill 按 stage 审——审查方法+角度在 Codex 侧,派发不给 Codex 任何 plugin 路径;**不用 `codex review`**——那走 Codex 内置提示词、绕过我们的方法论;续接走 `codex exec resume`,不走 SendMessage——见 §5b),否则自审自盲。
 
 整套有**四个审**(`skills/second-model-review`),同一台机器(防幻觉四件套 + 每阶段两个独立视角 + 亲验处置 + Gap 路由),深浅与预算不同:
 
@@ -255,7 +255,7 @@ loop engineering **不是落地专用**,是通用内层机器。审核也是它�
 | ①设计审 | 写计划前 | grep/读仓库(有没有现成库、合同对不对) | 浅 | **留**·便宜最高杠杆(代码前抓方向/设计错) |
 | ②计划审 | 写代码前 | 同上 + 覆盖/合规 | 浅 | **留**·便宜高杠杆 |
 | ③落地审 | 全 plan 合并后一次 | —— | **降成便宜合同门**(只查跨 plan 合同兑现) | 低·跟 TDD 重叠、孤立看不到跨 plan |
-| ④final | 全合并后 | 跑测试、读大 diff、对抗输入 | **深** | **集中**·跨 plan 缝隙+兑没兑现意图+独立代码审 |
+| ④final | 全合并后 | 跑测试、读大 diff、对抗输入 | **深·双模型 2×2**(两视角 × Codex/Claude 各一,prompt 同一段);small-change/bug 自动降档 1×Codex | **集中**·跨 plan 缝隙+兑没兑现意图+独立代码审+跨模型对账 |
 
 ```mermaid
 flowchart LR
@@ -284,8 +284,8 @@ flowchart LR
 
 | 审 | 完成判据(覆盖 + 怎么验) | 熔断 | 第三态 |
 |---|---|---|---|
-| ①设计 | 两轴过 + 方向级五问都明答(不许跳)+ 无 Critical;验=grep 仓库(现成库?调用方?合同?) | **2 轮**(旧 plugin 这里忘了设,要补) | 方向疑→交人 / 缺输入 |
-| ②计划 | 两轴过 + 每个 issue 有对应 plan、每个 pack 有验收命令、引用的符号 grep 得到 + 无 Critical | 2 轮 → blocked | 方向疑 / blocked |
+| ①设计 | 两轴过 + 方向级五问都明答(不许跳)+ 无 Critical;验=grep 仓库(现成库?调用方?合同?) | **2 轮**(`loop round next` 机器计数,到顶自动 surface) | 方向疑→交人 / 缺输入 |
+| ②计划 | 两轴过 + 每个 issue 有对应 plan、每个 pack 有验收命令、引用的符号 grep 得到 + 无 Critical | 2 轮(机器计数)→ blocked | 方向疑 / blocked |
 | ③落地 | 全 Pack 提交 + 声明的跨 plan 合同兑现(都可机器核);不开判断 loop | 合同不达→回落地(落地自己的 2 轮) | 合同根上错→升级 |
 | ④final | 意图清单逐条坐实(不是"提到")+ 每条跨 plan 合同真接上 + 两基线过 + 无 Critical;验=真跑测试/读大 diff/对抗输入 | 1–2 轮 + 超限转根因调查/人 | 回流落地(上限1)/ 发布风险→人 |
 
@@ -336,6 +336,7 @@ flowchart LR
 |---|---|---|---|---|
 | **主线程 = Claude Code** | 协调者(这个对话) | **唯一能问用户**(AskUserQuestion);派 subagent;Bash 调 Codex;跑 hook;**就地做 small-change** | —— | —— |
 | **Claude subagent** | Agent 派,独立 context,回摘要 | **写计划(plan-writer)/ 协调审(派 Codex+亲验)**;后台跑;SubagentStop 看守;自动压缩。**不是落地 worker(落地归 Codex)** | 不能问用户(抛回主线程);Explore/Plan 一次性不可续 | **SendMessage** |
+| **Claude 无头 CLI** | `claude -p`,外部进程(④final 双模型审者) | ④final 审 = 与 Codex 同 prompt 读同一份 `worktree-review` skill,各审一路视角 | 不吃 SendMessage/SubagentStop;只读审查,不落地 | **claude -p --resume** |
 | **Codex 无头 CLI** | codex exec,外部进程、**不同模型** | **落地写码 = `codex exec -C <worktree> --sandbox workspace-write`**(build 主力,固定 prompt 严防过度设计);审 = `codex exec --sandbox read-only`,读已装 `worktree-review` skill 按 stage 审(方法在 Codex 侧,不给 plugin 路径);`-m`/effort 分层 | **不是 Claude subagent**:经 Bash 调,不吃 SendMessage/SubagentStop/Claude hook;不能问用户。**`codex review` 绕过我们方法论 → 不用** | **codex exec resume** |
 
 **五条硬规矩**:① 续接两套别混(Claude subagent=SendMessage,Codex=exec resume);② SubagentStop 只看守 Claude subagent(plan-writer/审协调);**build 的 Codex 落地不吃 SubagentStop,防过早完工靠主线程按 plan 验收清单 verify + exit-check 机器核**;③ 只有主线程能问用户,subagent/Codex 都抛回主线程;④ **审/落地都用 `codex exec`,不用 `codex review`**(那绕过我们方法论);⑤ small-change 主线程就地做,不派 Codex/帮手。
@@ -434,7 +435,7 @@ flowchart TD
 ```
 
 🟢 已落地并空跑验证(220 项断言:脚本 213 + build 7):入口纯路由(每条路径一份干净完整 reference,共用步骤 build 去重)· `mmw where` 自指路(冷启动列起始选项;在途报 `load`/`do`/`then`)· 开工/恢复/清理 · 接力单 · 统一运行契约 + 审闸 · 分叉/返工(可 `--to-phase`)/上限/停下 · 八阶段方法论全接(含 propose 给方案+两路出口、to-issue 审后切片、Codex 落地派发 + 四审 loop)· bug→develop 原地升级(`mmw task escalate`)· merge · 统一 CLI `mmw`。
-⬜ 未验:**内容级端到端真跑**(真派 Codex 落地/审、真 resume 修、真 surface 冒泡——单测够不着,要拿真 develop 任务跑)。
+⬜ 未验:**真 Codex 内容级端到端**(真派 Codex 落地/审、真 resume 修的产出质量)。已做(2026-07-03):一条 develop 任务全流程半真跑——投查 workflow 真跑、引擎/hook/审闸/合同门/收尾全真、Codex 用 stub 走通派发管线;挖出并修掉状态平面污染 / 子 worktree detached / 文档提交时机 / 投查仓库根四缺口。
 
 ---
 

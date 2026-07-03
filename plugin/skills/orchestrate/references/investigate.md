@@ -35,11 +35,12 @@
 ```
 Workflow({
   scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/investigate-internal.workflow.js",   // 外部则 investigate-external
-  args: { topics: [ /* { angle, question, skill? } ... */ ] }
+  args: { repoRoot: "<任务 worktree 绝对路径>",   // internal 必传,钉死取证目标(external 无此参数)
+          topics: [ /* { angle, question, skill? } ... */ ] }
 })
 ```
 
-后台跑完通知。它每 topic 并行一个只读 agent、机械过滤无出处 / 低信心 claim、综合成带引用报告(`{ topics, report:{ markdown, open_questions, spinoff_candidates } }`)。
+后台跑完通知,返回 `{ topics, report:{ markdown, open_questions, spinoff_candidates } }`。
 
 ## 3. 收口(回主线程)
 
@@ -50,7 +51,7 @@ Workflow({
    - `open_questions` 里有必须用户拍板才能继续的 → `--conclusion needs-context`
    - **bug 查根因两种诚实收口**(查不动别假装查到):**无法重现** → `needs-context`,报告附**已试的重现路径**,请用户补重现步骤 / 环境;**无法定位根因**(重现了但定不到) → `needs-context`,报告附**已排除的假设(带证据)**,请用户给方向 / 补信息。别硬编个根因往下走。
 
-> **investigate 不维护 `docs/context`**:领域文档(术语 / 对象关系 / 角色 / 状态,跨任务持久)由 **design 阶段的 `domain-modeling`** 在产出设计文档之后维护,investigate 别多管。现状报告存 `docs/investigating/`(本任务存档),不是领域文档,别往 `docs/context` 塞。
+> 领域文档(`docs/context`)归 design 阶段的 `domain-modeling` 维护;investigate 只写 `docs/investigating/`,不碰 `docs/context`。
 
 ## 红线
 

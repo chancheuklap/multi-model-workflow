@@ -13,6 +13,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROUTES="$SCRIPT_DIR/../state-schema/routes.json"
 STATE_SUBDIR=".claude/multi-model-workflow"
 MANIFEST_NAME="task.json"
+# 回执里的命令一律吐完整可执行形式(agent 直接粘贴跑,不用自己把 mmw 别名展开成路径)
+MMW="bash \"$SCRIPT_DIR/mmw.sh\""
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
@@ -87,6 +89,28 @@ cmd_handoff() {
   max_repair="$(jq -r '.caps.max_repair' "$ROUTES")"
   max_turn="$(jq -r '.caps.max_turnaround' "$ROUTES")"
   first_phase="$(jq -r '.phases[0]' "$m")"
+
+  # 交接单产出校验(fail-closed:交接靠固定单子,缺了当场拒收):
+  # ① 空手 pass 拒收——routes 声明本阶段(或本审闸)有产出的,pass 必须 --produced 钉上;
+  # ② 幽灵路径拒收——钉的产出必须真实存在(文件/目录),或是合法提交范围(build 的 base..HEAD)。
+  if [ "$conclusion" = "pass" ] && [ "${#produced[@]}" -eq 0 ]; then
+    local expected
+    if [ -n "$gate" ]; then
+      expected="$(jq -r --arg p "$gate" '.review_gates[$p].produced // ""' "$ROUTES")"
+    else
+      expected="$(jq -r --arg k "$cur_phase" '.phase_bindings[$k].produced // "" | if type=="array" then join(" ") else . end' "$ROUTES")"
+    fi
+    [ -z "$expected" ] || die "[$cur_phase] pass 必须钉产出(本阶段声明产 $expected);空手 pass 拒收"
+  fi
+  local top_wt pp
+  top_wt="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
+  for pp in ${produced[@]+"${produced[@]}"}; do
+    if { [ -n "$top_wt" ] && [ -e "$top_wt/$pp" ]; } || [ -e "$pp" ]; then continue; fi
+    case "$pp" in
+      *..*) git rev-list -n 1 "$pp" >/dev/null 2>&1 && continue ;;
+    esac
+    die "--produced 不存在(拒收,防幽灵产出进接力单): $pp"
+  done
 
   # 按结论算动作(引擎核心)。new_gate 默认清空;只有"进审闸"那一支把它设成当前阶段。
   # new_step 默认 0(换阶段/原地返工/掉头都从头走该阶段步序);needs-context/blocked 停在原地→保留游标,resume 续上当前步
@@ -234,7 +258,7 @@ cmd_where() {
     echo "UNMANAGED"
     echo "当前不是在管任务。看需求选一个起始选项,再 mmw task new:"
     jq -r '.start_options[] | "  [\(.scenario)] \(.when) → \(.phases_note)"' "$ROUTES"
-    echo "命令: mmw task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title \"<标题>\""
+    echo "命令: $MMW task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title '<标题>'"
     echo "merge: 不开 worktree,直接走 references/scenario/merge.md;概念/事实问题不进 orchestrate,直接答。"
     return 0
   fi
@@ -279,16 +303,17 @@ cmd_where() {
     step_id="$(jq -r --arg k "$phase" --argjson i "$step_idx" '.phase_bindings[$k].steps[$i].id' "$ROUTES")"
     b_load="$(jq -r --arg k "$phase" --argjson i "$step_idx" '.phase_bindings[$k].steps[$i].load' "$ROUTES")"
     b_do="$(jq -r --arg k "$phase" --argjson i "$step_idx" '.phase_bindings[$k].steps[$i].do' "$ROUTES")"
-    step_line="step=$step_id ($(( step_idx + 1 ))/$step_total)"
+    step_line="step=$step_id ($(( step_idx + 1 ))/$step_total)
+step_note=断点回来时:本步产物若已完成,核一眼直接 step next,别重做"
   fi
 
   # then:有步骤且未到末步 → 推进到下一步走脚本;否则(末步或无步骤)→ 阶段 handoff 钉产物。
   # produced 可为字符串(单产物)或数组,逐个吐,解析 <slug> 用真 slug,then 直接可粘贴跑、钉全、不让 agent 手搓/漏钉。
   local then_cmd
   if [ "$step_total" -gt 0 ] && [ "$step_idx" -lt $(( step_total - 1 )) ]; then
-    then_cmd="mmw step next   # 本步干完推进下一步(下一步 load 那时现读)"
+    then_cmd="$MMW step next   # 本步干完推进下一步(下一步 load 那时现读)"
   else
-    then_cmd="mmw handoff --conclusion <pass|needs-repair|needs-redirection|needs-context|blocked>"
+    then_cmd="$MMW handoff --conclusion <pass|needs-repair|needs-redirection|needs-context|blocked>"
     # 产物源:在审闸里取 review_gates[gate].produced(审闸该钉啥由 map 定,如 build 闸钉终审报告);
     # 否则取当前阶段绑定的 produced。审是闸不产文件的(design/plan)→ produced 空,不带 --produced。
     local produced_src
@@ -313,7 +338,7 @@ cmd_where() {
     # 吐裸路径喂 review start --source(不吐 JSON 数组,省 agent 拆 ["x"]→x);多产物空格连
     g_source="$(jq -r --arg p "$phase" '(.phase_outputs[$p] // []) | join(" ")' "$m")"
     review_line="review_source=$g_source"
-    review_start_line="review_start=mmw review start --stage $g_stage --source $g_source"
+    review_start_line="review_start=$MMW review start --stage $g_stage --source $g_source"
   fi
   cat <<EOF
 scenario=$scenario
@@ -366,7 +391,7 @@ EOF
     [ "$cur_fp" = "$stored" ] || stale="$stale $gphase"
   done < <(jq -r '(.gate_fingerprints // {}) | keys[]' "$m" 2>/dev/null)
   if [ -n "$stale" ]; then
-    echo "stale_gate=${stale# }  # 这些阶段产物过闸后被改了,回 mmw handoff --conclusion needs-redirection --to-phase <阶段> 重审"
+    echo "stale_gate=${stale# }  # 这些阶段产物过闸后被改了,回 handoff --conclusion needs-redirection --to-phase <阶段> 重审"
   fi
 }
 
@@ -386,7 +411,7 @@ cmd_step() {
   idx="$(jq -r '.step_index // 0' "$m")"
   local nidx=$(( idx + 1 ))
   if [ "$nidx" -ge "$total" ]; then
-    echo "STEPS_DONE [$phase] 步骤走完 → mmw handoff(产物钉法见 mmw where 的 then)"
+    echo "STEPS_DONE [$phase] 步骤走完 → handoff(产物钉法见 where 的 then)"
     return 0
   fi
   jq --argjson i "$nidx" '.step_index=$i' "$m" | write_manifest "$m"
@@ -399,19 +424,8 @@ step=$sid ($(( nidx + 1 ))/$total)
 load=$sload
 do=$sdo
 EOF
-  if [ "$nidx" -lt $(( total - 1 )) ]; then echo "then=mmw step next"
-  else echo "then=mmw handoff --conclusion <...>(产物钉法见 mmw where 的 then)"; fi
-}
-
-# ---------- release-approve(造发布红线批准令牌,用户亲批后由主线程跑) ----------
-# guard-redline(PreToolUse)查 <toplevel>/.claude/multi-model-workflow/release-approval 才放行
-# merge/push/deploy。令牌一次性:guard-redline 放行后即消费(防长期站着批所有发布)。
-cmd_release_approve() {
-  local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
-  local dir="$top/$STATE_SUBDIR"
-  mkdir -p "$dir"
-  printf 'release approved at %s\n' "$(now)" > "$dir/release-approval"
-  echo "RELEASE-APPROVED token=$dir/release-approval(一次性,放行一次 merge/push/deploy 后消费)"
+  if [ "$nidx" -lt $(( total - 1 )) ]; then echo "then=$MMW step next"
+  else echo "then=$MMW handoff --conclusion <...>(产物钉法见 where 的 then)"; fi
 }
 
 case "${1:-}" in
@@ -419,6 +433,5 @@ case "${1:-}" in
   spinoff)         shift; cmd_spinoff "$@" ;;
   where)           shift; cmd_where "$@" ;;
   step)            shift; cmd_step "$@" ;;
-  release-approve) shift; cmd_release_approve "$@" ;;
-  *) die "用法: flow.sh handoff|spinoff|where|step|release-approve ..." ;;
+  *) die "用法: flow.sh handoff|spinoff|where|step ..." ;;
 esac

@@ -35,6 +35,8 @@ WT="$TMP/wt-001"
 
 OUT="$(bash "$CW" dispatch --plan "$PLAN" --worktree "$WT" --design "$DESIGN" --issue "$ISSUE" 2>/dev/null)"
 [ -d "$WT" ] && ok "worktree 不存在则建好" || no "建 worktree"
+[ "$(git -C "$WT" branch --show-current)" = "codex/wt-001" ] && ok "子 worktree 挂 codex/<名> 分支(不留 detached)" || no "worktree 分支 ($(git -C "$WT" branch --show-current))"
+[ "$(cat "$WT/.claude/.gitignore" 2>/dev/null)" = "*" ] && ok "状态平面 .claude/ 已 gitignore(防 add -A 污染)" || no ".claude gitignore"
 PROMPT="$(cat "$FAKE_CAP/stdin")"
 # 瘦派发:prompt 只给指针(指向 worktree-build skill)+ 三文档路径;铁律本体在 Codex 侧 skill,不在 prompt
 echo "$PROMPT" | grep -q "worktree-build" && ok "prompt 指向 worktree-build skill(铁律渐进加载)" || no "指向 build skill"
