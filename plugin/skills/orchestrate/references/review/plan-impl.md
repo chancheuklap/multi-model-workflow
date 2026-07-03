@@ -1,7 +1,6 @@
 # ③ 落地合同门(contract-gate · 机器核,不派 Codex 判断)
 
-> ③ 不是 Codex 审 loop——降成**便宜机器合同门**:全 plan 合并后跑**一次**,只核"声明的跨 plan 合同兑现"。代码质量 / 正确性 / 边界归 ④final,不在这判。重判预算砸 ④。
-> **全 Pack 提交不在这核**——build 的执行 loop `exit-check` DONE 已保证(B4)。跨 plan 合同要等所有 plan 在场才能核,所以 ③ 跑一次、不 per-plan。
+> ③ = 便宜机器合同门:全 plan 合并后跑**一次**,只核"声明的跨 plan 合同兑现"。代码质量 / 正确性 / 边界归 ④final。全 Pack 提交已由 build 执行 loop `exit-check`(B4)保证,不在这核。
 
 全 plan 合并后起本门(`mmw review start --stage plan-impl`,`kind=contract-gate`)。主线程逐条机器核,不开 Codex、不列 pack:
 

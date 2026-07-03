@@ -11,9 +11,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOOP="$SCRIPT_DIR/loop.sh"
 MMW="bash $SCRIPT_DIR/mmw.sh"   # 打印给协调帮手的命令走统一 CLI
-# 审 = 高判断,审者 Codex 跑高档(不吃 codex 默认档);可 env 覆盖
+# 审 = 高判断,审者跑高档;可 env 覆盖。④final 双模型:Codex + Claude 无头 CLI 各审两视角
 CODEX_REVIEW_MODEL="${CODEX_REVIEW_MODEL:-gpt-5.5}"
 CODEX_REVIEW_EFFORT="${CODEX_REVIEW_EFFORT:-high}"
+CLAUDE_BIN="${CLAUDE_BIN:-claude}"
+CLAUDE_REVIEW_MODEL="${CLAUDE_REVIEW_MODEL:-opus}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
@@ -64,6 +66,30 @@ EOF
 2. ③合同门不派 Codex、不列 pack(全 Pack 提交已由 build 执行 loop exit-check 保证):
    **读 references/review/plan-impl.md,照它走**——核什么(跨 plan 合同兑现)、怎么走 checklist、
    三个出口(全兑现 pass / 没兑现回 build / 合同根上错回 design)全在那份,方法论只此一源。
+EOF
+  elif [ "$stage" = "final" ]; then
+    cat <<EOF
+2. 派审核协调帮手(Claude sub-agent,SubagentStop 受 guard-loop 看守),给这份 brief:
+
+   > 你是审核协调帮手,跑 kind=review 审 loop,不自己写结论也不改产物。
+   > Source: $source
+   > ④final 双模型:派 **4 个独立审者 = 两路视角($views)× 两个模型(Codex / Claude)**,
+   > 单条消息并行起(run_in_background)、各自干净 context、互不通气。
+   > 四个审者 prompt 用**同一段文本**(只有"你负责 <视角>"一处不同):
+   >   读你已装的 worktree-review skill,按 stage=final 审(skill 落点 ~/.agents/skills/worktree-review/,两模型同读此单源);你负责 <基线1|基线2> 这一路视角;Source: $source;按 skill 的 Return Contract 回结构化 findings。
+   > 派发命令(每视角两模型各一个):
+   >   Codex:  codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>
+   >   Claude: $CLAUDE_BIN -p "<同一段 prompt>" --model $CLAUDE_REVIEW_MODEL
+   >   续接:codex exec resume <id> / $CLAUDE_BIN -p --resume <session-id>
+   > 留痕(必做):4 份结构化 findings **原样落盘** docs/reviews/<slug>-final.md(按 模型×视角 四节,不重写不摘要);亲验后把每条 verdict/处置(accepted/rejected/duplicate/needs-evidence)就近标该条下,文末写一句总 verdict。
+   > 同视角跨模型对账:Claude 与 Codex 同视角 findings 互相对照——只一家报出的重点亲验,两家同报的置信升。
+   > 收回亲验:每条 finding 自己 Read/grep/跑坐实(审者是劳动力不是信源),引不出 file:line 降置信。
+   >   坐实一个维度: $MMW loop checklist cover --item <i> --evidence <file:line>
+   >   真 finding:   $MMW loop finding add --severity <C/I/M> --confidence <1-10> --locator <file:line>
+   > 收敛:四审者跑完追一轮无新高置信 finding = 收敛;每跑完一整轮未收敛 →
+   >   $MMW loop round next   (轮账机器计数;到上限引擎自动 surface 熔断)
+   > 方向疑/缺输入 → $MMW loop surface --kind <needs-context|needs-redirection> --question "<...>",别当产物缺陷修。
+   > 清单全绿+无开口 Critical 前 guard-loop 不让你停。
 EOF
   else
     cat <<EOF

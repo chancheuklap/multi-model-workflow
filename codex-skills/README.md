@@ -29,3 +29,5 @@ plugin 审闸(design/plan/final/merge-impl)派 Codex 独立审一份产物时用
 - `SKILL.md` — 审查总纲(确认 stage+负责哪路视角 → 读方法 → 读 stage 角度 → 只读边界 → Return Contract)。
 - `references/method.md` — 共享审查纪律(只读边界 / 不信自述 / 方向-方法-地基五问 / 防幻觉四件套 / Finding 字段 / 分级 / Return Contract / 禁用红线),开工读一次。
 - `references/{design,plan,final,merge}.md` — 各 stage 审查角度,按被派的 stage 读一份。
+
+> `worktree-review` 也是 ④final 双模型审的单源:Claude 无头审者(`claude -p`)与 Codex 读同一份 `~/.agents/skills/worktree-review/`。
