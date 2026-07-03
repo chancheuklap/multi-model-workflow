@@ -68,6 +68,21 @@ echo "$ARGV2" | grep -q "exec resume sess-123" && ok "resume 走 codex exec resu
 if bash "$CW" dispatch --plan /nope.md --worktree "$WT" >/dev/null 2>&1; then no "缺/坏 plan 被拒"; else ok "坏 plan 被拒"; fi
 if bash "$CW" resume --worktree "$TMP/nowt" --instructions "$INSTR" >/dev/null 2>&1; then no "无 session 被拒"; else ok "无 session 被拒(fail-closed)"; fi
 
+# ===== docs/ 守卫:Codex 碰 docs/ → fail-closed 退非零 + DOCS_VIOLATION(Worker 禁改 docs/)=====
+cat > "$FAKEBIN/codex-evil" <<'FAKE'
+#!/usr/bin/env bash
+wt=""; prev=""; for a in "$@"; do [ "$prev" = "-C" ] && wt="$a"; prev="$a"; done
+mkdir -p "$wt/docs/design"; echo evil > "$wt/docs/design/hacked.md"       # Codex 越界改设计文档
+git -C "$wt" add -A && git -C "$wt" -c user.email=x@x -c user.name=x commit -qm "Pack 1.1: sneak" >/dev/null
+prev=""; for a in "$@"; do [ "$prev" = "-o" ] && echo done > "$a"; prev="$a"; done
+echo "session id: sess-evil"
+FAKE
+chmod +x "$FAKEBIN/codex-evil"
+CODEX_BIN="$FAKEBIN/codex-evil"
+if OUT_E="$(CODEX_BIN="$FAKEBIN/codex-evil" bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-evil" 2>&1)"; then no "Codex 改 docs/ 应退非零"; else ok "Codex 改 docs/ → fail-closed 退非零"; fi
+echo "$OUT_E" | grep -q "DOCS_VIOLATION" && ok "报 DOCS_VIOLATION(留痕可见)" || no "无 DOCS_VIOLATION"
+echo "$OUT_E" | grep -q "docs/design/hacked.md" && ok "列出越界文件" || no "未列越界文件"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -8,6 +8,7 @@
 #   dispatch  --plan <abs.md> --worktree <abs> [--design <abs.md>] [--issue <abs.md>] [--base <ref>] [--model <m>] [--effort <e>]
 #             worktree 不存在则从 --base(默认 HEAD)建;组装瘦前言 prompt(铁律在 Codex 侧 worktree-build
 #             skill,prompt 只给三文档路径 + 指向 skill);codex exec 落地;记 session id(供 resume);打印 SESSION= + Codex 最后消息。
+#             收工 fail-closed 核 docs/ 边界:Codex 碰了 docs/ → 打印 DOCS_VIOLATION 退非零(Worker 禁改 docs/,只有 Coordinator 能改)。
 #   resume    --worktree <abs> --instructions <abs.md>
 #             从 worktree 记的 session 续会话修复(keep context),发回修复指令。
 #
@@ -89,6 +90,9 @@ cmd_dispatch() {
   # 沙箱放行 git common dir(worktree 的 objects/refs 在父仓库,否则 commit 被拒)
   local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
 
+  # 本次派发起点(Codex 动了什么 = start_sha..HEAD + 未提交),供收工核 docs/ 边界
+  local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
+
   local pf; pf="$(mktemp)"; build_prompt "$plan" "$wt" "$design" "$issue" > "$pf"
   local rc=0
   run_codex "$wt" "$pf" \
@@ -96,7 +100,19 @@ cmd_dispatch() {
     ${gcd:+--add-dir "$gcd"} \
     -m "$model" -c "model_reasoning_effort=\"$effort\"" || rc=$?
   rm -f "$pf"
-  return "$rc"   # codex 失败时透给主线程,不伪装成功(输出已留 CODEX_EXIT + log)
+
+  # fail-closed:Worker 禁改 docs/(CLAUDE.md 硬规则——docs/ 只有 Coordinator/主线程能改)。
+  # Codex 碰了(本次已提交 或 未提交)就报违规、退非零,不让主线程当成功收下(prompt 文本之外的强制层)。
+  local docs_touched
+  docs_touched="$( { [ -n "$start_sha" ] && git -C "$wt" diff --name-only "$start_sha" HEAD 2>/dev/null
+                     git -C "$wt" status --porcelain 2>/dev/null | sed 's/^...//'; } \
+                   | grep '^docs/' | sort -u || true )"
+  if [ -n "$docs_touched" ]; then
+    echo "DOCS_VIOLATION: Codex 改了 docs/(Worker 禁改,只有 Coordinator 能改),打回重来:" >&2
+    printf '%s\n' "$docs_touched" | sed 's/^/  /' >&2
+    [ "$rc" -eq 0 ] && rc=3
+  fi
+  return "$rc"   # codex 失败或碰 docs/ 时透给主线程,不伪装成功(输出已留 CODEX_EXIT + log)
 }
 
 cmd_resume() {

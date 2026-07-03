@@ -2,7 +2,7 @@
 
 > 落地 = **Codex 写代码 + Claude(你)按计划验收**。把 ②计划审过的 plan 完整落地、不偏离设计,各 plan 一 worktree、可并行。
 > 红线:验收吃**跑测试 / 读 diff 的 ground truth**,不吃自述;afk 只放权自主跑(`attended` 才停问),真缺输入 / 方向疑 / 合并红线才停;merge/deploy 要人批(收尾阶段)。
-> - Codex **只改源码、禁碰 `docs/`**(已焊进派发 prompt);每 Pack 一提交带 `Pack N.M`。
+> - Codex **只改源码、禁碰 `docs/`**(派发 prompt 焊 + `mmw codex dispatch` 收工 fail-closed 核:碰了 docs/ 报 `DOCS_VIOLATION` 退非零,写修复指令 `codex resume` 打回);每 Pack 一提交带 `Pack N.M`。
 > - **Codex 返回的事实(改了啥、测试结果)是劳动力不是信源**——你 verify 时自己 grep / 读 / 跑坐实。
 
 ## 断点恢复(context 断了 / 中途回来,先跑这个)
