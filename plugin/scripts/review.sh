@@ -13,7 +13,7 @@ LOOP="$SCRIPT_DIR/loop.sh"
 MMW="bash $SCRIPT_DIR/mmw.sh"   # 打印给协调帮手的命令走统一 CLI
 # 审 = 高判断,审者 Codex 跑高档(不吃 codex 默认档);可 env 覆盖
 CODEX_REVIEW_MODEL="${CODEX_REVIEW_MODEL:-gpt-5.5}"
-CODEX_REVIEW_EFFORT="${CODEX_REVIEW_EFFORT:-xhigh}"
+CODEX_REVIEW_EFFORT="${CODEX_REVIEW_EFFORT:-high}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
