@@ -250,8 +250,9 @@ WK="$(newtask small-change 2026-07-03-loopvis)"
 ( cd "$WK" && bash "$LOOP" init --kind execution >/dev/null )
 ( cd "$WK" && bash "$LOOP" step add --id 1.1 --desc x >/dev/null )
 WKW="$(cd "$WK" && bash "$FLOW" where)"
+echo "$WKW" | grep -q "load=references/build-a.md" && ok "small-change build 阶段 load=build-a.md(脚本按 scenario 选模式)" || no "small-change load build-a ($(echo "$WKW"|grep '^load='))"
 echo "$WKW" | grep -q "inner_loop=execution" && ok "where 报 inner_loop=execution(内层可见)" || no "inner_loop kind ($(echo "$WKW"|grep inner_loop))"
-echo "$WKW" | grep -q "inner_loop_load=references/build.md" && ok "where 报内层该读哪份(routes.loop_bindings)" || no "inner_loop_load"
+echo "$WKW" | grep -q "inner_loop_load=references/build-a.md" && ok "execution 内层文档=阶段 load(build-a,回落不重配)" || no "inner_loop_load ($(echo "$WKW"|grep inner_loop_load))"
 echo "$WKW" | grep -q "inner_loop_state=NOT-DONE:steps=1.1" && ok "where 借 exit-check 报内层进度(单源)" || no "inner_loop_state ($(echo "$WKW"|grep inner_loop_state))"
 [ -f "$(lf "$WK")" ] && ok "handoff 前 loop-state 在" || no "loop-state 应在"
 ( cd "$WK" && bash "$FLOW" handoff --conclusion pass --produced base..HEAD >/dev/null )
@@ -262,6 +263,12 @@ WK2="$(newtask small-change 2026-07-03-loopkeep)"
 ( cd "$WK2" && bash "$LOOP" init --kind execution >/dev/null )
 ( cd "$WK2" && bash "$FLOW" handoff --conclusion needs-context >/dev/null )
 [ -f "$(lf "$WK2")" ] && ok "needs-context 保留 loop-state(resume 续现场)" || no "needs-context 误清 loop"
+
+# develop 到 build → 脚本给 build-b.md(派 Codex 模式),不与 small-change 同份
+WBB="$(newtask develop 2026-07-03-modeb)"
+for i in 1 2 3 4 5 6 7; do ( cd "$WBB" && bash "$FLOW" handoff --conclusion pass >/dev/null ); done
+[ "$(mphase "$WBB")" = "build" ] && ok "develop 七 pass 到 build" || no "develop 到 build ($(mphase "$WBB"))"
+echo "$(cd "$WBB" && bash "$FLOW" where)" | grep -q "load=references/build-b.md" && ok "develop build 阶段 load=build-b.md(脚本按 scenario 选模式)" || no "develop load build-b"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

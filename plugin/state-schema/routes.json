@@ -8,8 +8,6 @@
 
   "spinoff_tags": ["bug", "optimize", "out-of-scope", "needs-evaluation"],
 
-  "backbone": ["investigate", "propose", "design", "to-issue", "plan", "build", "closing"],
-
   "review_gates": {
     "design": { "stage": "design" },
     "plan":   { "stage": "plan" },
@@ -17,9 +15,8 @@
   },
 
   "loop_bindings": {
-    "execution":     { "load": "references/build.md" },
-    "contract-gate": { "load": "references/review/plan-impl.md" },
-    "review":        { "load": "references/review/review.md" }
+    "_note": "内层 loop 该读哪份。只列'与阶段 load 不同'的 loop:contract-gate 在 build 阶段跑却要读 plan-impl.md,故列此。execution/review 的方法论=阶段 load(build-a/b、审 review.md),where 直接回落到阶段 load,不重复列。",
+    "contract-gate": { "load": "references/review/plan-impl.md" }
   },
 
   "start_options": [
@@ -46,7 +43,7 @@
         { "id": "write",       "load": "references/plan/task-pack.md",       "do": "单计划:主线程在本步照 task-pack 写整份 plan;多计划:已由 plan-writer 写完 → step next 跳过" },
         { "id": "selfcheck",   "load": "references/plan/plan-self-check.md", "do": "跨 plan 覆盖与 ownership 就绪门自检,过了 handoff 交还" }
       ] },
-    "build":       { "load": "references/build.md",        "do": "落地:small-change/bug 主线程就地 TDD;develop 派 Codex(各 plan 一 worktree)+ 你按计划验收;落完跑 ③合同门(内部机器核),再 handoff(引擎强制进 ④终审闸)",  "produced": "<提交范围,如 base..HEAD>" },
+    "build":       { "load": "references/build-b.md", "load_by_scenario": { "small-change": "references/build-a.md", "bug": "references/build-a.md" }, "do": "落地:small-change/bug 主线程就地 TDD(build-a);develop 派 Codex(build-b,各 plan 一 worktree)+ 你按计划验收;落完跑 ③合同门(内部机器核),再 handoff(引擎强制进 ④终审闸)",  "produced": "<提交范围,如 base..HEAD>" },
     "closing":     { "load": "references/closing.md",      "do": "确认真完整、收口;合并/清理是合并后红线动作",                   "produced": "", "reads": ["design", "to-issue", "build"] },
     "review_gate": { "load": "references/review/review.md",       "do": "起该阶段审 loop(Codex 审者 + Claude 协调帮手):where 报 review_start 直接跑哪条、审完 handoff verdict", "produced": "" }
   },

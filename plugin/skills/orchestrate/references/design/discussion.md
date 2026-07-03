@@ -33,7 +33,7 @@ Bad: "这是个有趣的方向!我们可以从多个角度探索。"
 
 读写规则:进项目优先查 `CONTEXT-MAP.md`,存在则按索引读写对应子 context;不存在回退根 `CONTEXT.md`;皆无则懒创建。**设计文档术语必须与领域文档体系一致,新术语先进体系再引用。**
 
-**落点**:领域文档 = `CONTEXT-MAP.md` + `docs/context/**`;设计文档 = `docs/design/<YYYY-MM-DD>-<slug>.md`(单文件)或同名目录(多文件:主文档 + research / evidence / mockup)。
+**落点**:领域文档 = `CONTEXT-MAP.md` + `docs/context/**`;设计文档 = `docs/design/<slug>.md`(单文件)或 `docs/design/<slug>/` 同名目录(多文件:主文档 + research / evidence / mockup)。slug 已含日期,不再前缀日期(与 routes/prepare 落点一致,handoff 钉的产物路径才对得上)。
 
 ## 流程
 

@@ -81,7 +81,7 @@ flowchart TD
   G2 -->|"审过 advance"| BD
   G2 -.->|"needs-redirection 回 design"| DES
 
-  BD["<div style='text-align:left'><b>build · 落地</b>(develop=模式B 派 Codex · 进落地默认 afk 无人值守)<br/><span class='k'>读</span> references/build.md<br/><span class='k'>入</span> prev_outputs=[issues/realflow/, plans/realflow/]<br/>先落地内层 → ③ 合同门 → ④ 终审闸</div>"]:::claude --> EA
+  BD["<div style='text-align:left'><b>build · 落地</b>(develop=模式B 派 Codex · 进落地默认 afk 无人值守)<br/><span class='k'>读</span> references/build-b.md(where 按 scenario 选:small-change/bug→build-a、develop→build-b)<br/><span class='k'>入</span> prev_outputs=[issues/realflow/, plans/realflow/]<br/>先落地内层 → ③ 合同门 → ④ 终审闸</div>"]:::claude --> EA
   EA["<div style='text-align:left'><b>落地内层 · 派 Codex 写码</b><br/><span class='k'>命令</span> mmw loop init --kind execution · step add 1.1 · <b>mmw codex dispatch --plan .. --worktree ..</b>(codex exec --sandbox workspace-write -m gpt-5.4)<br/><span class='k'>读</span> 已装 worktree-build skill · 瘦派发(铁律在 Codex 侧:严防过度设计 / 兜底 / 思考、每 Pack 提交 Pack N.M、禁改 docs/)<br/><span class='k'>出</span> CODEX_EXIT=0 · SESSION=⟨uuid⟩(供 resume)· 收工回执:逐 Pack + 每条 acceptance + 改文件 + 测试结果</div>"]:::codex --> EB
   EB["<div style='text-align:left'><b>验收三关</b>(命门,不信 Codex 自述)<br/><span class='k'>读</span> 仓库测试治理文档(TESTING.md / AGENTS.md 测试节)<br/>① 完整性(跑验收 / 读 diff)② 测试质量(防垃圾测试自绿)③ 设计一致性</div>"]:::claude
   EB -->|"不过"| ECx["<div style='text-align:left'><b>mmw codex resume</b><br/>续 SESSION · 不重做已过 Pack</div>"]:::codex

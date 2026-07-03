@@ -258,6 +258,11 @@ cmd_where() {
   { [ "$gate" != "null" ] && [ -n "$gate" ]; } && bkey="review_gate"
   local b_load b_do slug
   b_load="$(jq -r --arg k "$bkey" '.phase_bindings[$k].load // "?"' "$ROUTES")"
+  # 按 scenario 选阶段 load(build 的就地TDD vs 派Codex 是确定分叉 → 脚本直接给对的那份,
+  # 不让 agent 读散文自己挑;非 build 阶段无 load_by_scenario,回落到默认 load)。
+  local b_load_scen
+  b_load_scen="$(jq -r --arg k "$bkey" --arg s "$scenario" '.phase_bindings[$k].load_by_scenario[$s] // empty' "$ROUTES")"
+  [ -n "$b_load_scen" ] && b_load="$b_load_scen"
   b_do="$(jq -r --arg k "$bkey" '.phase_bindings[$k].do // "?"' "$ROUTES")"
   slug="$(jq -r '.slug' "$m")"
 
@@ -341,7 +346,10 @@ EOF
     local lkind lstate lload
     lkind="$(jq -r '.kind // "?"' "$loopf" 2>/dev/null || echo "?")"
     lstate="$(cd "$top" && bash "$SCRIPT_DIR/loop.sh" exit-check 2>/dev/null || echo "?")"
-    lload="$(jq -r --arg k "$lkind" '.loop_bindings[$k].load // "?"' "$ROUTES")"
+    # 内层文档:loop_bindings 只列'与阶段 load 不同'的(contract-gate→plan-impl.md);
+    # execution/review 回落到阶段 load(build-a/b 随 scenario、审 review.md),不重复配。
+    lload="$(jq -r --arg k "$lkind" '.loop_bindings[$k].load // empty' "$ROUTES")"
+    [ -n "$lload" ] || lload="$b_load"
     echo "inner_loop=$lkind"
     echo "inner_loop_state=$lstate"
     echo "inner_loop_load=$lload"
