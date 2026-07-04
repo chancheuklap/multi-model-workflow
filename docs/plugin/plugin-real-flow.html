@@ -6,96 +6,145 @@
 <title>Plugin 全貌 · 一张大流程图</title>
 <style>
   :root{
-    --bg:#f2f4f8; --card:#ffffff; --ink:#1c2128; --dim:#57606a; --faint:#8b95a3;
-    --bd:#d0d7e0;
-    --claude:#0969da; --claude-bg:#eaf3ff; --claude-bd:#9cc7f5;
-    --codex:#bc4c00;  --codex-bg:#fff1e5;  --codex-bd:#f0b98d;
-    --script:#1a7f37; --script-bg:#e9f7ee; --script-bd:#9fd6ae;
-    --gate:#9a6700;   --gate-bg:#fff8e0;   --gate-bd:#e8c95e;
-    --doc:#6639ba;    --doc-bg:#f3eefc;    --doc-bd:#c9b4ee;
-    --hitl:#bf3989;   --hitl-bg:#ffeef8;   --hitl-bd:#f2a6ce;
+    --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+
+    /* slate-biased neutrals — picked, not defaulted */
+    --bg:#eceff4; --bg-2:#e4e9f1; --card:#ffffff; --card-2:#f7f9fc;
+    --ink:#12161c; --dim:#4d5765; --faint:#818c9b;
+    --bd:#d3dbe6; --bd-soft:#e5eaf1;
+
+    /* six actor hues — semantic, carry meaning */
+    --claude:#0757c9; --claude-bg:#e9f2ff; --claude-bd:#a9cbf7;
+    --codex:#b64400;  --codex-bg:#fff2e8;  --codex-bd:#f0b58a;
+    --script:#12772f; --script-bg:#e7f6ec; --script-bd:#9bd4ac;
+    --gate:#8a5b00;   --gate-bg:#fff6d9;   --gate-bd:#e7c657;
+    --doc:#5b31b0;    --doc-bg:#f1ebfc;    --doc-bd:#c7b2ee;
+    --hitl:#b62e80;   --hitl-bg:#ffebf5;   --hitl-bd:#f2a3cb;
     --red:#cf222e;
-    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+
+    --sh-card:0 1px 1px rgba(20,28,40,.04),0 6px 20px -10px rgba(20,28,40,.16);
+    --sh-pop:0 2px 4px rgba(20,28,40,.06),0 14px 30px -12px rgba(20,28,40,.26);
   }
-  @media (prefers-color-scheme: dark){
-    :root{
-      --bg:#0e1218; --card:#161c24; --ink:#e6edf3; --dim:#9aa7b4; --faint:#6b7683;
-      --bd:#2d3846;
-      --claude:#58a6ff; --claude-bg:#0e2138; --claude-bd:#1f4e7e;
-      --codex:#f0883e;  --codex-bg:#2b1a0c;  --codex-bd:#6e4423;
-      --script:#3fb950; --script-bg:#0e2416; --script-bd:#1f5b31;
-      --gate:#d4a72c;   --gate-bg:#2a230c;   --gate-bd:#6e5a1c;
-      --doc:#bc8cff;    --doc-bg:#221733;    --doc-bd:#4e3a75;
-      --hitl:#f778ba;   --hitl-bg:#33121f;   --hitl-bd:#7d2952;
+  /* dark tokens — applied by OS preference unless viewer forced light */
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0b0f16; --bg-2:#0f141d; --card:#141a23; --card-2:#1a212b;
+      --ink:#e8eef5; --dim:#9fabb9; --faint:#66717d;
+      --bd:#28323f; --bd-soft:#1d2530;
+      --claude:#5aa7ff; --claude-bg:#0e2137; --claude-bd:#26507e;
+      --codex:#f0883e;  --codex-bg:#2a1a0c;  --codex-bd:#6e4423;
+      --script:#43c159; --script-bg:#0d2416; --script-bd:#215c33;
+      --gate:#dcb02f;   --gate-bg:#291f0a;   --gate-bd:#6f5a1c;
+      --doc:#c19bff;    --doc-bg:#1f1633;    --doc-bd:#4d3a75;
+      --hitl:#fa7fc0;   --hitl-bg:#301021;   --hitl-bd:#7d2c56;
       --red:#ff7b72;
+      --sh-card:0 1px 1px rgba(0,0,0,.4),0 8px 24px -14px rgba(0,0,0,.66);
+      --sh-pop:0 2px 6px rgba(0,0,0,.5),0 16px 34px -14px rgba(0,0,0,.78);
     }
   }
+  /* viewer toggle wins in both directions */
+  :root[data-theme="dark"]{
+    --bg:#0b0f16; --bg-2:#0f141d; --card:#141a23; --card-2:#1a212b;
+    --ink:#e8eef5; --dim:#9fabb9; --faint:#66717d;
+    --bd:#28323f; --bd-soft:#1d2530;
+    --claude:#5aa7ff; --claude-bg:#0e2137; --claude-bd:#26507e;
+    --codex:#f0883e;  --codex-bg:#2a1a0c;  --codex-bd:#6e4423;
+    --script:#43c159; --script-bg:#0d2416; --script-bd:#215c33;
+    --gate:#dcb02f;   --gate-bg:#291f0a;   --gate-bd:#6f5a1c;
+    --doc:#c19bff;    --doc-bg:#1f1633;    --doc-bd:#4d3a75;
+    --hitl:#fa7fc0;   --hitl-bg:#301021;   --hitl-bd:#7d2c56;
+    --red:#ff7b72;
+    --sh-card:0 1px 1px rgba(0,0,0,.4),0 8px 24px -14px rgba(0,0,0,.66);
+    --sh-pop:0 2px 6px rgba(0,0,0,.5),0 16px 34px -14px rgba(0,0,0,.78);
+  }
+
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);
-       font:13.5px/1.55 -apple-system,"PingFang SC","Segoe UI",sans-serif;padding:26px 18px 80px}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+       font-size:13.5px;line-height:1.55;font-variant-numeric:tabular-nums;
+       -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+       padding:24px 20px 80px}
   .flow{max-width:1500px;margin:0 auto}
+  @media (prefers-reduced-motion:no-preference){.flow{animation:fade .45s ease both}}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  a:focus-visible{outline:2px solid var(--claude);outline-offset:2px}
 
-  /* ===== 顶栏:标题 + 图例(图例本身就是读图钥匙,不是解释模块)===== */
-  h1{font-size:20px;margin:0 0 4px}
-  .legend{display:flex;gap:8px 18px;flex-wrap:wrap;align-items:center;
-          font-size:12px;color:var(--dim);margin:10px 0 4px}
-  .legend .sw{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1px solid transparent}
-  .legend b{color:var(--ink);font-weight:600}
+  /* ===== 报头 ===== */
+  .masthead{max-width:1500px;margin:0 auto;padding:0 2px}
+  .masthead::before{content:"";display:block;height:3px;border-radius:3px;margin-bottom:16px;opacity:.92;
+    background:linear-gradient(90deg,var(--claude),var(--codex),var(--script),var(--gate),var(--doc),var(--hitl))}
+  .kicker{font:600 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:9px}
+  h1{font-size:23px;font-weight:750;letter-spacing:-.01em;margin:0 0 7px;text-wrap:balance;
+     display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  h1 .ver{font:600 11px var(--mono);color:var(--faint);letter-spacing:0}
+  .sub{margin:0;max-width:74ch;color:var(--dim);font-size:13px;line-height:1.62}
 
-  /* ===== 卡片(=一个阶段/一台机器)===== */
-  .card{background:var(--card);border:1.5px solid var(--bd);border-radius:14px;
-        padding:14px 16px;margin:0 auto;max-width:1500px;position:relative}
-  .card.claude{border-color:var(--claude-bd)}
-  .card.codexc{border-color:var(--codex-bd)}
-  .card.script{border-color:var(--script-bd)}
-  .card.gate{border-color:var(--gate-bd);background:linear-gradient(0deg,var(--gate-bg),var(--card) 85%)}
-  .card.merge-lane{border-style:dashed}
-  .chead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-  .chead .ph{font-size:15px;font-weight:700}
-  .chead .who{font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px}
+  /* ===== 图例(读图钥匙 · 长图内粘顶)===== */
+  .legendbar{position:sticky;top:0;z-index:50;margin:16px 0 6px;background:var(--bg);
+    border-bottom:1px solid var(--bd-soft);backdrop-filter:saturate(1.4) blur(8px);-webkit-backdrop-filter:saturate(1.4) blur(8px)}
+  .legend{max-width:1500px;margin:0 auto;display:flex;gap:7px 18px;flex-wrap:wrap;align-items:center;
+          font-size:12px;color:var(--dim);padding:9px 2px}
+  .legend>span{display:inline-flex;align-items:center}
+  .legend .sw{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;border:1px solid transparent}
+  .legend b{color:var(--ink);font-weight:650}
+
+  /* ===== 卡片(=一个阶段/一台机器),左侧色条=归属 ===== */
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;box-shadow:var(--sh-card);
+        padding:15px 18px 15px 20px;margin:0 auto;max-width:1500px;position:relative}
+  .card::before{content:"";position:absolute;left:0;top:15px;bottom:15px;width:3px;border-radius:0 3px 3px 0;background:var(--bd)}
+  .card.claude{border-color:var(--claude-bd)}   .card.claude::before{background:var(--claude)}
+  .card.codexc{border-color:var(--codex-bd)}    .card.codexc::before{background:var(--codex)}
+  .card.script{border-color:var(--script-bd)}   .card.script::before{background:var(--script)}
+  .card.gate{border-color:var(--gate-bd);background:linear-gradient(180deg,var(--gate-bg),var(--card) 72%)}
+  .card.gate::before{background:var(--gate)}
+  .card.merge-lane{border-style:dashed}         .card.merge-lane::before{background:var(--claude)}
+  .chead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--bd-soft)}
+  .chead .ph{font-size:15.5px;font-weight:720;letter-spacing:-.006em}
+  .chead .who{font-size:10.5px;font-weight:650;padding:2px 9px;border-radius:20px;letter-spacing:.01em}
   .who.claude{color:var(--claude);background:var(--claude-bg);border:1px solid var(--claude-bd)}
   .who.codex{color:var(--codex);background:var(--codex-bg);border:1px solid var(--codex-bd)}
   .who.script{color:var(--script);background:var(--script-bg);border:1px solid var(--script-bd)}
   .who.gate{color:var(--gate);background:var(--gate-bg);border:1px solid var(--gate-bd)}
   .who.hitl{color:var(--hitl);background:var(--hitl-bg);border:1px solid var(--hitl-bd)}
   .chead .load{font-family:var(--mono);font-size:11px;color:var(--dim)}
-  .chead .io{margin-left:auto;font-size:11px;color:var(--faint);font-family:var(--mono)}
+  .chead .io{margin-left:auto;font-size:11px;color:var(--faint);font-family:var(--mono);letter-spacing:.01em}
 
   /* ===== 卡片内部:横向节点流 ===== */
   .row{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:6px 0}
-  .n{border:1.5px solid var(--bd);border-radius:9px;padding:7px 10px;min-width:120px;max-width:330px;
-     background:var(--card);font-size:12.5px;flex:0 1 auto}
-  .n .t{font-weight:700;font-size:12.5px;margin-bottom:2px}
-  .n .d{color:var(--dim);font-size:11.5px;line-height:1.5}
+  .n{border:1px solid var(--bd);border-radius:11px;padding:8px 11px;min-width:120px;max-width:340px;
+     background:var(--card-2);font-size:12.5px;flex:0 1 auto}
+  .n .t{font-weight:700;font-size:12.5px;margin-bottom:3px;letter-spacing:-.004em}
+  .n .d{color:var(--dim);font-size:11.5px;line-height:1.55}
   .n.claude{background:var(--claude-bg);border-color:var(--claude-bd)} .n.claude .t{color:var(--claude)}
   .n.codex{background:var(--codex-bg);border-color:var(--codex-bd)}   .n.codex .t{color:var(--codex)}
   .n.script{background:var(--script-bg);border-color:var(--script-bd)}.n.script .t{color:var(--script)}
   .n.gaten{background:var(--gate-bg);border-color:var(--gate-bd)}     .n.gaten .t{color:var(--gate)}
   .n.doc{background:var(--doc-bg);border-color:var(--doc-bd)}         .n.doc .t{color:var(--doc)}
-  .n.hitl{background:var(--hitl-bg);border-color:var(--hitl-bd);border-width:2px} .n.hitl .t{color:var(--hitl)}
-  .n.dia{border-radius:20px;border-style:dashed}
-  .ar{align-self:center;padding:0 7px;color:var(--faint);font-size:16px;font-weight:700;white-space:nowrap}
+  .n.hitl{background:var(--hitl-bg);border-color:var(--hitl-bd);border-width:2px;box-shadow:var(--sh-card)} .n.hitl .t{color:var(--hitl)}
+  .n.dia{border-radius:22px;border-style:dashed}
+  .ar{align-self:center;padding:0 8px;color:var(--faint);font-size:15px;font-weight:700;white-space:nowrap}
   .ar small{display:block;font-size:9.5px;font-weight:600;color:var(--dim);text-align:center;line-height:1.2;max-width:110px}
 
   /* 徽章 / 命令 / 产物 */
-  .b{display:inline-block;font-size:10px;font-weight:700;border-radius:4px;padding:0 5px;margin:1px 2px 1px 0;vertical-align:1px}
+  .b{display:inline-block;font-size:10px;font-weight:700;border-radius:5px;padding:0 5px;margin:1px 2px 1px 0;vertical-align:1px}
   .b.hitl{color:var(--hitl);background:var(--hitl-bg);border:1px solid var(--hitl-bd)}
   .b.model{color:var(--codex);background:var(--codex-bg);border:1px solid var(--codex-bd);font-family:var(--mono);font-weight:600}
   .b.cmodel{color:var(--claude);background:var(--claude-bg);border:1px solid var(--claude-bd);font-family:var(--mono);font-weight:600}
   .b.fuse{color:var(--red);border:1px solid var(--red);background:transparent}
   .b.st{color:var(--script);background:var(--script-bg);border:1px solid var(--script-bd)}
-  code{font-family:var(--mono);font-size:11px;background:rgba(128,128,128,.13);border-radius:4px;padding:1px 5px;white-space:nowrap}
+  code{font-family:var(--mono);font-size:11px;background:rgba(128,128,128,.14);border-radius:5px;padding:1px 5px;white-space:nowrap}
   .prod{font-family:var(--mono);font-size:10.5px;color:var(--doc)}
 
   /* ===== 卡片间连接 ===== */
-  .link{display:flex;flex-direction:column;align-items:center;margin:2px auto;max-width:1500px}
-  .link .stem{width:2.5px;height:16px;background:var(--faint)}
-  .link .head{color:var(--faint);font-size:15px;line-height:.5;margin-top:-2px}
-  .link .lbl{font-size:11px;color:var(--dim);background:var(--bg);padding:1px 8px;margin:1px 0}
-  .link .lbl b{color:var(--ink)}
+  .link{display:flex;flex-direction:column;align-items:center;margin:3px auto;max-width:1500px}
+  .link .stem{width:2px;height:18px;background:linear-gradient(var(--bd),var(--faint))}
+  .link .head{color:var(--faint);font-size:14px;line-height:.6;margin-top:-1px}
+  .link .lbl{font-size:11px;color:var(--dim);background:var(--card);padding:3px 12px;margin:3px 0;
+    border:1px solid var(--bd-soft);border-radius:12px;max-width:1080px;text-align:center;line-height:1.55;box-shadow:var(--sh-card)}
+  .link .lbl b{color:var(--ink);font-weight:650}
   /* 回跳(返工/掉头):贴在卡片右上的回签 */
-  .back{position:absolute;top:-11px;right:14px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-  .back span{font-size:10.5px;font-weight:600;border-radius:20px;padding:1px 9px;background:var(--card)}
+  .back{position:absolute;top:-11px;right:16px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:70%}
+  .back span{font-size:10.5px;font-weight:600;border-radius:20px;padding:2px 10px;background:var(--card);box-shadow:var(--sh-card)}
   .back .rp{color:var(--gate);border:1.5px dashed var(--gate-bd)}
   .back .rd{color:var(--red);border:1.5px dashed var(--red)}
   .back .ok{color:var(--script);border:1.5px dashed var(--script-bd)}
@@ -112,21 +161,41 @@
   .grid22{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1 1 420px;max-width:560px}
   .grid22 .n{max-width:none}
 
-  .foot{max-width:1500px;margin:26px auto 0;font-size:10.5px;color:var(--faint);font-family:var(--mono);line-height:1.8}
+  .foot{max-width:1500px;margin:28px auto 0;font:400 11px/1.85 var(--mono);color:var(--faint);
+    border-top:1px solid var(--bd-soft);padding-top:16px}
+
+  /* 窄屏:四联/双列收成单列,别把 body 撑到横向滚 */
+  @media (max-width:860px){
+    .split,.machines{grid-template-columns:1fr 1fr}
+    .grid22{grid-template-columns:1fr;max-width:none}
+  }
+  @media (max-width:560px){
+    .split,.machines{grid-template-columns:1fr}
+    body{padding:18px 13px 60px}
+    h1{font-size:20px}
+    .n{max-width:none;flex:1 1 100%}
+    .ar{transform:rotate(90deg);padding:4px 0}
+  }
 </style>
 </head>
 <body>
 <div class="flow">
 
-<h1>Plugin 全貌 · 一张大流程图 <span style="font-size:12px;color:var(--faint);font-weight:400">v6.4.0 · 2026-07-03</span></h1>
-<div class="legend">
-  <span><i class="sw" style="background:var(--claude-bg);border-color:var(--claude-bd)"></i><b>Claude 主线程/帮手</b>(判断)</span>
-  <span><i class="sw" style="background:var(--codex-bg);border-color:var(--codex-bd)"></i><b>Codex 无头 CLI</b>(写码/审)</span>
-  <span><i class="sw" style="background:var(--script-bg);border-color:var(--script-bd)"></i><b>脚本/hook</b>(确定层,零手搓)</span>
-  <span><i class="sw" style="background:var(--gate-bg);border-color:var(--gate-bd)"></i><b>审闸/门</b>(引擎强制)</span>
-  <span><i class="sw" style="background:var(--doc-bg);border-color:var(--doc-bd)"></i><b>文档/状态</b>(真相源)</span>
-  <span><i class="sw" style="background:var(--hitl-bg);border-color:var(--hitl-bd)"></i><b>HITL</b> 停下问你</span>
-  <span>◇ 虚线圆角 = 判断分叉 · 卡右上回签 = 返工/掉头出口 · <span class="b fuse">熔断</span> = 机器计数到顶自动停</span>
+<header class="masthead">
+  <div class="kicker">Multi-Model Dev Orchestration · Plugin Harness</div>
+  <h1>Plugin 全貌 · 一张大流程图 <span class="ver">v6.4.0 · 2026-07-03</span></h1>
+  <p class="sub">八阶段一条主脊 · 四类开口(新设计 / 优化 / bug / 合并)· 双模型审闸把关 —— 人只在 propose / design 停下拍板,进了计划和落地默认无人值守。</p>
+</header>
+<div class="legendbar">
+  <div class="legend">
+    <span><i class="sw" style="background:var(--claude-bg);border-color:var(--claude-bd)"></i><b>Claude 主线程/帮手</b>(判断)</span>
+    <span><i class="sw" style="background:var(--codex-bg);border-color:var(--codex-bd)"></i><b>Codex 无头 CLI</b>(写码/审)</span>
+    <span><i class="sw" style="background:var(--script-bg);border-color:var(--script-bd)"></i><b>脚本/hook</b>(确定层,零手搓)</span>
+    <span><i class="sw" style="background:var(--gate-bg);border-color:var(--gate-bd)"></i><b>审闸/门</b>(引擎强制)</span>
+    <span><i class="sw" style="background:var(--doc-bg);border-color:var(--doc-bd)"></i><b>文档/状态</b>(真相源)</span>
+    <span><i class="sw" style="background:var(--hitl-bg);border-color:var(--hitl-bd)"></i><b>HITL</b> 停下问你</span>
+    <span>◇ 虚线圆角 = 判断分叉 · 卡右上回签 = 返工/掉头出口 · <span class="b fuse">熔断</span> = 机器计数到顶自动停</span>
+  </div>
 </div>
 
 <!-- ═══════════════ 入口 ═══════════════ -->
