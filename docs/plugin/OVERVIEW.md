@@ -414,6 +414,8 @@ flowchart LR
 
 **接力单怎么拼(`where` 报 `prev_outputs`,下阶段照单读不自己找)**:默认读上一个开着阶段的产出;阶段在 `routes.json phase_bindings.reads` 声明跨多阶上游时按声明拼(design `reads:[investigate,propose]` → 现状报告 + 选定方向都进 `prev_outputs`;plan `reads:[design,to-issue]` → 设计文档 + issue 骨架都进)。一阶段产多件时 `produced` 可用数组。**design 只产设计文档,issue 骨架由 ①设计审后的独立阶段 to-issue 产**(审后再切片,①审只审设计文档)。在审闸里 `where` 另报 `review_source` = 当前阶刚产的待审产物,直接喂 `mmw review start --source`。
 
+**主仓库零残留**:plugin 的一切产物都在工作树里;主仓库只落 `.claude/{worktrees,multi-model-workflow}` 两个状态目录,由 `prepare.sh new` / `review.sh start` 幂等写入 `.claude/.gitignore` 对 git 遮蔽(只影响未跟踪文件,不碰用户已跟踪的 `.claude/` 内容)——建 worktree 后主仓库 `git status` 必须干净。merge 场景(唯一在主仓库跑的路)产物(merge-brief / merge-impl 留痕)也只进状态平面,不写主仓库 `docs/`。
+
 ---
 
 ## 9. 现状叠在架构上

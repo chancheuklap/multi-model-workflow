@@ -19,6 +19,18 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 git_toplevel() { git rev-parse --show-toplevel 2>/dev/null || die "不在 git 仓库内"; }
 in_worktree() { [ -f "$1/.git" ]; }
 
+# 主仓库状态平面遮蔽:plugin 在主仓库只落 .claude/{worktrees,multi-model-workflow},
+# 用 .claude/.gitignore 对 git 隐形(gitignore 只影响未跟踪文件,用户已跟踪的 .claude/settings 等不受影响)。
+# 不遮蔽的话 worktree 一建主仓库 git status 就多出 ?? .claude/ 残留。幂等,可重复调。
+ensure_state_ignore() {  # $1=git toplevel
+  local g="$1/.claude/.gitignore" line
+  mkdir -p "$1/.claude"
+  if [ -f "$g" ] && grep -qxF '*' "$g"; then return 0; fi   # 已是全遮蔽(worktree 形态)
+  for line in 'worktrees/' 'multi-model-workflow/' '.gitignore'; do
+    { [ -f "$g" ] && grep -qxF "$line" "$g"; } || printf '%s\n' "$line" >> "$g"
+  done
+}
+
 # ---------- new ----------
 cmd_new() {
   local scenario="" slug="" title="" direction_given=false
@@ -43,6 +55,7 @@ cmd_new() {
   local wt="$top/.claude/worktrees/$slug"
   [ -e "$wt" ] && die "worktree 已存在:$wt"
   git -C "$top" show-ref --verify --quiet "refs/heads/$slug" && die "分支已存在:$slug(换个 slug 或先清理)"
+  ensure_state_ignore "$top"   # 建 worktree 前遮蔽主仓库状态平面,git status 零残留
 
   local base; base="$(git -C "$top" rev-parse HEAD)"
   # 从本地最新 HEAD 分叉
@@ -53,13 +66,13 @@ cmd_new() {
   # 状态平面对 git 不可见:.claude/ 下全部忽略(task.json/loop-state/codex-logs),
   # 防 worker `git add -A` 把 plugin 状态污染进代码提交、防 closing 的 status 干净核查永远过不了
   printf '*\n' > "$wt/.claude/.gitignore"
-  # 过程产物不永久存档(随 worktree 删):现状报告 / 审查留痕 / 终审报告 / merge-brief。
+  # 过程产物不永久存档(随 worktree 删):现状报告 / 审查留痕 / 终审报告。
   # 提交进分支的只有:设计(含 mockup/prototype)/ issue / 计划 / 领域文档(docs/context 项目级资产)。
+  # (merge-brief 不在这:merge 场景在主仓库,产物落 .claude/multi-model-workflow/,不进 docs/)
   cat > "$wt/docs/.gitignore" <<'IGN'
 investigating/
 reviews/
 *-final-review.md
-*-merge-brief.md
 IGN
 
   # 阶段序列从预设解析:主干被 preset 过滤后的开着阶段(单源,prepare 不硬编码)

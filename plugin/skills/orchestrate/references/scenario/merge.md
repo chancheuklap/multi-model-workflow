@@ -14,7 +14,7 @@ mmw task team
 
 逐个在管 worktree 一行:`slug / title / scenario / phase / status / branch / base_commit / design / open_items / subtasks`。
 
-据此写 **merge-brief**:`docs/<slug>-merge-brief.md`(本场唯一"合并后正确状态"权威源,后续每次派 Codex 都引它的路径、不粘内容)。含:
+据此写 **merge-brief**:`.claude/multi-model-workflow/<slug>-merge-brief.md`(本场唯一"合并后正确状态"权威源,后续每次派 Codex 都引它的路径、不粘内容)。**merge 在主仓库跑,一切产物只落 `.claude/multi-model-workflow/` 状态平面(对 git 隐形),不写 `docs/`、不给主分支留残留。** 含:
 - **PR 表**:PR / branch / 核心行为 / 各自 ④终审 verdict / 对应 issue。
 - **合同地图**:所有跨 PR 合同面(model / API / schema / registry / migration)。
 - **文件交叉矩阵**:被多个 PR 改的文件。
@@ -74,10 +74,10 @@ mmw task team
 ## 6. 跨 PR 集成审(全合完跑一次)
 
 ```bash
-mmw review start --stage merge-impl --source docs/<slug>-merge-brief.md
+mmw review start --stage merge-impl --source .claude/multi-model-workflow/<slug>-merge-brief.md
 ```
 
-派两个独立 Codex 审者(读它已装的 `worktree-review` skill,按 `stage=merge-impl` 走七角度),**不信各 PR 的 ④终审、独立验组合行为**。findings 走 review 留痕(`docs/reviews/<slug>-merge-impl.md`)、亲验、disposition。**修复软上限 1 轮**(简单 Coordinator 修、复杂派 Codex);修完自验(对照 merge-brief 合同地图 + 七角度 + 跑验收)→ 过即闭合,不过 → BLOCKED 报用户。
+派两个独立 Codex 审者(读它已装的 `worktree-review` skill,按 `stage=merge-impl` 走七角度),**不信各 PR 的 ④终审、独立验组合行为**。findings 走 review 留痕(`.claude/multi-model-workflow/<slug>-merge-impl-review.md`,主仓库不落 docs/)、亲验、disposition。**修复软上限 1 轮**(简单 Coordinator 修、复杂派 Codex);修完自验(对照 merge-brief 合同地图 + 七角度 + 跑验收)→ 过即闭合,不过 → BLOCKED 报用户。
 
 ## 7. 清扫 + 返回
 

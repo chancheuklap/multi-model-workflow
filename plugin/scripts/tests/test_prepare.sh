@@ -25,6 +25,13 @@ echo "$OUT" | grep -q "^PREPARED" && ok "new 返回 PREPARED" || no "new 返回 
 git show-ref --verify --quiet "refs/heads/$SLUG" && ok "分支建好" || no "分支建好"
 [ -d "$WT/docs/investigating" ] && [ -d "$WT/docs/design" ] && [ -d "$WT/docs/issues" ] && [ -d "$WT/docs/plans" ] && [ -d "$WT/docs/context" ] && ok "docs 布局 scaffold(investigating/design/issues/plans/context 全)" || no "docs 布局 scaffold"
 [ "$(cat "$WT/.claude/.gitignore" 2>/dev/null)" = "*" ] && ok "状态平面 .claude/ 已 gitignore(git status 不脏)" || no ".claude gitignore"
+# 主仓库零残留:建完 worktree 主仓库 git status 干净(.claude/.gitignore 遮蔽 worktrees/ 与状态平面)
+[ -z "$(git status --porcelain)" ] && ok "建 worktree 后主仓库 git status 零残留" || no "主仓库残留 ($(git status --porcelain | head -1))"
+grep -qxF 'worktrees/' .claude/.gitignore && grep -qxF 'multi-model-workflow/' .claude/.gitignore && ok "主仓库 .claude/.gitignore 遮蔽状态平面" || no "主仓库遮蔽条目"
+LC1="$(wc -l < .claude/.gitignore)"
+bash "$PREPARE" new --scenario bug --slug 2026-06-28-idem --title t >/dev/null 2>&1
+[ "$(wc -l < .claude/.gitignore)" = "$LC1" ] && ok "遮蔽写入幂等(重复 new 不追行)" || no "遮蔽幂等"
+git worktree remove --force "$TMP/.claude/worktrees/2026-06-28-idem" >/dev/null 2>&1; git branch -D 2026-06-28-idem >/dev/null 2>&1; git worktree prune >/dev/null 2>&1   # 清掉幂等试探,不影响后续 team 断言
 grep -q "investigating/" "$WT/docs/.gitignore" && grep -q "reviews/" "$WT/docs/.gitignore" && grep -q -- "-final-review.md" "$WT/docs/.gitignore" && ok "过程产物 docs/.gitignore(investigating/reviews/终审报告不存档)" || no "docs gitignore"
 [ "$(jq -r .docs.plans "$WT/.claude/multi-model-workflow/task.json")" = "docs/plans/$SLUG" ] && ok "manifest.docs.plans 路径" || no "docs.plans 路径"
 [ "$(jq -r .docs.design "$WT/.claude/multi-model-workflow/task.json")" = "docs/design/$SLUG" ] && ok "manifest.docs.design 路径" || no "docs.design 路径"

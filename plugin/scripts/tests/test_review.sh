@@ -92,6 +92,15 @@ bash "$REVIEW" start --stage plan-impl --source docs/design/d.md >/dev/null 2>&1
 bash "$REVIEW" start --stage design --source x >/dev/null 2>&1
 grep -q "claude -p" "$BRIEF" && no "design 审不该派 Claude" || ok "①②仍 Codex-only(写审异家)"
 
+# 留痕落点:任务审走 docs/reviews/;merge-impl(主仓库)落状态平面,不写 docs/
+bash "$REVIEW" start --stage design --source x >/dev/null 2>&1
+grep -q "docs/reviews/<slug>-design.md" "$BRIEF" && ok "任务审留痕落 docs/reviews/" || no "design 留痕落点"
+bash "$REVIEW" start --stage merge-impl --source x >/dev/null 2>&1
+grep -q ".claude/multi-model-workflow/<slug>-merge-impl-review.md" "$BRIEF" && ok "merge-impl 留痕落状态平面(主仓库零残留)" || no "merge-impl 留痕落点"
+grep -q "docs/reviews/" "$BRIEF" && no "merge-impl 不该指 docs/" || ok "merge-impl 不写 docs/"
+# 主仓库状态平面已遮蔽:起审后 git status 不冒 ?? .claude/
+grep -qxF 'multi-model-workflow/' .claude/.gitignore && ok "review start 遮蔽主仓库状态平面" || no "review 遮蔽"
+
 # fail-closed
 if bash "$REVIEW" start --stage bogus --source x >/dev/null 2>&1; then no "非法 stage 被拒"; else ok "非法 stage 被拒"; fi
 if bash "$REVIEW" start --stage design >/dev/null 2>&1; then no "缺 source 被拒"; else ok "缺 source 被拒(fail-closed)"; fi

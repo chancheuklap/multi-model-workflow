@@ -19,6 +19,17 @@ CLAUDE_REVIEW_MODEL="${CLAUDE_REVIEW_MODEL:-opus}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
+# 主仓库状态平面遮蔽(merge-impl 在主仓库起审时写 .claude/multi-model-workflow/):
+# 与 prepare.sh 同款,幂等;worktree 内已有全遮蔽(*)直接跳过。
+ensure_state_ignore() {  # $1=git toplevel
+  local g="$1/.claude/.gitignore" line
+  mkdir -p "$1/.claude"
+  if [ -f "$g" ] && grep -qxF '*' "$g"; then return 0; fi
+  for line in 'worktrees/' 'multi-model-workflow/' '.gitignore'; do
+    { [ -f "$g" ] && grep -qxF "$line" "$g"; } || printf '%s\n' "$line" >> "$g"
+  done
+}
+
 cmd_start() {
   local stage=""; local -a sources=()
   while [ $# -gt 0 ]; do
@@ -47,7 +58,13 @@ cmd_start() {
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
   scen="$(jq -r '.scenario // ""' "$top/.claude/multi-model-workflow/task.json" 2>/dev/null || echo "")"
   brief="$top/.claude/multi-model-workflow/review-brief.md"
+  ensure_state_ignore "$top"
   mkdir -p "$top/.claude/multi-model-workflow"
+
+  # 留痕落点:任务审(worktree 内)走 docs/reviews/(docs/.gitignore 已忽略);
+  # merge-impl 在主仓库跑,不落 docs/ ——一切主仓库产物进状态平面,零残留。
+  local trace="docs/reviews/<slug>-$stage.md"
+  [ "$stage" = "merge-impl" ] && trace=".claude/multi-model-workflow/<slug>-merge-impl-review.md"
 
   # fail-closed:未收束的 execution loop 不许被起审静默清掉(步账里存着 plan↔worktree 派发映射,
   # 清了断点恢复账本就没了)。先做完(exit-check DONE)或人工 mmw loop close 再起审。
@@ -179,7 +196,7 @@ Source: $source
 $dispatch
 
 ## 留痕(必做)
-把全部审者的结构化 findings **原样落盘** docs/reviews/<slug>-$stage.md(不重写不摘要,保真+省主线程 context);
+把全部审者的结构化 findings **原样落盘** $trace(不重写不摘要,保真+省主线程 context);
 亲验后把每条 verdict/处置(accepted/rejected/duplicate/needs-evidence)就近标该条下,文末写一句总 verdict。
 
 ## 收回亲验
