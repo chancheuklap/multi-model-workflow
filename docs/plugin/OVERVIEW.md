@@ -255,7 +255,7 @@ loop engineering **不是落地专用**,是通用内层机器。审核也是它�
 | ①设计审 | 写计划前 | grep/读仓库(有没有现成库、合同对不对) | 浅 | **留**·便宜最高杠杆(代码前抓方向/设计错) |
 | ②计划审 | 写代码前 | 同上 + 覆盖/合规 | 浅 | **留**·便宜高杠杆 |
 | ③落地审 | 全 plan 合并后一次 | —— | **降成便宜合同门**(只查跨 plan 合同兑现) | 低·跟 TDD 重叠、孤立看不到跨 plan |
-| ④final | 全合并后 | 跑测试、读大 diff、对抗输入 | **深·双模型 2×2**(两视角 × Codex/Claude 各一,prompt 同一段);small-change/bug 自动降档 1×Codex | **集中**·跨 plan 缝隙+兑没兑现意图+独立代码审+跨模型对账 |
+| ④final | 全合并后 | 跑测试、读大 diff、对抗输入 | **深·按风险机器分档**(review.sh 判):develop 有 `Complexity: capable` 或 diff>阈值(默认 800 行,`REVIEW_TIER_DIFF_MAX`)或判不出数据(fail-closed)→ 双模型 2×2;develop 低风险 → 2 审者(基线1 Codex / 基线2 Claude,仍跨模型);small-change/bug → 1×Codex | **集中**·跨 plan 缝隙+兑没兑现意图+独立代码审+跨模型对账 |
 
 ```mermaid
 flowchart LR
@@ -384,6 +384,7 @@ flowchart LR
 
 - **方向分脚本**:内部 → `investigate-internal`(只读 Read/grep,locator=file:line);外部 → `investigate-external`(web/context7,locator=url)。**外部非必做**;只查内部就只跑 internal。
 - **数量由 topics 定,不设上限**:一个 topic 一个 agent,按调查真实需要定几个(`parallel(topics.map(...))`),别凑废 topic 也不卡数字。
+- **调查员分档**:topic agent 钉 Sonnet 5 high(机械取证,token 平衡);synthesize 继承会话模型(综合要判断)。
 - **fire 前一个 checkpoint**:主线程定好 topics 先亮给用户批 / 改,再跑(不闷头烧 token)。
 - **技能原生融入不摘抄**:agent 运行时 `Skill()` 加载角度 skill(codebase-design 类 / deep-research·context7)——引用名字,upstream 维护。
 - **只读取证**:并行查 → 机械过滤无出处 claim(取证,非判定)→ 综合带引用报告 → **主线程亲验承重事实** → 写 CONTEXT + research 笔记 → handoff 给想方案。判定仍归 Codex(后面 ①设计审),`agent()` 只派 Claude。
@@ -471,7 +472,7 @@ flowchart LR
 | 每条路径一份干净完整走法(建 worktree + 契约 + 回执 + 收尾)| `skills/orchestrate/references/scenario/{small-change,develop,bug,merge}.md` |
 | 路径间共用步骤的单源 + 多文档构建(改一处跑 `build.sh --apply` 覆盖全部)| `build/fragments/*.md` · `build/build.sh`(`--check`/`--apply`)|
 | 各阶段方法论 / 操作指南 | `skills/orchestrate/references/{investigate,propose,review,build,closing}.md` · `design/`(discuss=discussion → prototype=prototype-mockup → write=design-doc-template → selfcheck=design-self-check **四步走脚本游标懒加载**;切片 to-issue-skeleton)· `plan/`(orchestrate=plan-flow → write=task-pack → selfcheck=plan-self-check **三步走脚本游标懒加载**,与 design 同构)—— 八阶段方法论同住 orchestrate 体内、按路径/步骤加载,无 `Skill:` 名索引 |
-| 插件接线(可安装)| `.claude-plugin/plugin.json`(清单)· `hooks/hooks.json`(只接 3 个 hook)· `agents/plan-writer.md`(plan 阶段 fan-out)· `commands/gather-context.md`(设计问答补上下文)|
+| 插件接线(可安装)| `.claude-plugin/plugin.json`(清单)· `hooks/hooks.json`(4 个 hook)· `agents/plan-writer.md`(plan 阶段 fan-out)· `commands/gather-context.md`(设计问答补上下文)|
 | 阶段→`load`/`do`/`then` 绑定(`mmw where` 自指路单源)| `state-schema/routes.json` 的 `phase_bindings` |
 | 审题(Codex 审者读它已装的 skill,不给 plugin 路径)| `codex-skills/worktree-review/`(`SKILL.md` + `references/{method,design,plan,final,merge}.md`)|
 | ③合同门审题 + 审核编排(Claude 侧,留 plugin)| `skills/orchestrate/references/review/{plan-impl,review}.md` |
@@ -479,7 +480,7 @@ flowchart LR
 | 交单 / 换阶段 / 审闸 / 分叉 / 接力单 / 查位置 | `scripts/flow.sh` |
 | 内层 loop 引擎(steps/checklist/退出三件套)| `scripts/loop.sh` |
 | 审闸一条命令 / Codex 落地派发 | `scripts/review.sh` · `scripts/codex-worker.sh` |
-| 看守(SubagentStop)/ 红线(PreToolUse)/ 记进度(commit)| `hooks/{guard-loop,guard-redline,record-step}.sh` |
+| 看守(SubagentStop,只守 review loop)/ 红线(PreToolUse,剥引号防误拦)/ 记进度(commit)/ 会话分诊(SessionStart:正式任务进流程、简单问答直接答、注入在飞任务清单)| `hooks/{guard-loop,guard-redline,record-step,session-triage}.sh` |
 | 进度记录 / 流程数据 / loop 状态 | `state-schema/{task-manifest.schema,routes,loop-state.schema}.json` |
 | 落地规格 | `design/{loop-engineering,investigate-workflow,review-loop}.md` |
 | 空跑验证 | `scripts/tests/`(213 断言)|

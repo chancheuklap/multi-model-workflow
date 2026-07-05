@@ -15,6 +15,7 @@
    mmw task new --scenario <你这条路径:small-change|develop|bug> --slug <slug> --title "<人类可读标题>"
    ```
    回执给出 `worktree_path`;prepare 把本路径的阶段序列固化进 manifest 的 `phases`。
+   仅 develop:用户开口已带明确方向(不用再摆备选)→ 加 `--direction-given`,propose 阶段引擎自动降级(`where` 的 `do` 会照 manifest 报降级指令:只落方向文档+一个最强对照,不重摆 2-3 方案)。
 
 3. **进 worktree**(只有这步能切会话 cwd,脚本切不了):
    ```

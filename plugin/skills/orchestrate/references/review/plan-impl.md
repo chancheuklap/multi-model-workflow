@@ -20,7 +20,7 @@ mmw loop checklist cover --item <i> --evidence <file:line>
 # 合同清单全 cover → exit-check DONE(无 step,steps 空即满足)→ handoff pass
 ```
 
-**没有跨 plan 合同(单 plan / anchors 节为空)也不许空清单过门**——空账本引擎直接 NOT-DONE。登记一条显式空项并用证据坐实:
+**没有跨 plan 合同(单 plan / anchors 节为空)也不许空清单过门**——空账本引擎直接 NOT-DONE。`mmw review start --stage plan-impl` 能机械核实 anchors 节为空时(只剩占位注释 / 单行"无跨计划共享合同")会**自动登记并 cover** 这条显式空项(它的回执会说,照回执直接 handoff pass);它没自动做(节找不到 / 有实体内容但你确认不构成合同)才手动登记:
 
 ```bash
 mmw loop checklist add --item "no-cross-plan-contracts" --source "<design.md:anchors 节行号>"

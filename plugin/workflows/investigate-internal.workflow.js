@@ -94,6 +94,8 @@ const raw = await parallel(
       label: `internal:${t.angle || ('topic-' + i)}`,
       phase: 'Investigate',
       schema: TOPIC_SCHEMA,
+      model: 'sonnet',   // 调查员=机械取证,Sonnet 5 high 档够用(token 平衡);synthesize 继承会话模型
+      effort: 'high',
     })
   )
 )

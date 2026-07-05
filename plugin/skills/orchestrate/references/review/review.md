@@ -14,7 +14,7 @@
 |---|---|---|---|---|
 | ① 设计审 | design pass → 引擎审闸 | `design` | `review` | 轴A 设计内容 / 轴B 项目对齐 |
 | ② 计划审 | plan pass → 引擎审闸 | `plan` | `review` | 轴A 覆盖与质量 / 轴B 合规与交叉验证 |
-| ④ final | build pass → 引擎审闸 | `final` | `review` | 基线1 回归+意图+跨plan / 基线2 独立代码审计;**develop = 双模型 2×2 = 4 审者**(每视角 Codex + Claude 无头 CLI 各一,prompt 同一段、方法论同源 worktree-review skill);**small-change/bug 降档 = 1×Codex 一肩挑两视角**(diff 小,review.sh 按 scenario 自动分档) |
+| ④ final | build pass → 引擎审闸 | `final` | `review` | 基线1 回归+意图+跨plan / 基线2 独立代码审计;**develop 按风险自动分档**(review.sh 机器判,不用你选):全 plan 无 `Complexity: capable` 且 diff ≤ 阈值(默认 800 改动行,env `REVIEW_TIER_DIFF_MAX` 覆盖)→ **2 审者**(基线1 Codex / 基线2 Claude,跨模型互补);有 capable 或 diff 大或判不出数据(fail-closed)→ **双模型 2×2 = 4 审者**(每视角 Codex + Claude 各一,prompt 同一段、方法论同源 worktree-review skill);**small-change/bug = 1×Codex 一肩挑两视角**(diff 小) |
 
 另有 **③ 落地合同门**:不是引擎审闸,是 build **内部**机器合同检查——全 plan 合并后、build handoff 前跑一次(`--stage plan-impl`,`kind=contract-gate`,不派 Codex),由 build 流程驱动(build-b B5),本文只讲 ①②④ 三个引擎审闸 loop。
 
