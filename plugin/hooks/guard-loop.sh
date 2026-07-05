@@ -14,6 +14,12 @@ top="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 f="$top/.claude/multi-model-workflow/loop-state.json"
 [ -f "$f" ] || exit 0
 
+# 只看守审核协调帮手(kind=review 才有被派的 subagent):execution/contract-gate loop 都是主线程
+# 自己跑,期间停下的任何 subagent(Explore 等)与 loop 无关——顶回它们=烧 token+假 pause 污染 loop 状态。
+# kind 读不出(损坏 JSON)不放行,落到下面 exit-check 的 CORRUPT fail-closed。
+kind="$(jq -r '.kind // ""' "$f" 2>/dev/null)" || kind="__corrupt__"
+if [ "$kind" != "review" ] && [ "$kind" != "__corrupt__" ]; then exit 0; fi
+
 # exit-check 自身执行失败 = 不放停(fail-closed),别静默放行
 res="$(cd "$top" && bash "$LOOP" exit-check 2>/dev/null)" \
   || { echo "看守:exit-check 执行失败,不放停,请人查 loop-state。" >&2; exit 2; }

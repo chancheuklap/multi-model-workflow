@@ -9,6 +9,10 @@ input="$(cat)"
 cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")"
 [ -n "$cmd" ] || exit 0
 
+# 误拦防线:动词匹配前剥掉引号串——commit message / echo 文本里出现 push/deploy/merge 不是动作。
+# 只影响下面的 grep 判定,不改真实命令;跨行引号剥不干净时残余误拦朝 ask 方向(fail-closed 可接受)。
+cmd="$(printf '%s' "$cmd" | sed -E "s/'[^']*'//g; s/\"[^\"]*\"//g")"
+
 ask() {
   jq -n --arg r "$1" \
     '{hookSpecificOutput:{hookEventName:"PreToolUse", permissionDecision:"ask", permissionDecisionReason:$r}}'
