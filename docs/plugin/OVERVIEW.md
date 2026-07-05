@@ -416,6 +416,8 @@ flowchart LR
 
 **主仓库零残留**:plugin 的一切产物都在工作树里;主仓库只落 `.claude/{worktrees,multi-model-workflow}` 两个状态目录,由 `prepare.sh new` / `review.sh start` 幂等写入 `.claude/.gitignore` 对 git 遮蔽(只影响未跟踪文件,不碰用户已跟踪的 `.claude/` 内容)——建 worktree 后主仓库 `git status` 必须干净。merge 场景(唯一在主仓库跑的路)产物(merge-brief / merge-impl 留痕)也只进状态平面,不写主仓库 `docs/`。
 
+**git 提交白名单(唯一随分支进主线的)**:设计文档(含 `prototype/` 脚本 + `mockup/` 网页)· 计划文档 · issue 文档 · 领域文档(docs/context,跨任务积累)。其余全是过程产物,`docs/.gitignore`(自忽略,脚手架本身也不进 git)挡住,随 worktree 删:现状报告 / 审查留痕 / 终审报告 / 状态平面。
+
 ---
 
 ## 9. 现状叠在架构上

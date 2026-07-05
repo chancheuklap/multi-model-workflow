@@ -69,10 +69,12 @@ cmd_new() {
   # 过程产物不永久存档(随 worktree 删):现状报告 / 审查留痕 / 终审报告。
   # 提交进分支的只有:设计(含 mockup/prototype)/ issue / 计划 / 领域文档(docs/context 项目级资产)。
   # (merge-brief 不在这:merge 场景在主仓库,产物落 .claude/multi-model-workflow/,不进 docs/)
+  # 本 .gitignore 自忽略:plugin 脚手架不进 git,随 worktree 死,下个任务 new 时重建。
   cat > "$wt/docs/.gitignore" <<'IGN'
 investigating/
 reviews/
 *-final-review.md
+.gitignore
 IGN
 
   # 阶段序列从预设解析:主干被 preset 过滤后的开着阶段(单源,prepare 不硬编码)

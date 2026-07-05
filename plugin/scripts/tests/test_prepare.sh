@@ -33,6 +33,21 @@ bash "$PREPARE" new --scenario bug --slug 2026-06-28-idem --title t >/dev/null 2
 [ "$(wc -l < .claude/.gitignore)" = "$LC1" ] && ok "遮蔽写入幂等(重复 new 不追行)" || no "遮蔽幂等"
 git worktree remove --force "$TMP/.claude/worktrees/2026-06-28-idem" >/dev/null 2>&1; git branch -D 2026-06-28-idem >/dev/null 2>&1; git worktree prune >/dev/null 2>&1   # 清掉幂等试探,不影响后续 team 断言
 grep -q "investigating/" "$WT/docs/.gitignore" && grep -q "reviews/" "$WT/docs/.gitignore" && grep -q -- "-final-review.md" "$WT/docs/.gitignore" && ok "过程产物 docs/.gitignore(investigating/reviews/终审报告不存档)" || no "docs gitignore"
+# 提交白名单:设计(含 prototype/mockup)/计划/issue/领域进 git;过程产物 + .gitignore 自身进不了
+mkdir -p "$WT/docs/investigating" "$WT/docs/reviews" "$WT/docs/design/$SLUG/prototype" "$WT/docs/design/$SLUG/mockup"
+echo r>"$WT/docs/investigating/r.md"; echo v>"$WT/docs/reviews/v.md"; echo f>"$WT/docs/$SLUG-final-review.md"
+echo d>"$WT/docs/design/$SLUG.md"; echo pr>"$WT/docs/design/$SLUG/prototype/p.py"; echo mk>"$WT/docs/design/$SLUG/mockup/m.html"
+echo i>"$WT/docs/issues/001.md"; echo p>"$WT/docs/plans/001.md"; echo c>"$WT/docs/context/CONTEXT.md"
+git -C "$WT" add -A
+STAGED="$(git -C "$WT" diff --cached --name-only)"
+WANT="docs/context/CONTEXT.md
+docs/design/$SLUG.md
+docs/design/$SLUG/mockup/m.html
+docs/design/$SLUG/prototype/p.py
+docs/issues/001.md
+docs/plans/001.md"
+[ "$STAGED" = "$WANT" ] && ok "add -A 只进白名单(设计+prototype+mockup+issue+计划+领域;无过程产物无 .gitignore)" || no "提交白名单 (staged=$(echo $STAGED))"
+git -C "$WT" reset -q
 [ "$(jq -r .docs.plans "$WT/.claude/multi-model-workflow/task.json")" = "docs/plans/$SLUG" ] && ok "manifest.docs.plans 路径" || no "docs.plans 路径"
 [ "$(jq -r .docs.design "$WT/.claude/multi-model-workflow/task.json")" = "docs/design/$SLUG" ] && ok "manifest.docs.design 路径" || no "docs.design 路径"
 
