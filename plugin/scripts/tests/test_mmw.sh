@@ -30,6 +30,13 @@ mkdir -p "$WT/docs"; : > "$WT/docs/x.md"   # handoff 拒收幽灵产出:先真�
   [ "$(jq -r '.steps|length' "$WT/.claude/multi-model-workflow/loop-state.json")" = "1" ] && ok "mmw loop → loop.sh" || no "mmw loop"
 
 # review → review.sh(捕获到变量再 grep,避免 grep -q 早关管道触发 SIGPIPE+pipefail)
+# 上面留了个未收束 execution loop(step 1.1 pending)→ 起审必须被拒(防落地步账被静默清)
+if ( cd "$WT" && bash "$MMW" review start --stage design --source x >/dev/null 2>&1 ); then
+  no "未收束 execution loop 起审应拒"
+else
+  ok "未收束 execution loop → review start 拒(fail-closed)"
+fi
+( cd "$WT" && bash "$MMW" loop close >/dev/null )   # 显式收束后再起审
 RV="$(cd "$WT" && bash "$MMW" review start --stage design --source x 2>/dev/null)"
 echo "$RV" | grep -q "REVIEW_STARTED" && ok "mmw review → review.sh" || no "mmw review"
 

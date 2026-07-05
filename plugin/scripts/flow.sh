@@ -198,7 +198,7 @@ cmd_handoff() {
      | .gate=(if $gate=="" then null else $gate end)
      | .step_index=$nstep
      | .artifacts += $produced
-     | (if ($produced|length)>0 then .phase_outputs[$hphase] = ((.phase_outputs[$hphase] // []) + $produced) else . end)
+     | (if ($produced|length)>0 then .phase_outputs[$hphase] = (((.phase_outputs[$hphase] // []) + $produced) | unique) else . end)
      | (if $fpphase!="" then .gate_fingerprints[$fpphase]=$fpval else . end)
      | .history += [{phase:$hphase, conclusion:$hconc, at:$at}]' \
     "$m" | write_manifest "$m"
@@ -258,8 +258,19 @@ cmd_where() {
     echo "UNMANAGED"
     echo "当前不是在管任务。看需求选一个起始选项,再 mmw task new:"
     jq -r '.start_options[] | "  [\(.scenario)] \(.when) → \(.phases_note)"' "$ROUTES"
-    echo "命令: $MMW task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title '<标题>'"
+    echo "命令: $MMW task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title '<标题>' [--direction-given]"
     echo "merge: 不开 worktree,直接走 references/scenario/merge.md;概念/事实问题不进 orchestrate,直接答。"
+    # 在飞任务:主仓库下有 manifest 的 worktree 逐行列出(断点恢复入口;任务界定=有 plugin 建档的 worktree,不是野分支)
+    local top_ls
+    if top_ls="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+      local d mm hdr=0
+      for d in "$top_ls/.claude/worktrees"/*/; do
+        mm="$d$STATE_SUBDIR/$MANIFEST_NAME"
+        [ -f "$mm" ] || continue
+        [ "$hdr" = 1 ] || { echo "在飞任务(续跑:EnterWorktree({ path }) 后 mmw where;全量视图 mmw task team):"; hdr=1; }
+        jq -r '"  - \(.slug)  [\(.scenario)] phase=\(.phase) status=\(.status)  path=\(.worktree_path)"' "$mm" 2>/dev/null || true
+      done
+    fi
     return 0
   fi
   local scenario phase pidx status rc tc
@@ -288,6 +299,11 @@ cmd_where() {
   b_load_scen="$(jq -r --arg k "$bkey" --arg s "$scenario" '.phase_bindings[$k].load_by_scenario[$s] // empty' "$ROUTES")"
   [ -n "$b_load_scen" ] && b_load="$b_load_scen"
   b_do="$(jq -r --arg k "$bkey" '.phase_bindings[$k].do // "?"' "$ROUTES")"
+  # propose 分叉:用户开口已带明确方向(task new --direction-given 钉进 manifest)→ 降级,
+  # 不重摆 2-3 方案。路由分叉归引擎:LLM 在 task new 时判一次,这里只照 manifest 报,断点恢复不丢。
+  if [ "$bkey" = "propose" ] && [ "$(jq -r '.direction_given // false' "$m")" = "true" ]; then
+    b_do="方向已由用户明示(direction_given):读现状报告,落方向文档(选定方向+为什么+一个最强对照一句),向用户确认一句;不重摆 2-3 方案"
+  fi
   slug="$(jq -r '.slug' "$m")"
 
   # 阶段内步骤游标:phase(不在审闸)有 steps 时,where 只报当前那一步的 load/do——
@@ -333,12 +349,16 @@ step_note=断点回来时:本步产物若已完成,核一眼直接 step next,别
   # where 直接吐确切的 review_start 命令 + review_source,agent 照跑不靠散文猜哪个 stage。
   local review_line="" review_start_line=""
   if [ "$gate" != "null" ] && [ -n "$gate" ]; then
-    local g_stage g_source
+    local g_stage g_source src_args="" srcp
     g_stage="$(jq -r --arg p "$gate" '.review_gates[$p].stage // "?"' "$ROUTES")"
-    # 吐裸路径喂 review start --source(不吐 JSON 数组,省 agent 拆 ["x"]→x);多产物空格连
+    # 吐裸路径喂 review start(不吐 JSON 数组,省 agent 拆 ["x"]→x);多产物逐个 --source(review.sh 可重复收)
     g_source="$(jq -r --arg p "$phase" '(.phase_outputs[$p] // []) | join(" ")' "$m")"
+    while IFS= read -r srcp; do
+      [ -n "$srcp" ] || continue
+      src_args="$src_args --source $srcp"
+    done < <(jq -r --arg p "$phase" '(.phase_outputs[$p] // [])[]' "$m")
     review_line="review_source=$g_source"
-    review_start_line="review_start=$MMW review start --stage $g_stage --source $g_source"
+    review_start_line="review_start=$MMW review start --stage $g_stage$src_args"
   fi
   cat <<EOF
 scenario=$scenario

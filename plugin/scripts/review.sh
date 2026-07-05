@@ -20,16 +20,17 @@ CLAUDE_REVIEW_MODEL="${CLAUDE_REVIEW_MODEL:-opus}"
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 cmd_start() {
-  local stage="" source=""
+  local stage=""; local -a sources=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --stage)  stage="$2";  shift 2 ;;
-      --source) source="$2"; shift 2 ;;
+      --source) sources+=("$2"); shift 2 ;;   # 可重复(阶段可能钉多个产出,where 的 review_start 逐个吐)
       *) die "未知参数: $1" ;;
     esac
   done
   [ -n "$stage" ]  || die "--stage 必填(design|plan|plan-impl|final|merge-impl)"
-  [ -n "$source" ] || die "--source 必填(源意图路径/描述,派给审者用)"
+  [ "${#sources[@]}" -gt 0 ] || die "--source 必填(源意图路径/描述,派给审者用;可重复)"
+  local source; source="${sources[*]}"
 
   # stage → loop kind + 视角(审查方法/角度本体在审者已装的 worktree-review skill,这里只留视角标签做派发路由)
   local kind views
@@ -42,6 +43,20 @@ cmd_start() {
     *) die "--stage 只能 design|plan|plan-impl|final|merge-impl" ;;
   esac
 
+  local top scen brief
+  top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
+  scen="$(jq -r '.scenario // ""' "$top/.claude/multi-model-workflow/task.json" 2>/dev/null || echo "")"
+  brief="$top/.claude/multi-model-workflow/review-brief.md"
+  mkdir -p "$top/.claude/multi-model-workflow"
+
+  # fail-closed:未收束的 execution loop 不许被起审静默清掉(步账里存着 plan↔worktree 派发映射,
+  # 清了断点恢复账本就没了)。先做完(exit-check DONE)或人工 mmw loop close 再起审。
+  local lf="$top/.claude/multi-model-workflow/loop-state.json"
+  if [ -f "$lf" ] && [ "$(jq -r '.kind // ""' "$lf" 2>/dev/null)" = "execution" ]; then
+    local lst; lst="$(bash "$LOOP" exit-check 2>/dev/null || echo "?")"
+    [ "$lst" = "DONE" ] || die "execution loop 未收束($lst),拒绝起审(防落地步账被静默清);先做完或显式 mmw loop close"
+  fi
+
   # 换审/门 loop 前先收束上一个内层 loop。close 幂等,无 loop 也安静过。
   # 审 loop 配轮上限(round next 机器计数,到顶自动 surface 熔断);③合同门机械核不设轮。
   bash "$LOOP" close >&2
@@ -50,12 +65,6 @@ cmd_start() {
   else
     bash "$LOOP" init --kind "$kind" >&2
   fi
-
-  local top scen brief
-  top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
-  scen="$(jq -r '.scenario // ""' "$top/.claude/multi-model-workflow/task.json" 2>/dev/null || echo "")"
-  brief="$top/.claude/multi-model-workflow/review-brief.md"
-  mkdir -p "$top/.claude/multi-model-workflow"
 
   cat <<EOF
 REVIEW_STARTED stage=$stage kind=$kind
@@ -67,12 +76,53 @@ REVIEW_STARTED stage=$stage kind=$kind
 EOF
 
   if [ "$kind" = "contract-gate" ]; then
+    # 机械代劳:--source 指到的设计文档 anchors 节能坐实为空(只有占位注释/或单行"无跨计划共享合同")
+    # → 脚本自动登记并 cover 显式空项(fail-closed 语义不变:检测本身就是 plan-impl.md 要求的证据);
+    # 检测不出(文件/节找不到、节有实体内容)→ 不动,照旧走 plan-impl.md 人工核。
+    local sfile="" anchors_ln="" body=""
+    sfile="$(printf '%s\n' "${sources[@]}" | grep -oE '[^[:space:]]+\.md' | head -1 || true)"
+    [ -n "$sfile" ] && [ ! -f "$sfile" ] && [ -f "$top/$sfile" ] && sfile="$top/$sfile"
+    if [ -n "$sfile" ] && [ -f "$sfile" ]; then
+      anchors_ln="$(grep -n '^## Cross-Plan Contract Anchors' "$sfile" 2>/dev/null | head -1 | cut -d: -f1 || true)"
+      if [ -n "$anchors_ln" ]; then
+        body="$(sed -n "$((anchors_ln+1)),\$p" "$sfile" | sed '/^## /q' | sed '/^## /d' \
+                 | grep -vE '^[[:space:]]*(<!--.*-->)?[[:space:]]*$' || true)"
+        if [ -z "$body" ] || { [ "$(printf '%s\n' "$body" | grep -c .)" -eq 1 ] && printf '%s' "$body" | grep -q '无跨计划共享合同'; }; then
+          bash "$LOOP" checklist add --item "no-cross-plan-contracts" --source "$sfile:$anchors_ln" >&2
+          bash "$LOOP" checklist cover --item "no-cross-plan-contracts" --evidence "$sfile:$anchors_ln(脚本机械核实 anchors 节为空)" >&2
+          cat <<EOF
+2. ③合同门:anchors 节已由脚本机械核实为空,no-cross-plan-contracts 已自动登记并 cover。
+   直接回 build 收尾:mmw handoff --conclusion pass(引擎随即强制 ④终审闸)。
+EOF
+          return 0
+        fi
+      fi
+    fi
     cat <<EOF
 2. ③合同门不派 Codex、不列 pack(全 Pack 提交已由 build 执行 loop exit-check 保证):
    **读 references/review/plan-impl.md,照它走**——核什么(跨 plan 合同兑现)、怎么走 checklist、
    三个出口(全兑现 pass / 没兑现回 build / 合同根上错回 design)全在那份,方法论只此一源。
 EOF
     return 0
+  fi
+
+  # ---- ④final develop 分档(效果×token 平衡):全 plan 无 capable 且 diff ≤ 阈值 → 2 审者
+  # (每视角一模型:基线1 Codex / 基线2 Claude,仍跨模型互补);判不出数据(缺 manifest/base/plans)
+  # → fail-closed 保 4 审者。阈值 env REVIEW_TIER_DIFF_MAX 覆盖,默认 800 改动行。
+  local tier=4
+  if [ "$stage" = "final" ] && [ "$scen" = "develop" ]; then
+    local man="$top/.claude/multi-model-workflow/task.json"
+    local base tslug pdir cap diffn
+    base="$(jq -r '.base_commit // ""' "$man" 2>/dev/null || echo "")"
+    tslug="$(jq -r '.slug // ""' "$man" 2>/dev/null || echo "")"
+    pdir="$top/docs/plans/$tslug"
+    if [ -n "$base" ] && [ -n "$tslug" ] && [ -d "$pdir" ]; then
+      cap="$(grep -rlE 'Complexity:.*capable' "$pdir" 2>/dev/null || true)"
+      # 空 diff 时 grep 无匹配退 1,{ ...|| true; } 挡住 pipefail(bash3.2+set -e 惯性坑)
+      diffn="$(git -C "$top" diff --shortstat "$base"..HEAD 2>/dev/null \
+               | { grep -oE '[0-9]+ (insertion|deletion)' || true; } | awk '{s+=$1} END{print s+0}')"
+      if [ -z "$cap" ] && [ "${diffn:-0}" -le "${REVIEW_TIER_DIFF_MAX:-800}" ]; then tier=2; fi
+    fi
   fi
 
   # ---- 审 loop:brief 落文件,主线程派帮手只传路径(brief 不过主线程 context)----
@@ -84,6 +134,16 @@ EOF
   codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>   (run_in_background)
   prompt(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=final 审;两路视角($views)都由你覆盖,先跑完基线2(不看 plan 全新眼光审 diff)再跑基线1(对 design/issue 逐条);Source: $source;按 skill 的 Return Contract 回结构化 findings。
   续接用 codex exec resume <id>。
+DISPATCH
+)"
+  elif [ "$stage" = "final" ] && [ "$tier" -eq 2 ]; then
+    dispatch="$(cat <<DISPATCH
+④final 分档(全 plan 无 capable 且 diff 小):派 **2 个独立审者 = 两路视角($views)各配一个模型**,
+单条消息并行起(run_in_background)、各自干净 context、互不通气。仍跨模型互补:
+  基线1(回归+意图+跨plan)→ Codex:codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>
+  基线2(独立代码审计,全新眼光)→ Claude:$CLAUDE_BIN -p "<prompt>" --model $CLAUDE_REVIEW_MODEL
+  prompt(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=final 审;你负责 <基线1|基线2> 这一路视角;Source: $source;按 skill 的 Return Contract 回结构化 findings。
+  续接:codex exec resume <id> / $CLAUDE_BIN -p --resume <session-id>。
 DISPATCH
 )"
   elif [ "$stage" = "final" ]; then

@@ -305,6 +305,40 @@ mkf "$WBB" docs/i.md; mkf "$WBB" docs/p.md; mkf "$WBB" docs/d.md; mkd "$WBB" doc
 [ "$(mphase "$WBB")" = "build" ] && ok "develop 七 pass 到 build" || no "develop 到 build ($(mphase "$WBB"))"
 echo "$(cd "$WBB" && bash "$FLOW" where)" | grep -q "load=references/build-b.md" && ok "develop build 阶段 load=build-b.md(脚本按 scenario 选模式)" || no "develop load build-b"
 
+# ===== 返修去重 + 审闸 review_start 多产物 =====
+# design 过闸→打回→再 pass 同一产出:phase_outputs 不重复累积(否则 review_start 参数炸)
+WDD="$(newtask develop 2026-07-05-dedup)"
+mkf "$WDD" docs/i.md; mkf "$WDD" docs/p.md; mkf "$WDD" docs/design/dd.md
+( cd "$WDD" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )
+( cd "$WDD" && bash "$FLOW" handoff --conclusion pass --produced docs/p.md >/dev/null )
+( cd "$WDD" && bash "$FLOW" handoff --conclusion pass --produced docs/design/dd.md >/dev/null )   # design→①审闸
+( cd "$WDD" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )                        # ①审打回
+( cd "$WDD" && bash "$FLOW" handoff --conclusion pass --produced docs/design/dd.md >/dev/null )   # 改完再 pass→重进闸
+[ "$(mfield "$WDD" 'phase_outputs.design|length')" = "1" ] && ok "返修后同产出不重复累积(unique)" || no "phase_outputs 去重 ($(mfield "$WDD" 'phase_outputs.design|length'))"
+WRS="$(cd "$WDD" && bash "$FLOW" where)"
+echo "$WRS" | grep -q -- "review_start=.*--source docs/design/dd.md" && ok "where 吐 review_start 带 --source" || no "review_start source"
+if [ "$(echo "$WRS" | grep -c -- "--source docs/design/dd.md")" = "1" ]; then ok "review_start 无重复 --source" ; else no "review_start 重复 source"; fi
+
+# ===== 冷启动列在飞任务(断点恢复入口)=====
+WCOLD="$(cd "$TMP" && bash "$FLOW" where)"
+echo "$WCOLD" | grep -q "UNMANAGED" && ok "主仓库 where 报 UNMANAGED" || no "UNMANAGED"
+echo "$WCOLD" | grep -q "在飞任务" && ok "冷启动列在飞任务" || no "冷启动在飞清单"
+echo "$WCOLD" | grep -q "2026-07-05-dedup" && ok "在飞清单含 manifest 任务(slug/phase/path)" || no "在飞清单条目"
+
+# ===== propose 分叉:--direction-given 落 manifest,where 降级指路 =====
+WDG="$(bash "$PREPARE" new --scenario develop --slug 2026-07-05-dg --title t --direction-given 2>/dev/null | grep '^worktree_path=' | cut -d= -f2-)"
+[ "$(mfield "$WDG" direction_given)" = "true" ] && ok "--direction-given 钉进 manifest" || no "direction_given 落盘"
+mkf "$WDG" docs/i.md
+( cd "$WDG" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )   # investigate→propose
+echo "$(cd "$WDG" && bash "$FLOW" where)" | grep -q "do=方向已由用户明示" && ok "propose 降级:where 报降级 do" || no "propose 降级 do"
+# 无 flag 的任务:propose 仍走全量方案
+WNF="$(newtask develop 2026-07-05-nf)"
+mkf "$WNF" docs/i.md
+( cd "$WNF" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )   # investigate→propose
+WNFO="$(cd "$WNF" && bash "$FLOW" where)"
+echo "$WNFO" | grep -q "do=方向已由用户明示" && no "无 flag 不该降级" || true
+echo "$WNFO" | grep -q "亮 2-3 方案" && ok "无 flag propose 走全量方案" || no "无 flag 全量方案"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

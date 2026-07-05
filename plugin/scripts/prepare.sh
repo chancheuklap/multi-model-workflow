@@ -21,12 +21,13 @@ in_worktree() { [ -f "$1/.git" ]; }
 
 # ---------- new ----------
 cmd_new() {
-  local scenario="" slug="" title=""
+  local scenario="" slug="" title="" direction_given=false
   while [ $# -gt 0 ]; do
     case "$1" in
       --scenario) scenario="$2"; shift 2 ;;
       --slug)     slug="$2";     shift 2 ;;
       --title)    title="$2";    shift 2 ;;
+      --direction-given) direction_given=true; shift ;;   # 用户开口已带明确方向:propose 降级(where 照此指路)
       *) die "未知参数: $1" ;;
     esac
   done
@@ -73,8 +74,9 @@ IGN
     --argjson phases "$phases_json" \
     --arg status "active" --arg phase "$phase" --arg created "$created" \
     --arg base "$base" --arg branch "$slug" --arg wt "$wt" \
+    --argjson dg "$direction_given" \
     --arg inv "docs/investigating/$slug" --arg ddoc "docs/design/$slug" --arg idir "docs/issues/$slug" --arg pdir "docs/plans/$slug" --arg ctx "docs/context" \
-    '{schema_version:$sv, slug:$slug, title:$title, scenario:$scenario, phases:$phases,
+    '{schema_version:$sv, slug:$slug, title:$title, scenario:$scenario, phases:$phases, direction_given:$dg,
       status:$status, phase:$phase, phase_index:0, step_index:0, gate:null, created_at:$created, base_commit:$base,
       branch:$branch, worktree_path:$wt, docs:{investigating:$inv, design:$ddoc, issues:$idir, plans:$pdir, context:$ctx},
       repair_count:0, turnaround_count:0,

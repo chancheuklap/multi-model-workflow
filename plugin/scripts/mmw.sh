@@ -12,8 +12,8 @@
 #     mmw step next                            阶段内多步:干完当前步推进到下一步(报下一步 load/do)
 #     mmw spinoff --tag <t> --finding <s>      中途挖到的旁路登记成关联子任务
 #   任务(入口/收尾,主仓库):
-#     mmw task new --scenario <small-change|develop|bug> --slug <s> --title <t>
-#     mmw task resume | mmw task cleanup --slug <s>
+#     mmw task new --scenario <small-change|develop|bug> --slug <s> --title <t> [--direction-given]
+#     mmw task resume | mmw task cleanup --slug <s> | mmw task team(列全队在管 worktree)
 #     mmw task escalate --to develop          bug/小改撞出系统性设计问题→原地升级完整设计路
 #   内层 loop(落地/审):
 #     mmw loop init --kind <execution|review|contract-gate> [--max-rounds N] | attendance | step | round | checklist | finding | softstop | surface | resume | close | exit-check
@@ -25,7 +25,7 @@
 set -euo pipefail
 D="$(cd "$(dirname "$0")" && pwd)"
 
-usage() { sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; }
 
 cmd="${1:-help}"; shift || true
 case "$cmd" in

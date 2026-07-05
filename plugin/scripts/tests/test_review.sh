@@ -58,7 +58,35 @@ bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 grep -q "1 个独立 Codex 审者一肩挑" "$BRIEF" && ok "bug ④ 同样降档" || no "bug 降档"
 echo '{"scenario":"develop"}' > .claude/multi-model-workflow/task.json
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
-grep -q "4 个独立审者" "$BRIEF" && ok "develop ④ 保持双模型 2×2" || no "develop 2×2"
+grep -q "4 个独立审者" "$BRIEF" && ok "develop ④ 判不出数据(无 base/slug)→ fail-closed 保 4 审者" || no "develop fail-closed 4"
+
+# ④final develop 风险分档:全 plan 无 capable 且 diff 小 → 2 审者;有 capable → 4 审者
+BASE="$(git rev-parse HEAD)"
+printf '{"scenario":"develop","base_commit":"%s","slug":"t1"}' "$BASE" > .claude/multi-model-workflow/task.json
+mkdir -p docs/plans/t1
+printf '**Complexity:** standard\n' > docs/plans/t1/001-a.md
+bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
+grep -q "2 个独立审者" "$BRIEF" && ok "develop ④ 无 capable+diff 小 → 降 2 审者" || no "develop 降 2 审者"
+grep -q "claude -p" "$BRIEF" && ok "2 审者档仍跨模型(Claude 在)" || no "2 审者跨模型"
+printf '**Complexity:** capable\n' > docs/plans/t1/002-b.md
+bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
+grep -q "4 个独立审者" "$BRIEF" && ok "develop ④ 有 capable plan → 保 4 审者" || no "capable 保 4"
+
+# 多 --source(阶段可钉多个产出,where 逐个吐)
+OUT="$(bash "$REVIEW" start --stage design --source s1.md --source s2.md 2>/dev/null)"
+echo "$OUT" | grep -q "REVIEW_STARTED" && grep -q "s1.md s2.md" "$BRIEF" && ok "多 --source 可重复收(brief 拼全)" || no "多 source"
+
+# ③合同门:anchors 节机械核实为空 → 自动登记并 cover no-cross-plan-contracts
+mkdir -p docs/design
+printf '# d\n## Cross-Plan Contract Anchors\n<!-- 占位 -->\n<!-- 由 plan 阶段回填 -->\n' > docs/design/d.md
+OUT="$(bash "$REVIEW" start --stage plan-impl --source docs/design/d.md 2>/dev/null)"
+[ "$(jq -r '.checklist[]|select(.item=="no-cross-plan-contracts")|.status' "$LOOPF")" = "covered" ] \
+  && ok "③ anchors 空 → 自动登记+cover 显式空项" || no "③ 自动空项"
+echo "$OUT" | grep -q "自动登记" && ok "③ 回执说明已自动代劳" || no "③ 回执"
+# anchors 有实体内容 → 不自动,照旧人工核
+printf '# d\n## Cross-Plan Contract Anchors\n| owner | provider |\n| 001 | 002 |\n' > docs/design/d.md
+bash "$REVIEW" start --stage plan-impl --source docs/design/d.md >/dev/null 2>&1
+[ "$(jq -r '.checklist|length' "$LOOPF")" = "0" ] && ok "③ anchors 有内容 → 不自动过,人工核" || no "③ 有内容不自动"
 
 # ①②审不派 Claude(设计/计划是 Claude 写的,写者≠验者)
 bash "$REVIEW" start --stage design --source x >/dev/null 2>&1
