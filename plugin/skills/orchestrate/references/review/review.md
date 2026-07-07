@@ -37,7 +37,6 @@
 ## 2. 主线程:收口(协调帮手停下后)
 
 读 `loop-state.json` 的 `pause` 和 `findings`,按情况 handoff(结论词由 Gap 决定):
-落 handoff verdict 前,对承重的 accepted findings 与结论词 **consult advisor 一次**(参考性第二意见;与实证矛盾时按实证)。
 
 - `pause != null`(surface 冒泡)→ 按 `reason` handoff `needs-redirection` / `needs-context`,交用户。
 - `exit-check` = DONE 且无 accepted 缺陷 → `mmw handoff --conclusion pass`,进下一阶段。
