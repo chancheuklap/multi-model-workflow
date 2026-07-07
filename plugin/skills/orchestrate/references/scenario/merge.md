@@ -45,7 +45,7 @@ mmw task team
 | 分类 | 条件 | 路由 |
 |---|---|---|
 | **简单** | 代码级(import 序、同文件不同区);≤2 文件;修向明确 | Coordinator 直接修 |
-| **复杂·根因明** | 功能/合同冲突;多文件;但谁该 win 清楚 | Coordinator 修,或派 Codex 定向修(`mmw codex dispatch`,给冲突点 + 正确状态) |
+| **复杂·根因明** | 功能/合同冲突;多文件;但谁该 win 清楚 | Coordinator 修,或派 Codex 定向修:先写一份定向修复 mini-plan(冲突点 + 谁该 win + 验收命令)落 `.claude/multi-model-workflow/`,作 `--plan` 传给 `mmw codex dispatch`(Bash 工具 `run_in_background: true` 起,防 10 分钟超时) |
 | **系统性·根因不明** | 意图冲突 / 隐式依赖 / 多冲突相互关联 / 要懂整体架构才能判 | **先按「系统性冲突调查」那步查清再修** |
 
 判据:5 分钟看不懂冲突、或 explorer 初判"不确定"、或多冲突彼此关联、或意图冲突/隐式依赖 → 默认系统性。

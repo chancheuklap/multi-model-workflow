@@ -10,7 +10,11 @@
 #             skill,prompt 只给三文档路径 + 指向 skill);codex exec 落地;记 session id(供 resume);打印 SESSION= + Codex 最后消息。
 #             收工 fail-closed 核 docs/ 边界:Codex 碰了 docs/ → 打印 DOCS_VIOLATION 退非零(Worker 禁改 docs/,只有 Coordinator 能改)。
 #   resume    --worktree <abs> --instructions <abs.md>
-#             从 worktree 记的 session 续会话修复(keep context),发回修复指令。
+#             从 worktree 记的 session 续会话修复(keep context),发回修复指令;
+#             session 文件丢失(dispatch 被杀)时自动从 codex-logs/run.log 捞回。
+#             实测 codex exec resume 不继承派发时的 workdir/sandbox/model(掉回 config
+#             默认,可能是 danger-full-access),故 resume 也在 exec 层重钉与 dispatch
+#             完全一致的围栏(-C/--sandbox/--add-dir/-m/effort,模型档从派发记档复用)。
 #
 # 落地用标准档(设计/计划审用高档,在 review 侧);沙箱放行 git common dir,否则 worktree
 # 内 git commit 写 objects/index.lock 被拒。
@@ -47,6 +51,19 @@ record_session() {  # $1=worktree $2=logfile
   mkdir -p "$1/$STATE_SUBDIR"
   printf '%s\n' "$sid" > "$1/$STATE_SUBDIR/codex-session"
   echo "$sid"
+}
+
+# fail-closed:Worker 禁改 docs/(CLAUDE.md 硬规则——docs/ 只有 Coordinator/主线程能改)。
+# 本次动了的(start_sha..HEAD 已提交 + 未提交)含 docs/ → 报违规退非零,dispatch/resume 共用。
+check_docs_boundary() {  # $1=worktree $2=start_sha
+  local docs_touched
+  docs_touched="$( { [ -n "$2" ] && git -C "$1" diff --name-only "$2" HEAD 2>/dev/null
+                     git -C "$1" status --porcelain 2>/dev/null | sed 's/^...//'; } \
+                   | grep '^docs/' | sort -u || true )"
+  [ -z "$docs_touched" ] && return 0
+  echo "DOCS_VIOLATION: Codex 改了 docs/(Worker 禁改,只有 Coordinator 能改),打回重来:" >&2
+  printf '%s\n' "$docs_touched" | sed 's/^/  /' >&2
+  return 3
 }
 
 run_codex() {  # $1=worktree $2=prompt_file $3..=codex args(不含 stdin)
@@ -98,6 +115,10 @@ cmd_dispatch() {
   # 本次派发起点(Codex 动了什么 = start_sha..HEAD + 未提交),供收工核 docs/ 边界
   local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
 
+  # 记模型档供 resume 复用(resume 不继承 session 模型,不记就掉回 config 默认档)
+  mkdir -p "$wt/$STATE_SUBDIR"
+  printf '%s %s\n' "$model" "$effort" > "$wt/$STATE_SUBDIR/codex-model"
+
   local pf; pf="$(mktemp)"; build_prompt "$plan" "$wt" "$design" "$issue" > "$pf"
   local rc=0
   run_codex "$wt" "$pf" \
@@ -106,17 +127,7 @@ cmd_dispatch() {
     -m "$model" -c "model_reasoning_effort=\"$effort\"" || rc=$?
   rm -f "$pf"
 
-  # fail-closed:Worker 禁改 docs/(CLAUDE.md 硬规则——docs/ 只有 Coordinator/主线程能改)。
-  # Codex 碰了(本次已提交 或 未提交)就报违规、退非零,不让主线程当成功收下(prompt 文本之外的强制层)。
-  local docs_touched
-  docs_touched="$( { [ -n "$start_sha" ] && git -C "$wt" diff --name-only "$start_sha" HEAD 2>/dev/null
-                     git -C "$wt" status --porcelain 2>/dev/null | sed 's/^...//'; } \
-                   | grep '^docs/' | sort -u || true )"
-  if [ -n "$docs_touched" ]; then
-    echo "DOCS_VIOLATION: Codex 改了 docs/(Worker 禁改,只有 Coordinator 能改),打回重来:" >&2
-    printf '%s\n' "$docs_touched" | sed 's/^/  /' >&2
-    [ "$rc" -eq 0 ] && rc=3
-  fi
+  if ! check_docs_boundary "$wt" "$start_sha" && [ "$rc" -eq 0 ]; then rc=3; fi
   return "$rc"   # codex 失败或碰 docs/ 时透给主线程,不伪装成功(输出已留 CODEX_EXIT + log)
 }
 
@@ -130,10 +141,27 @@ cmd_resume() {
   [ -n "$wt" ]    || die "--worktree 必填"
   [ -f "$instr" ] || die "--instructions 文件不存在: $instr"
   local sf="$wt/$STATE_SUBDIR/codex-session"
-  [ -f "$sf" ] || die "无 session 记账($sf);首派走 dispatch"
+  # dispatch 中途被杀(如 Bash 超时)时 session 文件没落,但 run.log 实时写、开头就有
+  # session id:从 log 捞回补记,不丢 resume 能力;捞不到才 fail-closed 拒
+  [ -f "$sf" ] || record_session "$wt" "$wt/$STATE_SUBDIR/codex-logs/run.log" >/dev/null
+  [ -f "$sf" ] || die "无 session 记账($sf,run.log 也捞不到);首派走 dispatch"
   local sid; sid="$(cat "$sf")"
 
-  run_codex "$wt" "$instr" exec resume "$sid"
+  # 重钉与 dispatch 一致的围栏:模型档从派发记档读(丢了退环境默认)
+  local model="$CODEX_MODEL" effort="$CODEX_EFFORT"
+  [ -f "$wt/$STATE_SUBDIR/codex-model" ] && read -r model effort < "$wt/$STATE_SUBDIR/codex-model"
+  local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
+  local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
+
+  local rc=0
+  run_codex "$wt" "$instr" \
+    exec -C "$wt" --sandbox workspace-write \
+    ${gcd:+--add-dir "$gcd"} \
+    -m "$model" -c "model_reasoning_effort=\"$effort\"" \
+    resume "$sid" || rc=$?
+
+  if ! check_docs_boundary "$wt" "$start_sha" && [ "$rc" -eq 0 ]; then rc=3; fi
+  return "$rc"
 }
 
 case "${1:-}" in

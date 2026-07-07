@@ -19,4 +19,6 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 - **`--produced` 必带本阶段承重产出**——它钉进接力单,下阶段靠它接,不靠"自己找"。
 - 中途挖到 bug / 旁路优化 → `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,登记成关联子任务,主流程不动。
 
+**Advisor 纪律**:advisor(强模型第二意见)只在 build 阶段「afk 拍板点」consult(build 文档标了),其余任何阶段**不 consult**——HITL 与独立审闸已覆盖判断,按各阶段文档的文字指引自己拍。
+
 **断点续传**:任何时候 `mmw where` + 接力单就够你接着跑——进度、游标、各阶段产出全在 manifest,不靠会话记忆。

@@ -39,7 +39,9 @@ echo "$OUT" | grep -q "references/review/plan-impl.md" && ok "③ brief 纯路�
 # ④final 无 manifest(默认 develop 档):双模型 2×2,prompt 同一段
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 B="$(cat "$BRIEF")"
-echo "$B" | grep -q "codex exec resume" && ok "final brief 含 codex 续接" || no "brief codex resume"
+echo "$B" | grep -q "resume <session-id>" && ok "final brief 含 codex 续接" || no "brief codex resume"
+echo "$B" | grep -q -- "read-only.*resume <session-id>" && ok "codex 续接重钉围栏(resume 不继承)" || no "resume 未重钉围栏"
+echo "$B" | grep -q "run_in_background" && ok "brief 定死后台跑(防 10min 超时)" || no "brief 无后台跑指令"
 echo "$B" | grep -q "基线1" && ok "final 给两基线视角" || no "final 视角"
 echo "$B" | grep -q "4 个独立审者" && ok "final 双模型:4 审者" || no "final 4 审者"
 echo "$B" | grep -q "claude -p" && ok "final 派 Claude 无头 CLI" || no "final claude -p"

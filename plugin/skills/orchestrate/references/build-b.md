@@ -2,7 +2,7 @@
 
 > 落地 = **Codex 写代码 + Claude(你)按计划验收**。把 ②计划审过的 plan 完整落地、不偏离设计,各 plan 一 worktree、可并行。
 > 红线:验收吃**跑测试 / 读 diff 的 ground truth**,不吃自述;afk 只放权自主跑(`attended` 才停问),真缺输入 / 方向疑 / 合并红线才停;merge/deploy 要人批(收尾阶段)。
-> - Codex **只改源码、禁碰 `docs/`**(派发 prompt 焊 + `mmw codex dispatch` 收工 fail-closed 核:碰了 docs/ 报 `DOCS_VIOLATION` 退非零,写修复指令 `codex resume` 打回);每 Pack 一提交带 `Pack N.M`。
+> - Codex **只改源码、禁碰 `docs/`**(派发 prompt 焊 + `mmw codex dispatch` / `mmw codex resume` 收工均 fail-closed 核:碰了 docs/ 报 `DOCS_VIOLATION` 退非零,写修复指令 `codex resume` 打回);每 Pack 一提交带 `Pack N.M`。
 > - **Codex 返回的事实(改了啥、测试结果)是劳动力不是信源**——你 verify 时自己 grep / 读 / 跑坐实。
 
 ## 断点恢复(context 断了 / 中途回来,先跑这个)
@@ -13,7 +13,8 @@
 |---|---|---|
 | `done` | 该 plan 已验收提交 | 跳过 |
 | `pending` + 有 `worktree` + 该 worktree 内有 `codex-session` | 已派 Codex(可能已在子 worktree 提交) | **别重派**:进那 worktree 读 codex 最后消息 → 走 B3 验收;要补改用 `mmw codex resume --worktree <wt> --instructions <f>` |
-| `pending` + 有 `worktree` + 无 `codex-session` | 记了映射但没派成(dispatch 崩) | 重派:回 B2 `mmw codex dispatch` |
+| `pending` + 有 `worktree` + 无 `codex-session` 但有 `codex-logs/run.log` | 派过但中途被杀(如超时),Codex 可能已提交部分 Pack | **别重派**:先核 worktree 已有提交,写续做指令走 `mmw codex resume`(session 由脚本自动从 run.log 捞回) |
+| `pending` + 有 `worktree` + 无 `codex-session` 也无 `run.log` | 记了映射但没派成(dispatch 崩) | 重派:回 B2 `mmw codex dispatch` |
 | `pending` + 无 `worktree` | 还没轮到 | 正常 B1→B2 派 |
 
 ## B1. 进 + 起落地 loop
@@ -41,13 +42,14 @@ mmw codex dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree 
 
 - **三文档都传**:Codex 开工要读设计(意图 / 合同)+ 它的 issue(边界)+ 它的计划(实施权威),不能只给计划。
 - **按 plan 的 `Complexity` 切模型档**(plan header / Task Pack 的 `Complexity` 字段):`capable`(计费 / 权限 / migration / 跨服务等高风险)→ 加 `--model gpt-5.5 --effort xhigh`;`cheap` / `standard` 用默认(gpt-5.4 xhigh)。高风险 plan 别用低档模型落地。
-- 并行:互不依赖的 plan,各自一个 worktree,`run_in_background: true` 同时派(寻找一切安全的并行机会加快进度)。
+- **一律后台跑**:dispatch / resume 都用 Bash 工具的 `run_in_background: true` 派——Codex 落一份 plan 常跑几十分钟,前台会撞 Bash 10 分钟超时被杀。完成通知到了用 TaskOutput 读回执(`CODEX_EXIT` / `SESSION` / Codex 最后消息)。不派子代理包一层、不用 shell `&`。
+- 并行:互不依赖的 plan,各自一个 worktree,同时发多条后台 dispatch(寻找一切安全的并行机会加快进度)。
 - **铁律不在 prompt、在 Codex 侧 `worktree-build` skill**:prompt 只给角色 + worktree + 三文档路径 + 指向 skill。skill 管:严格 TDD(用 /tdd)、防过度设计 / 兜底、测试对标仓库标准、每 Pack 提交带 `Pack N.M`、禁改 `docs/`、卡住停下报清。
 - Codex 在自己 worktree 提交(不走你的 Bash,所以 record-step 不记;进度靠你 verify 后 `mmw loop step done`)。
 
 ## B3. 验收(命门:你按计划验,不信 Codex 自述)
 
-Codex 返回后,读它最后消息 + **自己核**(亲验):
+Codex 返回后,读它最后消息(dispatch 回执里打印;原文在 `<该 plan 的 worktree>/.claude/multi-model-workflow/codex-logs/last.md`)+ **自己核**(亲验):
 
 - **完整性**:plan 的每条 acceptance 真达成?跑验收命令、读 diff,不认"我做完了"。
 - **测试质量(对标仓库标准,防 Codex 写垃圾测试自己绿)**:Codex 写的测试它自己说了不算,你审。先**定位并读仓库测试治理文档**(常见:仓库根或 tests/ 下 TESTING.md、AGENTS.md / CLAUDE.md 测试节、tests 目录 README);**定位不到必须在 B3 验收回执里标 `no-test-standard waiver`,不准默默跳过**。审 Codex 这份 plan 新增 / 改动的测试,达不达标:
@@ -65,7 +67,7 @@ Codex 返回后,读它最后消息 + **自己核**(亲验):
   ```
   verify ↔ resume 直至这份 plan 验收通过。
 
-**Codex 停下说"缺输入 / 计划与现实冲突"**:你判——小问题有合理默认 → afk 直接给指令 resume(留痕);真缺输入 / 怀疑方向错 → 停下抛用户(`mmw handoff --conclusion needs-context` / `needs-redirection`),别替用户拍方向。
+**Codex 停下说"缺输入 / 计划与现实冲突"**:你判(afk 拍板前 consult advisor 一次拿第二意见,与实证矛盾按实证)——小问题有合理默认 → afk 直接给指令 resume(留痕);真缺输入 / 怀疑方向错 → 停下抛用户(`mmw handoff --conclusion needs-context` / `needs-redirection`),别替用户拍方向。
 
 ## B4. 全 plan 验完 + 合并
 
