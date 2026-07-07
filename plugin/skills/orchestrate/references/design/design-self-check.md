@@ -17,6 +17,8 @@ design 阶段末步:保存前自己过这道闸,过了就 `mmw handoff` 交还�
 
 触碰不变量 / 合同 / 数据权威 / 权限 / 计费 / 发布风险时,尤其确保上面每条都过。
 
+自检全过后、handoff 前 **consult advisor 一次**(整份设计文档的方向与关键决策给它过一遍;有据的意见吸收进文档,无据的不改;建议是参考,不改 HITL 与审闸)。
+
 ## 收尾:handoff 交还引擎(`mmw where` 的 `then` 已给好钉产物的命令模板,照抄即可)
 
 - 设计 OK → `mmw handoff --conclusion pass --produced docs/design/<slug>.md` → 引擎触发 ①设计审(独立 Codex 审,只审设计文档),审过进 `to-issue` 阶段切片。

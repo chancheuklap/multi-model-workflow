@@ -67,7 +67,7 @@ Codex 返回后,读它最后消息(dispatch 回执里打印;原文在 `<该 plan
   ```
   verify ↔ resume 直至这份 plan 验收通过。
 
-**Codex 停下说"缺输入 / 计划与现实冲突"**:你判——小问题有合理默认 → afk 直接给指令 resume(留痕);真缺输入 / 怀疑方向错 → 停下抛用户(`mmw handoff --conclusion needs-context` / `needs-redirection`),别替用户拍方向。
+**Codex 停下说"缺输入 / 计划与现实冲突"**:你判(afk 拍板前 consult advisor 一次拿第二意见,与实证矛盾按实证)——小问题有合理默认 → afk 直接给指令 resume(留痕);真缺输入 / 怀疑方向错 → 停下抛用户(`mmw handoff --conclusion needs-context` / `needs-redirection`),别替用户拍方向。
 
 ## B4. 全 plan 验完 + 合并
 

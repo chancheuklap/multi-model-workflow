@@ -16,6 +16,7 @@ CODEX_REVIEW_MODEL="${CODEX_REVIEW_MODEL:-gpt-5.5}"
 CODEX_REVIEW_EFFORT="${CODEX_REVIEW_EFFORT:-high}"
 CLAUDE_BIN="${CLAUDE_BIN:-claude}"
 CLAUDE_REVIEW_MODEL="${CLAUDE_REVIEW_MODEL:-opus}"
+CLAUDE_REVIEW_EFFORT="${CLAUDE_REVIEW_EFFORT:-high}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
@@ -158,9 +159,9 @@ DISPATCH
 ④final 分档(全 plan 无 capable 且 diff 小):派 **2 个独立审者 = 两路视角($views)各配一个模型**,
 单条消息并行起(run_in_background)、各自干净 context、互不通气。仍跨模型互补:
   基线1(回归+意图+跨plan)→ Codex:codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>
-  基线2(独立代码审计,全新眼光)→ Claude:$CLAUDE_BIN -p "<prompt>" --model $CLAUDE_REVIEW_MODEL --session-id <uuidgen 自生成并记下,供续接>
+  基线2(独立代码审计,全新眼光)→ Claude:$CLAUDE_BIN -p "<prompt>" --model $CLAUDE_REVIEW_MODEL --effort $CLAUDE_REVIEW_EFFORT --session-id <uuidgen 自生成并记下,供续接>
   prompt(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=final 审;你负责 <基线1|基线2> 这一路视角;Source: $source;按 skill 的 Return Contract 回结构化 findings。
-  续接:codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,掉回 config 默认,必须整套重钉);Claude 用 $CLAUDE_BIN -p --resume <你起审时给的 uuid> "<追问>" --model $CLAUDE_REVIEW_MODEL。
+  续接:codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,掉回 config 默认,必须整套重钉);Claude 用 $CLAUDE_BIN -p --resume <你起审时给的 uuid> "<追问>" --model $CLAUDE_REVIEW_MODEL --effort $CLAUDE_REVIEW_EFFORT。
 DISPATCH
 )"
   elif [ "$stage" = "final" ]; then
@@ -171,8 +172,8 @@ DISPATCH
   读你已装的 worktree-review skill,按 stage=final 审(skill 落点 ~/.agents/skills/worktree-review/,两模型同读此单源);你负责 <基线1|基线2> 这一路视角;Source: $source;按 skill 的 Return Contract 回结构化 findings。
 派发命令(每视角两模型各一个):
   Codex:  codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>
-  Claude: $CLAUDE_BIN -p "<同一段 prompt>" --model $CLAUDE_REVIEW_MODEL --session-id <uuidgen 自生成并记下,供续接>
-  续接:codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,掉回 config 默认,必须整套重钉);Claude 用 $CLAUDE_BIN -p --resume <你起审时给的 uuid> "<追问>" --model $CLAUDE_REVIEW_MODEL
+  Claude: $CLAUDE_BIN -p "<同一段 prompt>" --model $CLAUDE_REVIEW_MODEL --effort $CLAUDE_REVIEW_EFFORT --session-id <uuidgen 自生成并记下,供续接>
+  续接:codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,掉回 config 默认,必须整套重钉);Claude 用 $CLAUDE_BIN -p --resume <你起审时给的 uuid> "<追问>" --model $CLAUDE_REVIEW_MODEL --effort $CLAUDE_REVIEW_EFFORT
 同视角跨模型对账:Claude 与 Codex 同视角 findings 互相对照——只一家报出的重点亲验,两家同报的置信升。
 DISPATCH
 )"
@@ -203,6 +204,7 @@ $dispatch
 
 ## 收回亲验
 每条 finding 自己 Read/grep/跑坐实(审者是劳动力不是信源),引不出 file:line 降置信。
+你只做机械亲验与记账,不 consult advisor(判断在主线程收口做)。
   坐实一个维度: $MMW loop checklist cover --item <i> --evidence <file:line>
   真 finding:   $MMW loop finding add --severity <C/I/M> --confidence <1-10> --locator <file:line>
 
