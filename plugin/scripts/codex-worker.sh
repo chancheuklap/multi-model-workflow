@@ -10,7 +10,8 @@
 #             skill,prompt 只给三文档路径 + 指向 skill);codex exec 落地;记 session id(供 resume);打印 SESSION= + Codex 最后消息。
 #             收工 fail-closed 核 docs/ 边界:Codex 碰了 docs/ → 打印 DOCS_VIOLATION 退非零(Worker 禁改 docs/,只有 Coordinator 能改)。
 #   resume    --worktree <abs> --instructions <abs.md>
-#             从 worktree 记的 session 续会话修复(keep context),发回修复指令。
+#             从 worktree 记的 session 续会话修复(keep context),发回修复指令;
+#             session 文件丢失(dispatch 被杀)时自动从 codex-logs/run.log 捞回。
 #
 # 落地用标准档(设计/计划审用高档,在 review 侧);沙箱放行 git common dir,否则 worktree
 # 内 git commit 写 objects/index.lock 被拒。
@@ -130,7 +131,10 @@ cmd_resume() {
   [ -n "$wt" ]    || die "--worktree 必填"
   [ -f "$instr" ] || die "--instructions 文件不存在: $instr"
   local sf="$wt/$STATE_SUBDIR/codex-session"
-  [ -f "$sf" ] || die "无 session 记账($sf);首派走 dispatch"
+  # dispatch 中途被杀(如 Bash 超时)时 session 文件没落,但 run.log 实时写、开头就有
+  # session id:从 log 捞回补记,不丢 resume 能力;捞不到才 fail-closed 拒
+  [ -f "$sf" ] || record_session "$wt" "$wt/$STATE_SUBDIR/codex-logs/run.log" >/dev/null
+  [ -f "$sf" ] || die "无 session 记账($sf,run.log 也捞不到);首派走 dispatch"
   local sid; sid="$(cat "$sf")"
 
   run_codex "$wt" "$instr" exec resume "$sid"

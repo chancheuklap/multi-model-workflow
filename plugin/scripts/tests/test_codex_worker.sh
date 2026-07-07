@@ -66,6 +66,12 @@ ARGV2="$(cat "$FAKE_CAP/argv")"
 echo "$ARGV2" | grep -q "exec resume sess-123" && ok "resume 走 codex exec resume <session>" || no "resume session"
 [ "$(cat "$FAKE_CAP/stdin")" = "fix this" ] && ok "resume 发回修复指令" || no "resume 指令"
 
+# resume 兜捞:session 文件丢(dispatch 被杀)→ 从 run.log 捞回,不丢续会话能力
+rm "$WT/.claude/multi-model-workflow/codex-session"
+bash "$CW" resume --worktree "$WT" --instructions "$INSTR" >/dev/null 2>&1
+grep -q "exec resume sess-123" "$FAKE_CAP/argv" && ok "session 丢失从 run.log 捞回 resume" || no "run.log 捞回"
+[ "$(cat "$WT/.claude/multi-model-workflow/codex-session" 2>/dev/null)" = "sess-123" ] && ok "捞回后补记 session 落盘" || no "捞回补记"
+
 # fail-closed
 if bash "$CW" dispatch --plan /nope.md --worktree "$WT" >/dev/null 2>&1; then no "缺/坏 plan 被拒"; else ok "坏 plan 被拒"; fi
 if bash "$CW" resume --worktree "$TMP/nowt" --instructions "$INSTR" >/dev/null 2>&1; then no "无 session 被拒"; else ok "无 session 被拒(fail-closed)"; fi
