@@ -27,8 +27,19 @@ if printf '%s' "$cmd" | grep -Eq '(^|[[:space:];&|])gh[[:space:]]+pr[[:space:]]+
   ask "红线:gh pr merge(GitHub 侧合并)需用户亲批。"
 fi
 
-# 部署:deploy 词(含 deploy.sh / deploy-prod / npm run deploy)+ 常见部署工具动词
-if printf '%s' "$cmd" | grep -Eq '(^|[[:space:];&|/])deploy([._-]|[[:space:]]|$)'; then
+# 部署:只拦"真正执行部署",不拦只读引用 deploy 命名文件。
+# 命中前:cat/grep/ls/sed/chmod/plutil 看一眼、bash -n 语法检查都不是发布,放行。
+# 命中:跑 *deploy*.sh|.py 脚本 / cloud-deploy 子命令 / 包管理器 deploy 任务。
+run_deploy_re='(^|[[:space:];&|])(bash|sh|zsh|source)[[:space:]]+[^;&|]*deploy[a-z0-9._-]*\.(sh|py)([[:space:]]|$)'
+dotslash_deploy_re='(^|[[:space:];&|])\./[^;&|]*deploy[a-z0-9._-]*\.(sh|py)([[:space:]]|$)'
+subcmd_deploy_re='(^|[[:space:];&|])cloud-deploy([[:space:]]|$)'
+pkg_deploy_re='(^|[[:space:];&|])(npm|pnpm|yarn|npx|make|just|task)[^;&|]*[[:space:]]deploy([[:space:]]|$)'
+syntax_check_re='(^|[[:space:];&|])(bash|sh|zsh)[[:space:]]+-[a-zA-Z]*n([[:space:]]|$)'
+if { printf '%s' "$cmd" | grep -Eq "$run_deploy_re" \
+       && ! printf '%s' "$cmd" | grep -Eq "$syntax_check_re"; } \
+   || printf '%s' "$cmd" | grep -Eq "$dotslash_deploy_re" \
+   || printf '%s' "$cmd" | grep -Eq "$subcmd_deploy_re" \
+   || printf '%s' "$cmd" | grep -Eq "$pkg_deploy_re"; then
   ask "红线:部署动作(deploy)需用户亲批。"
 fi
 if printf '%s' "$cmd" | grep -Eq '(^|[[:space:];&|])(kubectl|oc)[^;&|]*[[:space:]]apply([[:space:]]|$)|(^|[[:space:];&|])terraform[^;&|]*[[:space:]](apply|destroy)([[:space:]]|$)'; then

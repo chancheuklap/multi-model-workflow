@@ -1,7 +1,7 @@
 {
   "name": "multi-model-workflow",
   "description": "多模型开发编排:讨论/设计阶段与主线程对齐(HITL 集中在 propose/design),计划起放权自主跑——Codex 写码 + Claude 验收、四审 loop、worktree 隔离、断点续传。七阶段统一运行契约,确定层归脚本/hook、判断层留 AI。",
-  "version": "6.5.3",
+  "version": "6.5.4",
   "author": {
     "name": "Cheuk Lap Chan",
     "email": "chancheuklapincn@gmail.com"
