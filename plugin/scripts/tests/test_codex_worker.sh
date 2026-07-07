@@ -59,17 +59,20 @@ bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-nodoc" >/dev/null 2>&1
 PROMPT2="$(cat "$FAKE_CAP/stdin")"
 echo "$PROMPT2" | grep -q "设计文档(意图" && no "无 design 时不该出现设计行" || ok "design 可空:无则不出设计行"
 
-# resume:用记的 session 续会话
+# resume:用记的 session 续会话,exec 层重钉与 dispatch 一致的围栏
 INSTR="$TMP/fix.md"; echo "fix this" > "$INSTR"
 OUT2="$(bash "$CW" resume --worktree "$WT" --instructions "$INSTR" 2>/dev/null)"
 ARGV2="$(cat "$FAKE_CAP/argv")"
-echo "$ARGV2" | grep -q "exec resume sess-123" && ok "resume 走 codex exec resume <session>" || no "resume session"
+echo "$ARGV2" | grep -q "resume sess-123" && ok "resume 续原 session" || no "resume session"
+echo "$ARGV2" | grep -q -- "-C $WT" && ok "resume 重钉 -C <worktree>(不掉回调用 cwd)" || no "resume -C"
+echo "$ARGV2" | grep -q -- "--sandbox workspace-write" && ok "resume 重钉 workspace-write(不掉回 config 默认)" || no "resume sandbox"
+echo "$ARGV2" | grep -q -- "-m gpt-5.4" && ok "resume 复用派发模型档(不掉回 config 默认档)" || no "resume 模型档"
 [ "$(cat "$FAKE_CAP/stdin")" = "fix this" ] && ok "resume 发回修复指令" || no "resume 指令"
 
 # resume 兜捞:session 文件丢(dispatch 被杀)→ 从 run.log 捞回,不丢续会话能力
 rm "$WT/.claude/multi-model-workflow/codex-session"
 bash "$CW" resume --worktree "$WT" --instructions "$INSTR" >/dev/null 2>&1
-grep -q "exec resume sess-123" "$FAKE_CAP/argv" && ok "session 丢失从 run.log 捞回 resume" || no "run.log 捞回"
+grep -q "resume sess-123" "$FAKE_CAP/argv" && ok "session 丢失从 run.log 捞回 resume" || no "run.log 捞回"
 [ "$(cat "$WT/.claude/multi-model-workflow/codex-session" 2>/dev/null)" = "sess-123" ] && ok "捞回后补记 session 落盘" || no "捞回补记"
 
 # fail-closed
@@ -90,6 +93,18 @@ CODEX_BIN="$FAKEBIN/codex-evil"
 if OUT_E="$(CODEX_BIN="$FAKEBIN/codex-evil" bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-evil" 2>&1)"; then no "Codex 改 docs/ 应退非零"; else ok "Codex 改 docs/ → fail-closed 退非零"; fi
 echo "$OUT_E" | grep -q "DOCS_VIOLATION" && ok "报 DOCS_VIOLATION(留痕可见)" || no "无 DOCS_VIOLATION"
 echo "$OUT_E" | grep -q "docs/design/hacked.md" && ok "列出越界文件" || no "未列越界文件"
+
+# resume 也守 docs/ 边界(resume 续修时越界同样 fail-closed)
+cat > "$FAKEBIN/codex-evil2" <<'FAKE'
+#!/usr/bin/env bash
+wt=""; prev=""; for a in "$@"; do [ "$prev" = "-C" ] && wt="$a"; prev="$a"; done
+echo more >> "$wt/docs/design/hacked.md"
+prev=""; for a in "$@"; do [ "$prev" = "-o" ] && echo done > "$a"; prev="$a"; done
+echo "session id: sess-evil"
+FAKE
+chmod +x "$FAKEBIN/codex-evil2"
+if OUT_R="$(CODEX_BIN="$FAKEBIN/codex-evil2" bash "$CW" resume --worktree "$TMP/wt-evil" --instructions "$INSTR" 2>&1)"; then no "resume 改 docs/ 应退非零"; else ok "resume 改 docs/ → fail-closed 退非零"; fi
+echo "$OUT_R" | grep -q "DOCS_VIOLATION" && ok "resume 越界报 DOCS_VIOLATION" || no "resume 无 DOCS_VIOLATION"
 
 echo ""
 echo "Results: $pass passed, $fail failed"
