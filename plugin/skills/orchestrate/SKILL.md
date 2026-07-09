@@ -33,6 +33,19 @@ mmw where
 
 判不准就问一句收窄(一次只问一个)。概念 / 事实问题直接答,不进 orchestrate。
 
+## 控制面(任何阶段可用,跨路径)
+
+用户可随时用 slash command 指挥在管 run;这些是控制面,不改施工面流程:
+
+| 命令 | 作用 | 你要做 |
+| --- | --- | --- |
+| `/progress` | 看进度板 | 命令自带注入,照它汇报 |
+| `/unattended` `/attended` | 进/出强无人值守 | 读 `${SKILL_DIR}/references/control/attendance.md`(值守档合同 + no-question 双层),照它执行 |
+| `/side-finding` | 计划外二选一登记 | 读 `${SKILL_DIR}/references/control/steering-commands.md` |
+| `/reassess` `/skip-current` `/rescope` `/replan-remaining` `/force-validate` | 中途指挥 | 读 `${SKILL_DIR}/references/control/steering-commands.md` |
+
+**值守档是横切合同**:任何阶段续跑前先看 `task.json.attendance`;`unattended` 时按 `control/attendance.md` 自我约束,不向用户提问。软停/计划外分流的问不问,按该合同判。
+
 ## 边界
 
 - 入口只路由:**不讲流程、不建 worktree、不写设计 / 计划 / 代码、不派 worker、不做 review**——那些都在各路径 reference 和各阶段方法论里。
