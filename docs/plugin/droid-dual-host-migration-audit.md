@@ -50,9 +50,9 @@ Droid 子代理**上下文隔离、不自动加载 skill**,只知道(a)自己 .m
 | # | 风险 | 证据 | 建议 | 优先级 |
 |---|---|---|---|---|
 | R1 | hook 在真 Droid 会话的 payload 字段未验过 | **脚本侧已验**(2026-07-09):用 Droid 官方完整 payload(`hook_event_name`/`source`/`tool_name`/`tool_input`/`stop_hook_active`/`cwd`)喂 4 个 hook——guard-redline 输出 `permissionDecision:"ask"`+`hookEventName:"PreToolUse"`、session-triage stdout 注入 `host=droid`、record-step 读 `.tool_input.command` 不崩、guard-loop exit-2 顶回未完成 review loop。`test_hooks.sh`(35 断言)亦已覆盖两宿主共有的 `tool_input.command` 字段。剩"真 Droid 会话触发"是平台行为,脚本侧无不确定性 | 剩一步:真 Droid 会话 `droid --debug` 确认 4 个 hook 实际触发 + SessionStart stdout 注入 context | 低(仅平台侧验) |
-| R2 | worktree skill 两副本(plugin/skills + codex-skills)会漂移 | **防漂移校验已加**:`test_skill_parity.sh`(12 断言)断言两副本 `references/*.md` 逐字一致(SKILL.md 框架称呼允许差异);当前 8 个 references 文件全 SAME。彻底单源化仍待用户拍板 | 单源化(让 `codex-skills/` 软链指向 `plugin/skills/`,源为宿主中立版)会使 Claude 侧 Codex CLI 读到中立化文本(称呼从"你(Codex)..."变"你(落地执行者)..."),碰 Claude 侧,需用户确认 | 中(待拍板) |
+| R2 | worktree skill 两副本(plugin/skills + codex-skills)会漂移 | **防漂移校验已加**:`test_skill_parity.sh`(12 断言)断言两副本 `references/*.md` 逐字一致(SKILL.md 框架称呼允许差异);当前 8 个 references 文件全 SAME。**已决定:保持两副本 + 防漂移校验(乙路线)**,不碰 Claude 侧 SKILL.md 文本 | 单源化(甲路线,`codex-skills/` 软链→`plugin/skills/`)会使 Claude 侧 Codex CLI 读到中立化称呼,碰"Claude 一点不动"硬约束,否决。如未来接受称呼中立化可再启 | 已关闭(乙) |
 | R3 | hooks.json 双路径 `\|\|` 回退略脆 | **已修**:hooks.json 4 个 command 改成 `if [ -n "${DROID_PLUGIN_ROOT:-}" ]; then ...; else ...; fi` 守卫。原 `A \|\| B` 在 guard-loop exit-2(正常顶回)时会落到 CLAUDE 路径报噪;现按宿主只跑一段,失败就失败 | 已修,JSON valid + test_hooks 35 绿 + 4 command bash -n 过 | 已解决 |
-| R4 | Droid 无 `Skill` 工具,plan-writer 不能用 Claude 的 `codebase-design`/`ponytail` skill | Claude agent 调 `Skill({skill:"codebase-design"})`,Droid droid 已改成直接 Read CLAUDE.md + Grep/Glob 探代码 | 现状可接受;若要更深代码理解,可把 codebase-design 方法论也抽进 plugin/skills 给 Droid 读 | 低(待拍板:是否值得投入) |
+| R4 | Droid 无 `Skill` 工具,plan-writer 不能用 Claude 的 `codebase-design`/`ponytail` skill | Claude agent 调 `Skill({skill:"codebase-design"})`,Droid droid 已改成直接 Read CLAUDE.md + Grep/Glob 探代码 | **已决定:不做**。当前 plan-writer 能写出合格计划,搬 codebase-design/ponytail 进 plugin 是中等工程且过度设计风险;Droid 侧探代码用 Read+Grep+Glob 已覆盖需求 | 已关闭(不做) |
 
 ## 5. "Claude 不受影响"的保证机制
 
@@ -80,3 +80,17 @@ mmw where      # Droid 主线程自检
 - 不要为"统一"把 Claude `agents/plan-writer.md` 改成指 plugin reference(会动你满意的 Claude 侧,且 Claude agent 内联方法论本就无单一源可指)。
 - 不要把 worktree skill 方法论搬进 `plugin/skills/orchestrate/`(那是路由 skill,方法论单源已在 worktree-{build,review} skill)。
 - 不要给 Droid 加"没装 skill 也降级跑"的兜底(违反 fail-closed;没装就报错才是对的)。
+- 不要单源化两副本 SKILL.md 称呼(会碰 Claude 侧文本;两副本 + `test_skill_parity.sh` 防漂移已够)。
+
+## 8. 收尾状态(2026-07-09)
+
+4 条风险全部关闭:R1 脚本侧已验(剩平台侧真会话触发)、R2 乙路线(防漂移校验已加)、R3 已修、R4 不做。本次会话 4 个 commit:
+
+| commit | 内容 |
+|---|---|
+| `8054c22` | worktree skill 随插件发布 + Droid 派发指向 plugin 内副本 + design/plan 审者单模型对齐(6.7.0→6.8.0) |
+| `f4bef66` | Droid plan-writer 内联补齐 5 块方法论 + code-explorer/investigate-topic 输出契约 |
+| `01709ab` | 本审计报告 |
+| `d89c165` | R3 hooks.json 宿主守卫 + R2 防漂移校验 + R1 hook Droid payload 验 |
+
+全量测试 478 断言绿 + build check 绿。Claude 侧零功能改动。
