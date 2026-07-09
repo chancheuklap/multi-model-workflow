@@ -13,7 +13,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/host.sh
 . "$SCRIPT_DIR/lib/host.sh"
 ROUTES="$SCRIPT_DIR/../state-schema/routes.json"
-STATE_SUBDIR="$(mmw_state_subdir)"
 MANIFEST_NAME="task.json"
 # 回执里的命令一律吐完整可执行形式(agent 直接粘贴跑,不用自己把 mmw 别名展开成路径)
 MMW="bash \"$SCRIPT_DIR/mmw.sh\""
@@ -21,9 +20,16 @@ MMW="bash \"$SCRIPT_DIR/mmw.sh\""
 die() { echo "ERROR: $*" >&2; exit 1; }
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
+# 读已有任务时落到真实状态平面(跨宿主续跑)
+state_subdir_here() {
+  local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
+  mmw_resolve_state_subdir "$top"
+}
+
 manifest_path() {
   local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
-  local m="$top/$STATE_SUBDIR/$MANIFEST_NAME"
+  local sd; sd="$(mmw_resolve_state_subdir "$top")"
+  local m="$top/$sd/$MANIFEST_NAME"
   [ -f "$m" ] || die "当前不是在管任务(无 task.json),先回入口走路由/准备"
   echo "$m"
 }
@@ -243,10 +249,11 @@ cmd_spinoff() {
   echo "SPUN-OFF tag=$tag from=$cur_phase(已登记为关联子任务,主流程继续)"
 }
 
-# 找 manifest,没有不报错(冷启动用)
+# 找 manifest,没有不报错(冷启动用);跨宿主解析真实状态平面
 find_manifest() {
   local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
-  local m="$top/$STATE_SUBDIR/$MANIFEST_NAME"
+  local sd; sd="$(mmw_resolve_state_subdir "$top")"
+  local m="$top/$sd/$MANIFEST_NAME"
   [ -f "$m" ] || return 1
   echo "$m"
 }
@@ -262,16 +269,14 @@ cmd_where() {
     jq -r '.start_options[] | "  [\(.scenario)] \(.when) → \(.phases_note)"' "$ROUTES"
     echo "命令: $MMW task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title '<标题>' [--direction-given]"
     echo "merge: 不开 worktree,直接走 references/scenario/merge.md;概念/事实问题不进 orchestrate,直接答。"
-    # 在飞任务:主仓库下有 manifest 的 worktree 逐行列出(断点恢复入口;任务界定=有 plugin 建档的 worktree,不是野分支)
-    local top_ls
+    # 在飞任务:扫两个宿主 worktree 根(断点恢复入口;任务界定=有 plugin 建档的 worktree,不是野分支)
+    local top_ls mm hdr=0
     if top_ls="$(git rev-parse --show-toplevel 2>/dev/null)"; then
-      local d mm hdr=0
-      for d in "$top_ls/$(mmw_worktrees_rel)"/*/; do
-        mm="${d}$STATE_SUBDIR/$MANIFEST_NAME"
+      while IFS= read -r mm; do
         [ -f "$mm" ] || continue
         [ "$hdr" = 1 ] || { echo "在飞任务(续跑:进 worktree 后 mmw where;全量视图 mmw task team):"; hdr=1; }
         jq -r '"  - \(.slug)  [\(.scenario)] phase=\(.phase) status=\(.status)  path=\(.worktree_path)"' "$mm" 2>/dev/null || true
-      done
+      done < <(mmw_foreach_flying_manifest "$top_ls")
     fi
     return 0
   fi
@@ -386,9 +391,10 @@ EOF
   # 内层 loop 可见性:有 loop-state = 正在某内层 loop(execution 落地 / review 审 / contract-gate 合同门)。
   # 断点恢复靠 where —— 报 loop 种类、进度(借 loop.sh exit-check,单源不重算)、该读哪份(routes.loop_bindings)。
   # loop-state 由 handoff 结论落定时清(loop close),文件在 = loop 真活着,不是上阶段残留。
-  local top loopf
-  top="${m%/$STATE_SUBDIR/$MANIFEST_NAME}"
-  loopf="$top/$STATE_SUBDIR/loop-state.json"
+  local top loopf sd_here
+  top="$(git rev-parse --show-toplevel 2>/dev/null)" || top=""
+  sd_here="$(mmw_resolve_state_subdir "$top")"
+  loopf="$top/$sd_here/loop-state.json"
   if [ -f "$loopf" ]; then
     local lkind lstate lload
     lkind="$(jq -r '.kind // "?"' "$loopf" 2>/dev/null || echo "?")"

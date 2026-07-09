@@ -2,7 +2,7 @@
 # progress.sh —— 负责人可读进度板(投影,非真相源)
 #
 # 从 task.json(外层真相)+ loop-state.json(内层 loop,可能不存在)聚合出一份
-# <worktree>/.claude/multi-model-workflow/progress-board.md,给负责人一眼扫。
+# <worktree>/<host-state>/progress-board.md,给负责人一眼扫。
 # 板永远可从真相源重建;冲突以 task.json / loop-state.json 为准。
 #
 #   render [--stdout]   重渲染并覆盖 board;--stdout 额外把板全文打到 stdout(供 command 的 `!` 动态注入)
@@ -10,10 +10,13 @@
 # 无在管任务(无 task.json)→ 打 NO-ACTIVE-RUN 退 0,不伪造状态(fail-visible)。
 set -euo pipefail
 
-STATE_SUBDIR=".claude/multi-model-workflow"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/host.sh
+. "$SCRIPT_DIR/lib/host.sh"
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
+STATE_SUBDIR="$(mmw_resolve_state_subdir "$top")"
 MAN="$top/$STATE_SUBDIR/task.json"
 LOOP="$top/$STATE_SUBDIR/loop-state.json"
 BOARD="$top/$STATE_SUBDIR/progress-board.md"

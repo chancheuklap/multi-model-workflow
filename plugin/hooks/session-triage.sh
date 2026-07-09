@@ -7,11 +7,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=../scripts/lib/host.sh
 . "$SCRIPT_DIR/../scripts/lib/host.sh"
 MMW="bash \"$SCRIPT_DIR/../scripts/mmw.sh\""
-STATE_SUBDIR="$(mmw_state_subdir)"
-WT_REL="$(mmw_worktrees_rel)"
 HOST="$(mmw_host)"
 
 top="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+STATE_SUBDIR="$(mmw_resolve_state_subdir "$top")"
 
 man="$top/$STATE_SUBDIR/task.json"
 if [ -f "$man" ]; then
@@ -29,10 +28,9 @@ fi
 
 echo "[multi-model-workflow] host=$HOST 会话分诊:正式开发任务(新功能/改造/报 bug/明确小改/合并 worktree)→ 用 orchestrate skill 进流程(先跑 $MMW where);简单问答 → 直接答,不进流程。"
 hdr=0
-for d in "$top/$WT_REL"/*/; do
-  mm="${d}$STATE_SUBDIR/task.json"
+while IFS= read -r mm; do
   [ -f "$mm" ] || continue
   [ "$hdr" = 1 ] || { echo "在飞任务(续跑:进对应 worktree 后 mmw where;全量视图 mmw task team):"; hdr=1; }
   jq -r '"  - \(.slug)  [\(.scenario)] phase=\(.phase) status=\(.status)  path=\(.worktree_path)"' "$mm" 2>/dev/null || true
-done
+done < <(mmw_foreach_flying_manifest "$top")
 exit 0

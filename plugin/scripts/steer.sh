@@ -12,15 +12,18 @@
 # fail-closed:门禁不过直接 die(非零),绝不降级成 afk 蒙混。
 set -euo pipefail
 
-STATE_SUBDIR=".claude/multi-model-workflow"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/host.sh
+. "$SCRIPT_DIR/lib/host.sh"
 MANIFEST_NAME="task.json"
 LOOP_NAME="loop-state.json"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 top_dir() { git rev-parse --show-toplevel 2>/dev/null || die "不在 git 仓库内"; }
-man_path() { echo "$(top_dir)/$STATE_SUBDIR/$MANIFEST_NAME"; }
-loop_path() { echo "$(top_dir)/$STATE_SUBDIR/$LOOP_NAME"; }
+state_here() { mmw_resolve_state_subdir "$(top_dir)"; }
+man_path() { echo "$(top_dir)/$(state_here)/$MANIFEST_NAME"; }
+loop_path() { echo "$(top_dir)/$(state_here)/$LOOP_NAME"; }
 
 need_man() {
   local m; m="$(man_path)"

@@ -7,12 +7,12 @@
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/../scripts/lib/host.sh"
-STATE_SUBDIR="$(mmw_state_subdir)"
 LOOP="$SCRIPT_DIR/../scripts/loop.sh"
 
 cat >/dev/null 2>&1 || true   # 吞掉 stdin payload(本 hook 不需要它的字段)
 
 top="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+STATE_SUBDIR="$(mmw_resolve_state_subdir "$top")"
 f="$top/$STATE_SUBDIR/loop-state.json"
 [ -f "$f" ] || exit 0
 

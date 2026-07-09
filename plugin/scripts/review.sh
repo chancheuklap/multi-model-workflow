@@ -12,8 +12,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/host.sh
 . "$SCRIPT_DIR/lib/host.sh"
 LOOP="$SCRIPT_DIR/loop.sh"
-STATE_SUBDIR="$(mmw_state_subdir)"
 MMW="bash \"$SCRIPT_DIR/mmw.sh\""   # 打印给协调帮手的命令,完整可执行形式
+# 当前目录真实状态平面(跨宿主续跑)
+state_here() {
+  local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
+  mmw_resolve_state_subdir "$top"
+}
 # 审 = 高判断,审者跑高档;可 env 覆盖。
 # Codex 审者(外部 agent)走 codex exec 无头,模型/档在这里钉;
 # Claude 审者走会话内 sub-agent(agents/code-reviewer.md),模型/档在该 agent frontmatter 钉——
@@ -113,7 +117,7 @@ cmd_start() {
 
   local top scen brief
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
-  scen="$(jq -r '.scenario // ""' "$top/$STATE_SUBDIR/task.json" 2>/dev/null || echo "")"
+  STATE_SUBDIR="$(state_here)"; scen="$(jq -r '.scenario // ""' "$top/$STATE_SUBDIR/task.json" 2>/dev/null || echo "")"
   brief="$top/$STATE_SUBDIR/review-brief.md"
   mmw_ensure_state_ignore "$top"
   mkdir -p "$top/$STATE_SUBDIR"

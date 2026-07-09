@@ -20,14 +20,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/host.sh
 . "$SCRIPT_DIR/lib/host.sh"
-STATE_SUBDIR="$(mmw_state_subdir)"
 LOOP_NAME="loop-state.json"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 loop_file() {
-  local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
-  echo "$top/$STATE_SUBDIR/$LOOP_NAME"
+  local top sd
+  top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
+  sd="$(mmw_resolve_state_subdir "$top")"
+  echo "$top/$sd/$LOOP_NAME"
 }
 need_loop() { local f; f="$(loop_file)"; [ -f "$f" ] || die "无 loop-state(先 loop.sh init)"; echo "$f"; }
 # 原子写 + fail-closed:上游 jq 失败会送来空/非法内容,验过非空且合法 JSON 才 mv,
@@ -49,15 +50,18 @@ cmd_init() {
     *) die "未知参数 $1";; esac; done
   case "$kind" in execution|review|contract-gate) ;; *) die "--kind 只能 execution|review|contract-gate";; esac
   case "$max_rounds" in ''|*[!0-9]*) die "--max-rounds 必须是非负整数";; esac
-  local f top; top="$(git rev-parse --show-toplevel)"; f="$top/$STATE_SUBDIR/$LOOP_NAME"
+  local f top sd
+  top="$(git rev-parse --show-toplevel)"
+  sd="$(mmw_resolve_state_subdir "$top")"
+  f="$top/$sd/$LOOP_NAME"
   # fail-closed:已有未收束 loop 不许覆盖(防手滑 re-init 抹掉 execution 进度/子 worktree 映射)。
   # 换 loop 前必须显式 close(handoff 会自动 close;review start 换审 loop 前也先 close)。
   if [ -f "$f" ]; then
     die "已有未收束 loop(kind=$(jq -r '.kind // "?"' "$f" 2>/dev/null));先 mmw loop close 再 init,或复用当前 loop"
   fi
-  mkdir -p "$top/$STATE_SUBDIR"
+  mkdir -p "$top/$sd"
   # 值守档权威在外层 task.json(跨阶段留存);loop init 读它入 loop-state 供软停判断,缺省 afk。
-  local mode="afk" man="$top/$STATE_SUBDIR/task.json"
+  local mode="afk" man="$top/$sd/task.json"
   if [ -f "$man" ]; then
     local m; m="$(jq -r '.attendance // "afk"' "$man" 2>/dev/null || echo afk)"
     case "$m" in attended|afk|unattended) mode="$m";; esac
@@ -191,8 +195,10 @@ cmd_resume() { edit "$(need_loop)" '.pause=null'; echo "RESUMED"; }
 # 收束:删 loop-state(schema「进 loop 时 init,退出时清」的落地)。幂等——无 loop / 不在 git 都安静退 0,
 # 绝不让清理失败反过来阻断上游 handoff 的回执。
 cmd_close() {
-  local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "NO-GIT"; return 0; }
-  rm -f "$top/$STATE_SUBDIR/$LOOP_NAME"
+  local top sd
+  top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "NO-GIT"; return 0; }
+  sd="$(mmw_resolve_state_subdir "$top")"
+  rm -f "$top/$sd/$LOOP_NAME"
   echo "CLOSED"
 }
 

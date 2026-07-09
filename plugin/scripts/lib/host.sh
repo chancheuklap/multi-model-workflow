@@ -4,12 +4,16 @@
 #
 # 检测优先级:
 #   1. MMW_HOST=droid|claude 显式覆盖
-#   2. DROID_PLUGIN_ROOT 已设 → droid(Droid 会同时设 CLAUDE_PLUGIN_ROOT 别名,以 DROID 为准)
+#   2. DROID_PLUGIN_ROOT 已设 → droid
 #   3. 默认 claude
 #
 # 路径:
 #   claude → .claude/multi-model-workflow + .claude/worktrees
 #   droid  → .factory/multi-model-workflow + .factory/worktrees
+#
+# 续跑/列队跨宿主:
+#   新建任务只写当前宿主平面;读已有任务时 mmw_resolve_state_subdir 会落到真实有 task.json 的平面。
+#   列在飞 / team / cleanup 会扫两个 worktree 根。
 
 mmw_host() {
   if [ -n "${MMW_HOST:-}" ]; then
@@ -43,12 +47,80 @@ mmw_state_parent() {
   esac
 }
 
+mmw_peer_state_parent() {
+  case "$(mmw_host)" in
+    droid) printf '.claude' ;;
+    *)     printf '.factory' ;;
+  esac
+}
+
 mmw_state_subdir() {
   printf '%s/multi-model-workflow' "$(mmw_state_parent)"
 }
 
+mmw_peer_state_subdir() {
+  printf '%s/multi-model-workflow' "$(mmw_peer_state_parent)"
+}
+
 mmw_worktrees_rel() {
   printf '%s/worktrees' "$(mmw_state_parent)"
+}
+
+mmw_peer_worktrees_rel() {
+  printf '%s/worktrees' "$(mmw_peer_state_parent)"
+}
+
+# 当前宿主优先,再对端(列队/扫盘用)
+mmw_all_worktrees_rel() {
+  printf '%s\n%s\n' "$(mmw_worktrees_rel)" "$(mmw_peer_worktrees_rel)"
+}
+
+# 在仓库/worktree 根下解析真实状态平面:
+# 优先当前宿主平面(有 task.json 或 loop-state.json);否则对端;都没有则回当前宿主(给新建写路径)。
+# $1=可选 top;缺省 git toplevel。
+mmw_resolve_state_subdir() {
+  local top="${1:-}" pref peer
+  pref="$(mmw_state_subdir)"
+  peer="$(mmw_peer_state_subdir)"
+  if [ -z "$top" ]; then
+    top="$(git rev-parse --show-toplevel 2>/dev/null)" || { printf '%s' "$pref"; return 0; }
+  fi
+  if [ -f "$top/$pref/task.json" ] || [ -f "$top/$pref/loop-state.json" ]; then
+    printf '%s' "$pref"
+  elif [ -f "$top/$peer/task.json" ] || [ -f "$top/$peer/loop-state.json" ]; then
+    printf '%s' "$peer"
+  else
+    printf '%s' "$pref"
+  fi
+}
+
+# 按 slug 在两个 worktree 根里找路径;找到打印绝对路径并 return 0。
+mmw_find_worktree() {
+  local top="$1" slug="$2" rel
+  [ -n "$top" ] && [ -n "$slug" ] || return 1
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    if [ -d "$top/$rel/$slug" ]; then
+      printf '%s' "$top/$rel/$slug"
+      return 0
+    fi
+  done < <(mmw_all_worktrees_rel)
+  return 1
+}
+
+# 打印所有在飞 task.json 绝对路径(两个宿主平面)。
+mmw_foreach_flying_manifest() {
+  local top="$1" parent root d man
+  [ -n "$top" ] || return 0
+  for parent in .claude .factory; do
+    root="$top/$parent/worktrees"
+    [ -d "$root" ] || continue
+    for d in "$root"/*/; do
+      [ -d "$d" ] || continue
+      man="${d}${parent}/multi-model-workflow/task.json"
+      [ -f "$man" ] && printf '%s\n' "$man"
+    done
+  done
 }
 
 # 主仓库状态平面 gitignore(幂等)。$1=git toplevel
@@ -108,7 +180,7 @@ mmw_shell_tool() {
   esac
 }
 
-# 插件根(双宿主)
+# 插件根(双宿主;脚本相对回退)
 mmw_plugin_root() {
   if [ -n "${DROID_PLUGIN_ROOT:-}" ]; then
     printf '%s' "$DROID_PLUGIN_ROOT"

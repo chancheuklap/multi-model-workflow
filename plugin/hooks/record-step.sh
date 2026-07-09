@@ -5,7 +5,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=../scripts/lib/host.sh
 . "$SCRIPT_DIR/../scripts/lib/host.sh"
 LOOP="$SCRIPT_DIR/../scripts/loop.sh"
-STATE_SUBDIR="$(mmw_state_subdir)"
 
 input="$(cat)"
 cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")"
@@ -16,6 +15,7 @@ pack="$(printf '%s' "$cmd" | grep -oE 'Pack[[:space:]]+[0-9]+\.[0-9]+' | head -1
 id="$(printf '%s' "$pack" | awk '{print $2}')"
 
 top="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+STATE_SUBDIR="$(mmw_resolve_state_subdir "$top")"
 [ -f "$top/$STATE_SUBDIR/loop-state.json" ] || exit 0
 sha="$(git -C "$top" rev-parse HEAD 2>/dev/null || echo "")"
 

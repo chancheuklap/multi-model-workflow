@@ -22,7 +22,8 @@ DROID_EXECUTOR_DROID="${DROID_EXECUTOR_DROID:-pack-executor}"
 DROID_EXECUTOR_MODEL="${DROID_EXECUTOR_MODEL:-glm-5.2}"
 DROID_EXECUTOR_EFFORT="${DROID_EXECUTOR_EFFORT:-max}"
 
-STATE_SUBDIR="$(mmw_state_subdir)"
+# worktree 真实状态平面(跨宿主续跑;新建派发时若无旧平面则落到当前宿主)
+state_for() { mmw_resolve_state_subdir "$1"; }
 
 die() { echo "ERROR: $*" >&2; exit 2; }
 
@@ -54,16 +55,18 @@ check_docs_boundary() {  # $1=worktree $2=start_sha
 
 # ---------- Codex CLI backend (Claude host) ----------
 record_session() {
-  local sid; sid="$(grep -m1 -E '^session id:' "$2" 2>/dev/null | sed 's/^session id:[[:space:]]*//' || true)"
+  local sid sd; sid="$(grep -m1 -E '^session id:' "$2" 2>/dev/null | sed 's/^session id:[[:space:]]*//' || true)"
   [ -n "$sid" ] || { echo ""; return; }
-  mkdir -p "$1/$STATE_SUBDIR"
-  printf '%s\n' "$sid" > "$1/$STATE_SUBDIR/codex-session"
+  sd="$(state_for "$1")"
+  mkdir -p "$1/$sd"
+  printf '%s\n' "$sid" > "$1/$sd/codex-session"
   echo "$sid"
 }
 
 run_codex() {
   local wt="$1" prompt="$2"; shift 2
-  local sd="$wt/$STATE_SUBDIR/codex-logs"; mkdir -p "$sd"
+  local st; st="$(state_for "$wt")"
+  local sd="$wt/$st/codex-logs"; mkdir -p "$sd"
   local log="$sd/run.log" last="$sd/last.md"
   set +e
   "$CODEX_BIN" "$@" -o "$last" - < "$prompt" > "$log" 2>&1
@@ -90,7 +93,8 @@ ensure_worktree() {
 # ---------- Droid Task backend ----------
 write_droid_dispatch_pkg() {
   local wt="$1" plan="$2" design="$3" issue="$4" model="$5" effort="$6" mode="$7" instr="${8:-}"
-  local pkg="$wt/$STATE_SUBDIR/worker-dispatch"
+  local st; st="$(state_for "$wt")"
+  local pkg="$wt/$st/worker-dispatch"
   local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
   mkdir -p "$pkg"
   if [ "$mode" = "dispatch" ]; then
@@ -115,7 +119,7 @@ write_droid_dispatch_pkg() {
   "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 META
-  printf '%s %s\n' "$model" "$effort" > "$wt/$STATE_SUBDIR/worker-model"
+  printf '%s %s\n' "$model" "$effort" > "$wt/$st/worker-model"
   echo "WORKER_BACKEND=droid-task"
   echo "WORKER_MODE=$mode"
   echo "WORKTREE=$wt"
@@ -149,11 +153,12 @@ cmd_check_docs() {
   esac; done
   [ -n "$wt" ] || die "--worktree 必填"
   [ -d "$wt" ] || die "worktree 不存在: $wt"
-  if [ -z "$start_sha" ] && [ -f "$wt/$STATE_SUBDIR/worker-dispatch/start_sha" ]; then
-    start_sha="$(cat "$wt/$STATE_SUBDIR/worker-dispatch/start_sha")"
+  local st; st="$(state_for "$wt")"
+  if [ -z "$start_sha" ] && [ -f "$wt/$st/worker-dispatch/start_sha" ]; then
+    start_sha="$(cat "$wt/$st/worker-dispatch/start_sha")"
   fi
-  if [ -z "$start_sha" ] && [ -f "$wt/$STATE_SUBDIR/worker-dispatch/meta.json" ]; then
-    start_sha="$(jq -r '.start_sha // empty' "$wt/$STATE_SUBDIR/worker-dispatch/meta.json" 2>/dev/null || true)"
+  if [ -z "$start_sha" ] && [ -f "$wt/$st/worker-dispatch/meta.json" ]; then
+    start_sha="$(jq -r '.start_sha // empty' "$wt/$st/worker-dispatch/meta.json" 2>/dev/null || true)"
   fi
   [ -n "$start_sha" ] || die "无 start_sha(dispatch 包或 --start-sha);无法核 docs 边界"
   check_docs_boundary "$wt" "$start_sha"
@@ -176,7 +181,8 @@ cmd_dispatch() {
   [ -f "$plan" ] || die "plan 文件不存在: $plan"
 
   ensure_worktree "$wt" "$base"
-  mkdir -p "$wt/$STATE_SUBDIR"
+  local st; st="$(state_for "$wt")"
+  mkdir -p "$wt/$st"
 
   case "$(mmw_worker_backend)" in
     droid-task)
@@ -190,7 +196,7 @@ cmd_dispatch() {
       [ -n "$effort" ] || effort="$CODEX_EFFORT"
       local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
       local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
-      printf '%s %s\n' "$model" "$effort" > "$wt/$STATE_SUBDIR/codex-model"
+      printf '%s %s\n' "$model" "$effort" > "$wt/$st/codex-model"
       local pf; pf="$(mktemp)"; build_prompt "$plan" "$wt" "$design" "$issue" > "$pf"
       local rc=0
       run_codex "$wt" "$pf" \
@@ -214,21 +220,22 @@ cmd_resume() {
   esac; done
   [ -n "$wt" ]    || die "--worktree 必填"
   [ -f "$instr" ] || die "--instructions 文件不存在: $instr"
+  local st; st="$(state_for "$wt")"
 
   case "$(mmw_worker_backend)" in
     droid-task)
       local model="$DROID_EXECUTOR_MODEL" effort="$DROID_EXECUTOR_EFFORT"
-      [ -f "$wt/$STATE_SUBDIR/worker-model" ] && read -r model effort < "$wt/$STATE_SUBDIR/worker-model"
+      [ -f "$wt/$st/worker-model" ] && read -r model effort < "$wt/$st/worker-model"
       write_droid_dispatch_pkg "$wt" "" "" "" "$model" "$effort" "resume" "$instr"
       return 0
       ;;
     codex-cli)
-      local sf="$wt/$STATE_SUBDIR/codex-session"
-      [ -f "$sf" ] || record_session "$wt" "$wt/$STATE_SUBDIR/codex-logs/run.log" >/dev/null
+      local sf="$wt/$st/codex-session"
+      [ -f "$sf" ] || record_session "$wt" "$wt/$st/codex-logs/run.log" >/dev/null
       [ -f "$sf" ] || die "无 session 记账($sf,run.log 也捞不到);首派走 dispatch"
       local sid; sid="$(cat "$sf")"
       local model="$CODEX_MODEL" effort="$CODEX_EFFORT"
-      [ -f "$wt/$STATE_SUBDIR/codex-model" ] && read -r model effort < "$wt/$STATE_SUBDIR/codex-model"
+      [ -f "$wt/$st/codex-model" ] && read -r model effort < "$wt/$st/codex-model"
       local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
       local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
       local rc=0
