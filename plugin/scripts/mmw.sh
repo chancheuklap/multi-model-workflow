@@ -21,11 +21,13 @@
 #     mmw review start --stage <design|plan|plan-impl|final|merge-impl> --source <...>
 #   Codex 落地派发:
 #     mmw codex dispatch --plan <p> --worktree <wt> | codex resume --worktree <wt> --instructions <f>
+#   进度板(负责人可读投影):
+#     mmw progress render [--stdout]           从 task.json/loop-state 聚合 progress-board.md(--stdout 供 command 注入)
 #   发布红线:merge 回主分支 / push / 部署由 guard-redline(PreToolUse)弹权限框要用户亲批,无令牌可自铸。
 set -euo pipefail
 D="$(cd "$(dirname "$0")" && pwd)"
 
-usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; }
 
 cmd="${1:-help}"; shift || true
 case "$cmd" in
@@ -34,6 +36,7 @@ case "$cmd" in
   loop)   exec bash "$D/loop.sh" "$@" ;;
   review) exec bash "$D/review.sh" "$@" ;;
   codex)  exec bash "$D/codex-worker.sh" "$@" ;;
+  progress) exec bash "$D/progress.sh" "$@" ;;
   help|-h|--help) usage ;;
   *) echo "未知命令: $cmd" >&2; echo "跑 mmw help 看全部" >&2; exit 2 ;;
 esac

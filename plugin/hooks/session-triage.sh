@@ -16,8 +16,14 @@ top="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 
 man="$top/$STATE_SUBDIR/task.json"
 if [ -f "$man" ]; then
-  # 在管任务 worktree 内:报身份 + 续跑入口
-  jq -r --arg mmw "$MMW" '"[multi-model-workflow] 本目录是在管任务 worktree:\(.slug) [\(.scenario)] phase=\(.phase) status=\(.status)。要续这个任务:先跑 \($mmw) where,照它报的 load/do 续;与任务无关的简单问答直接答。"' "$man" 2>/dev/null || true
+  # 在管任务 worktree 内:报身份 + 值守档 + 续跑/指挥入口
+  # 值守档权威在 task.json.attendance(缺省 afk);unattended 时提示续跑先读盘 mode 自我约束(不问人)。
+  jq -r --arg mmw "$MMW" '
+    (.attendance // "afk") as $mode |
+    "[multi-model-workflow] 本目录是在管任务 worktree:\(.slug) [\(.scenario)] phase=\(.phase) status=\(.status) mode=\($mode)。" +
+    "要续这个任务:先跑 \($mmw) where,照它报的 load/do 续。板:/progress  指挥:/reassess /attended /unattended /side-finding。" +
+    (if $mode=="unattended" then "  ⚠ 强无人档:续跑按盘上 mode 自我约束,不向用户提问,遇硬停写板等人。" else "" end) +
+    "  与任务无关的简单问答直接答。"' "$man" 2>/dev/null || true
   exit 0
 fi
 
