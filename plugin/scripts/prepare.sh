@@ -94,7 +94,7 @@ IGN
     '{schema_version:$sv, slug:$slug, title:$title, scenario:$scenario, phases:$phases, direction_given:$dg,
       status:$status, phase:$phase, phase_index:0, step_index:0, gate:null, created_at:$created, base_commit:$base,
       branch:$branch, worktree_path:$wt, docs:{investigating:$inv, design:$ddoc, issues:$idir, plans:$pdir, context:$ctx},
-      repair_count:0, turnaround_count:0,
+      repair_count:0, turnaround_count:0, attendance:"afk", unattended_policy:null,
       artifacts:[], phase_outputs:{}, open_items:[], subtasks:[], history:[]}' \
     > "$wt/$STATE_SUBDIR/$MANIFEST_NAME"
 

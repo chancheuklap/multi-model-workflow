@@ -65,6 +65,8 @@ jq -e . "$MAN" >/dev/null 2>&1 && ok "manifest 合法 JSON" || no "manifest 合�
 [ "$(jq -r '.repair_count,.turnaround_count' "$MAN" | tr '\n' ',')" = "0,0," ] && ok "计数器归零" || no "计数器归零"
 [ "$(jq -r '.artifacts,.open_items,.subtasks,.history|length' "$MAN" | paste -sd, -)" = "0,0,0,0" ] && ok "数组初始为空" || no "数组初始为空"
 [ "$(jq -rc .phase_outputs "$MAN")" = "{}" ] && ok "phase_outputs 初始为空对象(接力单)" || no "phase_outputs 初始空"
+[ "$(jq -r .attendance "$MAN")" = "afk" ] && ok "attendance 初始 afk(运行级值守权威)" || no "attendance 初始 afk"
+[ "$(jq -r .unattended_policy "$MAN")" = "null" ] && ok "unattended_policy 初始 null" || no "unattended_policy 初始 null"
 
 # 分支从 HEAD 分叉(同 base commit)
 [ "$(git -C "$WT" rev-parse HEAD)" = "$BASE" ] && ok "worktree HEAD=base" || no "worktree HEAD=base"

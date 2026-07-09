@@ -60,6 +60,25 @@
     "repair_count": { "type": "integer", "minimum": 0, "description": "当前阶段已返工次数,进下一阶段清零;超 caps.max_repair 转 blocked" },
     "turnaround_count": { "type": "integer", "minimum": 0, "description": "全程掉头次数;超 caps.max_turnaround 转 blocked" },
 
+    "attendance": {
+      "enum": ["attended", "afk", "unattended"],
+      "description": "运行级值守档(权威,跨阶段留存)。缺省视为 afk(兼容旧 manifest)。loop init 从这里读入 loop-state.attendance。unattended=强无人:软停自决且禁向用户提问,续跑先读这里自我约束(见 attendance reference)。/unattended /attended 命令改这里,不是改 loop-state"
+    },
+    "unattended_policy": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "side_finding_default": { "type": "string", "description": "计划外自动策略,auto=用默认标签表" },
+        "hitl_unanswered": { "type": "string", "description": "进入时仍有未答 HITL 的处置,如 reject_enter" },
+        "budget_at_100": { "type": "string" },
+        "design_gap": { "type": "string" },
+        "external_env": { "type": "string" },
+        "blocked_no_auto_path": { "type": "string" },
+        "review_fail": { "type": "string" }
+      },
+      "description": "进入 unattended 时写入的预授权策略;非 unattended 时为 null。字段见设计 §5.4.3"
+    },
+
     "artifacts": {
       "type": "array", "items": { "type": "string" },
       "description": "累积产出的文件路径(只存路径不存内容)。交接单的'我产出了什么'落这里"
@@ -82,10 +101,11 @@
         "properties": {
           "tag": { "enum": ["bug", "optimize", "out-of-scope", "needs-evaluation"] },
           "finding": { "type": "string" },
-          "from_phase": { "type": "string" }
+          "from_phase": { "type": "string" },
+          "disposition": { "enum": ["defer_issue", "fix_now"], "description": "计划外分流处置(side-finding record 写):defer_issue=开 issue 记下;fix_now=纳入当前合法修复。缺省=未分流" }
         }
       },
-      "description": "待办/遗留,不丢"
+      "description": "待办/遗留,不丢。计划外分流项也落这里(带 disposition)"
     },
     "subtasks": {
       "type": "array",
