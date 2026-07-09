@@ -10,8 +10,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/host.sh
+. "$SCRIPT_DIR/lib/host.sh"
 ROUTES="$SCRIPT_DIR/../state-schema/routes.json"
-STATE_SUBDIR=".claude/multi-model-workflow"
+STATE_SUBDIR="$(mmw_state_subdir)"
 MANIFEST_NAME="task.json"
 # 回执里的命令一律吐完整可执行形式(agent 直接粘贴跑,不用自己把 mmw 别名展开成路径)
 MMW="bash \"$SCRIPT_DIR/mmw.sh\""
@@ -264,10 +266,10 @@ cmd_where() {
     local top_ls
     if top_ls="$(git rev-parse --show-toplevel 2>/dev/null)"; then
       local d mm hdr=0
-      for d in "$top_ls/.claude/worktrees"/*/; do
-        mm="$d$STATE_SUBDIR/$MANIFEST_NAME"
+      for d in "$top_ls/$(mmw_worktrees_rel)"/*/; do
+        mm="${d}$STATE_SUBDIR/$MANIFEST_NAME"
         [ -f "$mm" ] || continue
-        [ "$hdr" = 1 ] || { echo "在飞任务(续跑:EnterWorktree({ path }) 后 mmw where;全量视图 mmw task team):"; hdr=1; }
+        [ "$hdr" = 1 ] || { echo "在飞任务(续跑:进 worktree 后 mmw where;全量视图 mmw task team):"; hdr=1; }
         jq -r '"  - \(.slug)  [\(.scenario)] phase=\(.phase) status=\(.status)  path=\(.worktree_path)"' "$mm" 2>/dev/null || true
       done
     fi
@@ -358,7 +360,7 @@ step_note=断点回来时:本步产物若已完成,核一眼直接 step next,别
       src_args="$src_args --source $srcp"
     done < <(jq -r --arg p "$phase" '(.phase_outputs[$p] // [])[]' "$m")
     review_line="review_source=$g_source"
-    review_start_line="review_start=$MMW review start --stage $g_stage$src_args"
+    review_start_line="review_start=$MMW review start --stage ${g_stage}$src_args"
   fi
   cat <<EOF
 scenario=$scenario

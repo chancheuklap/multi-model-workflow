@@ -9,8 +9,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/host.sh
+. "$SCRIPT_DIR/lib/host.sh"
 ROUTES="$SCRIPT_DIR/../state-schema/routes.json"
-STATE_SUBDIR=".claude/multi-model-workflow"
+STATE_SUBDIR="$(mmw_state_subdir)"
 MANIFEST_NAME="task.json"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -19,17 +21,7 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 git_toplevel() { git rev-parse --show-toplevel 2>/dev/null || die "不在 git 仓库内"; }
 in_worktree() { [ -f "$1/.git" ]; }
 
-# 主仓库状态平面遮蔽:plugin 在主仓库只落 .claude/{worktrees,multi-model-workflow},
-# 用 .claude/.gitignore 对 git 隐形(gitignore 只影响未跟踪文件,用户已跟踪的 .claude/settings 等不受影响)。
-# 不遮蔽的话 worktree 一建主仓库 git status 就多出 ?? .claude/ 残留。幂等,可重复调。
-ensure_state_ignore() {  # $1=git toplevel
-  local g="$1/.claude/.gitignore" line
-  mkdir -p "$1/.claude"
-  if [ -f "$g" ] && grep -qxF '*' "$g"; then return 0; fi   # 已是全遮蔽(worktree 形态)
-  for line in 'worktrees/' 'multi-model-workflow/' '.gitignore'; do
-    { [ -f "$g" ] && grep -qxF "$line" "$g"; } || printf '%s\n' "$line" >> "$g"
-  done
-}
+# 主仓库状态平面遮蔽见 lib/host.sh mmw_ensure_state_ignore
 
 # ---------- new ----------
 cmd_new() {
@@ -52,10 +44,10 @@ cmd_new() {
   local top; top="$(git_toplevel)"
   in_worktree "$top" && die "已在 worktree 内($top),建新 worktree 请回主仓库"
 
-  local wt="$top/.claude/worktrees/$slug"
+  local wt="$top/$(mmw_worktrees_rel)/$slug"
   [ -e "$wt" ] && die "worktree 已存在:$wt"
   git -C "$top" show-ref --verify --quiet "refs/heads/$slug" && die "分支已存在:$slug(换个 slug 或先清理)"
-  ensure_state_ignore "$top"   # 建 worktree 前遮蔽主仓库状态平面,git status 零残留
+  mmw_ensure_state_ignore "$top"   # 建 worktree 前遮蔽主仓库状态平面,git status 零残留
 
   local base; base="$(git -C "$top" rev-parse HEAD)"
   # 从本地最新 HEAD 分叉
@@ -63,12 +55,11 @@ cmd_new() {
 
   # 文档落点:investigating / design / issues / plans 按 slug,context 项目级共享(domain-modeling 维护)
   mkdir -p "$wt/docs/investigating" "$wt/docs/design" "$wt/docs/issues" "$wt/docs/plans" "$wt/docs/context" "$wt/docs/reviews" "$wt/$STATE_SUBDIR"
-  # 状态平面对 git 不可见:.claude/ 下全部忽略(task.json/loop-state/codex-logs),
-  # 防 worker `git add -A` 把 plugin 状态污染进代码提交、防 closing 的 status 干净核查永远过不了
-  printf '*\n' > "$wt/.claude/.gitignore"
+  # 状态平面对 git 不可见(宿主 parent 下 multi-model-workflow 等)
+  mmw_ensure_wt_state_ignore "$wt"
   # 过程产物不永久存档(随 worktree 删):现状报告 / 审查留痕 / 终审报告。
   # 提交进分支的只有:设计(含 mockup/prototype)/ issue / 计划 / 领域文档(docs/context 项目级资产)。
-  # (merge-brief 不在这:merge 场景在主仓库,产物落 .claude/multi-model-workflow/,不进 docs/)
+  # (merge-brief 不在这:merge 场景在主仓库,产物落状态平面(host 路径),不进 docs/)
   # 本 .gitignore 自忽略:plugin 脚手架不进 git,随 worktree 死,下个任务 new 时重建。
   cat > "$wt/docs/.gitignore" <<'IGN'
 investigating/
@@ -98,7 +89,7 @@ IGN
       artifacts:[], phase_outputs:{}, open_items:[], subtasks:[], history:[]}' \
     > "$wt/$STATE_SUBDIR/$MANIFEST_NAME"
 
-  # 给 SKILL/LLM 的回执:下一步去 EnterWorktree(path),再进对应 phase
+  # 给 SKILL/LLM 的回执:下一步进 worktree(见 host-contract),再进对应 phase
   cat <<EOF
 PREPARED
 worktree_path=$wt
@@ -106,7 +97,7 @@ branch=$slug
 scenario=$scenario
 phase=$phase
 design_doc=docs/design/$slug
-NEXT=EnterWorktree({ path: "$wt" }) 然后进入 $scenario 的 $phase 阶段
+NEXT=$(mmw_enter_worktree_hint "$wt"); 然后进入 $scenario 的 $phase 阶段
 EOF
 }
 
@@ -142,7 +133,7 @@ cmd_cleanup() {
   [ -n "$slug" ] || die "--slug 必填"
   local top; top="$(git_toplevel)"
   in_worktree "$top" && die "在 worktree 内不能清理自己,回主仓库执行 cleanup"
-  local wt="$top/.claude/worktrees/$slug"
+  local wt="$top/$(mmw_worktrees_rel)/$slug"
 
   # 安全门:动任何东西之前先确认分支已并入当前 HEAD,未并入直接拒,绝不先删后死
   if git -C "$top" show-ref --verify --quiet "refs/heads/$slug"; then
@@ -212,12 +203,12 @@ EOF
 cmd_team() {
   local top; top="$(git_toplevel)"
   in_worktree "$top" && die "在 worktree 内;merge 回主仓库执行"
-  local wtroot="$top/.claude/worktrees"
+  local wtroot="$top/$(mmw_worktrees_rel)"
   [ -d "$wtroot" ] || { echo "TEAM 空(无在管 worktree)"; return 0; }
   echo "TEAM"
   local found=0
   for d in "$wtroot"/*/; do
-    local man="$d$STATE_SUBDIR/$MANIFEST_NAME"
+    local man="${d}$STATE_SUBDIR/$MANIFEST_NAME"
     [ -f "$man" ] || continue
     found=1
     # 每队员一行 JSON:身份 + 状态 + 设计文档(merge 据此查业务/设计冲突,非纯 git)

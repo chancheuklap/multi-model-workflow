@@ -23,7 +23,7 @@
 **Interfaces:**
 - **Consumes:** <本 pack 用到的、来自前序 pack 的东西——精确签名>
 - **Produces:** <后续 pack 依赖的东西——精确函数名 / 参数与返回类型>
-  （落地者只看自己这个 pack,这一块是他知道邻居 pack 名称与类型的唯一途径。）
+ （落地者只看自己这个 pack,这一块是他知道邻居 pack 名称与类型的唯一途径。）
 
 **Contract anchors:**（触碰合同时）Owner / Provider / Consumer / Model / schema / Registry / migration / catalog / Verification
 **Schema / API shapes:**（涉及数据/接口时）真实 SQL / 接口 / 请求响应形状,精确到让落地者**零设计决策**。
@@ -47,10 +47,10 @@
 
 ```markdown
 #### Implementation tasks
-- [ ] Step 1: 定义失败的 public-behavior 测试  — 文件 / Behavior / Key assertions / Fixtures（给真实测试代码,不写"写测试"）
-- [ ] Step 2: 运行确认失败  — Run: `command` → Expected: FAIL because ...
-- [ ] Step 3: 实现最小合同  — 文件 / Owner / provider / consumer / Types / fields / state transitions
-- [ ] Step 4: 运行确认通过  — Run: `command` → Expected: PASS
+- [ ] Step 1: 定义失败的 public-behavior 测试 — 文件 / Behavior / Key assertions / Fixtures（给真实测试代码,不写"写测试"）
+- [ ] Step 2: 运行确认失败 — Run: `command` → Expected: FAIL because ...
+- [ ] Step 3: 实现最小合同 — 文件 / Owner / provider / consumer / Types / fields / state transitions
+- [ ] Step 4: 运行确认通过 — Run: `command` → Expected: PASS
 - [ ] Step 5: Refactor（只在 GREEN 状态下）
 - [ ] Step 6: Suggested commit boundary
 ```
@@ -99,12 +99,12 @@
 - **Quantified impact**:数字不用形容词。"几个文件"→"47 文件跨 12 目录";"提升性能"→"500ms→50ms（10×）";没数就说"未知,用 X 法测"。
 - **Landscape 审计表**（改一族成员之一时,防隧道视野）:
 
-  | 组件 | 有 X | 有 Y | 缺口 |
-  | --- | --- | --- | --- |
+ | 组件 | 有 X | 有 Y | 缺口 |
+ | --- | --- | --- | --- |
 
 - **Testable AC**:编号、pass/fail、无主观语言。
-  - ✅ "30 天以上订单对全部 4 个角色返回 HTTP 410" / "10K 行查询 <100ms（EXPLAIN ANALYZE）"
-  - ❌ "功能正常工作" / "处理好边界"
+ - ✅ "30 天以上订单对全部 4 个角色返回 HTTP 410" / "10K 行查询 <100ms（EXPLAIN ANALYZE）"
+ - ❌ "功能正常工作" / "处理好边界"
 - **Schema / API 形状**:真实 SQL / 接口 / 请求响应,不写伪代码——精确到让落地者零设计决策。
 
 ## 反模式（命中即修）

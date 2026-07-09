@@ -6,12 +6,14 @@
 # 机器写 pause 交人并放停(留痕,不无限顶回);有进展则计数归 1 继续看守。
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+. "$SCRIPT_DIR/../scripts/lib/host.sh"
+STATE_SUBDIR="$(mmw_state_subdir)"
 LOOP="$SCRIPT_DIR/../scripts/loop.sh"
 
 cat >/dev/null 2>&1 || true   # 吞掉 stdin payload(本 hook 不需要它的字段)
 
 top="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
-f="$top/.claude/multi-model-workflow/loop-state.json"
+f="$top/$STATE_SUBDIR/loop-state.json"
 [ -f "$f" ] || exit 0
 
 # 只看守审核协调帮手(kind=review 才有被派的 subagent):execution/contract-gate loop 都是主线程

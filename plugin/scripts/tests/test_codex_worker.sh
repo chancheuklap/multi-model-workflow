@@ -2,6 +2,9 @@
 # codex-worker.sh 空跑(fake codex):派发组对 prompt 铁律 + codex 参数、建 worktree、
 # 记 session、resume 续会话。不连真 Codex。
 set -euo pipefail
+export MMW_HOST="${MMW_HOST:-claude}"
+STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
+WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CW="$SCRIPT_DIR/../codex-worker.sh"
 
@@ -36,7 +39,7 @@ WT="$TMP/wt-001"
 OUT="$(bash "$CW" dispatch --plan "$PLAN" --worktree "$WT" --design "$DESIGN" --issue "$ISSUE" 2>/dev/null)"
 [ -d "$WT" ] && ok "worktree 不存在则建好" || no "建 worktree"
 [ "$(git -C "$WT" branch --show-current)" = "codex/wt-001" ] && ok "子 worktree 挂 codex/<名> 分支(不留 detached)" || no "worktree 分支 ($(git -C "$WT" branch --show-current))"
-[ "$(cat "$WT/.claude/.gitignore" 2>/dev/null)" = "*" ] && ok "状态平面 .claude/ 已 gitignore(防 add -A 污染)" || no ".claude gitignore"
+parent="${STATE_SUBDIR%%/*}"; [ "$(cat "$WT/$parent/.gitignore" 2>/dev/null)" = "*" ] && ok "状态平面 parent 已 gitignore(防 add -A 污染)" || no "state parent gitignore"
 PROMPT="$(cat "$FAKE_CAP/stdin")"
 # 瘦派发:prompt 只给指针(指向 worktree-build skill)+ 三文档路径;铁律本体在 Codex 侧 skill,不在 prompt
 echo "$PROMPT" | grep -q "worktree-build" && ok "prompt 指向 worktree-build skill(铁律渐进加载)" || no "指向 build skill"
@@ -52,7 +55,7 @@ echo "$ARGV" | grep -q -- "-C $WT" && ok "codex -C <worktree>" || no "-C worktre
 echo "$ARGV" | grep -q -- "--sandbox workspace-write" && ok "--sandbox workspace-write" || no "sandbox"
 echo "$ARGV" | grep -q -- "--add-dir" && ok "--add-dir 放行 git common dir" || no "add-dir"
 echo "$OUT" | grep -q "SESSION=sess-123" && ok "抓到并打印 session id" || no "session 记账"
-[ "$(cat "$WT/.claude/multi-model-workflow/codex-session")" = "sess-123" ] && ok "session 落盘供 resume" || no "session 落盘"
+[ "$(cat "$WT/${STATE_SUBDIR}/codex-session")" = "sess-123" ] && ok "session 落盘供 resume" || no "session 落盘"
 echo "$OUT" | grep -q "codex done" && ok "打印 codex 最后消息(供验收)" || no "最后消息"
 # design/issue 可空(small-change/bug):空时不应出现裸标签行(放最后,免得覆盖上面 argv 断言)
 bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-nodoc" >/dev/null 2>&1
@@ -66,14 +69,14 @@ ARGV2="$(cat "$FAKE_CAP/argv")"
 echo "$ARGV2" | grep -q "resume sess-123" && ok "resume 续原 session" || no "resume session"
 echo "$ARGV2" | grep -q -- "-C $WT" && ok "resume 重钉 -C <worktree>(不掉回调用 cwd)" || no "resume -C"
 echo "$ARGV2" | grep -q -- "--sandbox workspace-write" && ok "resume 重钉 workspace-write(不掉回 config 默认)" || no "resume sandbox"
-echo "$ARGV2" | grep -q -- "-m gpt-5.4" && ok "resume 复用派发模型档(不掉回 config 默认档)" || no "resume 模型档"
+echo "$ARGV2" | grep -q -- "-m gpt-5.5" && ok "resume 复用派发模型档(不掉回 config 默认档)" || no "resume 模型档"
 [ "$(cat "$FAKE_CAP/stdin")" = "fix this" ] && ok "resume 发回修复指令" || no "resume 指令"
 
 # resume 兜捞:session 文件丢(dispatch 被杀)→ 从 run.log 捞回,不丢续会话能力
-rm "$WT/.claude/multi-model-workflow/codex-session"
+rm "$WT/${STATE_SUBDIR}/codex-session"
 bash "$CW" resume --worktree "$WT" --instructions "$INSTR" >/dev/null 2>&1
 grep -q "resume sess-123" "$FAKE_CAP/argv" && ok "session 丢失从 run.log 捞回 resume" || no "run.log 捞回"
-[ "$(cat "$WT/.claude/multi-model-workflow/codex-session" 2>/dev/null)" = "sess-123" ] && ok "捞回后补记 session 落盘" || no "捞回补记"
+[ "$(cat "$WT/${STATE_SUBDIR}/codex-session" 2>/dev/null)" = "sess-123" ] && ok "捞回后补记 session 落盘" || no "捞回补记"
 
 # fail-closed
 if bash "$CW" dispatch --plan /nope.md --worktree "$WT" >/dev/null 2>&1; then no "缺/坏 plan 被拒"; else ok "坏 plan 被拒"; fi
@@ -105,6 +108,33 @@ FAKE
 chmod +x "$FAKEBIN/codex-evil2"
 if OUT_R="$(CODEX_BIN="$FAKEBIN/codex-evil2" bash "$CW" resume --worktree "$TMP/wt-evil" --instructions "$INSTR" 2>&1)"; then no "resume 改 docs/ 应退非零"; else ok "resume 改 docs/ → fail-closed 退非零"; fi
 echo "$OUT_R" | grep -q "DOCS_VIOLATION" && ok "resume 越界报 DOCS_VIOLATION" || no "resume 无 DOCS_VIOLATION"
+
+# ===== Droid backend: 派发包 + worker/ 分支 + check-docs fail-closed =====
+export MMW_HOST=droid
+STATE_SUBDIR=.factory/multi-model-workflow
+WT_D="$TMP/wt-droid"
+OUT_D="$(bash "$CW" dispatch --plan "$PLAN" --worktree "$WT_D" --design "$DESIGN" --issue "$ISSUE" 2>/dev/null)"
+echo "$OUT_D" | grep -q "WORKER_BACKEND=droid-task" && ok "droid dispatch 后端 droid-task" || no "droid backend"
+[ "$(git -C "$WT_D" branch --show-current)" = "worker/wt-droid" ] && ok "droid 子 worktree 挂 worker/<名>" || no "droid worker 分支"
+[ -f "$WT_D/$STATE_SUBDIR/worker-dispatch/prompt.md" ] && ok "droid 派发包 prompt.md" || no "droid prompt 包"
+[ -f "$WT_D/$STATE_SUBDIR/worker-dispatch/meta.json" ] && ok "droid 派发包 meta.json" || no "droid meta"
+[ -f "$WT_D/$STATE_SUBDIR/worker-dispatch/start_sha" ] && ok "droid 记 start_sha" || no "droid start_sha"
+echo "$OUT_D" | grep -q "check-docs" && ok "droid 回执要求 check-docs" || no "droid 回执 check-docs"
+# 干净树 check-docs 应过
+if bash "$CW" check-docs --worktree "$WT_D" >/dev/null 2>&1; then ok "droid check-docs 干净树通过"; else no "droid check-docs 干净应过"; fi
+# 污染 docs 后 check-docs 应 fail
+mkdir -p "$WT_D/docs/x"; echo bad > "$WT_D/docs/x/h.md"
+git -C "$WT_D" add -A && git -C "$WT_D" -c user.email=x@x -c user.name=x commit -qm "sneak docs" >/dev/null
+if OUT_CD="$(bash "$CW" check-docs --worktree "$WT_D" 2>&1)"; then no "droid check-docs 应拦 docs 污染"; else ok "droid check-docs 拦 docs 污染"; fi
+echo "$OUT_CD" | grep -q "DOCS_VIOLATION" && ok "droid check-docs 报 DOCS_VIOLATION" || no "droid 无 DOCS_VIOLATION 字样"
+# resume 写 resume 包
+INSTR_D="$TMP/fix-d.md"; echo "fix droid" > "$INSTR_D"
+OUT_DR="$(bash "$CW" resume --worktree "$WT_D" --instructions "$INSTR_D" 2>/dev/null)"
+echo "$OUT_DR" | grep -q "WORKER_MODE=resume" && ok "droid resume 写 resume 包" || no "droid resume"
+grep -q "fix droid" "$WT_D/$STATE_SUBDIR/worker-dispatch/prompt.md" && ok "droid resume prompt=指令" || no "droid resume prompt"
+unset MMW_HOST
+export MMW_HOST=claude
+STATE_SUBDIR=.claude/multi-model-workflow
 
 echo ""
 echo "Results: $pass passed, $fail failed"

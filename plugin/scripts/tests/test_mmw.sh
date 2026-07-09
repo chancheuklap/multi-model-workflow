@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # mmw 统一 CLI 空跑:每个动词路由到对的底层脚本、行为与直调一致。
 set -euo pipefail
+export MMW_HOST="${MMW_HOST:-claude}"
+STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
+WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MMW="$SCRIPT_DIR/../mmw.sh"
 
@@ -21,13 +24,13 @@ WT="$(bash "$MMW" task new --scenario develop --slug 2026-06-29-mmw --title t 2>
 ( cd "$WT" && bash "$MMW" where | grep -q "phase=investigate" ) && ok "mmw where → flow.sh where" || no "mmw where"
 mkdir -p "$WT/docs"; : > "$WT/docs/x.md"   # handoff 拒收幽灵产出:先真建
 ( cd "$WT" && bash "$MMW" handoff --conclusion pass --produced docs/x.md >/dev/null ) && \
-  [ "$(jq -r .phase "$WT/.claude/multi-model-workflow/task.json")" = "propose" ] && ok "mmw handoff → flow.sh handoff" || no "mmw handoff"
+  [ "$(jq -r .phase "$WT/${STATE_SUBDIR}/task.json")" = "propose" ] && ok "mmw handoff → flow.sh handoff" || no "mmw handoff"
 ( cd "$WT" && bash "$MMW" spinoff --tag bug --finding "x" >/dev/null ) && \
-  [ "$(jq -r '.subtasks|length' "$WT/.claude/multi-model-workflow/task.json")" = "1" ] && ok "mmw spinoff → flow.sh spinoff" || no "mmw spinoff"
+  [ "$(jq -r '.subtasks|length' "$WT/${STATE_SUBDIR}/task.json")" = "1" ] && ok "mmw spinoff → flow.sh spinoff" || no "mmw spinoff"
 
 # loop → loop.sh
 ( cd "$WT" && bash "$MMW" loop init --kind execution >/dev/null && bash "$MMW" loop step add --id 1.1 --desc p >/dev/null ) && \
-  [ "$(jq -r '.steps|length' "$WT/.claude/multi-model-workflow/loop-state.json")" = "1" ] && ok "mmw loop → loop.sh" || no "mmw loop"
+  [ "$(jq -r '.steps|length' "$WT/${STATE_SUBDIR}/loop-state.json")" = "1" ] && ok "mmw loop → loop.sh" || no "mmw loop"
 
 # progress → progress.sh(渲染板并落盘)
 ( cd "$WT" && bash "$MMW" progress render >/dev/null ) && \

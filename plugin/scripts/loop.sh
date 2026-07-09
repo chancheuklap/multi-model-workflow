@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # loop.sh —— 内层 loop 引擎(确定层:看守 steps/checklist、软停×在场、退出三件套核对)
 #
-# 操作 <worktree>/.claude/multi-model-workflow/loop-state.json(独立于外层 task.json)。
+# 操作 <worktree>/状态平面(mmw_state_subdir)/loop-state.json(独立于外层 task.json)。
 # 进一个 loop 阶段时 init,退出时由阶段收尾清。看守 hook 与 exit-check 都读它。
 #
 #   init        建 loop-state(--kind execution|review|contract-gate [--max-rounds N])
@@ -17,7 +17,10 @@
 #   close       loop 收束:删 loop-state(schema「退出时清」的落地)。由 flow.sh handoff 结论落定时调,防残留污染下阶段 where。幂等,无 loop 也不报错。
 set -euo pipefail
 
-STATE_SUBDIR=".claude/multi-model-workflow"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/host.sh
+. "$SCRIPT_DIR/lib/host.sh"
+STATE_SUBDIR="$(mmw_state_subdir)"
 LOOP_NAME="loop-state.json"
 
 die() { echo "ERROR: $*" >&2; exit 1; }

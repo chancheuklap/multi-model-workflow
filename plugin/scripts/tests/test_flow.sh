@@ -3,6 +3,9 @@
 # 流程模型:一条主干 + 预设开关。阶段词=投/想/设计/切/拆/落/收(investigate/propose/design/to-issue/plan/build/closing)。
 # 审闸 map(routes.review_gates):design→①/plan→②/build→④,三个产出阶段产物过后引擎强制审。
 set -euo pipefail
+export MMW_HOST="${MMW_HOST:-claude}"
+STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
+WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREPARE="$SCRIPT_DIR/../prepare.sh"
 FLOW="$SCRIPT_DIR/../flow.sh"
@@ -21,8 +24,8 @@ newtask() { # preset slug -> echoes worktree path
   bash "$PREPARE" new --scenario "$1" --slug "$2" --title "t-$2" 2>/dev/null \
     | grep '^worktree_path=' | cut -d= -f2-
 }
-mphase() { jq -r .phase "$1/.claude/multi-model-workflow/task.json"; }
-mfield() { jq -r ".$2" "$1/.claude/multi-model-workflow/task.json"; }
+mphase() { jq -r .phase "$1/${STATE_SUBDIR}/task.json"; }
+mfield() { jq -r ".$2" "$1/${STATE_SUBDIR}/task.json"; }
 # handoff 现在拒收幽灵产出:钉之前先把产出真建出来(文件/目录/合法提交范围)
 mkf() { mkdir -p "$1/$(dirname "$2")"; : > "$1/$2"; }
 mkd() { mkdir -p "$1/$2"; }
@@ -269,7 +272,7 @@ echo "# design CHANGED" > "$WSS/docs/design/ss.md"   # 过闸后改设计文档
 
 # ===== K: where 报内层 loop(断点恢复)+ handoff 结论落定清 loop-state(无残留)=====
 LOOP="$SCRIPT_DIR/../loop.sh"
-lf() { echo "$1/.claude/multi-model-workflow/loop-state.json"; }
+lf() { echo "$1/${STATE_SUBDIR}/loop-state.json"; }
 WK="$(newtask small-change 2026-07-03-loopvis)"
 ( cd "$WK" && bash "$LOOP" init --kind execution >/dev/null )
 ( cd "$WK" && bash "$LOOP" step add --id 1.1 --desc x >/dev/null )

@@ -7,7 +7,9 @@ description: "开发工作流主入口。用户给出想法/功能/改造、报 
 
 主线程入口。**只做两件事:断点恢复、路由。** 判出这是哪条路,就把你交给那条路自己的 reference——那一份从头到尾讲清这条路怎么走(建 worktree、阶段契约、回执跳转、收尾全在里面),本文不重复、你也不用回来。
 
-`${SKILL_DIR}` = 本 skill 目录;`${SCRIPTS}` = `${CLAUDE_PLUGIN_ROOT}/scripts`;`mmw` ≡ `bash "${SCRIPTS}/mmw.sh"`(`mmw help` 看全表)。
+`${SKILL_DIR}` = 本 skill 目录;`${SCRIPTS}` = `${CLAUDE_PLUGIN_ROOT}/scripts`(Droid 下 `CLAUDE_PLUGIN_ROOT`=`DROID_PLUGIN_ROOT` 别名);`mmw` ≡ `bash "${SCRIPTS}/mmw.sh"`(`mmw help` 看全表)。
+
+**双宿主**:开跑前读 `${SKILL_DIR}/references/control/host-contract.md`(路径/工具/派发后端)。`export MMW_HOST=droid|claude` 可显式锁定。
 
 ## Step 0 · 先跑 `mmw where`(它自带指路)
 

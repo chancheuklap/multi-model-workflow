@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # 三个 hook 空跑:SubagentStop 看守 / PreToolUse 红线 / PostToolUse 记进度。
 set -euo pipefail
+export MMW_HOST="${MMW_HOST:-claude}"
+STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
+WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 HOOKS="$SCRIPT_DIR/../../hooks"
 LOOP="$SCRIPT_DIR/../loop.sh"
@@ -41,17 +44,17 @@ bash "$LOOP" softstop --question "?" --at-step c2 >/dev/null
 # 空转熔断:连续零进展顶回 ≥6 次 → 写 pause 交人、放停(不无限顶回)
 bash "$LOOP" resume >/dev/null
 for i in 1 2 3 4 5; do run_hook guard-loop.sh '{}' >/dev/null || true; done
-[ "$(jq -r '.guard_blocks' .claude/multi-model-workflow/loop-state.json)" = "5" ] && ok "零进展顶回计数累加(5)" || no "guard_blocks 计数 ($(jq -r '.guard_blocks' .claude/multi-model-workflow/loop-state.json))"
+[ "$(jq -r '.guard_blocks' ${STATE_SUBDIR}/loop-state.json)" = "5" ] && ok "零进展顶回计数累加(5)" || no "guard_blocks 计数 ($(jq -r '.guard_blocks' ${STATE_SUBDIR}/loop-state.json))"
 [ "$(run_hook guard-loop.sh '{}')" = "0" ] && ok "第 6 次零进展 → 熔断放停" || no "空转熔断放停"
-[ "$(jq -r '.pause.kind' .claude/multi-model-workflow/loop-state.json)" = "surface" ] && ok "熔断写 pause 交人(留痕)" || no "熔断 pause 留痕"
+[ "$(jq -r '.pause.kind' ${STATE_SUBDIR}/loop-state.json)" = "surface" ] && ok "熔断写 pause 交人(留痕)" || no "熔断 pause 留痕"
 # 有进展 → 计数归 1(不误熔断)
 bash "$LOOP" resume >/dev/null
 bash "$LOOP" checklist add --item c3 --source s >/dev/null
 bash "$LOOP" checklist cover --item c2 --evidence e >/dev/null   # 账本进展:covered 数变了
 run_hook guard-loop.sh '{}' >/dev/null || true
-[ "$(jq -r '.guard_blocks' .claude/multi-model-workflow/loop-state.json)" = "1" ] && ok "有进展 → 顶回计数归 1" || no "进展重置 ($(jq -r '.guard_blocks' .claude/multi-model-workflow/loop-state.json))"
+[ "$(jq -r '.guard_blocks' ${STATE_SUBDIR}/loop-state.json)" = "1" ] && ok "有进展 → 顶回计数归 1" || no "进展重置 ($(jq -r '.guard_blocks' ${STATE_SUBDIR}/loop-state.json))"
 # 损坏 loop-state → 看守 fail-closed(不放停),不把损坏当 PAUSED/非 review 静默放行
-echo 'garbage{' > .claude/multi-model-workflow/loop-state.json
+echo 'garbage{' > ${STATE_SUBDIR}/loop-state.json
 [ "$(run_hook guard-loop.sh '{}')" = "2" ] && ok "损坏 loop-state → 看守 exit2(fail-closed)" || no "损坏态看守 fail-closed"
 
 # ===== guard-redline(PreToolUse,permissionDecision=ask 由用户亲批,无令牌可自铸)=====
@@ -86,9 +89,9 @@ bash "$LOOP" step add --id 2.1 --desc x >/dev/null
 echo change > c.txt; git add -A; git commit -qm "Pack 2.1: do the thing"
 P_COMMIT='{"tool_input":{"command":"git commit -m \"Pack 2.1: do the thing\""}}'
 run_hook record-step.sh "$P_COMMIT" >/dev/null
-st="$(jq -r '.steps[]|select(.id=="2.1")|.status' .claude/multi-model-workflow/loop-state.json)"
+st="$(jq -r '.steps[]|select(.id=="2.1")|.status' ${STATE_SUBDIR}/loop-state.json)"
 [ "$st" = "done" ] && ok "提交 Pack 2.1 → 记 step done" || no "记 step done ($st)"
-sha="$(jq -r '.steps[]|select(.id=="2.1")|.commit' .claude/multi-model-workflow/loop-state.json)"
+sha="$(jq -r '.steps[]|select(.id=="2.1")|.commit' ${STATE_SUBDIR}/loop-state.json)"
 [ -n "$sha" ] && [ "$sha" != "null" ] && ok "记下 commit sha" || no "记 sha"
 # 非 commit 命令不动
 P_NOOP='{"tool_input":{"command":"ls -la"}}'
@@ -102,20 +105,20 @@ OUT="$(cd "$NOGIT" && printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"; EC=$
 [ "$EC" = "0" ] && [ -z "$OUT" ] && ok "非 git 目录 → 静默 exit 0" || no "非 git 静默 ($EC/$OUT)"
 rm -rf "$NOGIT"
 # 主仓库无在飞任务 → 只注入分诊指令
-rm -f .claude/multi-model-workflow/task.json .claude/multi-model-workflow/loop-state.json
+rm -f ${STATE_SUBDIR}/task.json ${STATE_SUBDIR}/loop-state.json
 OUT="$(printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
 echo "$OUT" | grep -q "会话分诊" && ok "主仓库注入分诊指令(正式进流程/简单直接答)" || no "分诊指令"
 echo "$OUT" | grep -q "在飞任务" && no "无在飞不该列清单" || ok "无在飞任务不列清单"
 # 主仓库有在飞 worktree(有 manifest 才算)→ 追加在飞清单
-mkdir -p .claude/worktrees/w1/.claude/multi-model-workflow
-printf '{"slug":"w1","scenario":"develop","phase":"design","status":"active","worktree_path":"%s"}' "$TMP/.claude/worktrees/w1" \
-  > .claude/worktrees/w1/.claude/multi-model-workflow/task.json
+mkdir -p ${WT_REL}/w1/${STATE_SUBDIR}
+printf '{"slug":"w1","scenario":"develop","phase":"design","status":"active","worktree_path":"%s"}' "$TMP/${WT_REL}/w1" \
+  > ${WT_REL}/w1/${STATE_SUBDIR}/task.json
 OUT="$(printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
 echo "$OUT" | grep -q "在飞任务" && echo "$OUT" | grep -q "w1.*phase=design" && ok "有在飞任务 → 列清单(slug/phase)" || no "在飞清单"
 # 在管任务 worktree 内 → 报身份+续跑入口
 WTREPO="$(mktemp -d)"
-( cd "$WTREPO" && git init -q && mkdir -p .claude/multi-model-workflow \
-  && printf '{"slug":"t9","scenario":"bug","phase":"build","status":"active"}' > .claude/multi-model-workflow/task.json )
+( cd "$WTREPO" && git init -q && mkdir -p ${STATE_SUBDIR} \
+  && printf '{"slug":"t9","scenario":"bug","phase":"build","status":"active"}' > ${STATE_SUBDIR}/task.json )
 OUT="$(cd "$WTREPO" && printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
 echo "$OUT" | grep -q "在管任务 worktree:t9" && echo "$OUT" | grep -q "phase=build" && ok "在管 worktree → 报身份+续跑" || no "在管身份"
 rm -rf "$WTREPO"

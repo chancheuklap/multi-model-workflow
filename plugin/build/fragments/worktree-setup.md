@@ -11,7 +11,7 @@
 
 3. **进 worktree**(只有这步能切会话 cwd,脚本切不了):
    ```
-   EnterWorktree({ path: "<回执里的 worktree_path>" })
+   按 host-contract 进入 worktree: <回执里的 worktree_path>
    ```
 
-提交进分支的文档:设计 `docs/design/`(含 prototype/mockup)、issue `docs/issues/`、计划 `docs/plans/`、领域 `docs/context/`(项目级资产)。**过程产物不永久存档**(`docs/.gitignore` 已忽略,随 worktree 删):现状报告 `docs/investigating/`、审查留痕 `docs/reviews/`、终审报告。临时状态落 `.claude/multi-model-workflow/`。
+提交进分支的文档:设计 `docs/design/`(含 prototype/mockup)、issue `docs/issues/`、计划 `docs/plans/`、领域 `docs/context/`(项目级资产)。**过程产物不永久存档**(`docs/.gitignore` 已忽略,随 worktree 删):现状报告 `docs/investigating/`、审查留痕 `docs/reviews/`、终审报告。临时状态落宿主状态平面(见 host-contract)。
