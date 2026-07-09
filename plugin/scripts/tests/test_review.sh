@@ -44,9 +44,10 @@ echo "$B" | grep -q -- "read-only.*resume <session-id>" && ok "codex 续接重�
 echo "$B" | grep -q "run_in_background" && ok "brief 定死后台跑(防 10min 超时)" || no "brief 无后台跑指令"
 echo "$B" | grep -q "基线1" && ok "final 给两基线视角" || no "final 视角"
 echo "$B" | grep -q "4 个独立审者" && ok "final 双模型:4 审者" || no "final 4 审者"
-echo "$B" | grep -q "claude -p" && ok "final 派 Claude 无头 CLI" || no "final claude -p"
-echo "$B" | grep -q "同一段" && ok "final 两模型 prompt 同一段" || no "final prompt 一致"
-echo "$B" | grep -q -- "--resume" && ok "Claude 审者续接 --resume" || no "claude resume"
+echo "$B" | grep -q "code-reviewer" && ok "final Claude 审者=会话内 sub-agent" || no "final Claude sub-agent"
+echo "$B" | grep -q "claude -p" && no "final 不该用 claude -p 无头(另起进程另计费)" || ok "final 无 claude -p(成本回归守卫)"
+echo "$B" | grep -q "同一段\|同一份" && ok "final 两模型读同一段方法论" || no "final prompt 一致"
+echo "$B" | grep -q "再派一个 code-reviewer" && ok "Claude 审者续接=再派 sub-agent" || no "claude sub-agent 续接"
 
 # ④final 分档:small-change/bug 任务 → 1×Codex 一肩挑两视角,不派双模型
 mkdir -p .claude/multi-model-workflow
@@ -54,7 +55,7 @@ echo '{"scenario":"small-change"}' > .claude/multi-model-workflow/task.json
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 B="$(cat "$BRIEF")"
 echo "$B" | grep -q "1 个独立 Codex 审者一肩挑" && ok "small-change ④ 降档:1×Codex 一肩挑两视角" || no "small-change 降档"
-echo "$B" | grep -q "claude -p" && no "small-change ④ 不该派 Claude(省 token)" || ok "small-change ④ 无双模型开销"
+{ echo "$B" | grep -q "claude -p" || echo "$B" | grep -q "code-reviewer"; } && no "small-change ④ 不该派 Claude(省 token)" || ok "small-change ④ 无双模型开销"
 echo '{"scenario":"bug"}' > .claude/multi-model-workflow/task.json
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 grep -q "1 个独立 Codex 审者一肩挑" "$BRIEF" && ok "bug ④ 同样降档" || no "bug 降档"
@@ -69,7 +70,8 @@ mkdir -p docs/plans/t1
 printf '**Complexity:** standard\n' > docs/plans/t1/001-a.md
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 grep -q "2 个独立审者" "$BRIEF" && ok "develop ④ 无 capable+diff 小 → 降 2 审者" || no "develop 降 2 审者"
-grep -q "claude -p" "$BRIEF" && ok "2 审者档仍跨模型(Claude 在)" || no "2 审者跨模型"
+grep -q "code-reviewer" "$BRIEF" && ok "2 审者档仍跨模型(Claude sub-agent 在)" || no "2 审者跨模型"
+grep -q "claude -p" "$BRIEF" && no "2 审者档不该用 claude -p 无头" || ok "2 审者档无 claude -p(成本守卫)"
 printf '**Complexity:** capable\n' > docs/plans/t1/002-b.md
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 grep -q "4 个独立审者" "$BRIEF" && ok "develop ④ 有 capable plan → 保 4 审者" || no "capable 保 4"
@@ -92,7 +94,7 @@ bash "$REVIEW" start --stage plan-impl --source docs/design/d.md >/dev/null 2>&1
 
 # ①②审不派 Claude(设计/计划是 Claude 写的,写者≠验者)
 bash "$REVIEW" start --stage design --source x >/dev/null 2>&1
-grep -q "claude -p" "$BRIEF" && no "design 审不该派 Claude" || ok "①②仍 Codex-only(写审异家)"
+{ grep -q "claude -p" "$BRIEF" || grep -q "code-reviewer" "$BRIEF"; } && no "design 审不该派 Claude" || ok "①②仍 Codex-only(写审异家)"
 
 # 留痕落点:任务审走 docs/reviews/;merge-impl(主仓库)落状态平面,不写 docs/
 bash "$REVIEW" start --stage design --source x >/dev/null 2>&1
