@@ -66,19 +66,25 @@ mmw where
 
 ## 5. 角色 × 模型(Droid Custom Droids)
 
-| droid | 职责 | 建议 model | 工具 |
+主线程编排会话默认用 `grok-4.5` high(用户偏好;会话级选择,不是 droid 文件)。
+
+| droid | 职责 | model | 工具 |
 | --- | --- | --- | --- |
-| `plan-writer` | 写单份 plan | 强推理(Opus 级 / inherit high) | 读写 + 检索 |
-| `pack-executor` | 按 plan 落地 | 强写码(GPT-Codex / 等价) | 读写 + Execute |
-| `reviewer-design` | 设计审 | 强推理 | read-only |
-| `reviewer-plan` | 计划审 | 强推理 | read-only |
-| `reviewer-final-a` | final 基线1 | 与写码不同模型 | read-only |
-| `reviewer-final-b` | final 基线2 | 与 A 不同模型 | read-only |
-| `review-coordinator` | 审 loop 协调 | inherit | 读写 + Execute |
-| `investigate-topic` | 单 topic 取证 | 中高 | read-only + web |
-| `code-explorer` | 只读探代码 | 快/中 | read-only |
+| `plan-writer` | 写单份 plan | `claude-opus-4-8` high | 读写 + 检索 |
+| `pack-executor` | 按 plan 落地 | `glm-5.2` max | 读写 + Execute |
+| `reviewer-design` | 设计审 | `claude-opus-4-8` high | read-only |
+| `reviewer-plan` | 计划审 | `gpt-5.5` high | read-only |
+| `reviewer-final-a` | final 基线1 | `gpt-5.5` high(≠写码) | read-only |
+| `reviewer-final-b` | final 基线2 | `claude-opus-4-8` high(≠A) | read-only |
+| `review-coordinator` | 审 loop 协调(可选隔离) | inherit / 同主线程 | 读写 + Execute + Task |
+| `investigate-topic` | 单 topic 取证 | `grok-4.5` high | read-only + web |
+| `code-explorer` | 只读探代码 | `claude-sonnet-5` high | read-only |
+| `fable-advisor` | 稀疏关键顾问(非审闸) | `claude-fable-5` high | read-only |
 
 装 plugin 后 droid 落在 `plugin/droids/`;Droid 会话可按 `subagent_type` 引用。
+
+`fable-advisor` 不进 review 矩阵、不写产物;主线程仅在 phase-contract 允许的时机 `Task` 派出(propose 可选 / design 主战场 / build afk)。
+
 
 ## 6. Hooks
 
