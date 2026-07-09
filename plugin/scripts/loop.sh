@@ -5,7 +5,7 @@
 # 进一个 loop 阶段时 init,退出时由阶段收尾清。看守 hook 与 exit-check 都读它。
 #
 #   init        建 loop-state(--kind execution|review|contract-gate [--max-rounds N])
-#   attendance  设 attended|afk(只动软停一档)
+#   attendance  设当前 loop 的档 attended|afk|unattended(权威在 task.json,这里只改当前 loop 缓存)
 #   step        add / done                落地步(pack)
 #   round       next                      审 loop 轮账;到 max_rounds 自动 surface 熔断(机器计数)
 #   checklist   add / cover               审核覆盖清单(主线程从文档抽)
@@ -53,10 +53,16 @@ cmd_init() {
     die "已有未收束 loop(kind=$(jq -r '.kind // "?"' "$f" 2>/dev/null));先 mmw loop close 再 init,或复用当前 loop"
   fi
   mkdir -p "$top/$STATE_SUBDIR"
-  jq -n --arg k "$kind" --argjson mr "$max_rounds" '{schema_version:"1", kind:$k, attendance:"afk",
+  # 值守档权威在外层 task.json(跨阶段留存);loop init 读它入 loop-state 供软停判断,缺省 afk。
+  local mode="afk" man="$top/$STATE_SUBDIR/task.json"
+  if [ -f "$man" ]; then
+    local m; m="$(jq -r '.attendance // "afk"' "$man" 2>/dev/null || echo afk)"
+    case "$m" in attended|afk|unattended) mode="$m";; esac
+  fi
+  jq -n --arg k "$kind" --argjson mr "$max_rounds" --arg mode "$mode" '{schema_version:"1", kind:$k, attendance:$mode,
     round:1, max_rounds:$mr,
     steps:[], checklist:[], findings:[], decisions:[], pause:null}' > "$f"
-  echo "INIT kind=$kind max_rounds=$max_rounds"
+  echo "INIT kind=$kind max_rounds=$max_rounds attendance=$mode"
 }
 
 # 轮账:审 loop 每跑完一整轮(全视角覆盖+修复重验)未收敛,round next 记一轮。
@@ -82,7 +88,7 @@ cmd_round() {
 cmd_attendance() {
   local mode=""
   while [ $# -gt 0 ]; do case "$1" in --mode) mode="$2"; shift 2;; *) die "未知参数 $1";; esac; done
-  case "$mode" in attended|afk) ;; *) die "--mode 只能 attended|afk";; esac
+  case "$mode" in attended|afk|unattended) ;; *) die "--mode 只能 attended|afk|unattended";; esac
   edit "$(need_loop)" --arg m "$mode" '.attendance=$m'
   echo "ATTENDANCE=$mode"
 }

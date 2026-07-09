@@ -11,7 +11,7 @@
       "enum": ["execution", "review", "contract-gate"],
       "description": "execution=落地 loop(steps);review=审核 loop(checklist+findings);contract-gate=③便宜合同门(steps+checklist 机器核,无判断)"
     },
-    "attendance": { "enum": ["attended", "afk"], "description": "在场开关,只动软停一档" },
+    "attendance": { "enum": ["attended", "afk", "unattended"], "description": "本 loop 的值守档,init 时从外层 task.json 的 attendance 读入(task.json 为运行级权威,跨阶段留存;loop-state 只是当前 loop 的派生缓存供软停判断)。attended=软停问人;afk=软停自决、缺输入/方向疑仍停;unattended=软停自决且禁向用户提问(权威仍是 task.json,见 attendance reference)" },
     "round": { "type": "integer", "minimum": 1, "description": "审 loop 当前轮次(loop round next 推进)" },
     "max_rounds": { "type": "integer", "minimum": 0, "description": "审 loop 轮上限,0=不限;round next 到顶自动 surface 熔断(机器计数,防无限打转)" },
     "guard_blocks": { "type": "integer", "minimum": 0, "description": "guard-loop 连续零进展顶回计数;≥6 熔断写 pause 交人(机器抓手)" },

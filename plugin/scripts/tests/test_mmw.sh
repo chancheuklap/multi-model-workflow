@@ -29,6 +29,10 @@ mkdir -p "$WT/docs"; : > "$WT/docs/x.md"   # handoff 拒收幽灵产出:先真�
 ( cd "$WT" && bash "$MMW" loop init --kind execution >/dev/null && bash "$MMW" loop step add --id 1.1 --desc p >/dev/null ) && \
   [ "$(jq -r '.steps|length' "$WT/.claude/multi-model-workflow/loop-state.json")" = "1" ] && ok "mmw loop → loop.sh" || no "mmw loop"
 
+# progress → progress.sh(渲染板并落盘)
+( cd "$WT" && bash "$MMW" progress render >/dev/null ) && \
+  [ -f "$WT/.claude/multi-model-workflow/progress-board.md" ] && ok "mmw progress → progress.sh 落板" || no "mmw progress"
+
 # review → review.sh(捕获到变量再 grep,避免 grep -q 早关管道触发 SIGPIPE+pipefail)
 # 上面留了个未收束 execution loop(step 1.1 pending)→ 起审必须被拒(防落地步账被静默清)
 if ( cd "$WT" && bash "$MMW" review start --stage design --source x >/dev/null 2>&1 ); then

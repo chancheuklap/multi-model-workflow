@@ -27,10 +27,23 @@ f0=".claude/multi-model-workflow/loop-state.json"
 [ "$(jq -r '.steps|length' "$f0")" = "2" ] && ok "done 不带 commit 步账元素保留(不蒸发)" || no "步账蒸发!($(jq -r '.steps|length' "$f0"))"
 [ "$(jq -r '.steps[1].commit' "$f0")" = "null" ] && ok "无 commit 时字段保持 null" || no "commit 字段"
 
+# ===== init 从外层 task.json 读值守档(权威在 task.json,loop 只是派生缓存) =====
+bash "$LOOP" close >/dev/null
+mkdir -p .claude/multi-model-workflow
+echo '{"attendance":"unattended"}' > .claude/multi-model-workflow/task.json
+bash "$LOOP" init --kind execution >/dev/null
+[ "$(jq -r .attendance .claude/multi-model-workflow/loop-state.json)" = "unattended" ] && ok "init 从 task.json 读入 unattended" || no "init 读 task.json mode"
+rm -f .claude/multi-model-workflow/task.json   # 后续用例回到无 task.json(默认 afk)
+
 # ===== 软停 × 在场开关 =====
 bash "$LOOP" close >/dev/null   # 换 loop 前收束上一个(init 拒覆盖未收束 loop)
 bash "$LOOP" init --kind execution >/dev/null
+[ "$(jq -r .attendance .claude/multi-model-workflow/loop-state.json)" = "afk" ] && ok "无 task.json 时 init 缺省 afk" || no "缺省 afk"
 bash "$LOOP" step add --id 2.1 --desc x >/dev/null
+# unattended 也是合法档(软停自决,与 afk 同路;禁问是 Coordinator 合同,不在 loop 层)
+bash "$LOOP" attendance --mode unattended >/dev/null | grep -q . || true
+[ "$(jq -r .attendance .claude/multi-model-workflow/loop-state.json)" = "unattended" ] && ok "attendance 接受 unattended" || no "attendance unattended"
+bash "$LOOP" attendance --mode afk >/dev/null
 # afk:自决+留痕,不写 pause
 bash "$LOOP" attendance --mode afk >/dev/null
 OUT="$(bash "$LOOP" softstop --question "用默认超时?" --default 30s --at-step 2.1)"

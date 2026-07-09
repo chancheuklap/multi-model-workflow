@@ -12,11 +12,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOOP="$SCRIPT_DIR/loop.sh"
 MMW="bash \"$SCRIPT_DIR/mmw.sh\""   # 打印给协调帮手的命令,完整可执行形式
 # 审 = 高判断,审者跑高档;可 env 覆盖。
+# Codex 审者(外部 agent)走 codex exec 无头,模型/档在这里钉;
+# Claude 审者走会话内 sub-agent(agents/code-reviewer.md),模型/档在该 agent frontmatter 钉——
+# 不用 claude -p 无头(那是另起进程另外计费,本会话已在 Claude Code CLI 里)。
 CODEX_REVIEW_MODEL="${CODEX_REVIEW_MODEL:-gpt-5.5}"
 CODEX_REVIEW_EFFORT="${CODEX_REVIEW_EFFORT:-high}"
-CLAUDE_BIN="${CLAUDE_BIN:-claude}"
-CLAUDE_REVIEW_MODEL="${CLAUDE_REVIEW_MODEL:-opus}"
-CLAUDE_REVIEW_EFFORT="${CLAUDE_REVIEW_EFFORT:-xhigh}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
@@ -157,23 +157,23 @@ DISPATCH
   elif [ "$stage" = "final" ] && [ "$tier" -eq 2 ]; then
     dispatch="$(cat <<DISPATCH
 ④final 分档(全 plan 无 capable 且 diff 小):派 **2 个独立审者 = 两路视角($views)各配一个模型**,
-单条消息并行起(run_in_background)、各自干净 context、互不通气。仍跨模型互补:
-  基线1(回归+意图+跨plan)→ Codex:codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>
-  基线2(独立代码审计,全新眼光)→ Claude:$CLAUDE_BIN -p "<prompt>" --model $CLAUDE_REVIEW_MODEL --effort $CLAUDE_REVIEW_EFFORT --session-id <uuidgen 自生成并记下,供续接>
-  prompt(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=final 审;你负责 <基线1|基线2> 这一路视角;Source: $source;按 skill 的 Return Contract 回结构化 findings。
-  续接:codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,掉回 config 默认,必须整套重钉);Claude 用 $CLAUDE_BIN -p --resume <你起审时给的 uuid> "<追问>" --model $CLAUDE_REVIEW_MODEL --effort $CLAUDE_REVIEW_EFFORT。
+并行起、各自干净 context、互不通气。仍跨模型互补:
+  基线1(回归+意图+跨plan)→ Codex:codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>   (run_in_background)
+  基线2(独立代码审计,全新眼光)→ Claude:用 **Agent 工具派会话内 sub-agent** code-reviewer(模型/档在该 agent 定,只读),传 stage=final、视角=基线2、Source=${source}。走会话内 sub-agent,不另起无头进程(那会另计费)。
+  prompt/传参(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=final 审;你负责 <基线1|基线2> 这一路视角;Source: $source;按 skill 的 Return Contract 回结构化 findings。
+  续接:Codex 用 codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,掉回 config 默认,必须整套重钉);Claude 侧再派一个 code-reviewer sub-agent 续审同视角(不复用被审 context)。
 DISPATCH
 )"
   elif [ "$stage" = "final" ]; then
     dispatch="$(cat <<DISPATCH
 ④final 双模型:派 **4 个独立审者 = 两路视角($views)× 两个模型(Codex / Claude)**,
-单条消息并行起(run_in_background)、各自干净 context、互不通气。
-四个审者 prompt 用**同一段文本**(只有"你负责 <视角>"一处不同):
+并行起、各自干净 context、互不通气。
+四个审者读**同一份方法论**(只有"你负责 <视角>"一处不同):
   读你已装的 worktree-review skill,按 stage=final 审(skill 落点 ~/.agents/skills/worktree-review/,两模型同读此单源);你负责 <基线1|基线2> 这一路视角;Source: $source;按 skill 的 Return Contract 回结构化 findings。
-派发命令(每视角两模型各一个):
-  Codex:  codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>
-  Claude: $CLAUDE_BIN -p "<同一段 prompt>" --model $CLAUDE_REVIEW_MODEL --effort $CLAUDE_REVIEW_EFFORT --session-id <uuidgen 自生成并记下,供续接>
-  续接:codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,掉回 config 默认,必须整套重钉);Claude 用 $CLAUDE_BIN -p --resume <你起审时给的 uuid> "<追问>" --model $CLAUDE_REVIEW_MODEL --effort $CLAUDE_REVIEW_EFFORT
+派发(每视角两模型各一个):
+  Codex(× 两视角):codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>   (run_in_background)
+  Claude(× 两视角):用 **Agent 工具各派一个会话内 sub-agent** code-reviewer(模型/档在该 agent 定,只读),传 stage=final、视角=<基线1|基线2>、Source=${source}。**走会话内 sub-agent,不另起无头进程**——本会话已在 Claude Code CLI 里,另起无头是独立进程会另外计费;sub-agent 同会话覆盖、天生只读、干净 context。
+  续接:Codex 用 codex exec --sandbox read-only ... resume <session-id> "<追问>"(resume 不继承原围栏/模型档,掉回 config 默认,必须整套重钉);Claude 侧再派一个 code-reviewer sub-agent 续审同视角。
 同视角跨模型对账:Claude 与 Codex 同视角 findings 互相对照——只一家报出的重点亲验,两家同报的置信升。
 DISPATCH
 )"
