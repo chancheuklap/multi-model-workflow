@@ -49,10 +49,10 @@ Droid 子代理**上下文隔离、不自动加载 skill**,只知道(a)自己 .m
 
 | # | 风险 | 证据 | 建议 | 优先级 |
 |---|---|---|---|---|
-| R1 | hook 在真 Droid 会话的 payload 字段未验过 | hooks-reference 确认 Droid 支持 `permissionDecision` + exit-2 阻断 + SessionStart/PreToolUse/PostToolUse/SubagentStop 事件名一致;guard-redline.sh 用 `.tool_input.command` + `permissionDecision:ask`,guard-loop.sh 用 exit 2,session-triage.sh 用 stdout 注入——都与 Droid 文档对得上 | 在真 Droid 会话跑一次 `droid --debug`,核对 4 个 hook 实际触发 + payload 字段 + SessionStart stdout 是否注入 context。逻辑已对,这是"验而非改" | 高(验,非改) |
-| R2 | worktree skill 两副本(plugin/skills + codex-skills)会漂移 | 现两份独立,改一份不自动同步另一份 | 单源化:让 `codex-skills/worktree-{build,review}` 软链到 `plugin/skills/` 同名(Claude 安装路径不变,源唯一)。或加一个 build 校验两副本一致 | 中 |
-| R3 | hooks.json 双路径 `||` 回退略脆 | `bash "${DROID_PLUGIN_ROOT}/x" \|\| bash "${CLAUDE_PLUGIN_ROOT}/x"`:Droid 侧 CLAUDE_PLUGIN_ROOT 空时第一段成功即够;但第一段非零退出会落到一段必然失败的 CLAUDE 路径报噪 | 改成宿主分流(host.sh 已有 mmw_plugin_root):command 用一个 wrapper 按 host 选路径,或两段分别 `[ -n "${DROID_PLUGIN_ROOT:-}" ] && bash ...` 守卫 | 低 |
-| R4 | Droid 无 `Skill` 工具,plan-writer 不能用 Claude 的 `codebase-design`/`ponytail` skill | Claude agent 调 `Skill({skill:"codebase-design"})`,Droid droid 已改成直接 Read CLAUDE.md + Grep/Glob 探代码 | 现状可接受;若要更深代码理解,可把 codebase-design 方法论也抽进 plugin/skills 给 Droid 读 | 低 |
+| R1 | hook 在真 Droid 会话的 payload 字段未验过 | **脚本侧已验**(2026-07-09):用 Droid 官方完整 payload(`hook_event_name`/`source`/`tool_name`/`tool_input`/`stop_hook_active`/`cwd`)喂 4 个 hook——guard-redline 输出 `permissionDecision:"ask"`+`hookEventName:"PreToolUse"`、session-triage stdout 注入 `host=droid`、record-step 读 `.tool_input.command` 不崩、guard-loop exit-2 顶回未完成 review loop。`test_hooks.sh`(35 断言)亦已覆盖两宿主共有的 `tool_input.command` 字段。剩"真 Droid 会话触发"是平台行为,脚本侧无不确定性 | 剩一步:真 Droid 会话 `droid --debug` 确认 4 个 hook 实际触发 + SessionStart stdout 注入 context | 低(仅平台侧验) |
+| R2 | worktree skill 两副本(plugin/skills + codex-skills)会漂移 | **防漂移校验已加**:`test_skill_parity.sh`(12 断言)断言两副本 `references/*.md` 逐字一致(SKILL.md 框架称呼允许差异);当前 8 个 references 文件全 SAME。彻底单源化仍待用户拍板 | 单源化(让 `codex-skills/` 软链指向 `plugin/skills/`,源为宿主中立版)会使 Claude 侧 Codex CLI 读到中立化文本(称呼从"你(Codex)..."变"你(落地执行者)..."),碰 Claude 侧,需用户确认 | 中(待拍板) |
+| R3 | hooks.json 双路径 `\|\|` 回退略脆 | **已修**:hooks.json 4 个 command 改成 `if [ -n "${DROID_PLUGIN_ROOT:-}" ]; then ...; else ...; fi` 守卫。原 `A \|\| B` 在 guard-loop exit-2(正常顶回)时会落到 CLAUDE 路径报噪;现按宿主只跑一段,失败就失败 | 已修,JSON valid + test_hooks 35 绿 + 4 command bash -n 过 | 已解决 |
+| R4 | Droid 无 `Skill` 工具,plan-writer 不能用 Claude 的 `codebase-design`/`ponytail` skill | Claude agent 调 `Skill({skill:"codebase-design"})`,Droid droid 已改成直接 Read CLAUDE.md + Grep/Glob 探代码 | 现状可接受;若要更深代码理解,可把 codebase-design 方法论也抽进 plugin/skills 给 Droid 读 | 低(待拍板:是否值得投入) |
 
 ## 5. "Claude 不受影响"的保证机制
 
