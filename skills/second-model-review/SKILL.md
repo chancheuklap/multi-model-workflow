@@ -79,7 +79,7 @@ findings 和派发隔了很多轮,别凭记忆。整体 `needs context`(非某�
 上面 Gap 路由表是「单条 accepted finding 修到哪」;这里是「整轮审完整体走哪」,按阶段 + verdict:
 
 - 任意阶段 `needs redirection` → 停,把方向怀疑交用户拍;换方向 → 回 `write-design-doc` 重框再走全流程
-- 阶段① pass → `to-issues` 拆 issue / `write-plan-doc`;needs repair(design gap)→ 回 `write-design-doc`
+- 阶段① pass → `to-tickets` 拆 issue / `write-plan-doc`;needs repair(design gap)→ 回 `write-design-doc`
 - 阶段② pass → 落地(`tdd` / `tdd-executor`);needs repair → 回 `write-plan-doc`
 - 阶段③ pass → 下个 plan 落地 或 阶段④;有 accepted 落地 finding → 派 `tdd-executor` 定向修后重审
 - 阶段④ pass → `verify` / `code-review` 收口 → done

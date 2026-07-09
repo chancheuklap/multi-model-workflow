@@ -123,7 +123,7 @@ A / B 产出同一份设计文档、走同样的自检 / review / 拆 issue，�
 
 ## 拆 issue（立骨架——本 skill 收尾步）
 
-设计通过后用 `to-issues` skill 拆成可独立认领的 issue。**本步按设计 schema 只立骨架，内容由 plan 阶段按计划 schema 丰富**：大 issue 落 `docs/issues/<YYYY-MM-DD>-<slug>/`（slug 与设计文档对齐），标 AFK / HITL，填至少一条指向设计章节的 `## Design context refs`；`## Small issues` 留 `<!-- PENDING -->`，由 `write-plan-doc` 补全。（vertical-slice 方法论在 to-issues，不复述。）
+设计通过后用 `to-tickets` skill 拆成可独立认领的 issue。**本步按设计 schema 只立骨架，内容由 plan 阶段按计划 schema 丰富**：大 issue 落 `docs/issues/<YYYY-MM-DD>-<slug>/`（slug 与设计文档对齐），标 AFK / HITL，填至少一条指向设计章节的 `## Design context refs`；`## Small issues` 留 `<!-- PENDING -->`，由 `write-plan-doc` 补全。（vertical-slice 方法论在 to-tickets，不复述。）
 
 ## 边界 + 收尾自检
 

@@ -34,7 +34,7 @@
 **链路（谁交给谁）：**
 
 ```
-write-design-doc ──①审──> to-issues ──> write-plan-doc ──②审──> tdd-executor ──③/④审──> done
+write-design-doc ──①审──> to-tickets ──> write-plan-doc ──②审──> tdd-executor ──③/④审──> done
        ^                                      │ (派 plan-writer)
        └──────── needs redirection / design gap 回流 ───────┘
 ```

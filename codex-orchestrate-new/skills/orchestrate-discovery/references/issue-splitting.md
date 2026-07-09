@@ -1,6 +1,6 @@
 # 大 Issue 拆分方法论
 
-<!-- 溯源：大 issue 拆分内核直接调用外部 skill `to-issues`（加载 skill `to-issues`），不再内嵌——保证方法论权威最新、不随上游漂移。plugin 仅保留 issue 文档格式（Step 12e）与 AFK/HITL 约定。混合接法决策见 docs/orchestrate/design/2026-06-04-workflow-rearchitecture/06-external-skill-strategy.md。 -->
+<!-- 溯源：大 issue 拆分内核直接调用外部 skill `to-tickets`（加载 skill `to-tickets`），不再内嵌——保证方法论权威最新、不随上游漂移。plugin 仅保留 issue 文档格式（Step 12e）与 AFK/HITL 约定。混合接法决策见 docs/orchestrate/design/2026-06-04-workflow-rearchitecture/06-external-skill-strategy.md。 -->
 
 > **流程位置**：`orchestrate-discovery` Step 12 · Design Review 通过后 · 完成后返回 SKILL.md（verdict）
 
@@ -20,11 +20,11 @@ Coordinator 在 Design Review 通过后执行本方法论，将设计文档拆�
 
 如果对代码现状不够了解，用 `rg` / `find` / `加载 skill `improve-codebase-architecture`` 确认模块边界、已有模式、合同面。
 
-## Step 12c：拆分 vertical slice（调用 to-issues）
+## Step 12c：拆分 vertical slice（调用 to-tickets）
 
-调用 `加载 skill `to-issues``，按其 **tracer-bullet / vertical-slice** 方法论把设计文档拆成大 issue——每个大 issue 是一条切穿所有集成层（schema → API → UI → tests）、端到端可独立验证的 thin slice。**拆分方法论以 `to-issues` 为单一权威，不在本文件复制。**
+调用 `加载 skill `to-tickets``，按其 **tracer-bullet / vertical-slice** 方法论把设计文档拆成大 issue——每个大 issue 是一条切穿所有集成层（schema → API → UI → tests）、端到端可独立验证的 thin slice。**拆分方法论以 `to-tickets` 为单一权威，不在本文件复制。**
 
-本 plugin 在 `to-issues` 拆分结果上附加的专属约定（拆分时一并满足，输出仍按 Step 12d/12e 走）：
+本 plugin 在 `to-tickets` 拆分结果上附加的专属约定（拆分时一并满足，输出仍按 Step 12d/12e 走）：
 
 - 优先拆出多个 thin slice，而非少数 thick slice
 - 每个 slice 标记 **AFK**（可无人值守实现）或 **HITL**（需人工决策），AFK 优先——此标记驱动后续 Execution 的值守分叉

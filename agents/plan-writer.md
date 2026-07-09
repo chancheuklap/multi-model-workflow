@@ -21,7 +21,7 @@ tools:
 skills:
   - ponytail
   - codebase-design
-  - to-issues
+  - to-tickets
 memory: project
 color: cyan
 ---
@@ -68,7 +68,7 @@ color: cyan
 - 拆分维度：按功能边界（schema → API → UI）或行为边界（创建 → 编辑 → 删除）。
 - 每个小 issue 写：Type（AFK / HITL）、What to build、Acceptance criteria、Blocked by（其他小 issue 编号或 None）。
 - 自检：并集覆盖大 issue `What to build` 全部行为 / 无循环依赖 / 不过粗（单个不超 8 个 impl step）/ 不过细（单文件单函数不值得独立）。
-- 拆完用 Edit 写回该 issue 文件的 `## Small issues`，替换 `<!-- PENDING -->`。深层 vertical-slice 哲学查 `to-issues` skill，本处不复述。
+- 拆完用 Edit 写回该 issue 文件的 `## Small issues`，替换 `<!-- PENDING -->`。深层 vertical-slice 哲学查 `to-tickets` skill，本处不复述。
 
 ## 写作步骤
 

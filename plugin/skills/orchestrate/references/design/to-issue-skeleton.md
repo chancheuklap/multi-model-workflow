@@ -4,15 +4,17 @@
 >
 > `prev_outputs` = design 钉的设计文档(已过 ①设计审)。读它来切片;不重提方案、不改设计(要改设计 → `mmw handoff --conclusion needs-redirection --to-phase design`)。
 
-## 怎么拆:委托外部 `to-issues` skill(方法论单源,不在此复制)
+## 怎么拆:委托外部 `to-tickets` skill(方法论单源,不在此复制)
 
-切片方法论本体在外部 `to-issues` skill —— tracer-bullet / vertical-slice(每个 issue 切穿所有集成层、端到端可独立验证)+ **Step4 向用户编号列表确认粒度/依赖,迭代到用户认可**。用它来拆;质量闸 = to-issues 自带的用户确认,②计划审再兜底一次。
+切片方法论本体在外部 `to-tickets` skill —— tracer-bullet / vertical-slice(每个 issue 切穿所有集成层、端到端可独立验证、单个适配一个 fresh context window)+ **向用户编号列表确认粒度/依赖(blocking edges),迭代到用户认可**。用它来拆;质量闸 = to-tickets 自带的用户确认,②计划审再兜底一次。
 
-plugin 在 `to-issues` 结果上做两件**适配**(它默认发 GitHub issue tracker,我们是文件系统):
+**宽重构例外**:改列名 / 改共享类型这种爆炸半径大、单次编辑会破上千调用点的机械改动,不套 vertical slice,按 `to-tickets` 的 **expand–contract** 拆:先 expand(新旧并存不破)→ 分批 migrate(按爆炸半径分包,每批一个 issue、blocked by expand)→ contract(删旧,blocked by 全部 migrate 批)。
 
-**适配 1 · 产物落文件,不发 tracker**:每个大 issue 落 `docs/issues/<YYYY-MM-DD>-<slug>/<issue>.md`(slug 与设计文档对齐,prepare 已 scaffold `docs/issues/<slug>/`)。**override `to-issues` 的 Step5「publish to issue tracker」**——不发远端,写本地文件。
+plugin 在 `to-tickets` 结果上做两件**适配**(`to-tickets` 有两种产出:合并单文件 `tickets.md`,或发线上 tracker;两种都不是我们要的):
 
-**适配 2 · issue 文件模板**(= `to-issues` 模板 + plugin 扩展两节,缺一下游读不到):
+**适配 1 · 产物落我们的目录、一个大 issue 一个文件**:每个大 issue 落 `docs/issues/<YYYY-MM-DD>-<slug>/<issue>.md`(slug 与设计文档对齐,prepare 已 scaffold `docs/issues/<slug>/`)。**override `to-tickets` 的 Step5 发布**——既不合并成单个 `tickets.md`、也不发线上 tracker,写成本地一 issue 一文件(下游 plan / plan-writer 死绑一文件一大 issue)。
+
+**适配 2 · issue 文件模板**(= `to-tickets` 单条 issue 模板 + plugin 扩展两节,缺一下游读不到):
 
 ```markdown
 ## What to build

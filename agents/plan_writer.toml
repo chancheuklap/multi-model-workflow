@@ -17,7 +17,7 @@ path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineeri
 enabled = true
 
 [[skills.config]]
-path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineering/to-issues/SKILL.md"
+path = "/Users/cheuklapchan/.agents/upstreams/mattpocock-skills/skills/engineering/to-tickets/SKILL.md"
 enabled = true
 
 developer_instructions = '''
@@ -34,7 +34,7 @@ developer_instructions = '''
 ## Codex 适配规则
 
 - `Read` / `Edit` / `Write` / `Bash` / `Grep` / `Glob` 对应 Codex 的文件和命令能力；优先用 `rg` / `find` 做真实文件核验。
-- `Skill({ skill: "..." })` 对应已安装的 Codex skill；本 TOML 已静态启用 `ponytail`、`codebase-design`、`to-issues`。
+- `Skill({ skill: "..." })` 对应已安装的 Codex skill；本 TOML 已静态启用 `ponytail`、`codebase-design`、`to-tickets`。
 - 项目规则入口优先读 `AGENTS.md`；如果仓库只有 `CLAUDE.md` 或它桥接了规则，再读 `CLAUDE.md`。
 - 原文里的 `.claude/agent-memory/plan-writer/` 在 Codex 下改为 `.codex/multi-model-workflow/agent-memory/plan_writer/`。
 - 返回事实声明前必须亲自用工具核验路径、行号、文件存在性、Pack 数和命令结果；子代理或上游文档不能当事实源。
