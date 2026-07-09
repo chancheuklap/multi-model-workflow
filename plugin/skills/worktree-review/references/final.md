@@ -6,7 +6,7 @@
 
 ## 基线 1 回归 + 意图 + 跨 plan
 - 回归扫描:全 diff 过一遍,有没有破坏既有功能 / 既有调用点。
-- 意图覆盖:回最初 design + issue(有 UI 则 Read mockup 文件,视觉权威源),逐条提取可验证 intent;阶段③验过的做一行确认;plan 之间缝隙漏的按 implementation / design / context / unverifiable gap 归类。
+- 意图覆盖:回最初 design + issue(有 UI 则 Read mockup 文件,视觉权威源),逐条提取可验证 intent;阶段③验过的做一行确认;plan 之间缝隙漏的按 implementation / design / context / unverifiable gap 归类。**反查 scope creep**:diff 里有没有 design / issue 没要求却实现的行为(多做了没设计过、没审过的功能),有则报——扩大了面 = gap。
 - 跨 plan 集成:plan A 碰坏 plan B 没;跨 plan 合同 / 数据流 / 共享状态 / migration 顺序 / import 一致;多个各自正确的 plan 合起来有无矛盾(无共享面 → 一行"已确认独立";回归扫描和意图覆盖仍必做)。
 
 ## 基线 2 独立代码审计
