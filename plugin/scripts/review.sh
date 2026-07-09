@@ -161,7 +161,7 @@ DISPATCH
   基线1(回归+意图+跨plan)→ Codex:codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>
   基线2(独立代码审计,全新眼光)→ Claude:$CLAUDE_BIN -p "<prompt>" --model $CLAUDE_REVIEW_MODEL --effort $CLAUDE_REVIEW_EFFORT --session-id <uuidgen 自生成并记下,供续接>
   prompt(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=final 审;你负责 <基线1|基线2> 这一路视角;Source: $source;按 skill 的 Return Contract 回结构化 findings。
-  续接:codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,掉回 config 默认,必须整套重钉);Claude 用 $CLAUDE_BIN -p --resume <你起审时给的 uuid> "<追问>" --model $CLAUDE_REVIEW_MODEL --effort $CLAUDE_REVIEW_EFFORT。
+  续接:codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,掉回 config 默认,必须整套重钉);Claude 用 $CLAUDE_BIN -p --resume <你起审时给的 uuid> "<追问>" --model $CLAUDE_REVIEW_MODEL --effort ${CLAUDE_REVIEW_EFFORT}。
 DISPATCH
 )"
   elif [ "$stage" = "final" ]; then
