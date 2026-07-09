@@ -28,9 +28,19 @@ state_for() { mmw_resolve_state_subdir "$1"; }
 die() { echo "ERROR: $*" >&2; exit 2; }
 
 build_prompt() {  # $1=plan $2=worktree $3=design $4=issue
+  # skill 指针按宿主:Claude 侧 Codex CLI 读它自己 hub 装的;Droid 侧读 plugin 内随插件发布的副本(绝对路径)。
+  local skill_ref skill_tail
+  if [ "$(mmw_host)" = "droid" ]; then
+    local sroot; sroot="$(mmw_plugin_root)/skills/worktree-build"
+    skill_ref="**读 plugin 内 \`worktree-build\` skill,照它走整个落地流程**(它是总纲,细纪律在它的 references,到那步再读):$sroot/SKILL.md"
+    skill_tail="**全在 worktree-build skill(plugin 内 $sroot/),照它做,本消息不重复**"
+  else
+    skill_ref="**读你已装的 \`worktree-build\` skill,照它走整个落地流程**(它是总纲,细纪律在它的 references,到那步再读)。"
+    skill_tail="**全在 worktree-build skill,照它做,本消息不重复**"
+  fi
   cat <<PROMPT
 你是落地执行者,被主线程派进一个 worktree 落地一份计划。
-**读你已装的 \`worktree-build\` skill,照它走整个落地流程**(它是总纲,细纪律在它的 references,到那步再读)。
+$skill_ref
 
 工作树(你唯一可写的源码区): $2
 开工前读这几份(worktree 内路径,顺序读):
@@ -38,7 +48,7 @@ ${3:+- 设计文档(意图/合同边界/发布风险): $3
 }${4:+- 你的 issue(What to build / Acceptance / Blocked by): $4
 }- 你的计划(实施唯一权威): $1
 
-落地铁律、逐 Pack TDD、每 Pack 提交格式、禁改 docs/、卡住协议、收工回执格式 —— **全在 worktree-build skill,照它做,本消息不重复**。
+落地铁律、逐 Pack TDD、每 Pack 提交格式、禁改 docs/、卡住协议、收工回执格式 —— ${skill_tail}。
 PROMPT
 }
 

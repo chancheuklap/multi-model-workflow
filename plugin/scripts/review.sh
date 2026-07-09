@@ -32,36 +32,38 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 overlay_droid_brief_if_needed() {
   local brief="$1" stage="$2" scen="$3" source="$4" tier="${5:-0}"
   [ "$(mmw_host)" = "droid" ] || return 0
+  # Droid 审者读 plugin 内随插件发布的 worktree-review skill(绝对路径,不赌子代理自动加载 skill)
+  local skill; skill="$(mmw_plugin_root)/skills/worktree-review"
   local dispatch=""
   case "$stage" in
     design)
       dispatch="用 Task 并行派 2 个 Custom Droids(干净 context · 写者≠验者,模型钉在 droid 文件):
   - subagent_type=reviewer-design-a · 轴A 设计内容
   - subagent_type=reviewer-design-b · 轴B 项目对齐
-每个 prompt:读 worktree-review skill,按 stage=design;你负责 <轴A|轴B>;Source: ${source};按 Return Contract 回 findings。"
+每个 prompt:读 plugin 内 worktree-review skill(${skill}/SKILL.md),按 stage=design;你负责 <轴A|轴B>;Source: ${source};按 Return Contract 回 findings。"
       ;;
     plan)
       dispatch="用 Task 并行派 2 个 Custom Droids:
   - subagent_type=reviewer-plan-a · 轴A 覆盖与质量
   - subagent_type=reviewer-plan-b · 轴B 合规与交叉验证
-prompt:读 worktree-review skill,按 stage=plan;你负责 <轴A|轴B>;Source: ${source}。"
+prompt:读 plugin 内 worktree-review skill(${skill}/SKILL.md),按 stage=plan;你负责 <轴A|轴B>;Source: ${source}。"
       ;;
     final)
       if [ "$scen" = "small-change" ] || [ "$scen" = "bug" ] || [ "$tier" = "1" ]; then
         dispatch="小任务 final(tier=1):派 1 个 Task droid reviewer-final-a 一肩挑两视角。
-prompt:读 worktree-review skill,按 stage=final;覆盖基线1+基线2;Source: ${source}。"
+prompt:读 plugin 内 worktree-review skill(${skill}/SKILL.md),按 stage=final;覆盖基线1+基线2;Source: ${source}。"
       elif [ "$tier" = "2" ]; then
         dispatch="④final 分档 tier=2:Task 并行 2 路(跨模型):
   - subagent_type=reviewer-final-a · 基线1
   - subagent_type=reviewer-final-b · 基线2
-prompt:读 worktree-review skill,按 stage=final;你负责 <基线1|基线2>;Source: ${source}。"
+prompt:读 plugin 内 worktree-review skill(${skill}/SKILL.md),按 stage=final;你负责 <基线1|基线2>;Source: ${source}。"
       else
         dispatch="④final tier=4(fail-closed 默认/有 capable 或 diff 大):Task 并行 4 路 = 两视角×两模型:
   - reviewer-final-a · 基线1
   - reviewer-final-b · 基线1
   - reviewer-final-a · 基线2
   - reviewer-final-b · 基线2
-prompt 同一段(只改「你负责 <基线1|基线2>」):读 worktree-review skill,按 stage=final;Source: ${source};按 Return Contract 回 findings。
+prompt 同一段(只改「你负责 <基线1|基线2>」):读 plugin 内 worktree-review skill(${skill}/SKILL.md),按 stage=final;Source: ${source};按 Return Contract 回 findings。
 同视角跨模型对账:只一家报的重点亲验,两家同报置信升。"
       fi
       ;;
@@ -69,7 +71,7 @@ prompt 同一段(只改「你负责 <基线1|基线2>」):读 worktree-review sk
       dispatch="merge-impl 跨 PR 集成审:Task 并行 2 个 Custom Droids(跨模型,不信各 PR ④终审):
   - subagent_type=reviewer-final-a · 七角度路1
   - subagent_type=reviewer-final-b · 七角度路2
-prompt:读 worktree-review skill,按 stage=merge-impl 走七角度(组合行为/合同/迁移/状态/import/回归/修复质量);你负责一路;Source: ${source};按 Return Contract 回 findings。"
+prompt:读 plugin 内 worktree-review skill(${skill}/SKILL.md),按 stage=merge-impl 走七角度(组合行为/合同/迁移/状态/import/回归/修复质量);你负责一路;Source: ${source};按 Return Contract 回 findings。"
       ;;
     *)
       dispatch="ERROR: droid overlay 未覆盖 stage=${stage};应 design|plan|final|merge-impl。"

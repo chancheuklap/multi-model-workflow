@@ -65,7 +65,7 @@ mmw where
 | Claude | brief 内 `codex exec` / `claude -p` 无头 CLI(后台) |
 | Droid | brief 内 `Task` → `reviewer-*` droid,按 stage/视角/模型矩阵并行 |
 
-审者都读已装 `worktree-review` skill(方法单源);plugin 内不塞审查方法论正文。
+审者读 `worktree-review` skill(审查方法论单源):**Claude 侧** Codex / Claude 无头 CLI 读它自己 hub 装的(`~/.agents/skills/worktree-review/`);**Droid 侧**读随插件发布的 `plugin/skills/worktree-review/`(派发消息传绝对路径,不赌子代理自动加载)。同一套方法,两宿主各取自己够得到的副本。
 
 ## 5. 角色 × 模型(Droid Custom Droids)
 
@@ -75,16 +75,18 @@ mmw where
 | --- | --- | --- | --- |
 | `plan-writer` | 写单份 plan | `claude-opus-4-8` high | 读写 + 检索 |
 | `pack-executor` | 按 plan 落地 | `glm-5.2` max | 读写 + Execute |
-| `reviewer-design-a` | 设计审轴A | `gpt-5.5` high | read-only |
+| `reviewer-design-a` | 设计审轴A | `claude-opus-4-8` high | read-only |
 | `reviewer-design-b` | 设计审轴B | `claude-opus-4-8` high | read-only |
 | `reviewer-plan-a` | 计划审轴A | `gpt-5.5` high | read-only |
-| `reviewer-plan-b` | 计划审轴B | `claude-opus-4-8` high | read-only |
+| `reviewer-plan-b` | 计划审轴B | `gpt-5.5` high | read-only |
 | `reviewer-final-a` | final / merge 跨模型路A | `gpt-5.5` high(≠写码) | read-only |
 | `reviewer-final-b` | final / merge 跨模型路B | `claude-opus-4-8` high(≠A) | read-only |
 | `review-coordinator` | 审 loop 协调(可选隔离) | inherit / 同主线程 | 读写 + Execute + Task |
 | `investigate-topic` | 单 topic 取证 | `grok-4.5` high | read-only + web |
 | `code-explorer` | 只读探代码 | `claude-sonnet-5` high | read-only |
 | `fable-advisor` | 稀疏关键顾问(非审闸) | `claude-fable-5` high | read-only |
+
+①②设计/计划审两轴**同模型**(design 两轴 opus、plan 两轴 gpt-5.5),只分两路视角不分模型(与 Claude 宿主一致:①② 都由单一 Codex 审、两审者分走视角);跨模型只在 ④final / merge(a≠b)。写者≠验者靠"审者模型 ≠ 该阶段作者模型"保证。
 
 装 plugin 后 droid 落在 `plugin/droids/`;Droid 会话可按 `subagent_type` 引用。Claude 宿主对应表面在 `plugin/agents/`(如 plan-writer),模型/工具名按 Claude 习惯,与 droids 表不必逐字同一 ID。
 
@@ -112,3 +114,5 @@ Droid 若 hook 事件名/payload 字段有差异,以 `lib/host.sh` + hooks 内�
 | Droid | `droid plugin install multi-model-workflow@mmw-droid`(本仓库 `.factory-plugin/marketplace.json`)或项目 `.factory/` 链接 |
 
 两宿主可共装同一 plugin 目录;状态平面按宿主隔离,互不踩盘。
+
+**skill 依赖**:`worktree-build` / `worktree-review` 是 worker/reviewer 的方法论单源。Droid 侧随插件发布(`plugin/skills/`),装 plugin 即到位。Claude 侧的写码/审查是**外部** Codex / Claude 无头 CLI,读不到 plugin 内部,须另把这两个 skill 装进 Codex hub(`~/.agents/skills/`,源在本仓库 `codex-skills/`);没装则 Claude 侧派发 fail-closed(报找不到 skill)。
