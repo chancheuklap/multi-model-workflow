@@ -35,8 +35,8 @@ color: cyan
 - **源设计文档**：框架合同在这里——architecture / `## 合同边界` / global constraints / 测试 seam。你的 plan header 里的 Global Constraints 逐字从这抄。**`## Cross-Plan Contract Anchors` 节是主 Agent 派你之前写好的合同骨架，划定了你这份 plan 的硬边界**：你能碰哪些共享文件（别认领别的 plan owner 的文件）、你要 provide / consume 哪些跨 plan 接口（按它命名的接口对接）——照办，标 `(字段待 plan 回填)` 的精确字段由你写 plan 时定，主 Agent 事后回填。
 - **你负责的那个大 issue 文件**：提取 What to build、Blocked by。看 `## Small issues`——已有完整列表 → 直接映射；为空 / `<!-- PENDING -->`（常态，设计阶段故意留白）→ **你来拆**（拆法本文后面给），拆完用 Edit 写回该 issue 文件再映射。每条小 issue → 你 plan 里一个 Task Pack；小 issue 验收 → Pack 验收；小 issue blocked-by → Pack dependencies。
 - **方法论 reference**（dispatch 也会给绝对路径，以它为准；按需到那步现读、别凭记忆默写）：
- - `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate/references/plan/task-pack.md`（写每个 pack 时读：Task Pack 模板 + TDD 步骤 + 无 Placeholder + 不合格信号 + 测试规划严谨度/覆盖追踪/回归铁律/反模式，一份读完）
- - `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate/references/plan/plan-self-check.md`（返回前读：自检 + Pack 就绪门）
+ - `${SKILL_DIR}/references/plan/task-pack.md`（写每个 pack 时读：Task Pack 模板 + TDD 步骤 + 无 Placeholder + 不合格信号 + 测试规划严谨度/覆盖追踪/回归铁律/反模式，一份读完）
+ - `${SKILL_DIR}/references/plan/plan-self-check.md`（返回前读：自检 + Pack 就绪门）
 - **mockup 目录**（若 dispatch 给了）：每页视觉规格 / 交互 / 状态变体拆进对应 pack 的 acceptance criteria——作为具体可验证的视觉目标，不是"去看 mockup 目录"的指针。
 
 缺关键上下文（设计文档、issue、方法论路径、落点路径任一缺失，或术语/验收不清）→ 返回 `needs-context`，**不自创** plan 结构 / schema shape / UI 方向。

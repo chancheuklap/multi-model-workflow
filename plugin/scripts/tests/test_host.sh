@@ -37,7 +37,28 @@ unset MMW_HOST
 export DROID_PLUGIN_ROOT="/tmp/fake-droid-plugin"
 [ "$(mmw_host)" = "droid" ] && ok "auto droid via DROID_PLUGIN_ROOT" || no "auto droid"
 unset DROID_PLUGIN_ROOT
-[ "$(mmw_host)" = "claude" ] && ok "default claude" || no "default claude"
+# default claude 必须在中性路径判:若本测试从 .factory/.claude 安装目录跑,in-place 的 host.sh 会被路径自检改判
+NTMP="$(mktemp -d)"; mkdir -p "$NTMP/neutral/lib"; cp "$SCRIPT_DIR/../lib/host.sh" "$NTMP/neutral/lib/host.sh"
+[ "$(bash -c "unset DROID_PLUGIN_ROOT MMW_HOST; . '$NTMP/neutral/lib/host.sh'; mmw_host")" = "claude" ] \
+  && ok "default claude(中性路径)" || no "default claude"
+rm -rf "$NTMP"
+
+# path self-detect:脚本装在哪个宿主插件目录下就是谁(无 env,无 MMW_HOST)
+PTMP="$(mktemp -d)"
+mkdir -p "$PTMP/.factory/plugins/mmw/scripts/lib" "$PTMP/.claude/plugins/mmw/scripts/lib"
+cp "$SCRIPT_DIR/../lib/host.sh" "$PTMP/.factory/plugins/mmw/scripts/lib/host.sh"
+cp "$SCRIPT_DIR/../lib/host.sh" "$PTMP/.claude/plugins/mmw/scripts/lib/host.sh"
+[ "$(bash -c ". '$PTMP/.factory/plugins/mmw/scripts/lib/host.sh'; mmw_host")" = "droid" ] \
+  && ok "path self-detect droid (.factory/plugins)" || no "path self-detect droid"
+[ "$(bash -c ". '$PTMP/.claude/plugins/mmw/scripts/lib/host.sh'; mmw_host")" = "claude" ] \
+  && ok "path self-detect claude (.claude/plugins)" || no "path self-detect claude"
+# env 优先于路径:.claude 路径下设 DROID_PLUGIN_ROOT 仍判 droid
+[ "$(bash -c "export DROID_PLUGIN_ROOT=/x; . '$PTMP/.claude/plugins/mmw/scripts/lib/host.sh'; mmw_host")" = "droid" ] \
+  && ok "env DROID_PLUGIN_ROOT 覆盖路径自检" || no "env 覆盖路径自检"
+# MMW_HOST 优先于路径:.factory 路径下锁 claude 仍判 claude
+[ "$(bash -c "export MMW_HOST=claude; . '$PTMP/.factory/plugins/mmw/scripts/lib/host.sh'; mmw_host")" = "claude" ] \
+  && ok "MMW_HOST 覆盖路径自检" || no "MMW_HOST 覆盖路径自检"
+rm -rf "$PTMP"
 
 # branch prefix helper
 MMW_HOST=claude

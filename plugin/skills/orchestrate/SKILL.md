@@ -7,16 +7,25 @@ description: "开发工作流主入口。用户给出想法/功能/改造、报 
 
 主线程入口。**只做两件事:断点恢复、路由。** 判出这是哪条路,就把你交给那条路自己的 reference——那一份从头到尾讲清这条路怎么走(建 worktree、阶段契约、回执跳转、收尾全在里面),本文不重复、你也不用回来。
 
-`${SKILL_DIR}` = 本 skill 目录;`${SCRIPTS}` = `${CLAUDE_PLUGIN_ROOT}/scripts`(Droid 下 `CLAUDE_PLUGIN_ROOT`=`DROID_PLUGIN_ROOT` 别名);`mmw` ≡ `bash "${SCRIPTS}/mmw.sh"`(`mmw help` 看全表)。
+`${SKILL_DIR}` = 本 skill 目录(= 插件根 `/skills/orchestrate`);`${SCRIPTS}` = 插件根 `/scripts`;`mmw` ≡ `bash "${SCRIPTS}/mmw.sh"`(`mmw help` 看全表)。这三个绝对路径由下面 Step 0 一次定位得出,**不依赖任何环境变量**,Claude / Droid 通用。
 
-**双宿主**:开跑前读 `${SKILL_DIR}/references/control/host-contract.md`(路径/工具/派发后端)。`export MMW_HOST=droid|claude` 可显式锁定。
+**双宿主**:开跑前读 `${SKILL_DIR}/references/control/host-contract.md`(路径/工具/派发后端)。`export MMW_HOST=droid|claude` 可显式锁定宿主。
 
-## Step 0 · 先跑 `mmw where`(它自带指路)
+## Step 0 · 先定位插件,再跑 `mmw where`(它自带指路)
 
-无脑先跑一次(无论在哪):
+先一次性定位当前宿主的插件(无需环境变量),**记住回显的三个绝对路径**,后文所有 `mmw` / `${SCRIPTS}` / `${SKILL_DIR}` 都用它们替换:
 
 ```bash
-mmw where
+if [ -n "${DROID_PLUGIN_ROOT:-}" ] || printf %s "$PATH" | grep -q '/.factory/bin'; then P=~/.factory/plugins; else P=~/.claude/plugins; fi
+MMW="$(find "$P" -type f -path '*multi-model-workflow*/scripts/mmw.sh' 2>/dev/null | head -1)"
+printf 'mmw       = %s\nSCRIPTS   = %s\nSKILL_DIR = %s\n' \
+  "$MMW" "$(dirname "$MMW")" "$(dirname "$(dirname "$MMW")")/skills/orchestrate"
+```
+
+`mmw X` ≡ `bash "$MMW" X`(每个新 shell 用回显的绝对路径,别指望 shell 变量跨调用留存)。然后无脑先跑一次(无论在哪):
+
+```bash
+bash "$MMW" where
 ```
 
 - **在管任务**(在 worktree 里)→ `where` 报 `scenario` + `phase` + `load`/`do`/`then`。一句话告诉用户"你在 `<phase>`",然后**读 `references/scenario/<scenario>.md`**,按它的契约从当前 phase 续(断点恢复靠 `where` + 接力单,不靠会话记忆)。**跳过 Step 1。**
@@ -41,7 +50,7 @@ mmw where
 
 | 命令 | 作用 | 你要做 |
 | --- | --- | --- |
-| `/progress` | 看进度板 | 命令自带注入,照它汇报 |
+| `/progress` | 看进度板 | 照命令跑 `mmw progress render --stdout`,原样转述板面 |
 | `/unattended` `/attended` | 进/出强无人值守 | 读 `${SKILL_DIR}/references/control/attendance.md`(值守档合同 + no-question 双层),照它执行 |
 | `/side-finding` | 计划外二选一登记 | 读 `${SKILL_DIR}/references/control/steering-commands.md` |
 | `/reassess` `/skip-current` `/rescope` `/replan-remaining` `/force-validate` | 中途指挥 | 读 `${SKILL_DIR}/references/control/steering-commands.md` |

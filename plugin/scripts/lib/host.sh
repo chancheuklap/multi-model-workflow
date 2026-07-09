@@ -4,8 +4,10 @@
 #
 # 检测优先级:
 #   1. MMW_HOST=droid|claude 显式覆盖
-#   2. DROID_PLUGIN_ROOT 已设 → droid
-#   3. 默认 claude
+#   2. DROID_PLUGIN_ROOT 已设 → droid(仅 hook 运行时有;主线程 Execute 里没有)
+#   3. 路径自检:本脚本装在 .../.factory/plugins/ → droid;.../.claude/plugins/ → claude
+#      (不依赖 env,主线程直接跑 mmw 也判得对,plugin update 冲不掉)
+#   4. 默认 claude
 #
 # 路径:
 #   claude → .claude/multi-model-workflow + .claude/worktrees
@@ -26,10 +28,16 @@ mmw_host() {
     esac
   fi
   if [ -n "${DROID_PLUGIN_ROOT:-}" ]; then
-    printf 'droid'
-  else
-    printf 'claude'
+    printf 'droid'; return 0
   fi
+  # 路径自检:脚本被装进哪个宿主的插件目录就是谁(不依赖 env,更新冲不掉)
+  local self
+  self="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || self=""
+  case "$self" in
+    */.factory/plugins/*) printf 'droid'; return 0 ;;
+    */.claude/plugins/*)  printf 'claude'; return 0 ;;
+  esac
+  printf 'claude'
 }
 
 # 写码工人 worktree 分支前缀

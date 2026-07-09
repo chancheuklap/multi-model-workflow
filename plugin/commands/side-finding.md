@@ -8,7 +8,14 @@ disable-model-invocation: true
 
 ## 指令
 
-1. 读 `${CLAUDE_PLUGIN_ROOT}/skills/orchestrate/references/control/steering-commands.md`(计划外分流协议在里面)。
+先定位 mmw(无需环境变量;记住返回的绝对路径,下文 `mmw X` 即 `bash <该路径> X`;插件根 = 该路径上两级目录):
+
+```sh
+if [ -n "${DROID_PLUGIN_ROOT:-}" ] || printf %s "$PATH" | grep -q '/.factory/bin'; then P=~/.factory/plugins; else P=~/.claude/plugins; fi
+find "$P" -type f -path '*multi-model-workflow*/scripts/mmw.sh' 2>/dev/null | head -1
+```
+
+1. 读插件根下 `skills/orchestrate/references/control/steering-commands.md`(计划外分流协议在里面)。
 2. 确认当前计划外项的标签(bug/optimize/out-of-scope/needs-evaluation)与一句话摘要。
 3. 落盘:
    - `issue` → `mmw side-finding record --tag <t> --disposition issue --finding "<摘要>"`

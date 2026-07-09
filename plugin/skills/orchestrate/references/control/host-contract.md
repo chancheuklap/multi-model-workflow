@@ -6,11 +6,14 @@
 
 脚本侧自动检测(`plugin/scripts/lib/host.sh`):
 
-| 条件 | 宿主 |
-| --- | --- |
-| `MMW_HOST=droid\|claude` | 显式 |
-| `DROID_PLUGIN_ROOT` 已设 | droid |
-| 否则 | claude |
+| 优先级 | 条件 | 宿主 |
+| --- | --- | --- |
+| 1 | `MMW_HOST=droid\|claude` | 显式 |
+| 2 | `DROID_PLUGIN_ROOT` 已设(仅 Droid hook 运行时有) | droid |
+| 3 | 脚本自身路径含 `.factory/plugins/` → droid;`.claude/plugins/` → claude | 路径自检 |
+| 4 | 否则 | claude |
+
+路径自检让主线程 Execute 里直接跑 mmw(无 `DROID_PLUGIN_ROOT`)也判得对宿主。
 
 主线程开跑可先:
 
@@ -25,7 +28,7 @@ mmw where
 | --- | --- | --- |
 | 状态平面 | `.claude/multi-model-workflow/` | `.factory/multi-model-workflow/` |
 | worktree 根 | `.claude/worktrees/<slug>` | `.factory/worktrees/<slug>` |
-| 插件根 env | `CLAUDE_PLUGIN_ROOT` | `DROID_PLUGIN_ROOT`(脚本亦提供 `CLAUDE_PLUGIN_ROOT` 别名) |
+| 插件根 env | `CLAUDE_PLUGIN_ROOT`(命令 `!` 注入 / hook 里可用) | `DROID_PLUGIN_ROOT`(仅 hook 运行时;主线程 Execute 里没有) |
 
 `task.json` / `loop-state.json` / progress 投影 / review-brief 都在状态平面内。
 

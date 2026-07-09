@@ -8,6 +8,13 @@ disable-model-invocation: true
 
 ## 指令
 
+先定位 mmw(无需环境变量;记住返回的绝对路径,下文 `mmw X` 即 `bash <该路径> X`):
+
+```sh
+if [ -n "${DROID_PLUGIN_ROOT:-}" ] || printf %s "$PATH" | grep -q '/.factory/bin'; then P=~/.factory/plugins; else P=~/.claude/plugins; fi
+find "$P" -type f -path '*multi-model-workflow*/scripts/mmw.sh' 2>/dev/null | head -1
+```
+
 1. 先跑 `mmw where` 看当前阶段。
 2. 判断范围变化影响面:
    - 只调当前阶段内 → 就地改,更新设计/计划对应处。

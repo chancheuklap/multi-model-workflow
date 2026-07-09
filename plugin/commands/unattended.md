@@ -6,13 +6,16 @@ disable-model-invocation: true
 
 用户要进入**强无人值守**。这是副作用命令,只有用户手动敲才触发。
 
-## 现状(动态注入)
-
-!`bash "${CLAUDE_PLUGIN_ROOT}/scripts/mmw.sh" unattended enter 2>&1`
-
 ## 指令
 
-上面是进入门禁的结果。
+先定位 mmw(无需环境变量;记住返回的绝对路径,下文 `mmw X` 即 `bash <该路径> X`):
+
+```sh
+if [ -n "${DROID_PLUGIN_ROOT:-}" ] || printf %s "$PATH" | grep -q '/.factory/bin'; then P=~/.factory/plugins; else P=~/.claude/plugins; fi
+find "$P" -type f -path '*multi-model-workflow*/scripts/mmw.sh' 2>/dev/null | head -1
+```
+
+跑 `mmw unattended enter`,按进入门禁的结果处置:
 
 1. 若输出 `UNATTENDED-ENTERED`:
    - 告诉用户已进入强无人值守,并复述 policy。
