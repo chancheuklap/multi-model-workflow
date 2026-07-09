@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-triage.sh\"",
+            "command": "bash \"${DROID_PLUGIN_ROOT:-$CLAUDE_PLUGIN_ROOT}/hooks/session-triage.sh\"",
             "timeout": 10
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-redline.sh\"",
+            "command": "bash \"${DROID_PLUGIN_ROOT:-$CLAUDE_PLUGIN_ROOT}/hooks/guard-redline.sh\"",
             "timeout": 5
           }
         ]
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/record-step.sh\"",
+            "command": "bash \"${DROID_PLUGIN_ROOT:-$CLAUDE_PLUGIN_ROOT}/hooks/record-step.sh\"",
             "timeout": 10
           }
         ]
@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-loop.sh\"",
+            "command": "bash \"${DROID_PLUGIN_ROOT:-$CLAUDE_PLUGIN_ROOT}/hooks/guard-loop.sh\"",
             "timeout": 10
           }
         ]

@@ -1,7 +1,7 @@
 ---
 name: plan-writer
 description: 把 reviewed 设计 + 单个大 issue 写成可执行 plan(Task Pack + TDD + 验收命令)。互不依赖的 issue 可并行多派。
-model: claude-opus-4-6
+model: claude-opus-4-8
 reasoningEffort: high
 tools: ["Read", "Create", "Edit", "Execute", "Grep", "Glob", "LS"]
 ---

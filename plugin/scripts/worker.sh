@@ -16,11 +16,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/host.sh"
 
 CODEX_BIN="${CODEX_BIN:-codex}"
-CODEX_MODEL="${CODEX_MODEL:-gpt-5.4}"
+CODEX_MODEL="${CODEX_MODEL:-gpt-5.5}"
 CODEX_EFFORT="${CODEX_EFFORT:-xhigh}"
 DROID_EXECUTOR_DROID="${DROID_EXECUTOR_DROID:-pack-executor}"
-DROID_EXECUTOR_MODEL="${DROID_EXECUTOR_MODEL:-gpt-5.3-codex}"
-DROID_EXECUTOR_EFFORT="${DROID_EXECUTOR_EFFORT:-high}"
+DROID_EXECUTOR_MODEL="${DROID_EXECUTOR_MODEL:-glm-5.2}"
+DROID_EXECUTOR_EFFORT="${DROID_EXECUTOR_EFFORT:-max}"
 
 STATE_SUBDIR="$(mmw_state_subdir)"
 
@@ -80,7 +80,7 @@ run_codex() {
 ensure_worktree() {
   local wt="$1" base="$2"
   if [ ! -d "$wt" ]; then
-    local bprefix; case "$(mmw_host)" in droid) bprefix=worker ;; *) bprefix=codex ;; esac
+    local bprefix; bprefix="$(mmw_worker_branch_prefix)"
     git worktree add -b "$bprefix/$(basename "$wt")" "$wt" "$base" >&2 \
       || die "建 worktree 失败: $wt(分支 $bprefix/$(basename "$wt") 已存在?先清理)"
   fi
@@ -91,12 +91,14 @@ ensure_worktree() {
 write_droid_dispatch_pkg() {
   local wt="$1" plan="$2" design="$3" issue="$4" model="$5" effort="$6" mode="$7" instr="${8:-}"
   local pkg="$wt/$STATE_SUBDIR/worker-dispatch"
+  local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
   mkdir -p "$pkg"
   if [ "$mode" = "dispatch" ]; then
     build_prompt "$plan" "$wt" "$design" "$issue" > "$pkg/prompt.md"
   else
     cp "$instr" "$pkg/prompt.md"
   fi
+  printf '%s\n' "$start_sha" > "$pkg/start_sha"
   cat > "$pkg/meta.json" <<META
 {
   "backend": "droid-task",
@@ -109,6 +111,7 @@ write_droid_dispatch_pkg() {
   "design": "$design",
   "issue": "$issue",
   "prompt_file": "$pkg/prompt.md",
+  "start_sha": "$start_sha",
   "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 META
@@ -118,6 +121,7 @@ META
   echo "WORKTREE=$wt"
   echo "PROMPT_FILE=$pkg/prompt.md"
   echo "META_FILE=$pkg/meta.json"
+  echo "START_SHA=$start_sha"
   echo "DROID=$DROID_EXECUTOR_DROID"
   echo "MODEL=$model"
   echo "EFFORT=$effort"
@@ -125,12 +129,34 @@ META
 --- droid 派发(主线程照做)---
 用 Task 工具派 Custom Droid:
   subagent_type: $DROID_EXECUTOR_DROID
-  model 偏好: $model (reasoningEffort=$effort; droid 定义可 inherit 时以 droid 文件为准)
+  model 偏好: $model (reasoningEffort=$effort; 以 droid 文件 model 为准)
   prompt: 完整读取并执行 $pkg/prompt.md
 工作目录必须是 worktree: $wt
-完成后主线程亲验(跑测试/读 diff),再 mmw loop step done。
-Worker 禁改 docs/;碰了按 DOCS_VIOLATION 打回。
+Task 返回后**必须**先机器核 docs 红线(与 Claude codex 路径同语义 fail-closed):
+  mmw worker check-docs --worktree $wt
+非零 / DOCS_VIOLATION → 写修复指令 resume 打回,禁止 mmw loop step done。
+通过后再亲验(跑测试/读 diff) → mmw loop step done。
 EOF
+}
+
+# 机器核 docs/ 边界(Claude 路径在 dispatch/resume 末自动跑;Droid 路径 Task 返回后主线程必跑)
+cmd_check_docs() {
+  local wt="" start_sha=""
+  while [ $# -gt 0 ]; do case "$1" in
+    --worktree) wt="$2"; shift 2 ;;
+    --start-sha) start_sha="$2"; shift 2 ;;
+    *) die "未知参数: $1" ;;
+  esac; done
+  [ -n "$wt" ] || die "--worktree 必填"
+  [ -d "$wt" ] || die "worktree 不存在: $wt"
+  if [ -z "$start_sha" ] && [ -f "$wt/$STATE_SUBDIR/worker-dispatch/start_sha" ]; then
+    start_sha="$(cat "$wt/$STATE_SUBDIR/worker-dispatch/start_sha")"
+  fi
+  if [ -z "$start_sha" ] && [ -f "$wt/$STATE_SUBDIR/worker-dispatch/meta.json" ]; then
+    start_sha="$(jq -r '.start_sha // empty' "$wt/$STATE_SUBDIR/worker-dispatch/meta.json" 2>/dev/null || true)"
+  fi
+  [ -n "$start_sha" ] || die "无 start_sha(dispatch 包或 --start-sha);无法核 docs 边界"
+  check_docs_boundary "$wt" "$start_sha"
 }
 
 cmd_dispatch() {
@@ -221,5 +247,6 @@ cmd_resume() {
 case "${1:-}" in
   dispatch) shift; cmd_dispatch "$@" ;;
   resume)   shift; cmd_resume "$@" ;;
-  *) die "用法: worker.sh dispatch|resume ..." ;;
+  check-docs) shift; cmd_check_docs "$@" ;;
+  *) die "用法: worker.sh dispatch|resume|check-docs ..." ;;
 esac

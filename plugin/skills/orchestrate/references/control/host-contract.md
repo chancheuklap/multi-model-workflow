@@ -72,18 +72,22 @@ mmw where
 | --- | --- | --- | --- |
 | `plan-writer` | 写单份 plan | `claude-opus-4-8` high | 读写 + 检索 |
 | `pack-executor` | 按 plan 落地 | `glm-5.2` max | 读写 + Execute |
-| `reviewer-design` | 设计审 | `claude-opus-4-8` high | read-only |
-| `reviewer-plan` | 计划审 | `gpt-5.5` high | read-only |
-| `reviewer-final-a` | final 基线1 | `gpt-5.5` high(≠写码) | read-only |
-| `reviewer-final-b` | final 基线2 | `claude-opus-4-8` high(≠A) | read-only |
+| `reviewer-design-a` | 设计审轴A | `gpt-5.5` high | read-only |
+| `reviewer-design-b` | 设计审轴B | `claude-opus-4-8` high | read-only |
+| `reviewer-plan-a` | 计划审轴A | `gpt-5.5` high | read-only |
+| `reviewer-plan-b` | 计划审轴B | `claude-opus-4-8` high | read-only |
+| `reviewer-final-a` | final / merge 跨模型路A | `gpt-5.5` high(≠写码) | read-only |
+| `reviewer-final-b` | final / merge 跨模型路B | `claude-opus-4-8` high(≠A) | read-only |
 | `review-coordinator` | 审 loop 协调(可选隔离) | inherit / 同主线程 | 读写 + Execute + Task |
 | `investigate-topic` | 单 topic 取证 | `grok-4.5` high | read-only + web |
 | `code-explorer` | 只读探代码 | `claude-sonnet-5` high | read-only |
 | `fable-advisor` | 稀疏关键顾问(非审闸) | `claude-fable-5` high | read-only |
 
-装 plugin 后 droid 落在 `plugin/droids/`;Droid 会话可按 `subagent_type` 引用。
+装 plugin 后 droid 落在 `plugin/droids/`;Droid 会话可按 `subagent_type` 引用。Claude 宿主对应表面在 `plugin/agents/`(如 plan-writer),模型/工具名按 Claude 习惯,与 droids 表不必逐字同一 ID。
 
 `fable-advisor` 不进 review 矩阵、不写产物;主线程仅在 phase-contract 允许的时机 `Task` 派出(propose 可选 / design 主战场 / build afk)。
+
+Droid final 分档与 Claude 同判据(`review.sh` tier):small-change/bug → 1 路;develop 无 capable 且 diff 小 → 2 路;否则 / 判不出 → 4 路。merge-impl → final-a + final-b 双路。
 
 
 ## 6. Hooks

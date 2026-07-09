@@ -69,7 +69,7 @@ ARGV2="$(cat "$FAKE_CAP/argv")"
 echo "$ARGV2" | grep -q "resume sess-123" && ok "resume 续原 session" || no "resume session"
 echo "$ARGV2" | grep -q -- "-C $WT" && ok "resume 重钉 -C <worktree>(不掉回调用 cwd)" || no "resume -C"
 echo "$ARGV2" | grep -q -- "--sandbox workspace-write" && ok "resume 重钉 workspace-write(不掉回 config 默认)" || no "resume sandbox"
-echo "$ARGV2" | grep -q -- "-m gpt-5.4" && ok "resume 复用派发模型档(不掉回 config 默认档)" || no "resume 模型档"
+echo "$ARGV2" | grep -q -- "-m gpt-5.5" && ok "resume 复用派发模型档(不掉回 config 默认档)" || no "resume 模型档"
 [ "$(cat "$FAKE_CAP/stdin")" = "fix this" ] && ok "resume 发回修复指令" || no "resume 指令"
 
 # resume 兜捞:session 文件丢(dispatch 被杀)→ 从 run.log 捞回,不丢续会话能力
@@ -108,6 +108,33 @@ FAKE
 chmod +x "$FAKEBIN/codex-evil2"
 if OUT_R="$(CODEX_BIN="$FAKEBIN/codex-evil2" bash "$CW" resume --worktree "$TMP/wt-evil" --instructions "$INSTR" 2>&1)"; then no "resume 改 docs/ 应退非零"; else ok "resume 改 docs/ → fail-closed 退非零"; fi
 echo "$OUT_R" | grep -q "DOCS_VIOLATION" && ok "resume 越界报 DOCS_VIOLATION" || no "resume 无 DOCS_VIOLATION"
+
+# ===== Droid backend: 派发包 + worker/ 分支 + check-docs fail-closed =====
+export MMW_HOST=droid
+STATE_SUBDIR=.factory/multi-model-workflow
+WT_D="$TMP/wt-droid"
+OUT_D="$(bash "$CW" dispatch --plan "$PLAN" --worktree "$WT_D" --design "$DESIGN" --issue "$ISSUE" 2>/dev/null)"
+echo "$OUT_D" | grep -q "WORKER_BACKEND=droid-task" && ok "droid dispatch 后端 droid-task" || no "droid backend"
+[ "$(git -C "$WT_D" branch --show-current)" = "worker/wt-droid" ] && ok "droid 子 worktree 挂 worker/<名>" || no "droid worker 分支"
+[ -f "$WT_D/$STATE_SUBDIR/worker-dispatch/prompt.md" ] && ok "droid 派发包 prompt.md" || no "droid prompt 包"
+[ -f "$WT_D/$STATE_SUBDIR/worker-dispatch/meta.json" ] && ok "droid 派发包 meta.json" || no "droid meta"
+[ -f "$WT_D/$STATE_SUBDIR/worker-dispatch/start_sha" ] && ok "droid 记 start_sha" || no "droid start_sha"
+echo "$OUT_D" | grep -q "check-docs" && ok "droid 回执要求 check-docs" || no "droid 回执 check-docs"
+# 干净树 check-docs 应过
+if bash "$CW" check-docs --worktree "$WT_D" >/dev/null 2>&1; then ok "droid check-docs 干净树通过"; else no "droid check-docs 干净应过"; fi
+# 污染 docs 后 check-docs 应 fail
+mkdir -p "$WT_D/docs/x"; echo bad > "$WT_D/docs/x/h.md"
+git -C "$WT_D" add -A && git -C "$WT_D" -c user.email=x@x -c user.name=x commit -qm "sneak docs" >/dev/null
+if OUT_CD="$(bash "$CW" check-docs --worktree "$WT_D" 2>&1)"; then no "droid check-docs 应拦 docs 污染"; else ok "droid check-docs 拦 docs 污染"; fi
+echo "$OUT_CD" | grep -q "DOCS_VIOLATION" && ok "droid check-docs 报 DOCS_VIOLATION" || no "droid 无 DOCS_VIOLATION 字样"
+# resume 写 resume 包
+INSTR_D="$TMP/fix-d.md"; echo "fix droid" > "$INSTR_D"
+OUT_DR="$(bash "$CW" resume --worktree "$WT_D" --instructions "$INSTR_D" 2>/dev/null)"
+echo "$OUT_DR" | grep -q "WORKER_MODE=resume" && ok "droid resume 写 resume 包" || no "droid resume"
+grep -q "fix droid" "$WT_D/$STATE_SUBDIR/worker-dispatch/prompt.md" && ok "droid resume prompt=指令" || no "droid resume prompt"
+unset MMW_HOST
+export MMW_HOST=claude
+STATE_SUBDIR=.claude/multi-model-workflow
 
 echo ""
 echo "Results: $pass passed, $fail failed"

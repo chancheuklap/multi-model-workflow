@@ -77,7 +77,7 @@ mmw task team
 mmw review start --stage merge-impl --source 状态平面/<slug>-merge-brief.md
 ```
 
-派两个独立 Codex 审者(读它已装的 `worktree-review` skill,按 `stage=merge-impl` 走七角度),**不信各 PR 的 ④终审、独立验组合行为**。findings 走 review 留痕(`状态平面/<slug>-merge-impl-review.md`,主仓库不落 docs/)、亲验、disposition。**修复软上限 1 轮**(简单 Coordinator 修、复杂派 Codex);修完自验(对照 merge-brief 合同地图 + 七角度 + 跑验收)→ 过即闭合,不过 → BLOCKED 报用户。
+按 host-contract §4 起审:`mmw review start --stage merge-impl` 已生成 brief——Claude 派独立 Codex 双路;Droid 派 `reviewer-final-a` + `reviewer-final-b`(跨模型)。审者读已装 `worktree-review` skill,按 `stage=merge-impl` 走七角度,**不信各 PR 的 ④终审、独立验组合行为**。findings 走 review 留痕(`状态平面/<slug>-merge-impl-review.md`,主仓库不落 docs/)、亲验、disposition。**修复软上限 1 轮**;修完自验 → 过即闭合,不过 → BLOCKED 报用户。
 
 ## 7. 清扫 + 返回
 

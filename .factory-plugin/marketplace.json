@@ -1,5 +1,5 @@
 {
-  "name": "multi-model-workflow",
+  "name": "mmw-droid",
   "description": "多模型开发编排 plugin(Droid / Claude 双宿主)",
   "owner": {
     "name": "cheuk"

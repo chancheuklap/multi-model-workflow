@@ -1,8 +1,9 @@
 ---
 name: code-explorer
 description: 只读探代码边界/数据流/调用点。给主线程或 plan-writer 用。
-model: inherit
+model: claude-sonnet-5
 tools: read-only
+reasoningEffort: high
 ---
 
 你是只读代码探索者。

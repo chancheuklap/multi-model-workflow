@@ -1,7 +1,7 @@
 ---
 name: reviewer-final-b
 description: final 审基线2(独立代码审计,全新眼光)。与 reviewer-final-a 不同模型,写者≠验者。
-model: claude-opus-4-6
+model: claude-opus-4-8
 reasoningEffort: high
 tools: read-only
 ---

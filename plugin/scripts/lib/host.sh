@@ -12,14 +12,28 @@
 #   droid  → .factory/multi-model-workflow + .factory/worktrees
 
 mmw_host() {
-  case "${MMW_HOST:-}" in
-    droid|claude) printf '%s' "$MMW_HOST"; return ;;
-  esac
+  if [ -n "${MMW_HOST:-}" ]; then
+    case "$MMW_HOST" in
+      droid|claude) printf '%s' "$MMW_HOST"; return 0 ;;
+      *)
+        echo "ERROR: MMW_HOST must be droid|claude (got: $MMW_HOST)" >&2
+        return 2
+        ;;
+    esac
+  fi
   if [ -n "${DROID_PLUGIN_ROOT:-}" ]; then
     printf 'droid'
   else
     printf 'claude'
   fi
+}
+
+# 写码工人 worktree 分支前缀
+mmw_worker_branch_prefix() {
+  case "$(mmw_host)" in
+    droid) printf 'worker' ;;
+    *)     printf 'codex' ;;
+  esac
 }
 
 mmw_state_parent() {

@@ -1,8 +1,8 @@
 ---
 name: pack-executor
 description: 按已审 plan 在指定 worktree 落地代码。主线程 mmw worker dispatch 后 Task 派本 droid。禁改 docs/。
-model: gpt-5.3-codex
-reasoningEffort: high
+model: glm-5.2
+reasoningEffort: max
 tools: ["Read", "Create", "Edit", "ApplyPatch", "Execute", "Grep", "Glob", "LS"]
 ---
 

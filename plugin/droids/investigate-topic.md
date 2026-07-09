@@ -1,8 +1,9 @@
 ---
 name: investigate-topic
 description: 单 topic 取证工人。只摆证据不拍方案。内部代码或外部方案由 prompt 指定。
-model: inherit
+model: grok-4.5
 tools: ["Read", "Grep", "Glob", "LS", "WebSearch", "FetchUrl", "Execute"]
+reasoningEffort: high
 ---
 
 你是调查工人。只取证,不判定方案、不选路线、不改代码。

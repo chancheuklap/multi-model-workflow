@@ -28,12 +28,23 @@ MMW_HOST=droid
 [ "$(mmw_ask_user_tool)" = "AskUser" ] && ok "droid ask=AskUser" || no "droid ask"
 [ "$(mmw_worker_backend)" = "droid-task" ] && ok "droid worker=droid-task" || no "droid worker"
 
-# auto-detect via DROID_PLUGIN_ROOT when MMW_HOST unset
+# invalid MMW_HOST fail-closed
+MMW_HOST=foo
+if mmw_host >/dev/null 2>&1; then no "invalid MMW_HOST should fail"; else ok "invalid MMW_HOST fail-closed"; fi
 unset MMW_HOST
+
+# auto-detect via DROID_PLUGIN_ROOT when MMW_HOST unset
 export DROID_PLUGIN_ROOT="/tmp/fake-droid-plugin"
 [ "$(mmw_host)" = "droid" ] && ok "auto droid via DROID_PLUGIN_ROOT" || no "auto droid"
 unset DROID_PLUGIN_ROOT
 [ "$(mmw_host)" = "claude" ] && ok "default claude" || no "default claude"
+
+# branch prefix helper
+MMW_HOST=claude
+[ "$(mmw_worker_branch_prefix)" = "codex" ] && ok "claude branch prefix codex" || no "claude branch prefix"
+MMW_HOST=droid
+[ "$(mmw_worker_branch_prefix)" = "worker" ] && ok "droid branch prefix worker" || no "droid branch prefix"
+unset MMW_HOST
 
 # enter-worktree hint differs by host
 MMW_HOST=claude

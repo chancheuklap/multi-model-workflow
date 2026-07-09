@@ -84,5 +84,5 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 mmw task cleanup --slug <slug> # 回主仓库执行
 ```
 
-worktree 在**使用期**持久(可跨天,别中途删);**合并后**才 cleanup,worktree + 分支 + `.claude/` 临时状态一并清除。
+worktree 在**使用期**持久(可跨天,别中途删);**合并后**才 cleanup,worktree + 分支 + 宿主状态平面(`.claude/` 或 `.factory/`,见 host-contract)临时状态一并清除。
 <!-- END: closing-cleanup -->
