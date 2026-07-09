@@ -14,7 +14,7 @@
 ## 怎么走(只走 checklist,不加 step)
 
 ```bash
-mmw loop checklist add --item "<一条跨 plan 合同>" --source <design:line>   # 逐条合同
+mmw loop checklist add --item "<一条跨 plan 合同>" --source <design:line> # 逐条合同
 # 逐条 grep/Read 机器核兑现 → 坐实就 cover(给 file:line 证据)
 mmw loop checklist cover --item <i> --evidence <file:line>
 # 合同清单全 cover → exit-check DONE(无 step,steps 空即满足)→ handoff pass

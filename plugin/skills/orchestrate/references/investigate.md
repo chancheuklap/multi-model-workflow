@@ -30,26 +30,36 @@
 ```
 亮完跟一句:「批 / 改 / 增删 topic?批了跑 `investigate-<internal|external>`」。等用户回应再 fire,不擅自跑。
 
-批了跑对应 workflow(scriptPath 固定,只填 topics):
+批了按宿主 fan-out(每个 topic 一个工人,可并行):
+
+**Claude 宿主** — Workflow:
 
 ```
 Workflow({
-  scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/investigate-internal.workflow.js",   // 外部则 investigate-external
-  args: { repoRoot: "<任务 worktree 绝对路径>",   // internal 必传,钉死取证目标(external 无此参数)
-          topics: [ /* { angle, question, skill? } ... */ ] }
+ scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/investigate-internal.workflow.js", // 外部则 investigate-external
+ args: { repoRoot: "<任务 worktree 绝对路径>", topics: [ /* { angle, question, skill? } */ ] }
 })
 ```
 
-后台跑完通知,返回 `{ topics, report:{ markdown, open_questions, spinoff_candidates } }`。
+**Droid 宿主** — 对每个 topic 派 Task:
+
+```
+Task({
+ subagent_type: "investigate-topic",
+ prompt: "angle=<...>; question=<...>; skill=<可选>; repoRoot=<worktree>; 只取证不判定; 回 markdown+open_questions+spinoff_candidates"
+})
+```
+
+可并行多个 Task。全部收回后主线程综合成一份报告。
 
 ## 3. 收口(回主线程)
 
 1. **亲验承重事实**:报告里的 `file:line` / `url`,自己 grep/Read/查证坐实。子代理是劳动力不是信源,验不过的不写进交付物。
 2. **旁路登记**:`report.spinoff_candidates` 里亲验为真的,逐条 `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,不顺手修。
 3. **存档 + handoff**:把现状报告写进 `docs/investigating/<slug>.md`(prepare 已 scaffold 该目录),钉进接力单:
-   - 够 design / build 用 → `mmw handoff --conclusion pass --produced docs/investigating/<slug>.md`
-   - `open_questions` 里有必须用户拍板才能继续的 → `--conclusion needs-context`
-   - **bug 查根因两种诚实收口**(查不动别假装查到):**无法重现** → `needs-context`,报告附**已试的重现路径**,请用户补重现步骤 / 环境;**无法定位根因**(重现了但定不到) → `needs-context`,报告附**已排除的假设(带证据)**,请用户给方向 / 补信息。别硬编个根因往下走。
+ - 够 design / build 用 → `mmw handoff --conclusion pass --produced docs/investigating/<slug>.md`
+ - `open_questions` 里有必须用户拍板才能继续的 → `--conclusion needs-context`
+ - **bug 查根因两种诚实收口**(查不动别假装查到):**无法重现** → `needs-context`,报告附**已试的重现路径**,请用户补重现步骤 / 环境;**无法定位根因**(重现了但定不到) → `needs-context`,报告附**已排除的假设(带证据)**,请用户给方向 / 补信息。别硬编个根因往下走。
 
 > 领域文档(`docs/context`)归 design 阶段的 `domain-modeling` 维护;investigate 只写 `docs/investigating/`,不碰 `docs/context`。
 

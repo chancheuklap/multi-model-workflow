@@ -52,7 +52,7 @@ Bad: "制定了全面的实施计划,涵盖所有功能模块。"
 
 ## Step 3:Fan-out 派 plan-writer
 
-每个大 issue 派一个 `plan-writer`(`subagent_type: "plan-writer"`)。**互不依赖的 plan 用 `run_in_background: true` 并行;有 blocked_by 链的按依赖序派。** 每个 dispatch 给(且只给)该 writer 它那份 plan 需要的:
+每个大 issue 派一个 `plan-writer`(`subagent_type: "plan-writer"`)。**互不依赖的 plan 用 宿主后台派发 并行;有 blocked_by 链的按依赖序派。** 每个 dispatch 给(且只给)该 writer 它那份 plan 需要的:
 
 - **落点**:`docs/plans/<slug>/00N-<issue-slug>.md`(slug 与源设计 / issue 对齐,已含日期;多 plan 同一目录)
 - **源设计文档路径**(含 Step 2 的合同骨架:architecture / `## 合同边界` / `## Cross-Plan Contract Anchors`——writer 据此知道能碰哪些文件、provide/consume 哪些接口)

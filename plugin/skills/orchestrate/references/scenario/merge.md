@@ -14,7 +14,7 @@ mmw task team
 
 逐个在管 worktree 一行:`slug / title / scenario / phase / status / branch / base_commit / design / open_items / subtasks`。
 
-据此写 **merge-brief**:`.claude/multi-model-workflow/<slug>-merge-brief.md`(本场唯一"合并后正确状态"权威源,后续每次派 Codex 都引它的路径、不粘内容)。**merge 在主仓库跑,一切产物只落 `.claude/multi-model-workflow/` 状态平面(对 git 隐形),不写 `docs/`、不给主分支留残留。** 含:
+据此写 **merge-brief**:`状态平面/<slug>-merge-brief.md`(本场唯一"合并后正确状态"权威源,后续每次派 Codex 都引它的路径、不粘内容)。**merge 在主仓库跑,一切产物只落 `状态平面/` 状态平面(对 git 隐形),不写 `docs/`、不给主分支留残留。** 含:
 - **PR 表**:PR / branch / 核心行为 / 各自 ④终审 verdict / 对应 issue。
 - **合同地图**:所有跨 PR 合同面(model / API / schema / registry / migration)。
 - **文件交叉矩阵**:被多个 PR 改的文件。
@@ -45,7 +45,7 @@ mmw task team
 | 分类 | 条件 | 路由 |
 |---|---|---|
 | **简单** | 代码级(import 序、同文件不同区);≤2 文件;修向明确 | Coordinator 直接修 |
-| **复杂·根因明** | 功能/合同冲突;多文件;但谁该 win 清楚 | Coordinator 修,或派 Codex 定向修:先写一份定向修复 mini-plan(冲突点 + 谁该 win + 验收命令)落 `.claude/multi-model-workflow/`,作 `--plan` 传给 `mmw codex dispatch`(Bash 工具 `run_in_background: true` 起,防 10 分钟超时) |
+| **复杂·根因明** | 功能/合同冲突;多文件;但谁该 win 清楚 | Coordinator 修,或派 Codex 定向修:先写一份定向修复 mini-plan(冲突点 + 谁该 win + 验收命令)落 `状态平面/`,作 `--plan` 传给 `mmw worker dispatch`(宿主后台派发(见 host-contract) 起,防 10 分钟超时) |
 | **系统性·根因不明** | 意图冲突 / 隐式依赖 / 多冲突相互关联 / 要懂整体架构才能判 | **先按「系统性冲突调查」那步查清再修** |
 
 判据:5 分钟看不懂冲突、或 explorer 初判"不确定"、或多冲突彼此关联、或意图冲突/隐式依赖 → 默认系统性。
@@ -74,10 +74,10 @@ mmw task team
 ## 6. 跨 PR 集成审(全合完跑一次)
 
 ```bash
-mmw review start --stage merge-impl --source .claude/multi-model-workflow/<slug>-merge-brief.md
+mmw review start --stage merge-impl --source 状态平面/<slug>-merge-brief.md
 ```
 
-派两个独立 Codex 审者(读它已装的 `worktree-review` skill,按 `stage=merge-impl` 走七角度),**不信各 PR 的 ④终审、独立验组合行为**。findings 走 review 留痕(`.claude/multi-model-workflow/<slug>-merge-impl-review.md`,主仓库不落 docs/)、亲验、disposition。**修复软上限 1 轮**(简单 Coordinator 修、复杂派 Codex);修完自验(对照 merge-brief 合同地图 + 七角度 + 跑验收)→ 过即闭合,不过 → BLOCKED 报用户。
+派两个独立 Codex 审者(读它已装的 `worktree-review` skill,按 `stage=merge-impl` 走七角度),**不信各 PR 的 ④终审、独立验组合行为**。findings 走 review 留痕(`状态平面/<slug>-merge-impl-review.md`,主仓库不落 docs/)、亲验、disposition。**修复软上限 1 轮**(简单 Coordinator 修、复杂派 Codex);修完自验(对照 merge-brief 合同地图 + 七角度 + 跑验收)→ 过即闭合,不过 → BLOCKED 报用户。
 
 ## 7. 清扫 + 返回
 

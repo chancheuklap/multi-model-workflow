@@ -2,6 +2,9 @@
 # codex-worker.sh 空跑(fake codex):派发组对 prompt 铁律 + codex 参数、建 worktree、
 # 记 session、resume 续会话。不连真 Codex。
 set -euo pipefail
+export MMW_HOST="${MMW_HOST:-claude}"
+STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
+WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CW="$SCRIPT_DIR/../codex-worker.sh"
 
@@ -36,7 +39,7 @@ WT="$TMP/wt-001"
 OUT="$(bash "$CW" dispatch --plan "$PLAN" --worktree "$WT" --design "$DESIGN" --issue "$ISSUE" 2>/dev/null)"
 [ -d "$WT" ] && ok "worktree 不存在则建好" || no "建 worktree"
 [ "$(git -C "$WT" branch --show-current)" = "codex/wt-001" ] && ok "子 worktree 挂 codex/<名> 分支(不留 detached)" || no "worktree 分支 ($(git -C "$WT" branch --show-current))"
-[ "$(cat "$WT/.claude/.gitignore" 2>/dev/null)" = "*" ] && ok "状态平面 .claude/ 已 gitignore(防 add -A 污染)" || no ".claude gitignore"
+parent="${STATE_SUBDIR%%/*}"; [ "$(cat "$WT/$parent/.gitignore" 2>/dev/null)" = "*" ] && ok "状态平面 parent 已 gitignore(防 add -A 污染)" || no "state parent gitignore"
 PROMPT="$(cat "$FAKE_CAP/stdin")"
 # 瘦派发:prompt 只给指针(指向 worktree-build skill)+ 三文档路径;铁律本体在 Codex 侧 skill,不在 prompt
 echo "$PROMPT" | grep -q "worktree-build" && ok "prompt 指向 worktree-build skill(铁律渐进加载)" || no "指向 build skill"
@@ -52,7 +55,7 @@ echo "$ARGV" | grep -q -- "-C $WT" && ok "codex -C <worktree>" || no "-C worktre
 echo "$ARGV" | grep -q -- "--sandbox workspace-write" && ok "--sandbox workspace-write" || no "sandbox"
 echo "$ARGV" | grep -q -- "--add-dir" && ok "--add-dir 放行 git common dir" || no "add-dir"
 echo "$OUT" | grep -q "SESSION=sess-123" && ok "抓到并打印 session id" || no "session 记账"
-[ "$(cat "$WT/.claude/multi-model-workflow/codex-session")" = "sess-123" ] && ok "session 落盘供 resume" || no "session 落盘"
+[ "$(cat "$WT/${STATE_SUBDIR}/codex-session")" = "sess-123" ] && ok "session 落盘供 resume" || no "session 落盘"
 echo "$OUT" | grep -q "codex done" && ok "打印 codex 最后消息(供验收)" || no "最后消息"
 # design/issue 可空(small-change/bug):空时不应出现裸标签行(放最后,免得覆盖上面 argv 断言)
 bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-nodoc" >/dev/null 2>&1
@@ -70,10 +73,10 @@ echo "$ARGV2" | grep -q -- "-m gpt-5.4" && ok "resume 复用派发模型档(不�
 [ "$(cat "$FAKE_CAP/stdin")" = "fix this" ] && ok "resume 发回修复指令" || no "resume 指令"
 
 # resume 兜捞:session 文件丢(dispatch 被杀)→ 从 run.log 捞回,不丢续会话能力
-rm "$WT/.claude/multi-model-workflow/codex-session"
+rm "$WT/${STATE_SUBDIR}/codex-session"
 bash "$CW" resume --worktree "$WT" --instructions "$INSTR" >/dev/null 2>&1
 grep -q "resume sess-123" "$FAKE_CAP/argv" && ok "session 丢失从 run.log 捞回 resume" || no "run.log 捞回"
-[ "$(cat "$WT/.claude/multi-model-workflow/codex-session" 2>/dev/null)" = "sess-123" ] && ok "捞回后补记 session 落盘" || no "捞回补记"
+[ "$(cat "$WT/${STATE_SUBDIR}/codex-session" 2>/dev/null)" = "sess-123" ] && ok "捞回后补记 session 落盘" || no "捞回补记"
 
 # fail-closed
 if bash "$CW" dispatch --plan /nope.md --worktree "$WT" >/dev/null 2>&1; then no "缺/坏 plan 被拒"; else ok "坏 plan 被拒"; fi

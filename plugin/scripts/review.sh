@@ -9,7 +9,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib/host.sh
+. "$SCRIPT_DIR/lib/host.sh"
 LOOP="$SCRIPT_DIR/loop.sh"
+STATE_SUBDIR="$(mmw_state_subdir)"
 MMW="bash \"$SCRIPT_DIR/mmw.sh\""   # 打印给协调帮手的命令,完整可执行形式
 # 审 = 高判断,审者跑高档;可 env 覆盖。
 # Codex 审者(外部 agent)走 codex exec 无头,模型/档在这里钉;
@@ -20,16 +23,55 @@ CODEX_REVIEW_EFFORT="${CODEX_REVIEW_EFFORT:-high}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
-# 主仓库状态平面遮蔽(merge-impl 在主仓库起审时写 .claude/multi-model-workflow/):
-# 与 prepare.sh 同款,幂等;worktree 内已有全遮蔽(*)直接跳过。
-ensure_state_ignore() {  # $1=git toplevel
-  local g="$1/.claude/.gitignore" line
-  mkdir -p "$1/.claude"
-  if [ -f "$g" ] && grep -qxF '*' "$g"; then return 0; fi
-  for line in 'worktrees/' 'multi-model-workflow/' '.gitignore'; do
-    { [ -f "$g" ] && grep -qxF "$line" "$g"; } || printf '%s\n' "$line" >> "$g"
-  done
+# Droid 宿主:把 brief 里的 codex/claude CLI 派发改写成 Task + reviewer-* droids
+overlay_droid_brief_if_needed() {
+  local brief="$1" stage="$2" scen="$3" source="$4"
+  [ "$(mmw_host)" = "droid" ] || return 0
+  local model_a="${DROID_REVIEW_MODEL_A:-gpt-5.4}"
+  local model_b="${DROID_REVIEW_MODEL_B:-claude-opus-4-6}"
+  local dispatch=""
+  case "$stage" in
+    design)
+      dispatch="用 Task 并行派 2 个 Custom Droids(干净 context):
+  - subagent_type=reviewer-design · 轴A · model ${model_a}
+  - subagent_type=reviewer-design · 轴B · model ${model_b}
+每个 prompt:读 worktree-review skill,按 stage=design;你负责 <轴A|轴B>;Source: ${source};按 Return Contract 回 findings。"
+      ;;
+    plan)
+      dispatch="用 Task 并行派 2 个 Custom Droids:
+  - subagent_type=reviewer-plan · 轴A · model ${model_a}
+  - subagent_type=reviewer-plan · 轴B · model ${model_b}
+prompt:读 worktree-review skill,按 stage=plan;你负责 <轴A|轴B>;Source: ${source}。"
+      ;;
+    final)
+      if [ "$scen" = "small-change" ] || [ "$scen" = "bug" ]; then
+        dispatch="小任务 final:派 1 个 Task droid reviewer-final-a 一肩挑两视角。
+prompt:读 worktree-review skill,按 stage=final;覆盖基线1+基线2;Source: ${source}。"
+      else
+        dispatch="④final:Task 并行 reviewer-final-a + reviewer-final-b(写者≠验者,模型不同)。
+prompt:读 worktree-review skill,按 stage=final;你负责 <基线1|基线2>;Source: ${source}。
+可按 diff 规模扩到 4 路(每视角两模型)。"
+      fi
+      ;;
+    *)
+      dispatch="用 Task 派 reviewer-* droid,stage=${stage}。Source: ${source}。"
+      ;;
+  esac
+  {
+    echo "# 审核协调帮手 brief(stage=${stage} · host=droid · 机器生成,读完照做)"
+    echo
+    echo "你是审核协调帮手,跑 kind=review 审 loop,不自己写结论也不改产物。"
+    echo "Source: ${source}"
+    echo "宿主: droid · 壳工具: Execute · 问人: AskUser"
+    echo
+    echo "## 派审者"
+    printf '%s\n' "$dispatch"
+    echo
+    awk 'BEGIN{p=0} /^## 留痕|^把全部审者|^## 收回|亲验后|## 收敛/{p=1} p{print}' "$brief" 2>/dev/null || true
+  } > "${brief}.tmp" && mv "${brief}.tmp" "$brief"
 }
+
+# 主仓库状态平面遮蔽见 lib/host.sh mmw_ensure_state_ignore
 
 cmd_start() {
   local stage=""; local -a sources=()
@@ -57,19 +99,19 @@ cmd_start() {
 
   local top scen brief
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
-  scen="$(jq -r '.scenario // ""' "$top/.claude/multi-model-workflow/task.json" 2>/dev/null || echo "")"
-  brief="$top/.claude/multi-model-workflow/review-brief.md"
-  ensure_state_ignore "$top"
-  mkdir -p "$top/.claude/multi-model-workflow"
+  scen="$(jq -r '.scenario // ""' "$top/$STATE_SUBDIR/task.json" 2>/dev/null || echo "")"
+  brief="$top/$STATE_SUBDIR/review-brief.md"
+  mmw_ensure_state_ignore "$top"
+  mkdir -p "$top/$STATE_SUBDIR"
 
   # 留痕落点:任务审(worktree 内)走 docs/reviews/(docs/.gitignore 已忽略);
   # merge-impl 在主仓库跑,不落 docs/ ——一切主仓库产物进状态平面,零残留。
   local trace="docs/reviews/<slug>-$stage.md"
-  [ "$stage" = "merge-impl" ] && trace=".claude/multi-model-workflow/<slug>-merge-impl-review.md"
+  [ "$stage" = "merge-impl" ] && trace="$STATE_SUBDIR/<slug>-merge-impl-review.md"
 
   # fail-closed:未收束的 execution loop 不许被起审静默清掉(步账里存着 plan↔worktree 派发映射,
   # 清了断点恢复账本就没了)。先做完(exit-check DONE)或人工 mmw loop close 再起审。
-  local lf="$top/.claude/multi-model-workflow/loop-state.json"
+  local lf="$top/$STATE_SUBDIR/loop-state.json"
   if [ -f "$lf" ] && [ "$(jq -r '.kind // ""' "$lf" 2>/dev/null)" = "execution" ]; then
     local lst; lst="$(bash "$LOOP" exit-check 2>/dev/null || echo "?")"
     [ "$lst" = "DONE" ] || die "execution loop 未收束($lst),拒绝起审(防落地步账被静默清);先做完或显式 mmw loop close"
@@ -85,7 +127,7 @@ cmd_start() {
   fi
 
   cat <<EOF
-REVIEW_STARTED stage=$stage kind=$kind
+REVIEW_STARTED stage=$stage kind=$kind host=$(mmw_host)
 
 下一步(主线程):
 1. 抽覆盖清单进 loop(判断,从源文档逐条抽):
@@ -129,7 +171,7 @@ EOF
   # → fail-closed 保 4 审者。阈值 env REVIEW_TIER_DIFF_MAX 覆盖,默认 800 改动行。
   local tier=4
   if [ "$stage" = "final" ] && [ "$scen" = "develop" ]; then
-    local man="$top/.claude/multi-model-workflow/task.json"
+    local man="$top/$STATE_SUBDIR/task.json"
     local base tslug pdir cap diffn
     base="$(jq -r '.base_commit // ""' "$man" 2>/dev/null || echo "")"
     tslug="$(jq -r '.slug // ""' "$man" 2>/dev/null || echo "")"
@@ -150,7 +192,7 @@ EOF
     dispatch="$(cat <<DISPATCH
 派 **1 个独立 Codex 审者一肩挑两路视角**($views)——本任务是 $scen,diff 小,不派双模型:
   codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>   (run_in_background)
-  prompt(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=final 审;两路视角($views)都由你覆盖,先跑完基线2(不看 plan 全新眼光审 diff)再跑基线1(对 design/issue 逐条);Source: $source;按 skill 的 Return Contract 回结构化 findings。
+  prompt(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=final 审;两路视角($views)都由你覆盖,先跑完基线2(不看 plan 全新眼光审 diff)再跑基线1(对 design/issue 逐条);Source: ${source};按 skill 的 Return Contract 回结构化 findings。
   续接用 codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,掉回 config 默认,必须整套重钉)。
 DISPATCH
 )"
@@ -160,7 +202,7 @@ DISPATCH
 并行起、各自干净 context、互不通气。仍跨模型互补:
   基线1(回归+意图+跨plan)→ Codex:codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>   (run_in_background)
   基线2(独立代码审计,全新眼光)→ Claude:用 **Agent 工具派会话内 sub-agent** code-reviewer(模型/档在该 agent 定,只读),传 stage=final、视角=基线2、Source=${source}。走会话内 sub-agent,不另起无头进程(那会另计费)。
-  prompt/传参(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=final 审;你负责 <基线1|基线2> 这一路视角;Source: $source;按 skill 的 Return Contract 回结构化 findings。
+  prompt/传参(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=final 审;你负责 <基线1|基线2> 这一路视角;Source: ${source};按 skill 的 Return Contract 回结构化 findings。
   续接:Codex 用 codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,掉回 config 默认,必须整套重钉);Claude 侧再派一个 code-reviewer sub-agent 续审同视角(不复用被审 context)。
 DISPATCH
 )"
@@ -169,7 +211,7 @@ DISPATCH
 ④final 双模型:派 **4 个独立审者 = 两路视角($views)× 两个模型(Codex / Claude)**,
 并行起、各自干净 context、互不通气。
 四个审者读**同一份方法论**(只有"你负责 <视角>"一处不同):
-  读你已装的 worktree-review skill,按 stage=final 审(skill 落点 ~/.agents/skills/worktree-review/,两模型同读此单源);你负责 <基线1|基线2> 这一路视角;Source: $source;按 skill 的 Return Contract 回结构化 findings。
+  读你已装的 worktree-review skill,按 stage=final 审(skill 落点 ~/.agents/skills/worktree-review/,两模型同读此单源);你负责 <基线1|基线2> 这一路视角;Source: ${source};按 skill 的 Return Contract 回结构化 findings。
 派发(每视角两模型各一个):
   Codex(× 两视角):codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>   (run_in_background)
   Claude(× 两视角):用 **Agent 工具各派一个会话内 sub-agent** code-reviewer(模型/档在该 agent 定,只读),传 stage=final、视角=<基线1|基线2>、Source=${source}。**走会话内 sub-agent,不另起无头进程**——本会话已在 Claude Code CLI 里,另起无头是独立进程会另外计费;sub-agent 同会话覆盖、天生只读、干净 context。
@@ -181,22 +223,22 @@ DISPATCH
     dispatch="$(cat <<DISPATCH
 派两个独立 Codex 审者($views),单条消息并行起、各自干净 context,每个跑:
   codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>   (run_in_background)
-  prompt(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=$stage 审;你负责其中一路视角(两审者分走 $views);Source: $source;按 skill 的 Return Contract 回结构化 findings。
+  prompt(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=$stage 审;你负责其中一路视角(两审者分走 $views);Source: ${source};按 skill 的 Return Contract 回结构化 findings。
   续接用 codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,掉回 config 默认,必须整套重钉)。
 DISPATCH
 )"
   fi
 
   cat > "$brief" <<EOF
-# 审核协调帮手 brief(stage=$stage · 机器生成,读完照做)
+# 审核协调帮手 brief(stage=$stage · host=$(mmw_host) · 机器生成,读完照做)
 
 你是审核协调帮手,跑 kind=review 审 loop,不自己写结论也不改产物。
-Source: $source
+Source: ${source}
 
 ## 派审者
 $dispatch
 
-以上无头 CLI 一律用 Bash 工具 \`run_in_background: true\` 起(审一轮常超前台 10 分钟超时上限),完成后 TaskOutput 收全文;Codex 的 session id 在其输出头部 \`session id:\` 行。
+以上无头 CLI 一律用宿主后台能力起(Claude: Bash \`run_in_background: true\` + TaskOutput; Droid: Task 派 droid)。审一轮常超前台超时上限;Codex 的 session id 在其输出头部 \`session id:\` 行。
 
 ## 留痕(必做)
 把全部审者的结构化 findings **原样落盘** $trace(不重写不摘要,保真+省主线程 context);
@@ -215,8 +257,10 @@ $dispatch
 清单全绿+无开口 Critical 前 guard-loop 不让你停。
 EOF
 
+  overlay_droid_brief_if_needed "$brief" "$stage" "$scen" "$source"
+
   cat <<EOF
-2. 派审核协调帮手(Claude sub-agent,SubagentStop 受 guard-loop 看守),prompt 只给一句:
+2. 派审核协调帮手(subagent/droid: review-coordinator,SubagentStop 受 guard-loop 看守),prompt 只给一句:
    「读 $brief 照做」——派发命令/留痕/亲验/收敛熔断全在 brief 里,不过主线程 context。
 3. 协调帮手停下后,主线程读 loop-state(pause/findings),回 review/review.md 的收口步 handoff verdict。
 EOF

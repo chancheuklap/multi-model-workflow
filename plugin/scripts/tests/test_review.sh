@@ -2,10 +2,13 @@
 # review.sh 空跑:审闸一条命令——阶段映射 kind/视角 对、init loop、brief 落盘(不过主线程 context)、
 # 纯路由指向已装 worktree-review skill(不给审者 plugin 路径)、④final 按 scenario 分档、bad stage 拦。
 set -euo pipefail
+export MMW_HOST="${MMW_HOST:-claude}"
+STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
+WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REVIEW="$SCRIPT_DIR/../review.sh"
-LOOPF=".claude/multi-model-workflow/loop-state.json"
-BRIEF=".claude/multi-model-workflow/review-brief.md"
+LOOPF="${STATE_SUBDIR}/loop-state.json"
+BRIEF="${STATE_SUBDIR}/review-brief.md"
 
 pass=0; fail=0
 ok() { echo "  PASS: $1"; pass=$((pass+1)); }
@@ -50,22 +53,22 @@ echo "$B" | grep -q "同一段\|同一份" && ok "final 两模型读同一段方
 echo "$B" | grep -q "再派一个 code-reviewer" && ok "Claude 审者续接=再派 sub-agent" || no "claude sub-agent 续接"
 
 # ④final 分档:small-change/bug 任务 → 1×Codex 一肩挑两视角,不派双模型
-mkdir -p .claude/multi-model-workflow
-echo '{"scenario":"small-change"}' > .claude/multi-model-workflow/task.json
+mkdir -p ${STATE_SUBDIR}
+echo '{"scenario":"small-change"}' > ${STATE_SUBDIR}/task.json
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 B="$(cat "$BRIEF")"
 echo "$B" | grep -q "1 个独立 Codex 审者一肩挑" && ok "small-change ④ 降档:1×Codex 一肩挑两视角" || no "small-change 降档"
 { echo "$B" | grep -q "claude -p" || echo "$B" | grep -q "code-reviewer"; } && no "small-change ④ 不该派 Claude(省 token)" || ok "small-change ④ 无双模型开销"
-echo '{"scenario":"bug"}' > .claude/multi-model-workflow/task.json
+echo '{"scenario":"bug"}' > ${STATE_SUBDIR}/task.json
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 grep -q "1 个独立 Codex 审者一肩挑" "$BRIEF" && ok "bug ④ 同样降档" || no "bug 降档"
-echo '{"scenario":"develop"}' > .claude/multi-model-workflow/task.json
+echo '{"scenario":"develop"}' > ${STATE_SUBDIR}/task.json
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 grep -q "4 个独立审者" "$BRIEF" && ok "develop ④ 判不出数据(无 base/slug)→ fail-closed 保 4 审者" || no "develop fail-closed 4"
 
 # ④final develop 风险分档:全 plan 无 capable 且 diff 小 → 2 审者;有 capable → 4 审者
 BASE="$(git rev-parse HEAD)"
-printf '{"scenario":"develop","base_commit":"%s","slug":"t1"}' "$BASE" > .claude/multi-model-workflow/task.json
+printf '{"scenario":"develop","base_commit":"%s","slug":"t1"}' "$BASE" > ${STATE_SUBDIR}/task.json
 mkdir -p docs/plans/t1
 printf '**Complexity:** standard\n' > docs/plans/t1/001-a.md
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
@@ -100,7 +103,7 @@ bash "$REVIEW" start --stage design --source x >/dev/null 2>&1
 bash "$REVIEW" start --stage design --source x >/dev/null 2>&1
 grep -q "docs/reviews/<slug>-design.md" "$BRIEF" && ok "任务审留痕落 docs/reviews/" || no "design 留痕落点"
 bash "$REVIEW" start --stage merge-impl --source x >/dev/null 2>&1
-grep -q ".claude/multi-model-workflow/<slug>-merge-impl-review.md" "$BRIEF" && ok "merge-impl 留痕落状态平面(主仓库零残留)" || no "merge-impl 留痕落点"
+grep -q "${STATE_SUBDIR}/<slug>-merge-impl-review.md" "$BRIEF" && ok "merge-impl 留痕落状态平面(主仓库零残留)" || no "merge-impl 留痕落点"
 grep -q "docs/reviews/" "$BRIEF" && no "merge-impl 不该指 docs/" || ok "merge-impl 不写 docs/"
 # 主仓库状态平面已遮蔽:起审后 git status 不冒 ?? .claude/
 grep -qxF 'multi-model-workflow/' .claude/.gitignore && ok "review start 遮蔽主仓库状态平面" || no "review 遮蔽"

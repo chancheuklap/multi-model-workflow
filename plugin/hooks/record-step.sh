@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
-# PostToolUse(commit):提交即记 step done(机器记,不让帮手手写进度)。
-# 从 commit message 抽 Pack id(已被提交格式保证),记进 loop-state。PostToolUse 撤不回,只记不拦。
+# PostToolUse(commit):提交即记 step done
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=../scripts/lib/host.sh
+. "$SCRIPT_DIR/../scripts/lib/host.sh"
 LOOP="$SCRIPT_DIR/../scripts/loop.sh"
+STATE_SUBDIR="$(mmw_state_subdir)"
 
 input="$(cat)"
 cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")"
 printf '%s' "$cmd" | grep -Eq 'git[[:space:]]+commit' || exit 0
 
-# 抽 "Pack N.M"(commit 格式由提交纪律保证;Ruling 1 同理,格式输入用 grep 解析合法)
 pack="$(printf '%s' "$cmd" | grep -oE 'Pack[[:space:]]+[0-9]+\.[0-9]+' | head -1 || true)"
 [ -n "$pack" ] || exit 0
 id="$(printf '%s' "$pack" | awk '{print $2}')"
 
 top="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
-[ -f "$top/.claude/multi-model-workflow/loop-state.json" ] || exit 0
+[ -f "$top/$STATE_SUBDIR/loop-state.json" ] || exit 0
 sha="$(git -C "$top" rev-parse HEAD 2>/dev/null || echo "")"
 
-# 记进度失败不拦提交(PostToolUse 撤不回),但留痕——不静默吞
 if ! ( cd "$top" && bash "$LOOP" step done --id "$id" --commit "$sha" ) >/dev/null 2>&1; then
-  echo "record-step: 提交含 $pack 但 step done 失败(id=$id 可能不在 steps,或 loop-state 损坏);进度未记,请人核。" >&2
+  echo "record-step: 提交含 $pack 但 step done 失败(id=$id);进度未记,请人核。" >&2
 fi
 exit 0

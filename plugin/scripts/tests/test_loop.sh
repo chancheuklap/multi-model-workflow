@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # loop.sh 内层引擎空跑:看守 exit-check、软停×在场、冒泡、审核 checklist、合同门。
 set -euo pipefail
+export MMW_HOST="${MMW_HOST:-claude}"
+STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
+WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOOP="$SCRIPT_DIR/../loop.sh"
 
@@ -23,7 +26,7 @@ bash "$LOOP" step done --id 1.1 --commit abc >/dev/null
 bash "$LOOP" step done --id 1.2 >/dev/null
 [ "$(ec)" = "DONE" ] && ok "全 done → DONE(看守放停)" || no "全 done ($(ec))"
 # 回归:step done 不带 --commit 不许把元素从步账蒸发(旧 jq select 写法之坑)
-f0=".claude/multi-model-workflow/loop-state.json"
+f0="${STATE_SUBDIR}/loop-state.json"
 [ "$(jq -r '.steps|length' "$f0")" = "2" ] && ok "done 不带 commit 步账元素保留(不蒸发)" || no "步账蒸发!($(jq -r '.steps|length' "$f0"))"
 [ "$(jq -r '.steps[1].commit' "$f0")" = "null" ] && ok "无 commit 时字段保持 null" || no "commit 字段"
 
@@ -48,7 +51,7 @@ bash "$LOOP" attendance --mode afk >/dev/null
 bash "$LOOP" attendance --mode afk >/dev/null
 OUT="$(bash "$LOOP" softstop --question "用默认超时?" --default 30s --at-step 2.1)"
 echo "$OUT" | grep -q "AUTO-DECIDED" && ok "afk 软停 → 自决" || no "afk 自决"
-f=".claude/multi-model-workflow/loop-state.json"
+f="${STATE_SUBDIR}/loop-state.json"
 [ "$(jq -r '.decisions|length' "$f")" = "1" ] && ok "afk 自决留痕(decisions)" || no "afk 留痕"
 [ "$(jq -r '.pause' "$f")" = "null" ] && ok "afk 不写 pause、不停" || no "afk 不停"
 # attended:写 pause、停
@@ -87,7 +90,7 @@ bash "$LOOP" checklist cover --item contractA --evidence "接上了" >/dev/null
 [ "$(ec)" = "DONE" ] && ok "合同门:全提交+合同在 → DONE" || no "合同门 DONE ($(ec))"
 
 # ===== 模式B 步账记 plan/worktree(内层断点恢复)+ init 守卫 + close 幂等 =====
-CF=".claude/multi-model-workflow/loop-state.json"
+CF="${STATE_SUBDIR}/loop-state.json"
 bash "$LOOP" close >/dev/null   # 收束上一个 contract-gate loop
 bash "$LOOP" init --kind execution >/dev/null
 # init 守卫:已有未收束 loop 再 init 被拒(防手滑抹掉 execution 进度/子 worktree 映射)
@@ -121,8 +124,8 @@ bash "$LOOP" checklist cover --item no-cross-plan-contracts --evidence "design.m
 # ===== 审 loop 轮账:round next 机器计数,到 max_rounds 自动 surface 熔断 =====
 bash "$LOOP" close >/dev/null
 bash "$LOOP" init --kind review --max-rounds 2 >/dev/null
-[ "$(jq -r '.round' ".claude/multi-model-workflow/loop-state.json")" = "1" ] && ok "init round=1" || no "init round"
-[ "$(jq -r '.max_rounds' ".claude/multi-model-workflow/loop-state.json")" = "2" ] && ok "init max_rounds=2" || no "init max_rounds"
+[ "$(jq -r '.round' "${STATE_SUBDIR}/loop-state.json")" = "1" ] && ok "init round=1" || no "init round"
+[ "$(jq -r '.max_rounds' "${STATE_SUBDIR}/loop-state.json")" = "2" ] && ok "init max_rounds=2" || no "init max_rounds"
 OUTR="$(bash "$LOOP" round next)"
 echo "$OUTR" | grep -q "ROUND=2/2" && ok "round next → 2/2" || no "round next ($OUTR)"
 OUTR2="$(bash "$LOOP" round next)"
@@ -132,7 +135,7 @@ echo "$(ec)" | grep -q "PAUSED:needs-redirection" && ok "熔断自动 surface(ex
 bash "$LOOP" resume >/dev/null
 bash "$LOOP" checklist add --item x1 --source s:1 >/dev/null
 bash "$LOOP" checklist cover --item x1 >/dev/null
-[ "$(jq -r '.checklist|length' ".claude/multi-model-workflow/loop-state.json")" = "1" ] && ok "cover 不带 evidence 清单元素保留(不蒸发)" || no "清单蒸发!"
+[ "$(jq -r '.checklist|length' "${STATE_SUBDIR}/loop-state.json")" = "1" ] && ok "cover 不带 evidence 清单元素保留(不蒸发)" || no "清单蒸发!"
 bash "$LOOP" close >/dev/null
 
 # ===== fail-closed:坏 kind / 缺参 =====
@@ -140,7 +143,7 @@ if bash "$LOOP" init --kind bogus >/dev/null 2>&1; then no "坏 kind 被拒"; el
 if bash "$LOOP" surface --kind needs-context >/dev/null 2>&1; then no "surface 缺 question 被拒"; else ok "surface 缺 question 被拒"; fi
 
 # ===== fail-open 防护:上游 jq 失败不把状态截成 0 字节(违"不搞静默兜底")=====
-LF=".claude/multi-model-workflow/loop-state.json"
+LF="${STATE_SUBDIR}/loop-state.json"
 bash "$LOOP" init --kind review >/dev/null
 SZB="$(wc -c < "$LF")"
 # 非数字 confidence → --argjson 失败 → 应拒写、退非零、原文件保留

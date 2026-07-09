@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # prepare.sh 端到端自检:new → resume → cleanup,跑在一次性 git 仓库里。
 set -euo pipefail
+export MMW_HOST="${MMW_HOST:-claude}"
+STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
+WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREPARE="$SCRIPT_DIR/../prepare.sh"
 
@@ -19,7 +22,7 @@ SLUG="2026-06-28-test-feature"
 
 # --- new ---
 OUT="$(bash "$PREPARE" new --scenario develop --slug "$SLUG" --title "测试任务" 2>/dev/null)"
-WT="$TMP/.claude/worktrees/$SLUG"
+WT="$TMP/${WT_REL}/$SLUG"
 echo "$OUT" | grep -q "^PREPARED" && ok "new 返回 PREPARED" || no "new 返回 PREPARED"
 [ -d "$WT" ] && ok "worktree 目录建好" || no "worktree 目录建好"
 git show-ref --verify --quiet "refs/heads/$SLUG" && ok "分支建好" || no "分支建好"
@@ -31,7 +34,7 @@ grep -qxF 'worktrees/' .claude/.gitignore && grep -qxF 'multi-model-workflow/' .
 LC1="$(wc -l < .claude/.gitignore)"
 bash "$PREPARE" new --scenario bug --slug 2026-06-28-idem --title t >/dev/null 2>&1
 [ "$(wc -l < .claude/.gitignore)" = "$LC1" ] && ok "遮蔽写入幂等(重复 new 不追行)" || no "遮蔽幂等"
-git worktree remove --force "$TMP/.claude/worktrees/2026-06-28-idem" >/dev/null 2>&1; git branch -D 2026-06-28-idem >/dev/null 2>&1; git worktree prune >/dev/null 2>&1   # 清掉幂等试探,不影响后续 team 断言
+git worktree remove --force "$TMP/${WT_REL}/2026-06-28-idem" >/dev/null 2>&1; git branch -D 2026-06-28-idem >/dev/null 2>&1; git worktree prune >/dev/null 2>&1   # 清掉幂等试探,不影响后续 team 断言
 grep -q "investigating/" "$WT/docs/.gitignore" && grep -q "reviews/" "$WT/docs/.gitignore" && grep -q -- "-final-review.md" "$WT/docs/.gitignore" && ok "过程产物 docs/.gitignore(investigating/reviews/终审报告不存档)" || no "docs gitignore"
 # 提交白名单:设计(含 prototype/mockup)/计划/issue/领域进 git;过程产物 + .gitignore 自身进不了
 mkdir -p "$WT/docs/investigating" "$WT/docs/reviews" "$WT/docs/design/$SLUG/prototype" "$WT/docs/design/$SLUG/mockup"
@@ -48,10 +51,10 @@ docs/issues/001.md
 docs/plans/001.md"
 [ "$STAGED" = "$WANT" ] && ok "add -A 只进白名单(设计+prototype+mockup+issue+计划+领域;无过程产物无 .gitignore)" || no "提交白名单 (staged=$(echo $STAGED))"
 git -C "$WT" reset -q
-[ "$(jq -r .docs.plans "$WT/.claude/multi-model-workflow/task.json")" = "docs/plans/$SLUG" ] && ok "manifest.docs.plans 路径" || no "docs.plans 路径"
-[ "$(jq -r .docs.design "$WT/.claude/multi-model-workflow/task.json")" = "docs/design/$SLUG" ] && ok "manifest.docs.design 路径" || no "docs.design 路径"
+[ "$(jq -r .docs.plans "$WT/${STATE_SUBDIR}/task.json")" = "docs/plans/$SLUG" ] && ok "manifest.docs.plans 路径" || no "docs.plans 路径"
+[ "$(jq -r .docs.design "$WT/${STATE_SUBDIR}/task.json")" = "docs/design/$SLUG" ] && ok "manifest.docs.design 路径" || no "docs.design 路径"
 
-MAN="$WT/.claude/multi-model-workflow/task.json"
+MAN="$WT/${STATE_SUBDIR}/task.json"
 [ -f "$MAN" ] && ok "manifest 存在" || no "manifest 存在"
 jq -e . "$MAN" >/dev/null 2>&1 && ok "manifest 合法 JSON" || no "manifest 合法 JSON"
 [ "$(jq -r .slug "$MAN")" = "$SLUG" ] && ok "manifest.slug" || no "manifest.slug"

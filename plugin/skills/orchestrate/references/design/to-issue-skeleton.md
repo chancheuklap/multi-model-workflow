@@ -24,11 +24,11 @@ plugin 在 `to-issues` 结果上做两件**适配**(它默认发 GitHub issue tr
 ## Blocked by
 <依赖的其它 issue,或 "None - 可立即开始">
 
-## Design context refs        ← plugin 扩展,至少一条
+## Design context refs ← plugin 扩展,至少一条
 <指向设计文档对应章节,下游零上下文靠它回设计找依据>
 
-## Small issues               ← plugin 扩展
-<!-- PENDING -->              ← 小 issue 由 write-plan-doc 在 plan 阶段补全,这里不填
+## Small issues ← plugin 扩展
+<!-- PENDING --> ← 小 issue 由 write-plan-doc 在 plan 阶段补全,这里不填
 ```
 
 每个大 issue 头部标 **AFK**(可无人值守落地)或 **HITL**(要人盯)。**优先多个 thin slice,而非少数 thick slice。**

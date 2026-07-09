@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# mmw —— multi-model-workflow 统一 CLI。
+# mmw —— multi-model-workflow 统一 CLI(Claude / Droid 双宿主)
 #
-# 整个 plugin 的所有脚本一个入口:主线程 agent 和各阶段 sub-agent 读完 skill,
-# 就用 `mmw <命令>` 推进环节 / 登记 / 派发,不用记 5 个脚本路径。薄路由——底层仍是
-# 各专责脚本(prepare/flow/loop/review/codex-worker),mmw 只把统一动词转发过去。
+#   mmw where | mmw handoff | mmw step | mmw spinoff
+#   mmw task new|resume|cleanup|team|escalate
+#   mmw loop ...
+#   mmw review start ...
+#   mmw worker dispatch|resume|check-docs ...   # 宿主中立写码派发
+#   mmw codex dispatch|resume ...               # 兼容别名 → worker
+#   mmw help
 #
 # 用法(读完 skill 直接用):
 #   推进(最常用,主线程每阶段):
@@ -19,8 +23,10 @@
 #     mmw loop init --kind <execution|review|contract-gate> [--max-rounds N] | attendance | step | round | checklist | finding | softstop | surface | resume | close | exit-check
 #   审闸一条命令:
 #     mmw review start --stage <design|plan|plan-impl|final|merge-impl> --source <...>
-#   Codex 落地派发:
-#     mmw codex dispatch --plan <p> --worktree <wt> | codex resume --worktree <wt> --instructions <f>
+#   写码工人派发(宿主中立;Claude→codex CLI,Droid→Task pack-executor):
+#     mmw worker dispatch --plan <p> --worktree <wt> | worker resume --worktree <wt> --instructions <f>
+#     mmw worker check-docs --worktree <wt>   # Droid 路径 Task 返回后必跑
+#     mmw codex ...                           # 兼容别名,同 worker
 #   进度板(负责人可读投影):
 #     mmw progress render [--stdout]           从 task.json/loop-state 聚合 progress-board.md(--stdout 供 command 注入)
 #   控制面(运行级值守 + 计划外分流):
@@ -28,10 +34,11 @@
 #     mmw unattended enter|status|exit         强无人:enter 过门禁才进(设计+计划已过门、无未答 HITL),不静默降级
 #     mmw side-finding record --tag <t> --disposition issue|fix [--finding <s>]   计划外分流落 open_items
 #   发布红线:merge 回主分支 / push / 部署由 guard-redline(PreToolUse)弹权限框要用户亲批,无令牌可自铸。
+# 状态平面 / worktree 路径随宿主变,见 scripts/lib/host.sh。
 set -euo pipefail
 D="$(cd "$(dirname "$0")" && pwd)"
 
-usage() { sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; }
 
 cmd="${1:-help}"; shift || true
 case "$cmd" in
@@ -39,7 +46,8 @@ case "$cmd" in
   task)   exec bash "$D/prepare.sh" "$@" ;;
   loop)   exec bash "$D/loop.sh" "$@" ;;
   review) exec bash "$D/review.sh" "$@" ;;
-  codex)  exec bash "$D/codex-worker.sh" "$@" ;;
+  worker) exec bash "$D/worker.sh" "$@" ;;
+  codex)  exec bash "$D/worker.sh" "$@" ;;
   progress) exec bash "$D/progress.sh" "$@" ;;
   attend|unattended|side-finding) exec bash "$D/steer.sh" "$cmd" "$@" ;;
   help|-h|--help) usage ;;

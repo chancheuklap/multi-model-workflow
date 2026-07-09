@@ -19,10 +19,10 @@
 
 3. **进 worktree**(只有这步能切会话 cwd,脚本切不了):
    ```
-   EnterWorktree({ path: "<回执里的 worktree_path>" })
+   按 host-contract 进入 worktree: <回执里的 worktree_path>
    ```
 
-提交进分支的文档:设计 `docs/design/`(含 prototype/mockup)、issue `docs/issues/`、计划 `docs/plans/`、领域 `docs/context/`(项目级资产)。**过程产物不永久存档**(`docs/.gitignore` 已忽略,随 worktree 删):现状报告 `docs/investigating/`、审查留痕 `docs/reviews/`、终审报告。临时状态落 `.claude/multi-model-workflow/`。
+提交进分支的文档:设计 `docs/design/`(含 prototype/mockup)、issue `docs/issues/`、计划 `docs/plans/`、领域 `docs/context/`(项目级资产)。**过程产物不永久存档**(`docs/.gitignore` 已忽略,随 worktree 删):现状报告 `docs/investigating/`、审查留痕 `docs/reviews/`、终审报告。临时状态落宿主状态平面(见 host-contract)。
 <!-- END: worktree-setup -->
 
 <!-- BEGIN: phase-contract -->
@@ -63,7 +63,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 | `review` | active | 别 advance(phase 没动)。进审闸:`where` 的 `load` 自动切到 `review/review.md`,跑 `REVIEW_STAGE` 的审 loop;审完再 `handoff` 一次 verdict —— `pass` 才真 advance,`needs-repair` 回本阶段返工。 |
 | `repair` | active | 留在本阶段返工:回 ② 干按缺陷改,改完再 `handoff`。 |
 | `turn-around` | active | 掉头回上游:对 `NEXT_PHASE` 回 ① 进重跑。 |
-| `ask-user` | waiting-user | 停。把缺的输入问用户(在场 `AskUserQuestion`);补齐后 `mmw task resume` 续本阶段。 |
+| `ask-user` | waiting-user | 停。把缺的输入问用户(在场 `宿主问人工具(见 host-contract)`);补齐后 `mmw task resume` 续本阶段。 |
 | `report-user` | blocked | 停。带完整经过上报用户,等指示——别自己硬闯。 |
 | `done` | ready-to-close | 末阶段过 → 走本文「收尾」。 |
 
@@ -78,7 +78,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 回执 `done`(STATUS=ready-to-close)= 末阶段过。合并是红线:回主仓库直接跑 `git merge --no-ff <branch>`(禁 `--squash`)——`guard-redline` 对"合并进主分支"弹权限框,**用户在框里亲批**(无令牌可代批,不分在场/无人值守)。任务分支 merge 进主线后,worktree 连同里面的临时状态一起删:
 
 ```bash
-mmw task cleanup --slug <slug>   # 回主仓库执行
+mmw task cleanup --slug <slug> # 回主仓库执行
 ```
 
 worktree 在**使用期**持久(可跨天,别中途删);**合并后**才 cleanup,worktree + 分支 + `.claude/` 临时状态一并清除。

@@ -3,6 +3,9 @@
 # 平稳推进——接力单逐阶段接得上、审闸该停就停、内外层命令不报错。
 # 这是"端到端平稳"的命令级验收(内容级=真 subagent/Codex,不在单测范围)。
 set -euo pipefail
+export MMW_HOST="${MMW_HOST:-claude}"
+STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
+WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREPARE="$SCRIPT_DIR/../prepare.sh"
 FLOW="$SCRIPT_DIR/../flow.sh"
@@ -12,8 +15,8 @@ REVIEW="$SCRIPT_DIR/../review.sh"
 pass=0; fail=0
 ok() { echo "  PASS: $1"; pass=$((pass+1)); }
 no() { echo "  FAIL: $1"; fail=$((fail+1)); }
-ph() { jq -r .phase "$WT/.claude/multi-model-workflow/task.json"; }
-gate() { jq -r '.gate // "null"' "$WT/.claude/multi-model-workflow/task.json"; }
+ph() { jq -r .phase "$WT/${STATE_SUBDIR}/task.json"; }
+gate() { jq -r '.gate // "null"' "$WT/${STATE_SUBDIR}/task.json"; }
 prevout() { (cd "$WT" && bash "$FLOW" where) | sed -n 's/^prev_outputs=//p'; }
 mkf() { mkdir -p "$WT/$(dirname "$1")"; : > "$WT/$1"; }   # handoff 拒收幽灵产出:先真建
 mkd() { mkdir -p "$WT/$1"; }
@@ -97,7 +100,7 @@ OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass)"
 echo "$OUT" | grep -q "STATUS=ready-to-close" && ok "closing→ready-to-close(端到端贯通)" || no "ready-to-close"
 
 # history 完整:investigate,propose,design,①审,to-issue,plan,②审,build,④审,closing = 10 步
-[ "$(jq -r '.history|length' "$WT/.claude/multi-model-workflow/task.json")" = "10" ] && ok "history 记满 10 步(三审闸 ①②④ 全程留痕)" || no "history 10 ($(jq -r '.history|length' "$WT/.claude/multi-model-workflow/task.json"))"
+[ "$(jq -r '.history|length' "$WT/${STATE_SUBDIR}/task.json")" = "10" ] && ok "history 记满 10 步(三审闸 ①②④ 全程留痕)" || no "history 10 ($(jq -r '.history|length' "$WT/${STATE_SUBDIR}/task.json"))"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

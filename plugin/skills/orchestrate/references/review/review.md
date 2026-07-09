@@ -21,18 +21,18 @@
 ## 1. 主线程:一条命令起审 → 抽清单 → 派协调帮手(①②④)
 
 1. **一条命令起审**(把 init loop + 配审题 + 出 brief 收成一步):
-   ```bash
-   mmw review start --stage <design|plan|final> --source "<源意图路径/待审内容>"
-   ```
-   **直接用 `mmw where` 吐的 `review_start` 整行**(stage 与 `--source` 都填好了:design 闸→design、plan 闸→plan、build 闸→final)。它 init `kind=review` 的 loop、定好该阶段 stage 与两路视角(审查方法+角度在 Codex 侧 `worktree-review` skill,派发只传 stage + Source)、**打印好协调帮手 brief**。你照打印的往下走。
+ ```bash
+ mmw review start --stage <design|plan|final> --source "<源意图路径/待审内容>"
+ ```
+ **直接用 `mmw where` 吐的 `review_start` 整行**(stage 与 `--source` 都填好了:design 闸→design、plan 闸→plan、build 闸→final)。它 init `kind=review` 的 loop、定好该阶段 stage 与两路视角(审查方法+角度在 Codex 侧 `worktree-review` skill,派发只传 stage + Source)、**打印好协调帮手 brief**。你照打印的往下走。
 2. **抽覆盖清单**(判断,留你做):从设计/计划/issue/意图逐条抽"要审到什么",`source` 记从哪份文档哪行抽。客观项(② issue 数=plan 数、④ 意图逐条)标清楚:
-   ```bash
-   mmw loop checklist add --item "<要审到的维度>" --source "<doc:line>"   # 逐条
-   mmw loop attendance --mode <attended|afk>
-   ```
-3. **派审核协调帮手**(Claude sub-agent,SubagentStop 受 guard-loop 看守):prompt 只给一句「读 `.claude/multi-model-workflow/review-brief.md` 照做」——brief 由 `review start` 机器生成落盘(派审者/留痕/亲验/收敛熔断全在里面),不过主线程 context。**别塞你自己的问题清单、别给审者 plugin 内路径。**
+ ```bash
+ mmw loop checklist add --item "<要审到的维度>" --source "<doc:line>" # 逐条
+ mmw loop attendance --mode <attended|afk>
+ ```
+3. **派审核协调帮手**(Claude sub-agent,SubagentStop 受 guard-loop 看守):prompt 只给一句「读 `状态平面/review-brief.md` 照做」——brief 由 `review start` 机器生成落盘(派审者/留痕/亲验/收敛熔断全在里面),不过主线程 context。**别塞你自己的问题清单、别给审者 plugin 内路径。**
 
-   **每个审都留痕(①②④ 都要,不只 ④)**:协调帮手把**全部审者的结构化 findings 原样落盘**到 `docs/reviews/<slug>-<stage>.md`(不重写、不摘要),亲验后把每条的 verdict/处置(accepted / rejected / duplicate / needs-evidence)就近标在该条下,文末写一句总 verdict。主线程收口只**读这份文档的 verdict 段**。留痕是过程产物:已被 `docs/.gitignore` 忽略,随 worktree 删,不进 git 历史。
+ **每个审都留痕(①②④ 都要,不只 ④)**:协调帮手把**全部审者的结构化 findings 原样落盘**到 `docs/reviews/<slug>-<stage>.md`(不重写、不摘要),亲验后把每条的 verdict/处置(accepted / rejected / duplicate / needs-evidence)就近标在该条下,文末写一句总 verdict。主线程收口只**读这份文档的 verdict 段**。留痕是过程产物:已被 `docs/.gitignore` 忽略,随 worktree 删,不进 git 历史。
 
 ## 2. 主线程:收口(协调帮手停下后)
 
@@ -40,15 +40,15 @@
 
 - `pause != null`(surface 冒泡)→ 按 `reason` handoff `needs-redirection` / `needs-context`,交用户。
 - `exit-check` = DONE 且无 accepted 缺陷 → `mmw handoff --conclusion pass`,进下一阶段。
-  - **仅 ④final(build 审闸):handoff `pass` 前先写终审报告**到 `docs/<slug>-final-review.md`(照 `mmw where` 的 `then` 钉 `--produced`),closing 阶段照单读它收口。三段:
-    1. **终审结论**:verdict + 两基线各自结果(回归/意图/跨 plan;独立代码审)+ 放行的 waived 项(环境/账号 gate,带 owner)。
-    2. **意图清单逐条**:最初 design + issue 提取的每条可验证 intent → 达成/未达成 + 证据(`file:line` 或测试名)。
-    3. **业务语言交付摘要**(给项目负责人看,**不用技术术语**):新增能力(每条一个用户可感知的行为变化,如「用户现在可以用手机号登录,15 秒内完成」,不列函数名/文件路径/类名)· 验证证据(跑了哪些验收、什么结果)· 残余风险(已知没覆盖的、需人盯的,诚实列不藏)。
-    ①②审是闸、不产文件,这条不适用。
+ - **仅 ④final(build 审闸):handoff `pass` 前先写终审报告**到 `docs/<slug>-final-review.md`(照 `mmw where` 的 `then` 钉 `--produced`),closing 阶段照单读它收口。三段:
+ 1. **终审结论**:verdict + 两基线各自结果(回归/意图/跨 plan;独立代码审)+ 放行的 waived 项(环境/账号 gate,带 owner)。
+ 2. **意图清单逐条**:最初 design + issue 提取的每条可验证 intent → 达成/未达成 + 证据(`file:line` 或测试名)。
+ 3. **业务语言交付摘要**(给项目负责人看,**不用技术术语**):新增能力(每条一个用户可感知的行为变化,如「用户现在可以用手机号登录,15 秒内完成」,不列函数名/文件路径/类名)· 验证证据(跑了哪些验收、什么结果)· 残余风险(已知没覆盖的、需人盯的,诚实列不藏)。
+ ①②审是闸、不产文件,这条不适用。
 - 有 accepted finding → 按 Gap 选结论词(`needs-repair` 是**原地返工当前阶段**;回上游别的阶段必须 `needs-redirection --to-phase <阶段>`):
-  - 缺陷在**当前被审阶段**(①审=design、②审=plan、④final=build,gate 的 cur_phase 就是它;④final 的代码缺陷在 build 审闸 loop 里就地修)→ `needs-repair`,改完 handoff 重审。
-  - 根因在**更上游阶段**(②审发现 design 问题、④final 撞破 plan/design)→ `needs-redirection --to-phase <design|plan|build>`,回那阶段改。
-  - Direction(解错问题)→ `needs-redirection`;Context(缺输入)→ `needs-context`。
+ - 缺陷在**当前被审阶段**(①审=design、②审=plan、④final=build,gate 的 cur_phase 就是它;④final 的代码缺陷在 build 审闸 loop 里就地修)→ `needs-repair`,改完 handoff 重审。
+ - 根因在**更上游阶段**(②审发现 design 问题、④final 撞破 plan/design)→ `needs-redirection --to-phase <design|plan|build>`,回那阶段改。
+ - Direction(解错问题)→ `needs-redirection`;Context(缺输入)→ `needs-context`。
 - 超熔断仍不收敛 → `mmw handoff --conclusion blocked`,带经过上报。
 
 **Critical 必须修掉**才能让对应阶段往下走。

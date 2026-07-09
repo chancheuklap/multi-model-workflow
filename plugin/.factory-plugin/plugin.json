@@ -1,6 +1,6 @@
 {
   "name": "multi-model-workflow",
-  "description": "多模型开发编排:讨论/设计与主线程对齐,计划起放权。双宿主 Claude(Codex 写+主线程验)与 Droid(Custom Droids 分角色绑模型)。四审 loop、worktree、断点续传。",
+  "description": "多模型开发编排:讨论/设计与主线程对齐(HITL 集中在 propose/design),计划起放权自主跑。Droid 宿主用 Custom Droids 分角色绑模型(写者≠验者);Claude 宿主保留 Codex 写+Claude 验。四审 loop、worktree 隔离、断点续传。",
   "version": "6.6.0",
   "author": {
     "name": "Cheuk Lap Chan",
@@ -11,11 +11,10 @@
   "keywords": [
     "multi-model",
     "orchestration",
-    "codex",
+    "droid",
+    "factory",
     "worktree",
     "code-review",
-    "hitl",
-    "droid",
-    "factory"
+    "hitl"
   ]
 }

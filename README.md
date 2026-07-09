@@ -1,5 +1,32 @@
 # multi-model-workflow
 
+## plugin/ 双宿主(Claude + Droid)
+
+`plugin/` 是 Claude Code 与 Droid 共用的编排 plugin 源码权威(版本 6.6.0)。
+
+| 宿主 | 安装入口 | 状态平面 | 写码工人 | 审者 |
+| --- | --- | --- | --- | --- |
+| Claude Code | `.claude-plugin/marketplace.json` → `./plugin` | `.claude/multi-model-workflow/` | `mmw worker` → codex CLI | brief 内 codex/claude 无头 CLI |
+| Droid | `.factory-plugin/marketplace.json` → `./plugin` | `.factory/multi-model-workflow/` | `mmw worker` → Task `pack-executor` | Task `reviewer-*` droids |
+
+宿主由脚本自动判定(`plugin/scripts/lib/host.sh`):`MMW_HOST` 显式 > `DROID_PLUGIN_ROOT` > 默认 claude。主线程不读文档切换宿主。合同:`plugin/skills/orchestrate/references/control/host-contract.md`。
+
+```bash
+# Claude: 按既有 marketplace / 本地 plugin 安装
+# Droid:
+#   droid plugin install multi-model-workflow@mmw-droid
+# 或把本仓库加为 marketplace 后安装 source=./plugin
+
+bash plugin/scripts/mmw.sh help
+export MMW_HOST=droid   # 可选
+for t in plugin/scripts/tests/test_*.sh; do bash "$t" || exit 1; done
+```
+
+Custom Droids 在 `plugin/droids/`。hooks matcher 为 `Bash|Execute`。
+
+---
+
+
 本仓库保存同一套编排思想的两个源码入口：
 
 - `plugin/`：上游插件源码和行为蓝本，只读对照。
