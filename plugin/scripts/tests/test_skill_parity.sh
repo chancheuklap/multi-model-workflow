@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# test_skill_parity.sh —— worktree-{build,review} 两副本方法论防漂移
-# plugin/skills/(Droid 用)与 codex-skills/(Claude 侧 Codex CLI 用)是同一套方法论的两副本。
-# references/* 是方法论本体,必须逐字一致;SKILL.md 框架称呼允许不同(Droid 版宿主中立)。
-# 防漂移:改一份忘改另一份 → 此测试报 FAIL。
+# test_skill_parity.sh —— worktree-{build,review} 单源软链完整性
+# codex-skills/worktree-{build,review} 是指向 plugin/skills/ 同名目录的软链(单源:
+# 改 plugin/skills 一处,两宿主都同步;codex-skills 仅供 ~/.agents/skills 软链安装用)。
+# 本测试断言软链没断 + 两路径读到同一份(SKILL.md + references/* 全逐字一致)。
+# 漂移场景:有人把 codex-skills 软链删了改回真实目录且改了内容 → diff 报差异 → FAIL。
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -15,9 +16,8 @@ no() { echo "  FAIL: $1"; fail=$((fail+1)); }
 
 echo "=== test_skill_parity.sh ==="
 
-# codex-skills 不在仓库(结构变了)→ skip,不硬失败
 if [ ! -d "$CODEX_SKILLS" ]; then
-  echo "  SKIP: $CODEX_SKILLS 不存在(结构已变,单源化?);测试退出 0"
+  echo "  SKIP: $CODEX_SKILLS 不存在(结构已变);测试退出 0"
   exit 0
 fi
 
@@ -25,23 +25,21 @@ for s in worktree-build worktree-review; do
   P="$PLUGIN_DIR/skills/$s"
   C="$CODEX_SKILLS/$s"
   [ -d "$P" ] || { no "plugin 副本缺 $s"; continue; }
-  [ -d "$C" ] || { no "codex-skills 副本缺 $s"; continue; }
-  ok "两副本都存在: $s"
+  [ -e "$C" ] || { no "codex-skills 软链缺失 $s"; continue; }
+  # 软链完整性:codex-skills/<s> 应是符号链接(单源),不是真实目录
+  [ -L "$C" ] && ok "$s 是软链(单源指向 plugin/skills)" || no "$s 不是软链(单源结构破坏;应是 symlink → plugin/skills/$s)"
+  ok "两路径都在: $s"
 
-  # references/* 逐字一致(方法论本体,两宿主同源)
-  for f in "$P"/references/*.md; do
+  # SKILL.md + references/* 全逐字一致(软链同源,必然一致;不一致=软链断了或被换成真实目录)
+  for f in "$P"/SKILL.md "$P"/references/*.md; do
     [ -f "$f" ] || continue
-    name="$(basename "$f")"
-    if diff -q "$f" "$C/references/$name" >/dev/null 2>&1; then
-      ok "$s/references/$name 逐字一致"
+    rel="${f#$P/}"
+    if diff -q "$f" "$C/$rel" >/dev/null 2>&1; then
+      ok "$s/$rel 单源一致"
     else
-      no "$s/references/$name 两副本漂移(改了一处忘另一处;方法论本体必须同源)"
+      no "$s/$rel 两路径不一致(软链断或被换成真实目录且漂移)"
     fi
   done
-
-  # SKILL.md 必须都存在(框架称呼允许不同,不逐字比对)
-  [ -f "$P/SKILL.md" ] && [ -f "$C/SKILL.md" ] && ok "$s/SKILL.md 两副本都在(称呼允许差异)" \
-    || no "$s/SKILL.md 缺一份"
 done
 
 echo ""
