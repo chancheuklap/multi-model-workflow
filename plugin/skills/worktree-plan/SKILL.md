@@ -35,8 +35,32 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
 
 ## 3. 写作步骤
 
-1. **规划文件结构**:定义哪些文件被创建 / 修改、各负责什么。每文件一个明确职责;一起变更的文件住一起(按职责拆不按技术层拆);遵循既有模式。
-2. **写 Plan Header**:`# <Issue Title> Implementation Plan` + Goal / Source design / Source issue / Blocked by / Architecture / Tech stack + `## Global Constraints`(值从设计 / 项目规则逐字抄)+ `## File / Responsibility Map` + `## Dependency Graph`(多 pack 时 ASCII)+ `## 发布风险和人工门禁`。
+1. **规划文件结构**:定义哪些文件被创建 / 修改、各负责什么——分解决策锁在这里。每文件一个明确职责;一起变更的文件住一起(按职责拆不按技术层拆);遵循既有模式。
+2. **写 Plan Header**(照此骨架):
+
+   ```markdown
+   # <Issue Title> Implementation Plan
+
+   **Goal:** <一句话目标>
+   **Source design:** docs/design/<YYYY-MM-DD>-<slug>.md
+   **Source issue:** docs/issues/<YYYY-MM-DD>-<slug>/00N-<issue-slug>.md
+   **Blocked by:** <其他 plan 编号或 "None">
+   **Architecture:** <与本 issue 相关的实现方向>
+   **Tech stack:** <实际涉及的框架、服务、测试工具>
+
+   ## Global Constraints
+   项目级硬约束,每条一行,**值从设计 / 项目规则逐字抄来**(版本下限、依赖限制、命名与文案规则、平台要求、项目不变量、计费 / 权限红线)。本节隐含适用于本 plan 每个 Task Pack。
+
+   ## File / Responsibility Map
+   **Create / Modify / Test / Docs·rules·registry·migration:** `path` — responsibility / behavior / why it changes
+
+   ## Dependency Graph(本 plan 内多 pack 时画 ASCII + 排序理由)
+   Pack 1 ─┬─> Pack 2 ...
+           └─> Pack 3 ...
+
+   ## 发布风险和人工门禁
+   | 风险面 | Task Pack | Risk flag | 提前 review | Manual gate owner |
+   ```
 3. **写 Task Pack + Implementation 步骤**:每个小 issue 一个 Task Pack。**写 pack 前现读 dispatch 给的 `task-pack.md` 全文**,按它的 Task 大小判据 + 模板 + TDD 步骤(RED→GREEN→Refactor 垂直切片)+ 无 Placeholder 规则 + 测试规划严谨度写(都在那一份里)。
 
 ## 4. 方向出口
