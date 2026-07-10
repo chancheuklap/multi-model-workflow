@@ -44,7 +44,7 @@ flowchart TB
             TI["主线程垂直切片<br/>立 issue 骨架喂 plan"]:::ai
         end
         subgraph PH3["拆计划 plan"]
-            PL["plan-writer 帮手<br/>并行多 issue"]:::worker --> R2["②计划审 loop"]:::codex
+            PL["Codex 写计划<br/>并行多 issue"]:::codex --> R2["②计划审 loop<br/>Claude 审"]:::worker
         end
         subgraph PH4["落地 build —— Codex 写 + Claude 验"]
             direction TB
@@ -246,7 +246,7 @@ Codex 返回 → 主线程验收:跑测试/读 diff 坐实 acceptance + 设计�
 
 ## 4b. 同一台 loop 的另一组实例:四个审
 
-loop engineering **不是落地专用**,是通用内层机器。审核也是它的实例,只是"一步"从"写一个 pack"换成"查一个维度/坐实一条 finding",verify 从"跑测试"换成"grep/读/跑去坐实 finding 真假"。**审者载体 = 无头 CLI**(①② Codex;④final Codex+Claude 双模型同 prompt。`codex exec --sandbox read-only` / `claude -p`,读已装的 `worktree-review` skill 按 stage 审——审查方法+角度在 Codex 侧,派发不给 Codex 任何 plugin 路径;**不用 `codex review`**——那走 Codex 内置提示词、绕过我们的方法论;续接走 `codex exec resume`,不走 SendMessage——见 §5b),否则自审自盲。
+loop engineering **不是落地专用**,是通用内层机器。审核也是它的实例,只是"一步"从"写一个 pack"换成"查一个维度/坐实一条 finding",verify 从"跑测试"换成"grep/读/跑去坐实 finding 真假"。**审者载体按写者翻**(写者≠验者):**①设计审 = Codex**(设计是 Claude 写的);**②计划审 = Claude 会话内 code-reviewer**(计划是 Codex 写的,翻成 Claude 审);**④final = Codex+Claude 双模型**同 prompt。都读已装的 `worktree-review` skill 按 stage 审——审查方法+角度在 skill 单源,派发不给审者任何 plugin 路径;**不用 `codex review`**(那走 Codex 内置提示词、绕过我们方法论);Codex 续接走 `codex exec resume`、Claude 续接走再派 sub-agent——见 §5b。否则自审自盲。
 
 整套有**四个审**(`skills/second-model-review`),同一台机器(防幻觉四件套 + 每阶段两个独立视角 + 亲验处置 + Gap 路由),深浅与预算不同:
 
@@ -299,8 +299,8 @@ flowchart LR
 flowchart LR
     U["你<br/>给方向 · 拍业务决策"]:::p
     C["协调 AI = Claude 主线程<br/>判路 · 派活 · 问你 · **验收** · 收口"]:::ai
-    X["Codex 苦力<br/>落地写码 / 审出审查<br/>(codex exec · resume 续)"]:::cx
-    W["Claude 帮手<br/>写计划(plan-writer)/ 协调审<br/>(SendMessage 续)"]:::ai
+    X["Codex 苦力<br/>写计划 / 落地写码 / 审出审查<br/>(codex exec · resume 续)"]:::cx
+    W["Claude 帮手<br/>计划审(code-reviewer)/ 协调审<br/>(SendMessage 续)"]:::ai
     K["脚本/hook<br/>开工 · 换阶段 · 看守 · 拦红线 · 记进度"]:::sh
 
     U --> C
@@ -320,11 +320,11 @@ flowchart LR
 |---|---|---|
 | 你 | 给方向、给真实体感、拍业务决策 | 不管机械细节 |
 | 协调 AI(Claude 主线程) | 判活、派 Codex/帮手、问你、**验收(落地不偏离设计)**、收尾 | 不亲自写生产代码(小改例外) |
-| Codex 苦力 | 落地写码(workspace-write)/ 审出审查(read-only);自驱、不同模型 | 不直接问用户(抛回主线程)、不改 docs、不越界 |
-| Claude 帮手 | 写计划(plan-writer)、协调审(派 Codex+亲验) | 不直接问用户、不越界 |
+| Codex 苦力 | 写计划(只写 docs/plans+issues、不 commit)/ 落地写码(workspace-write)/ 审出审查(read-only);自驱、不同模型 | 不直接问用户(抛回主线程)、写码不改 docs、不越界 |
+| Claude 帮手 | 计划审(code-reviewer 审 Codex 写的计划)、协调审(派 Codex+亲验) | 不直接问用户、不越界 |
 | 脚本/hook | 开工、换阶段、看守、拦红线、记进度、续接管线 | 不做判断 |
 
-**写审异家 = 不同模型**:设计/计划讨论用 **Claude**(跟你对齐);**落地 = Codex 写 + Claude 验**(Codex 苦力,Claude 是对齐了设计的验收闸);**审 = Codex 出审查 + Claude 验**。写者≠验者 = 独立性,这是审查/验收可信的前提。(据用户工作流 PDF 定,推翻早前"落地倾向 Claude"。)
+**写审异家 = 不同模型**:**Claude 管到设计文档**(调查/propose/设计讨论,跟你对齐);**计划起下放 Codex**——**计划 = Codex 写 + Claude 审**、**落地 = Codex 写 + Claude 验**;**①设计审 = Codex 出审查**(设计是 Claude 写的)。写者≠验者 = 独立性,这是审查/验收可信的前提。分工线一句话:Claude 管到设计文档为止,计划起全是"另一个模型写、Claude 审"。
 
 ---
 
@@ -335,11 +335,11 @@ flowchart LR
 | 载体 | 是什么 | 能 | 不能 / 注意 | 怎么续 |
 |---|---|---|---|---|
 | **主线程 = Claude Code** | 协调者(这个对话) | **唯一能问用户**(AskUserQuestion);派 subagent;Bash 调 Codex;跑 hook;**就地做 small-change** | —— | —— |
-| **Claude subagent** | Agent 派,独立 context,回摘要 | **写计划(plan-writer)/ 协调审(派 Codex+亲验)**;后台跑;SubagentStop 看守;自动压缩。**不是落地 worker(落地归 Codex)** | 不能问用户(抛回主线程);Explore/Plan 一次性不可续 | **SendMessage** |
+| **Claude subagent** | Agent 派,独立 context,回摘要 | **计划审(code-reviewer 审 Codex 写的计划)/ 协调审(派 Codex+亲验)**;后台跑;SubagentStop 看守;自动压缩。**不写计划、不落地(都归 Codex)** | 不能问用户(抛回主线程);Explore/Plan 一次性不可续 | **SendMessage** |
 | **Claude 无头 CLI** | `claude -p`,外部进程(④final 双模型审者) | ④final 审 = 与 Codex 同 prompt 读同一份 `worktree-review` skill,各审一路视角 | 不吃 SendMessage/SubagentStop;只读审查,不落地 | **claude -p --resume** |
 | **Codex 无头 CLI** | codex exec,外部进程、**不同模型** | **落地写码 = `codex exec -C <worktree> --sandbox workspace-write`**(build 主力,固定 prompt 严防过度设计);审 = `codex exec --sandbox read-only`,读已装 `worktree-review` skill 按 stage 审(方法在 Codex 侧,不给 plugin 路径);`-m`/effort 分层 | **不是 Claude subagent**:经 Bash 调,不吃 SendMessage/SubagentStop/Claude hook;不能问用户。**`codex review` 绕过我们方法论 → 不用** | **codex exec resume** |
 
-**五条硬规矩**:① 续接两套别混(Claude subagent=SendMessage,Codex=exec resume);② SubagentStop 只看守 Claude subagent(plan-writer/审协调);**build 的 Codex 落地不吃 SubagentStop,防过早完工靠主线程按 plan 验收清单 verify + exit-check 机器核**;③ 只有主线程能问用户,subagent/Codex 都抛回主线程;④ **审/落地都用 `codex exec`,不用 `codex review`**(那绕过我们方法论);⑤ small-change 主线程就地做,不派 Codex/帮手。
+**五条硬规矩**:① 续接两套别混(Claude subagent=SendMessage,Codex=exec resume);② SubagentStop 只看守 Claude subagent(审者/审协调);**build 的 Codex 落地不吃 SubagentStop,防过早完工靠主线程按 plan 验收清单 verify + exit-check 机器核**;③ 只有主线程能问用户,subagent/Codex 都抛回主线程;④ **审/落地都用 `codex exec`,不用 `codex review`**(那绕过我们方法论);⑤ small-change 主线程就地做,不派 Codex/帮手。
 
 ---
 
@@ -476,7 +476,7 @@ flowchart LR
 | 每条路径一份干净完整走法(建 worktree + 契约 + 回执 + 收尾)| `skills/orchestrate/references/scenario/{small-change,develop,bug,merge}.md` |
 | 路径间共用步骤的单源 + 多文档构建(改一处跑 `build.sh --apply` 覆盖全部)| `build/fragments/*.md` · `build/build.sh`(`--check`/`--apply`)|
 | 各阶段方法论 / 操作指南 | `skills/orchestrate/references/{investigate,propose,review,build,closing}.md` · `design/`(discuss=discussion → prototype=prototype-mockup → write=design-doc-template → selfcheck=design-self-check **四步走脚本游标懒加载**;切片 to-issue-skeleton)· `plan/`(orchestrate=plan-flow → write=task-pack → selfcheck=plan-self-check **三步走脚本游标懒加载**,与 design 同构)—— 八阶段方法论同住 orchestrate 体内、按路径/步骤加载,无 `Skill:` 名索引 |
-| 插件接线(可安装)| `.claude-plugin/plugin.json`(清单)· `hooks/hooks.json`(4 个 hook)· `agents/plan-writer.md`(plan 阶段 fan-out)· `commands/gather-context.md`(设计问答补上下文)|
+| 插件接线(可安装)| `.claude-plugin/plugin.json`(清单)· `hooks/hooks.json`(4 个 hook)· `agents/code-reviewer.md`(②计划审/④final Claude 审者)· `skills/worktree-plan/`(Codex 写计划 skill)· `commands/gather-context.md`(设计问答补上下文)|
 | 阶段→`load`/`do`/`then` 绑定(`mmw where` 自指路单源)| `state-schema/routes.json` 的 `phase_bindings` |
 | 审题方法论(worker/reviewer 单源;Droid 读随插件发布的 `plugin/skills/`,Claude 侧外部 Codex/Claude CLI 读自己 hub 装的 `codex-skills/`→`~/.agents/skills/`)| `plugin/skills/worktree-{build,review}/` 与 `codex-skills/worktree-{build,review}/`(`SKILL.md` + `references/*`,两副本同方法论、宿主框架各异)|
 | ③合同门审题 + 审核编排(Claude 侧,留 plugin)| `skills/orchestrate/references/review/{plan-impl,review}.md` |

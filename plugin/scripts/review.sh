@@ -239,6 +239,17 @@ DISPATCH
 同视角跨模型对账:Claude 与 Codex 同视角 findings 互相对照——只一家报出的重点亲验,两家同报的置信升。
 DISPATCH
 )"
+  elif [ "$stage" = "plan" ]; then
+    # ②计划审跨模型:计划由 Codex 写(plan 阶段),审者翻成 Claude——写者≠审者
+    dispatch="$(cat <<DISPATCH
+②计划审跨模型(Codex 写的计划 → Claude 审):派 **2 个 Claude code-reviewer sub-agent**(Agent 工具,会话内、只读、干净 context),两路视角各配一个:
+  - 轴A 覆盖与质量
+  - 轴B 合规与交叉验证
+每个传参(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=plan 审;你负责 <轴A|轴B> 这一路视角;Source: ${source};按 skill 的 Return Contract 回结构化 findings。
+**走会话内 sub-agent,不另起无头进程**——本会话已在 Claude Code CLI 里,另起无头是独立进程会另外计费;sub-agent 同会话覆盖、天生只读、干净 context。
+续接同视角追问:再派一个 code-reviewer sub-agent 续审,不复用被审 context。
+DISPATCH
+)"
   else
     dispatch="$(cat <<DISPATCH
 派两个独立 Codex 审者($views),单条消息并行起、各自干净 context,每个跑:

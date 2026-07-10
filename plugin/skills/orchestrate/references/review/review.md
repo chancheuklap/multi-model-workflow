@@ -2,7 +2,7 @@
 
 > 审核闸操作指南。协调 = 主线程(或 `review-coordinator`);审查方法 + 各 stage 角度单源在已装的 **`worktree-review` skill**。plugin 侧只留 `plan-impl.md`(③合同门)与本文(编排)。
 >
-> **宿主分叉(派发)**:Claude → ①② `codex exec`;④final Codex+Claude CLI(分档 1/2/4)。Droid → `Task` + `reviewer-design-a/b` · `reviewer-plan-a/b` · `reviewer-final-a/b`(final 分档与 Claude 同判据;merge-impl=final-a+b)。brief 由 `mmw review start` 按宿主生成,照 brief 派即可。
+> **宿主分叉(派发)**:Claude → ①设计审 `codex exec`;②计划审 **会话内 `code-reviewer` sub-agent**(计划是 Codex 写的,翻 Claude 审);④final Codex+Claude CLI(分档 1/2/4)。Droid → `Task` + `reviewer-design-a/b`(opus) · `reviewer-plan-a/b`(opus,审 gpt-5.5 写的计划) · `reviewer-final-a/b`(final 分档与 Claude 同判据;merge-impl=final-a+b)。brief 由 `mmw review start` 按宿主生成,照 brief 派即可。
 
 红线:**写者≠验者**(设计/计划作者与审者模型不同家;Droid 用 a/b 双 droid 钉死);**完工靠 `exit-check` 机器核,不靠 reporter 自报审完**。
 
@@ -57,6 +57,6 @@
 
 ## 3. 守住的红线
 
-- 写者≠验者:Claude 宿主 ①② 必须 Codex、④ 双模型 CLI;Droid 宿主 ①② 用 design-a/b · plan-a/b、④ 用 final-a/b 按 tier。不用 `codex review`(内置提示词绕过方法论)。prompt 一律指向已装 `worktree-review` skill;不给审者 plugin 内路径。
+- 写者≠验者:Claude 宿主 ①设计审用 Codex、②计划审用 Claude code-reviewer(计划 Codex 写)、④双模型 CLI;Droid 宿主 ① 用 design-a/b(opus)、② 用 plan-a/b(opus,计划 gpt-5.5 写)、④ 用 final-a/b 按 tier。不用 `codex review`(内置提示词绕过方法论)。prompt 一律指向已装 `worktree-review` skill;不给审者 plugin 内路径。
 - 每条 finding 引 `file:line` 原文才采信;协调帮手亲验后才 accept,主线程落 handoff 前再核承重的。
 - ③ 不判断、只核合同;重判预算砸 ④final。

@@ -1,6 +1,6 @@
-# Plan · write 步(写 Task Pack 时读这一份)
+# Plan · 写 Task Pack 的方法论(写每个 pack 时读这一份)
 
-> plan 阶段 write 步:把每个 small issue 写成一个 Task Pack(+ TDD 步骤 + 测试规划严谨度)。一份读完,不跳别的。**单计划:主线程在本步写整份 plan;多计划:本步已由 plan-writer 写完 → `mmw step next` 跳到 selfcheck。** 自检在下一步(selfcheck)。
+> 把每个 small issue 写成一个 Task Pack(+ TDD 步骤 + 测试规划严谨度)。一份读完,不跳别的。**谁写计划都读这份**:develop 走 plan 阶段派的 Codex(经 `worktree-plan` skill 拿到本文绝对路径);small-change / bug 走 build-a 就地写单计划的主线程。返回前自检见 `plan-self-check.md`。
 
 每个 small issue 对应一个 Task Pack。
 

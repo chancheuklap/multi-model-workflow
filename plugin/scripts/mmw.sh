@@ -6,6 +6,7 @@
 #   mmw loop ...
 #   mmw review start ...
 #   mmw worker dispatch|resume|check-docs ...   # 宿主中立写码派发
+#   mmw worker plan-dispatch|plan-resume|plan-check ...   # 宿主中立写计划派发
 #   mmw codex dispatch|resume ...               # 兼容别名 → worker
 #   mmw help
 #
@@ -27,6 +28,10 @@
 #     mmw worker dispatch --plan <p> --worktree <wt> | worker resume --worktree <wt> --instructions <f>
 #     mmw worker check-docs --worktree <wt>   # Droid 路径 Task 返回后必跑
 #     mmw codex ...                           # 兼容别名,同 worker
+#   写计划工人派发(宿主中立;Claude→codex CLI,Droid→Task plan-writer;在任务 worktree 内、不 commit):
+#     mmw worker plan-dispatch --plan <落点> --worktree <wt> [--design <d>] [--issue <i>]
+#     mmw worker plan-resume --plan <落点> --worktree <wt> --instructions <f>
+#     mmw worker plan-check --plan <落点> --worktree <wt>   # Droid 路径 Task 返回后必跑
 #   进度板(负责人可读投影):
 #     mmw progress render [--stdout]           从 task.json/loop-state 聚合 progress-board.md(--stdout 供 command 注入)
 #   控制面(运行级值守 + 计划外分流):

@@ -253,10 +253,10 @@ if ( cd "$WI2" && bash "$FLOW" step next >/dev/null 2>&1 ); then no "无步骤�
 mkd "$WI" docs/issues/2026-06-30-steps
 ( cd "$WI" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/2026-06-30-steps/ >/dev/null )  # to-issue→plan
 WIP="$(cd "$WI" && bash "$FLOW" where)"
-echo "$WIP" | grep -q "step=orchestrate (1/3)" && ok "plan 也步骤化:step=orchestrate(1/3)load=plan-flow" || no "plan step=orchestrate ($(echo "$WIP"|grep step=))"
+echo "$WIP" | grep -q "step=orchestrate (1/2)" && ok "plan 也步骤化:step=orchestrate(1/2)load=plan-flow" || no "plan step=orchestrate ($(echo "$WIP"|grep step=))"
 echo "$WIP" | grep -q "load=references/plan/plan-flow.md" && ok "plan orchestrate 步 load plan-flow.md" || no "plan load"
-echo "$(cd "$WI" && bash "$FLOW" step next)" | grep -q "step=write (2/3)" && ok "plan step next → write(task-pack)" || no "plan write"
-echo "$(cd "$WI" && bash "$FLOW" step next)" | grep -q "step=selfcheck (3/3)" && ok "plan step next → selfcheck(plan-self-check)" || no "plan selfcheck"
+# write 步已去掉(计划撰写下放 Codex,单/多都在 orchestrate 步派发);plan 现为 2 步 orchestrate→selfcheck
+echo "$(cd "$WI" && bash "$FLOW" step next)" | grep -q "step=selfcheck (2/2)" && ok "plan step next → selfcheck(plan-self-check,2/2)" || no "plan selfcheck"
 
 # ===== J: source-stability(gated 产物过闸后被改 → where 报 stale_gate)=====
 WSS="$(newtask develop 2026-06-30-task-ss)"

@@ -136,6 +136,63 @@ unset MMW_HOST
 export MMW_HOST=claude
 STATE_SUBDIR=.claude/multi-model-workflow
 
+# ===== 写计划派发(plan-dispatch;任务 worktree 内、不开子 worktree、只碰 docs/plans+issues、不 commit)=====
+CODEX_BIN="$FAKEBIN/codex"   # 复位干净 fake
+WT_TASK="$TMP/wt-task"
+git worktree add -q -b task/x "$WT_TASK" HEAD
+PLAN_OUT="$WT_TASK/docs/plans/x/001-foo.md"
+OUT_P="$(bash "$CW" plan-dispatch --plan "$PLAN_OUT" --worktree "$WT_TASK" --design "$DESIGN" --issue "$ISSUE" 2>/dev/null)"
+PROMPT_P="$(cat "$FAKE_CAP/stdin")"
+echo "$PROMPT_P" | grep -q "worktree-plan" && ok "plan prompt 指向 worktree-plan skill" || no "plan 指 worktree-plan"
+echo "$PROMPT_P" | grep -q "不 commit" && ok "plan prompt 声明不 commit" || no "plan 不 commit 声明"
+echo "$PROMPT_P" | grep -q "task-pack.md" && ok "plan prompt 传方法论 task-pack 绝对路径" || no "plan task-pack 路径"
+echo "$PROMPT_P" | grep -q "plan-self-check.md" && ok "plan prompt 传交付前自检路径" || no "plan self-check 路径"
+echo "$PROMPT_P" | grep -q "$PLAN_OUT" && ok "plan prompt 传落点" || no "plan 落点"
+echo "$PROMPT_P" | grep -q "本消息不重复" && ok "plan prompt 委托 skill(纯路由)" || no "plan 纯路由"
+ARGV_P="$(cat "$FAKE_CAP/argv")"
+echo "$ARGV_P" | grep -q -- "-C $WT_TASK" && ok "plan codex -C 任务 worktree(不开子 worktree)" || no "plan -C 任务 wt"
+echo "$ARGV_P" | grep -q -- "--sandbox workspace-write" && ok "plan --sandbox workspace-write" || no "plan sandbox"
+echo "$ARGV_P" | grep -q -- "-m gpt-5.5" && ok "plan 用 design 档 gpt-5.5(CODEX_PLAN_MODEL)" || no "plan 模型档"
+echo "$OUT_P" | grep -q "PLAN_WORKER_NS=001-foo" && ok "plan 回执报命名空间 ns" || no "plan ns 回执"
+[ "$(cat "$WT_TASK/${STATE_SUBDIR}/plan-workers/001-foo/codex-session")" = "sess-123" ] && ok "plan session 落 plan-workers/<ns>(并行隔离)" || no "plan session 命名空间"
+git -C "$WT_TASK" worktree list | grep -q "001-foo" && no "plan 不该开子 worktree" || ok "plan 不开子 worktree(在任务 wt 内写)"
+[ "$(cat "$WT_TASK/${STATE_SUBDIR%%/*}/.gitignore" 2>/dev/null)" = "*" ] && ok "plan 自设状态平面 gitignore(防 plan-workers 被边界误报)" || no "plan state gitignore"
+
+# plan-check 边界:干净(fake 没写文件)→ pass;越界写源码 → PLAN_VIOLATION;docs/plans+issues → 放行
+if bash "$CW" plan-check --plan "$PLAN_OUT" --worktree "$WT_TASK" >/dev/null 2>&1; then ok "plan-check 干净树过"; else no "plan-check 干净应过"; fi
+echo evil > "$WT_TASK/hack.py"
+if OUT_PV="$(bash "$CW" plan-check --plan "$PLAN_OUT" --worktree "$WT_TASK" 2>&1)"; then no "plan-check 碰源码应拦"; else ok "plan-check 拦源码越界"; fi
+echo "$OUT_PV" | grep -q "PLAN_VIOLATION" && ok "报 PLAN_VIOLATION" || no "无 PLAN_VIOLATION"
+echo "$OUT_PV" | grep -q "hack.py" && ok "列出越界文件 hack.py" || no "未列越界文件"
+rm -f "$WT_TASK/hack.py"
+mkdir -p "$WT_TASK/docs/plans/x" "$WT_TASK/docs/issues/x"; echo p > "$PLAN_OUT"; echo i > "$WT_TASK/docs/issues/x/001.md"
+if bash "$CW" plan-check --plan "$PLAN_OUT" --worktree "$WT_TASK" >/dev/null 2>&1; then ok "plan-check 放行 docs/plans+docs/issues"; else no "plan-check 应放行 docs/plans+issues"; fi
+
+# plan-resume 续原 session(重钉围栏 + 复用 plan 档)
+INSTR_P="$TMP/fix-plan.md"; echo "fix plan" > "$INSTR_P"
+OUT_PR="$(bash "$CW" plan-resume --plan "$PLAN_OUT" --worktree "$WT_TASK" --instructions "$INSTR_P" 2>/dev/null)"
+ARGV_PR="$(cat "$FAKE_CAP/argv")"
+echo "$ARGV_PR" | grep -q "resume sess-123" && ok "plan-resume 续原 session" || no "plan-resume session"
+echo "$ARGV_PR" | grep -q -- "-C $WT_TASK" && ok "plan-resume 重钉 -C 任务 wt" || no "plan-resume -C"
+[ "$(cat "$FAKE_CAP/stdin")" = "fix plan" ] && ok "plan-resume 发回修复指令" || no "plan-resume 指令"
+# plan-resume 无 session 记账 → fail-closed
+if bash "$CW" plan-resume --plan "$WT_TASK/docs/plans/x/999.md" --worktree "$WT_TASK" --instructions "$INSTR_P" >/dev/null 2>&1; then no "plan-resume 无 session 应拒"; else ok "plan-resume 无 session 被拒(fail-closed)"; fi
+
+# Droid backend 写计划:派 plan-writer droid + plan-check 回执(用干净任务 worktree,避开 .claude 平面复用)
+export MMW_HOST=droid
+STATE_SUBDIR_D=.factory/multi-model-workflow
+WT_TASK_D="$TMP/wt-task-d"
+git worktree add -q -b task/xd "$WT_TASK_D" HEAD
+PLAN_OUT_D="$WT_TASK_D/docs/plans/x/001-bar.md"
+OUT_DP="$(bash "$CW" plan-dispatch --plan "$PLAN_OUT_D" --worktree "$WT_TASK_D" --design "$DESIGN" --issue "$ISSUE" 2>/dev/null)"
+echo "$OUT_DP" | grep -q "DROID=plan-writer" && ok "droid 写计划派 plan-writer droid" || no "droid plan droid"
+echo "$OUT_DP" | grep -q "plan-check" && ok "droid 写计划回执要求 plan-check" || no "droid plan-check 回执"
+[ -f "$WT_TASK_D/$STATE_SUBDIR_D/plan-workers/001-bar/dispatch/prompt.md" ] && ok "droid 写计划派发包 prompt.md" || no "droid plan pkg prompt"
+grep -q "worktree-plan" "$WT_TASK_D/$STATE_SUBDIR_D/plan-workers/001-bar/dispatch/prompt.md" && ok "droid plan prompt 指 plugin 内 worktree-plan" || no "droid plan prompt skill 指针"
+unset MMW_HOST
+export MMW_HOST=claude
+STATE_SUBDIR=.claude/multi-model-workflow
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
