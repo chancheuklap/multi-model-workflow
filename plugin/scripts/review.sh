@@ -22,7 +22,7 @@ state_here() {
 # Codex 审者(外部 agent)走 codex exec 无头,模型/档在这里钉;
 # Claude 审者走会话内 sub-agent(agents/code-reviewer.md),模型/档在该 agent frontmatter 钉——
 # 不用 claude -p 无头(那是另起进程另外计费,本会话已在 Claude Code CLI 里)。
-CODEX_REVIEW_MODEL="${CODEX_REVIEW_MODEL:-gpt-5.5}"
+CODEX_REVIEW_MODEL="${CODEX_REVIEW_MODEL:-gpt-5.6-terra}"
 CODEX_REVIEW_EFFORT="${CODEX_REVIEW_EFFORT:-high}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -237,6 +237,17 @@ DISPATCH
   Claude(× 两视角):用 **Agent 工具各派一个会话内 sub-agent** code-reviewer(模型/档在该 agent 定,只读),传 stage=final、视角=<基线1|基线2>、Source=${source}。**走会话内 sub-agent,不另起无头进程**——本会话已在 Claude Code CLI 里,另起无头是独立进程会另外计费;sub-agent 同会话覆盖、天生只读、干净 context。
   续接:Codex 用 codex exec --sandbox read-only ... resume <session-id> "<追问>"(resume 不继承原围栏/模型档,掉回 config 默认,必须整套重钉);Claude 侧再派一个 code-reviewer sub-agent 续审同视角。
 同视角跨模型对账:Claude 与 Codex 同视角 findings 互相对照——只一家报出的重点亲验,两家同报的置信升。
+DISPATCH
+)"
+  elif [ "$stage" = "plan" ]; then
+    # ②计划审跨模型:计划由 Codex 写(plan 阶段),审者翻成 Claude——写者≠审者
+    dispatch="$(cat <<DISPATCH
+②计划审跨模型(Codex 写的计划 → Claude 审):派 **2 个 Claude code-reviewer sub-agent**(Agent 工具,会话内、只读、干净 context),两路视角各配一个:
+  - 轴A 覆盖与质量
+  - 轴B 合规与交叉验证
+每个传参(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=plan 审;你负责 <轴A|轴B> 这一路视角;Source: ${source};按 skill 的 Return Contract 回结构化 findings。
+**走会话内 sub-agent,不另起无头进程**——本会话已在 Claude Code CLI 里,另起无头是独立进程会另外计费;sub-agent 同会话覆盖、天生只读、干净 context。
+续接同视角追问:再派一个 code-reviewer sub-agent 续审,不复用被审 context。
 DISPATCH
 )"
   else

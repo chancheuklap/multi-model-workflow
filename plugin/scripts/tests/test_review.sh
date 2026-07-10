@@ -95,9 +95,17 @@ printf '# d\n## Cross-Plan Contract Anchors\n| owner | provider |\n| 001 | 002 |
 bash "$REVIEW" start --stage plan-impl --source docs/design/d.md >/dev/null 2>&1
 [ "$(jq -r '.checklist|length' "$LOOPF")" = "0" ] && ok "③ anchors 有内容 → 不自动过,人工核" || no "③ 有内容不自动"
 
-# ①②审不派 Claude(设计/计划是 Claude 写的,写者≠验者)
+# ①设计审仍 Codex(设计是 Claude 写的,写者≠验者)
 bash "$REVIEW" start --stage design --source x >/dev/null 2>&1
-{ grep -q "claude -p" "$BRIEF" || grep -q "code-reviewer" "$BRIEF"; } && no "design 审不该派 Claude" || ok "①②仍 Codex-only(写审异家)"
+{ grep -q "claude -p" "$BRIEF" || grep -q "code-reviewer" "$BRIEF"; } && no "design 审不该派 Claude" || ok "①设计审仍 Codex-only(写审异家)"
+
+# ②计划审翻 Claude(计划改由 Codex 写 → 审者=Claude code-reviewer,写者≠验者)
+bash "$REVIEW" start --stage plan --source x >/dev/null 2>&1
+B="$(cat "$BRIEF")"
+echo "$B" | grep -q "code-reviewer" && ok "②计划审派 Claude code-reviewer(跨模型)" || no "②plan Claude 审者"
+echo "$B" | grep -q "轴A 覆盖与质量" && ok "②计划审两路视角(轴A/轴B)" || no "②plan 视角"
+echo "$B" | grep -q "codex exec" && no "②计划审不该再派 Codex(Codex 写的)" || ok "②计划审无 Codex 派发(写审异家)"
+echo "$B" | grep -q "claude -p" && no "②计划审不用 claude -p 无头" || ok "②计划审无 claude -p(成本守卫)"
 
 # 留痕落点:任务审走 docs/reviews/;merge-impl(主仓库)落状态平面,不写 docs/
 bash "$REVIEW" start --stage design --source x >/dev/null 2>&1

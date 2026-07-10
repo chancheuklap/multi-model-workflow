@@ -1,6 +1,6 @@
 # to-issue 阶段 · 垂直切片立 issue 骨架(读本文全文)
 
-> `to-issue` 是 ①设计审**之后**、plan **之前**的独立阶段:把已评审的设计垂直切片成可独立认领的 issue 骨架,钉进接力单交给 plan。主线程做。**只立骨架,实施细节由 plan 阶段(`write-plan-doc` / plan-writer)按计划 schema 丰富**——这里不写 Task Pack。
+> `to-issue` 是 ①设计审**之后**、plan **之前**的独立阶段:把已评审的设计垂直切片成可独立认领的 issue 骨架,钉进接力单交给 plan。主线程做。**只立骨架,实施细节由 plan 阶段(派 Codex 写计划)按计划 schema 丰富**——这里不写 Task Pack。
 >
 > `prev_outputs` = design 钉的设计文档(已过 ①设计审)。读它来切片;不重提方案、不改设计(要改设计 → `mmw handoff --conclusion needs-redirection --to-phase design`)。
 
@@ -12,7 +12,7 @@
 
 plugin 在 `to-tickets` 结果上做两件**适配**(`to-tickets` 有两种产出:合并单文件 `tickets.md`,或发线上 tracker;两种都不是我们要的):
 
-**适配 1 · 产物落我们的目录、一个大 issue 一个文件**:每个大 issue 落 `docs/issues/<YYYY-MM-DD>-<slug>/<issue>.md`(slug 与设计文档对齐,prepare 已 scaffold `docs/issues/<slug>/`)。**override `to-tickets` 的 Step5 发布**——既不合并成单个 `tickets.md`、也不发线上 tracker,写成本地一 issue 一文件(下游 plan / plan-writer 死绑一文件一大 issue)。
+**适配 1 · 产物落我们的目录、一个大 issue 一个文件**:每个大 issue 落 `docs/issues/<YYYY-MM-DD>-<slug>/<issue>.md`(slug 与设计文档对齐,prepare 已 scaffold `docs/issues/<slug>/`)。**override `to-tickets` 的 Step5 发布**——既不合并成单个 `tickets.md`、也不发线上 tracker,写成本地一 issue 一文件(下游 plan 死绑一文件一大 issue)。
 
 **适配 2 · issue 文件模板**(= `to-tickets` 单条 issue 模板 + plugin 扩展两节,缺一下游读不到):
 

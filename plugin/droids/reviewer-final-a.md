@@ -1,7 +1,7 @@
 ---
 name: reviewer-final-a
 description: final 审基线1(回归+意图+跨 plan)。必须与写码工人不同模型族。
-model: gpt-5.5
+model: gpt-5.6-terra
 reasoningEffort: high
 tools: read-only
 ---

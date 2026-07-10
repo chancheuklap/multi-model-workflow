@@ -1,6 +1,6 @@
 # Plan · selfcheck 步(本步读这一份)
 
-plan 阶段末步:就绪门自检过了就 `mmw handoff` 交还引擎(引擎触发 ②计划审,独立 Codex 审,本阶段不自派审、不自己跳阶段)。多计划时主 Agent 从**跨 plan 视角**再过一遍覆盖与 ownership。
+plan 阶段末步:就绪门自检过了就 `mmw handoff` 交还引擎(引擎触发 ②计划审,**独立 Claude 审**——跨模型:Codex 写、Claude 审;本阶段不自派审、不自己跳阶段)。计划由 Codex 写成,主 Agent 本步做的是**验收 + 跨 plan 视角**:per-pack 就绪门 Codex 交付前已自检,你**抽验**它做到没(下面判据是抽验清单,不是你逐条现写);多计划再从跨 plan 视角过一遍覆盖与 ownership。
 
 ## 自检（保存前逐条过）
 
@@ -9,7 +9,7 @@ plan 阶段末步:就绪门自检过了就 `mmw handoff` 交还引擎(引擎触�
 - **过度设计（删减）**：为一个 small issue 新增多个长期对象但只要一个可验证行为 / 提前塞未来功能 / 无重复证据就抽 shared helper / 全大套矩阵无 pack-local focused command。
 - **设计不足（补齐）**：pack 只写"实现功能"无行为/结果/failure state / 只写路径无 owner/provider/consumer/anchors / UI 无视觉规格 / issue 验收没进 pack / blocked-by 没进 dependencies 或真串行写成并行 / 改 shared contract 无 consumer 同步和 migration gate / RED-GREEN expected 不清 / 改既有行为无 Verified current state / 触碰数据无 Rollback / 验收用主观语言。
 - **覆盖**：每条 design intent 映射到 Pack / 每个 small issue 映射到一个 Pack / File-Responsibility Map 每路径被 Pack 消费 / 后文引用与前文一致 / 发布风险覆盖所有 production-risk pack。
-- **反模式**：write 步 task-pack 列的反模式一条没命中(模糊验收 / 模糊文件引用 / mandate 评审会判缺陷的东西等)。
+- **反模式**：`task-pack.md` 列的反模式一条没命中(模糊验收 / 模糊文件引用 / mandate 评审会判缺陷的东西等)。
 
 ## Pack 就绪门（写完逐 pack 过一遍）
 
