@@ -1,7 +1,7 @@
 # Build · 写码工人派发落地(develop)
 
 > 落地 = **写码工人改代码 + 主线程按计划验收**。把 ②计划审过的 plan 完整落地、不偏离设计,各 plan 一 worktree、可并行。
-> 红线:验收吃**跑测试 / 读 diff 的 ground truth**,不吃自述;afk 只放权自主跑(`attended` 才停问),真缺输入 / 方向疑 / 合并红线才停;merge/deploy 要人批(收尾阶段)。
+> 红线:验收吃**跑测试 / 读 diff 的 ground truth**,不吃自述;afk 只放权自主跑(`attended` 才停问),真缺输入 / 方向疑 / 合并红线才停;push/deploy 要人批(收尾阶段;本地 merge 不拦)。
 > - 工人 **只改源码、禁碰 `docs/`**:Claude 路径 `dispatch`/`resume` 末脚本自动 fail-closed;Droid 路径 Task 返回后主线程必跑 `mmw worker check-docs --worktree <wt>`(同 `DOCS_VIOLATION` 语义)。碰了 docs → 修复指令 resume 打回;每 Pack 一提交带 `Pack N.M`。
 > - **工人返回的事实是劳动力不是信源**——你 verify 时自己 grep / 读 / 跑坐实。
 
