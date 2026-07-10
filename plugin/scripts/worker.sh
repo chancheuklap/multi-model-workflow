@@ -118,8 +118,16 @@ check_plan_boundary() {  # $1=worktree $2=start_sha —— 反向:写计划只�
 }
 
 # ---------- Codex CLI backend (Claude host) ----------
+# Codex 输出头部 `session id:` 行可能带 ANSI 颜色码(ESC[..m);先剥色再按行首锚点抓,
+# 否则 `^session id:` 锚点被前导色码顶开、抓空,codex-session 不落盘 → resume 记账整条丢失。
+_extract_codex_session() {
+  local esc; esc="$(printf '\033')"
+  sed -E "s/${esc}\[[0-9;]*[A-Za-z]//g" "$1" 2>/dev/null \
+    | grep -m1 -E '^session id:' \
+    | sed -E 's/^session id:[[:space:]]*//' || true
+}
 record_session() {
-  local sid sd; sid="$(grep -m1 -E '^session id:' "$2" 2>/dev/null | sed 's/^session id:[[:space:]]*//' || true)"
+  local sid sd; sid="$(_extract_codex_session "$2")"
   [ -n "$sid" ] || { echo ""; return; }
   sd="$(state_for "$1")"
   mkdir -p "$1/$sd"
@@ -154,7 +162,7 @@ run_codex_plan() {  # $1=wt $2=ns $3=prompt; shift 3; rest=codex args
   "$CODEX_BIN" "$@" -o "$last" - < "$prompt" > "$log" 2>&1
   local ec=$?
   set -e
-  local sid; sid="$(grep -m1 -E '^session id:' "$log" 2>/dev/null | sed 's/^session id:[[:space:]]*//' || true)"
+  local sid; sid="$(_extract_codex_session "$log")"
   [ -n "$sid" ] && printf '%s\n' "$sid" > "$sd/codex-session"
   echo "CODEX_EXIT=$ec"
   echo "SESSION=${sid:-unknown}"

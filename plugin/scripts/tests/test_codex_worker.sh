@@ -58,6 +58,18 @@ echo "$ARGV" | grep -q -- "--add-dir" && ok "--add-dir 放行 git common dir" ||
 echo "$OUT" | grep -q "SESSION=sess-123" && ok "抓到并打印 session id" || no "session 记账"
 [ "$(cat "$WT/${STATE_SUBDIR}/codex-session")" = "sess-123" ] && ok "session 落盘供 resume" || no "session 落盘"
 echo "$OUT" | grep -q "codex done" && ok "打印 codex 最后消息(供验收)" || no "最后消息"
+
+# ANSI 色码回归:真 Codex header 是带颜色的 `\033[1msession id:\033[0m <uuid>`;
+# 剥色前 `^session id:` 锚点被前导色码顶开抓空,session 不落盘、resume 记账整条丢失。
+cat > "$FAKEBIN/codex-ansi" <<'FAKE'
+#!/usr/bin/env bash
+prev=""; for a in "$@"; do [ "$prev" = "-o" ] && echo "codex done" > "$a"; prev="$a"; done
+printf '\033[1msession id:\033[0m sess-ansi-9\n'
+FAKE
+chmod +x "$FAKEBIN/codex-ansi"
+OUT_A="$(CODEX_BIN="$FAKEBIN/codex-ansi" bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-ansi" 2>/dev/null)"
+echo "$OUT_A" | grep -q "SESSION=sess-ansi-9" && ok "带 ANSI 色码的 session id 仍抓到(剥色后锚点匹配)" || no "ANSI session 抓取($OUT_A)"
+[ "$(cat "$TMP/wt-ansi/${STATE_SUBDIR}/codex-session" 2>/dev/null)" = "sess-ansi-9" ] && ok "ANSI session 落盘供 resume" || no "ANSI session 落盘"
 # design/issue 可空(small-change/bug):空时不应出现裸标签行(放最后,免得覆盖上面 argv 断言)
 bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-nodoc" >/dev/null 2>&1
 PROMPT2="$(cat "$FAKE_CAP/stdin")"
