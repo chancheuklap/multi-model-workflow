@@ -374,15 +374,6 @@ cmd_resume() {
 }
 
 # ---------- 写计划派发(在任务 worktree 内,不开子 worktree、不 commit)----------
-plan_methodology_paths() {  # 回显 taskpack + selfcheck 绝对路径(单源在 orchestrate,build-a 也用)
-  local root; root="$(mmw_plugin_root)"
-  local tp="$root/skills/orchestrate/references/plan/task-pack.md"
-  local sc="$root/skills/orchestrate/references/plan/plan-self-check.md"
-  [ -f "$tp" ] || die "写计划方法论缺失: $tp"
-  [ -f "$sc" ] || die "写计划方法论缺失: $sc"
-  printf '%s\t%s\n' "$tp" "$sc"
-}
-
 cmd_plan_dispatch() {
   local plan="" wt="" design="" issue="" mockup="" model="" effort=""
   while [ $# -gt 0 ]; do case "$1" in
@@ -399,7 +390,12 @@ cmd_plan_dispatch() {
   [ -n "$wt" ]   || die "--worktree 必填"
   case "$plan" in /*) ;; *) die "--plan 必须绝对路径" ;; esac
   [ -d "$wt" ]   || die "任务 worktree 不存在: $wt"
-  local tp sc; IFS=$'\t' read -r tp sc < <(plan_methodology_paths)
+  # 写计划方法论单源在 orchestrate(build-a 也用),dispatch 传绝对路径给写计划工人
+  local root; root="$(mmw_plugin_root)"
+  local tp="$root/skills/orchestrate/references/plan/task-pack.md"
+  local sc="$root/skills/orchestrate/references/plan/plan-self-check.md"
+  [ -f "$tp" ] || die "写计划方法论缺失: $tp"
+  [ -f "$sc" ] || die "写计划方法论缺失: $sc"
   local st; st="$(state_for "$wt")"; mkdir -p "$wt/$st"
   mmw_ensure_wt_state_ignore "$wt"   # 状态平面 gitignore,否则 plan-workers/ 会被 check_plan_boundary 当越界误报
   local ns; ns="$(plan_ns "$plan")"
