@@ -13,11 +13,11 @@
 | 阶段 | 撰写 | 审 |
 |---|---|---|
 | 调查 / propose / 设计 / 设计文档 | Claude | Codex(设计审 a/b) |
-| **计划** | **第二模型**(Claude 宿主 Codex `gpt-5.5 xhigh` / Droid 宿主 plan-writer droid) | **Claude**(2 个 code-reviewer,轴A 覆盖质量 / 轴B 合规交叉) |
+| **计划** | **第二模型**(Claude 宿主 Codex `gpt-5.6-terra xhigh` / Droid 宿主 plan-writer droid) | **Claude**(2 个 code-reviewer,轴A 覆盖质量 / 轴B 合规交叉) |
 | 落地 | 第二模型 | Claude |
 
 - **单计划也下放**:不再主线程内联写,统一派第二模型(去掉 plan 阶段的 `write` 步)。
-- **跨模型极性两宿主一致**:Droid 宿主把 `plan-writer` droid 模型从 Opus 换 `gpt-5.5`、`reviewer-plan` 从 `gpt-5.5` 换 Claude 家族。
+- **跨模型极性两宿主一致**:Droid 宿主把 `plan-writer` droid 模型从 Opus 换 `gpt-5.6-terra`、`reviewer-plan` 从 `gpt-5.6-terra` 换 Claude 家族。
 
 ## 落地边界
 
@@ -30,7 +30,7 @@
 
 ### 2. `worker.sh` 加写计划派发
 
-- 新 `plan-dispatch` / `plan-resume`:`codex exec -C <任务 worktree> --sandbox workspace-write`,prompt 给角色 + design + issue + 落点 + worktree-plan skill 指针 + 两份方法论绝对路径;模型档 `gpt-5.5 xhigh`(env `CODEX_PLAN_MODEL` / `CODEX_PLAN_EFFORT`)。
+- 新 `plan-dispatch` / `plan-resume`:`codex exec -C <任务 worktree> --sandbox workspace-write`,prompt 给角色 + design + issue + 落点 + worktree-plan skill 指针 + 两份方法论绝对路径;模型档 `gpt-5.6-terra xhigh`(env `CODEX_PLAN_MODEL` / `CODEX_PLAN_EFFORT`)。
 - **不开子 worktree、不 commit**:各 plan 写不同文件(`docs/plans/<slug>/00N.md`)、不动 git index,任务 worktree 内并行安全;主线程统一提交。
 - **反向边界门 `check_plan_boundary`**:写计划 Codex 的 diff 必须 ⊆ `{docs/plans/**, docs/issues/**}`;碰源码或 `docs/design/` = `PLAN_VIOLATION` 打回。(与 build 的 `check_docs_boundary` 语义相反——build 禁碰 docs/,plan 只准碰这两个 docs/ 子树。)
 
@@ -48,7 +48,7 @@
 ### 5. 删旧件
 
 - 删 `plugin/agents/plan-writer.md`(Claude 不再写计划,方法论进 worktree-plan skill)。
-- `plugin/droids/plan-writer.md` 保留,模型 Opus→`gpt-5.5`;`reviewer-plan-a/b.md` 模型 `gpt-5.5`→Claude 家族。
+- `plugin/droids/plan-writer.md` 保留,模型 Opus→`gpt-5.6-terra`;`reviewer-plan-a/b.md` 模型 `gpt-5.6-terra`→Claude 家族。
 
 ## 验证
 

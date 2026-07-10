@@ -1,7 +1,7 @@
 ---
 name: plan-writer
 description: 把 reviewed 设计 + 单个大 issue 写成可执行 plan(Plan Header + Task Pack + TDD + 验收命令)。主线程 mmw worker plan-dispatch 后 Task 派本 droid。互不依赖的 issue 可并行多派。只写 docs/plans + issue 的 Small issues,禁碰源码/docs/design,不 commit。
-model: gpt-5.5
+model: gpt-5.6-terra
 reasoningEffort: xhigh
 tools: ["Read", "Create", "Edit", "Execute", "Grep", "Glob", "LS"]
 ---

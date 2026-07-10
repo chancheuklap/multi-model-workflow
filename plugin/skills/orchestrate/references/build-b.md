@@ -41,7 +41,7 @@ mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree
 - **子 worktree 落点定死**:`<主仓库>/worktree 根(host-contract 路径)/<slug>-plan-<NNN>`(与任务 worktree 同层,别散落);脚本挂宿主分支前缀:`codex/<目录名>`(Claude)或 `worker/<目录名>`(Droid),从 `--base`(默认 HEAD)分叉。
 
 - **三文档都传**:Codex 开工要读设计(意图 / 合同)+ 它的 issue(边界)+ 它的计划(实施权威),不能只给计划。
-- **按 plan 的 `Complexity` 切模型档**(plan header / Task Pack 的 `Complexity` 字段):`capable`(计费 / 权限 / migration / 跨服务等高风险)→ 加 `--model gpt-5.5 --effort xhigh`;`cheap` / `standard` 用默认(gpt-5.5 high / Codex 侧 xhigh)。高风险 plan 别用低档模型落地。
+- **按 plan 的 `Complexity` 切模型档**(plan header / Task Pack 的 `Complexity` 字段):落地默认 `gpt-5.6-terra high`(脚本已钉,无需 `--effort`);`capable`(计费 / 权限 / migration / 跨服务等高风险)→ 加 `--effort xhigh` 升档。高风险 plan 别降档落地。
 - **一律后台跑**:dispatch / resume 都用宿主后台派发(见 host-contract)——Claude=`codex exec` 后台;Droid=脚本写派发包后主线程 `Task`→`pack-executor`。完成读回执:Claude 看 `CODEX_EXIT`/`SESSION`/状态平面 `codex-logs/last.md`;Droid 看 `worker-dispatch/{prompt,meta}.json` + Task 回传。
 - 并行:互不依赖的 plan,各自一个 worktree,同时发多条后台 dispatch。
 - **铁律在 `worktree-build` skill**:prompt 只给角色 + worktree + 三文档 + skill 指针。

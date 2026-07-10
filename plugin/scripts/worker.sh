@@ -23,16 +23,16 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/host.sh"
 
 CODEX_BIN="${CODEX_BIN:-codex}"
-CODEX_MODEL="${CODEX_MODEL:-gpt-5.5}"
-CODEX_EFFORT="${CODEX_EFFORT:-xhigh}"
+CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-terra}"
+CODEX_EFFORT="${CODEX_EFFORT:-high}"
 DROID_EXECUTOR_DROID="${DROID_EXECUTOR_DROID:-pack-executor}"
 DROID_EXECUTOR_MODEL="${DROID_EXECUTOR_MODEL:-glm-5.2}"
 DROID_EXECUTOR_EFFORT="${DROID_EXECUTOR_EFFORT:-max}"
-# 写计划档(plan-dispatch):Claude 宿主 Codex / Droid 宿主 plan-writer droid。plan = design 档,gpt-5.5 xhigh。
-CODEX_PLAN_MODEL="${CODEX_PLAN_MODEL:-gpt-5.5}"
+# 写计划档(plan-dispatch):Claude 宿主 Codex / Droid 宿主 plan-writer droid。plan = design 档,gpt-5.6-terra xhigh。
+CODEX_PLAN_MODEL="${CODEX_PLAN_MODEL:-gpt-5.6-terra}"
 CODEX_PLAN_EFFORT="${CODEX_PLAN_EFFORT:-xhigh}"
 DROID_PLAN_DROID="${DROID_PLAN_DROID:-plan-writer}"
-DROID_PLAN_MODEL="${DROID_PLAN_MODEL:-gpt-5.5}"
+DROID_PLAN_MODEL="${DROID_PLAN_MODEL:-gpt-5.6-terra}"
 DROID_PLAN_EFFORT="${DROID_PLAN_EFFORT:-xhigh}"
 
 # worktree 真实状态平面(跨宿主续跑;新建派发时若无旧平面则落到当前宿主)

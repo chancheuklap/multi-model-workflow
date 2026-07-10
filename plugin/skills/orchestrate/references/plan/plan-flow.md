@@ -66,7 +66,7 @@ mmw worker plan-dispatch \
 - **一律后台跑**(Claude=Bash `run_in_background` + TaskOutput;Droid=脚本写派发包后主线程 `Task`→plan-writer)。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。** 单 issue → 单 plan:派一个就行,不强行并行。
 - **不开子 worktree、不 commit**:各 plan 写不同文件(`docs/plans/<slug>/00N.md`)、在任务 worktree 内并行安全;主线程统一提交(脚本已管命名空间隔离 session / 边界门)。
 - **落点 slug** 与源设计 / issue 对齐(已含日期);多 plan 同一目录。
-- 模型档默认 `gpt-5.5 xhigh`(design 档);脚本已钉,除非特殊无需 `--model`。
+- 模型档默认 `gpt-5.6-terra xhigh`(design 档);脚本已钉,除非特殊无需 `--model`。
 - 每个 dispatch 独立、零交叉污染:**不要**把别的 writer 的历史 / 别的 plan 内容混进去。方法论(task-pack / 自检)+ `worktree-plan` skill 指针由脚本自动带,不用你手传。
 
 ## Step 4:亲验返回

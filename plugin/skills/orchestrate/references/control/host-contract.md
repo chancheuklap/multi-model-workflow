@@ -73,20 +73,20 @@ mmw where
 
 | droid | 职责 | model | 工具 |
 | --- | --- | --- | --- |
-| `plan-writer` | 写单份 plan(第二模型,禁碰源码/docs/design、不 commit) | `gpt-5.5` xhigh | 读写 + 检索 |
+| `plan-writer` | 写单份 plan(第二模型,禁碰源码/docs/design、不 commit) | `gpt-5.6-terra` xhigh | 读写 + 检索 |
 | `pack-executor` | 按 plan 落地 | `glm-5.2` max | 读写 + Execute |
 | `reviewer-design-a` | 设计审轴A | `claude-opus-4-8` high | read-only |
 | `reviewer-design-b` | 设计审轴B | `claude-opus-4-8` high | read-only |
 | `reviewer-plan-a` | 计划审轴A(审 Codex 写的计划) | `claude-opus-4-8` high | read-only |
 | `reviewer-plan-b` | 计划审轴B(审 Codex 写的计划) | `claude-opus-4-8` high | read-only |
-| `reviewer-final-a` | final / merge 跨模型路A | `gpt-5.5` high(≠写码) | read-only |
+| `reviewer-final-a` | final / merge 跨模型路A | `gpt-5.6-terra` high(≠写码) | read-only |
 | `reviewer-final-b` | final / merge 跨模型路B | `claude-opus-4-8` high(≠A) | read-only |
 | `review-coordinator` | 审 loop 协调(可选隔离) | inherit / 同主线程 | 读写 + Execute + Task |
 | `investigate-topic` | 单 topic 取证 | `grok-4.5` high | read-only + web |
 | `code-explorer` | 只读探代码 | `claude-sonnet-5` high | read-only |
 | `fable-advisor` | 稀疏关键顾问(非审闸) | `claude-fable-5` high | read-only |
 
-**分工极性(两宿主一致)**:Coordinator(主线程)管到设计文档;**计划撰写下放第二模型**(Claude 宿主 Codex `gpt-5.5` / Droid 宿主 `plan-writer` droid `gpt-5.5`),**计划审翻成 Claude**(两轴 `claude-opus-4-8`)。①设计审两轴 `opus`(设计是 Coordinator 写的);②计划审两轴 `opus`(计划是 gpt-5.5 写的)——都靠"审者模型 ≠ 该阶段作者模型"保证写者≠验者。①② 各阶段两轴同模型、只分两路视角;跨写审异家 = 阶段级(写者一个模型、审者另一个模型),不在两轴间。④final / merge 才两轴也跨模型(a≠b)。
+**分工极性(两宿主一致)**:Coordinator(主线程)管到设计文档;**计划撰写下放第二模型**(Claude 宿主 Codex `gpt-5.6-terra` / Droid 宿主 `plan-writer` droid `gpt-5.6-terra`),**计划审翻成 Claude**(两轴 `claude-opus-4-8`)。①设计审两轴 `opus`(设计是 Coordinator 写的);②计划审两轴 `opus`(计划是 gpt-5.6-terra 写的)——都靠"审者模型 ≠ 该阶段作者模型"保证写者≠验者。①② 各阶段两轴同模型、只分两路视角;跨写审异家 = 阶段级(写者一个模型、审者另一个模型),不在两轴间。④final / merge 才两轴也跨模型(a≠b)。
 
 装 plugin 后 droid 落在 `plugin/droids/`;Droid 会话可按 `subagent_type` 引用。Claude 宿主对应表面在 `plugin/agents/`(如 code-reviewer;计划撰写 Claude 宿主走 Codex 无头,无对应 agent),模型/工具名按 Claude 习惯,与 droids 表不必逐字同一 ID。
 
