@@ -26,8 +26,6 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
 
 **每个 task 必须能单独抽出来当一份自洽 brief**(落地者通常只看自己那个 task,不读全 plan、可能乱序读):不写 "similar to Task N"(重复写出来)、不引用未在本 task 或前文定义的 type/function/field、要传给下个 pack 的信息写进本 task 的 Interfaces,不靠"看上一个 pack"。
 
-**完整正式,不 MVP 也不过度**:plan 目标是完整正式的落地——**不拿 MVP / 最小改动当借口删核心能力**(用户流程走不通的部分必须覆盖)。通用非核心问题(鉴权 / 加密 / 日期解析 / 重试 / 序列化等)**优先复用成熟开源、不手写重造**,业务核心自己实现。"完整"不等于过度设计:别为现在和可预见将来都不需要的场景预建抽象 / 加门禁(反过度设计判据见 `task-pack.md` 的 YAGNI + 自检的"过度设计"项)。以项目根 CLAUDE.md 的完整性 / 复用 / 反过度设计规则为准。
-
 ## 2. 探代码 + 拆小 issue(逼你认真读 + 规划)
 
 - 用 `codebase-design` skill 理解模块边界、职责分布、合同表面。写进 plan 的**每条路径 / 类型 / 函数 / fixture**,要么前文定义、要么 `rg`/`find` 验真——不验真不写。现状描述引具体 `file:line` + 真实行为。读项目根 CLAUDE.md 及链入规则(模块边界、测试路由、合同墙、命名)。测试框架先读 CLAUDE.md `## Testing` 拿权威命令,没有再按 `pyproject.toml`/`package.json`/`go.mod` 探。

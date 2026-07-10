@@ -25,7 +25,7 @@
 
 - `plugin/skills/worktree-plan/SKILL.md` = 薄总纲:开工读 design + issue → `codebase-design` 探代码 → 拆小 issue(`to-tickets`)→ 逐 Task Pack 写 → 交付前自检 → 回结构化报告。
 - **方法论不复制**:`task-pack.md` / `plan-self-check.md` 仍单源在 `orchestrate/references/plan/`(build-a 小改路也在用),由 `worker.sh plan-dispatch` 把绝对路径传给 Codex,skill 只指"读 dispatch 给的那两份"。
-- **不引 `ponytail`**:其"最小实现 / MVP"理念与本仓库"要成熟完整方案、不拿最小改动删核心"冲突(用户已删该 skill)。worktree-plan skill 里写仓库自己的理念(完整正式、复用成熟开源、完整≠过度设计),反过度设计判据用 `task-pack.md` 的 YAGNI + 自检"过度设计"项。`codebase-design` / `to-tickets` Codex hub 有,直接用。
+- Codex hub 的 `codebase-design`(探代码)/ `to-tickets`(拆 issue)直接用;完整性 / 复用 / 反过度设计以项目根 CLAUDE.md 为准。
 - 软链:`codex-skills/worktree-plan → ../plugin/skills/worktree-plan`,`~/.agents/skills/worktree-plan → …`(同 `worktree-build`)。
 
 ### 2. `worker.sh` 加写计划派发
