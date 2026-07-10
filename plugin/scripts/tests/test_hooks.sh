@@ -58,8 +58,8 @@ echo 'garbage{' > ${STATE_SUBDIR}/loop-state.json
 [ "$(run_hook guard-loop.sh '{}')" = "2" ] && ok "损坏 loop-state → 看守 exit2(fail-closed)" || no "损坏态看守 fail-closed"
 
 # ===== guard-redline(PreToolUse,permissionDecision=ask 由用户亲批,无令牌可自铸)=====
-# 主分支(main)上:merge/push → ask
-is_ask "$(pl 'git merge feat --no-ff')" && ok "主分支 merge → ask(要人批)" || no "主分支 merge ask"
+# 主分支(main)上:push → ask;本地 merge 放行(可逆、不出站,不打断无人值守自动推进)
+is_allow "$(pl 'git merge feat --no-ff')" && ok "主分支本地 merge → 放行(不拦本地合并)" || no "主分支 merge 应放行"
 is_ask "$(pl 'git push origin main')" && ok "push → ask" || no "push ask"
 is_allow "$(pl 'git status')" && ok "git status → 放行" || no "safe 放行"
 # 老正则的绕过口全堵上
@@ -69,16 +69,16 @@ is_ask "$(pl './deploy.sh')" && ok "./deploy.sh → ask" || no "deploy.sh 绕过
 is_ask "$(pl 'bash deploy-prod.sh')" && ok "deploy-prod.sh → ask" || no "deploy- 绕过"
 is_ask "$(pl 'kubectl apply -f k8s/')" && ok "kubectl apply → ask" || no "kubectl 绕过"
 is_ask "$(pl 'terraform apply')" && ok "terraform apply → ask" || no "terraform 绕过"
-is_ask "$(pl 'git -C /elsewhere merge feat')" && ok "git -C merge(判不了目标)→ ask(fail-closed)" || no "git -C merge"
+is_allow "$(pl 'git -C /elsewhere merge feat')" && ok "git -C merge → 放行(本地 merge 一律不拦)" || no "git -C merge 应放行"
 is_allow "$(pl 'cat deployment.yaml')" && ok "deployment.yaml(非部署动作)→ 放行" || no "deployment 误伤"
 is_allow "$(pl 'git pull origin main')" && ok "git pull(入站)→ 放行" || no "pull 误伤"
 # 引号串里的动词不是动作(v1 裸 grep 误拦根因):commit message 提 push/deploy/merge → 放行
 is_allow "$(pl 'git commit -m \"docs: deploy guide\"')" && ok "commit message 含 deploy → 放行(剥引号)" || no "commit deploy 误拦"
 is_allow "$(pl 'git commit -m \"please push after review\"')" && ok "commit message 含 push → 放行(剥引号)" || no "commit push 误拦"
 is_allow "$(pl "echo 'how to merge branches' > note.txt")" && ok "单引号文本含 merge → 放行(剥引号)" || no "echo merge 误拦"
-# 任务分支上 merge 子分支 = 流程内动作(build B4 合 plan worktree),放行
+# 任意分支 merge 都放行(本地不出站);push 在任意分支仍 → ask(出站)
 git checkout -q -b task/x
-is_allow "$(pl 'git merge plan-a --no-ff')" && ok "任务分支上 merge 子分支 → 放行(流程内)" || no "任务分支 merge 误拦"
+is_allow "$(pl 'git merge plan-a --no-ff')" && ok "任务分支 merge → 放行" || no "任务分支 merge 误拦"
 is_ask "$(pl 'git push origin task/x')" && ok "任务分支 push 仍 → ask(出站)" || no "任务分支 push"
 git checkout -q main
 

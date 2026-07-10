@@ -26,11 +26,11 @@ mmw handoff --conclusion pass
 → `STATUS=ready-to-close`:任务内容完成,等合并 + 清理(下面红线)。
 还有没处理的遗留 / 测试没绿 → 回 build 补:`--conclusion needs-redirection --to-phase build`（`needs-repair` 是原地返工、回不到 build）。
 
-## 3. 合并红线(合并后才清理)
+## 3. 合并 + 发布(合并后才清理)
 
-**合并回主分支 = 唯一硬红线**(不可逆对外动作)。`guard-redline`(PreToolUse)对合并进主分支 / `git push` / 部署弹权限框,**要用户在框里亲批**(无令牌可代批),不分在场/无人值守:
+**本地合并进主分支是自主收尾动作,不拦**(可逆、不出站)。**出站发布才是硬红线**:`guard-redline`(PreToolUse)对 `git push` / `gh pr merge` / 部署弹权限框,**要用户在框里亲批**(无令牌可代批),不分在场/无人值守。
 
-1. 用户确认要合并 → 直接跑 `git merge --no-ff <branch>`(禁 `--squash`),权限框弹出由用户亲批。
+1. 合并 → 直接跑 `git merge --no-ff <branch>`(禁 `--squash`)——**本地不弹框、无人值守也能自主推进**;真正要人批的是之后的 `git push`。
 2. 合并进主线后,回主仓库删干净:
  ```bash
  mmw task cleanup --slug <slug>

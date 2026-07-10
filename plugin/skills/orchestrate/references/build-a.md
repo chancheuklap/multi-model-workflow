@@ -2,7 +2,7 @@
 
 > 落地阶段 · 主线程自己写代码,**不派 Codex、不开子 worktree**(已在任务 worktree 内)。
 > `prev_outputs`:small-change 无上游产物;bug 带 investigate 钉的根因报告(`docs/investigating/<slug>.md`)。
-> 红线:验收吃**跑测试 / 读 diff 的 ground truth**,不吃自述;afk 只放软停,真缺输入 / 方向疑必停;merge/deploy 要人批(收尾阶段)。
+> 红线:验收吃**跑测试 / 读 diff 的 ground truth**,不吃自述;afk 只放软停,真缺输入 / 方向疑必停;push/deploy 要人批(收尾阶段;本地 merge 不拦)。
 
 ## A1. 判改动面 → 要不要先写一份单计划
 

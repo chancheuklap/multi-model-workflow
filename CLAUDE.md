@@ -57,7 +57,7 @@
 - `git merge --squash` 禁,必须 `--no-ff`。
 - Worker(worktree 内运行)不改 `docs/`,只有 Coordinator(主线程)能改。
 - 改了 `build/fragments/*.md` 或带锚点的 skill → 跑 `bash plugin/build/build.sh --apply` 再 `--check`(锚点内手改会被覆盖)。
-- merge / push / 部署是红线,要人批。
+- push / `gh pr merge` / 部署是红线,要人批;**本地 `git merge`(含进 main)不拦**——可逆、不出站,真正红线是它之后的 push。
 
 ## 常用命令(plugin)
 

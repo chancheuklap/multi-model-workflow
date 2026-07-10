@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# PreToolUse 红线:唯一硬红线 = 上线发布(合并回主分支 / push / GitHub 侧合并 / 部署)。
+# PreToolUse 红线:唯一硬红线 = 出站发布 / 部署 —— push / GitHub 侧合并(gh pr merge)/ deploy。
 # 命中 → permissionDecision=ask:由用户在权限框亲批。真人批准由平台保证,
 # 不再用 release-approval 令牌(令牌 agent 自己就能铸,守不住"要人批")。
-# git merge 只拦"合并进主分支"——任务分支 / 子 worktree 分支间的合并是流程内自主动作,放行。
+# **本地 git merge(含合并进 main)不拦**:可逆、不出站,真正红线是它之后的 push;
+# 拦本地 merge 只会打断无人值守的自动推进(用户明确要求放行)。
 set -euo pipefail
 
 input="$(cat)"
@@ -43,18 +44,8 @@ if { printf '%s' "$cmd" | grep -Eq "$run_deploy_re" \
   ask "红线:部署动作(deploy)需用户亲批。"
 fi
 if printf '%s' "$cmd" | grep -Eq '(^|[[:space:];&|])(kubectl|oc)[^;&|]*[[:space:]]apply([[:space:]]|$)|(^|[[:space:];&|])terraform[^;&|]*[[:space:]](apply|destroy)([[:space:]]|$)'; then
-  ask "红线:集群/基础设施变更(apply/destroy)需用户亲批。"
+  ask "红线:集群/基础设施部署(apply/destroy)需用户亲批。"
 fi
 
-# git merge:只拦合并进主分支。当前分支判不出(detached / -C 指到别处看不见)也 fail-closed 问。
-if printf '%s' "$cmd" | grep -Eq '(^|[[:space:];&|])git[^;&|]*[[:space:]]merge([[:space:]]|$)'; then
-  if printf '%s' "$cmd" | grep -Eq 'git[[:space:]]+(-C|--git-dir)'; then
-    ask "红线:带 -C/--git-dir 的 git merge 无法就地判目标分支,需用户亲批(fail-closed)。"
-  fi
-  cur="$(git branch --show-current 2>/dev/null || echo "")"
-  def="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')" || def=""
-  if [ -z "$cur" ] || [ "$cur" = "main" ] || [ "$cur" = "master" ] || { [ -n "$def" ] && [ "$cur" = "$def" ]; }; then
-    ask "红线:合并进主分支(当前分支=${cur:-detached})需用户亲批。"
-  fi
-fi
+# 本地 git merge(含进 main)不拦——可逆、不出站;真正红线是之后的 push。
 exit 0
