@@ -9,6 +9,7 @@ import pytest
 SCRIPTS = Path(__file__).resolve().parents[1]
 ASSEMBLER = SCRIPTS / "release_script_assembler.py"
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "release-assembler"
+TEMPLATE = SCRIPTS / "release_templates" / "windows_electron_python.ps1.tmpl"
 
 sys.path.insert(0, str(SCRIPTS))
 from release_contracts import BuildTarget, ReleaseBuildHooks  # noqa: E402
@@ -65,7 +66,10 @@ def test_assemble_core_exe_writes_bom_script_and_validated_context(tmp_path: Pat
     assert context["build_target"]["runtime_lane"] == "core_exe"
     assert context["build_target"]["native_ext_dll"] == []
     assert context["build_hooks"]["runtime_prepare"] == ["prepare-runtime"]
-    assert context["render_metadata"] == {"stages": [], "hook_calls": []}
+    assert context["render_metadata"] == {
+        "stages": [1, 2, 3, 4, 5, 6, 7],
+        "hook_calls": [],
+    }
     assert BuildTarget.model_validate(context["build_target"]).runtime_lane == "core_exe"
     assert ReleaseBuildHooks.model_validate(context["build_hooks"]).artifact_scan == [
         "scan-artifact"
@@ -175,3 +179,96 @@ def test_assemble_keeps_existing_context_when_script_replacement_fails(
 
     assert result.returncode != 0
     assert context_output.read_text(encoding="utf-8") == "old context"
+
+
+@pytest.mark.parametrize("fixture", ["core-exe.adapter.json", "embedded-python.adapter.json"])
+def test_assemble_renders_the_same_ordered_seven_stage_pipeline(
+    tmp_path: Path, fixture: str
+) -> None:
+    output = tmp_path / "release.ps1"
+    context_output = tmp_path / "release-context.json"
+    assert _assemble(FIXTURES / fixture, output, context_output).returncode == 0
+    script = output.read_text(encoding="utf-8-sig")
+
+    positions = [script.index(f'Step "[{stage}/7]') for stage in range(1, 8)]
+    assert positions == sorted(positions)
+    for tool in ("python", "pnpm", "node", "uv", "makensis"):
+        assert f"'{tool}'" in script
+    for token in (
+            "--frozen-lockfile",
+            "--prefer-offline",
+            "'run', 'build'",
+        "electron-builder",
+        "--win",
+        "--prepackaged",
+    ):
+        assert token in script
+
+
+def test_assemble_renders_embedded_build_teeth_but_not_in_core_lane(
+    tmp_path: Path,
+) -> None:
+    core_script = tmp_path / "core.ps1"
+    core_context = tmp_path / "core-context.json"
+    embedded_script = tmp_path / "embedded.ps1"
+    embedded_context = tmp_path / "embedded-context.json"
+    assert _assemble(FIXTURES / "core-exe.adapter.json", core_script, core_context).returncode == 0
+    assert (
+        _assemble(
+            FIXTURES / "embedded-python.adapter.json", embedded_script, embedded_context
+        ).returncode
+        == 0
+    )
+
+    core = core_script.read_text(encoding="utf-8-sig")
+    embedded = embedded_script.read_text(encoding="utf-8-sig")
+    assert "nuitka" not in core.lower()
+    assert "Remove-PythonBytecode" not in core
+    assert "Copy-NativeExtensionDll" not in core
+    assert "--extra" not in core
+    assert "Remove-PythonBytecode" in embedded
+    assert "Copy-NativeExtensionDll" in embedded
+    assert "--extra" in embedded
+    assert "desktop-runtime" in embedded
+    assert "--include-package=native_pkg" in embedded
+    assert "--include-package=runtime_pkg" in embedded
+    assert "--nofollow-import-to=scipy" in embedded
+    assert "Lib\\site-packages\\native_pkg" in embedded
+    assert "msvcp140.dll" in embedded
+
+
+def test_assemble_rejects_embedded_lane_without_dependency_extra(tmp_path: Path) -> None:
+    adapter = json.loads((FIXTURES / "embedded-python.adapter.json").read_text())
+    adapter["build_target"]["deps_extra"] = None
+    adapter_path = tmp_path / "missing-extra.adapter.json"
+    adapter_path.write_text(json.dumps(adapter), encoding="utf-8")
+
+    result = _assemble(adapter_path, tmp_path / "release.ps1", tmp_path / "release-context.json")
+
+    assert result.returncode != 0
+
+
+def test_check_rejects_script_missing_one_of_the_seven_stages(tmp_path: Path) -> None:
+    output = tmp_path / "release.ps1"
+    context_output = tmp_path / "release-context.json"
+    assert _assemble(FIXTURES / "core-exe.adapter.json", output, context_output).returncode == 0
+    output.write_text(
+        output.read_text(encoding="utf-8-sig").replace('Step "[5/7] Build win-unpacked"', ""),
+        encoding="utf-8-sig",
+    )
+
+    result = _check(output, context_output)
+
+    assert result.returncode != 0
+
+
+def test_template_and_neutral_fixtures_hold_no_product_specific_release_rules() -> None:
+    product_specific_terms = ("duck", "parrot", "hedgehog", "agentflow", "scripts/release/")
+    template = TEMPLATE.read_text(encoding="utf-8").lower()
+
+    assert not any(term in template for term in product_specific_terms)
+    for fixture in FIXTURES.glob("*.json"):
+        assert not any(
+            term in fixture.read_text(encoding="utf-8").lower()
+            for term in product_specific_terms
+        )

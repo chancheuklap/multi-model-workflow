@@ -6,6 +6,7 @@
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path, PurePosixPath
 
@@ -41,21 +42,91 @@ def _restore(path: Path, *, previous: bytes | None, existed: bool) -> None:
 
 
 def _render_bootstrap(context_path: Path, manifest: ReleaseAdapterManifest) -> str:
-    hook_literals = "\n".join(
-        f"# {name}: " + ", ".join(powershell_literal(token) for token in argv)
-        for name, argv in manifest.build_hooks.model_dump(mode="json").items()
-        if argv is not None
+    template = (
+        Path(__file__).parent
+        / "release_templates"
+        / "windows_electron_python.ps1.tmpl"
+    ).read_text(encoding="utf-8")
+    replacements = {
+        "${CONTEXT_DEFAULT_PATH}": powershell_literal(context_path.name),
+        "${DESKTOP_DIR_LITERAL}": powershell_literal(
+            manifest.build_target.desktop_dir
+        ),
+        "${LANE_BLOCK}": _render_lane_block(manifest),
+    }
+    rendered = template
+    for token, value in replacements.items():
+        rendered = rendered.replace(token, value)
+    if re.search(r"\$\{[^}]+\}", rendered):
+        raise ValueError("release template 含未消费 token")
+    return rendered
+
+
+def _render_lane_block(manifest: ReleaseAdapterManifest) -> str:
+    target = manifest.build_target
+    if target.runtime_lane == "core_exe":
+        return "  Write-Host 'core_exe runtime lane is supplied by the repository hook'"
+    if not target.deps_extra:
+        raise ValueError("embedded_python 车道必须声明 build_target.deps_extra")
+
+    asset_roots = ", ".join(powershell_literal(item) for item in target.asset_roots)
+    nuitka_include = "\n".join(
+        f"  $NuitkaArgs += {powershell_literal(f'--include-package={module}')}"
+        for module in target.nuitka_include
     )
-    return (
-        "param(\n"
-        f"  [string]$ReleaseContextPath = {powershell_literal(context_path.name)}\n"
-        ")\n\n"
-        "Set-StrictMode -Version Latest\n"
-        "$ErrorActionPreference = 'Stop'\n\n"
-        "# Pack 2.1 bootstrap. The seven-step template is added in Pack 2.2.\n"
-        f"# Product: {powershell_literal(manifest.product)}\n"
-        f"{hook_literals}\n"
+    nuitka_nofollow = "\n".join(
+        f"  $NuitkaArgs += {powershell_literal(f'--nofollow-import-to={module}')}"
+        for module in target.nuitka_nofollow
     )
+    dll_calls = "\n".join(
+        _render_dll_copy_call(item.model_dump(mode="json"))
+        for item in target.native_ext_dll
+    )
+    return f"""  function Remove-PythonBytecode {{
+    param([string]$RuntimeRoot)
+    Get-ChildItem -Path $RuntimeRoot -Directory -Filter '__pycache__' -Recurse -ErrorAction Stop | Remove-Item -Recurse -Force
+    Get-ChildItem -Path $RuntimeRoot -File -Filter '*.pyc' -Recurse -ErrorAction Stop | Remove-Item -Force
+  }}
+
+  function Copy-NativeExtensionDll {{
+    param([string[]]$SourceRoots, [string]$DllName, [string]$Destination)
+    $Source = @($SourceRoots | ForEach-Object {{ Join-Path $_ $DllName }} | Where-Object {{ Test-Path $_ }} | Select-Object -First 1)
+    if ($Source.Count -ne 1) {{ throw "Missing declared native DLL: $DllName" }}
+    $destinationParent = Split-Path -Parent $Destination
+    if (-not (Test-Path $destinationParent)) {{ throw "Missing declared native DLL destination: $destinationParent" }}
+    Copy-Item -Path $Source[0] -Destination $Destination -Force -ErrorAction Stop
+  }}
+
+  $RuntimeRoot = Join-Path $DesktopDir 'python-runtime'
+  $CompileInterpreterRoot = (& uv run --extra {powershell_literal(target.deps_extra or '')} python -c 'import sys; print(sys.base_prefix)').Trim()
+  foreach ($assetRoot in @({asset_roots})) {{
+    if (-not (Test-Path (Join-Path $RepoRoot $assetRoot))) {{ throw "Missing declared asset root: $assetRoot" }}
+  }}
+  $NuitkaArgs = @('--standalone', '--onefile', '--assume-yes-for-downloads')
+{nuitka_include}
+{nuitka_nofollow}
+  $NuitkaEntry = Join-Path $RepoRoot {powershell_literal(f'src/{target.entry_module}/__main__.py')}
+  & uv run --extra {powershell_literal(target.deps_extra or '')} --extra build python -m nuitka @NuitkaArgs $NuitkaEntry
+  if ($LASTEXITCODE -ne 0) {{ throw 'Nuitka backend build failed' }}
+  Remove-PythonBytecode -RuntimeRoot $RuntimeRoot
+{dll_calls}"""
+
+
+def _render_dll_copy_call(item: dict[str, object]) -> str:
+    destination = "backend"
+    if item["dest"] == "pyd_package_dir":
+        destination = "Lib\\site-packages\\" + str(item["pyd_package"])
+    source_roots = "@($RepoRoot)"
+    if item["dll_source"] == "compile_interpreter":
+        source_roots = "@($CompileInterpreterRoot, (Join-Path $CompileInterpreterRoot 'DLLs'))"
+    calls = []
+    for dll_name in item["dll_names"]:
+        calls.append(
+            "  Copy-NativeExtensionDll "
+            f"-SourceRoots {source_roots} -DllName {powershell_literal(str(dll_name))} "
+            f"-Destination (Join-Path $RuntimeRoot {powershell_literal(destination + '\\\\' + str(dll_name))})"
+        )
+    return "\n".join(calls)
 
 
 def _validate_paths(repo_root: Path, output: Path, context_output: Path) -> None:
@@ -88,7 +159,7 @@ def assemble(adapter: Path, repo_root: Path, output: Path, context_output: Path)
         "repo_root": str(repo_root.resolve()),
         "build_target": manifest.build_target.model_dump(mode="json"),
         "build_hooks": manifest.build_hooks.model_dump(mode="json"),
-        "render_metadata": {"stages": [], "hook_calls": []},
+        "render_metadata": {"stages": [1, 2, 3, 4, 5, 6, 7], "hook_calls": []},
     }
     script = _render_bootstrap(context_output, manifest)
     script_tmp: Path | None = None
@@ -148,9 +219,16 @@ def check(script: Path, context: Path) -> None:
     ReleaseBuildHooks.model_validate(context_doc["build_hooks"])
     if context_doc.get("schema_version") != "1" or not context_doc.get("product"):
         raise ValueError("context 缺少有效 schema_version 或 product")
+    script_text = script_bytes.decode("utf-8-sig")
     expected_context_literal = powershell_literal(context.name)
-    if expected_context_literal not in script_bytes.decode("utf-8-sig"):
+    if expected_context_literal not in script_text:
         raise ValueError("script 未引用对应的 context 文件")
+    expected_stages = [1, 2, 3, 4, 5, 6, 7]
+    if context_doc.get("render_metadata", {}).get("stages") != expected_stages:
+        raise ValueError("context 未声明完整七步流水线")
+    stage_positions = [script_text.find(f'Step "[{stage}/7]') for stage in expected_stages]
+    if -1 in stage_positions or stage_positions != sorted(stage_positions):
+        raise ValueError("script 未按顺序包含完整七步流水线")
 
 
 def cmd_check(args: argparse.Namespace) -> int:
