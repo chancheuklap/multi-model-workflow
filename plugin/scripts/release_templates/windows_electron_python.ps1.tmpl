@@ -27,6 +27,10 @@ function Invoke-Checked {
 
 ${RENDERED_HOOK_FUNCTIONS}
 
+# 上下文路径绝对化:钩子在 $RepoRoot 下跑(见 Invoke-ReleaseHook),若传的是相对路径,
+# cwd 一切换就读不到。远程 harness 已按绝对路径传 -ReleaseContextPath,此处对绝对路径幂等,
+# 也兜住本地/手动运行传相对路径的情况;文件不存在则 Resolve-Path fail-loud。
+$ReleaseContextPath = (Resolve-Path -LiteralPath $ReleaseContextPath).Path
 $Context = Get-Content -Raw -Encoding UTF8 $ReleaseContextPath | ConvertFrom-Json
 $RepoRoot = [string]$Context.repo_root
 $DesktopDir = Join-Path $RepoRoot ${DESKTOP_DIR_LITERAL}

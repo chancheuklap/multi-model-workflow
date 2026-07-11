@@ -145,6 +145,8 @@ bash "$RF" init --manifest remote-build-manifest.json >/dev/null
 if PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release-input" bash "$RF" stage run --stage build >/dev/null; then
   grep -q '^scp ' "$TMP/transport.calls" && ok "remote build 上传 archive 与输入" || no "remote build 未调用 scp"
   grep -q 'schtasks /create' "$TMP/transport.calls" && ok "remote build 创建 schtasks" || no "remote build 未创建 schtasks"
+  # C4:schtasks 起 release.ps1 必须显式传上下文绝对路径,否则默认 cwd 读不到裸文件名
+  grep -q "release.ps1' -ReleaseContextPath '" "$TMP/transport.calls" && ok "remote build 显式传上下文绝对路径(cwd 合同)" || no "remote build 未传 -ReleaseContextPath"
   grep -q 'schtasks /run' "$TMP/transport.calls" && ok "remote build 启动 schtasks" || no "remote build 未启动 schtasks"
   [ "$(cat "$TMP/fake-remote/SOURCE_COMMIT.txt")" = "$(git rev-parse HEAD)" ] && ok "remote build 绑定完整 SourceCommit" || no "remote build SourceCommit 错误"
   [ -s "$TMP/fake-remote/source.zip" ] && ok "remote build 上传 git archive HEAD" || no "remote build 缺 source archive"

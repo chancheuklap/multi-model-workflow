@@ -685,7 +685,9 @@ _run_remote_build() {
   ssh "$remote_host" "Remove-Item -Force -ErrorAction SilentlyContinue '$remote_input/build-run.log','$remote_input/build-run.exitcode'" >/dev/null 2>&1 || true
 
   task_name="mmw-release-${source_commit:0:12}-${RANDOM}"
-  ssh "$remote_host" "schtasks /create /tn '$task_name' /tr \"powershell -NoProfile -ExecutionPolicy Bypass -Command \\\"Expand-Archive -Force '$remote_input/source.zip' '$remote_input/source'; & '$remote_input/release.ps1' *>> '$remote_input/build-run.log'; \\\$LASTEXITCODE | Set-Content '$remote_input/build-run.exitcode'\\\"\" /sc once /st 00:00 /f" || return $?
+  # 显式把上下文绝对路径传给 release.ps1:schtasks 默认 cwd 不是 remote_input,脚本 param 的裸
+  # 文件名 default 解析不到;上下文的 repo_root 已指向解压出的 source/,钩子据此从仓库根跑。
+  ssh "$remote_host" "schtasks /create /tn '$task_name' /tr \"powershell -NoProfile -ExecutionPolicy Bypass -Command \\\"Expand-Archive -Force '$remote_input/source.zip' '$remote_input/source'; & '$remote_input/release.ps1' -ReleaseContextPath '$remote_input/release-context.json' *>> '$remote_input/build-run.log'; \\\$LASTEXITCODE | Set-Content '$remote_input/build-run.exitcode'\\\"\" /sc once /st 00:00 /f" || return $?
   ssh "$remote_host" "schtasks /run /tn '$task_name'" || return $?
 
   # 真实 Windows 构建耗时分钟级:轮询「本轮 exitcode 文件出现」而非日志出现,带间隔、有上限,

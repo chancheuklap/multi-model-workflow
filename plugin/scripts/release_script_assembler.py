@@ -112,8 +112,16 @@ def _render_hook_functions() -> str:
   $arguments = @()
   if ($Argv.Count -gt 1) { $arguments += @($Argv[1..($Argv.Count - 1)]) }
   $arguments += @('--release-context', $ReleaseContextPath, '--release-phase', $Phase)
-  & $command @arguments
-  if ($LASTEXITCODE -ne 0) { throw "Release hook failed: $Name phase=$Phase" }
+  # 钩子 argv 是仓库相对路径(如 scripts/release/prepare_*.py):构建机把功能分支源码解到
+  # $RepoRoot,故从 $RepoRoot 跑钩子,而非 pnpm/electron/NSIS 步所在的 $DesktopDir。
+  # $ReleaseContextPath 已在脚本头绝对化,cwd 切换不影响它被钩子读到。
+  Push-Location $RepoRoot
+  try {
+    & $command @arguments
+    if ($LASTEXITCODE -ne 0) { throw "Release hook failed: $Name phase=$Phase" }
+  } finally {
+    Pop-Location
+  }
 }
 
 function Write-HookSkipped {
