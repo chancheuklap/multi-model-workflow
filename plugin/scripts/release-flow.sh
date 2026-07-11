@@ -688,6 +688,21 @@ _run_remote_build() {
   # 显式把上下文绝对路径传给 release.ps1:schtasks 默认 cwd 不是 remote_input,脚本 param 的裸
   # 文件名 default 解析不到;上下文的 repo_root 已指向解压出的 source/,钩子据此从仓库根跑。
   ssh "$remote_host" "schtasks /create /tn '$task_name' /tr \"powershell -NoProfile -ExecutionPolicy Bypass -Command \\\"Expand-Archive -Force '$remote_input/source.zip' '$remote_input/source'; & '$remote_input/release.ps1' -ReleaseContextPath '$remote_input/release-context.json' *>> '$remote_input/build-run.log'; \\\$LASTEXITCODE | Set-Content '$remote_input/build-run.exitcode'\\\"\" /sc once /st 00:00 /f" || return $?
+  # 任务一旦 /create 成功,此后所有出口(/run 起不来、轮询超时、exitcode 损坏、正常结束)都必须
+  # 结束可能仍在跑的构建 + 删计划任务:超时那类会有孤儿构建抢写下次同 commit 的 exitcode,其余虽只在
+  # Task Scheduler 堆无害死条目也一并清。用子函数跑「/run + 轮询」拿 rc,函数尾部统一清理一次,不在每个
+  # return 前重复 cleanup(避免上轮只补超时分支、漏掉 /run 失败与 exitcode 非法两个出口那类遗漏)。
+  local rc=0
+  _remote_run_and_poll "$remote_host" "$remote_input" "$task_name" || rc=$?
+  ssh "$remote_host" "schtasks /end /tn '$task_name'; schtasks /delete /tn '$task_name' /f" >/dev/null 2>&1 || true
+  return "$rc"
+}
+
+# 起远程计划任务并轮询到本轮 exitcode。构建退 0 返 0、退非零返其码;/run 起不来返 ssh 退出码;
+# 轮询超时或 exitcode 非法返 70。拿到合法 exitcode(含构建失败)即设全局 REMOTE_LOG_REF 供调用方引日志。
+# 计划任务的 /end + /delete 清理由调用方 _run_remote_build 统一在尾部做,本函数只管 run+poll+判定。
+_remote_run_and_poll() {
+  local remote_host="$1" remote_input="$2" task_name="$3"
   ssh "$remote_host" "schtasks /run /tn '$task_name'" || return $?
 
   # 真实 Windows 构建耗时分钟级:轮询「本轮 exitcode 文件出现」而非日志出现,带间隔、有上限,
@@ -704,12 +719,9 @@ _run_remote_build() {
       exit_code="${exit_code%%[$'\r\n']*}"
       [ -n "$exit_code" ] && break
     fi
-    # 超时按真实墙钟判(不累加 poll_seconds):即使 poll=0(测试用的快轮询)也不会因 waited 恒为 0
-    # 而永不超时。超时分支必须清理:结束可能仍在跑的构建 + 删计划任务,否则遗留任务/孤儿构建会与
-    # 下次同 commit 运行抢写 build-run.exitcode。
+    # 超时按真实墙钟判(不累加 poll_seconds):即使 poll=0(测试用的快轮询)也不会因 waited 恒为 0 而永不超时。
     if [ "$(( $(date +%s) - start_ts ))" -ge "$max_seconds" ]; then
       echo "ERROR: remote build 超时 ${max_seconds}s 未产出 exitcode(task=$task_name)" >&2
-      ssh "$remote_host" "schtasks /end /tn '$task_name'; schtasks /delete /tn '$task_name' /f" >/dev/null 2>&1 || true
       return 70
     fi
     sleep "$poll_seconds"
@@ -718,7 +730,6 @@ _run_remote_build() {
     ''|*[!0-9-]*) echo "ERROR: remote build exit-code 非法: $exit_code" >&2; return 70 ;;
   esac
   REMOTE_LOG_REF="pc:$remote_input/build-run.log"
-  ssh "$remote_host" "schtasks /delete /tn '$task_name' /f" >/dev/null 2>&1 || true
   [ "$exit_code" = "0" ] || return "$exit_code"
 }
 

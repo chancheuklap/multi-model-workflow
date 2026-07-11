@@ -206,6 +206,46 @@ grep -q 'schtasks /end' "$TMP/transport.calls" && ok "remote build 超时结束�
 grep -q 'schtasks /delete' "$TMP/transport.calls" && ok "remote build 超时删计划任务(不遗留孤儿)" || no "remote build 超时未删任务"
 [ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" != "done" ] && ok "remote build 超时不判 stage done" || no "remote build 超时误判 done"
 bash "$RF" close >/dev/null
+
+# 回归 I1:schtasks /run 起不来(任务已 /create)时,尾部统一清理必须删掉已建的计划任务。
+# 上轮只在超时分支清理,漏了 /run 失败这个出口;这里断言现在所有出口都统一走 /delete。
+cat > remote-bin/ssh <<'SH'
+#!/usr/bin/env bash
+printf 'ssh %s\n' "$*" >> "$TRANSPORT_CALLS"
+case "$*" in
+  *"schtasks /run"*) exit 1 ;;
+  *Test-Path*) printf 'N\n' ;;
+esac
+SH
+chmod +x remote-bin/ssh
+: > "$TMP/transport.calls"
+bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" \
+   RELEASE_REMOTE_BUILD_POLL_SECONDS=0 \
+   RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release-input" bash "$RF" stage run --stage build >/dev/null 2>&1 || true
+grep -q 'schtasks /delete' "$TMP/transport.calls" && ok "remote build /run 失败仍删已建计划任务(I1 不遗留)" || no "remote build /run 失败未删任务"
+[ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" != "done" ] && ok "remote build /run 失败不判 stage done" || no "remote build /run 失败误判 done"
+bash "$RF" close >/dev/null
+
+# 回归 I1:exitcode 文件内容非法(非数字)时,尾部统一清理必须删掉计划任务(该出口上轮也漏清)。
+cat > remote-bin/ssh <<'SH'
+#!/usr/bin/env bash
+printf 'ssh %s\n' "$*" >> "$TRANSPORT_CALLS"
+case "$*" in
+  *Test-Path*) printf 'Y\n' ;;
+  *Get-Content*) printf 'garbage\n' ;;
+esac
+SH
+chmod +x remote-bin/ssh
+: > "$TMP/transport.calls"
+bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" \
+   RELEASE_REMOTE_BUILD_POLL_SECONDS=0 \
+   RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release-input" bash "$RF" stage run --stage build >/dev/null 2>&1 || true
+grep -q 'schtasks /delete' "$TMP/transport.calls" && ok "remote build exitcode 非法仍删计划任务(I1 不遗留)" || no "remote build exitcode 非法未删任务"
+[ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" != "done" ] && ok "remote build exitcode 非法不判 stage done" || no "remote build exitcode 非法误判 done"
+bash "$RF" close >/dev/null
+
 bash "$RF" init --manifest "$FIX/manifest.fake.json" --max-rounds 1 >/dev/null
 out="$(bash "$RF" round next)"
 case "$out" in
