@@ -126,6 +126,13 @@ cmd_handoff() {
   local next_action next_phase="" human
   case "$conclusion" in
     pass)
+      # 确定性完工闸(替代旧 SubagentStop 看守):在审闸内(gate 非空)报 verdict pass 时,
+      # 内层审 loop 必须自证收束(exit-check==DONE:清单全覆盖 + 无开口 Critical)才放行。
+      # 宿主中立、在决策点即时拦;未收束/已 surface → fail-closed die,按 pause 走返修/掉头。
+      if [ -n "$gate" ]; then
+        local lst; lst="$(bash "$SCRIPT_DIR/loop.sh" exit-check 2>/dev/null || echo "?")"
+        [ "$lst" = "DONE" ] || die "[$cur_phase] 审闸未收束(loop exit-check=$lst):清单未全覆盖 / 有开口 Critical / 已 surface;拒绝 pass。补齐覆盖与处置后再 pass,或按 pause 走 needs-repair/needs-redirection/needs-context"
+      fi
       if [ -z "$gate" ] && [ "$gated" = yes ]; then
         # 阶段产物刚过、还没审:进审闸,phase 不动、不 advance,等审的 verdict 再来一次 handoff
         new_gate="$cur_phase"

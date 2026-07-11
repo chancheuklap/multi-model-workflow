@@ -9,6 +9,7 @@ WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREPARE="$SCRIPT_DIR/../prepare.sh"
 FLOW="$SCRIPT_DIR/../flow.sh"
+LOOP="$SCRIPT_DIR/../loop.sh"
 
 pass=0; fail=0
 ok() { echo "  PASS: $1"; pass=$((pass+1)); }
@@ -30,6 +31,16 @@ mfield() { jq -r ".$2" "$1/${STATE_SUBDIR}/task.json"; }
 mkf() { mkdir -p "$1/$(dirname "$2")"; : > "$1/$2"; }
 mkd() { mkdir -p "$1/$2"; }
 hrange() { (cd "$1" && echo "$(git rev-parse HEAD)..HEAD"); }
+# 审闸 verdict pass:新契约要求审闸内 pass 前审 loop 必须 exit-check==DONE(确定性完工闸,替代旧 SubagentStop 看守)。
+# 空跑不经 review.sh,这里补一个已收束的最小 review loop 再 pass。$2+ 透传给 handoff(如 --produced)。
+gate_verdict_pass() {
+  local wt="$1"; shift
+  ( cd "$wt" \
+    && bash "$LOOP" init --kind review --max-rounds 2 >/dev/null \
+    && bash "$LOOP" checklist add --item gate --source s >/dev/null \
+    && bash "$LOOP" checklist cover --item gate --evidence e >/dev/null \
+    && bash "$FLOW" handoff --conclusion pass "$@" >/dev/null )
+}
 
 # ===== A: develop 全程空跑 + 中途甩支线 (investigate→design→plan→build(④闸)→closing) =====
 WA="$(newtask develop 2026-06-28-task-a)"
@@ -61,7 +72,7 @@ echo "$OUTG" | grep -q "REVIEW_STAGE=design" && ok "审闸报阶段 design" || n
 [ "$(mphase "$WA")" = "design" ] && ok "审闸里 phase 不动" || no "审闸 phase 不动 ($(mphase "$WA"))"
 [ "$(mfield "$WA" gate)" = "design" ] && ok "gate=design" || no "gate=design ($(mfield "$WA" gate))"
 
-( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # ①审 verdict pass → to-issue
+gate_verdict_pass "$WA"  # ①审 verdict pass → to-issue
 [ "$(mphase "$WA")" = "to-issue" ] && ok "①审过→进 to-issue(审后切片)" || no "①审过→to-issue ($(mphase "$WA"))"
 [ "$(mfield "$WA" gate)" = "null" ] && ok "进下一阶段 gate 清空" || no "gate 清空 ($(mfield "$WA" gate))"
 
@@ -72,7 +83,7 @@ mkd "$WA" docs/issues/a
 mkd "$WA" docs/plans/a
 ( cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/a/ >/dev/null )  # plan→gate:plan
 [ "$(mfield "$WA" gate)" = "plan" ] && ok "plan pass→进 ②审闸" || no "②审闸 ($(mfield "$WA" gate))"
-( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )  # ②审 verdict→build
+gate_verdict_pass "$WA"  # ②审 verdict→build
 [ "$(mphase "$WA")" = "build" ] && ok "②审过→进 build" || no "②审过→build ($(mphase "$WA"))"
 
 # build 产物过 → 进 ④终审闸(build 现在也 gated:phase 不动,gate=build)
@@ -86,7 +97,7 @@ WBG="$(cd "$WA" && bash "$FLOW" where)"
 echo "$WBG" | grep "review_start=" | grep -q -- "review start --stage final" && ok "build 闸 where 吐 review_start --stage final(完整可执行命令)" || no "review_start final ($(echo "$WBG" | grep review_start))"
 
 mkf "$WA" docs/2026-06-28-task-a-final-review.md
-( cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/2026-06-28-task-a-final-review.md >/dev/null )  # ④审 verdict pass → closing(④闸要钉终审报告)
+gate_verdict_pass "$WA" --produced docs/2026-06-28-task-a-final-review.md  # ④审 verdict pass → closing(④闸要钉终审报告)
 [ "$(mphase "$WA")" = "closing" ] && ok "④审过→closing" || no "④审过→closing ($(mphase "$WA"))"
 [ "$(mfield "$WA" gate)" = "null" ] && ok "④审过 gate 清空" || no "④审过 gate 清空 ($(mfield "$WA" gate))"
 OUT="$(cd "$WA" && bash "$FLOW" handoff --conclusion pass)"        # closing→ready-to-close
@@ -105,6 +116,32 @@ mkf "$WA2" docs/i.md; mkf "$WA2" docs/p.md; mkf "$WA2" docs/d.md
 [ "$(mfield "$WA2" gate)" = "null" ] && ok "审打回→gate 清空" || no "审打回 gate 清空 ($(mfield "$WA2" gate))"
 [ "$(mphase "$WA2")" = "design" ] && ok "审打回→停在 design 返工" || no "审打回停 design"
 [ "$(mfield "$WA2" repair_count)" = "1" ] && ok "审打回计返工=1" || no "审打回返工计数"
+
+# ===== A3: 审闸确定性完工闸(gate 内 pass 前必须 loop exit-check==DONE,替代 SubagentStop 看守)=====
+WA3="$(newtask develop 2026-07-11-gate)"
+mkf "$WA3" docs/i.md; mkf "$WA3" docs/p.md; mkf "$WA3" docs/design/g.md
+( cd "$WA3" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )
+( cd "$WA3" && bash "$FLOW" handoff --conclusion pass --produced docs/p.md >/dev/null )
+( cd "$WA3" && bash "$FLOW" handoff --conclusion pass --produced docs/design/g.md >/dev/null )  # design→①审闸
+[ "$(mfield "$WA3" gate)" = "design" ] && ok "A3 进 ①审闸" || no "A3 ①审闸"
+# 无审 loop → 审闸内 pass 被拒(fail-closed:没起审就想过闸)
+if ( cd "$WA3" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 ); then no "无审 loop 时 gate pass 该被拒"; else ok "无审 loop → gate pass 被拒(确定性闸 fail-closed)"; fi
+# 审 loop 起了但清单没覆盖完 → 仍被拒
+( cd "$WA3" && bash "$LOOP" init --kind review --max-rounds 2 >/dev/null )
+( cd "$WA3" && bash "$LOOP" checklist add --item c1 --source s >/dev/null )
+if ( cd "$WA3" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 ); then no "清单未覆盖完 gate pass 该被拒"; else ok "清单未覆盖完 → gate pass 被拒"; fi
+# 开口 Critical → 仍被拒
+( cd "$WA3" && bash "$LOOP" checklist cover --item c1 --evidence e >/dev/null )
+( cd "$WA3" && bash "$LOOP" finding add --severity Critical --confidence 9 --locator f:1 >/dev/null )
+if ( cd "$WA3" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 ); then no "开口 Critical gate pass 该被拒"; else ok "开口 Critical → gate pass 被拒"; fi
+# 清单全覆盖 + 无开口 Critical(exit-check DONE)→ 放行(finding 无 resolve 命令,起干净 loop 验放行路径)
+( cd "$WA3" && bash "$LOOP" close >/dev/null )
+( cd "$WA3" && bash "$LOOP" init --kind review --max-rounds 2 >/dev/null )
+( cd "$WA3" && bash "$LOOP" checklist add --item c1 --source s >/dev/null )
+( cd "$WA3" && bash "$LOOP" checklist cover --item c1 --evidence e >/dev/null )
+( cd "$WA3" && bash "$FLOW" handoff --conclusion pass >/dev/null )
+[ "$(mphase "$WA3")" = "to-issue" ] && ok "exit-check DONE → gate pass 放行进 to-issue" || no "DONE 放行 ($(mphase "$WA3"))"
+[ "$(mfield "$WA3" gate)" = "null" ] && ok "放行后 gate 清空" || no "放行后 gate 清空"
 
 # ===== B: bug 掉头 + 上限拦截 (investigate→build(④闸)→closing) =====
 WB="$(newtask bug 2026-06-28-task-b)"
@@ -167,7 +204,7 @@ mkf "$WD2" docs/i.md; mkf "$WD2" docs/p.md; mkf "$WD2" docs/d.md; mkd "$WD2" doc
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )        # investigate→propose
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion pass --produced docs/p.md >/dev/null )        # propose→design
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion pass --produced docs/d.md >/dev/null )        # design→①审闸
-( cd "$WD2" && bash "$FLOW" handoff --conclusion pass >/dev/null )        # ①审过→to-issue(审闸不产文件)
+gate_verdict_pass "$WD2"        # ①审过→to-issue(审闸不产文件)
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/x/ >/dev/null )        # to-issue→plan
 [ "$(mphase "$WD2")" = "plan" ] && ok "D2 到 plan" || no "D2 到 plan ($(mphase "$WD2"))"
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design >/dev/null )
@@ -249,7 +286,7 @@ WI2="$(newtask develop 2026-06-30-nostep)"
 echo "$(cd "$WI2" && bash "$FLOW" where)" | grep -q "step=" && no "investigate 不该有 step=" || ok "无步骤阶段 where 不报 step="
 if ( cd "$WI2" && bash "$FLOW" step next >/dev/null 2>&1 ); then no "无步骤阶段 step next 该被拒"; else ok "无步骤阶段 step next 被拒(直接 handoff)"; fi
 # plan 阶段与 design 同构:也三步走脚本游标(架构/操作一致)
-( cd "$WI" && bash "$FLOW" handoff --conclusion pass >/dev/null )   # ①审 verdict → to-issue
+gate_verdict_pass "$WI"   # ①审 verdict → to-issue
 mkd "$WI" docs/issues/2026-06-30-steps
 ( cd "$WI" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/2026-06-30-steps/ >/dev/null )  # to-issue→plan
 WIP="$(cd "$WI" && bash "$FLOW" where)"
@@ -265,7 +302,7 @@ mkf "$WSS" docs/investigating/ss.md; mkf "$WSS" docs/design/ss-dir.md
 ( cd "$WSS" && bash "$FLOW" handoff --conclusion pass --produced docs/design/ss-dir.md >/dev/null )     # propose->design
 echo "# design v1" > "$WSS/docs/design/ss.md"
 ( cd "$WSS" && bash "$FLOW" handoff --conclusion pass --produced docs/design/ss.md >/dev/null )         # design->gate
-( cd "$WSS" && bash "$FLOW" handoff --conclusion pass >/dev/null )                                       # 审 pass(记指纹)->to-issue
+gate_verdict_pass "$WSS"                                       # 审 pass(记指纹)->to-issue
 ( cd "$WSS" && bash "$FLOW" where ) | grep -q "stale_gate" && no "未改不该报 stale" || ok "过闸产物没改:where 不报 stale"
 echo "# design CHANGED" > "$WSS/docs/design/ss.md"   # 过闸后改设计文档
 ( cd "$WSS" && bash "$FLOW" where ) | grep -q "stale_gate=design" && ok "过闸后改设计→where 报 stale_gate=design(该回审)" || no "stale_gate 未报"
@@ -301,10 +338,10 @@ mkf "$WBB" docs/i.md; mkf "$WBB" docs/p.md; mkf "$WBB" docs/d.md; mkd "$WBB" doc
 ( cd "$WBB" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )       # investigate→propose
 ( cd "$WBB" && bash "$FLOW" handoff --conclusion pass --produced docs/p.md >/dev/null )       # propose→design
 ( cd "$WBB" && bash "$FLOW" handoff --conclusion pass --produced docs/d.md >/dev/null )       # design→①审闸
-( cd "$WBB" && bash "$FLOW" handoff --conclusion pass >/dev/null )                            # ①审过→to-issue
+gate_verdict_pass "$WBB"                            # ①审过→to-issue
 ( cd "$WBB" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/x/ >/dev/null )  # to-issue→plan
 ( cd "$WBB" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/x/ >/dev/null )   # plan→②审闸
-( cd "$WBB" && bash "$FLOW" handoff --conclusion pass >/dev/null )                            # ②审过→build
+gate_verdict_pass "$WBB"                            # ②审过→build
 [ "$(mphase "$WBB")" = "build" ] && ok "develop 七 pass 到 build" || no "develop 到 build ($(mphase "$WBB"))"
 echo "$(cd "$WBB" && bash "$FLOW" where)" | grep -q "load=references/build-b.md" && ok "develop build 阶段 load=build-b.md(脚本按 scenario 选模式)" || no "develop load build-b"
 

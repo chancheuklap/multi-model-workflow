@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "loop-state",
-  "description": "内层 loop 的状态 ledger,独立于外层 task.json(并列执行档,旧 plugin 双文件模型的思路)。落 <worktree>/.claude/multi-model-workflow/loop-state.json。进一个 loop 时 init,handoff 结论落定时由 loop close 清(否则残留会污染下阶段 where)。看守 hook、exit-check、以及 flow.sh where(报 inner_loop 断点恢复)都读它。",
+  "description": "内层 loop 的状态 ledger,独立于外层 task.json(并列执行档,旧 plugin 双文件模型的思路)。落 <worktree>/.claude/multi-model-workflow/loop-state.json。进一个 loop 时 init,handoff 结论落定时由 loop close 清(否则残留会污染下阶段 where)。exit-check、flow.sh handoff 确定性闸(审闸内 pass 前核 exit-check==DONE)、以及 flow.sh where(报 inner_loop 断点恢复)都读它。",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "kind", "attendance", "steps", "checklist", "findings", "decisions", "pause"],
@@ -14,8 +14,6 @@
     "attendance": { "enum": ["attended", "afk", "unattended"], "description": "本 loop 的值守档,init 时从外层 task.json 的 attendance 读入(task.json 为运行级权威,跨阶段留存;loop-state 只是当前 loop 的派生缓存供软停判断)。attended=软停问人;afk=软停自决、缺输入/方向疑仍停;unattended=软停自决且禁向用户提问(权威仍是 task.json,见 attendance reference)" },
     "round": { "type": "integer", "minimum": 1, "description": "审 loop 当前轮次(loop round next 推进)" },
     "max_rounds": { "type": "integer", "minimum": 0, "description": "审 loop 轮上限,0=不限;round next 到顶自动 surface 熔断(机器计数,防无限打转)" },
-    "guard_blocks": { "type": "integer", "minimum": 0, "description": "guard-loop 连续零进展顶回计数;≥6 熔断写 pause 交人(机器抓手)" },
-    "guard_sig": { "type": "string", "description": "guard-loop 上次顶回时的账本进展签名(done/covered/findings/decisions 计数),签名不变=零进展" },
     "steps": {
       "type": "array",
       "items": {

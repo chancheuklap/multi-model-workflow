@@ -2,7 +2,7 @@
 # loop.sh —— 内层 loop 引擎(确定层:看守 steps/checklist、软停×在场、退出三件套核对)
 #
 # 操作 <worktree>/状态平面(mmw_state_subdir)/loop-state.json(独立于外层 task.json)。
-# 进一个 loop 阶段时 init,退出时由阶段收尾清。看守 hook 与 exit-check 都读它。
+# 进一个 loop 阶段时 init,退出时由阶段收尾清。exit-check 与 flow.sh handoff 确定性闸都读它。
 #
 #   init        建 loop-state(--kind execution|review|contract-gate [--max-rounds N])
 #   attendance  设当前 loop 的档 attended|afk|unattended(权威在 task.json,这里只改当前 loop 缓存)
@@ -13,7 +13,7 @@
 #   softstop    有默认的判断:在场→写 pause;afk→自决+留 decisions,继续
 #   surface     缺输入/方向疑:永远写 pause(needs-context|needs-redirection)
 #   resume      清 pause(答复后续)
-#   exit-check  退出判据核:DONE / NOT-DONE:<剩> / PAUSED:<因>(给看守 hook 用)
+#   exit-check  退出判据核:DONE / NOT-DONE:<剩> / PAUSED:<因>(给 flow.sh handoff 确定性闸 + where 断点恢复用)
 #   close       loop 收束:删 loop-state(schema「退出时清」的落地)。由 flow.sh handoff 结论落定时调,防残留污染下阶段 where。幂等,无 loop 也不报错。
 set -euo pipefail
 
@@ -73,7 +73,7 @@ cmd_init() {
 }
 
 # 轮账:审 loop 每跑完一整轮(全视角覆盖+修复重验)未收敛,round next 记一轮。
-# 到上限自动 surface 熔断(机器计数,不靠协调帮手自觉)——防无限打转/reward hacking。
+# 到上限自动 surface 熔断(机器计数,不靠主线程自觉)——防无限打转/reward hacking。
 cmd_round() {
   local verb="${1:-}"; shift || true
   [ "$verb" = "next" ] || die "用法 round next"
@@ -202,10 +202,10 @@ cmd_close() {
   echo "CLOSED"
 }
 
-# 退出三件套核对:DONE / NOT-DONE:<剩> / PAUSED:<因>。给看守 hook 用(它据此 exit2 顶回去 or 放停)
+# 退出三件套核对:DONE / NOT-DONE:<剩> / PAUSED:<因>。给 flow.sh handoff 确定性闸(审闸内 pass 前核 DONE)+ where 断点恢复用
 cmd_exit_check() {
   local f; f="$(need_loop)"
-  # fail-closed:状态文件损坏/空/非法 JSON 不能当 done/PAUSED 放行,报 CORRUPT 让看守拦
+  # fail-closed:状态文件损坏/空/非法 JSON 不能当 done/PAUSED 放行,报 CORRUPT 让上游闸拦
   jq -e . "$f" >/dev/null 2>&1 || { echo "CORRUPT:loop-state 空/非法 JSON"; return 0; }
   local kind; kind="$(jq -r .kind "$f")"
   # 暂停优先:停着就是停着,不算 done

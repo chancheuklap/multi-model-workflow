@@ -35,7 +35,7 @@ Coordinator 在任何阶段都按当前值守档决定"软停问不问人"。值
 | --- | --- | --- |
 | `side_finding_default` | 计划外自动策略 | `auto`(用计划外分流默认表) |
 | `hitl_unanswered` | 仍有未答 HITL | `reject_enter` |
-| `budget_at_100` | 审轮到顶 / guard 熔断 | `hard_stop` |
+| `budget_at_100` | 审轮到顶(round-cap 机器计数熔断) | `hard_stop` |
 | `design_gap` | 设计方向打穿 | `hard_stop` |
 | `external_env` | 真机/生产/外部凭证 | `hard_stop` |
 | `blocked_no_auto_path` | BLOCKED 且无自动路径 | `hard_stop` |
@@ -48,7 +48,7 @@ Coordinator 在任何阶段都按当前值守档决定"软停问不问人"。值
 1. 软停 → `mmw loop softstop`(自决留痕,不偷跳)。
 2. 冒泡 / 硬停清单命中 → `mmw loop surface`(写 pause)+ `mmw progress render`(板写明原因),**不提问绕过**。
 3. 唯一对用户输出:进度板刷新、硬停回执、完成回执。
-4. 与既有机制对齐:`softstop` 一律自决;`surface`(needs-context/needs-redirection)仍硬停;`guard-loop` 熔断仍硬停;审闸失败按 `review_fail` 走返工/熔断,不问"要不要继续"。
+4. 与既有机制对齐:`softstop` 一律自决;`surface`(needs-context/needs-redirection)仍硬停;审轮到顶(round-cap)熔断仍硬停;审闸失败按 `review_fail` 走返工/熔断,不问"要不要继续"。
 
 ## 退出
 

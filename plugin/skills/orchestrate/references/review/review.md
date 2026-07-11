@@ -1,10 +1,10 @@
 # Review · 审核 loop(阶段操作指南)
 
-> 审核闸操作指南。协调 = 主线程(或 `review-coordinator`);审查方法 + 各 stage 角度单源在已装的 **`worktree-review` skill**。plugin 侧只留 `plan-impl.md`(③合同门)与本文(编排)。
+> 审核闸操作指南。**主线程直接派审者**(拍平,不设协调帮手中间层);审查方法 + 各 stage 角度单源在已装的 **`worktree-review` skill**。plugin 侧只留 `plan-impl.md`(③合同门)与本文(编排)。
 >
 > **宿主分叉(派发)**:Claude → ①设计审 `codex exec`;②计划审 **会话内 `code-reviewer` sub-agent**(计划是 Codex 写的,翻 Claude 审);④final Codex+Claude CLI(分档 1/2/4)。Droid → `Task` + `reviewer-design-a/b`(opus) · `reviewer-plan-a/b`(opus,审 gpt-5.6-terra 写的计划) · `reviewer-final-a/b`(final 分档与 Claude 同判据;merge-impl=final-a+b)。brief 由 `mmw review start` 按宿主生成,照 brief 派即可。
 
-红线:**写者≠验者**(设计/计划作者与审者模型不同家;Droid 用 a/b 双 droid 钉死);**完工靠 `exit-check` 机器核,不靠 reporter 自报审完**。
+红线:**写者≠验者**(设计/计划作者与审者模型不同家;Droid 用 a/b 双 droid 钉死);**完工靠 `exit-check` 机器核 + handoff 确定性闸,不靠 reporter 自报审完、不靠 SubagentStop 看守**。
 
 ---
 
@@ -20,35 +20,35 @@
 
 另有 **③ 落地合同门**:不是引擎审闸,是 build **内部**机器合同检查——全 plan 合并后、build handoff 前跑一次(`--stage plan-impl`,`kind=contract-gate`,不派 Codex),由 build 流程驱动(build-b B5),本文只讲 ①②④ 三个引擎审闸 loop。
 
-## 1. 主线程:一条命令起审 → 抽清单 → 派协调帮手(①②④)
+## 1. 主线程:一条命令起审 → 抽清单 → 直接派审者(①②④)
 
-1. **一条命令起审**(把 init loop + 配审题 + 出 brief 收成一步):
+1. **一条命令起审**(把 init loop + 配审题 + 出派发指南收成一步):
  ```bash
  mmw review start --stage <design|plan|final> --source "<源意图路径/待审内容>"
  ```
- **直接用 `mmw where` 吐的 `review_start` 整行**(stage 与 `--source` 都填好了:design 闸→design、plan 闸→plan、build 闸→final)。它 init `kind=review` 的 loop、定好该阶段 stage 与两路视角(审查方法+角度在 Codex 侧 `worktree-review` skill,派发只传 stage + Source)、**打印好协调帮手 brief**。你照打印的往下走。
+ **直接用 `mmw where` 吐的 `review_start` 整行**(stage 与 `--source` 都填好了:design 闸→design、plan 闸→plan、build 闸→final)。它 init `kind=review` 的 loop、定好该阶段 stage 与两路视角(审查方法+角度在 Codex 侧 `worktree-review` skill,派发只传 stage + Source)、**打印好审派发指南**(`状态平面/review-brief.md`)。你照打印的往下走。
 2. **抽覆盖清单**(判断,留你做):从设计/计划/issue/意图逐条抽"要审到什么",`source` 记从哪份文档哪行抽。客观项(② issue 数=plan 数、④ 意图逐条)标清楚:
  ```bash
  mmw loop checklist add --item "<要审到的维度>" --source "<doc:line>" # 逐条
  mmw loop attendance --mode <attended|afk>
  ```
-3. **派审核协调帮手**(Claude sub-agent,SubagentStop 受 guard-loop 看守):prompt 只给一句「读 `状态平面/review-brief.md` 照做」——brief 由 `review start` 机器生成落盘(派审者/留痕/亲验/收敛熔断全在里面),不过主线程 context。**别塞你自己的问题清单、别给审者 plugin 内路径。**
+3. **主线程直接派审者**(拍平,不派协调帮手中间层):读 `状态平面/review-brief.md`,按它「派审者」段直接派(Claude 会话内 sub-agent / Codex 后台 CLI;Droid `Task` 派 `reviewer-*` droid)。审者各自干净 context 并行起、读 `worktree-review` skill 出结构化 findings。**别给审者 plugin 内路径、别塞你自己的问题清单。**
 
- **每个审都留痕(①②④ 都要,不只 ④)**:协调帮手把**全部审者的结构化 findings 原样落盘**到 `docs/reviews/<slug>-<stage>.md`(不重写、不摘要),亲验后把每条的 verdict/处置(accepted / rejected / duplicate / needs-evidence)就近标在该条下,文末写一句总 verdict。主线程收口只**读这份文档的 verdict 段**。留痕是过程产物:已被 `docs/.gitignore` 忽略,随 worktree 删,不进 git 历史。
+ **每个审都留痕(①②④ 都要,不只 ④)**:把**全部审者的结构化 findings 原样落盘**到 `docs/reviews/<slug>-<stage>.md`(不重写、不摘要),亲验后把每条的 verdict/处置(accepted / rejected / duplicate / needs-evidence)就近标在该条下,文末写一句总 verdict。收口只**回读这份文档的 verdict 段**——findings 全文压在 trace 文件里,不长驻主线程 context。留痕是过程产物:已被 `docs/.gitignore` 忽略,随 worktree 删,不进 git 历史。
 
-## 2. 主线程:收口(协调帮手停下后)
+## 2. 主线程:收口(审者跑完、findings 亲验记账后)
 
 读 `loop-state.json` 的 `pause` 和 `findings`,按情况 handoff(结论词由 Gap 决定):
 
 - `pause != null`(surface 冒泡)→ 按 `reason` handoff `needs-redirection` / `needs-context`,交用户。
-- `exit-check` = DONE 且无 accepted 缺陷 → `mmw handoff --conclusion pass`,进下一阶段。
+- `exit-check` = DONE 且无 accepted 缺陷 → `mmw handoff --conclusion pass`,进下一阶段。**未 DONE(清单没覆盖完 / 有开口 Critical / 已 surface)时引擎直接拒 pass**(确定性闸)——先补齐再 pass。
  - **仅 ④final(build 审闸):handoff `pass` 前先写终审报告**到 `docs/<slug>-final-review.md`(照 `mmw where` 的 `then` 钉 `--produced`),closing 阶段照单读它收口。三段:
  1. **终审结论**:verdict + 两基线各自结果(回归/意图/跨 plan;独立代码审)+ 放行的 waived 项(环境/账号 gate,带 owner)。
  2. **意图清单逐条**:最初 design + issue 提取的每条可验证 intent → 达成/未达成 + 证据(`file:line` 或测试名)。
  3. **业务语言交付摘要**(给项目负责人看,**不用技术术语**):新增能力(每条一个用户可感知的行为变化,如「用户现在可以用手机号登录,15 秒内完成」,不列函数名/文件路径/类名)· 验证证据(跑了哪些验收、什么结果)· 残余风险(已知没覆盖的、需人盯的,诚实列不藏)。
  ①②审是闸、不产文件,这条不适用。
 - 有 accepted finding → 按 Gap 选结论词(`needs-repair` 是**原地返工当前阶段**;回上游别的阶段必须 `needs-redirection --to-phase <阶段>`):
- - 缺陷在**当前被审阶段**(①审=design、②审=plan、④final=build,gate 的 cur_phase 就是它;④final 的代码缺陷在 build 审闸 loop 里就地修)→ `needs-repair`,改完 handoff 重审。
+ - 缺陷在**当前被审阶段**(①审=design、②审=plan、④final=build,gate 的 cur_phase 就是它)→ `needs-repair`,改完 handoff 重审。**④final 的代码缺陷**:引擎清 gate、repair_count+1,`mmw where` 指回 build 阶段(build-b 有**返修入口**)——照 accepted findings 的 `file:line`+remediation 派全新写码工人进任务 worktree 定点修(不复活原会话/原子 worktree),修完 handoff pass 重进 ④(改动过闸后 source-stability 指纹也会要求重审)。
  - 根因在**更上游阶段**(②审发现 design 问题、④final 撞破 plan/design)→ `needs-redirection --to-phase <design|plan|build>`,回那阶段改。
  - Direction(解错问题)→ `needs-redirection`;Context(缺输入)→ `needs-context`。
 - 超熔断仍不收敛 → `mmw handoff --conclusion blocked`,带经过上报。
@@ -58,5 +58,5 @@
 ## 3. 守住的红线
 
 - 写者≠验者:Claude 宿主 ①设计审用 Codex、②计划审用 Claude code-reviewer(计划 Codex 写)、④双模型 CLI;Droid 宿主 ① 用 design-a/b(opus)、② 用 plan-a/b(opus,计划 gpt-5.6-terra 写)、④ 用 final-a/b 按 tier。不用 `codex review`(内置提示词绕过方法论)。prompt 一律指向已装 `worktree-review` skill;不给审者 plugin 内路径。
-- 每条 finding 引 `file:line` 原文才采信;协调帮手亲验后才 accept,主线程落 handoff 前再核承重的。
+- 每条 finding 引 `file:line` 原文才采信;主线程亲验后才 accept,落 handoff 前再核承重的。
 - ③ 不判断、只核合同;重判预算砸 ④final。

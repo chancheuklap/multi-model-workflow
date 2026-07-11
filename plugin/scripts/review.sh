@@ -2,8 +2,8 @@
 # review.sh —— 审闸一条命令(把"起一道审"的机械 6 步收成 1 步)
 #
 #   start --stage <design|plan|plan-impl|final|merge-impl> --source <源意图路径/描述>
-#       按阶段映射 kind + 视角,init loop-state,把协调帮手 brief 写进状态目录文件
-#       (主线程派帮手只传文件路径,brief 不过主线程 context)。
+#       按阶段映射 kind + 视角,init loop-state,把审派发指南写进状态目录文件 review-brief.md
+#       (主线程读它**直接派审者**——拍平,不再派协调帮手中间层)。
 #       审者读已装的 worktree-review skill(方法本体单源在那,不给审者 plugin 内路径)。
 #       ④final 按 scenario 分档:develop = 双模型 2×2;small-change/bug = 1×Codex 一肩挑两视角(diff 小)。
 set -euo pipefail
@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/host.sh
 . "$SCRIPT_DIR/lib/host.sh"
 LOOP="$SCRIPT_DIR/loop.sh"
-MMW="bash \"$SCRIPT_DIR/mmw.sh\""   # 打印给协调帮手的命令,完整可执行形式
+MMW="bash \"$SCRIPT_DIR/mmw.sh\""   # 打印给主线程的命令,完整可执行形式
 # 当前目录真实状态平面(跨宿主续跑)
 state_here() {
   local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
@@ -78,9 +78,9 @@ prompt:读 plugin 内 worktree-review skill(${skill}/SKILL.md),按 stage=merge-i
       ;;
   esac
   {
-    echo "# 审核协调帮手 brief(stage=${stage} · host=droid · tier=${tier} · 机器生成,读完照做)"
+    echo "# 审派发指南(stage=${stage} · host=droid · tier=${tier} · 机器生成,主线程读完直接派审者)"
     echo
-    echo "你是审核协调帮手,跑 kind=review 审 loop,不自己写结论也不改产物。"
+    echo "主线程直接派审者跑 kind=review 审 loop,自己记账/亲验/收敛,不派协调帮手、不自己写产物结论。"
     echo "Source: ${source}"
     echo "宿主: droid · 壳工具: Execute · 问人: AskUser"
     echo
@@ -197,7 +197,10 @@ EOF
     tslug="$(jq -r '.slug // ""' "$man" 2>/dev/null || echo "")"
     pdir="$top/docs/plans/$tslug"
     if [ -n "$base" ] && [ -n "$tslug" ] && [ -d "$pdir" ]; then
-      cap="$(grep -rlE 'Complexity:.*capable' "$pdir" 2>/dev/null || true)"
+      # capable 检测 fail-closed:大小写不敏感 + 认中文"复杂度"标签(计划按仓库惯例常写中文),
+      # 只要同一行有 complexity/复杂度 标签且带 capable 就算高风险,漏检=错降 tier=2(少审者)。
+      # 宁可多匹配(留 tier=4 多审)也不漏(降档 fail-open);无 capable 才可能降 tier=2。
+      cap="$(grep -rlEi '(complexity|复杂度).*capable' "$pdir" 2>/dev/null || true)"
       # 空 diff 时 grep 无匹配退 1,{ ...|| true; } 挡住 pipefail(bash3.2+set -e 惯性坑)
       diffn="$(git -C "$top" diff --shortstat "$base"..HEAD 2>/dev/null \
                | { grep -oE '[0-9]+ (insertion|deletion)' || true; } | awk '{s+=$1} END{print s+0}')"
@@ -261,9 +264,9 @@ DISPATCH
   fi
 
   cat > "$brief" <<EOF
-# 审核协调帮手 brief(stage=$stage · host=$(mmw_host) · 机器生成,读完照做)
+# 审派发指南(stage=$stage · host=$(mmw_host) · 机器生成,主线程读完直接派审者)
 
-你是审核协调帮手,跑 kind=review 审 loop,不自己写结论也不改产物。
+主线程直接派审者跑 kind=review 审 loop,自己记账/亲验/收敛,不派协调帮手、不自己写产物结论。
 Source: ${source}
 
 ## 派审者
@@ -272,12 +275,13 @@ $dispatch
 以上无头 CLI 一律用宿主后台能力起(Claude: Bash \`run_in_background: true\` + TaskOutput; Droid: Task 派 droid)。审一轮常超前台超时上限;Codex 的 session id 在其输出头部 \`session id:\` 行。
 
 ## 留痕(必做)
-把全部审者的结构化 findings **原样落盘** $trace(不重写不摘要,保真+省主线程 context);
+把全部审者的结构化 findings **原样落盘** $trace(不重写不摘要,保真);
 亲验后把每条 verdict/处置(accepted/rejected/duplicate/needs-evidence)就近标该条下,文末写一句总 verdict。
+收口只回读这份文档的 verdict 段,findings 全文压在 trace 文件里、不长驻主线程 context。
 
 ## 收回亲验
 每条 finding 自己 Read/grep/跑坐实(审者是劳动力不是信源),引不出 file:line 降置信。
-你只做机械亲验与记账,不 consult advisor(判断在主线程收口做)。
+承重 finding 亲验后才 accept(判断在此收口做,审 verify 期间不 consult advisor)。
   坐实一个维度: $MMW loop checklist cover --item <i> --evidence <file:line>
   真 finding:   $MMW loop finding add --severity <C/I/M> --confidence <1-10> --locator <file:line>
 
@@ -285,7 +289,7 @@ $dispatch
 全部审者跑完追一轮无新高置信 finding = 收敛;每跑完一整轮(全视角覆盖+修复重验)未收敛 →
   $MMW loop round next   (轮账机器计数;到上限引擎自动 surface 熔断,不靠自觉)
 方向疑/缺输入 → $MMW loop surface --kind <needs-context|needs-redirection> --question "<...>",别当产物缺陷修。
-清单全绿+无开口 Critical 前 guard-loop 不让你停。
+清单全绿+无开口 Critical(\`$MMW loop exit-check\`==DONE)前,收口 handoff pass 会被引擎拒(确定性闸,不靠看守)。
 EOF
 
   # small-change/bug final 在 Claude 侧 tier 语义=1;overlay 用 scen 已处理,这里传 1 便于 brief 标注
@@ -296,9 +300,11 @@ EOF
   overlay_droid_brief_if_needed "$brief" "$stage" "$scen" "$source" "$droid_tier"
 
   cat <<EOF
-2. 派审核协调帮手(subagent/droid: review-coordinator,SubagentStop 受 guard-loop 看守),prompt 只给一句:
-   「读 $brief 照做」——派发命令/留痕/亲验/收敛熔断全在 brief 里,不过主线程 context。
-3. 协调帮手停下后,主线程读 loop-state(pause/findings),回 review/review.md 的收口步 handoff verdict。
+2. 主线程读 $brief,按「派审者」段**直接派审者**(拍平,不再派协调帮手):审者各自干净 context 并行起,
+   读 worktree-review skill 出结构化 findings;findings 落 $trace,只回读 verdict 段。
+3. 审者跑完 → 主线程按 brief 的留痕/亲验/收敛落 findings 与 checklist cover;
+   清单全绿 + 无开口 Critical(\`$MMW loop exit-check\`==DONE)后回 review/review.md 收口 handoff verdict
+   (未收束时 handoff pass 会被引擎拒)。
 EOF
 }
 

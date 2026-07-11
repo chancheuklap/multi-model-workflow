@@ -58,12 +58,14 @@ mmw where
 - 主线程按 plan 验收(跑测试 / 读 diff),不信工人自述
 - 每 Pack 提交带 `Pack N.M`
 
-## 4. 审闸
+## 4. 审闸(主线程直接派审者,拍平——无协调帮手中间层)
 
 | 宿主 | 派发 |
 | --- | --- |
-| Claude | brief 内 `codex exec` / `claude -p` 无头 CLI(后台) |
-| Droid | brief 内 `Task` → `reviewer-*` droid,按 stage/视角/模型矩阵并行 |
+| Claude | ①设计 / ④final 后台 `codex exec`(read-only)+ ②计划 / ④final 会话内 `code-reviewer` sub-agent(Agent 工具) |
+| Droid | `Task` → `reviewer-*` droid,按 stage/视角/模型矩阵并行 |
+
+主线程读 `review start` 生成的 `状态平面/review-brief.md`,照「派审者」段**直接派**(findings 落 trace 文件、只回读 verdict 段);完工靠 handoff **确定性闸**(审闸内 `pass` 前引擎核 `loop exit-check==DONE`),不靠 SubagentStop 看守。
 
 审者读 `worktree-review` skill(审查方法论单源):**Claude 侧** Codex / Claude 无头 CLI 读它自己 hub 装的(`~/.agents/skills/worktree-review/`);**Droid 侧**读随插件发布的 `plugin/skills/worktree-review/`(派发消息传绝对路径,不赌子代理自动加载)。同一套方法,两宿主各取自己够得到的副本。
 
@@ -81,7 +83,6 @@ mmw where
 | `reviewer-plan-b` | 计划审轴B(审 Codex 写的计划) | `claude-opus-4-8` high | read-only |
 | `reviewer-final-a` | final / merge 跨模型路A | `gpt-5.6-terra` high(≠写码) | read-only |
 | `reviewer-final-b` | final / merge 跨模型路B | `claude-opus-4-8` high(≠A) | read-only |
-| `review-coordinator` | 审 loop 协调(可选隔离) | inherit / 同主线程 | 读写 + Execute + Task |
 | `investigate-topic` | 单 topic 取证 | `grok-4.5` high | read-only + web |
 | `code-explorer` | 只读探代码 | `claude-sonnet-5` high | read-only |
 | `fable-advisor` | 稀疏关键顾问(非审闸) | `claude-fable-5` high | read-only |
@@ -102,9 +103,8 @@ Droid final 分档与 Claude 同判据(`review.sh` tier):small-change/bug → 1 
 | SessionStart | (无 matcher) | 同 | `session-triage.sh` |
 | PreToolUse | `Bash` | `Execute`(hooks 用 `Bash\|Execute`) | `guard-redline.sh` |
 | PostToolUse | `Bash` | `Execute` | `record-step.sh` |
-| SubagentStop | (无 matcher) | 同 | `guard-loop.sh` |
 
-Droid 若 hook 事件名/payload 字段有差异,以 `lib/host.sh` + hooks 内容错为准;逻辑(记 step / 看守 / 分诊)不变。
+审 loop 完工不再用 SubagentStop 看守——改由 flow.sh handoff 确定性闸(审闸内 `pass` 前核 `loop exit-check==DONE`)把关,宿主中立、无子代理停机时序依赖。Droid 若 hook 事件名/payload 字段有差异,以 `lib/host.sh` + hooks 内容错为准;逻辑(记 step / 红线 / 分诊)不变。
 
 ## 7. 安装
 

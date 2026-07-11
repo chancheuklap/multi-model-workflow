@@ -17,6 +17,22 @@
 | `pending` + 有 `worktree` + 无 `codex-session` 也无 `run.log` | 记了映射但没派成(dispatch 崩) | 重派:回 B2 `mmw worker dispatch` |
 | `pending` + 无 `worktree` | 还没轮到 | 正常 B1→B2 派 |
 
+## B0. 返修入口(④终审 / ③合同门判 needs-repair 回来才走;首次落地跳过,直接 B1)
+
+`mmw where` 报 phase=build 且 `repair_count>0` = 从 ④终审(或 ③合同门)带 accepted 缺陷回来**定点修**,**不重走 B1–B6 全量派发**。子 worktree 已在 B4 清掉,代码都在**任务分支**上;不复活原会话、不找原 builder、不重开子 worktree。
+
+1. **读 accepted 缺陷**:④ 读终审报告 `docs/<slug>-final-review.md` 的 findings 段(每条带 `file:line`+remediation);③ 读合同门未兑现项。
+2. **判规模,定谁修**:
+ - 一两处、确定性的小修 → 主线程**直接改** + 自己验(随后全新审者重审仍保证写者≠验者)。
+ - 成规模 / 多文件 / 涉合同 → 汇一份返修指令(fix-spec:改哪个 `file:line`、为什么、验收命令),**落状态平面**(gitignored,免未提交的 docs/ 触发 worker 边界误报),派**一个全新写码工人进任务 worktree** 定点 TDD 修:
+ ```bash
+ mmw worker dispatch --plan <fix-spec 绝对路径> --worktree "$(git rev-parse --show-toplevel)" \
+   --design <设计文档绝对路径> --issue <相关 issue 绝对路径>
+ ```
+ (任务 worktree 已存在,脚本不重开;工人只改源码、禁碰 `docs/`,与 B2 同 fail-closed;全新 context = 写者≠原验者。)
+3. **验收**(B3 同法):跑测试 / 读 diff 亲验,测试质量对标仓库标准,不吃自述。
+4. **回 ④重审**:若返修触碰跨 plan 合同,先重跑 B5 ③;否则直接 `mmw handoff --conclusion pass --produced "<base..HEAD>"` → 引擎重进 ④终审闸,**全新审者重审**(改动过闸后 source-stability 指纹也会要求重审)。返修满 `max_repair` 仍不过 → 引擎自动 `blocked` 上报。
+
 ## B1. 进 + 起落地 loop
 
 `mmw where` → `prev_outputs` = plan 阶段钉的 plan 目录。读该目录拿 Task Pack 清单、acceptance、plan 间依赖。起 loop、把 plan 展开成步账(**一份 plan 一步**,派前把 plan 路径 + 分配的子 worktree 记进步账——断点恢复靠它认"哪步=哪 plan=派到哪"):
