@@ -4,7 +4,7 @@
 
 ## 这个项目在做什么
 
-`plugin/` = 正式启用的多模型开发编排 plugin(由 plugin2 重建而来、已替换 v1)。**目标**:做成能落地、被用户长期持续使用的商业化 plugin——让用户在**讨论 / 设计阶段与主线程对齐(HITL 集中在 propose/design)**,从**计划阶段起放权自主跑**(计划审是 Codex 闸,不问人),从而多线程工作、不从头盯到尾。
+`plugin/` = 正式启用的多模型开发编排 plugin。**目标**:做成能落地、被用户长期持续使用的商业化 plugin——让用户在**讨论 / 设计阶段与主线程对齐(HITL 集中在 propose/design)**,从**计划阶段起放权自主跑**(计划审是模型闸、不问人),从而多线程工作、不从头盯到尾。
 
 **双宿主**:同一套流程真相,脚本自动识别 Claude Code / Droid(`plugin/scripts/lib/host.sh`)。宿主差异只走适配层,合同见 `plugin/skills/orchestrate/references/control/host-contract.md`。
 
@@ -13,9 +13,8 @@
 ## 边界
 
 - **活跃**:`plugin/`(正式启用;Claude + Droid marketplace 都 source 指它)+ `docs/plugin/`(设计文档 / OVERVIEW,**不随插件发布**)
-- **旧版**:`archive/plugin-v1/`(已归档的 v1,被 `plugin/` 替换;除非明确指令别动)
 - **独立 skill/agent 系统**:`skills/` + `agents/`(权威说明在 `AGENTS.md`)
-- **禁区**(明确指令才动):`.agents/`(Codex skill)、`codex/`(Codex agent/hook/sync)、`archive/`(归档)
+- **禁区**(明确指令才动):`.agents/`(Codex skill)、`codex/`(Codex agent/hook/sync)、`archive/`(归档 v1)
 
 ## 全貌 + 工作流权威
 
@@ -38,7 +37,7 @@
 
 ## PDF 工作流(plugin 要实现的端到端)
 
-四开口(新设计 / 优化改造 / bug / 合并)→ **investigate**(内部仓库 + 外部方案,取证不判定;Claude=Workflow / Droid=Task→investigate-topic)→ **propose 给方案**(综合现状亮 2-3 方案,HITL)→ **design**(domain 对齐 + 设计审 + to-issue 切片)→ **plan**(单 / 多计划,跨计划合同骨架,fan out plan-writer,计划审)→ **写码工人落地**(`mmw worker`;Claude 后端 codex CLI / Droid 后端 Task→pack-executor)→ **final review**(Claude 无头 CLI / Droid reviewer-* droids)。
+四开口(新设计 / 优化改造 / bug / 合并)→ **investigate**(内部仓库 + 外部方案,取证不判定;Claude=Workflow / Droid=Task→investigate-topic)→ **propose 给方案**(综合现状亮 2-3 方案,HITL)→ **design**(domain 对齐 + 设计审 + to-issue 切片)→ **plan**(单 / 多计划,跨计划合同骨架,fan out Codex 写计划工人 `mmw worker plan-dispatch`,计划审)→ **写码工人落地**(`mmw worker dispatch`;Claude 后端 codex CLI / Droid 后端 Task→pack-executor)→ **final review**(Claude 无头 CLI / Droid reviewer-* droids)。
 
 - **HITL 集中在 propose / design 阶段**;进了计划 / 落地默认无人值守,不轻易停下问。
 - 断点续传:阶段级 + 内层 loop。
@@ -63,7 +62,7 @@
 
 ```bash
 # 统一 CLI(读完 skill 直接用)
-bash plugin/scripts/mmw.sh help          # where|handoff|task|loop|review|worker(codex 兼容别名)
+bash plugin/scripts/mmw.sh help          # where|handoff|step|spinoff|task|loop|review|worker(codex 别名)|progress
 bash plugin/scripts/mmw.sh where          # 我在哪阶段 / 下一步读啥干啥交啥
 export MMW_HOST=droid                     # 可选显式锁定;一般靠 DROID_PLUGIN_ROOT 自动检测
 
