@@ -50,7 +50,7 @@ render() {
 
 fail=0
 shopt -s nullglob
-for f in "$SCEN_DIR"/*.md; do
+for f in "$SCEN_DIR"/*.md "$PLUGIN_DIR"/commands/*.md "$PLUGIN_DIR"/skills/orchestrate/SKILL.md; do
   grep -q '<!-- BEGIN: ' "$f" || continue   # 没锚点的(如 merge.md)跳过
   out="$(render "$f")" || { echo "ERROR: 渲染失败 $f" >&2; exit 3; }
   if [ "$MODE" = check ]; then
