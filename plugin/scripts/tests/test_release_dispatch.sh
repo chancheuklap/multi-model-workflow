@@ -121,6 +121,18 @@ esac
 assert_all_pending_from_verify_key "$repo" && ok "P2 提交后从 verify_key 全量重验" || no "P2 未失效全部 stages"
 jq -e 'any(.attempt_ledger[]; .action_kind == "derive" and .outcome == "applied" and (.artifact_refs | any(startswith("git-commit:"))))' "$sf" >/dev/null && ok "P2 ledger 记录 commit" || no "P2 ledger"
 
+# 回归 F11:三把真钥匙 editable_paths 是窄清单、刻意不含派生目录(否则 P1 fix_executor 能直改派生物)。
+# 用窄 editable(不覆盖 derive 输出)时,P2 derive 把派生物写进 derived/ 仍应提交——derive 只过 P0
+# hard-deny、不施 P1 editable 白名单;上面的 p2-editable 用宽 glob 覆盖过 derive 输出、掩盖了这条。
+derive_to_derived='["sh","-c","mkdir -p scripts/release/derived; printf x > scripts/release/derived/runtime-package-dirs.json"]'
+repo="$(new_case p2-narrow-editable '["true"]' "$derive_to_derived" '["true"]' '["sh","-c","echo {\\\"findings\\\":[]}"]' '["scripts/release/fix-zone/**"]')"
+fail_stage_p2 "$repo"
+out="$(run_release "$repo" dispatch --stage verify_key --findings "$FIX/finding.p2.json")"
+case "$out" in
+  *"DERIVED-COMMITTED:verify_key commit="*) ok "P2 derive 派生物不在窄 editable 仍提交(derive 只过 hard-deny)" ;;
+  *) no "P2 derive 被 P1 editable 白名单误挡 ($out)" ;;
+esac
+
 editable_and_p0='["scripts/release/**","migrations/**"]'
 fix_tracked_p0='["sh","-c","printf hacked >> migrations/0001.py"]'
 repo="$(new_case tracked-p0 "$fix_tracked_p0" '["true"]' '["true"]' '["sh","-c","echo {\\\"findings\\\":[]}"]' "$editable_and_p0")"

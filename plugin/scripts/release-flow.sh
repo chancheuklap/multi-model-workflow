@@ -271,7 +271,7 @@ _load_path_hard_deny() {
 }
 
 _path_gate() {
-  local f="$1" mp path matcher
+  local f="$1" mode="${2:-fix}" mp path matcher
   _load_path_hard_deny "$f" || return 1
   mp="$(jq -r '.manifest_path' "$f")"
   EDITABLE_MATCHERS=()
@@ -283,6 +283,12 @@ _path_gate() {
     [ -n "$path" ] || continue
     if _match_any "$path" "${PROTECTION_MATCHERS[@]-}"; then
       BLOCKED_PATHS+=("$path")
+      continue
+    fi
+    # P2 derive:引擎从真相源单向重生消费方派生物,derive.regenerate 自身已把输出约束在派生目录;
+    # 派生物刻意不入 P1 的 editable_paths(否则 P1 fix_executor 能直改派生物,破坏「derive 唯一 writer」)。
+    # 设计意图是 derive 只过 P0 保护路径 hard-deny,不施 P1 的 editable 白名单;否则 P2 无感自愈对真钥匙失效。
+    if [ "$mode" = "derive" ]; then
       continue
     fi
     if [ ${#EDITABLE_MATCHERS[@]} -eq 0 ] || ! _match_any "$path" "${EDITABLE_MATCHERS[@]-}"; then
@@ -465,7 +471,7 @@ cmd_dispatch_direct() {
     return 0
   fi
 
-  if ! _path_gate "$f"; then
+  if ! _path_gate "$f" "$mode"; then
     BLOCKED_PATHS=("${CHANGED_PATHS[@]-}")
     if ! _write_path_gate_patch "$f" "$name" "$top" || ! _restore_rejected_candidates "$top"; then
       _record_pause "$f" "$name" "path_gate" "cleanup_failed" "$fp" "" \
