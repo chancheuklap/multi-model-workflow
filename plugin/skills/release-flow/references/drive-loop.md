@@ -1,55 +1,104 @@
-# Drive Loop · 出包自愈驱动(判断层)
+# Drive Loop · 出包自愈机械驱动合同
 
-> SKILL 路由到这:manifest 已登记、`release init` 已起。这条路从头到尾就读这一份。
+> SKILL 路由到这时，manifest 已登记，且已 `release init` 或有可恢复的 `release-state.json`。这份 reference 是唯一的 AFK 驱动方法：连续问状态、执行状态给出的机械动作、如实写回，再问；直到安装包就绪或引擎 surface。
 >
-> **引擎持有 loop,你是它的手。** 你不「拿着循环在脑子里跑」——你每 turn **重新问引擎**「此刻在哪、完没完」,做它指的**那一件**,把结果**记回它的账**,再问。进度、下一步、完成与否全从引擎的账(`release-state.json`)算:**不靠你记忆、不由你宣布完成、不由你预跑下一步**。
->
-> **afk 自驱**:一路自愈,不盯屏、不手敲。**只有引擎 surface**(P0 / 预算熔断 / 诊断不出结构化结果)才停下交人——**停不停是引擎的决定,不是你的**。
+> **引擎持有 loop，你是它的手。** 进度、下一步、修复次数、完成与否全由 `release-state.json` 计算。不从会话记忆续跑、不自行选择下一 stage、不另记一份已试账。
 
-## 一 turn = 问 → 做 → 记 → 再问
+## 状态表：`where` 的输出决定唯一动作
 
-不是「读一遍这 4 步照做」,是**每一 turn 从头问引擎要下一步**。你在两次 turn 之间不留状态,一切从账上来:
+每次先运行 `bash "$MMW" release where`。只处理当前输出，不预跑下一步：
 
-| | 你做 | 命令 |
-|---|---|---|
-| **问** | `release where` 报此刻:该跑哪个 stage、或已 SUCCESS / PAUSED。这是引擎从账上算的,不是你记的 | `release where` |
-| **做** | where 报 `STAGE:<n> RUN:<argv>` → 在构建机跑这个 stage(真出包动作)→ 再跑 `manifest.diagnose` 拿 findings | 仓库执行面(agentflow=Win-PC)+ `manifest.diagnose` |
-| **记** | 把 findings 如实记回账:全绿 → `release stage done`;有 failing → `release stage fail` + `release dispatch`(引擎裁决 P0/P1/P2) | `release stage done\|fail` + `release dispatch` |
-| **再问** | `release round next` 让引擎进下一轮(到预算/轮次顶自动熔断 surface),然后**回到「问」** | `release round next` → `release where` |
+| `where` 回显 | 机械动作 | 轮次处理 | 是否交回判断层 |
+|---|---|---|---|
+| `STAGE:<name> RUN:<display>` | 从 state 读取该 stage 的 argv，运行 stage，再运行 diagnose；全绿则 `stage done`，否则 `stage fail` 后按 state 决定是否 dispatch | 线性全绿不推进；只有 dispatch 后引擎仍要求重跑才 `round next` | 否 |
+| `RETRY-STAGE:<name> RUN:<display>` | 与 `STAGE` 相同，重跑该失败 stage | dispatch 后已推进的一轮不再额外推进 | 否 |
+| `SUCCESS:all stages done` | `exit-check` 必须为 `DONE`，随后 `close` | 不适用 | 否；`exit-check` 非 `DONE` 是引擎错误，不报告成功 |
+| `PAUSED:<reason>` | 读取 `receipt`，原样交回判断层 | 不推进 | 是 |
+| `CORRUPT:` / `FAILED-STAGE:` / `NO-STAGES:` | 不执行 stage argv、不调用 `resume`；读取 `receipt` 或引擎错误 | 不推进 | 是 |
+| 其他输出或命令错误 | 不猜测 state、不重新 `init` | 不推进 | 是，带原始输出 |
 
-**你从不自己判「跑完了」**——`release exit-check` 才是机器判完成(`DONE` / `NOT-DONE:stages=<剩>` / `PAUSED:<因>`,空账不算 done、状态坏不算 done)。你不宣布,引擎算。
+`RUN:<display>` 只供人阅读；**stage argv 必须从 `release-state.json` 的数组读取，禁止把展示字符串 shell-split。**
 
-## `release where` 报什么 → 你做哪一件
+## 连续驱动一轮
 
-| where 回显 | 引擎在说 | 你这一 turn 做 |
-|---|---|---|
-| `STAGE:<n> RUN:<argv>` | 该跑 n | 跑 argv → `manifest.diagnose` → 全绿 `stage done` / 有 failing `stage fail`+`dispatch` → `round next` → 回「问」 |
-| `RETRY-STAGE:<n> RUN:<argv>` | 修过了,重跑 n | 同上(引擎自愈后要你重跑,你照跑,不问为什么) |
-| `SUCCESS:all stages done` | 全绿,产物就绪 | `release exit-check` 确认 `DONE` → 报用户产物位置 → `release close` |
-| `PAUSED:<reason>` | 停在需要人的那一步 | `release receipt` → 把引擎攒的「已试什么+停在哪+为什么」**原样**交人。不硬闯、不替用户拍方向 |
-| `FAILED-STAGE:<n>` / `CORRUPT:` | 异常态 | 停,交人(状态坏不硬往下跑) |
+以下命令是 `STAGE` / `RETRY-STAGE` 分支的一轮。成功执行完一轮后立刻重新运行 `release where`，直到状态表给出终态；不要每个 shell turn 人工停顿。
 
-## 记回账:引擎裁决,你不判分级、不碰安全墙
+```bash
+PLUGIN_SCRIPTS="$(cd "$(dirname "$MMW")" && pwd)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+. "$PLUGIN_SCRIPTS/lib/host.sh"
+STATE_FILE="$REPO_ROOT/$(mmw_resolve_state_subdir "$REPO_ROOT")/release-state.json"
+state="$(bash "$MMW" release where)"
 
-**findings 怎么来**:你跑 `manifest.diagnose`(引擎不替你跑 stage 和 diagnose——那是你这只手的活),它吐 `{"findings":[...]}`。
+case "$state" in
+  STAGE:*|RETRY-STAGE:*)
+    stage="${state#*:}"
+    stage="${stage%% RUN:*}"
+    findings="$(mktemp)"
+    manifest="$(jq -r '.manifest_path' "$STATE_FILE")"
+    STAGE_ARGV=()
+    while IFS= read -r arg; do STAGE_ARGV+=("$arg"); done < <(
+      jq -r --arg stage "$stage" '.stages[] | select(.name == $stage) | .run[]' "$STATE_FILE"
+    )
+    DIAGNOSE_ARGV=()
+    while IFS= read -r arg; do DIAGNOSE_ARGV+=("$arg"); done < <(
+      jq -r '.diagnose[]' "$manifest"
+    )
 
-- **全绿** → `release stage done --stage <n>`。
-- **有 failing** → 先 `release stage fail --stage <n> --findings <诊断输出>`,再 `release dispatch --stage <n> --findings <同一份>`。**分级、修、熔断全是引擎的事**:
+    set +e
+    (cd "$REPO_ROOT" && "${STAGE_ARGV[@]}")
+    stage_rc=$?
+    (cd "$REPO_ROOT" && "${DIAGNOSE_ARGV[@]}") >"$findings"
+    diagnose_rc=$?
+    set -e
 
-| dispatch 内部(引擎自己做) | 发生什么 | 你的角色 |
-|---|---|---|
-| **P2** 清单漂移 | 引擎跑 `manifest.derive` 从真相源单向重生消费方,stage 转待重跑 | 无——下一 turn `where` 会让你重跑 |
-| **P1** 如漏包 | 引擎派 `manifest.fix_executor` 在隔离 staging 修 → path-gate 只放 editable、触 p0 即拒弃 diff → 过 `manifest.post_fix_gate` 都绿才应用+重跑 | 无——引擎隔离修,你不碰主树、不绕闸 |
-| **P0** 硬约束 | 引擎写 PAUSE 停机,不自动修 | 无——下一 turn `where` 报 PAUSED,你走那分支交人 |
+    if [ "$stage_rc" -eq 0 ] && [ "$diagnose_rc" -eq 0 ] \
+      && jq -e '.findings | type == "array" and all(.[]; .status != "fail")' "$findings" >/dev/null; then
+      bash "$MMW" release stage done --stage "$stage"
+    else
+      bash "$MMW" release stage fail --stage "$stage" --findings "$findings"
+      post_fail="$(bash "$MMW" release where)"
+      case "$post_fail" in
+        PAUSED:*|CORRUPT:*|FAILED-STAGE:*|NO-STAGES:*) ;;
+        *)
+          bash "$MMW" release dispatch --stage "$stage" --findings "$findings"
+          post_dispatch="$(bash "$MMW" release where)"
+          case "$post_dispatch" in
+            STAGE:*|RETRY-STAGE:*) bash "$MMW" release round next ;;
+            PAUSED:*|CORRUPT:*|FAILED-STAGE:*|NO-STAGES:*|SUCCESS:*) ;;
+          esac
+          ;;
+      esac
+    fi
+    rm -f "$findings"
+    ;;
+  SUCCESS:*)
+    [ "$(bash "$MMW" release exit-check)" = "DONE" ] || exit 1
+    bash "$MMW" release close
+    ;;
+  PAUSED:*|CORRUPT:*|FAILED-STAGE:*|NO-STAGES:*)
+    bash "$MMW" release receipt
+    exit 0
+    ;;
+esac
+```
 
-**你从不自己判 P0/P1/P2、从不自己改主树、从不绕 path-gate。** 只如实记 findings,引擎裁决。诊断产不出合规结果 → 引擎自己 escalate PAUSE(needs-context),你照 PAUSED 交人。
+`stage_rc` 与 `diagnose_rc` 必须分开保存。stage 非零而 diagnose 没有 fail finding 时，仍把 diagnostics 交给 `stage fail`；引擎会以 `needs-context` PAUSE，绝不能把构建失败伪装成 `stage done`。空 findings、非法 JSON、非法 Finding 同样由 `stage fail` surface，驱动器不自行补默认 finding 或重试。
 
-## 断点恢复 = 正常模式(不是异常处理)
+## 何时推进修复轮次
 
-这是 loop 的常态,不是意外:context 断了、隔天回来、换个人接手,**都一样**——`release where` + 账就够从任意点续。where 报此刻该做什么,`release receipt` 报 attempt_ledger(引擎已替你攒的「已试什么」)。**认账不认记忆**:别问「我记得跑到哪了」,问引擎。引擎单飞锁也不让你重开一个新 loop。
+`round next` 代表一次已处置的修复/派生重试，不是“跑过一个 stage”的计数器。
 
-## 收尾
+- stage argv 成功且 diagnose 无 fail：只 `stage done`，立即重新 `where`。多阶段 no-op loop 因此可以直接到 `SUCCESS`，不消耗 round。
+- stage 失败或 diagnose 有 fail：先以同一份 findings `stage fail`。若引擎已 surface，读取 receipt，不 dispatch。
+- 引擎尚未 surface：`dispatch` 让引擎按 P2/P1/P0 和收敛护栏裁决。只有 dispatch 后 `where` 仍为 `STAGE` / `RETRY-STAGE`，才调用一次 `round next`，随后重新 `where` 重跑同一失败 stage。
+- P0、同 fingerprint 熔断、attempt / round / wall-clock 预算熔断都由引擎写成 `PAUSED`。不再调用 `round next`，不继续跑 stage。
 
-- **DONE** → 报用户产物在哪(stage 产物路径)+ `release close` 收束账。一趟绿零修复是正常最好情况。
-- **PAUSED** → `release receipt` 精确回执原样交人;**不替用户拍方向、不硬闯**。人处置后 `release resume` 续跑,回到「问」。
-- 留痕靠引擎(attempt_ledger + event_sink 落 `runtime/logs/release_loop.jsonl`),你不另攒日志。
+你不判 P0/P1/P2，不改工作树，不绕 path-gate、post-fix gate 或 dispatch。P2 的真相源派生、P1 的修复提交和 P0 的人工门禁都属于引擎；驱动器只提供原始 stage 结果与同一份 diagnose findings。
+
+## 终态、回执和恢复
+
+- `SUCCESS` 不是口头成功。只有 `release exit-check` 返回 `DONE` 才能说“安装包就绪”，随后执行 `release close` 收束 state。`DONE` 不代表安装后的用户测试已经完成。
+- 安装包路径只能来自刚完成 stage 的 execution output 或 artifact reference。若回执没有记录路径，诚实报告“安装包路径未被 stage 回执记录”，不按约定目录猜测。
+- `PAUSED`、`CORRUPT`、`FAILED-STAGE`、`NO-STAGES` 都不执行下一 stage，也不自动 `resume`。读取 `release receipt`；其 `attempt_ledger` 是唯一的“已试什么”来源，原样交负责人判断。
+- 负责人完成必要处置后，才可由人显式 `release resume`。新的驱动器从 `release where` 重新读取 `release-state.json`，不重复 `init`，不丢弃已有 ledger。
