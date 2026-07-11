@@ -53,6 +53,20 @@ git checkout -q -b task/x
 is_allow "$(pl 'git merge plan-a --no-ff')" && ok "任务分支 merge → 放行" || no "任务分支 merge 误拦"
 is_ask "$(pl 'git push origin task/x')" && ok "任务分支 push 仍 → ask(出站)" || no "任务分支 push"
 git checkout -q main
+# 硬化回归(v6.15):shell 关键字/结构符段、包装器选项、引号打散动词、eval/-c 内代码、gh api 合并
+is_ask "$(pl 'if git push; then :; fi')" && ok "if git push; then → ask(关键字段不再放行)" || no "if git push 绕过"
+is_ask "$(pl 'exec git push')" && ok "exec git push → ask" || no "exec 绕过"
+is_ask "$(pl '{ git push; }')" && ok "{ git push; } → ask" || no "花括号段绕过"
+is_ask "$(pl 'git \"push\" origin main')" && ok "git \"push\"(引号包动词)→ ask" || no "引号动词绕过"
+is_ask "$(pl 'timeout -k 5 30 git push')" && ok "timeout -k 5 30 git push → ask(包装器选项剥净)" || no "timeout 选项绕过"
+is_ask "$(pl 'xargs -I{} git push {}')" && ok "xargs -I{} git push → ask" || no "xargs 选项绕过"
+is_ask "$(pl 'nice git push')" && ok "nice git push → ask" || no "nice 绕过"
+is_ask "$(pl 'gh api repos/o/r/pulls/1/merge -X PUT')" && ok "gh api pulls/*/merge → ask(GitHub 侧合并)" || no "gh api 合并绕过"
+is_ask "$(pl "bash -c 'git push'")" && ok "bash -c 'git push' → ask(-c 内代码)" || no "bash -c 绕过"
+is_allow "$(pl 'git stash push -m wip')" && ok "git stash push → 放行(子命令位判定)" || no "stash push 误拦"
+is_allow "$(pl 'git log --grep=push')" && ok "git log --grep=push → 放行" || no "log --grep 误拦"
+is_allow "$(pl 'kubectl apply --dry-run=client -f x.yaml')" && ok "kubectl apply --dry-run → 放行(只读校验)" || no "dry-run 误拦"
+is_allow "$(pl 'cat > runbook.md <<EOF\ngit push origin main\nEOF')" && ok "heredoc 正文 git push → 放行(剥正文)" || no "heredoc 正文误拦"
 
 # ===== record-step(PostToolUse commit)=====
 bash "$LOOP" close >/dev/null   # 幂等清任何残留 loop 再起新 loop(init 拒覆盖未收束 loop)
