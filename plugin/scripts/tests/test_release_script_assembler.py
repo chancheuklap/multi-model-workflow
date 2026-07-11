@@ -66,10 +66,8 @@ def test_assemble_core_exe_writes_bom_script_and_validated_context(tmp_path: Pat
     assert context["build_target"]["runtime_lane"] == "core_exe"
     assert context["build_target"]["native_ext_dll"] == []
     assert context["build_hooks"]["runtime_prepare"] == ["prepare-runtime"]
-    assert context["render_metadata"] == {
-        "stages": [1, 2, 3, 4, 5, 6, 7],
-        "hook_calls": [],
-    }
+    assert context["render_metadata"]["stages"] == [1, 2, 3, 4, 5, 6, 7]
+    assert len(context["render_metadata"]["hook_calls"]) == 5
     assert BuildTarget.model_validate(context["build_target"]).runtime_lane == "core_exe"
     assert ReleaseBuildHooks.model_validate(context["build_hooks"]).artifact_scan == [
         "scan-artifact"
@@ -119,6 +117,17 @@ def test_assemble_rejects_unsafe_desktop_path_without_replacing_outputs(
     assert result.returncode != 0
     assert output.read_text(encoding="utf-8") == "old script"
     assert context_output.read_text(encoding="utf-8") == "old context"
+
+
+def test_assemble_rejects_windows_absolute_desktop_path(tmp_path: Path) -> None:
+    adapter = json.loads((FIXTURES / "core-exe.adapter.json").read_text())
+    adapter["build_target"]["desktop_dir"] = r"C:\desktop"
+    adapter_path = tmp_path / "windows-absolute.adapter.json"
+    adapter_path.write_text(json.dumps(adapter), encoding="utf-8")
+
+    result = _assemble(adapter_path, tmp_path / "release.ps1", tmp_path / "release-context.json")
+
+    assert result.returncode != 0
 
 
 @pytest.mark.parametrize(
@@ -272,3 +281,80 @@ def test_template_and_neutral_fixtures_hold_no_product_specific_release_rules() 
             term in fixture.read_text(encoding="utf-8").lower()
             for term in product_specific_terms
         )
+
+
+@pytest.mark.parametrize(
+    ("fixture", "optional_skipped"),
+    [("core-exe.adapter.json", True), ("embedded-python.adapter.json", False)],
+)
+def test_check_reports_fixed_hook_lifecycle_contract(
+    tmp_path: Path, fixture: str, optional_skipped: bool
+) -> None:
+    output = tmp_path / "release.ps1"
+    context_output = tmp_path / "release-context.json"
+    assert _assemble(FIXTURES / fixture, output, context_output).returncode == 0
+
+    result = _check(output, context_output)
+
+    assert result.returncode == 0, result.stderr
+    hook_calls = json.loads(result.stdout)["hook_calls"]
+    assert [(item["stage"], item["name"], item["phase"]) for item in hook_calls] == [
+        (3, "runtime_prepare", "runtime_ready"),
+        (3, "asset_parity", "runtime_ready"),
+        (3, "credential_proof", "runtime_ready"),
+        (6, "artifact_scan", "artifact_ready"),
+        (7, "package_integrity", "release_ready"),
+    ]
+    assert [item["skipped"] for item in hook_calls] == [
+        False,
+        optional_skipped,
+        optional_skipped,
+        False,
+        False,
+    ]
+
+
+def test_check_rejects_metadata_that_claims_an_unconfigured_hook_ran(tmp_path: Path) -> None:
+    output = tmp_path / "release.ps1"
+    context_output = tmp_path / "release-context.json"
+    assert _assemble(FIXTURES / "core-exe.adapter.json", output, context_output).returncode == 0
+    context = json.loads(context_output.read_text(encoding="utf-8"))
+    context["render_metadata"]["hook_calls"][1]["skipped"] = False
+    context_output.write_text(json.dumps(context), encoding="utf-8")
+
+    result = _check(output, context_output)
+
+    assert result.returncode != 0
+
+
+@pytest.mark.parametrize("unsafe_token", ["bad&hook", "bad;hook", "bad|hook", "bad\nhook", "bad\x00hook"])
+def test_assemble_rejects_shell_control_characters_in_hook_argv(
+    tmp_path: Path, unsafe_token: str
+) -> None:
+    adapter = json.loads((FIXTURES / "core-exe.adapter.json").read_text())
+    adapter["build_hooks"]["runtime_prepare"] = [unsafe_token]
+    adapter_path = tmp_path / "unsafe-hook.adapter.json"
+    adapter_path.write_text(json.dumps(adapter), encoding="utf-8")
+
+    result = _assemble(adapter_path, tmp_path / "release.ps1", tmp_path / "release-context.json")
+
+    assert result.returncode != 0
+
+
+def test_assemble_escapes_a_single_quote_hook_token_without_shell_evaluation(
+    tmp_path: Path,
+) -> None:
+    adapter = json.loads((FIXTURES / "core-exe.adapter.json").read_text())
+    adapter["build_hooks"]["runtime_prepare"] = ["prepare'o", "--label", "O'Brien"]
+    adapter_path = tmp_path / "quoted-hook.adapter.json"
+    adapter_path.write_text(json.dumps(adapter), encoding="utf-8")
+    output = tmp_path / "release.ps1"
+
+    result = _assemble(adapter_path, output, tmp_path / "release-context.json")
+
+    assert result.returncode == 0, result.stderr
+    script = output.read_text(encoding="utf-8-sig")
+    assert "'prepare''o'" in script
+    assert "'O''Brien'" in script
+    assert "Invoke-Expression" not in script
+    assert "cmd.exe /c" not in script

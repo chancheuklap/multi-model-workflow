@@ -20,7 +20,13 @@ def powershell_literal(value: str) -> str:
 
 def assert_repo_relative(value: str, *, field: str) -> PurePosixPath:
     path = PurePosixPath(value)
-    if not value or path.is_absolute() or ".." in path.parts:
+    if (
+        not value
+        or "\\" in value
+        or path.is_absolute()
+        or ":" in path.parts[0]
+        or ".." in path.parts
+    ):
         raise ValueError(f"{field} 必须是无 .. 的仓库相对 POSIX 路径")
     return path
 
@@ -47,12 +53,17 @@ def _render_bootstrap(context_path: Path, manifest: ReleaseAdapterManifest) -> s
         / "release_templates"
         / "windows_electron_python.ps1.tmpl"
     ).read_text(encoding="utf-8")
+    hook_calls = _hook_calls(manifest)
     replacements = {
         "${CONTEXT_DEFAULT_PATH}": powershell_literal(context_path.name),
         "${DESKTOP_DIR_LITERAL}": powershell_literal(
             manifest.build_target.desktop_dir
         ),
         "${LANE_BLOCK}": _render_lane_block(manifest),
+        "${RENDERED_HOOK_FUNCTIONS}": _render_hook_functions(),
+        "${RUNTIME_HOOK_CALLS}": _render_hook_calls(hook_calls, stage=3),
+        "${ARTIFACT_HOOK_CALLS}": _render_hook_calls(hook_calls, stage=6),
+        "${RELEASE_HOOK_CALLS}": _render_hook_calls(hook_calls, stage=7),
     }
     rendered = template
     for token, value in replacements.items():
@@ -60,6 +71,78 @@ def _render_bootstrap(context_path: Path, manifest: ReleaseAdapterManifest) -> s
     if re.search(r"\$\{[^}]+\}", rendered):
         raise ValueError("release template 含未消费 token")
     return rendered
+
+
+def _hook_calls(manifest: ReleaseAdapterManifest) -> list[dict[str, object]]:
+    hooks = manifest.build_hooks.model_dump(mode="json")
+    definitions = [
+        (3, "runtime_prepare", "runtime_ready", True),
+        (3, "asset_parity", "runtime_ready", False),
+        (3, "credential_proof", "runtime_ready", False),
+        (6, "artifact_scan", "artifact_ready", True),
+        (7, "package_integrity", "release_ready", True),
+    ]
+    calls = []
+    for stage, name, phase, required in definitions:
+        argv = hooks[name]
+        if argv is not None:
+            _assert_safe_argv(argv, field=f"build_hooks.{name}")
+        calls.append(
+            {
+                "stage": stage,
+                "name": name,
+                "phase": phase,
+                "required": required,
+                "skipped": argv is None,
+                "argv": argv,
+            }
+        )
+    return calls
+
+
+def _assert_safe_argv(argv: list[str], *, field: str) -> None:
+    for index, token in enumerate(argv):
+        if any(char in token for char in ("\n", "\r", "\x00", "&", ";", "|")):
+            raise ValueError(f"{field}[{index}] 含不允许的 shell 控制字符")
+
+
+def _render_hook_functions() -> str:
+    return """function Invoke-ReleaseHook {
+  param([string]$Name, [string[]]$Argv, [string]$Phase)
+  if ($null -eq $Argv -or $Argv.Count -eq 0) {
+    throw "Required release hook missing: $Name"
+  }
+  $command = [string]$Argv[0]
+  $arguments = @()
+  if ($Argv.Count -gt 1) { $arguments += @($Argv[1..($Argv.Count - 1)]) }
+  $arguments += @('--release-context', $ReleaseContextPath, '--release-phase', $Phase)
+  & $command @arguments
+  if ($LASTEXITCODE -ne 0) { throw "Release hook failed: $Name phase=$Phase" }
+}
+
+function Write-HookSkipped {
+  param([string]$Name)
+  Write-Host "HOOK-SKIPPED:$Name:not-configured"
+}"""
+
+
+def _render_hook_calls(calls: list[dict[str, object]], *, stage: int) -> str:
+    rendered = []
+    for call in calls:
+        if call["stage"] != stage:
+            continue
+        if call["skipped"]:
+            rendered.append(f"  Write-HookSkipped -Name {powershell_literal(str(call['name']))}")
+            continue
+        argv = call["argv"]
+        assert isinstance(argv, list)
+        tokens = ", ".join(powershell_literal(str(token)) for token in argv)
+        rendered.append(
+            "  Invoke-ReleaseHook "
+            f"-Name {powershell_literal(str(call['name']))} -Argv @({tokens}) "
+            f"-Phase {powershell_literal(str(call['phase']))}"
+        )
+    return "\n".join(rendered)
 
 
 def _render_lane_block(manifest: ReleaseAdapterManifest) -> str:
@@ -153,13 +236,20 @@ def assemble(adapter: Path, repo_root: Path, output: Path, context_output: Path)
     manifest = ReleaseAdapterManifest.model_validate_json(adapter.read_text(encoding="utf-8"))
     _validate_paths(repo_root, output, context_output)
     _validate_manifest_paths(manifest)
+    hook_calls = _hook_calls(manifest)
     context = {
         "schema_version": manifest.schema_version,
         "product": manifest.product,
         "repo_root": str(repo_root.resolve()),
         "build_target": manifest.build_target.model_dump(mode="json"),
         "build_hooks": manifest.build_hooks.model_dump(mode="json"),
-        "render_metadata": {"stages": [1, 2, 3, 4, 5, 6, 7], "hook_calls": []},
+        "render_metadata": {
+            "stages": [1, 2, 3, 4, 5, 6, 7],
+            "hook_calls": [
+                {key: value for key, value in call.items() if key != "argv"}
+                for call in hook_calls
+            ],
+        },
     }
     script = _render_bootstrap(context_output, manifest)
     script_tmp: Path | None = None
@@ -229,6 +319,31 @@ def check(script: Path, context: Path) -> None:
     stage_positions = [script_text.find(f'Step "[{stage}/7]') for stage in expected_stages]
     if -1 in stage_positions or stage_positions != sorted(stage_positions):
         raise ValueError("script 未按顺序包含完整七步流水线")
+    hook_calls = context_doc.get("render_metadata", {}).get("hook_calls")
+    if not isinstance(hook_calls, list):
+        raise ValueError("context 缺少 hook 生命周期记录")
+    hooks = ReleaseBuildHooks.model_validate(context_doc["build_hooks"])
+    expected_hooks = [
+        (3, "runtime_prepare", "runtime_ready", True, False),
+        (3, "asset_parity", "runtime_ready", False, hooks.asset_parity is None),
+        (3, "credential_proof", "runtime_ready", False, hooks.credential_proof is None),
+        (6, "artifact_scan", "artifact_ready", True, False),
+        (7, "package_integrity", "release_ready", True, False),
+    ]
+    actual_hooks = [
+        (
+            item.get("stage"),
+            item.get("name"),
+            item.get("phase"),
+            item.get("required"),
+            item.get("skipped"),
+        )
+        for item in hook_calls
+        if isinstance(item, dict)
+    ]
+    if actual_hooks != expected_hooks:
+        raise ValueError("context hook 生命周期绑定不完整或顺序错误")
+    print(json.dumps({"hook_calls": hook_calls}, ensure_ascii=False))
 
 
 def cmd_check(args: argparse.Namespace) -> int:

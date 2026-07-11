@@ -25,6 +25,8 @@ function Invoke-Checked {
   }
 }
 
+${RENDERED_HOOK_FUNCTIONS}
+
 $Context = Get-Content -Raw -Encoding UTF8 $ReleaseContextPath | ConvertFrom-Json
 $RepoRoot = [string]$Context.repo_root
 $DesktopDir = Join-Path $RepoRoot ${DESKTOP_DIR_LITERAL}
@@ -42,6 +44,7 @@ try {
 
   Step "[3/7] Prepare runtime lane"
 ${LANE_BLOCK}
+${RUNTIME_HOOK_CALLS}
 
   Step "[4/7] Build Electron application"
   Invoke-Checked -Command 'pnpm' -Arguments @('run', 'build')
@@ -56,12 +59,14 @@ ${LANE_BLOCK}
   if (-not (Test-Path $DistDir)) {
     throw 'electron-builder did not create dist output'
   }
+${ARTIFACT_HOOK_CALLS}
 
   Step "[7/7] Build NSIS installer"
   Invoke-Checked -Command 'pnpm' -Arguments @('exec', 'electron-builder', '--win', 'nsis', '--publish', 'never', '--prepackaged', (Join-Path $DistDir 'win-unpacked'))
   if (-not (Get-ChildItem -Path $DistDir -Filter '*.exe' -File -ErrorAction SilentlyContinue)) {
     throw 'electron-builder did not create an installer'
   }
+${RELEASE_HOOK_CALLS}
 }
 finally {
   Pop-Location
