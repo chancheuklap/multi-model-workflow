@@ -55,6 +55,9 @@ RS="$(cd "$WT" && bash "$FLOW" where | sed -n 's/^review_source=//p')"
 [ "$RS" = "docs/design/e2e.md" ] && ok "审闸报 review_source 裸路径(直接喂 --source,只设计文档)" || no "review_source ($RS)"
 # 起审一条命令(init review loop + 出 brief)
 ( cd "$WT" && bash "$REVIEW" start --stage design --source docs/design/e2e.md >/dev/null 2>&1 ) && ok "review.sh start 起①审 loop" || no "review.sh start"
+# 覆盖清单坐实(新契约:审闸 pass 前 loop 必须 exit-check==DONE,替代 SubagentStop 看守)
+( cd "$WT" && bash "$LOOP" checklist add --item "设计意图" --source docs/design/e2e.md >/dev/null \
+  && bash "$LOOP" checklist cover --item "设计意图" --evidence "docs/design/e2e.md:1" >/dev/null )
 # 审过 → advance to-issue(审后再切片)
 ( cd "$WT" && bash "$FLOW" handoff --conclusion pass >/dev/null )
 [ "$(ph)" = "to-issue" ] && [ "$(gate)" = "null" ] && ok "①审过→to-issue(审后切片),gate 清空" || no "①审过→to-issue ($(ph)/$(gate))"
@@ -70,6 +73,9 @@ mkd docs/issues/e2e
 mkd docs/plans/e2e
 OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/e2e/)"
 echo "$OUT" | grep -q "NEXT_ACTION=review" && ok "plan 过→进②审闸" || no "②审闸"
+( cd "$WT" && bash "$REVIEW" start --stage plan --source docs/plans/e2e/ >/dev/null 2>&1 ) && ok "②审 loop 起得来" || no "②审 loop"
+( cd "$WT" && bash "$LOOP" checklist add --item "计划覆盖" --source docs/plans/e2e/ >/dev/null \
+  && bash "$LOOP" checklist cover --item "计划覆盖" --evidence "docs/plans/e2e:1" >/dev/null )
 ( cd "$WT" && bash "$FLOW" handoff --conclusion pass >/dev/null )   # ②审过
 [ "$(ph)" = "build" ] && ok "②审过→build" || no "②审过→build ($(ph))"
 [ "$(prevout)" = '["docs/plans/e2e/"]' ] && ok "build 照单读到 plan 目录" || no "接力单 plan→build ($(prevout))"
@@ -89,6 +95,8 @@ echo "$OUTBG" | grep -q "NEXT_ACTION=review" && ok "build 过→进④终审闸(
 
 # ④终审 loop 起得来 → 审过钉终审报告 → closing
 ( cd "$WT" && bash "$REVIEW" start --stage final --source "$RANGE" >/dev/null 2>&1 ) && ok "④终审 loop 起得来" || no "④终审"
+( cd "$WT" && bash "$LOOP" checklist add --item "意图逐条" --source "$RANGE" >/dev/null \
+  && bash "$LOOP" checklist cover --item "意图逐条" --evidence "$RANGE" >/dev/null )
 mkf docs/e2e-final-review.md
 ( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/e2e-final-review.md >/dev/null )
 [ "$(ph)" = "closing" ] && [ "$(gate)" = "null" ] && ok "④审过→closing(gate 清空)" || no "④审过→closing ($(ph)/$(gate))"

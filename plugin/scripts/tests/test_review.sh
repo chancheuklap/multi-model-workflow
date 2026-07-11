@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# review.sh 空跑:审闸一条命令——阶段映射 kind/视角 对、init loop、brief 落盘(不过主线程 context)、
+# review.sh 空跑:审闸一条命令——阶段映射 kind/视角 对、init loop、brief 落盘(主线程读它直接派审者,拍平无协调帮手)、
 # 纯路由指向已装 worktree-review skill(不给审者 plugin 路径)、④final 按 scenario 分档、bad stage 拦。
 set -euo pipefail
 export MMW_HOST="${MMW_HOST:-claude}"
@@ -25,7 +25,7 @@ for s in design plan final; do
   echo "$OUT" | grep -q "REVIEW_STARTED stage=$s kind=review" && ok "$s → kind=review" || no "$s kind"
   [ "$(jq -r .kind "$LOOPF")" = "review" ] && ok "$s init loop kind=review" || no "$s loop kind"
   [ "$(jq -r .max_rounds "$LOOPF")" = "2" ] && ok "$s 审 loop 配轮上限 max_rounds=2(机器熔断)" || no "$s max_rounds"
-  echo "$OUT" | grep -q "review-brief.md" && ok "$s stdout 只指 brief 路径(brief 不过主线程 context)" || no "$s brief 指路"
+  echo "$OUT" | grep -q "review-brief.md" && ok "$s stdout 指 brief 路径(主线程读它直接派审者)" || no "$s brief 指路"
   B="$(cat "$BRIEF")"
   echo "$B" | grep -q "worktree-review skill,按 stage=$s" && ok "$s brief 纯路由指向 worktree-review skill" || no "$s skill 指针"
   if echo "$B" | grep -qE "references/review/|quartet"; then no "$s brief 仍给审者 plugin 路径(不该)"; else ok "$s brief 无 plugin 路径喂审者"; fi
@@ -78,6 +78,12 @@ grep -q "claude -p" "$BRIEF" && no "2 审者档不该用 claude -p 无头" || ok
 printf '**Complexity:** capable\n' > docs/plans/t1/002-b.md
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 grep -q "4 个独立审者" "$BRIEF" && ok "develop ④ 有 capable plan → 保 4 审者" || no "capable 保 4"
+# B1 加固:中文"复杂度"标签 + 大小写不敏感也认 capable(防 fail-open 错降 tier=2 少审者)
+printf '{"scenario":"develop","base_commit":"%s","slug":"t-cn"}' "$BASE" > ${STATE_SUBDIR}/task.json
+mkdir -p docs/plans/t-cn
+printf '**复杂度:** Capable\n' > docs/plans/t-cn/001-a.md
+bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
+grep -q "4 个独立审者" "$BRIEF" && ok "develop ④ 中文复杂度/大小写 capable 也认 → 保 4 审者(fail-open 已堵)" || no "中文 capable 漏检 fail-open"
 
 # 多 --source(阶段可钉多个产出,where 逐个吐)
 OUT="$(bash "$REVIEW" start --stage design --source s1.md --source s2.md 2>/dev/null)"

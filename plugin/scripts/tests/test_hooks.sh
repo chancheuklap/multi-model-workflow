@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# 三个 hook 空跑:SubagentStop 看守 / PreToolUse 红线 / PostToolUse 记进度。
+# 三个 hook 空跑:SessionStart 分诊 / PreToolUse 红线 / PostToolUse 记进度。
+# (审 loop 完工不再用 SubagentStop 看守,改由 flow.sh handoff 确定性闸把关,见 test_flow.sh。)
 set -euo pipefail
 export MMW_HOST="${MMW_HOST:-claude}"
 STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
@@ -22,40 +23,6 @@ pl() { printf '{"tool_input":{"command":"%s"}}' "$1"; }
 echo "=== test_hooks.sh ==="
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 cd "$TMP"; git init -q -b main; git config user.email t@t; git config user.name t; echo s>s; git add -A; git commit -qm s
-
-# ===== guard-loop(SubagentStop,只看守 kind=review 的审核协调帮手)=====
-# 无 loop-state → 放行
-[ "$(run_hook guard-loop.sh '{}')" = "0" ] && ok "无 loop-state → 放行" || no "无 state 放行"
-# execution loop 是主线程自己跑:期间任何 subagent 停下与 loop 无关 → 放行(防误伤 Explore 等)
-bash "$LOOP" init --kind execution >/dev/null
-bash "$LOOP" step add --id 0.1 --desc a >/dev/null
-[ "$(run_hook guard-loop.sh '{}')" = "0" ] && ok "execution 未完成但 subagent 停下 → 放行(不误伤)" || no "execution 误伤"
-bash "$LOOP" close >/dev/null
-# review loop:清单没覆盖完不让协调帮手停
-bash "$LOOP" init --kind review --max-rounds 2 >/dev/null
-bash "$LOOP" checklist add --item c1 --source s >/dev/null
-[ "$(run_hook guard-loop.sh '{}')" = "2" ] && ok "没做完 → exit2 顶回去" || no "没做完 exit2"
-bash "$LOOP" checklist cover --item c1 --evidence e >/dev/null
-[ "$(run_hook guard-loop.sh '{}')" = "0" ] && ok "全 covered → 放停" || no "全 covered 放停"
-bash "$LOOP" checklist add --item c2 --source s >/dev/null
-bash "$LOOP" attendance --mode attended >/dev/null
-bash "$LOOP" softstop --question "?" --at-step c2 >/dev/null
-[ "$(run_hook guard-loop.sh '{}')" = "0" ] && ok "PAUSED → 放停(等人)" || no "PAUSED 放停"
-# 空转熔断:连续零进展顶回 ≥6 次 → 写 pause 交人、放停(不无限顶回)
-bash "$LOOP" resume >/dev/null
-for i in 1 2 3 4 5; do run_hook guard-loop.sh '{}' >/dev/null || true; done
-[ "$(jq -r '.guard_blocks' ${STATE_SUBDIR}/loop-state.json)" = "5" ] && ok "零进展顶回计数累加(5)" || no "guard_blocks 计数 ($(jq -r '.guard_blocks' ${STATE_SUBDIR}/loop-state.json))"
-[ "$(run_hook guard-loop.sh '{}')" = "0" ] && ok "第 6 次零进展 → 熔断放停" || no "空转熔断放停"
-[ "$(jq -r '.pause.kind' ${STATE_SUBDIR}/loop-state.json)" = "surface" ] && ok "熔断写 pause 交人(留痕)" || no "熔断 pause 留痕"
-# 有进展 → 计数归 1(不误熔断)
-bash "$LOOP" resume >/dev/null
-bash "$LOOP" checklist add --item c3 --source s >/dev/null
-bash "$LOOP" checklist cover --item c2 --evidence e >/dev/null   # 账本进展:covered 数变了
-run_hook guard-loop.sh '{}' >/dev/null || true
-[ "$(jq -r '.guard_blocks' ${STATE_SUBDIR}/loop-state.json)" = "1" ] && ok "有进展 → 顶回计数归 1" || no "进展重置 ($(jq -r '.guard_blocks' ${STATE_SUBDIR}/loop-state.json))"
-# 损坏 loop-state → 看守 fail-closed(不放停),不把损坏当 PAUSED/非 review 静默放行
-echo 'garbage{' > ${STATE_SUBDIR}/loop-state.json
-[ "$(run_hook guard-loop.sh '{}')" = "2" ] && ok "损坏 loop-state → 看守 exit2(fail-closed)" || no "损坏态看守 fail-closed"
 
 # ===== guard-redline(PreToolUse,permissionDecision=ask 由用户亲批,无令牌可自铸)=====
 # 主分支(main)上:push → ask;本地 merge 放行(可逆、不出站,不打断无人值守自动推进)
@@ -83,7 +50,7 @@ is_ask "$(pl 'git push origin task/x')" && ok "任务分支 push 仍 → ask(出
 git checkout -q main
 
 # ===== record-step(PostToolUse commit)=====
-bash "$LOOP" close >/dev/null   # 清掉上一段(含损坏态)再起新 loop(init 拒覆盖未收束 loop)
+bash "$LOOP" close >/dev/null   # 幂等清任何残留 loop 再起新 loop(init 拒覆盖未收束 loop)
 bash "$LOOP" init --kind execution >/dev/null
 bash "$LOOP" step add --id 2.1 --desc x >/dev/null
 echo change > c.txt; git add -A; git commit -qm "Pack 2.1: do the thing"

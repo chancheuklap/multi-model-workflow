@@ -25,7 +25,7 @@ cat > "$SD/task.json" <<'J'
 "open_items":[{"tag":"bug","finding":"空指针","from_phase":"build","disposition":"fix_now"}]}
 J
 cat > "$SD/loop-state.json" <<'J'
-{"schema_version":"1","kind":"execution","round":1,"max_rounds":0,"guard_blocks":0,
+{"schema_version":"1","kind":"execution","round":1,"max_rounds":0,
 "steps":[{"id":"1.1","desc":"a","status":"done","plan":"001"}],
 "checklist":[],"findings":[],"decisions":[],"pause":null}
 J

@@ -48,10 +48,9 @@ if [ -f "$LOOP" ] && jq -e . "$LOOP" >/dev/null 2>&1; then
   kind=$(jq -r '.kind // "?"' "$LOOP")
   round=$(jq -r '.round // 1' "$LOOP")
   maxr=$(jq -r '.max_rounds // 0' "$LOOP")
-  guard=$(jq -r '.guard_blocks // 0' "$LOOP")
   loop_line="loop=$kind"
-  # 预算无独立 token 机器:如实用审轮 + guard 顶回作为"跑到哪/离熔断多远"的度量
-  if [ "$maxr" -gt 0 ]; then budget_line="审轮 $round/$maxr · guard 顶回 $guard"; else budget_line="审轮 $round · guard 顶回 $guard"; fi
+  # 预算无独立 token 机器:如实用审轮作为"跑到哪/离熔断多远"的度量(round-cap 机器计数熔断)
+  if [ "$maxr" -gt 0 ]; then budget_line="审轮 $round/$maxr"; else budget_line="审轮 $round"; fi
   # 计划进度:execution loop 的 steps = plan/pack;review loop 的 checklist 另算
   plan_rows=$(jq -r '.steps[]? | "| \(.plan // .id) | \(.status) | \(.id) | — | \(.desc) |"' "$LOOP")
   # 阻塞:pause 非空
