@@ -23,8 +23,11 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/host.sh"
 
 CODEX_BIN="${CODEX_BIN:-codex}"
-CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-terra}"
-CODEX_EFFORT="${CODEX_EFFORT:-high}"
+CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-luna}"
+CODEX_EFFORT="${CODEX_EFFORT:-xhigh}"
+# capable 落地档(计费/权限/migration 等高风险 plan):脚本按 plan 的 Complexity 字段自动切,不靠 agent 手传。
+CODEX_CAPABLE_MODEL="${CODEX_CAPABLE_MODEL:-gpt-5.6-sol}"
+CODEX_CAPABLE_EFFORT="${CODEX_CAPABLE_EFFORT:-high}"
 DROID_EXECUTOR_DROID="${DROID_EXECUTOR_DROID:-pack-executor}"
 DROID_EXECUTOR_MODEL="${DROID_EXECUTOR_MODEL:-glm-5.2}"
 DROID_EXECUTOR_EFFORT="${DROID_EXECUTOR_EFFORT:-max}"
@@ -67,13 +70,14 @@ PROMPT
 
 plan_ns() { basename "$1" .md; }  # 落点路径 → 派发命名空间(并行写计划在同一 worktree,靠它隔离 session/log)
 
-build_plan_prompt() {  # $1=落点 $2=worktree $3=design $4=issue $5=task-pack.md abs $6=plan-self-check.md abs $7=mockup 目录(可空)
+build_plan_prompt() {  # $1=落点 $2=worktree $3=design $4=issue $5=mockup 目录(可空)
+  # 方法论(task-pack / 自检)在 worktree-plan skill 自己的 references/,工人读 skill 自取,不在 prompt 注入路径。
   local skill_ref
   if [ "$(mmw_host)" = "droid" ]; then
     local sroot; sroot="$(mmw_plugin_root)/skills/worktree-plan"
-    skill_ref="**读 plugin 内 \`worktree-plan\` skill,照它走整个写计划流程**(总纲,细纪律到那步再读):$sroot/SKILL.md"
+    skill_ref="**读 plugin 内 \`worktree-plan\` skill,照它走整个写计划流程**(总纲,细纪律在它的 references,到那步再读):$sroot/SKILL.md"
   else
-    skill_ref="**读你已装的 \`worktree-plan\` skill,照它走整个写计划流程**(总纲,细纪律到那步再读)。"
+    skill_ref="**读你已装的 \`worktree-plan\` skill,照它走整个写计划流程**(总纲,细纪律在它的 references,到那步再读)。"
   fi
   cat <<PROMPT
 你是计划撰写者,被主线程派进任务 worktree 把一个大 issue 写成一份实施计划。
@@ -84,9 +88,7 @@ $skill_ref
 开工前读这几份(绝对路径,顺序读):
 ${3:+- 源设计文档(architecture / 合同边界 / Cross-Plan Contract Anchors): $3
 }${4:+- 你负责的大 issue(What to build;## Small issues 若为 PENDING 你来拆): $4
-}- 写作方法论(写每个 pack 时读): $5
-- 交付前自检(返回前读): $6
-${7:+- mockup 目录(每页视觉规格 / 交互 / 状态变体拆进对应 pack 的 acceptance): $7
+}${5:+- mockup 目录(每页视觉规格 / 交互 / 状态变体拆进对应 pack 的 acceptance): $5
 }
 拆小 issue、逐 Task Pack、无 Placeholder、测试规划严谨度、Return Contract —— **全在 worktree-plan skill,照它做,本消息不重复**。
 边界:只写你落点那份 plan + 你 issue 的 \`## Small issues\`;不碰源码 / \`docs/design/\` / 别的 plan;不 commit(改动留 unstaged,主线程统一提交)。
@@ -237,14 +239,14 @@ EOF
 
 # Droid 写计划派发包(plan-writer droid,在任务 worktree 内写 plan,不开子 worktree)
 write_droid_plan_pkg() {
-  local plan="$1" wt="$2" design="$3" issue="$4" taskpack="$5" selfcheck="$6" mockup="$7" model="$8" effort="$9" mode="${10}" instr="${11:-}"
+  local plan="$1" wt="$2" design="$3" issue="$4" mockup="$5" model="$6" effort="$7" mode="$8" instr="${9:-}"
   local ns; ns="$(plan_ns "$plan")"
   local st; st="$(state_for "$wt")"
   local pkg="$wt/$st/plan-workers/$ns/dispatch"
   local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
   mkdir -p "$pkg"
   if [ "$mode" = "dispatch" ]; then
-    build_plan_prompt "$plan" "$wt" "$design" "$issue" "$taskpack" "$selfcheck" "$mockup" > "$pkg/prompt.md"
+    build_plan_prompt "$plan" "$wt" "$design" "$issue" "$mockup" > "$pkg/prompt.md"
   else
     cp "$instr" "$pkg/prompt.md"
   fi
@@ -322,8 +324,14 @@ cmd_dispatch() {
       return 0
       ;;
     codex-cli)
-      [ -n "$model" ] || model="$CODEX_MODEL"
-      [ -n "$effort" ] || effort="$CODEX_EFFORT"
+      # 落地档按 plan 的 Complexity 自动切(capable→sol high,否则 luna xhigh);--model/--effort 仅作显式覆盖。
+      # 检测大小写不敏感 + 认中文"复杂度"标签,与 review.sh capable 检测同语义。
+      local dmodel="$CODEX_MODEL" deffort="$CODEX_EFFORT"
+      if grep -qiE '(complexity|复杂度).*capable' "$plan" 2>/dev/null; then
+        dmodel="$CODEX_CAPABLE_MODEL"; deffort="$CODEX_CAPABLE_EFFORT"
+      fi
+      [ -n "$model" ] || model="$dmodel"
+      [ -n "$effort" ] || effort="$deffort"
       local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
       local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
       printf '%s %s\n' "$model" "$effort" > "$wt/$st/codex-model"
@@ -398,12 +406,7 @@ cmd_plan_dispatch() {
   [ -n "$wt" ]   || die "--worktree 必填"
   case "$plan" in /*) ;; *) die "--plan 必须绝对路径" ;; esac
   [ -d "$wt" ]   || die "任务 worktree 不存在: $wt"
-  # 写计划方法论单源在 orchestrate(build-a 也用),dispatch 传绝对路径给写计划工人
-  local root; root="$(mmw_plugin_root)"
-  local tp="$root/skills/orchestrate/references/plan/task-pack.md"
-  local sc="$root/skills/orchestrate/references/plan/plan-self-check.md"
-  [ -f "$tp" ] || die "写计划方法论缺失: $tp"
-  [ -f "$sc" ] || die "写计划方法论缺失: $sc"
+  # 写计划方法论(task-pack / 自检)在 worktree-plan skill 自己的 references/,工人读 skill 自取,dispatch 不再传路径。
   local st; st="$(state_for "$wt")"; mkdir -p "$wt/$st"
   mmw_ensure_wt_state_ignore "$wt"   # 状态平面 gitignore,否则 plan-workers/ 会被 check_plan_boundary 当越界误报
   local ns; ns="$(plan_ns "$plan")"
@@ -412,7 +415,7 @@ cmd_plan_dispatch() {
     droid-task)
       [ -n "$model" ] || model="$DROID_PLAN_MODEL"
       [ -n "$effort" ] || effort="$DROID_PLAN_EFFORT"
-      write_droid_plan_pkg "$plan" "$wt" "$design" "$issue" "$tp" "$sc" "$mockup" "$model" "$effort" "dispatch"
+      write_droid_plan_pkg "$plan" "$wt" "$design" "$issue" "$mockup" "$model" "$effort" "dispatch"
       return 0
       ;;
     codex-cli)
@@ -423,7 +426,7 @@ cmd_plan_dispatch() {
       mkdir -p "$wt/$st/plan-workers/$ns"
       printf '%s %s\n' "$model" "$effort" > "$wt/$st/plan-workers/$ns/codex-model"
       printf '%s\n' "$start_sha" > "$wt/$st/plan-workers/$ns/start_sha"
-      local pf; pf="$(mktemp)"; build_plan_prompt "$plan" "$wt" "$design" "$issue" "$tp" "$sc" "$mockup" > "$pf"
+      local pf; pf="$(mktemp)"; build_plan_prompt "$plan" "$wt" "$design" "$issue" "$mockup" > "$pf"
       local rc=0
       run_codex_plan "$wt" "$ns" "$pf" \
         exec -C "$wt" --sandbox workspace-write \
@@ -456,7 +459,7 @@ cmd_plan_resume() {
     droid-task)
       local model="$DROID_PLAN_MODEL" effort="$DROID_PLAN_EFFORT"
       [ -f "$sd/worker-model" ] && read -r model effort < "$sd/worker-model"
-      write_droid_plan_pkg "$plan" "$wt" "" "" "" "" "" "$model" "$effort" "resume" "$instr"
+      write_droid_plan_pkg "$plan" "$wt" "" "" "" "$model" "$effort" "resume" "$instr"
       return 0
       ;;
     codex-cli)

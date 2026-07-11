@@ -1,24 +1,24 @@
 ---
 name: worktree-plan
-description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 issue 写成一份实施计划时读本 skill。它是你整个写计划流程的总纲:开工读 design + issue → 探代码拆小 issue → 逐 Task Pack 写 → 交付前自检 → 回结构化报告。写作方法论在 dispatch 给你的绝对路径文档里,到那步再读(渐进加载,不一次性塞满)。
+description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 issue 写成一份实施计划时读本 skill。它是你整个写计划流程的总纲:开工读 design + issue → 探代码拆小 issue → 逐 Task Pack 写 → 交付前自检 → 回结构化报告。细纪律在 references,到那步再读(渐进加载,不一次性塞满)。
 ---
 
 # Worktree Plan · 计划撰写(Plan Writer)
 
 你是计划撰写者,被主线程派进**任务 worktree** 把**一个大 issue** 写成一份执行者零上下文也能照做的实施计划(Plan Header + Task Pack + TDD 步骤 + 验收命令)。**写完就交,不要一次性输出整份文档,会遭遇 API 错误。** 不扩大范围、不碰别的 plan、不改设计文档、不 commit。**坏的产出比没有产出更糟**——拿不准就停下返回 `needs-context`,别靠猜往前冲。
 
-## 0. 开工前先读(dispatch 消息给了绝对路径)
+## 0. 开工前先读(设计 / issue / mockup 的路径在派发消息里)
 
 缺一不可,理解后再动手:
 
 - **源设计文档**:框架合同在这里——architecture / `## 合同边界` / global constraints / 测试 seam。你 plan header 的 Global Constraints 逐字从这抄。**`## Cross-Plan Contract Anchors` 节是主线程派你前写好的合同骨架,划定你这份 plan 的硬边界**:能碰哪些共享文件(别认领别的 plan owner 的文件)、要 provide / consume 哪些跨 plan 接口(照它命名对接);标 `(字段待 plan 回填)` 的精确字段你写时定,主线程事后回填。
 - **你负责的那个大 issue 文件**:提取 `What to build`、`Blocked by`。看 `## Small issues`——已有完整列表 → 直接映射;为空 / `<!-- PENDING -->`(常态,设计阶段故意留白)→ **你来拆**(见第 2 节),拆完 Edit 写回该 issue 文件再映射。
-- **两份写作方法论(dispatch 给了绝对路径,以它为准,按需到那步现读)**:
-  - `task-pack.md`(写每个 pack 时读):Task Pack 模板 + TDD 步骤 + 无 Placeholder + 不合格信号 + 测试规划严谨度 / 覆盖追踪 / 回归铁律 / 反模式,一份读完。
-  - `plan-self-check.md`(返回前读):交付前自检 + Pack 就绪门。
-- **mockup 目录**(dispatch 给了才有):每页视觉规格 / 交互 / 状态变体拆进对应 pack 的 acceptance criteria——作为具体可验证目标,不是"去看 mockup 目录"的指针。
+- **两份写作方法论(本 skill `references/` 下,按需到那步现读)**:
+  - `references/task-pack.md`(写每个 pack 时读):Task Pack 模板 + TDD 步骤 + 无 Placeholder + 不合格信号 + 测试规划严谨度 / 覆盖追踪 / 回归铁律 / 反模式,一份读完。
+  - `references/plan-self-check.md`(返回前读):交付前自检 + Pack 就绪门。
+- **mockup 目录**(派发消息给了才有):每页视觉规格 / 交互 / 状态变体拆进对应 pack 的 acceptance criteria——作为具体可验证目标,不是"去看 mockup 目录"的指针。
 
-缺关键上下文(设计文档 / issue / 方法论路径 / 落点任一缺失,或术语 / 验收不清)→ 返回 `needs-context`,**不自创** plan 结构 / schema shape / UI 方向。
+缺关键上下文(设计文档 / issue / 落点任一缺失,或术语 / 验收不清)→ 返回 `needs-context`,**不自创** plan 结构 / schema shape / UI 方向。
 
 ## 1. 核心原则(最高指令)
 
@@ -59,7 +59,7 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
    ## 发布风险和人工门禁
    | 风险面 | Task Pack | Risk flag | 提前 review | Manual gate owner |
    ```
-3. **写 Task Pack + Implementation 步骤**:每个小 issue 一个 Task Pack。**写 pack 前现读 dispatch 给的 `task-pack.md` 全文**,按它的 Task 大小判据 + 模板 + TDD 步骤(RED→GREEN→Refactor 垂直切片)+ 无 Placeholder 规则 + 测试规划严谨度写(都在那一份里)。
+3. **写 Task Pack + Implementation 步骤**:每个小 issue 一个 Task Pack。**写 pack 前现读 `references/task-pack.md` 全文**,按它的 Task 大小判据 + 模板 + TDD 步骤(RED→GREEN→Refactor 垂直切片)+ 无 Placeholder 规则 + 测试规划严谨度写(都在那一份里)。
 
 ## 4. 方向出口
 
@@ -78,7 +78,7 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
 
 ## 7. 交付前自检(返回前必过)
 
-**返回前现读 dispatch 给的 `plan-self-check.md` 全文**,走完它的「自检」+「Pack 就绪门」两节。额外自查(自己刚写完最易漏):plan 里每个文件路径 / type / function / fixture 用 Glob / rg 验真存在,引不出就别留。
+**返回前现读 `references/plan-self-check.md` 的「自检」+「Pack 就绪门」两节**(那份末尾的 handoff 收尾是主线程 selfcheck 步的活,你不读、不执行)。额外自查(自己刚写完最易漏):plan 里每个文件路径 / type / function / fixture 用 Glob / rg 验真存在,引不出就别留。
 
 ## 8. 收工:回结构化报告(主线程靠它验收)
 

@@ -53,8 +53,22 @@ echo "$PROMPT" | grep -q "$PLAN" && ok "prompt 传了计划路径(实施权威)"
 ARGV="$(cat "$FAKE_CAP/argv")"
 echo "$ARGV" | grep -q -- "-C $WT" && ok "codex -C <worktree>" || no "-C worktree"
 echo "$ARGV" | grep -q -- "--sandbox workspace-write" && ok "--sandbox workspace-write" || no "sandbox"
-echo "$ARGV" | grep -q 'model_reasoning_effort="high"' && ok "落地默认 high effort(CODEX_EFFORT)" || no "落地 effort($ARGV)"
+echo "$ARGV" | grep -q 'model_reasoning_effort="xhigh"' && ok "落地默认 xhigh effort(CODEX_EFFORT)" || no "落地 effort($ARGV)"
+echo "$ARGV" | grep -q -- "-m gpt-5.6-luna" && ok "落地默认 gpt-5.6-luna(CODEX_MODEL)" || no "落地模型档($ARGV)"
 echo "$ARGV" | grep -q -- "--add-dir" && ok "--add-dir 放行 git common dir" || no "add-dir"
+# capable 自动切档:plan 标 Complexity: capable → 脚本自动切 sol high(agent 不手传 --model/--effort)
+PLAN_CAP="$TMP/plan-cap.md"; printf '# plan\n\n**Complexity:** capable\n' > "$PLAN_CAP"
+bash "$CW" dispatch --plan "$PLAN_CAP" --worktree "$TMP/wt-cap" >/dev/null 2>&1
+ARGV_CAP="$(cat "$FAKE_CAP/argv")"
+echo "$ARGV_CAP" | grep -q -- "-m gpt-5.6-sol" && ok "capable plan 自动切 gpt-5.6-sol(不手传)" || no "capable 模型档($ARGV_CAP)"
+echo "$ARGV_CAP" | grep -q 'model_reasoning_effort="high"' && ok "capable plan 自动切 high effort" || no "capable effort($ARGV_CAP)"
+# 中文"复杂度"标签 + 大小写不敏感也认 capable(与 review.sh 同语义)
+PLAN_CAP2="$TMP/plan-cap2.md"; printf '# plan\n\n复杂度: Capable\n' > "$PLAN_CAP2"
+bash "$CW" dispatch --plan "$PLAN_CAP2" --worktree "$TMP/wt-cap2" >/dev/null 2>&1
+echo "$(cat "$FAKE_CAP/argv")" | grep -q -- "-m gpt-5.6-sol" && ok "中文复杂度/大小写 capable 也认自动切" || no "中文 capable 漏检"
+# 显式 --model/--effort 覆盖自动切档(逃生口仍在)
+bash "$CW" dispatch --plan "$PLAN_CAP" --worktree "$TMP/wt-ov" --model gpt-5.6-terra --effort xhigh >/dev/null 2>&1
+echo "$(cat "$FAKE_CAP/argv")" | grep -q -- "-m gpt-5.6-terra" && ok "--model 显式覆盖自动切档" || no "显式覆盖失效"
 echo "$OUT" | grep -q "SESSION=sess-123" && ok "抓到并打印 session id" || no "session 记账"
 [ "$(cat "$WT/${STATE_SUBDIR}/codex-session")" = "sess-123" ] && ok "session 落盘供 resume" || no "session 落盘"
 echo "$OUT" | grep -q "codex done" && ok "打印 codex 最后消息(供验收)" || no "最后消息"
@@ -82,7 +96,7 @@ ARGV2="$(cat "$FAKE_CAP/argv")"
 echo "$ARGV2" | grep -q "resume sess-123" && ok "resume 续原 session" || no "resume session"
 echo "$ARGV2" | grep -q -- "-C $WT" && ok "resume 重钉 -C <worktree>(不掉回调用 cwd)" || no "resume -C"
 echo "$ARGV2" | grep -q -- "--sandbox workspace-write" && ok "resume 重钉 workspace-write(不掉回 config 默认)" || no "resume sandbox"
-echo "$ARGV2" | grep -q -- "-m gpt-5.6-terra" && ok "resume 复用派发模型档(不掉回 config 默认档)" || no "resume 模型档"
+echo "$ARGV2" | grep -q -- "-m gpt-5.6-luna" && ok "resume 复用派发模型档(不掉回 config 默认档)" || no "resume 模型档"
 [ "$(cat "$FAKE_CAP/stdin")" = "fix this" ] && ok "resume 发回修复指令" || no "resume 指令"
 
 # resume 兜捞:session 文件丢(dispatch 被杀)→ 从 run.log 捞回,不丢续会话能力
@@ -158,8 +172,8 @@ OUT_P="$(bash "$CW" plan-dispatch --plan "$PLAN_OUT" --worktree "$WT_TASK" --des
 PROMPT_P="$(cat "$FAKE_CAP/stdin")"
 echo "$PROMPT_P" | grep -q "worktree-plan" && ok "plan prompt 指向 worktree-plan skill" || no "plan 指 worktree-plan"
 echo "$PROMPT_P" | grep -q "不 commit" && ok "plan prompt 声明不 commit" || no "plan 不 commit 声明"
-echo "$PROMPT_P" | grep -q "task-pack.md" && ok "plan prompt 传方法论 task-pack 绝对路径" || no "plan task-pack 路径"
-echo "$PROMPT_P" | grep -q "plan-self-check.md" && ok "plan prompt 传交付前自检路径" || no "plan self-check 路径"
+echo "$PROMPT_P" | grep -q "task-pack" && no "plan prompt 不该再注入方法论路径(在 skill references)" || ok "plan prompt 不注入 task-pack 路径(委托 skill)"
+echo "$PROMPT_P" | grep -q "plan-self-check" && no "plan prompt 不该再注入自检路径(在 skill references)" || ok "plan prompt 不注入 self-check 路径(委托 skill)"
 echo "$PROMPT_P" | grep -q "$PLAN_OUT" && ok "plan prompt 传落点" || no "plan 落点"
 echo "$PROMPT_P" | grep -q "本消息不重复" && ok "plan prompt 委托 skill(纯路由)" || no "plan 纯路由"
 ARGV_P="$(cat "$FAKE_CAP/argv")"
