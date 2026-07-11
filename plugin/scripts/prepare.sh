@@ -12,6 +12,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/host.sh
 . "$SCRIPT_DIR/lib/host.sh"
 ROUTES="$SCRIPT_DIR/../state-schema/routes.json"
+# new 只写当前宿主平面;读已有任务(resume/escalate/team/cleanup)必须按 worktree 实际平面解析,
+# 否则 Droid 建的任务在 Claude 宿主下 resume=UNMANAGED、cleanup 留孤儿。
 STATE_SUBDIR="$(mmw_state_subdir)"
 MANIFEST_NAME="task.json"
 
@@ -104,7 +106,8 @@ EOF
 # ---------- resume ----------
 cmd_resume() {
   local top; top="$(git_toplevel)"
-  local manifest="$top/$STATE_SUBDIR/$MANIFEST_NAME"
+  local sd; sd="$(mmw_resolve_state_subdir "$top")"
+  local manifest="$top/$sd/$MANIFEST_NAME"
   if [ ! -f "$manifest" ]; then
     echo "UNMANAGED"   # 没 manifest:当全新任务处理(回 SKILL 走路由)
     exit 0
@@ -133,7 +136,9 @@ cmd_cleanup() {
   [ -n "$slug" ] || die "--slug 必填"
   local top; top="$(git_toplevel)"
   in_worktree "$top" && die "在 worktree 内不能清理自己,回主仓库执行 cleanup"
-  local wt="$top/$(mmw_worktrees_rel)/$slug"
+  # 两个宿主的 worktree 根都找(Droid 建的任务也能在 Claude 宿主清干净,不留孤儿)
+  local wt; wt="$(mmw_find_worktree "$top" "$slug" || true)"
+  [ -n "$wt" ] || wt="$top/$(mmw_worktrees_rel)/$slug"
 
   # 安全门:动任何东西之前先确认分支已并入当前 HEAD,未并入直接拒,绝不先删后死
   if git -C "$top" show-ref --verify --quiet "refs/heads/$slug"; then
@@ -166,7 +171,8 @@ cmd_escalate() {
 
   local top; top="$(git_toplevel)"
   in_worktree "$top" || die "escalate 在任务 worktree 内执行(当前不在 worktree)"
-  local man="$top/$STATE_SUBDIR/$MANIFEST_NAME"
+  local sd; sd="$(mmw_resolve_state_subdir "$top")"
+  local man="$top/$sd/$MANIFEST_NAME"
   [ -f "$man" ] || die "当前不是在管任务(无 manifest)"
   jq -e . "$man" >/dev/null 2>&1 || die "manifest 损坏:$man"
   [ -f "$ROUTES" ] || die "找不到 routes.json: $ROUTES"
@@ -203,20 +209,18 @@ EOF
 cmd_team() {
   local top; top="$(git_toplevel)"
   in_worktree "$top" && die "在 worktree 内;merge 回主仓库执行"
-  local wtroot="$top/$(mmw_worktrees_rel)"
-  [ -d "$wtroot" ] || { echo "TEAM 空(无在管 worktree)"; return 0; }
   echo "TEAM"
-  local found=0
-  for d in "$wtroot"/*/; do
-    local man="${d}$STATE_SUBDIR/$MANIFEST_NAME"
-    [ -f "$man" ] || continue
+  local found=0 man
+  # 扫两个宿主平面的全部在飞 manifest(Droid 建的 Claude 也列得到)
+  while IFS= read -r man; do
+    [ -n "$man" ] || continue
     found=1
     # 每队员一行 JSON:身份 + 状态 + 设计文档(merge 据此查业务/设计冲突,非纯 git)
     jq -c '{slug, title, scenario, phase, status, branch, base_commit,
             design: .docs.design, worktree: .worktree_path,
             open_items: (.open_items|length), subtasks: (.subtasks|length)}' "$man"
-  done
-  [ "$found" = 1 ] || echo "(无合法 manifest)"
+  done < <(mmw_foreach_flying_manifest "$top")
+  [ "$found" = 1 ] || echo "(无在管 worktree)"
 }
 
 case "${1:-}" in
