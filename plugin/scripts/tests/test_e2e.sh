@@ -85,6 +85,10 @@ echo "$OUT" | grep -q "NEXT_ACTION=review" && ok "plan 过→进②审闸" || no
   && bash "$LOOP" step done --id 1.1 >/dev/null ) && ok "build:起 execution loop + 步账走通" || no "build loop"
 [ "$(cd "$WT" && bash "$LOOP" exit-check)" = "DONE" ] && ok "build:步账全 done→exit-check DONE" || no "build exit-check"
 ( cd "$WT" && bash "$REVIEW" start --stage plan-impl --source docs/plans/e2e/ >/dev/null 2>&1 ) && ok "build:③合同门起得来" || no "③合同门"
+# ③合同门收束(照 plan-impl.md:无跨 plan 合同也登记显式空项并 cover;不收束 pass 会被完工闸拒)
+( cd "$WT" && bash "$LOOP" checklist add --item no-cross-plan-contracts --source docs/plans/e2e >/dev/null \
+  && bash "$LOOP" checklist cover --item no-cross-plan-contracts --evidence "e2e:单计划无跨plan合同" >/dev/null ) \
+  && ok "build:③合同清单登记+cover(门收束)" || no "③合同收束"
 # build 产物过 → ④终审闸(build 也 gated:phase 不动,gate=build);产出=真提交范围(幽灵范围会被拒)
 RANGE="$(cd "$WT" && git rev-parse HEAD)..HEAD"
 OUTBG="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced "$RANGE")"
