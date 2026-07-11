@@ -10,6 +10,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREPARE="$SCRIPT_DIR/../prepare.sh"
 FLOW="$SCRIPT_DIR/../flow.sh"
 LOOP="$SCRIPT_DIR/../loop.sh"
+PACKAGE="$SCRIPT_DIR/../package-phase.sh"
+PACKAGE_FIXTURES="$SCRIPT_DIR/fixtures/package-phase"
 
 pass=0; fail=0
 ok() { echo "  PASS: $1"; pass=$((pass+1)); }
@@ -17,6 +19,7 @@ no() { echo "  FAIL: $1"; fail=$((fail+1)); }
 
 echo "=== test_flow.sh ==="
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+export UV_CACHE_DIR="${UV_CACHE_DIR:-$TMP/uv-cache}"
 cd "$TMP"
 git init -q; git config user.email t@t; git config user.name t
 echo seed > seed.txt; git add -A; git commit -qm seed
@@ -41,8 +44,13 @@ gate_verdict_pass() {
     && bash "$LOOP" checklist cover --item gate --evidence e >/dev/null \
     && bash "$FLOW" handoff --conclusion pass "$@" >/dev/null )
 }
+init_empty_package() {
+  mkdir -p "$1/fixtures"
+  cp -R "$PACKAGE_FIXTURES/." "$1/fixtures/"
+  (cd "$1" && bash "$PACKAGE" init --scope fixtures/generic.release-package-scope.json)
+}
 
-# ===== A: develop 全程空跑 + 中途甩支线 (investigate→design→plan→build(④闸)→closing) =====
+# ===== A: develop 全程空跑 + 中途甩支线 (investigate→design→plan→build(④闸)→package→closing) =====
 WA="$(newtask develop 2026-06-28-task-a)"
 [ "$(mphase "$WA")" = "investigate" ] && ok "A 起于 investigate" || no "A 起于 investigate ($(mphase "$WA"))"
 
@@ -97,13 +105,30 @@ WBG="$(cd "$WA" && bash "$FLOW" where)"
 echo "$WBG" | grep "review_start=" | grep -q -- "review start --stage final" && ok "build 闸 where 吐 review_start --stage final(完整可执行命令)" || no "review_start final ($(echo "$WBG" | grep review_start))"
 
 mkf "$WA" docs/2026-06-28-task-a-final-review.md
-gate_verdict_pass "$WA" --produced docs/2026-06-28-task-a-final-review.md  # ④审 verdict pass → closing(④闸要钉终审报告)
-[ "$(mphase "$WA")" = "closing" ] && ok "④审过→closing" || no "④审过→closing ($(mphase "$WA"))"
+gate_verdict_pass "$WA" --produced docs/2026-06-28-task-a-final-review.md  # ④审 verdict pass → package(④闸要钉终审报告)
+[ "$(mphase "$WA")" = "package" ] && ok "④审过→package" || no "④审过→package ($(mphase "$WA"))"
 [ "$(mfield "$WA" gate)" = "null" ] && ok "④审过 gate 清空" || no "④审过 gate 清空 ($(mfield "$WA" gate))"
+echo "$(cd "$WA" && bash "$FLOW" where)" | grep -q 'load=references/package.md' && ok "package 阶段加载唯一操作指引" || no "package load"
+if ( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 ); then no "package 无 state 时 pass 应被拒"; else ok "package 无 state 时 pass 被拒"; fi
+[ "$(mphase "$WA")" = "package" ] && ok "package 拒绝后 phase 不变" || no "package 拒绝后 phase ($(mphase "$WA"))"
+init_empty_package "$WA" >/dev/null
+[ "$(cd "$WA" && bash "$PACKAGE" exit-check)" = "DONE" ] && ok "空 package state 可交接" || no "空 package exit-check"
+( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )
+[ "$(mphase "$WA")" = "closing" ] && ok "完成 package 后→closing" || no "package→closing ($(mphase "$WA"))"
 OUT="$(cd "$WA" && bash "$FLOW" handoff --conclusion pass)"        # closing→ready-to-close
 echo "$OUT" | grep -q "STATUS=ready-to-close" && ok "末阶段 pass→ready-to-close" || no "ready-to-close"
 echo "$OUT" | grep -q "NEXT_ACTION=done" && ok "末阶段 NEXT=done" || no "NEXT=done"
-[ "$(mfield "$WA" 'history|length')" = "10" ] && ok "history 记满 10 步(含 propose + to-issue + 三审闸 ①②④)" || no "history 10 步 ($(mfield "$WA" 'history|length'))"
+[ "$(mfield "$WA" 'history|length')" = "11" ] && ok "history 记满 11 步(含 package + 三审闸 ①②④)" || no "history 11 步 ($(mfield "$WA" 'history|length'))"
+
+# package 的人工测试失败必须回 build，并删除旧 snapshot，避免新提交沿用旧目标列表。
+WPKG="$(newtask develop 2026-07-11-package-redirection)"
+jq '.phase="package" | .phase_index=6' "$WPKG/${STATE_SUBDIR}/task.json" > "$WPKG/task.json"
+mv "$WPKG/task.json" "$WPKG/${STATE_SUBDIR}/task.json"
+init_empty_package "$WPKG" >/dev/null
+[ -f "$WPKG/${STATE_SUBDIR}/package-state.json" ] && ok "package 掉头前存在 snapshot" || no "package snapshot 未建"
+( cd "$WPKG" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase build >/dev/null )
+[ "$(mphase "$WPKG")" = "build" ] && ok "package needs-redirection→build" || no "package 掉头阶段 ($(mphase "$WPKG"))"
+[ ! -e "$WPKG/${STATE_SUBDIR}/package-state.json" ] && ok "package→build 清除旧 snapshot" || no "package→build 应清除旧 snapshot"
 
 # ===== A2: 审打回 → 清 gate 回该阶段返工 =====
 WA2="$(newtask develop 2026-06-28-task-a2)"
@@ -160,7 +185,7 @@ mkf "$WBE" docs/investigating/be.md
 ESC="$(cd "$WBE" && bash "$PREPARE" escalate --to develop)"
 echo "$ESC" | grep -q "ESCALATED from=bug to=develop" && ok "escalate bug→develop" || no "escalate 回执"
 [ "$(mfield "$WBE" scenario)" = "develop" ] && ok "升级后 scenario=develop" || no "scenario 升级 ($(mfield "$WBE" scenario))"
-[ "$(mfield "$WBE" 'phases|join(",")')" = "investigate,propose,design,to-issue,plan,build,closing" ] && ok "升级后 phases=develop 七阶段" || no "phases 升级 ($(mfield "$WBE" 'phases|join(",")'))"
+[ "$(mfield "$WBE" 'phases|join(",")')" = "investigate,propose,design,to-issue,plan,build,package,closing" ] && ok "升级后 phases=develop 八阶段" || no "phases 升级 ($(mfield "$WBE" 'phases|join(",")'))"
 [ "$(mphase "$WBE")" = "investigate" ] && [ "$(mfield "$WBE" phase_index)" = "0" ] && ok "游标回 investigate" || no "游标回首阶段"
 [ "$(mfield "$WBE" 'phase_outputs.investigate[0]')" = "docs/investigating/be.md" ] && ok "投查成果保留(phase_outputs 不丢)" || no "投查成果丢失"
 [ "$(mfield "$WBE" 'history[-1].conclusion')" = "escalate→develop" ] && ok "history 记一笔升级" || no "history 升级留痕"

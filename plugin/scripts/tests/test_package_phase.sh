@@ -5,6 +5,7 @@ export MMW_HOST="${MMW_HOST:-claude}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PACKAGE="$SCRIPT_DIR/../package-phase.sh"
+MMW="$SCRIPT_DIR/../mmw.sh"
 FIXTURES="$SCRIPT_DIR/fixtures/package-phase"
 
 pass=0; fail=0
@@ -66,6 +67,24 @@ run_resolve() {
   (cd "$CASE" && bash "$PACKAGE" resolve --scope "$scope" "$@") >"$OUT" 2>"$ERR" || RC=$?
   RESULT="$(cat "$OUT")"
   ERROR="$(cat "$ERR")"
+}
+
+run_package() {
+  RC=0
+  (cd "$CASE" && bash "$PACKAGE" "$@") >"$OUT" 2>"$ERR" || RC=$?
+  RESULT="$(cat "$OUT")"
+  ERROR="$(cat "$ERR")"
+}
+
+package_state() {
+  printf '%s/.claude/multi-model-workflow/package-state.json' "$CASE"
+}
+
+release_done() {
+  local product="$1" manifest
+  manifest="$(jq -r --arg p "$product" '.targets[] | select(.product == $p) | .manifest' "$(package_state)")"
+  (cd "$CASE" && bash "$MMW" release init --manifest "$CASE/$manifest" >/dev/null)
+  (cd "$CASE" && bash "$MMW" release stage done --stage build >/dev/null)
 }
 
 targets() {
@@ -196,6 +215,78 @@ if find "$TMP" -name package-state.json -print -quit | grep -q .; then
   no "resolve 不应写 package-state"
 else
   ok "resolve 只读，不写 package-state"
+fi
+
+# package 生命周期：目标快照、两次人工门与每把钥匙独立的 S1 DONE 证明。
+new_case package-empty
+run_package init --scope fixtures/generic.release-package-scope.json
+if [ "$RC" -eq 0 ] && [ "$(jq -c '.targets' "$(package_state)")" = '[]' ]; then
+  ok "init 固化空目标 package state"
+else
+  no "init 固化空目标 package state (rc=$RC err=$ERROR)"
+fi
+run_package where
+if [ "$RC" -eq 0 ] && [ "$RESULT" = 'NO-PACKAGE' ]; then ok "空目标 where=NO-PACKAGE"; else no "空目标 where (rc=$RC out=$RESULT err=$ERROR)"; fi
+run_package exit-check
+if [ "$RC" -eq 0 ] && [ "$RESULT" = 'DONE' ]; then ok "空目标 exit-check=DONE"; else no "空目标 exit-check (rc=$RC out=$RESULT err=$ERROR)"; fi
+run_package init --scope fixtures/generic.release-package-scope.json
+if [ "$RC" -eq 0 ]; then ok "同一空目标 init 幂等"; else no "同一空目标 init 幂等 (rc=$RC err=$ERROR)"; fi
+
+new_case package-gates
+commit_path src/local_agent/app.py
+commit_path src/parrot_dubbing/app.py
+run_package init --scope fixtures/agentflow.release-package-scope.json
+if [ "$RC" -eq 0 ] && [ "$(jq -c '[.targets[].product]' "$(package_state)")" = '["duck","parrot"]' ]; then
+  ok "init 一次固化有序 release 目标"
+else
+  no "init 一次固化有序 release 目标 (rc=$RC err=$ERROR)"
+fi
+run_package where
+if [ "$RC" -eq 0 ] && [ "$RESULT" = 'PAUSED-HUMAN:development-mode-test' ]; then ok "未确认开发模式时停位"; else no "开发模式停位 (rc=$RC out=$RESULT err=$ERROR)"; fi
+run_package confirm --gate installed-test --by owner
+if [ "$RC" -ne 0 ]; then ok "未完成 release 时拒绝安装后确认"; else no "未完成 release 时应拒绝安装后确认"; fi
+run_package record-release --product duck
+if [ "$RC" -ne 0 ]; then ok "无 matching S1 DONE 时拒绝记录 release"; else no "无 S1 DONE 时应拒绝记录"; fi
+release_done duck
+run_package record-release --product duck
+if [ "$RC" -ne 0 ]; then ok "开发模式未确认时即使 S1 DONE 也拒绝记录"; else no "开发模式未确认时应拒绝记录"; fi
+(cd "$CASE" && bash "$MMW" release close >/dev/null)
+run_package confirm --gate development-mode-test --by owner
+if [ "$RC" -eq 0 ]; then ok "具名开发模式确认落盘"; else no "开发模式确认 (rc=$RC err=$ERROR)"; fi
+run_package where
+if [ "$RC" -eq 0 ] && [ "$RESULT" = 'RELEASE product=duck manifest=fixtures/adapters/duck.release-adapter.json' ]; then ok "确认后只要求第一个 release"; else no "确认后 release 指引 (rc=$RC out=$RESULT err=$ERROR)"; fi
+release_done parrot
+run_package record-release --product duck
+if [ "$RC" -ne 0 ]; then ok "S1 product 不匹配时拒绝记录"; else no "S1 product 不匹配应拒绝"; fi
+(cd "$CASE" && bash "$MMW" release close >/dev/null)
+release_done duck
+run_package record-release --product duck
+if [ "$RC" -eq 0 ] && [ "$(jq -r '.targets[] | select(.product == "duck") | .release_commit' "$(package_state)")" = "$(git -C "$CASE" rev-parse HEAD)" ]; then
+  ok "matching S1 DONE 记录当前功能分支提交"
+else
+  no "matching S1 DONE 记录 (rc=$RC err=$ERROR)"
+fi
+(cd "$CASE" && bash "$MMW" release close >/dev/null)
+run_package where
+if [ "$RC" -eq 0 ] && [ "$RESULT" = 'RELEASE product=parrot manifest=fixtures/adapters/parrot.release-adapter.json' ]; then ok "一个产品完成不越过另一个"; else no "第二个产品仍 pending (rc=$RC out=$RESULT err=$ERROR)"; fi
+release_done parrot
+run_package record-release --product parrot
+(cd "$CASE" && bash "$MMW" release close >/dev/null)
+run_package where
+if [ "$RC" -eq 0 ] && [ "$RESULT" = 'PAUSED-HUMAN:installed-test' ]; then ok "所有 release 后停在安装后测试"; else no "安装后测试停位 (rc=$RC out=$RESULT err=$ERROR)"; fi
+run_package confirm --gate installed-test --by owner
+run_package exit-check
+if [ "$RC" -eq 0 ] && [ "$RESULT" = 'DONE' ]; then ok "两次具名确认和所有 release 后 DONE"; else no "最终 DONE (rc=$RC out=$RESULT err=$ERROR)"; fi
+commit_path src/hedgehog/app.py
+run_package init --scope fixtures/agentflow.release-package-scope.json
+if [ "$RC" -ne 0 ]; then ok "运行中 snapshot 不接受变化后的目标列表"; else no "运行中 snapshot 应拒绝变化"; fi
+run_package close
+if [ "$RC" -eq 0 ] && [ ! -e "$(package_state)" ]; then ok "close 只移除本 worktree package state"; else no "close package state (rc=$RC err=$ERROR)"; fi
+run_package init --scope fixtures/agentflow.release-package-scope.json
+if [ "$RC" -eq 0 ] && [ "$(jq -r .initial_head_commit "$(package_state)")" = "$(git -C "$CASE" rev-parse HEAD)" ]; then
+  ok "close 后 init 以新 HEAD 建立新快照"
+else
+  no "close 后 init 新快照 (rc=$RC err=$ERROR)"
 fi
 
 echo ""

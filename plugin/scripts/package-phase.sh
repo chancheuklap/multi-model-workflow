@@ -7,6 +7,7 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 . "$SCRIPT_DIR/lib/host.sh"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
+now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 repo_top() {
   git rev-parse --show-toplevel 2>/dev/null || die "不在 git 仓库内"
@@ -19,6 +20,34 @@ task_manifest() {
   file="$top/$sd/task.json"
   [ -f "$file" ] || die "无 task.json；未给 --base/--head 时必须在受管任务内"
   printf '%s\n' "$file"
+}
+
+package_state_path() {
+  local top sd
+  top="$(repo_top)"
+  sd="$(mmw_resolve_state_subdir "$top")"
+  printf '%s\n' "$top/$sd/package-state.json"
+}
+
+need_package_state() {
+  local file
+  file="$(package_state_path)"
+  [ -f "$file" ] || die "无 package-state(先 package init)"
+  jq -e . "$file" >/dev/null 2>&1 || die "package-state 损坏，拒绝继续"
+  printf '%s\n' "$file"
+}
+
+write_package_state() {
+  local file="$1" dir tmp
+  dir="$(dirname "$file")"
+  mkdir -p "$dir"
+  tmp="$(mktemp "$dir/.package-state.XXXXXX")"
+  cat > "$tmp"
+  if [ ! -s "$tmp" ] || ! jq -e . "$tmp" >/dev/null 2>&1; then
+    rm -f "$tmp"
+    die "拒绝写入空/非法 JSON 到 $file;原 package-state 保留"
+  fi
+  mv "$tmp" "$file"
 }
 
 matches_any() {
@@ -126,7 +155,156 @@ cmd_resolve() {
   [ "$(jq -r '.targets | length' <<<"$result")" -gt 0 ] || return 2
 }
 
+cmd_init() {
+  local scope="" manifest current resolved rc state expected existing
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --scope) scope="$2"; shift 2 ;;
+      *) die "init 参数非法: $1" ;;
+    esac
+  done
+  [ -n "$scope" ] || die "init 必须给 --scope"
+  manifest="$(task_manifest)"
+  current="$(jq -r '.phase // ""' "$manifest")"
+  [ "$current" = "package" ] || die "package init 必须在 package 阶段(当前: $current)"
+  if resolved="$(cmd_resolve --scope "$scope")"; then
+    rc=0
+  else
+    rc=$?
+  fi
+  [ "$rc" -eq 0 ] || [ "$rc" -eq 2 ] || return "$rc"
+  state="$(package_state_path)"
+  expected="$(jq -cn --argjson resolved "$resolved" --arg created "$(now)" '
+    {schema_version:"1", base_commit:$resolved.base_commit,
+     initial_head_commit:$resolved.head_commit, scope_path:$resolved.scope_path,
+     created_at:$created,
+     targets:[$resolved.targets[] | . + {release_commit:null}],
+     development_mode_test:null, installed_test:null}')"
+  if [ -f "$state" ]; then
+    jq -e . "$state" >/dev/null 2>&1 || die "package-state 损坏，拒绝覆盖"
+    existing="$(jq -c '{base_commit,initial_head_commit,scope_path,targets}' "$state")"
+    expected="$(jq -c '{base_commit,initial_head_commit,scope_path,targets}' <<<"$expected")"
+    [ "$existing" = "$expected" ] || die "已有 package-state 与当前 package 目标不一致；拒绝替换运行中的 package"
+    echo "INIT-UNCHANGED"
+    return 0
+  fi
+  printf '%s\n' "$expected" | write_package_state "$state"
+  echo "INIT targets=$(jq -r '.targets | length' "$state")"
+}
+
+cmd_where() {
+  local state pending
+  state="$(need_package_state)"
+  if [ "$(jq -r '.targets | length' "$state")" -eq 0 ]; then
+    echo "NO-PACKAGE"
+    return 0
+  fi
+  if [ "$(jq -r '.development_mode_test == null' "$state")" = "true" ]; then
+    echo "PAUSED-HUMAN:development-mode-test"
+    return 0
+  fi
+  pending="$(jq -c '[.targets[] | select(.release_commit == null)][0] // null' "$state")"
+  if [ "$pending" != "null" ]; then
+    jq -r '"RELEASE product="+.product+" manifest="+.manifest' <<<"$pending"
+    return 0
+  fi
+  if [ "$(jq -r '.installed_test == null' "$state")" = "true" ]; then
+    echo "PAUSED-HUMAN:installed-test"
+    return 0
+  fi
+  echo "DONE"
+}
+
+cmd_confirm() {
+  local gate="" by="" state missing
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --gate) gate="$2"; shift 2 ;;
+      --by) by="$2"; shift 2 ;;
+      *) die "confirm 参数非法: $1" ;;
+    esac
+  done
+  case "$gate" in development-mode-test|installed-test) ;; *) die "confirm 的 --gate 只能是 development-mode-test|installed-test" ;; esac
+  [ -n "$by" ] || die "confirm 必须给非空 --by"
+  state="$(need_package_state)"
+  if [ "$gate" = "installed-test" ]; then
+    missing="$(jq -r '[.targets[] | select(.release_commit == null) | .product] | join(",")' "$state")"
+    [ -z "$missing" ] || die "尚有未完成 release: $missing"
+  fi
+  if [ "$gate" = "development-mode-test" ]; then
+    [ "$(jq -r '.development_mode_test == null' "$state")" = "true" ] || die "development-mode-test 已确认，不能重复写入"
+    jq --arg by "$by" --arg at "$(now)" '.development_mode_test={confirmed_by:$by,confirmed_at:$at}' "$state" | write_package_state "$state"
+  else
+    [ "$(jq -r '.installed_test == null' "$state")" = "true" ] || die "installed-test 已确认，不能重复写入"
+    jq --arg by "$by" --arg at "$(now)" '.installed_test={confirmed_by:$by,confirmed_at:$at}' "$state" | write_package_state "$state"
+  fi
+  echo "CONFIRMED:$gate"
+}
+
+cmd_record_release() {
+  local product="" state top sd release_state result actual commit
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --product) product="$2"; shift 2 ;;
+      *) die "record-release 参数非法: $1" ;;
+    esac
+  done
+  [ -n "$product" ] || die "record-release 必须给 --product"
+  state="$(need_package_state)"
+  jq -e --arg p "$product" '.targets[] | select(.product == $p)' "$state" >/dev/null || die "package target 不存在: $product"
+  [ "$(jq -r --arg p "$product" '.targets[] | select(.product == $p) | .release_commit == null' "$state")" = "true" ] \
+    || die "package target 已记录 release: $product"
+  [ "$(jq -r '.development_mode_test != null' "$state")" = "true" ] \
+    || die "开发模式功能测试尚未确认，不能记录 release"
+  if result="$(bash "$SCRIPT_DIR/mmw.sh" release exit-check)"; then :; else die "无法读取 S1 release exit-check"; fi
+  [ "$result" = "DONE" ] || die "S1 release 尚未 DONE: $result"
+  top="$(repo_top)"
+  sd="$(mmw_resolve_state_subdir "$top")"
+  release_state="$top/$sd/release-state.json"
+  [ -f "$release_state" ] || die "无 S1 release-state，不能记录 release"
+  actual="$(jq -r '.product // ""' "$release_state")"
+  [ "$actual" = "$product" ] || die "S1 release product 不匹配: 期望 $product，实际 $actual"
+  commit="$(git -C "$top" rev-parse HEAD)"
+  jq --arg p "$product" --arg commit "$commit" '
+    .targets |= map(if .product == $p then .release_commit=$commit else . end)' "$state" | write_package_state "$state"
+  echo "RECORDED:$product"
+}
+
+cmd_exit_check() {
+  local state pending
+  state="$(need_package_state)"
+  if [ "$(jq -r '.targets | length' "$state")" -eq 0 ]; then
+    echo "DONE"
+    return 0
+  fi
+  if [ "$(jq -r '.development_mode_test == null' "$state")" = "true" ]; then
+    echo "NOT-DONE:development-mode-test"
+    return 1
+  fi
+  pending="$(jq -r '[.targets[] | select(.release_commit == null) | .product][0] // ""' "$state")"
+  if [ -n "$pending" ]; then
+    echo "NOT-DONE:release:$pending"
+    return 1
+  fi
+  if [ "$(jq -r '.installed_test == null' "$state")" = "true" ]; then
+    echo "NOT-DONE:installed-test"
+    return 1
+  fi
+  echo "DONE"
+}
+
+cmd_close() {
+  rm -f "$(package_state_path)"
+  echo "CLOSED"
+}
+
 case "${1:-}" in
   resolve) shift; cmd_resolve "$@" ;;
-  *) die "用法: package-phase.sh resolve --scope <repo-relative-scope> [--base <commit>] [--head <commit>]" ;;
+  init) shift; cmd_init "$@" ;;
+  where) shift; cmd_where "$@" ;;
+  confirm) shift; cmd_confirm "$@" ;;
+  record-release) shift; cmd_record_release "$@" ;;
+  exit-check) shift; cmd_exit_check "$@" ;;
+  close) shift; cmd_close "$@" ;;
+  *) die "用法: package-phase.sh resolve|init|where|confirm|record-release|exit-check|close" ;;
 esac
