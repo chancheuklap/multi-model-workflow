@@ -1,7 +1,7 @@
 {
   "name": "multi-model-workflow",
   "description": "多模型开发编排:讨论/设计与主线程对齐,计划起放权。双宿主 Claude(Codex 写+主线程验)与 Droid(Custom Droids 分角色绑模型)。四审 loop、worktree、断点续传。",
-  "version": "6.14.2",
+  "version": "6.14.3",
   "author": {
     "name": "Cheuk Lap Chan",
     "email": "chancheuklapincn@gmail.com"

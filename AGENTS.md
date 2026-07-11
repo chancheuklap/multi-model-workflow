@@ -77,4 +77,4 @@ bash plugin/build/build.sh --apply
 python3 -m json.tool plugin/state-schema/routes.json >/dev/null
 ```
 
-> 接线:`plugin/.claude-plugin/plugin.json` + `plugin/.factory-plugin/plugin.json` + 根 marketplace(`.claude-plugin/` / `.factory-plugin/`) source 均指 `./plugin`。hooks 双 matcher `Bash|Execute`;Droid Custom Droids 在 `plugin/droids/`。改版本号同步 Claude/Droid 两侧 plugin.json 与 marketplace。
+> 接线:`plugin/.claude-plugin/plugin.json` + `plugin/.factory-plugin/plugin.json` + 根 marketplace(`.claude-plugin/` / `.factory-plugin/`) source 均指 `./plugin`。hooks 按宿主分组:`Execute` 组无 if(Droid,脚本自筛)、`Bash` 组带 `if` 前筛(Claude,不匹配不唤醒);Droid Custom Droids 在 `plugin/droids/`。改版本号同步 Claude/Droid 两侧 plugin.json 与 marketplace。

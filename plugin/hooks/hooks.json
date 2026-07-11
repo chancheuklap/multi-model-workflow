@@ -13,7 +13,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Execute",
+        "matcher": "Execute",
         "hooks": [
           {
             "type": "command",
@@ -21,16 +21,62 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -n \"${DROID_PLUGIN_ROOT:-}\" ]; then bash \"${DROID_PLUGIN_ROOT}/hooks/guard-redline.sh\"; else bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-redline.sh\"; fi",
+            "timeout": 5,
+            "if": "Bash(*push*)"
+          },
+          {
+            "type": "command",
+            "command": "if [ -n \"${DROID_PLUGIN_ROOT:-}\" ]; then bash \"${DROID_PLUGIN_ROOT}/hooks/guard-redline.sh\"; else bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-redline.sh\"; fi",
+            "timeout": 5,
+            "if": "Bash(*merge*)"
+          },
+          {
+            "type": "command",
+            "command": "if [ -n \"${DROID_PLUGIN_ROOT:-}\" ]; then bash \"${DROID_PLUGIN_ROOT}/hooks/guard-redline.sh\"; else bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-redline.sh\"; fi",
+            "timeout": 5,
+            "if": "Bash(*deploy*)"
+          },
+          {
+            "type": "command",
+            "command": "if [ -n \"${DROID_PLUGIN_ROOT:-}\" ]; then bash \"${DROID_PLUGIN_ROOT}/hooks/guard-redline.sh\"; else bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-redline.sh\"; fi",
+            "timeout": 5,
+            "if": "Bash(*apply*)"
+          },
+          {
+            "type": "command",
+            "command": "if [ -n \"${DROID_PLUGIN_ROOT:-}\" ]; then bash \"${DROID_PLUGIN_ROOT}/hooks/guard-redline.sh\"; else bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-redline.sh\"; fi",
+            "timeout": 5,
+            "if": "Bash(*destroy*)"
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash|Execute",
+        "matcher": "Execute",
         "hooks": [
           {
             "type": "command",
             "command": "if [ -n \"${DROID_PLUGIN_ROOT:-}\" ]; then bash \"${DROID_PLUGIN_ROOT}/hooks/record-step.sh\"; else bash \"${CLAUDE_PLUGIN_ROOT}/hooks/record-step.sh\"; fi",
             "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -n \"${DROID_PLUGIN_ROOT:-}\" ]; then bash \"${DROID_PLUGIN_ROOT}/hooks/record-step.sh\"; else bash \"${CLAUDE_PLUGIN_ROOT}/hooks/record-step.sh\"; fi",
+            "timeout": 10,
+            "if": "Bash(git commit:*)"
           }
         ]
       }

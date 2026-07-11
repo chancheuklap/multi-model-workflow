@@ -91,4 +91,21 @@ OUT="$(cd "$WTREPO" && printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
 echo "$OUT" | grep -q "在管任务 worktree:t9" && echo "$OUT" | grep -q "phase=build" && ok "在管 worktree → 报身份+续跑" || no "在管身份"
 rm -rf "$WTREPO"
 
+# ===== hooks.json 接线(宿主分组:Execute=Droid 无 if / Bash=Claude 带 if 前筛)=====
+HJ="$HOOKS/hooks.json"
+python3 -m json.tool "$HJ" >/dev/null 2>&1 && ok "hooks.json JSON 合法" || no "hooks.json JSON 不合法"
+noif_exec="$(jq -r '[.hooks.PreToolUse[],.hooks.PostToolUse[]|select(.matcher=="Execute")|.hooks[]|has("if")]|any' "$HJ")"
+[ "$noif_exec" = "false" ] && ok "Execute 组(Droid)不带 if(Droid 忽略 if,不能依赖它筛)" || no "Execute 组混入 if"
+allif_bash="$(jq -r '[.hooks.PreToolUse[],.hooks.PostToolUse[]|select(.matcher=="Bash")|.hooks[]|has("if")]|all' "$HJ")"
+[ "$allif_bash" = "true" ] && ok "Bash 组(Claude)每条都带 if 前筛" || no "Bash 组有条目缺 if"
+# 红线 if 关键词集必须覆盖 guard-redline 全部 ask 命令(漏一条 = Claude 侧红线漏拦)
+kw="$(jq -r '.hooks.PreToolUse[]|select(.matcher=="Bash")|.hooks[].if' "$HJ" | sed -E 's/^Bash\(\*//; s/\*\)$//' | paste -sd'|' -)"
+miss=0
+for c in 'git push origin main' 'git -c core.hooksPath=/dev/null push origin main' 'gh pr merge 123 --merge' './deploy.sh' 'bash deploy-prod.sh' 'kubectl apply -f k8s/' 'terraform apply' 'terraform destroy'; do
+  printf '%s' "$c" | grep -Eq "$kw" || { miss=1; echo "  漏筛: $c"; }
+done
+[ "$miss" = "0" ] && ok "if 关键词集覆盖全部红线命令(无漏筛)" || no "if 关键词集漏筛红线命令"
+rsif="$(jq -r '.hooks.PostToolUse[]|select(.matcher=="Bash")|.hooks[0].if' "$HJ")"
+[ "$rsif" = "Bash(git commit:*)" ] && ok "record-step Bash 侧 if 只认 git commit" || no "record-step if 异常 ($rsif)"
+
 echo ""; echo "Results: $pass passed, $fail failed"; [ "$fail" -eq 0 ]

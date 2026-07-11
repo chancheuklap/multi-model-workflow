@@ -99,10 +99,10 @@ Droid final/merge-impl 照 `review.sh` 分档,按 brief 派 `reviewer-final-a/b`
 | 事件 | Claude matcher | Droid matcher | 脚本 |
 | --- | --- | --- | --- |
 | SessionStart | (无 matcher) | 同 | `session-triage.sh` |
-| PreToolUse | `Bash` | `Execute`(hooks 用 `Bash\|Execute`) | `guard-redline.sh` |
-| PostToolUse | `Bash` | `Execute` | `record-step.sh` |
+| PreToolUse | `Bash` + `if` 前筛(`*push*`/`*merge*`/`*deploy*`/`*apply*`/`*destroy*`) | `Execute`(无 if) | `guard-redline.sh` |
+| PostToolUse | `Bash` + `if: Bash(git commit:*)` | `Execute`(无 if) | `record-step.sh` |
 
-Droid 若 hook 事件名/payload 字段有差异,以 `lib/host.sh` + hooks 内容错为准;逻辑(记 step / 红线 / 分诊)不变。
+hooks.json 按宿主分两组 matcher:`Bash` 组带 `if` 前筛(不匹配的命令不唤醒脚本、无状态行),`Execute` 组不带 `if`(Droid 忽略 `if` 字段——实测只忽略不拒载,故 Droid 侧靠脚本自筛)。`if` 关键词集必须覆盖 guard-redline 全部 ask 模式(test_hooks.sh 有守卫);Droid 若 hook 事件名/payload 字段有差异,以 `lib/host.sh` + hooks 内容错为准;逻辑(记 step / 红线 / 分诊)不变。
 
 ## 7. 安装
 
