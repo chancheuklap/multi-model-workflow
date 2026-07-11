@@ -184,7 +184,7 @@ _baseline_untracked_changed() {
 }
 
 _collect_candidate_paths() {
-  local top="$1" path
+  local top="$1" f="$2" path
   TRACKED_PATHS=()
   NEW_UNTRACKED_PATHS=()
   CHANGED_PATHS=()
@@ -195,6 +195,16 @@ _collect_candidate_paths() {
     [ -n "$path" ] || continue
     _is_baseline_untracked "$path" || NEW_UNTRACKED_PATHS+=("$path")
   done < <(git -C "$top" ls-files --others --exclude-standard)
+  # P0 安全:一般候选集用 --exclude-standard 排除 gitignored,曾致自愈修复新建的 gitignored
+  # 受保护文件(如 .env/secret)看不见,流程误判「无改动」直接放过、不进 path-gate、不拦不存 patch。
+  # 这里额外扫 gitignored 未跟踪文件,只把匹配 hard-deny 的纳入候选(缓存等不匹配的不受影响)。
+  if [ -n "${f:-}" ] && _load_path_hard_deny "$f" 2>/dev/null; then
+    while IFS= read -r path; do
+      [ -n "$path" ] || continue
+      _is_baseline_untracked "$path" && continue
+      _match_any "$path" "${PROTECTION_MATCHERS[@]-}" && NEW_UNTRACKED_PATHS+=("$path")
+    done < <(git -C "$top" ls-files --others --ignored --exclude-standard)
+  fi
   if [ ${#TRACKED_PATHS[@]} -gt 0 ]; then
     CHANGED_PATHS+=("${TRACKED_PATHS[@]}")
   fi
@@ -399,7 +409,7 @@ cmd_dispatch_direct() {
 
   _snapshot_baseline_untracked "$top"
   _run_direct_action "$f" "$mode" "$findings"
-  _collect_candidate_paths "$top"
+  _collect_candidate_paths "$top" "$f"
   changed_json="$(_json_changed_paths)"
 
   if ! _baseline_untracked_changed "$top"; then

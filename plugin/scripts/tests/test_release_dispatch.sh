@@ -31,6 +31,8 @@ new_case() {
   git -C "$repo" config user.name release-test
   printf 'seed\n' > "$repo/scripts/release/existing.txt"
   printf 'migration seed\n' > "$repo/migrations/0001.py"
+  # 让 `migrations/*.ignored` 被 gitignore,用于验证「gitignored 的受保护文件也必须被 path-gate 拦」
+  printf 'migrations/*.ignored\n' > "$repo/.gitignore"
   git -C "$repo" add -A
   git -C "$repo" commit -qm seed
   cp "$FIX/release_protection.fake.json" "$repo/release_protection.json"
@@ -239,6 +241,22 @@ case "$out" in
   BUDGET-EXCEEDED:wallclock=*) ok "墙钟预算继续熔断" ;;
   *) no "墙钟预算回归 ($out)" ;;
 esac
+
+# P0 安全回归:gitignored 的受保护文件(如自愈修复新建 .env/secret)不能绕过 path-gate。
+# 一般候选集用 --exclude-standard 排除 gitignored,曾致 gitignored 的受保护路径不被 gate 看到。
+fix_gitignored='["sh","-c","printf leak > migrations/oops.ignored"]'
+repo="$(new_case gitignored-protected "$fix_gitignored" '["true"]' '["true"]' '["sh","-c","echo {\\\"findings\\\":[]}"]')"
+sf="$(state_file "$repo")"
+fail_stage_p1 "$repo"
+before_status="$(git -C "$repo" status --porcelain)"
+out="$(run_release "$repo" dispatch --stage verify_key --findings "$FIX/finding.p1.json")"
+case "$out" in
+  *"PATH-GATE-REJECT:verify_key"*"migrations/oops.ignored"*) ok "gitignored 受保护文件被拦(不漏 secret)" ;;
+  *) no "gitignored 受保护文件绕过 path-gate ($out)" ;;
+esac
+artifact="$(jq -r '[.attempt_ledger[] | select(.action_kind == "path_gate") | .artifact_refs[]? | select(startswith("file:"))] | last // ""' "$sf")"
+[ -n "$artifact" ] && grep -q 'migrations/oops.ignored' "${artifact#file:}" && grep -q 'leak' "${artifact#file:}" && ok "gitignored 受保护 patch 含路径与内容" || no "gitignored 受保护 patch 不完整"
+[ ! -e "$repo/migrations/oops.ignored" ] && assert_no_candidate_status_change "$repo" "$before_status" && ok "gitignored 受保护清理且不污染 worktree" || no "gitignored 受保护未清理"
 
 echo "=== $pass PASS / $fail FAIL ==="
 [ "$fail" -eq 0 ]
