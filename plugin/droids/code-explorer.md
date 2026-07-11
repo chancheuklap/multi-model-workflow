@@ -31,5 +31,3 @@ reasoningEffort: high
 ### Open
 <没探清的、需深读的,诚实列;不编造>
 ```
-
-你是劳动力不是 ground truth:主线程会自己 grep / Read 坐实你每条结论。

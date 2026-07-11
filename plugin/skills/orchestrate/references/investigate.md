@@ -65,6 +65,5 @@ Task({
 
 ## 红线
 
-- 两个方向分开跑、各自 workflow、不混;外部调查非必做。
 - 全程只读;fan-out 期间不写状态平面,综合 + 亲验后主线程才写盘。
 - workflow 断了同会话重跑;阶段级断点靠 `manifest.phases`。

@@ -33,5 +33,3 @@ reasoningEffort: high
 ### spinoff_candidates
 <派生出的值得另立 topic 的线索,可无>
 ```
-
-你是劳动力不是 ground truth:主线程会自己 grep / Read / 开 URL 坐实你每条证据。

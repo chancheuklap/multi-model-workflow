@@ -16,7 +16,7 @@ plan 阶段末步:就绪门自检过了就 `mmw handoff` 交还引擎(引擎触�
 能进落地：对应 confirmed small issue / vertical slice 可独立验证 / owned files + 职责 / Interfaces（Consumes·Produces）/ acceptance（可 pass/fail）/ verification commands（pack-local）/ 触合同有 anchors / mockup 存在有具体视觉规格 / commit boundary / risk flags / dependencies / Complexity / 改既有行为有 Verified current state + Rollback。
 不能进：横切 pack（分层不能单独验证）/ UI 只写"实现 mockup"无状态交互 / 缺目标行为需猜 / 多人写同一文件 / 只写 helper 无 public behavior / 需人工决策却标 AFK / 抽不出独立 brief（依赖"看上一个 pack"）。
 
-触碰不变量 / 合同 / 数据权威 / 发布风险时,尤其确保上面每条都过。审回的 findings 自己亲验再改,外部模型是劳动力不是事实源。
+触碰不变量 / 合同 / 数据权威 / 发布风险时,尤其确保上面每条都过。审回的 findings 自己亲验再改。
 
 ## 收尾:handoff 交还引擎(`mmw where` 的 `then` 已给好钉产物的命令模板,照抄即可)
 

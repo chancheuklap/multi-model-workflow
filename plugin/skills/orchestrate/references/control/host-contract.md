@@ -13,8 +13,6 @@
 | 3 | 脚本自身路径含 `.factory/plugins/` → droid;`.claude/plugins/` → claude | 路径自检 |
 | 4 | 否则 | claude |
 
-路径自检让主线程 Execute 里直接跑 mmw(无 `DROID_PLUGIN_ROOT`)也判得对宿主。
-
 主线程开跑可先:
 
 ```bash
@@ -49,7 +47,7 @@ mmw where
 
 | 宿主 | 派发 | 后端 |
 | --- | --- | --- |
-| Claude | `mmw worker dispatch ...`(兼容 `mmw codex dispatch`) | 外挂 `codex exec`(workspace-write 围在 worktree) |
+| Claude | `mmw worker dispatch ...` | 外挂 `codex exec`(workspace-write 围在 worktree) |
 | Droid | `mmw worker dispatch ...` | 机器准备 worktree + prompt 包;主线程 `Task` → `pack-executor` droid |
 
 两宿主共同红线:
@@ -58,16 +56,16 @@ mmw where
 - 主线程按 plan 验收(跑测试 / 读 diff),不信工人自述
 - 每 Pack 提交带 `Pack N.M`
 
-## 4. 审闸(主线程直接派审者,拍平——无协调帮手中间层)
+## 4. 审闸(主线程直接派审者)
 
 | 宿主 | 派发 |
 | --- | --- |
 | Claude | ①设计 / ④final 后台 `codex exec`(read-only)+ ②计划 / ④final 会话内 `code-reviewer` sub-agent(Agent 工具) |
 | Droid | `Task` → `reviewer-*` droid,按 stage/视角/模型矩阵并行 |
 
-主线程读 `review start` 生成的 `状态平面/review-brief.md`,照「派审者」段**直接派**(findings 落 trace 文件、只回读 verdict 段);完工靠 handoff **确定性闸**(审闸内 `pass` 前引擎核 `loop exit-check==DONE`),不靠 SubagentStop 看守。
+主线程读 `review start` 生成的 `状态平面/review-brief.md`,照「派审者」段**直接派**(findings 落 trace 文件、只回读 verdict 段);完工靠 handoff **确定性闸**(审闸内 `pass` 前引擎核 `loop exit-check==DONE`)。
 
-审者读 `worktree-review` skill(审查方法论单源):**Claude 侧** Codex / Claude 无头 CLI 读它自己 hub 装的(`~/.agents/skills/worktree-review/`);**Droid 侧**读随插件发布的 `plugin/skills/worktree-review/`(派发消息传绝对路径,不赌子代理自动加载)。同一套方法,两宿主各取自己够得到的副本。
+审者读 `worktree-review` skill(审查方法论单源):**Claude 侧** Codex / Claude 无头 CLI 读它自己 hub 装的(`~/.agents/skills/worktree-review/`);**Droid 侧**读随插件发布的 `plugin/skills/worktree-review/`(派发消息传绝对路径,不赌子代理自动加载)。
 
 ## 5. 角色 × 模型(Droid Custom Droids)
 
@@ -79,21 +77,21 @@ mmw where
 | `pack-executor` | 按 plan 落地 | `glm-5.2` max | 读写 + Execute |
 | `reviewer-design-a` | 设计审轴A | `claude-opus-4-8` high | read-only |
 | `reviewer-design-b` | 设计审轴B | `claude-opus-4-8` high | read-only |
-| `reviewer-plan-a` | 计划审轴A(审 Codex 写的计划) | `claude-opus-4-8` high | read-only |
-| `reviewer-plan-b` | 计划审轴B(审 Codex 写的计划) | `claude-opus-4-8` high | read-only |
+| `reviewer-plan-a` | 计划审轴A | `claude-opus-4-8` high | read-only |
+| `reviewer-plan-b` | 计划审轴B | `claude-opus-4-8` high | read-only |
 | `reviewer-final-a` | final / merge 跨模型路A | `gpt-5.6-terra` high(≠写码) | read-only |
 | `reviewer-final-b` | final / merge 跨模型路B | `claude-opus-4-8` high(≠A) | read-only |
 | `investigate-topic` | 单 topic 取证 | `grok-4.5` high | read-only + web |
 | `code-explorer` | 只读探代码 | `claude-sonnet-5` high | read-only |
 | `fable-advisor` | 稀疏关键顾问(非审闸) | `claude-fable-5` high | read-only |
 
-**分工极性(两宿主一致)**:Coordinator(主线程)管到设计文档;**计划撰写下放第二模型**(Claude 宿主 Codex `gpt-5.6-terra` / Droid 宿主 `plan-writer` droid `gpt-5.6-terra`),**计划审翻成 Claude**(两轴 `claude-opus-4-8`)。①设计审两轴 `opus`(设计是 Coordinator 写的);②计划审两轴 `opus`(计划是 gpt-5.6-terra 写的)——都靠"审者模型 ≠ 该阶段作者模型"保证写者≠验者。①② 各阶段两轴同模型、只分两路视角;跨写审异家 = 阶段级(写者一个模型、审者另一个模型),不在两轴间。④final / merge 才两轴也跨模型(a≠b)。
+**分工极性(两宿主一致)**:Coordinator(主线程)管到设计文档;**计划撰写下放第二模型**(Claude 宿主 Codex `gpt-5.6-terra` / Droid 宿主 `plan-writer` droid `gpt-5.6-terra`),**计划审翻成 Claude**(两轴 `claude-opus-4-8`)。①设计审两轴 `opus`;②计划审两轴 `opus`;①② 每阶段两轴同模型、分两路视角。④final / merge 两轴跨模型(a≠b)。
 
 装 plugin 后 droid 落在 `plugin/droids/`;Droid 会话可按 `subagent_type` 引用。Claude 宿主对应表面在 `plugin/agents/`(如 code-reviewer;计划撰写 Claude 宿主走 Codex 无头,无对应 agent),模型/工具名按 Claude 习惯,与 droids 表不必逐字同一 ID。
 
 `fable-advisor` 不进 review 矩阵、不写产物;主线程仅在 phase-contract 允许的时机 `Task` 派出(propose 可选 / design 主战场 / build afk)。
 
-Droid final 分档与 Claude 同判据(`review.sh` tier):small-change/bug → 1 路;develop 无 capable 且 diff 小 → 2 路;否则 / 判不出 → 4 路。merge-impl → final-a + final-b 双路。
+Droid final/merge-impl 照 `review.sh` 分档,按 brief 派 `reviewer-final-a/b`。
 
 
 ## 6. Hooks
@@ -104,7 +102,7 @@ Droid final 分档与 Claude 同判据(`review.sh` tier):small-change/bug → 1 
 | PreToolUse | `Bash` | `Execute`(hooks 用 `Bash\|Execute`) | `guard-redline.sh` |
 | PostToolUse | `Bash` | `Execute` | `record-step.sh` |
 
-审 loop 完工不再用 SubagentStop 看守——改由 flow.sh handoff 确定性闸(审闸内 `pass` 前核 `loop exit-check==DONE`)把关,宿主中立、无子代理停机时序依赖。Droid 若 hook 事件名/payload 字段有差异,以 `lib/host.sh` + hooks 内容错为准;逻辑(记 step / 红线 / 分诊)不变。
+Droid 若 hook 事件名/payload 字段有差异,以 `lib/host.sh` + hooks 内容错为准;逻辑(记 step / 红线 / 分诊)不变。
 
 ## 7. 安装
 
@@ -115,7 +113,7 @@ Droid final 分档与 Claude 同判据(`review.sh` tier):small-change/bug → 1 
 
 两宿主可共装同一 plugin 目录;状态平面按宿主隔离,互不踩盘。
 
-**skill 依赖**:`worktree-build` / `worktree-plan` / `worktree-review` 是 worker / 写计划工人 / reviewer 的方法论单源,**唯一源在 `plugin/skills/`**(宿主中立措辞)。Droid 侧随插件发布,装 plugin 即到位、内联读。Claude 侧的写码 / 写计划 / 审查是**外部** Codex / Claude 无头 CLI,读不到 plugin 内部,须把这三个 skill 装进 Codex 自动扫描的 hub `~/.agents/skills/`——**直接从本仓库 `plugin/skills/` 软链过去**(无中间层):
+**skill 依赖**:`worktree-build` / `worktree-plan` / `worktree-review` 是 worker / 写计划工人 / reviewer 的方法论单源,**唯一源在 `plugin/skills/`**(宿主中立措辞)。Droid 侧随插件发布,装 plugin 即到位、内联读。Claude 侧的写码 / 写计划 / 审查是**外部** Codex / Claude 无头 CLI,读不到 plugin 内部,须把这三个 skill 装进 Codex 自动扫描的 hub `~/.agents/skills/`——**直接从本仓库 `plugin/skills/` 软链过去**:
 
 ```bash
 for s in worktree-build worktree-plan worktree-review; do
@@ -123,4 +121,4 @@ for s in worktree-build worktree-plan worktree-review; do
 done
 ```
 
-软链即时生效(改 `plugin/skills/` 一处两宿主同步,不漂移);没装则 Claude 侧派发 fail-closed(Codex 报找不到 skill),不搞"没装也能跑"的降级。
+软链即时生效(改 `plugin/skills/` 一处两宿主同步,不漂移);没装则 Claude 侧派发 fail-closed(Codex 报找不到 skill)。

@@ -48,4 +48,4 @@ description: 你(落地执行者)被主线程派进一个 git worktree 落地一
 - **改了哪些文件**
 - **跑了哪些测试 + 结果**
 
-你报的是劳动力产出、不是定论,主线程会自己 grep / 跑去坐实。**诚实报,别粉饰**;blocked 就说 blocked,别假装 done。
+**诚实报,别粉饰**;blocked 就说 blocked,别假装 done。

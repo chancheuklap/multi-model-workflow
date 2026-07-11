@@ -36,7 +36,6 @@ mmw handoff --conclusion pass --produced "<分支提交范围,如 base..HEAD>"
 
 → build 产物通过,**引擎强制进 ④终审闸**(`mmw where` 会吐 `review_start` 直接起审,审过再 handoff pass 才到 closing)。修着撞出超范围问题 → `mmw spinoff` 登记,别就地扩;根因其实是系统性设计级(要重做设计 / 拆计划)→ 原地升级完整设计路 `mmw task escalate --to develop`(worktree 不重开、已查成果留着,游标回 investigate 带设计意图重查),升级前先一句话告诉用户。
 
-## 守住的红线
+## 适用面
 
-- 验收吃跑测试 / 读 diff 的 ground truth,不吃自述。就地 TDD 是 Claude 自写自验(无独立 checker,偏弱),适用面就是小改 / 定点修——重型落地该走 develop 的 Codex 写 + Claude 独立审。
-- afk 只放软停;真缺输入 / 方向疑 / 合并红线必停。
+就地 TDD 是 Claude 自写自验(无独立 checker,偏弱),适用面就是小改 / 定点修——重型落地该走 develop 的 Codex 写 + Claude 独立审。

@@ -29,7 +29,7 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
 ## 2. 探代码 + 拆小 issue(逼你认真读 + 规划)
 
 - 用 `codebase-design` skill 理解模块边界、职责分布、合同表面。写进 plan 的**每条路径 / 类型 / 函数 / fixture**,要么前文定义、要么 `rg`/`find` 验真——不验真不写。现状描述引具体 `file:line` + 真实行为。读项目根 CLAUDE.md 及链入规则(模块边界、测试路由、合同墙、命名)。测试框架先读 CLAUDE.md `## Testing` 拿权威命令,没有再按 `pyproject.toml`/`package.json`/`go.mod` 探。
-- `## Small issues` 为空 / `<!-- PENDING -->` 时,结合设计 + 代码探索把大 issue 拆成小 issue(深层 vertical-slice 哲学查 `to-tickets` skill):小 issue 不是再切一层 slice,是这个 slice 内部的**实现步骤拆解**,每个可独立实现、可独立验证。拆分维度按功能边界(schema→API→UI)或行为边界(创建→编辑→删除)。每条写 Type(AFK/HITL)、What to build、Acceptance、Blocked by。自检:并集覆盖大 issue 全部行为 / 无循环依赖 / 不过粗(单个 ≤8 impl step)/ 不过细。拆完 Edit 写回该 issue 文件 `## Small issues`。
+- `## Small issues` 为空 / `<!-- PENDING -->` 时,结合设计 + 代码探索把大 issue 拆成小 issue(深层 vertical-slice 哲学查 `to-tickets` skill):小 issue 是这个 slice 内部的**实现步骤拆解**(非再切一层 slice),每个可独立实现、可独立验证。拆分维度按功能边界(schema→API→UI)或行为边界(创建→编辑→删除)。每条写 Type(AFK/HITL)、What to build、Acceptance、Blocked by。自检:并集覆盖大 issue 全部行为 / 无循环依赖 / 不过粗(单个 ≤8 impl step)/ 不过细。拆完 Edit 写回该 issue 文件 `## Small issues`。
 
 ## 3. 写作步骤
 
@@ -90,11 +90,9 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
 - **Open Items**:每个发现标 `[out-of-scope]` | `[needs-evaluation]`。
 - **Self-Check 完成状态**。
 
-你报的是劳动力产出、不是定论,主线程会自己 grep / 跑去坐实。**诚实报,别粉饰**。
+**诚实报,别粉饰**。
 
 ## 声音
-
-把设计文档翻译为可执行的 Task Pack 序列。每个 pack 自足、可验证、有 acceptance criteria。不写模糊的"后续处理",每个 pack 都有具体 verification commands。
 
 Good: "Pack-3: 添加手机号登录 API(owned: auth/views.py, auth/serializers.py)。验证:`pytest tests/auth/test_phone_login.py -v` 全过。"
 Bad: "Pack-3: 实现登录相关功能,完善认证模块。"

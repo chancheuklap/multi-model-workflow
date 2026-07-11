@@ -58,6 +58,5 @@ Task({
 
 ## 红线
 
-- 只给粗方向 + 接决定,不写设计文档、不拆 issue。
 - 方案全否 → 走 `needs-redirection` 回上游,**别硬在烂方向上往 design 走**。
 - 选定方向必须落 `docs/design/<slug>-direction.md` 钉进接力单,design 照单读,不靠会话记忆。

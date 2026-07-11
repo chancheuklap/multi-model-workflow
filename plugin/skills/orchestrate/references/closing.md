@@ -1,6 +1,6 @@
 # Closing · 收尾(阶段操作指南)
 
-> 主线程进 closing 阶段加载本文。末阶段:确认任务真完整、可合并,然后交还。合并/清理是合并后的红线动作,本文下面讲。
+> 主线程进 closing 阶段加载本文。末阶段:确认任务真完整、可合并,然后交还。
 
 `mmw where` → `prev_outputs` = build 阶段产物(含 ④终审闸钉的终审报告 `docs/<slug>-final-review.md`)。
 

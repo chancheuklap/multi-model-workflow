@@ -46,7 +46,7 @@ Bad: "制定了全面的实施计划,涵盖所有功能模块。"
 派 writer **之前**,从设计文档 `## 合同边界` + architecture + 大 issue 依赖图,判断有没有跨 plan 连接面(共享文件 / 模块 / schema、一份 plan 产出另一份消费的接口)。有就把**骨架**写进设计文档的 `## Cross-Plan Contract Anchors` 占位:
 
 - **文件所有权划分**:哪份 plan 可碰哪些共享文件——一文件一 owner,防两个 writer 并行改同一文件。
-- **跨 plan 接口**:owner / provider / consumer 按 plan 编号写("001 provide 鉴权 token 接口,002 consume"),命名到位、**精确字段 / 签名先标 `(字段待 plan 回填)`**——这是骨架,细节 Step 5 回填,不是 TBD。
+- **跨 plan 接口**:owner / provider / consumer 按 plan 编号写("001 provide 鉴权 token 接口,002 consume"),命名到位、**精确字段 / 签名先标 `(字段待 plan 回填)`**——这是骨架,细节 Step 5 回填。
 
 无跨 plan 连接面 → 写明"无跨计划共享合同",直接进 Step 3(仍要派 writer,只是没有跨 plan 骨架要写)。骨架是给 writer 的硬边界:dispatch 时随设计文档进 writer 上下文,writer 不许认领别的 plan owner 的文件。
 
@@ -66,7 +66,7 @@ mmw worker plan-dispatch \
 - **一律后台跑**(Claude=Bash `run_in_background`,完成后读回执 `plan-workers/<ns>/last.md`;Droid=脚本写派发包后主线程 `Task`→plan-writer)。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。** 单 issue → 单 plan:派一个就行,不强行并行。
 - **不开子 worktree、不 commit**:各 plan 写不同文件(`docs/plans/<slug>/00N.md`)、在任务 worktree 内并行安全;主线程统一提交(脚本已管命名空间隔离 session / 边界门)。
 - **落点 slug** 与源设计 / issue 对齐(已含日期);多 plan 同一目录。
-- 模型档脚本已钉(Claude 宿主 Codex `gpt-5.6-sol high`;Droid 宿主 plan-writer droid 见其 frontmatter),除非特殊无需 `--model`。
+- 模型档脚本已钉,除非特殊无需 `--model`。
 - 每个 dispatch 独立、零交叉污染:**不要**把别的 writer 的历史 / 别的 plan 内容混进去。`worktree-plan` skill 指针由脚本自动带,方法论(task-pack / 自检)在 skill 自己的 `references/`,工人读 skill 自取,你不用手传路径。
 
 ## Step 4:亲验返回

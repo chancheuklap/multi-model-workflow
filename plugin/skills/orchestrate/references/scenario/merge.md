@@ -2,7 +2,7 @@
 
 > 用户要合并多个并行 worktree / PR 时,orchestrate 路由到这。**不开新 worktree**——Coordinator(你)在主仓库做。这些 PR 来自**同一大设计/大计划**,各自已过自己的 ④终审,但**它们之间的交互没验过**。
 >
-> **理念**:merge 的命门不是 git 文本冲突,是**业务意图 / 功能设计冲突** —— 两个 PR 各自正确、合起来语义打架(功能依赖被改、同一业务流被从不同环节改、领域假设不一致、migration 顺序错)。**git 能干净合 ≠ 设计不冲突。**
+> **理念**:merge 要抓**业务意图 / 功能设计冲突** —— 两个 PR 各自正确、合起来语义打架(功能依赖被改、同一业务流被从不同环节改、领域假设不一致、migration 顺序错)。**git 能干净合 ≠ 设计不冲突。**
 >
 > **原则**:冲突是 **PR 与 PR 之间**的(不是 PR 与 main);代码冲突好解、**功能/意图冲突最难**;**系统性冲突先调查再修**,不盲改根因不明的冲突;**所有 PR 并行分析**不逐个;本地 merge 不拦,出站 `git push` 才要人批。
 
@@ -52,7 +52,7 @@ mmw task team
 
 ## 4. 系统性冲突:Coordinator 调查(从"交互"不"错误"视角)
 
-不是某段代码错,是两段各自正确合起来矛盾。五步:
+五步:
 
 1. **每个 PR 的意图链**:读它的 design/plan/issue(要实现什么)→ 读 diff(实际做了什么)→ 标注 **意图→实现→假设**。重点盯"假设"(A 假设某接口不变/某状态存在,B 恰好改了这前提)。
 2. **映射交互点**(不逐行 diff,画交互图):共享文件改点 / 数据流交叉 / 控制流交叉 / 合同交叉 / 时序交叉 / 状态交叉。
@@ -66,8 +66,8 @@ mmw task team
 
 本地合回主分支**不拦**(可逆、不出站);**出站 `git push` 才是硬红线**(`guard-redline` 弹框亲批)。按合并序逐个:
 
-1. 直接跑 `git merge --no-ff <branch>`(**禁 `--squash`**)——本地合并不弹框、可逆,无人值守也自主推进;只有冲突/意图分歧才停问用户(见下)。发布到远端时 `git push` 由用户亲批。
-2. git 文本冲突逐 hunk 解:先读双方改动的**原始意图**(commit / PR / issue),尽量两意图都保留、不凭空造新行为,解完跑仓库自动检查(typecheck → test → format)。**拿不准哪边该 win 且属 `design_conflict`(两 PR 目标本身矛盾)→ 不自己合,交用户拍**(回 §3/§4 HITL)。**业务/设计冲突**按「三级分类 → 路由」「系统性冲突调查」定的方向解(让两份设计语义自洽,不是单选一边文本)。
+1. 直接跑 `git merge --no-ff <branch>`(**禁 `--squash`**)——本地合并不弹框、可逆,无人值守也自主推进;只有冲突/意图分歧才停问用户。发布到远端时 `git push` 由用户亲批。
+2. git 文本冲突逐 hunk 解:先读双方改动的**原始意图**(commit / PR / issue),尽量两意图都保留、不凭空造新行为,解完跑仓库自动检查(typecheck → test → format)。**拿不准哪边该 win 且属 `design_conflict`(两 PR 目标本身矛盾)→ 不自己合,交用户拍**。**业务/设计冲突**按「三级分类 → 路由」「系统性冲突调查」定的方向解(让两份设计语义自洽,不是单选一边文本)。
 3. **每合一个就验**(不批量合完再查):跑该 PR 相关测试。**冒出意外冲突 → 回「三级分类 → 路由」重新分类**,别硬合。
 4. 合进主线后 `mmw task cleanup --slug <slug>` 删该 worktree + 分支 + 临时状态。
 
@@ -77,17 +77,10 @@ mmw task team
 mmw review start --stage merge-impl --source 状态平面/<slug>-merge-brief.md
 ```
 
-按 host-contract §4 起审:`mmw review start --stage merge-impl` 已生成 brief——Claude 派独立 Codex 双路;Droid 派 `reviewer-final-a` + `reviewer-final-b`(跨模型)。审者读已装 `worktree-review` skill,按 `stage=merge-impl` 走七角度,**不信各 PR 的 ④终审、独立验组合行为**。findings 走 review 留痕(`状态平面/<slug>-merge-impl-review.md`,主仓库不落 docs/)、亲验、disposition。**修复软上限 1 轮**;修完自验 → 过即闭合,不过 → BLOCKED 报用户。
+起审:`mmw review start --stage merge-impl` 已生成 brief——Claude 派独立 Codex 双路;Droid 派 `reviewer-final-a` + `reviewer-final-b`(跨模型)。审者读已装 `worktree-review` skill,按 `stage=merge-impl` 走七角度,**不信各 PR 的 ④终审、独立验组合行为**。findings 走 review 留痕(`状态平面/<slug>-merge-impl-review.md`,主仓库不落 docs/)、亲验、disposition。**修复软上限 1 轮**;修完自验 → 过即闭合,不过 → BLOCKED 报用户。
 
 ## 7. 清扫 + 返回
 
 - **清扫纪律**:out-of-scope 项确认开独立后续(GitHub issue / 记录)、各队员 open_items 逐条处置、扫合并引入的新 `TODO/FIXME` —— 三选一,不留含糊。
 - 全合完主分支跑一遍完整测试确认没合坏。
 - **返回**(给用户):verdict(完成 / 待用户决策 / blocked)· 各 PR 合并状态 · 逐冲突(类型/PR/根因/解法/已验)· 集成审结果 · git 状态 · 测试结果 · 遗留项。
-
-## 红线
-
-- 不开新 worktree;主仓库做。
-- merge/push 要人批;`--no-ff` 禁 `--squash`。
-- 业务/设计冲突(尤其 `design_conflict`)交用户拍,不自己合掉语义分歧。
-- 系统性冲突先调查再改,不盲改。

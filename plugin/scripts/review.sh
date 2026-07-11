@@ -3,7 +3,7 @@
 #
 #   start --stage <design|plan|plan-impl|final|merge-impl> --source <源意图路径/描述>
 #       按阶段映射 kind + 视角,init loop-state,把审派发指南写进状态目录文件 review-brief.md
-#       (主线程读它**直接派审者**——拍平,不再派协调帮手中间层)。
+#       (主线程读它**直接派审者**)。
 #       审者读已装的 worktree-review skill(方法本体单源在那,不给审者 plugin 内路径)。
 #       ④final 按 scenario 分档:develop = 双模型 2×2;small-change/bug = 1×Codex 一肩挑两视角(diff 小)。
 set -euo pipefail
@@ -80,7 +80,7 @@ prompt:读 plugin 内 worktree-review skill(${skill}/SKILL.md),按 stage=merge-i
   {
     echo "# 审派发指南(stage=${stage} · host=droid · tier=${tier} · 机器生成,主线程读完直接派审者)"
     echo
-    echo "主线程直接派审者跑 kind=review 审 loop,自己记账/亲验/收敛,不派协调帮手、不自己写产物结论。"
+    echo "主线程直接派审者跑 kind=review 审 loop,自己记账/亲验/收敛,不自己写产物结论。"
     echo "Source: ${source}"
     echo "宿主: droid · 壳工具: Execute · 问人: AskUser"
     echo
@@ -266,7 +266,7 @@ DISPATCH
   cat > "$brief" <<EOF
 # 审派发指南(stage=$stage · host=$(mmw_host) · 机器生成,主线程读完直接派审者)
 
-主线程直接派审者跑 kind=review 审 loop,自己记账/亲验/收敛,不派协调帮手、不自己写产物结论。
+主线程直接派审者跑 kind=review 审 loop,自己记账/亲验/收敛,不自己写产物结论。
 Source: ${source}
 
 ## 派审者
@@ -300,7 +300,7 @@ EOF
   overlay_droid_brief_if_needed "$brief" "$stage" "$scen" "$source" "$droid_tier"
 
   cat <<EOF
-2. 主线程读 $brief,按「派审者」段**直接派审者**(拍平,不再派协调帮手):审者各自干净 context 并行起,
+2. 主线程读 $brief,按「派审者」段**直接派审者**:审者各自干净 context 并行起,
    读 worktree-review skill 出结构化 findings;findings 落 $trace,只回读 verdict 段。
 3. 审者跑完 → 主线程按 brief 的留痕/亲验/收敛落 findings 与 checklist cover;
    清单全绿 + 无开口 Critical(\`$MMW loop exit-check\`==DONE)后回 review/review.md 收口 handoff verdict

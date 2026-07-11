@@ -50,7 +50,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 - **`--produced` 必带本阶段承重产出**——它钉进接力单,下阶段靠它接,不靠"自己找"。
 - 中途挖到 bug / 旁路优化 → `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,登记成关联子任务,主流程不动。
 
-**Advisor 纪律**:`fable-advisor` 是稀疏关键第二意见(非审闸、不替用户拍板、不写产物)。**允许**:propose 方案真有张力时可选 0–1 次;design 定型/确认/前提击穿风险时 0–2 次(主战场,见 discussion);build afk 拍板前至多 1 次(见 build-b)。**禁止**:review 闸内 consult;每步「显得完整」而 consult;用 advisor 替代 `reviewer-*` 或用户 HITL。Droid 派发:`Task` · `subagent_type=fable-advisor`(配方见 propose / discussion / build-b)。与一手实证矛盾以实证为准;Fable 说 pivot ≠ 自动 handoff,主线程判断后再 `needs-redirection` 或问用户。
+**Advisor 纪律**:`fable-advisor` 是稀疏关键第二意见(非审闸、不替用户拍板、不写产物)。**允许**:propose 方案真有张力时可选 0–1 次;design 定型/确认/前提击穿风险时 0–2 次(主战场);build afk 拍板前至多 1 次。**禁止**:review 闸内 consult;每步「显得完整」而 consult;用 advisor 替代 `reviewer-*` 或用户 HITL。Droid 派发:`Task` · `subagent_type=fable-advisor`。与一手实证矛盾以实证为准;Fable 说 pivot ≠ 自动 handoff,主线程判断后再 `needs-redirection` 或问用户。
 
 **断点续传**:任何时候 `mmw where` + 接力单就够你接着跑——进度、游标、各阶段产出全在 manifest,不靠会话记忆。
 <!-- END: phase-contract -->

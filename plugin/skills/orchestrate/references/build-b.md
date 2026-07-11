@@ -57,7 +57,7 @@ mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree
 - **子 worktree 落点定死**:`<主仓库>/worktree 根(host-contract 路径)/<slug>-plan-<NNN>`(与任务 worktree 同层,别散落);脚本挂宿主分支前缀:`codex/<目录名>`(Claude)或 `worker/<目录名>`(Droid),从 `--base`(默认 HEAD)分叉。
 
 - **三文档都传**:Codex 开工要读设计(意图 / 合同)+ 它的 issue(边界)+ 它的计划(实施权威),不能只给计划。
-- **模型档脚本按 plan 的 `Complexity` 自动切,你不手传**:默认 `gpt-5.6-luna xhigh`;plan 标 `Complexity: capable`(计费 / 权限 / migration / 跨服务等高风险)→ 脚本自动切 `gpt-5.6-sol high`。`--model`/`--effort` 仅在你要临时覆盖时才传。
+- **模型档脚本按 plan 的 `Complexity` 自动切,你不手传**:高风险 plan(标 `Complexity: capable`——计费 / 权限 / migration / 跨服务)脚本自动切高档。`--model`/`--effort` 仅在你要临时覆盖时才传。
 - **一律后台跑**:dispatch / resume 都用宿主后台派发(见 host-contract)——Claude=`codex exec` 后台;Droid=脚本写派发包后主线程 `Task`→`pack-executor`。完成读回执:Claude 看 `CODEX_EXIT`/`SESSION`/状态平面 `codex-logs/last.md`;Droid 看 `worker-dispatch/{prompt,meta}.json` + Task 回传。
 - 并行:互不依赖的 plan,各自一个 worktree,同时发多条后台 dispatch。
 - **铁律在 `worktree-build` skill**:prompt 只给角色 + worktree + 三文档 + skill 指针。
@@ -116,10 +116,3 @@ mmw handoff --conclusion pass --produced "<分支提交范围,如 base..HEAD>"
 ```
 
 → build 产物通过,**引擎强制进 ④终审闸**(build ∈ `review_gates`,phase 冻住;`mmw where` 吐 `review_start=mmw review start --stage final`,照跑;审过再 handoff pass 才到 closing)。落地撞破设计 / 计划(根因在上游)→ `needs-redirection --to-phase plan`(或 `--to-phase design`)回上游改;卡死或超轮 → `blocked`。(`needs-repair` 只原地返工 build,回不到上游。)
-
-## 守住的红线
-
-- 验收吃跑测试 / 读 diff 的 ground truth,不吃自述。**测试本身也要对标仓库标准审**:绿 ≠ 测得对,垃圾测试(空断言 / mock 自家 / 测私有 / 非权威层)当缺陷打回重写。
-- Codex 写、Claude 验,Codex 禁改 `docs/`、每 Pack 一提交带 `Pack N.M`。
-- afk 只放软停;真缺输入 / 方向疑 / 合并红线必停。
-- 修复走 `codex resume` 续原会话(keep context,不重派、不重做已提交 Pack)。

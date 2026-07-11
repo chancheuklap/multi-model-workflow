@@ -1,10 +1,10 @@
 # Review · 审核 loop(阶段操作指南)
 
-> 审核闸操作指南。**主线程直接派审者**(拍平,不设协调帮手中间层);审查方法 + 各 stage 角度单源在已装的 **`worktree-review` skill**。plugin 侧只留 `plan-impl.md`(③合同门)与本文(编排)。
+> 审核闸操作指南。**主线程直接派审者**;审查方法 + 各 stage 角度单源在已装的 **`worktree-review` skill**。plugin 侧只留 `plan-impl.md`(③合同门)与本文(编排)。
 >
-> **宿主分叉(派发)**:Claude → ①设计审 `codex exec`;②计划审 **会话内 `code-reviewer` sub-agent**(计划是 Codex 写的,翻 Claude 审);④final Codex+Claude CLI(分档 1/2/4)。Droid → `Task` + `reviewer-design-a/b`(opus) · `reviewer-plan-a/b`(opus,审 gpt-5.6-terra 写的计划) · `reviewer-final-a/b`(final 分档与 Claude 同判据;merge-impl=final-a+b)。brief 由 `mmw review start` 按宿主生成,照 brief 派即可。
+> **宿主分叉(派发)**:Claude → ①设计审 `codex exec`;②计划审 **会话内 `code-reviewer` sub-agent**;④final Codex+Claude CLI(分档 1/2/4)。Droid → `Task` + `reviewer-design-a/b`(opus) · `reviewer-plan-a/b`(opus) · `reviewer-final-a/b`(final 分档与 Claude 同判据;merge-impl=final-a+b)。brief 由 `mmw review start` 按宿主生成,照 brief 派即可。
 
-红线:**写者≠验者**(设计/计划作者与审者模型不同家;Droid 用 a/b 双 droid 钉死);**完工靠 `exit-check` 机器核 + handoff 确定性闸,不靠 reporter 自报审完、不靠 SubagentStop 看守**。
+红线:**写者≠验者**(设计/计划作者与审者模型不同家;Droid 用 a/b 双 droid 钉死);**完工靠 `exit-check` 机器核 + handoff 确定性闸**。
 
 ---
 
@@ -16,9 +16,9 @@
 |---|---|---|---|---|
 | ① 设计审 | design pass → 引擎审闸 | `design` | `review` | 轴A 设计内容 / 轴B 项目对齐 |
 | ② 计划审 | plan pass → 引擎审闸 | `plan` | `review` | 轴A 覆盖与质量 / 轴B 合规与交叉验证 |
-| ④ final | build pass → 引擎审闸 | `final` | `review` | 基线1 回归+意图+跨plan / 基线2 独立代码审计;**develop 按风险自动分档**(review.sh 机器判,不用你选):全 plan 无 `Complexity: capable` 且 diff ≤ 阈值(默认 800 改动行,env `REVIEW_TIER_DIFF_MAX` 覆盖)→ **2 审者**(基线1 Codex / 基线2 Claude,跨模型互补);有 capable 或 diff 大或判不出数据(fail-closed)→ **双模型 2×2 = 4 审者**(每视角 Codex + Claude 各一,prompt 同一段、方法论同源 worktree-review skill);**small-change/bug = 1×Codex 一肩挑两视角**(diff 小) |
+| ④ final | build pass → 引擎审闸 | `final` | `review` | 基线1 回归+意图+跨plan / 基线2 独立代码审计;**审者数 review.sh 机器判(不用你选),照 brief 派**:small-change/bug=1 · develop=2 或 4(按 Complexity / diff) |
 
-另有 **③ 落地合同门**:不是引擎审闸,是 build **内部**机器合同检查——全 plan 合并后、build handoff 前跑一次(`--stage plan-impl`,`kind=contract-gate`,不派 Codex),由 build 流程驱动(build-b B5),本文只讲 ①②④ 三个引擎审闸 loop。
+另有 **③ 落地合同门**:build **内部**机器合同检查(非引擎审闸)——全 plan 合并后、build handoff 前跑一次(`--stage plan-impl`,`kind=contract-gate`,不派 Codex),由 build 流程驱动(build-b B5),本文只讲 ①②④ 三个引擎审闸 loop。
 
 ## 1. 主线程:一条命令起审 → 抽清单 → 直接派审者(①②④)
 
@@ -32,7 +32,7 @@
  mmw loop checklist add --item "<要审到的维度>" --source "<doc:line>" # 逐条
  mmw loop attendance --mode <attended|afk>
  ```
-3. **主线程直接派审者**(拍平,不派协调帮手中间层):读 `状态平面/review-brief.md`,按它「派审者」段直接派(Claude 会话内 sub-agent / Codex 后台 CLI;Droid `Task` 派 `reviewer-*` droid)。审者各自干净 context 并行起、读 `worktree-review` skill 出结构化 findings。**别给审者 plugin 内路径、别塞你自己的问题清单。**
+3. **主线程直接派审者**:读 `状态平面/review-brief.md`,按它「派审者」段直接派(Claude 会话内 sub-agent / Codex 后台 CLI;Droid `Task` 派 `reviewer-*` droid)。审者各自干净 context 并行起、读 `worktree-review` skill 出结构化 findings。**别给审者 plugin 内路径、别塞你自己的问题清单。**
 
  **每个审都留痕(①②④ 都要,不只 ④)**:把**全部审者的结构化 findings 原样落盘**到 `docs/reviews/<slug>-<stage>.md`(不重写、不摘要),亲验后把每条的 verdict/处置(accepted / rejected / duplicate / needs-evidence)就近标在该条下,文末写一句总 verdict。收口只**回读这份文档的 verdict 段**——findings 全文压在 trace 文件里,不长驻主线程 context。留痕是过程产物:已被 `docs/.gitignore` 忽略,随 worktree 删,不进 git 历史。
 
@@ -57,6 +57,6 @@
 
 ## 3. 守住的红线
 
-- 写者≠验者:Claude 宿主 ①设计审用 Codex、②计划审用 Claude code-reviewer(计划 Codex 写)、④双模型 CLI;Droid 宿主 ① 用 design-a/b(opus)、② 用 plan-a/b(opus,计划 gpt-5.6-terra 写)、④ 用 final-a/b 按 tier。不用 `codex review`(内置提示词绕过方法论)。prompt 一律指向已装 `worktree-review` skill;不给审者 plugin 内路径。
+- 写者≠验者:Claude 宿主 ①设计审用 Codex、②计划审用 Claude code-reviewer、④双模型 CLI;Droid 宿主 ① 用 design-a/b(opus)、② 用 plan-a/b(opus)、④ 用 final-a/b 按 tier。不用 `codex review`(内置提示词绕过方法论)。prompt 一律指向已装 `worktree-review` skill;不给审者 plugin 内路径。
 - 每条 finding 引 `file:line` 原文才采信;主线程亲验后才 accept,落 handoff 前再核承重的。
 - ③ 不判断、只核合同;重判预算砸 ④final。
