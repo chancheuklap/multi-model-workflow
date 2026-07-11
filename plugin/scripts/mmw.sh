@@ -7,6 +7,7 @@
 #   mmw review start ...
 #   mmw worker dispatch|resume|check-docs ...   # 宿主中立写码派发
 #   mmw worker plan-dispatch|plan-resume|plan-check ...   # 宿主中立写计划派发
+#   mmw release init|where|stage run|stage done|stage fail|round|surface|resume|close|exit-check|receipt|dispatch
 #   mmw codex dispatch|resume ...               # 兼容别名 → worker
 #   mmw help
 #
@@ -52,6 +53,7 @@ case "$cmd" in
   loop)   exec bash "$D/loop.sh" "$@" ;;
   review) exec bash "$D/review.sh" "$@" ;;
   worker) exec bash "$D/worker.sh" "$@" ;;
+  release) exec bash "$D/release-flow.sh" "$@" ;;
   codex)  exec bash "$D/worker.sh" "$@" ;;
   progress) exec bash "$D/progress.sh" "$@" ;;
   attend|unattended|side-finding) exec bash "$D/steer.sh" "$cmd" "$@" ;;
