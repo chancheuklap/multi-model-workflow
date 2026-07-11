@@ -319,8 +319,13 @@ echo "$WKW" | grep -q "inner_loop=execution" && ok "where 报 inner_loop=executi
 echo "$WKW" | grep -q "inner_loop_load=references/build-a.md" && ok "execution 内层文档=阶段 load(build-a,回落不重配)" || no "inner_loop_load ($(echo "$WKW"|grep inner_loop_load))"
 echo "$WKW" | grep -q "inner_loop_state=NOT-DONE:steps=1.1" && ok "where 借 exit-check 报内层进度(单源)" || no "inner_loop_state ($(echo "$WKW"|grep inner_loop_state))"
 [ -f "$(lf "$WK")" ] && ok "handoff 前 loop-state 在" || no "loop-state 应在"
+# 闸外完工闸(v6.15):步账未收束就 pass = 会静默清账 → fail-closed 拒收、账本保留
+if ( cd "$WK" && bash "$FLOW" handoff --conclusion pass --produced "$(hrange "$WK")" >/dev/null 2>&1 ); then
+  no "步账未完 pass 应被拒"; else ok "步账未完 pass 被拒(闸外完工闸 fail-closed)"; fi
+[ -f "$(lf "$WK")" ] && ok "拒收后步账保留(不静默清)" || no "拒收后步账被清"
+( cd "$WK" && bash "$LOOP" step done --id 1.1 >/dev/null )
 ( cd "$WK" && bash "$FLOW" handoff --conclusion pass --produced "$(hrange "$WK")" >/dev/null )
-[ ! -f "$(lf "$WK")" ] && ok "handoff pass → loop close 清 loop-state(schema「退出时清」落地)" || no "loop-state 未清(残留)"
+[ ! -f "$(lf "$WK")" ] && ok "收束后 handoff pass → loop close 清 loop-state(schema「退出时清」落地)" || no "loop-state 未清(残留)"
 echo "$(cd "$WK" && bash "$FLOW" where)" | grep -q "inner_loop=" && no "清后 where 仍报 inner_loop(残留污染)" || ok "清后 where 无 inner_loop(无残留)"
 # needs-context 是原地等 resume:保留 loop 现场,不清
 WK2="$(newtask small-change 2026-07-03-loopkeep)"

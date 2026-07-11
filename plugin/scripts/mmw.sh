@@ -35,15 +35,17 @@
 #   进度板(负责人可读投影):
 #     mmw progress render [--stdout]           从 task.json/loop-state 聚合 progress-board.md(--stdout 供 command 注入)
 #   控制面(运行级值守 + 计划外分流):
-#     mmw attend --mode attended|afk           自由切档(/attended /afk)
+#     mmw attend --mode attended|afk           自由切档(attended 有 /attended;afk 直接敲本命令)
 #     mmw unattended enter|status|exit         强无人:enter 过门禁才进(设计+计划已过门、无未答 HITL),不静默降级
 #     mmw side-finding record --tag <t> --disposition issue|fix [--finding <s>]   计划外分流落 open_items
-#   发布红线:merge 回主分支 / push / 部署由 guard-redline(PreToolUse)弹权限框要用户亲批,无令牌可自铸。
+#   发布红线:push / gh pr merge / 部署由 guard-redline(PreToolUse)弹权限框要用户亲批,无令牌可自铸;
+#   本地 git merge(含合并进 main)不拦——可逆、不出站,真正红线是它之后的 push。
 # 状态平面 / worktree 路径随宿主变,见 scripts/lib/host.sh。
 set -euo pipefail
 D="$(cd "$(dirname "$0")" && pwd)"
 
-usage() { sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; }
+# 打头部注释全文(到 set -euo 前一行为止,不再硬编码行号截断)
+usage() { sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; }
 
 cmd="${1:-help}"; shift || true
 case "$cmd" in

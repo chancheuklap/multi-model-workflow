@@ -16,7 +16,7 @@ Coordinator 在任何阶段都按当前值守档决定"软停问不问人"。值
 ## no-question:双层,磁盘 mode 为权威
 
 - **第一层(跨 compaction 真权威)**:每次续跑(含会话重启 / compaction 恢复)**先读 `task.json.attendance`**;读到 `unattended` 就自我约束——不调用 AskUserQuestion、不向用户提任何问题。
-- **第二层(活会话硬兜底)**:进入 unattended 的那次 `/unattended` 命令声明 `disallowed-tools: AskUserQuestion`,把该工具从池里摘掉直到用户下一条消息。它是运行时态、不落盘,compaction 后不自动重扣,只当兜底。
+- **第二层(活会话硬兜底,仅 Claude 宿主)**:`/unattended` 命令 frontmatter 声明 `disallowed-tools: AskUserQuestion`,把该工具从池里摘掉直到用户下一条消息。它是运行时态、不落盘,compaction 后不自动重扣,只当兜底;Droid 命令文件无等价字段,Droid 宿主只有第一层(盘上 mode)。
 - worker(具名 subagent)天生调不了 AskUserQuestion。
 
 ## 进入 unattended(全部满足才进)

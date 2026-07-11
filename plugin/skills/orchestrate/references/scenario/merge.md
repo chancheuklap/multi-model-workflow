@@ -24,9 +24,9 @@ mmw task team
 
 **只合 `status=ready-to-close`(已 ④终审过)的**;没跑完的先别合。排序拿不准问用户。
 
-## 2. 冲突发现(六维度扫,Coordinator 读设计 + 验代码)
+## 2. 冲突发现(七维度扫,Coordinator 读设计 + 验代码)
 
-读各 PR 的 design 文档建立方向,**回仓库级架构验**(读 `CONTEXT.md` 类领域模型,需要时用 `improve-codebase-architecture` / `Explore` 验代码、省你 context)。**并行**扫所有 PR,六维度:
+读各 PR 的 design 文档建立方向,**回仓库级架构验**(读 `CONTEXT.md` 类领域模型,需要时用 `improve-codebase-architecture` / `Explore` 验代码、省你 context)。**并行**扫所有 PR,七维度:
 
 | 维度 | 扫什么 | 典型严重度 |
 |---|---|---|

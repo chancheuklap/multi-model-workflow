@@ -29,7 +29,7 @@
   "phase_bindings": {
     "investigate": { "load": "references/investigate.md",  "do": "并行投查现状(自建 Workflow),产出带引用的现状报告存 docs/investigating(取证不判定;不写 docs/context)", "produced": "docs/investigating/<slug>.md" },
     "propose":     { "load": "references/propose.md",      "do": "综合现状+外部,固定格式亮 2-3 方案,HITL 指定一个(或全否→needs-redirection 回上游)", "produced": "docs/design/<slug>-direction.md" },
-    "design":      { "load": "references/design/discussion.md", "do": "拿已定方向产出设计文档(HITL 集中在此;只产设计文档,切片在 to-issue)", "produced": "docs/design/<slug>.md", "reads": ["investigate", "propose"],
+    "design":      { "load": "references/design/discussion.md", "do": "拿已定方向产出设计文档(HITL 集中在此;只产设计文档,切片在 to-issue)", "produced": "docs/design/<slug>.md 或 docs/design/<slug>/(多文件目录形态)", "reads": ["investigate", "propose"],
       "steps": [
         { "id": "discuss",   "load": "references/design/discussion.md",         "do": "读方向+现状,与用户讨论细化选定方向(挑战前提→定 scope→细化→领域对齐);涉 UI/UX 下一步走 prototype" },
         { "id": "prototype", "load": "references/design/prototype-mockup.md",    "do": "仅设计涉 UI/UX 或非平凡状态模型:prototype 验状态模型 + html mockup,产物原子拆进 acceptance;纯后端/逻辑 step next 跳过" },

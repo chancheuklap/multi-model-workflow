@@ -36,7 +36,7 @@
 
 ```
 Workflow({
- scriptPath: "${CLAUDE_PLUGIN_ROOT}/workflows/investigate-internal.workflow.js", // 外部则 investigate-external
+ scriptPath: "<插件根>/workflows/investigate-internal.workflow.js", // 插件根=Step 0 定位所得(MMW 去掉 /scripts/mmw.sh);外部则 investigate-external
  args: { repoRoot: "<任务 worktree 绝对路径>", topics: [ /* { angle, question, skill? } */ ] }
 })
 ```

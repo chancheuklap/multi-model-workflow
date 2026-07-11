@@ -7,7 +7,7 @@ description: |
   <example>④final 满档:两路视角各派一个 code-reviewer(基线1/基线2)+ 各派一个 Codex,四审者并行</example>
   <example>develop 2 审者档:基线2 派一个 code-reviewer,基线1 派一个 Codex</example>
   <example>审后追问同一视角:再派一个 code-reviewer 续审,不复用被审 context</example>
-  Do NOT use for: 改代码 / 修 finding(本 agent 只读,落地派 tdd-executor 或 Codex)、写设计计划文档、Codex 那一路视角(走 codex exec 无头,外部 agent)。
+  Do NOT use for: 改代码 / 修 finding(本 agent 只读,落地派 Codex / pack-executor)、写设计计划文档、Codex 那一路视角(走 codex exec 无头,外部 agent)。
   返回的 findings(locator / 严重度 / 置信度)由主 Agent 亲验后再处置。本 agent 是审查劳动力不是 ground truth。
 model: opus
 effort: xhigh

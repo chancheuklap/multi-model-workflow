@@ -40,8 +40,8 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
    # <Issue Title> Implementation Plan
 
    **Goal:** <一句话目标>
-   **Source design:** docs/design/<YYYY-MM-DD>-<slug>.md
-   **Source issue:** docs/issues/<YYYY-MM-DD>-<slug>/00N-<issue-slug>.md
+   **Source design:** docs/design/<slug>.md
+   **Source issue:** docs/issues/<slug>/00N-<issue-slug>.md
    **Blocked by:** <其他 plan 编号或 "None">
    **Architecture:** <与本 issue 相关的实现方向>
    **Tech stack:** <实际涉及的框架、服务、测试工具>
@@ -78,7 +78,7 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
 
 ## 7. 交付前自检(返回前必过)
 
-**返回前现读 `references/plan-self-check.md` 的「自检」+「Pack 就绪门」两节**(那份末尾的 handoff 收尾是主线程 selfcheck 步的活,你不读、不执行)。额外自查(自己刚写完最易漏):plan 里每个文件路径 / type / function / fixture 用 Glob / rg 验真存在,引不出就别留。
+**返回前现读 `references/plan-self-check.md`(整份:自检 + Pack 就绪门)**。额外自查(自己刚写完最易漏):plan 里每个文件路径 / type / function / fixture 用 Glob / rg 验真存在,引不出就别留。
 
 ## 8. 收工:回结构化报告(主线程靠它验收)
 

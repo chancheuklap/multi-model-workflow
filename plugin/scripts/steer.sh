@@ -4,7 +4,7 @@
 # 值守档权威在外层 task.json.attendance(跨阶段留存);本脚本改它,并把当前活动 loop 的
 # loop-state.attendance 同步过去(供软停即时判断)。进度板随改随渲染。
 #
-#   attend --mode attended|afk         自由切换(无门禁)。/attended /afk 用
+#   attend --mode attended|afk         自由切换(无门禁;afk 档无 slash 命令,直接 mmw attend)
 #   unattended enter [--policy <json>] 强无人:过门禁才写(设计+计划已过门、无未答 HITL);任一不满足拒绝进入、不静默降级
 #   unattended status                  报当前 mode + policy
 #   side-finding record --tag <t> --disposition issue|fix [--finding <s>]  计划外分流落 open_items(见 Slice B)
@@ -50,7 +50,7 @@ set_mode() {
   if [ -f "$lf" ] && jq -e . "$lf" >/dev/null 2>&1; then
     jq --arg mode "$mode" '.attendance=$mode' "$lf" | write_json "$lf"
   fi
-  # 板随值守档变更刷新(§5.2.4:进入/退出 unattended 后必须)
+  # 板随值守档变更刷新(进入/退出 unattended 后必须)
   bash "$(dirname "$0")/progress.sh" render >/dev/null 2>&1 || true
 }
 
@@ -75,7 +75,7 @@ has_unanswered_hitl() {
   return 1
 }
 
-# 第一刀默认策略(设计 §5.4.3)
+# 第一刀默认策略(与 attendance reference 的 policy 表一致)
 DEFAULT_POLICY='{"side_finding_default":"auto","hitl_unanswered":"reject_enter","budget_at_100":"hard_stop","design_gap":"hard_stop","external_env":"hard_stop","blocked_no_auto_path":"hard_stop","review_fail":"rework_then_hard_stop"}'
 
 cmd_attend() {

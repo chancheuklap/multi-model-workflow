@@ -35,4 +35,4 @@ done
 
 ## 项目规范
 
-`AGENTS.md`(Droid 直接读,Claude 经 `CLAUDE.md` 导入)。plugin 架构总览见 `docs/plugin/OVERVIEW.md`。
+`AGENTS.md`(Droid 直接读,Claude 经 `CLAUDE.md` 导入)。

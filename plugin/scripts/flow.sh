@@ -132,6 +132,14 @@ cmd_handoff() {
       if [ -n "$gate" ]; then
         local lst; lst="$(bash "$SCRIPT_DIR/loop.sh" exit-check 2>/dev/null || echo "?")"
         [ "$lst" = "DONE" ] || die "[$cur_phase] 审闸未收束(loop exit-check=$lst):清单未全覆盖 / 有开口 Critical / 已 surface;拒绝 pass。补齐覆盖与处置后再 pass,或按 pause 走 needs-repair/needs-redirection/needs-context"
+      else
+        # 闸外同样守:pass 落定会清 loop-state(见下),在管 loop(如 build 的 execution 步账)
+        # 未收束就 pass = 静默清账,fail-closed 拒收(审闸外的 build-a 路此前无此核)
+        local lsf; lsf="$(git rev-parse --show-toplevel 2>/dev/null || echo .)/$(mmw_resolve_state_subdir)/loop-state.json"
+        if [ -f "$lsf" ]; then
+          local lst; lst="$(bash "$SCRIPT_DIR/loop.sh" exit-check 2>/dev/null || echo "?")"
+          [ "$lst" = "DONE" ] || die "[$cur_phase] 阶段内 loop 未收束(exit-check=$lst);pass 会清掉账本,拒绝。补完步账(loop step done)或按 needs-repair/needs-redirection 走"
+        fi
       fi
       if [ -z "$gate" ] && [ "$gated" = yes ]; then
         # 阶段产物刚过、还没审:进审闸,phase 不动、不 advance,等审的 verdict 再来一次 handoff

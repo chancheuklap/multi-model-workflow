@@ -2,7 +2,7 @@
 
 > 审核闸操作指南。**主线程直接派审者**;审查方法 + 各 stage 角度单源在已装的 **`worktree-review` skill**。plugin 侧只留 `plan-impl.md`(③合同门)与本文(编排)。
 >
-> **宿主分叉(派发)**:Claude → ①设计审 `codex exec`;②计划审 **会话内 `code-reviewer` sub-agent**;④final Codex+Claude CLI(分档 1/2/4)。Droid → `Task` + `reviewer-design-a/b`(opus) · `reviewer-plan-a/b`(opus) · `reviewer-final-a/b`(final 分档与 Claude 同判据;merge-impl=final-a+b)。brief 由 `mmw review start` 按宿主生成,照 brief 派即可。
+> **宿主分叉(派发)**:谁家审者 / 几路视角 / 模型档,全由 `mmw review start` 按宿主机器生成进 brief——**照 brief 派即可**,本文不复制派发矩阵(免漂移)。
 
 红线:**写者≠验者**(设计/计划作者与审者模型不同家;Droid 用 a/b 双 droid 钉死);**完工靠 `exit-check` 机器核 + handoff 确定性闸**。
 
@@ -57,6 +57,6 @@
 
 ## 3. 守住的红线
 
-- 写者≠验者:Claude 宿主 ①设计审用 Codex、②计划审用 Claude code-reviewer、④双模型 CLI;Droid 宿主 ① 用 design-a/b(opus)、② 用 plan-a/b(opus)、④ 用 final-a/b 按 tier。不用 `codex review`(内置提示词绕过方法论)。prompt 一律指向已装 `worktree-review` skill;不给审者 plugin 内路径。
+- 写者≠验者:Claude 宿主 ①设计审用 Codex、②计划审用 Claude code-reviewer、④ Codex+code-reviewer 跨模型;Droid 宿主 ① 用 design-a/b(opus)、② 用 plan-a/b(opus)、④ 用 final-a/b 按 tier。不用 `codex review`(内置提示词绕过方法论)。prompt 一律指向已装 `worktree-review` skill;不给审者 plugin 内路径。
 - 每条 finding 引 `file:line` 原文才采信;主线程亲验后才 accept,落 handoff 前再核承重的。
 - ③ 不判断、只核合同;重判预算砸 ④final。

@@ -97,7 +97,7 @@ Task({
 
 ## B4. 全 plan 验完 + 合并
 
-每份 plan 验过(B3)→ `mmw loop step done`。所有 plan 都 done 后 `mmw loop exit-check` 应为 DONE(执行 loop 收工)。并行 plan 各在自己 worktree → 合并回任务分支(解 git 冲突 + 业务 / 功能冲突;`guard-redline` 只拦主分支,任务分支间合并放行)。**每合完一个 plan 就清它的子 worktree**(不留孤儿):`git worktree remove <子 worktree>` + `git branch -d <codex|worker>/<目录名>`(前缀随宿主,见 host-contract / `mmw_worker_branch_prefix`)。
+每份 plan 验过(B3)→ `mmw loop step done`。所有 plan 都 done 后 `mmw loop exit-check` 应为 DONE(执行 loop 收工)。并行 plan 各在自己 worktree → 合并回任务分支(解 git 冲突 + 业务 / 功能冲突;本地 merge 不经红线,红线只拦 push / gh pr merge / 部署)。**每合完一个 plan 就清它的子 worktree**(不留孤儿):`git worktree remove <子 worktree>` + `git branch -d <codex|worker>/<目录名>`(前缀随宿主,见 host-contract / `mmw_worker_branch_prefix`)。
 
 ## B5. ③ 合同门(一次,全 plan 合并后)
 

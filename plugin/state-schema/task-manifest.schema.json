@@ -27,10 +27,14 @@
       "type": "array", "items": { "type": "string" }, "minItems": 1,
       "description": "本任务开着的阶段序列(主干被预设过滤后的结果,固化进来)。flow 据它推进;升级/掉头=改它"
     },
+    "direction_given": {
+      "type": "boolean",
+      "description": "用户开口已带明确方向(task new --direction-given 写):propose 阶段降级为落方向文档+确认一句,不重摆 2-3 方案(flow where 照此指路)。缺省 false"
+    },
 
     "status": {
-      "enum": ["active", "waiting-user", "blocked", "ready-to-close", "merged"],
-      "description": "active 进行中;waiting-user 等用户拍板;blocked 卡住;ready-to-close 末阶段过待收尾;merged 已合并待清理"
+      "enum": ["active", "waiting-user", "blocked", "ready-to-close"],
+      "description": "active 进行中;waiting-user 等用户拍板;blocked 卡住;ready-to-close 末阶段过待收尾(合并后 cleanup 直接删 worktree,无 merged 中间态)"
     },
     "phase": { "type": "string", "description": "当前阶段名,phases[phase_index]" },
     "phase_index": { "type": "integer", "minimum": 0, "description": "当前阶段在 phases 里的下标。推进/恢复都靠它,O(1) 不靠推断" },
@@ -76,7 +80,7 @@
         "blocked_no_auto_path": { "type": "string" },
         "review_fail": { "type": "string" }
       },
-      "description": "进入 unattended 时写入的预授权策略;非 unattended 时为 null。字段见设计 §5.4.3"
+      "description": "进入 unattended 时写入的预授权策略;非 unattended 时为 null。各字段含义与默认值见 attendance reference 的预授权 policy 表"
     },
 
     "artifacts": {

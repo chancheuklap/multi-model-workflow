@@ -35,7 +35,13 @@
             "type": "command",
             "command": "if [ -n \"${DROID_PLUGIN_ROOT:-}\" ]; then bash \"${DROID_PLUGIN_ROOT}/hooks/guard-redline.sh\"; else bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-redline.sh\"; fi",
             "timeout": 5,
-            "if": "Bash(*merge*)"
+            "if": "Bash(*pr merge*)"
+          },
+          {
+            "type": "command",
+            "command": "if [ -n \"${DROID_PLUGIN_ROOT:-}\" ]; then bash \"${DROID_PLUGIN_ROOT}/hooks/guard-redline.sh\"; else bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-redline.sh\"; fi",
+            "timeout": 5,
+            "if": "Bash(*/merge*)"
           },
           {
             "type": "command",
@@ -77,6 +83,12 @@
             "command": "if [ -n \"${DROID_PLUGIN_ROOT:-}\" ]; then bash \"${DROID_PLUGIN_ROOT}/hooks/record-step.sh\"; else bash \"${CLAUDE_PLUGIN_ROOT}/hooks/record-step.sh\"; fi",
             "timeout": 10,
             "if": "Bash(git commit:*)"
+          },
+          {
+            "type": "command",
+            "command": "if [ -n \"${DROID_PLUGIN_ROOT:-}\" ]; then bash \"${DROID_PLUGIN_ROOT}/hooks/record-step.sh\"; else bash \"${CLAUDE_PLUGIN_ROOT}/hooks/record-step.sh\"; fi",
+            "timeout": 10,
+            "if": "Bash(git -C*)"
           }
         ]
       }

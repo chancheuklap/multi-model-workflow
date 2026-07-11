@@ -8,7 +8,7 @@
     {
       "name": "multi-model-workflow",
       "description": "多模型开发编排:HITL 集中在讨论/设计,计划起自主跑;Droid 用 Custom Droids 分角色绑模型,Claude 侧 Codex 写+主线程验;四审 loop、worktree、断点续传。",
-      "version": "6.14.4",
+      "version": "6.15.0",
       "author": {
         "name": "Cheuk Lap Chan",
         "email": "chancheuklapincn@gmail.com"

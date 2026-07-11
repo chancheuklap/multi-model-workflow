@@ -12,31 +12,31 @@
 
 ## 边界
 
-- **活跃**:`plugin/`(正式启用;Claude + Droid marketplace 都 source 指它)+ `docs/plugin/`(设计文档 / OVERVIEW,**不随插件发布**)
+- **活跃**:`plugin/`(正式启用;Claude + Droid marketplace 都 source 指它)
 - **禁区**(明确指令才动):`codex/`(Codex agent/hook/sync)、`archive/`(归档 v1)
 
 ## 全貌 + 工作流权威
 
-- plugin 架构总览:`docs/plugin/OVERVIEW.md`(一张主图 + 三层结构 + 八阶段)。改 plugin 前先读。OVERVIEW 是**全貌不是流水账**。
 - 工作流权威:`~/Documents/multi model workflow.pdf`——日常工作流的源,plugin 照它的节点和箭头建。
+- plugin 的行为真相 = 代码 + `plugin/skills/**/references` + tests,不再维护独立架构设计文档;改 plugin 前先读 `plugin/skills/orchestrate/SKILL.md` 与相关 references/脚本。
 
 ## Skill 创建法则(改 plugin 的 skill / reference 必须照这 11 条)
 
 1. **SKILL 纯路由**:只做断点恢复 + 选路 + 指到该读哪份 reference,**不内联方法论**。
 2. **reference 整份指引,无碎片跳转**:agent 被指去**读一份完整 reference**,不"读 SKILL 某段"也不"读 reference 某节"。禁 `§N` / `见上见下` / `见 X.md 的 Y 节` / `详见 X.md 附录`。需要的内容放进读者要读的那份里。
 3. **不读无关**:每路径(small-change/develop/bug/merge)、每阶段一份干净完整文档;共用步骤(建 worktree、契约、回执)在各份里**重复写**,由 `build/build.sh` + `build/fragments/*` 单源注入——读者只读一份,重复不算冗余。
-4. **不写废话**:runtime 指南只写"干什么 + 跑什么命令",不写"为什么这么设计"(理由进 `docs/plugin`),不解释确定逻辑。
+4. **不写废话**:runtime 指南只写"干什么 + 跑什么命令",不写"为什么这么设计"(理由留在 commit message),不解释确定逻辑。
 5. **确定的归脚本 / 命令**:机械步骤做成 `mmw` 命令或 workflow 脚本,文档只说"判断完跑哪个、填什么参数就跑",agent 快进快出**不手搓**。两个方向就两个脚本(如 investigate-internal / external)。
 6. **mmw 不必每份重定义**:agent 永远先经 orchestrate SKILL 进来、那时已知 `mmw`,reference 直接 `mmw X` 用即可。
 7. **每一步都是 plugin 告诉的、且正确**。"plugin 没告诉我却要做"的动作 = 缺口,补进 plugin(如 checkpoint 展示格式要在文档里定死),别临场发挥。
 8. **路由分叉 / HITL 闸 / 给方案归 orchestrate + flow**,不归阶段方法论 skill(如 propose 阶段)。两条路用引擎现成出口:`pass`→advance,`needs-redirection`→回上游。
 9. 照 **PDF** 建。
-10. 设计文档放 `docs/plugin/`,**不进可发布的 `plugin/`**。
+10. **不维护独立设计文档**:一次性评估/设计材料用完即删不入库;长期约束写进本文件或 references。
 11. **修在 worktree 分支,完事 `--no-ff` 合回 main**,不在 main / worktree 两头跳改(会读到旧码)。
 
 ## PDF 工作流(plugin 要实现的端到端)
 
-四开口(新设计 / 优化改造 / bug / 合并)→ **investigate**(内部仓库 + 外部方案,取证不判定;Claude=Workflow / Droid=Task→investigate-topic)→ **propose 给方案**(综合现状亮 2-3 方案,HITL)→ **design**(domain 对齐 + 设计审 + to-issue 切片)→ **plan**(单 / 多计划,跨计划合同骨架,fan out Codex 写计划工人 `mmw worker plan-dispatch`,计划审)→ **写码工人落地**(`mmw worker dispatch`;Claude 后端 codex CLI / Droid 后端 Task→pack-executor)→ **final review**(Claude 无头 CLI / Droid reviewer-* droids)。
+四开口(新设计 / 优化改造 / bug / 合并)→ **investigate**(内部仓库 + 外部方案,取证不判定;Claude=Workflow / Droid=Task→investigate-topic)→ **propose 给方案**(综合现状亮 2-3 方案,HITL)→ **design**(domain 对齐 + 设计审 + to-issue 切片)→ **plan**(单 / 多计划,跨计划合同骨架,fan out Codex 写计划工人 `mmw worker plan-dispatch`,计划审)→ **写码工人落地**(`mmw worker dispatch`;Claude 后端 codex CLI / Droid 后端 Task→pack-executor)→ **final review**(Claude 宿主 Codex+会话内 code-reviewer sub-agent / Droid reviewer-* droids)。
 
 - **HITL 集中在 propose / design 阶段**;进了计划 / 落地默认无人值守,不轻易停下问。
 - 断点续传:阶段级 + 内层 loop。

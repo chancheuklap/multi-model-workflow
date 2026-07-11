@@ -12,7 +12,7 @@
 #   plan-check    --plan <落点 abs.md> --worktree <abs>   # 反向边界:diff 必须 ⊆ {docs/plans, docs/issues}
 #
 # 后端:
-#   claude → 外挂 codex CLI(写码 = codex-worker 行为;写计划 = codex exec -C 任务 worktree)
+#   claude → 外挂 codex CLI(写码/写计划 = codex exec -C 任务 worktree)
 #   droid  → 准备 prompt 包,打印 Task 派发说明(写码→pack-executor / 写计划→plan-writer)
 #
 # 兼容:mmw codex * 仍路由到本脚本。
@@ -189,7 +189,13 @@ write_droid_dispatch_pkg() {
   local wt="$1" plan="$2" design="$3" issue="$4" model="$5" effort="$6" mode="$7" instr="${8:-}"
   local st; st="$(state_for "$wt")"
   local pkg="$wt/$st/worker-dispatch"
-  local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
+  # resume 沿用派发时的越界基线,不许用当前 HEAD 覆盖(已提交的越界会逃逸)
+  local start_sha
+  if [ "$mode" = "resume" ] && [ -f "$pkg/start_sha" ]; then
+    start_sha="$(cat "$pkg/start_sha")"
+  else
+    start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
+  fi
   mkdir -p "$pkg"
   if [ "$mode" = "dispatch" ]; then
     build_prompt "$plan" "$wt" "$design" "$issue" > "$pkg/prompt.md"
@@ -243,7 +249,13 @@ write_droid_plan_pkg() {
   local ns; ns="$(plan_ns "$plan")"
   local st; st="$(state_for "$wt")"
   local pkg="$wt/$st/plan-workers/$ns/dispatch"
-  local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
+  # resume 沿用派发时的越界基线(同 write_droid_dispatch_pkg)
+  local start_sha
+  if [ "$mode" = "resume" ] && [ -f "$pkg/start_sha" ]; then
+    start_sha="$(cat "$pkg/start_sha")"
+  else
+    start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
+  fi
   mkdir -p "$pkg"
   if [ "$mode" = "dispatch" ]; then
     build_plan_prompt "$plan" "$wt" "$design" "$issue" "$mockup" > "$pkg/prompt.md"
@@ -286,6 +298,9 @@ cmd_check_docs() {
   [ -n "$wt" ] || die "--worktree 必填"
   [ -d "$wt" ] || die "worktree 不存在: $wt"
   local st; st="$(state_for "$wt")"
+  if [ -z "$start_sha" ] && [ -f "$wt/$st/start_sha" ]; then
+    start_sha="$(cat "$wt/$st/start_sha")"
+  fi
   if [ -z "$start_sha" ] && [ -f "$wt/$st/worker-dispatch/start_sha" ]; then
     start_sha="$(cat "$wt/$st/worker-dispatch/start_sha")"
   fi
@@ -333,7 +348,9 @@ cmd_dispatch() {
       [ -n "$model" ] || model="$dmodel"
       [ -n "$effort" ] || effort="$deffort"
       local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
+      # 越界基线钉在派发时并持久化;resume 必须沿用它,否则工人把越界提交进历史后 resume 就核不到了
       local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
+      printf '%s\n' "$start_sha" > "$wt/$st/start_sha"
       printf '%s %s\n' "$model" "$effort" > "$wt/$st/codex-model"
       local pf; pf="$(mktemp)"; build_prompt "$plan" "$wt" "$design" "$issue" > "$pf"
       local rc=0
@@ -375,7 +392,8 @@ cmd_resume() {
       local model="$CODEX_MODEL" effort="$CODEX_EFFORT"
       [ -f "$wt/$st/codex-model" ] && read -r model effort < "$wt/$st/codex-model"
       local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
-      local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
+      # 沿用派发时持久化的越界基线;拿 resume 时 HEAD 当基线会让已提交的越界逃逸
+      local start_sha; start_sha="$(cat "$wt/$st/start_sha" 2>/dev/null || git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
       local rc=0
       run_codex "$wt" "$instr" \
         exec -C "$wt" --sandbox workspace-write \

@@ -31,14 +31,15 @@ SCEN_DIR="$PLUGIN_DIR/skills/orchestrate/references/scenario"
 [ -d "$SCEN_DIR" ] || { echo "ERROR: 找不到 $SCEN_DIR" >&2; exit 1; }
 
 # 渲染一个文件:遇到 BEGIN 锚点,打印锚点行 + 对应片段全文,跳过原内容直到 END。
+# 片段内 {{SCENARIO}} 占位符按目标文件名印死(scenario 文件各得自己的值,读者不用自己代入)。
 render() {
-  awk -v fragdir="$FRAG_DIR" '
+  awk -v fragdir="$FRAG_DIR" -v scen="$(basename "$1" .md)" '
     /<!-- BEGIN: / {
       print
       name=$0; sub(/.*<!-- BEGIN: /,"",name); sub(/ -->.*/,"",name)
       file=fragdir"/"name".md"
       n=0
-      while ((getline line < file) > 0) { print line; n++ }
+      while ((getline line < file) > 0) { gsub(/{{SCENARIO}}/, scen, line); print line; n++ }
       close(file)
       if (n==0) { print "BUILD_ERROR_MISSING_OR_EMPTY_FRAGMENT:" name > "/dev/stderr"; exit 3 }
       skip=1; next
@@ -50,7 +51,7 @@ render() {
 
 fail=0
 shopt -s nullglob
-for f in "$SCEN_DIR"/*.md; do
+for f in "$SCEN_DIR"/*.md "$PLUGIN_DIR"/commands/*.md "$PLUGIN_DIR"/skills/orchestrate/SKILL.md "$PLUGIN_DIR"/skills/orchestrate/references/design/discussion.md; do
   grep -q '<!-- BEGIN: ' "$f" || continue   # 没锚点的(如 merge.md)跳过
   out="$(render "$f")" || { echo "ERROR: 渲染失败 $f" >&2; exit 3; }
   if [ "$MODE" = check ]; then

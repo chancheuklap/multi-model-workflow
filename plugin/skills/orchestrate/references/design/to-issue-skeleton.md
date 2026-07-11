@@ -12,7 +12,7 @@
 
 plugin 在 `to-tickets` 结果上做两件**适配**:
 
-**适配 1 · 产物落我们的目录、一个大 issue 一个文件**:每个大 issue 落 `docs/issues/<YYYY-MM-DD>-<slug>/<issue>.md`(slug 与设计文档对齐,prepare 已 scaffold `docs/issues/<slug>/`)。**override `to-tickets` 的 Step5 发布**——既不合并成单个 `tickets.md`、也不发线上 tracker,写成本地一 issue 一文件(下游 plan 死绑一文件一大 issue)。
+**适配 1 · 产物落我们的目录、一个大 issue 一个文件**:每个大 issue 落 `docs/issues/<slug>/<issue>.md`(slug 与设计文档对齐,prepare 已 scaffold `docs/issues/<slug>/`)。**override `to-tickets` 的 Step5 发布**——既不合并成单个 `tickets.md`、也不发线上 tracker,写成本地一 issue 一文件(下游 plan 死绑一文件一大 issue)。
 
 **适配 2 · issue 文件模板**(= `to-tickets` 单条 issue 模板 + plugin 扩展两节,缺一下游读不到):
 
