@@ -3,7 +3,7 @@
 #
 #   init        --manifest <path> [--max-rounds N]
 #   where       报当前 stage+run / SUCCESS / PAUSED / NO-STAGES / CORRUPT
-#   stage       done|fail  (fail 归 Pack 1.3)
+#   stage       run|done|fail
 #   round next  轮账;到 max_rounds 自动 surface 熔断
 #   surface|resume|close|exit-check
 #   receipt     从 attempt_ledger 渲染已试动作
@@ -117,34 +117,6 @@ _convergence_guard() {
   return 0
 }
 
-cmd_dispatch_p2() {
-  local f="$1" name="$2" fp="$3" mp
-  mp="$(jq -r '.manifest_path' "$f")"
-  local derive_argv=() a
-  while IFS= read -r a; do derive_argv+=("$a"); done < <(jq -r '.derive[]' "$mp")
-  [ ${#derive_argv[@]} -gt 0 ] || die "manifest.derive 为空(引擎载入应已挡,防御)"
-  local rc=0 dcmd
-  dcmd="${derive_argv[*]}"
-  ( cd "$(_repo_top)" && "${derive_argv[@]}" ) || rc=$?
-  if [ "$rc" -eq 0 ]; then
-    append_attempt "$f" "$name" "derive" "done" "$fp" ""
-    edit "$f" --arg c "$dcmd" '.attempt_ledger[-1].command=$c'
-    edit "$f" --arg n "$name" \
-      '(.stages |= map(if .name==$n then .status="pending" else . end))
-       | .current_stage=([.stages[]|select(.status=="pending")][0].name // null)'
-    emit_event "$f" "classified" "$name" "P2" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
-    echo "DERIVED:$name(消费方重生,待重跑)"
-  else
-    append_attempt "$f" "$name" "derive" "fail" "$fp" ""
-    edit "$f" --arg c "$dcmd" '.attempt_ledger[-1].command=$c'
-    edit "$f" --arg n "$name" --arg mp "$mp" \
-      '.pause={at_stage:$n, kind:"surface", reason:"needs-context",
-               question:("derive 失败("+$mp+"),真相源可能损坏,交人(agent 不碰真相源本体)")}'
-    emit_event "$f" "paused" "$name" "" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
-    echo "DERIVE-FAILED:$name(escalate PAUSE)"
-  fi
-}
-
 _match_any() {
   local path="$1" g
   shift
@@ -173,180 +145,355 @@ patch_last_attempt() {
      | .attempt_ledger[-1].command=(if $c=="" then null else $c end)'
 }
 
-_run_fix_in_staging() {
-  local f="$1" findings="$2" mp main basep reff p a
-  mp="$(jq -r '.manifest_path' "$f")"
-  main="$(_repo_top)"
-  STAGING="$(mktemp -d)/rf-staging"
-  git worktree add -q --detach "$STAGING" HEAD || die "建 staging worktree 失败"
+_file_sha256() {
+  shasum -a 256 "$1" | awk '{print $1}'
+}
 
-  # ponytail: 只重放 tracked diff;untracked 不进 fix-only base,避免把测试产物带进修复 diff。
-  basep="$(mktemp)"
-  git -C "$main" diff HEAD > "$basep" 2>/dev/null || true
-  if [ -s "$basep" ]; then git -C "$STAGING" apply "$basep" || die "重放主树改动到 staging 失败"; fi
-  rm -f "$basep"
-  git -C "$STAGING" add -A >/dev/null 2>&1 || true
-  git -C "$STAGING" commit -q --allow-empty -m rf-base
+_snapshot_baseline_untracked() {
+  local top="$1" path
+  BASELINE_UNTRACKED_PATHS=()
+  BASELINE_UNTRACKED_HASHES=()
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    BASELINE_UNTRACKED_PATHS+=("$path")
+    BASELINE_UNTRACKED_HASHES+=("$(_file_sha256 "$top/$path")")
+  done < <(git -C "$top" ls-files --others --exclude-standard)
+}
 
-  reff="$(mktemp)"
-  : > "$reff"
-  local before_status after_status new_status before_patch after_patch dirty_line dirty_path
-  before_status="$(mktemp)"
-  after_status="$(mktemp)"
-  new_status="$(mktemp)"
-  before_patch="$(mktemp)"
-  after_patch="$(mktemp)"
-  git -C "$main" status --porcelain=v1 --untracked-files=all | LC_ALL=C sort > "$before_status"
-  git -C "$main" diff --binary HEAD > "$before_patch" 2>/dev/null || true
-  RF_MAIN_TREE_DIRTY=0
-  RF_MAIN_DIRTY_PATHS=""
-  local fix_argv=()
-  while IFS= read -r a; do fix_argv+=("$a"); done < <(jq -r '.fix_executor[]' "$mp")
-  [ ${#fix_argv[@]} -gt 0 ] || die "manifest.fix_executor 为空(引擎载入应已挡,防御)"
-  RF_FIX_CMD="${fix_argv[*]}"
-  (
-    cd "$STAGING"
-    RELEASE_FIX_STAGING="$STAGING" RELEASE_FIX_FINDINGS="$findings" RELEASE_FIX_WORKER_REF_FILE="$reff" \
-      "${fix_argv[@]}"
-  ) >&2 || echo "WARN: fix_executor 退非零(仍走 path-gate 审它改了什么)" >&2
+_is_baseline_untracked() {
+  local candidate="$1" path
+  for path in "${BASELINE_UNTRACKED_PATHS[@]-}"; do
+    [ "$candidate" = "$path" ] && return 0
+  done
+  return 1
+}
 
-  git -C "$main" status --porcelain=v1 --untracked-files=all | LC_ALL=C sort > "$after_status"
-  if ! cmp -s "$before_status" "$after_status"; then
-    RF_MAIN_TREE_DIRTY=1
-    comm -13 "$before_status" "$after_status" > "$new_status" || true
-    git -C "$main" diff --binary HEAD > "$after_patch" 2>/dev/null || true
-    if [ -s "$after_patch" ]; then git -C "$main" apply -R "$after_patch" >/dev/null 2>&1 || true; fi
-    if [ -s "$before_patch" ]; then git -C "$main" apply "$before_patch" >/dev/null 2>&1 || true; fi
-    while IFS= read -r dirty_line; do
-      [ -n "$dirty_line" ] || continue
-      dirty_path="${dirty_line#???}"
-      case "$dirty_line" in
-        '?? '*) rm -rf -- "$main/${dirty_line#?? }" ;;
-      esac
-      [ -n "$dirty_path" ] && RF_MAIN_DIRTY_PATHS="${RF_MAIN_DIRTY_PATHS}${dirty_path}"$'\n'
-    done < "$new_status"
-  fi
-  rm -f "$before_status" "$after_status" "$new_status" "$before_patch" "$after_patch"
+_baseline_untracked_changed() {
+  local top="$1" index path actual
+  BASELINE_CHANGED_PATHS=()
+  for index in "${!BASELINE_UNTRACKED_PATHS[@]}"; do
+    path="${BASELINE_UNTRACKED_PATHS[$index]}"
+    if [ ! -e "$top/$path" ] && [ ! -L "$top/$path" ]; then
+      BASELINE_CHANGED_PATHS+=("$path")
+      continue
+    fi
+    actual="$(_file_sha256 "$top/$path")"
+    [ "$actual" = "${BASELINE_UNTRACKED_HASHES[$index]}" ] || BASELINE_CHANGED_PATHS+=("$path")
+  done
+  [ ${#BASELINE_CHANGED_PATHS[@]} -eq 0 ]
+}
 
-  git -C "$STAGING" add -A >/dev/null 2>&1 || true
+_collect_candidate_paths() {
+  local top="$1" path
+  TRACKED_PATHS=()
+  NEW_UNTRACKED_PATHS=()
   CHANGED_PATHS=()
-  while IFS= read -r p; do [ -n "$p" ] && CHANGED_PATHS+=("$p"); done \
-    < <(git -C "$STAGING" diff --cached --name-only HEAD)
-  RF_WORKER_REF="$(head -1 "$reff" 2>/dev/null || true)"
-  rm -f "$reff"
+  while IFS= read -r path; do
+    [ -n "$path" ] && TRACKED_PATHS+=("$path")
+  done < <(git -C "$top" diff --name-only HEAD)
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    _is_baseline_untracked "$path" || NEW_UNTRACKED_PATHS+=("$path")
+  done < <(git -C "$top" ls-files --others --exclude-standard)
+  if [ ${#TRACKED_PATHS[@]} -gt 0 ]; then
+    CHANGED_PATHS+=("${TRACKED_PATHS[@]}")
+  fi
+  if [ ${#NEW_UNTRACKED_PATHS[@]} -gt 0 ]; then
+    CHANGED_PATHS+=("${NEW_UNTRACKED_PATHS[@]}")
+  fi
+}
+
+_load_path_hard_deny() {
+  local f="$1" top mp source_rel source_file matchers path
+  top="$(_repo_top)"
+  mp="$(jq -r '.manifest_path' "$f")"
+  source_rel="$(jq -er '.protection_source' "$mp" 2>/dev/null)" || {
+    PATH_GATE_ERROR="manifest.protection_source 不可读"
+    return 1
+  }
+  case "$source_rel" in
+    /*|..|../*|*/../*) PATH_GATE_ERROR="protection_source 必须是仓库内相对路径: $source_rel"; return 1 ;;
+  esac
+  source_file="$top/$source_rel"
+  [ -f "$source_file" ] || { PATH_GATE_ERROR="protection_source 不存在: $source_rel"; return 1; }
+  matchers="$(mktemp)"
+  if ! jq -er '.rules
+    | if type == "array" then . else error("rules must be array") end
+    | [ .[]
+        | select(.kind == "path_hard_deny")
+        | .matcher
+        | if type == "string" and length > 0 then . else error("hard-deny matcher must be non-empty string") end
+      ]
+    | if length > 0 then .[] else error("no path_hard_deny matcher") end' "$source_file" > "$matchers"; then
+    rm -f "$matchers"
+    PATH_GATE_ERROR="protection_source 不合规: $source_rel"
+    return 1
+  fi
+  PROTECTION_MATCHERS=()
+  while IFS= read -r path; do
+    [ -n "$path" ] && PROTECTION_MATCHERS+=("$path")
+  done < "$matchers"
+  rm -f "$matchers"
+  [ ${#PROTECTION_MATCHERS[@]} -gt 0 ] || {
+    PATH_GATE_ERROR="protection_source 没有 path_hard_deny matcher"
+    return 1
+  }
 }
 
 _path_gate() {
-  local f="$1" mp p g
+  local f="$1" mp path matcher
+  _load_path_hard_deny "$f" || return 1
   mp="$(jq -r '.manifest_path' "$f")"
-  local editable=() p0=()
-  while IFS= read -r g; do [ -n "$g" ] && editable+=("$g"); done < <(jq -r '.editable_paths[]' "$mp")
-  while IFS= read -r g; do [ -n "$g" ] && p0+=("$g"); done < <(jq -r '.p0_paths[]' "$mp")
+  EDITABLE_MATCHERS=()
+  while IFS= read -r matcher; do
+    [ -n "$matcher" ] && EDITABLE_MATCHERS+=("$matcher")
+  done < <(jq -r '.editable_paths[]' "$mp")
   BLOCKED_PATHS=()
-  if [ ${#CHANGED_PATHS[@]} -gt 0 ]; then
-    for p in "${CHANGED_PATHS[@]}"; do
-      if [ ${#p0[@]} -gt 0 ] && _match_any "$p" "${p0[@]}"; then
-        BLOCKED_PATHS+=("$p")
-        continue
-      fi
-      if [ ${#editable[@]} -eq 0 ] || ! _match_any "$p" "${editable[@]}"; then
-        BLOCKED_PATHS+=("$p")
-      fi
-    done
+  for path in "${CHANGED_PATHS[@]-}"; do
+    [ -n "$path" ] || continue
+    if _match_any "$path" "${PROTECTION_MATCHERS[@]-}"; then
+      BLOCKED_PATHS+=("$path")
+      continue
+    fi
+    if [ ${#EDITABLE_MATCHERS[@]} -eq 0 ] || ! _match_any "$path" "${EDITABLE_MATCHERS[@]-}"; then
+      BLOCKED_PATHS+=("$path")
+    fi
+  done
+}
+
+_write_path_gate_patch() {
+  local f="$1" name="$2" top="$3" attempt_id artifact path rc
+  attempt_id="a$(jq -r '.attempt_ledger | length' "$f")-$name"
+  artifact="$(dirname "$f")/release-artifacts/$attempt_id-path-gate.patch"
+  mkdir -p "$(dirname "$artifact")" || return 1
+  git -C "$top" diff --binary HEAD > "$artifact" || return 1
+  for path in "${NEW_UNTRACKED_PATHS[@]-}"; do
+    [ -n "$path" ] || continue
+    rc=0
+    git -C "$top" diff --no-index --binary /dev/null -- "$path" >> "$artifact" || rc=$?
+    [ "$rc" -eq 1 ] || [ "$rc" -eq 0 ] || return "$rc"
+  done
+  PATH_GATE_ARTIFACT="file:$artifact"
+}
+
+_restore_rejected_candidates() {
+  local top="$1" path
+  if [ ${#TRACKED_PATHS[@]} -gt 0 ]; then
+    git -C "$top" restore --source=HEAD --staged --worktree -- "${TRACKED_PATHS[@]-}" || return 1
   fi
+  for path in "${NEW_UNTRACKED_PATHS[@]-}"; do
+    [ -n "$path" ] || continue
+    rm -f -- "$top/$path" || return 1
+  done
 }
 
-_apply_staging_to_main() {
-  local staging="$1" main st p
-  main="$(_repo_top)"
-  while IFS=$'\t' read -r st p; do
-    [ -n "$p" ] || continue
-    case "$st" in
-      D*) rm -f "$main/$p" ;;
-      *)
-        mkdir -p "$main/$(dirname "$p")"
-        [ -L "$main/$p" ] && rm -f "$main/$p"
-        cp "$staging/$p" "$main/$p"
-        ;;
-    esac
-  done < <(git -C "$staging" diff --cached --name-status HEAD)
+_record_pause() {
+  local f="$1" name="$2" action="$3" outcome="$4" fp="$5" ref="$6" reason="$7" question="$8"
+  local changed="$9" blocked="${10}" worker="${11}" command="${12}" tier="${13}" attempt_id
+  append_attempt "$f" "$name" "$action" "$outcome" "$fp" "$ref"
+  patch_last_attempt "$f" "$changed" "$blocked" "[]" "$worker" "$command"
+  attempt_id="$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
+  edit "$f" --arg n "$name" --arg r "$reason" --arg q "$question" \
+    '.pause={at_stage:$n, kind:"surface", reason:$r, question:$q}'
+  emit_event "$f" "paused" "$name" "$tier" "$fp" "$attempt_id"
 }
 
-_discard_staging() {
-  local s="$1" parent
-  parent="$(dirname "$s")"
-  git worktree remove --force "$s" 2>/dev/null || rm -rf "$s"
-  rmdir "$parent" 2>/dev/null || true
+_invalidate_all_stages() {
+  local f="$1" source_commit="$2"
+  edit "$f" --arg sc "$source_commit" \
+    '(.stages |= map(.status="pending"))
+     | .source_commit=$sc
+     | .current_stage=(.stages[0].name // null)
+     | .pause=null'
+}
+
+_run_direct_action() {
+  local f="$1" mode="$2" findings="$3" top mp key arg ref_file
+  top="$(_repo_top)"
+  mp="$(jq -r '.manifest_path' "$f")"
+  case "$mode" in
+    fix) key="fix_executor" ;;
+    derive) key="derive" ;;
+    *) die "未知 direct action: $mode" ;;
+  esac
+  ACTION_ARGV=()
+  while IFS= read -r arg; do ACTION_ARGV+=("$arg"); done < <(jq -r --arg key "$key" '.[$key][]' "$mp")
+  [ ${#ACTION_ARGV[@]} -gt 0 ] || die "manifest.$key 为空(引擎载入应已挡,防御)"
+  ACTION_COMMAND="${ACTION_ARGV[*]}"
+  ACTION_RC=0
+  RF_WORKER_REF=""
+  if [ "$mode" = "fix" ]; then
+    ref_file="$(mktemp)"
+    : > "$ref_file"
+    (
+      cd "$top"
+      unset RELEASE_FIX_STAGING
+      RELEASE_FIX_FINDINGS="$findings" RELEASE_FIX_WORKER_REF_FILE="$ref_file" "${ACTION_ARGV[@]-}"
+    ) || ACTION_RC=$?
+    RF_WORKER_REF="$(head -1 "$ref_file" 2>/dev/null || true)"
+    rm -f "$ref_file"
+    return 0
+  fi
+  (
+    cd "$top"
+    unset RELEASE_FIX_STAGING
+    "${ACTION_ARGV[@]-}"
+  ) || ACTION_RC=$?
 }
 
 _post_fix_gate() {
-  local f="$1" name="$2" mp a rc=0 gate_out
+  local f="$1" name="$2" fp="$3" repair_sha="$4" mp a rc=0 gate_out
   mp="$(jq -r '.manifest_path' "$f")"
   local gate_argv=()
   while IFS= read -r a; do gate_argv+=("$a"); done < <(jq -r '.post_fix_gate[]' "$mp")
   [ ${#gate_argv[@]} -gt 0 ] || die "manifest.post_fix_gate 为空(引擎载入应已挡,防御)"
   gate_out="$( cd "$(_repo_top)" && "${gate_argv[@]}" 2>&1 )" || rc=$?
 
-  append_attempt "$f" "$name" "post_fix_gate" "$( [ "$rc" -eq 0 ] && echo pass || echo fail )" "" ""
   local gate_cmd
   gate_cmd="$(jq -r '.post_fix_gate|join(" ")' "$mp")"
-  patch_last_attempt "$f" "[]" "[]" \
-    "$(jq -nc --argjson rc "$rc" --arg cmd "$gate_cmd" \
-        --arg out "$(printf '%s' "$gate_out" | head -c 400)" '[{gate:$cmd, rc:$rc, output:$out}]')" "" "$gate_cmd"
+  local gate_result
+  gate_result="$(jq -nc --argjson rc "$rc" --arg cmd "$gate_cmd" \
+    --arg out "$(printf '%s' "$gate_out" | head -c 400)" '[{gate:$cmd, rc:$rc, output:$out}]')"
 
   if [ "$rc" -eq 0 ]; then
-    emit_event "$f" "classified" "$name" "P1" "" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
-    edit "$f" --arg n "$name" \
-      '(.stages |= map(if .name==$n then .status="pending" else . end))
-       | .current_stage=([.stages[]|select(.status=="pending")][0].name // null)'
+    append_attempt "$f" "$name" "post_fix_gate" "pass" "$fp" "git-commit:$repair_sha"
+    patch_last_attempt "$f" "[]" "[]" "$gate_result" "" "$gate_cmd"
+    _invalidate_all_stages "$f" "$repair_sha"
+    emit_event "$f" "classified" "$name" "P1" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
     echo "POST-FIX-GATE-PASS:$name(架构闸绿,待重跑)"
     return 0
   fi
 
-  local diag_argv=() findings_tmp
-  if [ "$(jq -r '.post_fix_diagnose != null' "$mp")" = "true" ]; then
-    while IFS= read -r a; do diag_argv+=("$a"); done < <(jq -r '.post_fix_diagnose[]' "$mp")
-  else
-    while IFS= read -r a; do diag_argv+=("$a"); done < <(jq -r '.diagnose[]' "$mp")
+  local top revert_sha diag_argv=() findings_tmp
+  top="$(_repo_top)"
+  if ! git -C "$top" revert --no-edit "$repair_sha" >/dev/null; then
+    _record_pause "$f" "$name" "post_fix_gate" "revert_failed" "$fp" "git-commit:$repair_sha" \
+      "needs-context" "post-fix-gate 红后无法撤回 repair commit，停下交人" "[]" "[]" "" "$gate_cmd" "P1"
+    echo "POST-FIX-GATE-REVERT-FAILED:$name"
+    return 0
   fi
+  revert_sha="$(git -C "$top" rev-parse HEAD)"
+  append_attempt "$f" "$name" "post_fix_gate" "fail" "$fp" "git-revert:$revert_sha"
+  patch_last_attempt "$f" "[]" "[]" "$gate_result" "" "$gate_cmd"
+  edit "$f" --arg sc "$revert_sha" '.source_commit=$sc'
+  while IFS= read -r a; do diag_argv+=("$a"); done < <(jq -r '.diagnose[]' "$mp")
   findings_tmp="$(mktemp)"
-  ( cd "$(_repo_top)" && "${diag_argv[@]}" ) > "$findings_tmp" 2>/dev/null || true
+  ( cd "$top" && "${diag_argv[@]}" ) > "$findings_tmp" 2>/dev/null || true
+  echo "FIX-REVERTED:$repair_sha commit=$revert_sha"
   echo "POST-FIX-GATE-FAIL:$name(架构闸红,重分级)"
   cmd_stage_fail --stage "$name" --findings "$findings_tmp"
   rm -f "$findings_tmp"
 }
 
-cmd_dispatch_p1() {
-  local f="$1" name="$2" fp="$3" findings="$4" staging
-  _run_fix_in_staging "$f" "$findings"
-  staging="$STAGING"
-  _path_gate "$f"
-  if [ "${RF_MAIN_TREE_DIRTY:-0}" = "1" ]; then
-    while IFS= read -r p; do
-      [ -n "$p" ] && BLOCKED_PATHS+=("main:$p")
-    done <<< "${RF_MAIN_DIRTY_PATHS:-main-worktree}"
-  fi
-  if [ ${#BLOCKED_PATHS[@]} -gt 0 ]; then
-    _discard_staging "$staging"
-    append_attempt "$f" "$name" "path_gate" "rejected" "$fp" ""
-    patch_last_attempt "$f" "$(_json_changed_paths)" "$(_json_array "${BLOCKED_PATHS[@]}")" "[]" "" "$RF_FIX_CMD"
-    edit "$f" --arg n "$name" --arg bp "$(printf '%s ' "${BLOCKED_PATHS[@]}")" \
-      '.pause={at_stage:$n, kind:"surface", reason:"needs-redirection",
-               question:("P1 修复 diff 越界(触 p0_paths 或出 editable_paths): "+($bp|rtrimstr(" "))+";已弃 diff、主树复原干净,停交人")}'
-    emit_event "$f" "paused" "$name" "P0" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
-    echo "PATH-GATE-REJECT:$name 越界=[${BLOCKED_PATHS[*]}](弃 diff+主树干净+PAUSE)"
+cmd_dispatch_direct() {
+  local f="$1" name="$2" fp="$3" findings="$4" mode="$5" top commit_sha message
+  local changed_json blocked_json artifact_ref="" action_kind
+  top="$(_repo_top)"
+  action_kind="$mode"
+  if ! git -C "$top" diff --quiet HEAD; then
+    _record_pause "$f" "$name" "preflight" "tracked_dirty" "$fp" "" \
+      "needs-context" "功能分支已有未提交 tracked 改动，不能混入自动修复提交" "[]" "[]" "" "git diff --quiet HEAD" ""
+    echo "DISPATCH-PAUSED:$name(pre-existing tracked diff)"
     return 0
   fi
 
-  _apply_staging_to_main "$staging"
-  _discard_staging "$staging"
-  append_attempt "$f" "$name" "fix" "applied" "$fp" ""
-  patch_last_attempt "$f" "$(_json_changed_paths)" "[]" "[]" "$RF_WORKER_REF" "$RF_FIX_CMD"
-  emit_event "$f" "classified" "$name" "P1" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
-  local changed_text=""
-  if [ ${#CHANGED_PATHS[@]} -gt 0 ]; then changed_text="$(printf '%s ' "${CHANGED_PATHS[@]}")"; changed_text="${changed_text% }"; fi
-  echo "FIX-APPLIED:$name changed=[$changed_text]"
-  _post_fix_gate "$f" "$name"
+  _snapshot_baseline_untracked "$top"
+  _run_direct_action "$f" "$mode" "$findings"
+  _collect_candidate_paths "$top"
+  changed_json="$(_json_changed_paths)"
+
+  if ! _baseline_untracked_changed "$top"; then
+    _record_pause "$f" "$name" "$action_kind" "baseline_untracked_changed" "$fp" "" \
+      "needs-context" "自动修复改写了本轮前已存在的未跟踪文件，保留现场交人" \
+      "$(_json_array "${BASELINE_CHANGED_PATHS[@]-}")" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+    echo "DISPATCH-PAUSED:$name(baseline untracked changed)"
+    return 0
+  fi
+
+  if [ "$ACTION_RC" -ne 0 ]; then
+    _record_pause "$f" "$name" "$action_kind" "action_failed" "$fp" "" \
+      "needs-context" "$mode 执行非零退出，保留现场交人" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+    echo "DISPATCH-PAUSED:$name($mode rc=$ACTION_RC)"
+    return 0
+  fi
+
+  if [ ${#CHANGED_PATHS[@]} -eq 0 ]; then
+    _record_pause "$f" "$name" "$action_kind" "no_change" "$fp" "" \
+      "needs-context" "$mode 未产生任何可提交改动，不能伪装为已修复" "[]" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+    echo "DISPATCH-PAUSED:$name(no change)"
+    return 0
+  fi
+
+  if ! _path_gate "$f"; then
+    BLOCKED_PATHS=("${CHANGED_PATHS[@]-}")
+    if ! _write_path_gate_patch "$f" "$name" "$top" || ! _restore_rejected_candidates "$top"; then
+      _record_pause "$f" "$name" "path_gate" "cleanup_failed" "$fp" "" \
+        "needs-context" "protection_source 不可用且无法完整保存或复原本轮改动，保留现场交人" \
+        "$changed_json" "$(_json_array "${BLOCKED_PATHS[@]-}")" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+      echo "PATH-GATE-PAUSED:$name($PATH_GATE_ERROR)"
+      return 0
+    fi
+    artifact_ref="$PATH_GATE_ARTIFACT"
+    blocked_json="$(_json_array "${BLOCKED_PATHS[@]-}")"
+    _record_pause "$f" "$name" "path_gate" "rejected" "$fp" "$artifact_ref" \
+      "needs-context" "protection_source 无法作为路径闸真相源($PATH_GATE_ERROR)，已保存 patch 并停下交人" \
+      "$changed_json" "$blocked_json" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+    echo "PATH-GATE-REJECT:$name protection_source=[$PATH_GATE_ERROR]"
+    return 0
+  fi
+
+  if [ ${#BLOCKED_PATHS[@]} -gt 0 ]; then
+    if ! _write_path_gate_patch "$f" "$name" "$top" || ! _restore_rejected_candidates "$top"; then
+      _record_pause "$f" "$name" "path_gate" "cleanup_failed" "$fp" "" \
+        "needs-context" "路径闸拒绝后无法完整保存或复原本轮改动，保留现场交人" \
+        "$changed_json" "$(_json_array "${BLOCKED_PATHS[@]-}")" "$RF_WORKER_REF" "$ACTION_COMMAND" "P0"
+      echo "PATH-GATE-PAUSED:$name(cleanup failed)"
+      return 0
+    fi
+    artifact_ref="$PATH_GATE_ARTIFACT"
+    blocked_json="$(_json_array "${BLOCKED_PATHS[@]-}")"
+    _record_pause "$f" "$name" "path_gate" "rejected" "$fp" "$artifact_ref" \
+      "needs-redirection" "自动修复触及受保护路径或超出 editable_paths，已保存 patch、复原改动，停下请负责人拍板" \
+      "$changed_json" "$blocked_json" "$RF_WORKER_REF" "$ACTION_COMMAND" "P0"
+    echo "PATH-GATE-REJECT:$name 越界=[${BLOCKED_PATHS[*]}]"
+    return 0
+  fi
+
+  if ! git -C "$top" add -- "${CHANGED_PATHS[@]-}"; then
+    _record_pause "$f" "$name" "$action_kind" "add_failed" "$fp" "" \
+      "needs-context" "自动修复通过路径闸后无法暂存改动，保留现场交人" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+    echo "DISPATCH-PAUSED:$name(git add failed)"
+    return 0
+  fi
+  case "$mode" in
+    fix) message="fix(release): $fp" ;;
+    derive) message="chore(release): regenerate $fp" ;;
+  esac
+  if ! git -C "$top" commit -m "$message" >/dev/null; then
+    _record_pause "$f" "$name" "$action_kind" "commit_failed" "$fp" "" \
+      "needs-context" "自动修复通过路径闸后无法创建功能分支提交，保留现场交人" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+    echo "DISPATCH-PAUSED:$name(git commit failed)"
+    return 0
+  fi
+  commit_sha="$(git -C "$top" rev-parse HEAD)"
+  append_attempt "$f" "$name" "$action_kind" "applied" "$fp" "git-commit:$commit_sha"
+  patch_last_attempt "$f" "$changed_json" "[]" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND"
+  emit_event "$f" "classified" "$name" "$( [ "$mode" = fix ] && echo P1 || echo P2 )" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
+  if [ "$mode" = "derive" ]; then
+    _invalidate_all_stages "$f" "$commit_sha"
+    echo "DERIVED-COMMITTED:$name commit=$commit_sha"
+    return 0
+  fi
+  echo "FIX-COMMITTED:$name commit=$commit_sha"
+  _post_fix_gate "$f" "$name" "$fp" "$commit_sha"
+}
+
+cmd_dispatch_p1() {
+  cmd_dispatch_direct "$1" "$2" "$3" "$4" "fix"
+}
+
+cmd_dispatch_p2() {
+  cmd_dispatch_direct "$1" "$2" "$3" "$4" "derive"
 }
 
 # $1=state $2=event $3=stage $4=tier $5=fingerprint $6=attempt_ref
@@ -727,7 +874,7 @@ cmd_dispatch() {
       emit_event "$f" "paused" "$name" "P0" "$fp" "$aref"
       echo "P0:$name P0 硬约束($fp),交人(已 PAUSE)"
       ;;
-    P2) cmd_dispatch_p2 "$f" "$name" "$fp" ;;
+    P2) cmd_dispatch_p2 "$f" "$name" "$fp" "$findings" ;;
     P1) cmd_dispatch_p1 "$f" "$name" "$fp" "$findings" ;;
     *) die "未知 tier: $tier" ;;
   esac
