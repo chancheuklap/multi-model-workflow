@@ -29,7 +29,7 @@ description: 你(落地执行者)被主线程派进一个 git worktree 落地一
 2. **写测试前读 `references/tests.md`**:测试对标仓库测试治理文档,测公开行为、mock 只外部、权威层一次;跑通仓库 test guards / lint。
 3. 转绿后 **一个 Pack 一次提交**,commit message **必须含 `Pack N.M`**(N.M = 计划里的 Pack 编号)。主线程靠这个认你做到哪个 Pack,**格式错主线程就接不上**。
 
-## 3. 边界(越界就破坏主线程的流程)
+## 3. 边界
 
 - **只改 worktree 内源码**。
 - **禁改 `docs/` 下任何文件** —— 设计 / 计划 / issue 是上游权威,主线程(Coordinator)持有,你只读不写。

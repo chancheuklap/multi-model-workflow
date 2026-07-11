@@ -10,7 +10,7 @@
 
 **宽重构例外**:改列名 / 改共享类型这种爆炸半径大、单次编辑会破上千调用点的机械改动,不套 vertical slice,按 `to-tickets` 的 **expand–contract** 拆:先 expand(新旧并存不破)→ 分批 migrate(按爆炸半径分包,每批一个 issue、blocked by expand)→ contract(删旧,blocked by 全部 migrate 批)。
 
-plugin 在 `to-tickets` 结果上做两件**适配**(`to-tickets` 有两种产出:合并单文件 `tickets.md`,或发线上 tracker;两种都不是我们要的):
+plugin 在 `to-tickets` 结果上做两件**适配**:
 
 **适配 1 · 产物落我们的目录、一个大 issue 一个文件**:每个大 issue 落 `docs/issues/<YYYY-MM-DD>-<slug>/<issue>.md`(slug 与设计文档对齐,prepare 已 scaffold `docs/issues/<slug>/`)。**override `to-tickets` 的 Step5 发布**——既不合并成单个 `tickets.md`、也不发线上 tracker,写成本地一 issue 一文件(下游 plan 死绑一文件一大 issue)。
 

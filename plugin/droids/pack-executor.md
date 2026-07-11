@@ -14,7 +14,7 @@ tools: ["Read", "Create", "Edit", "ApplyPatch", "Execute", "Grep", "Glob", "LS"]
 2. 读派发消息指向的 `worktree-build` skill(plugin 内 `skills/worktree-build/`),照它走整个落地流程。
 3. 每个 Task Pack 一提交,message 含 `Pack N.M`。
 4. 不扩大 scope;拿不准返回 needs-context / needs-redirection,不猜。
-5. 收工回执写清:改了什么、测了什么、未完成什么。事实由主线程亲验。
+5. 收工回执写清:改了什么、测了什么、未完成什么。
 
 ## 开工
 
