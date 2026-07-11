@@ -10,7 +10,7 @@
 
 整套系统一张图。颜色 = 谁在干:<span>🟡 主线程(Claude Code,唯一能问你)</span> · <span>🟣 Claude 帮手(隔离上下文劳动力,SendMessage 续)</span> · <span>🔴 Codex 审者(headless,喂我们的审题)</span> · <span>🔵 脚本/hook(确定层,不手搓)</span> · <span>🟢 文档/状态(真相源)</span> · <span>🩷 用户(HITL)</span>。
 
-三个层次:**① 入口**(断点恢复 + 路由)→ **② 外层循环**(八个阶段怎么换,design/plan 各配一个审)→ 中间 **③ 真相源 + 看守**(状态面 + hooks 兜住确定性)。build 阶段里再嵌一台**内层循环**(loop engineering 自驱落地)。
+三个层次:**① 入口**(断点恢复 + 路由)→ **② 外层循环**(阶段怎么换,design/plan 各配一个审)→ 中间 **③ 真相源 + 看守**(状态面 + hooks 兜住确定性)。build 阶段里再嵌一台**内层循环**(loop engineering 自驱落地)。develop 路线在 ④终审后接一个 **package 出包阶段**(diff→scope 解出受影响产品、逐产品 `mmw release` 出包、两次人工确认门控 closing),让开发流程功能测试后自动进入出包。
 
 ```mermaid
 flowchart TB
@@ -58,10 +58,14 @@ flowchart TB
         subgraph PH5["验收 verify"]
             R4["④终审 loop · 预算最大"]:::codex
         end
+        subgraph PHK["出包 package(仅 develop)"]
+            PK["package-phase.sh:diff→scope 解产品目标<br/>逐产品 mmw release 出包+人工两确认<br/>(开发模式测试/安装后测试)"]:::sh
+        end
         subgraph PH6["收尾 closing"]
             CL["prepare.sh cleanup<br/>合并后删 worktree+分支+状态"]:::sh
         end
-        PH1 --> PHP --> PH2 --> PHT --> PH3 --> PH4 --> PH5 --> PH6
+        PH1 --> PHP --> PH2 --> PHT --> PH3 --> PH4 --> PH5 --> PHK --> PH6
+        PHK -.->|"撞破需返修 needs-redirection --to-phase build"| PH4
         PHP -.->|"全否 needs-redirection"| PH1
     end
     E3 --> PH1
