@@ -22,8 +22,8 @@ state_here() {
 # Codex 审者(外部 agent)走 codex exec 无头,模型/档在这里钉;
 # Claude 审者走会话内 sub-agent(agents/code-reviewer.md),模型/档在该 agent frontmatter 钉——
 # 不用 claude -p 无头(那是另起进程另外计费,本会话已在 Claude Code CLI 里)。
-CODEX_REVIEW_MODEL="${CODEX_REVIEW_MODEL:-gpt-5.6-terra}"
-CODEX_REVIEW_EFFORT="${CODEX_REVIEW_EFFORT:-high}"
+CODEX_REVIEW_MODEL="${CODEX_REVIEW_MODEL:-gpt-5.6-sol}"
+CODEX_REVIEW_EFFORT="${CODEX_REVIEW_EFFORT:-xhigh}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
