@@ -49,16 +49,12 @@ def _restore(path: Path, *, previous: bytes | None, existed: bool) -> None:
 
 def _render_bootstrap(context_path: Path, manifest: ReleaseAdapterManifest) -> str:
     template = (
-        Path(__file__).parent
-        / "release_templates"
-        / "windows_electron_python.ps1.tmpl"
+        Path(__file__).parent / "release_templates" / "windows_electron_python.ps1.tmpl"
     ).read_text(encoding="utf-8")
     hook_calls = _hook_calls(manifest)
     replacements = {
         "${CONTEXT_DEFAULT_PATH}": powershell_literal(context_path.name),
-        "${DESKTOP_DIR_LITERAL}": powershell_literal(
-            manifest.build_target.desktop_dir
-        ),
+        "${DESKTOP_DIR_LITERAL}": powershell_literal(manifest.build_target.desktop_dir),
         "${LANE_BLOCK}": _render_lane_block(manifest),
         "${RENDERED_HOOK_FUNCTIONS}": _render_hook_functions(),
         "${RUNTIME_HOOK_CALLS}": _render_hook_calls(hook_calls, stage=3),
@@ -132,7 +128,9 @@ def _render_hook_calls(calls: list[dict[str, object]], *, stage: int) -> str:
         if call["stage"] != stage:
             continue
         if call["skipped"]:
-            rendered.append(f"  Write-HookSkipped -Name {powershell_literal(str(call['name']))}")
+            rendered.append(
+                f"  Write-HookSkipped -Name {powershell_literal(str(call['name']))}"
+            )
             continue
         argv = call["argv"]
         assert isinstance(argv, list)
@@ -181,15 +179,15 @@ def _render_lane_block(manifest: ReleaseAdapterManifest) -> str:
   }}
 
   $RuntimeRoot = Join-Path $DesktopDir 'python-runtime'
-  $CompileInterpreterRoot = (& uv run --extra {powershell_literal(target.deps_extra or '')} python -c 'import sys; print(sys.base_prefix)').Trim()
+  $CompileInterpreterRoot = (& uv run --extra {powershell_literal(target.deps_extra or "")} python -c 'import sys; print(sys.base_prefix)').Trim()
   foreach ($assetRoot in @({asset_roots})) {{
     if (-not (Test-Path (Join-Path $RepoRoot $assetRoot))) {{ throw "Missing declared asset root: $assetRoot" }}
   }}
   $NuitkaArgs = @('--standalone', '--onefile', '--assume-yes-for-downloads')
 {nuitka_include}
 {nuitka_nofollow}
-  $NuitkaEntry = Join-Path $RepoRoot {powershell_literal(f'src/{target.entry_module}/__main__.py')}
-  & uv run --extra {powershell_literal(target.deps_extra or '')} --extra build python -m nuitka @NuitkaArgs $NuitkaEntry
+  $NuitkaEntry = Join-Path $RepoRoot {powershell_literal(f"src/{target.entry_module}/__main__.py")}
+  & uv run --extra {powershell_literal(target.deps_extra or "")} --extra build python -m nuitka @NuitkaArgs $NuitkaEntry
   if ($LASTEXITCODE -ne 0) {{ throw 'Nuitka backend build failed' }}
   Remove-PythonBytecode -RuntimeRoot $RuntimeRoot
 {dll_calls}"""
@@ -201,13 +199,17 @@ def _render_dll_copy_call(item: dict[str, object]) -> str:
         destination = "Lib\\site-packages\\" + str(item["pyd_package"])
     source_roots = "@($RepoRoot)"
     if item["dll_source"] == "compile_interpreter":
-        source_roots = "@($CompileInterpreterRoot, (Join-Path $CompileInterpreterRoot 'DLLs'))"
+        source_roots = (
+            "@($CompileInterpreterRoot, (Join-Path $CompileInterpreterRoot 'DLLs'))"
+        )
     calls = []
     for dll_name in item["dll_names"]:
+        # 反斜杠不能出现在 f-string 表达式内(Python 3.11 SyntaxError),提到普通语句里拼。
+        dest_rel = destination + "\\\\" + str(dll_name)
         calls.append(
             "  Copy-NativeExtensionDll "
             f"-SourceRoots {source_roots} -DllName {powershell_literal(str(dll_name))} "
-            f"-Destination (Join-Path $RuntimeRoot {powershell_literal(destination + '\\\\' + str(dll_name))})"
+            f"-Destination (Join-Path $RuntimeRoot {powershell_literal(dest_rel)})"
         )
     return "\n".join(calls)
 
@@ -223,7 +225,9 @@ def _validate_paths(repo_root: Path, output: Path, context_output: Path) -> None
 
 
 def _validate_manifest_paths(manifest: ReleaseAdapterManifest) -> None:
-    assert_repo_relative(manifest.build_target.desktop_dir, field="build_target.desktop_dir")
+    assert_repo_relative(
+        manifest.build_target.desktop_dir, field="build_target.desktop_dir"
+    )
     assert_repo_relative(manifest.protection_source, field="protection_source")
     for index, root in enumerate(manifest.build_target.asset_roots):
         assert_repo_relative(root, field=f"build_target.asset_roots[{index}]")
@@ -231,9 +235,13 @@ def _validate_manifest_paths(manifest: ReleaseAdapterManifest) -> None:
         assert_repo_relative(path, field=f"editable_paths[{index}]")
 
 
-def assemble(adapter: Path, repo_root: Path, output: Path, context_output: Path) -> None:
+def assemble(
+    adapter: Path, repo_root: Path, output: Path, context_output: Path
+) -> None:
     """校验 adapter 后，成对写入 PowerShell 与它唯一对应的上下文。"""
-    manifest = ReleaseAdapterManifest.model_validate_json(adapter.read_text(encoding="utf-8"))
+    manifest = ReleaseAdapterManifest.model_validate_json(
+        adapter.read_text(encoding="utf-8")
+    )
     _validate_paths(repo_root, output, context_output)
     _validate_manifest_paths(manifest)
     hook_calls = _hook_calls(manifest)
@@ -316,7 +324,9 @@ def check(script: Path, context: Path) -> None:
     expected_stages = [1, 2, 3, 4, 5, 6, 7]
     if context_doc.get("render_metadata", {}).get("stages") != expected_stages:
         raise ValueError("context 未声明完整七步流水线")
-    stage_positions = [script_text.find(f'Step "[{stage}/7]') for stage in expected_stages]
+    stage_positions = [
+        script_text.find(f'Step "[{stage}/7]') for stage in expected_stages
+    ]
     if -1 in stage_positions or stage_positions != sorted(stage_positions):
         raise ValueError("script 未按顺序包含完整七步流水线")
     hook_calls = context_doc.get("render_metadata", {}).get("hook_calls")

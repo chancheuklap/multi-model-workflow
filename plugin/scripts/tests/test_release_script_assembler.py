@@ -15,7 +15,9 @@ sys.path.insert(0, str(SCRIPTS))
 from release_contracts import BuildTarget, ReleaseBuildHooks  # noqa: E402
 
 
-def _assemble(adapter: Path, output: Path, context_output: Path) -> subprocess.CompletedProcess[str]:
+def _assemble(
+    adapter: Path, output: Path, context_output: Path
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [
             sys.executable,
@@ -53,7 +55,9 @@ def _check(script: Path, context: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_assemble_core_exe_writes_bom_script_and_validated_context(tmp_path: Path) -> None:
+def test_assemble_core_exe_writes_bom_script_and_validated_context(
+    tmp_path: Path,
+) -> None:
     output = tmp_path / "release.ps1"
     context_output = tmp_path / "release-context.json"
 
@@ -68,7 +72,9 @@ def test_assemble_core_exe_writes_bom_script_and_validated_context(tmp_path: Pat
     assert context["build_hooks"]["runtime_prepare"] == ["prepare-runtime"]
     assert context["render_metadata"]["stages"] == [1, 2, 3, 4, 5, 6, 7]
     assert len(context["render_metadata"]["hook_calls"]) == 5
-    assert BuildTarget.model_validate(context["build_target"]).runtime_lane == "core_exe"
+    assert (
+        BuildTarget.model_validate(context["build_target"]).runtime_lane == "core_exe"
+    )
     assert ReleaseBuildHooks.model_validate(context["build_hooks"]).artifact_scan == [
         "scan-artifact"
     ]
@@ -83,7 +89,9 @@ def test_assemble_embedded_python_preserves_build_teeth_deterministically(
     first = _assemble(FIXTURES / "embedded-python.adapter.json", output, context_output)
     first_script = output.read_bytes()
     first_context = context_output.read_bytes()
-    second = _assemble(FIXTURES / "embedded-python.adapter.json", output, context_output)
+    second = _assemble(
+        FIXTURES / "embedded-python.adapter.json", output, context_output
+    )
 
     assert first.returncode == second.returncode == 0
     assert output.read_bytes() == first_script
@@ -125,7 +133,9 @@ def test_assemble_rejects_windows_absolute_desktop_path(tmp_path: Path) -> None:
     adapter_path = tmp_path / "windows-absolute.adapter.json"
     adapter_path.write_text(json.dumps(adapter), encoding="utf-8")
 
-    result = _assemble(adapter_path, tmp_path / "release.ps1", tmp_path / "release-context.json")
+    result = _assemble(
+        adapter_path, tmp_path / "release.ps1", tmp_path / "release-context.json"
+    )
 
     assert result.returncode != 0
 
@@ -169,7 +179,10 @@ def test_assemble_rejects_invalid_adapter_without_replacing_outputs(
 def test_check_accepts_matching_bom_script_and_context(tmp_path: Path) -> None:
     output = tmp_path / "release.ps1"
     context_output = tmp_path / "release-context.json"
-    assert _assemble(FIXTURES / "core-exe.adapter.json", output, context_output).returncode == 0
+    assert (
+        _assemble(FIXTURES / "core-exe.adapter.json", output, context_output).returncode
+        == 0
+    )
 
     result = _check(output, context_output)
 
@@ -190,7 +203,9 @@ def test_assemble_keeps_existing_context_when_script_replacement_fails(
     assert context_output.read_text(encoding="utf-8") == "old context"
 
 
-@pytest.mark.parametrize("fixture", ["core-exe.adapter.json", "embedded-python.adapter.json"])
+@pytest.mark.parametrize(
+    "fixture", ["core-exe.adapter.json", "embedded-python.adapter.json"]
+)
 def test_assemble_renders_the_same_ordered_seven_stage_pipeline(
     tmp_path: Path, fixture: str
 ) -> None:
@@ -204,9 +219,9 @@ def test_assemble_renders_the_same_ordered_seven_stage_pipeline(
     for tool in ("python", "pnpm", "node", "uv", "makensis"):
         assert f"'{tool}'" in script
     for token in (
-            "--frozen-lockfile",
-            "--prefer-offline",
-            "'run', 'build'",
+        "--frozen-lockfile",
+        "--prefer-offline",
+        "'run', 'build'",
         "electron-builder",
         "--win",
         "--prepackaged",
@@ -221,7 +236,12 @@ def test_assemble_renders_embedded_build_teeth_but_not_in_core_lane(
     core_context = tmp_path / "core-context.json"
     embedded_script = tmp_path / "embedded.ps1"
     embedded_context = tmp_path / "embedded-context.json"
-    assert _assemble(FIXTURES / "core-exe.adapter.json", core_script, core_context).returncode == 0
+    assert (
+        _assemble(
+            FIXTURES / "core-exe.adapter.json", core_script, core_context
+        ).returncode
+        == 0
+    )
     assert (
         _assemble(
             FIXTURES / "embedded-python.adapter.json", embedded_script, embedded_context
@@ -246,13 +266,17 @@ def test_assemble_renders_embedded_build_teeth_but_not_in_core_lane(
     assert "msvcp140.dll" in embedded
 
 
-def test_assemble_rejects_embedded_lane_without_dependency_extra(tmp_path: Path) -> None:
+def test_assemble_rejects_embedded_lane_without_dependency_extra(
+    tmp_path: Path,
+) -> None:
     adapter = json.loads((FIXTURES / "embedded-python.adapter.json").read_text())
     adapter["build_target"]["deps_extra"] = None
     adapter_path = tmp_path / "missing-extra.adapter.json"
     adapter_path.write_text(json.dumps(adapter), encoding="utf-8")
 
-    result = _assemble(adapter_path, tmp_path / "release.ps1", tmp_path / "release-context.json")
+    result = _assemble(
+        adapter_path, tmp_path / "release.ps1", tmp_path / "release-context.json"
+    )
 
     assert result.returncode != 0
 
@@ -260,9 +284,14 @@ def test_assemble_rejects_embedded_lane_without_dependency_extra(tmp_path: Path)
 def test_check_rejects_script_missing_one_of_the_seven_stages(tmp_path: Path) -> None:
     output = tmp_path / "release.ps1"
     context_output = tmp_path / "release-context.json"
-    assert _assemble(FIXTURES / "core-exe.adapter.json", output, context_output).returncode == 0
+    assert (
+        _assemble(FIXTURES / "core-exe.adapter.json", output, context_output).returncode
+        == 0
+    )
     output.write_text(
-        output.read_text(encoding="utf-8-sig").replace('Step "[5/7] Build win-unpacked"', ""),
+        output.read_text(encoding="utf-8-sig").replace(
+            'Step "[5/7] Build win-unpacked"', ""
+        ),
         encoding="utf-8-sig",
     )
 
@@ -272,7 +301,13 @@ def test_check_rejects_script_missing_one_of_the_seven_stages(tmp_path: Path) ->
 
 
 def test_template_and_neutral_fixtures_hold_no_product_specific_release_rules() -> None:
-    product_specific_terms = ("duck", "parrot", "hedgehog", "agentflow", "scripts/release/")
+    product_specific_terms = (
+        "duck",
+        "parrot",
+        "hedgehog",
+        "agentflow",
+        "scripts/release/",
+    )
     template = TEMPLATE.read_text(encoding="utf-8").lower()
 
     assert not any(term in template for term in product_specific_terms)
@@ -314,10 +349,15 @@ def test_check_reports_fixed_hook_lifecycle_contract(
     ]
 
 
-def test_check_rejects_metadata_that_claims_an_unconfigured_hook_ran(tmp_path: Path) -> None:
+def test_check_rejects_metadata_that_claims_an_unconfigured_hook_ran(
+    tmp_path: Path,
+) -> None:
     output = tmp_path / "release.ps1"
     context_output = tmp_path / "release-context.json"
-    assert _assemble(FIXTURES / "core-exe.adapter.json", output, context_output).returncode == 0
+    assert (
+        _assemble(FIXTURES / "core-exe.adapter.json", output, context_output).returncode
+        == 0
+    )
     context = json.loads(context_output.read_text(encoding="utf-8"))
     context["render_metadata"]["hook_calls"][1]["skipped"] = False
     context_output.write_text(json.dumps(context), encoding="utf-8")
@@ -327,7 +367,9 @@ def test_check_rejects_metadata_that_claims_an_unconfigured_hook_ran(tmp_path: P
     assert result.returncode != 0
 
 
-@pytest.mark.parametrize("unsafe_token", ["bad&hook", "bad;hook", "bad|hook", "bad\nhook", "bad\x00hook"])
+@pytest.mark.parametrize(
+    "unsafe_token", ["bad&hook", "bad;hook", "bad|hook", "bad\nhook", "bad\x00hook"]
+)
 def test_assemble_rejects_shell_control_characters_in_hook_argv(
     tmp_path: Path, unsafe_token: str
 ) -> None:
@@ -336,7 +378,9 @@ def test_assemble_rejects_shell_control_characters_in_hook_argv(
     adapter_path = tmp_path / "unsafe-hook.adapter.json"
     adapter_path.write_text(json.dumps(adapter), encoding="utf-8")
 
-    result = _assemble(adapter_path, tmp_path / "release.ps1", tmp_path / "release-context.json")
+    result = _assemble(
+        adapter_path, tmp_path / "release.ps1", tmp_path / "release-context.json"
+    )
 
     assert result.returncode != 0
 
@@ -358,3 +402,26 @@ def test_assemble_escapes_a_single_quote_hook_token_without_shell_evaluation(
     assert "'O''Brien'" in script
     assert "Invoke-Expression" not in script
     assert "cmd.exe /c" not in script
+
+
+def test_assembler_parses_under_declared_minimum_python() -> None:
+    # 回归：assemble stage 以裸 python 调本模块，构建机 python 可能是声明的最低 3.11；
+    # native DLL 拷贝行的路径拼接曾放进 f-string 表达式内含反斜杠，3.11 下模块解析即 SyntaxError。
+    probe = subprocess.run(
+        [
+            "uv",
+            "run",
+            "--python",
+            "3.11",
+            "python",
+            "-c",
+            f"import ast; ast.parse(open({str(ASSEMBLER)!r}).read())",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if probe.returncode != 0 and "No interpreter found" in (
+        probe.stderr + probe.stdout
+    ):
+        pytest.skip("环境无 Python 3.11 解释器，跳过最低版本解析守卫")
+    assert probe.returncode == 0, probe.stderr

@@ -98,6 +98,16 @@ jq -e --arg sha "$repair_sha" 'any(.attempt_ledger[]; .action_kind == "fix" and 
   and (.artifact_refs | index("git-commit:" + $sha)))' "$sf" >/dev/null && ok "P1 ledger 记录 commit、worker 与改动" || no "P1 ledger"
 git -C "$repo" diff --quiet HEAD && ok "P1 后 tracked worktree 干净" || no "P1 后 tracked worktree 脏"
 
+# 回归 F1:官方 drive 经 stage run 失败后,findings 已由 stage fail 记进 ledger artifact_refs;
+# dispatch 省略 --findings 时必须从 state 读回,驱动器无须自持引擎内部 findings 文件路径。
+repo="$(new_case p1-findings-from-ledger "$fix_editable" '["true"]' '["true"]' '["sh","-c","echo {\\\"findings\\\":[]}"]')"
+fail_stage_p1 "$repo"
+out="$(run_release "$repo" dispatch --stage verify_key)"
+case "$out" in
+  *"FIX-COMMITTED:verify_key commit="*) ok "dispatch 省略 --findings 从 ledger 读回 findings 完成 P1" ;;
+  *) no "dispatch 未从 ledger 读回 findings ($out)" ;;
+esac
+
 derive_editable='["sh","-c","mkdir -p scripts/release; printf derived > scripts/release/derived.txt"]'
 repo="$(new_case p2-editable '["true"]' "$derive_editable" '["true"]' '["sh","-c","echo {\\\"findings\\\":[]}"]')"
 sf="$(state_file "$repo")"

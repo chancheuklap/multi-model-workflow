@@ -881,11 +881,16 @@ cmd_dispatch() {
     esac
   done
   [ -n "$name" ] || die "--stage 必填"
-  [ -n "$findings" ] || die "--findings 必填"
-  [ -f "$findings" ] || die "findings 文件不存在: $findings"
 
   local f cls
   f="$(need_state)"
+  # 驱动器经 stage run 失败时,diagnose findings 已由 cmd_stage_fail 记进最近一条 attempt 的 artifact_refs;
+  # 省略 --findings 即从 state 读回,驱动器无须复制引擎的内部 findings 路径。
+  if [ -z "$findings" ]; then
+    findings="$(jq -r '.attempt_ledger[-1].artifact_refs[0] // ""' "$f")"
+  fi
+  [ -n "$findings" ] || die "--findings 未给且 ledger 无可用 findings 引用"
+  [ -f "$findings" ] || die "findings 文件不存在: $findings"
   jq -e --arg n "$name" 'any(.stages[]; .name==$n)' "$f" >/dev/null || die "无此 stage: $name"
 
   if ! cls="$(uv run --quiet "$SCRIPT_DIR/release_contracts.py" classify-findings "$findings")"; then

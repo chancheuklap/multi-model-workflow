@@ -10,67 +10,44 @@
 
 | `where` 回显 | 机械动作 | 轮次处理 | 是否交回判断层 |
 |---|---|---|---|
-| `STAGE:<name> RUN:<display>` | 从 state 读取该 stage 的 argv，运行 stage，再运行 diagnose；全绿则 `stage done`，否则 `stage fail` 后按 state 决定是否 dispatch | 线性全绿不推进；只有 dispatch 后引擎仍要求重跑才 `round next` | 否 |
-| `RETRY-STAGE:<name> RUN:<display>` | 与 `STAGE` 相同，重跑该失败 stage | dispatch 后已推进的一轮不再额外推进 | 否 |
+| `STAGE:<name> RUN:<display>` | `release stage run --stage <name>`(引擎展开占位符、路由 remote-build、跑 diagnose、写 done\|failed 并记 findings);失败据 `where` 为 `RETRY-STAGE` 则 `dispatch --stage <name>` | 线性全绿不推进；只有 dispatch 后引擎仍要求重跑才 `round next` | 否 |
+| `RETRY-STAGE:<name> RUN:<display>` | 与 `STAGE` 相同，`stage run` 重跑该失败 stage | dispatch 后已推进的一轮不再额外推进 | 否 |
 | `SUCCESS:all stages done` | `exit-check` 必须为 `DONE`，随后 `close` | 不适用 | 否；`exit-check` 非 `DONE` 是引擎错误，不报告成功 |
 | `PAUSED:<reason>` | 读取 `receipt`，原样交回判断层 | 不推进 | 是 |
 | `CORRUPT:` / `FAILED-STAGE:` / `NO-STAGES:` | 不执行 stage argv、不调用 `resume`；读取 `receipt` 或引擎错误 | 不推进 | 是 |
 | 其他输出或命令错误 | 不猜测 state、不重新 `init` | 不推进 | 是，带原始输出 |
 
-`RUN:<display>` 只供人阅读；**stage argv 必须从 `release-state.json` 的数组读取，禁止把展示字符串 shell-split。**
+`RUN:<display>` 只供人阅读；**stage argv 由引擎 `stage run` 从 `release-state.json` 读取并展开，驱动器不自行读取 argv、更不把展示字符串 shell-split。**
 
 ## 连续驱动一轮
 
 以下命令是 `STAGE` / `RETRY-STAGE` 分支的一轮。成功执行完一轮后立刻重新运行 `release where`，直到状态表给出终态；不要每个 shell turn 人工停顿。
 
 ```bash
-PLUGIN_SCRIPTS="$(cd "$(dirname "$MMW")" && pwd)"
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-. "$PLUGIN_SCRIPTS/lib/host.sh"
-STATE_FILE="$REPO_ROOT/$(mmw_resolve_state_subdir "$REPO_ROOT")/release-state.json"
 state="$(bash "$MMW" release where)"
 
 case "$state" in
   STAGE:*|RETRY-STAGE:*)
     stage="${state#*:}"
     stage="${stage%% RUN:*}"
-    findings="$(mktemp)"
-    manifest="$(jq -r '.manifest_path' "$STATE_FILE")"
-    STAGE_ARGV=()
-    while IFS= read -r arg; do STAGE_ARGV+=("$arg"); done < <(
-      jq -r --arg stage "$stage" '.stages[] | select(.name == $stage) | .run[]' "$STATE_FILE"
-    )
-    DIAGNOSE_ARGV=()
-    while IFS= read -r arg; do DIAGNOSE_ARGV+=("$arg"); done < <(
-      jq -r '.diagnose[]' "$manifest"
-    )
-
-    set +e
-    (cd "$REPO_ROOT" && "${STAGE_ARGV[@]}")
-    stage_rc=$?
-    (cd "$REPO_ROOT" && "${DIAGNOSE_ARGV[@]}") >"$findings"
-    diagnose_rc=$?
-    set -e
-
-    if [ "$stage_rc" -eq 0 ] && [ "$diagnose_rc" -eq 0 ] \
-      && jq -e '.findings | type == "array" and all(.[]; .status != "fail")' "$findings" >/dev/null; then
-      bash "$MMW" release stage done --stage "$stage"
-    else
-      bash "$MMW" release stage fail --stage "$stage" --findings "$findings"
-      post_fail="$(bash "$MMW" release where)"
-      case "$post_fail" in
-        PAUSED:*|CORRUPT:*|FAILED-STAGE:*|NO-STAGES:*) ;;
-        *)
-          bash "$MMW" release dispatch --stage "$stage" --findings "$findings"
-          post_dispatch="$(bash "$MMW" release where)"
-          case "$post_dispatch" in
-            STAGE:*|RETRY-STAGE:*) bash "$MMW" release round next ;;
-            PAUSED:*|CORRUPT:*|FAILED-STAGE:*|NO-STAGES:*|SUCCESS:*) ;;
-          esac
-          ;;
-      esac
-    fi
-    rm -f "$findings"
+    # 引擎的 stage run 是唯一执行器:它按 state 读取 stage argv、展开 ${RELEASE_STAGE_DIR} /
+    # ${RELEASE_PLUGIN_DIR}、把 build stage 的 mmw-release-remote-build 路由到远程 harness、
+    # 跑 manifest.diagnose、按退出码写 done|failed 并把 findings 记进 attempt ledger。
+    # 驱动器不自建第二执行器,也不 shell-split 展示串 RUN:<display>。
+    bash "$MMW" release stage run --stage "$stage"
+    post="$(bash "$MMW" release where)"
+    case "$post" in
+      RETRY-STAGE:*)
+        # 本 stage 失败并已分级。P0 / 同 fingerprint 熔断 / 预算熔断会被引擎写成 PAUSED(不是
+        # RETRY-STAGE),不会走到这。派一次修复:findings 由引擎从最近 attempt 的 artifact_refs 读回,
+        # 驱动器无须自持 findings 文件。
+        bash "$MMW" release dispatch --stage "$stage"
+        post_dispatch="$(bash "$MMW" release where)"
+        case "$post_dispatch" in
+          STAGE:*|RETRY-STAGE:*) bash "$MMW" release round next ;;
+        esac
+        ;;
+    esac
     ;;
   SUCCESS:*)
     [ "$(bash "$MMW" release exit-check)" = "DONE" ] || exit 1
@@ -83,18 +60,18 @@ case "$state" in
 esac
 ```
 
-`stage_rc` 与 `diagnose_rc` 必须分开保存。stage 非零而 diagnose 没有 fail finding 时，仍把 diagnostics 交给 `stage fail`；引擎会以 `needs-context` PAUSE，绝不能把构建失败伪装成 `stage done`。空 findings、非法 JSON、非法 Finding 同样由 `stage fail` surface，驱动器不自行补默认 finding 或重试。
+`stage run` 内部分开保存 stage 退出码与 diagnose 结果:stage 非零而 diagnose 没有 fail finding 时，引擎以 `needs-context` PAUSE，绝不把构建失败伪装成 `stage done`。空 findings、非法 JSON、非法 Finding 同样由引擎 surface，驱动器不自行补默认 finding、不自行重试。
 
 ## 何时推进修复轮次
 
 `round next` 代表一次已处置的修复/派生重试，不是“跑过一个 stage”的计数器。
 
-- stage argv 成功且 diagnose 无 fail：只 `stage done`，立即重新 `where`。多阶段 no-op loop 因此可以直接到 `SUCCESS`，不消耗 round。
-- stage 失败或 diagnose 有 fail：先以同一份 findings `stage fail`。若引擎已 surface，读取 receipt，不 dispatch。
-- 引擎尚未 surface：`dispatch` 让引擎按 P2/P1/P0 和收敛护栏裁决。只有 dispatch 后 `where` 仍为 `STAGE` / `RETRY-STAGE`，才调用一次 `round next`，随后重新 `where` 重跑同一失败 stage。
+- `stage run` 成功（diagnose 无 fail）：引擎写 `stage done`，立即重新 `where`。多阶段 no-op loop 因此可以直接到 `SUCCESS`，不消耗 round。
+- `stage run` 失败：引擎已在其内部跑完 diagnose 并 `stage fail` 分级。若引擎已 surface（`where` 为 `PAUSED`），读取 receipt，不 dispatch。
+- 引擎尚未 surface（`where` 为 `RETRY-STAGE`）：`dispatch --stage <name>` 让引擎按 P2/P1/P0 和收敛护栏裁决（findings 从 attempt ledger 读回）。只有 dispatch 后 `where` 仍为 `STAGE` / `RETRY-STAGE`，才调用一次 `round next`，随后重新 `where` 由 `stage run` 重跑同一失败 stage。
 - P0、同 fingerprint 熔断、attempt / round / wall-clock 预算熔断都由引擎写成 `PAUSED`。不再调用 `round next`，不继续跑 stage。
 
-你不判 P0/P1/P2，不改工作树，不绕 path-gate、post-fix gate 或 dispatch。P2 的真相源派生、P1 的修复提交和 P0 的人工门禁都属于引擎；驱动器只提供原始 stage 结果与同一份 diagnose findings。
+你不判 P0/P1/P2，不改工作树，不绕 path-gate、post-fix gate 或 dispatch，也不自建第二执行器。stage 执行、真相源派生、P1 的修复提交和 P0 的人工门禁都属于引擎；驱动器只连续问 `where`、调 `stage run` / `dispatch` / `round next` 并如实推进。
 
 ## 终态、回执和恢复
 
