@@ -1,110 +1,80 @@
 # AGENTS.md
 
-## 作用域
+> 本文管这个项目怎么做,是项目规范单一源:Droid 直接读本文,Claude 经 `CLAUDE.md` 导入本文。跨项目通用规范在各宿主的全局规则文件,本文只写本项目特有的。
 
-本文件是 Codex 在本仓库工作的规则入口，只记录稳定的仓库事实、所有权边界、运行时合同和验收门槛。详细架构写在 `codex-orchestrate-new/architecture-draft.md`；面向使用者的快速入口写在 `README.md`。
+## 这个项目在做什么
 
-## 当前真相
+`plugin/` = 正式启用的多模型开发编排 plugin。**目标**:做成能落地、被用户长期持续使用的商业化 plugin——让用户在**讨论 / 设计阶段与主线程对齐(HITL 集中在 propose/design)**,从**计划阶段起放权自主跑**(计划审是模型闸、不问人),从而多线程工作、不从头盯到尾。
 
-- 本仓库有**两类**系统，互不耦合：(1) **编排插件系统**（`plugin/` + `codex-orchestrate-new/`，下面 当前真相 余下条目 + 目录合同 + Workflow 合同 管它）；(2) **独立 skill / agent 系统**（`skills/` + `agents/`，由下面「## 独立 skill / agent 系统」单独管）。改其中一类不波及另一类。
-- 编排插件系统保存同一套编排思想的两个源码入口。
-- `plugin/` 是上游插件源码和行为蓝本。Codex 可以只读它来做 parity 对照，但不能修改、格式化、构建、安装或暂存 `plugin/` 下的文件。
-- `codex-orchestrate-new/` 是 Codex 原生源码权威。skills、TOML agents、hooks、scripts、state schema、build templates、manifest 和运行时合同都应落在这里。
-- `.agents/plugins/marketplace.json` 负责把 Codex plugin 暴露给 repo-local marketplace；source path 必须指向 `./codex-orchestrate-new`。
-- `codex-orchestrate-new/.codex-plugin/plugin.json` 是 Codex plugin manifest；版本号以该文件为准，并且必须声明 `skills: "./skills/"` 与 `hooks: "./hooks.json"`。
-- Source 改动不等于 runtime 已生效。发布或安装类任务必须在受影响时核对 plugin cache、custom agent runtime、hook wiring 和 SessionStart 输出。
+**双宿主**:同一套流程真相,脚本自动识别 Claude Code / Droid(`plugin/scripts/lib/host.sh`)。宿主差异只走适配层,合同见 `plugin/skills/orchestrate/references/control/host-contract.md`。**Codex 不是独立 plugin,是 Claude 宿主下 plugin 里的一个工人**(写计划 / 落地 / 审查),只装 plugin 内那几个软链 skill(worktree-build/plan/review)就够用。
 
-## 独立 skill / agent 系统（design→plan→review 链）
+**验收标准**:第二个零上下文 agent 能照 plugin 独立跑通,不靠我临场解释。
 
-这套是从编排插件里**拆出来的独立系统**，不依赖 orchestrate coordinator / `spawn_agent` / `codex-orchestrate-new` 的 state·dispatch·hook 机制。Claude 和 Codex **都直接用**：Claude 经 Skill / Agent 工具调；Codex 直接 Read 对应 `.md` 全文照做。两边对称，无主从。
+## 边界
 
-**成员（权威落点）：**
+- **活跃**:`plugin/`(正式启用;Claude + Droid marketplace 都 source 指它)+ `docs/plugin/`(设计文档 / OVERVIEW,**不随插件发布**)
+- **禁区**(明确指令才动):`codex/`(Codex agent/hook/sync)、`archive/`(归档 v1)
 
-| 类 | 文件 | 角色 |
-| --- | --- | --- |
-| skill | `skills/write-design-doc/` | 模糊输入 → 设计文档（A 访谈 / B 综合两条路）+ 领域文档 |
-| skill | `skills/write-plan-doc/` | 已评审设计 + issue → 实施计划（fan-out `plan-writer`）|
-| skill | `skills/second-model-review/` | 派第二个模型审①设计/②计划/③落地/④final，亲验处置 findings |
-| agent | `agents/plan-writer.md` | 单个大 issue → 一份自洽 plan（被 write-plan-doc 派）|
-| agent | `agents/tdd-executor.md` | 一份 Task Pack → TDD 落地代码 |
-| agent | `agents/root-cause-analyst.md` | 未知根因 bug → 调查 + 修 |
+## 全貌 + 工作流权威
 
-`agents/plan-writer.md` 是本系统权威；`plugin/agents/plan-writer.md` 属编排插件世界，与本系统无关，不管、不同步。
+- plugin 架构总览:`docs/plugin/OVERVIEW.md`(一张主图 + 三层结构 + 八阶段)。改 plugin 前先读。OVERVIEW 是**全貌不是流水账**。
+- 工作流权威:`~/Documents/multi model workflow.pdf`——日常工作流的源,plugin 照它的节点和箭头建。
 
-**链路（谁交给谁）：**
+## Skill 创建法则(改 plugin 的 skill / reference 必须照这 11 条)
 
-```
-write-design-doc ──①审──> to-tickets ──> write-plan-doc ──②审──> tdd-executor ──③/④审──> done
-       ^                                      │ (派 plan-writer)
-       └──────── needs redirection / design gap 回流 ───────┘
-```
+1. **SKILL 纯路由**:只做断点恢复 + 选路 + 指到该读哪份 reference,**不内联方法论**。
+2. **reference 整份指引,无碎片跳转**:agent 被指去**读一份完整 reference**,不"读 SKILL 某段"也不"读 reference 某节"。禁 `§N` / `见上见下` / `见 X.md 的 Y 节` / `详见 X.md 附录`。需要的内容放进读者要读的那份里。
+3. **不读无关**:每路径(small-change/develop/bug/merge)、每阶段一份干净完整文档;共用步骤(建 worktree、契约、回执)在各份里**重复写**,由 `build/build.sh` + `build/fragments/*` 单源注入——读者只读一份,重复不算冗余。
+4. **不写废话**:runtime 指南只写"干什么 + 跑什么命令",不写"为什么这么设计"(理由进 `docs/plugin`),不解释确定逻辑。
+5. **确定的归脚本 / 命令**:机械步骤做成 `mmw` 命令或 workflow 脚本,文档只说"判断完跑哪个、填什么参数就跑",agent 快进快出**不手搓**。两个方向就两个脚本(如 investigate-internal / external)。
+6. **mmw 不必每份重定义**:agent 永远先经 orchestrate SKILL 进来、那时已知 `mmw`,reference 直接 `mmw X` 用即可。
+7. **每一步都是 plugin 告诉的、且正确**。"plugin 没告诉我却要做"的动作 = 缺口,补进 plugin(如 checkpoint 展示格式要在文档里定死),别临场发挥。
+8. **路由分叉 / HITL 闸 / 给方案归 orchestrate + flow**,不归阶段方法论 skill(如 propose 阶段)。两条路用引擎现成出口:`pass`→advance,`needs-redirection`→回上游。
+9. 照 **PDF** 建。
+10. 设计文档放 `docs/plugin/`,**不进可发布的 `plugin/`**。
+11. **修在 worktree 分支,完事 `--no-ff` 合回 main**,不在 main / worktree 两头跳改(会读到旧码)。
 
-**Gap 回流单一源**：设计文档 `## Cross-Plan Contract Anchors` 由 write-design-doc 留占位、write-plan-doc 主 Agent 回填；plan-writer 不碰设计文档。
+## PDF 工作流(plugin 要实现的端到端)
 
-**统一 verdict 词表（本系统所有 skill + agent 只用这五个，禁自造同义词）：**
+四开口(新设计 / 优化改造 / bug / 合并)→ **investigate**(内部仓库 + 外部方案,取证不判定;Claude=Workflow / Droid=Task→investigate-topic)→ **propose 给方案**(综合现状亮 2-3 方案,HITL)→ **design**(domain 对齐 + 设计审 + to-issue 切片)→ **plan**(单 / 多计划,跨计划合同骨架,fan out Codex 写计划工人 `mmw worker plan-dispatch`,计划审)→ **写码工人落地**(`mmw worker dispatch`;Claude 后端 codex CLI / Droid 后端 Task→pack-executor)→ **final review**(Claude 无头 CLI / Droid reviewer-* droids)。
 
-| verdict | 含义 |
-| --- | --- |
-| `pass` | 产物合格，往下走 |
-| `needs repair` | 产物方向对、但有缺陷要修（原 plan-writer 用的 `needs revision` 已并入此词）|
-| `needs redirection` | 源意图 / 方向本身错——别对着错方向修产物，停下交用户拍 |
-| `needs context` | 缺输入（设计 / issue / 路径 / 术语不清）才没法继续 |
-| `blocked` | 连续 3 次返修仍不过，停，带完整历史返回 |
+- **HITL 集中在 propose / design 阶段**;进了计划 / 落地默认无人值守,不轻易停下问。
+- 断点续传:阶段级 + 内层 loop。
+- merge:解 git 文本冲突之外的**业务意图 / 功能设计冲突**。
+- 又稳又快:确定的用脚本固定,流程不绕不卡。
 
-**"第二个模型"对称原则**：reviewer 与作者只要**不同上下文**即可，不绑定具体模型——Claude 驱动派 Codex，Codex 驱动派 Claude 或全新 Codex 实例。详见 `skills/second-model-review/SKILL.md`。
+## 执行纪律(本项目强调,补全局规范)
 
-**讨论连贯性**：write-design-doc 访谈模式要求每轮先锚定当前基线、把反馈当局部 delta、方案只提一次、确认的决定立刻落进设计文档草稿——基线在文件里，不靠会话记忆。Codex 驱动设计讨论时尤其按此守，避免每轮重摆全新方案。
+- **不作弊**:演练就真跑 plugin,不照文档脑补;"plugin 告诉我的"必须真是它当场报的。
+- **子代理不是信源**:它给的 `file:line` / 计数 / 存在性,写进交付物或汇报前亲验(grep / Read / 跑)。
+- **不静默兜底**:脚本失败必须留痕(fail-closed),不吞异常 / 不填默认伪装成功;合法降级也要结构化告警。
+- **跟着 plugin 走**,不被 workflow / 工具带偏。
 
-## 目录合同
+## 硬规则
 
-| 路径 | 责任 | 规则 |
-| --- | --- | --- |
-| `codex-orchestrate-new/architecture-draft.md` | Codex 架构权威 | 必须贴合 live source 合同；不要为了让文档好看而改运行时行为。 |
-| `codex-orchestrate-new/skills/` | Codex skill 入口 | 保留 route graph 和 phase contract；phase reference 必须能从所属 skill 找到。 |
-| `codex-orchestrate-new/agents/*.toml` | Codex custom agents | agent 指令必须自足；subagent 不会自动继承父 skill 的 references。 |
-| `codex-orchestrate-new/hooks.json` | Codex hook manifest | hook 注册在这里；`hooks/` 只放可执行 handler。不要迁回 `hooks/hooks.json`。 |
-| `codex-orchestrate-new/hooks/` | Hook handlers | 使用 Codex payload 和 plugin-root 路径，不使用旧 payload 名称或依赖 cwd 的路径。 |
-| `codex-orchestrate-new/scripts/` | 状态、派发、验证、summary 工具 | 状态路径属于 `.codex/multi-model-workflow/`；不要给旧 runtime 加 fallback。 |
-| `codex-orchestrate-new/state-schema/` | workflow / execution state 合同 | schema、`state.sh`、validators 和生成文本必须一致。 |
-| `codex-orchestrate-new/build/` | template / resolver 系统 | 改 template 要 build apply/check；生成片段必须和 resolver 输出一致。 |
-| `docs/orchestrate/` | 设计与审查证据 | workflow 行为、成熟度标准、route 语义或验收门槛变化时同步更新。 |
+- `git merge --squash` 禁,必须 `--no-ff`。
+- Worker(worktree 内运行)不改 `docs/`,只有 Coordinator(主线程)能改。
+- 改了 `build/fragments/*.md` 或带锚点的 skill → 跑 `bash plugin/build/build.sh --apply` 再 `--check`(锚点内手改会被覆盖)。
+- push / `gh pr merge` / 部署是红线,要人批;**本地 `git merge`(含进 main)不拦**——可逆、不出站,真正红线是它之后的 push。
 
-## Workflow 合同
-
-- `orchestrate-workflow` 是 coordinator 入口。Formal work 依次走 discovery、plan writing、execution、final review 和 closing。
-- Route 2 处理未知根因 bug；Route 3 处理 multi-PR merge；Routes 4-7 分别覆盖 hotfix、quick fix、spike、maintenance。不要把这些路线压成一个泛执行流程。
-- Codex App 启动的 workflow 常位于 `.codex/worktrees/...` detached HEAD。进入正式执行前必须先在当前 worktree 创建命名分支；如果当前目录是主仓库，则只允许先创建独立 worktree，不得在主仓库直接切任务分支。
-- 派发必须是 Codex-native：使用 `spawn_agent`、`resume_agent`、`send_input`、`wait_agent`、`close_agent`，并调用已注册的 `pack_executor`、`complex_pack_executor`、`plan_writer`、`codex_reviewer`、`root_cause_analyst` 和 explorer agents。
-- 派发后必须尊重 sub-agent ownership：Coordinator 不重复执行已派发的同一任务，不用短间隔轮询催促，不在未完成时要求中间结论，不中断或关闭仍在运行的 agent。等待期间只能做不重叠的协调工作；需要结果才能继续时就等待 `wait_agent` 返回。
-- sub-agent 生命周期必须闭合：`wait_agent` 返回 final status 后，先把 final message / result file / registry / state ingest 全部 durable 落盘，再 `close_agent` 释放容量。`close_agent` 不丢 owner，上游 Codex 工具允许之后用 `resume_agent` 重新打开 closed agent；因此 agent id 必须先写入 state / registry。后续需要同一 owner 续修时，先 `resume_agent` 再 `send_input`，再次等待、保存结果并关闭。不得让 completed agents 长期挂起占用并发上限。
-- Pack / review prompt 必须自带 scope、anchors、return contract 和 routing vocabulary。不要假设 worker 或 reviewer 能从父 skill 隐式推断上下文。
-- 高风险合同栈是 `workflow-state` / `execution-state`、`DISPATCH_ENVELOPE`、dispatch validators、hook registration、template-generated text、review budget 和 verify harness。成熟度或 runtime 变更必须逐层核。
-- Hook 的价值在于从 Codex plugin manifest 自动触发。能手动运行的 helper script 不等于 hook wiring 已生效。
-- `plugin/` 可以提供行为意图，但 Codex 落地必须使用 Codex-native 路径、payload、subagent 字段、state file 和安装合同。
-
-## 改动纪律
-
-- 改动前先读 `README.md`、本文件、相关 `codex-orchestrate-new/**/agents.overrides.md` 和实际要动的源码。
-- 改 `codex-orchestrate-new/` 子目录时，同步检查本层或上层 `agents.overrides.md` 是否需要更新。
-- 文档、计划、skill、reference、agent 指令、template 和面向用户 / agent 的源码文字默认使用中文。英文只用于必要的命令、路径、协议字段、工具名、代码标识符、API 名称和不可翻译的宿主术语。
-- 如果当前目录是 Codex App detached worktree，先在原地创建命名分支再改文件；已有任务名时用 `codex/<task-slug>`，尚未确定任务名时用 repo/date/worktree id 组成临时分支名。如果当前目录是主仓库主分支，先创建 Codex 约定路径下的 worktree，再进入 worktree 工作。不要在主仓库直接新建或切换任务分支。
-- 除非用户明确要求上游插件工作，否则不要修改 `plugin/`。
-- 不要重建 `.agents/skills/orchestrate-*`、旧 `codex/` 源码树或旧 `codex-orchestrate/` 作为当前权威。
-- Source 改动完成后不要自动同步到 runtime。常规修复以 source diff、验证结果和 commit 为交付边界；只有用户明确要求安装、发布、同步 runtime，或在汇报 source 验证结果和 runtime dry-run 差异后获得明确确认，才允许写入 `~/.codex/plugins/cache/`、`~/.codex/agents/` 或 `~/.codex/config.toml`。
-- commit 要原子且及时。一个有意义的 repo rule、runtime contract、hook、build 或 doc-sync 改动应单独提交；不要把多个 phase、多个 pack 或多轮修复堆到最后一次性提交。
-- 纯文档、规则、计划或提示词改动不新增无意义测试。验证应证明真实合同：`git diff --check`、build check、生成器 check、路径 / 链接校验、manifest / schema 校验或人工可审查 diff。不要为了断言某句文字存在而新建 grep 测试，除非那句话是生成产物或 runtime contract 的正式锚点。
-
-## 验证门槛
-
-按改动面选择能证明合同的最小验证。涉及 Codex Orchestrate 行为时优先使用：
+## 常用命令(plugin)
 
 ```bash
-bash codex-orchestrate-new/build/build.sh --check --plugin-dir codex-orchestrate-new
-bash codex-orchestrate-new/scripts/run-all-tests.sh
-bash codex-orchestrate-new/scripts/verify-maturity.sh codex-orchestrate-new
-bash codex-orchestrate-new/scripts/validate-plugin-contract.sh codex-orchestrate-new
+# 统一 CLI(读完 skill 直接用)
+bash plugin/scripts/mmw.sh help          # where|handoff|step|spinoff|task|loop|review|worker(codex 别名)|progress
+bash plugin/scripts/mmw.sh where          # 我在哪阶段 / 下一步读啥干啥交啥
+export MMW_HOST=droid                     # 可选显式锁定;一般靠 DROID_PLUGIN_ROOT 自动检测
+
+# 全量测试
+for t in plugin/scripts/tests/test_*.sh; do bash "$t" || break; done
+bash plugin/build/tests/test_build.sh
+
+# 构建(共用片段注入各路径 reference)
+bash plugin/build/build.sh --check        # 片段改了没 apply 会报 DRIFT
+bash plugin/build/build.sh --apply
+
+# JSON 格式
+python3 -m json.tool plugin/state-schema/routes.json >/dev/null
 ```
 
-当前系统级 `validate_plugin.py` 如果拒绝 `.codex-plugin/plugin.json` 的 `hooks` 字段，不代表本仓库 manifest 错误。Codex Orchestrate 必须保留 `"hooks": "./hooks.json"`；此时以 `build.sh --check`、`run-all-tests.sh`、`verify-maturity.sh` 和 manifest/hook source 审查作为权威验证，不为了通过旧 validator 删除 hooks。
-
-发布或安装类任务还要验证 source/runtime parity，不要只相信安装输出。按 manifest 版本核对 `~/.codex/plugins/cache/multi-model-workflow/multi-model-workflow/<version>/` 下的 plugin cache、`~/.codex/agents/` 下的 agent TOML，以及本次改动涉及的 hook / SessionStart 行为。
+> 接线:`plugin/.claude-plugin/plugin.json` + `plugin/.factory-plugin/plugin.json` + 根 marketplace(`.claude-plugin/` / `.factory-plugin/`) source 均指 `./plugin`。hooks 双 matcher `Bash|Execute`;Droid Custom Droids 在 `plugin/droids/`。改版本号同步 Claude/Droid 两侧 plugin.json 与 marketplace。
