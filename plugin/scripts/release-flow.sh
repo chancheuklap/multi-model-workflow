@@ -674,19 +674,34 @@ _run_remote_build() {
   scp "$script" "$remote_host:$remote_input/release.ps1" || return $?
   scp "$remote_context" "$remote_host:$remote_input/release-context.json" || return $?
 
+  # 清掉上一轮遗留的构建产物:remote_input 只按 commit 命名,resume / 重跑同 commit 时若不清,
+  # 首次轮询就会读到过期 exitcode(如上轮的 "0")而把仍在跑或已失败的本轮误判成功。
+  ssh "$remote_host" "Remove-Item -Force -ErrorAction SilentlyContinue '$remote_input/build-run.log','$remote_input/build-run.exitcode'" >/dev/null 2>&1 || true
+
   task_name="mmw-release-${source_commit:0:12}-${RANDOM}"
   ssh "$remote_host" "schtasks /create /tn '$task_name' /tr \"powershell -NoProfile -ExecutionPolicy Bypass -Command \\\"Expand-Archive -Force '$remote_input/source.zip' '$remote_input/source'; & '$remote_input/release.ps1' *>> '$remote_input/build-run.log'; \\\$LASTEXITCODE | Set-Content '$remote_input/build-run.exitcode'\\\"\" /sc once /st 00:00 /f" || return $?
   ssh "$remote_host" "schtasks /run /tn '$task_name'" || return $?
 
-  local poll seen="" exit_code="" attempt
-  for attempt in 1 2 3; do
-    seen="$(ssh "$remote_host" "if (Test-Path '$remote_input/build-run.log') { 'Y' } else { 'N' }" 2>/dev/null || true)"
+  # 真实 Windows 构建耗时分钟级:轮询「本轮 exitcode 文件出现」而非日志出现,带间隔、有上限,
+  # running 不当 fail。间隔/上限可经 env 调,测试用 fake ssh 首轮即有 exitcode、不进 sleep。
+  local poll_seconds="${RELEASE_REMOTE_BUILD_POLL_SECONDS:-15}"
+  local max_seconds="${RELEASE_REMOTE_BUILD_TIMEOUT_SECONDS:-3600}"
+  local waited=0 seen="" exit_code=""
+  while :; do
+    seen="$(ssh "$remote_host" "if (Test-Path '$remote_input/build-run.exitcode') { 'Y' } else { 'N' }" 2>/dev/null || true)"
+    seen="${seen%%[$'\r\n']*}"
     if [ "$seen" = "Y" ]; then
       exit_code="$(ssh "$remote_host" "Get-Content '$remote_input/build-run.exitcode'" 2>/dev/null || true)"
+      exit_code="${exit_code%%[$'\r\n']*}"
       [ -n "$exit_code" ] && break
     fi
+    if [ "$waited" -ge "$max_seconds" ]; then
+      echo "ERROR: remote build 超时 ${max_seconds}s 未产出 exitcode(task=$task_name)" >&2
+      return 70
+    fi
+    sleep "$poll_seconds"
+    waited=$((waited + poll_seconds))
   done
-  [ "$seen" = "Y" ] || { echo "ERROR: remote build 未出现 build-run.log" >&2; return 70; }
   case "$exit_code" in
     ''|*[!0-9-]*) echo "ERROR: remote build exit-code 非法: $exit_code" >&2; return 70 ;;
   esac

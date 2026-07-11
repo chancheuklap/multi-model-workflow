@@ -154,6 +154,34 @@ else
 fi
 
 bash "$RF" close >/dev/null
+
+# 回归 F3:真实构建耗时分钟级 + remote_input 只按 commit 命名。harness 必须清掉上一轮
+# build-run.{log,exitcode} 再跑,并轮询等待本轮 exitcode 出现,不是 3 次即弃、也不信过期产物。
+cat > remote-bin/ssh <<'SH'
+#!/usr/bin/env bash
+printf 'ssh %s\n' "$*" >> "$TRANSPORT_CALLS"
+case "$*" in
+  *Test-Path*)
+    n=$(( $(cat "$POLL_COUNTER" 2>/dev/null || echo 0) + 1 ))
+    printf '%s' "$n" > "$POLL_COUNTER"
+    if [ "$n" -ge 3 ]; then printf 'Y\n'; else printf 'N\n'; fi
+    ;;
+  *Get-Content*) printf '0\n' ;;
+esac
+SH
+chmod +x remote-bin/ssh
+: > "$TMP/transport.calls"
+printf '0' > "$TMP/poll-counter"
+bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+if PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" \
+   POLL_COUNTER="$TMP/poll-counter" RELEASE_REMOTE_BUILD_POLL_SECONDS=0 \
+   RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release-input" bash "$RF" stage run --stage build >/dev/null; then
+  grep -q 'Remove-Item' "$TMP/transport.calls" && ok "remote build 开跑前清旧 build-run 产物(不信过期 exitcode)" || no "remote build 未清旧产物"
+  [ "$(grep -c 'Test-Path' "$TMP/transport.calls")" -ge 3 ] && ok "remote build 轮询等待本轮构建完成(非 3 次即弃)" || no "remote build 未等待构建"
+else
+  no "remote build 等待完成后 exit=0 应完成 stage"
+fi
+bash "$RF" close >/dev/null
 bash "$RF" init --manifest "$FIX/manifest.fake.json" --max-rounds 1 >/dev/null
 out="$(bash "$RF" round next)"
 case "$out" in
