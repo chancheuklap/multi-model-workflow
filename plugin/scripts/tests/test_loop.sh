@@ -44,7 +44,7 @@ bash "$LOOP" init --kind execution >/dev/null
 [ "$(jq -r .attendance .claude/multi-model-workflow/loop-state.json)" = "afk" ] && ok "无 task.json 时 init 缺省 afk" || no "缺省 afk"
 bash "$LOOP" step add --id 2.1 --desc x >/dev/null
 # unattended 也是合法档(软停自决,与 afk 同路;禁问是 Coordinator 合同,不在 loop 层)
-bash "$LOOP" attendance --mode unattended >/dev/null | grep -q . || true
+bash "$LOOP" attendance --mode unattended >/dev/null
 [ "$(jq -r .attendance .claude/multi-model-workflow/loop-state.json)" = "unattended" ] && ok "attendance 接受 unattended" || no "attendance unattended"
 bash "$LOOP" attendance --mode afk >/dev/null
 # afk:自决+留痕,不写 pause

@@ -60,10 +60,11 @@ st="$(jq -r '.steps[]|select(.id=="2.1")|.status' ${STATE_SUBDIR}/loop-state.jso
 [ "$st" = "done" ] && ok "提交 Pack 2.1 → 记 step done" || no "记 step done ($st)"
 sha="$(jq -r '.steps[]|select(.id=="2.1")|.commit' ${STATE_SUBDIR}/loop-state.json)"
 [ -n "$sha" ] && [ "$sha" != "null" ] && ok "记下 commit sha" || no "记 sha"
-# 非 commit 命令不动
-P_NOOP='{"tool_input":{"command":"ls -la"}}'
-run_hook record-step.sh "$P_NOOP" >/dev/null
-ok "非 commit 命令安全跳过(无崩)"
+# 非 commit 命令:hook 早退(exit 0)且不碰 loop-state(record-step.sh:11 grep 不中即 exit 0)
+before="$(cat ${STATE_SUBDIR}/loop-state.json)"
+ec_noop="$(run_hook record-step.sh '{"tool_input":{"command":"ls -la"}}')"
+after="$(cat ${STATE_SUBDIR}/loop-state.json)"
+[ "$ec_noop" = "0" ] && [ "$before" = "$after" ] && ok "非 commit 命令 → 早退 exit 0、loop-state 不变" || no "非 commit 应早退不改 state (ec=$ec_noop)"
 
 # ===== session-triage(SessionStart 分诊)=====
 # 非 git 目录 → 静默退出(不注入不报错)
