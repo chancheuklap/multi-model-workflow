@@ -8,7 +8,24 @@ LOOP="$SCRIPT_DIR/../scripts/loop.sh"
 
 input="$(cat)"
 cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")"
-printf '%s' "$cmd" | grep -Eq 'git[[:space:]]+commit' || exit 0
+
+# 只认命令位的 git commit——echo/文档文本里提到 "git commit ... Pack N.M" 不算,防误记进度
+is_commit=0
+segs="$(printf '%s\n' "$cmd" | tr ';|&()`' '\n')"
+while IFS= read -r seg; do
+  set -f
+  # shellcheck disable=SC2086
+  set -- $seg
+  set +f
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      [A-Za-z_]*=*|sudo|env|command|nohup|time) shift ;;
+      *) break ;;
+    esac
+  done
+  if [ $# -ge 2 ] && [ "$1" = "git" ] && [ "$2" = "commit" ]; then is_commit=1; break; fi
+done <<< "$segs"
+[ "$is_commit" = "1" ] || exit 0
 
 pack="$(printf '%s' "$cmd" | grep -oE 'Pack[[:space:]]+[0-9]+\.[0-9]+' | head -1 || true)"
 [ -n "$pack" ] || exit 0

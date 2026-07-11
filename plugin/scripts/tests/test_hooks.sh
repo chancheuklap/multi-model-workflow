@@ -43,6 +43,11 @@ is_allow "$(pl 'git pull origin main')" && ok "git pull(入站)→ 放行" || no
 is_allow "$(pl 'git commit -m \"docs: deploy guide\"')" && ok "commit message 含 deploy → 放行(剥引号)" || no "commit deploy 误拦"
 is_allow "$(pl 'git commit -m \"please push after review\"')" && ok "commit message 含 push → 放行(剥引号)" || no "commit push 误拦"
 is_allow "$(pl "echo 'how to merge branches' > note.txt")" && ok "单引号文本含 merge → 放行(剥引号)" || no "echo merge 误拦"
+# 命令位判定:关键词落在参数位(echo/printf/grep 文本)不是动作 → 放行;包装器/复合命令里的真动作仍拦
+is_allow "$(pl 'echo git push origin main')" && ok "echo 参数位文本 git push → 放行(命令位判定)" || no "echo git push 误拦"
+is_allow "$(pl 'grep -rn git.push docs/')" && ok "grep 模式含 push → 放行" || no "grep push 误拦"
+is_ask "$(pl 'timeout 30 git push origin main')" && ok "timeout 包装的 git push → ask" || no "timeout git push 绕过"
+is_ask "$(pl 'cd /x && git push')" && ok "复合命令中段 git push → ask" || no "复合 git push 绕过"
 # 任意分支 merge 都放行(本地不出站);push 在任意分支仍 → ask(出站)
 git checkout -q -b task/x
 is_allow "$(pl 'git merge plan-a --no-ff')" && ok "任务分支 merge → 放行" || no "任务分支 merge 误拦"
@@ -65,6 +70,12 @@ before="$(cat ${STATE_SUBDIR}/loop-state.json)"
 ec_noop="$(run_hook record-step.sh '{"tool_input":{"command":"ls -la"}}')"
 after="$(cat ${STATE_SUBDIR}/loop-state.json)"
 [ "$ec_noop" = "0" ] && [ "$before" = "$after" ] && ok "非 commit 命令 → 早退 exit 0、loop-state 不变" || no "非 commit 应早退不改 state (ec=$ec_noop)"
+# echo 文本里提到 git commit + Pack N.M:参数位不是动作,不得误记进度
+bash "$LOOP" step add --id 2.9 --desc probe >/dev/null
+before="$(cat ${STATE_SUBDIR}/loop-state.json)"
+run_hook record-step.sh '{"tool_input":{"command":"echo git commit -m Pack 2.9: fake text"}}' >/dev/null
+after="$(cat ${STATE_SUBDIR}/loop-state.json)"
+[ "$before" = "$after" ] && ok "echo 文本含 git commit+Pack → 不记(命令位判定)" || no "echo 文本误记进度"
 
 # ===== session-triage(SessionStart 分诊)=====
 # 非 git 目录 → 静默退出(不注入不报错)
