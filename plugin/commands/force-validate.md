@@ -28,6 +28,6 @@ echo "MMW=$MMW"
 `mmw X` ≡ `bash "$MMW" X`;每个新 shell 用回显的绝对路径,别指望 shell 变量跨调用留存。
 <!-- END: locate-mmw -->
 
-1. 先跑 `mmw where` 看当前阶段与可用的 `review_start`。
-2. 触发当前层合法 review:`mmw review start --stage <当前层>`(design/plan/final 等,按 where 报的 stage)。
+1. 先跑 `mmw where` 看当前阶段与可用的 `review_start`(在审闸内 where 会吐出带 `--stage` 和 `--source` 的完整命令)。
+2. 触发当前层合法 review:照抄 where 吐的 `review_start` 整条跑(`--source` 必填,不可省)。不在审闸内则无合法审可起,如实告知用户。
 3. 只跑当前层该跑的审,不越层;审完照 review 回执处理 findings。

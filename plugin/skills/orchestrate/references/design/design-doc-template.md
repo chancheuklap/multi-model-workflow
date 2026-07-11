@@ -51,7 +51,7 @@ boundary type / owner / provider / consumer / 合同类型 / schema 版本 / 登
 哪些行为要测 / 哪些模块 / 类似测试先例 / manual gate / visual verification / regression check。
 
 ## UI / UX 状态
-mockup 目录: docs/design/<YYYY-MM-DD>-<slug>/mockup/（设计目录下,prototype-mockup.md 产出）
+mockup 目录: docs/design/<slug>/mockup/（设计目录下,prototype-mockup.md 产出）
 **Mockup 是可视化设计文档，与文字设计文档地位平等。** 每个 mockup 拆成可验收的行为描述，不能只写"见 mockup 目录"：
 
 | 页面 / 组件 | Mockup 文件 | Viewport | 视觉规格 | 交互行为 | 状态变体 | 验证方式 |

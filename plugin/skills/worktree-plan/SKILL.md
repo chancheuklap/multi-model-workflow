@@ -40,8 +40,8 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
    # <Issue Title> Implementation Plan
 
    **Goal:** <一句话目标>
-   **Source design:** docs/design/<YYYY-MM-DD>-<slug>.md
-   **Source issue:** docs/issues/<YYYY-MM-DD>-<slug>/00N-<issue-slug>.md
+   **Source design:** docs/design/<slug>.md
+   **Source issue:** docs/issues/<slug>/00N-<issue-slug>.md
    **Blocked by:** <其他 plan 编号或 "None">
    **Architecture:** <与本 issue 相关的实现方向>
    **Tech stack:** <实际涉及的框架、服务、测试工具>

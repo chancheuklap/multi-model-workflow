@@ -65,7 +65,7 @@ mmw where
 
 主线程读 `review start` 生成的 `状态平面/review-brief.md`,照「派审者」段**直接派**(findings 落 trace 文件、只回读 verdict 段);完工靠 handoff **确定性闸**(审闸内 `pass` 前引擎核 `loop exit-check==DONE`)。
 
-审者读 `worktree-review` skill(审查方法论单源):**Claude 侧** Codex / Claude 无头 CLI 读它自己 hub 装的(`~/.agents/skills/worktree-review/`);**Droid 侧**读随插件发布的 `plugin/skills/worktree-review/`(派发消息传绝对路径,不赌子代理自动加载)。
+审者读 `worktree-review` skill(审查方法论单源):**Claude 侧** Codex 审者读它自己 hub 装的(`~/.agents/skills/worktree-review/`),code-reviewer sub-agent 读随插件发布的;**Droid 侧**读随插件发布的 `plugin/skills/worktree-review/`(派发消息传绝对路径,不赌子代理自动加载)。
 
 ## 5. 角色 × 模型(Droid Custom Droids)
 
@@ -81,11 +81,11 @@ mmw where
 | `reviewer-plan-b` | 计划审轴B | `claude-opus-4-8` high | read-only |
 | `reviewer-final-a` | final / merge 跨模型路A | `gpt-5.6-terra` high(≠写码) | read-only |
 | `reviewer-final-b` | final / merge 跨模型路B | `claude-opus-4-8` high(≠A) | read-only |
-| `investigate-topic` | 单 topic 取证 | `grok-4.5` high | read-only + web |
-| `code-explorer` | 只读探代码 | `claude-sonnet-5` high | read-only |
+| `investigate-topic` | 单 topic 取证 | `minimax-m3` | read-only + web |
+| `code-explorer` | 只读探代码 | `kimi-k2.7-code` | read-only |
 | `fable-advisor` | 稀疏关键顾问(非审闸) | `claude-fable-5` high | read-only |
 
-**分工极性(两宿主一致)**:Coordinator(主线程)管到设计文档;**计划撰写下放第二模型**(Claude 宿主 Codex `gpt-5.6-terra` / Droid 宿主 `plan-writer` droid `gpt-5.6-terra`),**计划审翻成 Claude**(两轴 `claude-opus-4-8`)。①设计审两轴 `opus`;②计划审两轴 `opus`;①② 每阶段两轴同模型、分两路视角。④final / merge 两轴跨模型(a≠b)。
+**分工极性(两宿主一致)**:Coordinator(主线程)管到设计文档;**计划撰写下放第二模型**(Claude 宿主 Codex `gpt-5.6-sol` high / Droid 宿主 `plan-writer` droid `gpt-5.6-terra` xhigh),**计划审翻成 Claude**(两轴 `claude-opus-4-8`)。①设计审两轴 `opus`;②计划审两轴 `opus`;①② 每阶段两轴同模型、分两路视角。④final / merge 两轴跨模型(a≠b)。
 
 装 plugin 后 droid 落在 `plugin/droids/`;Droid 会话可按 `subagent_type` 引用。Claude 宿主对应表面在 `plugin/agents/`(如 code-reviewer;计划撰写 Claude 宿主走 Codex 无头,无对应 agent),模型/工具名按 Claude 习惯,与 droids 表不必逐字同一 ID。
 
@@ -113,7 +113,7 @@ hooks.json 按宿主分两组 matcher:`Bash` 组带 `if` 前筛(不匹配的命�
 
 两宿主可共装同一 plugin 目录;状态平面按宿主隔离,互不踩盘。
 
-**skill 依赖**:`worktree-build` / `worktree-plan` / `worktree-review` 是 worker / 写计划工人 / reviewer 的方法论单源,**唯一源在 `plugin/skills/`**(宿主中立措辞)。Droid 侧随插件发布,装 plugin 即到位、内联读。Claude 侧的写码 / 写计划 / 审查是**外部** Codex / Claude 无头 CLI,读不到 plugin 内部,须把这三个 skill 装进 Codex 自动扫描的 hub `~/.agents/skills/`——**直接从本仓库 `plugin/skills/` 软链过去**:
+**skill 依赖**:`worktree-build` / `worktree-plan` / `worktree-review` 是 worker / 写计划工人 / reviewer 的方法论单源,**唯一源在 `plugin/skills/`**(宿主中立措辞)。Droid 侧随插件发布,装 plugin 即到位、内联读。Claude 侧的写码 / 写计划 / Codex 审者是**外部** Codex CLI,读不到 plugin 内部,须把这三个 skill 装进 Codex 自动扫描的 hub `~/.agents/skills/`——**直接从本仓库 `plugin/skills/` 软链过去**:
 
 ```bash
 for s in worktree-build worktree-plan worktree-review; do
