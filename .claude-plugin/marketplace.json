@@ -9,7 +9,7 @@
     {
       "name": "multi-model-workflow",
       "description": "多模型开发编排双宿主(Claude+Droid)。HITL 在讨论/设计,计划起自主跑;Droid 用 Custom Droids 分角色;Claude 侧 Codex 写+验。",
-      "version": "6.14.4",
+      "version": "6.15.0",
       "author": {
         "name": "Cheuk Lap Chan",
         "email": "chancheuklapincn@gmail.com"
@@ -28,5 +28,5 @@
       ]
     }
   ],
-  "version": "6.14.4"
+  "version": "6.15.0"
 }
