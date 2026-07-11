@@ -90,6 +90,23 @@ before="$(cat ${STATE_SUBDIR}/loop-state.json)"
 run_hook record-step.sh '{"tool_input":{"command":"echo git commit -m Pack 2.9: fake text"}}' >/dev/null
 after="$(cat ${STATE_SUBDIR}/loop-state.json)"
 [ "$before" = "$after" ] && ok "echo 文本含 git commit+Pack → 不记(命令位判定)" || no "echo 文本误记进度"
+# 真值化回归(v6.15):Pack 从 HEAD 取,不信命令文本
+# a) commit 成功但命令后段有别的 Pack 字样 → 只记 HEAD 真 Pack
+bash "$LOOP" step add --id 3.1 --desc real >/dev/null
+bash "$LOOP" step add --id 9.9 --desc decoy >/dev/null
+echo v3 > c.txt; git add -A; git commit -qm "Pack 3.1: real work"
+run_hook record-step.sh '{"tool_input":{"command":"git commit -m \"Pack 3.1: real work\" && echo Pack 9.9 next"}}' >/dev/null
+[ "$(jq -r '.steps[]|select(.id=="3.1")|.status' ${STATE_SUBDIR}/loop-state.json)" = "done" ] && ok "HEAD 真 Pack 3.1 → 记 done" || no "真 Pack 未记"
+[ "$(jq -r '.steps[]|select(.id=="9.9")|.status' ${STATE_SUBDIR}/loop-state.json)" = "pending" ] && ok "命令文本诱饵 Pack 9.9 → 不记(HEAD 真值)" || no "诱饵 Pack 被误记"
+# b) commit 失败(HEAD 没动、信息里无该 Pack)→ 不记
+bash "$LOOP" step add --id 4.1 --desc failcase >/dev/null
+run_hook record-step.sh '{"tool_input":{"command":"git commit -m \"Pack 4.1: never landed\""}}' >/dev/null
+[ "$(jq -r '.steps[]|select(.id=="4.1")|.status' ${STATE_SUBDIR}/loop-state.json)" = "pending" ] && ok "commit 失败 → 不记(sha 不脏)" || no "失败提交被误记"
+# c) git -C <path> commit 形态 → 记(全局选项剥离)
+bash "$LOOP" step add --id 5.1 --desc cdir >/dev/null
+echo v5 > c.txt; git add -A; git commit -qm "Pack 5.1: via -C"
+( cd / && printf '{"tool_input":{"command":"git -C %s commit -m \\"Pack 5.1: via -C\\""}}' "$TMP" | bash "$HOOKS/record-step.sh" ) >/dev/null 2>&1
+[ "$(jq -r '.steps[]|select(.id=="5.1")|.status' ${STATE_SUBDIR}/loop-state.json)" = "done" ] && ok "git -C <path> commit → 记(跨目录真值)" || no "git -C commit 漏记"
 
 # ===== session-triage(SessionStart 分诊)=====
 # 非 git 目录 → 静默退出(不注入不报错)
@@ -126,7 +143,7 @@ allif_bash="$(jq -r '[.hooks.PreToolUse[],.hooks.PostToolUse[]|select(.matcher==
 # 红线 if 关键词集必须覆盖 guard-redline 全部 ask 命令(漏一条 = Claude 侧红线漏拦)
 kw="$(jq -r '.hooks.PreToolUse[]|select(.matcher=="Bash")|.hooks[].if' "$HJ" | sed -E 's/^Bash\(\*//; s/\*\)$//' | paste -sd'|' -)"
 miss=0
-for c in 'git push origin main' 'git -c core.hooksPath=/dev/null push origin main' 'gh pr merge 123 --merge' './deploy.sh' 'bash deploy-prod.sh' 'kubectl apply -f k8s/' 'terraform apply' 'terraform destroy'; do
+for c in 'git push origin main' 'git -c core.hooksPath=/dev/null push origin main' 'gh pr merge 123 --merge' 'gh api repos/o/r/pulls/1/merge -X PUT' './deploy.sh' 'bash deploy-prod.sh' 'kubectl apply -f k8s/' 'terraform apply' 'terraform destroy'; do
   printf '%s' "$c" | grep -Eq "$kw" || { miss=1; echo "  漏筛: $c"; }
 done
 [ "$miss" = "0" ] && ok "if 关键词集覆盖全部红线命令(无漏筛)" || no "if 关键词集漏筛红线命令"
