@@ -694,7 +694,8 @@ _run_remote_build() {
   # running 不当 fail。间隔/上限可经 env 调,测试用 fake ssh 首轮即有 exitcode、不进 sleep。
   local poll_seconds="${RELEASE_REMOTE_BUILD_POLL_SECONDS:-15}"
   local max_seconds="${RELEASE_REMOTE_BUILD_TIMEOUT_SECONDS:-3600}"
-  local waited=0 seen="" exit_code=""
+  local start_ts seen="" exit_code=""
+  start_ts="$(date +%s)"
   while :; do
     seen="$(ssh "$remote_host" "if (Test-Path '$remote_input/build-run.exitcode') { 'Y' } else { 'N' }" 2>/dev/null || true)"
     seen="${seen%%[$'\r\n']*}"
@@ -703,12 +704,15 @@ _run_remote_build() {
       exit_code="${exit_code%%[$'\r\n']*}"
       [ -n "$exit_code" ] && break
     fi
-    if [ "$waited" -ge "$max_seconds" ]; then
+    # 超时按真实墙钟判(不累加 poll_seconds):即使 poll=0(测试用的快轮询)也不会因 waited 恒为 0
+    # 而永不超时。超时分支必须清理:结束可能仍在跑的构建 + 删计划任务,否则遗留任务/孤儿构建会与
+    # 下次同 commit 运行抢写 build-run.exitcode。
+    if [ "$(( $(date +%s) - start_ts ))" -ge "$max_seconds" ]; then
       echo "ERROR: remote build 超时 ${max_seconds}s 未产出 exitcode(task=$task_name)" >&2
+      ssh "$remote_host" "schtasks /end /tn '$task_name'; schtasks /delete /tn '$task_name' /f" >/dev/null 2>&1 || true
       return 70
     fi
     sleep "$poll_seconds"
-    waited=$((waited + poll_seconds))
   done
   case "$exit_code" in
     ''|*[!0-9-]*) echo "ERROR: remote build exit-code 非法: $exit_code" >&2; return 70 ;;

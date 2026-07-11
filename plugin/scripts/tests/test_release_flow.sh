@@ -184,6 +184,28 @@ else
   no "remote build 等待完成后 exit=0 应完成 stage"
 fi
 bash "$RF" close >/dev/null
+
+# 回归 C3:构建超时(exitcode 永不出现)必须 fail 且清理计划任务,不遗留孤儿构建/任务。
+# exitcode 从不出现 → 墙钟超时(TIMEOUT=0 立即触发,poll=0 不影响墙钟)→ 走 schtasks /end+/delete。
+cat > remote-bin/ssh <<'SH'
+#!/usr/bin/env bash
+printf 'ssh %s\n' "$*" >> "$TRANSPORT_CALLS"
+case "$*" in
+  *Test-Path*) printf 'N\n' ;;
+esac
+SH
+chmod +x remote-bin/ssh
+: > "$TMP/transport.calls"
+bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+# stage run 遇构建失败会诊断+PAUSE(返回 0,非命令失败),故不门控退出码;清理在 _run_remote_build
+# 内返回 70 前发生,直接查 transport.calls。schtasks /end 只在超时清理路径出现,是超时的确证。
+PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" \
+   RELEASE_REMOTE_BUILD_POLL_SECONDS=0 RELEASE_REMOTE_BUILD_TIMEOUT_SECONDS=0 \
+   RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release-input" bash "$RF" stage run --stage build >/dev/null 2>&1 || true
+grep -q 'schtasks /end' "$TMP/transport.calls" && ok "remote build 超时结束在跑的构建(schtasks /end)" || no "remote build 超时未 end 任务"
+grep -q 'schtasks /delete' "$TMP/transport.calls" && ok "remote build 超时删计划任务(不遗留孤儿)" || no "remote build 超时未删任务"
+[ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" != "done" ] && ok "remote build 超时不判 stage done" || no "remote build 超时误判 done"
+bash "$RF" close >/dev/null
 bash "$RF" init --manifest "$FIX/manifest.fake.json" --max-rounds 1 >/dev/null
 out="$(bash "$RF" round next)"
 case "$out" in
