@@ -24,9 +24,9 @@
 ### 1. Codex 侧写计划走 `worktree-plan` skill(新)
 
 - `plugin/skills/worktree-plan/SKILL.md` = 薄总纲:开工读 design + issue → `codebase-design` 探代码 → 拆小 issue(`to-tickets`)→ 逐 Task Pack 写 → 交付前自检 → 回结构化报告。
-- **方法论不复制**:`task-pack.md` / `plan-self-check.md` 仍单源在 `orchestrate/references/plan/`(build-a 小改路也在用),由 `worker.sh plan-dispatch` 把绝对路径传给 Codex,skill 只指"读 dispatch 给的那两份"。
+- **方法论归 skill 自有 references**:`task-pack.md` / `plan-self-check.md` 在 `worktree-plan/references/` 与 `orchestrate/references/plan/` 各放一份实体 copy(Codex 读不到 orchestrate,须有一份落在它能读的 worktree-plan;orchestrate 那份给 build-a 小改路主线程)。`test_shared_refs_sync.sh` 守两份一致。`worker.sh plan-dispatch` **不再注入方法论路径**——Codex 读自己 skill 自取,对齐 build。
 - Codex hub 的 `codebase-design`(探代码)/ `to-tickets`(拆 issue)直接用;完整性 / 复用 / 反过度设计以项目根 CLAUDE.md 为准。
-- 软链:`codex-skills/worktree-plan → ../plugin/skills/worktree-plan`,`~/.agents/skills/worktree-plan → …`(同 `worktree-build`)。
+- 安装:`~/.agents/skills/worktree-plan → plugin/skills/worktree-plan`(直接软链,同 `worktree-build` / `worktree-review`;已无 `codex-skills/` 中间层)。
 
 ### 2. `worker.sh` 加写计划派发
 

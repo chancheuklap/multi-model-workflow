@@ -31,9 +31,9 @@ CODEX_CAPABLE_EFFORT="${CODEX_CAPABLE_EFFORT:-high}"
 DROID_EXECUTOR_DROID="${DROID_EXECUTOR_DROID:-pack-executor}"
 DROID_EXECUTOR_MODEL="${DROID_EXECUTOR_MODEL:-glm-5.2}"
 DROID_EXECUTOR_EFFORT="${DROID_EXECUTOR_EFFORT:-max}"
-# 写计划档(plan-dispatch):Claude 宿主 Codex / Droid 宿主 plan-writer droid。plan = design 档,gpt-5.6-terra xhigh。
-CODEX_PLAN_MODEL="${CODEX_PLAN_MODEL:-gpt-5.6-terra}"
-CODEX_PLAN_EFFORT="${CODEX_PLAN_EFFORT:-xhigh}"
+# 写计划档(plan-dispatch):Claude 宿主 Codex = gpt-5.6-sol high;Droid 宿主 plan-writer droid = gpt-5.6-terra xhigh(见其 frontmatter)。
+CODEX_PLAN_MODEL="${CODEX_PLAN_MODEL:-gpt-5.6-sol}"
+CODEX_PLAN_EFFORT="${CODEX_PLAN_EFFORT:-high}"
 DROID_PLAN_DROID="${DROID_PLAN_DROID:-plan-writer}"
 DROID_PLAN_MODEL="${DROID_PLAN_MODEL:-gpt-5.6-terra}"
 DROID_PLAN_EFFORT="${DROID_PLAN_EFFORT:-xhigh}"

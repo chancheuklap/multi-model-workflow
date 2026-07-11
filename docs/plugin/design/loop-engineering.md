@@ -54,7 +54,7 @@ sequenceDiagram
 
 **铁律**(§5b):审/落地都用 `codex exec`,**不用 `codex review`**;续接两套别混(Codex=exec resume,Claude subagent=SendMessage);只有主线程能问用户,Codex/帮手都抛回主线程。
 
-> review 审查方法+stage 角度在 Codex 侧 `codex-skills/worktree-review`(`method.md` + 四 stage angle);`review.sh` 派发只给 stage+Source、指向该已装 skill,**不给 Codex plugin 路径**(它读不到 Claude 的 `plugin/`)。③合同门 `plan-impl.md` 与审核编排 `review.md` 留 plugin(Claude 侧)。
+> review 审查方法+stage 角度在 Codex 侧 `plugin/skills/worktree-review`(`method.md` + 四 stage angle);`review.sh` 派发只给 stage+Source、指向该已装 skill,**不给 Codex plugin 路径**(它读不到 Claude 的 `plugin/`)。③合同门 `plan-impl.md` 与审核编排 `review.md` 留 plugin(Claude 侧)。
 
 ---
 

@@ -115,4 +115,12 @@ Droid final 分档与 Claude 同判据(`review.sh` tier):small-change/bug → 1 
 
 两宿主可共装同一 plugin 目录;状态平面按宿主隔离,互不踩盘。
 
-**skill 依赖**:`worktree-build` / `worktree-review` 是 worker/reviewer 的方法论单源。Droid 侧随插件发布(`plugin/skills/`),装 plugin 即到位。Claude 侧的写码/审查是**外部** Codex / Claude 无头 CLI,读不到 plugin 内部,须另把这两个 skill 装进 Codex hub(`~/.agents/skills/`,源在本仓库 `codex-skills/`);没装则 Claude 侧派发 fail-closed(报找不到 skill)。
+**skill 依赖**:`worktree-build` / `worktree-plan` / `worktree-review` 是 worker / 写计划工人 / reviewer 的方法论单源,**唯一源在 `plugin/skills/`**(宿主中立措辞)。Droid 侧随插件发布,装 plugin 即到位、内联读。Claude 侧的写码 / 写计划 / 审查是**外部** Codex / Claude 无头 CLI,读不到 plugin 内部,须把这三个 skill 装进 Codex 自动扫描的 hub `~/.agents/skills/`——**直接从本仓库 `plugin/skills/` 软链过去**(无中间层):
+
+```bash
+for s in worktree-build worktree-plan worktree-review; do
+  ln -sfn "$(pwd)/plugin/skills/$s" ~/.agents/skills/$s
+done
+```
+
+软链即时生效(改 `plugin/skills/` 一处两宿主同步,不漂移);没装则 Claude 侧派发 fail-closed(Codex 报找不到 skill),不搞"没装也能跑"的降级。

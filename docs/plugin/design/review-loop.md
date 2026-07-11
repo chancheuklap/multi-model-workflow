@@ -93,7 +93,7 @@ accepted finding 修在哪(Gap 路由),决定主线程 handoff 用哪个结论�
 | Plan | plan 与代码不一致 | `needs-repair` → 回 plan 阶段 |
 | Unverifiable | 环境/账号/生产 gate 缺 | 写清证据 + manual gate owner,不算 blocker |
 
-审题、防幻觉四件套、五问、Return Contract 全在 Codex 侧 `codex-skills/worktree-review`(`method.md` + 四 stage angle),Codex 读它已装的 skill,协调帮手 dispatch 只传 stage + Source(不给 plugin 路径),本文不复述。
+审题、防幻觉四件套、五问、Return Contract 全在 Codex 侧 `plugin/skills/worktree-review`(`method.md` + 四 stage angle),Codex 读它已装的 skill,协调帮手 dispatch 只传 stage + Source(不给 plugin 路径),本文不复述。
 
 ---
 
@@ -116,7 +116,7 @@ accepted finding 修在哪(Gap 路由),决定主线程 handoff 用哪个结论�
 
 | 件 | 落到 |
 |---|---|
-| 审题:防幻觉四件套 + stage angle(Codex 审者读它已装的 skill,不给 plugin 路径) | `codex-skills/worktree-review/references/{method,design,plan,final,merge}.md` |
+| 审题:防幻觉四件套 + stage angle(Codex 审者读它已装的 skill,不给 plugin 路径) | `plugin/skills/worktree-review/references/{method,design,plan,final,merge}.md` |
 | ③合同门审题(Claude 机器核,留 plugin) | `plugin/skills/orchestrate/references/review/plan-impl.md` |
 | 审核 loop 阶段 reference(指示主线程抽清单→派协调帮手→处置 verdict→handoff) | `plugin/skills/orchestrate/references/review/review.md`(与审题同住 review/ 文件夹,自包含) |
 | loop 机器(init/checklist/finding/exit-check kind=review·contract-gate) | 已有 `scripts/loop.sh` + `hooks/guard-loop.sh`,无需改 |

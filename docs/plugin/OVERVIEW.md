@@ -478,7 +478,7 @@ flowchart LR
 | 各阶段方法论 / 操作指南 | `skills/orchestrate/references/{investigate,propose,review,build,closing}.md` · `design/`(discuss=discussion → prototype=prototype-mockup → write=design-doc-template → selfcheck=design-self-check **四步走脚本游标懒加载**;切片 to-issue-skeleton)· `plan/`(orchestrate=plan-flow → write=task-pack → selfcheck=plan-self-check **三步走脚本游标懒加载**,与 design 同构)—— 八阶段方法论同住 orchestrate 体内、按路径/步骤加载,无 `Skill:` 名索引 |
 | 插件接线(可安装)| `.claude-plugin/plugin.json`(清单)· `hooks/hooks.json`(3 个 hook)· `agents/code-reviewer.md`(②计划审/④final Claude 审者)· `skills/worktree-plan/`(Codex 写计划 skill)· `commands/gather-context.md`(设计问答补上下文)|
 | 阶段→`load`/`do`/`then` 绑定(`mmw where` 自指路单源)| `state-schema/routes.json` 的 `phase_bindings` |
-| 审题方法论(worker/reviewer 单源;Droid 读随插件发布的 `plugin/skills/`,Claude 侧外部 Codex/Claude CLI 读自己 hub 装的 `codex-skills/`→`~/.agents/skills/`)| `plugin/skills/worktree-{build,review}/` 与 `codex-skills/worktree-{build,review}/`(`SKILL.md` + `references/*`,两副本同方法论、宿主框架各异)|
+| 方法论单源(worker / 写计划工人 / reviewer;Droid 读随插件发布的 `plugin/skills/`,Claude 侧外部 Codex/Claude CLI 读自己 hub 装的 `~/.agents/skills/`——**直接软链到 `plugin/skills/`**,无中间层)| `plugin/skills/worktree-{build,plan,review}/`(`SKILL.md` + `references/*`,唯一源,宿主中立措辞)|
 | ③合同门审题 + 审核编排(Claude 侧,留 plugin)| `skills/orchestrate/references/review/{plan-impl,review}.md` |
 | 开工 / 恢复 / 清理 / 全队(merge)| `scripts/prepare.sh`(new/resume/cleanup/team)|
 | 交单 / 换阶段 / 审闸 / 分叉 / 接力单 / 查位置 | `scripts/flow.sh` |
