@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 共享方法论 reference 一致性守卫:task-pack.md / plan-self-check.md 各有两份实体 copy
+# 共享方法论 reference 一致性守卫:task-pack.md 有两份实体 copy
 # (一份给写计划工人的 worktree-plan skill,一份给主线程 build-a / selfcheck 步的 orchestrate)。
 # 用实体 copy 不用软链(打包/安装链路软链会断);代价是漂移风险,本测试就是那道闸——改了一份忘另一份即红。
 # 改动方法论:两份都改,或改一份后 cp 覆盖另一份,再跑本测试确认一致。
@@ -30,9 +30,8 @@ check_pair "task-pack.md" \
   "$SKILLS/worktree-plan/references/task-pack.md" \
   "$SKILLS/orchestrate/references/plan/task-pack.md"
 
-check_pair "plan-self-check.md" \
-  "$SKILLS/worktree-plan/references/plan-self-check.md" \
-  "$SKILLS/orchestrate/references/plan/plan-self-check.md"
+# plan-self-check.md 两份已按读者分化(工人版=自检+就绪门;orchestrate 版=抽验+handoff 收尾),
+# 不再 byte-identical;判据条目若改,两份都要人工同步(自检 6 条 + 就绪门 2 段是共同核心)。
 
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

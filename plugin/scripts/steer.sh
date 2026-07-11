@@ -4,7 +4,7 @@
 # 值守档权威在外层 task.json.attendance(跨阶段留存);本脚本改它,并把当前活动 loop 的
 # loop-state.attendance 同步过去(供软停即时判断)。进度板随改随渲染。
 #
-#   attend --mode attended|afk         自由切换(无门禁)。/attended /afk 用
+#   attend --mode attended|afk         自由切换(无门禁;afk 档无 slash 命令,直接 mmw attend)
 #   unattended enter [--policy <json>] 强无人:过门禁才写(设计+计划已过门、无未答 HITL);任一不满足拒绝进入、不静默降级
 #   unattended status                  报当前 mode + policy
 #   side-finding record --tag <t> --disposition issue|fix [--finding <s>]  计划外分流落 open_items(见 Slice B)

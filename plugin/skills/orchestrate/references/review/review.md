@@ -2,7 +2,7 @@
 
 > 审核闸操作指南。**主线程直接派审者**;审查方法 + 各 stage 角度单源在已装的 **`worktree-review` skill**。plugin 侧只留 `plan-impl.md`(③合同门)与本文(编排)。
 >
-> **宿主分叉(派发)**:Claude → ①设计审 `codex exec`;②计划审 **会话内 `code-reviewer` sub-agent**;④final Codex+会话内 code-reviewer sub-agent(分档 1/2/4)。Droid → `Task` + `reviewer-design-a/b`(opus) · `reviewer-plan-a/b`(opus) · `reviewer-final-a/b`(final 分档与 Claude 同判据;merge-impl=final-a+b)。brief 由 `mmw review start` 按宿主生成,照 brief 派即可。
+> **宿主分叉(派发)**:谁家审者 / 几路视角 / 模型档,全由 `mmw review start` 按宿主机器生成进 brief——**照 brief 派即可**,本文不复制派发矩阵(免漂移)。
 
 红线:**写者≠验者**(设计/计划作者与审者模型不同家;Droid 用 a/b 双 droid 钉死);**完工靠 `exit-check` 机器核 + handoff 确定性闸**。
 

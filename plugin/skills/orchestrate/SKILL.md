@@ -66,10 +66,9 @@ bash "$MMW" where
 
 | 命令 | 作用 | 你要做 |
 | --- | --- | --- |
-| `/progress` | 看进度板 | 照命令跑 `mmw progress render --stdout`,原样转述板面 |
+| `/progress` | 看进度板 | 照该命令文件执行(动作在命令文件里,不在本表) |
 | `/unattended` `/attended` | 进/出强无人值守 | 读 `${SKILL_DIR}/references/control/attendance.md`(值守档合同 + no-question 双层),照它执行 |
-| `/side-finding` | 计划外二选一登记 | 读 `${SKILL_DIR}/references/control/steering-commands.md` |
-| `/reassess` `/skip-current` `/rescope` `/replan-remaining` `/force-validate` | 中途指挥 | 读 `${SKILL_DIR}/references/control/steering-commands.md` |
+| `/side-finding` `/reassess` `/skip-current` `/rescope` `/replan-remaining` `/force-validate` | 计划外分流 + 中途指挥 | 读 `${SKILL_DIR}/references/control/steering-commands.md` |
 
 **值守档是横切合同**:任何阶段续跑前先看 `task.json.attendance`;`unattended` 时按 `control/attendance.md` 自我约束,不向用户提问。软停/计划外分流的问不问,按该合同判。
 

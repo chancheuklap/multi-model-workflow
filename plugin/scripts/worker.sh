@@ -12,7 +12,7 @@
 #   plan-check    --plan <落点 abs.md> --worktree <abs>   # 反向边界:diff 必须 ⊆ {docs/plans, docs/issues}
 #
 # 后端:
-#   claude → 外挂 codex CLI(写码 = codex-worker 行为;写计划 = codex exec -C 任务 worktree)
+#   claude → 外挂 codex CLI(写码/写计划 = codex exec -C 任务 worktree)
 #   droid  → 准备 prompt 包,打印 Task 派发说明(写码→pack-executor / 写计划→plan-writer)
 #
 # 兼容:mmw codex * 仍路由到本脚本。

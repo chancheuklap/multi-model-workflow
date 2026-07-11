@@ -47,8 +47,8 @@ fi
 RV="$(cd "$WT" && bash "$MMW" review start --stage design --source x 2>/dev/null)"
 echo "$RV" | grep -q "REVIEW_STARTED" && ok "mmw review → review.sh" || no "mmw review"
 
-# codex → codex-worker.sh(缺参数应被底层拒,证明路由到位)
-if ( cd "$WT" && bash "$MMW" codex dispatch >/dev/null 2>&1 ); then no "mmw codex 路由(缺参数应拒)"; else ok "mmw codex → codex-worker.sh(缺参被拒)"; fi
+# codex 别名 → worker.sh(缺参数应被底层拒,证明路由到位)
+if ( cd "$WT" && bash "$MMW" codex dispatch >/dev/null 2>&1 ); then no "mmw codex 路由(缺参数应拒)"; else ok "mmw codex → worker.sh(缺参被拒)"; fi
 
 # help / 未知
 bash "$MMW" help 2>/dev/null | grep -q "mmw handoff" && ok "mmw help 列命令" || no "mmw help"

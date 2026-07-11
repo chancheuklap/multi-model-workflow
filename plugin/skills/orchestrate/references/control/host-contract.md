@@ -58,12 +58,7 @@ mmw where
 
 ## 4. 审闸(主线程直接派审者)
 
-| 宿主 | 派发 |
-| --- | --- |
-| Claude | ①设计 / ④final 后台 `codex exec`(read-only)+ ②计划 / ④final 会话内 `code-reviewer` sub-agent(Agent 工具) |
-| Droid | `Task` → `reviewer-*` droid,按 stage/视角/模型矩阵并行 |
-
-主线程读 `review start` 生成的 `状态平面/review-brief.md`,照「派审者」段**直接派**(findings 落 trace 文件、只回读 verdict 段);完工靠 handoff **确定性闸**(审闸内 `pass` 前引擎核 `loop exit-check==DONE`)。
+主线程读 `review start` 生成的 `状态平面/review-brief.md`,照「派审者」段**直接派**——谁家审者 / 几路视角 / 模型档全由 brief 按宿主机器生成,本文不复制派发矩阵(免漂移)。findings 落 trace 文件、只回读 verdict 段;完工靠 handoff **确定性闸**(审闸内 `pass` 前引擎核 `loop exit-check==DONE`)。
 
 审者读 `worktree-review` skill(审查方法论单源):**Claude 侧** Codex 审者读它自己 hub 装的(`~/.agents/skills/worktree-review/`),code-reviewer sub-agent 读随插件发布的;**Droid 侧**读随插件发布的 `plugin/skills/worktree-review/`(派发消息传绝对路径,不赌子代理自动加载)。
 

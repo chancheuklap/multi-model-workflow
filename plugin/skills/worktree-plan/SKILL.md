@@ -78,7 +78,7 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
 
 ## 7. 交付前自检(返回前必过)
 
-**返回前现读 `references/plan-self-check.md` 的「自检」+「Pack 就绪门」两节**(那份末尾的 handoff 收尾是主线程 selfcheck 步的活,你不读、不执行)。额外自查(自己刚写完最易漏):plan 里每个文件路径 / type / function / fixture 用 Glob / rg 验真存在,引不出就别留。
+**返回前现读 `references/plan-self-check.md`(整份:自检 + Pack 就绪门)**。额外自查(自己刚写完最易漏):plan 里每个文件路径 / type / function / fixture 用 Glob / rg 验真存在,引不出就别留。
 
 ## 8. 收工:回结构化报告(主线程靠它验收)
 

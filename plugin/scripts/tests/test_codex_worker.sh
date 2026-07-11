@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# codex-worker.sh 空跑(fake codex):派发组对 prompt 铁律 + codex 参数、建 worktree、
+# worker.sh 空跑(fake codex):派发组对 prompt 铁律 + codex 参数、建 worktree、
 # 记 session、resume 续会话。不连真 Codex。
 set -euo pipefail
 export MMW_HOST="${MMW_HOST:-claude}"
 STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
 WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CW="$SCRIPT_DIR/../codex-worker.sh"
+CW="$SCRIPT_DIR/../worker.sh"
 
 pass=0; fail=0
 ok() { echo "  PASS: $1"; pass=$((pass+1)); }
