@@ -227,6 +227,14 @@ _collect_candidate_paths() {
 
 _load_path_hard_deny() {
   local f="$1" top mp source_rel source_file matchers path
+  # P0:本轮 dispatch 若已在跑修复前冻结过 hard-deny 快照,后续一律用冻结值,不再从可能被修复
+  # 改坏的 protection_source 重读——否则「改写 release_protection.json 本身」会让规则源读不出、
+  # 把 P0 受保护路径违规降级成 needs-context「规则源不可读」,等于破坏被保护物就能关掉它自己的闸。
+  if [ "${PROTECTION_FROZEN:-0}" = "1" ]; then
+    [ ${#PROTECTION_MATCHERS[@]} -gt 0 ] && return 0
+    PATH_GATE_ERROR="protection_source 冻结快照为空"
+    return 1
+  fi
   top="$(_repo_top)"
   mp="$(jq -r '.manifest_path' "$f")"
   source_rel="$(jq -er '.protection_source' "$mp" 2>/dev/null)" || {
@@ -418,6 +426,17 @@ cmd_dispatch_direct() {
     echo "DISPATCH-PAUSED:$name(pre-existing tracked diff)"
     return 0
   fi
+
+  # P0:跑修复前先加载并冻结 protection hard-deny 快照;后续 baseline/candidate/path-gate 都用它,
+  # 使「自愈修复改写 protection_source 本身」仍被判 P0 受保护路径违规,而非降级成「规则源不可读」。
+  PROTECTION_FROZEN=0
+  if ! _load_path_hard_deny "$f"; then
+    _record_pause "$f" "$name" "preflight" "protection_source_unreadable" "$fp" "" \
+      "needs-context" "protection_source 在自动修复前已不可用($PATH_GATE_ERROR)，保留现场交人" "[]" "[]" "" "" ""
+    echo "DISPATCH-PAUSED:$name(protection source unreadable)"
+    return 0
+  fi
+  PROTECTION_FROZEN=1
 
   _snapshot_baseline_untracked "$top" "$f"
   _run_direct_action "$f" "$mode" "$findings"

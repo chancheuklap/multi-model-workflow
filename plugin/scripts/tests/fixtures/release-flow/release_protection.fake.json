@@ -6,6 +6,12 @@
       "kind": "path_hard_deny",
       "matcher": "migrations/**",
       "validator_ref": ""
+    },
+    {
+      "stable_id": "protection-source",
+      "kind": "path_hard_deny",
+      "matcher": "release_protection.json",
+      "validator_ref": ""
     }
   ]
 }

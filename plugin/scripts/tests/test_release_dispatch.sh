@@ -33,9 +33,10 @@ new_case() {
   printf 'migration seed\n' > "$repo/migrations/0001.py"
   # 让 `migrations/*.ignored` 被 gitignore,用于验证「gitignored 的受保护文件也必须被 path-gate 拦」
   printf 'migrations/*.ignored\n' > "$repo/.gitignore"
+  # protection_source 是已跟踪文件(现实如此):committed 进 seed,便于验证「改写规则源本身」走 path-gate
+  cp "$FIX/release_protection.fake.json" "$repo/release_protection.json"
   git -C "$repo" add -A
   git -C "$repo" commit -qm seed
-  cp "$FIX/release_protection.fake.json" "$repo/release_protection.json"
   jq --argjson fix "$fix_argv" --argjson derive "$derive_argv" \
     --argjson gate "$gate_argv" --argjson diagnose "$diagnose_argv" \
     --argjson editable "$editable_paths" \
@@ -271,6 +272,20 @@ case "$out" in
   *) no "已有 gitignored 受保护被改写未诚实 PAUSE ($out)" ;;
 esac
 [ -f "$repo/migrations/secret.ignored" ] && ok "已有 gitignored 受保护文件保留(未误删 secret)" || no "已有 gitignored 受保护文件被误删(数据丢失)"
+
+# P0:自愈修复改写保护规则源 release_protection.json 本身 → 用跑修复前冻结的 hard-deny 快照仍判
+# P0 REJECT(needs-redirection),不因规则源被写坏而降级成「规则源不可读」的 needs-context。
+fix_corrupt_source='["sh","-c","printf not-json > release_protection.json"]'
+repo="$(new_case corrupt-protection-source "$fix_corrupt_source" '["true"]' '["true"]' '["sh","-c","echo {\\\"findings\\\":[]}"]')"
+sf="$(state_file "$repo")"
+fail_stage_p1 "$repo"
+out="$(run_release "$repo" dispatch --stage verify_key --findings "$FIX/finding.p1.json")"
+case "$out" in
+  *"PATH-GATE-REJECT:verify_key"*"release_protection.json"*) ok "改写保护规则源→冻结快照仍判 P0 REJECT" ;;
+  *) no "改写保护规则源被降级/未拦 ($out)" ;;
+esac
+pause_reason="$(jq -r '.pause.reason // ""' "$sf")"
+[ "$pause_reason" = "needs-redirection" ] && ok "改写保护规则源→needs-redirection(非 needs-context)" || no "改写保护规则源 pause reason=$pause_reason"
 
 echo "=== $pass PASS / $fail FAIL ==="
 [ "$fail" -eq 0 ]
