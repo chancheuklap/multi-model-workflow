@@ -258,5 +258,19 @@ artifact="$(jq -r '[.attempt_ledger[] | select(.action_kind == "path_gate") | .a
 [ -n "$artifact" ] && grep -q 'migrations/oops.ignored' "${artifact#file:}" && grep -q 'leak' "${artifact#file:}" && ok "gitignored 受保护 patch 含路径与内容" || no "gitignored 受保护 patch 不完整"
 [ ! -e "$repo/migrations/oops.ignored" ] && assert_no_candidate_status_change "$repo" "$before_status" && ok "gitignored 受保护清理且不污染 worktree" || no "gitignored 受保护未清理"
 
+# P0 数据丢失回归:已有 gitignored 的受保护文件(如已存在的 .env secret)被自愈修复改写时,
+# 必须走 baseline_untracked_changed 的诚实 PAUSE 且原文件仍在,不能当新建候选在 reject 时误删。
+fix_modify_ignored='["sh","-c","printf tampered > migrations/secret.ignored"]'
+repo="$(new_case gitignored-existing "$fix_modify_ignored" '["true"]' '["true"]' '["sh","-c","echo {\\\"findings\\\":[]}"]')"
+printf 'original-secret' > "$repo/migrations/secret.ignored"
+sf="$(state_file "$repo")"
+fail_stage_p1 "$repo"
+out="$(run_release "$repo" dispatch --stage verify_key --findings "$FIX/finding.p1.json")"
+case "$out" in
+  *"DISPATCH-PAUSED:verify_key(baseline untracked changed)"*) ok "已有 gitignored 受保护被改写→诚实 PAUSE" ;;
+  *) no "已有 gitignored 受保护被改写未诚实 PAUSE ($out)" ;;
+esac
+[ -f "$repo/migrations/secret.ignored" ] && ok "已有 gitignored 受保护文件保留(未误删 secret)" || no "已有 gitignored 受保护文件被误删(数据丢失)"
+
 echo "=== $pass PASS / $fail FAIL ==="
 [ "$fail" -eq 0 ]

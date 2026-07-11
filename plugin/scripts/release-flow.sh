@@ -150,7 +150,7 @@ _file_sha256() {
 }
 
 _snapshot_baseline_untracked() {
-  local top="$1" path
+  local top="$1" f="${2:-}" path
   BASELINE_UNTRACKED_PATHS=()
   BASELINE_UNTRACKED_HASHES=()
   while IFS= read -r path; do
@@ -158,6 +158,18 @@ _snapshot_baseline_untracked() {
     BASELINE_UNTRACKED_PATHS+=("$path")
     BASELINE_UNTRACKED_HASHES+=("$(_file_sha256 "$top/$path")")
   done < <(git -C "$top" ls-files --others --exclude-standard)
+  # P0:被 gitignore 的受保护文件(如已有 .env)也纳入 baseline(带原始 hash),让「自愈修复改写
+  # 已有受保护文件」走 baseline_untracked_changed 的诚实 PAUSE、保留原文件,而不是被当成本轮
+  # 新建候选、在 reject cleanup 时误 rm 掉(会丢失原 secret)。
+  if [ -n "$f" ] && _load_path_hard_deny "$f" 2>/dev/null; then
+    while IFS= read -r path; do
+      [ -n "$path" ] || continue
+      _match_any "$path" "${PROTECTION_MATCHERS[@]-}" || continue
+      _is_baseline_untracked "$path" && continue
+      BASELINE_UNTRACKED_PATHS+=("$path")
+      BASELINE_UNTRACKED_HASHES+=("$(_file_sha256 "$top/$path")")
+    done < <(git -C "$top" ls-files --others --ignored --exclude-standard)
+  fi
 }
 
 _is_baseline_untracked() {
@@ -407,7 +419,7 @@ cmd_dispatch_direct() {
     return 0
   fi
 
-  _snapshot_baseline_untracked "$top"
+  _snapshot_baseline_untracked "$top" "$f"
   _run_direct_action "$f" "$mode" "$findings"
   _collect_candidate_paths "$top" "$f"
   changed_json="$(_json_changed_paths)"
