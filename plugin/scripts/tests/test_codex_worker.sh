@@ -136,6 +136,18 @@ chmod +x "$FAKEBIN/codex-evil2"
 if OUT_R="$(CODEX_BIN="$FAKEBIN/codex-evil2" bash "$CW" resume --worktree "$TMP/wt-evil" --instructions "$INSTR" 2>&1)"; then no "resume 改 docs/ 应退非零"; else ok "resume 改 docs/ → fail-closed 退非零"; fi
 echo "$OUT_R" | grep -q "DOCS_VIOLATION" && ok "resume 越界报 DOCS_VIOLATION" || no "resume 无 DOCS_VIOLATION"
 
+# 越界已全部提交进历史、resume 期间工人不再动 → 仍核到(基线钉派发时持久化,不随 resume HEAD 漂移)
+cat > "$FAKEBIN/codex-clean" <<'FAKE'
+#!/usr/bin/env bash
+prev=""; for a in "$@"; do [ "$prev" = "-o" ] && echo done > "$a"; prev="$a"; done
+echo "session id: sess-evil"
+FAKE
+chmod +x "$FAKEBIN/codex-clean"
+git -C "$TMP/wt-evil" add -A >/dev/null 2>&1
+git -C "$TMP/wt-evil" -c user.email=x@x -c user.name=x commit -qm "Pack 1.2: bury evidence" >/dev/null 2>&1
+if OUT_R2="$(CODEX_BIN="$FAKEBIN/codex-clean" bash "$CW" resume --worktree "$TMP/wt-evil" --instructions "$INSTR" 2>&1)"; then no "已提交越界 resume 应仍退非零"; else ok "已提交越界 → resume 仍 fail-closed(基线钉派发)"; fi
+echo "$OUT_R2" | grep -q "docs/design/hacked.md" && ok "resume 列出历史越界文件" || no "resume 未列历史越界"
+
 # ===== Droid backend: 派发包 + worker/ 分支 + check-docs fail-closed =====
 export MMW_HOST=droid
 STATE_SUBDIR=.factory/multi-model-workflow
