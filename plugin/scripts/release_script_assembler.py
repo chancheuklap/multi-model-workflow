@@ -144,74 +144,16 @@ def _render_hook_calls(calls: list[dict[str, object]], *, stage: int) -> str:
 
 
 def _render_lane_block(manifest: ReleaseAdapterManifest) -> str:
-    target = manifest.build_target
-    if target.runtime_lane == "core_exe":
-        return "  Write-Host 'core_exe runtime lane is supplied by the repository hook'"
-    if not target.deps_extra:
-        raise ValueError("embedded_python 车道必须声明 build_target.deps_extra")
-
-    asset_roots = ", ".join(powershell_literal(item) for item in target.asset_roots)
-    nuitka_include = "\n".join(
-        f"  $NuitkaArgs += {powershell_literal(f'--include-package={module}')}"
-        for module in target.nuitka_include
+    # 造运行时(嵌入式 Python / 编译后端 / 补原生 DLL / 落资产 / BGM)是每个产品出包独特的一步,
+    # 各产品不同、无法通用几行复刻。按设计留在仓库当"钥匙",由钥匙的 runtime_prepare 钩子整段
+    # 准备(小黄鸭 prepare_duck_core_runtime.py / 小鹦鹉小刺猬 prepare_*_embedded_runtime.py);
+    # plugin 只做通用编排,不在模板里通用地造包——过度抽象只会让每接一个产品都更复杂、且复刻不全。
+    # 两条车道都把造运行时交给紧随其后的 ${RUNTIME_HOOK_CALLS} 里的 runtime_prepare 钩子。
+    lane = manifest.build_target.runtime_lane
+    return (
+        f"  Write-Host 'Runtime lane ({lane}) is prepared by the repository "
+        "runtime_prepare hook'"
     )
-    nuitka_nofollow = "\n".join(
-        f"  $NuitkaArgs += {powershell_literal(f'--nofollow-import-to={module}')}"
-        for module in target.nuitka_nofollow
-    )
-    dll_calls = "\n".join(
-        _render_dll_copy_call(item.model_dump(mode="json"))
-        for item in target.native_ext_dll
-    )
-    return f"""  function Remove-PythonBytecode {{
-    param([string]$RuntimeRoot)
-    Get-ChildItem -Path $RuntimeRoot -Directory -Filter '__pycache__' -Recurse -ErrorAction Stop | Remove-Item -Recurse -Force
-    Get-ChildItem -Path $RuntimeRoot -File -Filter '*.pyc' -Recurse -ErrorAction Stop | Remove-Item -Force
-  }}
-
-  function Copy-NativeExtensionDll {{
-    param([string[]]$SourceRoots, [string]$DllName, [string]$Destination)
-    $Source = @($SourceRoots | ForEach-Object {{ Join-Path $_ $DllName }} | Where-Object {{ Test-Path $_ }} | Select-Object -First 1)
-    if ($Source.Count -ne 1) {{ throw "Missing declared native DLL: $DllName" }}
-    $destinationParent = Split-Path -Parent $Destination
-    if (-not (Test-Path $destinationParent)) {{ throw "Missing declared native DLL destination: $destinationParent" }}
-    Copy-Item -Path $Source[0] -Destination $Destination -Force -ErrorAction Stop
-  }}
-
-  $RuntimeRoot = Join-Path $DesktopDir 'python-runtime'
-  $CompileInterpreterRoot = (& uv run --extra {powershell_literal(target.deps_extra or "")} python -c 'import sys; print(sys.base_prefix)').Trim()
-  foreach ($assetRoot in @({asset_roots})) {{
-    if (-not (Test-Path (Join-Path $RepoRoot $assetRoot))) {{ throw "Missing declared asset root: $assetRoot" }}
-  }}
-  $NuitkaArgs = @('--standalone', '--onefile', '--assume-yes-for-downloads')
-{nuitka_include}
-{nuitka_nofollow}
-  $NuitkaEntry = Join-Path $RepoRoot {powershell_literal(f"src/{target.entry_module}/__main__.py")}
-  & uv run --extra {powershell_literal(target.deps_extra or "")} --extra build python -m nuitka @NuitkaArgs $NuitkaEntry
-  if ($LASTEXITCODE -ne 0) {{ throw 'Nuitka backend build failed' }}
-  Remove-PythonBytecode -RuntimeRoot $RuntimeRoot
-{dll_calls}"""
-
-
-def _render_dll_copy_call(item: dict[str, object]) -> str:
-    destination = "backend"
-    if item["dest"] == "pyd_package_dir":
-        destination = "Lib\\site-packages\\" + str(item["pyd_package"])
-    source_roots = "@($RepoRoot)"
-    if item["dll_source"] == "compile_interpreter":
-        source_roots = (
-            "@($CompileInterpreterRoot, (Join-Path $CompileInterpreterRoot 'DLLs'))"
-        )
-    calls = []
-    for dll_name in item["dll_names"]:
-        # 反斜杠不能出现在 f-string 表达式内(Python 3.11 SyntaxError),提到普通语句里拼。
-        dest_rel = destination + "\\\\" + str(dll_name)
-        calls.append(
-            "  Copy-NativeExtensionDll "
-            f"-SourceRoots {source_roots} -DllName {powershell_literal(str(dll_name))} "
-            f"-Destination (Join-Path $RuntimeRoot {powershell_literal(dest_rel)})"
-        )
-    return "\n".join(calls)
 
 
 def _validate_paths(repo_root: Path, output: Path, context_output: Path) -> None:

@@ -229,9 +229,12 @@ def test_assemble_renders_the_same_ordered_seven_stage_pipeline(
         assert token in script
 
 
-def test_assemble_renders_embedded_build_teeth_but_not_in_core_lane(
+def test_assemble_delegates_runtime_build_to_repo_hook_for_both_lanes(
     tmp_path: Path,
 ) -> None:
+    # 造运行时是每个产品独特的一步(嵌入式 Python / 编译 / 补 DLL / 落资产各产品不同),
+    # 按设计留在仓库、由钥匙的 runtime_prepare 钩子整段准备;通用模板两条车道都不在模板里
+    # 通用地造包(不复刻 Nuitka / DLL),只把它交给紧随其后的 runtime_prepare 钩子。
     core_script = tmp_path / "core.ps1"
     core_context = tmp_path / "core-context.json"
     embedded_script = tmp_path / "embedded.ps1"
@@ -249,36 +252,16 @@ def test_assemble_renders_embedded_build_teeth_but_not_in_core_lane(
         == 0
     )
 
-    core = core_script.read_text(encoding="utf-8-sig")
-    embedded = embedded_script.read_text(encoding="utf-8-sig")
-    assert "nuitka" not in core.lower()
-    assert "Remove-PythonBytecode" not in core
-    assert "Copy-NativeExtensionDll" not in core
-    assert "--extra" not in core
-    assert "Remove-PythonBytecode" in embedded
-    assert "Copy-NativeExtensionDll" in embedded
-    assert "--extra" in embedded
-    assert "desktop-runtime" in embedded
-    assert "--include-package=native_pkg" in embedded
-    assert "--include-package=runtime_pkg" in embedded
-    assert "--nofollow-import-to=scipy" in embedded
-    assert "Lib\\site-packages\\native_pkg" in embedded
-    assert "msvcp140.dll" in embedded
-
-
-def test_assemble_rejects_embedded_lane_without_dependency_extra(
-    tmp_path: Path,
-) -> None:
-    adapter = json.loads((FIXTURES / "embedded-python.adapter.json").read_text())
-    adapter["build_target"]["deps_extra"] = None
-    adapter_path = tmp_path / "missing-extra.adapter.json"
-    adapter_path.write_text(json.dumps(adapter), encoding="utf-8")
-
-    result = _assemble(
-        adapter_path, tmp_path / "release.ps1", tmp_path / "release-context.json"
-    )
-
-    assert result.returncode != 0
+    for script_path in (core_script, embedded_script):
+        script = script_path.read_text(encoding="utf-8-sig")
+        # 两条车道都不在模板里通用地造包
+        assert "nuitka" not in script.lower()
+        assert "Remove-PythonBytecode" not in script
+        assert "Copy-NativeExtensionDll" not in script
+        assert "--include-package" not in script
+        # 都把造运行时交给仓库的 runtime_prepare 钩子
+        assert "prepared by the repository runtime_prepare hook" in script
+        assert "-Name 'runtime_prepare'" in script
 
 
 def test_check_rejects_script_missing_one_of_the_seven_stages(tmp_path: Path) -> None:
