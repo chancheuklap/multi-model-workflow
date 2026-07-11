@@ -50,7 +50,7 @@ set_mode() {
   if [ -f "$lf" ] && jq -e . "$lf" >/dev/null 2>&1; then
     jq --arg mode "$mode" '.attendance=$mode' "$lf" | write_json "$lf"
   fi
-  # 板随值守档变更刷新(§5.2.4:进入/退出 unattended 后必须)
+  # 板随值守档变更刷新(进入/退出 unattended 后必须)
   bash "$(dirname "$0")/progress.sh" render >/dev/null 2>&1 || true
 }
 
@@ -75,7 +75,7 @@ has_unanswered_hitl() {
   return 1
 }
 
-# 第一刀默认策略(设计 §5.4.3)
+# 第一刀默认策略(与 attendance reference 的 policy 表一致)
 DEFAULT_POLICY='{"side_finding_default":"auto","hitl_unanswered":"reject_enter","budget_at_100":"hard_stop","design_gap":"hard_stop","external_env":"hard_stop","blocked_no_auto_path":"hard_stop","review_fail":"rework_then_hard_stop"}'
 
 cmd_attend() {

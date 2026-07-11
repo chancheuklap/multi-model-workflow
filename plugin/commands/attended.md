@@ -30,5 +30,5 @@ echo "MMW=$MMW"
 
 1. 跑 `mmw unattended exit`,按输出处置:
 2. 若输出 `ATTENDANCE=attended`:告诉用户已回到有人值守,后续软停会正常问人(AskUserQuestion)。
-3. 若输出 `NO-ACTIVE-RUN` 或报错:说明当前不在在管任务,无 run 可切换。
+3. 若报 `ERROR: 当前不是在管任务 worktree`:说明当前不在在管任务,无 run 可切换。
 4. 切回后照 `mmw where` 续跑。
