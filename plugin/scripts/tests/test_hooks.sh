@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 三个 hook 空跑:SessionStart 分诊 / PreToolUse 红线 / PostToolUse 记进度。
+# 四个 hook 空跑:SessionStart 分诊 / UserPromptSubmit 相位锚 / PreToolUse 红线 / PostToolUse 记进度。
 # (审 loop 完工不再用 SubagentStop 看守,改由 flow.sh handoff 确定性闸把关,见 test_flow.sh。)
 set -euo pipefail
 export MMW_HOST="${MMW_HOST:-claude}"
@@ -133,6 +133,22 @@ OUT="$(cd "$WTREPO" && printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
 echo "$OUT" | grep -q "在管任务 worktree:t9" && echo "$OUT" | grep -q "phase=build" && ok "在管 worktree → 报身份+续跑" || no "在管身份"
 rm -rf "$WTREPO"
 
+# ===== prompt-anchor(UserPromptSubmit 相位锚:在管注入一行,非在管零输出)=====
+# 主仓库(顶层无 task.json,即便有在飞 worktree 清单)→ 零输出,不打扰问答
+OUT="$(printf '{}' | bash "$HOOKS/prompt-anchor.sh" 2>&1)"; EC=$?
+[ "$EC" = "0" ] && [ -z "$OUT" ] && ok "非在管目录 → 零输出(零上下文成本)" || no "非在管应零输出 ($EC/$OUT)"
+# 在管任务 worktree 内 → 恰一行锚(slug/phase/status)
+WTREPO="$(mktemp -d)"
+( cd "$WTREPO" && git init -q && mkdir -p ${STATE_SUBDIR} \
+  && printf '{"slug":"t9","scenario":"bug","phase":"build","status":"active"}' > ${STATE_SUBDIR}/task.json )
+OUT="$(cd "$WTREPO" && printf '{}' | bash "$HOOKS/prompt-anchor.sh" 2>&1)"
+[ "$(printf '%s' "$OUT" | grep -c .)" = "1" ] && echo "$OUT" | grep -q "t9 phase=build status=active" && ok "在管 worktree → 单行锚(slug/phase/status)" || no "单行锚 ($OUT)"
+# 非 git 目录 → 静默 exit 0
+NOGIT="$(mktemp -d)"
+OUT="$(cd "$NOGIT" && printf '{}' | bash "$HOOKS/prompt-anchor.sh" 2>&1)"; EC=$?
+[ "$EC" = "0" ] && [ -z "$OUT" ] && ok "非 git 目录 → 静默 exit 0" || no "prompt-anchor 非 git 静默 ($EC/$OUT)"
+rm -rf "$WTREPO" "$NOGIT"
+
 # ===== hooks.json 接线(宿主分组:Execute=Droid 无 if / Bash=Claude 带 if 前筛)=====
 HJ="$HOOKS/hooks.json"
 python3 -m json.tool "$HJ" >/dev/null 2>&1 && ok "hooks.json JSON 合法" || no "hooks.json JSON 不合法"
@@ -149,5 +165,6 @@ done
 [ "$miss" = "0" ] && ok "if 关键词集覆盖全部红线命令(无漏筛)" || no "if 关键词集漏筛红线命令"
 rsif="$(jq -r '.hooks.PostToolUse[]|select(.matcher=="Bash")|.hooks[0].if' "$HJ")"
 [ "$rsif" = "Bash(git commit:*)" ] && ok "record-step Bash 侧 if 只认 git commit" || no "record-step if 异常 ($rsif)"
+jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | test("prompt-anchor.sh")' "$HJ" >/dev/null 2>&1 && ok "UserPromptSubmit → prompt-anchor 已接线" || no "UserPromptSubmit 未接线"
 
 echo ""; echo "Results: $pass passed, $fail failed"; [ "$fail" -eq 0 ]

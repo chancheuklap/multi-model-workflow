@@ -11,6 +11,17 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -n \"${DROID_PLUGIN_ROOT:-}\" ]; then bash \"${DROID_PLUGIN_ROOT}/hooks/prompt-anchor.sh\"; else bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prompt-anchor.sh\"; fi",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Execute",
