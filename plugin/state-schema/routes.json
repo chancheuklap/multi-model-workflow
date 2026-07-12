@@ -33,7 +33,7 @@
       "steps": [
         { "id": "discuss",   "load": "references/design/discussion.md",         "do": "读方向+现状,与用户讨论细化选定方向(挑战前提→定 scope→细化→领域对齐);涉 UI/UX 下一步走 prototype" },
         { "id": "prototype", "load": "references/design/prototype-mockup.md",    "do": "仅设计涉 UI/UX 或非平凡状态模型:prototype 验状态模型 + html mockup,产物原子拆进 acceptance;纯后端/逻辑 step next 跳过" },
-        { "id": "write",     "load": "references/design/design-doc-template.md", "do": "信息足 + 方向确认后按模板一次成文(架构/UI 严谨度内化)" },
+        { "id": "write",     "load": "references/design/design-doc-template.md", "do": "方向确认后把讨论累积的草稿按模板整理成文(只综合已讨论内容,不再提问)" },
         { "id": "selfcheck", "load": "references/design/design-self-check.md",   "do": "保存前逐条自检,告诉用户设计文档已写入、请审阅" }
       ] },
     "to-issue":    { "load": "references/design/to-issue-skeleton.md", "do": "①设计审过后:把设计垂直切片成可独立认领的 issue 骨架(主线程)", "produced": "docs/issues/<slug>/", "reads": ["design"] },
