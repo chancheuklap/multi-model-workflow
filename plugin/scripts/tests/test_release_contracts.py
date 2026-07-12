@@ -47,9 +47,7 @@ def test_manifest_rejects_echo_stage_as_fake_build_teeth():
         rc.ReleaseAdapterManifest.model_validate(good)
 
 
-@pytest.mark.parametrize(
-    "field", ["build_target", "protection_source", "build_hooks"]
-)
+@pytest.mark.parametrize("field", ["build_target", "protection_source", "build_hooks"])
 def test_manifest_requires_v3_contract_fields(field):
     bad = _fake_manifest()
     del bad[field]
@@ -78,7 +76,9 @@ def test_build_target_requires_every_build_identity_field(field):
         rc.BuildTarget.model_validate(bad)
 
     with pytest.raises(Exception):
-        rc.BuildTarget.model_validate({**_fake_manifest()["build_target"], "runtime_lane": "other"})
+        rc.BuildTarget.model_validate(
+            {**_fake_manifest()["build_target"], "runtime_lane": "other"}
+        )
 
 
 def test_native_ext_dll_requires_non_empty_names_and_package_dir_target():
@@ -88,19 +88,47 @@ def test_native_ext_dll_requires_non_empty_names_and_package_dir_target():
         rc.NativeExtDll.model_validate({**base, "dll_names": []})
     with pytest.raises(Exception):
         rc.NativeExtDll.model_validate({**base, "dest": "pyd_package_dir"})
-    rc.NativeExtDll.model_validate({**base, "dest": "pyd_package_dir", "pyd_package": "fixture"})
+    rc.NativeExtDll.model_validate(
+        {**base, "dest": "pyd_package_dir", "pyd_package": "fixture"}
+    )
 
 
 def test_build_hooks_require_three_non_empty_argv_and_allow_optional_nulls():
     hooks = _fake_manifest()["build_hooks"]
     rc.ReleaseBuildHooks.model_validate(hooks)
     rc.ReleaseBuildHooks.model_validate(
-        {key: value for key, value in hooks.items() if key not in {"asset_parity", "credential_proof"}}
+        {
+            key: value
+            for key, value in hooks.items()
+            if key not in {"asset_parity", "credential_proof"}
+        }
     )
     with pytest.raises(Exception):
         rc.ReleaseBuildHooks.model_validate({**hooks, "runtime_prepare": []})
     with pytest.raises(Exception):
         rc.ReleaseBuildHooks.model_validate({**hooks, "unknown_hook": ["true"]})
+
+
+def test_build_machine_is_optional_and_defaults_to_none():
+    good = _fake_manifest()
+    good.pop("build_machine", None)
+    manifest = rc.ReleaseAdapterManifest.model_validate(good)
+    assert manifest.build_machine is None
+
+
+def test_build_machine_roundtrips_setup_teardown_and_forbids_extra():
+    good = _fake_manifest()
+    good["build_machine"] = {
+        "setup": ["prep", "--mode", "setup"],
+        "teardown": ["prep", "--mode", "teardown"],
+    }
+    manifest = rc.ReleaseAdapterManifest.model_validate(good)
+    assert manifest.build_machine.setup == ["prep", "--mode", "setup"]
+    assert manifest.build_machine.teardown == ["prep", "--mode", "teardown"]
+    with pytest.raises(Exception):
+        rc.BuildMachine.model_validate(
+            {"setup": ["prep"], "teardown": ["prep"], "bogus": 1}
+        )
 
 
 def test_finding_fail_requires_tier_and_fingerprint():
@@ -192,7 +220,9 @@ def test_cli_validate_event_accepts_neutral_event_and_rejects_extra_field():
     }
     ok = _cli("validate-event", "-", input=json.dumps(event))
     assert ok.returncode == 0
-    bad = _cli("validate-event", "-", input=json.dumps({**event, "audit_trace_id": "x"}))
+    bad = _cli(
+        "validate-event", "-", input=json.dumps({**event, "audit_trace_id": "x"})
+    )
     assert bad.returncode == 3
 
 

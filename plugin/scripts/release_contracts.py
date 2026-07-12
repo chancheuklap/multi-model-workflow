@@ -134,12 +134,30 @@ class ReleaseBuildHooks(BaseModel):
     credential_proof: list[str] | None = None
 
 
+class BuildMachine(BaseModel):
+    """构建机准备协议（通用，非产品专属）：长构建前先把构建机备好，避免"编到深处才炸"和"一个包打一天"。
+
+    setup argv 在校验工具后、第一个耗时步骤前跑：它的 stdout 每一行 `KEY=VALUE` 由模板应用到**模板
+    自身进程**的环境变量（uv 镜像 index / NUITKA_CCACHE_BINARY / 电子镜像 / PYTHONDONTWRITEBYTECODE /
+    TEMP 重定向等），使随后所有步骤（含模板直接跑的 electron-builder 与钩子里的 uv/Nuitka）继承；setup
+    内部还可加系统级杀软排除（对后续全部子进程生效）并跑构建缓存预检（缺被墙下载点/磁盘/依赖即 fail-loud）。
+    setup 非零退出即中止构建。teardown 在 finally 跑（移除本次加的杀软排除等），best-effort，不改变构建判定。
+
+    值与探测逻辑全在仓库侧脚本（探 ccache 真实路径、镜像默认值等），引擎只按协议搬运、不含项目知识。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    setup: list[str] | None = None
+    teardown: list[str] | None = None
+
+
 class ReleaseAdapterManifest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_version: SchemaVersion
     product: str = Field(min_length=1)
     build_target: BuildTarget
+    build_machine: BuildMachine | None = None
     stages: list[StageSpec]
     diagnose: list[str] = Field(min_length=1)
     derive: list[str] = Field(min_length=1)

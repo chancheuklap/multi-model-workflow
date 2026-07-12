@@ -575,7 +575,12 @@ emit_event() {
   while IFS= read -r arg; do
     sink_argv+=("$arg")
   done < <(jq -r '.event_sink[]' "$mp")
-  printf '%s\n' "$ev" | "${sink_argv[@]}" || echo "WARN: event_sink 落地失败: $event" >&2
+  # sink 要按 ReleaseLoopEvent 合同 model_validate 后再落地,得先拿到本引擎正在用的那份
+  # release_contracts.py。它恒是 release-flow.sh 的同目录兄弟($SCRIPT_DIR/release_contracts.py,
+  # 见上方 validate-event),已安装扁平 cache 与源仓库 plugin/scripts/ 两种布局都成立。把这个权威
+  # 路径交给 sink,两端加载同一份合同、不靠 sink 自己猜 plugin 根下的子路径(那条假设只在源仓库
+  # 布局成立、已安装 cache 无 plugin/ 中间层,是 event 落地长期失败的根因)。
+  printf '%s\n' "$ev" | MMW_PLUGIN_DIR="$SCRIPT_DIR" "${sink_argv[@]}" || echo "WARN: event_sink 落地失败: $event" >&2
 }
 
 cmd_init() {
@@ -671,37 +676,37 @@ _ssh_ps() {
   ssh "$remote_host" "powershell -NoProfile -NonInteractive -Command \"$ps_command\""
 }
 
-# 生成远端构建 wrapper:release.ps1 内任何 throw 都是 terminating error,若把「跑脚本 + 写
-# exitcode」串在同一条 -Command 里,throw 会中止后续语句、exitcode 永不落地,轮询只能干等到
-# 墙钟超时。wrapper 用 try/catch/finally 保证无论成败 exitcode 必落地、异常必进日志。
+# 生成远端构建 wrapper。忠实复刻本仓现役、已实测能出三个产品包的 build-pc-installers.sh 里的
+# run-detached.ps1 成熟脱附模式,不再自造:扁平 $ErrorActionPreference='Continue' + `& powershell -File`
+# 子进程 + `*>` 原生流重定向到日志 + Set-Content 写退出码。曾自造的 `*>&1 | Out-File`/try-catch/finally
+# 是错的——脱附 schtasks 会话里 `| Out-File` 管道根本不落地(build-run.log 从不创建、diagnose 无据),
+# 而 `*>` 原生重定向与 Set-Content 在脱附会话可靠(现役旧路径长年验证)。exitcode 由 Set-Content 单独
+# 落地,不与日志重定向同一语句,故日志写没写都不影响退出码落地、轮询不空转。
 _write_remote_wrapper() {
   local wrapper="$1"
   cat > "$wrapper" <<'PS1'
 param([Parameter(Mandatory=$true)][string]$InputRoot)
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
 $log = Join-Path $InputRoot 'build-run.log'
-$code = 1
-try {
-  Expand-Archive -Force (Join-Path $InputRoot 'source.zip') (Join-Path $InputRoot 'source')
-  # Windows PowerShell 5.1 的 > / >> 重定向默认写 UTF-16LE,Mac 侧 diagnose 按 UTF-8 读会
-  # 全变 NUL 夹缝乱码、模式翻译整段失效——必须显式 Out-File -Encoding utf8,不用裸重定向。
-  & (Join-Path $InputRoot 'release.ps1') -ReleaseContextPath (Join-Path $InputRoot 'release-context.json') *>&1 | Out-File -FilePath $log -Append -Encoding utf8
-  $code = $LASTEXITCODE
-  if ($null -eq $code) { $code = 0 }
-} catch {
-  $_ | Out-String | Add-Content -Encoding UTF8 $log
-  $code = 1
-} finally {
-  Set-Content -Path (Join-Path $InputRoot 'build-run.exitcode') -Value $code -Encoding ascii
-}
-exit $code
+$rel = Join-Path $InputRoot 'release.ps1'
+$ctx = Join-Path $InputRoot 'release-context.json'
+# Source already extracted to $InputRoot/source by the harness ssh step. Run release.ps1 as a child
+# process and redirect all its streams to the log with `*>` (native, reliable in a detached schtasks
+# session; `*>&1 | Out-File` never lands there). $LASTEXITCODE is the child's real exit code.
+& powershell -NoProfile -ExecutionPolicy Bypass -File $rel -ReleaseContextPath $ctx *> $log
+$code = $LASTEXITCODE
+# `*>` writes UTF-16LE on Windows PS 5.1; re-encode the log to UTF-8 with Set-Content (reliable when
+# detached) so diagnose's ASCII failure-pattern matching is not broken by interleaved null bytes.
+# Best-effort: a re-encode failure must not swallow the exit code.
+try { $t = Get-Content -LiteralPath $log -Raw -ErrorAction Stop; if ($null -ne $t) { Set-Content -LiteralPath $log -Value $t -Encoding utf8 } } catch { }
+Set-Content -Path (Join-Path $InputRoot 'build-run.exitcode') -Value $code -Encoding ascii
 PS1
 }
 
 _run_remote_build() {
   local top="$1" source_commit="$2" stage_dir="$3"
   shift 3
-  local script="" context="" remote_host remote_root remote_input archive commit_file remote_context wrapper task_name
+  local script="" context="" remote_host remote_root remote_input remote_input_win archive commit_file remote_context wrapper cmd_file runner_cmd_win task_name
   while [ $# -gt 0 ]; do
     case "$1" in
       --script) script="${2:-}"; shift 2 ;;
@@ -743,6 +748,24 @@ _run_remote_build() {
   scp "$remote_context" "$remote_host:$remote_input/release-context.json" || return $?
   scp "$wrapper" "$remote_host:$remote_input/run-release.ps1" || return $?
 
+  # 忠实复刻现役 build-pc-installers.sh:schtasks /tr 指向一个 .cmd,由 .cmd 再调 run-release.ps1。
+  # .cmd 单路径无空格无嵌套引号,规避 schtasks /tr 跨 cmd/PowerShell/native CLI 三解析器的引号地雷。
+  # remote_input 已被上面字符白名单收紧(无空格),win 路径用反斜杠;-InputRoot 烘进 .cmd,不用 %~dp0
+  # (末尾反斜杠+引号在 cmd→powershell 参数解析里会转义掉引号)。
+  remote_input_win="$(printf '%s' "$remote_input" | tr '/' '\\')"
+  cmd_file="$stage_dir/run-release.cmd"
+  printf '@echo off\r\npowershell -NoProfile -ExecutionPolicy Bypass -File "%s\\run-release.ps1" -InputRoot "%s"\r\n' "$remote_input_win" "$remote_input_win" > "$cmd_file"
+  scp "$cmd_file" "$remote_host:$remote_input/run-release.cmd" || return $?
+  runner_cmd_win="${remote_input_win}\\run-release.cmd"
+
+  # 源码解压:在 harness 独立 ssh 会话里同步做完(~60s、断 ssh 无碍),失败必 fail-loud 不进构建。
+  # (现役旧路径是在脱附会话内的 build ps1 里解压,同样可靠;此处前置做只是让解压失败在 Mac 侧即时可见。)
+  # 先删旧 source 避免跨轮残留半解压文件;解压后校验目录非空,空即判失败。
+  if ! _ssh_ps "$remote_host" "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue '$remote_input/source'; Expand-Archive -Force '$remote_input/source.zip' '$remote_input/source'; if (-not (Test-Path '$remote_input/source') -or -not (Get-ChildItem -Force '$remote_input/source')) { exit 1 }"; then
+    echo "ERROR: 远端源码解压失败或产出为空(构建任务前置准备): $remote_input/source" >&2
+    return 71
+  fi
+
   # 清掉上一轮遗留的构建产物并验证清干净:remote_input 只按 commit 命名,resume / 重跑同 commit
   # 时若不清,首次轮询就会读到过期 exitcode(如上轮的 "0")而把仍在跑或已失败的本轮误判成功——
   # 清除失败必须 fail-loud,不能静默继续。
@@ -752,12 +775,15 @@ _run_remote_build() {
   fi
 
   task_name="mmw-release-${source_commit:0:12}-${RANDOM}"
-  # schtasks /tr 只指向 wrapper 文件,解压/跑脚本/写 exitcode 全部在 wrapper 的
-  # try/catch/finally 内完成,不在 /tr 里串多条语句。/tr 值与任务名一律不加单引号:
-  # create/run 经 cmd.exe、任务命令行经 powershell.exe native CLI 解析,两者都把单引号
-  # 当字面字符——加了引号任务名带 ' 且 -File 找的是带引号的假路径,wrapper 永远起不来。
-  # /tr 整值的双引号是 cmd 层分组(值含空格),内部路径靠上面的无空格合同裸传。
-  ssh "$remote_host" "schtasks /create /tn $task_name /tr \"powershell -NoProfile -ExecutionPolicy Bypass -File $remote_input/run-release.ps1 -InputRoot $remote_input\" /sc once /st 00:00 /f" || return $?
+  # schtasks 忠实复刻现役 build-pc-installers.sh 的成熟做法(已实测能出三产品包):
+  # - /tr 指向上面上传的 .cmd(无空格裸传,charset 白名单保证),不直接串 powershell + 多参数;
+  # - /sc weekly /d SUN 而非 /sc once:过期的 once 任务会被 Task Scheduler 判「不再运行」而在
+  #   create→run 之间自动删除(旧路径注释记 build5 踩过此竞态);weekly 任务永不过期,/run 强制立即跑;
+  # - 不加 /it /rl HIGHEST:构建机是已登录交互工作机,默认就在登录用户会话跑,旧路径长年长构建无需 /it。
+  # 先删同名残留任务再建,避免上轮崩溃遗留条目。三条 schtasks 各一次 ssh:PC 默认 shell 是 PowerShell,
+  # `&`/`;` 串联在 PS5.1 非法或变后台 job,没有顺序语义。
+  ssh "$remote_host" "schtasks /delete /tn $task_name /f" >/dev/null 2>&1 || true
+  ssh "$remote_host" "schtasks /create /tn $task_name /tr $runner_cmd_win /sc weekly /d SUN /st 23:59 /f" || return $?
   # 任务一旦 /create 成功,此后所有出口(/run 起不来、轮询超时、exitcode 损坏、正常结束)都必须
   # 结束可能仍在跑的构建 + 删计划任务:超时那类会有孤儿构建抢写下次同 commit 的 exitcode,其余虽只在
   # Task Scheduler 堆无害死条目也一并清。用子函数跑「/run + 轮询」拿 rc,函数尾部统一清理一次,不在每个
@@ -781,7 +807,27 @@ _run_remote_build() {
 # 计划任务的 /end + /delete 清理由调用方 _run_remote_build 统一在尾部做,本函数只管 run+poll+判定。
 _remote_run_and_poll() {
   local remote_host="$1" remote_input="$2" task_name="$3" stage_dir="$4"
-  ssh "$remote_host" "schtasks /run /tn $task_name" || return $?
+
+  # 启动确认(复刻现役 build-pc-installers.sh):schtasks /run 偶发「返回 0 但任务没起来」,
+  # 静默失败会让下面的 exitcode 轮询干等到墙钟超时。/run 后最多等 ~40s 看 build-run.log 或 exitcode
+  # 出现(证明 wrapper 真跑起来了);没起来重试一次 /run,再不起 fail-loud,不进长轮询。
+  local launched=0 attempt probe
+  for attempt in 1 2; do
+    ssh "$remote_host" "schtasks /run /tn $task_name" || return $?
+    local i
+    for i in 1 2 3 4 5 6 7 8; do
+      probe="$(_ssh_ps "$remote_host" "if ((Test-Path '$remote_input/build-run.log') -or (Test-Path '$remote_input/build-run.exitcode')) { 'Y' } else { 'N' }" 2>/dev/null || true)"
+      probe="${probe%%[$'\r\n']*}"
+      if [ "$probe" = "Y" ]; then launched=1; break; fi
+      sleep 5
+    done
+    [ "$launched" = "1" ] && break
+    echo "WARN: detached 构建任务未启动,重试 schtasks /run(第 ${attempt} 次)" >&2
+  done
+  if [ "$launched" != "1" ]; then
+    echo "ERROR: detached 构建任务在 $remote_host 启动失败(build-run.log/exitcode 一直未出现,task=$task_name)" >&2
+    return 70
+  fi
 
   # 真实 Windows 构建耗时分钟级:轮询「本轮 exitcode 文件出现」而非日志出现,带间隔、有上限,
   # running 不当 fail。间隔/上限可经 env 调,测试用 fake ssh 首轮即有 exitcode、不进 sleep。
@@ -826,7 +872,7 @@ _fetch_remote_build_log() {
 }
 
 cmd_stage_run() {
-  local requested="" f name top source_commit attempt_id stage_dir log_file raw expanded rc=0
+  local requested="" f name top source_commit attempt_id stage_dir loop_dir log_file raw expanded rc=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --stage) requested="$2"; shift 2 ;;
@@ -846,12 +892,18 @@ cmd_stage_run() {
   source_commit="$(git -C "$top" rev-parse HEAD)"
   attempt_id="a$(jq -r '.attempt_ledger | length' "$f")-$name"
   stage_dir="$(dirname "$f")/release-artifacts/$attempt_id"
+  # 跨 stage 产物交接目录:整轮固定(不随 attempt 序号变)。${RELEASE_STAGE_DIR} 是每-attempt 目录
+  # (a0-verify_key / a1-assemble / a2-build ...),只存本 stage 自己的日志与临时输入;它无法在
+  # stage 之间传产物——assemble 写进 a1、build 从 a2 读同名文件永远错开。真正的 stage 交接产物
+  # (拼脚本器产出的 release.ps1 / release-context.json 供 build 消费)必须落这个整轮固定目录。
+  loop_dir="$(dirname "$f")/release-artifacts/_loop"
   log_file="$stage_dir/$name.log"
-  mkdir -p "$stage_dir"
+  mkdir -p "$stage_dir" "$loop_dir"
 
   local argv=()
   while IFS= read -r raw; do
     expanded="${raw//\$\{RELEASE_STAGE_DIR\}/$stage_dir}"
+    expanded="${expanded//\$\{RELEASE_LOOP_DIR\}/$loop_dir}"
     expanded="${expanded//\$\{RELEASE_PLUGIN_DIR\}/$SCRIPT_DIR}"
     argv+=("$expanded")
   done < <(jq -r --arg n "$name" '.stages[] | select(.name == $n) | .run[]' "$f")
@@ -879,6 +931,7 @@ cmd_stage_run() {
     RELEASE_STAGE_NAME="$name" \
     RELEASE_SOURCE_COMMIT="$source_commit" \
     RELEASE_STAGE_DIR="$stage_dir" \
+    RELEASE_LOOP_DIR="$loop_dir" \
     "${argv[@]}"
   ) >"$log_file" 2>&1; then
     rc=0

@@ -108,6 +108,45 @@ def test_assemble_embedded_python_preserves_build_teeth_deterministically(
     ]
 
 
+def test_assemble_flows_build_machine_into_context_and_renders_setup_teardown(
+    tmp_path: Path,
+) -> None:
+    """声明 build_machine 的钥匙:setup/teardown 进 context,模板渲染出构建机准备段(在 $RepoRoot 下跑)。"""
+    adapter = json.loads(
+        (FIXTURES / "embedded-python.adapter.json").read_text(encoding="utf-8")
+    )
+    adapter["build_machine"] = {
+        "setup": ["prep", "--mode", "setup"],
+        "teardown": ["prep", "--mode", "teardown"],
+    }
+    tweaked = tmp_path / "adapter.json"
+    tweaked.write_text(json.dumps(adapter), encoding="utf-8")
+    output = tmp_path / "release.ps1"
+    context_output = tmp_path / "release-context.json"
+
+    result = _assemble(tweaked, output, context_output)
+
+    assert result.returncode == 0, result.stderr
+    context = json.loads(context_output.read_text(encoding="utf-8"))
+    assert context["build_machine"]["setup"] == ["prep", "--mode", "setup"]
+    assert context["build_machine"]["teardown"] == ["prep", "--mode", "teardown"]
+    script = output.read_text(encoding="utf-8")
+    assert "Prepare build machine" in script
+    assert "Push-Location $RepoRoot" in script
+
+
+def test_assemble_leaves_build_machine_null_when_key_omits_it(tmp_path: Path) -> None:
+    """不声明 build_machine 的钥匙:context 里 build_machine 为 null,模板整段跳过、老钥匙不受影响。"""
+    output = tmp_path / "release.ps1"
+    context_output = tmp_path / "release-context.json"
+
+    result = _assemble(FIXTURES / "core-exe.adapter.json", output, context_output)
+
+    assert result.returncode == 0, result.stderr
+    context = json.loads(context_output.read_text(encoding="utf-8"))
+    assert context["build_machine"] is None
+
+
 def test_assemble_rejects_unsafe_desktop_path_without_replacing_outputs(
     tmp_path: Path,
 ) -> None:
@@ -286,8 +325,9 @@ def test_assemble_delegates_runtime_build_to_repo_hook_for_both_lanes(
         assert "--include-package" not in script
         # 都把造运行时交给仓库的 runtime_prepare 钩子
         assert "-Name 'runtime_prepare'" in script
-    assert "prepared by the repository runtime_prepare hook" in embedded_script.read_text(
-        encoding="utf-8-sig"
+    assert (
+        "prepared by the repository runtime_prepare hook"
+        in embedded_script.read_text(encoding="utf-8-sig")
     )
 
 

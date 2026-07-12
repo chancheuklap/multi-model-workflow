@@ -217,6 +217,11 @@ def assemble(
         "repo_root": str(repo_root.resolve()),
         "build_target": manifest.build_target.model_dump(mode="json"),
         "build_hooks": manifest.build_hooks.model_dump(mode="json"),
+        "build_machine": (
+            manifest.build_machine.model_dump(mode="json")
+            if manifest.build_machine
+            else None
+        ),
         "render_metadata": {
             "stages": _STAGES_BY_LANE[manifest.build_target.runtime_lane],
             "hook_calls": [
