@@ -1,0 +1,58 @@
+# Investigate · 查清现状(阶段操作指南)
+
+> investigate 阶段:当场判断 + 跑命令。**红线:取证不判定**——只摆证据,不在这拍方案、选路线、下设计结论。
+
+阶段目标:把现状查清(内部代码 / 外部方案),产出一份带引用的现状报告,**存档 `docs/investigating/<slug>.md`**(命名同设计 / 计划文档),喂 design / build 扎根。
+
+## 1. 判断:查哪个方向 + 定 topics
+
+内部与外部调查分开定义 topics,统一用 `investigate-topic` droid 执行:
+
+| 方向 | 查什么 | 派发 | 角度 skill(可选) |
+|---|---|---|---|
+| 内部(仓库现状) | 模块边界 / seam / 数据流 / 根因 | Task → `investigate-topic` | `codebase-design` · `diagnosing-bugs` |
+| 外部(成熟方案,**非必做**) | 现有库 / 实现 / 最佳实践 | Task → `investigate-topic` | `deep-research` · `context7` |
+
+- 只需查内部 → 只跑 internal;要对比外部方案 → 再跑 external;两个都要 → 先后各跑一次。
+- 窄到一个点(一个函数 / 已知文件)→ 别派 Task,自己 Read/Grep 查完直接 handoff。
+- 定 topics:**一个 topic 一个 agent**,按调查真实需要定几个(别凑没意义的 topic,也不设上限)。每个 `{ angle, question, skill? }`。
+
+## 2. Checkpoint → 派调查 droids
+
+**fire 前必停,按下面固定格式把投查计划亮给用户**(别每次自创格式),等用户批 / 改再跑——别闷头烧 token:
+
+```
+投查方向:<内部 / 外部 / 两者>(外部非必做)
+| # | angle | question | skill |
+|---|---|---|---|
+| 1 | <角度名> | <这一题要回答什么> | <角度 skill 或 —> |
+| 2 | ... | ... | ... |
+```
+亮完跟一句:「批 / 改 / 增删 topic?批了就并行调查」。等用户回应再 fire,不擅自跑。
+
+批了以后每个 topic 派一个 Task:
+
+```
+Task({
+ subagent_type: "investigate-topic",
+ prompt: "angle=<...>; question=<...>; skill=<可选>; repoRoot=<worktree>; 只取证不判定; 回 markdown+open_questions+spinoff_candidates"
+})
+```
+
+互不依赖的 topic 在单条消息中并行派发,长调查优先后台运行并记录 task ID。全部用 TaskOutput 收回后,主线程综合成一份报告;追问用 Task resume 续接原调查上下文。
+
+## 3. 收口(回主线程)
+
+1. **亲验承重事实**:报告里的 `file:line` / `url`,自己 grep/Read/查证坐实。子代理是劳动力不是信源,验不过的不写进交付物。
+2. **旁路登记**:`report.spinoff_candidates` 里亲验为真的,逐条 `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,不顺手修。
+3. **存档 + handoff**:把现状报告写进 `docs/investigating/<slug>.md`(prepare 已 scaffold 该目录),钉进接力单:
+ - 够 design / build 用 → `mmw handoff --conclusion pass --produced docs/investigating/<slug>.md`
+ - `open_questions` 里有必须用户拍板才能继续的 → `--conclusion needs-context`
+ - **bug 查根因两种诚实收口**(查不动别假装查到):**无法重现** → `needs-context`,报告附**已试的重现路径**,请用户补重现步骤 / 环境;**无法定位根因**(重现了但定不到) → `needs-context`,报告附**已排除的假设(带证据)**,请用户给方向 / 补信息。别硬编个根因往下走。
+
+> 领域文档(`docs/context`)归 design 阶段的 `domain-modeling` 维护;investigate 只写 `docs/investigating/`,不碰 `docs/context`。
+
+## 红线
+
+- 全程只读;fan-out 期间不写状态平面,综合 + 亲验后主线程才写盘。
+- Task 断了优先按 task ID resume;阶段级断点靠 `manifest.phases`。

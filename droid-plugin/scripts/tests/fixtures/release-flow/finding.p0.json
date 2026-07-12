@@ -1,0 +1,26 @@
+{
+  "findings": [
+    {
+      "schema_version": "1",
+      "product": "duck",
+      "dimension": "secret",
+      "name": "env_signature_touched",
+      "status": "fail",
+      "tier": "P0",
+      "root_cause_fingerprint": "p0_path:deploy/env",
+      "detail": "改动触达 secret",
+      "remediation": "人工处理"
+    },
+    {
+      "schema_version": "1",
+      "product": "duck",
+      "dimension": "packaging",
+      "name": "missing_module",
+      "status": "fail",
+      "tier": "P1",
+      "root_cause_fingerprint": "missing_module:uharfbuzz",
+      "detail": "frozen exe 缺 uharfbuzz",
+      "remediation": "补 hidden import"
+    }
+  ]
+}

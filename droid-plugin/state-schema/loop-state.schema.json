@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "loop-state",
+  "description": "内层 loop 的状态 ledger,独立于外层 task.json。落 <worktree>/.factory/multi-model-workflow/loop-state.json。进一个 loop 时 init,handoff 结论落定时由 loop close 清。exit-check、handoff 确定性闸和 where 断点恢复都读它。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "attendance", "steps", "checklist", "findings", "decisions", "pause"],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "kind": {
+      "enum": ["execution", "review", "contract-gate"],
+      "description": "execution=落地 loop(steps);review=审核 loop(checklist+findings);contract-gate=③便宜合同门(steps+checklist 机器核,无判断)"
+    },
+    "attendance": { "enum": ["attended", "afk", "unattended"], "description": "本 loop 的值守档,init 时从外层 task.json 的 attendance 读入(task.json 为运行级权威,跨阶段留存;loop-state 只是当前 loop 的派生缓存供软停判断)。attended=软停问人;afk=软停自决、缺输入/方向疑仍停;unattended=软停自决且禁向用户提问(权威仍是 task.json,见 attendance reference)" },
+    "round": { "type": "integer", "minimum": 1, "description": "审 loop 当前轮次(loop round next 推进)" },
+    "max_rounds": { "type": "integer", "minimum": 0, "description": "审 loop 轮上限,0=不限;round next 到顶自动 surface 熔断(机器计数,防无限打转)" },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "desc", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "desc": { "type": "string" },
+          "status": { "enum": ["pending", "done"] },
+          "commit": { "type": ["string", "null"] },
+          "plan": { "type": ["string", "null"], "description": "该步对应的 plan 文档路径(模式B 一 plan 一步);断点恢复靠它重建步→plan" },
+          "worktree": { "type": ["string", "null"], "description": "该 plan 的子 worktree 路径。pending+有 worktree = 已创建派发面,从 worker-dispatch/meta.json 读取 task_id 验证或恢复;pending+无 worktree = 未派。" }
+        }
+      },
+      "description": "落地=pack/plan;contract-gate=待提交的 pack。主线程展开,commit hook 记 done。plan/worktree 支撑并行 Task worker 的内层断点恢复"
+    },
+    "checklist": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["item", "source", "status"],
+        "properties": {
+          "item": { "type": "string" },
+          "source": { "type": "string", "description": "从哪份文档/行抽出" },
+          "status": { "enum": ["open", "covered"] },
+          "evidence": { "type": ["string", "null"] }
+        }
+      },
+      "description": "审核 loop 的覆盖清单(主线程从设计/issue 抽);contract-gate 的合同清单"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["severity", "confidence", "locator"],
+        "properties": {
+          "severity": { "enum": ["Critical", "Important", "Minor"] },
+          "confidence": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "locator": { "type": "string" },
+          "status": { "enum": ["open", "resolved"] }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["at_step", "chose", "why", "at"],
+        "properties": {
+          "at_step": { "type": "string" },
+          "chose": { "type": "string" },
+          "why": { "type": "string" },
+          "at": { "type": "string" }
+        }
+      },
+      "description": "无人值守软停自决留痕,不偷跳"
+    },
+    "pause": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["at_step", "kind", "question"],
+      "properties": {
+        "at_step": { "type": "string" },
+        "kind": { "enum": ["soft", "surface"], "description": "soft=有默认的判断(在场停);surface=缺输入/方向疑(永远停)" },
+        "reason": { "enum": ["needs-context", "needs-redirection", "soft"] },
+        "question": { "type": "string" }
+      },
+      "description": "停了写这里,resume 清空。非 null = 等人答复"
+    }
+  }
+}
