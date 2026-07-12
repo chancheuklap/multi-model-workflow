@@ -706,7 +706,7 @@ PS1
 _run_remote_build() {
   local top="$1" source_commit="$2" stage_dir="$3"
   shift 3
-  local script="" context="" remote_host remote_root remote_input remote_input_win archive commit_file remote_context wrapper cmd_file runner_cmd_win task_name product
+  local script="" context="" remote_host remote_root remote_input remote_input_win archive commit_file remote_context wrapper cmd_file runner_cmd_win task_name product installer_glob
   while [ $# -gt 0 ]; do
     case "$1" in
       --script) script="${2:-}"; shift 2 ;;
@@ -747,6 +747,8 @@ _run_remote_build() {
       ;;
   esac
   remote_input="${remote_root%/}/${source_commit:0:12}-${product}"
+  # 成品安装包在源码树里的落点(仓库相对 glob),供出包成功后收拢到统一交付目录;缺省则不收拢。
+  installer_glob="$(jq -r '.build_target.installer_glob // empty' "$context" 2>/dev/null)"
   archive="$stage_dir/source.zip"
   commit_file="$stage_dir/SOURCE_COMMIT.txt"
   remote_context="$stage_dir/release-context.remote.json"
@@ -811,6 +813,35 @@ _run_remote_build() {
   # 但必须留痕(残留任务会在下轮同 commit 抢写产物)。
   if ! _ssh_ps "$remote_host" "schtasks /end /tn $task_name; schtasks /delete /tn $task_name /f" >/dev/null 2>&1; then
     echo "WARN: 远端计划任务清理失败(task=$task_name),残留条目需手动 schtasks /delete" >&2
+  fi
+  # 构建成功且钥匙声明了安装包落点:把安装包从 commit 哈希构建目录收拢到统一交付目录
+  # $RELEASE_DELIVERY_ROOT/<product>/(缺省 D:\agentflow-releases),按产品分子目录、覆盖同名(每产品各占各的,
+  # 不同产品不互删——覆盖问题在构建目录命名处已解;交付目录同产品新包盖旧包是预期)。排除 electron-builder
+  # 的卸载器(*__*)与 .blockmap(-File + 扩展名 .exe + 非 __)。交付失败只 loud WARN 不改判定:包已在
+  # 构建目录产出,交付是收拢便利,不该让一次拷贝故障把成功的构建标成失败——但必须留痕并指出源路径。
+  if [ "$rc" -eq 0 ] && [ -n "$installer_glob" ]; then
+    local delivery_root glob_win dest_win src_glob_win deliver_ps deliver_out
+    delivery_root="${RELEASE_DELIVERY_ROOT:-D:\\agentflow-releases}"
+    glob_win="$(printf '%s' "$installer_glob" | tr '/' '\\')"
+    dest_win="${delivery_root%\\}\\${product}"
+    src_glob_win="${remote_input_win}\\source\\${glob_win}"
+    # 参数化 .ps1 写文件 scp 跑:inline 拼 PowerShell $变量经 bash 双引号/ssh 会被吃空,写成 -File 脚本
+    # 用 -Dest/-SrcGlob 传参最稳(与 run-release.ps1 同一可靠模式)。纯 ASCII heredoc,无 BOM 也不会 GBK 误解析。
+    deliver_ps="$stage_dir/deliver-installer.ps1"
+    cat > "$deliver_ps" <<'DELIVER_PS1'
+param([Parameter(Mandatory=$true)][string]$Dest, [Parameter(Mandatory=$true)][string]$SrcGlob)
+$ErrorActionPreference = 'Stop'
+New-Item -ItemType Directory -Force -Path $Dest | Out-Null
+$items = @(Get-ChildItem -Path $SrcGlob -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -eq '.exe' -and $_.Name -notlike '*__*' })
+if ($items.Count -eq 0) { Write-Error "no installer matched: $SrcGlob"; exit 3 }
+foreach ($it in $items) { Copy-Item -LiteralPath $it.FullName -Destination $Dest -Force; Write-Output ("DELIVERED " + (Join-Path $Dest $it.Name)) }
+DELIVER_PS1
+    if scp "$deliver_ps" "$remote_host:$remote_input/deliver-installer.ps1" >/dev/null 2>&1 &&
+      deliver_out="$(ssh "$remote_host" "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File '$remote_input_win\\deliver-installer.ps1' -Dest '$dest_win' -SrcGlob '$src_glob_win'" 2>&1)"; then
+      printf '%s\n' "$deliver_out" | grep '^DELIVERED ' >&2 || true
+    else
+      echo "WARN: 安装包交付到 $dest_win 失败(构建已成功,安装包仍在 $src_glob_win):$deliver_out" >&2
+    fi
   fi
   return "$rc"
 }

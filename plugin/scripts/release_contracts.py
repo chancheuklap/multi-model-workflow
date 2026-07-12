@@ -115,6 +115,10 @@ class BuildTarget(BaseModel):
     runtime_lane: RuntimeLane
     entry_module: str = Field(min_length=1)
     installer_brand: str = Field(min_length=1)
+    # 产品成品安装包在源码树里的落点（仓库相对 glob）。出包成功后引擎按此把安装包收拢到统一交付目录
+    # （$RELEASE_DELIVERY_ROOT/<product>/），不再让客户去 commit 哈希构建目录里翻。产品各自落点不同
+    # （duck 在 runtime/assistant-release，parrot/hedgehog 在 desktop-*/dist），故随钥匙声明、引擎零产品知识。
+    installer_glob: str | None = None
     deps_extra: str | None = None
     asset_roots: list[str] = Field(default_factory=list)
     native_ext_dll: list[NativeExtDll] = Field(default_factory=list)
