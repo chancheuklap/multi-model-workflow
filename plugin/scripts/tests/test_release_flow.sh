@@ -157,7 +157,23 @@ if PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMO
   else
     no "remote build wrapper 缺失或未保证 exitcode 落地"
   fi
-  grep -q "File '.*run-release.ps1'" "$TMP/transport.calls" && ok "schtasks /tr 只指 wrapper 文件(不串多语句)" || no "schtasks /tr 仍串多语句"
+  # Windows PowerShell 5.1 裸重定向写 UTF-16LE,Mac 侧按 UTF-8 翻译会全灭:wrapper 必须显式编码。
+  if grep -q 'Out-File.*-Encoding utf8' "$TMP/fake-remote/run-release.ps1" \
+    && grep -q 'Add-Content -Encoding UTF8' "$TMP/fake-remote/run-release.ps1" \
+    && grep -q 'Set-Content.*-Encoding ascii' "$TMP/fake-remote/run-release.ps1"; then
+    ok "wrapper 显式 UTF-8 写日志 / ascii 写 exitcode(不写 UTF-16LE)"
+  else
+    no "wrapper 未显式声明编码,PS5.1 裸重定向会写 UTF-16LE"
+  fi
+  grep -q 'File .*run-release.ps1' "$TMP/transport.calls" && ok "schtasks /tr 只指 wrapper 文件(不串多语句)" || no "schtasks /tr 仍串多语句"
+  # 引号合同:create/run 走 cmd.exe、任务命令行走 powershell native CLI,单引号在两处都是字面
+  # 字符——带引号则清理找不到任务、-File 找的是假路径。断 /tn 全链一致且不带引号。
+  if grep -q "/tn '" "$TMP/transport.calls" || grep -q "File '" "$TMP/transport.calls"; then
+    no "schtasks 任务名或 /tr 路径带单引号(cmd/native CLI 会当字面字符)"
+  else
+    ok "schtasks 任务名与 wrapper 路径裸传(无跨 shell 引号歧义)"
+  fi
+  [ "$(grep -o '/tn [^ ]*' "$TMP/transport.calls" | sort -u | wc -l | tr -d ' ')" = "1" ] && ok "create/run/清理引用同一任务名" || no "任务名跨命令不一致,清理会找不到任务"
   grep -q 'schtasks /run' "$TMP/transport.calls" && ok "remote build 启动 schtasks" || no "remote build 未启动 schtasks"
   [ "$(cat "$TMP/fake-remote/SOURCE_COMMIT.txt")" = "$(git rev-parse HEAD)" ] && ok "remote build 绑定完整 SourceCommit" || no "remote build SourceCommit 错误"
   [ -s "$TMP/fake-remote/source.zip" ] && ok "remote build 上传 git archive HEAD" || no "remote build 缺 source archive"
@@ -216,6 +232,39 @@ PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE=
 grep -q 'schtasks /end' "$TMP/transport.calls" && ok "remote build 超时结束在跑的构建(schtasks /end)" || no "remote build 超时未 end 任务"
 grep -q 'schtasks /delete' "$TMP/transport.calls" && ok "remote build 超时删计划任务(不遗留孤儿)" || no "remote build 超时未删任务"
 [ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" != "done" ] && ok "remote build 超时不判 stage done" || no "remote build 超时误判 done"
+# PAUSED:needs-context 的自主处置第一步是从回执拿日志 locator——receipt 漏印 log_refs,
+# 驱动 Agent 只能翻裸 state 猜路径。
+bash "$RF" receipt > "$TMP/receipt.out"
+grep -q 'logs=' "$TMP/receipt.out" && ok "receipt 输出 attempt 的 log_refs(自主处置有日志入口)" || no "receipt 未输出 log_refs"
+bash "$RF" close >/dev/null
+
+# 清不掉远端旧 build-run 产物必须 fail-loud:旧 exitcode 留场会把仍在跑/已失败的本轮误判成功。
+cat > remote-bin/ssh <<'SH'
+#!/usr/bin/env bash
+printf 'ssh %s\n' "$*" >> "$TRANSPORT_CALLS"
+case "$*" in
+  *Remove-Item*) exit 1 ;;
+  *Test-Path*) printf 'Y\n' ;;
+  *Get-Content*) printf '0\n' ;;
+esac
+SH
+chmod +x remote-bin/ssh
+: > "$TMP/transport.calls"
+bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" \
+   RELEASE_REMOTE_BUILD_POLL_SECONDS=0 \
+   RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release-input" bash "$RF" stage run --stage build >/dev/null 2>&1 || true
+[ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" != "done" ] && ok "旧产物清除失败不继续构建(防过期 exitcode 伪成功)" || no "旧产物清除失败仍误判 done"
+grep -q 'schtasks /create' "$TMP/transport.calls" && no "旧产物清除失败仍创建了计划任务" || ok "旧产物清除失败不创建计划任务"
+bash "$RF" close >/dev/null
+
+# 远端根路径含空格直接拒:跨 cmd/PowerShell/native CLI 三解析器的引号没有统一合同。
+: > "$TMP/transport.calls"
+bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" \
+   RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release input" bash "$RF" stage run --stage build >/dev/null 2>&1 || true
+[ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" != "done" ] && ok "RELEASE_REMOTE_ROOT 含空格被拒(引号无稳定合同)" || no "含空格远端根未被拒"
+grep -q 'schtasks /create' "$TMP/transport.calls" && no "含空格远端根仍创建了计划任务" || ok "含空格远端根未触达 schtasks"
 bash "$RF" close >/dev/null
 
 # 回归 I1:schtasks /run 起不来(任务已 /create)时,尾部统一清理必须删掉已建的计划任务。

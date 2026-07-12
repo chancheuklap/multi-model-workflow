@@ -274,8 +274,17 @@ cmd_record_release() {
   local built_commit
   built_commit="$(jq -r '.source_commit // ""' "$release_state")"
   [ "$built_commit" = "$commit" ] || die "S1 release 构建的是 $built_commit,当前 HEAD 是 $commit;先重跑 release 再记录"
+  # 多产品不变量:全部已记录产品的安装包必须出自同一 commit。后记录的产品若经过自愈修复把
+  # HEAD 推前(修复可能改到共用打包代码),早前产品的包就已经不是最终代码——把它们重置回待出
+  # 包由驱动循环重出,否则 exit-check 会把旧提交的包当成最终交付。
+  local stale
+  stale="$(jq -r --arg commit "$commit" '[.targets[] | select(.release_commit != null and .release_commit != $commit) | .product] | join(",")' "$state")"
   jq --arg p "$product" --arg commit "$commit" '
-    .targets |= map(if .product == $p then .release_commit=$commit else . end)' "$state" | write_package_state "$state"
+    .targets |= map(
+      if .product == $p then .release_commit=$commit
+      elif .release_commit != null and .release_commit != $commit then .release_commit=null
+      else . end)' "$state" | write_package_state "$state"
+  [ -z "$stale" ] || echo "RESET-STALE:$stale"
   echo "RECORDED:$product"
 }
 
@@ -293,6 +302,12 @@ cmd_exit_check() {
   pending="$(jq -r '[.targets[] | select(.release_commit == null) | .product][0] // ""' "$state")"
   if [ -n "$pending" ]; then
     echo "NOT-DONE:release:$pending"
+    return 1
+  fi
+  # 防御第二道(record-release 的重置是第一道):所有产品的 release_commit 必须是同一个,
+  # 混着不同 commit 的包绝不能判 DONE。
+  if [ "$(jq -r '[.targets[].release_commit] | unique | length' "$state")" -gt 1 ]; then
+    echo "NOT-DONE:release-commit-mismatch"
     return 1
   fi
   if [ "$(jq -r '.installed_test == null' "$state")" = "true" ]; then

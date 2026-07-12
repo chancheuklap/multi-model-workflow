@@ -679,17 +679,20 @@ _write_remote_wrapper() {
   cat > "$wrapper" <<'PS1'
 param([Parameter(Mandatory=$true)][string]$InputRoot)
 $ErrorActionPreference = 'Stop'
+$log = Join-Path $InputRoot 'build-run.log'
 $code = 1
 try {
   Expand-Archive -Force (Join-Path $InputRoot 'source.zip') (Join-Path $InputRoot 'source')
-  & (Join-Path $InputRoot 'release.ps1') -ReleaseContextPath (Join-Path $InputRoot 'release-context.json') *>> (Join-Path $InputRoot 'build-run.log')
+  # Windows PowerShell 5.1 的 > / >> 重定向默认写 UTF-16LE,Mac 侧 diagnose 按 UTF-8 读会
+  # 全变 NUL 夹缝乱码、模式翻译整段失效——必须显式 Out-File -Encoding utf8,不用裸重定向。
+  & (Join-Path $InputRoot 'release.ps1') -ReleaseContextPath (Join-Path $InputRoot 'release-context.json') *>&1 | Out-File -FilePath $log -Append -Encoding utf8
   $code = $LASTEXITCODE
   if ($null -eq $code) { $code = 0 }
 } catch {
-  $_ | Out-String | Add-Content (Join-Path $InputRoot 'build-run.log')
+  $_ | Out-String | Add-Content -Encoding UTF8 $log
   $code = 1
 } finally {
-  Set-Content -Path (Join-Path $InputRoot 'build-run.exitcode') -Value $code
+  Set-Content -Path (Join-Path $InputRoot 'build-run.exitcode') -Value $code -Encoding ascii
 }
 exit $code
 PS1
@@ -715,6 +718,10 @@ _run_remote_build() {
   [ -n "$remote_host" ] || { echo "ERROR: remote build 缺 RELEASE_REMOTE_HOST" >&2; return 64; }
   [ -n "$remote_root" ] || { echo "ERROR: remote build 缺 RELEASE_REMOTE_ROOT" >&2; return 64; }
 
+  # 引号合同:远端命令跨三种解析器(cmd.exe / PowerShell 语言 / powershell.exe native CLI),
+  # 单引号只在 PowerShell 语言里是定界符,cmd 与 native CLI 都按字面收——路径/任务名一旦需要
+  # 引号就没有统一合同。唯一稳定做法:远端路径禁空格,所有 schtasks 参数裸传不加引号。
+  case "$remote_root" in *" "*) echo "ERROR: RELEASE_REMOTE_ROOT 不得含空格(跨 shell 引号无稳定合同): $remote_root" >&2; return 64 ;; esac
   remote_input="${remote_root%/}/$source_commit"
   archive="$stage_dir/source.zip"
   commit_file="$stage_dir/SOURCE_COMMIT.txt"
@@ -732,22 +739,32 @@ _run_remote_build() {
   scp "$remote_context" "$remote_host:$remote_input/release-context.json" || return $?
   scp "$wrapper" "$remote_host:$remote_input/run-release.ps1" || return $?
 
-  # 清掉上一轮遗留的构建产物:remote_input 只按 commit 命名,resume / 重跑同 commit 时若不清,
-  # 首次轮询就会读到过期 exitcode(如上轮的 "0")而把仍在跑或已失败的本轮误判成功。
-  _ssh_ps "$remote_host" "Remove-Item -Force -ErrorAction SilentlyContinue '$remote_input/build-run.log','$remote_input/build-run.exitcode'" >/dev/null 2>&1 || true
+  # 清掉上一轮遗留的构建产物并验证清干净:remote_input 只按 commit 命名,resume / 重跑同 commit
+  # 时若不清,首次轮询就会读到过期 exitcode(如上轮的 "0")而把仍在跑或已失败的本轮误判成功——
+  # 清除失败必须 fail-loud,不能静默继续。
+  if ! _ssh_ps "$remote_host" "Remove-Item -Force -ErrorAction SilentlyContinue '$remote_input/build-run.log','$remote_input/build-run.exitcode'; if ((Test-Path '$remote_input/build-run.exitcode') -or (Test-Path '$remote_input/build-run.log')) { exit 1 }"; then
+    echo "ERROR: 无法清除远端上一轮构建产物(旧 exitcode 会把本轮误判成功): $remote_input" >&2
+    return 70
+  fi
 
   task_name="mmw-release-${source_commit:0:12}-${RANDOM}"
-  # schtasks /tr 只指向 wrapper 文件(-File 单层引号),解压/跑脚本/写 exitcode 全部在 wrapper
-  # 的 try/catch/finally 内完成,不在 /tr 里串多条语句——多层引号转义在 bash→ssh→远端 shell
-  # →Task Scheduler 链路上没有可靠合同。
-  ssh "$remote_host" "schtasks /create /tn '$task_name' /tr \"powershell -NoProfile -ExecutionPolicy Bypass -File '$remote_input/run-release.ps1' -InputRoot '$remote_input'\" /sc once /st 00:00 /f" || return $?
+  # schtasks /tr 只指向 wrapper 文件,解压/跑脚本/写 exitcode 全部在 wrapper 的
+  # try/catch/finally 内完成,不在 /tr 里串多条语句。/tr 值与任务名一律不加单引号:
+  # create/run 经 cmd.exe、任务命令行经 powershell.exe native CLI 解析,两者都把单引号
+  # 当字面字符——加了引号任务名带 ' 且 -File 找的是带引号的假路径,wrapper 永远起不来。
+  # /tr 整值的双引号是 cmd 层分组(值含空格),内部路径靠上面的无空格合同裸传。
+  ssh "$remote_host" "schtasks /create /tn $task_name /tr \"powershell -NoProfile -ExecutionPolicy Bypass -File $remote_input/run-release.ps1 -InputRoot $remote_input\" /sc once /st 00:00 /f" || return $?
   # 任务一旦 /create 成功,此后所有出口(/run 起不来、轮询超时、exitcode 损坏、正常结束)都必须
   # 结束可能仍在跑的构建 + 删计划任务:超时那类会有孤儿构建抢写下次同 commit 的 exitcode,其余虽只在
   # Task Scheduler 堆无害死条目也一并清。用子函数跑「/run + 轮询」拿 rc,函数尾部统一清理一次,不在每个
   # return 前重复 cleanup(避免上轮只补超时分支、漏掉 /run 失败与 exitcode 非法两个出口那类遗漏)。
   local rc=0
   _remote_run_and_poll "$remote_host" "$remote_input" "$task_name" "$stage_dir" || rc=$?
-  _ssh_ps "$remote_host" "schtasks /end /tn '$task_name'; schtasks /delete /tn '$task_name' /f" >/dev/null 2>&1 || true
+  # 清理与 create 同走 cmd.exe、任务名同样裸传——引号合同必须与创建端一致,否则清理找的是
+  # 另一个名字。清理失败不改变构建判定,但必须留痕(残留任务会在下轮同 commit 抢写产物)。
+  if ! ssh "$remote_host" "schtasks /end /tn $task_name & schtasks /delete /tn $task_name /f" >/dev/null 2>&1; then
+    echo "WARN: 远端计划任务清理失败(task=$task_name),残留条目需手动 schtasks /delete" >&2
+  fi
   return "$rc"
 }
 
@@ -758,7 +775,7 @@ _run_remote_build() {
 # 计划任务的 /end + /delete 清理由调用方 _run_remote_build 统一在尾部做,本函数只管 run+poll+判定。
 _remote_run_and_poll() {
   local remote_host="$1" remote_input="$2" task_name="$3" stage_dir="$4"
-  ssh "$remote_host" "schtasks /run /tn '$task_name'" || return $?
+  ssh "$remote_host" "schtasks /run /tn $task_name" || return $?
 
   # 真实 Windows 构建耗时分钟级:轮询「本轮 exitcode 文件出现」而非日志出现,带间隔、有上限,
   # running 不当 fail。间隔/上限可经 env 调,测试用 fake ssh 首轮即有 exitcode、不进 sleep。
@@ -1166,7 +1183,9 @@ cmd_receipt() {
     jq -r '.pause.question' "$f"
   fi
   echo "## 已试 attempt:"
-  jq -r '.attempt_ledger[] | "- ["+.action_kind+"] stage="+.stage+" outcome="+.outcome+(if .root_cause_fingerprint then " fp="+.root_cause_fingerprint else "" end)+(if (.artifact_refs|length)>0 then " findings="+(.artifact_refs|join(",")) else "" end)' "$f"
+  # log_refs 必须进回执:PAUSED:needs-context 的自主处置政策(drive-loop.md)第一步就是从
+  # 回执拿日志 locator(file:/pc:),漏印 = 驱动 Agent 只能翻裸 state 文件猜路径。
+  jq -r '.attempt_ledger[] | "- ["+.action_kind+"] stage="+.stage+" outcome="+.outcome+(if .root_cause_fingerprint then " fp="+.root_cause_fingerprint else "" end)+(if (.artifact_refs|length)>0 then " findings="+(.artifact_refs|join(",")) else "" end)+(if (.log_refs//[]|length)>0 then " logs="+(.log_refs|join(",")) else "" end)' "$f"
   echo "## fingerprint 累计:"
   jq -r '.fingerprint_ledger[] | "- "+.fingerprint+" x"+(.count|tostring)' "$f"
 }

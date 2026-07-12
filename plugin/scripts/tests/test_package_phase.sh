@@ -289,6 +289,36 @@ else
   no "close 后 init 新快照 (rc=$RC err=$ERROR)"
 fi
 
+# 多产品交付一致性:后记录的产品若经自愈提交推进了 HEAD,早前产品的包已不是最终代码,必须
+# 重置回待出包由驱动循环重出;混着不同 commit 的包绝不能 DONE。
+new_case package-multi-product-provenance
+commit_path src/local_agent/app.py
+commit_path src/parrot_dubbing/app.py
+run_package init --scope fixtures/agentflow.release-package-scope.json
+run_package confirm --gate development-mode-test --by owner
+release_done duck
+run_package record-release --product duck
+if [ "$RC" -eq 0 ]; then ok "duck 在提交 A 记录 release"; else no "duck 记录 release (rc=$RC err=$ERROR)"; fi
+(cd "$CASE" && bash "$MMW" release close >/dev/null)
+commit_path src/parrot_dubbing/self_heal_fix.py
+release_done parrot
+run_package record-release --product parrot
+if [ "$RC" -eq 0 ] && printf '%s\n' "$RESULT" | grep -q 'RESET-STALE:duck'; then
+  ok "parrot 在新 HEAD 记录时把旧提交的 duck 重置回待出包"
+else
+  no "旧提交的 duck 未被重置 (rc=$RC out=$RESULT err=$ERROR)"
+fi
+[ "$(jq -r '.targets[] | select(.product == "duck") | .release_commit' "$(package_state)")" = "null" ] && ok "被重置的 duck release_commit 清空" || no "duck 仍绑旧 commit"
+(cd "$CASE" && bash "$MMW" release close >/dev/null)
+run_package where
+if [ "$RC" -eq 0 ] && [ "$RESULT" = 'RELEASE product=duck manifest=fixtures/adapters/duck.release-adapter.json' ]; then ok "重置后 where 要求重出 duck"; else no "重置后未要求重出 duck (rc=$RC out=$RESULT err=$ERROR)"; fi
+run_package exit-check
+if [ "$RC" -ne 0 ] && [ "$RESULT" = 'NOT-DONE:release:duck' ]; then ok "重置后 exit-check 不 DONE"; else no "重置后 exit-check (rc=$RC out=$RESULT err=$ERROR)"; fi
+# 防御第二道:状态文件被外部写坏成混 commit(第一道重置被绕过)时,exit-check 仍绝不 DONE。
+jq '.targets |= map(if .product == "duck" then .release_commit = "deadbeef" else . end) | .installed_test = {by:"owner"}' "$(package_state)" > "$(package_state).tmp" && mv "$(package_state).tmp" "$(package_state)"
+run_package exit-check
+if [ "$RC" -ne 0 ] && [ "$RESULT" = 'NOT-DONE:release-commit-mismatch' ]; then ok "混 commit 状态被 exit-check 第二道防御拦截"; else no "混 commit 未被拦 (rc=$RC out=$RESULT err=$ERROR)"; fi
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

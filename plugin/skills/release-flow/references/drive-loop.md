@@ -54,7 +54,13 @@ case "$state" in
     [ "$(bash "$MMW" release exit-check)" = "DONE" ] || exit 1
     bash "$MMW" release close
     ;;
+  PAUSED:needs-context*)
+    # 不是终点:读 receipt 后进入「PAUSED 自主处置」节的判断流程(亲诊根因→能处置就处置→
+    # release resume 续跑)。这一支无法纯 shell 化——它就是驱动 Agent 要补的判断层。
+    bash "$MMW" release receipt
+    ;;
   PAUSED:*|CORRUPT:*|FAILED-STAGE:*|NO-STAGES:*)
+    # needs-redirection(P0/熔断)与 state 损坏:读 receipt 原样交负责人,不 resume。
     bash "$MMW" release receipt
     exit 0
     ;;
@@ -70,7 +76,7 @@ esac
 - `stage run` 成功（diagnose 无 fail）：引擎写 `stage done`，立即重新 `where`。多阶段 no-op loop 因此可以直接到 `SUCCESS`，不消耗 round。
 - `stage run` 失败：引擎已在其内部跑完 diagnose 并 `stage fail` 分级。若引擎已 surface（`where` 为 `PAUSED`），读取 receipt，不 dispatch。
 - 引擎尚未 surface（`where` 为 `RETRY-STAGE`）：`dispatch --stage <name>` 让引擎按 P2/P1/P0 和收敛护栏裁决（findings 从 attempt ledger 读回）。只有 dispatch 后 `where` 仍为 `STAGE` / `RETRY-STAGE`，才调用一次 `round next`，随后重新 `where` 由 `stage run` 重跑同一失败 stage。
-- P0、同 fingerprint 熔断、attempt / round / wall-clock 预算熔断都由引擎写成 `PAUSED`。不再调用 `round next`，不继续跑 stage。
+- P0、同 fingerprint 熔断、fix-round / wall-clock 预算熔断都由引擎写成 `PAUSED`。不再调用 `round next`，不继续跑 stage。(`attempts` 只是全动作审计计数，不参与预算判断；熔断预算只看 `fix_rounds` 与墙钟。)
 
 你不判 P0/P1/P2，不改工作树，不绕 path-gate、post-fix gate 或 dispatch，也不自建第二执行器。stage 执行、真相源派生、P1 的修复提交和 P0 的人工门禁都属于引擎；驱动器只连续问 `where`、调 `stage run` / `dispatch` / `round next` 并如实推进。
 
