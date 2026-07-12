@@ -47,9 +47,25 @@ def _restore(path: Path, *, previous: bytes | None, existed: bool) -> None:
         path.unlink()
 
 
+# 每条 runtime 车道一份模板:embedded_python 走通用 Electron 七步;core_exe 的出包主体是
+# 产品自己的一体化脚本(经 runtime_prepare 钩子),模板只做验工具+钩子编排四步。
+_TEMPLATE_BY_LANE = {
+    "embedded_python": "windows_electron_python.ps1.tmpl",
+    "core_exe": "windows_core_exe.ps1.tmpl",
+}
+# hook token 在两份模板里挂的步号不同,但 hook 生命周期(runtime_ready/artifact_ready/
+# release_ready)一致;check() 按车道校验对应步集。
+_STAGES_BY_LANE = {
+    "embedded_python": [1, 2, 3, 4, 5, 6, 7],
+    "core_exe": [1, 2, 3, 4],
+}
+_STEP_TOTAL_BY_LANE = {"embedded_python": 7, "core_exe": 4}
+
+
 def _render_bootstrap(context_path: Path, manifest: ReleaseAdapterManifest) -> str:
+    lane = manifest.build_target.runtime_lane
     template = (
-        Path(__file__).parent / "release_templates" / "windows_electron_python.ps1.tmpl"
+        Path(__file__).parent / "release_templates" / _TEMPLATE_BY_LANE[lane]
     ).read_text(encoding="utf-8")
     hook_calls = _hook_calls(manifest)
     replacements = {
@@ -202,7 +218,7 @@ def assemble(
         "build_target": manifest.build_target.model_dump(mode="json"),
         "build_hooks": manifest.build_hooks.model_dump(mode="json"),
         "render_metadata": {
-            "stages": [1, 2, 3, 4, 5, 6, 7],
+            "stages": _STAGES_BY_LANE[manifest.build_target.runtime_lane],
             "hook_calls": [
                 {key: value for key, value in call.items() if key != "argv"}
                 for call in hook_calls
@@ -263,7 +279,7 @@ def check(script: Path, context: Path) -> None:
     if not script_bytes.startswith(b"\xef\xbb\xbf"):
         raise ValueError("script 必须是 UTF-8 BOM 编码")
     context_doc = json.loads(context.read_text(encoding="utf-8"))
-    BuildTarget.model_validate(context_doc["build_target"])
+    target = BuildTarget.model_validate(context_doc["build_target"])
     ReleaseBuildHooks.model_validate(context_doc["build_hooks"])
     if context_doc.get("schema_version") != "1" or not context_doc.get("product"):
         raise ValueError("context 缺少有效 schema_version 或 product")
@@ -271,14 +287,15 @@ def check(script: Path, context: Path) -> None:
     expected_context_literal = powershell_literal(context.name)
     if expected_context_literal not in script_text:
         raise ValueError("script 未引用对应的 context 文件")
-    expected_stages = [1, 2, 3, 4, 5, 6, 7]
+    expected_stages = _STAGES_BY_LANE[target.runtime_lane]
+    step_total = _STEP_TOTAL_BY_LANE[target.runtime_lane]
     if context_doc.get("render_metadata", {}).get("stages") != expected_stages:
-        raise ValueError("context 未声明完整七步流水线")
+        raise ValueError("context 未声明该车道的完整流水线")
     stage_positions = [
-        script_text.find(f'Step "[{stage}/7]') for stage in expected_stages
+        script_text.find(f'Step "[{stage}/{step_total}]') for stage in expected_stages
     ]
     if -1 in stage_positions or stage_positions != sorted(stage_positions):
-        raise ValueError("script 未按顺序包含完整七步流水线")
+        raise ValueError("script 未按顺序包含该车道的完整流水线")
     hook_calls = context_doc.get("render_metadata", {}).get("hook_calls")
     if not isinstance(hook_calls, list):
         raise ValueError("context 缺少 hook 生命周期记录")

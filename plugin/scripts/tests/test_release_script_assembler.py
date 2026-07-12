@@ -70,7 +70,7 @@ def test_assemble_core_exe_writes_bom_script_and_validated_context(
     assert context["build_target"]["runtime_lane"] == "core_exe"
     assert context["build_target"]["native_ext_dll"] == []
     assert context["build_hooks"]["runtime_prepare"] == ["prepare-runtime"]
-    assert context["render_metadata"]["stages"] == [1, 2, 3, 4, 5, 6, 7]
+    assert context["render_metadata"]["stages"] == [1, 2, 3, 4]
     assert len(context["render_metadata"]["hook_calls"]) == 5
     assert (
         BuildTarget.model_validate(context["build_target"]).runtime_lane == "core_exe"
@@ -203,21 +203,25 @@ def test_assemble_keeps_existing_context_when_script_replacement_fails(
     assert context_output.read_text(encoding="utf-8") == "old context"
 
 
-@pytest.mark.parametrize(
-    "fixture", ["core-exe.adapter.json", "embedded-python.adapter.json"]
-)
-def test_assemble_renders_the_same_ordered_seven_stage_pipeline(
-    tmp_path: Path, fixture: str
+def test_assemble_renders_embedded_lane_as_ordered_seven_stage_pipeline(
+    tmp_path: Path,
 ) -> None:
     output = tmp_path / "release.ps1"
     context_output = tmp_path / "release-context.json"
-    assert _assemble(FIXTURES / fixture, output, context_output).returncode == 0
+    assert (
+        _assemble(
+            FIXTURES / "embedded-python.adapter.json", output, context_output
+        ).returncode
+        == 0
+    )
     script = output.read_text(encoding="utf-8-sig")
 
     positions = [script.index(f'Step "[{stage}/7]') for stage in range(1, 8)]
     assert positions == sorted(positions)
-    for tool in ("python", "pnpm", "node", "uv", "makensis"):
+    # 工具前置与旧嵌入式产品出包脚本一致;NSIS 由 electron-builder 自带,不得要求独立 makensis。
+    for tool in ("python", "pnpm", "node", "uv"):
         assert f"'{tool}'" in script
+    assert "'makensis'" not in script
     for token in (
         "--frozen-lockfile",
         "--prefer-offline",
@@ -227,6 +231,27 @@ def test_assemble_renders_the_same_ordered_seven_stage_pipeline(
         "--prepackaged",
     ):
         assert token in script
+
+
+def test_assemble_renders_core_lane_as_hook_orchestration_pipeline(
+    tmp_path: Path,
+) -> None:
+    # core_exe 车道的出包主体是产品自己的一体化脚本(runtime_prepare 钩子驱动),模板不含
+    # Electron 通用步骤,只做验工具 + 钩子编排四步;手写 NSIS 需要 PATH 里有 makensis。
+    output = tmp_path / "release.ps1"
+    context_output = tmp_path / "release-context.json"
+    assert (
+        _assemble(FIXTURES / "core-exe.adapter.json", output, context_output).returncode
+        == 0
+    )
+    script = output.read_text(encoding="utf-8-sig")
+
+    positions = [script.index(f'Step "[{stage}/4]') for stage in range(1, 5)]
+    assert positions == sorted(positions)
+    for tool in ("python", "pnpm", "node", "uv", "makensis"):
+        assert f"'{tool}'" in script
+    assert "Invoke-Checked -Command 'pnpm'" not in script
+    assert "--prepackaged" not in script
 
 
 def test_assemble_delegates_runtime_build_to_repo_hook_for_both_lanes(
@@ -260,23 +285,28 @@ def test_assemble_delegates_runtime_build_to_repo_hook_for_both_lanes(
         assert "Copy-NativeExtensionDll" not in script
         assert "--include-package" not in script
         # 都把造运行时交给仓库的 runtime_prepare 钩子
-        assert "prepared by the repository runtime_prepare hook" in script
         assert "-Name 'runtime_prepare'" in script
+    assert "prepared by the repository runtime_prepare hook" in embedded_script.read_text(
+        encoding="utf-8-sig"
+    )
 
 
-def test_check_rejects_script_missing_one_of_the_seven_stages(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("fixture", "missing_step"),
+    [
+        ("embedded-python.adapter.json", 'Step "[5/7] Build win-unpacked"'),
+        ("core-exe.adapter.json", 'Step "[3/4] Scan release artifacts"'),
+    ],
+)
+def test_check_rejects_script_missing_one_lane_stage(
+    tmp_path: Path, fixture: str, missing_step: str
+) -> None:
     output = tmp_path / "release.ps1"
     context_output = tmp_path / "release-context.json"
-    assert (
-        _assemble(FIXTURES / "core-exe.adapter.json", output, context_output).returncode
-        == 0
-    )
-    output.write_text(
-        output.read_text(encoding="utf-8-sig").replace(
-            'Step "[5/7] Build win-unpacked"', ""
-        ),
-        encoding="utf-8-sig",
-    )
+    assert _assemble(FIXTURES / fixture, output, context_output).returncode == 0
+    script = output.read_text(encoding="utf-8-sig")
+    assert missing_step in script
+    output.write_text(script.replace(missing_step, ""), encoding="utf-8-sig")
 
     result = _check(output, context_output)
 
@@ -291,9 +321,11 @@ def test_template_and_neutral_fixtures_hold_no_product_specific_release_rules() 
         "agentflow",
         "scripts/release/",
     )
-    template = TEMPLATE.read_text(encoding="utf-8").lower()
-
-    assert not any(term in template for term in product_specific_terms)
+    for template_path in sorted(TEMPLATE.parent.glob("*.ps1.tmpl")):
+        template = template_path.read_text(encoding="utf-8").lower()
+        assert not any(term in template for term in product_specific_terms), (
+            template_path.name
+        )
     for fixture in FIXTURES.glob("*.json"):
         assert not any(
             term in fixture.read_text(encoding="utf-8").lower()

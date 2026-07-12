@@ -235,6 +235,8 @@ done < "$repo/events.jsonl" && ok "P0 event sink 仍产出合法 Event 合同" |
 
 repo="$(new_case fingerprint-cap '["true"]' '["true"]' '["true"]' '["sh","-c","echo {\\\"findings\\\":[]}"]')"
 sf="$(state_file "$repo")"
+# 默认阈值 3 = 两次修复机会;计满 3 次同 fingerprint 观测后熔断。
+fail_stage_p1 "$repo"
 fail_stage_p1 "$repo"
 fail_stage_p1 "$repo"
 out="$(run_release "$repo" dispatch --stage verify_key --findings "$FIX/finding.p1.json")"
@@ -247,11 +249,11 @@ repo="$(new_case attempt-cap '["true"]' '["true"]' '["true"]' '["sh","-c","echo 
 sf="$(state_file "$repo")"
 fail_stage_p1 "$repo"
 tmp_state="$(mktemp)"
-jq '.budget.max_attempts=1' "$sf" > "$tmp_state" && mv "$tmp_state" "$sf"
+jq '.budget.fix_rounds=1 | .budget.max_fix_rounds=1' "$sf" > "$tmp_state" && mv "$tmp_state" "$sf"
 out="$(run_release "$repo" dispatch --stage verify_key --findings "$FIX/finding.p1.json")"
 case "$out" in
-  BUDGET-EXCEEDED:attempts=1*) ok "attempt 预算继续熔断" ;;
-  *) no "attempt 预算回归 ($out)" ;;
+  BUDGET-EXCEEDED:fix_rounds=1*) ok "fix_rounds 预算继续熔断" ;;
+  *) no "fix_rounds 预算回归 ($out)" ;;
 esac
 
 repo="$(new_case wall-clock-cap '["true"]' '["true"]' '["true"]' '["sh","-c","echo {\\\"findings\\\":[]}"]')"

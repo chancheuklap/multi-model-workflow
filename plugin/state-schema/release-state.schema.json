@@ -61,12 +61,13 @@
     "budget": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["attempts", "max_attempts", "started_at", "max_wall_clock_seconds"],
+      "required": ["attempts", "fix_rounds", "max_fix_rounds", "started_at", "max_wall_clock_seconds"],
       "properties": {
-        "attempts": { "type": "integer", "minimum": 0 },
-        "max_attempts": { "type": "integer", "minimum": 0 },
+        "attempts": { "type": "integer", "minimum": 0, "description": "全动作审计计数,只记账不熔断。" },
+        "fix_rounds": { "type": "integer", "minimum": 0, "description": "已提交的自动修复/派生轮次;熔断只看它。" },
+        "max_fix_rounds": { "type": "integer", "minimum": 0 },
         "started_at": { "type": "string", "minLength": 1 },
-        "max_wall_clock_seconds": { "type": "integer", "minimum": 0 }
+        "max_wall_clock_seconds": { "type": "integer", "minimum": 0, "description": "默认 14400(4h),init --max-wall-clock 可调。" }
       }
     },
     "attempt_ledger": {

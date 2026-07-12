@@ -265,6 +265,11 @@ cmd_record_release() {
   actual="$(jq -r '.product // ""' "$release_state")"
   [ "$actual" = "$product" ] || die "S1 release product 不匹配: 期望 $product，实际 $actual"
   commit="$(git -C "$top" rev-parse HEAD)"
+  # 安装包必须来自当前 HEAD:release-state.source_commit 是引擎实际构建的 commit,若 HEAD 已
+  # 前进(出包后又有新提交),记录会把旧代码的包冒充成新 HEAD 的 release。
+  local built_commit
+  built_commit="$(jq -r '.source_commit // ""' "$release_state")"
+  [ "$built_commit" = "$commit" ] || die "S1 release 构建的是 $built_commit,当前 HEAD 是 $commit;先重跑 release 再记录"
   jq --arg p "$product" --arg commit "$commit" '
     .targets |= map(if .product == $p then .release_commit=$commit else . end)' "$state" | write_package_state "$state"
   echo "RECORDED:$product"

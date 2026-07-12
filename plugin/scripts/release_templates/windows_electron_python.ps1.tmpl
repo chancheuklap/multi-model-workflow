@@ -36,8 +36,10 @@ $RepoRoot = [string]$Context.repo_root
 $DesktopDir = Join-Path $RepoRoot ${DESKTOP_DIR_LITERAL}
 $DistDir = Join-Path $DesktopDir 'dist'
 
+# 工具前置与旧小鹦鹉/小刺猬出包脚本一致:NSIS 由 electron-builder 自带,不要求 PATH 里有
+# 独立 makensis——多要一件工具就把旧路径可用的构建机挡在第 1 步。
 Step "[1/7] Validate prerequisites"
-foreach ($tool in @('python', 'pnpm', 'node', 'uv', 'makensis')) {
+foreach ($tool in @('python', 'pnpm', 'node', 'uv')) {
   Assert-Tool $tool
 }
 

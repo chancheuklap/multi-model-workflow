@@ -14,7 +14,9 @@ SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=lib/host.sh
 . "$SCRIPT_DIR/lib/host.sh"
 STATE_NAME="release-state.json"
-RF_MAX_SAME_FINGERPRINT="${RF_MAX_SAME_FINGERPRINT:-2}"
+# 同根因阈值 3 = 给两次修复机会:第 1 次失败(count=1)派修,修不好第 2 次失败(count=2)再派一次,
+# 第 3 次观测(count=3)才熔断。2 意味着任何修复只有一次机会,正常迭代会被误熔断。
+RF_MAX_SAME_FINGERPRINT="${RF_MAX_SAME_FINGERPRINT:-3}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
@@ -88,15 +90,18 @@ _convergence_guard() {
     fi
   done < <(printf '%s' "$cls" | jq -r '.failing[].root_cause_fingerprint')
 
-  local att max
-  att="$(jq -r '.budget.attempts // 0' "$f")"
-  max="$(jq -r '.budget.max_attempts // 0' "$f")"
-  if [ "$max" -gt 0 ] && [ "$att" -ge "$max" ]; then
-    edit "$f" --arg s "$stage" --argjson a "$att" --argjson m "$max" \
+  # 预算按「修复轮次」记账,不按动作数:一轮正常修复(stage run+classify+fix+gate+全量重跑)
+  # 会产生 ~9 条 attempt 账目,若按动作数熔断,第二个不同根因必然在修复前被误熔断。
+  # attempt_ledger 保留全动作审计,熔断只看 fix_rounds。
+  local fr max
+  fr="$(jq -r '.budget.fix_rounds // 0' "$f")"
+  max="$(jq -r '.budget.max_fix_rounds // 0' "$f")"
+  if [ "$max" -gt 0 ] && [ "$fr" -ge "$max" ]; then
+    edit "$f" --arg s "$stage" --argjson a "$fr" --argjson m "$max" \
       '.pause={at_stage:$s, kind:"surface", reason:"needs-redirection",
-               question:("尝试预算越界(attempts="+($a|tostring)+">=max="+($m|tostring)+"),引擎熔断交人")}'
+               question:("修复轮次预算越界(fix_rounds="+($a|tostring)+">=max="+($m|tostring)+"),引擎熔断交人")}'
     emit_event "$f" "paused" "$stage" "" "" ""
-    echo "BUDGET-EXCEEDED:attempts=$att>=max=$max,熔断交人"
+    echo "BUDGET-EXCEEDED:fix_rounds=$fr>=max=$max,熔断交人"
     return 1
   fi
 
@@ -525,6 +530,7 @@ cmd_dispatch_direct() {
   commit_sha="$(git -C "$top" rev-parse HEAD)"
   append_attempt "$f" "$name" "$action_kind" "applied" "$fp" "git-commit:$commit_sha"
   patch_last_attempt "$f" "$changed_json" "[]" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND"
+  edit "$f" '.budget.fix_rounds += 1'
   emit_event "$f" "classified" "$name" "$( [ "$mode" = fix ] && echo P1 || echo P2 )" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
   if [ "$mode" = "derive" ]; then
     _invalidate_all_stages "$f" "$commit_sha"
@@ -573,17 +579,21 @@ emit_event() {
 }
 
 cmd_init() {
-  local manifest="" max_rounds=6
+  # 墙钟默认 4h:单产品一次真实 Windows 构建(Nuitka+electron-builder+NSIS)就要 20-60 分钟,
+  # 预算必须容纳「一次失败构建 + 一轮修复 + 一次重跑」;1h 会在正常修复路径上误熔断。
+  local manifest="" max_rounds=6 max_wall_clock=14400
   while [ $# -gt 0 ]; do
     case "$1" in
       --manifest) manifest="$2"; shift 2 ;;
       --max-rounds) max_rounds="$2"; shift 2 ;;
+      --max-wall-clock) max_wall_clock="$2"; shift 2 ;;
       *) die "未知参数 $1" ;;
     esac
   done
   [ -n "$manifest" ] || die "--manifest 必填"
   [ -f "$manifest" ] || die "manifest 文件不存在: $manifest"
   case "$max_rounds" in ''|*[!0-9]*) die "--max-rounds 必须是非负整数" ;; esac
+  case "$max_wall_clock" in ''|*[!0-9]*) die "--max-wall-clock 必须是非负整数(秒)" ;; esac
 
   local canon
   canon="$(uv run --quiet "$SCRIPT_DIR/release_contracts.py" validate-manifest "$manifest")" \
@@ -597,12 +607,12 @@ cmd_init() {
   [ -f "$f" ] && die "已有未收束 release loop;先 release close 或复用"
   mkdir -p "$top/$sd"
   mp="$(cd "$(dirname "$manifest")" && pwd)/$(basename "$manifest")"
-  printf '%s' "$canon" | jq --arg mp "$mp" --arg sc "$source_commit" --argjson mr "$max_rounds" --arg ts "$(now)" \
+  printf '%s' "$canon" | jq --arg mp "$mp" --arg sc "$source_commit" --argjson mr "$max_rounds" --argjson wall "$max_wall_clock" --arg ts "$(now)" \
     '{schema_version:"1", product:.product, manifest_path:$mp, source_commit:$sc,
       stages:[.stages[]|{name:.name, run:.run, status:"pending"}],
       current_stage:(.stages[0].name // null),
       round:1, max_rounds:$mr, fingerprint_ledger:[],
-      budget:{attempts:0, max_attempts:$mr, started_at:$ts, max_wall_clock_seconds:3600},
+      budget:{attempts:0, fix_rounds:0, max_fix_rounds:$mr, started_at:$ts, max_wall_clock_seconds:$wall},
       attempt_ledger:[], pause:null}' | write "$f"
   echo "INIT product=$(printf '%s' "$canon" | jq -r .product) stages=$(printf '%s' "$canon" | jq -r '.stages|length') max_rounds=$max_rounds"
 }
@@ -618,6 +628,14 @@ cmd_where() {
   local n
   n="$(jq -r '.stages|length' "$f")"
   [ "$n" -gt 0 ] || { echo "NO-STAGES:manifest 合规但无阶段可跑(请人改 manifest)"; return 0; }
+  # running 优先于 failed/pending:进程在「已标 running、未写终态」间中断后,该 stage 必须重跑。
+  # 不认 running 会让 where 指向下一个 pending(stage run 二次防线 die)甚至误报 SUCCESS。
+  local interrupted
+  interrupted="$(jq -r '[.stages[]|select(.status=="running")][0].name // ""' "$f")"
+  if [ -n "$interrupted" ]; then
+    jq -r --arg c "$interrupted" '"RETRY-STAGE:"+$c+" RUN:"+([.stages[]|select(.name==$c)][0].run|join(" "))' "$f"
+    return 0
+  fi
   local failed
   failed="$(jq -r '[.stages[]|select(.status=="failed")][0].name // ""' "$f")"
   if [ -n "$failed" ]; then
@@ -646,10 +664,41 @@ cmd_stage() {
   esac
 }
 
+# 远端是 Windows OpenSSH,DefaultShell 默认 cmd.exe:一切 PowerShell 语法必须显式经
+# powershell -Command 执行,否则 New-Item/Test-Path 之类 cmdlet 在 cmd 下直接 not recognized。
+_ssh_ps() {
+  local remote_host="$1" ps_command="$2"
+  ssh "$remote_host" "powershell -NoProfile -NonInteractive -Command \"$ps_command\""
+}
+
+# 生成远端构建 wrapper:release.ps1 内任何 throw 都是 terminating error,若把「跑脚本 + 写
+# exitcode」串在同一条 -Command 里,throw 会中止后续语句、exitcode 永不落地,轮询只能干等到
+# 墙钟超时。wrapper 用 try/catch/finally 保证无论成败 exitcode 必落地、异常必进日志。
+_write_remote_wrapper() {
+  local wrapper="$1"
+  cat > "$wrapper" <<'PS1'
+param([Parameter(Mandatory=$true)][string]$InputRoot)
+$ErrorActionPreference = 'Stop'
+$code = 1
+try {
+  Expand-Archive -Force (Join-Path $InputRoot 'source.zip') (Join-Path $InputRoot 'source')
+  & (Join-Path $InputRoot 'release.ps1') -ReleaseContextPath (Join-Path $InputRoot 'release-context.json') *>> (Join-Path $InputRoot 'build-run.log')
+  $code = $LASTEXITCODE
+  if ($null -eq $code) { $code = 0 }
+} catch {
+  $_ | Out-String | Add-Content (Join-Path $InputRoot 'build-run.log')
+  $code = 1
+} finally {
+  Set-Content -Path (Join-Path $InputRoot 'build-run.exitcode') -Value $code
+}
+exit $code
+PS1
+}
+
 _run_remote_build() {
   local top="$1" source_commit="$2" stage_dir="$3"
   shift 3
-  local script="" context="" remote_host remote_root remote_input archive commit_file remote_context task_name
+  local script="" context="" remote_host remote_root remote_input archive commit_file remote_context wrapper task_name
   while [ $# -gt 0 ]; do
     case "$1" in
       --script) script="${2:-}"; shift 2 ;;
@@ -670,67 +719,87 @@ _run_remote_build() {
   archive="$stage_dir/source.zip"
   commit_file="$stage_dir/SOURCE_COMMIT.txt"
   remote_context="$stage_dir/release-context.remote.json"
+  wrapper="$stage_dir/run-release.ps1"
   git -C "$top" archive --format=zip --output "$archive" HEAD || return $?
   printf '%s\n' "$source_commit" > "$commit_file"
   jq --arg root "$remote_input/source" '.repo_root = $root' "$context" > "$remote_context" || return $?
+  _write_remote_wrapper "$wrapper"
 
-  ssh "$remote_host" "New-Item -ItemType Directory -Force -Path '$remote_input' | Out-Null" || return $?
+  _ssh_ps "$remote_host" "New-Item -ItemType Directory -Force -Path '$remote_input' | Out-Null" || return $?
   scp "$archive" "$remote_host:$remote_input/source.zip" || return $?
   scp "$commit_file" "$remote_host:$remote_input/SOURCE_COMMIT.txt" || return $?
   scp "$script" "$remote_host:$remote_input/release.ps1" || return $?
   scp "$remote_context" "$remote_host:$remote_input/release-context.json" || return $?
+  scp "$wrapper" "$remote_host:$remote_input/run-release.ps1" || return $?
 
   # 清掉上一轮遗留的构建产物:remote_input 只按 commit 命名,resume / 重跑同 commit 时若不清,
   # 首次轮询就会读到过期 exitcode(如上轮的 "0")而把仍在跑或已失败的本轮误判成功。
-  ssh "$remote_host" "Remove-Item -Force -ErrorAction SilentlyContinue '$remote_input/build-run.log','$remote_input/build-run.exitcode'" >/dev/null 2>&1 || true
+  _ssh_ps "$remote_host" "Remove-Item -Force -ErrorAction SilentlyContinue '$remote_input/build-run.log','$remote_input/build-run.exitcode'" >/dev/null 2>&1 || true
 
   task_name="mmw-release-${source_commit:0:12}-${RANDOM}"
-  # 显式把上下文绝对路径传给 release.ps1:schtasks 默认 cwd 不是 remote_input,脚本 param 的裸
-  # 文件名 default 解析不到;上下文的 repo_root 已指向解压出的 source/,钩子据此从仓库根跑。
-  ssh "$remote_host" "schtasks /create /tn '$task_name' /tr \"powershell -NoProfile -ExecutionPolicy Bypass -Command \\\"Expand-Archive -Force '$remote_input/source.zip' '$remote_input/source'; & '$remote_input/release.ps1' -ReleaseContextPath '$remote_input/release-context.json' *>> '$remote_input/build-run.log'; \\\$LASTEXITCODE | Set-Content '$remote_input/build-run.exitcode'\\\"\" /sc once /st 00:00 /f" || return $?
+  # schtasks /tr 只指向 wrapper 文件(-File 单层引号),解压/跑脚本/写 exitcode 全部在 wrapper
+  # 的 try/catch/finally 内完成,不在 /tr 里串多条语句——多层引号转义在 bash→ssh→远端 shell
+  # →Task Scheduler 链路上没有可靠合同。
+  ssh "$remote_host" "schtasks /create /tn '$task_name' /tr \"powershell -NoProfile -ExecutionPolicy Bypass -File '$remote_input/run-release.ps1' -InputRoot '$remote_input'\" /sc once /st 00:00 /f" || return $?
   # 任务一旦 /create 成功,此后所有出口(/run 起不来、轮询超时、exitcode 损坏、正常结束)都必须
   # 结束可能仍在跑的构建 + 删计划任务:超时那类会有孤儿构建抢写下次同 commit 的 exitcode,其余虽只在
   # Task Scheduler 堆无害死条目也一并清。用子函数跑「/run + 轮询」拿 rc,函数尾部统一清理一次,不在每个
   # return 前重复 cleanup(避免上轮只补超时分支、漏掉 /run 失败与 exitcode 非法两个出口那类遗漏)。
   local rc=0
-  _remote_run_and_poll "$remote_host" "$remote_input" "$task_name" || rc=$?
-  ssh "$remote_host" "schtasks /end /tn '$task_name'; schtasks /delete /tn '$task_name' /f" >/dev/null 2>&1 || true
+  _remote_run_and_poll "$remote_host" "$remote_input" "$task_name" "$stage_dir" || rc=$?
+  _ssh_ps "$remote_host" "schtasks /end /tn '$task_name'; schtasks /delete /tn '$task_name' /f" >/dev/null 2>&1 || true
   return "$rc"
 }
 
 # 起远程计划任务并轮询到本轮 exitcode。构建退 0 返 0、退非零返其码;/run 起不来返 ssh 退出码;
-# 轮询超时或 exitcode 非法返 70。拿到合法 exitcode(含构建失败)即设全局 REMOTE_LOG_REF 供调用方引日志。
+# 轮询超时或 exitcode 非法返 70。拿到合法 exitcode(含构建失败)即设全局 REMOTE_LOG_REF 供调用方引日志,
+# 并把 build-run.log 回传到 stage_dir(设 REMOTE_LOG_LOCAL):失败根因只存在于构建机日志,不回传
+# 则 Mac 侧 diagnose 永远翻译不出 finding,自愈闭环断裂。
 # 计划任务的 /end + /delete 清理由调用方 _run_remote_build 统一在尾部做,本函数只管 run+poll+判定。
 _remote_run_and_poll() {
-  local remote_host="$1" remote_input="$2" task_name="$3"
+  local remote_host="$1" remote_input="$2" task_name="$3" stage_dir="$4"
   ssh "$remote_host" "schtasks /run /tn '$task_name'" || return $?
 
   # 真实 Windows 构建耗时分钟级:轮询「本轮 exitcode 文件出现」而非日志出现,带间隔、有上限,
   # running 不当 fail。间隔/上限可经 env 调,测试用 fake ssh 首轮即有 exitcode、不进 sleep。
   local poll_seconds="${RELEASE_REMOTE_BUILD_POLL_SECONDS:-15}"
-  local max_seconds="${RELEASE_REMOTE_BUILD_TIMEOUT_SECONDS:-3600}"
-  local start_ts seen="" exit_code=""
+  local max_seconds="${RELEASE_REMOTE_BUILD_TIMEOUT_SECONDS:-7200}"
+  local start_ts seen="" exit_code="" rc=0
   start_ts="$(date +%s)"
   while :; do
-    seen="$(ssh "$remote_host" "if (Test-Path '$remote_input/build-run.exitcode') { 'Y' } else { 'N' }" 2>/dev/null || true)"
+    seen="$(_ssh_ps "$remote_host" "if (Test-Path '$remote_input/build-run.exitcode') { 'Y' } else { 'N' }" 2>/dev/null || true)"
     seen="${seen%%[$'\r\n']*}"
     if [ "$seen" = "Y" ]; then
-      exit_code="$(ssh "$remote_host" "Get-Content '$remote_input/build-run.exitcode'" 2>/dev/null || true)"
+      exit_code="$(_ssh_ps "$remote_host" "Get-Content '$remote_input/build-run.exitcode'" 2>/dev/null || true)"
       exit_code="${exit_code%%[$'\r\n']*}"
       [ -n "$exit_code" ] && break
     fi
     # 超时按真实墙钟判(不累加 poll_seconds):即使 poll=0(测试用的快轮询)也不会因 waited 恒为 0 而永不超时。
     if [ "$(( $(date +%s) - start_ts ))" -ge "$max_seconds" ]; then
       echo "ERROR: remote build 超时 ${max_seconds}s 未产出 exitcode(task=$task_name)" >&2
+      _fetch_remote_build_log "$remote_host" "$remote_input" "$stage_dir"
       return 70
     fi
     sleep "$poll_seconds"
   done
+  _fetch_remote_build_log "$remote_host" "$remote_input" "$stage_dir"
   case "$exit_code" in
     ''|*[!0-9-]*) echo "ERROR: remote build exit-code 非法: $exit_code" >&2; return 70 ;;
   esac
   REMOTE_LOG_REF="pc:$remote_input/build-run.log"
   [ "$exit_code" = "0" ] || return "$exit_code"
+}
+
+# best-effort 回传远端构建日志到 stage_dir;成功设 REMOTE_LOG_LOCAL。回传失败不改变构建判定,
+# 但 stderr 留痕(丢日志必须可见,不静默)。
+_fetch_remote_build_log() {
+  local remote_host="$1" remote_input="$2" stage_dir="$3"
+  REMOTE_LOG_LOCAL=""
+  if scp "$remote_host:$remote_input/build-run.log" "$stage_dir/build-run.log" 2>/dev/null; then
+    REMOTE_LOG_LOCAL="$stage_dir/build-run.log"
+  else
+    echo "WARN: 无法回传远端构建日志 $remote_input/build-run.log" >&2
+  fi
 }
 
 cmd_stage_run() {
@@ -767,14 +836,18 @@ cmd_stage_run() {
 
   edit "$f" --arg n "$name" '(.stages |= map(if .name == $n then .status = "running" else . end)) | .current_stage = $n'
   append_attempt "$f" "$name" "stage_run" "running" "" ""
-  local remote_log_ref=""
+  local remote_log_ref="" remote_log_local=""
   if [ "$name" = "build" ] && [ "${argv[0]}" = "mmw-release-remote-build" ]; then
+    REMOTE_LOG_REF=""
+    REMOTE_LOG_LOCAL=""
     if _run_remote_build "$top" "$source_commit" "$stage_dir" "${argv[@]:1}" >"$log_file" 2>&1; then
       remote_log_ref="${REMOTE_LOG_REF:-}"
+      remote_log_local="${REMOTE_LOG_LOCAL:-}"
       rc=0
     else
       rc=$?
       remote_log_ref="${REMOTE_LOG_REF:-}"
+      remote_log_local="${REMOTE_LOG_LOCAL:-}"
     fi
   elif (
     cd "$top"
@@ -791,20 +864,20 @@ cmd_stage_run() {
   fi
 
   if [ "$rc" -eq 0 ]; then
-    edit "$f" --arg n "$name" --arg log "file:$log_file" --arg remote "$remote_log_ref" \
+    edit "$f" --arg n "$name" --arg log "file:$log_file" --arg remote "$remote_log_ref" --arg local_log "$remote_log_local" \
       '(.stages |= map(if .name == $n then .status = "done" else . end))
        | .current_stage = ([.stages[] | select(.status == "pending")][0].name // null)
        | .attempt_ledger[-1].outcome = "done"
-       | .attempt_ledger[-1].log_refs = (if $remote == "" then [$log] else [$log, $remote] end)'
+       | .attempt_ledger[-1].log_refs = ([$log, (if $remote == "" then empty else $remote end), (if $local_log == "" then empty else "file:" + $local_log end)])'
     echo "STAGE-RUN-DONE $name"
     return 0
   fi
 
-  edit "$f" --arg n "$name" --arg log "file:$log_file" --arg remote "$remote_log_ref" \
+  edit "$f" --arg n "$name" --arg log "file:$log_file" --arg remote "$remote_log_ref" --arg local_log "$remote_log_local" \
     '(.stages |= map(if .name == $n then .status = "failed" else . end))
      | .current_stage = $n
      | .attempt_ledger[-1].outcome = "fail"
-     | .attempt_ledger[-1].log_refs = (if $remote == "" then [$log] else [$log, $remote] end)'
+     | .attempt_ledger[-1].log_refs = ([$log, (if $remote == "" then empty else $remote end), (if $local_log == "" then empty else "file:" + $local_log end)])'
   local mp findings_file diag_arg
   mp="$(jq -r '.manifest_path' "$f")"
   findings_file="$stage_dir/$name.findings.json"
@@ -813,7 +886,16 @@ cmd_stage_run() {
     diagnose_argv+=("$diag_arg")
   done < <(jq -r '.diagnose[]' "$mp")
   [ ${#diagnose_argv[@]} -gt 0 ] || die "manifest.diagnose 为空"
-  ( cd "$top" && "${diagnose_argv[@]}" ) > "$findings_file" 2>&1 || true
+  # 把失败现场交给 diagnose:RELEASE_BUILD_LOG 是回传的远端构建日志(仅远程 build 失败时有),
+  # RELEASE_STAGE_LOG 是本 stage 的引擎侧日志。diagnose 据此把真实失败翻译成带 tier+fingerprint
+  # 的 finding,而不是只看 Mac 本地状态、把远程失败降级成「无法分类交人」。
+  (
+    cd "$top"
+    RELEASE_FAILED_STAGE="$name" \
+    RELEASE_STAGE_LOG="$log_file" \
+    RELEASE_BUILD_LOG="$remote_log_local" \
+    "${diagnose_argv[@]}"
+  ) > "$findings_file" 2>&1 || true
   echo "STAGE-RUN-FAILED $name rc=$rc; 进入 diagnose 分级" >&2
   cmd_stage_fail --stage "$name" --findings "$findings_file"
 }
@@ -827,9 +909,14 @@ cmd_stage_done() {
     esac
   done
   [ -n "$name" ] || die "--stage 必填"
-  local f
+  local f earliest
   f="$(need_state)"
   jq -e --arg n "$name" 'any(.stages[]; .name==$n)' "$f" >/dev/null || die "无此 stage: $name"
+  # stage run 是唯一执行器;stage done 只是人工确认位,只能确认最早未完成 stage,否则可把从未
+  # 执行的 build 直接标 done、让 exit-check 在没有安装包的情况下报 DONE。
+  earliest="$(jq -r '[.stages[] | select(.status == "pending" or .status == "failed" or .status == "running")][0].name // ""' "$f")"
+  [ -n "$earliest" ] || die "没有未完成 stage 可确认"
+  [ "$name" = "$earliest" ] || die "只能确认最早未完成 stage: $earliest(拒绝跳步标 done)"
   append_attempt "$f" "$name" "stage" "done" "" ""
   edit "$f" --arg n "$name" \
     '(.stages |= map(if .name==$n then .status="done" else . end))
@@ -944,6 +1031,20 @@ cmd_dispatch() {
   fp="$(printf '%s' "$cls" | jq -r '.failing[0].root_cause_fingerprint // ""')"
   [ -n "$tier" ] || { echo "NOTHING-TO-DISPATCH:$name 无 failing finding"; return 0; }
   if ! _convergence_guard "$f" "$cls" "$name"; then return 0; fi
+
+  # 瞬态失败(fingerprint 前缀 transient:,如构建机网络抖动)没有可修的代码——正确处置是直接
+  # 重跑该 stage,不派 fix executor。同指纹熔断(RF_MAX_SAME_FINGERPRINT)兜底防无限重试。
+  local non_transient
+  non_transient="$(printf '%s' "$cls" | jq -r '[.failing[] | select((.root_cause_fingerprint // "") | startswith("transient:") | not)] | length')"
+  if [ "$non_transient" -eq 0 ]; then
+    append_attempt "$f" "$name" "transient_retry" "retry" "$fp" "$findings"
+    edit "$f" --arg n "$name" \
+      '(.stages |= map(if .name==$n then .status="pending" else . end))
+       | .current_stage=$n'
+    emit_event "$f" "classified" "$name" "$tier" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
+    echo "TRANSIENT-RETRY:$name($fp,直接重跑不派修)"
+    return 0
+  fi
 
   case "$tier" in
     P0)
