@@ -11,6 +11,8 @@ PREPARE="$SCRIPT_DIR/../prepare.sh"
 FLOW="$SCRIPT_DIR/../flow.sh"
 LOOP="$SCRIPT_DIR/../loop.sh"
 REVIEW="$SCRIPT_DIR/../review.sh"
+PACKAGE="$SCRIPT_DIR/../package-phase.sh"
+PACKAGE_FIXTURES="$SCRIPT_DIR/fixtures/package-phase"
 
 pass=0; fail=0
 ok() { echo "  PASS: $1"; pass=$((pass+1)); }
@@ -20,9 +22,15 @@ gate() { jq -r '.gate // "null"' "$WT/${STATE_SUBDIR}/task.json"; }
 prevout() { (cd "$WT" && bash "$FLOW" where) | sed -n 's/^prev_outputs=//p'; }
 mkf() { mkdir -p "$WT/$(dirname "$1")"; : > "$WT/$1"; }   # handoff 拒收幽灵产出:先真建
 mkd() { mkdir -p "$WT/$1"; }
+init_empty_package() {
+  mkdir -p "$WT/fixtures"
+  cp -R "$PACKAGE_FIXTURES/." "$WT/fixtures/"
+  ( cd "$WT" && bash "$PACKAGE" init --scope fixtures/generic.release-package-scope.json )
+}
 
 echo "=== test_e2e.sh — 一条 develop 端到端空跑 ==="
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+export UV_CACHE_DIR="${UV_CACHE_DIR:-$TMP/uv-cache}"
 cd "$TMP"; git init -q; git config user.email t@t; git config user.name t
 echo seed>seed; git add -A; git commit -qm seed
 
@@ -97,22 +105,27 @@ echo "$OUTBG" | grep -q "NEXT_ACTION=review" && ok "build 过→进④终审闸(
 # where 在 build 闸吐确切 review_start --stage final(引擎给命令,不靠散文猜)
 ( cd "$WT" && bash "$FLOW" where | grep "review_start=" | grep -q -- "review start --stage final" ) && ok "build 闸 where 吐 review_start --stage final" || no "review_start final"
 
-# ④终审 loop 起得来 → 审过钉终审报告 → closing
+# ④终审 loop 起得来 → 审过钉终审报告 → package → closing
 ( cd "$WT" && bash "$REVIEW" start --stage final --source "$RANGE" >/dev/null 2>&1 ) && ok "④终审 loop 起得来" || no "④终审"
 ( cd "$WT" && bash "$LOOP" checklist add --item "意图逐条" --source "$RANGE" >/dev/null \
   && bash "$LOOP" checklist cover --item "意图逐条" --evidence "$RANGE" >/dev/null )
 mkf docs/e2e-final-review.md
 ( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/e2e-final-review.md >/dev/null )
-[ "$(ph)" = "closing" ] && [ "$(gate)" = "null" ] && ok "④审过→closing(gate 清空)" || no "④审过→closing ($(ph)/$(gate))"
-# 终审报告钉进 build 接力单,closing 照单读得到
-echo "$(prevout)" | grep -q "docs/e2e-final-review.md" && ok "终审报告进接力单(closing 读 build 产物)" || no "终审报告接力单 ($(prevout))"
+[ "$(ph)" = "package" ] && [ "$(gate)" = "null" ] && ok "④审过→package(gate 清空)" || no "④审过→package ($(ph)/$(gate))"
+# 终审报告钉进 build 接力单,package 照单读得到
+echo "$(prevout)" | grep -q "docs/e2e-final-review.md" && ok "终审报告进接力单(package 读 build 产物)" || no "终审报告接力单 ($(prevout))"
+if ( cd "$WT" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 ); then no "无 package state 不可进 closing"; else ok "无 package state 拒绝 closing"; fi
+init_empty_package >/dev/null
+[ "$(cd "$WT" && bash "$PACKAGE" exit-check)" = "DONE" ] && ok "空 package 初始化后 exit-check DONE" || no "空 package exit-check"
+( cd "$WT" && bash "$FLOW" handoff --conclusion pass >/dev/null )
+[ "$(ph)" = "closing" ] && ok "空 package 后→closing" || no "package→closing ($(ph))"
 
 # closing → ready-to-close
 OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass)"
 echo "$OUT" | grep -q "STATUS=ready-to-close" && ok "closing→ready-to-close(端到端贯通)" || no "ready-to-close"
 
-# history 完整:investigate,propose,design,①审,to-issue,plan,②审,build,④审,closing = 10 步
-[ "$(jq -r '.history|length' "$WT/${STATE_SUBDIR}/task.json")" = "10" ] && ok "history 记满 10 步(三审闸 ①②④ 全程留痕)" || no "history 10 ($(jq -r '.history|length' "$WT/${STATE_SUBDIR}/task.json"))"
+# history 完整:investigate,propose,design,①审,to-issue,plan,②审,build,④审,package,closing = 11 步
+[ "$(jq -r '.history|length' "$WT/${STATE_SUBDIR}/task.json")" = "11" ] && ok "history 记满 11 步(package + 三审闸 ①②④ 全程留痕)" || no "history 11 ($(jq -r '.history|length' "$WT/${STATE_SUBDIR}/task.json"))"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

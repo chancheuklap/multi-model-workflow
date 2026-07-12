@@ -111,6 +111,8 @@ mmw review start --stage plan-impl --source "<设计文档 ## Cross-Plan Contrac
 
 ## B6. 钉产出 → handoff(引擎随即强制 ④终审闸)
 
+**先自检:动了打包面就更新出包钥匙(提示级,非硬闸)**。若本项目有 release adapter(出包钥匙、后面 package 阶段会驱动 `mmw release`),且本次落地动了**打包面**——依赖增删 / 原生扩展 / 打进包的资产 / 入口模块 / 运行时车道——就在 handoff 前按**项目自己的配钥匙规范**更新那把钥匙,让 ④终审看到的是更新后的钥匙、package 阶段的出包前 `verify_key` 不会因钥匙过时硬停。**plugin 只提示"该更钥匙了",怎么配是项目知识**(找项目的 key-config 文档 / `*.release-adapter.json` 约定位置);普通逻辑改动不碰钥匙。**能派生的自动更、结构性的补齐后再 handoff**;不确定动没动打包面,按 diff 是否触及 pyproject / package.json / 依赖清单 / 资产目录 / 原生扩展判断。
+
 ```bash
 mmw handoff --conclusion pass --produced "<分支提交范围,如 base..HEAD>"
 ```

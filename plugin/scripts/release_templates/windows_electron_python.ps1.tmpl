@@ -1,0 +1,79 @@
+param(
+  [string]$ReleaseContextPath = ${CONTEXT_DEFAULT_PATH}
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+function Step {
+  param([string]$Label)
+  Write-Host $Label
+}
+
+function Assert-Tool {
+  param([string]$Name)
+  if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+    throw "Required build tool is unavailable: $Name"
+  }
+}
+
+function Invoke-Checked {
+  param([string]$Command, [string[]]$Arguments)
+  & $Command @Arguments
+  if ($LASTEXITCODE -ne 0) {
+    throw "Build command failed: $Command ($LASTEXITCODE)"
+  }
+}
+
+${RENDERED_HOOK_FUNCTIONS}
+
+# 上下文路径绝对化:钩子在 $RepoRoot 下跑(见 Invoke-ReleaseHook),若传的是相对路径,
+# cwd 一切换就读不到。远程 harness 已按绝对路径传 -ReleaseContextPath,此处对绝对路径幂等,
+# 也兜住本地/手动运行传相对路径的情况;文件不存在则 Resolve-Path fail-loud。
+$ReleaseContextPath = (Resolve-Path -LiteralPath $ReleaseContextPath).Path
+$Context = Get-Content -Raw -Encoding UTF8 $ReleaseContextPath | ConvertFrom-Json
+$RepoRoot = [string]$Context.repo_root
+$DesktopDir = Join-Path $RepoRoot ${DESKTOP_DIR_LITERAL}
+$DistDir = Join-Path $DesktopDir 'dist'
+
+# 工具前置与旧小鹦鹉/小刺猬出包脚本一致:NSIS 由 electron-builder 自带,不要求 PATH 里有
+# 独立 makensis——多要一件工具就把旧路径可用的构建机挡在第 1 步。
+Step "[1/7] Validate prerequisites"
+foreach ($tool in @('python', 'pnpm', 'node', 'uv')) {
+  Assert-Tool $tool
+}
+
+Push-Location $DesktopDir
+try {
+  Step "[2/7] Install frozen frontend dependencies"
+  Invoke-Checked -Command 'pnpm' -Arguments @('install', '--frozen-lockfile', '--prefer-offline')
+
+  Step "[3/7] Prepare runtime lane"
+${LANE_BLOCK}
+${RUNTIME_HOOK_CALLS}
+
+  Step "[4/7] Build Electron application"
+  Invoke-Checked -Command 'pnpm' -Arguments @('run', 'build')
+
+  Step "[5/7] Build win-unpacked"
+  Invoke-Checked -Command 'pnpm' -Arguments @('exec', 'electron-builder', '--win', 'dir', '--publish', 'never')
+  if (-not (Test-Path (Join-Path $DistDir 'win-unpacked'))) {
+    throw 'electron-builder did not create win-unpacked'
+  }
+
+  Step "[6/7] Verify unpacked artifact"
+  if (-not (Test-Path $DistDir)) {
+    throw 'electron-builder did not create dist output'
+  }
+${ARTIFACT_HOOK_CALLS}
+
+  Step "[7/7] Build NSIS installer"
+  Invoke-Checked -Command 'pnpm' -Arguments @('exec', 'electron-builder', '--win', 'nsis', '--publish', 'never', '--prepackaged', (Join-Path $DistDir 'win-unpacked'))
+  if (-not (Get-ChildItem -Path $DistDir -Filter '*.exe' -File -ErrorAction SilentlyContinue)) {
+    throw 'electron-builder did not create an installer'
+  }
+${RELEASE_HOOK_CALLS}
+}
+finally {
+  Pop-Location
+}

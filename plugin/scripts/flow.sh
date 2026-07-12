@@ -211,6 +211,14 @@ cmd_handoff() {
     fp_phase="$cur_phase"; fp_val="$(fingerprint_outputs "$m" "$cur_phase")"
   fi
 
+  if [ "$conclusion" = "pass" ] && [ -z "$gate" ] && [ "$cur_phase" = "package" ]; then
+    local package_result
+    package_result="$(bash "$SCRIPT_DIR/package-phase.sh" exit-check)" \
+      || die "[package] 不能交接到 closing: $package_result"
+    [ "$package_result" = "DONE" ] \
+      || die "[package] 不能交接到 closing: $package_result"
+  fi
+
   jq \
     --arg phase "$new_phase" --argjson pidx "$new_pidx" --argjson rc "$new_rc" \
     --argjson tc "$new_tc" --arg status "$new_status" --arg gate "$new_gate" \
@@ -225,6 +233,10 @@ cmd_handoff() {
      | (if $fpphase!="" then .gate_fingerprints[$fpphase]=$fpval else . end)
      | .history += [{phase:$hphase, conclusion:$hconc, at:$at}]' \
     "$m" | write_manifest "$m"
+
+  if [ "$cur_phase" = "package" ] && [ "$conclusion" = "needs-redirection" ] && [ "$to_phase" = "build" ]; then
+    bash "$SCRIPT_DIR/package-phase.sh" close >/dev/null
+  fi
 
   # loop 生命周期:结论落定 = 当前内层 loop(若有)收束——清 loop-state(schema「退出时清」的落地),
   # 防上一个 loop 的残留污染下阶段 where。往前(pass)/返工(needs-repair)/掉头(needs-redirection)都清;
