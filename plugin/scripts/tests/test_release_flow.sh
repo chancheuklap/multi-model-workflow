@@ -173,7 +173,9 @@ if PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMO
   else
     ok "schtasks 任务名与 wrapper 路径裸传(无跨 shell 引号歧义)"
   fi
-  [ "$(grep -o '/tn [^ ]*' "$TMP/transport.calls" | sort -u | wc -l | tr -d ' ')" = "1" ] && ok "create/run/清理引用同一任务名" || no "任务名跨命令不一致,清理会找不到任务"
+  [ "$(grep -oE '/tn [A-Za-z0-9-]+' "$TMP/transport.calls" | sort -u | wc -l | tr -d ' ')" = "1" ] && ok "create/run/清理引用同一任务名" || no "任务名跨命令不一致,清理会找不到任务"
+  # 清理必须经 powershell 分号顺序执行:cmd 的 & 在 PowerShell 5.1 解析失败、PS6+ 变后台 job。
+  grep -q 'powershell -NoProfile -NonInteractive -Command.*schtasks /end.*; schtasks /delete' "$TMP/transport.calls" && ok "清理经 powershell 分号顺序执行(不用跨 shell 歧义的 &)" || no "清理未经 powershell 顺序语义执行"
   grep -q 'schtasks /run' "$TMP/transport.calls" && ok "remote build 启动 schtasks" || no "remote build 未启动 schtasks"
   [ "$(cat "$TMP/fake-remote/SOURCE_COMMIT.txt")" = "$(git rev-parse HEAD)" ] && ok "remote build 绑定完整 SourceCommit" || no "remote build SourceCommit 错误"
   [ -s "$TMP/fake-remote/source.zip" ] && ok "remote build 上传 git archive HEAD" || no "remote build 缺 source archive"
@@ -258,14 +260,17 @@ PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE=
 grep -q 'schtasks /create' "$TMP/transport.calls" && no "旧产物清除失败仍创建了计划任务" || ok "旧产物清除失败不创建计划任务"
 bash "$RF" close >/dev/null
 
-# 远端根路径含空格直接拒:跨 cmd/PowerShell/native CLI 三解析器的引号没有统一合同。
-: > "$TMP/transport.calls"
-bash "$RF" init --manifest remote-build-manifest.json >/dev/null
-PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" \
-   RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release input" bash "$RF" stage run --stage build >/dev/null 2>&1 || true
-[ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" != "done" ] && ok "RELEASE_REMOTE_ROOT 含空格被拒(引号无稳定合同)" || no "含空格远端根未被拒"
-grep -q 'schtasks /create' "$TMP/transport.calls" && no "含空格远端根仍创建了计划任务" || ok "含空格远端根未触达 schtasks"
-bash "$RF" close >/dev/null
+# 远端根路径字符白名单:空格/引号/美元符/反引号会打断 PowerShell 字符串或触发变量展开,
+# 跨 cmd/PowerShell/native CLI 三解析器的引号没有统一合同,一律拒。
+for bad_root in "C:/release input" "C:/release'input" 'C:/release$input'; do
+  : > "$TMP/transport.calls"
+  bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+  PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" \
+     RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="$bad_root" bash "$RF" stage run --stage build >/dev/null 2>&1 || true
+  [ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" != "done" ] && ok "危险远端根被拒($bad_root)" || no "危险远端根未被拒($bad_root)"
+  grep -q 'schtasks /create' "$TMP/transport.calls" && no "危险远端根仍创建了计划任务($bad_root)" || ok "危险远端根未触达 schtasks($bad_root)"
+  bash "$RF" close >/dev/null
+done
 
 # 回归 I1:schtasks /run 起不来(任务已 /create)时,尾部统一清理必须删掉已建的计划任务。
 # 上轮只在超时分支清理,漏了 /run 失败这个出口;这里断言现在所有出口都统一走 /delete。

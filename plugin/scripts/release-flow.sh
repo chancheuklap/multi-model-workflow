@@ -720,8 +720,12 @@ _run_remote_build() {
 
   # 引号合同:远端命令跨三种解析器(cmd.exe / PowerShell 语言 / powershell.exe native CLI),
   # 单引号只在 PowerShell 语言里是定界符,cmd 与 native CLI 都按字面收——路径/任务名一旦需要
-  # 引号就没有统一合同。唯一稳定做法:远端路径禁空格,所有 schtasks 参数裸传不加引号。
-  case "$remote_root" in *" "*) echo "ERROR: RELEASE_REMOTE_ROOT 不得含空格(跨 shell 引号无稳定合同): $remote_root" >&2; return 64 ;; esac
+  # 引号就没有统一合同。唯一稳定做法:远端根收紧为字符白名单(盘符开头,只允许字母数字与
+  # ._-/\),空格/引号/美元符/反引号/分号等一律拒,所有 schtasks 参数裸传不加引号。
+  if ! printf '%s' "$remote_root" | grep -Eq '^[A-Za-z]:[/\\][A-Za-z0-9._/\\-]*$'; then
+    echo "ERROR: RELEASE_REMOTE_ROOT 必须是安全字符的 Windows 绝对路径(盘符开头,仅字母数字._-/\\): $remote_root" >&2
+    return 64
+  fi
   remote_input="${remote_root%/}/$source_commit"
   archive="$stage_dir/source.zip"
   commit_file="$stage_dir/SOURCE_COMMIT.txt"
@@ -760,9 +764,11 @@ _run_remote_build() {
   # return 前重复 cleanup(避免上轮只补超时分支、漏掉 /run 失败与 exitcode 非法两个出口那类遗漏)。
   local rc=0
   _remote_run_and_poll "$remote_host" "$remote_input" "$task_name" "$stage_dir" || rc=$?
-  # 清理与 create 同走 cmd.exe、任务名同样裸传——引号合同必须与创建端一致,否则清理找的是
-  # 另一个名字。清理失败不改变构建判定,但必须留痕(残留任务会在下轮同 commit 抢写产物)。
-  if ! ssh "$remote_host" "schtasks /end /tn $task_name & schtasks /delete /tn $task_name /f" >/dev/null 2>&1; then
+  # 清理经 _ssh_ps 的 PowerShell 分号顺序执行(/end 失败不挡 /delete):cmd 的 `&` 在
+  # PowerShell 5.1 解析失败、PS6+ 变后台 job,跨默认 shell 没有顺序语义。任务名与创建端
+  # 同样裸传(无空格无引号,PowerShell 原样传给 schtasks native)。清理失败不改变构建判定,
+  # 但必须留痕(残留任务会在下轮同 commit 抢写产物)。
+  if ! _ssh_ps "$remote_host" "schtasks /end /tn $task_name; schtasks /delete /tn $task_name /f" >/dev/null 2>&1; then
     echo "WARN: 远端计划任务清理失败(task=$task_name),残留条目需手动 schtasks /delete" >&2
   fi
   return "$rc"
