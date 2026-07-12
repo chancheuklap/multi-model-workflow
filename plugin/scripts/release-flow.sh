@@ -706,7 +706,7 @@ PS1
 _run_remote_build() {
   local top="$1" source_commit="$2" stage_dir="$3"
   shift 3
-  local script="" context="" remote_host remote_root remote_input remote_input_win archive commit_file remote_context wrapper cmd_file runner_cmd_win task_name
+  local script="" context="" remote_host remote_root remote_input remote_input_win archive commit_file remote_context wrapper cmd_file runner_cmd_win task_name product
   while [ $# -gt 0 ]; do
     case "$1" in
       --script) script="${2:-}"; shift 2 ;;
@@ -731,7 +731,17 @@ _run_remote_build() {
     echo "ERROR: RELEASE_REMOTE_ROOT 必须是安全字符的 Windows 绝对路径(盘符开头,仅字母数字._-/\\): $remote_root" >&2
     return 64
   fi
-  remote_input="${remote_root%/}/$source_commit"
+  # 远端构建目录按 <commit>-<product> 命名,而非只按 commit:同一个 commit 出多个产品时(三产品共用
+  # 一份源码树),若只按 commit 命名,后一个产品构建一开始的 Remove-Item + 重解压会把前一个产品已产出的
+  # 安装包整片冲掉。product 取自已校验的 context,收紧为安全字符白名单(字母数字._-)裸拼进路径。
+  product="$(jq -r '.product // empty' "$context" 2>/dev/null)"
+  case "$product" in
+    '' | *[!A-Za-z0-9._-]*)
+      echo "ERROR: remote build context.product 缺失或含非法字符: '$product'" >&2
+      return 64
+      ;;
+  esac
+  remote_input="${remote_root%/}/${source_commit}-${product}"
   archive="$stage_dir/source.zip"
   commit_file="$stage_dir/SOURCE_COMMIT.txt"
   remote_context="$stage_dir/release-context.remote.json"
