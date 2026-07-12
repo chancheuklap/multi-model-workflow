@@ -731,9 +731,14 @@ _run_remote_build() {
     echo "ERROR: RELEASE_REMOTE_ROOT 必须是安全字符的 Windows 绝对路径(盘符开头,仅字母数字._-/\\): $remote_root" >&2
     return 64
   fi
-  # 远端构建目录按 <commit>-<product> 命名,而非只按 commit:同一个 commit 出多个产品时(三产品共用
-  # 一份源码树),若只按 commit 命名,后一个产品构建一开始的 Remove-Item + 重解压会把前一个产品已产出的
-  # 安装包整片冲掉。product 取自已校验的 context,收紧为安全字符白名单(字母数字._-)裸拼进路径。
+  # 远端构建目录按 <短commit>-<product> 命名:
+  # (1) 带 product:同一个 commit 出多个产品时(三产品共用一份源码树),若只按 commit 命名,后一个产品
+  #     构建一开始的 Remove-Item + 重解压会把前一个产品已产出的安装包整片冲掉。product 取自已校验的
+  #     context,收紧为安全字符白名单(字母数字._-)裸拼进路径。
+  # (2) 只取 12 字符短 commit(与 task_name 同):Windows makensis 不开长路径,electron-builder 的 NSIS
+  #     include 埋在极深的 pnpm 依赖哈希目录里,叠加 40 字符全 commit 目录名会让 !include 路径越过 MAX_PATH
+  #     260 而「could not open file」失败。短 commit 省 28 字符把最深路径拉回 260 内。SOURCE_COMMIT.txt
+  #     仍记全 commit 供溯源,只有目录名收短。
   product="$(jq -r '.product // empty' "$context" 2>/dev/null)"
   case "$product" in
     '' | *[!A-Za-z0-9._-]*)
@@ -741,7 +746,7 @@ _run_remote_build() {
       return 64
       ;;
   esac
-  remote_input="${remote_root%/}/${source_commit}-${product}"
+  remote_input="${remote_root%/}/${source_commit:0:12}-${product}"
   archive="$stage_dir/source.zip"
   commit_file="$stage_dir/SOURCE_COMMIT.txt"
   remote_context="$stage_dir/release-context.remote.json"
