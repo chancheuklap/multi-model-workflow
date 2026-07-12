@@ -98,7 +98,7 @@ validate_scope() {
 cmd_resolve() {
   local scope="" base="" head="" top manifest scope_json changed_json classified="[]" path indices targets result
   local product_count index
-  local -a all_globs product_globs
+  local -a all_globs product_globs ignored_globs
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --scope) scope="$2"; shift 2 ;;
@@ -117,13 +117,19 @@ cmd_resolve() {
   git rev-parse --verify "$base^{commit}" >/dev/null 2>&1 || die "base revision 不存在: $base"
   git rev-parse --verify "$head^{commit}" >/dev/null 2>&1 || die "head revision 不存在: $head"
   scope_json="$(validate_scope "$top" "$scope")"
-  changed_json="$(git diff --name-only --diff-filter=ACMRTD "$base..$head" | LC_ALL=C sort -u | jq -Rsc 'split("\n") | map(select(length > 0))')"
+  # core.quotepath=false:中文/特殊字符文件名默认被 git 引号转义成 "\345..." 形式,
+  # 转义串永远匹配不上任何 scope glob,会把无关素材文件误判成「未分类改动」卡死解析。
+  changed_json="$(git -c core.quotepath=false diff --name-only --diff-filter=ACMRTD "$base..$head" | LC_ALL=C sort -u | jq -Rsc 'split("\n") | map(select(length > 0))')"
   all_globs=()
   while IFS= read -r glob; do all_globs+=("$glob"); done < <(jq -r '.all_products_paths[]' <<<"$scope_json")
+  # ignored 桶在循环外一次性读好:bash 3.2 在「外层 while 重定向 + || 复合组」内不执行
+  # process substitution,曾致 ignored 恒为空、全部改动被误判「未分类」。
+  ignored_globs=()
+  while IFS= read -r glob; do ignored_globs+=("$glob"); done < <(jq -r '.ignored_paths[]' <<<"$scope_json")
   product_count="$(jq -r '.products | length' <<<"$scope_json")"
   while IFS= read -r path; do
     [ -n "$path" ] || continue
-    if matches_any "$path" "${all_globs[@]}"; then
+    if matches_any "$path" "${all_globs[@]-}"; then
       indices="$(jq -c '[range(0; .products | length)]' <<<"$scope_json")"
     else
       indices="[]"
@@ -131,14 +137,12 @@ cmd_resolve() {
         product_globs=()
         while IFS= read -r glob; do product_globs+=("$glob"); done \
           < <(jq -r --argjson i "$index" '.products[$i].paths[]' <<<"$scope_json")
-        if matches_any "$path" "${product_globs[@]}"; then
+        if matches_any "$path" "${product_globs[@]-}"; then
           indices="$(jq -c --argjson i "$index" '. + [$i]' <<<"$indices")"
         fi
       done
       [ "$indices" != "[]" ] || {
-        product_globs=()
-        while IFS= read -r glob; do product_globs+=("$glob"); done < <(jq -r '.ignored_paths[]' <<<"$scope_json")
-        matches_any "$path" "${product_globs[@]}" || die "未分类改动路径: $path"
+        matches_any "$path" "${ignored_globs[@]-}" || die "未分类改动路径: $path"
       }
     fi
     classified="$(jq -c --arg p "$path" --argjson i "$indices" '. + [{path:$p, indices:$i}]' <<<"$classified")"
