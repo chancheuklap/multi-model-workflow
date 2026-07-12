@@ -60,7 +60,7 @@ jq -e . "$MAN" >/dev/null 2>&1 && ok "manifest 合法 JSON" || no "manifest 合�
 [ "$(jq -r .slug "$MAN")" = "$SLUG" ] && ok "manifest.slug" || no "manifest.slug"
 [ "$(jq -r .scenario "$MAN")" = "develop" ] && ok "manifest.scenario" || no "manifest.scenario"
 [ "$(jq -r .phase "$MAN")" = "investigate" ] && ok "develop→首阶段 investigate" || no "develop→investigate"
-[ "$(jq -rc .phases "$MAN")" = '["investigate","propose","design","to-issue","plan","build","closing"]' ] && ok "phases 固化进 manifest" || no "phases 固化"
+[ "$(jq -rc .phases "$MAN")" = '["investigate","propose","design","to-issue","plan","build","package","closing"]' ] && ok "phases 固化进 manifest" || no "phases 固化"
 [ "$(jq -r .base_commit "$MAN")" = "$BASE" ] && ok "base_commit=本地HEAD" || no "base_commit=本地HEAD"
 [ "$(jq -r .step_index "$MAN")" = "0" ] && ok "step_index 初始化=0(阶段内步骤游标)" || no "step_index 初始化"
 [ "$(jq -r .phase_index "$MAN")" = "0" ] && ok "phase_index=0" || no "phase_index=0"
