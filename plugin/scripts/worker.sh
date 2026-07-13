@@ -19,8 +19,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/runtime.sh"
 
 CODEX_BIN="${CODEX_BIN:-codex}"
-CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-luna}"
-CODEX_EFFORT="${CODEX_EFFORT:-xhigh}"
+CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-terra}"
+CODEX_EFFORT="${CODEX_EFFORT:-high}"
 # capable 落地档(计费/权限/migration 等高风险 plan):脚本按 plan 的 Complexity 字段自动切,不靠 agent 手传。
 CODEX_CAPABLE_MODEL="${CODEX_CAPABLE_MODEL:-gpt-5.6-sol}"
 CODEX_CAPABLE_EFFORT="${CODEX_CAPABLE_EFFORT:-high}"

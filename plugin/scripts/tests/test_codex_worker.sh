@@ -52,22 +52,26 @@ echo "$PROMPT" | grep -q "$PLAN" && ok "prompt 传了计划路径(实施权威)"
 ARGV="$(cat "$FAKE_CAP/argv")"
 echo "$ARGV" | grep -q -- "-C $WT" && ok "codex -C <worktree>" || no "-C worktree"
 echo "$ARGV" | grep -q -- "--sandbox workspace-write" && ok "--sandbox workspace-write" || no "sandbox"
-echo "$ARGV" | grep -q 'model_reasoning_effort="xhigh"' && ok "落地默认 xhigh effort(CODEX_EFFORT)" || no "落地 effort($ARGV)"
-echo "$ARGV" | grep -q -- "-m gpt-5.6-luna" && ok "落地默认 gpt-5.6-luna(CODEX_MODEL)" || no "落地模型档($ARGV)"
 echo "$ARGV" | grep -q -- "--add-dir" && ok "--add-dir 放行 git common dir" || no "add-dir"
-# capable 自动切档:plan 标 Complexity: capable → 脚本自动切 sol high(agent 不手传 --model/--effort)
+# 断言只看"exec 层钉了模型档"这个契约(resume 不继承 config 默认),不锁具体档位值——
+# 档位在 worker.sh 顶部改,测试不该跟着红。下面一律拿脚本自己吐的值做相对比较。
+m_of() { echo "$1" | sed -n 's/.*-m \([^ ]*\).*/\1/p'; }
+e_of() { echo "$1" | sed -n 's/.*model_reasoning_effort="\([^"]*\)".*/\1/p'; }
+DEF_M="$(m_of "$ARGV")"; DEF_E="$(e_of "$ARGV")"
+[ -n "$DEF_M" ] && [ -n "$DEF_E" ] && ok "落地在 exec 层钉了模型档(-m + reasoning_effort)" || no "落地未钉模型档($ARGV)"
+# capable 自动切档:plan 标 Complexity: capable → 脚本自动切高风险档(agent 不手传 --model/--effort)
 PLAN_CAP="$TMP/plan-cap.md"; printf '# plan\n\n**Complexity:** capable\n' > "$PLAN_CAP"
 bash "$CW" dispatch --plan "$PLAN_CAP" --worktree "$TMP/wt-cap" >/dev/null 2>&1
-ARGV_CAP="$(cat "$FAKE_CAP/argv")"
-echo "$ARGV_CAP" | grep -q -- "-m gpt-5.6-sol" && ok "capable plan 自动切 gpt-5.6-sol(不手传)" || no "capable 模型档($ARGV_CAP)"
-echo "$ARGV_CAP" | grep -q 'model_reasoning_effort="high"' && ok "capable plan 自动切 high effort" || no "capable effort($ARGV_CAP)"
+CAP_M="$(m_of "$(cat "$FAKE_CAP/argv")")"
+[ -n "$CAP_M" ] && [ "$CAP_M" != "$DEF_M" ] && ok "capable plan 自动切高风险档(≠默认档,不手传)" || no "capable 未切档($CAP_M vs $DEF_M)"
 # 中文"复杂度"标签 + 大小写不敏感也认 capable(与 review.sh 同语义)
 PLAN_CAP2="$TMP/plan-cap2.md"; printf '# plan\n\n复杂度: Capable\n' > "$PLAN_CAP2"
 bash "$CW" dispatch --plan "$PLAN_CAP2" --worktree "$TMP/wt-cap2" >/dev/null 2>&1
-echo "$(cat "$FAKE_CAP/argv")" | grep -q -- "-m gpt-5.6-sol" && ok "中文复杂度/大小写 capable 也认自动切" || no "中文 capable 漏检"
-# 显式 --model/--effort 覆盖自动切档(逃生口仍在)
-bash "$CW" dispatch --plan "$PLAN_CAP" --worktree "$TMP/wt-ov" --model gpt-5.6-terra --effort xhigh >/dev/null 2>&1
-echo "$(cat "$FAKE_CAP/argv")" | grep -q -- "-m gpt-5.6-terra" && ok "--model 显式覆盖自动切档" || no "显式覆盖失效"
+[ "$(m_of "$(cat "$FAKE_CAP/argv")")" = "$CAP_M" ] && ok "中文复杂度/大小写 capable 也认自动切" || no "中文 capable 漏检"
+# 显式 --model/--effort 覆盖自动切档(逃生口仍在):用占位值,证明透传而非锁某个真实档
+bash "$CW" dispatch --plan "$PLAN_CAP" --worktree "$TMP/wt-ov" --model probe-model-x --effort probe-effort-y >/dev/null 2>&1
+ARGV_OV="$(cat "$FAKE_CAP/argv")"
+[ "$(m_of "$ARGV_OV")" = "probe-model-x" ] && [ "$(e_of "$ARGV_OV")" = "probe-effort-y" ] && ok "--model/--effort 显式覆盖自动切档(原样透传)" || no "显式覆盖失效($ARGV_OV)"
 echo "$OUT" | grep -q "SESSION=sess-123" && ok "抓到并打印 session id" || no "session 记账"
 [ "$(cat "$WT/${STATE_SUBDIR}/codex-session")" = "sess-123" ] && ok "session 落盘供 resume" || no "session 落盘"
 echo "$OUT" | grep -q "codex done" && ok "打印 codex 最后消息(供验收)" || no "最后消息"
@@ -95,7 +99,7 @@ ARGV2="$(cat "$FAKE_CAP/argv")"
 echo "$ARGV2" | grep -q "resume sess-123" && ok "resume 续原 session" || no "resume session"
 echo "$ARGV2" | grep -q -- "-C $WT" && ok "resume 重钉 -C <worktree>(不掉回调用 cwd)" || no "resume -C"
 echo "$ARGV2" | grep -q -- "--sandbox workspace-write" && ok "resume 重钉 workspace-write(不掉回 config 默认)" || no "resume sandbox"
-echo "$ARGV2" | grep -q -- "-m gpt-5.6-luna" && ok "resume 复用派发模型档(不掉回 config 默认档)" || no "resume 模型档"
+{ [ "$(m_of "$ARGV2")" = "$DEF_M" ] && [ "$(e_of "$ARGV2")" = "$DEF_E" ]; } && ok "resume 复用派发时那一档(不掉回 config 默认档)" || no "resume 模型档($ARGV2)"
 [ "$(cat "$FAKE_CAP/stdin")" = "fix this" ] && ok "resume 发回修复指令" || no "resume 指令"
 
 # resume 兜捞:session 文件丢(dispatch 被杀)→ 从 run.log 捞回,不丢续会话能力
@@ -165,8 +169,7 @@ echo "$PROMPT_P" | grep -q "本消息不重复" && ok "plan prompt 委托 skill(
 ARGV_P="$(cat "$FAKE_CAP/argv")"
 echo "$ARGV_P" | grep -q -- "-C $WT_TASK" && ok "plan codex -C 任务 worktree(不开子 worktree)" || no "plan -C 任务 wt"
 echo "$ARGV_P" | grep -q -- "--sandbox workspace-write" && ok "plan --sandbox workspace-write" || no "plan sandbox"
-echo "$ARGV_P" | grep -q 'model_reasoning_effort="high"' && ok "plan 用 high(CODEX_PLAN_EFFORT)" || no "plan effort($ARGV_P)"
-echo "$ARGV_P" | grep -q -- "-m gpt-5.6-sol" && ok "plan 用 gpt-5.6-sol(CODEX_PLAN_MODEL)" || no "plan 模型档"
+{ [ -n "$(m_of "$ARGV_P")" ] && [ -n "$(e_of "$ARGV_P")" ]; } && ok "plan 派发在 exec 层钉了模型档(不掉回 config 默认)" || no "plan 未钉模型档($ARGV_P)"
 echo "$OUT_P" | grep -q "PLAN_WORKER_NS=001-foo" && ok "plan 回执报命名空间 ns" || no "plan ns 回执"
 [ "$(cat "$WT_TASK/${STATE_SUBDIR}/plan-workers/001-foo/codex-session")" = "sess-123" ] && ok "plan session 落 plan-workers/<ns>(并行隔离)" || no "plan session 命名空间"
 git -C "$WT_TASK" worktree list | grep -q "001-foo" && no "plan 不该开子 worktree" || ok "plan 不开子 worktree(在任务 wt 内写)"
