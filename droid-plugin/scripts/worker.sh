@@ -5,6 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
+# shellcheck source=lib/droid-exec.sh
+. "$SCRIPT_DIR/lib/droid-exec.sh"
 
 EXECUTOR_DROID="${DROID_EXECUTOR_DROID:-pack-executor}"
 EXECUTOR_MODEL="${DROID_EXECUTOR_MODEL:-glm-5.2}"
@@ -22,8 +24,7 @@ plan_ns() { basename "$1" .md; }
 
 render_droid_prompt() {
   local source="$1" target="$2"
-  awk 'BEGIN{n=0} /^---[[:space:]]*$/{n++; next} n>=2{print}' "$source" >"$target"
-  [ -s "$target" ] || die "droid prompt 为空:$source"
+  mmw_droid_render_prompt "$source" "$target" || die "droid prompt 为空:$source"
 }
 
 ensure_worktree() {
@@ -115,71 +116,24 @@ write_meta() {
 
 update_meta() {
   local meta="$1"; shift
-  local tmp
-  tmp="$(mktemp "$(dirname "$meta")/.meta.XXXXXX")" || return 1
-  jq "$@" "$meta" >"$tmp" \
-    && jq -e . "$tmp" >/dev/null 2>&1 \
-    && mv "$tmp" "$meta" \
-    || { rm -f "$tmp"; return 1; }
+  mmw_droid_atomic_update "$meta" "$@"
 }
 
 launch_exec() {
   local meta="$1" prompt="$2" wt="$3" model="$4" effort="$5" system_prompt="$6" session_id="${7:-}" status_cmd="$8"
-  command -v droid >/dev/null 2>&1 || die "找不到 droid CLI"
-  local pkg result log pid
-  pkg="$(dirname "$meta")"
-  result="$pkg/result.json"
-  log="$pkg/run.log"
-  rm -f "$result" "$log"
-  local -a cmd=(droid exec --output-format json --auto high --cwd "$wt"
-    --model "$model" --reasoning-effort "$effort"
-    --append-system-prompt-file "$system_prompt")
-  [ -n "$session_id" ] && cmd+=(--session-id "$session_id")
-  cmd+=(--file "$prompt")
-  nohup "${cmd[@]}" >"$result" 2>"$log" </dev/null &
-  pid=$!
-  if ! update_meta "$meta" \
-    --argjson pid "$pid" --arg result "$result" --arg log "$log" \
-    --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '.status="running" | .pid=$pid | .result_file=$result | .log_file=$log | .updated_at=$at'; then
-    kill "$pid" 2>/dev/null || true
-    die "worker 已停止：派发账本写入失败"
-  fi
+  mmw_droid_launch "$meta" "$prompt" "$wt" "$model" "$effort" "$system_prompt" "$session_id" high "" \
+    || die "worker 启动或派发账本写入失败"
   echo "WORKER_STARTED"
-  echo "pid=$pid"
-  echo "result_file=$result"
-  echo "log_file=$log"
+  echo "pid=$MMW_DROID_PID"
+  echo "result_file=$MMW_DROID_RESULT_FILE"
+  echo "log_file=$MMW_DROID_LOG_FILE"
   echo "NEXT=$status_cmd"
 }
 
 refresh_meta() {
-  local meta="$1" pid result status session subtype
+  local meta="$1"
   [ -f "$meta" ] || die "派发账本不存在:$meta"
-  pid="$(jq -r '.pid // empty' "$meta")"
-  result="$(jq -r '.result_file // empty' "$meta")"
-  status="$(jq -r '.status // "prepared"' "$meta")"
-  if [ -z "$result" ] || [ ! -s "$result" ] || ! jq -e . "$result" >/dev/null 2>&1; then
-    if [ "$status" = running ] && [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-      echo RUNNING
-      return 0
-    fi
-    update_meta "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      '.status="failed" | .updated_at=$at'
-    echo FAILED
-    return 1
-  fi
-  subtype="$(jq -r '.subtype // empty' "$result")"
-  session="$(jq -r '.session_id // empty' "$result")"
-  if [ "$subtype" = success ] && [ "$(jq -r '.is_error // false' "$result")" = false ] && [ -n "$session" ]; then
-    update_meta "$meta" --arg session "$session" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      '.status="completed" | .session_id=$session | .updated_at=$at'
-    echo COMPLETED
-    return 0
-  fi
-  update_meta "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '.status="failed" | .updated_at=$at'
-  echo FAILED
-  return 1
+  mmw_droid_refresh "$meta"
 }
 
 guard_no_active() {

@@ -157,5 +157,8 @@ elif printf '%s\n' "$FAIL_STATUS" | grep -q 'WORKER_STATUS=FAILED'; then
 else
   no "failed Droid result has no structured status"
 fi
+FAIL_META="$FAIL_WT/.factory/multi-model-workflow/worker-dispatch/meta.json"
+[ "$(jq -r '.session_id // empty' "$FAIL_META")" = "" ] \
+  && ok "failed execution session is not resumable" || no "failed session leaked into resume ledger"
 
 exit "$fail"

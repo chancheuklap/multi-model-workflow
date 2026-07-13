@@ -6,18 +6,18 @@
 
 ## 1. 判断:查哪个方向 + 定 topics
 
-内部与外部调查分开定义 topics,统一用 `investigate-topic` droid 执行:
+内部与外部调查分开定义 topics，由 `mmw investigate` 脚本并行启动隔离的 Droid exec:
 
 | 方向 | 查什么 | 派发 | 角度 skill(可选) |
 |---|---|---|---|
-| 内部(仓库现状) | 模块边界 / seam / 数据流 / 根因 | Task → `investigate-topic` | `codebase-design` · `diagnosing-bugs` |
-| 外部(成熟方案,**非必做**) | 现有库 / 实现 / 最佳实践 | Task → `investigate-topic` | `deep-research` · `context7` |
+| 内部(仓库现状) | 模块边界 / seam / 数据流 / 根因 | `mmw investigate start --direction internal` | `codebase-design` · `diagnosing-bugs` |
+| 外部(成熟方案,**非必做**) | 现有库 / 实现 / 最佳实践 | `mmw investigate start --direction external` | `deep-research` · `context7` |
 
 - 只需查内部 → 只跑 internal;要对比外部方案 → 再跑 external;两个都要 → 先后各跑一次。
-- 窄到一个点(一个函数 / 已知文件)→ 别派 Task,自己 Read/Grep 查完直接 handoff。
+- 窄到一个点(一个函数 / 已知文件)→ 别起 fan-out,自己 Read/Grep 查完直接 handoff。
 - 定 topics:**一个 topic 一个 agent**,按调查真实需要定几个(别凑没意义的 topic,也不设上限)。每个 `{ angle, question, skill? }`。
 
-## 2. Checkpoint → 派调查 droids
+## 2. Checkpoint → 跑调查编排器
 
 **fire 前必停,按下面固定格式把投查计划亮给用户**(别每次自创格式),等用户批 / 改再跑——别闷头烧 token:
 
@@ -30,16 +30,33 @@
 ```
 亮完跟一句:「批 / 改 / 增删 topic?批了就并行调查」。等用户回应再 fire,不擅自跑。
 
-批了以后每个 topic 派一个 Task:
+批了以后把 topics 写入状态平面的 JSON 文件：
 
-```
-Task({
- subagent_type: "investigate-topic",
- prompt: "angle=<...>; question=<...>; skill=<可选>; repoRoot=<worktree>; 只取证不判定; 回 markdown+open_questions+spinoff_candidates"
-})
+```json
+[
+  {"angle":"<角度>","question":"<问题>","skill":"<可选>"},
+  {"angle":"<角度>","question":"<问题>","skill":""}
+]
 ```
 
-互不依赖的 topic 在单条消息中并行发出多个 Task 调用；每个 Task 按当前工具合同直接返回结果。全部收回后主线程综合成一份报告。调用中断时只重派缺失 topic，不假设后台 task ID、TaskOutput 或 resume。
+然后启动：
+
+```bash
+mmw investigate start --direction <internal|external> \
+  --topics <状态平面/topics.json> --run <slug>-<internal|external>
+```
+
+内部和外部都查时，可分别启动两个 run；或用 `--direction both`，并在每个 topic 增加 `"mode":"internal|external"`。
+
+脚本为每个 topic 启动独立 `droid exec`，绑定当前 worktree，按方向关闭写工具或无关检索工具；结果强制经过 JSON schema 校验、无 locator / low confidence 过滤，再由独立 synthesizer 综合。轮询：
+
+```bash
+mmw investigate status --run <run-id>
+```
+
+- `RUNNING` / `SYNTHESIZING`：稍后再查。
+- `FAILED`：读状态目录中对应 `run.log` / `validation_error`，修环境或 prompt 后 `mmw investigate resume --run <run-id>`；只重跑失败 topic。
+- `COMPLETED`：回执给 `REPORT_FILE`；`mmw investigate result --run <run-id>` 打印 Markdown 报告。
 
 ## 3. 收口(回主线程)
 
@@ -54,5 +71,5 @@ Task({
 
 ## 红线
 
-- 全程只读;fan-out 期间不写状态平面,综合 + 亲验后主线程才写盘。
-- Task 断了只重派缺失 topic；阶段级断点靠 `manifest.phases`。
+- 调查 Droid 全程只读；脚本只写状态平面的 run 账本、prompt、原始结果和综合报告。
+- run 级断点靠 `investigate-runs/<run-id>/`；阶段级断点靠 `manifest.phases`。
