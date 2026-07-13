@@ -2,7 +2,6 @@
 # review.sh 空跑:审闸一条命令——阶段映射 kind/视角 对、init loop、brief 落盘(主线程读它直接派审者,拍平无协调帮手)、
 # 纯路由指向已装 worktree-review skill(不给审者 plugin 路径)、④final 按 scenario 分档、bad stage 拦。
 set -euo pipefail
-export MMW_HOST="${MMW_HOST:-claude}"
 STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
 WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -126,63 +125,6 @@ grep -qxF 'multi-model-workflow/' .claude/.gitignore && ok "review start 遮蔽�
 if bash "$REVIEW" start --stage bogus --source x >/dev/null 2>&1; then no "非法 stage 被拒"; else ok "非法 stage 被拒"; fi
 if bash "$REVIEW" start --stage design >/dev/null 2>&1; then no "缺 source 被拒"; else ok "缺 source 被拒(fail-closed)"; fi
 
-# ===== Droid overlay: design-a/b · plan-a/b · final tier · merge-impl =====
-export MMW_HOST=droid
-STATE_SUBDIR=.factory/multi-model-workflow
-BRIEF="${STATE_SUBDIR}/review-brief.md"
-LOOPF="${STATE_SUBDIR}/loop-state.json"
-mkdir -p "$STATE_SUBDIR"
-
-echo '{"scenario":"develop"}' > ${STATE_SUBDIR}/task.json
-bash "$REVIEW" start --stage design --source x >/dev/null 2>&1
-B="$(cat "$BRIEF")"
-echo "$B" | grep -q "host=droid" && ok "droid design brief 标 host=droid" || no "droid design host"
-echo "$B" | grep -q "reviewer-design-a" && ok "droid design 派 design-a" || no "droid design-a"
-echo "$B" | grep -q "reviewer-design-b" && ok "droid design 派 design-b" || no "droid design-b"
-echo "$B" | grep -q "codex exec" && no "droid design 不该 codex exec" || ok "droid design 无 codex exec"
-
-bash "$REVIEW" start --stage plan --source x >/dev/null 2>&1
-B="$(cat "$BRIEF")"
-echo "$B" | grep -q "reviewer-plan-a" && ok "droid plan 派 plan-a" || no "droid plan-a"
-echo "$B" | grep -q "reviewer-plan-b" && ok "droid plan 派 plan-b" || no "droid plan-b"
-
-# final fail-closed 4 (no base/slug)
-echo '{"scenario":"develop"}' > ${STATE_SUBDIR}/task.json
-bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
-B="$(cat "$BRIEF")"
-echo "$B" | grep -q "tier=4" && ok "droid final fail-closed brief tier=4" || no "droid final tier=4 标注"
-echo "$B" | grep -q "4 路" && ok "droid final tier=4 派 4 路" || no "droid final 4 路"
-echo "$B" | grep -q "reviewer-final-a" && ok "droid final 含 final-a" || no "droid final-a"
-echo "$B" | grep -q "reviewer-final-b" && ok "droid final 含 final-b" || no "droid final-b"
-
-# final tier=2(独立 slug,避免复用先前 capable plan 目录)
-BASE="$(git rev-parse HEAD)"
-printf '{"scenario":"develop","base_commit":"%s","slug":"t-droid-2"}' "$BASE" > ${STATE_SUBDIR}/task.json
-mkdir -p docs/plans/t-droid-2
-printf '**Complexity:** standard\n' > docs/plans/t-droid-2/001-a.md
-bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
-B="$(cat "$BRIEF")"
-echo "$B" | grep -q "tier=2" && ok "droid final 降档 tier=2" || no "droid tier=2 标注"
-echo "$B" | grep -q "2 路" && ok "droid final tier=2 派 2 路" || no "droid tier=2 路数"
-
-# small-change tier=1
-echo '{"scenario":"small-change"}' > ${STATE_SUBDIR}/task.json
-bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
-B="$(cat "$BRIEF")"
-echo "$B" | grep -q "tier=1" && ok "droid small-change final tier=1" || no "droid sc tier=1"
-echo "$B" | grep -q "reviewer-final-a" && ok "droid small-change 单 final-a" || no "droid sc final-a"
-
-# merge-impl 双路
-bash "$REVIEW" start --stage merge-impl --source x >/dev/null 2>&1
-B="$(cat "$BRIEF")"
-echo "$B" | grep -q "merge-impl" && ok "droid merge-impl brief" || no "droid merge brief"
-echo "$B" | grep -q "reviewer-final-a" && echo "$B" | grep -q "reviewer-final-b" \
-  && ok "droid merge-impl 派 final-a+b" || no "droid merge 双路"
-echo "$B" | grep -q 'reviewer-\*' && no "droid merge 不该空壳 reviewer-*" || ok "droid merge 非空壳"
-echo "$B" | grep -q "不 consult advisor" && ok "droid brief 禁 consult advisor" || no "droid brief 缺禁 advisor"
-
-unset MMW_HOST
-export MMW_HOST=claude
 
 echo ""
 echo "Results: $pass passed, $fail failed"

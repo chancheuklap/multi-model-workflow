@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # prepare.sh 端到端自检:new → resume → cleanup,跑在一次性 git 仓库里。
 set -euo pipefail
-export MMW_HOST="${MMW_HOST:-claude}"
 STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
 WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -111,17 +110,6 @@ bash "$PREPARE" cleanup --slug "$SLUG" >/dev/null 2>&1 && ok "合并后 cleanup 
 [ ! -d "$WT" ] && ok "worktree 已删" || no "worktree 已删"
 git show-ref --verify --quiet "refs/heads/$SLUG" && no "分支已删" || ok "分支已删"
 
-# --- 跨宿主(v6.15):Droid 建的任务,Claude 宿主 resume/team/cleanup 都认得 ---
-SLUG2="cross-host-x"
-MMW_HOST=droid bash "$PREPARE" new --scenario bug --slug "$SLUG2" --title t2 >/dev/null 2>&1
-WT2="$PWD/.factory/worktrees/$SLUG2"
-[ -f "$WT2/.factory/multi-model-workflow/task.json" ] && ok "droid 平面建任务落 .factory" || no "droid new 落点"
-R2="$(cd "$WT2" && MMW_HOST=claude bash "$PREPARE" resume 2>/dev/null)"
-[ "$(echo "$R2" | head -1)" = "MANAGED" ] && ok "Claude 宿主 resume Droid 任务=MANAGED(按实际平面解析)" || no "跨宿主 resume"
-MMW_HOST=claude bash "$PREPARE" team 2>/dev/null | grep -q "$SLUG2" && ok "Claude 宿主 team 列出 Droid 任务(扫双根)" || no "跨宿主 team"
-MMW_HOST=claude bash "$PREPARE" cleanup --slug "$SLUG2" >/dev/null 2>&1 && ok "Claude 宿主 cleanup Droid worktree 成功" || no "跨宿主 cleanup"
-[ ! -e "$WT2" ] && ok "Droid worktree 已删(无孤儿)" || no "跨宿主 worktree 残留"
-git show-ref --verify --quiet "refs/heads/$SLUG2" && no "跨宿主分支残留" || ok "跨宿主分支已删"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # package-phase 的公开命令面：真实 Git diff + scope + S1 adapter 合同。
 set -euo pipefail
-export MMW_HOST="${MMW_HOST:-claude}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PACKAGE="$SCRIPT_DIR/../package-phase.sh"

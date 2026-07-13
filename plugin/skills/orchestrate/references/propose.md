@@ -20,10 +20,10 @@
 
 亮方案给用户**之前**,若 2–3 个方向在数据归属 / 计费 / 权限 / 不可逆架构上**真有张力**(不是三个近义词),可 consult 一次拿第二意见;否则跳过。
 
-Droid:
+Claude Code:
 
 ```
-Task({
+Agent({
   subagent_type: "fable-advisor",
   prompt: "phase=propose; decision_point=用户拍板前选方向; baseline=<现状报告要点>; options_or_draft=<方案表原文>; evidence=<报告路径或 file:line>; ask=只要 stance/why/top_risk/next,不要重写方案表"
 })

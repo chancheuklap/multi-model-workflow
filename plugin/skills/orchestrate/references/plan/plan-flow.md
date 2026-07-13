@@ -1,6 +1,6 @@
 # Plan · orchestrate 步(本步读这一份)
 
-> plan 阶段:判单/多计划、映射 plan 清单、写跨 plan 合同骨架、fan-out 派 **Codex 写计划**、亲验返回、回填,加角色声音 + Git 纪律。**计划撰写全下放第二模型(Claude 宿主 Codex / Droid 宿主 plan-writer droid),主线程不内联写**;就绪门自检在 selfcheck 步(`mmw step next` 进)。
+> plan 阶段:判单/多计划、映射 plan 清单、写跨 plan 合同骨架、fan-out 派 **Codex 写计划**、亲验返回、回填,加角色声音 + Git 纪律。**计划撰写全下放 Codex,主线程不内联写**;就绪门自检在 selfcheck 步(`mmw step next` 进)。
 
 ## 模式(先判,决定派几个)
 
@@ -17,7 +17,7 @@
 | 角色 | 谁 | 职责 |
 |---|---|---|
 | **主 Agent(你)** | 本阶段驱动者 | 读 design + issue → 写跨 plan 合同骨架进设计文档 → fan-out 派 Codex 写计划 → 亲验返回 → 回填合同细节 → 就绪门 → handoff |
-| **Codex 写计划工人** | 主线程 `mmw worker plan-dispatch` 后台派(Claude 宿主 codex exec / Droid 宿主 Task→plan-writer droid) | 拿(带合同骨架的)设计文档 + 单个大 issue,**自己把大 issue 拆成小 issue**,写出一份自洽 plan(Header + Task Pack + TDD 步骤 + 验收)。拆分、写作纪律、交付前自检都在它身上(它读 `worktree-plan` skill) |
+| **Codex 写计划工人** | 主线程 `mmw worker plan-dispatch` 后台派 | 拿(带合同骨架的)设计文档 + 单个大 issue,**自己把大 issue 拆成小 issue**,写出一份自洽 plan(Header + Task Pack + TDD 步骤 + 验收)。拆分、写作纪律、交付前自检都在它身上(它读 `worktree-plan` skill) |
 
 **合同分两层**:跨 plan 合同骨架(主 Agent 在 Step 2 写进设计文档 `## Cross-Plan Contract Anchors`,给并行 writer 不撞车的硬边界);每份 plan 的 Global Constraints / File Map / 内部 Dependency Graph(writer 从设计抄 + 自己写进 plan header)。
 
@@ -63,7 +63,7 @@ mmw worker plan-dispatch \
   [--mockup <docs/design/<slug>/mockup/ 若存在>]
 ```
 
-- **一律后台跑**(Claude=Bash `run_in_background`,完成后读回执 `plan-workers/<ns>/last.md`;Droid=脚本写派发包后主线程 `Task`→plan-writer)。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。** 单 issue → 单 plan:派一个就行,不强行并行。
+- **一律用 Bash `run_in_background` 后台跑**,完成后读回执 `plan-workers/<ns>/last.md`。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。** 单 issue → 单 plan:派一个就行,不强行并行。
 - **不开子 worktree、不 commit**:各 plan 写不同文件(`docs/plans/<slug>/00N.md`)、在任务 worktree 内并行安全;主线程统一提交(脚本已管命名空间隔离 session / 边界门)。
 - **落点 slug** 与源设计 / issue 对齐(已含日期);多 plan 同一目录。
 - 模型档脚本已钉,除非特殊无需 `--model`。
@@ -72,8 +72,6 @@ mmw worker plan-dispatch \
 ## Step 4:亲验返回
 
 每份 Codex 返回 `pass` 后(读回执:`plan-workers/<ns>/last.md`),对它声明的事实(plan 文件存在、Pack 数量、引用的 `file:line`、**小 issue 已写回 issue 文件 `## Small issues`**)至少抽验 1 个(`grep`/`Read`)再采信。失实 → `mmw worker plan-resume` 打回或主 Agent 亲查修正。任一返回 `needs-context` / `needs-repair` / `blocked` → 按其内容补上下文或修源设计后 plan-resume;返回 `needs-redirection`(探代码撞破设计方向)→ handoff `needs-redirection` 交用户拍方向。
-
-**Droid 宿主**:Task 返回后**必须**先 `mmw worker plan-check --plan <落点> --worktree <任务 wt>`(机器核写计划边界,fail-closed);非零 / `PLAN_VIOLATION` → plan-resume 打回,禁止采信。全部 `pass` + 验过 → Step 5。
 
 ## Step 5:回填合同细节 + 核边界(多 plan 时)
 

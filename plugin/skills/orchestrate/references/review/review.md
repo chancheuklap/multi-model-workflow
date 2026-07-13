@@ -2,9 +2,9 @@
 
 > 审核闸操作指南。**主线程直接派审者**;审查方法 + 各 stage 角度单源在已装的 **`worktree-review` skill**。plugin 侧只留 `plan-impl.md`(③合同门)与本文(编排)。
 >
-> **宿主分叉(派发)**:谁家审者 / 几路视角 / 模型档,全由 `mmw review start` 按宿主机器生成进 brief——**照 brief 派即可**,本文不复制派发矩阵(免漂移)。
+> 谁审 / 几路视角 / 模型档,全由 `mmw review start` 机器生成进 brief——**照 brief 派即可**,本文不复制派发矩阵(免漂移)。
 
-红线:**写者≠验者**(设计/计划作者与审者模型不同家;Droid 用 a/b 双 droid 钉死);**完工靠 `exit-check` 机器核 + handoff 确定性闸**。
+红线:**写者≠验者**(设计/计划作者与审者模型不同家);**完工靠 `exit-check` 机器核 + handoff 确定性闸**。
 
 ---
 
@@ -32,7 +32,7 @@
  mmw loop checklist add --item "<要审到的维度>" --source "<doc:line>" # 逐条
  mmw loop attendance --mode <attended|afk>
  ```
-3. **主线程直接派审者**:读 `状态平面/review-brief.md`,按它「派审者」段直接派(Claude 会话内 sub-agent / Codex 后台 CLI;Droid `Task` 派 `reviewer-*` droid)。审者各自干净 context 并行起、读 `worktree-review` skill 出结构化 findings。**别给审者 plugin 内路径、别塞你自己的问题清单。**
+3. **主线程直接派审者**:读 `状态平面/review-brief.md`,按它「派审者」段直接派(Claude 会话内 sub-agent / Codex 后台 CLI)。审者各自干净 context 并行起、读 `worktree-review` skill 出结构化 findings。**别给审者 plugin 内路径、别塞你自己的问题清单。**
 
  **每个审都留痕(①②④ 都要,不只 ④)**:把**全部审者的结构化 findings 原样落盘**到 `docs/reviews/<slug>-<stage>.md`(不重写、不摘要),亲验后把每条的 verdict/处置(accepted / rejected / duplicate / needs-evidence)就近标在该条下,文末写一句总 verdict。收口只**回读这份文档的 verdict 段**——findings 全文压在 trace 文件里,不长驻主线程 context。留痕是过程产物:已被 `docs/.gitignore` 忽略,随 worktree 删,不进 git 历史。
 
@@ -57,6 +57,6 @@
 
 ## 3. 守住的红线
 
-- 写者≠验者:Claude 宿主 ①设计审用 Codex、②计划审用 Claude code-reviewer、④ Codex+code-reviewer 跨模型;Droid 宿主 ① 用 design-a/b(opus)、② 用 plan-a/b(opus)、④ 用 final-a/b 按 tier。不用 `codex review`(内置提示词绕过方法论)。prompt 一律指向已装 `worktree-review` skill;不给审者 plugin 内路径。
+- 写者≠验者:①设计审用 Codex、②计划审用 Claude code-reviewer、④ Codex+code-reviewer 跨模型。不用 `codex review`(内置提示词绕过方法论)。prompt 一律指向已装 `worktree-review` skill;不给审者 plugin 内路径。
 - 每条 finding 引 `file:line` 原文才采信;主线程亲验后才 accept,落 handoff 前再核承重的。
 - ③ 不判断、只核合同;重判预算砸 ④final。

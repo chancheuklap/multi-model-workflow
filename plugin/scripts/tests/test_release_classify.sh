@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # release-flow.sh 分级层:stage fail 分 tier、P0->PAUSE、receipt 从 ledger 渲染、不可诊断 escalate、event_sink 落地。
 set -euo pipefail
-export MMW_HOST="${MMW_HOST:-claude}"
 STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RF="$SCRIPT_DIR/../release-flow.sh"

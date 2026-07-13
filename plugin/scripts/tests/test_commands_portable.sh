@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# 命令层 + skill 入口的双宿主可移植性:
-#   Droid 不支持 Markdown 命令里的 !`shell` 动态注入,也不给主线程 ${CLAUDE_PLUGIN_ROOT}。
-#   所以命令不许用 !注入、不许硬依赖 ${CLAUDE_PLUGIN_ROOT};要跑 mmw 的命令必须自带宿主感知定位块。
+# 命令层 + skill 入口的可移植性:
+# 命令不使用 Markdown !注入,也不硬依赖 ${CLAUDE_PLUGIN_ROOT};要跑 mmw 的命令必须自带定位块。
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -14,7 +13,7 @@ no() { echo "  FAIL: $1"; fail=$((fail+1)); }
 
 echo "=== test_commands_portable.sh ==="
 
-# 定位块特征:宿主感知 + find 命中 mmw.sh
+# 定位块特征:find 命中 mmw.sh
 LOCATOR_RE='find "\$P" -type f -path .\*multi-model-workflow\*/scripts/mmw.sh'
 
 for f in "$CMD_DIR"/*.md; do
@@ -25,7 +24,7 @@ for f in "$CMD_DIR"/*.md; do
   if grep -q 'CLAUDE_PLUGIN_ROOT' "$f"; then no "$name 仍硬依赖 CLAUDE_PLUGIN_ROOT"; else ok "$name 无 CLAUDE_PLUGIN_ROOT"; fi
   # 3. 引用 mmw 的命令必须自带定位块
   if grep -qE '\bmmw\b' "$f"; then
-    if grep -qE "$LOCATOR_RE" "$f"; then ok "$name 含宿主感知 mmw 定位块"; else no "$name 引用 mmw 却缺定位块"; fi
+    if grep -qE "$LOCATOR_RE" "$f"; then ok "$name 含 mmw 定位块"; else no "$name 引用 mmw 却缺定位块"; fi
   fi
 done
 

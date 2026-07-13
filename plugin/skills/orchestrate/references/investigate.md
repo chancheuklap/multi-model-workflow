@@ -30,9 +30,7 @@
 ```
 亮完跟一句:「批 / 改 / 增删 topic?批了跑 `investigate-<internal|external>`」。等用户回应再 fire,不擅自跑。
 
-批了按宿主 fan-out(每个 topic 一个工人,可并行):
-
-**Claude 宿主** — Workflow:
+批了用 Workflow fan-out(每个 topic 一个工人,可并行):
 
 ```
 Workflow({
@@ -41,16 +39,7 @@ Workflow({
 })
 ```
 
-**Droid 宿主** — 对每个 topic 派 Task:
-
-```
-Task({
- subagent_type: "investigate-topic",
- prompt: "angle=<...>; question=<...>; skill=<可选>; repoRoot=<worktree>; 只取证不判定; 回 markdown+open_questions+spinoff_candidates"
-})
-```
-
-可并行多个 Task。全部收回后主线程综合成一份报告。
+全部收回后主线程综合成一份报告。
 
 ## 3. 收口(回主线程)
 

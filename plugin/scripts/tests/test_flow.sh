@@ -3,7 +3,6 @@
 # 流程模型:一条主干 + 预设开关。阶段词=投/想/设计/切/拆/落/收(investigate/propose/design/to-issue/plan/build/closing)。
 # 审闸 map(routes.review_gates):design→①/plan→②/build→④,三个产出阶段产物过后引擎强制审。
 set -euo pipefail
-export MMW_HOST="${MMW_HOST:-claude}"
 STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
 WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

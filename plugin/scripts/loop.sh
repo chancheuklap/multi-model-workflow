@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # loop.sh —— 内层 loop 引擎(确定层:看守 steps/checklist、软停×在场、退出三件套核对)
 #
-# 操作 <worktree>/状态平面(mmw_state_subdir)/loop-state.json(独立于外层 task.json)。
+# 操作 <worktree>/.claude/multi-model-workflow/loop-state.json(独立于外层 task.json)。
 # 进一个 loop 阶段时 init,退出时由阶段收尾清。exit-check 与 flow.sh handoff 确定性闸都读它。
 #
 #   init        建 loop-state(--kind execution|review|contract-gate [--max-rounds N])
@@ -18,8 +18,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=lib/host.sh
-. "$SCRIPT_DIR/lib/host.sh"
+# shellcheck source=lib/runtime.sh
+. "$SCRIPT_DIR/lib/runtime.sh"
 LOOP_NAME="loop-state.json"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -27,7 +27,7 @@ now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 loop_file() {
   local top sd
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
-  sd="$(mmw_resolve_state_subdir "$top")"
+  sd="$MMW_STATE_SUBDIR"
   echo "$top/$sd/$LOOP_NAME"
 }
 need_loop() { local f; f="$(loop_file)"; [ -f "$f" ] || die "无 loop-state(先 loop.sh init)"; echo "$f"; }
@@ -52,7 +52,7 @@ cmd_init() {
   case "$max_rounds" in ''|*[!0-9]*) die "--max-rounds 必须是非负整数";; esac
   local f top sd
   top="$(git rev-parse --show-toplevel)"
-  sd="$(mmw_resolve_state_subdir "$top")"
+  sd="$MMW_STATE_SUBDIR"
   f="$top/$sd/$LOOP_NAME"
   # fail-closed:已有未收束 loop 不许覆盖(防手滑 re-init 抹掉 execution 进度/子 worktree 映射)。
   # 换 loop 前必须显式 close(handoff 会自动 close;review start 换审 loop 前也先 close)。
@@ -197,7 +197,7 @@ cmd_resume() { edit "$(need_loop)" '.pause=null'; echo "RESUMED"; }
 cmd_close() {
   local top sd
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "NO-GIT"; return 0; }
-  sd="$(mmw_resolve_state_subdir "$top")"
+  sd="$MMW_STATE_SUBDIR"
   rm -f "$top/$sd/$LOOP_NAME"
   echo "CLOSED"
 }

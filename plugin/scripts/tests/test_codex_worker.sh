@@ -2,7 +2,6 @@
 # worker.sh 空跑(fake codex):派发组对 prompt 铁律 + codex 参数、建 worktree、
 # 记 session、resume 续会话。不连真 Codex。
 set -euo pipefail
-export MMW_HOST="${MMW_HOST:-claude}"
 STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
 WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -148,31 +147,6 @@ git -C "$TMP/wt-evil" -c user.email=x@x -c user.name=x commit -qm "Pack 1.2: bur
 if OUT_R2="$(CODEX_BIN="$FAKEBIN/codex-clean" bash "$CW" resume --worktree "$TMP/wt-evil" --instructions "$INSTR" 2>&1)"; then no "已提交越界 resume 应仍退非零"; else ok "已提交越界 → resume 仍 fail-closed(基线钉派发)"; fi
 echo "$OUT_R2" | grep -q "docs/design/hacked.md" && ok "resume 列出历史越界文件" || no "resume 未列历史越界"
 
-# ===== Droid backend: 派发包 + worker/ 分支 + check-docs fail-closed =====
-export MMW_HOST=droid
-STATE_SUBDIR=.factory/multi-model-workflow
-WT_D="$TMP/wt-droid"
-OUT_D="$(bash "$CW" dispatch --plan "$PLAN" --worktree "$WT_D" --design "$DESIGN" --issue "$ISSUE" 2>/dev/null)"
-echo "$OUT_D" | grep -q "WORKER_BACKEND=droid-task" && ok "droid dispatch 后端 droid-task" || no "droid backend"
-[ "$(git -C "$WT_D" branch --show-current)" = "worker/wt-droid" ] && ok "droid 子 worktree 挂 worker/<名>" || no "droid worker 分支"
-[ -f "$WT_D/$STATE_SUBDIR/worker-dispatch/prompt.md" ] && ok "droid 派发包 prompt.md" || no "droid prompt 包"
-[ -f "$WT_D/$STATE_SUBDIR/worker-dispatch/meta.json" ] && ok "droid 派发包 meta.json" || no "droid meta"
-[ -f "$WT_D/$STATE_SUBDIR/worker-dispatch/start_sha" ] && ok "droid 记 start_sha" || no "droid start_sha"
-echo "$OUT_D" | grep -q "check-docs" && ok "droid 回执要求 check-docs" || no "droid 回执 check-docs"
-# 干净树 check-docs 应过
-if bash "$CW" check-docs --worktree "$WT_D" >/dev/null 2>&1; then ok "droid check-docs 干净树通过"; else no "droid check-docs 干净应过"; fi
-# 污染 docs 后 check-docs 应 fail
-mkdir -p "$WT_D/docs/x"; echo bad > "$WT_D/docs/x/h.md"
-git -C "$WT_D" add -A && git -C "$WT_D" -c user.email=x@x -c user.name=x commit -qm "sneak docs" >/dev/null
-if OUT_CD="$(bash "$CW" check-docs --worktree "$WT_D" 2>&1)"; then no "droid check-docs 应拦 docs 污染"; else ok "droid check-docs 拦 docs 污染"; fi
-echo "$OUT_CD" | grep -q "DOCS_VIOLATION" && ok "droid check-docs 报 DOCS_VIOLATION" || no "droid 无 DOCS_VIOLATION 字样"
-# resume 写 resume 包
-INSTR_D="$TMP/fix-d.md"; echo "fix droid" > "$INSTR_D"
-OUT_DR="$(bash "$CW" resume --worktree "$WT_D" --instructions "$INSTR_D" 2>/dev/null)"
-echo "$OUT_DR" | grep -q "WORKER_MODE=resume" && ok "droid resume 写 resume 包" || no "droid resume"
-grep -q "fix droid" "$WT_D/$STATE_SUBDIR/worker-dispatch/prompt.md" && ok "droid resume prompt=指令" || no "droid resume prompt"
-unset MMW_HOST
-export MMW_HOST=claude
 STATE_SUBDIR=.claude/multi-model-workflow
 
 # ===== 写计划派发(plan-dispatch;任务 worktree 内、不开子 worktree、只碰 docs/plans+issues、不 commit)=====
@@ -218,19 +192,6 @@ echo "$ARGV_PR" | grep -q -- "-C $WT_TASK" && ok "plan-resume 重钉 -C 任务 w
 # plan-resume 无 session 记账 → fail-closed
 if bash "$CW" plan-resume --plan "$WT_TASK/docs/plans/x/999.md" --worktree "$WT_TASK" --instructions "$INSTR_P" >/dev/null 2>&1; then no "plan-resume 无 session 应拒"; else ok "plan-resume 无 session 被拒(fail-closed)"; fi
 
-# Droid backend 写计划:派 plan-writer droid + plan-check 回执(用干净任务 worktree,避开 .claude 平面复用)
-export MMW_HOST=droid
-STATE_SUBDIR_D=.factory/multi-model-workflow
-WT_TASK_D="$TMP/wt-task-d"
-git worktree add -q -b task/xd "$WT_TASK_D" HEAD
-PLAN_OUT_D="$WT_TASK_D/docs/plans/x/001-bar.md"
-OUT_DP="$(bash "$CW" plan-dispatch --plan "$PLAN_OUT_D" --worktree "$WT_TASK_D" --design "$DESIGN" --issue "$ISSUE" 2>/dev/null)"
-echo "$OUT_DP" | grep -q "DROID=plan-writer" && ok "droid 写计划派 plan-writer droid" || no "droid plan droid"
-echo "$OUT_DP" | grep -q "plan-check" && ok "droid 写计划回执要求 plan-check" || no "droid plan-check 回执"
-[ -f "$WT_TASK_D/$STATE_SUBDIR_D/plan-workers/001-bar/dispatch/prompt.md" ] && ok "droid 写计划派发包 prompt.md" || no "droid plan pkg prompt"
-grep -q "worktree-plan" "$WT_TASK_D/$STATE_SUBDIR_D/plan-workers/001-bar/dispatch/prompt.md" && ok "droid plan prompt 指 plugin 内 worktree-plan" || no "droid plan prompt skill 指针"
-unset MMW_HOST
-export MMW_HOST=claude
 STATE_SUBDIR=.claude/multi-model-workflow
 
 echo ""

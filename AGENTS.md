@@ -6,13 +6,13 @@
 
 `plugin/` = 正式启用的多模型开发编排 plugin。**目标**:做成能落地、被用户长期持续使用的商业化 plugin——让用户在**讨论 / 设计阶段与主线程对齐(HITL 集中在 propose/design)**,从**计划阶段起放权自主跑**(计划审是模型闸、不问人),从而多线程工作、不从头盯到尾。
 
-**双宿主**:同一套流程真相,脚本自动识别 Claude Code / Droid(`plugin/scripts/lib/host.sh`)。宿主差异只走适配层,合同见 `plugin/skills/orchestrate/references/control/host-contract.md`。**Codex 不是独立 plugin,是 Claude 宿主下 plugin 里的一个工人**(写计划 / 落地 / 审查),只装 plugin 内那几个软链 skill(worktree-build/plan/review)就够用。
+`plugin/` 只面向 Claude Code。**Codex 不是独立 plugin,是 Claude Code plugin 里的一个工人**(写计划 / 落地 / 审查),只装 plugin 内那几个软链 skill(worktree-build/plan/review)就够用。
 
 **验收标准**:第二个零上下文 agent 能照 plugin 独立跑通,不靠我临场解释。
 
 ## 边界
 
-- **活跃**:`plugin/`(正式启用;Claude + Droid marketplace 都 source 指它)
+- **活跃**:`plugin/`(正式启用;Claude marketplace source 指它)
 - **禁区**(明确指令才动):`codex/`(Codex agent/hook/sync)、`archive/`(归档 v1)
 
 ## 全貌 + 工作流权威
@@ -36,7 +36,7 @@
 
 ## PDF 工作流(plugin 要实现的端到端)
 
-四开口(新设计 / 优化改造 / bug / 合并)→ **investigate**(内部仓库 + 外部方案,取证不判定;Claude=Workflow / Droid=Task→investigate-topic)→ **propose 给方案**(综合现状亮 2-3 方案,HITL)→ **design**(domain 对齐 + 设计审 + to-issue 切片)→ **plan**(单 / 多计划,跨计划合同骨架,fan out Codex 写计划工人 `mmw worker plan-dispatch`,计划审)→ **写码工人落地**(`mmw worker dispatch`;Claude 后端 codex CLI / Droid 后端 Task→pack-executor)→ **final review**(Claude 宿主 Codex+会话内 code-reviewer sub-agent / Droid reviewer-* droids)。
+四开口(新设计 / 优化改造 / bug / 合并)→ **investigate**(内部仓库 + 外部方案,Workflow 取证不判定)→ **propose 给方案**(综合现状亮 2-3 方案,HITL)→ **design**(domain 对齐 + 设计审 + to-issue 切片)→ **plan**(单 / 多计划,跨计划合同骨架,fan out Codex 写计划工人 `mmw worker plan-dispatch`,计划审)→ **写码工人落地**(`mmw worker dispatch`,Codex CLI)→ **final review**(Codex + 会话内 code-reviewer sub-agent)。
 
 - **HITL 集中在 propose / design 阶段**;进了计划 / 落地默认无人值守,不轻易停下问。
 - 断点续传:阶段级 + 内层 loop。
@@ -63,7 +63,6 @@
 # 统一 CLI(读完 skill 直接用)
 bash plugin/scripts/mmw.sh help          # where|handoff|step|spinoff|task|loop|review|worker(codex 别名)|progress
 bash plugin/scripts/mmw.sh where          # 我在哪阶段 / 下一步读啥干啥交啥
-export MMW_HOST=droid                     # 可选显式锁定;一般靠 DROID_PLUGIN_ROOT 自动检测
 
 # 全量测试
 for t in plugin/scripts/tests/test_*.sh; do bash "$t" || break; done
@@ -77,4 +76,4 @@ bash plugin/build/build.sh --apply
 python3 -m json.tool plugin/state-schema/routes.json >/dev/null
 ```
 
-> 接线:`plugin/.claude-plugin/plugin.json` + `plugin/.factory-plugin/plugin.json` + 根 marketplace(`.claude-plugin/` / `.factory-plugin/`) source 均指 `./plugin`。hooks 按宿主分组:`Execute` 组无 if(Droid,脚本自筛)、`Bash` 组带 `if` 前筛(Claude,不匹配不唤醒);Droid Custom Droids 在 `plugin/droids/`。改版本号同步 Claude/Droid 两侧 plugin.json 与 marketplace。
+> 接线:`plugin/.claude-plugin/plugin.json` + 根 `.claude-plugin/marketplace.json` source 指 `./plugin`。hooks 只接 Claude Code 的 `Bash` matcher,带 `if` 前筛。改版本号同步两处 JSON。

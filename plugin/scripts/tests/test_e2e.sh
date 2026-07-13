@@ -3,7 +3,6 @@
 # 平稳推进——接力单逐阶段接得上、审闸该停就停、内外层命令不报错。
 # 这是"端到端平稳"的命令级验收(内容级=真 subagent/Codex,不在单测范围)。
 set -euo pipefail
-export MMW_HOST="${MMW_HOST:-claude}"
 STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
 WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

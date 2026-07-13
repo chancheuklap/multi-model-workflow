@@ -2,12 +2,11 @@
 # PostToolUse(commit):提交即记 step done。
 # 真值链:命令位确认是 git commit(含 -C/-c 等全局选项)→ Pack 号和 sha 从 HEAD 提交信息取——
 # 命令文本里的 Pack 字样不作数(echo/后续段里的不算),commit 失败 HEAD 没动就不记。
-# Claude 侧 if 前筛认 `git commit`/`git -C` 打头;env 赋值前缀(FOO=1 git commit)Claude 不唤醒,
-# Droid 侧无前筛不受影响——接受面,工作流规定的提交形态是裸 git commit。
+# Hook 的 if 前筛认 `git commit`/`git -C` 打头;env 赋值前缀(FOO=1 git commit)不会唤醒。
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=../scripts/lib/host.sh
-. "$SCRIPT_DIR/../scripts/lib/host.sh"
+# shellcheck source=../scripts/lib/runtime.sh
+. "$SCRIPT_DIR/../scripts/lib/runtime.sh"
 LOOP="$SCRIPT_DIR/../scripts/loop.sh"
 
 input="$(cat)"
@@ -54,7 +53,7 @@ pack="$(printf '%s' "$msg" | grep -oE 'Pack[[:space:]]+[0-9]+\.[0-9]+' | head -1
 [ -n "$pack" ] || exit 0
 id="$(printf '%s' "$pack" | awk '{print $2}')"
 
-STATE_SUBDIR="$(mmw_resolve_state_subdir "$top")"
+STATE_SUBDIR="$MMW_STATE_SUBDIR"
 [ -f "$top/$STATE_SUBDIR/loop-state.json" ] || exit 0
 sha="$(git -C "$top" rev-parse HEAD 2>/dev/null || echo "")"
 

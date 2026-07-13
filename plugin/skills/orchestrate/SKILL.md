@@ -7,9 +7,7 @@ description: "开发工作流主入口。用户给出想法/功能/改造、报 
 
 主线程入口。**只做两件事:断点恢复、路由。** 判出这是哪条路,就把你交给那条路自己的 reference——那一份从头到尾讲清这条路怎么走(建 worktree、阶段契约、回执跳转、收尾全在里面),本文不重复、你也不用回来。
 
-`${SKILL_DIR}` = 本 skill 目录(= 插件根 `/skills/orchestrate`);`${SCRIPTS}` = 插件根 `/scripts`;`mmw` ≡ `bash "${SCRIPTS}/mmw.sh"`(`mmw help` 看全表)。这三个绝对路径由下面 Step 0 一次定位得出,**不依赖任何环境变量**,Claude / Droid 通用。
-
-**双宿主**:开跑前读 `${SKILL_DIR}/references/control/host-contract.md`(路径/工具/派发后端)。`export MMW_HOST=droid|claude` 可显式锁定宿主。
+`${SKILL_DIR}` = 本 skill 目录(= 插件根 `/skills/orchestrate`);`${SCRIPTS}` = 插件根 `/scripts`;`mmw` ≡ `bash "${SCRIPTS}/mmw.sh"`(`mmw help` 看全表)。这三个绝对路径由下面 Step 0 一次定位得出,**不依赖任何环境变量**。
 
 ## Step 0 · 先定位插件,再跑 `mmw where`(它自带指路)
 
@@ -19,13 +17,13 @@ description: "开发工作流主入口。用户给出想法/功能/改造、报 
 会话开头 SessionStart hook 已报过 mmw 绝对路径的,直接用它(hook 从激活插件根跑,是权威)。没有才跑下面定位块——候选(缓存各版本 + 本地源安装)按版本取最高,不许 `head -1` 抓第一个:
 
 ```sh
-if [ -n "${DROID_PLUGIN_ROOT:-}" ] || printf %s "$PATH" | grep -q '/.factory/bin'; then P=~/.factory/plugins; else P=~/.claude/plugins; fi
+P=~/.claude/plugins
 MMW="$( { find "$P" -type f -path '*multi-model-workflow*/scripts/mmw.sh' 2>/dev/null
   jq -r '.["multi-model-workflow"].installLocation // empty' "$P/known_marketplaces.json" 2>/dev/null | sed 's|$|/plugin/scripts/mmw.sh|'
   } | while IFS= read -r f; do
     [ -f "$f" ] || continue
     r="${f%/scripts/mmw.sh}"
-    v="$(jq -r '.version' "$r/.claude-plugin/plugin.json" 2>/dev/null || jq -r '.version' "$r/.factory-plugin/plugin.json" 2>/dev/null || echo 0)"
+    v="$(jq -r '.version' "$r/.claude-plugin/plugin.json" 2>/dev/null || echo 0)"
     printf '%s %s\n' "$v" "$f"
   done | sort -V | tail -1 | cut -d' ' -f2- )"
 echo "MMW=$MMW"

@@ -7,12 +7,12 @@ description: "出包 / 打包 / 发布某个产品时主动使用(如「出个�
 
 主线程入口。**你是判断层**:自然语言触发一次出包后,你按引擎状态连续完成机械驱动,不盯屏、不手工排查。引擎是确定层(状态机 / 分级 / path-gate / 熔断全在里面),你只做「跑一步 + 诊断 + 把结果喂给引擎」,不重写分级、不碰安全逻辑。
 
-`mmw` ≡ `bash "${SCRIPTS}/mmw.sh"`;`mmw release X` = 通用引擎。下面 Step 0 一次定位得出绝对路径,**不依赖环境变量**,Claude / Droid 通用。
+`mmw` ≡ `bash "${SCRIPTS}/mmw.sh"`;`mmw release X` = 通用引擎。下面 Step 0 一次定位得出绝对路径,**不依赖环境变量**。
 
 ## Step 0 · 定位 plugin,再跑 `release where`(它自带指路)
 
 ```bash
-if [ -n "${DROID_PLUGIN_ROOT:-}" ] || printf %s "$PATH" | grep -q '/.factory/bin'; then P=~/.factory/plugins; else P=~/.claude/plugins; fi
+P=~/.claude/plugins
 MMW="$(find "$P" -type f -path '*multi-model-workflow*/scripts/mmw.sh' 2>/dev/null | head -1)"
 printf 'mmw       = %s\nSKILL_DIR = %s\n' "$MMW" "$(dirname "$(dirname "$MMW")")/skills/release-flow"
 ```

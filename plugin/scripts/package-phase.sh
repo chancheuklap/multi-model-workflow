@@ -3,8 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-# shellcheck source=lib/host.sh
-. "$SCRIPT_DIR/lib/host.sh"
+# shellcheck source=lib/runtime.sh
+. "$SCRIPT_DIR/lib/runtime.sh"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
@@ -16,7 +16,7 @@ repo_top() {
 task_manifest() {
   local top sd file
   top="$(repo_top)"
-  sd="$(mmw_resolve_state_subdir "$top")"
+  sd="$MMW_STATE_SUBDIR"
   file="$top/$sd/task.json"
   [ -f "$file" ] || die "无 task.json；未给 --base/--head 时必须在受管任务内"
   printf '%s\n' "$file"
@@ -25,7 +25,7 @@ task_manifest() {
 package_state_path() {
   local top sd
   top="$(repo_top)"
-  sd="$(mmw_resolve_state_subdir "$top")"
+  sd="$MMW_STATE_SUBDIR"
   printf '%s\n' "$top/$sd/package-state.json"
 }
 
@@ -263,7 +263,7 @@ cmd_record_release() {
   if result="$(bash "$SCRIPT_DIR/mmw.sh" release exit-check)"; then :; else die "无法读取 S1 release exit-check"; fi
   [ "$result" = "DONE" ] || die "S1 release 尚未 DONE: $result"
   top="$(repo_top)"
-  sd="$(mmw_resolve_state_subdir "$top")"
+  sd="$MMW_STATE_SUBDIR"
   release_state="$top/$sd/release-state.json"
   [ -f "$release_state" ] || die "无 S1 release-state，不能记录 release"
   actual="$(jq -r '.product // ""' "$release_state")"
