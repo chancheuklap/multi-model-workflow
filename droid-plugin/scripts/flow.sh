@@ -361,21 +361,34 @@ find_manifest() {
 cmd_where() {
   local m
   if ! m="$(find_manifest)"; then
-    # 冷启动:不是在管任务 → 枚举起始选项(单源 routes.start_options),指向 task new
-    echo "UNMANAGED"
-    echo "当前不是在管任务。看需求选一个起始选项,再 mmw task new:"
-    jq -r '.start_options[] | "  [\(.scenario)] \(.when) → \(.phases_note)"' "$ROUTES"
-    echo "命令: $MMW task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title '<标题>' --request '<用户原始需求与验收条件>' [--direction-given]"
-    echo "merge: 不开 worktree,直接走 references/scenario/merge.md;概念/事实问题不进 orchestrate,直接答。"
-    # 在飞任务:扫两个宿主 worktree 根(断点恢复入口;任务界定=有 plugin 建档的 worktree,不是野分支)
-    local top_ls mm hdr=0
+    # Droid 会把已有 linked worktree 的启动 cwd 归一化到主仓库；先从主仓库扫描在飞任务。
+    local top_ls mm
+    local flying=()
     if top_ls="$(git rev-parse --show-toplevel 2>/dev/null)"; then
       while IFS= read -r mm; do
         [ -f "$mm" ] || continue
-        [ "$hdr" = 1 ] || { echo "在飞任务(续跑:进 worktree 后 mmw where;全量视图 mmw task team):"; hdr=1; }
-        jq -r '"  - \(.slug)  [\(.scenario)] phase=\(.phase) status=\(.status)  path=\(.worktree_path)"' "$mm" 2>/dev/null || true
+        flying+=("$mm")
       done < <(mmw_foreach_flying_manifest "$top_ls")
     fi
+
+    if [ "${#flying[@]}" -gt 0 ]; then
+      echo "RESUMABLE"
+      echo "当前主仓库有在飞任务。按用户意图选择续跑或新建:"
+      echo "在飞任务(全量视图: $MMW task team):"
+      for mm in "${flying[@]}"; do
+        jq -r --arg mmw "$MMW" '
+          "  - \(.slug)  [\(.scenario)] phase=\(.phase) status=\(.status)  path=\(.worktree_path)",
+          "    resume=cd \(.worktree_path | @sh) && \($mmw) where"
+        ' "$mm" 2>/dev/null || true
+      done
+      echo "用户明确要新建任务时，再选下面的起始选项:"
+    else
+      echo "UNMANAGED"
+      echo "当前没有在管任务。看需求选一个起始选项:"
+    fi
+    jq -r '.start_options[] | "  [\(.scenario)] \(.when) → \(.phases_note)"' "$ROUTES"
+    echo "命令: $MMW task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title '<标题>' --request '<用户原始需求与验收条件>' [--direction-given]"
+    echo "merge: 不开 worktree,直接走 references/scenario/merge.md;概念/事实问题不进 orchestrate,直接答。"
     return 0
   fi
   local scenario phase pidx status rc tc top_wt
