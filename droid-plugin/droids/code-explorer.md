@@ -1,7 +1,7 @@
 ---
 name: code-explorer
 description: 主线程需要先查清模块边界、调用链或数据流再决策时派发。只读取证，不写方案、不改文件；plan-writer 自己按 worktree-plan 探代码，不直接调用本 droid。
-model: kimi-k2.7-code
+model: custom:GPT-5.6-Sol-[Codex]-0
 tools: ["Read", "Grep", "Glob", "LS", "Execute"]
 reasoningEffort: high
 mcpServers: []

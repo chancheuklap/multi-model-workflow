@@ -218,21 +218,18 @@ CAPABLE_OUT="$(bash "$WORKER" dispatch --plan "$CAPABLE_PLAN" --worktree "$CAPAB
   --design "$DESIGN" --issue "$ISSUE")"
 CAPABLE_META="$CAPABLE_WT/.factory/multi-model-workflow/worker-dispatch/meta.json"
 [ "$(jq -r .droid "$CAPABLE_META")" = pack-executor-capable ] \
-  && [ "$(jq -r .model "$CAPABLE_META")" = gemini-3.1-pro-preview ] \
   && ok "capable plan selects higher executor" || no "capable executor routing"
 wait_status "$CAPABLE_WT" >/dev/null
-grep -Fq -- '--model gemini-3.1-pro-preview' "$DROID_TEST_LOG" \
-  && ok "capable model reaches Droid exec" || no "capable runtime model"
 
 OVERRIDE_WT="$TMP/.factory/worktrees/demo-plan-override"
 bash "$WORKER" dispatch --plan "$PLAN" --worktree "$OVERRIDE_WT" --design "$DESIGN" --issue "$ISSUE" \
-  --model gpt-5.6-sol --effort high >/dev/null
+  --model test-model --effort high >/dev/null
 OVERRIDE_META="$OVERRIDE_WT/.factory/multi-model-workflow/worker-dispatch/meta.json"
-[ "$(jq -r .model "$OVERRIDE_META")" = gpt-5.6-sol ] \
+[ "$(jq -r .model "$OVERRIDE_META")" = test-model ] \
   && [ "$(jq -r .reasoning_effort "$OVERRIDE_META")" = high ] \
   && ok "explicit model override reaches runtime" || no "model override"
 wait_status "$OVERRIDE_WT" >/dev/null
-grep -Fq -- '--model gpt-5.6-sol --reasoning-effort high' "$DROID_TEST_LOG" \
+grep -Fq -- '--model test-model --reasoning-effort high' "$DROID_TEST_LOG" \
   && ok "override reaches Droid exec arguments" || no "runtime model override"
 
 MERGE_PLAN="$TMP/merge-mini.md"

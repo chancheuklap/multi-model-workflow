@@ -1,7 +1,7 @@
 ---
 name: investigate-synthesizer
 description: 仅由 mmw investigate 在所有 topic 通过机器校验后启动。综合 validated evidence，返回严格报告 JSON；不重新调查、不使用工具、不替设计拍板。
-model: gpt-5.6-terra
+model: custom:GPT-5.6-Terra-[Codex]-0
 reasoningEffort: high
 tools: read-only
 mcpServers: []

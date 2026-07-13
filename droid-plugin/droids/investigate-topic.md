@@ -1,9 +1,9 @@
 ---
 name: investigate-topic
 description: 仅由 mmw investigate 编排器为单个 topic 启动。按 prompt 的 internal/external 模式取证，返回严格 JSON；只摆证据、不拍方案、不改文件。
-model: minimax-m3
+model: custom:GPT-5.6-Sol-[Codex]-0
 tools: ["Read", "Grep", "Glob", "LS", "WebSearch", "FetchUrl", "Execute"]
-reasoningEffort: high
+reasoningEffort: medium
 mcpServers: []
 ---
 

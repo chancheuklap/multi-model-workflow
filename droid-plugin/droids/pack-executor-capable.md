@@ -1,8 +1,8 @@
 ---
 name: pack-executor-capable
 description: 仅由 mmw worker dispatch 在 plan 标记 Complexity capable 时自动选择。处理计费、权限、迁移、跨服务和高风险合同改动；按 owned files 落地，禁改 docs、禁 push/发布。
-model: gemini-3.1-pro-preview
-reasoningEffort: high
+model: custom:GPT-5.6-Sol-[Codex]-0
+reasoningEffort: medium
 tools: ["Read", "Create", "Edit", "ApplyPatch", "Execute", "Grep", "Glob", "LS"]
 mcpServers: []
 ---

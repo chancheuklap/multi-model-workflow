@@ -1,8 +1,8 @@
 ---
 name: decision-advisor
 description: 在决策点咨询的更强审查模型。必须在实质工作之前调用：写作之前、承诺某种解释之前、基于某个假设继续之前。若任务需要先定位文件、阅读来源或查看现状，先完成这些定向工作，再调用 advisor；定向不是实质工作，写作、编辑和宣布答案才是。任务完成时也要调用，但先让交付物持久化：写入文件、保存结果、提交改动；卡住、错误反复、方法不收敛、结果不吻合或考虑换路时也要调用。超过几步的任务至少在确定方法前和宣布完成前各调用一次。短而被刚读工具结果直接决定下一步的任务不要反复调用。
-model: claude-opus-4-8
-reasoningEffort: high
+model: claude-fable-5
+reasoningEffort: medium
 tools: ["Read", "Grep", "Glob", "Execute", "WebSearch", "FetchUrl"]
 mcpServers: []
 ---

@@ -1,8 +1,8 @@
 ---
 name: pack-executor
 description: 仅由 mmw worker dispatch 在独立 worktree 启动。按 reviewed plan 的 Task Pack 和 owned files 做 TDD、逐 Pack 本地 commit；禁改 docs、禁 push/发布、禁扩大范围。
-model: glm-5.2
-reasoningEffort: max
+model: custom:GPT-5.6-Terra-[Codex]-0
+reasoningEffort: high
 tools: ["Read", "Create", "Edit", "ApplyPatch", "Execute", "Grep", "Glob", "LS"]
 mcpServers: []
 ---

@@ -32,11 +32,11 @@ done
 if [ "$list_tools" = 1 ]; then
   [ "${DROID_FAKE_LIST_FAIL:-0}" = 1 ] && exit 4
   [ -n "${DROID_FAKE_LIST_SLEEP:-}" ] && sleep "$DROID_FAKE_LIST_SLEEP"
-  jq -cn --arg model "$model" '[
+  jq -cn '[
     {id:"create-cli"},{id:"edit-cli"},{id:"execute-cli"},{id:"task-cli"},
     {id:"web_search"},{id:"fetch_url"},{id:"read-cli"},{id:"grep_tool_cli"},
-    {id:"glob-search-cli"},{id:"ls-cli"}
-  ] + (if $model=="gpt-5.6-terra" then [{id:"apply-patch-cli"}] else [] end)'
+    {id:"glob-search-cli"},{id:"ls-cli"},{id:"apply-patch-cli"}
+  ]'
   exit 0
 fi
 [ -f "$prompt" ] || exit 3

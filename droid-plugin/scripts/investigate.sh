@@ -8,9 +8,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/droid-exec.sh
 . "$SCRIPT_DIR/lib/droid-exec.sh"
 
-TOPIC_MODEL="${DROID_INVESTIGATE_MODEL:-minimax-m3}"
-TOPIC_EFFORT="${DROID_INVESTIGATE_EFFORT:-high}"
-SYNTH_MODEL="${DROID_INVESTIGATE_SYNTH_MODEL:-gpt-5.6-terra}"
+TOPIC_MODEL="${DROID_INVESTIGATE_MODEL:-custom:GPT-5.6-Sol-[Codex]-0}"
+TOPIC_EFFORT="${DROID_INVESTIGATE_EFFORT:-medium}"
+SYNTH_MODEL="${DROID_INVESTIGATE_SYNTH_MODEL:-custom:GPT-5.6-Terra-[Codex]-0}"
 SYNTH_EFFORT="${DROID_INVESTIGATE_SYNTH_EFFORT:-high}"
 ALLOW_INTERNAL="read-cli,grep_tool_cli,glob-search-cli,ls-cli,execute-cli,skill"
 ALLOW_EXTERNAL="web_search,fetch_url,mcp_context7_query-docs,mcp_context7_resolve-library-id,skill"

@@ -1,8 +1,8 @@
 ---
 name: reviewer-design-b
 description: 设计审轴B(项目对齐)。与轴A 同模型、分走两路视角;写者≠验者。
-model: claude-opus-4-8
-reasoningEffort: high
+model: claude-fable-5
+reasoningEffort: low
 tools: ["Read", "Grep", "Glob", "LS", "Execute"]
 mcpServers: []
 ---

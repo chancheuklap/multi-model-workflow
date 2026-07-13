@@ -1,7 +1,7 @@
 ---
 name: reviewer-design-a
 description: 设计审轴A(设计内容)。与轴B 同模型、分走两路视角;写者≠验者。
-model: claude-opus-4-8
+model: custom:GPT-5.6-Sol-[Codex]-0
 reasoningEffort: high
 tools: ["Read", "Grep", "Glob", "LS", "Execute"]
 mcpServers: []

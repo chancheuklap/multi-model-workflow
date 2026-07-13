@@ -26,18 +26,21 @@
 
 ## Custom Droids
 
-| droid | 职责 | model | 工具 |
-| --- | --- | --- | --- |
-| `investigate-topic` | 单 topic 取证 | `minimax-m3` | 只读、web、Execute |
-| `code-explorer` | 探代码边界与数据流 | `kimi-k2.7-code` | 只读、受限 Execute |
-| `decision-advisor` | 实质工作前/卡住/完成后的强判断 | `claude-opus-4-8` | 只读、web、受限 Execute |
-| `plan-writer` | 写单份 plan | `gpt-5.6-terra` | 读写、检索、Execute |
-| `pack-executor` | 按 plan TDD 落地 | `glm-5.2` | 读写、检索、Execute |
-| `pack-executor-capable` | 高复杂度 plan 落地 | `gemini-3.1-pro-preview` | 读写、检索、Execute |
-| `reviewer-design-a/b` | 设计审两轴 | `claude-opus-4-8` | 只读、受限 Execute |
-| `reviewer-plan-a/b` | 计划审两轴 | `claude-opus-4-8` | 只读、受限 Execute |
-| `reviewer-final-a` | 终审模型路线 A,视角由 dispatch 指定 | `gpt-5.6-terra` | 只读、受限 Execute |
-| `reviewer-final-b` | 终审模型路线 B,视角由 dispatch 指定 | `claude-opus-4-8` | 只读、受限 Execute |
+| droid | 职责 | model | effort | 工具 |
+| --- | --- | --- | --- | --- |
+| `investigate-topic` | 单 topic 取证 | `custom:GPT-5.6-Sol-[Codex]-0` | `medium` | 只读、web、Execute |
+| `investigate-synthesizer` | 汇总 topic 证据 | `custom:GPT-5.6-Terra-[Codex]-0` | `high` | 只读、受限 Execute |
+| `code-explorer` | 探代码边界与数据流 | `custom:GPT-5.6-Sol-[Codex]-0` | `high` | 只读、受限 Execute |
+| `decision-advisor` | 实质工作前/卡住/完成后的强判断 | `claude-fable-5` | `medium` | 只读、web、受限 Execute |
+| `plan-writer` | 写单份 plan | `custom:GPT-5.6-Sol-[Codex]-0` | `high` | 读写、检索、Execute |
+| `pack-executor` | 按 plan TDD 落地 | `custom:GPT-5.6-Terra-[Codex]-0` | `high` | 读写、检索、Execute |
+| `pack-executor-capable` | 高复杂度 plan 落地 | `custom:GPT-5.6-Sol-[Codex]-0` | `medium` | 读写、检索、Execute |
+| `reviewer-design-a` | 设计审模型路线 A | `custom:GPT-5.6-Sol-[Codex]-0` | `high` | 只读、受限 Execute |
+| `reviewer-design-b` | 设计审模型路线 B | `claude-fable-5` | `low` | 只读、受限 Execute |
+| `reviewer-plan-a` | 计划审模型路线 A | `custom:GPT-5.6-Sol-[Codex]-0` | `high` | 只读、受限 Execute |
+| `reviewer-plan-b` | 计划审模型路线 B | `claude-fable-5` | `low` | 只读、受限 Execute |
+| `reviewer-final-a` | 终审模型路线 A,视角由 dispatch 指定 | `custom:GPT-5.6-Sol-[Codex]-0` | `xhigh` | 只读、受限 Execute |
+| `reviewer-final-b` | 终审模型路线 B,视角由 dispatch 指定 | `claude-fable-5` | `medium` | 只读、受限 Execute |
 
 子代理非交互，不能调用 `AskUser`，也不能再派 Task。缺输入时返回结构化 blocker，由主线程处置。
 
