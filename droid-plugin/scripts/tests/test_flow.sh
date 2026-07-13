@@ -421,7 +421,8 @@ echo "$WCOLD" | grep -q "在飞任务" && ok "冷启动列在飞任务" || no "�
 echo "$WCOLD" | grep -q "2026-07-05-dedup" && ok "在飞清单含 manifest 任务(slug/phase/path)" || no "在飞清单条目"
 echo "$WCOLD" | grep -q "cd .*2026-07-05-dedup.*where" && ok "在飞条目带可执行恢复命令" || no "在飞恢复命令"
 
-WEMPTY="$(mktemp -d)"
+WEMPTY="$TMP/empty-repo"
+mkdir -p "$WEMPTY"
 ( cd "$WEMPTY" && git init -q )
 WEMPTY_OUT="$(cd "$WEMPTY" && bash "$FLOW" where)"
 echo "$WEMPTY_OUT" | grep -q "^UNMANAGED$" && ok "无在飞任务 → where 报 UNMANAGED" || no "空仓库 UNMANAGED"
