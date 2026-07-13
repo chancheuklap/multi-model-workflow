@@ -27,6 +27,11 @@ done
 
 # 3. SKILL 入口 Step 0 必须自带定位块。
 grep -qE "$LOCATOR_RE" "$SKILL" && ok "SKILL Step 0 含定位块" || no "SKILL Step 0 缺定位块"
+# 4. Droid 恢复已有 worktree 后，每个独立工具调用都必须继续钉住该 worktree。
+grep -q '每次 `Execute` 都先 `cd <worktree_path>`' "$SKILL" \
+  && grep -q '文件工具使用该 worktree 下的绝对路径' "$SKILL" \
+  && ok "SKILL 续跑跨独立工具调用保持 worktree 上下文" \
+  || no "SKILL 续跑未钉住后续工具调用的 worktree 上下文"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

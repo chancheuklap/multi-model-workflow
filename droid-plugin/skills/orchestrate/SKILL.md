@@ -45,6 +45,7 @@ bash "$MMW" where
 ```
 
 - **在管任务**(在 worktree 里)→ `where` 报 `scenario` + `phase` + `load`/`do`/`then`。一句话告诉用户"你在 `<phase>`",然后**读 `references/scenario/<scenario>.md`**,按它的契约从当前 phase 续(断点恢复靠 `where` + 接力单,不靠会话记忆)。**跳过 Step 1。**
+- **`RESUMABLE` + 在飞任务**(Droid 把已有 worktree cwd 归一化到主仓库)→ 先按用户本轮意图分流。明确要新建任务就进 Step 1；要继续或意图不明时，单个任务执行回显的 `resume=` 命令，多个任务用 `AskUser` 让用户选择续跑哪个或新建。恢复命令只定位阶段，不会永久改变 Droid cwd；本会话记住选中的 `<worktree_path>`，后续每次 `Execute` 都先 `cd <worktree_path>`，文件工具使用该 worktree 下的绝对路径。重新跑 `where` 后按上一条续跑。**不得把 `RESUMABLE` 当成新任务直接 `task new`。**
 - **`UNMANAGED` + 起始选项菜单**(在主仓库)→ 不是在管任务。菜单列全了所有开口 → 进 Step 1。
 
 ## Step 1 · 路由 → 进该路径的 reference

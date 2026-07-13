@@ -415,9 +415,18 @@ echo "$WRS" | grep -q -- "--source .*task.json" \
 
 # ===== 冷启动列在飞任务(断点恢复入口)=====
 WCOLD="$(cd "$TMP" && bash "$FLOW" where)"
-echo "$WCOLD" | grep -q "UNMANAGED" && ok "主仓库 where 报 UNMANAGED" || no "UNMANAGED"
+echo "$WCOLD" | grep -q "^RESUMABLE$" && ok "主仓库有在飞任务 → where 报 RESUMABLE" || no "RESUMABLE"
+echo "$WCOLD" | grep -q "UNMANAGED" && no "有在飞任务不该报 UNMANAGED" || ok "有在飞任务不报 UNMANAGED"
 echo "$WCOLD" | grep -q "在飞任务" && ok "冷启动列在飞任务" || no "冷启动在飞清单"
 echo "$WCOLD" | grep -q "2026-07-05-dedup" && ok "在飞清单含 manifest 任务(slug/phase/path)" || no "在飞清单条目"
+echo "$WCOLD" | grep -q "cd .*2026-07-05-dedup.*where" && ok "在飞条目带可执行恢复命令" || no "在飞恢复命令"
+
+WEMPTY="$TMP/empty-repo"
+mkdir -p "$WEMPTY"
+( cd "$WEMPTY" && git init -q )
+WEMPTY_OUT="$(cd "$WEMPTY" && bash "$FLOW" where)"
+echo "$WEMPTY_OUT" | grep -q "^UNMANAGED$" && ok "无在飞任务 → where 报 UNMANAGED" || no "空仓库 UNMANAGED"
+echo "$WEMPTY_OUT" | grep -q "RESUMABLE" && no "无在飞任务不该报 RESUMABLE" || ok "无在飞任务不报 RESUMABLE"
 
 # ===== propose 分叉:--direction-given 落 manifest,where 降级指路 =====
 WDG="$(bash "$PREPARE" new --scenario develop --slug 2026-07-05-dg --title t --request direction-given --direction-given 2>/dev/null | grep '^worktree_path=' | cut -d= -f2-)"
