@@ -419,7 +419,11 @@ WDG="$(bash "$PREPARE" new --scenario develop --slug 2026-07-05-dg --title t --d
 [ "$(mfield "$WDG" direction_given)" = "true" ] && ok "--direction-given 钉进 manifest" || no "direction_given 落盘"
 mkf "$WDG" docs/i.md
 ( cd "$WDG" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )   # investigate→propose
-echo "$(cd "$WDG" && bash "$FLOW" where)" | grep -q "do=方向已由用户明示" && ok "propose 降级:where 报降级 do" || no "propose 降级 do"
+WDG_WHERE="$(cd "$WDG" && bash "$FLOW" where)"
+case "$WDG_WHERE" in
+  *"do=方向已由用户明示"*) ok "propose 降级:where 报降级 do" ;;
+  *) no "propose 降级 do" ;;
+esac
 # 无 flag 的任务:propose 仍走全量方案
 WNF="$(newtask develop 2026-07-05-nf)"
 mkf "$WNF" docs/i.md

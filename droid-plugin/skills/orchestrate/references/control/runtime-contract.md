@@ -22,7 +22,7 @@
 | 文件检索 | `Read`、`Grep`、`Glob`、`LS` |
 | 外部检索 | `WebSearch`、`FetchUrl` |
 
-进入 worktree 后在该路径继续并运行 `mmw where`。独立的长任务优先用 Task 后台运行，记录 task ID；收回用 TaskOutput，追问或修复用 Task resume。
+进入 worktree 后在该路径继续并运行 `mmw where`。Task 只用于当前会话内的短只读调查、咨询和审查，按当前工具合同同步返回结果，不假设后台任务、task ID 或 resume。
 
 ## Custom Droids
 
@@ -33,6 +33,7 @@
 | `decision-advisor` | 关键分叉第二意见 | `gemini-3.1-pro-preview` | read-only |
 | `plan-writer` | 写单份 plan | `gpt-5.6-terra` | 读写、检索、Execute |
 | `pack-executor` | 按 plan TDD 落地 | `glm-5.2` | 读写、检索、Execute |
+| `pack-executor-capable` | 高复杂度 plan 落地 | `gemini-3.1-pro-preview` | 读写、检索、Execute |
 | `reviewer-design-a/b` | 设计审两轴 | `claude-opus-4-8` | read-only |
 | `reviewer-plan-a/b` | 计划审两轴 | `claude-opus-4-8` | read-only |
 | `reviewer-final-a` | 最终审基线 A | `gpt-5.6-terra` | read-only |
@@ -42,14 +43,14 @@
 
 ## Worker
 
-`mmw worker dispatch` 和 `plan-dispatch` 只负责创建 worktree、边界基线、prompt 与派发账本。主线程随后用 Task 派对应 droid，并用 `mmw worker task-record` 记 task ID。
+`mmw worker dispatch` 和 `plan-dispatch` 创建 worktree、边界基线、prompt 与派发账本，并用 `droid exec --cwd` 后台启动对应模型。账本持久化 PID、结果文件和 session ID。
 
-Task 完成后必须先运行：
+主线程轮询：
 
-- 写码：`mmw worker check-docs --worktree <wt>`
-- 写计划：`mmw worker plan-check --plan <plan> --worktree <wt>`
+- 写码：`mmw worker status --worktree <wt>`
+- 写计划：`mmw worker status --plan <plan> --worktree <wt>`
 
-通过机器边界检查后，主线程再亲验 diff、提交、测试与回执。恢复优先用账本 task ID 的 Task resume。
+`status` 在完成时自动执行机器边界检查并打印最后回执。修复使用 `worker resume` 或 `plan-resume`，脚本通过账本 session ID 调用 `droid exec --session-id` 续接原上下文。通过后主线程再亲验 diff、提交和测试。
 
 ## 审闸
 

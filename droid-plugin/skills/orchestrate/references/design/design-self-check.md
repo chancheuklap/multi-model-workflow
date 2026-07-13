@@ -1,6 +1,6 @@
 # Design · selfcheck 步(本步读这一份)
 
-design 阶段末步:保存前自己过这道闸,过了就 `mmw handoff` 交还引擎(引擎触发 ①设计审,本阶段不自派审、不自己跳阶段)。
+design 阶段末步:保存前自己过这道闸。通过后按 `mmw where` 的 `then` 准备一次设计确认；用户明确确认后再 handoff 交还引擎。
 
 ## 自检（保存前逐条过）
 
@@ -16,9 +16,9 @@ design 阶段末步:保存前自己过这道闸,过了就 `mmw handoff` 交还�
 
 触碰不变量 / 合同 / 数据权威 / 权限 / 计费 / 发布风险时,尤其确保上面每条都过。此类高风险确认设计前:已 `Task`→`decision-advisor` 咨询过,或在 Open Decisions / 讨论中写明跳过理由(不强制每次 consult)。
 
-## 收尾:handoff 交还引擎(`mmw where` 的 `then` 已给好钉产物的命令模板,照抄即可)
+## 收尾:先确认，再 handoff
 
-- 设计 OK → `mmw handoff --conclusion pass --produced docs/design/<slug>.md` → 引擎触发 ①设计审(`reviewer-design-a/b` 独立审设计文档),审过进 `to-issue` 阶段切片。
+- 设计 OK → 跑 `mmw where`，先照 `then` 执行 `mmw checkpoint prepare --report <设计文档>`；用 AskUser 提供脚本返回的精确确认项。收到确认后重新 `mmw where`，照新的 `then` handoff → 引擎触发 ①设计审。
 - 缺关键输入没法定稿 → `--conclusion needs-context`。
 - 方向本身存疑(解错问题 / 该换框架)→ `--conclusion needs-redirection`。
 - ①设计审打回 design gap → 引擎回 design(`needs-repair`),停在本阶段改、改完 handoff 重审。**Critical 必须修掉才能进 to-issue / plan。**

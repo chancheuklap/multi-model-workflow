@@ -173,7 +173,7 @@ Source:$source
 ## 派审者
 $dispatch
 
-独立审者优先使用 Task 后台执行。记录 task ID,用 TaskOutput 收回;追问用 Task resume 续接原审者上下文。
+在单条消息中并行发出独立 Task 调用，每个审者按当前工具合同直接返回结果。调用中断时重派对应视角，不假设后台 task ID、TaskOutput 或 resume。
 
 ## 留痕
 把全部审者 findings 原样落盘 $trace,亲验后逐条标 accepted/rejected/duplicate/needs-evidence,文末写总 verdict。

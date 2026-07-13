@@ -13,7 +13,7 @@ no() { echo "not ok - $1"; fail=1; }
 [ "$(mmw_worker_branch_prefix)" = worker ] && ok "worker branch prefix" || no "branch prefix"
 [ "$(mmw_shell_tool)" = Execute ] && ok "Execute tool" || no "shell tool"
 [ "$(mmw_ask_user_tool)" = AskUser ] && ok "AskUser tool" || no "ask tool"
-[ "$(mmw_worker_backend)" = droid-task ] && ok "Task backend" || no "worker backend"
+[ "$(mmw_worker_backend)" = droid-exec ] && ok "Droid exec backend" || no "worker backend"
 [ "$(mmw_resolve_state_subdir /tmp)" = ".factory/multi-model-workflow" ] && ok "state resolution is fixed" || no "state resolution"
 
 TMP="$(mktemp -d)"

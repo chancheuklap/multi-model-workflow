@@ -39,7 +39,7 @@ Task({
 })
 ```
 
-互不依赖的 topic 在单条消息中并行派发,长调查优先后台运行并记录 task ID。全部用 TaskOutput 收回后,主线程综合成一份报告;追问用 Task resume 续接原调查上下文。
+互不依赖的 topic 在单条消息中并行发出多个 Task 调用；每个 Task 按当前工具合同直接返回结果。全部收回后主线程综合成一份报告。调用中断时只重派缺失 topic，不假设后台 task ID、TaskOutput 或 resume。
 
 ## 3. 收口(回主线程)
 
@@ -55,4 +55,4 @@ Task({
 ## 红线
 
 - 全程只读;fan-out 期间不写状态平面,综合 + 亲验后主线程才写盘。
-- Task 断了优先按 task ID resume;阶段级断点靠 `manifest.phases`。
+- Task 断了只重派缺失 topic；阶段级断点靠 `manifest.phases`。

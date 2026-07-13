@@ -8,7 +8,7 @@ mmw_worktrees_rel() { printf '.factory/worktrees'; }
 mmw_worker_branch_prefix() { printf 'worker'; }
 mmw_ask_user_tool() { printf 'AskUser'; }
 mmw_shell_tool() { printf 'Execute'; }
-mmw_worker_backend() { printf 'droid-task'; }
+mmw_worker_backend() { printf 'droid-exec'; }
 
 mmw_resolve_state_subdir() {
   printf '%s' "$(mmw_state_subdir)"

@@ -2,7 +2,7 @@
 
 > 落地 = **写码工人改代码 + 主线程按计划验收**。把 ②计划审过的 plan 完整落地、不偏离设计,各 plan 一 worktree、可并行。
 > 红线:验收吃**跑测试 / 读 diff 的 ground truth**,不吃自述;afk 只放权自主跑(`attended` 才停问),真缺输入 / 方向疑 / 合并红线才停;push/deploy 要人批(收尾阶段;本地 merge 不拦)。
-> - 工人 **只改源码、禁碰 `docs/`**:Task 返回后主线程必跑 `mmw worker check-docs --worktree <wt>`。碰了 docs → 修复指令 resume 打回;每 Pack 一提交带 `Pack N.M`。
+> - 工人 **只改源码、禁碰 `docs/`**:`mmw worker status` 完成时自动 fail-closed 核边界。碰了 docs → 修复指令 resume 打回;每 Pack 一提交带 `Pack N.M`。
 > - **工人返回的事实是劳动力不是信源**——你 verify 时自己 grep / 读 / 跑坐实。
 
 ## 断点恢复(context 断了 / 中途回来,先跑这个)
@@ -12,9 +12,9 @@
 | step 状态 | 含义 | 接着做 |
 |---|---|---|
 | `done` | 该 plan 已验收提交 | 跳过 |
-| `pending` + 有 `worktree` + 派发账本有 `task_id` | 已派写码工人 | **别重派**:先取 TaskOutput;要补改用 `mmw worker resume` 生成续接说明并按 task ID resume |
-| `pending` + 有 `worktree` + 派发账本无 `task_id` | 建了 worktree 和 prompt,但 Task 未成功派出 | 按派发包重新派 `pack-executor`,随后立即 `task-record` |
-| `pending` + 无 `worktree` | 未派 | 回 B2 `mmw worker dispatch` |
+| `pending` + 有 `worktree` + 派发账本 `status=running` | droid exec 正在落地 | **别重派**:`mmw worker status --worktree <wt>` |
+| `pending` + 有 `worktree` + `status=completed` | 工人已返回 | 跑 `status` 触发边界门并读最后回执，再走 B3 |
+| `pending` + 有 `worktree` + `status=failed` | 派发失败或异常退出 | 读账本 `log_file`；可修环境后重新 dispatch，已有成功 session 才允许 resume |
 | `pending` + 无 `worktree` | 还没轮到 | 正常 B1→B2 派 |
 
 ## B0. 返修入口(④终审 / ③合同门判 needs-repair 回来才走;首次落地跳过,直接 B1)
@@ -47,7 +47,7 @@ mmw loop step add --id <plan-id> --desc "<标题>" --plan <plan 绝对路径> --
 
 ## B2. 派写码工人落地(一条命令准备 + 宿主派发)
 
-每份 plan 派一个写码工人(`mmw worker dispatch` 代劳 worktree + prompt,主线程 Task→pack-executor):
+每份 plan 派一个写码工人(`mmw worker dispatch` 负责 worktree、prompt 和 droid exec 启动):
 
 ```bash
 mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree 绝对路径> \
@@ -58,15 +58,15 @@ mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree
 
 - **三文档都传**:pack-executor 开工要读设计、它的 issue 和实施计划,不能只给计划。
 - **模型档脚本按 plan 的 `Complexity` 自动切,你不手传**:高风险 plan(标 `Complexity: capable`——计费 / 权限 / migration / 跨服务)脚本自动切高档。`--model`/`--effort` 仅在你要临时覆盖时才传。
-- **一律后台跑**:dispatch 生成派发包后,主线程用 Task 后台派 `pack-executor` 并 `task-record`;完成用 TaskOutput 收回。resume 优先用账本 task ID 续接原上下文。
+- **一律后台跑**:dispatch 直接用 `droid exec --cwd <子 worktree>` 启动，并把 PID、结果文件和 session ID 落账。主线程用 `mmw worker status --worktree <wt>` 收回；resume 由脚本按 session ID 续接。
 - 并行:互不依赖的 plan,各自一个 worktree,同时发多条后台 dispatch。
 - **铁律在 `worktree-build` skill**:prompt 只给角色 + worktree + 三文档 + skill 指针。
 - 工人在自己 worktree 提交;进度靠你 verify 后 `mmw loop step done`。
-- **docs 红线 fail-closed**:Task 返回后主线程**必须** `mmw worker check-docs --worktree <wt>`。非零 / `DOCS_VIOLATION` 禁止 `loop step done`,写修复指令 resume。
+- **docs 红线 fail-closed**:`mmw worker status` 完成时自动核 docs 边界。非零 / `DOCS_VIOLATION` 禁止 `loop step done`,写修复指令 resume。
 
 ## B3. 验收(命门:你按计划验,不信工人自述)
 
-Task 返回后,先取 TaskOutput 和运行 `mmw worker check-docs`,再由主线程亲验:
+`mmw worker status` 返回 `WORKER_STATUS=COMPLETED` 且边界门通过后，再由主线程亲验:
 
 - **完整性**:plan 的每条 acceptance 真达成?跑验收命令、读 diff,不认"我做完了"。
 - **测试质量**:pack-executor 写的测试它自己说了不算,主线程审。先定位并读仓库测试治理文档(常见:仓库根或 tests/ 下 TESTING.md、AGENTS.md、tests 目录 README);定位不到必须标 `no-test-standard waiver`。

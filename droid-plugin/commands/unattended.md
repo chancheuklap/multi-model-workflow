@@ -38,4 +38,4 @@ echo "MMW=$MMW"
 2. 若输出以 `ERROR: 拒绝进入`:照实告诉用户缺哪道门(设计未过门 / 计划未过审 / 有未答 HITL),**不降级、不硬进**;引导用户补齐后再敲本命令。
 3. 若报 `ERROR: 当前不是在管任务 worktree`:说明当前不在在管任务,无 run 可进入。
 
-> no-question 权威是磁盘 `task.json.attendance`,不是运行时工具限制:每次续跑(含 compaction 恢复)先读盘 mode=unattended 即自我约束。用户下一条消息会自动解除强无人假设(需再敲本命令重新进入)。
+> no-question 权威是磁盘 `task.json.attendance`,不是运行时工具限制:每次续跑(含 compaction 恢复)先读盘 mode=unattended 即自我约束。普通用户消息不改变该模式；只有用户显式执行 `/attended` 或 `mmw unattended exit` 才解除。
