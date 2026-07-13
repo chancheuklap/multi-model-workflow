@@ -1,6 +1,6 @@
 # Review · 审核 loop(阶段操作指南)
 
-> 审核闸操作指南。**主线程直接派审者**;审查方法 + 各 stage 角度单源在已装的 **`worktree-review` skill**。plugin 侧只留 `plan-impl.md`(③合同门)与本文(编排)。
+> 审核闸操作指南。**主线程直接派审者**;审查方法 + 各 stage 角度单源在 plugin 内 **`skills/worktree-review/`**。orchestrate 侧只留 `plan-impl.md`(③合同门)与本文(编排)。
 >
 > **宿主分叉(派发)**:谁家审者 / 几路视角 / 模型档,全由 `mmw review start` 按宿主机器生成进 brief——**照 brief 派即可**,本文不复制派发矩阵(免漂移)。
 
@@ -10,13 +10,13 @@
 
 ## 0. 选阶段(决定 stage + loop kind)
 
-**三个产出阶段各被引擎强制审一次,触发方式统一**:design/plan/build 的产物 `pass` 后,引擎把阶段冻住、强制进审闸。`mmw where` 直接吐出完整 `review_start`,你照跑。审查角度由 `worktree-review` skill 按 stage 自取。
+**三个产出阶段各被引擎强制审一次,触发方式统一**:design/plan/build 的产物 `pass` 后,引擎把阶段冻住、强制进审闸。`mmw where` 直接吐出完整 `review_start`,你照跑。审查角度由 plugin 内 `worktree-review` skill 按 stage 自取。
 
 | 审 | 触发点(引擎强制) | stage | kind | reviewer 审查角度 |
 |---|---|---|---|---|
 | ① 设计审 | design pass → 引擎审闸 | `design` | `review` | 轴A 设计内容 / 轴B 项目对齐 |
 | ② 计划审 | plan pass → 引擎审闸 | `plan` | `review` | 轴A 覆盖与质量 / 轴B 合规与交叉验证 |
-| ④ final | build pass → 引擎审闸 | `final` | `review` | 基线1 回归+意图+跨plan / 基线2 独立代码审计;**审者数 review.sh 机器判(不用你选),照 brief 派**:small-change/bug=1 · develop=2 或 4(按 Complexity / diff) |
+| ④ final | build pass → 引擎审闸 | `final` | `review` | **固定四个 agent**:模型 A、B 各审基线1与基线2；双模型 × 双角度冗余，不按场景、Complexity 或 diff 降级 |
 
 另有 **③ 落地合同门**:build 内部机器合同检查,全 plan 合并后、build handoff 前跑一次,不派 reviewer。
 
@@ -57,6 +57,6 @@
 
 ## 3. 守住的红线
 
-- 写者≠验者:①用 `reviewer-design-a/b`,②用 `reviewer-plan-a/b`,④用 `reviewer-final-a/b` 按 tier。prompt 一律指向 plugin 内 `worktree-review` skill。
+- 写者≠验者:①用 `reviewer-design-a/b`,②用 `reviewer-plan-a/b`,④固定并行派 `reviewer-final-a`×2 + `reviewer-final-b`×2，分别覆盖两条基线。prompt 一律指向 plugin 内 `worktree-review` skill。
 - 每条 finding 引 `file:line` 原文才采信;主线程亲验后才 accept,落 handoff 前再核承重的。
 - ③ 不判断、只核合同;重判预算砸 ④final。

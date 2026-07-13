@@ -37,6 +37,7 @@ mmw_droid_disable_all_except() {
 mmw_droid_launch() {
   local meta="$1" prompt="$2" cwd="$3" model="$4" effort="$5" system_prompt="$6"
   local session_id="${7:-}" auto="${8:-high}" disabled_tools="${9:-}"
+  local native_branch="${10:-}" native_root="${11:-}" native_repo="${12:-}" native_path="${13:-}"
   command -v droid >/dev/null 2>&1 || return 1
 
   local dir result log pid
@@ -45,15 +46,34 @@ mmw_droid_launch() {
   log="$dir/run.log"
   rm -f "$result" "$log"
 
-  local -a cmd=(droid exec --output-format json --auto "$auto" --cwd "$cwd"
+  local -a cmd=(droid exec --output-format json --auto "$auto"
     --model "$model" --reasoning-effort "$effort"
     --append-system-prompt-file "$system_prompt")
+  if [ -n "$native_branch" ]; then
+    cmd+=(--worktree "$native_branch" --worktree-dir "$native_root")
+  else
+    cmd+=(--cwd "$cwd")
+  fi
   [ -n "$disabled_tools" ] && cmd+=(--disabled-tools "$disabled_tools")
   [ -n "$session_id" ] && cmd+=(--session-id "$session_id")
   cmd+=(--file "$prompt")
 
-  nohup "${cmd[@]}" >"$result" 2>"$log" </dev/null &
-  pid=$!
+  if [ -n "$native_branch" ]; then
+    (cd "$native_repo" && nohup "${cmd[@]}" >"$result" 2>"$log" </dev/null) &
+    pid=$!
+    local i
+    for i in $(seq 1 100); do
+      if [ -d "$native_path" ]; then
+        : >"$native_path/.mmw-keep-worktree"
+        break
+      fi
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.05
+    done
+  else
+    nohup "${cmd[@]}" >"$result" 2>"$log" </dev/null &
+    pid=$!
+  fi
   if ! mmw_droid_atomic_update "$meta" \
     --argjson pid "$pid" --arg result "$result" --arg log "$log" \
     --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \

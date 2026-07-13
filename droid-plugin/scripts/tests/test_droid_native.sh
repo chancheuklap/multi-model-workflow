@@ -57,8 +57,9 @@ fi
 [ -x "$PLUGIN/scripts/investigate.sh" ] \
   && grep -q 'investigate) exec bash' "$PLUGIN/scripts/mmw.sh" \
   && ok "native investigate orchestrator exposed" || no "investigate orchestrator missing"
-grep -q 'stronger reviewer consulted mid-task' "$PLUGIN/droids/decision-advisor.md" \
-  && grep -q 'strongest counterargument' "$PLUGIN/droids/decision-advisor.md" \
+grep -q '执行者 agent 在任务中途咨询的更强审查者' "$PLUGIN/droids/decision-advisor.md" \
+  && grep -q '对你自己判断的最强反方论点' "$PLUGIN/droids/decision-advisor.md" \
+  && grep -q '^model: claude-opus-4-8$' "$PLUGIN/droids/decision-advisor.md" \
   && ok "advisor prompt preserves judgment contract" || no "advisor prompt contract"
 for d in reviewer-final-a reviewer-final-b; do
   grep -q 'stage 和视角完全由 dispatch prompt 指定' "$PLUGIN/droids/$d.md" \

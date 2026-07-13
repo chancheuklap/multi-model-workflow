@@ -16,24 +16,7 @@ state_here() {
 }
 
 final_tier() {
-  local top="$1" state="$2" scenario="$3"
-  if [ "$scenario" = "small-change" ] || [ "$scenario" = "bug" ]; then
-    printf '1'; return
-  fi
-  local man="$top/$state/task.json" base slug pdir capable diffn
-  base="$(jq -r '.base_commit // ""' "$man" 2>/dev/null || true)"
-  slug="$(jq -r '.slug // ""' "$man" 2>/dev/null || true)"
-  pdir="$top/docs/plans/$slug"
-  [ -n "$base" ] && [ -n "$slug" ] && [ -d "$pdir" ] || { printf '4'; return; }
-  capable="$(grep -rlEi '(complexity|复杂度).*capable' "$pdir" 2>/dev/null || true)"
-  diffn="$(git -C "$top" diff --shortstat "$base"..HEAD 2>/dev/null |
-    { grep -oE '[0-9]+ (insertion|deletion)' || true; } |
-    awk '{s+=$1} END{print s+0}')"
-  if [ -z "$capable" ] && [ "${diffn:-0}" -le "${REVIEW_TIER_DIFF_MAX:-800}" ]; then
-    printf '2'
-  else
-    printf '4'
-  fi
+  printf '4'
 }
 
 dispatch_for() {
@@ -56,20 +39,7 @@ prompt:读 $skill/SKILL.md,按 stage=plan;Source:$source;只负责指定轴;按 
 EOF
       ;;
     final)
-      if [ "$tier" = "1" ]; then
-        cat <<EOF
-派一个 Task:reviewer-final-a,依次覆盖基线2独立代码审计和基线1回归、意图、跨计划合同。
-prompt:读 $skill/SKILL.md,按 stage=final;Source:$source;覆盖两条基线;按 Return Contract 回 findings。
-EOF
-      elif [ "$tier" = "2" ]; then
-        cat <<EOF
-单条消息并行派两个跨模型 Task:
-- reviewer-final-a,基线1回归、意图、跨计划合同
-- reviewer-final-b,基线2独立代码审计
-prompt:读 $skill/SKILL.md,按 stage=final;Source:$source;只负责指定基线;按 Return Contract 回 findings。
-EOF
-      else
-        cat <<EOF
+      cat <<EOF
 单条消息并行派四个跨模型 Task,两条基线各跑两个模型:
 - reviewer-final-a,基线1
 - reviewer-final-b,基线1
@@ -78,7 +48,6 @@ EOF
 prompt:读 $skill/SKILL.md,按 stage=final;Source:$source;只负责指定基线;按 Return Contract 回 findings。
 同基线跨模型对账,单家重点必须亲验,两家同报提高置信。
 EOF
-      fi
       ;;
     merge-impl)
       cat <<EOF

@@ -17,10 +17,14 @@ printf '%q ' "$@" >>"$DROID_TEST_LOG"
 printf '\n' >>"$DROID_TEST_LOG"
 session=""
 list_tools=0
+native_branch=""
+native_root=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --session-id) session="$2"; shift 2 ;;
     --list-tools) list_tools=1; shift ;;
+    --worktree) native_branch="$2"; shift 2 ;;
+    --worktree-dir) native_root="$2"; shift 2 ;;
     --cwd|--model|--reasoning-effort|--append-system-prompt-file|--file|--output-format|--auto|--disabled-tools) shift 2 ;;
     exec) shift ;;
     *) shift ;;
@@ -34,6 +38,10 @@ if [ "$list_tools" = 1 ]; then
   ]'
   exit 0
 fi
+[ -z "$native_branch" ] || {
+  actual="$native_root/$(basename "$PWD")-wt-${native_branch//\//-}"
+  [ -d "$actual" ] || git worktree add -q "$actual" "$native_branch"
+}
 [ -n "$session" ] || session="session-test"
 sleep 0.05
 if [ "${DROID_FAKE_FAIL:-0}" = 1 ]; then
@@ -85,25 +93,28 @@ git -C "$TMP" commit -qm docs
 
 WT="$TMP/.factory/worktrees/demo-plan-001"
 OUT="$(bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$WT" 2>&1)"
-[ "$(git -C "$WT" branch --show-current)" = "worker/demo-plan-001" ] && ok "worker branch" || no "worker branch"
+META="$WT/.factory/multi-model-workflow/worker-dispatch/meta.json"
+ACTUAL_WT="$(jq -r .worktree "$META")"
+[ "$(git -C "$ACTUAL_WT" branch --show-current)" = "worker/demo-plan-001" ] && ok "worker branch" || no "worker branch"
 [ -f "$WT/.factory/multi-model-workflow/worker-dispatch/prompt.md" ] && ok "worker prompt package" || no "worker prompt"
-[ "$(jq -r .droid "$WT/.factory/multi-model-workflow/worker-dispatch/meta.json")" = pack-executor ] && ok "pack executor selected" || no "executor"
+[ "$(jq -r .droid "$META")" = pack-executor ] && ok "pack executor selected" || no "executor"
 echo "$OUT" | grep -q 'WORKER_BACKEND=droid-exec' && ok "real Droid exec backend" || no "Droid exec backend"
 STATUS="$(wait_status "$WT")"
 echo "$STATUS" | grep -q 'WORKER_STATUS=COMPLETED' && ok "worker completes with durable status" || no "worker status"
-[ "$(jq -r .session_id "$WT/.factory/multi-model-workflow/worker-dispatch/meta.json")" = session-test ] && ok "session id captured" || no "session id"
-grep -Fq -- "--cwd $WT" "$DROID_TEST_LOG" && ok "runtime cwd bound to worker worktree" || no "worker cwd"
-if grep -F -- "--cwd $WT" "$DROID_TEST_LOG" | grep -Fq -- '--auto medium'; then
+[ "$(jq -r .session_id "$META")" = session-test ] && ok "session id captured" || no "session id"
+grep -Fq -- "--worktree worker/demo-plan-001 --worktree-dir $WT" "$DROID_TEST_LOG" \
+  && ok "runtime uses Droid native worktree" || no "native worker worktree"
+if grep -F -- "--worktree worker/demo-plan-001" "$DROID_TEST_LOG" | grep -Fq -- '--auto medium'; then
   ok "worker uses development autonomy"
 else
   no "worker autonomy"
 fi
-if grep -F -- "--cwd $WT" "$DROID_TEST_LOG" | grep -Eq -- '--disabled-tools [^ ]*(task-cli|web_search)'; then
+if grep -F -- "--worktree worker/demo-plan-001" "$DROID_TEST_LOG" | grep -Eq -- '--disabled-tools [^ ]*(task-cli|web_search)'; then
   ok "worker runtime restricts unrelated tools"
 else
   no "worker tool policy"
 fi
-if grep -F -- "--cwd $WT" "$DROID_TEST_LOG" | grep -F -- '--disabled-tools' | grep -Fq 'skill'; then
+if grep -F -- "--worktree worker/demo-plan-001" "$DROID_TEST_LOG" | grep -F -- '--disabled-tools' | grep -Fq 'skill'; then
   no "worker disabled required Skill tool"
 else
   ok "worker retains required Skill tool"
@@ -122,14 +133,14 @@ STATUS="$(wait_status "$WT")"
 echo "$STATUS" | grep -q 'SESSION_ID=session-test' && ok "resume preserves Droid session" || no "resume session"
 grep -Fq -- '--session-id session-test' "$DROID_TEST_LOG" && ok "resume passes session id to Droid" || no "runtime resume id"
 
-mkdir -p "$WT/docs"
-echo bad > "$WT/docs/bad.md"
+mkdir -p "$ACTUAL_WT/docs"
+echo bad > "$ACTUAL_WT/docs/bad.md"
 if bash "$WORKER" check-docs --worktree "$WT" >/dev/null 2>&1; then
   no "docs boundary must fail"
 else
   ok "docs boundary fails closed"
 fi
-rm "$WT/docs/bad.md"
+rm "$ACTUAL_WT/docs/bad.md"
 
 TASK_WT="$TMP/task-wt"
 git -C "$TMP" worktree add -q -b task-wt "$TASK_WT" HEAD

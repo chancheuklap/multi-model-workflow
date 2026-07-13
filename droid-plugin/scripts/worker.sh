@@ -35,13 +35,9 @@ render_droid_prompt() {
   mmw_droid_render_prompt "$source" "$target" || die "droid prompt 为空:$source"
 }
 
-ensure_worktree() {
-  local wt="$1" base="$2" repo="$3"
-  if [ ! -d "$wt" ]; then
-    git -C "$repo" worktree add -b "$(mmw_worker_branch_prefix)/$(basename "$wt")" "$wt" "$base" >&2 \
-      || die "建 worktree 失败: $wt"
-  fi
-  mmw_ensure_wt_state_ignore "$wt"
+native_worktree_path() {
+  local repo="$1" root="$2" branch="$3"
+  printf '%s/%s-wt-%s' "$root" "$(basename "$repo")" "${branch//\//-}"
 }
 
 build_prompt() {
@@ -220,7 +216,9 @@ update_meta() {
 launch_exec() {
   local meta="$1" prompt="$2" wt="$3" model="$4" effort="$5" system_prompt="$6" session_id="${7:-}" status_cmd="$8"
   local disabled_tools="${9:-}"
+  local native_branch="${10:-}" native_root="${11:-}" native_repo="${12:-}" native_path="${13:-}"
   mmw_droid_launch "$meta" "$prompt" "$wt" "$model" "$effort" "$system_prompt" "$session_id" medium "$disabled_tools" \
+    "$native_branch" "$native_root" "$native_repo" "$native_path" \
     || die "worker 启动或派发账本写入失败"
   echo "WORKER_STARTED"
   echo "pid=$MMW_DROID_PID"
@@ -332,11 +330,33 @@ cmd_dispatch() {
   fi
   [ -n "$model" ] || model="$default_model"
   [ -n "$effort" ] || effort="$default_effort"
-  ensure_worktree "$wt" "$base" "$repo"
+  local run_wt="$wt" native_branch="" native_root="" native_repo="" target_top="" target_path=""
+  if [ -d "$wt" ]; then
+    target_path="$(cd "$wt" && pwd -P)"
+    target_top="$(git -C "$wt" rev-parse --show-toplevel 2>/dev/null || true)"
+  fi
+  if [ -z "$target_top" ] || [ "$target_path" != "$target_top" ]; then
+    native_branch="$(mmw_worker_branch_prefix)/$(basename "$wt")"
+    git -C "$repo" show-ref --verify --quiet "refs/heads/$native_branch" \
+      || git -C "$repo" branch "$native_branch" "$base" \
+      || die "建立 worker 分支失败:$native_branch"
+    mkdir -p "$wt"
+    mmw_ensure_wt_state_ignore "$wt"
+    native_root="$wt"
+    native_repo="$repo"
+    run_wt="$(native_worktree_path "$repo" "$native_root" "$native_branch")"
+  else
+    run_wt="$target_top"
+    mmw_ensure_wt_state_ignore "$run_wt"
+  fi
   local st pkg start prompt meta system_prompt system_source disabled_tools
   st="$(state_for "$wt")"; pkg="$wt/$st/worker-dispatch"
   mkdir -p "$pkg"
-  start="$(git -C "$wt" rev-parse HEAD)"
+  if [ -n "$native_branch" ]; then
+    start="$(git -C "$repo" rev-parse "$native_branch")"
+  else
+    start="$(git -C "$run_wt" rev-parse HEAD)"
+  fi
   prompt="$pkg/prompt.md"; meta="$pkg/meta.json"
   guard_no_active "$meta"
   system_source="$(mmw_plugin_root)/droids/$droid.md"
@@ -344,18 +364,23 @@ cmd_dispatch() {
   system_prompt="$pkg/system-prompt.md"
   render_droid_prompt "$system_source" "$system_prompt"
   disabled_tools="$(prepare_exec_policy "$pkg" "$model")"
-  build_prompt "$plan" "$wt" "$design" "$issue" "$mode" > "$prompt"
+  build_prompt "$plan" "$run_wt" "$design" "$issue" "$mode" > "$prompt"
   printf '%s\n' "$start" > "$pkg/start_sha"
-  write_meta "$meta" "$mode" "$droid" "$model" "$effort" "$wt" "$prompt" "$start" \
+  write_meta "$meta" "$mode" "$droid" "$model" "$effort" "$run_wt" "$prompt" "$start" \
     "$plan" "$system_prompt" "$issue" "$disabled_tools"
+  update_meta "$meta" --arg control "$wt" --arg branch "$native_branch" \
+    --arg root "$native_root" --arg repo "$native_repo" \
+    '.control_worktree=$control | .native_branch=$branch | .native_root=$root | .native_repo=$repo' \
+    || die "无法记录 worker worktree 元数据"
   echo "WORKER_BACKEND=droid-exec"
   echo "DROID=$droid"
   echo "MODEL=$model"
   echo "REASONING_EFFORT=$effort"
   echo "PROMPT_FILE=$prompt"
   echo "META_FILE=$meta"
-  launch_exec "$meta" "$prompt" "$wt" "$model" "$effort" "$system_prompt" "" \
-    "mmw worker status --worktree \"$wt\"" "$disabled_tools"
+  launch_exec "$meta" "$prompt" "$run_wt" "$model" "$effort" "$system_prompt" "" \
+    "mmw worker status --worktree \"$wt\"" "$disabled_tools" \
+    "$native_branch" "$native_root" "$native_repo" "$run_wt"
 }
 
 cmd_resume() {
@@ -367,6 +392,7 @@ cmd_resume() {
   [ -d "$wt" ] || die "worktree 不存在:$wt"
   [ -f "$instr" ] || die "--instructions 文件不存在:$instr"
   local st pkg meta state session model effort system_prompt disabled_tools
+  local run_wt native_branch native_root native_repo
   st="$(state_for "$wt")"; pkg="$wt/$st/worker-dispatch"
   meta="$pkg/meta.json"
   state="$(refresh_meta "$meta" 2>/dev/null || true)"
@@ -376,10 +402,15 @@ cmd_resume() {
   effort="$(jq -r .reasoning_effort "$meta")"
   system_prompt="$(jq -r .system_prompt_file "$meta")"
   disabled_tools="$(jq -r '.disabled_tools // empty' "$meta")"
+  run_wt="$(jq -r .worktree "$meta")"
+  native_branch="$(jq -r '.native_branch // empty' "$meta")"
+  native_root="$(jq -r '.native_root // empty' "$meta")"
+  native_repo="$(jq -r '.native_repo // empty' "$meta")"
   [ -n "$session" ] || die "无成功 session_id,不能续接；先看 $(jq -r '.log_file // empty' "$meta")"
   cp "$instr" "$pkg/resume-prompt.md"
-  launch_exec "$meta" "$pkg/resume-prompt.md" "$wt" "$model" "$effort" "$system_prompt" "$session" \
-    "mmw worker status --worktree \"$wt\"" "$disabled_tools"
+  launch_exec "$meta" "$pkg/resume-prompt.md" "$run_wt" "$model" "$effort" "$system_prompt" "$session" \
+    "mmw worker status --worktree \"$wt\"" "$disabled_tools" \
+    "$native_branch" "$native_root" "$native_repo" "$run_wt"
 }
 
 cmd_plan_dispatch() {
@@ -581,7 +612,7 @@ cmd_status() {
     fi
   else
     start="$(jq -r '.start_sha' "$meta")"
-    check_docs_boundary "$wt" "$start" || return 3
+    check_docs_boundary "$(jq -r .worktree "$meta")" "$start" || return 3
   fi
   echo "--- Droid 最后消息 ---"
   jq -r '.result // "(无结果)"' "$result"
@@ -593,10 +624,12 @@ cmd_check_docs() {
     --worktree) wt="$2"; shift 2 ;; --start-sha) start="$2"; shift 2 ;;
     *) die "未知参数:$1" ;;
   esac; done
-  local st; st="$(state_for "$wt")"
+  local st meta run_wt; st="$(state_for "$wt")"
+  meta="$wt/$st/worker-dispatch/meta.json"
   [ -n "$start" ] || start="$(cat "$wt/$st/worker-dispatch/start_sha" 2>/dev/null || true)"
   [ -n "$start" ] || die "无 start_sha"
-  check_docs_boundary "$wt" "$start"
+  run_wt="$(jq -r .worktree "$meta")"
+  check_docs_boundary "$run_wt" "$start"
 }
 
 cmd_plan_check() {

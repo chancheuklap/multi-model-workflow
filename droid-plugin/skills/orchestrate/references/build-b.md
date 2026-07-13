@@ -58,7 +58,7 @@ mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree
 
 - **三文档都传**:pack-executor 开工要读设计、它的 issue 和实施计划,不能只给计划。
 - **模型档脚本按 plan 的 `Complexity` 自动切,你不手传**:高风险 plan(标 `Complexity: capable`——计费 / 权限 / migration / 跨服务)脚本自动切高档。`--model`/`--effort` 仅在你要临时覆盖时才传。
-- **一律后台跑**:dispatch 直接用 `droid exec --cwd <子 worktree>` 启动，并把 PID、结果文件和 session ID 落账。主线程用 `mmw worker status --worktree <wt>` 收回；resume 由脚本按 session ID 续接。
+- **一律后台跑**:正常 plan dispatch 用 `droid exec --worktree <worker分支> --worktree-dir <wt>` 创建 Droid 原生子 worktree；返修传入已存在的任务 worktree时继续用 `--cwd` 留在原分支。PID、结果文件和 session ID 都落账，主线程用 `mmw worker status --worktree <wt>` 收回。
 - 并行:互不依赖的 plan,各自一个 worktree,同时发多条后台 dispatch。
 - **铁律在 `worktree-build` skill**:prompt 只给角色 + worktree + 三文档 + skill 指针。
 - 工人在自己 worktree 提交;进度靠你 verify 后 `mmw loop step done`。
@@ -97,7 +97,7 @@ Task({
 
 ## B4. 全 plan 验完 + 合并
 
-每份 plan 验过(B3)→ `mmw loop step done`。所有 plan 都 done 后 `mmw loop exit-check` 应为 DONE(执行 loop 收工)。并行 plan 各在自己 worktree → 合并回任务分支(解 git 冲突 + 业务 / 功能冲突;本地 merge 不经红线,红线只拦 push / gh pr merge / 部署)。**每合完一个 plan 就清它的子 worktree**:`git worktree remove <子 worktree>` + `git branch -d worker/<目录名>`。
+每份 plan 验过(B3)→ `mmw loop step done`。所有 plan 都 done 后 `mmw loop exit-check` 应为 DONE(执行 loop 收工)。并行 plan 各在自己 worktree → 合并回任务分支(解 git 冲突 + 业务 / 功能冲突;本地 merge 不经红线,红线只拦 push / gh pr merge / 部署)。**每合完一个 plan 就清它的子 worktree**:先删实际 worktree 根下的 `.mmw-keep-worktree`，再 `git worktree remove <实际子 worktree>` + `git branch -d worker/<目录名>`。
 
 ## B5. ③ 合同门(一次,全 plan 合并后)
 

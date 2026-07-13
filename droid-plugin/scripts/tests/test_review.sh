@@ -33,15 +33,19 @@ grep -q reviewer-plan-a "$BRIEF" && grep -q reviewer-plan-b "$BRIEF" && ok "plan
 
 write_task small-change
 (cd "$TMP" && bash "$REVIEW" start --stage final --source HEAD >/dev/null)
-grep -q 'tier=1' "$BRIEF" && grep -q reviewer-final-a "$BRIEF" \
-  && grep -q '覆盖两条基线' "$BRIEF" && ok "small final tier one" || no "tier one"
+grep -q 'tier=4' "$BRIEF" \
+  && [ "$(grep -c 'reviewer-final-a' "$BRIEF")" -ge 2 ] \
+  && [ "$(grep -c 'reviewer-final-b' "$BRIEF")" -ge 2 ] \
+  && ok "small final uses four reviewers" || no "small final four reviewers"
 
 write_task develop
 mkdir -p "$TMP/docs/plans/demo"
 printf '# plan\nComplexity: standard\n' > "$TMP/docs/plans/demo/001.md"
 (cd "$TMP" && bash "$REVIEW" start --stage final --source HEAD >/dev/null)
-grep -q 'tier=2' "$BRIEF" && grep -q reviewer-final-a "$BRIEF" && grep -q reviewer-final-b "$BRIEF" &&
-  ok "develop final cross-model tier" || no "develop final tier"
+grep -q 'tier=4' "$BRIEF" \
+  && [ "$(grep -c 'reviewer-final-a' "$BRIEF")" -ge 2 ] \
+  && [ "$(grep -c 'reviewer-final-b' "$BRIEF")" -ge 2 ] \
+  && ok "develop final uses four reviewers" || no "develop final four reviewers"
 
 printf '# plan\nComplexity: capable\n' > "$TMP/docs/plans/demo/001.md"
 (cd "$TMP" && bash "$REVIEW" start --stage final --source HEAD >/dev/null)
@@ -49,7 +53,7 @@ grep -q 'tier=4' "$BRIEF" \
   && [ "$(grep -c 'reviewer-final-a' "$BRIEF")" -ge 2 ] \
   && [ "$(grep -c 'reviewer-final-b' "$BRIEF")" -ge 2 ] \
   && grep -q '只负责指定基线' "$BRIEF" \
-  && ok "capable final tier four dynamic routes" || no "tier four"
+  && ok "capable final uses four reviewers" || no "tier four"
 
 (cd "$TMP" && bash "$REVIEW" start --stage merge-impl --source merge-brief.md >/dev/null)
 grep -q '七角度' "$BRIEF" && grep -q reviewer-final-a "$BRIEF" \
