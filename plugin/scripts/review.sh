@@ -215,7 +215,7 @@ $dispatch
 
 ## 收回亲验
 每条 finding 自己 Read/grep/跑坐实(审者是劳动力不是信源),引不出 file:line 降置信。
-承重 finding 亲验后才 accept(判断在此收口做,审 verify 期间不 consult advisor)。
+承重 finding 亲验后才 accept(判断在此收口做,审 verify 期间不另开咨询)。
   坐实一个维度: $MMW loop checklist cover --item <i> --evidence <file:line>
   真 finding:   $MMW loop finding add --severity <C/I/M> --confidence <1-10> --locator <file:line>
 

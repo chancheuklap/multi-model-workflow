@@ -84,16 +84,7 @@ Codex 返回后,读它最后消息(dispatch 回执里打印;原文在 `<该 plan
  ```
  verify ↔ resume 直至这份 plan 验收通过。
 
-**Codex 停下说"缺输入 / 计划与现实冲突"**:你判——**afk 拍板前**可 consult `fable-advisor` 一次拿第二意见(与一手实证矛盾以实证为准):
-
-```
-Agent({
-  subagent_type: "fable-advisor",
-  prompt: "phase=build; decision_point=afk 拍板; baseline=<计划/设计要点>; options_or_draft=<拟默认值或拟 resume 指令>; evidence=<失败日志/path:line>; ask=只要 stance/why/top_risk/next"
-})
-```
-
-小问题有合理默认 → afk 直接给指令 resume(留痕);真缺输入 / 怀疑方向错 → 停下抛用户(`mmw handoff --conclusion needs-context` / `needs-redirection`),别替用户拍方向。Fable 说 pivot 不自动 handoff。
+**Codex 停下说"缺输入 / 计划与现实冲突"**:你根据计划、设计和一手证据判断。小问题有合理默认 → afk 直接给指令 resume(留痕);真缺输入 / 怀疑方向错 → 停下抛用户(`mmw handoff --conclusion needs-context` / `needs-redirection`),别替用户拍方向。
 
 ## B4. 全 plan 验完 + 合并
 
