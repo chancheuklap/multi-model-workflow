@@ -119,3 +119,7 @@ Bad: "这是个有趣的方向!我们可以从多个角度探索。"
 | 跨 context 关系 / 共享词汇 | CONTEXT-MAP.md(否则根 CONTEXT.md) | 确认时立即 |
 | 功能行为、接口合同、验收 | 设计文档 | 讨论充分后 |
 | 架构取舍满足 ADR 三条件 | docs/adr/ | 用户确认后 |
+
+## 设计确认与交接
+
+设计文档完成且 self-check 通过后，跑 `mmw checkpoint prepare --report <设计文档>`。脚本返回确认编号后，用 `AskUser` 提供“确认设计 MMW-APPROVE:<id>”和“提出修改”两类选择。只有用户选择精确确认项，Droid 的 UserPromptSubmit Hook 才会批准；随后重新跑 `mmw where`，按其中 `then` 进入设计审。不要手写批准状态，也不要给 investigate、to-issue 或后续阶段增加同类停顿。

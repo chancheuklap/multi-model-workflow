@@ -11,6 +11,8 @@ FLOW="$SCRIPT_DIR/../flow.sh"
 LOOP="$SCRIPT_DIR/../loop.sh"
 REVIEW="$SCRIPT_DIR/../review.sh"
 PACKAGE="$SCRIPT_DIR/../package-phase.sh"
+CHECKPOINT="$SCRIPT_DIR/../checkpoint.sh"
+PROMPT_HOOK="$SCRIPT_DIR/../../hooks/prompt-anchor.sh"
 PACKAGE_FIXTURES="$SCRIPT_DIR/fixtures/package-phase"
 
 pass=0; fail=0
@@ -25,6 +27,15 @@ init_empty_package() {
   mkdir -p "$WT/fixtures"
   cp -R "$PACKAGE_FIXTURES/." "$WT/fixtures/"
   ( cd "$WT" && bash "$PACKAGE" init --scope fixtures/generic.release-package-scope.json )
+}
+approve_design() {
+  local prepared token payload
+  if [ -f "$WT/$1" ] && [ ! -s "$WT/$1" ]; then printf 'design\n' >"$WT/$1"; fi
+  prepared="$(cd "$WT" && bash "$CHECKPOINT" prepare --report "$1")"
+  token="$(printf '%s\n' "$prepared" | sed -n 's/^approval_token=//p')"
+  payload="$(jq -cn --arg cwd "$WT" --arg prompt "确认设计 $token" \
+    '{hook_event_name:"UserPromptSubmit",cwd:$cwd,prompt:$prompt}')"
+  printf '%s' "$payload" | bash "$PROMPT_HOOK" >/dev/null
 }
 
 echo "=== test_e2e.sh — 一条 develop 端到端空跑 ==="
@@ -54,6 +65,7 @@ mkf docs/design/e2e-direction.md
 
 # design → ①审闸(只产设计文档,①审只审它)
 mkf docs/design/e2e.md
+approve_design docs/design/e2e.md
 OUT="$(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/design/e2e.md)"
 echo "$OUT" | grep -q "NEXT_ACTION=review" && ok "design 过→进①审闸(不直接 advance)" || no "①审闸"
 [ "$(gate)" = "design" ] && ok "gate=design" || no "gate ($(gate))"

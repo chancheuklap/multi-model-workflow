@@ -230,6 +230,9 @@ cmd_confirm() {
   done
   case "$gate" in development-mode-test|installed-test) ;; *) die "confirm 的 --gate 只能是 development-mode-test|installed-test" ;; esac
   [ -n "$by" ] || die "confirm 必须给非空 --by"
+  case "$by" in
+    afk-policy|unattended-policy) die "机器值守策略不能代替负责人完成 package 人工确认" ;;
+  esac
   state="$(need_package_state)"
   if [ "$gate" = "installed-test" ]; then
     missing="$(jq -r '[.targets[] | select(.release_commit == null) | .product] | join(",")' "$state")"

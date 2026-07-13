@@ -15,6 +15,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
+# shellcheck source=lib/attendance.sh
+. "$SCRIPT_DIR/lib/attendance.sh"
 MANIFEST_NAME="task.json"
 LOOP_NAME="loop-state.json"
 
@@ -45,11 +47,7 @@ write_json() {
 set_mode() {
   local mode="$1" policy="${2:-null}"
   local m; m="$(need_man)"
-  jq --arg mode "$mode" --argjson pol "$policy" '.attendance=$mode | .unattended_policy=$pol' "$m" | write_json "$m"
-  local lf; lf="$(loop_path)"
-  if [ -f "$lf" ] && jq -e . "$lf" >/dev/null 2>&1; then
-    jq --arg mode "$mode" '.attendance=$mode' "$lf" | write_json "$lf"
-  fi
+  mmw_write_attendance "$m" "$mode" "$policy" || die "值守模式写入失败"
   # 板随值守档变更刷新(进入/退出 unattended 后必须)
   bash "$(dirname "$0")/progress.sh" render >/dev/null 2>&1 || true
 }

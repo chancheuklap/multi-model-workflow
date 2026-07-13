@@ -2,6 +2,7 @@
 # mmw —— Droid 原生 multi-model-workflow 统一 CLI
 #
 #   mmw where | mmw handoff | mmw step | mmw spinoff
+#   mmw checkpoint prepare|status
 #   mmw task new|resume|cleanup|team|escalate
 #   mmw loop ...
 #   mmw review start ...
@@ -14,6 +15,8 @@
 #   推进(最常用,主线程每阶段):
 #     mmw where                                查我在哪阶段/审闸/上阶段产出(prev_outputs)
 #     mmw handoff --conclusion <词> [--produced <产出>]...   交接 + 推进(产出必须真实存在,声明了产出的阶段禁空手 pass)
+#     mmw checkpoint prepare --report <设计文档>...          design 完稿后生成用户确认 token
+#     mmw checkpoint status                                 查看 design 确认状态
 #     mmw step next                            阶段内多步:干完当前步推进到下一步(报下一步 load/do)
 #     mmw spinoff --tag <t> --finding <s>      中途挖到的旁路登记成关联子任务
 #   任务(入口/收尾,主仓库):
@@ -56,6 +59,7 @@ case "$cmd" in
   worker) exec bash "$D/worker.sh" "$@" ;;
   release) exec bash "$D/release-flow.sh" "$@" ;;
   progress) exec bash "$D/progress.sh" "$@" ;;
+  checkpoint) exec bash "$D/checkpoint.sh" "$@" ;;
   attend|unattended|side-finding) exec bash "$D/steer.sh" "$cmd" "$@" ;;
   help|-h|--help) usage ;;
   *) echo "未知命令: $cmd" >&2; echo "跑 mmw help 看全部" >&2; exit 2 ;;

@@ -9,7 +9,7 @@
 | worker 分支 | `worker/<worktree-name>` |
 | 插件根 | hook 内 `${DROID_PLUGIN_ROOT}`；主线程由 `mmw` 绝对路径反推 |
 
-`task.json`、`loop-state.json`、进度板、派发账本和 review brief 都在状态平面。
+`task.json`、`loop-state.json`、进度板、design checkpoint、派发账本和 review brief 都在状态平面。
 
 ## 工具
 
@@ -65,6 +65,8 @@ Task 完成后必须先运行：
 | PostToolUse | `Execute` | `record-step.sh` |
 
 插件 hook 只引用 `${DROID_PLUGIN_ROOT}`。脚本自行筛选命令，不依赖额外 matcher 字段。
+
+UserPromptSubmit 读取官方 hook payload 的 `prompt`。只有 prompt 精确等于 `确认设计 MMW-APPROVE:<id>` 或 token 本身，且报告指纹仍匹配时，才原子批准当前 design checkpoint；任意其它消息只注入流程锚，不构成批准。不存在公开的 `mmw checkpoint approve` 命令。
 
 ## 安全
 

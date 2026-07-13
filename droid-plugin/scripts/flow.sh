@@ -12,6 +12,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
+# shellcheck source=lib/attendance.sh
+. "$SCRIPT_DIR/lib/attendance.sh"
 ROUTES="$SCRIPT_DIR/../state-schema/routes.json"
 MANIFEST_NAME="task.json"
 # 回执里的命令一律吐完整可执行形式(agent 直接粘贴跑,不用自己把 mmw 别名展开成路径)
@@ -44,19 +46,48 @@ write_manifest() {
   mv "$tmp" "$m"
 }
 
-# source-stability:算某阶段产物(phase_outputs[phase] 列的文件/目录)在工作树上的内容指纹。
-# 过闸时记一次,where 再算一次比对——不同 = 过闸后被改,该回该阶段重审。空产物返回 "none"。
-fingerprint_outputs() {  # $1=manifest $2=phase
-  local m="$1" ph="$2" top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo ""; return; }
-  local paths; paths="$(jq -r --arg p "$ph" '(.phase_outputs[$p] // [])[]' "$m" 2>/dev/null)"
-  [ -n "$paths" ] || { echo "none"; return; }
-  { while IFS= read -r rel; do
-      [ -n "$rel" ] || continue
-      local abs="$top/$rel"
-      if [ -f "$abs" ]; then git hash-object "$abs" 2>/dev/null
-      elif [ -d "$abs" ]; then ( cd "$abs" && find . -type f ! -path '*/.git/*' | sort | while IFS= read -r f; do git hash-object "$f" 2>/dev/null; done )
+fingerprint_reports() {
+  local top="$1"; shift
+  [ "$#" -gt 0 ] || return 1
+  local rel abs
+  for rel in "$@"; do
+    case "$rel" in /*|*'
+'*) return 1 ;; esac
+    case "/$rel/" in */../*) return 1 ;; esac
+    [ -e "$top/$rel" ] || return 1
+    [ ! -L "$top/$rel" ] || return 1
+  done
+  {
+    for rel in "$@"; do
+      abs="$top/$rel"
+      if [ -f "$abs" ]; then
+        printf 'file\0%s\0%s\0' "$rel" "$(git hash-object "$abs")"
+      elif [ -d "$abs" ]; then
+        [ -z "$(find "$abs" -type l -print -quit)" ] || return 1
+        [ -z "$(find "$abs" -name '*'"$'\n'"'*' -print -quit)" ] || return 1
+        (
+          cd "$abs"
+          find . -type f ! -path '*/.git/*' -print | LC_ALL=C sort |
+            while IFS= read -r file; do
+              printf 'dir\0%s/%s\0%s\0' "$rel" "${file#./}" "$(git hash-object "$file")"
+            done
+        )
+      else
+        return 1
       fi
-    done <<< "$paths"; } | git hash-object --stdin 2>/dev/null || echo "err"
+    done
+  } | git hash-object --stdin
+}
+
+# source-stability:算某阶段产物(phase_outputs[phase] 列的文件/目录)在工作树上的内容指纹。
+fingerprint_outputs() {
+  local m="$1" ph="$2" top
+  top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo ""; return; }
+  local -a paths=()
+  while IFS= read -r rel; do [ -n "$rel" ] && paths+=("$rel"); done \
+    < <(jq -r --arg p "$ph" '(.phase_outputs[$p] // [])[]' "$m" 2>/dev/null)
+  [ "${#paths[@]}" -gt 0 ] || { echo "none"; return; }
+  fingerprint_reports "$top" "${paths[@]}" || echo "err"
 }
 
 # ---------- handoff ----------
@@ -112,13 +143,15 @@ cmd_handoff() {
   fi
   local top_wt pp
   top_wt="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
-  for pp in ${produced[@]+"${produced[@]}"}; do
-    if { [ -n "$top_wt" ] && [ -e "$top_wt/$pp" ]; } || [ -e "$pp" ]; then continue; fi
-    case "$pp" in
-      *..*) git rev-list -n 1 "$pp" >/dev/null 2>&1 && continue ;;
-    esac
-    die "--produced 不存在(拒收,防幽灵产出进接力单): $pp"
-  done
+  if [ "${#produced[@]}" -gt 0 ]; then
+    for pp in "${produced[@]}"; do
+      if { [ -n "$top_wt" ] && [ -e "$top_wt/$pp" ]; } || [ -e "$pp" ]; then continue; fi
+      case "$pp" in
+        *..*) git rev-list -n 1 "$pp" >/dev/null 2>&1 && continue ;;
+      esac
+      die "--produced 不存在(拒收,防幽灵产出进接力单): $pp"
+    done
+  fi
 
   # 按结论算动作(引擎核心)。new_gate 默认清空;只有"进审闸"那一支把它设成当前阶段。
   # new_step 默认 0(换阶段/原地返工/掉头都从头走该阶段步序);needs-context/blocked 停在原地→保留游标,resume 续上当前步
@@ -201,7 +234,42 @@ cmd_handoff() {
   # 产出数组
   local produced_json="[]"
   if [ "${#produced[@]}" -gt 0 ]; then
-    produced_json="$(printf '%s\n' "${produced[@]}" | jq -R . | jq -s .)"
+    produced_json="$(printf '%s\n' "${produced[@]}" | jq -R . | jq -s 'unique')"
+  fi
+
+  # 轻量人工闸只保护 design 产物。批准必须来自 UserPromptSubmit Hook 看见用户回复中的
+  # MMW-APPROVE token；handoff 只消费持久化结果，不提供手动 approve 命令。
+  local clear_checkpoint=false
+  if [ "$cur_phase" = "design" ]; then
+    case "$conclusion" in
+      pass)
+        local checkpoint_status checkpoint_phase checkpoint_fp current_fp checkpoint_reports
+        checkpoint_status="$(jq -r '.checkpoint.status // "none"' "$m")"
+        checkpoint_phase="$(jq -r '.checkpoint.phase // empty' "$m")"
+        checkpoint_fp="$(jq -r '.checkpoint.source_fingerprint // empty' "$m")"
+        checkpoint_reports="$(jq -c '.checkpoint.report // [] | unique' "$m")"
+        [ "$checkpoint_phase" = "design" ] \
+          || die "[design] 尚未准备设计确认,先 mmw checkpoint prepare --report <设计文档>"
+        [ "$checkpoint_status" = "approved" ] \
+          || die "[design] 等用户明确确认(status=$checkpoint_status),不能进入设计审或离开设计阶段"
+        local -a verified_reports=()
+        while IFS= read -r pp; do [ -n "$pp" ] && verified_reports+=("$pp"); done \
+          < <(jq -r '.checkpoint.report[]' "$m")
+        current_fp="$(fingerprint_reports "$top_wt" "${verified_reports[@]}")" \
+          || die "[design] 无法复核已确认设计报告"
+        [ "$current_fp" = "$checkpoint_fp" ] \
+          || die "[design] 用户确认后的设计报告已改变,请重新 prepare 并确认"
+        if [ -z "$gate" ]; then
+          [ "$(jq -cS . <<<"$produced_json")" = "$(jq -cS . <<<"$checkpoint_reports")" ] \
+            || die "[design] handoff 产出必须与用户确认的报告完全一致"
+        elif [ "$next_action" = "advance" ]; then
+          clear_checkpoint=true
+        fi
+        ;;
+      needs-repair|needs-redirection)
+        clear_checkpoint=true
+        ;;
+    esac
   fi
 
   # source-stability:这一手是"清掉 gate 过闸"(审 verdict pass)→ 记下被审产物此刻指纹,
@@ -225,12 +293,15 @@ cmd_handoff() {
     --arg hphase "$cur_phase" --arg hconc "$conclusion" --arg at "$(now)" \
     --argjson produced "$produced_json" --argjson nstep "$new_step" \
     --arg fpphase "$fp_phase" --arg fpval "$fp_val" \
+    --argjson clear_checkpoint "$clear_checkpoint" \
     '.phase=$phase | .phase_index=$pidx | .repair_count=$rc | .turnaround_count=$tc | .status=$status
      | .gate=(if $gate=="" then null else $gate end)
      | .step_index=$nstep
      | .artifacts += $produced
      | (if ($produced|length)>0 then .phase_outputs[$hphase] = (((.phase_outputs[$hphase] // []) + $produced) | unique) else . end)
      | (if $fpphase!="" then .gate_fingerprints[$fpphase]=$fpval else . end)
+     | (if $clear_checkpoint then .checkpoint={phase:null,status:"none",report:[],source_fingerprint:null,approval_id:null,prepared_at:null,approved_at:null} else . end)
+     | (if (.scenario=="develop" and $phase=="plan" and .attendance=="attended") then .attendance="afk" | .unattended_policy=null else . end)
      | .history += [{phase:$hphase, conclusion:$hconc, at:$at}]' \
     "$m" | write_manifest "$m"
 
@@ -307,7 +378,8 @@ cmd_where() {
     fi
     return 0
   fi
-  local scenario phase pidx status rc tc
+  local scenario phase pidx status rc tc top_wt
+  top_wt="$(git -C "$(dirname "$m")" rev-parse --show-toplevel)"
   scenario="$(jq -r .scenario "$m")"; phase="$(jq -r .phase "$m")"
   pidx="$(jq -r .phase_index "$m")"; status="$(jq -r .status "$m")"
   rc="$(jq -r .repair_count "$m")"; tc="$(jq -r .turnaround_count "$m")"
@@ -379,6 +451,42 @@ step_note=断点回来时:本步产物若已完成,核一眼直接 step next,别
       then_cmd="$then_cmd --produced $p"
     done <<< "$produced_src"
   fi
+
+  local checkpoint_view checkpoint_status checkpoint_id
+  checkpoint_view="$(bash "$SCRIPT_DIR/checkpoint.sh" status)" \
+    || die "checkpoint 状态读取失败"
+  checkpoint_status="$(printf '%s\n' "$checkpoint_view" | sed -n 's/^checkpoint_status=//p')"
+  checkpoint_id="$(printf '%s\n' "$checkpoint_view" | sed -n 's/^checkpoint_approval_id=//p')"
+  if [ "$phase" = "design" ] && { [ "$gate" = "null" ] || [ -z "$gate" ]; } \
+    && { [ "$step_total" -eq 0 ] || [ "$step_idx" -ge $(( step_total - 1 )) ]; }; then
+    case "$checkpoint_status" in
+      none)
+        then_cmd="$MMW checkpoint prepare"
+        local design_base design_report quoted
+        design_base="$(jq -r '.docs.design' "$m")"
+        if [ -f "$top_wt/${design_base}.md" ]; then
+          design_report="${design_base}.md"
+        elif [ -d "$top_wt/$design_base" ]; then
+          design_report="$design_base"
+        else
+          design_report="${design_base}.md"
+        fi
+        printf -v quoted '%q' "$design_report"
+        then_cmd="$then_cmd --report $quoted"
+        ;;
+      waiting-user)
+        then_cmd="AskUser 让用户选择“确认设计 MMW-APPROVE:${checkpoint_id}”或提出修改"
+        ;;
+      approved)
+        then_cmd="$MMW handoff --conclusion <pass|needs-repair|needs-redirection|needs-context|blocked>"
+        while IFS= read -r p; do
+          [ -n "$p" ] || continue
+          printf -v quoted '%q' "$p"
+          then_cmd="$then_cmd --produced $quoted"
+        done < <(jq -r '.checkpoint.report[]' "$m")
+        ;;
+    esac
+  fi
   # 审闸里:stage 由 review_gates[gate].stage 定(design→design / plan→plan / build→final),
   # where 直接吐确切的 review_start 命令 + review_source,agent 照跑不靠散文猜哪个 stage。
   local review_line="" review_start_line=""
@@ -412,6 +520,7 @@ phase_outputs=$(jq -rc '.phase_outputs' "$m")
 subtasks=$(jq -r '.subtasks | length' "$m")
 open_items=$(jq -r '.open_items | length' "$m")
 EOF
+  printf '%s\n' "$checkpoint_view"
   if [ -n "$review_line" ]; then echo "$review_line"; fi
   if [ -n "$review_start_line" ]; then echo "$review_start_line"; fi
 
@@ -483,10 +592,25 @@ EOF
   else echo "then=$MMW handoff --conclusion <...>(产物钉法见 where 的 then)"; fi
 }
 
+cmd_fingerprint() {
+  local -a reports=()
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --report) reports+=("$2"); shift 2 ;;
+      *) die "fingerprint 未知参数: $1" ;;
+    esac
+  done
+  [ "${#reports[@]}" -gt 0 ] || die "fingerprint 需要 --report <path>"
+  local top
+  top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
+  fingerprint_reports "$top" "${reports[@]}" || die "报告路径不存在或不安全"
+}
+
 case "${1:-}" in
   handoff)         shift; cmd_handoff "$@" ;;
   spinoff)         shift; cmd_spinoff "$@" ;;
   where)           shift; cmd_where "$@" ;;
   step)            shift; cmd_step "$@" ;;
-  *) die "用法: flow.sh handoff|spinoff|where|step ..." ;;
+  fingerprint)     shift; cmd_fingerprint "$@" ;;
+  *) die "用法: flow.sh handoff|spinoff|where|step|fingerprint ..." ;;
 esac

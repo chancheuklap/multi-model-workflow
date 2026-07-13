@@ -20,12 +20,15 @@ WT="$(bash "$MMW" task new --scenario develop --slug 2026-06-29-mmw --title t 2>
 [ -n "$WT" ] && [ -d "$WT" ] && ok "mmw task new → prepare.sh 建 worktree" || no "mmw task new"
 
 # where / handoff / spinoff → flow.sh
-( cd "$WT" && bash "$MMW" where | grep -q "phase=investigate" ) && ok "mmw where → flow.sh where" || no "mmw where"
+WHERE_OUT="$(cd "$WT" && bash "$MMW" where)"
+printf '%s\n' "$WHERE_OUT" | grep -q "phase=investigate" && ok "mmw where → flow.sh where" || no "mmw where"
 mkdir -p "$WT/docs"; : > "$WT/docs/x.md"   # handoff 拒收幽灵产出:先真建
 ( cd "$WT" && bash "$MMW" handoff --conclusion pass --produced docs/x.md >/dev/null ) && \
   [ "$(jq -r .phase "$WT/${STATE_SUBDIR}/task.json")" = "propose" ] && ok "mmw handoff → flow.sh handoff" || no "mmw handoff"
 ( cd "$WT" && bash "$MMW" spinoff --tag bug --finding "x" >/dev/null ) && \
   [ "$(jq -r '.subtasks|length' "$WT/${STATE_SUBDIR}/task.json")" = "1" ] && ok "mmw spinoff → flow.sh spinoff" || no "mmw spinoff"
+( cd "$WT" && bash "$MMW" checkpoint status | grep -q '^checkpoint_status=none$' ) \
+  && ok "mmw checkpoint → checkpoint.sh" || no "mmw checkpoint"
 
 # loop → loop.sh
 ( cd "$WT" && bash "$MMW" loop init --kind execution >/dev/null && bash "$MMW" loop step add --id 1.1 --desc p >/dev/null ) && \
@@ -50,7 +53,7 @@ echo "$RV" | grep -q "REVIEW_STARTED" && ok "mmw review → review.sh" || no "mm
 if ( cd "$WT" && bash "$MMW" worker dispatch >/dev/null 2>&1 ); then no "mmw worker 缺参数应拒"; else ok "mmw worker 路由"; fi
 
 # help / 未知
-bash "$MMW" help 2>/dev/null | grep -q "mmw handoff" && ok "mmw help 列命令" || no "mmw help"
+bash "$MMW" help 2>/dev/null | grep -q "mmw checkpoint" && ok "mmw help 列 checkpoint" || no "mmw help"
 if bash "$MMW" bogus >/dev/null 2>&1; then no "未知命令被拒"; else ok "未知命令被拒"; fi
 
 echo ""

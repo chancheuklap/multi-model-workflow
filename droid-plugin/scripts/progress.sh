@@ -38,6 +38,10 @@ phase=$(jq -r '.phase // "?"' "$MAN")
 status=$(jq -r '.status // "?"' "$MAN")
 mode=$(jq -r '.attendance // "afk"' "$MAN")
 repair=$(jq -r '.repair_count // 0' "$MAN")
+checkpoint_view="$(bash "$SCRIPT_DIR/checkpoint.sh" status)" || die "checkpoint 状态读取失败"
+checkpoint_status="$(printf '%s\n' "$checkpoint_view" | sed -n 's/^checkpoint_status=//p')"
+checkpoint_report="$(printf '%s\n' "$checkpoint_view" | sed -n 's/^checkpoint_report=//p')"
+checkpoint_id="$(printf '%s\n' "$checkpoint_view" | sed -n 's/^checkpoint_approval_id=//p')"
 
 # ---- 从 loop-state 取内层事实(可能无 loop) ----
 loop_line="(当前无活动 loop)"
@@ -86,6 +90,11 @@ board="$(cat <<EOF
 - 值守模式：**${mode}**
 - 进度度量：${budget_line}
 - 当前动作：${loop_line}
+
+## 设计确认
+- checkpoint：**${checkpoint_status}**
+- 报告：\`${checkpoint_report}\`
+- 确认编号：\`${checkpoint_id}\`
 
 ## 计划进度
 | Plan | 状态 | Pack | Review | 备注 |

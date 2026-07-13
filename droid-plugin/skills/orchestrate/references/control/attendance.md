@@ -10,7 +10,7 @@ Coordinator 在任何阶段都按当前值守档决定"软停问不问人"。值
 | `afk` | 自决 + 留痕(`mmw loop softstop` 写 decisions) | 停(硬停) | 按默认策略自动 | 仅冒泡/硬门时 |
 | `unattended` | 自决 + 留痕 | 停(硬停) | 按预授权 policy 自动 | **禁止** |
 
-- 默认 `afk`(建 task 时写)。
+- develop 默认 `attended`，设计确认并通过设计审、进入 plan 后自动切 `afk`；bug 与 small-change 默认 `afk`。
 - `afk` 与 `unattended` 软停都自决;差别 = `unattended` 有进入门禁 + 禁问合同 + 预授权 policy,冒泡时也不问、只硬停写板。
 
 ## no-question:双层,磁盘 mode 为权威
@@ -56,4 +56,4 @@ Coordinator 在任何阶段都按当前值守档决定"软停问不问人"。值
 | `/attended`(`mmw unattended exit`) | 回 `attended`,恢复可提问 |
 | 任务完成 Closing | mode 随 run 结束 |
 | 硬停(用户不在场) | 盘上留 `unattended` + 板写原因,等用户回来 |
-| 用户回来发任意消息 | `disallowed-tools` 自动清除;Coordinator 同步把盘 `mode` 落回 `attended`(不留"盘写 unattended、实际可提问"的分叉);要续无人值守须再 `/unattended` |
+| 用户回来接管 | 显式执行 `/attended` 或 `mmw unattended exit`；普通消息不暗改盘上 mode |

@@ -250,6 +250,8 @@ release_done duck
 run_package record-release --product duck
 if [ "$RC" -ne 0 ]; then ok "开发模式未确认时即使 S1 DONE 也拒绝记录"; else no "开发模式未确认时应拒绝记录"; fi
 (cd "$CASE" && bash "$MMW" release close >/dev/null)
+run_package confirm --gate development-mode-test --by afk-policy
+if [ "$RC" -ne 0 ]; then ok "AFK 不能代填开发模式确认"; else no "AFK 不应代填开发模式确认"; fi
 run_package confirm --gate development-mode-test --by owner
 if [ "$RC" -eq 0 ]; then ok "具名开发模式确认落盘"; else no "开发模式确认 (rc=$RC err=$ERROR)"; fi
 run_package where
@@ -273,6 +275,8 @@ run_package record-release --product parrot
 (cd "$CASE" && bash "$MMW" release close >/dev/null)
 run_package where
 if [ "$RC" -eq 0 ] && [ "$RESULT" = 'PAUSED-HUMAN:installed-test' ]; then ok "所有 release 后停在安装后测试"; else no "安装后测试停位 (rc=$RC out=$RESULT err=$ERROR)"; fi
+run_package confirm --gate installed-test --by unattended-policy
+if [ "$RC" -ne 0 ]; then ok "unattended 不能代填安装后确认"; else no "unattended 不应代填安装后确认"; fi
 run_package confirm --gate installed-test --by owner
 run_package exit-check
 if [ "$RC" -eq 0 ] && [ "$RESULT" = 'DONE' ]; then ok "两次具名确认和所有 release 后 DONE"; else no "最终 DONE (rc=$RC out=$RESULT err=$ERROR)"; fi

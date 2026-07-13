@@ -9,6 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREPARE="$SCRIPT_DIR/../prepare.sh"
 FLOW="$SCRIPT_DIR/../flow.sh"
 LOOP="$SCRIPT_DIR/../loop.sh"
+CHECKPOINT="$SCRIPT_DIR/../checkpoint.sh"
+PROMPT_HOOK="$SCRIPT_DIR/../../hooks/prompt-anchor.sh"
 PACKAGE="$SCRIPT_DIR/../package-phase.sh"
 PACKAGE_FIXTURES="$SCRIPT_DIR/fixtures/package-phase"
 
@@ -48,6 +50,15 @@ init_empty_package() {
   cp -R "$PACKAGE_FIXTURES/." "$1/fixtures/"
   (cd "$1" && bash "$PACKAGE" init --scope fixtures/generic.release-package-scope.json)
 }
+approve_design() {
+  local wt="$1" report="$2" prepared token payload
+  if [ -f "$wt/$report" ] && [ ! -s "$wt/$report" ]; then printf 'design\n' >"$wt/$report"; fi
+  prepared="$(cd "$wt" && bash "$CHECKPOINT" prepare --report "$report")"
+  token="$(printf '%s\n' "$prepared" | sed -n 's/^approval_token=//p')"
+  payload="$(jq -cn --arg cwd "$wt" --arg prompt "确认设计 $token" \
+    '{hook_event_name:"UserPromptSubmit",cwd:$cwd,prompt:$prompt}')"
+  printf '%s' "$payload" | bash "$PROMPT_HOOK" >/dev/null
+}
 
 # ===== A: develop 全程空跑 + 中途甩支线 (investigate→design→plan→build(④闸)→package→closing) =====
 WA="$(newtask develop 2026-06-28-task-a)"
@@ -73,6 +84,7 @@ mkf "$WA" docs/dir.md
 # design 产物过 → 进 ①审闸(phase 不动,gate=design);声明了产出的阶段禁空手 pass
 if ( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 ); then no "design 空手 pass 该被拒"; else ok "design 空手 pass 被拒(产出必钉)"; fi
 mkf "$WA" docs/design/a.md
+approve_design "$WA" docs/design/a.md
 OUTG="$(cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/design/a.md)"       # design→gate:design
 echo "$OUTG" | grep -q "NEXT_ACTION=review" && ok "design pass→进审闸(review)" || no "design→审闸"
 echo "$OUTG" | grep -q "REVIEW_STAGE=design" && ok "审闸报阶段 design" || no "REVIEW_STAGE"
@@ -134,6 +146,7 @@ WA2="$(newtask develop 2026-06-28-task-a2)"
 mkf "$WA2" docs/i.md; mkf "$WA2" docs/p.md; mkf "$WA2" docs/d.md
 ( cd "$WA2" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )  # investigate→propose
 ( cd "$WA2" && bash "$FLOW" handoff --conclusion pass --produced docs/p.md >/dev/null )  # propose→design
+approve_design "$WA2" docs/d.md
 ( cd "$WA2" && bash "$FLOW" handoff --conclusion pass --produced docs/d.md >/dev/null )  # design→gate:design
 [ "$(mfield "$WA2" gate)" = "design" ] && ok "A2 进 ①审闸" || no "A2 ①审闸"
 ( cd "$WA2" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )  # 审打回
@@ -146,6 +159,7 @@ WA3="$(newtask develop 2026-07-11-gate)"
 mkf "$WA3" docs/i.md; mkf "$WA3" docs/p.md; mkf "$WA3" docs/design/g.md
 ( cd "$WA3" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )
 ( cd "$WA3" && bash "$FLOW" handoff --conclusion pass --produced docs/p.md >/dev/null )
+approve_design "$WA3" docs/design/g.md
 ( cd "$WA3" && bash "$FLOW" handoff --conclusion pass --produced docs/design/g.md >/dev/null )  # design→①审闸
 [ "$(mfield "$WA3" gate)" = "design" ] && ok "A3 进 ①审闸" || no "A3 ①审闸"
 # 无审 loop → 审闸内 pass 被拒(fail-closed:没起审就想过闸)
@@ -227,6 +241,7 @@ WD2="$(newtask develop 2026-06-28-task-d2)"
 mkf "$WD2" docs/i.md; mkf "$WD2" docs/p.md; mkf "$WD2" docs/d.md; mkd "$WD2" docs/issues/x
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )        # investigate→propose
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion pass --produced docs/p.md >/dev/null )        # propose→design
+approve_design "$WD2" docs/d.md
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion pass --produced docs/d.md >/dev/null )        # design→①审闸
 gate_verdict_pass "$WD2"        # ①审过→to-issue(审闸不产文件)
 ( cd "$WD2" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/x/ >/dev/null )        # to-issue→plan
@@ -299,10 +314,11 @@ echo "$SN" | grep -q "step=prototype (2/4)" && ok "step next → prototype(2/4)"
 ( cd "$WI" && bash "$FLOW" step next >/dev/null )   # →selfcheck(末步)
 WIL="$(cd "$WI" && bash "$FLOW" where)"
 echo "$WIL" | grep -q "step=selfcheck (4/4)" && ok "末步 where 报 selfcheck(4/4)" || no "selfcheck step"
-echo "$WIL" | grep "^then=" | grep -q "handoff --conclusion" && echo "$WIL" | grep -q -- "--produced docs/design/2026-06-30-steps.md" && ok "末步 then 回 handoff 钉产物" || no "末步 then handoff"
+echo "$WIL" | grep "^then=" | grep -q "checkpoint prepare" && echo "$WIL" | grep -q -- "--report docs/design/2026-06-30-steps.md" && ok "design 末步先走一次确认" || no "design 末步 checkpoint"
 DONE="$(cd "$WI" && bash "$FLOW" step next)"
 echo "$DONE" | grep -q "STEPS_DONE" && ok "末步再 step next → STEPS_DONE" || no "STEPS_DONE"
 mkf "$WI" docs/design/2026-06-30-steps.md
+approve_design "$WI" docs/design/2026-06-30-steps.md
 ( cd "$WI" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-06-30-steps.md >/dev/null )  # design→①审
 [ "$(mfield "$WI" step_index)" = "0" ] && ok "handoff 后 step_index 重置=0(新阶段从头)" || no "step_index 重置"
 # 无步骤阶段(investigate)不报 step=,step next 被拒
@@ -325,6 +341,7 @@ mkf "$WSS" docs/investigating/ss.md; mkf "$WSS" docs/design/ss-dir.md
 ( cd "$WSS" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/ss.md >/dev/null )  # inv->propose
 ( cd "$WSS" && bash "$FLOW" handoff --conclusion pass --produced docs/design/ss-dir.md >/dev/null )     # propose->design
 echo "# design v1" > "$WSS/docs/design/ss.md"
+approve_design "$WSS" docs/design/ss.md
 ( cd "$WSS" && bash "$FLOW" handoff --conclusion pass --produced docs/design/ss.md >/dev/null )         # design->gate
 gate_verdict_pass "$WSS"                                       # 审 pass(记指纹)->to-issue
 ( cd "$WSS" && bash "$FLOW" where ) | grep -q "stale_gate" && no "未改不该报 stale" || ok "过闸产物没改:where 不报 stale"
@@ -366,6 +383,7 @@ WBB="$(newtask develop 2026-07-03-modeb)"
 mkf "$WBB" docs/i.md; mkf "$WBB" docs/p.md; mkf "$WBB" docs/d.md; mkd "$WBB" docs/issues/x; mkd "$WBB" docs/plans/x
 ( cd "$WBB" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )       # investigate→propose
 ( cd "$WBB" && bash "$FLOW" handoff --conclusion pass --produced docs/p.md >/dev/null )       # propose→design
+approve_design "$WBB" docs/d.md
 ( cd "$WBB" && bash "$FLOW" handoff --conclusion pass --produced docs/d.md >/dev/null )       # design→①审闸
 gate_verdict_pass "$WBB"                            # ①审过→to-issue
 ( cd "$WBB" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/x/ >/dev/null )  # to-issue→plan
@@ -380,8 +398,10 @@ WDD="$(newtask develop 2026-07-05-dedup)"
 mkf "$WDD" docs/i.md; mkf "$WDD" docs/p.md; mkf "$WDD" docs/design/dd.md
 ( cd "$WDD" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )
 ( cd "$WDD" && bash "$FLOW" handoff --conclusion pass --produced docs/p.md >/dev/null )
+approve_design "$WDD" docs/design/dd.md
 ( cd "$WDD" && bash "$FLOW" handoff --conclusion pass --produced docs/design/dd.md >/dev/null )   # design→①审闸
 ( cd "$WDD" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )                        # ①审打回
+approve_design "$WDD" docs/design/dd.md
 ( cd "$WDD" && bash "$FLOW" handoff --conclusion pass --produced docs/design/dd.md >/dev/null )   # 改完再 pass→重进闸
 [ "$(mfield "$WDD" 'phase_outputs.design|length')" = "1" ] && ok "返修后同产出不重复累积(unique)" || no "phase_outputs 去重 ($(mfield "$WDD" 'phase_outputs.design|length'))"
 WRS="$(cd "$WDD" && bash "$FLOW" where)"
