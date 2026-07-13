@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# mmw —— Droid 原生 multi-model-workflow 统一 CLI
+#
+#   mmw where | mmw handoff | mmw step | mmw spinoff
+#   mmw investigate start|status|resume|result
+#   mmw checkpoint prepare|status
+#   mmw task new|resume|cleanup|team|escalate
+#   mmw loop ...
+#   mmw review start ...
+#   mmw worker dispatch|status|resume|check-docs ...
+#   mmw worker plan-dispatch|plan-resume|plan-check ...
+#   mmw release init|where|stage run|stage done|stage fail|round|surface|resume|close|exit-check|receipt|dispatch
+#   mmw help
+#
+# 用法(读完 skill 直接用):
+#   推进(最常用,主线程每阶段):
+#     mmw where                                查我在哪阶段/审闸/上阶段产出(prev_outputs)
+#     mmw handoff --conclusion <词> [--produced <产出>]...   交接 + 推进(产出必须真实存在,声明了产出的阶段禁空手 pass)
+#     mmw checkpoint prepare --report <设计文档>...          design 完稿后生成用户确认 token
+#     mmw checkpoint status                                 查看 design 确认状态
+#     mmw step next                            阶段内多步:干完当前步推进到下一步(报下一步 load/do)
+#     mmw spinoff --tag <t> --finding <s>      中途挖到的旁路登记成关联子任务
+#   调查 fan-out:
+#     mmw investigate start --direction <internal|external|both> --topics <topics.json> --run <id>
+#     mmw investigate status|resume|result --run <id>
+#   任务(入口/收尾,主仓库):
+#     mmw task new --scenario <small-change|develop|bug> --slug <s> --title <t> --request '<用户原始需求与验收条件>' [--direction-given]
+#     mmw task resume | mmw task cleanup --slug <s> | mmw task team(列全队在管 worktree)
+#     mmw task escalate --to develop          bug/小改撞出系统性设计问题→原地升级完整设计路
+#   内层 loop(落地/审):
+#     mmw loop init --kind <execution|review|contract-gate> [--max-rounds N] | attendance | step | round | checklist | finding | softstop | surface | resume | close | exit-check
+#   审闸一条命令:
+#     mmw review start --stage <design|plan|plan-impl|final|merge-impl> --source <...>
+#   写码工人派发(droid exec → pack-executor):
+#     mmw worker dispatch --plan <p> --worktree <wt> | worker resume --worktree <wt> --instructions <f>
+#     mmw worker status --worktree <wt>       # 完成时自动核 docs 边界并打印最后回执
+#   写计划工人派发(droid exec → plan-writer;在任务 worktree 内、不 commit):
+#     mmw worker plan-dispatch --plan <落点> --worktree <wt> [--design <d>] [--issue <i>]
+#     mmw worker plan-resume --plan <落点> --worktree <wt> --instructions <f>
+#     mmw worker status --plan <落点> --worktree <wt>       # 完成时自动核计划边界
+#   进度板(负责人可读投影):
+#     mmw progress render [--stdout]           从 task.json/loop-state 聚合 progress-board.md(--stdout 供 command 注入)
+#   控制面(运行级值守 + 计划外分流):
+#     mmw attend --mode attended|afk           自由切档(attended 有 /attended;afk 直接敲本命令)
+#     mmw unattended enter|status|exit         强无人:enter 过门禁才进(设计+计划已过门、无未答 HITL),不静默降级
+#     mmw side-finding record --tag <t> --disposition issue|fix [--finding <s>]   计划外分流落 open_items
+#   发布红线:push / gh pr merge / 部署由 guard-redline(PreToolUse)弹权限框要用户亲批,无令牌可自铸;
+#   本地 git merge(含合并进 main)不拦——可逆、不出站,真正红线是它之后的 push。
+# 状态平面固定为 .factory/multi-model-workflow/,worktree 根固定为 .factory/worktrees/。
+set -euo pipefail
+D="$(cd "$(dirname "$0")" && pwd)"
+
+# 打头部注释全文(到 set -euo 前一行为止,不再硬编码行号截断)
+usage() { sed -n '2,/^set -euo/p' "$0" | sed '$d' | sed 's/^# \{0,1\}//'; }
+
+cmd="${1:-help}"; shift || true
+case "$cmd" in
+  where|handoff|spinoff|step) exec bash "$D/flow.sh" "$cmd" "$@" ;;
+  task)   exec bash "$D/prepare.sh" "$@" ;;
+  loop)   exec bash "$D/loop.sh" "$@" ;;
+  review) exec bash "$D/review.sh" "$@" ;;
+  worker) exec bash "$D/worker.sh" "$@" ;;
+  release) exec bash "$D/release-flow.sh" "$@" ;;
+  progress) exec bash "$D/progress.sh" "$@" ;;
+  checkpoint) exec bash "$D/checkpoint.sh" "$@" ;;
+  investigate) exec bash "$D/investigate.sh" "$@" ;;
+  attend|unattended|side-finding) exec bash "$D/steer.sh" "$cmd" "$@" ;;
+  help|-h|--help) usage ;;
+  *) echo "未知命令: $cmd" >&2; echo "跑 mmw help 看全部" >&2; exit 2 ;;
+esac

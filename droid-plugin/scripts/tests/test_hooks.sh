@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# 四个 hook 空跑:SessionStart 分诊 / UserPromptSubmit 相位锚 / PreToolUse 红线 / PostToolUse 记进度。
+# (审 loop 完工不再用 SubagentStop 看守,改由 flow.sh handoff 确定性闸把关,见 test_flow.sh。)
+set -euo pipefail
+STATE_SUBDIR="${STATE_SUBDIR:-.factory/multi-model-workflow}"
+WT_REL="${WT_REL:-.factory/worktrees}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+HOOKS="$SCRIPT_DIR/../../hooks"
+LOOP="$SCRIPT_DIR/../loop.sh"
+
+pass=0; fail=0
+ok() { echo "  PASS: $1"; pass=$((pass+1)); }
+no() { echo "  FAIL: $1"; fail=$((fail+1)); }
+# 跑 hook,回 exit code
+run_hook() { local h="$1" payload="$2"; printf '%s' "$payload" | bash "$HOOKS/$h" >/dev/null 2>&1; echo $?; }
+# 跑 hook,回 stdout(红线 ask 判定用:命中 → 吐 permissionDecision=ask JSON;放行 → 空)
+hook_out() { local h="$1" payload="$2"; printf '%s' "$payload" | bash "$HOOKS/$h" 2>/dev/null || true; }
+is_ask()    { hook_out guard-redline.sh "$1" | grep -q '"permissionDecision":[[:space:]]*"ask"'; }
+is_allow()  { [ -z "$(hook_out guard-redline.sh "$1")" ] && [ "$(run_hook guard-redline.sh "$1")" = "0" ]; }
+pl() { printf '{"tool_input":{"command":"%s"}}' "$1"; }
+
+echo "=== test_hooks.sh ==="
+TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+cd "$TMP"; git init -q -b main; git config user.email t@t; git config user.name t; echo s>s; git add -A; git commit -qm s
+
+# ===== guard-redline(PreToolUse,permissionDecision=ask 由用户亲批,无令牌可自铸)=====
+# 主分支(main)上:push → ask;本地 merge 放行(可逆、不出站,不打断无人值守自动推进)
+is_allow "$(pl 'git merge feat --no-ff')" && ok "主分支本地 merge → 放行(不拦本地合并)" || no "主分支 merge 应放行"
+is_ask "$(pl 'git push origin main')" && ok "push → ask" || no "push ask"
+is_allow "$(pl 'git status')" && ok "git status → 放行" || no "safe 放行"
+# 老正则的绕过口全堵上
+is_ask "$(pl 'git -c core.hooksPath=/dev/null push origin main')" && ok "git -c … push(插参数)→ ask" || no "git -c push 绕过"
+is_ask "$(pl 'gh pr merge 123 --merge')" && ok "gh pr merge(GitHub 侧合并)→ ask" || no "gh pr merge 绕过"
+is_ask "$(pl './deploy.sh')" && ok "./deploy.sh → ask" || no "deploy.sh 绕过"
+is_ask "$(pl 'bash deploy-prod.sh')" && ok "deploy-prod.sh → ask" || no "deploy- 绕过"
+is_ask "$(pl 'kubectl apply -f k8s/')" && ok "kubectl apply → ask" || no "kubectl 绕过"
+is_ask "$(pl 'terraform apply')" && ok "terraform apply → ask" || no "terraform 绕过"
+is_allow "$(pl 'git -C /elsewhere merge feat')" && ok "git -C merge → 放行(本地 merge 一律不拦)" || no "git -C merge 应放行"
+is_allow "$(pl 'cat deployment.yaml')" && ok "deployment.yaml(非部署动作)→ 放行" || no "deployment 误伤"
+is_allow "$(pl 'git pull origin main')" && ok "git pull(入站)→ 放行" || no "pull 误伤"
+# 引号串里的动词不是动作(v1 裸 grep 误拦根因):commit message 提 push/deploy/merge → 放行
+is_allow "$(pl 'git commit -m \"docs: deploy guide\"')" && ok "commit message 含 deploy → 放行(剥引号)" || no "commit deploy 误拦"
+is_allow "$(pl 'git commit -m \"please push after review\"')" && ok "commit message 含 push → 放行(剥引号)" || no "commit push 误拦"
+is_allow "$(pl "echo 'how to merge branches' > note.txt")" && ok "单引号文本含 merge → 放行(剥引号)" || no "echo merge 误拦"
+# 命令位判定:关键词落在参数位(echo/printf/grep 文本)不是动作 → 放行;包装器/复合命令里的真动作仍拦
+is_allow "$(pl 'echo git push origin main')" && ok "echo 参数位文本 git push → 放行(命令位判定)" || no "echo git push 误拦"
+is_allow "$(pl 'grep -rn git.push docs/')" && ok "grep 模式含 push → 放行" || no "grep push 误拦"
+is_ask "$(pl 'timeout 30 git push origin main')" && ok "timeout 包装的 git push → ask" || no "timeout git push 绕过"
+is_ask "$(pl 'cd /x && git push')" && ok "复合命令中段 git push → ask" || no "复合 git push 绕过"
+# 任意分支 merge 都放行(本地不出站);push 在任意分支仍 → ask(出站)
+git checkout -q -b task/x
+is_allow "$(pl 'git merge plan-a --no-ff')" && ok "任务分支 merge → 放行" || no "任务分支 merge 误拦"
+is_ask "$(pl 'git push origin task/x')" && ok "任务分支 push 仍 → ask(出站)" || no "任务分支 push"
+git checkout -q main
+# 硬化回归(v6.15):shell 关键字/结构符段、包装器选项、引号打散动词、eval/-c 内代码、gh api 合并
+is_ask "$(pl 'if git push; then :; fi')" && ok "if git push; then → ask(关键字段不再放行)" || no "if git push 绕过"
+is_ask "$(pl 'exec git push')" && ok "exec git push → ask" || no "exec 绕过"
+is_ask "$(pl '{ git push; }')" && ok "{ git push; } → ask" || no "花括号段绕过"
+is_ask "$(pl 'git \"push\" origin main')" && ok "git \"push\"(引号包动词)→ ask" || no "引号动词绕过"
+is_ask "$(pl 'timeout -k 5 30 git push')" && ok "timeout -k 5 30 git push → ask(包装器选项剥净)" || no "timeout 选项绕过"
+is_ask "$(pl 'xargs -I{} git push {}')" && ok "xargs -I{} git push → ask" || no "xargs 选项绕过"
+is_ask "$(pl 'nice git push')" && ok "nice git push → ask" || no "nice 绕过"
+is_ask "$(pl 'gh api repos/o/r/pulls/1/merge -X PUT')" && ok "gh api pulls/*/merge → ask(GitHub 侧合并)" || no "gh api 合并绕过"
+is_ask "$(pl "bash -c 'git push'")" && ok "bash -c 'git push' → ask(-c 内代码)" || no "bash -c 绕过"
+is_allow "$(pl 'git stash push -m wip')" && ok "git stash push → 放行(子命令位判定)" || no "stash push 误拦"
+is_allow "$(pl 'git log --grep=push')" && ok "git log --grep=push → 放行" || no "log --grep 误拦"
+is_allow "$(pl 'kubectl apply --dry-run=client -f x.yaml')" && ok "kubectl apply --dry-run → 放行(只读校验)" || no "dry-run 误拦"
+is_allow "$(pl 'cat > runbook.md <<EOF\ngit push origin main\nEOF')" && ok "heredoc 正文 git push → 放行(剥正文)" || no "heredoc 正文误拦"
+
+# ===== record-step(PostToolUse commit)=====
+bash "$LOOP" close >/dev/null   # 幂等清任何残留 loop 再起新 loop(init 拒覆盖未收束 loop)
+bash "$LOOP" init --kind execution >/dev/null
+bash "$LOOP" step add --id 2.1 --desc x >/dev/null
+echo change > c.txt; git add -A; git commit -qm "Pack 2.1: do the thing"
+P_COMMIT='{"tool_input":{"command":"git commit -m \"Pack 2.1: do the thing\""}}'
+run_hook record-step.sh "$P_COMMIT" >/dev/null
+st="$(jq -r '.steps[]|select(.id=="2.1")|.status' ${STATE_SUBDIR}/loop-state.json)"
+[ "$st" = "done" ] && ok "提交 Pack 2.1 → 记 step done" || no "记 step done ($st)"
+sha="$(jq -r '.steps[]|select(.id=="2.1")|.commit' ${STATE_SUBDIR}/loop-state.json)"
+[ -n "$sha" ] && [ "$sha" != "null" ] && ok "记下 commit sha" || no "记 sha"
+# 非 commit 命令:hook 早退(exit 0)且不碰 loop-state(record-step.sh:11 grep 不中即 exit 0)
+before="$(cat ${STATE_SUBDIR}/loop-state.json)"
+ec_noop="$(run_hook record-step.sh '{"tool_input":{"command":"ls -la"}}')"
+after="$(cat ${STATE_SUBDIR}/loop-state.json)"
+[ "$ec_noop" = "0" ] && [ "$before" = "$after" ] && ok "非 commit 命令 → 早退 exit 0、loop-state 不变" || no "非 commit 应早退不改 state (ec=$ec_noop)"
+# echo 文本里提到 git commit + Pack N.M:参数位不是动作,不得误记进度
+bash "$LOOP" step add --id 2.9 --desc probe >/dev/null
+before="$(cat ${STATE_SUBDIR}/loop-state.json)"
+run_hook record-step.sh '{"tool_input":{"command":"echo git commit -m Pack 2.9: fake text"}}' >/dev/null
+after="$(cat ${STATE_SUBDIR}/loop-state.json)"
+[ "$before" = "$after" ] && ok "echo 文本含 git commit+Pack → 不记(命令位判定)" || no "echo 文本误记进度"
+# 真值化回归(v6.15):Pack 从 HEAD 取,不信命令文本
+# a) commit 成功但命令后段有别的 Pack 字样 → 只记 HEAD 真 Pack
+bash "$LOOP" step add --id 3.1 --desc real >/dev/null
+bash "$LOOP" step add --id 9.9 --desc decoy >/dev/null
+echo v3 > c.txt; git add -A; git commit -qm "Pack 3.1: real work"
+run_hook record-step.sh '{"tool_input":{"command":"git commit -m \"Pack 3.1: real work\" && echo Pack 9.9 next"}}' >/dev/null
+[ "$(jq -r '.steps[]|select(.id=="3.1")|.status' ${STATE_SUBDIR}/loop-state.json)" = "done" ] && ok "HEAD 真 Pack 3.1 → 记 done" || no "真 Pack 未记"
+[ "$(jq -r '.steps[]|select(.id=="9.9")|.status' ${STATE_SUBDIR}/loop-state.json)" = "pending" ] && ok "命令文本诱饵 Pack 9.9 → 不记(HEAD 真值)" || no "诱饵 Pack 被误记"
+# b) commit 失败(HEAD 没动、信息里无该 Pack)→ 不记
+bash "$LOOP" step add --id 4.1 --desc failcase >/dev/null
+run_hook record-step.sh '{"tool_input":{"command":"git commit -m \"Pack 4.1: never landed\""}}' >/dev/null
+[ "$(jq -r '.steps[]|select(.id=="4.1")|.status' ${STATE_SUBDIR}/loop-state.json)" = "pending" ] && ok "commit 失败 → 不记(sha 不脏)" || no "失败提交被误记"
+# c) git -C <path> commit 形态 → 记(全局选项剥离)
+bash "$LOOP" step add --id 5.1 --desc cdir >/dev/null
+echo v5 > c.txt; git add -A; git commit -qm "Pack 5.1: via -C"
+( cd / && printf '{"tool_input":{"command":"git -C %s commit -m \\"Pack 5.1: via -C\\""}}' "$TMP" | bash "$HOOKS/record-step.sh" ) >/dev/null 2>&1
+[ "$(jq -r '.steps[]|select(.id=="5.1")|.status' ${STATE_SUBDIR}/loop-state.json)" = "done" ] && ok "git -C <path> commit → 记(跨目录真值)" || no "git -C commit 漏记"
+
+# ===== session-triage(SessionStart 分诊)=====
+# 非 git 目录 → 静默退出(不注入不报错)
+NOGIT="$(mktemp -d)"
+OUT="$(cd "$NOGIT" && printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"; EC=$?
+[ "$EC" = "0" ] && [ -z "$OUT" ] && ok "非 git 目录 → 静默 exit 0" || no "非 git 静默 ($EC/$OUT)"
+rm -rf "$NOGIT"
+# 主仓库无在飞任务 → 只注入分诊指令
+rm -f ${STATE_SUBDIR}/task.json ${STATE_SUBDIR}/loop-state.json
+OUT="$(printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
+echo "$OUT" | grep -q "会话分诊" && ok "主仓库注入分诊指令(正式进流程/简单直接答)" || no "分诊指令"
+echo "$OUT" | grep -q "在飞任务" && no "无在飞不该列清单" || ok "无在飞任务不列清单"
+# 主仓库有在飞 worktree(有 manifest 才算)→ 追加在飞清单
+mkdir -p ${WT_REL}/w1/${STATE_SUBDIR}
+printf '{"slug":"w1","scenario":"develop","phase":"design","status":"active","worktree_path":"%s"}' "$TMP/${WT_REL}/w1" \
+  > ${WT_REL}/w1/${STATE_SUBDIR}/task.json
+OUT="$(printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
+echo "$OUT" | grep -q "在飞任务" && echo "$OUT" | grep -q "w1.*phase=design" && ok "有在飞任务 → 列清单(slug/phase)" || no "在飞清单"
+# 在管任务 worktree 内 → 报身份+续跑入口
+WTREPO="$(mktemp -d)"
+( cd "$WTREPO" && git init -q && mkdir -p ${STATE_SUBDIR} \
+  && printf '{"slug":"t9","scenario":"bug","phase":"build","status":"active"}' > ${STATE_SUBDIR}/task.json )
+OUT="$(cd "$WTREPO" && printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
+echo "$OUT" | grep -q "在管任务 worktree:t9" && echo "$OUT" | grep -q "phase=build" && ok "在管 worktree → 报身份+续跑" || no "在管身份"
+rm -rf "$WTREPO"
+
+# ===== prompt-anchor(UserPromptSubmit 相位锚:在管注入一行,非在管零输出)=====
+# 主仓库(顶层无 task.json,即便有在飞 worktree 清单)→ 零输出,不打扰问答
+OUT="$(printf '{}' | bash "$HOOKS/prompt-anchor.sh" 2>&1)"; EC=$?
+[ "$EC" = "0" ] && [ -z "$OUT" ] && ok "非在管目录 → 零输出(零上下文成本)" || no "非在管应零输出 ($EC/$OUT)"
+# 在管任务 worktree 内 → 恰一行锚(slug/phase/status)
+WTREPO="$(mktemp -d)"
+( cd "$WTREPO" && git init -q && mkdir -p ${STATE_SUBDIR} \
+  && printf '{"slug":"t9","scenario":"bug","phase":"build","status":"active"}' > ${STATE_SUBDIR}/task.json )
+OUT="$(cd "$WTREPO" && printf '{}' | bash "$HOOKS/prompt-anchor.sh" 2>&1)"
+[ "$(printf '%s' "$OUT" | grep -c .)" = "1" ] && echo "$OUT" | grep -q "t9 phase=build status=active" && ok "在管 worktree → 单行锚(slug/phase/status)" || no "单行锚 ($OUT)"
+# 非 git 目录 → 静默 exit 0
+NOGIT="$(mktemp -d)"
+OUT="$(cd "$NOGIT" && printf '{}' | bash "$HOOKS/prompt-anchor.sh" 2>&1)"; EC=$?
+[ "$EC" = "0" ] && [ -z "$OUT" ] && ok "非 git 目录 → 静默 exit 0" || no "prompt-anchor 非 git 静默 ($EC/$OUT)"
+rm -rf "$WTREPO" "$NOGIT"
+
+# ===== hooks.json Droid 原生接线 =====
+HJ="$HOOKS/hooks.json"
+python3 -m json.tool "$HJ" >/dev/null 2>&1 && ok "hooks.json JSON 合法" || no "hooks.json JSON 不合法"
+noif_exec="$(jq -r '[.hooks.PreToolUse[],.hooks.PostToolUse[]|select(.matcher=="Execute")|.hooks[]|has("if")]|any' "$HJ")"
+[ "$noif_exec" = "false" ] && ok "Execute 组不带 if" || no "Execute 组混入 if"
+[ "$(jq -r '[.hooks.PreToolUse[],.hooks.PostToolUse[]|.matcher]|unique|join(",")' "$HJ")" = "Execute" ] &&
+  ok "仅注册 Execute matcher" || no "存在非 Droid matcher"
+jq -e '.. | strings | select(test("DROID_PLUGIN_ROOT"))' "$HJ" >/dev/null 2>&1 &&
+  ok "hook 使用 DROID_PLUGIN_ROOT" || no "plugin root 未接线"
+jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | test("prompt-anchor.sh")' "$HJ" >/dev/null 2>&1 && ok "UserPromptSubmit → prompt-anchor 已接线" || no "UserPromptSubmit 未接线"
+
+echo ""; echo "Results: $pass passed, $fail failed"; [ "$fail" -eq 0 ]

@@ -1,0 +1,51 @@
+{
+  "description": "Droid 原生多模型工作流分诊、相位锚、红线与提交记账",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${DROID_PLUGIN_ROOT}/hooks/session-triage.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${DROID_PLUGIN_ROOT}/hooks/prompt-anchor.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Execute",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${DROID_PLUGIN_ROOT}/hooks/guard-redline.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Execute",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${DROID_PLUGIN_ROOT}/hooks/record-step.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

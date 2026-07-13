@@ -1,0 +1,73 @@
+param(
+  [string]$ReleaseContextPath = ${CONTEXT_DEFAULT_PATH}
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+function Step {
+  param([string]$Label)
+  Write-Host $Label
+}
+
+function Assert-Tool {
+  param([string]$Name)
+  if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+    throw "Required build tool is unavailable: $Name"
+  }
+}
+
+${RENDERED_HOOK_FUNCTIONS}
+
+# 上下文路径绝对化:钩子在 $RepoRoot 下跑(见 Invoke-ReleaseHook),若传的是相对路径,
+# cwd 一切换就读不到。远程 harness 已按绝对路径传 -ReleaseContextPath,此处对绝对路径幂等。
+$ReleaseContextPath = (Resolve-Path -LiteralPath $ReleaseContextPath).Path
+$Context = Get-Content -Raw -Encoding UTF8 $ReleaseContextPath | ConvertFrom-Json
+$RepoRoot = [string]$Context.repo_root
+$DesktopDir = Join-Path $RepoRoot ${DESKTOP_DIR_LITERAL}
+
+# core_exe 车道:产品的旧一体化出包脚本(编译 launcher/core → Electron staging → bundle 组装
+# → NSIS installer)整段由 runtime_prepare 钩子驱动,模板不重造 Electron 通用步骤——那条脚本
+# 自己管理 pnpm/electron-builder staging,且安装包语义(VC++ 运行库携带、AUMID 盖章、卸载保留
+# 用户数据)只存在于它手写的 NSIS 里,electron-builder 通用 NSIS 复刻不了。
+# 通用 build_machine 协议:setup 在耗时步骤前备好构建机(应用 uv 镜像/ccache/电子镜像/PYTHONDONTWRITEBYTECODE/
+# TEMP 重定向等 env + 加系统级杀软排除 + 构建缓存预检),teardown 在 finally 移除本次杀软排除。值/探测全在
+# 仓库侧脚本,引擎只搬运。null 时整段跳过(不声明 build_machine 的钥匙不受影响)。
+$BuildMachine = if ($Context.PSObject.Properties.Match('build_machine').Count -gt 0) { $Context.build_machine } else { $null }
+try {
+  if ($BuildMachine -and $BuildMachine.setup) {
+    Step "[0/4] Prepare build machine"
+    # 在 $RepoRoot 下跑(与钩子同,让 setup argv 里的仓库相对路径解析得到);setup stdout 每行 KEY=VALUE 应用到本进程 env。
+    Push-Location $RepoRoot
+    try {
+      $envLines = & $BuildMachine.setup[0] @($BuildMachine.setup[1..($BuildMachine.setup.Count - 1)])
+    } finally { Pop-Location }
+    if ($LASTEXITCODE -ne 0) { throw "build machine setup failed ($LASTEXITCODE)" }
+    foreach ($line in @($envLines)) {
+      if ("$line" -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+        [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2])
+        Write-Host ("  build env: " + $Matches[1])
+      }
+    }
+  }
+
+  Step "[1/4] Validate prerequisites"
+  foreach ($tool in @('python', 'pnpm', 'node', 'uv', 'makensis')) {
+    Assert-Tool $tool
+  }
+
+  Step "[2/4] Build product bundle and installer"
+${RUNTIME_HOOK_CALLS}
+
+  Step "[3/4] Scan release artifacts"
+${ARTIFACT_HOOK_CALLS}
+
+  Step "[4/4] Verify package integrity"
+${RELEASE_HOOK_CALLS}
+}
+finally {
+  if ($BuildMachine -and $BuildMachine.teardown) {
+    Push-Location $RepoRoot
+    try { & $BuildMachine.teardown[0] @($BuildMachine.teardown[1..($BuildMachine.teardown.Count - 1)]) | Out-Null } catch { } finally { Pop-Location }
+  }
+}
