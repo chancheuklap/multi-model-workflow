@@ -16,21 +16,21 @@
 - 三个长得差不多 = 没张开,重想。
 - 每个方向一句话:做什么 + 取舍(代价 / 风险 / 放弃了什么)。
 
-## 1.5 可选 · 关键咨询(0–1 次)
+## 1.5 定方向前咨询
 
-亮方案给用户**之前**,若 2–3 个方向在数据归属 / 计费 / 权限 / 不可逆架构上**真有张力**(不是三个近义词),可 consult 一次拿第二意见;否则跳过。
+investigate 报告是 orientation,不是实质路线。长于几步的任务在方案固化、亮给用户之前 consult 一次；短任务若方向已被一手证据唯一决定可跳过。顾问不替用户选,只挑战主线程的框架、范围漂移和未验证前提。
 
 Droid:
 
 ```
 Task({
   subagent_type: "decision-advisor",
-  prompt: "phase=propose; decision_point=用户拍板前选方向; baseline=<现状报告要点>; options_or_draft=<方案表原文>; evidence=<报告路径或 file:line>; ask=只要 stance/why/top_risk/next,不要重写方案表"
+  prompt: "原始任务:<用户原话>;已做:<调查与已排除方向>;已发现:<现状报告要点>;证据:<报告路径和承重 file:line/url>;当前决策:<准备亮给用户的 2-3 个方向及取舍>;请判断该 framing 是否解对问题、最大失败模式是什么、什么证据会推翻你的判断。不要重写方案表。"
 })
 ```
 
 - 用户仍拍板;decision-advisor 只补风险/取舍,不替用户选。
-- 本阶段最多 1 次;降级 propose(`direction-given`)默认不 consult。
+- 本阶段最多 1 次;降级 propose(`direction-given`)若方向和证据已明确可跳过。
 
 ## 2. Checkpoint(固定格式亮给用户,等拍)
 

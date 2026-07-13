@@ -20,7 +20,8 @@ BASE="$(git rev-parse HEAD)"
 SLUG="2026-06-28-test-feature"
 
 # --- new ---
-OUT="$(bash "$PREPARE" new --scenario develop --slug "$SLUG" --title "测试任务" 2>/dev/null)"
+OUT="$(bash "$PREPARE" new --scenario develop --slug "$SLUG" --title "测试任务" \
+  --request "实现完整需求并保留验收条件" 2>/dev/null)"
 WT="$TMP/${WT_REL}/$SLUG"
 echo "$OUT" | grep -q "^PREPARED" && ok "new 返回 PREPARED" || no "new 返回 PREPARED"
 [ -d "$WT" ] && ok "worktree 目录建好" || no "worktree 目录建好"
@@ -31,7 +32,7 @@ git show-ref --verify --quiet "refs/heads/$SLUG" && ok "分支建好" || no "分
 [ -z "$(git status --porcelain)" ] && ok "建 worktree 后主仓库 git status 零残留" || no "主仓库残留 ($(git status --porcelain | head -1))"
 grep -qxF 'worktrees/' .factory/.gitignore && grep -qxF 'multi-model-workflow/' .factory/.gitignore && ok "主仓库 .factory/.gitignore 遮蔽状态平面" || no "主仓库遮蔽条目"
 LC1="$(wc -l < .factory/.gitignore)"
-bash "$PREPARE" new --scenario bug --slug 2026-06-28-idem --title t >/dev/null 2>&1
+bash "$PREPARE" new --scenario bug --slug 2026-06-28-idem --title t --request t >/dev/null 2>&1
 [ "$(wc -l < .factory/.gitignore)" = "$LC1" ] && ok "遮蔽写入幂等(重复 new 不追行)" || no "遮蔽幂等"
 git worktree remove --force "$TMP/${WT_REL}/2026-06-28-idem" >/dev/null 2>&1; git branch -D 2026-06-28-idem >/dev/null 2>&1; git worktree prune >/dev/null 2>&1   # 清掉幂等试探,不影响后续 team 断言
 grep -q "investigating/" "$WT/docs/.gitignore" && grep -q "reviews/" "$WT/docs/.gitignore" && grep -q -- "-final-review.md" "$WT/docs/.gitignore" && ok "过程产物 docs/.gitignore(investigating/reviews/终审报告不存档)" || no "docs gitignore"
@@ -58,6 +59,7 @@ MAN="$WT/${STATE_SUBDIR}/task.json"
 jq -e . "$MAN" >/dev/null 2>&1 && ok "manifest 合法 JSON" || no "manifest 合法 JSON"
 [ "$(jq -r .slug "$MAN")" = "$SLUG" ] && ok "manifest.slug" || no "manifest.slug"
 [ "$(jq -r .scenario "$MAN")" = "develop" ] && ok "manifest.scenario" || no "manifest.scenario"
+[ "$(jq -r .request "$MAN")" = "实现完整需求并保留验收条件" ] && ok "manifest.request 保留源意图" || no "manifest.request"
 [ "$(jq -r .phase "$MAN")" = "investigate" ] && ok "develop→首阶段 investigate" || no "develop→investigate"
 [ "$(jq -rc .phases "$MAN")" = '["investigate","propose","design","to-issue","plan","build","package","closing"]' ] && ok "phases 固化进 manifest" || no "phases 固化"
 [ "$(jq -r .base_commit "$MAN")" = "$BASE" ] && ok "base_commit=本地HEAD" || no "base_commit=本地HEAD"
@@ -75,12 +77,16 @@ jq -e . "$MAN" >/dev/null 2>&1 && ok "manifest 合法 JSON" || no "manifest 合�
 [ "$(git -C "$WT" rev-parse HEAD)" = "$BASE" ] && ok "worktree HEAD=base" || no "worktree HEAD=base"
 
 # --- 重复 new 应拒绝 ---
-if bash "$PREPARE" new --scenario develop --slug "$SLUG" --title x >/dev/null 2>&1; then
+if bash "$PREPARE" new --scenario develop --slug "$SLUG" --title x --request x >/dev/null 2>&1; then
   no "重复 slug 被拒"; else ok "重复 slug 被拒"; fi
 
 # --- 坏 slug 拒绝 ---
-if bash "$PREPARE" new --scenario develop --slug "Bad Slug" --title x >/dev/null 2>&1; then
+if bash "$PREPARE" new --scenario develop --slug "Bad Slug" --title x --request x >/dev/null 2>&1; then
   no "坏 slug 被拒"; else ok "坏 slug 被拒"; fi
+
+# --- 缺原始需求拒绝 ---
+if bash "$PREPARE" new --scenario small-change --slug missing-request --title x >/dev/null 2>&1; then
+  no "缺原始 request 被拒"; else ok "缺原始 request 被拒"; fi
 
 # --- resume(worktree 内) ---
 ROUT="$(cd "$WT" && bash "$PREPARE" resume 2>/dev/null)"
@@ -113,7 +119,7 @@ git show-ref --verify --quiet "refs/heads/$SLUG" && no "分支已删" || ok "分
 
 for scenario in bug small-change; do
   slug="default-$scenario"
-  out="$(bash "$PREPARE" new --scenario "$scenario" --slug "$slug" --title "$scenario" 2>/dev/null)"
+  out="$(bash "$PREPARE" new --scenario "$scenario" --slug "$slug" --title "$scenario" --request "$scenario" 2>/dev/null)"
   wt="$(printf '%s\n' "$out" | sed -n 's/^worktree_path=//p')"
   [ "$(jq -r .attendance "$wt/${STATE_SUBDIR}/task.json")" = "afk" ] \
     && ok "$scenario 初始 afk" || no "$scenario 初始 afk"

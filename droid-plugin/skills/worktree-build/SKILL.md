@@ -1,21 +1,23 @@
 ---
 name: worktree-build
-description: 你(落地执行者)被主线程派进一个 git worktree 落地一份计划时读本 skill。它是你整个落地流程的总纲:开工读三文档 → 逐 Task Pack 严格 TDD → 每 Pack 提交带 Pack N.M → 收工回结构化报告。细纪律在 references,到那步再读(渐进加载,不一次性塞满)。
+description: 你(落地执行者)被主线程派进一个 git worktree 落地 reviewed plan 或合并冲突 mini-plan 时读本 skill。它是整个落地流程总纲:读意图来源 → 逐 Task Pack 严格 TDD → 每 Pack 提交带 Pack N.M → 收工回结构化报告。
 ---
 
 # Worktree Build · 落地执行(Worker)
 
 你是落地执行者,被主线程派进**一个 worktree** 落地**一份计划**。严格照计划做,不发挥、不扩张。本文件是总纲;细纪律在 `references/`,到那一步再读,别一次性全读。
 
-## 0. 开工前先读三份文档(worktree 内路径,主线程在派发消息里给了)
+## 0. 开工前读派发指定的意图来源
 
-缺一不可,顺序读:
+普通 Pack 缺一不可,顺序读:
 
 - **设计文档**:意图 / 业务对象 / 角色 / 状态 / 合同边界 / 发布风险 —— 让你懂"为什么这么设计",落地时不偏意图。
 - **你的 issue 文档**:`What to build` / `Acceptance` / `Blocked by` —— 你这份活的端到端边界。
 - **你的计划文档**(实施唯一权威):Task Pack 清单 + 每 Pack 的 TDD 步骤 + acceptance + 验收命令。
 
 计划与设计/issue 冲突,或缺输入 → **停下**,在最后消息讲清,不自己猜着改(见 `references/when-stuck.md`)。
+
+`mode=merge` 只读派发的合并冲突 mini-plan；它必须写清冲突点、已判定谁该 win、owned files 和验收命令，是唯一意图来源。缺任一项就停下；不得要求另有设计/issue,也不得重新选择冲突方向。
 
 ## 1. 开工读一次纪律
 
@@ -31,9 +33,10 @@ description: 你(落地执行者)被主线程派进一个 git worktree 落地一
 
 ## 3. 边界
 
-- **只改 worktree 内源码**。
+- **只改 plan 的 `File / Responsibility Map` 和当前 Task Pack 明确拥有的源码、测试、规则文件**。需要碰未授权路径时停下报 `needs-context` / `needs-redirection`,不顺手扩大 ownership。
 - **禁改 `docs/` 下任何文件** —— 设计 / 计划 / issue 是上游权威,主线程(Coordinator)持有,你只读不写。
 - 触碰带 `AGENTS.override.md` 规则的目录,同步维护该目录的 override。
+- 只做本地 Pack commit；禁止 push、`gh pr merge`、部署、创建/删除 worktree、切换到别的分支。
 
 ## 4. 卡住了
 

@@ -12,7 +12,7 @@ TOPIC_MODEL="${DROID_INVESTIGATE_MODEL:-minimax-m3}"
 TOPIC_EFFORT="${DROID_INVESTIGATE_EFFORT:-high}"
 SYNTH_MODEL="${DROID_INVESTIGATE_SYNTH_MODEL:-gpt-5.6-terra}"
 SYNTH_EFFORT="${DROID_INVESTIGATE_SYNTH_EFFORT:-high}"
-ALLOW_INTERNAL="read-cli,grep_tool_cli,glob-search-cli,ls-cli,skill"
+ALLOW_INTERNAL="read-cli,grep_tool_cli,glob-search-cli,ls-cli,execute-cli,skill"
 ALLOW_EXTERNAL="web_search,fetch_url,mcp_context7_query-docs,mcp_context7_resolve-library-id,skill"
 MMW_INVESTIGATE_RUN_LOCK=""
 MMW_INVESTIGATE_START_LOCK=""
@@ -105,23 +105,6 @@ archive_job_attempt() {
   return 0
 }
 
-load_tool_inventory() {
-  local file="$1" model="$2" tmp
-  tmp="$(mktemp "$(dirname "$file")/.tools.XXXXXX")" || return 1
-  droid exec --model "$model" --list-tools --output-format json >"$tmp" \
-    && jq -e 'type=="array" and all(.[]; .id|type=="string")' "$tmp" >/dev/null 2>&1 \
-    && mv "$tmp" "$file" \
-    || { rm -f "$tmp"; return 1; }
-}
-
-disable_all_except() {
-  local allowed="$1" inventory="$2"
-  jq -r --arg allowed "$allowed" '
-    ($allowed | if .=="" then [] else split(",") end) as $kept
-    | [.[] | .id | select(. as $id | $kept | index($id) | not)] | join(",")
-  ' "$inventory"
-}
-
 launch_job() {
   local meta="$1" disabled="$2"
   mmw_droid_launch "$meta" \
@@ -143,7 +126,7 @@ question=$question
 skill=${skill:-none}
 repoRoot=$repo
 
-内部调查只在 repoRoot 下用 Read/Grep/Glob/LS 取证，每条 locator 必须是 file:line。
+内部调查只在 repoRoot 下用 Read/Grep/Glob/LS 取证；定位 bug 根因需要复现时可用 Execute 跑只读诊断、目标测试或复现命令，禁止安装依赖、改文件、commit。执行前后都核对 `git status --short`，发现 tracked 改动立即停止并写入 gaps。每条 locator 必须是 file:line。
 外部调查用 WebSearch/FetchUrl/Context7 取证，每条 locator 必须是已打开核验的 URL。
 查不清写入 gaps，不得编造。只返回一个紧凑 JSON 对象，不加 Markdown fence 或解释：
 {"topic":"<angle>","findings":[{"claim":"<事实>","locator":"<file:line或URL>","confidence":"high|medium|low"}],"summary":"<只陈述现状>","gaps":["<缺口>"]}
@@ -268,13 +251,13 @@ cmd_start() {
   plugin="$(mmw_plugin_root)"
   topic_inventory="$staging/topic-tool-inventory.json"
   synth_inventory="$staging/synthesis-tool-inventory.json"
-  load_tool_inventory "$topic_inventory" "$TOPIC_MODEL" \
+  mmw_droid_load_tool_inventory "$topic_inventory" "$TOPIC_MODEL" \
     || die "无法读取 topic Droid tool inventory"
-  load_tool_inventory "$synth_inventory" "$SYNTH_MODEL" \
+  mmw_droid_load_tool_inventory "$synth_inventory" "$SYNTH_MODEL" \
     || die "无法读取 synthesis Droid tool inventory"
-  internal_disabled="$(disable_all_except "$ALLOW_INTERNAL" "$topic_inventory")"
-  external_disabled="$(disable_all_except "$ALLOW_EXTERNAL" "$topic_inventory")"
-  synth_disabled="$(disable_all_except "" "$synth_inventory")"
+  internal_disabled="$(mmw_droid_disable_all_except "$ALLOW_INTERNAL" "$topic_inventory")"
+  external_disabled="$(mmw_droid_disable_all_except "$ALLOW_EXTERNAL" "$topic_inventory")"
+  synth_disabled="$(mmw_droid_disable_all_except "" "$synth_inventory")"
   topic_system="$staging/topic-system.md"
   mmw_droid_render_prompt "$plugin/droids/investigate-topic.md" "$topic_system" \
     || die "investigate-topic droid prompt 无效"

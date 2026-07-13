@@ -15,6 +15,7 @@
 
 - 只需查内部 → 只跑 internal;要对比外部方案 → 再跑 external;两个都要 → 先后各跑一次。
 - 窄到一个点(一个函数 / 已知文件)→ 别起 fan-out,自己 Read/Grep 查完直接 handoff。
+- 只有一个聚焦问题,但要跨多个文件追模块边界 / 调用链 / 数据流 → 同步派一次 `Task({subagent_type:"code-explorer", prompt:"<原问题 + repoRoot + 必须核验的边界>"})`;主线程亲验返回后直接收口,不为单 topic 起完整 run。
 - 定 topics:**一个 topic 一个 agent**,按调查真实需要定几个(别凑没意义的 topic,也不设上限)。每个 `{ angle, question, skill? }`。
 
 ## 2. Checkpoint → 跑调查编排器

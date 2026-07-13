@@ -33,7 +33,8 @@ grep -q reviewer-plan-a "$BRIEF" && grep -q reviewer-plan-b "$BRIEF" && ok "plan
 
 write_task small-change
 (cd "$TMP" && bash "$REVIEW" start --stage final --source HEAD >/dev/null)
-grep -q 'tier=1' "$BRIEF" && grep -q reviewer-final-a "$BRIEF" && ok "small final tier one" || no "tier one"
+grep -q 'tier=1' "$BRIEF" && grep -q reviewer-final-a "$BRIEF" \
+  && grep -q '覆盖两条基线' "$BRIEF" && ok "small final tier one" || no "tier one"
 
 write_task develop
 mkdir -p "$TMP/docs/plans/demo"
@@ -44,10 +45,15 @@ grep -q 'tier=2' "$BRIEF" && grep -q reviewer-final-a "$BRIEF" && grep -q review
 
 printf '# plan\nComplexity: capable\n' > "$TMP/docs/plans/demo/001.md"
 (cd "$TMP" && bash "$REVIEW" start --stage final --source HEAD >/dev/null)
-grep -q 'tier=4' "$BRIEF" && ok "capable final tier four" || no "tier four"
+grep -q 'tier=4' "$BRIEF" \
+  && [ "$(grep -c 'reviewer-final-a' "$BRIEF")" -ge 2 ] \
+  && [ "$(grep -c 'reviewer-final-b' "$BRIEF")" -ge 2 ] \
+  && grep -q '只负责指定基线' "$BRIEF" \
+  && ok "capable final tier four dynamic routes" || no "tier four"
 
 (cd "$TMP" && bash "$REVIEW" start --stage merge-impl --source merge-brief.md >/dev/null)
-grep -q '七角度' "$BRIEF" && ok "merge integration review" || no "merge review"
+grep -q '七角度' "$BRIEF" && grep -q reviewer-final-a "$BRIEF" \
+  && grep -q reviewer-final-b "$BRIEF" && ok "merge integration review" || no "merge review"
 
 DESIGN="$TMP/design.md"
 printf '# D\n## Cross-Plan Contract Anchors\n\n无跨计划共享合同\n' > "$DESIGN"

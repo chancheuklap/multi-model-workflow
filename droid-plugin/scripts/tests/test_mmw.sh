@@ -16,7 +16,7 @@ cd "$TMP"; git init -q; git config user.email t@t; git config user.name t
 echo seed>seed; git add -A; git commit -qm seed
 
 # task new → prepare.sh
-WT="$(bash "$MMW" task new --scenario develop --slug 2026-06-29-mmw --title t 2>/dev/null | sed -n 's/^worktree_path=//p')"
+WT="$(bash "$MMW" task new --scenario develop --slug 2026-06-29-mmw --title t --request t 2>/dev/null | sed -n 's/^worktree_path=//p')"
 [ -n "$WT" ] && [ -d "$WT" ] && ok "mmw task new → prepare.sh 建 worktree" || no "mmw task new"
 
 # where / handoff / spinoff → flow.sh

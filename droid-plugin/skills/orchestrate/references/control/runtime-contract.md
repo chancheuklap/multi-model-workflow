@@ -22,28 +22,28 @@
 | 文件检索 | `Read`、`Grep`、`Glob`、`LS` |
 | 外部检索 | `WebSearch`、`FetchUrl` |
 
-进入 worktree 后在该路径继续并运行 `mmw where`。Task 只用于当前会话内的短只读调查、咨询和审查，按当前工具合同同步返回结果，不假设后台任务、task ID 或 resume。
+进入 worktree 后在该路径继续并运行 `mmw where`。Droid 没有 Claude Code 的同名切换工具；等价入口是启动时 `droid --cwd <path>`、会话内 `/cwd <path>`，或让 Droid 自建隔离分支的 `droid -w <branch> [--worktree-dir <path>]`。本插件需要持久状态和固定目录,因此 worker 统一使用 `droid exec --cwd <已建 worktree>`。Task 子代理只做当前会话内的调查、咨询和审查,不负责切换主线程工作目录。
 
 ## Custom Droids
 
 | droid | 职责 | model | 工具 |
 | --- | --- | --- | --- |
 | `investigate-topic` | 单 topic 取证 | `minimax-m3` | 只读、web、Execute |
-| `code-explorer` | 探代码边界与数据流 | `kimi-k2.7-code` | read-only |
-| `decision-advisor` | 关键分叉第二意见 | `gemini-3.1-pro-preview` | read-only |
+| `code-explorer` | 探代码边界与数据流 | `kimi-k2.7-code` | 只读、受限 Execute |
+| `decision-advisor` | 实质工作前/卡住/完成后的强判断 | `gemini-3.1-pro-preview` | 只读、web、受限 Execute |
 | `plan-writer` | 写单份 plan | `gpt-5.6-terra` | 读写、检索、Execute |
 | `pack-executor` | 按 plan TDD 落地 | `glm-5.2` | 读写、检索、Execute |
 | `pack-executor-capable` | 高复杂度 plan 落地 | `gemini-3.1-pro-preview` | 读写、检索、Execute |
-| `reviewer-design-a/b` | 设计审两轴 | `claude-opus-4-8` | read-only |
-| `reviewer-plan-a/b` | 计划审两轴 | `claude-opus-4-8` | read-only |
-| `reviewer-final-a` | 最终审基线 A | `gpt-5.6-terra` | read-only |
-| `reviewer-final-b` | 最终审基线 B | `claude-opus-4-8` | read-only |
+| `reviewer-design-a/b` | 设计审两轴 | `claude-opus-4-8` | 只读、受限 Execute |
+| `reviewer-plan-a/b` | 计划审两轴 | `claude-opus-4-8` | 只读、受限 Execute |
+| `reviewer-final-a` | 终审模型路线 A,视角由 dispatch 指定 | `gpt-5.6-terra` | 只读、受限 Execute |
+| `reviewer-final-b` | 终审模型路线 B,视角由 dispatch 指定 | `claude-opus-4-8` | 只读、受限 Execute |
 
 子代理非交互，不能调用 `AskUser`，也不能再派 Task。缺输入时返回结构化 blocker，由主线程处置。
 
 ## Worker
 
-`mmw worker dispatch` 和 `plan-dispatch` 创建 worktree、边界基线、prompt 与派发账本，并用 `droid exec --cwd` 后台启动对应模型。账本持久化 PID、结果文件和 session ID。
+`mmw worker dispatch` 为落地 Pack 创建长期 worktree；`plan-dispatch` 为每个并行 writer 创建临时隔离 worktree，边界门通过后只把指定 plan 与 issue `Small issues` 发布回任务 worktree并清理。两者都记录边界基线、prompt 与派发账本，并用 `droid exec --cwd --auto medium` 后台启动对应模型。脚本按实际模型 tool inventory 只开放读写、检索、Skill 和 Execute，关闭 Task、web、MCP、mission 与其它无关工具；账本持久化 PID、结果文件、工具策略和 session ID。
 
 主线程轮询：
 

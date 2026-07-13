@@ -17,6 +17,23 @@ mmw_droid_render_prompt() {
   [ -s "$target" ]
 }
 
+mmw_droid_load_tool_inventory() {
+  local file="$1" model="$2" tmp
+  tmp="$(mktemp "$(dirname "$file")/.tools.XXXXXX")" || return 1
+  droid exec --model "$model" --list-tools --output-format json >"$tmp" \
+    && jq -e 'type=="array" and all(.[]; .id|type=="string")' "$tmp" >/dev/null 2>&1 \
+    && mv "$tmp" "$file" \
+    || { rm -f "$tmp"; return 1; }
+}
+
+mmw_droid_disable_all_except() {
+  local allowed="$1" inventory="$2"
+  jq -r --arg allowed "$allowed" '
+    ($allowed | if .=="" then [] else split(",") end) as $kept
+    | [.[] | .id | select(. as $id | $kept | index($id) | not)] | join(",")
+  ' "$inventory"
+}
+
 mmw_droid_launch() {
   local meta="$1" prompt="$2" cwd="$3" model="$4" effort="$5" system_prompt="$6"
   local session_id="${7:-}" auto="${8:-high}" disabled_tools="${9:-}"

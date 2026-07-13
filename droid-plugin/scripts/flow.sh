@@ -365,7 +365,7 @@ cmd_where() {
     echo "UNMANAGED"
     echo "当前不是在管任务。看需求选一个起始选项,再 mmw task new:"
     jq -r '.start_options[] | "  [\(.scenario)] \(.when) → \(.phases_note)"' "$ROUTES"
-    echo "命令: $MMW task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title '<标题>' [--direction-given]"
+    echo "命令: $MMW task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title '<标题>' --request '<用户原始需求与验收条件>' [--direction-given]"
     echo "merge: 不开 worktree,直接走 references/scenario/merge.md;概念/事实问题不进 orchestrate,直接答。"
     # 在飞任务:扫两个宿主 worktree 根(断点恢复入口;任务界定=有 plugin 建档的 worktree,不是野分支)
     local top_ls mm hdr=0
@@ -491,15 +491,26 @@ step_note=断点回来时:本步产物若已完成,核一眼直接 step next,别
   # where 直接吐确切的 review_start 命令 + review_source,agent 照跑不靠散文猜哪个 stage。
   local review_line="" review_start_line=""
   if [ "$gate" != "null" ] && [ -n "$gate" ]; then
-    local g_stage g_source src_args="" srcp
+    local g_stage g_source src_args="" srcp review_phases quoted_src
     g_stage="$(jq -r --arg p "$gate" '.review_gates[$p].stage // "?"' "$ROUTES")"
-    # 吐裸路径喂 review start(不吐 JSON 数组,省 agent 拆 ["x"]→x);多产物逐个 --source(review.sh 可重复收)
-    g_source="$(jq -r --arg p "$phase" '(.phase_outputs[$p] // []) | join(" ")' "$m")"
+    case "$g_stage" in
+      design) review_phases='["investigate","propose","design"]' ;;
+      plan) review_phases='["design","to-issue","plan"]' ;;
+      final) review_phases='["investigate","propose","design","to-issue","plan","build"]' ;;
+      *) review_phases='[]' ;;
+    esac
+    g_source="$( {
+      printf '%s\n' "$m"
+      jq -r --argjson phases "$review_phases" '
+        $phases[] as $p | (.phase_outputs[$p] // [])[]
+      ' "$m"
+    } | awk 'NF && !seen[$0]++')"
     while IFS= read -r srcp; do
       [ -n "$srcp" ] || continue
-      src_args="$src_args --source $srcp"
-    done < <(jq -r --arg p "$phase" '(.phase_outputs[$p] // [])[]' "$m")
-    review_line="review_source=$g_source"
+      printf -v quoted_src '%q' "$srcp"
+      src_args="$src_args --source $quoted_src"
+    done <<<"$g_source"
+    review_line="review_source=$(printf '%s' "$g_source" | tr '\n' ' ')"
     review_start_line="review_start=$MMW review start --stage ${g_stage}$src_args"
   fi
   cat <<EOF

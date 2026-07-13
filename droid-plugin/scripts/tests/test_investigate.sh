@@ -169,6 +169,11 @@ if grep 'topics/00[01]/prompt.md' "$DROID_TEST_LOG" | grep -q -- '--disabled-too
 else
   no "internal tool restriction"
 fi
+if grep 'topics/00[01]/prompt.md' "$DROID_TEST_LOG" | grep -- '--disabled-tools' | grep -q 'execute-cli'; then
+  no "internal bug investigation lost Execute"
+else
+  ok "internal topics retain diagnostic Execute"
+fi
 if grep 'synthesis/prompt.md' "$DROID_TEST_LOG" | grep -q -- '--disabled-tools .*apply-patch-cli'; then
   ok "synthesis uses its own model tool inventory"
 else

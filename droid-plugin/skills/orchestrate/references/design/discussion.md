@@ -79,10 +79,10 @@ Bad: "这是个有趣的方向!我们可以从多个角度探索。"
   ```
   Task({
     subagent_type: "decision-advisor",
-    prompt: "phase=design; decision_point=<正要定什么>; baseline=<当前共同基线>; options_or_draft=<草稿路径或争议节>; evidence=<path:line 或无>; ask=只要 stance/why/top_risk/next/conflict_probe"
+    prompt: "原始任务:<用户原话>;已做:<已确认的设计段和已否决方向>;已发现:<当前共同基线>;证据:<草稿路径、path:line 或无>;当前决策:<正要定型的边界/状态机/合同及替代项>;请判断该决定的具体失败模式、最强反方、建议和可推翻判断的证据。"
   })
   ```
-  消化:认真权重;一手实证优先;冲突可再 reconcile 一次或写 Open Decisions 问用户。对用户用业务语言吸收结论,不贴 advisor 长文。`stance=pivot` ≠ 自动 handoff——主线程判断后再 `needs-redirection` 或继续细化。
+  消化:认真权重;一手实证优先;冲突可再 reconcile 一次或写 Open Decisions 问用户。对用户用业务语言吸收结论,不贴 advisor 长文。顾问建议换路不等于自动 handoff,主线程判断后再 `needs-redirection` 或继续细化。
 
 **澄清维度(按输入类型选,决定问什么):**
 - **新功能 / 系统性改造 / 模糊讨论**:用户是谁 / 现在的问题 / 完成后能做什么;新增或改变什么行为;哪些对象、状态、权限、生命周期;成功 / 失败 / 空态 / 重复提交 / 权限不足 / 并发 / 回滚怎么处理;什么在 / 不在范围;怎么验证完成。

@@ -25,7 +25,7 @@ echo seed > seed
 git add seed
 git commit -qm seed
 
-out="$(bash "$PREPARE" new --scenario develop --slug checkpoint-demo --title checkpoint 2>/dev/null)"
+out="$(bash "$PREPARE" new --scenario develop --slug checkpoint-demo --title checkpoint --request checkpoint 2>/dev/null)"
 WT="$(printf '%s\n' "$out" | sed -n 's/^worktree_path=//p')"
 MAN="$WT/$STATE_SUBDIR/task.json"
 jq '.phase="design" | .phase_index=2 | .step_index=3' "$MAN" >"$MAN.next" && mv "$MAN.next" "$MAN"

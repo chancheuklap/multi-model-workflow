@@ -27,7 +27,14 @@ jq -e '.hooks.PreToolUse[].matcher == "Execute" and .hooks.PostToolUse[].matcher
   "$PLUGIN/hooks/hooks.json" >/dev/null && ok "Droid hook matchers" || no "hook matchers"
 
 for d in investigate-topic investigate-synthesizer code-explorer decision-advisor plan-writer pack-executor pack-executor-capable reviewer-design-a reviewer-design-b reviewer-plan-a reviewer-plan-b reviewer-final-a reviewer-final-b; do
-  [ -f "$PLUGIN/droids/$d.md" ] || no "missing droid $d"
+  file="$PLUGIN/droids/$d.md"
+  [ -f "$file" ] || { no "missing droid $d"; continue; }
+  grep -q '^description: ' "$file" || no "missing description $d"
+  grep -q '^model: ' "$file" || no "missing model $d"
+  grep -q '^tools: ' "$file" || no "missing tools $d"
+  grep -q '^mcpServers: \[\]' "$file" || no "unbounded MCP access $d"
+  [ "$(awk 'BEGIN{n=0} /^---$/{n++;next} n>=2{c+=length($0)} END{print c+0}' "$file")" -ge 120 ] \
+    || no "thin prompt $d"
 done
 [ "$fail" -eq 0 ] && ok "all role droids present"
 
@@ -50,5 +57,25 @@ fi
 [ -x "$PLUGIN/scripts/investigate.sh" ] \
   && grep -q 'investigate) exec bash' "$PLUGIN/scripts/mmw.sh" \
   && ok "native investigate orchestrator exposed" || no "investigate orchestrator missing"
+grep -q 'stronger reviewer consulted mid-task' "$PLUGIN/droids/decision-advisor.md" \
+  && grep -q 'strongest counterargument' "$PLUGIN/droids/decision-advisor.md" \
+  && ok "advisor prompt preserves judgment contract" || no "advisor prompt contract"
+for d in reviewer-final-a reviewer-final-b; do
+  grep -q 'stage 和视角完全由 dispatch prompt 指定' "$PLUGIN/droids/$d.md" \
+    || no "$d hardcodes final baseline"
+  grep -q '"Execute"' "$PLUGIN/droids/$d.md" || no "$d lacks verification tool"
+done
+grep -q 'subagent_type:"code-explorer"' "$PLUGIN/skills/orchestrate/references/investigate.md" \
+  && grep -q 'subagent_type: "decision-advisor"' "$PLUGIN/skills/orchestrate/references/propose.md" \
+  && grep -q 'subagent_type: "decision-advisor"' "$PLUGIN/skills/orchestrate/references/closing.md" \
+  && grep -q 'investigate-topic.md' "$PLUGIN/scripts/investigate.sh" \
+  && grep -q 'investigate-synthesizer.md' "$PLUGIN/scripts/investigate.sh" \
+  && grep -q 'PLAN_DROID.*plan-writer' "$PLUGIN/scripts/worker.sh" \
+  && grep -q 'CAPABLE_EXECUTOR_DROID.*pack-executor-capable' "$PLUGIN/scripts/worker.sh" \
+  && grep -q 'reviewer-design-a' "$PLUGIN/scripts/review.sh" \
+  && grep -q 'reviewer-plan-a' "$PLUGIN/scripts/review.sh" \
+  && grep -q 'reviewer-final-a' "$PLUGIN/scripts/review.sh" \
+  && ok "all custom droids have runtime routes" || no "custom droid route coverage"
+[ "$fail" -eq 0 ] && ok "custom droid routing contracts" || true
 
 exit "$fail"

@@ -1,11 +1,11 @@
 ---
 name: worktree-plan
-description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 issue 写成一份实施计划时读本 skill。它是你整个写计划流程的总纲:开工读 design + issue → 探代码拆小 issue → 逐 Task Pack 写 → 交付前自检 → 回结构化报告。细纪律在 references,到那步再读(渐进加载,不一次性塞满)。
+description: 你(计划撰写者)被主线程派进临时隔离 worktree 把一个大 issue 写成一份实施计划时读本 skill。它是整个写计划流程总纲:读 design + issue → 探代码拆小 issue → 逐 Task Pack 写 → 自检 → 回结构化报告。
 ---
 
 # Worktree Plan · 计划撰写(Plan Writer)
 
-你是计划撰写者,被主线程派进**任务 worktree** 把**一个大 issue** 写成一份执行者零上下文也能照做的实施计划(Plan Header + Task Pack + TDD 步骤 + 验收命令)。**写完就交,不要一次性输出整份文档,会遭遇 API 错误。** 不扩大范围、不碰别的 plan、不改设计文档、不 commit。**坏的产出比没有产出更糟**——拿不准就停下返回 `needs-context`,别靠猜往前冲。
+你是计划撰写者,被主线程派进**临时隔离 worktree** 把**一个大 issue** 写成一份执行者零上下文也能照做的实施计划(Plan Header + Task Pack + TDD 步骤 + 验收命令)。脚本过边界门后只发布指定 plan 与 issue `Small issues`。**写完就交,不要一次性输出整份文档,会遭遇 API 错误。** 不扩大范围、不碰别的 plan、不改设计文档、不 commit。**坏的产出比没有产出更糟**——拿不准就停下返回 `needs-context`,别靠猜往前冲。
 
 ## 0. 开工前先读(设计 / issue / mockup 的路径在派发消息里)
 
@@ -71,6 +71,7 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
 - **可写回你自己那个大 issue 文件的 `## Small issues`**(拆分结果)——仅这一节,不碰别的 issue。
 - **不改设计文档、不碰别的 plan、不碰源码**——跨 plan 合同锚点回填是主线程的活。file ownership 以设计 + dispatch 划定为准。
 - **不 commit**:改动保持 unstaged,主线程统一提交。
+- 不创建/删除 worktree、不切分支、不 push、不发布,不启动其它 agent。
 
 ## 6. Three-Failure Protocol
 

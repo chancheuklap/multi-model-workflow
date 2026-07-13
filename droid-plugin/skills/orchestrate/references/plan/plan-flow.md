@@ -63,8 +63,8 @@ mmw worker plan-dispatch \
   [--mockup <docs/design/<slug>/mockup/ 若存在>]
 ```
 
-- **一律后台跑**:脚本用 `droid exec --cwd <任务 worktree>` 启动 plan-writer，并持久化 PID、结果文件和 session ID；用 `mmw worker status --plan <落点> --worktree <任务 wt>` 收回，追问用 `plan-resume`。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。**
-- **不开子 worktree、不 commit**:各 plan 写不同文件(`docs/plans/<slug>/00N.md`)、在任务 worktree 内并行安全;主线程统一提交(脚本已管命名空间隔离 session / 边界门)。
+- **一律后台跑**:脚本为每个 writer 建临时隔离 worktree，再用 `droid exec --cwd <writer隔离worktree>` 启动并持久化 PID、结果文件和 session ID；`mmw worker status --plan <落点> --worktree <任务 wt>` 过边界门后才原子发布指定 plan 与 issue 小节并清理隔离 worktree，追问用 `plan-resume`。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。**
+- **writer 不建 worktree、不 commit**:隔离、发布和清理由脚本负责；writer 只在自己的隔离 worktree 写指定 plan 与 issue `Small issues`，主线程统一提交。
 - **落点 slug** 与源设计 / issue 对齐(已含日期);多 plan 同一目录。
 - 模型档脚本已钉,除非特殊无需 `--model`。
 - 每个 dispatch 独立、零交叉污染:**不要**把别的 writer 的历史 / 别的 plan 内容混进去。`worktree-plan` skill 指针由脚本自动带,方法论(task-pack / 自检)在 skill 自己的 `references/`,工人读 skill 自取,你不用手传路径。

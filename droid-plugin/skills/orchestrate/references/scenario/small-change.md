@@ -12,7 +12,7 @@
 
 2. **一条命令建好**(从本地最新 HEAD 分叉,scaffold docs,写 manifest):
    ```bash
-   mmw task new --scenario small-change --slug <slug> --title "<人类可读标题>"
+   mmw task new --scenario small-change --slug <slug> --title "<人类可读标题>" --request "<用户原始需求与验收条件>"
    ```
    回执给出 `worktree_path`;prepare 把本路径的阶段序列固化进 manifest 的 `phases`。
    仅 develop:用户开口已带明确方向(不用再摆备选)→ 加 `--direction-given`,propose 阶段引擎自动降级(`where` 的 `do` 会照 manifest 报降级指令:只落方向文档+一个最强对照,不重摆 2-3 方案)。
@@ -47,7 +47,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 - **`--produced` 必带本阶段承重产出**——它钉进接力单,下阶段靠它接,不靠"自己找"。
 - 中途挖到 bug / 旁路优化 → `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,登记成关联子任务,主流程不动。
 
-**Advisor 纪律**:`decision-advisor` 是稀疏关键第二意见(非审闸、不替用户拍板、不写产物)。**允许**:propose 方案真有张力时可选 0–1 次;design 定型/确认/前提击穿风险时 0–2 次;build afk 拍板前至多 1 次。**禁止**:review 闸内 consult;每步为显得完整而 consult;用 advisor 替代 `reviewer-*` 或用户 HITL。通过 Task 派 `decision-advisor`;与一手实证矛盾时以实证为准。advisor 说 pivot 不等于自动 handoff,主线程判断后再 `needs-redirection` 或问用户。
+**Advisor 纪律**:`decision-advisor` 是执行者的强判断顾问,非审闸、不替用户拍板、不写产物。需要先定位文件/读源时先做 orientation,随后在实质写作、解释或路线固化前咨询；长于几步的任务至少在定路线前一次、承重产物已落盘并验证后再一次。短任务若下一步已被刚读到的工具结果唯一决定,不重复咨询。卡住、结果与预期不符或准备换路时也咨询。**禁止**:review 闸内用它替代 `reviewer-*`;用它替代用户 HITL;让它直接写交付物。prompt 必须给原始任务、已做、已发现、证据路径和当前决策,不要只给主线程结论。与一手实证矛盾时以实证为准。
 
 **断点续传**:任何时候 `mmw where` + 接力单就够你接着跑——进度、游标、各阶段产出全在 manifest,不靠会话记忆。
 <!-- END: phase-contract -->

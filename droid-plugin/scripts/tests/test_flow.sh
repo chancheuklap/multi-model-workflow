@@ -26,7 +26,7 @@ git init -q; git config user.email t@t; git config user.name t
 echo seed > seed.txt; git add -A; git commit -qm seed
 
 newtask() { # preset slug -> echoes worktree path
-  bash "$PREPARE" new --scenario "$1" --slug "$2" --title "t-$2" 2>/dev/null \
+  bash "$PREPARE" new --scenario "$1" --slug "$2" --title "t-$2" --request "request-$2" 2>/dev/null \
     | grep '^worktree_path=' | cut -d= -f2-
 }
 mphase() { jq -r .phase "$1/${STATE_SUBDIR}/task.json"; }
@@ -407,6 +407,11 @@ approve_design "$WDD" docs/design/dd.md
 WRS="$(cd "$WDD" && bash "$FLOW" where)"
 echo "$WRS" | grep -q -- "review_start=.*--source docs/design/dd.md" && ok "where 吐 review_start 带 --source" || no "review_start source"
 if [ "$(echo "$WRS" | grep -c -- "--source docs/design/dd.md")" = "1" ]; then ok "review_start 无重复 --source" ; else no "review_start 重复 source"; fi
+echo "$WRS" | grep -q -- "--source docs/i.md" \
+  && echo "$WRS" | grep -q -- "--source docs/p.md" \
+  && ok "设计审带上游意图证据" || no "设计审缺上游 source"
+echo "$WRS" | grep -q -- "--source .*task.json" \
+  && ok "审闸带任务 manifest" || no "审闸缺任务 manifest"
 
 # ===== 冷启动列在飞任务(断点恢复入口)=====
 WCOLD="$(cd "$TMP" && bash "$FLOW" where)"
@@ -415,7 +420,7 @@ echo "$WCOLD" | grep -q "在飞任务" && ok "冷启动列在飞任务" || no "�
 echo "$WCOLD" | grep -q "2026-07-05-dedup" && ok "在飞清单含 manifest 任务(slug/phase/path)" || no "在飞清单条目"
 
 # ===== propose 分叉:--direction-given 落 manifest,where 降级指路 =====
-WDG="$(bash "$PREPARE" new --scenario develop --slug 2026-07-05-dg --title t --direction-given 2>/dev/null | grep '^worktree_path=' | cut -d= -f2-)"
+WDG="$(bash "$PREPARE" new --scenario develop --slug 2026-07-05-dg --title t --request direction-given --direction-given 2>/dev/null | grep '^worktree_path=' | cut -d= -f2-)"
 [ "$(mfield "$WDG" direction_given)" = "true" ] && ok "--direction-given 钉进 manifest" || no "direction_given 落盘"
 mkf "$WDG" docs/i.md
 ( cd "$WDG" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )   # investigate→propose

@@ -89,11 +89,11 @@ mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree
 ```
 Task({
   subagent_type: "decision-advisor",
-  prompt: "phase=build; decision_point=afk 拍板; baseline=<计划/设计要点>; options_or_draft=<拟默认值或拟 resume 指令>; evidence=<失败日志/path:line>; ask=只要 stance/why/top_risk/next"
+  prompt: "原始任务:<用户原话>;已做:<已完成 Pack 和重试>;已发现:<计划与现实的冲突或缺输入>;证据:<失败日志/path:line>;当前决策:<拟默认值、拟 resume 指令或停下>;请判断具体失败模式、最强反方、建议和可推翻判断的证据。"
 })
 ```
 
-小问题有合理默认 → afk 直接给指令 resume(留痕);真缺输入 / 怀疑方向错 → 停下抛用户(`mmw handoff --conclusion needs-context` / `needs-redirection`),别替用户拍方向。advisor 说 pivot 不自动 handoff。
+小问题有合理默认 → afk 直接给指令 resume(留痕);真缺输入 / 怀疑方向错 → 停下抛用户(`mmw handoff --conclusion needs-context` / `needs-redirection`),别替用户拍方向。顾问建议换路不自动 handoff。
 
 ## B4. 全 plan 验完 + 合并
 
