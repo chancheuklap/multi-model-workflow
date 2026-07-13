@@ -5,7 +5,7 @@
 # **本地 git merge(含合并进 main)不拦**:可逆、不出站,真正红线是它之后的 push;
 # 拦本地 merge 只会打断无人值守的自动推进(用户明确要求放行)。
 # 已知接受面:引号打散关键词(如 pu''sh)本脚本能判,但 Claude 侧 hooks.json 的 if 前筛按
-# raw 文本匹配、不会唤醒本脚本(Droid 侧无前筛,能拦);命令替换 $(echo push) 拆段后动词
+# raw 文本匹配由 hooks.json 的 if 前筛减少无关唤醒;命令替换 $(echo push) 拆段后动词
 # 落进子段判不到——两者都是刻意规避,最后防线是平台权限框本身。
 set -euo pipefail
 

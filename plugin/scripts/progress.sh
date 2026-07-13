@@ -11,12 +11,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=lib/host.sh
-. "$SCRIPT_DIR/lib/host.sh"
+# shellcheck source=lib/runtime.sh
+. "$SCRIPT_DIR/lib/runtime.sh"
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
-STATE_SUBDIR="$(mmw_resolve_state_subdir "$top")"
+STATE_SUBDIR="$MMW_STATE_SUBDIR"
 MAN="$top/$STATE_SUBDIR/task.json"
 LOOP="$top/$STATE_SUBDIR/loop-state.json"
 BOARD="$top/$STATE_SUBDIR/progress-board.md"

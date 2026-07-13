@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# mmw —— multi-model-workflow 统一 CLI(Claude / Droid 双宿主)
+# mmw —— multi-model-workflow 统一 CLI(Claude Code)
 #
 #   mmw where | mmw handoff | mmw step | mmw spinoff
 #   mmw task new|resume|cleanup|team|escalate
 #   mmw loop ...
 #   mmw review start ...
-#   mmw worker dispatch|resume|check-docs ...   # 宿主中立写码派发
-#   mmw worker plan-dispatch|plan-resume|plan-check ...   # 宿主中立写计划派发
+#   mmw worker dispatch|resume|check-docs ...   # Codex 写码派发
+#   mmw worker plan-dispatch|plan-resume|plan-check ...   # Codex 写计划派发
 #   mmw release init|where|stage run|stage done|stage fail|round|surface|resume|close|exit-check|receipt|dispatch
 #   mmw codex dispatch|resume ...               # 兼容别名 → worker
 #   mmw help
@@ -25,14 +25,14 @@
 #     mmw loop init --kind <execution|review|contract-gate> [--max-rounds N] | attendance | step | round | checklist | finding | softstop | surface | resume | close | exit-check
 #   审闸一条命令:
 #     mmw review start --stage <design|plan|plan-impl|final|merge-impl> --source <...>
-#   写码工人派发(宿主中立;Claude→codex CLI,Droid→Task pack-executor):
+#   写码工人派发(Codex CLI):
 #     mmw worker dispatch --plan <p> --worktree <wt> | worker resume --worktree <wt> --instructions <f>
-#     mmw worker check-docs --worktree <wt>   # Droid 路径 Task 返回后必跑
+#     mmw worker check-docs --worktree <wt>
 #     mmw codex ...                           # 兼容别名,同 worker
-#   写计划工人派发(宿主中立;Claude→codex CLI,Droid→Task plan-writer;在任务 worktree 内、不 commit):
+#   写计划工人派发(Codex CLI,在任务 worktree 内、不 commit):
 #     mmw worker plan-dispatch --plan <落点> --worktree <wt> [--design <d>] [--issue <i>]
 #     mmw worker plan-resume --plan <落点> --worktree <wt> --instructions <f>
-#     mmw worker plan-check --plan <落点> --worktree <wt>   # Droid 路径 Task 返回后必跑
+#     mmw worker plan-check --plan <落点> --worktree <wt>
 #   进度板(负责人可读投影):
 #     mmw progress render [--stdout]           从 task.json/loop-state 聚合 progress-board.md(--stdout 供 command 注入)
 #   控制面(运行级值守 + 计划外分流):
@@ -41,7 +41,7 @@
 #     mmw side-finding record --tag <t> --disposition issue|fix [--finding <s>]   计划外分流落 open_items
 #   发布红线:push / gh pr merge / 部署由 guard-redline(PreToolUse)弹权限框要用户亲批,无令牌可自铸;
 #   本地 git merge(含合并进 main)不拦——可逆、不出站,真正红线是它之后的 push。
-# 状态平面 / worktree 路径随宿主变,见 scripts/lib/host.sh。
+# 状态平面为 .claude/multi-model-workflow,worktree 根为 .claude/worktrees。
 set -euo pipefail
 D="$(cd "$(dirname "$0")" && pwd)"
 

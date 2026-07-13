@@ -11,8 +11,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-# shellcheck source=lib/host.sh
-. "$SCRIPT_DIR/lib/host.sh"
+# shellcheck source=lib/runtime.sh
+. "$SCRIPT_DIR/lib/runtime.sh"
 STATE_NAME="release-state.json"
 # 同根因阈值 3 = 给两次修复机会:第 1 次失败(count=1)派修,修不好第 2 次失败(count=2)再派一次,
 # 第 3 次观测(count=3)才熔断。2 意味着任何修复只有一次机会,正常迭代会被误熔断。
@@ -24,7 +24,7 @@ now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 state_file() {
   local top sd
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
-  sd="$(mmw_resolve_state_subdir "$top")"
+  sd="$MMW_STATE_SUBDIR"
   echo "$top/$sd/$STATE_NAME"
 }
 
@@ -607,7 +607,7 @@ cmd_init() {
   local f top sd mp source_commit
   top="$(git rev-parse --show-toplevel)"
   source_commit="$(git -C "$top" rev-parse HEAD)"
-  sd="$(mmw_resolve_state_subdir "$top")"
+  sd="$MMW_STATE_SUBDIR"
   f="$top/$sd/$STATE_NAME"
   [ -f "$f" ] && die "已有未收束 release loop;先 release close 或复用"
   mkdir -p "$top/$sd"
@@ -1256,7 +1256,7 @@ cmd_resume() {
 cmd_close() {
   local top sd
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "NO-GIT"; return 0; }
-  sd="$(mmw_resolve_state_subdir "$top")"
+  sd="$MMW_STATE_SUBDIR"
   rm -f "$top/$sd/$STATE_NAME"
   echo "CLOSED"
 }

@@ -2,7 +2,7 @@
 
 > 落地 = **写码工人改代码 + 主线程按计划验收**。把 ②计划审过的 plan 完整落地、不偏离设计,各 plan 一 worktree、可并行。
 > 红线:验收吃**跑测试 / 读 diff 的 ground truth**,不吃自述;afk 只放权自主跑(`attended` 才停问),真缺输入 / 方向疑 / 合并红线才停;push/deploy 要人批(收尾阶段;本地 merge 不拦)。
-> - 工人 **只改源码、禁碰 `docs/`**:Claude 路径 `dispatch`/`resume` 末脚本自动 fail-closed;Droid 路径 Task 返回后主线程必跑 `mmw worker check-docs --worktree <wt>`(同 `DOCS_VIOLATION` 语义)。碰了 docs → 修复指令 resume 打回;每 Pack 一提交带 `Pack N.M`。
+> - 工人 **只改源码、禁碰 `docs/`**:`dispatch`/`resume` 末脚本自动 fail-closed。碰了 docs → 修复指令 resume 打回;每 Pack 一提交带 `Pack N.M`。
 > - **工人返回的事实是劳动力不是信源**——你 verify 时自己 grep / 读 / 跑坐实。
 
 ## 断点恢复(context 断了 / 中途回来,先跑这个)
@@ -45,24 +45,24 @@ mmw loop step add --id <plan-id> --desc "<标题>" --plan <plan 绝对路径> --
 
 判哪些 plan 互不依赖 → 并行;有 blocked_by 链 → 按序。
 
-## B2. 派写码工人落地(一条命令准备 + 宿主派发)
+## B2. 派写码工人落地
 
-每份 plan 派一个写码工人(`mmw worker dispatch` 代劳 worktree + prompt;Claude 后端 codex CLI / Droid 后端 Task→pack-executor):
+每份 plan 派一个 Codex 写码工人(`mmw worker dispatch` 代劳 worktree + prompt):
 
 ```bash
 mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree 绝对路径> \
  --design <设计文档绝对路径> --issue <该 plan 对应 issue 绝对路径>
 ```
 
-- **子 worktree 落点定死**:`<主仓库>/worktree 根(host-contract 路径)/<slug>-plan-<NNN>`(与任务 worktree 同层,别散落);脚本挂宿主分支前缀:`codex/<目录名>`(Claude)或 `worker/<目录名>`(Droid),从 `--base`(默认 HEAD)分叉。
+- **子 worktree 落点定死**:`<主仓库>/.claude/worktrees/<slug>-plan-<NNN>`(与任务 worktree 同层,别散落);脚本挂 `codex/<目录名>` 分支,从 `--base`(默认 HEAD)分叉。
 
 - **三文档都传**:Codex 开工要读设计(意图 / 合同)+ 它的 issue(边界)+ 它的计划(实施权威),不能只给计划。
 - **模型档脚本按 plan 的 `Complexity` 自动切,你不手传**:高风险 plan(标 `Complexity: capable`——计费 / 权限 / migration / 跨服务)脚本自动切高档。`--model`/`--effort` 仅在你要临时覆盖时才传。
-- **一律后台跑**:dispatch / resume 都用宿主后台派发(见 host-contract)——Claude=`codex exec` 后台;Droid=脚本写派发包后主线程 `Task`→`pack-executor`。完成读回执:Claude 看 `CODEX_EXIT`/`SESSION`/状态平面 `codex-logs/last.md`;Droid 看 `worker-dispatch/{prompt,meta}.json` + Task 回传。
+- **一律后台跑**:dispatch / resume 都用 Bash 后台启动 `codex exec`。完成读 `CODEX_EXIT`/`SESSION`/`.claude/multi-model-workflow/codex-logs/last.md`。
 - 并行:互不依赖的 plan,各自一个 worktree,同时发多条后台 dispatch。
 - **铁律在 `worktree-build` skill**:prompt 只给角色 + worktree + 三文档 + skill 指针。
 - 工人在自己 worktree 提交;进度靠你 verify 后 `mmw loop step done`。
-- **docs 红线 fail-closed(双宿主)**:Claude 路径 `dispatch`/`resume` 末脚本自动 `check_docs_boundary`;Droid 路径 Task 返回后主线程**必须** `mmw worker check-docs --worktree <wt>`(非零 / `DOCS_VIOLATION` 禁止 `loop step done`,写修复指令 resume)。
+- **docs 红线 fail-closed**:`dispatch`/`resume` 末脚本自动 `check_docs_boundary`;非零 / `DOCS_VIOLATION` 禁止 `loop step done`,写修复指令 resume。
 
 ## B3. 验收(命门:你按计划验,不信工人自述)
 
@@ -87,7 +87,7 @@ Codex 返回后,读它最后消息(dispatch 回执里打印;原文在 `<该 plan
 **Codex 停下说"缺输入 / 计划与现实冲突"**:你判——**afk 拍板前**可 consult `fable-advisor` 一次拿第二意见(与一手实证矛盾以实证为准):
 
 ```
-Task({
+Agent({
   subagent_type: "fable-advisor",
   prompt: "phase=build; decision_point=afk 拍板; baseline=<计划/设计要点>; options_or_draft=<拟默认值或拟 resume 指令>; evidence=<失败日志/path:line>; ask=只要 stance/why/top_risk/next"
 })
@@ -97,7 +97,7 @@ Task({
 
 ## B4. 全 plan 验完 + 合并
 
-每份 plan 验过(B3)→ `mmw loop step done`。所有 plan 都 done 后 `mmw loop exit-check` 应为 DONE(执行 loop 收工)。并行 plan 各在自己 worktree → 合并回任务分支(解 git 冲突 + 业务 / 功能冲突;本地 merge 不经红线,红线只拦 push / gh pr merge / 部署)。**每合完一个 plan 就清它的子 worktree**(不留孤儿):`git worktree remove <子 worktree>` + `git branch -d <codex|worker>/<目录名>`(前缀随宿主,见 host-contract / `mmw_worker_branch_prefix`)。
+每份 plan 验过(B3)→ `mmw loop step done`。所有 plan 都 done 后 `mmw loop exit-check` 应为 DONE(执行 loop 收工)。并行 plan 各在自己 worktree → 合并回任务分支(解 git 冲突 + 业务 / 功能冲突;本地 merge 不经红线,红线只拦 push / gh pr merge / 部署)。**每合完一个 plan 就清它的子 worktree**(不留孤儿):`git worktree remove <子 worktree>` + `git branch -d codex/<目录名>`。
 
 ## B5. ③ 合同门(一次,全 plan 合并后)
 

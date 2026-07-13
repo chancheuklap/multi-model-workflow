@@ -13,15 +13,15 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=lib/host.sh
-. "$SCRIPT_DIR/lib/host.sh"
+# shellcheck source=lib/runtime.sh
+. "$SCRIPT_DIR/lib/runtime.sh"
 MANIFEST_NAME="task.json"
 LOOP_NAME="loop-state.json"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 top_dir() { git rev-parse --show-toplevel 2>/dev/null || die "不在 git 仓库内"; }
-state_here() { mmw_resolve_state_subdir "$(top_dir)"; }
+state_here() { printf '%s' "$MMW_STATE_SUBDIR"; }
 man_path() { echo "$(top_dir)/$(state_here)/$MANIFEST_NAME"; }
 loop_path() { echo "$(top_dir)/$(state_here)/$LOOP_NAME"; }
 

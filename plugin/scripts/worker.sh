@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# worker.sh —— 写码工人 + 写计划工人派发(宿主中立入口)
+# worker.sh —— Claude Code 主线程派发 Codex 写码与写计划工人。
 #
 # 写码(build 落地,开子 worktree、改源码、每 Pack 提交):
 #   dispatch  --plan <abs.md> --worktree <abs> [--design ...] [--issue ...] [--base ...] [--model ...] [--effort ...]
@@ -11,16 +11,12 @@
 #   plan-resume   --plan <落点 abs.md> --worktree <abs> --instructions <abs.md>
 #   plan-check    --plan <落点 abs.md> --worktree <abs>   # 反向边界:diff 必须 ⊆ {docs/plans, docs/issues}
 #
-# 后端:
-#   claude → 外挂 codex CLI(写码/写计划 = codex exec -C 任务 worktree)
-#   droid  → 准备 prompt 包,打印 Task 派发说明(写码→pack-executor / 写计划→plan-writer)
-#
 # 兼容:mmw codex * 仍路由到本脚本。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=lib/host.sh
-. "$SCRIPT_DIR/lib/host.sh"
+# shellcheck source=lib/runtime.sh
+. "$SCRIPT_DIR/lib/runtime.sh"
 
 CODEX_BIN="${CODEX_BIN:-codex}"
 CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-luna}"
@@ -28,35 +24,18 @@ CODEX_EFFORT="${CODEX_EFFORT:-xhigh}"
 # capable 落地档(计费/权限/migration 等高风险 plan):脚本按 plan 的 Complexity 字段自动切,不靠 agent 手传。
 CODEX_CAPABLE_MODEL="${CODEX_CAPABLE_MODEL:-gpt-5.6-sol}"
 CODEX_CAPABLE_EFFORT="${CODEX_CAPABLE_EFFORT:-high}"
-DROID_EXECUTOR_DROID="${DROID_EXECUTOR_DROID:-pack-executor}"
-DROID_EXECUTOR_MODEL="${DROID_EXECUTOR_MODEL:-glm-5.2}"
-DROID_EXECUTOR_EFFORT="${DROID_EXECUTOR_EFFORT:-max}"
-# 写计划档(plan-dispatch):Claude 宿主 Codex = gpt-5.6-sol high;Droid 宿主 plan-writer droid = gpt-5.6-terra xhigh(见其 frontmatter)。
+# 写计划档(plan-dispatch):Codex = gpt-5.6-sol high。
 CODEX_PLAN_MODEL="${CODEX_PLAN_MODEL:-gpt-5.6-sol}"
 CODEX_PLAN_EFFORT="${CODEX_PLAN_EFFORT:-high}"
-DROID_PLAN_DROID="${DROID_PLAN_DROID:-plan-writer}"
-DROID_PLAN_MODEL="${DROID_PLAN_MODEL:-gpt-5.6-terra}"
-DROID_PLAN_EFFORT="${DROID_PLAN_EFFORT:-xhigh}"
 
-# worktree 真实状态平面(跨宿主续跑;新建派发时若无旧平面则落到当前宿主)
-state_for() { mmw_resolve_state_subdir "$1"; }
+state_for() { printf '%s' "$MMW_STATE_SUBDIR"; }
 
 die() { echo "ERROR: $*" >&2; exit 2; }
 
 build_prompt() {  # $1=plan $2=worktree $3=design $4=issue
-  # skill 指针按宿主:Claude 侧 Codex CLI 读它自己 hub 装的;Droid 侧读 plugin 内随插件发布的副本(绝对路径)。
-  local skill_ref skill_tail
-  if [ "$(mmw_host)" = "droid" ]; then
-    local sroot; sroot="$(mmw_plugin_root)/skills/worktree-build"
-    skill_ref="**读 plugin 内 \`worktree-build\` skill,照它走整个落地流程**(它是总纲,细纪律在它的 references,到那步再读):$sroot/SKILL.md"
-    skill_tail="**全在 worktree-build skill(plugin 内 $sroot/),照它做,本消息不重复**"
-  else
-    skill_ref="**读你已装的 \`worktree-build\` skill,照它走整个落地流程**(它是总纲,细纪律在它的 references,到那步再读)。"
-    skill_tail="**全在 worktree-build skill,照它做,本消息不重复**"
-  fi
   cat <<PROMPT
 你是落地执行者,被主线程派进一个 worktree 落地一份计划。
-$skill_ref
+**读你已装的 \`worktree-build\` skill,照它走整个落地流程**(它是总纲,细纪律在它的 references,到那步再读)。
 
 工作树(你唯一可写的源码区): $2
 开工前读这几份(worktree 内路径,顺序读):
@@ -64,24 +43,16 @@ ${3:+- 设计文档(意图/合同边界/发布风险): $3
 }${4:+- 你的 issue(What to build / Acceptance / Blocked by): $4
 }- 你的计划(实施唯一权威): $1
 
-落地铁律、逐 Pack TDD、每 Pack 提交格式、禁改 docs/、卡住协议、收工回执格式 —— ${skill_tail}。
+落地铁律、逐 Pack TDD、每 Pack 提交格式、禁改 docs/、卡住协议、收工回执格式 —— **全在 worktree-build skill,照它做,本消息不重复**。
 PROMPT
 }
 
 plan_ns() { basename "$1" .md; }  # 落点路径 → 派发命名空间(并行写计划在同一 worktree,靠它隔离 session/log)
 
 build_plan_prompt() {  # $1=落点 $2=worktree $3=design $4=issue $5=mockup 目录(可空)
-  # 方法论(task-pack / 自检)在 worktree-plan skill 自己的 references/,工人读 skill 自取,不在 prompt 注入路径。
-  local skill_ref
-  if [ "$(mmw_host)" = "droid" ]; then
-    local sroot; sroot="$(mmw_plugin_root)/skills/worktree-plan"
-    skill_ref="**读 plugin 内 \`worktree-plan\` skill,照它走整个写计划流程**(总纲,细纪律在它的 references,到那步再读):$sroot/SKILL.md"
-  else
-    skill_ref="**读你已装的 \`worktree-plan\` skill,照它走整个写计划流程**(总纲,细纪律在它的 references,到那步再读)。"
-  fi
   cat <<PROMPT
 你是计划撰写者,被主线程派进任务 worktree 把一个大 issue 写成一份实施计划。
-$skill_ref
+**读你已装的 \`worktree-plan\` skill,照它走整个写计划流程**(总纲,细纪律在它的 references,到那步再读)。
 
 任务工作树: $2
 你的落点(只写这一份 plan 文件): $1
@@ -177,117 +148,13 @@ run_codex_plan() {  # $1=wt $2=ns $3=prompt; shift 3; rest=codex args
 ensure_worktree() {
   local wt="$1" base="$2"
   if [ ! -d "$wt" ]; then
-    local bprefix; bprefix="$(mmw_worker_branch_prefix)"
-    git worktree add -b "$bprefix/$(basename "$wt")" "$wt" "$base" >&2 \
-      || die "建 worktree 失败: $wt(分支 $bprefix/$(basename "$wt") 已存在?先清理)"
+    git worktree add -b "codex/$(basename "$wt")" "$wt" "$base" >&2 \
+      || die "建 worktree 失败: $wt(分支 codex/$(basename "$wt") 已存在?先清理)"
   fi
-  mmw_ensure_wt_state_ignore "$wt"
+  mmw_ensure_worktree_state_ignore "$wt"
 }
 
-# ---------- Droid Task backend ----------
-write_droid_dispatch_pkg() {
-  local wt="$1" plan="$2" design="$3" issue="$4" model="$5" effort="$6" mode="$7" instr="${8:-}"
-  local st; st="$(state_for "$wt")"
-  local pkg="$wt/$st/worker-dispatch"
-  # resume 沿用派发时的越界基线,不许用当前 HEAD 覆盖(已提交的越界会逃逸)
-  local start_sha
-  if [ "$mode" = "resume" ] && [ -f "$pkg/start_sha" ]; then
-    start_sha="$(cat "$pkg/start_sha")"
-  else
-    start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
-  fi
-  mkdir -p "$pkg"
-  if [ "$mode" = "dispatch" ]; then
-    build_prompt "$plan" "$wt" "$design" "$issue" > "$pkg/prompt.md"
-  else
-    cp "$instr" "$pkg/prompt.md"
-  fi
-  printf '%s\n' "$start_sha" > "$pkg/start_sha"
-  cat > "$pkg/meta.json" <<META
-{
-  "backend": "droid-task",
-  "mode": "$mode",
-  "droid": "$DROID_EXECUTOR_DROID",
-  "model": "$model",
-  "effort": "$effort",
-  "worktree": "$wt",
-  "plan": "$plan",
-  "design": "$design",
-  "issue": "$issue",
-  "prompt_file": "$pkg/prompt.md",
-  "start_sha": "$start_sha",
-  "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-}
-META
-  printf '%s %s\n' "$model" "$effort" > "$wt/$st/worker-model"
-  echo "WORKER_BACKEND=droid-task"
-  echo "WORKER_MODE=$mode"
-  echo "WORKTREE=$wt"
-  echo "PROMPT_FILE=$pkg/prompt.md"
-  echo "META_FILE=$pkg/meta.json"
-  echo "START_SHA=$start_sha"
-  echo "DROID=$DROID_EXECUTOR_DROID"
-  echo "MODEL=$model"
-  echo "EFFORT=$effort"
-  cat <<EOF
---- droid 派发(主线程照做)---
-用 Task 工具派 Custom Droid:
-  subagent_type: $DROID_EXECUTOR_DROID
-  model 偏好: $model (reasoningEffort=$effort; 以 droid 文件 model 为准)
-  prompt: 完整读取并执行 $pkg/prompt.md
-工作目录必须是 worktree: $wt
-Task 返回后**必须**先机器核 docs 红线(与 Claude codex 路径同语义 fail-closed):
-  mmw worker check-docs --worktree $wt
-非零 / DOCS_VIOLATION → 写修复指令 resume 打回,禁止 mmw loop step done。
-通过后再亲验(跑测试/读 diff) → mmw loop step done。
-EOF
-}
-
-# Droid 写计划派发包(plan-writer droid,在任务 worktree 内写 plan,不开子 worktree)
-write_droid_plan_pkg() {
-  local plan="$1" wt="$2" design="$3" issue="$4" mockup="$5" model="$6" effort="$7" mode="$8" instr="${9:-}"
-  local ns; ns="$(plan_ns "$plan")"
-  local st; st="$(state_for "$wt")"
-  local pkg="$wt/$st/plan-workers/$ns/dispatch"
-  # resume 沿用派发时的越界基线(同 write_droid_dispatch_pkg)
-  local start_sha
-  if [ "$mode" = "resume" ] && [ -f "$pkg/start_sha" ]; then
-    start_sha="$(cat "$pkg/start_sha")"
-  else
-    start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
-  fi
-  mkdir -p "$pkg"
-  if [ "$mode" = "dispatch" ]; then
-    build_plan_prompt "$plan" "$wt" "$design" "$issue" "$mockup" > "$pkg/prompt.md"
-  else
-    cp "$instr" "$pkg/prompt.md"
-  fi
-  printf '%s\n' "$start_sha" > "$pkg/start_sha"
-  printf '%s %s\n' "$model" "$effort" > "$wt/$st/plan-workers/$ns/worker-model"
-  echo "WORKER_BACKEND=droid-task"
-  echo "WORKER_MODE=$mode"
-  echo "WORKTREE=$wt"
-  echo "PLAN_WORKER_NS=$ns"
-  echo "PROMPT_FILE=$pkg/prompt.md"
-  echo "START_SHA=$start_sha"
-  echo "DROID=$DROID_PLAN_DROID"
-  echo "MODEL=$model"
-  echo "EFFORT=$effort"
-  cat <<EOF
---- droid 写计划派发(主线程照做)---
-用 Task 工具派 Custom Droid:
-  subagent_type: $DROID_PLAN_DROID
-  model 偏好: $model (reasoningEffort=$effort; 以 droid 文件 model 为准)
-  prompt: 完整读取并执行 $pkg/prompt.md
-工作目录必须是任务 worktree: $wt
-Task 返回后**必须**先机器核写计划边界(fail-closed):
-  mmw worker plan-check --plan $plan --worktree $wt
-非零 / PLAN_VIOLATION → 写修复指令 plan-resume 打回,禁止采信。
-通过后再亲验(plan 文件存在 / Pack 数 / file:line / 小 issue 写回)。
-EOF
-}
-
-# 机器核 docs/ 边界(Claude 路径在 dispatch/resume 末自动跑;Droid 路径 Task 返回后主线程必跑)
+# 机器核 docs/ 边界(dispatch/resume 末自动跑)
 cmd_check_docs() {
   local wt="" start_sha=""
   while [ $# -gt 0 ]; do case "$1" in
@@ -301,13 +168,7 @@ cmd_check_docs() {
   if [ -z "$start_sha" ] && [ -f "$wt/$st/start_sha" ]; then
     start_sha="$(cat "$wt/$st/start_sha")"
   fi
-  if [ -z "$start_sha" ] && [ -f "$wt/$st/worker-dispatch/start_sha" ]; then
-    start_sha="$(cat "$wt/$st/worker-dispatch/start_sha")"
-  fi
-  if [ -z "$start_sha" ] && [ -f "$wt/$st/worker-dispatch/meta.json" ]; then
-    start_sha="$(jq -r '.start_sha // empty' "$wt/$st/worker-dispatch/meta.json" 2>/dev/null || true)"
-  fi
-  [ -n "$start_sha" ] || die "无 start_sha(dispatch 包或 --start-sha);无法核 docs 边界"
+  [ -n "$start_sha" ] || die "无 start_sha(派发记录或 --start-sha);无法核 docs 边界"
   check_docs_boundary "$wt" "$start_sha"
 }
 
@@ -331,39 +192,25 @@ cmd_dispatch() {
   local st; st="$(state_for "$wt")"
   mkdir -p "$wt/$st"
 
-  case "$(mmw_worker_backend)" in
-    droid-task)
-      [ -n "$model" ] || model="$DROID_EXECUTOR_MODEL"
-      [ -n "$effort" ] || effort="$DROID_EXECUTOR_EFFORT"
-      write_droid_dispatch_pkg "$wt" "$plan" "$design" "$issue" "$model" "$effort" "dispatch"
-      return 0
-      ;;
-    codex-cli)
-      # 落地档按 plan 的 Complexity 自动切(capable→sol high,否则 luna xhigh);--model/--effort 仅作显式覆盖。
-      # 检测大小写不敏感 + 认中文"复杂度"标签,与 review.sh capable 检测同语义。
-      local dmodel="$CODEX_MODEL" deffort="$CODEX_EFFORT"
-      if grep -qiE '(complexity|复杂度).*capable' "$plan" 2>/dev/null; then
-        dmodel="$CODEX_CAPABLE_MODEL"; deffort="$CODEX_CAPABLE_EFFORT"
-      fi
-      [ -n "$model" ] || model="$dmodel"
-      [ -n "$effort" ] || effort="$deffort"
-      local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
-      # 越界基线钉在派发时并持久化;resume 必须沿用它,否则工人把越界提交进历史后 resume 就核不到了
-      local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
-      printf '%s\n' "$start_sha" > "$wt/$st/start_sha"
-      printf '%s %s\n' "$model" "$effort" > "$wt/$st/codex-model"
-      local pf; pf="$(mktemp)"; build_prompt "$plan" "$wt" "$design" "$issue" > "$pf"
-      local rc=0
-      run_codex "$wt" "$pf" \
-        exec -C "$wt" --sandbox workspace-write \
-        ${gcd:+--add-dir "$gcd"} \
-        -m "$model" -c "model_reasoning_effort=\"$effort\"" || rc=$?
-      rm -f "$pf"
-      if ! check_docs_boundary "$wt" "$start_sha" && [ "$rc" -eq 0 ]; then rc=3; fi
-      return "$rc"
-      ;;
-    *) die "未知 worker backend: $(mmw_worker_backend)" ;;
-  esac
+  local dmodel="$CODEX_MODEL" deffort="$CODEX_EFFORT"
+  if grep -qiE '(complexity|复杂度).*capable' "$plan" 2>/dev/null; then
+    dmodel="$CODEX_CAPABLE_MODEL"; deffort="$CODEX_CAPABLE_EFFORT"
+  fi
+  [ -n "$model" ] || model="$dmodel"
+  [ -n "$effort" ] || effort="$deffort"
+  local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
+  local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
+  printf '%s\n' "$start_sha" > "$wt/$st/start_sha"
+  printf '%s %s\n' "$model" "$effort" > "$wt/$st/codex-model"
+  local pf; pf="$(mktemp)"; build_prompt "$plan" "$wt" "$design" "$issue" > "$pf"
+  local rc=0
+  run_codex "$wt" "$pf" \
+    exec -C "$wt" --sandbox workspace-write \
+    ${gcd:+--add-dir "$gcd"} \
+    -m "$model" -c "model_reasoning_effort=\"$effort\"" || rc=$?
+  rm -f "$pf"
+  if ! check_docs_boundary "$wt" "$start_sha" && [ "$rc" -eq 0 ]; then rc=3; fi
+  return "$rc"
 }
 
 cmd_resume() {
@@ -377,34 +224,22 @@ cmd_resume() {
   [ -f "$instr" ] || die "--instructions 文件不存在: $instr"
   local st; st="$(state_for "$wt")"
 
-  case "$(mmw_worker_backend)" in
-    droid-task)
-      local model="$DROID_EXECUTOR_MODEL" effort="$DROID_EXECUTOR_EFFORT"
-      [ -f "$wt/$st/worker-model" ] && read -r model effort < "$wt/$st/worker-model"
-      write_droid_dispatch_pkg "$wt" "" "" "" "$model" "$effort" "resume" "$instr"
-      return 0
-      ;;
-    codex-cli)
-      local sf="$wt/$st/codex-session"
-      [ -f "$sf" ] || record_session "$wt" "$wt/$st/codex-logs/run.log" >/dev/null
-      [ -f "$sf" ] || die "无 session 记账($sf,run.log 也捞不到);首派走 dispatch"
-      local sid; sid="$(cat "$sf")"
-      local model="$CODEX_MODEL" effort="$CODEX_EFFORT"
-      [ -f "$wt/$st/codex-model" ] && read -r model effort < "$wt/$st/codex-model"
-      local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
-      # 沿用派发时持久化的越界基线;拿 resume 时 HEAD 当基线会让已提交的越界逃逸
-      local start_sha; start_sha="$(cat "$wt/$st/start_sha" 2>/dev/null || git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
-      local rc=0
-      run_codex "$wt" "$instr" \
-        exec -C "$wt" --sandbox workspace-write \
-        ${gcd:+--add-dir "$gcd"} \
-        -m "$model" -c "model_reasoning_effort=\"$effort\"" \
-        resume "$sid" || rc=$?
-      if ! check_docs_boundary "$wt" "$start_sha" && [ "$rc" -eq 0 ]; then rc=3; fi
-      return "$rc"
-      ;;
-    *) die "未知 worker backend" ;;
-  esac
+  local sf="$wt/$st/codex-session"
+  [ -f "$sf" ] || record_session "$wt" "$wt/$st/codex-logs/run.log" >/dev/null
+  [ -f "$sf" ] || die "无 session 记账($sf,run.log 也捞不到);首派走 dispatch"
+  local sid; sid="$(cat "$sf")"
+  local model="$CODEX_MODEL" effort="$CODEX_EFFORT"
+  [ -f "$wt/$st/codex-model" ] && read -r model effort < "$wt/$st/codex-model"
+  local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
+  local start_sha; start_sha="$(cat "$wt/$st/start_sha" 2>/dev/null || git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
+  local rc=0
+  run_codex "$wt" "$instr" \
+    exec -C "$wt" --sandbox workspace-write \
+    ${gcd:+--add-dir "$gcd"} \
+    -m "$model" -c "model_reasoning_effort=\"$effort\"" \
+    resume "$sid" || rc=$?
+  if ! check_docs_boundary "$wt" "$start_sha" && [ "$rc" -eq 0 ]; then rc=3; fi
+  return "$rc"
 }
 
 # ---------- 写计划派发(在任务 worktree 内,不开子 worktree、不 commit)----------
@@ -426,36 +261,25 @@ cmd_plan_dispatch() {
   [ -d "$wt" ]   || die "任务 worktree 不存在: $wt"
   # 写计划方法论(task-pack / 自检)在 worktree-plan skill 自己的 references/,工人读 skill 自取,dispatch 不再传路径。
   local st; st="$(state_for "$wt")"; mkdir -p "$wt/$st"
-  mmw_ensure_wt_state_ignore "$wt"   # 状态平面 gitignore,否则 plan-workers/ 会被 check_plan_boundary 当越界误报
+  mmw_ensure_worktree_state_ignore "$wt"
   local ns; ns="$(plan_ns "$plan")"
 
-  case "$(mmw_worker_backend)" in
-    droid-task)
-      [ -n "$model" ] || model="$DROID_PLAN_MODEL"
-      [ -n "$effort" ] || effort="$DROID_PLAN_EFFORT"
-      write_droid_plan_pkg "$plan" "$wt" "$design" "$issue" "$mockup" "$model" "$effort" "dispatch"
-      return 0
-      ;;
-    codex-cli)
-      [ -n "$model" ] || model="$CODEX_PLAN_MODEL"
-      [ -n "$effort" ] || effort="$CODEX_PLAN_EFFORT"
-      local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
-      local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
-      mkdir -p "$wt/$st/plan-workers/$ns"
-      printf '%s %s\n' "$model" "$effort" > "$wt/$st/plan-workers/$ns/codex-model"
-      printf '%s\n' "$start_sha" > "$wt/$st/plan-workers/$ns/start_sha"
-      local pf; pf="$(mktemp)"; build_plan_prompt "$plan" "$wt" "$design" "$issue" "$mockup" > "$pf"
-      local rc=0
-      run_codex_plan "$wt" "$ns" "$pf" \
-        exec -C "$wt" --sandbox workspace-write \
-        ${gcd:+--add-dir "$gcd"} \
-        -m "$model" -c "model_reasoning_effort=\"$effort\"" || rc=$?
-      rm -f "$pf"
-      if ! check_plan_boundary "$wt" "$start_sha" && [ "$rc" -eq 0 ]; then rc=3; fi
-      return "$rc"
-      ;;
-    *) die "未知 worker backend: $(mmw_worker_backend)" ;;
-  esac
+  [ -n "$model" ] || model="$CODEX_PLAN_MODEL"
+  [ -n "$effort" ] || effort="$CODEX_PLAN_EFFORT"
+  local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
+  local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
+  mkdir -p "$wt/$st/plan-workers/$ns"
+  printf '%s %s\n' "$model" "$effort" > "$wt/$st/plan-workers/$ns/codex-model"
+  printf '%s\n' "$start_sha" > "$wt/$st/plan-workers/$ns/start_sha"
+  local pf; pf="$(mktemp)"; build_plan_prompt "$plan" "$wt" "$design" "$issue" "$mockup" > "$pf"
+  local rc=0
+  run_codex_plan "$wt" "$ns" "$pf" \
+    exec -C "$wt" --sandbox workspace-write \
+    ${gcd:+--add-dir "$gcd"} \
+    -m "$model" -c "model_reasoning_effort=\"$effort\"" || rc=$?
+  rm -f "$pf"
+  if ! check_plan_boundary "$wt" "$start_sha" && [ "$rc" -eq 0 ]; then rc=3; fi
+  return "$rc"
 }
 
 cmd_plan_resume() {
@@ -473,34 +297,23 @@ cmd_plan_resume() {
   local ns; ns="$(plan_ns "$plan")"
   local sd="$wt/$st/plan-workers/$ns"
 
-  case "$(mmw_worker_backend)" in
-    droid-task)
-      local model="$DROID_PLAN_MODEL" effort="$DROID_PLAN_EFFORT"
-      [ -f "$sd/worker-model" ] && read -r model effort < "$sd/worker-model"
-      write_droid_plan_pkg "$plan" "$wt" "" "" "" "$model" "$effort" "resume" "$instr"
-      return 0
-      ;;
-    codex-cli)
-      [ -f "$sd/codex-session" ] || die "无 session 记账($sd/codex-session);首派走 plan-dispatch"
-      local sid; sid="$(cat "$sd/codex-session")"
-      local model="$CODEX_PLAN_MODEL" effort="$CODEX_PLAN_EFFORT"
-      [ -f "$sd/codex-model" ] && read -r model effort < "$sd/codex-model"
-      local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
-      local start_sha; start_sha="$(cat "$sd/start_sha" 2>/dev/null || git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
-      local rc=0
-      run_codex_plan "$wt" "$ns" "$instr" \
-        exec -C "$wt" --sandbox workspace-write \
-        ${gcd:+--add-dir "$gcd"} \
-        -m "$model" -c "model_reasoning_effort=\"$effort\"" \
-        resume "$sid" || rc=$?
-      if ! check_plan_boundary "$wt" "$start_sha" && [ "$rc" -eq 0 ]; then rc=3; fi
-      return "$rc"
-      ;;
-    *) die "未知 worker backend" ;;
-  esac
+  [ -f "$sd/codex-session" ] || die "无 session 记账($sd/codex-session);首派走 plan-dispatch"
+  local sid; sid="$(cat "$sd/codex-session")"
+  local model="$CODEX_PLAN_MODEL" effort="$CODEX_PLAN_EFFORT"
+  [ -f "$sd/codex-model" ] && read -r model effort < "$sd/codex-model"
+  local gcd; gcd="$(cd "$wt" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || gcd=""
+  local start_sha; start_sha="$(cat "$sd/start_sha" 2>/dev/null || git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
+  local rc=0
+  run_codex_plan "$wt" "$ns" "$instr" \
+    exec -C "$wt" --sandbox workspace-write \
+    ${gcd:+--add-dir "$gcd"} \
+    -m "$model" -c "model_reasoning_effort=\"$effort\"" \
+    resume "$sid" || rc=$?
+  if ! check_plan_boundary "$wt" "$start_sha" && [ "$rc" -eq 0 ]; then rc=3; fi
+  return "$rc"
 }
 
-cmd_plan_check() {  # 机器核写计划边界(Droid 路径 Task 返回后主线程必跑)
+cmd_plan_check() {
   local plan="" wt="" start_sha=""
   while [ $# -gt 0 ]; do case "$1" in
     --plan) plan="$2"; shift 2 ;;
@@ -514,8 +327,7 @@ cmd_plan_check() {  # 机器核写计划边界(Droid 路径 Task 返回后主线
   local st; st="$(state_for "$wt")"
   local ns; ns="$(plan_ns "$plan")"
   [ -z "$start_sha" ] && [ -f "$wt/$st/plan-workers/$ns/start_sha" ] && start_sha="$(cat "$wt/$st/plan-workers/$ns/start_sha")"
-  [ -z "$start_sha" ] && [ -f "$wt/$st/plan-workers/$ns/dispatch/start_sha" ] && start_sha="$(cat "$wt/$st/plan-workers/$ns/dispatch/start_sha")"
-  [ -n "$start_sha" ] || die "无 start_sha(派发包或 --start-sha);无法核写计划边界"
+  [ -n "$start_sha" ] || die "无 start_sha(派发记录或 --start-sha);无法核写计划边界"
   check_plan_boundary "$wt" "$start_sha"
 }
 

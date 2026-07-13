@@ -2,7 +2,6 @@
 # 四个 hook 空跑:SessionStart 分诊 / UserPromptSubmit 相位锚 / PreToolUse 红线 / PostToolUse 记进度。
 # (审 loop 完工不再用 SubagentStop 看守,改由 flow.sh handoff 确定性闸把关,见 test_flow.sh。)
 set -euo pipefail
-export MMW_HOST="${MMW_HOST:-claude}"
 STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
 WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -149,14 +148,14 @@ OUT="$(cd "$NOGIT" && printf '{}' | bash "$HOOKS/prompt-anchor.sh" 2>&1)"; EC=$?
 [ "$EC" = "0" ] && [ -z "$OUT" ] && ok "非 git 目录 → 静默 exit 0" || no "prompt-anchor 非 git 静默 ($EC/$OUT)"
 rm -rf "$WTREPO" "$NOGIT"
 
-# ===== hooks.json 接线(宿主分组:Execute=Droid 无 if / Bash=Claude 带 if 前筛)=====
+# ===== hooks.json 接线(Claude Code Bash matcher + if 前筛)=====
 HJ="$HOOKS/hooks.json"
 python3 -m json.tool "$HJ" >/dev/null 2>&1 && ok "hooks.json JSON 合法" || no "hooks.json JSON 不合法"
-noif_exec="$(jq -r '[.hooks.PreToolUse[],.hooks.PostToolUse[]|select(.matcher=="Execute")|.hooks[]|has("if")]|any' "$HJ")"
-[ "$noif_exec" = "false" ] && ok "Execute 组(Droid)不带 if(Droid 忽略 if,不能依赖它筛)" || no "Execute 组混入 if"
+execute_count="$(jq '[.hooks.PreToolUse[],.hooks.PostToolUse[]|select(.matcher=="Execute")]|length' "$HJ")"
+[ "$execute_count" = "0" ] && ok "无非 Claude Code 的 Execute matcher" || no "残留 Execute matcher"
 allif_bash="$(jq -r '[.hooks.PreToolUse[],.hooks.PostToolUse[]|select(.matcher=="Bash")|.hooks[]|has("if")]|all' "$HJ")"
-[ "$allif_bash" = "true" ] && ok "Bash 组(Claude)每条都带 if 前筛" || no "Bash 组有条目缺 if"
-# 红线 if 关键词集必须覆盖 guard-redline 全部 ask 命令(漏一条 = Claude 侧红线漏拦)
+[ "$allif_bash" = "true" ] && ok "Bash 组每条都带 if 前筛" || no "Bash 组有条目缺 if"
+# 红线 if 关键词集必须覆盖 guard-redline 全部 ask 命令。
 kw="$(jq -r '.hooks.PreToolUse[]|select(.matcher=="Bash")|.hooks[].if' "$HJ" | sed -E 's/^Bash\(\*//; s/\*\)$//' | paste -sd'|' -)"
 miss=0
 for c in 'git push origin main' 'git -c core.hooksPath=/dev/null push origin main' 'gh pr merge 123 --merge' 'gh api repos/o/r/pulls/1/merge -X PUT' './deploy.sh' 'bash deploy-prod.sh' 'kubectl apply -f k8s/' 'terraform apply' 'terraform destroy'; do
@@ -164,7 +163,7 @@ for c in 'git push origin main' 'git -c core.hooksPath=/dev/null push origin mai
 done
 [ "$miss" = "0" ] && ok "if 关键词集覆盖全部红线命令(无漏筛)" || no "if 关键词集漏筛红线命令"
 rsif="$(jq -r '.hooks.PostToolUse[]|select(.matcher=="Bash")|.hooks[0].if' "$HJ")"
-[ "$rsif" = "Bash(git commit:*)" ] && ok "record-step Bash 侧 if 只认 git commit" || no "record-step if 异常 ($rsif)"
+[ "$rsif" = "Bash(git commit:*)" ] && ok "record-step if 只认 git commit" || no "record-step if 异常 ($rsif)"
 jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | test("prompt-anchor.sh")' "$HJ" >/dev/null 2>&1 && ok "UserPromptSubmit → prompt-anchor 已接线" || no "UserPromptSubmit 未接线"
 
 echo ""; echo "Results: $pass passed, $fail failed"; [ "$fail" -eq 0 ]

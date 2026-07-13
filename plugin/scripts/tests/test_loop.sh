@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # loop.sh 内层引擎空跑:看守 exit-check、软停×在场、冒泡、审核 checklist、合同门。
 set -euo pipefail
-export MMW_HOST="${MMW_HOST:-claude}"
 STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
 WT_REL="${WT_REL:-.claude/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

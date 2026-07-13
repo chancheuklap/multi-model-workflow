@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # release-flow.sh 引擎空跑:载入 fail-loud、状态机推进、exit-check、round cap、resume、原子写。
 set -euo pipefail
-export MMW_HOST="${MMW_HOST:-claude}"
 STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RF="$SCRIPT_DIR/../release-flow.sh"
@@ -139,7 +138,7 @@ esac
 SH
 chmod +x remote-bin/scp remote-bin/ssh
 printf '# fake release\n' > release.ps1
-printf '{"repo_root":"/placeholder"}\n' > release-context.json
+printf '{"repo_root":"/placeholder","product":"test-product"}\n' > release-context.json
 jq --arg script "$TMP/release.ps1" --arg context "$TMP/release-context.json" '.stages=[{name:"build",run:["mmw-release-remote-build","--script",$script,"--context",$context]}]' "$FIX/manifest.fake.json" > remote-build-manifest.json
 bash "$RF" init --manifest remote-build-manifest.json >/dev/null
 if PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release-input" bash "$RF" stage run --stage build >/dev/null; then
@@ -147,25 +146,23 @@ if PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMO
   grep -q 'schtasks /create' "$TMP/transport.calls" && ok "remote build 创建 schtasks" || no "remote build 未创建 schtasks"
   # 远端 DefaultShell 是 cmd.exe:一切 PowerShell 维护命令必须显式经 powershell -Command。
   grep -q 'powershell -NoProfile -NonInteractive -Command.*New-Item' "$TMP/transport.calls" && ok "远端维护命令显式包 powershell(不裸跑 cmdlet)" || no "远端命令未包 powershell,cmd 下 New-Item 必炸"
-  # cwd 合同 + exitcode 落地合同都在上传的 wrapper 内:release.ps1 的 throw 是 terminating
-  # error,靠 -Command 串分号写 exitcode 会被中止;wrapper 用 try/catch/finally 保证必落地。
+  # cwd 合同 + exitcode 落地合同都在上传的 wrapper 内。
   if [ -f "$TMP/fake-remote/run-release.ps1" ] \
     && grep -q 'ReleaseContextPath' "$TMP/fake-remote/run-release.ps1" \
-    && grep -q 'finally' "$TMP/fake-remote/run-release.ps1" \
+    && grep -Fq '*> $log' "$TMP/fake-remote/run-release.ps1" \
     && grep -q 'build-run.exitcode' "$TMP/fake-remote/run-release.ps1"; then
-    ok "remote build 上传 wrapper(显式上下文 + finally 落 exitcode)"
+    ok "remote build 上传 wrapper(显式上下文 + 原生重定向 + exitcode)"
   else
     no "remote build wrapper 缺失或未保证 exitcode 落地"
   fi
-  # Windows PowerShell 5.1 裸重定向写 UTF-16LE,Mac 侧按 UTF-8 翻译会全灭:wrapper 必须显式编码。
-  if grep -q 'Out-File.*-Encoding utf8' "$TMP/fake-remote/run-release.ps1" \
-    && grep -q 'Add-Content -Encoding UTF8' "$TMP/fake-remote/run-release.ps1" \
+  # Windows PowerShell 5.1 原生重定向写 UTF-16LE,wrapper 随后转成 UTF-8。
+  if grep -Fq 'Set-Content -LiteralPath $log -Value $t -Encoding utf8' "$TMP/fake-remote/run-release.ps1" \
     && grep -q 'Set-Content.*-Encoding ascii' "$TMP/fake-remote/run-release.ps1"; then
-    ok "wrapper 显式 UTF-8 写日志 / ascii 写 exitcode(不写 UTF-16LE)"
+    ok "wrapper 把日志转 UTF-8 / exitcode 写 ascii"
   else
     no "wrapper 未显式声明编码,PS5.1 裸重定向会写 UTF-16LE"
   fi
-  grep -q 'File .*run-release.ps1' "$TMP/transport.calls" && ok "schtasks /tr 只指 wrapper 文件(不串多语句)" || no "schtasks /tr 仍串多语句"
+  grep -q '/tr .*run-release.cmd' "$TMP/transport.calls" && ok "schtasks /tr 只指 cmd wrapper(不串多语句)" || no "schtasks /tr 仍串多语句"
   # 引号合同:create/run 走 cmd.exe、任务命令行走 powershell native CLI,单引号在两处都是字面
   # 字符——带引号则清理找不到任务、-File 找的是假路径。断 /tn 全链一致且不带引号。
   if grep -q "/tn '" "$TMP/transport.calls" || grep -q "File '" "$TMP/transport.calls"; then
