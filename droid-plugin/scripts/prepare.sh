@@ -93,7 +93,7 @@ IGN
     --arg inv "docs/investigating/$slug" --arg ddoc "docs/design/$slug" --arg idir "docs/issues/$slug" --arg pdir "docs/plans/$slug" --arg ctx "docs/context" \
     --arg attendance "$attendance" --arg pv "$plugin_version" \
     '{schema_version:$sv, slug:$slug, title:$title, request:$request, scenario:$scenario, phases:$phases, direction_given:$dg,
-      status:$status, phase:$phase, phase_index:0, step_index:0, gate:null,
+      status:$status, waiting_for:null, phase:$phase, phase_index:0, step_index:0, gate:null,
       created_at:$created, updated_at:$created, plugin_version:$pv, base_commit:$base,
       branch:$branch, worktree_path:$wt, docs:{investigating:$inv, design:$ddoc, issues:$idir, plans:$pdir, context:$ctx},
       repair_count:0, turnaround_count:0, attendance:$attendance, unattended_policy:null,
@@ -127,7 +127,7 @@ cmd_resume() {
   # 只翻这一种,别的状态原样;fail-closed 写(空/非法 JSON 拒写、保留原档)。
   if [ "$(jq -r .status "$manifest")" = "waiting-user" ]; then
     local tmp; tmp="$(mktemp)"
-    if jq '.status="active"' "$manifest" > "$tmp" && [ -s "$tmp" ] && jq -e . "$tmp" >/dev/null 2>&1; then
+    if jq '.status="active" | .waiting_for=null' "$manifest" > "$tmp" && [ -s "$tmp" ] && jq -e . "$tmp" >/dev/null 2>&1; then
       mv "$tmp" "$manifest"
     else
       rm -f "$tmp"; die "resume 翻 active 写入失败,manifest 保留不动"
@@ -135,6 +135,28 @@ cmd_resume() {
   fi
   echo "MANAGED"
   cat "$manifest"
+}
+
+# ---------- scope(需求变化:刷新 manifest.request 为当前确认范围与验收基线) ----------
+cmd_scope() {
+  local request=""
+  while [ $# -gt 0 ]; do
+    case "$1" in --request) request="$2"; shift 2 ;; *) die "未知参数: $1" ;; esac
+  done
+  [ -n "$request" ] || die "--request 必填(更新后的完整范围与验收条件,不是增量说明)"
+  local top sd manifest tmp
+  top="$(git_toplevel)"
+  sd="$(mmw_resolve_state_subdir "$top")"
+  manifest="$top/$sd/$MANIFEST_NAME"
+  [ -f "$manifest" ] || die "当前不是在管任务(无 manifest)"
+  tmp="$(mktemp)"
+  if jq --arg request "$request" '.request=$request' "$manifest" > "$tmp" \
+    && [ -s "$tmp" ] && jq -e . "$tmp" >/dev/null 2>&1; then
+    mv "$tmp" "$manifest"
+  else
+    rm -f "$tmp"; die "scope 写入失败,manifest 保留不动"
+  fi
+  echo "SCOPE_UPDATED"
 }
 
 # ---------- cleanup(合并后删干净) ----------
@@ -236,6 +258,7 @@ cmd_team() {
 case "${1:-}" in
   new)      shift; cmd_new "$@" ;;
   resume)   shift; cmd_resume "$@" ;;
+  scope)    shift; cmd_scope "$@" ;;
   cleanup)  shift; cmd_cleanup "$@" ;;
   escalate) shift; cmd_escalate "$@" ;;
   team)     shift; cmd_team "$@" ;;

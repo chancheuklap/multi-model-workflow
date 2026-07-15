@@ -64,11 +64,13 @@ approval_check() {  # $1=manifest
 
 # ---------- handoff ----------
 cmd_handoff() {
-  local conclusion="" to_phase="" ; local -a produced=()
+  local conclusion="" to_phase="" waiting_for="" ; local -a produced=()
+  # --waiting-for: needs-context 专用,等用户答的具体问题(落盘,跨会话可见)
   while [ $# -gt 0 ]; do
     case "$1" in
       --conclusion) conclusion="$2"; shift 2 ;;
       --produced)   produced+=("$2"); shift 2 ;;
+      --waiting-for) waiting_for="$2"; shift 2 ;;
       --to-phase)   to_phase="$2"; shift 2 ;;   # needs-redirection 回到指定上游阶段(默认上一阶段)
       *) die "未知参数: $1" ;;
     esac
@@ -79,6 +81,12 @@ cmd_handoff() {
   # 结论词是引擎的输入枚举(CLI 参数校验,不是判断审查):词不在表里引擎算不了下一步
   jq -e --arg c "$conclusion" '.conclusions | index($c) != null' "$ROUTES" >/dev/null \
     || die "结论词不认识: $conclusion(可用 $(jq -rc .conclusions "$ROUTES"))"
+  # 停下问人必须把"等什么"落盘:下次会话(可能换宿主)冷启动全靠它接上
+  if [ "$conclusion" = "needs-context" ]; then
+    [ -n "$waiting_for" ] || die "needs-context 必须带 --waiting-for '<必须由用户补充的具体问题>'"
+  elif [ -n "$waiting_for" ]; then
+    die "--waiting-for 只用于 needs-context"
+  fi
 
   local m; m="$(manifest_path)"
   local cur_phase pidx rc tc gate gated slug
@@ -226,8 +234,9 @@ cmd_handoff() {
     --argjson tc "$new_tc" --arg status "$new_status" --arg gate "$new_gate" \
     --arg hphase "$cur_phase" --arg hconc "$conclusion" --arg at "$(now)" \
     --argjson produced "$produced_json" --argjson nstep "$new_step" \
-    --argjson prune_from "$prune_from" \
+    --argjson prune_from "$prune_from" --arg waiting "$waiting_for" \
     '.phase=$phase | .phase_index=$pidx | .repair_count=$rc | .turnaround_count=$tc | .status=$status
+     | .waiting_for=(if $waiting=="" then null else $waiting end)
      | .gate=(if $gate=="" then null else $gate end)
      | .step_index=$nstep
      | .artifacts += $produced
@@ -407,7 +416,14 @@ cmd_where() {
 
   # then:阶段 handoff 钉产物。produced 可为字符串或数组,逐个吐,解析 <slug> 用真 slug。
   local then_cmd
-  then_cmd="$MMW handoff --conclusion <pass|needs-repair|needs-redirection|needs-context|blocked>"
+  then_cmd="$MMW handoff --conclusion <pass|needs-repair|needs-redirection|needs-context|blocked>   # needs-context 另带 --waiting-for '<问题>'"
+  # 等人答复中:等什么落过盘,冷启动先接上这个问题,不重推流程
+  local waiting_line=""
+  if [ "$status" = "waiting-user" ]; then
+    waiting_line="waiting_for=$(jq -r '.waiting_for // "(未记录,翻 history 最近一笔 needs-context)"' "$m")"
+    b_do="先判断用户本轮消息是否回答了 waiting_for;回答了才跑 $MMW task resume 续当前步,未回答则先处理本轮消息、任务保持等待"
+    then_cmd="$MMW task resume"
+  fi
   local produced_src
   if { [ "$gate" != "null" ] && [ -n "$gate" ]; }; then
     produced_src="$(jq -r --arg p "$gate" '.review_gates[$p].produced // ""' "$ROUTES")"
@@ -451,6 +467,7 @@ phase_outputs=$(jq -rc '.phase_outputs' "$m")
 subtasks=$(jq -r '.subtasks | length' "$m")
 open_items=$(jq -r '.open_items | length' "$m")
 EOF
+  if [ -n "$waiting_line" ]; then echo "$waiting_line"; fi
   if [ -n "$review_line" ]; then echo "$review_line"; fi
   if [ -n "$review_start_line" ]; then echo "$review_start_line"; fi
   if [ -n "$review_trace_line" ]; then echo "$review_trace_line"; fi
