@@ -70,21 +70,21 @@ droid 侧:Custom Droid 定义即模型分配,派发走原生 subagent;作业本/
 
 ## 测试质量层(治 Codex 垃圾测试)
 
-三层标准,权威递减,冲突时上压下:
+**方法论随 plugin 走(随身携带,任何仓库生效);仓库只留一张薄层事实表。** 分工:plugin 管「测试该怎么写」,仓库薄层只管「本仓库的事实」,两者不重叠、无覆盖关系。
 
-1. **仓库测试治理文档**(如 agentflow TESTING.md):分层目录、mock 边界细节、套件入口等仓库特有规则。派发 preflight 定位(仓库根/tests/ 下 TESTING.md、AGENTS.md/CLAUDE.md 测试节、tests README)并把路径写进工人 prompt;找不到→prompt 声明无权威、工人回执必须标 `no-test-standard waiver`,禁静默略过。
-2. **plugin 测试质量基线**(本次新增,内化 agentflow TESTING.md 的通用铁律,落 worktree-build/references/test-quality.md 替换现 tests.md):
+1. **plugin 测试写作权威**(完整方法论,内化自 agentflow TESTING.md 的通用部分,落 worktree-build/references/test-quality.md 替换现 tests.md):
    - 测试名 = 业务行为陈述;每测试一个逻辑断言;
    - 断言对象 = 外部可观察事实(系统读接口 > HTTP 响应 > 文件产物 > 账本行),禁内部调用序列/私有函数/源码文本;
    - mock 只在外部供应商接缝,自家模块间禁 mock;每行为在权威层测一次,禁跨层重复;
    - 测试数据走真实 producer 路径/共享 builder,禁手搓第二份形状拷贝;
-   - 回归测试进业务域文件,禁 fix_xxx 新文件;价格/文案不硬编码,从权威源读后比对;
+   - 回归测试进业务域文件,禁 fix_xxx 新文件;价格/文案/枚举不硬编码,从权威源读后比对;
    - 行为退役测试同删,skip 超一迭代=删;生产代码禁为测试留 seam,可测试性靠 DI;
    - **禁止形态清单**:grep 源码断言、逐字锁文案、字段全集/默认值/枚举镜像、文档计数断言、墓碑路径清单、「测试测测试」meta-gate、per-file allowlist、mock 自家服务;
    - **准入问题**:守哪个用户旅程/哪笔钱/哪份数据,坏了哪个用户当天受伤——答不出=无资格进仓。
+2. **仓库薄层**(各仓库 TESTING.md 只写仓库专属事实,不写方法论):分层目录表(哪层测试放哪、各层职责)、本仓库外部供应商接缝清单(哪些边界算外部可 mock)、权威源指针(价格/文案/枚举从哪读)、套件入口与门控(env 门控、定时 vs 每 commit)、仓库特有禁形态补充(如有,只增不减)。派发 preflight 定位薄层并把路径写进工人 prompt;仓库没有薄层 → 按 plugin 方法论写、测试落点跟随仓库既有目录惯例、回执注明 `no-repo-test-sheet`。
 3. **外部 tdd skill**:管红绿循环(先写失败测试/一次一片/tautological 与 implementation-coupled 反模式)。工人语境下 seam 由计划 Task Pack 钉死,tdd 的「与用户确认 seam」= 计划即确认,不再另行商定。
 
-单源机制:基线用 build/fragments/test-quality 片段注入三处读者——worktree-build(工人写测试前读)、build-b.md B3(主线程验收对表)、worktree-review final(独立审计视角复扫);build.sh --check 防漂移。三道检查同一把尺。
+单源机制:方法论用 build/fragments/test-quality 片段注入三处读者——worktree-build(工人写测试前读)、build-b.md B3(主线程验收对表)、worktree-review final(独立审计视角复扫);build.sh --check 防漂移。三道检查同一把尺。存量仓库(如 agentflow)的 TESTING.md 后续瘦身成薄层,方法论部分退给 plugin,由该仓库自己的任务处理,不在本重构范围。
 
 ## 实施顺序
 
