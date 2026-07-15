@@ -266,11 +266,21 @@ mkf "$WC2" docs/i.md
 ( cd "$WC2" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )
 [ "$(mfield "$WC2" repair_count)" = "0" ] && ok "进下一阶段返工计数清零" || no "返工清零"
 
-# ===== D: needs-context 停下等用户 =====
+# ===== D: needs-context 停下等用户(等什么必须落盘,冷启动靠它接上) =====
 WD="$(newtask develop 2026-06-28-task-d)"
-OUTD="$(cd "$WD" && bash "$FLOW" handoff --conclusion needs-context)"
+if ( cd "$WD" && bash "$FLOW" handoff --conclusion needs-context >/dev/null 2>&1 ); then
+  no "needs-context 缺 --waiting-for 被拒"; else ok "needs-context 缺 --waiting-for 被拒(等什么必须落盘)"; fi
+OUTD="$(cd "$WD" && bash "$FLOW" handoff --conclusion needs-context --waiting-for "线上库还是新库?")"
 echo "$OUTD" | grep -q "STATUS=waiting-user" && ok "缺输入→waiting-user" || no "waiting-user"
 [ "$(mphase "$WD")" = "investigate" ] && ok "等用户时阶段不动" || no "等用户阶段不动"
+[ "$(mfield "$WD" waiting_for)" = "线上库还是新库?" ] && ok "waiting_for 落盘(跨会话可见)" || no "waiting_for 落盘"
+WHD="$(cd "$WD" && bash "$FLOW" where)"
+echo "$WHD" | grep -q "waiting_for=线上库还是新库?" && ok "where 报 waiting_for(冷启动先接问题)" || no "where 报 waiting_for"
+echo "$WHD" | grep -q "是否回答了 waiting_for" && ok "where 的 do 指引先判用户是否已回答" || no "where do 指引"
+( cd "$WD" && bash "$PREPARE" resume >/dev/null )
+[ "$(mfield "$WD" waiting_for)" = "null" ] && ok "task resume 清 waiting_for" || no "resume 清 waiting_for"
+if ( cd "$WD" && bash "$FLOW" handoff --conclusion pass --waiting-for x >/dev/null 2>&1 ); then
+  no "--waiting-for 只许配 needs-context"; else ok "--waiting-for 配其他结论被拒"; fi
 
 # ===== E: fail-closed(CLI 参数校验,不是判断审查) =====
 WE="$(newtask develop 2026-06-28-task-e)"
@@ -338,7 +348,7 @@ echo "$(cd "$WK" && bash "$FLOW" where)" | grep -q "inner_loop=" && no "清后 w
 # needs-context 是原地等 resume:保留账本现场,不清
 WK2="$(newtask small-change 2026-07-03-loopkeep)"
 ( cd "$WK2" && bash "$LOOP" init >/dev/null )
-( cd "$WK2" && bash "$FLOW" handoff --conclusion needs-context >/dev/null )
+( cd "$WK2" && bash "$FLOW" handoff --conclusion needs-context --waiting-for q >/dev/null )
 [ -f "$(lf "$WK2")" ] && ok "needs-context 保留 loop-state(resume 续现场)" || no "needs-context 误清 loop"
 [ "$(mfield "$WK2" status)" = "waiting-user" ] && ok "needs-context → status=waiting-user" || no "waiting-user 状态"
 ( cd "$WK2" && bash "$PREPARE" resume >/dev/null )

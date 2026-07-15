@@ -87,6 +87,12 @@ if bash "$PREPARE" new --scenario develop --slug "$SLUG" --title x --request x >
 if bash "$PREPARE" new --scenario develop --slug "Bad Slug" --title x --request x >/dev/null 2>&1; then
   no "坏 slug 被拒"; else ok "坏 slug 被拒"; fi
 
+# --- scope(范围变更刷新 request) ---
+( cd "$WT" && bash "$PREPARE" scope --request "改后的完整范围与验收" >/dev/null )
+[ "$(jq -r .request "$MAN")" = "改后的完整范围与验收" ] && ok "task scope 刷新 manifest.request" || no "scope 刷新 request"
+if ( cd "$WT" && bash "$PREPARE" scope >/dev/null 2>&1 ); then
+  no "scope 缺 --request 被拒"; else ok "scope 缺 --request 被拒"; fi
+
 # --- 缺原始需求拒绝 ---
 if bash "$PREPARE" new --scenario small-change --slug missing-request --title x >/dev/null 2>&1; then
   no "缺原始 request 被拒"; else ok "缺原始 request 被拒"; fi

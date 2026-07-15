@@ -5,7 +5,7 @@
 #   mmw note set|show                            # 讨论态书签(现场注记)
 #   mmw approve --report <设计文档>...           # 唯一人闸:确认设计,盖承重指纹,过门放权
 #   mmw investigate start|status|resume|result
-#   mmw task new|resume|cleanup|team|escalate
+#   mmw task new|resume|scope|cleanup|team|escalate
 #   mmw loop init|step|attendance|softstop|surface|resume|status|close   # build 执行账本(只记录)
 #   mmw review start ...
 #   mmw worker dispatch|status|resume|check-docs ...
