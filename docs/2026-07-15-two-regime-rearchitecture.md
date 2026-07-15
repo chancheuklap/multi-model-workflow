@@ -86,6 +86,8 @@ droid 侧:Custom Droid 定义即模型分配,派发走原生 subagent;作业本/
 
 单源机制:方法论用 build/fragments/test-quality 片段注入三处读者——worktree-build(工人写测试前读)、build-b.md B3(主线程验收对表)、worktree-review final(独立审计视角复扫);build.sh --check 防漂移。三道检查同一把尺。存量仓库(如 agentflow)的 TESTING.md 后续瘦身成薄层,方法论部分退给 plugin,由该仓库自己的任务处理,不在本重构范围。
 
+**本仓库自查(已坐实,清洗列入 P1)**:plugin/build/tests/test_build.sh 存在禁形态实例——逐字锁文档 prose 当合同(如 `grep -q "建 worktree(进去之后才开干)"` 锁 scenario 文案、`grep -q '^# Small-change · 需独立任务边界的小改$'` 锁标题),文档润色即假红。合法意图(片段注入传播、锚点存在性)改用结构化断言(fragment 文件内容与注入块程序化比对、锚点标记存在性),不锁具体句子;纯锁文案的删。本仓库同时补一张薄层 TESTING.md(shell 测试放哪、断什么、门控入口)。
+
 ## 实施顺序
 
 1. P1 减仪式:拆账本 + handoff 不拒收 + prompt-anchor 降频 + **测试质量基线落地**(同批,同属工人作业本改造);
