@@ -9,7 +9,7 @@
     {
       "name": "multi-model-workflow",
       "description": "Claude Code 多模型开发编排。HITL 在讨论/设计,计划起自主跑;Codex 写+Claude 验。",
-      "version": "7.1.2",
+      "version": "8.0.0",
       "author": {
         "name": "Cheuk Lap Chan",
         "email": "chancheuklapincn@gmail.com"
@@ -27,5 +27,5 @@
       ]
     }
   ],
-  "version": "7.1.2"
+  "version": "8.0.0"
 }
