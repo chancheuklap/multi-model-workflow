@@ -45,9 +45,9 @@ MARKETPLACE="$PLUGIN/../.factory-plugin/marketplace.json"
 [ "$(jq -r .version "$PLUGIN/.factory-plugin/plugin.json")" = "$(jq -r '.plugins[0].version' "$MARKETPLACE")" ] \
   && ok "plugin and marketplace versions match" || no "plugin version drift"
 
-grep -q 'checkpoint prepare' "$PLUGIN/skills/orchestrate/references/design/design-self-check.md" \
-  && ok "design self-check routes through checkpoint" || no "design self-check bypasses checkpoint"
-grep -q '普通用户消息不改变该模式' "$PLUGIN/commands/unattended.md" \
+grep -q '/approve-design' "$PLUGIN/skills/orchestrate/references/design/design-self-check.md" \
+  && ok "design self-check routes through the human gate" || no "design self-check bypasses human gate"
+grep -q '任意消息即恢复 attended' "$PLUGIN/commands/unattended.md" \
   && ok "unattended exit semantics are explicit" || no "unattended semantics drift"
 if grep -Eq 'run_in_background|task-record|Task 的 resume=' "$PLUGIN/scripts/worker.sh"; then
   no "worker still emits unsupported Task lifecycle"
