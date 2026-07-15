@@ -268,6 +268,8 @@ release_done duck
 run_package record-release --product duck
 if [ "$RC" -ne 0 ]; then ok "开发模式未确认时即使 S1 DONE 也拒绝记录"; else no "开发模式未确认时应拒绝记录"; fi
 (cd "$CASE" && bash "$MMW" release close >/dev/null)
+run_package confirm --gate development-mode-test --by afk-policy
+if [ "$RC" -ne 0 ]; then ok "AFK 不能代填开发模式确认"; else no "AFK 不应代填开发模式确认"; fi
 run_package confirm --gate development-mode-test --by owner
 if [ "$RC" -eq 0 ]; then ok "具名开发模式确认落盘"; else no "开发模式确认 (rc=$RC err=$ERROR)"; fi
 run_package where

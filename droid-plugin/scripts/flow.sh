@@ -416,14 +416,8 @@ cmd_where() {
 
   # then:阶段 handoff 钉产物。produced 可为字符串或数组,逐个吐,解析 <slug> 用真 slug。
   local then_cmd
-  then_cmd="$MMW handoff --conclusion <pass|needs-repair|needs-redirection|needs-context|blocked>   # needs-context 另带 --waiting-for '<问题>'"
-  # 等人答复中:等什么落过盘,冷启动先接上这个问题,不重推流程
+  then_cmd="$MMW handoff --conclusion <pass|needs-repair|needs-redirection|needs-context|blocked>"
   local waiting_line=""
-  if [ "$status" = "waiting-user" ]; then
-    waiting_line="waiting_for=$(jq -r '.waiting_for // "(未记录,翻 history 最近一笔 needs-context)"' "$m")"
-    b_do="先判断用户本轮消息是否回答了 waiting_for;回答了才跑 $MMW task resume 续当前步,未回答则先处理本轮消息、任务保持等待"
-    then_cmd="$MMW task resume"
-  fi
   local produced_src
   if { [ "$gate" != "null" ] && [ -n "$gate" ]; }; then
     produced_src="$(jq -r --arg p "$gate" '.review_gates[$p].produced // ""' "$ROUTES")"
@@ -436,6 +430,13 @@ cmd_where() {
     p="${p//<slug>/$slug}"
     then_cmd="$then_cmd --produced $p"
   done <<< "$produced_src"
+  then_cmd="$then_cmd   # needs-context 另带 --waiting-for '<问题>'"
+  # 等人答复中:等什么落过盘,冷启动先接上这个问题,不重推流程
+  if [ "$status" = "waiting-user" ]; then
+    waiting_line="waiting_for=$(jq -r '.waiting_for // "(未记录,翻 history 最近一笔 needs-context)"' "$m")"
+    b_do="先判断用户本轮消息是否回答了 waiting_for;回答了才跑 $MMW task resume 续当前步,未回答则先处理本轮消息、任务保持等待"
+    then_cmd="$MMW task resume"
+  fi
   # 审闸里:stage 由 review_gates[gate].stage 定,where 直接吐确切的 review_start 命令 + review_source
   local review_line="" review_start_line="" review_trace_line=""
   if [ "$gate" != "null" ] && [ -n "$gate" ]; then
