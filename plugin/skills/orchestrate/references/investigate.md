@@ -19,7 +19,7 @@
 
 ## 2. Checkpoint → 跑 workflow
 
-**fire 前必停,按下面固定格式把投查计划亮给用户**(别每次自创格式),等用户批 / 改再跑——别闷头烧 token:
+**fire 前按下面固定格式把投查计划亮给用户**(别每次自创格式)。等不等回应看值守档:`attended`(develop 讨论态)等用户批 / 改再跑——方向错了白烧 token;`afk`(bug / small-change 起步档,或用户已放权)亮出即跑,不阻塞等回应,用户看到有异议随时插话追加或掉头:
 
 ```
 投查方向:<内部 / 外部 / 两者>(外部非必做)
@@ -28,13 +28,13 @@
 | 1 | <角度名> | <这一题要回答什么> | <角度 skill 或 —> |
 | 2 | ... | ... | ... |
 ```
-亮完跟一句:「批 / 改 / 增删 topic?批了跑 `investigate-<internal|external>`」。等用户回应再 fire,不擅自跑。
+`attended` 亮完跟一句:「批 / 改 / 增删 topic?」等回应再 fire;`afk` 亮完直接 fire,不问。
 
 批了用 Workflow fan-out(每个 topic 一个工人,可并行):
 
 ```
 Workflow({
- scriptPath: "<插件根>/workflows/investigate-internal.workflow.js", // 插件根=Step 0 定位所得(MMW 去掉 /scripts/mmw.sh);外部则 investigate-external
+ scriptPath: "<插件根>/workflows/investigate-internal.workflow.js", // 插件根一行算出:PLUGIN_ROOT="${MMW%/scripts/mmw.sh}";外部则 investigate-external
  args: { repoRoot: "<任务 worktree 绝对路径>", topics: [ /* { angle, question, skill? } */ ] }
 })
 ```

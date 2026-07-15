@@ -36,7 +36,7 @@ investigate 与讨论中坐实的事实,逐条带引用(file:line / url)。现�
 - 不贴大段实现代码;prototype 产出的 state machine / reducer / schema / type shape 比散文精确时内联,注明来自 prototype。
 
 ## 测试和验收
-- 测试 seam:优先已有 seam,选能覆盖目标行为的最高层;**seam 越少越好,理想数量是一**;需要新 seam 提在最高点并先与用户确认。
+- 测试 seam:优先已有 seam,选能覆盖目标行为的最高层;**seam 越少越好,理想数量是一**;需要新 seam 提在最高点,取舍理由写进本节(纯技术决策自己定,不单独找用户确认——整份设计文档过 /approve-design 时用户自然过目)。
 - 好测试的定义:**只测外部行为,不测实现细节**;测试先例(仓库里类似的测试)。
 - **编号验收清单**:每条可执行、可判过不过,与失败路径互相对应(失败面 ↔ 验收项能对上号);manual gate / regression check 有才写。
 

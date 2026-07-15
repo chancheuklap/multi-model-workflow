@@ -6,7 +6,7 @@
 
 ## 怎么拆:委托外部 `to-tickets` skill(方法论单源,不在此复制)
 
-切片方法论本体在外部 `to-tickets` skill —— tracer-bullet / vertical-slice(每个 issue 切穿所有集成层、端到端可独立验证、单个适配一个 fresh context window)+ **向用户编号列表确认粒度/依赖(blocking edges),迭代到用户认可**。用它来拆;质量闸 = to-tickets 自带的用户确认,②计划审再兜底一次。
+切片方法论本体在外部 `to-tickets` skill —— tracer-bullet / vertical-slice(每个 issue 切穿所有集成层、端到端可独立验证、单个适配一个 fresh context window)。用它来拆;**粒度和依赖(blocking edges)自己定,不再向用户确认循环**(已过 /approve-design,流水线态自主跑):切片清单落盘、编号列表进汇报和进度板亮给用户,他有异议随时口头调整或 /rescope;质量闸 = ②计划审兜底。
 
 **宽重构例外**:改列名 / 改共享类型这种爆炸半径大、单次编辑会破上千调用点的机械改动,不套 vertical slice,按 `to-tickets` 的 **expand–contract** 拆:先 expand(新旧并存不破)→ 分批 migrate(按爆炸半径分包,每批一个 issue、blocked by expand)→ contract(删旧,blocked by 全部 migrate 批)。
 

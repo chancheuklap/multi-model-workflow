@@ -23,5 +23,5 @@ MMW="$( jq -r '.plugins | to_entries[] | select(.key | startswith("multi-model-w
 
 1. 跑 `mmw progress render --stdout` 从 task.json / loop-state.json 重渲染进度板。
 2. 若输出 `NO-ACTIVE-RUN`:明确告诉用户当前不在在管任务 worktree、无板可展示,停止,不伪造进度。
-3. 有板:把板面内容原样转述给用户(路线/阶段/值守模式/进度度量/计划进度/阻塞/计划外项)。
+3. 有板:板面已直出屏幕,不再逐字转述;口头只补一句「当前阻塞 / 待用户拍板项」(没有就说没有)。
 4. 只汇报板面 + 一个「若需你拍板」的问题(仅当板里有待决项);不自动续跑、不加板外推断。
