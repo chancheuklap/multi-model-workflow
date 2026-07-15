@@ -74,18 +74,27 @@ IGN
   [ -n "$phases_json" ] || die "routes.json 未定义预设 $scenario 的 phases"
   local phase; phase="$(printf '%s' "$phases_json" | jq -r '.[0]')"
 
+  # 值守档:讨论态天生 attended(develop 有 propose/design 讨论期);bug/small-change 无讨论期,
+  # 但动手前有一次轻确认(scenario reference 定),之后自主 → 起步 afk。过门(approve)自动切 afk。
+  local attendance="afk"
+  [ "$scenario" = "develop" ] && attendance="attended"
+  local plugin_version
+  plugin_version="$(jq -r '.version // ""' "$SCRIPT_DIR/../.claude-plugin/plugin.json" 2>/dev/null || echo "")"
   local created; created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   jq -n \
-    --arg sv "1" --arg slug "$slug" --arg title "$title" --arg scenario "$scenario" \
+    --arg sv "2" --arg slug "$slug" --arg title "$title" --arg scenario "$scenario" \
     --argjson phases "$phases_json" \
     --arg status "active" --arg phase "$phase" --arg created "$created" \
     --arg base "$base" --arg branch "$slug" --arg wt "$wt" \
     --argjson dg "$direction_given" \
+    --arg attendance "$attendance" --arg pv "$plugin_version" \
     --arg inv "docs/investigating/$slug" --arg ddoc "docs/design/$slug" --arg idir "docs/issues/$slug" --arg pdir "docs/plans/$slug" --arg ctx "docs/context" \
     '{schema_version:$sv, slug:$slug, title:$title, scenario:$scenario, phases:$phases, direction_given:$dg,
-      status:$status, phase:$phase, phase_index:0, step_index:0, gate:null, created_at:$created, base_commit:$base,
+      status:$status, phase:$phase, phase_index:0, step_index:0, gate:null,
+      created_at:$created, updated_at:$created, plugin_version:$pv, base_commit:$base,
       branch:$branch, worktree_path:$wt, docs:{investigating:$inv, design:$ddoc, issues:$idir, plans:$pdir, context:$ctx},
-      repair_count:0, turnaround_count:0, attendance:"afk", unattended_policy:null,
+      repair_count:0, turnaround_count:0, attendance:$attendance, unattended_policy:null,
+      note:null, approval:null,
       artifacts:[], phase_outputs:{}, open_items:[], subtasks:[], history:[]}' \
     > "$wt/$STATE_SUBDIR/$MANIFEST_NAME"
 

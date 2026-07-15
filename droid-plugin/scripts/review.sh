@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
-# Droid 原生审闸派发指南生成器。
+# review.sh —— 起一道审(定编制 + 出派发指南,一条命令;Droid 原生)
+#
+#   start --stage <design|plan|plan-impl|final|merge-impl> --source <源意图路径/描述>
+#       按阶段定视角与审者编制,把审派发指南写进状态目录 review-brief.md(主线程读它直接派审者)。
+#       审者=Droid 会话内 reviewer droids(单条消息并行 Task),读已装的 worktree-review skill。
+#
+# 审不记账:收口看产物——findings 原样落盘 docs/reviews/<slug>-<stage>.md,亲验后标处置、写 verdict 段;
+# 审闸 pass 时引擎只核「该文件在且含 verdict」(flow.sh),质量与 Critical 处置是主线程判断。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
-LOOP="$SCRIPT_DIR/loop.sh"
 MMW="bash \"$SCRIPT_DIR/mmw.sh\""
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -15,38 +21,34 @@ state_here() {
   mmw_resolve_state_subdir "$top"
 }
 
-final_tier() {
-  printf '4'
-}
-
 dispatch_for() {
-  local stage="$1" tier="$2" source="$3" skill="$4"
+  local stage="$1" source="$2" skill="$3"
   case "$stage" in
     design)
       cat <<EOF
 单条消息并行派两个 Task,各自干净 context:
-- reviewer-design-a,负责轴A设计内容
-- reviewer-design-b,负责轴B项目对齐
-prompt:读 $skill/SKILL.md,按 stage=design;Source:$source;只负责指定轴;按 Return Contract 回 findings。
+- reviewer-design-a,负责轴A 设计内容
+- reviewer-design-b,负责轴B 项目对齐
+prompt(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=design 审;Source:$source;只负责指定轴;按 Return Contract 回结构化 findings。
 EOF
       ;;
     plan)
       cat <<EOF
-单条消息并行派两个 Task,写者与验者分离:
-- reviewer-plan-a,负责轴A覆盖与质量
-- reviewer-plan-b,负责轴B合规与交叉验证
-prompt:读 $skill/SKILL.md,按 stage=plan;Source:$source;只负责指定轴;按 Return Contract 回 findings。
+单条消息并行派两个 Task,写者与审者分离(计划由 plan-writer 写,审者另派):
+- reviewer-plan-a,负责轴A 覆盖与质量
+- reviewer-plan-b,负责轴B 合规与交叉验证
+prompt(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=plan 审;Source:$source;只负责指定轴;按 Return Contract 回结构化 findings。
 EOF
       ;;
     final)
       cat <<EOF
 单条消息并行派四个跨模型 Task,两条基线各跑两个模型:
-- reviewer-final-a,基线1
+- reviewer-final-a,基线1(回归+意图+跨plan)
 - reviewer-final-b,基线1
-- reviewer-final-a,基线2
+- reviewer-final-a,基线2(独立代码审计,全新眼光)
 - reviewer-final-b,基线2
-prompt:读 $skill/SKILL.md,按 stage=final;Source:$source;只负责指定基线;按 Return Contract 回 findings。
-同基线跨模型对账,单家重点必须亲验,两家同报提高置信。
+prompt(纯路由,四审者读同一份方法论):读 $skill/SKILL.md,按 stage=final 审;Source:$source;只负责指定基线;按 Return Contract 回结构化 findings。
+同基线跨模型对账:只一家报出的重点亲验,两家同报的置信升。
 EOF
       ;;
     merge-impl)
@@ -54,7 +56,7 @@ EOF
 单条消息并行派两个跨模型 Task:
 - reviewer-final-a,跨 worktree 集成审路线1
 - reviewer-final-b,跨 worktree 集成审路线2
-prompt:读 $skill/SKILL.md,按 stage=merge-impl 走组合行为、合同、迁移、状态、import、回归、修复质量七角度;Source:$source;按 Return Contract 回 findings。
+prompt:读 $skill/SKILL.md,按 stage=merge-impl 走组合行为、合同、迁移、状态、import、回归、修复质量七角度;Source:$source;按 Return Contract 回结构化 findings。
 EOF
       ;;
     *) die "未覆盖 stage:$stage" ;;
@@ -62,109 +64,111 @@ EOF
 }
 
 cmd_start() {
-  local stage="" source="" tier=0
-  while [ $# -gt 0 ]; do case "$1" in
-    --stage) stage="$2"; shift 2 ;;
-    --source) source="${source}${source:+ }$2"; shift 2 ;;
-    *) die "未知参数:$1" ;;
-  esac; done
-  [ -n "$stage" ] || die "--stage 必填"
-  [ -n "$source" ] || die "--source 必填"
+  local stage=""; local -a sources=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --stage)  stage="$2";  shift 2 ;;
+      --source) sources+=("$2"); shift 2 ;;
+      *) die "未知参数: $1" ;;
+    esac
+  done
+  [ -n "$stage" ]  || die "--stage 必填(design|plan|plan-impl|final|merge-impl)"
+  [ "${#sources[@]}" -gt 0 ] || die "--source 必填(源意图路径/描述,派给审者用;可重复)"
+  local source; source="${sources[*]}"
 
-  local kind views
+  local views
   case "$stage" in
-    design) kind=review; views="轴A设计内容 / 轴B项目对齐" ;;
-    plan) kind=review; views="轴A覆盖与质量 / 轴B合规与交叉验证" ;;
-    plan-impl) kind=contract-gate; views="跨计划合同兑现" ;;
-    final) kind=review; views="基线1回归+意图+跨计划 / 基线2独立代码审计" ;;
-    merge-impl) kind=review; views="跨 worktree 集成审七角度" ;;
+    design)     views="轴A 设计内容 / 轴B 项目对齐" ;;
+    plan)       views="轴A 覆盖与质量 / 轴B 合规与交叉验证" ;;
+    plan-impl)  views="(③合同门:机器核合同兑现,不派审者判断)" ;;
+    final)      views="基线1 回归+意图+跨plan / 基线2 独立代码审计" ;;
+    merge-impl) views="跨 PR 集成审 7 角度(组合行为/合同/迁移/状态/import/回归/修复质量)" ;;
     *) die "--stage 只能 design|plan|plan-impl|final|merge-impl" ;;
   esac
 
-  local top state scenario brief trace loop_file
+  local top state brief slug
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
   state="$(state_here)"
-  scenario="$(jq -r '.scenario // ""' "$top/$state/task.json" 2>/dev/null || true)"
+  slug="$(jq -r '.slug // "<slug>"' "$top/$state/task.json" 2>/dev/null || echo "<slug>")"
   brief="$top/$state/review-brief.md"
-  trace="docs/reviews/<slug>-$stage.md"
-  [ "$stage" = "merge-impl" ] && trace="$state/<slug>-merge-impl-review.md"
   mmw_ensure_state_ignore "$top"
   mkdir -p "$top/$state"
 
-  loop_file="$top/$state/loop-state.json"
-  if [ -f "$loop_file" ] && [ "$(jq -r '.kind // ""' "$loop_file")" = execution ]; then
-    [ "$(bash "$LOOP" exit-check 2>/dev/null || true)" = DONE ] ||
-      die "execution loop 未收束,拒绝起审"
-  fi
+  # 留痕落点:任务审(worktree 内)走 docs/reviews/(docs/.gitignore 已忽略);
+  # merge-impl 在主仓库跑,不落 docs/ ——一切主仓库产物进状态平面,零残留。
+  local trace="docs/reviews/$slug-$stage.md"
+  [ "$stage" = "merge-impl" ] && trace="$state/$slug-merge-impl-review.md"
 
-  bash "$LOOP" close >&2
-  if [ "$kind" = review ]; then
-    bash "$LOOP" init --kind review --max-rounds 2 >&2
-  else
-    bash "$LOOP" init --kind contract-gate >&2
-  fi
-
-  echo "REVIEW_STARTED stage=$stage kind=$kind"
-  echo "1. 从源文档抽覆盖清单:mmw loop checklist add --item <维度> --source <doc:line>"
-  echo "2. 设置值守:mmw loop attendance --mode <attended|afk>"
-
-  if [ "$kind" = contract-gate ]; then
-    local file line body
-    file="$(printf '%s\n' "$source" | grep -oE '[^[:space:]]+\.md' | head -1 || true)"
-    [ -f "$file" ] || [ ! -f "$top/$file" ] || file="$top/$file"
-    if [ -f "$file" ]; then
-      line="$(grep -n '^## Cross-Plan Contract Anchors' "$file" | head -1 | cut -d: -f1 || true)"
-      if [ -n "$line" ]; then
-        body="$(sed -n "$((line+1)),\$p" "$file" | sed '/^## /q' | sed '/^## /d' |
-          grep -vE '^[[:space:]]*(<!--.*-->)?[[:space:]]*$' || true)"
+  if [ "$stage" = "plan-impl" ]; then
+    # ③合同门:机器能坐实的机器坐实——设计文档 anchors 节为空(占位注释/单行"无跨计划共享合同")
+    # → 直接放行回执;有实体合同 → 指到 plan-impl.md 人工核,结论写进 trace。
+    local sfile="" anchors_ln="" body=""
+    sfile="$(printf '%s\n' "${sources[@]}" | grep -oE '[^[:space:]]+\.md' | head -1 || true)"
+    [ -n "$sfile" ] && [ ! -f "$sfile" ] && [ -f "$top/$sfile" ] && sfile="$top/$sfile"
+    if [ -n "$sfile" ] && [ -f "$sfile" ]; then
+      anchors_ln="$(grep -n '^## Cross-Plan Contract Anchors' "$sfile" 2>/dev/null | head -1 | cut -d: -f1 || true)"
+      if [ -n "$anchors_ln" ]; then
+        body="$(sed -n "$((anchors_ln+1)),\$p" "$sfile" | sed '/^## /q' | sed '/^## /d' \
+                 | grep -vE '^[[:space:]]*(<!--.*-->)?[[:space:]]*$' || true)"
         if [ -z "$body" ] || { [ "$(printf '%s\n' "$body" | grep -c .)" -eq 1 ] && printf '%s' "$body" | grep -q '无跨计划共享合同'; }; then
-          bash "$LOOP" checklist add --item no-cross-plan-contracts --source "$file:$line" >&2
-          bash "$LOOP" checklist cover --item no-cross-plan-contracts --evidence "$file:$line(机器核实为空)" >&2
-          echo "3. 合同 anchors 为空,已自动 cover;直接 handoff pass。"
-          return
+          cat <<EOF
+CONTRACT_GATE_EMPTY(脚本机械核实 anchors 节为空:$sfile:$anchors_ln)
+③合同门无跨计划合同,直接回 build 收尾:$MMW handoff --conclusion pass(引擎随即强制 ④终审闸)。
+EOF
+          return 0
         fi
       fi
     fi
-    echo "3. 读 references/review/plan-impl.md,核跨计划合同兑现后按出口收口。"
-    return
+    cat <<EOF
+REVIEW_STARTED stage=plan-impl host=droid
+③合同门不派审者、不列 pack:**读 references/review/plan-impl.md,照它走**——核什么(跨 plan 合同兑现)、
+三个出口(全兑现 pass / 没兑现回 build / 合同根上错回 design)全在那份。
+核对过程与逐条兑现证据写进 $trace(含一句总 verdict);兑现全 → $MMW handoff --conclusion pass。
+EOF
+    return 0
   fi
 
-  [ "$stage" = final ] && tier="$(final_tier "$top" "$state" "$scenario")"
+  # ---- 派发指南落文件(brief 不过主线程 context)----
   local skill dispatch
   skill="$(mmw_plugin_root)/skills/worktree-review"
-  dispatch="$(dispatch_for "$stage" "$tier" "$source" "$skill")"
-  cat > "$brief" <<EOF
-# 审派发指南(stage=$stage · tier=$tier · Droid 原生)
+  dispatch="$(dispatch_for "$stage" "$source" "$skill")"
 
-Source:$source
-视角:$views
+  cat > "$brief" <<EOF
+# 审派发指南(stage=$stage · host=droid · 机器生成,主线程读完直接派审者)
+
+主线程直接派审者,自己亲验收敛,不自己写产物结论。审不记账,收口看产物(下方留痕)。
+Source: ${source}
 
 ## 派审者
 $dispatch
 
-在单条消息中并行发出独立 Task 调用，每个审者按当前工具合同直接返回结果。调用中断时重派对应视角，不假设后台 task ID、TaskOutput 或 resume。
+在单条消息中并行发出独立 Task 调用,每个审者按当前工具合同直接返回结果。
+调用中断时重派对应视角,不假设后台 task ID 或 resume。
 
-## 留痕
-把全部审者 findings 原样落盘 $trace,亲验后逐条标 accepted/rejected/duplicate/needs-evidence,文末写总 verdict。
+## 留痕(收口的硬核就在这份文件)
+把全部审者的结构化 findings **原样落盘** $trace(不重写不摘要,保真);
+亲验后把每条 verdict/处置(accepted/rejected/duplicate/needs-evidence)就近标该条下,文末写一句总 verdict。
+审闸收口 handoff pass 时引擎核该文件存在且含 verdict——没有留痕 = 审没跑过,不放行。
+收口只回读这份文档的 verdict 段,findings 全文压在 trace 文件里、不长驻主线程 context。
 
-## 亲验
-每条 finding 由主线程 Read/Grep/运行命令坐实。覆盖维度:
-  $MMW loop checklist cover --item <i> --evidence <file:line>
-真实 finding:
-  $MMW loop finding add --severity <C|I|M> --confidence <1-10> --locator <file:line>
+## 收回亲验
+每条 finding 自己 Read/Grep/跑坐实(审者是劳动力不是信源),引不出 file:line 降置信。
+承重 finding 亲验后才 accept。**Critical 必须处置掉**(修掉或有理有据 reject)才收口 pass——这是判断,不是机器闸,但留痕里要看得见。
 
 ## 收敛
-全视角一轮无新高置信 finding 才收敛。未收敛执行:
-  $MMW loop round next
-方向或输入问题执行:
-  $MMW loop surface --kind <needs-context|needs-redirection> --question "<...>"
-只有 $MMW loop exit-check 返回 DONE 才允许 handoff pass。
+全部审者跑完追一轮无新高置信 finding = 收敛;反复打转不收敛 → 向用户汇报卡点,别硬磨。
+方向疑/缺输入 → handoff needs-redirection / needs-context 交上去,别当产物缺陷修。
 EOF
-  echo "3. 读 $brief 并按派发段直接派 reviewer droids。"
-  echo "4. findings 留痕、亲验、收敛后再 handoff。"
+
+  cat <<EOF
+REVIEW_STARTED stage=$stage host=droid
+1. 主线程读 $brief,按「派审者」段直接派(单条消息并行 Task,读 worktree-review skill 出结构化 findings)。
+2. findings 原样落 $trace,亲验标处置、写总 verdict(收口硬核:该文件在且含 verdict)。
+3. 收口回 review/review.md 按 Gap 选结论词 handoff。
+EOF
 }
 
 case "${1:-}" in
   start) shift; cmd_start "$@" ;;
-  *) die "用法:review.sh start --stage <design|plan|plan-impl|final|merge-impl> --source <...>" ;;
+  *) die "用法: review.sh start --stage <design|plan|plan-impl|final|merge-impl> --source <...>" ;;
 esac

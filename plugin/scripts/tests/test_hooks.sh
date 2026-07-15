@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 四个 hook 空跑:SessionStart 分诊 / UserPromptSubmit 相位锚 / PreToolUse 红线 / PostToolUse 记进度。
-# (审 loop 完工不再用 SubagentStop 看守,改由 flow.sh handoff 确定性闸把关,见 test_flow.sh。)
+# 三个 hook 空跑:SessionStart 分诊(三源回报+新鲜度)/ PreToolUse 红线 / PostToolUse 记进度。
+# (相位锚 UserPromptSubmit 已拆:逐条消息注锚干扰讨论态,开场回报一次即可。)
 set -euo pipefail
 STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
 WT_REL="${WT_REL:-.claude/worktrees}"
@@ -69,7 +69,7 @@ is_allow "$(pl 'cat > runbook.md <<EOF\ngit push origin main\nEOF')" && ok "here
 
 # ===== record-step(PostToolUse commit)=====
 bash "$LOOP" close >/dev/null   # 幂等清任何残留 loop 再起新 loop(init 拒覆盖未收束 loop)
-bash "$LOOP" init --kind execution >/dev/null
+bash "$LOOP" init >/dev/null
 bash "$LOOP" step add --id 2.1 --desc x >/dev/null
 echo change > c.txt; git add -A; git commit -qm "Pack 2.1: do the thing"
 P_COMMIT='{"tool_input":{"command":"git commit -m \"Pack 2.1: do the thing\""}}'
@@ -132,23 +132,35 @@ WTREPO="$(mktemp -d)"
 OUT="$(cd "$WTREPO" && printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
 echo "$OUT" | grep -q "在管任务 worktree:t9" && echo "$OUT" | grep -q "phase=build" && ok "在管 worktree → 报身份+续跑" || no "在管身份"
 echo "$OUT" | grep -q "无关写操作不要在此 worktree 执行" && ok "在管 worktree 禁止无关写操作污染" || no "在管 worktree 缺写操作边界"
+echo "$OUT" | grep -q "位置只是书签不是命令" && ok "在管 worktree 讲明书签语义(不锁死会话)" || no "书签语义"
+echo "$OUT" | grep -q "上次做了" && no "无提交流水不该报上次做了" || ok "无提交流水不硬凑三源"
 rm -rf "$WTREPO"
-
-# ===== prompt-anchor(UserPromptSubmit 相位锚:在管注入一行,非在管零输出)=====
-# 主仓库(顶层无 task.json,即便有在飞 worktree 清单)→ 零输出,不打扰问答
-OUT="$(printf '{}' | bash "$HOOKS/prompt-anchor.sh" 2>&1)"; EC=$?
-[ "$EC" = "0" ] && [ -z "$OUT" ] && ok "非在管目录 → 零输出(零上下文成本)" || no "非在管应零输出 ($EC/$OUT)"
-# 在管任务 worktree 内 → 恰一行锚(slug/phase/status)
-WTREPO="$(mktemp -d)"
-( cd "$WTREPO" && git init -q && mkdir -p ${STATE_SUBDIR} \
-  && printf '{"slug":"t9","scenario":"bug","phase":"build","status":"active"}' > ${STATE_SUBDIR}/task.json )
-OUT="$(cd "$WTREPO" && printf '{}' | bash "$HOOKS/prompt-anchor.sh" 2>&1)"
-[ "$(printf '%s' "$OUT" | grep -c .)" = "1" ] && echo "$OUT" | grep -q "t9 phase=build status=active" && ok "在管 worktree → 单行锚(slug/phase/status)" || no "单行锚 ($OUT)"
-# 非 git 目录 → 静默 exit 0
-NOGIT="$(mktemp -d)"
-OUT="$(cd "$NOGIT" && printf '{}' | bash "$HOOKS/prompt-anchor.sh" 2>&1)"; EC=$?
-[ "$EC" = "0" ] && [ -z "$OUT" ] && ok "非 git 目录 → 静默 exit 0" || no "prompt-anchor 非 git 静默 ($EC/$OUT)"
-rm -rf "$WTREPO" "$NOGIT"
+# 三源回报:①最近提交流水 ②书签注记 ③设计文档 Open Decisions 指引
+WT3="$(mktemp -d)"
+( cd "$WT3" && git init -q && git config user.email t@t && git config user.name t \
+  && echo s>s && git add -A && git commit -qm base )
+BASE3="$(cd "$WT3" && git rev-parse HEAD)"
+( cd "$WT3" && echo a>a && git add -A && git commit -qm "fix: 修掉登录态丢失" \
+  && echo b>b && git add -A && git commit -qm "feat: 加会员到期提醒" )
+mkdir -p "$WT3/${STATE_SUBDIR}" "$WT3/docs/design"
+printf '# d\n## Open Decisions\n- 计费口径未定\n' > "$WT3/docs/design/t3.md"
+jq -n --arg base "$BASE3" '{slug:"t3",scenario:"develop",phase:"design",status:"active",
+  base_commit:$base, note:{text:"下一步对齐计费口径", at:"2026-07-15T00:00:00Z"},
+  docs:{design:"docs/design/t3"}}' > "$WT3/${STATE_SUBDIR}/task.json"
+OUT="$(cd "$WT3" && printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
+echo "$OUT" | grep -q "上次做了:.*会员到期提醒" && ok "三源①:最近提交流水回报" || no "三源① 提交流水 ($OUT)"
+echo "$OUT" | grep -q "现场注记:下一步对齐计费口径" && ok "三源②:note 书签回报" || no "三源② 书签"
+echo "$OUT" | grep -q "待拍板:.*docs/design/t3.md.*Open Decisions" && ok "三源③:Open Decisions 指引" || no "三源③ 待拍板"
+# 新鲜度:旧版本/超 7 天 → 开场警告先 /reassess
+jq '.plugin_version="0.0.1" | .updated_at="2026-01-01T00:00:00Z"' "$WT3/${STATE_SUBDIR}/task.json" > "$WT3/tj.tmp" && mv "$WT3/tj.tmp" "$WT3/${STATE_SUBDIR}/task.json"
+OUT="$(cd "$WT3" && printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
+echo "$OUT" | grep -q "旧版 plugin" && ok "版本不符开场警告(别把旧指令当最新)" || no "旧版警告"
+echo "$OUT" | grep -q "天没动" && ok "超 7 天开场警告(先 /reassess)" || no "时效警告"
+# 强无人档:开场声明合同 + 用户回来任意消息即恢复
+jq '.attendance="unattended"' "$WT3/${STATE_SUBDIR}/task.json" > "$WT3/tj.tmp" && mv "$WT3/tj.tmp" "$WT3/${STATE_SUBDIR}/task.json"
+OUT="$(cd "$WT3" && printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
+echo "$OUT" | grep -q "强无人档" && echo "$OUT" | grep -q "任意消息即恢复" && ok "unattended 开场声明退出语义" || no "unattended 声明"
+rm -rf "$WT3"
 
 # ===== hooks.json 接线(Claude Code Bash matcher + if 前筛)=====
 HJ="$HOOKS/hooks.json"
@@ -166,6 +178,6 @@ done
 [ "$miss" = "0" ] && ok "if 关键词集覆盖全部红线命令(无漏筛)" || no "if 关键词集漏筛红线命令"
 rsif="$(jq -r '.hooks.PostToolUse[]|select(.matcher=="Bash")|.hooks[0].if' "$HJ")"
 [ "$rsif" = "Bash(git commit:*)" ] && ok "record-step if 只认 git commit" || no "record-step if 异常 ($rsif)"
-jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | test("prompt-anchor.sh")' "$HJ" >/dev/null 2>&1 && ok "UserPromptSubmit → prompt-anchor 已接线" || no "UserPromptSubmit 未接线"
+[ "$(jq -r '.hooks | has("UserPromptSubmit")' "$HJ")" = "false" ] && ok "UserPromptSubmit 相位锚已拆(不逐条消息注锚)" || no "UserPromptSubmit 残留"
 
 echo ""; echo "Results: $pass passed, $fail failed"; [ "$fail" -eq 0 ]

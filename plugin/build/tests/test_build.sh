@@ -49,13 +49,14 @@ mv "$FRAG/closing-cleanup.md.bak" "$FRAG/closing-cleanup.md"
 bash "$BUILD" --apply >/dev/null 2>&1
 bash "$BUILD" --check >/dev/null 2>&1 && ok "还原片段重建后 --check 干净" || no "还原重建失败"
 
-# 6. skill 触发面与正文都先排除无需编排的请求
-grep -q "不用于问答、解释、只读查看" "$SKILL" && ok "skill metadata 排除无需编排请求" || no "skill metadata 触发面过宽"
-grep -q "琐碎单步动作.*不跑.*mmw.*不建 worktree" "$SKILL" && ok "入口正文给出直接处理出口" || no "入口正文缺直接处理出口"
-direct_line="$(grep -n '^先判是否需要正式编排' "$SKILL" | cut -d: -f1)"
+# 6. skill 触发面:入口有排除面 + 直接处理出口在 Step 0 之前。
+# skill prose 是行为面,断结构(顺序)与短语义键,不逐字锁整句(润色不该红)。
+desc_line="$(sed -n '/^---$/,/^---$/p' "$SKILL" | grep '^description:')"
+echo "$desc_line" | grep -q "不用于" && ok "skill description 带排除面(触发面不外溢)" || no "skill description 缺排除面"
 step0_line="$(grep -n '^## Step 0' "$SKILL" | cut -d: -f1)"
-[ -n "$direct_line" ] && [ "$direct_line" -lt "$step0_line" ] && ok "直接处理判断先于 mmw where" || no "直接处理判断顺序过晚"
-grep -q '^# Small-change · 需独立任务边界的小改$' "$SCEN/small-change.md" && ok "small-change reference 同步收窄" || no "small-change reference 仍用旧宽口径"
+[ -n "$step0_line" ] && head -n "$((step0_line-1))" "$SKILL" | grep -q "直接处理" \
+  && ok "Step 0 之前给出直接处理出口(轻量请求不进流程)" || no "直接处理出口缺失或晚于 Step 0"
+grep -q "独立任务边界" "$SCEN/small-change.md" && ok "small-change 口径含独立任务边界语义键" || no "small-change 口径过宽"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

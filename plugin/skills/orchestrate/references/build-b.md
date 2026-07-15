@@ -31,15 +31,14 @@
  ```
  (任务 worktree 已存在,脚本不重开;工人只改源码、禁碰 `docs/`,与 B2 同 fail-closed;全新 context = 写者≠原验者。)
 3. **验收**(B3 同法):跑测试 / 读 diff 亲验,测试质量对标仓库标准,不吃自述。
-4. **回 ④重审**:若返修触碰跨 plan 合同,先重跑 B5 ③;否则直接 `mmw handoff --conclusion pass --produced "<base..HEAD>"` → 引擎重进 ④终审闸,**全新审者重审**(改动过闸后 source-stability 指纹也会要求重审)。返修满 `max_repair` 仍不过 → 引擎自动 `blocked` 上报。
+4. **回 ④重审**:若返修触碰跨 plan 合同,先重跑 B5 ③;否则直接 `mmw handoff --conclusion pass --produced "<base..HEAD>"` → 引擎重进 ④终审闸,**全新审者重审**。返修从第 3 轮起,每轮先向用户汇报卡点/根因/下一步再继续;持续不收敛 → `blocked` 交人,别硬磨。
 
 ## B1. 进 + 起落地 loop
 
 `mmw where` → `prev_outputs` = plan 阶段钉的 plan 目录。读该目录拿 Task Pack 清单、acceptance、plan 间依赖。起 loop、把 plan 展开成步账(**一份 plan 一步**,派前把 plan 路径 + 分配的子 worktree 记进步账——断点恢复靠它认"哪步=哪 plan=派到哪"):
 
 ```bash
-mmw loop init --kind execution
-mmw loop attendance --mode afk # 放权自主跑;盯着调试设 attended
+mmw loop init   # 执行账本(值守档自动从 task.json 读入;过门后已是 afk)
 mmw loop step add --id <plan-id> --desc "<标题>" --plan <plan 绝对路径> --worktree <该 plan 的子 worktree 绝对路径> # 逐项
 ```
 
@@ -69,13 +68,39 @@ mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree
 Codex 返回后,读它最后消息(dispatch 回执里打印;原文在 `<该 plan 的 worktree>/状态平面/codex-logs/last.md`)+ **自己核**(亲验):
 
 - **完整性**:plan 的每条 acceptance 真达成?跑验收命令、读 diff,不认"我做完了"。
-- **测试质量(对标仓库标准,防 Codex 写垃圾测试自己绿)**:Codex 写的测试它自己说了不算,你审。先**定位并读仓库测试治理文档**(常见:仓库根或 tests/ 下 TESTING.md、AGENTS.md / CLAUDE.md 测试节、tests 目录 README);**定位不到必须在 B3 验收回执里标 `no-test-standard waiver`,不准默默跳过**。审 Codex 这份 plan 新增 / 改动的测试,达不达标:
- - 测**公开可观察行为**(系统读接口 / HTTP 响应 / 文件产物 / 账本行),不断言私有函数 / 内部调用顺序 / 源码文本;
- - mock **只在外部供应商边界**(网络 / 时钟 / 三方),**不 mock 仓库内部自家接缝**;
- - 每个行为在**拥有它的权威层测一次**,不跨层重复断言、不凑覆盖率;
- - 断言**非空、非纯存在性**(`assert True` / 只断"对象存在" = 垃圾);无整段逻辑逐字复制粘贴;
- - 跨模块边界用**正式契约类型**,不裸 dict;违反**仓库声明的禁形态**(若有)即缺陷;
- - 跑通**仓库自己的 test guards / lint / 类型检查**(它们绿是机器底线,但绿 ≠ 测得对)。
+- **测试质量(防 Codex 写垃圾测试自己绿)**:Codex 写的测试它自己说了不算,你按下面权威逐条核(与工人写测试前读的是同一份,单源注入)。仓库有测试薄层 TESTING.md 的,分层落点/外部接缝/权威源以薄层为准;派发回执标了 `no-repo-test-sheet` 的,验收回执照转该标记。测试不达标 = 缺陷,打回重写,别将就。
+
+<!-- BEGIN: test-quality -->
+**测试写作权威(plugin 随身携带,任何仓库生效;仓库薄层 TESTING.md 只补本仓库事实——目录分层/外部接缝清单/权威源指针/套件门控——不覆盖本节):**
+
+- 测试名 = 一句业务行为陈述(如「激活码重放被拒绝」),不复述函数名。
+- 每测试一个逻辑断言(一个行为事实,可含多行字段核对)。
+- 断言对象 = 外部可观察事实:优先系统读接口,其次 HTTP 响应 / 文件产物 / 账本行 / CLI stdout;禁断言内部调用序列、私有函数、源码文本。
+- mock 只在外部供应商接缝(网络 / 时钟 / 三方服务;本仓库哪些边界算外部看薄层);自家模块 / 服务之间禁 mock——桩和真实现会漂移,绿测试掩盖真断裂。
+- 每个行为在拥有它的权威层测一次,禁跨层重复断言,不为凑覆盖率加脆弱测试。
+- 测试数据经真实 producer 路径构造(共享 builder),禁手搓 producer 形状的第二份拷贝。
+- 修 bug 的回归测试写进对应业务域文件,禁新建 fix_xxx 文件。
+- 价格 / 文案 / 枚举不硬编码进断言,从权威源读取后对比(权威源指针看薄层)。
+- 行为退役时测试同提交删;skip 存活超过一个迭代 = 删。
+- 生产代码禁为测试留 seam(`_for_test` 类后门);可测试性靠依赖注入与返回结果式接口。
+- 跑通仓库自己的 test guards / lint / 类型检查——它们绿是机器底线,但绿 ≠ 测得对。
+
+**禁止形态(写了就是缺陷,验收/审查一律打回):**
+
+| 禁止 | 为什么 | 替代 |
+| --- | --- | --- |
+| 源码文本 grep 断言(读源码/文档找字面量、私有符号子串) | 改名即误红、绕开字面量即漏判,双向失效;锁的是实现不是行为 | 调真函数/真命令断外部可观察结果;结构需要断言用 AST/结构化解析 |
+| 逐字锁 UI 文案 / 文档 prose | 润色即假红;prose 不是合同 | 断语义键 / 状态枚举;文案从单源读取后比对 |
+| 字段全集 / 默认值 / 枚举镜像断言 | 把合同 schema 抄成第二份,改一处要改两处 | 走正式契约类型 + producer→consumer 真链路 |
+| 文档计数断言(某 .md 含 N 个词 / 清单 M 条) | 文档润色即假红 | 不断文档;事实从代码权威源读 |
+| 墓碑路径清单(retired 文件逐一 not-exists / archive 逐一 exists) | 清单静默腐烂,整理即红 | 只断顶级目录该在 / 不该在;import 回流交行为测试天然报错 |
+| 「测试测测试」meta-gate(断某 suite 清单含某测试文件名) | 套件成员从目录推导,登记表无存在理由 | 删 |
+| per-file allowlist(硬编码生产文件路径清单做豁免 / 必备) | 与布局强耦合,条目静默失效 | 结构化遍历 + 结构化例外条件 |
+| mock 自家服务 / 自家接缝打桩 | 桩与真实现漂移,绿测试掩盖真断裂 | 自家接缝走真代码,mock 只在外部供应商接缝 |
+
+**准入问题(每个新测试进仓前必答):这个测试守的是哪个用户旅程 / 哪笔钱 / 哪份数据?坏了哪个用户当天受伤?答不出 = 没资格进仓。**
+<!-- END: test-quality -->
+
 - **设计一致性**:落地有没有偏离设计 / 计划的意图、合同、边界?
 - 过了这三关 → `mmw loop step done --id <plan-或-pack-id>`。测试不达标也算"有缺陷":写修复指令 resume 打回**重写测试**,别将就。
 - 有缺陷 / 没达成 → 写修复指令,**发回原对话**(keep context):
@@ -88,7 +113,7 @@ Codex 返回后,读它最后消息(dispatch 回执里打印;原文在 `<该 plan
 
 ## B4. 全 plan 验完 + 合并
 
-每份 plan 验过(B3)→ `mmw loop step done`。所有 plan 都 done 后 `mmw loop exit-check` 应为 DONE(执行 loop 收工)。并行 plan 各在自己 worktree → 合并回任务分支(解 git 冲突 + 业务 / 功能冲突;本地 merge 不经红线,红线只拦 push / gh pr merge / 部署)。**每合完一个 plan 就清它的子 worktree**(不留孤儿):`git worktree remove <子 worktree>` + `git branch -d codex/<目录名>`。
+每份 plan 验过(B3)→ `mmw loop step done`。所有 plan 都 done(`mmw loop status` 报 remaining=none;账本只报不拦,别拿它当验收——验收在 B3 亲验)。并行 plan 各在自己 worktree → 合并回任务分支(解 git 冲突 + 业务 / 功能冲突;本地 merge 不经红线,红线只拦 push / gh pr merge / 部署)。**每合完一个 plan 就清它的子 worktree**(不留孤儿):`git worktree remove <子 worktree>` + `git branch -d codex/<目录名>`。
 
 ## B5. ③ 合同门(一次,全 plan 合并后)
 
@@ -98,7 +123,7 @@ Codex 返回后,读它最后消息(dispatch 回执里打印;原文在 `<该 plan
 mmw review start --stage plan-impl --source "<设计文档 ## Cross-Plan Contract Anchors>"
 ```
 
-照它打印的 brief 走——**核什么、怎么 checklist、三个出口全在 `references/review/plan-impl.md`**(到这步才读那一份,方法论只此一源)。**不派写码工人、不列 pack**(全 Pack 提交已由 B4 exit-check 保证)。
+照它打印的回执走——anchors 节为空脚本直接放行;有实体合同 → **核什么、三个出口全在 `references/review/plan-impl.md`**(到这步才读那一份,方法论只此一源),核对过程与逐条兑现证据写进留痕文件。**不派写码工人、不列 pack**。
 
 ## B6. 钉产出 → handoff(引擎随即强制 ④终审闸)
 

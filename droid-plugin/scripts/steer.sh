@@ -74,7 +74,7 @@ has_unanswered_hitl() {
 }
 
 # 第一刀默认策略(与 attendance reference 的 policy 表一致)
-DEFAULT_POLICY='{"side_finding_default":"auto","hitl_unanswered":"reject_enter","budget_at_100":"hard_stop","design_gap":"hard_stop","external_env":"hard_stop","blocked_no_auto_path":"hard_stop","review_fail":"rework_then_hard_stop"}'
+DEFAULT_POLICY='{"side_finding_default":"auto","hitl_unanswered":"reject_enter","design_gap":"hard_stop","external_env":"hard_stop","blocked_no_auto_path":"hard_stop","review_fail":"rework_then_hard_stop"}'
 
 cmd_attend() {
   local mode=""

@@ -18,7 +18,7 @@
 
 ## 1.5 定方向前咨询
 
-investigate 报告是 orientation,不是实质路线。长于几步的任务在方案固化、亮给用户之前 consult 一次；短任务若方向已被一手证据唯一决定可跳过。顾问不替用户选,只挑战主线程的框架、范围漂移和未验证前提。
+investigate 报告是 orientation,不是实质路线。长于几步的任务在方案固化、亮给用户之前 consult 一次;短任务若方向已被一手证据唯一决定可跳过。顾问不替用户选,只挑战主线程的框架、范围漂移和未验证前提。
 
 Droid:
 
@@ -53,7 +53,7 @@ Task({
 | 用户 | 怎么 handoff | 引擎结果 |
 |---|---|---|
 | **选一个 / 同意某方案** | 把选定方向写进 `docs/design/<slug>-direction.md`(方向 + 为什么选它 + 放弃了什么),`mmw handoff --conclusion pass --produced docs/design/<slug>-direction.md` | advance → design(design 拿这份方向细化、写文档,不再提方案) |
-| **全放弃,要回上游重来** | `mmw handoff --conclusion needs-redirection [--to-phase investigate]`(默认回首阶段;`--to-phase` 指定回 investigate 或更上游) | turn-around → 回上游重查/重想(回执指路) |
+| **全放弃,要回上游重来** | `mmw handoff --conclusion needs-redirection`(默认回上一阶段 investigate;讨论态掉头不计成本) | turn-around → 回上游重查/重想(回执指路) |
 | **缺关键输入没法给方案** | `mmw handoff --conclusion needs-context` | 停下问用户 |
 
 ## 红线

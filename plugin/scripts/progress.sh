@@ -38,20 +38,21 @@ phase=$(jq -r '.phase // "?"' "$MAN")
 status=$(jq -r '.status // "?"' "$MAN")
 mode=$(jq -r '.attendance // "afk"' "$MAN")
 repair=$(jq -r '.repair_count // 0' "$MAN")
+# 设计确认(唯一人闸)状态:来自 task.json.approval(mmw approve 写入)
+approval_line="未确认"
+if jq -e '.approval' "$MAN" >/dev/null 2>&1; then
+  approval_line="已确认 $(jq -r '.approval.at // "?"' "$MAN")  reports=$(jq -rc '.approval.reports // []' "$MAN")"
+fi
 
-# ---- 从 loop-state 取内层事实(可能无 loop) ----
-loop_line="(当前无活动 loop)"
+# ---- 从 loop-state 取内层事实(可能无执行账本) ----
+loop_line="(当前无执行账本)"
 budget_line="—"
 plan_rows=""
 blocked_rows=""
 if [ -f "$LOOP" ] && jq -e . "$LOOP" >/dev/null 2>&1; then
-  kind=$(jq -r '.kind // "?"' "$LOOP")
-  round=$(jq -r '.round // 1' "$LOOP")
-  maxr=$(jq -r '.max_rounds // 0' "$LOOP")
-  loop_line="loop=$kind"
-  # 预算无独立 token 机器:如实用审轮作为"跑到哪/离熔断多远"的度量(round-cap 机器计数熔断)
-  if [ "$maxr" -gt 0 ]; then budget_line="审轮 $round/$maxr"; else budget_line="审轮 $round"; fi
-  # 计划进度:execution loop 的 steps = plan/pack;review loop 的 checklist 另算
+  loop_line="loop=execution"
+  budget_line="$(bash "$SCRIPT_DIR/loop.sh" status 2>/dev/null || echo "?")"
+  # 计划进度:执行账本的 steps = plan/pack
   plan_rows=$(jq -r '.steps[]? | "| \(.plan // .id) | \(.status) | \(.id) | — | \(.desc) |"' "$LOOP")
   # 阻塞:pause 非空
   if [ "$(jq -r '.pause' "$LOOP")" != "null" ]; then
@@ -86,6 +87,9 @@ board="$(cat <<EOF
 - 值守模式：**${mode}**
 - 进度度量：${budget_line}
 - 当前动作：${loop_line}
+
+## 设计确认
+- approval：**${approval_line}**
 
 ## 计划进度
 | Plan | 状态 | Pack | Review | 备注 |

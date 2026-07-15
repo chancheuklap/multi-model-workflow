@@ -18,7 +18,8 @@ echo "=== test_claude_surface.sh ==="
 
 for path in \
   agents/code-reviewer.md \
-  hooks/prompt-anchor.sh \
+  scripts/note.sh \
+  commands/approve-design.md \
   scripts/worker.sh \
   scripts/progress.sh \
   scripts/steer.sh \
@@ -35,11 +36,11 @@ HOOKS="$PLUGIN_DIR/hooks/hooks.json"
   && ok "工具 hook 只接 Bash" || no "工具 hook 含非 Bash matcher"
 jq -e '.hooks.SessionStart[0].hooks[0].command | contains("${CLAUDE_PLUGIN_ROOT}")' "$HOOKS" >/dev/null \
   && ok "SessionStart 从 Claude plugin 根启动" || no "SessionStart 未绑定 Claude plugin 根"
-jq -e '.hooks.UserPromptSubmit[0].hooks[0].command | contains("prompt-anchor.sh")' "$HOOKS" >/dev/null \
-  && ok "相位锚 hook 保留" || no "相位锚 hook 缺失"
+[ "$(jq -r '.hooks | has("UserPromptSubmit")' "$HOOKS")" = "false" ] \
+  && ok "相位锚已拆(SessionStart 开场回报一次即可)" || no "UserPromptSubmit 残留"
 
 HELP="$(bash "$PLUGIN_DIR/scripts/mmw.sh" help)"
-for command in "worker dispatch" "worker plan-dispatch" "review start" "progress render" "release init"; do
+for command in "worker dispatch" "worker plan-dispatch" "review start" "progress render" "release init" "note set" "approve --report" "pin --produced"; do
   printf '%s' "$HELP" | grep -q "$command" && ok "CLI 能力保留: $command" || no "CLI 能力缺失: $command"
 done
 

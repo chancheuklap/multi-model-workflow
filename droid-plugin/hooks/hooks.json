@@ -1,5 +1,5 @@
 {
-  "description": "Droid 原生多模型工作流分诊、相位锚、红线与提交记账",
+  "description": "Droid 原生多模型工作流分诊、红线与提交记账",
   "hooks": {
     "SessionStart": [
       {
@@ -8,17 +8,6 @@
             "type": "command",
             "command": "bash \"${DROID_PLUGIN_ROOT}/hooks/session-triage.sh\"",
             "timeout": 10
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${DROID_PLUGIN_ROOT}/hooks/prompt-anchor.sh\"",
-            "timeout": 5
           }
         ]
       }
