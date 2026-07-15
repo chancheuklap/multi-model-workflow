@@ -117,6 +117,7 @@ rm -rf "$NOGIT"
 rm -f ${STATE_SUBDIR}/task.json ${STATE_SUBDIR}/loop-state.json
 OUT="$(printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
 echo "$OUT" | grep -q "会话分诊" && ok "主仓库注入分诊指令(正式进流程/简单直接答)" || no "分诊指令"
+echo "$OUT" | grep -q "琐碎单步动作.*直接处理" && ok "主仓库提示琐碎单步动作直接处理" || no "主仓库缺轻量出口"
 echo "$OUT" | grep -q "在飞任务" && no "无在飞不该列清单" || ok "无在飞任务不列清单"
 # 主仓库有在飞 worktree(有 manifest 才算)→ 追加在飞清单
 mkdir -p ${WT_REL}/w1/${STATE_SUBDIR}
@@ -130,6 +131,7 @@ WTREPO="$(mktemp -d)"
   && printf '{"slug":"t9","scenario":"bug","phase":"build","status":"active"}' > ${STATE_SUBDIR}/task.json )
 OUT="$(cd "$WTREPO" && printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
 echo "$OUT" | grep -q "在管任务 worktree:t9" && echo "$OUT" | grep -q "phase=build" && ok "在管 worktree → 报身份+续跑" || no "在管身份"
+echo "$OUT" | grep -q "无关写操作不要在此 worktree 执行" && ok "在管 worktree 禁止无关写操作污染" || no "在管 worktree 缺写操作边界"
 rm -rf "$WTREPO"
 
 # ===== prompt-anchor(UserPromptSubmit 相位锚:在管注入一行,非在管零输出)=====

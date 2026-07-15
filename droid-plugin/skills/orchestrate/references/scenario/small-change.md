@@ -1,6 +1,6 @@
-# Small-change · 明确的小改
+# Small-change · 需独立任务边界的小改
 
-> orchestrate 路由到这:**明确的小改,根因清楚、不需要设计**。这条路从头到尾就读这一份,不用回 SKILL。
+> orchestrate 路由到这:**范围明确,但仍需独立任务边界与验收;根因清楚、不需要设计**。这条路从头到尾就读这一份,不用回 SKILL。
 > **预设 `small-change`**,阶段序列:落地(含 ④终审闸)→ 收尾(build→closing)。无 investigate / design / plan,但**落地产物过后照样进 ④终审闸**(引擎强制,跟 develop 一致)。
 > **落地 = 主线程就地 TDD**(不派 pack-executor):build 阶段按 `mmw where` 报的 `scenario=small-change` 就地 TDD。
 > 改动小但仍走 ④终审闸,不跳质量门;落地撞出超范围问题 → `mmw spinoff` 登记,别就地扩。
