@@ -26,7 +26,7 @@ git init -q; git config user.email t@t; git config user.name t
 echo seed > seed.txt; git add -A; git commit -qm seed
 
 newtask() { # preset slug -> echoes worktree path
-  bash "$PREPARE" new --scenario "$1" --slug "$2" --title "t-$2" 2>/dev/null \
+  bash "$PREPARE" new --scenario "$1" --slug "$2" --title "t-$2" --request "r-$2" 2>/dev/null \
     | grep '^worktree_path=' | cut -d= -f2-
 }
 mphase() { jq -r .phase "$1/${STATE_SUBDIR}/task.json"; }
@@ -384,7 +384,7 @@ echo "$WCOLD" | grep -q "琐碎单步动作.*不进 orchestrate" && ok "冷启�
 echo "$WCOLD" | grep -q "\[small-change\].*独立任务边界" && ok "small-change 收窄到需独立任务边界" || no "small-change 路由仍过宽"
 
 # ===== propose 分叉:--direction-given 落 manifest,where 降级指路 =====
-WDG="$(bash "$PREPARE" new --scenario develop --slug 2026-07-05-dg --title t --direction-given 2>/dev/null | grep '^worktree_path=' | cut -d= -f2-)"
+WDG="$(bash "$PREPARE" new --scenario develop --slug 2026-07-05-dg --title t --request t --direction-given 2>/dev/null | grep '^worktree_path=' | cut -d= -f2-)"
 [ "$(mfield "$WDG" direction_given)" = "true" ] && ok "--direction-given 钉进 manifest" || no "direction_given 落盘"
 mkf "$WDG" docs/i.md
 ( cd "$WDG" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )

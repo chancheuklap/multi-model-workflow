@@ -23,7 +23,7 @@
 #     mmw note set --text "<一句话现场注记>" | mmw note show
 #     mmw approve --report <主设计文档> [--report <合同文档>]...   确认设计(用户过门后执行;盖指纹,attendance→afk)
 #   任务(入口/收尾,主仓库):
-#     mmw task new --scenario <small-change|develop|bug> --slug <s> --title <t> [--direction-given]
+#     mmw task new --scenario <small-change|develop|bug> --slug <s> --title <t> --request '<用户原始需求与验收条件>' [--direction-given]
 #     mmw task resume | mmw task cleanup --slug <s> | mmw task team(列全队在管 worktree)
 #     mmw task escalate --to develop          bug/小改撞出系统性设计问题→原地升级完整设计路
 #   执行账本(build 派发映射,断点恢复用;只记录不当闸):
