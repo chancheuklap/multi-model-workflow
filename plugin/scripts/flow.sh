@@ -335,9 +335,10 @@ freshness_lines() {  # $1=manifest
     now_s="$(date -u +%s)"
     if [ -n "$then_s" ]; then
       age_d=$(( (now_s - then_s) / 86400 ))
-      [ "$age_d" -ge 7 ] && echo "stale_age=${age_d}d(超 7 天没动;先 /reassess 重建真相再续)"
+      if [ "$age_d" -ge 7 ]; then echo "stale_age=${age_d}d(超 7 天没动;先 /reassess 重建真相再续)"; fi
     fi
   fi
+  return 0
 }
 
 # ---------- where(只读,算"你在哪 + 下一步具体干嘛",不推进) ----------

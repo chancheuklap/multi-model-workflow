@@ -33,6 +33,7 @@ grep -qxF 'worktrees/' .claude/.gitignore && grep -qxF 'multi-model-workflow/' .
 LC1="$(wc -l < .claude/.gitignore)"
 bash "$PREPARE" new --scenario bug --slug 2026-06-28-idem --title t >/dev/null 2>&1
 [ "$(wc -l < .claude/.gitignore)" = "$LC1" ] && ok "遮蔽写入幂等(重复 new 不追行)" || no "遮蔽幂等"
+[ "$(jq -r .attendance "$TMP/${WT_REL}/2026-06-28-idem/${STATE_SUBDIR}/task.json")" = "afk" ] && ok "bug 无讨论期 → attendance 起步 afk" || no "bug attendance afk"
 git worktree remove --force "$TMP/${WT_REL}/2026-06-28-idem" >/dev/null 2>&1; git branch -D 2026-06-28-idem >/dev/null 2>&1; git worktree prune >/dev/null 2>&1   # 清掉幂等试探,不影响后续 team 断言
 grep -q "investigating/" "$WT/docs/.gitignore" && grep -q "reviews/" "$WT/docs/.gitignore" && grep -q -- "-final-review.md" "$WT/docs/.gitignore" && ok "过程产物 docs/.gitignore(investigating/reviews/终审报告不存档)" || no "docs gitignore"
 # 提交白名单:设计(含 prototype/mockup)/计划/issue/领域进 git;过程产物 + .gitignore 自身进不了
@@ -67,8 +68,12 @@ jq -e . "$MAN" >/dev/null 2>&1 && ok "manifest 合法 JSON" || no "manifest 合�
 [ "$(jq -r '.repair_count,.turnaround_count' "$MAN" | tr '\n' ',')" = "0,0," ] && ok "计数器归零" || no "计数器归零"
 [ "$(jq -r '.artifacts,.open_items,.subtasks,.history|length' "$MAN" | paste -sd, -)" = "0,0,0,0" ] && ok "数组初始为空" || no "数组初始为空"
 [ "$(jq -rc .phase_outputs "$MAN")" = "{}" ] && ok "phase_outputs 初始为空对象(接力单)" || no "phase_outputs 初始空"
-[ "$(jq -r .attendance "$MAN")" = "afk" ] && ok "attendance 初始 afk(运行级值守权威)" || no "attendance 初始 afk"
+[ "$(jq -r .attendance "$MAN")" = "attended" ] && ok "develop 讨论态生来 attended(过门才切 afk)" || no "develop attendance attended"
 [ "$(jq -r .unattended_policy "$MAN")" = "null" ] && ok "unattended_policy 初始 null" || no "unattended_policy 初始 null"
+[ -n "$(jq -r '.plugin_version // ""' "$MAN")" ] && ok "manifest 记 plugin_version(时效戳)" || no "plugin_version 缺失"
+[ "$(jq -r .updated_at "$MAN")" = "$(jq -r .created_at "$MAN")" ] && ok "updated_at 初始=created_at" || no "updated_at 初始"
+[ "$(jq -r .note "$MAN")" = "null" ] && ok "note 书签初始 null" || no "note 初始 null"
+[ "$(jq -r .approval "$MAN")" = "null" ] && ok "approval 初始 null(设计未过门)" || no "approval 初始 null"
 
 # 分支从 HEAD 分叉(同 base commit)
 [ "$(git -C "$WT" rev-parse HEAD)" = "$BASE" ] && ok "worktree HEAD=base" || no "worktree HEAD=base"

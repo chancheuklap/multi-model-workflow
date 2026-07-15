@@ -27,22 +27,26 @@ mkdir -p "$WT/docs"; : > "$WT/docs/x.md"   # handoff 拒收幽灵产出:先真�
 ( cd "$WT" && bash "$MMW" spinoff --tag bug --finding "x" >/dev/null ) && \
   [ "$(jq -r '.subtasks|length' "$WT/${STATE_SUBDIR}/task.json")" = "1" ] && ok "mmw spinoff → flow.sh spinoff" || no "mmw spinoff"
 
-# loop → loop.sh
-( cd "$WT" && bash "$MMW" loop init --kind execution >/dev/null && bash "$MMW" loop step add --id 1.1 --desc p >/dev/null ) && \
+# pin → flow.sh(补钉产出,只登记不推进)
+mkdir -p "$WT/docs"; : > "$WT/docs/pinme.md"
+( cd "$WT" && bash "$MMW" pin --phase investigate --produced docs/pinme.md >/dev/null ) && \
+  [ "$(jq -r '.phase_outputs.investigate | index("docs/pinme.md") != null' "$WT/${STATE_SUBDIR}/task.json")" = "true" ] && ok "mmw pin → flow.sh pin" || no "mmw pin"
+
+# note / approve → note.sh(书签 + 唯一人闸)
+( cd "$WT" && bash "$MMW" note set --text "书签" >/dev/null && bash "$MMW" note show | grep -q "书签" ) && ok "mmw note → note.sh" || no "mmw note"
+if ( cd "$WT" && bash "$MMW" approve --report docs/nothing.md >/dev/null 2>&1 ); then no "mmw approve 幽灵报告应被底层拒"; else ok "mmw approve → note.sh(幽灵报告被拒,路由到位)"; fi
+
+# loop → loop.sh(执行账本,init 无参)
+( cd "$WT" && bash "$MMW" loop init >/dev/null && bash "$MMW" loop step add --id 1.1 --desc p >/dev/null ) && \
   [ "$(jq -r '.steps|length' "$WT/${STATE_SUBDIR}/loop-state.json")" = "1" ] && ok "mmw loop → loop.sh" || no "mmw loop"
+( cd "$WT" && bash "$MMW" loop status | grep -q "steps=0/1" ) && ok "mmw loop status 报账本进度" || no "mmw loop status"
+( cd "$WT" && bash "$MMW" loop close >/dev/null )
 
 # progress → progress.sh(渲染板并落盘)
 ( cd "$WT" && bash "$MMW" progress render >/dev/null ) && \
   [ -f "$WT/.claude/multi-model-workflow/progress-board.md" ] && ok "mmw progress → progress.sh 落板" || no "mmw progress"
 
 # review → review.sh(捕获到变量再 grep,避免 grep -q 早关管道触发 SIGPIPE+pipefail)
-# 上面留了个未收束 execution loop(step 1.1 pending)→ 起审必须被拒(防落地步账被静默清)
-if ( cd "$WT" && bash "$MMW" review start --stage design --source x >/dev/null 2>&1 ); then
-  no "未收束 execution loop 起审应拒"
-else
-  ok "未收束 execution loop → review start 拒(fail-closed)"
-fi
-( cd "$WT" && bash "$MMW" loop close >/dev/null )   # 显式收束后再起审
 RV="$(cd "$WT" && bash "$MMW" review start --stage design --source x 2>/dev/null)"
 echo "$RV" | grep -q "REVIEW_STARTED" && ok "mmw review → review.sh" || no "mmw review"
 
