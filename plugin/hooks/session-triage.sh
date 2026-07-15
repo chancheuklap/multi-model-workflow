@@ -21,7 +21,7 @@ if [ -f "$man" ]; then
     "[multi-model-workflow] 本目录是在管任务 worktree:\(.slug) [\(.scenario)] phase=\(.phase) status=\(.status) mode=\($mode)。" +
     "续跑:\($hint);先跑 \($mmw) where,照它报的 load/do 续。板:/progress  指挥:/reassess /attended /unattended /side-finding。" +
     (if $mode=="unattended" then "  ⚠ 强无人档:续跑按盘上 mode 自我约束,不向用户提问,遇硬停写板等人。" else "" end) +
-    "  与任务无关的问答、解释、只读查看和琐碎单步动作直接处理。"' "$man" 2>/dev/null || true
+    "  与任务无关的问答、解释和只读查看直接处理;无关写操作不要在此 worktree 执行。"' "$man" 2>/dev/null || true
   exit 0
 fi
 
