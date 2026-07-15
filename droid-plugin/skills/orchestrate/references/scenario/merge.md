@@ -17,7 +17,7 @@ mmw task team
 据此写 **merge-brief**:`状态平面/<slug>-merge-brief.md`(本场唯一"合并后正确状态"权威源,后续每次派 worker 都只引用路径)。merge 在主仓库跑,产物只落状态平面,不写 `docs/`。
 - **PR 表**:PR / branch / 核心行为 / 各自 ④终审 verdict / 对应 issue。
 - **合同地图**:所有跨 PR 合同面(model / API / schema / registry / migration)。
-- **文件交叉矩阵**:被多个 PR 改的文件。
+- **文件交叉矩阵**:被多个 PR 改的文件(直接跑:每分支 `git diff --name-only <base>..<tip>` 排序后 `comm -12` 求交集,不手比)。
 - **正确状态模型**:合并后系统该是什么样(你读各 design 文档建立)。
 - **合并序**:按 base_commit / 依赖排(被依赖的先合)。
 - **冲突解决记录**:边查边填(初始空)。
@@ -83,4 +83,4 @@ mmw review start --stage merge-impl --source 状态平面/<slug>-merge-brief.md
 
 - **清扫纪律**:out-of-scope 项确认开独立后续(GitHub issue / 记录)、各队员 open_items 逐条处置、扫合并引入的新 `TODO/FIXME` —— 三选一,不留含糊。
 - 全合完主分支跑一遍完整测试确认没合坏。
-- **返回**(给用户):verdict(完成 / 待用户决策 / blocked)· 各 PR 合并状态 · 逐冲突(类型/PR/根因/解法/已验)· 集成审结果 · git 状态 · 测试结果 · 遗留项。
+- **返回**(给用户):verdict(完成 / 待用户决策 / blocked)· 各 PR 合并状态一行 · 集成审结论 · 测试结果 · 遗留项;逐冲突明细已在 merge-brief 的「冲突解决记录」,指路径,不重贴进对话。
