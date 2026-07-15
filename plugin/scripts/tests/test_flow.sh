@@ -393,6 +393,8 @@ WCOLD="$(cd "$TMP" && bash "$FLOW" where)"
 echo "$WCOLD" | grep -q "UNMANAGED" && ok "主仓库 where 报 UNMANAGED" || no "UNMANAGED"
 echo "$WCOLD" | grep -q "在飞任务" && ok "冷启动列在飞任务" || no "冷启动在飞清单"
 echo "$WCOLD" | grep -q "2026-07-05-dedup" && ok "在飞清单含 manifest 任务(slug/phase/path)" || no "在飞清单条目"
+echo "$WCOLD" | grep -q "琐碎单步动作.*不进 orchestrate" && ok "冷启动明确琐碎单步动作直接处理" || no "冷启动缺直接处理边界"
+echo "$WCOLD" | grep -q "\[small-change\].*独立任务边界" && ok "small-change 收窄到需独立任务边界" || no "small-change 路由仍过宽"
 
 # ===== propose 分叉:--direction-given 落 manifest,where 降级指路 =====
 WDG="$(bash "$PREPARE" new --scenario develop --slug 2026-07-05-dg --title t --direction-given 2>/dev/null | grep '^worktree_path=' | cut -d= -f2-)"

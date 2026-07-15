@@ -287,7 +287,7 @@ cmd_where() {
     echo "当前不是在管任务。看需求选一个起始选项,再 mmw task new:"
     jq -r '.start_options[] | "  [\(.scenario)] \(.when) → \(.phases_note)"' "$ROUTES"
     echo "命令: $MMW task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title '<标题>' [--direction-given]"
-    echo "merge: 不开 worktree,直接走 references/scenario/merge.md;概念/事实问题不进 orchestrate,直接答。"
+    echo "问答、解释、只读查看，以及主线程可直接完成并验证的琐碎单步动作不进 orchestrate，直接处理。merge 不开 worktree，直接走 references/scenario/merge.md。"
     # 在飞任务:扫描 Claude Code worktree 根。
     local top_ls mm hdr=0 d
     if top_ls="$(git rev-parse --show-toplevel 2>/dev/null)"; then

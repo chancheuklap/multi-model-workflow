@@ -21,11 +21,11 @@ if [ -f "$man" ]; then
     "[multi-model-workflow-droid] 本目录是在管任务 worktree:\(.slug) [\(.scenario)] phase=\(.phase) status=\(.status) mode=\($mode)。" +
     "续跑:\($hint);先跑 \($mmw) where,照它报的 load/do 续。板:/progress  指挥:/reassess /attended /unattended /side-finding。" +
     (if $mode=="unattended" then "  ⚠ 强无人档:续跑按盘上 mode 自我约束,不向用户提问,遇硬停写板等人。" else "" end) +
-    "  与任务无关的简单问答直接答。"' "$man" 2>/dev/null || true
+    "  与任务无关的问答、解释、只读查看和琐碎单步动作直接处理。"' "$man" 2>/dev/null || true
   exit 0
 fi
 
-echo "[multi-model-workflow-droid] 会话分诊:正式开发任务(新功能/改造/报 bug/明确小改/合并 worktree)→ 用 orchestrate skill 进流程(先跑 $MMW where);简单问答 → 直接答,不进流程。"
+echo "[multi-model-workflow-droid] 会话分诊:需正式编排的开发任务(新功能/系统改造/根因不明的 bug/需独立任务边界的小改/合并 worktree)→ 用 orchestrate skill 进流程(先跑 $MMW where);问答、解释、只读查看和主线程可直接完成并验证的琐碎单步动作 → 直接处理,不进流程。"
 hdr=0
 while IFS= read -r mm; do
   [ -f "$mm" ] || continue

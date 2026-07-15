@@ -6,6 +6,7 @@ PLUGIN_DIR="$(cd "$HERE/../.." && pwd)"
 BUILD="$PLUGIN_DIR/build/build.sh"
 SCEN="$PLUGIN_DIR/skills/orchestrate/references/scenario"
 FRAG="$PLUGIN_DIR/build/fragments"
+SKILL="$PLUGIN_DIR/skills/orchestrate/SKILL.md"
 
 pass=0; fail=0
 ok(){ echo "  PASS: $1"; pass=$((pass+1)); }
@@ -47,6 +48,10 @@ done
 mv "$FRAG/closing-cleanup.md.bak" "$FRAG/closing-cleanup.md"
 bash "$BUILD" --apply >/dev/null 2>&1
 bash "$BUILD" --check >/dev/null 2>&1 && ok "还原片段重建后 --check 干净" || no "还原重建失败"
+
+# 6. skill 触发面与正文都先排除无需编排的请求
+grep -q "不用于问答、解释、只读查看" "$SKILL" && ok "skill metadata 排除无需编排请求" || no "skill metadata 触发面过宽"
+grep -q "琐碎单步动作.*不跑.*mmw.*不建 worktree" "$SKILL" && ok "入口正文给出直接处理出口" || no "入口正文缺直接处理出口"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

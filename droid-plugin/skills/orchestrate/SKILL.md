@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: "开发工作流主入口。用户给出想法/功能/改造、报 bug、要优化、或要合并多个并行 worktree 时主动使用。入口只做两件事:断点恢复 + 选路由(LLM 当场判),随后把你交给那条路自己的 reference。"
+description: "需要正式编排的开发工作流主入口。用于新功能、系统改造、根因不明的 bug、需要独立任务边界的小改，或合并多个并行 worktree；不用于问答、解释、只读查看，以及主线程可直接完成并验证的琐碎单步动作。"
 ---
 
 # Orchestrate · 入口
@@ -50,16 +50,18 @@ bash "$MMW" where
 
 ## Step 1 · 路由 → 进该路径的 reference
 
+先判是否需要正式编排。问答、解释、只读查看，以及主线程可直接完成并验证的琐碎单步动作，直接处理，不跑 `mmw`、不建 worktree。其余开发任务再选下面一条路。
+
 看对话判这是哪条路,选一个,**直接读那份 reference,本文到此为止**:
 
 | 你怎么开口 | 路径 | 读这份(从头到尾就靠它) |
 | --- | --- | --- |
-| 明确的小改 | `small-change` | `${SKILL_DIR}/references/scenario/small-change.md` |
+| 范围明确,但仍需独立任务边界与验收的代码改动 | `small-change` | `${SKILL_DIR}/references/scenario/small-change.md` |
 | 新想法 / 功能 或 要优化改造(要设计) | `develop` | `${SKILL_DIR}/references/scenario/develop.md` |
 | bug / 报错 / regression,根因不明 | `bug` | `${SKILL_DIR}/references/scenario/bug.md` |
 | 多个并行 worktree 要合并 | `merge` | `${SKILL_DIR}/references/scenario/merge.md` |
 
-判不准就问一句收窄(一次只问一个)。概念 / 事实问题直接答,不进 orchestrate。
+判不准就问一句收窄(一次只问一个)。
 
 ## 控制面(任何阶段可用,跨路径)
 
