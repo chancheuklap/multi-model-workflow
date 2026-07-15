@@ -9,7 +9,7 @@
 | worker 分支 | `worker/<worktree-name>` |
 | 插件根 | hook 内 `${DROID_PLUGIN_ROOT}`；主线程由 `mmw` 绝对路径反推 |
 
-`task.json`、`loop-state.json`、进度板、design checkpoint、派发账本和 review brief 都在状态平面。
+`task.json`(含 `note` 书签与 `approval` 设计确认)、`loop-state.json`、进度板、派发账本和 review brief 都在状态平面。
 
 ## 工具
 
@@ -59,20 +59,19 @@ final review 固定并行四个 Task：A、B 两种模型分别各审基线1和�
 
 ## 审闸
 
-主线程运行 `mmw review start`，读取生成的 `review-brief.md` 并直接派 reviewer droids。findings 原样落盘，主线程逐条亲验和收敛；`loop exit-check` 未返回 `DONE` 时不得 handoff pass。
+主线程运行 `mmw review start`，读取生成的 `review-brief.md` 并直接派 reviewer droids。findings 原样落盘 `docs/reviews/<slug>-<stage>.md` 并逐条亲验、文末写总 verdict；审闸 `handoff pass` 时引擎核该文件存在且含 verdict，没有留痕不放行。
 
 ## Hooks
 
 | 事件 | matcher | 脚本 |
 | --- | --- | --- |
 | SessionStart | 无 | `session-triage.sh` |
-| UserPromptSubmit | 无 | `prompt-anchor.sh` |
 | PreToolUse | `Execute` | `guard-redline.sh` |
 | PostToolUse | `Execute` | `record-step.sh` |
 
 插件 hook 只引用 `${DROID_PLUGIN_ROOT}`。脚本自行筛选命令，不依赖额外 matcher 字段。
 
-UserPromptSubmit 读取官方 hook payload 的 `prompt`。只有 prompt 精确等于 `确认设计 MMW-APPROVE:<id>` 或 token 本身，且报告指纹仍匹配时，才原子批准当前 design checkpoint；任意其它消息只注入流程锚，不构成批准。不存在公开的 `mmw checkpoint approve` 命令。
+设计确认是唯一人闸：用户敲 `/approve-design` → `mmw approve` 盖承重文档指纹、attendance 切 afk 并推进；用户口头同意不算过门。承重文档改动后审闸 pass 硬停 `approval_stale`，重跑 `mmw approve` 重盖（RE-APPROVED）。
 
 ## 安全
 
