@@ -76,23 +76,28 @@ IGN
   local phases_json; phases_json="$(jq -c --arg s "$scenario" '.presets[$s] // empty' "$ROUTES")"
   [ -n "$phases_json" ] || die "routes.json 未定义预设 $scenario 的 phases"
   local phase; phase="$(printf '%s' "$phases_json" | jq -r '.[0]')"
+  # 值守档:讨论态天生 attended(develop 有 propose/design 讨论期);bug/small-change 无讨论期,
+  # 但动手前有一次轻确认(scenario reference 定),之后自主 → 起步 afk。过门(approve)自动切 afk。
   local attendance="afk"
   [ "$scenario" = "develop" ] && attendance="attended"
+  local plugin_version
+  plugin_version="$(jq -r '.version // ""' "$SCRIPT_DIR/../.factory-plugin/plugin.json" 2>/dev/null || echo "")"
 
   local created; created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   jq -n \
-    --arg sv "1" --arg slug "$slug" --arg title "$title" --arg request "$request" --arg scenario "$scenario" \
+    --arg sv "2" --arg slug "$slug" --arg title "$title" --arg request "$request" --arg scenario "$scenario" \
     --argjson phases "$phases_json" \
     --arg status "active" --arg phase "$phase" --arg created "$created" \
     --arg base "$base" --arg branch "$slug" --arg wt "$wt" \
     --argjson dg "$direction_given" \
     --arg inv "docs/investigating/$slug" --arg ddoc "docs/design/$slug" --arg idir "docs/issues/$slug" --arg pdir "docs/plans/$slug" --arg ctx "docs/context" \
-    --arg attendance "$attendance" \
-    --argjson checkpoint '{"phase":null,"status":"none","report":[],"source_fingerprint":null,"approval_id":null,"prepared_at":null,"approved_at":null}' \
+    --arg attendance "$attendance" --arg pv "$plugin_version" \
     '{schema_version:$sv, slug:$slug, title:$title, request:$request, scenario:$scenario, phases:$phases, direction_given:$dg,
-      status:$status, phase:$phase, phase_index:0, step_index:0, gate:null, created_at:$created, base_commit:$base,
+      status:$status, phase:$phase, phase_index:0, step_index:0, gate:null,
+      created_at:$created, updated_at:$created, plugin_version:$pv, base_commit:$base,
       branch:$branch, worktree_path:$wt, docs:{investigating:$inv, design:$ddoc, issues:$idir, plans:$pdir, context:$ctx},
-      repair_count:0, turnaround_count:0, attendance:$attendance, unattended_policy:null, checkpoint:$checkpoint,
+      repair_count:0, turnaround_count:0, attendance:$attendance, unattended_policy:null,
+      note:null, approval:null,
       artifacts:[], phase_outputs:{}, open_items:[], subtasks:[], history:[]}' \
     > "$wt/$STATE_SUBDIR/$MANIFEST_NAME"
 
@@ -120,8 +125,7 @@ cmd_resume() {
   jq -e . "$manifest" >/dev/null 2>&1 || die "manifest 损坏:$manifest"
   # resume = 用户答完回来继续:waiting-user 翻回 active(否则状态一直挂 waiting 到下次 handoff)。
   # 只翻这一种,别的状态原样;fail-closed 写(空/非法 JSON 拒写、保留原档)。
-  if [ "$(jq -r .status "$manifest")" = "waiting-user" ] \
-    && [ "$(jq -r '.checkpoint.status // "none"' "$manifest")" != "waiting-user" ]; then
+  if [ "$(jq -r .status "$manifest")" = "waiting-user" ]; then
     local tmp; tmp="$(mktemp)"
     if jq '.status="active"' "$manifest" > "$tmp" && [ -s "$tmp" ] && jq -e . "$tmp" >/dev/null 2>&1; then
       mv "$tmp" "$manifest"
