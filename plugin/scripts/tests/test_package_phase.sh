@@ -175,6 +175,24 @@ for path in docs/plans/example.md tests/local_agent/test_example.py src/gateway/
   assert_empty "ignored-$(echo "$path" | tr '/.' '--')" "$path"
 done
 
+# 回归:真实批次改动上百个路径。bash 3.2 在外层解析循环(process substitution 重定向)内部
+# 再套 process substitution 填 product paths,会累积文件描述符,跑够多轮后内层读空——product
+# 匹配拿到空 glob 列表,靠后的产品源(src/<产品>/…)被误判「未分类」而 fail-loud。单路径用例
+# 永远不触发;这里把上百个在前的 ignored 路径顶在前面,把一个产品源路径排到最后。
+new_case many-paths-late-product
+mkdir -p "$CASE/docs/plans"
+for n in $(seq -w 1 200); do printf 'x\n' > "$CASE/docs/plans/filler-$n.md"; done
+mkdir -p "$CASE/src/hedgehog"
+printf 'x\n' > "$CASE/src/hedgehog/zzz_late_source.py"
+git -C "$CASE" add -- docs/plans src/hedgehog
+git -C "$CASE" commit -qm "batch of many paths with a late product source"
+run_resolve fixtures/agentflow.release-package-scope.json
+if [ "$RC" -eq 0 ] && [ "$(targets)" = '["hedgehog"]' ]; then
+  ok "上百路径下靠后的产品源仍归类(bash 3.2 process-sub fd 累积回归)"
+else
+  no "上百路径下靠后的产品源仍归类 (rc=$RC targets=$(targets 2>/dev/null || true) err=$ERROR)"
+fi
+
 new_case unknown-path
 commit_path scripts/new_surface.py
 run_resolve fixtures/agentflow.release-package-scope.json
