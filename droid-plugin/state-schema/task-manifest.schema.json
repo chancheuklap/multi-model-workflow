@@ -6,13 +6,14 @@
   "additionalProperties": false,
   "required": [
     "schema_version", "slug", "title", "request", "scenario", "phases",
-    "status", "phase", "phase_index", "step_index", "gate", "created_at", "base_commit",
+    "status", "phase", "phase_index", "step_index", "gate", "created_at", "updated_at", "plugin_version", "base_commit",
     "branch", "worktree_path", "docs",
     "repair_count", "turnaround_count",
+    "note", "approval",
     "artifacts", "phase_outputs", "open_items", "subtasks", "history"
   ],
   "properties": {
-    "schema_version": { "const": "1" },
+    "schema_version": { "const": "2" },
 
     "slug": {
       "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$", "maxLength": 64,
@@ -46,6 +47,29 @@
     },
 
     "created_at": { "type": "string" },
+    "updated_at": { "type": "string", "description": "状态新鲜度戳:flow.sh 每次落盘刷新。where/session-triage 按它报龄,超 7 天提示 /reassess" },
+    "plugin_version": { "type": "string", "description": "建任务时的插件版本。where 与当前激活插件版本比对,不符报 stale 提示 /reassess" },
+    "note": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["text", "at"],
+      "properties": {
+        "text": { "type": "string" },
+        "at": { "type": "string" }
+      },
+      "description": "讨论态书签(mmw note 写入,单条覆盖):退出会话前留给下次续跑的一句话。session-triage 三源回报之一"
+    },
+    "approval": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["reports", "fingerprint", "at"],
+      "properties": {
+        "reports": { "type": "array", "items": { "type": "string" }, "description": "用户确认时钉住的承重设计文档路径" },
+        "fingerprint": { "type": "string", "description": "承重文档内容指纹。文档改动后审闸 pass 硬停 approval_stale,重跑 mmw approve(RE-APPROVED)重盖" },
+        "at": { "type": "string" }
+      },
+      "description": "设计确认(唯一人闸):用户敲 /approve-design → mmw approve 写入。null=未确认;非 null 即过门(attendance 切 afk、进流水线态)"
+    },
     "base_commit": { "type": "string", "description": "创建时本地 HEAD sha" },
     "branch": { "type": "string" },
     "worktree_path": { "type": "string" },
@@ -75,7 +99,6 @@
       "properties": {
         "side_finding_default": { "type": "string", "description": "计划外自动策略,auto=用默认标签表" },
         "hitl_unanswered": { "type": "string", "description": "进入时仍有未答 HITL 的处置,如 reject_enter" },
-        "budget_at_100": { "type": "string" },
         "design_gap": { "type": "string" },
         "external_env": { "type": "string" },
         "blocked_no_auto_path": { "type": "string" },
@@ -83,29 +106,6 @@
       },
       "description": "进入 unattended 时写入的预授权策略;非 unattended 时为 null。各字段含义与默认值见 attendance reference 的预授权 policy 表"
     },
-    "checkpoint": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "phase", "status", "report", "source_fingerprint",
-        "approval_id", "prepared_at", "approved_at"
-      ],
-      "properties": {
-        "phase": { "type": ["string", "null"], "enum": ["design", null] },
-        "status": { "enum": ["none", "waiting-user", "approved"] },
-        "report": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "用户实际确认的 design 报告路径；handoff 产出必须与该列表一致。"
-        },
-        "source_fingerprint": { "type": ["string", "null"] },
-        "approval_id": { "type": ["string", "null"], "pattern": "^[0-9a-f]{12}$" },
-        "prepared_at": { "type": ["string", "null"] },
-        "approved_at": { "type": ["string", "null"] }
-      },
-      "description": "轻量 design checkpoint。只有 UserPromptSubmit Hook 收到精确 MMW-APPROVE token 才能从 waiting-user 变 approved。"
-    },
-
     "artifacts": {
       "type": "array", "items": { "type": "string" },
       "description": "累积产出的文件路径(只存路径不存内容)。交接单的'我产出了什么'落这里"

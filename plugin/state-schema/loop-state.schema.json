@@ -1,19 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "loop-state",
-  "description": "内层 loop 的状态 ledger,独立于外层 task.json(并列执行档,旧 plugin 双文件模型的思路)。落 <worktree>/.claude/multi-model-workflow/loop-state.json。进一个 loop 时 init,handoff 结论落定时由 loop close 清(否则残留会污染下阶段 where)。exit-check、flow.sh handoff 确定性闸(审闸内 pass 前核 exit-check==DONE)、以及 flow.sh where(报 inner_loop 断点恢复)都读它。",
+  "description": "执行账本(仅 build/落地 loop;审查不记账,收口看审查留痕文件)。落 <worktree>/.claude/multi-model-workflow/loop-state.json。loop init 建,handoff 结论落定时由 loop close 清(否则残留会污染下阶段 where)。flow.sh where 读它报 inner_loop 断点恢复;loop status 只报不否决。",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "kind", "attendance", "steps", "checklist", "findings", "decisions", "pause"],
+  "required": ["schema_version", "kind", "attendance", "steps", "decisions", "pause"],
   "properties": {
-    "schema_version": { "const": "1" },
+    "schema_version": { "const": "2" },
     "kind": {
-      "enum": ["execution", "review", "contract-gate"],
-      "description": "execution=落地 loop(steps);review=审核 loop(checklist+findings);contract-gate=③便宜合同门(steps+checklist 机器核,无判断)"
+      "const": "execution",
+      "description": "只剩执行账本;审核/合同门不再记 loop 账(审闸收口硬核=留痕文件含 verdict,由 flow.sh 核)"
     },
     "attendance": { "enum": ["attended", "afk", "unattended"], "description": "本 loop 的值守档,init 时从外层 task.json 的 attendance 读入(task.json 为运行级权威,跨阶段留存;loop-state 只是当前 loop 的派生缓存供软停判断)。attended=软停问人;afk=软停自决、缺输入/方向疑仍停;unattended=软停自决且禁向用户提问(权威仍是 task.json,见 attendance reference)" },
-    "round": { "type": "integer", "minimum": 1, "description": "审 loop 当前轮次(loop round next 推进)" },
-    "max_rounds": { "type": "integer", "minimum": 0, "description": "审 loop 轮上限,0=不限;round next 到顶自动 surface 熔断(机器计数,防无限打转)" },
     "steps": {
       "type": "array",
       "items": {
@@ -28,34 +26,7 @@
           "worktree": { "type": ["string", "null"], "description": "该 plan 派 Codex 的子 worktree 路径。pending+有 worktree = 已派(去那 worktree 读 codex-session verify/resume);pending+无 worktree = 未派。session 存该 worktree 内 codex-session(一 plan 一 worktree,不共享、无竞争)" }
         }
       },
-      "description": "落地=pack/plan;contract-gate=待提交的 pack。主线程展开(steps expand),commit hook 记 done。plan/worktree 支撑模式B 并行 Codex 的内层断点恢复"
-    },
-    "checklist": {
-      "type": "array",
-      "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["item", "source", "status"],
-        "properties": {
-          "item": { "type": "string" },
-          "source": { "type": "string", "description": "从哪份文档/行抽出" },
-          "status": { "enum": ["open", "covered"] },
-          "evidence": { "type": ["string", "null"] }
-        }
-      },
-      "description": "审核 loop 的覆盖清单(主线程从设计/issue 抽);contract-gate 的合同清单"
-    },
-    "findings": {
-      "type": "array",
-      "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["severity", "confidence", "locator"],
-        "properties": {
-          "severity": { "enum": ["Critical", "Important", "Minor"] },
-          "confidence": { "type": "integer", "minimum": 1, "maximum": 10 },
-          "locator": { "type": "string" },
-          "status": { "enum": ["open", "resolved"] }
-        }
-      }
+      "description": "落地步(pack/plan)。主线程展开(loop step add),commit hook 记 done。plan/worktree 支撑模式B 并行 Codex 的内层断点恢复"
     },
     "decisions": {
       "type": "array",
