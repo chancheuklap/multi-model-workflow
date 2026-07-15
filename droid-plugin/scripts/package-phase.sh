@@ -127,6 +127,15 @@ cmd_resolve() {
   ignored_globs=()
   while IFS= read -r glob; do ignored_globs+=("$glob"); done < <(jq -r '.ignored_paths[]' <<<"$scope_json")
   product_count="$(jq -r '.products | length' <<<"$scope_json")"
+  # 每个产品的 paths 同 ignored 桶,循环外一次性读进命名数组 product_globs_<i>:bash 3.2 在外层
+  # 解析循环(process substitution 重定向)内部再套 process substitution 会累积文件描述符,跑够
+  # 多轮后内层读空——product_globs 变空,只靠产品 paths 匹配的改动(src/<产品>/…)被误判「未分类」
+  # 甚至耗尽 fd 崩溃。循环内只读预读好的数组,不再填。
+  for ((index = 0; index < product_count; index++)); do
+    eval "product_globs_$index=()"
+    while IFS= read -r glob; do eval "product_globs_$index+=(\"\$glob\")"; done \
+      < <(jq -r --argjson i "$index" '.products[$i].paths[]' <<<"$scope_json")
+  done
   while IFS= read -r path; do
     [ -n "$path" ] || continue
     if matches_any "$path" "${all_globs[@]-}"; then
@@ -134,9 +143,7 @@ cmd_resolve() {
     else
       indices="[]"
       for ((index = 0; index < product_count; index++)); do
-        product_globs=()
-        while IFS= read -r glob; do product_globs+=("$glob"); done \
-          < <(jq -r --argjson i "$index" '.products[$i].paths[]' <<<"$scope_json")
+        eval "product_globs=(\"\${product_globs_$index[@]-}\")"
         if matches_any "$path" "${product_globs[@]-}"; then
           indices="$(jq -c --argjson i "$index" '. + [$i]' <<<"$indices")"
         fi
