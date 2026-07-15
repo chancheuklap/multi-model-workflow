@@ -25,12 +25,13 @@ in_worktree() { [ -f "$1/.git" ]; }
 
 # ---------- new ----------
 cmd_new() {
-  local scenario="" slug="" title="" direction_given=false
+  local scenario="" slug="" title="" request="" direction_given=false
   while [ $# -gt 0 ]; do
     case "$1" in
       --scenario) scenario="$2"; shift 2 ;;
       --slug)     slug="$2";     shift 2 ;;
       --title)    title="$2";    shift 2 ;;
+      --request)  request="$2";  shift 2 ;;
       --direction-given) direction_given=true; shift ;;   # 用户开口已带明确方向:propose 降级(where 照此指路)
       *) die "未知参数: $1" ;;
     esac
@@ -38,6 +39,7 @@ cmd_new() {
   [ -n "$scenario" ] || die "--scenario 必填(small-change|develop|bug)"
   [ -n "$slug" ]     || die "--slug 必填"
   [ -n "$title" ]    || die "--title 必填"
+  [ -n "$request" ]  || die "--request 必填(用户原始需求与验收条件,不能只传标题)"
   case "$scenario" in small-change|develop|bug) ;; *) die "--scenario 只能 small-change|develop|bug(merge 不开 worktree)" ;; esac
   printf '%s' "$slug" | grep -Eq '^[a-z0-9][a-z0-9._-]{0,63}$' || die "slug 非法(小写字母数字 . _ -,≤64):$slug"
 
@@ -82,14 +84,14 @@ IGN
   plugin_version="$(jq -r '.version // ""' "$SCRIPT_DIR/../.claude-plugin/plugin.json" 2>/dev/null || echo "")"
   local created; created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   jq -n \
-    --arg sv "2" --arg slug "$slug" --arg title "$title" --arg scenario "$scenario" \
+    --arg sv "2" --arg slug "$slug" --arg title "$title" --arg request "$request" --arg scenario "$scenario" \
     --argjson phases "$phases_json" \
     --arg status "active" --arg phase "$phase" --arg created "$created" \
     --arg base "$base" --arg branch "$slug" --arg wt "$wt" \
     --argjson dg "$direction_given" \
     --arg attendance "$attendance" --arg pv "$plugin_version" \
     --arg inv "docs/investigating/$slug" --arg ddoc "docs/design/$slug" --arg idir "docs/issues/$slug" --arg pdir "docs/plans/$slug" --arg ctx "docs/context" \
-    '{schema_version:$sv, slug:$slug, title:$title, scenario:$scenario, phases:$phases, direction_given:$dg,
+    '{schema_version:$sv, slug:$slug, title:$title, request:$request, scenario:$scenario, phases:$phases, direction_given:$dg,
       status:$status, phase:$phase, phase_index:0, step_index:0, gate:null,
       created_at:$created, updated_at:$created, plugin_version:$pv, base_commit:$base,
       branch:$branch, worktree_path:$wt, docs:{investigating:$inv, design:$ddoc, issues:$idir, plans:$pdir, context:$ctx},

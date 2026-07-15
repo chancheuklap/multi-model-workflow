@@ -16,7 +16,7 @@
 
 2. **一条命令建好**(从本地最新 HEAD 分叉,scaffold docs,写 manifest):
    ```bash
-   mmw task new --scenario bug --slug <slug> --title "<人类可读标题>"
+   mmw task new --scenario bug --slug <slug> --title "<人类可读标题>" --request "<用户原始需求与验收条件>"
    ```
    回执给出 `worktree_path`;prepare 把本路径的阶段序列固化进 manifest 的 `phases`。
    仅 develop:用户开口已带明确方向(不用再摆备选)→ 加 `--direction-given`,propose 阶段引擎自动降级(`where` 的 `do` 会照 manifest 报降级指令:只落方向文档+一个最强对照,不重摆 2-3 方案)。
