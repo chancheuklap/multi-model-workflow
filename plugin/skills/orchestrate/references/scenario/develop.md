@@ -1,8 +1,8 @@
 # Develop · 新功能 / 优化改造完整主干
 
 > orchestrate 路由到这:**新想法 / 功能,或旧系统优化改造**(要设计)。这条路从头到尾就读这一份,不用回 SKILL。
-> **预设 `develop`**,阶段序列:查清 → 给方案 → 想方案 → 切片 → 拆计划 → 落地(含 ④终审闸)→ 收尾(investigate→propose→design→to-issue→plan→build→closing)。**design / plan / build 三个产出阶段,产物过后各被引擎强制审一道闸**(①设计审 / ②计划审 / ④终审,stage 由 `mmw where` 的 `review_start` 报);to-issue(垂直切片立 issue 骨架)在 ①设计审之后、无审闸。
-> HITL 集中在 propose(选方向)/ design;**plan 起放权自主跑**(计划由 Codex 写、②计划审是 Claude 闸,都不问人),只有缺输入 / 方向疑 / 合并红线才停。
+> **预设 `develop`**,两态一门:**讨论态**(investigate→propose→design,自由往返、值守 attended、和用户想清楚)→ **唯一人闸**(用户 `/approve-design` 确认设计,引擎盖指纹、切 afk)→ **流水线态**(to-issue→plan→build→package→closing,自主跑)。plan / build 产物过后各被引擎强制审一道闸(②计划审 / ④终审,`mmw where` 的 `review_start` 报);design 的审是过门前的**预审服务**(agent 自起,结果给用户参考),不是闸。
+> HITL 集中在 propose(选方向)/ design(讨论 + 过门);**过门起放权自主跑**,只有缺输入 / 方向疑 / 出站红线才停。
 > **propose 给方案 + 用户拍(选一个进 design,或全否回上游),不在 investigate 也不在 design 里。**
 
 <!-- BEGIN: worktree-setup -->
@@ -28,14 +28,14 @@
 <!-- BEGIN: phase-contract -->
 ## 阶段运行契约(进 worktree 后的主循环)
 
-进 worktree 后,你对每个阶段都做同样 4 个动作。阶段之间唯一变的是「干」用哪套方法论;进 / 钉 / 交完全一样。**这是个循环**:④ 交完拿到回执 → 按回执跳到目标阶段 → 回 ① 进 → …… 直到回执说收尾。你不预判、不跳号,只认回执。
+进 worktree 后,每个阶段都是同样 4 个动作;阶段之间唯一变的是「干」用哪套方法论。**这是个循环**:交完拿到回执 → 按回执跳到目标阶段 → 回 ① 进 → …… 直到回执说收尾。
 
 | 动作 | 做什么 | 命令 / 机制 |
 |---|---|---|
-| **① 进** | `mmw where` 直接报:在哪阶段、在不在审闸、上阶段钉了什么(`prev_outputs` 照单读,不自己找)、`load`(读哪份)/ `do`(干什么)/ `then`(交什么)。照 `load` 加载 | `mmw where` |
-| **② 干** | 按 `where` 的 `do` 跑该阶段方法论(唯一因阶段而异),读 `prev_outputs` 当输入 | `load` 指向的 reference(阶段方法论都在 `references/` 下,含 design/、plan/) |
-| **③ 钉** | 把本阶段承重产出钉进接力单,下阶段照单读 | handoff 的 `--produced` |
-| **④ 交** | 给一个结论词,引擎算下一步、写进度、回执;照本文「回执 → 怎么跳」表行动 | `mmw handoff` |
+| **① 进** | `mmw where` 报:在哪阶段、在不在审闸、上阶段钉了什么(`prev_outputs` 照单读,不自己找)、`load`(读哪份)/ `do`(干什么)/ `then`(交什么)。照 `load` 加载 | `mmw where` |
+| **② 干** | 按 `where` 的 `do` 跑该阶段方法论,读 `prev_outputs` 当输入 | `load` 指向的 reference |
+| **③ 钉** | 把本阶段承重产出钉进接力单,下阶段照单读 | handoff 的 `--produced`(漏钉/产物后到 → `mmw pin` 补) |
+| **④ 交** | 给一个结论词,引擎算下一步、写进度、回执;照「回执 → 怎么跳」表行动 | `mmw handoff` |
 
 **③ 钉 + ④ 交 —— 一条 handoff:**
 
@@ -43,29 +43,30 @@
 mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 ```
 
-- **结论词**五选一(`pass` / `needs-repair` / `needs-redirection` / `needs-context` / `blocked`),选哪个是你的判断;`where` 的 `then` 已给好带承重产出的命令模板。缺结论或词非法当场拦(fail-closed)。
-- **`--produced` 必带本阶段承重产出**——它钉进接力单,下阶段靠它接,不靠"自己找"。
+- **结论词**五选一(`pass` / `needs-repair` / `needs-redirection` / `needs-context` / `blocked`),选哪个是你的判断——引擎照单执行,不否决;`where` 的 `then` 已给好带承重产出的命令模板。
+- 回执里的 `WARN=` 行是引擎摆到明面的缺口(没钉产出/路径不存在/返工轮多了),读了要处理:补钉用 `mmw pin --produced <路径> [--phase <阶段>]`,不要无视。
+- **讨论态(investigate/propose/design)来回是常态**:掉头不计成本、不留案底,想回哪就 `needs-redirection`(默认回上一阶段,`--to-phase` 指定更远上游)。**流水线态(to-issue 之后)** 回上游同样走得通,但从第 2 次起先向用户讲清楚为什么又回头。
+- **design 阶段不走 handoff pass 离开**:设计定稿 + 预审结果给用户后,由用户敲 `/approve-design` 过门(唯一人闸;引擎盖承重指纹、切 afk、推进)。
 - 中途挖到 bug / 旁路优化 → `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,登记成关联子任务,主流程不动。
+- 阶段性进展/待拍板变化随手 `mmw note set --text "<一句话>"`——下次开场的三源回报靠它 + 提交流水 + 设计文档 Open Decisions,不靠会话记忆。
 
-**断点续传**:任何时候 `mmw where` + 接力单就够你接着跑——进度、游标、各阶段产出全在 manifest,不靠会话记忆。
+**断点续传**:任何时候 `mmw where` + 接力单 + 开场三源回报就够你接着跑——进度、产出、现场全在盘上。跨天/跨宿主(Claude Code ↔ droid)同一份状态。
 <!-- END: phase-contract -->
 
 <!-- BEGIN: receipt-jump -->
 ## 回执 → 怎么跳(阶段间流转的全部规则)
 
-`mmw handoff` 回执三行 `NEXT_ACTION` / `NEXT_PHASE` / `STATUS`,照这张表行动:
+`mmw handoff` 回执三行 `NEXT_ACTION` / `NEXT_PHASE` / `STATUS`(可能带 `WARN=` 缺口行),照这张表行动:
 
 | `NEXT_ACTION` | `STATUS` | 你下一步 |
 |---|---|---|
 | `advance` | active | 往下跳:回 ① 进,对 `NEXT_PHASE` 跑 `mmw where`。**正常前进就是这条。** |
-| `review` | active | 别 advance(phase 没动)。进审闸:`where` 的 `load` 自动切到 `review/review.md`,跑 `REVIEW_STAGE` 的审 loop;审完再 `handoff` 一次 verdict —— `pass` 才真 advance,`needs-repair` 回本阶段返工。 |
-| `repair` | active | 留在本阶段返工:回 ② 干按缺陷改,改完再 `handoff`。 |
-| `turn-around` | active | 掉头回上游:对 `NEXT_PHASE` 回 ① 进重跑。 |
+| `review` | active | 别 advance(phase 没动)。进审闸:`where` 的 `load` 自动切到 `review/review.md`,照 `review_start` 起审;审完再 `handoff` 一次 verdict——`pass` 才真 advance(引擎核审查留痕落盘含 verdict,没有留痕不放行),`needs-repair` 回本阶段返工。 |
+| `repair` | active | 留在本阶段返工:回 ② 干按缺陷改,改完再 `handoff`。第 3 轮起回执会提醒:每轮向用户汇报卡点再继续,持续打转主动交人。 |
+| `turn-around` | active | 掉头回上游:对 `NEXT_PHASE` 回 ① 进重跑(默认回上一阶段;下游已过期的接力单产出引擎已剪,盘上文件还在)。第 2 次起先向用户讲清楚为什么又回头。 |
 | `ask-user` | waiting-user | 停。用 `AskUserQuestion` 把缺的输入问用户;补齐后 `mmw task resume` 续本阶段。 |
 | `report-user` | blocked | 停。带完整经过上报用户,等指示——别自己硬闯。 |
 | `done` | ready-to-close | 末阶段过 → 走本文「收尾」。 |
-
-`repair` / `turn-around` 有上限(引擎命令计数强制),到顶自动转 `report-user`(STATUS=blocked),绝不无限往返。
 
 **`report-user`(blocked)上报用两层**(别只甩一句"卡住了"):**业务影响层**(给用户,非技术:这事卡住对用户能力 / 数据 / 交付意味着什么)+ **技术详情层**(在哪个 phase、什么 verdict、根因、已试过什么),让用户能拍下一步。
 <!-- END: receipt-jump -->

@@ -1,6 +1,6 @@
 # Design · selfcheck 步(本步读这一份)
 
-design 阶段末步:保存前自己过这道闸,过了就 `mmw handoff` 交还引擎(引擎触发 ①设计审,本阶段不自派审、不自己跳阶段)。
+design 阶段成文后:保存前自己逐条过,过了起设计预审、再请用户过门(流程在文末「收尾」)。
 
 ## 自检（保存前逐条过）
 
@@ -18,7 +18,7 @@ design 阶段末步:保存前自己过这道闸,过了就 `mmw handoff` 交还�
 
 ## 收尾:handoff 交还引擎(`mmw where` 的 `then` 已给好钉产物的命令模板,照抄即可)
 
-- 设计 OK → `mmw handoff --conclusion pass --produced docs/design/<slug>.md` → 引擎触发 ①设计审(独立 Codex 审,只审设计文档),审过进 `to-issue` 阶段切片。
-- 缺关键输入没法定稿 → `--conclusion needs-context`。
-- 方向本身存疑(解错问题 / 该换框架)→ `--conclusion needs-redirection`。
-- ①设计审打回 design gap → 引擎回 design(`needs-repair`),停在本阶段改、改完 handoff 重审。**Critical 必须修掉才能进 to-issue / plan。**
+- 自检全过 → 先钉产出:`mmw pin --phase design --produced docs/design/<slug>.md`(或目录);再**起设计预审**(不是闸,是给用户和你的参考):`mmw review start --stage design --source docs/design/<slug>.md`,照 brief 派审者,findings 落盘亲验标处置。
+- 预审收回后,把「设计文档定稿 + 预审发现与你的处置」一并摆给用户,请他审阅;**用户满意 → 由用户敲 `/approve-design` 过门**(唯一人闸;引擎盖指纹、切 afk、推进 to-issue)。你不能代跑,也不能拿口头同意当过门。
+- 用户要改 → 回讨论/成文改,改完重走自检;缺关键输入没法定稿 → `mmw handoff --conclusion needs-context`;方向本身存疑(解错问题/该换框架)→ `mmw handoff --conclusion needs-redirection` 回 propose。
+- 预审的 Critical 发现:修掉或有理有据 reject 并在留痕里写明,再请用户过门——别把开口 Critical 埋着送审批。

@@ -1,8 +1,8 @@
 # to-issue 阶段 · 垂直切片立 issue 骨架(读本文全文)
 
-> `to-issue` 是 ①设计审**之后**、plan **之前**的独立阶段:把已评审的设计垂直切片成可独立认领的 issue 骨架,钉进接力单交给 plan。主线程做。**只立骨架,实施细节由 plan 阶段(派 Codex 写计划)按计划 schema 丰富**——这里不写 Task Pack。
+> `to-issue` 是用户 `/approve-design` 过门**之后**、plan **之前**的独立阶段:把已确认的设计垂直切片成可独立认领的 issue 骨架,钉进接力单交给 plan。主线程做。**只立骨架,实施细节由 plan 阶段(派 Codex 写计划)按计划 schema 丰富**——这里不写 Task Pack。
 >
-> `prev_outputs` = design 钉的设计文档(已过 ①设计审)。读它来切片;不重提方案、不改设计(要改设计 → `mmw handoff --conclusion needs-redirection --to-phase design`)。
+> `prev_outputs` = design 钉的设计文档(已由用户确认、盖了指纹)。读它来切片;不重提方案、不改设计(要改设计 → `mmw handoff --conclusion needs-redirection --to-phase design`,改完请用户重新 `/approve-design`)。
 
 ## 怎么拆:委托外部 `to-tickets` skill(方法论单源,不在此复制)
 

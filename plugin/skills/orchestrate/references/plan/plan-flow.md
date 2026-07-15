@@ -1,6 +1,6 @@
-# Plan · orchestrate 步(本步读这一份)
+# Plan · 编排(plan 阶段主指引,读这一份)
 
-> plan 阶段:判单/多计划、映射 plan 清单、写跨 plan 合同骨架、fan-out 派 **Codex 写计划**、亲验返回、回填,加角色声音 + Git 纪律。**计划撰写全下放 Codex,主线程不内联写**;就绪门自检在 selfcheck 步(`mmw step next` 进)。
+> plan 阶段:判单/多计划、映射 plan 清单、写跨 plan 合同骨架、fan-out 派 **Codex 写计划**、亲验返回、回填,加角色声音 + Git 纪律。**计划撰写全下放 Codex,主线程不内联写**;交还前读 `plan-self-check.md` 过就绪门自检。
 
 ## 模式(先判,决定派几个)
 
@@ -10,7 +10,7 @@
 | 怎么写 | 派 **1 个 Codex** 写这一份(Step 3) | Step 3 逐 issue 派 **N 个 Codex** |
 | 跨 plan 合同 | 无(单计划),跳 Step 2 / Step 5 | Step 2 写骨架、Step 5 回填 |
 
-**单计划**走 Step 1(映射)→ Step 3(派 1 个 Codex)→ Step 4(亲验)→ `mmw step next` 进 selfcheck。**多计划**走 Step 1–5(映射→骨架→fan-out→亲验→回填)→ `mmw step next` 进 selfcheck。就绪门 + 收尾 handoff 都在 selfcheck 步。
+**单计划**走 Step 1(映射)→ Step 3(派 1 个 Codex)→ Step 4(亲验)。**多计划**走 Step 1–5(映射→骨架→fan-out→亲验→回填)。做完读 `plan-self-check.md` 过就绪门,过了 handoff 交还(引擎随即强制 ②计划审闸)。
 
 ## 两个角色(写作下放,编排上收)
 
@@ -77,9 +77,9 @@ mmw worker plan-dispatch \
 
 Step 2 的骨架已划好边界,本步把**精确字段 / 签名**填实并核 writer 有没有越界。扫每份 plan 的 File/Responsibility Map + Contract anchors + migration/registry(Codex 返回的 `Cross-plan touchpoints` 区块是入口),把 Step 2 标 `(字段待 plan 回填)` 的格子补成真实 owner / provider / consumer / 字段,写回设计文档 `## Cross-Plan Contract Anchors`(单一源)。核边界:writer 有没有认领别人 owner 的文件、provider 接口与 consumer 期望对不对得上。provider/consumer 缺失、ownership 冲突、接口签名不匹配 → `mmw worker plan-resume` 对应 writer 修。
 
-## orchestrate 完 → 下一步(脚本导航)
+## 编排完 → 交还
 
-Step 1–5 做完(单计划走 1/3/4)、Codex 都 pass + 亲验过 → `mmw step next` 进 **selfcheck 步**(就绪门 + 跨 plan 覆盖自检 + handoff)。
+Step 1–5 做完(单计划走 1/3/4)、Codex 都 pass + 亲验过 → 读 `plan-self-check.md` 过就绪门(跨 plan 覆盖 + ownership),过了 `mmw handoff --conclusion pass --produced docs/plans/<slug>/`(引擎随即强制 ②计划审闸)。
 
 ## Git 纪律
 

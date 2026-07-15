@@ -31,15 +31,14 @@
  ```
  (任务 worktree 已存在,脚本不重开;工人只改源码、禁碰 `docs/`,与 B2 同 fail-closed;全新 context = 写者≠原验者。)
 3. **验收**(B3 同法):跑测试 / 读 diff 亲验,测试质量对标仓库标准,不吃自述。
-4. **回 ④重审**:若返修触碰跨 plan 合同,先重跑 B5 ③;否则直接 `mmw handoff --conclusion pass --produced "<base..HEAD>"` → 引擎重进 ④终审闸,**全新审者重审**(改动过闸后 source-stability 指纹也会要求重审)。返修满 `max_repair` 仍不过 → 引擎自动 `blocked` 上报。
+4. **回 ④重审**:若返修触碰跨 plan 合同,先重跑 B5 ③;否则直接 `mmw handoff --conclusion pass --produced "<base..HEAD>"` → 引擎重进 ④终审闸,**全新审者重审**。返修从第 3 轮起,每轮先向用户汇报卡点/根因/下一步再继续;持续不收敛 → `blocked` 交人,别硬磨。
 
 ## B1. 进 + 起落地 loop
 
 `mmw where` → `prev_outputs` = plan 阶段钉的 plan 目录。读该目录拿 Task Pack 清单、acceptance、plan 间依赖。起 loop、把 plan 展开成步账(**一份 plan 一步**,派前把 plan 路径 + 分配的子 worktree 记进步账——断点恢复靠它认"哪步=哪 plan=派到哪"):
 
 ```bash
-mmw loop init --kind execution
-mmw loop attendance --mode afk # 放权自主跑;盯着调试设 attended
+mmw loop init   # 执行账本(值守档自动从 task.json 读入;过门后已是 afk)
 mmw loop step add --id <plan-id> --desc "<标题>" --plan <plan 绝对路径> --worktree <该 plan 的子 worktree 绝对路径> # 逐项
 ```
 
@@ -114,7 +113,7 @@ Codex 返回后,读它最后消息(dispatch 回执里打印;原文在 `<该 plan
 
 ## B4. 全 plan 验完 + 合并
 
-每份 plan 验过(B3)→ `mmw loop step done`。所有 plan 都 done 后 `mmw loop exit-check` 应为 DONE(执行 loop 收工)。并行 plan 各在自己 worktree → 合并回任务分支(解 git 冲突 + 业务 / 功能冲突;本地 merge 不经红线,红线只拦 push / gh pr merge / 部署)。**每合完一个 plan 就清它的子 worktree**(不留孤儿):`git worktree remove <子 worktree>` + `git branch -d codex/<目录名>`。
+每份 plan 验过(B3)→ `mmw loop step done`。所有 plan 都 done(`mmw loop status` 报 remaining=none;账本只报不拦,别拿它当验收——验收在 B3 亲验)。并行 plan 各在自己 worktree → 合并回任务分支(解 git 冲突 + 业务 / 功能冲突;本地 merge 不经红线,红线只拦 push / gh pr merge / 部署)。**每合完一个 plan 就清它的子 worktree**(不留孤儿):`git worktree remove <子 worktree>` + `git branch -d codex/<目录名>`。
 
 ## B5. ③ 合同门(一次,全 plan 合并后)
 
@@ -124,7 +123,7 @@ Codex 返回后,读它最后消息(dispatch 回执里打印;原文在 `<该 plan
 mmw review start --stage plan-impl --source "<设计文档 ## Cross-Plan Contract Anchors>"
 ```
 
-照它打印的 brief 走——**核什么、怎么 checklist、三个出口全在 `references/review/plan-impl.md`**(到这步才读那一份,方法论只此一源)。**不派写码工人、不列 pack**(全 Pack 提交已由 B4 exit-check 保证)。
+照它打印的回执走——anchors 节为空脚本直接放行;有实体合同 → **核什么、三个出口全在 `references/review/plan-impl.md`**(到这步才读那一份,方法论只此一源),核对过程与逐条兑现证据写进留痕文件。**不派写码工人、不列 pack**。
 
 ## B6. 钉产出 → handoff(引擎随即强制 ④终审闸)
 
