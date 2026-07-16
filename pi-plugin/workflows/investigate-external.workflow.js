@@ -1,10 +1,9 @@
 export const meta = {
   name: 'investigate-external',
-  description: '查外部方案:主线程传入 topics,每题一个只读 agent 并行查现有库/实现/最佳实践(web/context7,locator=url),取证过滤后综合成带引用现状报告。只查外部,不碰仓库。',
-  whenToUse: '投查方向 = 外部资源(成熟案例/开源库/最佳实践)。非必做;要查时主线程定好 topics 再跑。仓库现状另跑 investigate-internal。',
+  description: '查外部方案:主线程传入 topics,每题一个只读 agent 并行查现有库/实现/最佳实践(web 搜索,locator=url),取证过滤后综合成带引用现状报告。只查外部,不碰仓库。适用:投查方向=外部资源(成熟案例/开源库/最佳实践),非必做;仓库现状另跑 investigate-internal。',
   phases: [
-    { title: 'Investigate', detail: '每 topic 一个只读 agent,web 搜 / context7 查库文档' },
-    { title: 'Synthesize', detail: '跨 topic 综合成带引用现状报告' },
+    { title: 'Investigate' },
+    { title: 'Synthesize' },
   ],
 }
 
@@ -67,14 +66,14 @@ const REPORT_SCHEMA = {
 
 function topicPrompt(t) {
   const loadSkill = t.skill
-    ? `先 Skill({ skill: "${t.skill}" }) 加载该角度方法论再投查(引用,不照抄)。`
+    ? `先读该角度方法论 skill(用 read 读 ~/.agents/skills/${t.skill}/SKILL.md 并按其指引)再投查(引用,不照抄)。`
     : ''
   return [
     `你是 investigate 阶段的一名外部方案调查员,只查这一个专题,不查别的。`,
     `专题角度:${t.angle}`,
     `要回答:${t.question}`,
     loadSkill,
-    `调查外部方案:现有库 / 已有实现 / 最佳实践。每条结论给 url;库文档优先用 context7。`,
+    `调查外部方案:现有库 / 已有实现 / 最佳实践。每条结论给 url;用 web 搜索/抓页工具取证。`,
     `红线:取证不判定——只摆事实和出处,绝不提方案、选 A/B、下设计结论(那是后面 design 的事)。`,
     `没查清的诚实写进 gaps,不要编。`,
     `返回结构化结果(schema 强制)。`,
@@ -88,8 +87,8 @@ const raw = await parallel(
       label: `external:${t.angle || ('topic-' + i)}`,
       phase: 'Investigate',
       schema: TOPIC_SCHEMA,
-      model: 'sonnet',   // 调查员=机械取证,Sonnet 5 high 档够用(token 平衡);synthesize 继承会话模型
-      effort: 'high',
+      // 调查员=机械取证,Sonnet 5 high 档够用(token 平衡);synthesize 继承会话模型
+      model: 'claude-provider/claude-sonnet-5:high',
     })
   )
 )

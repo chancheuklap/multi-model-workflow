@@ -1,10 +1,9 @@
 export const meta = {
   name: 'investigate-internal',
-  description: '查仓库现状:主线程传入 topics,每题一个只读 agent 并行查代码(Read/grep/Glob,locator=file:line),取证过滤后综合成带引用现状报告。只查内部,不碰外部。',
-  whenToUse: '投查方向 = 内部仓库现状(模块边界/seam/数据流/根因)。主线程定好 topics 后跑;外部方案另跑 investigate-external。',
+  description: '查仓库现状:主线程传入 topics,每题一个只读 agent 并行查代码(read/grep/find,locator=file:line),取证过滤后综合成带引用现状报告。只查内部,不碰外部。适用:投查方向=内部仓库现状(模块边界/seam/数据流/根因),主线程定好 topics 后跑;外部方案另跑 investigate-external。',
   phases: [
-    { title: 'Investigate', detail: '每 topic 一个只读 agent,运行时 invoke 角度 skill,只读查代码' },
-    { title: 'Synthesize', detail: '跨 topic 综合成带引用现状报告' },
+    { title: 'Investigate' },
+    { title: 'Synthesize' },
   ],
 }
 
@@ -72,7 +71,7 @@ const REPORT_SCHEMA = {
 
 function topicPrompt(t) {
   const loadSkill = t.skill
-    ? `先 Skill({ skill: "${t.skill}" }) 加载该角度方法论再投查(引用,不照抄)。`
+    ? `先读该角度方法论 skill(用 read 读 ~/.agents/skills/${t.skill}/SKILL.md 并按其指引)再投查(引用,不照抄)。`
     : ''
   return [
     `你是 investigate 阶段的一名仓库调查员,只查这一个专题,不查别的。`,
@@ -80,7 +79,7 @@ function topicPrompt(t) {
     `专题角度:${t.angle}`,
     `要回答:${t.question}`,
     loadSkill,
-    `调查目标仓库现状:模块边界 / seam / 数据流 / 根因。只读,用 Read/grep/Glob,每条结论给 file:line。`,
+    `调查目标仓库现状:模块边界 / seam / 数据流 / 根因。只读,用 read/grep/find,每条结论给 file:line。`,
     `红线:取证不判定——只摆事实和出处,绝不提方案、选 A/B、下设计结论(那是后面 design 的事)。`,
     `没查清的诚实写进 gaps,不要编。撞到与本题无关的 bug/旁路优化记进 summary 末尾,别顺手修。`,
     `返回结构化结果(schema 强制)。`,
@@ -94,8 +93,8 @@ const raw = await parallel(
       label: `internal:${t.angle || ('topic-' + i)}`,
       phase: 'Investigate',
       schema: TOPIC_SCHEMA,
-      model: 'sonnet',   // 调查员=机械取证,Sonnet 5 high 档够用(token 平衡);synthesize 继承会话模型
-      effort: 'high',
+      // 调查员=机械取证,Sonnet 5 high 档够用(token 平衡);synthesize 继承会话模型
+      model: 'claude-provider/claude-sonnet-5:high',
     })
   )
 )
