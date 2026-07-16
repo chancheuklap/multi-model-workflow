@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "loop-state",
+  "description": "执行账本(仅 build/落地 loop;审查不记账,收口看审查留痕文件)。落 <worktree>/.pi/multi-model-workflow/loop-state.json。loop init 建,handoff 结论落定时由 loop close 清(否则残留会污染下阶段 where)。flow.sh where 读它报 inner_loop 断点恢复;loop status 只报不否决。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "attendance", "steps", "decisions", "pause"],
+  "properties": {
+    "schema_version": { "const": "2" },
+    "kind": {
+      "const": "execution",
+      "description": "只剩执行账本;审核/合同门不再记 loop 账(审闸收口硬核=留痕文件含 verdict,由 flow.sh 核)"
+    },
+    "attendance": { "enum": ["attended", "afk", "unattended"], "description": "本 loop 的值守档,init 时从外层 task.json 的 attendance 读入(task.json 为运行级权威,跨阶段留存;loop-state 只是当前 loop 的派生缓存供软停判断)。attended=软停问人;afk=软停自决、缺输入/方向疑仍停;unattended=软停自决且禁向用户提问(权威仍是 task.json,见 attendance reference)" },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "desc", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "desc": { "type": "string" },
+          "status": { "enum": ["pending", "done"] },
+          "commit": { "type": ["string", "null"] },
+          "plan": { "type": ["string", "null"], "description": "该步对应的 plan 文档路径(模式B 一 plan 一步);断点恢复靠它重建步→plan" },
+          "worktree": { "type": ["string", "null"], "description": "该 plan 的子 worktree 路径。pending+有 worktree = 已创建派发面,从 worker-dispatch/meta.json 读取 pi-exec 状态与 session_id 验证或恢复;pending+无 worktree = 未派。" }
+        }
+      },
+      "description": "落地步(pack/plan)。主线程展开(loop step add),commit hook 记 done。plan/worktree 支撑并行 Task worker 的内层断点恢复"
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["at_step", "chose", "why", "at"],
+        "properties": {
+          "at_step": { "type": "string" },
+          "chose": { "type": "string" },
+          "why": { "type": "string" },
+          "at": { "type": "string" }
+        }
+      },
+      "description": "无人值守软停自决留痕,不偷跳"
+    },
+    "pause": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["at_step", "kind", "question"],
+      "properties": {
+        "at_step": { "type": "string" },
+        "kind": { "enum": ["soft", "surface"], "description": "soft=有默认的判断(在场停);surface=缺输入/方向疑(永远停)" },
+        "reason": { "enum": ["needs-context", "needs-redirection", "soft"] },
+        "question": { "type": "string" }
+      },
+      "description": "停了写这里,resume 清空。非 null = 等人答复"
+    }
+  }
+}

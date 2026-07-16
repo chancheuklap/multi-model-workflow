@@ -4,21 +4,22 @@
 
 ## 这个项目在做什么
 
-`plugin/` = 正式启用的多模型开发编排 plugin。**目标**:做成能落地、被用户长期持续使用的商业化 plugin——让用户在**讨论 / 设计阶段与主线程对齐(HITL 集中在 propose/design)**,从**计划阶段起放权自主跑**(计划审是模型闸、不问人),从而多线程工作、不从头盯到尾。
+本仓库维护同一套多模型开发编排的三个单宿主镜像：`plugin/` 面向 Claude Code，`droid-plugin/` 面向 Factory Droid，`pi-plugin/` 面向 pi。**目标**:做成能落地、被用户长期持续使用的商业化 plugin——让用户在**讨论 / 设计阶段与主线程对齐(HITL 集中在 propose/design)**,从**计划阶段起放权自主跑**(计划审是模型闸、不问人),从而多线程工作、不从头盯到尾。
 
-`plugin/` 只面向 Claude Code。**Codex 不是独立 plugin,是 Claude Code plugin 里的一个工人**(写计划 / 落地 / 审查),只装 plugin 内那几个软链 skill(worktree-build/plan/review)就够用。
+Claude Code 版把 Codex 当外部工人；pi 版通过 `openai-codex` OAuth 派 GPT 工人，通过 `claude-provider` 派 Claude 审者。三个镜像运行时互不探测、互不调用。
 
 **验收标准**:第二个零上下文 agent 能照 plugin 独立跑通,不靠我临场解释。
 
 ## 边界
 
-- **活跃**:`plugin/`(正式启用;Claude marketplace source 指它)
+- **活跃**:`plugin/`（Claude marketplace）、`droid-plugin/`（Factory）、`pi-plugin/`（pi 本地 package）
+- 改共同业务行为时同步评估三个镜像；宿主接线、工具名、状态目录和派发后端保持各自单宿主实现，不加兼容分支。
 - **禁区**(明确指令才动):`codex/`(Codex agent/hook/sync)、`archive/`(归档 v1)
 
 ## 全貌 + 工作流权威
 
 - 工作流权威:`~/Documents/multi model workflow.pdf`——日常工作流的源,plugin 照它的节点和箭头建。
-- plugin 的行为真相 = 代码 + `plugin/skills/**/references` + tests,不再维护独立架构设计文档;改 plugin 前先读 `plugin/skills/orchestrate/SKILL.md` 与相关 references/脚本。
+- 各镜像的行为真相 = 各自代码 + `skills/**/references` + tests；不维护独立架构设计文档。改任一镜像前先读该镜像的 `skills/orchestrate/SKILL.md` 与相关 references/脚本。
 
 ## Skill 创建法则(改 plugin 的 skill / reference 必须照这 11 条)
 

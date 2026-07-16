@@ -11,9 +11,21 @@ bash plugin/scripts/mmw.sh help
 for t in plugin/scripts/tests/test_*.sh; do bash "$t" || exit 1; done
 ```
 
-## Codex 是 plugin 里的一个工人,不是独立 plugin
+## pi-plugin/ · pi
 
-写计划 / 落地 / 审查派给 Codex CLI 无头执行。Codex 不需要独立 plugin,只需把 plugin 内那几个软链 skill 装进它自动扫描的 hub `~/.agents/skills/`:
+`pi-plugin/` 是 pi 的独立单宿主镜像。GPT 计划工人、代码工人和审者走 pi 原生 `openai-codex` OAuth；Claude 审者走 `claude-provider`；调查编排使用 `@quintinshaw/pi-dynamic-workflows`。安装与验收见 `pi-plugin/README.md`。
+
+```bash
+pi install npm:@quintinshaw/pi-dynamic-workflows
+pi install "$(pwd)/pi-plugin"
+bash pi-plugin/workflows/install-workflows.sh
+```
+
+GPT 无头工人的附加提示词路径已接通（`pi-plugin/prompts-runtime/headless-agent.md`），当前按用户要求只留占位，不注入具体内容。
+
+## Codex 是 Claude Code plugin 里的一个工人,不是独立 plugin
+
+Claude Code 版的写计划 / 落地 / 审查派给 Codex CLI 无头执行。Codex 不需要独立 plugin,只需把 plugin 内那几个软链 skill 装进它自动扫描的 hub `~/.agents/skills/`:
 
 ```bash
 for s in worktree-build worktree-plan worktree-review; do

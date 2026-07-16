@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "package-state",
+  "description": "develop 的 package 阶段账本，协调多个受影响产品的 release 成功记录与两次负责人确认。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "base_commit",
+    "initial_head_commit",
+    "scope_path",
+    "created_at",
+    "targets",
+    "development_mode_test",
+    "installed_test"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "base_commit": { "type": "string", "minLength": 1 },
+    "initial_head_commit": { "type": "string", "minLength": 1 },
+    "scope_path": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "minLength": 1 },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["product", "manifest", "matched_paths", "release_commit"],
+        "properties": {
+          "product": { "type": "string", "minLength": 1 },
+          "manifest": { "type": "string", "minLength": 1 },
+          "matched_paths": { "type": "array", "items": { "type": "string" } },
+          "release_commit": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "development_mode_test": { "$ref": "#/$defs/manual_confirmation" },
+    "installed_test": { "$ref": "#/$defs/manual_confirmation" }
+  },
+  "$defs": {
+    "manual_confirmation": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["confirmed_by", "confirmed_at"],
+          "properties": {
+            "confirmed_by": { "type": "string", "minLength": 1 },
+            "confirmed_at": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    }
+  }
+}
