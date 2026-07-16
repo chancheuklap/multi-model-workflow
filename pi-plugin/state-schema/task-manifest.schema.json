@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "task-manifest",
-  "description": "单一真相源(进度档)。每个 worktree 一份,落 <worktree>/.factory/multi-model-workflow/task.json(gitignore,随 worktree 删除)。机器建、机器读写,agent 永不手写。入口靠它断点恢复;merge 场景读各家 manifest 拿全队视图。",
+  "description": "单一真相源(进度档)。每个 worktree 一份,落 <worktree>/.pi/multi-model-workflow/task.json(gitignore,随 worktree 删除)。机器建、机器读写,agent 永不手写。入口靠它断点恢复;merge 场景读各家 manifest 拿全队视图。",
   "type": "object",
   "additionalProperties": false,
   "required": [

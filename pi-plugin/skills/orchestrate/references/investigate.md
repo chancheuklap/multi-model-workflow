@@ -6,17 +6,17 @@
 
 ## 1. 判断:查哪个方向 + 定 topics
 
-内部与外部调查分开定义 topics，由 `mmw investigate` 脚本并行启动隔离的 Droid exec:
+内部与外部调查分开定义 topics，由已安装的 pi-dynamic-workflows saved workflow 并行启动隔离 agent：
 
 | 方向 | 查什么 | 派发 | 角度 skill(可选) |
 |---|---|---|---|
-| 内部(仓库现状) | 模块边界 / seam / 数据流 / 根因 | `mmw investigate start --direction internal` | `codebase-design` · `diagnosing-bugs` |
-| 外部(成熟方案,**非必做**) | 现有库 / 实现 / 最佳实践 | `mmw investigate start --direction external` | `deep-research` · `context7` |
+| 内部(仓库现状) | 模块边界 / seam / 数据流 / 根因 | `/investigate-internal` | `codebase-design` · `diagnosing-bugs` |
+| 外部(成熟方案,**非必做**) | 现有库 / 实现 / 最佳实践 | `/investigate-external` | `deep-research` · `context7` |
 
-- 只需查内部 → 只跑 internal;要对比外部方案 → 再跑 external;两个都要 → 先后各跑一次。
-- 窄到一个点(一个函数 / 已知文件)→ 别起 fan-out,自己 Read/Grep 查完直接 handoff。
-- 只有一个聚焦问题,但要跨多个文件追模块边界 / 调用链 / 数据流 → 同步派一次 `Task({subagent_type:"code-explorer", prompt:"<原问题 + repoRoot + 必须核验的边界>"})`;主线程亲验返回后直接收口,不为单 topic 起完整 run。
-- 定 topics:**一个 topic 一个 agent**,按调查真实需要定几个(别凑没意义的 topic,也不设上限)。每个 `{ angle, question, skill? }`。
+- 只需查内部 → 只跑 internal；要对比外部方案 → 再跑 external；两个都要 → 两个 workflow 可并行。
+- 窄到一个点(一个函数 / 已知文件)→ 别起 fan-out，自己用 read/grep 查完直接 handoff。
+- 只有一个聚焦问题,但要跨多个文件追模块边界 / 调用链 / 数据流 → 调用一次 `Agent({subagent_type:"Explore", prompt:"<原问题 + repoRoot + 必须核验的边界>"})`；主线程亲验返回后直接收口，不为单 topic 起完整 workflow。
+- 定 topics:**一个 topic 一个 agent**，按调查真实需要定几个。每个 `{ angle, question, skill? }`。
 
 ## 2. Checkpoint → 跑调查编排器
 
@@ -31,37 +31,18 @@
 ```
 `attended` 亮完跟一句:「批 / 改 / 增删 topic?」等回应再 fire;`afk` 亮完直接 fire,不问。
 
-批了以后把 topics 写入状态平面的 JSON 文件：
+批了以后把 topics 压成无空格 JSON，连同目标仓库绝对路径传给 saved workflow：
 
-```json
-[
-  {"angle":"<角度>","question":"<问题>","skill":"<可选>"},
-  {"angle":"<角度>","question":"<问题>","skill":""}
-]
+```text
+/investigate-internal topics=[{"angle":"<角度>","question":"<问题>","skill":"<可选>"}] repoRoot=/绝对/仓库路径
+/investigate-external topics=[{"angle":"<角度>","question":"<问题>","skill":"<可选>"}]
 ```
 
-然后启动：
-
-```bash
-mmw investigate start --direction <internal|external> \
-  --topics <状态平面/topics.json> --run <slug>-<internal|external>
-```
-
-内部和外部都查时，可分别启动两个 run；或用 `--direction both`，并在每个 topic 增加 `"mode":"internal|external"`。
-
-脚本为每个 topic 启动独立 `droid exec`，绑定当前 worktree，按方向关闭写工具或无关检索工具；结果强制经过 JSON schema 校验、无 locator / low confidence 过滤，再由独立 synthesizer 综合。轮询：
-
-```bash
-mmw investigate status --run <run-id>
-```
-
-- `RUNNING` / `SYNTHESIZING`：稍后再查。
-- `FAILED`：读状态目录中对应 `run.log` / `validation_error`，修环境或 prompt 后 `mmw investigate resume --run <run-id>`；只重跑失败 topic。
-- `COMPLETED`：回执给 `REPORT_FILE`；`mmw investigate result --run <run-id>` 打印 Markdown 报告。
+这两个命令由 `@quintinshaw/pi-dynamic-workflows` 注册。workflow 为每个 topic 启动隔离 agent，强制 JSON Schema 结构化结果，过滤无 locator / low confidence 结论，再由独立 synthesizer 综合；运行状态、失败详情、暂停与恢复统一从 `/workflows` 面板查看和控制。
 
 ## 3. 收口(回主线程)
 
-1. **亲验承重事实**:报告里的 `file:line` / `url`,自己 grep/Read/查证坐实。子代理是劳动力不是信源,验不过的不写进交付物。
+1. **亲验承重事实**:报告里的 `file:line` / `url`,自己 grep/read/查证坐实。子代理是劳动力不是信源,验不过的不写进交付物。
 2. **旁路登记**:`report.spinoff_candidates` 里亲验为真的,逐条 `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,不顺手修。
 3. **存档 + handoff**:把现状报告写进 `docs/investigating/<slug>.md`(prepare 已 scaffold 该目录),钉进接力单:
  - 够 design / build 用 → `mmw handoff --conclusion pass --produced docs/investigating/<slug>.md`
@@ -72,5 +53,5 @@ mmw investigate status --run <run-id>
 
 ## 红线
 
-- 调查 Droid 全程只读；脚本只写状态平面的 run 账本、prompt、原始结果和综合报告。
-- run 级断点靠 `investigate-runs/<run-id>/`；阶段级断点靠 `manifest.phases`。
+- 调查 pi 全程只读；脚本只写状态平面的 run 账本、prompt、原始结果和综合报告。
+- workflow 级断点靠 pi-dynamic-workflows journal；阶段级断点靠 `manifest.phases`。

@@ -27,7 +27,7 @@
     "build":       { "load": "references/build-b.md", "load_by_scenario": { "small-change": "references/build-a.md", "bug": "references/build-a.md" }, "do": "落地:small-change/bug 主线程就地 TDD(build-a);develop 派 pack-executor(build-b,各 plan 一 worktree)+ 主线程按计划验收;落完跑 ③合同门(内部机器核),再 handoff(引擎强制进 ④终审闸)",  "produced": "<提交范围,如 base..HEAD>" },
     "package":     { "load": "references/package.md", "do": "初始化 package state;无 Windows 包目标则正常交接;有目标时等负责人确认开发模式功能测试，按 scope 顺序驱动 S1 release 并记录每把 key 的 DONE，最后等负责人确认安装后测试；两次确认均不得由 AFK 代填。", "produced": "" },
     "closing":     { "load": "references/closing.md",      "do": "确认真完整、收口;合并/清理是合并后红线动作",                   "produced": "", "reads": ["design", "to-issue", "build", "package"] },
-    "review_gate": { "load": "references/review/review.md",       "do": "起该阶段审(按 review brief 单条消息并行派 reviewer droids):where 报 review_start 直接跑哪条、审完 handoff verdict;收口硬核=审查留痕落盘含 verdict", "produced": "" }
+    "review_gate": { "load": "references/review/review.md",       "do": "起该阶段审(按 review brief 单条消息并行派 reviewer Agent):where 报 review_start 直接跑哪条、审完 handoff verdict;收口硬核=审查留痕落盘含 verdict", "produced": "" }
   },
 
   "presets": {

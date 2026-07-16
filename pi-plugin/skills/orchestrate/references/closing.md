@@ -7,7 +7,7 @@
 ## 1. 收口清单(逐条确认,机器能核的就核)
 
 - **文档产出集中提交**:把设计 / issue / plan / 领域文档统一 commit 进分支(plan 阶段刻意不 commit,收口在这补上)。过程产物(investigating / reviews / 终审报告)已被 `docs/.gitignore` 忽略,不提交、随 cleanup 删。
-- **落地完整**:分支无未提交改动(`git status` 干净;`.factory/multi-model-workflow/` 已被 gitignore,不算脏);相关测试绿(跑一遍)。
+- **落地完整**:分支无未提交改动(`git status` 干净;`.pi/multi-model-workflow/` 已被 gitignore,不算脏);相关测试绿(跑一遍)。
 - **遗留标记扫描**(本任务新引入的,git 看 open_items 看不到):扫分支 diff 找新留下的临时标记——
  ```bash
  git diff <base_commit>..HEAD | grep -nE 'TODO|FIXME|TBD|XXX|HACK|placeholder|temporary|workaround|暂时|占位'
@@ -20,8 +20,8 @@
 清单过完、承重产物已落盘并 commit 后,长于几步的任务在宣布完成前做一次最终 advisor 检查:
 
 ```
-Task({
-  subagent_type: "decision-advisor",
+Agent({
+  subagent_type: "advisor",
   prompt: "原始任务:<用户原话>;已做:<最终交付和验证>;已发现:<遗留处置与审闸结论>;证据:<设计/计划/最终 diff/测试结果路径>;当前决策:准备宣布完成并进入本地合并;请只判断是否仍有 scope drift、未验证承重前提或必须停止的失败模式。"
 })
 ```

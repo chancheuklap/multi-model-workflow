@@ -12,7 +12,7 @@ description: 你(计划撰写者)被主线程派进临时隔离 worktree 把一�
 缺一不可,理解后再动手:
 
 - **源设计文档**:框架合同在这里——architecture / `## 合同边界` / global constraints / 测试 seam。你 plan header 的 Global Constraints 逐字从这抄。**`## Cross-Plan Contract Anchors` 节是主线程派你前写好的合同骨架,划定你这份 plan 的硬边界**:能碰哪些共享文件(别认领别的 plan owner 的文件)、要 provide / consume 哪些跨 plan 接口(照它命名对接);标 `(字段待 plan 回填)` 的精确字段你写时定,主线程事后回填。
-- **你负责的那个大 issue 文件**:提取 `What to build`、`Blocked by`。看 `## Small issues`——已有完整列表 → 直接映射;为空 / `<!-- PENDING -->`(常态,设计阶段故意留白)→ **你来拆**(见第 2 节),拆完 Edit 写回该 issue 文件再映射。
+- **你负责的那个大 issue 文件**:提取 `What to build`、`Blocked by`。看 `## Small issues`——已有完整列表 → 直接映射;为空 / `<!-- PENDING -->`(常态,设计阶段故意留白)→ **你来拆**(见第 2 节),拆完 edit 写回该 issue 文件再映射。
 - **两份写作方法论(本 skill `references/` 下,按需到那步现读)**:
   - `references/task-pack.md`(写每个 pack 时读):Task Pack 模板 + TDD 步骤 + 无 Placeholder + 不合格信号 + 测试规划严谨度 / 覆盖追踪 / 回归铁律 / 反模式,一份读完。
   - `references/plan-self-check.md`(返回前读):交付前自检 + Pack 就绪门。
@@ -28,8 +28,8 @@ description: 你(计划撰写者)被主线程派进临时隔离 worktree 把一�
 
 ## 2. 探代码 + 拆小 issue
 
-- 用 `codebase-design` skill 理解模块边界、职责分布、合同表面。写进 plan 的**每条路径 / 类型 / 函数 / fixture**,要么前文定义、要么 Grep/Glob 验真,不验真不写。现状描述引具体 `file:line` + 真实行为。读项目根 `AGENTS.md` 及分层规则。测试框架先从 `AGENTS.md` 或测试治理文档拿权威命令,没有再按 `pyproject.toml`/`package.json`/`go.mod` 探。
-- `## Small issues` 为空 / `<!-- PENDING -->` 时,结合设计 + 代码探索把大 issue 拆成小 issue(深层 vertical-slice 哲学查 `to-tickets` skill):小 issue 是这个 slice 内部的**实现步骤拆解**(非再切一层 slice),每个可独立实现、可独立验证。拆分维度按功能边界(schema→API→UI)或行为边界(创建→编辑→删除)。每条写 Type(AFK/HITL)、What to build、Acceptance、Blocked by。自检:并集覆盖大 issue 全部行为 / 无循环依赖 / 不过粗(单个 ≤8 impl step)/ 不过细。拆完 Edit 写回该 issue 文件 `## Small issues`。
+- 用 `codebase-design` skill 理解模块边界、职责分布、合同表面。写进 plan 的**每条路径 / 类型 / 函数 / fixture**,要么前文定义、要么 grep/find 验真,不验真不写。现状描述引具体 `file:line` + 真实行为。读项目根 `AGENTS.md` 及分层规则。测试框架先从 `AGENTS.md` 或测试治理文档拿权威命令,没有再按 `pyproject.toml`/`package.json`/`go.mod` 探。
+- `## Small issues` 为空 / `<!-- PENDING -->` 时,结合设计 + 代码探索把大 issue 拆成小 issue(深层 vertical-slice 哲学查 `to-tickets` skill):小 issue 是这个 slice 内部的**实现步骤拆解**(非再切一层 slice),每个可独立实现、可独立验证。拆分维度按功能边界(schema→API→UI)或行为边界(创建→编辑→删除)。每条写 Type(AFK/HITL)、What to build、Acceptance、Blocked by。自检:并集覆盖大 issue 全部行为 / 无循环依赖 / 不过粗(单个 ≤8 impl step)/ 不过细。拆完 edit 写回该 issue 文件 `## Small issues`。
 
 ## 3. 写作步骤
 
@@ -79,7 +79,7 @@ description: 你(计划撰写者)被主线程派进临时隔离 worktree 把一�
 
 ## 7. 交付前自检(返回前必过)
 
-**返回前现读 `references/plan-self-check.md`(整份:自检 + Pack 就绪门)**。额外自查(自己刚写完最易漏):plan 里每个文件路径 / type / function / fixture 用 Glob / rg 验真存在,引不出就别留。
+**返回前现读 `references/plan-self-check.md`(整份:自检 + Pack 就绪门)**。额外自查(自己刚写完最易漏):plan 里每个文件路径 / type / function / fixture 用 find / rg 验真存在,引不出就别留。
 
 ## 8. 收工:回结构化报告(主线程靠它验收)
 

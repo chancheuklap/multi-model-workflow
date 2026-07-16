@@ -1,7 +1,7 @@
 /**
  * mmw pi 宿主接线:分诊注入 + 红线闸 + 提交记账。
  *
- * 事件映射(对应 CC/droid 版 hooks.json 三事件,语义同源):
+ * 事件映射（与其他宿主镜像的分诊、红线、记账语义同源）:
  * - session_start / session_compact → 置待注入标记,下一次 before_agent_start 把
  *   hooks/session-triage.sh 的 stdout 以 message 注入一次(pi 的 session_start 只能通知 UI,
  *   可注入消息的是 before_agent_start,见 pi docs/extensions.md)。

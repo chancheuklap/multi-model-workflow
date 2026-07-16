@@ -71,4 +71,4 @@ mmw handoff --conclusion pass --produced "<分支提交范围,如 base..HEAD>"
 
 ## 适用面
 
-就地 TDD 是主线程自写自验,适用面就是小改 / 定点修。重型落地应走 develop 的 pack-executor 写 + reviewer droids 独立审。
+就地 TDD 是主线程自写自验,适用面就是小改 / 定点修。重型落地应走 develop 的 pack-executor 写 + reviewer Agent 独立审。

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "loop-state",
-  "description": "执行账本(仅 build/落地 loop;审查不记账,收口看审查留痕文件)。落 <worktree>/.factory/multi-model-workflow/loop-state.json。loop init 建,handoff 结论落定时由 loop close 清(否则残留会污染下阶段 where)。flow.sh where 读它报 inner_loop 断点恢复;loop status 只报不否决。",
+  "description": "执行账本(仅 build/落地 loop;审查不记账,收口看审查留痕文件)。落 <worktree>/.pi/multi-model-workflow/loop-state.json。loop init 建,handoff 结论落定时由 loop close 清(否则残留会污染下阶段 where)。flow.sh where 读它报 inner_loop 断点恢复;loop status 只报不否决。",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "kind", "attendance", "steps", "decisions", "pause"],
@@ -23,7 +23,7 @@
           "status": { "enum": ["pending", "done"] },
           "commit": { "type": ["string", "null"] },
           "plan": { "type": ["string", "null"], "description": "该步对应的 plan 文档路径(模式B 一 plan 一步);断点恢复靠它重建步→plan" },
-          "worktree": { "type": ["string", "null"], "description": "该 plan 的子 worktree 路径。pending+有 worktree = 已创建派发面,从 worker-dispatch/meta.json 读取 droid exec 状态与 session_id 验证或恢复;pending+无 worktree = 未派。" }
+          "worktree": { "type": ["string", "null"], "description": "该 plan 的子 worktree 路径。pending+有 worktree = 已创建派发面,从 worker-dispatch/meta.json 读取 pi-exec 状态与 session_id 验证或恢复;pending+无 worktree = 未派。" }
         }
       },
       "description": "落地步(pack/plan)。主线程展开(loop step add),commit hook 记 done。plan/worktree 支撑并行 Task worker 的内层断点恢复"

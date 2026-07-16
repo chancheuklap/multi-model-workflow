@@ -6,7 +6,7 @@
 >
 > **审不记账**:没有覆盖清单登记、没有轮账。收口看产物——findings 原样落盘留痕文件,亲验标处置,文末写总 verdict;审闸 pass 时引擎只核「留痕文件在且含 verdict」(报告在 = 审真跑过,这是写者≠审者的证据面);质量与 Critical 处置是你的判断,机器不数你的动作。
 
-红线:**写者≠验者**(设计/计划作者与审者不同家;Droid 用 a/b 双 droid 钉死)。
+红线:**写者≠验者**(设计/计划作者与审者不同家;pi 用 a/b 双 pi 钉死)。
 
 ---
 
@@ -16,7 +16,7 @@
 |---|---|---|---|
 | 设计预审 | design 自检过后**agent 自起**(不是闸;结果给用户参考,人闸是 `/approve-design`) | `design` | 轴A 设计内容 / 轴B 项目对齐 |
 | ② 计划审 | plan pass → 引擎审闸(phase 冻住,`mmw where` 吐 `review_start` 照跑) | `plan` | 轴A 覆盖与质量 / 轴B 合规与交叉验证 |
-| ④ final | build pass → 引擎审闸(同上) | `final` | **固定四个 Task**:模型 A、B 各审基线1与基线2;双模型 × 双角度冗余 |
+| ④ final | build pass → 引擎审闸(同上) | `final` | **固定四个 Agent**:模型 A、B 各审基线1与基线2;双模型 × 双角度冗余 |
 
 另有 **③ 落地合同门**:build 内部机器合同检查(`--stage plan-impl`,不派审者)——anchors 节为空脚本直接放行;有实体合同由 build 流程驱动(build-b B5)人工核,方法论在 `plan-impl.md`。
 
@@ -26,12 +26,12 @@
    mmw review start --stage <design|plan|final> --source "<源意图路径/待审内容>"
    ```
    审闸内直接用 `mmw where` 吐的 `review_start` 整行(stage 与 `--source` 都填好)。它出**派发指南**(`状态平面/review-brief.md`),你照打印的往下走。
-2. **直接派审者**:读 brief 按「派审者」段用 Task 派 `reviewer-*` droids,单条消息并行、各自干净 context、读 `worktree-review` skill 出结构化 findings。**别塞你自己的问题清单。**
+2. **直接派审者**:读 brief 按「派审者」段用 Task 派 `reviewer-*` pis,单条消息并行、各自干净 context、读 `worktree-review` skill 出结构化 findings。**别塞你自己的问题清单。**
 3. **留痕(收口的硬核)**:全部审者的结构化 findings **原样落盘**到 `docs/reviews/<slug>-<stage>.md`(不重写、不摘要);亲验后每条的 verdict/处置(accepted / rejected / duplicate / needs-evidence)就近标在该条下,文末写一句总 verdict。收口只回读 verdict 段,findings 全文压在留痕里、不长驻主线程 context。留痕是过程产物(docs/.gitignore 已忽略,随 worktree 删)。
 
 ## 2. 收口(findings 亲验标完处置后)
 
-- 每条 finding 自己 Read/Grep/跑坐实(审者是劳动力不是信源),引不出 `file:line` 降置信;承重 finding 亲验后才 accept。
+- 每条 finding 自己 read/grep/跑坐实(审者是劳动力不是信源),引不出 `file:line` 降置信;承重 finding 亲验后才 accept。
 - **无开口 Critical**(修掉或有理有据 reject,留痕里写明)→ `mmw handoff --conclusion pass` 进下一阶段(引擎核留痕在且含 verdict)。
 - 有 accepted 缺陷 → 按 Gap 选结论词:
   - 缺陷在**当前被审阶段**(②审=plan、④final=build)→ `needs-repair`,改完 handoff 重审。**④final 的代码缺陷**:`mmw where` 指回 build(build-b 有返修入口),照 accepted findings 的 `file:line`+remediation 派全新 pack-executor 定点修,修完 handoff pass 重进 ④全新审者重审。

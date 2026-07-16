@@ -23,13 +23,13 @@
 
 在**代码落地**或**验收**中发现计划外的 bug / 需改内容时,按值守档处置(worker 标签枚举不变,变的是 Coordinator 处置):
 
-- **attended**:必须用 AskUser 问一次,二选一。
+- **attended**:必须用 ask_user 问一次,二选一。
 - **afk**:按默认策略自动选,`mmw side-finding record` 落 open_items + 板刷新。
 - **unattended**:按进入时 policy(`side_finding_default`)自动选,**不提问**。
 
 也可由用户主动 `/side-finding issue|fix` 覆盖当前项。
 
-### attended 问法(AskUser,不用长 Decision Brief)
+### attended 问法(ask_user,不用长 Decision Brief)
 
 ```
 header: 计划外问题

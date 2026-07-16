@@ -9,7 +9,7 @@ description: "需要正式编排的开发工作流主入口。用于新功能、
 
 `${SKILL_DIR}` = 本 skill 目录(= 插件根 `/skills/orchestrate`);`${SCRIPTS}` = 插件根 `/scripts`;`mmw` ≡ `bash "${SCRIPTS}/mmw.sh"`(`mmw help` 看全表)。这三个绝对路径由下面 Step 0 一次定位得出。
 
-开跑前读 `${SKILL_DIR}/references/control/runtime-contract.md`，对齐 Droid 路径、工具、Task 派发和安全门。
+开跑前读 `${SKILL_DIR}/references/control/runtime-contract.md`，对齐 pi 路径、工具、Task 派发和安全门。
 
 先判是否需要正式编排。问答、解释、只读查看，以及主线程可直接完成并验证的琐碎单步动作，直接处理，不跑 `mmw`、不建 worktree。只有需要正式编排的开发任务才继续 Step 0。
 
@@ -18,17 +18,20 @@ description: "需要正式编排的开发工作流主入口。用于新功能、
 先一次性定位当前宿主的插件(无需环境变量),**记住回显的三个绝对路径**,后文所有 `mmw` / `${SCRIPTS}` / `${SKILL_DIR}` 都用它们替换:
 
 <!-- BEGIN: locate-mmw -->
-会话开头 SessionStart hook 已报过 mmw 绝对路径的,直接用它(hook 从激活插件根跑,是权威)。没有才跑下面定位块——**读实际激活的安装位**(installed_plugins.json),不扫缓存挑版本号(缓存里躺着历史版本,版本号最高 ≠ 正在运行的那个):
+会话开头的 mmw 分诊已经报告插件根绝对路径时，直接使用它。没有时读 pi 的实际安装配置；本地路径安装不会复制，`packages` 中的路径就是插件根：
 
 ```sh
-P=~/.factory/plugins
-MMW="$( jq -r '.plugins | to_entries[] | select(.key | startswith("multi-model-workflow-droid@")) | .value[0].installPath // empty' \
-        "$P/installed_plugins.json" 2>/dev/null | head -1 | sed 's|$|/scripts/mmw.sh|' )"
-[ -f "$MMW" ] || MMW="$( jq -r '.["multi-model-workflow"].installLocation // empty' "$P/known_marketplaces.json" 2>/dev/null | sed 's|$|/droid-plugin/scripts/mmw.sh|' )"
-[ -f "$MMW" ] && echo "MMW=$MMW" || echo "MMW 定位失败:插件未装?(装了才有 installed_plugins.json 条目)"
+MMW_ROOT="$(jq -r '
+  .packages[]?
+  | if type=="string" then . elif type=="object" then (.source // "") else "" end
+  | select(test("(^|/)pi-plugin/?$"))
+' ~/.pi/agent/settings.json 2>/dev/null | head -1)"
+[ -d "$MMW_ROOT" ] || MMW_ROOT="$(pwd | sed -n 's|\(.*multi-model-workflow/pi-plugin\).*|\1|p')"
+MMW="$MMW_ROOT/scripts/mmw.sh"
+[ -f "$MMW" ] && echo "MMW=$MMW" || echo "MMW 定位失败：先确认 pi install <multi-model-workflow/pi-plugin 绝对路径> 已完成"
 ```
 
-`mmw X` ≡ `bash "$MMW" X`;每个新 shell 用回显的绝对路径,别指望 shell 变量跨调用留存。**别用仓库里的相对路径 `droid-plugin/scripts/mmw.sh` 当运行时**——在旧分支 worktree 里那是旧代码。
+`mmw X` 等价于 `bash "$MMW" X`。每个新 shell 都使用回显的绝对路径，不依赖 shell 变量跨调用留存，也不要从其他宿主镜像目录取运行时代码。
 <!-- END: locate-mmw -->
 
 ```bash
@@ -42,7 +45,7 @@ bash "$MMW" where
 ```
 
 - **在管任务**(在 worktree 里)→ `where` 报 `scenario` + `phase` + `load`/`do`/`then`。一句话告诉用户"你在 `<phase>`",然后**读 `references/scenario/<scenario>.md`**,按它的契约从当前 phase 续(断点恢复靠 `where` + 接力单,不靠会话记忆)。**跳过 Step 1。**
-- **`RESUMABLE` + 在飞任务**(Droid 把已有 worktree cwd 归一化到主仓库)→ 先按用户本轮意图分流。明确要新建任务就进 Step 1；要继续或意图不明时，单个任务执行回显的 `resume=` 命令，多个任务用 `AskUser` 让用户选择续跑哪个或新建。恢复命令只定位阶段，不会永久改变 Droid cwd；本会话记住选中的 `<worktree_path>`，后续每次 `Execute` 都先 `cd <worktree_path>`，文件工具使用该 worktree 下的绝对路径。重新跑 `where` 后按上一条续跑。**不得把 `RESUMABLE` 当成新任务直接 `task new`。**
+- **`RESUMABLE` + 在飞任务**(pi 把已有 worktree cwd 归一化到主仓库)→ 先按用户本轮意图分流。明确要新建任务就进 Step 1；要继续或意图不明时，单个任务执行回显的 `resume=` 命令，多个任务用 `ask_user` 让用户选择续跑哪个或新建。恢复命令只定位阶段，不会永久改变 pi cwd；本会话记住选中的 `<worktree_path>`，后续每次 `bash` 都先 `cd <worktree_path>`，文件工具使用该 worktree 下的绝对路径。重新跑 `where` 后按上一条续跑。**不得把 `RESUMABLE` 当成新任务直接 `task new`。**
 - **`UNMANAGED` + 起始选项菜单**(在主仓库)→ 不是在管任务。菜单列全了所有开口 → 进 Step 1。
 
 ## Step 1 · 路由 → 进该路径的 reference

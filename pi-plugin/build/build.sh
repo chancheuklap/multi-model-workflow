@@ -51,7 +51,7 @@ render() {
 
 fail=0
 shopt -s nullglob
-for f in "$SCEN_DIR"/*.md "$PLUGIN_DIR"/commands/*.md "$PLUGIN_DIR"/skills/orchestrate/SKILL.md "$PLUGIN_DIR"/skills/orchestrate/references/design/discussion.md \
+for f in "$SCEN_DIR"/*.md "$PLUGIN_DIR"/prompts/*.md "$PLUGIN_DIR"/skills/orchestrate/SKILL.md "$PLUGIN_DIR"/skills/orchestrate/references/design/discussion.md \
          "$PLUGIN_DIR"/skills/orchestrate/references/build-b.md "$PLUGIN_DIR"/skills/orchestrate/references/build-a.md \
          "$PLUGIN_DIR"/skills/worktree-build/references/tests.md "$PLUGIN_DIR"/skills/worktree-review/references/final.md; do
   grep -q '<!-- BEGIN: ' "$f" || continue   # 没锚点的(如 merge.md)跳过

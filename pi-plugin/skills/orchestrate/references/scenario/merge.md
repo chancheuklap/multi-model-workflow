@@ -45,7 +45,7 @@ mmw task team
 | 分类 | 条件 | 路由 |
 |---|---|---|
 | **简单** | 代码级(import 序、同文件不同区);≤2 文件;修向明确 | Coordinator 直接修 |
-| **复杂·根因明** | 功能/合同冲突;多文件;但谁该 win 清楚 | Coordinator 修,或派 `pack-executor` 定向修:先写一份 mini-plan(冲突点 + 谁该 win + 验收命令)落状态平面,再跑 `mmw worker dispatch --mode merge --plan <mini-plan绝对路径> --worktree <合并worktree绝对路径>`;脚本用 droid exec 后台执行 |
+| **复杂·根因明** | 功能/合同冲突;多文件;但谁该 win 清楚 | Coordinator 修,或派 `pack-executor` 定向修:先写一份 mini-plan(冲突点 + 谁该 win + 验收命令)落状态平面,再跑 `mmw worker dispatch --mode merge --plan <mini-plan绝对路径> --worktree <合并worktree绝对路径>`;脚本用 pi -p 后台执行 |
 | **系统性·根因不明** | 意图冲突 / 隐式依赖 / 多冲突相互关联 / 要懂整体架构才能判 | **先按「系统性冲突调查」那步查清再修** |
 
 判据:5 分钟看不懂冲突、或 explorer 初判"不确定"、或多冲突彼此关联、或意图冲突/隐式依赖 → 默认系统性。

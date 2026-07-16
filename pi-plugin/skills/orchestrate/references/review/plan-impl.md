@@ -7,7 +7,7 @@
 ## 核什么(只一项:跨 plan 合同兑现)
 
 对设计文档 `## Cross-Plan Contract Anchors` 里**每条**跨 plan 合同,机器核它在合并后的代码里真兑现:
-- **provider** 声明的接口 / 类型 / 端点 / schema 真存在(`grep`/`Read` 到定义,给 `file:line`)。
+- **provider** 声明的接口 / 类型 / 端点 / schema 真存在(`grep`/`read` 到定义,给 `file:line`)。
 - **consumer** 真按该接口对接(调用点签名对得上)。
 - schema / 合同**版本号**一致;新字段配套 **migration** 在位;新增可被外部引用之物入**登记**(registry / catalog)。
 
@@ -15,7 +15,7 @@
 
 ```bash
 mmw loop checklist add --item "<一条跨 plan 合同>" --source <design:line> # 逐条合同
-# 逐条 grep/Read 机器核兑现 → 坐实就 cover(给 file:line 证据)
+# 逐条 grep/read 机器核兑现 → 坐实就 cover(给 file:line 证据)
 mmw loop checklist cover --item <i> --evidence <file:line>
 # 合同清单全 cover → exit-check DONE(无 step,steps 空即满足)→ handoff pass
 ```

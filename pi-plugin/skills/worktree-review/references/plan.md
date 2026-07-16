@@ -10,7 +10,7 @@
 - Critical:intent 无覆盖 / source intent 不清却直接落地 / Pack 不可执行 / 缺 Task Pack inventory / small issue 漏大 issue 行为 / small issue 不可独立验证。
 
 ## 轴 B 合规与交叉验证
-- 交叉验证:plan 引用的每个 fixture / helper / function / 行号 / 表名 / API 用 grep / Read 验真存在(引不出 = finding);同文件多 Pack 的 merge 冲突风险;隐式顺序依赖有没有标注。
+- 交叉验证:plan 引用的每个 fixture / helper / function / 行号 / 表名 / API 用 grep / read 验真存在(引不出 = finding);同文件多 Pack 的 merge 冲突风险;隐式顺序依赖有没有标注。
 - 合规:跨边界合同变更同步全部 consumer + bump schema 版本 / 数据权威 / 项目不变量;新增可被外部引用之物入登记(端口 / 命令 / 收费动作 / capability 入项目的 registry·catalog);新 DB 字段有迁移;helper 放对边界;新文件标 Create;项目的约束覆盖文件(如 AGENTS.override)同步。
 - 依赖:Dependency Graph 无环;Global Constraints 齐;Pack 顺序成立;跨 plan 合同图无 producer / consumer 缺失 / ownership 冲突。
 - 验证规划:每条行为有 E2E / 合同 / 单元落点;修 bug 的 Pack 有挡同坑回归测试。

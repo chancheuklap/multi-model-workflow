@@ -45,7 +45,7 @@ Bad: "这是个有趣的方向!我们可以从多个角度探索。"
 
 ### Step 1:读选定方向 + 现状报告
 
-**方向已由上游 propose 阶段定**:`prev_outputs` 带来 `docs/design/<slug>-direction.md`(选定方向 + 取舍),外加 investigate 的现状报告(`docs/investigating/<slug>.md`,走接力单 `prev_outputs`;**不在 `docs/context`**)。读这两份确认起点——**不重做系统探查、不重提方案**;零星细节随手 `rg`/`Read`(验证后再用,子代理是劳动力不是事实源)。
+**方向已由上游 propose 阶段定**:`prev_outputs` 带来 `docs/design/<slug>-direction.md`(选定方向 + 取舍),外加 investigate 的现状报告(`docs/investigating/<slug>.md`,走接力单 `prev_outputs`;**不在 `docs/context`**)。读这两份确认起点——**不重做系统探查、不重提方案**;零星细节随手 `rg`/`read`(验证后再用,子代理是劳动力不是事实源)。
 
 - **提问扎根现状**:问任何能从报告 / 代码查到的问题前,先引报告条目或 `path:line`。报告没覆盖且查不到 → 明说"investigate 没查到 X,按 greenfield 处理"。
 - **方向被事实击穿**(细看才发现选错):别在这重选,`mmw handoff --conclusion needs-redirection` 回上游 propose/investigate 换向,先说触发原因 + 业务影响。
@@ -75,10 +75,10 @@ Bad: "这是个有趣的方向!我们可以从多个角度探索。"
 - **分段呈现**:按段呈现(架构 / 组件 / 数据流 / 错误处理 / 测试策略),每段长度与复杂度成比例,**承重决策段(架构取向 / 数据归属 / 影响后续的取舍)等用户确认再进下一段;纯陈述性段落连续给**,不为确认而确认,也不一次甩完。**设计涉 UI/UX 或非平凡状态模型 → 讨论清方向后读 `prototype-mockup.md` 走原型(验状态模型 + 定 mockup)。**
 - **关键咨询(本阶段主战场,0–2 次)**:在架构/对象边界/状态机**定型前**、请用户 `/approve-design` 过门前、或讨论中前提**可能被击穿**时,可 `Task` → `decision-advisor` 拿短判决。小改/无边界风险默认跳过。本阶段**不自派** `reviewer-design-a/b`(设计预审由 selfcheck 收尾统一起)。
 
-  Droid 配方:
+  pi 配方:
   ```
-  Task({
-    subagent_type: "decision-advisor",
+  Agent({
+    subagent_type: "advisor",
     prompt: "原始任务:<用户原话>;已做:<已确认的设计段和已否决方向>;已发现:<当前共同基线>;证据:<草稿路径、path:line 或无>;当前决策:<正要定型的边界/状态机/合同及替代项>;请判断该决定的具体失败模式、最强反方、建议和可推翻判断的证据。"
   })
   ```

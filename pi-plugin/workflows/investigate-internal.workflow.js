@@ -12,7 +12,10 @@ export const meta = {
 const A = (typeof args === 'string')
   ? (() => { try { return JSON.parse(args) } catch (e) { return {} } })()
   : (args || {})
-const topics = Array.isArray(A.topics) ? A.topics : []
+const topicsInput = (typeof A.topics === 'string')
+  ? (() => { try { return JSON.parse(A.topics) } catch (e) { return [] } })()
+  : A.topics
+const topics = Array.isArray(topicsInput) ? topicsInput : []
 if (!topics.length) {
   throw new Error('investigate-internal 需要 args.topics(非空),主线程先定好再传')
 }

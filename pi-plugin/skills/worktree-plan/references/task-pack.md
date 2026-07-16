@@ -18,7 +18,7 @@
 
 **Verified current state:**（改既有行为时填）现状真实行为 + `file:line` + 核实日期;改一族成员之一时给 landscape 审计表（组件 × 有无 × 缺口,防隧道视野）。
 
-**Read first:** <source docs, ADRs, project rules + **仓库测试治理文档**(TESTING.md / AGENTS.md 测试节 / tests 规则)——落地者写测试要照它,plan 在此点名路径>
+**read first:** <source docs, ADRs, project rules + **仓库测试治理文档**(TESTING.md / AGENTS.md 测试节 / tests 规则)——落地者写测试要照它,plan 在此点名路径>
 
 **Interfaces:**
 - **Consumes:** <本 pack 用到的、来自前序 pack 的东西——精确签名>

@@ -12,7 +12,7 @@
 | step 状态 | 含义 | 接着做 |
 |---|---|---|
 | `done` | 该 plan 已验收提交 | 跳过 |
-| `pending` + 有 `worktree` + 派发账本 `status=running` | droid exec 正在落地 | **别重派**:`mmw worker status --worktree <wt>` |
+| `pending` + 有 `worktree` + 派发账本 `status=running` | pi -p 正在落地 | **别重派**:`mmw worker status --worktree <wt>` |
 | `pending` + 有 `worktree` + `status=completed` | 工人已返回 | 跑 `status` 触发边界门并读最后回执,再走 B3 |
 | `pending` + 有 `worktree` + `status=failed` | 派发失败或异常退出 | 读账本 `log_file`;可修环境后重新 dispatch,已有成功 session 才允许 resume |
 | `pending` + 无 `worktree` | 还没轮到 | 正常 B1→B2 派 |
@@ -46,17 +46,17 @@ mmw loop step add --id <plan-id> --desc "<标题>" --plan <plan 绝对路径> --
 
 ## B2. 派写码工人落地(一条命令准备 + 宿主派发)
 
-每份 plan 派一个写码工人(`mmw worker dispatch` 负责 worktree、prompt 和 droid exec 启动):
+每份 plan 派一个写码工人(`mmw worker dispatch` 负责 worktree、prompt 和 pi -p 启动):
 
 ```bash
 mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree 绝对路径> \
  --design <设计文档绝对路径> --issue <该 plan 对应 issue 绝对路径>
 ```
 
-- **子 worktree 落点定死**:`<主仓库>/.factory/worktrees/<slug>-plan-<NNN>`(与任务 worktree 同层,别散落);脚本挂 `worker/<目录名>` 分支,从 `--base`(默认 HEAD)分叉。
+- **子 worktree 落点定死**:`<主仓库>/.pi/worktrees/<slug>-plan-<NNN>`(与任务 worktree 同层,别散落);脚本挂 `worker/<目录名>` 分支,从 `--base`(默认 HEAD)分叉。
 - **三文档都传**:pack-executor 开工要读设计(意图 / 合同)+ 它的 issue(边界)+ 它的计划(实施权威),不能只给计划。
 - **模型档脚本按 plan 的 `Complexity` 自动切,你不手传**:高风险 plan(标 `Complexity: capable`——计费 / 权限 / migration / 跨服务)脚本自动切高档。`--model`/`--effort` 仅在你要临时覆盖时才传。
-- **一律后台跑**:正常 plan dispatch 用 `droid exec --worktree <worker分支> --worktree-dir <wt>` 创建 Droid 原生子 worktree;返修传入已存在的任务 worktree 时继续用 `--cwd` 留在原分支。PID、结果文件和 session ID 都落账,主线程用 `mmw worker status --worktree <wt>` 收回。
+- **一律后台跑**:`worker.sh` 先创建 Git worktree，再以该路径为 cwd 启动 `pi -p`；返修从派发账本找到原 worktree。PID、结果文件和 session ID 都落账，主线程用 `mmw worker status --worktree <wt>` 收回。
 - 并行:互不依赖的 plan,各自一个 worktree,同时发多条后台 dispatch。
 - **铁律在 `worktree-build` skill**:prompt 只给角色 + worktree + 三文档 + skill 指针。
 - 工人在自己 worktree 提交;进度靠你 verify 后 `mmw loop step done`。
@@ -111,8 +111,8 @@ mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree
 **pack-executor 停下说"缺输入 / 计划与现实冲突"**:你判。afk 拍板前可 consult `decision-advisor` 一次:
 
 ```
-Task({
-  subagent_type: "decision-advisor",
+Agent({
+  subagent_type: "advisor",
   prompt: "原始任务:<用户原话>;已做:<已完成 Pack 和重试>;已发现:<计划与现实的冲突或缺输入>;证据:<失败日志/path:line>;当前决策:<拟默认值、拟 resume 指令或停下>;请判断具体失败模式、最强反方、建议和可推翻判断的证据。"
 })
 ```

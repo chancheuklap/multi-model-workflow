@@ -12,10 +12,12 @@ description: "出包 / 打包 / 发布某个产品时主动使用(如「出个�
 ## Step 0 · 定位 plugin,再跑 `release where`(它自带指路)
 
 ```bash
-P=~/.factory/plugins
-MMW="$(find "$P" -type f \( -path '*multi-model-workflow-droid*/scripts/mmw.sh' -o -path '*/droid-plugin/scripts/mmw.sh' \) 2>/dev/null | sort -V | tail -1)"
-printf 'mmw       = %s\nSKILL_DIR = %s\n' "$MMW" "$(dirname "$(dirname "$MMW")")/skills/release-flow"
+MMW_ROOT="$(jq -r '.packages[]? | if type=="string" then . elif type=="object" then (.source // "") else "" end | select(test("(^|/)pi-plugin/?$"))' ~/.pi/agent/settings.json 2>/dev/null | head -1)"
+MMW="$MMW_ROOT/scripts/mmw.sh"
+printf 'mmw       = %s\nSKILL_DIR = %s\n' "$MMW" "$MMW_ROOT/skills/release-flow"
 ```
+
+若 `$MMW` 不存在，先确认 `pi install <multi-model-workflow/pi-plugin 绝对路径>` 已完成；不扫描缓存或按版本号猜激活目录。
 
 `mmw X` ≡ `bash "$MMW" X`(每个新 shell 用回显的绝对路径)。然后无脑先跑:
 
