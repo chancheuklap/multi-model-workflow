@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # release-flow.sh 引擎空跑:载入 fail-loud、状态机推进、exit-check、round cap、resume、原子写。
 set -euo pipefail
-STATE_SUBDIR="${STATE_SUBDIR:-.factory/multi-model-workflow}"
+STATE_SUBDIR="${STATE_SUBDIR:-.pi/multi-model-workflow}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RF="$SCRIPT_DIR/../release-flow.sh"
 FIX="$SCRIPT_DIR/fixtures/release-flow"

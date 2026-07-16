@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# review.sh —— 起一道审(定编制 + 出派发指南,一条命令;Droid 原生)
+# review.sh —— 起一道审(定编制 + 出派发指南,一条命令;pi 原生)
 #
 #   start --stage <design|plan|plan-impl|final|merge-impl> --source <源意图路径/描述>
 #       按阶段定视角与审者编制,把审派发指南写进状态目录 review-brief.md(主线程读它直接派审者)。
-#       审者=Droid 会话内 reviewer droids(单条消息并行 Task),读已装的 worktree-review skill。
+#       审者=pi 会话内经 pi-subagents 的 Agent 工具并行派发(subagent_type: general-purpose,
+#       model 从 agents-roster 对应审者 frontmatter 读出),读已装的 worktree-review skill。
+#   clean-check --worktree <路径> --baseline <工作树指纹>
+#       审收口边界闸(写者≠审者的硬实现,弥补 pi 无只读沙盒):审后 HEAD、tracked diff、
+#       untracked 文件集合与内容必须和审前完全一致；审前已有设计稿可保留。
 #
 # 审不记账:收口看产物——findings 原样落盘 docs/reviews/<slug>-<stage>.md,亲验后标处置、写 verdict 段;
-# 审闸 pass 时引擎只核「该文件在且含 verdict」(flow.sh),质量与 Critical 处置是主线程判断。
+# 审闸 pass 时引擎核「该文件在且含 verdict」+ clean-check 边界闸(flow.sh),质量与 Critical 处置是主线程判断。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -21,41 +25,90 @@ state_here() {
   mmw_resolve_state_subdir "$top"
 }
 
+roster_model() {  # $1=审者角色名;从 agents-roster frontmatter 读 model
+  local f="$(mmw_plugin_root)/agents-roster/$1.md"
+  [ -f "$f" ] || die "找不到审者角色:$f"
+  awk 'BEGIN{n=0} /^---[[:space:]]*$/{n++; next} n<2 && /^model:[[:space:]]*/{sub(/^model:[[:space:]]*/,""); print; exit}' "$f"
+}
+
+# 审收口边界闸:审期间 worktree 必须原封不动。指纹覆盖 HEAD、tracked diff、
+# untracked 路径和内容，允许审前已有未提交文件，但审者不能改变它们。
+review_worktree_fingerprint() {
+  local wt="$1" rel
+  {
+    git -C "$wt" rev-parse HEAD
+    git -C "$wt" diff --binary HEAD --
+    while IFS= read -r -d '' rel; do
+      printf 'untracked:%s\0' "$rel"
+      git -C "$wt" hash-object --no-filters -- "$rel"
+    done < <(git -C "$wt" ls-files --others --exclude-standard -z)
+  } | shasum -a 256 | awk '{print $1}'
+}
+
+review_worktree_clean_check() {  # $1=worktree $2=baseline_fingerprint
+  local wt="$1" baseline="$2" current dirty
+  [ -d "$wt" ] || { echo "REVIEW_BOUNDARY_VIOLATION: worktree 不存在:$wt" >&2; return 3; }
+  [ -n "$baseline" ] || { echo "REVIEW_BOUNDARY_VIOLATION: 缺审前工作树指纹" >&2; return 3; }
+  current="$(review_worktree_fingerprint "$wt")" || return 3
+  [ "$current" = "$baseline" ] && return 0
+  dirty="$(git -C "$wt" status --porcelain --untracked-files=all 2>/dev/null || true)"
+  {
+    echo "REVIEW_BOUNDARY_VIOLATION: 审期间 worktree 被改动:$wt"
+    echo "  工作树指纹变化: baseline=$baseline current=$current"
+    [ -z "$dirty" ] || { echo "  当前 git status --porcelain:"; printf '%s\n' "$dirty" | sed 's/^/    /'; }
+  } >&2
+  return 3
+}
+
+cmd_clean_check() {
+  local wt="" baseline=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --worktree) wt="$2"; shift 2 ;;
+      --baseline) baseline="$2"; shift 2 ;;
+      *) die "未知参数: $1" ;;
+    esac
+  done
+  [ -n "$wt" ] || die "--worktree 必填"
+  [ -n "$baseline" ] || die "--baseline 必填(审前工作树指纹)"
+  review_worktree_clean_check "$wt" "$baseline"
+}
+
 dispatch_for() {
   local stage="$1" source="$2" skill="$3"
   case "$stage" in
     design)
       cat <<EOF
-单条消息并行派两个 Task,各自干净 context:
-- reviewer-design-a,负责轴A 设计内容
-- reviewer-design-b,负责轴B 项目对齐
+单条消息并行调用两个 Agent(pi-subagents,subagent_type: general-purpose),各自干净 context:
+- reviewer-design-a,负责轴A 设计内容(model: $(roster_model reviewer-design-a))
+- reviewer-design-b,负责轴B 项目对齐(model: $(roster_model reviewer-design-b))
 prompt(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=design 审;Source:$source;只负责指定轴;按 Return Contract 回结构化 findings。
 EOF
       ;;
     plan)
       cat <<EOF
-单条消息并行派两个 Task,写者与审者分离(计划由 plan-writer 写,审者另派):
-- reviewer-plan-a,负责轴A 覆盖与质量
-- reviewer-plan-b,负责轴B 合规与交叉验证
+单条消息并行调用两个 Agent(pi-subagents,subagent_type: general-purpose),写者与审者分离(计划由 plan-writer 写,审者另派):
+- reviewer-plan-a,负责轴A 覆盖与质量(model: $(roster_model reviewer-plan-a))
+- reviewer-plan-b,负责轴B 合规与交叉验证(model: $(roster_model reviewer-plan-b))
 prompt(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=plan 审;Source:$source;只负责指定轴;按 Return Contract 回结构化 findings。
 EOF
       ;;
     final)
       cat <<EOF
-单条消息并行派四个跨模型 Task,两条基线各跑两个模型:
-- reviewer-final-a,基线1(回归+意图+跨plan)
-- reviewer-final-b,基线1
-- reviewer-final-a,基线2(独立代码审计,全新眼光)
-- reviewer-final-b,基线2
+单条消息并行调用四个跨模型 Agent(pi-subagents,subagent_type: general-purpose),两条基线各跑两个模型:
+- reviewer-final-a,基线1(回归+意图+跨plan)(model: $(roster_model reviewer-final-a))
+- reviewer-final-b,基线1(model: $(roster_model reviewer-final-b))
+- reviewer-final-a,基线2(独立代码审计,全新眼光)(model: $(roster_model reviewer-final-a))
+- reviewer-final-b,基线2(model: $(roster_model reviewer-final-b))
 prompt(纯路由,四审者读同一份方法论):读 $skill/SKILL.md,按 stage=final 审;Source:$source;只负责指定基线;按 Return Contract 回结构化 findings。
 同基线跨模型对账:只一家报出的重点亲验,两家同报的置信升。
 EOF
       ;;
     merge-impl)
       cat <<EOF
-单条消息并行派两个跨模型 Task:
-- reviewer-final-a,跨 worktree 集成审路线1
-- reviewer-final-b,跨 worktree 集成审路线2
+单条消息并行调用两个跨模型 Agent(pi-subagents,subagent_type: general-purpose):
+- reviewer-final-a,跨 worktree 集成审路线1(model: $(roster_model reviewer-final-a))
+- reviewer-final-b,跨 worktree 集成审路线2(model: $(roster_model reviewer-final-b))
 prompt:读 $skill/SKILL.md,按 stage=merge-impl 走组合行为、合同、迁移、状态、import、回归、修复质量七角度;Source:$source;按 Return Contract 回结构化 findings。
 EOF
       ;;
@@ -94,6 +147,17 @@ cmd_start() {
   mmw_ensure_state_ignore "$top"
   mkdir -p "$top/$state"
 
+  # 审前工作树指纹落盘:收口时核审者没有改变任何 tracked/untracked 内容。
+  local baseline_sha baseline_fingerprint baseline_tmp
+  baseline_sha="$(git -C "$top" rev-parse HEAD)" || die "无法取审前基线 sha"
+  baseline_fingerprint="$(review_worktree_fingerprint "$top")" || die "无法取审前工作树指纹"
+  baseline_tmp="$(mktemp "$top/$state/.review-baseline.XXXXXX")" || die "无法写审前基线"
+  jq -n --arg sha "$baseline_sha" --arg fingerprint "$baseline_fingerprint" --arg stage "$stage" \
+    --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{sha:$sha,fingerprint:$fingerprint,stage:$stage,at:$at}' >"$baseline_tmp" \
+    && mv "$baseline_tmp" "$top/$state/review-baseline.json" \
+    || { rm -f "$baseline_tmp"; die "无法写审前基线"; }
+
   # 留痕落点:任务审(worktree 内)走 docs/reviews/(docs/.gitignore 已忽略);
   # merge-impl 在主仓库跑,不落 docs/ ——一切主仓库产物进状态平面,零残留。
   local trace="docs/reviews/$slug-$stage.md"
@@ -120,7 +184,7 @@ EOF
       fi
     fi
     cat <<EOF
-REVIEW_STARTED stage=plan-impl host=droid
+REVIEW_STARTED stage=plan-impl host=pi
 ③合同门不派审者、不列 pack:**读 references/review/plan-impl.md,照它走**——核什么(跨 plan 合同兑现)、
 三个出口(全兑现 pass / 没兑现回 build / 合同根上错回 design)全在那份。
 核对过程与逐条兑现证据写进 $trace(含一句总 verdict);兑现全 → $MMW handoff --conclusion pass。
@@ -134,7 +198,7 @@ EOF
   dispatch="$(dispatch_for "$stage" "$source" "$skill")"
 
   cat > "$brief" <<EOF
-# 审派发指南(stage=$stage · host=droid · 机器生成,主线程读完直接派审者)
+# 审派发指南(stage=$stage · host=pi · 机器生成,主线程读完直接派审者)
 
 主线程直接派审者,自己亲验收敛,不自己写产物结论。审不记账,收口看产物(下方留痕)。
 Source: ${source}
@@ -142,17 +206,18 @@ Source: ${source}
 ## 派审者
 $dispatch
 
-在单条消息中并行发出独立 Task 调用,每个审者按当前工具合同直接返回结果。
+在单条消息中并行发出独立 Agent 调用(pi-subagents),每个审者按当前工具合同直接返回结果。
 调用中断时重派对应视角,不假设后台 task ID 或 resume。
 
 ## 留痕(收口的硬核就在这份文件)
 把全部审者的结构化 findings **原样落盘** $trace(不重写不摘要,保真);
 亲验后把每条 verdict/处置(accepted/rejected/duplicate/needs-evidence)就近标该条下,文末写一句总 verdict。
-审闸收口 handoff pass 时引擎核该文件存在且含 verdict——没有留痕 = 审没跑过,不放行。
+审闸收口 handoff pass 时引擎核该文件存在且含 verdict,并跑 clean-check 核 worktree
+与审前基线一致(审者只读是纪律,这里是机器闸)——没有留痕 = 审没跑过,不放行。
 收口只回读这份文档的 verdict 段,findings 全文压在 trace 文件里、不长驻主线程 context。
 
 ## 收回亲验
-每条 finding 自己 Read/Grep/跑坐实(审者是劳动力不是信源),引不出 file:line 降置信。
+每条 finding 自己 read/grep/跑坐实(审者是劳动力不是信源),引不出 file:line 降置信。
 承重 finding 亲验后才 accept。**Critical 必须处置掉**(修掉或有理有据 reject)才收口 pass——这是判断,不是机器闸,但留痕里要看得见。
 
 ## 收敛
@@ -161,8 +226,8 @@ $dispatch
 EOF
 
   cat <<EOF
-REVIEW_STARTED stage=$stage host=droid
-1. 主线程读 $brief,按「派审者」段直接派(单条消息并行 Task,读 worktree-review skill 出结构化 findings)。
+REVIEW_STARTED stage=$stage host=pi
+1. 主线程读 $brief,按「派审者」段直接派(单条消息并行 Agent 调用,读 worktree-review skill 出结构化 findings)。
 2. findings 原样落 $trace,亲验标处置、写总 verdict(收口硬核:该文件在且含 verdict)。
 3. 收口回 review/review.md 按 Gap 选结论词 handoff。
 EOF
@@ -170,5 +235,6 @@ EOF
 
 case "${1:-}" in
   start) shift; cmd_start "$@" ;;
-  *) die "用法: review.sh start --stage <design|plan|plan-impl|final|merge-impl> --source <...>" ;;
+  clean-check) shift; cmd_clean_check "$@" ;;
+  *) die "用法: review.sh start --stage <design|plan|plan-impl|final|merge-impl> --source <...> | review.sh clean-check --worktree <路径> --baseline <工作树指纹>" ;;
 esac

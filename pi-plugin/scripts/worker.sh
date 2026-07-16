@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# Droid exec 写码工人和写计划工人派发器。
+# pi headless 写码工人和写计划工人派发器。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
-# shellcheck source=lib/droid-exec.sh
-. "$SCRIPT_DIR/lib/droid-exec.sh"
+# shellcheck source=lib/pi-exec.sh
+. "$SCRIPT_DIR/lib/pi-exec.sh"
 
-EXECUTOR_DROID="${DROID_EXECUTOR_DROID:-pack-executor}"
-EXECUTOR_MODEL="${DROID_EXECUTOR_MODEL:-custom:GPT-5.6-Terra-[Codex]-0}"
-EXECUTOR_EFFORT="${DROID_EXECUTOR_EFFORT:-high}"
-CAPABLE_EXECUTOR_DROID="${DROID_CAPABLE_EXECUTOR_DROID:-pack-executor-capable}"
-CAPABLE_EXECUTOR_MODEL="${DROID_CAPABLE_EXECUTOR_MODEL:-custom:GPT-5.6-Sol-[Codex]-0}"
-CAPABLE_EXECUTOR_EFFORT="${DROID_CAPABLE_EXECUTOR_EFFORT:-medium}"
-PLAN_DROID="${DROID_PLAN_DROID:-plan-writer}"
-PLAN_MODEL="${DROID_PLAN_MODEL:-custom:GPT-5.6-Sol-[Codex]-0}"
-PLAN_EFFORT="${DROID_PLAN_EFFORT:-high}"
-WORKER_ALLOWED_TOOLS="read-cli,create-cli,edit-cli,apply-patch-cli,execute-cli,grep_tool_cli,glob-search-cli,ls-cli,skill"
+EXECUTOR_AGENT="${PI_EXECUTOR_AGENT:-pack-executor}"
+EXECUTOR_MODEL="${PI_EXECUTOR_MODEL:-openai-codex/gpt-5.6-terra}"
+EXECUTOR_EFFORT="${PI_EXECUTOR_EFFORT:-high}"
+CAPABLE_EXECUTOR_AGENT="${PI_CAPABLE_EXECUTOR_AGENT:-pack-executor-capable}"
+CAPABLE_EXECUTOR_MODEL="${PI_CAPABLE_EXECUTOR_MODEL:-openai-codex/gpt-5.6-sol}"
+CAPABLE_EXECUTOR_EFFORT="${PI_CAPABLE_EXECUTOR_EFFORT:-medium}"
+PLAN_AGENT="${PI_PLAN_AGENT:-plan-writer}"
+PLAN_MODEL="${PI_PLAN_MODEL:-openai-codex/gpt-5.6-sol}"
+PLAN_EFFORT="${PI_PLAN_EFFORT:-high}"
+WORKER_ALLOWED_TOOLS="read,write,edit,bash,grep,find,ls"
 
 die() { echo "ERROR: $*" >&2; exit 2; }
 state_for() { mmw_resolve_state_subdir "$1"; }
@@ -46,16 +46,9 @@ test_sheet_lines() {  # $1=薄层相对路径(可空)
   fi
 }
 
-prepare_exec_policy() {
-  local pkg="$1" model="$2" inventory="$pkg/tool-inventory.json"
-  mmw_droid_load_tool_inventory "$inventory" "$model" \
-    || die "无法读取 worker Droid tool inventory:$model"
-  mmw_droid_disable_all_except "$WORKER_ALLOWED_TOOLS" "$inventory"
-}
-
-render_droid_prompt() {
+render_role_prompt() {
   local source="$1" target="$2"
-  mmw_droid_render_prompt "$source" "$target" || die "droid prompt 为空:$source"
+  mmw_pi_render_prompt "$source" "$target" || die "角色提示词为空:$source"
 }
 
 native_worktree_path() {
@@ -69,7 +62,7 @@ build_prompt() {
   if [ "$mode" = merge ]; then
     cat <<PROMPT
 你是落地执行者,被主线程派进一个 worktree 按 mini-plan 修复已判定方向的合并冲突。
-先读 Droid plugin 内 worktree-build skill 并严格执行:$skill/SKILL.md
+先读 pi plugin 内 worktree-build skill 并严格执行:$skill/SKILL.md
 
 工作树(你唯一可写的源码区):$wt
 合并冲突 mini-plan(唯一意图与验收来源):$plan
@@ -80,7 +73,7 @@ PROMPT
   fi
   cat <<PROMPT
 你是落地执行者,被主线程派进一个 worktree 落地一份计划。
-先读 Droid plugin 内 worktree-build skill 并严格执行:$skill/SKILL.md
+先读 pi plugin 内 worktree-build skill 并严格执行:$skill/SKILL.md
 
 工作树(你唯一可写的源码区):$wt
 开工前依次读:
@@ -98,7 +91,7 @@ build_plan_prompt() {
   local skill; skill="$(mmw_plugin_root)/skills/worktree-plan"
   cat <<PROMPT
 你是计划撰写者,被主线程派进任务 worktree 把一个大 issue 写成一份实施计划。
-先读 Droid plugin 内 worktree-plan skill 并严格执行:$skill/SKILL.md
+先读 pi plugin 内 worktree-plan skill 并严格执行:$skill/SKILL.md
 
 任务工作树:$wt
 唯一 plan 落点:$plan
@@ -213,19 +206,19 @@ check_plan_boundary() {
 }
 
 write_meta() {
-  local file="$1" mode="$2" droid="$3" model="$4" effort="$5" wt="$6" prompt="$7" start_sha="$8"
-  local plan="$9" system_prompt="${10}" issue="${11:-}" disabled_tools="${12:-}"
+  local file="$1" mode="$2" agent="$3" model="$4" effort="$5" wt="$6" prompt="$7" start_sha="$8"
+  local plan="$9" system_prompt="${10}" issue="${11:-}" allowed_tools="${12:-}"
   local tmp
   tmp="$(mktemp "$(dirname "$file")/.meta.XXXXXX")" || return 1
   jq -n \
-    --arg backend droid-exec --arg mode "$mode" --arg droid "$droid" \
+    --arg backend pi-exec --arg mode "$mode" --arg agent "$agent" \
     --arg model "$model" --arg effort "$effort" --arg wt "$wt" \
     --arg plan "$plan" --arg prompt "$prompt" --arg start "$start_sha" \
-    --arg system "$system_prompt" --arg issue "$issue" --arg disabled "$disabled_tools" \
+    --arg system "$system_prompt" --arg issue "$issue" --arg allowed "$allowed_tools" \
     --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '{backend:$backend,mode:$mode,droid:$droid,model:$model,reasoning_effort:$effort,
+    '{backend:$backend,mode:$mode,agent:$agent,model:$model,reasoning_effort:$effort,
       worktree:$wt,plan:$plan,issue:$issue,prompt_file:$prompt,system_prompt_file:$system,
-      disabled_tools:$disabled,autonomy:"medium",start_sha:$start,
+      allowed_tools:$allowed,start_sha:$start,
       status:"prepared",pid:null,session_id:null,result_file:null,log_file:null,
       created_at:$at,updated_at:$at}' >"$tmp" \
     && jq -e . "$tmp" >/dev/null 2>&1 \
@@ -235,27 +228,26 @@ write_meta() {
 
 update_meta() {
   local meta="$1"; shift
-  mmw_droid_atomic_update "$meta" "$@"
+  mmw_pi_atomic_update "$meta" "$@"
 }
 
 launch_exec() {
   local meta="$1" prompt="$2" wt="$3" model="$4" effort="$5" system_prompt="$6" session_id="${7:-}" status_cmd="$8"
-  local disabled_tools="${9:-}"
-  local native_branch="${10:-}" native_root="${11:-}" native_repo="${12:-}" native_path="${13:-}"
-  mmw_droid_launch "$meta" "$prompt" "$wt" "$model" "$effort" "$system_prompt" "$session_id" medium "$disabled_tools" \
-    "$native_branch" "$native_root" "$native_repo" "$native_path" \
+  local allowed_tools="${9:-}"
+  mmw_pi_launch "$meta" "$prompt" "$wt" "$model" "$effort" "$system_prompt" "$session_id" "$allowed_tools" \
     || die "worker 启动或派发账本写入失败"
   echo "WORKER_STARTED"
-  echo "pid=$MMW_DROID_PID"
-  echo "result_file=$MMW_DROID_RESULT_FILE"
-  echo "log_file=$MMW_DROID_LOG_FILE"
+  echo "pid=$MMW_PI_PID"
+  echo "session_id=$MMW_PI_SESSION_ID"
+  echo "result_file=$MMW_PI_RESULT_FILE"
+  echo "log_file=$MMW_PI_LOG_FILE"
   echo "NEXT=$status_cmd"
 }
 
 refresh_meta() {
   local meta="$1"
   [ -f "$meta" ] || die "派发账本不存在:$meta"
-  mmw_droid_refresh "$meta"
+  mmw_pi_refresh "$meta"
 }
 
 guard_no_active() {
@@ -347,9 +339,9 @@ cmd_dispatch() {
   [ -n "$wt" ] || die "--worktree 必填"
   local repo; repo="$(git -C "$(dirname "$plan")" rev-parse --show-toplevel 2>/dev/null)" ||
     die "plan 不在 git 仓库内:$plan"
-  local droid="$EXECUTOR_DROID" default_model="$EXECUTOR_MODEL" default_effort="$EXECUTOR_EFFORT"
+  local agent="$EXECUTOR_AGENT" default_model="$EXECUTOR_MODEL" default_effort="$EXECUTOR_EFFORT"
   if grep -qiE '(complexity|复杂度).*capable' "$plan" 2>/dev/null; then
-    droid="$CAPABLE_EXECUTOR_DROID"
+    agent="$CAPABLE_EXECUTOR_AGENT"
     default_model="$CAPABLE_EXECUTOR_MODEL"
     default_effort="$CAPABLE_EXECUTOR_EFFORT"
   fi
@@ -370,11 +362,17 @@ cmd_dispatch() {
     native_root="$wt"
     native_repo="$repo"
     run_wt="$(native_worktree_path "$repo" "$native_root" "$native_branch")"
+    if [ ! -d "$run_wt" ]; then
+      git -C "$repo" worktree add "$run_wt" "$native_branch" >&2 \
+        || die "建立 worker worktree 失败:$run_wt"
+    fi
+    : >"$run_wt/.mmw-keep-worktree"
+    mmw_ensure_wt_state_ignore "$run_wt"
   else
     run_wt="$target_top"
     mmw_ensure_wt_state_ignore "$run_wt"
   fi
-  local st pkg start prompt meta system_prompt system_source disabled_tools
+  local st pkg start prompt meta system_prompt system_source
   st="$(state_for "$wt")"; pkg="$wt/$st/worker-dispatch"
   mkdir -p "$pkg"
   if [ -n "$native_branch" ]; then
@@ -384,30 +382,28 @@ cmd_dispatch() {
   fi
   prompt="$pkg/prompt.md"; meta="$pkg/meta.json"
   guard_no_active "$meta"
-  system_source="$(mmw_plugin_root)/droids/$droid.md"
-  [ -f "$system_source" ] || die "找不到 executor droid:$system_source"
+  system_source="$(mmw_plugin_root)/agents-roster/$agent.md"
+  [ -f "$system_source" ] || die "找不到 executor 角色:$system_source"
   system_prompt="$pkg/system-prompt.md"
-  render_droid_prompt "$system_source" "$system_prompt"
-  disabled_tools="$(prepare_exec_policy "$pkg" "$model")"
+  render_role_prompt "$system_source" "$system_prompt"
   preflight_plugin_skill worktree-build
   local test_sheet; test_sheet="$(locate_test_sheet "${target_top:-$repo}")"
   build_prompt "$plan" "$run_wt" "$design" "$issue" "$mode" "$test_sheet" > "$prompt"
   printf '%s\n' "$start" > "$pkg/start_sha"
-  write_meta "$meta" "$mode" "$droid" "$model" "$effort" "$run_wt" "$prompt" "$start" \
-    "$plan" "$system_prompt" "$issue" "$disabled_tools"
+  write_meta "$meta" "$mode" "$agent" "$model" "$effort" "$run_wt" "$prompt" "$start" \
+    "$plan" "$system_prompt" "$issue" "$WORKER_ALLOWED_TOOLS"
   update_meta "$meta" --arg control "$wt" --arg branch "$native_branch" \
     --arg root "$native_root" --arg repo "$native_repo" \
     '.control_worktree=$control | .native_branch=$branch | .native_root=$root | .native_repo=$repo' \
     || die "无法记录 worker worktree 元数据"
-  echo "WORKER_BACKEND=droid-exec"
-  echo "DROID=$droid"
+  echo "WORKER_BACKEND=pi-exec"
+  echo "AGENT=$agent"
   echo "MODEL=$model"
   echo "REASONING_EFFORT=$effort"
   echo "PROMPT_FILE=$prompt"
   echo "META_FILE=$meta"
   launch_exec "$meta" "$prompt" "$run_wt" "$model" "$effort" "$system_prompt" "" \
-    "mmw worker status --worktree \"$wt\"" "$disabled_tools" \
-    "$native_branch" "$native_root" "$native_repo" "$run_wt"
+    "mmw worker status --worktree \"$wt\"" "$WORKER_ALLOWED_TOOLS"
 }
 
 cmd_resume() {
@@ -418,8 +414,8 @@ cmd_resume() {
   esac; done
   [ -d "$wt" ] || die "worktree 不存在:$wt"
   [ -f "$instr" ] || die "--instructions 文件不存在:$instr"
-  local st pkg meta state session model effort system_prompt disabled_tools
-  local run_wt native_branch native_root native_repo
+  local st pkg meta state session model effort system_prompt allowed_tools
+  local run_wt
   st="$(state_for "$wt")"; pkg="$wt/$st/worker-dispatch"
   meta="$pkg/meta.json"
   state="$(refresh_meta "$meta" 2>/dev/null || true)"
@@ -428,16 +424,13 @@ cmd_resume() {
   model="$(jq -r .model "$meta")"
   effort="$(jq -r .reasoning_effort "$meta")"
   system_prompt="$(jq -r .system_prompt_file "$meta")"
-  disabled_tools="$(jq -r '.disabled_tools // empty' "$meta")"
+  allowed_tools="$(jq -r '.allowed_tools // empty' "$meta")"
   run_wt="$(jq -r .worktree "$meta")"
-  native_branch="$(jq -r '.native_branch // empty' "$meta")"
-  native_root="$(jq -r '.native_root // empty' "$meta")"
-  native_repo="$(jq -r '.native_repo // empty' "$meta")"
-  [ -n "$session" ] || die "无成功 session_id,不能续接；先看 $(jq -r '.log_file // empty' "$meta")"
+  [ -d "$run_wt" ] || die "worker worktree 不存在,不能续接:$run_wt"
+  [ -n "$session" ] || die "无 session_id,不能续接；先看 $(jq -r '.log_file // empty' "$meta")"
   cp "$instr" "$pkg/resume-prompt.md"
   launch_exec "$meta" "$pkg/resume-prompt.md" "$run_wt" "$model" "$effort" "$system_prompt" "$session" \
-    "mmw worker status --worktree \"$wt\"" "$disabled_tools" \
-    "$native_branch" "$native_root" "$native_repo" "$run_wt"
+    "mmw worker status --worktree \"$wt\"" "$allowed_tools"
 }
 
 cmd_plan_dispatch() {
@@ -464,7 +457,7 @@ cmd_plan_dispatch() {
     case "$mockup" in "$wt"/*) ;; *) die "--mockup 必须位于任务 worktree:$mockup" ;; esac
   fi
   mmw_ensure_wt_state_ignore "$wt"
-  local st ns pkg start prompt meta system_prompt system_source disabled_tools baseline issue_baseline
+  local st ns pkg start prompt meta system_prompt system_source baseline issue_baseline
   local sandbox branch sandbox_plan sandbox_design sandbox_issue sandbox_mockup sandbox_info
   local task_plan_baseline task_issue_baseline
   st="$(state_for "$wt")"; ns="$(plan_ns "$plan")"; pkg="$wt/$st/plan-workers/$ns/dispatch"
@@ -491,17 +484,16 @@ cmd_plan_dispatch() {
   issue_baseline="$pkg/issue-baseline.md"
   capture_plan_baseline "$sandbox" "$baseline" || die "无法记录 plan writer worktree 边界基线"
   cp "$sandbox_issue" "$issue_baseline" || die "无法记录 issue 边界基线"
-  system_source="$(mmw_plugin_root)/droids/$PLAN_DROID.md"
-  [ -f "$system_source" ] || die "找不到 plan writer droid:$system_source"
+  system_source="$(mmw_plugin_root)/agents-roster/$PLAN_AGENT.md"
+  [ -f "$system_source" ] || die "找不到 plan writer 角色:$system_source"
   system_prompt="$pkg/system-prompt.md"
-  render_droid_prompt "$system_source" "$system_prompt"
-  disabled_tools="$(prepare_exec_policy "$pkg" "$model")"
+  render_role_prompt "$system_source" "$system_prompt"
   preflight_plugin_skill worktree-plan
   local plan_test_sheet; plan_test_sheet="$(locate_test_sheet "$sandbox")"
   build_plan_prompt "$sandbox_plan" "$sandbox" "$sandbox_design" "$sandbox_issue" "$sandbox_mockup" "$plan_test_sheet" > "$prompt"
   printf '%s\n' "$start" > "$pkg/start_sha"
-  write_meta "$meta" dispatch "$PLAN_DROID" "$model" "$effort" "$sandbox" "$prompt" "$start" \
-    "$sandbox_plan" "$system_prompt" "$sandbox_issue" "$disabled_tools"
+  write_meta "$meta" dispatch "$PLAN_AGENT" "$model" "$effort" "$sandbox" "$prompt" "$start" \
+    "$sandbox_plan" "$system_prompt" "$sandbox_issue" "$WORKER_ALLOWED_TOOLS"
   update_meta "$meta" \
     --arg task_wt "$wt" --arg task_plan "$plan" --arg task_design "$design" \
     --arg task_issue "$issue" --arg task_mockup "$mockup" --arg branch "$branch" \
@@ -510,14 +502,14 @@ cmd_plan_dispatch() {
       .task_issue=$task_issue | .task_mockup=$task_mockup | .sandbox_branch=$branch |
       .task_plan_baseline=$task_plan_baseline | .task_issue_baseline=$task_issue_baseline' \
     || die "无法记录 plan writer 隔离边界"
-  echo "WORKER_BACKEND=droid-exec"
+  echo "WORKER_BACKEND=pi-exec"
   echo "PLAN_WORKER_NS=$ns"
-  echo "DROID=$PLAN_DROID"
+  echo "AGENT=$PLAN_AGENT"
   echo "MODEL=$model"
   echo "REASONING_EFFORT=$effort"
   echo "PROMPT_FILE=$prompt"
   launch_exec "$meta" "$prompt" "$sandbox" "$model" "$effort" "$system_prompt" "" \
-    "mmw worker status --plan \"$plan\" --worktree \"$wt\"" "$disabled_tools"
+    "mmw worker status --plan \"$plan\" --worktree \"$wt\"" "$WORKER_ALLOWED_TOOLS"
 }
 
 cmd_plan_resume() {
@@ -527,7 +519,7 @@ cmd_plan_resume() {
     --instructions) instr="$2"; shift 2 ;; *) die "未知参数:$1" ;;
   esac; done
   [ -f "$instr" ] || die "--instructions 文件不存在:$instr"
-  local st ns pkg meta state session model effort system_prompt disabled_tools sandbox
+  local st ns pkg meta state session model effort system_prompt allowed_tools sandbox
   local task_design task_issue task_mockup sandbox_info sandbox_plan sandbox_design sandbox_issue sandbox_mockup start
   local task_plan_baseline task_issue_baseline
   st="$(state_for "$wt")"; ns="$(plan_ns "$plan")"; pkg="$wt/$st/plan-workers/$ns/dispatch"
@@ -542,7 +534,7 @@ cmd_plan_resume() {
   task_issue="$(jq -r '.task_issue' "$meta")"
   task_mockup="$(jq -r '.task_mockup // empty' "$meta")"
   system_prompt="$(jq -r .system_prompt_file "$meta")"
-  disabled_tools="$(jq -r '.disabled_tools // empty' "$meta")"
+  allowed_tools="$(jq -r '.allowed_tools // empty' "$meta")"
   if [ ! -d "$sandbox" ]; then
     task_plan_baseline="$(path_fingerprint "$wt" "${plan#"$wt"/}")"
     task_issue_baseline="$(path_fingerprint "$wt" "${task_issue#"$wt"/}")"
@@ -580,7 +572,7 @@ cmd_plan_resume() {
     || die "无法重置 plan writer 发布状态"
   cp "$instr" "$pkg/resume-prompt.md"
   launch_exec "$meta" "$pkg/resume-prompt.md" "$sandbox" "$model" "$effort" "$system_prompt" "$session" \
-    "mmw worker status --plan \"$plan\" --worktree \"$wt\"" "$disabled_tools"
+    "mmw worker status --plan \"$plan\" --worktree \"$wt\"" "$allowed_tools"
 }
 
 cmd_status() {
@@ -643,8 +635,12 @@ cmd_status() {
     start="$(jq -r '.start_sha' "$meta")"
     check_docs_boundary "$(jq -r .worktree "$meta")" "$start" || return 3
   fi
-  echo "--- Droid 最后消息 ---"
-  jq -r '.result // "(无结果)"' "$result"
+  echo "--- 工人最后消息 ---"
+  if [ -s "$result" ]; then
+    cat "$result"
+  else
+    echo "(无结果)"
+  fi
 }
 
 cmd_check_docs() {

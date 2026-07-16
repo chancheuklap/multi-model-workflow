@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # release-flow.sh 分级层:stage fail 分 tier、P0->PAUSE、receipt 从 ledger 渲染、不可诊断 escalate、event_sink 落地。
 set -euo pipefail
-STATE_SUBDIR="${STATE_SUBDIR:-.factory/multi-model-workflow}"
+STATE_SUBDIR="${STATE_SUBDIR:-.pi/multi-model-workflow}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RF="$SCRIPT_DIR/../release-flow.sh"
 RC="$SCRIPT_DIR/../release_contracts.py"

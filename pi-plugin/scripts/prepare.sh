@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
 ROUTES="$SCRIPT_DIR/../state-schema/routes.json"
-# 所有任务统一写入 Droid 状态平面。
+# 所有任务统一写入 pi 状态平面。
 STATE_SUBDIR="$(mmw_state_subdir)"
 MANIFEST_NAME="task.json"
 
@@ -81,7 +81,7 @@ IGN
   local attendance="afk"
   [ "$scenario" = "develop" ] && attendance="attended"
   local plugin_version
-  plugin_version="$(jq -r '.version // ""' "$SCRIPT_DIR/../.factory-plugin/plugin.json" 2>/dev/null || echo "")"
+  plugin_version="$(jq -r '.version // ""' "$SCRIPT_DIR/../package.json" 2>/dev/null || echo "")"
 
   local created; created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   jq -n \
@@ -168,7 +168,7 @@ cmd_cleanup() {
   [ -n "$slug" ] || die "--slug 必填"
   local top; top="$(git_toplevel)"
   in_worktree "$top" && die "在 worktree 内不能清理自己,回主仓库执行 cleanup"
-  # 只在 Droid worktree 根查找。
+  # 只在 pi worktree 根查找。
   local wt; wt="$(mmw_find_worktree "$top" "$slug" || true)"
   [ -n "$wt" ] || wt="$top/$(mmw_worktrees_rel)/$slug"
 
@@ -177,7 +177,7 @@ cmd_cleanup() {
     git -C "$top" merge-base --is-ancestor "$slug" HEAD 2>/dev/null \
       || die "分支 $slug 未并入当前 HEAD,拒绝清理(先 merge,确认要丢弃再手动 git worktree remove)"
   fi
-  # 过门:worktree 内含 .factory 临时状态(gitignore),--force 一并删。
+  # 过门:worktree 内含 .pi 临时状态(gitignore),--force 一并删。
   # worktree 真删失败 → 直接拒,绝不接着删分支(防留下悬空 worktree 却把分支删了,失败不可见)。
   if [ -e "$wt" ]; then
     git -C "$top" worktree remove --force "$wt" >/dev/null 2>&1 \
@@ -243,7 +243,7 @@ cmd_team() {
   in_worktree "$top" && die "在 worktree 内;merge 回主仓库执行"
   echo "TEAM"
   local found=0 man
-  # 扫 Droid 状态平面的全部在飞 manifest。
+  # 扫 pi 状态平面的全部在飞 manifest。
   while IFS= read -r man; do
     [ -n "$man" ] || continue
     found=1

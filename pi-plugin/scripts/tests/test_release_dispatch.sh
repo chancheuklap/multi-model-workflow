@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # release-flow.sh fix-dispatch:功能分支提交、保护路径闸与 gate 回退。
 set -euo pipefail
-STATE_SUBDIR="${STATE_SUBDIR:-.factory/multi-model-workflow}"
+STATE_SUBDIR="${STATE_SUBDIR:-.pi/multi-model-workflow}"
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)"
 RF="$SCRIPT_DIR/../release-flow.sh"
 FIX="$SCRIPT_DIR/fixtures/release-flow"

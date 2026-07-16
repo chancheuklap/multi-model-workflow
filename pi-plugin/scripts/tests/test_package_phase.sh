@@ -32,10 +32,10 @@ new_case() {
   git -C "$CASE" commit -qm seed
   local base
   base="$(git -C "$CASE" rev-parse HEAD)"
-  mkdir -p "$CASE/.factory/multi-model-workflow"
+  mkdir -p "$CASE/.pi/multi-model-workflow"
   jq -n --arg base "$base" \
     '{schema_version:"1",phase:"package",base_commit:$base}' \
-    > "$CASE/.factory/multi-model-workflow/task.json"
+    > "$CASE/.pi/multi-model-workflow/task.json"
   cp -R "$FIXTURES" "$CASE/fixtures"
   OUT="$CASE/out"; ERR="$CASE/err"
 }
@@ -76,7 +76,7 @@ run_package() {
 }
 
 package_state() {
-  printf '%s/.factory/multi-model-workflow/package-state.json' "$CASE"
+  printf '%s/.pi/multi-model-workflow/package-state.json' "$CASE"
 }
 
 release_done() {

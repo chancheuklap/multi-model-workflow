@@ -1,15 +1,10 @@
 #!/usr/bin/env bash
-# PreToolUse 红线:唯一硬红线 = 出站发布 / 部署 —— push / GitHub 侧合并(gh pr merge / gh api …/merge)/ deploy。
-# 命中 → permissionDecision=ask:由用户在权限框亲批。真人批准由平台保证,
-# 不再用 release-approval 令牌(令牌 agent 自己就能铸,守不住"要人批")。
-# **本地 git merge(含合并进 main)不拦**:可逆、不出站,真正红线是它之后的 push;
-# 拦本地 merge 只会打断无人值守的自动推进(用户明确要求放行)。
-# 已知接受面:引号打散关键词(如 pu''sh)本脚本能判;命令替换 $(echo push) 拆段后动词
-# 落进子段判不到,属于刻意规避,最后防线是 Droid 权限框本身。
+# pi tool_call 红线:唯一硬红线 = 出站发布 / 部署 —— push / GitHub 侧合并 / deploy。
+# 命中以 exit 2 + stderr 原因回给 extensions/mmw-hooks.ts；扩展有 UI 时弹窗人批，
+# headless 时 fail-closed。本地 git merge 可逆，不拦。
 set -euo pipefail
 
-input="$(cat)"
-cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")"
+cmd="${1:-${MMW_TOOL_COMMAND:-}}"
 [ -n "$cmd" ] || exit 0
 
 # 1) 剥 heredoc 正文——文档/脚本正文里的 push/deploy 行是数据不是动作
@@ -33,9 +28,8 @@ $inner"
 cmd="$(printf '%s' "$cmd" | sed -E "s/'[^']*[[:space:]][^']*'/ /g; s/\"[^\"]*[[:space:]][^\"]*\"/ /g; s/['\"]//g; s/\\\\//g")"
 
 ask() {
-  jq -n --arg r "$1" \
-    '{hookSpecificOutput:{hookEventName:"PreToolUse", permissionDecision:"ask", permissionDecisionReason:$r}}'
-  exit 0
+  printf '%s\n' "$1" >&2
+  exit 2
 }
 
 # rest 中含独立单词 $1?

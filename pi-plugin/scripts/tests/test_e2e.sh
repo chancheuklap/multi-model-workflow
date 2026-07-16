@@ -3,8 +3,8 @@
 # 平稳推进——接力单逐阶段接得上、design 人闸(approve)过门、审闸留痕收口、内外层命令不报错。
 # 这是"端到端平稳"的命令级验收(内容级=真 subagent/Codex,不在单测范围)。
 set -euo pipefail
-STATE_SUBDIR="${STATE_SUBDIR:-.factory/multi-model-workflow}"
-WT_REL="${WT_REL:-.factory/worktrees}"
+STATE_SUBDIR="${STATE_SUBDIR:-.pi/multi-model-workflow}"
+WT_REL="${WT_REL:-.pi/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREPARE="$SCRIPT_DIR/../prepare.sh"
 FLOW="$SCRIPT_DIR/../flow.sh"

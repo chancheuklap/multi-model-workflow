@@ -12,54 +12,39 @@ ok() { echo "ok - $1"; }
 no() { echo "not ok - $1"; fail=1; }
 
 mkdir -p "$TMP/bin" "$TMP/markers"
-export DROID_TEST_LOG="$TMP/droid.log"
-export DROID_FAKE_MARKERS="$TMP/markers"
-cat >"$TMP/bin/droid" <<'FAKE'
+export PI_TEST_LOG="$TMP/pi.log"
+export PI_FAKE_MARKERS="$TMP/markers"
+cat >"$TMP/bin/pi" <<'FAKE'
 #!/usr/bin/env bash
 set -euo pipefail
-printf '%s\n' "$*" >>"$DROID_TEST_LOG"
-prompt=""
-list_tools=0
+printf '%s\n' "$*" >>"$PI_TEST_LOG"
+prompt="${!#}"
 model=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --file) prompt="$2"; shift 2 ;;
     --model) model="$2"; shift 2 ;;
-    --list-tools) list_tools=1; shift ;;
     *) shift ;;
   esac
 done
-if [ "$list_tools" = 1 ]; then
-  [ "${DROID_FAKE_LIST_FAIL:-0}" = 1 ] && exit 4
-  [ -n "${DROID_FAKE_LIST_SLEEP:-}" ] && sleep "$DROID_FAKE_LIST_SLEEP"
-  jq -cn '[
-    {id:"create-cli"},{id:"edit-cli"},{id:"execute-cli"},{id:"task-cli"},
-    {id:"web_search"},{id:"fetch_url"},{id:"read-cli"},{id:"grep_tool_cli"},
-    {id:"glob-search-cli"},{id:"ls-cli"},{id:"apply-patch-cli"}
-  ]'
-  exit 0
-fi
-[ -f "$prompt" ] || exit 3
 sleep 0.03
 
-if grep -q '^证据：' "$prompt"; then
-  if [ -n "${DROID_FAKE_SYNTH_FAIL_ONCE:-}" ] \
-    && [ ! -f "$DROID_FAKE_MARKERS/synth-failed" ]; then
-    touch "$DROID_FAKE_MARKERS/synth-failed"
-    jq -cn '{type:"result",subtype:"success",is_error:false,result:"not-json",session_id:"synth-session"}'
+if printf '%s\n' "$prompt" | grep -q '^证据：'; then
+  if [ -n "${PI_FAKE_SYNTH_FAIL_ONCE:-}" ] \
+    && [ ! -f "$PI_FAKE_MARKERS/synth-failed" ]; then
+    touch "$PI_FAKE_MARKERS/synth-failed"
+    printf '%s\n' 'not-json'
     exit 0
   fi
   payload="$(jq -cn '{markdown:"# Investigation\n\nVerified evidence with `src/app.py:10`.",open_questions:["remaining gap"],spinoff_candidates:[{tag:"optimize",finding:"later cleanup"}]}')"
-  jq -cn --arg result "$payload" \
-    '{type:"result",subtype:"success",is_error:false,result:$result,session_id:"synth-session"}'
+  printf '%s\n' "$payload"
   exit 0
 fi
 
-angle="$(sed -n 's/^angle=//p' "$prompt" | head -1)"
-mode="$(sed -n 's/^mode=//p' "$prompt" | head -1)"
-if [ "$angle" = retry-topic ] && [ ! -f "$DROID_FAKE_MARKERS/retry-topic-failed" ]; then
-  touch "$DROID_FAKE_MARKERS/retry-topic-failed"
-  jq -cn '{type:"result",subtype:"success",is_error:false,result:"invalid topic",session_id:"topic-retry-session"}'
+angle="$(printf '%s\n' "$prompt" | sed -n 's/^angle=//p' | head -1)"
+mode="$(printf '%s\n' "$prompt" | sed -n 's/^mode=//p' | head -1)"
+if [ "$angle" = retry-topic ] && [ ! -f "$PI_FAKE_MARKERS/retry-topic-failed" ]; then
+  touch "$PI_FAKE_MARKERS/retry-topic-failed"
+  printf '%s\n' 'invalid topic'
   exit 0
 fi
 if [ "$mode" = external ]; then
@@ -77,10 +62,9 @@ payload="$(jq -cn --arg angle "$angle" --arg locator "$locator" --arg wrong "$wr
       {claim:"blank locator",locator:"   ",confidence:"high"},
       {claim:"wrong mode locator",locator:$wrong,confidence:"high"}
     ],summary:"current state; unrelated side issue remains a candidate",gaps:["one gap"]}')"
-jq -cn --arg result "$payload" --arg session "topic-$angle" \
-  '{type:"result",subtype:"success",is_error:false,result:$result,session_id:$session}'
+printf '%s\n' "$payload"
 FAKE
-chmod +x "$TMP/bin/droid"
+chmod +x "$TMP/bin/pi"
 export PATH="$TMP/bin:$PATH"
 
 git -C "$TMP" init -q
@@ -129,7 +113,7 @@ printf '%s\n' "$START" | grep -q 'INVESTIGATE_STARTED.*topics=2' \
 poll_completed internal-a >/dev/null \
   && ok "topics validate and synthesize" || no "investigate completion"
 
-ROOT="$TMP/.factory/multi-model-workflow/investigate-runs/internal-a"
+ROOT="$TMP/.pi/multi-model-workflow/investigate-runs/internal-a"
 [ "$(jq 'length' "$ROOT/synthesis/evidence.json")" = 2 ] \
   && ok "all topic evidence reaches synthesis" || no "evidence fan-in"
 [ "$(jq '.findings|length' "$ROOT/topics/000/validated.json")" = 1 ] \
@@ -164,21 +148,12 @@ elif [ -e "$ROOT/.run-lock" ]; then
 else
   no "stale lock was removed unsafely"
 fi
-if grep 'topics/00[01]/prompt.md' "$DROID_TEST_LOG" | grep -q -- '--disabled-tools .*web_search.*fetch_url'; then
-  ok "internal topics disable external search"
-else
-  no "internal tool restriction"
-fi
-if grep 'topics/00[01]/prompt.md' "$DROID_TEST_LOG" | grep -- '--disabled-tools' | grep -q 'execute-cli'; then
-  no "internal bug investigation lost Execute"
-else
-  ok "internal topics retain diagnostic Execute"
-fi
-if grep 'synthesis/prompt.md' "$DROID_TEST_LOG" | grep -q -- '--disabled-tools .*apply-patch-cli'; then
-  ok "synthesis uses its own model tool inventory"
-else
-  no "synthesis model tool restriction"
-fi
+[ "$(jq -r .allowed_tools "$ROOT/topics/000/meta.json")" = "read,grep,find,ls,bash" ] \
+  && ok "internal tool restriction" || no "internal tool restriction"
+printf '%s\n' "$(jq -r .allowed_tools "$ROOT/topics/000/meta.json")" | grep -qw bash \
+  && ok "internal topics retain diagnostic bash" || no "internal bug investigation lost bash"
+[ "$(jq -r .synthesis_allowed_tools "$ROOT/run.json")" = "" ] \
+  && ok "synthesis model tool restriction" || no "synthesis model tool restriction"
 if cd "$TMP" && bash "$INVESTIGATE" start --direction internal --topics "$TMP/topics.json" --run internal-a >/dev/null 2>&1; then
   no "duplicate run must fail"
 else
@@ -195,10 +170,10 @@ else
   no "inherited staging path was deleted"
 fi
 set +e
-(cd "$TMP" && DROID_FAKE_LIST_SLEEP=0.05 bash "$INVESTIGATE" start \
+(cd "$TMP" && PI_FAKE_LIST_SLEEP=0.05 bash "$INVESTIGATE" start \
   --direction internal --topics "$TMP/topics.json" --run concurrent-a >/dev/null 2>&1) &
 p1=$!
-(cd "$TMP" && DROID_FAKE_LIST_SLEEP=0.05 bash "$INVESTIGATE" start \
+(cd "$TMP" && PI_FAKE_LIST_SLEEP=0.05 bash "$INVESTIGATE" start \
   --direction internal --topics "$TMP/topics.json" --run concurrent-a >/dev/null 2>&1) &
 p2=$!
 wait "$p1"; r1=$?
@@ -214,7 +189,7 @@ else
 fi
 poll_completed concurrent-a >/dev/null || no "concurrent winner completion"
 set +e
-DROID_FAKE_LIST_SLEEP=0.5 bash -c \
+PI_FAKE_LIST_SLEEP=0.5 bash -c \
   'cd "$1"; exec bash "$2" start --direction internal --topics "$3" --run interrupted-a' \
   _ "$TMP" "$INVESTIGATE" "$TMP/topics.json" >/dev/null 2>&1 &
 interrupted_pid=$!
@@ -223,7 +198,7 @@ kill "$interrupted_pid" 2>/dev/null
 wait "$interrupted_pid" 2>/dev/null
 sleep 0.05
 set -e
-INTERRUPTED_PARENT="$TMP/.factory/multi-model-workflow/investigate-runs"
+INTERRUPTED_PARENT="$TMP/.pi/multi-model-workflow/investigate-runs"
 if [ ! -e "$INTERRUPTED_PARENT/interrupted-a" ] \
   && ! compgen -G "$INTERRUPTED_PARENT/.interrupted-a.start.*" >/dev/null; then
   ok "interrupted start publishes no partial run"
@@ -241,11 +216,8 @@ JSON
 cd "$TMP" && bash "$INVESTIGATE" start --direction external --topics "$TMP/external.json" --run external-a >/dev/null
 poll_completed external-a >/dev/null \
   && ok "external topic completes" || no "external completion"
-if grep 'external-a/topics/000/prompt.md' "$DROID_TEST_LOG" | grep -q -- '--disabled-tools .*read-cli.*grep_tool_cli'; then
-  ok "external topics disable repository reads"
-else
-  no "external tool restriction"
-fi
+[ "$(jq -r .allowed_tools "$TMP/.pi/multi-model-workflow/investigate-runs/external-a/topics/000/meta.json")" = "read,bash" ] \
+  && ok "external tool restriction" || no "external tool restriction"
 
 cat >"$TMP/both-invalid.json" <<'JSON'
 [{"angle":"missing-mode","question":"Which direction?"}]
@@ -255,14 +227,10 @@ if cd "$TMP" && bash "$INVESTIGATE" start --direction both --topics "$TMP/both-i
 else
   ok "both direction validates topic mode"
 fi
-if cd "$TMP" && DROID_FAKE_LIST_FAIL=1 bash "$INVESTIGATE" start \
-  --direction internal --topics "$TMP/external.json" --run inventory-fail >/dev/null 2>&1; then
-  no "tool inventory failure must stop start"
-elif [ ! -e "$TMP/.factory/multi-model-workflow/investigate-runs/inventory-fail" ]; then
-  ok "tool inventory failure leaves no partial run"
-else
-  no "tool inventory failure left partial state"
-fi
+(cd "$TMP" && PI_BIN=/nonexistent/pi bash "$INVESTIGATE" start \
+  --direction internal --topics "$TMP/external.json" --run launch-fail >/dev/null)
+poll_failed launch-fail >/dev/null \
+  && ok "headless launch failure stays visible" || no "headless launch failure visibility"
 
 cat >"$TMP/retry.json" <<'JSON'
 [
@@ -273,34 +241,34 @@ JSON
 cd "$TMP" && bash "$INVESTIGATE" start --direction internal --topics "$TMP/retry.json" --run retry-a >/dev/null
 poll_failed retry-a >/dev/null \
   && ok "malformed topic result fails visibly" || no "schema failure visibility"
-RETRY_ROOT="$TMP/.factory/multi-model-workflow/investigate-runs/retry-a"
+RETRY_ROOT="$TMP/.pi/multi-model-workflow/investigate-runs/retry-a"
 [ -f "$RETRY_ROOT/topics/000/validated.json" ] && [ ! -f "$RETRY_ROOT/synthesis/meta.json" ] \
   && ok "partial success persists without premature synthesis" || no "partial failure state"
 rm -f "$RETRY_ROOT/topics/001/run.log"
 cd "$TMP" && bash "$INVESTIGATE" resume --run retry-a >/dev/null
 poll_completed retry-a >/dev/null \
   && ok "resume retries failed topic even when log is absent" || no "topic retry"
-[ "$(grep -c 'retry-a/topics/000/prompt.md' "$DROID_TEST_LOG")" = 1 ] \
-  && [ "$(grep -c 'retry-a/topics/001/prompt.md' "$DROID_TEST_LOG")" = 2 ] \
+[ "$(grep -c '^angle=good-topic$' "$PI_TEST_LOG")" = 1 ] \
+  && [ "$(grep -c '^angle=retry-topic$' "$PI_TEST_LOG")" = 2 ] \
   && ok "validated topic is not rerun" || no "selective retry"
-[ -f "$RETRY_ROOT/topics/001/attempts/001/result.json" ] \
+[ -f "$RETRY_ROOT/topics/001/attempts/001/result.log" ] \
   && [ "$(jq -r .attempt "$RETRY_ROOT/topics/001/meta.json")" = 2 ] \
   && ok "failed topic attempt is preserved" || no "topic retry audit trail"
 
 cat >"$TMP/synth-retry.json" <<'JSON'
 [{"angle":"synth-source","question":"Produce valid evidence."}]
 JSON
-export DROID_FAKE_SYNTH_FAIL_ONCE=1
+export PI_FAKE_SYNTH_FAIL_ONCE=1
 cd "$TMP" && bash "$INVESTIGATE" start --direction internal --topics "$TMP/synth-retry.json" --run synth-retry >/dev/null
 poll_failed synth-retry >/dev/null \
   && ok "malformed synthesis fails visibly" || no "synthesis failure visibility"
 cd "$TMP" && bash "$INVESTIGATE" resume --run synth-retry >/dev/null
 poll_completed synth-retry >/dev/null \
   && ok "failed synthesis can be rerun" || no "synthesis retry"
-SYNTH_ROOT="$TMP/.factory/multi-model-workflow/investigate-runs/synth-retry/synthesis"
-[ -f "$SYNTH_ROOT/attempts/001/result.json" ] \
+SYNTH_ROOT="$TMP/.pi/multi-model-workflow/investigate-runs/synth-retry/synthesis"
+[ -f "$SYNTH_ROOT/attempts/001/result.log" ] \
   && [ "$(jq -r .validation_error "$SYNTH_ROOT/attempts/001/meta.json")" = "report result schema invalid" ] \
   && ok "failed synthesis attempt is preserved" || no "synthesis retry audit trail"
-unset DROID_FAKE_SYNTH_FAIL_ONCE
+unset PI_FAKE_SYNTH_FAIL_ONCE
 
 exit "$fail"

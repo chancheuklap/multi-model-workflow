@@ -4,14 +4,15 @@
 # 审闸 map(routes.review_gates):plan→②/build→④;design 出口是唯一人闸 mmw approve(/approve-design),不走 handoff pass。
 # 机器否决权只认白名单:审闸留痕硬核、设计确认指纹、package exit-check;其余判断层问题一律 WARN 留痕不拒收。
 set -euo pipefail
-STATE_SUBDIR="${STATE_SUBDIR:-.factory/multi-model-workflow}"
-WT_REL="${WT_REL:-.factory/worktrees}"
+STATE_SUBDIR="${STATE_SUBDIR:-.pi/multi-model-workflow}"
+WT_REL="${WT_REL:-.pi/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREPARE="$SCRIPT_DIR/../prepare.sh"
 FLOW="$SCRIPT_DIR/../flow.sh"
 LOOP="$SCRIPT_DIR/../loop.sh"
 NOTE="$SCRIPT_DIR/../note.sh"
 PACKAGE="$SCRIPT_DIR/../package-phase.sh"
+REVIEW="$SCRIPT_DIR/../review.sh"
 PACKAGE_FIXTURES="$SCRIPT_DIR/fixtures/package-phase"
 
 pass=0; fail=0
@@ -41,6 +42,7 @@ gate_trace() { # $1=wt:按当前 gate 写审查留痕
   gate="$(jq -r .gate "$wt/${STATE_SUBDIR}/task.json")"
   slug="$(jq -r .slug "$wt/${STATE_SUBDIR}/task.json")"
   case "$gate" in plan) stage=plan;; build) stage=final;; *) echo "gate_trace: 不在审闸($gate)" >&2; return 1;; esac
+  (cd "$wt" && bash "$REVIEW" start --stage "$stage" --source test >/dev/null)
   mkdir -p "$wt/docs/reviews"
   printf '# review findings\n\n## verdict\npass\n' > "$wt/docs/reviews/$slug-$stage.md"
 }
@@ -104,6 +106,7 @@ echo "$OUTG" | grep -q "REVIEW_STAGE=plan" && ok "审闸报阶段 plan" || no "R
 WPG="$(cd "$WA" && bash "$FLOW" where)"
 echo "$WPG" | grep "review_start=" | grep -q -- "review start --stage plan" && ok "②闸 where 吐 review_start --stage plan" || no "review_start plan ($(echo "$WPG" | grep review_start))"
 echo "$WPG" | grep -q "review_trace=docs/reviews/2026-06-28-task-a-plan.md" && ok "where 吐 review_trace 落点" || no "review_trace 行"
+(cd "$WA" && bash "$REVIEW" start --stage plan --source test >/dev/null)
 # 审闸收口硬核:无留痕 → pass 被拒;留痕无 verdict → 仍被拒;齐了才放行
 if ( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 ); then no "无审查留痕 gate pass 该被拒"; else ok "无审查留痕 → gate pass 被拒(写者≠审者证据面)"; fi
 mkdir -p "$WA/docs/reviews"; printf '# findings only\n' > "$WA/docs/reviews/2026-06-28-task-a-plan.md"

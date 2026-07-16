@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
-# SessionStart 分诊(Droid 原生)
-# 在管任务 worktree:三源回报(书签注记 + 最近提交流水 + 待拍板指引)+ 新鲜度(版本/时效)。
-# 会话开头与恢复各注入一次;不逐条消息注锚。
+# pi 会话分诊:在管任务 worktree 回报书签、最近提交、待拍板与状态新鲜度。
+# extensions/mmw-hooks.ts 在会话开头与 compaction 后经 before_agent_start 注入一次。
 set -euo pipefail
-cat >/dev/null 2>&1 || true
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=../scripts/lib/runtime.sh
@@ -18,7 +16,7 @@ if [ -f "$man" ]; then
   # 身份 + 值守档
   jq -r --arg mmw "$MMW" '
     (.attendance // "attended") as $mode |
-    "[multi-model-workflow-droid] 在管任务 worktree:\(.slug) [\(.scenario)] phase=\(.phase) status=\(.status) mode=\($mode)。" +
+    "[multi-model-workflow-pi] 在管任务 worktree:\(.slug) [\(.scenario)] phase=\(.phase) status=\(.status) mode=\($mode)。" +
     (if $mode=="unattended" then "  ⚠ 强无人档(用户显式进入):不向用户提问,遇硬停写板等人;用户回来发任意消息即恢复 attended。" else "" end)' \
     "$man" 2>/dev/null || true
 
@@ -43,7 +41,7 @@ if [ -f "$man" ]; then
   fi
 
   # 新鲜度(白名单第 3 条):版本/时效不对先对表
-  cur_ver="$(jq -r '.version // ""' "$SCRIPT_DIR/../.factory-plugin/plugin.json" 2>/dev/null || echo "")"
+  cur_ver="$(jq -r '.version // ""' "$SCRIPT_DIR/../package.json" 2>/dev/null || echo "")"
   man_ver="$(jq -r '.plugin_version // ""' "$man" 2>/dev/null || echo "")"
   if [ -n "$man_ver" ] && [ -n "$cur_ver" ] && [ "$man_ver" != "$cur_ver" ]; then
     echo "⚠ 状态由旧版 plugin($man_ver,当前 $cur_ver)写入:先 /reassess 从磁盘对表再续,别把旧指令当最新。"
@@ -61,7 +59,7 @@ if [ -f "$man" ]; then
   exit 0
 fi
 
-echo "[multi-model-workflow-droid] 会话分诊:需正式编排的开发任务(新功能/系统改造/根因不明的 bug/需独立任务边界的小改/合并 worktree)→ 用 orchestrate skill 进流程(先跑 $MMW where);问答、解释、只读查看和主线程可直接完成并验证的琐碎单步动作 → 直接处理,不进流程。"
+echo "[multi-model-workflow-pi] 会话分诊:需正式编排的开发任务(新功能/系统改造/根因不明的 bug/需独立任务边界的小改/合并 worktree)→ 用 orchestrate skill 进流程(先跑 $MMW where);问答、解释、只读查看和主线程可直接完成并验证的琐碎单步动作 → 直接处理,不进流程。"
 hdr=0
 while IFS= read -r mm; do
   [ -f "$mm" ] || continue

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Droid 原生运行时路径与工具约定。
+# pi 原生运行时路径与工具约定。
 # prepare/flow/loop/review/worker/hooks 统一 source 本文件。
 
-mmw_state_parent() { printf '.factory'; }
-mmw_state_subdir() { printf '.factory/multi-model-workflow'; }
-mmw_worktrees_rel() { printf '.factory/worktrees'; }
+mmw_state_parent() { printf '.pi'; }
+mmw_state_subdir() { printf '.pi/multi-model-workflow'; }
+mmw_worktrees_rel() { printf '.pi/worktrees'; }
 mmw_worker_branch_prefix() { printf 'worker'; }
-mmw_ask_user_tool() { printf 'AskUser'; }
-mmw_shell_tool() { printf 'Execute'; }
-mmw_worker_backend() { printf 'droid-exec'; }
+mmw_ask_user_tool() { printf 'ask_user'; }
+mmw_shell_tool() { printf 'bash'; }
+mmw_worker_backend() { printf 'pi-exec'; }
 
 mmw_resolve_state_subdir() {
   printf '%s' "$(mmw_state_subdir)"
@@ -53,13 +53,9 @@ mmw_ensure_wt_state_ignore() {
 }
 
 mmw_enter_worktree_hint() {
-  printf '在 worktree 路径继续本任务: cd %s 后跑 mmw where，或在该目录新开 Droid 会话' "$1"
+  printf '在 worktree 路径继续本任务: cd %s 后跑 mmw where，或在该目录新开 pi 会话' "$1"
 }
 
 mmw_plugin_root() {
-  if [ -n "${DROID_PLUGIN_ROOT:-}" ]; then
-    printf '%s' "$DROID_PLUGIN_ROOT"
-  else
-    cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd
-  fi
+  cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd
 }

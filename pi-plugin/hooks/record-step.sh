@@ -2,15 +2,14 @@
 # PostToolUse(commit):提交即记 step done。
 # 真值链:命令位确认是 git commit(含 -C/-c 等全局选项)→ Pack 号和 sha 从 HEAD 提交信息取——
 # 命令文本里的 Pack 字样不作数(echo/后续段里的不算),commit 失败 HEAD 没动就不记。
-# Execute hook 每条命令都会进入脚本,本脚本自行筛出 git commit。
+# pi tool_result(bash) 每条命令都会进入脚本,本脚本自行筛出 git commit。
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=../scripts/lib/runtime.sh
 . "$SCRIPT_DIR/../scripts/lib/runtime.sh"
 LOOP="$SCRIPT_DIR/../scripts/loop.sh"
 
-input="$(cat)"
-cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")"
+cmd="${1:-${MMW_TOOL_COMMAND:-}}"
 
 # 只认命令位的 git commit;剥 git 全局选项,-C 的目标目录记下来当仓库根
 is_commit=0; cdir=""

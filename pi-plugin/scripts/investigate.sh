@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
-# Droid 原生 investigate fan-out + schema 校验 + synthesis。
+# pi 原生 investigate fan-out + schema 校验 + synthesis。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
-# shellcheck source=lib/droid-exec.sh
-. "$SCRIPT_DIR/lib/droid-exec.sh"
+# shellcheck source=lib/pi-exec.sh
+. "$SCRIPT_DIR/lib/pi-exec.sh"
 
-TOPIC_MODEL="${DROID_INVESTIGATE_MODEL:-custom:GPT-5.6-Sol-[Codex]-0}"
-TOPIC_EFFORT="${DROID_INVESTIGATE_EFFORT:-medium}"
-SYNTH_MODEL="${DROID_INVESTIGATE_SYNTH_MODEL:-custom:GPT-5.6-Terra-[Codex]-0}"
-SYNTH_EFFORT="${DROID_INVESTIGATE_SYNTH_EFFORT:-high}"
-ALLOW_INTERNAL="read-cli,grep_tool_cli,glob-search-cli,ls-cli,execute-cli,skill"
-ALLOW_EXTERNAL="web_search,fetch_url,mcp_context7_query-docs,mcp_context7_resolve-library-id,skill"
+TOPIC_MODEL="${PI_INVESTIGATE_MODEL:-openai-codex/gpt-5.6-sol}"
+TOPIC_EFFORT="${PI_INVESTIGATE_EFFORT:-medium}"
+SYNTH_MODEL="${PI_INVESTIGATE_SYNTH_MODEL:-openai-codex/gpt-5.6-terra}"
+SYNTH_EFFORT="${PI_INVESTIGATE_SYNTH_EFFORT:-high}"
+# pi 无法按内/外部分别关工具(bash 同时给到文件与网络);内外部分离靠 prompt 纪律 + 校验闸。
+ALLOW_INTERNAL="read,grep,find,ls,bash"
+ALLOW_EXTERNAL="read,bash"
 MMW_INVESTIGATE_RUN_LOCK=""
 MMW_INVESTIGATE_START_LOCK=""
 MMW_INVESTIGATE_STAGING=""
@@ -39,7 +40,7 @@ cleanup_investigate_locks() {
     rm -f "$lock"
   done
   case "$staging" in
-    */.factory/multi-model-workflow/investigate-runs/.*.start.[0-9]*)
+    */.pi/multi-model-workflow/investigate-runs/.*.start.[0-9]*)
       [ -d "$staging" ] && rm -rf "$staging"
       ;;
   esac
@@ -100,20 +101,21 @@ archive_job_attempt() {
   cp "$meta" "$archive/meta.json"
   result="$(jq -r '.result_file // empty' "$meta")"
   log="$(jq -r '.log_file // empty' "$meta")"
-  if [ -n "$result" ] && [ -f "$result" ]; then mv "$result" "$archive/result.json"; fi
+  if [ -n "$result" ] && [ -f "$result" ]; then mv "$result" "$archive/result.log"; fi
   if [ -n "$log" ] && [ -f "$log" ]; then mv "$log" "$archive/run.log"; fi
+  rm -f "$dir/exit_code"
   return 0
 }
 
 launch_job() {
-  local meta="$1" disabled="$2"
-  mmw_droid_launch "$meta" \
+  local meta="$1" allowed="$2"
+  mmw_pi_launch "$meta" \
     "$(jq -r .prompt_file "$meta")" \
     "$(jq -r .cwd "$meta")" \
     "$(jq -r .model "$meta")" \
     "$(jq -r .reasoning_effort "$meta")" \
     "$(jq -r .system_prompt_file "$meta")" \
-    "" low "$disabled" || die "Droid investigate job 启动失败:$meta"
+    "" "$allowed" || die "pi investigate job 启动失败:$meta"
 }
 
 topic_prompt() {
@@ -126,21 +128,21 @@ question=$question
 skill=${skill:-none}
 repoRoot=$repo
 
-内部调查只在 repoRoot 下用 Read/Grep/Glob/LS 取证；定位 bug 根因需要复现时可用 Execute 跑只读诊断、目标测试或复现命令，禁止安装依赖、改文件、commit。执行前后都核对 `git status --short`，发现 tracked 改动立即停止并写入 gaps。每条 locator 必须是 file:line。
-外部调查用 WebSearch/FetchUrl/Context7 取证，每条 locator 必须是已打开核验的 URL。
+内部调查只在 repoRoot 下用 read/grep/find/ls 取证；定位 bug 根因需要复现时可用 bash 跑只读诊断、目标测试或复现命令，禁止安装依赖、改文件、commit。执行前后都核对 \`git status --short\`，发现 tracked 改动立即停止并写入 gaps。每条 locator 必须是 file:line。
+外部调查不读仓库，经 bash 用 \`curl\` 等只读网络命令取证，每条 locator 必须是已打开核验的 URL。
 查不清写入 gaps，不得编造。只返回一个紧凑 JSON 对象，不加 Markdown fence 或解释：
 {"topic":"<angle>","findings":[{"claim":"<事实>","locator":"<file:line或URL>","confidence":"high|medium|low"}],"summary":"<只陈述现状>","gaps":["<缺口>"]}
 PROMPT
 }
 
+# pi headless 的 result 文件是工人最终消息原文;要求它整体就是一个 JSON 对象。
 validate_topic() {
   local meta="$1" out="$2" result tmp
   result="$(jq -r '.result_file // empty' "$meta")"
   [ -s "$result" ] || return 1
   tmp="$(mktemp "$(dirname "$out")/.topic.XXXXXX")" || return 1
   if ! jq -e '
-      .result | fromjson
-      | type=="object"
+      type=="object"
       and (.topic|type=="string")
       and (.summary|type=="string")
       and (.findings|type=="array")
@@ -162,12 +164,11 @@ validate_topic() {
       then test("^.+:[0-9]+(-[0-9]+)?$")
       else test("^https?://")
       end;
-    .result | fromjson
-    | . as $topic
+    . as $topic
     | .findings |= map(select((.locator|locator_ok) and .confidence!="low"))
     | . + {mode:$mode,dropped: ($topic.findings
         | map(select((.locator|locator_ok|not) or .confidence=="low")))}
-  ' "$result" >"$tmp" \
+  ' "$result" >"$tmp" 2>/dev/null \
     && jq -e . "$tmp" >/dev/null 2>&1 \
     && mv "$tmp" "$out" \
     || { rm -f "$tmp"; return 1; }
@@ -179,8 +180,7 @@ validate_report() {
   [ -s "$result" ] || return 1
   tmp="$(mktemp "$(dirname "$out")/.report.XXXXXX")" || return 1
   if ! jq -e '
-      .result | fromjson
-      | type=="object"
+      type=="object"
       and (.markdown|type=="string" and length>0)
       and (.open_questions|type=="array")
       and (all(.open_questions[]; type=="string"))
@@ -194,7 +194,7 @@ validate_report() {
     rm -f "$tmp"
     return 1
   fi
-  jq '.result | fromjson' "$result" >"$tmp" \
+  jq '.' "$result" >"$tmp" 2>/dev/null \
     && mv "$tmp" "$out" \
     || { rm -f "$tmp"; return 1; }
 }
@@ -211,9 +211,8 @@ PROMPT
 }
 
 cmd_start() {
-  local direction="" topics="" run="" top root staging start_lock plugin topic_system disabled normalized i count
-  local topic_inventory synth_inventory parent
-  local internal_disabled external_disabled synth_disabled
+  local direction="" topics="" run="" top root staging start_lock plugin topic_system allowed normalized i count
+  local parent
   while [ $# -gt 0 ]; do
     case "$1" in
       --direction) direction="$2"; shift 2 ;;
@@ -249,18 +248,9 @@ cmd_start() {
   MMW_INVESTIGATE_STAGING="$staging"
   mkdir "$staging/topics"
   plugin="$(mmw_plugin_root)"
-  topic_inventory="$staging/topic-tool-inventory.json"
-  synth_inventory="$staging/synthesis-tool-inventory.json"
-  mmw_droid_load_tool_inventory "$topic_inventory" "$TOPIC_MODEL" \
-    || die "无法读取 topic Droid tool inventory"
-  mmw_droid_load_tool_inventory "$synth_inventory" "$SYNTH_MODEL" \
-    || die "无法读取 synthesis Droid tool inventory"
-  internal_disabled="$(mmw_droid_disable_all_except "$ALLOW_INTERNAL" "$topic_inventory")"
-  external_disabled="$(mmw_droid_disable_all_except "$ALLOW_EXTERNAL" "$topic_inventory")"
-  synth_disabled="$(mmw_droid_disable_all_except "" "$synth_inventory")"
   topic_system="$staging/topic-system.md"
-  mmw_droid_render_prompt "$plugin/droids/investigate-topic.md" "$topic_system" \
-    || die "investigate-topic droid prompt 无效"
+  mmw_pi_render_prompt "$plugin/agents-roster/investigate-topic.md" "$topic_system" \
+    || die "investigate-topic 角色提示词无效"
 
   normalized="$staging/topics.json"
   if [ "$direction" = both ]; then
@@ -270,12 +260,11 @@ cmd_start() {
   fi
 
   jq -n --arg run "$run" --arg direction "$direction" --arg topics "$root/topics.json" \
-    --arg internal_disabled "$internal_disabled" --arg external_disabled "$external_disabled" \
-    --arg synth_disabled "$synth_disabled" \
+    --arg internal_allowed "$ALLOW_INTERNAL" --arg external_allowed "$ALLOW_EXTERNAL" \
     --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{run:$run,direction:$direction,topics_file:$topics,status:"running",
-      internal_disabled_tools:$internal_disabled,external_disabled_tools:$external_disabled,
-      synthesis_disabled_tools:$synth_disabled,
+      internal_allowed_tools:$internal_allowed,external_allowed_tools:$external_allowed,
+      synthesis_allowed_tools:"",
       report_file:null,created_at:$at,updated_at:$at}' >"$staging/run.json"
 
   count="$(jq 'length' "$normalized")"
@@ -293,10 +282,10 @@ cmd_start() {
     topic_prompt "$mode" "$angle" "$question" "$skill" "$top" >"$prompt"
     write_job_meta "$meta" topic "$TOPIC_MODEL" "$TOPIC_EFFORT" "$top" \
       "$final_prompt" "$root/topic-system.md"
-    if [ "$mode" = internal ]; then disabled="$internal_disabled"; else disabled="$external_disabled"; fi
+    if [ "$mode" = internal ]; then allowed="$ALLOW_INTERNAL"; else allowed="$ALLOW_EXTERNAL"; fi
     jq --arg mode "$mode" --arg angle "$angle" --arg question "$question" \
-      --arg disabled "$disabled" \
-      '. + {mode:$mode,angle:$angle,question:$question,disabled_tools:$disabled}' \
+      --arg allowed "$allowed" \
+      '. + {mode:$mode,angle:$angle,question:$question,allowed_tools:$allowed}' \
       "$meta" >"$meta.tmp" && mv "$meta.tmp" "$meta"
   done
   printf '%s\n' "$$" >"$staging/.run-lock"
@@ -306,7 +295,7 @@ cmd_start() {
   release_start_lock
   for ((i=0; i<count; i++)); do
     printf -v meta '%s/topics/%03d/meta.json' "$root" "$i"
-    launch_job "$meta" "$(jq -r .disabled_tools "$meta")"
+    launch_job "$meta" "$(jq -r .allowed_tools "$meta")"
   done
   release_run_lock
   echo "INVESTIGATE_STARTED run=$run topics=$count"
@@ -324,12 +313,12 @@ launch_synthesis() {
   prompt="$synth_dir/prompt.md"
   build_synth_prompt "$evidence" "$prompt"
   system="$synth_dir/system-prompt.md"
-  mmw_droid_render_prompt "$plugin/droids/investigate-synthesizer.md" "$system" \
-    || die "investigate-synthesizer droid prompt 无效"
+  mmw_pi_render_prompt "$plugin/agents-roster/investigate-synthesizer.md" "$system" \
+    || die "investigate-synthesizer 角色提示词无效"
   meta="$synth_dir/meta.json"
   write_job_meta "$meta" synthesis "$SYNTH_MODEL" "$SYNTH_EFFORT" "$top" "$prompt" "$system"
-  launch_job "$meta" "$(jq -r .synthesis_disabled_tools "$root/run.json")"
-  mmw_droid_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  launch_job "$meta" "$(jq -r '.synthesis_allowed_tools // ""' "$root/run.json")"
+  mmw_pi_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '.status="synthesizing" | .updated_at=$at'
 }
 
@@ -352,16 +341,16 @@ cmd_status() {
       validated=$((validated+1))
       continue
     fi
-    state="$(mmw_droid_refresh "$meta" 2>/dev/null || true)"
+    state="$(mmw_pi_refresh "$meta" 2>/dev/null || true)"
     case "$state" in
       RUNNING) running=$((running+1)) ;;
       COMPLETED)
         if validate_topic "$meta" "$(dirname "$meta")/validated.json"; then
-          mmw_droid_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          mmw_pi_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '.status="validated" | .validation_error=null | .updated_at=$at'
           validated=$((validated+1))
         else
-          mmw_droid_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          mmw_pi_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '.status="failed" | .validation_error="topic result schema invalid" | .updated_at=$at'
           failed=$((failed+1))
         fi
@@ -375,7 +364,7 @@ cmd_status() {
     return 0
   fi
   if [ "$failed" -gt 0 ] || [ "$validated" -ne "$total" ]; then
-    mmw_droid_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    mmw_pi_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       '.status="failed" | .updated_at=$at'
     echo "INVESTIGATE_STATUS=FAILED validated=$validated failed=$failed total=$total"
     echo "NEXT=mmw investigate resume --run $run"
@@ -385,7 +374,7 @@ cmd_status() {
   local synth_meta="$root/synthesis/meta.json" report="$root/result.json"
   local synth_report="$root/synthesis/report.json" tmp
   if [ -f "$report" ]; then
-    mmw_droid_atomic_update "$root/run.json" --arg report "$report" \
+    mmw_pi_atomic_update "$root/run.json" --arg report "$report" \
       --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       '.status="completed" | .report_file=$report | .updated_at=$at'
     echo "INVESTIGATE_STATUS=COMPLETED"
@@ -399,7 +388,7 @@ cmd_status() {
     return 0
   fi
 
-  state="$(mmw_droid_refresh "$synth_meta" 2>/dev/null || true)"
+  state="$(mmw_pi_refresh "$synth_meta" 2>/dev/null || true)"
   case "$state" in
     RUNNING)
       echo "INVESTIGATE_STATUS=SYNTHESIZING"
@@ -414,7 +403,7 @@ cmd_status() {
           && jq -e . "$tmp" >/dev/null 2>&1 \
           && mv "$tmp" "$report" \
           || { rm -f "$tmp"; die "无法组装 investigate result"; }
-        mmw_droid_atomic_update "$root/run.json" --arg report "$report" \
+        mmw_pi_atomic_update "$root/run.json" --arg report "$report" \
           --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
           '.status="completed" | .report_file=$report | .updated_at=$at'
         echo "INVESTIGATE_STATUS=COMPLETED"
@@ -424,10 +413,10 @@ cmd_status() {
       ;;
   esac
   if [ "$state" = COMPLETED ]; then
-    mmw_droid_atomic_update "$synth_meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    mmw_pi_atomic_update "$synth_meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       '.status="failed" | .validation_error="report result schema invalid" | .updated_at=$at'
   fi
-  mmw_droid_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  mmw_pi_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '.status="failed" | .updated_at=$at'
   echo "INVESTIGATE_STATUS=FAILED synthesis"
   echo "NEXT=mmw investigate resume --run $run"
@@ -445,30 +434,30 @@ cmd_resume() {
   for meta in "$root"/topics/*/meta.json; do
     [ -f "$meta" ] || continue
     [ -f "$(dirname "$meta")/validated.json" ] && continue
-    state="$(mmw_droid_refresh "$meta" 2>/dev/null || true)"
+    state="$(mmw_pi_refresh "$meta" 2>/dev/null || true)"
     [ "$state" = RUNNING ] && continue
     archive_job_attempt "$meta"
-    mmw_droid_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    mmw_pi_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       '.status="prepared" | .pid=null | .result_file=null | .log_file=null
        | .validation_error=null | .attempt=((.attempt // 1)+1) | .updated_at=$at'
-    launch_job "$meta" "$(jq -r .disabled_tools "$meta")"
+    launch_job "$meta" "$(jq -r .allowed_tools "$meta")"
     retried=$((retried+1))
   done
 
   meta="$root/synthesis/meta.json"
   if [ "$retried" -eq 0 ] && [ -f "$meta" ] && [ ! -f "$root/result.json" ]; then
-    state="$(mmw_droid_refresh "$meta" 2>/dev/null || true)"
+    state="$(mmw_pi_refresh "$meta" 2>/dev/null || true)"
     [ "$state" = RUNNING ] || {
       archive_job_attempt "$meta"
-      mmw_droid_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      mmw_pi_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
         '.status="prepared" | .pid=null | .result_file=null | .log_file=null
          | .validation_error=null | .attempt=((.attempt // 1)+1) | .updated_at=$at'
-      launch_job "$meta" "$(jq -r .synthesis_disabled_tools "$root/run.json")"
+      launch_job "$meta" "$(jq -r '.synthesis_allowed_tools // ""' "$root/run.json")"
       retried=1
     }
   fi
   [ "$retried" -gt 0 ] || die "没有可恢复的失败 job"
-  mmw_droid_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  mmw_pi_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '.status="running" | .updated_at=$at'
   echo "INVESTIGATE_RESUMED jobs=$retried"
   echo "NEXT=mmw investigate status --run $run"

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # mmw 统一 CLI 空跑:每个动词路由到对的底层脚本、行为与直调一致。
 set -euo pipefail
-STATE_SUBDIR="${STATE_SUBDIR:-.factory/multi-model-workflow}"
-WT_REL="${WT_REL:-.factory/worktrees}"
+STATE_SUBDIR="${STATE_SUBDIR:-.pi/multi-model-workflow}"
+WT_REL="${WT_REL:-.pi/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 MMW="$SCRIPT_DIR/../mmw.sh"
 

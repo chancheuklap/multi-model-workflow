@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # prepare.sh 端到端自检:new → resume → cleanup,跑在一次性 git 仓库里。
 set -euo pipefail
-STATE_SUBDIR="${STATE_SUBDIR:-.factory/multi-model-workflow}"
-WT_REL="${WT_REL:-.factory/worktrees}"
+STATE_SUBDIR="${STATE_SUBDIR:-.pi/multi-model-workflow}"
+WT_REL="${WT_REL:-.pi/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREPARE="$SCRIPT_DIR/../prepare.sh"
 
@@ -26,13 +26,13 @@ echo "$OUT" | grep -q "^PREPARED" && ok "new 返回 PREPARED" || no "new 返回 
 [ -d "$WT" ] && ok "worktree 目录建好" || no "worktree 目录建好"
 git show-ref --verify --quiet "refs/heads/$SLUG" && ok "分支建好" || no "分支建好"
 [ -d "$WT/docs/investigating" ] && [ -d "$WT/docs/design" ] && [ -d "$WT/docs/issues" ] && [ -d "$WT/docs/plans" ] && [ -d "$WT/docs/context" ] && ok "docs 布局 scaffold(investigating/design/issues/plans/context 全)" || no "docs 布局 scaffold"
-[ "$(cat "$WT/.factory/.gitignore" 2>/dev/null)" = "*" ] && ok "状态平面 .factory/ 已 gitignore(git status 不脏)" || no ".factory gitignore"
-# 主仓库零残留:建完 worktree 主仓库 git status 干净(.factory/.gitignore 遮蔽 worktrees/ 与状态平面)
+[ "$(cat "$WT/.pi/.gitignore" 2>/dev/null)" = "*" ] && ok "状态平面 .pi/ 已 gitignore(git status 不脏)" || no ".pi gitignore"
+# 主仓库零残留:建完 worktree 主仓库 git status 干净(.pi/.gitignore 遮蔽 worktrees/ 与状态平面)
 [ -z "$(git status --porcelain)" ] && ok "建 worktree 后主仓库 git status 零残留" || no "主仓库残留 ($(git status --porcelain | head -1))"
-grep -qxF 'worktrees/' .factory/.gitignore && grep -qxF 'multi-model-workflow/' .factory/.gitignore && ok "主仓库 .factory/.gitignore 遮蔽状态平面" || no "主仓库遮蔽条目"
-LC1="$(wc -l < .factory/.gitignore)"
+grep -qxF 'worktrees/' .pi/.gitignore && grep -qxF 'multi-model-workflow/' .pi/.gitignore && ok "主仓库 .pi/.gitignore 遮蔽状态平面" || no "主仓库遮蔽条目"
+LC1="$(wc -l < .pi/.gitignore)"
 bash "$PREPARE" new --scenario bug --slug 2026-06-28-idem --title t --request t >/dev/null 2>&1
-[ "$(wc -l < .factory/.gitignore)" = "$LC1" ] && ok "遮蔽写入幂等(重复 new 不追行)" || no "遮蔽幂等"
+[ "$(wc -l < .pi/.gitignore)" = "$LC1" ] && ok "遮蔽写入幂等(重复 new 不追行)" || no "遮蔽幂等"
 [ "$(jq -r .attendance "$TMP/${WT_REL}/2026-06-28-idem/${STATE_SUBDIR}/task.json")" = "afk" ] && ok "bug 无讨论期 → attendance 起步 afk" || no "bug attendance afk"
 git worktree remove --force "$TMP/${WT_REL}/2026-06-28-idem" >/dev/null 2>&1; git branch -D 2026-06-28-idem >/dev/null 2>&1; git worktree prune >/dev/null 2>&1   # 清掉幂等试探,不影响后续 team 断言
 grep -q "investigating/" "$WT/docs/.gitignore" && grep -q "reviews/" "$WT/docs/.gitignore" && grep -q -- "-final-review.md" "$WT/docs/.gitignore" && ok "过程产物 docs/.gitignore(investigating/reviews/终审报告不存档)" || no "docs gitignore"

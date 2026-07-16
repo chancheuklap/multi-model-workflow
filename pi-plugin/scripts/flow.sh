@@ -129,8 +129,9 @@ cmd_handoff() {
     warns+=("--produced 路径不存在,未进接力单: $pp(产物就绪后 $MMW pin --produced <路径> 补钉)")
   done
 
-  # 审闸收口的唯一产物级硬核(白名单「写者≠审者」的证据面):
-  # 审 verdict=pass 必须有落盘的审查留痕(docs/reviews/<slug>-<stage>.md 存在且含 verdict)。
+  # 审闸收口的产物级硬核(白名单「写者≠审者」的证据面):
+  # 审 verdict=pass 必须有落盘的审查留痕(docs/reviews/<slug>-<stage>.md 存在且含 verdict),
+  # 且 worktree 与审前基线一致(review.sh clean-check,弥补 pi 无只读沙盒的机器闸)。
   # 报告在=审真跑过;质量与 Critical 处置是判断,不机器核。merge-impl 在主仓库另有留痕路径,不经此闸。
   if [ "$conclusion" = "pass" ] && [ -n "$gate" ]; then
     local g_stage trace
@@ -141,6 +142,13 @@ cmd_handoff() {
     fi
     grep -qi 'verdict' "$trace" \
       || die "[$gate 审闸] 审查留痕 $trace 无 verdict 段;亲验 findings 后把每条处置与总 verdict 写进去再收口"
+    local sd_gate rb baseline_fingerprint
+    sd_gate="$(mmw_resolve_state_subdir "$top_wt")"
+    rb="$top_wt/$sd_gate/review-baseline.json"
+    [ -f "$rb" ] || die "[$gate 审闸] 找不到审前基线 $rb;先跑 $MMW review start 起审再收口"
+    baseline_fingerprint="$(jq -r '.fingerprint // empty' "$rb")"
+    bash "$SCRIPT_DIR/review.sh" clean-check --worktree "$top_wt" --baseline "$baseline_fingerprint" \
+      || die "[$gate 审闸] REVIEW_BOUNDARY_VIOLATION:审期间 worktree 被改动(明细见上方);先处理改动或重起审再收口"
   fi
 
   # 白名单第 4 条:过门后的推进(pass)前核设计确认指纹;不符 → 硬停交用户
@@ -334,7 +342,7 @@ find_manifest() {
 freshness_lines() {  # $1=manifest
   local m="$1"
   local cur_ver man_ver upd
-  cur_ver="$(jq -r '.version // ""' "$SCRIPT_DIR/../.factory-plugin/plugin.json" 2>/dev/null || echo "")"
+  cur_ver="$(jq -r '.version // ""' "$SCRIPT_DIR/../package.json" 2>/dev/null || echo "")"
   man_ver="$(jq -r '.plugin_version // ""' "$m")"
   upd="$(jq -r '.updated_at // .created_at // ""' "$m")"
   if [ -n "$man_ver" ] && [ -n "$cur_ver" ] && [ "$man_ver" != "$cur_ver" ]; then
@@ -356,7 +364,7 @@ freshness_lines() {  # $1=manifest
 cmd_where() {
   local m
   if ! m="$(find_manifest)"; then
-    # Droid 会把已有 linked worktree 的启动 cwd 归一化到主仓库;先从主仓库扫描在飞任务。
+    # 冷启动可能落在主仓库根(而非 worktree);先从主仓库扫描在飞任务。
     local top_ls mm
     local flying=()
     if top_ls="$(git rev-parse --show-toplevel 2>/dev/null)"; then

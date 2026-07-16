@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# mmw —— Droid 原生 multi-model-workflow 统一 CLI
+# mmw —— pi 原生 multi-model-workflow 统一 CLI
 #
 #   mmw where | mmw handoff | mmw pin | mmw spinoff
 #   mmw note set|show                            # 讨论态书签(现场注记)
@@ -33,10 +33,10 @@
 #     mmw loop init | step add/done | attendance | softstop | surface | resume | status | close
 #   审闸一条命令:
 #     mmw review start --stage <design|plan|plan-impl|final|merge-impl> --source <...>
-#   写码工人派发(droid exec → pack-executor):
+#   写码工人派发(pi headless → pack-executor):
 #     mmw worker dispatch --plan <p> --worktree <wt> | worker resume --worktree <wt> --instructions <f>
 #     mmw worker status --worktree <wt>       # 完成时自动核 docs 边界并打印最后回执
-#   写计划工人派发(droid exec → plan-writer;在任务 worktree 内、不 commit):
+#   写计划工人派发(pi headless → plan-writer;在任务 worktree 内、不 commit):
 #     mmw worker plan-dispatch --plan <落点> --worktree <wt> [--design <d>] [--issue <i>]
 #     mmw worker plan-resume --plan <落点> --worktree <wt> --instructions <f>
 #     mmw worker status --plan <落点> --worktree <wt>       # 完成时自动核计划边界
@@ -46,9 +46,9 @@
 #     mmw attend --mode attended|afk           自由切档
 #     mmw unattended enter|status|exit         强无人:enter 过门禁才进,不静默降级
 #     mmw side-finding record --tag <t> --disposition issue|fix [--finding <s>]   计划外分流落 open_items
-#   发布红线:push / gh pr merge / 部署由 guard-redline(PreToolUse)弹权限框要用户亲批,无令牌可自铸;
+#   发布红线:push / gh pr merge / 部署由 guard-redline(tool_call 拦截)交用户亲批,无令牌可自铸;
 #   本地 git merge(含合并进 main)不拦——可逆、不出站,真正红线是它之后的 push。
-# 状态平面固定为 .factory/multi-model-workflow/,worktree 根固定为 .factory/worktrees/。
+# 状态平面固定为 .pi/multi-model-workflow/,worktree 根固定为 .pi/worktrees/。
 set -euo pipefail
 D="$(cd "$(dirname "$0")" && pwd)"
 

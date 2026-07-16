@@ -11,7 +11,7 @@ no() { echo "  FAIL: $1"; fail=$((fail+1)); }
 echo "=== test_progress.sh ==="
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 cd "$TMP"; git init -q; git config user.email t@t; git config user.name t; echo s>s; git add -A; git commit -qm s
-SD=.factory/multi-model-workflow; mkdir -p "$SD"
+SD=.pi/multi-model-workflow; mkdir -p "$SD"
 BOARD="$SD/progress-board.md"
 
 # 无 task.json:不伪造状态

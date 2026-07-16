@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # loop.sh 执行账本空跑:init 无参/值守缓存、step 记账、软停×在场、冒泡、status 只报不否决、close 幂等。
 set -euo pipefail
-STATE_SUBDIR="${STATE_SUBDIR:-.factory/multi-model-workflow}"
+STATE_SUBDIR="${STATE_SUBDIR:-.pi/multi-model-workflow}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOOP="$SCRIPT_DIR/../loop.sh"
 

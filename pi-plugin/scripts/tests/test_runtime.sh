@@ -8,20 +8,20 @@ fail=0
 ok() { echo "ok - $1"; }
 no() { echo "not ok - $1"; fail=1; }
 
-[ "$(mmw_state_subdir)" = ".factory/multi-model-workflow" ] && ok "fixed state path" || no "state path"
-[ "$(mmw_worktrees_rel)" = ".factory/worktrees" ] && ok "fixed worktree path" || no "worktree path"
+[ "$(mmw_state_subdir)" = ".pi/multi-model-workflow" ] && ok "fixed state path" || no "state path"
+[ "$(mmw_worktrees_rel)" = ".pi/worktrees" ] && ok "fixed worktree path" || no "worktree path"
 [ "$(mmw_worker_branch_prefix)" = worker ] && ok "worker branch prefix" || no "branch prefix"
-[ "$(mmw_shell_tool)" = Execute ] && ok "Execute tool" || no "shell tool"
-[ "$(mmw_ask_user_tool)" = AskUser ] && ok "AskUser tool" || no "ask tool"
-[ "$(mmw_worker_backend)" = droid-exec ] && ok "Droid exec backend" || no "worker backend"
-[ "$(mmw_resolve_state_subdir /tmp)" = ".factory/multi-model-workflow" ] && ok "state resolution is fixed" || no "state resolution"
+[ "$(mmw_shell_tool)" = bash ] && ok "bash tool" || no "shell tool"
+[ "$(mmw_ask_user_tool)" = ask_user ] && ok "ask_user tool" || no "ask tool"
+[ "$(mmw_worker_backend)" = pi-exec ] && ok "pi exec backend" || no "worker backend"
+[ "$(mmw_resolve_state_subdir /tmp)" = ".pi/multi-model-workflow" ] && ok "state resolution is fixed" || no "state resolution"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-mkdir -p "$TMP/.factory/worktrees/demo/.factory/multi-model-workflow"
-printf '{}\n' > "$TMP/.factory/worktrees/demo/.factory/multi-model-workflow/task.json"
-[ "$(mmw_find_worktree "$TMP" demo)" = "$TMP/.factory/worktrees/demo" ] && ok "find worktree" || no "find worktree"
-mmw_foreach_flying_manifest "$TMP" | grep -q '/demo/.factory/multi-model-workflow/task.json$' &&
+mkdir -p "$TMP/.pi/worktrees/demo/.pi/multi-model-workflow"
+printf '{}\n' > "$TMP/.pi/worktrees/demo/.pi/multi-model-workflow/task.json"
+[ "$(mmw_find_worktree "$TMP" demo)" = "$TMP/.pi/worktrees/demo" ] && ok "find worktree" || no "find worktree"
+mmw_foreach_flying_manifest "$TMP" | grep -q '/demo/.pi/multi-model-workflow/task.json$' &&
   ok "list flying manifest" || no "list flying manifest"
 
 exit "$fail"

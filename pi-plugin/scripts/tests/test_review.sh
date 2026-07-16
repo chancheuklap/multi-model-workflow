@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# review.sh 空跑(Droid 原生):审闸一条命令——brief 落盘(主线程读它直接派审者)、纯路由指向已装 worktree-review skill、
+# review.sh 空跑(pi 原生):审闸一条命令——brief 落盘(主线程读它直接派审者)、纯路由指向已装 worktree-review skill、
 # 审不记账(无 loop 账本,收口硬核=留痕文件含 verdict,由 flow.sh 核)、④final 固定四跨模型 Task 不分档、③合同门机器核、bad stage 拦。
 set -euo pipefail
-STATE_SUBDIR="${STATE_SUBDIR:-.factory/multi-model-workflow}"
+STATE_SUBDIR="${STATE_SUBDIR:-.pi/multi-model-workflow}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REVIEW="$SCRIPT_DIR/../review.sh"
 BRIEF="${STATE_SUBDIR}/review-brief.md"
@@ -20,7 +20,7 @@ echo x>x; git add -A; git commit -qm seed
 # design / plan / final → brief 落盘,stdout 只指路径;审不记账(不建 loop 账本)
 for s in design plan final; do
   OUT="$(bash "$REVIEW" start --stage "$s" --source "src-$s" 2>/dev/null)"
-  echo "$OUT" | grep -q "REVIEW_STARTED stage=$s host=droid" && ok "$s → REVIEW_STARTED host=droid" || no "$s REVIEW_STARTED"
+  echo "$OUT" | grep -q "REVIEW_STARTED stage=$s host=pi" && ok "$s → REVIEW_STARTED host=pi" || no "$s REVIEW_STARTED"
   [ ! -f "$LOOPF" ] && ok "$s 审不记账(无 loop 账本)" || no "$s 不该建 loop 账本"
   echo "$OUT" | grep -q "review-brief.md" && ok "$s stdout 指 brief 路径(主线程读它直接派审者)" || no "$s brief 指路"
   B="$(cat "$BRIEF")"
@@ -28,18 +28,18 @@ for s in design plan final; do
   if echo "$B" | grep -qE "references/review/"; then no "$s brief 仍给审者 plugin 路径(不该)"; else ok "$s brief 无 plugin 路径喂审者"; fi
   echo "$B" | grep -q "verdict" && ok "$s brief 写明留痕含 verdict(收口硬核)" || no "$s brief verdict"
   echo "$B" | grep -q "亲验" && ok "$s brief 要求收回亲验(审者是劳动力不是信源)" || no "$s brief 亲验"
-  echo "$B" | grep -q "单条消息" && echo "$B" | grep -q "Task" && ok "$s 派发=单条消息并行 Task(Droid 原生)" || no "$s Task 派发"
-  echo "$B" | grep -q 'codex ''exec' && no "$s brief 不该派 codex(Droid 宿主无 Codex CLI)" || ok "$s 无 codex 派发"
+  echo "$B" | grep -q "单条消息" && echo "$B" | grep -q "Agent(pi-subagents" && ok "$s 派发=单条消息并行 Agent(pi-subagents)" || no "$s Agent 派发"
+  echo "$B" | grep -q 'codex ''exec' && no "$s brief 不该派 codex(pi 宿主无 Codex CLI)" || ok "$s 无 codex 派发"
   echo "$B" | grep -q "claude -p" && no "$s brief 不该用 claude -p 无头" || ok "$s 无 claude -p"
 done
 
-# 续接语义:Droid Task 同步返回,无后台 resume——中断只能重派对应视角
+# 续接语义:审者 Agent 不复用被审 context——中断重派对应视角
 grep -q "重派对应视角" "$BRIEF" && grep -q "不假设后台 task ID 或 resume" "$BRIEF" \
   && ok "中断续接=重派视角(不假设后台 task/resume)" || no "续接语义"
 grep -q "resume <session-id>" "$BRIEF" && no "brief 不该出现 codex resume 续接" || ok "无 codex resume 语义"
 grep -q "run_in_background" "$BRIEF" && no "brief 不该出现后台跑指令(Task 同步)" || ok "无 run_in_background(Task 同步返回)"
 
-# ①设计审:两视角 reviewer droids(设计是主线程写的,写者≠审者=隔离 context 的 reviewer)
+# ①设计审:两视角 reviewer pis(设计是主线程写的,写者≠审者=隔离 context 的 reviewer)
 bash "$REVIEW" start --stage design --source x >/dev/null 2>&1
 grep -q "reviewer-design-a" "$BRIEF" && grep -q "reviewer-design-b" "$BRIEF" && ok "design 派 reviewer-design-a/b 两视角" || no "design 审者编制"
 grep -q "轴A 设计内容" "$BRIEF" && grep -q "轴B 项目对齐" "$BRIEF" && ok "design 两轴视角" || no "design 视角"
@@ -50,10 +50,10 @@ grep -q "reviewer-plan-a" "$BRIEF" && grep -q "reviewer-plan-b" "$BRIEF" && ok "
 grep -q "写者与审者分离" "$BRIEF" && ok "②计划审写审分离(plan-writer 写,审者另派)" || no "②plan 写审分离"
 grep -q "轴A 覆盖与质量" "$BRIEF" && ok "②计划审两路视角(轴A/轴B)" || no "②plan 视角"
 
-# ④final:固定四跨模型 Task,两基线各两模型;不按 scenario 分档(Droid 无降档逻辑)
+# ④final:固定四跨模型 Agent,两基线各两模型;不按 scenario 分档
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 B="$(cat "$BRIEF")"
-echo "$B" | grep -q "四个跨模型 Task" && ok "final 固定四跨模型 Task" || no "final 四 Task"
+echo "$B" | grep -q "四个跨模型 Agent" && ok "final 固定四跨模型 Agent" || no "final 四 Agent"
 echo "$B" | grep -q "reviewer-final-a" && echo "$B" | grep -q "reviewer-final-b" && ok "final 派 reviewer-final-a/b" || no "final 审者编制"
 echo "$B" | grep -q "基线1" && echo "$B" | grep -q "基线2" && ok "final 两基线视角" || no "final 基线"
 echo "$B" | grep -q "同一份方法论" && ok "final 四审者读同一份方法论" || no "final prompt 一致"
@@ -61,7 +61,7 @@ echo "$B" | grep -q "跨模型对账" && ok "final 同基线跨模型对账(单�
 mkdir -p ${STATE_SUBDIR}
 echo '{"scenario":"small-change"}' > ${STATE_SUBDIR}/task.json
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
-grep -q "四个跨模型 Task" "$BRIEF" && ok "final 不按 scenario 分档(small-change 同编制)" || no "final 误分档"
+grep -q "四个跨模型 Agent" "$BRIEF" && ok "final 不按 scenario 分档(small-change 同编制)" || no "final 误分档"
 
 # 多 --source(阶段可钉多个产出,brief 拼全)
 OUT="$(bash "$REVIEW" start --stage design --source s1.md --source s2.md 2>/dev/null)"
@@ -76,7 +76,7 @@ echo "$OUT" | grep -q "handoff --conclusion pass" && ok "③ 空 anchors 回执�
 # anchors 有实体内容 → 指到 plan-impl.md 人工核,结论写留痕
 printf '# d\n## Cross-Plan Contract Anchors\n| owner | provider |\n| 001 | 002 |\n' > docs/design/d.md
 OUT="$(bash "$REVIEW" start --stage plan-impl --source docs/design/d.md 2>/dev/null)"
-echo "$OUT" | grep -q "REVIEW_STARTED stage=plan-impl host=droid" && ok "③ 有合同 → 起门" || no "③ 有合同起门"
+echo "$OUT" | grep -q "REVIEW_STARTED stage=plan-impl host=pi" && ok "③ 有合同 → 起门" || no "③ 有合同起门"
 echo "$OUT" | grep -q "references/review/plan-impl.md" && ok "③ 指向 plan-impl.md(方法论单源)" || no "③ 未指 plan-impl.md"
 echo "$OUT" | grep -q "不派审者" && ok "③合同门不派审者(机器核+主线程判断)" || no "③ 不派审者"
 echo "$OUT" | grep -q "verdict" && ok "③ 结论要求写留痕 verdict" || no "③ verdict 留痕"
@@ -89,8 +89,8 @@ bash "$REVIEW" start --stage merge-impl --source x >/dev/null 2>&1
 grep -q "${STATE_SUBDIR}/t1-merge-impl-review.md" "$BRIEF" && ok "merge-impl 留痕落状态平面(主仓库零残留)" || no "merge-impl 留痕落点"
 grep -q "docs/reviews/" "$BRIEF" && no "merge-impl 不该指 docs/" || ok "merge-impl 不写 docs/"
 grep -q "reviewer-final-a" "$BRIEF" && grep -q "reviewer-final-b" "$BRIEF" && ok "merge-impl 派两跨模型 Task" || no "merge-impl 编制"
-# 主仓库状态平面已遮蔽:起审后 git status 不冒 ?? .factory/
-grep -qxF 'multi-model-workflow/' .factory/.gitignore && ok "review start 遮蔽主仓库状态平面" || no "review 遮蔽"
+# 主仓库状态平面已遮蔽:起审后 git status 不冒 ?? .pi/
+grep -qxF 'multi-model-workflow/' .pi/.gitignore && ok "review start 遮蔽主仓库状态平面" || no "review 遮蔽"
 
 # fail-closed
 if bash "$REVIEW" start --stage bogus --source x >/dev/null 2>&1; then no "非法 stage 被拒"; else ok "非法 stage 被拒"; fi

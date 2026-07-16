@@ -11,7 +11,7 @@ no() { echo "  FAIL: $1"; fail=$((fail+1)); }
 echo "=== test_steer.sh ==="
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 cd "$TMP"; git init -q; git config user.email t@t; git config user.name t; echo s>s; git add -A; git commit -qm s
-SD=.factory/multi-model-workflow; mkdir -p "$SD"
+SD=.pi/multi-model-workflow; mkdir -p "$SD"
 MAN="$SD/task.json"
 
 PHASES='["investigate","propose","design","to-issue","plan","build","closing"]'
