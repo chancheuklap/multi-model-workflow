@@ -16,7 +16,7 @@ if [ -f "$man" ]; then
   # 身份 + 值守档
   jq -r --arg mmw "$MMW" '
     (.attendance // "attended") as $mode |
-    "[multi-model-workflow-pi] 在管任务 worktree:\(.slug) [\(.scenario)] phase=\(.phase) status=\(.status) mode=\($mode)。" +
+    "[multi-model-workflow-pi] 在管任务 worktree: slug=\(.slug) scenario=\(.scenario) phase=\(.phase) status=\(.status) mode=\($mode)。" +
     (if $mode=="unattended" then "  ⚠ 强无人档(用户显式进入):不向用户提问,遇硬停写板等人;用户回来发任意消息即恢复 attended。" else "" end)' \
     "$man" 2>/dev/null || true
 
