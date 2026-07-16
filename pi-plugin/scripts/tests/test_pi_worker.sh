@@ -85,6 +85,8 @@ STATUS="$(wait_status "$WT")"
 echo "$STATUS" | grep -q 'WORKER_STATUS=COMPLETED' && ok "worker completes with durable status" || no "worker status"
 SID="$(jq -r .session_id "$META")"
 [ -n "$SID" ] && [ "$SID" != null ] && ok "session id captured" || no "session id"
+grep -qF 'headless-agent prompt: placeholder, not injected' "$(jq -r .log_file "$META")" \
+  && ok "GPT placeholder skip is logged" || no "placeholder skip log"
 grep -Fq -- "cwd=$ACTUAL_WT" "$PI_TEST_LOG" \
   && ok "runtime executes inside worker worktree" || no "worker worktree cwd"
 grep -Fq -- '--thinking high' "$PI_TEST_LOG" \
@@ -106,6 +108,8 @@ echo "$R" | grep -q 'WORKER_STARTED' && ok "resume starts continuation" || no "r
 STATUS="$(wait_status "$WT")"
 echo "$STATUS" | grep -q "SESSION_ID=$SID" && ok "resume preserves pi session" || no "resume session"
 grep -Fq -- "--session-id $SID" "$PI_TEST_LOG" && ok "resume passes session id to pi" || no "runtime resume id"
+grep -qF 'headless-agent prompt: placeholder, not injected' "$(jq -r .log_file "$META")" \
+  && ok "resume preserves placeholder skip audit" || no "resume placeholder audit"
 
 mkdir -p "$ACTUAL_WT/docs"
 echo bad > "$ACTUAL_WT/docs/bad.md"

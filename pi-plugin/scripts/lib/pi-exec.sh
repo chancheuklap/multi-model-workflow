@@ -67,6 +67,18 @@ mmw_pi_launch() {
     sid="$(uuidgen)" || return 1
   fi
   [ -z "${MMW_PI_RENDER_NOTE:-}" ] || printf '%s\n' "$MMW_PI_RENDER_NOTE" >>"$log"
+  # resume 不会重新 render 角色提示词，但每次 GPT 启动都必须诚实记录占位未注入。
+  # 不能只靠 MMW_PI_RENDER_NOTE（它是当前 shell 临时变量，跨 worker.sh 进程不持久）。
+  case "$model" in
+    openai-codex/*)
+      local headless
+      headless="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/prompts-runtime/headless-agent.md"
+      if ! mmw_pi_headless_ready "$headless" \
+        && ! grep -qF 'headless-agent prompt: placeholder, not injected' "$log" 2>/dev/null; then
+        printf '%s\n' 'headless-agent prompt: placeholder, not injected' >>"$log"
+      fi
+      ;;
+  esac
 
   local -a cmd=("$pi_bin" -p -a --model "$model" --thinking "$effort"
     --session-id "$sid" --append-system-prompt "$system_prompt")
