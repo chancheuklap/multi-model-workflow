@@ -1,0 +1,38 @@
+{
+  "schema_version": "2",
+  "description": "流程数据(不是散文)。只有一条主干流程;每种开口(preset)默认开主干里的哪几个阶段。任务建好时把开着的阶段序列固化进进度记录的 phases;flow 据 phases 推进,升级/掉头就是改 phases。讨论态阶段(investigate/propose/design)自由往返不设上限;流水线态回上游要向用户汇报但不锁死。merge 不走主干、单列。",
+
+  "conclusions": ["pass", "needs-repair", "needs-redirection", "needs-context", "blocked"],
+
+  "spinoff_tags": ["bug", "optimize", "out-of-scope", "needs-evaluation"],
+
+  "review_gates": {
+    "plan":   { "stage": "plan" },
+    "build":  { "stage": "final", "produced": "docs/<slug>-final-review.md" }
+  },
+
+  "start_options": [
+    { "scenario": "small-change", "when": "范围明确但仍需独立任务边界与验收的代码改动", "phases_note": "落地→验收→收尾" },
+    { "scenario": "develop",      "when": "新想法/功能 或 旧系统优化改造(要设计)", "phases_note": "查清→给方案→想方案→拆计划→落地→验收→收尾" },
+    { "scenario": "bug",          "when": "bug/报错/regression,根因不明",          "phases_note": "查清→落地(修)→验收→收尾" },
+    { "scenario": "merge",        "when": "多个并行 worktree/PR 要合并",            "phases_note": "不开 worktree,走 references/scenario/merge.md" }
+  ],
+
+  "phase_bindings": {
+    "investigate": { "load": "references/investigate.md",  "do": "按 topic 并行派 investigate-topic,产出带引用的现状报告存 docs/investigating(取证不判定;不写 docs/context)", "produced": "docs/investigating/<slug>.md" },
+    "propose":     { "load": "references/propose.md",      "do": "综合现状+外部,固定格式亮 2-3 方案,HITL 指定一个(或全否→needs-redirection 回上游)", "produced": "docs/design/<slug>-direction.md" },
+    "design":      { "load": "references/design/discussion.md", "do": "拿已定方向与用户讨论出设计(HITL 集中在此;方法顺序:讨论→按需 prototype-mockup.md→按 design-doc-template.md 成文→design-self-check.md 自检;大缺口走取证战役 evidence-campaign.md)。成文自检后自动跑一次设计预审(mmw review start --stage design,结果给用户参考,不是闸),然后请用户 /approve-design 过门——唯一人闸,用户显式命令才放行,过门由 mmw approve 推进+放权,不走 handoff pass", "produced": "docs/design/<slug>.md 或 docs/design/<slug>/(多文件目录形态)", "reads": ["investigate", "propose"] },
+    "to-issue":    { "load": "references/design/to-issue-skeleton.md", "do": "①设计审过后:把设计垂直切片成可独立认领的 issue 骨架(主线程,委托外部 to-tickets skill)", "produced": "docs/issues/<slug>/", "reads": ["design"] },
+    "plan":        { "load": "references/plan/plan-flow.md", "do": "编排 + 派 plan-writer 写计划(单/多都派,主线程亲验回填);交还前按 plan-self-check.md 过跨 plan 覆盖与 ownership 就绪门", "produced": "docs/plans/<slug>/", "reads": ["design", "to-issue"] },
+    "build":       { "load": "references/build-b.md", "load_by_scenario": { "small-change": "references/build-a.md", "bug": "references/build-a.md" }, "do": "落地:small-change/bug 主线程就地 TDD(build-a);develop 派 pack-executor(build-b,各 plan 一 worktree)+ 主线程按计划验收;落完跑 ③合同门(内部机器核),再 handoff(引擎强制进 ④终审闸)",  "produced": "<提交范围,如 base..HEAD>" },
+    "package":     { "load": "references/package.md", "do": "初始化 package state;无 Windows 包目标则正常交接;有目标时等负责人确认开发模式功能测试，按 scope 顺序驱动 S1 release 并记录每把 key 的 DONE，最后等负责人确认安装后测试；两次确认均不得由 AFK 代填。", "produced": "" },
+    "closing":     { "load": "references/closing.md",      "do": "确认真完整、收口;合并/清理是合并后红线动作",                   "produced": "", "reads": ["design", "to-issue", "build", "package"] },
+    "review_gate": { "load": "references/review/review.md",       "do": "起该阶段审(按 review brief 单条消息并行派 reviewer droids):where 报 review_start 直接跑哪条、审完 handoff verdict;收口硬核=审查留痕落盘含 verdict", "produced": "" }
+  },
+
+  "presets": {
+    "small-change": ["build", "closing"],
+    "develop":      ["investigate", "propose", "design", "to-issue", "plan", "build", "package", "closing"],
+    "bug":          ["investigate", "build", "closing"]
+  }
+}

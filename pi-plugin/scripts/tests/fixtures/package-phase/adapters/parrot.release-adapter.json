@@ -1,0 +1,9 @@
+{
+  "schema_version": "1",
+  "product": "parrot",
+  "build_target": {"desktop_dir": "desktop-parrot", "runtime_lane": "embedded_python", "entry_module": "parrot", "installer_brand": "Parrot"},
+  "stages": [{"name": "build", "run": ["build"]}],
+  "diagnose": ["diagnose"], "derive": ["derive"], "editable_paths": [], "protection_source": "release-protection.json",
+  "build_hooks": {"runtime_prepare": ["prepare"], "artifact_scan": ["scan"], "package_integrity": ["integrity"]},
+  "post_fix_gate": ["gate"], "fix_executor": ["fix"], "event_sink": ["sink"]
+}
