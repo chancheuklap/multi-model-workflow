@@ -31,6 +31,8 @@ CODE_DOCTRINE = [
     ("cc-no-compatibility-hacks.md", ""),
     ("cc-no-unnecessary-additions.md", ""),
     ("cc-no-unnecessary-error-handling.md", ""),
+    ("cc-comment-why-only.md", ""),
+    ("cc-comment-no-what-no-task-context.md", ""),
     ("codex56-worktree-safety.md", ""),
 ]
 THOROUGHNESS = [("cursor-context-thoroughness.md", "## Context gathering")]

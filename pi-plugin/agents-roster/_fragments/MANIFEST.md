@@ -11,3 +11,5 @@
 - `cc-no-unnecessary-additions.md` sha256:39b8bff8f4ead50a — 同仓库 doing-tasks no-unnecessary-additions
 - `cc-no-unnecessary-error-handling.md` sha256:4ea30440058bb01d — 同仓库 doing-tasks no-unnecessary-error-handling
 - `cursor-context-thoroughness.md` sha256:af1d36c7317054f6 — x1xhlol 提取 Cursor Agent Prompt 2.0 maximize_context_understanding 首块(工具无关部分)
+- `cc-comment-why-only.md` sha256:9133a02500248ae6 — Piebald claude-code-system-prompts v2.1.212 comment-why-only-guidance
+- `cc-comment-no-what-no-task-context.md` sha256:206fc3c559016b5e — 同仓库 comment-what-and-task-context-avoidance
