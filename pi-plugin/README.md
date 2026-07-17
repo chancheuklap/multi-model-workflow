@@ -10,7 +10,7 @@ pi install /Users/cheuklapchan/multi-model-workflow/pi-plugin
 bash /Users/cheuklapchan/multi-model-workflow/pi-plugin/workflows/install-workflows.sh
 ```
 
-重启 pi 或运行 `/reload`。`pi list` 应同时列出动态工作流包和本插件。本插件是本地路径安装，修改仓库内容后无需复制；重新加载即可生效。
+重启 pi 或运行 `/reload`。`pi list` 应同时列出动态工作流包和本插件。本插件是本地路径安装，修改仓库内容后无需复制；重新加载即可生效。唯一例外是 `workflows/*.workflow.js`：改完必须重跑 `install-workflows.sh`（它把生成物写进仓库 `workflows/dist/` 并把 `~/.pi/workflows/saved/*.json` 软链到 dist；漂移由 `install-workflows.sh --check` 和 `scripts/tests/test_workflows_dist_sync.sh` 把守）。
 
 ## 入口
 
