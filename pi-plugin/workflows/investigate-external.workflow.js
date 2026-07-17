@@ -96,6 +96,12 @@ const raw = await parallel(
   )
 )
 
+// 失败 topic 结构化留痕(可恢复失败已由 defaultAgentRetries 配置层重试;这里只收尸不重试):
+// 主线程拿 skipped 里的 topic 原命令只传失败题重跑,成功题不再花 token。
+const skipped = topics
+  .map((t, i) => (raw[i] ? null : { angle: t.angle || ('topic-' + i), question: t.question, reason: 'agent 无结果(重试后仍失败)' }))
+  .filter(Boolean)
+
 // 取证过滤:机械丢无出处/低信心 claim(纯过滤,不让 agent 评判 agent)。被丢留痕进 dropped,不静默吞。
 const verified = raw.filter(Boolean).map((r) => {
   const kept = r.findings.filter((f) => f.locator && f.locator.trim() && f.confidence !== 'low')
@@ -104,7 +110,7 @@ const verified = raw.filter(Boolean).map((r) => {
 })
 
 if (!verified.length) {
-  return { topics: [], report: null, note: '所有专题 agent 都失败/被跳过,无证据;主线程应重跑或缩小范围' }
+  return { topics: [], report: null, skipped, note: '所有专题 agent 都失败,无证据;主线程按 skipped 重跑或缩小范围' }
 }
 
 phase('Synthesize')
@@ -122,4 +128,4 @@ const synthPrompt = [
 const report = await agent(synthPrompt, { label: 'synthesize', phase: 'Synthesize', schema: REPORT_SCHEMA, model: 'openai-codex/gpt-5.6-terra:high' })
 
 // 返结构化证据 + 引用报告。主线程亲验承重事实(子代理是劳动力不是信源)后才写 docs/investigating/<slug>.md。
-return { topics: verified, report }
+return { topics: verified, report, skipped }
