@@ -40,6 +40,11 @@
 
 这两个命令由 `@quintinshaw/pi-dynamic-workflows` 注册。workflow 为每个 topic 启动隔离 agent，强制 JSON Schema 结构化结果，过滤无 locator / low confidence 结论，再由独立 synthesizer 综合；运行状态、失败详情、暂停与恢复统一从 `/workflows` 面板查看和控制。
 
+两种情况不走斜杠命令，改用 `workflow` 工具直调（`script` = `<plugin-root>/workflows/<方向>.workflow.js` 全文原样，`args` 同上；斜杠命令不吃下面这些参数）：
+
+- **控并发**：topic 多、怕 provider 限流或机器扛不住时传 `concurrency`（默认 8，硬上限 16），按本次任务规模自己定；provider 不稳再加 `agentRetries`。
+- **部分失败续跑**：workflow 部分 topic 失败时**优先带 `resumeFromRunId: "<runId>"` 原 script 续跑，不全量重跑**——已完成的 agent 从 journal 缓存回放、不再花 token，只重跑失败的。runId 在起跑回执和 `/workflows` 面板里。全量重跑只留给 topics 本身要改的情况。
+
 ## 3. 收口(回主线程)
 
 1. **亲验承重事实**:报告里的 `file:line` / `url`,自己 grep/read/查证坐实。子代理是劳动力不是信源,验不过的不写进交付物。
