@@ -11,6 +11,7 @@
 #   mmw worker dispatch|status|resume|check-docs ...
 #   mmw worker plan-dispatch|plan-resume|plan-check ...
 #   mmw release init|where|stage run|stage done|stage fail|round|surface|resume|close|exit-check|receipt|dispatch
+#   mmw package resolve|init|where|confirm|record-release|exit-check|close   # 出包阶段运行态(④终审后;where 自带 next 指路)
 #   mmw help
 #
 # 用法(读完 skill 直接用):
@@ -64,6 +65,7 @@ case "$cmd" in
   review) exec bash "$D/review.sh" "$@" ;;
   worker) exec bash "$D/worker.sh" "$@" ;;
   release) exec bash "$D/release-flow.sh" "$@" ;;
+  package) exec bash "$D/package-phase.sh" "$@" ;;
   progress) exec bash "$D/progress.sh" "$@" ;;
   investigate) exec bash "$D/investigate.sh" "$@" ;;
   attend|unattended|side-finding) exec bash "$D/steer.sh" "$cmd" "$@" ;;

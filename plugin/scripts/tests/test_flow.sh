@@ -124,9 +124,12 @@ echo "$WBG" | grep "review_start=" | grep -q -- "review start --stage final" && 
 mkf "$WA" docs/2026-06-28-task-a-final-review.md
 gate_verdict_pass "$WA" --produced docs/2026-06-28-task-a-final-review.md  # ④审过→package(④闸要钉终审报告)
 [ "$(mphase "$WA")" = "package" ] && ok "④审过→package" || no "④审过→package ($(mphase "$WA"))"
-echo "$(cd "$WA" && bash "$FLOW" where)" | grep -q 'load=references/package.md' && ok "package 阶段加载唯一操作指引" || no "package load"
+WPK="$(cd "$WA" && bash "$FLOW" where)"
+echo "$WPK" | grep -q 'load=references/package.md' && ok "package 阶段加载唯一操作指引" || no "package load"
+echo "$WPK" | grep -q 'package_next=.*package init' && ok "package 无 state 时 where 透传 init 指路" || no "package_next 指路 ($(echo "$WPK" | grep package_))"
 if ( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 ); then no "package 无 state 时 pass 应被拒"; else ok "package 无 state 时 pass 被拒(release 子系统机器核)"; fi
 init_empty_package "$WA" >/dev/null
+echo "$(cd "$WA" && bash "$FLOW" where)" | grep -q 'package_where=.*package where' && ok "package state 在飞时 where 透传子状态机" || no "package_where 透传"
 [ "$(cd "$WA" && bash "$PACKAGE" exit-check)" = "DONE" ] && ok "空 package state 可交接" || no "空 package exit-check"
 ( cd "$WA" && bash "$FLOW" handoff --conclusion pass >/dev/null )
 [ "$(mphase "$WA")" = "closing" ] && ok "完成 package 后→closing" || no "package→closing ($(mphase "$WA"))"

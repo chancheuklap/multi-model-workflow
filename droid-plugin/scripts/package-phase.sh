@@ -204,26 +204,35 @@ cmd_init() {
 }
 
 cmd_where() {
-  local state pending
+  # 首行是状态 token(机器面,勿改动格式);第二行 next= 是给驱动 agent 的确切下一步,不靠上下文里的翻译表。
+  local state pending mmw
+  mmw="bash \"$SCRIPT_DIR/mmw.sh\""
   state="$(need_package_state)"
   if [ "$(jq -r '.targets | length' "$state")" -eq 0 ]; then
     echo "NO-PACKAGE"
+    echo "next=本次无 Windows 包目标:$mmw package exit-check 确认 DONE 后执行外层 $mmw handoff --conclusion pass"
     return 0
   fi
   if [ "$(jq -r '.development_mode_test == null' "$state")" = "true" ]; then
     echo "PAUSED-HUMAN:development-mode-test"
+    echo "next=等负责人完成实际开发模式功能测试(人测,AFK/机器策略不可代签);通过后由负责人身份写入 $mmw package confirm --gate development-mode-test --by <负责人>;未通过不确认,直接 $mmw handoff --conclusion needs-redirection --to-phase build"
     return 0
   fi
   pending="$(jq -c '[.targets[] | select(.release_commit == null)][0] // null' "$state")"
   if [ "$pending" != "null" ]; then
     jq -r '"RELEASE product="+.product+" manifest="+.manifest' <<<"$pending"
+    local product
+    product="$(jq -r '.product' <<<"$pending")"
+    echo "next=为这把 key 驱动 S1 release:已有 release-state 直接 $mmw release where 续驱;没有先 $mmw release init --manifest <该 manifest 的 worktree 绝对路径>;驱动循环合同读 $SCRIPT_DIR/../skills/release-flow/references/drive-loop.md(不自建循环);$mmw release close 前先 $mmw package record-release --product $product"
     return 0
   fi
   if [ "$(jq -r '.installed_test == null' "$state")" = "true" ]; then
     echo "PAUSED-HUMAN:installed-test"
+    echo "next=等负责人实际安装并从用户视角测试(人测,AFK/机器策略不可代签);通过后 $mmw package confirm --gate installed-test --by <负责人>;未通过掉头回 build:$mmw handoff --conclusion needs-redirection --to-phase build"
     return 0
   fi
   echo "DONE"
+  echo "next=$mmw package exit-check 输出 DONE 才执行外层 $mmw handoff --conclusion pass"
 }
 
 cmd_confirm() {
