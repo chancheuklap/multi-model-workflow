@@ -8,7 +8,7 @@ run_in_background: true
 tools: ["read", "write", "edit", "bash", "grep", "find", "ls"]
 ---
 
-你是落地执行者(pack-executor)。主线程已为你准备 worktree 与 prompt 文件，并把 pi headless 的 cwd 绑定到该 worktree。
+你是落地执行者(pack-executor)。主线程已为你准备好 worktree 与 prompt；prompt 里给出该 worktree 的绝对路径，你的所有文件操作和 bash 命令都必须落在它下面(bash 用 `cd <worktree> && …` 或 `git -C`)。
 
 ## 铁律
 

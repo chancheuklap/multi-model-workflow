@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
-# pi 原生 investigate fan-out + schema 校验 + synthesis。
+# pi 原生 investigate fan-out 准备 + schema 校验 + synthesis 汇编(pi-subagents 原生)。
+# 脚本不启动工人:start 准备每 topic 的 prompt 与账本并打印派发指令,协调者在会话内
+# 用 Agent 工具并行派 investigate-topic;工人最终消息(一个紧凑 JSON)由协调者经
+# submit 交回,当场过 schema 闸。全部 topic 过闸后 status 备好 synthesis prompt,
+# 协调者派 investigate-synthesizer,结果同样 submit 交回并汇编 result.json。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
-# shellcheck source=lib/pi-exec.sh
-. "$SCRIPT_DIR/lib/pi-exec.sh"
 
-TOPIC_MODEL="${PI_INVESTIGATE_MODEL:-openai-codex/gpt-5.6-sol}"
-TOPIC_EFFORT="${PI_INVESTIGATE_EFFORT:-medium}"
-SYNTH_MODEL="${PI_INVESTIGATE_SYNTH_MODEL:-openai-codex/gpt-5.6-terra}"
-SYNTH_EFFORT="${PI_INVESTIGATE_SYNTH_EFFORT:-high}"
-# pi 无法按内/外部分别关工具(bash 同时给到文件与网络);内外部分离靠 prompt 纪律 + 校验闸。
-ALLOW_INTERNAL="read,grep,find,ls,bash"
-ALLOW_EXTERNAL="read,bash"
+TOPIC_AGENT="${PI_INVESTIGATE_AGENT:-investigate-topic}"
+SYNTH_AGENT="${PI_INVESTIGATE_SYNTH_AGENT:-investigate-synthesizer}"
 MMW_INVESTIGATE_RUN_LOCK=""
 MMW_INVESTIGATE_START_LOCK=""
 MMW_INVESTIGATE_STAGING=""
@@ -52,7 +49,7 @@ acquire_lock_path() {
     owner="$(cat "$lock" 2>/dev/null || true)"
     [ -n "$owner" ] || die "investigate 锁正在初始化，请稍后重跑:$lock"
     if [ -n "$owner" ] && kill -0 "$owner" 2>/dev/null; then
-      die "investigate run 正被另一个 status/resume 更新:$owner"
+      die "investigate run 正被另一个 status/submit 更新:$owner"
     fi
     die "investigate 锁的 owner 已退出；确认没有同 run 进程后删除锁再重跑:$lock"
   fi
@@ -80,42 +77,26 @@ release_run_lock() {
 }
 
 write_job_meta() {
-  local file="$1" kind="$2" model="$3" effort="$4" cwd="$5" prompt="$6" system="$7"
+  local file="$1" kind="$2" agent="$3" prompt="$4"
   local tmp
   tmp="$(mktemp "$(dirname "$file")/.meta.XXXXXX")" || return 1
-  jq -n --arg kind "$kind" --arg model "$model" --arg effort "$effort" \
-    --arg cwd "$cwd" --arg prompt "$prompt" --arg system "$system" \
+  jq -n --arg kind "$kind" --arg agent "$agent" --arg prompt "$prompt" \
     --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '{kind:$kind,model:$model,reasoning_effort:$effort,cwd:$cwd,prompt_file:$prompt,
-      system_prompt_file:$system,status:"prepared",attempt:1,pid:null,session_id:null,
-      result_file:null,log_file:null,validation_error:null,created_at:$at,updated_at:$at}' \
+    '{kind:$kind,agent:$agent,prompt_file:$prompt,status:"dispatched",attempt:1,
+      result_file:null,validation_error:null,created_at:$at,updated_at:$at}' \
     >"$tmp" && mv "$tmp" "$file"
 }
 
 archive_job_attempt() {
-  local meta="$1" dir attempt archive result log
+  local meta="$1" dir attempt archive result
   dir="$(dirname "$meta")"
   attempt="$(jq -r '.attempt // 1' "$meta")"
   printf -v archive '%s/attempts/%03d' "$dir" "$attempt"
   mkdir -p "$archive"
   cp "$meta" "$archive/meta.json"
   result="$(jq -r '.result_file // empty' "$meta")"
-  log="$(jq -r '.log_file // empty' "$meta")"
-  if [ -n "$result" ] && [ -f "$result" ]; then mv "$result" "$archive/result.log"; fi
-  if [ -n "$log" ] && [ -f "$log" ]; then mv "$log" "$archive/run.log"; fi
-  rm -f "$dir/exit_code"
+  if [ -n "$result" ] && [ -f "$result" ]; then mv "$result" "$archive/result.json"; fi
   return 0
-}
-
-launch_job() {
-  local meta="$1" allowed="$2"
-  mmw_pi_launch "$meta" \
-    "$(jq -r .prompt_file "$meta")" \
-    "$(jq -r .cwd "$meta")" \
-    "$(jq -r .model "$meta")" \
-    "$(jq -r .reasoning_effort "$meta")" \
-    "$(jq -r .system_prompt_file "$meta")" \
-    "" "$allowed" || die "pi investigate job 启动失败:$meta"
 }
 
 topic_prompt() {
@@ -135,7 +116,7 @@ repoRoot=$repo
 PROMPT
 }
 
-# pi headless 的 result 文件是工人最终消息原文;要求它整体就是一个 JSON 对象。
+# 工人最终消息由协调者 submit 交回;要求它整体就是一个 JSON 对象。
 validate_topic() {
   local meta="$1" out="$2" result tmp
   result="$(jq -r '.result_file // empty' "$meta")"
@@ -210,8 +191,20 @@ $(cat "$evidence")
 PROMPT
 }
 
+print_topic_dispatch() {
+  local root="$1" run="$2" count="$3" i angle prompt
+  echo "DISPATCH=单条消息并行派 $count 个 Agent(subagent_type=$TOPIC_AGENT,run_in_background=true),每个 prompt=对应 PROMPT_FILE 全文;工人最终消息是一个紧凑 JSON,原样存临时文件后逐个 submit 交回过闸。"
+  for ((i=0; i<count; i++)); do
+    angle="$(jq -r ".[$i].angle" "$root/topics.json")"
+    printf -v prompt '%s/topics/%03d/prompt.md' "$root" "$i"
+    echo "TOPIC=$i ANGLE=$angle PROMPT_FILE=$prompt"
+  done
+  echo "SUBMIT=mmw investigate submit --run $run --topic <i> --file <工人 JSON 文件>"
+  echo "NEXT=全部 submit 后跑 mmw investigate status --run $run"
+}
+
 cmd_start() {
-  local direction="" topics="" run="" top root staging start_lock plugin topic_system allowed normalized i count
+  local direction="" topics="" run="" top root staging start_lock normalized i count
   local parent
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -247,10 +240,6 @@ cmd_start() {
   mkdir "$staging"
   MMW_INVESTIGATE_STAGING="$staging"
   mkdir "$staging/topics"
-  plugin="$(mmw_plugin_root)"
-  topic_system="$staging/topic-system.md"
-  mmw_pi_render_prompt "$plugin/agents-roster/investigate-topic.md" "$topic_system" \
-    || die "investigate-topic 角色提示词无效"
 
   normalized="$staging/topics.json"
   if [ "$direction" = both ]; then
@@ -260,11 +249,10 @@ cmd_start() {
   fi
 
   jq -n --arg run "$run" --arg direction "$direction" --arg topics "$root/topics.json" \
-    --arg internal_allowed "$ALLOW_INTERNAL" --arg external_allowed "$ALLOW_EXTERNAL" \
+    --arg topic_agent "$TOPIC_AGENT" --arg synth_agent "$SYNTH_AGENT" \
     --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{run:$run,direction:$direction,topics_file:$topics,status:"running",
-      internal_allowed_tools:$internal_allowed,external_allowed_tools:$external_allowed,
-      synthesis_allowed_tools:"",
+      topic_agent:$topic_agent,synth_agent:$synth_agent,
       report_file:null,created_at:$at,updated_at:$at}' >"$staging/run.json"
 
   count="$(jq 'length' "$normalized")"
@@ -280,50 +268,82 @@ cmd_start() {
     meta="$dir/meta.json"
     printf -v final_prompt '%s/topics/%03d/prompt.md' "$root" "$i"
     topic_prompt "$mode" "$angle" "$question" "$skill" "$top" >"$prompt"
-    write_job_meta "$meta" topic "$TOPIC_MODEL" "$TOPIC_EFFORT" "$top" \
-      "$final_prompt" "$root/topic-system.md"
-    if [ "$mode" = internal ]; then allowed="$ALLOW_INTERNAL"; else allowed="$ALLOW_EXTERNAL"; fi
+    write_job_meta "$meta" topic "$TOPIC_AGENT" "$final_prompt"
     jq --arg mode "$mode" --arg angle "$angle" --arg question "$question" \
-      --arg allowed "$allowed" \
-      '. + {mode:$mode,angle:$angle,question:$question,allowed_tools:$allowed}' \
+      '. + {mode:$mode,angle:$angle,question:$question}' \
       "$meta" >"$meta.tmp" && mv "$meta.tmp" "$meta"
   done
-  printf '%s\n' "$$" >"$staging/.run-lock"
   mv "$staging" "$root"
   MMW_INVESTIGATE_STAGING=""
-  MMW_INVESTIGATE_RUN_LOCK="$root/.run-lock"
   release_start_lock
-  for ((i=0; i<count; i++)); do
-    printf -v meta '%s/topics/%03d/meta.json' "$root" "$i"
-    launch_job "$meta" "$(jq -r .allowed_tools "$meta")"
-  done
-  release_run_lock
   echo "INVESTIGATE_STARTED run=$run topics=$count"
-  echo "NEXT=mmw investigate status --run $run"
+  print_topic_dispatch "$root" "$run" "$count"
 }
 
-launch_synthesis() {
-  local root="$1" top plugin synth_dir evidence prompt system meta
-  top="$(repo_top)"
-  plugin="$(mmw_plugin_root)"
+cmd_submit() {
+  local run="" topic="" synthesis=0 file="" root meta dir out
+  while [ $# -gt 0 ]; do case "$1" in
+    --run) run="$2"; shift 2 ;;
+    --topic) topic="$2"; shift 2 ;;
+    --synthesis) synthesis=1; shift ;;
+    --file) file="$2"; shift 2 ;;
+    *) die "未知参数:$1" ;;
+  esac; done
+  [ -n "$run" ] || die "--run 必填"
+  [ -f "$file" ] || die "--file 不存在:$file"
+  root="$(run_root "$run")"
+  [ -f "$root/run.json" ] || die "investigate run 不存在:$run"
+  acquire_run_lock "$root"
+  if [ "$synthesis" = 1 ]; then
+    dir="$root/synthesis"
+    meta="$dir/meta.json"
+    [ -f "$meta" ] || die "synthesis 尚未派发;先跑 investigate status"
+  else
+    [[ "$topic" =~ ^[0-9]+$ ]] || die "--topic 必须是编号"
+    printf -v dir '%s/topics/%03d' "$root" "$topic"
+    meta="$dir/meta.json"
+    [ -f "$meta" ] || die "topic 不存在:$topic"
+  fi
+  cp "$file" "$dir/result.json"
+  mmw_atomic_update "$meta" --arg result "$dir/result.json" \
+    --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '.result_file=$result | .updated_at=$at' || die "无法登记结果文件"
+  if [ "$synthesis" = 1 ]; then
+    echo "SUBMIT=synthesis 已收;跑 mmw investigate status --run $run 校验并汇编"
+  else
+    if validate_topic "$meta" "$dir/validated.json"; then
+      mmw_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '.status="validated" | .validation_error=null | .updated_at=$at'
+      echo "SUBMIT=topic $topic VALIDATED"
+    else
+      mmw_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        '.status="failed" | .validation_error="topic result schema invalid" | .updated_at=$at'
+      echo "SUBMIT=topic $topic INVALID(schema 未过);修 prompt 或重派后经 resume 重交" >&2
+      release_run_lock
+      return 1
+    fi
+  fi
+  release_run_lock
+}
+
+prepare_synthesis() {
+  local root="$1" run="$2" synth_dir evidence prompt meta
   synth_dir="$root/synthesis"
   mkdir -p "$synth_dir"
   evidence="$synth_dir/evidence.json"
   jq -s '.' "$root"/topics/*/validated.json >"$evidence"
   prompt="$synth_dir/prompt.md"
   build_synth_prompt "$evidence" "$prompt"
-  system="$synth_dir/system-prompt.md"
-  mmw_pi_render_prompt "$plugin/agents-roster/investigate-synthesizer.md" "$system" \
-    || die "investigate-synthesizer 角色提示词无效"
   meta="$synth_dir/meta.json"
-  write_job_meta "$meta" synthesis "$SYNTH_MODEL" "$SYNTH_EFFORT" "$top" "$prompt" "$system"
-  launch_job "$meta" "$(jq -r '.synthesis_allowed_tools // ""' "$root/run.json")"
-  mmw_pi_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  write_job_meta "$meta" synthesis "$SYNTH_AGENT" "$prompt"
+  mmw_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '.status="synthesizing" | .updated_at=$at'
+  echo "DISPATCH=派 1 个 Agent(subagent_type=$SYNTH_AGENT,run_in_background=true,prompt=$prompt 全文);最终消息是一个紧凑 JSON,存临时文件后 submit --synthesis 交回。"
+  echo "SUBMIT=mmw investigate submit --run $run --synthesis --file <JSON 文件>"
 }
 
 cmd_status() {
-  local run="" root meta state running=0 failed=0 validated=0 total=0 i
+  local run="" root meta pending=0 failed=0 validated=0 total=0 i
   while [ $# -gt 0 ]; do case "$1" in --run) run="$2"; shift 2 ;; *) die "未知参数:$1" ;; esac; done
   [ -n "$run" ] || die "--run 必填"
   root="$(run_root "$run")"
@@ -337,130 +357,116 @@ cmd_status() {
       failed=$((failed+1))
       continue
     fi
-    if [ -f "$(dirname "$meta")/validated.json" ]; then
-      validated=$((validated+1))
-      continue
-    fi
-    state="$(mmw_pi_refresh "$meta" 2>/dev/null || true)"
-    case "$state" in
-      RUNNING) running=$((running+1)) ;;
-      COMPLETED)
-        if validate_topic "$meta" "$(dirname "$meta")/validated.json"; then
-          mmw_pi_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '.status="validated" | .validation_error=null | .updated_at=$at'
-          validated=$((validated+1))
-        else
-          mmw_pi_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '.status="failed" | .validation_error="topic result schema invalid" | .updated_at=$at'
-          failed=$((failed+1))
-        fi
-        ;;
-      *) failed=$((failed+1)) ;;
+    case "$(jq -r '.status' "$meta")" in
+      validated) validated=$((validated+1)) ;;
+      failed) failed=$((failed+1)) ;;
+      *) pending=$((pending+1)) ;;
     esac
   done
 
-  if [ "$running" -gt 0 ]; then
-    echo "INVESTIGATE_STATUS=RUNNING validated=$validated running=$running failed=$failed total=$total"
-    return 0
-  fi
-  if [ "$failed" -gt 0 ] || [ "$validated" -ne "$total" ]; then
-    mmw_pi_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  if [ "$failed" -gt 0 ]; then
+    mmw_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       '.status="failed" | .updated_at=$at'
-    echo "INVESTIGATE_STATUS=FAILED validated=$validated failed=$failed total=$total"
+    echo "INVESTIGATE_STATUS=FAILED validated=$validated failed=$failed pending=$pending total=$total"
     echo "NEXT=mmw investigate resume --run $run"
+    release_run_lock
     return 1
+  fi
+  if [ "$pending" -gt 0 ]; then
+    echo "INVESTIGATE_STATUS=PENDING validated=$validated pending=$pending total=$total"
+    echo "NEXT=等在飞工人回执后 submit;缺派发的 topic 按 start 打印的 PROMPT_FILE 派"
+    release_run_lock
+    return 0
   fi
 
   local synth_meta="$root/synthesis/meta.json" report="$root/result.json"
   local synth_report="$root/synthesis/report.json" tmp
   if [ -f "$report" ]; then
-    mmw_pi_atomic_update "$root/run.json" --arg report "$report" \
+    mmw_atomic_update "$root/run.json" --arg report "$report" \
       --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       '.status="completed" | .report_file=$report | .updated_at=$at'
     echo "INVESTIGATE_STATUS=COMPLETED"
     echo "REPORT_FILE=$report"
+    release_run_lock
     return 0
   fi
   if [ ! -f "$synth_meta" ]; then
-    launch_synthesis "$root"
+    prepare_synthesis "$root" "$run"
     echo "INVESTIGATE_STATUS=SYNTHESIZING"
-    echo "NEXT=mmw investigate status --run $run"
+    release_run_lock
+    return 0
+  fi
+  if [ "$(jq -r '.result_file // empty' "$synth_meta")" = "" ]; then
+    echo "INVESTIGATE_STATUS=SYNTHESIZING"
+    echo "NEXT=synthesis 工人回执后 submit --synthesis 交回"
+    release_run_lock
     return 0
   fi
 
-  state="$(mmw_pi_refresh "$synth_meta" 2>/dev/null || true)"
-  case "$state" in
-    RUNNING)
-      echo "INVESTIGATE_STATUS=SYNTHESIZING"
-      return 0
-      ;;
-    COMPLETED)
-      if validate_report "$synth_meta" "$synth_report"; then
-        tmp="$(mktemp "$root/.result.XXXXXX")" || die "无法创建 investigate result"
-        jq -n --slurpfile topics "$root/synthesis/evidence.json" \
-          --slurpfile report "$synth_report" \
-          '{topics:$topics[0],report:$report[0]}' >"$tmp" \
-          && jq -e . "$tmp" >/dev/null 2>&1 \
-          && mv "$tmp" "$report" \
-          || { rm -f "$tmp"; die "无法组装 investigate result"; }
-        mmw_pi_atomic_update "$root/run.json" --arg report "$report" \
-          --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-          '.status="completed" | .report_file=$report | .updated_at=$at'
-        echo "INVESTIGATE_STATUS=COMPLETED"
-        echo "REPORT_FILE=$report"
-        return 0
-      fi
-      ;;
-  esac
-  if [ "$state" = COMPLETED ]; then
-    mmw_pi_atomic_update "$synth_meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      '.status="failed" | .validation_error="report result schema invalid" | .updated_at=$at'
+  if validate_report "$synth_meta" "$synth_report"; then
+    tmp="$(mktemp "$root/.result.XXXXXX")" || die "无法创建 investigate result"
+    jq -n --slurpfile topics "$root/synthesis/evidence.json" \
+      --slurpfile report "$synth_report" \
+      '{topics:$topics[0],report:$report[0]}' >"$tmp" \
+      && jq -e . "$tmp" >/dev/null 2>&1 \
+      && mv "$tmp" "$report" \
+      || { rm -f "$tmp"; die "无法组装 investigate result"; }
+    mmw_atomic_update "$root/run.json" --arg report "$report" \
+      --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      '.status="completed" | .report_file=$report | .updated_at=$at'
+    echo "INVESTIGATE_STATUS=COMPLETED"
+    echo "REPORT_FILE=$report"
+    release_run_lock
+    return 0
   fi
-  mmw_pi_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  mmw_atomic_update "$synth_meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '.status="failed" | .validation_error="report result schema invalid" | .updated_at=$at'
+  mmw_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '.status="failed" | .updated_at=$at'
   echo "INVESTIGATE_STATUS=FAILED synthesis"
   echo "NEXT=mmw investigate resume --run $run"
+  release_run_lock
   return 1
 }
 
 cmd_resume() {
-  local run="" root meta state retried=0
+  local run="" root meta retried=0 i total angle prompt
   while [ $# -gt 0 ]; do case "$1" in --run) run="$2"; shift 2 ;; *) die "未知参数:$1" ;; esac; done
   [ -n "$run" ] || die "--run 必填"
   root="$(run_root "$run")"
   [ -f "$root/run.json" ] || die "investigate run 不存在:$run"
   acquire_run_lock "$root"
 
-  for meta in "$root"/topics/*/meta.json; do
+  total="$(jq 'length' "$root/topics.json")"
+  for ((i=0; i<total; i++)); do
+    printf -v meta '%s/topics/%03d/meta.json' "$root" "$i"
     [ -f "$meta" ] || continue
     [ -f "$(dirname "$meta")/validated.json" ] && continue
-    state="$(mmw_pi_refresh "$meta" 2>/dev/null || true)"
-    [ "$state" = RUNNING ] && continue
+    [ "$(jq -r '.status' "$meta")" = failed ] || continue
     archive_job_attempt "$meta"
-    mmw_pi_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      '.status="prepared" | .pid=null | .result_file=null | .log_file=null
+    mmw_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      '.status="dispatched" | .result_file=null
        | .validation_error=null | .attempt=((.attempt // 1)+1) | .updated_at=$at'
-    launch_job "$meta" "$(jq -r .allowed_tools "$meta")"
+    angle="$(jq -r '.angle' "$meta")"
+    prompt="$(jq -r '.prompt_file' "$meta")"
+    echo "REDISPATCH=topic $i ANGLE=$angle:Agent(subagent_type=$TOPIC_AGENT,run_in_background=true,prompt=$prompt 全文);回执 JSON 经 submit --topic $i 交回"
     retried=$((retried+1))
   done
 
   meta="$root/synthesis/meta.json"
   if [ "$retried" -eq 0 ] && [ -f "$meta" ] && [ ! -f "$root/result.json" ]; then
-    state="$(mmw_pi_refresh "$meta" 2>/dev/null || true)"
-    [ "$state" = RUNNING ] || {
-      archive_job_attempt "$meta"
-      mmw_pi_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-        '.status="prepared" | .pid=null | .result_file=null | .log_file=null
-         | .validation_error=null | .attempt=((.attempt // 1)+1) | .updated_at=$at'
-      launch_job "$meta" "$(jq -r '.synthesis_allowed_tools // ""' "$root/run.json")"
-      retried=1
-    }
+    archive_job_attempt "$meta"
+    mmw_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      '.status="dispatched" | .result_file=null
+       | .validation_error=null | .attempt=((.attempt // 1)+1) | .updated_at=$at'
+    echo "REDISPATCH=synthesis:Agent(subagent_type=$SYNTH_AGENT,run_in_background=true,prompt=$root/synthesis/prompt.md 全文);回执 JSON 经 submit --synthesis 交回"
+    retried=1
   fi
   [ "$retried" -gt 0 ] || die "没有可恢复的失败 job"
-  mmw_pi_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  mmw_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '.status="running" | .updated_at=$at'
   echo "INVESTIGATE_RESUMED jobs=$retried"
-  echo "NEXT=mmw investigate status --run $run"
+  echo "NEXT=重派后回执经 submit 交回,再跑 mmw investigate status --run $run"
 }
 
 cmd_result() {
@@ -474,8 +480,9 @@ cmd_result() {
 
 case "${1:-}" in
   start) shift; cmd_start "$@" ;;
+  submit) shift; cmd_submit "$@" ;;
   status) shift; cmd_status "$@" ;;
   resume) shift; cmd_resume "$@" ;;
   result) shift; cmd_result "$@" ;;
-  *) die "用法: investigate.sh start|status|resume|result ..." ;;
+  *) die "用法: investigate.sh start|submit|status|resume|result ..." ;;
 esac

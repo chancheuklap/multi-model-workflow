@@ -4,11 +4,11 @@
 #   mmw where | mmw handoff | mmw pin | mmw spinoff
 #   mmw note set|show                            # 讨论态书签(现场注记)
 #   mmw approve --report <设计文档>...           # 唯一人闸:确认设计,盖承重指纹,过门放权
-#   mmw investigate start|status|resume|result
+#   mmw investigate start|submit|status|resume|result
 #   mmw task new|resume|scope|cleanup|team|escalate
 #   mmw loop init|step|attendance|softstop|surface|resume|status|close   # build 执行账本(只记录)
 #   mmw review start ...
-#   mmw worker dispatch|status|resume|check-docs ...
+#   mmw worker dispatch|verify|resume|check-docs ...
 #   mmw worker plan-dispatch|plan-resume|plan-check ...
 #   mmw release init|where|stage run|stage done|stage fail|round|surface|resume|close|exit-check|receipt|dispatch
 #   mmw package resolve|init|where|confirm|record-release|exit-check|close   # 出包阶段运行态(④终审后;where 自带 next 指路)
@@ -25,6 +25,7 @@
 #     mmw approve --report <主设计文档> [--report <合同文档>]...   确认设计(用户过门后执行;盖指纹,attendance→afk)
 #   调查 fan-out:
 #     mmw investigate start --direction <internal|external|both> --topics <topics.json> --run <id>
+#     mmw investigate submit --run <id> --topic <i>|--synthesis --file <工人 JSON>   回执交回过 schema 闸
 #     mmw investigate status|resume|result --run <id>
 #   任务(入口/收尾,主仓库):
 #     mmw task new --scenario <small-change|develop|bug> --slug <s> --title <t> --request '<用户原始需求与验收条件>' [--direction-given]
@@ -34,13 +35,13 @@
 #     mmw loop init | step add/done | attendance | softstop | surface | resume | status | close
 #   审闸一条命令:
 #     mmw review start --stage <design|plan|plan-impl|final|merge-impl> --source <...>
-#   写码工人派发(pi headless → pack-executor):
+#   写码工人派发(准备 worktree/prompt/账本,工人由协调者在会话内 Agent 工具派 subagent_type=pack-executor):
 #     mmw worker dispatch --plan <p> --worktree <wt> | worker resume --worktree <wt> --instructions <f>
-#     mmw worker status --worktree <wt>       # 完成时自动核 docs 边界并打印最后回执
-#   写计划工人派发(pi headless → plan-writer;在任务 worktree 内、不 commit):
+#     mmw worker verify --worktree <wt>       # 工人回执后跑:核 docs 边界门
+#   写计划工人派发(同上,subagent_type=plan-writer;隔离沙箱内、不 commit):
 #     mmw worker plan-dispatch --plan <落点> --worktree <wt> [--design <d>] [--issue <i>]
 #     mmw worker plan-resume --plan <落点> --worktree <wt> --instructions <f>
-#     mmw worker status --plan <落点> --worktree <wt>       # 完成时自动核计划边界
+#     mmw worker verify --plan <落点> --worktree <wt>       # 核计划边界,过门才原子发布
 #   进度板(负责人可读投影):
 #     mmw progress render [--stdout]           从 task.json/loop-state 聚合 progress-board.md(--stdout 供 command 注入)
 #   控制面(运行级值守 + 计划外分流):

@@ -8,7 +8,18 @@ mmw_worktrees_rel() { printf '.pi/worktrees'; }
 mmw_worker_branch_prefix() { printf 'worker'; }
 mmw_ask_user_tool() { printf 'ask_user'; }
 mmw_shell_tool() { printf 'bash'; }
-mmw_worker_backend() { printf 'pi-exec'; }
+mmw_worker_backend() { printf 'pi-subagents'; }
+
+# 原子更新 JSON 账本(jq 表达式作参数)。
+mmw_atomic_update() {
+  local file="$1"; shift
+  local tmp
+  tmp="$(mktemp "$(dirname "$file")/.pi-meta.XXXXXX")" || return 1
+  jq "$@" "$file" >"$tmp" \
+    && jq -e . "$tmp" >/dev/null 2>&1 \
+    && mv "$tmp" "$file" \
+    || { rm -f "$tmp"; return 1; }
+}
 
 mmw_resolve_state_subdir() {
   printf '%s' "$(mmw_state_subdir)"

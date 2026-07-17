@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# investigate.sh(pi-subagents 原生)合同:start 只准备并打印派发指令,工人回执经
+# submit 交回过 schema 闸,status 备 synthesis / 汇编 result,resume 重派失败 job。
+# 测试自己扮演工人生成回执 JSON。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -11,62 +14,6 @@ fail=0
 ok() { echo "ok - $1"; }
 no() { echo "not ok - $1"; fail=1; }
 
-mkdir -p "$TMP/bin" "$TMP/markers"
-export PI_TEST_LOG="$TMP/pi.log"
-export PI_FAKE_MARKERS="$TMP/markers"
-cat >"$TMP/bin/pi" <<'FAKE'
-#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\n' "$*" >>"$PI_TEST_LOG"
-prompt="${!#}"
-model=""
-while [ $# -gt 0 ]; do
-  case "$1" in
-    --model) model="$2"; shift 2 ;;
-    *) shift ;;
-  esac
-done
-sleep 0.03
-
-if printf '%s\n' "$prompt" | grep -q '^证据：'; then
-  if [ -n "${PI_FAKE_SYNTH_FAIL_ONCE:-}" ] \
-    && [ ! -f "$PI_FAKE_MARKERS/synth-failed" ]; then
-    touch "$PI_FAKE_MARKERS/synth-failed"
-    printf '%s\n' 'not-json'
-    exit 0
-  fi
-  payload="$(jq -cn '{markdown:"# Investigation\n\nVerified evidence with `src/app.py:10`.",open_questions:["remaining gap"],spinoff_candidates:[{tag:"optimize",finding:"later cleanup"}]}')"
-  printf '%s\n' "$payload"
-  exit 0
-fi
-
-angle="$(printf '%s\n' "$prompt" | sed -n 's/^angle=//p' | head -1)"
-mode="$(printf '%s\n' "$prompt" | sed -n 's/^mode=//p' | head -1)"
-if [ "$angle" = retry-topic ] && [ ! -f "$PI_FAKE_MARKERS/retry-topic-failed" ]; then
-  touch "$PI_FAKE_MARKERS/retry-topic-failed"
-  printf '%s\n' 'invalid topic'
-  exit 0
-fi
-if [ "$mode" = external ]; then
-  locator="https://example.com/source"
-  wrong_locator="src/app.py:10"
-else
-  locator="src/app.py:10"
-  wrong_locator="https://example.com/wrong-mode"
-fi
-payload="$(jq -cn --arg angle "$angle" --arg locator "$locator" --arg wrong "$wrong_locator" \
-  '{topic:$angle,findings:[
-      {claim:"verified",locator:$locator,confidence:"high"},
-      {claim:"weak",locator:$locator,confidence:"low"},
-      {claim:"missing locator",locator:"",confidence:"medium"},
-      {claim:"blank locator",locator:"   ",confidence:"high"},
-      {claim:"wrong mode locator",locator:$wrong,confidence:"high"}
-    ],summary:"current state; unrelated side issue remains a candidate",gaps:["one gap"]}')"
-printf '%s\n' "$payload"
-FAKE
-chmod +x "$TMP/bin/pi"
-export PATH="$TMP/bin:$PATH"
-
 git -C "$TMP" init -q
 git -C "$TMP" config user.email test@example.com
 git -C "$TMP" config user.name test
@@ -74,30 +21,25 @@ echo base >"$TMP/base.txt"
 git -C "$TMP" add base.txt
 git -C "$TMP" commit -qm base
 
-poll_completed() {
-  local run="$1" i output
-  for i in $(seq 1 80); do
-    output="$(cd "$TMP" && bash "$INVESTIGATE" status --run "$run" 2>&1)" || true
-    case "$output" in
-      *INVESTIGATE_STATUS=COMPLETED*) printf '%s\n' "$output"; return 0 ;;
-      *INVESTIGATE_STATUS=FAILED*) printf '%s\n' "$output"; return 1 ;;
-    esac
-    sleep 0.03
-  done
-  return 1
+# 扮演 topic 工人:带各种该被过滤的 finding
+topic_payload() {  # $1=angle $2=mode
+  local locator wrong_locator
+  if [ "$2" = external ]; then
+    locator="https://example.com/source"; wrong_locator="src/app.py:10"
+  else
+    locator="src/app.py:10"; wrong_locator="https://example.com/wrong-mode"
+  fi
+  jq -cn --arg angle "$1" --arg locator "$locator" --arg wrong "$wrong_locator" \
+    '{topic:$angle,findings:[
+        {claim:"verified",locator:$locator,confidence:"high"},
+        {claim:"weak",locator:$locator,confidence:"low"},
+        {claim:"missing locator",locator:"",confidence:"medium"},
+        {claim:"blank locator",locator:"   ",confidence:"high"},
+        {claim:"wrong mode locator",locator:$wrong,confidence:"high"}
+      ],summary:"current state",gaps:["one gap"]}'
 }
-
-poll_failed() {
-  local run="$1" i output
-  for i in $(seq 1 80); do
-    output="$(cd "$TMP" && bash "$INVESTIGATE" status --run "$run" 2>&1)" || true
-    case "$output" in
-      *INVESTIGATE_STATUS=FAILED*) printf '%s\n' "$output"; return 0 ;;
-      *INVESTIGATE_STATUS=COMPLETED*) return 1 ;;
-    esac
-    sleep 0.03
-  done
-  return 1
+synth_payload() {
+  jq -cn '{markdown:"# Investigation\n\nVerified evidence with `src/app.py:10`.",open_questions:["remaining gap"],spinoff_candidates:[{tag:"optimize",finding:"later cleanup"}]}'
 }
 
 cat >"$TMP/topics.json" <<'JSON'
@@ -110,24 +52,50 @@ JSON
 START="$(cd "$TMP" && bash "$MMW" investigate start --direction internal --topics "$TMP/topics.json" --run internal-a)"
 printf '%s\n' "$START" | grep -q 'INVESTIGATE_STARTED.*topics=2' \
   && ok "parallel topic run starts" || no "investigate start"
-poll_completed internal-a >/dev/null \
-  && ok "topics validate and synthesize" || no "investigate completion"
+printf '%s\n' "$START" | grep -q 'subagent_type=investigate-topic' \
+  && ok "start prints dispatch instruction" || no "dispatch instruction"
+printf '%s\n' "$START" | grep -q 'TOPIC=1 ANGLE=data-flow' \
+  && ok "start lists per-topic prompt files" || no "topic listing"
 
 ROOT="$TMP/.pi/multi-model-workflow/investigate-runs/internal-a"
-[ "$(jq 'length' "$ROOT/synthesis/evidence.json")" = 2 ] \
-  && ok "all topic evidence reaches synthesis" || no "evidence fan-in"
+[ -s "$ROOT/topics/000/prompt.md" ] && [ -s "$ROOT/topics/001/prompt.md" ] \
+  && ok "topic prompts prepared" || no "topic prompts"
+grep -q 'angle=module-boundary' "$ROOT/topics/000/prompt.md" \
+  && ok "prompt carries topic angle" || no "prompt angle"
+
+S="$(cd "$TMP" && bash "$INVESTIGATE" status --run internal-a)"
+printf '%s\n' "$S" | grep -q 'INVESTIGATE_STATUS=PENDING' \
+  && ok "status pending before submits" || no "pending status"
+
+topic_payload module-boundary internal >"$TMP/t0.json"
+topic_payload data-flow internal >"$TMP/t1.json"
+cd "$TMP" && bash "$INVESTIGATE" submit --run internal-a --topic 0 --file "$TMP/t0.json" >/dev/null \
+  && bash "$INVESTIGATE" submit --run internal-a --topic 1 --file "$TMP/t1.json" >/dev/null \
+  && ok "topic submits validate" || no "topic submit"
 [ "$(jq '.findings|length' "$ROOT/topics/000/validated.json")" = 1 ] \
   && [ "$(jq '.dropped|length' "$ROOT/topics/000/validated.json")" = 4 ] \
   && ok "weak, blank, and mode-mismatched evidence filtered" || no "evidence filtering"
+
+S="$(cd "$TMP" && bash "$INVESTIGATE" status --run internal-a)"
+printf '%s\n' "$S" | grep -q 'INVESTIGATE_STATUS=SYNTHESIZING' \
+  && printf '%s\n' "$S" | grep -q 'subagent_type=investigate-synthesizer' \
+  && ok "all topics validated prepares synthesis dispatch" || no "synthesis prep"
+[ "$(jq 'length' "$ROOT/synthesis/evidence.json")" = 2 ] \
+  && ok "all topic evidence reaches synthesis" || no "evidence fan-in"
+[ -s "$ROOT/synthesis/prompt.md" ] && ok "synthesis prompt prepared" || no "synthesis prompt"
+
+synth_payload >"$TMP/synth.json"
+cd "$TMP" && bash "$INVESTIGATE" submit --run internal-a --synthesis --file "$TMP/synth.json" >/dev/null
+S="$(cd "$TMP" && bash "$INVESTIGATE" status --run internal-a)"
+printf '%s\n' "$S" | grep -q 'INVESTIGATE_STATUS=COMPLETED' \
+  && ok "synthesis submit completes run" || no "investigate completion"
 RESULT="$(cd "$TMP" && bash "$INVESTIGATE" result --run internal-a)"
 printf '%s\n' "$RESULT" | grep -q '^# Investigation' \
   && ok "completed report is readable" || no "report output"
-jq '.status="synthesizing" | .report_file=null' "$ROOT/run.json" >"$ROOT/run.json.tmp"
-mv "$ROOT/run.json.tmp" "$ROOT/run.json"
-cd "$TMP" && bash "$INVESTIGATE" status --run internal-a >/dev/null
 [ "$(jq -r .status "$ROOT/run.json")" = completed ] \
   && [ "$(basename "$(jq -r .report_file "$ROOT/run.json")")" = result.json ] \
   && ok "completed result reconciles run ledger" || no "run ledger reconciliation"
+
 printf '%s\n' "$$" >"$ROOT/.run-lock"
 if cd "$TMP" && bash "$INVESTIGATE" status --run internal-a >/dev/null 2>&1; then
   no "concurrent status must fail"
@@ -148,12 +116,7 @@ elif [ -e "$ROOT/.run-lock" ]; then
 else
   no "stale lock was removed unsafely"
 fi
-[ "$(jq -r .allowed_tools "$ROOT/topics/000/meta.json")" = "read,grep,find,ls,bash" ] \
-  && ok "internal tool restriction" || no "internal tool restriction"
-printf '%s\n' "$(jq -r .allowed_tools "$ROOT/topics/000/meta.json")" | grep -qw bash \
-  && ok "internal topics retain diagnostic bash" || no "internal bug investigation lost bash"
-[ "$(jq -r .synthesis_allowed_tools "$ROOT/run.json")" = "" ] \
-  && ok "synthesis model tool restriction" || no "synthesis model tool restriction"
+
 if cd "$TMP" && bash "$INVESTIGATE" start --direction internal --topics "$TMP/topics.json" --run internal-a >/dev/null 2>&1; then
   no "duplicate run must fail"
 else
@@ -169,11 +132,12 @@ elif [ -d "$TMP/inherited-staging-victim" ]; then
 else
   no "inherited staging path was deleted"
 fi
+
 set +e
-(cd "$TMP" && PI_FAKE_LIST_SLEEP=0.05 bash "$INVESTIGATE" start \
+(cd "$TMP" && bash "$INVESTIGATE" start \
   --direction internal --topics "$TMP/topics.json" --run concurrent-a >/dev/null 2>&1) &
 p1=$!
-(cd "$TMP" && PI_FAKE_LIST_SLEEP=0.05 bash "$INVESTIGATE" start \
+(cd "$TMP" && bash "$INVESTIGATE" start \
   --direction internal --topics "$TMP/topics.json" --run concurrent-a >/dev/null 2>&1) &
 p2=$!
 wait "$p1"; r1=$?
@@ -187,37 +151,17 @@ if [ "$successes" -eq 1 ]; then
 else
   no "concurrent start expected exactly one success"
 fi
-poll_completed concurrent-a >/dev/null || no "concurrent winner completion"
-set +e
-PI_FAKE_LIST_SLEEP=0.5 bash -c \
-  'cd "$1"; exec bash "$2" start --direction internal --topics "$3" --run interrupted-a' \
-  _ "$TMP" "$INVESTIGATE" "$TMP/topics.json" >/dev/null 2>&1 &
-interrupted_pid=$!
-sleep 0.05
-kill "$interrupted_pid" 2>/dev/null
-wait "$interrupted_pid" 2>/dev/null
-sleep 0.05
-set -e
-INTERRUPTED_PARENT="$TMP/.pi/multi-model-workflow/investigate-runs"
-if [ ! -e "$INTERRUPTED_PARENT/interrupted-a" ] \
-  && ! compgen -G "$INTERRUPTED_PARENT/.interrupted-a.start.*" >/dev/null; then
-  ok "interrupted start publishes no partial run"
-else
-  no "interrupted start left partial state"
-fi
-cd "$TMP" && bash "$INVESTIGATE" start \
-  --direction internal --topics "$TMP/topics.json" --run interrupted-a >/dev/null
-poll_completed interrupted-a >/dev/null \
-  && ok "interrupted run id can restart cleanly" || no "interrupted start recovery"
 
 cat >"$TMP/external.json" <<'JSON'
 [{"angle":"library-practice","question":"What is established externally?"}]
 JSON
 cd "$TMP" && bash "$INVESTIGATE" start --direction external --topics "$TMP/external.json" --run external-a >/dev/null
-poll_completed external-a >/dev/null \
-  && ok "external topic completes" || no "external completion"
-[ "$(jq -r .allowed_tools "$TMP/.pi/multi-model-workflow/investigate-runs/external-a/topics/000/meta.json")" = "read,bash" ] \
-  && ok "external tool restriction" || no "external tool restriction"
+topic_payload library-practice external >"$TMP/ext0.json"
+cd "$TMP" && bash "$INVESTIGATE" submit --run external-a --topic 0 --file "$TMP/ext0.json" >/dev/null
+EXT_ROOT="$TMP/.pi/multi-model-workflow/investigate-runs/external-a"
+[ "$(jq -r '.findings[0].locator' "$EXT_ROOT/topics/000/validated.json")" = "https://example.com/source" ] \
+  && [ "$(jq '.dropped|length' "$EXT_ROOT/topics/000/validated.json")" = 4 ] \
+  && ok "external locator must be URL" || no "external locator rule"
 
 cat >"$TMP/both-invalid.json" <<'JSON'
 [{"angle":"missing-mode","question":"Which direction?"}]
@@ -227,11 +171,8 @@ if cd "$TMP" && bash "$INVESTIGATE" start --direction both --topics "$TMP/both-i
 else
   ok "both direction validates topic mode"
 fi
-(cd "$TMP" && PI_BIN=/nonexistent/pi bash "$INVESTIGATE" start \
-  --direction internal --topics "$TMP/external.json" --run launch-fail >/dev/null)
-poll_failed launch-fail >/dev/null \
-  && ok "headless launch failure stays visible" || no "headless launch failure visibility"
 
+# 失败可见 + 选择性重派 + 审计留痕
 cat >"$TMP/retry.json" <<'JSON'
 [
   {"angle":"good-topic","question":"This succeeds."},
@@ -239,36 +180,50 @@ cat >"$TMP/retry.json" <<'JSON'
 ]
 JSON
 cd "$TMP" && bash "$INVESTIGATE" start --direction internal --topics "$TMP/retry.json" --run retry-a >/dev/null
-poll_failed retry-a >/dev/null \
-  && ok "malformed topic result fails visibly" || no "schema failure visibility"
+topic_payload good-topic internal >"$TMP/good.json"
+printf 'not-json\n' >"$TMP/bad.json"
+cd "$TMP" && bash "$INVESTIGATE" submit --run retry-a --topic 0 --file "$TMP/good.json" >/dev/null
+if cd "$TMP" && bash "$INVESTIGATE" submit --run retry-a --topic 1 --file "$TMP/bad.json" >/dev/null 2>&1; then
+  no "malformed topic submit must fail"
+else
+  ok "malformed topic result fails visibly at submit"
+fi
+S="$(cd "$TMP" && bash "$INVESTIGATE" status --run retry-a 2>&1)" || true
+printf '%s\n' "$S" | grep -q 'INVESTIGATE_STATUS=FAILED' \
+  && ok "failed topic keeps run failed" || no "schema failure visibility"
 RETRY_ROOT="$TMP/.pi/multi-model-workflow/investigate-runs/retry-a"
 [ -f "$RETRY_ROOT/topics/000/validated.json" ] && [ ! -f "$RETRY_ROOT/synthesis/meta.json" ] \
   && ok "partial success persists without premature synthesis" || no "partial failure state"
-rm -f "$RETRY_ROOT/topics/001/run.log"
-cd "$TMP" && bash "$INVESTIGATE" resume --run retry-a >/dev/null
-poll_completed retry-a >/dev/null \
-  && ok "resume retries failed topic even when log is absent" || no "topic retry"
-[ "$(grep -c '^angle=good-topic$' "$PI_TEST_LOG")" = 1 ] \
-  && [ "$(grep -c '^angle=retry-topic$' "$PI_TEST_LOG")" = 2 ] \
-  && ok "validated topic is not rerun" || no "selective retry"
-[ -f "$RETRY_ROOT/topics/001/attempts/001/result.log" ] \
+R="$(cd "$TMP" && bash "$INVESTIGATE" resume --run retry-a)"
+printf '%s\n' "$R" | grep -q 'REDISPATCH=topic 1' \
+  && ! printf '%s\n' "$R" | grep -q 'REDISPATCH=topic 0' \
+  && ok "validated topic is not redispatched" || no "selective retry"
+topic_payload retry-topic internal >"$TMP/retry-good.json"
+cd "$TMP" && bash "$INVESTIGATE" submit --run retry-a --topic 1 --file "$TMP/retry-good.json" >/dev/null
+S="$(cd "$TMP" && bash "$INVESTIGATE" status --run retry-a)"
+printf '%s\n' "$S" | grep -q 'INVESTIGATE_STATUS=SYNTHESIZING' \
+  && ok "resume + resubmit reaches synthesis" || no "topic retry"
+[ -f "$RETRY_ROOT/topics/001/attempts/001/result.json" ] \
   && [ "$(jq -r .attempt "$RETRY_ROOT/topics/001/meta.json")" = 2 ] \
   && ok "failed topic attempt is preserved" || no "topic retry audit trail"
 
-cat >"$TMP/synth-retry.json" <<'JSON'
-[{"angle":"synth-source","question":"Produce valid evidence."}]
-JSON
-export PI_FAKE_SYNTH_FAIL_ONCE=1
-cd "$TMP" && bash "$INVESTIGATE" start --direction internal --topics "$TMP/synth-retry.json" --run synth-retry >/dev/null
-poll_failed synth-retry >/dev/null \
+# synthesis 失败一次 → resume 重派 → 补交完成
+printf 'not-json\n' >"$TMP/synth-bad.json"
+cd "$TMP" && bash "$INVESTIGATE" submit --run retry-a --synthesis --file "$TMP/synth-bad.json" >/dev/null
+S="$(cd "$TMP" && bash "$INVESTIGATE" status --run retry-a 2>&1)" || true
+printf '%s\n' "$S" | grep -q 'INVESTIGATE_STATUS=FAILED synthesis' \
   && ok "malformed synthesis fails visibly" || no "synthesis failure visibility"
-cd "$TMP" && bash "$INVESTIGATE" resume --run synth-retry >/dev/null
-poll_completed synth-retry >/dev/null \
-  && ok "failed synthesis can be rerun" || no "synthesis retry"
-SYNTH_ROOT="$TMP/.pi/multi-model-workflow/investigate-runs/synth-retry/synthesis"
-[ -f "$SYNTH_ROOT/attempts/001/result.log" ] \
+R="$(cd "$TMP" && bash "$INVESTIGATE" resume --run retry-a)"
+printf '%s\n' "$R" | grep -q 'REDISPATCH=synthesis' \
+  && ok "failed synthesis can be redispatched" || no "synthesis retry"
+synth_payload >"$TMP/synth-good.json"
+cd "$TMP" && bash "$INVESTIGATE" submit --run retry-a --synthesis --file "$TMP/synth-good.json" >/dev/null
+S="$(cd "$TMP" && bash "$INVESTIGATE" status --run retry-a)"
+printf '%s\n' "$S" | grep -q 'INVESTIGATE_STATUS=COMPLETED' \
+  && ok "synthesis retry completes run" || no "synthesis retry completion"
+SYNTH_ROOT="$RETRY_ROOT/synthesis"
+[ -f "$SYNTH_ROOT/attempts/001/result.json" ] \
   && [ "$(jq -r .validation_error "$SYNTH_ROOT/attempts/001/meta.json")" = "report result schema invalid" ] \
   && ok "failed synthesis attempt is preserved" || no "synthesis retry audit trail"
-unset PI_FAKE_SYNTH_FAIL_ONCE
 
 exit "$fail"

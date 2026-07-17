@@ -13,7 +13,7 @@ no() { echo "not ok - $1"; fail=1; }
 [ "$(mmw_worker_branch_prefix)" = worker ] && ok "worker branch prefix" || no "branch prefix"
 [ "$(mmw_shell_tool)" = bash ] && ok "bash tool" || no "shell tool"
 [ "$(mmw_ask_user_tool)" = ask_user ] && ok "ask_user tool" || no "ask tool"
-[ "$(mmw_worker_backend)" = pi-exec ] && ok "pi exec backend" || no "worker backend"
+[ "$(mmw_worker_backend)" = pi-subagents ] && ok "pi-subagents backend" || no "worker backend"
 [ "$(mmw_resolve_state_subdir /tmp)" = ".pi/multi-model-workflow" ] && ok "state resolution is fixed" || no "state resolution"
 
 TMP="$(mktemp -d)"

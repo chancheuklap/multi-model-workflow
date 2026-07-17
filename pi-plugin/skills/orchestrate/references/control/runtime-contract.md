@@ -22,7 +22,7 @@
 | 文件检索 | `read`、`grep`、`find`、`ls` |
 | 外部检索 | `web_search`、`fetch_content` |
 
-进入 worktree 后在该路径继续并运行 `mmw where`。Coordinator 的任务 worktree 由 `prepare.sh` 建立；后台 Pack worker 和 plan writer 的隔离 worktree 由 `worker.sh` 建立，再以该目录为 cwd 启动 `pi -p`。Agent 子代理只做当前会话内的咨询和审查，不负责切换主线程工作目录。
+进入 worktree 后在该路径继续并运行 `mmw where`。Coordinator 的任务 worktree 由 `prepare.sh` 建立；Pack worker 和 plan writer 的隔离 worktree 由 `worker.sh` 建立，工人 prompt 里钉死该 worktree 绝对路径，工人的所有操作必须落在它下面。所有工作角色都是会话内 Agent 子代理；主线程工作目录不随工人切换。
 
 ## 角色花名册
 
@@ -46,14 +46,14 @@ final review 固定并行四个 Agent：A、B 两种模型分别各审基线1和
 
 ## Worker
 
-`mmw worker dispatch` 为新 Pack 创建 Git worktree；返修从派发账本找到原 worktree。`plan-dispatch` 使用临时 Git worktree，边界门通过后只发布指定 plan 与 issue `Small issues`。脚本通过 pi 的 `-t` 工具白名单只开放读写、检索和 bash；账本持久化 PID、结果文件、工具策略和 session ID。
+`mmw worker dispatch` 为新 Pack 创建 Git worktree、组工人 prompt、记派发账本，并打印派发指令；协调者照指令在会话内派 `Agent(subagent_type=pack-executor,run_in_background=true)`，记下 agent id。`plan-dispatch` 同理，使用临时隔离 worktree。工具白名单由已注册角色的 frontmatter 提供，不再经命令行传递。
 
-主线程轮询：
+工人完成(会话内收到后台 agent 回执)后过机器边界门：
 
-- 写码：`mmw worker status --worktree <wt>`
-- 写计划：`mmw worker status --plan <plan> --worktree <wt>`
+- 写码：`mmw worker verify --worktree <wt>`(核 docs 边界)
+- 写计划：`mmw worker verify --plan <plan> --worktree <wt>`(核越界，过门才原子发布 plan 与 issue `Small issues`)
 
-`status` 在完成时自动执行机器边界检查并打印最后回执。修复使用 `worker resume` 或 `plan-resume`，脚本通过账本 session ID 调用 `pi -p --session-id` 续接原上下文。通过后主线程再亲验 diff、提交和测试。
+修复使用 `worker resume` 或 `plan-resume`：脚本准备 resume prompt，同会话用 `Agent(resume=<原 agent id>)` 续接原上下文；跨会话(agent id 已失效)重派同角色新 agent，靠 worktree 已有提交对齐进度。通过后主线程再亲验 diff、提交和测试。
 
 ## 审闸
 

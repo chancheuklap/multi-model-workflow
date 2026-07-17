@@ -21,25 +21,15 @@ bash /Users/cheuklapchan/multi-model-workflow/pi-plugin/workflows/install-workfl
 
 ## 角色与模型
 
-| 角色 | 运行方式 | 默认模型 |
-| --- | --- | --- |
-| plan writer | 后台 `pi -p`，独立 Git worktree | `openai-codex/gpt-5.6-sol` |
-| code worker | 后台 `pi -p`，独立 Git worktree | `openai-codex/gpt-5.6-terra`；capable 档用 sol |
-| GPT reviewer | pi-subagents Agent | `openai-codex/gpt-5.6-terra` |
-| Claude reviewer | pi-subagents Agent | `claude-provider/claude-opus-4-8` |
-| investigate topic | pi-dynamic-workflows | `claude-provider/claude-sonnet-5:high` |
+花名册 `agents-roster/*.md` 是所有工作角色的单一权威(模型、thinking、工具白名单、职责、系统提示词)。全员软链进 `~/.pi/agent/agents/` 注册为 pi 正式 agent，协调者用 Agent 工具按名字派(`subagent_type: <角色名>`)；重角色(pack-executor / plan-writer)用 `run_in_background` + `persist_session` 后台跑，worktree 与边界门仍由 `scripts/worker.sh` 准备和把关。强判断咨询用 rpiv-advisor 的 advisor 工具，不占花名册编制。
 
-角色的模型、effort、工具白名单和职责以 `agents-roster/*.md` 为单一权威。
+安装后若未注册，把花名册软链进全局目录：
 
-## GPT 无头提示词占位
-
-`prompts-runtime/headless-agent.md` 已接入渲染路径，但当前只有 HTML 注释占位。`pi-exec.sh` 会识别占位、不把它注入 GPT 请求，并在工人的 `run.log` 留下：
-
-```text
-headless-agent prompt: placeholder, not injected
+```bash
+for f in /Users/cheuklapchan/multi-model-workflow/pi-plugin/agents-roster/*.md; do
+  ln -sf "$f" ~/.pi/agent/agents/"$(basename "$f")"
+done
 ```
-
-待与用户共同确定具体指导内容后，删除注释占位并写正文，后续 GPT worker 自动开始注入；无需修改派发脚本。
 
 ## Hooks 与安全边界
 
@@ -53,8 +43,8 @@ headless-agent prompt: placeholder, not injected
 
 - 状态平面：`<worktree>/.pi/multi-model-workflow/`
 - worktree 根：`<repo>/.pi/worktrees/`
-- 工人账本：PID、session ID、prompt、角色系统提示词、stdout、stderr、exit code
-- 续接：`mmw worker resume` / `plan-resume` 复用账本里的 pi session ID
+- 工人账本：角色、worktree、prompt、start SHA、边界基线、验收/发布状态(工人回执在会话内,不落 result 文件)
+- 续接：`mmw worker resume` / `plan-resume` 准备 resume prompt;同会话 `Agent(resume=<agent id>)`,跨会话重派同角色靠 worktree 提交对齐进度
 - 工作流续接：pi-dynamic-workflows journal
 
 ## 验证

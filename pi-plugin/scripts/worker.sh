@@ -1,23 +1,18 @@
 #!/usr/bin/env bash
-# pi headless 写码工人和写计划工人派发器。
+# 写码工人和写计划工人派发准备器(pi-subagents 原生)。
+# 脚本只做机械把关:准备 worktree/隔离沙箱、组工人 prompt、记边界基线和派发账本;
+# 工人本体由协调者在 pi 会话内用 Agent 工具按名字派发(subagent_type=角色名,
+# model/工具白名单/系统提示词由已注册的 agents-roster frontmatter 提供)。
+# 工人完成(会话内收到回执)后跑 verify 过机器边界门;plan 工人过门才原子发布。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
-# shellcheck source=lib/pi-exec.sh
-. "$SCRIPT_DIR/lib/pi-exec.sh"
 
 EXECUTOR_AGENT="${PI_EXECUTOR_AGENT:-pack-executor}"
-EXECUTOR_MODEL="${PI_EXECUTOR_MODEL:-openai-codex/gpt-5.6-terra}"
-EXECUTOR_EFFORT="${PI_EXECUTOR_EFFORT:-high}"
 CAPABLE_EXECUTOR_AGENT="${PI_CAPABLE_EXECUTOR_AGENT:-pack-executor-capable}"
-CAPABLE_EXECUTOR_MODEL="${PI_CAPABLE_EXECUTOR_MODEL:-openai-codex/gpt-5.6-sol}"
-CAPABLE_EXECUTOR_EFFORT="${PI_CAPABLE_EXECUTOR_EFFORT:-medium}"
 PLAN_AGENT="${PI_PLAN_AGENT:-plan-writer}"
-PLAN_MODEL="${PI_PLAN_MODEL:-openai-codex/gpt-5.6-sol}"
-PLAN_EFFORT="${PI_PLAN_EFFORT:-high}"
-WORKER_ALLOWED_TOOLS="read,write,edit,bash,grep,find,ls"
 
 die() { echo "ERROR: $*" >&2; exit 2; }
 state_for() { mmw_resolve_state_subdir "$1"; }
@@ -28,6 +23,13 @@ plan_ns() { basename "$1" .md; }
 preflight_plugin_skill() {  # $1=skill 名
   local sk="$(mmw_plugin_root)/skills/$1/SKILL.md"
   [ -f "$sk" ] || die "preflight:工人 skill 缺失($sk 不存在);plugin 安装不完整,先修再派"
+}
+# 点名的工人角色已注册为 pi agent(全局 agents 目录有同名定义,软链或实体均可)。
+preflight_registered_agent() {  # $1=agent 名
+  local roster="$(mmw_plugin_root)/agents-roster/$1.md"
+  [ -f "$roster" ] || die "preflight:找不到工人角色:$roster"
+  local reg="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/agents/$1.md"
+  [ -e "$reg" ] || die "preflight:工人角色未注册为 pi agent($reg 不存在);先软链 agents-roster/$1.md 进全局 agents 目录"
 }
 # 定位仓库测试薄层(机械活归脚本,工人不漫山遍野找):TESTING.md 在 worktree 根或 tests/ 下。
 # 回显相对路径;找不到回显空(prompt 会声明 no-repo-test-sheet)。
@@ -46,11 +48,6 @@ test_sheet_lines() {  # $1=薄层相对路径(可空)
   fi
 }
 
-render_role_prompt() {
-  local source="$1" target="$2"
-  mmw_pi_render_prompt "$source" "$target" || die "角色提示词为空:$source"
-}
-
 native_worktree_path() {
   local repo="$1" root="$2" branch="$3"
   printf '%s/%s-wt-%s' "$root" "$(basename "$repo")" "${branch//\//-}"
@@ -64,7 +61,7 @@ build_prompt() {
 你是落地执行者,被主线程派进一个 worktree 按 mini-plan 修复已判定方向的合并冲突。
 先读 pi plugin 内 worktree-build skill 并严格执行:$skill/SKILL.md
 
-工作树(你唯一可写的源码区):$wt
+工作树(你唯一可写的源码区,所有文件操作用它下面的绝对路径):$wt
 合并冲突 mini-plan(唯一意图与验收来源):$plan
 
 只改 mini-plan 明确拥有的路径。逐 Task Pack TDD、每 Pack 本地提交、禁改 docs/、禁 push/gh pr merge/部署、卡住协议和 Return Contract 全按 worktree-build skill。不要重新选择哪边意图胜出,不要向用户提问,不要启动其它 agent;mini-plan 缺关键意图时在最终回执中结构化报告。
@@ -75,7 +72,7 @@ PROMPT
 你是落地执行者,被主线程派进一个 worktree 落地一份计划。
 先读 pi plugin 内 worktree-build skill 并严格执行:$skill/SKILL.md
 
-工作树(你唯一可写的源码区):$wt
+工作树(你唯一可写的源码区,所有文件操作用它下面的绝对路径):$wt
 开工前依次读:
 ${design:+- 设计文档:$design
 }${issue:+- 负责的 issue:$issue
@@ -93,7 +90,7 @@ build_plan_prompt() {
 你是计划撰写者,被主线程派进任务 worktree 把一个大 issue 写成一份实施计划。
 先读 pi plugin 内 worktree-plan skill 并严格执行:$skill/SKILL.md
 
-任务工作树:$wt
+任务工作树(所有文件操作用它下面的绝对路径):$wt
 唯一 plan 落点:$plan
 开工前依次读:
 ${design:+- 源设计文档:$design
@@ -206,20 +203,15 @@ check_plan_boundary() {
 }
 
 write_meta() {
-  local file="$1" mode="$2" agent="$3" model="$4" effort="$5" wt="$6" prompt="$7" start_sha="$8"
-  local plan="$9" system_prompt="${10}" issue="${11:-}" allowed_tools="${12:-}"
+  local file="$1" mode="$2" agent="$3" wt="$4" prompt="$5" start_sha="$6" plan="$7" issue="${8:-}"
   local tmp
   tmp="$(mktemp "$(dirname "$file")/.meta.XXXXXX")" || return 1
   jq -n \
-    --arg backend pi-exec --arg mode "$mode" --arg agent "$agent" \
-    --arg model "$model" --arg effort "$effort" --arg wt "$wt" \
-    --arg plan "$plan" --arg prompt "$prompt" --arg start "$start_sha" \
-    --arg system "$system_prompt" --arg issue "$issue" --arg allowed "$allowed_tools" \
-    --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '{backend:$backend,mode:$mode,agent:$agent,model:$model,reasoning_effort:$effort,
-      worktree:$wt,plan:$plan,issue:$issue,prompt_file:$prompt,system_prompt_file:$system,
-      allowed_tools:$allowed,start_sha:$start,
-      status:"prepared",pid:null,session_id:null,result_file:null,log_file:null,
+    --arg backend "$(mmw_worker_backend)" --arg mode "$mode" --arg agent "$agent" \
+    --arg wt "$wt" --arg plan "$plan" --arg prompt "$prompt" --arg start "$start_sha" \
+    --arg issue "$issue" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{backend:$backend,mode:$mode,agent:$agent,worktree:$wt,plan:$plan,issue:$issue,
+      prompt_file:$prompt,start_sha:$start,status:"dispatched",
       created_at:$at,updated_at:$at}' >"$tmp" \
     && jq -e . "$tmp" >/dev/null 2>&1 \
     && mv "$tmp" "$file" \
@@ -228,35 +220,28 @@ write_meta() {
 
 update_meta() {
   local meta="$1"; shift
-  mmw_pi_atomic_update "$meta" "$@"
+  mmw_atomic_update "$meta" "$@"
 }
 
-launch_exec() {
-  local meta="$1" prompt="$2" wt="$3" model="$4" effort="$5" system_prompt="$6" session_id="${7:-}" status_cmd="$8"
-  local allowed_tools="${9:-}"
-  mmw_pi_launch "$meta" "$prompt" "$wt" "$model" "$effort" "$system_prompt" "$session_id" "$allowed_tools" \
-    || die "worker 启动或派发账本写入失败"
-  echo "WORKER_STARTED"
-  echo "pid=$MMW_PI_PID"
-  echo "session_id=$MMW_PI_SESSION_ID"
-  echo "result_file=$MMW_PI_RESULT_FILE"
-  echo "log_file=$MMW_PI_LOG_FILE"
-  echo "NEXT=$status_cmd"
+# 派发指令(协调者照它在会话内派 Agent;工人回执在会话内直接回来,不落 result 文件)。
+print_dispatch() {
+  local agent="$1" prompt="$2" meta="$3" verify_cmd="$4" resume_note="$5"
+  echo "WORKER_BACKEND=$(mmw_worker_backend)"
+  echo "AGENT=$agent"
+  echo "PROMPT_FILE=$prompt"
+  echo "META_FILE=$meta"
+  echo "DISPATCH=单条消息用 Agent 工具派发:subagent_type=$agent,run_in_background=true,prompt=PROMPT_FILE 全文原样传入;记下返回的 agent id(返修 resume 用)。$resume_note"
+  echo "NEXT=工人回执完成后先跑 $verify_cmd 过机器边界门,再亲验回执声明"
 }
 
-refresh_meta() {
-  local meta="$1"
-  [ -f "$meta" ] || die "派发账本不存在:$meta"
-  mmw_pi_refresh "$meta"
-}
-
-guard_no_active() {
-  local meta="$1" state
+# 同一账本重复派发守卫:上一轮未验收(可能在飞)不准覆盖。
+guard_no_pending() {
+  local meta="$1" status
   [ -f "$meta" ] || return 0
-  state="$(refresh_meta "$meta" 2>/dev/null || true)"
-  case "$state" in
-    RUNNING) die "已有 worker 正在运行:$meta" ;;
-    COMPLETED) die "已有成功 worker；需要补改请用 resume:$meta" ;;
+  status="$(jq -r '.status // empty' "$meta")"
+  case "$status" in
+    dispatched) die "已有派发未验收(工人可能在飞):$meta;工人已结束则先 verify,返修用 resume" ;;
+    verified) die "已有验收通过的派发;补改请用 resume:$meta" ;;
   esac
 }
 
@@ -267,9 +252,9 @@ plan_sandbox_create() {
   main="$(cd "$(dirname "$common")" && pwd -P)" || return 1
   sandbox="$main/$(mmw_worktrees_rel)/$(basename "$task_wt")-plan-$ns"
   branch="$(mmw_worker_branch_prefix)/$(basename "$task_wt")-plan-$ns"
-  [ ! -e "$sandbox" ] || die "plan writer 隔离 worktree 已存在:$sandbox；请先 resume 或清理失败派发"
+  [ ! -e "$sandbox" ] || die "plan writer 隔离 worktree 已存在:$sandbox;请先 resume 或清理失败派发"
   git -C "$main" show-ref --verify --quiet "refs/heads/$branch" \
-    && die "plan writer 隔离分支已存在:$branch；请先 resume 或清理失败派发"
+    && die "plan writer 隔离分支已存在:$branch;请先 resume 或清理失败派发"
   git -C "$main" worktree add -b "$branch" "$sandbox" "$(git -C "$task_wt" rev-parse HEAD)" >&2 \
     || die "建立 plan writer 隔离 worktree 失败:$sandbox"
   mmw_ensure_wt_state_ignore "$sandbox"
@@ -316,13 +301,13 @@ guard_unique_plan_targets() {
 }
 
 cmd_dispatch() {
-  local plan="" wt="" base="HEAD" design="" issue="" model="" effort="" mode="pack"
+  local plan="" wt="" base="HEAD" design="" issue="" mode="pack" agent=""
   while [ $# -gt 0 ]; do case "$1" in
     --plan) plan="$2"; shift 2 ;; --worktree) wt="$2"; shift 2 ;;
     --design) design="$2"; shift 2 ;; --issue) issue="$2"; shift 2 ;;
     --mode) mode="$2"; shift 2 ;;
-    --base) base="$2"; shift 2 ;; --model) model="$2"; shift 2 ;;
-    --effort) effort="$2"; shift 2 ;; *) die "未知参数:$1" ;;
+    --base) base="$2"; shift 2 ;; --agent) agent="$2"; shift 2 ;;
+    *) die "未知参数:$1" ;;
   esac; done
   [ -f "$plan" ] || die "plan 文件不存在:$plan"
   case "$mode" in
@@ -339,14 +324,12 @@ cmd_dispatch() {
   [ -n "$wt" ] || die "--worktree 必填"
   local repo; repo="$(git -C "$(dirname "$plan")" rev-parse --show-toplevel 2>/dev/null)" ||
     die "plan 不在 git 仓库内:$plan"
-  local agent="$EXECUTOR_AGENT" default_model="$EXECUTOR_MODEL" default_effort="$EXECUTOR_EFFORT"
-  if grep -qiE '(complexity|复杂度).*capable' "$plan" 2>/dev/null; then
-    agent="$CAPABLE_EXECUTOR_AGENT"
-    default_model="$CAPABLE_EXECUTOR_MODEL"
-    default_effort="$CAPABLE_EXECUTOR_EFFORT"
+  if [ -z "$agent" ]; then
+    agent="$EXECUTOR_AGENT"
+    if grep -qiE '(complexity|复杂度).*capable' "$plan" 2>/dev/null; then
+      agent="$CAPABLE_EXECUTOR_AGENT"
+    fi
   fi
-  [ -n "$model" ] || model="$default_model"
-  [ -n "$effort" ] || effort="$default_effort"
   local run_wt="$wt" native_branch="" native_root="" native_repo="" target_top="" target_path=""
   if [ -d "$wt" ]; then
     target_path="$(cd "$wt" && pwd -P)"
@@ -372,7 +355,7 @@ cmd_dispatch() {
     run_wt="$target_top"
     mmw_ensure_wt_state_ignore "$run_wt"
   fi
-  local st pkg start prompt meta system_prompt system_source
+  local st pkg start prompt meta
   st="$(state_for "$wt")"; pkg="$wt/$st/worker-dispatch"
   mkdir -p "$pkg"
   if [ -n "$native_branch" ]; then
@@ -381,29 +364,19 @@ cmd_dispatch() {
     start="$(git -C "$run_wt" rev-parse HEAD)"
   fi
   prompt="$pkg/prompt.md"; meta="$pkg/meta.json"
-  guard_no_active "$meta"
-  system_source="$(mmw_plugin_root)/agents-roster/$agent.md"
-  [ -f "$system_source" ] || die "找不到 executor 角色:$system_source"
-  system_prompt="$pkg/system-prompt.md"
-  render_role_prompt "$system_source" "$system_prompt"
+  guard_no_pending "$meta"
+  preflight_registered_agent "$agent"
   preflight_plugin_skill worktree-build
   local test_sheet; test_sheet="$(locate_test_sheet "${target_top:-$repo}")"
   build_prompt "$plan" "$run_wt" "$design" "$issue" "$mode" "$test_sheet" > "$prompt"
   printf '%s\n' "$start" > "$pkg/start_sha"
-  write_meta "$meta" "$mode" "$agent" "$model" "$effort" "$run_wt" "$prompt" "$start" \
-    "$plan" "$system_prompt" "$issue" "$WORKER_ALLOWED_TOOLS"
+  write_meta "$meta" "$mode" "$agent" "$run_wt" "$prompt" "$start" "$plan" "$issue"
   update_meta "$meta" --arg control "$wt" --arg branch "$native_branch" \
     --arg root "$native_root" --arg repo "$native_repo" \
     '.control_worktree=$control | .native_branch=$branch | .native_root=$root | .native_repo=$repo' \
     || die "无法记录 worker worktree 元数据"
-  echo "WORKER_BACKEND=pi-exec"
-  echo "AGENT=$agent"
-  echo "MODEL=$model"
-  echo "REASONING_EFFORT=$effort"
-  echo "PROMPT_FILE=$prompt"
-  echo "META_FILE=$meta"
-  launch_exec "$meta" "$prompt" "$run_wt" "$model" "$effort" "$system_prompt" "" \
-    "mmw worker status --worktree \"$wt\"" "$WORKER_ALLOWED_TOOLS"
+  print_dispatch "$agent" "$prompt" "$meta" "mmw worker verify --worktree \"$wt\"" \
+    "工人在独立 worktree 干活,主会话继续别的事不受影响。"
 }
 
 cmd_resume() {
@@ -414,32 +387,30 @@ cmd_resume() {
   esac; done
   [ -d "$wt" ] || die "worktree 不存在:$wt"
   [ -f "$instr" ] || die "--instructions 文件不存在:$instr"
-  local st pkg meta state session model effort system_prompt allowed_tools
-  local run_wt
+  local st pkg meta agent run_wt
   st="$(state_for "$wt")"; pkg="$wt/$st/worker-dispatch"
   meta="$pkg/meta.json"
-  state="$(refresh_meta "$meta" 2>/dev/null || true)"
-  [ "$state" != RUNNING ] || die "原 worker 仍在运行"
-  session="$(jq -r '.session_id // empty' "$meta")"
-  model="$(jq -r .model "$meta")"
-  effort="$(jq -r .reasoning_effort "$meta")"
-  system_prompt="$(jq -r .system_prompt_file "$meta")"
-  allowed_tools="$(jq -r '.allowed_tools // empty' "$meta")"
+  [ -f "$meta" ] || die "派发账本不存在:$meta"
+  agent="$(jq -r .agent "$meta")"
   run_wt="$(jq -r .worktree "$meta")"
   [ -d "$run_wt" ] || die "worker worktree 不存在,不能续接:$run_wt"
-  [ -n "$session" ] || die "无 session_id,不能续接；先看 $(jq -r '.log_file // empty' "$meta")"
   cp "$instr" "$pkg/resume-prompt.md"
-  launch_exec "$meta" "$pkg/resume-prompt.md" "$run_wt" "$model" "$effort" "$system_prompt" "$session" \
-    "mmw worker status --worktree \"$wt\"" "$allowed_tools"
+  update_meta "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '.status="dispatched" | .updated_at=$at' || die "无法重置派发状态"
+  echo "WORKER_BACKEND=$(mmw_worker_backend)"
+  echo "AGENT=$agent"
+  echo "PROMPT_FILE=$pkg/resume-prompt.md"
+  echo "META_FILE=$meta"
+  echo "DISPATCH=原 agent 还在本会话:Agent(resume=<原 agent id>,prompt=PROMPT_FILE 全文)。跨会话(原 agent id 已失效):Agent(subagent_type=$agent,run_in_background=true,prompt=PROMPT_FILE 全文,并在开头注明「返修:worktree $run_wt 已有此前提交,先读 git log 对齐进度」)。"
+  echo "NEXT=工人回执完成后先跑 mmw worker verify --worktree \"$wt\""
 }
 
 cmd_plan_dispatch() {
-  local plan="" wt="" design="" issue="" mockup="" model="$PLAN_MODEL" effort="$PLAN_EFFORT"
+  local plan="" wt="" design="" issue="" mockup=""
   while [ $# -gt 0 ]; do case "$1" in
     --plan) plan="$2"; shift 2 ;; --worktree) wt="$2"; shift 2 ;;
     --design) design="$2"; shift 2 ;; --issue) issue="$2"; shift 2 ;;
-    --mockup) mockup="$2"; shift 2 ;; --model) model="$2"; shift 2 ;;
-    --effort) effort="$2"; shift 2 ;; *) die "未知参数:$1" ;;
+    --mockup) mockup="$2"; shift 2 ;; *) die "未知参数:$1" ;;
   esac; done
   case "$plan" in /*) ;; *) die "--plan 必须绝对路径" ;; esac
   [ -d "$wt" ] || die "任务 worktree 不存在:$wt"
@@ -457,14 +428,16 @@ cmd_plan_dispatch() {
     case "$mockup" in "$wt"/*) ;; *) die "--mockup 必须位于任务 worktree:$mockup" ;; esac
   fi
   mmw_ensure_wt_state_ignore "$wt"
-  local st ns pkg start prompt meta system_prompt system_source baseline issue_baseline
+  local st ns pkg start prompt meta baseline issue_baseline
   local sandbox branch sandbox_plan sandbox_design sandbox_issue sandbox_mockup sandbox_info
   local task_plan_baseline task_issue_baseline
   st="$(state_for "$wt")"; ns="$(plan_ns "$plan")"; pkg="$wt/$st/plan-workers/$ns/dispatch"
   mkdir -p "$pkg"
   prompt="$pkg/prompt.md"; meta="$pkg/meta.json"
-  guard_no_active "$meta"
+  guard_no_pending "$meta"
   guard_unique_plan_targets "$wt" "$st" "$ns" "$issue"
+  preflight_registered_agent "$PLAN_AGENT"
+  preflight_plugin_skill worktree-plan
   task_plan_baseline="$(path_fingerprint "$wt" "${plan#"$wt"/}")"
   task_issue_baseline="$(path_fingerprint "$wt" "${issue#"$wt"/}")"
   sandbox_info="$(plan_sandbox_create "$wt" "$ns")"
@@ -484,16 +457,10 @@ cmd_plan_dispatch() {
   issue_baseline="$pkg/issue-baseline.md"
   capture_plan_baseline "$sandbox" "$baseline" || die "无法记录 plan writer worktree 边界基线"
   cp "$sandbox_issue" "$issue_baseline" || die "无法记录 issue 边界基线"
-  system_source="$(mmw_plugin_root)/agents-roster/$PLAN_AGENT.md"
-  [ -f "$system_source" ] || die "找不到 plan writer 角色:$system_source"
-  system_prompt="$pkg/system-prompt.md"
-  render_role_prompt "$system_source" "$system_prompt"
-  preflight_plugin_skill worktree-plan
   local plan_test_sheet; plan_test_sheet="$(locate_test_sheet "$sandbox")"
   build_plan_prompt "$sandbox_plan" "$sandbox" "$sandbox_design" "$sandbox_issue" "$sandbox_mockup" "$plan_test_sheet" > "$prompt"
   printf '%s\n' "$start" > "$pkg/start_sha"
-  write_meta "$meta" dispatch "$PLAN_AGENT" "$model" "$effort" "$sandbox" "$prompt" "$start" \
-    "$sandbox_plan" "$system_prompt" "$sandbox_issue" "$WORKER_ALLOWED_TOOLS"
+  write_meta "$meta" dispatch "$PLAN_AGENT" "$sandbox" "$prompt" "$start" "$sandbox_plan" "$sandbox_issue"
   update_meta "$meta" \
     --arg task_wt "$wt" --arg task_plan "$plan" --arg task_design "$design" \
     --arg task_issue "$issue" --arg task_mockup "$mockup" --arg branch "$branch" \
@@ -502,14 +469,10 @@ cmd_plan_dispatch() {
       .task_issue=$task_issue | .task_mockup=$task_mockup | .sandbox_branch=$branch |
       .task_plan_baseline=$task_plan_baseline | .task_issue_baseline=$task_issue_baseline' \
     || die "无法记录 plan writer 隔离边界"
-  echo "WORKER_BACKEND=pi-exec"
   echo "PLAN_WORKER_NS=$ns"
-  echo "AGENT=$PLAN_AGENT"
-  echo "MODEL=$model"
-  echo "REASONING_EFFORT=$effort"
-  echo "PROMPT_FILE=$prompt"
-  launch_exec "$meta" "$prompt" "$sandbox" "$model" "$effort" "$system_prompt" "" \
-    "mmw worker status --plan \"$plan\" --worktree \"$wt\"" "$WORKER_ALLOWED_TOOLS"
+  print_dispatch "$PLAN_AGENT" "$prompt" "$meta" \
+    "mmw worker verify --plan \"$plan\" --worktree \"$wt\"" \
+    "互不依赖的 plan 并行各派一个 Agent;verify 过门才原子发布 plan 与 issue。"
 }
 
 cmd_plan_resume() {
@@ -519,22 +482,16 @@ cmd_plan_resume() {
     --instructions) instr="$2"; shift 2 ;; *) die "未知参数:$1" ;;
   esac; done
   [ -f "$instr" ] || die "--instructions 文件不存在:$instr"
-  local st ns pkg meta state session model effort system_prompt allowed_tools sandbox
+  local st ns pkg meta sandbox
   local task_design task_issue task_mockup sandbox_info sandbox_plan sandbox_design sandbox_issue sandbox_mockup start
   local task_plan_baseline task_issue_baseline
   st="$(state_for "$wt")"; ns="$(plan_ns "$plan")"; pkg="$wt/$st/plan-workers/$ns/dispatch"
   meta="$pkg/meta.json"
-  state="$(refresh_meta "$meta" 2>/dev/null || true)"
-  [ "$state" != RUNNING ] || die "原 plan writer 仍在运行"
-  session="$(jq -r '.session_id // empty' "$meta")"
-  model="$(jq -r .model "$meta")"
-  effort="$(jq -r .reasoning_effort "$meta")"
+  [ -f "$meta" ] || die "派发账本不存在:$meta"
   sandbox="$(jq -r .worktree "$meta")"
   task_design="$(jq -r '.task_design' "$meta")"
   task_issue="$(jq -r '.task_issue' "$meta")"
   task_mockup="$(jq -r '.task_mockup // empty' "$meta")"
-  system_prompt="$(jq -r .system_prompt_file "$meta")"
-  allowed_tools="$(jq -r '.allowed_tools // empty' "$meta")"
   if [ ! -d "$sandbox" ]; then
     task_plan_baseline="$(path_fingerprint "$wt" "${plan#"$wt"/}")"
     task_issue_baseline="$(path_fingerprint "$wt" "${task_issue#"$wt"/}")"
@@ -566,23 +523,28 @@ cmd_plan_resume() {
   task_plan_baseline="$(path_fingerprint "$wt" "${plan#"$wt"/}")"
   task_issue_baseline="$(path_fingerprint "$wt" "${task_issue#"$wt"/}")"
   update_meta "$meta" --arg task_plan_baseline "$task_plan_baseline" --arg task_issue_baseline "$task_issue_baseline" \
-    '.published=false | .task_plan_baseline=$task_plan_baseline |
+    '.status="dispatched" | .published=false | .task_plan_baseline=$task_plan_baseline |
       .task_issue_baseline=$task_issue_baseline |
       del(.published_at,.published_plan_hash,.published_issue_hash)' \
     || die "无法重置 plan writer 发布状态"
   cp "$instr" "$pkg/resume-prompt.md"
-  launch_exec "$meta" "$pkg/resume-prompt.md" "$sandbox" "$model" "$effort" "$system_prompt" "$session" \
-    "mmw worker status --plan \"$plan\" --worktree \"$wt\"" "$allowed_tools"
+  echo "WORKER_BACKEND=$(mmw_worker_backend)"
+  echo "AGENT=$PLAN_AGENT"
+  echo "PROMPT_FILE=$pkg/resume-prompt.md"
+  echo "META_FILE=$meta"
+  echo "DISPATCH=原 agent 还在本会话:Agent(resume=<原 agent id>,prompt=PROMPT_FILE 全文)。跨会话(原 agent id 已失效):Agent(subagent_type=$PLAN_AGENT,run_in_background=true,prompt=PROMPT_FILE 全文,并在开头注明「返修:隔离 worktree $sandbox,plan 草稿已在盘上,先读它对齐进度」)。"
+  echo "NEXT=工人回执完成后先跑 mmw worker verify --plan \"$plan\" --worktree \"$wt\""
 }
 
-cmd_status() {
+# 机器边界门(工人回执已在会话内;这里只核机器可验事实,plan 工人过门才发布)。
+cmd_verify() {
   local wt="" plan=""
   while [ $# -gt 0 ]; do case "$1" in
     --worktree) wt="$2"; shift 2 ;; --plan) plan="$2"; shift 2 ;;
     *) die "未知参数:$1" ;;
   esac; done
   [ -n "$wt" ] || die "--worktree 必填"
-  local st meta state result log session start pkg sandbox sandbox_plan sandbox_issue task_issue branch
+  local st meta start pkg sandbox sandbox_plan sandbox_issue task_issue branch
   local plan_hash issue_hash expected_plan_hash expected_issue_hash
   st="$(state_for "$wt")"
   if [ -n "$plan" ]; then
@@ -591,16 +553,8 @@ cmd_status() {
   else
     meta="$wt/$st/worker-dispatch/meta.json"
   fi
-  state="$(refresh_meta "$meta")" || true
-  result="$(jq -r '.result_file // empty' "$meta")"
-  log="$(jq -r '.log_file // empty' "$meta")"
-  session="$(jq -r '.session_id // empty' "$meta")"
-  echo "WORKER_STATUS=$state"
+  [ -f "$meta" ] || die "派发账本不存在:$meta"
   echo "META_FILE=$meta"
-  echo "SESSION_ID=${session:-none}"
-  echo "RESULT_FILE=${result:-none}"
-  echo "LOG_FILE=${log:-none}"
-  [ "$state" = COMPLETED ] || return 1
   if [ -n "$plan" ]; then
     if [ "$(jq -r '.published // false' "$meta")" != true ]; then
       start="$(jq -r '.start_sha' "$meta")"
@@ -623,7 +577,7 @@ cmd_status() {
       issue_hash="$(path_fingerprint "$wt" "${task_issue#"$wt"/}")"
       update_meta "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
         --arg plan_hash "$plan_hash" --arg issue_hash "$issue_hash" \
-        '.published=true | .published_at=$at | .published_plan_hash=$plan_hash | .published_issue_hash=$issue_hash' \
+        '.status="verified" | .published=true | .published_at=$at | .published_plan_hash=$plan_hash | .published_issue_hash=$issue_hash' \
         || die "无法记录 plan writer 发布状态"
       if ! cleanup_plan_sandbox "$wt" "$sandbox" "$branch"; then
         update_meta "$meta" --arg warning "隔离 worktree 清理失败:$sandbox" \
@@ -631,15 +585,13 @@ cmd_status() {
         echo "WARNING: 隔离 worktree 清理失败:$sandbox" >&2
       fi
     fi
+    echo "WORKER_VERIFY=pass(plan 已发布:$plan)"
   else
     start="$(jq -r '.start_sha' "$meta")"
     check_docs_boundary "$(jq -r .worktree "$meta")" "$start" || return 3
-  fi
-  echo "--- 工人最后消息 ---"
-  if [ -s "$result" ]; then
-    cat "$result"
-  else
-    echo "(无结果)"
+    update_meta "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      '.status="verified" | .updated_at=$at' || die "无法记录验收状态"
+    echo "WORKER_VERIFY=pass(docs 边界干净)"
   fi
 }
 
@@ -696,6 +648,6 @@ case "${1:-}" in
   plan-dispatch) shift; cmd_plan_dispatch "$@" ;;
   plan-resume) shift; cmd_plan_resume "$@" ;;
   plan-check) shift; cmd_plan_check "$@" ;;
-  status) shift; cmd_status "$@" ;;
-  *) die "用法:worker.sh dispatch|resume|check-docs|plan-dispatch|plan-resume|plan-check|status ..." ;;
+  verify) shift; cmd_verify "$@" ;;
+  *) die "用法:worker.sh dispatch|resume|check-docs|plan-dispatch|plan-resume|plan-check|verify ..." ;;
 esac
