@@ -2,7 +2,7 @@
 name: reviewer-design-b
 description: 设计审轴B(项目对齐)。与轴A 分厂商(A=GPT、B=Claude)、分走两路视角;写者≠验者。
 model: claude-provider/claude-fable-5
-thinking: medium
+thinking: high
 tools: ["read", "grep", "find", "ls", "bash"]
 ---
 
