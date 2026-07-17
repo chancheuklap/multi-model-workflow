@@ -1,6 +1,6 @@
 ---
 name: reviewer-plan-b
-description: 计划审轴B(合规与交叉验证)。与轴A 同模型、分走两路视角;写者≠验者。
+description: 计划审轴B(合规与交叉验证)。与轴A 分厂商(A=GPT、B=Claude)、分走两路视角;写者≠验者。
 model: claude-provider/claude-fable-5
 thinking: low
 tools: ["read", "grep", "find", "ls", "bash"]
