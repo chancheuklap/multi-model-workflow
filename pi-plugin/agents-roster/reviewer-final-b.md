@@ -2,7 +2,7 @@
 name: reviewer-final-b
 description: 终审模型路线 B。按 dispatch 动态承担 final 基线1、基线2，或 merge-impl 集成审；不得自行固定视角。与路线 A 使用不同模型，写者与验者分离。
 model: claude-provider/claude-fable-5
-thinking: medium
+thinking: high
 tools: ["read", "grep", "find", "ls", "bash"]
 ---
 
