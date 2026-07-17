@@ -23,8 +23,9 @@
 | 7 | pack-executor / plan-writer 改会话内 `run_in_background` agent(persist_session: true);删 `lib/pi-exec.sh` 与 PID/轮询/resume 逻辑;worktree 创建、边界门、选择性发布保留;账本瘦身为边界检查所需 | `scripts/worker.sh`、`runtime-contract.md`、`scripts/tests/` |
 | 8 | 更新 runtime-contract 与测试断言(现在 grep 旧派发字符串) | 同上 |
 
-## 验证
+## 验证(2026-07-17 全部完成)
 
-- 软链后 live 派发 `code-explorer` 答一个真实代码问题,确认注册、模型解析、工具白名单生效。
-- `scripts/tests/` 全绿;`build.sh --check` 无 DRIFT。
-- 用最小 Pack 走一遍新 worker 派发端到端。
+- live 派发 `code-explorer`(openai-codex/gpt-5.6-sol)答真实代码问题:注册、模型解析、只读白名单全部生效。
+- `scripts/tests/` 全绿(含重写后的 test_pi_worker 40 条、test_investigate 31 条);py 测试 `uv run --with pytest --with pydantic` 53 条通过;`build.sh --check` 无 DRIFT。
+- e2e:真 GPT pack-executor 以注册 agent 身份后台落地最小 Pack(TDD、commit 带 `Pack 1.1`、测试绿),`mmw worker verify` 边界门通过。
+- 落地 commit:`7c1a5b3`(roster 转正)、`fad0747`(v9 无头轨道废除)。
