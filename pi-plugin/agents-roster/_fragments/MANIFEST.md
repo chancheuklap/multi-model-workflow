@@ -13,3 +13,18 @@
 - `cursor-context-thoroughness.md` sha256:af1d36c7317054f6 — x1xhlol 提取 Cursor Agent Prompt 2.0 maximize_context_understanding 首块(工具无关部分)
 - `cc-comment-why-only.md` sha256:9133a02500248ae6 — Piebald claude-code-system-prompts v2.1.212 comment-why-only-guidance
 - `cc-comment-no-what-no-task-context.md` sha256:206fc3c559016b5e — 同仓库 comment-what-and-task-context-avoidance
+
+## 中文译文(2026-07-17 用户拍板:角色提示词全中文,精确翻译+适当润色;英文原文保留作对照源)
+- `codex56-autonomy-persistence.zh.md` sha256:5432aa861db13998 — 译自 `codex56-autonomy-persistence.md`
+- `codex56-worktree-safety.zh.md` sha256:07aa2692615f6082 — 译自 `codex56-worktree-safety.md`
+- `codex52-root-cause.zh.md` sha256:1445082ec5f6b51c — 译自 `codex52-root-cause.md`
+- `pi-subagents-tool-bridge.zh.md` sha256:4db69cd2db7ebb01 — 译自 `pi-subagents-tool-bridge.md`
+- `pi-subagents-tool-bridge-readonly.zh.md` sha256:2f5b5bdcb9dc7759 — 译自 `pi-subagents-tool-bridge-readonly.md`
+- `cc-act-when-ready.zh.md` sha256:31ef5c395e77b71d — 译自 `cc-act-when-ready.md`
+- `cc-action-safety-truthful-reporting.zh.md` sha256:72da331794a9832c — 译自 `cc-action-safety-truthful-reporting.md`
+- `cc-no-compatibility-hacks.zh.md` sha256:2381c4bbeb58fa6a — 译自 `cc-no-compatibility-hacks.md`
+- `cc-no-unnecessary-additions.zh.md` sha256:1fd4c40e176a5eb7 — 译自 `cc-no-unnecessary-additions.md`
+- `cc-no-unnecessary-error-handling.zh.md` sha256:000d141c2c6f720e — 译自 `cc-no-unnecessary-error-handling.md`
+- `cc-comment-why-only.zh.md` sha256:4c0d9ca77799ec54 — 译自 `cc-comment-why-only.md`
+- `cc-comment-no-what-no-task-context.zh.md` sha256:71e8c68695b0c50e — 译自 `cc-comment-no-what-no-task-context.md`
+- `cursor-context-thoroughness.zh.md` sha256:d3bb777268956a82 — 译自 `cursor-context-thoroughness.md`
