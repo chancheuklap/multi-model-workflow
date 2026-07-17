@@ -28,4 +28,8 @@
 - live 派发 `code-explorer`(openai-codex/gpt-5.6-sol)答真实代码问题:注册、模型解析、只读白名单全部生效。
 - `scripts/tests/` 全绿(含重写后的 test_pi_worker 40 条、test_investigate 31 条);py 测试 `uv run --with pytest --with pydantic` 53 条通过;`build.sh --check` 无 DRIFT。
 - e2e:真 GPT pack-executor 以注册 agent 身份后台落地最小 Pack(TDD、commit 带 `Pack 1.1`、测试绿),`mmw worker verify` 边界门通过。
-- 落地 commit:`7c1a5b3`(roster 转正)、`fad0747`(v9 无头轨道废除)。
+- 落地 commit:`7c1a5b3`(roster 转正)、`fad0747`(v9 无头轨道废除)、`fd6af06`(investigate 收敛单轨)。
+
+## 补录:investigate 单轨(2026-07-17 用户拍板)
+
+CC 原版就没有 investigate 脚本,调查单轨走工作流;pi 移植时新造的 `mmw investigate` 脚本轨已删(investigate.sh + 测试 + mmw.sh 路由)。工作流模型对齐花名册:CC 版因内置 workflow 只能用 Sonnet,pi 双厂商注册改用 GPT(topic=sol:medium,synthesize=terra:high)。
