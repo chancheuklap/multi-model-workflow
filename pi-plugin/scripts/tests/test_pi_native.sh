@@ -8,7 +8,7 @@ ok(){ echo "  PASS: $1"; pass=$((pass+1)); }
 no(){ echo "  FAIL: $1"; fail=$((fail+1)); }
 
 echo '=== test_pi_native.sh ==='
-jq -e '.version=="9.0.0" and (.keywords|index("pi-package")) and .pi.extensions==["./extensions"] and .pi.skills==["./skills"] and .pi.prompts==["./prompts"]' "$PLUGIN/package.json" >/dev/null \
+jq -e '.version=="9.1.0" and (.keywords|index("pi-package")) and .pi.extensions==["./extensions"] and .pi.skills==["./skills"] and .pi.prompts==["./prompts"]' "$PLUGIN/package.json" >/dev/null \
   && ok 'package.json pi manifest/version' || no 'pi manifest'
 [ -f "$PLUGIN/extensions/mmw-hooks.ts" ] && ok 'mmw extension exists' || no 'extension missing'
 [ ! -f "$PLUGIN/scripts/lib/pi-exec.sh" ] && [ ! -f "$PLUGIN/scripts/lib/droid-exec.sh" ] \
