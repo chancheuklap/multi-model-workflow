@@ -72,6 +72,7 @@ run_package() {
   RC=0
   (cd "$CASE" && bash "$PACKAGE" "$@") >"$OUT" 2>"$ERR" || RC=$?
   RESULT="$(cat "$OUT")"
+  FIRST="$(head -n1 "$OUT")"
   ERROR="$(cat "$ERR")"
 }
 
@@ -243,7 +244,7 @@ else
   no "init 固化空目标 package state (rc=$RC err=$ERROR)"
 fi
 run_package where
-if [ "$RC" -eq 0 ] && [ "$RESULT" = 'NO-PACKAGE' ]; then ok "空目标 where=NO-PACKAGE"; else no "空目标 where (rc=$RC out=$RESULT err=$ERROR)"; fi
+if [ "$RC" -eq 0 ] && [ "$FIRST" = 'NO-PACKAGE' ]; then ok "空目标 where=NO-PACKAGE"; else no "空目标 where (rc=$RC out=$RESULT err=$ERROR)"; fi
 run_package exit-check
 if [ "$RC" -eq 0 ] && [ "$RESULT" = 'DONE' ]; then ok "空目标 exit-check=DONE"; else no "空目标 exit-check (rc=$RC out=$RESULT err=$ERROR)"; fi
 run_package init --scope fixtures/generic.release-package-scope.json
@@ -259,7 +260,7 @@ else
   no "init 一次固化有序 release 目标 (rc=$RC err=$ERROR)"
 fi
 run_package where
-if [ "$RC" -eq 0 ] && [ "$RESULT" = 'PAUSED-HUMAN:development-mode-test' ]; then ok "未确认开发模式时停位"; else no "开发模式停位 (rc=$RC out=$RESULT err=$ERROR)"; fi
+if [ "$RC" -eq 0 ] && [ "$FIRST" = 'PAUSED-HUMAN:development-mode-test' ]; then ok "未确认开发模式时停位"; else no "开发模式停位 (rc=$RC out=$RESULT err=$ERROR)"; fi
 run_package confirm --gate installed-test --by owner
 if [ "$RC" -ne 0 ]; then ok "未完成 release 时拒绝安装后确认"; else no "未完成 release 时应拒绝安装后确认"; fi
 run_package record-release --product duck
@@ -273,7 +274,12 @@ if [ "$RC" -ne 0 ]; then ok "AFK 不能代填开发模式确认"; else no "AFK �
 run_package confirm --gate development-mode-test --by owner
 if [ "$RC" -eq 0 ]; then ok "具名开发模式确认落盘"; else no "开发模式确认 (rc=$RC err=$ERROR)"; fi
 run_package where
-if [ "$RC" -eq 0 ] && [ "$RESULT" = 'RELEASE product=duck manifest=fixtures/adapters/duck.release-adapter.json' ]; then ok "确认后只要求第一个 release"; else no "确认后 release 指引 (rc=$RC out=$RESULT err=$ERROR)"; fi
+if [ "$RC" -eq 0 ] && [ "$FIRST" = 'RELEASE product=duck manifest=fixtures/adapters/duck.release-adapter.json' ]; then ok "确认后只要求第一个 release"; else no "确认后 release 指引 (rc=$RC out=$RESULT err=$ERROR)"; fi
+if grep -q 'next=.*release init' "$OUT" && grep -q 'drive-loop.md' "$OUT" && grep -q 'record-release --product duck' "$OUT"; then ok "RELEASE 状态自带 next 指路(init/drive-loop/record-release)"; else no "RELEASE next 指路 (out=$RESULT)"; fi
+VERB_OUT="$( (cd "$CASE" && bash "$MMW" package where) 2>/dev/null )"
+VERB_FIRST="${VERB_OUT%%
+*}"
+if [ "$VERB_FIRST" = 'RELEASE product=duck manifest=fixtures/adapters/duck.release-adapter.json' ]; then ok "mmw package 动词直达 package-phase"; else no "mmw package 动词 (out=$VERB_FIRST)"; fi
 release_done parrot
 run_package record-release --product duck
 if [ "$RC" -ne 0 ]; then ok "S1 product 不匹配时拒绝记录"; else no "S1 product 不匹配应拒绝"; fi
@@ -287,12 +293,12 @@ else
 fi
 (cd "$CASE" && bash "$MMW" release close >/dev/null)
 run_package where
-if [ "$RC" -eq 0 ] && [ "$RESULT" = 'RELEASE product=parrot manifest=fixtures/adapters/parrot.release-adapter.json' ]; then ok "一个产品完成不越过另一个"; else no "第二个产品仍 pending (rc=$RC out=$RESULT err=$ERROR)"; fi
+if [ "$RC" -eq 0 ] && [ "$FIRST" = 'RELEASE product=parrot manifest=fixtures/adapters/parrot.release-adapter.json' ]; then ok "一个产品完成不越过另一个"; else no "第二个产品仍 pending (rc=$RC out=$RESULT err=$ERROR)"; fi
 release_done parrot
 run_package record-release --product parrot
 (cd "$CASE" && bash "$MMW" release close >/dev/null)
 run_package where
-if [ "$RC" -eq 0 ] && [ "$RESULT" = 'PAUSED-HUMAN:installed-test' ]; then ok "所有 release 后停在安装后测试"; else no "安装后测试停位 (rc=$RC out=$RESULT err=$ERROR)"; fi
+if [ "$RC" -eq 0 ] && [ "$FIRST" = 'PAUSED-HUMAN:installed-test' ]; then ok "所有 release 后停在安装后测试"; else no "安装后测试停位 (rc=$RC out=$RESULT err=$ERROR)"; fi
 run_package confirm --gate installed-test --by owner
 run_package exit-check
 if [ "$RC" -eq 0 ] && [ "$RESULT" = 'DONE' ]; then ok "两次具名确认和所有 release 后 DONE"; else no "最终 DONE (rc=$RC out=$RESULT err=$ERROR)"; fi
@@ -330,7 +336,7 @@ fi
 [ "$(jq -r '.targets[] | select(.product == "duck") | .release_commit' "$(package_state)")" = "null" ] && ok "被重置的 duck release_commit 清空" || no "duck 仍绑旧 commit"
 (cd "$CASE" && bash "$MMW" release close >/dev/null)
 run_package where
-if [ "$RC" -eq 0 ] && [ "$RESULT" = 'RELEASE product=duck manifest=fixtures/adapters/duck.release-adapter.json' ]; then ok "重置后 where 要求重出 duck"; else no "重置后未要求重出 duck (rc=$RC out=$RESULT err=$ERROR)"; fi
+if [ "$RC" -eq 0 ] && [ "$FIRST" = 'RELEASE product=duck manifest=fixtures/adapters/duck.release-adapter.json' ]; then ok "重置后 where 要求重出 duck"; else no "重置后未要求重出 duck (rc=$RC out=$RESULT err=$ERROR)"; fi
 run_package exit-check
 if [ "$RC" -ne 0 ] && [ "$RESULT" = 'NOT-DONE:release:duck' ]; then ok "重置后 exit-check 不 DONE"; else no "重置后 exit-check (rc=$RC out=$RESULT err=$ERROR)"; fi
 # 防御第二道:状态文件被外部写坏成混 commit(第一道重置被绕过)时,exit-check 仍绝不 DONE。

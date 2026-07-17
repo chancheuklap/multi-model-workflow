@@ -472,6 +472,14 @@ EOF
   if [ -n "$review_line" ]; then echo "$review_line"; fi
   if [ -n "$review_start_line" ]; then echo "$review_start_line"; fi
   if [ -n "$review_trace_line" ]; then echo "$review_trace_line"; fi
+  # 出包子状态机透传:phase=package 时 where 直接吐下一层的确切命令,断点恢复不靠上下文里残留的文档表
+  if [ "$phase" = "package" ] && { [ "$gate" = "null" ] || [ -z "$gate" ]; }; then
+    if [ -f "$(dirname "$m")/package-state.json" ]; then
+      echo "package_where=$MMW package where   # 出包子状态机在飞:先跑它,照它的 next 走"
+    else
+      echo "package_next=$MMW package init --scope <repo-relative-scope>   # 先初始化 package state(scope 解析与状态全表见 load 文档)"
+    fi
+  fi
 
   # 执行账本可见性(只报,不当闸):有 loop-state = build 落地账本在,报完成度与 pause
   local top sd_here loopf
