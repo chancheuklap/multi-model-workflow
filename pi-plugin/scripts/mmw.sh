@@ -4,7 +4,6 @@
 #   mmw where | mmw handoff | mmw pin | mmw spinoff
 #   mmw note set|show                            # 讨论态书签(现场注记)
 #   mmw approve --report <设计文档>...           # 唯一人闸:确认设计,盖承重指纹,过门放权
-#   mmw investigate start|submit|status|resume|result
 #   mmw task new|resume|scope|cleanup|team|escalate
 #   mmw loop init|step|attendance|softstop|surface|resume|status|close   # build 执行账本(只记录)
 #   mmw review start ...
@@ -23,10 +22,6 @@
 #   讨论态书签 + 过门:
 #     mmw note set --text "<一句话现场注记>" | mmw note show
 #     mmw approve --report <主设计文档> [--report <合同文档>]...   确认设计(用户过门后执行;盖指纹,attendance→afk)
-#   调查 fan-out:
-#     mmw investigate start --direction <internal|external|both> --topics <topics.json> --run <id>
-#     mmw investigate submit --run <id> --topic <i>|--synthesis --file <工人 JSON>   回执交回过 schema 闸
-#     mmw investigate status|resume|result --run <id>
 #   任务(入口/收尾,主仓库):
 #     mmw task new --scenario <small-change|develop|bug> --slug <s> --title <t> --request '<用户原始需求与验收条件>' [--direction-given]
 #     mmw task resume | mmw task cleanup --slug <s> | mmw task team(列全队在管 worktree)
@@ -68,7 +63,6 @@ case "$cmd" in
   release) exec bash "$D/release-flow.sh" "$@" ;;
   package) exec bash "$D/package-phase.sh" "$@" ;;
   progress) exec bash "$D/progress.sh" "$@" ;;
-  investigate) exec bash "$D/investigate.sh" "$@" ;;
   attend|unattended|side-finding) exec bash "$D/steer.sh" "$cmd" "$@" ;;
   help|-h|--help) usage ;;
   *) echo "未知命令: $cmd" >&2; echo "跑 mmw help 看全部" >&2; exit 2 ;;

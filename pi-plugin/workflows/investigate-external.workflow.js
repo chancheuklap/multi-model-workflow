@@ -90,8 +90,8 @@ const raw = await parallel(
       label: `external:${t.angle || ('topic-' + i)}`,
       phase: 'Investigate',
       schema: TOPIC_SCHEMA,
-      // 调查员=机械取证,Sonnet 5 high 档够用(token 平衡);synthesize 继承会话模型
-      model: 'claude-provider/claude-sonnet-5:high',
+      // 模型对齐 agents-roster/investigate-topic.md(单一权威);pi 双厂商注册,取证用 GPT Sol
+      model: 'openai-codex/gpt-5.6-sol:medium',
     })
   )
 )
@@ -118,7 +118,8 @@ const synthPrompt = [
   JSON.stringify(verified, null, 2),
 ].join('\n')
 
-const report = await agent(synthPrompt, { label: 'synthesize', phase: 'Synthesize', schema: REPORT_SCHEMA })
+// 模型对齐 agents-roster/investigate-synthesizer.md(单一权威)
+const report = await agent(synthPrompt, { label: 'synthesize', phase: 'Synthesize', schema: REPORT_SCHEMA, model: 'openai-codex/gpt-5.6-terra:high' })
 
 // 返结构化证据 + 引用报告。主线程亲验承重事实(子代理是劳动力不是信源)后才写 docs/investigating/<slug>.md。
 return { topics: verified, report }
