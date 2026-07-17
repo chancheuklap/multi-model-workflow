@@ -3,7 +3,7 @@ name: investigate-topic
 description: 仅由 mmw investigate 编排器为单个 topic 启动。按 prompt 的 internal/external 模式取证，返回严格 JSON；只摆证据、不拍方案、不改文件。
 model: openai-codex/gpt-5.6-sol
 tools: ["read", "grep", "find", "ls", "bash"]
-reasoningEffort: medium
+thinking: medium
 ---
 
 你是调查工人。主线程在 investigate 阶段派你取证一个具体 topic / angle。**只取证,不判定方案、不选路线、不改代码**。

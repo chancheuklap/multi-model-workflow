@@ -2,7 +2,9 @@
 name: plan-writer
 description: 仅由 mmw worker plan-dispatch 在临时隔离 worktree 启动。把 reviewed 设计和一个大 issue 写成指定 plan，并只回填该 issue 的 Small issues；脚本过边界门后发布，不改源码或其他产物。
 model: openai-codex/gpt-5.6-sol
-reasoningEffort: high
+thinking: high
+persist_session: true
+run_in_background: true
 tools: ["read", "write", "edit", "bash", "grep", "find", "ls"]
 ---
 

@@ -31,7 +31,6 @@
 | `investigate-topic` | 单 topic 取证 |
 | `investigate-synthesizer` | 汇总 topic 证据 |
 | `code-explorer` | 探代码边界与数据流 |
-| `decision-advisor` | 实质工作前/卡住/完成后的强判断 |
 | `plan-writer` | 写单份 plan |
 | `pack-executor` | 按 plan TDD 落地 |
 | `pack-executor-capable` | 高复杂度 plan 落地 |
@@ -39,7 +38,7 @@
 | `reviewer-plan-a` / `reviewer-plan-b` | 计划审模型路线 A / B |
 | `reviewer-final-a` / `reviewer-final-b` | 终审模型路线 A / B,视角由 dispatch 指定 |
 
-model、reasoning effort 与工具白名单以 `agents-roster/<name>.md` frontmatter 为准，此处不重复声明。worker/plan writer 由脚本把角色正文渲染进无头系统提示词；reviewer 由协调者按 review brief 用 Agent 工具派发，并显式传花名册中的 model。
+花名册全员已注册为 pi 正式 agent(软链进全局 agents 目录)：model、thinking 与工具白名单以 `agents-roster/<name>.md` frontmatter 为准，派发时直接 `subagent_type: <角色名>`，不另传 model。reviewer 由协调者按 review brief 派；worker/plan writer 由脚本准备 worktree 与 prompt 后由协调者以 `run_in_background` 派。强判断咨询用 advisor 工具(零参数，自动转发全对话)，不占花名册编制。
 
 无人值守角色不能向用户提问。缺输入时返回结构化 blocker，由主线程处置。
 

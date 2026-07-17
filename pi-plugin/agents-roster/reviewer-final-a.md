@@ -2,7 +2,7 @@
 name: reviewer-final-a
 description: 终审模型路线 A。按 dispatch 动态承担 final 基线1、基线2、两基线全覆盖，或 merge-impl 集成审；不得自行固定视角。写者与验者必须分离。
 model: openai-codex/gpt-5.6-sol
-reasoningEffort: xhigh
+thinking: xhigh
 tools: ["read", "grep", "find", "ls", "bash"]
 ---
 

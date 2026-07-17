@@ -2,7 +2,7 @@
 name: reviewer-plan-a
 description: 计划审轴A(覆盖与质量)。与轴B 同模型、分走两路视角;写者≠验者。
 model: openai-codex/gpt-5.6-sol
-reasoningEffort: high
+thinking: high
 tools: ["read", "grep", "find", "ls", "bash"]
 ---
 

@@ -3,8 +3,8 @@
 #
 #   start --stage <design|plan|plan-impl|final|merge-impl> --source <源意图路径/描述>
 #       按阶段定视角与审者编制,把审派发指南写进状态目录 review-brief.md(主线程读它直接派审者)。
-#       审者=pi 会话内经 pi-subagents 的 Agent 工具并行派发(subagent_type: general-purpose,
-#       model 从 agents-roster 对应审者 frontmatter 读出),读已装的 worktree-review skill。
+#       审者=pi 会话内经 pi-subagents 的 Agent 工具并行派发(subagent_type 直接用花名册角色名,
+#       model/工具白名单由已注册的 agents-roster frontmatter 提供),读已装的 worktree-review skill。
 #   clean-check --worktree <路径> --baseline <工作树指纹>
 #       审收口边界闸(写者≠审者的硬实现,弥补 pi 无只读沙盒):审后 HEAD、tracked diff、
 #       untracked 文件集合与内容必须和审前完全一致；审前已有设计稿可保留。
@@ -23,12 +23,6 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 state_here() {
   local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
   mmw_resolve_state_subdir "$top"
-}
-
-roster_model() {  # $1=审者角色名;从 agents-roster frontmatter 读 model
-  local f="$(mmw_plugin_root)/agents-roster/$1.md"
-  [ -f "$f" ] || die "找不到审者角色:$f"
-  awk 'BEGIN{n=0} /^---[[:space:]]*$/{n++; next} n<2 && /^model:[[:space:]]*/{sub(/^model:[[:space:]]*/,""); print; exit}' "$f"
 }
 
 # 审收口边界闸:审期间 worktree 必须原封不动。指纹覆盖 HEAD、tracked diff、
@@ -79,36 +73,36 @@ dispatch_for() {
   case "$stage" in
     design)
       cat <<EOF
-单条消息并行调用两个 Agent(pi-subagents,subagent_type: general-purpose),各自干净 context:
-- reviewer-design-a,负责轴A 设计内容(model: $(roster_model reviewer-design-a))
-- reviewer-design-b,负责轴B 项目对齐(model: $(roster_model reviewer-design-b))
+单条消息并行调用两个 Agent(pi-subagents,按名字派,model 由 agent 定义自带),各自干净 context:
+- subagent_type: reviewer-design-a,负责轴A 设计内容
+- subagent_type: reviewer-design-b,负责轴B 项目对齐
 prompt(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=design 审;Source:$source;只负责指定轴;按 Return Contract 回结构化 findings。
 EOF
       ;;
     plan)
       cat <<EOF
-单条消息并行调用两个 Agent(pi-subagents,subagent_type: general-purpose),写者与审者分离(计划由 plan-writer 写,审者另派):
-- reviewer-plan-a,负责轴A 覆盖与质量(model: $(roster_model reviewer-plan-a))
-- reviewer-plan-b,负责轴B 合规与交叉验证(model: $(roster_model reviewer-plan-b))
+单条消息并行调用两个 Agent(pi-subagents,按名字派,model 由 agent 定义自带),写者与审者分离(计划由 plan-writer 写,审者另派):
+- subagent_type: reviewer-plan-a,负责轴A 覆盖与质量
+- subagent_type: reviewer-plan-b,负责轴B 合规与交叉验证
 prompt(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=plan 审;Source:$source;只负责指定轴;按 Return Contract 回结构化 findings。
 EOF
       ;;
     final)
       cat <<EOF
-单条消息并行调用四个跨模型 Agent(pi-subagents,subagent_type: general-purpose),两条基线各跑两个模型:
-- reviewer-final-a,基线1(回归+意图+跨plan)(model: $(roster_model reviewer-final-a))
-- reviewer-final-b,基线1(model: $(roster_model reviewer-final-b))
-- reviewer-final-a,基线2(独立代码审计,全新眼光)(model: $(roster_model reviewer-final-a))
-- reviewer-final-b,基线2(model: $(roster_model reviewer-final-b))
+单条消息并行调用四个跨模型 Agent(pi-subagents,按名字派,model 由 agent 定义自带),两条基线各跑两个模型:
+- subagent_type: reviewer-final-a,基线1(回归+意图+跨plan)
+- subagent_type: reviewer-final-b,基线1
+- subagent_type: reviewer-final-a,基线2(独立代码审计,全新眼光)
+- subagent_type: reviewer-final-b,基线2
 prompt(纯路由,四审者读同一份方法论):读 $skill/SKILL.md,按 stage=final 审;Source:$source;只负责指定基线;按 Return Contract 回结构化 findings。
 同基线跨模型对账:只一家报出的重点亲验,两家同报的置信升。
 EOF
       ;;
     merge-impl)
       cat <<EOF
-单条消息并行调用两个跨模型 Agent(pi-subagents,subagent_type: general-purpose):
-- reviewer-final-a,跨 worktree 集成审路线1(model: $(roster_model reviewer-final-a))
-- reviewer-final-b,跨 worktree 集成审路线2(model: $(roster_model reviewer-final-b))
+单条消息并行调用两个跨模型 Agent(pi-subagents,按名字派,model 由 agent 定义自带):
+- subagent_type: reviewer-final-a,跨 worktree 集成审路线1
+- subagent_type: reviewer-final-b,跨 worktree 集成审路线2
 prompt:读 $skill/SKILL.md,按 stage=merge-impl 走组合行为、合同、迁移、状态、import、回归、修复质量七角度;Source:$source;按 Return Contract 回结构化 findings。
 EOF
       ;;

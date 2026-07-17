@@ -14,7 +14,7 @@ design 阶段成文后:保存前自己逐条过,过了起设计预审、再请�
 - [ ] **按输入类型**：Bug→current/desired/复现/regression；Issue→source/验收/依赖/AFK-HITL；UI→每个 mockup 拆成可验收行为、交互状态表填全
 - [ ] 触碰合同 / 发布风险时对应节已填、anchors 占位在；各 section 无矛盾、无歧义需求
 
-触碰不变量 / 合同 / 数据权威 / 权限 / 计费 / 发布风险时,尤其确保上面每条都过。此类高风险设计定稿前:已 `Task`→`decision-advisor` 咨询过,或在 Open Decisions / 讨论中写明跳过理由(不强制每次 consult)。
+触碰不变量 / 合同 / 数据权威 / 权限 / 计费 / 发布风险时,尤其确保上面每条都过。此类高风险设计定稿前:已调 advisor 工具咨询过,或在 Open Decisions / 讨论中写明跳过理由(不强制每次 consult)。
 
 ## 收尾:handoff 交还引擎(`mmw where` 的 `then` 已给好钉产物的命令模板,照抄即可)
 
