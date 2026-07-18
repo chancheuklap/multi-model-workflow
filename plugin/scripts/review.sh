@@ -21,6 +21,8 @@ state_here() {
 # Codex 审者(外部 agent)走 codex exec 无头;Claude 审者走会话内 sub-agent(agents/code-reviewer.md)。
 CODEX_REVIEW_MODEL="${CODEX_REVIEW_MODEL:-gpt-5.6-sol}"
 CODEX_REVIEW_EFFORT="${CODEX_REVIEW_EFFORT:-xhigh}"
+# 设计审跑 high 档(对齐 pi reviewer-design-a);终审 / 合并审仍 xhigh。
+CODEX_DESIGN_REVIEW_EFFORT="${CODEX_DESIGN_REVIEW_EFFORT:-high}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
@@ -110,20 +112,23 @@ EOF
   fi
 
   # ---- 派发指南落文件(brief 不过主线程 context)----
+  # 设计审 Codex 跑 high(对齐 pi);终审 / 合并审跑 xhigh。
+  local ceffort="$CODEX_REVIEW_EFFORT"
+  [ "$stage" = "design" ] && ceffort="$CODEX_DESIGN_REVIEW_EFFORT"
   local dispatch
   if [ "$stage" = "final" ] && { [ "$scen" = "small-change" ] || [ "$scen" = "bug" ]; }; then
     dispatch="$(cat <<DISPATCH
 派 **1 个独立 Codex 审者一肩挑两路视角**($views)——本任务是 $scen,diff 小,不派双模型:
-  codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>   (run_in_background)
+  codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$ceffort" - < <prompt>   (run_in_background)
   prompt(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=final 审;两路视角($views)都由你覆盖,先跑完基线2(不看 plan 全新眼光审 diff)再跑基线1(对 design/issue 逐条);Source: ${source};按 skill 的 Return Contract 回结构化 findings。
-  续接用 codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,必须整套重钉)。
+  续接用 codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$ceffort" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,必须整套重钉)。
 DISPATCH
 )"
   elif [ "$stage" = "final" ] && [ "$tier" -eq 2 ]; then
     dispatch="$(cat <<DISPATCH
 ④final 分档(全 plan 无 capable 且 diff 小):派 **2 个独立审者 = 两路视角($views)各配一个模型**,
 并行起、各自干净 context、互不通气。仍跨模型互补:
-  基线1(回归+意图+跨plan)→ Codex:codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>   (run_in_background)
+  基线1(回归+意图+跨plan)→ Codex:codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$ceffort" - < <prompt>   (run_in_background)
   基线2(独立代码审计,全新眼光)→ Claude:用 **Agent 工具派会话内 sub-agent** code-reviewer(模型/档在该 agent 定,只读),传 stage=final、视角=基线2、Source=${source}。走会话内 sub-agent,不另起无头进程(那会另计费)。
   prompt/传参(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=final 审;你负责 <基线1|基线2> 这一路视角;Source: ${source};按 skill 的 Return Contract 回结构化 findings。
   续接:Codex 用 codex exec --sandbox read-only ... resume <session-id> "<追问>"(必须整套重钉围栏/模型档);Claude 侧再派一个 code-reviewer sub-agent 续审同视角(不复用被审 context)。
@@ -135,7 +140,7 @@ DISPATCH
 并行起、各自干净 context、互不通气。四个审者读**同一份方法论**(只有"你负责 <视角>"一处不同):
   读你已装的 worktree-review skill,按 stage=final 审(两模型同读此单源);你负责 <基线1|基线2> 这一路视角;Source: ${source};按 skill 的 Return Contract 回结构化 findings。
 派发(每视角两模型各一个):
-  Codex(× 两视角):codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>   (run_in_background)
+  Codex(× 两视角):codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$ceffort" - < <prompt>   (run_in_background)
   Claude(× 两视角):用 **Agent 工具各派一个会话内 sub-agent** code-reviewer(模型/档在该 agent 定,只读),传 stage=final、视角=<基线1|基线2>、Source=${source}。走会话内 sub-agent,不另起无头进程。
   续接:Codex resume 必须整套重钉围栏/模型档;Claude 侧再派一个 code-reviewer sub-agent 续审同视角。
 同视角跨模型对账:Claude 与 Codex 同视角 findings 互相对照——只一家报出的重点亲验,两家同报的置信升。
@@ -153,9 +158,9 @@ DISPATCH
   else
     dispatch="$(cat <<DISPATCH
 派两个独立 Codex 审者($views),单条消息并行起、各自干净 context,每个跑:
-  codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" - < <prompt>   (run_in_background)
+  codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$ceffort" - < <prompt>   (run_in_background)
   prompt(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=$stage 审;你负责其中一路视角(两审者分走 $views);Source: ${source};按 skill 的 Return Contract 回结构化 findings。
-  续接用 codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$CODEX_REVIEW_EFFORT" resume <session-id> "<追问>"(resume 必须整套重钉)。
+  续接用 codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$ceffort" resume <session-id> "<追问>"(resume 必须整套重钉)。
 DISPATCH
 )"
   fi
