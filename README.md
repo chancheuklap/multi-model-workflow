@@ -25,11 +25,11 @@ GPT 无头工人的附加提示词路径已接通（`pi-plugin/prompts-runtime/h
 
 ## Codex 是 Claude Code plugin 里的一个工人,不是独立 plugin
 
-Claude Code 版的写计划 / 落地 / 审查派给 Codex CLI 无头执行。Codex 不需要独立 plugin,只需把 plugin 内那几个软链 skill 装进它自动扫描的 hub `~/.agents/skills/`:
+Claude Code 版的写计划 / 落地 / 审查派给 Codex CLI 无头执行。Codex 不需要独立 plugin,只需把 plugin 内那几个软链 skill 装进它自动扫描的技能根 `~/.codex/skills/`(即 `$CODEX_HOME/skills`):
 
 ```bash
 for s in worktree-build worktree-plan worktree-review; do
-  ln -sfn "$(pwd)/plugin/skills/$s" ~/.agents/skills/$s
+  ln -sfn "$(pwd)/plugin/skills/$s" ~/.codex/skills/$s
 done
 ```
 

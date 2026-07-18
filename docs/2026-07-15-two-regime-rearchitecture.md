@@ -58,7 +58,7 @@
 | --- | --- | --- |
 | 委托型 | to-tickets(切片含自带用户确认闸)、domain-modeling(领域文档)、tdd(红绿循环) | 严格遵循其输入输出与自带质量闸,plugin 只定落点,不叠闸 |
 | 场景型 | diagnosing-bugs、codebase-design、triage、prototype、playwright-cli、impeccable | 情境触发用完即回 |
-| 作业本型 | worktree-build / worktree-plan / worktree-review(plugin 自有) | 软链 ~/.agents/skills 发布给 Codex,即时生效;工人唯一读物 |
+| 作业本型 | worktree-build / worktree-plan / worktree-review(plugin 自有) | 软链 ~/.codex/skills 发布给 Codex,即时生效;工人唯一读物 |
 
 两纪律:派发 prompt 只点名 skill、永不内联方法论、永不给 plugin 内路径;外部 skill 自带质量闸直接采用。
 

@@ -21,9 +21,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CODEX_BIN="${CODEX_BIN:-codex}"
 CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-terra}"
 CODEX_EFFORT="${CODEX_EFFORT:-high}"
-# capable 落地档(计费/权限/migration 等高风险 plan):脚本按 plan 的 Complexity 字段自动切,不靠 agent 手传。
+# capable 落地档(计费/权限/migration 等高风险 plan,gpt-5.6-sol medium):脚本按 plan 的 Complexity 字段自动切,不靠 agent 手传。
 CODEX_CAPABLE_MODEL="${CODEX_CAPABLE_MODEL:-gpt-5.6-sol}"
-CODEX_CAPABLE_EFFORT="${CODEX_CAPABLE_EFFORT:-high}"
+CODEX_CAPABLE_EFFORT="${CODEX_CAPABLE_EFFORT:-medium}"
 # 写计划档(plan-dispatch):Codex = gpt-5.6-sol high。
 CODEX_PLAN_MODEL="${CODEX_PLAN_MODEL:-gpt-5.6-sol}"
 CODEX_PLAN_EFFORT="${CODEX_PLAN_EFFORT:-high}"
@@ -33,9 +33,9 @@ state_for() { printf '%s' "$MMW_STATE_SUBDIR"; }
 die() { echo "ERROR: $*" >&2; exit 2; }
 
 # 派发前自检(机器可核验的事实,缺装备当场报错,不让工人开工后才发现):
-# ① 点名的 skill 已装(Codex 技能根 ~/.agents/skills);② 传给工人的文档真实存在。
+# ① 点名的 skill 已装(Codex 技能根 ~/.codex/skills = $CODEX_HOME/skills);② 传给工人的文档真实存在。
 preflight_skill() {  # $1=skill 名
-  local sk="${MMW_AGENT_SKILLS_DIR:-$HOME/.agents/skills}/$1/SKILL.md"
+  local sk="${MMW_AGENT_SKILLS_DIR:-$HOME/.codex/skills}/$1/SKILL.md"
   [ -f "$sk" ] || die "preflight:工人 skill 未装($sk 不存在);先把 $1 装进 Codex 技能根再派"
 }
 preflight_doc() {  # $1=标签 $2=路径(可空=跳过)
