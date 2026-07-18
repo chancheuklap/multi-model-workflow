@@ -33,9 +33,9 @@ state_for() { printf '%s' "$MMW_STATE_SUBDIR"; }
 die() { echo "ERROR: $*" >&2; exit 2; }
 
 # 派发前自检(机器可核验的事实,缺装备当场报错,不让工人开工后才发现):
-# ① 点名的 skill 已装(Codex 技能根 ~/.agents/skills);② 传给工人的文档真实存在。
+# ① 点名的 skill 已装(Codex 技能根 ~/.codex/skills = $CODEX_HOME/skills);② 传给工人的文档真实存在。
 preflight_skill() {  # $1=skill 名
-  local sk="${MMW_AGENT_SKILLS_DIR:-$HOME/.agents/skills}/$1/SKILL.md"
+  local sk="${MMW_AGENT_SKILLS_DIR:-$HOME/.codex/skills}/$1/SKILL.md"
   [ -f "$sk" ] || die "preflight:工人 skill 未装($sk 不存在);先把 $1 装进 Codex 技能根再派"
 }
 preflight_doc() {  # $1=标签 $2=路径(可空=跳过)
