@@ -2,7 +2,9 @@
 
 > 状态：动作三待用户拍板（做实 / 删字段），其余可落地。
 > 范围：三镜像（`plugin/` `droid-plugin/` `pi-plugin/`）同步。
-> 来源：2026-07-20 双模型独立分析 + 三轮交叉审查收敛；文内所有行号已按镜像分别亲验。
+> 来源：2026-07-20 双模型独立分析 + 三轮交叉审查收敛。
+> 性质：本文件是双模型讨论工作稿，非长期设计文档。终稿定案后，长期约束折进 `AGENTS.md` / `references`、实现走 worktree 分支，随后删除本根目录文件（项目规则：不维护独立设计文档、修在 worktree）。
+> 复审：2026-07-20 Claude Code 侧复审修订三处（动作一补 turnaround 判据、动作三修正 pi 视角偏差、行号纠错），变更记录见文末；行号以脚本为准、按镜像标注，禁跨镜像照抄。
 
 ## 背景与判据
 
@@ -30,11 +32,15 @@ loop engineering / graph 架构的核心课（验证器即工程、显式状态�
 
 ### 目标形态
 
-- **打转判定**：计数对象是「同一 finding 的重现」，不是返工轮数（三轮修三个不同缺陷是健康迭代，同一缺陷反复修不掉才是打转）。
+「打转」在 `flow.sh` 里本就是**两个独立计数器、两个独立阈值**，性质不同，需**两条判据**，共用同一套上报 / 硬停动作——不能用一条 findings 指纹糊住：
+
+- **判据 A — 审查返工打转（`needs-repair` / `repair_count`；plugin `flow.sh:189` ≥3 只 WARN，pi / droid 行号各自核）**：计数对象是「同一 finding 的重现」，不是返工轮数（三轮修三个不同缺陷是健康迭代，同一缺陷反复修不掉才是打转）。
   - 数据源：审查留痕 `docs/reviews/<slug>-<stage>.md` 的 accepted findings 集合。
   - 指纹：文件 + 归一化缺陷签名（标题 / 类型级）；**行号只作弱信号**——返工改代码会挪行号，锚 `file:line` 会把同一缺陷误判成新缺陷而放过真打转。
   - 判据：连续两轮审出实质重合的 accepted findings = 打转。规模为几十行归一化比对，不碰 release-flow 的构建日志管线。
-- **阈值字段**：落 `routes.json`，与 `review_gates` 同级（判断落 manifest、脚本强制）。
+- **判据 B — 方向掉头打转（`needs-redirection` / `turnaround_count`；plugin `flow.sh:210` ≥2 只 WARN，pi / droid 行号各自核）**：掉头往往没有 findings、是方向反复变，findings 指纹套不上；这里**裸计数反而正确**——同一 `to-phase` 被反复回退本身就是信号。
+  - 判据：同一 `to-phase` 的 `turnaround_count` 达阈值 = 方向横跳打转。AFK 无人值守下方向反复横跳与审查打转同样烧 token，同样要堵。
+- **阈值字段**：两条判据各一个阈值，落 `routes.json`，与 `review_gates` 同级（判断落 manifest、脚本强制）。
 - **触发动作分 attendance**：
   - attended / afk → 引擎置 `waiting-user` + `mmw where` 置顶；**不锁死**，人来想继续就继续（保留 `routes.json` description 的既定决策：流水线态回上游「向用户汇报但不锁死」）。
   - unattended → 硬停写板，不问人（套用 `steer.sh:77` 默认策略 `review_fail=rework_then_hard_stop` 先例，`references/control/attendance.md:50`）。
@@ -51,10 +57,11 @@ loop engineering / graph 架构的核心课（验证器即工程、显式状态�
 - schema 声明了一整套行为：「gated 阶段过闸时记产物内容指纹（phase→hash），`mmw where` 再算比对，不同 = 过闸后被改 → 提示回该阶段重审」（pi `task-manifest.schema.json:119-124`，标「可选」）。
 - 全仓脚本与文档**零引用**该字段——声明的守卫不存在，零上下文 agent 读 schema 会误判有保护。
 
-### 仓库内已有两套可抄的指纹模式
+### 仓库内可抄的指纹模式（含镜像差异，已复核）
 
-1. approval 文档指纹：`flow.sh:53-59` 实现比对，算法单源在 `note.sh fingerprint`，`approval_stale` 硬停输出于 `flow.sh:517`。
-2. 审查窗口工作树基线：`review.sh:30-51`（`review_worktree_fingerprint` / `clean_check`），`flow.sh:145-150` 调用——审前录基线、审后核工作树未被改。
+1. **approval 文档指纹（三镜像通用，首选可抄）**：plugin `flow.sh:47-60` 实现比对（`approval_check`），算法单源在 `note.sh fingerprint`，`approval_stale` 硬停输出于 plugin **`flow.sh:492`**（原稿写 517，实测有误已纠）。这是最贴 `gate_fingerprints` 目标（过闸产物事后被改 → 提示重审）的模式，三镜像都有。
+2. **审查窗口工作树基线（仅 pi 版有）**：`review_worktree_fingerprint` / `review_worktree_clean_check` 仅存在于 pi `review.sh:30-51`，plugin 与 droid **零实现**（已 grep 三镜像复核）；且其目标是「审查窗口内工作树没被偷改」，与 `gate_fingerprints`「过闸产物事后被改」**目标不同**，只是指纹 + 比对手法可借鉴。
+   - **对分工的影响**：pi 版（Kimi 负责）动作三可直接复用这套；plugin / droid 版（plugin 由 Claude Code 负责）**没有现成 clean-check，得从 approval 模式自建**。所以「三镜像做实」不是三份复制同一份代码，而是各镜像基线本就不齐、各自按自家现状落。
 
 ### 选项
 
@@ -81,6 +88,24 @@ loop engineering / graph 架构的核心课（验证器即工程、显式状态�
 
 ## 落地范围与纪律
 
-- 三镜像同步：共用文字走 `build/fragments` + `build.sh --apply` 单源注入；各镜像脚本行号落地时各自重核（三镜像存在行号漂移，例：WARN 行 pi:200 / droid:192 / plugin:190），禁照抄。
-- 验证：动作一 / 二改 `flow.sh` 引擎，补 `scripts/tests/test_flow.sh` 用例（同根因打转判定 × attendance 分支）；三镜像全量测试全绿 + `build.sh --check` 无 DRIFT。
-- 责任：Coordinator（主线程）落地；Worker 不碰本文档与 `docs/`。
+- **分工（2026-07-20 定）**：plugin（Claude Code 版）由 Claude Code 负责落地；pi 版由 Kimi 负责落地；droid 版后续再定。各自在自己宿主内实现 + 真跑验证，不替对方镜像定行号。
+- **共用面协调**：纯文字片段仍走 `build/fragments` + `build.sh --apply` 单源，谁动片段谁跑 `build.sh --check` 保证三镜像无 DRIFT；`flow.sh` / `routes.json` 是各镜像单宿主实现，各负责人各改各的、判据语义对齐即可。
+- **验证**：动作一 / 二改 `flow.sh` 引擎，各自补 `scripts/tests/test_flow.sh` 用例（判据 A 同根因打转 + 判据 B to-phase 掉头 × attendance 分支）；本镜像全量测试全绿。
+- **责任**：Coordinator（主线程）落地；Worker 不碰本文档与 `docs/`。
+
+## Claude Code 复审变更记录（2026-07-20；Kimi 复核回应见文末）
+
+1. **动作一补 turnaround 判据（实质）**：原稿目标形态只写 findings 指纹一条，只治审查返工（`repair_count`），漏了方向掉头（`turnaround_count`）——`flow.sh` 里这是两个独立计数器、两个阈值。已拆成判据 A（findings 指纹）+ 判据 B（`to-phase` 掉头裸计数），共用同一套上报 / 硬停动作。否则方向反复横跳的 fail-open 洞没堵，它在 AFK 下同样烧 token。**请 Kimi 确认这条拆分在 pi 版是否同构。**
+2. **动作三修正「pi 独有当三镜像通用」（事实）**：原稿把 `review_worktree_fingerprint` 当仓库通用可抄模式，实测**仅 pi 版有**、plugin/droid 零实现，且目标与 `gate_fingerprints` 不同。已改为分工事实：pi 版可直接复用，plugin/droid 版得从 approval 模式自建。
+3. **行号纠错**：`approval_stale` 原稿 `flow.sh:517`，plugin 实测 **492**；已改并按镜像标注。行号一律以脚本为准、逐镜像重核，禁照抄。
+4. **元层面（落地形态）**：本文件以独立设计文档形态直接 commit 到 main 根目录，触及项目「不维护独立设计文档、修在 worktree」两条硬规则。建议终稿定案后：长期约束折进 `AGENTS.md` / `references`、实现走 worktree、删除本根目录文件；`a5b20cb`（main 上、未 push、可逆）由用户定 revert 或转正式产物。
+
+**仍需两边共同拍板 / 对齐的**：动作三 `gate_fingerprints` 做实 / 删字段（待用户定）；动作一判据 A、B 是否同批进首个 worktree（Claude Code 倾向同落，否则只补一半）。
+
+## Kimi 复核回应（2026-07-20）
+
+1. **判据 A/B 拆分：接受，pi 版同构已亲验**——pi `flow.sh:199`（返工 ≥3 WARN）、`:220`（掉头 ≥2 WARN）、`:216`（掉头时重置返工计数），与 plugin 逐字同构。**一处实现修正**：现有 `turnaround_count` 是全局计数（pi `:204` `tc+1`，不分目标阶段），判据 B 的「同一 `to-phase`」语义需新增按目标阶段的掉头账（小 ledger），不能只读现有计数器——否则不同阶段间合理精修（design→plan→回 design→回 plan）会被误伤，与判据 A「不误伤正常迭代」同一原则。
+2. **`review_worktree_fingerprint` 仅 pi 有：接受**（已 grep 三镜像复核：plugin / droid 零命中）。动作三的可抄基线修正为：approval 指纹三镜像通用（首选），clean-check 仅 pi 可借手法。
+3. **行号纠错：接受**（`approval_stale`：plugin `flow.sh:492` / pi `:517` / droid `:499`，三镜像各有该机制，原稿 517 是 pi 行号未标注镜像）。
+4. **元层面**：根目录文档 + 直提 main 是用户明确指令，覆盖「不维护独立设计文档、修在 worktree」两条规则；采纳其生命周期建议——定案后长期约束折进 `AGENTS.md` / `references`、实现走 worktree、删除本文件；`a5b20cb` 保留（未 push、可逆、是用户要的产物）。
+5. **判据 A、B 同批进首个 worktree：赞成**。两个计数器在同一个 handoff switch、共用同一套 attendance 分支动作、同一个测试文件，拆开等于同段代码改两遍。
