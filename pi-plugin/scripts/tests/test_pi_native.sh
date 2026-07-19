@@ -8,7 +8,7 @@ ok(){ echo "  PASS: $1"; pass=$((pass+1)); }
 no(){ echo "  FAIL: $1"; fail=$((fail+1)); }
 
 echo '=== test_pi_native.sh ==='
-jq -e '.version=="9.3.1" and (.keywords|index("pi-package")) and .pi.extensions==["./extensions"] and .pi.skills==["./skills"] and .pi.prompts==["./prompts"]' "$PLUGIN/package.json" >/dev/null \
+jq -e '.version=="9.3.2" and (.keywords|index("pi-package")) and .pi.extensions==["./extensions"] and .pi.skills==["./skills"] and .pi.prompts==["./prompts"]' "$PLUGIN/package.json" >/dev/null \
   && ok 'package.json pi manifest/version' || no 'pi manifest'
 [ -f "$PLUGIN/extensions/mmw-hooks.ts" ] && ok 'mmw extension exists' || no 'extension missing'
 [ ! -f "$PLUGIN/scripts/lib/pi-exec.sh" ] && [ ! -f "$PLUGIN/scripts/lib/droid-exec.sh" ] \
@@ -24,6 +24,15 @@ for role in $roles; do
   [ -f "$file" ] && grep -q '^model: \(openai-codex\|claude-provider\)/' "$file" \
     && grep -q '^thinking: ' "$file" && ! grep -q '^reasoningEffort:' "$file" \
     && ok "role:$role" || no "role missing/invalid:$role"
+done
+
+# tools 行必须是逗号格式(nicobailon 不解析 YAML 数组,方括号会生成垃圾工具名)
+! grep -l '^tools: \[' "$PLUGIN"/agents-roster/*.md >/dev/null \
+  && ok 'roster tools 全逗号格式' || no 'roster tools 存在方括号'
+# Fable 系 reviewer 配同厂商 fallback(fable-5 限流时换 opus-4-8:xhigh,不跨厂商)
+for role in reviewer-design-b reviewer-plan-b reviewer-final-b; do
+  grep -q '^fallbackModels: claude-provider/claude-opus-4-8:xhigh$' "$PLUGIN/agents-roster/$role.md" \
+    && ok "fallback 同厂商:$role" || no "fallback 缺失:$role"
 done
 [ ! -f "$PLUGIN/agents-roster/decision-advisor.md" ] \
   && ok 'decision-advisor 已裁(咨询走 advisor 工具)' || no 'decision-advisor 残留'

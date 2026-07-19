@@ -2,7 +2,7 @@
 name: code-explorer
 description: 主线程需要先查清模块边界、调用链或数据流再决策时派发。只读取证，不写方案、不改文件；plan-writer 自己按 worktree-plan 探代码，不直接调用本 agent。
 model: openai-codex/gpt-5.6-sol
-tools: ["read", "grep", "find", "ls", "bash"]
+tools: read, grep, find, ls, bash
 thinking: medium
 ---
 
