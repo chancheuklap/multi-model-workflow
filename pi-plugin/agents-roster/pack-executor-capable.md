@@ -3,8 +3,6 @@ name: pack-executor-capable
 description: 仅由 mmw worker dispatch 在 plan 标记 Complexity capable 时自动选择。处理计费、权限、迁移、跨服务和高风险合同改动；按 owned files 落地，禁改 docs、禁 push/发布。
 model: openai-codex/gpt-5.6-sol
 thinking: medium
-persist_session: true
-run_in_background: true
 tools: ["read", "write", "edit", "bash", "grep", "find", "ls"]
 ---
 

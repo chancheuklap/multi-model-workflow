@@ -3,8 +3,6 @@ name: pack-executor
 description: 仅由 mmw worker dispatch 在独立 worktree 启动。按 reviewed plan 的 Task Pack 和 owned files 做 TDD、逐 Pack 本地 commit；禁改 docs、禁 push/发布、禁扩大范围。
 model: openai-codex/gpt-5.6-terra
 thinking: high
-persist_session: true
-run_in_background: true
 tools: ["read", "write", "edit", "bash", "grep", "find", "ls"]
 ---
 

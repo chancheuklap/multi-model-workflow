@@ -6,6 +6,7 @@
 
 ```bash
 pi install npm:@quintinshaw/pi-dynamic-workflows
+pi install npm:pi-subagents
 pi install /Users/cheuklapchan/multi-model-workflow/pi-plugin
 bash /Users/cheuklapchan/multi-model-workflow/pi-plugin/workflows/install-workflows.sh
 ```
@@ -21,7 +22,7 @@ bash /Users/cheuklapchan/multi-model-workflow/pi-plugin/workflows/install-workfl
 
 ## 角色与模型
 
-花名册 `agents-roster/*.md` 是所有工作角色的单一权威(模型、thinking、工具白名单、职责、系统提示词)。GPT 系角色正文开头的 `mmw:fragments` 生成块由 `scripts/render_agent_prompts.py` 从 `_fragments/`(厂商原生提示词片段,来源见其 MANIFEST.md)渲染,改片段后重跑脚本,不要手改生成块;`--check` 可做一致性校验。全员软链进 `~/.pi/agent/agents/` 注册为 pi 正式 agent，协调者用 Agent 工具按名字派(`subagent_type: <角色名>`)；重角色(pack-executor / plan-writer)用 `run_in_background` + `persist_session` 后台跑，worktree 与边界门仍由 `scripts/worker.sh` 准备和把关。强判断咨询用 rpiv-advisor 的 advisor 工具，不占花名册编制。
+花名册 `agents-roster/*.md` 是所有工作角色的单一权威(模型、thinking、工具白名单、职责、系统提示词)。GPT 系角色正文开头的 `mmw:fragments` 生成块由 `scripts/render_agent_prompts.py` 从 `_fragments/`(厂商原生提示词片段,来源见其 MANIFEST.md)渲染,改片段后重跑脚本,不要手改生成块;`--check` 可做一致性校验。全员软链进 `~/.pi/agent/agents/` 注册为 pi 正式 agent，协调者用 subagent 工具按名字派(`agent: "<角色名>"`)；重角色(pack-executor / plan-writer)用 `async: true` 后台跑，会话天然落盘长效可 resume，worktree 与边界门仍由 `scripts/worker.sh` 准备和把关。强判断咨询用 rpiv-advisor 的 advisor 工具，不占花名册编制。
 
 安装后若未注册，把花名册软链进全局目录：
 
@@ -44,7 +45,7 @@ done
 - 状态平面：`<worktree>/.pi/multi-model-workflow/`
 - worktree 根：`<repo>/.pi/worktrees/`
 - 工人账本：角色、worktree、prompt、start SHA、边界基线、验收/发布状态(工人回执在会话内,不落 result 文件)
-- 续接：`mmw worker resume` / `plan-resume` 准备 resume prompt;同会话 `Agent(resume=<agent id>)`,跨会话重派同角色靠 worktree 提交对齐进度
+- 续接：`mmw worker resume` / `plan-resume` 准备 resume prompt 并读账本 run id;`subagent({action:"resume", id:<run id>, message:…})` 从落盘会话文件复活原工人，长效、无会话内外之分;仅会话文件不可用时重派同角色，靠 worktree 提交对齐进度
 - 工作流续接：pi-dynamic-workflows journal
 
 ## 验证

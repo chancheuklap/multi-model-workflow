@@ -15,7 +15,7 @@
 
 - 只需查内部 → 只跑 internal；要对比外部方案 → 再跑 external；两个都要 → 两个 workflow 可并行。
 - 窄到一个点(一个函数 / 已知文件)→ 别起 fan-out，自己用 read/grep 查完直接 handoff。
-- 只有一个聚焦问题,但要跨多个文件追模块边界 / 调用链 / 数据流 → 调用一次 `Agent({subagent_type:"Explore", prompt:"<原问题 + repoRoot + 必须核验的边界>"})`；主线程亲验返回后直接收口，不为单 topic 起完整 workflow。
+- 只有一个聚焦问题,但要跨多个文件追模块边界 / 调用链 / 数据流 → 调用一次 `subagent({agent:"Explore", task:"<原问题 + repoRoot + 必须核验的边界>"})`；主线程亲验返回后直接收口，不为单 topic 起完整 workflow。
 - 定 topics:**一个 topic 一个 agent**，按调查真实需要定几个。每个 `{ angle, question, skill? }`。
 
 ## 2. Checkpoint → 跑调查编排器

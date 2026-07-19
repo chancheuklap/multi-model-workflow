@@ -17,6 +17,7 @@ for t in plugin/scripts/tests/test_*.sh; do bash "$t" || exit 1; done
 
 ```bash
 pi install npm:@quintinshaw/pi-dynamic-workflows
+pi install npm:pi-subagents
 pi install "$(pwd)/pi-plugin"
 bash pi-plugin/workflows/install-workflows.sh
 ```

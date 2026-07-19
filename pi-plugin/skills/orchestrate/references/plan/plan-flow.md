@@ -64,7 +64,7 @@ mmw worker plan-dispatch \
 
 讨论态材料(mockup / prototype / evidence / direction / investigating)**脚本从设计文档路径自动推导并随派发进入 writer 上下文**,不用传任何旗标——设计文件夹单形态后这是纯机械活,归脚本不归你记。
 
-- **一律后台跑**:脚本为每个 writer 建临时隔离 worktree 并组好 prompt,协调者照打印的指令派 `Agent(subagent_type=plan-writer,run_in_background=true)`并记下 agent id;工人回执后 `mmw worker verify --plan <落点> --worktree <任务 wt>` 过边界门才原子发布指定 plan 与 issue 小节并清理隔离 worktree,追问用 `plan-resume`。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。** 单 issue → 单 plan:派一个就行,不强行并行。
+- **一律后台跑**:脚本为每个 writer 建临时隔离 worktree 并组好 prompt,协调者照打印的指令派 `subagent({agent:"plan-writer", task:…, async:true})`,并把返回的 run id 用 `mmw worker note-run-id --plan <落点>` 落账;工人回执后 `mmw worker verify --plan <落点> --worktree <任务 wt>` 过边界门才原子发布指定 plan 与 issue 小节并清理隔离 worktree,追问用 `plan-resume`(账本 run id 长效,跨会话也能续原工人)。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。** 单 issue → 单 plan:派一个就行,不强行并行。
 - **writer 不建 worktree、不 commit**:隔离、发布和清理由脚本负责;writer 只在自己的隔离 worktree 写指定 plan 与 issue `Small issues`,主线程统一提交。
 - **落点 slug** 与源设计 / issue 对齐(已含日期);多 plan 同一目录。
 - 模型档脚本已钉,除非特殊无需 `--model`。

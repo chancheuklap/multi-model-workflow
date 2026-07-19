@@ -38,7 +38,7 @@
 | `reviewer-plan-a` / `reviewer-plan-b` | 计划审模型路线 A / B |
 | `reviewer-final-a` / `reviewer-final-b` | 终审模型路线 A / B,视角由 dispatch 指定 |
 
-花名册全员已注册为 pi 正式 agent(软链进全局 agents 目录)：model、thinking 与工具白名单以 `agents-roster/<name>.md` frontmatter 为准，派发时直接 `subagent_type: <角色名>`，不另传 model。reviewer 由协调者按 review brief 派；worker/plan writer 由脚本准备 worktree 与 prompt 后由协调者以 `run_in_background` 派。强判断咨询用 advisor 工具(零参数，自动转发全对话)，不占花名册编制。
+花名册全员已注册为 pi 正式 agent(软链进全局 agents 目录)：model、thinking 与工具白名单以 `agents-roster/<name>.md` frontmatter 为准，派发时 subagent 工具直接 `agent: "<角色名>"`，不另传 model。reviewer 由协调者按 review brief 以 tasks 数组并行派；worker/plan writer 由脚本准备 worktree 与 prompt 后以 `async: true` 后台派。强判断咨询用 advisor 工具(零参数，自动转发全对话)，不占花名册编制。
 
 无人值守角色不能向用户提问。缺输入时返回结构化 blocker，由主线程处置。
 
@@ -46,14 +46,14 @@ final review 固定并行四个 Agent：A、B 两种模型分别各审基线1和
 
 ## Worker
 
-`mmw worker dispatch` 为新 Pack 创建 Git worktree、组工人 prompt、记派发账本，并打印派发指令；协调者照指令在会话内派 `Agent(subagent_type=pack-executor,run_in_background=true)`，记下 agent id。`plan-dispatch` 同理，使用临时隔离 worktree。工具白名单由已注册角色的 frontmatter 提供，不再经命令行传递。
+`mmw worker dispatch` 为新 Pack 创建 Git worktree、组工人 prompt、记派发账本，并打印派发指令；协调者照指令派 `subagent({agent:"pack-executor", task:…, async:true})`，并把返回的 run id 用 `mmw worker note-run-id` 落账。`plan-dispatch` 同理，使用临时隔离 worktree。工具白名单由已注册角色的 frontmatter 提供，不再经命令行传递。
 
 工人完成(会话内收到后台 agent 回执)后过机器边界门：
 
 - 写码：`mmw worker verify --worktree <wt>`(核 docs 边界)
 - 写计划：`mmw worker verify --plan <plan> --worktree <wt>`(核越界，过门才原子发布 plan 与 issue `Small issues`)
 
-修复使用 `worker resume` 或 `plan-resume`：脚本准备 resume prompt，同会话用 `Agent(resume=<原 agent id>)` 续接原上下文；跨会话(agent id 已失效)重派同角色新 agent，靠 worktree 已有提交对齐进度。通过后主线程再亲验 diff、提交和测试。
+修复使用 `worker resume` 或 `plan-resume`：脚本准备 resume prompt 并读账本 run id；协调者派 `subagent({action:"resume", id:<run id>, message:…})`——从落盘会话文件复活原工人上下文，长效、无会话内外之分；仅会话文件不可用时才重派同角色新 run，靠 worktree 已有提交对齐进度。通过后主线程再亲验 diff、提交和测试。
 
 ## 审闸
 
