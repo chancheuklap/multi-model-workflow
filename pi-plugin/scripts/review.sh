@@ -3,7 +3,7 @@
 #
 #   start --stage <design|plan|plan-impl|final|merge-impl> --source <源意图路径/描述>
 #       按阶段定视角与审者编制,把审派发指南写进状态目录 review-brief.md(主线程读它直接派审者)。
-#       审者=pi 会话内经 pi-subagents 的 Agent 工具并行派发(subagent_type 直接用花名册角色名,
+#       审者=pi 会话内经 pi-subagents 的 subagent 工具 tasks 数组并行派发(agent 直接用花名册角色名,
 #       model/工具白名单由已注册的 agents-roster frontmatter 提供),读已装的 worktree-review skill。
 #   clean-check --worktree <路径> --baseline <工作树指纹>
 #       审收口边界闸(写者≠审者的硬实现,弥补 pi 无只读沙盒):审后 HEAD、tracked diff、
@@ -73,37 +73,37 @@ dispatch_for() {
   case "$stage" in
     design)
       cat <<EOF
-单条消息并行调用两个 Agent(pi-subagents,按名字派,model 由 agent 定义自带),各自干净 context:
-- subagent_type: reviewer-design-a,负责轴A 设计内容
-- subagent_type: reviewer-design-b,负责轴B 项目对齐
-prompt(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=design 审;Source:$source;只负责指定轴;按 Return Contract 回结构化 findings。
+单次 subagent 调用、tasks 数组并行两个审者(pi-subagents,按名字派,model 由 agent 定义自带),各自干净 context:
+- tasks[0]: agent=reviewer-design-a,负责轴A 设计内容
+- tasks[1]: agent=reviewer-design-b,负责轴B 项目对齐
+每个 task(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=design 审;Source:$source;只负责指定轴;按 Return Contract 回结构化 findings。
 EOF
       ;;
     plan)
       cat <<EOF
-单条消息并行调用两个 Agent(pi-subagents,按名字派,model 由 agent 定义自带),写者与审者分离(计划由 plan-writer 写,审者另派):
-- subagent_type: reviewer-plan-a,负责轴A 覆盖与质量
-- subagent_type: reviewer-plan-b,负责轴B 合规与交叉验证
-prompt(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=plan 审;Source:$source;只负责指定轴;按 Return Contract 回结构化 findings。
+单次 subagent 调用、tasks 数组并行两个审者(pi-subagents,按名字派,model 由 agent 定义自带),写者与审者分离(计划由 plan-writer 写,审者另派):
+- tasks[0]: agent=reviewer-plan-a,负责轴A 覆盖与质量
+- tasks[1]: agent=reviewer-plan-b,负责轴B 合规与交叉验证
+每个 task(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=plan 审;Source:$source;只负责指定轴;按 Return Contract 回结构化 findings。
 EOF
       ;;
     final)
       cat <<EOF
-单条消息并行调用四个跨模型 Agent(pi-subagents,按名字派,model 由 agent 定义自带),两条基线各跑两个模型:
-- subagent_type: reviewer-final-a,基线1(回归+意图+跨plan)
-- subagent_type: reviewer-final-b,基线1
-- subagent_type: reviewer-final-a,基线2(独立代码审计,全新眼光)
-- subagent_type: reviewer-final-b,基线2
-prompt(纯路由,四审者读同一份方法论):读 $skill/SKILL.md,按 stage=final 审;Source:$source;只负责指定基线;按 Return Contract 回结构化 findings。
+单次 subagent 调用、tasks 数组并行四个跨模型审者(pi-subagents,按名字派,model 由 agent 定义自带),两条基线各跑两个模型:
+- tasks[0]: agent=reviewer-final-a, label=基线1(回归+意图+跨plan)
+- tasks[1]: agent=reviewer-final-b, label=基线1
+- tasks[2]: agent=reviewer-final-a, label=基线2(独立代码审计,全新眼光)
+- tasks[3]: agent=reviewer-final-b, label=基线2
+每个 task(纯路由,四审者读同一份方法论):读 $skill/SKILL.md,按 stage=final 审;Source:$source;只负责指定基线;按 Return Contract 回结构化 findings。
 同基线跨模型对账:只一家报出的重点亲验,两家同报的置信升。
 EOF
       ;;
     merge-impl)
       cat <<EOF
-单条消息并行调用两个跨模型 Agent(pi-subagents,按名字派,model 由 agent 定义自带):
-- subagent_type: reviewer-final-a,跨 worktree 集成审路线1
-- subagent_type: reviewer-final-b,跨 worktree 集成审路线2
-prompt:读 $skill/SKILL.md,按 stage=merge-impl 走组合行为、合同、迁移、状态、import、回归、修复质量七角度;Source:$source;按 Return Contract 回结构化 findings。
+单次 subagent 调用、tasks 数组并行两个跨模型审者(pi-subagents,按名字派,model 由 agent 定义自带):
+- tasks[0]: agent=reviewer-final-a, label=跨 worktree 集成审路线1
+- tasks[1]: agent=reviewer-final-b, label=跨 worktree 集成审路线2
+每个 task:读 $skill/SKILL.md,按 stage=merge-impl 走组合行为、合同、迁移、状态、import、回归、修复质量七角度;Source:$source;按 Return Contract 回结构化 findings。
 EOF
       ;;
     *) die "未覆盖 stage:$stage" ;;
@@ -200,8 +200,8 @@ Source: ${source}
 ## 派审者
 $dispatch
 
-在单条消息中并行发出独立 Agent 调用(pi-subagents),每个审者按当前工具合同直接返回结果。
-调用中断时重派对应视角,不假设后台 task ID 或 resume。
+一次 subagent 调用 tasks 数组并行发出,前台等全部审者返回。
+调用中断时重派对应视角;审者无状态读,不需 resume。
 
 ## 留痕(收口的硬核就在这份文件)
 把全部审者的结构化 findings **原样落盘** $trace(不重写不摘要,保真);
@@ -221,7 +221,7 @@ EOF
 
   cat <<EOF
 REVIEW_STARTED stage=$stage host=pi
-1. 主线程读 $brief,按「派审者」段直接派(单条消息并行 Agent 调用,读 worktree-review skill 出结构化 findings)。
+1. 主线程读 $brief,按「派审者」段直接派(单次 subagent 调用 tasks 数组并行,读 worktree-review skill 出结构化 findings)。
 2. findings 原样落 $trace,亲验标处置、写总 verdict(收口硬核:该文件在且含 verdict)。
 3. 收口回 review/review.md 按 Gap 选结论词 handoff。
 EOF

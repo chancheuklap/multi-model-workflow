@@ -28,16 +28,17 @@ for s in design plan final; do
   if echo "$B" | grep -qE "references/review/"; then no "$s brief 仍给审者 plugin 路径(不该)"; else ok "$s brief 无 plugin 路径喂审者"; fi
   echo "$B" | grep -q "verdict" && ok "$s brief 写明留痕含 verdict(收口硬核)" || no "$s brief verdict"
   echo "$B" | grep -q "亲验" && ok "$s brief 要求收回亲验(审者是劳动力不是信源)" || no "$s brief 亲验"
-  echo "$B" | grep -q "单条消息" && echo "$B" | grep -q "Agent(pi-subagents" && ok "$s 派发=单条消息并行 Agent(pi-subagents)" || no "$s Agent 派发"
+  echo "$B" | grep -q "subagent 调用" && echo "$B" | grep -q "tasks 数组并行" && ok "$s 派发=单次调用 tasks 数组并行" || no "$s tasks 派发"
   echo "$B" | grep -q 'codex ''exec' && no "$s brief 不该派 codex(pi 宿主无 Codex CLI)" || ok "$s 无 codex 派发"
   echo "$B" | grep -q "claude -p" && no "$s brief 不该用 claude -p 无头" || ok "$s 无 claude -p"
 done
 
 # 续接语义:审者 Agent 不复用被审 context——中断重派对应视角
-grep -q "重派对应视角" "$BRIEF" && grep -q "不假设后台 task ID 或 resume" "$BRIEF" \
-  && ok "中断续接=重派视角(不假设后台 task/resume)" || no "续接语义"
+grep -q "重派对应视角" "$BRIEF" && grep -q "不需 resume" "$BRIEF" \
+  && ok "中断续接=重派视角(审者无状态)" || no "续接语义"
 grep -q "resume <session-id>" "$BRIEF" && no "brief 不该出现 codex resume 续接" || ok "无 codex resume 语义"
-grep -q "run_in_background" "$BRIEF" && no "brief 不该出现后台跑指令(Task 同步)" || ok "无 run_in_background(Task 同步返回)"
+grep -q "run_in_background" "$BRIEF" && no "brief 不该出现后台跑指令(tasks 前台同步)" || ok "无 run_in_background(tasks 同步返回)"
+grep -q "subagent_type" "$BRIEF" && no "brief 不该出现旧 Agent 工具参数名" || ok "无 subagent_type 旧参数"
 
 # ①设计审:两视角 reviewer pis(设计是主线程写的,写者≠审者=隔离 context 的 reviewer)
 bash "$REVIEW" start --stage design --source x >/dev/null 2>&1
@@ -53,7 +54,7 @@ grep -q "轴A 覆盖与质量" "$BRIEF" && ok "②计划审两路视角(轴A/轴
 # ④final:固定四跨模型 Agent,两基线各两模型;不按 scenario 分档
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 B="$(cat "$BRIEF")"
-echo "$B" | grep -q "四个跨模型 Agent" && ok "final 固定四跨模型 Agent" || no "final 四 Agent"
+echo "$B" | grep -q "四个跨模型审者" && ok "final 固定四跨模型审者" || no "final 四审者"
 echo "$B" | grep -q "reviewer-final-a" && echo "$B" | grep -q "reviewer-final-b" && ok "final 派 reviewer-final-a/b" || no "final 审者编制"
 echo "$B" | grep -q "基线1" && echo "$B" | grep -q "基线2" && ok "final 两基线视角" || no "final 基线"
 echo "$B" | grep -q "同一份方法论" && ok "final 四审者读同一份方法论" || no "final prompt 一致"
@@ -61,7 +62,7 @@ echo "$B" | grep -q "跨模型对账" && ok "final 同基线跨模型对账(单�
 mkdir -p ${STATE_SUBDIR}
 echo '{"scenario":"small-change"}' > ${STATE_SUBDIR}/task.json
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
-grep -q "四个跨模型 Agent" "$BRIEF" && ok "final 不按 scenario 分档(small-change 同编制)" || no "final 误分档"
+grep -q "四个跨模型审者" "$BRIEF" && ok "final 不按 scenario 分档(small-change 同编制)" || no "final 误分档"
 
 # 多 --source(阶段可钉多个产出,brief 拼全)
 OUT="$(bash "$REVIEW" start --stage design --source s1.md --source s2.md 2>/dev/null)"

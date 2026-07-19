@@ -37,7 +37,7 @@ grep -q 'PLAN_AGENT.*plan-writer' "$PLUGIN/scripts/worker.sh" \
   && grep -q 'CAPABLE_EXECUTOR_AGENT.*pack-executor-capable' "$PLUGIN/scripts/worker.sh" \
   && grep -q 'EXECUTOR_AGENT.*pack-executor' "$PLUGIN/scripts/worker.sh" \
   && ok 'worker routes all writer roles' || no 'worker role routes'
-grep -q 'subagent_type: reviewer-final-a' "$PLUGIN/scripts/review.sh" \
+grep -q 'agent=reviewer-final-a' "$PLUGIN/scripts/review.sh" \
   && ! grep -q 'roster_model' "$PLUGIN/scripts/review.sh" \
   && ok 'review 按名字派 reviewer(无 roster_model 间接层)' || no 'review role routes'
 

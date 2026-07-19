@@ -30,10 +30,11 @@
 #     mmw loop init | step add/done | attendance | softstop | surface | resume | status | close
 #   审闸一条命令:
 #     mmw review start --stage <design|plan|plan-impl|final|merge-impl> --source <...>
-#   写码工人派发(准备 worktree/prompt/账本,工人由协调者在会话内 Agent 工具派 subagent_type=pack-executor):
+#   写码工人派发(准备 worktree/prompt/账本,工人由协调者在会话内 subagent 工具派 agent=pack-executor, async:true):
 #     mmw worker dispatch --plan <p> --worktree <wt> | worker resume --worktree <wt> --instructions <f>
+#     mmw worker note-run-id --worktree <wt> --id <run id>   # 派发后把 run id 落账,返修 resume 凭据
 #     mmw worker verify --worktree <wt>       # 工人回执后跑:核 docs 边界门
-#   写计划工人派发(同上,subagent_type=plan-writer;隔离沙箱内、不 commit):
+#   写计划工人派发(同上,agent=plan-writer;隔离沙箱内、不 commit):
 #     mmw worker plan-dispatch --plan <落点> --worktree <wt> [--design <d>] [--issue <i>]
 #     mmw worker plan-resume --plan <落点> --worktree <wt> --instructions <f>
 #     mmw worker verify --plan <落点> --worktree <wt>       # 核计划边界,过门才原子发布

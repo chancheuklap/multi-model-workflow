@@ -53,8 +53,9 @@ ACTUAL_WT="$(jq -r .worktree "$META")"
 [ "$(jq -r .agent "$META")" = pack-executor ] && ok "pack executor selected" || no "executor"
 [ "$(jq -r .status "$META")" = dispatched ] && ok "meta status dispatched" || no "meta status"
 echo "$OUT" | grep -q 'WORKER_BACKEND=pi-subagents' && ok "pi-subagents backend" || no "backend banner"
-echo "$OUT" | grep -q 'subagent_type=pack-executor' && ok "dispatch instruction names agent" || no "dispatch instruction"
-echo "$OUT" | grep -q 'run_in_background=true' && ok "dispatch instruction runs in background" || no "dispatch background"
+echo "$OUT" | grep -q 'agent:"pack-executor"' && ok "dispatch instruction names agent" || no "dispatch instruction"
+echo "$OUT" | grep -q 'async:true' && ok "dispatch instruction runs in background" || no "dispatch background"
+echo "$OUT" | grep -q 'note-run-id' && ok "dispatch requires run id ledger" || no "run id ledger pointer"
 echo "$OUT" | grep -q 'mmw worker verify' && ok "dispatch points to verify gate" || no "verify pointer"
 grep -q "$ACTUAL_WT" "$WT/.pi/multi-model-workflow/worker-dispatch/prompt.md" \
   && ok "prompt pins absolute worktree path" || no "prompt worktree pin"
@@ -82,8 +83,12 @@ fi
 INSTR="$TMP/instructions.md"
 printf 'continue\n' > "$INSTR"
 R="$(bash "$WORKER" resume --worktree "$WT" --instructions "$INSTR")"
-echo "$R" | grep -q 'resume=<原 agent id>' && ok "resume offers in-session continuation" || no "resume instruction"
-echo "$R" | grep -q "subagent_type=pack-executor" && ok "resume offers cross-session redispatch" || no "resume redispatch"
+echo "$R" | grep -q '账本无 run id' && ok "resume without ledger run id falls back to redispatch" || no "resume fallback"
+echo "$R" | grep -q 'agent:"pack-executor"' && ok "resume redispatch names agent" || no "resume redispatch"
+bash "$WORKER" note-run-id --worktree "$WT" --id run-123 >/dev/null
+[ "$(jq -r .run_id "$META")" = run-123 ] && ok "note-run-id writes ledger" || no "note-run-id ledger"
+R2="$(bash "$WORKER" resume --worktree "$WT" --instructions "$INSTR")"
+echo "$R2" | grep -q 'action:"resume", id:"run-123"' && ok "resume offers durable continuation" || no "resume instruction"
 [ "$(jq -r .status "$META")" = dispatched ] && ok "resume resets ledger to dispatched" || no "resume ledger"
 [ -f "$WT/.pi/multi-model-workflow/worker-dispatch/resume-prompt.md" ] && ok "resume prompt package" || no "resume prompt"
 
@@ -109,7 +114,7 @@ PLAN2="$TASK_WT/docs/plans/demo/002.md"
 printf '\n## Cross-Plan Contract Anchors\n- shared contract\n' >>"$TASK_WT/docs/design/demo.md"
 OUT2="$(bash "$WORKER" plan-dispatch --plan "$PLAN2" --worktree "$TASK_WT" \
   --design "$TASK_WT/docs/design/demo.md" --issue "$TASK_WT/docs/issues/demo/001.md")"
-echo "$OUT2" | grep -q 'subagent_type=plan-writer' && ok "plan writer dispatch instruction" || no "plan dispatch"
+echo "$OUT2" | grep -q 'agent:"plan-writer"' && ok "plan writer dispatch instruction" || no "plan dispatch"
 META="$TASK_WT/.pi/multi-model-workflow/plan-workers/002/dispatch/meta.json"
 [ "$(jq -r .agent "$META")" = plan-writer ] && ok "plan writer selected" || no "plan writer"
 
@@ -162,7 +167,7 @@ PLAN_INSTR="$TMP/plan-instructions.md"
 printf 'tighten the existing plan\n' >"$PLAN_INSTR"
 PLAN_RESUME="$(bash "$WORKER" plan-resume --plan "$PLAN2" --worktree "$TASK_WT" --instructions "$PLAN_INSTR")"
 RESUME_SANDBOX="$(jq -r .worktree "$META")"
-echo "$PLAN_RESUME" | grep -q 'subagent_type=plan-writer' && [ -d "$RESUME_SANDBOX" ] \
+echo "$PLAN_RESUME" | grep -q 'agent:"plan-writer"' && [ -d "$RESUME_SANDBOX" ] \
   && ok "plan resume recreates isolated worktree" || no "plan resume isolation"
 printf '# generated\n' >"$(jq -r .plan "$META")"
 printf '# issue\n\n## Small issues\n- child issue\n' >"$(jq -r .issue "$META")"
@@ -189,7 +194,7 @@ CAPABLE_META="$CAPABLE_WT/.pi/multi-model-workflow/worker-dispatch/meta.json"
 OVERRIDE_WT="$TMP/.pi/worktrees/demo-plan-override"
 if OVERRIDE_OUT="$(bash "$WORKER" dispatch --plan "$PLAN" --worktree "$OVERRIDE_WT" \
   --design "$DESIGN" --issue "$ISSUE" --agent pack-executor-capable)"; then
-  echo "$OVERRIDE_OUT" | grep -q 'subagent_type=pack-executor-capable' \
+  echo "$OVERRIDE_OUT" | grep -q 'agent:"pack-executor-capable"' \
     && ok "explicit agent override reaches dispatch" || no "agent override"
 else
   no "agent override dispatch"
@@ -200,7 +205,7 @@ MERGE_WT="$TMP/.pi/worktrees/merge-fix"
 printf '# merge conflict mini-plan\n' >"$MERGE_PLAN"
 MERGE_OUT="$(bash "$WORKER" dispatch --mode merge --plan "$MERGE_PLAN" --worktree "$MERGE_WT")"
 MERGE_META="$MERGE_WT/.pi/multi-model-workflow/worker-dispatch/meta.json"
-echo "$MERGE_OUT" | grep -q 'subagent_type=pack-executor' \
+echo "$MERGE_OUT" | grep -q 'agent:"pack-executor"' \
   && [ "$(jq -r .mode "$MERGE_META")" = merge ] \
   && grep -q '合并冲突 mini-plan' "$MERGE_WT/.pi/multi-model-workflow/worker-dispatch/prompt.md" \
   && ok "merge mini-plan dispatch needs no design or issue" || no "merge worker mode"

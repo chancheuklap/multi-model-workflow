@@ -255,14 +255,14 @@ update_meta() {
   mmw_atomic_update "$meta" "$@"
 }
 
-# 派发指令(协调者照它在会话内派 Agent;工人回执在会话内直接回来,不落 result 文件)。
+# 派发指令(协调者照它在会话内派 subagent run;工人回执在会话内直接回来,不落 result 文件)。
 print_dispatch() {
-  local agent="$1" prompt="$2" meta="$3" verify_cmd="$4" resume_note="$5"
+  local agent="$1" prompt="$2" meta="$3" verify_cmd="$4" resume_note="$5" note_cmd="$6"
   echo "WORKER_BACKEND=$(mmw_worker_backend)"
   echo "AGENT=$agent"
   echo "PROMPT_FILE=$prompt"
   echo "META_FILE=$meta"
-  echo "DISPATCH=单条消息用 Agent 工具派发:subagent_type=$agent,run_in_background=true,prompt=PROMPT_FILE 全文原样传入;记下返回的 agent id(返修 resume 用)。$resume_note"
+  echo "DISPATCH=单条消息用 subagent 工具派发:{agent:\"$agent\", task:PROMPT_FILE 全文原样传入, async:true};拿到 run id 立刻落账:$note_cmd(返修 resume 的唯一凭据)。$resume_note"
   echo "NEXT=工人回执完成后先跑 $verify_cmd 过机器边界门,再亲验回执声明"
 }
 
@@ -408,7 +408,8 @@ cmd_dispatch() {
     '.control_worktree=$control | .native_branch=$branch | .native_root=$root | .native_repo=$repo' \
     || die "无法记录 worker worktree 元数据"
   print_dispatch "$agent" "$prompt" "$meta" "mmw worker verify --worktree \"$wt\"" \
-    "工人在独立 worktree 干活,主会话继续别的事不受影响。"
+    "工人在独立 worktree 干活,主会话继续别的事不受影响。" \
+    "mmw worker note-run-id --worktree \"$wt\" --id <run id>"
 }
 
 cmd_resume() {
@@ -429,11 +430,16 @@ cmd_resume() {
   cp "$instr" "$pkg/resume-prompt.md"
   update_meta "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '.status="dispatched" | .updated_at=$at' || die "无法重置派发状态"
+  local run_id; run_id="$(jq -r '.run_id // empty' "$meta")"
   echo "WORKER_BACKEND=$(mmw_worker_backend)"
   echo "AGENT=$agent"
   echo "PROMPT_FILE=$pkg/resume-prompt.md"
   echo "META_FILE=$meta"
-  echo "DISPATCH=原 agent 还在本会话:Agent(resume=<原 agent id>,prompt=PROMPT_FILE 全文)。跨会话(原 agent id 已失效):Agent(subagent_type=$agent,run_in_background=true,prompt=PROMPT_FILE 全文,并在开头注明「返修:worktree $run_wt 已有此前提交,先读 git log 对齐进度」)。"
+  if [ -n "$run_id" ]; then
+    echo "DISPATCH=优先续原工人:subagent({action:\"resume\", id:\"$run_id\", message:PROMPT_FILE 全文})——resume 从落盘会话文件复活原上下文,长效、无会话内外之分。仅当 resume 报会话不可用才重派:{agent:\"$agent\", task:PROMPT_FILE 全文(开头注明「返修:worktree $run_wt 已有此前提交,先读 git log 对齐进度」), async:true},新 run id 重新落账:mmw worker note-run-id --worktree \"$wt\" --id <新 run id>。"
+  else
+    echo "DISPATCH=账本无 run id(旧派发),直接重派:{agent:\"$agent\", task:PROMPT_FILE 全文(开头注明「返修:worktree $run_wt 已有此前提交,先读 git log 对齐进度」), async:true},run id 落账:mmw worker note-run-id --worktree \"$wt\" --id <run id>。"
+  fi
   echo "NEXT=工人回执完成后先跑 mmw worker verify --worktree \"$wt\""
 }
 
@@ -508,7 +514,8 @@ cmd_plan_dispatch() {
   echo "PLAN_WORKER_NS=$ns"
   print_dispatch "$PLAN_AGENT" "$prompt" "$meta" \
     "mmw worker verify --plan \"$plan\" --worktree \"$wt\"" \
-    "互不依赖的 plan 并行各派一个 Agent;verify 过门才原子发布 plan 与 issue。"
+    "互不依赖的 plan 并行各派一个 subagent run;verify 过门才原子发布 plan 与 issue。" \
+    "mmw worker note-run-id --plan \"$plan\" --worktree \"$wt\" --id <run id>"
 }
 
 cmd_plan_resume() {
@@ -564,12 +571,38 @@ cmd_plan_resume() {
       del(.published_at,.published_plan_hash,.published_issue_hash)' \
     || die "无法重置 plan writer 发布状态"
   cp "$instr" "$pkg/resume-prompt.md"
+  local run_id; run_id="$(jq -r '.run_id // empty' "$meta")"
   echo "WORKER_BACKEND=$(mmw_worker_backend)"
   echo "AGENT=$PLAN_AGENT"
   echo "PROMPT_FILE=$pkg/resume-prompt.md"
   echo "META_FILE=$meta"
-  echo "DISPATCH=原 agent 还在本会话:Agent(resume=<原 agent id>,prompt=PROMPT_FILE 全文)。跨会话(原 agent id 已失效):Agent(subagent_type=$PLAN_AGENT,run_in_background=true,prompt=PROMPT_FILE 全文,并在开头注明「返修:隔离 worktree $sandbox,plan 草稿已在盘上,先读它对齐进度」)。"
+  if [ -n "$run_id" ]; then
+    echo "DISPATCH=优先续原计划工人:subagent({action:\"resume\", id:\"$run_id\", message:PROMPT_FILE 全文})——resume 从落盘会话文件复活原上下文,长效、无会话内外之分。仅当 resume 报会话不可用才重派:{agent:\"$PLAN_AGENT\", task:PROMPT_FILE 全文(开头注明「返修:隔离 worktree $sandbox,plan 草稿已在盘上,先读它对齐进度」), async:true},新 run id 重新落账:mmw worker note-run-id --plan \"$plan\" --worktree \"$wt\" --id <新 run id>。"
+  else
+    echo "DISPATCH=账本无 run id(旧派发),直接重派:{agent:\"$PLAN_AGENT\", task:PROMPT_FILE 全文(开头注明「返修:隔离 worktree $sandbox,plan 草稿已在盘上,先读它对齐进度」), async:true},run id 落账:mmw worker note-run-id --plan \"$plan\" --worktree \"$wt\" --id <run id>。"
+  fi
   echo "NEXT=工人回执完成后先跑 mmw worker verify --plan \"$plan\" --worktree \"$wt\""
+}
+
+# 把 subagent run id 落进派发账本(resume 的唯一凭据;run id 长效、可跨会话)。
+cmd_note_run_id() {
+  local wt="" plan="" id=""
+  while [ $# -gt 0 ]; do case "$1" in
+    --worktree) wt="$2"; shift 2 ;; --plan) plan="$2"; shift 2 ;;
+    --id) id="$2"; shift 2 ;; *) die "未知参数:$1" ;;
+  esac; done
+  [ -d "$wt" ] || die "任务 worktree 不存在:$wt"
+  [ -n "$id" ] || die "--id 必填"
+  local st meta; st="$(state_for "$wt")"
+  if [ -n "$plan" ]; then
+    meta="$wt/$st/plan-workers/$(plan_ns "$plan")/dispatch/meta.json"
+  else
+    meta="$wt/$st/worker-dispatch/meta.json"
+  fi
+  [ -f "$meta" ] || die "派发账本不存在:$meta"
+  update_meta "$meta" --arg id "$id" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '.run_id=$id | .updated_at=$at' || die "run id 落账失败"
+  echo "OK run id 已落账:$meta"
 }
 
 # 机器边界门(工人回执已在会话内;这里只核机器可验事实,plan 工人过门才发布)。
@@ -680,10 +713,11 @@ cmd_plan_check() {
 case "${1:-}" in
   dispatch) shift; cmd_dispatch "$@" ;;
   resume) shift; cmd_resume "$@" ;;
+  note-run-id) shift; cmd_note_run_id "$@" ;;
   check-docs) shift; cmd_check_docs "$@" ;;
   plan-dispatch) shift; cmd_plan_dispatch "$@" ;;
   plan-resume) shift; cmd_plan_resume "$@" ;;
   plan-check) shift; cmd_plan_check "$@" ;;
   verify) shift; cmd_verify "$@" ;;
-  *) die "用法:worker.sh dispatch|resume|check-docs|plan-dispatch|plan-resume|plan-check|verify ..." ;;
+  *) die "用法:worker.sh dispatch|resume|note-run-id|check-docs|plan-dispatch|plan-resume|plan-check|verify ..." ;;
 esac
