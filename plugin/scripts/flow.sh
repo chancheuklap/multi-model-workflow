@@ -290,6 +290,16 @@ cmd_pin() {
     die "路径不存在,拒绝钉幽灵产出: $pp"
   done
   local produced_json; produced_json="$(printf '%s\n' "${ok[@]}" | jq -R . | jq -s .)"
+  # 设计阶段布局门(固定归脚本):design 产出必须全部在 docs/design/<slug>/ 内且含与文件夹同名的主文档
+  if [ "$phase" = "design" ]; then
+    local slug main found_main=0
+    slug="$(jq -r .slug "$m")"; main="docs/design/$slug/$slug.md"
+    for pp in "${ok[@]}"; do
+      case "$pp" in "docs/design/$slug/"*) ;; *) die "design 产出必须在 docs/design/$slug/ 单文件夹内:$pp" ;; esac
+      [ "$pp" = "$main" ] && found_main=1
+    done
+    [ "$found_main" = 1 ] || die "design 钉产出必须含主文档 $main(主文档与文件夹同名)"
+  fi
   jq --arg p "$phase" --argjson produced "$produced_json" \
     '.artifacts += $produced
      | .phase_outputs[$p] = (((.phase_outputs[$p] // []) + $produced) | unique)' \

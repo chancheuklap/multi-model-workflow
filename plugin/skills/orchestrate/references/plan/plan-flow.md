@@ -59,9 +59,10 @@ mmw worker plan-dispatch \
   --plan <落点 docs/plans/<slug>/00N-<issue-slug>.md 绝对路径> \
   --worktree <任务 worktree 绝对路径> \
   --design <设计文档绝对路径> \
-  --issue <该 writer 负责的 issue 绝对路径> \
-  [--mockup <docs/design/<slug>/mockup/ 若存在>]
+  --issue <该 writer 负责的 issue 绝对路径>
 ```
+
+讨论态材料(mockup / prototype / evidence / direction / investigating)**脚本从设计文档路径自动推导并随派发进入 writer 上下文**,不用传任何旗标——设计文件夹单形态后这是纯机械活,归脚本不归你记。
 
 - **一律用 Bash `run_in_background` 后台跑**,完成后读回执 `plan-workers/<ns>/last.md`。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。** 单 issue → 单 plan:派一个就行,不强行并行。
 - **不开子 worktree、不 commit**:各 plan 写不同文件(`docs/plans/<slug>/00N.md`)、在任务 worktree 内并行安全;主线程统一提交(脚本已管命名空间隔离 session / 边界门)。

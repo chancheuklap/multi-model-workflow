@@ -55,16 +55,15 @@ cmd_new() {
   # 从本地最新 HEAD 分叉
   git -C "$top" worktree add -b "$slug" "$wt" HEAD >&2
 
-  # 文档落点:investigating / design / issues / plans 按 slug,context 项目级共享(domain-modeling 维护)
-  mkdir -p "$wt/docs/investigating" "$wt/docs/design" "$wt/docs/issues" "$wt/docs/plans" "$wt/docs/context" "$wt/docs/reviews" "$wt/$STATE_SUBDIR"
+  # 文档落点:design(单文件夹形态,含 direction/investigating/prototype/mockup/evidence)/ issues / plans 按 slug,context 项目级共享(domain-modeling 维护)
+  mkdir -p "$wt/docs/design" "$wt/docs/issues" "$wt/docs/plans" "$wt/docs/context" "$wt/docs/reviews" "$wt/$STATE_SUBDIR"
   # 状态平面对 git 不可见(宿主 parent 下 multi-model-workflow 等)
   mmw_ensure_worktree_state_ignore "$wt"
-  # 过程产物不永久存档(随 worktree 删):现状报告 / 审查留痕 / 终审报告。
-  # 提交进分支的只有:设计(含 mockup/prototype)/ issue / 计划 / 领域文档(docs/context 项目级资产)。
+  # 过程产物不永久存档(随 worktree 删):审查留痕 / 终审报告。
+  # 提交进分支的只有:设计文件夹全部成员(主文档 <slug>.md + direction/investigating/prototype/mockup/evidence)/ issue / 计划 / 领域文档(docs/context 项目级资产)。
   # (merge-brief 不在这:merge 场景在主仓库,产物落状态平面(host 路径),不进 docs/)
   # 本 .gitignore 自忽略:plugin 脚手架不进 git,随 worktree 死,下个任务 new 时重建。
   cat > "$wt/docs/.gitignore" <<'IGN'
-investigating/
 reviews/
 *-final-review.md
 .gitignore
@@ -90,7 +89,7 @@ IGN
     --arg base "$base" --arg branch "$slug" --arg wt "$wt" \
     --argjson dg "$direction_given" \
     --arg attendance "$attendance" --arg pv "$plugin_version" \
-    --arg inv "docs/investigating/$slug" --arg ddoc "docs/design/$slug" --arg idir "docs/issues/$slug" --arg pdir "docs/plans/$slug" --arg ctx "docs/context" \
+    --arg inv "docs/design/$slug/investigating.md" --arg ddoc "docs/design/$slug" --arg idir "docs/issues/$slug" --arg pdir "docs/plans/$slug" --arg ctx "docs/context" \
     '{schema_version:$sv, slug:$slug, title:$title, request:$request, scenario:$scenario, phases:$phases, direction_given:$dg,
       status:$status, waiting_for:null, phase:$phase, phase_index:0, step_index:0, gate:null,
       created_at:$created, updated_at:$created, plugin_version:$pv, base_commit:$base,
@@ -107,7 +106,7 @@ worktree_path=$wt
 branch=$slug
 scenario=$scenario
 phase=$phase
-design_doc=docs/design/$slug
+design_doc=docs/design/$slug/$slug.md(主文档与文件夹同名)
 NEXT=EnterWorktree({ path: "$wt" }) 然后进入 $scenario 的 $phase 阶段
 EOF
 }

@@ -7,7 +7,7 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
 
 你是计划撰写者,被主线程派进**任务 worktree** 把**一个大 issue** 写成一份执行者零上下文也能照做的实施计划(Plan Header + Task Pack + TDD 步骤 + 验收命令)。**写完就交,不要一次性输出整份文档,会遭遇 API 错误。** 不扩大范围、不碰别的 plan、不改设计文档、不 commit。**坏的产出比没有产出更糟**——拿不准就停下返回 `needs-context`,别靠猜往前冲。
 
-## 0. 开工前先读(设计 / issue / mockup 的路径在派发消息里)
+## 0. 开工前先读(设计 / issue / 讨论态材料的路径在派发消息里)
 
 缺一不可,理解后再动手:
 
@@ -16,7 +16,7 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
 - **两份写作方法论(本 skill `references/` 下,按需到那步现读)**:
   - `references/task-pack.md`(写每个 pack 时读):Task Pack 模板 + TDD 步骤 + 无 Placeholder + 不合格信号 + 测试规划严谨度 / 覆盖追踪 / 回归铁律 / 反模式,一份读完。
   - `references/plan-self-check.md`(返回前读):交付前自检 + Pack 就绪门。
-- **mockup 目录**(派发消息给了才有):每页视觉规格 / 交互 / 状态变体拆进对应 pack 的 acceptance criteria——作为具体可验证目标,不是"去看 mockup 目录"的指针。
+- **mockup / prototype / 其他讨论态材料**(派发消息给了才有):mockup 每页视觉规格 / 交互 / 状态变体拆进对应 pack 的 acceptance criteria——作为具体可验证目标,不是"去看 mockup 目录"的指针;prototype 里的状态机 / reducer / schema shape 是实现种子,pack 的 `Schema / API shapes` 照它内联精确形状,落地者照它改造。
 
 缺关键上下文(设计文档 / issue / 落点任一缺失,或术语 / 验收不清)→ 返回 `needs-context`,**不自创** plan 结构 / schema shape / UI 方向。
 
@@ -40,7 +40,7 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
    # <Issue Title> Implementation Plan
 
    **Goal:** <一句话目标>
-   **Source design:** docs/design/<slug>.md
+   **Source design:** docs/design/<slug>/<slug>.md
    **Source issue:** docs/issues/<slug>/00N-<issue-slug>.md
    **Blocked by:** <其他 plan 编号或 "None">
    **Architecture:** <与本 issue 相关的实现方向>

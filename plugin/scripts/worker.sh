@@ -59,7 +59,33 @@ test_sheet_lines() {  # $1=薄层相对路径(可空)
   fi
 }
 
+# 讨论态材料推导(固定归脚本):从设计文档路径机械推导设计文件夹与伴随材料,LLM 不传路径。
+# 布局:docs/design/<slug>/<slug>.md 单文件夹形态;兼容在飞旧任务 docs/design/<slug>.md 根文件形态。
+design_dir_of() {  # $1=设计文档路径 → 设计文件夹
+  local parent base
+  parent="$(dirname "$1")"; base="$(basename "$1" .md)"
+  if [ "$(basename "$parent")" = "$base" ]; then printf '%s' "$parent";
+  elif [ -d "$parent/$base" ]; then printf '%s' "$parent/$base";
+  else printf '%s' "$parent"; fi
+}
+design_companions() {  # $1=设计文件夹 → 存在的讨论态成员,每行一个
+  local m
+  for m in mockup prototype evidence direction.md investigating.md; do
+    [ -e "$1/$m" ] && printf '%s\n' "$1/$m"
+  done
+}
+companion_prompt_lines() {  # $1=设计文件夹(可空) → prompt 材料清单行
+  [ -n "$1" ] || return 0
+  local c
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    echo "  - $c"
+  done < <(design_companions "$1")
+}
+
 build_prompt() {  # $1=plan $2=worktree $3=design $4=issue $5=测试薄层相对路径(可空)
+  local companions=""
+  [ -n "$3" ] && companions="$(companion_prompt_lines "$(design_dir_of "$3")")"
   cat <<PROMPT
 你是落地执行者,被主线程派进一个 worktree 落地一份计划。
 **读你已装的 \`worktree-build\` skill,照它走整个落地流程**(它是总纲,细纪律在它的 references,到那步再读)。
@@ -69,7 +95,9 @@ build_prompt() {  # $1=plan $2=worktree $3=design $4=issue $5=测试薄层相对
 ${3:+- 设计文档(意图/合同边界/发布风险): $3
 }${4:+- 你的 issue(What to build / Acceptance / Blocked by): $4
 }- 你的计划(实施唯一权威): $1
-$(test_sheet_lines "$5")
+${companions:+- 讨论态材料(与设计文档同源;mockup=视觉权威——UI 照它改造不重写,prototype=实现种子——状态机/逻辑以它为起点):
+$companions
+}$(test_sheet_lines "$5")
 
 落地铁律、逐 Pack TDD、每 Pack 提交格式、禁改 docs/、卡住协议、收工回执格式 —— **全在 worktree-build skill,照它做,本消息不重复**。
 PROMPT
@@ -77,7 +105,7 @@ PROMPT
 
 plan_ns() { basename "$1" .md; }  # 落点路径 → 派发命名空间(并行写计划在同一 worktree,靠它隔离 session/log)
 
-build_plan_prompt() {  # $1=落点 $2=worktree $3=design $4=issue $5=mockup 目录(可空) $6=测试薄层相对路径(可空)
+build_plan_prompt() {  # $1=落点 $2=worktree $3=design $4=issue $5=讨论态材料清单(可空) $6=测试薄层相对路径(可空)
   cat <<PROMPT
 你是计划撰写者,被主线程派进任务 worktree 把一个大 issue 写成一份实施计划。
 **读你已装的 \`worktree-plan\` skill,照它走整个写计划流程**(总纲,细纪律在它的 references,到那步再读)。
@@ -87,7 +115,8 @@ build_plan_prompt() {  # $1=落点 $2=worktree $3=design $4=issue $5=mockup 目�
 开工前读这几份(绝对路径,顺序读):
 ${3:+- 源设计文档(architecture / 合同边界 / Cross-Plan Contract Anchors): $3
 }${4:+- 你负责的大 issue(What to build;## Small issues 若为 PENDING 你来拆): $4
-}${5:+- mockup 目录(每页视觉规格 / 交互 / 状态变体拆进对应 pack 的 acceptance): $5
+}${5:+- 讨论态材料(与设计文档同源;mockup=视觉权威,prototype=实现种子):
+$5
 }$(test_sheet_lines "$6")
 
 拆小 issue、逐 Task Pack、无 Placeholder、测试规划严谨度、Return Contract —— **全在 worktree-plan skill,照它做,本消息不重复**。
@@ -277,13 +306,12 @@ cmd_resume() {
 
 # ---------- 写计划派发(在任务 worktree 内,不开子 worktree、不 commit)----------
 cmd_plan_dispatch() {
-  local plan="" wt="" design="" issue="" mockup="" model="" effort=""
+  local plan="" wt="" design="" issue="" model="" effort=""
   while [ $# -gt 0 ]; do case "$1" in
     --plan) plan="$2"; shift 2 ;;
     --worktree) wt="$2"; shift 2 ;;
     --design) design="$2"; shift 2 ;;
     --issue) issue="$2"; shift 2 ;;
-    --mockup) mockup="$2"; shift 2 ;;
     --model) model="$2"; shift 2 ;;
     --effort) effort="$2"; shift 2 ;;
     *) die "未知参数: $1" ;;
@@ -295,7 +323,8 @@ cmd_plan_dispatch() {
   preflight_skill worktree-plan
   preflight_doc "设计文档(--design)" "$design"
   preflight_doc "issue(--issue)" "$issue"
-  preflight_doc "mockup(--mockup)" "$mockup"
+  # 讨论态材料(mockup/prototype/evidence/direction/investigating)由脚本从设计文档路径机械推导,不传旗标
+  local companions; companions="$(companion_prompt_lines "$(design_dir_of "$design")")"
   # 写计划方法论(task-pack / 自检)在 worktree-plan skill 自己的 references/,工人读 skill 自取,dispatch 不再传路径。
   local st; st="$(state_for "$wt")"; mkdir -p "$wt/$st"
   mmw_ensure_worktree_state_ignore "$wt"
@@ -309,7 +338,7 @@ cmd_plan_dispatch() {
   mkdir -p "$wt/$st/plan-workers/$ns"
   printf '%s %s\n' "$model" "$effort" > "$wt/$st/plan-workers/$ns/codex-model"
   printf '%s\n' "$start_sha" > "$wt/$st/plan-workers/$ns/start_sha"
-  local pf; pf="$(mktemp)"; build_plan_prompt "$plan" "$wt" "$design" "$issue" "$mockup" "$test_sheet" > "$pf"
+  local pf; pf="$(mktemp)"; build_plan_prompt "$plan" "$wt" "$design" "$issue" "$companions" "$test_sheet" > "$pf"
   local rc=0
   run_codex_plan "$wt" "$ns" "$pf" \
     exec -C "$wt" --sandbox workspace-write \
