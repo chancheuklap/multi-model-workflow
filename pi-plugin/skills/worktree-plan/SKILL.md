@@ -40,7 +40,7 @@ description: 你(计划撰写者)被主线程派进临时隔离 worktree 把一�
    # <Issue Title> Implementation Plan
 
    **Goal:** <一句话目标>
-   **Source design:** docs/design/<slug>.md
+   **Source design:** docs/design/<slug>/<slug>.md
    **Source issue:** docs/issues/<slug>/00N-<issue-slug>.md
    **Blocked by:** <其他 plan 编号或 "None">
    **Architecture:** <与本 issue 相关的实现方向>
