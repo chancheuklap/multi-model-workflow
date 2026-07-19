@@ -37,6 +37,7 @@
   - 缺陷在**当前被审阶段**(②审=plan、④final=build)→ `needs-repair`,改完 handoff 重审。**④final 的代码缺陷**:`mmw where` 指回 build(build-b 有返修入口),照 accepted findings 的 `file:line`+remediation 派全新 pack-executor 定点修,修完 handoff pass 重进 ④全新审者重审。
   - 根因在**更上游**(②审发现 design 问题、④final 撞破 plan/design)→ `needs-redirection --to-phase <design|plan|build>`(涉已确认设计的改动,改完请用户 `/approve-design` 重新确认)。
   - Direction(解错问题)→ `needs-redirection`;Context(缺输入)→ `needs-context`。
+- **打转守卫**:`needs-repair` 时引擎比对本轮与上一轮留痕的 accepted findings 指纹(文件+归一化缺陷签名,行号不计);连续两轮实质重合 → 回执带 `GUARD=repair-fingerprint-repeat`:afk/attended 置 waiting-user 交人定夺,unattended 硬停写板。被指打转先想「是修错地方还是缺陷本身判错了」,别原样再修一遍。
 - 收敛判据:全部审者跑完追一轮无新高置信 finding = 收敛;反复打转不收敛 → 向用户汇报卡点,别硬磨。
 - ④final pass 前**先写终审报告**到 `docs/<slug>-final-review.md`(照 `mmw where` 的 `then` 钉 `--produced`),三段:终审结论(verdict + 两基线结果 + waived 项带 owner)· 意图清单逐条(达成/未达成 + 证据)· **业务语言交付摘要**(新增能力/验证证据/残余风险,不用技术术语)。
 
