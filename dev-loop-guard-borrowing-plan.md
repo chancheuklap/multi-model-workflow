@@ -1,6 +1,6 @@
 # 开发主循环守卫补强方案（graph/loop 借鉴收敛稿）
 
-> 状态：动作三已定案（用户 2026-07-20 拍板**删字段**，pi 版已删并落打转守卫三字段）；动作一 / 二 pi 版已落地（worktree-dev-loop-guards-pi），plugin 版待 Claude Code 落地，droid 版后定。
+> 状态：动作三已定案（用户 2026-07-20 拍板**删字段**，pi / plugin 均已删）；动作一 / 二 pi 版（9.4.0）、plugin 版（8.1.0，含判据 A 指纹化与判据 B 源头口径对齐）均已落地并合回 main；droid 版后定。
 > 范围：三镜像（`plugin/` `droid-plugin/` `pi-plugin/`）同步。
 > 来源：2026-07-20 双模型独立分析 + 三轮交叉审查收敛。
 > 性质：本文件是双模型讨论工作稿，非长期设计文档。终稿定案后，长期约束折进 `AGENTS.md` / `references`、实现走 worktree 分支，随后删除本根目录文件（项目规则：不维护独立设计文档、修在 worktree）。
