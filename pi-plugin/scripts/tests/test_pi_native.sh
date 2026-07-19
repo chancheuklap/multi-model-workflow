@@ -8,7 +8,7 @@ ok(){ echo "  PASS: $1"; pass=$((pass+1)); }
 no(){ echo "  FAIL: $1"; fail=$((fail+1)); }
 
 echo '=== test_pi_native.sh ==='
-jq -e '.version=="9.1.0" and (.keywords|index("pi-package")) and .pi.extensions==["./extensions"] and .pi.skills==["./skills"] and .pi.prompts==["./prompts"]' "$PLUGIN/package.json" >/dev/null \
+jq -e '.version=="9.3.0" and (.keywords|index("pi-package")) and .pi.extensions==["./extensions"] and .pi.skills==["./skills"] and .pi.prompts==["./prompts"]' "$PLUGIN/package.json" >/dev/null \
   && ok 'package.json pi manifest/version' || no 'pi manifest'
 [ -f "$PLUGIN/extensions/mmw-hooks.ts" ] && ok 'mmw extension exists' || no 'extension missing'
 [ ! -f "$PLUGIN/scripts/lib/pi-exec.sh" ] && [ ! -f "$PLUGIN/scripts/lib/droid-exec.sh" ] \
@@ -27,6 +27,17 @@ for role in $roles; do
 done
 [ ! -f "$PLUGIN/agents-roster/decision-advisor.md" ] \
   && ok 'decision-advisor 已裁(咨询走 advisor 工具)' || no 'decision-advisor 残留'
+
+# supervisor 举手通道:仅三个重角色有 contact_supervisor 工具 + 协议片段;reviewer/只读角色不絡
+for role in plan-writer pack-executor pack-executor-capable; do
+  file="$PLUGIN/agents-roster/$role.md"
+  grep -q 'contact_supervisor' "$file" && grep -q '向上举手' "$file" \
+    && ok "supervisor 通道:$role" || no "supervisor 通道缺失:$role"
+done
+for role in reviewer-design-a reviewer-plan-a reviewer-final-a code-explorer; do
+  file="$PLUGIN/agents-roster/$role.md"
+  grep -q 'contact_supervisor' "$file" && no "supervisor 越界:$role" || ok "无 supervisor(只读):$role"
+done
 for role in $roles; do
   reg="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/agents/$role.md"
   [ -e "$reg" ] || { no "role 未注册为 pi agent:$role"; continue; }

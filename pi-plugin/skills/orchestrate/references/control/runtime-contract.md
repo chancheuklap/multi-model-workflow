@@ -55,6 +55,15 @@ final review 固定并行四个 Agent：A、B 两种模型分别各审基线1和
 
 修复使用 `worker resume` 或 `plan-resume`：脚本准备 resume prompt 并读账本 run id；协调者派 `subagent({action:"resume", id:<run id>, message:…})`——从落盘会话文件复活原工人上下文，长效、无会话内外之分；仅会话文件不可用时才重派同角色新 run，靠 worktree 已有提交对齐进度。通过后主线程再亲验 diff、提交和测试。
 
+## 子代理举手答复(supervisor 通道)
+
+重角色(pack-executor / pack-executor-capable / plan-writer)可用 `contact_supervisor` 举手，请求以 `subagent_supervisor_request` 消息自动注入本会话(免轮询)；用 `subagent_supervisor({action:"reply", replyTo, message})` 答复。答复纪律：
+
+- **need_decision**：设计 / issue / plan 是权威——覆盖得到的照权威直接答；属用户可见决策(用户可见能力、收费、数据归属、上下架、架构方向)先 `ask_user_question` 问用户再答；权威覆盖不到又不便问用户(unattended 档) → 回「停在该处按 blocked 收工带回」,不让子代理猜。
+- **interview_request**：给得出就给，给不出同样让它 blocked 带回。
+- **progress_update**：不答复；含 spinoff 信号的登记 `mmw spinoff`。
+- 答复三要素：结论一句 + 依据一句(哪份权威哪条) + 下一步动作一句。答完继续手头流程，不守着等子代理。
+
 ## 审闸
 
 主线程运行 `mmw review start`，读取生成的 `review-brief.md` 并直接派 reviewer Agent。findings 原样落盘 `docs/reviews/<slug>-<stage>.md` 并逐条亲验、文末写总 verdict；审闸 `handoff pass` 时引擎核该文件存在且含 verdict，没有留痕不放行。

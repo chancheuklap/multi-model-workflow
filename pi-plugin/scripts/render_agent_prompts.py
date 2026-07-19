@@ -36,11 +36,12 @@ CODE_DOCTRINE = [
     ("codex56-worktree-safety.zh.md", ""),
 ]
 THOROUGHNESS = [("cursor-context-thoroughness.zh.md", "## 上下文收集")]
+SUPERVISOR = [("mmw-supervisor-channel.zh.md", None)]
 
 ROLES = {
-    "pack-executor.md": BRIDGE_RW + AUTONOMY + ACT_REPORT + CODE_DOCTRINE,
-    "pack-executor-capable.md": BRIDGE_RW + AUTONOMY + ACT_REPORT + CODE_DOCTRINE,
-    "plan-writer.md": BRIDGE_RW + AUTONOMY + ACT_REPORT + THOROUGHNESS,
+    "pack-executor.md": BRIDGE_RW + AUTONOMY + SUPERVISOR + ACT_REPORT + CODE_DOCTRINE,
+    "pack-executor-capable.md": BRIDGE_RW + AUTONOMY + SUPERVISOR + ACT_REPORT + CODE_DOCTRINE,
+    "plan-writer.md": BRIDGE_RW + AUTONOMY + SUPERVISOR + ACT_REPORT + THOROUGHNESS,
     "code-explorer.md": BRIDGE_RO + AUTONOMY + ACT_REPORT,
     "investigate-topic.md": BRIDGE_RO + AUTONOMY + ACT_REPORT,
     "reviewer-design-a.md": BRIDGE_RO + AUTONOMY + ACT_REPORT,

@@ -14,6 +14,9 @@
 - `cc-comment-why-only.md` sha256:9133a02500248ae6 — Piebald claude-code-system-prompts v2.1.212 comment-why-only-guidance
 - `cc-comment-no-what-no-task-context.md` sha256:206fc3c559016b5e — 同仓库 comment-what-and-task-context-avoidance
 
+## MMW 自维护片段(非厂商抽取,逐字手写;改动同步更新本清单)
+- `mmw-supervisor-channel.zh.md` — 重角色向上举手协议(contact_supervisor 三用法 + 不举手边界),2026-07-19 随 nicobailon 运行时落地
+
 ## 中文译文(2026-07-17 用户拍板:角色提示词全中文,精确翻译+适当润色;英文原文保留作对照源)
 - `codex56-autonomy-persistence.zh.md` sha256:5432aa861db13998 — 译自 `codex56-autonomy-persistence.md`
 - `codex56-worktree-safety.zh.md` sha256:07aa2692615f6082 — 译自 `codex56-worktree-safety.md`
