@@ -116,10 +116,20 @@
       "additionalProperties": { "type": "array", "items": { "type": "string" } },
       "description": "接力单:每阶段产出钉成 phase→[路径]。handoff --produced 钉进对应阶段名,下阶段照单读上阶段产出(不靠'自己找')。investigate→现状报告;design→设计文档;plan→plan 目录;build→改动/提交标识 +(④终审闸)终审报告"
     },
-    "gate_fingerprints": {
+    "repair_findings_sig": {
       "type": "object",
-      "additionalProperties": { "type": "string" },
-      "description": "source-stability:gated 阶段过闸(审 verdict pass)时记下被审产物的内容指纹(phase→hash)。mmw where 再算一次比对,不同=过闸后被改→提示回该阶段重审。可选,首次过闸时由 flow.sh 写入"
+      "additionalProperties": { "type": "array", "items": { "type": "string" } },
+      "description": "打转守卫判据A:审闸(stage→)上一轮 accepted findings 的缺陷签名集(sev|文件基名|归一化关键词;行号只作弱信号不入签名)。needs-repair 时由 flow.sh 写入;连续 rounds 轮实质重合=打转,触发即清零"
+    },
+    "repair_fp_repeat": {
+      "type": "object",
+      "additionalProperties": { "type": "number" },
+      "description": "打转守卫判据A:各 stage 连续指纹重合轮数,触发即清零"
+    },
+    "turnaround_ledger": {
+      "type": "object",
+      "additionalProperties": { "type": "number" },
+      "description": "打转守卫判据B:流水线态掉头按 to-phase 记账(讨论态 investigate/propose/design 自由往返不进账);同一 to-phase 达阈值=方向横跳打转,触发即清零"
     },
     "open_items": {
       "type": "array",

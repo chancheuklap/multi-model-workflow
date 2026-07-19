@@ -12,6 +12,7 @@
       "description": "只剩执行账本;审核/合同门不再记 loop 账(审闸收口硬核=留痕文件含 verdict,由 flow.sh 核)"
     },
     "attendance": { "enum": ["attended", "afk", "unattended"], "description": "本 loop 的值守档,init 时从外层 task.json 的 attendance 读入(task.json 为运行级权威,跨阶段留存;loop-state 只是当前 loop 的派生缓存供软停判断)。attended=软停问人;afk=软停自决、缺输入/方向疑仍停;unattended=软停自决且禁向用户提问(权威仍是 task.json,见 attendance reference)" },
+    "started_at": { "type": "string", "description": "账本创建时间(UTC ISO)。unattended 墙钟软预算的起点;loop status 超预算亮 BUDGET-EXCEEDED(只报不硬杀)" },
     "steps": {
       "type": "array",
       "items": {

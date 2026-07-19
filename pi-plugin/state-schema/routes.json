@@ -11,6 +11,12 @@
     "build":  { "stage": "final", "produced": "docs/<slug>-final-review.md" }
   },
 
+  "loop_guards": {
+    "repair_fingerprint": { "overlap": 0.6, "rounds": 2 },
+    "turnaround_same_phase": 2,
+    "unattended_wall_clock_seconds": 10800
+  },
+
   "start_options": [
     { "scenario": "small-change", "when": "范围明确但仍需独立任务边界与验收的代码改动", "phases_note": "落地→验收→收尾" },
     { "scenario": "develop",      "when": "新想法/功能 或 旧系统优化改造(要设计)", "phases_note": "查清→给方案→想方案→拆计划→落地→验收→收尾" },
