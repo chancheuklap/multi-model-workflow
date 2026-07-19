@@ -423,6 +423,59 @@ echo "$WNFO" | grep -q "亮 2-3 方案" && ok "无 flag propose 走全量方案"
 ( cd "$WNF" && bash "$NOTE" note show ) | grep -q "下一步先对齐計費口徑" && ok "note set/show 书签留读" || no "note 书签"
 if ( cd "$WNF" && bash "$NOTE" note set >/dev/null 2>&1 ); then no "note set 缺 text 该被拒"; else ok "note set 缺 text 被拒"; fi
 
+# ===== L: 打转守卫——流水线态达上限强制上报,讨论态豁免(动作一) =====
+setman() { jq "$2" "$1/${STATE_SUBDIR}/task.json" > "$1/t.json" && mv "$1/t.json" "$1/${STATE_SUBDIR}/task.json"; }
+# L1: small-change build(流水线态,afk)返工达 repair_cap=3 → 强制上报 waiting-user(不锁死)
+WL1="$(newtask small-change 2026-07-20-repair-cap)"
+[ "$(mfield "$WL1" attendance)" = "afk" ] && ok "L1 small-change 建档 afk(打转上报走 waiting-user 支)" || no "L1 afk 前提 ($(mfield "$WL1" attendance))"
+( cd "$WL1" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )   # 1
+( cd "$WL1" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )   # 2
+OL1="$(cd "$WL1" && bash "$FLOW" handoff --conclusion needs-repair)"         # 3 达 cap
+echo "$OL1" | grep -q "STATUS=waiting-user" && ok "流水线态返工达 cap(afk)→ 强制上报 waiting-user" || no "L1 未上报 ($OL1)"
+echo "$OL1" | grep -q "NEXT_ACTION=ask-user" && ok "L1 next_action=ask-user" || no "L1 action ($OL1)"
+[ "$(mfield "$WL1" status)" = "waiting-user" ] && ok "L1 status 落盘 waiting-user" || no "L1 status 落盘"
+mfield "$WL1" waiting_for | grep -q "打转" && ok "L1 waiting_for 落盘打转原因(冷启动可见)" || no "L1 waiting_for ($(mfield "$WL1" waiting_for))"
+( cd "$WL1" && bash "$FLOW" where ) | grep -q "waiting_for=.*打转" && ok "L1 where 置顶打转 waiting_for" || no "L1 where 未置顶"
+( cd "$WL1" && bash "$PREPARE" resume >/dev/null )
+[ "$(mfield "$WL1" status)" = "active" ] && ok "L1 上报不锁死:resume 翻回 active 续跑" || no "L1 锁死了(resume 未翻 active)"
+
+# L2: 同场景 unattended → 硬停 blocked(不问人)
+WL2="$(newtask small-change 2026-07-20-repair-cap-un)"
+setman "$WL2" '.attendance="unattended"'
+( cd "$WL2" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
+( cd "$WL2" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
+OL2="$(cd "$WL2" && bash "$FLOW" handoff --conclusion needs-repair)"
+echo "$OL2" | grep -q "STATUS=blocked" && ok "流水线态返工达 cap(unattended)→ 硬停 blocked(不问人)" || no "L2 未硬停 ($OL2)"
+echo "$OL2" | grep -q "NEXT_ACTION=report-user" && ok "L2 next_action=report-user" || no "L2 action ($OL2)"
+
+# L3: 讨论态(investigate)返工达 3 → 豁免,不上报(仍 active + WARN)
+WL3="$(newtask develop 2026-07-20-disc-exempt)"
+( cd "$WL3" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
+( cd "$WL3" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
+OL3="$(cd "$WL3" && bash "$FLOW" handoff --conclusion needs-repair)"
+echo "$OL3" | grep -q "STATUS=active" && ok "讨论态返工达 3 → 豁免(仍 active,自由返工)" || no "L3 讨论态被误上报 ($OL3)"
+echo "$OL3" | grep -q "WARN=.*返工 3 轮" && ok "L3 讨论态达 3 仍只 WARN(不强制上报)" || no "L3 WARN 缺失 ($OL3)"
+
+# L4: 流水线态同一 to-phase 掉头达 turnaround_per_phase_cap=2 → 上报
+WL4="$(newtask develop 2026-07-20-turn-cap)"
+setman "$WL4" '.phase="build" | .phase_index=5 | .attendance="afk"'
+OL4a="$(cd "$WL4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase plan)"   # plan +1
+echo "$OL4a" | grep -q "STATUS=waiting-user" && no "L4 第1次回 plan 不该上报(<cap)" || ok "L4 第1次回 plan 不上报(未达 cap)"
+[ "$(mfield "$WL4" 'turnaround_by_phase.plan')" = "1" ] && ok "L4 掉头按 to-phase 分桶计数 plan=1" || no "L4 分桶计数 ($(mfield "$WL4" 'turnaround_by_phase.plan'))"
+setman "$WL4" '.phase="build" | .phase_index=5'   # 模拟 plan 改完回到 build
+OL4b="$(cd "$WL4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase plan)"   # plan +1 = 2 达 cap
+echo "$OL4b" | grep -q "STATUS=waiting-user" && ok "流水线态同一阶段(plan)反复回退达 cap → 强制上报" || no "L4 达 cap 未上报 ($OL4b)"
+[ "$(mfield "$WL4" 'turnaround_by_phase.plan')" = "2" ] && ok "L4 分桶累到 2" || no "L4 分桶累计 ($(mfield "$WL4" 'turnaround_by_phase.plan'))"
+mfield "$WL4" waiting_for | grep -q "打转" && ok "L4 waiting_for 记方向横跳打转" || no "L4 waiting_for ($(mfield "$WL4" waiting_for))"
+
+# L5: 讨论态目标掉头豁免(反复回 design 不上报)
+WL5="$(newtask develop 2026-07-20-turn-disc)"
+setman "$WL5" '.phase="plan" | .phase_index=4 | .attendance="afk"'
+( cd "$WL5" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design >/dev/null )  # design(讨论态)+1
+setman "$WL5" '.phase="plan" | .phase_index=4'
+OL5="$(cd "$WL5" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design)"        # design +1 = 2
+echo "$OL5" | grep -q "STATUS=waiting-user" && no "L5 讨论态目标(design)反复掉头不该上报" || ok "回讨论态阶段(design)反复掉头豁免,不上报"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

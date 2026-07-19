@@ -87,8 +87,13 @@
       "description": "文档落点:investigating/design/issues/plans 按 slug,context 项目级共享(domain-modeling 维护)"
     },
 
-    "repair_count": { "type": "integer", "minimum": 0, "description": "当前阶段已返工次数,进下一阶段清零。无上限:≥3 轮起 where/handoff 提醒向用户汇报卡点,不锁死" },
-    "turnaround_count": { "type": "integer", "minimum": 0, "description": "全程掉头次数(只记录;流水线态掉头要向用户汇报,不锁死)" },
+    "repair_count": { "type": "integer", "minimum": 0, "description": "当前阶段已返工次数,进下一阶段清零。讨论态阶段自由返工不设上限(仅 WARN);流水线态返工达 routes.loop_guards.repair_cap 由引擎强制上报(attended/afk→waiting-user 不锁死,unattended→blocked 硬停),不靠模型自觉" },
+    "turnaround_count": { "type": "integer", "minimum": 0, "description": "全程掉头总次数(只记录)。掉头是否强制上报按 turnaround_by_phase 分阶段判,不看这个总数" },
+    "turnaround_by_phase": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 },
+      "description": "按目标阶段分桶的掉头次数:needs-redirection 回到某上游阶段就对该阶段 +1。流水线态某阶段被反复回退达 routes.loop_guards.turnaround_per_phase_cap → 引擎强制上报(动作同 repair_cap);讨论态阶段(investigate/propose/design)豁免、自由往返。可选,缺省视为空(兼容旧 manifest)"
+    },
 
     "attendance": {
       "enum": ["attended", "afk", "unattended"],
@@ -116,11 +121,6 @@
       "type": "object",
       "additionalProperties": { "type": "array", "items": { "type": "string" } },
       "description": "接力单:每阶段产出钉成 phase→[路径]。handoff --produced 钉进对应阶段名,下阶段照单读上阶段产出(不靠'自己找')。investigate→现状报告;design→设计文档;plan→plan 目录;build→改动/提交标识 +(④终审闸)终审报告"
-    },
-    "gate_fingerprints": {
-      "type": "object",
-      "additionalProperties": { "type": "string" },
-      "description": "source-stability:gated 阶段过闸(审 verdict pass)时记下被审产物的内容指纹(phase→hash)。mmw where 再算一次比对,不同=过闸后被改→提示回该阶段重审。可选,首次过闸时由 flow.sh 写入"
     },
     "open_items": {
       "type": "array",

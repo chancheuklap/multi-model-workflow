@@ -11,6 +11,13 @@
     "build":  { "stage": "final", "produced": "docs/<slug>-final-review.md" }
   },
 
+  "loop_guards": {
+    "repair_cap": 3,
+    "turnaround_per_phase_cap": 2,
+    "discussion_phases": ["investigate", "propose", "design"],
+    "note": "开发主循环打转守卫阈值。流水线态(阶段不在 discussion_phases)返工达 repair_cap、或同一目标阶段被掉头回退达 turnaround_per_phase_cap → 引擎强制上报:attended/afk→waiting-user(不锁死,复核后 resume 续),unattended→blocked(硬停写板,不问人)。讨论态阶段自由往返/返工豁免,不受这两个 cap 约束(只 WARN)。"
+  },
+
   "start_options": [
     { "scenario": "small-change", "when": "范围明确但仍需独立任务边界与验收的代码改动", "phases_note": "落地→验收→收尾" },
     { "scenario": "develop",      "when": "新想法/功能 或 旧系统优化改造(要设计)", "phases_note": "查清→给方案→想方案→拆计划→落地→验收→收尾" },

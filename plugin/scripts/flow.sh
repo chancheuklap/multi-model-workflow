@@ -61,6 +61,11 @@ approval_check() {  # $1=manifest
   return 1
 }
 
+# 讨论态阶段(routes.loop_guards.discussion_phases)自由往返/返工,豁免打转守卫。返回 0=讨论态。
+is_discussion_phase() {  # $1=phase
+  jq -e --arg p "$1" '(.loop_guards.discussion_phases // ["investigate","propose","design"]) | index($p) != null' "$ROUTES" >/dev/null 2>&1
+}
+
 # ---------- handoff ----------
 cmd_handoff() {
   local conclusion="" to_phase="" waiting_for="" ; local -a produced=()
@@ -164,6 +169,10 @@ cmd_handoff() {
   local cur_step; cur_step="$(jq -r '.step_index // 0' "$m")"
   local new_phase="$cur_phase" new_pidx="$pidx" new_rc="$rc" new_tc="$tc" new_status="active" new_gate="" new_step=0
   local next_action next_phase="" human prune_from=-1
+  # 打转守卫阈值(loop_guards):流水线态达上限强制上报;讨论态豁免(见各分支)
+  local repair_cap turn_cap guard_trip="" guard_reason=""
+  repair_cap="$(jq -r '.loop_guards.repair_cap // 3' "$ROUTES")"
+  turn_cap="$(jq -r '.loop_guards.turnaround_per_phase_cap // 2' "$ROUTES")"
   case "$conclusion" in
     pass)
       if [ -z "$gate" ] && [ "$gated" = yes ]; then
@@ -186,8 +195,11 @@ cmd_handoff() {
       new_rc=$(( rc + 1 ))
       next_action="repair"; next_phase="$cur_phase"
       human="[$cur_phase] 原地返工(第 $new_rc 轮)"
-      if [ "$new_rc" -ge 3 ]; then
-        warns+=("[$cur_phase] 已返工 $new_rc 轮:每轮向用户汇报卡点/根因/下一步再继续,持续打转要主动交人")
+      if is_discussion_phase "$cur_phase"; then
+        [ "$new_rc" -ge 3 ] && warns+=("[$cur_phase] 已返工 $new_rc 轮(讨论态自由返工):向用户讲清卡点/根因再继续")
+      elif [ "$new_rc" -ge "$repair_cap" ]; then
+        guard_trip="repair"
+        guard_reason="[打转] [$cur_phase] 流水线态返工 $new_rc 轮达上限 $repair_cap:同一阶段反复返工未过,强制交人复核根因"
       fi
       ;;
     needs-redirection)
@@ -207,8 +219,18 @@ cmd_handoff() {
       next_action="turn-around"; next_phase="$tgt_phase"
       prune_from=$(( tgt_idx + 1 ))   # 回拨后下游阶段的接力单产出已过期,剪掉(文件仍在盘上)
       human="方向错 → 掉头回 [$tgt_phase](第 $new_tc 次)"
-      if [ "$new_tc" -ge 2 ]; then
-        warns+=("已掉头 $new_tc 次:先向用户讲清楚这次为什么又要回头,再继续")
+      # 判据B:按目标阶段分桶(写盘时对 tgt +1);流水线态某阶段被反复回退达 cap → 强制上报,讨论态豁免
+      if is_discussion_phase "$tgt_phase"; then
+        [ "$new_tc" -ge 2 ] && warns+=("已掉头 $new_tc 次(回讨论态 [$tgt_phase]):先讲清这次为何又回头再继续")
+      else
+        local tbp_new
+        tbp_new="$(jq -r --arg p "$tgt_phase" '((.turnaround_by_phase[$p] // 0) + 1)' "$m")"
+        if [ "$tbp_new" -ge "$turn_cap" ]; then
+          guard_trip="turnaround"
+          guard_reason="[打转] 目标阶段 [$tgt_phase] 被反复回退 $tbp_new 次达上限 $turn_cap:方向横跳,强制交人复核方向"
+        else
+          warns+=("回 [$tgt_phase] 第 $tbp_new 次(未达上限 $turn_cap):方向若反复横跳会被强制交人")
+        fi
       fi
       ;;
     needs-context)
@@ -220,6 +242,18 @@ cmd_handoff() {
       human="[$cur_phase] 卡住 → 上报用户(带完整经过)"
       ;;
   esac
+
+  # 打转守卫触发(讨论态已在分支豁免,不会 trip):按 attendance 决定上报形态
+  if [ -n "$guard_trip" ]; then
+    local att; att="$(jq -r '.attendance // "afk"' "$m")"
+    if [ "$att" = "unattended" ]; then
+      new_status="blocked"; next_action="report-user"
+      human="$guard_reason → 无人值守硬停写板(不问人,复核后人工介入)"
+    else
+      new_status="waiting-user"; next_action="ask-user"; waiting_for="$guard_reason"
+      human="$guard_reason → 停下交用户复核(不锁死,resume 续跑)"
+    fi
+  fi
 
   # 产出数组(只收真实存在的)
   local produced_json="[]"
@@ -234,6 +268,7 @@ cmd_handoff() {
     --argjson produced "$produced_json" --argjson nstep "$new_step" \
     --argjson prune_from "$prune_from" --arg waiting "$waiting_for" \
     '.phase=$phase | .phase_index=$pidx | .repair_count=$rc | .turnaround_count=$tc | .status=$status
+     | (if $hconc=="needs-redirection" then .turnaround_by_phase[$phase] = ((.turnaround_by_phase[$phase] // 0) + 1) else . end)
      | .waiting_for=(if $waiting=="" then null else $waiting end)
      | .gate=(if $gate=="" then null else $gate end)
      | .step_index=$nstep
@@ -457,6 +492,7 @@ then=$then_cmd
 prev_outputs=$prev_out
 repair_count=$rc
 turnaround_count=$tc
+turnaround_by_phase=$(jq -rc '.turnaround_by_phase // {}' "$m")
 phases=$phases
 phase_outputs=$(jq -rc '.phase_outputs' "$m")
 subtasks=$(jq -r '.subtasks | length' "$m")
