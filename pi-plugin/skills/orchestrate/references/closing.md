@@ -34,8 +34,8 @@ mmw handoff --conclusion pass
 
 **本地合并进主分支是自主收尾动作,不拦**(可逆、不出站)。**出站发布才是硬红线**:`guard-redline`(PreToolUse)对 `git push` / `gh pr merge` / 部署弹权限框,**要用户在框里亲批**(无令牌可代批),不分在场/无人值守。
 
-1. 合并 → 直接跑 `git merge --no-ff <branch>`(禁 `--squash`)——**本地不弹框、无人值守也能自主推进**;真正要人批的是之后的 `git push`。
-2. 合并进主线后,回主仓库删干净:
+1. `exit_worktree({ action: "keep" })` 回主仓库,合并 → 直接跑 `git merge --no-ff <branch>`(禁 `--squash`)——**本地不弹框、无人值守也能自主推进**;真正要人批的是之后的 `git push`。
+2. 合并进主线后,删干净:
  ```bash
  mmw task cleanup --slug <slug>
  ```

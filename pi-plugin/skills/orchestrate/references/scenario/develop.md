@@ -19,7 +19,7 @@
 
 3. **进 worktree**(只有这步能切会话 cwd,脚本切不了):
    ```
-   进入回执里的 `worktree_path`,在该目录继续并运行 `mmw where`:
+   `enter_worktree({ path: "<回执里的 worktree_path>" })`
    ```
 
 提交进分支的文档:设计 `docs/design/`(含 prototype/mockup)、issue `docs/issues/`、计划 `docs/plans/`、领域 `docs/context/`(项目级资产)。**过程产物不永久存档**(`docs/.gitignore` 已忽略,随 worktree 删):现状报告 `docs/investigating/`、审查留痕 `docs/reviews/`、终审报告。临时状态固定落 `.pi/multi-model-workflow/`。
@@ -76,7 +76,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 <!-- BEGIN: closing-cleanup -->
 ## 收尾 · 合并后删干净
 
-回执 `done`(STATUS=ready-to-close)= 末阶段过。合并进主分支是自主收尾动作(本地可逆、不出站,不拦):回主仓库直接跑 `git merge --no-ff <branch>`(禁 `--squash`),无人值守也自主推进;要发布到远端再 `git push`——那时 `guard-redline` 经 pi 扩展弹确认框由用户亲批(无令牌可代批)。任务分支 merge 进主线后,worktree 连同里面的临时状态一起删:
+回执 `done`(STATUS=ready-to-close)= 末阶段过。合并进主分支是自主收尾动作(本地可逆、不出站,不拦):`exit_worktree({ action: "keep" })` 回主仓库,再跑 `git merge --no-ff <branch>`(禁 `--squash`),无人值守也自主推进;要发布到远端再 `git push`——那时 `guard-redline` 经 pi 扩展弹确认框由用户亲批(无令牌可代批)。任务分支 merge 进主线后,worktree 连同里面的临时状态一起删:
 
 ```bash
 mmw task cleanup --slug <slug> # 回主仓库执行

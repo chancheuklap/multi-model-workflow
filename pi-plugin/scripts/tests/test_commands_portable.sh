@@ -26,8 +26,8 @@ done
 
 grep -q '\.pi/agent/settings.json' "$SKILL" && grep -q 'pi-plugin' "$SKILL" \
   && ok 'orchestrate Step 0 含 pi 包定位块' || no 'orchestrate 缺定位块'
-grep -q '每次 `bash` 都先 `cd <worktree_path>`' "$SKILL" \
-  && grep -q '文件工具使用该 worktree 下的绝对路径' "$SKILL" \
+grep -q 'enter_worktree({ path: "<worktree_path>" })' "$SKILL" \
+  && grep -q '把会话迁进选中的 worktree' "$SKILL" \
   && ok '续跑跨独立工具调用保持 worktree 上下文' || no '续跑未钉 worktree'
 
 echo "Results: $pass passed, $fail failed"
