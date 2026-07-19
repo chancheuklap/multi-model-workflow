@@ -59,9 +59,10 @@ mmw worker plan-dispatch \
   --plan <落点 docs/plans/<slug>/00N-<issue-slug>.md 绝对路径> \
   --worktree <任务 worktree 绝对路径> \
   --design <设计文档绝对路径> \
-  --issue <该 writer 负责的 issue 绝对路径> \
-  [--mockup <docs/design/<slug>/mockup/ 若存在>]
+  --issue <该 writer 负责的 issue 绝对路径>
 ```
+
+讨论态材料(mockup / prototype / evidence / direction / investigating)**脚本从设计文档路径自动推导并随派发进入 writer 上下文**,不用传任何旗标——设计文件夹单形态后这是纯机械活,归脚本不归你记。
 
 - **一律后台跑**:脚本为每个 writer 建临时隔离 worktree 并组好 prompt,协调者照打印的指令派 `Agent(subagent_type=plan-writer,run_in_background=true)`并记下 agent id;工人回执后 `mmw worker verify --plan <落点> --worktree <任务 wt>` 过边界门才原子发布指定 plan 与 issue 小节并清理隔离 worktree,追问用 `plan-resume`。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。** 单 issue → 单 plan:派一个就行,不强行并行。
 - **writer 不建 worktree、不 commit**:隔离、发布和清理由脚本负责;writer 只在自己的隔离 worktree 写指定 plan 与 issue `Small issues`,主线程统一提交。

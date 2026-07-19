@@ -25,7 +25,7 @@ WT="$TMP/${WT_REL}/$SLUG"
 echo "$OUT" | grep -q "^PREPARED" && ok "new 返回 PREPARED" || no "new 返回 PREPARED"
 [ -d "$WT" ] && ok "worktree 目录建好" || no "worktree 目录建好"
 git show-ref --verify --quiet "refs/heads/$SLUG" && ok "分支建好" || no "分支建好"
-[ -d "$WT/docs/investigating" ] && [ -d "$WT/docs/design" ] && [ -d "$WT/docs/issues" ] && [ -d "$WT/docs/plans" ] && [ -d "$WT/docs/context" ] && ok "docs 布局 scaffold(investigating/design/issues/plans/context 全)" || no "docs 布局 scaffold"
+[ -d "$WT/docs/design" ] && [ -d "$WT/docs/issues" ] && [ -d "$WT/docs/plans" ] && [ -d "$WT/docs/context" ] && [ ! -d "$WT/docs/investigating" ] && ok "docs 布局 scaffold(design/issues/plans/context 全;investigating 不再单设,进设计文件夹)" || no "docs 布局 scaffold"
 [ "$(cat "$WT/.pi/.gitignore" 2>/dev/null)" = "*" ] && ok "状态平面 .pi/ 已 gitignore(git status 不脏)" || no ".pi gitignore"
 # 主仓库零残留:建完 worktree 主仓库 git status 干净(.pi/.gitignore 遮蔽 worktrees/ 与状态平面)
 [ -z "$(git status --porcelain)" ] && ok "建 worktree 后主仓库 git status 零残留" || no "主仓库残留 ($(git status --porcelain | head -1))"
@@ -35,24 +35,29 @@ bash "$PREPARE" new --scenario bug --slug 2026-06-28-idem --title t --request t 
 [ "$(wc -l < .pi/.gitignore)" = "$LC1" ] && ok "遮蔽写入幂等(重复 new 不追行)" || no "遮蔽幂等"
 [ "$(jq -r .attendance "$TMP/${WT_REL}/2026-06-28-idem/${STATE_SUBDIR}/task.json")" = "afk" ] && ok "bug 无讨论期 → attendance 起步 afk" || no "bug attendance afk"
 git worktree remove --force "$TMP/${WT_REL}/2026-06-28-idem" >/dev/null 2>&1; git branch -D 2026-06-28-idem >/dev/null 2>&1; git worktree prune >/dev/null 2>&1   # 清掉幂等试探,不影响后续 team 断言
-grep -q "investigating/" "$WT/docs/.gitignore" && grep -q "reviews/" "$WT/docs/.gitignore" && grep -q -- "-final-review.md" "$WT/docs/.gitignore" && ok "过程产物 docs/.gitignore(investigating/reviews/终审报告不存档)" || no "docs gitignore"
-# 提交白名单:设计(含 prototype/mockup)/计划/issue/领域进 git;过程产物 + .gitignore 自身进不了
-mkdir -p "$WT/docs/investigating" "$WT/docs/reviews" "$WT/docs/design/$SLUG/prototype" "$WT/docs/design/$SLUG/mockup"
-echo r>"$WT/docs/investigating/r.md"; echo v>"$WT/docs/reviews/v.md"; echo f>"$WT/docs/$SLUG-final-review.md"
-echo d>"$WT/docs/design/$SLUG.md"; echo pr>"$WT/docs/design/$SLUG/prototype/p.py"; echo mk>"$WT/docs/design/$SLUG/mockup/m.html"
+grep -q "reviews/" "$WT/docs/.gitignore" && grep -q -- "-final-review.md" "$WT/docs/.gitignore" && ! grep -q "investigating/" "$WT/docs/.gitignore" && ok "过程产物 docs/.gitignore(reviews/终审报告不存档;investigating 已转为设计文件夹正式成员)" || no "docs gitignore"
+# 提交白名单:设计文件夹全部成员(主文档+direction/investigating/prototype/mockup/evidence)/计划/issue/领域进 git;过程产物 + .gitignore 自身进不了
+mkdir -p "$WT/docs/reviews" "$WT/docs/design/$SLUG/prototype" "$WT/docs/design/$SLUG/mockup" "$WT/docs/design/$SLUG/evidence"
+echo v>"$WT/docs/reviews/v.md"; echo f>"$WT/docs/$SLUG-final-review.md"
+echo d>"$WT/docs/design/$SLUG/$SLUG.md"; echo di>"$WT/docs/design/$SLUG/direction.md"; echo iv>"$WT/docs/design/$SLUG/investigating.md"
+echo pr>"$WT/docs/design/$SLUG/prototype/p.py"; echo mk>"$WT/docs/design/$SLUG/mockup/m.html"; echo ev>"$WT/docs/design/$SLUG/evidence/e.md"
 echo i>"$WT/docs/issues/001.md"; echo p>"$WT/docs/plans/001.md"; echo c>"$WT/docs/context/CONTEXT.md"
 git -C "$WT" add -A
 STAGED="$(git -C "$WT" diff --cached --name-only)"
 WANT="docs/context/CONTEXT.md
-docs/design/$SLUG.md
+docs/design/$SLUG/$SLUG.md
+docs/design/$SLUG/direction.md
+docs/design/$SLUG/evidence/e.md
+docs/design/$SLUG/investigating.md
 docs/design/$SLUG/mockup/m.html
 docs/design/$SLUG/prototype/p.py
 docs/issues/001.md
 docs/plans/001.md"
-[ "$STAGED" = "$WANT" ] && ok "add -A 只进白名单(设计+prototype+mockup+issue+计划+领域;无过程产物无 .gitignore)" || no "提交白名单 (staged=$(echo $STAGED))"
+[ "$STAGED" = "$WANT" ] && ok "add -A 只进白名单(设计文件夹全部成员+issue+计划+领域;无过程产物无 .gitignore)" || no "提交白名单 (staged=$(echo $STAGED))"
 git -C "$WT" reset -q
 [ "$(jq -r .docs.plans "$WT/${STATE_SUBDIR}/task.json")" = "docs/plans/$SLUG" ] && ok "manifest.docs.plans 路径" || no "docs.plans 路径"
 [ "$(jq -r .docs.design "$WT/${STATE_SUBDIR}/task.json")" = "docs/design/$SLUG" ] && ok "manifest.docs.design 路径" || no "docs.design 路径"
+[ "$(jq -r .docs.investigating "$WT/${STATE_SUBDIR}/task.json")" = "docs/design/$SLUG/investigating.md" ] && ok "manifest.docs.investigating 进设计文件夹" || no "docs.investigating 路径"
 
 MAN="$WT/${STATE_SUBDIR}/task.json"
 [ -f "$MAN" ] && ok "manifest 存在" || no "manifest 存在"

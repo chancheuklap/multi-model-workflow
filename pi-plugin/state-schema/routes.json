@@ -19,9 +19,9 @@
   ],
 
   "phase_bindings": {
-    "investigate": { "load": "references/investigate.md",  "do": "按 topic 并行派 investigate-topic,产出带引用的现状报告存 docs/investigating(取证不判定;不写 docs/context)", "produced": "docs/investigating/<slug>.md" },
-    "propose":     { "load": "references/propose.md",      "do": "综合现状+外部,固定格式亮 2-3 方案,HITL 指定一个(或全否→needs-redirection 回上游)", "produced": "docs/design/<slug>-direction.md" },
-    "design":      { "load": "references/design/discussion.md", "do": "拿已定方向与用户讨论出设计(HITL 集中在此;方法顺序:讨论→按需 prototype-mockup.md→按 design-doc-template.md 成文→design-self-check.md 自检;大缺口走取证战役 evidence-campaign.md)。成文自检后自动跑一次设计预审(mmw review start --stage design,结果给用户参考,不是闸),然后请用户 /approve-design 过门——唯一人闸,用户显式命令才放行,过门由 mmw approve 推进+放权,不走 handoff pass", "produced": "docs/design/<slug>.md 或 docs/design/<slug>/(多文件目录形态)", "reads": ["investigate", "propose"] },
+    "investigate": { "load": "references/investigate.md",  "do": "按 topic 并行派 investigate-topic,产出带引用的现状报告存 docs/design/<slug>/investigating.md(讨论态正式资产,随设计入 git;取证不判定;不写 docs/context)", "produced": "docs/design/<slug>/investigating.md" },
+    "propose":     { "load": "references/propose.md",      "do": "综合现状+外部,固定格式亮 2-3 方案,HITL 指定一个(或全否→needs-redirection 回上游)", "produced": "docs/design/<slug>/direction.md" },
+    "design":      { "load": "references/design/discussion.md", "do": "拿已定方向与用户讨论出设计(HITL 集中在此;方法顺序:讨论→按需 prototype-mockup.md→按 design-doc-template.md 成文→design-self-check.md 自检;大缺口走取证战役 evidence-campaign.md)。成文自检后自动跑一次设计预审(mmw review start --stage design,结果给用户参考,不是闸),然后请用户 /approve-design 过门——唯一人闸,用户显式命令才放行,过门由 mmw approve 推进+放权,不走 handoff pass", "produced": "docs/design/<slug>/<slug>.md(单文件夹形态:主文档与文件夹同名,direction/investigating/prototype/mockup/evidence 同文件夹细分)", "reads": ["investigate", "propose"] },
     "to-issue":    { "load": "references/design/to-issue-skeleton.md", "do": "①设计审过后:把设计垂直切片成可独立认领的 issue 骨架(主线程,委托外部 to-tickets skill)", "produced": "docs/issues/<slug>/", "reads": ["design"] },
     "plan":        { "load": "references/plan/plan-flow.md", "do": "编排 + 派 plan-writer 写计划(单/多都派,主线程亲验回填);交还前按 plan-self-check.md 过跨 plan 覆盖与 ownership 就绪门", "produced": "docs/plans/<slug>/", "reads": ["design", "to-issue"] },
     "build":       { "load": "references/build-b.md", "load_by_scenario": { "small-change": "references/build-a.md", "bug": "references/build-a.md" }, "do": "落地:small-change/bug 主线程就地 TDD(build-a);develop 派 pack-executor(build-b,各 plan 一 worktree)+ 主线程按计划验收;落完跑 ③合同门(内部机器核),再 handoff(引擎强制进 ④终审闸)",  "produced": "<提交范围,如 base..HEAD>" },

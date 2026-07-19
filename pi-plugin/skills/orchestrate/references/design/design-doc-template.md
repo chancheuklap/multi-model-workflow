@@ -7,7 +7,7 @@
 ```markdown
 # <功能 / 问题> 设计文档
 
-> 头部链上游:方向文档(docs/design/<slug>-direction.md)+ 现状报告(docs/investigating/<slug>.md);术语来源(领域文档路径)。有修订轮时一句话说明本轮吸收了什么(如"R2 修订:吸收设计审 3 findings——串账/免费窗口/取消置终态")。
+> 头部链上游:方向文档(docs/design/<slug>/direction.md)+ 现状报告(docs/design/<slug>/investigating.md);术语来源(领域文档路径)。有修订轮时一句话说明本轮吸收了什么(如"R2 修订:吸收设计审 3 findings——串账/免费窗口/取消置终态")。
 
 ## 背景和问题
 用户视角:谁在哪一步卡了什么、触发场景;为什么现在做(blocking / 花钱 / 正确性 / 合规)。

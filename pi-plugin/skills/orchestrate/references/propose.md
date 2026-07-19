@@ -6,7 +6,7 @@
 
 ## 0. 先看 `where` 的 `do`(引擎分叉,不自判)
 
-任务建档时若用户开口已带明确方向(`task new --direction-given`),`mmw where` 在本阶段报的 `do` 是**降级指令**:跳过下面第 1、2 节,直接读现状报告 → 落 `docs/design/<slug>-direction.md`(选定方向 + 为什么 + **一个最强对照一句**,保留"挑战前提"的最小对照)→ 向用户确认一句 → 按第 3 节 handoff。`do` 没报降级 → 走完整 1→2→3。
+任务建档时若用户开口已带明确方向(`task new --direction-given`),`mmw where` 在本阶段报的 `do` 是**降级指令**:跳过下面第 1、2 节,直接读现状报告 → 落 `docs/design/<slug>/direction.md`(选定方向 + 为什么 + **一个最强对照一句**,保留"挑战前提"的最小对照)→ 向用户确认一句 → 按第 3 节 handoff。`do` 没报降级 → 走完整 1→2→3。
 
 ## 1. 综合 → 给方案
 
@@ -45,11 +45,11 @@ pi:调 advisor 工具(零参数，自动转发全对话；它要判的是 framin
 
 | 用户 | 怎么 handoff | 引擎结果 |
 |---|---|---|
-| **选一个 / 同意某方案** | 把选定方向写进 `docs/design/<slug>-direction.md`(方向 + 为什么选它 + 放弃了什么),`mmw handoff --conclusion pass --produced docs/design/<slug>-direction.md` | advance → design(design 拿这份方向细化、写文档,不再提方案) |
+| **选一个 / 同意某方案** | 把选定方向写进 `docs/design/<slug>/direction.md`(方向 + 为什么选它 + 放弃了什么),`mmw handoff --conclusion pass --produced docs/design/<slug>/direction.md` | advance → design(design 拿这份方向细化、写文档,不再提方案) |
 | **全放弃,要回上游重来** | `mmw handoff --conclusion needs-redirection`(默认回上一阶段 investigate;讨论态掉头不计成本) | turn-around → 回上游重查/重想(回执指路) |
 | **缺关键输入没法给方案** | `mmw handoff --conclusion needs-context` | 停下问用户 |
 
 ## 红线
 
 - 方案全否 → 走 `needs-redirection` 回上游,**别硬在烂方向上往 design 走**。
-- 选定方向必须落 `docs/design/<slug>-direction.md` 钉进接力单,design 照单读,不靠会话记忆。
+- 选定方向必须落 `docs/design/<slug>/direction.md` 钉进接力单,design 照单读,不靠会话记忆。
