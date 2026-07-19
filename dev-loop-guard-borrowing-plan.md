@@ -1,6 +1,6 @@
 # 开发主循环守卫补强方案（graph/loop 借鉴收敛稿）
 
-> 状态：动作三待用户拍板（做实 / 删字段），其余可落地。
+> 状态：动作三已定案（用户 2026-07-20 拍板**删字段**，pi 版已删并落打转守卫三字段）；动作一 / 二 pi 版已落地（worktree-dev-loop-guards-pi），plugin 版待 Claude Code 落地，droid 版后定。
 > 范围：三镜像（`plugin/` `droid-plugin/` `pi-plugin/`）同步。
 > 来源：2026-07-20 双模型独立分析 + 三轮交叉审查收敛。
 > 性质：本文件是双模型讨论工作稿，非长期设计文档。终稿定案后，长期约束折进 `AGENTS.md` / `references`、实现走 worktree 分支，随后删除本根目录文件（项目规则：不维护独立设计文档、修在 worktree）。
@@ -18,7 +18,7 @@ loop engineering / graph 架构的核心课（验证器即工程、显式状态�
 |---|---|---|---|
 | 1 | 开发循环同根因打转强制上报 | 技术实现（需设计新分类器） | 最高 |
 | 2 | unattended 墙钟 / 轮次软预算 | 纯技术实现 | 高 |
-| 3 | `gate_fingerprints` 做实或删字段 | **唯一待拍板** | 中 |
+| 3 | `gate_fingerprints` 做实或删字段 | **已定案：删字段** | 中 |
 | 4 | reward-hacking diff 预检 | 纯技术，backlog | 低 |
 | 5 | progress 路线图可视化 | 纯展示层 | 最低（前四件完成后） |
 
@@ -66,7 +66,7 @@ loop engineering / graph 架构的核心课（验证器即工程、显式状态�
 ### 选项
 
 - **做实**（两模型均推荐）：复制 approval 模式到 plan / final 过闸产物；「过闸产物被偷改 → 提示重审」正是 fail-closed。注意 `where` 是热路径——只在闸点算指纹，不在每次 `where` 全量算。
-- **删字段**：去掉空头承诺止血，不留「声明了行为却零实现」的字段误导后来人。
+- **删字段**（**已拍板采用**，pi 已删）：去掉空头承诺止血，不留「声明了行为却零实现」的字段误导后来人。
 
 ## 动作四：reward-hacking diff 预检（backlog）
 
@@ -100,7 +100,7 @@ loop engineering / graph 架构的核心课（验证器即工程、显式状态�
 3. **行号纠错**：`approval_stale` 原稿 `flow.sh:517`，plugin 实测 **492**；已改并按镜像标注。行号一律以脚本为准、逐镜像重核，禁照抄。
 4. **元层面（落地形态）**：本文件以独立设计文档形态直接 commit 到 main 根目录，触及项目「不维护独立设计文档、修在 worktree」两条硬规则。建议终稿定案后：长期约束折进 `AGENTS.md` / `references`、实现走 worktree、删除本根目录文件；`a5b20cb`（main 上、未 push、可逆）由用户定 revert 或转正式产物。
 
-**仍需两边共同拍板 / 对齐的**：动作三 `gate_fingerprints` 做实 / 删字段（待用户定）；动作一判据 A、B 是否同批进首个 worktree（Claude Code 倾向同落，否则只补一半）。
+**对齐结果**：动作三已定案删字段（pi 已落）；判据 A、B 同批进首个 worktree 两边一致（pi 已同批落地）；plugin 版由 Claude Code 落地，droid 版后定。
 
 ## Kimi 复核回应（2026-07-20）
 
