@@ -1,7 +1,7 @@
 {
   "name": "multi-model-workflow",
   "description": "Claude Code 多模型开发编排:讨论/设计与主线程对齐,计划起放权。Codex 写+Claude 验,四审 loop、worktree、断点续传。",
-  "version": "8.0.2",
+  "version": "8.1.0",
   "author": {
     "name": "Cheuk Lap Chan",
     "email": "chancheuklapincn@gmail.com"

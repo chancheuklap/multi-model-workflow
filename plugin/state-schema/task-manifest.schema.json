@@ -87,12 +87,22 @@
       "description": "文档落点:investigating/design/issues/plans 按 slug,context 项目级共享(domain-modeling 维护)"
     },
 
-    "repair_count": { "type": "integer", "minimum": 0, "description": "当前阶段已返工次数,进下一阶段清零。讨论态阶段自由返工不设上限(仅 WARN);流水线态返工达 routes.loop_guards.repair_cap 由引擎强制上报(attended/afk→waiting-user 不锁死,unattended→blocked 硬停),不靠模型自觉" },
-    "turnaround_count": { "type": "integer", "minimum": 0, "description": "全程掉头总次数(只记录)。掉头是否强制上报按 turnaround_by_phase 分阶段判,不看这个总数" },
-    "turnaround_by_phase": {
+    "repair_count": { "type": "integer", "minimum": 0, "description": "当前阶段已返工次数,进下一阶段清零。讨论态自由返工不设上限(仅 WARN);审闸返工是否打转由 repair_findings_sig 指纹判(同一 finding 重现才算),不看裸轮数" },
+    "turnaround_count": { "type": "integer", "minimum": 0, "description": "全程掉头总次数(只记录)。掉头是否打转按 turnaround_ledger 分阶段判,不看这个总数" },
+    "repair_findings_sig": {
+      "type": "object",
+      "additionalProperties": { "type": "array", "items": { "type": "string" } },
+      "description": "打转守卫判据A:审闸(stage→)上一轮 accepted findings 的缺陷签名集(sev|文件基名|归一化关键词;行号只作弱信号不入签名)。needs-repair 时由 flow.sh 写入;连续 rounds 轮实质重合=打转,触发即清零"
+    },
+    "repair_fp_repeat": {
+      "type": "object",
+      "additionalProperties": { "type": "number" },
+      "description": "打转守卫判据A:各 stage 连续指纹重合轮数,触发即清零"
+    },
+    "turnaround_ledger": {
       "type": "object",
       "additionalProperties": { "type": "integer", "minimum": 0 },
-      "description": "按目标阶段分桶的掉头次数:needs-redirection 回到某上游阶段就对该阶段 +1。流水线态某阶段被反复回退达 routes.loop_guards.turnaround_per_phase_cap → 引擎强制上报(动作同 repair_cap);讨论态阶段(investigate/propose/design)豁免、自由往返。可选,缺省视为空(兼容旧 manifest)"
+      "description": "打转守卫判据B:流水线态源头掉头按 to-phase 分桶(讨论态源头 investigate/propose/design 自由往返不进账);同一 to-phase 达 routes.loop_guards.turnaround_same_phase=方向横跳打转,触发即清零。可选,缺省视为空(兼容旧 manifest)"
     },
 
     "attendance": {
