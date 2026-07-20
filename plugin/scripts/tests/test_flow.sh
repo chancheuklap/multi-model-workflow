@@ -253,7 +253,7 @@ mkf "$WBE" docs/design/2026-06-29-task-be/investigating2.md
 if ( cd "$WBE" && bash "$PREPARE" escalate --to develop >/dev/null 2>&1 ); then no "重复升级被拒"; else ok "已是 develop 再升级被拒"; fi
 if ( cd "$WBE" && bash "$PREPARE" escalate --to bogus >/dev/null 2>&1 ); then no "非法目标被拒"; else ok "非法升级目标被拒"; fi
 
-# ===== C: 返工无上限(≥3 轮转汇报,不锁死) =====
+# ===== C: 非审闸返工无硬上限(≥3 轮转汇报,不锁死);审闸硬上限另见 L10 =====
 WC="$(newtask develop 2026-06-28-task-c)"
 ( cd "$WC" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
 [ "$(mfield "$WC" repair_count)" = "1" ] && ok "返工计数=1" || no "返工计数=1"
@@ -547,6 +547,27 @@ echo "$SL9" | grep -q "BUDGET-EXCEEDED" && ok "L9 unattended 超墙钟 → BUDGE
 jq '.attendance="afk"' "$LF9" > "$LF9.tmp" && mv "$LF9.tmp" "$LF9"
 SL9b="$(cd "$WL9" && bash "$LOOP" status)"
 echo "$SL9b" | grep -q "BUDGET-EXCEEDED" && no "L9 afk 不该报预算" || ok "L9 afk 无预算面(严格限 unattended)"
+
+# L10: 审闸绝对轮次天花板(max_repair_rounds=3 → 第 4 次 needs-repair 触发;不同缺陷以免指纹守卫抢先)
+FIND_C='- [P1] src/x/c.ts:1 unique issue ccc alpha
+  处置:accepted'
+FIND_D='- [P1] src/y/d.ts:1 unique issue ddd beta
+  处置:accepted'
+WL10="$(lg_to_plan_gate 2026-07-20-round-cap)"
+lg_trace "$WL10" plan "$FIND_A"
+( cd "$WL10" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )   # rc=1
+( cd "$WL10" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/lg/ >/dev/null )
+lg_trace "$WL10" plan "$FIND_B"
+( cd "$WL10" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )   # rc=2
+( cd "$WL10" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/lg/ >/dev/null )
+lg_trace "$WL10" plan "$FIND_C"
+( cd "$WL10" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )   # rc=3 仍放行
+[ "$(mfield "$WL10" repair_count)" = "3" ] && ok "L10 审闸返工第 3 次仍放行(未超 max=3)" || no "L10 rc3 ($(mfield "$WL10" repair_count))"
+( cd "$WL10" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/lg/ >/dev/null )
+lg_trace "$WL10" plan "$FIND_D"
+OL10="$(cd "$WL10" && bash "$FLOW" handoff --conclusion needs-repair)"   # rc=4 → cap
+echo "$OL10" | grep -q "GUARD=repair-round-cap" && ok "L10 审闸第 4 次 needs-repair → GUARD=repair-round-cap" || no "L10 未触顶 ($OL10)"
+echo "$OL10" | grep -q "STATUS=waiting-user" && ok "L10 afk 触顶 → waiting-user" || no "L10 status ($OL10)"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

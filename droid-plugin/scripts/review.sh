@@ -144,21 +144,39 @@ $dispatch
 
 在单条消息中并行发出独立 Task 调用,每个审者按当前工具合同直接返回结果。
 调用中断时重派对应视角,不假设后台 task ID 或 resume。
+派审者时在每个 task 写明:遵守 worktree-review method——一次审透本视角全部承重问题;报全≠报噪;Minor 标 blocking=no;按 Return Contract 回。
 
 ## 留痕(收口的硬核就在这份文件)
 把全部审者的结构化 findings **原样落盘** $trace(不重写不摘要,保真);
-亲验后把每条 verdict/处置(accepted/rejected/duplicate/needs-evidence)就近标该条下,文末写一句总 verdict。
+亲验后把每条 verdict/处置(accepted/rejected/duplicate/needs-evidence/waived)就近标该条下,文末写一句总 verdict。
 审闸收口 handoff pass 时引擎核该文件存在且含 verdict——没有留痕 = 审没跑过,不放行。
 收口只回读这份文档的 verdict 段,findings 全文压在 trace 文件里、不长驻主线程 context。
 
-## 收回亲验
-每条 finding 自己 Read/Grep/跑坐实(审者是劳动力不是信源),引不出 file:line 降置信。
-承重 finding 亲验后才 accept。**Critical 必须处置掉**(修掉或有理有据 reject)才收口 pass——这是判断,不是机器闸,但留痕里要看得见。
+## 收回亲验(裁判权在主线程)
+审者是劳动力不是信源,也不是放行权人。对每条 finding:
+1. 自己 Read/Grep/跑坐实;引不出 file:line → rejected 或 needs-evidence。
+2. 过四问:是否过度设计/过度考虑?不修的真实后果(谁受伤)?边际收益?现在是否值得修(第2轮起还要问相对上轮的承重增量)?
+3. 标处置:accepted|rejected|duplicate|needs-evidence|waived(理由必填)。
+硬纪律:只有 accepted 驱动 needs-repair;Critical 必须处置(修或有理 reject/waive);Minor/non-blocking 默认 waived;不要因为 Nit 未清就 needs-repair。
+放行标准:整体在变好 + 无开口 Critical + 无未修 accepted 承重项,不追求完美。
 
 ## 收敛
-全部审者跑完追一轮无新高置信 finding = 收敛;反复打转不收敛 → 向用户汇报卡点,别硬磨。
+无新高置信 accepted = 收敛。审闸 repair_count 触顶由引擎 GUARD,到顶交人并亮未收敛/已 waive 清单,别硬磨。
 方向疑/缺输入 → handoff needs-redirection / needs-context 交上去,别当产物缺陷修。
 EOF
+
+  # 复审收敛:已有留痕或 repair_count>0 → brief 追加 prior_trace 规则
+  local rc_now=0
+  rc_now="$(jq -r '.repair_count // 0' "$top/$state/task.json" 2>/dev/null || echo 0)"
+  case "$rc_now" in ''|*[!0-9]*) rc_now=0 ;; esac
+  if [ -f "$top/$trace" ] || [ "$rc_now" -gt 0 ]; then
+    cat >> "$brief" <<EOF
+
+## 本轮是 re-review
+上一轮留痕: $trace
+派审者时在每个 task 写明:stage=$stage; re-review=yes; prior_trace=$trace; 只验证 accepted 已修 + 修复 diff 回归;已 rejected/waived/duplicate 无新证据不得重提;不对未改区域起新 Nit。
+EOF
+  fi
 
   cat <<EOF
 REVIEW_STARTED stage=$stage host=droid

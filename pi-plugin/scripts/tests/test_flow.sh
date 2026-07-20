@@ -256,7 +256,7 @@ mkf "$WBE" docs/design/2026-06-29-task-be/investigating2.md
 if ( cd "$WBE" && bash "$PREPARE" escalate --to develop >/dev/null 2>&1 ); then no "重复升级被拒"; else ok "已是 develop 再升级被拒"; fi
 if ( cd "$WBE" && bash "$PREPARE" escalate --to bogus >/dev/null 2>&1 ); then no "非法目标被拒"; else ok "非法升级目标被拒"; fi
 
-# ===== C: 返工无上限(≥3 轮转汇报,不锁死) =====
+# ===== C: 非审闸返工无硬上限(≥3 轮转汇报,不锁死);审闸硬上限另见判据C =====
 WC="$(newtask develop 2026-06-28-task-c)"
 ( cd "$WC" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
 [ "$(mfield "$WC" repair_count)" = "1" ] && ok "返工计数=1" || no "返工计数=1"
@@ -532,6 +532,27 @@ echo "$SL1" | grep -q "BUDGET-EXCEEDED" && ok "unattended 超墙钟 → status �
 jq '.attendance="afk"' "$LF5" > "$LF5.tmp" && mv "$LF5.tmp" "$LF5"
 SL2="$(cd "$WL5" && bash "$LOOP" status)"
 echo "$SL2" | grep -q "BUDGET-EXCEEDED" && no "afk 不该报预算" || ok "afk 无预算面(严格限 unattended)"
+
+# --- C: 审闸绝对轮次天花板(max_repair_rounds=3 → 第 4 次 needs-repair) ---
+FIND_C='- [P1] src/x/c.ts:1 unique issue ccc alpha
+  处置:accepted'
+FIND_D='- [P1] src/y/d.ts:1 unique issue ddd beta
+  处置:accepted'
+WLC="$(lg_to_plan_gate 2026-07-20-round-cap)"
+lg_trace "$WLC" plan "$FIND_A"
+( cd "$WLC" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
+( cd "$WLC" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/lg/ >/dev/null )
+lg_trace "$WLC" plan "$FIND_B"
+( cd "$WLC" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
+( cd "$WLC" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/lg/ >/dev/null )
+lg_trace "$WLC" plan "$FIND_C"
+( cd "$WLC" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
+[ "$(mfield "$WLC" repair_count)" = "3" ] && ok "审闸返工第 3 次仍放行(未超 max=3)" || no "rc3 ($(mfield "$WLC" repair_count))"
+( cd "$WLC" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/lg/ >/dev/null )
+lg_trace "$WLC" plan "$FIND_D"
+OLC="$(cd "$WLC" && bash "$FLOW" handoff --conclusion needs-repair)"
+echo "$OLC" | grep -q "GUARD=repair-round-cap" && ok "审闸第 4 次 needs-repair → GUARD=repair-round-cap" || no "未触顶 ($OLC)"
+echo "$OLC" | grep -q "STATUS=waiting-user" && ok "触顶 afk → waiting-user" || no "触顶 status ($OLC)"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

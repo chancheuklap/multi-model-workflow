@@ -165,7 +165,7 @@ cmd_handoff() {
   # new_step 默认 0;needs-context/blocked 停在原地→保留游标,resume 续上当前步
   local cur_step; cur_step="$(jq -r '.step_index // 0' "$m")"
   local new_phase="$cur_phase" new_pidx="$pidx" new_rc="$rc" new_tc="$tc" new_status="active" new_gate="" new_step=0
-  local next_action next_phase="" human prune_from=-1
+  local next_action next_phase="" human prune_from=-1 guard_trip=""
   case "$conclusion" in
     pass)
       if [ -z "$gate" ] && [ "$gated" = yes ]; then
@@ -190,6 +190,23 @@ cmd_handoff() {
       human="[$cur_phase] 原地返工(第 $new_rc 轮)"
       if [ "$new_rc" -ge 3 ]; then
         warns+=("[$cur_phase] 已返工 $new_rc 轮:每轮向用户汇报卡点/根因/下一步再继续,持续打转要主动交人")
+      fi
+      # 审闸返工绝对轮次天花板
+      if [ -n "$gate" ]; then
+        local LG_MAX
+        LG_MAX="$(jq -r '.loop_guards.max_repair_rounds // 3' "$ROUTES")"
+        if [ "$new_rc" -gt "$LG_MAX" ]; then
+          guard_trip="repair-round-cap"
+          local att; att="$(jq -r '.attendance // "afk"' "$m")"
+          if [ "$att" = "unattended" ]; then
+            new_status="blocked"; next_action="report-user"
+            human="[打转] 审闸返工已超 max_repair_rounds=$LG_MAX(第 $new_rc 次) → 无人值守硬停写板"
+          else
+            new_status="waiting-user"; next_action="ask-user"
+            waiting_for="[打转] 审闸返工已超 max_repair_rounds=$LG_MAX(第 $new_rc 次 needs-repair)。请定:放行带 risk / 缩 scope / 回 design;答复后 mmw task resume 续跑"
+            human="[打转] 审闸返工已超 max_repair_rounds=$LG_MAX → 停下交用户复核"
+          fi
+        fi
       fi
       ;;
     needs-redirection)
@@ -264,6 +281,7 @@ NEXT_PHASE=$next_phase
 STATUS=$new_status
 EOF
   [ "$next_action" = review ] && echo "REVIEW_STAGE=$cur_phase"
+  [ -n "$guard_trip" ] && echo "GUARD=$guard_trip"
   local w
   for w in ${warns[@]+"${warns[@]}"}; do echo "WARN=$w"; done
   echo "$human"

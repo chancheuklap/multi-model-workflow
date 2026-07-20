@@ -185,10 +185,11 @@ cmd_handoff() {
   local new_phase="$cur_phase" new_pidx="$pidx" new_rc="$rc" new_tc="$tc" new_status="active" new_gate="" new_step=0
   local next_action next_phase="" human prune_from=-1
   # 打转守卫阈值(routes.loop_guards;判断落 manifest,脚本强制)
-  local LG_OVERLAP LG_ROUNDS LG_TA
+  local LG_OVERLAP LG_ROUNDS LG_TA LG_MAX
   LG_OVERLAP="$(jq -r '.loop_guards.repair_fingerprint.overlap // 0.6' "$ROUTES")"
   LG_ROUNDS="$(jq -r '.loop_guards.repair_fingerprint.rounds // 2' "$ROUTES")"
   LG_TA="$(jq -r '.loop_guards.turnaround_same_phase // 2' "$ROUTES")"
+  LG_MAX="$(jq -r '.loop_guards.max_repair_rounds // 3' "$ROUTES")"
   local guard_trip="" guard_reason="" guard_att="" sig_stage="" sig_set_json=null sig_consec_json=0 ta_phase="" ta_n_json=0
   case "$conclusion" in
     pass)
@@ -218,8 +219,13 @@ cmd_handoff() {
         # 非审闸的流水线返工(主线程自己的迭代,没有 findings 可比):只 WARN 留痕不机器判打转
         [ "$new_rc" -ge 3 ] && warns+=("[$cur_phase] 已返工 $new_rc 轮:每轮向用户汇报卡点/根因/下一步再继续,持续打转要主动交人")
       fi
+      # 判据C:审闸返工绝对轮次天花板(防换一批品味 finding 无限磨)
+      if [ -n "$gate" ] && [ "$new_rc" -gt "$LG_MAX" ]; then
+        guard_trip="repair-round-cap"
+        guard_reason="[打转] 审闸返工已超 max_repair_rounds=$LG_MAX(第 $new_rc 次 needs-repair):停止自动返工,交人定放行带 risk / 缩 scope / 回 design"
+      fi
       # 判据A:审闸返工时新一轮 accepted findings 与上一轮实质重合 = 同一缺陷反复修不掉(计数对象是 finding 重现,不是返工轮数)
-      if [ -n "$gate" ]; then
+      if [ -n "$gate" ] && [ -z "$guard_trip" ]; then
         local ga_stage ga_trace sig_new sig_old consec inter old_n new_n min_n
         ga_stage="$(jq -r --arg p "$gate" '.review_gates[$p].stage // ""' "$ROUTES")"
         ga_trace="$top_wt/docs/reviews/$slug-$ga_stage.md"

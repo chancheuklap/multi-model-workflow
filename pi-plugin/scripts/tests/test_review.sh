@@ -28,10 +28,22 @@ for s in design plan final; do
   if echo "$B" | grep -qE "references/review/"; then no "$s brief 仍给审者 plugin 路径(不该)"; else ok "$s brief 无 plugin 路径喂审者"; fi
   echo "$B" | grep -q "verdict" && ok "$s brief 写明留痕含 verdict(收口硬核)" || no "$s brief verdict"
   echo "$B" | grep -q "亲验" && ok "$s brief 要求收回亲验(审者是劳动力不是信源)" || no "$s brief 亲验"
+  echo "$B" | grep -q "waived" && ok "$s brief 含 waived 处置" || no "$s brief waived"
+  echo "$B" | grep -q "四问" && ok "$s brief 含处置四问" || no "$s brief 四问"
+  echo "$B" | grep -q "一次审透" && ok "$s brief 要求一次审透" || no "$s brief 一次审透"
   echo "$B" | grep -q "subagent 调用" && echo "$B" | grep -q "tasks 数组并行" && ok "$s 派发=单次调用 tasks 数组并行" || no "$s tasks 派发"
   echo "$B" | grep -q 'codex ''exec' && no "$s brief 不该派 codex(pi 宿主无 Codex CLI)" || ok "$s 无 codex 派发"
   echo "$B" | grep -q "claude -p" && no "$s brief 不该用 claude -p 无头" || ok "$s 无 claude -p"
 done
+
+# 复审 brief
+mkdir -p ${STATE_SUBDIR} docs/reviews
+echo '{"scenario":"develop","slug":"rr1","repair_count":1}' > ${STATE_SUBDIR}/task.json
+printf '# prior\n## verdict\npass\n' > docs/reviews/rr1-plan.md
+bash "$REVIEW" start --stage plan --source x >/dev/null 2>&1
+BR="$(cat "$BRIEF")"
+echo "$BR" | grep -q "本轮是 re-review" && ok "re-review brief 注入" || no "re-review brief"
+echo "$BR" | grep -q "prior_trace" && ok "re-review 含 prior_trace" || no "prior_trace"
 
 # 续接语义:审者 Agent 不复用被审 context——中断重派对应视角
 grep -q "重派对应视角" "$BRIEF" && grep -q "不需 resume" "$BRIEF" \
