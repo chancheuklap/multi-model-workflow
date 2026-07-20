@@ -55,7 +55,7 @@
 - [ ] Step 6: Suggested commit boundary
 ```
 
-**细 Task 规则**:优先从 public behavior 起（Red → Green → Refactor）;每步只做一个动作、写运行命令和 expected result。**代码放置分区**:Pack 散文区只放 schema / API 形状（消除歧义）,不撒说明性实现片段;Implementation 步骤区**必须给完整可抄代码**（零上下文执行者要照抄,不写省略号或未定义方法）。后续 task 引用的类型 / 函数 / 字段必须前文定义或 existing code 验真;existing path 验真、新文件写 `Create`;文档 / override / registry / migration 与对应行为同 pack;不写 `similar to previous task`;DRY / YAGNI 不为 hypothetical 预建抽象。
+**细 Task 规则**:优先从 public behavior 起（Red → Green → Refactor）;每步只做一个动作、条件 / 场景写在动作前、写运行命令和 expected result。**代码放置分区**:Pack 散文区只放 schema / API 形状（消除歧义）,不撒说明性实现片段;Implementation 步骤区**必须给完整可抄代码**（零上下文执行者要照抄,不写省略号或未定义方法）。后续 task 引用的类型 / 函数 / 字段必须前文定义或 existing code 验真;existing path 验真、新文件写 `Create`;文档 / override / registry / migration 与对应行为同 pack;不写 `similar to previous task`;DRY / YAGNI 不为 hypothetical 预建抽象。
 
 **垂直切片不水平切片**:
 ```
