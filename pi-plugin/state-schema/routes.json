@@ -13,6 +13,7 @@
 
   "loop_guards": {
     "repair_fingerprint": { "overlap": 0.6, "rounds": 2 },
+    "max_repair_rounds": 3,
     "turnaround_same_phase": 2,
     "unattended_wall_clock_seconds": 10800
   },

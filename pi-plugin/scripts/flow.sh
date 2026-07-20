@@ -105,10 +105,11 @@ cmd_handoff() {
 
   local m; m="$(manifest_path)"
   # 打转守卫阈值(routes.loop_guards;判断落 manifest,脚本强制)
-  local LG_OVERLAP LG_ROUNDS LG_TA
+  local LG_OVERLAP LG_ROUNDS LG_TA LG_MAX
   LG_OVERLAP="$(jq -r '.loop_guards.repair_fingerprint.overlap // 0.6' "$ROUTES")"
   LG_ROUNDS="$(jq -r '.loop_guards.repair_fingerprint.rounds // 2' "$ROUTES")"
   LG_TA="$(jq -r '.loop_guards.turnaround_same_phase // 2' "$ROUTES")"
+  LG_MAX="$(jq -r '.loop_guards.max_repair_rounds // 3' "$ROUTES")"
   local guard_kind="" guard_mode="" guard_detail="" sig_stage="" sig_set_json=null sig_consec_json=0 ta_phase="" ta_n_json=0
   local cur_phase pidx rc tc gate gated slug
   cur_phase="$(jq -r .phase "$m")"
@@ -220,8 +221,13 @@ cmd_handoff() {
       if [ "$new_rc" -ge 3 ]; then
         warns+=("[$cur_phase] 已返工 $new_rc 轮:每轮向用户汇报卡点/根因/下一步再继续,持续打转要主动交人")
       fi
+      # 判据C:审闸返工绝对轮次天花板
+      if [ -n "$gate" ] && [ "$new_rc" -gt "$LG_MAX" ]; then
+        guard_kind="repair-round-cap"; guard_mode="$(jq -r '.attendance // "attended"' "$m")"
+        guard_detail="审闸返工已超 max_repair_rounds=$LG_MAX(第 $new_rc 次 needs-repair):停止自动返工"
+      fi
       # 判据A:审闸返工时新一轮 accepted findings 与上一轮实质重合 = 同一缺陷反复修不掉(计数对象是 finding 重现,不是返工轮数)
-      if [ -n "$gate" ]; then
+      if [ -n "$gate" ] && [ -z "$guard_kind" ]; then
         local ga_stage ga_trace sig_new sig_old consec inter old_n new_n min_n
         ga_stage="$(jq -r --arg p "$gate" '.review_gates[$p].stage // ""' "$ROUTES")"
         ga_trace="$top_wt/docs/reviews/$slug-$ga_stage.md"

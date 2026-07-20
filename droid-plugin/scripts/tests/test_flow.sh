@@ -253,7 +253,7 @@ mkf "$WBE" docs/investigating/be2.md
 if ( cd "$WBE" && bash "$PREPARE" escalate --to develop >/dev/null 2>&1 ); then no "重复升级被拒"; else ok "已是 develop 再升级被拒"; fi
 if ( cd "$WBE" && bash "$PREPARE" escalate --to bogus >/dev/null 2>&1 ); then no "非法目标被拒"; else ok "非法升级目标被拒"; fi
 
-# ===== C: 返工无上限(≥3 轮转汇报,不锁死) =====
+# ===== C: 非审闸返工无硬上限(≥3 轮转汇报,不锁死) =====
 WC="$(newtask develop 2026-06-28-task-c)"
 ( cd "$WC" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
 [ "$(mfield "$WC" repair_count)" = "1" ] && ok "返工计数=1" || no "返工计数=1"
