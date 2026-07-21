@@ -13,7 +13,7 @@
 | `STAGE:<name> RUN:<display>` | `release stage run --stage <name>`(引擎展开占位符、路由 remote-build、跑 diagnose、写 done\|failed 并记 findings);失败据 `where` 为 `RETRY-STAGE` 则 `dispatch --stage <name>` | 线性全绿不推进；只有 dispatch 后引擎仍要求重跑才 `round next` | 否 |
 | `RETRY-STAGE:<name> RUN:<display>` | 与 `STAGE` 相同，`stage run` 重跑该 stage(失败重跑、transient 重试、进程中断后的 running 恢复都长这样) | dispatch 后已推进的一轮不再额外推进 | 否 |
 | `SUCCESS:all stages done` | `exit-check` 必须为 `DONE`，随后 `close` | 不适用 | 否；`exit-check` 非 `DONE` 是引擎错误，不报告成功 |
-| `PAUSED:needs-context` | **驱动 Agent 自主处置**(见「PAUSED 自主处置」节)，不是直接交人 | 不推进 | 自主处置连续 2 次无效才交负责人 |
+| `PAUSED:needs-context` | **驱动 Agent 自主处置**(见「PAUSED 自主处置」节)，不是直接交人。`where` 第二行 `question=` 是根因处置句（必读）；`receipt` 的「根因摘要」从 findings 抽出 name/fp/remediation | 不推进 | 自主处置连续 2 次无效才交负责人 |
 | `PAUSED:needs-redirection` | 读取 `receipt`，原样交负责人——P0 保护路径、熔断、预算越界是保命闸，Agent 不得自行 resume | 不推进 | 是 |
 | `CORRUPT:` / `FAILED-STAGE:` / `NO-STAGES:` | 不执行 stage argv、不调用 `resume`；读取 `receipt` 或引擎错误 | 不推进 | 是 |
 | 其他输出或命令错误 | 不猜测 state、不重新 `init` | 不推进 | 是，带原始输出 |
@@ -25,7 +25,9 @@
 以下命令是 `STAGE` / `RETRY-STAGE` 分支的一轮。成功执行完一轮后立刻重新运行 `release where`，直到状态表给出终态；不要每个 shell turn 人工停顿。
 
 ```bash
-state="$(bash "$MMW" release where)"
+raw="$(bash "$MMW" release where)"
+# where 暂停时第二行是 question=…；token 永远只取首行
+state="${raw%%$'\n'*}"
 
 case "$state" in
   STAGE:*|RETRY-STAGE:*)
@@ -36,14 +38,16 @@ case "$state" in
     # 跑 manifest.diagnose、按退出码写 done|failed 并把 findings 记进 attempt ledger。
     # 驱动器不自建第二执行器,也不 shell-split 展示串 RUN:<display>。
     bash "$MMW" release stage run --stage "$stage"
-    post="$(bash "$MMW" release where)"
+    post_raw="$(bash "$MMW" release where)"
+    post="${post_raw%%$'\n'*}"
     case "$post" in
       RETRY-STAGE:*)
         # 本 stage 失败并已分级。P0 / 同 fingerprint 熔断 / 预算熔断会被引擎写成 PAUSED(不是
         # RETRY-STAGE),不会走到这。派一次修复:findings 由引擎从最近 attempt 的 artifact_refs 读回,
         # 驱动器无须自持 findings 文件。
         bash "$MMW" release dispatch --stage "$stage"
-        post_dispatch="$(bash "$MMW" release where)"
+        post_dispatch_raw="$(bash "$MMW" release where)"
+        post_dispatch="${post_dispatch_raw%%$'\n'*}"
         case "$post_dispatch" in
           STAGE:*|RETRY-STAGE:*) bash "$MMW" release round next ;;
         esac
@@ -57,6 +61,7 @@ case "$state" in
   PAUSED:needs-context*)
     # 不是终点:读 receipt 后进入「PAUSED 自主处置」节的判断流程(亲诊根因→能处置就处置→
     # release resume 续跑)。这一支无法纯 shell 化——它就是驱动 Agent 要补的判断层。
+    # raw 第二行 question= 已是处置句，优先照做。
     bash "$MMW" release receipt
     ;;
   PAUSED:*|CORRUPT:*|FAILED-STAGE:*|NO-STAGES:*)
@@ -82,13 +87,18 @@ esac
 
 ## PAUSED 自主处置（needs-context 专用）
 
-无人值守出包的第一原则是**能自己修的不等人**。`PAUSED:needs-context` 表示引擎缺信息无法机械分级（diagnose 产不出合规 finding、动作无改动、清理失败等），这类暂停由驱动 Agent 亲自补上"判断层"，流程：
+无人值守出包的第一原则是**能自己修的不等人**。`PAUSED:needs-context` 表示引擎缺信息无法机械分级，或失败被标成 **环境类 `env:` 指纹**（见下）。这类暂停由驱动 Agent 亲自补上"判断层"，流程：
 
-1. `release receipt` 读已试账目；从最近 attempt 的 `log_refs` / `artifact_refs` 读引擎日志、回传的远端构建日志(`build-run.log`)和 findings 原文。
-2. 亲自诊断根因。判断依据必须能引用日志原文，不猜。
-3. 能处置的直接处置：修仓库代码/钥匙/配置照常提交到功能分支（你就是主 Agent，path-gate 只约束引擎派的自动修复，不约束你的正常开发提交）；环境瞬态问题（网络、构建机忙）等待或修好环境。
-4. 处置完 `release resume` 续跑（HEAD 变了引擎自动全量重验）。
-5. **同一根因自主处置 2 次仍未解决，或根因涉及计费/合同/保护路径/需要负责人拍板的业务决策 → 停下写清楚交负责人**。不无限打转。
+1. `release where`：读第二行 `question=`（引擎已写清处置句时优先照做，例如「先停 PC 上 hedgehog 开发版再 resume」）。
+2. `release receipt`：读「根因摘要」与 attempt 的 `log_refs` / `artifact_refs`；需要原文时再打开 build-run.log。
+3. 亲自诊断根因。判断依据必须能引用日志或 findings 原文，不猜。
+4. 能处置的直接处置：
+   - **`env:active_product_process:*`**：停 Win-PC 上该产品开发版/安装版（`pc-*-dev --action stop` 或等价），确认无 electron-vite/backend 残留后再 `release resume`。
+   - **`env:missing_RELEASE_REMOTE_HOST` / `env:missing_RELEASE_REMOTE_ROOT`**：在驱动 shell 导出后 resume（典型 `RELEASE_REMOTE_HOST=pc`、`RELEASE_REMOTE_ROOT=D:/agentflow-release-input`）。
+   - **其它 `env:*`**：按 remediation 改构建机/本机环境后 resume，**不要**派代码 fix executor。
+   - 仓库代码/钥匙/配置问题照常提交到功能分支后 resume。
+5. 处置完 `release resume` 续跑（HEAD 变了引擎自动全量重验）。
+6. **同一根因自主处置 2 次仍未解决，或根因涉及计费/合同/保护路径/需要负责人拍板的业务决策 → 停下写清楚交负责人**。不无限打转。
 
 `PAUSED:needs-redirection` 不适用本节：那是 P0 硬约束和熔断护栏，必须交负责人。
 

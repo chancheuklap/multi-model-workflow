@@ -55,6 +55,39 @@ edit() {
   jq "$@" "$f" | write "$f"
 }
 
+# classify JSON：非 transient 的 fail 是否全部为 env: 指纹（环境处置，不派代码修）
+_cls_all_non_transient_are_env() {
+  local cls="$1" env_n other_n
+  env_n="$(printf '%s' "$cls" | jq -r '[.failing[] | select((.root_cause_fingerprint // "") | startswith("env:"))] | length')"
+  other_n="$(printf '%s' "$cls" | jq -r '[.failing[] | select((.root_cause_fingerprint // "") | startswith("transient:") | not) | select((.root_cause_fingerprint // "") | startswith("env:") | not)] | length')"
+  [ "${env_n:-0}" -gt 0 ] && [ "${other_n:-0}" -eq 0 ]
+}
+
+# 从 findings 文件抽 env fail 的 remediation 作为 pause.question（一眼可读）
+_env_pause_question() {
+  local findings="$1" fp="$2" q
+  q="$(jq -r --arg fp "$fp" '
+    def items:
+      if type=="array" then .
+      elif type=="object" and (.findings|type)=="array" then .findings
+      else [] end;
+    [items[]
+      | select(type=="object" and .status=="fail"
+          and ((.root_cause_fingerprint//"")|startswith("env:")))]
+    | if length==0 then empty
+      else
+        (.[0].remediation // "") as $r
+        | (.[0].name // "env") as $n
+        | (.[0].root_cause_fingerprint // $fp) as $f
+        | if ($r|length)>0 then $r else ("环境处置: "+$n+" ("+$f+")") end
+      end
+  ' "$findings" 2>/dev/null || true)"
+  if [ -z "$q" ]; then
+    q="环境类失败(${fp:-unknown})：按 receipt 根因摘要处置后 release resume"
+  fi
+  printf '%s' "$q"
+}
+
 # $1=state $2=stage $3=action_kind $4=outcome $5=fingerprint $6=findings_ref
 append_attempt() {
   local f="$1" stage="$2" kind="$3" outcome="$4" fp="$5" ref="$6" aid
@@ -627,7 +660,9 @@ cmd_where() {
   f="$(need_state)"
   jq -e . "$f" >/dev/null 2>&1 || { echo "CORRUPT:release-state 空/非法 JSON"; return 0; }
   if [ "$(jq -r '.pause // "null"' "$f")" != "null" ]; then
+    # 首行 token 供 case；次行 question= 给人/驱动 Agent 一眼看清根因（勿只报 needs-context）
     echo "PAUSED:$(jq -r '.pause.reason' "$f")"
+    jq -r '"question=" + (.pause.question // "")' "$f"
     return 0
   fi
   local n
@@ -1114,6 +1149,18 @@ cmd_stage_fail() {
     return 0
   fi
 
+  # env: 指纹 = 构建机/本机环境处置（停产品进程、导出 RELEASE_REMOTE_*），不是代码修。
+  # 立刻 needs-context 并写清处置句，禁止落到「待 fix-dispatch」再被 fix executor 空转。
+  if _cls_all_non_transient_are_env "$cls"; then
+    local env_q
+    env_q="$(_env_pause_question "$findings" "$fp")"
+    edit "$f" --arg n "$name" --arg q "$env_q" \
+      '.pause={at_stage:$n, kind:"surface", reason:"needs-context", question:$q}'
+    emit_event "$f" "paused" "$name" "$tier" "$fp" "$aref"
+    echo "CLASSIFY=ENV $name -> PAUSE(needs-context): $env_q"
+    return 0
+  fi
+
   emit_event "$f" "classified" "$name" "$tier" "$fp" "$aref"
   echo "CLASSIFY=$tier $name(待 fix-dispatch,归 002)"
 }
@@ -1165,6 +1212,21 @@ cmd_dispatch() {
        | .current_stage=$n'
     emit_event "$f" "classified" "$name" "$tier" "$fp" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
     echo "TRANSIENT-RETRY:$name($fp,直接重跑不派修)"
+    return 0
+  fi
+
+  # env: 环境处置（与 classify 时一致；dispatch 入口再守一次，防旧 state 漏网）
+  if _cls_all_non_transient_are_env "$cls"; then
+    local env_q aref
+    env_q="$(_env_pause_question "$findings" "$fp")"
+    append_attempt "$f" "$name" "env_surface" "pause" "$fp" "$findings"
+    aref="$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
+    edit "$f" --arg n "$name" --arg q "$env_q" \
+      '(.stages |= map(if .name==$n then .status="failed" else . end))
+       | .current_stage=$n
+       | .pause={at_stage:$n, kind:"surface", reason:"needs-context", question:$q}'
+    emit_event "$f" "paused" "$name" "$tier" "$fp" "$aref"
+    echo "ENV-SURFACE:$name -> PAUSE(needs-context): $env_q"
     return 0
   fi
 
@@ -1279,13 +1341,30 @@ cmd_exit_check() {
 }
 
 cmd_receipt() {
-  local f
+  local f findings_path
   f="$(need_state)"
   jq -e . "$f" >/dev/null 2>&1 || { echo "CORRUPT:release-state 空/非法 JSON"; return 0; }
   echo "# Release 回执 - product=$(jq -r .product "$f")"
   if [ "$(jq -r '.pause // "null"' "$f")" != "null" ]; then
     echo "## 停在 stage=$(jq -r '.pause.at_stage' "$f") 原因=$(jq -r '.pause.reason' "$f")"
     jq -r '.pause.question' "$f"
+  fi
+  # 根因摘要：从最近一份 findings 文件抽 fail 项的 name/fingerprint/remediation/detail
+  # （驱动 Agent 不应再去翻 4000 字乱码日志才知道「开发版还在跑」）
+  findings_path="$(jq -r '[.attempt_ledger[] | select((.artifact_refs//[]|length)>0) | .artifact_refs[]] | last // empty' "$f")"
+  if [ -n "$findings_path" ] && [ -f "$findings_path" ]; then
+    echo "## 根因摘要 (from findings):"
+    jq -r '
+      def items:
+        if type=="array" then . elif type=="object" and (.findings|type)=="array" then .findings else [] end;
+      [items[] | select(type=="object" and .status=="fail")] as $f
+      | if ($f|length)==0 then "- (findings 文件无 status=fail 项)"
+        else $f[] |
+          "- [" + (.name // "?") + "] fp=" + (.root_cause_fingerprint // "?") +
+          "\n  处置: " + (.remediation // "(无 remediation)") +
+          (if (.detail // "") != "" then "\n  摘录: " + ((.detail|tostring)|.[0:400]) else "" end)
+        end
+    ' "$findings_path" 2>/dev/null || echo "- (无法解析 findings: $findings_path)"
   fi
   echo "## 已试 attempt:"
   # log_refs 必须进回执:PAUSED:needs-context 的自主处置政策(drive-loop.md)第一步就是从
