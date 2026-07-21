@@ -38,7 +38,15 @@
 | `reviewer-plan-a` / `reviewer-plan-b` | 计划审模型路线 A / B |
 | `reviewer-final-a` / `reviewer-final-b` | 终审模型路线 A / B,视角由 dispatch 指定 |
 
-花名册全员已注册为 pi 正式 agent(软链进全局 agents 目录)：model、thinking 与工具白名单以 `agents-roster/<name>.md` frontmatter 为准，派发时 subagent 工具直接 `agent: "<角色名>"`，不另传 model。reviewer 由协调者按 review brief 以 tasks 数组并行派；worker/plan writer 由脚本准备 worktree 与 prompt 后以 `async: true` 后台派。强判断咨询用 advisor 工具(零参数，自动转发全对话)，不占花名册编制。
+花名册全员已注册为 pi 正式 agent(软链进全局 agents 目录)：model、thinking 与工具白名单以 `agents-roster/<name>.md` frontmatter 为准，派发时 subagent 工具直接 `agent: "<角色名>"`，不另传 model。
+
+**后台派发硬规则（mmw 角色一律不阻塞主线程前台）**：
+- `plan-writer` / `pack-executor` / `pack-executor-capable`：**必须** `async: true`（脚本打印的指令已带；协调者照抄，禁止改成前台阻塞）。
+- 全部 `reviewer-*`（design/plan/final 双轴）：**必须** `async: true` 并行派（`tasks` 数组或多次 async 单派均可）；禁止前台串行 `Agent` 卡住主线程。主线程用 fleet/status 或回执收齐后再亲验 findings。
+- 短探路（如 `code-explorer` 单次只读）可前台；一旦预估超过约一分钟或会并行多个，改 async。
+- 禁止对 mmw 花名册重角色使用会阻塞主会话的前台派发。
+
+worker/plan writer 由脚本准备 worktree 与 prompt 后以 `async: true` 后台派。强判断咨询用 advisor 工具(零参数，自动转发全对话)，不占花名册编制。
 
 无人值守角色不能向用户提问。缺输入时返回结构化 blocker，由主线程处置。
 

@@ -22,7 +22,7 @@ bash /Users/cheuklapchan/multi-model-workflow/pi-plugin/workflows/install-workfl
 
 ## 角色与模型
 
-花名册 `agents-roster/*.md` 是所有工作角色的单一权威(模型、thinking、工具白名单、职责、系统提示词)。GPT 系角色正文开头的 `mmw:fragments` 生成块由 `scripts/render_agent_prompts.py` 从 `_fragments/`(厂商原生提示词片段,来源见其 MANIFEST.md)渲染,改片段后重跑脚本,不要手改生成块;`--check` 可做一致性校验。全员软链进 `~/.pi/agent/agents/` 注册为 pi 正式 agent，协调者用 subagent 工具按名字派(`agent: "<角色名>"`)；重角色(pack-executor / plan-writer)用 `async: true` 后台跑，会话天然落盘长效可 resume，worktree 与边界门仍由 `scripts/worker.sh` 准备和把关。强判断咨询用 rpiv-advisor 的 advisor 工具，不占花名册编制。
+花名册 `agents-roster/*.md` 是所有工作角色的单一权威(模型、thinking、工具白名单、职责、系统提示词)。GPT 系角色正文开头的 `mmw:fragments` 生成块由 `scripts/render_agent_prompts.py` 从 `_fragments/`(厂商原生提示词片段,来源见其 MANIFEST.md)渲染,改片段后重跑脚本,不要手改生成块;`--check` 可做一致性校验。全员软链进 `~/.pi/agent/agents/` 注册为 pi 正式 agent，协调者用 subagent 工具按名字派(`agent: "<角色名>"`)；**mmw 重角色与全部 reviewer 一律 `async: true` 后台跑**（plan-writer / pack-executor / pack-executor-capable / reviewer-*），禁止前台阻塞主线程；会话天然落盘长效可 resume，worktree 与边界门仍由 `scripts/worker.sh` 准备和把关。强判断咨询用 rpiv-advisor 的 advisor 工具，不占花名册编制。
 
 安装后若未注册，把花名册软链进全局目录：
 
