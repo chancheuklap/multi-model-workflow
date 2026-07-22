@@ -522,7 +522,7 @@ cmd_where() {
       echo "当前没有在管任务。看需求选一个起始选项:"
     fi
     jq -r '.start_options[] | "  [\(.scenario)] \(.when) → \(.phases_note)"' "$ROUTES"
-    echo "命令: $MMW task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title '<标题>' --request '<用户原始需求与验收条件>' [--direction-given]"
+    echo "命令: $MMW task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title '<标题>' --request '<用户原始需求与验收条件>' [--direction-given] [--with-wayfind]"
     echo "问答、解释、只读查看，以及主线程可直接完成并验证的琐碎单步动作不进 orchestrate，直接处理。merge 不开 worktree，直接走 references/scenario/merge.md。"
     return 0
   fi

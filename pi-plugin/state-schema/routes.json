@@ -26,6 +26,7 @@
   ],
 
   "phase_bindings": {
+    "wayfind":     { "load": "references/wayfind.md",     "do": "探路:雾里的大事项建成决策地图逐个解开(map 是索引,d-NN 一决策一文件;frontier 领决策→缺事实先查→与用户解开→落盘更新 map;frontier 清+剩余雾区确认不挡路 → handoff pass)。只产决策不动手", "produced": "docs/design/<slug>/wayfind/" },
     "investigate": { "load": "references/investigate.md",  "do": "按 topic 并行派 investigate-topic,产出带引用的现状报告存 docs/design/<slug>/investigating.md(讨论态正式资产,随设计入 git;取证不判定;不写 docs/context)", "produced": "docs/design/<slug>/investigating.md" },
     "propose":     { "load": "references/propose.md",      "do": "综合现状+外部,固定格式亮 2-3 方案,HITL 指定一个(或全否→needs-redirection 回上游)", "produced": "docs/design/<slug>/direction.md" },
     "design":      { "load": "references/design/discussion.md", "do": "拿已定方向与用户讨论出设计(HITL 集中在此;方法顺序:讨论→按需 prototype-mockup.md→按 design-doc-template.md 成文→design-self-check.md 自检;大缺口走取证战役 evidence-campaign.md)。成文自检后自动跑一次设计预审(mmw review start --stage design,结果给用户参考,不是闸),然后请用户 /approve-design 过门——唯一人闸,用户显式命令才放行,过门由 mmw approve 推进+放权,不走 handoff pass", "produced": "docs/design/<slug>/<slug>.md(单文件夹形态:主文档与文件夹同名,direction/investigating/prototype/mockup/evidence 同文件夹细分)", "reads": ["investigate", "propose"] },
