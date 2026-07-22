@@ -26,7 +26,7 @@ in_worktree() { [ -f "$1/.git" ]; }
 
 # ---------- new ----------
 cmd_new() {
-  local scenario="" slug="" title="" request="" direction_given=false
+  local scenario="" slug="" title="" request="" direction_given=false with_wayfind=false
   while [ $# -gt 0 ]; do
     case "$1" in
       --scenario) scenario="$2"; shift 2 ;;
@@ -34,6 +34,7 @@ cmd_new() {
       --title)    title="$2";    shift 2 ;;
       --request)  request="$2";  shift 2 ;;
       --direction-given) direction_given=true; shift ;;   # 用户开口已带明确方向:propose 降级(where 照此指路)
+      --with-wayfind) with_wayfind=true; shift ;;         # 整件事在雾里:phases 前加 wayfind 探路阶段(仅 develop)
       *) die "未知参数: $1" ;;
     esac
   done
@@ -75,6 +76,10 @@ IGN
   [ -f "$ROUTES" ] || die "找不到 routes.json: $ROUTES"
   local phases_json; phases_json="$(jq -c --arg s "$scenario" '.presets[$s] // empty' "$ROUTES")"
   [ -n "$phases_json" ] || die "routes.json 未定义预设 $scenario 的 phases"
+  if [ "$with_wayfind" = true ]; then
+    [ "$scenario" = "develop" ] || die "--with-wayfind 仅 develop 可用(雾里的大事先探路;bug/small-change 不需要)"
+    phases_json="$(printf '%s' "$phases_json" | jq -c '["wayfind"] + .')"
+  fi
   local phase; phase="$(printf '%s' "$phases_json" | jq -r '.[0]')"
   # 值守档:讨论态天生 attended(develop 有 propose/design 讨论期);bug/small-change 无讨论期,
   # 但动手前有一次轻确认(scenario reference 定),之后自主 → 起步 afk。过门(approve)自动切 afk。

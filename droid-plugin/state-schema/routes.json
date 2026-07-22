@@ -50,6 +50,11 @@
     }
   ],
   "phase_bindings": {
+    "wayfind": {
+      "load": "references/wayfind.md",
+      "do": "探路:雾里的大事项建成决策地图逐个解开(map 是索引,d-NN 一决策一文件;frontier 领决策→缺事实先查→与用户解开→落盘更新 map;frontier 清+剩余雾区确认不挡路 → handoff pass)。只产决策不动手",
+      "produced": "docs/design/<slug>/wayfind/"
+    },
     "investigate": {
       "load": "references/investigate.md",
       "do": "按 topic 并行派 investigate-topic,产出带引用的现状报告存 docs/investigating(取证不判定;不写 docs/context)",

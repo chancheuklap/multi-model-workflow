@@ -278,9 +278,9 @@ cmd_handoff() {
       if [ "$new_tc" -ge 2 ]; then
         warns+=("已掉头 $new_tc 次:先向用户讲清楚这次为什么又要回头,再继续")
       fi
-      # 判据B:流水线态同向掉头达阈 = 方向横跳打转;讨论态(investigate/propose/design)自由往返不记账(routes.json 既定决策)
+      # 判据B:流水线态同向掉头达阈 = 方向横跳打转;讨论态(wayfind/investigate/propose/design)自由往返不记账(routes.json 既定决策)
       case "$cur_phase" in
-        investigate|propose|design) : ;;
+        wayfind|investigate|propose|design) : ;;
         *)
           ta_phase="$tgt_phase"
           ta_n_json=$(( $(jq -r --arg p "$tgt_phase" '.turnaround_ledger[$p] // 0' "$m") + 1 ))

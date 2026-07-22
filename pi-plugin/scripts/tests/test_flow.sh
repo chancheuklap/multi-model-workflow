@@ -427,6 +427,24 @@ WNFO="$(cd "$WNF" && bash "$FLOW" where)"
 echo "$WNFO" | grep -q "do=方向已由用户明示" && no "无 flag 不该降级" || true
 echo "$WNFO" | grep -q "亮 2-3 方案" && ok "无 flag propose 走全量方案" || no "无 flag 全量方案"
 
+# ===== wayfind 前缀:--with-wayfind 进 phases、where 指路、推进带产出、非 develop 拒 =====
+WWF="$(bash "$PREPARE" new --scenario develop --slug 2026-07-05-wf --title t --request t --with-wayfind 2>/dev/null | grep '^worktree_path=' | cut -d= -f2-)"
+[ "$(jq -r '.phases[0]' "$WWF/${STATE_SUBDIR}/task.json")" = "wayfind" ] && ok "--with-wayfind phases 首元素=wayfind" || no "wayfind phases 前缀"
+[ "$(jq -r '.phases | length' "$WWF/${STATE_SUBDIR}/task.json")" = "9" ] && ok "wayfind 后接完整 develop 序列" || no "wayfind 序列长度"
+WWFO="$(cd "$WWF" && bash "$FLOW" where)"
+echo "$WWFO" | grep -q "^phase=wayfind$" && ok "where 报 phase=wayfind" || no "wayfind phase"
+echo "$WWFO" | grep -q "^load=references/wayfind.md$" && ok "where load 指 wayfind reference" || no "wayfind load"
+mkd "$WWF" docs/design/2026-07-05-wf/wayfind
+mkf "$WWF" docs/design/2026-07-05-wf/wayfind/map.md
+( cd "$WWF" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-07-05-wf/wayfind/ >/dev/null )
+WWFO2="$(cd "$WWF" && bash "$FLOW" where)"
+echo "$WWFO2" | grep -q "^phase=investigate$" && ok "wayfind pass → advance 到 investigate" || no "wayfind advance"
+echo "$WWFO2" | grep -qF 'prev_outputs=["docs/design/2026-07-05-wf/wayfind/"]' && ok "investigate prev_outputs 带 wayfind 目录" || no "wayfind prev_outputs"
+ERR_WF="$(bash "$PREPARE" new --scenario bug --slug 2026-07-05-wfbug --title t --request t --with-wayfind 2>&1 || true)"
+echo "$ERR_WF" | grep -q "仅 develop 可用" && ok "bug+--with-wayfind 被拒" || no "非 develop 未拒"
+WNW="$(newtask develop 2026-07-05-nw)"
+[ "$(jq -r '.phases[0]' "$WNW/${STATE_SUBDIR}/task.json")" = "investigate" ] && ok "无 flag develop phases 不变(回归)" || no "无 flag phases 漂移"
+
 # ===== note 书签(三源回报之一) =====
 ( cd "$WNF" && bash "$NOTE" note set --text "下一步先对齐計費口徑" >/dev/null )
 ( cd "$WNF" && bash "$NOTE" note show ) | grep -q "下一步先对齐計費口徑" && ok "note set/show 书签留读" || no "note 书签"
