@@ -42,7 +42,7 @@
 
 ## 3. 收口(回主线程)
 
-1. **亲验承重事实**:报告里的 `file:line` / `url`,自己 grep/read/查证坐实。子代理是劳动力不是信源,验不过的不写进交付物。
+1. **亲验承重事实**:报告里的 `file:line` / `url`,自己 grep/read/查证坐实。子代理是劳动力不是信源,验不过的不写进交付物。外部承重结论(库行为 / API 合同 / 规范语义)**沿引用链追到第一方来源**(官方文档 / 源码 / 规范 / 第一方 API)再采信,二手综述只当线索;逐结论带第一方引用,引不出的降级为「待验」。
 2. **旁路登记**:`report.spinoff_candidates` 里亲验为真的,逐条 `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,不顺手修。
 3. **存档 + handoff**:把现状报告写进 `docs/design/<slug>/investigating.md`(设计文件夹;目录不存在就建),钉进接力单:
  - 够 design / build 用 → `mmw handoff --conclusion pass --produced docs/design/<slug>/investigating.md`

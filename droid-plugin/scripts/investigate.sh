@@ -123,7 +123,7 @@ topic_prompt() {
 mode=$mode
 angle=$angle
 question=$question
-skill=${skill:-none}
+skill=${skill:-none}(非 none 时先用 Read 读 ~/.factory/skills/$skill/SKILL.md 按其指引投查,引用不照抄;文件不存在=缺装,写入 gaps 并注明角度未应用,不凭记忆编方法论)
 repoRoot=$repo
 
 内部调查只在 repoRoot 下用 Read/Grep/Glob/LS 取证；定位 bug 根因需要复现时可用 Execute 跑只读诊断、目标测试或复现命令，禁止安装依赖、改文件、commit。执行前后都核对 `git status --short`，发现 tracked 改动立即停止并写入 gaps。每条 locator 必须是 file:line。

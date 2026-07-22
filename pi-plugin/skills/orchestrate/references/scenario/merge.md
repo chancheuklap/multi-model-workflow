@@ -26,7 +26,7 @@ mmw task team
 
 ## 2. 冲突发现(七维度扫,Coordinator 读设计 + 验代码)
 
-读各 PR 的 design 文档建立方向,**回仓库级架构验**(读 `CONTEXT.md` 类领域模型,需要时用 `improve-codebase-architecture` / `code-explorer` 验代码、省你 context)。**并行**扫所有 PR,七维度:
+读各 PR 的 design 文档建立方向,**回仓库级架构验**(读 `CONTEXT.md` 类领域模型,需要时用外部 `improve-codebase-architecture` skill(对模型不可见,read `~/.agents/skills/improve-codebase-architecture/SKILL.md`)或 `code-explorer` 验代码、省你 context)。**并行**扫所有 PR,七维度:
 
 | 维度 | 扫什么 | 典型严重度 |
 |---|---|---|

@@ -6,13 +6,13 @@
 
 ## 怎么拆:委托外部 `to-tickets` skill(方法论单源,不在此复制)
 
-切片方法论本体在外部 `to-tickets` skill —— tracer-bullet / vertical-slice(每个 issue 切穿所有集成层、端到端可独立验证、单个适配一个 fresh context window)。用它来拆;**粒度和依赖(blocking edges)自己定,不再向用户确认循环**(已过 /approve-design,流水线态自主跑):切片清单落盘、编号列表进汇报和进度板亮给用户,他有异议随时口头调整或 /rescope;质量闸 = ②计划审兜底。
+切片方法论本体在外部 `to-tickets` skill——它对模型不可见(不在你的技能清单里),**先 Read `~/.factory/skills/to-tickets/SKILL.md` 全文再动手;文件不存在=缺装,停下报用户安装,不凭记忆编方法论**。其核心:tracer-bullet / vertical-slice(每个 issue 切穿所有集成层、端到端可独立验证、单个适配一个 fresh context window)。读完后用它来拆;**粒度和依赖(blocking edges)自己定,不再向用户确认循环**(已过 /approve-design,流水线态自主跑):切片清单落盘、编号列表进汇报和进度板亮给用户,他有异议随时口头调整或 /rescope;质量闸 = ②计划审兜底。
 
 **宽重构例外**:改列名 / 改共享类型这种爆炸半径大、单次编辑会破上千调用点的机械改动,不套 vertical slice,按 `to-tickets` 的 **expand–contract** 拆:先 expand(新旧并存不破)→ 分批 migrate(按爆炸半径分包,每批一个 issue、blocked by expand)→ contract(删旧,blocked by 全部 migrate 批)。
 
 plugin 在 `to-tickets` 结果上做两件**适配**:
 
-**适配 1 · 产物落我们的目录、一个大 issue 一个文件**:每个大 issue 落 `docs/issues/<slug>/<issue>.md`(slug 与设计文档对齐,prepare 已 scaffold `docs/issues/<slug>/`)。**override `to-tickets` 的 Step5 发布**——既不合并成单个 `tickets.md`、也不发线上 tracker,写成本地一 issue 一文件(下游 plan 死绑一文件一大 issue)。
+**适配 1 · 落点改我们的目录、不发 tracker**:上游本地模式已是一 issue 一文件(默认落 `.scratch/<feature-slug>/issues/`),只 override 两处——落点改 `docs/issues/<slug>/<issue>.md`(slug 与设计文档对齐,prepare 已 scaffold `docs/issues/<slug>/`),**不发任何线上 tracker**(下游 plan 死绑一文件一大 issue)。
 
 **适配 2 · issue 文件模板**(= `to-tickets` 单条 issue 模板 + plugin 扩展两节,缺一下游读不到):
 

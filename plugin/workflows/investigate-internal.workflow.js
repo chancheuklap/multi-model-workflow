@@ -72,7 +72,7 @@ const REPORT_SCHEMA = {
 
 function topicPrompt(t) {
   const loadSkill = t.skill
-    ? `先 Skill({ skill: "${t.skill}" }) 加载该角度方法论再投查(引用,不照抄)。`
+    ? `先读该角度方法论 skill(用 Read 读 ~/.claude/skills/${t.skill}/SKILL.md 并按其指引)再投查(引用,不照抄);文件不存在=缺装,写入 gaps 并注明角度未应用,不凭记忆编方法论。`
     : ''
   return [
     `你是 investigate 阶段的一名仓库调查员,只查这一个专题,不查别的。`,

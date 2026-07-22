@@ -470,7 +470,30 @@ freshness_lines() {  # $1=manifest
 }
 
 # ---------- where(只读,算"你在哪 + 下一步具体干嘛",不推进) ----------
+# 外部 mattpocock 技能前置检查:references 把方法论委托给这些技能(to-tickets 等,部分对模型不可见需按路径 read),缺装会静默降级。
+# 全齐零输出;缺装告警走 stderr(不占 stdout 首行的 RESUMABLE/UNMANAGED 合同)。只告警不阻断——缺装时对应 reference 自己有「停下报告」指令。
+mmw_warn_ext_skills() {
+  local main_dir="$HOME/.agents/skills" worker_dir="$HOME/.agents/skills"
+  local main_set="tdd codebase-design diagnosing-bugs domain-modeling prototype grilling to-tickets triage improve-codebase-architecture"
+  local worker_set="tdd codebase-design to-tickets"
+  local s missing_main="" missing_worker=""
+  for s in $main_set; do
+    [ -f "$main_dir/$s/SKILL.md" ] || missing_main="$missing_main $s"
+  done
+  if [ "$worker_dir" != "$main_dir" ]; then
+    for s in $worker_set; do
+      [ -f "$worker_dir/$s/SKILL.md" ] || missing_worker="$missing_worker $s"
+    done
+  fi
+  [ -z "$missing_main" ] && [ -z "$missing_worker" ] && return 0
+  echo "⚠ mmw 外部技能(mattpocock)缺装,相关 reference 的委托会落空:" >&2
+  [ -n "$missing_main" ] && echo "  $main_dir 缺:$missing_main" >&2
+  [ -n "$missing_worker" ] && echo "  $worker_dir 缺(工人侧):$missing_worker" >&2
+  echo "  安装:npx skills@latest add mattpocock/skills(勾选缺装项装到对应目录),或把仓库里对应技能目录软链进去。" >&2
+}
+
 cmd_where() {
+  mmw_warn_ext_skills
   local m
   if ! m="$(find_manifest)"; then
     # 冷启动可能落在主仓库根(而非 worktree);先从主仓库扫描在飞任务。

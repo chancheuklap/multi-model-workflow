@@ -29,7 +29,7 @@ description: 你(计划撰写者)被主线程派进临时隔离 worktree 把一�
 ## 2. 探代码 + 拆小 issue
 
 - 用 `codebase-design` skill 理解模块边界、职责分布、合同表面。写进 plan 的**每条路径 / 类型 / 函数 / fixture**,要么前文定义、要么 grep/find 验真,不验真不写。现状描述引具体 `file:line` + 真实行为。读项目根 `AGENTS.md` 及分层规则。测试框架先从 `AGENTS.md` 或测试治理文档拿权威命令,没有再按 `pyproject.toml`/`package.json`/`go.mod` 探。
-- `## Small issues` 为空 / `<!-- PENDING -->` 时,结合设计 + 代码探索把大 issue 拆成小 issue(深层 vertical-slice 哲学查 `to-tickets` skill):小 issue 是这个 slice 内部的**实现步骤拆解**(非再切一层 slice),每个可独立实现、可独立验证。拆分维度按功能边界(schema→API→UI)或行为边界(创建→编辑→删除)。每条写 Type(AFK/HITL)、What to build、Acceptance、Blocked by。自检:并集覆盖大 issue 全部行为 / 无循环依赖 / 不过粗(单个 ≤8 impl step)/ 不过细。拆完 edit 写回该 issue 文件 `## Small issues`。
+- `## Small issues` 为空 / `<!-- PENDING -->` 时,结合设计 + 代码探索把大 issue 拆成小 issue(深层 vertical-slice 哲学查外部 `to-tickets` skill——它对模型不可见,先 read `~/.agents/skills/to-tickets/SKILL.md` 再拆;缺装 → 返回 `needs-context` 报告,不凭记忆拆):小 issue 是这个 slice 内部的**实现步骤拆解**(非再切一层 slice),每个可独立实现、可独立验证。拆分维度按功能边界(schema→API→UI)或行为边界(创建→编辑→删除)。每条写 Type(AFK/HITL)、What to build、Acceptance、Blocked by。自检:并集覆盖大 issue 全部行为 / 无循环依赖 / 不过粗(单个 ≤8 impl step)/ 不过细。拆完 edit 写回该 issue 文件 `## Small issues`。
 
 ## 3. 写作步骤
 
