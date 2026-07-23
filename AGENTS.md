@@ -82,13 +82,11 @@ done
 Release 合同的 Python 测试要覆盖三个宿主：
 
 ```bash
-uv run pytest \
-  plugin/scripts/tests/test_release_contracts.py \
-  plugin/scripts/tests/test_release_script_assembler.py \
-  droid-plugin/scripts/tests/test_release_contracts.py \
-  droid-plugin/scripts/tests/test_release_script_assembler.py \
-  pi-plugin/scripts/tests/test_release_contracts.py \
-  pi-plugin/scripts/tests/test_release_script_assembler.py
+for host in plugin droid-plugin pi-plugin; do
+  uv run --with pytest --with pydantic pytest \
+    "$host/scripts/tests/test_release_contracts.py" \
+    "$host/scripts/tests/test_release_script_assembler.py" || exit 1
+done
 ```
 
 pi 还要通过两道生成物同步检查：
