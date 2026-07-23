@@ -2,7 +2,7 @@
 
 ## Plan Header
 
-- **Goal**：新增独立的 `codex-plugin/` 单宿主镜像，在不改变现有四类入口、阶段顺序、HITL 位置、控制动作、审查编制、worktree 习惯和断点恢复语义的前提下，完整迁移当前 `plugin/` 的业务能力。
+- **Goal**：新增独立的 `codex-plugin/` 单宿主镜像，在不改变现有四类入口、阶段顺序、HITL 位置、控制动作、审查编制和断点恢复语义的前提下，完整迁移当前 `plugin/` 的业务能力；主任务 worktree 改由 Codex App 接管，内部 plan/build worktree 继续由 MMW 管理。
 - **Primary host**：Codex Desktop / CLI / IDE 当前原生 plugin、skills、hooks 和 subagent runtime。
 - **Primary agents**：主线程、调查工人、调查综合工人、计划工人、开发工人、修复工人和 GPT 审者全部走 Codex 原生 GPT agent thread。
 - **Second reviewer**：只有独立的第二审查模型走外部无头 CLI；核心实现只认一个供应商无关 Adapter，不绑定 Claude 或其他厂商。
@@ -18,10 +18,15 @@
   - [Build plugins](https://learn.chatgpt.com/docs/build-plugins)
   - [Build skills](https://learn.chatgpt.com/docs/build-skills)
   - [Hooks](https://learn.chatgpt.com/docs/hooks)
+  - [Worktrees](https://learn.chatgpt.com/docs/environments/git-worktrees)
 - **Execution owner**：Codex 主线程；实现期严格按本计划 Task Pack 执行。
 - **Tech stack**：Bash、Python 3、jq、JSON Schema、Codex native subagent tools、Codex plugin hooks。
 - **Branch/worktree**：`codex/2026-07-23-codex-native-plugin-migration-plan`；当前计划位于独立 worktree。
-- **Final gate**：只有安装后的 Codex plugin 从 cache 运行、hooks 已 trust、真实 native agent fan-out、真实第二模型 CLI、compaction/resume 和完整 develop E2E 全部通过，才可宣告 parity。
+- **Worktree evidence**：
+  [`evidence/2026-07-23-codex-app-worktree.md`](evidence/2026-07-23-codex-app-worktree.md)。
+- **Final gate**：只有安装后的 Codex plugin 从 cache 运行、hooks 已 trust、App
+  outer/UI 对齐、真实 native agent fan-out、真实第二模型 CLI、compaction/resume
+  和完整 develop E2E 全部通过，才可宣告 parity。
 
 ## 第一屏：最终采用的迁移结论
 
@@ -38,7 +43,10 @@
 | 控制入口 | 当前 11 个命令按原名字一一映射成 Codex skills；只有 Codex 被迫改变的调用前缀从 `/name` 变为显式 skill mention。 |
 | 人工真实性 | 当前 6 个 `disable-model-invocation` 动作、设计批准、package 两次确认和出站动作由 `UserPromptSubmit` 一次性 receipt 保证，不能靠提示词。 |
 | 状态恢复 | 继续以 task/loop/package/release/git 为真相；agent target 只留在当前活会话，跨会话重新派干净 agent。 |
-| 主线程 cwd | 不要求用户手动开新 chat 或手动 Handoff。SessionStart 提供 session context；主线程所有文件工具使用绝对 task root，`mmw` 内部 chdir，并用 origin fingerprint 硬闸防止写回原 checkout。 |
+| 主任务 workspace | 当前 Codex 任务所在的 linked worktree 就是唯一主任务 workspace。优先直接以 App Worktree mode 开始；若从 Local 开始，只在建任务前请用户用 App 原生 Handoff 把同一个任务移到 Worktree。MMW 不再中途创建一个 App 看不见的主 worktree。 |
+| 主任务 Git identity | 接受 App managed worktree 的默认 detached HEAD；MMW 用 `refs/mmw/tasks/<task-id>` 钉住当前任务提交，不强迫用户在 UI 额外创建 branch。 |
+| 内部 worktree | plan sandbox 和 build worker worktree 仍由 MMW 创建并交给原生 subagent；它们是短命执行目录，不是用户导航目标，也不要求出现在 App sidebar。 |
+| 工作区所有权 | App/宿主创建、Handoff、展示和清理主任务 worktree；MMW 只创建和清理内部 worktree 与私有 task ref。双方不删除、改名或接管对方的工作区。 |
 | Return Contract | 保留现有结构化 Markdown/JSON 回执和父线程亲验；不新增覆盖所有角色的 SubagentStop schema 系统。 |
 | Investigate 脚本 | 不新增第二条 `mmw investigate` 编排轨。原生 subagent 是唯一执行轨，只保留必要的无状态结果校验/过滤 helper。 |
 | Merge 恢复 | 继续使用 merge brief + git 状态；补足 brief 必填字段，不新增独立 merge 状态机。 |
@@ -48,7 +56,11 @@
 
 ```mermaid
 flowchart LR
-    A["新设计 / 优化改造 / Bug / 合并"] --> B["调查"]
+    A["新设计 / 优化改造 / Bug / 合并"] --> W{"当前任务已在 linked worktree"}
+    W -- "是" --> T["在当前 App 可见 workspace 初始化任务"]
+    W -- "否：Local" --> X["用户在 App 点一次 Hand off to Worktree"]
+    X --> T
+    T --> B["调查"]
     B --> C["给 2-3 个方向"]
     C --> D["用户选择方向"]
     D --> E["设计讨论与预审"]
@@ -66,6 +78,7 @@ flowchart LR
 用户仍然：
 
 - 从同一类自然语言请求进入。
+- 主任务在 App 的同一个任务里持续可见，不需要打开另一个任务或记住隐藏路径。
 - 在 small-change 写第一行代码前确认“怎么改 + 影响面”。
 - 在 bug 根因查清、写第一行修复前确认“根因 + 怎么修 + 影响面”。
 - 在 propose 阶段选择方向。
@@ -85,10 +98,15 @@ flowchart LR
 
 Codex 宿主强制带来的唯一可见变化：
 
+- 新任务如果从 Local 模式进入，MMW 在创建任何任务状态和代码改动前请用户点一次
+  App 原生 `Hand off → Worktree`；直接用 Worktree mode 开始时没有这一步。
 - Claude 的 slash command 不能由 Codex plugin 分发；对应入口改成 `$<plugin>:<action>` skill mention。
 - Codex hook 当前不能主动返回 `permissionDecision:"ask"`；出站动作第一次被 deny 后，用户用一次确认消息放行该动作。
 
-其余变化都封装在 plugin 内，不把 `session_id`、context file、agent id、worktree 绝对路径或第二模型 Adapter 参数暴露给用户操作。
+Plan/build 的内部 worktree、`session_id`、context file、agent id、私有 task ref 和第二模型 Adapter 参数都封装在 plugin 内，不暴露给用户操作。
+
+术语必须分开：App `Handoff` 只移动当前 chat 的 workspace；`mmw handoff` 仍是
+MMW 阶段产物钉住与推进命令。两者不得在文案、状态或测试中混用。
 
 ## 现有能力与 Codex 原生映射
 
@@ -101,9 +119,11 @@ Codex 宿主强制带来的唯一可见变化：
 | `codex exec` plan/build worker | native subagent | 删除外部 Codex backend。 |
 | Claude 会话内 reviewer | native GPT subagent | 直接派干净 agent thread。 |
 | 外部 Codex reviewer | 外部第二模型 reviewer | 改成供应商无关 Adapter。 |
-| `.claude/multi-model-workflow` | `.codex/multi-model-workflow` | Codex 单宿主状态平面。 |
-| `.claude/worktrees` | `.codex/worktrees` | Codex 单宿主 worktree 根。 |
-| `EnterWorktree` | session context + 主线程绝对路径合同 + `mmw` 内部 chdir + origin guard | 用户不用手动换 chat，且原 checkout 不能被误写。 |
+| `.claude/multi-model-workflow` | `$PLUGIN_DATA/repos/<repo-id>/tasks/<task-id>` | Codex 单宿主 durable registry，不随 App outer 清理。 |
+| `.claude/worktrees` 主任务目录 | 当前 App/宿主已打开的 linked worktree | Codex 镜像不创建主任务 worktree；App diff、Git controls、terminal 和文件工具都落在同一个 checkout。 |
+| `.claude/worktrees` 内部 worker 目录 | `$PLUGIN_DATA/worktrees/<repo-id>/<task-id>` | 只承载 plan sandbox/build worker，由 MMW 创建和清理，不混入 App outer。 |
+| `EnterWorktree` | App Worktree mode / Handoff + `mmw task init` | 宿主先把当前任务放进可见 worktree，MMW 再初始化业务状态。 |
+| task branch | detached HEAD + `refs/mmw/tasks/<task-id>` | 私有 ref 保证提交可达和可合并；需要 push/PR 时才由用户使用 App 的 `Create branch here`。 |
 | Claude hook `ask` | Codex PreToolUse deny + user receipt | 两步 fail-closed。 |
 | Claude `disable-model-invocation` | explicit-only skill + UserPromptSubmit receipt | 保留只有用户能触发的语义。 |
 | 外部 Codex session resume | native follow-up 或基于磁盘重派 | agent thread 不进入业务真相源。 |
@@ -117,23 +137,25 @@ Codex 宿主强制带来的唯一可见变化：
 ```text
 bash <installed-plugin-root>/scripts/mmw.sh --context <session-context.json> <existing-command...>
 mmw context root
-mmw context bind --task-root <absolute-path>
+mmw context recover-current
 mmw context guard
+mmw task init [--base <branch>]
 ```
 
 **实现隐藏：**
 
-- 从 context 解析 task root。
-- 在分发到现有脚本前只做一次安全 `chdir`。
+- 从 context 解析当前宿主 workspace。
+- 在分发到现有脚本前校验进程 cwd 与 workspace root 是同一个 checkout。
 - 解析 plugin 版本和安装根。
 - 读取/写入 task、loop、package、release 状态。
 - 为 child prompt 输出绝对路径。
-- 为主线程输出唯一 `TASK_ROOT`，并校验 origin checkout 没有偏离建任务时的
-  HEAD + tracked/untracked fingerprint。
+- 为主线程输出唯一 `TASK_ROOT`，同步私有 task ref，并校验 outer/registered-inner
+  ownership allowset 与 target closing lease。
 
-不再并列提供 `--repo`、`--task-root`、`--worktree` 三套全局入口。恢复时先运行
-`context bind`，然后继续使用同一个 `--context` Interface。`context root` 和
-`context guard` 是该 Interface 下的定位/验真动作，不形成第二套 repo 参数体系。
+不再并列提供 `--repo`、`--task-root`、`--worktree` 三套全局入口。恢复时运行
+`context recover-current`，它只允许恢复当前任务已经打开的 checkout，不能绑定
+另一个隐藏路径。`context root` 和 `context guard` 是该 Interface 下的定位/验真
+动作，不形成第二套 repo 参数体系。
 
 ### 2. Native worker module
 
@@ -168,9 +190,24 @@ native agent thread。
 - start SHA。
 - docs boundary。
 - dispatch pending guard。
+- inner-worktree materialization/setup。
 - verify/receipt。
 
 只删除 pi agent registry、pi task id 和 pi runtime 路径，改为 Codex native agent thread。
+
+所有 MMW-created inner worktree 在 spawn 前统一执行 materialization：
+
+1. 从 outer workspace 读取 `.worktreeinclude`，只复制匹配且经 `git check-ignore`
+   确认为 ignored 的普通文件/目录；不跟随 source symlink。
+2. 复制作用域内被 ignore 的 `AGENTS.override.md`。
+3. 执行项目声明的 inner-worktree setup 命令；没有声明就明确记为
+   `setup=not-required`，不猜命令。
+4. 将复制清单、内容 fingerprint、setup command/result 写进 dispatch meta。
+5. 任一步失败都在 spawn 前 fail loud，并清理未派发的 inner worktree。
+
+Codex App 的 `.worktreeinclude`、ignored `AGENTS.override.md` 自动复制和 local
+environment setup 只覆盖 App-created worktree，不能被当作 MMW shell-created
+inner worktree 已准备好的证据。
 
 ### 3. Native review module
 
@@ -442,13 +479,20 @@ $PLUGIN_DATA/sessions/<session-id>.json
 {
   "schema_version": "1",
   "session_id": "<session>",
-  "origin_repo_path": "/absolute/origin/repo",
-  "task_root": "/absolute/task/worktree-or-null",
+  "task_id": "<task-id-or-null>",
+  "git_common_dir": "/absolute/repo/.git-or-null",
+  "workspace_root": "/absolute/current/host-worktree-or-null",
+  "task_ref": "refs/mmw/tasks/<task-id>-or-null",
+  "pending_handoff": null,
   "updated_at": "<utc>"
 }
 ```
 
-### 新任务
+`pending_handoff` 只在当前任务从 Local 移入 Worktree 的短暂窗口保存
+`git_common_dir`、target branch、base commit 和 source checkout；初始化完成即原子
+清除。它不是第二份 task state。
+
+### Workspace preflight 与新任务
 
 1. SessionStart hook 获取 `session_id`、`cwd`、`model`、`PLUGIN_ROOT`、`PLUGIN_DATA`。
 2. hook 创建或读取 session context。
@@ -458,61 +502,137 @@ $PLUGIN_DATA/sessions/<session-id>.json
    MMW=bash <PLUGIN_ROOT>/scripts/mmw.sh --context <context-path>
    ```
 
-4. `mmw task new` 从 origin repo 创建 task worktree。
-5. `task new` 更新 context 的 `task_root`。
-6. `task new` 在 task manifest 写入 origin repo path、HEAD 和当前
-   tracked/untracked fingerprint。
-7. 后续 `mmw` 调用在 wrapper 内部切到 task root。
+4. 正式任务进入时运行 `mmw task init`。它先把规范化后的
+   `git rev-parse --git-dir` 与 `--git-common-dir` 比较：
+   - 当前是 linked worktree：继续。
+   - 当前是 Local/main checkout：先要求 tracked/untracked clean；然后不创建
+     manifest、artifact、branch 或 worktree，只把 current branch、HEAD 和 common
+     dir 写入 `pending_handoff`，返回 `handoff-required`。
+5. `handoff-required` 只提示用户在当前 Codex App 任务头部执行
+   `Hand off → Worktree`。用户继续同一任务后再次运行 `task init`；不得新建 task、
+   fork task 或调用 App Server 代替这一步。
+6. linked worktree 必须 clean。来自 Handoff 时，HEAD/common dir 必须与
+   `pending_handoff` 相符；直接以 App Worktree mode 开始时，从指向当前 HEAD 的
+   local branches 推断 target branch，只有候选不唯一时才要求一次
+   `task init --base <branch>`。
+7. `task init` 分配不可变 `task_id`，把当前 checkout 记为 host-owned
+   `workspace_root`，并写入 `target_branch`、`base_commit`、
+   `task_ref=refs/mmw/tasks/<task-id>`。slug 只用于显示和 docs 路径，不再兼任
+   branch/worktree 身份。
+8. Registry 按 worktree git dir 原子取得 outer lease；同一 permanent/linked
+   worktree 已被另一 active MMW task 占用时 fail loud，不能因 App 允许多 chat 就让
+   两个 workflow 并写。
+9. `git update-ref` 把 task ref 钉在当前 HEAD。后续每次 task commit、阶段
+   handoff 和 closing 前原子更新 task ref；MMW 不为主任务创建 branch/worktree。
+
+不通过目录名猜测“App-managed”。可执行判据只有：当前 Codex 任务已经以该
+linked checkout 为 cwd。这样也允许用户把 App permanent worktree 或已准备好的
+linked worktree 作为项目打开；MMW 仍不拥有它的生命周期。
+
+当前 Codex 线程工具不能消掉第 5 步：`handoff_thread` 明确不能移动调用它的当前
+task；`fork_thread(environment=worktree)` 会创建新的 child task，且不会复制正在
+进行的 active turn。官方也没有把任意 shell-created worktree attach/register 到
+当前 task 的接口。因此一次 App Handoff 是当前唯一保持同一 chat、同一历史和 UI
+workspace 对齐的宿主边界，不是 MMW 新增的业务审批。
+
+### Durable task registry
+
+App-managed worktree 可能由 App 归档、容量清理和 snapshot 恢复，运行状态不能只
+放在该目录。Codex 镜像把业务状态移到 plugin data：
+
+```text
+$PLUGIN_DATA/repos/<repo-id>/tasks/<task-id>/task.json
+$PLUGIN_DATA/repos/<repo-id>/tasks/<task-id>/loop.json
+$PLUGIN_DATA/repos/<repo-id>/tasks/<task-id>/reviews/
+$PLUGIN_DATA/repos/<repo-id>/tasks/<task-id>/package.json
+$PLUGIN_DATA/repos/<repo-id>/tasks/<task-id>/release.json
+$PLUGIN_DATA/repos/<repo-id>/tasks/<task-id>/dispatch/
+$PLUGIN_DATA/worktrees/<repo-id>/<task-id>/
+```
+
+- `repo_id` 从规范化 git common dir 生成；不依赖 App worktree 根。
+- task manifest 保存 `workspace.path` 和 `workspace.git_dir` 作为可刷新定位缓存，
+  真正身份是 `task_id + repo_id + git_common_dir + task_ref`。
+- 正式 docs/code/commits 仍在当前 host worktree；registry 只保存运行状态和
+  receipts。
+- team/progress/recovery 扫描 registry，不再扫描固定 `.codex/worktrees/*`。
 
 ### 恢复
 
 - `startup|resume|compact` 都重新读取同一 context。
-- context 中 task root 存在时，SessionStart 从任务 manifest 重建进度。
-- context 损坏或需要接管另一 task 时：
+- context 中 task id 存在时，SessionStart 从 registry、当前 HEAD 和 task ref
+  重建进度。
+- context 损坏时：
 
   ```text
-  mmw context bind --task-root <absolute-task-worktree>
+  mmw context recover-current
   ```
 
-- `context bind` 用 task manifest 的 origin guard 恢复并复核 origin repo；路径、
-  git common dir 或 baseline 对不上时 fail loud。
-- context 只负责定位；阶段真相仍在任务 worktree。
-- cleanup 在删除 task worktree 后删除指向它的 context。
+- `recover-current` 只允许把 registry 中的任务恢复到当前 checkout；git common
+  dir、task ref/HEAD 关系或 task id 不一致时 fail loud。它不能把当前 Codex 任务
+  改绑到另一个隐藏 worktree。
+- App Handoff/restore 令路径变化时，resolver 用 task id、common dir 和 task ref
+  刷新 `workspace.path`；绝对路径不是身份源。
+- task ref 让 detached HEAD 的已提交工作在 App snapshot/lifecycle 之外仍可达；
+  未提交改动仍必须由当前 worktree 或 App snapshot 承载，不能伪装成已恢复。
+- closing 成功后删除 registry task state、session binding 和私有 task ref；不删除
+  当前 App/host worktree。
 
 ### Coordinator task-root invariant
 
-`mmw` 子进程 chdir 不能改变 Codex 主线程的文件工具 cwd，因此主线程和 child 使用
-同一条落点合同：
+主任务 workspace 必须与当前 Codex 任务 cwd 同一。Session context 不再承担把
+主线程“遥控”到另一个 checkout 的职责：
 
-1. SessionStart、`where` 和恢复回执同时给出绝对 `ORIGIN_ROOT` 与唯一可写
-   `TASK_ROOT`。
-2. task 绑定后，主线程重新读取 `TASK_ROOT` 下的 `AGENTS.md` 和 nested override。
+1. SessionStart、`where` 和恢复回执同时给出 `REPO_COMMON_DIR`、`TARGET_BRANCH`
+   与唯一可写 `TASK_ROOT`；`TASK_ROOT` 必须等于当前 checkout root。
+2. task 初始化后，主线程重新读取 `TASK_ROOT` 下的 `AGENTS.md` 和 nested
+   override。
 3. active task 内 propose、design、to-issue、small-change、bug、package/release 和
-   closing 合并前的所有主线程文件工具使用绝对 `TASK_ROOT`；shell 工具显式指定
-   target workdir。
-4. PreToolUse 对当前可观察的本地写工具和变更型 shell 命令解析绝对目标及 git
-   common dir；active task 下写向 origin checkout 时 deny。不能观察的 hosted tool
-   不宣称被这层覆盖。
-5. 所有 mutating `mmw` 命令和每次 handoff 前运行 `context guard`。它复用当前
-   review fingerprint 算法，核 origin HEAD、tracked binary diff、untracked path 和
-   content 都与 task 创建时一致。
-6. guard 发现变化时 fail loud，输出 origin status；不自动还原，以免覆盖用户并发
-   修改。
-7. 安装后 E2E 必须从 origin cwd 启动，让主线程分别完成文档写入、源码修改和
-   commit，并证明所有变化只在 task worktree。
+   closing 前的所有主线程文件工具自然落在当前 `TASK_ROOT`；传给 subagent 和脚本
+   的路径仍全部使用绝对路径。
+4. Registry 为当前 task 维护写入 allowset：当前 host-owned outer workspace，以及
+   已登记为 active 的 MMW plan/build inner worktrees。其他 task worktree、未登记
+   linked worktree 和 target checkout 均拒绝写入。
+5. PreToolUse 对可观察的文件工具和变更型 shell 命令按绝对 path、git common dir
+   和 worktree git dir 执行 allowset；hosted tool 不在 hook coverage 时不得宣称已
+   机械保护。
+6. 所有 mutating `mmw` 命令和每次阶段 handoff 前运行 `context guard`，核对
+   task id、当前 workspace、task ref 和 active inner-worktree registry。
+7. `waiting-user` 同时冻结 outer 与全部 inner worktrees；guard 发现越界时 fail
+   loud，不自动还原。
+8. active task 中如果用户把同一 chat Handoff 到 Local 或另一个 worktree，下一次
+   guard 只在 task identity 和 ref 可证明一致时刷新路径；否则停下，不静默接管
+   另一个 checkout。
+9. App 的 diff、Git controls、integrated terminal 和主线程文件工具因此始终看见
+   同一份主任务改动。plan/build inner worktree 的结果只有验收并合入 outer 后才
+   出现在 App diff。
 
-closing 的本地 `--no-ff` merge 是唯一计划内 origin 写入：先通过最后一次
-`context guard`，再执行 merge 和 cleanup。独立 merge 场景没有 task manifest，
-继续按 merge brief + git 边界运行，不套用 active-task origin guard。
+任务运行期间允许 target branch 和 Local checkout 正常前进；这正是 worktree
+隔离的目的。closing 先确认 outer clean 并把 task ref 更新到 HEAD，再解析
+`target_branch` 当前 checkout/tip：已有 checkout dirty、正处于 merge/rebase 或被
+另一受控流程占用时进入结构化 waiting；已有 clean checkout 就原地使用；没有任何
+checkout 时在 `$PLUGIN_DATA/worktrees/.../closing-target` 创建一个 registered
+短命 target worktree。`base_commit` 必须仍是 target tip 与 task ref 的 ancestor；
+target 发生 history rewrite 时进入 waiting，不擅自按普通前进处理。取得 closing
+lease 后执行
+`git merge --no-ff refs/mmw/tasks/<task-id>` 并跑最终验证。成功后只清理 MMW
+inner worktrees、registry 和私有 ref；App worktree、App branch、chat 和 snapshot
+均由 App 管理。独立 merge 场景继续按 merge brief + git 边界运行。
+
+### CLI / IDE 边界
+
+- Desktop 是需要 UI 可见主 worktree 的正式 parity surface。
+- CLI/IDE 没有 App Handoff 时，必须在启动 Codex 前准备 linked worktree，并用
+  `codex -C <worktree>` 或从该目录启动；MMW 不在会话中途创建一个当前进程无法
+  切入的主 worktree。
+- CLI/IDE 进入 Local/main checkout 时，`task init` 同样 fail closed，并给出重新
+  从 linked worktree 启动的准确命令；inner worker worktree 逻辑不变。
 
 ### `.codex` 忽略规则
 
-不创建 `.codex/.gitignore` 通配符。只向 Git 本地 exclude 加：
-
-```text
-.codex/multi-model-workflow/
-.codex/worktrees/
-```
+Runtime registry 和 inner worktrees 全部位于 `$PLUGIN_DATA`，因此不需要向项目
+写入 `.codex` runtime 目录或 Git exclude。不得创建 `.codex/.gitignore` 通配符，
+也不得把整个 `.codex/` 加进本地 exclude。
 
 必须保留并允许版本控制：
 
@@ -714,10 +834,13 @@ topic、plan 或 worker 继续分波次派发；并发上限只影响调度，�
    - 当前 plan 文件。
    - 当前 issue 的 `## Small issues`。
 5. 其他路径变化 fail。
-6. verify 通过后原子发布两个文件回 task worktree。
+6. verify 通过后原子发布两个文件回 outer workspace。
 7. 删除 sandbox worktree 和临时 branch。
+8. sandbox 位于 `$PLUGIN_DATA/worktrees/<repo-id>/<task-id>/`，spawn 前必须通过
+   统一 materialization；不放进 App outer workspace 的 `.codex/`。
 
-这样保留并行写计划，同时避免多个 native agent 在同一 task worktree 直接并写，也无需再设计 per-agent filesystem ACL。
+这样保留并行写计划，同时避免多个 native agent 在同一 outer workspace 直接并写，
+也无需再设计 per-agent filesystem ACL。
 
 ### 恢复
 
@@ -749,8 +872,8 @@ topic、plan 或 worker 继续分波次派发；并发上限只影响调度，�
   同样进入 `waiting-user`。
 - 用户回复并接受/调整后运行 `task resume`，恢复 AFK 再动代码；compaction 或
   session restart 仍从 `status + waiting_for + note` 看见这道人闸。
-- task 处于 `waiting-user` 时，PreToolUse 拒绝对 task/origin 的变更型工具，
-  只放行只读检查、note 和 `task resume`，Stop hook 不能替用户确认。
+- task 处于 `waiting-user` 时，PreToolUse 拒绝对 outer 与全部 registered inner 的
+  变更型工具，只放行只读检查、note 和 `task resume`，Stop hook 不能替用户确认。
 - 保留主线程就地 TDD。
 - 不为了“全员 subagent 化”强派 builder。
 - 多步任务继续用 loop。
@@ -779,11 +902,12 @@ topic、plan 或 worker 继续分波次派发；并发上限只影响调度，�
 8. 缺陷优先 follow-up 当前活 worker。
 9. worker 已关闭则按现有 commits 新派 continuation worker。
 10. 验收通过后 loop step done。
-11. 所有 plan 完成后逐个本地 `--no-ff` 合入 task branch。
+11. 所有 plan 完成后逐个本地 `--no-ff` 合入 outer detached HEAD。
 12. 每合一个运行对应测试。
-13. 清 plan worktree。
-14. 跑跨计划合同门。
-15. 进入 final review。
+13. 每次 merge commit 后更新 `refs/mmw/tasks/<task-id>`。
+14. 清 plan worktree/branch。
+15. 跑跨计划合同门。
+16. 进入 final review。
 
 ### Build recovery
 
@@ -935,9 +1059,20 @@ release repair-verify --stage <stage>
 - 同步必要正式文档。
 - 跑 tests 和 `git diff --check`。
 - 清 open items。
-- 本地 `--no-ff` merge 可自主。
+- 确认 outer workspace clean，把私有 task ref 更新到当前 HEAD。
+- 解析 target branch 的当前 checkout 与最新 tip；dirty、merge/rebase 中或有受控
+  lease 时进入结构化 waiting，不覆盖用户工作。
+- 验证 `base_commit` 仍同时是 target tip 与 task ref 的 ancestor；history rewrite
+  需要显式处置。
+- target 没有 checkout 时创建 registered `closing-target` inner worktree；已有
+  clean checkout 时复用，不重复 checkout 同一 branch。
+- 在 target checkout 本地 `git merge --no-ff refs/mmw/tasks/<task-id>` 并运行
+  最终验证；target 自任务开始后的正常前进由 Git merge 和现有冲突合同处理。
 - push/远端 merge/部署需 outbound receipt。
-- 合并后才清理 task worktree/branch。
+- 合并和最终验证成功后才清理 MMW inner worktrees/branches、task registry、
+  session binding 和私有 task ref。
+- 返回 `HOST_WORKTREE_RETAINED`；不删除、detach、rename 或 archive App/host outer
+  worktree。
 
 `investigating.md` 作为讨论态正式资产提交；review trace 和 final report 按当前 ignore/交接合同处理，不把它误删为普通临时文件。
 
@@ -945,23 +1080,27 @@ release repair-verify --stage <stage>
 
 完整保留当前流程：
 
-1. 建 team view。
-2. 写 merge brief。
-3. 跨分支合同图。
-4. 文件交叉矩阵。
-5. 七维冲突扫描。
-6. 简单/复杂/系统性/设计冲突分类。
-7. 根因不明先 investigate。
-8. 根因明确复杂修复派 native GPT builder。
-9. 设计冲突回用户。
-10. 每个 branch 本地 `--no-ff` merge。
-11. 每合一个立即测试。
-12. 最终 integration review。
-13. cleanup。
+1. 对当前 host linked worktree 执行同一 workspace preflight；不在 Local checkout
+   旁边另建隐藏 integration worktree。
+2. 建 team view。
+3. 写 merge brief，并创建 `refs/mmw/merges/<merge-id>` 钉住当前 detached HEAD。
+4. 跨分支合同图。
+5. 文件交叉矩阵。
+6. 七维冲突扫描。
+7. 简单/复杂/系统性/设计冲突分类。
+8. 根因不明先 investigate。
+9. 根因明确复杂修复派 native GPT builder。
+10. 设计冲突回用户。
+11. 每个 branch 本地 `--no-ff` merge 到当前 outer；每次 merge 后更新 merge ref。
+12. 每合一个立即测试。
+13. 最终 integration review。
+14. 在 target branch 本地 `--no-ff` merge 私有 merge ref 并验证。
+15. 只清 MMW ref/state/inner worktree，保留 host outer。
 
 恢复继续使用 merge brief + git：
 
-- brief 必须记录候选 branch、base、tip、顺序、已合状态和验证结果。
+- brief 必须记录 merge id/ref、target、候选 branch、base、tip、顺序、已合状态和
+  验证结果。
 - git HEAD、MERGE_HEAD、index/conflict state 是执行真相。
 - 不新增 `merge-state.json`，避免与 git 和 brief 形成第三份状态。
 
@@ -971,7 +1110,7 @@ release repair-verify --stage <stage>
 | --- | --- | ---: |
 | SessionStart | 安装根、session context、任务分诊、model provenance、最近提交、note、Open Decisions、版本/时效 | 改写 |
 | UserPromptSubmit | protected action receipt、package receipt、outbound receipt、用户消息恢复 attended | 新增 |
-| PreToolUse | redline deny、consume outbound receipt、active-task origin target guard、`waiting-user` 写入阻断、unattended 下阻止 user-input 工具 | 改写 |
+| PreToolUse | redline deny、consume outbound receipt、active-task outer/registered-inner allowset、`waiting-user` 写入阻断、unattended 下阻止 user-input 工具 | 改写 |
 | PostToolUse | Pack commit 辅助记账；目标 worktree 从 tool input 的绝对路径/工作目录解析，不使用 session `cwd` 猜测 | 改写 |
 | Stop | AFK task 仍 active 时要求继续一次；合法 waiting/blocked/done 才允许停 | 新增 |
 
@@ -1018,14 +1157,23 @@ Stop hook 必须读取当前 Codex 事件的 `stop_hook_active`：
 
 新增：
 
-- `origin_guard.repo_path`
-- `origin_guard.head`
-- `origin_guard.fingerprint`
+- 不可变 `task_id`。
+- `repo_id` 与规范化 `git_common_dir`。
+- `target_branch`、`base_commit` 和 `task_ref`。
+- `workspace.owner = "codex-host"`。
+- `workspace.path`、`workspace.git_dir`、`workspace.status` 和 `workspace.lease`；
+  path 只作可刷新缓存。
 
 调整：
 
+- manifest 从 task worktree 内移到 `$PLUGIN_DATA` registry。
+- `slug` 只用于显示/docs，不再要求 slug、branch 与 worktree path 相等。
+- `branch` 改为 nullable 且非权威；App managed outer 的正常形态是 detached HEAD。
+- 文档/产物路径保存为相对 workspace root 的路径。
 - host/version 文案改 Codex。
 - phase descriptions 不再写第二模型写计划。
+- 删除 active-task origin freeze/fingerprint；写入边界改为 outer + registered inner
+  allowset，target 只在 closing lease 内可写。
 
 ### `loop-state.schema.json`
 
@@ -1037,14 +1185,16 @@ Stop hook 必须读取当前 Codex 事件的 `stop_hook_active`：
 - commit。
 - pause。
 
-不新增 step 字段。只把 `worktree` 的描述从外部 Codex session 恢复改为 native
-dispatch package 恢复；`start_sha`、`meta.json` 和 receipt 继续位于当前
-pi worker 已使用的 dispatch 目录。native agent target 只存在于当前会话的工具
+新增 `worktree_id`，并把 `worktree` 绝对 path 明确为可刷新定位缓存。dispatch meta
+登记 inner worktree 的 owner、kind、branch、base commit、git dir、
+materialization/setup fingerprint 和 status。`start_sha`、`meta.json` 和 receipt
+位于 task registry 的 dispatch 目录。native agent target 只存在于当前会话的工具
 结果，不进入磁盘真相源。
 
 ### User receipt
 
-新增最小 `user-action-receipt.schema.json`，只用于 hook 与受保护命令的机械校验。
+新增最小 `user-action-receipt.schema.json`，只用于 hook 与受保护命令的机械校验；
+receipt 绑定 `task_id + HEAD + action fingerprint`，不绑定一次性 outer path。
 
 ### 不新增
 
@@ -1151,7 +1301,7 @@ codex-plugin/
 | `plugin/scripts/flow.sh` | 阶段推进与 gate。 |
 | `plugin/scripts/loop.sh` | 内层 loop。 |
 | `plugin/scripts/note.sh` | note、fingerprint、approval；增加 receipt consumption。 |
-| `plugin/scripts/prepare.sh` | task/worktree；去 EnterWorktree，改 context bind。 |
+| `plugin/scripts/prepare.sh` | host outer adoption、Local/Handoff preflight、task ref、registry 与 ownership-aware cleanup；不创建/删除主任务 worktree。 |
 | `plugin/scripts/progress.sh` | 进度投影。 |
 | `plugin/scripts/steer.sh` | 控制动作。 |
 | `plugin/scripts/package-phase.sh` | package state；增加两个人工 receipt。 |
@@ -1189,11 +1339,15 @@ codex-plugin/
 3. review trace 与 final review report 是两个产物，测试分别覆盖。
 4. 所有 `needs-context` 示例必须带 `--waiting-for`。
 5. `release-flow/SKILL.md` 不再独立扫描 Claude cache。
-6. Codex 状态 ignore 不得吞 `.codex` 全目录。
+6. Codex runtime state/inner worktrees 移到 `$PLUGIN_DATA`，不得吞 `.codex` 全目录。
 7. package 两次确认必须证明来自用户。
 8. installed runtime parity 不再要求额外 Codex custom agents；应明确验证“没有 custom agent 也能完整运行”。
 9. 所有 `~/.claude/skills`、`~/.agents/skills`、`CLAUDE.md`、slash command 和
    `AskUserQuestion` 引用改成 bundled Codex skill/`AGENTS.md`/当前用户输入工具。
+10. 主任务 worktree 的 create/Handoff/UI/cleanup 归 Codex App；MMW 只 adoption
+    当前 outer、维护 task ref，并拥有 plan/build inner worktrees。
+11. `.worktreeinclude`、ignored `AGENTS.override.md` 和 environment setup 不会自动
+    作用于 MMW-created inner worktree，worker prepare 必须显式 materialize。
 
 各类方法文档的实现归属固定如下，禁止留给最后临场补：
 
@@ -1243,8 +1397,9 @@ codex-plugin/
 ## Task Pack 2：Runtime context 与 host-neutral workflow engine
 
 **Goal behavior**：SessionStart 能定位 plugin/current task；`where → handoff`、loop、
-progress、三条路由分叉和断点恢复在 Codex 状态平面完整运行，原 checkout 受硬闸
-保护。
+progress、三条路由分叉和断点恢复在 Codex 状态平面完整运行；主任务原地采用当前
+host linked worktree，状态在 `$PLUGIN_DATA` 持久化，MMW 不接管 App outer
+lifecycle。
 
 **Owned files：**
 
@@ -1264,32 +1419,54 @@ progress、三条路由分叉和断点恢复在 Codex 状态平面完整运行�
 **TDD：**
 
 1. RED：SessionStart fixture 输入含 session/cwd/model，预期输出准确 MMW/context、
-   `ORIGIN_ROOT` 和 `TASK_ROOT`。
-2. RED：task new 后 context 绑定 task root，并记录 origin guard。
-3. RED：`context guard` 检出 origin HEAD、tracked、untracked 任一变化。
-4. RED：compact/resume 后读取同一 task。
-5. RED：`context bind` 从 manifest 恢复 origin，路径/common dir/baseline 不一致
-   fail loud。
-6. RED：已有 `.codex/config.toml`/agents/rules 不被 ignore。
-7. RED：`where/handoff/pin/spinoff`、loop 和 progress 的现有测试在 Codex runtime
+   `REPO_COMMON_DIR`、`TARGET_BRANCH` 和 `TASK_ROOT`。
+2. RED：Local/main checkout 运行 `task init` 时，除 session 的
+   `pending_handoff` 外不产生 task state、artifact、branch 或 worktree，并返回准确
+   App Handoff 指令。
+3. RED：同一 session Handoff 后采用当前 linked checkout；`pwd == TASK_ROOT`，没有
+   第二个 outer `git worktree add`。
+4. RED：直接以 detached App Worktree 启动时唯一 target branch 可推断；候选不唯一
+   必须显式 `--base`，不猜 branch。
+5. RED：Local 或 outer 有 tracked/untracked 改动时初始化 fail loud。
+6. RED：task id/ref/target/base 写入外部 registry；task commit 和阶段 handoff 后
+   task ref 与 HEAD 一致。
+7. RED：同一 outer 已被另一 active task lease 占用时初始化失败；同一 task/session
+   恢复可续租。
+8. RED：`context recover-current` 只能恢复当前 checkout；common dir/task ref/task
+   id 不一致时 fail loud。
+9. RED：模拟 App restore 导致 outer path 改变，resolver 刷新 path 但 task id/state
+   不变。
+10. RED：plugin cache/version 升级后 `$PLUGIN_DATA` registry 和 session/task identity
+    保留。
+11. RED：模拟 host outer 被删除，registry 与未合入 task ref 保留，不伪造 done。
+12. RED：target branch 在任务期间前进不触发 guard；closing 以最新 target tip
+    merge。
+13. RED：已有 `.codex/config.toml`/agents/rules 不被 ignore，项目不新增 runtime
+    `.codex` 路径。
+14. RED：`where/handoff/pin/spinoff`、loop 和 progress 的现有测试在 Codex runtime
    通过。
-8. RED：`--direction-given` propose 降级。
-9. RED：`--with-wayfind` 仅 develop 可用，产物进入 investigate `prev_outputs`。
-10. RED：bug/small-change `task escalate --to develop` 保留 worktree 与已有产物。
-11. RED：Coordinator references 要求所有主线程文件工具使用绝对 `TASK_ROOT`，
-    并重新读取目标 worktree rules。
-12. RED：Codex references 无 Claude skill path、slash command、Workflow、
+15. RED：`--direction-given` propose 降级。
+16. RED：`--with-wayfind` 仅 develop 可用，产物进入 investigate `prev_outputs`。
+17. RED：bug/small-change `task escalate --to develop` 保留 task id、outer 与已有
+    产物。
+18. RED：Coordinator references 要求 `TASK_ROOT` 就是当前 checkout，并重新读取
+    outer rules。
+19. RED：Codex references 无 Claude skill path、slash command、Workflow、
     EnterWorktree 或 AskUserQuestion 调用面。
-13. GREEN：port host-neutral engine，只改 runtime/path/host 文案。
-14. REFACTOR：所有 phase script 只通过 runtime 解析 task root。
+20. GREEN：port host-neutral engine，重写 prepare/registry/workspace ownership
+    seam。
+21. REFACTOR：所有 phase script 只通过 runtime 解析 task id/current root。
 
 **Acceptance：**
 
 - SessionStart hook trust 后真实触发。
-- context 损坏 fail loud，`context bind` 可恢复。
-- 主 repo 在 active task 期间与 origin guard baseline 一致。
+- context 损坏 fail loud，`recover-current` 可恢复且不能跨 checkout 遥控。
+- App/host outer 始终是当前 task workspace；MMW 不创建或删除它。
+- target/Local 可并行前进；未到 closing 不写 target checkout。
+- detached commits 由 task ref 保持可达。
 - 主阶段循环、loop、progress 与三条路由分叉可运行。
-- 不创建 `.codex/.gitignore='*'`。
+- runtime state/inner worktree 位于 `$PLUGIN_DATA`，不创建项目内 runtime
+  `.codex` ignore。
 
 ## Task Pack 3：11 个控制 skills 与用户真实性
 
@@ -1329,7 +1506,9 @@ progress、三条路由分叉和断点恢复在 Codex 状态平面完整运行�
 
 ## Task Pack 4：Native worker substrate
 
-**Goal behavior**：plan/build 不再调用外部 Codex；复用 pi 当前 native prepare/verify/sandbox。
+**Goal behavior**：plan/build 不再调用外部 Codex；复用 pi 当前 native
+prepare/verify/sandbox，并补齐 App 不会替 shell-created inner worktree 执行的
+materialization/setup。
 
 **Owned files：**
 
@@ -1352,15 +1531,25 @@ progress、三条路由分叉和断点恢复在 Codex 状态平面完整运行�
 7. RED：pending dispatch 不可覆盖。
 8. RED：receipt 完成后 verify。
 9. RED：有 commits 的 continuation 恢复。
-10. GREEN：从 pi worker port 最小实现。
+10. RED：inner worktree 只放在 `$PLUGIN_DATA/worktrees/<repo-id>/<task-id>` 并登记
+    worktree id/git dir/owner/status。
+11. RED：`.worktreeinclude` 只复制确实 ignored 的普通文件，不跟随 source
+    symlink。
+12. RED：nested ignored `AGENTS.override.md` 在 plan/build inner worktree 生效。
+13. RED：声明的 inner setup 成功才允许 spawn；失败时不派 agent、不留下 active
+    worktree。
+14. RED：materialization/setup fingerprint 变化可见，不能复用 stale inner。
+15. GREEN：从 pi worker port 最小实现并增加统一 materialize seam。
 
 **Acceptance：**
 
 - 单 plan 和多 plan。
 - 两个 plan writer 真并行、互不污染。
 - 两个 build worker 真并行、各自 worktree。
-- native agent 不需要额外 registry。
+- native agent target 不进入 durable registry；只有 task/inner-worktree ownership
+  和 dispatch meta 持久化。
 - child 对非主 cwd worktree 的修改和 commit 真实成功。
+- App 自动 setup 不被错误套用到 MMW-created inner worktree。
 
 ## Task Pack 5：Native investigate
 
@@ -1454,15 +1643,19 @@ progress、三条路由分叉和断点恢复在 Codex 状态平面完整运行�
 3. RED：dry-run 放行。
 4. RED：outbound receipt 只放行一次。
 5. RED：MCP/GitHub 已知写工具 redline。
-6. RED：active task 下可观察的文件/变更型 shell 写向 origin 被 deny，写向
-   `TASK_ROOT` 放行；判定使用绝对路径 + git common dir。
-7. RED：`waiting-user` 下变更型工具被 deny，只读、note 和 `task resume` 放行。
-8. RED：AFK active task Stop 时继续。
-9. RED：`stop_hook_active=true` 不二次拒绝，且留下 violation。
-10. RED：waiting/blocked/done 可停。
-11. RED：attended 模式可停。
-12. RED：用户新 prompt 切回 attended。
-13. RED：Pack commit 从 tool input 指向的 target worktree 读取真实 HEAD。
+6. RED：active task 的 host outer 和 registered active inner worktrees 放行；target、
+   其他 task 和 unregistered linked worktree 拒绝。判定使用绝对 path + common
+   dir + worktree git dir。
+7. RED：inner worktree status 退出 active 后立即从 allowset 移除。
+8. RED：`waiting-user` 下 outer 与全部 inner 的变更型工具被 deny，只读、note 和
+   `task resume` 放行。
+9. RED：closing lease 只在受控步骤临时放行 target checkout，结束或失败后释放。
+10. RED：AFK active task Stop 时继续。
+11. RED：`stop_hook_active=true` 不二次拒绝，且留下 violation。
+12. RED：waiting/blocked/done 可停。
+13. RED：attended 模式可停。
+14. RED：用户新 prompt 切回 attended。
+15. RED：Pack commit 从 tool input 指向的 registered inner worktree 读取真实 HEAD。
 
 **Acceptance：**
 
@@ -1520,18 +1713,25 @@ progress、三条路由分叉和断点恢复在 Codex 状态平面完整运行�
 
 **TDD：**
 
-1. RED：merge brief 必填 branch/base/tip/order/status/verification。
+1. RED：merge brief 必填 merge id/ref、target、branch/base/tip/order/status/verification。
 2. RED：simple/complex/systemic/design conflict 四路。
 3. RED：逐 branch `--no-ff` + tests。
 4. RED：integration review matrix。
 5. RED：investigating 正式资产。
 6. RED：review trace/final report 分离。
 7. RED：needs-context 均有 waiting-for。
+8. RED：detached outer 的 task/merge custom ref 可被 target `--no-ff` merge。
+9. RED：target 自任务开始后前进时合入最新 tip；真实冲突进入既有冲突流程。
+10. RED：target dirty/busy 时保留 ref/registry 并进入 waiting，不覆盖用户工作。
+11. RED：target history rewrite 导致 base 不再为 ancestor 时进入 waiting。
+12. RED：target 未 checkout 时创建/登记/清理 `closing-target` inner；target 已在
+    clean checkout 时复用且不触发 one-branch-per-worktree 错误。
+13. RED：closing 只删 MMW inner/ref/state，返回 `HOST_WORKTREE_RETAINED`。
 
 **Acceptance：**
 
 - merge 中断后从 brief + git 恢复。
-- cleanup 只在本地合并与验证后。
+- cleanup 只在本地合并与验证后，且永不删除 host outer。
 - outbound 仍受 receipt。
 - 无 merge-state 第二账本。
 
@@ -1559,14 +1759,31 @@ progress、三条路由分叉和断点恢复在 Codex 状态平面完整运行�
 4. RED：installed cache 与 source 不同，运行仍指向 cache。
 5. RED：hook trust 未完成时 parity fail。
 6. RED：无需 custom agents。
-7. RED：真实 develop full chain，且从 origin cwd 启动后 propose/design/to-issue
-   只写 task worktree。
-8. RED：`--direction-given`、`--with-wayfind` 和 bug/small-change 原地 escalate。
-9. RED：small-change/bug 轻确认前写入被拒，用户回复后从原 task 继续。
-10. RED：bug、small-change、merge 各自完整终审与 closing。
-11. RED：compaction/resume、主 session 重启、native child 丢失重派。
-12. RED：外部审者在不可读 plugin cache 的环境中仍消费自包含 method prompt。
-13. GREEN：完成 current docs 和正式 E2E。
+7. RED：真实 App Worktree 默认 detached；`task init` 原地 adoption，
+   `pwd == TASK_ROOT`，没有第二个 outer，App terminal/diff/Git controls 与实际改动
+   对齐。保存截图或录屏证据。
+8. RED：从 App Local 启动时 task/artifact/branch/worktree 均未产生，用户一次
+   Handoff 后同一 chat 继续完整 develop。
+9. RED：dirty App outer 初始化 fail loud；target branch 候选不唯一不猜。
+10. RED：真实 develop full chain；inner plan/build 结果验收并合入 outer 后才出现
+    在 App diff。
+11. RED：`.worktreeinclude`、ignored `AGENTS.override.md` 和 setup 在真实 inner
+    plan/build worktree 生效。
+12. RED：`--direction-given`、`--with-wayfind` 和 bug/small-change 原地 escalate。
+13. RED：small-change/bug 轻确认前 outer/inner 写入均被拒，用户回复后从原 task
+    继续。
+14. RED：bug、small-change、merge 四入口都以 App-attached outer 运行，并各自
+    完整终审与 closing。
+15. RED：compaction/resume、主 session 重启、App restore/path relocation、
+    native child 丢失重派。
+16. RED：模拟 App outer 删除，外部 registry 与未合入 task ref 保留，任务不被
+    误报完成。
+17. RED：target 在任务期间前进可继续；closing dirty/busy 时不覆盖且保留 state。
+18. RED：custom task/merge ref 合入 target 后只清 MMW ownership，App outer 保留。
+19. RED：CLI 从 prepared linked worktree `codex -C` 可运行；CLI Local 中途建 outer
+    被拒。
+20. RED：外部审者在不可读 plugin cache 的环境中仍消费自包含 method prompt。
+21. GREEN：完成 current docs 和正式 E2E。
 
 **Acceptance：**
 
@@ -1576,7 +1793,9 @@ progress、三条路由分叉和断点恢复在 Codex 状态平面完整运行�
 - Codex scripts/tests 全绿。
 - Claude、Droid、pi 原有 tests 不回归。
 - 安装后真实 E2E 通过。
-- origin checkout 在 active task 全程保持 baseline；只有 closing 本地 merge 改变它。
+- App UI、主线程 cwd 与 outer workspace 对齐。
+- target/Local 可并行前进；只有 closing lease 写 target。
+- cleanup 不删除 App/host outer。
 
 ## 全量验证
 
@@ -1629,7 +1848,9 @@ bash pi-plugin/build/tests/test_build.sh
 - 7 个 bundled methods 在清洁 profile 可发现。
 - protected skill explicit-only。
 - session context。
-- coordinator target-root guard。
+- App Worktree/Local-Handoff preflight。
+- external task registry、task ref 和 workspace allowset。
+- App UI 与 outer checkout 对齐。
 - native subagents。
 - second reviewer Adapter。
 - source checkout 改动不会被未升级的 cache 偷偷读取。
@@ -1661,12 +1882,18 @@ bash pi-plugin/build/tests/test_build.sh
 6. Develop + `--with-wayfind`。
 7. Bug/small-change `task escalate --to develop`。
 8. Small-change/bug 动手前轻确认和重启后仍等待。
-9. 从 origin cwd 运行 propose/design/to-issue/small-change/bug，逐步断言 origin
-   fingerprint 不变。
-10. Compaction 后续跑。
-11. 主 session 重启后续跑。
-12. Native child 丢失后重派。
-13. Second reviewer 不可用时 fail-closed。
+9. App Worktree mode 直接启动，detached outer 跑完整链。
+10. App Local 启动，确认零 task side effect 后一次 Handoff，同一 chat 继续。
+11. App terminal/diff/Git controls 与 outer 对齐；inner 改动合入前不混入 outer。
+12. `.worktreeinclude`、ignored rules 和 inner setup。
+13. Target/Local 并行前进，closing merge 最新 tip。
+14. Target dirty/busy waiting 与恢复。
+15. App restore/path relocation 和 host outer 删除恢复。
+16. Compaction 后续跑。
+17. 主 session 重启后续跑。
+18. Native child 丢失后重派。
+19. Second reviewer 不可用时 fail-closed。
+20. Closing 后 `HOST_WORKTREE_RETAINED`，App outer 未被删除。
 
 ## 明确不实现
 
@@ -1684,7 +1911,11 @@ bash pi-plugin/build/tests/test_build.sh
 - 不把 second reviewer 绑死 Claude。
 - 不在 Adapter 不可用时回退 GPT。
 - 不创建 `.codex/.gitignore='*'`。
-- 不要求用户手动切换 Codex chat/worktree。
+- 不让 MMW 中途创建或注册一个 App 看不见的主任务 worktree。
+- 不用 fork/create 新 Codex task 绕过当前 chat 的 Handoff。
+- 不强迫用户为正常本地工作流执行 App `Create branch here`。
+- 不在工作流开始后要求用户切换 chat；只有从 Local 进入正式任务时使用一次原生
+  Handoff。
 - 不改变 propose/design 的用户决策位置。
 - 不把 plan/build 的自主性改回逐步询问。
 
@@ -1693,19 +1924,27 @@ bash pi-plugin/build/tests/test_build.sh
 | 检查项 | 采用结论 | 判据 |
 | --- | --- | --- |
 | App Server / daemon | 删除 | Codex 已原生管理 spawn/wait/follow-up；再建一层只会重复调度。 |
+| Plugin-created outer worktree | 删除 | 当前 task 无 attach/register 任意 worktree 的接口；UI/cwd 会与真实修改分裂。 |
+| Fork/create helper task | 删除 | 会新增 sidebar task，且 active turn 不迁移；不能替代同一 chat 的 Handoff。 |
+| Permanent worktree per task | 不作为自动路径 | 它是用户创建的长期独立 project，可多 chat 共用；适合作为已存在 outer，不适合 MMW 每任务自动创建。 |
+| Generic workspace manager/host Adapter | 删除 | 当前只有一个 host-owned outer 合同；`task init`、`recover-current`、`context guard` 三个 Interface 已隐藏 adoption、registry、lease、ref 和 resolver。 |
 | 通用 Runner Interface | 删除 | 原生 GPT 与外部第二模型只有两条明确路径；只有 second reviewer 存在真实多 Adapter seam。 |
 | Custom agent registry | 删除 | Plugin 不能直接分发，且 role skill 已足够；安装步骤会改变用户习惯。 |
 | 外部 Codex CLI worker | 删除 | Codex 原生 subagent 已提供同一宿主的并行 agent thread。 |
 | Investigate state/script 轨 | 删除 | 当前工作流要求无 durable topic state；只留无状态 validator。 |
 | 全角色 JSON schema | 删除 | 现有 Markdown Return Contract 已稳定；统一 schema 是重复接口。 |
 | SubagentStop validator | 删除 | 父线程已验证回执；全局 hook 难安全限定到 MMW agent。 |
-| `--context` + `--repo` 双入口 | 收敛为一个 `--context` | Context 内部持有 task root；恢复用 `context bind`。 |
+| `--context` + `--repo` 双入口 | 收敛为一个 `--context` | Context 只绑定 task id/current workspace；恢复用 `recover-current`，不能遥控到隐藏路径。 |
 | Generic workflow-control skill | 删除 | 会改变原有动作名；11 个薄 skill 是更直接的 UX Adapter。 |
 | plan writers 同 worktree | 改用已验证 plan sandbox | 当前 pi 代码已证明该做法；避免再设计并发归因协议。 |
 | Review clean-check | 保留 | 当前 native reviewer 没有可由 plugin 分发的 child-only read-only sandbox；这是必要后置硬核。 |
 | User receipt | 保留且限定范围 | 当前唯一人闸和 protected commands 必须证明用户来源；普通推进不使用。 |
-| Session context | 保留且只做定位 | Codex 缺当前线程 EnterWorktree；并行 chats 不能共用一个 repo current-task pointer。 |
-| Origin target guard | 保留 | `mmw` 子进程 chdir 不能改变主线程文件工具；绝对路径合同 + PreToolUse + fingerprint 是防止双 checkout 写裂的最小闭环。 |
+| App outer ownership | 保留为硬边界 | App 没有公开的任意 worktree attach API，当前 task 也不能自 Handoff；采用当前 host checkout 是唯一 UI/cwd 同步路径。 |
+| Session context | 保留且只做定位 | 并行 chats 不能共用 repo current-task pointer；context 不再补救错误 cwd。 |
+| External task registry | 保留 | App managed worktree 可清理/恢复，durable task/receipt 状态不能只放 outer；一个 registry 取代固定目录扫描，不形成第二流程引擎。 |
+| Detached task ref | 保留 | 不创建 UI branch 仍要保证 commits 可达、可恢复和可 `--no-ff` 合入；Git 原生 custom ref 是最小机制。 |
+| Workspace allowset | 取代 origin freeze | 允许 host outer 与 registered inner，拒绝其他 checkout；Local/target 可发挥 worktree 的并行价值。 |
+| Inner materialization | 保留 | App 的 ignored-file/rules/setup 自动化不覆盖 shell-created worktree；spawn 前补齐是 worker 正确运行的必要条件。 |
 | Bundled method skills | 保留 7 个硬依赖 | 当前 references 实际调用它们；随包固定版本比分散 bootstrap/个人环境探测更短，也才能满足零上下文。 |
 | Merge state | 删除 | merge brief + git 已是充分真相；新 state 会重复。 |
 | Release P1 handshake | 保留为两个内部动作 | 只有这样才能确保模型修复走 native GPT，同时继续复用 release 安全闸。 |
@@ -1728,9 +1967,11 @@ bash pi-plugin/build/tests/test_build.sh
 - plan/build 不含外部 Codex backend。
 - investigate 不含第二编排轨。
 - 状态恢复不依赖 agent session。
-- 用户不需要手动换 chat/worktree。
-- 主线程和 child 只写 context 指定的 task worktree；origin 在 closing merge 前保持
-  baseline。
+- 主任务始终是当前 App/host 可见 outer；Local 入口只需一次原生 Handoff，不创建
+  新 chat。
+- MMW 不创建、删除或改名 host outer，不要求 App branch。
+- 主线程只写 outer；child 只写 registered inner；target 只在 closing lease 内写。
+- task/merge custom ref、external registry 与 path relocation 恢复通过。
 - package/release/merge/closing 没有被省略。
 - 安装 cache、hook trust、SessionStart、compaction 和真实 E2E 全部验证。
 - 第二个零上下文 Codex 能只靠 plugin 自己跑通。
