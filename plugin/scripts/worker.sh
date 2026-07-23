@@ -420,6 +420,14 @@ cmd_plan_dispatch() {
   [ -n "$wt" ]   || die "--worktree 必填"
   case "$plan" in /*) ;; *) die "--plan 必须绝对路径" ;; esac
   [ -d "$wt" ]   || die "任务 worktree 不存在: $wt"
+  # plan 阶段只存在于 develop 设计路:--design 必填,且必须在任务 worktree 内。
+  # 与 build dispatch 的强制对称;否则 prototype/审批校验会落到 cwd 所在仓库上,闸被 cwd 绕开。
+  [ -n "$design" ] || die "plan worker 必须传 --design，不能绕过已确认 prototype 材料"
+  local design_top
+  design_top="$(git -C "$(dirname "$design")" rev-parse --show-toplevel 2>/dev/null)" \
+    || die "无法定位设计所属任务 worktree:$design"
+  [ "$(cd "$design_top" && pwd -P)" = "$(cd "$wt" && pwd -P)" ] \
+    || die "设计文档必须在任务 worktree 内(--design 在 $design_top,--worktree 是 $wt)"
   preflight_skill worktree-plan
   preflight_doc "设计文档(--design)" "$design"
   preflight_doc "issue(--issue)" "$issue"

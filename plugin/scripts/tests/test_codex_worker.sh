@@ -194,8 +194,22 @@ STATE_SUBDIR=.claude/multi-model-workflow
 CODEX_BIN="$FAKEBIN/codex"   # 复位干净 fake
 WT_TASK="$TMP/wt-task"
 git worktree add -q -b task/x "$WT_TASK" HEAD
+# 真实形态:设计文档、prototype 材料与 manifest 都在任务 worktree 内(plan 阶段在任务 wt 里跑)
+DESIGN_T="$WT_TASK/design.md"; echo "# design" > "$DESIGN_T"
+mkdir -p "$WT_TASK/prototype" "$WT_TASK/mockup" "$WT_TASK/.claude/multi-model-workflow"
+printf '# prototype log\n' >"$WT_TASK/prototype/README.md"
+printf 'selected\n' >"$WT_TASK/prototype/selected.py"
+printf 'rejected\n' >"$WT_TASK/prototype/rejected.py"
+printf '<html>loser</html>\n' >"$WT_TASK/mockup/loser.html"
+cp "$TMP/.claude/multi-model-workflow/task.json" "$WT_TASK/.claude/multi-model-workflow/task.json"
+git -C "$WT_TASK" add design.md prototype mockup && git -C "$WT_TASK" commit -qm fixtures
 PLAN_OUT="$WT_TASK/docs/plans/x/001-foo.md"
-OUT_P="$(bash "$CW" plan-dispatch --plan "$PLAN_OUT" --worktree "$WT_TASK" --design "$DESIGN" --issue "$ISSUE" 2>/dev/null)"
+# 机器闸:--design 必填;设计文档必须在任务 worktree 内(与 build dispatch 强制对称,堵 cwd 绕行缝)
+if bash "$CW" plan-dispatch --plan "$PLAN_OUT" --worktree "$WT_TASK" --issue "$ISSUE" >/dev/null 2>&1; then
+  no "plan-dispatch 缺 --design 应被拒"; else ok "plan-dispatch 缺 --design fail-closed"; fi
+if bash "$CW" plan-dispatch --plan "$PLAN_OUT" --worktree "$WT_TASK" --design "$DESIGN" --issue "$ISSUE" >/dev/null 2>&1; then
+  no "plan-dispatch 外部设计文档应被拒(必须在任务 wt 内)"; else ok "plan-dispatch 拒 worktree 外设计文档"; fi
+OUT_P="$(bash "$CW" plan-dispatch --plan "$PLAN_OUT" --worktree "$WT_TASK" --design "$DESIGN_T" --issue "$ISSUE" 2>/dev/null)"
 PROMPT_P="$(cat "$FAKE_CAP/stdin")"
 echo "$PROMPT_P" | grep -q "worktree-plan" && ok "plan prompt 指向 worktree-plan skill" || no "plan 指 worktree-plan"
 echo "$PROMPT_P" | grep -q "不 commit" && ok "plan prompt 声明不 commit" || no "plan 不 commit 声明"

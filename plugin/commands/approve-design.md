@@ -35,5 +35,6 @@ MMW="$( jq -r '.plugins | to_entries[] | select(.key | startswith("multi-model-w
    - `APPROVED ... NEXT_PHASE=<X>` = 过门成功:值守已自动切 afk(放权自主跑),向用户一句话确认「设计已确认,进入 <X>,后面自主推进、出大事才来找你」,然后 `mmw where` 继续。
    - `RE-APPROVED` = 设计修订后的重新确认:指纹已更新,回到刚才被 approval_stale 挡住的动作继续。
    - `ERROR: 承重文档不存在/为空` = 设计文档还没落盘或没钉:先把设计文档写好、`mmw pin --phase design --produced <路径>` 钉上,再请用户重敲本命令。
+   - `ERROR: prototype ...`(仍在第 N 轮 / 尚未启动 / 已随方向失效 / 未登记产物)= prototype 内层门没走完:照报错和 `mmw where` 的指路把 prototype 走到 accepted(或 start --adopt 接管旧产物),再请用户重敲本命令。
 
 过门后设计承重文档再被改动,引擎会在推进时硬停(approval_stale)——那时把改动摆给用户,请他重敲本命令重新确认,或回退改动。

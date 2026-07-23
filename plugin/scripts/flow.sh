@@ -30,20 +30,8 @@ manifest_path() {
   echo "$m"
 }
 
-# 原子写 + fail-closed:验过非空且合法 JSON 才 mv,上游 jq 失败时保留原 manifest 报错退非零
-# (绝不把 task.json 截成 0 字节)。每次落盘刷 updated_at(状态新鲜度戳)。
-write_manifest() {
-  local m="$1" tmp; tmp="$(mktemp)"; cat > "$tmp"
-  if [ ! -s "$tmp" ] || ! jq -e . "$tmp" >/dev/null 2>&1; then
-    rm -f "$tmp"; echo "ERROR: 拒绝写入空/非法 JSON 到 $m;原 manifest 保留" >&2; return 1
-  fi
-  local stamped; stamped="$(mktemp)"
-  if jq --arg at "$(now)" '.updated_at=$at' "$tmp" > "$stamped" && [ -s "$stamped" ]; then
-    mv "$stamped" "$m"; rm -f "$tmp"
-  else
-    rm -f "$stamped"; mv "$tmp" "$m"
-  fi
-}
+# manifest 原子写单源在 lib/runtime.sh(mmw_write_manifest);此处仅保留同名入口。
+write_manifest() { mmw_write_manifest "$@"; }
 
 # 白名单第 4 条:设计确认后被改 → 不许拿着走样的设计继续执行。
 # 返回 0=一致或无确认;返回 1 时输出不一致详情。指纹算法单源在 note.sh fingerprint。
@@ -65,7 +53,7 @@ approval_check() {  # $1=manifest
 
 # 讨论态阶段(routes.loop_guards.discussion_phases)自由往返/返工,豁免打转守卫。返回 0=讨论态。
 is_discussion_phase() {  # $1=phase
-  jq -e --arg p "$1" '(.loop_guards.discussion_phases // ["investigate","propose","design"]) | index($p) != null' "$ROUTES" >/dev/null 2>&1
+  jq -e --arg p "$1" '(.loop_guards.discussion_phases // ["wayfind","investigate","propose","design"]) | index($p) != null' "$ROUTES" >/dev/null 2>&1
 }
 
 # 打转守卫:从审查留痕提取 accepted findings 的缺陷签名(sev|文件基名|归一化关键词)。
@@ -195,7 +183,7 @@ cmd_handoff() {
   LG_ROUNDS="$(jq -r '.loop_guards.repair_fingerprint.rounds // 2' "$ROUTES")"
   LG_TA="$(jq -r '.loop_guards.turnaround_same_phase // 2' "$ROUTES")"
   LG_MAX="$(jq -r '.loop_guards.max_repair_rounds // 3' "$ROUTES")"
-  local guard_trip="" guard_reason="" guard_att="" sig_stage="" sig_set_json=null sig_consec_json=0 ta_phase="" ta_n_json=0
+  local guard_trip="" guard_reason="" guard_att="" sig_stage="" sig_set_json=null sig_consec_json=0 ta_phase="" ta_n_json=0 proto_redirect=false
   case "$conclusion" in
     pass)
       if [ -z "$gate" ] && [ "$gated" = yes ]; then
@@ -278,6 +266,12 @@ cmd_handoff() {
       next_action="turn-around"; next_phase="$tgt_phase"
       prune_from=$(( tgt_idx + 1 ))   # 回拨后下游阶段的接力单产出已过期,剪掉(文件仍在盘上)
       human="方向错 → 掉头回 [$tgt_phase](第 $new_tc 次)"
+      # design 掉头 = 方向失效:现有 prototype 的验证问题随之作废,机器盖 superseded+redirected。
+      # redirected 是重进 design 后 where 的分流依据(已重定 → 直接 start 开新一轮,不再指回 propose)。
+      if [ "$cur_phase" = design ] && jq -e '.prototype != null' "$m" >/dev/null 2>&1; then
+        proto_redirect=true
+        warns+=("design 掉头:prototype 已标记 superseded(redirected);重定方向回 design 后照 where 用 prototype start 开新一轮,轮次顺延")
+      fi
       # 判据B:流水线态源头同向掉头达阈 = 方向横跳打转(讨论态源头自由往返不记账——routes description 既定决策;按 to-phase 分桶)
       if is_discussion_phase "$cur_phase"; then
         [ "$new_tc" -ge 2 ] && warns+=("已掉头 $new_tc 次(讨论态往返自由):先讲清这次为何又回头再继续")
@@ -330,7 +324,9 @@ cmd_handoff() {
     --argjson prune_from "$prune_from" --arg waiting "$waiting_for" \
     --arg sig_stage "$sig_stage" --argjson sig_set "$sig_set_json" --argjson sig_consec "$sig_consec_json" \
     --arg ta_phase "$ta_phase" --argjson ta_n "$ta_n_json" \
+    --argjson proto_redirect "$proto_redirect" \
     '.phase=$phase | .phase_index=$pidx | .repair_count=$rc | .turnaround_count=$tc | .status=$status
+     | (if $proto_redirect then .prototype.status="superseded" | .prototype.selected=[] | .prototype.redirected=true else . end)
      | (if $sig_stage != "" then
           if $sig_set == null then del(.repair_findings_sig[$sig_stage]) | del(.repair_fp_repeat[$sig_stage])
           else .repair_findings_sig[$sig_stage] = $sig_set | .repair_fp_repeat[$sig_stage] = $sig_consec end
@@ -557,18 +553,24 @@ cmd_where() {
         b_do="prototype 已 accepted：先把 prototype_selected 的状态模型、交互和结论回填主设计文档，再走 design self-check、设计预审和 /approve-design"
         ;;
       superseded)
-        b_do="prototype 验证问题已随方向失效；不要继续成文，按 then 明确退回 propose"
+        if [ "$(jq -r '.prototype.redirected // false' "$m")" = true ]; then
+          # 已掉头重定方向、重新进入 design:旧验证问题作废,直接开新一轮(轮次顺延),不再指回 propose
+          b_load="references/design/prototype-mockup.md"
+          b_do="方向已重定回 design：与用户讨论清新方向后，登记新的可判真验证问题，按 then 开新一轮 prototype(轮次顺延)；不修旧原型、不在旧方向成文"
+        else
+          b_do="prototype 验证问题已随方向失效；不要继续成文，按 then 明确退回 propose"
+        fi
         ;;
       "")
-        b_load="references/design/prototype-mockup.md"
+        # 尚未启动 prototype = design 刚进场:按 routes 声明先走讨论(discussion.md);
+        # prototype 是讨论出验证问题之后的必经内层门,then 已备好 start 模板。不覆盖 load/do,数据层赢。
         if [ -n "$prototype_untracked" ]; then
+          b_load="references/design/prototype-mockup.md"
           b_do="磁盘已有未登记 prototype/mockup；先按 then 接管全部现有产物，不得重建、成文或审批"
           while IFS= read -r prototype_rel; do
             [ -n "$prototype_rel" ] || continue
             prototype_adopt_args="$prototype_adopt_args --artifact $(printf '%q' "$prototype_rel")"
           done <<<"$prototype_untracked"
-        else
-          b_do="本设计尚未启动 prototype；先登记一个可判真的验证问题，制作最小可运行或可操作产物，不得成文、预审或审批"
         fi
         ;;
       *) b_do="prototype 状态损坏(status=$prototype_status)；停止并修复 task.json，禁止猜测继续" ;;
@@ -598,7 +600,11 @@ cmd_where() {
         then_cmd="$MMW prototype checkpoint --feedback '<本轮反馈或假设>' --change '<实际改动>' --result '<验证方式和结果>' --verdict <continue|accepted|superseded> [--artifact <当前产物>] [--evidence <本轮证据>] [--selected <最终产物>]"
         ;;
       superseded)
-        then_cmd="$MMW handoff --conclusion needs-redirection --to-phase propose"
+        if [ "$(jq -r '.prototype.redirected // false' "$m")" = true ]; then
+          then_cmd="$MMW prototype start --kind <logic|ui|mixed> --question '<新方向的待验证问题>' --run '<运行命令>'"
+        else
+          then_cmd="$MMW handoff --conclusion needs-redirection --to-phase propose"
+        fi
         ;;
       accepted)
         then_cmd="$MMW pin --phase design --produced docs/design/$slug/$slug.md；然后起设计预审并请用户 /approve-design"

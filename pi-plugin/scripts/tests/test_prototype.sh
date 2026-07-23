@@ -49,10 +49,10 @@ LOG="$WT/docs/design/$SLUG/prototype/README.md"
 MAIN_DESIGN="docs/design/$SLUG/$SLUG.md"
 printf '# design\n' >"$WT/$MAIN_DESIGN"
 
-# 未启动 prototype 时，唯一出口是先启动内层循环；不得成文、预审或审批。
+# 未启动 prototype 时，唯一机器出口是先启动内层循环；不得成文、预审或审批。
+# (load 指哪份指引是宿主 where 的路由行为,由各宿主 test_flow 锁;这里只守跨宿主合同。)
 WHERE_EMPTY="$(cd "$WT" && bash "$MMW" where)"
-echo "$WHERE_EMPTY" | grep -q '^load=references/design/prototype-mockup.md$' \
-  && echo "$WHERE_EMPTY" | grep -q '^then=.*prototype start' \
+echo "$WHERE_EMPTY" | grep -q '^then=.*prototype start' \
   && ! echo "$WHERE_EMPTY" | grep -q '^then=.*pin --phase design' \
   && ! echo "$WHERE_EMPTY" | grep -q '^then=.*handoff --conclusion' \
   && ok "空 prototype 时 design where 只允许 start" || no "design where 未强制 prototype"

@@ -1,6 +1,6 @@
 {
   "name": "@cheuklapchan/mmw-pi-plugin",
-  "version": "9.5.0",
+  "version": "9.5.1",
   "private": true,
   "description": "pi 原生多模型开发编排:讨论/设计与主线程对齐,计划起放权。GPT(openai-codex)写+Claude(claude-provider)验,跨模型审查、worktree、断点续传。",
   "license": "MIT",
