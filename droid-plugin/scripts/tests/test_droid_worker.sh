@@ -96,7 +96,7 @@ printf 'selected\n' >"$TMP/docs/design/prototype/selected.py"
 printf 'rejected\n' >"$TMP/docs/design/prototype/rejected.py"
 printf '<html>loser</html>\n' >"$TMP/docs/design/mockup/loser.html"
 cat >"$TMP/.factory/multi-model-workflow/task.json" <<'JSON'
-{"docs":{"design":"docs/design","investigating":"docs/investigating/demo"},"prototype":{"status":"accepted","log":"docs/design/prototype/README.md","selected":["docs/design/prototype/selected.py"]}}
+{"docs":{"design":"docs/design","investigating":"docs/investigating/demo"},"prototype":{"status":"accepted","log":"docs/design/prototype/README.md","selected":["docs/design/prototype/selected.py"]},"approval":{"reports":["docs/design/prototype/README.md","docs/design/prototype/selected.py"],"fingerprint":"88b87bf4f460b9ff95c2a557d0ae73586a84bbe5"}}
 JSON
 git -C "$TMP" add docs
 git -C "$TMP" commit -qm docs
@@ -125,6 +125,11 @@ rm "$TMP/docs/design/evidence"
 jq '.prototype=null' "$TMP/task-backup.json" >"$TASK_JSON"
 if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.factory/worktrees/guard-old" >/dev/null 2>&1; then no "old untracked prototype"; else ok "old untracked prototype fails closed"; fi
 cp "$TMP/task-backup.json" "$TASK_JSON"
+jq '.approval=null' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.factory/worktrees/guard-unapproved" >/dev/null 2>&1; then no "unapproved accepted"; else ok "unapproved accepted fails closed"; fi
+printf B >"$TMP/docs/design/prototype/b.py"; jq '.prototype.selected=["docs/design/prototype/b.py"]' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.factory/worktrees/guard-unapproved-selected" >/dev/null 2>&1; then no "unapproved selected"; else ok "unapproved selected fails closed"; fi
+rm "$TMP/docs/design/prototype/b.py"; cp "$TMP/task-backup.json" "$TASK_JSON"
 jq '.approval={reports:["docs/design/prototype/README.md","docs/design/prototype/selected.py"],fingerprint:"stale"}' "$TMP/task-backup.json" >"$TASK_JSON"
 if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.factory/worktrees/guard-stale" >/dev/null 2>&1; then no "stale approval"; else ok "stale approval fails closed"; fi
 cp "$TMP/task-backup.json" "$TASK_JSON"
@@ -132,6 +137,11 @@ echo "$OUT" | grep -q 'WORKER_BACKEND=droid-exec' && ok "real Droid exec backend
 STATUS="$(wait_status "$WT")"
 echo "$STATUS" | grep -q 'WORKER_STATUS=COMPLETED' && ok "worker completes with durable status" || no "worker status"
 [ "$(jq -r .session_id "$META")" = session-test ] && ok "session id captured" || no "session id"
+GUARD_INSTR="$TMP/guard-instructions.md"; printf 'guard\n' >"$GUARD_INSTR"
+printf 'changed\n' >>"$TMP/docs/design/prototype/selected.py"
+if bash "$WORKER" status --worktree "$WT" >/dev/null 2>&1; then no "stale status"; else ok "stale status checks task origin"; fi
+if bash "$WORKER" resume --worktree "$WT" --instructions "$GUARD_INSTR" >/dev/null 2>&1; then no "stale resume"; else ok "stale resume checks task origin"; fi
+printf 'selected\n' >"$TMP/docs/design/prototype/selected.py"
 grep -Fq -- "--worktree worker/demo-plan-001 --worktree-dir $WT" "$DROID_TEST_LOG" \
   && ok "runtime uses Droid native worktree" || no "native worker worktree"
 if grep -F -- "--worktree worker/demo-plan-001" "$DROID_TEST_LOG" | grep -Fq -- '--auto medium'; then
@@ -176,7 +186,7 @@ TASK_WT="$TMP/task-wt"
 git -C "$TMP" worktree add -q -b task-wt "$TASK_WT" HEAD
 mkdir -p "$TASK_WT/.factory/multi-model-workflow"
 cat >"$TASK_WT/.factory/multi-model-workflow/task.json" <<'JSON'
-{"docs":{"design":"docs/design"},"prototype":{"status":"accepted","log":"docs/design/prototype/README.md","selected":["docs/design/prototype/selected.py"]}}
+{"docs":{"design":"docs/design"},"prototype":{"status":"accepted","log":"docs/design/prototype/README.md","selected":["docs/design/prototype/selected.py"]},"approval":{"reports":["docs/design/prototype/README.md","docs/design/prototype/selected.py"],"fingerprint":"88b87bf4f460b9ff95c2a557d0ae73586a84bbe5"}}
 JSON
 PLAN2="$TASK_WT/docs/plans/demo/002.md"
 printf '\n## Cross-Plan Contract Anchors\n- shared contract\n' >>"$TASK_WT/docs/design/demo.md"

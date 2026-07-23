@@ -39,7 +39,7 @@ printf 'selected\n' >"$TMP/prototype/selected.py"
 printf 'rejected\n' >"$TMP/prototype/rejected.py"
 printf '<html>loser</html>\n' >"$TMP/mockup/loser.html"
 cat >"$TMP/.claude/multi-model-workflow/task.json" <<'JSON'
-{"docs":{"design":"."},"prototype":{"status":"accepted","log":"./prototype/README.md","selected":["./prototype/selected.py"]}}
+{"docs":{"design":"."},"prototype":{"status":"accepted","log":"./prototype/README.md","selected":["./prototype/selected.py"]},"approval":{"reports":["./prototype/README.md","./prototype/selected.py"],"fingerprint":"88b87bf4f460b9ff95c2a557d0ae73586a84bbe5"}}
 JSON
 WT="$TMP/wt-001"
 
@@ -71,6 +71,11 @@ rm "$TMP/evidence"
 jq '.prototype=null' "$TMP/task-backup.json" >"$TASK_JSON"
 if bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-old-untracked" --design "$DESIGN" --issue "$ISSUE" >/dev/null 2>&1; then no "旧任务未登记原型应拒绝派发"; else ok "旧任务未登记原型 fail-closed"; fi
 cp "$TMP/task-backup.json" "$TASK_JSON"
+jq '.approval=null' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-unapproved" --design "$DESIGN" --issue "$ISSUE" >/dev/null 2>&1; then no "未审批 accepted 应拒绝派发"; else ok "未审批 accepted fail-closed"; fi
+printf B >"$TMP/prototype/b.py"; jq '.prototype.selected=["./prototype/b.py"]' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-unapproved-selected" --design "$DESIGN" --issue "$ISSUE" >/dev/null 2>&1; then no "未纳入审批 selected 应拒绝派发"; else ok "未纳入审批 selected fail-closed"; fi
+rm "$TMP/prototype/b.py"; cp "$TMP/task-backup.json" "$TASK_JSON"
 jq '.approval={reports:["./prototype/README.md","./prototype/selected.py"],fingerprint:"stale"}' "$TMP/task-backup.json" >"$TASK_JSON"
 if bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-stale-approval" --design "$DESIGN" --issue "$ISSUE" >/dev/null 2>&1; then no "过期设计确认应拒绝派发"; else ok "过期设计确认 fail-closed"; fi
 cp "$TMP/task-backup.json" "$TASK_JSON"

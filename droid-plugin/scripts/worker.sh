@@ -91,6 +91,7 @@ validate_task_approval() {
       untracked="$(mmw_prototype_untracked_paths "$task_root" "$man")" || return 1
       [ -z "$untracked" ] || { echo "ERROR: 存在未登记 prototype/mockup；退回 design 后按 mmw where 执行 start --adopt" >&2; return 1; } ;;
     accepted)
+      [ "$(jq -r '.prototype.selected | length' "$man")" -gt 0 ] || { echo "ERROR: accepted prototype 缺 selected" >&2; return 1; }
       selected="$(mmw_prototype_selected_relpaths "$man")" || return 1
       while IFS= read -r rel; do
         [ -n "$rel" ] || continue
@@ -99,6 +100,7 @@ validate_task_approval() {
     *) echo "ERROR: prototype 状态损坏:$status" >&2; return 1 ;;
   esac
   stored="$(jq -r '.approval.fingerprint // empty' "$man")"
+  if [ "$status" = accepted ] && [ -z "$stored" ]; then echo "ERROR: accepted prototype 尚未经过 /approve-design" >&2; return 1; fi
   [ -n "$stored" ] || return 0
   local -a args=()
   while IFS= read -r rel; do
@@ -110,6 +112,13 @@ validate_task_approval() {
     args+=(--report "$rel")
   done < <(jq -r '.approval.reports[]?' "$man")
   [ "${#args[@]}" -gt 0 ] || { echo "ERROR: approval 缺 reports" >&2; return 1; }
+  if [ "$status" = accepted ]; then
+    while IFS= read -r rel; do
+      [ -n "$rel" ] || continue
+      jq -e --arg rel "$rel" '.approval.reports | index($rel) != null' "$man" >/dev/null \
+        || { echo "ERROR: 当前 prototype selected 未纳入设计确认:$rel" >&2; return 1; }
+    done <<<"$selected"
+  fi
   current="$(cd "$task_root" && bash "$SCRIPT_DIR/note.sh" fingerprint "${args[@]}")" || return 1
   [ "$current" = "$stored" ] || { echo "ERROR: 设计确认已过期；先重新 /approve-design" >&2; return 1; }
 }
@@ -480,7 +489,10 @@ cmd_dispatch() {
     run_wt="$target_top"
     mmw_ensure_wt_state_ignore "$run_wt"
   fi
-  local st pkg start prompt meta system_prompt system_source disabled_tools
+  local st pkg start prompt meta system_prompt system_source disabled_tools task_origin="-"
+  if [ "$mode" = pack ] && [ -n "$design" ]; then
+    task_origin="$(git -C "$(dirname "$design")" rev-parse --show-toplevel 2>/dev/null)" || die "无法定位设计所属任务 worktree:$design"
+  fi
   st="$(state_for "$wt")"; pkg="$wt/$st/worker-dispatch"
   mkdir -p "$pkg"
   if [ -n "$native_branch" ]; then
@@ -502,8 +514,8 @@ cmd_dispatch() {
   write_meta "$meta" "$mode" "$droid" "$model" "$effort" "$run_wt" "$prompt" "$start" \
     "$plan" "$system_prompt" "$issue" "$disabled_tools"
   update_meta "$meta" --arg control "$wt" --arg branch "$native_branch" \
-    --arg root "$native_root" --arg repo "$native_repo" \
-    '.control_worktree=$control | .native_branch=$branch | .native_root=$root | .native_repo=$repo' \
+    --arg root "$native_root" --arg repo "$native_repo" --arg task_origin "$task_origin" \
+    '.control_worktree=$control | .native_branch=$branch | .native_root=$root | .native_repo=$repo | .task_origin=$task_origin' \
     || die "无法记录 worker worktree 元数据"
   echo "WORKER_BACKEND=droid-exec"
   echo "DROID=$droid"
@@ -524,11 +536,14 @@ cmd_resume() {
   esac; done
   [ -d "$wt" ] || die "worktree 不存在:$wt"
   [ -f "$instr" ] || die "--instructions 文件不存在:$instr"
-  validate_task_root "$wt" || die "任务设计确认或 prototype 状态无效"
-  local st pkg meta state session model effort system_prompt disabled_tools
+  local st pkg meta state session model effort system_prompt disabled_tools task_origin
   local run_wt native_branch native_root native_repo
   st="$(state_for "$wt")"; pkg="$wt/$st/worker-dispatch"
   meta="$pkg/meta.json"
+  [ -f "$meta" ] || die "派发账本不存在:$meta"
+  task_origin="$(jq -r '.task_origin // empty' "$meta")"
+  [ -n "$task_origin" ] || die "旧派发缺 task_origin，不能安全 resume；请重新 dispatch"
+  validate_task_root "$task_origin" || die "任务设计确认或 prototype 状态无效"
   state="$(refresh_meta "$meta" 2>/dev/null || true)"
   [ "$state" != RUNNING ] || die "原 worker 仍在运行"
   session="$(jq -r '.session_id // empty' "$meta")"
@@ -616,7 +631,7 @@ cmd_plan_dispatch() {
     --arg task_wt "$wt" --arg task_plan "$plan" --arg task_design "$design" \
     --arg task_issue "$issue" --arg branch "$branch" \
     --arg task_plan_baseline "$task_plan_baseline" --arg task_issue_baseline "$task_issue_baseline" \
-    '.task_worktree=$task_wt | .task_plan=$task_plan | .task_design=$task_design |
+    '.task_worktree=$task_wt | .task_origin=$task_wt | .task_plan=$task_plan | .task_design=$task_design |
       .task_issue=$task_issue | .sandbox_branch=$branch |
       .task_plan_baseline=$task_plan_baseline | .task_issue_baseline=$task_issue_baseline' \
     || die "无法记录 plan writer 隔离边界"
@@ -712,6 +727,10 @@ cmd_status() {
   else
     meta="$wt/$st/worker-dispatch/meta.json"
   fi
+  [ -f "$meta" ] || die "派发账本不存在:$meta"
+  local task_origin; task_origin="$(jq -r '.task_origin // .task_worktree // empty' "$meta")"
+  [ -n "$task_origin" ] || die "派发账本缺 task_origin，不能安全 status"
+  validate_task_root "$task_origin" || die "任务设计确认或 prototype 状态无效"
   state="$(refresh_meta "$meta")" || true
   result="$(jq -r '.result_file // empty' "$meta")"
   log="$(jq -r '.log_file // empty' "$meta")"

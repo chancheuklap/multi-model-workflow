@@ -88,6 +88,7 @@ validate_task_approval() {
       untracked="$(mmw_prototype_untracked_paths "$task_root" "$man")" || return 1
       [ -z "$untracked" ] || { echo "ERROR: 存在未登记 prototype/mockup；退回 design 后按 mmw where 执行 start --adopt" >&2; return 1; } ;;
     accepted)
+      [ "$(jq -r '.prototype.selected | length' "$man")" -gt 0 ] || { echo "ERROR: accepted prototype 缺 selected" >&2; return 1; }
       selected="$(mmw_prototype_selected_relpaths "$man")" || return 1
       while IFS= read -r rel; do
         [ -n "$rel" ] || continue
@@ -96,6 +97,7 @@ validate_task_approval() {
     *) echo "ERROR: prototype 状态损坏:$status" >&2; return 1 ;;
   esac
   stored="$(jq -r '.approval.fingerprint // empty' "$man")"
+  if [ "$status" = accepted ] && [ -z "$stored" ]; then echo "ERROR: accepted prototype 尚未经过 /approve-design" >&2; return 1; fi
   [ -n "$stored" ] || return 0
   local -a args=()
   while IFS= read -r rel; do
@@ -107,6 +109,13 @@ validate_task_approval() {
     args+=(--report "$rel")
   done < <(jq -r '.approval.reports[]?' "$man")
   [ "${#args[@]}" -gt 0 ] || { echo "ERROR: approval 缺 reports" >&2; return 1; }
+  if [ "$status" = accepted ]; then
+    while IFS= read -r rel; do
+      [ -n "$rel" ] || continue
+      jq -e --arg rel "$rel" '.approval.reports | index($rel) != null' "$man" >/dev/null \
+        || { echo "ERROR: 当前 prototype selected 未纳入设计确认:$rel" >&2; return 1; }
+    done <<<"$selected"
+  fi
   current="$(cd "$task_root" && bash "$SCRIPT_DIR/note.sh" fingerprint "${args[@]}")" || return 1
   [ "$current" = "$stored" ] || { echo "ERROR: 设计确认已过期；先重新 /approve-design" >&2; return 1; }
 }
