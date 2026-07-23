@@ -101,7 +101,7 @@ IGN
       created_at:$created, updated_at:$created, plugin_version:$pv, base_commit:$base,
       branch:$branch, worktree_path:$wt, docs:{investigating:$inv, design:$ddoc, issues:$idir, plans:$pdir, context:$ctx},
       repair_count:0, turnaround_count:0, attendance:$attendance, unattended_policy:null,
-      note:null, approval:null,
+      note:null, approval:null, prototype:null,
       artifacts:[], phase_outputs:{}, open_items:[], subtasks:[], history:[]}' \
     > "$wt/$STATE_SUBDIR/$MANIFEST_NAME"
 
