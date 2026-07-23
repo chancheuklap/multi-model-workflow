@@ -1,5 +1,0 @@
-interface:
-  display_name: "补充设计上下文"
-  short_description: "定向取证并写回当前设计"
-policy:
-  allow_implicit_invocation: true
