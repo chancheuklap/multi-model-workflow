@@ -49,13 +49,18 @@ LOG="$WT/docs/design/$SLUG/prototype/README.md"
 MAIN_DESIGN="docs/design/$SLUG/$SLUG.md"
 printf '# design\n' >"$WT/$MAIN_DESIGN"
 
-# 未启动 prototype 时 design 出口也必须指向 pin/预审/人闸，不得误导 agent 走 handoff pass。
+# 未启动 prototype 时，唯一出口是先启动内层循环；不得成文、预审或审批。
 WHERE_EMPTY="$(cd "$WT" && bash "$MMW" where)"
-echo "$WHERE_EMPTY" | grep -q '^then=.*pin --phase design' \
-  && echo "$WHERE_EMPTY" | grep -q -- "--produced ${MAIN_DESIGN}；" \
-  && echo "$WHERE_EMPTY" | grep -q '/approve-design' \
+echo "$WHERE_EMPTY" | grep -q '^load=references/design/prototype-mockup.md$' \
+  && echo "$WHERE_EMPTY" | grep -q '^then=.*prototype start' \
+  && ! echo "$WHERE_EMPTY" | grep -q '^then=.*pin --phase design' \
   && ! echo "$WHERE_EMPTY" | grep -q '^then=.*handoff --conclusion' \
-  && ok "design where 给正确唯一出口" || no "design where 仍误导 handoff"
+  && ok "空 prototype 时 design where 只允许 start" || no "design where 未强制 prototype"
+if (cd "$WT" && bash "$MMW" approve --report "$MAIN_DESIGN" >/dev/null 2>&1); then
+  no "空 prototype 不得 approve"
+else
+  [ "$(jq -r .phase "$MAN")" = design ] && ok "空 prototype 阻止设计确认" || no "空 prototype approve 改了阶段"
+fi
 if (cd "$WT" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1); then no "空 prototype 不得 handoff pass"; else
   [ "$(jq -r .phase "$MAN")" = design ] && ok "未审批 design 禁止 handoff pass" || no "design pass 改了阶段"
 fi
@@ -147,11 +152,23 @@ ROUND2="$(cd "$WT" && bash "$MMW" prototype checkpoint \
   && echo "$ROUND2" | grep -q '回填主设计文档' && ok "accepted 钉选中产物并返回设计成文" || no "accepted 状态"
 
 # accepted 收到新反馈时用同一 checkpoint 重新打开，不重建产物。
-REOPEN="$(cd "$WT" && bash "$MMW" prototype checkpoint --feedback "用户要求再验证断电恢复" --verdict continue)"
+if (cd "$WT" && bash "$MMW" prototype checkpoint --feedback "用户要求再验证断电恢复" --verdict continue >/dev/null 2>&1); then
+  no "accepted reopen 缺当前验证问题应拒绝"
+else
+  ok "accepted reopen 强制填写当前验证问题"
+fi
+REOPEN="$(cd "$WT" && bash "$MMW" prototype checkpoint --feedback "用户要求再验证断电恢复" \
+  --question "断电后是否能恢复原队列" --run "python docs/design/$SLUG/prototype/demo.py --power-loss" \
+  --verdict continue)"
+WHERE_REOPEN="$(cd "$WT" && bash "$MMW" where)"
 [ "$(jq -r '.prototype.status' "$MAN")" = active ] \
   && [ "$(jq -r '.prototype.iteration' "$MAN")" = 3 ] \
   && [ "$(jq -r '.prototype.selected|length' "$MAN")" = 0 ] \
-  && echo "$REOPEN" | grep -q 'prototype_iteration=3' && ok "accepted 可重新打开下一轮" || no "accepted reopen"
+  && [ "$(jq -r '.prototype.question' "$MAN")" = "断电后是否能恢复原队列" ] \
+  && [ "$(jq -r '.prototype.run_command' "$MAN")" = "python docs/design/$SLUG/prototype/demo.py --power-loss" ] \
+  && echo "$WHERE_REOPEN" | grep -q '^prototype_question=断电后是否能恢复原队列$' \
+  && echo "$WHERE_REOPEN" | grep -q '^prototype_run=.*--power-loss$' \
+  && echo "$REOPEN" | grep -q 'prototype_iteration=3' && ok "accepted reopen 更新冷启动问题与命令" || no "accepted reopen"
 
 # 路径安全：越界、绝对路径、换行、软链都拒绝。
 printf 'outside\n' >"$WT/outside.txt"
@@ -337,7 +354,7 @@ A4="docs/design/$SLUG4/prototype/a.py"; B4="docs/design/$SLUG4/prototype/b.py"
 (cd "$WT4" && bash "$MMW" prototype start --kind logic --question q --run run >/dev/null)
 printf A >"$WT4/$A4"
 (cd "$WT4" && bash "$MMW" prototype checkpoint --feedback f --change c --result r --artifact "$A4" --selected "$A4" --verdict accepted >/dev/null && bash "$MMW" approve >/dev/null)
-(cd "$WT4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design >/dev/null && bash "$MMW" prototype checkpoint --feedback reopen --verdict continue >/dev/null)
+(cd "$WT4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design >/dev/null && bash "$MMW" prototype checkpoint --feedback reopen --question "验证重新选择 B" --verdict continue >/dev/null)
 printf B >"$WT4/$B4"
 (cd "$WT4" && bash "$MMW" prototype checkpoint --feedback f2 --change c2 --result r2 --artifact "$B4" --selected "$B4" --verdict accepted >/dev/null && bash "$MMW" approve >/dev/null)
 jq -e --arg main "$MAIN4" --arg a "$A4" --arg b "$B4" '.phase_outputs.design | index($main) != null and index($a) == null and index($b) != null' "$MAN4" >/dev/null \

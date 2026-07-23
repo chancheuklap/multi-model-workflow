@@ -83,7 +83,7 @@ jq -e '.properties.prototype.type == ["object","null"] and (.required | index("p
 [ "$(jq -r .updated_at "$MAN")" = "$(jq -r .created_at "$MAN")" ] && ok "updated_at 初始=created_at" || no "updated_at 初始"
 [ "$(jq -r .note "$MAN")" = "null" ] && ok "note 书签初始 null" || no "note 初始 null"
 [ "$(jq -r .approval "$MAN")" = "null" ] && ok "approval 初始 null(设计未过门)" || no "approval 初始 null"
-[ "$(jq -r .prototype "$MAN")" = "null" ] && ok "prototype 初始 null(按需启动内层循环)" || no "prototype 初始 null"
+[ "$(jq -r .prototype "$MAN")" = "null" ] && ok "prototype 初始 null(design 必须启动内层循环)" || no "prototype 初始 null"
 
 # 分支从 HEAD 分叉(同 base commit)
 [ "$(git -C "$WT" rev-parse HEAD)" = "$BASE" ] && ok "worktree HEAD=base" || no "worktree HEAD=base"

@@ -86,7 +86,7 @@
         "log": { "type": "string", "description": "设计目录内由 mmw prototype 维护的 README.md" },
         "updated_at": { "type": "string" }
       },
-      "description": "design 内层 prototype 迭代状态。null=未触发；active=正在验证；accepted=已选定权威产物；superseded=验证问题随方向失效"
+      "description": "design 内层 prototype 迭代状态。null=尚未开始且不得确认设计；active=正在验证；accepted=已选定权威产物；superseded=验证问题随方向失效"
     },
     "base_commit": { "type": "string", "description": "创建时本地 HEAD sha" },
     "branch": { "type": "string" },

@@ -133,7 +133,10 @@ cmd_approve() {
       ;;
     "")
       prototype_untracked="$(mmw_prototype_untracked_paths "$top" "$m")"
-      [ -z "$prototype_untracked" ] || die "磁盘有未登记 prototype/mockup，拒绝确认设计；先按 mmw where 运行 prototype start --adopt"
+      if [ -n "$prototype_untracked" ]; then
+        die "磁盘有未登记 prototype/mockup，拒绝确认设计；先按 mmw where 运行 prototype start --adopt"
+      fi
+      die "本设计尚未启动 prototype，拒绝确认设计；先按 mmw where 完成 prototype 迭代"
       ;;
     *) die "prototype 状态损坏(status=$prototype_status)，拒绝确认设计" ;;
   esac

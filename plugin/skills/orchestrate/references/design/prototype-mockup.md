@@ -1,6 +1,6 @@
-# Design · prototype 迭代（触发时只读这一份）
+# Design · prototype 迭代（每份 design 都读这一份）
 
-> 触发：设计涉及 UI/UX，或存在多状态、复杂转移、并发、回滚、时序等非平凡状态模型。纯后端且状态逻辑简单时跳过。
+> 每份 design 都必须用 prototype 验证一个当前最承重、可判真的问题并走到 accepted。按问题选择 `logic`、`ui` 或 `mixed`；简单后端只做最小可运行脚本、合同样例或测试夹具，不搭完整系统。
 >
 > prototype 是 design 阶段内层循环，不是新阶段。`task.json.prototype` 记当前轮次，`docs/design/<slug>/prototype/README.md` 逐轮记反馈、改动、验证和结论。每次进入或恢复都先跑 `mmw where`，照它给的 `load / do / then` 继续。
 
@@ -25,7 +25,7 @@ mmw where
 - `prototype_status=accepted`：把 `prototype_selected` 回灌设计文档。收到新反馈需要再改时，用文末的重新打开命令。
 - `prototype_status=superseded`：照 `then` 回 propose，禁止继续修旧原型。
 - `prototype_untracked=...`：照 `then` 给出的完整 `start --adopt` 命令接管全部旧产物，禁止删除后重建。
-- 没有 prototype 状态且本设计触发原型：登记唯一验证问题；一个循环只验证一个能判真假的问题。
+- 没有 prototype 状态：登记当前唯一验证问题；一个循环只验证一个能判真假的问题。
 
 ```bash
 mmw prototype start \
@@ -78,10 +78,14 @@ mmw prototype checkpoint \
 
 然后照回执运行回 propose 的 `mmw handoff`，不在旧方向上另造一版。
 
-accepted 后收到新反馈，先只登记重新打开，不提前填写尚未发生的改动或结果：
+accepted 后收到新反馈，先登记新的可验证问题；运行方式变化时同时更新 `--run`。不提前填写尚未发生的改动或结果：
 
 ```bash
-mmw prototype checkpoint --feedback '<新反馈>' --verdict continue
+mmw prototype checkpoint \
+  --feedback '<新反馈>' \
+  --question '<下一轮要判真的问题>' \
+  [--run '<新的运行命令>'] \
+  --verdict continue
 ```
 
 ## 原型质量
@@ -101,4 +105,4 @@ prototype 是实现种子。状态机、reducer、schema、type shape 使用仓�
 - 把选中逻辑原型的状态、合法/非法转移、schema 和结论写进设计文档；每条行为对应可执行验收。
 - 把选中 mockup 的每个界面元素、状态、交互和文案原子级拆成 acceptance criteria；视觉契约写布局、间距、配色和组件，并指向具体 selected 文件。
 - 冲突时以用户确认的 selected 产物为准，反写设计文档对齐。
-- 未选中的候选留作迭代历史，不传给 plan/build。回灌完成后才走 design self-check、设计预审和 `/approve-design`。
+- 未选中的候选留作迭代历史，不传给 plan/build。回灌完成后才走 design self-check、设计预审和 `/approve-design`；设计预审脚本会自动把 README 与 selected 加给审者。

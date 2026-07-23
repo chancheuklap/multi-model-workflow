@@ -2,14 +2,14 @@
 
 ## 目标
 
-prototype 继续属于 design 阶段，不增加顶层 phase。引擎必须让零上下文 agent 在冷启动后默认续作已有原型，逐轮记录反馈、改动和验证结果，并且只把用户确认的最终产物交给计划与落地工人。
+prototype 继续属于 design 阶段，不增加顶层 phase。每份进入 design 的任务都必须先用与风险相称的最小可运行 prototype 迭代验证；简单逻辑可以只做脚本、状态夹具或交互骨架，不要求搭完整系统。引擎必须让零上下文 agent 在冷启动后默认续作已有原型，逐轮记录反馈、改动和验证结果，并且只把用户确认的最终产物交给设计审查、计划与落地工人。
 
 验收结果：任意 agent 进入在管 worktree 后只运行一次 `mmw where`，即可知道当前验证问题、轮次、现有产物、运行命令和唯一下一步；已有原型不能被静默重建，未收敛原型不能越过设计确认。
 
 ## 范围
 
 - 三个单宿主镜像同步实现同一业务合同：`plugin/`、`pi-plugin/`、`droid-plugin/`。
-- 增加轻量 prototype 运行状态、两个 CLI 动作、断点恢复投影、设计确认门和下游选中产物传递。
+- 增加轻量 prototype 运行状态、两个 CLI 动作、断点恢复投影、设计确认门，以及设计审查和下游的选中产物传递。
 - prototype 源码原地演进，Git 保存源码历史；仓库内只追加迭代记录和每轮必要证据。
 - evidence campaign 的原始探测数据退出 prototype 目录。
 - Droid 保留现有宿主状态目录、派发后端和设计文档布局；本次只统一 prototype 行为与材料传递。
@@ -22,10 +22,11 @@ prototype 继续属于 design 阶段，不增加顶层 phase。引擎必须让�
 4. prototype、mockup 仍是随设计提交的正式资产。
 5. plan/build 工人材料由脚本确定，不让主线程或工人自行搜索和猜测权威版本。
 6. 三宿主只共享业务合同；状态目录、工具名、派发后端和宿主接线保持独立。
+7. 只有进入 design 的任务受 prototype 门约束；small-change、bug 和 merge 未进入 design 时不新增步骤。
 
 ## 状态合同
 
-新任务的 `task.json.prototype` 初始化为 `null`。旧任务缺少该字段时按 `null` 读取，但已有 prototype/mockup 文件必须先显式接管，不允许静默兼容。
+新任务的 `task.json.prototype` 初始化为 `null`，表示 design 尚未开始验证，不能确认设计。旧任务缺少该字段时按 `null` 读取；已有 prototype/mockup 文件必须先显式接管，没有旧产物则必须正常启动，不允许静默跳过。
 
 ```json
 {
@@ -64,7 +65,7 @@ prototype 继续属于 design 阶段，不增加顶层 phase。引擎必须让�
 | `active` | `checkpoint --verdict continue` | `active` | 关闭当前轮并记录结果，轮次加一 |
 | `active` | `checkpoint --verdict accepted` | `accepted` | 记录通过结论并钉住 selected |
 | `active` | `checkpoint --verdict superseded` | `superseded` | 记录方向失效，回执要求退回 propose |
-| `accepted` | `checkpoint --verdict continue` | `active` | 收到新反馈后重新打开，进入下一轮并清空 selected |
+| `accepted` | `checkpoint --verdict continue --question ... [--run ...]` | `active` | 收到新反馈后以新问题重新打开，进入下一轮并清空 selected |
 | `superseded` | `start` | `active` | 在同一日志追加新的验证问题，沿用下一全局轮次并保留已有 artifacts |
 
 active 状态重复 `start` 必须非零退出并打印已有状态与续作指令。accepted 状态重复 `start` 必须要求用 `checkpoint --verdict continue` 重新打开。
@@ -93,6 +94,12 @@ mmw prototype checkpoint \
   [--evidence <本轮证据> ...] \
   --verdict <continue|accepted|superseded> \
   [--selected <最终产物> ...]
+
+mmw prototype checkpoint \
+  --feedback "<触发重开的新反馈>" \
+  --question "<新的可验证问题>" \
+  [--run "<新的运行命令>"] \
+  --verdict continue
 ```
 
 规则：
@@ -101,7 +108,7 @@ mmw prototype checkpoint \
 - fresh start 发现 `prototype/` 或 `mockup/` 已有文件时拒绝，回执给出 `--adopt` 指令。
 - `--adopt` 必须显式列出现有产物。
 - active checkpoint 必须填写反馈、改动和结果；accepted 必须至少一个 selected；superseded 必须在结果中说明方向失效原因。
-- accepted 重新打开时，`checkpoint --verdict continue` 只登记新反馈并进入下一轮；之后再完成该轮 checkpoint。
+- accepted 重新打开时必须给出新的 `--question`；运行方式变化时同时给出 `--run`，未给时沿用上一轮命令。命令把新反馈、问题和运行命令追加到同一日志并更新当前状态；之后再完成该轮 checkpoint。
 - checkpoint 未传 `--artifact` 时沿用当前 artifacts；传入时以本次列表替换。
 - selected 必须真实存在，且自动并入 artifacts。
 - 每条回执都打印状态、轮次、日志、产物和一条唯一 `NEXT=` 指令。
@@ -167,6 +174,8 @@ accepted 时，`where` 明确要求把选中原型的结论回填主设计文档
 
 superseded 时，`where` 只给出退回 propose 的完整 handoff 命令。
 
+状态为空且磁盘没有 prototype/mockup 文件时，`where` 必须载入 prototype 指南，只给出 `prototype start`，不得指示成文、pin、设计预审或审批。
+
 状态为空但磁盘已有 prototype/mockup 文件时，`where` 输出 `prototype_untracked`、真实文件清单和完整 `start --adopt` 模板；不得继续成文或审批。
 
 同时修正 design 当前通用 `then=` 的误导：正常 design 的出口显示 pin 主设计文档、设计预审、请用户 `/approve-design`，不得显示普通 `handoff pass`。
@@ -179,18 +188,20 @@ superseded 时，`where` 只给出退回 propose 的完整 handoff 命令。
 
 - active：拒绝，返回当前轮次和 checkpoint 指令。
 - superseded：拒绝，返回退回 propose 的 handoff 指令。
+- prototype 状态为空且磁盘没有相关文件：拒绝，要求正常 `prototype start`。
 - prototype 状态为空但磁盘已有 prototype/mockup 文件：拒绝，要求 `start --adopt`。
 - accepted：验证 log 与全部 selected 存在，并自动加入 approval reports 后计算指纹。
-- 未触发 prototype 且磁盘无相关文件：保持现有审批流程。
 
 approval 只自动覆盖 prototype 日志和 selected。淘汰产物、未选中候选和运行证据不进入指纹。selected 在确认后变化时，现有 `approval_stale` 机制必须阻止后续推进。
+
+设计预审使用原有 `mmw review start --stage design --source <主设计文档>` 命令。脚本在 prototype accepted 时自动把迭代 README 和 selected 追加到同一份 brief；审者必须核对验证结论是否已进入设计正文。淘汰候选和未选中产物不进入 brief。
 
 ## 下游材料
 
 worker 不再机械传递整个 `prototype/` 和 `mockup/` 目录。
 
 - accepted：传递主设计文档、prototype README、selected、direction、investigating 和 evidence 结论。
-- active、superseded、null：不传 prototype/mockup；正常流程下 active/superseded 已被 approve 阻止。
+- active、superseded、null：不传 prototype/mockup，并拒绝启动 plan/build 工人；正常流程下这些状态已被 approve 阻止。
 - plan worker 继续把材料复制进隔离 sandbox；build worker继续按各宿主现有方式引用材料。
 - selected 路径由脚本从 task manifest 解析，协调者不传额外旗标。
 
@@ -230,10 +241,11 @@ prototype/runs 只保存 prototype 用户走查产生的截图和输出。设计
 | `scripts/mmw.sh` | 命令分发和 help |
 | `state-schema/task-manifest.schema.json` | nullable prototype 合同 |
 | `scripts/prepare.sh` | 新任务初始化 `prototype:null` |
-| `scripts/flow.sh` | active/accepted/superseded/untracked 导航与 design 出口 |
+| `scripts/flow.sh` | null/active/accepted/superseded/untracked 导航与 design 出口 |
 | `scripts/note.sh` | approve 前置门与 selected 指纹 |
 | `scripts/progress.sh`、会话分诊 hook | prototype 投影 |
 | `scripts/worker.sh` | 只传 accepted log + selected；Droid 自动推导 |
+| `scripts/review.sh`、design review reference | 设计预审自动加入 accepted README + selected |
 | `prototype-mockup.md` | 完整迭代运行指南，通用 prototype skill 只提供制作方法 |
 | `evidence-campaign.md` | 原始探测数据迁出 prototype |
 | tests | 命令、恢复、审批、下游、E2E、三镜像一致性 |

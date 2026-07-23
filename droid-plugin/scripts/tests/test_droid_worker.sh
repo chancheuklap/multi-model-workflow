@@ -122,6 +122,10 @@ mv "$TMP/docs/design/prototype/selected.tmp" "$TMP/docs/design/prototype/selecte
 mkdir -p "$TMP/outside-evidence"; ln -s "$TMP/outside-evidence" "$TMP/docs/design/evidence"
 if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.factory/worktrees/guard-symlink" >/dev/null 2>&1; then no "symlink evidence"; else ok "symlink evidence fails closed"; fi
 rm "$TMP/docs/design/evidence"
+mv "$TMP/docs/design/prototype" "$TMP/docs/design/prototype.saved"; mv "$TMP/docs/design/mockup" "$TMP/docs/design/mockup.saved"
+jq '.scenario="develop" | .prototype=null' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.factory/worktrees/guard-empty" >/dev/null 2>&1; then no "develop empty prototype"; else ok "develop empty prototype fails closed"; fi
+mv "$TMP/docs/design/prototype.saved" "$TMP/docs/design/prototype"; mv "$TMP/docs/design/mockup.saved" "$TMP/docs/design/mockup"
 jq '.prototype=null' "$TMP/task-backup.json" >"$TASK_JSON"
 if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.factory/worktrees/guard-old" >/dev/null 2>&1; then no "old untracked prototype"; else ok "old untracked prototype fails closed"; fi
 cp "$TMP/task-backup.json" "$TASK_JSON"

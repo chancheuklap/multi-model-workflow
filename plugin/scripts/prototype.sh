@@ -147,8 +147,8 @@ append_round_log() {
 }
 
 append_reopen_log() {
-  local log="$1" round="$2" feedback="$3" hash marker
-  hash="$(printf '%s' "$feedback" | payload_hash)"
+  local log="$1" round="$2" feedback="$3" question="$4" run="$5" hash marker
+  hash="$(printf '%s\n%s\n%s' "$feedback" "$question" "$run" | payload_hash)"
   marker="<!-- mmw-prototype-reopen:$round:$hash -->"
   grep -qF "$marker" "$log" && return 0
   atomic_append_log "$log" <<EOF
@@ -159,6 +159,14 @@ $marker
 **新反馈**
 
 $feedback
+
+**当前验证问题**
+
+$question
+
+**运行命令**
+
+\`$run\`
 EOF
 }
 
@@ -200,7 +208,7 @@ cmd_start() {
       exit 1 ;;
     accepted)
       echo "prototype 已 accepted，拒绝重新 start" >&2
-      echo "NEXT=收到新反馈时运行 $MMW prototype checkpoint --feedback '<新反馈>' --verdict continue 重新打开" >&2
+      echo "NEXT=收到新反馈时运行 $MMW prototype checkpoint --feedback '<新反馈>' --question '<新的可验证问题>' [--run '<新命令>'] --verdict continue 重新打开" >&2
       exit 1 ;;
     BROKEN) die "task.json.prototype 非 null 但缺合法 status，先修复损坏状态" ;;
     superseded)
@@ -261,11 +269,13 @@ cmd_start() {
 }
 
 cmd_checkpoint() {
-  local feedback="" change="" result="" verdict=""
+  local feedback="" change="" result="" verdict="" question="" run=""
   local -a artifacts=() evidence=() selected=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --feedback) feedback="$2"; shift 2 ;;
+      --question) question="$2"; shift 2 ;;
+      --run) run="$2"; shift 2 ;;
       --change) change="$2"; shift 2 ;;
       --result) result="$2"; shift 2 ;;
       --verdict) verdict="$2"; shift 2 ;;
@@ -297,10 +307,14 @@ cmd_checkpoint() {
     [ -z "$change" ] && [ -z "$result" ] || die "重新打开时只登记 --feedback，不填写尚未发生的 change/result"
     [ "${#artifacts[@]}" -eq 0 ] && [ "${#evidence[@]}" -eq 0 ] && [ "${#selected[@]}" -eq 0 ] \
       || die "重新打开时不改产物；进入 active 后完成下一轮 checkpoint"
+    require_single_line "--question" "$question"
+    [ -n "$run" ] || run="$(jq -r '.prototype.run_command // empty' "$man")"
+    require_single_line "--run" "$run"
     new_iteration=$(( iteration + 1 ))
-    append_reopen_log "$log_abs" "$new_iteration" "$feedback"
-    jq --argjson n "$new_iteration" --arg at "$(now)" \
-      '.prototype.status="active" | .prototype.iteration=$n | .prototype.selected=[] | .prototype.updated_at=$at' \
+    append_reopen_log "$log_abs" "$new_iteration" "$feedback" "$question" "$run"
+    jq --argjson n "$new_iteration" --arg question "$question" --arg run "$run" --arg at "$(now)" \
+      '.prototype.status="active" | .prototype.iteration=$n | .prototype.question=$question |
+       .prototype.run_command=$run | .prototype.selected=[] | .prototype.updated_at=$at' \
       "$man" | write_manifest "$man" || die "prototype 重新打开写入失败；原命令可安全重跑"
     echo "PROTOTYPE_REOPENED"
     print_state "$man"
@@ -309,6 +323,7 @@ cmd_checkpoint() {
   fi
 
   [ "$status" = active ] || die "prototype status=$status，不能 checkpoint；按 mmw where 指路"
+  [ -z "$question" ] && [ -z "$run" ] || die "--question/--run 只用于 accepted prototype 重新打开"
   require_single_line "--change" "$change"
   require_single_line "--result" "$result"
   [ "$verdict" != accepted ] || [ "${#selected[@]}" -gt 0 ] || die "accepted 必须至少带一个 --selected"

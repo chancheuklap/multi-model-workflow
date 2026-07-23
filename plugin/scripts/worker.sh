@@ -86,7 +86,12 @@ validate_task_approval() {
     active|superseded|BROKEN) echo "ERROR: prototype 状态未收敛:$status" >&2; return 1 ;;
     "")
       untracked="$(mmw_prototype_untracked_paths "$task_root" "$man")" || return 1
-      [ -z "$untracked" ] || { echo "ERROR: 存在未登记 prototype/mockup；退回 design 后按 mmw where 执行 start --adopt" >&2; return 1; } ;;
+      if [ -n "$untracked" ]; then
+        echo "ERROR: 存在未登记 prototype/mockup；退回 design 后按 mmw where 执行 start --adopt" >&2
+      else
+        echo "ERROR: design 尚未完成 mandatory prototype；退回 design 后按 mmw where 启动" >&2
+      fi
+      return 1 ;;
     accepted)
       [ "$(jq -r '.prototype.selected | length' "$man")" -gt 0 ] || { echo "ERROR: accepted prototype 缺 selected" >&2; return 1; }
       selected="$(mmw_prototype_selected_relpaths "$man")" || return 1

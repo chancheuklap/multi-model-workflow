@@ -71,6 +71,10 @@ mv "$TMP/prototype/selected.tmp" "$TMP/prototype/selected.py"
 mkdir -p "$TMP/outside-evidence"; ln -s "$TMP/outside-evidence" "$TMP/evidence"
 if bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-symlink-evidence" --design "$DESIGN" --issue "$ISSUE" >/dev/null 2>&1; then no "软链 evidence 应拒绝派发"; else ok "软链 evidence fail-closed"; fi
 rm "$TMP/evidence"
+mv "$TMP/prototype" "$TMP/prototype.saved"; mv "$TMP/mockup" "$TMP/mockup.saved"
+jq '.scenario="develop" | .prototype=null' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-empty-prototype" --design "$DESIGN" --issue "$ISSUE" >/dev/null 2>&1; then no "develop 空 prototype 应拒绝派发"; else ok "develop 空 prototype fail-closed"; fi
+mv "$TMP/prototype.saved" "$TMP/prototype"; mv "$TMP/mockup.saved" "$TMP/mockup"
 jq '.prototype=null' "$TMP/task-backup.json" >"$TASK_JSON"
 if bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-old-untracked" --design "$DESIGN" --issue "$ISSUE" >/dev/null 2>&1; then no "旧任务未登记原型应拒绝派发"; else ok "旧任务未登记原型 fail-closed"; fi
 cp "$TMP/task-backup.json" "$TASK_JSON"

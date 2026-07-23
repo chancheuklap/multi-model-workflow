@@ -579,13 +579,15 @@ cmd_where() {
         b_do="prototype 验证问题已随方向失效；不要继续成文，按 then 明确退回 propose"
         ;;
       "")
+        b_load="references/design/prototype-mockup.md"
         if [ -n "$prototype_untracked" ]; then
-          b_load="references/design/prototype-mockup.md"
           b_do="磁盘已有未登记 prototype/mockup；先按 then 接管全部现有产物，不得重建、成文或审批"
           while IFS= read -r prototype_rel; do
             [ -n "$prototype_rel" ] || continue
             prototype_adopt_args="$prototype_adopt_args --artifact $(printf '%q' "$prototype_rel")"
           done <<<"$prototype_untracked"
+        else
+          b_do="本设计尚未启动 prototype；先登记一个可判真的验证问题，制作最小可运行或可操作产物，不得成文、预审或审批"
         fi
         ;;
       *) b_do="prototype 状态损坏(status=$prototype_status)；停止并修复 task.json，禁止猜测继续" ;;
@@ -617,11 +619,14 @@ cmd_where() {
       superseded)
         then_cmd="$MMW handoff --conclusion needs-redirection --to-phase propose"
         ;;
-      accepted|"")
+      accepted)
+        then_cmd="$MMW pin --phase design --produced docs/design/$slug/$slug.md；然后起设计预审并请用户 /approve-design"
+        ;;
+      "")
         if [ -n "$prototype_untracked" ]; then
           then_cmd="$MMW prototype start --adopt --kind <logic|ui|mixed> --question '<待验证问题>' --run '<运行命令>'$prototype_adopt_args"
         else
-          then_cmd="$MMW pin --phase design --produced docs/design/$slug/$slug.md；然后起设计预审并请用户 /approve-design"
+          then_cmd="$MMW prototype start --kind <logic|ui|mixed> --question '<待验证问题>' --run '<运行命令>'"
         fi
         ;;
       *) then_cmd="STOP:prototype 状态损坏，先修复 task.json；不得 pin、approve 或推进" ;;
