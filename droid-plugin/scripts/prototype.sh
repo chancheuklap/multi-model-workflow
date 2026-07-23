@@ -281,8 +281,9 @@ cmd_checkpoint() {
   local man top status iteration new_iteration log_rel log_abs
   man="$(manifest_path)"; require_design_phase "$man"
   top="$(git rev-parse --show-toplevel)"
-  status="$(jq -r '.prototype.status // empty' "$man")"
+  status="$(jq -r 'if .prototype == null then "" else (.prototype.status // "BROKEN") end' "$man")"
   [ -n "$status" ] || die "尚未 start prototype"
+  [ "$status" != BROKEN ] || die "task.json.prototype 缺 status，先修复损坏状态"
   iteration="$(jq -r '.prototype.iteration // 0' "$man")"
   [ "$iteration" -ge 1 ] 2>/dev/null || die "prototype.iteration 损坏:$iteration"
   log_rel="$(jq -r '.prototype.log // empty' "$man")"

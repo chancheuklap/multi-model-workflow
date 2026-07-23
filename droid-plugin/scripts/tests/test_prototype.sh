@@ -262,10 +262,19 @@ printf '<html>old</html>\n' >"$WT2/docs/design/$SLUG2/mockup/current.html"
 printf 'old evidence\n' >"$WT2/docs/design/$SLUG2/prototype/runs/001/output.txt"
 printf '# design\n' >"$WT2/docs/design/$SLUG2/$SLUG2.md"
 cp "$MAN2" "$TMP/manifest-before-broken.json"
-jq '.prototype={status:"broken"}' "$MAN2" >"$MAN2.tmp" && mv "$MAN2.tmp" "$MAN2"
+jq '.prototype={kind:"logic"}' "$MAN2" >"$MAN2.tmp" && mv "$MAN2.tmp" "$MAN2"
 WHERE_BROKEN="$(cd "$WT2" && bash "$MMW" where)"
+BOARD_BROKEN="$(cd "$WT2" && bash "$MMW" progress render --stdout)"
+TRIAGE_BROKEN="$(cd "$WT2" && bash "$PLUGIN/hooks/session-triage.sh")"
 echo "$WHERE_BROKEN" | grep -q '^then=STOP:prototype 状态损坏' \
-  && ok "损坏状态明确 STOP" || no "损坏状态仍给推进指令"
+  && echo "$BOARD_BROKEN" | grep -q 'Prototype：\*\*BROKEN\*\*' \
+  && echo "$TRIAGE_BROKEN" | grep -q '^prototype:BROKEN' \
+  && ok "缺 status 的损坏状态在导航和恢复面显式 STOP" || no "缺 status 的损坏状态被静默隐藏"
+if (cd "$WT2" && bash "$MMW" approve --report "docs/design/$SLUG2/$SLUG2.md" >/dev/null 2>&1); then
+  no "缺 status 的损坏状态不得 approve"
+else
+  ok "缺 status 的损坏状态阻止设计确认"
+fi
 cp "$TMP/manifest-before-broken.json" "$MAN2"
 WHERE_UNTRACKED="$(cd "$WT2" && bash "$MMW" where)"
 echo "$WHERE_UNTRACKED" | grep -q '^prototype_untracked=' \

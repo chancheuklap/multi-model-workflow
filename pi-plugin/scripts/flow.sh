@@ -562,7 +562,7 @@ cmd_where() {
   # design 内层 prototype：phase 不变，但 load/do/then 必须恢复到精确轮次，不能让 agent 重建或误走 handoff。
   local prototype_status="" prototype_untracked="" prototype_adopt_args="" prototype_rel
   if [ "$phase" = design ] && { [ "$gate" = null ] || [ -z "$gate" ]; }; then
-    prototype_status="$(jq -r '.prototype.status // empty' "$m")"
+    prototype_status="$(jq -r 'if .prototype == null then "" else (.prototype.status // "BROKEN") end' "$m")"
     if [ -z "$prototype_status" ]; then
       local top_proto; top_proto="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
       [ -n "$top_proto" ] && prototype_untracked="$(mmw_prototype_untracked_paths "$top_proto" "$m")"

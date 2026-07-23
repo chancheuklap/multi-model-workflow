@@ -95,7 +95,7 @@ cmd_approve() {
 
   # prototype 是 design 内层机器门：未收敛、已废止或磁盘有未登记产物都不能越过唯一人闸。
   local prototype_status prototype_untracked rel
-  prototype_status="$(jq -r '.prototype.status // empty' "$m")"
+  prototype_status="$(jq -r 'if .prototype == null then "" else (.prototype.status // "BROKEN") end' "$m")"
   case "$prototype_status" in
     active)
       die "prototype 仍在第 $(jq -r '.prototype.iteration' "$m") 轮，拒绝确认设计；先按 mmw where 完成本轮 checkpoint"

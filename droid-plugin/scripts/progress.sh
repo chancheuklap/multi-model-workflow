@@ -44,8 +44,10 @@ if jq -e '.approval' "$MAN" >/dev/null 2>&1; then
   approval_line="已确认 $(jq -r '.approval.at // "?"' "$MAN")  reports=$(jq -rc '.approval.reports // []' "$MAN")"
 fi
 prototype_line="- Prototype：未启动"
-prototype_status="$(jq -r '.prototype.status // empty' "$MAN")"
-if [ -n "$prototype_status" ]; then
+prototype_status="$(jq -r 'if .prototype == null then "" else (.prototype.status // "BROKEN") end' "$MAN")"
+if [ "$prototype_status" = BROKEN ]; then
+  prototype_line="- Prototype：**BROKEN** · task.json.prototype 缺 status"
+elif [ -n "$prototype_status" ]; then
   prototype_line="- Prototype：**${prototype_status}** · 第 $(jq -r '.prototype.iteration' "$MAN") 轮 · $(jq -r '.prototype.log' "$MAN")"
 fi
 
