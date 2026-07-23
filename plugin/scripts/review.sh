@@ -13,6 +13,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
+# shellcheck source=lib/prototype-state.sh
+. "$SCRIPT_DIR/lib/prototype-state.sh"
 MMW="bash \"$SCRIPT_DIR/mmw.sh\""   # 打印给主线程的命令,完整可执行形式
 state_here() {
   printf '%s' "$MMW_STATE_SUBDIR"
@@ -37,7 +39,6 @@ cmd_start() {
   done
   [ -n "$stage" ]  || die "--stage 必填(design|plan|plan-impl|final|merge-impl)"
   [ "${#sources[@]}" -gt 0 ] || die "--source 必填(源意图路径/描述,派给审者用;可重复)"
-  local source; source="${sources[*]}"
 
   # stage → 视角(审查方法/角度本体在审者已装的 worktree-review skill,这里只留视角标签做派发路由)
   local views
@@ -53,6 +54,20 @@ cmd_start() {
   local top scen brief slug
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
   STATE_SUBDIR="$(state_here)"
+  local man prototype_status rel existing already
+  man="$top/$STATE_SUBDIR/task.json"
+  prototype_status="$(jq -r 'if .prototype == null then "" else (.prototype.status // "BROKEN") end' "$man" 2>/dev/null || true)"
+  if [ "$stage" = design ] && [ "$prototype_status" = accepted ]; then
+    while IFS= read -r rel; do
+      [ -n "$rel" ] || continue
+      mmw_prototype_validate_downstream_material "$top" "$man" "$rel" \
+        || die "设计预审 prototype 材料无效:$rel"
+      already=false
+      for existing in "${sources[@]}"; do [ "$existing" = "$rel" ] && already=true; done
+      $already || sources+=("$rel")
+    done < <(mmw_prototype_selected_relpaths "$man")
+  fi
+  local source; source="${sources[*]}"
   scen="$(jq -r '.scenario // ""' "$top/$STATE_SUBDIR/task.json" 2>/dev/null || echo "")"
   slug="$(jq -r '.slug // "<slug>"' "$top/$STATE_SUBDIR/task.json" 2>/dev/null || echo "<slug>")"
   brief="$top/$STATE_SUBDIR/review-brief.md"

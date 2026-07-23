@@ -4,6 +4,7 @@
 #   mmw where | mmw handoff | mmw pin | mmw spinoff
 #   mmw note set|show                            # 讨论态书签(现场注记)
 #   mmw approve --report <设计文档>...           # 唯一人闸:确认设计,盖承重指纹,过门放权
+#   mmw prototype start|checkpoint               # design 内层原型迭代:登记/接管→逐轮验证→接受/废止
 #   mmw investigate start|status|resume|result
 #   mmw task new|resume|scope|cleanup|team|escalate
 #   mmw loop init|step|attendance|softstop|surface|resume|status|close   # build 执行账本(只记录)
@@ -20,8 +21,10 @@
 #     mmw handoff --conclusion <词> [--produced <产出>]...   交接 + 推进(缺钉产出只警告;审闸收口核审查留痕)
 #     mmw pin --produced <路径> [--phase <阶段>]             补钉产出到接力单(只登记,不推进)
 #     mmw spinoff --tag <t> --finding <s>      中途挖到的旁路登记成关联子任务
-#   讨论态书签 + 过门:
+#   讨论态书签 + prototype + 过门:
 #     mmw note set --text "<一句话现场注记>" | mmw note show
+#     mmw prototype start --kind <logic|ui|mixed> --question <q> --run <cmd> [--adopt --artifact <路径>]...
+#     mmw prototype checkpoint --feedback <f> --change <c> --result <r> --verdict <continue|accepted|superseded> ...
 #     mmw approve --report <主设计文档> [--report <合同文档>]...   确认设计(用户过门后执行;盖指纹,attendance→afk)
 #   调查 fan-out:
 #     mmw investigate start --direction <internal|external|both> --topics <topics.json> --run <id>
@@ -60,6 +63,7 @@ cmd="${1:-help}"; shift || true
 case "$cmd" in
   where|handoff|pin|spinoff) exec bash "$D/flow.sh" "$cmd" "$@" ;;
   note|approve) exec bash "$D/note.sh" "$cmd" "$@" ;;
+  prototype) exec bash "$D/prototype.sh" "$@" ;;
   task)   exec bash "$D/prepare.sh" "$@" ;;
   loop)   exec bash "$D/loop.sh" "$@" ;;
   review) exec bash "$D/review.sh" "$@" ;;

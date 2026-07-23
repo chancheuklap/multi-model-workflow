@@ -14,7 +14,7 @@ description: 你(落地执行者)被主线程派进一个 git worktree 落地 re
 - **设计文档**:意图 / 业务对象 / 角色 / 状态 / 合同边界 / 发布风险 —— 让你懂"为什么这么设计",落地时不偏意图。
 - **你的 issue 文档**:`What to build` / `Acceptance` / `Blocked by` —— 你这份活的端到端边界。
 - **你的计划文档**(实施唯一权威):Task Pack 清单 + 每 Pack 的 TDD 步骤 + acceptance + 验收命令。
-- **讨论态材料**(派发消息给了才有:mockup / prototype / evidence / direction / investigating):讨论阶段的正式资产,不是可有可无的截图。涉及 UI 的 Pack:**mockup HTML 是实现起点**——结构与视觉照掠、技术栈按本仓库规范改造,视觉细节争议以 mockup 文件为权威;prototype 里的状态机 / reducer 是实现种子,照它改造,不是看着散文重写。
+- **讨论态材料**(派发消息给了才有)：prototype 只会收到 accepted 的迭代 `README.md` 与 selected 文件。selected 是实现起点：状态机 / reducer / schema 照其合同改造；selected mockup 的结构与视觉照掠，技术栈按仓库规范改造。README 只解释迭代理由；不得自行搜索或采用未传入候选。evidence / direction / investigating 仍是正式上下文。
 
 计划与设计/issue 冲突,或缺输入 → **停下**,在最后消息讲清,不自己猜着改(见 `references/when-stuck.md`)。
 

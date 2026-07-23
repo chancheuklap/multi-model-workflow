@@ -54,7 +54,9 @@ echo "$RV" | grep -q "REVIEW_STARTED" && ok "mmw review → review.sh" || no "mm
 if ( cd "$WT" && bash "$MMW" codex dispatch >/dev/null 2>&1 ); then no "mmw codex 路由(缺参数应拒)"; else ok "mmw codex → worker.sh(缺参被拒)"; fi
 
 # help / 未知
-bash "$MMW" help 2>/dev/null | grep -q "mmw handoff" && ok "mmw help 列命令" || no "mmw help"
+HELP="$(bash "$MMW" help 2>/dev/null)"
+echo "$HELP" | grep -q "mmw handoff" && echo "$HELP" | grep -q "mmw prototype" \
+  && ok "mmw help 列主流程与 prototype 命令" || no "mmw help"
 if bash "$MMW" bogus >/dev/null 2>&1; then no "未知命令被拒"; else ok "未知命令被拒"; fi
 
 echo ""

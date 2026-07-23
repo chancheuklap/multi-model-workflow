@@ -59,9 +59,10 @@ mmw worker plan-dispatch \
   --plan <落点 docs/plans/<slug>/00N-<issue-slug>.md 绝对路径> \
   --worktree <任务 worktree 绝对路径> \
   --design <设计文档绝对路径> \
-  --issue <该 writer 负责的 issue 绝对路径> \
-  [--mockup <docs/design/<slug>/mockup/ 若存在>]
+  --issue <该 writer 负责的 issue 绝对路径>
 ```
+
+讨论态材料由脚本机械传递：direction / investigating / evidence 照常进入上下文；prototype 只传 accepted 的 `README.md` 与 `selected` 文件。未选候选和 active/superseded 原型不会进入 writer，上游若未 accepted 已被设计人闸挡住。不传任何 prototype/mockup 旗标。
 
 - **一律后台跑**:脚本为每个 writer 建临时隔离 worktree,再用 `droid exec --cwd <writer隔离worktree>` 启动并持久化 PID、结果文件和 session ID;`mmw worker status --plan <落点> --worktree <任务 wt>` 过边界门后才原子发布指定 plan 与 issue 小节并清理隔离 worktree,追问用 `plan-resume`。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。** 单 issue → 单 plan:派一个就行,不强行并行。
 - **writer 不建 worktree、不 commit**:隔离、发布和清理由脚本负责;writer 只在自己的隔离 worktree 写指定 plan 与 issue `Small issues`,主线程统一提交。

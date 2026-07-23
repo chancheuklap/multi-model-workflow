@@ -7,12 +7,14 @@
 #       确认设计(用户显式过门后由主线程执行;用户口头同意不算,必须走 /approve-design 命令进来):
 #       盖承重文档指纹(白名单第 4 条:防「确认的是 A、执行的是 B」)→ 记录确认 → attendance→afk →
 #       在 design 阶段则推进到下一阶段;已过门后重跑 = 设计修订后的重新确认(只重盖指纹,不动阶段)。
-#       指纹只盖 --report 指到的承重文档(主设计 + 被引用合同文档);evidence/prototype 追加不作废确认。
+#       指纹盖主设计、被引用合同，以及 accepted prototype 的 README + selected；未选候选和普通 evidence 不进确认面。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
+# shellcheck source=lib/prototype-state.sh
+. "$SCRIPT_DIR/lib/prototype-state.sh"
 MANIFEST_NAME="task.json"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -77,12 +79,53 @@ cmd_approve() {
   local m; m="$(manifest_path)"
   local top; top="$(git rev-parse --show-toplevel)"
   local phase pidx; phase="$(jq -r .phase "$m")"; pidx="$(jq -r .phase_index "$m")"
-
-  # 缺 --report 时回落 design 阶段已钉产出(主设计文档)
+  local design_rel r primary_reports=0
+  design_rel="$(mmw_prototype_design_rel "$m")" || die "manifest.docs.design 缺失"
+  # 缺 --report 时先回落已钉的设计材料；旧 prototype/mockup 自动项不跟进新一轮审批。
   if [ "${#reports[@]}" -eq 0 ]; then
-    while IFS= read -r r; do [ -n "$r" ] && reports+=("$r"); done \
-      < <(jq -r '(.phase_outputs.design // [])[]' "$m")
+    while IFS= read -r r; do
+      [ -n "$r" ] || continue
+      case "$r" in "$design_rel/prototype/"*|"$design_rel/mockup/"*) continue ;; esac
+      reports+=("$r")
+    done < <(jq -r '(.phase_outputs.design // [])[]' "$m")
   fi
+  for r in ${reports[@]+"${reports[@]}"}; do
+    case "$r" in "$design_rel/prototype/"*|"$design_rel/mockup/"*) ;; *) primary_reports=$(( primary_reports + 1 )) ;; esac
+  done
+
+  # prototype 是 design 内层机器门：未收敛、已废止或磁盘有未登记产物都不能越过唯一人闸。
+  local prototype_status prototype_untracked rel
+  prototype_status="$(jq -r 'if .prototype == null then "" else (.prototype.status // "BROKEN") end' "$m")"
+  case "$prototype_status" in
+    active)
+      die "prototype 仍在第 $(jq -r '.prototype.iteration' "$m") 轮，拒绝确认设计；先按 mmw where 完成本轮 checkpoint"
+      ;;
+    superseded)
+      die "prototype 验证问题已随方向失效，拒绝确认设计；先运行 mmw handoff --conclusion needs-redirection --to-phase propose"
+      ;;
+    accepted)
+      rel="$(jq -r '.prototype.log // empty' "$m")"
+      [ -n "$rel" ] || die "accepted prototype 缺 log"
+      mmw_prototype_validate_log "$top" "$m" "$rel" || die "accepted prototype log 无效"
+      reports+=("$rel")
+      [ "$(jq -r '.prototype.selected | length' "$m")" -gt 0 ] || die "accepted prototype 缺 selected"
+      while IFS= read -r rel; do
+        [ -n "$rel" ] || continue
+        mmw_prototype_validate_artifact "$top" "$m" "$rel" || die "accepted prototype selected 无效:$rel"
+        reports+=("$rel")
+      done < <(jq -r '.prototype.selected[]' "$m")
+      ;;
+    "")
+      prototype_untracked="$(mmw_prototype_untracked_paths "$top" "$m")"
+      if [ -n "$prototype_untracked" ]; then
+        die "磁盘有未登记 prototype/mockup，拒绝确认设计；先按 mmw where 运行 prototype start --adopt"
+      fi
+      die "本设计尚未启动 prototype，拒绝确认设计；先按 mmw where 完成 prototype 迭代"
+      ;;
+    *) die "prototype 状态损坏(status=$prototype_status)，拒绝确认设计" ;;
+  esac
+
+  [ "$primary_reports" -gt 0 ] || die "没有主设计材料可确认；先 --report 主设计文档，或 mmw pin --phase design --produced <主设计文档>"
   [ "${#reports[@]}" -gt 0 ] || die "没有可确认的承重文档:--report 指定,或先把设计文档钉进接力单(mmw pin --phase design --produced <路径>)"
 
   local rel
@@ -92,10 +135,11 @@ cmd_approve() {
     if [ -f "$top/$rel" ]; then [ -s "$top/$rel" ] || die "承重文档为空: $rel"; fi
   done
 
-  local args=() r
-  for r in "${reports[@]}"; do args+=(--report "$r"); done
-  local fp; fp="$(cmd_fingerprint "${args[@]}")" || die "指纹计算失败"
+  # 指纹输入顺序必须与落盘 reports 顺序完全一致；先 unique/sort，再按该数组计算。
   local reports_json; reports_json="$(printf '%s\n' "${reports[@]}" | jq -R . | jq -s 'unique')"
+  local args=() r
+  while IFS= read -r r; do [ -n "$r" ] && args+=(--report "$r"); done < <(jq -r '.[]' <<<"$reports_json")
+  local fp; fp="$(cmd_fingerprint "${args[@]}")" || die "指纹计算失败"
 
   local had_approval; had_approval="$(jq -r 'if .approval then "yes" else "no" end' "$m")"
   local advanced=no next_phase=""
@@ -107,7 +151,7 @@ cmd_approve() {
       next_phase="$(jq -r --argjson i "$(( pidx + 1 ))" '.phases[$i]' "$m")"
       jq --argjson reports "$reports_json" --arg fp "$fp" --arg at "$(now)" --arg np "$next_phase" --argjson npi "$(( pidx + 1 ))" \
         '.approval={reports:$reports, fingerprint:$fp, at:$at}
-         | .phase_outputs.design=(((.phase_outputs.design // []) + $reports) | unique)
+         | .phase_outputs.design=$reports
          | .artifacts += $reports | .artifacts |= unique
          | .attendance="afk" | .unattended_policy=null
          | .phase=$np | .phase_index=$npi | .repair_count=0 | .gate=null | .status="active" | .step_index=0' \
@@ -120,7 +164,9 @@ cmd_approve() {
     # 已过门后的重新确认(设计修订后重盖指纹),不动阶段与值守
     [ "$had_approval" = "yes" ] || die "不在 design 阶段且从未确认过,无门可过(当前 phase=$phase)"
     jq --argjson reports "$reports_json" --arg fp "$fp" --arg at "$(now)" \
-      '.approval={reports:$reports, fingerprint:$fp, at:$at}' \
+      '.approval={reports:$reports, fingerprint:$fp, at:$at}
+       | .phase_outputs.design=$reports
+       | .artifacts += $reports | .artifacts |= unique' \
       "$m" | write_manifest "$m"
   fi
 

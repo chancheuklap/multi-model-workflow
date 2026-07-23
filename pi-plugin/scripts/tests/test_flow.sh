@@ -11,6 +11,7 @@ PREPARE="$SCRIPT_DIR/../prepare.sh"
 FLOW="$SCRIPT_DIR/../flow.sh"
 LOOP="$SCRIPT_DIR/../loop.sh"
 NOTE="$SCRIPT_DIR/../note.sh"
+PROTOTYPE="$SCRIPT_DIR/../prototype.sh"
 PACKAGE="$SCRIPT_DIR/../package-phase.sh"
 REVIEW="$SCRIPT_DIR/../review.sh"
 PACKAGE_FIXTURES="$SCRIPT_DIR/fixtures/package-phase"
@@ -51,9 +52,20 @@ gate_verdict_pass() {
   gate_trace "$wt"
   ( cd "$wt" && bash "$FLOW" handoff --conclusion pass "$@" >/dev/null )
 }
-# design 过门:承重文档落盘(带内容)→ mmw approve(唯一人闸;空跑代用户敲)
+# design 过门:最小 prototype accepted→承重文档落盘(带内容)→ mmw approve(唯一人闸;空跑代用户敲)
+accept_prototype() { # $1=wt
+  local man design artifact
+  man="$1/${STATE_SUBDIR}/task.json"
+  design="$(jq -r .docs.design "$man")"
+  artifact="$design/prototype/flow-probe.txt"
+  ( cd "$1" && bash "$PROTOTYPE" start --kind logic --question "流程合同能否跑通" --run "test -f $artifact" >/dev/null )
+  mkdir -p "$1/$(dirname "$artifact")"
+  printf 'verified\n' > "$1/$artifact"
+  ( cd "$1" && bash "$PROTOTYPE" checkpoint --feedback "空跑验证" --change "建立最小夹具" --result "命令可运行" --artifact "$artifact" --selected "$artifact" --verdict accepted >/dev/null )
+}
 approve_design() { # $1=wt $2=报告相对路径
   mkdir -p "$1/$(dirname "$2")"; printf '# design\nsettled design\n' > "$1/$2"
+  accept_prototype "$1"
   ( cd "$1" && bash "$NOTE" approve --report "$2" >/dev/null )
 }
 init_empty_package() {
@@ -84,13 +96,14 @@ mkf "$WA" docs/dir.md
 
 # design 出口 = 唯一人闸 mmw approve:盖指纹 + 钉接力单 + attendance→afk + 推进 to-issue
 [ "$(mfield "$WA" attendance)" = "attended" ] && ok "develop 讨论态 attended" || no "讨论态 attended ($(mfield "$WA" attendance))"
+accept_prototype "$WA"
 APR="$(mkdir -p "$WA/docs/design"; printf '# design\nsettled\n' > "$WA/docs/design/a.md"; cd "$WA" && bash "$NOTE" approve --report docs/design/a.md)"
 echo "$APR" | grep -q "^APPROVED fingerprint=" && ok "approve 回执带指纹" || no "approve 指纹回执"
 echo "$APR" | grep -q "NEXT_PHASE=to-issue" && ok "approve 过门→to-issue" || no "approve NEXT_PHASE"
 [ "$(mphase "$WA")" = "to-issue" ] && ok "过门后 phase=to-issue" || no "过门 phase ($(mphase "$WA"))"
 [ "$(mfield "$WA" attendance)" = "afk" ] && ok "过门自动切 afk(放权自主跑)" || no "过门切 afk ($(mfield "$WA" attendance))"
 [ "$(mfield "$WA" 'approval.fingerprint')" != "null" ] && ok "approval 指纹落盘" || no "approval 落盘"
-[ "$(mfield "$WA" 'phase_outputs.design[0]')" = "docs/design/a.md" ] && ok "承重文档钉进 design 接力单" || no "approve 钉接力单"
+jq -e '.phase_outputs.design | index("docs/design/a.md") != null' "$WA/${STATE_SUBDIR}/task.json" >/dev/null && ok "主设计与 accepted prototype 一起钉进 design 接力单" || no "approve 钉接力单"
 
 mkd "$WA" docs/issues/a
 ( cd "$WA" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/a/ >/dev/null )  # to-issue→plan(无审闸)
@@ -182,6 +195,7 @@ mkf "$WAD" docs/i.md
 ( cd "$WAD" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )
 ( cd "$WAD" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 )   # 空手到 design(WARN 已单测)
 mkdir -p "$WAD/docs/design/ad"; printf 'main\n' > "$WAD/docs/design/ad/main.md"
+accept_prototype "$WAD"
 ( cd "$WAD" && bash "$NOTE" approve --report docs/design/ad >/dev/null )
 echo 'more' >> "$WAD/docs/design/ad/main.md"
 ( cd "$WAD" && bash "$FLOW" where ) | grep -q "approval_stale=" && ok "目录承重:内文件改动也触发 stale" || no "目录指纹未覆盖"
@@ -197,6 +211,7 @@ mkf "$WAF" docs/i.md
 ( cd "$WAF" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 )   # →design
 mkdir -p "$WAF/docs/design/2026-06-28-task-af"; printf 'design body\n' > "$WAF/docs/design/2026-06-28-task-af/2026-06-28-task-af.md"
 ( cd "$WAF" && bash "$FLOW" pin --produced docs/design/2026-06-28-task-af/2026-06-28-task-af.md >/dev/null )
+accept_prototype "$WAF"
 ( cd "$WAF" && bash "$NOTE" approve >/dev/null )
 [ "$(mphase "$WAF")" = "to-issue" ] && ok "approve 缺 --report 回落已钉设计产出" || no "approve 回落 ($(mphase "$WAF"))"
 
@@ -221,7 +236,7 @@ mkd "$WPR" docs/issues/pr
 [ "$(mphase "$WPR")" = "design" ] && ok "--to-phase design 回指定上游" || no "to-phase design ($(mphase "$WPR"))"
 [ "$(mfield "$WPR" phase_index)" = "2" ] && ok "--to-phase 回到正确下标" || no "to-phase 下标"
 [ "$(mfield "$WPR" 'phase_outputs["to-issue"]')" = "null" ] && ok "掉头剪目标下游接力单(to-issue 产出已过期)" || no "剪下游 to-issue"
-[ "$(mfield "$WPR" 'phase_outputs.design[0]')" = "docs/design/pr.md" ] && ok "掉头保留目标及上游接力单" || no "上游接力单误剪"
+jq -e '.phase_outputs.design | index("docs/design/pr.md") != null' "$WPR/${STATE_SUBDIR}/task.json" >/dev/null && ok "掉头保留目标及上游接力单" || no "上游接力单误剪"
 ( cd "$WPR" && bash "$FLOW" handoff --conclusion needs-redirection >/dev/null )  # design 掉头,默认回上一阶段 propose
 [ "$(mphase "$WPR")" = "propose" ] && ok "无 --to-phase 默认回上一阶段(不是首阶段)" || no "默认上一阶段 ($(mphase "$WPR"))"
 [ "$(mfield "$WPR" 'phase_outputs.design')" = "null" ] && ok "默认掉头同样剪目标下游(design 产出剪掉)" || no "默认掉头剪 design"
@@ -335,7 +350,7 @@ PREVH="$(echo "$WHD" | sed -n 's/^prev_outputs=//p')"
 echo "$WHD" | grep -q "phase=design" || no "task-h 应在 design"
 echo "$PREVH" | jq -e 'index("docs/design/2026-06-29-task-h/investigating.md")!=null and index("docs/design/2026-06-29-task-h/direction.md")!=null' >/dev/null \
   && ok "design prev_outputs 含 现状报告 + 方向(跨两阶接力)" || no "design prev_outputs 漏上游 ($PREVH)"
-echo "$WHD" | grep -q "load=references/design/discussion.md" && ok "design load 讨论主指引(方法顺序在文内,无步游标)" || no "design load"
+echo "$WHD" | grep -q "load=references/design/prototype-mockup.md" && ok "design 空状态先加载 prototype 指引" || no "design load"
 # pin 布局门:design 产出必须在 docs/design/<slug>/ 内且含与文件夹同名的主文档
 mkf "$WH" docs/design/2026-06-29-task-h.md
 if ( cd "$WH" && bash "$FLOW" pin --phase design --produced docs/design/2026-06-29-task-h.md >/dev/null 2>&1 ); then
@@ -523,14 +538,14 @@ WL4="$(lg_to_plan_gate 2026-07-20-lg-b1)"
 OL6="$(cd "$WL4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design)"
 echo "$OL6" | grep -q "GUARD=" && no "首次回 design 不该触发" || ok "判据B 首次掉头不触发"
 [ "$(mfield "$WL4" 'turnaround_ledger.design')" = "1" ] && ok "掉头账按 to-phase 记(design=1)" || no "掉头账 ($(mfield "$WL4" 'turnaround_ledger'))"
-( cd "$WL4" && bash "$FLOW" handoff --conclusion pass >/dev/null )   # design→to-issue(空手 WARN 无妨)
+( cd "$WL4" && bash "$NOTE" approve >/dev/null )                    # design→to-issue(唯一人闸)
 ( cd "$WL4" && bash "$FLOW" handoff --conclusion pass >/dev/null )   # to-issue→plan
 OL7="$(cd "$WL4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design)"
 echo "$OL7" | grep -q "GUARD=turnaround-same-phase" && ok "判据B 同 to-phase 达阈 → GUARD" || no "判据B 未触发 ($OL7)"
 echo "$OL7" | grep -q "STATUS=waiting-user" && ok "afk 掉头打转 → waiting-user" || no "判据B status ($OL7)"
 [ "$(mfield "$WL4" 'turnaround_ledger.design')" = "0" ] && ok "触发后该向清零(去抖)" || no "判据B 去抖清零"
 ( cd "$WL4" && bash "$PREPARE" resume >/dev/null )
-( cd "$WL4" && bash "$FLOW" handoff --conclusion pass >/dev/null )
+( cd "$WL4" && bash "$NOTE" approve >/dev/null )
 ( cd "$WL4" && bash "$FLOW" handoff --conclusion pass >/dev/null )
 OL8="$(cd "$WL4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design)"
 echo "$OL8" | grep -q "GUARD=" && no "去抖后首回不该再触发" || ok "判据B 去抖:放行后重新计"

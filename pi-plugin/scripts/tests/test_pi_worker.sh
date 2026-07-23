@@ -30,6 +30,14 @@ DESIGN="$TMP/docs/design/demo.md"
 printf '# plan\n' > "$PLAN"
 printf '# issue\n\n## Small issues\n<!-- PENDING -->\n' > "$ISSUE"
 printf '# design\n' > "$DESIGN"
+mkdir -p "$TMP/docs/design/prototype" "$TMP/docs/design/mockup" "$TMP/.pi/multi-model-workflow"
+printf '# prototype log\n' >"$TMP/docs/design/prototype/README.md"
+printf 'selected\n' >"$TMP/docs/design/prototype/selected.py"
+printf 'rejected\n' >"$TMP/docs/design/prototype/rejected.py"
+printf '<html>loser</html>\n' >"$TMP/docs/design/mockup/loser.html"
+cat >"$TMP/.pi/multi-model-workflow/task.json" <<'JSON'
+{"docs":{"design":"docs/design"},"prototype":{"status":"accepted","log":"docs/design/prototype/README.md","selected":["docs/design/prototype/selected.py"]},"approval":{"reports":["docs/design/prototype/README.md","docs/design/prototype/selected.py"],"fingerprint":"88b87bf4f460b9ff95c2a557d0ae73586a84bbe5"}}
+JSON
 git -C "$TMP" add docs
 git -C "$TMP" commit -qm docs
 
@@ -59,6 +67,33 @@ echo "$OUT" | grep -q 'note-run-id' && ok "dispatch requires run id ledger" || n
 echo "$OUT" | grep -q 'mmw worker verify' && ok "dispatch points to verify gate" || no "verify pointer"
 grep -q "$ACTUAL_WT" "$WT/.pi/multi-model-workflow/worker-dispatch/prompt.md" \
   && ok "prompt pins absolute worktree path" || no "prompt worktree pin"
+BUILD_PROMPT="$WT/.pi/multi-model-workflow/worker-dispatch/prompt.md"
+grep -q 'prototype/README.md' "$BUILD_PROMPT" && grep -q 'prototype/selected.py' "$BUILD_PROMPT" \
+  && ! grep -q 'prototype/rejected.py' "$BUILD_PROMPT" && ! grep -q 'mockup/loser.html' "$BUILD_PROMPT" \
+  && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"
+
+TASK_JSON="$TMP/.pi/multi-model-workflow/task.json"; cp "$TASK_JSON" "$TMP/task-backup.json"
+mv "$TMP/docs/design/prototype/selected.py" "$TMP/docs/design/prototype/selected.tmp"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.pi/worktrees/guard-missing" >/dev/null 2>&1; then no "missing selected"; else ok "missing selected fails closed"; fi
+mv "$TMP/docs/design/prototype/selected.tmp" "$TMP/docs/design/prototype/selected.py"
+mkdir -p "$TMP/outside-evidence"; ln -s "$TMP/outside-evidence" "$TMP/docs/design/evidence"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.pi/worktrees/guard-symlink" >/dev/null 2>&1; then no "symlink evidence"; else ok "symlink evidence fails closed"; fi
+rm "$TMP/docs/design/evidence"
+mv "$TMP/docs/design/prototype" "$TMP/docs/design/prototype.saved"; mv "$TMP/docs/design/mockup" "$TMP/docs/design/mockup.saved"
+jq '.scenario="develop" | .prototype=null' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.pi/worktrees/guard-empty" >/dev/null 2>&1; then no "develop empty prototype"; else ok "develop empty prototype fails closed"; fi
+mv "$TMP/docs/design/prototype.saved" "$TMP/docs/design/prototype"; mv "$TMP/docs/design/mockup.saved" "$TMP/docs/design/mockup"
+jq '.prototype=null' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.pi/worktrees/guard-old" >/dev/null 2>&1; then no "old untracked prototype"; else ok "old untracked prototype fails closed"; fi
+cp "$TMP/task-backup.json" "$TASK_JSON"
+jq '.approval=null' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.pi/worktrees/guard-unapproved" >/dev/null 2>&1; then no "unapproved accepted"; else ok "unapproved accepted fails closed"; fi
+printf B >"$TMP/docs/design/prototype/b.py"; jq '.prototype.selected=["docs/design/prototype/b.py"]' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.pi/worktrees/guard-unapproved-selected" >/dev/null 2>&1; then no "unapproved selected"; else ok "unapproved selected fails closed"; fi
+rm "$TMP/docs/design/prototype/b.py"; cp "$TMP/task-backup.json" "$TASK_JSON"
+jq '.approval={reports:["docs/design/prototype/README.md","docs/design/prototype/selected.py"],fingerprint:"stale"}' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.pi/worktrees/guard-stale" >/dev/null 2>&1; then no "stale approval"; else ok "stale approval fails closed"; fi
+cp "$TMP/task-backup.json" "$TASK_JSON"
 
 # 未验收(可能在飞)禁止重派
 if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$WT" >/dev/null 2>&1; then
@@ -66,6 +101,13 @@ if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --
 else
   ok "duplicate dispatch while pending fails closed"
 fi
+
+# 首派后 selected 改动时，resume 与最终 verify 都必须回源任务 fail-closed。
+GUARD_INSTR="$TMP/guard-instructions.md"; printf 'guard\n' >"$GUARD_INSTR"
+printf 'changed\n' >>"$TMP/docs/design/prototype/selected.py"
+if bash "$WORKER" resume --worktree "$WT" --instructions "$GUARD_INSTR" >/dev/null 2>&1; then no "stale resume"; else ok "stale resume checks task origin"; fi
+if bash "$WORKER" verify --worktree "$WT" >/dev/null 2>&1; then no "stale verify"; else ok "stale verify checks task origin"; fi
+printf 'selected\n' >"$TMP/docs/design/prototype/selected.py"
 
 # 工人干净收工 → verify 过门并记 verified
 V="$(bash "$WORKER" verify --worktree "$WT")"
@@ -110,6 +152,10 @@ bash "$WORKER" verify --worktree "$WT" >/dev/null
 
 TASK_WT="$TMP/task-wt"
 git -C "$TMP" worktree add -q -b task-wt "$TASK_WT" HEAD
+mkdir -p "$TASK_WT/.pi/multi-model-workflow"
+cat >"$TASK_WT/.pi/multi-model-workflow/task.json" <<'JSON'
+{"docs":{"design":"docs/design"},"prototype":{"status":"accepted","log":"docs/design/prototype/README.md","selected":["docs/design/prototype/selected.py"]},"approval":{"reports":["docs/design/prototype/README.md","docs/design/prototype/selected.py"],"fingerprint":"88b87bf4f460b9ff95c2a557d0ae73586a84bbe5"}}
+JSON
 PLAN2="$TASK_WT/docs/plans/demo/002.md"
 printf '\n## Cross-Plan Contract Anchors\n- shared contract\n' >>"$TASK_WT/docs/design/demo.md"
 OUT2="$(bash "$WORKER" plan-dispatch --plan "$PLAN2" --worktree "$TASK_WT" \
@@ -117,6 +163,10 @@ OUT2="$(bash "$WORKER" plan-dispatch --plan "$PLAN2" --worktree "$TASK_WT" \
 echo "$OUT2" | grep -q 'agent:"plan-writer"' && ok "plan writer dispatch instruction" || no "plan dispatch"
 META="$TASK_WT/.pi/multi-model-workflow/plan-workers/002/dispatch/meta.json"
 [ "$(jq -r .agent "$META")" = plan-writer ] && ok "plan writer selected" || no "plan writer"
+PLAN_PROMPT="$TASK_WT/.pi/multi-model-workflow/plan-workers/002/dispatch/prompt.md"
+grep -q 'prototype/README.md' "$PLAN_PROMPT" && grep -q 'prototype/selected.py' "$PLAN_PROMPT" \
+  && ! grep -q 'prototype/rejected.py' "$PLAN_PROMPT" && ! grep -q 'mockup/loser.html' "$PLAN_PROMPT" \
+  && ok "plan writer 只收到 accepted log + selected" || no "plan writer prototype 选中材料"
 
 PLAN3="$TASK_WT/docs/plans/demo/003.md"
 ISSUE3="$TASK_WT/docs/issues/demo/003.md"

@@ -17,6 +17,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
+# shellcheck source=lib/prototype-state.sh
+. "$SCRIPT_DIR/lib/prototype-state.sh"
 
 CODEX_BIN="${CODEX_BIN:-codex}"
 CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-terra}"
@@ -68,24 +70,109 @@ design_dir_of() {  # $1=设计文档路径 → 设计文件夹
   elif [ -d "$parent/$base" ]; then printf '%s' "$parent/$base";
   else printf '%s' "$parent"; fi
 }
-design_companions() {  # $1=设计文件夹 → 存在的讨论态成员,每行一个
-  local m
-  for m in mockup prototype evidence direction.md investigating.md; do
-    [ -e "$1/$m" ] && printf '%s\n' "$1/$m"
+emit_companion_rel() {
+  local task_root="$1" rel="$2"
+  [ -e "$task_root/$rel" ] || return 0
+  mmw_prototype_relpath_syntax_ok "$rel" || { echo "ERROR: 伴随材料路径非法:$rel" >&2; return 1; }
+  mmw_prototype_path_has_symlink "$task_root" "$rel" \
+    && { echo "ERROR: 伴随材料路径含软链:$rel" >&2; return 1; }
+  printf '%s\n' "$task_root/$rel"
+}
+
+validate_task_approval() {
+  local task_root="$1" man="$2" stored current rel untracked status selected
+  status="$(jq -r 'if .prototype == null then "" else (.prototype.status // "BROKEN") end' "$man")"
+  case "$status" in
+    active|superseded|BROKEN) echo "ERROR: prototype 状态未收敛:$status" >&2; return 1 ;;
+    "")
+      untracked="$(mmw_prototype_untracked_paths "$task_root" "$man")" || return 1
+      if [ -n "$untracked" ]; then
+        echo "ERROR: 存在未登记 prototype/mockup；退回 design 后按 mmw where 执行 start --adopt" >&2
+      else
+        echo "ERROR: design 尚未完成 mandatory prototype；退回 design 后按 mmw where 启动" >&2
+      fi
+      return 1 ;;
+    accepted)
+      [ "$(jq -r '.prototype.selected | length' "$man")" -gt 0 ] || { echo "ERROR: accepted prototype 缺 selected" >&2; return 1; }
+      selected="$(mmw_prototype_selected_relpaths "$man")" || return 1
+      while IFS= read -r rel; do
+        [ -n "$rel" ] || continue
+        mmw_prototype_validate_downstream_material "$task_root" "$man" "$rel" || return 1
+      done <<<"$selected" ;;
+    *) echo "ERROR: prototype 状态损坏:$status" >&2; return 1 ;;
+  esac
+  stored="$(jq -r '.approval.fingerprint // empty' "$man")"
+  if [ "$status" = accepted ] && [ -z "$stored" ]; then echo "ERROR: accepted prototype 尚未经过 /approve-design" >&2; return 1; fi
+  [ -n "$stored" ] || return 0
+  local -a args=()
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    mmw_prototype_relpath_syntax_ok "$rel" || { echo "ERROR: approval report 路径非法:$rel" >&2; return 1; }
+    [ -e "$task_root/$rel" ] || { echo "ERROR: approval report 不存在:$rel" >&2; return 1; }
+    mmw_prototype_path_has_symlink "$task_root" "$rel" \
+      && { echo "ERROR: approval report 路径含软链:$rel" >&2; return 1; }
+    args+=(--report "$rel")
+  done < <(jq -r '.approval.reports[]?' "$man")
+  [ "${#args[@]}" -gt 0 ] || { echo "ERROR: approval 缺 reports" >&2; return 1; }
+  if [ "$status" = accepted ]; then
+    while IFS= read -r rel; do
+      [ -n "$rel" ] || continue
+      jq -e --arg rel "$rel" '.approval.reports | index($rel) != null' "$man" >/dev/null \
+        || { echo "ERROR: 当前 prototype selected 未纳入设计确认:$rel" >&2; return 1; }
+    done <<<"$selected"
+  fi
+  current="$(cd "$task_root" && bash "$SCRIPT_DIR/note.sh" fingerprint "${args[@]}")" || return 1
+  [ "$current" = "$stored" ] || { echo "ERROR: 设计确认已过期；先重新 /approve-design" >&2; return 1; }
+}
+
+validate_task_root() {
+  local task_root="$1" man
+  [ -n "$task_root" ] && [ "$task_root" != "-" ] || return 0
+  man="$(mmw_prototype_manifest_from_top "$task_root")" || return 0
+  [ -f "$man" ] || return 0
+  validate_task_approval "$task_root" "$man"
+}
+
+design_companions() {  # $1=设计文件夹 → 结论材料 + accepted prototype 精确选中项
+  local m top man rel design_rel task_root selected
+  top="$(git -C "$1" rev-parse --show-toplevel 2>/dev/null || true)"
+  [ -n "$top" ] || return 0
+  man="$(mmw_prototype_manifest_from_top "$top")" || return 0
+  [ -f "$man" ] || return 0
+  design_rel="$(mmw_prototype_design_rel "$man")"
+  task_root="$top"
+  if [ "$design_rel" = "." ]; then
+    task_root="$1"
+  else
+    case "$1" in */"$design_rel") task_root="${1%/"$design_rel"}" ;; esac
+  fi
+  validate_task_approval "$task_root" "$man" || return 1
+  for m in evidence direction.md investigating.md; do
+    emit_companion_rel "$task_root" "$design_rel/$m" || return 1
   done
+  selected="$(mmw_prototype_selected_relpaths "$man")" || return 1
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    mmw_prototype_validate_downstream_material "$task_root" "$man" "$rel" \
+      || { echo "ERROR: accepted prototype 伴随材料无效:$rel" >&2; return 1; }
+    printf '%s\n' "$task_root/$rel"
+  done <<<"$selected"
 }
 companion_prompt_lines() {  # $1=设计文件夹(可空) → prompt 材料清单行
   [ -n "$1" ] || return 0
-  local c
+  local c companions
+  companions="$(design_companions "$1")" || return 1
   while IFS= read -r c; do
     [ -n "$c" ] || continue
     echo "  - $c"
-  done < <(design_companions "$1")
+  done <<<"$companions"
 }
 
 build_prompt() {  # $1=plan $2=worktree $3=design $4=issue $5=测试薄层相对路径(可空)
   local companions=""
-  [ -n "$3" ] && companions="$(companion_prompt_lines "$(design_dir_of "$3")")"
+  if [ -n "$3" ]; then
+    companions="$(companion_prompt_lines "$(design_dir_of "$3")")" || return 1
+  fi
   cat <<PROMPT
 你是落地执行者,被主线程派进一个 worktree 落地一份计划。
 **读你已装的 \`worktree-build\` skill,照它走整个落地流程**(它是总纲,细纪律在它的 references,到那步再读)。
@@ -95,7 +182,7 @@ build_prompt() {  # $1=plan $2=worktree $3=design $4=issue $5=测试薄层相对
 ${3:+- 设计文档(意图/合同边界/发布风险): $3
 }${4:+- 你的 issue(What to build / Acceptance / Blocked by): $4
 }- 你的计划(实施唯一权威): $1
-${companions:+- 讨论态材料(与设计文档同源;mockup=视觉权威——UI 照它改造不重写,prototype=实现种子——状态机/逻辑以它为起点):
+${companions:+- 讨论态材料(prototype 仅含 accepted README + selected；selected 是 UI/状态逻辑实现起点):
 $companions
 }$(test_sheet_lines "$5")
 
@@ -115,7 +202,7 @@ build_plan_prompt() {  # $1=落点 $2=worktree $3=design $4=issue $5=讨论态�
 开工前读这几份(绝对路径,顺序读):
 ${3:+- 源设计文档(architecture / 合同边界 / Cross-Plan Contract Anchors): $3
 }${4:+- 你负责的大 issue(What to build;## Small issues 若为 PENDING 你来拆): $4
-}${5:+- 讨论态材料(与设计文档同源;mockup=视觉权威,prototype=实现种子):
+}${5:+- 讨论态材料(prototype 仅含 accepted README + selected；只采用 selected):
 $5
 }$(test_sheet_lines "$6")
 
@@ -245,13 +332,24 @@ cmd_dispatch() {
   [ -n "$plan" ] || die "--plan 必填"
   [ -n "$wt" ]   || die "--worktree 必填"
   [ -f "$plan" ] || die "plan 文件不存在: $plan"
+  local plan_top managed_man
+  plan_top="$(git -C "$(dirname "$plan")" rev-parse --show-toplevel 2>/dev/null || true)"
+  managed_man="$(mmw_prototype_manifest_from_top "$plan_top")"
+  if [ -f "$managed_man" ] && [ "$(jq -r '.scenario // empty' "$managed_man")" = develop ]; then
+    [ -n "$design" ] || die "develop worker 必须传 --design，不能绕过已确认 prototype 材料"
+  fi
   preflight_skill worktree-build
   preflight_doc "设计文档(--design)" "$design"
   preflight_doc "issue(--issue)" "$issue"
 
+  local task_origin="-"
+  if [ -n "$design" ]; then
+    task_origin="$(git -C "$(dirname "$design")" rev-parse --show-toplevel 2>/dev/null)" || die "无法定位设计所属任务 worktree:$design"
+  fi
   ensure_worktree "$wt" "$base"
   local st; st="$(state_for "$wt")"
   mkdir -p "$wt/$st"
+  printf '%s\n' "$task_origin" >"$wt/$st/task-origin"
   local test_sheet; test_sheet="$(locate_test_sheet "$wt")"
 
   local dmodel="$CODEX_MODEL" deffort="$CODEX_EFFORT"
@@ -285,6 +383,8 @@ cmd_resume() {
   [ -n "$wt" ]    || die "--worktree 必填"
   [ -f "$instr" ] || die "--instructions 文件不存在: $instr"
   local st; st="$(state_for "$wt")"
+  [ -f "$wt/$st/task-origin" ] || die "旧派发缺 task-origin，不能安全 resume；请重新 dispatch"
+  validate_task_root "$(cat "$wt/$st/task-origin")" || die "任务设计确认或 prototype 状态无效"
 
   local sf="$wt/$st/codex-session"
   [ -f "$sf" ] || record_session "$wt" "$wt/$st/codex-logs/run.log" >/dev/null
@@ -323,8 +423,8 @@ cmd_plan_dispatch() {
   preflight_skill worktree-plan
   preflight_doc "设计文档(--design)" "$design"
   preflight_doc "issue(--issue)" "$issue"
-  # 讨论态材料(mockup/prototype/evidence/direction/investigating)由脚本从设计文档路径机械推导,不传旗标
-  local companions; companions="$(companion_prompt_lines "$(design_dir_of "$design")")"
+  # 讨论态材料由脚本机械推导；prototype 只传 accepted README + selected，不传旗标
+  local companions; companions="$(companion_prompt_lines "$(design_dir_of "$design")")" || die "讨论态材料校验失败"
   # 写计划方法论(task-pack / 自检)在 worktree-plan skill 自己的 references/,工人读 skill 自取,dispatch 不再传路径。
   local st; st="$(state_for "$wt")"; mkdir -p "$wt/$st"
   mmw_ensure_worktree_state_ignore "$wt"
@@ -360,6 +460,7 @@ cmd_plan_resume() {
   [ -n "$plan" ]  || die "--plan 必填(定位是哪份计划的会话)"
   [ -n "$wt" ]    || die "--worktree 必填"
   [ -f "$instr" ] || die "--instructions 文件不存在: $instr"
+  validate_task_root "$wt" || die "任务设计确认或 prototype 状态无效"
   local st; st="$(state_for "$wt")"
   local ns; ns="$(plan_ns "$plan")"
   local sd="$wt/$st/plan-workers/$ns"
