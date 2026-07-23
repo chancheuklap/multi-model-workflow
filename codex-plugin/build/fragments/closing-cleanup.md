@@ -1,9 +1,20 @@
-## 收尾 · 合并后删干净
+## 收尾：合并 App branch，保留 App worktree
 
-回执 `done`(STATUS=ready-to-close)= 末阶段过。合并进主分支是自主收尾动作(本地可逆、不出站,不拦):`exit_worktree({ action: "keep" })` 回主仓库,再跑 `git merge --no-ff <branch>`(禁 `--squash`),无人值守也自主推进;要发布到远端再 `git push`——那时 `guard-redline` 经 pi 扩展弹确认框由用户亲批(无令牌可代批)。任务分支 merge 进主线后,worktree 连同里面的临时状态一起删:
+回执 `done`（`STATUS=ready-to-close`）后，先找到 `target_branch` 已有的 clean checkout。
+它不存在、dirty 或正在 merge/rebase 时停止并说明缺口，不再创建 closing worktree。
+
+在 target checkout 本地执行：
 
 ```bash
-mmw task cleanup --slug <slug> # 回主仓库执行
+git merge --no-ff <codex/任务-branch>
 ```
 
-worktree 在**使用期**持久(可跨天,别中途删);**合并后**才 cleanup,worktree + 分支 + `.pi/multi-model-workflow/` 临时状态一并清除。
+禁止 `--squash`。本地 merge 完成并通过最终验证后，在 target checkout 运行：
+
+```bash
+mmw task cleanup --slug <slug>
+```
+
+cleanup 只删除任务 App worktree 内的 `.codex/multi-model-workflow/` 状态。App
+worktree 和 App branch 都保留，由用户继续在 Codex App 中查看、handoff、archive
+或管理 branch。`git push`、远端 PR merge 和部署仍须用户批准。

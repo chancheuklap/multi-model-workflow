@@ -26,23 +26,28 @@ mmw_resolve_state_subdir() {
 }
 
 mmw_find_worktree() {
-  local top="$1" slug="$2" path
+  local top="$1" slug="$2" path man
   [ -n "$top" ] && [ -n "$slug" ] || return 1
-  path="$top/$(mmw_worktrees_rel)/$slug"
-  [ -d "$path" ] || return 1
-  printf '%s' "$path"
+  while IFS= read -r path; do
+    [ -d "$path" ] || continue
+    man="$path/$(mmw_state_subdir)/task.json"
+    [ -f "$man" ] || continue
+    if [ "$(jq -r '.slug // empty' "$man" 2>/dev/null)" = "$slug" ]; then
+      printf '%s' "$path"
+      return 0
+    fi
+  done < <(git -C "$top" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
+  return 1
 }
 
 mmw_foreach_flying_manifest() {
-  local top="$1" root d man
+  local top="$1" path man
   [ -n "$top" ] || return 0
-  root="$top/$(mmw_worktrees_rel)"
-  [ -d "$root" ] || return 0
-  for d in "$root"/*/; do
-    [ -d "$d" ] || continue
-    man="${d}$(mmw_state_subdir)/task.json"
+  while IFS= read -r path; do
+    [ -d "$path" ] || continue
+    man="$path/$(mmw_state_subdir)/task.json"
     [ -f "$man" ] && printf '%s\n' "$man"
-  done
+  done < <(git -C "$top" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
 }
 
 mmw_ensure_state_ignore() {

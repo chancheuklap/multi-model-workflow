@@ -7,24 +7,35 @@
 > 改动小但仍走 ④终审闸,不跳质量门;落地撞出超范围问题 → `mmw spinoff` 登记,别就地扩。
 
 <!-- BEGIN: worktree-setup -->
-## 建 worktree(进去之后才开干)
+## 采用 Codex App 当前 worktree
 
-1. **起名**:从对话主题提一个人类可读、切题的 slug,格式 `YYYY-MM-DD-<theme>`(kebab,如 `2026-06-28-phone-login`)。这个名贯穿 worktree / 分支 / docs 目录,你要在 VSCode 里认得出。**把名字亮给用户但不阻塞**:`attended`(develop 讨论态)顺口让他改名;`afk` 路(bug / small-change)直接建,回执里带上名字,他不满意说一声再改(没动代码前重建零成本)。
+1. 从对话主题起一个切题的 slug，格式 `YYYY-MM-DD-<theme>`。任务 branch 固定为
+   `codex/<slug>`，让 Codex App 的 sidebar、terminal、diff 和 branch 始终指向同一份
+   checkout。
 
-2. **一条命令建好**(从本地最新 HEAD 分叉,scaffold docs,写 manifest):
+2. 在当前 checkout 运行：
+
    ```bash
    mmw task new --scenario small-change --slug <slug> --title "<人类可读标题>" --request "<用户原始需求与验收条件>"
    ```
-   回执给出 `worktree_path`;prepare 把本路径的阶段序列固化进 manifest 的 `phases`。
-   仅 develop:用户开口已带明确方向(不用再摆备选)→ 加 `--direction-given`,propose 阶段引擎自动降级(`where` 的 `do` 会照 manifest 报降级指令:只落方向文档+一个最强对照,不重摆 2-3 方案)。
-   仅 develop:终点明确但整件事还在雾里(连要决定什么都还没理清、单会话装不下)→ 加 `--with-wayfind`:phases 前加 wayfind 探路阶段,先与用户逐个拍清决策再进 investigate(`where` 会把 `load` 指到 `references/wayfind.md`)。
 
-3. **进 worktree**(只有这步能切会话 cwd,脚本切不了):
-   ```
-   `enter_worktree({ path: "<回执里的 worktree_path>" })`
-   ```
+   仅 develop：用户已经给出明确方向时加 `--direction-given`；整件事仍在雾里时加
+   `--with-wayfind`。
 
-提交进分支的文档:设计文件夹 `docs/design/<slug>/` 全部成员(主文档 `<slug>.md` 与文件夹同名 + direction/investigating/prototype/mockup/evidence 类型细分)、issue `docs/issues/`、计划 `docs/plans/`、领域 `docs/context/`(项目级资产)。**过程产物不永久存档**(`docs/.gitignore` 已忽略,随 worktree 删):审查留痕 `docs/reviews/`、终审报告。临时状态固定落 `.pi/multi-model-workflow/`。
+3. 按回执继续：
+
+   - `NEEDS_APP_WORKTREE`：当前是 local checkout。请用户在 Codex App 为这个仓库创建
+     Worktree task，然后在那个 task 重跑同一条命令。plugin 不在后台创建另一个
+     outer worktree。
+   - `NEEDS_APP_BRANCH`：当前 App task 还是 detached 或 branch 名不对。请用户在
+     App 当前 task 选择 **Create branch here**，创建回执给出的
+     `codex/<slug>`，然后重跑同一条命令。
+   - `PREPARED`：当前 App worktree/branch 已原地采用。保持当前 task 和 cwd，运行
+     `mmw where` 进入第一阶段。
+
+CLI 或 IDE 入口也只接受已经进入的 linked worktree 和 `codex/<slug>` branch；
+plugin 不替宿主创建 outer。任务文档提交进当前 App branch；过程审查产物由
+`docs/.gitignore` 忽略；临时状态固定落 `.codex/multi-model-workflow/`。
 <!-- END: worktree-setup -->
 
 <!-- BEGIN: phase-contract -->
@@ -76,13 +87,24 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 <!-- END: receipt-jump -->
 
 <!-- BEGIN: closing-cleanup -->
-## 收尾 · 合并后删干净
+## 收尾：合并 App branch，保留 App worktree
 
-回执 `done`(STATUS=ready-to-close)= 末阶段过。合并进主分支是自主收尾动作(本地可逆、不出站,不拦):`exit_worktree({ action: "keep" })` 回主仓库,再跑 `git merge --no-ff <branch>`(禁 `--squash`),无人值守也自主推进;要发布到远端再 `git push`——那时 `guard-redline` 经 pi 扩展弹确认框由用户亲批(无令牌可代批)。任务分支 merge 进主线后,worktree 连同里面的临时状态一起删:
+回执 `done`（`STATUS=ready-to-close`）后，先找到 `target_branch` 已有的 clean checkout。
+它不存在、dirty 或正在 merge/rebase 时停止并说明缺口，不再创建 closing worktree。
+
+在 target checkout 本地执行：
 
 ```bash
-mmw task cleanup --slug <slug> # 回主仓库执行
+git merge --no-ff <codex/任务-branch>
 ```
 
-worktree 在**使用期**持久(可跨天,别中途删);**合并后**才 cleanup,worktree + 分支 + `.pi/multi-model-workflow/` 临时状态一并清除。
+禁止 `--squash`。本地 merge 完成并通过最终验证后，在 target checkout 运行：
+
+```bash
+mmw task cleanup --slug <slug>
+```
+
+cleanup 只删除任务 App worktree 内的 `.codex/multi-model-workflow/` 状态。App
+worktree 和 App branch 都保留，由用户继续在 Codex App 中查看、handoff、archive
+或管理 branch。`git push`、远端 PR merge 和部署仍须用户批准。
 <!-- END: closing-cleanup -->

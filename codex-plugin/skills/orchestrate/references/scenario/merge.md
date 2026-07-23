@@ -1,6 +1,6 @@
 # Merge · 多 PR / 分支合并(场景操作指南,读全文)
 
-> 用户要合并多个并行 worktree / PR 时,orchestrate 路由到这。**不开新 worktree**——Coordinator(你)在主仓库做。这些 PR 来自**同一大设计/大计划**,各自已过自己的 ④终审,但**它们之间的交互没验过**。
+> 用户要合并多个并行 worktree / PR 时,orchestrate 路由到这。**不开新 worktree**——Coordinator(你)在 target branch 已有的 clean checkout 做。这些 PR 来自**同一大设计/大计划**,各自已过自己的 ④终审,但**它们之间的交互没验过**。
 >
 > **理念**:merge 要抓**业务意图 / 功能设计冲突** —— 两个 PR 各自正确、合起来语义打架(功能依赖被改、同一业务流被从不同环节改、领域假设不一致、migration 顺序错)。**git 能干净合 ≠ 设计不冲突。**
 >
@@ -69,7 +69,7 @@ mmw task team
 1. 直接跑 `git merge --no-ff <branch>`(**禁 `--squash`**)——本地合并不弹框、可逆,无人值守也自主推进;只有冲突/意图分歧才停问用户。发布到远端时 `git push` 由用户亲批。
 2. git 文本冲突逐 hunk 解:先读双方改动的**原始意图**(commit / PR / issue),尽量两意图都保留、不凭空造新行为,解完跑仓库自动检查(typecheck → test → format)。**拿不准哪边该 win 且属 `design_conflict`(两 PR 目标本身矛盾)→ 不自己合,交用户拍**。**业务/设计冲突**按「三级分类 → 路由」「系统性冲突调查」定的方向解(让两份设计语义自洽,不是单选一边文本)。
 3. **每合一个就验**(不批量合完再查):跑该 PR 相关测试。**冒出意外冲突 → 回「三级分类 → 路由」重新分类**,别硬合。
-4. 合进主线后 `mmw task cleanup --slug <slug>` 删该 worktree + 分支 + 临时状态。
+4. 合进主线后 `mmw task cleanup --slug <slug>` 只清该任务的 MMW 临时状态；App worktree 和 branch 保留给 App。
 
 ## 6. 跨 PR 集成审(全合完跑一次)
 

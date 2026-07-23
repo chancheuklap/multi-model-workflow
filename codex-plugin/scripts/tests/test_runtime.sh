@@ -18,14 +18,25 @@ no() { echo "not ok - $1"; fail=1; }
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-mkdir -p "$TMP/.codex/worktrees/demo/.codex/multi-model-workflow"
-printf '{}\n' > "$TMP/.codex/worktrees/demo/.codex/multi-model-workflow/task.json"
-mkdir -p "$TMP/.pi/worktrees/foreign/.pi/multi-model-workflow"
-printf '{}\n' > "$TMP/.pi/worktrees/foreign/.pi/multi-model-workflow/task.json"
-[ "$(mmw_find_worktree "$TMP" demo)" = "$TMP/.codex/worktrees/demo" ] && ok "find worktree" || no "find worktree"
-mmw_foreach_flying_manifest "$TMP" | grep -q '/demo/.codex/multi-model-workflow/task.json$' &&
+REPO="$TMP/repo"
+APP_WT="$TMP/app-worktree"
+mkdir -p "$REPO"
+git -C "$REPO" init -q
+git -C "$REPO" config user.email t@t
+git -C "$REPO" config user.name t
+printf 'seed\n' > "$REPO/seed"
+git -C "$REPO" add seed
+git -C "$REPO" commit -qm seed
+git -C "$REPO" worktree add -q -b codex/demo "$APP_WT" HEAD
+APP_WT="$(cd "$APP_WT" && pwd -P)"
+mkdir -p "$APP_WT/.codex/multi-model-workflow"
+printf '{"slug":"demo"}\n' > "$APP_WT/.codex/multi-model-workflow/task.json"
+mkdir -p "$APP_WT/.pi/multi-model-workflow"
+printf '{"slug":"foreign"}\n' > "$APP_WT/.pi/multi-model-workflow/task.json"
+[ "$(mmw_find_worktree "$REPO" demo)" = "$APP_WT" ] && ok "find App worktree from git worktree list" || no "find worktree"
+mmw_foreach_flying_manifest "$REPO" | grep -q '/app-worktree/.codex/multi-model-workflow/task.json$' &&
   ok "list flying manifest" || no "list flying manifest"
-if mmw_foreach_flying_manifest "$TMP" | grep -q '/.pi/'; then
+if mmw_foreach_flying_manifest "$REPO" | grep -q '/.pi/'; then
   no "Codex runtime read foreign mirror state"
 else
   ok "ignore foreign mirror state"
