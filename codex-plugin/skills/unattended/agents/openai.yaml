@@ -1,0 +1,5 @@
+interface:
+  display_name: "MMW 强无人值守"
+  short_description: "过门后进入不提问的自主执行"
+policy:
+  allow_implicit_invocation: false
