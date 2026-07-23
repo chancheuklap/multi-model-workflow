@@ -42,7 +42,7 @@ printf '# prototype log\n' >"$DESIGN_ROOT/prototype/README.md"
 printf 'selected\n' >"$DESIGN_ROOT/prototype/selected.py"
 printf 'rejected\n' >"$DESIGN_ROOT/prototype/rejected.py"
 cat >"$STATE_SUBDIR/task.json" <<JSON
-{"scenario":"develop","slug":"review-prototype","docs":{"design":"$DESIGN_ROOT"},"prototype":{"status":"accepted","kind":"logic","question":"q","iteration":1,"run_command":"run","artifacts":["$DESIGN_ROOT/prototype/selected.py","$DESIGN_ROOT/prototype/rejected.py"],"selected":["$DESIGN_ROOT/prototype/selected.py"],"log":"$DESIGN_ROOT/prototype/README.md","updated_at":"2026-07-23T00:00:00Z"}}
+{"scenario":"develop","slug":"review-prototype","phase":"design","docs":{"design":"$DESIGN_ROOT"},"prototype":{"status":"accepted","kind":"logic","question":"q","iteration":1,"run_command":"run","artifacts":["$DESIGN_ROOT/prototype/selected.py","$DESIGN_ROOT/prototype/rejected.py"],"selected":["$DESIGN_ROOT/prototype/selected.py"],"log":"$DESIGN_ROOT/prototype/README.md","updated_at":"2026-07-23T00:00:00Z"}}
 JSON
 bash "$REVIEW" start --stage design --source "$DESIGN_ROOT/review-prototype.md" >/dev/null
 B="$(cat "$BRIEF")"
@@ -50,6 +50,12 @@ echo "$B" | grep -q "$DESIGN_ROOT/prototype/README.md" \
   && echo "$B" | grep -q "$DESIGN_ROOT/prototype/selected.py" \
   && ! echo "$B" | grep -q "$DESIGN_ROOT/prototype/rejected.py" \
   && ok "design review 自动读取 accepted README + selected" || no "design review prototype 材料"
+
+# phase=design 且 prototype 未 accepted → 预审被拒(顺序机器化;过门后复审不受限)
+jq '.prototype.status="active"' "$STATE_SUBDIR/task.json" > "$STATE_SUBDIR/task.json.tmp" && mv "$STATE_SUBDIR/task.json.tmp" "$STATE_SUBDIR/task.json"
+if bash "$REVIEW" start --stage design --source "$DESIGN_ROOT/review-prototype.md" >/dev/null 2>&1; then
+  no "phase=design 未 accepted 预审应被拒"; else ok "phase=design 未 accepted 预审被拒(顺序机器化)"; fi
+jq 'del(.phase) | .prototype.status="accepted"' "$STATE_SUBDIR/task.json" > "$STATE_SUBDIR/task.json.tmp" && mv "$STATE_SUBDIR/task.json.tmp" "$STATE_SUBDIR/task.json"
 
 # 复审 brief:repair_count>0 或已有留痕 → 注入 re-review 规则
 mkdir -p ${STATE_SUBDIR} docs/reviews

@@ -1,6 +1,6 @@
 {
   "schema_version": "2",
-  "description": "流程数据(不是散文)。只有一条主干流程;每种开口(preset)默认开主干里的哪几个阶段。任务建好时把开着的阶段序列固化进进度记录的 phases;flow 据 phases 推进,升级/掉头就是改 phases。讨论态阶段(investigate/propose/design)自由往返不设上限;流水线态回上游要向用户汇报但不锁死。merge 不走主干、单列。",
+  "description": "流程数据(不是散文)。只有一条主干流程;每种开口(preset)默认开主干里的哪几个阶段。任务建好时把开着的阶段序列固化进进度记录的 phases;flow 据 phases 推进,升级/掉头就是改 phases。讨论态阶段(loop_guards.discussion_phases:wayfind/investigate/propose/design)自由往返不设上限;流水线态回上游要向用户汇报但不锁死。merge 不走主干、单列。",
 
   "conclusions": ["pass", "needs-repair", "needs-redirection", "needs-context", "blocked"],
 

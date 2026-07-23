@@ -27,18 +27,8 @@ manifest_path() {
   echo "$m"
 }
 
-write_manifest() {
-  local m="$1" tmp; tmp="$(mktemp)"; cat > "$tmp"
-  if [ ! -s "$tmp" ] || ! jq -e . "$tmp" >/dev/null 2>&1; then
-    rm -f "$tmp"; echo "ERROR: 拒绝写入空/非法 JSON 到 $m;原 manifest 保留" >&2; return 1
-  fi
-  local stamped; stamped="$(mktemp)"
-  if jq --arg at "$(now)" '.updated_at=$at' "$tmp" > "$stamped" && [ -s "$stamped" ]; then
-    mv "$stamped" "$m"; rm -f "$tmp"
-  else
-    rm -f "$stamped"; mv "$tmp" "$m"
-  fi
-}
+# manifest 原子写单源在 lib/runtime.sh(mmw_write_manifest);此处仅保留同名入口。
+write_manifest() { mmw_write_manifest "$@"; }
 
 # 承重文档指纹:文件 git hash;目录 = 目录内全文件(排 .git)排序后逐一 hash 再汇总。
 # 与 flow.sh where 的 approval_stale 检查同算法(单源在此,flow 调本脚本 fingerprint)。
@@ -101,6 +91,9 @@ cmd_approve() {
       die "prototype 仍在第 $(jq -r '.prototype.iteration' "$m") 轮，拒绝确认设计；先按 mmw where 完成本轮 checkpoint"
       ;;
     superseded)
+      if [ "$(jq -r '.prototype.redirected // false' "$m")" = true ]; then
+        die "prototype 已随掉头作废，拒绝确认设计；先按 mmw where 用 prototype start 开新一轮并走到 accepted"
+      fi
       die "prototype 验证问题已随方向失效，拒绝确认设计；先运行 mmw handoff --conclusion needs-redirection --to-phase propose"
       ;;
     accepted)
@@ -120,7 +113,7 @@ cmd_approve() {
       if [ -n "$prototype_untracked" ]; then
         die "磁盘有未登记 prototype/mockup，拒绝确认设计；先按 mmw where 运行 prototype start --adopt"
       fi
-      die "本设计尚未启动 prototype，拒绝确认设计；先按 mmw where 完成 prototype 迭代"
+      die "本设计尚未启动 prototype，拒绝确认设计；先按 mmw where 完成 prototype 迭代(prototype 机制之前建的在飞旧任务:handoff --conclusion needs-redirection --to-phase design 退回后补走)"
       ;;
     *) die "prototype 状态损坏(status=$prototype_status)，拒绝确认设计" ;;
   esac

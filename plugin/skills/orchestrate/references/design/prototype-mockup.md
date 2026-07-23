@@ -23,9 +23,9 @@ mmw where
 
 - `prototype_status=active`：读 `prototype_log`、`prototype_artifacts`、`prototype_question` 和 `prototype_run`，在现有产物上完成当前轮；禁止重新 start。
 - `prototype_status=accepted`：把 `prototype_selected` 回灌设计文档。收到新反馈需要再改时，用文末的重新打开命令。
-- `prototype_status=superseded`：照 `then` 回 propose，禁止继续修旧原型。
+- `prototype_status=superseded`：照 `then` 处理——方向尚未重定就回 propose；已掉头重定回 design 就用新验证问题 `start` 开新一轮（轮次顺延）。禁止继续修旧原型。
 - `prototype_untracked=...`：照 `then` 给出的完整 `start --adopt` 命令接管全部旧产物，禁止删除后重建。
-- 没有 prototype 状态：登记当前唯一验证问题；一个循环只验证一个能判真假的问题。
+- 没有 prototype 状态：先按 design 阶段主指引与用户讨论出方向和设计，再登记当前唯一验证问题；一个循环只验证一个能判真假的问题。验证问题产自讨论，不凭空造。
 
 ```bash
 mmw prototype start \
@@ -76,7 +76,7 @@ mmw prototype checkpoint \
   --verdict superseded
 ```
 
-然后照回执运行回 propose 的 `mmw handoff`，不在旧方向上另造一版。
+然后照回执运行回 propose 的 `mmw handoff`，不在旧方向上另造一版。掉头会把 prototype 标成已作废（redirected）；重定方向回到 design 后，照 `mmw where` 的 `then` 用新的验证问题 `start` 开新一轮，轮次自动顺延。
 
 accepted 后收到新反馈，先登记新的可验证问题；运行方式变化时同时更新 `--run`。不提前填写尚未发生的改动或结果：
 

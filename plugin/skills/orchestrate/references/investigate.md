@@ -11,7 +11,7 @@
 | 方向 | 查什么 | 跑哪个 workflow | 角度 skill(可选) |
 |---|---|---|---|
 | 内部(仓库现状) | 模块边界 / seam / 数据流 / 根因 | `investigate-internal` | `codebase-design` · `improve-codebase-architecture` · `diagnosing-bugs` |
-| 外部(成熟方案,**非必做**) | 现有库 / 实现 / 最佳实践 | `investigate-external` | `deep-research` · `context7` |
+| 外部(成熟方案,**非必做**) | 现有库 / 实现 / 最佳实践 | `investigate-external` | (不填;方法内建 web 检索 + context7 MCP,`~/.claude/skills` 下没有对应 skill 可加载) |
 
 - 只需查内部 → 只跑 internal;要对比外部方案 → 再跑 external;两个都要 → 先后各跑一次。
 - 窄到一个点(一个函数 / 已知文件)→ 别起 workflow,自己 Read/grep 查完直接 handoff。
