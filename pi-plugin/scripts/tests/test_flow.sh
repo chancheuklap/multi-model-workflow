@@ -523,14 +523,14 @@ WL4="$(lg_to_plan_gate 2026-07-20-lg-b1)"
 OL6="$(cd "$WL4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design)"
 echo "$OL6" | grep -q "GUARD=" && no "首次回 design 不该触发" || ok "判据B 首次掉头不触发"
 [ "$(mfield "$WL4" 'turnaround_ledger.design')" = "1" ] && ok "掉头账按 to-phase 记(design=1)" || no "掉头账 ($(mfield "$WL4" 'turnaround_ledger'))"
-( cd "$WL4" && bash "$FLOW" handoff --conclusion pass >/dev/null )   # design→to-issue(空手 WARN 无妨)
+( cd "$WL4" && bash "$NOTE" approve >/dev/null )                    # design→to-issue(唯一人闸)
 ( cd "$WL4" && bash "$FLOW" handoff --conclusion pass >/dev/null )   # to-issue→plan
 OL7="$(cd "$WL4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design)"
 echo "$OL7" | grep -q "GUARD=turnaround-same-phase" && ok "判据B 同 to-phase 达阈 → GUARD" || no "判据B 未触发 ($OL7)"
 echo "$OL7" | grep -q "STATUS=waiting-user" && ok "afk 掉头打转 → waiting-user" || no "判据B status ($OL7)"
 [ "$(mfield "$WL4" 'turnaround_ledger.design')" = "0" ] && ok "触发后该向清零(去抖)" || no "判据B 去抖清零"
 ( cd "$WL4" && bash "$PREPARE" resume >/dev/null )
-( cd "$WL4" && bash "$FLOW" handoff --conclusion pass >/dev/null )
+( cd "$WL4" && bash "$NOTE" approve >/dev/null )
 ( cd "$WL4" && bash "$FLOW" handoff --conclusion pass >/dev/null )
 OL8="$(cd "$WL4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design)"
 echo "$OL8" | grep -q "GUARD=" && no "去抖后首回不该再触发" || ok "判据B 去抖:放行后重新计"
