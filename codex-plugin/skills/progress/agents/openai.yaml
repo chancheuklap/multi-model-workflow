@@ -1,5 +1,0 @@
-interface:
-  display_name: "MMW 进度"
-  short_description: "从磁盘真相源重建任务进度"
-policy:
-  allow_implicit_invocation: true

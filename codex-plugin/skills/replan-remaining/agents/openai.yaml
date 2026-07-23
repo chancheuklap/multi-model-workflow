@@ -1,5 +1,0 @@
-interface:
-  display_name: "重做剩余计划"
-  short_description: "保留已完成并回流计划阶段"
-policy:
-  allow_implicit_invocation: false
