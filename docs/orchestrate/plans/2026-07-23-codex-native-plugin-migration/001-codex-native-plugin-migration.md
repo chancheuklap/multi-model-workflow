@@ -7,11 +7,10 @@
 - **Primary agents**：主线程、调查工人、调查综合工人、计划工人、开发工人、修复工人和 GPT 审者全部走 Codex 原生 GPT agent thread。
 - **Second reviewer**：只有独立的第二审查模型走外部无头 CLI；核心实现只认一个供应商无关 Adapter，不绑定 Claude 或其他厂商。
 - **Source of truth**：当前 `plugin/`、`pi-plugin/`、`droid-plugin/` 代码、各自 `skills/**/references`、scripts、schemas、tests；历史设计文档只作线索，不作为现状证据。
-- **Method dependencies**：当前 workflow 硬依赖的方法论 skills 随 Codex plugin
-  固定版本分发；任务特定的浏览器、远程 Windows 和外部服务仍作为显式环境依赖。
-- **Method source baseline**：`mattpocock/skills`
-  `ed37663cc5fbef691ddfecd080dff42f7e7e350d`，MIT；实现时把许可证和该来源
-  写入第三方声明。
+- **Method closure**：Codex 镜像不安装、vendoring 或运行时调用通用方法论
+  skills。MMW 真正需要的取证、决策访谈、领域对齐、垂直切片、原型和 TDD
+  行为直接收进现有阶段 reference 与 worker 合同；任务特定的浏览器、远程
+  Windows 和外部服务仍作为显式环境依赖。
 - **Current baseline**：仓库 `main` commit `2efefbe1668cf108ab63a85cd639da067c3c76dd`；Claude plugin `8.1.4`；本机 `codex-cli 0.145.0`。
 - **Official capability baseline**：
   - [Subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)
@@ -24,6 +23,8 @@
 - **Branch/worktree**：`codex/2026-07-23-codex-native-plugin-migration-plan`；当前计划位于独立 worktree。
 - **Worktree evidence**：
   [`evidence/2026-07-23-codex-app-worktree.md`](evidence/2026-07-23-codex-app-worktree.md)。
+- **Method evidence**：
+  [`evidence/2026-07-23-method-skill-dependency-audit.md`](evidence/2026-07-23-method-skill-dependency-audit.md)。
 - **Final gate**：只有安装后的 Codex plugin 从 cache 运行、hooks 已 trust、App
   outer/UI 对齐、真实 native agent fan-out、真实第二模型 CLI、compaction/resume
   和完整 develop E2E 全部通过，才可宣告 parity。
@@ -47,10 +48,12 @@
 | 主任务 Git identity | 接受 App managed worktree 的默认 detached HEAD；MMW 用 `refs/mmw/tasks/<task-id>` 钉住当前任务提交，不强迫用户在 UI 额外创建 branch。 |
 | 内部 worktree | plan sandbox 和 build worker worktree 仍由 MMW 创建并交给原生 subagent；它们是短命执行目录，不是用户导航目标，也不要求出现在 App sidebar。 |
 | 工作区所有权 | App/宿主创建、Handoff、展示和清理主任务 worktree；MMW 只创建和清理内部 worktree 与私有 task ref。双方不删除、改名或接管对方的工作区。 |
+| 子代理工作目录 | 当前 native spawn 没有 per-child cwd。只有 plan/build 子代理收到自己的 inner worktree 绝对路径并由 worker verify；主线程不使用 `TASK_ROOT`、路径代理或 checkout allowset。 |
+| 方法论能力 | 只暴露 MMW 的 5 个角色/流程 skills 和 11 个控制入口。通用方法行为由各阶段完整 reference 自包含，不增加七个公共 skill、不读取个人 skill 目录。 |
 | Return Contract | 保留现有结构化 Markdown/JSON 回执和父线程亲验；不新增覆盖所有角色的 SubagentStop schema 系统。 |
 | Investigate 脚本 | 不新增第二条 `mmw investigate` 编排轨。原生 subagent 是唯一执行轨，只保留必要的无状态结果校验/过滤 helper。 |
 | Merge 恢复 | 继续使用 merge brief + git 状态；补足 brief 必填字段，不新增独立 merge 状态机。 |
-| Custom agents | 不要求安装 `.codex/agents`。Codex plugin 当前不能把 custom agents 作为 plugin 组件分发；角色方法继续由 bundled skills 提供。 |
+| Custom agents | 不要求安装 `.codex/agents`。Codex plugin 当前不能把 custom agents 作为 plugin 组件分发；角色方法由 MMW 自己的 workflow/worker skills 与阶段 references 提供。 |
 
 ## 用户流程与习惯保持不变
 
@@ -136,26 +139,25 @@ MMW 阶段产物钉住与推进命令。两者不得在文案、状态或测试�
 
 ```text
 bash <installed-plugin-root>/scripts/mmw.sh --context <session-context.json> <existing-command...>
-mmw context root
 mmw context recover-current
-mmw context guard
 mmw task init [--base <branch>]
 ```
 
 **实现隐藏：**
 
-- 从 context 解析当前宿主 workspace。
-- 在分发到现有脚本前校验进程 cwd 与 workspace root 是同一个 checkout。
+- 从进程当前 cwd 解析 Git 顶层目录；当前 App/CLI/IDE checkout 就是主任务
+  workspace，不再输出或接受另一条 task-root 路径。
+- mutating `mmw` 命令只核对当前 checkout 的 git common dir、worktree git dir
+  和 registry task binding，错位就失败。
 - 解析 plugin 版本和安装根。
 - 读取/写入 task、loop、package、release 状态。
-- 为 child prompt 输出绝对路径。
-- 为主线程输出唯一 `TASK_ROOT`，同步私有 task ref，并校验 outer/registered-inner
-  ownership allowset 与 target closing lease。
+- 为 plan/build child prompt 输出其专属 inner worktree 绝对路径；当前 native
+  subagent spawn 没有独立 cwd 参数，这个路径只存在于 worker dispatch 合同。
+- 同步私有 task ref，并校验 closing target lease。
 
-不再并列提供 `--repo`、`--task-root`、`--worktree` 三套全局入口。恢复时运行
+不再提供 `--repo`、`--task-root`、`context root` 或 `context guard`。恢复时运行
 `context recover-current`，它只允许恢复当前任务已经打开的 checkout，不能绑定
-另一个隐藏路径。`context root` 和 `context guard` 是该 Interface 下的定位/验真
-动作，不形成第二套 repo 参数体系。
+另一个隐藏路径。主线程文件工具自然使用宿主 cwd，不经 MMW 路径代理。
 
 ### 2. Native worker module
 
@@ -396,27 +398,31 @@ Codex plugin manifest 当前不注册 `commands/` 或 `agents/`。因此：
 - `worktree-review` 忽略被审仓库自己的 AI agent 定义，审查方法只认 plugin bundled skill。
 - `release-flow` 不扫描 Claude/Codex cache；只认 SessionStart 给出的安装根。
 
-### Bundled method dependencies
+### 方法行为收回 MMW
 
-Codex 镜像不能依赖作者机器碰巧安装的个人 skills。把当前主流程的七个硬方法依赖
-随 plugin 分发：
+Codex 镜像没有通用方法论 skill 依赖。当前 Claude references 对
+`codebase-design`、`diagnosing-bugs`、`domain-modeling`、`grilling`、
+`prototype`、`tdd` 和 `to-tickets` 的调用，迁移时全部改成 MMW 自己的阶段行为：
 
-- `codebase-design`
-- `diagnosing-bugs`
-- `domain-modeling`
-- `grilling`
-- `prototype`
-- `tdd`
-- `to-tickets`
+| 当前借用的方法名 | MMW 实际需要的行为 | Codex 单一归属 |
+| --- | --- | --- |
+| `codebase-design` | 用真实代码确认模块职责、接口、数据流、共享文件 owner 与测试 seam | investigate、design、plan 各自现有 reference；按角色写具体检查，不新增通用架构 skill |
+| `diagnosing-bugs` | 复现症状、缩小变量、逐项证伪、定位根因、写回归测试 | bug scenario + investigate reference；相同循环用 build fragment 注入完整文档 |
+| `domain-modeling` | 维护术语、对象、角色、状态与跨 context 关系 | design discussion 的 `Domain Alignment`；不再另起一个 skill |
+| `grilling` | 沿 blocking decisions 一次问一个、附推荐、事实由 agent 查、价值取舍由用户拍 | wayfind、propose、design references；相同访谈合同用 build fragment 注入 |
+| `prototype` | 运行状态模型，验证合法/非法转移，并把代码作为实现种子提交 | 现有 `prototype-mockup.md`；以 MMW 语义为唯一权威 |
+| `tdd` | 先写失败测试并确认失败，再最小实现、确认通过、重构和按 Pack 提交 | build coordinator、`worktree-build` 与 tests reference；相同循环用 build fragment 注入 |
+| `to-tickets` | tracer-bullet 垂直切片；宽重构走 expand–migrate–contract | `to-issue-skeleton.md` 和 `worktree-plan`；模板、粒度和依赖规则直接闭合 |
 
-它们从当前有明确许可证的上游版本固定导入，保留许可证、来源 commit 和
-`THIRD_PARTY_NOTICES.md`。Codex references 只指向同一 installed `PLUGIN_ROOT`
-下的 bundled skill，不再读 `~/.claude/skills`、`~/.agents/skills` 或用户个人
-Codex skills。
+只在两个以上完整 references 必须重复同一行为时才建 build fragment；fragment 在
+构建时注入，运行时 agent 仍只读当前阶段的一份完整 reference。角色不同的检查直接
+写在该角色现有 reference 中，不创建七个替代 reference，也不把七套通用方法塞进
+`orchestrate/SKILL.md`。
 
-导入后仍遵守本仓 skill 结构规则：`SKILL.md` 只做路由，完整方法放进该 skill
-自己的一份 reference；上游正文、必要 assets 和本地适配差异都能从第三方声明
-追溯。不得为了 vendor 方便把长方法论直接塞回 `SKILL.md`。
+Codex 官方 plugin manifest 只负责声明本 plugin 自己的 skills、hooks、apps 和
+MCP；skill metadata 的 `dependencies` 只声明工具依赖，没有“安装另一组 method
+skills”的依赖合同。因此本镜像不设计 skill bootstrap、依赖解析器或个人目录
+preflight。清洁 profile 只安装 MMW plugin 就能执行核心方法。
 
 以下属于任务特定环境能力，不伪装成 plugin 自带：
 
@@ -426,9 +432,10 @@ Codex skills。
 - 产品 API、凭据和其他外部服务。
 
 流程只有实际选中相应路径时才做 capability preflight；缺失时留下
-`needs-context/blocked` 证据。`improve-codebase-architecture` 由 bundled
-`codebase-design` 覆盖；可选 `triage` 不再保留硬编码路径，缺失时沿现有提问流程
-继续。
+`needs-context/blocked` 证据。`improve-codebase-architecture`、`triage`、
+`frontend-design` 和 `impeccable` 这类 ambient method/plugin 调用也不进入
+Codex 核心路径：架构、分诊和 UI 质量门由对应 MMW reference 自包含，浏览器或
+图片生成等真实工具能力才做环境 preflight。
 
 ### Command-equivalent skills
 
@@ -578,34 +585,26 @@ $PLUGIN_DATA/worktrees/<repo-id>/<task-id>/
 - closing 成功后删除 registry task state、session binding 和私有 task ref；不删除
   当前 App/host worktree。
 
-### Coordinator task-root invariant
+### 主线程与子代理的 workspace 边界
 
-主任务 workspace 必须与当前 Codex 任务 cwd 同一。Session context 不再承担把
-主线程“遥控”到另一个 checkout 的职责：
-
-1. SessionStart、`where` 和恢复回执同时给出 `REPO_COMMON_DIR`、`TARGET_BRANCH`
-   与唯一可写 `TASK_ROOT`；`TASK_ROOT` 必须等于当前 checkout root。
-2. task 初始化后，主线程重新读取 `TASK_ROOT` 下的 `AGENTS.md` 和 nested
-   override。
-3. active task 内 propose、design、to-issue、small-change、bug、package/release 和
-   closing 前的所有主线程文件工具自然落在当前 `TASK_ROOT`；传给 subagent 和脚本
-   的路径仍全部使用绝对路径。
-4. Registry 为当前 task 维护写入 allowset：当前 host-owned outer workspace，以及
-   已登记为 active 的 MMW plan/build inner worktrees。其他 task worktree、未登记
-   linked worktree 和 target checkout 均拒绝写入。
-5. PreToolUse 对可观察的文件工具和变更型 shell 命令按绝对 path、git common dir
-   和 worktree git dir 执行 allowset；hosted tool 不在 hook coverage 时不得宣称已
-   机械保护。
-6. 所有 mutating `mmw` 命令和每次阶段 handoff 前运行 `context guard`，核对
-   task id、当前 workspace、task ref 和 active inner-worktree registry。
-7. `waiting-user` 同时冻结 outer 与全部 inner worktrees；guard 发现越界时 fail
-   loud，不自动还原。
-8. active task 中如果用户把同一 chat Handoff 到 Local 或另一个 worktree，下一次
-   guard 只在 task identity 和 ref 可证明一致时刷新路径；否则停下，不静默接管
-   另一个 checkout。
-9. App 的 diff、Git controls、integrated terminal 和主线程文件工具因此始终看见
-   同一份主任务改动。plan/build inner worktree 的结果只有验收并合入 outer 后才
-   出现在 App diff。
+- 主线程没有 `TASK_ROOT` 环境变量、路径代理或全局写入 allowset。App/CLI/IDE
+  启动当前 task 时给出的 cwd 就是主任务 workspace；MMW 只在 `task init` 和每个
+  mutating `mmw` 命令里确认当前 checkout 仍绑定同一 task。
+- 主线程初始化后按 Codex 原生规则读取当前 checkout 的 `AGENTS.md` 和 nested
+  override，所有文件工具自然作用于这里。
+- 调查 subagent 只读当前 workspace。plan/build subagent 才收到 MMW 为它创建的
+  inner worktree 绝对路径，并被要求把每个文件操作和命令明确落到该路径；这是
+  native spawn 当前没有 per-child cwd 的直接适配。
+- worker 的 prepare/verify 负责 inner worktree 的 materialization、允许修改范围、
+  commit 和结构化回执。父线程只接纳通过 verify 的结果，再合入当前 outer。
+- 不用 PreToolUse 解析任意文件路径或 shell 命令来判断 checkout 所有权；不维护
+  outer/inner 全局 allowset，也不对主线程做 origin fingerprint。
+- active task 中如果用户把同一 chat Handoff 到 Local 或另一个 worktree，下一条
+  mutating `mmw` 命令只在 registry binding 能证明仍是同一 task 时刷新路径；
+  否则停下，不静默接管另一个 checkout。
+- App 的 diff、Git controls、integrated terminal 和主线程文件工具始终看见同一份
+  outer 改动。plan/build inner 结果只有通过 verify 并合入 outer 后才出现在 App
+  diff。
 
 任务运行期间允许 target branch 和 Local checkout 正常前进；这正是 worktree
 隔离的目的。closing 先确认 outer clean 并把 task ref 更新到 HEAD，再解析
@@ -766,8 +765,8 @@ topic、plan 或 worker 继续分波次派发；并发上限只影响调度，�
 - phases 在 investigate 前加入 `wayfind`，其他场景拒绝该参数。
 - 决策地图和一决策一文件继续写入
   `docs/design/<slug>/wayfind/`。
-- 主线程使用 bundled `grilling` 与用户逐个解决 frontier；事实调研可派 native
-  GPT researcher，决策不下放。
+- 主线程按 wayfind reference 内的决策访谈合同逐个解决 frontier；事实调研可派
+  native GPT researcher，决策不下放。
 - frontier 清空且剩余雾区不挡路后 handoff 到 investigate，wayfind 目录进入
   `prev_outputs`。
 - compaction/session restart 从 map、decision files 和 task manifest 恢复。
@@ -809,7 +808,8 @@ topic、plan 或 worker 继续分波次派发；并发上限只影响调度，�
 
 ### To-Issue
 
-- 主线程调用现有 `to-tickets` 方法。
+- 主线程按 `to-issue-skeleton.md` 自带的垂直切片与
+  expand–migrate–contract 规则切片。
 - 只写大 issue 骨架。
 - 不发在线 tracker。
 - plan writer 在探代码后补自己的 `Small issues`。
@@ -872,8 +872,9 @@ topic、plan 或 worker 继续分波次派发；并发上限只影响调度，�
   同样进入 `waiting-user`。
 - 用户回复并接受/调整后运行 `task resume`，恢复 AFK 再动代码；compaction 或
   session restart 仍从 `status + waiting_for + note` 看见这道人闸。
-- task 处于 `waiting-user` 时，PreToolUse 拒绝对 outer 与全部 registered inner 的
-  变更型工具，只放行只读检查、note 和 `task resume`，Stop hook 不能替用户确认。
+- task 处于 `waiting-user` 时，PreToolUse 按当前 session/task status 拒绝变更型
+  工具，只放行只读检查、note 和 `task resume`；它不解析目标路径，也不承担
+  workspace 路由。Stop hook 不能替用户确认。
 - 保留主线程就地 TDD。
 - 不为了“全员 subagent 化”强派 builder。
 - 多步任务继续用 loop。
@@ -1110,8 +1111,7 @@ release repair-verify --stage <stage>
 | --- | --- | ---: |
 | SessionStart | 安装根、session context、任务分诊、model provenance、最近提交、note、Open Decisions、版本/时效 | 改写 |
 | UserPromptSubmit | protected action receipt、package receipt、outbound receipt、用户消息恢复 attended | 新增 |
-| PreToolUse | redline deny、consume outbound receipt、active-task outer/registered-inner allowset、`waiting-user` 写入阻断、unattended 下阻止 user-input 工具 | 改写 |
-| PostToolUse | Pack commit 辅助记账；目标 worktree 从 tool input 的绝对路径/工作目录解析，不使用 session `cwd` 猜测 | 改写 |
+| PreToolUse | redline deny、consume outbound receipt、当前 session 为 `waiting-user` 时阻断变更工具、unattended 下阻止 user-input 工具；不做路径 allowset | 改写 |
 | Stop | AFK task 仍 active 时要求继续一次；合法 waiting/blocked/done 才允许停 | 新增 |
 
 明确不使用：
@@ -1172,8 +1172,9 @@ Stop hook 必须读取当前 Codex 事件的 `stop_hook_active`：
 - 文档/产物路径保存为相对 workspace root 的路径。
 - host/version 文案改 Codex。
 - phase descriptions 不再写第二模型写计划。
-- 删除 active-task origin freeze/fingerprint；写入边界改为 outer + registered inner
-  allowset，target 只在 closing lease 内可写。
+- 删除 active-task origin freeze/fingerprint、`TASK_ROOT` 和 workspace allowset；
+  主线程使用当前 cwd，inner 由 worker prepare/verify，target 只由 closing 脚本在
+  lease 内写。
 
 ### `loop-state.schema.json`
 
@@ -1211,10 +1212,10 @@ receipt 绑定 `task_id + HEAD + action fingerprint`，不绑定一次性 outer 
 codex-plugin/
 ├── .codex-plugin/
 │   └── plugin.json
-├── THIRD_PARTY_NOTICES.md
 ├── build/
 │   ├── fragments/
-│   │   └── control-actions.json
+│   │   ├── control-actions.json
+│   │   └── *.md
 │   ├── build.sh
 │   └── tests/
 ├── skills/
@@ -1223,13 +1224,6 @@ codex-plugin/
 │   ├── worktree-plan/
 │   ├── worktree-build/
 │   ├── worktree-review/
-│   ├── codebase-design/
-│   ├── diagnosing-bugs/
-│   ├── domain-modeling/
-│   ├── grilling/
-│   ├── prototype/
-│   ├── tdd/
-│   ├── to-tickets/
 │   ├── approve-design/
 │   ├── attended/
 │   ├── force-validate/
@@ -1246,7 +1240,6 @@ codex-plugin/
 │   ├── session-triage.sh
 │   ├── user-prompt-submit.sh
 │   ├── guard-redline.sh
-│   ├── record-step.sh
 │   └── stop-guard.sh
 ├── scripts/
 │   ├── mmw.sh
@@ -1284,8 +1277,8 @@ codex-plugin/
 | Path | Responsibility |
 | --- | --- |
 | `codex-plugin/.codex-plugin/plugin.json` | Codex plugin manifest。 |
-| `codex-plugin/skills/*` | 5 个 workflow skills + 7 个 bundled method skills + 11 个 command-equivalent wrappers。 |
-| `codex-plugin/THIRD_PARTY_NOTICES.md` | Bundled method skills 的许可证、来源 commit 与更新责任。 |
+| `codex-plugin/skills/*` | 5 个 MMW workflow/worker/review skills + 11 个 command-equivalent wrappers；不暴露通用方法论 skills。 |
+| `codex-plugin/build/fragments/*.md` | 沿用现有 fragment 机制；只有确实被多个完整 reference 复用的 MMW 合同才放这里，由 build 注入，不是运行时 skill。 |
 | `codex-plugin/hooks/hooks.json` | Codex lifecycle wiring。 |
 | `codex-plugin/hooks/user-prompt-submit.sh` | 用户动作 receipts 与 attended 恢复。 |
 | `codex-plugin/hooks/stop-guard.sh` | AFK 不无状态停机。 |
@@ -1342,8 +1335,9 @@ codex-plugin/
 6. Codex runtime state/inner worktrees 移到 `$PLUGIN_DATA`，不得吞 `.codex` 全目录。
 7. package 两次确认必须证明来自用户。
 8. installed runtime parity 不再要求额外 Codex custom agents；应明确验证“没有 custom agent 也能完整运行”。
-9. 所有 `~/.claude/skills`、`~/.agents/skills`、`CLAUDE.md`、slash command 和
-   `AskUserQuestion` 引用改成 bundled Codex skill/`AGENTS.md`/当前用户输入工具。
+9. 所有 ambient method skill、`~/.claude/skills`、`~/.agents/skills`、
+   `CLAUDE.md`、slash command 和 `AskUserQuestion` 引用改成对应阶段的 MMW
+   自包含合同、`AGENTS.md` 和当前用户输入工具。
 10. 主任务 worktree 的 create/Handoff/UI/cleanup 归 Codex App；MMW 只 adoption
     当前 outer、维护 task ref，并拥有 plan/build inner worktrees。
 11. `.worktreeinclude`、ignored `AGENTS.override.md` 和 environment setup 不会自动
@@ -1353,46 +1347,45 @@ codex-plugin/
 
 | Task Pack | Method ownership |
 | --- | --- |
-| 1 | 7 个 bundled method skills。 |
-| 2 | `orchestrate/SKILL.md`、四入口 scenario、phase contract、wayfind、propose、design、to-issue 与核心控制路由。 |
+| 1 | Plugin 壳、公开 skill surface 与“无 ambient method dependency”静态门。 |
+| 2 | `orchestrate/SKILL.md`、四入口 scenario、phase contract、wayfind、propose、design、to-issue 与核心控制路由；闭合决策访谈、领域对齐、prototype 和垂直切片行为。 |
 | 3 | 11 个 command-equivalent skills。 |
-| 4 | plan/build coordinator references、`worktree-plan`、`worktree-build`。 |
-| 5 | investigate references 与 result contracts。 |
+| 4 | plan/build coordinator references、`worktree-plan`、`worktree-build`；闭合代码边界检查、Small issues 拆分和 TDD 行为。 |
+| 5 | investigate references 与 result contracts；闭合仓库取证和 bug 根因循环。 |
 | 6 | review coordinator references、`worktree-review`。 |
 | 7 | attendance、redline、Stop 与 hook-facing references。 |
 | 8 | package、`release-flow` 及其 references。 |
 | 9 | closing、merge 及 current-truth 修正。 |
 | 10 | build fragment 单源、全镜像 active docs 与安装后教程/E2E。 |
 
-## Task Pack 1：Codex plugin 壳与 bundled method closure
+## Task Pack 1：Codex plugin 壳与公开 skill surface
 
-**Goal behavior**：Codex 从独立 plugin 安装 cache 加载；七个硬方法依赖随包可发现，
-不读取用户个人 skills。
+**Goal behavior**：Codex 从独立 plugin 安装 cache 加载；只暴露 MMW 角色/流程与
+控制入口，核心工作流不读取、安装或 vendoring 通用方法论 skills。
 
 **Owned files：**
 
 - `codex-plugin/.codex-plugin/plugin.json`
 - `.agents/plugins/marketplace.json`
-- 7 个 bundled method skills
-- `codex-plugin/THIRD_PARTY_NOTICES.md`
 - plugin shell/build skeleton
-- manifest/method dependency tests
+- public surface/ambient dependency tests
 
 **TDD：**
 
 1. RED：manifest 可解析、marketplace source 指向正确目录。
-2. RED：7 个 method skills 在清洁 Codex profile 中可发现。
-3. RED：许可证、来源 commit 和 bundled content 都有 provenance。
-4. RED：bundled skills 不读取 `~/.claude`、`~/.agents` 或个人 Codex skill 路径。
-5. RED：每个 vendored `SKILL.md` 只路由到一份完整本地 reference。
-6. GREEN：导入固定版本方法与最小 plugin shell。
+2. RED：安装后只发现 5 个 MMW workflow/worker/review skills 与 11 个控制入口，
+   不出现通用方法论 skill。
+3. RED：plugin shell 不包含 method skill bootstrap、vendor 目录或个人 skill
+   路径探测。
+4. RED：cache 安装后能发现 `orchestrate`，不要求 custom agents。
+5. GREEN：实现最小 plugin shell 与公开 skill surface。
 
 **Acceptance：**
 
 - Plugin 能从 cache 副本安装和发现 skills。
 - 不安装 custom agents。
-- 清洁 Codex profile 不依赖作者机器的 ambient skills。
-- 第三方方法来源与许可证完整。
+- 清洁 Codex profile 不依赖作者机器的 ambient method skills。
+- 不维护 method vendor、第三方版本锁或 skill dependency resolver。
 
 ## Task Pack 2：Runtime context 与 host-neutral workflow engine
 
@@ -1412,6 +1405,8 @@ lifecycle。
 - routes/task/loop schemas
 - `codex-plugin/skills/orchestrate/SKILL.md`
 - scenario/phase/wayfind/propose/design/to-issue references
+- decision interview 和 vertical-slice 等确实复用的 method-contract fragments；
+  只由需要它们的完整 reference 注入
 - `codex-plugin/hooks/hooks.json`
 - `codex-plugin/hooks/session-triage.sh`
 - runtime/context/prepare/flow/loop/progress/mmw tests
@@ -1419,12 +1414,12 @@ lifecycle。
 **TDD：**
 
 1. RED：SessionStart fixture 输入含 session/cwd/model，预期输出准确 MMW/context、
-   `REPO_COMMON_DIR`、`TARGET_BRANCH` 和 `TASK_ROOT`。
+   `REPO_COMMON_DIR` 和 `TARGET_BRANCH`，不输出第二条 task-root。
 2. RED：Local/main checkout 运行 `task init` 时，除 session 的
    `pending_handoff` 外不产生 task state、artifact、branch 或 worktree，并返回准确
    App Handoff 指令。
-3. RED：同一 session Handoff 后采用当前 linked checkout；`pwd == TASK_ROOT`，没有
-   第二个 outer `git worktree add`。
+3. RED：同一 session Handoff 后直接采用当前 linked checkout，没有第二个 outer
+   `git worktree add`、`TASK_ROOT` 或路径代理。
 4. RED：直接以 detached App Worktree 启动时唯一 target branch 可推断；候选不唯一
    必须显式 `--base`，不猜 branch。
 5. RED：Local 或 outer 有 tracked/untracked 改动时初始化 fail loud。
@@ -1449,13 +1444,15 @@ lifecycle。
 16. RED：`--with-wayfind` 仅 develop 可用，产物进入 investigate `prev_outputs`。
 17. RED：bug/small-change `task escalate --to develop` 保留 task id、outer 与已有
     产物。
-18. RED：Coordinator references 要求 `TASK_ROOT` 就是当前 checkout，并重新读取
-    outer rules。
-19. RED：Codex references 无 Claude skill path、slash command、Workflow、
-    EnterWorktree 或 AskUserQuestion 调用面。
-20. GREEN：port host-neutral engine，重写 prepare/registry/workspace ownership
+18. RED：Coordinator references 只使用当前 cwd，并重新读取当前 checkout 的
+    rules；不要求所有文件工具改用绝对路径。
+19. RED：Codex references 无 Claude skill path、ambient method/plugin
+    invocation、slash command、Workflow、EnterWorktree 或 AskUserQuestion 调用面。
+20. RED：清洁 profile 的 wayfind/propose/design/to-issue fixture 能分别完成 blocking
+    decision 访谈、领域更新、状态原型和垂直切片，不触发额外 skill 安装。
+21. GREEN：port host-neutral engine，重写 prepare/registry/workspace ownership
     seam。
-21. REFACTOR：所有 phase script 只通过 runtime 解析 task id/current root。
+22. REFACTOR：所有 phase script 只通过 runtime 解析 task id/current root。
 
 **Acceptance：**
 
@@ -1517,6 +1514,7 @@ materialization/setup。
 - `worktree-plan`
 - `worktree-build`
 - orchestrate plan/build references
+- plan/build 共用的 TDD method-contract fragment
 - worker tests
 
 **TDD：**
@@ -1539,7 +1537,13 @@ materialization/setup。
 13. RED：声明的 inner setup 成功才允许 spawn；失败时不派 agent、不留下 active
     worktree。
 14. RED：materialization/setup fingerprint 变化可见，不能复用 stale inner。
-15. GREEN：从 pi worker port 最小实现并增加统一 materialize seam。
+15. RED：清洁 profile 的 plan writer 只靠 MMW reference 完成真实路径/接口核验和
+    Small issues 拆分，不调用架构或 ticket skill。
+16. RED：清洁 profile 的 build worker 记录一条真实 RED 失败命令和对应 GREEN
+    通过命令，再按 Pack 提交；未确认失败不得写实现，未转绿不得报 done。
+17. RED：worker verify 从 dispatch meta 指向的 inner worktree 读取真实 HEAD 和
+    Pack commits，写入 receipt/loop；不靠全局 PostToolUse hook。
+18. GREEN：从 pi worker port 最小实现并增加统一 materialize seam。
 
 **Acceptance：**
 
@@ -1558,6 +1562,7 @@ materialization/setup。
 **Owned files：**
 
 - `orchestrate/references/investigate.md`
+- bug scenario 与 investigate 共用的 root-cause method-contract fragment
 - `scripts/lib/investigate-result.py`
 - investigate fixtures/tests
 - routes current wording
@@ -1569,8 +1574,10 @@ materialization/setup。
 3. RED：无 locator/low confidence 进入 dropped。
 4. RED：全部 topic 失败不能 synth。
 5. RED：report schema invalid。
-6. GREEN：无状态 validator/filter。
-7. 真运行：三个 topics 并行 + 一个 synth。
+6. RED：bug fixture 只靠 MMW reference 完成复现、变量隔离、假设证伪和根因定位，
+   不调用 `diagnosing-bugs` 或其他 ambient method skill。
+7. GREEN：无状态 validator/filter。
+8. 真运行：三个 topics 并行 + 一个 synth。
 
 **Acceptance：**
 
@@ -1625,13 +1632,13 @@ materialization/setup。
 
 ## Task Pack 7：Hooks、AFK 与出站红线
 
-**Goal behavior**：Codex hooks 保留分诊、提交记账、红线和无人值守语义，不使用不支持的 ask。
+**Goal behavior**：Codex hooks 只保留分诊、用户来源、红线和无人值守语义，不使用
+不支持的 ask，也不承担 worker 记账或 workspace 路由。
 
 **Owned files：**
 
 - `hooks.json`
 - `guard-redline.sh`
-- `record-step.sh`
 - `stop-guard.sh`
 - attendance references
 - hook tests
@@ -1643,26 +1650,22 @@ materialization/setup。
 3. RED：dry-run 放行。
 4. RED：outbound receipt 只放行一次。
 5. RED：MCP/GitHub 已知写工具 redline。
-6. RED：active task 的 host outer 和 registered active inner worktrees 放行；target、
-   其他 task 和 unregistered linked worktree 拒绝。判定使用绝对 path + common
-   dir + worktree git dir。
-7. RED：inner worktree status 退出 active 后立即从 allowset 移除。
-8. RED：`waiting-user` 下 outer 与全部 inner 的变更型工具被 deny，只读、note 和
-   `task resume` 放行。
-9. RED：closing lease 只在受控步骤临时放行 target checkout，结束或失败后释放。
-10. RED：AFK active task Stop 时继续。
-11. RED：`stop_hook_active=true` 不二次拒绝，且留下 violation。
-12. RED：waiting/blocked/done 可停。
-13. RED：attended 模式可停。
-14. RED：用户新 prompt 切回 attended。
-15. RED：Pack commit 从 tool input 指向的 registered inner worktree 读取真实 HEAD。
+6. RED：`waiting-user` session 的变更型工具被 deny，只读、note 和 `task resume`
+   放行；判定不解析文件路径或 checkout allowset。
+7. RED：closing lease 由 closing 脚本取得和释放，不靠 PreToolUse 路径放行。
+8. RED：AFK active task Stop 时继续。
+9. RED：`stop_hook_active=true` 不二次拒绝，且留下 violation。
+10. RED：waiting/blocked/done 可停。
+11. RED：attended 模式可停。
+12. RED：用户新 prompt 切回 attended。
 
 **Acceptance：**
 
 - hook 未 trust 时 runtime parity fail。
 - hook 输出只使用当前 Codex 支持字段。
 - 不返回 `permissionDecision:"ask"`。
-- 不把 PostToolUse 当父线程验收。
+- worker commit 记账和验收全部留在 Task Pack 4 的 dispatch/verify 路径，不新增
+  PostToolUse hook。
 
 ## Task Pack 8：Package 与 Release native repair
 
@@ -1738,12 +1741,14 @@ materialization/setup。
 ## Task Pack 10：Build generation、项目文档与安装后 E2E
 
 **Goal behavior**：Codex 镜像进入正式维护面；清洁 Codex profile 只安装本 plugin
-并配置真实第二模型 Adapter 后即可跑通，不借用作者个人 skills。
+并配置真实第二模型 Adapter 后即可跑通。取证、决策、领域、原型、切片和 TDD
+按真实行为验收，不以额外 skill 的“可发现”代替功能验收。
 
 **Owned files：**
 
 - `codex-plugin/build/**`
-- shared fragments and tests
+- build generation 与全局 drift tests；method-contract fragments 由其行为所属的
+  Task Pack 创建和验证，本 Pack 只核全量生成结果
 - `AGENTS.md`
 - `README.md`
 - marketplace metadata/version
@@ -1754,14 +1759,14 @@ materialization/setup。
 
 1. RED：Codex 内部 shared fragment 变更时 drift 被发现。
 2. RED：Codex static scan 无 Claude/Droid/pi runtime 残留。
-3. RED：清洁 profile 无 `~/.agents`、`~/.claude`、个人 Codex skills，七个 bundled
-   methods 仍可用。
+3. RED：清洁 profile 无 `~/.agents`、`~/.claude`、个人 Codex skills，仍能完成
+   根因取证、决策访谈、领域更新、状态原型、垂直切片和 RED/GREEN TDD。
 4. RED：installed cache 与 source 不同，运行仍指向 cache。
 5. RED：hook trust 未完成时 parity fail。
 6. RED：无需 custom agents。
-7. RED：真实 App Worktree 默认 detached；`task init` 原地 adoption，
-   `pwd == TASK_ROOT`，没有第二个 outer，App terminal/diff/Git controls 与实际改动
-   对齐。保存截图或录屏证据。
+7. RED：真实 App Worktree 默认 detached；`task init` 原地 adoption，不产生
+   `TASK_ROOT` 或第二个 outer，App terminal/diff/Git controls 与实际改动对齐。
+   保存截图或录屏证据。
 8. RED：从 App Local 启动时 task/artifact/branch/worktree 均未产生，用户一次
    Handoff 后同一 chat 继续完整 develop。
 9. RED：dirty App outer 初始化 fail loud；target branch 候选不唯一不猜。
@@ -1805,7 +1810,7 @@ materialization/setup。
 python3 -m json.tool codex-plugin/.codex-plugin/plugin.json >/dev/null
 python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
 find codex-plugin -name '*.sh' -print0 | xargs -0 -n1 bash -n
-rg -n 'codex exec|codex-session|codex-logs|EnterWorktree|Workflow\\(|AskUserQuestion|~/.claude|~/.agents|CLAUDE.md|CLAUDE_PLUGIN_ROOT|DROID_PLUGIN_ROOT|MMW_HOST|/approve-design|/tdd' codex-plugin
+rg -n 'codex exec|codex-session|codex-logs|EnterWorktree|Workflow\\(|AskUserQuestion|~/.claude|~/.agents|CLAUDE.md|CLAUDE_PLUGIN_ROOT|DROID_PLUGIN_ROOT|MMW_HOST|/approve-design|/tdd|已装.*skill|调用.*skill|frontend-design|impeccable|improve-codebase-architecture|triage.*skill' codex-plugin
 ```
 
 期望：
@@ -1845,11 +1850,12 @@ bash pi-plugin/build/tests/test_build.sh
 - hook trust。
 - SessionStart 输出。
 - skills 可发现。
-- 7 个 bundled methods 在清洁 profile 可发现。
+- 公开 skills 只有 MMW 角色/流程与控制入口。
+- 清洁 profile 不含 ambient/vendored method skills，核心方法行为仍通过场景 E2E。
 - protected skill explicit-only。
 - session context。
 - App Worktree/Local-Handoff preflight。
-- external task registry、task ref 和 workspace allowset。
+- external task registry、task ref 和 current-checkout binding。
 - App UI 与 outer checkout 对齐。
 - native subagents。
 - second reviewer Adapter。
@@ -1927,7 +1933,7 @@ bash pi-plugin/build/tests/test_build.sh
 | Plugin-created outer worktree | 删除 | 当前 task 无 attach/register 任意 worktree 的接口；UI/cwd 会与真实修改分裂。 |
 | Fork/create helper task | 删除 | 会新增 sidebar task，且 active turn 不迁移；不能替代同一 chat 的 Handoff。 |
 | Permanent worktree per task | 不作为自动路径 | 它是用户创建的长期独立 project，可多 chat 共用；适合作为已存在 outer，不适合 MMW 每任务自动创建。 |
-| Generic workspace manager/host Adapter | 删除 | 当前只有一个 host-owned outer 合同；`task init`、`recover-current`、`context guard` 三个 Interface 已隐藏 adoption、registry、lease、ref 和 resolver。 |
+| Generic workspace manager/host Adapter | 删除 | 当前只有一个 host-owned outer 合同；`task init` 和 `recover-current` 已覆盖 adoption、registry、lease、ref 和 resolver。 |
 | 通用 Runner Interface | 删除 | 原生 GPT 与外部第二模型只有两条明确路径；只有 second reviewer 存在真实多 Adapter seam。 |
 | Custom agent registry | 删除 | Plugin 不能直接分发，且 role skill 已足够；安装步骤会改变用户习惯。 |
 | 外部 Codex CLI worker | 删除 | Codex 原生 subagent 已提供同一宿主的并行 agent thread。 |
@@ -1943,9 +1949,10 @@ bash pi-plugin/build/tests/test_build.sh
 | Session context | 保留且只做定位 | 并行 chats 不能共用 repo current-task pointer；context 不再补救错误 cwd。 |
 | External task registry | 保留 | App managed worktree 可清理/恢复，durable task/receipt 状态不能只放 outer；一个 registry 取代固定目录扫描，不形成第二流程引擎。 |
 | Detached task ref | 保留 | 不创建 UI branch 仍要保证 commits 可达、可恢复和可 `--no-ff` 合入；Git 原生 custom ref 是最小机制。 |
-| Workspace allowset | 取代 origin freeze | 允许 host outer 与 registered inner，拒绝其他 checkout；Local/target 可发挥 worktree 的并行价值。 |
+| Coordinator `TASK_ROOT` / workspace allowset | 删除 | 主线程天然运行在 App 当前 checkout；inner 由 worker prepare/verify，closing 自己持有 target lease。全局路径门是重复路由。 |
 | Inner materialization | 保留 | App 的 ignored-file/rules/setup 自动化不覆盖 shell-created worktree；spawn 前补齐是 worker 正确运行的必要条件。 |
-| Bundled method skills | 保留 7 个硬依赖 | 当前 references 实际调用它们；随包固定版本比分散 bootstrap/个人环境探测更短，也才能满足零上下文。 |
+| Plan/build child 的 inner path | 保留为单点适配 | Native spawn 当前没有 per-child cwd；只在 dispatch prompt 与 worker verify 使用，不扩散成主线程 workspace 系统。 |
+| 七个通用方法 skills | 删除 | 它们只是阶段内部动作，其中 prototype 语义还与 MMW 冲突；所需行为收回现有完整 references，避免公开入口、版本锁和依赖安装器。 |
 | Merge state | 删除 | merge brief + git 已是充分真相；新 state 会重复。 |
 | Release P1 handshake | 保留为两个内部动作 | 只有这样才能确保模型修复走 native GPT，同时继续复用 release 安全闸。 |
 | Second-review Adapter | 保留一个 | 第二模型供应商确实会变化，是唯一真实外部 seam。 |
@@ -1960,7 +1967,8 @@ bash pi-plugin/build/tests/test_build.sh
 - small-change/bug 动手前轻确认及其 waiting/resume 语义均保留。
 - 11 个控制动作均保留。
 - 6 个 user-only 动作无法由模型代签。
-- 7 个硬方法依赖随 plugin 分发，不读 ambient personal skills。
+- 核心流程不读 ambient personal skills，也不分发七个通用方法 skills；对应行为由
+  MMW 阶段 references 自包含并通过 E2E。
 - 所有主要工人使用 Codex native GPT subagent。
 - 只有第二审查模型使用外部 CLI。
 - 第二模型供应商可替换。
