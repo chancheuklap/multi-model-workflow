@@ -5,6 +5,7 @@ STATE_SUBDIR="${STATE_SUBDIR:-.factory/multi-model-workflow}"
 WT_REL="${WT_REL:-.factory/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREPARE="$SCRIPT_DIR/../prepare.sh"
+SCHEMA="$SCRIPT_DIR/../../state-schema/task-manifest.schema.json"
 
 pass=0; fail=0
 ok()  { echo "  PASS: $1"; pass=$((pass+1)); }
@@ -57,6 +58,8 @@ git -C "$WT" reset -q
 MAN="$WT/${STATE_SUBDIR}/task.json"
 [ -f "$MAN" ] && ok "manifest 存在" || no "manifest 存在"
 jq -e . "$MAN" >/dev/null 2>&1 && ok "manifest 合法 JSON" || no "manifest 合法 JSON"
+jq -e '.properties.prototype.type == ["object","null"] and (.required | index("prototype")) == null' "$SCHEMA" >/dev/null \
+  && ok "schema 接受旧任务缺字段并定义 nullable prototype" || no "schema prototype 合同"
 [ "$(jq -r .slug "$MAN")" = "$SLUG" ] && ok "manifest.slug" || no "manifest.slug"
 [ "$(jq -r .request "$MAN")" = "实现完整需求并保留验收条件" ] && ok "manifest.request 保留源意图" || no "manifest.request"
 [ "$(jq -r .scenario "$MAN")" = "develop" ] && ok "manifest.scenario" || no "manifest.scenario"
@@ -75,6 +78,7 @@ jq -e . "$MAN" >/dev/null 2>&1 && ok "manifest 合法 JSON" || no "manifest 合�
 [ "$(jq -r .updated_at "$MAN")" = "$(jq -r .created_at "$MAN")" ] && ok "updated_at 初始=created_at" || no "updated_at 初始"
 [ "$(jq -r .note "$MAN")" = "null" ] && ok "note 书签初始 null" || no "note 初始 null"
 [ "$(jq -r .approval "$MAN")" = "null" ] && ok "approval 初始 null(设计未过门)" || no "approval 初始 null"
+[ "$(jq -r .prototype "$MAN")" = "null" ] && ok "prototype 初始 null(design 必须启动内层循环)" || no "prototype 初始 null"
 
 # 分支从 HEAD 分叉(同 base commit)
 [ "$(git -C "$WT" rev-parse HEAD)" = "$BASE" ] && ok "worktree HEAD=base" || no "worktree HEAD=base"

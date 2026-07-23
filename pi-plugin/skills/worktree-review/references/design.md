@@ -1,6 +1,6 @@
 # stage=design · 设计文档审查角度(配 method.md 读)
 
-**Source**:源意图(要解决的 issue / 讨论结论 / 目标结果)· 待审产物(设计文档路径)
+**Source**:源意图(要解决的 issue / 讨论结论 / 目标结果)· 待审产物(设计文档路径；任务中的 prototype 已 accepted 时，brief 自动附上迭代 README 和 selected 最终产物)
 
 ## 轴 A 设计内容
 审设计有没有把问题想清、表达完整、可落地。对照源意图报 Missing / Extra / Misunderstood:
@@ -9,6 +9,7 @@
 - 完整性:核心流程走得通;失败 / 边界 / 空态 / 并发覆盖。
 - 过度设计:有没有为当前 + 可见未来都不需要的留结构(YAGNI)。
 - Mockup / 结构:界面 / 数据结构拆成可实现的样子。
+- Prototype 结论:README 记录的问题、验证结果与 selected 最终产物互相一致，设计正文已经吸收这些结论；淘汰候选不作为当前设计依据。
 - 解对问题:在解源意图真正的问题。
 - Critical(必修才进 plan):核心意图不可测 / 目标含混到 plan 必须猜 / mockup 只写目录没拆视觉规格 / 关键场景缺失 / 新业务对象缺 owner。
 

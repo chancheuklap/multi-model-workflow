@@ -71,6 +71,23 @@
       },
       "description": "设计确认(唯一人闸):用户敲 /approve-design → mmw approve 写入。null=未确认;非 null 即过门(attendance 切 afk、进流水线态)"
     },
+    "prototype": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["status", "kind", "question", "iteration", "run_command", "artifacts", "selected", "log", "updated_at"],
+      "properties": {
+        "status": { "enum": ["active", "accepted", "superseded"] },
+        "kind": { "enum": ["logic", "ui", "mixed"] },
+        "question": { "type": "string", "minLength": 1, "description": "当前 prototype 要回答的单一设计问题" },
+        "iteration": { "type": "integer", "minimum": 1 },
+        "run_command": { "type": "string", "minLength": 1, "description": "用户验证现有 prototype 的命令，只记录、不执行" },
+        "artifacts": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "selected": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "log": { "type": "string", "description": "设计目录内由 mmw prototype 维护的 README.md" },
+        "updated_at": { "type": "string" }
+      },
+      "description": "design 内层 prototype 迭代状态。null=尚未开始且不得确认设计；active=正在验证；accepted=已选定权威产物；superseded=验证问题随方向失效"
+    },
     "base_commit": { "type": "string", "description": "创建时本地 HEAD sha" },
     "branch": { "type": "string" },
     "worktree_path": { "type": "string" },

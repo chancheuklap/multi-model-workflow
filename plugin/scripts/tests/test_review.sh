@@ -34,6 +34,23 @@ for s in design plan final; do
   echo "$B" | grep -q "一次审透" && ok "$s brief 要求一次审透" || no "$s brief 一次审透"
 done
 
+# accepted prototype 是设计待审产物；review start 自动补 README + selected，不带未选候选。
+DESIGN_ROOT="docs/design/review-prototype"
+mkdir -p "$STATE_SUBDIR" "$DESIGN_ROOT/prototype"
+printf '# design\n' >"$DESIGN_ROOT/review-prototype.md"
+printf '# prototype log\n' >"$DESIGN_ROOT/prototype/README.md"
+printf 'selected\n' >"$DESIGN_ROOT/prototype/selected.py"
+printf 'rejected\n' >"$DESIGN_ROOT/prototype/rejected.py"
+cat >"$STATE_SUBDIR/task.json" <<JSON
+{"scenario":"develop","slug":"review-prototype","docs":{"design":"$DESIGN_ROOT"},"prototype":{"status":"accepted","kind":"logic","question":"q","iteration":1,"run_command":"run","artifacts":["$DESIGN_ROOT/prototype/selected.py","$DESIGN_ROOT/prototype/rejected.py"],"selected":["$DESIGN_ROOT/prototype/selected.py"],"log":"$DESIGN_ROOT/prototype/README.md","updated_at":"2026-07-23T00:00:00Z"}}
+JSON
+bash "$REVIEW" start --stage design --source "$DESIGN_ROOT/review-prototype.md" >/dev/null
+B="$(cat "$BRIEF")"
+echo "$B" | grep -q "$DESIGN_ROOT/prototype/README.md" \
+  && echo "$B" | grep -q "$DESIGN_ROOT/prototype/selected.py" \
+  && ! echo "$B" | grep -q "$DESIGN_ROOT/prototype/rejected.py" \
+  && ok "design review 自动读取 accepted README + selected" || no "design review prototype 材料"
+
 # 复审 brief:repair_count>0 或已有留痕 → 注入 re-review 规则
 mkdir -p ${STATE_SUBDIR} docs/reviews
 echo '{"scenario":"develop","slug":"rr1","repair_count":1}' > ${STATE_SUBDIR}/task.json

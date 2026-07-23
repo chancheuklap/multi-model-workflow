@@ -13,6 +13,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
+# shellcheck source=lib/prototype-state.sh
+. "$SCRIPT_DIR/lib/prototype-state.sh"
 ROUTES="$SCRIPT_DIR/../state-schema/routes.json"
 MANIFEST_NAME="task.json"
 # 回执里的命令一律吐完整可执行形式(agent 直接粘贴跑,不用自己把 mmw 别名展开成路径)
@@ -96,6 +98,9 @@ cmd_handoff() {
   tc="$(jq -r .turnaround_count "$m")"
   gate="$(jq -r '.gate // empty' "$m")"   # "" = 不在审闸;非空 = 正在该阶段审 loop 里
   slug="$(jq -r .slug "$m")"
+  if [ "$cur_phase" = design ] && [ "$conclusion" = pass ]; then
+    die "[design] 禁止 handoff pass；离开 design 的唯一出口是用户 /approve-design → mmw approve"
+  fi
   # 本阶段是不是 review-gated(routes.review_gates)
   gated=no
   jq -e --arg p "$cur_phase" '(.review_gates // {}) | has($p)' "$ROUTES" >/dev/null 2>&1 && gated=yes
@@ -455,6 +460,52 @@ cmd_where() {
   fi
   slug="$(jq -r '.slug' "$m")"
 
+  # Droid 兼容既有单文件/目录设计布局，但 where 必须解析成一条真实路径，不把二选一留给 agent。
+  local design_base design_main design_folder_main top_design pinned_design
+  design_base="$(jq -r '.docs.design // empty' "$m")"
+  design_main="${design_base}.md"
+  design_folder_main="$design_base/$(basename "$design_base").md"
+  top_design="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
+  [ -n "$top_design" ] && [ -f "$top_design/$design_folder_main" ] && design_main="$design_folder_main"
+  while IFS= read -r pinned_design; do
+    case "$pinned_design" in "$design_main"|"${design_base}.md"|"$design_folder_main") design_main="$pinned_design" ;; esac
+  done < <(jq -r '(.phase_outputs.design // [])[]' "$m")
+
+  # design 内层 prototype：phase 不变，但 load/do/then 必须恢复到精确轮次，不能让 agent 重建或误走 handoff。
+  local prototype_status="" prototype_untracked="" prototype_adopt_args="" prototype_rel
+  if [ "$phase" = design ] && { [ "$gate" = null ] || [ -z "$gate" ]; }; then
+    prototype_status="$(jq -r 'if .prototype == null then "" else (.prototype.status // "BROKEN") end' "$m")"
+    if [ -z "$prototype_status" ]; then
+      local top_proto; top_proto="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
+      [ -n "$top_proto" ] && prototype_untracked="$(mmw_prototype_untracked_paths "$top_proto" "$m")"
+    fi
+    case "$prototype_status" in
+      active)
+        b_load="references/design/prototype-mockup.md"
+        b_do="先读 $(jq -r '.prototype.log' "$m") 和 prototype_artifacts，运行 prototype_run；只在现有产物上修改，完成当前轮后 checkpoint"
+        ;;
+      accepted)
+        b_do="prototype 已 accepted：先把 prototype_selected 的状态模型、交互和结论回填主设计文档，再走 design self-check、设计预审和 /approve-design"
+        ;;
+      superseded)
+        b_do="prototype 验证问题已随方向失效；不要继续成文，按 then 明确退回 propose"
+        ;;
+      "")
+        b_load="references/design/prototype-mockup.md"
+        if [ -n "$prototype_untracked" ]; then
+          b_do="磁盘已有未登记 prototype/mockup；先按 then 接管全部现有产物，不得重建、成文或审批"
+          while IFS= read -r prototype_rel; do
+            [ -n "$prototype_rel" ] || continue
+            prototype_adopt_args="$prototype_adopt_args --artifact $(printf '%q' "$prototype_rel")"
+          done <<<"$prototype_untracked"
+        else
+          b_do="本设计尚未启动 prototype；先登记一个可判真的验证问题，制作最小可运行或可操作产物，不得成文、预审或审批"
+        fi
+        ;;
+      *) b_do="prototype 状态损坏(status=$prototype_status)；停止并修复 task.json，禁止猜测继续" ;;
+    esac
+  fi
+
   # then:阶段 handoff 钉产物。produced 可为字符串或数组,逐个吐,解析 <slug> 用真 slug。
   local then_cmd
   then_cmd="$MMW handoff --conclusion <pass|needs-repair|needs-redirection|needs-context|blocked>"
@@ -472,6 +523,27 @@ cmd_where() {
     then_cmd="$then_cmd --produced $p"
   done <<< "$produced_src"
   then_cmd="$then_cmd   # needs-context 另带 --waiting-for '<问题>'"
+  if [ "$phase" = design ] && { [ "$gate" = null ] || [ -z "$gate" ]; }; then
+    case "$prototype_status" in
+      active)
+        then_cmd="$MMW prototype checkpoint --feedback '<本轮反馈或假设>' --change '<实际改动>' --result '<验证方式和结果>' --verdict <continue|accepted|superseded> [--artifact <当前产物>] [--evidence <本轮证据>] [--selected <最终产物>]"
+        ;;
+      superseded)
+        then_cmd="$MMW handoff --conclusion needs-redirection --to-phase propose"
+        ;;
+      accepted)
+        then_cmd="$MMW pin --phase design --produced ${design_main}；然后起设计预审并请用户 /approve-design"
+        ;;
+      "")
+        if [ -n "$prototype_untracked" ]; then
+          then_cmd="$MMW prototype start --adopt --kind <logic|ui|mixed> --question '<待验证问题>' --run '<运行命令>'$prototype_adopt_args"
+        else
+          then_cmd="$MMW prototype start --kind <logic|ui|mixed> --question '<待验证问题>' --run '<运行命令>'"
+        fi
+        ;;
+      *) then_cmd="STOP:prototype 状态损坏，先修复 task.json；不得 pin、approve 或推进" ;;
+    esac
+  fi
   # 等人答复中:等什么落过盘,冷启动先接上这个问题,不重推流程
   if [ "$status" = "waiting-user" ]; then
     waiting_line="waiting_for=$(jq -r '.waiting_for // "(未记录,翻 history 最近一笔 needs-context)"' "$m")"
@@ -509,6 +581,20 @@ phase_outputs=$(jq -rc '.phase_outputs' "$m")
 subtasks=$(jq -r '.subtasks | length' "$m")
 open_items=$(jq -r '.open_items | length' "$m")
 EOF
+  if [ "$phase" = design ] && { [ "$gate" = null ] || [ -z "$gate" ]; }; then
+    if [ -n "$prototype_status" ]; then
+      echo "inner_loop=prototype"
+      echo "prototype_status=$prototype_status"
+      echo "prototype_iteration=$(jq -r '.prototype.iteration' "$m")"
+      echo "prototype_question=$(jq -r '.prototype.question' "$m")"
+      echo "prototype_log=$(jq -r '.prototype.log' "$m")"
+      echo "prototype_artifacts=$(jq -c '.prototype.artifacts' "$m")"
+      echo "prototype_selected=$(jq -c '.prototype.selected' "$m")"
+      echo "prototype_run=$(jq -r '.prototype.run_command' "$m")"
+    elif [ -n "$prototype_untracked" ]; then
+      echo "prototype_untracked=$(printf '%s\n' "$prototype_untracked" | jq -R . | jq -sc .)"
+    fi
+  fi
   if [ -n "$waiting_line" ]; then echo "$waiting_line"; fi
   if [ -n "$review_line" ]; then echo "$review_line"; fi
   if [ -n "$review_start_line" ]; then echo "$review_start_line"; fi

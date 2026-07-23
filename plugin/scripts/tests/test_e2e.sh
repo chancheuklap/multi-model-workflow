@@ -10,6 +10,7 @@ PREPARE="$SCRIPT_DIR/../prepare.sh"
 FLOW="$SCRIPT_DIR/../flow.sh"
 LOOP="$SCRIPT_DIR/../loop.sh"
 NOTE="$SCRIPT_DIR/../note.sh"
+PROTOTYPE="$SCRIPT_DIR/../prototype.sh"
 REVIEW="$SCRIPT_DIR/../review.sh"
 PACKAGE="$SCRIPT_DIR/../package-phase.sh"
 PACKAGE_FIXTURES="$SCRIPT_DIR/fixtures/package-phase"
@@ -64,6 +65,16 @@ mkf docs/design/2026-06-29-e2e/direction.md
 # 设计成文(含空 Cross-Plan Contract Anchors 节,供 ③合同门机器核)
 mkdir -p "$WT/docs/design/2026-06-29-e2e"
 printf '# e2e 设计\n\n方案主体。\n\n## Cross-Plan Contract Anchors\n<!-- 由 plan 阶段回填 -->\n' > "$WT/docs/design/2026-06-29-e2e/2026-06-29-e2e.md"
+# design 内层 prototype：登记→走查→accepted；where 精确回到设计成文。
+(cd "$WT" && bash "$PROTOTYPE" start --kind logic --question "验证 e2e 状态模型" \
+  --run "python docs/design/2026-06-29-e2e/prototype/demo.py" >/dev/null)
+printf 'accepted\n' >"$WT/docs/design/2026-06-29-e2e/prototype/demo.py"
+(cd "$WT" && bash "$PROTOTYPE" checkpoint --feedback "全流程走查" --change "补齐失败态" --result "全部通过" \
+  --artifact docs/design/2026-06-29-e2e/prototype/demo.py --verdict accepted \
+  --selected docs/design/2026-06-29-e2e/prototype/demo.py >/dev/null)
+PROTO_WHERE="$(cd "$WT" && bash "$FLOW" where)"
+echo "$PROTO_WHERE" | grep -q 'prototype_status=accepted' \
+  && ok "design:prototype accepted 后恢复到设计成文" || no "prototype accepted"
 # 设计预审(结果给用户参考,不是闸):命令级起得来即可
 ( cd "$WT" && bash "$REVIEW" start --stage design --source docs/design/2026-06-29-e2e/2026-06-29-e2e.md >/dev/null 2>&1 ) && ok "设计预审 review start 起得来(参考,非闸)" || no "设计预审"
 # design 出口 = 唯一人闸:用户 /approve-design → mmw approve(盖指纹+过门+放权)
@@ -71,14 +82,23 @@ APR="$(cd "$WT" && bash "$NOTE" approve --report docs/design/2026-06-29-e2e/2026
 echo "$APR" | grep -q "^APPROVED fingerprint=" && ok "approve 过门:盖承重指纹" || no "approve 指纹"
 [ "$(ph)" = "to-issue" ] && [ "$(gate)" = "null" ] && ok "过门→to-issue(不走 handoff pass)" || no "过门→to-issue ($(ph)/$(gate))"
 [ "$(att)" = "afk" ] && ok "过门自动切 afk(流水线态放权自主跑)" || no "过门切 afk ($(att))"
-[ "$(prevout)" = '["docs/design/2026-06-29-e2e/2026-06-29-e2e.md"]' ] && ok "to-issue 照单读到 设计文档(approve 钉的)" || no "接力单 design→to-issue ($(prevout))"
+echo "$(prevout)" | jq -e '
+  index("docs/design/2026-06-29-e2e/2026-06-29-e2e.md") != null and
+  index("docs/design/2026-06-29-e2e/prototype/README.md") != null and
+  index("docs/design/2026-06-29-e2e/prototype/demo.py") != null
+' >/dev/null && ok "to-issue 照单读到设计文档 + accepted prototype" || no "接力单 design→to-issue ($(prevout))"
 
 # to-issue → plan(产出 issue 骨架,无审闸)
 mkd docs/issues/e2e
 ( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/e2e/ >/dev/null )
 [ "$(ph)" = "plan" ] && [ "$(gate)" = "null" ] && ok "to-issue→plan(无审闸)" || no "to-issue→plan ($(ph)/$(gate))"
 # plan reads [design,to-issue] → 一单读全(设计文档 + issue 骨架)
-[ "$(prevout)" = '["docs/design/2026-06-29-e2e/2026-06-29-e2e.md","docs/issues/e2e/"]' ] && ok "plan 照单读到 设计文档 + issue 骨架" || no "接力单 →plan ($(prevout))"
+echo "$(prevout)" | jq -e '
+  index("docs/design/2026-06-29-e2e/2026-06-29-e2e.md") != null and
+  index("docs/design/2026-06-29-e2e/prototype/README.md") != null and
+  index("docs/design/2026-06-29-e2e/prototype/demo.py") != null and
+  index("docs/issues/e2e/") != null
+' >/dev/null && ok "plan 照单读到设计 + accepted prototype + issue" || no "接力单 →plan ($(prevout))"
 
 # plan → ②审闸(产出 plan 目录)
 mkd docs/plans/e2e
