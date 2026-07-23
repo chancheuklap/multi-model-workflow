@@ -26,7 +26,7 @@ printf 'mmw       = %s\nSKILL_DIR = %s\n' "$MMW" "$MMW_ROOT/skills/release-flow"
 bash "$MMW" release where
 ```
 
-- **报 `STAGE:` / `RETRY-STAGE:` / `PAUSED:` / `SUCCESS:` / `CORRUPT:` / `FAILED-STAGE:` / `NO-STAGES:`**(已有 release state)→ 不重开。直接读 `${SKILL_DIR}/references/drive-loop.md`：它从当前 state 连续驱动至安装包就绪，或读取回执交回判断层。
+- **报 `STAGE:` / `RETRY-STAGE:` / `NATIVE-REPAIR-PENDING:` / `NATIVE-REPAIR-VERIFY:` / `PAUSED:` / `SUCCESS:` / `CORRUPT:` / `FAILED-STAGE:` / `NO-STAGES:`**(已有 release state)→ 不重开。直接读 `${SKILL_DIR}/references/drive-loop.md`：它从当前 state 连续驱动至安装包就绪，或读取回执交回判断层。
 - **报 `ERROR: 无 release-state(先 release init)`(退非零)**→ 没有在飞的 loop → 进 Step 1 起一次新的。
 
 ## Step 1 · 登记(买票)→ 起 loop → 交给 drive-loop
@@ -49,5 +49,5 @@ bash "$MMW" release where
 ## 边界
 
 - 入口只做:断点恢复 / 认产品 / 取票 / 起 loop → 交 drive-loop。**循环怎么跑、P0/P1/P2 怎么处置、何时推进修复轮次、断点续传、回执交人全在 `references/drive-loop.md`**,到那步再读。
-- **你是判断层,不是执行层里的手**:引擎管安全(path-gate / 熔断 / 分级),你不重写。你只把每一步的诊断结果如实喂给引擎,让它裁决。
+- **你是判断层和 Codex 原生派发者**:引擎管安全(path-gate / 熔断 / 分级),你不重写。P1 时由当前 task 派 GPT 子代理改工作树；引擎仍负责冻结边界、验收、提交与修后门禁。外部无头模型只用于第二审查，不用于 release 修复。
 - 出包是**跨机器**的:你在 Mac 驱动 loop,stage(真出包动作)按 manifest 定义的跑法落地(agentflow = Win-PC 构建机),你照现有真机路子支使,不自己在 Mac 瞎跑构建。

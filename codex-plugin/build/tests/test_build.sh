@@ -124,6 +124,20 @@ else
   no "安装 cache 缺 review 运行面"
 fi
 
+if [ -f "$installed_path/scripts/package-phase.sh" ] \
+  && [ -f "$installed_path/scripts/release-flow.sh" ] \
+  && [ -f "$installed_path/scripts/release_contracts.py" ] \
+  && [ -f "$installed_path/scripts/release_templates/windows_core_exe.ps1.tmpl" ] \
+  && [ -f "$installed_path/skills/release-flow/references/drive-loop.md" ] \
+  && bash -n "$installed_path/scripts/package-phase.sh" "$installed_path/scripts/release-flow.sh" \
+  && grep -q 'NATIVE-REPAIR-READY' "$installed_path/scripts/release-flow.sh" \
+  && grep -q 'spawn_agent(fork_turns="none")' "$installed_path/skills/release-flow/references/drive-loop.md" \
+  && ! grep -q 'fix_executor' "$installed_path/scripts/release-flow.sh"; then
+  ok "安装 cache 内的 package/release 使用 Codex 原生 P1 修复"
+else
+  no "安装 cache 缺 package/release 或仍执行外部修复模型"
+fi
+
 if [ -f "$installed_path/hooks/hooks.json" ] \
   && [ -f "$installed_path/hooks/guard-redline.sh" ] \
   && [ -f "$installed_path/hooks/record-step.sh" ] \

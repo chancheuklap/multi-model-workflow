@@ -23,7 +23,7 @@ mmw package where     # 每个状态位首行是 token,第二行 next= 是确切
 
 `record-release` 是正式 package 成功点：S1 已成功产出正式安装包，且其完整性与产物扫描已经通过。`installed-test` 是进入 closing 前的负责人手动工作流检查点，不是引擎自动 E2E，也不改变 release 成功的定义。
 
-S1 的 P1 自愈如果产生新提交，会按 S1 path-gate 与 post-fix-gate 保护，并打包当时功能分支的 `HEAD`。这类提交与分支其余改动一起在 closing 审阅；不会宣称之前的 build ④终审已在该新提交上重跑。
+S1 的 P1 自愈由当前 Codex task 派原生 GPT 子代理改工作树；引擎仍按 S1 path-gate 与 post-fix-gate 验收并创建提交，然后打包当时功能分支的 `HEAD`。这类提交与分支其余改动一起在 closing 审阅；不会宣称之前的 build ④终审已在该新提交上重跑。
 
 ## 3. 运行态边界
 

@@ -102,7 +102,7 @@ flowchart LR
 四个开口、阶段顺序和用户控制动作保持当前行为：
 
 - `develop`：investigate → propose → design → to-issue → plan → build →
-  closing。
+  package → closing。
 - `small-change`：轻确认 → build → final review → closing。
 - `bug`：根因调查 → 轻确认 → TDD 修复 → final review → closing。
 - `merge`：业务/设计冲突分析 → 顺序合并 → 集成审 → closing。
@@ -191,7 +191,7 @@ Prototype 沿用修订后的三镜像业务合同，只做 Codex 宿主接线：
    可验证问题；运行命令变化时一起更新。不得让冷启动 agent 看到旧问题。
 5. 设计预审自动读取主设计文档、prototype `README.md` 和全部 `selected`。GPT
    审者与第二模型审者读取同一材料，不让协调者手工拼路径。
-6. `/approve-design` 仍是唯一用户闸。prototype 为空、active、superseded、
+6. `$multi-model-workflow:approve-design` 仍是唯一用户闸。prototype 为空、active、superseded、
    selected 缺失或 selected 未进入确认指纹时全部 fail loud。
 7. plan sandbox 与 build worker 只接收 accepted 的 `README.md` 和 `selected`；
    未选候选、逐轮走查证据和整个 prototype/mockup 目录不进入工人上下文。
@@ -293,10 +293,24 @@ Hooks 只移植现有三类行为：
 
 不新增 UserPromptSubmit receipt、Stop hook、SubagentStop schema 或文件路径守卫。
 
-Package/release 直接移植当前脚本和 references：
+Package/release 复用当前引擎，只替换 P1 的修复执行接缝：
 
 - package 两次人工确认不变。
-- release P1 修复工人改为 native GPT subagent。
+- P0 仍停在人闸；P2 仍由引擎机械运行 `derive`、过保护路径门禁并提交。
+- P1 的 `release dispatch` 不执行产品 manifest 的外部修复命令。它在原有
+  `release-state.json` 写一份可恢复的 `native_repair`，冻结当时的 HEAD、findings、
+  editable paths、保护路径和既有未跟踪文件指纹，并在现有 `release-artifacts/`
+  生成零上下文修复 prompt。
+- 当前 Codex task 用 `spawn_agent(fork_turns="none")` 派 GPT 子代理。子代理只在
+  当前 App worktree 修改允许路径，不 commit、不碰 docs/state、不调用外部模型 CLI。
+- `release where` 分别用 `NATIVE-REPAIR-PENDING` 和 `NATIVE-REPAIR-VERIFY` 表示
+  等待派发/等待改动与已有候选改动。状态不保存 agent id；压缩后从现有 task 内的
+  subagent 状态、prompt、Git 和工作树恢复。
+- 子代理结束后，`release repair verify` 恢复冻结边界，复用原有未跟踪文件基线、
+  path-gate、越界 patch/复原、`fix(release)` 提交、fix round、post-fix gate、
+  gate 红回退和重新诊断。
+- `fix_executor` 可继续存在于三个宿主共享的产品 manifest，但 Codex runtime
+  不读取、不执行；Codex 专用 manifest 可以省略它。
 - push/PR/deploy 仍停在人闸。
 - 第二模型不参与实现。
 
@@ -417,7 +431,7 @@ codex-plugin/
 **Acceptance**
 
 - `where → handoff → review/repair/advance` 与当前流程一致。
-- 所有 develop 设计必须走到 prototype accepted 才能 `/approve-design`。
+- 所有 develop 设计必须走到 prototype accepted 才能 `$multi-model-workflow:approve-design`。
 - compaction 或新会话后，`mmw where` 显示真实当前问题和唯一下一步。
 - 外部 skills 全齐时无告警；缺装时列出准确名字和安装提示。
 - 不读取其他镜像的 runtime/state。
@@ -538,13 +552,18 @@ codex-plugin/
 1. 从当前 commands/prompts 生成 Codex wrappers。
 2. 配 explicit-only policy。
 3. 移植 SessionStart、redline、record-step。
-4. release repair 改 native GPT。
-5. closing 采用 App branch，cleanup 不接管 App worktree。
+4. release P1 只替换外部执行接缝：dispatch 冻结边界并生成 prompt，native GPT
+   子代理改工作树，`repair verify` 复用现有门禁、提交和回退。
+5. P0/P2、package 人测、release 预算/熔断/断点恢复保持原行为。
+6. closing 采用 App branch，cleanup 不接管 App worktree。
 
 **Acceptance**
 
 - 11 个动作名和现有语义不变。
 - `approve-design`、attendance、steering、package/release gates 可运行。
+- P1 假 `fix_executor` 不被调用；allowed 改动可提交，越界改动留 patch 并复原，
+  HEAD 变化和零改动 fail loud，post-fix gate 红时自动 revert 并重新诊断。
+- compaction 后 `where` 能分辨待派修复和待验收改动，不另建 worker registry。
 - push/PR/deploy 仍需用户。
 - App worktree/branch 保留给 App。
 
@@ -578,7 +597,7 @@ bash codex-plugin/build/build.sh --check
 5. propose/design 后启动 prototype，第一轮 `continue`。
 6. compaction 后运行 `mmw where`，确认恢复当前问题、轮次和原有产物。
 7. 第二轮用户确认后 `accepted`，设计预审同时读取主文档、README 和 selected。
-8. 用户 `/approve-design`；空/active/superseded prototype 分别验证不能过门。
+8. 用户 `$multi-model-workflow:approve-design`；空/active/superseded prototype 分别验证不能过门。
 9. 两个 issue、两个 native plan writers，确认只收到 README 和 selected。
 10. 两个第二模型 plan reviewers。
 11. 两个 native build workers，确认只收到同一批 selected。

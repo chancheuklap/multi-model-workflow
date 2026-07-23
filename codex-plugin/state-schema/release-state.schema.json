@@ -16,6 +16,7 @@
     "fingerprint_ledger",
     "budget",
     "attempt_ledger",
+    "native_repair",
     "pause"
   ],
   "properties": {
@@ -109,6 +110,44 @@
         }
       },
       "description": "结构化审计源；receipt 只从这里渲染已试动作。"
+    },
+    "native_repair": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "fingerprint",
+        "findings_path",
+        "start_sha",
+        "prompt_path",
+        "editable_matchers",
+        "protection_matchers",
+        "baseline_untracked",
+        "created_at"
+      ],
+      "properties": {
+        "stage": { "type": "string", "minLength": 1 },
+        "fingerprint": { "type": "string", "minLength": 1 },
+        "findings_path": { "type": "string", "minLength": 1 },
+        "start_sha": { "type": "string", "minLength": 1 },
+        "prompt_path": { "type": "string", "minLength": 1 },
+        "editable_matchers": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "protection_matchers": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+        "baseline_untracked": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1 },
+              "sha256": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "created_at": { "type": "string", "minLength": 1 }
+      },
+      "description": "一次待执行或待验收的 Codex 原生 GPT 修复；where 依此恢复。"
     },
     "pause": {
       "type": ["object", "null"],

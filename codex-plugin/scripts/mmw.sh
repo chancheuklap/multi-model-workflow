@@ -10,7 +10,7 @@
 #   mmw review start ...
 #   mmw worker dispatch|verify|resume|check-docs ...
 #   mmw worker plan-dispatch|plan-resume|plan-check ...
-#   mmw release init|where|stage run|stage done|stage fail|round|surface|resume|close|exit-check|receipt|dispatch
+#   mmw release init|where|stage run|stage done|stage fail|round|surface|resume|close|exit-check|receipt|dispatch|repair verify
 #   mmw package resolve|init|where|confirm|record-release|exit-check|close   # 出包阶段运行态(④终审后;where 自带 next 指路)
 #   mmw help
 #
@@ -40,6 +40,9 @@
 #     mmw worker plan-dispatch --plan <落点> --worktree <wt> [--design <d>] [--issue <i>]
 #     mmw worker plan-resume --plan <落点> --worktree <wt> --instructions <f>
 #     mmw worker verify --plan <落点> --worktree <wt>       # 核计划边界,过门才原子发布
+#   出包 P1 修复(Codex 原生 GPT 子代理只改工作树,引擎验收和提交):
+#     mmw release dispatch --stage <stage>                  # P1 时生成 prompt 与 native-repair state
+#     mmw release repair verify --stage <stage>             # 子代理完成后过路径闸、提交、修后门禁
 #   进度板(负责人可读投影):
 #     mmw progress render [--stdout]           从 task.json/loop-state 聚合 progress-board.md(--stdout 供 command 注入)
 #   控制面(运行级值守 + 计划外分流):
