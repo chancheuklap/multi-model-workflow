@@ -78,7 +78,7 @@ review 方法只有 `worktree-review` 一份：
 Codex hooks 只接三类已有行为：SessionStart 恢复、出站红线、Pack commit 记账。
 本地 merge 不拦；push、远端 PR merge 和部署必须经过用户批准。
 
-`/approve-design` 是唯一设计人闸，必须由 explicit-only wrapper 触发。用户口头同意
+`$multi-model-workflow:approve-design` 是唯一设计人闸，必须由 explicit-only wrapper 触发。用户口头同意
 不算；承重设计或 accepted prototype 变化后 approval stale，必须重新明确确认。
 package 的开发模式测试和安装后测试也只能由用户确认。
 

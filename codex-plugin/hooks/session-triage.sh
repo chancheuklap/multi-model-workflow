@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Codex 会话分诊:在管任务 worktree 回报书签、最近提交、待拍板与状态新鲜度。
-# extensions/mmw-hooks.ts 在会话开头与 compaction 后经 before_agent_start 注入一次。
+# Codex SessionStart 在 startup/resume/clear/compact 时注入一次。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -48,21 +48,21 @@ if [ -f "$man" ]; then
   fi
 
   # 新鲜度(白名单第 3 条):版本/时效不对先对表
-  cur_ver="$(jq -r '.version // ""' "$SCRIPT_DIR/../package.json" 2>/dev/null || echo "")"
+  cur_ver="$(jq -r '.version // ""' "$SCRIPT_DIR/../.codex-plugin/plugin.json" 2>/dev/null || echo "")"
   man_ver="$(jq -r '.plugin_version // ""' "$man" 2>/dev/null || echo "")"
   if [ -n "$man_ver" ] && [ -n "$cur_ver" ] && [ "$man_ver" != "$cur_ver" ]; then
-    echo "⚠ 状态由旧版 plugin($man_ver,当前 $cur_ver)写入:先 /reassess 从磁盘对表再续,别把旧指令当最新。"
+    echo "⚠ 状态由旧版 plugin($man_ver,当前 $cur_ver)写入：先显式调用 multi-model-workflow:reassess 从磁盘对表再续。"
   fi
   upd="$(jq -r '.updated_at // .created_at // ""' "$man" 2>/dev/null || echo "")"
   if [ -n "$upd" ]; then
     then_s="$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$upd" +%s 2>/dev/null || date -u -d "$upd" +%s 2>/dev/null || echo "")"
     if [ -n "$then_s" ]; then
       age_d=$(( ($(date -u +%s) - then_s) / 86400 ))
-      if [ "$age_d" -ge 7 ]; then echo "⚠ 状态已 ${age_d} 天没动:先 /reassess 重建真相再续。"; fi
+      if [ "$age_d" -ge 7 ]; then echo "⚠ 状态已 ${age_d} 天没动：先显式调用 multi-model-workflow:reassess 重建真相再续。"; fi
     fi
   fi
 
-  echo "续跑:先跑 $MMW where,照它报的 load/do 续(接着聊就接着聊,位置只是书签不是命令)。板:/progress  指挥:/reassess /rescope /attended /unattended /approve-design。与任务无关的问答直接处理;无关写操作不要在此 worktree 执行。"
+  echo "续跑：先跑 $MMW where，照它报的 load/do 续。控制入口：multi-model-workflow:progress、reassess、rescope、attended、unattended、approve-design。与任务无关的问答直接处理；无关写操作不要在此 worktree 执行。"
   exit 0
 fi
 

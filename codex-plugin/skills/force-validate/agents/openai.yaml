@@ -1,0 +1,5 @@
+interface:
+  display_name: "立即审查 MMW"
+  short_description: "启动当前阶段合法审查"
+policy:
+  allow_implicit_invocation: true

@@ -48,8 +48,8 @@
     },
 
     "created_at": { "type": "string" },
-    "updated_at": { "type": "string", "description": "状态新鲜度戳:flow.sh 每次落盘刷新。where/session-triage 按它报龄,超 7 天提示 /reassess" },
-    "plugin_version": { "type": "string", "description": "建任务时的插件版本。where 与当前激活插件版本比对,不符报 stale 提示 /reassess" },
+    "updated_at": { "type": "string", "description": "状态新鲜度戳:flow.sh 每次落盘刷新。where/session-triage 按它报龄,超 7 天提示 $multi-model-workflow:reassess" },
+    "plugin_version": { "type": "string", "description": "建任务时的插件版本。where 与当前激活插件版本比对,不符报 stale 提示 $multi-model-workflow:reassess" },
     "note": {
       "type": ["object", "null"],
       "additionalProperties": false,
@@ -69,7 +69,7 @@
         "fingerprint": { "type": "string", "description": "承重文档内容指纹。文档改动后审闸 pass 硬停 approval_stale,重跑 mmw approve(RE-APPROVED)重盖" },
         "at": { "type": "string" }
       },
-      "description": "设计确认(唯一人闸):用户敲 /approve-design → mmw approve 写入。null=未确认;非 null 即过门(attendance 切 afk、进流水线态)"
+      "description": "设计确认(唯一人闸):用户敲 $multi-model-workflow:approve-design → mmw approve 写入。null=未确认;非 null 即过门(attendance 切 afk、进流水线态)"
     },
     "prototype": {
       "type": ["object", "null"],

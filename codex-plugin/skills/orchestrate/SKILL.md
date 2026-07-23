@@ -63,12 +63,12 @@ bash "$MMW" where
 
 | 命令 | 作用 | 你要做 |
 | --- | --- | --- |
-| `/progress` | 看进度板 | 照该命令文件执行(动作在命令文件里,不在本表) |
-| `/approve-design` | 确认设计(唯一人闸,只有用户能敲) | 照该命令文件执行;用户口头同意不算过门,请他敲命令 |
-| `/unattended` `/attended` | 进/出强无人值守 | 读 `${SKILL_DIR}/references/control/attendance.md`(值守档合同 + no-question),照它执行 |
-| `/side-finding` `/reassess` `/skip-current` `/rescope` `/replan-remaining` `/force-validate` | 计划外分流 + 中途指挥(含用户口头「回上一步」的翻译) | 读 `${SKILL_DIR}/references/control/steering-commands.md` |
+| `$multi-model-workflow:progress` | 看进度板 | 照该命令文件执行(动作在命令文件里,不在本表) |
+| `$multi-model-workflow:approve-design` | 确认设计(唯一人闸,只有用户能敲) | 照该命令文件执行;用户口头同意不算过门,请他敲命令 |
+| `$multi-model-workflow:unattended` `$multi-model-workflow:attended` | 进/出强无人值守 | 读 `${SKILL_DIR}/references/control/attendance.md`(值守档合同 + no-question),照它执行 |
+| `$multi-model-workflow:side-finding` `$multi-model-workflow:reassess` `$multi-model-workflow:skip-current` `$multi-model-workflow:rescope` `$multi-model-workflow:replan-remaining` `$multi-model-workflow:force-validate` | 计划外分流 + 中途指挥(含用户口头「回上一步」的翻译) | 读 `${SKILL_DIR}/references/control/steering-commands.md` |
 
-**值守档是横切合同**:任何阶段续跑前先看 `task.json.attendance`(develop 讨论态生来 `attended`,`/approve-design` 过门自动切 `afk`);`unattended` 时按 `control/attendance.md` 自我约束,不向用户提问,但用户回来发任意消息即恢复 `attended`。软停/计划外分流的问不问,按该合同判。
+**值守档是横切合同**:任何阶段续跑前先看 `task.json.attendance`(develop 讨论态生来 `attended`,`$multi-model-workflow:approve-design` 过门自动切 `afk`);`unattended` 时按 `control/attendance.md` 自我约束,不向用户提问,但用户回来发任意消息即恢复 `attended`。软停/计划外分流的问不问,按该合同判。
 
 ## 边界
 

@@ -14,7 +14,7 @@
 
 | 审 | 触发 | stage | 视角 |
 |---|---|---|---|
-| 设计预审 | design 自检过后**agent 自起**(不是闸;结果给用户参考,人闸是 `/approve-design`) | `design` | 轴A 设计内容 / 轴B 项目对齐 |
+| 设计预审 | design 自检过后**agent 自起**(不是闸;结果给用户参考,人闸是 `$multi-model-workflow:approve-design`) | `design` | 轴A 设计内容 / 轴B 项目对齐 |
 | ② 计划审 | plan pass → 引擎审闸(phase 冻住,`mmw where` 吐 `review_start` 照跑) | `plan` | 轴A 覆盖与质量 / 轴B 合规与交叉验证 |
 | ④ final | build pass → 引擎审闸(同上) | `final` | small-change/bug 一名第二模型审双基线；develop 按 diff/风险使用两审或四审，具体由 brief 定编制 |
 
@@ -65,12 +65,12 @@
 - **无开口 Critical**(已修或有理 reject/waive,留痕看得见)且无未修 `accepted` → `mmw handoff --conclusion pass`(引擎核留痕在且含 verdict)。
 - 有 `accepted` 缺陷 → 按 Gap 选结论词:
   - 缺陷在**当前被审阶段**(②审=plan、④final=build)→ `needs-repair`,改完 handoff 重审。**④final 的代码缺陷**:`mmw where` 指回 build(build-b 有返修入口),照 accepted 的 `file:line`+remediation 派全新 pack-executor 定点修,修完 handoff pass 重进 ④;**复审 brief 会带上轮留痕,新审者只验修复+回归**。
-  - 根因在**更上游**(②审发现 design 问题、④final 撞破 plan/design)→ `needs-redirection --to-phase <design|plan|build>`(涉已确认设计的改动,改完请用户 `/approve-design` 重新确认)。
+  - 根因在**更上游**(②审发现 design 问题、④final 撞破 plan/design)→ `needs-redirection --to-phase <design|plan|build>`(涉已确认设计的改动,改完请用户 `$multi-model-workflow:approve-design` 重新确认)。
   - Direction(解错问题)→ `needs-redirection`;Context(缺输入)→ `needs-context`。
 - **不要**因为还剩 Nit/waived 就 needs-repair。放行标准:**整体在变好且无未处置 Critical / 无未修 accepted 承重项**,不是完美。
 
 ### 2.5 打转与轮次天花板(引擎强制,你要会读)
-- **指纹守卫**:`needs-repair` 时引擎比对本轮与上一轮留痕的 **accepted** findings 指纹;连续实质重合 → `GUARD=repair-fingerprint-repeat`(afk/attended 交人,unattended 硬停)。被指打转先想「修错地方还是不该 accept」,别原样再修。
+- **指纹守卫**:`needs-repair` 时引擎比对本轮与上一轮留痕的 **accepted** findings 指纹;连续实质重合 → `GUARD=repair-fingerprint-repeat`(afk$multi-model-workflow:attended 交人,unattended 硬停)。被指打转先想「修错地方还是不该 accept」,别原样再修。
 - **绝对轮次**:审闸返工时 `repair_count` 超过 `loop_guards.max_repair_rounds`(默认 3)→ `GUARD=repair-round-cap`,交人或硬停。到顶后亮:已 accepted 未收敛项 / 已 reject·waive 项 / 建议(放行带 risk / 缩 scope / 回 design),**不要**再问"要不要再修一轮"。
 - 收敛:无新高置信 **accepted** = 收敛;反复不收敛 → 交人,别硬磨。
 

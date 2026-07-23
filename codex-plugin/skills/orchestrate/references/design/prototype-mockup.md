@@ -105,4 +105,4 @@ prototype 是实现种子。状态机、reducer、schema、type shape 使用仓�
 - 把选中逻辑原型的状态、合法/非法转移、schema 和结论写进设计文档；每条行为对应可执行验收。
 - 把选中 mockup 的每个界面元素、状态、交互和文案原子级拆成 acceptance criteria；视觉契约写布局、间距、配色和组件，并指向具体 selected 文件。
 - 冲突时以用户确认的 selected 产物为准，反写设计文档对齐。
-- 未选中的候选留作迭代历史，不传给 plan/build。回灌完成后才走 design self-check、设计预审和 `/approve-design`；设计预审脚本会自动把 README 与 selected 加给审者。
+- 未选中的候选留作迭代历史，不传给 plan/build。回灌完成后才走 design self-check、设计预审和 `$multi-model-workflow:approve-design`；设计预审脚本会自动把 README 与 selected 加给审者。

@@ -1,0 +1,5 @@
+interface:
+  display_name: "MMW 有人值守"
+  short_description: "退出强无人并恢复用户提问"
+policy:
+  allow_implicit_invocation: true

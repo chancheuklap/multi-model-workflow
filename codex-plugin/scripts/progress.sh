@@ -113,7 +113,7 @@ ${side_rows}
 
 ## 下一步
 - 跑 \`mmw where\` 看当前阶段 load/do
-- 指挥入口：/progress /reassess /attended /unattended /side-finding
+- 指挥入口：\$multi-model-workflow:progress \$multi-model-workflow:reassess \$multi-model-workflow:attended \$multi-model-workflow:unattended \$multi-model-workflow:side-finding
 EOF
 )"
 

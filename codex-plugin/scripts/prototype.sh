@@ -362,7 +362,7 @@ cmd_checkpoint() {
   print_state "$man"
   case "$verdict" in
     continue) echo "NEXT=先读 $log_rel 与现有 artifacts，在原产物上完成第 $new_iteration 轮；验证后再次运行 $MMW prototype checkpoint" ;;
-    accepted) echo "NEXT=把 selected 的状态模型、交互和结论回填主设计文档，完成 design self-check 与设计预审，再请用户 /approve-design" ;;
+    accepted) echo "NEXT=把 selected 的状态模型、交互和结论回填主设计文档，完成 design self-check 与设计预审，再请用户调用 \$multi-model-workflow:approve-design" ;;
     superseded) echo "NEXT=$MMW handoff --conclusion needs-redirection --to-phase propose" ;;
   esac
 }

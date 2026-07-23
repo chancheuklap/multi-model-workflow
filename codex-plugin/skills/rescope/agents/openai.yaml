@@ -1,0 +1,5 @@
+interface:
+  display_name: "调整 MMW 范围"
+  short_description: "更新任务范围并回流受影响阶段"
+policy:
+  allow_implicit_invocation: false

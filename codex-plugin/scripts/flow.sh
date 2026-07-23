@@ -60,7 +60,7 @@ approval_check() {  # $1=manifest
   [ "${#args[@]}" -gt 0 ] || return 0
   fp_now="$(bash "$SCRIPT_DIR/note.sh" fingerprint "${args[@]}" 2>/dev/null || echo "err")"
   [ "$fp_now" = "$fp_stored" ] && return 0
-  echo "设计承重文档在用户确认后被改($(jq -rc '.approval.reports' "$m"));请用户重新过目并 /approve-design 重盖指纹,或把改动回退"
+  echo "设计承重文档在用户确认后被改($(jq -rc '.approval.reports' "$m"));请用户重新过目并调用 \$multi-model-workflow:approve-design 重盖指纹,或把改动回退"
   return 1
 }
 
@@ -121,19 +121,17 @@ cmd_handoff() {
   gate="$(jq -r '.gate // empty' "$m")"   # "" = 不在审闸;非空 = 正在该阶段审 loop 里
   slug="$(jq -r .slug "$m")"
   if [ "$cur_phase" = design ] && [ "$conclusion" = pass ]; then
-    die "[design] 禁止 handoff pass；离开 design 的唯一出口是用户 /approve-design → mmw approve"
+    die "[design] 禁止 handoff pass；离开 design 的唯一出口是用户调用 \$multi-model-workflow:approve-design → mmw approve"
   fi
   # 本阶段是不是 review-gated(routes.review_gates)
   gated=no
   jq -e --arg p "$cur_phase" '(.review_gates // {}) | has($p)' "$ROUTES" >/dev/null 2>&1 && gated=yes
 
   # 阶段序列读进度记录的 phases(本任务开着的阶段),不按 scenario 查 routes
-  local phases_len last first_phase
+  local phases_len last
   phases_len="$(jq -r '.phases | length' "$m")"
   [ "$phases_len" -gt 0 ] || die "进度记录无 phases"
   last=$(( phases_len - 1 ))
-  first_phase="$(jq -r '.phases[0]' "$m")"
-
   # 产出登记检查:只警告留痕,不拒收(判断是 agent 的;引擎把缺口摆到明面)
   local -a warns=()
   if [ "$conclusion" = "pass" ] && [ "${#produced[@]}" -eq 0 ]; then
@@ -452,7 +450,7 @@ find_manifest() {
   echo "$m"
 }
 
-# 状态新鲜度(白名单第 3 条:旧状态先对表再采信):版本不符或超 7 天没动 → 提示先 /reassess
+# 状态新鲜度(白名单第 3 条:旧状态先对表再采信):版本不符或超 7 天没动 → 提示先调用 $multi-model-workflow:reassess
 freshness_lines() {  # $1=manifest
   local m="$1"
   local cur_ver man_ver upd
@@ -460,7 +458,7 @@ freshness_lines() {  # $1=manifest
   man_ver="$(jq -r '.plugin_version // ""' "$m")"
   upd="$(jq -r '.updated_at // .created_at // ""' "$m")"
   if [ -n "$man_ver" ] && [ -n "$cur_ver" ] && [ "$man_ver" != "$cur_ver" ]; then
-    echo "stale_version=$man_ver(当前 plugin $cur_ver;状态由旧版写入,先 /reassess 从磁盘对表再续,别把旧指令当最新)"
+    echo "stale_version=$man_ver(当前 plugin $cur_ver;状态由旧版写入,先调用 \$multi-model-workflow:reassess 从磁盘对表再续,别把旧指令当最新)"
   fi
   if [ -n "$upd" ]; then
     local then_s now_s age_d
@@ -468,7 +466,7 @@ freshness_lines() {  # $1=manifest
     now_s="$(date -u +%s)"
     if [ -n "$then_s" ]; then
       age_d=$(( (now_s - then_s) / 86400 ))
-      if [ "$age_d" -ge 7 ]; then echo "stale_age=${age_d}d(超 7 天没动;先 /reassess 重建真相再续)"; fi
+      if [ "$age_d" -ge 7 ]; then echo "stale_age=${age_d}d(超 7 天没动;先调用 \$multi-model-workflow:reassess 重建真相再续)"; fi
     fi
   fi
   return 0
@@ -573,7 +571,7 @@ cmd_where() {
         b_do="先读 $(jq -r '.prototype.log' "$m") 和 prototype_artifacts，运行 prototype_run；只在现有产物上修改，完成当前轮后 checkpoint"
         ;;
       accepted)
-        b_do="prototype 已 accepted：先把 prototype_selected 的状态模型、交互和结论回填主设计文档，再走 design self-check、设计预审和 /approve-design"
+        b_do="prototype 已 accepted：先把 prototype_selected 的状态模型、交互和结论回填主设计文档，再走 design self-check、设计预审和 \$multi-model-workflow:approve-design"
         ;;
       superseded)
         b_do="prototype 验证问题已随方向失效；不要继续成文，按 then 明确退回 propose"
@@ -620,7 +618,7 @@ cmd_where() {
         then_cmd="$MMW handoff --conclusion needs-redirection --to-phase propose"
         ;;
       accepted)
-        then_cmd="$MMW pin --phase design --produced docs/design/$slug/$slug.md；然后起设计预审并请用户 /approve-design"
+        then_cmd="$MMW pin --phase design --produced docs/design/$slug/$slug.md；然后起设计预审并请用户调用 \$multi-model-workflow:approve-design"
         ;;
       "")
         if [ -n "$prototype_untracked" ]; then

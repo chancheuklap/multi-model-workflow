@@ -1,0 +1,5 @@
+interface:
+  display_name: "确认 MMW 设计"
+  short_description: "确认承重设计并放行后续流水线"
+policy:
+  allow_implicit_invocation: false

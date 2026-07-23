@@ -7,9 +7,9 @@ Coordinator 在任何阶段都按当前值守档决定"软停问不问人"。值
 | 时点 | 档 | 谁定的 |
 | --- | --- | --- |
 | develop 建档(讨论态:investigate/propose/design) | `attended` | prepare 写死——讨论期天生可问、必须对齐 |
-| 用户 `/approve-design` 过门 | 自动切 `afk` | approve 引擎——过门即放权 |
+| 用户 `$multi-model-workflow:approve-design` 过门 | 自动切 `afk` | approve 引擎——过门即放权 |
 | bug / small-change 建档 | `afk` | prepare 写死;但**动手前有一次轻确认**(scenario reference 定:根因/改动方案给用户一句话,等回复再动),之后自主 |
-| 用户 `/unattended`(过门禁) | `unattended` | 用户显式 |
+| 用户 `$multi-model-workflow:unattended`(过门禁) | `unattended` | 用户显式 |
 | 用户回来发任意消息 | 回 `attended`(unattended 时) | 合同(见「退出」) |
 | 随时 | `mmw attend --mode attended|afk` 自由切 | 用户或用户授意 |
 
@@ -30,9 +30,9 @@ Coordinator 在任何阶段都按当前值守档决定"软停问不问人"。值
 
 ## 进入 unattended(全部满足才进)
 
-跑 `mmw unattended enter`(即 `/unattended`)。脚本机械校验:
+跑 `mmw unattended enter`(即 `$multi-model-workflow:unattended`)。脚本机械校验:
 
-1. 设计已过门(develop 的 `design` 阶段已越过,即用户已 `/approve-design`;无 design 阶段的预设不适用)。
+1. 设计已过门(develop 的 `design` 阶段已越过,即用户已 `$multi-model-workflow:approve-design`;无 design 阶段的预设不适用)。
 2. 计划已过审(`plan` 阶段已越过;无则不适用)。
 3. 无未答的必须人答 HITL(`status≠waiting-user` 且当前执行账本无 pause)。
 
@@ -62,7 +62,7 @@ Coordinator 在任何阶段都按当前值守档决定"软停问不问人"。值
 
 | 触发 | 结果 |
 | --- | --- |
-| `/attended`(`mmw unattended exit`) | 回 `attended`,恢复可提问 |
+| `$multi-model-workflow:attended`(`mmw unattended exit`) | 回 `attended`,恢复可提问 |
 | 任务完成 Closing | mode 随 run 结束 |
 | 硬停(用户不在场) | 盘上留 `unattended` + 板写原因,等用户回来 |
-| **用户回来发任意消息** | Coordinator 把盘 `mode` 落回 `attended`(不留"盘写 unattended、实际闷头跑"的分叉);要续无人值守须再 `/unattended`。 |
+| **用户回来发任意消息** | Coordinator 把盘 `mode` 落回 `attended`(不留"盘写 unattended、实际闷头跑"的分叉);要续无人值守须再 `$multi-model-workflow:unattended`。 |

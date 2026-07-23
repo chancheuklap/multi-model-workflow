@@ -19,6 +19,7 @@ if jq -e '
   .name == "multi-model-workflow"
   and (.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))
   and .skills == "./skills/"
+  and .hooks == "./hooks/hooks.json"
 ' "$MANIFEST" >/dev/null 2>&1; then
   ok "Codex plugin manifest 声明稳定标识、版本和 skill 入口"
 else
@@ -49,9 +50,12 @@ skill_names="$(
       done \
     | sort
 )"
-expected_skills="$(printf '%s\n' orchestrate release-flow worktree-build worktree-plan worktree-review)"
+expected_skills="$(printf '%s\n' \
+  approve-design attended force-validate gather-context orchestrate progress reassess \
+  release-flow replan-remaining rescope side-finding skip-current unattended \
+  worktree-build worktree-plan worktree-review | sort)"
 if [ "$skill_names" = "$expected_skills" ]; then
-  ok "安装面只暴露五个 MMW 核心 skills"
+  ok "安装面暴露五个核心 skills 和 11 个控制 wrappers"
 else
   no "Codex plugin skill surface 不符"
 fi
@@ -118,6 +122,17 @@ if [ -f "$installed_path/scripts/review.sh" ] \
   ok "安装 cache 内的 native/second review 运行面完整"
 else
   no "安装 cache 缺 review 运行面"
+fi
+
+if [ -f "$installed_path/hooks/hooks.json" ] \
+  && [ -f "$installed_path/hooks/guard-redline.sh" ] \
+  && [ -f "$installed_path/hooks/record-step.sh" ] \
+  && jq -e '.hooks | has("SessionStart") and has("PreToolUse") and has("PostToolUse")' \
+    "$installed_path/hooks/hooks.json" >/dev/null \
+  && [ -f "$installed_path/skills/approve-design/agents/openai.yaml" ]; then
+  ok "安装 cache 内的控制 wrappers 与 hooks 完整"
+else
+  no "安装 cache 缺控制 wrappers 或 hooks"
 fi
 
 echo ""

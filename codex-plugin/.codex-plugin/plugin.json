@@ -3,5 +3,6 @@
   "version": "0.1.0",
   "description": "Codex 原生多模型开发编排：设计阶段与用户对齐，计划和实施阶段使用原生 subagents，第二模型通过可替换 CLI 审查。",
   "license": "MIT",
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json"
 }

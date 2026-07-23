@@ -1,12 +1,12 @@
 # to-issue 阶段 · 垂直切片立 issue 骨架(读本文全文)
 
-> `to-issue` 是用户 `/approve-design` 过门**之后**、plan **之前**的独立阶段:把已确认的设计垂直切片成可独立认领的 issue 骨架,钉进接力单交给 plan。主线程做。**只立骨架,实施细节由 plan-writer 按计划 schema 丰富**——这里不写 Task Pack。
+> `to-issue` 是用户 `$multi-model-workflow:approve-design` 过门**之后**、plan **之前**的独立阶段:把已确认的设计垂直切片成可独立认领的 issue 骨架,钉进接力单交给 plan。主线程做。**只立骨架,实施细节由 plan-writer 按计划 schema 丰富**——这里不写 Task Pack。
 >
-> `prev_outputs` = design 钉的设计文档(已由用户确认、盖了指纹)。读它来切片;不重提方案、不改设计(要改设计 → `mmw handoff --conclusion needs-redirection --to-phase design`,改完请用户重新 `/approve-design`)。
+> `prev_outputs` = design 钉的设计文档(已由用户确认、盖了指纹)。读它来切片;不重提方案、不改设计(要改设计 → `mmw handoff --conclusion needs-redirection --to-phase design`,改完请用户重新 `$multi-model-workflow:approve-design`)。
 
 ## 怎么拆:委托外部 `to-tickets` skill(方法论单源,不在此复制)
 
-切片方法论本体在外部 `to-tickets` skill——它对模型不可见(不在你的技能清单里),**先 read `~/.agents/skills/to-tickets/SKILL.md` 全文再动手;文件不存在=缺装,停下报用户安装,不凭记忆编方法论**。其核心:tracer-bullet / vertical-slice(每个 issue 切穿所有集成层、端到端可独立验证、单个适配一个 fresh context window)。读完后用它来拆;**粒度和依赖(blocking edges)自己定,不再向用户确认循环**(已过 /approve-design,流水线态自主跑):切片清单落盘、编号列表进汇报和进度板亮给用户,他有异议随时口头调整或 /rescope;质量闸 = ②计划审兜底。
+切片方法论本体在外部 `to-tickets` skill——它对模型不可见(不在你的技能清单里),**先 read `~/.agents/skills/to-tickets/SKILL.md` 全文再动手;文件不存在=缺装,停下报用户安装,不凭记忆编方法论**。其核心:tracer-bullet / vertical-slice(每个 issue 切穿所有集成层、端到端可独立验证、单个适配一个 fresh context window)。读完后用它来拆;**粒度和依赖(blocking edges)自己定,不再向用户确认循环**(已过 $multi-model-workflow:approve-design,流水线态自主跑):切片清单落盘、编号列表进汇报和进度板亮给用户,他有异议随时口头调整或 $multi-model-workflow:rescope;质量闸 = ②计划审兜底。
 
 **宽重构例外**:改列名 / 改共享类型这种爆炸半径大、单次编辑会破上千调用点的机械改动,不套 vertical slice,按 `to-tickets` 的 **expand–contract** 拆:先 expand(新旧并存不破)→ 分批 migrate(按爆炸半径分包,每批一个 issue、blocked by expand)→ contract(删旧,blocked by 全部 migrate 批)。
 
