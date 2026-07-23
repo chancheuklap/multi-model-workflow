@@ -93,6 +93,12 @@ cmd_start() {
   local man prototype_status rel existing already
   man="$top/$state/task.json"
   prototype_status="$(jq -r 'if .prototype == null then "" else (.prototype.status // "BROKEN") end' "$man" 2>/dev/null || true)"
+  # 设计预审顺序机器化:phase=design 的预审必须在 prototype accepted 之后
+  # (design-self-check 声明的顺序,不再只靠文档纪律;过门后的设计复审不在此限)。
+  if [ "$stage" = design ] && [ "$(jq -r '.phase // empty' "$man" 2>/dev/null || true)" = design ] \
+     && [ "$prototype_status" != accepted ]; then
+    die "设计预审前 prototype 必须 accepted(当前:${prototype_status:-未启动});先按 mmw where 完成 prototype 迭代"
+  fi
   if [ "$stage" = design ] && [ "$prototype_status" = accepted ]; then
     while IFS= read -r rel; do
       [ -n "$rel" ] || continue
