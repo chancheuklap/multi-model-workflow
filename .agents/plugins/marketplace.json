@@ -1,0 +1,20 @@
+{
+  "name": "multi-model-workflow-local",
+  "interface": {
+    "displayName": "Multi-Model Workflow"
+  },
+  "plugins": [
+    {
+      "name": "multi-model-workflow",
+      "source": {
+        "source": "local",
+        "path": "./codex-plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
