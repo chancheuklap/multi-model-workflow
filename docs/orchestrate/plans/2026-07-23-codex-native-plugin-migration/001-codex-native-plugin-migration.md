@@ -16,6 +16,10 @@
   `~/.agents/skills`，MMW 不复制、不修改、不 vendor 这些 skills。
 - **Current baseline**：`main`
   `2efefbe1668cf108ab63a85cd639da067c3c76dd`。
+- **Prototype prerequisite**：Codex 实施前先把
+  `worktree-prototype-iteration-loop` 修订版合入 `main`；修订版必须让所有
+  develop 设计强制完成 prototype、重新打开时更新当前验证问题，并让设计预审自动
+  读取迭代日志与最终选中产物。Codex 不从当前旧基线另抄一份 prototype 逻辑。
 - **Worktree**：
   `codex/2026-07-23-codex-native-plugin-migration-plan`。
 - **Evidence**：
@@ -30,6 +34,7 @@
 | MMW skills | 仍然只有 `orchestrate`、`release-flow`、`worktree-plan`、`worktree-build`、`worktree-review`。 |
 | 外部方法 skills | 与三份镜像一样保留为外部依赖；Codex 使用 `~/.agents/skills/<name>/SKILL.md`。 |
 | 控制入口 | 当前 11 个 command/prompt 在 Codex 中做成 11 个薄 skill wrapper；只换宿主入口，不搬业务正文。 |
+| Prototype | design 内层强制循环，由 Codex 主线程在 App 任务 worktree 中与用户逐轮验证；不新增阶段、worktree 或 prototype subagent。 |
 | 调查 | 主线程按 topic 调 Codex native subagents，并行收回后再调一个全新 synth subagent。 |
 | 计划 | 一个大 issue 一个 native GPT plan-writer；prepare/verify 复用 `pi-plugin/scripts/worker.sh` 结构。 |
 | 落地 | 一个 plan 一个 native GPT build worker 和独立 inner worktree；仍由 worker prepare/verify 管边界。 |
@@ -80,12 +85,18 @@ flowchart LR
     D --> E
     E --> F["investigate"]
     F --> G["propose / design HITL"]
-    G --> H["to-issue"]
-    H --> I["native GPT plan workers"]
-    I --> J["第二模型计划审"]
-    J --> K["native GPT build workers"]
-    K --> L["GPT + 第二模型终审"]
-    L --> M["package / release / closing"]
+    G --> H["主线程制作并运行 prototype"]
+    H --> I{"本轮验证结果"}
+    I -- "继续调整" --> H
+    I -- "方向失效" --> G
+    I -- "用户接受" --> J["回填设计文档并预审完整材料"]
+    J --> K["用户 approve-design"]
+    K --> L["to-issue"]
+    L --> M["native GPT plan workers"]
+    M --> N["第二模型计划审"]
+    N --> O["native GPT build workers"]
+    O --> P["GPT + 第二模型终审"]
+    P --> Q["package / release / closing"]
 ```
 
 四个开口、阶段顺序和用户控制动作保持当前行为：
@@ -164,7 +175,32 @@ Codex App 当前没有把任意 shell-created worktree attach 到正在运行任
 plan/build inner worktrees 仍由 MMW 创建。它们是工人执行目录，不是用户导航目标，
 不需要出现在 App sidebar。
 
-### 4. Native subagent 调度
+### 4. Prototype 迭代闭环
+
+Prototype 沿用修订后的三镜像业务合同，只做 Codex 宿主接线：
+
+1. 每个进入 `design` 的 develop 任务都必须启动 prototype。small-change、bug、
+   merge 没有 design 时不凭空增加；升级到 develop 后执行同一强制门。
+2. Codex 主线程在 App 创建并显示的任务 worktree 中直接制作、运行和修改
+   prototype，与用户逐轮走查。源码、mockup、迭代日志和证据都提交到 App 创建的
+   task branch。
+3. `active` 继续当前轮；`accepted` 只钉住用户确认的最终产物；`superseded`
+   返回 propose。`mmw where` 从 `.codex/multi-model-workflow/task.json` 恢复当前
+   问题、轮次、运行命令、日志和产物。
+4. accepted 后收到新反馈时，沿用同一日志和原型文件，但重新打开命令必须写入新的
+   可验证问题；运行命令变化时一起更新。不得让冷启动 agent 看到旧问题。
+5. 设计预审自动读取主设计文档、prototype `README.md` 和全部 `selected`。GPT
+   审者与第二模型审者读取同一材料，不让协调者手工拼路径。
+6. `/approve-design` 仍是唯一用户闸。prototype 为空、active、superseded、
+   selected 缺失或 selected 未进入确认指纹时全部 fail loud。
+7. plan sandbox 与 build worker 只接收 accepted 的 `README.md` 和 `selected`；
+   未选候选、逐轮走查证据和整个 prototype/mockup 目录不进入工人上下文。
+
+Codex 不新增 prototype 顶层阶段、独立 worktree、artifact registry、逐轮源码副本、
+专用 subagent 编排或第二个用户审批命令。主线程保留 HITL 连续上下文；native
+subagents 从 investigate、plan、build 和 GPT review 节点开始发挥并行价值。
+
+### 5. Native subagent 调度
 
 Codex plugin 不安装 `.codex/agents`，也不调用外部 Codex CLI。
 
@@ -183,7 +219,7 @@ Codex plugin 不安装 `.codex/agents`，也不调用外部 Codex CLI。
 `pi-plugin/agents-roster/*.md` 只作为角色 prompt 模板移植，不注册为 Codex custom
 agents。模型使用当前 Codex GPT 主模型/子代理默认，不在 plugin 内维护 model roster。
 
-### 5. Investigate 的结构化多 Agent Workflow
+### 6. Investigate 的结构化多 Agent Workflow
 
 保留当前内部/外部两条调查路径，不增加第三种编排器：
 
@@ -204,7 +240,7 @@ agents。模型使用当前 Codex GPT 主模型/子代理默认，不在 plugin 
 这里直接使用 Codex 的 spawn/wait/follow-up；不移植 Claude Workflow JS，不创建
 App Server，不再写一条 `mmw investigate` 状态机。
 
-### 6. Plan 与 Build
+### 7. Plan 与 Build
 
 从 `pi-plugin/scripts/worker.sh` 移植：
 
@@ -219,7 +255,7 @@ App Server，不再写一条 `mmw investigate` 状态机。
 - `.worktreeinclude` 和 App 自动 setup 只适用于 App-created outer；MMW inner
   worktree 继续按当前 worker 的项目准备合同处理，不扩展成通用 workspace manager。
 
-### 7. Review
+### 8. Review
 
 审查方法继续只有 `worktree-review` 一份；审者 provider 只在 dispatch 层变化。
 
@@ -247,7 +283,7 @@ exit 0 = 成功
 Adapter 可执行文件由用户配置。核心脚本不识别 Claude/Gemini 名称，不做 GPT
 fallback；需要第二模型的 slot 失败就留在审闸。
 
-### 8. Hooks、控制面、Package、Release、Closing
+### 9. Hooks、控制面、Package、Release、Closing
 
 Hooks 只移植现有三类行为：
 
@@ -360,8 +396,11 @@ codex-plugin/
 **Files**
 
 - `scripts/lib/runtime.sh`
-- `mmw.sh`、`flow.sh`、`loop.sh`、`note.sh`、`progress.sh`、`steer.sh`
+- `scripts/lib/prototype-state.sh`
+- `mmw.sh`、`flow.sh`、`loop.sh`、`note.sh`、`progress.sh`、`steer.sh`、
+  `prototype.sh`
 - 现有五份 state schemas
+- design/prototype references、session triage 和 prototype tests
 
 **Work**
 
@@ -370,10 +409,16 @@ codex-plugin/
 3. 保留 routes、handoff、loop、approval、attendance、spinoff、escalate 语义。
 4. `mmw_warn_ext_skills` 使用 `~/.agents/skills`，集合与 pi 完全一致。
 5. 删除 pi extension/agent 注册专属分支，不新增通用 host abstraction。
+6. 移植 mandatory prototype 的 start/checkpoint、active/accepted/superseded、
+   adopt、幂等日志、恢复投影和 approval 指纹合同。
+7. 空 prototype 时 `where` 只给 start，`approve` 硬停；accepted 重新打开时更新
+   当前验证问题。
 
 **Acceptance**
 
 - `where → handoff → review/repair/advance` 与当前流程一致。
+- 所有 develop 设计必须走到 prototype accepted 才能 `/approve-design`。
+- compaction 或新会话后，`mmw where` 显示真实当前问题和唯一下一步。
 - 外部 skills 全齐时无告警；缺装时列出准确名字和安装提示。
 - 不读取其他镜像的 runtime/state。
 
@@ -439,12 +484,17 @@ codex-plugin/
 2. dispatch 输出 Codex native spawn 指引。
 3. plan sandbox、build inner worktree、边界检查、verify、原子发布保持不变。
 4. 去掉 pi agent registry/run-id 假设；当前会话用 native agent target，跨会话重派。
+5. plan/build 派发从 task manifest 自动解析 accepted prototype，只传
+   `README.md` 与 `selected`，并在 dispatch、resume、verify 重验 approval
+   fingerprint。
 
 **Acceptance**
 
 - 两个 plan writer 并行且互不覆盖。
 - 两个 build workers 使用不同 inner worktrees。
 - plan/build 工人继续调用外部方法 skills。
+- plan/build 工人收到同一批已确认 prototype 材料，且看不到未选候选。
+- prototype 缺失、未收敛、selected 变化或确认过期时不得派发、恢复或发布。
 - verify 失败不得发布或合并。
 
 ## Task Pack 6：Review 与第二模型 Adapter
@@ -463,11 +513,14 @@ codex-plugin/
 2. GPT slots 改 native subagent。
 3. 第二模型 slots 统一走一个 CLI Adapter。
 4. 保留 review trace、亲验/disposition、repair/re-review 和 clean-check。
+5. design stage 的 rendered prompt 自动加入主设计文档、prototype README 和
+   selected；两个 provider 读取完全相同的材料。
 
 **Acceptance**
 
 - design/plan/small/bug/develop/merge 编制与上表一致。
 - Adapter 可替换且核心没有供应商分支。
+- 设计审能定位并实际检查 accepted prototype，不只审文字设计。
 - 第二模型缺失时所需 slot fail loud，不降级 GPT。
 - 审者不能修改被审 worktree。
 
@@ -522,16 +575,19 @@ bash codex-plugin/build/build.sh --check
 2. App `Create branch here` 创建 `codex/<slug>`。
 3. `task new` 采用当前 checkout。
 4. investigate 三 topic + synth。
-5. propose/design/approve。
-6. 两个 issue、两个 native plan writers。
-7. 两个第二模型 plan reviewers。
-8. 两个 native build workers。
-9. 合同门。
-10. native GPT + 第二模型 final review。
-11. package/release dry-run。
-12. target checkout 本地 `--no-ff` merge。
-13. cleanup 只清 MMW state，App worktree/branch 仍在。
-14. compaction 后从当前 worktree 内 state 续跑。
+5. propose/design 后启动 prototype，第一轮 `continue`。
+6. compaction 后运行 `mmw where`，确认恢复当前问题、轮次和原有产物。
+7. 第二轮用户确认后 `accepted`，设计预审同时读取主文档、README 和 selected。
+8. 用户 `/approve-design`；空/active/superseded prototype 分别验证不能过门。
+9. 两个 issue、两个 native plan writers，确认只收到 README 和 selected。
+10. 两个第二模型 plan reviewers。
+11. 两个 native build workers，确认只收到同一批 selected。
+12. 修改 selected，确认 approval stale 阻止 resume/verify；恢复后重新确认。
+13. 合同门。
+14. native GPT + 第二模型 final review。
+15. package/release dry-run。
+16. target checkout 本地 `--no-ff` merge。
+17. cleanup 只清 MMW state，App worktree/branch 仍在。
 
 另外分别跑 small-change、bug、merge 三入口。
 
