@@ -98,6 +98,17 @@ else
   no "安装 cache 缺 native investigate 运行面"
 fi
 
+if [ -f "$installed_path/scripts/worker.sh" ] \
+  && [ -f "$installed_path/skills/worktree-plan/SKILL.md" ] \
+  && [ -f "$installed_path/skills/worktree-build/SKILL.md" ] \
+  && bash -n "$installed_path/scripts/worker.sh" \
+  && grep -q 'spawn_agent' "$installed_path/scripts/worker.sh" \
+  && ! grep -qiE 'codex exec|note-run-id|PI_CODING_AGENT_DIR' "$installed_path/scripts/worker.sh"; then
+  ok "安装 cache 内的 native plan/build worker 可直接运行"
+else
+  no "安装 cache 缺 native plan/build worker 运行面"
+fi
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

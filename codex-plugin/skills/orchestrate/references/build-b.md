@@ -12,9 +12,9 @@
 | step 状态 | 含义 | 接着做 |
 |---|---|---|
 | `done` | 该 plan 已验收提交 | 跳过 |
-| `pending` + 有 `worktree` + 派发账本 `status=dispatched` | 后台 run 可能在飞 | **别重派**:查该 run(subagent({action:"status", id:账本 run_id}));确认已结束再 verify 或 resume |
-| `pending` + 有 `worktree` + `status=completed` | 工人已返回 | 跑 `status` 触发边界门并读最后回执,再走 B3 |
-| `pending` + 有 `worktree` + `status=failed` | 派发失败或异常退出 | 读账本 `log_file`;可修环境后重新 dispatch,已有成功 session 才允许 resume |
+| `pending` + 有 `worktree` + 派发账本 `status=dispatched`，原工人仍在当前任务 | 工人可能在飞或等返修 | 用 `list_agents` / `wait_agent` 看当前工人；完成后 verify，有缺陷就 `worker resume` 后 `followup_task` |
+| `pending` + 有 `worktree` + 派发账本 `status=dispatched`，当前任务没有原工人 | 跨任务恢复 | 先读工人 worktree 的 `git log`、`git status` 和账本；已有完整产出先 verify，否则 `worker resume` 后全新 `spawn_agent(fork_turns="none")` 续做 |
+| `pending` + 有 `worktree` + 派发账本 `status=verified` | 机器边界已过，主线程尚未验收 | 直接走 B3 亲验，不重派 |
 | `pending` + 无 `worktree` | 还没轮到 | 正常 B1→B2 派 |
 
 ## B0. 返修入口(④终审 / ③合同门判 needs-repair 回来才走;首次落地跳过,直接 B1)
@@ -53,11 +53,11 @@ mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree
  --design <设计文档绝对路径> --issue <该 plan 对应 issue 绝对路径>
 ```
 
-- **子 worktree 落点定死**:`<主仓库>/.pi/worktrees/<slug>-plan-<NNN>`(与任务 worktree 同层,别散落);脚本挂 `worker/<目录名>` 分支,从 `--base`(默认 HEAD)分叉。
+- **子 worktree 落点定死**:`<主仓库>/.codex/worktrees/<任务名>-<plan名>`；它是写码工人的机械隔离层，不要求显示在 App 侧栏。App 只负责当前主任务的外层 worktree 和 `codex/<slug>` 分支。
 - **三文档都传**:pack-executor 开工要读设计(意图 / 合同)+ 它的 issue(边界)+ 它的计划(实施权威),不能只给计划。
-- **模型档脚本按 plan 的 `Complexity` 自动切,你不手传**:高风险 plan(标 `Complexity: capable`——计费 / 权限 / migration / 跨服务)脚本自动切高档。`--model`/`--effort` 仅在你要临时覆盖时才传。
-- **一律后台跑**:`worker.sh` 创建 Git worktree 并组好 prompt，协调者照打印的指令派 `subagent({agent:"pack-executor", task:…, async:true})`，并把返回的 run id 用 `mmw worker note-run-id` 落账；返修从派发账本找到原 run id 与 worktree。工人回执在会话内直接回来，回执后跑 `mmw worker verify --worktree <wt>` 过边界门。
-- 并行:互不依赖的 plan,各自一个 worktree,同时发多条后台 dispatch。
+- **主工人都是 Codex 原生 GPT 子代理**：脚本不绑定具体 GPT 型号，也不调用外部 CLI；只有后面的第二模型审查走外部命令。
+- **一律并行派可并行项**：`worker.sh` 创建内层 worktree 并组好 prompt。先为互不依赖的 plan 全部运行 dispatch，再逐个调用输出中的 `spawn_agent(fork_turns="none")`，全部派出后才等待。工人回执后运行 `mmw worker verify --worktree <wt>`。
+- **返修不保存 agent id**：原工人仍在当前任务时用 `followup_task`；跨任务时对盘上的 worktree 全新 spawn，由 `git log`、未提交改动和账本恢复进度。
 - **铁律在 `worktree-build` skill**:prompt 只给角色 + worktree + 三文档 + skill 指针。
 - 工人在自己 worktree 提交;进度靠你 verify 后 `mmw loop step done`。
 - **docs 红线 fail-closed**:`mmw worker verify` 核 docs 边界;非零 / `DOCS_VIOLATION` 禁止 `loop step done`,写修复指令 resume。
@@ -108,9 +108,9 @@ mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree
  ```
  verify ↔ resume 直至这份 plan 验收通过。
 
-**pack-executor 停下说"缺输入 / 计划与现实冲突"**:你判。afk 拍板前可调一次 advisor 工具(零参数，它自动看到全对话含失败日志与冲突现场，不需要写 brief)。
+**pack-executor 停下说"缺输入 / 计划与现实冲突"**：主线程亲验现场后判断；不要把工人自述当事实。
 
-小问题有合理默认 → afk 直接给指令 resume(留痕);真缺输入 / 怀疑方向错 → 停下抛用户(`mmw handoff --conclusion needs-context` / `needs-redirection`),别替用户拍方向。顾问建议换路不自动 handoff。
+小问题有合理默认 → afk 直接给指令 resume(留痕)；真缺输入 / 怀疑方向错 → 停下抛用户(`mmw handoff --conclusion needs-context` / `needs-redirection`)，别替用户拍方向。
 
 ## B4. 全 plan 验完 + 合并
 

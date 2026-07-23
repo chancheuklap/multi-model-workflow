@@ -52,7 +52,7 @@ Bad: "制定了全面的实施计划,涵盖所有功能模块。"
 
 ## Step 3:Fan-out 派 plan-writer 写计划
 
-每个大 issue 派一个 plan-writer,**主线程直接跑 `mmw worker plan-dispatch`(不套 subagent——你要留在 loop 里做 Step 4 亲验 / Step 5 回填)**:
+每个大 issue 派一个 plan-writer。主线程先运行 `mmw worker plan-dispatch` 准备隔离 worktree、prompt 和边界账本，再照命令输出调用 Codex 原生 `spawn_agent`；主线程留在本阶段做 Step 4 亲验和 Step 5 回填：
 
 ```bash
 mmw worker plan-dispatch \
@@ -64,10 +64,11 @@ mmw worker plan-dispatch \
 
 讨论态材料由脚本机械传递：direction / investigating / evidence 照常进入上下文；prototype 只传 accepted 的 `README.md` 与 `selected` 文件。未选候选和 active/superseded 原型不会进入 writer，上游若未 accepted 已被设计人闸挡住。不传任何 prototype/mockup 旗标。
 
-- **一律后台跑**:脚本为每个 writer 建临时隔离 worktree 并组好 prompt,协调者照打印的指令派 `subagent({agent:"plan-writer", task:…, async:true})`,并把返回的 run id 用 `mmw worker note-run-id --plan <落点>` 落账;工人回执后 `mmw worker verify --plan <落点> --worktree <任务 wt>` 过边界门才原子发布指定 plan 与 issue 小节并清理隔离 worktree,追问用 `plan-resume`(账本 run id 长效,跨会话也能续原工人)。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。** 单 issue → 单 plan:派一个就行,不强行并行。
+- **一律并行派可并行项**：先为所有互不依赖的 plan 运行 `plan-dispatch`，再逐个调用 `spawn_agent(fork_turns="none")`，全部派出后才等待。工人回执后运行 `mmw worker verify --plan <落点> --worktree <任务 wt>`；边界门通过才原子发布指定 plan 与 issue 小节并清理隔离 worktree。有 `blocked_by` 的按依赖顺序派；单 issue 只派一个。
+- **返修**：原工人仍在当前 Codex 任务时，运行 `plan-resume` 准备指令后调用 `followup_task`。跨任务恢复时不保存或猜测旧 agent id；对盘上的隔离 worktree 和草稿调用全新 `spawn_agent(fork_turns="none")`。
 - **writer 不建 worktree、不 commit**:隔离、发布和清理由脚本负责;writer 只在自己的隔离 worktree 写指定 plan 与 issue `Small issues`,主线程统一提交。
 - **落点 slug** 与源设计 / issue 对齐(已含日期);多 plan 同一目录。
-- 模型档脚本已钉,除非特殊无需 `--model`。
+- 主计划工人使用 Codex 当前可用的 GPT 系列模型；脚本不绑定具体模型名，也不调用外部 CLI。
 - 每个 dispatch 独立、零交叉污染:**不要**把别的 writer 的历史 / 别的 plan 内容混进去。`worktree-plan` skill 指针由脚本自动带,方法论(task-pack / 自检)在 skill 自己的 `references/`,工人读 skill 自取,你不用手传路径。
 
 ## Step 4:亲验返回
