@@ -107,7 +107,6 @@ mkdir -p "$WT/docs/design/$SLUG/prototype/runs/001"
 printf 'prototype\n' >"$WT/docs/design/$SLUG/prototype/demo.py"
 printf 'passed\n' >"$WT/docs/design/$SLUG/prototype/runs/001/output.txt"
 cp "$MAN" "$TMP/manifest-before-round1.json"
-printf '\n<!-- mmw-prototype-round:1 -->\nPARTIAL-ROUND\n' >>"$LOG"
 ROUND1="$(cd "$WT" && bash "$MMW" prototype checkpoint \
   --feedback "重复恢复会产生两条任务" \
   --change "增加幂等检查" \
@@ -119,9 +118,7 @@ ROUND1="$(cd "$WT" && bash "$MMW" prototype checkpoint \
   && [ "$(jq -r '.prototype.artifacts[0]' "$MAN")" = "docs/design/$SLUG/prototype/demo.py" ] \
   && echo "$ROUND1" | grep -q 'prototype_iteration=2' && ok "continue 关闭本轮并进入下一轮" || no "continue 状态"
 [ "$(grep -c '<!-- mmw-prototype-round:1 -->' "$LOG")" = 1 ] \
-  && grep -q '<!-- mmw-prototype-round-complete:1:' "$LOG" \
-  && ! grep -q 'PARTIAL-ROUND' "$LOG" \
-  && ok "残缺轮次日志原子修复并追加一次" || no "残缺轮次日志修复"
+  && ok "第 1 轮日志原子追加一次" || no "第 1 轮日志标记"
 
 # 模拟“日志已写、manifest 未写”的中断；重跑只能补状态，不能重复日志。
 cp "$TMP/manifest-before-round1.json" "$MAN"
@@ -173,6 +170,21 @@ else
   ok "软链产物 fail-closed"
 fi
 rm "$WT/docs/design/$SLUG/prototype/link.py"
+mkdir -p "$WT/docs/design/$SLUG/prototype/runs/003"
+printf 'walk evidence\n' >"$WT/docs/design/$SLUG/prototype/runs/003/evidence.txt"
+if (cd "$WT" && bash "$MMW" prototype checkpoint --feedback f --change c --result r \
+  --artifact "docs/design/$SLUG/prototype/runs/003/evidence.txt" --verdict continue >/dev/null 2>&1); then
+  no "runs 证据不得登记为 artifact"
+else
+  ok "runs 与实现产物分类隔离"
+fi
+if (cd "$WT" && bash "$MMW" prototype checkpoint --feedback f --change c --result r \
+  --artifact "docs/design/$SLUG/prototype/demo.py" \
+  --selected "docs/design/$SLUG/prototype/README.md" --verdict accepted >/dev/null 2>&1); then
+  no "README 不得成为 selected"
+else
+  ok "README 与 selected 分类隔离"
+fi
 
 # 父目录软链同样不得让 artifact / selected / evidence 逃出 worktree。
 PARENT_OUTSIDE="$TMP/prototype-parent-outside"
@@ -228,6 +240,8 @@ fi
 printf '# direction v2\n' >"$WT/docs/design/$SLUG/direction.md"
 (cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced "docs/design/$SLUG/direction.md" >/dev/null)
 RESTART="$(cd "$WT" && bash "$MMW" prototype start --kind logic --question "新方向是否覆盖恢复" --run "python docs/design/$SLUG/prototype/demo-v2.py")"
+jq -e --arg old "docs/design/$SLUG/prototype/demo.py" '.prototype.artifacts | index($old) != null' "$MAN" >/dev/null \
+  && ok "superseded 后新问题继续携带已有产物" || no "superseded 重开丢失已有产物"
 printf 'v2\n' >"$WT/docs/design/$SLUG/prototype/demo-v2.py"
 (cd "$WT" && bash "$MMW" prototype checkpoint \
   --feedback "新方向通过" --change "改用新状态模型" --result "全场景通过" \
@@ -243,13 +257,21 @@ printf 'v2\n' >"$WT/docs/design/$SLUG/prototype/demo-v2.py"
 SLUG2="2026-07-23-adopt"
 WT2="$(new_design_task "$SLUG2")"
 MAN2="$WT2/$SD/task.json"
-mkdir -p "$WT2/docs/design/$SLUG2/mockup"
+mkdir -p "$WT2/docs/design/$SLUG2/mockup" "$WT2/docs/design/$SLUG2/prototype/runs/001"
 printf '<html>old</html>\n' >"$WT2/docs/design/$SLUG2/mockup/current.html"
+printf 'old evidence\n' >"$WT2/docs/design/$SLUG2/prototype/runs/001/output.txt"
 printf '# design\n' >"$WT2/docs/design/$SLUG2/$SLUG2.md"
+cp "$MAN2" "$TMP/manifest-before-broken.json"
+jq '.prototype={status:"broken"}' "$MAN2" >"$MAN2.tmp" && mv "$MAN2.tmp" "$MAN2"
+WHERE_BROKEN="$(cd "$WT2" && bash "$MMW" where)"
+echo "$WHERE_BROKEN" | grep -q '^then=STOP:prototype 状态损坏' \
+  && ok "损坏状态明确 STOP" || no "损坏状态仍给推进指令"
+cp "$TMP/manifest-before-broken.json" "$MAN2"
 WHERE_UNTRACKED="$(cd "$WT2" && bash "$MMW" where)"
 echo "$WHERE_UNTRACKED" | grep -q '^prototype_untracked=' \
   && echo "$WHERE_UNTRACKED" | grep -q '^then=.*prototype start --adopt' \
-  && ok "where 发现未登记原型并给 adopt" || no "where untracked"
+  && ! echo "$WHERE_UNTRACKED" | grep -q 'runs/001/output.txt' \
+  && ok "where 只要求接管实现产物，不混入 runs 证据" || no "where untracked 分类"
 if (cd "$WT2" && bash "$MMW" approve --report "docs/design/$SLUG2/$SLUG2.md" >/dev/null 2>&1); then
   no "未登记 prototype 不得 approve"
 else
@@ -276,6 +298,7 @@ MAIN3="docs/design/$SLUG3/$SLUG3.md"
 ART3="docs/design/$SLUG3/prototype/demo.py"
 LOG3="docs/design/$SLUG3/prototype/README.md"
 printf '# design\n' >"$WT3/$MAIN3"
+(cd "$WT3" && bash "$FLOW" pin --phase design --produced "$MAIN3" >/dev/null)
 (cd "$WT3" && bash "$MMW" prototype start --kind logic --question "确认状态模型" --run "python $ART3" >/dev/null)
 printf 'accepted\n' >"$WT3/$ART3"
 (cd "$WT3" && bash "$MMW" prototype checkpoint --feedback "走查完成" --change "补齐失败态" --result "全部通过" \
@@ -286,11 +309,11 @@ echo "$WHERE_ACCEPTED" | grep -q '^prototype_status=accepted$' \
   && echo "$WHERE_ACCEPTED" | grep -q '回填主设计文档' \
   && echo "$WHERE_ACCEPTED" | grep -q '^then=.*pin --phase design' \
   && ok "where accepted 回到设计成文" || no "where accepted"
-(cd "$WT3" && bash "$MMW" approve --report "$MAIN3" >/dev/null)
+(cd "$WT3" && bash "$MMW" approve >/dev/null)
 [ "$(jq -r .phase "$MAN3")" = to-issue ] \
-  && jq -e --arg log "$LOG3" --arg art "$ART3" '.approval.reports | index($log) != null and index($art) != null' "$MAN3" >/dev/null \
-  && jq -e --arg log "$LOG3" --arg art "$ART3" '.phase_outputs.design | index($log) != null and index($art) != null' "$MAN3" >/dev/null \
-  && ok "approve 自动指纹并交接 accepted 产物" || no "approve accepted reports"
+  && jq -e --arg main "$MAIN3" --arg log "$LOG3" --arg art "$ART3" '.approval.reports | index($main) != null and index($log) != null and index($art) != null' "$MAN3" >/dev/null \
+  && jq -e --arg main "$MAIN3" --arg log "$LOG3" --arg art "$ART3" '.phase_outputs.design | index($main) != null and index($log) != null and index($art) != null' "$MAN3" >/dev/null \
+  && ok "无参数 approve 保留主设计并追加 accepted 产物" || no "approve 丢失主设计"
 printf 'changed after approval\n' >>"$WT3/$ART3"
 STALE="$(cd "$WT3" && bash "$MMW" where)"
 echo "$STALE" | grep -q '^approval_stale=' && ok "selected 改动触发 approval stale" || no "selected stale"
@@ -300,14 +323,15 @@ SLUG4="2026-07-23-reselect"
 WT4="$(new_design_task "$SLUG4")"
 MAN4="$WT4/$SD/task.json"; MAIN4="docs/design/$SLUG4/$SLUG4.md"
 printf '# design\n' >"$WT4/$MAIN4"
+(cd "$WT4" && bash "$FLOW" pin --phase design --produced "$MAIN4" >/dev/null)
 A4="docs/design/$SLUG4/prototype/a.py"; B4="docs/design/$SLUG4/prototype/b.py"
 (cd "$WT4" && bash "$MMW" prototype start --kind logic --question q --run run >/dev/null)
 printf A >"$WT4/$A4"
-(cd "$WT4" && bash "$MMW" prototype checkpoint --feedback f --change c --result r --artifact "$A4" --selected "$A4" --verdict accepted >/dev/null && bash "$MMW" approve --report "$MAIN4" >/dev/null)
+(cd "$WT4" && bash "$MMW" prototype checkpoint --feedback f --change c --result r --artifact "$A4" --selected "$A4" --verdict accepted >/dev/null && bash "$MMW" approve >/dev/null)
 (cd "$WT4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design >/dev/null && bash "$MMW" prototype checkpoint --feedback reopen --verdict continue >/dev/null)
 printf B >"$WT4/$B4"
-(cd "$WT4" && bash "$MMW" prototype checkpoint --feedback f2 --change c2 --result r2 --artifact "$B4" --selected "$B4" --verdict accepted >/dev/null && bash "$MMW" approve --report "$MAIN4" >/dev/null)
-jq -e --arg a "$A4" --arg b "$B4" '.phase_outputs.design | index($a) == null and index($b) != null' "$MAN4" >/dev/null \
+(cd "$WT4" && bash "$MMW" prototype checkpoint --feedback f2 --change c2 --result r2 --artifact "$B4" --selected "$B4" --verdict accepted >/dev/null && bash "$MMW" approve >/dev/null)
+jq -e --arg main "$MAIN4" --arg a "$A4" --arg b "$B4" '.phase_outputs.design | index($main) != null and index($a) == null and index($b) != null' "$MAN4" >/dev/null \
   && ok "重新选择后接力单只保留当前 selected" || no "旧 selected 残留在接力单"
 printf '\nResults: %s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" = 0 ]

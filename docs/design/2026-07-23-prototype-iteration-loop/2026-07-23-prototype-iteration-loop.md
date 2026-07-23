@@ -65,7 +65,7 @@ prototype 继续属于 design 阶段，不增加顶层 phase。引擎必须让�
 | `active` | `checkpoint --verdict accepted` | `accepted` | 记录通过结论并钉住 selected |
 | `active` | `checkpoint --verdict superseded` | `superseded` | 记录方向失效，回执要求退回 propose |
 | `accepted` | `checkpoint --verdict continue` | `active` | 收到新反馈后重新打开，进入下一轮并清空 selected |
-| `superseded` | `start` | `active` | 在同一日志追加新的验证问题，并沿用下一全局轮次 |
+| `superseded` | `start` | `active` | 在同一日志追加新的验证问题，沿用下一全局轮次并保留已有 artifacts |
 
 active 状态重复 `start` 必须非零退出并打印已有状态与续作指令。accepted 状态重复 `start` 必须要求用 `checkpoint --verdict continue` 重新打开。
 
@@ -110,7 +110,7 @@ mmw prototype checkpoint \
 
 - 日志固定为 `<docs.design>/prototype/README.md`。
 - 原型产物只允许位于 `<docs.design>/prototype/` 或 `<docs.design>/mockup/`。
-- prototype 走查证据只允许位于 `<docs.design>/prototype/runs/<三位轮次>/`。
+- prototype 走查证据只允许位于 `<docs.design>/prototype/runs/<三位轮次>/`；`README.md` 与 `runs/` 内容不得登记为 artifact 或 selected。
 - 拒绝绝对路径、`..`、换行、软链，以及目录内部包含软链的产物。
 - 所有传入路径必须是 worktree 相对路径并真实存在。
 - fresh start 只创建日志和 `runs/`，不替 agent 创建语言或框架骨架。

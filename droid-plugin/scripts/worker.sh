@@ -95,7 +95,7 @@ validate_task_approval() {
       selected="$(mmw_prototype_selected_relpaths "$man")" || return 1
       while IFS= read -r rel; do
         [ -n "$rel" ] || continue
-        mmw_prototype_validate_artifact "$task_root" "$man" "$rel" || return 1
+        mmw_prototype_validate_downstream_material "$task_root" "$man" "$rel" || return 1
       done <<<"$selected" ;;
     *) echo "ERROR: prototype 状态损坏:$status" >&2; return 1 ;;
   esac
@@ -155,7 +155,7 @@ design_companions() {
   selected="$(mmw_prototype_selected_relpaths "$man")" || return 1
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
-    mmw_prototype_validate_artifact "$task_root" "$man" "$rel" \
+    mmw_prototype_validate_downstream_material "$task_root" "$man" "$rel" \
       || { echo "ERROR: accepted prototype 伴随材料无效:$rel" >&2; return 1; }
     printf '%s\n' "$task_root/$rel"
   done <<<"$selected"

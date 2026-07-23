@@ -95,6 +95,19 @@ cmd_approve() {
   local m; m="$(manifest_path)"
   local top; top="$(git rev-parse --show-toplevel)"
   local phase pidx; phase="$(jq -r .phase "$m")"; pidx="$(jq -r .phase_index "$m")"
+  local design_rel r primary_reports=0
+  design_rel="$(mmw_prototype_design_rel "$m")" || die "manifest.docs.design 缺失"
+  # 缺 --report 时先回落已钉的设计材料；旧 prototype/mockup 自动项不跟进新一轮审批。
+  if [ "${#reports[@]}" -eq 0 ]; then
+    while IFS= read -r r; do
+      [ -n "$r" ] || continue
+      case "$r" in "$design_rel/prototype/"*|"$design_rel/mockup/"*) continue ;; esac
+      reports+=("$r")
+    done < <(jq -r '(.phase_outputs.design // [])[]' "$m")
+  fi
+  for r in ${reports[@]+"${reports[@]}"}; do
+    case "$r" in "$design_rel/prototype/"*|"$design_rel/mockup/"*) ;; *) primary_reports=$(( primary_reports + 1 )) ;; esac
+  done
 
   # prototype 是 design 内层机器门：未收敛、已废止或磁盘有未登记产物都不能越过唯一人闸。
   local prototype_status prototype_untracked rel
@@ -109,7 +122,7 @@ cmd_approve() {
     accepted)
       rel="$(jq -r '.prototype.log // empty' "$m")"
       [ -n "$rel" ] || die "accepted prototype 缺 log"
-      mmw_prototype_validate_artifact "$top" "$m" "$rel" || die "accepted prototype log 无效"
+      mmw_prototype_validate_log "$top" "$m" "$rel" || die "accepted prototype log 无效"
       reports+=("$rel")
       [ "$(jq -r '.prototype.selected | length' "$m")" -gt 0 ] || die "accepted prototype 缺 selected"
       while IFS= read -r rel; do
@@ -125,11 +138,7 @@ cmd_approve() {
     *) die "prototype 状态损坏(status=$prototype_status)，拒绝确认设计" ;;
   esac
 
-  # 缺 --report 时回落 design 阶段已钉产出(主设计文档)
-  if [ "${#reports[@]}" -eq 0 ]; then
-    while IFS= read -r r; do [ -n "$r" ] && reports+=("$r"); done \
-      < <(jq -r '(.phase_outputs.design // [])[]' "$m")
-  fi
+  [ "$primary_reports" -gt 0 ] || die "没有主设计材料可确认；先 --report 主设计文档，或 mmw pin --phase design --produced <主设计文档>"
   [ "${#reports[@]}" -gt 0 ] || die "没有可确认的承重文档:--report 指定,或先把设计文档钉进接力单(mmw pin --phase design --produced <路径>)"
 
   local rel

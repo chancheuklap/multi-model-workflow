@@ -92,7 +92,7 @@ validate_task_approval() {
       selected="$(mmw_prototype_selected_relpaths "$man")" || return 1
       while IFS= read -r rel; do
         [ -n "$rel" ] || continue
-        mmw_prototype_validate_artifact "$task_root" "$man" "$rel" || return 1
+        mmw_prototype_validate_downstream_material "$task_root" "$man" "$rel" || return 1
       done <<<"$selected" ;;
     *) echo "ERROR: prototype 状态损坏:$status" >&2; return 1 ;;
   esac
@@ -148,7 +148,7 @@ design_companions() {  # $1=设计文件夹 → 结论材料 + accepted prototyp
   selected="$(mmw_prototype_selected_relpaths "$man")" || return 1
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
-    mmw_prototype_validate_artifact "$task_root" "$man" "$rel" \
+    mmw_prototype_validate_downstream_material "$task_root" "$man" "$rel" \
       || { echo "ERROR: accepted prototype 伴随材料无效:$rel" >&2; return 1; }
     printf '%s\n' "$task_root/$rel"
   done <<<"$selected"
@@ -327,6 +327,12 @@ cmd_dispatch() {
   [ -n "$plan" ] || die "--plan 必填"
   [ -n "$wt" ]   || die "--worktree 必填"
   [ -f "$plan" ] || die "plan 文件不存在: $plan"
+  local plan_top managed_man
+  plan_top="$(git -C "$(dirname "$plan")" rev-parse --show-toplevel 2>/dev/null || true)"
+  managed_man="$(mmw_prototype_manifest_from_top "$plan_top")"
+  if [ -f "$managed_man" ] && [ "$(jq -r '.scenario // empty' "$managed_man")" = develop ]; then
+    [ -n "$design" ] || die "develop worker 必须传 --design，不能绕过已确认 prototype 材料"
+  fi
   preflight_skill worktree-build
   preflight_doc "设计文档(--design)" "$design"
   preflight_doc "issue(--issue)" "$issue"

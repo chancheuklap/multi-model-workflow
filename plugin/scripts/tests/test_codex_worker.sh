@@ -62,6 +62,9 @@ echo "$PROMPT" | grep -q 'prototype/README.md' && echo "$PROMPT" | grep -q 'prot
   && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"
 
 TASK_JSON="$TMP/.claude/multi-model-workflow/task.json"; cp "$TASK_JSON" "$TMP/task-backup.json"
+jq '.scenario="develop"' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-develop-no-design" >/dev/null 2>&1; then no "develop 缺 design 应拒绝派发"; else ok "develop 缺 design fail-closed"; fi
+cp "$TMP/task-backup.json" "$TASK_JSON"
 mv "$TMP/prototype/selected.py" "$TMP/prototype/selected.tmp"
 if bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-missing-selected" --design "$DESIGN" --issue "$ISSUE" >/dev/null 2>&1; then no "缺失 selected 应拒绝派发"; else ok "缺失 selected fail-closed"; fi
 mv "$TMP/prototype/selected.tmp" "$TMP/prototype/selected.py"

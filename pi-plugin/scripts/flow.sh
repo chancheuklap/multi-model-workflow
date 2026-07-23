@@ -617,13 +617,14 @@ cmd_where() {
       superseded)
         then_cmd="$MMW handoff --conclusion needs-redirection --to-phase propose"
         ;;
-      *)
+      accepted|"")
         if [ -n "$prototype_untracked" ]; then
           then_cmd="$MMW prototype start --adopt --kind <logic|ui|mixed> --question '<待验证问题>' --run '<运行命令>'$prototype_adopt_args"
         else
           then_cmd="$MMW pin --phase design --produced docs/design/$slug/$slug.md；然后起设计预审并请用户 /approve-design"
         fi
         ;;
+      *) then_cmd="STOP:prototype 状态损坏，先修复 task.json；不得 pin、approve 或推进" ;;
     esac
   fi
   # 等人答复中:等什么落过盘,冷启动先接上这个问题,不重推流程

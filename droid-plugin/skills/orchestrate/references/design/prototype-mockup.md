@@ -40,6 +40,7 @@ mmw prototype start \
 2. 运行 `prototype_run`。逻辑原型覆盖成功、失败、空、非法转移、并发和回滚中实际存在的边界；UI 原型覆盖目标 viewport、加载、空、错误、成功和部分完成中实际存在的状态。
 3. 把当前产物和运行结果呈现给用户走查。记录用户的原话或明确假设，不替用户宣布定稿，不并行进入 plan/build。
 4. 把本轮事实一次写入 checkpoint。`--artifact`、`--evidence` 可重复；所有路径用 worktree 相对路径。
+5. checkpoint 成功后立即把本轮源码、mockup、README 和证据作为同一个 Git commit 提交；不夹带本轮无关文件。下一轮继续修改同一份源码，不复制版本目录。
 
 继续下一轮：
 

@@ -46,6 +46,7 @@ mmw_prototype_allowed_artifact_rel() {
   mmw_prototype_relpath_syntax_ok "$rel" || return 1
   design="$(mmw_prototype_design_rel "$man")" || return 1
   case "$rel" in
+    "$design/prototype/README.md"|"$design/prototype/runs"|"$design/prototype/runs/"*) return 1 ;;
     "$design/prototype/"*|"$design/mockup/"*) return 0 ;;
     *) return 1 ;;
   esac
@@ -83,6 +84,28 @@ mmw_prototype_validate_artifact() {
   return 0
 }
 
+mmw_prototype_validate_log() {
+  local top="$1" man="$2" rel="$3" expected
+  expected="$(mmw_prototype_log_rel "$man")" || return 1
+  [ "$rel" = "$expected" ] || { echo "ERROR: prototype 日志路径不符:$rel" >&2; return 1; }
+  [ -f "$top/$rel" ] || { echo "ERROR: prototype 日志不存在:$rel" >&2; return 1; }
+  mmw_prototype_path_has_symlink "$top" "$rel" && {
+    echo "ERROR: prototype 日志路径含软链:$rel" >&2
+    return 1
+  }
+  return 0
+}
+
+mmw_prototype_validate_downstream_material() {
+  local top="$1" man="$2" rel="$3" log
+  log="$(jq -r '.prototype.log // empty' "$man")"
+  if [ "$rel" = "$log" ]; then
+    mmw_prototype_validate_log "$top" "$man" "$rel"
+  else
+    mmw_prototype_validate_artifact "$top" "$man" "$rel"
+  fi
+}
+
 mmw_prototype_validate_evidence() {
   local top="$1" man="$2" rel="$3" iteration="$4" design round
   mmw_prototype_relpath_syntax_ok "$rel" || {
@@ -112,7 +135,9 @@ mmw_prototype_untracked_paths() {
     [ -d "$abs" ] || continue
     find "$abs" \( -type f -o -type l \) -print 2>/dev/null
   done | while IFS= read -r abs; do
-    [ "$abs" = "$top/$design/prototype/README.md" ] && continue
+    case "$abs" in
+      "$top/$design/prototype/README.md"|"$top/$design/prototype/runs"|"$top/$design/prototype/runs/"*) continue ;;
+    esac
     printf '%s\n' "${abs#"$top/"}"
   done | LC_ALL=C sort -u
 }
