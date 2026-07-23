@@ -1,57 +1,139 @@
-# Investigate · 查清现状(阶段操作指南)
+# Investigate：用 Codex native subagents 查清现状
 
-> investigate 阶段:当场判断 + 跑命令。**红线:取证不判定**——只摆证据,不在这拍方案、选路线、下设计结论。
+本阶段只摆证据，不选择方案、不下设计结论。产出固定写入
+`docs/design/<slug>/investigating.md`，供 propose、design 和 build 使用。
 
-阶段目标:把现状查清(内部代码 / 外部方案),产出一份带引用的现状报告,**存档 `docs/design/<slug>/investigating.md`**(设计文件夹的讨论态正式成员,随设计入 git),喂 design / build 扎根。
+## 决定调查范围
 
-## 1. 判断:查哪个方向 + 定 topics
+| 方向 | 查什么 | 可选外部 skill |
+| --- | --- | --- |
+| internal | 仓库模块边界、seam、数据流、根因 | `codebase-design`、`diagnosing-bugs`、`improve-codebase-architecture` |
+| external | 成熟库、现有实现、第一方最佳实践；非必做 | 已安装的研究或文档 skill |
 
-内部与外部调查分开定义 topics，由已安装的 pi-dynamic-workflows saved workflow 并行启动隔离 agent：
+- 一个已知文件里的窄问题：主线程直接查，不派 subagent。
+- 一个聚焦问题但要跨文件追调用链：派一个 topic subagent。
+- 两个以上独立问题：一个 topic 一个 subagent，全部先派出再等待。
+- internal 与 external 可以放在同一批并行；每个 topic 自己声明 `mode`。
+- topic 只按真实问题拆，不凑数量、不设固定上限。
 
-| 方向 | 查什么 | 派发 | 角度 skill(可选) |
-|---|---|---|---|
-| 内部(仓库现状) | 模块边界 / seam / 数据流 / 根因 | `/investigate-internal` | `codebase-design` · `diagnosing-bugs` |
-| 外部(成熟方案,**非必做**) | 现有库 / 实现 / 最佳实践 | `/investigate-external` | `deep-research` · `context7` |
+每个 topic 固定为 `{mode, angle, question, skill?}`。`skill` 只引用用户已经安装在
+`~/.agents/skills/<skill>/SKILL.md` 的方法；plugin 不复制、不改写、不锁版本。
 
-- 只需查内部 → 只跑 internal；要对比外部方案 → 再跑 external；两个都要 → 两个 workflow 可并行。
-- 窄到一个点(一个函数 / 已知文件)→ 别起 fan-out，自己用 read/grep 查完直接 handoff。
-- 只有一个聚焦问题,但要跨多个文件追模块边界 / 调用链 / 数据流 → 调用一次 `subagent({agent:"code-explorer", task:"<原问题 + repoRoot + 必须核验的边界 + 搜索广度>"})`；主线程亲验返回后直接收口，不为单 topic 起完整 workflow。
-- 定 topics:**一个 topic 一个 agent**，按调查真实需要定几个。每个 `{ angle, question, skill? }`。
+## 投查前 checkpoint
 
-## 2. Checkpoint → 跑调查编排器
-
-**fire 前按下面固定格式把投查计划亮给用户**(别每次自创格式)。等不等回应看值守档:`attended`(develop 讨论态)等用户批 / 改再跑——方向错了白烧 token;`afk`(bug / small-change 起步档,或用户已放权)亮出即跑,不阻塞等回应,用户看到有异议随时插话追加或掉头:
-
-```
-投查方向:<内部 / 外部 / 两者>(外部非必做)
-| # | angle | question | skill |
-|---|---|---|---|
-| 1 | <角度名> | <这一题要回答什么> | <角度 skill 或 —> |
-| 2 | ... | ... | ... |
-```
-`attended` 亮完跟一句:「批 / 改 / 增删 topic?」等回应再 fire;`afk` 亮完直接 fire,不问。
-
-批了以后把 topics 压成无空格 JSON，连同目标仓库绝对路径传给 saved workflow：
+先按固定表格向用户展示：
 
 ```text
-/investigate-internal topics=[{"angle":"<角度>","question":"<问题>","skill":"<可选>"}] repoRoot=/绝对/仓库路径
-/investigate-external topics=[{"angle":"<角度>","question":"<问题>","skill":"<可选>"}]
+投查方向：<内部 / 外部 / 两者>
+| # | angle | question | skill |
+|---|---|---|---|
+| 1 | <角度> | <唯一问题> | <skill 或 —> |
 ```
 
-这两个命令由 `@quintinshaw/pi-dynamic-workflows` 注册。workflow 为每个 topic 启动隔离 agent，强制 JSON Schema 结构化结果，过滤无 locator / low confidence 结论，再由独立 synthesizer 综合；运行状态、失败详情、暂停与恢复统一从 `/workflows` 面板查看和控制。
+`attended` 等用户批、改或增删 topic 后再派；`afk` 展示后直接派；`unattended`
+只按已确认范围派，不提问。
 
-## 3. 收口(回主线程)
+## 并行派 topic subagents
 
-1. **亲验承重事实**:报告里的 `file:line` / `url`,自己 grep/read/查证坐实。子代理是劳动力不是信源,验不过的不写进交付物。外部承重结论(库行为 / API 合同 / 规范语义)**沿引用链追到第一方来源**(官方文档 / 源码 / 规范 / 第一方 API)再采信,二手综述只当线索;逐结论带第一方引用,引不出的降级为「待验」。
-2. **旁路登记**:`report.spinoff_candidates` 里亲验为真的,逐条 `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,不顺手修。
-3. **存档 + handoff**:把现状报告写进 `docs/design/<slug>/investigating.md`(设计文件夹;目录不存在就建),钉进接力单:
- - 够 design / build 用 → `mmw handoff --conclusion pass --produced docs/design/<slug>/investigating.md`
- - `open_questions` 里有必须用户拍板才能继续的 → `--conclusion needs-context`
- - **bug 查根因两种诚实收口**(查不动别假装查到):**无法重现** → `needs-context`,报告附**已试的重现路径**,请用户补重现步骤 / 环境;**无法定位根因**(重现了但定不到) → `needs-context`,报告附**已排除的假设(带证据)**,请用户给方向 / 补信息。别硬编个根因往下走。
+1. 定位 plugin root，完整读取
+   `agents-roster/investigate-topic.md`。它只是 prompt 模板，不是 custom agent。
+2. 给每个 topic 复制整份模板，在末尾追加唯一的 `<dispatch>` block：
 
-> 领域文档(`docs/context`)归 design 阶段的 `domain-modeling` 维护;investigate 只写设计文件夹的 `investigating.md`,不碰 `docs/context`。
+   ```text
+   <dispatch>
+   mode=<internal|external>
+   angle=<angle>
+   question=<question>
+   skill=<skill 或 none>
+   repoRoot=<当前任务 App worktree 绝对路径>
+   </dispatch>
+   ```
 
-## 红线
+3. 对每个 topic 调用 Codex native `spawn_agent`：
+   - `fork_turns` 用 `none`，避免把主线程整段历史灌进机械取证任务。
+   - `task_name` 用当前批次内唯一的短名，例如 `inv_module_boundary`。
+   - 不传外部 CLI、不指定第二模型；这些调查工人使用 Codex 当前 GPT subagent。
+   - 在同一轮连续发出全部 `spawn_agent`，中间不调用 wait，确保真并行。
+4. 全部派完后用 `wait_agent` 等回执；需要看当前存活/完成状态时用
+   `list_agents`。不要因先收到某一条结果就提前 synthesis。
 
-- 调查 pi 全程只读；脚本只写状态平面的 run 账本、prompt、原始结果和综合报告。
-- workflow 级断点靠 pi-dynamic-workflows journal；阶段级断点靠 `manifest.phases`。
+## 校验、过滤和单 topic 重试
+
+每个返回必须是 topic 模板规定的单个 JSON。用无状态合同脚本校验并过滤：
+
+```bash
+bash "$MMW_ROOT/scripts/investigate-contract.sh" topic \
+  --mode <internal|external> --expected-topic <angle> <<'JSON'
+<该 subagent 原样返回的 JSON>
+JSON
+```
+
+脚本会：
+
+- 拒绝非法 JSON、缺字段、多字段、topic 错配和 locator 类型错配。
+- internal 只保留 `file:line` / `file:start-end`。
+- external 只保留 URL。
+- 丢弃 `low` confidence 或无有效 locator 的 finding。
+- 把所有丢弃项原样保留在 `dropped`，不静默吞掉。
+
+某个 topic 调用失败或合同不合法时，只处理该 topic：
+
+1. 原 agent 仍可继续时，用 `followup_task` 把具体校验错误发回去，要求只重返合法
+   JSON。
+2. 原 agent 已不可用时，只为该 topic 再 `spawn_agent` 一次，仍使用同一 prompt。
+3. 第二次仍失败就记入 `skipped`（angle + 真实失败原因），其他已通过 topic 不重跑。
+
+全部 topic 都失败，或过滤后全批没有一条有效 finding 时，停止 synthesis。缩小问题
+重派，仍无法取证则以 `needs-context` 诚实收口。
+
+## 用全新 subagent synthesis
+
+至少有一条有效 finding 后：
+
+1. 完整读取 `agents-roster/investigate-synthesizer.md`。
+2. 组装一个 JSON 对象：
+
+   ```json
+   {"topics":[<全部通过过滤的 topic 结果>],"skipped":[{"angle":"<失败 topic>","reason":"<真实错误>"}]}
+   ```
+
+3. 把这个对象放入模板末尾的 `<validated_evidence_json>`，不要加入原始对话、未过滤
+   返回或主线程自己的判断。
+4. 用 `spawn_agent(fork_turns="none")` 派一个全新的 GPT subagent。它只综合，不重新
+   调查。
+5. 等回执后校验：
+
+   ```bash
+   bash "$MMW_ROOT/scripts/investigate-contract.sh" report <<'JSON'
+   <synth subagent 原样返回的 JSON>
+   JSON
+   ```
+
+   校验失败时只纠正或重派 synthesis，不重跑已通过的 topics。
+
+native agent target 只服务当前会话，不写入 `task.json`。会话中断后，阶段仍由
+`mmw where` 恢复；未形成最终报告的 investigate 重新派发，不增加另一套 run
+账本或 investigate 状态机。
+
+## 主线程亲验并收口
+
+1. 逐条打开承重 `file:line` 或 URL 亲验。外部库/API/规范结论沿引用链核到第一方
+   来源；验不过的从正文删掉并记为待验。
+2. 把 synth 的 `markdown` 和仍成立的 `open_questions` 写入
+   `docs/design/<slug>/investigating.md`。
+3. 亲验为真的 `spinoff_candidates` 逐条登记：
+
+   ```bash
+   mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"
+   ```
+
+4. 够后续使用：
+
+   ```bash
+   mmw handoff --conclusion pass --produced docs/design/<slug>/investigating.md
+   ```
+
+   必须用户补信息才能继续时用 `needs-context`。bug 无法重现时附已试重现路径；已经
+   重现但无法定位根因时附已排除假设和证据，不能编一个根因继续。
+
+investigate 不改 `docs/context`；领域文档由 design 阶段维护。

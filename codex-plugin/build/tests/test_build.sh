@@ -86,6 +86,18 @@ else
   no "Codex plugin 没有安装到独立 cache"
 fi
 
+cached_topic='{"topic":"cache-check","findings":[{"claim":"loaded from cache","locator":"src/app.ts:1","confidence":"high"}],"summary":"ok","gaps":[]}'
+if [ -f "$installed_path/agents-roster/investigate-topic.md" ] \
+  && [ -f "$installed_path/agents-roster/investigate-synthesizer.md" ] \
+  && printf '%s\n' "$cached_topic" \
+    | bash "$installed_path/scripts/investigate-contract.sh" topic \
+        --mode internal --expected-topic cache-check \
+    | jq -e '.findings|length==1' >/dev/null 2>&1; then
+  ok "安装 cache 内的 native investigate prompt 与合同可直接运行"
+else
+  no "安装 cache 缺 native investigate 运行面"
+fi
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

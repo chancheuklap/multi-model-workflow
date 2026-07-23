@@ -1,97 +1,90 @@
-# pi Runtime Contract
+# Codex Runtime Contract
 
-## 路径
+## 路径与所有权
 
-| 项 | 固定值 |
+| 对象 | 合同 |
 | --- | --- |
-| 状态平面 | `.pi/multi-model-workflow/` |
-| worktree 根 | `.pi/worktrees/<slug>` |
-| worker 分支 | `worker/<worktree-name>` |
-| 插件根 | hook 内 `${MMW_PLUGIN_ROOT}`；主线程由 `mmw` 绝对路径反推 |
+| plugin root | 从当前已加载 skill 的 source locator 反推，必须指向 Codex 安装 cache |
+| 任务状态 | 当前 App worktree 的 `.codex/multi-model-workflow/` |
+| outer worktree/branch | Codex App 创建并持有；MMW 只采用当前 linked worktree 和 `codex/<slug>` |
+| plan/build inner worktree | `worker.sh` 创建和管理，固定在仓库 `.codex/worktrees/` 下 |
+| worker branch | `worker/<worktree-name>` |
 
-`task.json`(含 `note` 书签与 `approval` 设计确认)、`loop-state.json`、进度板、派发账本和 review brief 都在状态平面。
+主线程始终在 Codex App 当前 task 中运行。它不靠脚本 `chdir` 模拟切换，也不创建
+第二个 App 看不见的 outer。closing 后 cleanup 只清任务状态，App worktree/branch
+仍归 App。
 
-## 工具
+## Codex 工具
 
-| 语义 | pi 工具 |
+| 语义 | 工具 |
 | --- | --- |
-| 壳命令 | `bash` |
-| 创建或编辑文件 | `write`、`edit` |
-| 结构化问用户 | `ask_user` |
-| 子代理 | `Agent`（pi-subagents） |
-| 文件检索 | `read`、`grep`、`find`、`ls` |
-| 外部检索 | `web_search`、`fetch_content` |
+| 壳命令 | `exec_command` |
+| 修改文件 | `apply_patch` |
+| 结构化问用户 | `request_user_input` |
+| GPT subagent | `spawn_agent`、`wait_agent`、`followup_task`、`list_agents` |
+| 本地检索 | `rg`、`rg --files` 和文件读取工具 |
+| 外部资料 | 当前可用的官方文档、web 或已安装外部 skill |
 
-`enter_worktree` 把会话迁进 worktree 后,在该路径继续并运行 `mmw where`。Coordinator 的任务 worktree 由 `prepare.sh` 建立；Pack worker 和 plan writer 的隔离 worktree 由 `worker.sh` 建立，工人 prompt 里钉死该 worktree 绝对路径，工人的所有操作必须落在它下面。所有工作角色都是会话内 Agent 子代理；主线程工作目录不随工人切换。
+`unattended` 时主线程和全部 subagents 都禁止向用户提问。子代理缺输入时返回 blocker，
+由主线程按 attendance 合同处置。
 
-## 角色花名册
+## Native subagents
 
-| 角色 | 职责 |
-| --- | --- |
-| `investigate-topic` | 单 topic 取证 |
-| `investigate-synthesizer` | 汇总 topic 证据 |
-| `code-explorer` | 探代码边界与数据流 |
-| `plan-writer` | 写单份 plan |
-| `pack-executor` | 按 plan TDD 落地 |
-| `pack-executor-capable` | 高复杂度 plan 落地 |
-| `reviewer-design-a` / `reviewer-design-b` | 设计审模型路线 A / B |
-| `reviewer-plan-a` / `reviewer-plan-b` | 计划审模型路线 A / B |
-| `reviewer-final-a` / `reviewer-final-b` | 终审模型路线 A / B,视角由 dispatch 指定 |
+调查、写计划、develop 写码、修复、release P1 修复和 GPT 审查全部使用 Codex native
+subagents。它们使用当前 Codex 的 GPT 模型，不安装 custom agents，不维护 model
+roster，也不通过外部 Codex CLI 启动。
 
-花名册全员已注册为 pi 正式 agent(软链进全局 agents 目录)：model、thinking 与工具白名单以 `agents-roster/<name>.md` frontmatter 为准，派发时 subagent 工具直接 `agent: "<角色名>"`，不另传 model。
+`agents-roster/*.md` 只是主线程读取后交给 `spawn_agent` 的 prompt 模板，不含
+model/tool frontmatter，不注册到 Codex。
 
-**后台派发硬规则（mmw 角色一律不阻塞主线程前台）**：
-- `plan-writer` / `pack-executor` / `pack-executor-capable`：**必须** `async: true`（脚本打印的指令已带；协调者照抄，禁止改成前台阻塞）。
-- 全部 `reviewer-*`（design/plan/final 双轴）：**必须** `async: true` 并行派（`tasks` 数组或多次 async 单派均可）；禁止前台串行 `Agent` 卡住主线程。主线程用 fleet/status 或回执收齐后再亲验 findings。
-- 短探路（如 `code-explorer` 单次只读）可前台；一旦预估超过约一分钟或会并行多个，改 async。
-- 禁止对 mmw 花名册重角色使用会阻塞主会话的前台派发。
+派发合同：
 
-worker/plan writer 由脚本准备 worktree 与 prompt 后以 `async: true` 后台派。强判断咨询用 advisor 工具(零参数，自动转发全对话)，不占花名册编制。
+- 独立任务先全部 `spawn_agent(fork_turns="none")`，再 wait，保证并行和干净上下文。
+- prompt 必须钉绝对 worktree、唯一写边界、输入产物和 Return Contract。
+- 当轮返修优先 `followup_task` 同一 target；target 不可用时只重派失败任务。
+- agent target 不写入磁盘。跨会话恢复只信 task/loop/review 状态、Git commits、
+  worktree status 和产物，再派一个干净 agent。
+- 子代理是劳动力，不是信源；主线程亲验路径、行号、diff、提交和测试。
 
-无人值守角色不能向用户提问。缺输入时返回结构化 blocker，由主线程处置。
+## Plan 与 Build
 
-final review 固定并行四个 Agent：A、B 两种模型分别各审基线1和基线2。
+`mmw worker plan-dispatch` 和 `mmw worker dispatch` 只准备隔离 worktree、prompt、
+start SHA、边界基线和 verify 命令，不启动模型。
 
-## Worker
+- plan writer 只写指定 plan 和对应 issue 的 `Small issues`，不 commit；verify 后才
+  原子发布回任务 App worktree。
+- build worker 只在自己的 inner worktree 按 Task Pack TDD 并 commit，禁止改
+  `docs/`；主线程 verify、亲验并本地 `--no-ff` 合并。
+- accepted prototype 的 README 和 selected 由 dispatch 自动加入；未选候选不进入
+  worker 上下文。
 
-`mmw worker dispatch` 为新 Pack 创建 Git worktree、组工人 prompt、记派发账本，并打印派发指令；协调者照指令派 `subagent({agent:"pack-executor", task:…, async:true})`，并把返回的 run id 用 `mmw worker note-run-id` 落账。`plan-dispatch` 同理，使用临时隔离 worktree。工具白名单由已注册角色的 frontmatter 提供，不再经命令行传递。
+## Investigate 与 Review
 
-工人完成(会话内收到后台 agent 回执)后过机器边界门：
+investigate 的每个 topic 和独立 synthesis 都是 native GPT subagent；主线程用
+`investigate-contract.sh` 校验、过滤和保留 dropped，再亲验 locator。
 
-- 写码：`mmw worker verify --worktree <wt>`(核 docs 边界)
-- 写计划：`mmw worker verify --plan <plan> --worktree <wt>`(核越界，过门才原子发布 plan 与 issue `Small issues`)
+review 方法只有 `worktree-review` 一份：
 
-修复使用 `worker resume` 或 `plan-resume`：脚本准备 resume prompt 并读账本 run id；协调者派 `subagent({action:"resume", id:<run id>, message:…})`——从落盘会话文件复活原工人上下文，长效、无会话内外之分；仅会话文件不可用时才重派同角色新 run，靠 worktree 已有提交对齐进度。通过后主线程再亲验 diff、提交和测试。
+- GPT slot 用 native subagent。
+- 第二模型 slot 只通过 `second-review.sh` 调用用户配置的外部无头 CLI。
+- 核心不识别 Claude、Gemini 或其他供应商名；第二模型失败时当前 slot fail loud，
+  不用 GPT 代替。
+- 审者只读；findings 落 review trace 后由主线程逐条亲验并写 verdict。
 
-## 子代理举手答复(supervisor 通道)
+外部第二模型只用于独立审查，不参与调查、计划、实现或修复。
 
-重角色(pack-executor / pack-executor-capable / plan-writer)可用 `contact_supervisor` 举手，请求以 `subagent_supervisor_request` 消息自动注入本会话(免轮询)；用 `subagent_supervisor({action:"reply", replyTo, message})` 答复。答复纪律：
+## Hooks 与人闸
 
-- **need_decision**：设计 / issue / plan 是权威——覆盖得到的照权威直接答；属用户可见决策(用户可见能力、收费、数据归属、上下架、架构方向)先 `ask_user_question` 问用户再答；权威覆盖不到又不便问用户(unattended 档) → 回「停在该处按 blocked 收工带回」,不让子代理猜。
-- **interview_request**：给得出就给，给不出同样让它 blocked 带回。
-- **progress_update**：不答复；含 spinoff 信号的登记 `mmw spinoff`。
-- 答复三要素：结论一句 + 依据一句(哪份权威哪条) + 下一步动作一句。答完继续手头流程，不守着等子代理。
+Codex hooks 只接三类已有行为：SessionStart 恢复、出站红线、Pack commit 记账。
+本地 merge 不拦；push、远端 PR merge 和部署必须经过用户批准。
 
-## 审闸
-
-主线程运行 `mmw review start`，读取生成的 `review-brief.md` 并直接派 reviewer Agent。findings 原样落盘 `docs/reviews/<slug>-<stage>.md` 并逐条亲验、文末写总 verdict；审闸 `handoff pass` 时引擎核该文件存在且含 verdict，没有留痕不放行。
-
-## Hooks
-
-| 事件 | matcher | 脚本 |
-| --- | --- | --- |
-| `session_start` / `session_compact` → `before_agent_start` | 无 | `session-triage.sh`（每次开场或压缩后注入一次） |
-| `tool_call` | `bash` | `guard-redline.sh` |
-| `tool_result` | `bash` | `record-step.sh` |
-
-扩展从自身 `import.meta.url` 解析插件根，并以 `MMW_PLUGIN_ROOT` 环境变量传给脚本。脚本自行筛选命令。
-
-设计确认是唯一人闸：用户敲 `/approve-design` → `mmw approve` 盖承重文档指纹、attendance 切 afk 并推进；用户口头同意不算过门。承重文档改动后审闸 pass 硬停 `approval_stale`，重跑 `mmw approve` 重盖（RE-APPROVED）。
+`/approve-design` 是唯一设计人闸，必须由 explicit-only wrapper 触发。用户口头同意
+不算；承重设计或 accepted prototype 变化后 approval stale，必须重新明确确认。
+package 的开发模式测试和安装后测试也只能由用户确认。
 
 ## 安全
 
-- Worker 禁改 `docs/`。
-- 计划工人只准改自己的 plan 与对应 issue。
-- 审者是劳动力，不是信源。
-- 本地 merge 可自主执行；push、远端合并和部署必须经过用户权限确认。
-- 无人值守时所有 agent 都不得向用户提问，硬停必须写入磁盘账本和进度板。
+- Worker 禁改 `docs/`；plan writer 只准改自己的 plan/issue。
+- 所有内部调查和审查只读。
+- 不静默吞失败；合法降级也必须留下结构化缺口。
+- 本地 `git merge --no-ff` 可自主；禁止 `--squash`。
