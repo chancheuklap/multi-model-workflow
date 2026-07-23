@@ -164,6 +164,35 @@ else
 fi
 rm "$WT/docs/design/$SLUG/prototype/link.py"
 
+# 父目录软链同样不得让 artifact / selected / evidence 逃出 worktree。
+PARENT_OUTSIDE="$TMP/prototype-parent-outside"
+mkdir -p "$PARENT_OUTSIDE" "$WT/docs/design/$SLUG/prototype/runs/003"
+printf 'escape\n' >"$PARENT_OUTSIDE/escape.py"
+printf 'evidence\n' >"$PARENT_OUTSIDE/result.txt"
+ln -s "$PARENT_OUTSIDE" "$WT/docs/design/$SLUG/prototype/escape"
+ln -s "$PARENT_OUTSIDE" "$WT/docs/design/$SLUG/prototype/runs/003/escape"
+if (cd "$WT" && bash "$MMW" prototype checkpoint --feedback f --change c --result r \
+  --artifact "docs/design/$SLUG/prototype/escape/escape.py" --verdict continue >/dev/null 2>&1); then
+  no "父软链 artifact 应拒绝"
+else
+  ok "父软链 artifact fail-closed"
+fi
+if (cd "$WT" && bash "$MMW" prototype checkpoint --feedback f --change c --result r \
+  --artifact "docs/design/$SLUG/prototype/demo.py" \
+  --selected "docs/design/$SLUG/prototype/escape/escape.py" --verdict accepted >/dev/null 2>&1); then
+  no "父软链 selected 应拒绝"
+else
+  ok "父软链 selected fail-closed"
+fi
+if (cd "$WT" && bash "$MMW" prototype checkpoint --feedback f --change c --result r \
+  --artifact "docs/design/$SLUG/prototype/demo.py" \
+  --evidence "docs/design/$SLUG/prototype/runs/003/escape/result.txt" --verdict continue >/dev/null 2>&1); then
+  no "父软链 evidence 应拒绝"
+else
+  ok "父软链 evidence fail-closed"
+fi
+rm "$WT/docs/design/$SLUG/prototype/escape" "$WT/docs/design/$SLUG/prototype/runs/003/escape"
+
 # superseded 保留记录，并给唯一回退指令。
 SUPER="$(cd "$WT" && bash "$MMW" prototype checkpoint \
   --feedback "上游方向已改变" --change "停止当前模型" --result "当前问题不再成立" \
@@ -180,6 +209,22 @@ if (cd "$WT" && bash "$MMW" approve --report "$MAIN_DESIGN" >/dev/null 2>&1); th
 else
   ok "superseded 阻止设计确认"
 fi
+
+# superseded 回 propose 再进 design 后，新验证问题必须沿用全局递增轮次，不能撞旧日志 marker。
+(cd "$WT" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase propose >/dev/null)
+printf '# direction v2\n' >"$WT/docs/design/$SLUG/direction.md"
+(cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced "docs/design/$SLUG/direction.md" >/dev/null)
+RESTART="$(cd "$WT" && bash "$MMW" prototype start --kind logic --question "新方向是否覆盖恢复" --run "python docs/design/$SLUG/prototype/demo-v2.py")"
+printf 'v2\n' >"$WT/docs/design/$SLUG/prototype/demo-v2.py"
+(cd "$WT" && bash "$MMW" prototype checkpoint \
+  --feedback "新方向通过" --change "改用新状态模型" --result "全场景通过" \
+  --artifact "docs/design/$SLUG/prototype/demo-v2.py" \
+  --selected "docs/design/$SLUG/prototype/demo-v2.py" --verdict accepted >/dev/null)
+[ "$(jq -r '.prototype.iteration' "$MAN")" = 4 ] \
+  && echo "$RESTART" | grep -q 'prototype_iteration=4' \
+  && [ "$(grep -c '<!-- mmw-prototype-round:4 -->' "$LOG")" = 1 ] \
+  && [ "$(grep -c '<!-- mmw-prototype-session:' "$LOG")" = 2 ] \
+  && ok "superseded 后重开沿用单调轮次且日志不碰撞" || no "superseded 重开轮次/日志"
 
 # 旧任务磁盘已有产物：fresh start 拒绝，--adopt 原地登记。
 SLUG2="2026-07-23-adopt"

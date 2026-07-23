@@ -91,7 +91,8 @@ design_companions() {
   fi
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
-    [ -e "$task_root/$rel" ] || { echo "ERROR: accepted prototype 伴随材料不存在:$rel" >&2; return 1; }
+    mmw_prototype_validate_artifact "$task_root" "$man" "$rel" \
+      || { echo "ERROR: accepted prototype 伴随材料无效:$rel" >&2; return 1; }
     printf '%s\n' "$task_root/$rel"
   done < <(mmw_prototype_selected_relpaths "$man")
 }

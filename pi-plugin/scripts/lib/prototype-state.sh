@@ -52,10 +52,16 @@ mmw_prototype_allowed_artifact_rel() {
 }
 
 mmw_prototype_path_has_symlink() {
-  local abs="$1"
-  [ -L "$abs" ] && return 0
-  if [ -d "$abs" ]; then
-    [ -n "$(find "$abs" -type l -print -quit 2>/dev/null)" ] && return 0
+  local top="$1" rel="$2" current="$1" part
+  local -a parts=()
+  IFS='/' read -r -a parts <<<"$rel"
+  for part in "${parts[@]}"; do
+    [ -n "$part" ] || continue
+    current="$current/$part"
+    [ -L "$current" ] && return 0
+  done
+  if [ -d "$current" ]; then
+    [ -n "$(find "$current" -type l -print -quit 2>/dev/null)" ] && return 0
   fi
   return 1
 }
@@ -70,7 +76,7 @@ mmw_prototype_validate_artifact() {
     echo "ERROR: prototype 产物不存在:$rel" >&2
     return 1
   }
-  mmw_prototype_path_has_symlink "$top/$rel" && {
+  mmw_prototype_path_has_symlink "$top" "$rel" && {
     echo "ERROR: prototype 产物是软链或目录内含软链:$rel" >&2
     return 1
   }
@@ -90,7 +96,7 @@ mmw_prototype_validate_evidence() {
     return 1 ;;
   esac
   [ -e "$top/$rel" ] || { echo "ERROR: prototype 证据不存在:$rel" >&2; return 1; }
-  mmw_prototype_path_has_symlink "$top/$rel" && {
+  mmw_prototype_path_has_symlink "$top" "$rel" && {
     echo "ERROR: prototype 证据是软链或目录内含软链:$rel" >&2
     return 1
   }

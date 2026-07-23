@@ -175,7 +175,8 @@ cmd_start() {
   require_single_line "--question" "$question"
   require_single_line "--run" "$run"
 
-  local man top current_status previous_token log_rel log_abs artifacts_json token untracked rel
+  local man top current_status current_iteration previous_token log_rel log_abs artifacts_json token untracked rel
+  local start_iteration=1
   man="$(manifest_path)"; require_design_phase "$man"
   top="$(git rev-parse --show-toplevel)"
   current_status="$(jq -r 'if .prototype == null then "" else (.prototype.status // "BROKEN") end' "$man")"
@@ -189,7 +190,11 @@ cmd_start() {
       echo "NEXT=收到新反馈时运行 $MMW prototype checkpoint --feedback '<新反馈>' --verdict continue 重新打开" >&2
       exit 1 ;;
     BROKEN) die "task.json.prototype 非 null 但缺合法 status，先修复损坏状态" ;;
-    ""|superseded) ;;
+    superseded)
+      current_iteration="$(jq -r '.prototype.iteration // 0' "$man")"
+      [ "$current_iteration" -ge 1 ] 2>/dev/null || die "superseded prototype.iteration 损坏:$current_iteration"
+      start_iteration=$(( current_iteration + 1 )) ;;
+    "") ;;
     *) die "未知 prototype status:$current_status" ;;
   esac
 
@@ -218,13 +223,14 @@ cmd_start() {
   artifacts_json="$(array_json ${artifacts[@]+"${artifacts[@]}"})"
   log_rel="$(mmw_prototype_log_rel "$man")" || die "manifest.docs.design 缺失"
   log_abs="$top/$log_rel"
+  mmw_prototype_path_has_symlink "$top" "$log_rel" && die "prototype 日志路径含软链:$log_rel"
   previous_token="$(jq -r '.prototype.updated_at // "initial"' "$man")"
-  token="$(printf '%s\n%s\n%s\n%s\n' "$previous_token" "$kind" "$question" "$run" | payload_hash)"
+  token="$(printf '%s\n%s\n%s\n%s\n%s\n' "$previous_token" "$start_iteration" "$kind" "$question" "$run" | payload_hash)"
   append_start_log "$log_abs" "$token" "$kind" "$question" "$run" "$($adopt && printf '接管已有产物' || printf '全新原型')"
 
   jq --arg kind "$kind" --arg question "$question" --arg run "$run" --arg log "$log_rel" \
-    --arg at "$(now)" --argjson artifacts "$artifacts_json" \
-    '.prototype={status:"active",kind:$kind,question:$question,iteration:1,run_command:$run,
+    --arg at "$(now)" --argjson iteration "$start_iteration" --argjson artifacts "$artifacts_json" \
+    '.prototype={status:"active",kind:$kind,question:$question,iteration:$iteration,run_command:$run,
       artifacts:$artifacts,selected:[],log:$log,updated_at:$at}' "$man" | write_manifest "$man" \
     || die "prototype start 状态写入失败；日志已保留，原命令可安全重跑"
 
@@ -261,6 +267,7 @@ cmd_checkpoint() {
   log_rel="$(jq -r '.prototype.log // empty' "$man")"
   [ -n "$log_rel" ] && [ -f "$top/$log_rel" ] || die "prototype 日志缺失:$log_rel"
   log_abs="$top/$log_rel"
+  mmw_prototype_path_has_symlink "$top" "$log_rel" && die "prototype 日志路径含软链:$log_rel"
 
   # accepted 后的新反馈先重新打开；本动作不伪造尚未发生的改动和验证结果。
   if [ "$status" = accepted ]; then
