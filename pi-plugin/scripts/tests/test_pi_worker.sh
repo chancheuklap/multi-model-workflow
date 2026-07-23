@@ -30,6 +30,14 @@ DESIGN="$TMP/docs/design/demo.md"
 printf '# plan\n' > "$PLAN"
 printf '# issue\n\n## Small issues\n<!-- PENDING -->\n' > "$ISSUE"
 printf '# design\n' > "$DESIGN"
+mkdir -p "$TMP/docs/design/prototype" "$TMP/docs/design/mockup" "$TMP/.pi/multi-model-workflow"
+printf '# prototype log\n' >"$TMP/docs/design/prototype/README.md"
+printf 'selected\n' >"$TMP/docs/design/prototype/selected.py"
+printf 'rejected\n' >"$TMP/docs/design/prototype/rejected.py"
+printf '<html>loser</html>\n' >"$TMP/docs/design/mockup/loser.html"
+cat >"$TMP/.pi/multi-model-workflow/task.json" <<'JSON'
+{"docs":{"design":"docs/design"},"prototype":{"status":"accepted","log":"docs/design/prototype/README.md","selected":["docs/design/prototype/selected.py"]}}
+JSON
 git -C "$TMP" add docs
 git -C "$TMP" commit -qm docs
 
@@ -59,6 +67,10 @@ echo "$OUT" | grep -q 'note-run-id' && ok "dispatch requires run id ledger" || n
 echo "$OUT" | grep -q 'mmw worker verify' && ok "dispatch points to verify gate" || no "verify pointer"
 grep -q "$ACTUAL_WT" "$WT/.pi/multi-model-workflow/worker-dispatch/prompt.md" \
   && ok "prompt pins absolute worktree path" || no "prompt worktree pin"
+BUILD_PROMPT="$WT/.pi/multi-model-workflow/worker-dispatch/prompt.md"
+grep -q 'prototype/README.md' "$BUILD_PROMPT" && grep -q 'prototype/selected.py' "$BUILD_PROMPT" \
+  && ! grep -q 'prototype/rejected.py' "$BUILD_PROMPT" && ! grep -q 'mockup/loser.html' "$BUILD_PROMPT" \
+  && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"
 
 # 未验收(可能在飞)禁止重派
 if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$WT" >/dev/null 2>&1; then
@@ -110,6 +122,10 @@ bash "$WORKER" verify --worktree "$WT" >/dev/null
 
 TASK_WT="$TMP/task-wt"
 git -C "$TMP" worktree add -q -b task-wt "$TASK_WT" HEAD
+mkdir -p "$TASK_WT/.pi/multi-model-workflow"
+cat >"$TASK_WT/.pi/multi-model-workflow/task.json" <<'JSON'
+{"docs":{"design":"docs/design"},"prototype":{"status":"accepted","log":"docs/design/prototype/README.md","selected":["docs/design/prototype/selected.py"]}}
+JSON
 PLAN2="$TASK_WT/docs/plans/demo/002.md"
 printf '\n## Cross-Plan Contract Anchors\n- shared contract\n' >>"$TASK_WT/docs/design/demo.md"
 OUT2="$(bash "$WORKER" plan-dispatch --plan "$PLAN2" --worktree "$TASK_WT" \
@@ -117,6 +133,10 @@ OUT2="$(bash "$WORKER" plan-dispatch --plan "$PLAN2" --worktree "$TASK_WT" \
 echo "$OUT2" | grep -q 'agent:"plan-writer"' && ok "plan writer dispatch instruction" || no "plan dispatch"
 META="$TASK_WT/.pi/multi-model-workflow/plan-workers/002/dispatch/meta.json"
 [ "$(jq -r .agent "$META")" = plan-writer ] && ok "plan writer selected" || no "plan writer"
+PLAN_PROMPT="$TASK_WT/.pi/multi-model-workflow/plan-workers/002/dispatch/prompt.md"
+grep -q 'prototype/README.md' "$PLAN_PROMPT" && grep -q 'prototype/selected.py' "$PLAN_PROMPT" \
+  && ! grep -q 'prototype/rejected.py' "$PLAN_PROMPT" && ! grep -q 'mockup/loser.html' "$PLAN_PROMPT" \
+  && ok "plan writer 只收到 accepted log + selected" || no "plan writer prototype 选中材料"
 
 PLAN3="$TASK_WT/docs/plans/demo/003.md"
 ISSUE3="$TASK_WT/docs/issues/demo/003.md"

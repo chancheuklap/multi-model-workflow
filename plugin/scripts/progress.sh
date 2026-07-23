@@ -43,6 +43,11 @@ approval_line="未确认"
 if jq -e '.approval' "$MAN" >/dev/null 2>&1; then
   approval_line="已确认 $(jq -r '.approval.at // "?"' "$MAN")  reports=$(jq -rc '.approval.reports // []' "$MAN")"
 fi
+prototype_line="- Prototype：未启动"
+prototype_status="$(jq -r '.prototype.status // empty' "$MAN")"
+if [ -n "$prototype_status" ]; then
+  prototype_line="- Prototype：**${prototype_status}** · 第 $(jq -r '.prototype.iteration' "$MAN") 轮 · $(jq -r '.prototype.log' "$MAN")"
+fi
 
 # ---- 从 loop-state 取内层事实(可能无执行账本) ----
 loop_line="(当前无执行账本)"
@@ -90,6 +95,7 @@ board="$(cat <<EOF
 
 ## 设计确认
 - approval：**${approval_line}**
+${prototype_line}
 
 ## 计划进度
 | Plan | 状态 | Pack | Review | 备注 |

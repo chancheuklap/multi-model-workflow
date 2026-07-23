@@ -31,6 +31,11 @@ if [ -f "$man" ]; then
   # ②书签注记(agent 记的一句话现场)
   note="$(jq -r '.note.text // empty' "$man" 2>/dev/null || true)"
   [ -n "$note" ] && echo "现场注记:$note"
+  # prototype 内层断点来自 manifest；不靠聊天记忆或 agent 自己搜索。
+  prototype_status="$(jq -r '.prototype.status // empty' "$man" 2>/dev/null || true)"
+  if [ -n "$prototype_status" ]; then
+    echo "prototype:${prototype_status} 第 $(jq -r '.prototype.iteration' "$man") 轮 log=$top/$(jq -r '.prototype.log' "$man")"
+  fi
   # ③待拍板:设计文档 Open Decisions 节(存在才提)
   ddoc="$(jq -r '.docs.design // empty' "$man" 2>/dev/null || true)"
   if [ -n "$ddoc" ]; then

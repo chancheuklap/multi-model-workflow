@@ -5,6 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
+# shellcheck source=lib/prototype-state.sh
+. "$SCRIPT_DIR/lib/prototype-state.sh"
 # shellcheck source=lib/droid-exec.sh
 . "$SCRIPT_DIR/lib/droid-exec.sh"
 
@@ -63,6 +65,45 @@ native_worktree_path() {
   printf '%s/%s-wt-%s' "$root" "$(basename "$repo")" "${branch//\//-}"
 }
 
+# 讨论态材料从设计路径与 manifest 机械推导；prototype 只传 accepted 的日志与 selected。
+design_dir_of() {
+  local parent base
+  parent="$(dirname "$1")"; base="$(basename "$1" .md)"
+  if [ "$(basename "$parent")" = "$base" ]; then printf '%s' "$parent";
+  elif [ -d "$parent/$base" ]; then printf '%s' "$parent/$base";
+  else printf '%s' "$parent"; fi
+}
+design_companions() {
+  local m top man rel design_rel task_root
+  for m in evidence direction.md investigating.md; do
+    [ -e "$1/$m" ] && printf '%s\n' "$1/$m"
+  done
+  top="$(git -C "$1" rev-parse --show-toplevel 2>/dev/null || true)"
+  [ -n "$top" ] || return 0
+  man="$(mmw_prototype_manifest_from_top "$top")" || return 0
+  [ -f "$man" ] || return 0
+  design_rel="$(mmw_prototype_design_rel "$man")"
+  task_root="$top"
+  if [ "$design_rel" = "." ]; then
+    task_root="$1"
+  else
+    case "$1" in */"$design_rel") task_root="${1%/"$design_rel"}" ;; esac
+  fi
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    [ -e "$task_root/$rel" ] || { echo "ERROR: accepted prototype 伴随材料不存在:$rel" >&2; return 1; }
+    printf '%s\n' "$task_root/$rel"
+  done < <(mmw_prototype_selected_relpaths "$man")
+}
+companion_prompt_lines() {
+  [ -n "$1" ] || return 0
+  local c
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    echo "  - $c"
+  done < <(design_companions "$1")
+}
+
 build_prompt() {
   local plan="$1" wt="$2" design="$3" issue="$4" mode="$5" sheet="$6"
   local skill; skill="$(mmw_plugin_root)/skills/worktree-build"
@@ -78,6 +119,11 @@ build_prompt() {
 PROMPT
     return
   fi
+  local ddir="" companions=""
+  if [ -n "$design" ]; then
+    ddir="$(design_dir_of "$design")"
+    companions="$(companion_prompt_lines "$ddir")"
+  fi
   cat <<PROMPT
 你是落地执行者,被主线程派进一个 worktree 落地一份计划。
 先读 Droid plugin 内 worktree-build skill 并严格执行:$skill/SKILL.md
@@ -87,14 +133,16 @@ PROMPT
 ${design:+- 设计文档:$design
 }${issue:+- 负责的 issue:$issue
 }- 实施计划:$plan
-$(test_sheet_lines "$sheet")
+${companions:+- 讨论态材料(与设计文档同源;mockup=视觉权威——UI 照它改造不重写,prototype=实现种子——状态机/逻辑以它为起点):
+$companions
+}$(test_sheet_lines "$sheet")
 
 只改 plan 的 File / Responsibility Map 和当前 Pack 拥有的路径。逐 Task Pack TDD、每 Pack 本地提交、禁改 docs/、禁 push/gh pr merge/部署、卡住协议和 Return Contract 全按 worktree-build skill。不要向用户提问,不要启动其它 agent;缺输入时在最终回执中结构化报告。
 PROMPT
 }
 
 build_plan_prompt() {
-  local plan="$1" wt="$2" design="$3" issue="$4" mockup="$5" sheet="$6"
+  local plan="$1" wt="$2" design="$3" issue="$4" companions="$5" sheet="$6"
   local skill; skill="$(mmw_plugin_root)/skills/worktree-plan"
   cat <<PROMPT
 你是计划撰写者,被主线程派进任务 worktree 把一个大 issue 写成一份实施计划。
@@ -105,7 +153,8 @@ build_plan_prompt() {
 开工前依次读:
 ${design:+- 源设计文档:$design
 }${issue:+- 负责的大 issue:$issue
-}${mockup:+- mockup 目录:$mockup
+}${companions:+- 讨论态材料(与设计文档同源;mockup=视觉权威,prototype=实现种子):
+$companions
 }$(test_sheet_lines "$sheet")
 
 只准写该 plan 与对应 issue 的 Small issues。禁止改源码、docs/design、其他 issue 或其他 plan,禁止 commit/push/发布。不要向用户提问,不要启动其它 agent;缺输入时在最终回执中结构化报告。
@@ -441,11 +490,11 @@ cmd_resume() {
 }
 
 cmd_plan_dispatch() {
-  local plan="" wt="" design="" issue="" mockup="" model="$PLAN_MODEL" effort="$PLAN_EFFORT"
+  local plan="" wt="" design="" issue="" model="$PLAN_MODEL" effort="$PLAN_EFFORT"
   while [ $# -gt 0 ]; do case "$1" in
     --plan) plan="$2"; shift 2 ;; --worktree) wt="$2"; shift 2 ;;
     --design) design="$2"; shift 2 ;; --issue) issue="$2"; shift 2 ;;
-    --mockup) mockup="$2"; shift 2 ;; --model) model="$2"; shift 2 ;;
+    --model) model="$2"; shift 2 ;;
     --effort) effort="$2"; shift 2 ;; *) die "未知参数:$1" ;;
   esac; done
   case "$plan" in /*) ;; *) die "--plan 必须绝对路径" ;; esac
@@ -458,14 +507,13 @@ cmd_plan_dispatch() {
   case "$plan" in "$wt"/*) ;; *) die "--plan 必须位于任务 worktree:$plan" ;; esac
   case "$design" in "$wt"/*) ;; *) die "--design 必须位于任务 worktree:$design" ;; esac
   case "$issue" in "$wt"/*) ;; *) die "--issue 必须位于任务 worktree:$issue" ;; esac
-  if [ -n "$mockup" ]; then
-    [ -d "$mockup" ] || die "--mockup 目录不存在:$mockup"
-    [ ! -L "$mockup" ] || die "--mockup 不得是符号链接:$mockup"
-    case "$mockup" in "$wt"/*) ;; *) die "--mockup 必须位于任务 worktree:$mockup" ;; esac
-  fi
+  local ddir companions="" c
+  ddir="$(design_dir_of "$design")"
+  while IFS= read -r c; do [ -n "$c" ] && companions="$companions$c
+"; done < <(design_companions "$ddir")
   mmw_ensure_wt_state_ignore "$wt"
   local st ns pkg start prompt meta system_prompt system_source disabled_tools baseline issue_baseline
-  local sandbox branch sandbox_plan sandbox_design sandbox_issue sandbox_mockup sandbox_info
+  local sandbox branch sandbox_plan sandbox_design sandbox_issue sandbox_info sandbox_companions=""
   local task_plan_baseline task_issue_baseline
   st="$(state_for "$wt")"; ns="$(plan_ns "$plan")"; pkg="$wt/$st/plan-workers/$ns/dispatch"
   mkdir -p "$pkg"
@@ -480,12 +528,15 @@ cmd_plan_dispatch() {
   sandbox_plan="$sandbox/${plan#"$wt"/}"
   sandbox_design="$sandbox/${design#"$wt"/}"
   sandbox_issue="$sandbox/${issue#"$wt"/}"
-  sandbox_mockup=""
-  [ -n "$mockup" ] && sandbox_mockup="$sandbox/${mockup#"$wt"/}"
   plan_sandbox_overlay "$wt" "$sandbox" "$design"
   plan_sandbox_overlay "$wt" "$sandbox" "$issue"
   plan_sandbox_overlay "$wt" "$sandbox" "$plan"
-  [ -n "$mockup" ] && plan_sandbox_overlay "$wt" "$sandbox" "$mockup"
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    plan_sandbox_overlay "$wt" "$sandbox" "$c"
+    sandbox_companions="${sandbox_companions}  - $sandbox/${c#"$wt"/}
+"
+  done < <(printf '%s' "$companions")
   start="$(git -C "$sandbox" rev-parse HEAD)"
   baseline="$pkg/worktree-baseline.json"
   issue_baseline="$pkg/issue-baseline.md"
@@ -498,16 +549,16 @@ cmd_plan_dispatch() {
   disabled_tools="$(prepare_exec_policy "$pkg" "$model")"
   preflight_plugin_skill worktree-plan
   local plan_test_sheet; plan_test_sheet="$(locate_test_sheet "$sandbox")"
-  build_plan_prompt "$sandbox_plan" "$sandbox" "$sandbox_design" "$sandbox_issue" "$sandbox_mockup" "$plan_test_sheet" > "$prompt"
+  build_plan_prompt "$sandbox_plan" "$sandbox" "$sandbox_design" "$sandbox_issue" "$sandbox_companions" "$plan_test_sheet" > "$prompt"
   printf '%s\n' "$start" > "$pkg/start_sha"
   write_meta "$meta" dispatch "$PLAN_DROID" "$model" "$effort" "$sandbox" "$prompt" "$start" \
     "$sandbox_plan" "$system_prompt" "$sandbox_issue" "$disabled_tools"
   update_meta "$meta" \
     --arg task_wt "$wt" --arg task_plan "$plan" --arg task_design "$design" \
-    --arg task_issue "$issue" --arg task_mockup "$mockup" --arg branch "$branch" \
+    --arg task_issue "$issue" --arg branch "$branch" \
     --arg task_plan_baseline "$task_plan_baseline" --arg task_issue_baseline "$task_issue_baseline" \
     '.task_worktree=$task_wt | .task_plan=$task_plan | .task_design=$task_design |
-      .task_issue=$task_issue | .task_mockup=$task_mockup | .sandbox_branch=$branch |
+      .task_issue=$task_issue | .sandbox_branch=$branch |
       .task_plan_baseline=$task_plan_baseline | .task_issue_baseline=$task_issue_baseline' \
     || die "无法记录 plan writer 隔离边界"
   echo "WORKER_BACKEND=droid-exec"
@@ -528,7 +579,7 @@ cmd_plan_resume() {
   esac; done
   [ -f "$instr" ] || die "--instructions 文件不存在:$instr"
   local st ns pkg meta state session model effort system_prompt disabled_tools sandbox
-  local task_design task_issue task_mockup sandbox_info sandbox_plan sandbox_design sandbox_issue sandbox_mockup start
+  local task_design task_issue sandbox_info sandbox_plan sandbox_design sandbox_issue start
   local task_plan_baseline task_issue_baseline
   st="$(state_for "$wt")"; ns="$(plan_ns "$plan")"; pkg="$wt/$st/plan-workers/$ns/dispatch"
   meta="$pkg/meta.json"
@@ -540,7 +591,6 @@ cmd_plan_resume() {
   sandbox="$(jq -r .worktree "$meta")"
   task_design="$(jq -r '.task_design' "$meta")"
   task_issue="$(jq -r '.task_issue' "$meta")"
-  task_mockup="$(jq -r '.task_mockup // empty' "$meta")"
   system_prompt="$(jq -r .system_prompt_file "$meta")"
   disabled_tools="$(jq -r '.disabled_tools // empty' "$meta")"
   if [ ! -d "$sandbox" ]; then
@@ -551,12 +601,13 @@ cmd_plan_resume() {
     sandbox_plan="$sandbox/${plan#"$wt"/}"
     sandbox_design="$sandbox/${task_design#"$wt"/}"
     sandbox_issue="$sandbox/${task_issue#"$wt"/}"
-    sandbox_mockup=""
-    [ -n "$task_mockup" ] && sandbox_mockup="$sandbox/${task_mockup#"$wt"/}"
     plan_sandbox_overlay "$wt" "$sandbox" "$task_design"
     plan_sandbox_overlay "$wt" "$sandbox" "$task_issue"
     plan_sandbox_overlay "$wt" "$sandbox" "$plan"
-    [ -n "$task_mockup" ] && plan_sandbox_overlay "$wt" "$sandbox" "$task_mockup"
+    local c
+    while IFS= read -r c; do
+      [ -n "$c" ] && plan_sandbox_overlay "$wt" "$sandbox" "$c"
+    done < <(design_companions "$(design_dir_of "$task_design")")
     start="$(git -C "$sandbox" rev-parse HEAD)"
     capture_plan_baseline "$sandbox" "$pkg/worktree-baseline.json" \
       || die "无法刷新 plan writer worktree 边界基线"

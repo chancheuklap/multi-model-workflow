@@ -33,6 +33,14 @@ export CODEX_BIN="$FAKEBIN/codex"
 PLAN="$TMP/plan.md"; echo "# plan" > "$PLAN"
 DESIGN="$TMP/design.md"; echo "# design" > "$DESIGN"
 ISSUE="$TMP/issue.md"; echo "# issue" > "$ISSUE"
+mkdir -p "$TMP/prototype" "$TMP/mockup" "$TMP/.claude/multi-model-workflow"
+printf '# prototype log\n' >"$TMP/prototype/README.md"
+printf 'selected\n' >"$TMP/prototype/selected.py"
+printf 'rejected\n' >"$TMP/prototype/rejected.py"
+printf '<html>loser</html>\n' >"$TMP/mockup/loser.html"
+cat >"$TMP/.claude/multi-model-workflow/task.json" <<'JSON'
+{"docs":{"design":"."},"prototype":{"status":"accepted","log":"./prototype/README.md","selected":["./prototype/selected.py"]}}
+JSON
 WT="$TMP/wt-001"
 
 OUT="$(bash "$CW" dispatch --plan "$PLAN" --worktree "$WT" --design "$DESIGN" --issue "$ISSUE" 2>/dev/null)"
@@ -49,6 +57,9 @@ echo "$PROMPT" | grep -q "TDD" && ok "prompt 含 TDD 指向" || no "TDD"
 echo "$PROMPT" | grep -q "$DESIGN" && ok "prompt 传了设计文档路径" || no "传设计路径"
 echo "$PROMPT" | grep -q "$ISSUE" && ok "prompt 传了 issue 路径" || no "传 issue 路径"
 echo "$PROMPT" | grep -q "$PLAN" && ok "prompt 传了计划路径(实施权威)" || no "传计划路径"
+echo "$PROMPT" | grep -q 'prototype/README.md' && echo "$PROMPT" | grep -q 'prototype/selected.py' \
+  && ! echo "$PROMPT" | grep -q 'prototype/rejected.py' && ! echo "$PROMPT" | grep -q 'mockup/loser.html' \
+  && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"
 ARGV="$(cat "$FAKE_CAP/argv")"
 echo "$ARGV" | grep -q -- "-C $WT" && ok "codex -C <worktree>" || no "-C worktree"
 echo "$ARGV" | grep -q -- "--sandbox workspace-write" && ok "--sandbox workspace-write" || no "sandbox"
@@ -166,6 +177,9 @@ echo "$PROMPT_P" | grep -q "task-pack" && no "plan prompt 不该再注入方法�
 echo "$PROMPT_P" | grep -q "plan-self-check" && no "plan prompt 不该再注入自检路径(在 skill references)" || ok "plan prompt 不注入 self-check 路径(委托 skill)"
 echo "$PROMPT_P" | grep -q "$PLAN_OUT" && ok "plan prompt 传落点" || no "plan 落点"
 echo "$PROMPT_P" | grep -q "本消息不重复" && ok "plan prompt 委托 skill(纯路由)" || no "plan 纯路由"
+echo "$PROMPT_P" | grep -q 'prototype/README.md' && echo "$PROMPT_P" | grep -q 'prototype/selected.py' \
+  && ! echo "$PROMPT_P" | grep -q 'prototype/rejected.py' && ! echo "$PROMPT_P" | grep -q 'mockup/loser.html' \
+  && ok "plan writer 只收到 accepted log + selected" || no "plan writer prototype 选中材料"
 ARGV_P="$(cat "$FAKE_CAP/argv")"
 echo "$ARGV_P" | grep -q -- "-C $WT_TASK" && ok "plan codex -C 任务 worktree(不开子 worktree)" || no "plan -C 任务 wt"
 echo "$ARGV_P" | grep -q -- "--sandbox workspace-write" && ok "plan --sandbox workspace-write" || no "plan sandbox"

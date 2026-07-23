@@ -46,6 +46,15 @@ SLUG="2026-07-23-prototype"
 WT="$(new_design_task "$SLUG")"
 MAN="$WT/$SD/task.json"
 LOG="$WT/docs/design/$SLUG/prototype/README.md"
+MAIN_DESIGN="docs/design/$SLUG/$SLUG.md"
+printf '# design\n' >"$WT/$MAIN_DESIGN"
+
+# 未启动 prototype 时 design 出口也必须指向 pin/预审/人闸，不得误导 agent 走 handoff pass。
+WHERE_EMPTY="$(cd "$WT" && bash "$MMW" where)"
+echo "$WHERE_EMPTY" | grep -q '^then=.*pin --phase design' \
+  && echo "$WHERE_EMPTY" | grep -q '/approve-design' \
+  && ! echo "$WHERE_EMPTY" | grep -q '^then=.*handoff --conclusion' \
+  && ok "design where 给正确唯一出口" || no "design where 仍误导 handoff"
 
 # fresh start：只登记状态与日志，不替 agent 生成实现骨架。
 START="$(cd "$WT" && bash "$MMW" prototype start --kind logic --question "暂停后是否恢复原队列" --run "python docs/design/$SLUG/prototype/demo.py")"
@@ -57,6 +66,26 @@ START="$(cd "$WT" && bash "$MMW" prototype start --kind logic --question "暂停
   && echo "$START" | grep -q '^NEXT=' && ok "fresh start 写日志并给唯一下一步" || no "fresh start 回执"
 [ -d "$WT/docs/design/$SLUG/prototype/runs" ] && [ ! -e "$WT/docs/design/$SLUG/prototype/demo.py" ] \
   && ok "start 只建日志与 runs" || no "start 不应生成原型骨架"
+
+# active 状态必须接管冷启动导航、进度板和会话分诊，并阻止设计确认。
+WHERE_ACTIVE="$(cd "$WT" && bash "$MMW" where)"
+echo "$WHERE_ACTIVE" | grep -q '^inner_loop=prototype$' \
+  && echo "$WHERE_ACTIVE" | grep -q '^prototype_iteration=1$' \
+  && echo "$WHERE_ACTIVE" | grep -q '^load=references/design/prototype-mockup.md$' \
+  && echo "$WHERE_ACTIVE" | grep -q '^then=.*prototype checkpoint' \
+  && ok "where 精确恢复 active prototype" || no "where active prototype 指路"
+BOARD_ACTIVE="$(cd "$WT" && bash "$MMW" progress render --stdout)"
+echo "$BOARD_ACTIVE" | grep -q 'Prototype.*active.*第 1 轮' \
+  && ok "progress 投影 active prototype" || no "progress prototype 投影"
+TRIAGE_ACTIVE="$(cd "$WT" && bash "$PLUGIN/hooks/session-triage.sh")"
+echo "$TRIAGE_ACTIVE" | grep -q 'prototype.*active.*第 1 轮' \
+  && echo "$TRIAGE_ACTIVE" | grep -q "$LOG" \
+  && ok "session triage 回报 prototype 断点" || no "session triage prototype"
+if (cd "$WT" && bash "$MMW" approve --report "$MAIN_DESIGN" >/dev/null 2>&1); then
+  no "active prototype 不得 approve"
+else
+  [ "$(jq -r .phase "$MAN")" = design ] && ok "active prototype 阻止设计确认" || no "active approve 改动阶段"
+fi
 
 # active 重复 start 必须拒绝且不覆盖日志。
 BEFORE="$(shasum "$LOG" | awk '{print $1}')"
@@ -141,6 +170,15 @@ SUPER="$(cd "$WT" && bash "$MMW" prototype checkpoint \
 [ "$(jq -r '.prototype.status' "$MAN")" = superseded ] \
   && echo "$SUPER" | grep -q 'handoff --conclusion needs-redirection --to-phase propose' \
   && ok "superseded 明确退回 propose" || no "superseded 回执"
+WHERE_SUPER="$(cd "$WT" && bash "$MMW" where)"
+echo "$WHERE_SUPER" | grep -q '^prototype_status=superseded$' \
+  && echo "$WHERE_SUPER" | grep -q '^then=.*handoff --conclusion needs-redirection --to-phase propose' \
+  && ok "where 恢复 superseded 唯一回退" || no "where superseded"
+if (cd "$WT" && bash "$MMW" approve --report "$MAIN_DESIGN" >/dev/null 2>&1); then
+  no "superseded prototype 不得 approve"
+else
+  ok "superseded 阻止设计确认"
+fi
 
 # 旧任务磁盘已有产物：fresh start 拒绝，--adopt 原地登记。
 SLUG2="2026-07-23-adopt"
@@ -148,6 +186,16 @@ WT2="$(new_design_task "$SLUG2")"
 MAN2="$WT2/$SD/task.json"
 mkdir -p "$WT2/docs/design/$SLUG2/mockup"
 printf '<html>old</html>\n' >"$WT2/docs/design/$SLUG2/mockup/current.html"
+printf '# design\n' >"$WT2/docs/design/$SLUG2/$SLUG2.md"
+WHERE_UNTRACKED="$(cd "$WT2" && bash "$MMW" where)"
+echo "$WHERE_UNTRACKED" | grep -q '^prototype_untracked=' \
+  && echo "$WHERE_UNTRACKED" | grep -q '^then=.*prototype start --adopt' \
+  && ok "where 发现未登记原型并给 adopt" || no "where untracked"
+if (cd "$WT2" && bash "$MMW" approve --report "docs/design/$SLUG2/$SLUG2.md" >/dev/null 2>&1); then
+  no "未登记 prototype 不得 approve"
+else
+  ok "未登记 prototype 阻止设计确认"
+fi
 if (cd "$WT2" && bash "$MMW" prototype start --kind ui --question "采用哪种布局" --run "open mockup/current.html" >/dev/null 2>&1); then
   no "已有未登记产物时 fresh start 应拒绝"
 else
@@ -160,6 +208,33 @@ ADOPT="$(cd "$WT2" && bash "$MMW" prototype start --adopt --kind ui --question "
   && [ "$(jq -r '.prototype.artifacts[0]' "$MAN2")" = "docs/design/$SLUG2/mockup/current.html" ] \
   && grep -q '采用哪种布局' "$WT2/docs/design/$SLUG2/prototype/README.md" \
   && echo "$ADOPT" | grep -q 'PROTOTYPE_ADOPTED' && ok "--adopt 原地接管旧产物" || no "--adopt 状态"
+
+# accepted 后 where 回设计成文；approve 自动指纹覆盖 log + selected，下游能按接力单读取。
+SLUG3="2026-07-23-approve"
+WT3="$(new_design_task "$SLUG3")"
+MAN3="$WT3/$SD/task.json"
+MAIN3="docs/design/$SLUG3/$SLUG3.md"
+ART3="docs/design/$SLUG3/prototype/demo.py"
+LOG3="docs/design/$SLUG3/prototype/README.md"
+printf '# design\n' >"$WT3/$MAIN3"
+(cd "$WT3" && bash "$MMW" prototype start --kind logic --question "确认状态模型" --run "python $ART3" >/dev/null)
+printf 'accepted\n' >"$WT3/$ART3"
+(cd "$WT3" && bash "$MMW" prototype checkpoint --feedback "走查完成" --change "补齐失败态" --result "全部通过" \
+  --artifact "$ART3" --verdict accepted --selected "$ART3" >/dev/null)
+WHERE_ACCEPTED="$(cd "$WT3" && bash "$MMW" where)"
+echo "$WHERE_ACCEPTED" | grep -q '^prototype_status=accepted$' \
+  && echo "$WHERE_ACCEPTED" | grep -q '^prototype_selected=.*demo.py' \
+  && echo "$WHERE_ACCEPTED" | grep -q '回填主设计文档' \
+  && echo "$WHERE_ACCEPTED" | grep -q '^then=.*pin --phase design' \
+  && ok "where accepted 回到设计成文" || no "where accepted"
+(cd "$WT3" && bash "$MMW" approve --report "$MAIN3" >/dev/null)
+[ "$(jq -r .phase "$MAN3")" = to-issue ] \
+  && jq -e --arg log "$LOG3" --arg art "$ART3" '.approval.reports | index($log) != null and index($art) != null' "$MAN3" >/dev/null \
+  && jq -e --arg log "$LOG3" --arg art "$ART3" '.phase_outputs.design | index($log) != null and index($art) != null' "$MAN3" >/dev/null \
+  && ok "approve 自动指纹并交接 accepted 产物" || no "approve accepted reports"
+printf 'changed after approval\n' >>"$WT3/$ART3"
+STALE="$(cd "$WT3" && bash "$MMW" where)"
+echo "$STALE" | grep -q '^approval_stale=' && ok "selected 改动触发 approval stale" || no "selected stale"
 
 printf '\nResults: %s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" = 0 ]

@@ -9,6 +9,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
+# shellcheck source=lib/prototype-state.sh
+. "$SCRIPT_DIR/lib/prototype-state.sh"
 
 EXECUTOR_AGENT="${PI_EXECUTOR_AGENT:-pack-executor}"
 CAPABLE_EXECUTOR_AGENT="${PI_CAPABLE_EXECUTOR_AGENT:-pack-executor-capable}"
@@ -62,11 +64,28 @@ design_dir_of() {  # $1=设计文档路径 → 设计文件夹
   elif [ -d "$parent/$base" ]; then printf '%s' "$parent/$base";
   else printf '%s' "$parent"; fi
 }
-design_companions() {  # $1=设计文件夹 → 存在的讨论态成员,每行一个
-  local m
-  for m in mockup prototype evidence direction.md investigating.md; do
+design_companions() {  # $1=设计文件夹 → 结论材料 + accepted prototype 精确选中项
+  local m top man rel design_rel task_root
+  for m in evidence direction.md investigating.md; do
     [ -e "$1/$m" ] && printf '%s\n' "$1/$m"
   done
+  top="$(git -C "$1" rev-parse --show-toplevel 2>/dev/null || true)"
+  [ -n "$top" ] || return 0
+  man="$(mmw_prototype_manifest_from_top "$top")" || return 0
+  [ -f "$man" ] || return 0
+  # 保留调用者传入的 worktree 路径拼写(/var 与 /private/var 可能指同处)，避免 sandbox 边界做字符串比较时误报越界。
+  design_rel="$(mmw_prototype_design_rel "$man")"
+  task_root="$top"
+  if [ "$design_rel" = "." ]; then
+    task_root="$1"
+  else
+    case "$1" in */"$design_rel") task_root="${1%/"$design_rel"}" ;; esac
+  fi
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    [ -e "$task_root/$rel" ] || { echo "ERROR: accepted prototype 伴随材料不存在:$rel" >&2; return 1; }
+    printf '%s\n' "$task_root/$rel"
+  done < <(mmw_prototype_selected_relpaths "$man")
 }
 companion_prompt_lines() {  # $1=设计文件夹(可空) → prompt 材料清单行
   [ -n "$1" ] || return 0

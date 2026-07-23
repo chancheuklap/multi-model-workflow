@@ -13,6 +13,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
+# shellcheck source=lib/prototype-state.sh
+. "$SCRIPT_DIR/lib/prototype-state.sh"
 MANIFEST_NAME="task.json"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -78,6 +80,35 @@ cmd_approve() {
   local top; top="$(git rev-parse --show-toplevel)"
   local phase pidx; phase="$(jq -r .phase "$m")"; pidx="$(jq -r .phase_index "$m")"
 
+  # prototype 是 design 内层机器门：未收敛、已废止或磁盘有未登记产物都不能越过唯一人闸。
+  local prototype_status prototype_untracked rel
+  prototype_status="$(jq -r '.prototype.status // empty' "$m")"
+  case "$prototype_status" in
+    active)
+      die "prototype 仍在第 $(jq -r '.prototype.iteration' "$m") 轮，拒绝确认设计；先按 mmw where 完成本轮 checkpoint"
+      ;;
+    superseded)
+      die "prototype 验证问题已随方向失效，拒绝确认设计；先运行 mmw handoff --conclusion needs-redirection --to-phase propose"
+      ;;
+    accepted)
+      rel="$(jq -r '.prototype.log // empty' "$m")"
+      [ -n "$rel" ] || die "accepted prototype 缺 log"
+      mmw_prototype_validate_artifact "$top" "$m" "$rel" || die "accepted prototype log 无效"
+      reports+=("$rel")
+      [ "$(jq -r '.prototype.selected | length' "$m")" -gt 0 ] || die "accepted prototype 缺 selected"
+      while IFS= read -r rel; do
+        [ -n "$rel" ] || continue
+        mmw_prototype_validate_artifact "$top" "$m" "$rel" || die "accepted prototype selected 无效:$rel"
+        reports+=("$rel")
+      done < <(jq -r '.prototype.selected[]' "$m")
+      ;;
+    "")
+      prototype_untracked="$(mmw_prototype_untracked_paths "$top" "$m")"
+      [ -z "$prototype_untracked" ] || die "磁盘有未登记 prototype/mockup，拒绝确认设计；先按 mmw where 运行 prototype start --adopt"
+      ;;
+    *) die "prototype 状态损坏(status=$prototype_status)，拒绝确认设计" ;;
+  esac
+
   # 缺 --report 时回落 design 阶段已钉产出(主设计文档)
   if [ "${#reports[@]}" -eq 0 ]; then
     while IFS= read -r r; do [ -n "$r" ] && reports+=("$r"); done \
@@ -92,10 +123,11 @@ cmd_approve() {
     if [ -f "$top/$rel" ]; then [ -s "$top/$rel" ] || die "承重文档为空: $rel"; fi
   done
 
-  local args=() r
-  for r in "${reports[@]}"; do args+=(--report "$r"); done
-  local fp; fp="$(cmd_fingerprint "${args[@]}")" || die "指纹计算失败"
+  # 指纹输入顺序必须与落盘 reports 顺序完全一致；先 unique/sort，再按该数组计算。
   local reports_json; reports_json="$(printf '%s\n' "${reports[@]}" | jq -R . | jq -s 'unique')"
+  local args=() r
+  while IFS= read -r r; do [ -n "$r" ] && args+=(--report "$r"); done < <(jq -r '.[]' <<<"$reports_json")
+  local fp; fp="$(cmd_fingerprint "${args[@]}")" || die "指纹计算失败"
 
   local had_approval; had_approval="$(jq -r 'if .approval then "yes" else "no" end' "$m")"
   local advanced=no next_phase=""
