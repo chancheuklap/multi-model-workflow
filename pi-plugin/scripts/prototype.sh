@@ -78,15 +78,39 @@ payload_hash() {
   git hash-object --stdin
 }
 
+atomic_append_log() {
+  local log="$1" tmp
+  tmp="$(mktemp "$(dirname "$log")/.prototype-log.XXXXXX")" || return 1
+  if { cat "$log"; cat; } >"$tmp"; then
+    mv "$tmp" "$log"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
+truncate_log_from_marker() {
+  local log="$1" marker="$2" tmp
+  tmp="$(mktemp "$(dirname "$log")/.prototype-log.XXXXXX")" || return 1
+  if awk -v marker="$marker" '$0 == marker { found=1; exit } { print } END { if (!found) exit 2 }' "$log" >"$tmp"; then
+    mv "$tmp" "$log"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 ensure_log_parent() {
-  local log="$1"
+  local log="$1" tmp
   mkdir -p "$(dirname "$log")/runs"
   if [ ! -f "$log" ]; then
-    cat >"$log" <<'EOF'
+    tmp="$(mktemp "$(dirname "$log")/.prototype-log.XXXXXX")" || return 1
+    cat >"$tmp" <<'EOF'
 # Prototype
 
 > 本文件由 `mmw prototype` 维护。源码在原路径持续演进，历史版本由 Git 保存。
 EOF
+    mv "$tmp" "$log"
   fi
   [ ! -L "$log" ] || die "prototype 日志不得是软链:$log"
 }
@@ -94,9 +118,13 @@ EOF
 append_start_log() {
   local log="$1" token="$2" kind="$3" question="$4" run="$5" adopted="$6"
   local marker="<!-- mmw-prototype-session:$token -->"
+  local complete="<!-- mmw-prototype-session-complete:$token -->"
   ensure_log_parent "$log"
-  grep -qF "$marker" "$log" && return 0
-  cat >>"$log" <<EOF
+  if grep -qF "$marker" "$log"; then
+    grep -qF "$complete" "$log" && return 0
+    truncate_log_from_marker "$log" "$marker" || die "无法修复未完成的 prototype session 日志:$log"
+  fi
+  atomic_append_log "$log" <<EOF
 
 $marker
 ## 验证问题
@@ -107,19 +135,24 @@ $marker
 - 起点：$adopted
 
 ## 迭代记录
+$complete
 EOF
 }
 
 append_round_log() {
   local log="$1" round="$2" feedback="$3" change="$4" result="$5" verdict="$6"
-  local evidence_json="$7" selected_json="$8" payload hash marker hash_marker
+  local evidence_json="$7" selected_json="$8" payload hash marker hash_marker complete
   payload="$(printf '%s\n%s\n%s\n%s\n%s\n%s\n' "$feedback" "$change" "$result" "$verdict" "$evidence_json" "$selected_json")"
   hash="$(printf '%s' "$payload" | payload_hash)"
   marker="<!-- mmw-prototype-round:$round -->"
   hash_marker="<!-- mmw-prototype-payload:$hash -->"
+  complete="<!-- mmw-prototype-round-complete:$round:$hash -->"
   if grep -qF "$marker" "$log"; then
-    grep -qF "$hash_marker" "$log" || die "第 $round 轮日志已存在但内容不同，拒绝覆盖；先读 $log 对齐"
-    return 0
+    grep -qF "$complete" "$log" && return 0
+    if grep -qF "<!-- mmw-prototype-round-complete:$round:" "$log"; then
+      die "第 $round 轮日志已完成但内容不同，拒绝覆盖；先读 $log 对齐"
+    fi
+    truncate_log_from_marker "$log" "$marker" || die "无法修复未完成的第 $round 轮日志:$log"
   fi
   {
     printf '\n%s\n%s\n### 第 %s 轮\n\n' "$marker" "$hash_marker" "$round"
@@ -130,15 +163,20 @@ append_round_log() {
     if [ "$(jq -r 'length' <<<"$evidence_json")" -eq 0 ]; then printf -- '- 无独立证据文件\n'; else jq -r '.[] | "- `\(.)`"' <<<"$evidence_json"; fi
     printf '\n**结论**\n\n- verdict：`%s`\n' "$verdict"
     if [ "$(jq -r 'length' <<<"$selected_json")" -gt 0 ]; then jq -r '.[] | "- selected：`\(.)`"' <<<"$selected_json"; fi
-  } >>"$log"
+    printf '%s\n' "$complete"
+  } | atomic_append_log "$log"
 }
 
 append_reopen_log() {
-  local log="$1" round="$2" feedback="$3" hash marker
+  local log="$1" round="$2" feedback="$3" hash marker complete
   hash="$(printf '%s' "$feedback" | payload_hash)"
   marker="<!-- mmw-prototype-reopen:$round:$hash -->"
-  grep -qF "$marker" "$log" && return 0
-  cat >>"$log" <<EOF
+  complete="<!-- mmw-prototype-reopen-complete:$round:$hash -->"
+  if grep -qF "$marker" "$log"; then
+    grep -qF "$complete" "$log" && return 0
+    truncate_log_from_marker "$log" "$marker" || die "无法修复未完成的第 $round 轮重新打开日志:$log"
+  fi
+  atomic_append_log "$log" <<EOF
 
 $marker
 ### 第 $round 轮重新打开
@@ -146,6 +184,7 @@ $marker
 **新反馈**
 
 $feedback
+$complete
 EOF
 }
 

@@ -56,6 +56,9 @@ echo "$WHERE_EMPTY" | grep -q '^then=.*pin --phase design' \
   && echo "$WHERE_EMPTY" | grep -q '/approve-design' \
   && ! echo "$WHERE_EMPTY" | grep -q '^then=.*handoff --conclusion' \
   && ok "design where 给正确唯一出口" || no "design where 仍误导 handoff"
+if (cd "$WT" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1); then no "空 prototype 不得 handoff pass"; else
+  [ "$(jq -r .phase "$MAN")" = design ] && ok "未审批 design 禁止 handoff pass" || no "design pass 改了阶段"
+fi
 
 # fresh start：只登记状态与日志，不替 agent 生成实现骨架。
 START="$(cd "$WT" && bash "$MMW" prototype start --kind logic --question "暂停后是否恢复原队列" --run "python docs/design/$SLUG/prototype/demo.py")"
@@ -87,6 +90,9 @@ if (cd "$WT" && bash "$MMW" approve --report "$MAIN_DESIGN" >/dev/null 2>&1); th
 else
   [ "$(jq -r .phase "$MAN")" = design ] && ok "active prototype 阻止设计确认" || no "active approve 改动阶段"
 fi
+if (cd "$WT" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1); then no "active prototype 不得 handoff pass"; else
+  [ "$(jq -r .phase "$MAN")" = design ] && ok "active 时禁止绕过审批" || no "active handoff pass 改了阶段"
+fi
 
 # active 重复 start 必须拒绝且不覆盖日志。
 BEFORE="$(shasum "$LOG" | awk '{print $1}')"
@@ -101,6 +107,7 @@ mkdir -p "$WT/docs/design/$SLUG/prototype/runs/001"
 printf 'prototype\n' >"$WT/docs/design/$SLUG/prototype/demo.py"
 printf 'passed\n' >"$WT/docs/design/$SLUG/prototype/runs/001/output.txt"
 cp "$MAN" "$TMP/manifest-before-round1.json"
+printf '\n<!-- mmw-prototype-round:1 -->\nPARTIAL-ROUND\n' >>"$LOG"
 ROUND1="$(cd "$WT" && bash "$MMW" prototype checkpoint \
   --feedback "重复恢复会产生两条任务" \
   --change "增加幂等检查" \
@@ -111,7 +118,10 @@ ROUND1="$(cd "$WT" && bash "$MMW" prototype checkpoint \
 [ "$(jq -r '.prototype.iteration' "$MAN")" = 2 ] \
   && [ "$(jq -r '.prototype.artifacts[0]' "$MAN")" = "docs/design/$SLUG/prototype/demo.py" ] \
   && echo "$ROUND1" | grep -q 'prototype_iteration=2' && ok "continue 关闭本轮并进入下一轮" || no "continue 状态"
-[ "$(grep -c '<!-- mmw-prototype-round:1 -->' "$LOG")" = 1 ] && ok "第 1 轮日志追加一次" || no "第 1 轮日志标记"
+[ "$(grep -c '<!-- mmw-prototype-round:1 -->' "$LOG")" = 1 ] \
+  && grep -q '<!-- mmw-prototype-round-complete:1:' "$LOG" \
+  && ! grep -q 'PARTIAL-ROUND' "$LOG" \
+  && ok "残缺轮次日志原子修复并追加一次" || no "残缺轮次日志修复"
 
 # 模拟“日志已写、manifest 未写”的中断；重跑只能补状态，不能重复日志。
 cp "$TMP/manifest-before-round1.json" "$MAN"
@@ -209,6 +219,9 @@ if (cd "$WT" && bash "$MMW" approve --report "$MAIN_DESIGN" >/dev/null 2>&1); th
 else
   ok "superseded 阻止设计确认"
 fi
+if (cd "$WT" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1); then no "superseded 不得 handoff pass"; else
+  [ "$(jq -r .phase "$MAN")" = design ] && ok "superseded 时禁止绕过审批" || no "superseded handoff pass 改了阶段"
+fi
 
 # superseded 回 propose 再进 design 后，新验证问题必须沿用全局递增轮次，不能撞旧日志 marker。
 (cd "$WT" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase propose >/dev/null)
@@ -282,5 +295,19 @@ printf 'changed after approval\n' >>"$WT3/$ART3"
 STALE="$(cd "$WT3" && bash "$MMW" where)"
 echo "$STALE" | grep -q '^approval_stale=' && ok "selected 改动触发 approval stale" || no "selected stale"
 
+# A 被新一轮 B 淘汰后，design 接力单必须替换而非累加旧 selected。
+SLUG4="2026-07-23-reselect"
+WT4="$(new_design_task "$SLUG4")"
+MAN4="$WT4/$SD/task.json"; MAIN4="docs/design/$SLUG4/$SLUG4.md"
+printf '# design\n' >"$WT4/$MAIN4"
+A4="docs/design/$SLUG4/prototype/a.py"; B4="docs/design/$SLUG4/prototype/b.py"
+(cd "$WT4" && bash "$MMW" prototype start --kind logic --question q --run run >/dev/null)
+printf A >"$WT4/$A4"
+(cd "$WT4" && bash "$MMW" prototype checkpoint --feedback f --change c --result r --artifact "$A4" --selected "$A4" --verdict accepted >/dev/null && bash "$MMW" approve --report "$MAIN4" >/dev/null)
+(cd "$WT4" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design >/dev/null && bash "$MMW" prototype checkpoint --feedback reopen --verdict continue >/dev/null)
+printf B >"$WT4/$B4"
+(cd "$WT4" && bash "$MMW" prototype checkpoint --feedback f2 --change c2 --result r2 --artifact "$B4" --selected "$B4" --verdict accepted >/dev/null && bash "$MMW" approve --report "$MAIN4" >/dev/null)
+jq -e --arg a "$A4" --arg b "$B4" '.phase_outputs.design | index($a) == null and index($b) != null' "$MAN4" >/dev/null \
+  && ok "重新选择后接力单只保留当前 selected" || no "旧 selected 残留在接力单"
 printf '\nResults: %s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" = 0 ]

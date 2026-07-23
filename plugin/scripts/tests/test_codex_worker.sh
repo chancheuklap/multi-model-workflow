@@ -60,6 +60,20 @@ echo "$PROMPT" | grep -q "$PLAN" && ok "prompt 传了计划路径(实施权威)"
 echo "$PROMPT" | grep -q 'prototype/README.md' && echo "$PROMPT" | grep -q 'prototype/selected.py' \
   && ! echo "$PROMPT" | grep -q 'prototype/rejected.py' && ! echo "$PROMPT" | grep -q 'mockup/loser.html' \
   && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"
+
+TASK_JSON="$TMP/.claude/multi-model-workflow/task.json"; cp "$TASK_JSON" "$TMP/task-backup.json"
+mv "$TMP/prototype/selected.py" "$TMP/prototype/selected.tmp"
+if bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-missing-selected" --design "$DESIGN" --issue "$ISSUE" >/dev/null 2>&1; then no "缺失 selected 应拒绝派发"; else ok "缺失 selected fail-closed"; fi
+mv "$TMP/prototype/selected.tmp" "$TMP/prototype/selected.py"
+mkdir -p "$TMP/outside-evidence"; ln -s "$TMP/outside-evidence" "$TMP/evidence"
+if bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-symlink-evidence" --design "$DESIGN" --issue "$ISSUE" >/dev/null 2>&1; then no "软链 evidence 应拒绝派发"; else ok "软链 evidence fail-closed"; fi
+rm "$TMP/evidence"
+jq '.prototype=null' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-old-untracked" --design "$DESIGN" --issue "$ISSUE" >/dev/null 2>&1; then no "旧任务未登记原型应拒绝派发"; else ok "旧任务未登记原型 fail-closed"; fi
+cp "$TMP/task-backup.json" "$TASK_JSON"
+jq '.approval={reports:["./prototype/README.md","./prototype/selected.py"],fingerprint:"stale"}' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$CW" dispatch --plan "$PLAN" --worktree "$TMP/wt-stale-approval" --design "$DESIGN" --issue "$ISSUE" >/dev/null 2>&1; then no "过期设计确认应拒绝派发"; else ok "过期设计确认 fail-closed"; fi
+cp "$TMP/task-backup.json" "$TASK_JSON"
 ARGV="$(cat "$FAKE_CAP/argv")"
 echo "$ARGV" | grep -q -- "-C $WT" && ok "codex -C <worktree>" || no "-C worktree"
 echo "$ARGV" | grep -q -- "--sandbox workspace-write" && ok "--sandbox workspace-write" || no "sandbox"

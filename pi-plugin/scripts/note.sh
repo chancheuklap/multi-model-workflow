@@ -155,7 +155,7 @@ cmd_approve() {
       next_phase="$(jq -r --argjson i "$(( pidx + 1 ))" '.phases[$i]' "$m")"
       jq --argjson reports "$reports_json" --arg fp "$fp" --arg at "$(now)" --arg np "$next_phase" --argjson npi "$(( pidx + 1 ))" \
         '.approval={reports:$reports, fingerprint:$fp, at:$at}
-         | .phase_outputs.design=(((.phase_outputs.design // []) + $reports) | unique)
+         | .phase_outputs.design=$reports
          | .artifacts += $reports | .artifacts |= unique
          | .attendance="afk" | .unattended_policy=null
          | .phase=$np | .phase_index=$npi | .repair_count=0 | .gate=null | .status="active" | .step_index=0' \
@@ -168,7 +168,9 @@ cmd_approve() {
     # 已过门后的重新确认(设计修订后重盖指纹),不动阶段与值守
     [ "$had_approval" = "yes" ] || die "不在 design 阶段且从未确认过,无门可过(当前 phase=$phase)"
     jq --argjson reports "$reports_json" --arg fp "$fp" --arg at "$(now)" \
-      '.approval={reports:$reports, fingerprint:$fp, at:$at}' \
+      '.approval={reports:$reports, fingerprint:$fp, at:$at}
+       | .phase_outputs.design=$reports
+       | .artifacts += $reports | .artifacts |= unique' \
       "$m" | write_manifest "$m"
   fi
 

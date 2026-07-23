@@ -88,13 +88,15 @@ DESIGN="$TMP/docs/design/demo.md"
 printf '# plan\n' > "$PLAN"
 printf '# issue\n\n## Small issues\n<!-- PENDING -->\n' > "$ISSUE"
 printf '# design\n' > "$DESIGN"
-mkdir -p "$TMP/docs/design/prototype" "$TMP/docs/design/mockup" "$TMP/.factory/multi-model-workflow"
+mkdir -p "$TMP/docs/design/prototype" "$TMP/docs/design/mockup" "$TMP/docs/investigating" "$TMP/.factory/multi-model-workflow"
+printf '# direction\n' >"$TMP/docs/design-direction.md"
+printf '# investigating\n' >"$TMP/docs/investigating/demo.md"
 printf '# prototype log\n' >"$TMP/docs/design/prototype/README.md"
 printf 'selected\n' >"$TMP/docs/design/prototype/selected.py"
 printf 'rejected\n' >"$TMP/docs/design/prototype/rejected.py"
 printf '<html>loser</html>\n' >"$TMP/docs/design/mockup/loser.html"
 cat >"$TMP/.factory/multi-model-workflow/task.json" <<'JSON'
-{"docs":{"design":"docs/design"},"prototype":{"status":"accepted","log":"docs/design/prototype/README.md","selected":["docs/design/prototype/selected.py"]}}
+{"docs":{"design":"docs/design","investigating":"docs/investigating/demo"},"prototype":{"status":"accepted","log":"docs/design/prototype/README.md","selected":["docs/design/prototype/selected.py"]}}
 JSON
 git -C "$TMP" add docs
 git -C "$TMP" commit -qm docs
@@ -110,6 +112,22 @@ BUILD_PROMPT="$WT/.factory/multi-model-workflow/worker-dispatch/prompt.md"
 grep -q 'prototype/README.md' "$BUILD_PROMPT" && grep -q 'prototype/selected.py' "$BUILD_PROMPT" \
   && ! grep -q 'prototype/rejected.py' "$BUILD_PROMPT" && ! grep -q 'mockup/loser.html' "$BUILD_PROMPT" \
   && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"
+grep -q 'docs/design-direction.md' "$BUILD_PROMPT" && grep -q 'docs/investigating/demo.md' "$BUILD_PROMPT" \
+  && ok "Droid 旧布局 direction/investigating 进入下游" || no "Droid 旧布局伴随材料缺失"
+
+TASK_JSON="$TMP/.factory/multi-model-workflow/task.json"; cp "$TASK_JSON" "$TMP/task-backup.json"
+mv "$TMP/docs/design/prototype/selected.py" "$TMP/docs/design/prototype/selected.tmp"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.factory/worktrees/guard-missing" >/dev/null 2>&1; then no "missing selected"; else ok "missing selected fails closed"; fi
+mv "$TMP/docs/design/prototype/selected.tmp" "$TMP/docs/design/prototype/selected.py"
+mkdir -p "$TMP/outside-evidence"; ln -s "$TMP/outside-evidence" "$TMP/docs/design/evidence"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.factory/worktrees/guard-symlink" >/dev/null 2>&1; then no "symlink evidence"; else ok "symlink evidence fails closed"; fi
+rm "$TMP/docs/design/evidence"
+jq '.prototype=null' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.factory/worktrees/guard-old" >/dev/null 2>&1; then no "old untracked prototype"; else ok "old untracked prototype fails closed"; fi
+cp "$TMP/task-backup.json" "$TASK_JSON"
+jq '.approval={reports:["docs/design/prototype/README.md","docs/design/prototype/selected.py"],fingerprint:"stale"}' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.factory/worktrees/guard-stale" >/dev/null 2>&1; then no "stale approval"; else ok "stale approval fails closed"; fi
+cp "$TMP/task-backup.json" "$TASK_JSON"
 echo "$OUT" | grep -q 'WORKER_BACKEND=droid-exec' && ok "real Droid exec backend" || no "Droid exec backend"
 STATUS="$(wait_status "$WT")"
 echo "$STATUS" | grep -q 'WORKER_STATUS=COMPLETED' && ok "worker completes with durable status" || no "worker status"

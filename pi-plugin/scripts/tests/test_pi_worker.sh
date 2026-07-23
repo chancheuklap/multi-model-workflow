@@ -72,6 +72,20 @@ grep -q 'prototype/README.md' "$BUILD_PROMPT" && grep -q 'prototype/selected.py'
   && ! grep -q 'prototype/rejected.py' "$BUILD_PROMPT" && ! grep -q 'mockup/loser.html' "$BUILD_PROMPT" \
   && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"
 
+TASK_JSON="$TMP/.pi/multi-model-workflow/task.json"; cp "$TASK_JSON" "$TMP/task-backup.json"
+mv "$TMP/docs/design/prototype/selected.py" "$TMP/docs/design/prototype/selected.tmp"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.pi/worktrees/guard-missing" >/dev/null 2>&1; then no "missing selected"; else ok "missing selected fails closed"; fi
+mv "$TMP/docs/design/prototype/selected.tmp" "$TMP/docs/design/prototype/selected.py"
+mkdir -p "$TMP/outside-evidence"; ln -s "$TMP/outside-evidence" "$TMP/docs/design/evidence"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.pi/worktrees/guard-symlink" >/dev/null 2>&1; then no "symlink evidence"; else ok "symlink evidence fails closed"; fi
+rm "$TMP/docs/design/evidence"
+jq '.prototype=null' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.pi/worktrees/guard-old" >/dev/null 2>&1; then no "old untracked prototype"; else ok "old untracked prototype fails closed"; fi
+cp "$TMP/task-backup.json" "$TASK_JSON"
+jq '.approval={reports:["docs/design/prototype/README.md","docs/design/prototype/selected.py"],fingerprint:"stale"}' "$TMP/task-backup.json" >"$TASK_JSON"
+if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$TMP/.pi/worktrees/guard-stale" >/dev/null 2>&1; then no "stale approval"; else ok "stale approval fails closed"; fi
+cp "$TMP/task-backup.json" "$TASK_JSON"
+
 # 未验收(可能在飞)禁止重派
 if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$WT" >/dev/null 2>&1; then
   no "pending worker must not be duplicated"

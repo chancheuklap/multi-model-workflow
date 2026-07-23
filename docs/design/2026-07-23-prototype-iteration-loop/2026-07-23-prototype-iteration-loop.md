@@ -65,7 +65,7 @@ prototype 继续属于 design 阶段，不增加顶层 phase。引擎必须让�
 | `active` | `checkpoint --verdict accepted` | `accepted` | 记录通过结论并钉住 selected |
 | `active` | `checkpoint --verdict superseded` | `superseded` | 记录方向失效，回执要求退回 propose |
 | `accepted` | `checkpoint --verdict continue` | `active` | 收到新反馈后重新打开，进入下一轮并清空 selected |
-| `superseded` | `start` | `active` | 在同一日志追加新的验证问题，重新从第 1 轮开始 |
+| `superseded` | `start` | `active` | 在同一日志追加新的验证问题，并沿用下一全局轮次 |
 
 active 状态重复 `start` 必须非零退出并打印已有状态与续作指令。accepted 状态重复 `start` 必须要求用 `checkpoint --verdict continue` 重新打开。
 

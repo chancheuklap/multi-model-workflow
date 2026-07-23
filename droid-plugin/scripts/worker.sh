@@ -73,36 +73,92 @@ design_dir_of() {
   elif [ -d "$parent/$base" ]; then printf '%s' "$parent/$base";
   else printf '%s' "$parent"; fi
 }
+emit_companion_rel() {
+  local task_root="$1" rel="$2"
+  [ -e "$task_root/$rel" ] || return 0
+  mmw_prototype_relpath_syntax_ok "$rel" || { echo "ERROR: 伴随材料路径非法:$rel" >&2; return 1; }
+  mmw_prototype_path_has_symlink "$task_root" "$rel" \
+    && { echo "ERROR: 伴随材料路径含软链:$rel" >&2; return 1; }
+  printf '%s\n' "$task_root/$rel"
+}
+
+validate_task_approval() {
+  local task_root="$1" man="$2" stored current rel untracked status selected
+  status="$(jq -r 'if .prototype == null then "" else (.prototype.status // "BROKEN") end' "$man")"
+  case "$status" in
+    active|superseded|BROKEN) echo "ERROR: prototype 状态未收敛:$status" >&2; return 1 ;;
+    "")
+      untracked="$(mmw_prototype_untracked_paths "$task_root" "$man")" || return 1
+      [ -z "$untracked" ] || { echo "ERROR: 存在未登记 prototype/mockup；退回 design 后按 mmw where 执行 start --adopt" >&2; return 1; } ;;
+    accepted)
+      selected="$(mmw_prototype_selected_relpaths "$man")" || return 1
+      while IFS= read -r rel; do
+        [ -n "$rel" ] || continue
+        mmw_prototype_validate_artifact "$task_root" "$man" "$rel" || return 1
+      done <<<"$selected" ;;
+    *) echo "ERROR: prototype 状态损坏:$status" >&2; return 1 ;;
+  esac
+  stored="$(jq -r '.approval.fingerprint // empty' "$man")"
+  [ -n "$stored" ] || return 0
+  local -a args=()
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    mmw_prototype_relpath_syntax_ok "$rel" || { echo "ERROR: approval report 路径非法:$rel" >&2; return 1; }
+    [ -e "$task_root/$rel" ] || { echo "ERROR: approval report 不存在:$rel" >&2; return 1; }
+    mmw_prototype_path_has_symlink "$task_root" "$rel" \
+      && { echo "ERROR: approval report 路径含软链:$rel" >&2; return 1; }
+    args+=(--report "$rel")
+  done < <(jq -r '.approval.reports[]?' "$man")
+  [ "${#args[@]}" -gt 0 ] || { echo "ERROR: approval 缺 reports" >&2; return 1; }
+  current="$(cd "$task_root" && bash "$SCRIPT_DIR/note.sh" fingerprint "${args[@]}")" || return 1
+  [ "$current" = "$stored" ] || { echo "ERROR: 设计确认已过期；先重新 /approve-design" >&2; return 1; }
+}
+
+validate_task_root() {
+  local task_root="$1" man
+  man="$(mmw_prototype_manifest_from_top "$task_root")" || return 0
+  [ -f "$man" ] || return 0
+  validate_task_approval "$task_root" "$man"
+}
+
 design_companions() {
-  local m top man rel design_rel task_root
-  for m in evidence direction.md investigating.md; do
-    [ -e "$1/$m" ] && printf '%s\n' "$1/$m"
-  done
+  local m top man rel design_rel task_root selected investigating_rel prefix
   top="$(git -C "$1" rev-parse --show-toplevel 2>/dev/null || true)"
   [ -n "$top" ] || return 0
   man="$(mmw_prototype_manifest_from_top "$top")" || return 0
   [ -f "$man" ] || return 0
   design_rel="$(mmw_prototype_design_rel "$man")"
   task_root="$top"
-  if [ "$design_rel" = "." ]; then
-    task_root="$1"
-  else
-    case "$1" in */"$design_rel") task_root="${1%/"$design_rel"}" ;; esac
+  prefix="$(git -C "$1" rev-parse --show-prefix 2>/dev/null || true)"; prefix="${prefix%/}"
+  if [ -n "$prefix" ]; then
+    case "$1" in */"$prefix") task_root="${1%/"$prefix"}" ;; esac
   fi
+  validate_task_approval "$task_root" "$man" || return 1
+  emit_companion_rel "$task_root" "$design_rel/evidence" || return 1
+  emit_companion_rel "$task_root" "$design_rel/direction.md" || return 1
+  emit_companion_rel "$task_root" "${design_rel}-direction.md" || return 1
+  investigating_rel="$(jq -r '.docs.investigating // empty' "$man")"
+  if [ -n "$investigating_rel" ]; then
+    emit_companion_rel "$task_root" "$investigating_rel" || return 1
+    emit_companion_rel "$task_root" "${investigating_rel}.md" || return 1
+  fi
+  emit_companion_rel "$task_root" "$design_rel/investigating.md" || return 1
+  selected="$(mmw_prototype_selected_relpaths "$man")" || return 1
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
     mmw_prototype_validate_artifact "$task_root" "$man" "$rel" \
       || { echo "ERROR: accepted prototype 伴随材料无效:$rel" >&2; return 1; }
     printf '%s\n' "$task_root/$rel"
-  done < <(mmw_prototype_selected_relpaths "$man")
+  done <<<"$selected"
 }
 companion_prompt_lines() {
   [ -n "$1" ] || return 0
-  local c
+  local c companions
+  companions="$(design_companions "$1")" || return 1
   while IFS= read -r c; do
     [ -n "$c" ] || continue
     echo "  - $c"
-  done < <(design_companions "$1")
+  done <<<"$companions"
 }
 
 build_prompt() {
@@ -123,7 +179,7 @@ PROMPT
   local ddir="" companions=""
   if [ -n "$design" ]; then
     ddir="$(design_dir_of "$design")"
-    companions="$(companion_prompt_lines "$ddir")"
+    companions="$(companion_prompt_lines "$ddir")" || return 1
   fi
   cat <<PROMPT
 你是落地执行者,被主线程派进一个 worktree 落地一份计划。
@@ -468,6 +524,7 @@ cmd_resume() {
   esac; done
   [ -d "$wt" ] || die "worktree 不存在:$wt"
   [ -f "$instr" ] || die "--instructions 文件不存在:$instr"
+  validate_task_root "$wt" || die "任务设计确认或 prototype 状态无效"
   local st pkg meta state session model effort system_prompt disabled_tools
   local run_wt native_branch native_root native_repo
   st="$(state_for "$wt")"; pkg="$wt/$st/worker-dispatch"
@@ -510,8 +567,9 @@ cmd_plan_dispatch() {
   case "$issue" in "$wt"/*) ;; *) die "--issue 必须位于任务 worktree:$issue" ;; esac
   local ddir companions="" c
   ddir="$(design_dir_of "$design")"
-  while IFS= read -r c; do [ -n "$c" ] && companions="$companions$c
-"; done < <(design_companions "$ddir")
+  companions="$(design_companions "$ddir")" || die "讨论态材料校验失败"
+  [ -z "$companions" ] || companions="$companions
+"
   mmw_ensure_wt_state_ignore "$wt"
   local st ns pkg start prompt meta system_prompt system_source disabled_tools baseline issue_baseline
   local sandbox branch sandbox_plan sandbox_design sandbox_issue sandbox_info sandbox_companions=""
@@ -579,6 +637,7 @@ cmd_plan_resume() {
     --instructions) instr="$2"; shift 2 ;; *) die "未知参数:$1" ;;
   esac; done
   [ -f "$instr" ] || die "--instructions 文件不存在:$instr"
+  validate_task_root "$wt" || die "任务设计确认或 prototype 状态无效"
   local st ns pkg meta state session model effort system_prompt disabled_tools sandbox
   local task_design task_issue sandbox_info sandbox_plan sandbox_design sandbox_issue start
   local task_plan_baseline task_issue_baseline
@@ -606,9 +665,11 @@ cmd_plan_resume() {
     plan_sandbox_overlay "$wt" "$sandbox" "$task_issue"
     plan_sandbox_overlay "$wt" "$sandbox" "$plan"
     local c
+    local resume_companions
+    resume_companions="$(design_companions "$(design_dir_of "$task_design")")" || die "讨论态材料校验失败"
     while IFS= read -r c; do
       [ -n "$c" ] && plan_sandbox_overlay "$wt" "$sandbox" "$c"
-    done < <(design_companions "$(design_dir_of "$task_design")")
+    done <<<"$resume_companions"
     start="$(git -C "$sandbox" rev-parse HEAD)"
     capture_plan_baseline "$sandbox" "$pkg/worktree-baseline.json" \
       || die "无法刷新 plan writer worktree 边界基线"

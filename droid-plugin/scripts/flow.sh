@@ -98,6 +98,9 @@ cmd_handoff() {
   tc="$(jq -r .turnaround_count "$m")"
   gate="$(jq -r '.gate // empty' "$m")"   # "" = 不在审闸;非空 = 正在该阶段审 loop 里
   slug="$(jq -r .slug "$m")"
+  if [ "$cur_phase" = design ] && [ "$conclusion" = pass ]; then
+    die "[design] 禁止 handoff pass；离开 design 的唯一出口是用户 /approve-design → mmw approve"
+  fi
   # 本阶段是不是 review-gated(routes.review_gates)
   gated=no
   jq -e --arg p "$cur_phase" '(.review_gates // {}) | has($p)' "$ROUTES" >/dev/null 2>&1 && gated=yes
