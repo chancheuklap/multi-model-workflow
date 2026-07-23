@@ -1,5 +1,0 @@
-interface:
-  display_name: "暂放当前步骤"
-  short_description: "留阻塞记录并继续可执行工作"
-policy:
-  allow_implicit_invocation: false

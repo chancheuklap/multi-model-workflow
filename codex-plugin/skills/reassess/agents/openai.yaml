@@ -1,5 +1,0 @@
-interface:
-  display_name: "重新判断 MMW"
-  short_description: "从磁盘和 Git 现场重建判断"
-policy:
-  allow_implicit_invocation: true

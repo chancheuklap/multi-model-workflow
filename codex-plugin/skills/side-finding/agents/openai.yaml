@@ -1,5 +1,0 @@
-interface:
-  display_name: "处置计划外发现"
-  short_description: "把计划外项开 issue 或当场修"
-policy:
-  allow_implicit_invocation: false
