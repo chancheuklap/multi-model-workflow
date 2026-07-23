@@ -6,7 +6,7 @@
 >
 > **审不记账**:没有覆盖清单登记、没有轮账。收口看产物——findings 原样落盘留痕文件,亲验标处置,文末写总 verdict;审闸 pass 时引擎只核「留痕文件在且含 verdict」(报告在 = 审真跑过,这是写者≠审者的证据面);质量与 Critical 处置是你的判断,机器不数你的动作。
 
-红线:**写者≠验者**(设计/计划作者与审者不同家;pi 用 a/b 双 pi 钉死)。
+红线：**写者≠验者**。设计和计划由 GPT 主线程/工人撰写，因此 design、plan 审查只用外部第二模型；develop 终审和 merge 集成审按 brief 混合 native GPT 与第二模型。
 
 ---
 
@@ -16,7 +16,7 @@
 |---|---|---|---|
 | 设计预审 | design 自检过后**agent 自起**(不是闸;结果给用户参考,人闸是 `/approve-design`) | `design` | 轴A 设计内容 / 轴B 项目对齐 |
 | ② 计划审 | plan pass → 引擎审闸(phase 冻住,`mmw where` 吐 `review_start` 照跑) | `plan` | 轴A 覆盖与质量 / 轴B 合规与交叉验证 |
-| ④ final | build pass → 引擎审闸(同上) | `final` | **固定四个 Agent**:模型 A、B 各审基线1与基线2;双模型 × 双角度冗余 |
+| ④ final | build pass → 引擎审闸(同上) | `final` | small-change/bug 一名第二模型审双基线；develop 按 diff/风险使用两审或四审，具体由 brief 定编制 |
 
 另有 **③ 落地合同门**:build 内部机器合同检查(`--stage plan-impl`,不派审者)——anchors 节为空脚本直接放行;有实体合同由 build 流程驱动(build-b B5)人工核,方法论在 `plan-impl.md`。
 
@@ -26,7 +26,7 @@
    mmw review start --stage <design|plan|final> --source "<源意图路径/待审内容>"
    ```
    审闸内直接用 `mmw where` 吐的 `review_start` 整行(stage 与 `--source` 都填好)。它出**派发指南**(`状态平面/review-brief.md`),你照打印的往下走。
-2. **直接派审者**:读 brief 按「派审者」段用 Task 派 `reviewer-*`，**一律 `async: true` 并行**（单条消息 `tasks` 数组或多次 async 单派），各自干净 context、读 `worktree-review` skill 出结构化 findings。**禁止前台阻塞式串跑双轴**——主线程要能同时看 fleet / 处理其它事，回执齐了再亲验。**别塞你自己的问题清单。**
+2. **直接派审者**：brief 已把每个 slot 的完整 prompt 渲染到状态平面。native slot 用 `spawn_agent(fork_turns="none")`，第二模型 slot 用唯一 `second-review.sh` Adapter。先启动全部 slot，再等待；不得串行跑双轴，也不得用 GPT 补第二模型失败的 slot。每个 provider 读取同一份方法和 Source，回执齐后再亲验。
 3. **留痕(收口的硬核)**:全部审者的结构化 findings **原样落盘**到 `docs/reviews/<slug>-<stage>.md`(不重写、不摘要);亲验后每条的 verdict/处置就近标在该条下,文末写一句总 verdict。收口只回读 verdict 段,findings 全文压在留痕里、不长驻主线程 context。留痕是过程产物(docs/.gitignore 已忽略,随 worktree 删)。
 
 ## 2. 收回亲验 + 处置(裁判权在你,不在审者)
@@ -79,7 +79,7 @@ pass 前先写 `docs/<slug>-final-review.md`(照 `mmw where` 的 `then` 钉 `--p
 
 ## 3. 守住的红线
 
-- 写者≠验者:①用 `reviewer-design-a/b`,②用 `reviewer-plan-a/b`,④固定并行派 `reviewer-final-a`×2 + `reviewer-final-b`×2,分别覆盖两条基线。prompt 一律指向 plugin 内 `worktree-review` skill。
+- 写者≠验者：design、plan 的两个轴都由独立第二模型 slot 审；final 和 merge 的 native/第二模型编制只认 `review-slots.json`。第二模型 Adapter 缺失、超时、非零或空输出时留在审闸，不换 provider。
 - 每条 finding 引 `file:line` 原文才采信;主线程亲验 + 四问后才 accept。
 - ③ 不判断、只核合同;重判预算砸 ④final。
 - 审者给证据,你给放行;你不是审者的传声筒。

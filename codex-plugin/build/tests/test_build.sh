@@ -109,6 +109,17 @@ else
   no "安装 cache 缺 native plan/build worker 运行面"
 fi
 
+if [ -f "$installed_path/scripts/review.sh" ] \
+  && [ -f "$installed_path/scripts/second-review.sh" ] \
+  && [ -f "$installed_path/agents-roster/reviewer.md" ] \
+  && bash -n "$installed_path/scripts/review.sh" "$installed_path/scripts/second-review.sh" \
+  && grep -q 'spawn_agent' "$installed_path/scripts/review.sh" \
+  && ! grep -qE 'Claude|Gemini|codex exec' "$installed_path/scripts/second-review.sh"; then
+  ok "安装 cache 内的 native/second review 运行面完整"
+else
+  no "安装 cache 缺 review 运行面"
+fi
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
