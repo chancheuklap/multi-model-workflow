@@ -434,6 +434,17 @@ echo "$ERR_WF" | grep -q "仅 develop 可用" && ok "bug+--with-wayfind 被拒" 
 WNW="$(newtask develop 2026-07-05-nw)"
 [ "$(jq -r '.phases[0]' "$WNW/${STATE_SUBDIR}/task.json")" = "investigate" ] && ok "无 flag develop phases 不变(回归)" || no "无 flag phases 漂移"
 
+# ===== Droid 单文件/目录设计布局：where 必须解析为唯一真实主文档 =====
+WDL="$(newtask develop 2026-07-05-design-layout)"
+mkf "$WDL" docs/investigating/2026-07-05-design-layout.md
+( cd "$WDL" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/2026-07-05-design-layout.md >/dev/null )
+mkf "$WDL" docs/design/2026-07-05-design-layout-direction.md
+( cd "$WDL" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-07-05-design-layout-direction.md >/dev/null )
+mkf "$WDL" docs/design/2026-07-05-design-layout.md
+WDL_OUT="$(cd "$WDL" && bash "$FLOW" where)"
+echo "$WDL_OUT" | grep -q '^then=.*--produced docs/design/2026-07-05-design-layout.md；' \
+  && ok "Droid where 解析单文件设计真实路径" || no "Droid where 单文件布局仍模糊"
+
 # ===== note 书签(三源回报之一) =====
 ( cd "$WNF" && bash "$NOTE" note set --text "下一步先对齐計費口徑" >/dev/null )
 ( cd "$WNF" && bash "$NOTE" note show ) | grep -q "下一步先对齐計費口徑" && ok "note set/show 书签留读" || no "note 书签"

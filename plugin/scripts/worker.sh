@@ -114,7 +114,7 @@ build_prompt() {  # $1=plan $2=worktree $3=design $4=issue $5=测试薄层相对
 ${3:+- 设计文档(意图/合同边界/发布风险): $3
 }${4:+- 你的 issue(What to build / Acceptance / Blocked by): $4
 }- 你的计划(实施唯一权威): $1
-${companions:+- 讨论态材料(与设计文档同源;mockup=视觉权威——UI 照它改造不重写,prototype=实现种子——状态机/逻辑以它为起点):
+${companions:+- 讨论态材料(prototype 仅含 accepted README + selected；selected 是 UI/状态逻辑实现起点):
 $companions
 }$(test_sheet_lines "$5")
 
@@ -134,7 +134,7 @@ build_plan_prompt() {  # $1=落点 $2=worktree $3=design $4=issue $5=讨论态�
 开工前读这几份(绝对路径,顺序读):
 ${3:+- 源设计文档(architecture / 合同边界 / Cross-Plan Contract Anchors): $3
 }${4:+- 你负责的大 issue(What to build;## Small issues 若为 PENDING 你来拆): $4
-}${5:+- 讨论态材料(与设计文档同源;mockup=视觉权威,prototype=实现种子):
+}${5:+- 讨论态材料(prototype 仅含 accepted README + selected；只采用 selected):
 $5
 }$(test_sheet_lines "$6")
 
@@ -342,7 +342,7 @@ cmd_plan_dispatch() {
   preflight_skill worktree-plan
   preflight_doc "设计文档(--design)" "$design"
   preflight_doc "issue(--issue)" "$issue"
-  # 讨论态材料(mockup/prototype/evidence/direction/investigating)由脚本从设计文档路径机械推导,不传旗标
+  # 讨论态材料由脚本机械推导；prototype 只传 accepted README + selected，不传旗标
   local companions; companions="$(companion_prompt_lines "$(design_dir_of "$design")")"
   # 写计划方法论(task-pack / 自检)在 worktree-plan skill 自己的 references/,工人读 skill 自取,dispatch 不再传路径。
   local st; st="$(state_for "$wt")"; mkdir -p "$wt/$st"

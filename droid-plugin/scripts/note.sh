@@ -7,7 +7,7 @@
 #       确认设计(用户显式过门后由主线程执行;用户口头同意不算,必须走 /approve-design 命令进来):
 #       盖承重文档指纹(白名单第 4 条:防「确认的是 A、执行的是 B」)→ 记录确认 → attendance→afk →
 #       在 design 阶段则推进到下一阶段;已过门后重跑 = 设计修订后的重新确认(只重盖指纹,不动阶段)。
-#       指纹只盖 --report 指到的承重文档(主设计 + 被引用合同文档);evidence/prototype 追加不作废确认。
+#       指纹盖主设计、被引用合同，以及 accepted prototype 的 README + selected；未选候选和普通 evidence 不进确认面。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

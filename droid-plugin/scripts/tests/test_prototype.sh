@@ -52,6 +52,7 @@ printf '# design\n' >"$WT/$MAIN_DESIGN"
 # 未启动 prototype 时 design 出口也必须指向 pin/预审/人闸，不得误导 agent 走 handoff pass。
 WHERE_EMPTY="$(cd "$WT" && bash "$MMW" where)"
 echo "$WHERE_EMPTY" | grep -q '^then=.*pin --phase design' \
+  && echo "$WHERE_EMPTY" | grep -q -- "--produced ${MAIN_DESIGN}；" \
   && echo "$WHERE_EMPTY" | grep -q '/approve-design' \
   && ! echo "$WHERE_EMPTY" | grep -q '^then=.*handoff --conclusion' \
   && ok "design where 给正确唯一出口" || no "design where 仍误导 handoff"

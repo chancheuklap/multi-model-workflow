@@ -12,6 +12,7 @@ design 阶段成文后:保存前自己逐条过,过了起设计预审、再请�
 - [ ] 失败路径自问（答不上就是决策缺口）：每个真实失败面——触发条件？谁捕获？用户看到什么？对应哪条验收？零静默失败，禁 catch-all；缺口补进方案设计或 Open Decisions
 - [ ] 非平凡数据流 / 状态机 / 管线有 ASCII 图
 - [ ] **按输入类型**：Bug→current/desired/复现/regression；Issue→source/验收/依赖/AFK-HITL；UI→每个 mockup 拆成可验收行为、交互状态表填全
+- [ ] 触发 prototype 时，`mmw where` 显示 `prototype_status=accepted`；只把 `prototype_selected` 回灌为状态、交互、视觉契约和验收，未选候选没有进入设计合同
 - [ ] 触碰合同 / 发布风险时对应节已填、anchors 占位在；各 section 无矛盾、无歧义需求
 
 触碰不变量 / 合同 / 数据权威 / 权限 / 计费 / 发布风险时,尤其确保上面每条都过。

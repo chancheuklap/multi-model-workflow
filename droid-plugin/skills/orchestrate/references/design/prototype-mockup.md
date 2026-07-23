@@ -1,37 +1,103 @@
-# Design · prototype 步(设计涉 UI/UX 时读这一份)
+# Design · prototype 迭代（触发时只读这一份）
 
-> 触发:设计触 UI/UX,或状态模型非平凡(多状态 / 复杂转移 / 时序)。**只在设计涉这两类时读本文**,纯后端 / 纯逻辑设计跳过。
+> 触发：设计涉及 UI/UX，或存在多状态、复杂转移、并发、回滚、时序等非平凡状态模型。纯后端且状态逻辑简单时跳过。
 >
-> 定位:prototype 是设计阶段的**正式产出**。两个分开的活,各有产物,产物回灌设计文档。**Hard Gate**:定稿前必须呈现并取得用户确认。
-> 原型走查过、mockup 元素拆进验收后,回 `design-doc-template.md` 成文;纯后端/逻辑设计不走本文。
+> prototype 是 design 阶段内层循环，不是新阶段。`task.json.prototype` 记当前轮次，`docs/design/<slug>/prototype/README.md` 逐轮记反馈、改动、验证和结论。每次进入或恢复都先跑 `mmw where`，照它给的 `load / do / then` 继续。
 
-## 活一:prototype 脚本验证(验状态模型 / 流程逻辑)
+## 资产边界
 
-设计含状态机、流程分支、时序时,**先验逻辑跑得通再定 UI**:用 `prototype` skill 把状态模型 / 转移 / 边界做成可跑原型,验"这套状态 + 转移真能覆盖成功 / 失败 / 空 / 并发 / 回滚"。
+- 逻辑原型持续放在 `docs/design/<slug>/prototype/`；UI 候选持续放在 `docs/design/<slug>/mockup/`。它们是正式设计资产，原地迭代并随设计提交，不另起临时原型、临时分支或新目录重做。
+- 当前轮的截图、测试输出等验证证据放在 `docs/design/<slug>/prototype/runs/<三位轮次>/`，如第 2 轮放 `runs/002/`。
+- `prototype/README.md` 由 `mmw prototype` 追加维护，不手改、不覆盖。源码保留当前形态，历史版本由 Git 保存。
+- 大型供应商/API/性能取证属于 `evidence-campaign.md`，不混进本循环。
 
-- **落点**:prototype 脚本存设计目录 `docs/design/<slug>/prototype/`——它是设计的可执行证据,随设计文档一起提交进 git,不散落别处、不当临时文件丢(**覆盖上游 `prototype` skill 的 throwaway 默认**:它新版让原型进临时分支、不进 main;本流程里它是实现种子,必须随设计入 git)。
-- 验出来的状态清单、合法转移、非法转移(被挡住的) → 写进设计文档「状态模型」节 + acceptance(每条转移一条可验断言)。
-- 验不通 = 状态模型设计有洞,回 Step 4 改方向细化,别带着洞往 mockup 走。
+## 开始或恢复
 
-## 活二:html mockup(定 UI/UX 视觉与交互)
+先跑：
 
-设计含界面时,**定稿前出 html mockup 把视觉 / 交互定死**,不靠散文描述 UI:
+```bash
+mmw where
+```
 
-- 生成:`frontend-design` plugin 出高品质 html 原型。
-- 打磨 / 审计:`impeccable` plugin 过视觉层级 / 可访问性 / anti-pattern / UX copy / 空态 / 错误态 / 响应式。
-- 落点:html 产物存设计目录 `docs/design/<slug>/mockup/`(设计目录已是多文件形态,不新建 scaffold)。
+按输出处理：
 
-**mockup 质量门(生成后逐条对照,命中 = 重做):**
-- UI 硬规则:先分 marketing/app/hybrid;定义 CSS 变量色系;不用默认字体栈;每区块只干一件事;删 30% 文案更好就删;标签可见;标题贴它引导的区块;空状态是功能(温度 + 主操作 + 上下文);无障碍(键盘 / ARIA / 触控 ≥44px / 对比 ≥4.5:1 / 正文 ≥16px)。
-- AI Slop 黑名单:紫/靛渐变;3 列图标圆圈对称重复;图标塞彩色圆圈装饰;全部居中;统一大圆角;装饰 blob/波浪 SVG;emoji 当设计元素;卡片彩色左边框;套话 hero 文案;千篇一律等高节奏;system-ui 当正文字体。
+- `prototype_status=active`：读 `prototype_log`、`prototype_artifacts`、`prototype_question` 和 `prototype_run`，在现有产物上完成当前轮；禁止重新 start。
+- `prototype_status=accepted`：把 `prototype_selected` 回灌设计文档。收到新反馈需要再改时，用文末的重新打开命令。
+- `prototype_status=superseded`：照 `then` 回 propose，禁止继续修旧原型。
+- `prototype_untracked=...`：照 `then` 给出的完整 `start --adopt` 命令接管全部旧产物，禁止删除后重建。
+- 没有 prototype 状态且本设计触发原型：登记唯一验证问题；一个循环只验证一个能判真假的问题。
 
-**节奏由用户驱动**:用户要做 mockup 时给足时间,不催促、不并行启动后续阶段、不替用户决定何时定稿。
+```bash
+mmw prototype start \
+  --kind <logic|ui|mixed> \
+  --question '<本轮循环要判真的问题>' \
+  --run '<可重复执行的运行或预览命令>'
+```
 
-## 回灌设计文档(硬要求)
+## 每轮怎么做
 
-mockup 是**平级源头工件**。定稿后**原子级拆解写进设计文档**,不能只在文档里留个目录路径让下游自己看图:
+1. 先读日志与现有产物，只做回答当前验证问题所需的最小改动；保留已经确认的状态、交互、视觉和文案。
+2. 运行 `prototype_run`。逻辑原型覆盖成功、失败、空、非法转移、并发和回滚中实际存在的边界；UI 原型覆盖目标 viewport、加载、空、错误、成功和部分完成中实际存在的状态。
+3. 把当前产物和运行结果呈现给用户走查。记录用户的原话或明确假设，不替用户宣布定稿，不并行进入 plan/build。
+4. 把本轮事实一次写入 checkpoint。`--artifact`、`--evidence` 可重复；所有路径用 worktree 相对路径。
 
-- 每个界面元素 / 状态 / 交互 / 文案 → 拆成一条可验收的 acceptance criteria(下游 plan / build / 验收照条做,不靠"对着图猜")。
-- 视觉契约(布局 / 间距 / 配色 / 组件)→ 设计文档「UI 契约」节,引 mockup 文件名 + 锚点。
-- mockup 与设计文档冲突时以**确认后的 mockup**为准,反写设计文档对齐。
+继续下一轮：
 
+```bash
+mmw prototype checkpoint \
+  --feedback '<用户反馈或本轮假设>' \
+  --change '<基于上一轮实际改了什么>' \
+  --result '<怎么验证、结果是什么>' \
+  --artifact docs/design/<slug>/<prototype|mockup>/<文件> \
+  --evidence docs/design/<slug>/prototype/runs/<轮次>/<证据文件> \
+  --verdict continue
+```
+
+用户明确接受当前候选后定稿；`--selected` 只列后续 plan/build 应采用的最终产物，可重复：
+
+```bash
+mmw prototype checkpoint \
+  --feedback '<用户确认内容>' \
+  --change '<本轮实际改动>' \
+  --result '<最终走查结果>' \
+  --artifact docs/design/<slug>/<prototype|mockup>/<文件> \
+  --selected docs/design/<slug>/<prototype|mockup>/<最终产物> \
+  --verdict accepted
+```
+
+验证证明选定方向本身不成立时：
+
+```bash
+mmw prototype checkpoint \
+  --feedback '<击穿方向的事实>' \
+  --change '<本轮实际改动>' \
+  --result '<验证结果>' \
+  --verdict superseded
+```
+
+然后照回执运行回 propose 的 `mmw handoff`，不在旧方向上另造一版。
+
+accepted 后收到新反馈，先只登记重新打开，不提前填写尚未发生的改动或结果：
+
+```bash
+mmw prototype checkpoint --feedback '<新反馈>' --verdict continue
+```
+
+## 原型质量
+
+### 状态与流程
+
+prototype 是实现种子。状态机、reducer、schema、type shape 使用仓库语言和业务命名；每个合法转移和被拒绝的非法转移都可执行验证。不得用只为演示 happy path 的假逻辑代替真实状态边界。
+
+### UI 与 mockup
+
+用已装的前端设计与界面审计 skill 生成、打磨 HTML；结构与视觉是实现起点，技术栈在 build 时按仓库规范改造。
+
+质量门：先区分 marketing/app/hybrid；定义色彩变量；不用默认字体栈；标签可见；标题贴对应区块；空状态有上下文与主操作；键盘、ARIA、触控尺寸、对比度和正文字号符合可访问性要求。禁用紫/靛渐变模板、三列图标圆圈、装饰圆圈、全居中、统一大圆角、装饰 blob/波浪、emoji 充当设计元素、彩色左边框卡片、套话 hero 和千篇一律等高节奏。
+
+## accepted 后回灌
+
+- 把选中逻辑原型的状态、合法/非法转移、schema 和结论写进设计文档；每条行为对应可执行验收。
+- 把选中 mockup 的每个界面元素、状态、交互和文案原子级拆成 acceptance criteria；视觉契约写布局、间距、配色和组件，并指向具体 selected 文件。
+- 冲突时以用户确认的 selected 产物为准，反写设计文档对齐。
+- 未选中的候选留作迭代历史，不传给 plan/build。回灌完成后才走 design self-check、设计预审和 `/approve-design`。

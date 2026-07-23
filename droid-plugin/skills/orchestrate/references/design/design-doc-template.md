@@ -33,7 +33,7 @@ investigate 与讨论中坐实的事实,逐条带引用(file:line / url)。现�
 - **失败路径贴着真实流程写**:每个真实失败面有名字——触发条件 / 谁捕获 / 用户看到什么 / 账务或数据动作;条件 / 场景写在动作前;失败面多时用表(失败 / 触发 / 谁捕获 / 用户看到 / 动作 / 对应验收项)。禁 catch-all,零静默兜底。
 - **业务对象、角色和状态**(涉及新增 / 改变的对象、状态、权限时单独一节):对象 / owner / writer / reader / verifier / 状态与生命周期;稳定术语同步进领域文档。
 - **可观测性是范围不是事后**:新代码路径要带的日志 / 审计 / 告警作为交付物写明(验收可断言)。
-- 不贴大段实现代码;prototype 产出的 state machine / reducer / schema / type shape 比散文精确时内联,注明来自 prototype。
+- 不贴大段实现代码；仅可内联 accepted `prototype_selected` 中更精确的 state machine / reducer / schema / type shape，并注明具体 selected 文件。未选候选不进入设计合同。
 
 ## 测试和验收
 - 测试 seam:优先已有 seam,选能覆盖目标行为的最高层;**seam 越少越好,理想数量是一**;需要新 seam 提在最高点,取舍理由写进本节(纯技术决策自己定,不单独找用户确认——整份设计文档过 /approve-design 时用户自然过目)。
@@ -48,7 +48,7 @@ boundary type / owner / provider / consumer / 合同类型 / schema 版本 / 登
 涉及 migration / billing / permission / runtime / cross-service / deploy order / rollback / manual gate 时填,否则整节删;新交付物(CLI / 包 / 镜像 / 独立应用)补"用户怎么拿到它"(发布渠道 + CI)。部署不是原子的——为部分状态、回滚、feature flag 留计划;写清可逆性(双向门 / 单向门)。
 
 ## UI / UX 状态
-有界面才写,否则整节删。mockup 目录:docs/design/<slug>/mockup/(prototype-mockup.md 产出)。
+有界面才写,否则整节删。只引用 `prototype_selected` 中已确认的 `docs/design/<slug>/mockup/` 文件。
 **Mockup 是可视化设计文档,与文字设计文档地位平等。** 每个 mockup 原子级拆成可验收的行为描述,不能只写"见 mockup 目录":
 
 | 页面 / 组件 | Mockup 文件 | Viewport | 视觉规格 | 交互行为 | 状态变体 | 验证方式 |

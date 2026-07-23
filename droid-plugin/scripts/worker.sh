@@ -133,7 +133,7 @@ PROMPT
 ${design:+- 设计文档:$design
 }${issue:+- 负责的 issue:$issue
 }- 实施计划:$plan
-${companions:+- 讨论态材料(与设计文档同源;mockup=视觉权威——UI 照它改造不重写,prototype=实现种子——状态机/逻辑以它为起点):
+${companions:+- 讨论态材料(prototype 仅含 accepted README + selected；selected 是 UI/状态逻辑实现起点):
 $companions
 }$(test_sheet_lines "$sheet")
 
@@ -153,7 +153,7 @@ build_plan_prompt() {
 开工前依次读:
 ${design:+- 源设计文档:$design
 }${issue:+- 负责的大 issue:$issue
-}${companions:+- 讨论态材料(与设计文档同源;mockup=视觉权威,prototype=实现种子):
+}${companions:+- 讨论态材料(prototype 仅含 accepted README + selected；只采用 selected):
 $companions
 }$(test_sheet_lines "$sheet")
 

@@ -67,7 +67,7 @@
     },
     "design": {
       "load": "references/design/discussion.md",
-      "do": "拿已定方向与用户讨论出设计(HITL 集中在此;方法顺序:讨论→按需 prototype-mockup.md→按 design-doc-template.md 成文→design-self-check.md 自检;大缺口走取证战役 evidence-campaign.md)。成文自检后自动跑一次设计预审(mmw review start --stage design,结果给用户参考,不是闸),然后请用户 /approve-design 过门——唯一人闸,用户显式命令才放行,过门由 mmw approve 推进+放权,不走 handoff pass",
+      "do": "拿已定方向与用户讨论出设计(HITL 集中在此;方法顺序:讨论→按需读 prototype-mockup.md 并用 mmw prototype 逐轮到 accepted→按 design-doc-template.md 成文→design-self-check.md 自检;大缺口走取证战役 evidence-campaign.md)。成文自检后自动跑一次设计预审(mmw review start --stage design,结果给用户参考,不是闸),然后请用户 /approve-design 过门——唯一人闸,用户显式命令才放行,过门由 mmw approve 推进+放权,不走 handoff pass",
       "produced": "docs/design/<slug>.md 或 docs/design/<slug>/(多文件目录形态)",
       "reads": [
         "investigate",

@@ -457,6 +457,17 @@ cmd_where() {
   fi
   slug="$(jq -r '.slug' "$m")"
 
+  # Droid 兼容既有单文件/目录设计布局，但 where 必须解析成一条真实路径，不把二选一留给 agent。
+  local design_base design_main design_folder_main top_design pinned_design
+  design_base="$(jq -r '.docs.design // empty' "$m")"
+  design_main="${design_base}.md"
+  design_folder_main="$design_base/$(basename "$design_base").md"
+  top_design="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
+  [ -n "$top_design" ] && [ -f "$top_design/$design_folder_main" ] && design_main="$design_folder_main"
+  while IFS= read -r pinned_design; do
+    case "$pinned_design" in "$design_main"|"${design_base}.md"|"$design_folder_main") design_main="$pinned_design" ;; esac
+  done < <(jq -r '(.phase_outputs.design // [])[]' "$m")
+
   # design 内层 prototype：phase 不变，但 load/do/then 必须恢复到精确轮次，不能让 agent 重建或误走 handoff。
   local prototype_status="" prototype_untracked="" prototype_adopt_args="" prototype_rel
   if [ "$phase" = design ] && { [ "$gate" = null ] || [ -z "$gate" ]; }; then
@@ -519,7 +530,7 @@ cmd_where() {
         if [ -n "$prototype_untracked" ]; then
           then_cmd="$MMW prototype start --adopt --kind <logic|ui|mixed> --question '<待验证问题>' --run '<运行命令>'$prototype_adopt_args"
         else
-          then_cmd="$MMW pin --phase design --produced docs/design/$slug/$slug.md；然后起设计预审并请用户 /approve-design"
+          then_cmd="$MMW pin --phase design --produced ${design_main}；然后起设计预审并请用户 /approve-design"
         fi
         ;;
     esac

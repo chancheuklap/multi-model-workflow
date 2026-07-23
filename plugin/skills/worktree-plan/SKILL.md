@@ -16,7 +16,7 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
 - **两份写作方法论(本 skill `references/` 下,按需到那步现读)**:
   - `references/task-pack.md`(写每个 pack 时读):Task Pack 模板 + TDD 步骤 + 无 Placeholder + 不合格信号 + 测试规划严谨度 / 覆盖追踪 / 回归铁律 / 反模式,一份读完。
   - `references/plan-self-check.md`(返回前读):交付前自检 + Pack 就绪门。
-- **mockup / prototype / 其他讨论态材料**(派发消息给了才有):mockup 每页视觉规格 / 交互 / 状态变体拆进对应 pack 的 acceptance criteria——作为具体可验证目标,不是"去看 mockup 目录"的指针;prototype 里的状态机 / reducer / schema shape 是实现种子,pack 的 `Schema / API shapes` 照它内联精确形状,落地者照它改造。
+- **讨论态材料**(派发消息给了才有)：prototype 只会收到 accepted 的迭代 `README.md` 与 selected 文件。仅从 selected 提取状态机 / reducer / schema / UI 规格；把每个状态、交互、视觉变体拆进对应 pack 的 acceptance criteria 和 `Schema / API shapes`。README 用于理解迭代理由，未收到的候选不得自行搜索或复活。evidence / direction / investigating 仍按路径读取。
 
 缺关键上下文(设计文档 / issue / 落点任一缺失,或术语 / 验收不清)→ 返回 `needs-context`,**不自创** plan 结构 / schema shape / UI 方向。
 

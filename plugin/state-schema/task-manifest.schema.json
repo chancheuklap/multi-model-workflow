@@ -9,7 +9,7 @@
     "status", "waiting_for", "phase", "phase_index", "step_index", "gate", "created_at", "updated_at", "plugin_version", "base_commit",
     "branch", "worktree_path", "docs",
     "repair_count", "turnaround_count",
-    "note", "approval", "prototype",
+    "note", "approval",
     "artifacts", "phase_outputs", "open_items", "subtasks", "history"
   ],
   "properties": {

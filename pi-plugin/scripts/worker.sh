@@ -125,7 +125,7 @@ PROMPT
 ${design:+- 设计文档:$design
 }${issue:+- 负责的 issue:$issue
 }- 实施计划:$plan
-${companions:+- 讨论态材料(与设计文档同源;mockup=视觉权威——UI 照它改造不重写,prototype=实现种子——状态机/逻辑以它为起点):
+${companions:+- 讨论态材料(prototype 仅含 accepted README + selected；selected 是 UI/状态逻辑实现起点):
 $companions
 }$(test_sheet_lines "$sheet")
 
@@ -145,7 +145,7 @@ build_plan_prompt() {
 开工前依次读:
 ${design:+- 源设计文档:$design
 }${issue:+- 负责的大 issue:$issue
-}${companions:+- 讨论态材料(与设计文档同源;mockup=视觉权威,prototype=实现种子):
+}${companions:+- 讨论态材料(prototype 仅含 accepted README + selected；只采用 selected):
 $companions
 }$(test_sheet_lines "$sheet")
 
@@ -479,7 +479,7 @@ cmd_plan_dispatch() {
   case "$plan" in "$wt"/*) ;; *) die "--plan 必须位于任务 worktree:$plan" ;; esac
   case "$design" in "$wt"/*) ;; *) die "--design 必须位于任务 worktree:$design" ;; esac
   case "$issue" in "$wt"/*) ;; *) die "--issue 必须位于任务 worktree:$issue" ;; esac
-  # 讨论态材料(mockup/prototype/evidence/direction/investigating)由脚本从设计文档路径机械推导,不传旗标
+  # 讨论态材料由脚本机械推导；prototype 只传 accepted README + selected，不传旗标
   local ddir companions="" c
   ddir="$(design_dir_of "$design")"
   while IFS= read -r c; do [ -n "$c" ] && companions="$companions$c
