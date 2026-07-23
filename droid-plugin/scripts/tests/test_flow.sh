@@ -347,8 +347,40 @@ PREVH="$(echo "$WHD" | sed -n 's/^prev_outputs=//p')"
 echo "$WHD" | grep -q "phase=design" || no "task-h 应在 design"
 echo "$PREVH" | jq -e 'index("docs/investigating/2026-06-29-task-h.md")!=null and index("docs/design/2026-06-29-task-h-direction.md")!=null' >/dev/null \
   && ok "design prev_outputs 含 现状报告 + 方向(跨两阶接力)" || no "design prev_outputs 漏上游 ($PREVH)"
-echo "$WHD" | grep -q "load=references/design/prototype-mockup.md" && ok "design 空状态先加载 prototype 指引" || no "design load"
+echo "$WHD" | grep -q "load=references/design/discussion.md" && ok "design 空状态先加载讨论主指引(讨论→prototype 顺序归数据层)" || no "design load"
+echo "$WHD" | grep -q "then=.*prototype start" && ok "design 空状态 then 备好 prototype start 模板(讨论后的下一步机器命令)" || no "design then start"
 echo "$WHD" | grep -q "^step=" && no "where 不该再报 step 游标" || ok "where 无 step 游标行"
+
+# ===== H2: design 掉头后的 prototype 重定向闭环(superseded+redirected → 重进 design 直接开新一轮) =====
+WPR="$(newtask develop 2026-07-24-task-pr)"
+( cd "$WPR" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 )   # investigate→propose
+( cd "$WPR" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 )   # propose→design
+( cd "$WPR" && bash "$PROTOTYPE" start --kind logic --question "旧方向问题" --run "true" >/dev/null )
+( cd "$WPR" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase propose >/dev/null )
+jq -e '.prototype.status=="superseded" and .prototype.redirected==true and (.prototype.selected|length)==0' \
+  "$WPR/${STATE_SUBDIR}/task.json" >/dev/null \
+  && ok "design 掉头机器盖 superseded+redirected(旧验证问题随方向作废)" || no "design 掉头未盖 redirected"
+( cd "$WPR" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 )   # propose 重定方向→重进 design
+WPRD="$(cd "$WPR" && bash "$FLOW" where)"
+echo "$WPRD" | grep -q "prototype_status=superseded" || no "重进 design 应报 superseded"
+echo "$WPRD" | grep -q "then=.*prototype start" && ok "重定后 where 指路开新一轮 start(不再指回 propose)" || no "重定后 where 未指 start"
+echo "$WPRD" | grep -q "to-phase propose" && no "重定后不该再指回 propose(死循环)" || ok "重定后无回 propose 死循环指路"
+if ( cd "$WPR" && bash "$NOTE" approve --report x.md >/dev/null 2>&1 ); then
+  no "redirected superseded 仍应拒 approve"; else ok "redirected superseded 拒 approve(须新一轮到 accepted)"; fi
+( cd "$WPR" && bash "$PROTOTYPE" start --kind logic --question "新方向问题" --run "true" >/dev/null )
+jq -e '.prototype.status=="active" and .prototype.iteration==2 and (.prototype.redirected // false | not)' \
+  "$WPR/${STATE_SUBDIR}/task.json" >/dev/null \
+  && ok "重定后 start 开新一轮:轮次顺延且 redirected 清除" || no "重定后 start 轮次/标记异常"
+
+# ===== H4: prototype 命令模板三处同步守卫(parser flag ↔ flow then 模板 ↔ prototype-mockup.md) =====
+PROTO_FLAGS="$(grep -oE -- '--(kind|question|run|feedback|change|result|verdict|artifact|evidence|selected|adopt)\)' "$SCRIPT_DIR/../prototype.sh" | tr -d ')' | sort -u)"
+PMOCK="$SCRIPT_DIR/../../skills/orchestrate/references/design/prototype-mockup.md"
+FLAG_SYNC=ok
+for f in $PROTO_FLAGS; do
+  grep -q -- "$f" "$PMOCK" || { FLAG_SYNC="prototype-mockup.md 缺 $f"; break; }
+done
+grep -qE -- '--feedback .*--change .*--result .*--verdict' "$SCRIPT_DIR/../flow.sh" || FLAG_SYNC="flow.sh checkpoint 模板缺核心 flag"
+[ "$FLAG_SYNC" = ok ] && ok "prototype 命令模板三处同步(parser/flow/reference)" || no "prototype 命令模板漂移:$FLAG_SYNC"
 
 # ===== K: where 报执行账本(断点恢复)+ handoff 结论落定收束账本 =====
 lf() { echo "$1/${STATE_SUBDIR}/loop-state.json"; }
