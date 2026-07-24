@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MMW worktree 初始化合同：只调用项目自有 hook，不理解项目生成物或 Graphify 元数据。
+# MMW worktree 初始化合同：项目 hook 优先；普通仓库走唯一用户级图谱生命周期模块。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -12,6 +12,23 @@ no() { echo "not ok - $1"; fail=1; }
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+BIN="$TMP/bin with space"
+mkdir -p "$BIN"
+export PI_GRAPHIFY_TEST_LOG="$TMP/graph-manager.args"
+cat >"$BIN/pi-graphify-ensure" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$@" >"$PI_GRAPHIFY_TEST_LOG"
+if [ "${PI_GRAPHIFY_TEST_FAIL:-0}" = 1 ]; then
+  echo 'fixture graph failure' >&2
+  exit 7
+fi
+echo 'REUSED fixture warnings=0'
+SH
+chmod +x "$BIN/pi-graphify-ensure"
+ORIGINAL_PATH="$PATH"
+export PATH="$BIN:$PATH"
+
 REPO="$TMP/repo"
 TARGET="$TMP/target"
 mkdir -p "$REPO/.pi"
@@ -31,13 +48,16 @@ printf 'seed\n' >"$REPO/seed.txt"
 git -C "$REPO" add -A
 git -C "$REPO" commit -qm base
 git -C "$REPO" worktree add -q "$TARGET" HEAD
+rm -f "$PI_GRAPHIFY_TEST_LOG"
 
-if mmw_prepare_worktree "$REPO" "$TARGET" >/dev/null 2>"$TMP/hook.err" \
+if mmw_prepare_worktree "$REPO" "$TARGET" >"$TMP/hook.out" 2>"$TMP/hook.err" \
+  && [ ! -s "$TMP/hook.out" ] \
   && [ "$(cat "$TARGET/.pi/init-source")" = "$REPO" ] \
-  && [ "$(cat "$TARGET/.pi/init-target")" = "$TARGET" ]; then
-  ok "project worktree hook receives source and target"
+  && [ "$(cat "$TARGET/.pi/init-target")" = "$TARGET" ] \
+  && [ ! -e "$PI_GRAPHIFY_TEST_LOG" ]; then
+  ok "project worktree hook wins over generic graph manager"
 else
-  no "project worktree hook invocation"
+  no "project worktree hook precedence"
 fi
 
 cat >"$TARGET/.pi/worktree-init.sh" <<'SH'
@@ -46,7 +66,8 @@ printf 'fixture failure\n' >&2
 exit 9
 SH
 chmod +x "$TARGET/.pi/worktree-init.sh"
-if mmw_prepare_worktree "$REPO" "$TARGET" >/dev/null 2>"$TMP/fail.err" \
+if mmw_prepare_worktree "$REPO" "$TARGET" >"$TMP/fail.out" 2>"$TMP/fail.err" \
+  && [ ! -s "$TMP/fail.out" ] \
   && grep -q 'WARNING' "$TMP/fail.err" \
   && grep -q 'fixture failure' "$TMP/fail.err"; then
   ok "project hook failure is visible and non-blocking"
@@ -54,8 +75,8 @@ else
   no "project hook failure contract"
 fi
 
-PLAIN="$TMP/plain"
-PLAIN_TARGET="$TMP/plain-target"
+PLAIN="$TMP/plain repo"
+PLAIN_TARGET="$TMP/plain target"
 mkdir -p "$PLAIN"
 git -C "$PLAIN" init -q
 git -C "$PLAIN" config user.email test@example.com
@@ -64,17 +85,39 @@ printf 'plain\n' >"$PLAIN/plain.txt"
 git -C "$PLAIN" add plain.txt
 git -C "$PLAIN" commit -qm plain
 git -C "$PLAIN" worktree add -q "$PLAIN_TARGET" HEAD
-if mmw_prepare_worktree "$PLAIN" "$PLAIN_TARGET" >/dev/null 2>"$TMP/plain.err" \
-  && [ ! -s "$TMP/plain.err" ]; then
-  ok "repository without worktree hook is an exact no-op"
+rm -f "$PI_GRAPHIFY_TEST_LOG"
+EXPECTED_ARGS="$(printf '%s\n' --repo "$PLAIN_TARGET" --source "$PLAIN")"
+if mmw_prepare_worktree "$PLAIN" "$PLAIN_TARGET" >"$TMP/plain.out" 2>"$TMP/plain.err" \
+  && [ ! -s "$TMP/plain.out" ] \
+  && [ "$(cat "$PI_GRAPHIFY_TEST_LOG")" = "$EXPECTED_ARGS" ] \
+  && grep -q 'REUSED fixture' "$TMP/plain.err"; then
+  ok "hook-free repository uses generic graph manager with space-safe paths"
 else
-  no "hook-free repository no-op"
+  no "generic graph fallback contract"
 fi
 
-if ! grep -Eq 'agentflow_build|scripts/dev/knowledge_graph|graphify-out' "$SCRIPT_DIR/../lib/runtime.sh"; then
-  ok "MMW runtime contains no project-specific graph contract"
+if PI_GRAPHIFY_TEST_FAIL=1 mmw_prepare_worktree "$PLAIN" "$PLAIN_TARGET" >"$TMP/generic-fail.out" 2>"$TMP/generic-fail.err" \
+  && [ ! -s "$TMP/generic-fail.out" ] \
+  && grep -q 'fixture graph failure' "$TMP/generic-fail.err" \
+  && grep -q '通用图谱初始化失败' "$TMP/generic-fail.err"; then
+  ok "generic graph failure is visible and non-blocking"
 else
-  no "MMW runtime still knows a project graph schema"
+  no "generic graph failure contract"
+fi
+
+if PATH="/usr/bin:/bin" mmw_prepare_worktree "$PLAIN" "$PLAIN_TARGET" >"$TMP/missing.out" 2>"$TMP/missing.err" \
+  && [ ! -s "$TMP/missing.out" ] \
+  && grep -q '找不到 pi-graphify-ensure' "$TMP/missing.err"; then
+  ok "missing graph manager is visible and non-blocking"
+else
+  no "missing graph manager contract"
+fi
+
+if grep -q 'pi-graphify-ensure' "$SCRIPT_DIR/../lib/runtime.sh" \
+  && ! grep -Eq 'agentflow_build|scripts/dev/knowledge_graph|graphify-out' "$SCRIPT_DIR/../lib/runtime.sh"; then
+  ok "MMW depends only on generic lifecycle interface"
+else
+  no "MMW runtime contains project-specific graph knowledge"
 fi
 
 exit "$fail"
