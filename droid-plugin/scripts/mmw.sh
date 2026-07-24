@@ -30,7 +30,7 @@
 #     mmw investigate start --direction <internal|external|both> --topics <topics.json> --run <id>
 #     mmw investigate status|resume|result --run <id>
 #   任务(入口/收尾,主仓库):
-#     mmw task new --scenario <small-change|develop|bug> --slug <s> --title <t> --request '<用户原始需求与验收条件>' [--direction-given] [--with-wayfind]
+#     mmw task new --scenario <small-change|develop|bug> --slug <s> --title <t> --request '<需求>' --entry-capability <能力>... --entry-evidence '<用户原话或只读证据>' [--direction-given] [--with-wayfind]
 #     mmw task resume | mmw task cleanup --slug <s> | mmw task team(列全队在管 worktree)
 #     mmw task escalate --to develop          bug/小改撞出系统性设计问题→原地升级完整设计路
 #   执行账本(build 派发映射,断点恢复用;只记录不当闸):

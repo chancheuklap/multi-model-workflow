@@ -8,6 +8,19 @@
     "needs-context",
     "blocked"
   ],
+  "entry_policy": {
+    "default": "direct",
+    "orientation": ["locate-owner-seam", "confirm-desired-behavior", "focused-reproduction"],
+    "capabilities": {
+      "explicit-request": "用户明确要求使用 MMW",
+      "durable-state": "任务需要跨会话持久状态",
+      "design-approval": "目标或架构方向需要用户设计审批",
+      "coordinated-delivery": "多个独立交付切片需要协调",
+      "gated-assurance": "风险要求计划审或终审闸保证",
+      "multi-result-integration": "多个既有 worktree 或 PR 需要按业务意图合并"
+    },
+    "non_triggers": ["new-feature", "root-unknown", "multi-file", "multi-step", "read-edit-test", "needs-tests", "ordinary-worktree"]
+  },
   "spinoff_tags": [
     "bug",
     "optimize",
@@ -30,22 +43,22 @@
   "start_options": [
     {
       "scenario": "small-change",
-      "when": "范围明确但仍需独立任务边界与验收的代码改动",
+      "when": "只读定向已确认行为、根因与改法，无需设计，但用户明确要求 MMW，或需要跨会话状态/独立终审",
       "phases_note": "落地→验收→收尾"
     },
     {
       "scenario": "develop",
-      "when": "新想法/功能 或 旧系统优化改造(要设计)",
+      "when": "只读定向确认需要用户设计审批，或多个独立交付切片需要协调",
       "phases_note": "查清→给方案→想方案→拆计划→落地→验收→收尾"
     },
     {
       "scenario": "bug",
-      "when": "bug/报错/regression,根因不明",
+      "when": "只读定向后仍需跨会话调查，或风险要求审闸保证；根因不明本身不触发",
       "phases_note": "查清→落地(修)→验收→收尾"
     },
     {
       "scenario": "merge",
-      "when": "多个并行 worktree/PR 要合并",
+      "when": "多个既有 worktree/PR 需要按业务意图合并",
       "phases_note": "不开 worktree,走 references/scenario/merge.md"
     }
   ],

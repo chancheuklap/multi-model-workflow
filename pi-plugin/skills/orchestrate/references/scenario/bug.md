@@ -1,6 +1,6 @@
-# Bug · 根因不明的修复
+# Bug · 受治理的持续调查 / 修复
 
-> orchestrate 路由到这:**bug / 报错 / regression,根因不明**。这条路从头到尾就读这一份,不用回 SKILL。
+> orchestrate 已按治理能力路由到这：只读定向后仍需跨会话持续调查，或修复风险要求独立终审。根因不明本身不触发 MMW；主线程能在单会话诊断、修复并验证时直接处理。
 > **预设 `bug`**,阶段序列:查清(查根因)→ 落地(修,含 ④终审闸)→ 收尾(investigate→build→closing)。无 design / plan(不走设计/计划的重流程),但**落地产物过后照样进 ④终审闸**(引擎强制,跟 develop 一致)。
 >
 > **三个 bug 专属点**(方法论在各阶段 reference,这里点明这条路怎么用它们):
@@ -16,9 +16,10 @@
 
 2. **一条命令建好**(从本地最新 HEAD 分叉,scaffold docs,写 manifest):
    ```bash
-   mmw task new --scenario bug --slug <slug> --title "<人类可读标题>" --request "<用户原始需求与验收条件>"
+   mmw task new --scenario bug --slug <slug> --title "<人类可读标题>" --request "<用户原始需求与验收条件>" \
+     --entry-capability <治理能力> --entry-evidence "<触发该能力的用户原话或只读定向证据>"
    ```
-   回执给出 `worktree_path`;prepare 把本路径的阶段序列固化进 manifest 的 `phases`。
+   `--entry-capability` 可重复，取值为 `explicit-request`、`durable-state`、`design-approval`、`coordinated-delivery`、`gated-assurance`、`multi-result-integration`；至少传一个。不要把“新功能 / 根因不明 / 多文件”当证据。回执给出 `worktree_path`;prepare 把入口依据和阶段序列固化进 manifest。
    仅 develop:用户开口已带明确方向(不用再摆备选)→ 加 `--direction-given`,propose 阶段引擎自动降级(`where` 的 `do` 会照 manifest 报降级指令:只落方向文档+一个最强对照,不重摆 2-3 方案)。
    仅 develop:终点明确但整件事还在雾里(连要决定什么都还没理清、单会话装不下)→ 加 `--with-wayfind`:phases 前加 wayfind 探路阶段,先与用户逐个拍清决策再进 investigate(`where` 会把 `load` 指到 `references/wayfind.md`)。
 

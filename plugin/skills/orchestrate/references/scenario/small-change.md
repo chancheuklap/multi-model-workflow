@@ -1,6 +1,6 @@
-# Small-change · 需独立任务边界的小改
+# Small-change · 受治理的明确改动
 
-> orchestrate 路由到这:**范围明确,但仍需独立任务边界与验收;根因清楚、不需要设计**。这条路从头到尾就读这一份,不用回 SKILL。
+> orchestrate 已按治理能力路由到这：行为、根因和改法清楚、不需要设计，但用户明确要求 MMW，或任务需要跨会话持久状态 / 独立终审。普通小改由主线程直接处理，不进这条路。
 > **预设 `small-change`**,阶段序列:落地(含 ④终审闸)→ 收尾(build→closing)。无 investigate / design / plan,但**落地产物过后照样进 ④终审闸**(引擎强制,跟 develop 一致)。
 > **动手前轻确认(唯一一次)**:写第一行代码前,把「打算怎么改 + 影响面」一句话给用户,**等他回一句再动**(值守档 afk 也要这一停——这是本路仅有的人闸)。
 > **落地 = 主线程就地 TDD**(不派 Codex):build 阶段按 `mmw where` 报的 `scenario=small-change` 就地 TDD,build 自按 scenario 选落地模式。
@@ -13,9 +13,10 @@
 
 2. **一条命令建好**(从本地最新 HEAD 分叉,scaffold docs,写 manifest):
    ```bash
-   mmw task new --scenario small-change --slug <slug> --title "<人类可读标题>" --request "<用户原始需求与验收条件>"
+   mmw task new --scenario small-change --slug <slug> --title "<人类可读标题>" --request "<用户原始需求与验收条件>" \
+     --entry-capability <治理能力> --entry-evidence "<触发该能力的用户原话或只读定向证据>"
    ```
-   回执给出 `worktree_path`;prepare 把本路径的阶段序列固化进 manifest 的 `phases`。
+   `--entry-capability` 可重复，取值为 `explicit-request`、`durable-state`、`design-approval`、`coordinated-delivery`、`gated-assurance`、`multi-result-integration`；至少传一个。不要把“新功能 / 根因不明 / 多文件”当证据。回执给出 `worktree_path`;prepare 把入口依据和阶段序列固化进 manifest。
    仅 develop:用户开口已带明确方向(不用再摆备选)→ 加 `--direction-given`,propose 阶段引擎自动降级(`where` 的 `do` 会照 manifest 报降级指令:只落方向文档+一个最强对照,不重摆 2-3 方案)。
    仅 develop:终点明确但整件事还在雾里(连要决定什么都还没理清、单会话装不下)→ 加 `--with-wayfind`:phases 前加 wayfind 探路阶段,先与用户逐个拍清决策再进 investigate(`where` 会把 `load` 指到 `references/wayfind.md`)。
 

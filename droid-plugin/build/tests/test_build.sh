@@ -6,7 +6,7 @@ PLUGIN_DIR="$(cd "$HERE/../.." && pwd)"
 BUILD="$PLUGIN_DIR/build/build.sh"
 SCEN="$PLUGIN_DIR/skills/orchestrate/references/scenario"
 FRAG="$PLUGIN_DIR/build/fragments"
-SKILL="$PLUGIN_DIR/skills/orchestrate/SKILL.md"
+ROUTES="$PLUGIN_DIR/state-schema/routes.json"
 
 pass=0; fail=0
 ok(){ echo "  PASS: $1"; pass=$((pass+1)); }
@@ -49,13 +49,13 @@ mv "$FRAG/closing-cleanup.md.bak" "$FRAG/closing-cleanup.md"
 bash "$BUILD" --apply >/dev/null 2>&1
 bash "$BUILD" --check >/dev/null 2>&1 && ok "还原片段重建后 --check 干净" || no "还原重建失败"
 
-# 6. skill 触发面与正文都先排除无需编排的请求
-grep -q "不用于问答、解释、只读查看" "$SKILL" && ok "skill metadata 排除无需编排请求" || no "skill metadata 触发面过宽"
-grep -q "琐碎单步动作.*不跑.*mmw.*不建 worktree" "$SKILL" && ok "入口正文给出直接处理出口" || no "入口正文缺直接处理出口"
-direct_line="$(grep -n '^先判是否需要正式编排' "$SKILL" | cut -d: -f1)"
-step0_line="$(grep -n '^## Step 0' "$SKILL" | cut -d: -f1)"
-[ -n "$direct_line" ] && [ "$direct_line" -lt "$step0_line" ] && ok "直接处理判断先于 mmw where" || no "直接处理判断顺序过晚"
-grep -q '^# Small-change · 需独立任务边界的小改$' "$SCEN/small-change.md" && ok "small-change reference 同步收窄" || no "small-change reference 仍用旧宽口径"
+# 6. 入口策略由结构化路由合同承载；CLI 与 hook 的外部行为由各自测试覆盖。
+jq -e '.entry_policy.default == "direct"' "$ROUTES" >/dev/null \
+  && ok "入口合同默认 direct" || no "入口合同默认值错误"
+jq -e '(.entry_policy.orientation | index("focused-reproduction")) != null and (.entry_policy.capabilities | has("design-approval") and has("gated-assurance"))' "$ROUTES" >/dev/null \
+  && ok "入口合同含只读定向与治理能力" || no "入口合同缺只读定向或治理能力"
+jq -e '(.entry_policy.non_triggers | index("new-feature")) != null and (.entry_policy.non_triggers | index("root-unknown")) != null and (.entry_policy.non_triggers | index("multi-file")) != null' "$ROUTES" >/dev/null \
+  && ok "入口合同排除常见工作形状" || no "入口合同缺非触发器"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

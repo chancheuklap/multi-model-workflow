@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SessionStart 分诊(Droid 原生)
-# 在管任务 worktree:三源回报(书签注记 + 最近提交流水 + 待拍板指引)+ 新鲜度(版本/时效)。
+# 只在在管任务 worktree 注入三源回报与新鲜度；未在管仓库保持静默。
 # 会话开头与恢复各注入一次;不逐条消息注锚。
 set -euo pipefail
 cat >/dev/null 2>&1 || true
@@ -68,11 +68,5 @@ if [ -f "$man" ]; then
   exit 0
 fi
 
-echo "[multi-model-workflow-droid] 会话分诊:需正式编排的开发任务(新功能/系统改造/根因不明的 bug/需独立任务边界的小改/合并 worktree)→ 用 orchestrate skill 进流程(先跑 $MMW where);问答、解释、只读查看和主线程可直接完成并验证的琐碎单步动作 → 直接处理,不进流程。"
-hdr=0
-while IFS= read -r mm; do
-  [ -f "$mm" ] || continue
-  [ "$hdr" = 1 ] || { echo "在飞任务(续跑:进对应 worktree 后 mmw where;全量视图 mmw task team):"; hdr=1; }
-  jq -r '"  - \(.slug)  [\(.scenario)] phase=\(.phase) status=\(.status)  path=\(.worktree_path)"' "$mm" 2>/dev/null || true
-done < <(mmw_foreach_flying_manifest "$top")
+# 未在管仓库默认直接处理；只有 agent 主动选择 MMW 或用户明确续跑时才执行 mmw where。
 exit 0

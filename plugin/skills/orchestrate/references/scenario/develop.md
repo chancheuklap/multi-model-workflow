@@ -1,6 +1,6 @@
-# Develop · 新功能 / 优化改造完整主干
+# Develop · 需设计审批或协调交付的完整主干
 
-> orchestrate 路由到这:**新想法 / 功能,或旧系统优化改造**(要设计)。这条路从头到尾就读这一份,不用回 SKILL。
+> orchestrate 已按治理能力路由到这：只读定向确认目标或架构方向需要用户设计审批，或多个独立交付切片需要协调。新功能、系统改造或优化这些名称本身不触发 MMW。
 > **预设 `develop`**,两态一门:**讨论态**(investigate→propose→design,自由往返、值守 attended、和用户想清楚)→ **唯一人闸**(用户 `/approve-design` 确认设计,引擎盖指纹、切 afk)→ **流水线态**(to-issue→plan→build→package→closing,自主跑)。plan / build 产物过后各被引擎强制审一道闸(②计划审 / ④终审,`mmw where` 的 `review_start` 报);design 的审是过门前的**预审服务**(agent 自起,结果给用户参考),不是闸。
 > HITL 集中在 propose(选方向)/ design(讨论 + 过门);**过门起放权自主跑**,只有缺输入 / 方向疑 / 出站红线才停。
 > **propose 给方案 + 用户拍(选一个进 design,或全否回上游),不在 investigate 也不在 design 里。**
@@ -12,9 +12,10 @@
 
 2. **一条命令建好**(从本地最新 HEAD 分叉,scaffold docs,写 manifest):
    ```bash
-   mmw task new --scenario develop --slug <slug> --title "<人类可读标题>" --request "<用户原始需求与验收条件>"
+   mmw task new --scenario develop --slug <slug> --title "<人类可读标题>" --request "<用户原始需求与验收条件>" \
+     --entry-capability <治理能力> --entry-evidence "<触发该能力的用户原话或只读定向证据>"
    ```
-   回执给出 `worktree_path`;prepare 把本路径的阶段序列固化进 manifest 的 `phases`。
+   `--entry-capability` 可重复，取值为 `explicit-request`、`durable-state`、`design-approval`、`coordinated-delivery`、`gated-assurance`、`multi-result-integration`；至少传一个。不要把“新功能 / 根因不明 / 多文件”当证据。回执给出 `worktree_path`;prepare 把入口依据和阶段序列固化进 manifest。
    仅 develop:用户开口已带明确方向(不用再摆备选)→ 加 `--direction-given`,propose 阶段引擎自动降级(`where` 的 `do` 会照 manifest 报降级指令:只落方向文档+一个最强对照,不重摆 2-3 方案)。
    仅 develop:终点明确但整件事还在雾里(连要决定什么都还没理清、单会话装不下)→ 加 `--with-wayfind`:phases 前加 wayfind 探路阶段,先与用户逐个拍清决策再进 investigate(`where` 会把 `load` 指到 `references/wayfind.md`)。
 
