@@ -20,7 +20,17 @@ git -C "$TMP" init -q
 git -C "$TMP" config user.email test@example.com
 git -C "$TMP" config user.name Test
 echo base > "$TMP/base.txt"
-git -C "$TMP" add base.txt
+mkdir -p "$TMP/scripts/dev/knowledge_graph"
+cat >"$TMP/scripts/dev/knowledge_graph/rebuild.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p graphify-out
+printf '{"graph":{"agentflow_build":{"head_sha":"%s"}},"nodes":[],"links":[]}\n' "$(git rev-parse HEAD)" >graphify-out/graph.json
+: >graphify-out/rebuild-called
+SH
+chmod +x "$TMP/scripts/dev/knowledge_graph/rebuild.sh"
+printf 'graphify-out/\n' >"$TMP/.gitignore"
+git -C "$TMP" add base.txt scripts/dev/knowledge_graph/rebuild.sh .gitignore
 git -C "$TMP" commit -qm base
 
 mkdir -p "$TMP/docs/plans/demo" "$TMP/docs/issues/demo" "$TMP/docs/design"
@@ -40,6 +50,8 @@ cat >"$TMP/.pi/multi-model-workflow/task.json" <<'JSON'
 JSON
 git -C "$TMP" add docs
 git -C "$TMP" commit -qm docs
+mkdir -p "$TMP/graphify-out"
+printf '{"graph":{"agentflow_build":{"head_sha":"%s"}},"nodes":[],"links":[]}\n' "$(git -C "$TMP" rev-parse HEAD)" >"$TMP/graphify-out/graph.json"
 
 WT="$TMP/.pi/worktrees/demo-plan-001"
 RETRIEVAL="$TMP/retrieval.json"
@@ -61,6 +73,9 @@ OUT="$(bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE
 META="$WT/.pi/multi-model-workflow/worker-dispatch/meta.json"
 ACTUAL_WT="$(jq -r .worktree "$META")"
 [ "$(git -C "$ACTUAL_WT" branch --show-current)" = "worker/demo-plan-001" ] && ok "worker branch" || no "worker branch"
+[ "$(jq -r '.graph.agentflow_build.head_sha' "$ACTUAL_WT/graphify-out/graph.json" 2>/dev/null)" = "$(git -C "$ACTUAL_WT" rev-parse HEAD)" ] \
+  && [ ! -e "$ACTUAL_WT/graphify-out/rebuild-called" ] \
+  && ok "pack worker 自动复用同提交结构图" || no "pack worker 结构图准备"
 [ -f "$WT/.pi/multi-model-workflow/worker-dispatch/prompt.md" ] && ok "worker prompt package" || no "worker prompt"
 [ "$(jq -r .agent "$META")" = pack-executor ] && ok "pack executor selected" || no "executor"
 [ "$(jq -r .status "$META")" = dispatched ] && ok "meta status dispatched" || no "meta status"
@@ -160,6 +175,8 @@ bash "$WORKER" verify --worktree "$WT" >/dev/null
 
 TASK_WT="$TMP/task-wt"
 git -C "$TMP" worktree add -q -b task-wt "$TASK_WT" HEAD
+mkdir -p "$TASK_WT/graphify-out"
+cp "$TMP/graphify-out/graph.json" "$TASK_WT/graphify-out/graph.json"
 mkdir -p "$TASK_WT/.pi/multi-model-workflow"
 cat >"$TASK_WT/.pi/multi-model-workflow/task.json" <<'JSON'
 {"docs":{"design":"docs/design"},"prototype":{"status":"accepted","log":"docs/design/prototype/README.md","selected":["docs/design/prototype/selected.py"]},"approval":{"reports":["docs/design/prototype/README.md","docs/design/prototype/selected.py"],"fingerprint":"88b87bf4f460b9ff95c2a557d0ae73586a84bbe5"}}
@@ -171,6 +188,10 @@ OUT2="$(bash "$WORKER" plan-dispatch --plan "$PLAN2" --worktree "$TASK_WT" \
 echo "$OUT2" | grep -q 'agent:"plan-writer"' && ok "plan writer dispatch instruction" || no "plan dispatch"
 META="$TASK_WT/.pi/multi-model-workflow/plan-workers/002/dispatch/meta.json"
 [ "$(jq -r .agent "$META")" = plan-writer ] && ok "plan writer selected" || no "plan writer"
+PLAN_SANDBOX="$(jq -r .worktree "$META")"
+[ "$(jq -r '.graph.agentflow_build.head_sha' "$PLAN_SANDBOX/graphify-out/graph.json" 2>/dev/null)" = "$(git -C "$PLAN_SANDBOX" rev-parse HEAD)" ] \
+  && [ ! -e "$PLAN_SANDBOX/graphify-out/rebuild-called" ] \
+  && ok "plan writer 自动复用同提交结构图" || no "plan writer 结构图准备"
 [ -d "$(dirname "$(jq -r .plan "$META")")" ] \
   && ok "plan writer target directory exists before launch" || no "plan writer target directory"
 PLAN_PROMPT="$TASK_WT/.pi/multi-model-workflow/plan-workers/002/dispatch/prompt.md"

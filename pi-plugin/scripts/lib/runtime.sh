@@ -67,6 +67,50 @@ mmw_enter_worktree_hint() {
   printf '在 worktree 路径继续本任务: cd %s 后跑 mmw where，或在该目录新开 pi 会话' "$1"
 }
 
+mmw_retrieval_graph_head() {
+  local graph="$1"
+  [ -s "$graph" ] || return 1
+  jq -er '.graph.agentflow_build.head_sha | select(type == "string")' "$graph" 2>/dev/null
+}
+
+# 新 worktree 优先复用同提交结构图；没有可复用图时，调用目标项目自带的重建入口。
+# 普通仓库没有该入口就无副作用跳过；重建失败只告警，检索仍可退化到 Serena/源码。
+mmw_prepare_retrieval_graph() {
+  local source_wt="$1" target_wt="$2"
+  local provider="$target_wt/scripts/dev/knowledge_graph/rebuild.sh"
+  local source_graph="$source_wt/graphify-out/graph.json"
+  local target_graph="$target_wt/graphify-out/graph.json"
+  local target_head="" graph_head=""
+
+  [ -f "$provider" ] || return 0
+  target_head="$(git -C "$target_wt" rev-parse HEAD 2>/dev/null || true)"
+  if [ -z "$target_head" ]; then
+    echo "[mmw] WARNING: 无法读取新 worktree HEAD，跳过结构图准备:$target_wt" >&2
+    return 0
+  fi
+
+  graph_head="$(mmw_retrieval_graph_head "$target_graph" || true)"
+  [ "$graph_head" = "$target_head" ] && return 0
+
+  graph_head="$(mmw_retrieval_graph_head "$source_graph" || true)"
+  if [ "$graph_head" = "$target_head" ]; then
+    mkdir -p "$(dirname "$target_graph")"
+    if cp "$source_graph" "$target_graph"; then
+      echo "[mmw] retrieval graph reused: $target_graph" >&2
+      return 0
+    fi
+    echo "[mmw] WARNING: 复用结构图失败，将尝试项目重建:$target_wt" >&2
+  fi
+
+  if (cd "$target_wt" && bash "$provider" >&2) \
+    && [ "$(mmw_retrieval_graph_head "$target_graph" || true)" = "$target_head" ]; then
+    echo "[mmw] retrieval graph rebuilt: $target_graph" >&2
+  else
+    echo "[mmw] WARNING: 新 worktree 结构图准备失败；继续任务并退化到 Serena/源码检索:$target_wt" >&2
+  fi
+  return 0
+}
+
 mmw_plugin_root() {
   cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd
 }

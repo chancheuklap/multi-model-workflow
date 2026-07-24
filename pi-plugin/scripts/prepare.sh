@@ -80,6 +80,7 @@ cmd_new() {
   local base; base="$(git -C "$top" rev-parse HEAD)"
   # 从本地最新 HEAD 分叉
   git -C "$top" worktree add -b "$slug" "$wt" HEAD >&2
+  mmw_prepare_retrieval_graph "$top" "$wt"
 
   # 文档落点:design(单文件夹形态,含 direction/investigating/prototype/mockup/evidence)/ issues / plans 按 slug,context 项目级共享(domain-modeling 维护)
   mkdir -p "$wt/docs/design" "$wt/docs/issues" "$wt/docs/plans" "$wt/docs/context" "$wt/docs/reviews" "$wt/$STATE_SUBDIR"
