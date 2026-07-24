@@ -578,6 +578,7 @@ cmd_plan_dispatch() {
   plan_sandbox_overlay "$wt" "$sandbox" "$design"
   plan_sandbox_overlay "$wt" "$sandbox" "$issue"
   plan_sandbox_overlay "$wt" "$sandbox" "$plan"
+  mkdir -p "$(dirname "$sandbox_plan")"
   local sandbox_companions=""
   while IFS= read -r c; do
     [ -n "$c" ] || continue
@@ -637,6 +638,7 @@ cmd_plan_resume() {
     plan_sandbox_overlay "$wt" "$sandbox" "$task_design"
     plan_sandbox_overlay "$wt" "$sandbox" "$task_issue"
     plan_sandbox_overlay "$wt" "$sandbox" "$plan"
+    mkdir -p "$(dirname "$sandbox_plan")"
     local c
     local resume_companions
     resume_companions="$(design_companions "$(design_dir_of "$task_design")")" || die "讨论态材料校验失败"
@@ -707,7 +709,7 @@ cmd_verify() {
     *) die "未知参数:$1" ;;
   esac; done
   [ -n "$wt" ] || die "--worktree 必填"
-  local st meta start pkg sandbox sandbox_plan sandbox_issue task_issue branch
+  local st meta start pkg sandbox sandbox_plan sandbox_issue task_plan task_issue branch
   local plan_hash issue_hash expected_plan_hash expected_issue_hash
   st="$(state_for "$wt")"
   if [ -n "$plan" ]; then
@@ -722,6 +724,10 @@ cmd_verify() {
   validate_task_root "$task_origin" || die "任务设计确认或 prototype 状态无效"
   echo "META_FILE=$meta"
   if [ -n "$plan" ]; then
+    task_plan="$(jq -r '.task_plan // empty' "$meta")"
+    [ -n "$task_plan" ] || die "派发账本缺 task_plan，不能安全 verify"
+    [ "$plan" = "$task_plan" ] || die "--plan 与派发账本目标不一致:$plan"
+    case "$task_plan" in "$wt"/*) ;; *) die "派发账本 task_plan 不在任务 worktree 内:$task_plan" ;; esac
     if [ "$(jq -r '.published // false' "$meta")" != true ]; then
       start="$(jq -r '.start_sha' "$meta")"
       sandbox="$(jq -r '.worktree' "$meta")"
@@ -733,14 +739,15 @@ cmd_verify() {
         "$pkg/worktree-baseline.json" "$pkg/issue-baseline.md" || return 3
       expected_plan_hash="$(jq -r '.task_plan_baseline' "$meta")"
       expected_issue_hash="$(jq -r '.task_issue_baseline' "$meta")"
-      if [ "$(path_fingerprint "$wt" "${plan#"$wt"/}")" != "$expected_plan_hash" ] \
+      if [ "$(path_fingerprint "$wt" "${task_plan#"$wt"/}")" != "$expected_plan_hash" ] \
         || [ "$(path_fingerprint "$wt" "${task_issue#"$wt"/}")" != "$expected_issue_hash" ]; then
         echo "PLAN_PUBLISH_CONFLICT: 任务 worktree 的目标 plan/issue 在 writer 运行期间被改动" >&2
         return 3
       fi
-      publish_plan_result "$sandbox" "$sandbox_plan" "$sandbox_issue" "$plan" "$task_issue"
-      plan_hash="$(path_fingerprint "$wt" "${plan#"$wt"/}")"
+      publish_plan_result "$sandbox" "$sandbox_plan" "$sandbox_issue" "$task_plan" "$task_issue"
+      plan_hash="$(path_fingerprint "$wt" "${task_plan#"$wt"/}")"
       issue_hash="$(path_fingerprint "$wt" "${task_issue#"$wt"/}")"
+      [ "$plan_hash" != missing ] || die "发布后 plan 缺失，拒绝标记 verified:$task_plan"
       update_meta "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
         --arg plan_hash "$plan_hash" --arg issue_hash "$issue_hash" \
         '.status="verified" | .published=true | .published_at=$at | .published_plan_hash=$plan_hash | .published_issue_hash=$issue_hash' \
@@ -751,7 +758,7 @@ cmd_verify() {
         echo "WARNING: 隔离 worktree 清理失败:$sandbox" >&2
       fi
     fi
-    echo "WORKER_VERIFY=pass(plan 已发布:$plan)"
+    echo "WORKER_VERIFY=pass(plan 已发布:$task_plan)"
   else
     start="$(jq -r '.start_sha' "$meta")"
     check_docs_boundary "$(jq -r .worktree "$meta")" "$start" || return 3
