@@ -1,6 +1,6 @@
 # Retrieval Doctrine · 结构候选与亲验
 
-结构性问题包括调用/引用、连接、依赖路径和影响面。图与语言服务器只缩小搜索空间，源码才是证据。
+用户通常只给业务目标、体验问题或设计方向；主线程和 worker 在自己的调查、设计落地、计划、实现、调试和审查中遇到陌生代码、所有权、数据流、调用链或影响面时主动检索，不等待用户提出技术问题。简单明确的任务不为形式双跑。结构性问题包括调用/引用、连接、依赖路径和影响面；图与语言服务器只缩小搜索空间，源码才是证据。
 
 1. **先拿候选。** Serena 可用时用符号工具；有新鲜 `graphify-out/graph.json` 时用 graphify `query` / `affected` / `path` / `explain`。按问题选合适入口。
 2. **再亲验。** 每项回目标 checkout 用 read/grep 核对。进入 finding、plan、investigating、handoff 或交付物的承重结论必须给 `file:line`。

@@ -44,6 +44,12 @@ for file in \
   skills/worktree-review/references/method.md; do
   grep -q '结构候选' "$PLUGIN/$file" && ok "角色纪律已接入: $file" || no "角色纪律缺失: $file"
 done
+if grep -q '用户通常只给业务目标' "$PLUGIN/skills/orchestrate/references/retrieval-doctrine.md" \
+  && grep -q '不等待用户提出技术问题' "$PLUGIN/skills/orchestrate/references/retrieval-doctrine.md"; then
+  ok "检索由 Agent 在技术工作中主动触发"
+else
+  no "检索主动触发纪律缺失"
+fi
 
 serena_tools='mcp:serena/find_symbol mcp:serena/find_referencing_symbols mcp:serena/get_symbols_overview mcp:serena/find_implementations'
 roles='code-explorer investigate-topic plan-writer pack-executor pack-executor-capable reviewer-design-a reviewer-design-b reviewer-plan-a reviewer-plan-b reviewer-final-a reviewer-final-b'
