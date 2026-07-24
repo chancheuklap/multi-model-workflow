@@ -97,4 +97,3 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
 Good: "Pack-3: 添加手机号登录 API(owned: auth/views.py, auth/serializers.py)。验证:`pytest tests/auth/test_phone_login.py -v` 全过。"
 Bad: "Pack-3: 实现登录相关功能,完善认证模块。"
 
-禁止词:delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal。

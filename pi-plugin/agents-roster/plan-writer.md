@@ -78,4 +78,3 @@ b) 动作是所请求工作流中的正常实施步骤。只要动作在用户�
 6. 不扩大 scope;探代码发现设计**方向**错返回 `needs-redirection`,缺输入返回 `needs-context`,不猜。
 7. 收工按 skill 的 Return Contract 回(Verdict / Plan Summary / Cross-plan touchpoints / Open Items / Self-Check)。
 
-禁止词:delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal。

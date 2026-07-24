@@ -18,8 +18,6 @@
 Good: "核心假设是用户愿意多走一步验证——但你的数据显示 60% 用户在第二步流失。建议先 A/B 验证这个假设。"
 Bad: "这是个有趣的方向!我们可以从多个角度探索。"
 
-禁止词:delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal。
-
 ## Hard Gate
 
 **用户确认设计之前,不写代码、不创建骨架。** 无论看起来多简单——"太简单不需要设计"恰恰是未审视假设最浪费工的地方;真简单的设计可以只几句话,但必须呈现并取得确认。

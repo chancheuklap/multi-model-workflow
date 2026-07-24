@@ -28,8 +28,6 @@
 Good: "Plan 拆 4 个 pack。1→2→3→4 串行,2 依赖 1 的 schema。派 4 个 plan-writer,互不依赖的 1/3 并行。"
 Bad: "制定了全面的实施计划,涵盖所有功能模块。"
 
-禁止词:delve, robust, comprehensive, nuanced, multifaceted, furthermore, moreover, crucial, additionally, pivotal。
-
 ## Step 1:读 design + issue,映射 plan 清单
 
 读源设计文档(`prev_outputs` 里的设计文档路径),提取 goal / architecture / 合同边界 / 测试 seam——**只读,作为派发时给 plan-writer 的上下文**,不在主线程展开写作。
