@@ -24,7 +24,7 @@
 
 `enter_worktree` 把会话迁进 worktree 后,在该路径继续并运行 `mmw where`。Coordinator 的任务 worktree 由 `prepare.sh` 建立；Pack worker 和 plan writer 的隔离 worktree 由 `worker.sh` 建立，工人 prompt 里钉死该 worktree 绝对路径，工人的所有操作必须落在它下面。所有工作角色都是会话内 Agent 子代理；主线程工作目录不随工人切换。
 
-MMW 建立上述三类 worktree 后，只在目标仓库提供 `.pi/worktree-init.sh` 时调用它，并传入来源与目标 worktree 路径。生成物、复用和 freshness 全由项目负责；初始化失败会明确告警但不阻断任务。
+MMW 建立上述三类 worktree 后，优先调用目标仓库的 `.pi/worktree-init.sh`；没有项目 hook 时调用用户级 `pi-graphify-ensure`，按来源与目标工作树内容复用或重建原生图谱。两条初始化路径都不污染机器 stdout，失败会明确告警但不阻断任务；首次复杂检索会再次 ensure。
 
 ## 角色花名册
 
