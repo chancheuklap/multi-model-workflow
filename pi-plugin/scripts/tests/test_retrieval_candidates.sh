@@ -68,5 +68,23 @@ node --input-type=module -e '
 ' "$PLUGIN/workflows/investigate-internal.workflow.js" \
   && ok "internal workflow 接入严格候选与盲区说明" || no "internal workflow 候选接线缺失"
 
+REVIEW_REPO="$TMP/review-repo"
+git -C "$TMP" init -q review-repo
+git -C "$REVIEW_REPO" config user.email test@example.com
+git -C "$REVIEW_REPO" config user.name Test
+printf 'seed\n' >"$REVIEW_REPO/seed.txt"
+git -C "$REVIEW_REPO" add seed.txt
+git -C "$REVIEW_REPO" commit -qm seed
+(cd "$REVIEW_REPO" && bash "$PLUGIN/scripts/review.sh" start --stage final --source seed.txt --retrieval-candidates "$TMP/valid.json" >/dev/null)
+REVIEW_STATE="$REVIEW_REPO/.pi/multi-model-workflow"
+jq -e 'length == 1 and .[0].query == "affected app"' "$REVIEW_STATE/retrieval-candidates-final.json" >/dev/null \
+  && grep -q 'affected app' "$REVIEW_STATE/review-brief.md" && grep -q '源码 Read/grep/rg 亲验' "$REVIEW_STATE/review-brief.md" \
+  && ok "review start 真入口快照并传递候选" || no "review start 真入口候选接线"
+if (cd "$REVIEW_REPO" && bash "$PLUGIN/scripts/review.sh" start --stage final --source seed.txt --retrieval-candidates relative.json >/dev/null 2>&1); then
+  no "review start 接受相对候选路径"
+else
+  ok "review start 真入口 fail-closed"
+fi
+
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

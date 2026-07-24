@@ -102,13 +102,21 @@ git -C "$TMP" add docs
 git -C "$TMP" commit -qm docs
 
 WT="$TMP/.factory/worktrees/demo-plan-001"
-OUT="$(bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$WT" 2>&1)"
+RETRIEVAL="$TMP/retrieval.json"
+cat >"$RETRIEVAL" <<'JSON'
+[{"tool":"serena","query":"find worker entrypoint","status":"unsupported","locators":["droid-plugin/scripts/worker.sh:1"],"summary":"worker candidate","fallback_reason":"dynamic import unsupported"}]
+JSON
+OUT="$(bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$WT" --retrieval-candidates "$RETRIEVAL" 2>&1)"
 META="$WT/.factory/multi-model-workflow/worker-dispatch/meta.json"
 ACTUAL_WT="$(jq -r .worktree "$META")"
 [ "$(git -C "$ACTUAL_WT" branch --show-current)" = "worker/demo-plan-001" ] && ok "worker branch" || no "worker branch"
 [ -f "$WT/.factory/multi-model-workflow/worker-dispatch/prompt.md" ] && ok "worker prompt package" || no "worker prompt"
 [ "$(jq -r .droid "$META")" = pack-executor ] && ok "pack executor selected" || no "executor"
 BUILD_PROMPT="$WT/.factory/multi-model-workflow/worker-dispatch/prompt.md"
+jq -e 'length == 1 and .[0].query == "find worker entrypoint"' "$WT/.factory/multi-model-workflow/worker-dispatch/retrieval-candidates.json" >/dev/null \
+  && ok "dispatch 快照规范化结构候选" || no "dispatch 结构候选快照"
+grep -q 'find worker entrypoint' "$BUILD_PROMPT" && grep -q '上游 Serena 候选' "$BUILD_PROMPT" \
+  && ok "dispatch prompt 携带候选与宿主边界" || no "dispatch prompt 候选接线"
 grep -q 'prototype/README.md' "$BUILD_PROMPT" && grep -q 'prototype/selected.py' "$BUILD_PROMPT" \
   && ! grep -q 'prototype/rejected.py' "$BUILD_PROMPT" && ! grep -q 'mockup/loser.html' "$BUILD_PROMPT" \
   && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"

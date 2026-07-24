@@ -42,6 +42,10 @@ git -C "$TMP" add docs
 git -C "$TMP" commit -qm docs
 
 WT="$TMP/.pi/worktrees/demo-plan-001"
+RETRIEVAL="$TMP/retrieval.json"
+cat >"$RETRIEVAL" <<'JSON'
+[{"tool":"graphify","query":"find worker entrypoint","status":"used","locators":["pi-plugin/scripts/worker.sh:1"],"summary":"worker candidate","fallback_reason":"source verification required"}]
+JSON
 
 # 未注册角色 fail-closed
 if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$WT" >/dev/null 2>&1; then
@@ -53,7 +57,7 @@ for role in pack-executor pack-executor-capable plan-writer; do
   : >"$PI_CODING_AGENT_DIR/agents/$role.md"
 done
 
-OUT="$(bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$WT" 2>&1)"
+OUT="$(bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$WT" --retrieval-candidates "$RETRIEVAL" 2>&1)"
 META="$WT/.pi/multi-model-workflow/worker-dispatch/meta.json"
 ACTUAL_WT="$(jq -r .worktree "$META")"
 [ "$(git -C "$ACTUAL_WT" branch --show-current)" = "worker/demo-plan-001" ] && ok "worker branch" || no "worker branch"
@@ -68,6 +72,10 @@ echo "$OUT" | grep -q 'mmw worker verify' && ok "dispatch points to verify gate"
 grep -q "$ACTUAL_WT" "$WT/.pi/multi-model-workflow/worker-dispatch/prompt.md" \
   && ok "prompt pins absolute worktree path" || no "prompt worktree pin"
 BUILD_PROMPT="$WT/.pi/multi-model-workflow/worker-dispatch/prompt.md"
+jq -e 'length == 1 and .[0].query == "find worker entrypoint"' "$WT/.pi/multi-model-workflow/worker-dispatch/retrieval-candidates.json" >/dev/null \
+  && ok "dispatch 快照规范化结构候选" || no "dispatch 结构候选快照"
+grep -q 'find worker entrypoint' "$BUILD_PROMPT" && grep -q '源码 Read/grep/rg 亲验' "$BUILD_PROMPT" \
+  && ok "dispatch prompt 携带候选与亲验证据纪律" || no "dispatch prompt 候选接线"
 grep -q 'prototype/README.md' "$BUILD_PROMPT" && grep -q 'prototype/selected.py' "$BUILD_PROMPT" \
   && ! grep -q 'prototype/rejected.py' "$BUILD_PROMPT" && ! grep -q 'mockup/loser.html' "$BUILD_PROMPT" \
   && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"
