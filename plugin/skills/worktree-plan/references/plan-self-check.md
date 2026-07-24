@@ -2,6 +2,7 @@
 
 ## 自检（保存前逐条过）
 
+- **检索亲验**：图/LSP 只用于候选发现；plan 中每个承重路径、类型、函数、fixture 和影响面结论都已回到目标 checkout 用 `rg`/Read 坐实。工具不可用或图缺失/过期时已诚实退化，不把“没查图”伪装成阻塞。
 - **spec 覆盖**：逐条扫 source design / issue 需求，每条能指到一个实现它的 Task；缺口补上。
 - **类型一致**：后续 task 用的类型 / 签名 / 字段名与前文定义一致（Task 3 `clearLayers()` 但 Task 7 `clearFullLayers()` 就是 bug）。
 - **过度设计（删减）**：为一个 small issue 新增多个长期对象但只要一个可验证行为 / 提前塞未来功能 / 无重复证据就抽 shared helper / 全大套矩阵无 pack-local focused command。

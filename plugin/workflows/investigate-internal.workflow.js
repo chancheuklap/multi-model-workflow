@@ -1,6 +1,6 @@
 export const meta = {
   name: 'investigate-internal',
-  description: '查仓库现状:主线程传入 topics,每题一个只读 agent 并行查代码(Read/grep/Glob,locator=file:line),取证过滤后综合成带引用现状报告。只查内部,不碰外部。',
+  description: '查仓库现状:结构问题有图/LSP时先拿候选，再 Read/grep/Glob 亲验；不可用时退化。主线程传入 topics,每题一个只读 agent 并行查代码，取证过滤后综合成带引用现状报告。只查内部,不碰外部。',
   whenToUse: '投查方向 = 内部仓库现状(模块边界/seam/数据流/根因)。主线程定好 topics 后跑;外部方案另跑 investigate-external。',
   phases: [
     { title: 'Investigate', detail: '每 topic 一个只读 agent,运行时 invoke 角度 skill,只读查代码' },
@@ -80,7 +80,8 @@ function topicPrompt(t) {
     `专题角度:${t.angle}`,
     `要回答:${t.question}`,
     loadSkill,
-    `调查目标仓库现状:模块边界 / seam / 数据流 / 根因。只读,用 Read/grep/Glob,每条结论给 file:line。`,
+    `调查目标仓库现状:模块边界 / seam / 数据流 / 根因。结构性问题(谁调用/引用、连接、依赖路径、影响面)在 Serena 可用或 graphify-out/graph.json 新鲜时先用 LSP/graphify 拿候选,再用 Read/rg 逐项亲验并给 file:line;工具不可用、图缺失/过期或查询歧义时直接用现行 Read/rg,不报错不阻塞。`,
+    `summary 第一行固定写 retrieval: graphify <query|affected|path|explain>、retrieval: Serena <actual-tool-name>、或 retrieval: fallback rg/Read (<missing|stale|unavailable|ambiguous>);这行只记采用轨迹,不能替代 finding locator。`,
     `红线:取证不判定——只摆事实和出处,绝不提方案、选 A/B、下设计结论(那是后面 design 的事)。`,
     `没查清的诚实写进 gaps,不要编。撞到与本题无关的 bug/旁路优化记进 summary 末尾,别顺手修。`,
     `返回结构化结果(schema 强制)。`,
