@@ -638,6 +638,7 @@ cmd_plan_resume() {
     plan_sandbox_overlay "$wt" "$sandbox" "$task_design"
     plan_sandbox_overlay "$wt" "$sandbox" "$task_issue"
     plan_sandbox_overlay "$wt" "$sandbox" "$plan"
+    mkdir -p "$(dirname "$sandbox_plan")"
     local c
     local resume_companions
     resume_companions="$(design_companions "$(design_dir_of "$task_design")")" || die "讨论态材料校验失败"

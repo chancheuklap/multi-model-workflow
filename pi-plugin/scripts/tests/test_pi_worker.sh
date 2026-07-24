@@ -217,10 +217,13 @@ bash "$WORKER" plan-check --plan "$PLAN2" --worktree "$TASK_WT" >/dev/null &&
 
 PLAN_INSTR="$TMP/plan-instructions.md"
 printf 'tighten the existing plan\n' >"$PLAN_INSTR"
+rm "$PLAN2"
 PLAN_RESUME="$(bash "$WORKER" plan-resume --plan "$PLAN2" --worktree "$TASK_WT" --instructions "$PLAN_INSTR")"
 RESUME_SANDBOX="$(jq -r .worktree "$META")"
 echo "$PLAN_RESUME" | grep -q 'agent:"plan-writer"' && [ -d "$RESUME_SANDBOX" ] \
   && ok "plan resume recreates isolated worktree" || no "plan resume isolation"
+[ -d "$(dirname "$(jq -r .plan "$META")")" ] \
+  && ok "plan resume target directory exists before launch" || no "plan resume target directory"
 printf '# generated\n' >"$(jq -r .plan "$META")"
 printf '# issue\n\n## Small issues\n- child issue\n' >"$(jq -r .issue "$META")"
 bash "$WORKER" verify --plan "$PLAN2" --worktree "$TASK_WT" >/dev/null
