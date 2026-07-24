@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MMW 创建新 worktree 时准备结构图：同提交复用、否则调用项目重建，失败可见但不阻断。
+# MMW worktree 初始化合同：只调用项目自有 hook，不理解项目生成物或 Graphify 元数据。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -14,55 +14,44 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 REPO="$TMP/repo"
 TARGET="$TMP/target"
-mkdir -p "$REPO/scripts/dev/knowledge_graph"
+mkdir -p "$REPO/.pi"
 git -C "$REPO" init -q
 git -C "$REPO" config user.email test@example.com
 git -C "$REPO" config user.name Test
-cat >"$REPO/scripts/dev/knowledge_graph/rebuild.sh" <<'SH'
+cat >"$REPO/.pi/worktree-init.sh" <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
-if [ "${MMW_TEST_REBUILD_FAIL:-0}" = 1 ]; then
-  exit 9
-fi
-mkdir -p graphify-out
-head_sha="$(git rev-parse HEAD)"
-printf '{"graph":{"agentflow_build":{"head_sha":"%s"}},"nodes":[],"links":[]}\n' "$head_sha" >graphify-out/graph.json
-: >graphify-out/rebuild-called
+source_wt="$1"
+target_wt="$2"
+printf '%s\n' "$source_wt" >"$target_wt/.pi/init-source"
+printf '%s\n' "$target_wt" >"$target_wt/.pi/init-target"
 SH
-chmod +x "$REPO/scripts/dev/knowledge_graph/rebuild.sh"
-printf 'graphify-out/\n' >"$REPO/.gitignore"
+chmod +x "$REPO/.pi/worktree-init.sh"
 printf 'seed\n' >"$REPO/seed.txt"
 git -C "$REPO" add -A
 git -C "$REPO" commit -qm base
-HEAD_SHA="$(git -C "$REPO" rev-parse HEAD)"
 git -C "$REPO" worktree add -q "$TARGET" HEAD
 
-mkdir -p "$REPO/graphify-out"
-printf '{"graph":{"agentflow_build":{"head_sha":"%s"}},"nodes":[],"links":[]}\n' "$HEAD_SHA" >"$REPO/graphify-out/graph.json"
-mmw_prepare_retrieval_graph "$REPO" "$TARGET" >/dev/null 2>"$TMP/reuse.err"
-if [ "$(jq -r '.graph.agentflow_build.head_sha' "$TARGET/graphify-out/graph.json")" = "$HEAD_SHA" ] \
-  && [ ! -e "$TARGET/graphify-out/rebuild-called" ]; then
-  ok "same-HEAD graph is reused without rebuild"
+if mmw_prepare_worktree "$REPO" "$TARGET" >/dev/null 2>"$TMP/hook.err" \
+  && [ "$(cat "$TARGET/.pi/init-source")" = "$REPO" ] \
+  && [ "$(cat "$TARGET/.pi/init-target")" = "$TARGET" ]; then
+  ok "project worktree hook receives source and target"
 else
-  no "same-HEAD graph reuse"
+  no "project worktree hook invocation"
 fi
 
-rm -rf "$TARGET/graphify-out"
-printf '{"graph":{"agentflow_build":{"head_sha":"stale"}},"nodes":[],"links":[]}\n' >"$REPO/graphify-out/graph.json"
-mmw_prepare_retrieval_graph "$REPO" "$TARGET" >/dev/null 2>"$TMP/rebuild.err"
-if [ -f "$TARGET/graphify-out/rebuild-called" ] \
-  && [ "$(jq -r '.graph.agentflow_build.head_sha' "$TARGET/graphify-out/graph.json")" = "$HEAD_SHA" ]; then
-  ok "stale source graph invokes target rebuild"
+cat >"$TARGET/.pi/worktree-init.sh" <<'SH'
+#!/usr/bin/env bash
+printf 'fixture failure\n' >&2
+exit 9
+SH
+chmod +x "$TARGET/.pi/worktree-init.sh"
+if mmw_prepare_worktree "$REPO" "$TARGET" >/dev/null 2>"$TMP/fail.err" \
+  && grep -q 'WARNING' "$TMP/fail.err" \
+  && grep -q 'fixture failure' "$TMP/fail.err"; then
+  ok "project hook failure is visible and non-blocking"
 else
-  no "target rebuild for stale source graph"
-fi
-
-rm -rf "$TARGET/graphify-out" "$REPO/graphify-out"
-if MMW_TEST_REBUILD_FAIL=1 mmw_prepare_retrieval_graph "$REPO" "$TARGET" >/dev/null 2>"$TMP/fail.err" \
-  && grep -q 'WARNING' "$TMP/fail.err"; then
-  ok "rebuild failure warns without blocking worktree flow"
-else
-  no "non-blocking visible rebuild failure"
+  no "project hook failure contract"
 fi
 
 PLAIN="$TMP/plain"
@@ -75,11 +64,17 @@ printf 'plain\n' >"$PLAIN/plain.txt"
 git -C "$PLAIN" add plain.txt
 git -C "$PLAIN" commit -qm plain
 git -C "$PLAIN" worktree add -q "$PLAIN_TARGET" HEAD
-if mmw_prepare_retrieval_graph "$PLAIN" "$PLAIN_TARGET" >/dev/null 2>"$TMP/plain.err" \
-  && [ ! -e "$PLAIN_TARGET/graphify-out" ] && [ ! -s "$TMP/plain.err" ]; then
-  ok "repository without rebuild provider is unchanged"
+if mmw_prepare_worktree "$PLAIN" "$PLAIN_TARGET" >/dev/null 2>"$TMP/plain.err" \
+  && [ ! -s "$TMP/plain.err" ]; then
+  ok "repository without worktree hook is an exact no-op"
 else
-  no "provider-free repository no-op"
+  no "hook-free repository no-op"
+fi
+
+if ! grep -Eq 'agentflow_build|scripts/dev/knowledge_graph|graphify-out' "$SCRIPT_DIR/../lib/runtime.sh"; then
+  ok "MMW runtime contains no project-specific graph contract"
+else
+  no "MMW runtime still knows a project graph schema"
 fi
 
 exit "$fail"

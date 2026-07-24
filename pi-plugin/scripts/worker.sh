@@ -382,7 +382,7 @@ plan_sandbox_create() {
   git -C "$main" worktree add -b "$branch" "$sandbox" "$(git -C "$task_wt" rev-parse HEAD)" >&2 \
     || die "建立 plan writer 隔离 worktree 失败:$sandbox"
   mmw_ensure_wt_state_ignore "$sandbox"
-  mmw_prepare_retrieval_graph "$task_wt" "$sandbox"
+  mmw_prepare_worktree "$task_wt" "$sandbox"
   printf '%s\t%s\n' "$sandbox" "$branch"
 }
 
@@ -481,7 +481,7 @@ cmd_dispatch() {
     run_wt="$target_top"
     mmw_ensure_wt_state_ignore "$run_wt"
   fi
-  mmw_prepare_retrieval_graph "$repo" "$run_wt"
+  mmw_prepare_worktree "$repo" "$run_wt"
   local st pkg start prompt meta task_origin="-"
   if [ "$mode" = pack ] && [ -n "$design" ]; then
     task_origin="$(git -C "$(dirname "$design")" rev-parse --show-toplevel 2>/dev/null)" || die "无法定位设计所属任务 worktree:$design"
