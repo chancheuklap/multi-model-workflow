@@ -1,6 +1,6 @@
 ---
 name: reviewer-plan-a
-description: 计划审轴A(覆盖与质量)。与轴B 分厂商(A=GPT、B=Claude)、分走两路视角;写者≠验者。
+description: 计划审轴A(覆盖与质量)。与轴B 分厂商(A=GPT、B=Kimi K3 Max)、分走两路视角;写者≠验者。
 model: openai-codex/gpt-5.6-sol
 thinking: high
 tools: read, grep, find, ls, bash
