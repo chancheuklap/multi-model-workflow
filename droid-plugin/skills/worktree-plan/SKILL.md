@@ -13,8 +13,9 @@ description: 你(计划撰写者)被主线程派进临时隔离 worktree 把一�
 
 - **源设计文档**:框架合同在这里——architecture / `## 合同边界` / global constraints / 测试 seam。你 plan header 的 Global Constraints 逐字从这抄。**`## Cross-Plan Contract Anchors` 节是主线程派你前写好的合同骨架,划定你这份 plan 的硬边界**:能碰哪些共享文件(别认领别的 plan owner 的文件)、要 provide / consume 哪些跨 plan 接口(照它命名对接);标 `(字段待 plan 回填)` 的精确字段你写时定,主线程事后回填。
 - **你负责的那个大 issue 文件**:提取 `What to build`、`Blocked by`。看 `## Small issues`——已有完整列表 → 直接映射;为空 / `<!-- PENDING -->`(常态,设计阶段故意留白)→ **你来拆**(见第 2 节),拆完 Edit 写回该 issue 文件再映射。
-- **两份写作方法论(本 skill `references/` 下,按需到那步现读)**:
+- **三份写作方法论(按需到那步现读)**:
   - `references/task-pack.md`(写每个 pack 时读):Task Pack 模板 + TDD 步骤 + 无 Placeholder + 不合格信号 + 测试规划严谨度 / 覆盖追踪 / 回归铁律 / 反模式,一份读完。
+  - `../worktree-build/references/tests.md`(写测试规划前读):完整测试质量权威；只引用，不复制进 plan。
   - `references/plan-self-check.md`(返回前读):交付前自检 + Pack 就绪门。
 - **讨论态材料**(派发消息给了才有)：prototype 只会收到 accepted 的迭代 `README.md` 与 selected 文件。仅从 selected 提取状态机 / reducer / schema / UI 规格；把每个状态、交互、视觉变体拆进对应 pack 的 acceptance criteria 和 `Schema / API shapes`。README 用于理解迭代理由，未收到的候选不得自行搜索或复活。evidence / direction / investigating 仍按路径读取。
 

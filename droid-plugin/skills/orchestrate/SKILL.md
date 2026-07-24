@@ -11,7 +11,7 @@ description: "需要正式编排的开发工作流主入口。用于新功能、
 
 开跑前读 `${SKILL_DIR}/references/control/runtime-contract.md`，对齐 Droid 路径、工具、Task 派发和安全门。
 
-先判是否需要正式编排。问答、解释、只读查看，以及主线程可直接完成并验证的琐碎单步动作，直接处理，不跑 `mmw`、不建 worktree。只有需要正式编排的开发任务才继续 Step 0。
+先判是否需要正式编排。问答、解释、只读查看，以及主线程可直接完成并验证的琐碎单步动作，直接处理，不跑 `mmw`、不建 worktree。直接处理代码任务时，实施前先读 `${SKILL_DIR}/../worktree-build/references/tests.md` 的完整测试质量权威和目标仓库项目指令链；普通说明文档修改不要求测试。只有需要正式编排的开发任务才继续 Step 0。
 
 ## Step 0 · 先定位插件,再跑 `mmw where`(它自带指路)
 

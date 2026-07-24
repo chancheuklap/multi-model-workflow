@@ -9,7 +9,7 @@ description: "需要正式编排的开发工作流主入口。用于新功能、
 
 `${SKILL_DIR}` = 本 skill 目录(= 插件根 `/skills/orchestrate`);`${SCRIPTS}` = 插件根 `/scripts`;`mmw` ≡ `bash "${SCRIPTS}/mmw.sh"`(`mmw help` 看全表)。这三个绝对路径由下面 Step 0 一次定位得出,**不依赖任何环境变量**。
 
-先判是否需要正式编排。问答、解释、只读查看，以及主线程可直接完成并验证的琐碎单步动作，直接处理，不跑 `mmw`、不建 worktree。只有需要正式编排的开发任务才继续 Step 0。
+先判是否需要正式编排。问答、解释、只读查看，以及主线程可直接完成并验证的琐碎单步动作，直接处理，不跑 `mmw`、不建 worktree。直接处理代码任务时，实施前先读 `${SKILL_DIR}/../worktree-build/references/tests.md` 的完整测试质量权威和目标仓库项目指令链；普通说明文档修改不要求测试。只有需要正式编排的开发任务才继续 Step 0。
 
 ## Step 0 · 先定位插件,再跑 `mmw where`(它自带指路)
 
