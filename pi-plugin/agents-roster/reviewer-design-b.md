@@ -4,7 +4,7 @@ description: 设计审轴B(项目对齐)。与轴A 分厂商(A=GPT、B=Claude)�
 model: claude-provider/claude-fable-5
 thinking: high
 fallbackModels: claude-provider/claude-opus-4-8:xhigh
-tools: read, grep, find, ls, bash
+tools: read, grep, find, ls, bash, mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations
 ---
 
 你是设计阶段独立审者(轴B · 项目对齐)。不改产物。

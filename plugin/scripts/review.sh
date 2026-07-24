@@ -15,6 +15,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/runtime.sh"
 # shellcheck source=lib/prototype-state.sh
 . "$SCRIPT_DIR/lib/prototype-state.sh"
+# shellcheck source=lib/retrieval-candidates.sh
+. "$SCRIPT_DIR/lib/retrieval-candidates.sh"
 MMW="bash \"$SCRIPT_DIR/mmw.sh\""   # 打印给主线程的命令,完整可执行形式
 state_here() {
   printf '%s' "$MMW_STATE_SUBDIR"
@@ -29,11 +31,12 @@ CODEX_DESIGN_REVIEW_EFFORT="${CODEX_DESIGN_REVIEW_EFFORT:-high}"
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 cmd_start() {
-  local stage=""; local -a sources=()
+  local stage="" retrieval=""; local -a sources=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --stage)  stage="$2";  shift 2 ;;
       --source) sources+=("$2"); shift 2 ;;
+      --retrieval-candidates) retrieval="$2"; shift 2 ;;
       *) die "未知参数: $1" ;;
     esac
   done
@@ -79,6 +82,8 @@ cmd_start() {
   brief="$top/$STATE_SUBDIR/review-brief.md"
   mmw_ensure_state_ignore "$top"
   mkdir -p "$top/$STATE_SUBDIR"
+  local retrieval_snapshot="$top/$STATE_SUBDIR/retrieval-candidates-$stage.json"
+  mmw_retrieval_candidates_snapshot "$retrieval" "$retrieval_snapshot" || die "结构候选校验失败"
 
   # 留痕落点:任务审(worktree 内)走 docs/reviews/(docs/.gitignore 已忽略);
   # merge-impl 在主仓库跑,不落 docs/ ——一切主仓库产物进状态平面,零残留。
@@ -191,6 +196,8 @@ DISPATCH
 
 主线程直接派审者,自己亲验收敛,不自己写产物结论。审不记账,收口看产物(下方留痕)。
 Source: ${source}
+
+$(mmw_retrieval_candidates_prompt "$retrieval_snapshot")
 
 ## 派审者
 $dispatch

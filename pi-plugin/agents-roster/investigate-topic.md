@@ -2,7 +2,7 @@
 name: investigate-topic
 description: 仅由 mmw investigate 编排器为单个 topic 启动。按 prompt 的 internal/external 模式取证，返回严格 JSON；只摆证据、不拍方案、不改文件。
 model: openai-codex/gpt-5.6-sol
-tools: read, grep, find, ls, bash
+tools: read, grep, find, ls, bash, mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations
 thinking: medium
 ---
 

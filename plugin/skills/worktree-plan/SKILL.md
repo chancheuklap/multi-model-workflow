@@ -86,6 +86,7 @@ description: 你(计划撰写者)被主线程派进任务 worktree 把一个大 
 
 - **Verdict**:`pass | needs-repair | needs-redirection | needs-context | blocked`(系统统一词表,别自造同义词)。
 - **Plan Summary**:Plan 编号和目标 / Pack 总数 + 每个一句话 / Pack 间依赖。
+- **结构候选**:上游候选 / 自己实际调用的工具 / 源码亲验 locator / fallback 原因；不适用时明确写“不适用”。
 - **Cross-plan touchpoints**:本 plan 里跨 plan 共享的文件 / 合同 / 接口(owner / provider / consumer / 关键字段)——给主线程回填 `## Cross-Plan Contract Anchors` 用。无则写"无跨计划共享合同"。
 - **Open Items**:每个发现标 `[out-of-scope]` | `[needs-evaluation]`。
 - **Self-Check 完成状态**。

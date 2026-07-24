@@ -8,13 +8,13 @@ export const meta = {
   ],
 }
 
-// args.topics: [{ angle, question, skill? }]  —— 派几个 agent = 几个 topic,无上限,一题一 agent。
+// args.topics: [{ angle, question, skill?, retrieval_candidates? }]  —— 派几个 agent = 几个 topic,无上限,一题一 agent。
 // args 可能以 JSON 字符串送达(Workflow 工具 args 编码差异),防御解析,不崩。
 const A = (typeof args === 'string')
   ? (() => { try { return JSON.parse(args) } catch (e) { return {} } })()
   : (args || {})
-const topics = Array.isArray(A.topics) ? A.topics : []
-if (!topics.length) {
+const topicsInput = Array.isArray(A.topics) ? A.topics : []
+if (!topicsInput.length) {
   throw new Error('investigate-internal 需要 args.topics(非空),主线程先定好再传')
 }
 // 仓库根必传(fail-closed):不钉死目标仓库,agent 会在自己 cwd 取证,产出整份无关结论。
@@ -22,6 +22,25 @@ const repoRoot = (typeof A.repoRoot === 'string') ? A.repoRoot.trim() : ''
 if (!repoRoot) {
   throw new Error('investigate-internal 需要 args.repoRoot(目标仓库/worktree 绝对路径),防 agent 在错误 cwd 取证')
 }
+
+const CANDIDATE_KEYS = ['fallback_reason', 'locators', 'query', 'status', 'summary', 'tool']
+function normalizeCandidates(value, index) {
+  const candidates = value == null ? [] : value
+  const valid = Array.isArray(candidates) && candidates.every((candidate) => {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false
+    const keys = Object.keys(candidate).sort()
+    return JSON.stringify(keys) === JSON.stringify(CANDIDATE_KEYS)
+      && ['serena', 'graphify'].includes(candidate.tool)
+      && typeof candidate.query === 'string'
+      && ['used', 'not_available', 'unsupported', 'failed'].includes(candidate.status)
+      && Array.isArray(candidate.locators) && candidate.locators.every((locator) => typeof locator === 'string')
+      && typeof candidate.summary === 'string'
+      && typeof candidate.fallback_reason === 'string'
+  })
+  if (!valid) throw new Error(`topics[${index}].retrieval_candidates 必须是精确六字段数组`)
+  return candidates
+}
+const topics = topicsInput.map((topic, index) => ({ ...topic, retrieval_candidates: normalizeCandidates(topic.retrieval_candidates, index) }))
 
 const TOPIC_SCHEMA = {
   type: 'object',
@@ -80,6 +99,8 @@ function topicPrompt(t) {
     `专题角度:${t.angle}`,
     `要回答:${t.question}`,
     loadSkill,
+    `上游结构候选(只代表主线程已做的候选检索,不代表你调用过工具):${JSON.stringify(t.retrieval_candidates)}`,
+    `逐 locator 回目标 checkout 亲验。回执 summary/gaps 必须区分上游候选、你自己实际调用的 Serena/Graphify/源码工具、源码 locator 与 fallback_reason；不得把上游候选冒充你的工具调用。Serena 对装饰器 endpoint 完整调用方、动态 await import() 解构引用有已知盲区，unsupported/not_available/failed/空结果必须 fallback 到 Graphify + Read/rg。`,
     `调查目标仓库现状:模块边界 / seam / 数据流 / 根因。结构性问题(谁调用/引用、连接、依赖路径、影响面)在 Serena 可用或 graphify-out/graph.json 新鲜时先用 LSP/graphify 拿候选,再用 Read/rg 逐项亲验并给 file:line;工具不可用、图缺失/过期或查询歧义时直接用现行 Read/rg,不报错不阻塞。`,
     `summary 第一行固定写 retrieval: graphify <query|affected|path|explain>、retrieval: Serena <actual-tool-name>、或 retrieval: fallback rg/Read (<missing|stale|unavailable|ambiguous>);这行只记采用轨迹,不能替代 finding locator。`,
     `红线:取证不判定——只摆事实和出处,绝不提方案、选 A/B、下设计结论(那是后面 design 的事)。`,

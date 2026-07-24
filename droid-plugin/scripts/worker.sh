@@ -7,6 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/runtime.sh"
 # shellcheck source=lib/prototype-state.sh
 . "$SCRIPT_DIR/lib/prototype-state.sh"
+# shellcheck source=lib/retrieval-candidates.sh
+. "$SCRIPT_DIR/lib/retrieval-candidates.sh"
 # shellcheck source=lib/droid-exec.sh
 . "$SCRIPT_DIR/lib/droid-exec.sh"
 
@@ -176,7 +178,7 @@ companion_prompt_lines() {
 }
 
 build_prompt() {
-  local plan="$1" wt="$2" design="$3" issue="$4" mode="$5" sheet="$6"
+  local plan="$1" wt="$2" design="$3" issue="$4" mode="$5" sheet="$6" retrieval="$7"
   local skill; skill="$(mmw_plugin_root)/skills/worktree-build"
   if [ "$mode" = merge ]; then
     cat <<PROMPT
@@ -185,6 +187,8 @@ build_prompt() {
 
 工作树(你唯一可写的源码区):$wt
 合并冲突 mini-plan(唯一意图与验收来源):$plan
+
+$(mmw_retrieval_candidates_prompt "$retrieval")
 
 只改 mini-plan 明确拥有的路径。逐 Task Pack TDD、每 Pack 本地提交、禁改 docs/、禁 push/gh pr merge/部署、卡住协议和 Return Contract 全按 worktree-build skill。不要重新选择哪边意图胜出,不要向用户提问,不要启动其它 agent;mini-plan 缺关键意图时在最终回执中结构化报告。
 PROMPT
@@ -208,12 +212,14 @@ ${companions:+- 讨论态材料(prototype 仅含 accepted README + selected；se
 $companions
 }$(test_sheet_lines "$sheet")
 
+$(mmw_retrieval_candidates_prompt "$retrieval")
+
 只改 plan 的 File / Responsibility Map 和当前 Pack 拥有的路径。逐 Task Pack TDD、每 Pack 本地提交、禁改 docs/、禁 push/gh pr merge/部署、卡住协议和 Return Contract 全按 worktree-build skill。不要向用户提问,不要启动其它 agent;缺输入时在最终回执中结构化报告。
 PROMPT
 }
 
 build_plan_prompt() {
-  local plan="$1" wt="$2" design="$3" issue="$4" companions="$5" sheet="$6"
+  local plan="$1" wt="$2" design="$3" issue="$4" companions="$5" sheet="$6" retrieval="$7"
   local skill; skill="$(mmw_plugin_root)/skills/worktree-plan"
   cat <<PROMPT
 你是计划撰写者,被主线程派进任务 worktree 把一个大 issue 写成一份实施计划。
@@ -227,6 +233,8 @@ ${design:+- 源设计文档:$design
 }${companions:+- 讨论态材料(prototype 仅含 accepted README + selected；只采用 selected):
 $companions
 }$(test_sheet_lines "$sheet")
+
+$(mmw_retrieval_candidates_prompt "$retrieval")
 
 只准写该 plan 与对应 issue 的 Small issues。禁止改源码、docs/design、其他 issue 或其他 plan,禁止 commit/push/发布。不要向用户提问,不要启动其它 agent;缺输入时在最终回执中结构化报告。
 PROMPT
@@ -444,13 +452,14 @@ guard_unique_plan_targets() {
 }
 
 cmd_dispatch() {
-  local plan="" wt="" base="HEAD" design="" issue="" model="" effort="" mode="pack"
+  local plan="" wt="" base="HEAD" design="" issue="" model="" effort="" mode="pack" retrieval=""
   while [ $# -gt 0 ]; do case "$1" in
     --plan) plan="$2"; shift 2 ;; --worktree) wt="$2"; shift 2 ;;
     --design) design="$2"; shift 2 ;; --issue) issue="$2"; shift 2 ;;
     --mode) mode="$2"; shift 2 ;;
     --base) base="$2"; shift 2 ;; --model) model="$2"; shift 2 ;;
-    --effort) effort="$2"; shift 2 ;; *) die "未知参数:$1" ;;
+    --effort) effort="$2"; shift 2 ;; --retrieval-candidates) retrieval="$2"; shift 2 ;;
+    *) die "未知参数:$1" ;;
   esac; done
   [ -f "$plan" ] || die "plan 文件不存在:$plan"
   case "$mode" in
@@ -514,7 +523,9 @@ cmd_dispatch() {
   disabled_tools="$(prepare_exec_policy "$pkg" "$model")"
   preflight_plugin_skill worktree-build
   local test_sheet; test_sheet="$(locate_test_sheet "${target_top:-$repo}")"
-  build_prompt "$plan" "$run_wt" "$design" "$issue" "$mode" "$test_sheet" > "$prompt"
+  local retrieval_snapshot="$pkg/retrieval-candidates.json"
+  mmw_retrieval_candidates_snapshot "$retrieval" "$retrieval_snapshot" || die "结构候选校验失败"
+  build_prompt "$plan" "$run_wt" "$design" "$issue" "$mode" "$test_sheet" "$retrieval_snapshot" > "$prompt"
   printf '%s\n' "$start" > "$pkg/start_sha"
   write_meta "$meta" "$mode" "$droid" "$model" "$effort" "$run_wt" "$prompt" "$start" \
     "$plan" "$system_prompt" "$issue" "$disabled_tools"
@@ -568,12 +579,13 @@ cmd_resume() {
 }
 
 cmd_plan_dispatch() {
-  local plan="" wt="" design="" issue="" model="$PLAN_MODEL" effort="$PLAN_EFFORT"
+  local plan="" wt="" design="" issue="" model="$PLAN_MODEL" effort="$PLAN_EFFORT" retrieval=""
   while [ $# -gt 0 ]; do case "$1" in
     --plan) plan="$2"; shift 2 ;; --worktree) wt="$2"; shift 2 ;;
     --design) design="$2"; shift 2 ;; --issue) issue="$2"; shift 2 ;;
     --model) model="$2"; shift 2 ;;
-    --effort) effort="$2"; shift 2 ;; *) die "未知参数:$1" ;;
+    --effort) effort="$2"; shift 2 ;; --retrieval-candidates) retrieval="$2"; shift 2 ;;
+    *) die "未知参数:$1" ;;
   esac; done
   case "$plan" in /*) ;; *) die "--plan 必须绝对路径" ;; esac
   [ -d "$wt" ] || die "任务 worktree 不存在:$wt"
@@ -628,7 +640,9 @@ cmd_plan_dispatch() {
   disabled_tools="$(prepare_exec_policy "$pkg" "$model")"
   preflight_plugin_skill worktree-plan
   local plan_test_sheet; plan_test_sheet="$(locate_test_sheet "$sandbox")"
-  build_plan_prompt "$sandbox_plan" "$sandbox" "$sandbox_design" "$sandbox_issue" "$sandbox_companions" "$plan_test_sheet" > "$prompt"
+  local retrieval_snapshot="$pkg/retrieval-candidates.json"
+  mmw_retrieval_candidates_snapshot "$retrieval" "$retrieval_snapshot" || die "结构候选校验失败"
+  build_plan_prompt "$sandbox_plan" "$sandbox" "$sandbox_design" "$sandbox_issue" "$sandbox_companions" "$plan_test_sheet" "$retrieval_snapshot" > "$prompt"
   printf '%s\n' "$start" > "$pkg/start_sha"
   write_meta "$meta" dispatch "$PLAN_DROID" "$model" "$effort" "$sandbox" "$prompt" "$start" \
     "$sandbox_plan" "$system_prompt" "$sandbox_issue" "$disabled_tools"

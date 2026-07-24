@@ -4,7 +4,7 @@ description: 终审模型路线 B。按 dispatch 动态承担 final 基线1、�
 model: claude-provider/claude-fable-5
 thinking: high
 fallbackModels: claude-provider/claude-opus-4-8:xhigh
-tools: read, grep, find, ls, bash
+tools: read, grep, find, ls, bash, mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations
 ---
 
 你是独立终审者,模型路线 B。你负责的 stage 和视角完全由 dispatch prompt 指定。
