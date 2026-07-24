@@ -15,8 +15,20 @@ echo "=== test_prepare.sh ==="
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 cd "$TMP"
 git init -q; git config user.email t@t; git config user.name t
+mkdir -p scripts/dev/knowledge_graph
+cat >scripts/dev/knowledge_graph/rebuild.sh <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p graphify-out
+printf '{"graph":{"agentflow_build":{"head_sha":"%s"}},"nodes":[],"links":[]}\n' "$(git rev-parse HEAD)" >graphify-out/graph.json
+: >graphify-out/rebuild-called
+SH
+chmod +x scripts/dev/knowledge_graph/rebuild.sh
+printf 'graphify-out/\n' >.gitignore
 echo seed > seed.txt; git add -A; git commit -qm seed
 BASE="$(git rev-parse HEAD)"
+mkdir -p graphify-out
+printf '{"graph":{"agentflow_build":{"head_sha":"%s"}},"nodes":[],"links":[]}\n' "$BASE" >graphify-out/graph.json
 
 SLUG="2026-06-28-test-feature"
 
@@ -75,6 +87,9 @@ OUT="$(bash "$PREPARE" new --scenario develop --slug "$SLUG" --title "测试任�
 WT="$TMP/${WT_REL}/$SLUG"
 echo "$OUT" | grep -q "^PREPARED" && ok "new 返回 PREPARED" || no "new 返回 PREPARED"
 [ -d "$WT" ] && ok "worktree 目录建好" || no "worktree 目录建好"
+[ "$(jq -r '.graph.agentflow_build.head_sha' "$WT/graphify-out/graph.json" 2>/dev/null)" = "$BASE" ] \
+  && [ ! -e "$WT/graphify-out/rebuild-called" ] \
+  && ok "task worktree 自动复用同提交结构图" || no "task worktree 结构图准备"
 git show-ref --verify --quiet "refs/heads/$SLUG" && ok "分支建好" || no "分支建好"
 [ -d "$WT/docs/design" ] && [ -d "$WT/docs/issues" ] && [ -d "$WT/docs/plans" ] && [ -d "$WT/docs/context" ] && [ ! -d "$WT/docs/investigating" ] && ok "docs 布局 scaffold(design/issues/plans/context 全;investigating 不再单设,进设计文件夹)" || no "docs 布局 scaffold"
 [ "$(cat "$WT/.pi/.gitignore" 2>/dev/null)" = "*" ] && ok "状态平面 .pi/ 已 gitignore(git status 不脏)" || no ".pi gitignore"
