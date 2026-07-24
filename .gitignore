@@ -4,4 +4,5 @@
 *~
 .claude/
 .codex/multi-model-workflow/
+.serena/
 node_modules/
