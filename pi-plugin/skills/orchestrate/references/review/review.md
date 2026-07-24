@@ -16,7 +16,7 @@
 |---|---|---|---|
 | 设计预审 | design 自检过后**agent 自起**(不是闸;结果给用户参考,人闸是 `/approve-design`) | `design` | 轴A 设计内容 / 轴B 项目对齐 |
 | ② 计划审 | plan pass → 引擎审闸(phase 冻住,`mmw where` 吐 `review_start` 照跑) | `plan` | 轴A 覆盖与质量 / 轴B 合规与交叉验证 |
-| ④ final | build pass → 引擎审闸(同上) | `final` | **固定四个 Agent**:模型 A、B 各审基线1与基线2;双模型 × 双角度冗余 |
+| ④ final | build pass → 引擎审闸(同上) | `final` | 基线1 回归+意图+跨plan / 基线2 独立代码审计；审者数由 `review.sh` 判定：small-change/bug=1，develop=2 或 4 |
 
 另有 **③ 落地合同门**:build 内部机器合同检查(`--stage plan-impl`,不派审者)——anchors 节为空脚本直接放行;有实体合同由 build 流程驱动(build-b B5)人工核,方法论在 `plan-impl.md`。
 
@@ -79,7 +79,7 @@ pass 前先写 `docs/<slug>-final-review.md`(照 `mmw where` 的 `then` 钉 `--p
 
 ## 3. 守住的红线
 
-- 写者≠验者:①用 `reviewer-design-a/b`,②用 `reviewer-plan-a/b`,④固定并行派 `reviewer-final-a`×2 + `reviewer-final-b`×2,分别覆盖两条基线。prompt 一律指向 plugin 内 `worktree-review` skill。
+- 写者≠验者:①用 `reviewer-design-a/b`,②用 `reviewer-plan-a/b`;④按 brief 分档：small-change/bug 用一个 `reviewer-final-a` 覆盖两基线，develop 低风险档用 A/B 各一路，高风险或数据不全用 A/B 各两路。prompt 一律指向 plugin 内 `worktree-review` skill。
 - 每条 finding 引 `file:line` 原文才采信;主线程亲验 + 四问后才 accept。
 - ③ 不判断、只核合同;重判预算砸 ④final。
 - 审者给证据,你给放行;你不是审者的传声筒。

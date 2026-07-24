@@ -25,7 +25,7 @@
 
 - 开始或续跑正式任务时，先运行对应宿主的 `bash <plugin>/scripts/mmw.sh where`，再按它返回的 `load`、`do`、`then` 行动。
 - propose 和 design 承担人机对齐。设计只接受用户执行 `/approve-design` 过门；口头同意不推进。
-- 计划审和终审是模型闸。package 有目标安装包时，开发模式功能测试和安装后测试仍需负责人确认。
+- 计划审和终审是模型闸。终审按场景和风险分档：small-change/bug 用一个独立 GPT 审者覆盖两基线；develop 无 capable plan 且 diff 不超过阈值时用两个跨模型审者，其余及数据不全时用四个。package 有目标安装包时，开发模式功能测试和安装后测试仍需负责人确认。
 - 状态、接力单、审查 brief、执行账本和进度板只认对应宿主的状态目录。
 
 ## 事实源
