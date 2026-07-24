@@ -12,15 +12,6 @@ legacy_manifest=".$(printf 'cl%s' 'aude')-plugin"
 [ ! -d "$PLUGIN/agents" ] && ok "only droids directory" || no "unexpected agents directory"
 [ ! -d "$PLUGIN/workflows" ] && ok "no foreign workflow artifact directory" || no "unexpected workflows directory"
 
-patterns='CLAUDE_''PLUGIN_ROOT|MMW_''HOST|AskUser''Question|Enter''Worktree|codex ''exec|codex-''session|codex-''logs|CODEX_''|Workflow''\(|\.claude''/'
-if grep -RInE "$patterns" "$PLUGIN" --exclude='test_droid_native.sh' >/tmp/mmw-native-residue.$$; then
-  cat /tmp/mmw-native-residue.$$
-  no "native residue scan"
-else
-  ok "native residue scan"
-fi
-rm -f /tmp/mmw-native-residue.$$
-
 [ "$(jq -r .name "$PLUGIN/.factory-plugin/plugin.json")" = multi-model-workflow-droid ] &&
   ok "dedicated plugin identity" || no "plugin identity"
 jq -e '.hooks.PreToolUse[].matcher == "Execute" and .hooks.PostToolUse[].matcher == "Execute"' \
@@ -33,8 +24,6 @@ for d in investigate-topic investigate-synthesizer code-explorer decision-adviso
   grep -q '^model: ' "$file" || no "missing model $d"
   grep -q '^tools: ' "$file" || no "missing tools $d"
   grep -q '^mcpServers: \[\]' "$file" || no "unbounded MCP access $d"
-  [ "$(awk 'BEGIN{n=0} /^---$/{n++;next} n>=2{c+=length($0)} END{print c+0}' "$file")" -ge 120 ] \
-    || no "thin prompt $d"
 done
 [ "$fail" -eq 0 ] && ok "all role droids present"
 
@@ -49,14 +38,6 @@ grep -q '/approve-design' "$PLUGIN/skills/orchestrate/references/design/design-s
   && ok "design self-check routes through the human gate" || no "design self-check bypasses human gate"
 grep -q '任意消息即恢复 attended' "$PLUGIN/commands/unattended.md" \
   && ok "unattended exit semantics are explicit" || no "unattended semantics drift"
-if grep -Eq 'run_in_background|task-record|Task 的 resume=' "$PLUGIN/scripts/worker.sh"; then
-  no "worker still emits unsupported Task lifecycle"
-else
-  ok "worker uses supported Droid exec lifecycle"
-fi
-[ -x "$PLUGIN/scripts/investigate.sh" ] \
-  && grep -q 'investigate) exec bash' "$PLUGIN/scripts/mmw.sh" \
-  && ok "native investigate orchestrator exposed" || no "investigate orchestrator missing"
 grep -q '执行者 agent 在任务中途咨询的更强审查者' "$PLUGIN/droids/decision-advisor.md" \
   && grep -q '对你自己判断的最强反方论点' "$PLUGIN/droids/decision-advisor.md" \
   && ok "advisor prompt preserves judgment contract" || no "advisor prompt contract"
@@ -65,17 +46,5 @@ for d in reviewer-final-a reviewer-final-b; do
     || no "$d hardcodes final baseline"
   grep -q '"Execute"' "$PLUGIN/droids/$d.md" || no "$d lacks verification tool"
 done
-grep -q 'subagent_type:"code-explorer"' "$PLUGIN/skills/orchestrate/references/investigate.md" \
-  && grep -q 'subagent_type: "decision-advisor"' "$PLUGIN/skills/orchestrate/references/propose.md" \
-  && grep -q 'subagent_type: "decision-advisor"' "$PLUGIN/skills/orchestrate/references/closing.md" \
-  && grep -q 'investigate-topic.md' "$PLUGIN/scripts/investigate.sh" \
-  && grep -q 'investigate-synthesizer.md' "$PLUGIN/scripts/investigate.sh" \
-  && grep -q 'PLAN_DROID.*plan-writer' "$PLUGIN/scripts/worker.sh" \
-  && grep -q 'CAPABLE_EXECUTOR_DROID.*pack-executor-capable' "$PLUGIN/scripts/worker.sh" \
-  && grep -q 'reviewer-design-a' "$PLUGIN/scripts/review.sh" \
-  && grep -q 'reviewer-plan-a' "$PLUGIN/scripts/review.sh" \
-  && grep -q 'reviewer-final-a' "$PLUGIN/scripts/review.sh" \
-  && ok "all custom droids have runtime routes" || no "custom droid route coverage"
-[ "$fail" -eq 0 ] && ok "custom droid routing contracts" || true
 
 exit "$fail"

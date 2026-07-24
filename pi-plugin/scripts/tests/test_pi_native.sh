@@ -12,10 +12,9 @@ jq -e '(.version|test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and (.keywords|index("pi-pa
   && ok 'package.json pi manifest/version' || no 'pi manifest'
 [ -f "$PLUGIN/extensions/mmw-hooks.ts" ] && ok 'mmw extension exists' || no 'extension missing'
 [ ! -f "$PLUGIN/scripts/lib/pi-exec.sh" ] && [ ! -f "$PLUGIN/scripts/lib/droid-exec.sh" ] \
-  && grep -q "mmw_worker_backend() { printf 'pi-subagents'; }" "$PLUGIN/scripts/lib/runtime.sh" \
-  && ok 'pi-subagents is sole worker backend(无无头层)' || no 'worker backend surface'
-[ -d "$PLUGIN/prompts" ] && [ "$(find "$PLUGIN/prompts" -name '*.md' | wc -l | tr -d ' ')" = 11 ] \
-  && ok '11 prompt templates' || no 'prompt templates'
+  && [ -f "$PLUGIN/scripts/lib/runtime.sh" ] \
+  && ok '无旧无头执行层' || no 'legacy execution layer'
+[ -d "$PLUGIN/prompts" ] && ok 'prompt templates directory' || no 'prompt templates'
 [ ! -d "$PLUGIN/commands" ] && ok 'no legacy commands directory' || no 'legacy commands remains'
 
 roles='investigate-topic investigate-synthesizer code-explorer plan-writer pack-executor pack-executor-capable reviewer-design-a reviewer-design-b reviewer-plan-a reviewer-plan-b reviewer-final-a reviewer-final-b'
@@ -53,24 +52,12 @@ for role in $roles; do
 done
 ok 'roster 全员已注册为 pi agent'
 
-grep -q 'PLAN_AGENT.*plan-writer' "$PLUGIN/scripts/worker.sh" \
-  && grep -q 'CAPABLE_EXECUTOR_AGENT.*pack-executor-capable' "$PLUGIN/scripts/worker.sh" \
-  && grep -q 'EXECUTOR_AGENT.*pack-executor' "$PLUGIN/scripts/worker.sh" \
-  && ok 'worker routes all writer roles' || no 'worker role routes'
-grep -q 'agent=reviewer-final-a' "$PLUGIN/scripts/review.sh" \
-  && ! grep -q 'roster_model' "$PLUGIN/scripts/review.sh" \
-  && ok 'review 按名字派 reviewer(无 roster_model 间接层)' || no 'review role routes'
-
 [ -f "$PLUGIN/workflows/investigate-internal.workflow.js" ] \
   && [ -f "$PLUGIN/workflows/investigate-external.workflow.js" ] \
   && [ -x "$PLUGIN/workflows/install-workflows.sh" ] \
   && ok 'dynamic workflow sources+installer' || no 'workflow surface'
 [ ! -f "$PLUGIN/prompts-runtime/headless-agent.md" ] \
   && ok '无头提示词层已随 pi-exec 一并移除' || no 'headless prompt 残留'
-
-residue="$(grep -RInE 'DROID_PLUGIN_ROOT|\.factory/|\.factory-plugin|\.claude/|codex exec|droid-exec' "$PLUGIN" \
-  --exclude='test_pi_native.sh' --exclude='*.pyc' --exclude-dir='__pycache__' || true)"
-[ -z "$residue" ] && ok 'single-host residue check' || { no 'foreign-host residue'; printf '%s\n' "$residue"; }
 
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -51,6 +51,7 @@
 ## 修改规则
 
 - 改任一宿主前先读该宿主的 `skills/orchestrate/SKILL.md`、它指向的完整 reference、对应脚本和测试。
+- 编写、修改或审查测试前先读根目录 `TESTING.md`，按其中的本仓库分层、接缝、权威源和门控执行。
 - 共用片段只改各宿主的 `build/fragments/*.md`，然后对该宿主运行 `build/build.sh --apply` 和 `--check`；带 `<!-- BEGIN: ... -->` 锚点的生成区不得手改。
 - 每个宿主的两份 `task-pack.md` 是实体副本，必须保持一致并通过 `test_shared_refs_sync.sh`。
 - pi 的 GPT 角色公共提示词只改 `pi-plugin/agents-roster/_fragments/`，随后运行 `python3 pi-plugin/scripts/render_agent_prompts.py`；Claude provider 角色不经过该渲染器。
