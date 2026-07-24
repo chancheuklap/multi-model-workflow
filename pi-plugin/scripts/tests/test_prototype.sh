@@ -29,7 +29,7 @@ advance_to_design() {
 
 new_design_task() {
   local slug="$1" wt
-  wt="$(bash "$PREPARE" new --scenario develop --slug "$slug" --title "prototype test" --request "验证 prototype 迭代闭环" 2>/dev/null | sed -n 's/^worktree_path=//p')"
+  wt="$(bash "$PREPARE" new --scenario develop --slug "$slug" --title "prototype test" --request "验证 prototype 迭代闭环" --entry-capability explicit-request --entry-evidence "测试夹具明确要求 MMW" 2>/dev/null | sed -n 's/^worktree_path=//p')"
   [ -n "$wt" ] || return 1
   advance_to_design "$wt" "$slug"
   printf '%s' "$wt"

@@ -113,18 +113,16 @@ NOGIT="$(mktemp -d)"
 OUT="$(cd "$NOGIT" && printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"; EC=$?
 [ "$EC" = "0" ] && [ -z "$OUT" ] && ok "非 git 目录 → 静默 exit 0" || no "非 git 静默 ($EC/$OUT)"
 rm -rf "$NOGIT"
-# 主仓库无在飞任务 → 只注入分诊指令
+# 主仓库无 manifest → 静默；默认直接处理，不用系统注入把每个请求推向 MMW。
 rm -f ${STATE_SUBDIR}/task.json ${STATE_SUBDIR}/loop-state.json
 OUT="$(printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
-echo "$OUT" | grep -q "会话分诊" && ok "主仓库注入分诊指令(正式进流程/简单直接答)" || no "分诊指令"
-echo "$OUT" | grep -q "琐碎单步动作.*直接处理" && ok "主仓库提示琐碎单步动作直接处理" || no "主仓库缺轻量出口"
-echo "$OUT" | grep -q "在飞任务" && no "无在飞不该列清单" || ok "无在飞任务不列清单"
-# 主仓库有在飞 worktree(有 manifest 才算)→ 追加在飞清单
+[ -z "$OUT" ] && ok "未在管主仓库不注入 MMW 分诊" || no "未在管主仓库应静默($OUT)"
+# 即使磁盘上有在飞 worktree，也只在用户明确续跑、主动执行 mmw where 时发现。
 mkdir -p ${WT_REL}/w1/${STATE_SUBDIR}
 printf '{"slug":"w1","scenario":"develop","phase":"design","status":"active","worktree_path":"%s"}' "$TMP/${WT_REL}/w1" \
   > ${WT_REL}/w1/${STATE_SUBDIR}/task.json
 OUT="$(printf '{}' | bash "$HOOKS/session-triage.sh" 2>&1)"
-echo "$OUT" | grep -q "在飞任务" && echo "$OUT" | grep -q "w1.*phase=design" && ok "有在飞任务 → 列清单(slug/phase)" || no "在飞清单"
+[ -z "$OUT" ] && ok "未在管主仓库不主动扫描注入在飞任务" || no "在飞任务不应自动注入($OUT)"
 # 在管任务 worktree 内 → 报身份+续跑入口
 WTREPO="$(mktemp -d)"
 ( cd "$WTREPO" && git init -q && mkdir -p ${STATE_SUBDIR} \

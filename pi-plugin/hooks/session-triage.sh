@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pi 会话分诊:在管任务 worktree 回报书签、最近提交、待拍板与状态新鲜度。
+# pi 会话分诊:只在在管任务 worktree 回报书签、最近提交、待拍板与状态新鲜度；未在管仓库静默。
 # extensions/mmw-hooks.ts 在会话开头与 compaction 后经 before_agent_start 注入一次。
 set -euo pipefail
 
@@ -66,11 +66,5 @@ if [ -f "$man" ]; then
   exit 0
 fi
 
-echo "[multi-model-workflow-pi] 会话分诊:需正式编排的开发任务(新功能/系统改造/根因不明的 bug/需独立任务边界的小改/合并 worktree)→ 用 orchestrate skill 进流程(先跑 $MMW where);问答、解释、只读查看和主线程可直接完成并验证的琐碎单步动作 → 直接处理,不进流程。"
-hdr=0
-while IFS= read -r mm; do
-  [ -f "$mm" ] || continue
-  [ "$hdr" = 1 ] || { echo "在飞任务(续跑:进对应 worktree 后 mmw where;全量视图 mmw task team):"; hdr=1; }
-  jq -r '"  - \(.slug)  [\(.scenario)] phase=\(.phase) status=\(.status)  path=\(.worktree_path)"' "$mm" 2>/dev/null || true
-done < <(mmw_foreach_flying_manifest "$top")
+# 未在管仓库默认直接处理；只有 agent 主动选择 MMW 或用户明确续跑时才执行 mmw where。
 exit 0

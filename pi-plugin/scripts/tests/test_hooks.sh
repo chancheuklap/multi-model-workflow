@@ -28,6 +28,9 @@ bash "$GUARD" 'git merge feature' >/dev/null 2>&1 && ok '本地 git merge 放行
 if MMW_TOOL_COMMAND='terraform destroy -auto-approve' bash "$GUARD" >/dev/null 2>"$TMP/reason2"; then no 'terraform destroy 应拦';
 elif [ "$?" = 2 ] && grep -q '部署' "$TMP/reason2"; then ok 'env 通道红线命中'; else no 'env 红线合同'; fi
 
+OUT="$(cd "$TMP" && bash "$TRIAGE")"
+[ -z "$OUT" ] && ok '未在管仓库不注入 MMW 分诊' || no "未在管仓库应静默:$OUT"
+
 mkdir -p "$TMP/$SD"
 printf '{"attendance":"attended"}\n' >"$TMP/$SD/task.json"
 (cd "$TMP" && bash "$LOOP" init >/dev/null && bash "$LOOP" step add --id 1.1 --desc test >/dev/null)

@@ -41,7 +41,7 @@ cd "$TMP"; git init -q; git config user.email t@t; git config user.name t
 echo seed>seed; git add -A; git commit -qm seed
 
 # 入口:建 develop 任务(讨论态生来 attended)
-WT="$(bash "$PREPARE" new --scenario develop --slug 2026-06-29-e2e --title "端到端" --request "端到端验证" 2>/dev/null | sed -n 's/^worktree_path=//p')"
+WT="$(bash "$PREPARE" new --scenario develop --slug 2026-06-29-e2e --title "端到端" --request "端到端验证" --entry-capability explicit-request --entry-evidence "端到端测试明确要求 MMW" 2>/dev/null | sed -n 's/^worktree_path=//p')"
 [ -n "$WT" ] && ok "入口:prepare 建 develop worktree" || { no "prepare 失败"; exit 1; }
 [ "$(ph)" = "investigate" ] && ok "起于 investigate" || no "起点 ($(ph))"
 [ "$(att)" = "attended" ] && ok "讨论态生来 attended(HITL 集中在 propose/design)" || no "attended 起步 ($(att))"
