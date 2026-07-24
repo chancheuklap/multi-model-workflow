@@ -124,16 +124,18 @@ EOF
   local tier=4
   if [ "$stage" = "final" ] && [ "$scen" = "develop" ]; then
     local man="$top/$STATE_SUBDIR/task.json"
-    local base tslug pdir cap diffn
+    local base tslug pdir cap diffstat diffn
     base="$(jq -r '.base_commit // ""' "$man" 2>/dev/null || echo "")"
     tslug="$(jq -r '.slug // ""' "$man" 2>/dev/null || echo "")"
     pdir="$top/docs/plans/$tslug"
     if [ -n "$base" ] && [ -n "$tslug" ] && [ -d "$pdir" ]; then
       # capable 检测:大小写不敏感 + 认中文"复杂度";宁可多匹配(留 4 审)也不漏
       cap="$(grep -rlEi '(complexity|复杂度).*capable' "$pdir" 2>/dev/null || true)"
-      diffn="$(git -C "$top" diff --shortstat "$base"..HEAD 2>/dev/null \
-               | { grep -oE '[0-9]+ (insertion|deletion)' || true; } | awk '{s+=$1} END{print s+0}')"
-      if [ -z "$cap" ] && [ "${diffn:-0}" -le "${REVIEW_TIER_DIFF_MAX:-800}" ]; then tier=2; fi
+      if diffstat="$(git -C "$top" diff --shortstat "$base"..HEAD 2>/dev/null)"; then
+        diffn="$(printf '%s\n' "$diffstat" \
+                 | { grep -oE '[0-9]+ (insertion|deletion)' || true; } | awk '{s+=$1} END{print s+0}')"
+        if [ -z "$cap" ] && [ "${diffn:-0}" -le "${REVIEW_TIER_DIFF_MAX:-800}" ]; then tier=2; fi
+      fi
     fi
   fi
 

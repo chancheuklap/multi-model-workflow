@@ -1,6 +1,6 @@
 ---
 name: reviewer-design-a
-description: 设计审轴A(设计内容)。与轴B 分厂商(A=GPT、B=Claude)、分走两路视角;写者≠验者。
+description: 设计审轴A(设计内容)。与轴B 分厂商(A=GPT、B=Kimi K3 Max)、分走两路视角;写者≠验者。
 model: openai-codex/gpt-5.6-sol
 thinking: high
 tools: read, grep, find, ls, bash, mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations

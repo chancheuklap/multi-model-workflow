@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # review.sh 空跑(pi 原生):审闸一条命令——brief 落盘(主线程读它直接派审者)、纯路由指向已装 worktree-review skill、
-# 审不记账(无 loop 账本,收口硬核=留痕文件含 verdict,由 flow.sh 核)、④final 按 scenario/风险分档、③合同门机器核、bad stage 拦。
+# 审不记账(无 loop 账本,收口硬核=留痕文件含 verdict,由 flow.sh 核)、④final 按场景/风险分档、③合同门机器核、bad stage 拦。
 set -euo pipefail
 STATE_SUBDIR="${STATE_SUBDIR:-.pi/multi-model-workflow}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -105,12 +105,22 @@ echo "$B" | grep -q "四个跨模型审者" && ok "develop 风险未知保 4 审
 echo "$B" | grep -q "reviewer-final-a" && echo "$B" | grep -q "reviewer-final-b" && ok "develop 4 档派 A/B" || no "develop 4 档编制"
 echo "$B" | grep -q "同一份方法论" && ok "develop 4 档同方法论" || no "develop 4 档 prompt"
 echo "$B" | grep -q "跨模型对账" && ok "develop 4 档跨模型对账" || no "develop 4 档对账"
+mkdir -p docs/plans/t-invalid
+printf '**Complexity:** standard\n' > docs/plans/t-invalid/001-a.md
+printf '{"scenario":"develop","base_commit":"not-a-commit","slug":"t-invalid"}' > ${STATE_SUBDIR}/task.json
+if bash "$REVIEW" start --stage final --source x >/dev/null 2>&1; then
+  grep -q "四个跨模型审者" "$BRIEF" && ok "develop base 无效 → fail-closed 保 4 审者" || no "develop 无效 base 编制"
+else
+  no "develop 无效 base 不应中断起审"
+fi
 BASE="$(git rev-parse HEAD)"
 printf '{"scenario":"develop","base_commit":"%s","slug":"t1"}' "$BASE" > ${STATE_SUBDIR}/task.json
 mkdir -p docs/plans/t1
 printf '**Complexity:** standard\n' > docs/plans/t1/001-a.md
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 grep -q "两个独立跨模型审者" "$BRIEF" && ok "develop 无 capable+diff 小 → 2 审者" || no "develop 降 2 审者"
+REVIEW_TIER_DIFF_MAX=-1 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
+grep -q "四个跨模型审者" "$BRIEF" && ok "develop diff 超阈值 → 4 审者" || no "develop diff 阈值保 4"
 printf '**复杂度:** Capable\n' > docs/plans/t1/002-b.md
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 grep -q "四个跨模型审者" "$BRIEF" && ok "develop capable → 4 审者" || no "develop capable 保 4"

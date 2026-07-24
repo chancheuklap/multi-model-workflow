@@ -6,7 +6,7 @@
   python3 scripts/render_agent_prompts.py --check  # 只校验:渲染结果与现文件一致则 0,否则 1
 
 纪律:片段一律逐字拼装,禁止在本脚本里改写片段内容;要换内容改 _fragments/ 并更新 MANIFEST.md。
-Claude 系角色(reviewer-*-b)不渲染——它们经 claude-provider preset 已有 Claude Code 原生提示词打底。
+所有 reviewer 路线均渲染只读工具桥接、自治和行动约束。
 """
 
 import sys
@@ -45,8 +45,11 @@ ROLES = {
     "code-explorer.md": BRIDGE_RO + AUTONOMY + ACT_REPORT,
     "investigate-topic.md": BRIDGE_RO + AUTONOMY + ACT_REPORT,
     "reviewer-design-a.md": BRIDGE_RO + AUTONOMY + ACT_REPORT,
+    "reviewer-design-b.md": BRIDGE_RO + AUTONOMY + ACT_REPORT,
     "reviewer-plan-a.md": BRIDGE_RO + AUTONOMY + ACT_REPORT,
+    "reviewer-plan-b.md": BRIDGE_RO + AUTONOMY + ACT_REPORT,
     "reviewer-final-a.md": BRIDGE_RO + AUTONOMY + ACT_REPORT,
+    "reviewer-final-b.md": BRIDGE_RO + AUTONOMY + ACT_REPORT,
     "investigate-synthesizer.md": ACT_REPORT,
 }
 

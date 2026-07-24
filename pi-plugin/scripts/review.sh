@@ -94,9 +94,9 @@ EOF
     final)
       if [ "$scen" = "small-change" ] || [ "$scen" = "bug" ]; then
         cat <<EOF
-单次 subagent 调用、tasks 数组派一个独立审者一肩挑两条基线(pi-subagents,按名字派,model 由 agent 定义自带):
-- tasks[0]: agent=reviewer-final-a, label=先基线2独立代码审计,再基线1回归+意图
-该 task(纯路由):读 $skill/SKILL.md,按 stage=final 审;Source:$source;覆盖两条基线,先跑基线2(不看 plan 全新眼光审 diff),再跑基线1(对意图逐条);按 Return Contract 回结构化 findings。
+单次 subagent 调用,派一个独立审者一肩挑两条基线:
+- tasks[0]: agent=reviewer-final-a,先基线2独立代码审计,再基线1回归+意图
+每个 task(纯路由):读 $skill/SKILL.md,按 stage=final 审;Source:$source;覆盖两条基线,先跑基线2(不看 plan 全新眼光审 diff),再跑基线1(对意图逐条);按 Return Contract 回结构化 findings。
 EOF
       elif [ "$tier" -eq 2 ]; then
         cat <<EOF
@@ -232,15 +232,17 @@ EOF
   # 判不出 develop 的 manifest/base/plans 时保 4。阈值可由 REVIEW_TIER_DIFF_MAX 覆盖，默认 800 改动行。
   local tier=4
   if [ "$stage" = "final" ] && [ "$scen" = "develop" ]; then
-    local base tslug pdir cap diffn
+    local base tslug pdir cap diffstat diffn
     base="$(jq -r '.base_commit // ""' "$man" 2>/dev/null || echo "")"
     tslug="$(jq -r '.slug // ""' "$man" 2>/dev/null || echo "")"
     pdir="$top/docs/plans/$tslug"
     if [ -n "$base" ] && [ -n "$tslug" ] && [ -d "$pdir" ]; then
       cap="$(grep -rlEi '(complexity|复杂度).*capable' "$pdir" 2>/dev/null || true)"
-      diffn="$(git -C "$top" diff --shortstat "$base"..HEAD 2>/dev/null \
-               | { grep -oE '[0-9]+ (insertion|deletion)' || true; } | awk '{s+=$1} END{print s+0}')"
-      if [ -z "$cap" ] && [ "${diffn:-0}" -le "${REVIEW_TIER_DIFF_MAX:-800}" ]; then tier=2; fi
+      if diffstat="$(git -C "$top" diff --shortstat "$base"..HEAD 2>/dev/null)"; then
+        diffn="$(printf '%s\n' "$diffstat" \
+                 | { grep -oE '[0-9]+ (insertion|deletion)' || true; } | awk '{s+=$1} END{print s+0}')"
+        if [ -z "$cap" ] && [ "${diffn:-0}" -le "${REVIEW_TIER_DIFF_MAX:-800}" ]; then tier=2; fi
+      fi
     fi
   fi
 
