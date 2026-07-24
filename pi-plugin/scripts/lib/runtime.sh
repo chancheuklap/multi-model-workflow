@@ -67,47 +67,27 @@ mmw_enter_worktree_hint() {
   printf '在 worktree 路径继续本任务: cd %s 后跑 mmw where，或在该目录新开 pi 会话' "$1"
 }
 
-mmw_retrieval_graph_head() {
-  local graph="$1"
-  [ -s "$graph" ] || return 1
-  jq -er '.graph.agentflow_build.head_sha | select(type == "string")' "$graph" 2>/dev/null
-}
-
-# 新 worktree 优先复用同提交结构图；没有可复用图时，调用目标项目自带的重建入口。
-# 普通仓库没有该入口就无副作用跳过；重建失败只告警，检索仍可退化到 Serena/源码。
-mmw_prepare_retrieval_graph() {
+# MMW 只提供 worktree 生命周期回调；生成物、freshness 和复用策略全部由目标项目负责。
+# 没有 hook 的仓库无副作用跳过；hook 失败明确告警但不阻断任务创建。
+mmw_prepare_worktree() {
   local source_wt="$1" target_wt="$2"
-  local provider="$target_wt/scripts/dev/knowledge_graph/rebuild.sh"
-  local source_graph="$source_wt/graphify-out/graph.json"
-  local target_graph="$target_wt/graphify-out/graph.json"
-  local target_head="" graph_head=""
+  local hook="$target_wt/.pi/worktree-init.sh" hook_error=""
 
-  [ -f "$provider" ] || return 0
-  target_head="$(git -C "$target_wt" rev-parse HEAD 2>/dev/null || true)"
-  if [ -z "$target_head" ]; then
-    echo "[mmw] WARNING: 无法读取新 worktree HEAD，跳过结构图准备:$target_wt" >&2
+  [ -f "$hook" ] || return 0
+  hook_error="$(mktemp "${TMPDIR:-/tmp}/mmw-worktree-init.XXXXXX")" || {
+    echo "[mmw] WARNING: 无法创建 worktree 初始化日志:$target_wt" >&2
     return 0
-  fi
-
-  graph_head="$(mmw_retrieval_graph_head "$target_graph" || true)"
-  [ "$graph_head" = "$target_head" ] && return 0
-
-  graph_head="$(mmw_retrieval_graph_head "$source_graph" || true)"
-  if [ "$graph_head" = "$target_head" ]; then
-    mkdir -p "$(dirname "$target_graph")"
-    if cp "$source_graph" "$target_graph"; then
-      echo "[mmw] retrieval graph reused: $target_graph" >&2
-      return 0
-    fi
-    echo "[mmw] WARNING: 复用结构图失败，将尝试项目重建:$target_wt" >&2
-  fi
-
-  if (cd "$target_wt" && bash "$provider" >&2) \
-    && [ "$(mmw_retrieval_graph_head "$target_graph" || true)" = "$target_head" ]; then
-    echo "[mmw] retrieval graph rebuilt: $target_graph" >&2
+  }
+  if (
+    cd "$target_wt"
+    /bin/bash "$hook" "$source_wt" "$target_wt"
+  ) 2>"$hook_error"; then
+    [ ! -s "$hook_error" ] || cat "$hook_error" >&2
   else
-    echo "[mmw] WARNING: 新 worktree 结构图准备失败；继续任务并退化到 Serena/源码检索:$target_wt" >&2
+    cat "$hook_error" >&2
+    echo "[mmw] WARNING: 项目 worktree 初始化失败；继续任务:$target_wt" >&2
   fi
+  rm -f "$hook_error"
   return 0
 }
 

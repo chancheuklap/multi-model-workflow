@@ -28,6 +28,47 @@ bash "$GUARD" 'git merge feature' >/dev/null 2>&1 && ok '本地 git merge 放行
 if MMW_TOOL_COMMAND='terraform destroy -auto-approve' bash "$GUARD" >/dev/null 2>"$TMP/reason2"; then no 'terraform destroy 应拦';
 elif [ "$?" = 2 ] && grep -q '部署' "$TMP/reason2"; then ok 'env 通道红线命中'; else no 'env 红线合同'; fi
 
+SQL_HEREDOC="$(cat <<'CMD'
+uv tool install --force 'graphifyy[sql]==0.9.25' && python3 - <<'PY'
+import tree_sitter_sql
+print(tree_sitter_sql.__file__)
+PY
+CMD
+)"
+bash "$GUARD" "$SQL_HEREDOC" >/dev/null 2>&1 \
+  && ok 'SQL 安装 heredoc 不误报守卫异常' || no 'SQL heredoc 触发守卫异常'
+
+mkdir -p "$TMP/slow-hooks"
+cat >"$TMP/slow-hooks/slow.sh" <<'SH'
+#!/usr/bin/env bash
+sleep 1
+SH
+cat >"$TMP/hook-wrapper.mjs" <<'JS'
+import assert from 'node:assert/strict';
+import { pathToFileURL } from 'node:url';
+const { runHook } = await import(pathToFileURL(process.env.MMW_EXT).href);
+const hooks = process.env.MMW_HOOKS;
+const slow = process.env.MMW_SLOW_HOOKS;
+const safeCommand = `uv tool install --force 'graphifyy[sql]==0.9.25' && python3 - <<'PY'\nimport tree_sitter_sql\nPY`;
+const safe = await runHook('guard-redline.sh', safeCommand, 10_000, hooks);
+assert.equal(safe.code, 0);
+const blocked = await runHook('guard-redline.sh', 'git push origin main', 10_000, hooks);
+assert.equal(blocked.code, 2);
+assert.match(blocked.stderr, /git push/);
+const missing = await runHook('missing.sh', 'true', 1_000, hooks);
+assert.equal(missing.code, 127);
+assert.match(missing.stderr, /missing\.sh/);
+const timedOut = await runHook('slow.sh', 'true', 10, slow);
+assert.equal(timedOut.code, 124);
+assert.match(timedOut.stderr, /timeout=10ms/);
+JS
+if MMW_EXT="$EXT" MMW_HOOKS="$PLUGIN/hooks" MMW_SLOW_HOOKS="$TMP/slow-hooks" \
+  node "$TMP/hook-wrapper.mjs" >/dev/null 2>"$TMP/node.err"; then
+  ok 'Node hook 包装层区分放行、红线、缺文件与超时'
+else
+  no "Node hook 包装层诊断:$(cat "$TMP/node.err")"
+fi
+
 OUT="$(cd "$TMP" && bash "$TRIAGE")"
 [ -z "$OUT" ] && ok '未在管仓库不注入 MMW 分诊' || no "未在管仓库应静默:$OUT"
 

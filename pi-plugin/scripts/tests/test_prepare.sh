@@ -15,20 +15,23 @@ echo "=== test_prepare.sh ==="
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 cd "$TMP"
 git init -q; git config user.email t@t; git config user.name t
-mkdir -p scripts/dev/knowledge_graph
-cat >scripts/dev/knowledge_graph/rebuild.sh <<'SH'
+mkdir -p .pi
+cat >.pi/worktree-init.sh <<'SH'
 #!/usr/bin/env bash
 set -euo pipefail
-mkdir -p graphify-out
-printf '{"graph":{"agentflow_build":{"head_sha":"%s"}},"nodes":[],"links":[]}\n' "$(git rev-parse HEAD)" >graphify-out/graph.json
-: >graphify-out/rebuild-called
+source_wt="$1"
+target_wt="$2"
+printf '%s\n' "$source_wt" >"$target_wt/.pi/worktree-initialized"
 SH
-chmod +x scripts/dev/knowledge_graph/rebuild.sh
-printf 'graphify-out/\n' >.gitignore
+chmod +x .pi/worktree-init.sh
+cat >.pi/.gitignore <<'EOF'
+*
+!.gitignore
+!worktree-init.sh
+EOF
 echo seed > seed.txt; git add -A; git commit -qm seed
 BASE="$(git rev-parse HEAD)"
-mkdir -p graphify-out
-printf '{"graph":{"agentflow_build":{"head_sha":"%s"}},"nodes":[],"links":[]}\n' "$BASE" >graphify-out/graph.json
+ROOT="$(git rev-parse --show-toplevel)"
 
 SLUG="2026-06-28-test-feature"
 
@@ -87,15 +90,19 @@ OUT="$(bash "$PREPARE" new --scenario develop --slug "$SLUG" --title "测试任�
 WT="$TMP/${WT_REL}/$SLUG"
 echo "$OUT" | grep -q "^PREPARED" && ok "new 返回 PREPARED" || no "new 返回 PREPARED"
 [ -d "$WT" ] && ok "worktree 目录建好" || no "worktree 目录建好"
-[ "$(jq -r '.graph.agentflow_build.head_sha' "$WT/graphify-out/graph.json" 2>/dev/null)" = "$BASE" ] \
-  && [ ! -e "$WT/graphify-out/rebuild-called" ] \
-  && ok "task worktree 自动复用同提交结构图" || no "task worktree 结构图准备"
+[ "$(cat "$WT/.pi/worktree-initialized")" = "$ROOT" ] \
+  && ok "task worktree 调用项目初始化 hook" || no "task worktree 初始化 hook"
 git show-ref --verify --quiet "refs/heads/$SLUG" && ok "分支建好" || no "分支建好"
 [ -d "$WT/docs/design" ] && [ -d "$WT/docs/issues" ] && [ -d "$WT/docs/plans" ] && [ -d "$WT/docs/context" ] && [ ! -d "$WT/docs/investigating" ] && ok "docs 布局 scaffold(design/issues/plans/context 全;investigating 不再单设,进设计文件夹)" || no "docs 布局 scaffold"
-[ "$(cat "$WT/.pi/.gitignore" 2>/dev/null)" = "*" ] && ok "状态平面 .pi/ 已 gitignore(git status 不脏)" || no ".pi gitignore"
+git -C "$WT" check-ignore -q .pi/worktree-initialized \
+  && ! git -C "$WT" check-ignore -q .pi/worktree-init.sh \
+  && ok "状态平面忽略运行态并保留项目 hook" || no ".pi gitignore"
 # 主仓库零残留:建完 worktree 主仓库 git status 干净(.pi/.gitignore 遮蔽 worktrees/ 与状态平面)
 [ -z "$(git status --porcelain)" ] && ok "建 worktree 后主仓库 git status 零残留" || no "主仓库残留 ($(git status --porcelain | head -1))"
-grep -qxF 'worktrees/' .pi/.gitignore && grep -qxF 'multi-model-workflow/' .pi/.gitignore && ok "主仓库 .pi/.gitignore 遮蔽状态平面" || no "主仓库遮蔽条目"
+git check-ignore -q .pi/worktrees/example \
+  && git check-ignore -q .pi/multi-model-workflow/example \
+  && ! git check-ignore -q .pi/worktree-init.sh \
+  && ok "主仓库 .pi/.gitignore 遮蔽状态平面并保留 hook" || no "主仓库遮蔽条目"
 LC1="$(wc -l < .pi/.gitignore)"
 bash "$PREPARE" new --scenario bug --slug 2026-06-28-idem --title t --request t --entry-capability explicit-request --entry-evidence "测试夹具明确要求 MMW" >/dev/null 2>&1
 [ "$(wc -l < .pi/.gitignore)" = "$LC1" ] && ok "遮蔽写入幂等(重复 new 不追行)" || no "遮蔽幂等"
