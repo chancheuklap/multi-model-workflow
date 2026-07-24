@@ -578,6 +578,7 @@ cmd_plan_dispatch() {
   plan_sandbox_overlay "$wt" "$sandbox" "$design"
   plan_sandbox_overlay "$wt" "$sandbox" "$issue"
   plan_sandbox_overlay "$wt" "$sandbox" "$plan"
+  mkdir -p "$(dirname "$sandbox_plan")"
   local sandbox_companions=""
   while IFS= read -r c; do
     [ -n "$c" ] || continue
