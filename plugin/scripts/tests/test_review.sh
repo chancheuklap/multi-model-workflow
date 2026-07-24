@@ -96,6 +96,14 @@ grep -q "1 个独立 Codex 审者一肩挑" "$BRIEF" && ok "bug ④ 同样降档
 echo '{"scenario":"develop"}' > ${STATE_SUBDIR}/task.json
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
 grep -q "4 个独立审者" "$BRIEF" && ok "develop ④ 判不出数据(无 base/slug)→ fail-closed 保 4 审者" || no "develop fail-closed 4"
+mkdir -p docs/plans/t-invalid
+printf '**Complexity:** standard\n' > docs/plans/t-invalid/001-a.md
+printf '{"scenario":"develop","base_commit":"not-a-commit","slug":"t-invalid"}' > ${STATE_SUBDIR}/task.json
+if bash "$REVIEW" start --stage final --source x >/dev/null 2>&1; then
+  grep -q "4 个独立审者" "$BRIEF" && ok "develop ④ base 无效 → fail-closed 保 4 审者" || no "develop 无效 base 编制"
+else
+  no "develop 无效 base 不应中断起审"
+fi
 
 # ④final develop 风险分档:全 plan 无 capable 且 diff 小 → 2 审者;有 capable → 4 审者
 BASE="$(git rev-parse HEAD)"

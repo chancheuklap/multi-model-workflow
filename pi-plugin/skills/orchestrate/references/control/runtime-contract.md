@@ -50,7 +50,7 @@ worker/plan writer 由脚本准备 worktree 与 prompt 后以 `async: true` 后�
 
 无人值守角色不能向用户提问。缺输入时返回结构化 blocker，由主线程处置。
 
-final review 固定并行四个 Agent：A、B 两种模型分别各审基线1和基线2。
+final review 由 `mmw review start` 分档：small-change/bug 派一个 A 路 Agent 覆盖两基线；develop 无 capable plan 且 diff 不超过阈值时派 A/B 各一路，其余及风险数据不全时派 A/B 各两路。
 
 ## Worker
 

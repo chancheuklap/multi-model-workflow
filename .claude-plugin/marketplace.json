@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "multi-model-workflow",
-  "description": "多模型开发编排 harness:HITL 集中在讨论/设计,计划起自主跑;Codex 写 + Claude 验、四审 loop、worktree 隔离、断点续传",
+  "description": "多模型开发编排 harness:HITL 集中在讨论/设计,计划起自主跑;Codex 写 + Claude 验、分档终审、worktree 隔离、断点续传",
   "owner": {
     "name": "cheuk"
   },
@@ -9,7 +9,7 @@
     {
       "name": "multi-model-workflow",
       "description": "Claude Code 多模型开发编排。HITL 在讨论/设计,计划起自主跑;Codex 写+Claude 验。",
-      "version": "8.3.3",
+      "version": "8.3.4",
       "author": {
         "name": "Cheuk Lap Chan",
         "email": "chancheuklapincn@gmail.com"
@@ -27,5 +27,5 @@
       ]
     }
   ],
-  "version": "8.3.3"
+  "version": "8.3.4"
 }

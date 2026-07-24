@@ -3,7 +3,7 @@
 #
 #   start --stage <design|plan|plan-impl|final|merge-impl> --source <源意图路径/描述>
 #       按阶段定视角与审者编制,把审派发指南写进状态目录 review-brief.md(主线程读它直接派审者)。
-#       审者=Droid 会话内 reviewer droids(单条消息并行 Task),读已装的 worktree-review skill。
+#       审者=Droid 会话内 reviewer droids(单条消息并行 Task),读已装的 worktree-review skill；④final 按场景/风险分档。
 #
 # 审不记账:收口看产物——findings 原样落盘 docs/reviews/<slug>-<stage>.md,亲验后标处置、写 verdict 段;
 # 审闸 pass 时引擎只核「该文件在且含 verdict」(flow.sh),质量与 Critical 处置是主线程判断。
@@ -24,7 +24,7 @@ state_here() {
 }
 
 dispatch_for() {
-  local stage="$1" source="$2" skill="$3"
+  local stage="$1" source="$2" skill="$3" scen="$4" tier="$5"
   case "$stage" in
     design)
       cat <<EOF
@@ -43,7 +43,21 @@ prompt(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=plan 审;S
 EOF
       ;;
     final)
-      cat <<EOF
+      if [ "$scen" = "small-change" ] || [ "$scen" = "bug" ]; then
+        cat <<EOF
+单条消息派一个独立 Task 一肩挑两条基线:
+- reviewer-final-a,先基线2独立代码审计,再基线1回归+意图
+prompt(纯路由):读 $skill/SKILL.md,按 stage=final 审;Source:$source;覆盖两条基线,先跑基线2(不看 plan 全新眼光审 diff),再跑基线1(对意图逐条);按 Return Contract 回结构化 findings。
+EOF
+      elif [ "$tier" -eq 2 ]; then
+        cat <<EOF
+单条消息并行派两个独立跨模型 Task,两条基线各一个模型:
+- reviewer-final-a,基线1(回归+意图+跨plan)
+- reviewer-final-b,基线2(独立代码审计,全新眼光)
+prompt(纯路由,同一份方法论):读 $skill/SKILL.md,按 stage=final 审;Source:$source;只负责指定基线;按 Return Contract 回结构化 findings。
+EOF
+      else
+        cat <<EOF
 单条消息并行派四个跨模型 Task,两条基线各跑两个模型:
 - reviewer-final-a,基线1(回归+意图+跨plan)
 - reviewer-final-b,基线1
@@ -52,6 +66,7 @@ EOF
 prompt(纯路由,四审者读同一份方法论):读 $skill/SKILL.md,按 stage=final 审;Source:$source;只负责指定基线;按 Return Contract 回结构化 findings。
 同基线跨模型对账:只一家报出的重点亲验,两家同报的置信升。
 EOF
+      fi
       ;;
     merge-impl)
       cat <<EOF
@@ -87,7 +102,7 @@ cmd_start() {
     *) die "--stage 只能 design|plan|plan-impl|final|merge-impl" ;;
   esac
 
-  local top state brief slug
+  local top state brief slug scen
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
   state="$(state_here)"
   local man prototype_status rel existing already
@@ -110,7 +125,8 @@ cmd_start() {
     done < <(mmw_prototype_selected_relpaths "$man")
   fi
   local source; source="${sources[*]}"
-  slug="$(jq -r '.slug // "<slug>"' "$top/$state/task.json" 2>/dev/null || echo "<slug>")"
+  scen="$(jq -r '.scenario // ""' "$man" 2>/dev/null || echo "")"
+  slug="$(jq -r '.slug // "<slug>"' "$man" 2>/dev/null || echo "<slug>")"
   brief="$top/$state/review-brief.md"
   mmw_ensure_state_ignore "$top"
   mkdir -p "$top/$state"
@@ -149,10 +165,28 @@ EOF
     return 0
   fi
 
+  # ④final 分档:small-change/bug 用单审者覆盖两基线；develop 无 capable 且 diff≤阈值用 2 审者，否则 4。
+  # 判不出 develop 的 manifest/base/plans 时保 4。阈值可由 REVIEW_TIER_DIFF_MAX 覆盖，默认 800 改动行。
+  local tier=4
+  if [ "$stage" = "final" ] && [ "$scen" = "develop" ]; then
+    local base tslug pdir cap diffstat diffn
+    base="$(jq -r '.base_commit // ""' "$man" 2>/dev/null || echo "")"
+    tslug="$(jq -r '.slug // ""' "$man" 2>/dev/null || echo "")"
+    pdir="$top/docs/plans/$tslug"
+    if [ -n "$base" ] && [ -n "$tslug" ] && [ -d "$pdir" ]; then
+      cap="$(grep -rlEi '(complexity|复杂度).*capable' "$pdir" 2>/dev/null || true)"
+      if diffstat="$(git -C "$top" diff --shortstat "$base"..HEAD 2>/dev/null)"; then
+        diffn="$(printf '%s\n' "$diffstat" \
+                 | { grep -oE '[0-9]+ (insertion|deletion)' || true; } | awk '{s+=$1} END{print s+0}')"
+        if [ -z "$cap" ] && [ "${diffn:-0}" -le "${REVIEW_TIER_DIFF_MAX:-800}" ]; then tier=2; fi
+      fi
+    fi
+  fi
+
   # ---- 派发指南落文件(brief 不过主线程 context)----
   local skill dispatch
   skill="$(mmw_plugin_root)/skills/worktree-review"
-  dispatch="$(dispatch_for "$stage" "$source" "$skill")"
+  dispatch="$(dispatch_for "$stage" "$source" "$skill" "$scen" "$tier")"
 
   cat > "$brief" <<EOF
 # 审派发指南(stage=$stage · host=droid · 机器生成,主线程读完直接派审者)
