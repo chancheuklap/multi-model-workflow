@@ -184,6 +184,15 @@ printf '# generated\n' >"$(jq -r .plan "$META")"
 printf '# issue\n\n## Small issues\n- child issue\n' >"$(jq -r .issue "$META")"
 printf '# generated 3\n' >"$(jq -r .plan "$META3")"
 printf '# issue 3\n\n## Small issues\n- child 3\n' >"$(jq -r .issue "$META3")"
+SANDBOX_PLAN2="$(jq -r .plan "$META")"
+if bash "$WORKER" verify --plan "$SANDBOX_PLAN2" --worktree "$TASK_WT" >/dev/null 2>&1; then
+  no "plan verify must reject sandbox target path"
+else
+  ok "plan verify rejects sandbox target path"
+fi
+[ ! -e "$PLAN2" ] && [ -d "$SANDBOX2" ] \
+  && [ "$(jq -r .status "$META")" = dispatched ] && [ "$(jq -r '.published // false' "$META")" = false ] \
+  && ok "rejected plan target preserves task and sandbox state" || no "rejected plan target state"
 printf '# cross-writer overwrite\n' >"$SANDBOX2/docs/plans/demo/003.md"
 if bash "$WORKER" verify --plan "$PLAN2" --worktree "$TASK_WT" >/dev/null 2>&1; then
   no "isolated writer must not touch another plan target"
