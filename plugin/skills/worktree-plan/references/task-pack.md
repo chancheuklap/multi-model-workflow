@@ -18,7 +18,7 @@
 
 **Verified current state:**（改既有行为时填）现状真实行为 + `file:line` + 核实日期;改一族成员之一时给 landscape 审计表（组件 × 有无 × 缺口,防隧道视野）。
 
-**Read first:** <source docs, ADRs, project rules + **仓库测试治理文档**(TESTING.md / AGENTS.md 测试节 / tests 规则)——落地者写测试要照它,plan 在此点名路径>
+**Read first:** <source docs, ADRs, project rules + 项目指令链实际指向的测试规则（如有）>
 
 **Interfaces:**
 - **Consumes:** <本 pack 用到的、来自前序 pack 的东西——精确签名>
@@ -69,11 +69,11 @@
 
 ## 测试规划（plan 必须自带完整测试,不留到后续补）
 
-写测试规划前先**定位仓库测试治理文档**(TESTING.md / AGENTS.md 测试节 / tests 规则):分层、写作规范、mock 边界、禁形态一律以它为准,下面是无此文档时的通用底。
+写测试规划前先读当前插件的 `worktree-build/references/tests.md` 完整测试质量权威，再遵守目标仓库项目指令链实际指向的测试规则。
 
 ### 追覆盖
-- **追每条 codepath**:每个分支（if/else / guard / early return）、每个错误路径（try/catch / fallback）、每条边界（null / 空集 / 非法类型 / 超长）都要有测试。
-- **追用户流 + 交互边界 + 错误态 + 空/边界态**:双击重复提交 / 中途离开 / 过期数据 / 慢连接 / 并发;每个错误用户看到明确提示还是静默失败、能否恢复;零结果 / 万条 / 单字符 / 超长。
+- **追承重行为**:每条变更后的验收行为、已复现回归和会产生独立可观察后果的风险路径都要有测试；没有独立合同的内部代码分支不为凑覆盖率单独加测试。
+- **追任务相关场景**:只选择会改变用户结果、恢复能力、数据、权限或账务的交互边界、错误态和空/边界态，不为假想组合铺测试矩阵。
 
 ### 测试类型决策矩阵
 - **E2E**:跨 3+ 组件的常见流 / mock 会掩盖真故障的集成点 / auth-payment-数据销毁。
@@ -81,11 +81,11 @@
 - **unit**:纯函数 / 无副作用 helper / 单函数边界。
 
 ### 测试质量评级
-★★★ 测行为 + 边界 + 错误路径 / ★★ 只测 happy path / ★ 烟雾测试或存在性断言。plan 目标是 ★★★,别只写 ★。
+★★★ 测承重行为 + 任务相关边界/错误路径 / ★★ 只测 happy path / ★ 烟雾测试或存在性断言。plan 目标是 ★★★,别只写 ★。
 **权威层(authoritative layer)**:每个行为在拥有它的那一层测一次,不为凑数加脆弱的实现细节测试,同一行为禁跨层重复断言——不追求"100% 覆盖"这种数字最大化（用项目自己声明的测试分层,别套陌生词汇）。
 
 ### 回归铁律（强制,无需问用户）
-覆盖审计发现 diff 改了既有行为、既有测试没覆盖该路径、给既有调用方引入新失败模式 → 回归测试作为 **CRITICAL** 加进 plan,写明什么坏了。拿不准是不是回归就写测试。
+覆盖审计发现 diff 改了既有行为、既有测试没覆盖该路径、给既有调用方引入新失败模式 → 回归测试作为 **CRITICAL** 加进 plan,写明什么坏了。拿不准时先核实现有行为和影响，不凭猜测增加测试。
 
 ### 验证语言对照 + seam
 - API/contract → route test / 合同类型 parse;DB/migration → migration / repository test + downgrade;JSON/登记 → validator / unknown-field test;billing/permission → service test / 用户可见 gate test;runtime/browser → focused unit + log evidence;UI/UX → DOM 断言 / screenshot / responsive / manual visual gate。

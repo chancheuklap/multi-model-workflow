@@ -19,6 +19,9 @@ mkdir -p "$PI_CODING_AGENT_DIR/agents"
 git -C "$TMP" init -q
 git -C "$TMP" config user.email test@example.com
 git -C "$TMP" config user.name Test
+mkdir -p "$TMP/tests"
+printf '# 项目规则\n\n测试规则见 `tests/AGENTS.override.md`。\n' >"$TMP/AGENTS.md"
+printf '# 测试规则\n\n只测试外部可观察行为。\n' >"$TMP/tests/AGENTS.override.md"
 echo base > "$TMP/base.txt"
 mkdir -p "$TMP/.pi"
 cat >"$TMP/.pi/worktree-init.sh" <<'SH'
@@ -29,7 +32,7 @@ target_wt="$2"
 printf '%s\n' "$source_wt" >"$target_wt/.pi/worktree-initialized"
 SH
 chmod +x "$TMP/.pi/worktree-init.sh"
-git -C "$TMP" add base.txt .pi/worktree-init.sh
+git -C "$TMP" add AGENTS.md tests/AGENTS.override.md base.txt .pi/worktree-init.sh
 git -C "$TMP" commit -qm base
 ROOT="$(git -C "$TMP" rev-parse --show-toplevel)"
 
@@ -91,6 +94,11 @@ grep -q 'find worker entrypoint' "$BUILD_PROMPT" && grep -q '源码 Read/grep/rg
 grep -q 'prototype/README.md' "$BUILD_PROMPT" && grep -q 'prototype/selected.py' "$BUILD_PROMPT" \
   && ! grep -q 'prototype/rejected.py' "$BUILD_PROMPT" && ! grep -q 'mockup/loser.html' "$BUILD_PROMPT" \
   && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"
+if grep -Eq '仓库无测试薄层|no-repo-test-sheet' "$BUILD_PROMPT"; then
+  no "build 派发误判项目指令链中的嵌套测试规则"
+else
+  ok "build 派发不再误判项目指令链中的嵌套测试规则"
+fi
 
 TASK_JSON="$TMP/.pi/multi-model-workflow/task.json"; cp "$TASK_JSON" "$TMP/task-backup.json"
 mv "$TMP/docs/design/prototype/selected.py" "$TMP/docs/design/prototype/selected.tmp"
@@ -192,6 +200,11 @@ PLAN_PROMPT="$TASK_WT/.pi/multi-model-workflow/plan-workers/002/dispatch/prompt.
 grep -q 'prototype/README.md' "$PLAN_PROMPT" && grep -q 'prototype/selected.py' "$PLAN_PROMPT" \
   && ! grep -q 'prototype/rejected.py' "$PLAN_PROMPT" && ! grep -q 'mockup/loser.html' "$PLAN_PROMPT" \
   && ok "plan writer 只收到 accepted log + selected" || no "plan writer prototype 选中材料"
+if grep -Eq '仓库无测试薄层|no-repo-test-sheet' "$PLAN_PROMPT"; then
+  no "plan 派发误判项目指令链中的嵌套测试规则"
+else
+  ok "plan 派发不再误判项目指令链中的嵌套测试规则"
+fi
 
 PLAN3="$TASK_WT/docs/plans/demo/003.md"
 ISSUE3="$TASK_WT/docs/issues/demo/003.md"

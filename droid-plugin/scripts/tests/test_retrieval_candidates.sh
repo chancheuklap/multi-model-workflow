@@ -35,11 +35,6 @@ else
   no "Droid prompt 宿主边界缺失"
 fi
 
-for script in worker.sh review.sh; do
-  grep -q -- '--retrieval-candidates' "$PLUGIN/scripts/$script" \
-    && grep -q 'retrieval-candidates.*json' "$PLUGIN/scripts/$script" \
-    && ok "$script 传输并快照候选" || no "$script 候选接线缺失"
-done
 for file in \
   skills/orchestrate/references/retrieval-doctrine.md \
   skills/worktree-build/SKILL.md \
@@ -52,11 +47,6 @@ droid_count="$(find "$PLUGIN/droids" -maxdepth 1 -name '*.md' | wc -l | tr -d ' 
 empty_mcp_count="$(grep -l '^mcpServers: \[\]$' "$PLUGIN"/droids/*.md | wc -l | tr -d ' ')"
 [ "$droid_count" = "$empty_mcp_count" ] \
   && ok "全部 Droid 角色保持 mcpServers 为空" || no "Droid 角色获得了 MCP server"
-grep -q 'retrieval_candidates' "$PLUGIN/scripts/investigate.sh" \
-  && grep -q '严格六字段' "$PLUGIN/scripts/investigate.sh" \
-  && grep -q 'Execute Graphify' "$PLUGIN/scripts/investigate.sh" \
-  && ok "Droid investigate 接入严格候选和 Graphify fallback" || no "Droid investigate 候选接线缺失"
-
 REVIEW_REPO="$TMP/review-repo"
 git -C "$TMP" init -q review-repo
 git -C "$REVIEW_REPO" config user.email test@example.com

@@ -77,8 +77,11 @@ wait_status() {
 git -C "$TMP" init -q
 git -C "$TMP" config user.email test@example.com
 git -C "$TMP" config user.name Test
+mkdir -p "$TMP/tests"
+printf '# 项目规则\n\n测试规则见 `tests/AGENTS.override.md`。\n' >"$TMP/AGENTS.md"
+printf '# 测试规则\n\n只测试外部可观察行为。\n' >"$TMP/tests/AGENTS.override.md"
 echo base > "$TMP/base.txt"
-git -C "$TMP" add base.txt
+git -C "$TMP" add AGENTS.md tests/AGENTS.override.md base.txt
 git -C "$TMP" commit -qm base
 
 mkdir -p "$TMP/docs/plans/demo" "$TMP/docs/issues/demo" "$TMP/docs/design"
@@ -122,6 +125,11 @@ grep -q 'prototype/README.md' "$BUILD_PROMPT" && grep -q 'prototype/selected.py'
   && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"
 grep -q 'docs/design-direction.md' "$BUILD_PROMPT" && grep -q 'docs/investigating/demo.md' "$BUILD_PROMPT" \
   && ok "Droid 旧布局 direction/investigating 进入下游" || no "Droid 旧布局伴随材料缺失"
+if grep -Eq '仓库无测试薄层|no-repo-test-sheet' "$BUILD_PROMPT"; then
+  no "build 派发误判项目指令链中的嵌套测试规则"
+else
+  ok "build 派发不再误判项目指令链中的嵌套测试规则"
+fi
 
 TASK_JSON="$TMP/.factory/multi-model-workflow/task.json"; cp "$TASK_JSON" "$TMP/task-backup.json"
 mv "$TMP/docs/design/prototype/selected.py" "$TMP/docs/design/prototype/selected.tmp"
@@ -211,6 +219,11 @@ PLAN_PROMPT="$TASK_WT/.factory/multi-model-workflow/plan-workers/002/dispatch/pr
 grep -q 'prototype/README.md' "$PLAN_PROMPT" && grep -q 'prototype/selected.py' "$PLAN_PROMPT" \
   && ! grep -q 'prototype/rejected.py' "$PLAN_PROMPT" && ! grep -q 'mockup/loser.html' "$PLAN_PROMPT" \
   && ok "plan writer 只收到 accepted log + selected" || no "plan writer prototype 选中材料"
+if grep -Eq '仓库无测试薄层|no-repo-test-sheet' "$PLAN_PROMPT"; then
+  no "plan 派发误判项目指令链中的嵌套测试规则"
+else
+  ok "plan 派发不再误判项目指令链中的嵌套测试规则"
+fi
 
 PLAN3="$TASK_WT/docs/plans/demo/003.md"
 ISSUE3="$TASK_WT/docs/issues/demo/003.md"

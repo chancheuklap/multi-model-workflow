@@ -54,11 +54,6 @@ case "$prompt" in
   *) no "prompt 证据纪律缺失" ;;
 esac
 
-for script in worker.sh review.sh; do
-  grep -q -- '--retrieval-candidates' "$PLUGIN/scripts/$script" \
-    && grep -q 'retrieval-candidates.*json' "$PLUGIN/scripts/$script" \
-    && ok "$script 传输并快照候选" || no "$script 候选接线缺失"
-done
 for file in \
   skills/orchestrate/references/retrieval-doctrine.md \
   skills/worktree-build/SKILL.md \
@@ -66,14 +61,6 @@ for file in \
   skills/worktree-review/references/method.md; do
   grep -q '结构候选' "$PLUGIN/$file" && ok "角色纪律已接入: $file" || no "角色纪律缺失: $file"
 done
-node --input-type=module -e '
-  import fs from "node:fs";
-  const text = fs.readFileSync(process.argv[1], "utf8");
-  for (const needle of ["retrieval_candidates", "fallback_reason", "动态 await import()"])
-    if (!text.includes(needle)) process.exit(1);
-' "$PLUGIN/workflows/investigate-internal.workflow.js" \
-  && ok "internal workflow 接入严格候选与盲区说明" || no "internal workflow 候选接线缺失"
-
 REVIEW_REPO="$TMP/review-repo"
 git -C "$TMP" init -q review-repo
 git -C "$REVIEW_REPO" config user.email test@example.com

@@ -14,6 +14,9 @@ no() { echo "  FAIL: $1"; fail=$((fail+1)); }
 echo "=== test_codex_worker.sh (fake codex) ==="
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 cd "$TMP"; git init -q; git config user.email t@t; git config user.name t
+mkdir -p tests
+printf '# 项目规则\n\n测试规则见 `tests/AGENTS.override.md`。\n' > AGENTS.md
+printf '# 测试规则\n\n只测试外部可观察行为。\n' > tests/AGENTS.override.md
 echo seed>seed; git add -A; git commit -qm seed
 
 # fake codex:把收到的 argv 和 stdin(prompt)落盘,模拟 session header + 最后消息
@@ -68,6 +71,11 @@ echo "$PROMPT" | grep -q 'find worker entrypoint' && echo "$PROMPT" | grep -q '�
 echo "$PROMPT" | grep -q 'prototype/README.md' && echo "$PROMPT" | grep -q 'prototype/selected.py' \
   && ! echo "$PROMPT" | grep -q 'prototype/rejected.py' && ! echo "$PROMPT" | grep -q 'mockup/loser.html' \
   && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"
+if echo "$PROMPT" | grep -Eq '仓库无测试薄层|no-repo-test-sheet'; then
+  no "项目指令链中的嵌套测试规则被误判为不存在"
+else
+  ok "派发不再误判项目指令链中的嵌套测试规则"
+fi
 
 TASK_JSON="$TMP/.claude/multi-model-workflow/task.json"; cp "$TASK_JSON" "$TMP/task-backup.json"
 jq '.scenario="develop"' "$TMP/task-backup.json" >"$TASK_JSON"
@@ -228,6 +236,11 @@ echo "$PROMPT_P" | grep -q "本消息不重复" && ok "plan prompt 委托 skill(
 echo "$PROMPT_P" | grep -q 'prototype/README.md' && echo "$PROMPT_P" | grep -q 'prototype/selected.py' \
   && ! echo "$PROMPT_P" | grep -q 'prototype/rejected.py' && ! echo "$PROMPT_P" | grep -q 'mockup/loser.html' \
   && ok "plan writer 只收到 accepted log + selected" || no "plan writer prototype 选中材料"
+if echo "$PROMPT_P" | grep -Eq '仓库无测试薄层|no-repo-test-sheet'; then
+  no "plan 派发误判项目指令链中的嵌套测试规则"
+else
+  ok "plan 派发不再误判项目指令链中的嵌套测试规则"
+fi
 ARGV_P="$(cat "$FAKE_CAP/argv")"
 echo "$ARGV_P" | grep -q -- "-C $WT_TASK" && ok "plan codex -C 任务 worktree(不开子 worktree)" || no "plan -C 任务 wt"
 echo "$ARGV_P" | grep -q -- "--sandbox workspace-write" && ok "plan --sandbox workspace-write" || no "plan sandbox"

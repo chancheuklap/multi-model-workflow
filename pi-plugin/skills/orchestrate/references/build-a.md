@@ -20,7 +20,7 @@
 | **真一两处的小改**(single-change) | **不起 loop**,直接 TDD 改完提交 → A3 handoff。 |
 | **多步**(bug 定点修跨多文件 / A1 的单计划) | 起 execution loop 记步账,逐步走完再 handoff:`mmw loop init` → 每步 `mmw loop step add --id <N.M> --desc "<标题>"`。 |
 
-每步严格 TDD(循环用已装 `/tdd` skill)。测试的资格线按下面权威(与 pack-executor 工人、终审同一份单源);仓库有测试薄层 TESTING.md 的,目录分层 / 外部接缝 / 权威源以薄层为准:
+每步严格 TDD(循环用已装 `/tdd` skill)。测试的资格线按下面完整权威(与 pack-executor 工人、终审同一份单源)，同时遵守目标仓库项目指令链公开的测试规则:
 
 <!-- BEGIN: test-quality -->
 **测试写作权威(plugin 随身携带,任何仓库生效;仓库薄层 TESTING.md 只补本仓库事实——目录分层/外部接缝清单/权威源指针/套件门控——不覆盖本节):**

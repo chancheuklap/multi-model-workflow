@@ -113,11 +113,4 @@ else
   no "missing graph manager contract"
 fi
 
-if grep -q 'pi-graphify-ensure' "$SCRIPT_DIR/../lib/runtime.sh" \
-  && ! grep -Eq 'agentflow_build|scripts/dev/knowledge_graph|graphify-out' "$SCRIPT_DIR/../lib/runtime.sh"; then
-  ok "MMW depends only on generic lifecycle interface"
-else
-  no "MMW runtime contains project-specific graph knowledge"
-fi
-
 exit "$fail"

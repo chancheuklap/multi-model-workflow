@@ -35,23 +35,6 @@ preflight_registered_agent() {  # $1=agent 名
   local reg="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}/agents/$1.md"
   [ -e "$reg" ] || die "preflight:工人角色未注册为 pi agent($reg 不存在);先软链 agents-roster/$1.md 进全局 agents 目录"
 }
-# 定位仓库测试薄层(机械活归脚本,工人不漫山遍野找):TESTING.md 在 worktree 根或 tests/ 下。
-# 回显相对路径;找不到回显空(prompt 会声明 no-repo-test-sheet)。
-locate_test_sheet() {  # $1=worktree
-  local c
-  for c in TESTING.md tests/TESTING.md docs/TESTING.md; do
-    [ -f "$1/$c" ] && { echo "$c"; return 0; }
-  done
-  echo ""
-}
-test_sheet_lines() {  # $1=薄层相对路径(可空)
-  if [ -n "$1" ]; then
-    echo "- 仓库测试薄层(本仓库测试事实:目录分层/外部接缝/权威源/门控): $1"
-  else
-    echo "- 仓库无测试薄层:测试写法按 worktree-build/worktree-plan skill 里的测试写作权威;落点随仓库既有目录惯例;收工回执标 no-repo-test-sheet。"
-  fi
-}
-
 native_worktree_path() {
   local repo="$1" root="$2" branch="$3"
   printf '%s/%s-wt-%s' "$root" "$(basename "$repo")" "${branch//\//-}"
@@ -164,7 +147,7 @@ companion_prompt_lines() {  # $1=设计文件夹(可空) → prompt 材料清单
 }
 
 build_prompt() {
-  local plan="$1" wt="$2" design="$3" issue="$4" mode="$5" sheet="$6" retrieval="$7"
+  local plan="$1" wt="$2" design="$3" issue="$4" mode="$5" retrieval="$6"
   local skill; skill="$(mmw_plugin_root)/skills/worktree-build"
   if [ "$mode" = merge ]; then
     cat <<PROMPT
@@ -196,16 +179,15 @@ ${design:+- 设计文档:$design
 }- 实施计划:$plan
 ${companions:+- 讨论态材料(prototype 仅含 accepted README + selected；selected 是 UI/状态逻辑实现起点):
 $companions
-}$(test_sheet_lines "$sheet")
+}
 
 $(mmw_retrieval_candidates_prompt "$retrieval")
-
 只改 plan 的 File / Responsibility Map 和当前 Pack 拥有的路径。逐 Task Pack TDD、每 Pack 本地提交、禁改 docs/、禁 push/gh pr merge/部署、卡住协议和 Return Contract 全按 worktree-build skill。不要向用户提问,不要启动其它 agent;缺输入时在最终回执中结构化报告。
 PROMPT
 }
 
 build_plan_prompt() {
-  local plan="$1" wt="$2" design="$3" issue="$4" companions="$5" sheet="$6" retrieval="$7"
+  local plan="$1" wt="$2" design="$3" issue="$4" companions="$5" retrieval="$6"
   local skill; skill="$(mmw_plugin_root)/skills/worktree-plan"
   cat <<PROMPT
 你是计划撰写者,被主线程派进任务 worktree 把一个大 issue 写成一份实施计划。
@@ -218,10 +200,9 @@ ${design:+- 源设计文档:$design
 }${issue:+- 负责的大 issue:$issue
 }${companions:+- 讨论态材料(prototype 仅含 accepted README + selected；只采用 selected):
 $companions
-}$(test_sheet_lines "$sheet")
+}
 
 $(mmw_retrieval_candidates_prompt "$retrieval")
-
 只准写该 plan 与对应 issue 的 Small issues。禁止改源码、docs/design、其他 issue 或其他 plan,禁止 commit/push/发布。不要向用户提问,不要启动其它 agent;缺输入时在最终回执中结构化报告。
 PROMPT
 }
@@ -497,10 +478,9 @@ cmd_dispatch() {
   guard_no_pending "$meta"
   preflight_registered_agent "$agent"
   preflight_plugin_skill worktree-build
-  local test_sheet; test_sheet="$(locate_test_sheet "${target_top:-$repo}")"
   local retrieval_snapshot="$pkg/retrieval-candidates.json"
   mmw_retrieval_candidates_snapshot "$retrieval" "$retrieval_snapshot" || die "结构候选校验失败"
-  build_prompt "$plan" "$run_wt" "$design" "$issue" "$mode" "$test_sheet" "$retrieval_snapshot" > "$prompt"
+  build_prompt "$plan" "$run_wt" "$design" "$issue" "$mode" "$retrieval_snapshot" > "$prompt"
   printf '%s\n' "$start" > "$pkg/start_sha"
   write_meta "$meta" "$mode" "$agent" "$run_wt" "$prompt" "$start" "$plan" "$issue"
   update_meta "$meta" --arg control "$wt" --arg branch "$native_branch" \
@@ -605,10 +585,9 @@ cmd_plan_dispatch() {
   issue_baseline="$pkg/issue-baseline.md"
   capture_plan_baseline "$sandbox" "$baseline" || die "无法记录 plan writer worktree 边界基线"
   cp "$sandbox_issue" "$issue_baseline" || die "无法记录 issue 边界基线"
-  local plan_test_sheet; plan_test_sheet="$(locate_test_sheet "$sandbox")"
   local retrieval_snapshot="$pkg/retrieval-candidates.json"
   mmw_retrieval_candidates_snapshot "$retrieval" "$retrieval_snapshot" || die "结构候选校验失败"
-  build_plan_prompt "$sandbox_plan" "$sandbox" "$sandbox_design" "$sandbox_issue" "$sandbox_companions" "$plan_test_sheet" "$retrieval_snapshot" > "$prompt"
+  build_plan_prompt "$sandbox_plan" "$sandbox" "$sandbox_design" "$sandbox_issue" "$sandbox_companions" "$retrieval_snapshot" > "$prompt"
   printf '%s\n' "$start" > "$pkg/start_sha"
   write_meta "$meta" dispatch "$PLAN_AGENT" "$sandbox" "$prompt" "$start" "$sandbox_plan" "$sandbox_issue"
   update_meta "$meta" \

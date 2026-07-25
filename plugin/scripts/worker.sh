@@ -46,23 +46,6 @@ preflight_doc() {  # $1=标签 $2=路径(可空=跳过)
   [ -z "$2" ] && return 0
   [ -e "$2" ] || die "preflight:$1 不存在: $2"
 }
-# 定位仓库测试薄层(机械活归脚本,工人不漫山遍野找):TESTING.md 在 worktree 根或 tests/ 下。
-# 回显相对路径;找不到回显空(prompt 会声明 no-repo-test-sheet)。
-locate_test_sheet() {  # $1=worktree
-  local c
-  for c in TESTING.md tests/TESTING.md docs/TESTING.md; do
-    [ -f "$1/$c" ] && { echo "$c"; return 0; }
-  done
-  echo ""
-}
-test_sheet_lines() {  # $1=薄层相对路径(可空)
-  if [ -n "$1" ]; then
-    echo "- 仓库测试薄层(本仓库测试事实:目录分层/外部接缝/权威源/门控): $1"
-  else
-    echo "- 仓库无测试薄层:测试写法按你已装 skill 里的测试写作权威;落点随仓库既有目录惯例;收工回执标 no-repo-test-sheet。"
-  fi
-}
-
 # 讨论态材料推导(固定归脚本):从设计文档路径机械推导设计文件夹与伴随材料,LLM 不传路径。
 # 布局:docs/design/<slug>/<slug>.md 单文件夹形态;兼容在飞旧任务 docs/design/<slug>.md 根文件形态。
 design_dir_of() {  # $1=设计文档路径 → 设计文件夹
@@ -170,7 +153,7 @@ companion_prompt_lines() {  # $1=设计文件夹(可空) → prompt 材料清单
   done <<<"$companions"
 }
 
-build_prompt() {  # $1=plan $2=worktree $3=design $4=issue $5=测试薄层相对路径(可空) $6=候选快照
+build_prompt() {  # $1=plan $2=worktree $3=design $4=issue $5=候选快照
   local companions=""
   if [ -n "$3" ]; then
     companions="$(companion_prompt_lines "$(design_dir_of "$3")")" || return 1
@@ -186,9 +169,9 @@ ${3:+- 设计文档(意图/合同边界/发布风险): $3
 }- 你的计划(实施唯一权威): $1
 ${companions:+- 讨论态材料(prototype 仅含 accepted README + selected；selected 是 UI/状态逻辑实现起点):
 $companions
-}$(test_sheet_lines "$5")
+}
 
-$(mmw_retrieval_candidates_prompt "$6")
+$(mmw_retrieval_candidates_prompt "$5")
 
 落地铁律、逐 Pack TDD、每 Pack 提交格式、禁改 docs/、卡住协议、收工回执格式 —— **全在 worktree-build skill,照它做,本消息不重复**。
 PROMPT
@@ -196,7 +179,7 @@ PROMPT
 
 plan_ns() { basename "$1" .md; }  # 落点路径 → 派发命名空间(并行写计划在同一 worktree,靠它隔离 session/log)
 
-build_plan_prompt() {  # $1=落点 $2=worktree $3=design $4=issue $5=讨论态材料清单(可空) $6=测试薄层相对路径(可空) $7=候选快照
+build_plan_prompt() {  # $1=落点 $2=worktree $3=design $4=issue $5=讨论态材料清单(可空) $6=候选快照
   cat <<PROMPT
 你是计划撰写者,被主线程派进任务 worktree 把一个大 issue 写成一份实施计划。
 **读你已装的 \`worktree-plan\` skill,照它走整个写计划流程**(总纲,细纪律在它的 references,到那步再读)。
@@ -208,9 +191,9 @@ ${3:+- 源设计文档(architecture / 合同边界 / Cross-Plan Contract Anchors
 }${4:+- 你负责的大 issue(What to build;## Small issues 若为 PENDING 你来拆): $4
 }${5:+- 讨论态材料(prototype 仅含 accepted README + selected；只采用 selected):
 $5
-}$(test_sheet_lines "$6")
+}
 
-$(mmw_retrieval_candidates_prompt "$7")
+$(mmw_retrieval_candidates_prompt "$6")
 
 拆小 issue、逐 Task Pack、无 Placeholder、测试规划严谨度、Return Contract —— **全在 worktree-plan skill,照它做,本消息不重复**。
 边界:只写你落点那份 plan + 你 issue 的 \`## Small issues\`;不碰源码 / \`docs/design/\` / 别的 plan;不 commit(改动留 unstaged,主线程统一提交)。
@@ -357,8 +340,6 @@ cmd_dispatch() {
   local st; st="$(state_for "$wt")"
   mkdir -p "$wt/$st"
   printf '%s\n' "$task_origin" >"$wt/$st/task-origin"
-  local test_sheet; test_sheet="$(locate_test_sheet "$wt")"
-
   local dmodel="$CODEX_MODEL" deffort="$CODEX_EFFORT"
   if grep -qiE '(complexity|复杂度).*capable' "$plan" 2>/dev/null; then
     dmodel="$CODEX_CAPABLE_MODEL"; deffort="$CODEX_CAPABLE_EFFORT"
@@ -371,7 +352,7 @@ cmd_dispatch() {
   printf '%s %s\n' "$model" "$effort" > "$wt/$st/codex-model"
   local retrieval_snapshot="$wt/$st/retrieval-candidates.json"
   mmw_retrieval_candidates_snapshot "$retrieval" "$retrieval_snapshot" || die "结构候选校验失败"
-  local pf; pf="$(mktemp)"; build_prompt "$plan" "$wt" "$design" "$issue" "$test_sheet" "$retrieval_snapshot" > "$pf"
+  local pf; pf="$(mktemp)"; build_prompt "$plan" "$wt" "$design" "$issue" "$retrieval_snapshot" > "$pf"
   local rc=0
   run_codex "$wt" "$pf" \
     exec -C "$wt" --sandbox workspace-write \
@@ -447,7 +428,6 @@ cmd_plan_dispatch() {
   local st; st="$(state_for "$wt")"; mkdir -p "$wt/$st"
   mmw_ensure_worktree_state_ignore "$wt"
   local ns; ns="$(plan_ns "$plan")"
-  local test_sheet; test_sheet="$(locate_test_sheet "$wt")"
 
   [ -n "$model" ] || model="$CODEX_PLAN_MODEL"
   [ -n "$effort" ] || effort="$CODEX_PLAN_EFFORT"
@@ -458,7 +438,7 @@ cmd_plan_dispatch() {
   printf '%s\n' "$start_sha" > "$wt/$st/plan-workers/$ns/start_sha"
   local retrieval_snapshot="$wt/$st/plan-workers/$ns/retrieval-candidates.json"
   mmw_retrieval_candidates_snapshot "$retrieval" "$retrieval_snapshot" || die "结构候选校验失败"
-  local pf; pf="$(mktemp)"; build_plan_prompt "$plan" "$wt" "$design" "$issue" "$companions" "$test_sheet" "$retrieval_snapshot" > "$pf"
+  local pf; pf="$(mktemp)"; build_plan_prompt "$plan" "$wt" "$design" "$issue" "$companions" "$retrieval_snapshot" > "$pf"
   local rc=0
   run_codex_plan "$wt" "$ns" "$pf" \
     exec -C "$wt" --sandbox workspace-write \
