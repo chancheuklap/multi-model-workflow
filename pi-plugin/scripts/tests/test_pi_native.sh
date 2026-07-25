@@ -20,7 +20,7 @@ jq -e '(.version|test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) and (.keywords|index("pi-pa
 roles='investigate-topic investigate-synthesizer code-explorer plan-writer pack-executor pack-executor-capable reviewer-design-a reviewer-design-b reviewer-plan-a reviewer-plan-b reviewer-final-a reviewer-final-b'
 for role in $roles; do
   file="$PLUGIN/agents-roster/$role.md"
-  [ -f "$file" ] && grep -q '^model: \(openai-codex\|claude-provider\)/' "$file" \
+  [ -f "$file" ] && grep -q '^model: \(openai-codex\|kimi-coding\)/' "$file" \
     && grep -q '^thinking: ' "$file" && ! grep -q '^reasoningEffort:' "$file" \
     && ok "role:$role" || no "role missing/invalid:$role"
 done
@@ -28,11 +28,18 @@ done
 # tools 行必须是逗号格式(nicobailon 不解析 YAML 数组,方括号会生成垃圾工具名)
 ! grep -l '^tools: \[' "$PLUGIN"/agents-roster/*.md >/dev/null \
   && ok 'roster tools 全逗号格式' || no 'roster tools 存在方括号'
-# Fable 系 reviewer 配同厂商 fallback(fable-5 限流时换 opus-4-8:xhigh,不跨厂商)
+# B 路 reviewer 固定使用 Kimi K3 Max，不得回退到 Claude。
 for role in reviewer-design-b reviewer-plan-b reviewer-final-b; do
-  grep -q '^fallbackModels: claude-provider/claude-opus-4-8:xhigh$' "$PLUGIN/agents-roster/$role.md" \
-    && ok "fallback 同厂商:$role" || no "fallback 缺失:$role"
+  file="$PLUGIN/agents-roster/$role.md"
+  grep -q '^model: kimi-coding/k3$' "$file" \
+    && grep -q '^thinking: max$' "$file" \
+    && ! grep -q '^fallbackModels:' "$file" \
+    && grep -q 'mmw:fragments BEGIN' "$file" \
+    && ok "Kimi K3 Max:$role" || no "Kimi 配置无效:$role"
 done
+! grep -q '^model: claude-provider/' "$PLUGIN"/agents-roster/reviewer-*.md \
+  && ! grep -q 'B=Claude' "$PLUGIN"/agents-roster/reviewer-*.md \
+  && ok 'reviewer roster 无 Claude 路由' || no 'reviewer roster 残留 Claude 路由'
 [ ! -f "$PLUGIN/agents-roster/decision-advisor.md" ] \
   && ok 'decision-advisor 已裁(咨询走 advisor 工具)' || no 'decision-advisor 残留'
 

@@ -11,6 +11,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/runtime.sh"
 # shellcheck source=lib/prototype-state.sh
 . "$SCRIPT_DIR/lib/prototype-state.sh"
+# shellcheck source=lib/retrieval-candidates.sh
+. "$SCRIPT_DIR/lib/retrieval-candidates.sh"
 
 EXECUTOR_AGENT="${PI_EXECUTOR_AGENT:-pack-executor}"
 CAPABLE_EXECUTOR_AGENT="${PI_CAPABLE_EXECUTOR_AGENT:-pack-executor-capable}"
@@ -145,7 +147,7 @@ companion_prompt_lines() {  # $1=设计文件夹(可空) → prompt 材料清单
 }
 
 build_prompt() {
-  local plan="$1" wt="$2" design="$3" issue="$4" mode="$5"
+  local plan="$1" wt="$2" design="$3" issue="$4" mode="$5" retrieval="$6"
   local skill; skill="$(mmw_plugin_root)/skills/worktree-build"
   if [ "$mode" = merge ]; then
     cat <<PROMPT
@@ -154,6 +156,8 @@ build_prompt() {
 
 工作树(你唯一可写的源码区,所有文件操作用它下面的绝对路径):$wt
 合并冲突 mini-plan(唯一意图与验收来源):$plan
+
+$(mmw_retrieval_candidates_prompt "$retrieval")
 
 只改 mini-plan 明确拥有的路径。逐 Task Pack TDD、每 Pack 本地提交、禁改 docs/、禁 push/gh pr merge/部署、卡住协议和 Return Contract 全按 worktree-build skill。不要重新选择哪边意图胜出,不要向用户提问,不要启动其它 agent;mini-plan 缺关键意图时在最终回执中结构化报告。
 PROMPT
@@ -176,12 +180,14 @@ ${design:+- 设计文档:$design
 ${companions:+- 讨论态材料(prototype 仅含 accepted README + selected；selected 是 UI/状态逻辑实现起点):
 $companions
 }
+
+$(mmw_retrieval_candidates_prompt "$retrieval")
 只改 plan 的 File / Responsibility Map 和当前 Pack 拥有的路径。逐 Task Pack TDD、每 Pack 本地提交、禁改 docs/、禁 push/gh pr merge/部署、卡住协议和 Return Contract 全按 worktree-build skill。不要向用户提问,不要启动其它 agent;缺输入时在最终回执中结构化报告。
 PROMPT
 }
 
 build_plan_prompt() {
-  local plan="$1" wt="$2" design="$3" issue="$4" companions="$5"
+  local plan="$1" wt="$2" design="$3" issue="$4" companions="$5" retrieval="$6"
   local skill; skill="$(mmw_plugin_root)/skills/worktree-plan"
   cat <<PROMPT
 你是计划撰写者,被主线程派进任务 worktree 把一个大 issue 写成一份实施计划。
@@ -195,6 +201,8 @@ ${design:+- 源设计文档:$design
 }${companions:+- 讨论态材料(prototype 仅含 accepted README + selected；只采用 selected):
 $companions
 }
+
+$(mmw_retrieval_candidates_prompt "$retrieval")
 只准写该 plan 与对应 issue 的 Small issues。禁止改源码、docs/design、其他 issue 或其他 plan,禁止 commit/push/发布。不要向用户提问,不要启动其它 agent;缺输入时在最终回执中结构化报告。
 PROMPT
 }
@@ -355,6 +363,7 @@ plan_sandbox_create() {
   git -C "$main" worktree add -b "$branch" "$sandbox" "$(git -C "$task_wt" rev-parse HEAD)" >&2 \
     || die "建立 plan writer 隔离 worktree 失败:$sandbox"
   mmw_ensure_wt_state_ignore "$sandbox"
+  mmw_prepare_worktree "$task_wt" "$sandbox"
   printf '%s\t%s\n' "$sandbox" "$branch"
 }
 
@@ -398,12 +407,13 @@ guard_unique_plan_targets() {
 }
 
 cmd_dispatch() {
-  local plan="" wt="" base="HEAD" design="" issue="" mode="pack" agent=""
+  local plan="" wt="" base="HEAD" design="" issue="" mode="pack" agent="" retrieval=""
   while [ $# -gt 0 ]; do case "$1" in
     --plan) plan="$2"; shift 2 ;; --worktree) wt="$2"; shift 2 ;;
     --design) design="$2"; shift 2 ;; --issue) issue="$2"; shift 2 ;;
     --mode) mode="$2"; shift 2 ;;
     --base) base="$2"; shift 2 ;; --agent) agent="$2"; shift 2 ;;
+    --retrieval-candidates) retrieval="$2"; shift 2 ;;
     *) die "未知参数:$1" ;;
   esac; done
   [ -f "$plan" ] || die "plan 文件不存在:$plan"
@@ -452,6 +462,7 @@ cmd_dispatch() {
     run_wt="$target_top"
     mmw_ensure_wt_state_ignore "$run_wt"
   fi
+  mmw_prepare_worktree "$repo" "$run_wt"
   local st pkg start prompt meta task_origin="-"
   if [ "$mode" = pack ] && [ -n "$design" ]; then
     task_origin="$(git -C "$(dirname "$design")" rev-parse --show-toplevel 2>/dev/null)" || die "无法定位设计所属任务 worktree:$design"
@@ -467,7 +478,9 @@ cmd_dispatch() {
   guard_no_pending "$meta"
   preflight_registered_agent "$agent"
   preflight_plugin_skill worktree-build
-  build_prompt "$plan" "$run_wt" "$design" "$issue" "$mode" > "$prompt"
+  local retrieval_snapshot="$pkg/retrieval-candidates.json"
+  mmw_retrieval_candidates_snapshot "$retrieval" "$retrieval_snapshot" || die "结构候选校验失败"
+  build_prompt "$plan" "$run_wt" "$design" "$issue" "$mode" "$retrieval_snapshot" > "$prompt"
   printf '%s\n' "$start" > "$pkg/start_sha"
   write_meta "$meta" "$mode" "$agent" "$run_wt" "$prompt" "$start" "$plan" "$issue"
   update_meta "$meta" --arg control "$wt" --arg branch "$native_branch" \
@@ -514,10 +527,11 @@ cmd_resume() {
 }
 
 cmd_plan_dispatch() {
-  local plan="" wt="" design="" issue=""
+  local plan="" wt="" design="" issue="" retrieval=""
   while [ $# -gt 0 ]; do case "$1" in
     --plan) plan="$2"; shift 2 ;; --worktree) wt="$2"; shift 2 ;;
     --design) design="$2"; shift 2 ;; --issue) issue="$2"; shift 2 ;;
+    --retrieval-candidates) retrieval="$2"; shift 2 ;;
     *) die "未知参数:$1" ;;
   esac; done
   case "$plan" in /*) ;; *) die "--plan 必须绝对路径" ;; esac
@@ -558,6 +572,7 @@ cmd_plan_dispatch() {
   plan_sandbox_overlay "$wt" "$sandbox" "$design"
   plan_sandbox_overlay "$wt" "$sandbox" "$issue"
   plan_sandbox_overlay "$wt" "$sandbox" "$plan"
+  mkdir -p "$(dirname "$sandbox_plan")"
   local sandbox_companions=""
   while IFS= read -r c; do
     [ -n "$c" ] || continue
@@ -570,7 +585,9 @@ cmd_plan_dispatch() {
   issue_baseline="$pkg/issue-baseline.md"
   capture_plan_baseline "$sandbox" "$baseline" || die "无法记录 plan writer worktree 边界基线"
   cp "$sandbox_issue" "$issue_baseline" || die "无法记录 issue 边界基线"
-  build_plan_prompt "$sandbox_plan" "$sandbox" "$sandbox_design" "$sandbox_issue" "$sandbox_companions" > "$prompt"
+  local retrieval_snapshot="$pkg/retrieval-candidates.json"
+  mmw_retrieval_candidates_snapshot "$retrieval" "$retrieval_snapshot" || die "结构候选校验失败"
+  build_plan_prompt "$sandbox_plan" "$sandbox" "$sandbox_design" "$sandbox_issue" "$sandbox_companions" "$retrieval_snapshot" > "$prompt"
   printf '%s\n' "$start" > "$pkg/start_sha"
   write_meta "$meta" dispatch "$PLAN_AGENT" "$sandbox" "$prompt" "$start" "$sandbox_plan" "$sandbox_issue"
   update_meta "$meta" \
@@ -616,6 +633,7 @@ cmd_plan_resume() {
     plan_sandbox_overlay "$wt" "$sandbox" "$task_design"
     plan_sandbox_overlay "$wt" "$sandbox" "$task_issue"
     plan_sandbox_overlay "$wt" "$sandbox" "$plan"
+    mkdir -p "$(dirname "$sandbox_plan")"
     local c
     local resume_companions
     resume_companions="$(design_companions "$(design_dir_of "$task_design")")" || die "讨论态材料校验失败"
@@ -686,7 +704,7 @@ cmd_verify() {
     *) die "未知参数:$1" ;;
   esac; done
   [ -n "$wt" ] || die "--worktree 必填"
-  local st meta start pkg sandbox sandbox_plan sandbox_issue task_issue branch
+  local st meta start pkg sandbox sandbox_plan sandbox_issue task_plan task_issue branch
   local plan_hash issue_hash expected_plan_hash expected_issue_hash
   st="$(state_for "$wt")"
   if [ -n "$plan" ]; then
@@ -701,6 +719,10 @@ cmd_verify() {
   validate_task_root "$task_origin" || die "任务设计确认或 prototype 状态无效"
   echo "META_FILE=$meta"
   if [ -n "$plan" ]; then
+    task_plan="$(jq -r '.task_plan // empty' "$meta")"
+    [ -n "$task_plan" ] || die "派发账本缺 task_plan，不能安全 verify"
+    [ "$plan" = "$task_plan" ] || die "--plan 与派发账本目标不一致:$plan"
+    case "$task_plan" in "$wt"/*) ;; *) die "派发账本 task_plan 不在任务 worktree 内:$task_plan" ;; esac
     if [ "$(jq -r '.published // false' "$meta")" != true ]; then
       start="$(jq -r '.start_sha' "$meta")"
       sandbox="$(jq -r '.worktree' "$meta")"
@@ -712,14 +734,15 @@ cmd_verify() {
         "$pkg/worktree-baseline.json" "$pkg/issue-baseline.md" || return 3
       expected_plan_hash="$(jq -r '.task_plan_baseline' "$meta")"
       expected_issue_hash="$(jq -r '.task_issue_baseline' "$meta")"
-      if [ "$(path_fingerprint "$wt" "${plan#"$wt"/}")" != "$expected_plan_hash" ] \
+      if [ "$(path_fingerprint "$wt" "${task_plan#"$wt"/}")" != "$expected_plan_hash" ] \
         || [ "$(path_fingerprint "$wt" "${task_issue#"$wt"/}")" != "$expected_issue_hash" ]; then
         echo "PLAN_PUBLISH_CONFLICT: 任务 worktree 的目标 plan/issue 在 writer 运行期间被改动" >&2
         return 3
       fi
-      publish_plan_result "$sandbox" "$sandbox_plan" "$sandbox_issue" "$plan" "$task_issue"
-      plan_hash="$(path_fingerprint "$wt" "${plan#"$wt"/}")"
+      publish_plan_result "$sandbox" "$sandbox_plan" "$sandbox_issue" "$task_plan" "$task_issue"
+      plan_hash="$(path_fingerprint "$wt" "${task_plan#"$wt"/}")"
       issue_hash="$(path_fingerprint "$wt" "${task_issue#"$wt"/}")"
+      [ "$plan_hash" != missing ] || die "发布后 plan 缺失，拒绝标记 verified:$task_plan"
       update_meta "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
         --arg plan_hash "$plan_hash" --arg issue_hash "$issue_hash" \
         '.status="verified" | .published=true | .published_at=$at | .published_plan_hash=$plan_hash | .published_issue_hash=$issue_hash' \
@@ -730,7 +753,7 @@ cmd_verify() {
         echo "WARNING: 隔离 worktree 清理失败:$sandbox" >&2
       fi
     fi
-    echo "WORKER_VERIFY=pass(plan 已发布:$plan)"
+    echo "WORKER_VERIFY=pass(plan 已发布:$task_plan)"
   else
     start="$(jq -r '.start_sha' "$meta")"
     check_docs_boundary "$(jq -r .worktree "$meta")" "$start" || return 3

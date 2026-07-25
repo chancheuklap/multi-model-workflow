@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # review.sh 空跑(Droid 原生):审闸一条命令——brief 落盘(主线程读它直接派审者)、纯路由指向已装 worktree-review skill、
-# 审不记账(无 loop 账本,收口硬核=留痕文件含 verdict,由 flow.sh 核)、④final 固定四跨模型 Task 不分档、③合同门机器核、bad stage 拦。
+# 审不记账(无 loop 账本,收口硬核=留痕文件含 verdict,由 flow.sh 核)、④final 按场景/风险分档、③合同门机器核、bad stage 拦。
 set -euo pipefail
 STATE_SUBDIR="${STATE_SUBDIR:-.factory/multi-model-workflow}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -85,18 +85,44 @@ grep -q "reviewer-plan-a" "$BRIEF" && grep -q "reviewer-plan-b" "$BRIEF" && ok "
 grep -q "写者与审者分离" "$BRIEF" && ok "②计划审写审分离(plan-writer 写,审者另派)" || no "②plan 写审分离"
 grep -q "轴A 覆盖与质量" "$BRIEF" && ok "②计划审两路视角(轴A/轴B)" || no "②plan 视角"
 
-# ④final:固定四跨模型 Task,两基线各两模型;不按 scenario 分档(Droid 无降档逻辑)
-bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
-B="$(cat "$BRIEF")"
-echo "$B" | grep -q "四个跨模型 Task" && ok "final 固定四跨模型 Task" || no "final 四 Task"
-echo "$B" | grep -q "reviewer-final-a" && echo "$B" | grep -q "reviewer-final-b" && ok "final 派 reviewer-final-a/b" || no "final 审者编制"
-echo "$B" | grep -q "基线1" && echo "$B" | grep -q "基线2" && ok "final 两基线视角" || no "final 基线"
-echo "$B" | grep -q "同一份方法论" && ok "final 四审者读同一份方法论" || no "final prompt 一致"
-echo "$B" | grep -q "跨模型对账" && ok "final 同基线跨模型对账(单家报的亲验/同报升置信)" || no "final 对账"
+# ④final 分档:small-change/bug → 1×GPT 一肩挑两基线,不耗 Claude
 mkdir -p ${STATE_SUBDIR}
 echo '{"scenario":"small-change"}' > ${STATE_SUBDIR}/task.json
 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
-grep -q "四个跨模型 Task" "$BRIEF" && ok "final 不按 scenario 分档(small-change 同编制)" || no "final 误分档"
+B="$(cat "$BRIEF")"
+echo "$B" | grep -q "一个独立 Task 一肩挑两条基线" && ok "small-change ④ 降档:1×GPT 覆盖两基线" || no "small-change 降档"
+echo "$B" | grep -q "reviewer-final-a" && ! echo "$B" | grep -q "reviewer-final-b" && ok "small-change ④ 只派 GPT 路线" || no "small-change 审者路线"
+echo '{"scenario":"bug"}' > ${STATE_SUBDIR}/task.json
+bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
+grep -q "一个独立 Task 一肩挑两条基线" "$BRIEF" && ok "bug ④ 同样降档" || no "bug 降档"
+
+# develop 判不出风险数据 → fail-closed 保 4;无 capable 且 diff 小 → 2;capable → 4
+echo '{"scenario":"develop"}' > ${STATE_SUBDIR}/task.json
+bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
+B="$(cat "$BRIEF")"
+echo "$B" | grep -q "四个跨模型 Task" && ok "develop 风险未知保 4 Task" || no "develop fail-closed 4"
+echo "$B" | grep -q "reviewer-final-a" && echo "$B" | grep -q "reviewer-final-b" && ok "develop 4 档派 A/B" || no "develop 4 档编制"
+echo "$B" | grep -q "同一份方法论" && ok "develop 4 档同方法论" || no "develop 4 档 prompt"
+echo "$B" | grep -q "跨模型对账" && ok "develop 4 档跨模型对账" || no "develop 4 档对账"
+mkdir -p docs/plans/t-invalid
+printf '**Complexity:** standard\n' > docs/plans/t-invalid/001-a.md
+printf '{"scenario":"develop","base_commit":"not-a-commit","slug":"t-invalid"}' > ${STATE_SUBDIR}/task.json
+if bash "$REVIEW" start --stage final --source x >/dev/null 2>&1; then
+  grep -q "四个跨模型 Task" "$BRIEF" && ok "develop base 无效 → fail-closed 保 4 Task" || no "develop 无效 base 编制"
+else
+  no "develop 无效 base 不应中断起审"
+fi
+BASE="$(git rev-parse HEAD)"
+printf '{"scenario":"develop","base_commit":"%s","slug":"t1"}' "$BASE" > ${STATE_SUBDIR}/task.json
+mkdir -p docs/plans/t1
+printf '**Complexity:** standard\n' > docs/plans/t1/001-a.md
+bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
+grep -q "两个独立跨模型 Task" "$BRIEF" && ok "develop 无 capable+diff 小 → 2 Task" || no "develop 降 2 Task"
+REVIEW_TIER_DIFF_MAX=-1 bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
+grep -q "四个跨模型 Task" "$BRIEF" && ok "develop diff 超阈值 → 4 Task" || no "develop diff 阈值保 4"
+printf '**复杂度:** Capable\n' > docs/plans/t1/002-b.md
+bash "$REVIEW" start --stage final --source x >/dev/null 2>&1
+grep -q "四个跨模型 Task" "$BRIEF" && ok "develop capable → 4 Task" || no "develop capable 保 4"
 
 # 多 --source(阶段可钉多个产出,brief 拼全)
 OUT="$(bash "$REVIEW" start --stage design --source s1.md --source s2.md 2>/dev/null)"

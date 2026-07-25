@@ -67,6 +67,46 @@ mmw_enter_worktree_hint() {
   printf '在 worktree 路径继续本任务: cd %s 后跑 mmw where，或在该目录新开 pi 会话' "$1"
 }
 
+# 项目 hook 可覆盖通用初始化；普通仓库统一由用户级 Graphify 生命周期模块预热。
+# 两条路径失败都明确告警但不阻断任务创建；首次复杂检索会再次 ensure。
+mmw_prepare_worktree() {
+  local source_wt="$1" target_wt="$2"
+  local hook="$target_wt/.pi/worktree-init.sh" init_log="" graph_manager=""
+
+  init_log="$(mktemp "${TMPDIR:-/tmp}/mmw-worktree-init.XXXXXX")" || {
+    echo "[mmw] WARNING: 无法创建 worktree 初始化日志:$target_wt" >&2
+    return 0
+  }
+  if [ -f "$hook" ]; then
+    if (
+      cd "$target_wt"
+      /bin/bash "$hook" "$source_wt" "$target_wt"
+    ) >"$init_log" 2>&1; then
+      [ ! -s "$init_log" ] || cat "$init_log" >&2
+    else
+      cat "$init_log" >&2
+      echo "[mmw] WARNING: 项目 worktree 初始化失败；继续任务:$target_wt" >&2
+    fi
+    rm -f "$init_log"
+    return 0
+  fi
+
+  graph_manager="$(command -v pi-graphify-ensure 2>/dev/null || true)"
+  if [ -z "$graph_manager" ]; then
+    rm -f "$init_log"
+    echo "[mmw] WARNING: 找不到 pi-graphify-ensure；工作树已创建，首次复杂检索前必须补建图:$target_wt" >&2
+    return 0
+  fi
+  if "$graph_manager" --repo "$target_wt" --source "$source_wt" >"$init_log" 2>&1; then
+    [ ! -s "$init_log" ] || cat "$init_log" >&2
+  else
+    cat "$init_log" >&2
+    echo "[mmw] WARNING: 通用图谱初始化失败；工作树已创建，首次复杂检索将重试:$target_wt" >&2
+  fi
+  rm -f "$init_log"
+  return 0
+}
+
 mmw_plugin_root() {
   cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd
 }

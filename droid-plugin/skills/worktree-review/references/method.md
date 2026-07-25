@@ -44,11 +44,15 @@
 - **不对未改动区域起新 Nit**;新 Important/Critical 必须落在修复触及的路径或与 accepted 修复直接相关的连锁面上,并写清与上轮的增量关系。
 - 上轮 accepted 已修好且无新承重问题 → `pass`,不要为证明自己有产出而找茬。
 
+## 结构候选先行
+
+遇到调用/引用、连接、依赖路径或影响面，先读 `../../orchestrate/references/retrieval-doctrine.md`。上游 Serena 候选只扩大检查面；Droid 审者不得声称直接调用 Serena，只能 Execute Graphify/Read/Grep 亲验。每条 finding 仍须引用目标 checkout 的 `file:line`。
+
 ## 防幻觉四件套
 1. 置信度:每条 finding 标 1-3 低 / 4-6 中 / 7-10 高。
 2. 验证门:每条引用触发它的 `file:line` + 原始行("字段 X 不在 model Y"→引 class Y 定义体;"race"→引两处)。引不出 = 未验证,confidence 压到 4-5 移到低置信观察区。元编程(ORM 元类 / 装饰器 / 代码生成)引生成该符号的元构造。
 3. 防自我合理化:"看着没问题"→引证据或标 unknown;"应该别处处理了"→读并引用;"大概测过"→给测试文件 + 方法名。
-4. 证据表 + 偏见声明:`### Evidence` 列已读产物 / 已查代码路径 / 已跑命令 / 假设(影响 verdict 的前提)/ 未验证项;无对应写"不适用"不留空。结尾声明不熟的模块 / 栈 + 受影响的 finding。
+4. 证据表 + 偏见声明:`### Evidence` 列已读产物 / 已查代码路径 / 已跑命令 / 假设(影响 verdict 的前提)/ 未验证项;无对应写"不适用"不留空。另列**结构候选**：上游候选、自己实际调用的工具、源码 locator 和 fallback 原因。结尾声明不熟的模块 / 栈 + 受影响的 finding。
 
 ## Finding 字段
 severity(Critical/Important/Minor) · blocking(yes/no) · confidence(1-10) · locator(file:line) · evidence · impact · remediation · scope(in-scope|out-of-scope|unclear)
@@ -71,6 +75,8 @@ severity(Critical/Important/Minor) · blocking(yes/no) · confidence(1-10) · lo
 ### Critical / Important / Minor(non-blocking) / 低置信度观察 — 每条按 Finding 字段
 ### Assessment — 1-2 句;复审时加一句"相对上轮增量"
 ```
+结构性 finding 必须标候选来源，或在 `### Evidence` 的结构候选行给合法退化声明。
+
 整体 `needs-context` = 没拿到审查上下文,在 Verdict 说明缺什么,别硬凑 finding。
 `needs-redirection` = 方向/源意图本身存疑(方向级第一问命中),不是产物有缺陷(那才是 needs-repair);Verdict 一句话说清「源意图哪里可疑 + 建议重新框定」,交人决策。
 `pass` 可与 Minor/Nit 并存;不要因为还有 Nit 就改成 needs-repair。

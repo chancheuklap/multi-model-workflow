@@ -6,7 +6,7 @@ PLUGIN_DIR="$(cd "$HERE/../.." && pwd)"
 BUILD="$PLUGIN_DIR/build/build.sh"
 SCEN="$PLUGIN_DIR/skills/orchestrate/references/scenario"
 FRAG="$PLUGIN_DIR/build/fragments"
-SKILL="$PLUGIN_DIR/skills/orchestrate/SKILL.md"
+ROUTES="$PLUGIN_DIR/state-schema/routes.json"
 
 pass=0; fail=0
 ok(){ echo "  PASS: $1"; pass=$((pass+1)); }
@@ -49,14 +49,13 @@ mv "$FRAG/closing-cleanup.md.bak" "$FRAG/closing-cleanup.md"
 bash "$BUILD" --apply >/dev/null 2>&1
 bash "$BUILD" --check >/dev/null 2>&1 && ok "还原片段重建后 --check 干净" || no "还原重建失败"
 
-# 6. skill 触发面:入口有排除面 + 直接处理出口在 Step 0 之前。
-# skill prose 是行为面,断结构(顺序)与短语义键,不逐字锁整句(润色不该红)。
-desc_line="$(sed -n '/^---$/,/^---$/p' "$SKILL" | grep '^description:')"
-echo "$desc_line" | grep -q "不用于" && ok "skill description 带排除面(触发面不外溢)" || no "skill description 缺排除面"
-step0_line="$(grep -n '^## Step 0' "$SKILL" | cut -d: -f1)"
-[ -n "$step0_line" ] && head -n "$((step0_line-1))" "$SKILL" | grep -q "直接处理" \
-  && ok "Step 0 之前给出直接处理出口(轻量请求不进流程)" || no "直接处理出口缺失或晚于 Step 0"
-grep -q "独立任务边界" "$SCEN/small-change.md" && ok "small-change 口径含独立任务边界语义键" || no "small-change 口径过宽"
+# 6. 入口策略由结构化路由合同承载；CLI 与 hook 的外部行为由各自测试覆盖。
+jq -e '.entry_policy.default == "direct"' "$ROUTES" >/dev/null \
+  && ok "入口合同默认 direct" || no "入口合同默认值错误"
+jq -e '(.entry_policy.orientation | index("focused-reproduction")) != null and (.entry_policy.capabilities | has("design-approval") and has("gated-assurance"))' "$ROUTES" >/dev/null \
+  && ok "入口合同含只读定向与治理能力" || no "入口合同缺只读定向或治理能力"
+jq -e '(.entry_policy.non_triggers | index("new-feature")) != null and (.entry_policy.non_triggers | index("root-unknown")) != null and (.entry_policy.non_triggers | index("multi-file")) != null' "$ROUTES" >/dev/null \
+  && ok "入口合同排除常见工作形状" || no "入口合同缺非触发器"
 
 echo ""
 echo "Results: $pass passed, $fail failed"

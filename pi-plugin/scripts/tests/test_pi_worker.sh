@@ -23,8 +23,18 @@ mkdir -p "$TMP/tests"
 printf '# 项目规则\n\n测试规则见 `tests/AGENTS.override.md`。\n' >"$TMP/AGENTS.md"
 printf '# 测试规则\n\n只测试外部可观察行为。\n' >"$TMP/tests/AGENTS.override.md"
 echo base > "$TMP/base.txt"
-git -C "$TMP" add AGENTS.md tests/AGENTS.override.md base.txt
+mkdir -p "$TMP/.pi"
+cat >"$TMP/.pi/worktree-init.sh" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+source_wt="$1"
+target_wt="$2"
+printf '%s\n' "$source_wt" >"$target_wt/.pi/worktree-initialized"
+SH
+chmod +x "$TMP/.pi/worktree-init.sh"
+git -C "$TMP" add AGENTS.md tests/AGENTS.override.md base.txt .pi/worktree-init.sh
 git -C "$TMP" commit -qm base
+ROOT="$(git -C "$TMP" rev-parse --show-toplevel)"
 
 mkdir -p "$TMP/docs/plans/demo" "$TMP/docs/issues/demo" "$TMP/docs/design"
 PLAN="$TMP/docs/plans/demo/001.md"
@@ -45,6 +55,10 @@ git -C "$TMP" add docs
 git -C "$TMP" commit -qm docs
 
 WT="$TMP/.pi/worktrees/demo-plan-001"
+RETRIEVAL="$TMP/retrieval.json"
+cat >"$RETRIEVAL" <<'JSON'
+[{"tool":"graphify","query":"find worker entrypoint","status":"used","locators":["pi-plugin/scripts/worker.sh:1"],"summary":"worker candidate","fallback_reason":"source verification required"}]
+JSON
 
 # 未注册角色 fail-closed
 if bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$WT" >/dev/null 2>&1; then
@@ -56,10 +70,12 @@ for role in pack-executor pack-executor-capable plan-writer; do
   : >"$PI_CODING_AGENT_DIR/agents/$role.md"
 done
 
-OUT="$(bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$WT" 2>&1)"
+OUT="$(bash "$WORKER" dispatch --plan "$PLAN" --design "$DESIGN" --issue "$ISSUE" --worktree "$WT" --retrieval-candidates "$RETRIEVAL" 2>&1)"
 META="$WT/.pi/multi-model-workflow/worker-dispatch/meta.json"
 ACTUAL_WT="$(jq -r .worktree "$META")"
 [ "$(git -C "$ACTUAL_WT" branch --show-current)" = "worker/demo-plan-001" ] && ok "worker branch" || no "worker branch"
+[ "$(cat "$ACTUAL_WT/.pi/worktree-initialized")" = "$ROOT" ] \
+  && ok "pack worker 调用项目 worktree 初始化" || no "pack worker worktree 初始化"
 [ -f "$WT/.pi/multi-model-workflow/worker-dispatch/prompt.md" ] && ok "worker prompt package" || no "worker prompt"
 [ "$(jq -r .agent "$META")" = pack-executor ] && ok "pack executor selected" || no "executor"
 [ "$(jq -r .status "$META")" = dispatched ] && ok "meta status dispatched" || no "meta status"
@@ -71,6 +87,10 @@ echo "$OUT" | grep -q 'mmw worker verify' && ok "dispatch points to verify gate"
 grep -q "$ACTUAL_WT" "$WT/.pi/multi-model-workflow/worker-dispatch/prompt.md" \
   && ok "prompt pins absolute worktree path" || no "prompt worktree pin"
 BUILD_PROMPT="$WT/.pi/multi-model-workflow/worker-dispatch/prompt.md"
+jq -e 'length == 1 and .[0].query == "find worker entrypoint"' "$WT/.pi/multi-model-workflow/worker-dispatch/retrieval-candidates.json" >/dev/null \
+  && ok "dispatch 快照规范化结构候选" || no "dispatch 结构候选快照"
+grep -q 'find worker entrypoint' "$BUILD_PROMPT" && grep -q '源码 Read/grep/rg 亲验' "$BUILD_PROMPT" \
+  && ok "dispatch prompt 携带候选与亲验证据纪律" || no "dispatch prompt 候选接线"
 grep -q 'prototype/README.md' "$BUILD_PROMPT" && grep -q 'prototype/selected.py' "$BUILD_PROMPT" \
   && ! grep -q 'prototype/rejected.py' "$BUILD_PROMPT" && ! grep -q 'mockup/loser.html' "$BUILD_PROMPT" \
   && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"
@@ -164,13 +184,18 @@ mkdir -p "$TASK_WT/.pi/multi-model-workflow"
 cat >"$TASK_WT/.pi/multi-model-workflow/task.json" <<'JSON'
 {"docs":{"design":"docs/design"},"prototype":{"status":"accepted","log":"docs/design/prototype/README.md","selected":["docs/design/prototype/selected.py"]},"approval":{"reports":["docs/design/prototype/README.md","docs/design/prototype/selected.py"],"fingerprint":"88b87bf4f460b9ff95c2a557d0ae73586a84bbe5"}}
 JSON
-PLAN2="$TASK_WT/docs/plans/demo/002.md"
+PLAN2="$TASK_WT/docs/plans/new-demo/002.md"
 printf '\n## Cross-Plan Contract Anchors\n- shared contract\n' >>"$TASK_WT/docs/design/demo.md"
 OUT2="$(bash "$WORKER" plan-dispatch --plan "$PLAN2" --worktree "$TASK_WT" \
   --design "$TASK_WT/docs/design/demo.md" --issue "$TASK_WT/docs/issues/demo/001.md")"
 echo "$OUT2" | grep -q 'agent:"plan-writer"' && ok "plan writer dispatch instruction" || no "plan dispatch"
 META="$TASK_WT/.pi/multi-model-workflow/plan-workers/002/dispatch/meta.json"
 [ "$(jq -r .agent "$META")" = plan-writer ] && ok "plan writer selected" || no "plan writer"
+PLAN_SANDBOX="$(jq -r .worktree "$META")"
+[ "$(cat "$PLAN_SANDBOX/.pi/worktree-initialized")" = "$TASK_WT" ] \
+  && ok "plan writer 调用项目 worktree 初始化" || no "plan writer worktree 初始化"
+[ -d "$(dirname "$(jq -r .plan "$META")")" ] \
+  && ok "plan writer target directory exists before launch" || no "plan writer target directory"
 PLAN_PROMPT="$TASK_WT/.pi/multi-model-workflow/plan-workers/002/dispatch/prompt.md"
 grep -q 'prototype/README.md' "$PLAN_PROMPT" && grep -q 'prototype/selected.py' "$PLAN_PROMPT" \
   && ! grep -q 'prototype/rejected.py' "$PLAN_PROMPT" && ! grep -q 'mockup/loser.html' "$PLAN_PROMPT" \
@@ -195,6 +220,15 @@ printf '# generated\n' >"$(jq -r .plan "$META")"
 printf '# issue\n\n## Small issues\n- child issue\n' >"$(jq -r .issue "$META")"
 printf '# generated 3\n' >"$(jq -r .plan "$META3")"
 printf '# issue 3\n\n## Small issues\n- child 3\n' >"$(jq -r .issue "$META3")"
+SANDBOX_PLAN2="$(jq -r .plan "$META")"
+if bash "$WORKER" verify --plan "$SANDBOX_PLAN2" --worktree "$TASK_WT" >/dev/null 2>&1; then
+  no "plan verify must reject sandbox target path"
+else
+  ok "plan verify rejects sandbox target path"
+fi
+[ ! -e "$PLAN2" ] && [ -d "$SANDBOX2" ] \
+  && [ "$(jq -r .status "$META")" = dispatched ] && [ "$(jq -r '.published // false' "$META")" = false ] \
+  && ok "rejected plan target preserves task and sandbox state" || no "rejected plan target state"
 printf '# cross-writer overwrite\n' >"$SANDBOX2/docs/plans/demo/003.md"
 if bash "$WORKER" verify --plan "$PLAN2" --worktree "$TASK_WT" >/dev/null 2>&1; then
   no "isolated writer must not touch another plan target"
@@ -228,10 +262,13 @@ bash "$WORKER" plan-check --plan "$PLAN2" --worktree "$TASK_WT" >/dev/null &&
 
 PLAN_INSTR="$TMP/plan-instructions.md"
 printf 'tighten the existing plan\n' >"$PLAN_INSTR"
+rm "$PLAN2"
 PLAN_RESUME="$(bash "$WORKER" plan-resume --plan "$PLAN2" --worktree "$TASK_WT" --instructions "$PLAN_INSTR")"
 RESUME_SANDBOX="$(jq -r .worktree "$META")"
 echo "$PLAN_RESUME" | grep -q 'agent:"plan-writer"' && [ -d "$RESUME_SANDBOX" ] \
   && ok "plan resume recreates isolated worktree" || no "plan resume isolation"
+[ -d "$(dirname "$(jq -r .plan "$META")")" ] \
+  && ok "plan resume target directory exists before launch" || no "plan resume target directory"
 printf '# generated\n' >"$(jq -r .plan "$META")"
 printf '# issue\n\n## Small issues\n- child issue\n' >"$(jq -r .issue "$META")"
 bash "$WORKER" verify --plan "$PLAN2" --worktree "$TASK_WT" >/dev/null

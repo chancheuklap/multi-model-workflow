@@ -26,13 +26,16 @@ in_worktree() { [ -f "$1/.git" ]; }
 
 # ---------- new ----------
 cmd_new() {
-  local scenario="" slug="" title="" request="" direction_given=false with_wayfind=false
+  local scenario="" slug="" title="" request="" entry_evidence="" direction_given=false with_wayfind=false
+  local -a entry_capabilities=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --scenario) scenario="$2"; shift 2 ;;
       --slug)     slug="$2";     shift 2 ;;
       --title)    title="$2";    shift 2 ;;
       --request)  request="$2";  shift 2 ;;
+      --entry-capability) entry_capabilities+=("$2"); shift 2 ;;
+      --entry-evidence) entry_evidence="$2"; shift 2 ;;
       --direction-given) direction_given=true; shift ;;   # 用户开口已带明确方向:propose 降级(where 照此指路)
       --with-wayfind) with_wayfind=true; shift ;;         # 整件事在雾里:phases 前加 wayfind 探路阶段(仅 develop)
       *) die "未知参数: $1" ;;
@@ -44,6 +47,27 @@ cmd_new() {
   [ -n "$request" ]  || die "--request 必填(用户原始需求与验收条件,不能只传标题)"
   case "$scenario" in small-change|develop|bug) ;; *) die "--scenario 只能 small-change|develop|bug(merge 不开 worktree)" ;; esac
   printf '%s' "$slug" | grep -Eq '^[a-z0-9][a-z0-9._-]{0,63}$' || die "slug 非法(小写字母数字 . _ -,≤64):$slug"
+  [ "${#entry_capabilities[@]}" -gt 0 ] || die "至少一个 --entry-capability 必填(记录为何需要 MMW 治理能力)"
+  [ -n "$entry_evidence" ] || die "--entry-evidence 必填(用户原话或只读定向证据)"
+  local cap seen=""
+  for cap in "${entry_capabilities[@]}"; do
+    case "$cap" in
+      explicit-request|durable-state|design-approval|coordinated-delivery|gated-assurance|multi-result-integration) ;;
+      *) die "未知入口能力:$cap" ;;
+    esac
+    case "|$seen|" in *"|$cap|"*) die "重复入口能力:$cap" ;; esac
+    seen="${seen:+$seen|}$cap"
+  done
+  [ -f "$ROUTES" ] || die "找不到 routes.json: $ROUTES"
+  local phases_json; phases_json="$(jq -c --arg s "$scenario" '.presets[$s] // empty' "$ROUTES")"
+  [ -n "$phases_json" ] || die "routes.json 未定义预设 $scenario 的 phases"
+  if [ "$with_wayfind" = true ]; then
+    [ "$scenario" = "develop" ] || die "--with-wayfind 仅 develop 可用(雾里的大事先探路;bug/small-change 不需要)"
+    phases_json="$(printf '%s' "$phases_json" | jq -c '["wayfind"] + .')"
+  fi
+  local phase; phase="$(printf '%s' "$phases_json" | jq -r '.[0]')"
+  local entry_capabilities_json
+  entry_capabilities_json="$(printf '%s\n' "${entry_capabilities[@]}" | jq -R . | jq -sc .)"
 
   local top; top="$(git_toplevel)"
   in_worktree "$top" && die "已在 worktree 内($top),建新 worktree 请回主仓库"
@@ -56,6 +80,7 @@ cmd_new() {
   local base; base="$(git -C "$top" rev-parse HEAD)"
   # 从本地最新 HEAD 分叉
   git -C "$top" worktree add -b "$slug" "$wt" HEAD >&2
+  mmw_prepare_worktree "$top" "$wt"
 
   # 文档落点:design(单文件夹形态,含 direction/investigating/prototype/mockup/evidence)/ issues / plans 按 slug,context 项目级共享(domain-modeling 维护)
   mkdir -p "$wt/docs/design" "$wt/docs/issues" "$wt/docs/plans" "$wt/docs/context" "$wt/docs/reviews" "$wt/$STATE_SUBDIR"
@@ -71,15 +96,6 @@ reviews/
 .gitignore
 IGN
 
-  # 阶段序列从预设解析:主干被 preset 过滤后的开着阶段(单源,prepare 不硬编码)
-  [ -f "$ROUTES" ] || die "找不到 routes.json: $ROUTES"
-  local phases_json; phases_json="$(jq -c --arg s "$scenario" '.presets[$s] // empty' "$ROUTES")"
-  [ -n "$phases_json" ] || die "routes.json 未定义预设 $scenario 的 phases"
-  if [ "$with_wayfind" = true ]; then
-    [ "$scenario" = "develop" ] || die "--with-wayfind 仅 develop 可用(雾里的大事先探路;bug/small-change 不需要)"
-    phases_json="$(printf '%s' "$phases_json" | jq -c '["wayfind"] + .')"
-  fi
-  local phase; phase="$(printf '%s' "$phases_json" | jq -r '.[0]')"
   # 值守档:讨论态天生 attended(develop 有 propose/design 讨论期);bug/small-change 无讨论期,
   # 但动手前有一次轻确认(scenario reference 定),之后自主 → 起步 afk。过门(approve)自动切 afk。
   local attendance="afk"
@@ -90,13 +106,16 @@ IGN
   local created; created="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   jq -n \
     --arg sv "2" --arg slug "$slug" --arg title "$title" --arg request "$request" --arg scenario "$scenario" \
+    --argjson entry_capabilities "$entry_capabilities_json" --arg entry_evidence "$entry_evidence" \
     --argjson phases "$phases_json" \
     --arg status "active" --arg phase "$phase" --arg created "$created" \
     --arg base "$base" --arg branch "$slug" --arg wt "$wt" \
     --argjson dg "$direction_given" \
     --arg inv "docs/design/$slug/investigating.md" --arg ddoc "docs/design/$slug" --arg idir "docs/issues/$slug" --arg pdir "docs/plans/$slug" --arg ctx "docs/context" \
     --arg attendance "$attendance" --arg pv "$plugin_version" \
-    '{schema_version:$sv, slug:$slug, title:$title, request:$request, scenario:$scenario, phases:$phases, direction_given:$dg,
+    '{schema_version:$sv, slug:$slug, title:$title, request:$request,
+      entry_capabilities:$entry_capabilities, entry_evidence:$entry_evidence,
+      scenario:$scenario, phases:$phases, direction_given:$dg,
       status:$status, waiting_for:null, phase:$phase, phase_index:0, step_index:0, gate:null,
       created_at:$created, updated_at:$created, plugin_version:$pv, base_commit:$base,
       branch:$branch, worktree_path:$wt, docs:{investigating:$inv, design:$ddoc, issues:$idir, plans:$pdir, context:$ctx},

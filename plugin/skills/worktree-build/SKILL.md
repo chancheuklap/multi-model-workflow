@@ -22,6 +22,10 @@ description: 你(落地执行者)被主线程派进一个 git worktree 落地一
 
 读 `references/discipline.md`(防过度设计/兜底/思考、跨边界契约类型、登记+迁移对称),全程守。
 
+## 1.1 结构候选
+
+读 `../orchestrate/references/retrieval-doctrine.md`。派发 prompt 带来的结构候选只代表上游检索；对本 Pack 涉及的调用、引用、连接、依赖路径和影响面逐项回源码亲验。工具不可用或命中已知盲区时按 doctrine 退化，不能把上游候选冒充自己的工具调用。
+
 ## 2. 逐 Task Pack 落地(严格 TDD)
 
 按计划内依赖序,一个 Pack 一个 Pack 做。每个 Pack:
@@ -48,5 +52,6 @@ description: 你(落地执行者)被主线程派进一个 git worktree 落地一
 - **每条 acceptance**:达成 / 未达成(怎么验的,跑了什么命令)
 - **改了哪些文件**
 - **跑了哪些测试 + 结果**
+- **结构候选**:上游候选 / 自己实际调用的工具 / 源码亲验 locator / fallback 原因；不适用时明确写“不适用”。
 
 **诚实报,别粉饰**;blocked 就说 blocked,别假装 done。

@@ -45,8 +45,12 @@ cat >"$TMP/.claude/multi-model-workflow/task.json" <<'JSON'
 {"docs":{"design":"."},"prototype":{"status":"accepted","log":"./prototype/README.md","selected":["./prototype/selected.py"]},"approval":{"reports":["./prototype/README.md","./prototype/selected.py"],"fingerprint":"88b87bf4f460b9ff95c2a557d0ae73586a84bbe5"}}
 JSON
 WT="$TMP/wt-001"
+RETRIEVAL="$TMP/retrieval.json"
+cat >"$RETRIEVAL" <<'JSON'
+[{"tool":"serena","query":"find worker entrypoint","status":"used","locators":["plugin/scripts/worker.sh:1"],"summary":"worker candidate","fallback_reason":""}]
+JSON
 
-OUT="$(bash "$CW" dispatch --plan "$PLAN" --worktree "$WT" --design "$DESIGN" --issue "$ISSUE" 2>/dev/null)"
+OUT="$(bash "$CW" dispatch --plan "$PLAN" --worktree "$WT" --design "$DESIGN" --issue "$ISSUE" --retrieval-candidates "$RETRIEVAL" 2>/dev/null)"
 [ -d "$WT" ] && ok "worktree 不存在则建好" || no "建 worktree"
 [ "$(git -C "$WT" branch --show-current)" = "codex/wt-001" ] && ok "子 worktree 挂 codex/<名> 分支(不留 detached)" || no "worktree 分支 ($(git -C "$WT" branch --show-current))"
 parent="${STATE_SUBDIR%%/*}"; [ "$(cat "$WT/$parent/.gitignore" 2>/dev/null)" = "*" ] && ok "状态平面 parent 已 gitignore(防 add -A 污染)" || no "state parent gitignore"
@@ -60,6 +64,10 @@ echo "$PROMPT" | grep -q "TDD" && ok "prompt 含 TDD 指向" || no "TDD"
 echo "$PROMPT" | grep -q "$DESIGN" && ok "prompt 传了设计文档路径" || no "传设计路径"
 echo "$PROMPT" | grep -q "$ISSUE" && ok "prompt 传了 issue 路径" || no "传 issue 路径"
 echo "$PROMPT" | grep -q "$PLAN" && ok "prompt 传了计划路径(实施权威)" || no "传计划路径"
+jq -e 'length == 1 and .[0].query == "find worker entrypoint"' "$WT/${STATE_SUBDIR}/retrieval-candidates.json" >/dev/null \
+  && ok "dispatch 快照规范化结构候选" || no "dispatch 结构候选快照"
+echo "$PROMPT" | grep -q 'find worker entrypoint' && echo "$PROMPT" | grep -q '源码 Read/grep/rg 亲验' \
+  && ok "dispatch prompt 携带候选与亲验证据纪律" || no "dispatch prompt 候选接线"
 echo "$PROMPT" | grep -q 'prototype/README.md' && echo "$PROMPT" | grep -q 'prototype/selected.py' \
   && ! echo "$PROMPT" | grep -q 'prototype/rejected.py' && ! echo "$PROMPT" | grep -q 'mockup/loser.html' \
   && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"

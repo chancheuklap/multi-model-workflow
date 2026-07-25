@@ -18,29 +18,58 @@ import { fileURLToPath } from "node:url";
 const PLUGIN_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const HOOKS_DIR = join(PLUGIN_ROOT, "hooks");
 
-interface HookRun {
+export interface HookRun {
 	code: number;
 	stdout: string;
 	stderr: string;
 }
 
-function runHook(script: string, command: string, timeoutMs: number): Promise<HookRun> {
+interface HookExecError extends Error {
+	code?: number | string;
+	killed?: boolean;
+	signal?: string | null;
+}
+
+export function runHook(
+	script: string,
+	command: string,
+	timeoutMs: number,
+	hooksDir = HOOKS_DIR,
+): Promise<HookRun> {
 	return new Promise((resolve) => {
+		const hookPath = join(hooksDir, script);
 		execFile(
-			"bash",
-			[join(HOOKS_DIR, script), command],
+			"/bin/bash",
+			[hookPath, command],
 			{
 				timeout: timeoutMs,
 				cwd: process.cwd(),
 				env: { ...process.env, MMW_TOOL_COMMAND: command, MMW_PLUGIN_ROOT: PLUGIN_ROOT },
 			},
 			(err, stdout, stderr) => {
-				const code = err && typeof (err as NodeJS.ErrnoException & { code?: unknown }).code === "number"
-					? ((err as unknown as { code: number }).code)
-					: err
-						? 1
-						: 0;
-				resolve({ code, stdout: String(stdout ?? ""), stderr: String(stderr ?? "") });
+				if (!err) {
+					resolve({ code: 0, stdout: String(stdout ?? ""), stderr: String(stderr ?? "") });
+					return;
+				}
+				const error = err as HookExecError;
+				const timedOut = error.killed === true && Boolean(error.signal);
+				const code = timedOut
+					? 124
+					: typeof error.code === "number"
+						? error.code
+						: 127;
+				const rawStderr = String(stderr ?? "").trim();
+				const diagnostic = [
+					`hook=${hookPath}`,
+					timedOut ? `timeout=${timeoutMs}ms` : `error=${error.message}`,
+					typeof error.code === "string" ? `code=${error.code}` : "",
+					error.signal ? `signal=${error.signal}` : "",
+				].filter(Boolean).join("; ");
+				resolve({
+					code,
+					stdout: String(stdout ?? ""),
+					stderr: rawStderr || diagnostic,
+				});
 			},
 		);
 	});
@@ -80,7 +109,7 @@ export default function mmwHooks(pi: any) {
 		if (event.toolName !== "bash") return;
 		const command = String(event.input?.command ?? "");
 		if (!command) return;
-		const guard = await runHook("guard-redline.sh", command, 5_000);
+		const guard = await runHook("guard-redline.sh", command, 10_000);
 		if (guard.code === 0) return;
 		if (guard.code !== 2) {
 			// 守卫脚本自身异常:按 CC hook 语义不拦,但必须留痕(失败可见)

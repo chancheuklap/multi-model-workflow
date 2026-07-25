@@ -4,4 +4,6 @@
 *~
 .claude/
 .codex/multi-model-workflow/
+.serena/
+graphify-out/
 node_modules/

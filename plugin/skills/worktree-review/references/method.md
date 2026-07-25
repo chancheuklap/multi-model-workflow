@@ -44,11 +44,14 @@
 - **不对未改动区域起新 Nit**;新 Important/Critical 必须落在修复触及的路径或与 accepted 修复直接相关的连锁面上,并写清与上轮的增量关系。
 - 上轮 accepted 已修好且无新承重问题 → `pass`,不要为证明自己有产出而找茬。
 
+## 结构候选先行
+遇到谁调用/引用某符号、连接关系、依赖路径或影响面，先完整读取 [Retrieval Doctrine](../../orchestrate/references/retrieval-doctrine.md) 并按它取得候选。图/LSP 输出只用于扩大检查面；每条 finding 仍必须通过下面的验证门，引用目标 checkout 的 `file:line` + 原始行。
+
 ## 防幻觉四件套
 1. 置信度:每条 finding 标 1-3 低 / 4-6 中 / 7-10 高。
 2. 验证门:每条引用触发它的 `file:line` + 原始行("字段 X 不在 model Y"→引 class Y 定义体;"race"→引两处)。引不出 = 未验证,confidence 压到 4-5 移到低置信观察区。元编程(ORM 元类 / 装饰器 / 代码生成)引生成该符号的元构造。
 3. 防自我合理化:"看着没问题"→引证据或标 unknown;"应该别处处理了"→读并引用;"大概测过"→给测试文件 + 方法名。
-4. 证据表 + 偏见声明:`### Evidence` 列已读产物 / 已查代码路径 / 已跑命令 / 假设(影响 verdict 的前提)/ 未验证项;无对应写"不适用"不留空。结尾声明不熟的模块 / 栈 + 受影响的 finding。
+4. 证据表 + 偏见声明:`### Evidence` 列已读产物 / 已查代码路径 / 已跑命令 / 假设(影响 verdict 的前提)/ 未验证项;无对应写"不适用"不留空。另设**结构候选**必填行：图谱/LSP 存在且新鲜时，记录实际运行的候选查询、命令和关键输出；图缺失/过期、工具不可用或问题不适用时，记录具体退化原因。缺这行的回执不合格，与 `file:line` 验证门同级。结尾声明不熟的模块 / 栈 + 受影响的 finding。
 
 ## Finding 字段
 severity(Critical/Important/Minor) · blocking(yes/no) · confidence(1-10) · locator(file:line) · evidence · impact · remediation · scope(in-scope|out-of-scope|unclear)
@@ -71,6 +74,7 @@ severity(Critical/Important/Minor) · blocking(yes/no) · confidence(1-10) · lo
 ### Critical / Important / Minor(non-blocking) / 低置信度观察 — 每条按 Finding 字段
 ### Assessment — 1-2 句;复审时加一句"相对上轮增量"
 ```
+结构性 finding（谁调用/引用、连接关系、依赖路径或影响面）必须标注候选来源，或在 `### Evidence` 的结构候选行中给出合法退化声明。
 整体 `needs-context` = 没拿到审查上下文,在 Verdict 说明缺什么,别硬凑 finding。
 `needs-redirection` = 方向/源意图本身存疑(方向级第一问命中),不是产物有缺陷(那才是 needs-repair);Verdict 一句话说清「源意图哪里可疑 + 建议重新框定」,交人决策。
 `pass` 可与 Minor/Nit 并存;不要因为还有 Nit 就改成 needs-repair。

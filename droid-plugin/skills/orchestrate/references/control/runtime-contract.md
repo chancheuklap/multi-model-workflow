@@ -43,7 +43,7 @@ model、reasoningEffort 与工具白名单以各 droid 文件(`droids/<name>.md`
 
 子代理非交互，不能调用 `AskUser`，也不能再派 Task。缺输入时返回结构化 blocker，由主线程处置。
 
-final review 固定并行四个 Task：A、B 两种模型分别各审基线1和基线2。
+final review 由 `mmw review start` 分档：small-change/bug 派一个 A 路 Task 覆盖两基线；develop 无 capable plan 且 diff 不超过阈值时派 A/B 各一路，其余及风险数据不全时派 A/B 各两路。
 
 ## Worker
 

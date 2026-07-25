@@ -27,7 +27,7 @@ git init -q; git config user.email t@t; git config user.name t
 echo seed > seed.txt; git add -A; git commit -qm seed
 
 newtask() { # preset slug -> echoes worktree path
-  bash "$PREPARE" new --scenario "$1" --slug "$2" --title "t-$2" --request "request-$2" 2>/dev/null \
+  bash "$PREPARE" new --scenario "$1" --slug "$2" --title "t-$2" --request "request-$2" --entry-capability explicit-request --entry-evidence "测试夹具明确要求 MMW" 2>/dev/null \
     | grep '^worktree_path=' | cut -d= -f2-
 }
 mphase() { jq -r .phase "$1/${STATE_SUBDIR}/task.json"; }
@@ -447,15 +447,17 @@ mkdir -p "$WEMPTY"
 WEMPTY_OUT="$(cd "$WEMPTY" && bash "$FLOW" where)"
 echo "$WEMPTY_OUT" | grep -q "^UNMANAGED$" && ok "无在飞任务 → where 报 UNMANAGED" || no "空仓库 UNMANAGED"
 echo "$WEMPTY_OUT" | grep -q "RESUMABLE" && no "无在飞任务不该报 RESUMABLE" || ok "无在飞任务不报 RESUMABLE"
-echo "$WEMPTY_OUT" | grep -q "琐碎单步动作.*不进 orchestrate" && ok "冷启动明确琐碎单步动作直接处理" || no "冷启动缺直接处理边界"
-echo "$WEMPTY_OUT" | grep -q "\[small-change\].*独立任务边界" && ok "small-change 收窄到需独立任务边界" || no "small-change 路由仍过宽"
+echo "$WEMPTY_OUT" | grep -q "默认直接处理.*新功能.*根因不明.*多文件" && ok "冷启动明确默认直接与非触发器" || no "冷启动缺默认直接边界"
+echo "$WEMPTY_OUT" | grep -q "\[small-change\].*只读定向.*独立终审" && ok "small-change 按治理能力收窄" || no "small-change 路由仍按大小触发"
+echo "$WEMPTY_OUT" | grep -q -- "--entry-capability.*--entry-evidence" && ok "new 命令要求入口审计参数" || no "new 命令缺入口审计参数"
 
 # ===== propose 分叉:--direction-given 落 manifest,where 降级指路 =====
-WDG="$(bash "$PREPARE" new --scenario develop --slug 2026-07-05-dg --title t --request t --direction-given 2>/dev/null | grep '^worktree_path=' | cut -d= -f2-)"
+WDG="$(bash "$PREPARE" new --scenario develop --slug 2026-07-05-dg --title t --request t --entry-capability explicit-request --entry-evidence "测试夹具" --direction-given 2>/dev/null | grep '^worktree_path=' | cut -d= -f2-)"
 [ "$(mfield "$WDG" direction_given)" = "true" ] && ok "--direction-given 钉进 manifest" || no "direction_given 落盘"
 mkf "$WDG" docs/i.md
 ( cd "$WDG" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )
-echo "$(cd "$WDG" && bash "$FLOW" where)" | grep -q "do=方向已由用户明示" && ok "propose 降级:where 报降级 do" || no "propose 降级 do"
+WDG_OUT="$(cd "$WDG" && bash "$FLOW" where)"
+grep -q "do=方向已由用户明示" <<<"$WDG_OUT" && ok "propose 降级:where 报降级 do" || no "propose 降级 do"
 WNF="$(newtask develop 2026-07-05-nf)"
 mkf "$WNF" docs/i.md
 ( cd "$WNF" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )
@@ -464,7 +466,7 @@ echo "$WNFO" | grep -q "do=方向已由用户明示" && no "无 flag 不该降�
 echo "$WNFO" | grep -q "亮 2-3 方案" && ok "无 flag propose 走全量方案" || no "无 flag 全量方案"
 
 # ===== wayfind 前缀:--with-wayfind 进 phases、where 指路、推进带产出、非 develop 拒 =====
-WWF="$(bash "$PREPARE" new --scenario develop --slug 2026-07-05-wf --title t --request t --with-wayfind 2>/dev/null | grep '^worktree_path=' | cut -d= -f2-)"
+WWF="$(bash "$PREPARE" new --scenario develop --slug 2026-07-05-wf --title t --request t --entry-capability durable-state --entry-evidence "测试夹具需跨会话探路" --with-wayfind 2>/dev/null | grep '^worktree_path=' | cut -d= -f2-)"
 [ "$(jq -r '.phases[0]' "$WWF/${STATE_SUBDIR}/task.json")" = "wayfind" ] && ok "--with-wayfind phases 首元素=wayfind" || no "wayfind phases 前缀"
 [ "$(jq -r '.phases | length' "$WWF/${STATE_SUBDIR}/task.json")" = "9" ] && ok "wayfind 后接完整 develop 序列" || no "wayfind 序列长度"
 WWFO="$(cd "$WWF" && bash "$FLOW" where)"
@@ -476,7 +478,7 @@ mkf "$WWF" docs/design/2026-07-05-wf/wayfind/map.md
 WWFO2="$(cd "$WWF" && bash "$FLOW" where)"
 echo "$WWFO2" | grep -q "^phase=investigate$" && ok "wayfind pass → advance 到 investigate" || no "wayfind advance"
 echo "$WWFO2" | grep -qF 'prev_outputs=["docs/design/2026-07-05-wf/wayfind/"]' && ok "investigate prev_outputs 带 wayfind 目录" || no "wayfind prev_outputs"
-ERR_WF="$(bash "$PREPARE" new --scenario bug --slug 2026-07-05-wfbug --title t --request t --with-wayfind 2>&1 || true)"
+ERR_WF="$(bash "$PREPARE" new --scenario bug --slug 2026-07-05-wfbug --title t --request t --entry-capability durable-state --entry-evidence "测试夹具" --with-wayfind 2>&1 || true)"
 echo "$ERR_WF" | grep -q "仅 develop 可用" && ok "bug+--with-wayfind 被拒" || no "非 develop 未拒"
 WNW="$(newtask develop 2026-07-05-nw)"
 [ "$(jq -r '.phases[0]' "$WNW/${STATE_SUBDIR}/task.json")" = "investigate" ] && ok "无 flag develop phases 不变(回归)" || no "无 flag phases 漂移"

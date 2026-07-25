@@ -4,7 +4,7 @@
 #   start --stage <design|plan|plan-impl|final|merge-impl> --source <源意图路径/描述>
 #       按阶段定视角与审者编制,把审派发指南写进状态目录 review-brief.md(主线程读它直接派审者)。
 #       审者读已装的 worktree-review skill(方法本体单源在那,不给审者 plugin 内路径)。
-#       ④final 按 scenario 分档:develop = 双模型 2×2 或 2;small-change/bug = 1×Codex 一肩挑两视角。
+#       ④final 按 scenario/风险分档:develop = 双模型 2×2 或 2;small-change/bug = 1×Codex 一肩挑两视角。
 #
 # 审不记账:收口看产物——findings 原样落盘 docs/reviews/<slug>-<stage>.md,亲验后标处置、写 verdict 段;
 # 审闸 pass 时引擎只核「该文件在且含 verdict」(flow.sh),质量与 Critical 处置是主线程判断。
@@ -15,6 +15,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/runtime.sh"
 # shellcheck source=lib/prototype-state.sh
 . "$SCRIPT_DIR/lib/prototype-state.sh"
+# shellcheck source=lib/retrieval-candidates.sh
+. "$SCRIPT_DIR/lib/retrieval-candidates.sh"
 MMW="bash \"$SCRIPT_DIR/mmw.sh\""   # 打印给主线程的命令,完整可执行形式
 state_here() {
   printf '%s' "$MMW_STATE_SUBDIR"
@@ -29,11 +31,12 @@ CODEX_DESIGN_REVIEW_EFFORT="${CODEX_DESIGN_REVIEW_EFFORT:-high}"
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 cmd_start() {
-  local stage=""; local -a sources=()
+  local stage="" retrieval=""; local -a sources=()
   while [ $# -gt 0 ]; do
     case "$1" in
       --stage)  stage="$2";  shift 2 ;;
       --source) sources+=("$2"); shift 2 ;;
+      --retrieval-candidates) retrieval="$2"; shift 2 ;;
       *) die "未知参数: $1" ;;
     esac
   done
@@ -79,6 +82,8 @@ cmd_start() {
   brief="$top/$STATE_SUBDIR/review-brief.md"
   mmw_ensure_state_ignore "$top"
   mkdir -p "$top/$STATE_SUBDIR"
+  local retrieval_snapshot="$top/$STATE_SUBDIR/retrieval-candidates-$stage.json"
+  mmw_retrieval_candidates_snapshot "$retrieval" "$retrieval_snapshot" || die "结构候选校验失败"
 
   # 留痕落点:任务审(worktree 内)走 docs/reviews/(docs/.gitignore 已忽略);
   # merge-impl 在主仓库跑,不落 docs/ ——一切主仓库产物进状态平面,零残留。
@@ -119,16 +124,18 @@ EOF
   local tier=4
   if [ "$stage" = "final" ] && [ "$scen" = "develop" ]; then
     local man="$top/$STATE_SUBDIR/task.json"
-    local base tslug pdir cap diffn
+    local base tslug pdir cap diffstat diffn
     base="$(jq -r '.base_commit // ""' "$man" 2>/dev/null || echo "")"
     tslug="$(jq -r '.slug // ""' "$man" 2>/dev/null || echo "")"
     pdir="$top/docs/plans/$tslug"
     if [ -n "$base" ] && [ -n "$tslug" ] && [ -d "$pdir" ]; then
       # capable 检测:大小写不敏感 + 认中文"复杂度";宁可多匹配(留 4 审)也不漏
       cap="$(grep -rlEi '(complexity|复杂度).*capable' "$pdir" 2>/dev/null || true)"
-      diffn="$(git -C "$top" diff --shortstat "$base"..HEAD 2>/dev/null \
-               | { grep -oE '[0-9]+ (insertion|deletion)' || true; } | awk '{s+=$1} END{print s+0}')"
-      if [ -z "$cap" ] && [ "${diffn:-0}" -le "${REVIEW_TIER_DIFF_MAX:-800}" ]; then tier=2; fi
+      if diffstat="$(git -C "$top" diff --shortstat "$base"..HEAD 2>/dev/null)"; then
+        diffn="$(printf '%s\n' "$diffstat" \
+                 | { grep -oE '[0-9]+ (insertion|deletion)' || true; } | awk '{s+=$1} END{print s+0}')"
+        if [ -z "$cap" ] && [ "${diffn:-0}" -le "${REVIEW_TIER_DIFF_MAX:-800}" ]; then tier=2; fi
+      fi
     fi
   fi
 
@@ -139,7 +146,7 @@ EOF
   local dispatch
   if [ "$stage" = "final" ] && { [ "$scen" = "small-change" ] || [ "$scen" = "bug" ]; }; then
     dispatch="$(cat <<DISPATCH
-派 **1 个独立 Codex 审者一肩挑两路视角**($views)——本任务是 $scen,diff 小,不派双模型:
+派 **1 个独立 Codex 审者一肩挑两路视角**($views)——本任务走 $scen 的明确改动/修复路径,不派双模型:
   codex exec -C . --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$ceffort" - < <prompt>   (run_in_background)
   prompt(纯路由,不内联审查方法):读你已装的 worktree-review skill,按 stage=final 审;两路视角($views)都由你覆盖,先跑完基线2(不看 plan 全新眼光审 diff)再跑基线1(对 design/issue 逐条);Source: ${source};按 skill 的 Return Contract 回结构化 findings。
   续接用 codex exec --sandbox read-only -m $CODEX_REVIEW_MODEL -c model_reasoning_effort="$ceffort" resume <session-id> "<追问>"(resume 不继承原围栏/模型档,必须整套重钉)。
@@ -191,6 +198,8 @@ DISPATCH
 
 主线程直接派审者,自己亲验收敛,不自己写产物结论。审不记账,收口看产物(下方留痕)。
 Source: ${source}
+
+$(mmw_retrieval_candidates_prompt "$retrieval_snapshot")
 
 ## 派审者
 $dispatch

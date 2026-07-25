@@ -517,14 +517,14 @@ cmd_where() {
           "    resume=cd \(.worktree_path | @sh) && \($mmw) where"
         ' "$mm" 2>/dev/null || true
       done
-      echo "用户明确要新建任务时,再选下面的起始选项:"
+      echo "用户明确要新建任务且入口已确认需要 MMW 治理能力时，再选下面的场景:"
     else
       echo "UNMANAGED"
-      echo "当前没有在管任务。看需求选一个起始选项:"
+      echo "当前没有在管任务。仅在入口已确认需要 MMW 治理能力时，选择场景:"
     fi
     jq -r '.start_options[] | "  [\(.scenario)] \(.when) → \(.phases_note)"' "$ROUTES"
-    echo "命令: $MMW task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title '<标题>' --request '<用户原始需求与验收条件>' [--direction-given] [--with-wayfind]"
-    echo "问答、解释、只读查看，以及主线程可直接完成并验证的琐碎单步动作不进 orchestrate，直接处理。merge 不开 worktree，直接走 references/scenario/merge.md。"
+    echo "命令: $MMW task new --scenario <small-change|develop|bug> --slug <YYYY-MM-DD-theme> --title '<标题>' --request '<用户原始需求与验收条件>' --entry-capability <能力> [--entry-capability <能力>...] --entry-evidence '<用户原话或只读证据>' [--direction-given] [--with-wayfind]"
+    echo "默认直接处理；新功能、根因不明、多文件、多步骤、读改测或需要测试都不单独触发 MMW。merge 不开新 worktree，直接走 references/scenario/merge.md。"
     return 0
   fi
   local scenario phase pidx status rc tc

@@ -5,6 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/runtime.sh
 . "$SCRIPT_DIR/lib/runtime.sh"
+# shellcheck source=lib/retrieval-candidates.sh
+. "$SCRIPT_DIR/lib/retrieval-candidates.sh"
 # shellcheck source=lib/droid-exec.sh
 . "$SCRIPT_DIR/lib/droid-exec.sh"
 
@@ -117,7 +119,7 @@ launch_job() {
 }
 
 topic_prompt() {
-  local mode="$1" angle="$2" question="$3" skill="$4" repo="$5"
+  local mode="$1" angle="$2" question="$3" skill="$4" repo="$5" retrieval_candidates="$6"
   cat <<PROMPT
 你只调查一个 topic，只摆证据，不选方案、不改文件。
 mode=$mode
@@ -125,6 +127,9 @@ angle=$angle
 question=$question
 skill=${skill:-none}(非 none 时先用 Read 读 ~/.factory/skills/$skill/SKILL.md 按其指引投查,引用不照抄;文件不存在=缺装,写入 gaps 并注明角度未应用,不凭记忆编方法论)
 repoRoot=$repo
+
+上游结构候选(仅候选,不代表本 topic worker 调过工具):$retrieval_candidates
+内部 topic 必须逐 locator 回 repoRoot 用 Read/Grep/Execute Graphify 亲验；Serena 候选来自上游，不代表 Droid worker 能直接调用 Serena。Serena 对装饰器 endpoint 完整调用方、动态 await import() 解构引用存在已知盲区；unsupported/not_available/failed/空结果均须 fallback 到 Graphify + 源码检索。summary/gaps 必须区分上游候选、worker 自己实际 Execute 的工具、源码 locator 与 fallback_reason。
 
 内部调查只在 repoRoot 下用 Read/Grep/Glob/LS 取证；定位 bug 根因需要复现时可用 Execute 跑只读诊断、目标测试或复现命令，禁止安装依赖、改文件、commit。执行前后都核对 `git status --short`，发现 tracked 改动立即停止并写入 gaps。每条 locator 必须是 file:line。
 外部调查用 WebSearch/FetchUrl/Context7 取证，每条 locator 必须是已打开核验的 URL。
@@ -229,8 +234,16 @@ cmd_start() {
     type=="object" and (.angle|type=="string" and length>0)
     and (.question|type=="string" and length>0)
     and ((.skill // "")|type=="string")
-    and ((.mode // "")|type=="string"))' "$topics" >/dev/null \
-    || die "topics 必须是非空 [{angle,question,skill?,mode?}]"
+    and ((.mode // "")|type=="string")
+    and ((.retrieval_candidates // []) | type=="array" and all(.[];
+      type=="object"
+      and ((keys | sort)==["fallback_reason","locators","query","status","summary","tool"])
+      and (.tool=="serena" or .tool=="graphify")
+      and (.query|type=="string")
+      and (.status=="used" or .status=="not_available" or .status=="unsupported" or .status=="failed")
+      and (.locators|type=="array") and all(.locators[]; type=="string")
+      and (.summary|type=="string") and (.fallback_reason|type=="string"))))' "$topics" >/dev/null \
+    || die "topics 必须是非空 [{angle,question,skill?,mode?,retrieval_candidates?}]，候选严格六字段"
   if [ "$direction" = both ]; then
     jq -e 'all(.[]; .mode=="internal" or .mode=="external")' "$topics" >/dev/null \
       || die "direction=both 时每个 topic 必须给 mode"
@@ -264,9 +277,9 @@ cmd_start() {
 
   normalized="$staging/topics.json"
   if [ "$direction" = both ]; then
-    jq '.' "$topics" >"$normalized"
+    jq 'map(.retrieval_candidates //= [])' "$topics" >"$normalized"
   else
-    jq --arg mode "$direction" 'map(.mode=$mode)' "$topics" >"$normalized"
+    jq --arg mode "$direction" 'map(.mode=$mode | .retrieval_candidates //= [])' "$topics" >"$normalized"
   fi
 
   jq -n --arg run "$run" --arg direction "$direction" --arg topics "$root/topics.json" \
@@ -280,23 +293,24 @@ cmd_start() {
 
   count="$(jq 'length' "$normalized")"
   for ((i=0; i<count; i++)); do
-    local dir mode angle question skill prompt meta final_prompt
+    local dir mode angle question skill retrieval_candidates prompt meta final_prompt
     printf -v dir '%s/topics/%03d' "$staging" "$i"
     mkdir -p "$dir"
     mode="$(jq -r ".[$i].mode" "$normalized")"
     angle="$(jq -r ".[$i].angle" "$normalized")"
     question="$(jq -r ".[$i].question" "$normalized")"
     skill="$(jq -r ".[$i].skill // empty" "$normalized")"
+    retrieval_candidates="$(jq -c ".[$i].retrieval_candidates" "$normalized")"
     prompt="$dir/prompt.md"
     meta="$dir/meta.json"
     printf -v final_prompt '%s/topics/%03d/prompt.md' "$root" "$i"
-    topic_prompt "$mode" "$angle" "$question" "$skill" "$top" >"$prompt"
+    topic_prompt "$mode" "$angle" "$question" "$skill" "$top" "$retrieval_candidates" >"$prompt"
     write_job_meta "$meta" topic "$TOPIC_MODEL" "$TOPIC_EFFORT" "$top" \
       "$final_prompt" "$root/topic-system.md"
     if [ "$mode" = internal ]; then disabled="$internal_disabled"; else disabled="$external_disabled"; fi
     jq --arg mode "$mode" --arg angle "$angle" --arg question "$question" \
-      --arg disabled "$disabled" \
-      '. + {mode:$mode,angle:$angle,question:$question,disabled_tools:$disabled}' \
+      --argjson retrieval_candidates "$retrieval_candidates" --arg disabled "$disabled" \
+      '. + {mode:$mode,angle:$angle,question:$question,retrieval_candidates:$retrieval_candidates,disabled_tools:$disabled}' \
       "$meta" >"$meta.tmp" && mv "$meta.tmp" "$meta"
   done
   printf '%s\n' "$$" >"$staging/.run-lock"

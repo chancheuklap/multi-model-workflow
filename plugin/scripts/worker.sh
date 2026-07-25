@@ -19,6 +19,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/lib/runtime.sh"
 # shellcheck source=lib/prototype-state.sh
 . "$SCRIPT_DIR/lib/prototype-state.sh"
+# shellcheck source=lib/retrieval-candidates.sh
+. "$SCRIPT_DIR/lib/retrieval-candidates.sh"
 
 CODEX_BIN="${CODEX_BIN:-codex}"
 CODEX_MODEL="${CODEX_MODEL:-gpt-5.6-terra}"
@@ -151,7 +153,7 @@ companion_prompt_lines() {  # $1=设计文件夹(可空) → prompt 材料清单
   done <<<"$companions"
 }
 
-build_prompt() {  # $1=plan $2=worktree $3=design $4=issue
+build_prompt() {  # $1=plan $2=worktree $3=design $4=issue $5=候选快照
   local companions=""
   if [ -n "$3" ]; then
     companions="$(companion_prompt_lines "$(design_dir_of "$3")")" || return 1
@@ -168,13 +170,16 @@ ${3:+- 设计文档(意图/合同边界/发布风险): $3
 ${companions:+- 讨论态材料(prototype 仅含 accepted README + selected；selected 是 UI/状态逻辑实现起点):
 $companions
 }
+
+$(mmw_retrieval_candidates_prompt "$5")
+
 落地铁律、逐 Pack TDD、每 Pack 提交格式、禁改 docs/、卡住协议、收工回执格式 —— **全在 worktree-build skill,照它做,本消息不重复**。
 PROMPT
 }
 
 plan_ns() { basename "$1" .md; }  # 落点路径 → 派发命名空间(并行写计划在同一 worktree,靠它隔离 session/log)
 
-build_plan_prompt() {  # $1=落点 $2=worktree $3=design $4=issue $5=讨论态材料清单(可空)
+build_plan_prompt() {  # $1=落点 $2=worktree $3=design $4=issue $5=讨论态材料清单(可空) $6=候选快照
   cat <<PROMPT
 你是计划撰写者,被主线程派进任务 worktree 把一个大 issue 写成一份实施计划。
 **读你已装的 \`worktree-plan\` skill,照它走整个写计划流程**(总纲,细纪律在它的 references,到那步再读)。
@@ -187,6 +192,9 @@ ${3:+- 源设计文档(architecture / 合同边界 / Cross-Plan Contract Anchors
 }${5:+- 讨论态材料(prototype 仅含 accepted README + selected；只采用 selected):
 $5
 }
+
+$(mmw_retrieval_candidates_prompt "$6")
+
 拆小 issue、逐 Task Pack、无 Placeholder、测试规划严谨度、Return Contract —— **全在 worktree-plan skill,照它做,本消息不重复**。
 边界:只写你落点那份 plan + 你 issue 的 \`## Small issues\`;不碰源码 / \`docs/design/\` / 别的 plan;不 commit(改动留 unstaged,主线程统一提交)。
 PROMPT
@@ -299,7 +307,7 @@ cmd_check_docs() {
 }
 
 cmd_dispatch() {
-  local plan="" wt="" base="HEAD" model="" effort="" design="" issue=""
+  local plan="" wt="" base="HEAD" model="" effort="" design="" issue="" retrieval=""
   while [ $# -gt 0 ]; do case "$1" in
     --plan) plan="$2"; shift 2 ;;
     --worktree) wt="$2"; shift 2 ;;
@@ -308,6 +316,7 @@ cmd_dispatch() {
     --base) base="$2"; shift 2 ;;
     --model) model="$2"; shift 2 ;;
     --effort) effort="$2"; shift 2 ;;
+    --retrieval-candidates) retrieval="$2"; shift 2 ;;
     *) die "未知参数: $1" ;;
   esac; done
   [ -n "$plan" ] || die "--plan 必填"
@@ -341,7 +350,9 @@ cmd_dispatch() {
   local start_sha; start_sha="$(git -C "$wt" rev-parse HEAD 2>/dev/null || echo "")"
   printf '%s\n' "$start_sha" > "$wt/$st/start_sha"
   printf '%s %s\n' "$model" "$effort" > "$wt/$st/codex-model"
-  local pf; pf="$(mktemp)"; build_prompt "$plan" "$wt" "$design" "$issue" > "$pf"
+  local retrieval_snapshot="$wt/$st/retrieval-candidates.json"
+  mmw_retrieval_candidates_snapshot "$retrieval" "$retrieval_snapshot" || die "结构候选校验失败"
+  local pf; pf="$(mktemp)"; build_prompt "$plan" "$wt" "$design" "$issue" "$retrieval_snapshot" > "$pf"
   local rc=0
   run_codex "$wt" "$pf" \
     exec -C "$wt" --sandbox workspace-write \
@@ -385,7 +396,7 @@ cmd_resume() {
 
 # ---------- 写计划派发(在任务 worktree 内,不开子 worktree、不 commit)----------
 cmd_plan_dispatch() {
-  local plan="" wt="" design="" issue="" model="" effort=""
+  local plan="" wt="" design="" issue="" model="" effort="" retrieval=""
   while [ $# -gt 0 ]; do case "$1" in
     --plan) plan="$2"; shift 2 ;;
     --worktree) wt="$2"; shift 2 ;;
@@ -393,6 +404,7 @@ cmd_plan_dispatch() {
     --issue) issue="$2"; shift 2 ;;
     --model) model="$2"; shift 2 ;;
     --effort) effort="$2"; shift 2 ;;
+    --retrieval-candidates) retrieval="$2"; shift 2 ;;
     *) die "未知参数: $1" ;;
   esac; done
   [ -n "$plan" ] || die "--plan 必填(落点路径)"
@@ -424,7 +436,9 @@ cmd_plan_dispatch() {
   mkdir -p "$wt/$st/plan-workers/$ns"
   printf '%s %s\n' "$model" "$effort" > "$wt/$st/plan-workers/$ns/codex-model"
   printf '%s\n' "$start_sha" > "$wt/$st/plan-workers/$ns/start_sha"
-  local pf; pf="$(mktemp)"; build_plan_prompt "$plan" "$wt" "$design" "$issue" "$companions" > "$pf"
+  local retrieval_snapshot="$wt/$st/plan-workers/$ns/retrieval-candidates.json"
+  mmw_retrieval_candidates_snapshot "$retrieval" "$retrieval_snapshot" || die "结构候选校验失败"
+  local pf; pf="$(mktemp)"; build_plan_prompt "$plan" "$wt" "$design" "$issue" "$companions" "$retrieval_snapshot" > "$pf"
   local rc=0
   run_codex_plan "$wt" "$ns" "$pf" \
     exec -C "$wt" --sandbox workspace-write \
