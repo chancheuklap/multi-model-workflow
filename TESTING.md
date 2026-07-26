@@ -29,7 +29,7 @@
 
 - 阶段、闸位和结论词：各宿主的 `state-schema/routes.json`。
 - 共用片段：各宿主的 `build/fragments/*`（改后必须 `--apply` 再 `--check`）。
-- 版本号：Claude Code 同步 plugin manifest 与 marketplace；Droid 同步 plugin manifest 与 marketplace；pi 以 `pi-plugin/package.json` 为准；Cursor 以 `cursor-plugin/.cursor-plugin/plugin.json` 为准。
+- 版本号：Claude Code 同步 plugin manifest 与 marketplace；Droid 同步 plugin manifest 与 marketplace；pi 以 `pi-plugin/package.json` 为准；Cursor 同步 `cursor-plugin/.cursor-plugin/plugin.json` 与根 `.cursor-plugin/marketplace.json`。
 
 ## 门控
 

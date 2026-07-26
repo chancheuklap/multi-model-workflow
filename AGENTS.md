@@ -9,7 +9,7 @@
 | Claude Code | `plugin/` | `plugin/.claude-plugin/plugin.json`、`.claude-plugin/marketplace.json` | `.claude/multi-model-workflow/` | `.claude/worktrees/` | Codex CLI 工人和宿主 sub-agent 审者 |
 | Factory Droid | `droid-plugin/` | `droid-plugin/.factory-plugin/plugin.json`、`.factory-plugin/marketplace.json` | `.factory/multi-model-workflow/` | `.factory/worktrees/` | `droid exec` 和 Custom Droids |
 | pi | `pi-plugin/` | `pi-plugin/package.json` | `.pi/multi-model-workflow/` | `.pi/worktrees/` | pi-subagents 注册角色和动态 workflows |
-| Cursor | `cursor-plugin/` | `cursor-plugin/.cursor-plugin/plugin.json` | `.cursor/multi-model-workflow/` | `.cursor/worktrees/`（工人）；任务 wt 常由 UI 悬空创建后 `mmw task adopt` | Cursor Task + `.cursor/agents` |
+| Cursor | `cursor-plugin/` | `cursor-plugin/.cursor-plugin/plugin.json`、`.cursor-plugin/marketplace.json` | `.cursor/multi-model-workflow/` | `.cursor/worktrees/`（工人）；任务 wt 常由 UI 悬空创建后 `mmw task adopt` | Cursor Task + `.cursor/agents` |
 
 `archive/plugin-v1/` 是冻结归档，不参与当前行为判断、构建或测试；没有明确指令时不修改。
 
@@ -58,7 +58,7 @@
 - 每个宿主的两份 `task-pack.md` 是实体副本，必须保持一致并通过 `test_shared_refs_sync.sh`。
 - pi 的 GPT 角色公共提示词只改 `pi-plugin/agents-roster/_fragments/`，随后运行 `python3 pi-plugin/scripts/render_agent_prompts.py`；Claude provider 角色不经过该渲染器。
 - pi 的动态 workflow 以 `pi-plugin/workflows/*.workflow.js` 为源；修改后运行 `bash pi-plugin/workflows/install-workflows.sh` 生成 `dist/*.json`，再用 `--check` 验证。
-- Claude Code 版本同时更新 plugin manifest、marketplace 中的 plugin 版本和 marketplace 根版本。Droid 版本同时更新 plugin manifest 与 marketplace。pi 版本以 `pi-plugin/package.json` 为准。
+- Claude Code 版本同时更新 plugin manifest、marketplace 中的 plugin 版本和 marketplace 根版本。Droid 版本同时更新 plugin manifest 与 marketplace。pi 版本以 `pi-plugin/package.json` 为准。Cursor 版本同时更新 `cursor-plugin/.cursor-plugin/plugin.json` 与根 `.cursor-plugin/marketplace.json`。
 - 不用旧宿主残留、兼容目录或静默默认值掩盖错误。脚本异常必须返回非零或留下结构化告警。
 
 ## Git 与安全
