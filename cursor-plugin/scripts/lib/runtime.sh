@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# Cursor 原生运行时路径与工具约定。
+# prepare/flow/loop/review/worker/hooks 统一 source 本文件。
+
+mmw_state_parent() { printf '.cursor'; }
+mmw_state_subdir() { printf '.cursor/multi-model-workflow'; }
+mmw_worktrees_rel() { printf '.cursor/worktrees'; }
+mmw_worker_branch_prefix() { printf 'worker'; }
+mmw_ask_user_tool() { printf 'AskQuestion'; }
+mmw_shell_tool() { printf 'Shell'; }
+mmw_worker_backend() { printf 'cursor-task'; }
+
+# 原子更新 JSON 账本(jq 表达式作参数)。
+mmw_atomic_update() {
+  local file="$1"; shift
+  local tmp
+  tmp="$(mktemp "$(dirname "$file")/.cursor-meta.XXXXXX")" || return 1
+  jq "$@" "$file" >"$tmp" \
+    && jq -e . "$tmp" >/dev/null 2>&1 \
+    && mv "$tmp" "$file" \
+    || { rm -f "$tmp"; return 1; }
+}
+
+mmw_resolve_state_subdir() {
+  printf '%s' "$(mmw_state_subdir)"
+}
+
+mmw_find_worktree() {
+  local top="$1" slug="$2" path man
+  [ -n "$top" ] && [ -n "$slug" ] || return 1
+  # 优先仓内约定根
+  path="$top/$(mmw_worktrees_rel)/$slug"
+  if [ -d "$path" ]; then
+    printf '%s' "$path"
+    return 0
+  fi
+  # Cursor UI 悬空 wt：扫 git worktree list，按 task.json.slug 匹配
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    man="$path/$(mmw_state_subdir)/task.json"
+    [ -f "$man" ] || continue
+    if [ "$(jq -r '.slug // empty' "$man" 2>/dev/null)" = "$slug" ]; then
+      printf '%s' "$path"
+      return 0
+    fi
+  done < <(git -C "$top" worktree list --porcelain 2>/dev/null | /usr/bin/awk '/^worktree /{print substr($0,10)}')
+  return 1
+}
+
+# 发现在飞任务：git worktree list 各 path 下找 task.json（含 UI 悬空 wt + 仓内工人 wt）
+mmw_foreach_flying_manifest() {
+  local top="$1" path man seen=""
+  [ -n "$top" ] || return 0
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    man="$path/$(mmw_state_subdir)/task.json"
+    [ -f "$man" ] || continue
+    case " $seen " in
+      *" $man "*) continue ;;
+    esac
+    seen="$seen $man"
+    printf '%s\n' "$man"
+  done < <(git -C "$top" worktree list --porcelain 2>/dev/null | /usr/bin/awk '/^worktree /{print substr($0,10)}')
+}
+
+mmw_ensure_state_ignore() {
+  local top="$1" parent g line
+  parent="$(mmw_state_parent)"
+  g="$top/$parent/.gitignore"
+  mkdir -p "$top/$parent"
+  if [ -f "$g" ] && grep -qxF '*' "$g" 2>/dev/null; then return 0; fi
+  for line in 'worktrees/' 'multi-model-workflow/' '.gitignore'; do
+    { [ -f "$g" ] && grep -qxF "$line" "$g"; } || printf '%s\n' "$line" >> "$g"
+  done
+}
+
+mmw_ensure_wt_state_ignore() {
+  local wt="$1" parent
+  parent="$(mmw_state_parent)"
+  mkdir -p "$wt/$parent"
+  [ -f "$wt/$parent/.gitignore" ] || printf '*\n' > "$wt/$parent/.gitignore"
+}
+
+mmw_enter_worktree_hint() {
+  printf '在 worktree 路径继续本任务: 用 Cursor Open Folder 打开 %s 后跑 mmw where（勿依赖 move_agent_to_root）' "$1"
+}
+
+# 工人 wt 初始化：仅跑目标仓项目 hook（若有）；不调用 Pi graphify。
+mmw_prepare_worktree() {
+  local source_wt="$1" target_wt="$2"
+  local hook="$target_wt/.cursor/worktree-init.sh" init_log=""
+
+  init_log="$(mktemp "${TMPDIR:-/tmp}/mmw-worktree-init.XXXXXX")" || {
+    echo "[mmw] WARNING: 无法创建 worktree 初始化日志:$target_wt" >&2
+    return 0
+  }
+  if [ -f "$hook" ]; then
+    if (
+      cd "$target_wt"
+      /bin/bash "$hook" "$source_wt" "$target_wt"
+    ) >"$init_log" 2>&1; then
+      [ ! -s "$init_log" ] || cat "$init_log" >&2
+    else
+      cat "$init_log" >&2
+      echo "[mmw] WARNING: 项目 worktree 初始化失败；继续任务:$target_wt" >&2
+    fi
+  fi
+  rm -f "$init_log"
+  return 0
+}
+
+mmw_plugin_root() {
+  if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+    printf '%s' "$CURSOR_PLUGIN_ROOT"
+  else
+    cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd
+  fi
+}
+
+# manifest 原子写 + fail-closed(flow/note 共用单源;prototype.sh 因三镜像实体副本约束自含同款):
+# 临时文件建在 manifest 同目录(同文件系统,mv 才是原子 rename);验过非空且合法 JSON 才落盘,
+# 上游 jq 失败时保留原 manifest 并退非零(绝不把 task.json 截成 0 字节)。每次落盘刷 updated_at。
+mmw_write_manifest() {
+  local m="$1" tmp stamped
+  tmp="$(mktemp "$(dirname "$m")/.mmw-manifest.XXXXXX")" || return 1
+  cat > "$tmp"
+  if [ ! -s "$tmp" ] || ! jq -e . "$tmp" >/dev/null 2>&1; then
+    rm -f "$tmp"; echo "ERROR: 拒绝写入空/非法 JSON 到 $m;原 manifest 保留" >&2; return 1
+  fi
+  stamped="$(mktemp "$(dirname "$m")/.mmw-manifest.XXXXXX")" || { rm -f "$tmp"; return 1; }
+  if jq --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '.updated_at=$at' "$tmp" > "$stamped" \
+     && [ -s "$stamped" ] && jq -e . "$stamped" >/dev/null 2>&1; then
+    mv "$stamped" "$m"; rm -f "$tmp"
+  else
+    rm -f "$stamped"; mv "$tmp" "$m"
+  fi
+}

@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "release-state",
+  "description": "通用 release-flow 引擎状态 ledger,落 <worktree>/<state_subdir>/release-state.json。引擎负责 fail-closed 原子写、阶段续跑、轮次熔断、PAUSE 回执数据源。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "product",
+    "manifest_path",
+    "source_commit",
+    "stages",
+    "current_stage",
+    "round",
+    "max_rounds",
+    "fingerprint_ledger",
+    "budget",
+    "attempt_ledger",
+    "pause"
+  ],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "product": { "type": "string", "minLength": 1, "description": "从 adapter manifest 抽取的产品标识,引擎只透传。" },
+    "manifest_path": { "type": "string", "minLength": 1, "description": "已校验 manifest 的绝对路径,resume/event 阶段参考。" },
+    "source_commit": { "type": "string", "minLength": 1, "description": "初始化或失效重验时绑定的完整 Git HEAD SHA。" },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "run", "status"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "run": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" },
+            "description": "驱动 Agent 要执行的 argv。"
+          },
+          "status": { "enum": ["pending", "running", "done", "failed"] }
+        }
+      },
+      "description": "manifest.stages 注入后的阶段账本。"
+    },
+    "current_stage": { "type": ["string", "null"], "description": "首个 pending stage 名；全部完成时为 null。" },
+    "round": { "type": "integer", "minimum": 1 },
+    "max_rounds": { "type": "integer", "minimum": 0, "description": "round next 到顶自动 surface；0 表示不限。" },
+    "fingerprint_ledger": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fingerprint", "count"],
+        "properties": {
+          "fingerprint": { "type": "string", "minLength": 1 },
+          "count": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "description": "按 root_cause_fingerprint 累计；后续 fix-dispatch 熔断读取。"
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempts", "fix_rounds", "max_fix_rounds", "started_at", "max_wall_clock_seconds"],
+      "properties": {
+        "attempts": { "type": "integer", "minimum": 0, "description": "全动作审计计数,只记账不熔断。" },
+        "fix_rounds": { "type": "integer", "minimum": 0, "description": "已提交的自动修复/派生轮次;熔断只看它。" },
+        "max_fix_rounds": { "type": "integer", "minimum": 0 },
+        "started_at": { "type": "string", "minLength": 1 },
+        "max_wall_clock_seconds": { "type": "integer", "minimum": 0, "description": "默认 14400(4h),init --max-wall-clock 可调。" }
+      }
+    },
+    "attempt_ledger": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempt_id",
+          "stage",
+          "action_kind",
+          "outcome",
+          "root_cause_fingerprint",
+          "command",
+          "started_at",
+          "finished_at",
+          "changed_paths",
+          "blocked_paths",
+          "gate_results",
+          "artifact_refs",
+          "log_refs",
+          "worker_ref"
+        ],
+        "properties": {
+          "attempt_id": { "type": "string", "minLength": 1 },
+          "stage": { "type": "string", "minLength": 1 },
+          "action_kind": { "type": "string", "minLength": 1 },
+          "outcome": { "type": "string", "minLength": 1 },
+          "root_cause_fingerprint": { "type": ["string", "null"] },
+          "command": { "type": ["array", "string", "null"], "items": { "type": "string" } },
+          "started_at": { "type": "string", "minLength": 1 },
+          "finished_at": { "type": "string", "minLength": 1 },
+          "changed_paths": { "type": "array", "items": { "type": "string" } },
+          "blocked_paths": { "type": "array", "items": { "type": "string" } },
+          "gate_results": { "type": "array" },
+          "artifact_refs": { "type": "array", "items": { "type": "string" } },
+          "log_refs": { "type": "array", "items": { "type": "string" } },
+          "worker_ref": { "type": ["string", "null"] }
+        }
+      },
+      "description": "结构化审计源；receipt 只从这里渲染已试动作。"
+    },
+    "pause": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["at_stage", "kind", "reason", "question"],
+      "properties": {
+        "at_stage": { "type": "string" },
+        "kind": { "enum": ["surface"] },
+        "reason": { "enum": ["needs-context", "needs-redirection"] },
+        "question": { "type": "string", "minLength": 1 }
+      },
+      "description": "非 null 即停。resume 清空。"
+    }
+  }
+}

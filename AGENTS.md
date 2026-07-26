@@ -2,13 +2,14 @@
 
 ## 仓库范围
 
-本仓库发布同一套多模型开发编排的三个单宿主实现。三个实现共享产品语义，但宿主接线、状态目录、角色派发和部分文件布局各自独立；运行时不得互相探测或调用。
+本仓库发布同一套多模型开发编排的四个单宿主实现。四个实现共享产品语义，但宿主接线、状态目录、角色派发和部分文件布局各自独立；运行时不得互相探测或调用。
 
 | 宿主 | 活跃目录 | 发布入口 | 状态目录 | 任务 worktree | 角色执行后端 |
 | --- | --- | --- | --- | --- | --- |
 | Claude Code | `plugin/` | `plugin/.claude-plugin/plugin.json`、`.claude-plugin/marketplace.json` | `.claude/multi-model-workflow/` | `.claude/worktrees/` | Codex CLI 工人和宿主 sub-agent 审者 |
 | Factory Droid | `droid-plugin/` | `droid-plugin/.factory-plugin/plugin.json`、`.factory-plugin/marketplace.json` | `.factory/multi-model-workflow/` | `.factory/worktrees/` | `droid exec` 和 Custom Droids |
 | pi | `pi-plugin/` | `pi-plugin/package.json` | `.pi/multi-model-workflow/` | `.pi/worktrees/` | pi-subagents 注册角色和动态 workflows |
+| Cursor | `cursor-plugin/` | `cursor-plugin/.cursor-plugin/plugin.json` | `.cursor/multi-model-workflow/` | `.cursor/worktrees/`（工人）；任务 wt 常由 UI 悬空创建后 `mmw task adopt` | Cursor Task + `.cursor/agents` |
 
 `archive/plugin-v1/` 是冻结归档，不参与当前行为判断、构建或测试；没有明确指令时不修改。
 
@@ -38,7 +39,7 @@
 4. `scripts/tests/` 和 `build/tests/`。
 5. 运行时 Markdown 源码。
 
-不要假设三个镜像逐字一致。共同业务行为发生变化时逐个检查三个镜像；宿主专属路径、工具名、生命周期和派发后端不得复制成兼容分支。
+不要假设四个镜像逐字一致。共同业务行为发生变化时逐个检查四个镜像；宿主专属路径、工具名、生命周期和派发后端不得复制成兼容分支。
 
 仓库只维护 `AGENTS.md`、`CLAUDE.md` 和 `TESTING.md` 三份根文档。不要新增 README、独立架构文档、设计文档、调查报告、计划或审查记录；长期项目规则写入本文件，运行行为写入对应 runtime 源码和测试。
 
@@ -47,6 +48,7 @@
 - Claude Code：`plugin/agents/`、`plugin/commands/`、`plugin/skills/`、`plugin/build/fragments/`。
 - Droid：`droid-plugin/droids/`、`droid-plugin/commands/`、`droid-plugin/skills/`、`droid-plugin/build/fragments/`。
 - pi：`pi-plugin/agents-roster/`、`pi-plugin/prompts/`、`pi-plugin/skills/`、`pi-plugin/build/fragments/`。
+- Cursor：`cursor-plugin/agents/`、`cursor-plugin/commands/`、`cursor-plugin/skills/`、`cursor-plugin/build/fragments/`。
 
 ## 修改规则
 
@@ -68,10 +70,10 @@
 
 ## 构建与测试
 
-三个宿主都要通过片段漂移检查和完整 shell 测试：
+四个宿主都要通过片段漂移检查和完整 shell 测试：
 
 ```bash
-for host in plugin droid-plugin pi-plugin; do
+for host in plugin droid-plugin pi-plugin cursor-plugin; do
   bash "$host/build/build.sh" --check || exit 1
   bash "$host/build/tests/test_build.sh" || exit 1
   for test_file in "$host"/scripts/tests/test_*.sh; do
@@ -80,10 +82,10 @@ for host in plugin droid-plugin pi-plugin; do
 done
 ```
 
-Release 合同的 Python 测试要覆盖三个宿主：
+Release 合同的 Python 测试要覆盖四个宿主：
 
 ```bash
-for host in plugin droid-plugin pi-plugin; do
+for host in plugin droid-plugin pi-plugin cursor-plugin; do
   uv run --with pytest --with pydantic pytest \
     "$host/scripts/tests/test_release_contracts.py" \
     "$host/scripts/tests/test_release_script_assembler.py" || exit 1

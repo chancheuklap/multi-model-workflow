@@ -1,0 +1,16 @@
+{
+  "findings": [
+    {
+      "schema_version": "1",
+      "product": "duck",
+      "dimension": "architecture",
+      "name": "shared_reverse_import",
+      "status": "fail",
+      "tier": "P1",
+      "root_cause_fingerprint": "arch:shared_reverse_import",
+      "locator": "src/shared/x.py:12",
+      "detail": "post_fix_gate 检出 shared 反向 import 业务模块",
+      "remediation": "移除反向 import"
+    }
+  ]
+}
