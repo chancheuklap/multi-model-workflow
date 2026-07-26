@@ -1,4 +1,5 @@
 ---
+name: reassess
 description: 停下来用磁盘状态重新判断真实情况,给可执行结论
 argument-hint: ""
 ---

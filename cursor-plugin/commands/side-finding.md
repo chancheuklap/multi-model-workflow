@@ -1,4 +1,5 @@
 ---
+name: side-finding
 description: 手动指定计划外项处置:开 issue 记下,或当场修
 argument-hint: "issue | fix"
 disable-model-invocation: true

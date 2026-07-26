@@ -1,5 +1,6 @@
 {
   "name": "multi-model-workflow-cursor",
+  "displayName": "Multi-Model Workflow (Cursor)",
   "description": "Cursor 原生多模型开发编排:方向和设计集中对齐,计划起自主跑。Subagent 分角色、多模型审闸、worktree 隔离、断点续传、打包发布与完整控制面。",
   "version": "0.1.0",
   "author": {
@@ -7,6 +8,7 @@
     "email": "chancheuklapincn@gmail.com"
   },
   "repository": "https://github.com/chancheuklap/multi-model-workflow",
+  "homepage": "https://github.com/chancheuklap/multi-model-workflow",
   "license": "MIT",
   "keywords": [
     "multi-model",
@@ -14,6 +16,16 @@
     "cursor",
     "worktree",
     "code-review",
-    "hitl"
-  ]
+    "hitl",
+    "serena",
+    "graphify",
+    "context7"
+  ],
+  "category": "developer-tools",
+  "skills": "./skills/",
+  "rules": "./rules/",
+  "agents": "./agents/",
+  "commands": "./commands/",
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./mcp.json"
 }

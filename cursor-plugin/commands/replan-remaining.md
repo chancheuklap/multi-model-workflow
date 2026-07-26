@@ -1,4 +1,5 @@
 ---
+name: replan-remaining
 description: 保留已完成,重做后续计划
 argument-hint: ""
 disable-model-invocation: true

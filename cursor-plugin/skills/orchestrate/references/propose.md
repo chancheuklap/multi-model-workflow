@@ -20,7 +20,7 @@
 
 investigate 报告是 orientation,不是实质路线。长于几步的任务在方案固化、亮给用户之前 consult 一次;短任务若方向已被一手证据唯一决定可跳过。顾问不替用户选,只挑战主线程的框架、范围漂移和未验证前提。
 
-pi:调 advisor 工具(零参数，自动转发全对话；它要判的是 framing 是否解对问题、最大失败模式、什么证据会推翻判断，不重写方案表)。
+Cursor:可 Task(subagent_type="advisor") + handoff pack；它要判的是 framing 是否解对问题、最大失败模式、什么证据会推翻判断，不重写方案表。
 
 - 用户仍拍板;advisor 只补风险/取舍,不替用户选。
 - 本阶段最多 1 次;降级 propose(`direction-given`)若方向和证据已明确可跳过。

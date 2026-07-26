@@ -32,6 +32,9 @@ case "$prompt" in
   *) no "prompt 证据纪律缺失" ;;
 esac
 
+grep -q 'pi-graphify-ensure' "$PLUGIN/skills/orchestrate/references/retrieval-doctrine.md" \
+  && grep -q '缺则建' "$PLUGIN/skills/orchestrate/references/retrieval-doctrine.md" \
+  && ok "doctrine 要求 ensure 建图后再查" || no "doctrine Graphify ensure"
 for file in \
   skills/orchestrate/references/retrieval-doctrine.md \
   skills/worktree-build/SKILL.md \

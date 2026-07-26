@@ -1,4 +1,5 @@
 ---
+name: approve-design
 description: 确认设计(唯一人闸):盖承重文档指纹,过门放权进流水线
 argument-hint: "[承重文档相对路径,可多个,空则用已钉的设计产出]"
 disable-model-invocation: true

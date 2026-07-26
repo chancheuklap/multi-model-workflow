@@ -80,7 +80,7 @@ release_run_lock() {
 
 print_task_dispatch() {
   local subagent="$1" prompt_path="$2" model="$3"
-  echo "DISPATCH=Task({subagent_type:\"$subagent\", prompt:\"$prompt_path\", model:\"$model\", background:true})"
+  echo "DISPATCH=Task({subagent_type:\"$subagent\", prompt:\"$prompt_path\", model:\"$model\", run_in_background:true})"
 }
 
 write_job_meta() {
@@ -125,18 +125,18 @@ PROMPT
   if [ -s "$candidates_file" ]; then
     printf '```json\n'; jq -c '.' "$candidates_file"; printf '```\n'
     cat <<'PROMPT2'
-内部 topic 必须逐 locator 回 repoRoot 用 Read/Grep/Glob 亲验；Serena/graphify 候选来自上游，不代表 Cursor worker 能直接调用那些 MCP。Serena 对装饰器 endpoint 完整调用方、动态 await import() 解构引用存在已知盲区；unsupported/not_available/failed/空结果均须 fallback 到 Grep/Glob/Read 源码检索。summary/gaps 必须区分上游候选、worker 自己实际用的 Read/Grep/Glob/Shell、源码 locator 与 fallback_reason。
+内部 topic 可用本插件 Serena MCP 四个符号工具取候选；上游 retrieval_candidates 仍只是候选，不代表你已调用过。逐 locator 回 repoRoot 用 Read/Grep/Glob 亲验。Serena 对装饰器 endpoint 完整调用方、动态 await import() 解构引用存在已知盲区；unsupported/not_available/failed/空结果均须 fallback 到 Grep/Glob/Read。summary/gaps 必须区分上游候选、你自己实际用的 Serena/Read/Grep/Glob/Shell、源码 locator 与 fallback_reason。
 
-内部调查只在 repoRoot 下用 Read/Grep/Glob 取证；定位 bug 根因需要复现时可用 Shell 跑只读诊断、目标测试或复现命令，禁止安装依赖、改文件、commit。执行前后都核对 `git status --short`，发现 tracked 改动立即停止并写入 gaps。每条 locator 必须是 file:line。
+内部调查只在 repoRoot 下取证；定位 bug 根因需要复现时可用 Shell 跑只读诊断、目标测试或复现命令，禁止安装依赖、改文件、commit。执行前后都核对 `git status --short`，发现 tracked 改动立即停止并写入 gaps。每条 locator 必须是 file:line。
 PROMPT2
   else
     cat <<'PROMPT2'
-内部调查只在 repoRoot 下用 Read/Grep/Glob 取证；定位 bug 根因需要复现时可用 Shell 跑只读诊断、目标测试或复现命令，禁止安装依赖、改文件、commit。执行前后都核对 `git status --short`，发现 tracked 改动立即停止并写入 gaps。每条 locator 必须是 file:line。
+内部调查可用本插件 Serena MCP 四个符号工具取候选，再在 repoRoot 下用 Read/Grep/Glob 亲验；定位 bug 根因需要复现时可用 Shell 跑只读诊断、目标测试或复现命令，禁止安装依赖、改文件、commit。执行前后都核对 `git status --short`，发现 tracked 改动立即停止并写入 gaps。每条 locator 必须是 file:line。
 PROMPT2
   fi
   if [ "$mode" = external ]; then
     cat <<'PROMPT3'
-外部调查用 Shell 只读网络命令或可用 MCP 文档搜索取证，每条 locator 必须是已打开核验的 URL。
+外部调查优先用本插件 Context7 MCP（resolve-library-id → query-docs）查库/框架官方文档；不足时再用 WebSearch/WebFetch 或 Shell 只读网络命令。每条 locator 必须是已打开核验的 URL。
 PROMPT3
   fi
   cat <<'PROMPT4'

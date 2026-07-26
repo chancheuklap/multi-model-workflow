@@ -108,7 +108,7 @@ mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree
  ```
  verify ↔ resume 直至这份 plan 验收通过。
 
-**pack-executor 停下说"缺输入 / 计划与现实冲突"**:你判。afk 拍板前可调一次 advisor 工具(零参数，它自动看到全对话含失败日志与冲突现场，不需要写 brief)。
+**pack-executor 停下说"缺输入 / 计划与现实冲突"**:你判。afk 拍板前可 Task(subagent_type="advisor") + handoff pack(含失败日志与冲突现场)。
 
 小问题有合理默认 → afk 直接给指令 resume(留痕);真缺输入 / 怀疑方向错 → 停下抛用户(`mmw handoff --conclusion needs-context` / `needs-redirection`),别替用户拍方向。顾问建议换路不自动 handoff。
 

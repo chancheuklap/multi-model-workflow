@@ -1,4 +1,5 @@
 ---
+name: unattended
 description: 进入强无人值守(设计+计划已过门后放权,任何 agent 不再向用户提问)
 argument-hint: ""
 disable-model-invocation: true

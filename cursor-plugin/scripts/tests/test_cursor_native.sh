@@ -16,6 +16,55 @@ no() { echo "not ok - $1"; fail=1; }
 [ "$(jq -r .name "$PLUGIN/.cursor-plugin/plugin.json")" = multi-model-workflow-cursor ] &&
   ok "dedicated plugin identity" || no "plugin identity"
 
+jq -e '
+  .mcpServers == "./mcp.json"
+  and .rules == "./rules/"
+  and (.variables | not)
+' "$PLUGIN/.cursor-plugin/plugin.json" >/dev/null \
+  && ok "plugin declares mcpServers + rules without Configure variables" || no "plugin mcp/rules wiring"
+
+[ -f "$PLUGIN/rules/retrieval-priority.mdc" ] \
+  && grep -q 'alwaysApply: true' "$PLUGIN/rules/retrieval-priority.mdc" \
+  && grep -q 'pi-graphify-ensure' "$PLUGIN/rules/retrieval-priority.mdc" \
+  && ok "Always Apply retrieval rule present" || no "retrieval rule"
+
+grep -q 'pi-graphify-ensure' "$PLUGIN/scripts/lib/runtime.sh" \
+  && grep -q 'pi-graphify-ensure' "$PLUGIN/skills/orchestrate/references/retrieval-doctrine.md" \
+  && ok "runtime + doctrine ensure Graphify" || no "Graphify ensure wiring"
+
+jq -e '
+  .mcpServers.serena.command == "bash"
+  and (.mcpServers.serena.args | length == 2)
+  and .mcpServers.serena.args[0] == "-c"
+  and (.mcpServers.serena.args[1] | test("serena-mcp\\.sh"))
+  and (.mcpServers.serena.args[1] | test("\\$HOME"))
+  and .mcpServers.serena.env.SERENA_PROJECT == "${workspaceFolder}"
+  and .mcpServers.serena.env.MMW_SERENA_LAUNCHER == "v3-bash-home"
+  and .mcpServers.context7.command == "npx"
+  and (.mcpServers.context7.args | index("@upstash/context7-mcp"))
+  and .mcpServers.context7.env.CONTEXT7_API_KEY == "${env:CONTEXT7_API_KEY}"
+  and .mcpServers.context7.envFile == "${userHome}/.cursor/context7.env"
+' "$PLUGIN/mcp.json" >/dev/null \
+  && ok "mcp.json ships serena + context7" || no "mcp.json servers"
+
+# 禁止相对 ./scripts 与 CURSOR_PLUGIN_ROOT（MCP 侧展开不可靠）
+! jq -e '.. | strings | select(test("(^|[ \"])\\\\./scripts/|CURSOR_PLUGIN_ROOT"))' "$PLUGIN/mcp.json" >/dev/null \
+  && ok "mcp.json uses bash+HOME launcher" || no "mcp.json path contract broken"
+
+# 禁止从其他宿主目录取 MCP / Serena 配置
+! grep -R -nE '~/?\.pi|/\\.pi/|pi-readonly|context7\\.local\\.json' \
+  "$PLUGIN/mcp.json" "$PLUGIN/scripts/serena-mcp.sh" "$PLUGIN/config/serena" \
+  >/dev/null 2>&1 \
+  && ok "MCP wiring has no pi host coupling" || no "MCP probes pi"
+
+[ -f "$PLUGIN/config/serena/cursor-readonly.yml" ] \
+  && [ -x "$PLUGIN/scripts/serena-mcp.sh" ] \
+  && ok "Serena context + launcher present" || no "Serena launcher bundle"
+
+grep -q 'mcp:context7/resolve-library-id' "$PLUGIN/agents/investigate-topic.md" \
+  && grep -q 'mcp:context7/query-docs' "$PLUGIN/agents/investigate-topic.md" \
+  && ok "investigate-topic has Context7 tools" || no "investigate-topic Context7"
+
 jq -e '.hooks.sessionStart and .hooks.beforeShellExecution and .hooks.afterShellExecution' \
   "$PLUGIN/hooks/hooks.json" >/dev/null && ok "Cursor hook events" || no "hook events"
 

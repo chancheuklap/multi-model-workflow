@@ -1,4 +1,5 @@
 ---
+name: progress
 description: 展示当前 multi-model-workflow 任务进度板(投影,从磁盘真相源重建)
 argument-hint: ""
 ---

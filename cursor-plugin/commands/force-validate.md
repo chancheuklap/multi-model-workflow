@@ -1,4 +1,5 @@
 ---
+name: force-validate
 description: 立刻跑当前层的合法审查
 argument-hint: ""
 ---

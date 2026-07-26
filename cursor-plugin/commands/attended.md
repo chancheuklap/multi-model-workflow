@@ -1,4 +1,5 @@
 ---
+name: attended
 description: 切回有人值守(退出强无人,恢复可向用户提问)
 argument-hint: ""
 ---

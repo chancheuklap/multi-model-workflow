@@ -24,7 +24,7 @@
 
 任务 worktree：用户可用 Cursor UI 先建悬空 checkout，再跑 `mmw task adopt` 挂 slug 分支与 manifest；续跑时用 Open Folder / 工作区切进该路径并跑 `mmw where`。Coordinator 也可由 `prepare.sh` 建 wt。Pack worker 和 plan writer 的隔离 worktree 由 `worker.sh` 建立，工人 prompt 里钉死该 worktree 绝对路径，工人的所有操作必须落在它下面。工作角色都是会话内 Task 子代理；主线程工作目录不随工人切换。
 
-MMW 建立上述 worktree 后，若目标仓库有 `.cursor/worktree-init.sh` 则调用它；失败会明确告警但不阻断任务。不探测 `.pi` / `.claude` / `.factory` 宿主路径。
+MMW 建立上述 worktree 后，优先调用目标仓库的 `.cursor/worktree-init.sh`；没有项目 hook 时调用用户级 `pi-graphify-ensure`，按来源与目标工作树内容复用或重建原生图谱。两条初始化路径都不污染机器 stdout，失败会明确告警但不阻断任务；首次复杂检索会再次 ensure。不探测 `.pi` / `.claude` / `.factory` 宿主状态目录（`pi-graphify-ensure` 是 PATH 上的图谱生命周期 CLI）。
 
 ## 角色花名册
 
@@ -79,10 +79,19 @@ Cursor 原生 **Task + resume**。工人要决策时：结构化回执回主线�
 | 事件 | 脚本 |
 | --- | --- |
 | `sessionStart` / `preCompact` | `session-triage.sh` |
-| `beforeShellExecution` | `guard-redline.sh` |
+| `beforeShellExecution` | `guard-redline.sh`（Cursor flat `permission` + Claude nested 兼容） |
 | `afterShellExecution` | `record-step.sh` |
 
-`hooks.json` 以 `CURSOR_PLUGIN_ROOT` 解析插件根并传给脚本。红线命中 → `permissionDecision=ask`。
+`hooks.json` 以 `CURSOR_PLUGIN_ROOT` 解析插件根并传给脚本。用户级 `~/.cursor/hooks.json` 也可挂同一批绝对路径脚本（当前 Cursor 对 plugin hooks 加载不稳时的生效面）。红线读 `.command // .tool_input.command`；命中 → `permission=ask`（兼嵌套 `permissionDecision`）；放行必须吐 `{"permission":"allow"}`（`failClosed` 下空 stdout 会被拦）。
+
+## Commands（控制面 slash）
+
+插件 `commands/*.md` 声明 11 条控制面命令（`approve-design` / `progress` / `reassess` …）。每条 frontmatter 必须含 Cursor 要求的 `name` + `description`。
+
+生效面（两道都接）：
+
+1. 插件目录 `commands/`（需 Settings 打开 **Include third-party Plugins, Skills, and other configs**，否则 plugin commands 常不进 `/` 菜单）。
+2. 用户级 `~/.cursor/commands/`——Cursor 确认会进 slash 菜单的通道。本地试装跑 `bash cursor-plugin/scripts/install-local-surface.sh` 同步插件与这 11 条命令。
 
 设计确认是唯一人闸：用户敲 `/approve-design` → `mmw approve` 盖承重文档指纹、attendance 切 afk 并推进；用户口头同意不算过门。承重文档改动后审闸 pass 硬停 `approval_stale`，重跑 `mmw approve` 重盖（RE-APPROVED）。
 

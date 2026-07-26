@@ -1,6 +1,6 @@
 ---
 name: advisor
-description: Escalate to a stronger reviewer model for guidance. When you need stronger judgment — a complex decision, an ambiguous failure, a problem you're circling without progress — escalate to the advisor model for guidance, then resume. Takes NO parameters — when you call advisor(), your entire conversation history is automatically forwarded. The advisor sees the task, every tool call you've made, every result you've seen.
+description: Escalate to a stronger reviewer model for guidance. When you need stronger judgment — a complex decision, an ambiguous failure, a problem you're circling without progress — escalate via Task(subagent_type="advisor") with an explicit handoff pack (goal / evidence / tentative_decision / open_questions / constraints), then resume. Cursor does not auto-forward full parent history; the pack is the shared context.
 model: claude-opus-5
 readonly: true
 is_background_agent: false

@@ -1,4 +1,5 @@
 ---
+name: gather-context
 description: 设计问答途中触发一次定向上下文收集，坐实后补进设计文档草稿，再续问答（HITL 集中在设计阶段的抓手）
 ---
 

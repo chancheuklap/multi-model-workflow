@@ -13,11 +13,19 @@ ok() { echo "  PASS: $1"; pass=$((pass+1)); }
 no() { echo "  FAIL: $1"; fail=$((fail+1)); }
 # 跑 hook,回 exit code
 run_hook() { local h="$1" payload="$2"; printf '%s' "$payload" | bash "$HOOKS/$h" >/dev/null 2>&1; echo $?; }
-# 跑 hook,回 stdout(红线 ask 判定用:命中 → 吐 permissionDecision=ask JSON;放行 → 空)
+# 跑 hook,回 stdout(红线:命中 → permission/ask;放行 → permission/allow。兼容 Claude nested + Cursor flat)
 hook_out() { local h="$1" payload="$2"; printf '%s' "$payload" | bash "$HOOKS/$h" 2>/dev/null || true; }
-is_ask()    { hook_out guard-redline.sh "$1" | grep -q '"permissionDecision":[[:space:]]*"ask"'; }
-is_allow()  { [ -z "$(hook_out guard-redline.sh "$1")" ] && [ "$(run_hook guard-redline.sh "$1")" = "0" ]; }
-pl() { printf '{"tool_input":{"command":"%s"}}' "$1"; }
+is_ask()    { hook_out guard-redline.sh "$1" | grep -Eq '"permission":[[:space:]]*"ask"|"permissionDecision":[[:space:]]*"ask"'; }
+is_allow()  {
+  local out ec
+  out="$(hook_out guard-redline.sh "$1")"
+  ec="$(run_hook guard-redline.sh "$1")"
+  [ "$ec" = "0" ] && printf '%s' "$out" | grep -Eq '"permission":[[:space:]]*"allow"' \
+    && ! printf '%s' "$out" | grep -Eq '"permission":[[:space:]]*"ask"|"permissionDecision":[[:space:]]*"ask"'
+}
+# 默认测 Cursor 原生 payload;另用 pl_cc 覆盖 Claude 兼容路径
+pl() { printf '{"command":"%s","cwd":"/tmp","sandbox":false}' "$1"; }
+pl_cc() { printf '{"tool_input":{"command":"%s"}}' "$1"; }
 
 echo "=== test_hooks.sh ==="
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
@@ -28,6 +36,8 @@ cd "$TMP"; git init -q -b main; git config user.email t@t; git config user.name 
 is_allow "$(pl 'git merge feat --no-ff')" && ok "主分支本地 merge → 放行(不拦本地合并)" || no "主分支 merge 应放行"
 is_ask "$(pl 'git push origin main')" && ok "push → ask" || no "push ask"
 is_allow "$(pl 'git status')" && ok "git status → 放行" || no "safe 放行"
+is_ask "$(pl_cc 'git push origin main')" && ok "Claude payload push → ask(兼容)" || no "Claude payload push"
+is_allow "$(pl_cc 'git status')" && ok "Claude payload status → 放行(兼容)" || no "Claude payload status"
 # 老正则的绕过口全堵上
 is_ask "$(pl 'git -c core.hooksPath=/dev/null push origin main')" && ok "git -c … push(插参数)→ ask" || no "git -c push 绕过"
 is_ask "$(pl 'gh pr merge 123 --merge')" && ok "gh pr merge(GitHub 侧合并)→ ask" || no "gh pr merge 绕过"

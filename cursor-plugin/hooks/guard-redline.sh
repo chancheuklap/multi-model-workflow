@@ -1,16 +1,25 @@
 #!/usr/bin/env bash
-# PreToolUse 红线:唯一硬红线 = 出站发布 / 部署 —— push / GitHub 侧合并(gh pr merge / gh api …/merge)/ deploy。
-# 命中 → permissionDecision=ask:由用户在权限框亲批。真人批准由平台保证,
+# beforeShellExecution 红线:唯一硬红线 = 出站发布 / 部署 —— push / GitHub 侧合并(gh pr merge / gh api …/merge)/ deploy。
+# 命中 → permission=ask:由用户在权限框亲批。真人批准由平台保证,
 # 不再用 release-approval 令牌(令牌 agent 自己就能铸,守不住"要人批")。
 # **本地 git merge(含合并进 main)不拦**:可逆、不出站,真正红线是它之后的 push;
 # 拦本地 merge 只会打断无人值守的自动推进(用户明确要求放行)。
 # 已知接受面:引号打散关键词(如 pu''sh)本脚本能判;命令替换 $(echo push) 拆段后动词
 # 落进子段判不到,属于刻意规避,最后防线是 Cursor 权限框本身。
+#
+# Cursor 原生 stdin 是 {command,cwd,sandbox}; Claude 兼容侧是 {tool_input.command}。
+# failClosed=true 时必须吐合法 JSON——空 stdout 会被当成 hook 失败并拦命令。
 set -euo pipefail
 
 input="$(cat)"
-cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")"
-[ -n "$cmd" ] || exit 0
+cmd="$(printf '%s' "$input" | jq -r '.command // .tool_input.command // ""' 2>/dev/null || echo "")"
+
+allow() {
+  printf '%s\n' '{"permission":"allow"}'
+  exit 0
+}
+
+[ -n "$cmd" ] || allow
 
 # 1) 剥 heredoc 正文——文档/脚本正文里的 push/deploy 行是数据不是动作
 cmd="$(printf '%s\n' "$cmd" | awk '
@@ -34,7 +43,7 @@ cmd="$(printf '%s' "$cmd" | sed -E "s/'[^']*[[:space:]][^']*'/ /g; s/\"[^\"]*[[:
 
 ask() {
   jq -n --arg r "$1" \
-    '{hookSpecificOutput:{hookEventName:"PreToolUse", permissionDecision:"ask", permissionDecisionReason:$r}}'
+    '{permission:"ask", user_message:$r, agent_message:$r, hookSpecificOutput:{hookEventName:"PreToolUse", permissionDecision:"ask", permissionDecisionReason:$r}}'
   exit 0
 }
 
@@ -109,4 +118,4 @@ while IFS= read -r seg; do
 done <<< "$segs"
 
 # 本地 git merge(含进 main)不拦——可逆、不出站;真正红线是之后的 push。
-exit 0
+allow

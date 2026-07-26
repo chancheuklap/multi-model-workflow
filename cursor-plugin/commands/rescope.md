@@ -1,4 +1,5 @@
 ---
+name: rescope
 description: 需求变化,砍或加范围(必要时回流 design/plan)
 argument-hint: "<范围变化说明>"
 disable-model-invocation: true

@@ -10,7 +10,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOOP="$SCRIPT_DIR/../scripts/loop.sh"
 
 input="$(cat)"
-cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // ""' 2>/dev/null || echo "")"
+# Cursor afterShellExecution: {command,output,duration}; Claude 兼容: {tool_input.command}
+cmd="$(printf '%s' "$input" | jq -r '.command // .tool_input.command // ""' 2>/dev/null || echo "")"
 
 # 只认命令位的 git commit;剥 git 全局选项,-C 的目标目录记下来当仓库根
 is_commit=0; cdir=""

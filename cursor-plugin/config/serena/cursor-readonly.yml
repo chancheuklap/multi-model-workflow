@@ -1,0 +1,10 @@
+description: Cursor MMW read-only symbol retrieval
+prompt: |
+  Use Serena only to retrieve static symbol candidates. Verify candidates in the current source with the host's read and search tools. Use the host's own editing tools for all changes.
+fixed_tools:
+  - find_symbol
+  - find_referencing_symbols
+  - get_symbols_overview
+  - find_implementations
+single_project: true
+structured_tool_output: true

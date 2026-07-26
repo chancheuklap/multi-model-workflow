@@ -1,4 +1,5 @@
 ---
+name: skip-current
 description: 当前步骤先放下,继续后面(记 blocked/skipped 留痕)
 argument-hint: ""
 disable-model-invocation: true
