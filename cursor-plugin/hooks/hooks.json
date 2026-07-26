@@ -1,0 +1,26 @@
+{
+  "description": "Cursor 原生多模型工作流分诊、红线与提交记账",
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "bash \"${CURSOR_PLUGIN_ROOT}/hooks/session-triage.sh\""
+      }
+    ],
+    "preCompact": [
+      {
+        "command": "bash \"${CURSOR_PLUGIN_ROOT}/hooks/session-triage.sh\""
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "bash \"${CURSOR_PLUGIN_ROOT}/hooks/guard-redline.sh\"",
+        "failClosed": true
+      }
+    ],
+    "afterShellExecution": [
+      {
+        "command": "bash \"${CURSOR_PLUGIN_ROOT}/hooks/record-step.sh\""
+      }
+    ]
+  }
+}

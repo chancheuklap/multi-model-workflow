@@ -1,6 +1,6 @@
 # TESTING.md(仓库薄层)
 
-> 完整测试写作权威随三个宿主发布（人读：`plugin/skills/worktree-build/references/tests.md`）。各执行角色按阶段读取这份权威；仓库特有规则通过 `AGENTS.md` / `CLAUDE.md` 项目指令链进入，本仓库根 `AGENTS.md` 指向本文。本文只写本仓库事实，不重复或删减通用权威。
+> 完整测试写作权威随各宿主发布（人读：`plugin/skills/worktree-build/references/tests.md`）。各执行角色按阶段读取这份权威；仓库特有规则通过 `AGENTS.md` / `CLAUDE.md` 项目指令链进入，本仓库根 `AGENTS.md` 指向本文。本文只写本仓库事实，不重复或删减通用权威。
 
 ## 目录分层
 
@@ -11,6 +11,7 @@
 | release 合同 | `plugin/scripts/tests/test_release_*.sh` + `test_release_*.py` | 出包子系统:stage 推进、远端构建合同、脚本装配 |
 | Droid 宿主 | `droid-plugin/**` 同构目录 | 同一套行为，宿主路径、hook 事件和执行后端不同 |
 | pi 宿主 | `pi-plugin/**` 同构目录 | 同一套行为，状态目录、动态 workflow 和 pi-subagents 派发不同 |
+| Cursor 宿主 | `cursor-plugin/**` 同构目录 | 同一套行为，状态目录、Task 派发和 `mmw task adopt` 不同 |
 
 ## 断什么、不断什么(本仓库特有边界)
 
@@ -28,12 +29,12 @@
 
 - 阶段、闸位和结论词：各宿主的 `state-schema/routes.json`。
 - 共用片段：各宿主的 `build/fragments/*`（改后必须 `--apply` 再 `--check`）。
-- 版本号：Claude Code 同步 plugin manifest 与 marketplace；Droid 同步 plugin manifest 与 marketplace；pi 以 `pi-plugin/package.json` 为准。
+- 版本号：Claude Code 同步 plugin manifest 与 marketplace；Droid 同步 plugin manifest 与 marketplace；pi 以 `pi-plugin/package.json` 为准；Cursor 以 `cursor-plugin/.cursor-plugin/plugin.json` 为准。
 
 ## 门控
 
 ```bash
-for host in plugin droid-plugin pi-plugin; do
+for host in plugin droid-plugin pi-plugin cursor-plugin; do
   bash "$host/build/build.sh" --check || exit 1
   bash "$host/build/tests/test_build.sh" || exit 1
   for test_file in "$host"/scripts/tests/test_*.sh; do

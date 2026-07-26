@@ -1,0 +1,126 @@
+param(
+  [string]$ReleaseContextPath = ${CONTEXT_DEFAULT_PATH}
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+function Step {
+  param([string]$Label)
+  Write-Host $Label
+}
+
+function Assert-Tool {
+  param([string]$Name)
+  if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
+    throw "Required build tool is unavailable: $Name"
+  }
+}
+
+function Invoke-Checked {
+  param([string]$Command, [string[]]$Arguments)
+  & $Command @Arguments
+  if ($LASTEXITCODE -ne 0) {
+    throw "Build command failed: $Command ($LASTEXITCODE)"
+  }
+}
+
+${RENDERED_HOOK_FUNCTIONS}
+
+# 上下文路径绝对化:钩子在 $RepoRoot 下跑(见 Invoke-ReleaseHook),若传的是相对路径,
+# cwd 一切换就读不到。远程 harness 已按绝对路径传 -ReleaseContextPath,此处对绝对路径幂等,
+# 也兜住本地/手动运行传相对路径的情况;文件不存在则 Resolve-Path fail-loud。
+$ReleaseContextPath = (Resolve-Path -LiteralPath $ReleaseContextPath).Path
+$Context = Get-Content -Raw -Encoding UTF8 $ReleaseContextPath | ConvertFrom-Json
+$RepoRoot = [string]$Context.repo_root
+$DesktopDir = Join-Path $RepoRoot ${DESKTOP_DIR_LITERAL}
+$DistDir = Join-Path $DesktopDir 'dist'
+
+# 正式安装包压缩档默认 maximum(约几百 MB 嵌入式 runtime,对客户下载体验有实际影响);
+# MMW_ELECTRON_BUILDER_COMPRESSION 可覆盖(store/normal/maximum),现场验证用 store 快档。
+$BuilderCompression = if ($env:MMW_ELECTRON_BUILDER_COMPRESSION) { $env:MMW_ELECTRON_BUILDER_COMPRESSION } else { 'maximum' }
+
+# 通用 build_machine 协议:setup 在耗时步骤前备好构建机(应用 uv 镜像/ccache/电子镜像/PYTHONDONTWRITEBYTECODE/
+# TEMP 重定向等 env + 加系统级杀软排除 + 构建缓存预检),teardown 在 finally 移除本次杀软排除。值/探测全在
+# 仓库侧脚本,引擎只搬运。null 时整段跳过(不声明 build_machine 的钥匙不受影响)。
+$BuildMachine = if ($Context.PSObject.Properties.Match('build_machine').Count -gt 0) { $Context.build_machine } else { $null }
+try {
+  if ($BuildMachine -and $BuildMachine.setup) {
+    Step "[0/7] Prepare build machine"
+    # 在 $RepoRoot 下跑(与钩子同,让 setup argv 里的仓库相对路径解析得到);setup stdout 每行 KEY=VALUE 应用到本进程 env。
+    Push-Location $RepoRoot
+    try {
+      $envLines = & $BuildMachine.setup[0] @($BuildMachine.setup[1..($BuildMachine.setup.Count - 1)])
+    } finally { Pop-Location }
+    if ($LASTEXITCODE -ne 0) { throw "build machine setup failed ($LASTEXITCODE)" }
+    foreach ($line in @($envLines)) {
+      if ("$line" -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
+        [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2])
+        Write-Host ("  build env: " + $Matches[1])
+      }
+    }
+  }
+
+  # 工具前置与旧小鹦鹉/小刺猬出包脚本一致:NSIS 由 electron-builder 自带,不要求 PATH 里有
+  # 独立 makensis——多要一件工具就把旧路径可用的构建机挡在第 1 步。
+  Step "[1/7] Validate prerequisites"
+  foreach ($tool in @('python', 'pnpm', 'node', 'uv')) {
+    Assert-Tool $tool
+  }
+
+  Push-Location $DesktopDir
+  try {
+    Step "[2/7] Install frozen frontend dependencies"
+    Invoke-Checked -Command 'pnpm' -Arguments @('install', '--frozen-lockfile', '--prefer-offline')
+
+    Step "[3/7] Prepare runtime lane"
+${LANE_BLOCK}
+${RUNTIME_HOOK_CALLS}
+
+    Step "[4/7] Build Electron application"
+    Invoke-Checked -Command 'pnpm' -Arguments @('run', 'build')
+
+    Step "[5/7] Build win-unpacked"
+    Invoke-Checked -Command 'pnpm' -Arguments @('exec', 'electron-builder', '--win', 'dir', '--publish', 'never', "-c.compression=$BuilderCompression")
+    if (-not (Test-Path (Join-Path $DistDir 'win-unpacked'))) {
+      throw 'electron-builder did not create win-unpacked'
+    }
+
+    Step "[6/7] Verify unpacked artifact"
+    if (-not (Test-Path $DistDir)) {
+      throw 'electron-builder did not create dist output'
+    }
+${ARTIFACT_HOOK_CALLS}
+
+    Step "[7/7] Build NSIS installer"
+    # 不用 Invoke-Checked:electron-builder 打完 NSIS 后清理临时 nsis.7z 偶发 ENOENT unlink 竞态返非零,
+    # 而安装包其实已产出。捕获合并输出(内存变量,不用 Out-File——脱附会话不可靠),安装包已产出且日志命中
+    # nsis.7z ENOENT 时只告警继续(忠实复刻旧路径 Test-NsisCleanupEnoent),否则 throw。
+    $unpacked = Join-Path $DistDir 'win-unpacked'
+    $nsisOut = (& pnpm exec electron-builder --win nsis --publish never --prepackaged $unpacked "-c.compression=$BuilderCompression" 2>&1 | Out-String)
+    $nsisExit = $LASTEXITCODE
+    Write-Host $nsisOut
+    $installerExists = [bool](Get-ChildItem -Path $DistDir -Filter '*.exe' -File -ErrorAction SilentlyContinue)
+    if ($nsisExit -ne 0) {
+      $enoent = ($nsisOut -like '*ENOENT: no such file or directory, unlink*' -and $nsisOut -like '*nsis.7z*')
+      if ($enoent -and $installerExists) {
+        Write-Host '  electron-builder NSIS cleanup ENOENT after installer output; continuing to artifact verification' -ForegroundColor Yellow
+      } else {
+        throw "electron-builder NSIS failed ($nsisExit)"
+      }
+    }
+    if (-not $installerExists) {
+      throw 'electron-builder did not create an installer'
+    }
+${RELEASE_HOOK_CALLS}
+  }
+  finally {
+    Pop-Location
+  }
+}
+finally {
+  if ($BuildMachine -and $BuildMachine.teardown) {
+    Push-Location $RepoRoot
+    try { & $BuildMachine.teardown[0] @($BuildMachine.teardown[1..($BuildMachine.teardown.Count - 1)]) | Out-Null } catch { } finally { Pop-Location }
+  }
+}
