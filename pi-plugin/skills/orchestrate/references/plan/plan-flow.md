@@ -17,7 +17,7 @@
 | 角色 | 谁 | 职责 |
 |---|---|---|
 | **主 Agent(你)** | 本阶段驱动者 | 读 design + issue → 写跨 plan 合同骨架进设计文档 → fan-out 派 plan-writer → 亲验返回 → 回填合同细节 → 就绪门 → handoff |
-| **plan-writer** | `mmw worker plan-dispatch` 准备隔离 worktree 与 prompt,协调者派后台 Agent | 拿(带合同骨架的)设计文档 + 单个大 issue,**自己把大 issue 拆成小 issue**,写出一份自洽 plan(Header + Task Pack + TDD 步骤 + 验收)。拆分、写作纪律、交付前自检都在它身上(它读 `worktree-plan` skill) |
+| **plan-writer** | `mmw worker plan-dispatch` 准备隔离 worktree 与 prompt,协调者派后台 subagent | 拿(带合同骨架的)设计文档 + 单个大 issue,**自己把大 issue 拆成小 issue**,写出一份自洽 plan(Header + Task Pack + TDD 步骤 + 验收)。拆分、写作纪律、交付前自检都在它身上(它读 `worktree-plan` skill) |
 
 **合同分两层**:跨 plan 合同骨架(主 Agent 在 Step 2 写进设计文档 `## Cross-Plan Contract Anchors`,给并行 writer 不撞车的硬边界);每份 plan 的 Global Constraints / File Map / 内部 Dependency Graph(writer 从设计抄 + 自己写进 plan header)。
 

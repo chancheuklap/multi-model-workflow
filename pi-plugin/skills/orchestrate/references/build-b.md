@@ -46,7 +46,7 @@ mmw loop step add --id <plan-id> --desc "<标题>" --plan <plan 绝对路径> --
 
 ## B2. 派写码工人落地(一条命令准备 + 宿主派发)
 
-每份 plan 派一个写码工人(`mmw worker dispatch` 准备 worktree、prompt 和账本,再照它打印的指令派 Agent):
+每份 plan 派一个写码工人(`mmw worker dispatch` 准备 worktree、prompt 和账本,再照它打印的指令派 subagent):
 
 ```bash
 mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree 绝对路径> \

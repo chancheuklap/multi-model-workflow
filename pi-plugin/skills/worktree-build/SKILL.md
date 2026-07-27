@@ -38,10 +38,10 @@ description: 你(落地执行者)被主线程派进一个 git worktree 落地 re
 
 ## 3. 边界
 
-- **只改 plan 的 `File / Responsibility Map` 和当前 Task Pack 明确拥有的源码、测试、规则文件**。需要碰未授权路径时停下报 `needs-context` / `needs-redirection`,不顺手扩大 ownership。
-- **禁改 `docs/` 下任何文件** —— 设计 / 计划 / issue 是上游权威,主线程(Coordinator)持有,你只读不写。
+红线(只改计划拥有的文件、禁碰 `docs/`、禁 push / 部署 / 切分支 / 派子代理)已在你的角色定义里给过一次,本 skill 不复述；只补两条操作细则:
+
+- 需要碰计划未授权的路径时,停下报 `needs-context` / `needs-redirection`,不顺手扩大 ownership。
 - 触碰带 `AGENTS.override.md` 规则的目录,同步维护该目录的 override。
-- 只做本地 Pack commit；禁止 push、`gh pr merge`、部署、创建/删除 worktree、切换到别的分支。
 
 ## 4. 卡住了
 

@@ -26,7 +26,7 @@
    mmw review start --stage <design|plan|final> --source "<源意图路径/待审内容>"
    ```
    审闸内直接用 `mmw where` 吐的 `review_start` 整行(stage 与 `--source` 都填好)。它出**派发指南**(`状态平面/review-brief.md`),你照打印的往下走。
-2. **直接派审者**:读 brief 按「派审者」段用 Task 派 `reviewer-*`，**一律 `async: true` 并行**（单条消息 `tasks` 数组或多次 async 单派），各自干净 context、读 `worktree-review` skill 出结构化 findings。**禁止前台阻塞式串跑双轴**——主线程要能同时看 fleet / 处理其它事，回执齐了再亲验。**别塞你自己的问题清单。**
+2. **直接派审者**:读 brief 按「派审者」段用 `subagent` 派 `reviewer-*`，**一律 `async: true` 并行**（单条消息 `tasks` 数组或多次 async 单派），各自干净 context、读 `worktree-review` skill 出结构化 findings。**禁止前台阻塞式串跑双轴**——主线程要能同时看 fleet / 处理其它事，回执齐了再亲验。**别塞你自己的问题清单。**
 3. **留痕(收口的硬核)**:全部审者的结构化 findings **原样落盘**到 `docs/reviews/<slug>-<stage>.md`(不重写、不摘要);亲验后每条的 verdict/处置就近标在该条下,文末写一句总 verdict。收口只回读 verdict 段,findings 全文压在留痕里、不长驻主线程 context。留痕是过程产物(docs/.gitignore 已忽略,随 worktree 删)。
 
 ## 2. 收回亲验 + 处置(裁判权在你,不在审者)

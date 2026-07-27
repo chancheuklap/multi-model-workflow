@@ -19,7 +19,7 @@
 ## 每轮循环(讨论态 attended,HITL)
 
 1. 读 map(每轮只读这份索引)→ 从 frontier 领**一个**决策(一轮一个,上下文预算纪律;纯调研 ticket 可并行派)。
-2. 事实归你查(内部 `rg`/read;成规模的调研读 `investigate.md` 照它的编排器跑,承重结论回引第一方来源)。**决策归用户**:用已装 `grilling` skill 一次一问、每问附推荐,与用户解开。
+2. 事实归你查(内部 `grep`/`read`;成规模的调研读 `investigate.md` 照它的编排器跑,承重结论回引第一方来源)。**决策归用户**:用已装 `grilling` skill 一次一问、每问附推荐,与用户解开。
 3. 解开即落盘:结论写进该决策文件;map 更新——已决区加一行 gist+链接、frontier 重算、Not yet specified 里因前置解开而"毕业"的转成新 ticket(编号续排,第二遍连边)。
 4. `mmw note` 留一句书签(当前 frontier / 在解决策)——跨会话靠它 + map + 决策文件续跑,不靠会话记忆。
 

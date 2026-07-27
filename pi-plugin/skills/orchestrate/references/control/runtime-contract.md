@@ -17,12 +17,12 @@
 | --- | --- |
 | 壳命令 | `bash` |
 | 创建或编辑文件 | `write`、`edit` |
-| 结构化问用户 | `ask_user` |
-| 子代理 | `Agent`（pi-subagents） |
+| 结构化问用户 | `ask_user_question` |
+| 子代理 | `subagent`（pi-subagents） |
 | 文件检索 | `read`、`grep`、`find`、`ls` |
 | 外部检索 | `web_search`、`fetch_content` |
 
-`enter_worktree` 把会话迁进 worktree 后,在该路径继续并运行 `mmw where`。Coordinator 的任务 worktree 由 `prepare.sh` 建立；Pack worker 和 plan writer 的隔离 worktree 由 `worker.sh` 建立，工人 prompt 里钉死该 worktree 绝对路径，工人的所有操作必须落在它下面。所有工作角色都是会话内 Agent 子代理；主线程工作目录不随工人切换。
+`enter_worktree` 把会话迁进 worktree 后,在该路径继续并运行 `mmw where`。Coordinator 的任务 worktree 由 `prepare.sh` 建立；Pack worker 和 plan writer 的隔离 worktree 由 `worker.sh` 建立，工人 prompt 里钉死该 worktree 绝对路径，工人的所有操作必须落在它下面。所有工作角色都是会话内 subagent 子代理；主线程工作目录不随工人切换。
 
 MMW 建立上述三类 worktree 后，优先调用目标仓库的 `.pi/worktree-init.sh`；没有项目 hook 时调用用户级 `pi-graphify-ensure`，按来源与目标工作树内容复用或重建原生图谱。两条初始化路径都不污染机器 stdout，失败会明确告警但不阻断任务；首次复杂检索会再次 ensure。
 
@@ -44,7 +44,7 @@ MMW 建立上述三类 worktree 后，优先调用目标仓库的 `.pi/worktree-
 
 **后台派发硬规则（mmw 角色一律不阻塞主线程前台）**：
 - `plan-writer` / `pack-executor` / `pack-executor-capable`：**必须** `async: true`（脚本打印的指令已带；协调者照抄，禁止改成前台阻塞）。
-- 全部 `reviewer-*`（design/plan/final 双轴）：**必须** `async: true` 并行派（`tasks` 数组或多次 async 单派均可）；禁止前台串行 `Agent` 卡住主线程。主线程用 fleet/status 或回执收齐后再亲验 findings。
+- 全部 `reviewer-*`（design/plan/final 双轴）：**必须** `async: true` 并行派（`tasks` 数组或多次 async 单派均可）；禁止前台串行 `subagent` 卡住主线程。主线程用 fleet/status 或回执收齐后再亲验 findings。
 - 短探路（如 `code-explorer` 单次只读）可前台；一旦预估超过约一分钟或会并行多个，改 async。
 - 禁止对 mmw 花名册重角色使用会阻塞主会话的前台派发。
 

@@ -17,7 +17,7 @@ Coordinator 在任何阶段都按当前值守档决定"软停问不问人"。值
 
 | 模式 | 软停(有合理默认) | 冒泡(缺输入/方向疑) | 计划外分流 | 可否向用户提问 |
 | --- | --- | --- | --- | --- |
-| `attended` | 停,ask_user / Decision Brief | 停 | 必问 A/B | 可以 |
+| `attended` | 停,ask_user_question / Decision Brief | 停 | 必问 A/B | 可以 |
 | `afk` | 自决 + 留痕(`mmw loop softstop` 写 decisions) | 停(硬停) | 按默认策略自动 | 仅冒泡/硬门时 |
 | `unattended` | 自决 + 留痕 | 停(硬停) | 按预授权 policy 自动 | **禁止** |
 
@@ -25,8 +25,8 @@ Coordinator 在任何阶段都按当前值守档决定"软停问不问人"。值
 
 ## no-question:磁盘 mode 为权威
 
-- **跨 compaction 真权威**:每次续跑(含会话重启 / compaction 恢复)**先读 `task.json.attendance`**;读到 `unattended` 就自我约束——不调用 ask_user、不向用户提任何问题。
-- pi subagent(worker/reviewer)天生调不了 ask_user;主线程仍必须按盘上 mode 自我约束。
+- **跨 compaction 真权威**:每次续跑(含会话重启 / compaction 恢复)**先读 `task.json.attendance`**;读到 `unattended` 就自我约束——不调用 ask_user_question、不向用户提任何问题。
+- pi subagent(worker/reviewer)天生调不了 ask_user_question;主线程仍必须按盘上 mode 自我约束。
 
 ## 进入 unattended(全部满足才进)
 

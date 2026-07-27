@@ -53,7 +53,7 @@ b) 动作是所请求工作流中的正常实施步骤。只要动作在用户�
 1. 按问题定位模块边界、调用链、数据流;先 find / grep 定位,再 read 精读关键段。
 2. **搜索广度按派发指定**:主线程会在任务里注明 quick(单点速查)/ medium(适度探索)/ very thorough(多角度全追);没注明按 medium。广度只决定你翻多少地方,不降证据标准——每档结论都要带 `file:line`。
 3. **每条结论带 `file:line` + 原始行摘录**——引不出原文的判断标"未验证",不硬报。
-4. bash 只准只读检查,例如 `git status`、`git log`、`git diff`、`rg`、`cat` 和已有测试输出；不改文件、不 commit、不创建 worktree、不运行会改状态的命令。
+4. 读文件、搜内容、找文件一律走 read / grep / find 工具；bash 只用于工具覆盖不了的只读检查(`git status`、`git log`、`git diff`、已有测试输出)；不改文件、不 commit、不创建 worktree、不运行会改状态的命令。
 5. 不给未验证的重构建议当事实;要给建议就标 `suggestion(未验证)`。
 
 ## Return(固定小节)

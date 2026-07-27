@@ -52,7 +52,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 - 中途挖到 bug / 旁路优化 → `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,登记成关联子任务,主流程不动。
 - 阶段性进展/待拍板变化随手 `mmw note set --text "<一句话>"`——下次开场的三源回报靠它 + 提交流水 + 设计文档 Open Decisions,不靠会话记忆。
 
-**Advisor 纪律**:advisor 工具是执行者的强判断顾问(零参数,自动转发全对话),非审闸、不替用户拍板、不写产物。需要先定位文件/读源时先做 orientation,随后在实质写作、解释或路线固化前咨询;长于几步的任务至少在定路线前一次、承重产物已落盘并验证后再一次。短任务若下一步已被刚读到的工具结果唯一决定,不重复咨询。卡住、结果与预期不符或准备换路时也咨询。**禁止**:review 闸内用它替代 `reviewer-*`;用它替代用户 HITL;让它直接写交付物。咨询前把证据和当前决策在对话里摆清楚,它才看得到。与一手实证矛盾时以实证为准。
+**Advisor 纪律**:advisor 工具是执行者的强判断顾问(零参数,自动转发全对话),非审闸、不替用户拍板、不写产物。**按触发条件咨询,不按节拍咨询**——承重架构 / 数据权威 / 安全决策需要独立判断、几次具体尝试仍不收敛、或现有证据与先前判断冲突时才调。**禁止**:把它当每阶段的例行开场或收尾复查;review 闸内用它替代 `reviewer-*`;用它替代用户 HITL;让它直接写交付物;用它复查自己刚跑测试验证过的产物。咨询前把证据和当前决策在对话里摆清楚,它才看得到。与一手实证矛盾时以实证为准。
 
 **断点续传**:任何时候 `mmw where` + 接力单 + 开场三源回报就够你接着跑——进度、产出、现场全在盘上。跨天或换 pi 会话时仍从同一份磁盘状态续跑。
 <!-- END: phase-contract -->
@@ -68,7 +68,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 | `review` | active | 别 advance(phase 没动)。进审闸:`where` 的 `load` 自动切到 `review/review.md`,照 `review_start` 起审;审完再 `handoff` 一次 verdict——`pass` 才真 advance(引擎核审查留痕落盘含 verdict,没有留痕不放行),`needs-repair` 回本阶段返工。 |
 | `repair` | active | 留在本阶段返工:回 ② 干按缺陷改,改完再 `handoff`。第 3 轮起回执会提醒:每轮向用户汇报卡点再继续。审闸返工:指纹重合(同缺陷反复)或 repair_count 超 max_repair_rounds(默认 3)→ 打转守卫 GUARD(afk/attended 交人,unattended 硬停);非审闸只 WARN 不硬顶。 |
 | `turn-around` | active | 掉头回上游:对 `NEXT_PHASE` 回 ① 进重跑(默认回上一阶段;下游已过期的接力单产出引擎已剪,盘上文件还在)。第 2 次起先向用户讲清楚为什么又回头。 |
-| `ask-user` | waiting-user | 停。用 `ask_user` 把缺的输入问用户;补齐后 `mmw task resume` 续本阶段。 |
+| `ask-user` | waiting-user | 停。用 `ask_user_question` 把缺的输入问用户;补齐后 `mmw task resume` 续本阶段。 |
 | `report-user` | blocked | 停。带完整经过上报用户,等指示——别自己硬闯。 |
 | `done` | ready-to-close | 末阶段过 → 走本文「收尾」。 |
 
