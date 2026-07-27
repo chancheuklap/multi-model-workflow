@@ -32,6 +32,7 @@ for s in design plan final; do
   echo "$B" | grep -q "四问" && ok "$s brief 含处置四问" || no "$s brief 四问"
   echo "$B" | grep -q "一次审透" && ok "$s brief 要求一次审透" || no "$s brief 一次审透"
   echo "$B" | grep -q "subagent 调用" && echo "$B" | grep -q "tasks 数组并行" && ok "$s 派发=单次调用 tasks 数组并行" || no "$s tasks 派发"
+  echo "$B" | grep -q "async:true" && ok "$s 派发带 async:true(后台跑,不阻塞主线程)" || no "$s 缺 async:true"
   echo "$B" | grep -q 'codex ''exec' && no "$s brief 不该派 codex(pi 宿主无 Codex CLI)" || ok "$s 无 codex 派发"
   echo "$B" | grep -q "claude -p" && no "$s brief 不该用 claude -p 无头" || ok "$s 无 claude -p"
 done
@@ -72,7 +73,8 @@ echo "$BR" | grep -q "prior_trace" && ok "re-review 含 prior_trace" || no "prio
 grep -q "重派对应视角" "$BRIEF" && grep -q "不需 resume" "$BRIEF" \
   && ok "中断续接=重派视角(审者无状态)" || no "续接语义"
 grep -q "resume <session-id>" "$BRIEF" && no "brief 不该出现 codex resume 续接" || ok "无 codex resume 语义"
-grep -q "run_in_background" "$BRIEF" && no "brief 不该出现后台跑指令(tasks 前台同步)" || ok "无 run_in_background(tasks 同步返回)"
+grep -q "run_in_background" "$BRIEF" && no "brief 不该出现 Bash 工具的 run_in_background(与 subagent async 无关)" || ok "无 run_in_background 误用"
+grep -q "async:true" "$BRIEF" && ok "brief 派发为 async 后台(不阻塞主线程,可继续对话)" || no "brief 缺 async 后台标记"
 grep -q "subagent_type" "$BRIEF" && no "brief 不该出现旧 Agent 工具参数名" || ok "无 subagent_type 旧参数"
 
 # ①设计审:两视角 reviewer pis(设计是主线程写的,写者≠审者=隔离 context 的 reviewer)
