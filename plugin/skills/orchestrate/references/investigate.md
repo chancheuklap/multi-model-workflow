@@ -14,7 +14,7 @@
 | 外部(成熟方案,**非必做**) | 现有库 / 实现 / 最佳实践 | `investigate-external` | (不填;方法内建 web 检索 + context7 MCP,`~/.claude/skills` 下没有对应 skill 可加载) |
 
 - 只需查内部 → 只跑 internal;要对比外部方案 → 再跑 external;两个都要 → 先后各跑一次。
-- 窄到一个点(一个函数 / 已知文件)→ 别起 workflow,自己 Read/grep 查完直接 handoff。
+- 窄到一个点(一个函数 / 已知文件)→ 别起 workflow,自己 `Read`/`Grep` 查完直接 handoff。
 - 定 topics:**一个 topic 一个 agent**,按调查真实需要定几个(别凑没意义的 topic,也不设上限)。每个 `{ angle, question, skill? }`。
 
 内部 topic 涉及调用者、连接关系、依赖路径或影响面时，主线程先完整读取 [Retrieval Doctrine](retrieval-doctrine.md)，让投查先取得候选、再回源码亲验；工具不可用时原样走现行只读流程。
@@ -45,7 +45,7 @@ Workflow({
 
 ## 3. 收口(回主线程)
 
-1. **亲验承重事实**:子代理与图/LSP 输出都只是线索。报告里的 `file:line` / `url`,自己回目标 checkout 用 `rg`/Read/查证坐实；仓库结论保留 `file:line` + 原始行，验不过的不写进交付物。外部承重结论(库行为 / API 合同 / 规范语义)**沿引用链追到第一方来源**(官方文档 / 源码 / 规范 / 第一方 API)再采信,二手综述只当线索;逐结论带第一方引用,引不出的降级为「待验」。
+1. **亲验承重事实**:子代理与图/LSP 输出都只是线索。报告里的 `file:line` / `url`,自己回目标 checkout 用 `Grep`/`Read`/查证坐实；仓库结论保留 `file:line` + 原始行，验不过的不写进交付物。外部承重结论(库行为 / API 合同 / 规范语义)**沿引用链追到第一方来源**(官方文档 / 源码 / 规范 / 第一方 API)再采信,二手综述只当线索;逐结论带第一方引用,引不出的降级为「待验」。
 2. **旁路登记**:`report.spinoff_candidates` 里亲验为真的,逐条 `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,不顺手修。
 3. **存档 + handoff**:把现状报告写进 `docs/design/<slug>/investigating.md`(设计文件夹;目录不存在就建),钉进接力单:
  - 够 design / build 用 → `mmw handoff --conclusion pass --produced docs/design/<slug>/investigating.md`

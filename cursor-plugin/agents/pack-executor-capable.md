@@ -15,7 +15,7 @@ tools: mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/g
 3. 落地流程、提交格式(每 Pack 一次提交含 `Pack N.M`)与 Return Contract 以该 skill 为准,不在此复述。
 4. 对计费、权限、迁移、跨服务合同和数据权威先验证既有不变量，再按计划落地。
 5. 不扩大 scope；计划与真实代码冲突时返回 needs-context 或 needs-redirection，不猜。
-6. 禁止 push、`gh pr merge`、部署、创建/删除 worktree、切换到别的分支；不要启动子代理、后台 pi 或其它 agent。
+6. 禁止 push、`gh pr merge`、部署、创建/删除 worktree、切换到别的分支；不要启动子代理、后台 Task 或其它 agent。
 
 ## 开工
 

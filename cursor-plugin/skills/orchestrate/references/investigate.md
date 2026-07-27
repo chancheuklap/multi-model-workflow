@@ -10,12 +10,12 @@
 
 | 方向 | 查什么 | 派发 | 角度 skill(可选) |
 |---|---|---|---|
-| 内部(仓库现状) | 模块边界 / seam / 数据流 / 根因 | `/investigate-internal` | `codebase-design` · `diagnosing-bugs` |
-| 外部(成熟方案,**非必做**) | 现有库 / 实现 / 最佳实践 | `/investigate-external` | `deep-research` · `context7` |
+| 内部(仓库现状) | 模块边界 / seam / 数据流 / 根因 | `mmw investigate start --direction internal` | `codebase-design` · `diagnosing-bugs` |
+| 外部(成熟方案,**非必做**) | 现有库 / 实现 / 最佳实践 | `mmw investigate start --direction external` | `deep-research` · `context7` |
 
-- 只需查内部 → 只跑 internal；要对比外部方案 → 再跑 external；两个都要 → 两个 workflow 可并行。
-- 窄到一个点(一个函数 / 已知文件)→ 别起 fan-out，自己用 read/grep 查完直接 handoff。
-- 只有一个聚焦问题,但要跨多个文件追模块边界 / 调用链 / 数据流 → 调用一次 `subagent({agent:"code-explorer", task:"<原问题 + repoRoot + 必须核验的边界 + 搜索广度>"})`；主线程亲验返回后直接收口，不为单 topic 起完整 workflow。
+- 只需查内部 → 只跑 internal；要对比外部方案 → 再跑 external；两个都要 → `--direction both` 一次起。
+- 窄到一个点(一个函数 / 已知文件)→ 别起 fan-out，自己用 `Read`/`Grep` 查完直接 handoff。
+- 只有一个聚焦问题,但要跨多个文件追模块边界 / 调用链 / 数据流 → 直接 `Task(subagent_type="code-explorer", prompt:"<原问题 + repoRoot + 必须核验的边界 + 搜索广度>")`；主线程亲验返回后直接收口，不走 investigate 账本、不为单 topic 起完整 fan-out。
 - 定 topics:**一个 topic 一个 agent**，按调查真实需要定几个。每个 `{ angle, question, skill? }`。
 
 ## 2. Checkpoint → 跑调查编排器
@@ -31,14 +31,19 @@
 ```
 `attended` 亮完跟一句:「批 / 改 / 增删 topic?」等回应再 fire;`afk` 亮完直接 fire,不问。
 
-批了以后把 topics 压成无空格 JSON，连同目标仓库绝对路径传给 saved workflow：
+批了以后把 topics 压成无空格 JSON 落一个临时文件，交给脚本准备隔离 Task：
 
-```text
-/investigate-internal topics=[{"angle":"<角度>","question":"<问题>","skill":"<可选>"}] repoRoot=/绝对/仓库路径
-/investigate-external topics=[{"angle":"<角度>","question":"<问题>","skill":"<可选>"}]
+```bash
+mmw investigate start --direction <internal|external|both> --topics <topics.json 绝对路径> --run <run-id>
 ```
 
-用 `mmw investigate start --direction <internal|external|both> --topics <topics.json> --run <id>` 写账本并打印 Task DISPATCH；主线程并行 Task(investigate-topic)；完成后 `mmw investigate status/result`；综合用 Task(investigate-synthesizer)。
+脚本写 run 账本、给每个 topic 备好隔离 prompt,并逐条打印 `DISPATCH=Task({subagent_type:"investigate-topic", prompt:"<prompt 路径>", model:"...", run_in_background:true})`。**照单并行派全部 DISPATCH**(每个 topic 一个后台 Task,不串跑),然后:
+
+```bash
+mmw investigate status --run <run-id>   # 校验各 topic 的 result.json;缺项/不合格会打回重派
+```
+
+所有 topic 验过后 `status` 会打印 synthesis 的 DISPATCH(`investigate-synthesizer`),照单派一次;综合结果落盘后 `mmw investigate result --run <run-id>` 取最终报告。中途被打断用 `mmw investigate resume --run <run-id>` 接着跑。脚本强制结构化结果并过滤无 locator / low confidence 的结论,不合格的 topic 会要求重派而不是放行。
 
 ## 3. 收口(回主线程)
 
@@ -53,5 +58,5 @@
 
 ## 红线
 
-- 调查 pi 全程只读；脚本只写状态平面的 run 账本、prompt、原始结果和综合报告。
+- 调查全程主线程只读；脚本只写状态平面的 run 账本、prompt、原始结果和综合报告。
 - investigate run 级断点靠 investigate-runs 账本；阶段级断点靠 `manifest.phases`。

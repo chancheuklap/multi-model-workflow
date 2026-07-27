@@ -35,7 +35,7 @@
 
 ### 2.1 先坐实,再裁判
 对每条 finding:
-1. 自己 Read/grep/跑坐实 locator;引不出 `file:line` → 降置信或 `needs-evidence`/`rejected`,不 accept。
+1. 自己 `Read`/`Grep`/跑命令坐实 locator;引不出 `file:line` → 降置信或 `needs-evidence`/`rejected`,不 accept。
 2. 对照 design / issue / plan 范围,标它是不是本轮 scope。
 3. 过下面四问,再写处置(处置词见 2.2)。**禁止**未亲验就 accept;禁止把审者原文原样转给工人。
 

@@ -43,7 +43,7 @@ Bad: "这是个有趣的方向!我们可以从多个角度探索。"
 
 ### Step 1:读选定方向 + 现状报告
 
-**方向已由上游 propose 阶段定**:`prev_outputs` 带来 `docs/design/<slug>/direction.md`(选定方向 + 取舍),外加 investigate 的现状报告(`docs/design/<slug>/investigating.md`,走接力单 `prev_outputs`;**不在 `docs/context`**)。读这两份确认起点——**不重做系统探查、不重提方案**;零星细节随手 `rg`/`Read`(验证后再用,子代理是劳动力不是事实源)。
+**方向已由上游 propose 阶段定**:`prev_outputs` 带来 `docs/design/<slug>/direction.md`(选定方向 + 取舍),外加 investigate 的现状报告(`docs/design/<slug>/investigating.md`,走接力单 `prev_outputs`;**不在 `docs/context`**)。读这两份确认起点——**不重做系统探查、不重提方案**;零星细节随手 `Grep`/`Read`(验证后再用,子代理是劳动力不是事实源)。
 
 - **提问扎根现状**:问任何能从报告 / 代码查到的问题前,先引报告条目或 `path:line`。报告没覆盖且查不到 → 明说"investigate 没查到 X,按 greenfield 处理"。
 - **方向被事实击穿**(细看才发现选错):别在这重选,`mmw handoff --conclusion needs-redirection` 回上游 propose/investigate 换向,先说触发原因 + 业务影响。
@@ -54,13 +54,13 @@ Bad: "这是个有趣的方向!我们可以从多个角度探索。"
 
 | 缺口性质 | 分流 |
 |---|---|
-| **小缺口**(几次 `rg`/`Read`/网搜能坐实) | 走下面四步,同步做完再续聊 |
+| **小缺口**(几次 `Grep`/`Read`/网搜能坐实) | 走下面四步,同步做完再续聊 |
 | **成规模**(要立计划、跑脚本、真调 API、多候选横向实测:选供应商 / 选模型 / 验第三方合同) | **取证战役**:读 `evidence-campaign.md` 照它打;开打前把「在途取证 + 它冻结哪些决定」写进设计草稿 Open Decisions——**只暂停依赖它的决策分支,无关分支照常讨论**;打完落盘解锁、回灌草稿 |
 
 小缺口四步:
 <!-- BEGIN: gather-context-steps -->
 1. 一句话点明缺口(缺哪个事实 / 哪条假设没坐实)。
-2. 按缺口取证:内部结构性问题(谁调用/引用、连接、依赖路径、影响面)在 Serena 可用或当前仓库有新鲜 graphify 图时先拿候选,再用 `rg`/Read 亲验并给 `path:line`;工具不可用、图缺失/过期或查询歧义时直接走现行 `rg`/Read。外部则网搜成熟方案/库——**亲验,子代理/图谱/网文是线索不是结论**。
+2. 按缺口取证:内部结构性问题(谁调用/引用、连接、依赖路径、影响面)在 Serena 可用或当前仓库有新鲜 graphify 图时先拿候选,再用 `Grep`/`Read` 亲验并给 `path:line`;工具不可用、图缺失/过期或查询歧义时直接走现行 `Grep`/`Read`。外部则网搜成熟方案/库——**亲验,子代理/图谱/网文是线索不是结论**。
 3. 坐实的写进设计草稿对应章节 / Open Decisions / 领域文档,**不只留在对话里**。
 4. 回到原问答续上,基线从文档续。
 <!-- END: gather-context-steps -->

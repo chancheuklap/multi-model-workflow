@@ -12,7 +12,7 @@
 | step 状态 | 含义 | 接着做 |
 |---|---|---|
 | `done` | 该 plan 已验收提交 | 跳过 |
-| `pending` + 有 `worktree` + 派发账本 `status=dispatched` | 后台 run 可能在飞 | **别重派**:查该 run(subagent({action:"status", id:账本 run_id}));确认已结束再 verify 或 resume |
+| `pending` + 有 `worktree` + 派发账本 `status=dispatched` | 后台 run 可能在飞 | **别重派**:拿账本 run_id 去 Cursor 后台 Task 列表核对该 run 是否还在飞;确认已结束再 verify 或 resume |
 | `pending` + 有 `worktree` + `status=completed` | 工人已返回 | 跑 `status` 触发边界门并读最后回执,再走 B3 |
 | `pending` + 有 `worktree` + `status=failed` | 派发失败或异常退出 | 读账本 `log_file`;可修环境后重新 dispatch,已有成功 session 才允许 resume |
 | `pending` + 无 `worktree` | 还没轮到 | 正常 B1→B2 派 |
@@ -46,7 +46,7 @@ mmw loop step add --id <plan-id> --desc "<标题>" --plan <plan 绝对路径> --
 
 ## B2. 派写码工人落地(一条命令准备 + 宿主派发)
 
-每份 plan 派一个写码工人(`mmw worker dispatch` 准备 worktree、prompt 和账本,再照它打印的指令派 Agent):
+每份 plan 派一个写码工人(`mmw worker dispatch` 准备 worktree、prompt 和账本,再照它打印的指令派 Task):
 
 ```bash
 mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree 绝对路径> \
@@ -56,7 +56,7 @@ mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree
 - **子 worktree 落点定死**:`<主仓库>/.cursor/worktrees/<slug>-plan-<NNN>`(与任务 worktree 同层,别散落);脚本挂 `worker/<目录名>` 分支,从 `--base`(默认 HEAD)分叉。
 - **三文档都传**:pack-executor 开工要读设计(意图 / 合同)+ 它的 issue(边界)+ 它的计划(实施权威),不能只给计划。
 - **模型档脚本按 plan 的 `Complexity` 自动切,你不手传**:高风险 plan(标 `Complexity: capable`——计费 / 权限 / migration / 跨服务)脚本自动切高档。`--model`/`--effort` 仅在你要临时覆盖时才传。
-- **一律后台跑**:`worker.sh` 创建 Git worktree 并组好 prompt，协调者照打印的指令派 `subagent({agent:"pack-executor", task:…, async:true})`，并把返回的 run id 用 `mmw worker note-run-id` 落账；返修从派发账本找到原 run id 与 worktree。工人回执在会话内直接回来，回执后跑 `mmw worker verify --worktree <wt>` 过边界门。
+- **一律后台跑**:`worker.sh` 创建 Git worktree 并组好 prompt，协调者照打印的 DISPATCH 派 `Task({subagent_type:"pack-executor", prompt:PROMPT_FILE 全文, run_in_background:true})`，并把返回的 run id 用 `mmw worker note-run-id` 落账；返修从派发账本找到原 run id 与 worktree。工人回执在会话内直接回来，回执后跑 `mmw worker verify --worktree <wt>` 过边界门。
 - 并行:互不依赖的 plan,各自一个 worktree,同时发多条后台 dispatch。
 - **铁律在 `worktree-build` skill**:prompt 只给角色 + worktree + 三文档 + skill 指针。
 - 工人在自己 worktree 提交;进度靠你 verify 后 `mmw loop step done`。

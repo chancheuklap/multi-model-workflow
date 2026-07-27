@@ -17,7 +17,7 @@
 | 角色 | 谁 | 职责 |
 |---|---|---|
 | **主 Agent(你)** | 本阶段驱动者 | 读 design + issue → 写跨 plan 合同骨架进设计文档 → fan-out 派 plan-writer → 亲验返回 → 回填合同细节 → 就绪门 → handoff |
-| **plan-writer** | `mmw worker plan-dispatch` 准备隔离 worktree 与 prompt,协调者派后台 Agent | 拿(带合同骨架的)设计文档 + 单个大 issue,**自己把大 issue 拆成小 issue**,写出一份自洽 plan(Header + Task Pack + TDD 步骤 + 验收)。拆分、写作纪律、交付前自检都在它身上(它读 `worktree-plan` skill) |
+| **plan-writer** | `mmw worker plan-dispatch` 准备隔离 worktree 与 prompt,协调者照打印的 DISPATCH 派后台 Task | 拿(带合同骨架的)设计文档 + 单个大 issue,**自己把大 issue 拆成小 issue**,写出一份自洽 plan(Header + Task Pack + TDD 步骤 + 验收)。拆分、写作纪律、交付前自检都在它身上(它读 `worktree-plan` skill) |
 
 **合同分两层**:跨 plan 合同骨架(主 Agent 在 Step 2 写进设计文档 `## Cross-Plan Contract Anchors`,给并行 writer 不撞车的硬边界);每份 plan 的 Global Constraints / File Map / 内部 Dependency Graph(writer 从设计抄 + 自己写进 plan header)。
 
@@ -62,7 +62,7 @@ mmw worker plan-dispatch \
 
 讨论态材料由脚本机械传递：direction / investigating / evidence 照常进入上下文；prototype 只传 accepted 的 `README.md` 与 `selected` 文件。未选候选和 active/superseded 原型不会进入 writer，上游若未 accepted 已被设计人闸挡住。不传任何 prototype/mockup 旗标。
 
-- **一律后台跑**:脚本为每个 writer 建临时隔离 worktree 并组好 prompt,协调者照打印的指令派 `subagent({agent:"plan-writer", task:…, async:true})`,并把返回的 run id 用 `mmw worker note-run-id --plan <落点>` 落账;工人回执后 `mmw worker verify --plan <落点> --worktree <任务 wt>` 过边界门才原子发布指定 plan 与 issue 小节并清理隔离 worktree,追问用 `plan-resume`(账本 run id 长效,跨会话也能续原工人)。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。** 单 issue → 单 plan:派一个就行,不强行并行。
+- **一律后台跑**:脚本为每个 writer 建临时隔离 worktree 并组好 prompt,协调者照打印的 DISPATCH 派 `Task({subagent_type:"plan-writer", prompt:PROMPT_FILE 全文, run_in_background:true})`,并把返回的 run id 用 `mmw worker note-run-id --plan <落点>` 落账;工人回执后 `mmw worker verify --plan <落点> --worktree <任务 wt>` 过边界门才原子发布指定 plan 与 issue 小节并清理隔离 worktree,追问用 `plan-resume`(账本 run id 长效,跨会话也能续原工人)。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。** 单 issue → 单 plan:派一个就行,不强行并行。
 - **writer 不建 worktree、不 commit**:隔离、发布和清理由脚本负责;writer 只在自己的隔离 worktree 写指定 plan 与 issue `Small issues`,主线程统一提交。
 - **落点 slug** 与源设计 / issue 对齐(已含日期);多 plan 同一目录。
 - 模型档脚本已钉,除非特殊无需 `--model`。

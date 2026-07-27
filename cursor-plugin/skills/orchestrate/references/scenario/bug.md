@@ -4,7 +4,7 @@
 > **预设 `bug`**,阶段序列:查清(查根因)→ 落地(修,含 ④终审闸)→ 收尾(investigate→build→closing)。无 design / plan(不走设计/计划的重流程),但**落地产物过后照样进 ④终审闸**(引擎强制,跟 develop 一致)。
 >
 > **三个 bug 专属点**(方法论在各阶段 reference,这里点明这条路怎么用它们):
-> - **查清 = 跑 `diagnosing-bugs` 查根因**:investigate 阶段用 `diagnosing-bugs` skill 复现 → 隔离 → 定位根因(`investigate-internal` workflow 的 angle 选 `diagnosing-bugs`),产出带 `file:line` 的根因报告,不泛泛查现状。够窄(单函数/已知文件)就主线程直接 `diagnosing-bugs` + `rg`/`read` 查完,别起 workflow。
+> - **查清 = 跑 `diagnosing-bugs` 查根因**:investigate 阶段用 `diagnosing-bugs` skill 复现 → 隔离 → 定位根因(`investigate-internal` workflow 的 angle 选 `diagnosing-bugs`),产出带 `file:line` 的根因报告,不泛泛查现状。够窄(单函数/已知文件)就主线程直接 `diagnosing-bugs` + `Grep`/`Read` 查完,别起 workflow。
 > - **动手前轻确认(唯一一次)**:根因查清后、写第一行修复代码前,把「根因 + 打算怎么修 + 影响面」一句话给用户,**等他回一句再动**(值守档 afk 也要这一停——这是本路仅有的人闸);用户长时间不在则把这段写进 note 与进度板,等回复,不自作主张开修。
 > - **落地 = 主线程就地 TDD 定点修**(不派 pack-executor):build 阶段按 `mmw where` 报的 `scenario=bug` 就地 TDD 定点修(build 自按 scenario 选落地模式)——先按根因写一条**复现失败测试**,再最小修、转绿、提交。改动跨多文件 → 先写一份**单计划**(主线程自己写,不派 plan-writer、不进计划审)理清 Task Pack 再逐个 TDD;简单定点修直接修。
 > - **根因是系统性设计问题 → 原地升级 develop**:investigate 发现根因不是局部 bug 而是设计级缺陷(要重做设计 / 拆计划)→ `mmw task escalate --to develop` 把剩余流水线换成 develop 完整设计路(investigate→propose→design→to-issue→plan→build→closing),**worktree 不重开、已查的根因投查成果全留**,游标回 investigate 带设计意图重查。升级前先一句话告诉用户"这不是局部 bug,是设计级问题,升级到设计路",别闷头升。
@@ -56,9 +56,9 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 - 中途挖到 bug / 旁路优化 → `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,登记成关联子任务,主流程不动。
 - 阶段性进展/待拍板变化随手 `mmw note set --text "<一句话>"`——下次开场的三源回报靠它 + 提交流水 + 设计文档 Open Decisions,不靠会话记忆。
 
-**Advisor 纪律**:见 Cursor 全局 rule 特例节（rpiv DEFAULT_PROMPT_GUIDELINES 原文）；本宿主不在 phase-contract 重复。关键时刻用 Task(subagent_type="advisor") + handoff pack。MMW design / review 裁决阶段另有短提醒。
+**Advisor 纪律(MMW 内覆盖全局 rule)**：Cursor 无原生 advisor，用 Task(subagent_type="advisor") + handoff pack（goal / evidence / tentative_decision / open_questions / constraints；父会话不自动转发，pack 就是它看得到的全部上下文）。**在 MMW 编排内按触发条件咨询,不按节拍咨询**——承重架构 / 数据权威 / 安全决策需要独立判断、几次具体尝试仍不收敛、或现有证据与先前判断冲突时才调。全局 rule 里「长于几步就定路线前一次、宣布完成前一次」的节拍要求**在 MMW 阶段内不适用**(它没有 MMW 的审闸;MMW 的独立保证来自①~④跨模型审者)。**禁止**:把它当每阶段的例行开场或收尾复查;review 闸内用它替代 `reviewer-*`;用它替代用户 HITL;让它直接写交付物;用它复查自己刚跑测试验证过的产物。与一手实证矛盾时以实证为准。
 
-**断点续传**:任何时候 `mmw where` + 接力单 + 开场三源回报就够你接着跑——进度、产出、现场全在盘上。跨天或换 pi 会话时仍从同一份磁盘状态续跑。
+**断点续传**:任何时候 `mmw where` + 接力单 + 开场三源回报就够你接着跑——进度、产出、现场全在盘上。跨天或换 Cursor 会话时仍从同一份磁盘状态续跑。
 <!-- END: phase-contract -->
 
 <!-- BEGIN: receipt-jump -->
@@ -82,7 +82,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 <!-- BEGIN: closing-cleanup -->
 ## 收尾 · 合并后删干净
 
-回执 `done`(STATUS=ready-to-close)= 末阶段过。合并进主分支是自主收尾动作(本地可逆、不出站,不拦):`exit_worktree({ action: "keep" })` 回主仓库,再跑 `git merge --no-ff <branch>`(禁 `--squash`),无人值守也自主推进;要发布到远端再 `git push`——那时 `guard-redline` 经 pi 扩展弹确认框由用户亲批(无令牌可代批)。任务分支 merge 进主线后,worktree 连同里面的临时状态一起删:
+回执 `done`(STATUS=ready-to-close)= 末阶段过。合并进主分支是自主收尾动作(本地可逆、不出站,不拦):用 Cursor **File → Open Folder** 打开主仓库(与进 worktree 对称;**没有 `exit_worktree(...)` 这个工具**),在该窗口跑 `git merge --no-ff <branch>`(禁 `--squash`),无人值守也自主推进;要发布到远端再 `git push`——那时 `guard-redline` 经 `beforeShellExecution` hook(failClosed)拦下来让用户亲批。任务分支 merge 进主线后,worktree 连同里面的临时状态一起删:
 
 ```bash
 mmw task cleanup --slug <slug> # 回主仓库执行

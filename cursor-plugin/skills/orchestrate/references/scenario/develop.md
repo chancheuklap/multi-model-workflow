@@ -52,9 +52,9 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 - 中途挖到 bug / 旁路优化 → `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,登记成关联子任务,主流程不动。
 - 阶段性进展/待拍板变化随手 `mmw note set --text "<一句话>"`——下次开场的三源回报靠它 + 提交流水 + 设计文档 Open Decisions,不靠会话记忆。
 
-**Advisor 纪律**:见 Cursor 全局 rule 特例节（rpiv DEFAULT_PROMPT_GUIDELINES 原文）；本宿主不在 phase-contract 重复。关键时刻用 Task(subagent_type="advisor") + handoff pack。MMW design / review 裁决阶段另有短提醒。
+**Advisor 纪律(MMW 内覆盖全局 rule)**：Cursor 无原生 advisor，用 Task(subagent_type="advisor") + handoff pack（goal / evidence / tentative_decision / open_questions / constraints；父会话不自动转发，pack 就是它看得到的全部上下文）。**在 MMW 编排内按触发条件咨询,不按节拍咨询**——承重架构 / 数据权威 / 安全决策需要独立判断、几次具体尝试仍不收敛、或现有证据与先前判断冲突时才调。全局 rule 里「长于几步就定路线前一次、宣布完成前一次」的节拍要求**在 MMW 阶段内不适用**(它没有 MMW 的审闸;MMW 的独立保证来自①~④跨模型审者)。**禁止**:把它当每阶段的例行开场或收尾复查;review 闸内用它替代 `reviewer-*`;用它替代用户 HITL;让它直接写交付物;用它复查自己刚跑测试验证过的产物。与一手实证矛盾时以实证为准。
 
-**断点续传**:任何时候 `mmw where` + 接力单 + 开场三源回报就够你接着跑——进度、产出、现场全在盘上。跨天或换 pi 会话时仍从同一份磁盘状态续跑。
+**断点续传**:任何时候 `mmw where` + 接力单 + 开场三源回报就够你接着跑——进度、产出、现场全在盘上。跨天或换 Cursor 会话时仍从同一份磁盘状态续跑。
 <!-- END: phase-contract -->
 
 <!-- BEGIN: receipt-jump -->
@@ -78,7 +78,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 <!-- BEGIN: closing-cleanup -->
 ## 收尾 · 合并后删干净
 
-回执 `done`(STATUS=ready-to-close)= 末阶段过。合并进主分支是自主收尾动作(本地可逆、不出站,不拦):`exit_worktree({ action: "keep" })` 回主仓库,再跑 `git merge --no-ff <branch>`(禁 `--squash`),无人值守也自主推进;要发布到远端再 `git push`——那时 `guard-redline` 经 pi 扩展弹确认框由用户亲批(无令牌可代批)。任务分支 merge 进主线后,worktree 连同里面的临时状态一起删:
+回执 `done`(STATUS=ready-to-close)= 末阶段过。合并进主分支是自主收尾动作(本地可逆、不出站,不拦):用 Cursor **File → Open Folder** 打开主仓库(与进 worktree 对称;**没有 `exit_worktree(...)` 这个工具**),在该窗口跑 `git merge --no-ff <branch>`(禁 `--squash`),无人值守也自主推进;要发布到远端再 `git push`——那时 `guard-redline` 经 `beforeShellExecution` hook(failClosed)拦下来让用户亲批。任务分支 merge 进主线后,worktree 连同里面的临时状态一起删:
 
 ```bash
 mmw task cleanup --slug <slug> # 回主仓库执行

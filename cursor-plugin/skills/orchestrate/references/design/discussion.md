@@ -43,7 +43,7 @@ Bad: "这是个有趣的方向!我们可以从多个角度探索。"
 
 ### Step 1:读选定方向 + 现状报告
 
-**方向已由上游 propose 阶段定**:`prev_outputs` 带来 `docs/design/<slug>/direction.md`(选定方向 + 取舍),外加 investigate 的现状报告(`docs/design/<slug>/investigating.md`,走接力单 `prev_outputs`;**不在 `docs/context`**)。读这两份确认起点——**不重做系统探查、不重提方案**;零星细节随手 `rg`/`read`(验证后再用,子代理是劳动力不是事实源)。
+**方向已由上游 propose 阶段定**:`prev_outputs` 带来 `docs/design/<slug>/direction.md`(选定方向 + 取舍),外加 investigate 的现状报告(`docs/design/<slug>/investigating.md`,走接力单 `prev_outputs`;**不在 `docs/context`**)。读这两份确认起点——**不重做系统探查、不重提方案**;零星细节随手 `Grep`/`Read`(验证后再用,子代理是劳动力不是事实源)。
 
 - **提问扎根现状**:问任何能从报告 / 代码查到的问题前,先引报告条目或 `path:line`。报告没覆盖且查不到 → 明说"investigate 没查到 X,按 greenfield 处理"。
 - **方向被事实击穿**(细看才发现选错):别在这重选,`mmw handoff --conclusion needs-redirection` 回上游 propose/investigate 换向,先说触发原因 + 业务影响。
@@ -54,13 +54,13 @@ Bad: "这是个有趣的方向!我们可以从多个角度探索。"
 
 | 缺口性质 | 分流 |
 |---|---|
-| **小缺口**(几次 `rg`/`read`/网搜能坐实) | 走下面四步,同步做完再续聊 |
+| **小缺口**(几次 `Grep`/`Read`/网搜能坐实) | 走下面四步,同步做完再续聊 |
 | **成规模**(要立计划、跑脚本、真调 API、多候选横向实测:选供应商 / 选模型 / 验第三方合同) | **取证战役**:读 `evidence-campaign.md` 照它打;开打前把「在途取证 + 它冻结哪些决定」写进设计草稿 Open Decisions——**只暂停依赖它的决策分支,无关分支照常讨论**;打完落盘解锁、回灌草稿 |
 
 小缺口四步:
 <!-- BEGIN: gather-context-steps -->
 1. 一句话点明缺口(缺哪个事实 / 哪条假设没坐实)。
-2. 按缺口取证:内部 `rg`/`Read`(给 `path:line`)、外部网搜成熟方案/库——**亲验,子代理/网文是线索不是结论**。
+2. 按缺口取证:内部 `Grep`/`Read`(给 `path:line`)、外部网搜成熟方案/库——**亲验,子代理/网文是线索不是结论**。
 3. 坐实的写进设计草稿对应章节 / Open Decisions / 领域文档,**不只留在对话里**。
 4. 回到原问答续上,基线从文档续。
 <!-- END: gather-context-steps -->
@@ -78,7 +78,7 @@ Bad: "这是个有趣的方向!我们可以从多个角度探索。"
 - **一问一答(grilling 决策树)**:访谈原语用已装 `grilling` skill——整场讨论是一棵**决策依赖树**,沿依赖顺序逐个解决、不按清单扫;一次只问一个(话题大就分次),每问给推荐答案(接受 / 改 / 拒),优先多选题;**事实归你**(代码 / 环境能查到的自己查,矛盾直接指出),**决策归用户**(价值取舍不代拍);用具体场景挑战边界、不问抽象偏好;**问不出对设计 / 领域 / 验收的影响就别问**;用户确认达成共同理解前不定稿。
 - **完整性 vs YAGNI**:成本被压低后,"确实要做的"优先做全(边界 / 错误路径 / 空状态),别用"先上捷径"省那几十行;同时 YAGNI 无情删没人要的功能、不为不存在的需求提前抽象。YAGNI 砍投机的未来功能,完整性补已决定要做的覆盖,两者不冲突。
 - **分段呈现**:按段呈现(架构 / 组件 / 数据流 / 错误处理 / 测试策略),每段长度与复杂度成比例,**承重决策段(架构取向 / 数据归属 / 影响后续的取舍)等用户确认再进下一段;纯陈述性段落连续给**,不为确认而确认,也不一次甩完。**讨论清方向后每份设计都读 `prototype-mockup.md`；先 `mmw where`，登记或恢复同一原型，逐轮走查到 accepted，再回设计成文。原型规模只覆盖当前最承重的可判真问题，不为简单设计搭完整系统。**
-- **关键咨询(本阶段主战场,0–2 次)**:在架构/对象边界/状态机**定型前**、请用户 `/approve-design` 过门前、或讨论中前提**可能被击穿**时,可调 Task(subagent_type="advisor") 拿短判决（须组 handoff pack：goal/evidence/tentative_decision/open_questions/constraints）。小改/无边界风险默认跳过。本阶段**不自派** `reviewer-design-a/b`(设计预审由 selfcheck 收尾统一起)。
+- **关键咨询(条件触发,最多 2 次)**:只在架构 / 对象边界 / 状态机**定型前**,或讨论中前提**可能被击穿**时,调 Task(subagent_type="advisor") 拿短判决（须组 handoff pack：goal/evidence/tentative_decision/open_questions/constraints）。小改 / 无边界风险跳过;**不把它当过门前的例行复查**(那是 selfcheck 后设计预审的活)。本阶段**不自派** `reviewer-design-a/b`(设计预审由 selfcheck 收尾统一起)。
 
   消化:认真权重;一手实证优先;冲突可再 reconcile 一次或写 Open Decisions 问用户。对用户用业务语言吸收结论,不贴 advisor 长文。顾问建议换路不等于自动 handoff,主线程判断后再 `needs-redirection` 或继续细化。
 

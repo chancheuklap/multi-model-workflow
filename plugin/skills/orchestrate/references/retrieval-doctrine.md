@@ -5,8 +5,8 @@
 ## 顺序
 
 1. **先拿候选。** Serena 可用时用符号工具取候选；仓库有新鲜 `graphify-out/graph.json` 时，可用 graphify `query` / `affected` / `path` / `explain`。按问题选一个合适入口，不为形式重复跑。
-2. **再亲验。** 每个候选必须回目标 checkout 用 Read/`rg` 核对。写进 finding、plan、investigating、handoff 或交付物的承重结论必须给 `file:line`；验不过就删除或标未验证。
-3. **无损退化。** Serena 不可用、图缺失或过期、查询歧义、工具失败或无结果时，直接退到 Graphify + Read/`rg`，不阻塞。空结果不等于不存在。
+2. **再亲验。** 每个候选必须回目标 checkout 用 `Read`/`Grep` 核对。写进 finding、plan、investigating、handoff 或交付物的承重结论必须给 `file:line`；验不过就删除或标未验证。
+3. **无损退化。** Serena 不可用、图缺失或过期、查询歧义、工具失败或无结果时，直接退到 Graphify + `Read`/`Grep`，不阻塞。空结果不等于不存在。
 
 ## 已知不支持模式
 

@@ -53,7 +53,7 @@ mmw handoff --conclusion <结论词> [--produced <本阶段产出路径>]...
 - 中途挖到 bug / 旁路优化 → `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,登记成关联子任务,主流程不动。
 - 阶段性进展/待拍板变化随手 `mmw note set --text "<一句话>"`——下次开场的三源回报靠它 + 提交流水 + 设计文档 Open Decisions,不靠会话记忆。
 
-**断点续传**:任何时候 `mmw where` + 接力单 + 开场三源回报就够你接着跑——进度、产出、现场全在盘上。跨天/跨宿主(Claude Code ↔ droid)同一份状态。
+**断点续传**:任何时候 `mmw where` + 接力单 + 开场三源回报就够你接着跑——进度、产出、现场全在盘上。跨天或换 Claude Code 会话时仍从同一份磁盘状态续跑。
 <!-- END: phase-contract -->
 
 <!-- BEGIN: receipt-jump -->

@@ -26,7 +26,7 @@ Coordinator 在任何阶段都按当前值守档决定"软停问不问人"。值
 ## no-question:磁盘 mode 为权威
 
 - **跨 compaction 真权威**:每次续跑(含会话重启 / compaction 恢复)**先读 `task.json.attendance`**;读到 `unattended` 就自我约束——不调用 AskQuestion、不向用户提任何问题。
-- pi subagent(worker/reviewer)天生调不了 AskQuestion;主线程仍必须按盘上 mode 自我约束。
+- Cursor Task 子代理(worker/reviewer)天生调不了 AskQuestion;主线程仍必须按盘上 mode 自我约束。
 
 ## 进入 unattended(全部满足才进)
 

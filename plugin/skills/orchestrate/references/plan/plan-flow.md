@@ -37,7 +37,7 @@ Bad: "制定了全面的实施计划,涵盖所有功能模块。"
 **映射规则**:源设计 → 全局上下文(喂每个 writer,只读);大 issue → 一份 plan;小 issue → 一个 Task Pack(writer 拆 + 写);小 issue 验收 → Pack 验收;小 issue blocked-by → Pack dependencies。
 映射不成立:术语 / 验收不清 → handoff `needs-redirection --to-phase design` 回 design 改(`needs-repair` 是原地返工、回不到 design);架构假设与代码现实不符 → 用 `codebase-design` skill 厘清后再派。
 
-**轻量核现状**:用 `rg`/`find` 确认设计涉及的 plan 落点目录、关键路径真实存在——够判断派几个 writer、各管哪个 issue 即可。**深度代码理解由 Codex 各自用 `codebase-design` 做**,主 Agent 不抢着探全。
+**轻量核现状**:用 `Grep`/`Glob` 确认设计涉及的 plan 落点目录、关键路径真实存在——够判断派几个 writer、各管哪个 issue 即可。**深度代码理解由 Codex 各自用 `codebase-design` 做**,主 Agent 不抢着探全。
 
 ## Step 2:写跨 plan 合同骨架进设计文档(多 plan 时;单 plan 跳过)
 

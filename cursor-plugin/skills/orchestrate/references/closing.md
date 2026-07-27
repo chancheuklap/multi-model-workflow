@@ -17,9 +17,7 @@
 - **审都过**:①②③④ 都过、无开口 Critical(build ④终审闸的终审报告为准)。
 - **文档对齐**:设计/计划与最终落地一致(③④已核;这里只确认没有事后漂移)。
 
-清单过完、承重产物已落盘并 commit 后,长于几步的任务在宣布完成前可 Task(subagent_type="advisor") + handoff pack 做最终检查(关注点是 scope drift、未验证承重前提、必须停止的失败模式)。
-
-顾问报具体 blocker → 回对应阶段修,别带病 closing；`no blockers, proceed` → 继续 handoff。短任务若最终动作已被刚完成的验证唯一决定可跳过。
+清单每条都吃机器证据(跑测试、读 diff、扫遗留标记),不吃印象。清单有开口就回对应阶段修,别带病 closing。**不为收尾另起一道复查**——④终审已由独立跨模型审者跑过,清单本身就是收口证据。
 
 ## 2. 钉产出 → handoff
 
@@ -34,7 +32,7 @@ mmw handoff --conclusion pass
 
 **本地合并进主分支是自主收尾动作,不拦**(可逆、不出站)。**出站发布才是硬红线**:`guard-redline`(PreToolUse)对 `git push` / `gh pr merge` / 部署弹权限框,**要用户在框里亲批**(无令牌可代批),不分在场/无人值守。
 
-1. `exit_worktree({ action: "keep" })` 回主仓库,合并 → 直接跑 `git merge --no-ff <branch>`(禁 `--squash`)——**本地不弹框、无人值守也能自主推进**;真正要人批的是之后的 `git push`。
+1. 用 Cursor **File → Open Folder** 打开主仓库(与进 worktree 对称;没有 `exit_worktree(...)` 这个工具),合并 → 直接跑 `git merge --no-ff <branch>`(禁 `--squash`)——**本地不弹框、无人值守也能自主推进**;真正要人批的是之后的 `git push`。
 2. 合并进主线后,删干净:
  ```bash
  mmw task cleanup --slug <slug>

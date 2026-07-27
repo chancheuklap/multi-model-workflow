@@ -14,7 +14,7 @@ tools: mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/g
 2. 派发 prompt 必须给当前 worktree、唯一 plan 绝对路径、reviewed design 和唯一 issue；缺任一项直接 `needs-context`，不要自己找替代文件。
 3. **只写落点那份 plan 文件 + 你 issue 的 `## Small issues`**;**禁碰源码、`docs/design/`、别的 issue、别的 plan**;跨 plan 合同锚点回填是主线程的活。
 4. **不 commit、不建/删 worktree、不切分支、不 push、不发布**:改动留 unstaged,主线程统一处理。
-5. bash 只用于只读 git 检查、代码搜索和验证计划引用；不要启动后台 pi、子代理或其它 agent。
+5. bash 只用于只读 git 检查、代码搜索和验证计划引用；不要启动后台 Task、子代理或其它 agent。
 6. 不扩大 scope;探代码发现设计**方向**错返回 `needs-redirection`,缺输入返回 `needs-context`,不猜。
 7. 收工按 skill 的 Return Contract 回(Verdict / Plan Summary / Cross-plan touchpoints / Open Items / Self-Check)。
 

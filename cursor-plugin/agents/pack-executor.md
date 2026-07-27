@@ -13,7 +13,7 @@ tools: mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/g
 1. **只改计划 `File / Responsibility Map` 和当前 Task Pack 明确拥有的源码/测试/规则文件,禁碰 `docs/`**。计划未授权的路径需要变更时停下报告。
 2. 读派发消息指向的 `worktree-build` skill(plugin 内 `skills/worktree-build/`),照它走整个落地流程。
 3. 落地流程、提交格式(每 Pack 一次提交含 `Pack N.M`)与 Return Contract 以该 skill 为准,不在此复述。
-4. 禁止 push、`gh pr merge`、部署、创建/删除 worktree、切换到别的分支；不要启动子代理、后台 pi 或其它 agent。
+4. 禁止 push、`gh pr merge`、部署、创建/删除 worktree、切换到别的分支；不要启动子代理、后台 Task 或其它 agent。
 5. 不扩大 scope;拿不准返回 `needs-context` / `needs-redirection`,不猜。
 
 ## 开工
