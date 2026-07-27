@@ -172,6 +172,29 @@
       },
       "description": "待办/遗留,不丢。计划外分流项也落这里(带 disposition)"
     },
+    "parent": {
+      "type": ["object", "null"], "additionalProperties": false,
+      "required": ["slug", "worktree_path"],
+      "properties": {
+        "slug": { "type": "string" },
+        "worktree_path": { "type": "string" }
+      },
+      "description": "本任务是从哪个任务 worktree 内拆出来的并行子任务;主仓库内新建时为 null。分支从父 worktree 的 HEAD 分叉,因此继承父任务已完成的进度。"
+    },
+    "child_tasks": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["slug", "title", "worktree_path", "created_at"],
+        "properties": {
+          "slug": { "type": "string" },
+          "title": { "type": "string" },
+          "worktree_path": { "type": "string" },
+          "created_at": { "type": "string" }
+        }
+      },
+      "description": "从本任务 worktree 内拆出的并行子任务清单,供 team 视图与合并顺序溯源。与 subtasks 不同:那是调查中甩出的待办,这是真正开了 worktree 的任务。"
+    },
     "subtasks": {
       "type": "array",
       "items": {
