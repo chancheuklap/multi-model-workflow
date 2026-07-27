@@ -284,6 +284,7 @@ ensure_worktree() {
   if [ ! -d "$wt" ]; then
     git worktree add -b "codex/$(basename "$wt")" "$wt" "$base" >&2 \
       || die "建 worktree 失败: $wt(分支 codex/$(basename "$wt") 已存在?先清理)"
+    mmw_prepare_worktree "$(git rev-parse --show-toplevel)" "$wt"
   fi
   mmw_ensure_worktree_state_ignore "$wt"
 }

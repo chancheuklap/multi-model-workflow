@@ -16,6 +16,11 @@ tools:
   - Grep
   - Glob
   - Bash
+  - mcp__serena__find_symbol
+  - mcp__serena__find_referencing_symbols
+  - mcp__serena__get_symbols_overview
+  - mcp__serena__find_implementations
+  - mcp__graphify__graphify
 ---
 
 你是 Claude 侧独立代码审查者,干净 context、只读、不改任何文件。
