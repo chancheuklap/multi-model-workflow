@@ -1,7 +1,7 @@
 {
   "name": "multi-model-workflow-droid",
   "description": "Droid 原生多模型开发编排:方向和设计集中对齐,计划起自主跑。Custom Droids 分角色、多模型审闸、worktree 隔离、断点续传、打包发布与完整控制面。",
-  "version": "8.2.3",
+  "version": "8.3.0",
   "author": {
     "name": "Cheuk Lap Chan",
     "email": "chancheuklapincn@gmail.com"

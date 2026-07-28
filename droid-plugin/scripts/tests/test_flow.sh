@@ -500,6 +500,152 @@ echo "$WDL_OUT" | grep -q '^then=.*--produced docs/design/2026-07-05-design-layo
 ( cd "$WNF" && bash "$NOTE" note show ) | grep -q "下一步先对齐計費口徑" && ok "note set/show 书签留读" || no "note 书签"
 if ( cd "$WNF" && bash "$NOTE" note set >/dev/null 2>&1 ); then no "note set 缺 text 该被拒"; else ok "note set 缺 text 被拒"; fi
 
+# ===== L: 打转守卫(判据A findings 指纹 / 判据B 流水线态源头同向掉头)× attendance + unattended 墙钟预算 =====
+setman() { jq "$2" "$1/${STATE_SUBDIR}/task.json" > "$1/t.json" && mv "$1/t.json" "$1/${STATE_SUBDIR}/task.json"; }
+lg_trace() { # $1=wt $2=stage $3=findings 正文:写审查留痕(含 verdict)
+  local slug; slug="$(mfield "$1" slug)"
+  mkdir -p "$1/docs/reviews"
+  printf '# review findings\n\n%s\n\n## verdict\nneeds-repair\n' "$3" > "$1/docs/reviews/$slug-$2.md"
+}
+FIND_A='- [P1] src/auth/login.ts:42 登录态丢失时未做兜底跳转 redirect missing
+  处置:accepted
+- [P2] src/util/date.ts:7 时区解析忽略夏令时 timezone dst
+  处置:accepted'
+FIND_A_SHIFT='- [P1] src/auth/login.ts:99 登录态失效后缺少重定向 redirect missing
+  处置:accepted
+- [P2] src/util/date.ts:23 夏令时切换时区错乱 timezone dst
+  处置:accepted'
+FIND_B='- [P1] src/billing/charge.py:13 重复扣款 double charge
+  处置:accepted'
+lg_to_plan_gate() { # $1=slug → stdout wt:develop 一路推进到 plan ②审闸
+  local wt; wt="$(newtask develop "$1")"
+  mkf "$wt" docs/i.md; mkf "$wt" docs/p.md; mkd "$wt" docs/issues/lg; mkd "$wt" docs/plans/lg
+  ( cd "$wt" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )
+  ( cd "$wt" && bash "$FLOW" handoff --conclusion pass --produced docs/p.md >/dev/null )
+  approve_design "$wt" docs/design/lg.md
+  ( cd "$wt" && bash "$FLOW" handoff --conclusion pass --produced docs/issues/lg/ >/dev/null )
+  ( cd "$wt" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/lg/ >/dev/null )   # plan→②审闸
+  echo "$wt"
+}
+
+# L1: 判据A 连续两轮同一批缺陷 → 打转(afk→waiting-user 不锁死;指纹须免疫行号漂移)
+WL1="$(lg_to_plan_gate 2026-07-20-lg-a1)"
+lg_trace "$WL1" plan "$FIND_A"
+OL1="$(cd "$WL1" && bash "$FLOW" handoff --conclusion needs-repair)"
+echo "$OL1" | grep -q "GUARD=" && no "L1 首轮不该触发" || ok "L1 判据A 首轮只记指纹不触发"
+[ "$(mfield "$WL1" status)" = "active" ] && ok "L1 首轮返工 status=active" || no "L1 首轮 status"
+[ "$(mfield "$WL1" 'repair_findings_sig.plan | length')" = "2" ] && ok "L1 findings 指纹落盘(2 条)" || no "L1 指纹落盘 ($(mfield "$WL1" 'repair_findings_sig.plan'))"
+( cd "$WL1" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/lg/ >/dev/null )
+lg_trace "$WL1" plan "$FIND_A_SHIFT"   # 新一轮审:同缺陷重述,行号已漂移
+OL1b="$(cd "$WL1" && bash "$FLOW" handoff --conclusion needs-repair)"
+echo "$OL1b" | grep -q "GUARD=repair-fingerprint-repeat" && ok "L1 连续同缺陷 → GUARD(免疫行号漂移)" || no "L1 判据A 未触发 ($OL1b)"
+echo "$OL1b" | grep -q "STATUS=waiting-user" && ok "L1 afk 打转 → waiting-user(不锁死)" || no "L1 status ($OL1b)"
+mfield "$WL1" waiting_for | grep -q "打转" && ok "L1 waiting_for 落盘打转原因(冷启动可见)" || no "L1 waiting_for"
+( cd "$WL1" && bash "$FLOW" where ) | grep -q "waiting_for=.*打转" && ok "L1 where 置顶打转 waiting_for" || no "L1 where 未置顶"
+[ "$(mfield "$WL1" 'repair_findings_sig.plan')" = "null" ] && ok "L1 触发后指纹清零(放行后重新计)" || no "L1 触发后清零"
+( cd "$WL1" && bash "$PREPARE" resume >/dev/null )
+[ "$(mfield "$WL1" status)" = "active" ] && ok "L1 上报不锁死:resume 翻回 active 续跑" || no "L1 resume 未翻 active"
+
+# L2: 判据A unattended → 硬停 blocked + 写板
+WL2="$(lg_to_plan_gate 2026-07-20-lg-a2)"
+setman "$WL2" '.attendance="unattended"'
+lg_trace "$WL2" plan "$FIND_A"
+( cd "$WL2" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
+( cd "$WL2" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/lg/ >/dev/null )
+lg_trace "$WL2" plan "$FIND_A_SHIFT"
+OL2="$(cd "$WL2" && bash "$FLOW" handoff --conclusion needs-repair)"
+echo "$OL2" | grep -q "STATUS=blocked" && ok "L2 unattended 打转 → 硬停 blocked(不问人)" || no "L2 未硬停 ($OL2)"
+echo "$OL2" | grep -q "NEXT_ACTION=report-user" && ok "L2 next_action=report-user" || no "L2 action ($OL2)"
+grep -q "status=blocked" "$WL2/${STATE_SUBDIR}/progress-board.md" && ok "L2 硬停写板(progress-board 含 blocked)" || no "L2 写板"
+
+# L3: 判据A 两轮不同缺陷 = 健康迭代,不触发
+WL3="$(lg_to_plan_gate 2026-07-20-lg-a3)"
+lg_trace "$WL3" plan "$FIND_A"
+( cd "$WL3" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
+( cd "$WL3" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/lg/ >/dev/null )
+lg_trace "$WL3" plan "$FIND_B"
+OL3="$(cd "$WL3" && bash "$FLOW" handoff --conclusion needs-repair)"
+echo "$OL3" | grep -q "GUARD=" && no "L3 不同缺陷不该打转" || ok "L3 判据A 不同缺陷不触发(健康迭代)"
+[ "$(mfield "$WL3" status)" = "active" ] && ok "L3 健康迭代 status=active" || no "L3 status"
+
+# L4: 非审闸的流水线返工(主线程迭代,无 findings)只 WARN 不机器判打转
+WL4="$(newtask small-change 2026-07-20-repair-warn)"
+( cd "$WL4" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
+( cd "$WL4" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
+OL4="$(cd "$WL4" && bash "$FLOW" handoff --conclusion needs-repair)"
+echo "$OL4" | grep -q "STATUS=active" && ok "L4 非闸返工达 3 仍 active(不机器判打转)" || no "L4 误判 ($OL4)"
+echo "$OL4" | grep -q "WARN=.*返工 3 轮" && ok "L4 非闸返工达 3 只 WARN 留痕" || no "L4 WARN ($OL4)"
+
+# L5: 讨论态(investigate)返工达 3 → 豁免,不上报(仍 active + WARN)
+WL5="$(newtask develop 2026-07-20-disc-exempt)"
+( cd "$WL5" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
+( cd "$WL5" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )
+OL5="$(cd "$WL5" && bash "$FLOW" handoff --conclusion needs-repair)"
+echo "$OL5" | grep -q "STATUS=active" && ok "L5 讨论态返工达 3 → 豁免(仍 active,自由返工)" || no "L5 讨论态被误上报 ($OL5)"
+echo "$OL5" | grep -q "WARN=.*返工 3 轮" && ok "L5 讨论态达 3 仍只 WARN(不强制上报)" || no "L5 WARN 缺失 ($OL5)"
+
+# L6: 判据B 流水线态源头同向掉头(build→plan ×2)达阈 → 上报
+WL6="$(newtask develop 2026-07-20-turn-cap)"
+setman "$WL6" '.phase="build" | .phase_index=5 | .attendance="afk"'
+OL6a="$(cd "$WL6" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase plan)"
+echo "$OL6a" | grep -q "STATUS=waiting-user" && no "L6 第1次回 plan 不该上报(<cap)" || ok "L6 第1次回 plan 不上报(未达阈)"
+[ "$(mfield "$WL6" 'turnaround_ledger.plan')" = "1" ] && ok "L6 掉头按 to-phase 分桶 plan=1" || no "L6 分桶 ($(mfield "$WL6" 'turnaround_ledger.plan'))"
+setman "$WL6" '.phase="build" | .phase_index=5'
+OL6b="$(cd "$WL6" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase plan)"
+echo "$OL6b" | grep -q "GUARD=turnaround-same-phase" && ok "L6 同向掉头达阈 → GUARD" || no "L6 未触发 ($OL6b)"
+echo "$OL6b" | grep -q "STATUS=waiting-user" && ok "L6 afk → waiting-user" || no "L6 status ($OL6b)"
+mfield "$WL6" waiting_for | grep -q "打转" && ok "L6 waiting_for 记方向横跳打转" || no "L6 waiting_for"
+
+# L7: 判据B plan↔design 横跳也堵(目标是讨论态照样算——看源头;这正是收敛方案要补的洞)
+WL7="$(newtask develop 2026-07-20-turn-pingpong)"
+setman "$WL7" '.phase="plan" | .phase_index=4 | .attendance="afk"'
+( cd "$WL7" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design >/dev/null )  # 源头=plan(流水线)→ design +1
+setman "$WL7" '.phase="plan" | .phase_index=4'
+OL7="$(cd "$WL7" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase design)"   # design +1 = 2 达阈
+echo "$OL7" | grep -q "STATUS=waiting-user" && ok "L7 plan↔design 横跳达阈 → 上报(堵横跳洞)" || no "L7 横跳未堵 ($OL7)"
+
+# L8: 判据B 讨论态源头掉头豁免(design→propose ×2 不进账不触发)
+WL8="$(newtask develop 2026-07-20-turn-disc-src)"
+setman "$WL8" '.phase="design" | .phase_index=2'
+( cd "$WL8" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase propose >/dev/null )
+setman "$WL8" '.phase="design" | .phase_index=2'
+OL8="$(cd "$WL8" && bash "$FLOW" handoff --conclusion needs-redirection --to-phase propose)"
+echo "$OL8" | grep -q "GUARD=" && no "L8 讨论态源头不该触发" || ok "L8 讨论态源头(design→propose)往返豁免"
+[ "$(mfield "$WL8" 'turnaround_ledger.propose')" = "null" ] && ok "L8 讨论态源头掉头不进账" || no "L8 进账了"
+
+# L9: unattended 墙钟软预算(loop status 只报不硬杀)
+WL9="$(newtask small-change 2026-07-20-lg-budget)"
+( cd "$WL9" && bash "$LOOP" init >/dev/null )
+LF9="$WL9/${STATE_SUBDIR}/loop-state.json"
+[ "$(jq -r '.started_at // "missing"' "$LF9")" != "missing" ] && ok "L9 loop init 记 started_at(预算起点)" || no "L9 started_at"
+jq '.started_at="2020-01-01T00:00:00Z" | .attendance="unattended"' "$LF9" > "$LF9.tmp" && mv "$LF9.tmp" "$LF9"
+SL9="$(cd "$WL9" && bash "$LOOP" status)"
+echo "$SL9" | grep -q "BUDGET-EXCEEDED" && ok "L9 unattended 超墙钟 → BUDGET-EXCEEDED(不硬杀)" || no "L9 预算面 ($SL9)"
+jq '.attendance="afk"' "$LF9" > "$LF9.tmp" && mv "$LF9.tmp" "$LF9"
+SL9b="$(cd "$WL9" && bash "$LOOP" status)"
+echo "$SL9b" | grep -q "BUDGET-EXCEEDED" && no "L9 afk 不该报预算" || ok "L9 afk 无预算面(严格限 unattended)"
+
+# L10: 审闸绝对轮次天花板(max_repair_rounds=3 → 第 4 次 needs-repair 触发;不同缺陷以免指纹守卫抢先)
+FIND_C='- [P1] src/x/c.ts:1 unique issue ccc alpha
+  处置:accepted'
+FIND_D='- [P1] src/y/d.ts:1 unique issue ddd beta
+  处置:accepted'
+WL10="$(lg_to_plan_gate 2026-07-20-round-cap)"
+lg_trace "$WL10" plan "$FIND_A"
+( cd "$WL10" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )   # rc=1
+( cd "$WL10" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/lg/ >/dev/null )
+lg_trace "$WL10" plan "$FIND_B"
+( cd "$WL10" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )   # rc=2
+( cd "$WL10" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/lg/ >/dev/null )
+lg_trace "$WL10" plan "$FIND_C"
+( cd "$WL10" && bash "$FLOW" handoff --conclusion needs-repair >/dev/null )   # rc=3 仍放行
+[ "$(mfield "$WL10" repair_count)" = "3" ] && ok "L10 审闸返工第 3 次仍放行(未超 max=3)" || no "L10 rc3 ($(mfield "$WL10" repair_count))"
+( cd "$WL10" && bash "$FLOW" handoff --conclusion pass --produced docs/plans/lg/ >/dev/null )
+lg_trace "$WL10" plan "$FIND_D"
+OL10="$(cd "$WL10" && bash "$FLOW" handoff --conclusion needs-repair)"   # rc=4 → cap
+echo "$OL10" | grep -q "GUARD=repair-round-cap" && ok "L10 审闸第 4 次 needs-repair → GUARD=repair-round-cap" || no "L10 未触顶 ($OL10)"
+echo "$OL10" | grep -q "STATUS=waiting-user" && ok "L10 afk 触顶 → waiting-user" || no "L10 status ($OL10)"
+
 echo ""
 echo "Results: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

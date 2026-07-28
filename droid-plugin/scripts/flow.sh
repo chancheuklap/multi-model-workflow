@@ -52,6 +52,26 @@ approval_check() {  # $1=manifest
   return 1
 }
 
+# 讨论态阶段(routes.loop_guards.discussion_phases)自由往返/返工,豁免打转守卫。返回 0=讨论态。
+is_discussion_phase() {  # $1=phase
+  jq -e --arg p "$1" '(.loop_guards.discussion_phases // ["wayfind","investigate","propose","design"]) | index($p) != null' "$ROUTES" >/dev/null 2>&1
+}
+
+# 打转守卫:从审查留痕提取 accepted findings 的缺陷签名(sev|文件基名|归一化关键词)。
+# 行号只作弱信号不入签名——返工改代码会挪行号,锚 file:line 会把同一缺陷误判成新缺陷而放过真打转。
+finding_sigs() {  # $1=trace → stdout: 排序去重的签名行
+  [ -f "$1" ] || return 0
+  grep -E '\.[A-Za-z0-9]+:[0-9]+' "$1" | while IFS= read -r line; do
+    local sev fp base words rest
+    sev="$(printf '%s' "$line" | grep -oiE 'P[0-3]|critical|high|medium|low' | head -1 | tr 'A-Z' 'a-z')"
+    fp="$(printf '%s' "$line" | grep -oE '[A-Za-z0-9_/.-]+\.[A-Za-z0-9]+:[0-9]+' | head -1)"
+    base="$(basename "${fp%:*}")"
+    rest="${line/$fp/}"
+    words="$(printf '%s' "$rest" | tr 'A-Z' 'a-z' | grep -oE '[a-z][a-z]+' | head -2 | sort | tr '\n' ' ')"
+    printf '%s|%s|%s\n' "${sev:-?}" "$base" "${words% }"
+  done | sort -u
+}
+
 # ---------- handoff ----------
 cmd_handoff() {
   local conclusion="" to_phase="" waiting_for="" ; local -a produced=()
@@ -158,7 +178,14 @@ cmd_handoff() {
   # new_step 默认 0;needs-context/blocked 停在原地→保留游标,resume 续上当前步
   local cur_step; cur_step="$(jq -r '.step_index // 0' "$m")"
   local new_phase="$cur_phase" new_pidx="$pidx" new_rc="$rc" new_tc="$tc" new_status="active" new_gate="" new_step=0
-  local next_action next_phase="" human prune_from=-1 guard_trip="" proto_redirect=false
+  local next_action next_phase="" human prune_from=-1
+  # 打转守卫阈值(routes.loop_guards;判断落 manifest,脚本强制)
+  local LG_OVERLAP LG_ROUNDS LG_TA LG_MAX
+  LG_OVERLAP="$(jq -r '.loop_guards.repair_fingerprint.overlap // 0.6' "$ROUTES")"
+  LG_ROUNDS="$(jq -r '.loop_guards.repair_fingerprint.rounds // 2' "$ROUTES")"
+  LG_TA="$(jq -r '.loop_guards.turnaround_same_phase // 2' "$ROUTES")"
+  LG_MAX="$(jq -r '.loop_guards.max_repair_rounds // 3' "$ROUTES")"
+  local guard_trip="" guard_reason="" guard_att="" sig_stage="" sig_set_json=null sig_consec_json=0 ta_phase="" ta_n_json=0 proto_redirect=false
   case "$conclusion" in
     pass)
       if [ -z "$gate" ] && [ "$gated" = yes ]; then
@@ -181,23 +208,45 @@ cmd_handoff() {
       new_rc=$(( rc + 1 ))
       next_action="repair"; next_phase="$cur_phase"
       human="[$cur_phase] 原地返工(第 $new_rc 轮)"
-      if [ "$new_rc" -ge 3 ]; then
-        warns+=("[$cur_phase] 已返工 $new_rc 轮:每轮向用户汇报卡点/根因/下一步再继续,持续打转要主动交人")
+      if is_discussion_phase "$cur_phase"; then
+        [ "$new_rc" -ge 3 ] && warns+=("[$cur_phase] 已返工 $new_rc 轮(讨论态自由返工):向用户讲清卡点/根因再继续")
+      elif [ -z "$gate" ]; then
+        # 非审闸的流水线返工(主线程自己的迭代,没有 findings 可比):只 WARN 留痕不机器判打转
+        [ "$new_rc" -ge 3 ] && warns+=("[$cur_phase] 已返工 $new_rc 轮:每轮向用户汇报卡点/根因/下一步再继续,持续打转要主动交人")
       fi
-      # 审闸返工绝对轮次天花板
-      if [ -n "$gate" ]; then
-        local LG_MAX
-        LG_MAX="$(jq -r '.loop_guards.max_repair_rounds // 3' "$ROUTES")"
-        if [ "$new_rc" -gt "$LG_MAX" ]; then
-          guard_trip="repair-round-cap"
-          local att; att="$(jq -r '.attendance // "afk"' "$m")"
-          if [ "$att" = "unattended" ]; then
-            new_status="blocked"; next_action="report-user"
-            human="[打转] 审闸返工已超 max_repair_rounds=$LG_MAX(第 $new_rc 次) → 无人值守硬停写板"
-          else
-            new_status="waiting-user"; next_action="ask-user"
-            waiting_for="[打转] 审闸返工已超 max_repair_rounds=$LG_MAX(第 $new_rc 次 needs-repair)。请定:放行带 risk / 缩 scope / 回 design;答复后 mmw task resume 续跑"
-            human="[打转] 审闸返工已超 max_repair_rounds=$LG_MAX → 停下交用户复核"
+      # 判据C:审闸返工绝对轮次天花板(防换一批品味 finding 无限磨)
+      if [ -n "$gate" ] && [ "$new_rc" -gt "$LG_MAX" ]; then
+        guard_trip="repair-round-cap"
+        guard_reason="[打转] 审闸返工已超 max_repair_rounds=$LG_MAX(第 $new_rc 次 needs-repair):停止自动返工,交人定放行带 risk / 缩 scope / 回 design"
+      fi
+      # 判据A:审闸返工时新一轮 accepted findings 与上一轮实质重合 = 同一缺陷反复修不掉(计数对象是 finding 重现,不是返工轮数)
+      if [ -n "$gate" ] && [ -z "$guard_trip" ]; then
+        local ga_stage ga_trace sig_new sig_old consec inter old_n new_n min_n
+        ga_stage="$(jq -r --arg p "$gate" '.review_gates[$p].stage // ""' "$ROUTES")"
+        ga_trace="$top_wt/docs/reviews/$slug-$ga_stage.md"
+        sig_new="$(finding_sigs "$ga_trace")"
+        if [ -n "$sig_new" ]; then
+          sig_stage="$ga_stage"
+          sig_old="$(jq -r --arg s "$ga_stage" '(.repair_findings_sig[$s] // [])[]' "$m")"
+          consec="$(jq -r --arg s "$ga_stage" '.repair_fp_repeat[$s] // 0' "$m")"
+          if [ -n "$sig_old" ]; then
+            inter="$(comm -12 <(printf '%s\n' "$sig_old") <(printf '%s\n' "$sig_new") | grep -c . || true)"
+            old_n="$(printf '%s\n' "$sig_old" | grep -c .)"; new_n="$(printf '%s\n' "$sig_new" | grep -c .)"
+            min_n=$(( old_n < new_n ? old_n : new_n ))
+            if jq -ne --argjson i "$inter" --argjson mn "$min_n" --argjson o "$LG_OVERLAP" '$mn > 0 and ($i / $mn) >= $o' >/dev/null; then
+              consec=$(( consec + 1 ))
+              if [ "$consec" -ge "$(( LG_ROUNDS - 1 ))" ]; then
+                guard_trip="repair-fingerprint-repeat"
+                guard_reason="[打转] 审查连续 $(( consec + 1 )) 轮接受同一批缺陷($ga_stage 闸,签名重合≥$LG_OVERLAP):同一缺陷反复修不掉,强制交人复核根因"
+                sig_set_json=null; sig_consec_json=0   # 触发即清零(放行后重新计,去抖)
+              fi
+            else
+              consec=0
+            fi
+          fi
+          if [ "$guard_trip" != "repair-fingerprint-repeat" ]; then
+            sig_set_json="$(printf '%s\n' "$sig_new" | jq -R . | jq -s .)"
+            sig_consec_json="$consec"
           fi
         fi
       fi
@@ -225,8 +274,19 @@ cmd_handoff() {
         proto_redirect=true
         warns+=("design 掉头:prototype 已标记 superseded(redirected);重定方向回 design 后照 where 用 prototype start 开新一轮,轮次顺延")
       fi
-      if [ "$new_tc" -ge 2 ]; then
-        warns+=("已掉头 $new_tc 次:先向用户讲清楚这次为什么又要回头,再继续")
+      # 判据B:流水线态源头同向掉头达阈 = 方向横跳打转(讨论态源头自由往返不记账——routes description 既定决策;按 to-phase 分桶)
+      if is_discussion_phase "$cur_phase"; then
+        [ "$new_tc" -ge 2 ] && warns+=("已掉头 $new_tc 次(讨论态往返自由):先讲清这次为何又回头再继续")
+      else
+        ta_phase="$tgt_phase"
+        ta_n_json=$(( $(jq -r --arg p "$tgt_phase" '.turnaround_ledger[$p] // 0' "$m") + 1 ))
+        if [ "$ta_n_json" -ge "$LG_TA" ]; then
+          guard_trip="turnaround-same-phase"
+          guard_reason="[打转] 从 [$cur_phase] 第 $ta_n_json 次掉头回 [$tgt_phase]:流水线态同一上游被反复回退,方向横跳,强制交人复核方向"
+          ta_n_json=0   # 触发即清零(去抖)
+        else
+          warns+=("[$cur_phase] 回 [$tgt_phase] 第 $ta_n_json 次(达 $LG_TA 次打转守卫交人):方向若反复横跳会被强制交人")
+        fi
       fi
       ;;
     needs-context)
@@ -238,6 +298,19 @@ cmd_handoff() {
       human="[$cur_phase] 卡住 → 上报用户(带完整经过)"
       ;;
   esac
+
+  # 打转守卫触发:按 attendance 决定上报形态(attended/afk 不锁死人来可续;unattended 硬停写板)
+  if [ -n "$guard_trip" ]; then
+    local att; att="$(jq -r '.attendance // "afk"' "$m")"
+    guard_att="$att"
+    if [ "$att" = "unattended" ]; then
+      new_status="blocked"; next_action="report-user"
+      human="${guard_reason} → 无人值守硬停写板(不问人,复核后人工介入)"
+    else
+      new_status="waiting-user"; next_action="ask-user"; waiting_for="${guard_reason}(请定:继续修 / 换方向 / 放行;答复后 mmw task resume 续跑)"
+      human="${guard_reason} → 停下交用户复核(不锁死,resume 续跑)"
+    fi
+  fi
 
   # 产出数组(只收真实存在的)
   local produced_json="[]"
@@ -251,9 +324,16 @@ cmd_handoff() {
     --arg hphase "$cur_phase" --arg hconc "$conclusion" --arg at "$(now)" \
     --argjson produced "$produced_json" --argjson nstep "$new_step" \
     --argjson prune_from "$prune_from" --arg waiting "$waiting_for" \
+    --arg sig_stage "$sig_stage" --argjson sig_set "$sig_set_json" --argjson sig_consec "$sig_consec_json" \
+    --arg ta_phase "$ta_phase" --argjson ta_n "$ta_n_json" \
     --argjson proto_redirect "$proto_redirect" \
     '.phase=$phase | .phase_index=$pidx | .repair_count=$rc | .turnaround_count=$tc | .status=$status
      | (if $proto_redirect then .prototype.status="superseded" | .prototype.selected=[] | .prototype.redirected=true else . end)
+     | (if $sig_stage != "" then
+          if $sig_set == null then del(.repair_findings_sig[$sig_stage]) | del(.repair_fp_repeat[$sig_stage])
+          else .repair_findings_sig[$sig_stage] = $sig_set | .repair_fp_repeat[$sig_stage] = $sig_consec end
+        else . end)
+     | (if $ta_phase != "" then .turnaround_ledger[$ta_phase] = $ta_n else . end)
      | .waiting_for=(if $waiting=="" then null else $waiting end)
      | .gate=(if $gate=="" then null else $gate end)
      | .step_index=$nstep
@@ -265,6 +345,11 @@ cmd_handoff() {
         else . end)
      | .history += [{phase:$hphase, conclusion:$hconc, at:$at}]' \
     "$m" | write_manifest "$m"
+
+  # 打转守卫(unattended):硬停写板——板从 task.json 重建,渲染失败亮 WARN 不吞
+  if [ -n "$guard_trip" ] && [ "${guard_att:-}" = "unattended" ]; then
+    bash "$SCRIPT_DIR/progress.sh" render >/dev/null || warns+=("打转硬停已落 blocked,但 progress.sh render 写板失败")
+  fi
 
   if [ "$cur_phase" = "package" ] && [ "$conclusion" = "needs-redirection" ] && [ "$to_phase" = "build" ]; then
     bash "$SCRIPT_DIR/package-phase.sh" close >/dev/null

@@ -57,8 +57,8 @@ cmd_init() {
     local m; m="$(jq -r '.attendance // "attended"' "$man" 2>/dev/null || echo attended)"
     case "$m" in attended|afk|unattended) mode="$m";; esac
   fi
-  jq -n --arg mode "$mode" '{schema_version:"2", kind:"execution", attendance:$mode,
-    steps:[], decisions:[], pause:null}' > "$f"
+  jq -n --arg mode "$mode" --arg ts "$(now)" '{schema_version:"2", kind:"execution", attendance:$mode,
+    started_at:$ts, steps:[], decisions:[], pause:null}' > "$f"
   echo "INIT attendance=$mode"
 }
 
@@ -141,6 +141,21 @@ cmd_status() {
   ndone="$(jq -r '[.steps[]|select(.status=="done")]|length' "$f")"
   rem="$(jq -r '[.steps[]|select(.status!="done")|.id]|join(",")' "$f")"
   echo "steps=$ndone/$total remaining=${rem:-none}"
+  # unattended 墙钟软预算(只报不硬杀):超了亮 BUDGET-EXCEEDED,由 where / progress 板浮出
+  if [ "$(jq -r '.attendance // "attended"' "$f")" = "unattended" ]; then
+    local started budget then_s now_s elapsed
+    started="$(jq -r '.started_at // ""' "$f")"
+    budget="$(jq -r '.loop_guards.unattended_wall_clock_seconds // 10800' "$SCRIPT_DIR/../state-schema/routes.json" 2>/dev/null || echo 10800)"
+    case "$budget" in ''|*[!0-9]*) budget=10800 ;; esac
+    if [ -n "$started" ] && [ "$budget" -gt 0 ]; then
+      then_s="$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$started" +%s 2>/dev/null || date -u -d "$started" +%s 2>/dev/null || echo "")"
+      now_s="$(date -u +%s)"
+      if [ -n "$then_s" ]; then
+        elapsed=$(( now_s - then_s ))
+        [ "$elapsed" -gt "$budget" ] && echo "BUDGET-EXCEEDED elapsed=${elapsed}s budget=${budget}s(unattended 墙钟软预算;只浮出,不硬杀)"
+      fi
+    fi
+  fi
 }
 
 # 收束:删账本。幂等——无账本/不在 git 都安静退 0,清理失败不阻断上游回执。

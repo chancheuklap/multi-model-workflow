@@ -70,6 +70,7 @@
 - **不要**因为还剩 Nit/waived 就 needs-repair。放行标准:**整体在变好且无未处置 Critical / 无未修 accepted 承重项**,不是完美。
 
 ### 2.5 打转与轮次天花板(引擎强制,你要会读)
+- **指纹守卫**:`needs-repair` 时引擎比对本轮与上一轮留痕的 **accepted** findings 指纹;连续实质重合 → `GUARD=repair-fingerprint-repeat`(afk/attended 交人,unattended 硬停)。被指打转先想「修错地方还是不该 accept」,别原样再修。
 - **绝对轮次**:审闸返工时 `repair_count` 超过 `loop_guards.max_repair_rounds`(默认 3)→ `GUARD=repair-round-cap`,交人或硬停。到顶后亮:已 accepted 未收敛项 / 已 reject·waive 项 / 建议(放行带 risk / 缩 scope / 回 design),**不要**再问"要不要再修一轮"。
 - 收敛:无新高置信 **accepted** = 收敛;反复不收敛 → 交人,别硬磨。
 
