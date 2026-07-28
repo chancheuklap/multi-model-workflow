@@ -23,7 +23,11 @@ for d in investigate-topic investigate-synthesizer code-explorer decision-adviso
   grep -q '^description: ' "$file" || no "missing description $d"
   grep -q '^model: ' "$file" || no "missing model $d"
   grep -q '^tools: ' "$file" || no "missing tools $d"
-  grep -q '^mcpServers: \[\]' "$file" || no "unbounded MCP access $d"
+  if [ "$d" = investigate-synthesizer ]; then
+    grep -q '^mcpServers: \[\]$' "$file" || no "synthesizer 不得获得 MCP"
+  else
+    grep -q '^mcpServers: \["serena", "graphify"\]$' "$file" || no "missing serena/graphify grant $d"
+  fi
 done
 [ "$fail" -eq 0 ] && ok "all role droids present"
 

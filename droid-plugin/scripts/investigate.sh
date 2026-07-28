@@ -129,7 +129,7 @@ skill=${skill:-none}(非 none 时先用 Read 读 ~/.factory/skills/$skill/SKILL.
 repoRoot=$repo
 
 上游结构候选(仅候选,不代表本 topic worker 调过工具):$retrieval_candidates
-内部 topic 必须逐 locator 回 repoRoot 用 Read/Grep/Execute Graphify 亲验；Serena 候选来自上游，不代表 Droid worker 能直接调用 Serena。Serena 对装饰器 endpoint 完整调用方、动态 await import() 解构引用存在已知盲区；unsupported/not_available/failed/空结果均须 fallback 到 Graphify + 源码检索。summary/gaps 必须区分上游候选、worker 自己实际 Execute 的工具、源码 locator 与 fallback_reason。
+内部 topic 必须逐 locator 回 repoRoot 用 Read/Grep 亲验；上游 Serena 候选不代表 worker 调过工具，worker 有 Serena/Graphify MCP 时可直接调用补候选（不可用就 Execute graphify CLI）。Serena 对装饰器 endpoint 完整调用方、动态 await import() 解构引用存在已知盲区；unsupported/not_available/failed/空结果均须 fallback 到 Graphify + 源码检索。summary/gaps 必须区分上游候选、worker 自己实际调用的工具、源码 locator 与 fallback_reason。
 
 内部调查只在 repoRoot 下用 Read/Grep/Glob/LS 取证；定位 bug 根因需要复现时可用 Execute 跑只读诊断、目标测试或复现命令，禁止安装依赖、改文件、commit。执行前后都核对 `git status --short`，发现 tracked 改动立即停止并写入 gaps。每条 locator 必须是 file:line。
 外部调查用 WebSearch/FetchUrl/Context7 取证，每条 locator 必须是已打开核验的 URL。

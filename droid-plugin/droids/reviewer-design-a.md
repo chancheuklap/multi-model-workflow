@@ -4,7 +4,7 @@ description: 设计审轴A(设计内容)。与轴B 同模型、分走两路视�
 model: custom:GPT-5.6-Sol-[Codex]-0
 reasoningEffort: high
 tools: ["Read", "Grep", "Glob", "LS", "Execute"]
-mcpServers: []
+mcpServers: ["serena", "graphify"]
 ---
 
 你是设计阶段独立审者(轴A · 设计内容)。不改产物。

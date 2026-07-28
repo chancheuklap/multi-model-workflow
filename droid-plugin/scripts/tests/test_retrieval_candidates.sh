@@ -27,10 +27,11 @@ if mmw_retrieval_candidates_snapshot "$TMP/bad-locator.json" "$TMP/bad-out.json"
 if mmw_retrieval_candidates_snapshot "relative.json" "$TMP/relative-out.json" >/dev/null 2>&1; then no "相对路径未被拒绝"; else ok "输入只接受绝对路径"; fi
 
 prompt="$(mmw_retrieval_candidates_prompt "$TMP/normalized.json")"
-if [[ "$prompt" == *"上游 Serena 候选"* ]] \
-  && [[ "$prompt" == *"自己实际 Execute 的 Graphify"* ]] \
+if [[ "$prompt" == *"上游候选"* ]] \
+  && [[ "$prompt" == *"worker 自己实际调用的工具"* ]] \
+  && [[ "$prompt" == *"Serena/Graphify MCP 或 Execute graphify CLI"* ]] \
   && [[ "$prompt" == *"fallback_reason"* ]]; then
-  ok "Droid prompt 区分上游 Serena 与本机 Graphify"
+  ok "Droid prompt 区分上游候选与 worker 实际工具"
 else
   no "Droid prompt 宿主边界缺失"
 fi
@@ -43,10 +44,19 @@ for file in \
   grep -q '结构候选' "$PLUGIN/$file" && ok "角色纪律已接入: $file" || no "角色纪律缺失: $file"
 done
 
+# MCP 授权政策:插件 mcp.json 注册 serena(只读四符号工具)+graphify;除 investigate-synthesizer 外
+# 全部角色 droid 以 mcpServers 获授权;synthesizer 只综合不重查,保持空授权。
+jq -e '.mcpServers.serena and .mcpServers.graphify' "$PLUGIN/mcp.json" >/dev/null \
+  && ok "插件 mcp.json 注册 serena+graphify" || no "插件 mcp.json 缺 server"
+[ "$(jq -c '.mcpServers.serena.enabledTools | sort' "$PLUGIN/mcp.json")" = '["find_implementations","find_referencing_symbols","find_symbol","get_symbols_overview"]' ] \
+  && ok "serena 只放行四个只读符号工具" || no "serena 工具面过宽"
+jq -e '.mcpServers.serena.command == "serena" and .mcpServers.graphify.command == "graphify-mcp"' "$PLUGIN/mcp.json" >/dev/null \
+  && ok "MCP server 走 PATH 裸命令(无机器路径)" || no "MCP server 硬编码路径"
 droid_count="$(find "$PLUGIN/droids" -maxdepth 1 -name '*.md' | wc -l | tr -d ' ')"
-empty_mcp_count="$(grep -l '^mcpServers: \[\]$' "$PLUGIN"/droids/*.md | wc -l | tr -d ' ')"
-[ "$droid_count" = "$empty_mcp_count" ] \
-  && ok "全部 Droid 角色保持 mcpServers 为空" || no "Droid 角色获得了 MCP server"
+mcp_roles="$(grep -l '^mcpServers: \["serena", "graphify"\]$' "$PLUGIN"/droids/*.md | wc -l | tr -d ' ')"
+[ "$mcp_roles" = "$((droid_count - 1))" ] \
+  && ! grep -q 'serena' "$PLUGIN/droids/investigate-synthesizer.md" \
+  && ok "除 synthesizer 外全部角色获得 serena/graphify 授权" || no "角色 MCP 授权面错误"
 REVIEW_REPO="$TMP/review-repo"
 git -C "$TMP" init -q review-repo
 git -C "$REVIEW_REPO" config user.email test@example.com
@@ -57,7 +67,7 @@ git -C "$REVIEW_REPO" commit -qm seed
 (cd "$REVIEW_REPO" && bash "$PLUGIN/scripts/review.sh" start --stage final --source seed.txt --retrieval-candidates "$TMP/valid.json" >/dev/null)
 REVIEW_STATE="$REVIEW_REPO/.factory/multi-model-workflow"
 jq -e 'length == 1 and .[0].query == "dynamic import refs"' "$REVIEW_STATE/retrieval-candidates-final.json" >/dev/null \
-  && grep -q 'dynamic import refs' "$REVIEW_STATE/review-brief.md" && grep -q '上游 Serena 候选' "$REVIEW_STATE/review-brief.md" \
+  && grep -q 'dynamic import refs' "$REVIEW_STATE/review-brief.md" && grep -q '上游结构候选' "$REVIEW_STATE/review-brief.md" \
   && ok "review start 真入口快照并传递候选" || no "review start 真入口候选接线"
 if (cd "$REVIEW_REPO" && bash "$PLUGIN/scripts/review.sh" start --stage final --source seed.txt --retrieval-candidates relative.json >/dev/null 2>&1); then
   no "review start 接受相对候选路径"

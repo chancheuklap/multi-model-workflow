@@ -26,7 +26,7 @@ description: 你(落地执行者)被主线程派进一个 git worktree 落地 re
 
 ## 1.1 结构候选
 
-读 `../orchestrate/references/retrieval-doctrine.md`。派发 prompt 带来的结构候选只代表上游检索；Droid 只用自身 Execute Graphify/Read/Grep 亲验本 Pack 的调用、引用、连接、依赖路径和影响面。工具不可用或命中已知盲区时按 doctrine 退化，不得声称直接调用 Serena。
+读 `../orchestrate/references/retrieval-doctrine.md`。派发 prompt 带来的结构候选只代表上游检索；本 Pack 的调用、引用、连接、依赖路径和影响面逐项亲验——Serena/Graphify MCP 可用时直接调用补候选，不可用就 Execute graphify CLI，最终都回 Read/Grep 源码。命中已知盲区或工具不可用时按 doctrine 退化。
 
 ## 2. 逐 Task Pack 落地(严格 TDD)
 

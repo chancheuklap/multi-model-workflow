@@ -15,5 +15,5 @@ mmw_retrieval_candidates_prompt() {
   printf '%s\n' '## 上游结构候选（仅候选，不代表本 worker 调过工具）'
   printf '```json\n'; jq -c '.' "$1"; printf '```\n'
   printf '%s\n' '逐 locator 回目标 checkout 用源码 Read/grep/rg 亲验；unsupported、not_available、failed 和空结果都不能证明不存在。Serena 对装饰器 endpoint 完整调用方、动态 await import() 解构引用存在已知盲区，须转 Graphify 加源码检索。'
-  printf '%s\n' '回执必须单列“结构候选”：分别写上游候选、worker 自己实际 Execute 的 Graphify/其它工具、源码亲验 locator、fallback_reason；禁止把上游 Serena 候选冒充 worker 工具调用。'
+  printf '%s\n' '回执必须单列“结构候选”：分别写上游候选、worker 自己实际调用的工具（Serena/Graphify MCP 或 Execute graphify CLI）、源码亲验 locator、fallback_reason；禁止把上游候选冒充 worker 工具调用。'
 }

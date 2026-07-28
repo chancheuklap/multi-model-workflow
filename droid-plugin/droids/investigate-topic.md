@@ -4,7 +4,7 @@ description: 仅由 mmw investigate 编排器为单个 topic 启动。按 prompt
 model: custom:GPT-5.6-Sol-[Codex]-0
 tools: ["Read", "Grep", "Glob", "LS", "WebSearch", "FetchUrl", "Execute"]
 reasoningEffort: medium
-mcpServers: []
+mcpServers: ["serena", "graphify"]
 ---
 
 你是调查工人。主线程在 investigate 阶段派你取证一个具体 topic / angle。**只取证,不判定方案、不选路线、不改代码**。

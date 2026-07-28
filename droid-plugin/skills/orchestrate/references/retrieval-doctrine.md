@@ -2,7 +2,7 @@
 
 结构性问题包括调用/引用、连接、依赖路径和影响面。图与语言服务器只缩小搜索空间，源码才是证据。
 
-1. **先拿候选。** 上游可用 Serena；Droid 自身有新鲜 `graphify-out/graph.json` 时用 Execute 调 graphify `query` / `affected` / `path` / `explain`。
+1. **先拿候选。** 插件自带 serena/graphify 两个 MCP server（deferred 工具，主线程按需 ToolSearch 装载；子代理按角色 `mcpServers` 授权）：Serena 可用时用符号工具，仓库有新鲜 `graphify-out/graph.json` 时用图查询 `query` / `affected` / `path` / `explain`；MCP 未连上时退回 Execute graphify CLI。
 2. **再亲验。** 每项回目标 checkout 用 Read/Grep 核对。进入 finding、plan、investigating、handoff 或交付物的承重结论必须给 `file:line`。
 3. **无损退化。** Serena 不可用、图缺失/过期、歧义、失败或空结果时退到 Graphify + Read/Grep；空结果不证明不存在。
 
@@ -18,7 +18,7 @@ Serena 不能单独证明装饰器 endpoint 的完整调用方、`await import()
 
 结构派发使用 `--retrieval-candidates <absolute-json-file>`；脚本 fail-closed 校验并把规范化快照嵌入 prompt/brief。省略时固定为 `[]`。内部 investigate 的每个 `topics[]` 使用 `retrieval_candidates`。
 
-候选只表示上游检索，不代表下游调用过工具，也不授予新工具。所有 Droid 定义继续保持 `mcpServers: []`；Droid worker 不声称直接调用 Serena，只能消费上游 Serena 候选并自行 Execute Graphify/源码亲验。resume 沿用原会话和快照。
+候选只表示上游检索，不代表下游调用过工具。插件 `mcp.json` 注册 serena（只读四个符号工具）与 graphify 两个 server；除 investigate-synthesizer 外的角色 droid 以 `mcpServers: [serena, graphify]` 获得直接调用权，可自行补候选，但一切承重结论仍回源码亲验，回执分清上游候选与自己实际调用。server 未装/未连时按第 3 条退化。resume 沿用原会话和快照。
 
 ## 回执
 

@@ -4,7 +4,7 @@ description: 设计审轴B(项目对齐)。与轴A 同模型、分走两路视�
 model: claude-fable-5
 reasoningEffort: low
 tools: ["Read", "Grep", "Glob", "LS", "Execute"]
-mcpServers: []
+mcpServers: ["serena", "graphify"]
 ---
 
 你是设计阶段独立审者(轴B · 项目对齐)。不改产物。

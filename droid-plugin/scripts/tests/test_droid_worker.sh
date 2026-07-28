@@ -118,7 +118,7 @@ ACTUAL_WT="$(jq -r .worktree "$META")"
 BUILD_PROMPT="$WT/.factory/multi-model-workflow/worker-dispatch/prompt.md"
 jq -e 'length == 1 and .[0].query == "find worker entrypoint"' "$WT/.factory/multi-model-workflow/worker-dispatch/retrieval-candidates.json" >/dev/null \
   && ok "dispatch 快照规范化结构候选" || no "dispatch 结构候选快照"
-grep -q 'find worker entrypoint' "$BUILD_PROMPT" && grep -q '上游 Serena 候选' "$BUILD_PROMPT" \
+grep -q 'find worker entrypoint' "$BUILD_PROMPT" && grep -q '上游结构候选' "$BUILD_PROMPT" \
   && ok "dispatch prompt 携带候选与宿主边界" || no "dispatch prompt 候选接线"
 grep -q 'prototype/README.md' "$BUILD_PROMPT" && grep -q 'prototype/selected.py' "$BUILD_PROMPT" \
   && ! grep -q 'prototype/rejected.py' "$BUILD_PROMPT" && ! grep -q 'mockup/loser.html' "$BUILD_PROMPT" \

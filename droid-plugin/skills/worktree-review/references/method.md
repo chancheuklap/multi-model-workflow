@@ -46,7 +46,7 @@
 
 ## 结构候选先行
 
-遇到调用/引用、连接、依赖路径或影响面，先读 `../../orchestrate/references/retrieval-doctrine.md`。上游 Serena 候选只扩大检查面；Droid 审者不得声称直接调用 Serena，只能 Execute Graphify/Read/Grep 亲验。每条 finding 仍须引用目标 checkout 的 `file:line`。
+遇到调用/引用、连接、依赖路径或影响面，先读 `../../orchestrate/references/retrieval-doctrine.md`。上游 Serena 候选只扩大检查面；审者可用 Serena/Graphify MCP 直接补候选（不可用就 Execute graphify CLI），一切结论回 Read/Grep 亲验。每条 finding 仍须引用目标 checkout 的 `file:line`。
 
 ## 防幻觉四件套
 1. 置信度:每条 finding 标 1-3 低 / 4-6 中 / 7-10 高。

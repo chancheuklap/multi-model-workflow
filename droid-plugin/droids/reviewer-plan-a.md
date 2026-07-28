@@ -4,7 +4,7 @@ description: 计划审轴A(覆盖与质量)。与轴B 同模型、分走两路�
 model: custom:GPT-5.6-Sol-[Codex]-0
 reasoningEffort: high
 tools: ["Read", "Grep", "Glob", "LS", "Execute"]
-mcpServers: []
+mcpServers: ["serena", "graphify"]
 ---
 
 你是计划阶段独立审者(轴A · 覆盖与质量)。不改产物。

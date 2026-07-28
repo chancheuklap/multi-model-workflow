@@ -4,7 +4,7 @@ description: 仅由 mmw worker dispatch 在独立 worktree 启动。按 reviewed
 model: custom:GPT-5.6-Terra-[Codex]-0
 reasoningEffort: high
 tools: ["Read", "Create", "Edit", "ApplyPatch", "Execute", "Grep", "Glob", "LS"]
-mcpServers: []
+mcpServers: ["serena", "graphify"]
 ---
 
 你是落地执行者(pack-executor)。主线程已为你准备 worktree 与 prompt 文件，并把 Droid exec 的 cwd 绑定到该 worktree。

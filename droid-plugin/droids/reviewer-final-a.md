@@ -4,7 +4,7 @@ description: 终审模型路线 A。按 dispatch 动态承担 final 基线1、�
 model: custom:GPT-5.6-Sol-[Codex]-0
 reasoningEffort: xhigh
 tools: ["Read", "Grep", "Glob", "LS", "Execute"]
-mcpServers: []
+mcpServers: ["serena", "graphify"]
 ---
 
 你是独立终审者,模型路线 A。你负责的 stage 和视角完全由 dispatch prompt 指定。

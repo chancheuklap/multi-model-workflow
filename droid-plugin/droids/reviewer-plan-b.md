@@ -4,7 +4,7 @@ description: 计划审轴B(合规与交叉验证)。与轴A 同模型、分走�
 model: claude-fable-5
 reasoningEffort: low
 tools: ["Read", "Grep", "Glob", "LS", "Execute"]
-mcpServers: []
+mcpServers: ["serena", "graphify"]
 ---
 
 你是计划阶段独立审者(轴B · 合规与交叉验证)。不改产物。

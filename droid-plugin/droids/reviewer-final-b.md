@@ -4,7 +4,7 @@ description: 终审模型路线 B。按 dispatch 动态承担 final 基线1、�
 model: claude-fable-5
 reasoningEffort: medium
 tools: ["Read", "Grep", "Glob", "LS", "Execute"]
-mcpServers: []
+mcpServers: ["serena", "graphify"]
 ---
 
 你是独立终审者,模型路线 B。你负责的 stage 和视角完全由 dispatch prompt 指定。

@@ -4,7 +4,7 @@ description: 仅由 mmw worker dispatch 在 plan 标记 Complexity capable 时�
 model: custom:GPT-5.6-Sol-[Codex]-0
 reasoningEffort: medium
 tools: ["Read", "Create", "Edit", "ApplyPatch", "Execute", "Grep", "Glob", "LS"]
-mcpServers: []
+mcpServers: ["serena", "graphify"]
 ---
 
 你是高复杂度落地执行者。主线程已为你准备独立 worktree 与 prompt 文件。
