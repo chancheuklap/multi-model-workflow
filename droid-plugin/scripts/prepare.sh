@@ -21,6 +21,12 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 # 主仓库 top-level(worktree 里 .git 是文件,主仓库里是目录)
 git_toplevel() { git rev-parse --show-toplevel 2>/dev/null || die "不在 git 仓库内"; }
 in_worktree() { [ -f "$1/.git" ]; }
+# 主仓库根:worktree 内也能拿到(git-common-dir 指向主仓库 .git),用于把新 worktree 一律挂在主仓库下
+main_repo_root() {
+  local gcd
+  gcd="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || die "不在 git 仓库内"
+  dirname "$gcd"
+}
 
 # 主仓库状态平面遮蔽见 lib/runtime.sh mmw_ensure_state_ignore
 
@@ -69,17 +75,27 @@ cmd_new() {
   local entry_capabilities_json
   entry_capabilities_json="$(printf '%s\n' "${entry_capabilities[@]}" | jq -R . | jq -sc .)"
 
-  local top; top="$(git_toplevel)"
-  in_worktree "$top" && die "已在 worktree 内($top),建新 worktree 请回主仓库"
+  # 大任务拆并行子任务时允许从 worktree 内再建 worktree:
+  # 新 worktree 一律挂到主仓库下(扁平,不做目录嵌套),但从当前所在处的 HEAD 分叉——
+  # 主仓库内建=主仓库 HEAD;worktree 内建=父 worktree HEAD,子任务因此继承父任务已完成的进度。
+  local here; here="$(git_toplevel)"
+  local top; top="$(main_repo_root)"
+  local parent_slug="" parent_wt=""
+  if in_worktree "$here"; then
+    parent_wt="$here"
+    parent_slug="$(jq -r '.slug // ""' "$here/$STATE_SUBDIR/$MANIFEST_NAME" 2>/dev/null || echo "")"
+    [ -n "$parent_slug" ] || die "当前 worktree 没有 task.json(不是在管任务),不能从这里拆子任务"
+  fi
 
   local wt="$top/$(mmw_worktrees_rel)/$slug"
   [ -e "$wt" ] && die "worktree 已存在:$wt"
   git -C "$top" show-ref --verify --quiet "refs/heads/$slug" && die "分支已存在:$slug(换个 slug 或先清理)"
   mmw_ensure_state_ignore "$top"   # 建 worktree 前遮蔽主仓库状态平面,git status 零残留
 
-  local base; base="$(git -C "$top" rev-parse HEAD)"
-  # 从本地最新 HEAD 分叉
-  git -C "$top" worktree add -b "$slug" "$wt" HEAD >&2
+  local base; base="$(git -C "$here" rev-parse HEAD)"
+  # 从当前所在处的 HEAD 分叉(主仓库=主仓库 HEAD;任务 worktree=父 worktree HEAD)
+  git -C "$here" worktree add -b "$slug" "$wt" "$base" >&2
+  mmw_prepare_worktree "$top" "$wt"
 
   # 文档落点:design(单文件夹形态,含 direction/investigating/prototype/mockup/evidence)/ issues / plans 按 slug,context 项目级共享(domain-modeling 维护)
   mkdir -p "$wt/docs/design" "$wt/docs/issues" "$wt/docs/plans" "$wt/docs/context" "$wt/docs/reviews" "$wt/$STATE_SUBDIR"
@@ -112,6 +128,7 @@ IGN
     --argjson dg "$direction_given" \
     --arg inv "docs/design/$slug/investigating.md" --arg ddoc "docs/design/$slug" --arg idir "docs/issues/$slug" --arg pdir "docs/plans/$slug" --arg ctx "docs/context" \
     --arg attendance "$attendance" --arg pv "$plugin_version" \
+    --argjson parent "$(if [ -n "$parent_slug" ]; then jq -n --arg s "$parent_slug" --arg w "$parent_wt" '{slug:$s, worktree_path:$w}'; else echo null; fi)" \
     '{schema_version:$sv, slug:$slug, title:$title, request:$request,
       entry_capabilities:$entry_capabilities, entry_evidence:$entry_evidence,
       scenario:$scenario, phases:$phases, direction_given:$dg,
@@ -119,9 +136,22 @@ IGN
       created_at:$created, updated_at:$created, plugin_version:$pv, base_commit:$base,
       branch:$branch, worktree_path:$wt, docs:{investigating:$inv, design:$ddoc, issues:$idir, plans:$pdir, context:$ctx},
       repair_count:0, turnaround_count:0, attendance:$attendance, unattended_policy:null,
-      note:null, approval:null, prototype:null,
+      note:null, approval:null, prototype:null, parent:$parent, child_tasks:[],
       artifacts:[], phase_outputs:{}, open_items:[], subtasks:[], history:[]}' \
     > "$wt/$STATE_SUBDIR/$MANIFEST_NAME"
+
+  # 子任务回登记到父任务:team 视图与合并顺序靠它溯源;写失败只告警,不动父 manifest
+  if [ -n "$parent_slug" ] && [ -f "$parent_wt/$STATE_SUBDIR/$MANIFEST_NAME" ]; then
+    local pm="$parent_wt/$STATE_SUBDIR/$MANIFEST_NAME" ptmp
+    ptmp="$(mktemp)"
+    if jq --arg slug "$slug" --arg title "$title" --arg wt "$wt" --arg at "$created" \
+        '.child_tasks = ((.child_tasks // []) + [{slug:$slug, title:$title, worktree_path:$wt, created_at:$at}])' \
+        "$pm" > "$ptmp" && [ -s "$ptmp" ] && jq -e . "$ptmp" >/dev/null 2>&1; then
+      mv "$ptmp" "$pm"
+    else
+      rm -f "$ptmp"; echo "WARN: 父任务 child_tasks 登记失败,父 manifest 保留不动" >&2
+    fi
+  fi
 
   # 给 SKILL/LLM 的回执:下一步进 worktree,再进对应 phase
   cat <<EOF
@@ -130,6 +160,8 @@ worktree_path=$wt
 branch=$slug
 scenario=$scenario
 phase=$phase
+parent_slug=${parent_slug:-none}
+base_commit=$base
 design_doc=docs/design/$slug/$slug.md(主文档与文件夹同名)
 NEXT=$(mmw_enter_worktree_hint "$wt"); 然后进入 $scenario 的 $phase 阶段
 EOF

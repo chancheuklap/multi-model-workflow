@@ -189,6 +189,39 @@ bash "$PREPARE" cleanup --slug "$SLUG" >/dev/null 2>&1 && ok "合并后 cleanup 
 [ ! -d "$WT" ] && ok "worktree 已删" || no "worktree 已删"
 git show-ref --verify --quiet "refs/heads/$SLUG" && no "分支已删" || ok "分支已删"
 
+# --- 任务 worktree 内拆并行子任务 ---
+P_SLUG="2026-07-28-parent-task"
+C_SLUG="2026-07-28-child-task"
+bash "$PREPARE" new --scenario bug --slug "$P_SLUG" --title "父任务" --request 父需求 \
+  --entry-capability explicit-request --entry-evidence "测试夹具" >/dev/null 2>&1
+P_WT="$TMP/${WT_REL}/$P_SLUG"
+( cd "$P_WT" && echo progress > progress.txt && git add -A && git commit -qm "parent progress" )
+P_HEAD="$(git -C "$P_WT" rev-parse HEAD)"
+[ "$P_HEAD" != "$BASE" ] && ok "父 worktree 已领先主线(子任务应继承进度)" || no "父 worktree 提交"
+C_OUT="$(cd "$P_WT" && bash "$PREPARE" new --scenario small-change --slug "$C_SLUG" --title "子任务" --request 子需求 \
+  --entry-capability explicit-request --entry-evidence "测试夹具" 2>/dev/null)"
+C_WT="$TMP/${WT_REL}/$C_SLUG"
+echo "$C_OUT" | grep -q "^parent_slug=$P_SLUG" && ok "子任务回执报 parent_slug" || no "子任务回执 parent_slug"
+[ -d "$C_WT" ] && [ ! -e "$P_WT/${WT_REL}/$C_SLUG" ] && ok "子 worktree 挂主仓库下(扁平不嵌套)" || no "子 worktree 落点"
+[ "$(git -C "$C_WT" rev-parse HEAD)" = "$P_HEAD" ] && ok "子任务分支从父 worktree HEAD 分叉(继承进度)" || no "子任务分叉点"
+C_MAN="$C_WT/${STATE_SUBDIR}/task.json"
+P_WT_GIT="$(git -C "$P_WT" rev-parse --show-toplevel)"   # macOS /var→/private/var:git 输出物理路径
+[ "$(jq -r .parent.slug "$C_MAN")" = "$P_SLUG" ] && [ "$(jq -r .parent.worktree_path "$C_MAN")" = "$P_WT_GIT" ] \
+  && ok "子 manifest.parent 双向可溯源" || no "子 manifest.parent"
+P_MAN="$P_WT/${STATE_SUBDIR}/task.json"
+jq -e --arg c "$C_SLUG" '[.child_tasks[] | .slug] | index($c) != null' "$P_MAN" >/dev/null \
+  && ok "父 manifest.child_tasks 已登记子任务" || no "父 manifest.child_tasks"
+# 不在管 worktree(无 task.json)内拆任务 → 拒
+BARE="$TMP/bare-wt"; git worktree add -q "$BARE" -b bare-side HEAD 2>/dev/null
+if ( cd "$BARE" && bash "$PREPARE" new --scenario bug --slug 2026-07-28-orphan --title x --request x \
+  --entry-capability explicit-request --entry-evidence "测试夹具" >/dev/null 2>&1 ); then
+  no "无 task.json 的 worktree 内拆任务应拒"; else ok "无 task.json 的 worktree 内拆任务被拒"; fi
+git worktree remove --force "$BARE" >/dev/null 2>&1; git branch -D bare-side >/dev/null 2>&1
+# 清子父 worktree(不进主线,直接强拆)
+git worktree remove --force "$C_WT" >/dev/null 2>&1; git branch -D "$C_SLUG" >/dev/null 2>&1
+git worktree remove --force "$P_WT" >/dev/null 2>&1; git branch -D "$P_SLUG" >/dev/null 2>&1
+git worktree prune >/dev/null 2>&1
+
 
 echo ""
 echo "Results: $pass passed, $fail failed"

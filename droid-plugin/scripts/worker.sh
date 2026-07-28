@@ -383,6 +383,7 @@ plan_sandbox_create() {
     && die "plan writer 隔离分支已存在:$branch；请先 resume 或清理失败派发"
   git -C "$main" worktree add -b "$branch" "$sandbox" "$(git -C "$task_wt" rev-parse HEAD)" >&2 \
     || die "建立 plan writer 隔离 worktree 失败:$sandbox"
+  mmw_prepare_worktree "$task_wt" "$sandbox"
   mmw_ensure_wt_state_ignore "$sandbox"
   printf '%s\t%s\n' "$sandbox" "$branch"
 }
