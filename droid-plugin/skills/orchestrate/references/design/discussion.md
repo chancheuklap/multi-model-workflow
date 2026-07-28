@@ -31,7 +31,7 @@ Bad: "这是个有趣的方向!我们可以从多个角度探索。"
 
 读写规则:进项目优先查 `CONTEXT-MAP.md`,存在则按索引读写对应子 context;不存在回退根 `CONTEXT.md`;皆无则懒创建。**设计文档术语必须与领域文档体系一致,新术语先进体系再引用。**
 
-**落点**:领域文档 = `CONTEXT-MAP.md` + `docs/context/**`;设计文档 = `docs/design/<slug>.md`(单文件)或 `docs/design/<slug>/` 同名目录(多文件:主文档 + research / evidence / mockup)。slug 已含日期,不再前缀日期(与 routes/prepare 落点一致,handoff 钉的产物路径才对得上)。
+**落点**:领域文档 = `CONTEXT-MAP.md` + `docs/context/**`;设计文档 = `docs/design/<slug>/<slug>.md`(**单文件夹形态**:主文档与文件夹同名,搜索与区分直接;`direction.md` / `investigating.md` / `prototype/` / `mockup/` / `evidence/` 同文件夹类型细分)。slug 已含日期,不再前缀日期(与 routes/prepare 落点一致,handoff 钉的产物路径才对得上;`mmw pin` 有布局门,design 产出不在文件夹内或缺主文档不放行)。
 
 ## 流程
 
@@ -43,7 +43,7 @@ Bad: "这是个有趣的方向!我们可以从多个角度探索。"
 
 ### Step 1:读选定方向 + 现状报告
 
-**方向已由上游 propose 阶段定**:`prev_outputs` 带来 `docs/design/<slug>-direction.md`(选定方向 + 取舍),外加 investigate 的现状报告(`docs/investigating/<slug>.md`,走接力单 `prev_outputs`;**不在 `docs/context`**)。读这两份确认起点——**不重做系统探查、不重提方案**;零星细节随手 `rg`/`Read`(验证后再用,子代理是劳动力不是事实源)。
+**方向已由上游 propose 阶段定**:`prev_outputs` 带来 `docs/design/<slug>/direction.md`(选定方向 + 取舍),外加 investigate 的现状报告(`docs/design/<slug>/investigating.md`,走接力单 `prev_outputs`;**不在 `docs/context`**)。读这两份确认起点——**不重做系统探查、不重提方案**;零星细节随手 `rg`/`Read`(验证后再用,子代理是劳动力不是事实源)。
 
 - **提问扎根现状**:问任何能从报告 / 代码查到的问题前,先引报告条目或 `path:line`。报告没覆盖且查不到 → 明说"investigate 没查到 X,按 greenfield 处理"。
 - **方向被事实击穿**(细看才发现选错):别在这重选,`mmw handoff --conclusion needs-redirection` 回上游 propose/investigate 换向,先说触发原因 + 业务影响。

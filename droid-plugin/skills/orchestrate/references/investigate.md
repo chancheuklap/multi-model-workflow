@@ -2,7 +2,7 @@
 
 > investigate 阶段:当场判断 + 跑命令。**红线:取证不判定**——只摆证据,不在这拍方案、选路线、下设计结论。
 
-阶段目标:把现状查清(内部代码 / 外部方案),产出一份带引用的现状报告,**存档 `docs/investigating/<slug>.md`**(命名同设计 / 计划文档),喂 design / build 扎根。
+阶段目标:把现状查清(内部代码 / 外部方案),产出一份带引用的现状报告,**存档 `docs/design/<slug>/investigating.md`**(设计文件夹的讨论态正式成员,随设计入 git),喂 design / build 扎根。
 
 ## 1. 判断:查哪个方向 + 定 topics
 
@@ -63,12 +63,12 @@ mmw investigate status --run <run-id>
 
 1. **亲验承重事实**:报告里的 `file:line` / `url`,自己 grep/Read/查证坐实。子代理是劳动力不是信源,验不过的不写进交付物。外部承重结论(库行为 / API 合同 / 规范语义)**沿引用链追到第一方来源**(官方文档 / 源码 / 规范 / 第一方 API)再采信,二手综述只当线索;逐结论带第一方引用,引不出的降级为「待验」。
 2. **旁路登记**:`report.spinoff_candidates` 里亲验为真的,逐条 `mmw spinoff --tag <bug|optimize|out-of-scope|needs-evaluation> --finding "<一句话>"`,不顺手修。
-3. **存档 + handoff**:把现状报告写进 `docs/investigating/<slug>.md`(prepare 已 scaffold 该目录),钉进接力单:
- - 够 design / build 用 → `mmw handoff --conclusion pass --produced docs/investigating/<slug>.md`
+3. **存档 + handoff**:把现状报告写进 `docs/design/<slug>/investigating.md`,钉进接力单:
+ - 够 design / build 用 → `mmw handoff --conclusion pass --produced docs/design/<slug>/investigating.md`
  - `open_questions` 里有必须用户拍板才能继续的 → `--conclusion needs-context`
  - **bug 查根因两种诚实收口**(查不动别假装查到):**无法重现** → `needs-context`,报告附**已试的重现路径**,请用户补重现步骤 / 环境;**无法定位根因**(重现了但定不到) → `needs-context`,报告附**已排除的假设(带证据)**,请用户给方向 / 补信息。别硬编个根因往下走。
 
-> 领域文档(`docs/context`)归 design 阶段的 `domain-modeling` 维护;investigate 只写 `docs/investigating/`,不碰 `docs/context`。
+> 领域文档(`docs/context`)归 design 阶段的 `domain-modeling` 维护;investigate 只写设计文件夹内的 `investigating.md`,不碰 `docs/context`。
 
 ## 红线
 

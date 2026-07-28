@@ -206,8 +206,8 @@ WAF="$(newtask develop 2026-06-28-task-af)"
 mkf "$WAF" docs/i.md
 ( cd "$WAF" && bash "$FLOW" handoff --conclusion pass --produced docs/i.md >/dev/null )
 ( cd "$WAF" && bash "$FLOW" handoff --conclusion pass >/dev/null 2>&1 )   # →design
-mkdir -p "$WAF/docs/design"; printf 'design body\n' > "$WAF/docs/design/af.md"
-( cd "$WAF" && bash "$FLOW" pin --produced docs/design/af.md >/dev/null )
+mkdir -p "$WAF/docs/design/2026-06-28-task-af"; printf 'design body\n' > "$WAF/docs/design/2026-06-28-task-af/2026-06-28-task-af.md"
+( cd "$WAF" && bash "$FLOW" pin --produced docs/design/2026-06-28-task-af/2026-06-28-task-af.md >/dev/null )
 accept_prototype "$WAF"
 ( cd "$WAF" && bash "$NOTE" approve >/dev/null )
 [ "$(mphase "$WAF")" = "to-issue" ] && ok "approve 缺 --report 回落已钉设计产出" || no "approve 回落 ($(mphase "$WAF"))"
@@ -253,17 +253,17 @@ init_empty_package "$WPKG" >/dev/null
 
 # ===== B2: bug 系统性设计问题 → mmw task escalate --to develop(原地升级,投查成果留着) =====
 WBE="$(newtask bug 2026-06-29-task-be)"
-mkf "$WBE" docs/investigating/be.md
-( cd "$WBE" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/be.md >/dev/null )
+mkf "$WBE" docs/design/2026-06-29-task-be/investigating.md
+( cd "$WBE" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-06-29-task-be/investigating.md >/dev/null )
 ESC="$(cd "$WBE" && bash "$PREPARE" escalate --to develop)"
 echo "$ESC" | grep -q "ESCALATED from=bug to=develop" && ok "escalate bug→develop" || no "escalate 回执"
 [ "$(mfield "$WBE" scenario)" = "develop" ] && ok "升级后 scenario=develop" || no "scenario 升级 ($(mfield "$WBE" scenario))"
 [ "$(mfield "$WBE" 'phases|join(",")')" = "investigate,propose,design,to-issue,plan,build,package,closing" ] && ok "升级后 phases=develop 八阶段" || no "phases 升级"
 [ "$(mphase "$WBE")" = "investigate" ] && [ "$(mfield "$WBE" phase_index)" = "0" ] && ok "游标回 investigate" || no "游标回首阶段"
-[ "$(mfield "$WBE" 'phase_outputs.investigate[0]')" = "docs/investigating/be.md" ] && ok "投查成果保留(phase_outputs 不丢)" || no "投查成果丢失"
+[ "$(mfield "$WBE" 'phase_outputs.investigate[0]')" = "docs/design/2026-06-29-task-be/investigating.md" ] && ok "投查成果保留(phase_outputs 不丢)" || no "投查成果丢失"
 [ "$(mfield "$WBE" 'history[-1].conclusion')" = "escalate→develop" ] && ok "history 记一笔升级" || no "history 升级留痕"
-mkf "$WBE" docs/investigating/be2.md
-( cd "$WBE" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/be2.md >/dev/null )
+mkf "$WBE" docs/design/2026-06-29-task-be/investigating2.md
+( cd "$WBE" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-06-29-task-be/investigating2.md >/dev/null )
 [ "$(mphase "$WBE")" = "propose" ] && ok "升级后 investigate→propose(develop 路打通)" || no "升级后走 develop ($(mphase "$WBE"))"
 if ( cd "$WBE" && bash "$PREPARE" escalate --to develop >/dev/null 2>&1 ); then no "重复升级被拒"; else ok "已是 develop 再升级被拒"; fi
 if ( cd "$WBE" && bash "$PREPARE" escalate --to bogus >/dev/null 2>&1 ); then no "非法目标被拒"; else ok "非法升级目标被拒"; fi
@@ -322,7 +322,7 @@ WHERE="$(cd "$WF" && bash "$FLOW" where)"
 echo "$WHERE" | grep -q "phase=propose" && ok "where 报精确阶段" || no "where 精确阶段"
 echo "$WHERE" | grep -q "phase_index=1" && ok "where 报精确下标" || no "where 下标"
 echo "$WHERE" | grep "^then=" | grep -q "<slug>" && no "then 仍含字面 <slug>" \
-  || { echo "$WHERE" | grep "^then=" | grep -q "2026-06-28-task-f-direction.md" && ok "then 已解析真 slug" || no "then 未解析 slug"; }
+  || { echo "$WHERE" | grep "^then=" | grep -q "2026-06-28-task-f/direction.md" && ok "then 已解析真 slug" || no "then 未解析 slug"; }
 echo "$WHERE" | grep -q "stale_" && no "新任务不该报 stale" || ok "新任务 where 无新鲜度警告"
 RES="$(cd "$WF" && bash "$PREPARE" resume 2>/dev/null)"
 echo "$RES" | head -1 | grep -q "MANAGED" && echo "$RES" | tail -n +2 | jq -e '.phase=="propose"' >/dev/null \
@@ -339,16 +339,25 @@ echo "$WFS2" | grep -q "^phase=propose" && ok "stale 只警告,where 正常指�
 
 # ===== H: design 跨两阶接力单(reads = investigate + propose 都进 prev_outputs) =====
 WH="$(newtask develop 2026-06-29-task-h)"
-mkf "$WH" docs/investigating/2026-06-29-task-h.md; mkf "$WH" docs/design/2026-06-29-task-h-direction.md
-( cd "$WH" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/2026-06-29-task-h.md >/dev/null )
-( cd "$WH" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-06-29-task-h-direction.md >/dev/null )
+mkf "$WH" docs/design/2026-06-29-task-h/investigating.md; mkf "$WH" docs/design/2026-06-29-task-h/direction.md
+( cd "$WH" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-06-29-task-h/investigating.md >/dev/null )
+( cd "$WH" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-06-29-task-h/direction.md >/dev/null )
 WHD="$(cd "$WH" && bash "$FLOW" where)"
 PREVH="$(echo "$WHD" | sed -n 's/^prev_outputs=//p')"
 echo "$WHD" | grep -q "phase=design" || no "task-h 应在 design"
-echo "$PREVH" | jq -e 'index("docs/investigating/2026-06-29-task-h.md")!=null and index("docs/design/2026-06-29-task-h-direction.md")!=null' >/dev/null \
+echo "$PREVH" | jq -e 'index("docs/design/2026-06-29-task-h/investigating.md")!=null and index("docs/design/2026-06-29-task-h/direction.md")!=null' >/dev/null \
   && ok "design prev_outputs 含 现状报告 + 方向(跨两阶接力)" || no "design prev_outputs 漏上游 ($PREVH)"
 echo "$WHD" | grep -q "load=references/design/discussion.md" && ok "design 空状态先加载讨论主指引(讨论→prototype 顺序归数据层)" || no "design load"
 echo "$WHD" | grep -q "then=.*prototype start" && ok "design 空状态 then 备好 prototype start 模板(讨论后的下一步机器命令)" || no "design then start"
+# pin 布局门:design 产出必须在 docs/design/<slug>/ 内且含与文件夹同名的主文档
+mkf "$WH" docs/design/2026-06-29-task-h.md
+if ( cd "$WH" && bash "$FLOW" pin --phase design --produced docs/design/2026-06-29-task-h.md >/dev/null 2>&1 ); then
+  no "pin 布局门放过根目录主文档"; else ok "pin 布局门拒根目录主文档"; fi
+if ( cd "$WH" && bash "$FLOW" pin --phase design --produced docs/design/2026-06-29-task-h/direction.md >/dev/null 2>&1 ); then
+  no "pin 布局门放过缺主文档"; else ok "pin 布局门拒缺主文档"; fi
+mkf "$WH" docs/design/2026-06-29-task-h/2026-06-29-task-h.md
+( cd "$WH" && bash "$FLOW" pin --phase design --produced docs/design/2026-06-29-task-h/2026-06-29-task-h.md >/dev/null ) \
+  && ok "pin 布局门放行单文件夹主文档" || no "pin 布局门误拦主文档"
 echo "$WHD" | grep -q "^step=" && no "where 不该再报 step 游标" || ok "where 无 step 游标行"
 
 # ===== H2: design 掉头后的 prototype 重定向闭环(superseded+redirected → 重进 design 直接开新一轮) =====
@@ -483,17 +492,17 @@ echo "$ERR_WF" | grep -q "仅 develop 可用" && ok "bug+--with-wayfind 被拒" 
 WNW="$(newtask develop 2026-07-05-nw)"
 [ "$(jq -r '.phases[0]' "$WNW/${STATE_SUBDIR}/task.json")" = "investigate" ] && ok "无 flag develop phases 不变(回归)" || no "无 flag phases 漂移"
 
-# ===== Droid 单文件/目录设计布局：where 必须解析为唯一真实主文档 =====
+# ===== 设计布局单文件夹形态：where 指路钉文件夹同名主文档 =====
 WDL="$(newtask develop 2026-07-05-design-layout)"
-mkf "$WDL" docs/investigating/2026-07-05-design-layout.md
-( cd "$WDL" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/2026-07-05-design-layout.md >/dev/null )
-mkf "$WDL" docs/design/2026-07-05-design-layout-direction.md
-( cd "$WDL" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-07-05-design-layout-direction.md >/dev/null )
-mkf "$WDL" docs/design/2026-07-05-design-layout.md
+mkf "$WDL" docs/design/2026-07-05-design-layout/investigating.md
+( cd "$WDL" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-07-05-design-layout/investigating.md >/dev/null )
+mkf "$WDL" docs/design/2026-07-05-design-layout/direction.md
+( cd "$WDL" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-07-05-design-layout/direction.md >/dev/null )
+mkf "$WDL" docs/design/2026-07-05-design-layout/2026-07-05-design-layout.md
 accept_prototype "$WDL"
 WDL_OUT="$(cd "$WDL" && bash "$FLOW" where)"
-echo "$WDL_OUT" | grep -q '^then=.*--produced docs/design/2026-07-05-design-layout.md；' \
-  && ok "Droid where 解析单文件设计真实路径" || no "Droid where 单文件布局仍模糊"
+echo "$WDL_OUT" | grep -q '^then=.*--produced docs/design/2026-07-05-design-layout/2026-07-05-design-layout.md；' \
+  && ok "where 指路钉单文件夹同名主文档" || no "where 单文件夹指路 ($WDL_OUT)"
 
 # ===== note 书签(三源回报之一) =====
 ( cd "$WNF" && bash "$NOTE" note set --text "下一步先对齐計費口徑" >/dev/null )

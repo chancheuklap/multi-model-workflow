@@ -91,15 +91,15 @@ DESIGN="$TMP/docs/design/demo.md"
 printf '# plan\n' > "$PLAN"
 printf '# issue\n\n## Small issues\n<!-- PENDING -->\n' > "$ISSUE"
 printf '# design\n' > "$DESIGN"
-mkdir -p "$TMP/docs/design/prototype" "$TMP/docs/design/mockup" "$TMP/docs/investigating" "$TMP/.factory/multi-model-workflow"
-printf '# direction\n' >"$TMP/docs/design-direction.md"
-printf '# investigating\n' >"$TMP/docs/investigating/demo.md"
+mkdir -p "$TMP/docs/design/prototype" "$TMP/docs/design/mockup" "$TMP/.factory/multi-model-workflow"
+printf '# direction\n' >"$TMP/docs/design/direction.md"
+printf '# investigating\n' >"$TMP/docs/design/investigating.md"
 printf '# prototype log\n' >"$TMP/docs/design/prototype/README.md"
 printf 'selected\n' >"$TMP/docs/design/prototype/selected.py"
 printf 'rejected\n' >"$TMP/docs/design/prototype/rejected.py"
 printf '<html>loser</html>\n' >"$TMP/docs/design/mockup/loser.html"
 cat >"$TMP/.factory/multi-model-workflow/task.json" <<'JSON'
-{"docs":{"design":"docs/design","investigating":"docs/investigating/demo"},"prototype":{"status":"accepted","log":"docs/design/prototype/README.md","selected":["docs/design/prototype/selected.py"]},"approval":{"reports":["docs/design/prototype/README.md","docs/design/prototype/selected.py"],"fingerprint":"88b87bf4f460b9ff95c2a557d0ae73586a84bbe5"}}
+{"docs":{"design":"docs/design","investigating":"docs/design/investigating.md"},"prototype":{"status":"accepted","log":"docs/design/prototype/README.md","selected":["docs/design/prototype/selected.py"]},"approval":{"reports":["docs/design/prototype/README.md","docs/design/prototype/selected.py"],"fingerprint":"88b87bf4f460b9ff95c2a557d0ae73586a84bbe5"}}
 JSON
 git -C "$TMP" add docs
 git -C "$TMP" commit -qm docs
@@ -123,8 +123,8 @@ grep -q 'find worker entrypoint' "$BUILD_PROMPT" && grep -q '上游 Serena 候�
 grep -q 'prototype/README.md' "$BUILD_PROMPT" && grep -q 'prototype/selected.py' "$BUILD_PROMPT" \
   && ! grep -q 'prototype/rejected.py' "$BUILD_PROMPT" && ! grep -q 'mockup/loser.html' "$BUILD_PROMPT" \
   && ok "build worker 只收到 accepted log + selected" || no "build worker prototype 选中材料"
-grep -q 'docs/design-direction.md' "$BUILD_PROMPT" && grep -q 'docs/investigating/demo.md' "$BUILD_PROMPT" \
-  && ok "Droid 旧布局 direction/investigating 进入下游" || no "Droid 旧布局伴随材料缺失"
+grep -q 'docs/design/direction.md' "$BUILD_PROMPT" && grep -q 'docs/design/investigating.md' "$BUILD_PROMPT" \
+  && ok "设计文件夹 direction/investigating 进入下游" || no "设计文件夹伴随材料缺失"
 if grep -Eq '仓库无测试薄层|no-repo-test-sheet' "$BUILD_PROMPT"; then
   no "build 派发误判项目指令链中的嵌套测试规则"
 else

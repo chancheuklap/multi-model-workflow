@@ -47,24 +47,24 @@ WT="$(bash "$PREPARE" new --scenario develop --slug 2026-06-29-e2e --title "端�
 [ "$(att)" = "attended" ] && ok "讨论态生来 attended(HITL 集中在 propose/design)" || no "attended 起步 ($(att))"
 
 # investigate → propose(产出现状报告,钉接力单)
-mkf docs/investigating/e2e.md
-( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/investigating/e2e.md >/dev/null )
+mkf docs/design/2026-06-29-e2e/investigating.md
+( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-06-29-e2e/investigating.md >/dev/null )
 [ "$(ph)" = "propose" ] && ok "investigate→propose" || no "→propose ($(ph))"
-[ "$(prevout)" = '["docs/investigating/e2e.md"]' ] && ok "propose 照单读到 investigate 报告" || no "接力单 investigate→propose ($(prevout))"
+[ "$(prevout)" = '["docs/design/2026-06-29-e2e/investigating.md"]' ] && ok "propose 照单读到 investigate 报告" || no "接力单 investigate→propose ($(prevout))"
 
 # propose → design(给方案选定方向,钉接力单)
-mkf docs/design/e2e-direction.md
-( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/design/e2e-direction.md >/dev/null )
+mkf docs/design/2026-06-29-e2e/direction.md
+( cd "$WT" && bash "$FLOW" handoff --conclusion pass --produced docs/design/2026-06-29-e2e/direction.md >/dev/null )
 [ "$(ph)" = "design" ] && ok "propose→design(方向选定)" || no "→design ($(ph))"
 # design 跨两阶 reads:现状报告 + 方向都进 prev_outputs(照单读全,不自己找)
-[ "$(prevout)" = '["docs/investigating/e2e.md","docs/design/e2e-direction.md"]' ] \
+[ "$(prevout)" = '["docs/design/2026-06-29-e2e/investigating.md","docs/design/2026-06-29-e2e/direction.md"]' ] \
   && ok "design 照单读到 现状报告 + 选定方向" || no "接力单 propose→design ($(prevout))"
 
 # design 阶段:讨论中随手记书签(断点续传三源之一)
 ( cd "$WT" && bash "$NOTE" note set --text "边界:计费口径按自然月" >/dev/null ) && ok "design 讨论中 note 书签可记" || no "note 书签"
 # 设计成文(含空 Cross-Plan Contract Anchors 节,供 ③合同门机器核)
-mkdir -p "$WT/docs/design"
-printf '# e2e 设计\n\n方案主体。\n\n## Cross-Plan Contract Anchors\n<!-- 由 plan 阶段回填 -->\n' > "$WT/docs/design/e2e.md"
+mkdir -p "$WT/docs/design/2026-06-29-e2e"
+printf '# e2e 设计\n\n方案主体。\n\n## Cross-Plan Contract Anchors\n<!-- 由 plan 阶段回填 -->\n' > "$WT/docs/design/2026-06-29-e2e/2026-06-29-e2e.md"
 # design 内层 prototype：登记→走查→accepted；where 精确回到设计成文。
 (cd "$WT" && bash "$PROTOTYPE" start --kind logic --question "验证 e2e 状态模型" \
   --run "python docs/design/2026-06-29-e2e/prototype/demo.py" >/dev/null)
@@ -76,14 +76,14 @@ PROTO_WHERE="$(cd "$WT" && bash "$FLOW" where)"
 echo "$PROTO_WHERE" | grep -q 'prototype_status=accepted' \
   && ok "design:prototype accepted 后恢复到设计成文" || no "prototype accepted"
 # 设计预审(结果给用户参考,不是闸):命令级起得来即可
-( cd "$WT" && bash "$REVIEW" start --stage design --source docs/design/e2e.md >/dev/null 2>&1 ) && ok "设计预审 review start 起得来(参考,非闸)" || no "设计预审"
+( cd "$WT" && bash "$REVIEW" start --stage design --source docs/design/2026-06-29-e2e/2026-06-29-e2e.md >/dev/null 2>&1 ) && ok "设计预审 review start 起得来(参考,非闸)" || no "设计预审"
 # design 出口 = 唯一人闸:用户 /approve-design → mmw approve(盖指纹+过门+放权)
-APR="$(cd "$WT" && bash "$NOTE" approve --report docs/design/e2e.md)"
+APR="$(cd "$WT" && bash "$NOTE" approve --report docs/design/2026-06-29-e2e/2026-06-29-e2e.md)"
 echo "$APR" | grep -q "^APPROVED fingerprint=" && ok "approve 过门:盖承重指纹" || no "approve 指纹"
 [ "$(ph)" = "to-issue" ] && [ "$(gate)" = "null" ] && ok "过门→to-issue(不走 handoff pass)" || no "过门→to-issue ($(ph)/$(gate))"
 [ "$(att)" = "afk" ] && ok "过门自动切 afk(流水线态放权自主跑)" || no "过门切 afk ($(att))"
 echo "$(prevout)" | jq -e '
-  index("docs/design/e2e.md") != null and
+  index("docs/design/2026-06-29-e2e/2026-06-29-e2e.md") != null and
   index("docs/design/2026-06-29-e2e/prototype/README.md") != null and
   index("docs/design/2026-06-29-e2e/prototype/demo.py") != null
 ' >/dev/null && ok "to-issue 照单读到设计文档 + accepted prototype" || no "接力单 design→to-issue ($(prevout))"
@@ -94,7 +94,7 @@ mkd docs/issues/e2e
 [ "$(ph)" = "plan" ] && [ "$(gate)" = "null" ] && ok "to-issue→plan(无审闸)" || no "to-issue→plan ($(ph)/$(gate))"
 # plan reads [design,to-issue] → 一单读全(设计文档 + issue 骨架)
 echo "$(prevout)" | jq -e '
-  index("docs/design/e2e.md") != null and
+  index("docs/design/2026-06-29-e2e/2026-06-29-e2e.md") != null and
   index("docs/design/2026-06-29-e2e/prototype/README.md") != null and
   index("docs/design/2026-06-29-e2e/prototype/demo.py") != null and
   index("docs/issues/e2e/") != null
@@ -119,7 +119,7 @@ trace plan
   && bash "$LOOP" step done --id 1.1 >/dev/null ) && ok "build:执行账本走通(init/step add/done)" || no "build 账本"
 [ "$(cd "$WT" && bash "$LOOP" status)" = "steps=1/1 remaining=none" ] && ok "build:loop status 报完成度" || no "build status"
 # ③合同门:anchors 节为空 → 机器核实直接放行(不派审者)
-OUT3="$(cd "$WT" && bash "$REVIEW" start --stage plan-impl --source docs/design/e2e.md 2>/dev/null)"
+OUT3="$(cd "$WT" && bash "$REVIEW" start --stage plan-impl --source docs/design/2026-06-29-e2e/2026-06-29-e2e.md 2>/dev/null)"
 echo "$OUT3" | grep -q "CONTRACT_GATE_EMPTY" && ok "build:③合同门机器核 anchors 空→直接放行" || no "③合同门 ($OUT3)"
 # build 产物过 → ④终审闸(引擎强制;产出=真提交范围)
 RANGE="$(cd "$WT" && git rev-parse HEAD)..HEAD"

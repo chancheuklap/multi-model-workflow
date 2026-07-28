@@ -396,6 +396,16 @@ cmd_pin() {
     die "路径不存在,拒绝钉幽灵产出: $pp"
   done
   local produced_json; produced_json="$(printf '%s\n' "${ok[@]}" | jq -R . | jq -s .)"
+  # 设计阶段布局门(固定归脚本):design 产出必须全部在 docs/design/<slug>/ 内且含与文件夹同名的主文档
+  if [ "$phase" = "design" ]; then
+    local slug main found_main=0
+    slug="$(jq -r .slug "$m")"; main="docs/design/$slug/$slug.md"
+    for pp in "${ok[@]}"; do
+      case "$pp" in "docs/design/$slug/"*) ;; *) die "design 产出必须在 docs/design/$slug/ 单文件夹内:$pp" ;; esac
+      [ "$pp" = "$main" ] && found_main=1
+    done
+    [ "$found_main" = 1 ] || die "design 钉产出必须含主文档 $main(主文档与文件夹同名)"
+  fi
   jq --arg p "$phase" --argjson produced "$produced_json" \
     '.artifacts += $produced
      | .phase_outputs[$p] = (((.phase_outputs[$p] // []) + $produced) | unique)' \
@@ -541,17 +551,6 @@ cmd_where() {
   fi
   slug="$(jq -r '.slug' "$m")"
 
-  # Droid 兼容既有单文件/目录设计布局，但 where 必须解析成一条真实路径，不把二选一留给 agent。
-  local design_base design_main design_folder_main top_design pinned_design
-  design_base="$(jq -r '.docs.design // empty' "$m")"
-  design_main="${design_base}.md"
-  design_folder_main="$design_base/$(basename "$design_base").md"
-  top_design="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
-  [ -n "$top_design" ] && [ -f "$top_design/$design_folder_main" ] && design_main="$design_folder_main"
-  while IFS= read -r pinned_design; do
-    case "$pinned_design" in "$design_main"|"${design_base}.md"|"$design_folder_main") design_main="$pinned_design" ;; esac
-  done < <(jq -r '(.phase_outputs.design // [])[]' "$m")
-
   # design 内层 prototype：phase 不变，但 load/do/then 必须恢复到精确轮次，不能让 agent 重建或误走 handoff。
   local prototype_status="" prototype_untracked="" prototype_adopt_args="" prototype_rel
   if [ "$phase" = design ] && { [ "$gate" = null ] || [ -z "$gate" ]; }; then
@@ -623,7 +622,7 @@ cmd_where() {
         fi
         ;;
       accepted)
-        then_cmd="$MMW pin --phase design --produced ${design_main}；然后起设计预审并请用户 /approve-design"
+        then_cmd="$MMW pin --phase design --produced docs/design/$slug/$slug.md；然后起设计预审并请用户 /approve-design"
         ;;
       "")
         if [ -n "$prototype_untracked" ]; then

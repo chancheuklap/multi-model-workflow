@@ -121,7 +121,7 @@ validate_task_root() {
 }
 
 design_companions() {
-  local m top man rel design_rel task_root selected investigating_rel prefix
+  local m top man rel design_rel task_root selected prefix
   top="$(git -C "$1" rev-parse --show-toplevel 2>/dev/null || true)"
   [ -n "$top" ] || return 0
   man="$(mmw_prototype_manifest_from_top "$top")" || return 0
@@ -133,15 +133,9 @@ design_companions() {
     case "$1" in */"$prefix") task_root="${1%/"$prefix"}" ;; esac
   fi
   validate_task_approval "$task_root" "$man" || return 1
-  emit_companion_rel "$task_root" "$design_rel/evidence" || return 1
-  emit_companion_rel "$task_root" "$design_rel/direction.md" || return 1
-  emit_companion_rel "$task_root" "${design_rel}-direction.md" || return 1
-  investigating_rel="$(jq -r '.docs.investigating // empty' "$man")"
-  if [ -n "$investigating_rel" ]; then
-    emit_companion_rel "$task_root" "$investigating_rel" || return 1
-    emit_companion_rel "$task_root" "${investigating_rel}.md" || return 1
-  fi
-  emit_companion_rel "$task_root" "$design_rel/investigating.md" || return 1
+  for m in evidence direction.md investigating.md; do
+    emit_companion_rel "$task_root" "$design_rel/$m" || return 1
+  done
   selected="$(mmw_prototype_selected_relpaths "$man")" || return 1
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
