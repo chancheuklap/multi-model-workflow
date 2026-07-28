@@ -21,6 +21,7 @@
    ```
    `--entry-capability` 可重复，取值为 `explicit-request`、`durable-state`、`design-approval`、`coordinated-delivery`、`gated-assurance`、`multi-result-integration`；至少传一个。不要把“新功能 / 根因不明 / 多文件”当证据。回执给出 `worktree_path`;prepare 把入口依据和阶段序列固化进 manifest。
    仅 develop:用户开口已带明确方向(不用再摆备选)→ 加 `--direction-given`,propose 阶段引擎自动降级(`where` 的 `do` 会照 manifest 报降级指令:只落方向文档+一个最强对照,不重摆 2-3 方案)。
+   大任务拆并行子任务:允许在任务 worktree 内直接跑 `task new`。新 worktree 一律挂到主仓库 `.claude/worktrees/` 下(扁平,不做目录嵌套),但分支从**当前 worktree 的 HEAD** 分叉,子任务因此继承父任务已完成的进度;父子关系写进两边 manifest 的 `parent` 与 `child_tasks`,供 `team` 视图和合并顺序溯源。清理仍需回主仓库(`cleanup` 不能删自己脚下的目录)。
    仅 develop:终点明确但整件事还在雾里(连要决定什么都还没理清、单会话装不下)→ 加 `--with-wayfind`:phases 前加 wayfind 探路阶段,先与用户逐个拍清决策再进 investigate(`where` 会把 `load` 指到 `references/wayfind.md`)。
 
 3. **进 worktree**(只有这步能切会话 cwd,脚本切不了):
