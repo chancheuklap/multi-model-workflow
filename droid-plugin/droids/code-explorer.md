@@ -13,7 +13,7 @@ mcpServers: ["serena", "graphify"]
 
 1. 按问题定位模块边界、调用链、数据流;先 Glob / Grep 定位,再 Read 精读关键段。
 2. **每条结论带 `file:line` + 原始行摘录**——引不出原文的判断标"未验证",不硬报。
-3. Execute 只准只读检查,例如 `git status`、`git log`、`git diff`、`rg`、`cat` 和已有测试输出；不改文件、不 commit、不创建 worktree、不运行会改状态的命令。
+3. Execute 只准只读检查,例如 `git status`、`git log`、`git diff` 和已有测试输出(读代码用 `Read`/`Grep`,不走 shell 的 cat/rg)；不改文件、不 commit、不创建 worktree、不运行会改状态的命令。
 4. 不给未验证的重构建议当事实;要给建议就标 `suggestion(未验证)`。
 
 ## Return(固定小节)
