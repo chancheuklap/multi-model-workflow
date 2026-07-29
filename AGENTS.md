@@ -2,80 +2,59 @@
 
 ## 仓库范围
 
-本仓库发布同一套多模型开发编排的四个单宿主实现。四个实现共享产品语义，但宿主接线、状态目录、角色派发和部分文件布局各自独立；运行时不得互相探测或调用。
+本仓库是同一套多模型开发编排的四个单宿主实现：共享产品语义，接线、状态目录、派发后端各自独立；运行时不得互相探测或调用。
 
-| 宿主 | 活跃目录 | 发布入口 | 状态目录 | 任务 worktree | 角色执行后端 |
+| 宿主 | 源码目录 | 发布入口 | 状态目录 | 任务 worktree | 角色执行后端 |
 | --- | --- | --- | --- | --- | --- |
-| Claude Code | `plugin/` | `plugin/.claude-plugin/plugin.json`、`.claude-plugin/marketplace.json` | `.claude/multi-model-workflow/` | `.claude/worktrees/` | Codex CLI 工人和宿主 sub-agent 审者 |
-| Factory Droid | `droid-plugin/` | `droid-plugin/.factory-plugin/plugin.json`、`.factory-plugin/marketplace.json` | `.factory/multi-model-workflow/` | `.factory/worktrees/` | `droid exec` 和 Custom Droids |
-| pi | `pi-plugin/` | `pi-plugin/package.json` | `.pi/multi-model-workflow/` | `.pi/worktrees/` | pi-subagents 注册角色和动态 workflows |
-| Cursor | `cursor-plugin/` | `cursor-plugin/.cursor-plugin/plugin.json`、根 `.cursor-plugin/marketplace.json` | `.cursor/multi-model-workflow/` | `.cursor/worktrees/`（工人）；任务 wt 常由 UI 悬空创建后 `mmw task adopt` | Cursor Task + `~/.cursor/agents` |
+| Claude Code | `plugin/` | `plugin/.claude-plugin/plugin.json`、`.claude-plugin/marketplace.json` | `.claude/multi-model-workflow/` | `.claude/worktrees/` | Codex CLI 工人 + 宿主 sub-agent 审者 |
+| Factory Droid | `droid-plugin/` | `droid-plugin/.factory-plugin/plugin.json`、`.factory-plugin/marketplace.json` | `.factory/multi-model-workflow/` | `.factory/worktrees/` | `droid exec` + Custom Droids |
+| pi | `pi-plugin/` | `pi-plugin/package.json` | `.pi/multi-model-workflow/` | `.pi/worktrees/` | pi-subagents + 动态 workflows |
+| Cursor | `cursor-plugin/` | `cursor-plugin/.cursor-plugin/plugin.json`、根 `.cursor-plugin/marketplace.json` | `.cursor/multi-model-workflow/` | `.cursor/worktrees/`（任务 wt 常 UI 悬空创建后 `mmw task adopt`） | Cursor Task + `~/.cursor/agents` |
 
-`archive/plugin-v1/` 是冻结归档，不参与当前行为判断、构建或测试；没有明确指令时不修改。
+`archive/plugin-v1/` 冻结归档：不参与行为判断、构建或测试；无明确指令不改。
 
 ## 当前工作流
 
-各宿主的 `state-schema/routes.json` 固化阶段、结论词、审闸和场景预设，`scripts/mmw.sh` 是统一命令入口。
+阶段、结论词、审闸、场景预设以各宿主 `state-schema/routes.json` 为准；统一入口 `scripts/mmw.sh`。
 
 | 场景 | 阶段 |
 | --- | --- |
 | `small-change` | build → final review → closing |
 | `bug` | investigate → build → final review → closing |
 | `develop` | 可选 wayfind → investigate → propose → design → to-issue → plan → plan review → build → final review → package → closing |
-| `merge` | 不创建任务 worktree，单独处理业务意图与实现冲突 |
+| `merge` | 不建任务 worktree；单独处理意图与实现冲突 |
 
-- 开始或续跑正式任务时，先运行对应宿主的 `bash <plugin>/scripts/mmw.sh where`，再按它返回的 `load`、`do`、`then` 行动。
-- propose 和 design 承担人机对齐。设计只接受用户执行 `/approve-design` 过门；口头同意不推进。
-- 计划审和终审是模型闸。终审按场景和风险分档：small-change/bug 用一个独立 GPT 审者覆盖两基线；develop 无 capable plan 且 diff 不超过阈值时用两个跨模型审者，其余及数据不全时用四个。package 有目标安装包时，开发模式功能测试和安装后测试仍需负责人确认。
-- 状态、接力单、审查 brief、执行账本和进度板只认对应宿主的状态目录。
+- 正式任务先跑该宿主 `bash <源码目录>/scripts/mmw.sh where`（Cursor 本机也可用引擎根下 `mmw.sh`），按 `load` / `do` / `then` 行动。
+- 设计只认 `/approve-design`；口头同意不过门。计划审与终审是模型闸（终审分档见 routes / runtime-contract）。package 有目标安装包时，功能测试与安装后测试仍需负责人确认。
+- 状态、接力单、brief、账本、进度板只认该宿主状态目录。
 
 ## 事实源
 
-判断当前行为时按以下顺序核对同一宿主：
+同一宿主内按序核对：manifest / package → `state-schema/*.json` → `scripts/`、`hooks/`（pi 另含 `extensions/`、`workflows/`）→ `scripts/tests/`、`build/tests/` → 运行时 Markdown。
 
-1. manifest 或 package 配置。
-2. `state-schema/*.json`。
-3. `scripts/`、`hooks/`、pi 的 `extensions/` 与 `workflows/`。
-4. `scripts/tests/` 和 `build/tests/`。
-5. 运行时 Markdown 源码。
+四宿主不必逐字一致；共性行为变更要四个都查。宿主专属路径、工具名、生命周期、派发后端禁止抄成兼容分支。
 
-不要假设四个镜像逐字一致。共同业务行为发生变化时逐个检查四个镜像；宿主专属路径、工具名、生命周期和派发后端不得复制成兼容分支。
+根文档只保留 `AGENTS.md`、`CLAUDE.md`、`TESTING.md`。勿新增 README / 架构 / 设计 / 调查 / 计划 / 审查类仓库说明。长期规则写本文件；运行行为写对应宿主 runtime 与测试。
 
-仓库只维护 `AGENTS.md`、`CLAUDE.md` 和 `TESTING.md` 三份根文档。不要新增 README、独立架构文档、设计文档、调查报告、计划或审查记录；长期项目规则写入本文件，运行行为写入对应 runtime 源码和测试。
-
-以下 Markdown 是 plugin 会直接加载或生成的运行时源码，不属于仓库说明文档：
-
-- Claude Code：`plugin/agents/`、`plugin/commands/`、`plugin/skills/`、`plugin/build/fragments/`。
-- Droid：`droid-plugin/droids/`、`droid-plugin/commands/`、`droid-plugin/skills/`、`droid-plugin/build/fragments/`。
-- pi：`pi-plugin/agents-roster/`、`pi-plugin/prompts/`、`pi-plugin/skills/`、`pi-plugin/build/fragments/`。
-- Cursor：`cursor-plugin/` 是唯一源码树（含 agents、commands、skills、hooks、scripts、`build/fragments/`）。运行时**不**经 `~/.cursor/plugins/local` 加载；install 后生效面在用户级原生目录与引擎树（见下条）。仓库内 `.cursor-plugin/plugin.json` 与根 marketplace 仍作版本/发布入口，不作为本机发现面。
+运行时 Markdown（宿主加载或 Cursor install 后生效，不是说明文档）在各宿主 `agents|droids|agents-roster`、`commands`、`skills`、`build/fragments/`（pi 另有 `prompts/`；Cursor 源码整树在 `cursor-plugin/`，本机生效面见下）。
 
 ## 修改规则
 
-- 改任一宿主前先读该宿主的 `skills/orchestrate/SKILL.md`、它指向的完整 reference、对应脚本和测试。
-- 编写、修改或审查测试前先读根目录 `TESTING.md`，按其中的本仓库分层、接缝、权威源和门控执行。
-- 共用片段只改各宿主的 `build/fragments/*.md`，然后对该宿主运行 `build/build.sh --apply` 和 `--check`；带 `<!-- BEGIN: ... -->` 锚点的生成区不得手改。
-- 每个宿主的两份 `task-pack.md` 是实体副本，必须保持一致并通过 `test_shared_refs_sync.sh`。
-- pi 的 GPT 角色公共提示词只改 `pi-plugin/agents-roster/_fragments/`，随后运行 `python3 pi-plugin/scripts/render_agent_prompts.py`；Claude provider 角色不经过该渲染器。
-- pi 的动态 workflow 以 `pi-plugin/workflows/*.workflow.js` 为源；修改后运行 `bash pi-plugin/workflows/install-workflows.sh` 生成 `dist/*.json`，再用 `--check` 验证。
-- Claude Code 版本同时更新 plugin manifest、marketplace 中的 plugin 版本和 marketplace 根版本。Droid 版本同时更新 plugin manifest 与 marketplace。pi 版本以 `pi-plugin/package.json` 为准。Cursor 版本同时更新 `cursor-plugin/.cursor-plugin/plugin.json` 与根 `.cursor-plugin/marketplace.json`（install 会把 manifest 同步进引擎树供 session-triage / prepare 读版本）。
-- **Cursor 运行时合同（原生路径）**：
-  - 源码只改仓库 `cursor-plugin/`；本机生效靠 `bash cursor-plugin/scripts/install-local-surface.sh` **复制**（不软链）：`agents` → `~/.cursor/agents/`，`skills` → `~/.cursor/skills/`，`commands` → `~/.cursor/commands/`，`rules` → `~/.cursor/rules/`，hooks 脚本 → `~/.cursor/hooks/`；合并用户级 `~/.cursor/hooks.json` 与 `~/.cursor/mcp.json`（保留非 MMW 条目）；引擎树 → `~/.cursor/multi-model-workflow-engine/`（`scripts/`、`state-schema/`、`config/`、`skills/graphify/`、`.cursor-plugin/plugin.json`）。`MMW_ENGINE_ROOT` 可覆盖引擎根。
-  - 角色花名册以 `~/.cursor/agents/<name>.md` frontmatter 为准（`model` 含 `id[effort=…]`、`is_background`）；Task 派发只传 `subagent_type`（+prompt/background），不另塞 `model`。详细路径与工具合同见 `cursor-plugin/skills/orchestrate/references/control/runtime-contract.md`。
-  - 改源码后必须再跑 install，然后 Reload Window。不要同时启用旧的 local plugin 包与用户级 agents，以免双注册。
-  - 任务仓状态平面仍是 `.cursor/multi-model-workflow/`（与用户级组件目录分开）。
-- 不用旧宿主残留、兼容目录或静默默认值掩盖错误。脚本异常必须返回非零或留下结构化告警。
+- 改宿主前读该宿主 `skills/orchestrate/SKILL.md`、完整 reference、脚本与测试。测前读根 `TESTING.md`。
+- 共用片段只改 `build/fragments/*.md`，再对该宿主 `build/build.sh --apply` 与 `--check`；锚点生成区禁手改。两份 `task-pack.md` 必须一致（`test_shared_refs_sync.sh`）。
+- pi：GPT 公共提示词改 `agents-roster/_fragments/` 后跑 `render_agent_prompts.py`；workflow 改 `workflows/*.workflow.js` 后跑 `install-workflows.sh`（含 `--check`）。
+- 版本：Claude 同步 plugin manifest + marketplace（含根版本）；Droid 同步 plugin + marketplace；pi 以 `package.json` 为准；Cursor 同步 `cursor-plugin/.cursor-plugin/plugin.json` 与根 `.cursor-plugin/marketplace.json`。
+- **Cursor**：源码只改 `cursor-plugin/`。本机跑 `bash cursor-plugin/scripts/install-local-surface.sh` 复制到 `~/.cursor/{agents,skills,commands,rules,hooks}`，合并 `hooks.json` / `mcp.json`，引擎树落到 `~/.cursor/multi-model-workflow-engine/`（可用 `MMW_ENGINE_ROOT`）。花名册 frontmatter（`model` 含 `id[effort=…]`、`is_background`）生效；Task 只传 `subagent_type`（+prompt/background）。细合同见 `cursor-plugin/skills/orchestrate/references/control/runtime-contract.md`。改完须再 install + Reload；运行时不以 `plugins/local` 为发现面。
+- 不用旧残留、兼容目录或静默默认值掩盖错误；脚本异常须非零退出或结构化告警。
 
 ## Git 与安全
 
-- 正式改动在独立 worktree 完成；合回主分支使用 `git merge --no-ff`，禁止 `git merge --squash`。
-- 写码工人不得修改 `docs/`；计划工人只可修改自己的 plan 和对应 issue，边界由 `worker verify`、`worker status` 或 `plan-check` 核验。
-- 本地 commit 和本地 merge 可自主执行。`git push`、远端 PR 合并和部署必须由用户批准；无交互界面时红线动作失败关闭。
-- 子代理输出不是事实源。路径、行号、计数、提交和测试结论写入交付前必须由主线程复核。
+- 正式改动在独立 worktree；合回主分支用 `git merge --no-ff`，禁止 squash。
+- 写码工人禁改 `docs/`；计划工人只改自己的 plan 与对应 issue（`worker verify` / `plan-check`）。
+- 本地 commit / merge 可自主；`git push`、远端合并、部署须用户批准。
+- 子代理输出不是事实源；承重定位与测试结论写入前由主线程复核。
 
 ## 构建与测试
-
-四个宿主都要通过片段漂移检查和完整 shell 测试：
 
 ```bash
 for host in plugin droid-plugin pi-plugin cursor-plugin; do
@@ -85,23 +64,15 @@ for host in plugin droid-plugin pi-plugin cursor-plugin; do
     bash "$test_file" || exit 1
   done
 done
-```
 
-Release 合同的 Python 测试要覆盖四个宿主：
-
-```bash
 for host in plugin droid-plugin pi-plugin cursor-plugin; do
   uv run --with pytest --with pydantic pytest \
     "$host/scripts/tests/test_release_contracts.py" \
     "$host/scripts/tests/test_release_script_assembler.py" || exit 1
 done
-```
 
-pi 还要通过两道生成物同步检查：
-
-```bash
 python3 pi-plugin/scripts/render_agent_prompts.py --check
 bash pi-plugin/workflows/install-workflows.sh --check
 ```
 
-提交前运行 `git diff --check`，并用 `python3 -m json.tool` 校验本次修改涉及的 JSON。
+提交前：`git diff --check`；本次改动的 JSON 用 `python3 -m json.tool` 校验。
