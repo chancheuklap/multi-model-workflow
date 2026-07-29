@@ -29,7 +29,9 @@
     "repair_fingerprint": { "overlap": 0.6, "rounds": 2 },
     "max_repair_rounds": 3,
     "turnaround_same_phase": 2,
-    "unattended_wall_clock_seconds": 10800
+    "discussion_phases": ["wayfind", "investigate", "propose", "design"],
+    "unattended_wall_clock_seconds": 10800,
+    "note": "开发主循环打转守卫。判据A:审闸返工时本轮 accepted findings 指纹(文件+归一化签名,行号不计)与上一轮实质重合≥overlap、连续 rounds 轮 → 打转(计数对象是同一 finding 重现,不是返工轮数——三轮修三个不同缺陷是健康迭代);判据C:审闸 needs-repair 使 repair_count 超过 max_repair_rounds → GUARD=repair-round-cap(绝对轮次天花板,防换一批品味 finding 无限磨);判据B:流水线态源头(掉头时所在阶段不在 discussion_phases)同一 to-phase 掉头达 turnaround_same_phase → 方向横跳打转。触发动作分 attendance:attended/afk→waiting-user(不锁死,复核后 resume 续),unattended→blocked 硬停写板。讨论态源头掉头/返工豁免(只 WARN)。unattended_wall_clock_seconds:落地账本墙钟软预算,超了 loop status 亮 BUDGET-EXCEEDED(只报不硬杀)。"
   },
 
   "start_options": [

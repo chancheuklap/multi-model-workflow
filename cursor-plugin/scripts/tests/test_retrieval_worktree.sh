@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MMW worktree 初始化合同：项目 hook 优先；普通仓库走用户级 pi-graphify-ensure。
+# MMW worktree 初始化合同：项目 hook 优先；普通仓库走插件内 graphify ensure。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -12,21 +12,24 @@ no() { echo "not ok - $1"; fail=1; }
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-BIN="$TMP/bin with space"
-mkdir -p "$BIN"
+
+# 伪造插件根：ensure 写成可记录参数的 stub，不依赖 PATH。
+FAKE_PLUGIN="$TMP/fake-plugin"
+mkdir -p "$FAKE_PLUGIN/skills/graphify/scripts"
+export CURSOR_PLUGIN_ROOT="$FAKE_PLUGIN"
 export PI_GRAPHIFY_TEST_LOG="$TMP/graph-manager.args"
-cat >"$BIN/pi-graphify-ensure" <<'SH'
-#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\n' "$@" >"$PI_GRAPHIFY_TEST_LOG"
-if [ "${PI_GRAPHIFY_TEST_FAIL:-0}" = 1 ]; then
-  echo 'fixture graph failure' >&2
-  exit 7
-fi
-echo 'REUSED fixture warnings=0'
-SH
-chmod +x "$BIN/pi-graphify-ensure"
-export PATH="$BIN:$PATH"
+cat >"$FAKE_PLUGIN/skills/graphify/scripts/graphify_ensure.py" <<'PY'
+#!/usr/bin/env python3
+import os, sys
+log = os.environ["PI_GRAPHIFY_TEST_LOG"]
+with open(log, "w", encoding="utf-8") as f:
+    f.write("\n".join(sys.argv[1:]) + "\n")
+if os.environ.get("PI_GRAPHIFY_TEST_FAIL") == "1":
+    print("fixture graph failure", file=sys.stderr)
+    raise SystemExit(7)
+print("REUSED fixture warnings=0")
+PY
+chmod +x "$FAKE_PLUGIN/skills/graphify/scripts/graphify_ensure.py"
 
 REPO="$TMP/repo"
 TARGET="$TMP/target"
@@ -54,7 +57,7 @@ if mmw_prepare_worktree "$REPO" "$TARGET" >"$TMP/hook.out" 2>"$TMP/hook.err" \
   && [ "$(cat "$TARGET/.cursor/init-source")" = "$REPO" ] \
   && [ "$(cat "$TARGET/.cursor/init-target")" = "$TARGET" ] \
   && [ ! -e "$PI_GRAPHIFY_TEST_LOG" ]; then
-  ok "project worktree hook wins over generic graph manager"
+  ok "project worktree hook wins over plugin ensure"
 else
   no "project worktree hook precedence"
 fi
@@ -90,26 +93,27 @@ if mmw_prepare_worktree "$PLAIN" "$PLAIN_TARGET" >"$TMP/plain.out" 2>"$TMP/plain
   && [ ! -s "$TMP/plain.out" ] \
   && [ "$(cat "$PI_GRAPHIFY_TEST_LOG")" = "$EXPECTED_ARGS" ] \
   && grep -q 'REUSED fixture' "$TMP/plain.err"; then
-  ok "hook-free repository uses generic graph manager with space-safe paths"
+  ok "hook-free repository uses plugin ensure with space-safe paths"
 else
-  no "generic graph fallback contract"
+  no "plugin ensure fallback contract"
 fi
 
 if PI_GRAPHIFY_TEST_FAIL=1 mmw_prepare_worktree "$PLAIN" "$PLAIN_TARGET" >"$TMP/generic-fail.out" 2>"$TMP/generic-fail.err" \
   && [ ! -s "$TMP/generic-fail.out" ] \
   && grep -q 'fixture graph failure' "$TMP/generic-fail.err" \
   && grep -q '通用图谱初始化失败' "$TMP/generic-fail.err"; then
-  ok "generic graph failure is visible and non-blocking"
+  ok "plugin ensure failure is visible and non-blocking"
 else
-  no "generic graph failure contract"
+  no "plugin ensure failure contract"
 fi
 
-if PATH="/usr/bin:/bin" mmw_prepare_worktree "$PLAIN" "$PLAIN_TARGET" >"$TMP/missing.out" 2>"$TMP/missing.err" \
+rm -f "$FAKE_PLUGIN/skills/graphify/scripts/graphify_ensure.py"
+if mmw_prepare_worktree "$PLAIN" "$PLAIN_TARGET" >"$TMP/missing.out" 2>"$TMP/missing.err" \
   && [ ! -s "$TMP/missing.out" ] \
-  && grep -q '找不到 pi-graphify-ensure' "$TMP/missing.err"; then
-  ok "missing graph manager is visible and non-blocking"
+  && grep -q '找不到插件内 graphify ensure' "$TMP/missing.err"; then
+  ok "missing plugin ensure is visible and non-blocking"
 else
-  no "missing graph manager contract"
+  no "missing plugin ensure contract"
 fi
 
 exit "$fail"

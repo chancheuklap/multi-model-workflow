@@ -11,6 +11,18 @@
         "MMW_SERENA_LAUNCHER": "v3-bash-home"
       }
     },
+    "graphify": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "set -euo pipefail; SCRIPT=\"$HOME/.cursor/plugins/local/multi-model-workflow-cursor/scripts/graphify-mcp.sh\"; if [ ! -x \"$SCRIPT\" ]; then for d in \"$HOME\"/.cursor/plugins/*/*/multi-model-workflow-cursor \"$HOME\"/.cursor/plugins/*/multi-model-workflow-cursor; do [ -x \"$d/scripts/graphify-mcp.sh\" ] || continue; SCRIPT=\"$d/scripts/graphify-mcp.sh\"; break; done; fi; [ -x \"$SCRIPT\" ] || { echo \"ERROR: graphify-mcp.sh not found under $HOME/.cursor/plugins\" >&2; exit 2; }; exec \"$SCRIPT\""
+      ],
+      "env": {
+        "GRAPHIFY_PROJECT": "${workspaceFolder}",
+        "SERENA_PROJECT": "${workspaceFolder}",
+        "MMW_GRAPHIFY_LAUNCHER": "v1-bash-home"
+      }
+    },
     "context7": {
       "command": "npx",
       "args": ["-y", "@upstash/context7-mcp"],

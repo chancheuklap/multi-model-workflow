@@ -2,7 +2,7 @@
   "name": "multi-model-workflow-cursor",
   "displayName": "Multi-Model Workflow (Cursor)",
   "description": "Cursor 原生多模型开发编排:方向和设计集中对齐,计划起自主跑。Subagent 分角色、多模型审闸、worktree 隔离、断点续传、打包发布与完整控制面。",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "author": {
     "name": "Cheuk Lap Chan",
     "email": "chancheuklapincn@gmail.com"

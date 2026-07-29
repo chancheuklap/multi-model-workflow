@@ -52,6 +52,11 @@ approval_check() {  # $1=manifest
   return 1
 }
 
+# 讨论态阶段(routes.loop_guards.discussion_phases)自由往返/返工,豁免打转守卫。返回 0=讨论态。
+is_discussion_phase() {  # $1=phase
+  jq -e --arg p "$1" '(.loop_guards.discussion_phases // ["wayfind","investigate","propose","design"]) | index($p) != null' "$ROUTES" >/dev/null 2>&1
+}
+
 # 打转守卫:从审查留痕提取 accepted findings 的缺陷签名(sev|文件基名|归一化关键词)。
 # 行号只作弱信号不入签名——返工改代码会挪行号,锚 file:line 会把同一缺陷误判成新缺陷而放过真打转。
 finding_sigs() {  # $1=trace → stdout: 排序去重的签名行
@@ -211,8 +216,11 @@ cmd_handoff() {
       new_rc=$(( rc + 1 ))
       next_action="repair"; next_phase="$cur_phase"
       human="[$cur_phase] 原地返工(第 $new_rc 轮)"
-      if [ "$new_rc" -ge 3 ]; then
-        warns+=("[$cur_phase] 已返工 $new_rc 轮:每轮向用户汇报卡点/根因/下一步再继续,持续打转要主动交人")
+      if is_discussion_phase "$cur_phase"; then
+        [ "$new_rc" -ge 3 ] && warns+=("[$cur_phase] 已返工 $new_rc 轮(讨论态自由返工):向用户讲清卡点/根因再继续")
+      elif [ -z "$gate" ]; then
+        # 非审闸的流水线返工(主线程自己的迭代,没有 findings 可比):只 WARN 留痕不机器判打转
+        [ "$new_rc" -ge 3 ] && warns+=("[$cur_phase] 已返工 $new_rc 轮:每轮向用户汇报卡点/根因/下一步再继续,持续打转要主动交人")
       fi
       # 判据C:审闸返工绝对轮次天花板
       if [ -n "$gate" ] && [ "$new_rc" -gt "$LG_MAX" ]; then
@@ -274,22 +282,20 @@ cmd_handoff() {
         proto_redirect=true
         warns+=("design 掉头:prototype 已标记 superseded(redirected);重定方向回 design 后照 where 用 prototype start 开新一轮,轮次顺延")
       fi
-      if [ "$new_tc" -ge 2 ]; then
-        warns+=("已掉头 $new_tc 次:先向用户讲清楚这次为什么又要回头,再继续")
+      # 判据B:流水线态源头同向掉头达阈 = 方向横跳打转(讨论态源头自由往返不记账——routes description 既定决策;按 to-phase 分桶)
+      if is_discussion_phase "$cur_phase"; then
+        [ "$new_tc" -ge 2 ] && warns+=("已掉头 $new_tc 次(讨论态往返自由):先讲清这次为何又回头再继续")
+      else
+        ta_phase="$tgt_phase"
+        ta_n_json=$(( $(jq -r --arg p "$tgt_phase" '.turnaround_ledger[$p] // 0' "$m") + 1 ))
+        if [ "$ta_n_json" -ge "$LG_TA" ]; then
+          guard_kind="turnaround-same-phase"; guard_mode="$(jq -r '.attendance // "attended"' "$m")"
+          guard_detail="方向反复横跳:已第 $ta_n_json 次掉头回 [$tgt_phase](流水线态同一上游被反复回退)"
+          ta_n_json=0   # 触发即清零(去抖)
+        else
+          warns+=("[$cur_phase] 回 [$tgt_phase] 第 $ta_n_json 次(达 $LG_TA 次打转守卫交人):方向若反复横跳会被强制交人")
+        fi
       fi
-      # 判据B:流水线态同向掉头达阈 = 方向横跳打转;讨论态(wayfind/investigate/propose/design)自由往返不记账(routes.json 既定决策)
-      case "$cur_phase" in
-        wayfind|investigate|propose|design) : ;;
-        *)
-          ta_phase="$tgt_phase"
-          ta_n_json=$(( $(jq -r --arg p "$tgt_phase" '.turnaround_ledger[$p] // 0' "$m") + 1 ))
-          if [ "$ta_n_json" -ge "$LG_TA" ]; then
-            guard_kind="turnaround-same-phase"; guard_mode="$(jq -r '.attendance // "attended"' "$m")"
-            guard_detail="方向反复横跳:已第 $ta_n_json 次掉头回 [$tgt_phase](流水线态同一上游被反复回退)"
-            ta_n_json=0   # 触发即清零(去抖)
-          fi
-          ;;
-      esac
       ;;
     needs-context)
       new_status="waiting-user"; next_action="ask-user"; next_phase="$cur_phase"; new_step="$cur_step"

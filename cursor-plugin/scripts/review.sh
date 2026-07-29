@@ -4,7 +4,7 @@
 #   start --stage <design|plan|plan-impl|final|merge-impl> --source <源意图路径/描述>
 #       按阶段定视角与审者编制,把审派发指南写进状态目录 review-brief.md(主线程读它直接派审者)。
 #       审者=Cursor 会话内用并行 Task 派发(subagent_type=花名册角色名,
-#       model/工具白名单由 agents/*.md frontmatter 提供),读已装的 worktree-review skill；④final 按场景/风险分档。
+#       model 必须显式传入——插件加载 stripModel；工具白名单仍看 agents/*.md),读已装的 worktree-review skill；④final 按场景/风险分档。
 #   clean-check --worktree <路径> --baseline <工作树指纹>
 #       审收口边界闸(写者≠审者的硬实现):审后 HEAD、tracked diff、
 #       untracked 文件集合与内容必须和审前完全一致；审前已有设计稿可保留。
@@ -74,55 +74,62 @@ cmd_clean_check() {
 
 dispatch_for() {
   local stage="$1" source="$2" skill="$3" scen="$4" tier="$5"
+  local ma mb
+  ma="$(mmw_agent_model reviewer-final-a)" || die "读不到 reviewer-final-a model"
+  mb="$(mmw_agent_model reviewer-final-b)" || die "读不到 reviewer-final-b model"
   case "$stage" in
     design)
+      ma="$(mmw_agent_model reviewer-design-a)" || die "读不到 reviewer-design-a model"
+      mb="$(mmw_agent_model reviewer-design-b)" || die "读不到 reviewer-design-b model"
       cat <<EOF
 同轮并行多个 Task(subagent_type=reviewer-design-a/b,各自干净 context):
-- Task({subagent_type:"reviewer-design-a", ...}) 负责轴A 设计内容
-- Task({subagent_type:"reviewer-design-b", ...}) 负责轴B 项目对齐
-每个 Task(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=design 审;Source:$source;只负责指定轴;按 Return Contract 回结构化 findings。
+- Task({subagent_type:"reviewer-design-a", model:"$ma", run_in_background:true, ...}) 负责轴A 设计内容
+- Task({subagent_type:"reviewer-design-b", model:"$mb", run_in_background:true, ...}) 负责轴B 项目对齐
+每个 Task(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=design 审;Source:$source;只负责指定轴;按 Return Contract 回结构化 findings。插件加载会 stripModel，必须显式传 model。
 EOF
       ;;
     plan)
+      ma="$(mmw_agent_model reviewer-plan-a)" || die "读不到 reviewer-plan-a model"
+      mb="$(mmw_agent_model reviewer-plan-b)" || die "读不到 reviewer-plan-b model"
       cat <<EOF
 同轮并行多个 Task(subagent_type=reviewer-plan-a/b,写者与审者分离(计划由 plan-writer 写,审者另派)):
-- Task({subagent_type:"reviewer-plan-a", ...}) 负责轴A 覆盖与质量
-- Task({subagent_type:"reviewer-plan-b", ...}) 负责轴B 合规与交叉验证
-每个 Task(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=plan 审;Source:$source;只负责指定轴;按 Return Contract 回结构化 findings。
+- Task({subagent_type:"reviewer-plan-a", model:"$ma", run_in_background:true, ...}) 负责轴A 覆盖与质量
+- Task({subagent_type:"reviewer-plan-b", model:"$mb", run_in_background:true, ...}) 负责轴B 合规与交叉验证
+每个 Task(纯路由,不内联审查方法):读 $skill/SKILL.md,按 stage=plan 审;Source:$source;只负责指定轴;按 Return Contract 回结构化 findings。插件加载会 stripModel，必须显式传 model。
 EOF
       ;;
     final)
       if [ "$scen" = "small-change" ] || [ "$scen" = "bug" ]; then
         cat <<EOF
 单次 Task 派一个独立审者一肩挑两条基线:
-- Task({subagent_type:"reviewer-final-a", ...}) 先基线2独立代码审计,再基线1回归+意图
-每个 Task(纯路由):读 $skill/SKILL.md,按 stage=final 审;Source:$source;覆盖两条基线,先跑基线2(不看 plan 全新眼光审 diff),再跑基线1(对意图逐条);按 Return Contract 回结构化 findings。
+- Task({subagent_type:"reviewer-final-a", model:"$ma", run_in_background:true, ...}) 先基线2独立代码审计,再基线1回归+意图
+每个 Task(纯路由):读 $skill/SKILL.md,按 stage=final 审;Source:$source;覆盖两条基线,先跑基线2(不看 plan 全新眼光审 diff),再跑基线1(对意图逐条);按 Return Contract 回结构化 findings。插件加载会 stripModel，必须显式传 model。
 EOF
       elif [ "$tier" -eq 2 ]; then
         cat <<EOF
 同轮并行多个 Task(两个独立跨模型审者,两条基线各一个模型):
-- Task({subagent_type:"reviewer-final-a", ...}) label=基线1(回归+意图+跨plan)
-- Task({subagent_type:"reviewer-final-b", ...}) label=基线2(独立代码审计,全新眼光)
-每个 Task(纯路由,同一份方法论):读 $skill/SKILL.md,按 stage=final 审;Source:$source;只负责指定基线;按 Return Contract 回结构化 findings。
+- Task({subagent_type:"reviewer-final-a", model:"$ma", run_in_background:true, ...}) label=基线1(回归+意图+跨plan)
+- Task({subagent_type:"reviewer-final-b", model:"$mb", run_in_background:true, ...}) label=基线2(独立代码审计,全新眼光)
+每个 Task(纯路由,同一份方法论):读 $skill/SKILL.md,按 stage=final 审;Source:$source;只负责指定基线;按 Return Contract 回结构化 findings。插件加载会 stripModel，必须显式传 model。
 EOF
       else
         cat <<EOF
 同轮并行多个 Task(四个跨模型审者,两条基线各跑两个模型):
-- Task({subagent_type:"reviewer-final-a", ...}) label=基线1(回归+意图+跨plan)
-- Task({subagent_type:"reviewer-final-b", ...}) label=基线1
-- Task({subagent_type:"reviewer-final-a", ...}) label=基线2(独立代码审计,全新眼光)
-- Task({subagent_type:"reviewer-final-b", ...}) label=基线2
+- Task({subagent_type:"reviewer-final-a", model:"$ma", run_in_background:true, ...}) label=基线1(回归+意图+跨plan)
+- Task({subagent_type:"reviewer-final-b", model:"$mb", run_in_background:true, ...}) label=基线1
+- Task({subagent_type:"reviewer-final-a", model:"$ma", run_in_background:true, ...}) label=基线2(独立代码审计,全新眼光)
+- Task({subagent_type:"reviewer-final-b", model:"$mb", run_in_background:true, ...}) label=基线2
 每个 Task(纯路由,四审者读同一份方法论):读 $skill/SKILL.md,按 stage=final 审;Source:$source;只负责指定基线;按 Return Contract 回结构化 findings。
-同基线跨模型对账:只一家报出的重点亲验,两家同报的置信升。
+同基线跨模型对账:只一家报出的重点亲验,两家同报的置信升。插件加载会 stripModel，必须显式传 model。
 EOF
       fi
       ;;
     merge-impl)
       cat <<EOF
 同轮并行多个 Task(两个跨模型审者):
-- Task({subagent_type:"reviewer-final-a", ...}) label=跨 worktree 集成审路线1
-- Task({subagent_type:"reviewer-final-b", ...}) label=跨 worktree 集成审路线2
-每个 Task:读 $skill/SKILL.md,按 stage=merge-impl 走组合行为、合同、迁移、状态、import、回归、修复质量七角度;Source:$source;按 Return Contract 回结构化 findings。
+- Task({subagent_type:"reviewer-final-a", model:"$ma", run_in_background:true, ...}) label=跨 worktree 集成审路线1
+- Task({subagent_type:"reviewer-final-b", model:"$mb", run_in_background:true, ...}) label=跨 worktree 集成审路线2
+每个 Task:读 $skill/SKILL.md,按 stage=merge-impl 走组合行为、合同、迁移、状态、import、回归、修复质量七角度;Source:$source;按 Return Contract 回结构化 findings。插件加载会 stripModel，必须显式传 model。
 EOF
       ;;
     *) die "未覆盖 stage:$stage" ;;

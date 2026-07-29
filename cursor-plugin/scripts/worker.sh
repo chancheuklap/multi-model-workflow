@@ -2,7 +2,7 @@
 # 写码工人和写计划工人派发准备器(cursor-task 原生)。
 # 脚本只做机械把关:准备 worktree/隔离沙箱、组工人 prompt、记边界基线和派发账本;
 # 工人本体由协调者在 Cursor 会话内用 Task 工具按名字派发(subagent_type=角色名,
-# model/工具白名单/系统提示词由已注册的 agents/ frontmatter 提供)。
+# model 必须由 DISPATCH 显式传入——插件加载会 stripModel；工具白名单/系统提示词仍看 agents/)。
 # 工人完成(会话内收到回执)后跑 verify 过机器边界门;plan 工人过门才原子发布。
 set -euo pipefail
 
@@ -329,11 +329,14 @@ update_meta() {
 # 派发指令(协调者照它在会话内派 Task;工人回执在会话内直接回来,不落 result 文件)。
 print_dispatch() {
   local agent="$1" prompt="$2" meta="$3" verify_cmd="$4" resume_note="$5" note_cmd="$6"
+  local model
+  model="$(mmw_agent_model "$agent")" || die "读不到 agents/$agent.md 的 model"
   echo "WORKER_BACKEND=$(mmw_worker_backend)"
   echo "AGENT=$agent"
+  echo "MODEL=$model"
   echo "PROMPT_FILE=$prompt"
   echo "META_FILE=$meta"
-  echo "DISPATCH=单条消息用 Task 派发:Task({subagent_type:\"$agent\", prompt:PROMPT_FILE 全文原样传入, run_in_background:true});拿到 agent/run id 立刻落账:$note_cmd(返修 resume 的唯一凭据)。$resume_note"
+  echo "DISPATCH=单条消息用 Task 派发:Task({subagent_type:\"$agent\", model:\"$model\", prompt:PROMPT_FILE 全文原样传入, run_in_background:true});拿到 agent/run id 立刻落账:$note_cmd(返修 resume 的唯一凭据)。$resume_note"
   echo "NEXT=工人回执完成后先跑 $verify_cmd 过机器边界门,再亲验回执声明"
 }
 
@@ -511,15 +514,18 @@ cmd_resume() {
   cp "$instr" "$pkg/resume-prompt.md"
   update_meta "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '.status="dispatched" | .updated_at=$at' || die "无法重置派发状态"
-  local run_id; run_id="$(jq -r '.run_id // empty' "$meta")"
+  local run_id model
+  run_id="$(jq -r '.run_id // empty' "$meta")"
+  model="$(mmw_agent_model "$agent")" || die "读不到 agents/$agent.md 的 model"
   echo "WORKER_BACKEND=$(mmw_worker_backend)"
   echo "AGENT=$agent"
+  echo "MODEL=$model"
   echo "PROMPT_FILE=$pkg/resume-prompt.md"
   echo "META_FILE=$meta"
   if [ -n "$run_id" ]; then
-    echo "DISPATCH=优先续原工人:Task({resume:\"$run_id\", prompt:PROMPT_FILE 全文})——用同一 agent id resume 续接原上下文。仅当 resume 不可用才重派:Task({subagent_type:\"$agent\", prompt:PROMPT_FILE 全文(开头注明「返修:worktree $run_wt 已有此前提交,先读 git log 对齐进度」), run_in_background:true}),新 id 重新落账:mmw worker note-run-id --worktree \"$wt\" --id <新 id>。"
+    echo "DISPATCH=优先续原工人:Task({resume:\"$run_id\", prompt:PROMPT_FILE 全文})——用同一 agent id resume 续接原上下文。仅当 resume 不可用才重派:Task({subagent_type:\"$agent\", model:\"$model\", prompt:PROMPT_FILE 全文(开头注明「返修:worktree $run_wt 已有此前提交,先读 git log 对齐进度」), run_in_background:true}),新 id 重新落账:mmw worker note-run-id --worktree \"$wt\" --id <新 id>。"
   else
-    echo "DISPATCH=账本无 run id(旧派发),直接重派:Task({subagent_type:\"$agent\", prompt:PROMPT_FILE 全文(开头注明「返修:worktree $run_wt 已有此前提交,先读 git log 对齐进度」), run_in_background:true}),id 落账:mmw worker note-run-id --worktree \"$wt\" --id <id>。"
+    echo "DISPATCH=账本无 run id(旧派发),直接重派:Task({subagent_type:\"$agent\", model:\"$model\", prompt:PROMPT_FILE 全文(开头注明「返修:worktree $run_wt 已有此前提交,先读 git log 对齐进度」), run_in_background:true}),id 落账:mmw worker note-run-id --worktree \"$wt\" --id <id>。"
   fi
   echo "NEXT=工人回执完成后先跑 mmw worker verify --worktree \"$wt\""
 }
@@ -660,15 +666,18 @@ cmd_plan_resume() {
       del(.published_at,.published_plan_hash,.published_issue_hash)' \
     || die "无法重置 plan writer 发布状态"
   cp "$instr" "$pkg/resume-prompt.md"
-  local run_id; run_id="$(jq -r '.run_id // empty' "$meta")"
+  local run_id model
+  run_id="$(jq -r '.run_id // empty' "$meta")"
+  model="$(mmw_agent_model "$PLAN_AGENT")" || die "读不到 agents/$PLAN_AGENT.md 的 model"
   echo "WORKER_BACKEND=$(mmw_worker_backend)"
   echo "AGENT=$PLAN_AGENT"
+  echo "MODEL=$model"
   echo "PROMPT_FILE=$pkg/resume-prompt.md"
   echo "META_FILE=$meta"
   if [ -n "$run_id" ]; then
-    echo "DISPATCH=优先续原计划工人:Task({resume:\"$run_id\", prompt:PROMPT_FILE 全文})——用同一 agent id resume 续接原上下文。仅当 resume 不可用才重派:Task({subagent_type:\"$PLAN_AGENT\", prompt:PROMPT_FILE 全文(开头注明「返修:隔离 worktree $sandbox,plan 草稿已在盘上,先读它对齐进度」), run_in_background:true}),新 id 重新落账:mmw worker note-run-id --plan \"$plan\" --worktree \"$wt\" --id <新 id>。"
+    echo "DISPATCH=优先续原计划工人:Task({resume:\"$run_id\", prompt:PROMPT_FILE 全文})——用同一 agent id resume 续接原上下文。仅当 resume 不可用才重派:Task({subagent_type:\"$PLAN_AGENT\", model:\"$model\", prompt:PROMPT_FILE 全文(开头注明「返修:隔离 worktree $sandbox,plan 草稿已在盘上,先读它对齐进度」), run_in_background:true}),新 id 重新落账:mmw worker note-run-id --plan \"$plan\" --worktree \"$wt\" --id <新 id>。"
   else
-    echo "DISPATCH=账本无 run id(旧派发),直接重派:Task({subagent_type:\"$PLAN_AGENT\", prompt:PROMPT_FILE 全文(开头注明「返修:隔离 worktree $sandbox,plan 草稿已在盘上,先读它对齐进度」), run_in_background:true}),id 落账:mmw worker note-run-id --plan \"$plan\" --worktree \"$wt\" --id <id>。"
+    echo "DISPATCH=账本无 run id(旧派发),直接重派:Task({subagent_type:\"$PLAN_AGENT\", model:\"$model\", prompt:PROMPT_FILE 全文(开头注明「返修:隔离 worktree $sandbox,plan 草稿已在盘上,先读它对齐进度」), run_in_background:true}),id 落账:mmw worker note-run-id --plan \"$plan\" --worktree \"$wt\" --id <id>。"
   fi
   echo "NEXT=工人回执完成后先跑 mmw worker verify --plan \"$plan\" --worktree \"$wt\""
 }

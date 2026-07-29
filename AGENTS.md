@@ -59,7 +59,7 @@
 - pi 的 GPT 角色公共提示词只改 `pi-plugin/agents-roster/_fragments/`，随后运行 `python3 pi-plugin/scripts/render_agent_prompts.py`；Claude provider 角色不经过该渲染器。
 - pi 的动态 workflow 以 `pi-plugin/workflows/*.workflow.js` 为源；修改后运行 `bash pi-plugin/workflows/install-workflows.sh` 生成 `dist/*.json`，再用 `--check` 验证。
 - Claude Code 版本同时更新 plugin manifest、marketplace 中的 plugin 版本和 marketplace 根版本。Droid 版本同时更新 plugin manifest 与 marketplace。pi 版本以 `pi-plugin/package.json` 为准。Cursor 版本同时更新 `cursor-plugin/.cursor-plugin/plugin.json` 与根 `.cursor-plugin/marketplace.json`。
-- Cursor 本地试装是实体拷贝，不是软链。改 `cursor-plugin/` 后必须跑 `bash cursor-plugin/scripts/install-local-surface.sh`：`rsync` 同步到 `~/.cursor/plugins/local/multi-model-workflow-cursor/`，合并用户级 `~/.cursor/hooks.json`（保留非 MMW 条目），并把 `commands/*.md` 拷到 `~/.cursor/commands/`。不跑则本机仍用旧拷贝；hooks/MCP/slash 以该脚本写出的生效面为准。
+- Cursor 本地试装是软链：`bash cursor-plugin/scripts/install-local-surface.sh` 把 `~/.cursor/plugins/local/multi-model-workflow-cursor` 链到本仓库 `cursor-plugin/`，把 `commands/*.md` 软链进 `~/.cursor/commands/`，并合并用户级 `~/.cursor/hooks.json`（保留非 MMW 条目）。首次接入或换仓库路径时跑一次；之后改源码 Reload Window 即可。hooks/MCP/slash 以该生效面为准。
 - 不用旧宿主残留、兼容目录或静默默认值掩盖错误。脚本异常必须返回非零或留下结构化告警。
 
 ## Git 与安全

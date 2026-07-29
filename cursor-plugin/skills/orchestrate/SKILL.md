@@ -12,12 +12,12 @@ description: "MMW 正式编排入口。默认直接处理开发请求；仅在�
 先在任何 `mmw` 命令、写操作和任务 worktree 之前做入口判断。入口只有三种结果：
 
 - **续跑 `resume(task)`**：SessionStart 已报告当前在管任务且本轮请求属于它，或用户明确要求继续某个既有 MMW 任务。
-- **直接处理 `direct`（默认）**：当前主线程能完整落地并验证。直接处理仍可读代码、TDD、跑测试、用 reviewer/advisor，必要时也可用普通 worktree；这些工程动作本身不需要 MMW。直接处理代码任务时，实施前先读 `${SKILL_DIR}/../worktree-build/references/tests.md` 的完整测试质量权威和目标仓库项目指令链；普通说明文档修改不要求测试。
+- **直接处理 `direct`（默认）**：当前主线程能完整落地并验证。直接处理仍可读代码、TDD、跑测试，必要时也可用普通 worktree；这些工程动作本身不需要 MMW。直接处理下不为“再保险一道”派子代理复查自己刚验证过的工作；真需要独立审查保证就走正式编排的审闸，承重判断分叉才用 Task(subagent_type="advisor")。直接处理代码任务时，实施前先读 `${SKILL_DIR}/../worktree-build/references/tests.md` 的完整测试质量权威和目标仓库项目指令链；普通说明文档修改不要求测试。
 - **正式编排 `orchestrate(scenario, capabilities, evidence)`**：用户明确要求 MMW，或只读定向已经证实任务需要至少一种 MMW 治理能力。
 
 只读定向最多做三件事：定位代码 owner / seam、确认期望行为、做一次聚焦复现。定向期间不写文件、不建分支、不建状态、不建 worktree。以下治理能力才允许正式编排：跨会话持久状态（`durable-state`）、设计审批（`design-approval`）、多任务协调（`coordinated-delivery`）、审闸保证（`gated-assurance`）、多结果合并（`multi-result-integration`）；用户明确要求则记 `explicit-request`。新功能、根因不明、多文件、多步骤、读改测、需要测试或普通 worktree 都不是触发器。
 
-无法给出具体治理能力和对应用户原话/只读证据时，选 `direct`。只有选了 `resume` 或 `orchestrate` 才继续 Step 0；新建任务时，场景 reference 必须把能力和证据传给 `mmw task new`。选择 MMW 后再读 `${SKILL_DIR}/references/control/runtime-contract.md` 和 `${SKILL_DIR}/references/retrieval-doctrine.md`，对齐 pi 路径、工具、Task 派发、结构候选和安全门。
+无法给出具体治理能力和对应用户原话/只读证据时，选 `direct`。只有选了 `resume` 或 `orchestrate` 才继续 Step 0；新建任务时，场景 reference 必须把能力和证据传给 `mmw task new`。选择 MMW 后再读 `${SKILL_DIR}/references/control/runtime-contract.md` 和 `${SKILL_DIR}/references/retrieval-doctrine.md`，对齐 Cursor 路径、工具、Task 派发、结构候选和安全门。
 
 ## Step 0 · 已选 MMW 后定位插件，再跑 `mmw where`
 

@@ -24,7 +24,7 @@
 
 任务 worktree：用户可用 Cursor UI 先建悬空 checkout，再跑 `mmw task adopt` 挂 slug 分支与 manifest；续跑时用 Open Folder / 工作区切进该路径并跑 `mmw where`。Coordinator 也可由 `prepare.sh` 建 wt。Pack worker 和 plan writer 的隔离 worktree 由 `worker.sh` 建立，工人 prompt 里钉死该 worktree 绝对路径，工人的所有操作必须落在它下面。工作角色都是会话内 Task 子代理；主线程工作目录不随工人切换。
 
-MMW 建立上述 worktree 后，优先调用目标仓库的 `.cursor/worktree-init.sh`；没有项目 hook 时调用用户级 `pi-graphify-ensure`，按来源与目标工作树内容复用或重建原生图谱。两条初始化路径都不污染机器 stdout，失败会明确告警但不阻断任务；首次复杂检索会再次 ensure。不探测 `.pi` / `.claude` / `.factory` 宿主状态目录（`pi-graphify-ensure` 是 PATH 上的图谱生命周期 CLI）。
+MMW 建立上述 worktree 后，优先调用目标仓库的 `.cursor/worktree-init.sh`；没有项目 hook 时调用本插件 `skills/graphify/scripts/graphify_ensure.py`，按来源与目标工作树内容复用或重建原生图谱。两条初始化路径都不污染机器 stdout，失败会明确告警但不阻断任务；首次复杂检索会再次 ensure。
 
 ## 角色花名册
 
@@ -41,7 +41,7 @@ MMW 建立上述 worktree 后，优先调用目标仓库的 `.cursor/worktree-in
 | `reviewer-plan-a` / `reviewer-plan-b` | 计划审模型路线 A / B |
 | `reviewer-final-a` / `reviewer-final-b` | 终审模型路线 A / B,视角由 dispatch 指定 |
 
-花名册以插件内 `agents/<name>.md` frontmatter 为准（model / 工具白名单）；派发时 `Task({subagent_type:"<角色名>", ...})`，不另传 model。
+花名册以插件内 `agents/<name>.md` frontmatter 为准（`model` 含 `id[effort=…]`、`is_background`、工具白名单）。**Cursor 从 plugin 加载 agents 时会 stripModel 并把 model 置为 inherit**；派发时 `Task` **必须**显式传 `model:"…"`（脚本 DISPATCH / review brief 已带）。不要另写 `thinking:`——官方不消费该字段，思考程度只写在 model 括号参数里。
 
 **后台派发硬规则（mmw 角色一律不阻塞主线程前台）**：
 - `plan-writer` / `pack-executor` / `pack-executor-capable`：**必须** `run_in_background: true`（脚本打印的指令已带；协调者照抄，禁止改成前台阻塞）。
@@ -91,7 +91,7 @@ Cursor 原生 **Task + resume**。工人要决策时：结构化回执回主线�
 生效面（两道都接）：
 
 1. 插件目录 `commands/`（需 Settings 打开 **Include third-party Plugins, Skills, and other configs**，否则 plugin commands 常不进 `/` 菜单）。
-2. 用户级 `~/.cursor/commands/`——Cursor 确认会进 slash 菜单的通道。本地试装跑 `bash cursor-plugin/scripts/install-local-surface.sh` 同步插件与这 11 条命令。
+2. 用户级 `~/.cursor/commands/`——Cursor 确认会进 slash 菜单的通道。本地试装跑 `bash cursor-plugin/scripts/install-local-surface.sh`：插件本体与这 11 条命令都软链到仓库源码；换路径再跑，日常改文件 Reload 即可。
 
 设计确认是唯一人闸：用户敲 `/approve-design` → `mmw approve` 盖承重文档指纹、attendance 切 afk 并推进；用户口头同意不算过门。承重文档改动后审闸 pass 硬停 `approval_stale`，重跑 `mmw approve` 重盖（RE-APPROVED）。
 

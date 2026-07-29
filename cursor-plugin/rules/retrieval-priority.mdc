@@ -8,12 +8,13 @@ alwaysApply: true
 用户通常只给业务目标或体验问题。遇到陌生代码、符号、调用链、依赖路径、影响面或跨模块关系时，**主动**用下面两条入口，不要先用全文 Grep 硬扫，也不要等用户点名工具。
 
 1. **符号**（定义、引用、实现、文件符号概览）→ Serena MCP：`find_symbol` / `find_referencing_symbols` / `find_implementations` / `get_symbols_overview`。
-2. **关系 / 影响面 / 路径 / 邻接** → Graphify：先 `pi-graphify-ensure --repo "$(git rev-parse --show-toplevel)"`（缺图建图、内容变化重建），再按问题选一个：
-   - `graphify query "…" --graph graphify-out/graph.json`
-   - `graphify affected "…" --depth 2 --graph graphify-out/graph.json`
-   - `graphify path "A" "B" --graph graphify-out/graph.json`
-   - `graphify explain "…" --graph graphify-out/graph.json`
+2. **关系 / 影响面 / 路径 / 邻接** → Graphify MCP（与 Serena 并列，本插件 `mcp.json`）：工具 `graphify`，`action` 选一个：
+   - `query` — 广泛关系问题
+   - `affected` — 反向影响（可带 `depth`，默认 2）
+   - `path` — 两点路径（另传 `to`）
+   - `explain` — 节点邻接
+   每次调用会先 ensure（缺图建图、内容变化重建）；**不要**把「碰巧已有 graph.json」当成才用的前提。MCP 不可用时才退到 CLI：插件内 ensure 脚本 + `graphify query|affected|path|explain`。
 
-几乎每个仓库都应能诚实出图；**不要**把「碰巧已有 graph.json」当成才用 Graphify 的前提。ensure 失败时写明原因并退到 read/grep，不能假装查过。
+ensure / MCP 失败时写明原因并退到 read/grep，不能假装查过。
 
 候选只缩小搜索空间：每条承重结论必须回当前 checkout 用 Read/Grep 亲验，并落到 `file:line`。简单、路径已明确的局部改动不必形式化双跑。

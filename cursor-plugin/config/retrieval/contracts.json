@@ -1,0 +1,34 @@
+{
+  "uv_tools": {
+    "serena-agent": {
+      "binaries": ["serena"],
+      "pypi": "serena-agent"
+    },
+    "graphifyy": {
+      "binaries": ["graphify"],
+      "pypi": "graphifyy",
+      "note": "Official graphify-mcp binary may ship with the package but MMW must keep using the plugin wrapper."
+    }
+  },
+  "serena": {
+    "required_cli_tokens": ["start-mcp-server"],
+    "required_mcp_tools": [
+      "find_symbol",
+      "find_referencing_symbols",
+      "get_symbols_overview",
+      "find_implementations"
+    ]
+  },
+  "graphify": {
+    "required_cli_subcommands": ["query", "affected", "path", "explain"],
+    "required_mcp_tool": "graphify",
+    "required_mcp_actions": ["query", "affected", "path", "explain"],
+    "forbidden_mcp_tools": [
+      "query_graph",
+      "get_node",
+      "get_neighbors",
+      "god_nodes",
+      "graph_stats"
+    ]
+  }
+}

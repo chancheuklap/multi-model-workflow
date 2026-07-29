@@ -85,11 +85,10 @@ mmw_enter_worktree_hint() {
   printf '在 worktree 路径继续本任务: 用 Cursor Open Folder 打开 %s 后跑 mmw where（勿依赖 move_agent_to_root）' "$1"
 }
 
-# 工人 wt 初始化：项目 hook 优先；否则调用本机 pi-graphify-ensure 按内容复用/重建图谱。
-# （CLI 名带 pi-，是用户级图谱生命周期模块，不是探测 ~/.pi 运行时。）
+# 工人 wt 初始化：项目 hook 优先；否则用本插件内 ensure 脚本按内容复用/重建图谱。
 mmw_prepare_worktree() {
   local source_wt="$1" target_wt="$2"
-  local hook="$target_wt/.cursor/worktree-init.sh" init_log="" graph_manager=""
+  local hook="$target_wt/.cursor/worktree-init.sh" init_log="" ensure_py="" plugin_root=""
 
   init_log="$(mktemp "${TMPDIR:-/tmp}/mmw-worktree-init.XXXXXX")" || {
     echo "[mmw] WARNING: 无法创建 worktree 初始化日志:$target_wt" >&2
@@ -109,13 +108,14 @@ mmw_prepare_worktree() {
     return 0
   fi
 
-  graph_manager="$(command -v pi-graphify-ensure 2>/dev/null || true)"
-  if [ -z "$graph_manager" ]; then
+  plugin_root="$(mmw_plugin_root)"
+  ensure_py="$plugin_root/skills/graphify/scripts/graphify_ensure.py"
+  if [ ! -f "$ensure_py" ]; then
     rm -f "$init_log"
-    echo "[mmw] WARNING: 找不到 pi-graphify-ensure；工作树已创建，首次复杂检索前必须补建图:$target_wt" >&2
+    echo "[mmw] WARNING: 找不到插件内 graphify ensure；工作树已创建，首次复杂检索前必须补建图:$target_wt" >&2
     return 0
   fi
-  if "$graph_manager" --repo "$target_wt" --source "$source_wt" >"$init_log" 2>&1; then
+  if python3 "$ensure_py" --repo "$target_wt" --source "$source_wt" >"$init_log" 2>&1; then
     [ ! -s "$init_log" ] || cat "$init_log" >&2
   else
     cat "$init_log" >&2
@@ -123,6 +123,25 @@ mmw_prepare_worktree() {
   fi
   rm -f "$init_log"
   return 0
+}
+
+# 读 agents/<name>.md frontmatter 的 model（含 id[effort=…]）。
+# Cursor 插件加载会 stripModel 并把 model 置 inherit；Task 必须显式传 model 才钉得住。
+mmw_agent_model() {
+  local name="$1" file model
+  file="$(mmw_plugin_root)/agents/$name.md"
+  [ -f "$file" ] || return 1
+  model="$(awk '
+    BEGIN { in_fm=0 }
+    /^---[[:space:]]*$/ { if (++in_fm == 2) exit; next }
+    in_fm == 1 && $1 == "model:" {
+      sub(/^model:[[:space:]]*/, "")
+      print
+      exit
+    }
+  ' "$file")"
+  [ -n "$model" ] || return 1
+  printf '%s' "$model"
 }
 
 mmw_plugin_root() {

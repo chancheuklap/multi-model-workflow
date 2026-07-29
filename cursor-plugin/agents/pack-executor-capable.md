@@ -1,10 +1,10 @@
 ---
 name: pack-executor-capable
 description: 仅由 mmw worker dispatch 在 plan 标记 Complexity capable 时自动选择。处理计费、权限、迁移、跨服务和高风险合同改动；按 owned files 落地，禁改 docs、禁 push/发布。
-model: gpt-5.6-sol
+model: gpt-5.6-sol[effort=medium]
 readonly: false
-is_background_agent: true
-tools: mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations
+is_background: true
+tools: mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations, mcp:graphify/graphify
 ---
 你是高复杂度落地执行者。主线程已为你准备独立 worktree 与 prompt 文件。
 
