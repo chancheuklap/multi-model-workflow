@@ -4,7 +4,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "set -euo pipefail; SCRIPT=\"$HOME/.cursor/plugins/local/multi-model-workflow-cursor/scripts/serena-mcp.sh\"; if [ ! -x \"$SCRIPT\" ]; then for d in \"$HOME\"/.cursor/plugins/*/*/multi-model-workflow-cursor \"$HOME\"/.cursor/plugins/*/multi-model-workflow-cursor; do [ -x \"$d/scripts/serena-mcp.sh\" ] || continue; SCRIPT=\"$d/scripts/serena-mcp.sh\"; break; done; fi; [ -x \"$SCRIPT\" ] || { echo \"ERROR: serena-mcp.sh not found under $HOME/.cursor/plugins\" >&2; exit 2; }; exec \"$SCRIPT\""
+        "set -euo pipefail; SCRIPT=\"$HOME/.cursor/multi-model-workflow-engine/scripts/serena-mcp.sh\"; [ -x \"$SCRIPT\" ] || { echo \"ERROR: serena-mcp.sh not found at $SCRIPT\" >&2; exit 2; }; exec \"$SCRIPT\""
       ],
       "env": {
         "SERENA_PROJECT": "${workspaceFolder}",
@@ -15,7 +15,7 @@
       "command": "bash",
       "args": [
         "-c",
-        "set -euo pipefail; SCRIPT=\"$HOME/.cursor/plugins/local/multi-model-workflow-cursor/scripts/graphify-mcp.sh\"; if [ ! -x \"$SCRIPT\" ]; then for d in \"$HOME\"/.cursor/plugins/*/*/multi-model-workflow-cursor \"$HOME\"/.cursor/plugins/*/multi-model-workflow-cursor; do [ -x \"$d/scripts/graphify-mcp.sh\" ] || continue; SCRIPT=\"$d/scripts/graphify-mcp.sh\"; break; done; fi; [ -x \"$SCRIPT\" ] || { echo \"ERROR: graphify-mcp.sh not found under $HOME/.cursor/plugins\" >&2; exit 2; }; exec \"$SCRIPT\""
+        "set -euo pipefail; SCRIPT=\"$HOME/.cursor/multi-model-workflow-engine/scripts/graphify-mcp.sh\"; [ -x \"$SCRIPT\" ] || { echo \"ERROR: graphify-mcp.sh not found at $SCRIPT\" >&2; exit 2; }; exec \"$SCRIPT\""
       ],
       "env": {
         "GRAPHIFY_PROJECT": "${workspaceFolder}",

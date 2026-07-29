@@ -5,9 +5,16 @@
 # Execute hook 每条命令都会进入脚本,本脚本自行筛出 git commit。
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=../scripts/lib/runtime.sh
-. "$SCRIPT_DIR/../scripts/lib/runtime.sh"
-LOOP="$SCRIPT_DIR/../scripts/loop.sh"
+ENGINE_ROOT="${MMW_ENGINE_ROOT:-$HOME/.cursor/multi-model-workflow-engine}"
+if [ ! -f "$ENGINE_ROOT/scripts/lib/runtime.sh" ]; then
+  _cand="$(cd "$SCRIPT_DIR/.." && pwd)"
+  if [ -f "$_cand/scripts/lib/runtime.sh" ]; then
+    ENGINE_ROOT="$_cand"
+  fi
+fi
+# shellcheck source=/dev/null
+. "$ENGINE_ROOT/scripts/lib/runtime.sh"
+LOOP="$ENGINE_ROOT/scripts/loop.sh"
 
 input="$(cat)"
 # Cursor afterShellExecution: {command,output,duration}; Claude 兼容: {tool_input.command}

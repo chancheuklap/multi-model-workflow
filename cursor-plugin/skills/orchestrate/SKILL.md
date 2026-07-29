@@ -24,16 +24,16 @@ description: "MMW 正式编排入口。默认直接处理开发请求；仅在�
 先一次性定位当前宿主的插件(无需环境变量),**记住回显的三个绝对路径**,后文所有 `mmw` / `${SCRIPTS}` / `${SKILL_DIR}` 都用它们替换:
 
 <!-- BEGIN: locate-mmw -->
-会话开头的 mmw 分诊已经报告插件根绝对路径时，直接使用它。没有时按安装位查找（Marketplace / Team Marketplace 安装后通常落在 Cursor plugins 目录；本地试装在 `~/.cursor/plugins/local`）：
+会话开头的 mmw 分诊已经报告引擎根绝对路径时，直接使用它。没有时按安装位查找：
 
 ```sh
 MMW_ROOT=""
-if [ -n "${CURSOR_PLUGIN_ROOT:-}" ] && [ -f "$CURSOR_PLUGIN_ROOT/scripts/mmw.sh" ]; then
-  MMW_ROOT="$CURSOR_PLUGIN_ROOT"
+if [ -n "${MMW_ENGINE_ROOT:-}" ] && [ -f "$MMW_ENGINE_ROOT/scripts/mmw.sh" ]; then
+  MMW_ROOT="$MMW_ENGINE_ROOT"
 fi
 if [ -z "$MMW_ROOT" ]; then
   for cand in \
-    "$HOME/.cursor/plugins/local/multi-model-workflow-cursor" \
+    "$HOME/.cursor/multi-model-workflow-engine" \
     "$(pwd | sed -n 's|\(.*multi-model-workflow\)/.*|\1/cursor-plugin|p')" \
     "$(pwd)/cursor-plugin"
   do
@@ -42,17 +42,8 @@ if [ -z "$MMW_ROOT" ]; then
     break
   done
 fi
-# Marketplace 缓存安装位：按 name 扫一层
-if [ -z "$MMW_ROOT" ]; then
-  for cand in "$HOME"/.cursor/plugins/*/*/multi-model-workflow-cursor \
-              "$HOME"/.cursor/plugins/*/multi-model-workflow-cursor; do
-    [ -f "$cand/scripts/mmw.sh" ] || continue
-    MMW_ROOT="$cand"
-    break
-  done
-fi
 MMW="$MMW_ROOT/scripts/mmw.sh"
-[ -f "$MMW" ] && echo "MMW=$MMW" || echo "MMW 定位失败：先从 Cursor Marketplace / Team Marketplace 安装 multi-model-workflow-cursor，或设 CURSOR_PLUGIN_ROOT"
+[ -f "$MMW" ] && echo "MMW=$MMW" || echo "MMW 定位失败：先跑 bash cursor-plugin/scripts/install-local-surface.sh，或设 MMW_ENGINE_ROOT"
 ```
 
 `mmw X` 等价于 `bash "$MMW" X`。每个新 shell 都使用回显的绝对路径，不依赖 shell 变量跨调用留存，也不要从 `.pi` / `.claude` / `.factory` 宿主镜像目录取运行时代码。
@@ -69,7 +60,7 @@ bash "$MMW" where
 ```
 
 - **在管任务**(在 worktree 里)→ `where` 报 `scenario` + `phase` + `load`/`do`/`then`。一句话告诉用户"你在 `<phase>`",然后**读 `references/scenario/<scenario>.md`**,按它的契约从当前 phase 续(断点恢复靠 `where` + 接力单,不靠会话记忆)。**跳过 Step 1。**
-- **`RESUMABLE` + 在飞任务**(主仓库里发现已有任务 worktree)→ 先按用户本轮意图分流。明确要新建任务就进 Step 1；要继续或意图不明时，单个任务执行回显的 `resume=` 命令，多个任务用 `AskQuestion` 让用户选择续跑哪个或新建。恢复命令只定位阶段；继续任务时用 Cursor **Open Folder** 打开选中的 `worktree_path`，在该窗口再跑 `where` 后续。**禁止**调用 `enter_worktree(...)`。**不得把 `RESUMABLE` 当成新任务直接 `task new`。**
+- **`RESUMABLE` + 在飞任务**(主仓库里发现已有任务 worktree)→ 先按用户本轮意图分流。明确要新建任务就进 Step 1；要继续或意图不明时，单个任务执行回显的 `resume=` 命令，多个任务用 `AskQuestion`（未挂载则聊天固定选项）让用户选择续跑哪个或新建。恢复命令只定位阶段；继续任务时用 Cursor **Open Folder** 打开选中的 `worktree_path`，在该窗口再跑 `where` 后续。**禁止**调用不存在的 `enter_worktree(...)`。**不得把 `RESUMABLE` 当成新任务直接 `task new`。**
 - **`UNMANAGED` + 起始选项菜单**(在主仓库)→ 已决定正式编排，但当前还没有任务 → 进 Step 1。
 
 ## Step 1 · 路由 → 进该路径的 reference

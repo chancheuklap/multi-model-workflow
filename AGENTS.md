@@ -9,7 +9,7 @@
 | Claude Code | `plugin/` | `plugin/.claude-plugin/plugin.json`、`.claude-plugin/marketplace.json` | `.claude/multi-model-workflow/` | `.claude/worktrees/` | Codex CLI 工人和宿主 sub-agent 审者 |
 | Factory Droid | `droid-plugin/` | `droid-plugin/.factory-plugin/plugin.json`、`.factory-plugin/marketplace.json` | `.factory/multi-model-workflow/` | `.factory/worktrees/` | `droid exec` 和 Custom Droids |
 | pi | `pi-plugin/` | `pi-plugin/package.json` | `.pi/multi-model-workflow/` | `.pi/worktrees/` | pi-subagents 注册角色和动态 workflows |
-| Cursor | `cursor-plugin/` | `cursor-plugin/.cursor-plugin/plugin.json`、根 `.cursor-plugin/marketplace.json` | `.cursor/multi-model-workflow/` | `.cursor/worktrees/`（工人）；任务 wt 常由 UI 悬空创建后 `mmw task adopt` | Cursor Task（插件 `agents/`） |
+| Cursor | `cursor-plugin/` | `cursor-plugin/.cursor-plugin/plugin.json`、根 `.cursor-plugin/marketplace.json` | `.cursor/multi-model-workflow/` | `.cursor/worktrees/`（工人）；任务 wt 常由 UI 悬空创建后 `mmw task adopt` | Cursor Task + `~/.cursor/agents` |
 
 `archive/plugin-v1/` 是冻结归档，不参与当前行为判断、构建或测试；没有明确指令时不修改。
 
@@ -48,7 +48,7 @@
 - Claude Code：`plugin/agents/`、`plugin/commands/`、`plugin/skills/`、`plugin/build/fragments/`。
 - Droid：`droid-plugin/droids/`、`droid-plugin/commands/`、`droid-plugin/skills/`、`droid-plugin/build/fragments/`。
 - pi：`pi-plugin/agents-roster/`、`pi-plugin/prompts/`、`pi-plugin/skills/`、`pi-plugin/build/fragments/`。
-- Cursor：`cursor-plugin/agents/`、`cursor-plugin/commands/`、`cursor-plugin/skills/`、`cursor-plugin/build/fragments/`。
+- Cursor：`cursor-plugin/` 是唯一源码树（含 agents、commands、skills、hooks、scripts、`build/fragments/`）。运行时**不**经 `~/.cursor/plugins/local` 加载；install 后生效面在用户级原生目录与引擎树（见下条）。仓库内 `.cursor-plugin/plugin.json` 与根 marketplace 仍作版本/发布入口，不作为本机发现面。
 
 ## 修改规则
 
@@ -58,8 +58,12 @@
 - 每个宿主的两份 `task-pack.md` 是实体副本，必须保持一致并通过 `test_shared_refs_sync.sh`。
 - pi 的 GPT 角色公共提示词只改 `pi-plugin/agents-roster/_fragments/`，随后运行 `python3 pi-plugin/scripts/render_agent_prompts.py`；Claude provider 角色不经过该渲染器。
 - pi 的动态 workflow 以 `pi-plugin/workflows/*.workflow.js` 为源；修改后运行 `bash pi-plugin/workflows/install-workflows.sh` 生成 `dist/*.json`，再用 `--check` 验证。
-- Claude Code 版本同时更新 plugin manifest、marketplace 中的 plugin 版本和 marketplace 根版本。Droid 版本同时更新 plugin manifest 与 marketplace。pi 版本以 `pi-plugin/package.json` 为准。Cursor 版本同时更新 `cursor-plugin/.cursor-plugin/plugin.json` 与根 `.cursor-plugin/marketplace.json`。
-- Cursor 本地试装是软链：`bash cursor-plugin/scripts/install-local-surface.sh` 把 `~/.cursor/plugins/local/multi-model-workflow-cursor` 链到本仓库 `cursor-plugin/`，把 `commands/*.md` 软链进 `~/.cursor/commands/`，并合并用户级 `~/.cursor/hooks.json`（保留非 MMW 条目）。首次接入或换仓库路径时跑一次；之后改源码 Reload Window 即可。hooks/MCP/slash 以该生效面为准。
+- Claude Code 版本同时更新 plugin manifest、marketplace 中的 plugin 版本和 marketplace 根版本。Droid 版本同时更新 plugin manifest 与 marketplace。pi 版本以 `pi-plugin/package.json` 为准。Cursor 版本同时更新 `cursor-plugin/.cursor-plugin/plugin.json` 与根 `.cursor-plugin/marketplace.json`（install 会把 manifest 同步进引擎树供 session-triage / prepare 读版本）。
+- **Cursor 运行时合同（原生路径）**：
+  - 源码只改仓库 `cursor-plugin/`；本机生效靠 `bash cursor-plugin/scripts/install-local-surface.sh` **复制**（不软链）：`agents` → `~/.cursor/agents/`，`skills` → `~/.cursor/skills/`，`commands` → `~/.cursor/commands/`，`rules` → `~/.cursor/rules/`，hooks 脚本 → `~/.cursor/hooks/`；合并用户级 `~/.cursor/hooks.json` 与 `~/.cursor/mcp.json`（保留非 MMW 条目）；引擎树 → `~/.cursor/multi-model-workflow-engine/`（`scripts/`、`state-schema/`、`config/`、`skills/graphify/`、`.cursor-plugin/plugin.json`）。`MMW_ENGINE_ROOT` 可覆盖引擎根。
+  - 角色花名册以 `~/.cursor/agents/<name>.md` frontmatter 为准（`model` 含 `id[effort=…]`、`is_background`）；Task 派发只传 `subagent_type`（+prompt/background），不另塞 `model`。详细路径与工具合同见 `cursor-plugin/skills/orchestrate/references/control/runtime-contract.md`。
+  - 改源码后必须再跑 install，然后 Reload Window。不要同时启用旧的 local plugin 包与用户级 agents，以免双注册。
+  - 任务仓状态平面仍是 `.cursor/multi-model-workflow/`（与用户级组件目录分开）。
 - 不用旧宿主残留、兼容目录或静默默认值掩盖错误。脚本异常必须返回非零或留下结构化告警。
 
 ## Git 与安全

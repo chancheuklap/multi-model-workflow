@@ -1,6 +1,6 @@
 # Review · 审核(阶段操作指南)
 
-> 审核操作指南。**主线程直接派审者**;审查方法 + 各 stage 角度单源在 plugin 内 **`skills/worktree-review/`**。orchestrate 侧只留 `plan-impl.md`(③合同门)与本文(编排)。
+> 审核操作指南。**主线程直接派审者**;审查方法 + 各 stage 角度单源在 `~/.cursor/skills/worktree-review/`。orchestrate 侧只留 `plan-impl.md`(③合同门)与本文(编排)。
 >
 > **宿主分叉(派发)**:谁家审者 / 几路视角,全由 `mmw review start` 按宿主机器生成进 brief——**照 brief 派即可**,本文不复制派发矩阵(免漂移)。
 >
@@ -79,7 +79,7 @@ pass 前先写 `docs/<slug>-final-review.md`(照 `mmw where` 的 `then` 钉 `--p
 
 ## 3. 守住的红线
 
-- 写者≠验者:①用 `reviewer-design-a/b`,②用 `reviewer-plan-a/b`;④按 brief 分档：small-change/bug 用一个 `reviewer-final-a` 覆盖两基线，develop 低风险档用 A/B 各一路，高风险或数据不全用 A/B 各两路。prompt 一律指向 plugin 内 `worktree-review` skill。
+- 写者≠验者:①用 `reviewer-design-a/b`,②用 `reviewer-plan-a/b`;④按 brief 分档：small-change/bug 用一个 `reviewer-final-a` 覆盖两基线，develop 低风险档用 A/B 各一路，高风险或数据不全用 A/B 各两路。prompt 一律指向 `~/.cursor/skills/worktree-review`。
 - 每条 finding 引 `file:line` 原文才采信;主线程亲验 + 四问后才 accept。
 - ③ 不判断、只核合同;重判预算砸 ④final。
 - 审者给证据,你给放行;你不是审者的传声筒。

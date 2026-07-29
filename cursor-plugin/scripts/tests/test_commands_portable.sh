@@ -6,13 +6,12 @@ fail=0
 ok() { echo "ok - $1"; }
 no() { echo "not ok - $1"; fail=1; }
 
-SKILL="$PLUGIN/skills/orchestrate/SKILL.md"
 FRAG="$PLUGIN/build/fragments/locate-mmw.md"
 [ -f "$FRAG" ] || { echo "missing locate fragment"; exit 1; }
-grep -q 'CURSOR_PLUGIN_ROOT\|plugins/local/multi-model-workflow-cursor\|cursor-plugin' "$FRAG" \
-  && ok "locate mentions Cursor install" || no "locate Cursor"
-! grep -qE '\.pi/agent/settings|pi-plugin/\?\$|\.factory/plugins' "$FRAG" \
-  && ok "locate does not probe foreign hosts" || no "foreign probe"
+grep -q 'MMW_ENGINE_ROOT\|multi-model-workflow-engine\|cursor-plugin' "$FRAG" \
+  && ok "locate mentions Cursor engine install" || no "locate Cursor"
+! grep -qE '\.pi/agent/settings|pi-plugin/\?\$|\.factory/plugins|plugins/local' "$FRAG" \
+  && ok "locate does not probe foreign hosts or plugins/local" || no "foreign probe"
 
 # commands exist + Cursor frontmatter
 n=$(ls "$PLUGIN/commands"/*.md 2>/dev/null | wc -l | tr -d ' ')
@@ -37,46 +36,57 @@ done
 [ -x "$PLUGIN/scripts/install-local-surface.sh" ] \
   && ok "install-local-surface.sh present" || no "missing install-local-surface.sh"
 
-# 本地试装：插件本体与 commands 均为软链（沙箱跑一遍，不碰真实 ~/.cursor）
 INSTALL="$PLUGIN/scripts/install-local-surface.sh"
 SANDBOX="$(mktemp -d)"
-# 注意：本文件末尾 exit 前清沙箱；不用 EXIT trap，避免覆盖其他清理
-mkdir -p "$SANDBOX/local" "$SANDBOX/commands"
-# 先放一个实体假拷贝，确认脚本会拆掉并改成软链
-mkdir -p "$SANDBOX/local/multi-model-workflow-cursor"
-echo stale > "$SANDBOX/local/multi-model-workflow-cursor/stale.txt"
-# 再放一个实体命令文件，确认会被换成软链
-echo stale-cmd > "$SANDBOX/commands/approve-design.md"
-HOOKS_JSON="$SANDBOX/hooks.json"
+HOME_SB="$SANDBOX/home"
+mkdir -p "$HOME_SB/.cursor"
+HOOKS_JSON="$HOME_SB/.cursor/hooks.json"
+MCP_JSON="$HOME_SB/.cursor/mcp.json"
 printf '%s\n' '{"version":1,"hooks":{}}' > "$HOOKS_JSON"
-if CURSOR_LOCAL_PLUGIN="$SANDBOX/local/multi-model-workflow-cursor" \
-   CURSOR_USER_COMMANDS="$SANDBOX/commands" \
+printf '%s\n' '{"mcpServers":{"keep-me":{"command":"true"}}}' > "$MCP_JSON"
+mkdir -p "$HOME_SB/.cursor/commands"
+echo stale-cmd > "$HOME_SB/.cursor/commands/approve-design.md"
+
+if HOME="$HOME_SB" \
+   CURSOR_USER_AGENTS="$HOME_SB/.cursor/agents" \
+   CURSOR_USER_SKILLS="$HOME_SB/.cursor/skills" \
+   CURSOR_USER_COMMANDS="$HOME_SB/.cursor/commands" \
+   CURSOR_USER_RULES="$HOME_SB/.cursor/rules" \
+   CURSOR_USER_HOOKS_DIR="$HOME_SB/.cursor/hooks" \
    CURSOR_USER_HOOKS="$HOOKS_JSON" \
+   CURSOR_USER_MCP="$MCP_JSON" \
+   MMW_ENGINE_ROOT="$HOME_SB/.cursor/multi-model-workflow-engine" \
+   MMW_INSTALL_SKIP_UV=1 \
    bash "$INSTALL" >/dev/null; then
-  plugin_real="$(python3 -c "import os; print(os.path.realpath(r'''$SANDBOX/local/multi-model-workflow-cursor'''))")"
-  src_real="$(python3 -c "import os; print(os.path.realpath(r'''$PLUGIN'''))")"
-  if [ -L "$SANDBOX/local/multi-model-workflow-cursor" ] \
-    && [ "$plugin_real" = "$src_real" ] \
-    && [ ! -e "$SANDBOX/local/multi-model-workflow-cursor/stale.txt" ]; then
-    ok "install links plugin (replaces entity copy)"
-  else
-    no "install did not symlink plugin to source"
-  fi
-  cmd_real="$(python3 -c "import os; print(os.path.realpath(r'''$SANDBOX/commands/approve-design.md'''))")"
-  cmd_expect="$(python3 -c "import os; print(os.path.realpath(r'''$PLUGIN/commands/approve-design.md'''))")"
-  if [ -L "$SANDBOX/commands/approve-design.md" ] && [ "$cmd_real" = "$cmd_expect" ]; then
-    ok "install symlinks slash commands"
-  else
-    no "install command symlink broken"
-  fi
-  # 幂等：再跑一次仍指向同一源
-  CURSOR_LOCAL_PLUGIN="$SANDBOX/local/multi-model-workflow-cursor" \
-    CURSOR_USER_COMMANDS="$SANDBOX/commands" \
+  [ -f "$HOME_SB/.cursor/agents/advisor.md" ] \
+    && [ -f "$HOME_SB/.cursor/skills/orchestrate/SKILL.md" ] \
+    && [ -f "$HOME_SB/.cursor/commands/approve-design.md" ] \
+    && [ ! -L "$HOME_SB/.cursor/commands/approve-design.md" ] \
+    && [ -f "$HOME_SB/.cursor/rules/retrieval-priority.mdc" ] \
+    && [ -x "$HOME_SB/.cursor/hooks/session-triage.sh" ] \
+    && [ -f "$HOME_SB/.cursor/multi-model-workflow-engine/scripts/mmw.sh" ] \
+    && [ -f "$HOME_SB/.cursor/multi-model-workflow-engine/.cursor-plugin/plugin.json" ] \
+    && ok "install copies native surface + engine" || no "install native surface incomplete"
+  jq -e '.hooks.sessionStart' "$HOOKS_JSON" >/dev/null \
+    && grep -q "$HOME_SB/.cursor/hooks/session-triage.sh" "$HOOKS_JSON" \
+    && ok "install merges hooks to user hooks dir" || no "hooks merge broken"
+  jq -e '.mcpServers.serena and .mcpServers["keep-me"]' "$MCP_JSON" >/dev/null \
+    && grep -q 'multi-model-workflow-engine/scripts/serena-mcp.sh' "$MCP_JSON" \
+    && ok "install merges mcp keeping user servers" || no "mcp merge broken"
+  # 幂等
+  HOME="$HOME_SB" \
+    CURSOR_USER_AGENTS="$HOME_SB/.cursor/agents" \
+    CURSOR_USER_SKILLS="$HOME_SB/.cursor/skills" \
+    CURSOR_USER_COMMANDS="$HOME_SB/.cursor/commands" \
+    CURSOR_USER_RULES="$HOME_SB/.cursor/rules" \
+    CURSOR_USER_HOOKS_DIR="$HOME_SB/.cursor/hooks" \
     CURSOR_USER_HOOKS="$HOOKS_JSON" \
+    CURSOR_USER_MCP="$MCP_JSON" \
+    MMW_ENGINE_ROOT="$HOME_SB/.cursor/multi-model-workflow-engine" \
+    MMW_INSTALL_SKIP_UV=1 \
     bash "$INSTALL" >/dev/null
-  plugin_real2="$(python3 -c "import os; print(os.path.realpath(r'''$SANDBOX/local/multi-model-workflow-cursor'''))")"
-  [ -L "$SANDBOX/local/multi-model-workflow-cursor" ] && [ "$plugin_real2" = "$src_real" ] \
-    && ok "install symlink idempotent" || no "install not idempotent"
+  [ -f "$HOME_SB/.cursor/agents/pack-executor.md" ] \
+    && ok "install native idempotent" || no "install not idempotent"
 else
   no "install-local-surface failed in sandbox"
 fi
@@ -85,7 +95,6 @@ rm -rf "$SANDBOX"
 jq -e '.commands == "./commands/"' "$PLUGIN/.cursor-plugin/plugin.json" >/dev/null \
   && ok "plugin.json declares commands" || no "plugin.json commands"
 
-# Cursor 生效面纪律：禁止调用 enter_worktree({...})；investigate 必须 run_in_background
 ! rg -n 'enter_worktree\(\{' "$PLUGIN" --glob '!**/scripts/tests/**' >/dev/null \
   && ok "no enter_worktree({...}) calls" || no "enter_worktree({...}) still present"
 ! rg -n '(^|[^_])background:true' "$PLUGIN/scripts/investigate.sh" >/dev/null \

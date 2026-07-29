@@ -37,7 +37,7 @@
 mmw investigate start --direction <internal|external|both> --topics <topics.json 绝对路径> --run <run-id>
 ```
 
-脚本写 run 账本、给每个 topic 备好隔离 prompt,并逐条打印 `DISPATCH=Task({subagent_type:"investigate-topic", prompt:"<prompt 路径>", model:"...", run_in_background:true})`。**照单并行派全部 DISPATCH**(每个 topic 一个后台 Task,不串跑),然后:
+脚本写 run 账本、给每个 topic 备好隔离 prompt,并逐条打印 `DISPATCH=Task({subagent_type:"investigate-topic", prompt:"<prompt 路径>", run_in_background:true})`。**照单并行派全部 DISPATCH**(每个 topic 一个后台 Task,不串跑),然后:
 
 ```bash
 mmw investigate status --run <run-id>   # 校验各 topic 的 result.json;缺项/不合格会打回重派

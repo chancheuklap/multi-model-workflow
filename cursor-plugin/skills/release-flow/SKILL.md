@@ -9,17 +9,18 @@ description: "出包 / 打包 / 发布某个产品时主动使用(如「出个�
 
 `mmw` ≡ `bash "${SCRIPTS}/mmw.sh"`;`mmw release X` = 通用引擎。下面 Step 0 一次定位得出绝对路径。
 
-## Step 0 · 定位 plugin,再跑 `release where`(它自带指路)
+## Step 0 · 定位引擎,再跑 `release where`(它自带指路)
 
 ```bash
 MMW_ROOT=""
-if [ -n "${CURSOR_PLUGIN_ROOT:-}" ] && [ -f "$CURSOR_PLUGIN_ROOT/scripts/mmw.sh" ]; then
-  MMW_ROOT="$CURSOR_PLUGIN_ROOT"
+if [ -n "${MMW_ENGINE_ROOT:-}" ] && [ -f "$MMW_ENGINE_ROOT/scripts/mmw.sh" ]; then
+  MMW_ROOT="$MMW_ENGINE_ROOT"
 fi
 if [ -z "$MMW_ROOT" ]; then
   for cand in \
-    "$HOME/.cursor/plugins/local/multi-model-workflow-cursor" \
-    "$(pwd | sed -n 's|\(.*multi-model-workflow\)/.*|\1/cursor-plugin|p')"
+    "$HOME/.cursor/multi-model-workflow-engine" \
+    "$(pwd | sed -n 's|\(.*multi-model-workflow\)/.*|\1/cursor-plugin|p')" \
+    "$(pwd)/cursor-plugin"
   do
     [ -f "$cand/scripts/mmw.sh" ] || continue
     MMW_ROOT="$cand"
@@ -27,10 +28,10 @@ if [ -z "$MMW_ROOT" ]; then
   done
 fi
 MMW="$MMW_ROOT/scripts/mmw.sh"
-printf 'mmw       = %s\nSKILL_DIR = %s\n' "$MMW" "$MMW_ROOT/skills/release-flow"
+printf 'mmw       = %s\nSKILL_DIR = %s\n' "$MMW" "$HOME/.cursor/skills/release-flow"
 ```
 
-若 `$MMW` 不存在，先确认 cursor-plugin 已装到 `~/.cursor/plugins/local` 或 `CURSOR_PLUGIN_ROOT` 已设；不扫描缓存或按版本号猜激活目录。
+若 `$MMW` 不存在，先跑 `bash cursor-plugin/scripts/install-local-surface.sh`，或设 `MMW_ENGINE_ROOT`。
 
 `mmw X` ≡ `bash "$MMW" X`(每个新 shell 用回显的绝对路径)。然后无脑先跑:
 

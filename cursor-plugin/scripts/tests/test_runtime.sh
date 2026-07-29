@@ -12,7 +12,12 @@ no() { echo "not ok - $1"; fail=1; }
 [ "$(mmw_worktrees_rel)" = ".cursor/worktrees" ] && ok "fixed worktree path" || no "worktree path"
 [ "$(mmw_worker_branch_prefix)" = worker ] && ok "worker branch prefix" || no "branch prefix"
 [ "$(mmw_shell_tool)" = Shell ] && ok "Shell tool" || no "shell tool"
-[ "$(mmw_ask_user_tool)" = AskQuestion ] && ok "AskQuestion tool" || no "ask tool"
+[ "$(mmw_ask_user_tool)" = AskQuestion ] && ok "AskQuestion tool name" || no "ask tool"
+howto="$(mmw_ask_user_howto)"
+printf '%s' "$howto" | grep -q 'AskQuestion' \
+  && printf '%s' "$howto" | grep -q 'cursor_dialog' \
+  && printf '%s' "$howto" | grep -q '固定选项' \
+  && ok "ask-user howto covers mount+fallback" || no "ask-user howto"
 [ "$(mmw_worker_backend)" = cursor-task ] && ok "cursor-task backend" || no "worker backend"
 [ "$(mmw_resolve_state_subdir /tmp)" = ".cursor/multi-model-workflow" ] && ok "state resolution is fixed" || no "state resolution"
 

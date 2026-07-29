@@ -12,16 +12,16 @@ disable-model-invocation: true
 先定位 mmw:
 
 <!-- BEGIN: locate-mmw -->
-会话开头的 mmw 分诊已经报告插件根绝对路径时，直接使用它。没有时按安装位查找（Marketplace / Team Marketplace 安装后通常落在 Cursor plugins 目录；本地试装在 `~/.cursor/plugins/local`）：
+会话开头的 mmw 分诊已经报告引擎根绝对路径时，直接使用它。没有时按安装位查找：
 
 ```sh
 MMW_ROOT=""
-if [ -n "${CURSOR_PLUGIN_ROOT:-}" ] && [ -f "$CURSOR_PLUGIN_ROOT/scripts/mmw.sh" ]; then
-  MMW_ROOT="$CURSOR_PLUGIN_ROOT"
+if [ -n "${MMW_ENGINE_ROOT:-}" ] && [ -f "$MMW_ENGINE_ROOT/scripts/mmw.sh" ]; then
+  MMW_ROOT="$MMW_ENGINE_ROOT"
 fi
 if [ -z "$MMW_ROOT" ]; then
   for cand in \
-    "$HOME/.cursor/plugins/local/multi-model-workflow-cursor" \
+    "$HOME/.cursor/multi-model-workflow-engine" \
     "$(pwd | sed -n 's|\(.*multi-model-workflow\)/.*|\1/cursor-plugin|p')" \
     "$(pwd)/cursor-plugin"
   do
@@ -30,17 +30,8 @@ if [ -z "$MMW_ROOT" ]; then
     break
   done
 fi
-# Marketplace 缓存安装位：按 name 扫一层
-if [ -z "$MMW_ROOT" ]; then
-  for cand in "$HOME"/.cursor/plugins/*/*/multi-model-workflow-cursor \
-              "$HOME"/.cursor/plugins/*/multi-model-workflow-cursor; do
-    [ -f "$cand/scripts/mmw.sh" ] || continue
-    MMW_ROOT="$cand"
-    break
-  done
-fi
 MMW="$MMW_ROOT/scripts/mmw.sh"
-[ -f "$MMW" ] && echo "MMW=$MMW" || echo "MMW 定位失败：先从 Cursor Marketplace / Team Marketplace 安装 multi-model-workflow-cursor，或设 CURSOR_PLUGIN_ROOT"
+[ -f "$MMW" ] && echo "MMW=$MMW" || echo "MMW 定位失败：先跑 bash cursor-plugin/scripts/install-local-surface.sh，或设 MMW_ENGINE_ROOT"
 ```
 
 `mmw X` 等价于 `bash "$MMW" X`。每个新 shell 都使用回显的绝对路径，不依赖 shell 变量跨调用留存，也不要从 `.pi` / `.claude` / `.factory` 宿主镜像目录取运行时代码。
@@ -50,7 +41,7 @@ MMW="$MMW_ROOT/scripts/mmw.sh"
 
 1. 若输出 `UNATTENDED-ENTERED`:
    - 告诉用户已进入强无人值守,并复述 policy。
-   - **从现在起本会话激活 no-question 合同**:不调用 AskQuestion、不向用户提任何问题;软停自决留痕,遇预算顶/设计打穿/外部环境/无自动路径才硬停并写进度板等用户回来。
+   - **从现在起本会话激活 no-question 合同**:不调用 AskQuestion、不在聊天里出选择题、不向用户提任何问题;软停自决留痕,遇预算顶/设计打穿/外部环境/无自动路径才硬停并写进度板等用户回来。
    - 继续按 workflow 跑,不停下问人。
 2. 若输出以 `ERROR: 拒绝进入`:照实告诉用户缺哪道门(设计未过门 / 计划未过审 / 有未答 HITL),**不降级、不硬进**;引导用户补齐后再敲本命令。
 3. 若报 `ERROR: 当前不是在管任务 worktree`:说明当前不在在管任务,无 run 可进入。

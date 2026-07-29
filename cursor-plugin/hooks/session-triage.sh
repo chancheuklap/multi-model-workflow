@@ -3,9 +3,16 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=../scripts/lib/runtime.sh
-. "$SCRIPT_DIR/../scripts/lib/runtime.sh"
-MMW="bash \"$SCRIPT_DIR/../scripts/mmw.sh\""
+ENGINE_ROOT="${MMW_ENGINE_ROOT:-$HOME/.cursor/multi-model-workflow-engine}"
+if [ ! -f "$ENGINE_ROOT/scripts/lib/runtime.sh" ]; then
+  _cand="$(cd "$SCRIPT_DIR/.." && pwd)"
+  if [ -f "$_cand/scripts/lib/runtime.sh" ]; then
+    ENGINE_ROOT="$_cand"
+  fi
+fi
+# shellcheck source=/dev/null
+. "$ENGINE_ROOT/scripts/lib/runtime.sh"
+MMW="bash \"$ENGINE_ROOT/scripts/mmw.sh\""
 
 top="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 STATE_SUBDIR="$(mmw_resolve_state_subdir "$top")"
@@ -47,7 +54,7 @@ if [ -f "$man" ]; then
   fi
 
   # 新鲜度(白名单第 3 条):版本/时效不对先对表
-  cur_ver="$(jq -r '.version // ""' "$SCRIPT_DIR/../.cursor-plugin/plugin.json" 2>/dev/null || echo "")"
+  cur_ver="$(jq -r '.version // ""' "$ENGINE_ROOT/.cursor-plugin/plugin.json" 2>/dev/null || echo "")"
   man_ver="$(jq -r '.plugin_version // ""' "$man" 2>/dev/null || echo "")"
   if [ -n "$man_ver" ] && [ -n "$cur_ver" ] && [ "$man_ver" != "$cur_ver" ]; then
     echo "⚠ 状态由旧版 plugin($man_ver,当前 $cur_ver)写入:先 /reassess 从磁盘对表再续,别把旧指令当最新。"

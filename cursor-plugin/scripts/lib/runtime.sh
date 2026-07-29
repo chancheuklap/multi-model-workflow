@@ -7,6 +7,10 @@ mmw_state_subdir() { printf '.cursor/multi-model-workflow'; }
 mmw_worktrees_rel() { printf '.cursor/worktrees'; }
 mmw_worker_branch_prefix() { printf 'worker'; }
 mmw_ask_user_tool() { printf 'AskQuestion'; }
+# 问用户合同短句（写入 prompt / 文档时用）：名字真实，但按模型挂载。
+mmw_ask_user_howto() {
+  printf '%s' 'AskQuestion（宿主注入的结构化多选；会话工具列表无此项时禁止假装调用，改用聊天正文固定选项；不是 cursor_dialog）'
+}
 mmw_shell_tool() { printf 'Shell'; }
 mmw_worker_backend() { printf 'cursor-task'; }
 
@@ -125,31 +129,32 @@ mmw_prepare_worktree() {
   return 0
 }
 
-# 读 agents/<name>.md frontmatter 的 model（含 id[effort=…]）。
-# Cursor 插件加载会 stripModel 并把 model 置 inherit；Task 必须显式传 model 才钉得住。
-mmw_agent_model() {
-  local name="$1" file model
-  file="$(mmw_plugin_root)/agents/$name.md"
-  [ -f "$file" ] || return 1
-  model="$(awk '
-    BEGIN { in_fm=0 }
-    /^---[[:space:]]*$/ { if (++in_fm == 2) exit; next }
-    in_fm == 1 && $1 == "model:" {
-      sub(/^model:[[:space:]]*/, "")
-      print
-      exit
-    }
-  ' "$file")"
-  [ -n "$model" ] || return 1
-  printf '%s' "$model"
+mmw_user_agents_dir() {
+  printf '%s' "${CURSOR_USER_AGENTS:-$HOME/.cursor/agents}"
 }
 
+mmw_user_skills_dir() {
+  printf '%s' "${CURSOR_USER_SKILLS:-$HOME/.cursor/skills}"
+}
+
+# 引擎根：MMW_ENGINE_ROOT → 默认 ~/.cursor/multi-model-workflow-engine → 脚本上溯（仓内开发）。
+# CURSOR_PLUGIN_ROOT 仅当指向含 scripts/mmw.sh 的树时兼容（测试 fixture）。
 mmw_plugin_root() {
-  if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
-    printf '%s' "$CURSOR_PLUGIN_ROOT"
-  else
-    cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd
+  local cand
+  if [ -n "${MMW_ENGINE_ROOT:-}" ] && [ -f "$MMW_ENGINE_ROOT/scripts/mmw.sh" ]; then
+    printf '%s' "$MMW_ENGINE_ROOT"
+    return 0
   fi
+  cand="${HOME}/.cursor/multi-model-workflow-engine"
+  if [ -f "$cand/scripts/mmw.sh" ]; then
+    printf '%s' "$cand"
+    return 0
+  fi
+  if [ -n "${CURSOR_PLUGIN_ROOT:-}" ] && [ -f "$CURSOR_PLUGIN_ROOT/scripts/mmw.sh" ]; then
+    printf '%s' "$CURSOR_PLUGIN_ROOT"
+    return 0
+  fi
+  cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd
 }
 
 # manifest 原子写 + fail-closed(flow/note 共用单源;prototype.sh 因三镜像实体副本约束自含同款):

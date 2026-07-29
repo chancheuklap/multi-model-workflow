@@ -5,6 +5,8 @@ set -euo pipefail
 STATE_SUBDIR="${STATE_SUBDIR:-.cursor/multi-model-workflow}"
 WT_REL="${WT_REL:-.cursor/worktrees}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN="$(cd "$SCRIPT_DIR/../.." && pwd)"
+export MMW_ENGINE_ROOT="$PLUGIN"
 HOOKS="$SCRIPT_DIR/../../hooks"
 LOOP="$SCRIPT_DIR/../loop.sh"
 
@@ -175,8 +177,10 @@ HJ="$HOOKS/hooks.json"
 python3 -m json.tool "$HJ" >/dev/null 2>&1 && ok "hooks.json JSON 合法" || no "hooks.json JSON 不合法"
 jq -e '.hooks.sessionStart and .hooks.beforeShellExecution and .hooks.afterShellExecution' "$HJ" >/dev/null \
   && ok "注册 sessionStart/beforeShellExecution/afterShellExecution" || no "缺 Cursor hook 事件"
-jq -e '.. | strings | select(test("CURSOR_PLUGIN_ROOT"))' "$HJ" >/dev/null 2>&1 &&
-  ok "hook 使用 CURSOR_PLUGIN_ROOT" || no "plugin root 未接线"
+jq -e '.. | strings | select(test("\\.cursor/hooks/"))' "$HJ" >/dev/null 2>&1 &&
+  ok "hook 使用 ~/.cursor/hooks 绝对路径" || no "user hooks path 未接线"
+! jq -e '.. | strings | select(test("CURSOR_PLUGIN_ROOT"))' "$HJ" >/dev/null 2>&1 &&
+  ok "hooks.json 不依赖 CURSOR_PLUGIN_ROOT" || no "CURSOR_PLUGIN_ROOT 残留"
 [ "$(jq -r '.hooks | has("UserPromptSubmit")' "$HJ")" = "false" ] && ok "无 UserPromptSubmit" || no "UserPromptSubmit 残留"
 
 echo ""; echo "Results: $pass passed, $fail failed"; [ "$fail" -eq 0 ]

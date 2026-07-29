@@ -74,8 +74,8 @@ grep -q "重派对应视角" "$BRIEF" && grep -q "不需 resume" "$BRIEF" \
 grep -q "resume <session-id>" "$BRIEF" && no "brief 不该出现 codex resume 续接" || ok "无 codex resume 语义"
 grep -qiE 'Task|subagent_type|reviewer-' "$BRIEF" && ok "brief 使用 Task/subagent_type 派发" || no "brief 缺 Task 派发"
 ok "brief 允许 run_in_background（Cursor Task）"
-grep -qE 'model:"(gpt-5\.6-sol\[effort=medium\]|claude-opus-5\[effort=medium\])"' "$BRIEF" \
-  && ok "brief 显式传 model（绕过插件 stripModel）" || no "brief 缺显式 model"
+! grep -qE 'model:"' "$BRIEF" \
+  && ok "brief 不传 Task model（花名册 frontmatter）" || no "brief 仍含显式 model"
 
 # ①设计审:两视角 reviewer（设计是主线程写的,写者≠审者=隔离 context 的 reviewer）
 bash "$REVIEW" start --stage design --source x >/dev/null 2>&1

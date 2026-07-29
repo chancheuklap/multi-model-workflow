@@ -65,7 +65,6 @@ mmw worker plan-dispatch \
 - **一律后台跑**:脚本为每个 writer 建临时隔离 worktree 并组好 prompt,协调者照打印的 DISPATCH 派 `Task({subagent_type:"plan-writer", prompt:PROMPT_FILE 全文, run_in_background:true})`,并把返回的 run id 用 `mmw worker note-run-id --plan <落点>` 落账;工人回执后 `mmw worker verify --plan <落点> --worktree <任务 wt>` 过边界门才原子发布指定 plan 与 issue 小节并清理隔离 worktree,追问用 `plan-resume`(账本 run id 长效,跨会话也能续原工人)。**互不依赖的 plan 并行发多条;有 blocked_by 链的按依赖序发。** 单 issue → 单 plan:派一个就行,不强行并行。
 - **writer 不建 worktree、不 commit**:隔离、发布和清理由脚本负责;writer 只在自己的隔离 worktree 写指定 plan 与 issue `Small issues`,主线程统一提交。
 - **落点 slug** 与源设计 / issue 对齐(已含日期);多 plan 同一目录。
-- 模型档脚本已钉,除非特殊无需 `--model`。
 - 每个 dispatch 独立、零交叉污染:**不要**把别的 writer 的历史 / 别的 plan 内容混进去。`worktree-plan` skill 指针由脚本自动带,方法论(task-pack / 自检)在 skill 自己的 `references/`,工人读 skill 自取,你不用手传路径。
 
 ## Step 4:亲验返回

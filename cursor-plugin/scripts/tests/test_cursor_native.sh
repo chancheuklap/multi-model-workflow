@@ -37,14 +37,14 @@ jq -e '
   .mcpServers.serena.command == "bash"
   and (.mcpServers.serena.args | length == 2)
   and .mcpServers.serena.args[0] == "-c"
-  and (.mcpServers.serena.args[1] | test("serena-mcp\\.sh"))
+  and (.mcpServers.serena.args[1] | test("multi-model-workflow-engine/scripts/serena-mcp\\.sh"))
   and (.mcpServers.serena.args[1] | test("\\$HOME"))
   and .mcpServers.serena.env.SERENA_PROJECT == "${workspaceFolder}"
   and .mcpServers.serena.env.MMW_SERENA_LAUNCHER == "v3-bash-home"
   and .mcpServers.graphify.command == "bash"
   and (.mcpServers.graphify.args | length == 2)
   and .mcpServers.graphify.args[0] == "-c"
-  and (.mcpServers.graphify.args[1] | test("graphify-mcp\\.sh"))
+  and (.mcpServers.graphify.args[1] | test("multi-model-workflow-engine/scripts/graphify-mcp\\.sh"))
   and (.mcpServers.graphify.args[1] | test("\\$HOME"))
   and .mcpServers.graphify.env.GRAPHIFY_PROJECT == "${workspaceFolder}"
   and .mcpServers.graphify.env.MMW_GRAPHIFY_LAUNCHER == "v1-bash-home"
@@ -84,7 +84,9 @@ grep -q 'mmw_maintain_serena' "$PLUGIN/scripts/serena-mcp.sh" \
 ! grep -q 'link_skill' "$PLUGIN/scripts/install-local-surface.sh" \
   && ! grep -q 'CLAUDE_GRAPHIFY' "$PLUGIN/scripts/install-local-surface.sh" \
   && ! grep -q 'AGENTS_SKILLS' "$PLUGIN/scripts/install-local-surface.sh" \
+  && ! grep -q 'plugins/local' "$PLUGIN/scripts/install-local-surface.sh" \
   && grep -q 'serena-agent' "$PLUGIN/scripts/install-local-surface.sh" \
+  && grep -q 'multi-model-workflow-engine' "$PLUGIN/scripts/install-local-surface.sh" \
   && ok "install-local-surface stays Cursor-local (no cross-harness skill links)" || no "install surface scope"
 
 grep -q 'mcp:graphify/graphify' "$PLUGIN/agents/investigate-topic.md" \
@@ -113,23 +115,24 @@ for d in investigate-topic investigate-synthesizer code-explorer plan-writer pac
 done
 [ "$fail" -eq 0 ] && ok "all role agents present"
 
-# mmw_agent_model + 官方 effort 语法
-export CURSOR_PLUGIN_ROOT="$PLUGIN"
-# shellcheck disable=SC1091
-. "$PLUGIN/scripts/lib/runtime.sh"
-[ "$(mmw_agent_model advisor)" = "claude-opus-5[effort=high]" ] \
+# agents frontmatter model + 官方 effort 语法（用户级花名册合同）
+grep -q '^model: claude-opus-5\[effort=high\]$' "$PLUGIN/agents/advisor.md" \
   && ok "advisor model uses [effort=high]" || no "advisor effort model"
-[ "$(mmw_agent_model pack-executor)" = "composer-2.5" ] \
+grep -q '^model: composer-2.5$' "$PLUGIN/agents/pack-executor.md" \
   && ok "composer has no effort param" || no "pack-executor bare model"
 ! grep -rq '^thinking:' "$PLUGIN/agents" \
   && ok "no thinking: frontmatter (Cursor ignores it)" || no "stale thinking fields"
+! grep -q 'mmw_agent_model' "$PLUGIN/scripts/lib/runtime.sh" \
+  && ok "no mmw_agent_model helper" || no "mmw_agent_model still present"
 
 grep -q 'advisor-strategy pattern' "$PLUGIN/agents/advisor.md" \
   && ok "advisor system prompt present" || no "advisor prompt"
 
 grep -q 'AskQuestion' "$PLUGIN/scripts/lib/runtime.sh" \
+  && grep -q 'mmw_ask_user_howto' "$PLUGIN/scripts/lib/runtime.sh" \
   && grep -q 'cursor-task' "$PLUGIN/scripts/lib/runtime.sh" \
-  && ok "runtime Cursor constants" || no "runtime constants"
+  && grep -q 'Grok' "$PLUGIN/skills/orchestrate/references/control/runtime-contract.md" \
+  && ok "runtime Cursor constants + AskQuestion availability" || no "runtime constants"
 
 grep -q 'cmd_adopt' "$PLUGIN/scripts/prepare.sh" \
   && ok "task adopt exists" || no "task adopt"

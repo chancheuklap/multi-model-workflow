@@ -13,10 +13,11 @@ no() { echo "not ok - $1"; fail=1; }
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-# 伪造插件根：ensure 写成可记录参数的 stub，不依赖 PATH。
+# 伪造引擎根：ensure 写成可记录参数的 stub，不依赖 PATH。
 FAKE_PLUGIN="$TMP/fake-plugin"
-mkdir -p "$FAKE_PLUGIN/skills/graphify/scripts"
-export CURSOR_PLUGIN_ROOT="$FAKE_PLUGIN"
+mkdir -p "$FAKE_PLUGIN/skills/graphify/scripts" "$FAKE_PLUGIN/scripts"
+: >"$FAKE_PLUGIN/scripts/mmw.sh"
+export MMW_ENGINE_ROOT="$FAKE_PLUGIN"
 export PI_GRAPHIFY_TEST_LOG="$TMP/graph-manager.args"
 cat >"$FAKE_PLUGIN/skills/graphify/scripts/graphify_ensure.py" <<'PY'
 #!/usr/bin/env python3

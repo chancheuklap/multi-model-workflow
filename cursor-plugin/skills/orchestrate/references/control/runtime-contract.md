@@ -7,24 +7,38 @@
 | 状态平面 | `.cursor/multi-model-workflow/` |
 | worktree 根 | `.cursor/worktrees/<slug>`（或用户用 Cursor UI 先建的悬空 wt，经 `mmw task adopt` 挂上） |
 | worker 分支 | `worker/<worktree-name>` |
-| 插件根 | hook 内 `${CURSOR_PLUGIN_ROOT}`；主线程由 `mmw` 绝对路径反推 |
+| 引擎根 | `~/.cursor/multi-model-workflow-engine/`（`MMW_ENGINE_ROOT` 可覆盖）；主线程由 `mmw` 绝对路径反推 |
+| 花名册 | `~/.cursor/agents/<name>.md` |
+| Skills | `~/.cursor/skills/<name>/` |
+| Commands | `~/.cursor/commands/*.md` |
+| Rules | `~/.cursor/rules/*.mdc` |
+| Hooks 脚本 | `~/.cursor/hooks/*.sh` |
+| Hooks 注册 | `~/.cursor/hooks.json` |
+| MCP | `~/.cursor/mcp.json`（启动器指向引擎根 `scripts/*-mcp.sh`） |
 
 `task.json`(含 `note` 书签与 `approval` 设计确认)、`loop-state.json`、进度板、派发账本和 review brief 都在状态平面。
 
+改仓库 `cursor-plugin/` 后跑 `bash cursor-plugin/scripts/install-local-surface.sh`，再 Reload Window。组件复制到上表用户级路径与引擎树。
+
 ## 工具
 
-| 语义 | Cursor 工具 |
-| --- | --- |
-| 壳命令 | `Shell` |
-| 创建或编辑文件 | 编辑器写工具 / `ApplyPatch`（以当前 Cursor 合同为准） |
-| 结构化问用户 | `AskQuestion` |
-| 子代理 | `Task`（`subagent_type`=花名册角色名；多轮用同一 agent id 的 `resume`） |
-| 文件检索 | `Read`、`Grep`、`Glob`、`LS` |
-| 外部检索 | `WebSearch`、`WebFetch` |
+只写 Cursor Agent **真实会挂载**的名字；会话工具列表里没有的禁止假装调用。
+
+| 语义 | Cursor 工具 | 可用性 |
+| --- | --- | --- |
+| 壳命令 | `Shell` | 常驻 |
+| 创建或编辑文件 | 以当前会话挂载为准（常见 `Write` / `StrReplace` / `Delete`；**勿臆造未挂载的 `ApplyPatch`**） | 按会话 |
+| 结构化问用户 | **`AskQuestion`** | 宿主注入、按模型挂载。Composer / Claude / GPT 通常有；**Grok 4.5 当前全 mode 关闭**。列表无此项 → **聊天正文固定选项（A/B/…）回退**。ACP 侧同能力为 `cursor/ask_question`。**不是** `cursor_dialog`（`cursor-app-control` MCP，只管 User Rules） |
+| 子代理 | `Task`（`subagent_type`=花名册角色名；多轮用同一 agent id 的 `resume`） | 常驻；子代理通常**没有** `AskQuestion`，须回主线程再问 |
+| 文件检索 | `Read`、`Grep`、`Glob` | 常驻 |
+| 外部检索 | `WebSearch`、`WebFetch` | 常驻（网络策略另限） |
+| 切模式 | `SwitchMode`（目前仅 `target_mode_id: "plan"`） | 常见；**不是**提问工具 |
+
+运行时常量：`mmw_ask_user_tool` → `AskQuestion`；完整合同句见 `mmw_ask_user_howto`。
 
 任务 worktree：用户可用 Cursor UI 先建悬空 checkout，再跑 `mmw task adopt` 挂 slug 分支与 manifest；续跑时用 Open Folder / 工作区切进该路径并跑 `mmw where`。Coordinator 也可由 `prepare.sh` 建 wt。Pack worker 和 plan writer 的隔离 worktree 由 `worker.sh` 建立，工人 prompt 里钉死该 worktree 绝对路径，工人的所有操作必须落在它下面。工作角色都是会话内 Task 子代理；主线程工作目录不随工人切换。
 
-MMW 建立上述 worktree 后，优先调用目标仓库的 `.cursor/worktree-init.sh`；没有项目 hook 时调用本插件 `skills/graphify/scripts/graphify_ensure.py`，按来源与目标工作树内容复用或重建原生图谱。两条初始化路径都不污染机器 stdout，失败会明确告警但不阻断任务；首次复杂检索会再次 ensure。
+MMW 建立上述 worktree 后，优先调用目标仓库的 `.cursor/worktree-init.sh`；没有项目 hook 时调用引擎内 `skills/graphify/scripts/graphify_ensure.py`，按来源与目标工作树内容复用或重建原生图谱。两条初始化路径都不污染机器 stdout，失败会明确告警但不阻断任务；首次复杂检索会再次 ensure。
 
 ## 角色花名册
 
@@ -41,7 +55,7 @@ MMW 建立上述 worktree 后，优先调用目标仓库的 `.cursor/worktree-in
 | `reviewer-plan-a` / `reviewer-plan-b` | 计划审模型路线 A / B |
 | `reviewer-final-a` / `reviewer-final-b` | 终审模型路线 A / B,视角由 dispatch 指定 |
 
-花名册以插件内 `agents/<name>.md` frontmatter 为准（`model` 含 `id[effort=…]`、`is_background`、工具白名单）。**Cursor 从 plugin 加载 agents 时会 stripModel 并把 model 置为 inherit**；派发时 `Task` **必须**显式传 `model:"…"`（脚本 DISPATCH / review brief 已带）。不要另写 `thinking:`——官方不消费该字段，思考程度只写在 model 括号参数里。
+花名册以 `~/.cursor/agents/<name>.md` frontmatter 为准（`model` 含 `id[effort=…]`、`is_background`、工具白名单）。不要另写 `thinking:`——官方不消费该字段，思考程度只写在 model 括号参数里。Task 派发用 `subagent_type` 指名；模型由花名册生效。
 
 **后台派发硬规则（mmw 角色一律不阻塞主线程前台）**：
 - `plan-writer` / `pack-executor` / `pack-executor-capable`：**必须** `run_in_background: true`（脚本打印的指令已带；协调者照抄，禁止改成前台阻塞）。
@@ -68,7 +82,7 @@ final review 由 `mmw review start` 分档：small-change/bug 派一个 A 路 Ta
 
 ## 主↔子多轮
 
-Cursor 原生 **Task + resume**。工人要决策时：结构化回执回主线程 → 主线程必要时 `AskQuestion` → 再 `resume` 同一 agent id 答复。禁止 `contact_supervisor` / `supervisor-request.json` 文件协议。
+Cursor 原生 **Task + resume**。工人要决策时：结构化回执回主线程 → 主线程按 `mmw_ask_user_howto` 问用户（有 `AskQuestion` 用工具，否则聊天固定选项）→ 再 `resume` 同一 agent id 答复。禁止 `contact_supervisor` / `supervisor-request.json` 文件协议。
 
 ## 审闸
 
@@ -82,16 +96,11 @@ Cursor 原生 **Task + resume**。工人要决策时：结构化回执回主线�
 | `beforeShellExecution` | `guard-redline.sh`（Cursor flat `permission` + Claude nested 兼容） |
 | `afterShellExecution` | `record-step.sh` |
 
-`hooks.json` 以 `CURSOR_PLUGIN_ROOT` 解析插件根并传给脚本。用户级 `~/.cursor/hooks.json` 也可挂同一批绝对路径脚本（当前 Cursor 对 plugin hooks 加载不稳时的生效面）。红线读 `.command // .tool_input.command`；命中 → `permission=ask`（兼嵌套 `permissionDecision`）；放行必须吐 `{"permission":"allow"}`（`failClosed` 下空 stdout 会被拦）。
+生效面：`~/.cursor/hooks.json` 指向 `~/.cursor/hooks/*.sh`；脚本经引擎根加载 runtime。红线读 `.command // .tool_input.command`；命中 → `permission=ask`（兼嵌套 `permissionDecision`）；放行必须吐 `{"permission":"allow"}`（`failClosed` 下空 stdout 会被拦）。
 
 ## Commands（控制面 slash）
 
-插件 `commands/*.md` 声明 11 条控制面命令（`approve-design` / `progress` / `reassess` …）。每条 frontmatter 必须含 Cursor 要求的 `name` + `description`。
-
-生效面（两道都接）：
-
-1. 插件目录 `commands/`（需 Settings 打开 **Include third-party Plugins, Skills, and other configs**，否则 plugin commands 常不进 `/` 菜单）。
-2. 用户级 `~/.cursor/commands/`——Cursor 确认会进 slash 菜单的通道。本地试装跑 `bash cursor-plugin/scripts/install-local-surface.sh`：插件本体与这 11 条命令都软链到仓库源码；换路径再跑，日常改文件 Reload 即可。
+`~/.cursor/commands/*.md` 声明 11 条控制面命令（`approve-design` / `progress` / `reassess` …）。每条 frontmatter 必须含 Cursor 要求的 `name` + `description`。
 
 设计确认是唯一人闸：用户敲 `/approve-design` → `mmw approve` 盖承重文档指纹、attendance 切 afk 并推进；用户口头同意不算过门。承重文档改动后审闸 pass 硬停 `approval_stale`，重跑 `mmw approve` 重盖（RE-APPROVED）。
 

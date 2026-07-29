@@ -10,12 +10,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 TOPIC_SUBAGENT="${CURSOR_INVESTIGATE_TOPIC_AGENT:-investigate-topic}"
 SYNTH_SUBAGENT="${CURSOR_INVESTIGATE_SYNTH_AGENT:-investigate-synthesizer}"
-TOPIC_MODEL="${CURSOR_INVESTIGATE_TOPIC_MODEL:-}"
-SYNTH_MODEL="${CURSOR_INVESTIGATE_SYNTH_MODEL:-}"
-[ -n "$TOPIC_MODEL" ] || TOPIC_MODEL="$(mmw_agent_model "$TOPIC_SUBAGENT")" \
-  || TOPIC_MODEL="composer-2.5"
-[ -n "$SYNTH_MODEL" ] || SYNTH_MODEL="$(mmw_agent_model "$SYNTH_SUBAGENT")" \
-  || SYNTH_MODEL="grok-4.5[effort=high]"
 MMW_INVESTIGATE_RUN_LOCK=""
 MMW_INVESTIGATE_START_LOCK=""
 MMW_INVESTIGATE_STAGING=""
@@ -83,19 +77,19 @@ release_run_lock() {
 }
 
 print_task_dispatch() {
-  local subagent="$1" prompt_path="$2" model="$3"
-  echo "DISPATCH=Task({subagent_type:\"$subagent\", prompt:\"$prompt_path\", model:\"$model\", run_in_background:true})"
+  local subagent="$1" prompt_path="$2"
+  echo "DISPATCH=Task({subagent_type:\"$subagent\", prompt:\"$prompt_path\", run_in_background:true})"
 }
 
 write_job_meta() {
-  local file="$1" kind="$2" subagent="$3" model="$4" cwd="$5" prompt="$6"
+  local file="$1" kind="$2" subagent="$3" cwd="$4" prompt="$5"
   local tmp result_path
   result_path="$(dirname "$prompt")/result.json"
   tmp="$(mktemp "$(dirname "$file")/.meta.XXXXXX")" || return 1
-  jq -n --arg kind "$kind" --arg subagent "$subagent" --arg model "$model" \
+  jq -n --arg kind "$kind" --arg subagent "$subagent" \
     --arg cwd "$cwd" --arg prompt "$prompt" --arg result "$result_path" \
     --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    '{kind:$kind,subagent_type:$subagent,model:$model,cwd:$cwd,prompt_file:$prompt,
+    '{kind:$kind,subagent_type:$subagent,cwd:$cwd,prompt_file:$prompt,
       status:"prepared",attempt:1,result_file:$result,validation_error:null,
       backend:"cursor-task",created_at:$at,updated_at:$at}' \
     >"$tmp" && mv "$tmp" "$file"
@@ -114,14 +108,13 @@ archive_job_attempt() {
 }
 
 topic_prompt() {
-  local mode="$1" angle="$2" question="$3" skill="$4" repo="$5" candidates_file="$6" plugin
-  plugin="$(mmw_plugin_root)"
+  local mode="$1" angle="$2" question="$3" skill="$4" repo="$5" candidates_file="$6"
   cat <<PROMPT
 你只调查一个 topic，只摆证据，不选方案、不改文件。
 mode=$mode
 angle=$angle
 question=$question
-skill=${skill:-none}(非 none 时先用 Read 读 ~/.cursor/skills/$skill/SKILL.md；若无则读 $plugin/skills/$skill/SKILL.md。按其指引投查,引用不照抄;文件不存在=缺装,写入 gaps 并注明角度未应用,不凭记忆编方法论)
+skill=${skill:-none}(非 none 时先用 Read 读 ~/.cursor/skills/$skill/SKILL.md。按其指引投查,引用不照抄;文件不存在=缺装,写入 gaps 并注明角度未应用,不凭记忆编方法论)
 repoRoot=$repo
 
 上游结构候选(仅候选,不代表本 topic worker 调过工具):
@@ -316,7 +309,7 @@ cmd_start() {
     meta="$dir/meta.json"
     printf -v final_prompt '%s/topics/%03d/prompt.md' "$root" "$i"
     topic_prompt "$mode" "$angle" "$question" "$skill" "$top" "$candidates_file" >"$prompt"
-    write_job_meta "$meta" topic "$TOPIC_SUBAGENT" "$TOPIC_MODEL" "$top" "$final_prompt"
+    write_job_meta "$meta" topic "$TOPIC_SUBAGENT" "$top" "$final_prompt"
     jq --arg mode "$mode" --arg angle "$angle" --arg question "$question" \
       --argjson retrieval_candidates "$retrieval_candidates" \
       '. + {mode:$mode,angle:$angle,question:$question,retrieval_candidates:$retrieval_candidates}' \
@@ -330,7 +323,7 @@ cmd_start() {
   echo "INVESTIGATE_STARTED run=$run topics=$count backend=cursor-task"
   for ((i=0; i<count; i++)); do
     printf -v meta '%s/topics/%03d/meta.json' "$root" "$i"
-    print_task_dispatch "$TOPIC_SUBAGENT" "$(jq -r .prompt_file "$meta")" "$TOPIC_MODEL"
+    print_task_dispatch "$TOPIC_SUBAGENT" "$(jq -r .prompt_file "$meta")"
   done
   echo "NEXT=主线程派发上述 Task 后跑: mmw investigate status --run $run"
 }
@@ -346,11 +339,11 @@ prepare_synthesis() {
   result_path="$synth_dir/result.json"
   build_synth_prompt "$evidence" "$prompt" "$result_path"
   meta="$synth_dir/meta.json"
-  write_job_meta "$meta" synthesis "$SYNTH_SUBAGENT" "$SYNTH_MODEL" "$top" "$prompt"
+  write_job_meta "$meta" synthesis "$SYNTH_SUBAGENT" "$top" "$prompt"
   mmw_atomic_update "$root/run.json" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '.status="synthesizing" | .updated_at=$at' \
     || die "无法更新 run 账本"
-  print_task_dispatch "$SYNTH_SUBAGENT" "$prompt" "$SYNTH_MODEL"
+  print_task_dispatch "$SYNTH_SUBAGENT" "$prompt"
 }
 
 refresh_topic_meta() {
@@ -480,7 +473,7 @@ cmd_status() {
     if [ "$synth_state" = prepared ]; then
       release_run_lock
       echo "INVESTIGATE_STATUS=SYNTHESIZING"
-      print_task_dispatch "$SYNTH_SUBAGENT" "$root/synthesis/prompt.md" "$SYNTH_MODEL"
+      print_task_dispatch "$SYNTH_SUBAGENT" "$root/synthesis/prompt.md"
       echo "NEXT=写入 $root/synthesis/result.json 后重跑: mmw investigate status --run $run"
       return 0
     fi
@@ -514,7 +507,7 @@ cmd_resume() {
     mmw_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       '.status="prepared" | .validation_error=null | .attempt=((.attempt // 1)+1) | .updated_at=$at' \
       || die "无法更新 topic meta:$meta"
-    print_task_dispatch "$TOPIC_SUBAGENT" "$(jq -r .prompt_file "$meta")" "$TOPIC_MODEL"
+    print_task_dispatch "$TOPIC_SUBAGENT" "$(jq -r .prompt_file "$meta")"
     retried=$((retried+1))
   done
 
@@ -527,7 +520,7 @@ cmd_resume() {
         mmw_atomic_update "$meta" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
           '.status="prepared" | .validation_error=null | .attempt=((.attempt // 1)+1) | .updated_at=$at' \
           || die "无法更新 synthesis meta"
-        print_task_dispatch "$SYNTH_SUBAGENT" "$root/synthesis/prompt.md" "$SYNTH_MODEL"
+        print_task_dispatch "$SYNTH_SUBAGENT" "$root/synthesis/prompt.md"
         retried=$((retried+1))
       fi
     fi

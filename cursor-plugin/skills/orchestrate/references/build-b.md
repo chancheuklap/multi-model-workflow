@@ -55,7 +55,7 @@ mmw worker dispatch --plan <plan 绝对路径> --worktree <该 plan 的 worktree
 
 - **子 worktree 落点定死**:`<主仓库>/.cursor/worktrees/<slug>-plan-<NNN>`(与任务 worktree 同层,别散落);脚本挂 `worker/<目录名>` 分支,从 `--base`(默认 HEAD)分叉。
 - **三文档都传**:pack-executor 开工要读设计(意图 / 合同)+ 它的 issue(边界)+ 它的计划(实施权威),不能只给计划。
-- **模型档脚本按 plan 的 `Complexity` 自动切,你不手传**:高风险 plan(标 `Complexity: capable`——计费 / 权限 / migration / 跨服务)脚本自动切高档。`--model`/`--effort` 仅在你要临时覆盖时才传。
+- **模型档脚本按 plan 的 `Complexity` 自动切,你不手传**:高风险 plan(标 `Complexity: capable`——计费 / 权限 / migration / 跨服务)脚本自动切 `pack-executor-capable` 角色。
 - **一律后台跑**:`worker.sh` 创建 Git worktree 并组好 prompt，协调者照打印的 DISPATCH 派 `Task({subagent_type:"pack-executor", prompt:PROMPT_FILE 全文, run_in_background:true})`，并把返回的 run id 用 `mmw worker note-run-id` 落账；返修从派发账本找到原 run id 与 worktree。工人回执在会话内直接回来，回执后跑 `mmw worker verify --worktree <wt>` 过边界门。
 - 并行:互不依赖的 plan,各自一个 worktree,同时发多条后台 dispatch。
 - **铁律在 `worktree-build` skill**:prompt 只给角色 + worktree + 三文档 + skill 指针。
