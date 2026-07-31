@@ -76,12 +76,13 @@ dispatch_codex() {  # $1=resume 的会话号（空=首派）
   [ -n "$prompt" ] || die "--prompt 必填"
   [ -f "$prompt" ] || die "提示词文件不存在: $prompt"
 
-  # 开工前预检：角色点名要读的技能就在插件树里，路径由提示词交代。
-  # 这里只确认文件真在，不让它开工后才发现方法论找不到。
+  # 开工前预检：被派者那一侧得先装好方法论技能，否则它按名字找不到。
+  # 缺了就是没跑 install.sh，当场报错，不让它开工后才发现。
+  local skills_root="${MMW_AGENT_SKILLS_DIR:-${CODEX_HOME:-$HOME/.codex}/skills}"
   local sk
   while IFS= read -r sk; do
     [ -n "$sk" ] || continue
-    [ -f "$PLUGIN_ROOT/skills/$sk/SKILL.md" ] || die "角色 $role 要读的技能不在插件里: $PLUGIN_ROOT/skills/$sk/SKILL.md"
+    [ -f "$skills_root/$sk/SKILL.md" ] || die "角色 ${role} 要读的技能没装到派发后端: ${skills_root}/${sk}（跑 ${PLUGIN_ROOT}/scripts/install.sh）"
   done < <(role_list "$rf" skills)
 
   # 可写角色首派前工作树必须干净：否则收工核越界时分不清哪些改动是它的。
