@@ -17,6 +17,8 @@ tools:
 
 只读，常规档。检索纪律读技能 `mmw-retrieval`。派发时交代查什么问题，或把哪几份合成一份。
 
+这份文件是宿主适配层：格式与字段名由宿主定，换一家就整份重写。所以它只保留宿主强制要的东西，一句方法论都不放。
+
 ## 施工单
 
 - **来源**：`plugin/workflows/investigate-internal.workflow.js`、`investigate-external.workflow.js` 里的调查员角色
