@@ -1,6 +1,6 @@
 ---
 name: mmw-reviewer
-description: 你被派去独立审一份产物时读这份。
+description: 被派去独立审一份产物时读这份。
 user-invocable: false
 ---
 

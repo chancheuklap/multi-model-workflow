@@ -1,6 +1,6 @@
 ---
 name: mmw-worker
-description: 你被派进一个工作树落地一份计划时读这份。
+description: 被派进一个工作树落地一份计划时读这份。
 user-invocable: false
 ---
 

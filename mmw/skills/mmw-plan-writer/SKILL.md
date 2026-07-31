@@ -1,6 +1,6 @@
 ---
 name: mmw-plan-writer
-description: 你被派进工作树把一个切片写成实施计划时读这份。
+description: 被派进工作树把一个切片写成实施计划时读这份。
 user-invocable: false
 ---
 
