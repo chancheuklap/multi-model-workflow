@@ -2,7 +2,7 @@
 # 第三层接线的验收证据：在一个临时仓库里空转一整轮。
 # 用法：bash docs/design/mmw-rebuild/dryrun.sh [工作目录]
 # 覆盖：开任务 → 切格 → 设计未过门的拒绝点 → 过门 → 越界检查两个方向 →
-#       工作树脏拒派 → 真派一次 → 审查留痕 → --no-ff 合并 → 清树。
+#       工作树脏拒派 → 审查留痕 → 落地回设计清过门 → --no-ff 合并 → 清树。
 set -euo pipefail
 MMW="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../mmw" && pwd)"
 DIR="${1:-$(mktemp -d)}"; rm -rf "$DIR"; mkdir -p "$DIR"; cd "$DIR"
@@ -16,15 +16,15 @@ echo ".mmw/" > .gitignore && git add .gitignore && git commit -qm "ignore .mmw"
 BASE=$(git rev-parse HEAD)
 git worktree add -q .mmw/worktrees/demo -b demo
 WT="$PWD/.mmw/worktrees/demo"; mkdir -p "$WT/.mmw"
-printf '{ "task": "demo", "phase": "investigate", "base": "%s", "note": "", "design_approved": null }\n' "$BASE" > "$WT/.mmw/task.json"
+printf '{ "task": "demo", "phase": "wayfind", "base": "%s", "note": "", "design_approved": null }\n' "$BASE" > "$WT/.mmw/task.json"
 : > "$WT/.mmw/sidelines.md"
-ok "开任务" "phase=investigate base=${BASE:0:8}"
+ok "开任务" "落在主干第一格 wayfind，base=${BASE:0:8}"
 
 setphase(){ python3 -c "import json,sys;f='$WT/.mmw/task.json';d=json.load(open(f));d['phase']=sys.argv[1];json.dump(d,open(f,'w'),indent=2)" "$1"; }
 get(){ python3 -c "import json;print(json.load(open('$WT/.mmw/task.json'))['$1'])"; }
 
 # ② 切格到设计，验唯一拒绝点
-setphase propose; setphase design
+setphase investigate; setphase propose; setphase design
 [ "$(get design_approved)" = "None" ] && ok "切格" "停在 design，未过门不许往下"
 
 # ③ 过门
@@ -62,7 +62,13 @@ mkdir -p "$WT/.mmw/reviews"
 printf '基准: %s\n\n(审者原样发现落这里)\n' "$(git -C "$WT" rev-parse HEAD)" > "$WT/.mmw/reviews/build-1.md"
 ok "审查留痕" "头部写基准提交，供下次判增量"
 
-# ⑧⑨ 合并与清树
+# ⑧ 落地完回设计再调（主路上的大环）：目标格是 design，过门标记清回空
+setphase design
+python3 -c "import json;f='$WT/.mmw/task.json';d=json.load(open(f));d['design_approved']=None;json.dump(d,open(f,'w'),indent=2)"
+[ "$(get design_approved)" = "None" ] && ok "回设计" "过门标记清回空，改完要重新过门"
+setphase build; setphase package
+
+# ⑨⑩ 合并与清树
 git merge --no-ff -q demo -m "merge demo"
 ok "合并" "--no-ff，主分支 $(git rev-list --count HEAD) 个提交"
 git worktree remove --force .mmw/worktrees/demo

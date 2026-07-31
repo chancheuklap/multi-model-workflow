@@ -10,13 +10,15 @@ argument-hint: "[阶段]"
 
 1. 读 `.mmw/task.json`。
 2. **唯一拒绝点**：当前是 `design` 且 `design_approved` 是 null，停下，让用户敲 `/mmw-approve-design`。除此之外不校验、不问理由。
-3. 定目标格：给了参数就是那一格（中文名与英文键都认）；没给就取主干下一格；当前在 `wayfind` 且没给参数，目标是 `investigate`。
+3. 定目标格：给了参数就是那一格（中文名与英文键都认）；没给就取主干下一格。
 4. 写回 `phase`。这一步只改这一个字段。
 5. 告诉用户到了哪一格、该读哪份技能（`mmw-<阶段键>`，只有收尾那一格读 `mmw-done`）、这一格的产物按约定该落在哪。
 
 无人值守时代理自己敲这条即为代敲，把决定与理由追加进 `note`。
 
-主干顺序：`investigate` → `propose` → `design` → `to-issue` → `plan` → `build` → `package` → `closing`。`wayfind` 在轴外，只能点名进。
+主干顺序：`wayfind` → `investigate` → `propose` → `design` → `to-issue` → `plan` → `build` → `package` → `closing`。
+
+落地完回设计再调，是预期路径不是异常：敲 `/mmw-back design`。
 
 ---
 

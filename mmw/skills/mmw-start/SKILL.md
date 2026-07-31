@@ -5,7 +5,7 @@ argument-hint: "<需求>"
 disable-model-invocation: true
 ---
 
-把需求变成任务名，建工作树与状态文件，落在查清现状那一格。尽快建树，不在无状态区久留——建树之前的对话全在盘外。
+把需求变成任务名，建工作树与状态文件，落在探路那一格。尽快建树，不在无状态区久留——建树之前的对话全在盘外。
 
 ## 怎么做
 
@@ -15,11 +15,11 @@ disable-model-invocation: true
 4. 在新工作树里写 `.mmw/task.json`：
 
 ```json
-{ "task": "<任务名>", "phase": "investigate", "base": "<分叉时的完整 sha>", "note": "", "design_approved": null }
+{ "task": "<任务名>", "phase": "wayfind", "base": "<分叉时的完整 sha>", "note": "", "design_approved": null }
 ```
 
 5. 同目录建空的 `.mmw/sidelines.md`。
-6. 告诉用户任务名、工作树在哪、现在停在查清现状那一格，接着读 `mmw-investigate`。
+6. 告诉用户任务名、工作树在哪、现在停在探路那一格，接着读 `mmw-wayfind`。小到不用探路的改动，敲 `/mmw-next <阶段>` 直接跳过去。
 
 ---
 
