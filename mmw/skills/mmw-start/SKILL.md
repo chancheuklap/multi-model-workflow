@@ -5,18 +5,15 @@ argument-hint: "<需求>"
 disable-model-invocation: true
 ---
 
-需求理解到能起个名字就建树，深入的对话放进第一个阶段做。
+需求理解到能起个名字就建树，深入的对话放进 `mmw-wayfind` 做。
 
 ## 怎么做
 
 1. 从需求提炼任务名：动作加对象，短横线连写，只用小写字母、数字和短横线（`fix-payment-retry`、`add-oauth-login`）。泛称起不了名——`update`、`refactor`、`task-1` 隔一个月认不出是哪件事。
-2. 跑 `scripts/task.sh new <任务名>`。忽略清单、工作树、`.mmw/task.json`、`.mmw/sidelines.md` 由它一次落齐，输出头三行给你任务名、工作树路径、分叉点。
-3. 告诉用户四样：
-
-   - 任务名
-   - 工作树在哪（脚本输出的那个路径）
-   - 现在停在 `wayfind`，接着读 `mmw-wayfind`
-   - 用不上探路的小改动，敲 `/mmw-next <阶段>` 直接跳过去
+2. 在主仓库跑插件根的 `scripts/task.sh new <任务名>`。忽略清单、工作树、`.mmw/task.json`、`.mmw/sidelines.md` 由它一次落齐，输出头三行给你任务名、工作树路径、分叉点。
+3. 进到那棵工作树里。这个任务往后每一步都在里面干：状态文件、旁路清单、代码改动都在那里，留在主仓库的话下一份技能读不到状态。
+4. 报给用户三样：任务名、工作树路径、现在停在 `wayfind`。这次要是用不上探路，请他现在说要从哪一步起。
+5. 用户没有异议，接着读 `mmw-wayfind` 开始探路；他要跳，读 `mmw-next`。
 
 ---
 
