@@ -340,7 +340,7 @@
 | `mmw-task-pack` | 写计划的人与核计划的人 | `plan/task-pack.md`（旧仓库里有两处完全相同的复制） |
 | `mmw-testing` | 计划撰写者、工人、终审者 | `worktree-build/references/tests.md` 的测试质量片段、仓库根 `TESTING.md` |
 | `mmw-retrieval` | 任何要查结构的人 | `references/retrieval-doctrine.md` |
-| `mmw-evidence` | `scout`，以及探路与查清现状两格的主线程 | `references/investigate.md` 的取证纪律、上游 `codebase-design` 与 `diagnosing-bugs` |
+| `mmw-evidence` | 所有在查东西的代理：`scout`，以及探路、查清现状、`mmw-fix` 三处的主线程 | `references/investigate.md` 的取证纪律、上游 `codebase-design` 与 `diagnosing-bugs` |
 | `mmw-dispatch` | 主线程，要派角色出去时 | `scripts/worker.sh` 的派发与恢复、`scripts/review.sh` 的派发指南 |
 
 这八份都设 `user-invocable: false`：它们是背景知识，不是用户敲得出来的动作。
