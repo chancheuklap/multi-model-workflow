@@ -163,6 +163,7 @@ $(printf '%s\n' "$dirty" | sed 's/^/  /')"
 # ---------- 越界 ----------
 # 角色声明 allow-paths 就是白名单（只准碰这些），声明 deny-paths 就是黑名单（禁碰这些）。
 # 两者都没有的角色不写盘，没什么可核。
+# 出参是给主线程看的事实，不是判决：怎么处置由它按这次的活判断。
 cmd_check() {
   [ -n "$since" ] || die "--since 必填（起点提交）"
   local touched allow deny bad
@@ -186,7 +187,7 @@ cmd_check() {
   fi
 
   [ -z "$bad" ] && { echo "CLEAN: 改动都在 $role 的边界内"; return 0; }
-  echo "VIOLATION: $role 碰了边界外的文件，打回重来：" >&2
+  echo "OUT-OF-BOUNDS: $role 动了边界外的文件，主线程判怎么处置：" >&2
   printf '%s\n' "$bad" | sed 's/^/  /' >&2
   return 3
 }
