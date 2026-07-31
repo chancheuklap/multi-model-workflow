@@ -1,0 +1,12 @@
+{
+  "name": "mmw",
+  "description": "多模型开发编排:阶段之间人推进,阶段之内代理自转到收敛。九格主干、七个技能入口、一种变量。",
+  "version": "0.1.0",
+  "author": {
+    "name": "Cheuk Lap Chan",
+    "email": "chancheuklapincn@gmail.com"
+  },
+  "repository": "https://github.com/chancheuklap/multi-model-workflow",
+  "license": "MIT",
+  "keywords": ["multi-model", "orchestration", "worktree", "code-review", "hitl", "claude-code"]
+}

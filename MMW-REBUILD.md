@@ -183,3 +183,97 @@
 已经定死：九格的名字与主干顺序、状态五字段与文件位置、六个命令的语义与指向、八条路径约定、唯一拒绝点。
 
 故意没碰：每份技能里写什么方法（第四层）、有哪些子代理角色与各配什么模型（第二层）、怎么派子代理与收结果（第三层）、审查循环的具体跑法（第四层）、另外三个宿主怎么迁（本次范围之外）。
+
+---
+
+# 第二层 · 骨架
+
+新插件落在仓库根的 `mmw/`。名字不带宿主前缀：旧的四份是「某宿主的 plugin」，这一份就是 MMW 本身，与状态目录 `.mmw/` 同名。旧 `plugin/` 原地不动继续可用。
+
+骨架层只建文件、不写方法论。每份文件有头部声明、一句职责，以及一张**施工单**——来源哪个旧文件、保留什么、删除什么。第四层填肉时照施工单办，不再重新判断。
+
+当前规模：29 个文件、434 行（24 份技能、2 条角色登记、2 个钩子文件、1 份插件清单）。旧 plugin 是 14845 行。
+
+## 2.1 入口（7 份技能）
+
+| 新技能 | 来源 | 删掉的 |
+| --- | --- | --- |
+| `mmw` | `commands/progress.md`、`commands/reassess.md`、`scripts/progress.sh`、`flow.sh` 的 where | 进度板渲染器与投影层；where 的指路指令面 |
+| `mmw-start` | `scripts/prepare.sh`、`routes.json` 的 entry_policy | 入口能力判定与原话取证；场景预设选择；三十九字段任务档案 |
+| `mmw-next` | `flow.sh` 的 handoff 与阶段推进 | 推进引擎、阶段序列与游标、五个结论词、审闸强制、打转守卫、掉头台账 |
+| `mmw-back` | `flow.sh` 的 needs-redirection | 掉头计数与方向横跳判据；讨论态与流水线态区分 |
+| `mmw-review` | `references/review/review.md`、`scripts/review.sh`、`review/plan-impl.md` | 派发指南先落盘再读回；审闸标记与强制进闸；跨计划合同门单列 |
+| `mmw-approve-design` | `commands/approve-design.md`、`scripts/steer.sh` 的 approve | 文档指纹与哈希比对；过门自动切值守档并推进 |
+| `mmw-done` | `references/closing.md` | 钉产出与交还引擎；遗留项与旁路两套登记 |
+
+## 2.2 阶段方法（9 份技能）
+
+| 新技能 | 来源 | 删掉的 |
+| --- | --- | --- |
+| `mmw-wayfind` | `references/wayfind.md` | 与引擎的交接与结论词 |
+| `mmw-investigate` | `references/investigate.md`、两份 workflow 脚本 | 自建并行编排（并行是把派发第一步连着调几次）；检索候选 JSON 管道 |
+| `mmw-propose` | `references/propose.md` | 看引擎 do 判降级的开关 |
+| `mmw-design` | `design/discussion.md`、`design-doc-template.md`、`design-self-check.md` | 方法顺序里嵌的引擎调用与值守档；取证战役单列 |
+| `mmw-prototype` | `design/prototype-mockup.md`、`scripts/prototype.sh`、`lib/prototype-state.sh` | 三状态机与轮次计数、日志文件、下游材料校验；账本里的哈希锚点 |
+| `mmw-to-issue` | `design/to-issue-skeleton.md` | 上游产物登记与接力单 |
+| `mmw-plan` | `plan/plan-flow.md`、`plan-self-check.md` | 并行派发的引擎步账；交还后强制进审闸 |
+| `mmw-build` | `build-a.md` + `build-b.md` 合一 | 按场景分两份（判据改成改动面）；执行账本步账与断点恢复表 |
+| `mmw-package` | `references/package.md` | 出包状态机的状态词表与五个引擎子命令面 |
+
+`mmw-prototype` 从设计里拆出来，因为它是另一门手艺：一个是把结构想清楚，一个是做一版让用户看了能说「不对，应该这样」。收尾那一格没有单独的技能，`mmw-done` 同时是它的方法。
+
+## 2.3 子代理与共读（6 份技能）
+
+| 新技能 | 谁读 | 来源 |
+| --- | --- | --- |
+| `mmw-worker` | 写码工人 | `worktree-build/SKILL.md`、`discipline.md`、`when-stuck.md` |
+| `mmw-plan-writer` | 计划撰写者 | `worktree-plan/SKILL.md`、`plan-self-check.md` |
+| `mmw-reviewer` | 审者 | `worktree-review/SKILL.md` 与它的五份 references |
+| `mmw-task-pack` | 写计划的人与核计划的人 | `plan/task-pack.md`（旧仓库里有两处完全相同的复制） |
+| `mmw-testing` | 计划撰写者、工人、终审者 | `worktree-build/references/tests.md` 的测试质量片段、仓库根 `TESTING.md` |
+| `mmw-retrieval` | 任何要查结构的人 | `references/retrieval-doctrine.md` |
+
+这六份都设 `user-invocable: false`：它们是背景知识，不是用户敲得出来的动作。
+
+## 2.4 独立入口（2 份技能）
+
+| 新技能 | 来源 | 为什么独立 |
+| --- | --- | --- |
+| `mmw-release` | `release-flow/SKILL.md`、`drive-loop.md` | 零宿主耦合、零阶段耦合，与主干的唯一接点是出包那一格调它 |
+| `mmw-merge` | `scenario/merge.md`、`worktree-review/references/merge.md` | 发生在任务之外，不建工作树也没有状态文件 |
+
+## 2.5 角色登记（2 条）
+
+实证：旧 plugin 里第二模型侧的工人、计划撰写者、审者都没有定义文件，模型与思考档写在派发命令行里；有定义文件的只有主线程这一族的审者一条。所以登记条数由「模型或权限是否不同」决定，不由职责数量决定。
+
+| 登记 | 为什么单独一条 | 派发时才交代 |
+| --- | --- | --- |
+| `reviewer` | 只读，钉死推理档；主线程这一族的审者 | 审什么、哪一路视角、增量基准 |
+| `scout` | 只读，常规档；查一个问题或把几份合成一份 | 查什么，或合并哪几份 |
+
+第二模型侧的三个角色仍走派发命令行，模型写在那条命令里，第三层接线时落定。
+
+## 2.6 钩子（1 个，选配）
+
+只剩出站发布一条：推送、远端侧合并、部署命中即弹权限框。本地合并不拦——可逆、不出站，拦它只会打断无人值守的推进。
+
+删掉的两个：记提交进度（改从 git 推导）、会话开场分诊（由用户敲的第一条入口代劳）。红线脚本里那层反规避处理也删——脚本自己的注释已经承认那些是刻意规避、最后防线本就是权限框。
+
+## 2.7 整块不进新插件
+
+| 旧的东西 | 规模 | 为什么不要 |
+| --- | --- | --- |
+| 四份场景预设文档 | 352 行 | 阶段可跳之后，场景就是「从哪一格开始、跳过哪几格」 |
+| 五个控制面命令 | 5 个文件 | 分别等于起审、不敲命令、直接说话、退回计划格、说一句话 |
+| 值守档三档合同 | 69 行加五十处判断 | 中间那档没有独立语义，收成两档并进往下走那份技能 |
+| 取证战役 | 17 行 | 与查清现状是同一件事同一套方法 |
+| 跨计划合同门单列 | 36 行 | 角度并进终审 |
+| 两份并行编排脚本 | 272 行 | 并行就是把派发的第一步连着调几次 |
+| 共用片段的锚点机器 | 133 行机器加 112 行片段、散在 20 个文件 | 它的主顾是被四个场景文件各抄一份的阶段契约表；一件事一份技能之后没有东西需要复制 |
+| 命令层 | 11 个文件 332 行 | 宿主已把命令并入技能 |
+
+## 2.8 本层边界
+
+已经定死：新插件的位置与名字、29 个文件的清单、每份的来源与保留删除两列、角色登记两条、钩子一条。
+
+故意没碰：任何方法论正文（第四层）、状态读写与派发的实现（第三层）、`.mmw/` 状态目录的脚本（第三层）。
