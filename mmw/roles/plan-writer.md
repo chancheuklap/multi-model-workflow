@@ -5,6 +5,10 @@ model: gpt-5.6-sol
 effort: high
 skills:
   - mmw-plan-writer
+sandbox: workspace-write
+allow-paths:
+  - docs/plans/
+  - docs/issues/
 ---
 
 可写工作树。**可写范围只有自己那份计划与它对应的那个切片**，碰别的视为失败。

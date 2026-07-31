@@ -8,7 +8,7 @@ user-invocable: false
 
 ## 本宿主的限制
 
-Claude Code 只能原生派自家模型的子代理。`roles/` 里模型是 Claude 家的两份走原生子代理，另外四份模型是 GPT，本宿主派不了，只能起无头命令行。
+Claude Code 只能原生派自家模型的子代理。`roles/` 里模型是 Claude 家的两份走原生子代理，另外四份模型是 GPT，本宿主派不了，只能起无头进程。
 
 判断规则：看角色的 `model`。是 Claude 家的走原生，不是就走无头。
 
@@ -16,29 +16,32 @@ Claude Code 只能原生派自家模型的子代理。`roles/` 里模型是 Clau
 
 ## 原生这条路
 
-`reviewer-claude` 与 `scout` 已由插件清单点名注册，直接用派子代理的工具派，模型、思考档、工具白名单由宿主按那两份文件强制执行。
+`reviewer-claude` 与 `scout` 已由插件清单点名注册，直接用派子代理的工具派。模型、思考档、工具白名单由宿主按那两份文件强制执行，你不用管。
 
 ## 无头这条路
 
-`plan-writer`、`executor`、`executor-capable`、`reviewer-gpt` 四份，宿主不注册，由你读那份角色文件、照里面的模型与思考档起命令行。
+`plan-writer`、`executor`、`executor-capable`、`reviewer-gpt` 四份走 `scripts/dispatch.sh`。**不要自己拼命令行**——参数错一个就是白跑一轮，而且沙箱拼错等于围栏失效。
 
-| 角色 | 沙箱 | 起法 |
-| --- | --- | --- |
-| `plan-writer`、`executor`、`executor-capable` | `workspace-write` | `codex exec -C <工作树> --sandbox workspace-write --add-dir <主仓库 git 公共目录> -m <模型> -c model_reasoning_effort="<档>"` |
-| `reviewer-gpt` | `read-only` | `codex exec -C . --sandbox read-only -m <模型> -c model_reasoning_effort="<档>"` |
+| 干什么 | 怎么敲 |
+| --- | --- |
+| 派一个 | `dispatch.sh run --role <角色名> --cwd <目录> --prompt <提示词文件> [--add-dir <目录>]` |
+| 续接追问 | `dispatch.sh resume --role <角色名> --cwd <目录> --session <会话号> --prompt <文件>` |
+| 收工核越界 | `dispatch.sh check --role <角色名> --cwd <目录> --since <起点提交>` |
 
-提示词走标准输入。放行 git 公共目录是因为不放行的话工作树里跑不了 git。
+脚本从角色文件读模型、思考档、沙箱与可写边界，你只给它角色名和这一次的活。
 
-一律起在后台：审一轮和落地一份计划都常超前台超时上限。
+**一律起在后台**：审一轮、落地一份计划都常超前台超时上限。
 
-角色的方法论不由你转述——那四份角色的 `skills` 字段点名了要读哪份技能，起之前先确认那份技能已装进无头这一侧的技能根，缺了当场报错，不让工人开工后才发现。
+**提示词由你写，脚本不碰。** 内容只做路由，不内联方法论：告诉它读哪份技能、这次的活是什么、要读哪几份文档。方法论在它自己要读的那份技能里，你不要复述。
 
-续接追问用同一条命令行加恢复会话，**围栏与模型档必须整套重钉**：恢复不继承原来的沙箱与模型。
+**并行就是连着起几个**，不需要别的机制。多份计划并行时脚本自己把会话记账分开。
+
+**收工验收吃实证**：跑测试、读 diff、看 `check` 的结果。被派者的自述不是信源。
 
 ## 施工单
 
-- **来源**：`plugin/scripts/worker.sh` 的 `run_codex` / `run_codex_plan` / `dispatch` / `plan-dispatch`、`plugin/scripts/review.sh` 的派发指南
-- **保留**：无头进程的沙箱与放行目录；后台起、会话可恢复且恢复要重钉围栏；开工前预检技能已装与文档存在
-- **删除**：把这些封成 shell 脚本（含会话记账、日志目录、边界检查三套子命令）；两份并行编排脚本
+- **来源**：`plugin/scripts/worker.sh` 的 `dispatch` / `plan-dispatch` / `resume`、`plugin/scripts/review.sh` 的派发指南
+- **保留**：后台起；恢复会话要重钉围栏；提示词纯路由不内联方法论；并行是连着起几个；验收吃实证不吃自述
+- **删除**：把派发指南文本生成封进 shell（旧的 253 行大头）；审者分档矩阵；派发前先落盘一份指南再读回来
 
-<!-- 派发细节待填。第三层接线时落定。 -->
+<!-- 派发细节待填。第三层接线时与脚本一起落定。 -->

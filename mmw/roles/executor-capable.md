@@ -5,6 +5,9 @@ model: gpt-5.6-sol
 effort: medium
 skills:
   - mmw-worker
+sandbox: workspace-write
+deny-paths:
+  - docs/
 ---
 
 方法论、可写范围、开工要拿到的东西与 `executor` 完全相同，差别只有模型与思考档。

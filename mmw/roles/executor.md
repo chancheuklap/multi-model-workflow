@@ -5,6 +5,9 @@ model: gpt-5.6-terra
 effort: high
 skills:
   - mmw-worker
+sandbox: workspace-write
+deny-paths:
+  - docs/
 ---
 
 可写工作树。**可写范围是计划声明的那些源码文件，文档目录禁碰**。收工时比对起点提交，越界当场判失败。
