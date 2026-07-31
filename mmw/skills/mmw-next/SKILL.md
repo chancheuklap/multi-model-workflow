@@ -1,29 +1,28 @@
 ---
 name: mmw-next
-description: 往主干下一格走，或跳到用户点名的那一格。
-argument-hint: "[探路|查清现状|给方案|做设计|切片|写计划|落地|出包|收尾]，不给就往下一格"
+description: 往下一个阶段走，或跳到用户点名的阶段。
+argument-hint: "[探路|查清现状|给方案|做设计|切片|写计划|落地|出包|收尾]，不给就走下一个"
 ---
 
-## 怎么做
+1. 读 `.mmw/task.json`。**当前是 `mmw-design` 而 `design_approved` 是 null 就停在这里**，请用户先敲 `/mmw-approve-design`。
+2. 把 `phase` 改成目标阶段的技能名。用户点了阶段就去那个，没点就按下面的顺序取下一个。
+3. 把这次为什么停、下一步等什么写进 `note`。新开会话时 `/mmw` 只念得出这一句。
+4. 读 `phase` 里那份技能，接着干。
 
-1. 读 `.mmw/task.json`。
-2. **唯一拒绝点**：当前是 `mmw-design` 且 `design_approved` 是 null，停下，请用户敲 `/mmw-approve-design`。
-3. 定目标那一格：用户给的是中文格名，认出它是哪份技能——九份你都装着，每份 description 的头一个词就是那个中文名。没给参数就取主干上的下一格。
-4. 把那份技能的名字写回 `phase`，同时把这一格为什么停下、下一步等什么写进 `note`。下次新开会话 `/mmw` 要原样念它。
-5. 告诉用户到了哪一格，用中文格名说，别念技能名。然后读那份技能开始干——`phase` 里存的就是它的名字。产物落在哪由它自己说，不在这里找。
+`mmw-wayfind` → `mmw-investigate` → `mmw-propose` → `mmw-design` → `mmw-to-issue` → `mmw-plan` → `mmw-build` → `mmw-package` → `mmw-done`
 
-无人值守时自己敲 `/mmw-next` 即为代敲，`note` 里写明这是代敲和依据。
-
-主干顺序：`mmw-wayfind` → `mmw-investigate` → `mmw-propose` → `mmw-design` → `mmw-to-issue` → `mmw-plan` → `mmw-build` → `mmw-package` → `mmw-done`。
+无人值守时你自己敲这一句就是代敲，`note` 里写明这是代敲以及依据。
 
 ---
 
 ## 线下 · 不是技能内容
 
+**中文阶段名怎么对应到技能，正文一个字都不写**：主线程装着那九份技能，`description` 头一个词就是阶段名，它看到「落地」自然去 `mmw-build`。曾经写过一句「认出它是哪份技能——每份 description 的头一个词就是那个中文名」，那是拿话教一个模型做它默认就会做的事，删了。
+
+**主干顺序为什么在这份和 `mmw-back` 里各写一行**：读的人眼前只有当前这一份，写「顺序见另一份」他就得跨文件找。九个箭头一行的重复，比一次跳转便宜。
+
 ### 施工单
 
 - **来源**：`plugin/scripts/flow.sh` 的 handoff 与阶段推进
-- **保留**：改 phase、算约定路径、指向目标格的技能
+- **保留**：改 phase、算约定路径、指向目标阶段的技能
 - **删除**：推进引擎、阶段序列与游标、五个结论词、审闸强制、打转守卫、掉头台账——它们的接收方都是那台引擎
-
-<!-- 方法论正文待填。填之前先读「来源」里的旧文件全文，按保留与删除两列取舍。 -->

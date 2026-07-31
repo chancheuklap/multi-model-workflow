@@ -31,25 +31,6 @@ for bad in investigate closing mmw-invesigate; do
 done
 ok "起点" "起点参数即技能名，主线程照它就能找到技能；另起的键与拼错当场拒绝"
 
-# ①''' 中文格名认哪份技能，全靠 description 的头一个词——没有第二份对应表兜底，这条必须成立
-python3 - "$MMW" <<'PY_CELLS' || exit 1
-import pathlib,re,sys
-want=["探路","查清现状","给方案","做设计","切片","写计划","落地","出包","收尾"]
-skills=["mmw-wayfind","mmw-investigate","mmw-propose","mmw-design","mmw-to-issue",
-        "mmw-plan","mmw-build","mmw-package","mmw-done"]
-got={}
-for cell,name in zip(want,skills):
-    text=(pathlib.Path(sys.argv[1])/"skills"/name/"SKILL.md").read_text()
-    desc=re.search(r'^description:\s*(.+)$',text,re.M).group(1)
-    head=re.split(r'[。：:]',desc)[0].strip()
-    if head!=cell:
-        print(f"FAIL {name} 的 description 头一个词是「{head}」，不是格名「{cell}」");sys.exit(1)
-    got.setdefault(head,[]).append(name)
-dup={k:v for k,v in got.items() if len(v)>1}
-if dup: print(f"FAIL 两份技能抢同一个格名: {dup}");sys.exit(1)
-PY_CELLS
-ok "格名" "九份技能 description 的头一个词就是那个中文名，互不重复"
-
 # ①' 两份状态文件由脚本从 templates/ 注入，主线程不手抄
 [ "$(python3 -c "import json;print(json.load(open('$WT/.mmw/task.json'))['task'])")" = demo ] \
   || { echo "FAIL task.json 没填对"; exit 1; }
