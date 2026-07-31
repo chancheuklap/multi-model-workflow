@@ -1,6 +1,6 @@
 ---
 name: mmw-dispatch
-description: 把 roles/ 里的角色派出去干活时读。
+description: 派一个角色出去干活时读：怎么起、并行还是串行、可写角色的工作树怎么开。
 user-invocable: false
 ---
 
@@ -11,7 +11,7 @@ user-invocable: false
 | 派一个 | `bash "${CLAUDE_PLUGIN_ROOT}/scripts/dispatch.sh" run --role <角色> --cwd <目录> --prompt <文件>` |
 | 续接追问 | 同上，`resume` 加 `--session <会话号>` |
 
-**提示词只写这次的活。**要交代哪几样，读 `roles/<角色>.md` 那行「开工要拿到」，逐项填齐。
+**提示词只写这次的活。**要交代哪几样，读 `${CLAUDE_PLUGIN_ROOT}/roles/<角色>.md` 那行「开工要拿到」，逐项填齐。
 
 被派者收到的是这四段，脚本按顺序拼，`--prompt` 那份落在最后：
 

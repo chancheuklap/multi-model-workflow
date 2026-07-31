@@ -1,7 +1,7 @@
 ---
 name: mmw-next
-description: 往下一个阶段走，或跳到用户点名的阶段。
-argument-hint: "[探路|查清现状|给方案|做设计|切片|写计划|落地|出包|收尾]，不给就走下一个"
+description: 往下一个阶段走。点名一个阶段就跳到那个，不点就走下一个。
+argument-hint: "[探路|查清现状|给方案|做设计|切片|写计划|落地|出包|收尾]"
 ---
 
 1. 读 `.mmw/task.json`。**当前是 `mmw-design` 而 `design_approved` 是 null 就停在这里**，请用户先敲 `/mmw-approve-design`。
@@ -11,7 +11,7 @@ argument-hint: "[探路|查清现状|给方案|做设计|切片|写计划|落地
 
 `mmw-wayfind` → `mmw-investigate` → `mmw-propose` → `mmw-design` → `mmw-to-issue` → `mmw-plan` → `mmw-build` → `mmw-package` → `mmw-done`
 
-无人值守时你自己敲这一句就是代敲，`note` 里写明这是代敲以及依据。
+无人值守时你自己调 `/mmw-next` 就算代敲，`note` 里写明这是代敲以及依据。
 
 ---
 
