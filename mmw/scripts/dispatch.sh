@@ -43,13 +43,29 @@ role_body() {  # $1=角色文件
   awk 'n>=2; /^---$/{n++}' "$1"
 }
 
-# 送进被派进程的完整提示词。角色说明与技能名单由脚本抄，这次干什么由调用方写。
-# 无头那一侧看不到角色文件，「你是谁、边界在哪、收工回什么」不抄就送不到。
+# 可写边界从 frontmatter 生成，角色正文不再用中文抄一遍——同一件事两处写，改一处就漂。
+role_bounds() {  # $1=角色文件
+  if [ "$(role_field "$1" write)" = false ]; then
+    echo "你只读，写不了盘。产出全部放在回复里。"
+    return
+  fi
+  local a d
+  a="$(role_list "$1" allow-paths | paste -sd'、' -)"
+  d="$(role_list "$1" deny-paths  | paste -sd'、' -)"
+  [ -n "$a" ] && echo "你只能改这几处路径下的文件：${a}"
+  [ -n "$d" ] && echo "这几处路径禁碰：${d}"
+  echo "收工比对起点提交核越界，碰了范围外的文件当场判失败。"
+}
+
+# 送进被派进程的完整提示词。角色说明、边界、技能名单由脚本抄，这次干什么由调用方写。
+# 无头那一侧看不到角色文件，不抄就送不到。
 build_prompt() {  # $1=角色文件 $2=角色名 $3=这次的活
-  printf '你的角色是 %s。\n' "$2"
+  printf '你的角色是 %s。\n\n' "$2"
+  role_bounds "$1"
   { role_body "$1"; printf '\n'; } | cat -s   # 压掉连续空行，正文与前后各隔一行
   printf '先读你已装的这几份 skill，照它们走：'
   role_list "$1" skills | paste -sd'、' -
+  printf '\n\n开工前把上面要拿到的几样对齐，缺哪一样就问派你的人，别拿默认值顶上。\n'
   printf '\n## 这次的活\n\n'
   cat "$3"
 }

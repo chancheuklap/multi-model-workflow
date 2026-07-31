@@ -4,8 +4,6 @@ description: 往主干下一格走，或跳到指定那一格。
 argument-hint: "[阶段]"
 ---
 
-全程无判断，只改一个字段。
-
 ## 怎么做
 
 1. 读 `.mmw/task.json`。

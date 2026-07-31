@@ -4,7 +4,7 @@ description: 写 Task Pack 的方法论。写计划的人与核计划的人共�
 user-invocable: false
 ---
 
-每个小切片对应一个 Task Pack。一份读完，不跳别的。
+每个小切片对应一个 Task Pack。
 
 ---
 
