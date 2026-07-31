@@ -4,14 +4,16 @@ description: 往下一个阶段走。点名一个阶段就跳到那个，不点�
 argument-hint: "[探路|查清现状|给方案|做设计|切片|写计划|落地|出包|收尾]"
 ---
 
-1. 读 `.mmw/task.json`。**当前是 `mmw-design` 而 `design_approved` 是 null 就停在这里**，请用户先敲 `/mmw-approve-design`。
+1. 读 `.mmw/task.json`。**当前是 `mmw-design` 而 `design_approved` 是 null 就停在这里**，请用户先输入 `/mmw-approve-design`。
 2. 把 `phase` 改成目标阶段的技能名。用户点了阶段就去那个，没点就按下面的顺序取下一个。
-3. 把这次为什么停、下一步等什么写进 `note`。新开会话时 `/mmw` 只念得出这一句。
-4. 读 `phase` 里那份技能，接着干。
+3. 把这次为什么停、下一步等什么写进 `note`。新开会话时 `/mmw` 能告诉用户的只有这一句。
+4. 读 `phase` 里那份技能，继续执行。
 
 `mmw-wayfind` → `mmw-investigate` → `mmw-propose` → `mmw-design` → `mmw-to-issue` → `mmw-plan` → `mmw-build` → `mmw-package` → `mmw-done`
 
-无人值守时你自己调 `/mmw-next` 就算代敲：把这次的决定与理由**追加**进 `note`，不覆盖已经写在那里的话。
+**当前是 `mmw-fix` 的，下一个是 `mmw-package`。**短路径整条都在那一份技能里，走完就去出包；这个仓库没有安装包可出，用户会点名 `收尾`。
+
+无人值守时你自己调用 `/mmw-next` 就算代为输入：把这次的决定与理由**追加**进 `note`，不覆盖已经写在那里的内容。
 
 ---
 

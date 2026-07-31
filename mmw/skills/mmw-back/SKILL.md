@@ -6,11 +6,13 @@ argument-hint: "[探路|查清现状|给方案|做设计|切片|写计划|落地
 
 1. 读 `.mmw/task.json`。
 2. 把 `phase` 改成目标阶段的技能名。用户点了阶段就去那个，没点就按下面的顺序取上一个。
-3. **目标是 `mmw-design` 就把 `design_approved` 改回 null**，并告诉用户设计改完要重新敲 `/mmw-approve-design`。退回别的阶段不动这个字段。
-4. 把这次为什么退回、回去要改什么写进 `note`。
-5. 读 `phase` 里那份技能，接着干。
+3. **目标是 `mmw-design` 就把 `design_approved` 改回 null**，并告诉用户设计修改完要重新输入 `/mmw-approve-design`。退回别的阶段不改这个字段。
+4. 把这次为什么退回、返回后要改什么写进 `note`。
+5. 读 `phase` 里那份技能，继续执行。
 
 `mmw-wayfind` → `mmw-investigate` → `mmw-propose` → `mmw-design` → `mmw-to-issue` → `mmw-plan` → `mmw-build` → `mmw-package` → `mmw-done`
+
+**当前是 `mmw-fix` 的，上一个是 `mmw-wayfind`。**短路径退回就是把这件事升级到主干，从探路重走；这条路上查到的事实继续沿用，工作树不用重建。
 
 ---
 
