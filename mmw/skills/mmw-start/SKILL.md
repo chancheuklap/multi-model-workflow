@@ -1,7 +1,7 @@
 ---
 name: mmw-start
-description: 开一个任务：起名、建工作树、写状态、进去。
-argument-hint: "<要做什么>；改一处已知的地方，在最前面加一个 fix"
+description: 开一个任务：起名、建工作树、写状态、进去。改一处已知的地方，需求前面加 fix。
+argument-hint: "[fix] <需求>"
 disable-model-invocation: true
 ---
 
@@ -39,7 +39,7 @@ disable-model-invocation: true
 
 **`fix` 只决定路由，不是一套预设的阶段序列**：带了就落 `mmw-fix`、往下按那一份走；没带就落探路、走主干。后面每一步照样靠用户敲命令走。
 
-**补全提示的写法照本机在跑的技能学**：`[]` 可选、`<>` 必填、可选值字面列全（`impeccable` 把二十来个子命令排进同一行）。这里只有一个可选值，所以直接用一句中文把它的意思说出来——用户敲 `/` 的时候只看得见这一行，写 `[fix]` 他不知道那是什么。
+**补全提示只放占位符**：`[]` 可选、`<>` 必填，照官方示例与本机在跑的技能（`impeccable`、`save-x-article`）的形状写，不往里塞说明句。`fix` 是什么意思写在 `description` 里——这一份 `disable-model-invocation`，它的 `description` 不进模型上下文，就是给用户看的那一行。
 
 **来源**：`plugin/scripts/prepare.sh`（315 行）——建工作树、从当前 HEAD 分叉、回执点名 `EnterWorktree` 照它；它第 8 行「路由由 LLM 当场判，不在本脚本」与这里脚本只校验拼写的分工一致。`fix` 这一层对应旧插件 `routes.json` 里 `develop` 与 `bug` / `small-change` 的分界，只取「一开始就分开」这一点；旧的两个场景在新插件里并成一条。
 
