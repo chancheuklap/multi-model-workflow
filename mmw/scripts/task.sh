@@ -7,9 +7,8 @@
 #
 #   task.sh new <任务名> [起点技能]
 #
-# 起什么名字、从哪个阶段开工都是判断，留给主线程；这里只校验拼写。用户敲的是中文阶段名，
-# 认出它对应哪份技能也是主线程的活——九份技能它都装着，每份 description 的头一个词
-# 就是那个中文名。脚本这一头只收技能名。
+# 起什么名字、开在哪里都是判断，留给主线程；这里只校验拼写。两个开任务入口各自传死一个值：
+# mmw-start 传 mmw-wayfind，mmw-fix 传 mmw-fix。
 #
 # 输出头四行机器可读：TASK= / WORKTREE= / BASE= / PHASE=。
 
@@ -27,7 +26,7 @@ printf '%s' "$task" | grep -qE '^[a-z0-9]+(-[a-z0-9]+)*$' \
 
 # phase 存的就是那个阶段技能的名字，主线程读到它直接去读那份技能，中间不再有一层键。
 phase="${3:-mmw-wayfind}"
-case " mmw-wayfind mmw-investigate mmw-propose mmw-design mmw-to-issue mmw-plan mmw-build mmw-package mmw-done " in
+case " mmw-wayfind mmw-investigate mmw-propose mmw-design mmw-to-issue mmw-plan mmw-build mmw-package mmw-done mmw-fix " in
   *" $phase "*) ;;
   *) die "没有这个阶段: ${phase}" ;;
 esac
