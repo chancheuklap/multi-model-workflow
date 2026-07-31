@@ -6,6 +6,10 @@
     "name": "Cheuk Lap Chan",
     "email": "chancheuklapincn@gmail.com"
   },
+  "agents": [
+    "./roles/reviewer-claude.md",
+    "./roles/scout.md"
+  ],
   "repository": "https://github.com/chancheuklap/multi-model-workflow",
   "license": "MIT",
   "keywords": ["multi-model", "orchestration", "worktree", "code-review", "hitl", "claude-code"]
