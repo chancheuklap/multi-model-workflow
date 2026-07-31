@@ -5,6 +5,9 @@ model: gpt-5.6-sol
 effort: high
 skills:
   - mmw-plan-writer
+  - mmw-task-pack
+  - mmw-testing
+  - mmw-retrieval
 write: true
 allow-paths:
   - docs/plans/

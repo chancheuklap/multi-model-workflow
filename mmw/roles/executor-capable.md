@@ -5,6 +5,9 @@ model: gpt-5.6-sol
 effort: medium
 skills:
   - mmw-worker
+  - mmw-task-pack
+  - mmw-testing
+  - mmw-retrieval
 write: true
 deny-paths:
   - docs/

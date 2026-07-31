@@ -5,6 +5,9 @@ model: gpt-5.6-sol
 effort: high
 skills:
   - mmw-reviewer
+  - mmw-task-pack
+  - mmw-testing
+  - mmw-retrieval
 write: false
 ---
 

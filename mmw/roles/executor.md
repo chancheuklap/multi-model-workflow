@@ -5,6 +5,9 @@ model: gpt-5.6-terra
 effort: high
 skills:
   - mmw-worker
+  - mmw-task-pack
+  - mmw-testing
+  - mmw-retrieval
 write: true
 deny-paths:
   - docs/

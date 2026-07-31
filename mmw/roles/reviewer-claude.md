@@ -6,6 +6,9 @@ effort: high
 write: false
 skills:
   - mmw-reviewer
+  - mmw-task-pack
+  - mmw-testing
+  - mmw-retrieval
 tools:
   - Read
   - Grep
