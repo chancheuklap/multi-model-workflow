@@ -1,6 +1,6 @@
 ---
 name: mmw-approve-design
-description: 设计过门。唯一硬人闸。
+description: 设计过门。设计谈定了、要往下走时用户敲这条。
 disable-model-invocation: true
 ---
 

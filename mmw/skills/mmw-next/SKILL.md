@@ -1,6 +1,6 @@
 ---
 name: mmw-next
-description: 往主干下一格走，或跳到指定那一格。
+description: 往下一个阶段走，或跳到指定阶段。
 argument-hint: "[阶段]"
 ---
 
@@ -8,13 +8,13 @@ argument-hint: "[阶段]"
 
 1. 读 `.mmw/task.json`。
 2. **唯一拒绝点**：当前是 `design` 且 `design_approved` 是 null，停下，让用户敲 `/mmw-approve-design`。
-3. 定目标格：给了参数就是那一格（中文名与英文键都认）；没给就取主干下一格。
-4. 写回 `phase`，同时把这一格为什么停下、下一步等什么写进 `note`。下次新开会话 `/mmw` 要原样念它。
-5. 告诉用户到了哪一格、该读哪份技能（`mmw-<阶段键>`，只有收尾那一格读 `mmw-done`）。产物落在哪写在那一格的技能里。
+3. 定目标阶段：给了参数就是那个阶段（中文名与英文键都认）；没给就取下一个阶段。
+4. 写回 `phase`，同时把这个阶段为什么停下、下一步等什么写进 `note`。下次新开会话 `/mmw` 要原样念它。
+5. 告诉用户到了哪个阶段、该读哪份技能（`mmw-<阶段键>`，只有收尾那个阶段读 `mmw-done`）。产物落在哪写在那个阶段的技能里。
 
 无人值守时自己敲 `/mmw-next` 即为代敲，`note` 里写明这是代敲和依据。
 
-主干顺序：`wayfind` → `investigate` → `propose` → `design` → `to-issue` → `plan` → `build` → `package` → `closing`。
+阶段顺序：`wayfind` → `investigate` → `propose` → `design` → `to-issue` → `plan` → `build` → `package` → `closing`。
 
 ---
 

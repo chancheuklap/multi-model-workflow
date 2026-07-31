@@ -1,12 +1,12 @@
 ---
 name: mmw-back
-description: 回上游一格，或退回指定那一格。落地完回设计再调走这条。
+description: 回上一个阶段，或退回指定阶段。落地完回设计再调走这条。
 argument-hint: "[阶段]"
 ---
 
-`mmw-next` 那五步照做，只有第三步方向相反：没给参数就取主干上一格。
+`mmw-next` 那五步照做，只有第三步方向相反：没给参数就取上一个阶段。
 
-**目标格是 `design` 时把 `design_approved` 置回 null**，告诉用户改完要重新敲过门。退回其他格不动这个字段。
+**目标阶段是 `design` 时把 `design_approved` 置回 null**，告诉用户改完要重新敲过门。退回别的阶段不动这个字段。
 
 ---
 

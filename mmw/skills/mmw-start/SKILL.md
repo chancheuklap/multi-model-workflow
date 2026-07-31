@@ -5,7 +5,7 @@ argument-hint: "<需求>"
 disable-model-invocation: true
 ---
 
-需求理解到能起个名字就建树，深入的对话放进第一格做。
+需求理解到能起个名字就建树，深入的对话放进第一个阶段做。
 
 ## 怎么做
 
@@ -18,8 +18,8 @@ disable-model-invocation: true
 { "task": "<任务名>", "phase": "wayfind", "base": "<分叉时的完整 sha>", "note": "", "design_approved": null }
 ```
 
-5. 同目录建空的 `.mmw/sidelines.md`：往后任何一格撞到本次范围外的问题，主线程就往里记一行——现象、位置、为什么这次不做。收尾那一格摊开它挑哪些开成 issue。
-6. 告诉用户任务名、工作树在哪、现在停在探路那一格，接着读 `mmw-wayfind`；小到不用探路的改动，让他敲 `/mmw-next <阶段>` 直接跳过去。
+5. 同目录建空的 `.mmw/sidelines.md`：往后任何一个阶段撞到本次范围外的问题，就往里记一行——现象、位置、为什么这次不做。收尾那个阶段摊开它挑哪些开成 issue。
+6. 告诉用户任务名、工作树在哪、现在停在探路阶段，接着读 `mmw-wayfind`；小到不用探路的改动，让他敲 `/mmw-next <阶段>` 直接跳过去。
 
 ---
 

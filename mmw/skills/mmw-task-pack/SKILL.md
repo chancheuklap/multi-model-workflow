@@ -4,7 +4,7 @@ description: 写 Task Pack 的方法论。写计划的人与核计划的人共�
 user-invocable: false
 ---
 
-每个小切片对应一个 Task Pack。
+一个切片拆成几个 Task Pack，一个 Pack 是一次能测完、能提交的最小一步。
 
 ---
 
