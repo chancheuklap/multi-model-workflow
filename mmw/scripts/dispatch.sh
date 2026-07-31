@@ -2,13 +2,12 @@
 # 适配层。只有模型专用宿主（Claude Code、Codex CLI）需要它：这类宿主派不了别家模型的
 # 子代理，得起无头进程。多模型宿主（Cursor、pi、Droid）在角色文件里直接指定模型，不用这个。
 #
-# 它只做机器能判死的事：读角色参数、把角色说明与技能名单抄进提示词开头、把命令行一次拼对、
-# 抓会话号、按角色声明的边界核越界。
+# 它只做机器能判死的事：读角色参数、把角色文件正文与技能名单抄进提示词开头、
+# 把命令行一次拼对、抓会话号。
 # 这次干什么、建不建工作树、该派谁，是判断，留给主线程。
 #
 #   dispatch.sh run    --role <角色> --cwd <目录> --prompt <文件> [--add-dir <目录>]
 #   dispatch.sh resume --role <角色> --cwd <目录> --session <会话号> --prompt <文件>
-#   dispatch.sh check   --role <角色> --cwd <目录> --since <提交>
 #   dispatch.sh preview --role <角色> --prompt <文件>          # 只打印会送出去的全文，不派
 #
 # 六份角色都往这里投，不必先自己判断走原生还是无头：碰到本宿主自家模型的角色，
@@ -56,8 +55,8 @@ build_prompt() {  # $1=角色文件 $2=角色名 $3=这次的活
 }
 
 # ---------- 参数 ----------
-role="" cwd="" prompt="" add_dir="" session="" since=""
-sub="${1:-}"; [ -n "$sub" ] || die "缺子命令: run | resume | check | preview"
+role="" cwd="" prompt="" add_dir="" session=""
+sub="${1:-}"; [ -n "$sub" ] || die "缺子命令: run | resume | preview"
 shift || true
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -66,7 +65,6 @@ while [ $# -gt 0 ]; do
     --prompt) prompt="$2"; shift 2 ;;
     --add-dir) add_dir="$2"; shift 2 ;;
     --session) session="$2"; shift 2 ;;
-    --since) since="$2"; shift 2 ;;
     *) die "未知参数: $1" ;;
   esac
 done
@@ -160,38 +158,6 @@ $(printf '%s\n' "$dirty" | sed 's/^/  /')"
   return "$rc"
 }
 
-# ---------- 越界 ----------
-# allow-paths 是白名单，deny-paths 是黑名单。这两个字段没有宿主认，只有这里读：
-# 运行时的真围栏是 write 翻成的沙箱档，路径粒度只能靠提示词加这道事后核对。
-# 出参是给主线程看的事实，不是判决：怎么处置由它按这次的活判断。
-cmd_check() {
-  [ -n "$since" ] || die "--since 必填（起点提交）"
-  local touched allow deny bad
-  # --untracked-files=all：否则 git 把整棵未跟踪目录折成一条，核不到文件级。
-  touched="$( { git -C "$cwd" diff --name-only "$since" HEAD 2>/dev/null
-                git -C "$cwd" status --porcelain --untracked-files=all 2>/dev/null | sed 's/^...//'; } \
-              | sort -u | grep -v '^[[:space:]]*$' | grep -v '^\.mmw/' || true )"
-  [ -z "$touched" ] && { echo "CLEAN: 没有改动"; return 0; }
-
-  allow="$(role_list "$rf" allow-paths)"
-  deny="$(role_list "$rf" deny-paths)"
-
-  if [ -n "$allow" ]; then
-    local pat; pat="$(printf '%s\n' "$allow" | sed 's/[].[^$\\*]/\\&/g' | paste -sd'|' -)"
-    bad="$(printf '%s\n' "$touched" | grep -vE "^($pat)" || true)"
-  elif [ -n "$deny" ]; then
-    local pat; pat="$(printf '%s\n' "$deny" | sed 's/[].[^$\\*]/\\&/g' | paste -sd'|' -)"
-    bad="$(printf '%s\n' "$touched" | grep -E "^($pat)" || true)"
-  else
-    echo "CLEAN: 角色 $role 没声明可写边界"; return 0
-  fi
-
-  [ -z "$bad" ] && { echo "CLEAN: 改动都在 $role 的边界内"; return 0; }
-  echo "OUT-OF-BOUNDS: $role 动了边界外的文件，主线程判怎么处置：" >&2
-  printf '%s\n' "$bad" | sed 's/^/  /' >&2
-  return 3
-}
-
 case "$sub" in
   run|resume)
     if is_native; then
@@ -209,6 +175,5 @@ case "$sub" in
     fi ;;
   preview) [ -n "$prompt" ] || die "--prompt 必填"
            build_prompt "$rf" "$role" "$prompt" ;;
-  check)  cmd_check ;;
-  *)      die "未知子命令: $sub（run | resume | check | preview）" ;;
+  *)      die "未知子命令: $sub（run | resume | preview）" ;;
 esac

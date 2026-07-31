@@ -9,12 +9,7 @@ skills:
   - mmw-testing
   - mmw-retrieval
 write: true
-allow-paths:
-  - docs/plans/
-  - docs/issues/
 ---
-
-你写的是自己那份计划与它对应的那个切片，别的文档不动。源码只读不改。
 
 开工要拿到：写哪个切片、设计文档在哪、切片文档在哪、工作树在哪、计划写进哪个文件。
 
