@@ -5,7 +5,7 @@ model: gpt-5.6-terra
 effort: high
 skills:
   - mmw-worker
-sandbox: workspace-write
+write: true
 deny-paths:
   - docs/
 ---

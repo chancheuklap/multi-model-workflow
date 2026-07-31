@@ -3,6 +3,7 @@ name: reviewer-claude
 description: 上下文隔离的只读审查者，Claude 这一路。派去审一份产物，一个视角一份，可并行。返回结构化发现，由主线程亲验后处置——它是审查劳动力，不是事实源。
 model: fable
 effort: high
+write: false
 skills:
   - mmw-reviewer
 tools:

@@ -5,7 +5,7 @@ model: gpt-5.6-sol
 effort: high
 skills:
   - mmw-reviewer
-sandbox: read-only
+write: false
 ---
 
 只读、干净上下文。方法论读技能 `mmw-reviewer`，与 Claude 那一路审者读同一份。

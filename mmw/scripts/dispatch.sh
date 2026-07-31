@@ -5,7 +5,7 @@
 # 它只做机器能判死的事：读角色参数、把命令行一次拼对、抓会话号、按角色声明的边界核越界。
 # 它不组装提示词、不建工作树、不判该派谁——那些是判断，留给主线程。
 #
-#   dispatch.sh run    --role <角色> --cwd <目录> --prompt <文件> [--add-dir <目录>] [--schema <文件>]
+#   dispatch.sh run    --role <角色> --cwd <目录> --prompt <文件> [--add-dir <目录>]
 #   dispatch.sh resume --role <角色> --cwd <目录> --session <会话号> --prompt <文件>
 #   dispatch.sh check  --role <角色> --cwd <目录> --since <提交>
 #
@@ -15,7 +15,8 @@
 
 set -euo pipefail
 
-ROLES_DIR="${MMW_ROLES_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../roles" && pwd)}"
+PLUGIN_ROOT="${MMW_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+ROLES_DIR="$PLUGIN_ROOT/roles"
 CODEX_BIN="${CODEX_BIN:-codex}"
 
 die() { echo "ERROR: $*" >&2; exit 2; }
@@ -34,7 +35,7 @@ role_list() {  # $1=角色文件 $2=字段
 }
 
 # ---------- 参数 ----------
-role="" cwd="" prompt="" add_dir="" schema="" session="" since=""
+role="" cwd="" prompt="" add_dir="" session="" since=""
 sub="${1:-}"; [ -n "$sub" ] || die "缺子命令: run | resume | check"
 shift || true
 while [ $# -gt 0 ]; do
@@ -43,7 +44,6 @@ while [ $# -gt 0 ]; do
     --cwd) cwd="$2"; shift 2 ;;
     --prompt) prompt="$2"; shift 2 ;;
     --add-dir) add_dir="$2"; shift 2 ;;
-    --schema) schema="$2"; shift 2 ;;
     --session) session="$2"; shift 2 ;;
     --since) since="$2"; shift 2 ;;
     *) die "未知参数: $1" ;;
@@ -59,30 +59,34 @@ rf="$ROLES_DIR/$role.md"
 
 # ---------- 派发 ----------
 dispatch_codex() {  # $1=resume 的会话号（空=首派）
-  local model effort sandbox
+  local model effort write sandbox
   model="$(role_field "$rf" model)"
   effort="$(role_field "$rf" effort)"
-  sandbox="$(role_field "$rf" sandbox)"
+  write="$(role_field "$rf" write)"
   # 三个都必须由角色文件给出。缺了当场停——静默默认值等于围栏失效。
-  [ -n "$model" ]   || die "角色 $role 缺 model"
-  [ -n "$effort" ]  || die "角色 $role 缺 effort"
-  [ -n "$sandbox" ] || die "角色 $role 缺 sandbox（read-only 还是 workspace-write）"
+  [ -n "$model" ]  || die "角色 $role 缺 model"
+  [ -n "$effort" ] || die "角色 $role 缺 effort"
+  # write 是产品层的说法（这个角色能不能写盘），在这里翻成本宿主的沙箱档位。
+  case "$write" in
+    true)  sandbox="workspace-write" ;;
+    false) sandbox="read-only" ;;
+    *)     die "角色 $role 的 write 要么 true 要么 false，现在是「${write}」" ;;
+  esac
 
   [ -n "$prompt" ] || die "--prompt 必填"
   [ -f "$prompt" ] || die "提示词文件不存在: $prompt"
 
-  # 开工前预检：角色点名要读的技能得先装进无头这一侧的技能根，
-  # 缺装备当场报错，不让它开工后才发现。
-  local skills_root="${MMW_AGENT_SKILLS_DIR:-$HOME/.codex/skills}"
+  # 开工前预检：角色点名要读的技能就在插件树里，路径由提示词交代。
+  # 这里只确认文件真在，不让它开工后才发现方法论找不到。
   local sk
   while IFS= read -r sk; do
     [ -n "$sk" ] || continue
-    [ -f "$skills_root/$sk/SKILL.md" ] || die "角色 $role 要读的技能未装: $skills_root/$sk/SKILL.md"
+    [ -f "$PLUGIN_ROOT/skills/$sk/SKILL.md" ] || die "角色 $role 要读的技能不在插件里: $PLUGIN_ROOT/skills/$sk/SKILL.md"
   done < <(role_list "$rf" skills)
 
   # 可写角色首派前工作树必须干净：否则收工核越界时分不清哪些改动是它的。
   # 恢复会话不查——那时的脏正是它自己干的。
-  if [ "$sandbox" = "workspace-write" ] && [ -z "$1" ]; then
+  if [ "$write" = "true" ] && [ -z "$1" ]; then
     local dirty
     dirty="$(git -C "$cwd" status --porcelain --untracked-files=all 2>/dev/null \
              | sed 's/^...//' | grep -v '^\.mmw/' | head -5 || true)"
@@ -93,12 +97,8 @@ $(printf '%s\n' "$dirty" | sed 's/^/  /')"
   local last; last="$(mktemp)"
   local args=(exec -C "$cwd" --sandbox "$sandbox" --color never --json
               -m "$model" -c "model_reasoning_effort=\"$effort\"" -o "$last")
-  # 这几个用 if 不用 &&：set -e 下 `[ 假 ] && …` 会让整条语句返回非零，脚本当场退出。
+  # 用 if 不用 &&：set -e 下 `[ 假 ] && …` 会让整条语句返回非零，脚本当场退出。
   if [ -n "$add_dir" ]; then args+=(--add-dir "$add_dir"); fi
-  if [ -n "$schema" ]; then
-    [ -f "$schema" ] || die "返回结构文件不存在: $schema"
-    args+=(--output-schema "$schema")
-  fi
   # resume 自己没有 --sandbox / -C / --add-dir，那几个是 exec 的选项，
   # 所以 resume 与会话号追加在最后，围栏仍由前面的 exec 选项钉住。
   if [ -n "$1" ]; then args+=(resume "$1"); fi

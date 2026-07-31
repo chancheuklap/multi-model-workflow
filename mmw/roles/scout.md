@@ -1,6 +1,7 @@
 ---
 name: scout
 description: 上下文隔离的只读劳力。查一个问题、把几份调查合成一份、或单点查一个符号。并行就是连着派几个。
+write: false
 skills:
   - mmw-retrieval
 tools:

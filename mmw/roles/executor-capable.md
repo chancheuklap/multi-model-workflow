@@ -5,7 +5,7 @@ model: gpt-5.6-sol
 effort: medium
 skills:
   - mmw-worker
-sandbox: workspace-write
+write: true
 deny-paths:
   - docs/
 ---

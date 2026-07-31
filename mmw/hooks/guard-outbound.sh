@@ -5,8 +5,9 @@
 # 宿主的 if 前筛已经按 bash 语法分好段（剥前导环境变量赋值、拆 && 与 ;、连 $() 里的也查），
 # 所以这里不再自己写一套解析。前筛无法解析命令时会放行到这里，那种命令本来就更该让人看一眼。
 #
-# 已知误报面：heredoc 正文里的推送命令会误弹一次（写文档提到推送命令时）。不为它加剥离层——
-# 旧插件那层反规避处理自己都承认守不住，最后防线本就是权限框，误报由用户点一下解决。
+# 不做反规避：刻意绕开这里的写法（换个等价命令、heredoc 里藏命令）一概不追。守不住，
+# 追下去只会长成一张永远不全的清单，给人虚假的安全感。它挡的是顺手敲出去，不是有意绕过。
+# 同理，误报（heredoc 正文提到推送命令）也不加剥离层——最后防线本就是权限框，点一下就过。
 
 set -euo pipefail
 
@@ -35,7 +36,7 @@ while IFS= read -r seg; do
   set -f; set -- $bare; set +f
   while [ $# -gt 0 ]; do
     case "$1" in
-      [A-Za-z_]*=*|sudo|env|nohup|time|timeout|gtimeout|nice|setsid) shift ;;
+      [A-Za-z_]*=*|sudo) shift ;;
       *) break ;;
     esac
   done
@@ -60,10 +61,9 @@ while IFS= read -r seg; do
     gh)
       case "$rest" in
         " pr merge "*)      ask "要在远端合并：${seg}" ;;
-        " api "*merge*)     ask "要在远端合并：${seg}" ;;
         " release create"*) ask "要发布 release：${seg}" ;;
       esac ;;
-    *deploy*|fly|vercel|netlify|kubectl|helm|terraform)
+    *deploy*)
       ask "看着像部署动作：${seg}" ;;
   esac
   # 部署的入口太发散（npm run deploy、make deploy、just deploy…），命令位判不完。

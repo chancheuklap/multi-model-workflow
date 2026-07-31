@@ -5,7 +5,7 @@ model: gpt-5.6-sol
 effort: high
 skills:
   - mmw-plan-writer
-sandbox: workspace-write
+write: true
 allow-paths:
   - docs/plans/
   - docs/issues/
