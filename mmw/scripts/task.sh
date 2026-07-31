@@ -40,7 +40,7 @@ if [ -e "$root/$wt" ]; then die "已经有这棵工作树: ${wt}"; fi
 if git -C "$root" show-ref --verify --quiet "refs/heads/$task"; then die "分支已存在: ${task}"; fi
 
 # 忽略规则必须先于分叉提交进去，否则工作树里的 .mmw/ 会以未跟踪身份混进工人的改动，
-# 收工核越界时分不清哪些是它改的。用 pathspec 限定，不带上工作区里别的改动。
+# 验收读 diff 时分不清哪些是它改的。用 pathspec 限定，不带上工作区里别的改动。
 if ! git -C "$root" check-ignore -q .mmw/ 2>/dev/null; then
   printf '.mmw/\n' >> "$root/.gitignore"
   git -C "$root" add -- .gitignore

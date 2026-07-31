@@ -115,7 +115,7 @@ dispatch_codex() {  # $1=resume 的会话号（空=首派）
     [ -f "$skills_root/$sk/SKILL.md" ] || die "角色 ${role} 要读的技能没装到派发后端: ${skills_root}/${sk}（跑 ${PLUGIN_ROOT}/scripts/install.sh）"
   done < <(role_list "$rf" skills)
 
-  # 可写角色首派前工作树必须干净：否则收工核越界时分不清哪些改动是它的。
+  # 可写角色首派前工作树必须干净：否则验收读 diff 时分不清哪些改动是它的。
   # 恢复会话不查——那时的脏正是它自己干的。
   if [ "$write" = "true" ] && [ -z "$1" ]; then
     local dirty
