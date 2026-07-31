@@ -10,9 +10,9 @@ user-invocable: false
 
 ## 步骤
 
-1. **先查清楚。**查根因读 `mmw-evidence` 的「主线程：查一个 bug 的根因」，那一份也写了信号造不出来怎么办；查改动面、动了它谁会跟着变，读同一份技能的「主线程：查代码结构」。
+1. **先查清楚。**查根因读 [主线程：查一个 bug 的根因](../mmw-evidence/references/main-bug.md)，信号造不出来怎么办也在那一份里；查改动面、动了它谁会跟着变，读 [主线程：查代码结构](../mmw-evidence/references/main-structure.md)。
 
-   范围窄（就一个函数、一个已知文件）你自己查完。要追的线索有好几条、彼此不依赖，就派 `scout` 去查，怎么派读 `mmw-dispatch`；它交回三节之后，读 `mmw-evidence` 的「主线程：回执收回来之后」。
+   范围窄（就一个函数、一个已知文件）你自己查完。要追的线索有好几条、彼此不依赖，就派 `scout` 去查：怎么派读 [`mmw-dispatch`](../mmw-dispatch/SKILL.md)，提示词开头点名它读 `mmw-evidence`，题目里点明查的是本仓库还是外部来源；它交回三节之后，读 [主线程：回执收回来之后](../mmw-evidence/references/main-verify.md)。这条路上没有报告文件，丢弃了哪几条当场告诉用户。
 
    这一步不修改产品代码。为造出那个会变红的信号而写的测试和临时脚本不在此列。
 

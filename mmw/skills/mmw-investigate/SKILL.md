@@ -11,7 +11,7 @@ description: 查清现状。要查清现有代码与外部方案是什么样，�
 
 执行过 `mmw-wayfind` 的，题目清单在 `docs/design/<任务名>/wayfind/map.md` 末尾「交给 mmw-investigate」那一节，照它执行。那些决策文件里已经查证过的事实连同出处直接引用，不重复派发；不够用的作为新题目派出去。没有执行过探路就当场确定题目。
 
-**一个题目一个 `scout`**，几个同时派还是依次派，照 `mmw-dispatch` 的并行判据。范围小到一个点（一个函数、一个已知文件）就自己用 `Read`、`Grep` 查完，手艺读 `mmw-evidence` 的「主线程：查代码结构」。
+**一个题目一个 `scout`**，几个同时派还是依次派，照 `mmw-dispatch` 的并行判据。范围小到一个点（一个函数、一个已知文件）就自己用 `Read`、`Grep` 查完，手艺读 [主线程：查代码结构](../mmw-evidence/references/main-structure.md)。
 
 两个方向分开确定题目，题目不混在一起：
 
@@ -24,9 +24,9 @@ description: 查清现状。要查清现有代码与外部方案是什么样，�
 
 ## 派发与回收
 
-派发的提示词只写这次的工作：查哪个问题、从哪个角度切入。返回什么由 `scout` 已安装的 `mmw-evidence` 规定。
+派发的提示词开头点名它读 `mmw-evidence`，正文只写这次的工作：查哪个问题、从哪个角度切入、查的是本仓库还是外部来源。它进去走 [`scout` 怎么查](../mmw-evidence/references/scout.md)，查法与返回格式都在那一份里，不用在提示词里重写。
 
-回执收回来之后怎么筛选、怎么亲自验证，读 `mmw-evidence` 的「主线程：回执收回来之后」。
+回执收回来之后怎么筛选、怎么亲自验证，读 [主线程：回执收回来之后](../mmw-evidence/references/main-verify.md)。
 
 ## 收口
 
