@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # 第三层接线的验收证据：在一个临时仓库里空转一整轮。
 # 用法：bash docs/design/mmw-rebuild/dryrun.sh [工作目录]
-# 覆盖：开任务 → 切格 → 设计未过门的拒绝点 → 过门 → 越界检查两个方向 →
-#       工作树脏拒派 → 审查留痕 → 落地回设计清过门 → --no-ff 合并 → 清树。
+# 覆盖：开任务 → 切格 → 设计未过门的拒绝点 → 过门 → 越界检查两个方向 → 工作树脏拒派 →
+#       审查留痕 → 落地回设计清过门 → 产品层宿主名扫描 → --no-ff 合并 → 清树。
 set -euo pipefail
 MMW="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../mmw" && pwd)"
 DIR="${1:-$(mktemp -d)}"; rm -rf "$DIR"; mkdir -p "$DIR"; cd "$DIR"
@@ -68,7 +68,21 @@ python3 -c "import json;f='$WT/.mmw/task.json';d=json.load(open(f));d['design_ap
 [ "$(get design_approved)" = "None" ] && ok "回设计" "过门标记清回空，改完要重新过门"
 setphase build; setphase package
 
-# ⑨⑩ 合并与清树
+# ⑨ 产品层不许出现宿主名（线下区讲机制成因可以，适配层那份除外）
+leak=""
+for f in "$MMW"/skills/*/SKILL.md "$MMW"/roles/*.md; do
+  case "$f" in */mmw-dispatch/*) continue ;; esac
+  hit="$(sed '/^## 线下/,$d' "$f" \
+    | grep -nEi 'codex|cursor|droid|factory|claude[ -]code|\.codex|\.claude|subagent_type|allowed-tools' || true)"
+  [ -n "$hit" ] && leak="${leak}${f}: ${hit}"$'\n'
+done
+if [ -n "$leak" ]; then
+  printf '宿主名 ✗ 产品层渗进宿主耦合:\n%s' "$leak"; exit 1
+else
+  ok "宿主名" "产品层线上区干净，换宿主只改适配层"
+fi
+
+# ⑩⑪ 合并与清树
 git merge --no-ff -q demo -m "merge demo"
 ok "合并" "--no-ff，主分支 $(git rev-list --count HEAD) 个提交"
 git worktree remove --force .mmw/worktrees/demo
