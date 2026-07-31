@@ -5,6 +5,16 @@ description: 报当前任务现状：在哪一格、盘上产物说到哪、上�
 
 合读三个来源报一遍现状：状态文件、阶段产物、提交流水。只读盘，不读会话记忆，不改任何状态。
 
+## 怎么做
+
+1. 从当前目录往上找 `.mmw/task.json`。找不到就说不在任务里，提示用 `/mmw-start <需求>` 开一个，到此为止。
+2. 读那五个字段。
+3. 按产物路径约定看盘：设计那一坨在 `docs/design/<任务名>/`，切片在 `docs/issues/<任务名>/`，计划在 `docs/plans/<任务名>/`，审查留痕在 `.mmw/reviews/`。哪些存在、最后改动时间。
+4. `git -C <工作树> log --oneline <base>..HEAD` 看这个任务落了什么。
+5. 报三样：在哪一格、产物说到哪、上次为什么停（`note` 字段原样念出来）。
+
+只读，不改任何状态。盘上没有的不猜。
+
 ## 施工单
 
 - **来源**：`plugin/commands/progress.md`、`plugin/commands/reassess.md`、`plugin/scripts/progress.sh`、`flow.sh` 的 where

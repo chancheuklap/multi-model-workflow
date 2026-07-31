@@ -1,6 +1,29 @@
 {
-  "_comment": "只剩出站红线一条，且是选配。第三层接线时按宿主实际事件名与前筛写法落定。",
   "hooks": {
-    "PreToolUse": []
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(*push*)",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-outbound.sh\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(gh *)",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-outbound.sh\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "if": "Bash(*deploy*)",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-outbound.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
   }
 }
