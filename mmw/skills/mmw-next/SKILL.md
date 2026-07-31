@@ -11,7 +11,7 @@ argument-hint: "[探路|查清现状|给方案|做设计|切片|写计划|落地
 
 `mmw-wayfind` → `mmw-investigate` → `mmw-propose` → `mmw-design` → `mmw-to-issue` → `mmw-plan` → `mmw-build` → `mmw-package` → `mmw-done`
 
-用户不在场、你自己走了这一份，`note` 里写明这一步是你替他推的以及凭什么推。
+无人值守时你自己调 `/mmw-next` 就算代敲：把这次的决定与理由**追加**进 `note`，不覆盖已经写在那里的话。
 
 ---
 
