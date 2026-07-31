@@ -10,7 +10,13 @@ user-invocable: false
 
 角色定义在 `roles/executor.md` 与 `roles/executor-capable.md`——两档共用这一份方法论，差别只有模型与思考档。怎么把它们跑起来是宿主的事，见技能 `mmw-dispatch`。
 
-## 施工单
+---
+
+## 线下 · 不是技能内容
+
+以下是建这份文件时的依据与备注：来源、取舍理由、设计成因。填方法论时用，照着干活时不用读。
+
+### 施工单
 
 - **来源**：`plugin/skills/worktree-build/SKILL.md`、`references/discipline.md`、`references/when-stuck.md`
 - **保留**：落地纪律（不实现计划没写的、跨模块边界传正式契约类型、新增可被外部引用之物按项目机制登记、数据迁移上下对称、遇到目录级覆盖规则先读、改的文件要落在该 Pack 声明的范围内）；卡住协议（同一动作第三次不通就停下报完整尝试历史、计划与现实冲突不自己猜方向、缺输入不填默认值硬上）

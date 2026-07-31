@@ -18,7 +18,13 @@ argument-hint: "[阶段]"
 
 **终审要用户亲自敲。** 落地阶段工人交活时那道快审是落地方法论里的内嵌步骤，由代理自己跑，不走这条入口。
 
-## 施工单
+---
+
+## 线下 · 不是技能内容
+
+以下是建这份文件时的依据与备注：来源、取舍理由、设计成因。填方法论时用，照着干活时不用读。
+
+### 施工单
 
 - **来源**：`plugin/skills/orchestrate/references/review/review.md`、`plugin/scripts/review.sh`、`references/review/plan-impl.md`
 - **保留**：写者与审者不能是同一个；发现原样落盘、亲验后标处置、文末写总结论；两路视角；增量基准写在审查记录里

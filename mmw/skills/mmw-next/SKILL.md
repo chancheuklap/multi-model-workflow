@@ -18,7 +18,13 @@ argument-hint: "[阶段]"
 
 主干顺序：`investigate` → `propose` → `design` → `to-issue` → `plan` → `build` → `package` → `closing`。`wayfind` 在轴外，只能点名进。
 
-## 施工单
+---
+
+## 线下 · 不是技能内容
+
+以下是建这份文件时的依据与备注：来源、取舍理由、设计成因。填方法论时用，照着干活时不用读。
+
+### 施工单
 
 - **来源**：`plugin/scripts/flow.sh` 的 handoff 与阶段推进
 - **保留**：改 phase、算约定路径、指向目标格的技能

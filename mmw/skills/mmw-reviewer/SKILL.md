@@ -10,7 +10,13 @@ user-invocable: false
 
 两路审者读这同一份方法论：`roles/reviewer-claude.md` 与 `roles/reviewer-gpt.md`。起审时按视角选派哪一路，不变量是写者与审者不能是同一个模型。怎么把它们跑起来是宿主的事，见技能 `mmw-dispatch`。
 
-## 施工单
+---
+
+## 线下 · 不是技能内容
+
+以下是建这份文件时的依据与备注：来源、取舍理由、设计成因。填方法论时用，照着干活时不用读。
+
+### 施工单
 
 - **来源**：`plugin/skills/worktree-review/SKILL.md`、`references/method.md`、`design.md`、`plan.md`、`final.md`、`merge.md`
 - **保留**：共享审查纪律（只读边界、看别的版本用 git 只读命令、代码差异用不可信标记包裹、一次审透、知道却没报就是审查失败）；四份审查角度；返回合同要求每条发现带位置、严重度、置信度，不夹带修复动作

@@ -5,7 +5,13 @@ description: 查清现状：并行派调查员，产出带引用的现状报告�
 
 内部现状与外部方案两个方向分开跑。这一格只摆证据，不拍方案、不选路线、不下设计结论。
 
-## 施工单
+---
+
+## 线下 · 不是技能内容
+
+以下是建这份文件时的依据与备注：来源、取舍理由、设计成因。填方法论时用，照着干活时不用读。
+
+### 施工单
 
 - **来源**：`plugin/skills/orchestrate/references/investigate.md`、`plugin/workflows/investigate-internal.workflow.js`、`investigate-external.workflow.js`
 - **保留**：两个方向分开跑；一个题目一个调查员；窄到一个点就自己查、不起并行；取证不判定；报告落进设计文件夹随设计入 git

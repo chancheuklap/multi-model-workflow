@@ -6,7 +6,13 @@ user-invocable: false
 
 每个小切片对应一个 Task Pack。一份读完，不跳别的。
 
-## 施工单
+---
+
+## 线下 · 不是技能内容
+
+以下是建这份文件时的依据与备注：来源、取舍理由、设计成因。填方法论时用，照着干活时不用读。
+
+### 施工单
 
 - **来源**：`plugin/skills/orchestrate/references/plan/task-pack.md`（与 `worktree-plan/references/task-pack.md` 是同一份的两处复制）
 - **保留**：Task 大小判据（一个 task 是能携带自身测试周期、值得一个全新审者单独过一道闸的最小单位）；Task Pack 模板；测试先行步骤；测试规划严谨度；切片质量标准；反模式清单

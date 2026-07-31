@@ -15,7 +15,13 @@ description: 报当前任务现状：在哪一格、盘上产物说到哪、上�
 
 只读，不改任何状态。盘上没有的不猜。
 
-## 施工单
+---
+
+## 线下 · 不是技能内容
+
+以下是建这份文件时的依据与备注：来源、取舍理由、设计成因。填方法论时用，照着干活时不用读。
+
+### 施工单
 
 - **来源**：`plugin/commands/progress.md`、`plugin/commands/reassess.md`、`plugin/scripts/progress.sh`、`flow.sh` 的 where
 - **保留**：读盘不读记忆；报「在哪一格 / 产物说到哪 / 上次为什么停」三样

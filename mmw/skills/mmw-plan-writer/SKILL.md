@@ -10,7 +10,13 @@ user-invocable: false
 
 角色定义在 `roles/plan-writer.md`。怎么把它跑起来是宿主的事，见技能 `mmw-dispatch`。
 
-## 施工单
+---
+
+## 线下 · 不是技能内容
+
+以下是建这份文件时的依据与备注：来源、取舍理由、设计成因。填方法论时用，照着干活时不用读。
+
+### 施工单
 
 - **来源**：`plugin/skills/worktree-plan/SKILL.md`、`references/plan-self-check.md`
 - **保留**：只准改自己那份计划与对应切片；探代码后再拆；三次失败协议；交付前自检必过
