@@ -1,6 +1,6 @@
 ---
 name: mmw-done
-description: 收尾：确认任务完整，摊旁路清单，合并回主分支，清工作树。
+description: 收尾。确认任务完整，摊旁路清单，合并回主分支，清工作树。
 disable-model-invocation: true
 ---
 

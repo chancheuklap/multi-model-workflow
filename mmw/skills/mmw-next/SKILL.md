@@ -1,20 +1,20 @@
 ---
 name: mmw-next
-description: 往下一个阶段走，或跳到指定阶段。
-argument-hint: "[探路|查清现状|给方案|做设计|切片|写计划|落地|出包|收尾]"
+description: 往主干下一格走，或跳到用户点名的那一格。
+argument-hint: "[探路|查清现状|给方案|做设计|切片|写计划|落地|出包|收尾]，不给就往下一格"
 ---
 
 ## 怎么做
 
 1. 读 `.mmw/task.json`。
-2. **唯一拒绝点**：当前是 `design` 且 `design_approved` 是 null，停下，让用户敲 `/mmw-approve-design`。
-3. 定目标阶段：给了参数就是那个阶段（中文名与英文键都认）；没给就取下一个阶段。
-4. 写回 `phase`，同时把这个阶段为什么停下、下一步等什么写进 `note`。下次新开会话 `/mmw` 要原样念它。
-5. 报给用户到了哪个阶段，接着读那个阶段的技能（`mmw-<阶段键>`，只有收尾读 `mmw-done`）开始干。产物落在哪由它自己说，不在这里找。
+2. **唯一拒绝点**：当前是 `mmw-design` 且 `design_approved` 是 null，停下，请用户敲 `/mmw-approve-design`。
+3. 定目标那一格：用户给的是中文格名，认出它是哪份技能——九份你都装着，每份 description 的头一个词就是那个中文名。没给参数就取主干上的下一格。
+4. 把那份技能的名字写回 `phase`，同时把这一格为什么停下、下一步等什么写进 `note`。下次新开会话 `/mmw` 要原样念它。
+5. 告诉用户到了哪一格，用中文格名说，别念技能名。然后读那份技能开始干——`phase` 里存的就是它的名字。产物落在哪由它自己说，不在这里找。
 
 无人值守时自己敲 `/mmw-next` 即为代敲，`note` 里写明这是代敲和依据。
 
-阶段顺序：`wayfind` → `investigate` → `propose` → `design` → `to-issue` → `plan` → `build` → `package` → `closing`。
+主干顺序：`mmw-wayfind` → `mmw-investigate` → `mmw-propose` → `mmw-design` → `mmw-to-issue` → `mmw-plan` → `mmw-build` → `mmw-package` → `mmw-done`。
 
 ---
 

@@ -14,18 +14,41 @@ echo hello > README.md && git add -A && git commit -qm init
 # ① 开任务：走生产脚本，不在这里复制一份建树逻辑
 eval "$(bash "$MMW/scripts/task.sh" new demo)"; WT="$WORKTREE"
 [ "$(git check-ignore -q .mmw/ && echo y)" = y ] || { echo "FAIL 忽略清单没落地"; exit 1; }
-[ "$(python3 -c "import json;print(json.load(open('$WT/.mmw/task.json'))['phase'])")" = wayfind ] \
-  || { echo "FAIL 默认起点不是 wayfind"; exit 1; }
-ok "开任务" "不给起点就落在主干第一格 wayfind，base=${BASE:0:8}"
+[ "$(python3 -c "import json;print(json.load(open('$WT/.mmw/task.json'))['phase'])")" = mmw-wayfind ] \
+  || { echo "FAIL 默认起点不是 mmw-wayfind"; exit 1; }
+ok "开任务" "不给起点就落在主干第一格探路，base=${BASE:0:8}"
 
-# ①'' 给了起点就开在那一格；拼错的阶段键当场拒绝
-eval "$(bash "$MMW/scripts/task.sh" new demo-bug investigate | sed 's/^/S_/')"
-[ "$(python3 -c "import json;print(json.load(open('$S_WORKTREE/.mmw/task.json'))['phase'])")" = investigate ] \
-  || { echo "FAIL 起点参数没写进状态"; exit 1; }
-if bash "$MMW/scripts/task.sh" new demo-typo invesigate >/dev/null 2>&1; then
-  echo "FAIL 拼错的阶段键竟然收下了"; exit 1
-fi
-ok "起点" "给 investigate 就开在那一格，拼错当场拒绝"
+# ①'' 给了起点就开在那一格；不是九格之一的当场拒绝
+eval "$(bash "$MMW/scripts/task.sh" new demo-bug mmw-investigate | sed 's/^/S_/')"
+SP="$(python3 -c "import json;print(json.load(open('$S_WORKTREE/.mmw/task.json'))['phase'])")"
+[ "$SP" = mmw-investigate ] || { echo "FAIL 起点参数没写进状态"; exit 1; }
+# phase 存的就是技能名：主线程照它直接找到那份技能，中间不再有一层键
+[ -f "$MMW/skills/$SP/SKILL.md" ] || { echo "FAIL phase 的值不是一份现成技能的名字"; exit 1; }
+for bad in investigate closing mmw-invesigate; do
+  if bash "$MMW/scripts/task.sh" new "demo-typo-$bad" "$bad" >/dev/null 2>&1; then
+    echo "FAIL 不是九格之一的 ${bad} 竟然收下了"; exit 1
+  fi
+done
+ok "起点" "起点参数即技能名，主线程照它就能找到技能；另起的键与拼错当场拒绝"
+
+# ①''' 中文格名认哪份技能，全靠 description 的头一个词——没有第二份对应表兜底，这条必须成立
+python3 - "$MMW" <<'PY_CELLS' || exit 1
+import pathlib,re,sys
+want=["探路","查清现状","给方案","做设计","切片","写计划","落地","出包","收尾"]
+skills=["mmw-wayfind","mmw-investigate","mmw-propose","mmw-design","mmw-to-issue",
+        "mmw-plan","mmw-build","mmw-package","mmw-done"]
+got={}
+for cell,name in zip(want,skills):
+    text=(pathlib.Path(sys.argv[1])/"skills"/name/"SKILL.md").read_text()
+    desc=re.search(r'^description:\s*(.+)$',text,re.M).group(1)
+    head=re.split(r'[。：:]',desc)[0].strip()
+    if head!=cell:
+        print(f"FAIL {name} 的 description 头一个词是「{head}」，不是格名「{cell}」");sys.exit(1)
+    got.setdefault(head,[]).append(name)
+dup={k:v for k,v in got.items() if len(v)>1}
+if dup: print(f"FAIL 两份技能抢同一个格名: {dup}");sys.exit(1)
+PY_CELLS
+ok "格名" "九份技能 description 的头一个词就是那个中文名，互不重复"
 
 # ①' 两份状态文件由脚本从 templates/ 注入，主线程不手抄
 [ "$(python3 -c "import json;print(json.load(open('$WT/.mmw/task.json'))['task'])")" = demo ] \
@@ -39,8 +62,8 @@ setphase(){ python3 -c "import json,sys;f='$WT/.mmw/task.json';d=json.load(open(
 get(){ python3 -c "import json;print(json.load(open('$WT/.mmw/task.json'))['$1'])"; }
 
 # ② 切格到设计，验唯一拒绝点
-setphase investigate; setphase propose; setphase design
-[ "$(get design_approved)" = "None" ] && ok "切格" "停在 design，未过门不许往下"
+setphase mmw-investigate; setphase mmw-propose; setphase mmw-design
+[ "$(get design_approved)" = "None" ] && ok "切格" "停在做设计那一格，未过门不许往下"
 
 # ③ 过门
 mkdir -p "$WT/docs/design/demo" && echo "# demo" > "$WT/docs/design/demo/demo.md"
@@ -51,7 +74,7 @@ d['design_approved']={'at':datetime.datetime.now().astimezone().isoformat(timesp
 json.dump(d,open(f,'w'),indent=2)"
 ok "过门" "记下时间与认可的文档清单"
 
-setphase build
+setphase mmw-build
 
 # ④ 工作树脏拒派
 echo x > "$DIR/p.md"
@@ -74,14 +97,14 @@ ok "提示词" "六份角色的说明与技能名单都由脚本抄进开头，�
 # ⑥ 审查留痕
 git -C "$WT" add -A && git -C "$WT" commit -qm wip
 mkdir -p "$WT/.mmw/reviews"
-printf '基准: %s\n\n(审者原样发现落这里)\n' "$(git -C "$WT" rev-parse HEAD)" > "$WT/.mmw/reviews/build-1.md"
+printf '基准: %s\n\n(审者原样发现落这里)\n' "$(git -C "$WT" rev-parse HEAD)" > "$WT/.mmw/reviews/mmw-build-1.md"
 ok "审查留痕" "头部写基准提交，供下次判增量"
 
-# ⑦ 落地完回设计再调（主路上的大环）：目标格是 design，过门标记清回空
-setphase design
+# ⑦ 落地完回设计再调（主路上的大环）：目标格是 mmw-design，过门标记清回空
+setphase mmw-design
 python3 -c "import json;f='$WT/.mmw/task.json';d=json.load(open(f));d['design_approved']=None;json.dump(d,open(f,'w'),indent=2)"
 [ "$(get design_approved)" = "None" ] && ok "回设计" "过门标记清回空，改完要重新过门"
-setphase build; setphase package
+setphase mmw-build; setphase mmw-package
 
 # ⑧ 产品层不许出现宿主名（线下区讲机制成因可以，适配层那份除外）
 leak=""

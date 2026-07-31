@@ -5,9 +5,11 @@
 # templates/，脚本只搬运并把任务名与分叉点填进去。这样每棵工作树里的格式都一样，
 # 不靠谁凭记忆手抄一遍。
 #
-#   task.sh new <任务名> [起点阶段]
+#   task.sh new <任务名> [起点技能]
 #
-# 起什么名字、从哪一格开工都是判断，留给主线程；这里只校验拼写。
+# 起什么名字、从哪一格开工都是判断，留给主线程；这里只校验拼写。用户敲的是中文格名，
+# 认出它对应哪份技能也是主线程的活——九份技能它都装着，每份 description 的头一个词
+# 就是那个中文名。脚本这一头只收技能名。
 #
 # 输出头四行机器可读：TASK= / WORKTREE= / BASE= / PHASE=。
 
@@ -18,15 +20,16 @@ TEMPLATES="$PLUGIN_ROOT/templates"
 
 die() { echo "ERROR: $*" >&2; exit 2; }
 
-sub="${1:-}"; [ "$sub" = new ] || die "用法: task.sh new <任务名> [起点阶段]"
+sub="${1:-}"; [ "$sub" = new ] || die "用法: task.sh new <任务名> [起点技能]"
 task="${2:-}"; [ -n "$task" ] || die "缺任务名"
 printf '%s' "$task" | grep -qE '^[a-z0-9]+(-[a-z0-9]+)*$' \
   || die "任务名只能用小写字母、数字和短横线，短横线不能开头结尾也不能连写：${task}"
 
-phase="${3:-wayfind}"
-case " wayfind investigate propose design to-issue plan build package closing " in
+# phase 存的就是那一格技能的名字，主线程读到它直接去读那份技能，中间不再有一层键。
+phase="${3:-mmw-wayfind}"
+case " mmw-wayfind mmw-investigate mmw-propose mmw-design mmw-to-issue mmw-plan mmw-build mmw-package mmw-done " in
   *" $phase "*) ;;
-  *) die "不是阶段键: ${phase}" ;;
+  *) die "没有这一格: ${phase}" ;;
 esac
 
 for t in task.json sidelines.md; do
