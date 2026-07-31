@@ -59,7 +59,7 @@ fi
 # ⑦ 送到被派者手里的那份提示词：角色说明、按参数生成的边界、技能名单都要在
 for r in executor executor-capable plan-writer reviewer-gpt reviewer-claude scout; do
   out="$(bash "$MMW/scripts/dispatch.sh" preview --role "$r" --prompt "$DIR/p.md")"
-  case "$r" in scout|reviewer-*) b="你只读" ;; plan-writer) b="你只能改这几处路径" ;; *) b="这几处路径禁碰" ;; esac
+  case "$r" in scout|reviewer-*) b="写不了盘" ;; plan-writer) b="可写范围只有" ;; *) b="文档目录禁碰" ;; esac
   for must in "你的角色是 $r" "$b" "开工要拿到" "收工" "先读你已装的这几份 skill" "## 这次的活"; do
     case "$out" in *"$must"*) ;; *) echo "提示词 ✗ ${r} 缺「${must}」"; exit 1 ;; esac
   done
