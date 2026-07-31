@@ -67,5 +67,3 @@ description: 探路。连「要决定什么」都还问不准、且整件事一�
 **来源**：旧插件 `plugin/skills/orchestrate/references/wayfind.md`（42 行，骨架、产物路径、`note` 书签、收口交接照它）；上游 `mattpocock/skills` 的 `wayfinder`（128 行，迷雾判据、四类决策、代理不替用户回答、横扫、按需放大从它补）。
 
 **没搬的**：上游整套 issue tracker 承载（子 issue、标签、认领、原生依赖字段、并发会话）——挡路关系改写在地图待解区的行内；上游地图的 Out of scope 一节并进 `.mmw/sidelines.md`；旧插件的 `handoff` 引擎调用与三个结论词。
-
-**待接的断口**：`mmw-investigate` 那头还没说要读「交给下一个阶段」清单，填那份技能时补上。
