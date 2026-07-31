@@ -38,16 +38,16 @@ role_list() {  # $1=角色文件 $2=字段
     grab && /^[[:space:]]+-[[:space:]]/ { sub(/^[[:space:]]+-[[:space:]]*/, ""); print; next }
     grab { exit }'
 }
-# 角色文件正文：frontmatter 之后、线下区之前
+# 角色文件正文：frontmatter 之后的全部
 role_body() {  # $1=角色文件
-  awk 'BEGIN{n=0} /^---$/{n++; next} n>=2 && /^## 线下/{exit} n>=2' "$1"
+  awk 'n>=2; /^---$/{n++}' "$1"
 }
 
 # 送进被派进程的完整提示词。角色说明与技能名单由脚本抄，这次干什么由调用方写。
 # 无头那一侧看不到角色文件，「你是谁、边界在哪、收工回什么」不抄就送不到。
 build_prompt() {  # $1=角色文件 $2=角色名 $3=这次的活
   printf '你的角色是 %s。\n' "$2"
-  role_body "$1" | cat -s              # 正文首尾本就各留一个空行，压掉多余的当分隔
+  { role_body "$1"; printf '\n'; } | cat -s   # 压掉连续空行，正文与前后各隔一行
   printf '先读你已装的这几份 skill，照它们走：'
   role_list "$1" skills | paste -sd'、' -
   printf '\n## 这次的活\n\n'
