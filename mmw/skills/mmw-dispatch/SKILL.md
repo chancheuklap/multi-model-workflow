@@ -4,11 +4,11 @@ description: 把 roles/ 里的角色派出去干活时读。
 user-invocable: false
 ---
 
-六份角色都往同一个入口投，下面的 `scripts/` 在插件根：
+六份角色都往同一个入口投：
 
 | 干什么 | 怎么敲 |
 | --- | --- |
-| 派一个 | `scripts/dispatch.sh run --role <角色> --cwd <目录> --prompt <文件>` |
+| 派一个 | `bash "${CLAUDE_PLUGIN_ROOT}/scripts/dispatch.sh" run --role <角色> --cwd <目录> --prompt <文件>` |
 | 续接追问 | 同上，`resume` 加 `--session <会话号>` |
 
 **提示词只写这次的活。**要交代哪几样，读 `roles/<角色>.md` 那行「开工要拿到」，逐项填齐。
