@@ -18,7 +18,16 @@ disable-model-invocation: true
 { "task": "<任务名>", "phase": "wayfind", "base": "<分叉时的完整 sha>", "note": "", "design_approved": null }
 ```
 
-5. 同目录建空的 `.mmw/sidelines.md`：往后任何一个阶段撞到本次范围外的问题，就往里记一行——现象、位置、为什么这次不做。收尾那个阶段摊开它挑哪些开成 issue。
+5. 同目录建 `.mmw/sidelines.md`，内容就是下面这段。怎么记写在文件自己身上，别处只说「记进旁路清单」：
+
+```markdown
+# 旁路清单
+
+本次范围外的东西记这里，一件一行：现象、位置（`文件:行号` 或链接）、为什么这次不做。
+收尾阶段摊开这份清单，挑哪些开成远端 issue。
+
+<!-- 例：登录页在 Safari 下回调丢参数（web/src/auth/callback.ts:42）——不属于本次结算改造，另开 -->
+```
 6. 告诉用户任务名、工作树在哪、现在停在探路阶段，接着读 `mmw-wayfind`；小到不用探路的改动，让他敲 `/mmw-next <阶段>` 直接跳过去。
 
 ---
