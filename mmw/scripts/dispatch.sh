@@ -9,6 +9,9 @@
 #   dispatch.sh resume --role <角色> --cwd <目录> --session <会话号> --prompt <文件>
 #   dispatch.sh check  --role <角色> --cwd <目录> --since <提交>
 #
+# 六份角色都往这里投，不必先自己判断走原生还是无头：碰到本宿主自家模型的角色，
+# 脚本回 NATIVE=<角色名> 并退 4，告诉调用方改用宿主的子代理工具、subagent_type 填什么。
+#
 # run / resume 头两行是机器可读的 SESSION= 与 EXIT=，之后是被派者的最后一条消息。
 # 会话号不落盘：主线程后台起、从输出里读，少一套记账。
 # 后台起由调用方负责——审一轮、落地一份计划都常超前台超时上限。
@@ -57,6 +60,15 @@ done
 rf="$ROLES_DIR/$role.md"
 [ -f "$rf" ] || die "角色不存在: ${role}（找的是 ${rf}）"
 
+# 本宿主自家模型的角色由宿主原生派，脚本代劳不了，但可以把人指对地方——
+# 于是调用方永远只记一条命令，不必自己先翻角色文件判断走哪条路。
+NATIVE_MODELS="${MMW_NATIVE_MODELS:-fable opus sonnet haiku}"
+is_native() {
+  local m; m="$(role_field "$rf" model)"
+  local n; for n in $NATIVE_MODELS; do case "$m" in "$n"|"$n"-*|*"/$n") return 0 ;; esac; done
+  return 1
+}
+
 # ---------- 派发 ----------
 dispatch_codex() {  # $1=resume 的会话号（空=首派）
   local model effort write sandbox
@@ -95,6 +107,17 @@ dispatch_codex() {  # $1=resume 的会话号（空=首派）
 $(printf '%s\n' "$dirty" | sed 's/^/  /')"
   fi
 
+  # 提示词前面自动补一句「读这几份技能」，名单从角色文件来。
+  # 这不算替主线程写提示词：读哪几份是角色文件已经写死的事实，机器抄比人抄准；
+  # 这次干什么才是判断，那部分仍然全由调用方写在 --prompt 里。
+  local full; full="$(mktemp)"
+  {
+    printf '先读你已装的这几份 skill，照它们走：'
+    role_list "$rf" skills | paste -sd'、' -
+    printf '\n\n'
+    cat "$prompt"
+  } > "$full"
+
   local last; last="$(mktemp)"
   local args=(exec -C "$cwd" --sandbox "$sandbox" --color never --json
               -m "$model" -c "model_reasoning_effort=\"$effort\"" -o "$last")
@@ -109,9 +132,10 @@ $(printf '%s\n' "$dirty" | sed 's/^/  /')"
   local events rc=0
   events="$(mktemp)"
   set +e
-  "$CODEX_BIN" "${args[@]}" - < "$prompt" > "$events" 2>&1
+  "$CODEX_BIN" "${args[@]}" - < "$full" > "$events" 2>&1
   rc=$?
   set -e
+  rm -f "$full"
 
   local sid
   sid="$(sed -n 's/.*"thread_id":"\([^"]*\)".*/\1/p' "$events" | head -1)"
@@ -156,8 +180,20 @@ cmd_check() {
 }
 
 case "$sub" in
-  run)    dispatch_codex "" ;;
-  resume) [ -n "$session" ] || die "--session 必填"; dispatch_codex "$session" ;;
+  run|resume)
+    if is_native; then
+      echo "NATIVE=$role"
+      echo "这份角色用本宿主自己的子代理工具派，subagent_type 填 ${role}。" \
+           "模型、思考档、工具白名单由宿主按角色文件强制执行；开工提示词里让它读：" >&2
+      role_list "$rf" skills | paste -sd'、' - >&2
+      exit 4
+    fi
+    if [ "$sub" = resume ]; then
+      [ -n "$session" ] || die "--session 必填"
+      dispatch_codex "$session"
+    else
+      dispatch_codex ""
+    fi ;;
   check)  cmd_check ;;
   *)      die "未知子命令: $sub" ;;
 esac
