@@ -4,7 +4,7 @@ description: 把 roles/ 里的角色派出去干活时读。
 user-invocable: false
 ---
 
-六份角色都往同一个入口投：
+六份角色都往同一个入口投，下面的 `scripts/` 在插件根：
 
 | 干什么 | 怎么敲 |
 | --- | --- |
