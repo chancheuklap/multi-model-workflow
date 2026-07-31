@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 第三层接线的验收证据：在一个临时仓库里空转一整轮。
 # 用法：bash docs/design/mmw-rebuild/dryrun.sh [工作目录]
-# 覆盖：开任务 → 切格 → 设计未过门的拒绝点 → 过门 → 工作树脏拒派 → 派发提示词组装 →
+# 覆盖：开任务（走 task.sh）→ 状态文件注入 → 切格 → 设计未过门的拒绝点 → 过门 → 工作树脏拒派 → 派发提示词组装 →
 #       审查留痕 → 落地回设计清过门 → 产品层宿主名扫描 → --no-ff 合并 → 清树。
 set -euo pipefail
 MMW="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../mmw" && pwd)"
@@ -11,14 +11,18 @@ ok(){ printf '%-12s ✓ %s\n' "$1" "$2"; }
 git init -q && git config user.email t@t && git config user.name t
 echo hello > README.md && git add -A && git commit -qm init
 
-# ① 开任务：先忽略再建树，否则状态文件会以未跟踪身份混进工人的改动
-echo ".mmw/" > .gitignore && git add .gitignore && git commit -qm "ignore .mmw"
-BASE=$(git rev-parse HEAD)
-git worktree add -q .mmw/worktrees/demo -b demo
-WT="$PWD/.mmw/worktrees/demo"; mkdir -p "$WT/.mmw"
-printf '{ "task": "demo", "phase": "wayfind", "base": "%s", "note": "", "design_approved": null }\n' "$BASE" > "$WT/.mmw/task.json"
-: > "$WT/.mmw/sidelines.md"
+# ① 开任务：走生产脚本，不在这里复制一份建树逻辑
+eval "$(bash "$MMW/scripts/task.sh" new demo)"; WT="$WORKTREE"
+[ "$(git check-ignore -q .mmw/ && echo y)" = y ] || { echo "FAIL 忽略清单没落地"; exit 1; }
 ok "开任务" "落在主干第一格 wayfind，base=${BASE:0:8}"
+
+# ①' 两份状态文件由脚本从 templates/ 注入，主线程不手抄
+[ "$(python3 -c "import json;print(json.load(open('$WT/.mmw/task.json'))['task'])")" = demo ] \
+  || { echo "FAIL task.json 没填对"; exit 1; }
+diff <(sed 's/^/ /' "$MMW/templates/sidelines.md") <(sed 's/^/ /' "$WT/.mmw/sidelines.md") >/dev/null \
+  || { echo "FAIL sidelines.md 与模板不一致"; exit 1; }
+grep -q '^| 现象 | 位置 |' "$WT/.mmw/sidelines.md" || { echo "FAIL 旁路清单没有表头"; exit 1; }
+ok "注入" "task.json 填好任务名与分叉点，旁路清单带着表头进树"
 
 setphase(){ python3 -c "import json,sys;f='$WT/.mmw/task.json';d=json.load(open(f));d['phase']=sys.argv[1];json.dump(d,open(f,'w'),indent=2)" "$1"; }
 get(){ python3 -c "import json;print(json.load(open('$WT/.mmw/task.json'))['$1'])"; }
