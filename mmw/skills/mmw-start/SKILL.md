@@ -1,7 +1,7 @@
 ---
 name: mmw-start
 description: 开一个任务：起名、建工作树、写状态、进去。
-argument-hint: "[起点阶段] <需求>"
+argument-hint: "[探路|查清现状|做设计|落地] <需求>"
 disable-model-invocation: true
 ---
 
@@ -18,7 +18,7 @@ disable-model-invocation: true
 
 ## 起点阶段
 
-九个格都能当起点，常用的是前四个。用户给中文名照样认。
+补全提示里只列常用的前四个。九个格都能当起点，中文名与英文键都认，中文名转成阶段键再传给脚本。
 
 | 阶段键 | 中文名 | 什么时候从这里起 |
 | --- | --- | --- |

@@ -1,7 +1,7 @@
 ---
 name: mmw-next
 description: 往下一个阶段走，或跳到指定阶段。
-argument-hint: "[阶段]"
+argument-hint: "[探路|查清现状|给方案|做设计|切片|写计划|落地|出包|收尾]"
 ---
 
 ## 怎么做

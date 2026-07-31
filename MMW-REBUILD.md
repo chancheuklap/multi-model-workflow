@@ -207,17 +207,19 @@
 | 可用能力 | 写法 |
 | --- | --- |
 | 接参数 | `$ARGUMENTS` 全量；`$0` `$1` 按位；frontmatter 声明 `arguments: [name]` 后用 `$name`。正文没写占位符时，参数被追加成 `ARGUMENTS: <输入>` |
-| 补全提示 | `argument-hint` |
+| 补全提示 | `argument-hint`：**纯展示字符串**，只在敲 `/` 时的补全行里渲染。没有可选值枚举、没有值补全机制（官方示例就是 `[filename] [format]`）。要让用户看见选项，选项就得字面写进这个字符串 |
 | 谁能调 | `disable-model-invocation: true` 只有用户能调；`user-invocable: false` 只有代理能调并从 `/` 菜单隐藏 |
 | 其他 | `allowed-tools`、`disallowed-tools`、`model`、`context: fork`（技能跑在自己的子代理上下文里） |
 | 代价 | 技能正文加载后跨轮次常驻，每行都是重复 token 成本 |
 
+**补全提示里列中文格名，不列英文键**：负责人记不住九个英文键，而中文名与英文键都认。起点常用的只有四个，`/mmw-start` 就只列那四个；往下走与回上游的目标可以是任何一格，列全九个。
+
 | 入口 | 参数 | 做什么 | 谁能调 |
 | --- | --- | --- | --- |
 | `/mmw` | 无 | 报现状：在哪一格、盘上产物说到哪、上次为什么停。新会话的断点续传入口 | 用户 |
-| `/mmw-start` | `[起点阶段] <需求>` | 开任务：起名、建工作树、写状态、进去 | 用户（`disable-model-invocation`） |
-| `/mmw-next` | `[阶段]` | 往下走 | 用户；无人值守时代理自调即代敲 |
-| `/mmw-back` | `[阶段]` | 回上游 | 用户；代理可自调 |
+| `/mmw-start` | `[探路｜查清现状｜做设计｜落地] <需求>` | 开任务：起名、建工作树、写状态、进去 | 用户（`disable-model-invocation`） |
+| `/mmw-next` | 九个中文格名 | 往下走 | 用户；无人值守时代理自调即代敲 |
+| `/mmw-back` | 九个中文格名 | 回上游 | 用户；代理可自调 |
 | `/mmw-review` | `[阶段]` | 起一道审，审那一格的主产物 | 用户；代理可自调 |
 | `/mmw-approve-design` | 无 | 设计过门，写事实与文档清单，不算哈希 | 只有用户（`disable-model-invocation`） |
 | `/mmw-done` | 无 | 合并回主分支、摊旁路清单、清工作树 | 用户（`disable-model-invocation`） |
