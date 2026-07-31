@@ -2,12 +2,14 @@
 # 适配层。只有模型专用宿主（Claude Code、Codex CLI）需要它：这类宿主派不了别家模型的
 # 子代理，得起无头进程。多模型宿主（Cursor、pi、Droid）在角色文件里直接指定模型，不用这个。
 #
-# 它只做机器能判死的事：读角色参数、把命令行一次拼对、抓会话号、按角色声明的边界核越界。
-# 它不组装提示词、不建工作树、不判该派谁——那些是判断，留给主线程。
+# 它只做机器能判死的事：读角色参数、把角色说明与技能名单抄进提示词开头、把命令行一次拼对、
+# 抓会话号、按角色声明的边界核越界。
+# 这次干什么、建不建工作树、该派谁，是判断，留给主线程。
 #
 #   dispatch.sh run    --role <角色> --cwd <目录> --prompt <文件> [--add-dir <目录>]
 #   dispatch.sh resume --role <角色> --cwd <目录> --session <会话号> --prompt <文件>
-#   dispatch.sh check  --role <角色> --cwd <目录> --since <提交>
+#   dispatch.sh check   --role <角色> --cwd <目录> --since <提交>
+#   dispatch.sh preview --role <角色> --prompt <文件>          # 只打印会送出去的全文，不派
 #
 # 六份角色都往这里投，不必先自己判断走原生还是无头：碰到本宿主自家模型的角色，
 # 脚本回 NATIVE=<角色名> 并退 4，告诉调用方改用宿主的子代理工具、subagent_type 填什么。
@@ -36,10 +38,25 @@ role_list() {  # $1=角色文件 $2=字段
     grab && /^[[:space:]]+-[[:space:]]/ { sub(/^[[:space:]]+-[[:space:]]*/, ""); print; next }
     grab { exit }'
 }
+# 角色文件正文：frontmatter 之后、线下区之前
+role_body() {  # $1=角色文件
+  awk 'BEGIN{n=0} /^---$/{n++; next} n>=2 && /^## 线下/{exit} n>=2' "$1"
+}
+
+# 送进被派进程的完整提示词。角色说明与技能名单由脚本抄，这次干什么由调用方写。
+# 无头那一侧看不到角色文件，「你是谁、边界在哪、收工回什么」不抄就送不到。
+build_prompt() {  # $1=角色文件 $2=角色名 $3=这次的活
+  printf '你的角色是 %s。\n' "$2"
+  role_body "$1" | cat -s              # 正文首尾本就各留一个空行，压掉多余的当分隔
+  printf '先读你已装的这几份 skill，照它们走：'
+  role_list "$1" skills | paste -sd'、' -
+  printf '\n## 这次的活\n\n'
+  cat "$3"
+}
 
 # ---------- 参数 ----------
 role="" cwd="" prompt="" add_dir="" session="" since=""
-sub="${1:-}"; [ -n "$sub" ] || die "缺子命令: run | resume | check"
+sub="${1:-}"; [ -n "$sub" ] || die "缺子命令: run | resume | check | preview"
 shift || true
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -53,8 +70,10 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$role" ] || die "--role 必填"
-[ -n "$cwd" ] || die "--cwd 必填"
-[ -d "$cwd" ] || die "--cwd 不是目录: $cwd"
+if [ "$sub" != preview ]; then
+  [ -n "$cwd" ] || die "--cwd 必填"
+  [ -d "$cwd" ] || die "--cwd 不是目录: $cwd"
+fi
 
 # 角色文件不走命令替换取路径：那样 die 只杀得掉子 shell，主流程会带着空值往下跑。
 rf="$ROLES_DIR/$role.md"
@@ -107,16 +126,8 @@ dispatch_codex() {  # $1=resume 的会话号（空=首派）
 $(printf '%s\n' "$dirty" | sed 's/^/  /')"
   fi
 
-  # 提示词前面自动补一句「读这几份技能」，名单从角色文件来。
-  # 这不算替主线程写提示词：读哪几份是角色文件已经写死的事实，机器抄比人抄准；
-  # 这次干什么才是判断，那部分仍然全由调用方写在 --prompt 里。
   local full; full="$(mktemp)"
-  {
-    printf '先读你已装的这几份 skill，照它们走：'
-    role_list "$rf" skills | paste -sd'、' -
-    printf '\n\n'
-    cat "$prompt"
-  } > "$full"
+  build_prompt "$rf" "$role" "$prompt" > "$full"
 
   local last; last="$(mktemp)"
   local args=(exec -C "$cwd" --sandbox "$sandbox" --color never --json
@@ -194,6 +205,8 @@ case "$sub" in
     else
       dispatch_codex ""
     fi ;;
+  preview) [ -n "$prompt" ] || die "--prompt 必填"
+           build_prompt "$rf" "$role" "$prompt" ;;
   check)  cmd_check ;;
-  *)      die "未知子命令: $sub" ;;
+  *)      die "未知子命令: $sub（run | resume | check | preview）" ;;
 esac
