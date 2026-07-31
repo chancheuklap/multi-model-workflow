@@ -1,6 +1,8 @@
 ---
 name: scout
 description: 只读调查。查一个问题，或把几份调查合成一份。
+model: sonnet
+effort: high
 write: false
 skills:
   - mmw-retrieval
