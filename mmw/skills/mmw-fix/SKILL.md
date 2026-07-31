@@ -41,6 +41,6 @@ user-invocable: false
 
 **来源**：旧插件 `plugin/skills/orchestrate/references/scenario/bug.md` 与 `small-change.md`（各 88 行，其中三分之二是四份场景共享的引擎锚点块；两条各自专属的只有开头那几行加动手前那一次轻确认）。
 
-**造复现信号那一整套不写在这里**：写失败测试、切旧版本 diff、`git bisect run`、拿脚本请用户按提示操作，这些要动工作树，`scout` 都做不了，但它们仍然整块住在 `mmw-evidence` 里，标明是主线程的活。查一个 bug 的根因这件事，主线程在 `mmw-investigate` 里也会遇到；劈成两份，主线程得跨文件才拼得齐一套办法。
+**造复现信号那一整套不写在这里**：写失败测试、切旧版本 diff、`git bisect run`、拿脚本请用户按提示操作，这些要动工作树，只有主线程做得了。它们整套住在 `mmw-evidence` 写给主线程的那一份里。查一个 bug 的根因这件事，主线程在 `mmw-investigate` 里也会遇到；搬一份到这里，就是同一套办法两处各存一版。
 
 **没搬的**：场景预设的阶段序列与强制走完；`--entry-capability` 那六种治理能力与原话取证；`mmw task escalate --to develop` 这条升级命令——回上游走 `mmw-back` 就是了，不另立一个动词；值守档与它带来的「afk 也要停这一次」的说法。
