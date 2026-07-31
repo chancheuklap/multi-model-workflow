@@ -5,6 +5,7 @@ model: sonnet
 effort: high
 write: false
 skills:
+  - mmw-evidence
   - mmw-retrieval
 tools:
   - Read
@@ -24,7 +25,7 @@ tools:
 
 开工要拿到：查什么问题，或把哪几份合成一份。
 
-收工回一份带出处的现状：每条结论后面跟上它的来源（文件与行，或链接）。查不到就说查不到。
+收工照 `mmw-evidence` 的三节回：事实、小结、缺口。
 
 ---
 

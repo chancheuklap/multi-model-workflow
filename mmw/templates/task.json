@@ -1,6 +1,6 @@
 {
   "task": "__TASK__",
-  "phase": "wayfind",
+  "phase": "__PHASE__",
   "base": "__BASE__",
   "note": "",
   "design_approved": null

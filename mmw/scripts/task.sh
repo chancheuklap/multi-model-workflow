@@ -5,11 +5,11 @@
 # templates/，脚本只搬运并把任务名与分叉点填进去。这样每棵工作树里的格式都一样，
 # 不靠谁凭记忆手抄一遍。
 #
-#   task.sh new <任务名>
+#   task.sh new <任务名> [起点阶段]
 #
-# 起什么名字是判断，留给主线程。
+# 起什么名字、从哪一格开工都是判断，留给主线程；这里只校验拼写。
 #
-# 输出头三行机器可读：TASK= / WORKTREE= / BASE=。
+# 输出头四行机器可读：TASK= / WORKTREE= / BASE= / PHASE=。
 
 set -euo pipefail
 
@@ -18,10 +18,16 @@ TEMPLATES="$PLUGIN_ROOT/templates"
 
 die() { echo "ERROR: $*" >&2; exit 2; }
 
-sub="${1:-}"; [ "$sub" = new ] || die "用法: task.sh new <任务名>"
+sub="${1:-}"; [ "$sub" = new ] || die "用法: task.sh new <任务名> [起点阶段]"
 task="${2:-}"; [ -n "$task" ] || die "缺任务名"
 printf '%s' "$task" | grep -qE '^[a-z0-9]+(-[a-z0-9]+)*$' \
   || die "任务名只能用小写字母、数字和短横线，短横线不能开头结尾也不能连写：${task}"
+
+phase="${3:-wayfind}"
+case " wayfind investigate propose design to-issue plan build package closing " in
+  *" $phase "*) ;;
+  *) die "不是阶段键: ${phase}" ;;
+esac
 
 for t in task.json sidelines.md; do
   [ -f "$TEMPLATES/$t" ] || die "模板缺失: ${TEMPLATES}/${t}"
@@ -52,10 +58,12 @@ git -C "$root" worktree add -q "$wt" -b "$task" HEAD
 
 dest="$root/$wt/.mmw"
 mkdir -p "$dest"
-sed -e "s/__TASK__/${task}/" -e "s/__BASE__/${base}/" "$TEMPLATES/task.json" > "$dest/task.json"
+sed -e "s/__TASK__/${task}/" -e "s/__BASE__/${base}/" -e "s/__PHASE__/${phase}/" \
+  "$TEMPLATES/task.json" > "$dest/task.json"
 cp "$TEMPLATES/sidelines.md" "$dest/sidelines.md"
 python3 -m json.tool "$dest/task.json" >/dev/null || die "填出来的 task.json 不是合法 JSON: ${dest}/task.json"
 
 echo "TASK=$task"
 echo "WORKTREE=$root/$wt"
 echo "BASE=$base"
+echo "PHASE=$phase"

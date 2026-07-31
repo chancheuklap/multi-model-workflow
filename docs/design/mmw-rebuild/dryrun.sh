@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 第三层接线的验收证据：在一个临时仓库里空转一整轮。
 # 用法：bash docs/design/mmw-rebuild/dryrun.sh [工作目录]
-# 覆盖：开任务（走 task.sh）→ 状态文件注入 → 切格 → 设计未过门的拒绝点 → 过门 → 工作树脏拒派 → 派发提示词组装 →
+# 覆盖：开任务（走 task.sh）→ 可选起点 → 状态文件注入 → 切格 → 设计未过门的拒绝点 → 过门 → 工作树脏拒派 → 派发提示词组装 →
 #       审查留痕 → 落地回设计清过门 → 产品层宿主名扫描 → --no-ff 合并 → 清树。
 set -euo pipefail
 MMW="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../mmw" && pwd)"
@@ -14,7 +14,18 @@ echo hello > README.md && git add -A && git commit -qm init
 # ① 开任务：走生产脚本，不在这里复制一份建树逻辑
 eval "$(bash "$MMW/scripts/task.sh" new demo)"; WT="$WORKTREE"
 [ "$(git check-ignore -q .mmw/ && echo y)" = y ] || { echo "FAIL 忽略清单没落地"; exit 1; }
-ok "开任务" "落在主干第一格 wayfind，base=${BASE:0:8}"
+[ "$(python3 -c "import json;print(json.load(open('$WT/.mmw/task.json'))['phase'])")" = wayfind ] \
+  || { echo "FAIL 默认起点不是 wayfind"; exit 1; }
+ok "开任务" "不给起点就落在主干第一格 wayfind，base=${BASE:0:8}"
+
+# ①'' 给了起点就开在那一格；拼错的阶段键当场拒绝
+eval "$(bash "$MMW/scripts/task.sh" new demo-bug investigate | sed 's/^/S_/')"
+[ "$(python3 -c "import json;print(json.load(open('$S_WORKTREE/.mmw/task.json'))['phase'])")" = investigate ] \
+  || { echo "FAIL 起点参数没写进状态"; exit 1; }
+if bash "$MMW/scripts/task.sh" new demo-typo invesigate >/dev/null 2>&1; then
+  echo "FAIL 拼错的阶段键竟然收下了"; exit 1
+fi
+ok "起点" "给 investigate 就开在那一格，拼错当场拒绝"
 
 # ①' 两份状态文件由脚本从 templates/ 注入，主线程不手抄
 [ "$(python3 -c "import json;print(json.load(open('$WT/.mmw/task.json'))['task'])")" = demo ] \

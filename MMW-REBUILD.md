@@ -119,9 +119,9 @@
 
 阶段键是机器标识，用户敲命令时中文名与英文键都认。
 
-**探路是主干第一格，开任务默认落在这里。**负责人的实际节奏是每个新任务几乎都要先探路——终点大致明确，但连要决定什么都还说不准。要决定什么一眼就清楚的小改动，敲一次往下走直接跳过去。
+**探路是主干第一格，也是不给起点时的默认落点。**要做一件新东西时，负责人的实际节奏几乎都是先探路——终点大致明确，但连要决定什么都还说不准。
 
-场景预设取消：小改动就是开在探路然后直接跳到落地，不另设一套开口。
+这个默认对另外两类任务不成立，所以开任务收一个可选的起点阶段：修一个已知的 bug 开在查清现状，改一处已经知道怎么改的地方开在落地。给了就开在那一格，不给就是探路。这不是场景预设的回归——起点是一个阶段键，不是一套预设的阶段序列，后面每一步照样靠敲命令走。
 
 ### 1.1.1 三段节奏
 
@@ -215,7 +215,7 @@
 | 入口 | 参数 | 做什么 | 谁能调 |
 | --- | --- | --- | --- |
 | `/mmw` | 无 | 报现状：在哪一格、盘上产物说到哪、上次为什么停。新会话的断点续传入口 | 用户 |
-| `/mmw-start` | `<需求>` | 开任务：起名、建工作树、写状态、进去 | 用户（`disable-model-invocation`） |
+| `/mmw-start` | `<需求> [起点阶段]` | 开任务：起名、建工作树、写状态、进去 | 用户（`disable-model-invocation`） |
 | `/mmw-next` | `[阶段]` | 往下走 | 用户；无人值守时代理自调即代敲 |
 | `/mmw-back` | `[阶段]` | 回上游 | 用户；代理可自调 |
 | `/mmw-review` | `[阶段]` | 起一道审，审那一格的主产物 | 用户；代理可自调 |
@@ -260,7 +260,7 @@
 | 哪一格的产物 | 路径 | 随分支提交 |
 | --- | --- | --- |
 | 探路的决策地图 | `docs/design/<任务名>/wayfind/` | 是 |
-| 现状报告 | `docs/design/<任务名>/investigating.md` | 是 |
+| 现状报告 | `docs/design/<任务名>/investigation.md` | 是 |
 | 选定的方案 | `docs/design/<任务名>/direction.md` | 是 |
 | 设计主文档 | `docs/design/<任务名>/<任务名>.md` | 是 |
 | 原型与逐轮账本 | `docs/design/<任务名>/prototype/` | 是 |
@@ -289,7 +289,7 @@
 
 骨架建完时 36 个文件、约 1050 行（25 份技能、6 份角色、2 个钩子文件、2 个脚本、1 份插件清单）。旧 plugin 是 14845 行，其中 6709 行是保脚本的测试。
 
-第四层开始填肉之后规模跟着长：填完一份技能，方法进正文、格式进它自己的 `references/`。当前 47 个文件、1729 行。
+第四层开始填肉之后规模跟着长：填完一份技能，方法进正文、格式进它自己的 `references/`。当前 46 个文件、1765 行。
 
 ## 2.1 入口（7 份技能）
 
@@ -308,7 +308,7 @@
 | 新技能 | 来源 | 删掉的 |
 | --- | --- | --- |
 | `mmw-wayfind` | `references/wayfind.md` | 与引擎的交接与结论词 |
-| `mmw-investigate` | `references/investigate.md`、两份 workflow 脚本 | 自建并行编排（并行是把派发第一步连着调几次）；检索候选 JSON 管道 |
+| `mmw-investigate` | `references/investigate.md`、两份 workflow 脚本 | 自建并行编排（并行是把派发第一步连着调几次）；检索候选 JSON 管道；调查手艺本身（搬进 `mmw-evidence` 与探路共用） |
 | `mmw-propose` | `references/propose.md` | 看引擎 do 判降级的开关 |
 | `mmw-design` | `design/discussion.md`、`design-doc-template.md`、`design-self-check.md` | 方法顺序里嵌的引擎调用与值守档；取证战役单列 |
 | `mmw-prototype` | `design/prototype-mockup.md`、`scripts/prototype.sh`、`lib/prototype-state.sh` | 三状态机与轮次计数、日志文件、下游材料校验；账本里的哈希锚点 |
@@ -319,7 +319,7 @@
 
 `mmw-prototype` 从设计里拆出来，因为它是另一门手艺：一个是把结构想清楚，一个是做一版让用户看了能说「不对，应该这样」。收尾那一格没有单独的技能，`mmw-done` 同时是它的方法。
 
-## 2.3 角色方法论与共读（7 份技能）
+## 2.3 角色方法论与共读（8 份技能）
 
 | 新技能 | 谁读 | 来源 |
 | --- | --- | --- |
@@ -329,9 +329,10 @@
 | `mmw-task-pack` | 写计划的人与核计划的人 | `plan/task-pack.md`（旧仓库里有两处完全相同的复制） |
 | `mmw-testing` | 计划撰写者、工人、终审者 | `worktree-build/references/tests.md` 的测试质量片段、仓库根 `TESTING.md` |
 | `mmw-retrieval` | 任何要查结构的人 | `references/retrieval-doctrine.md` |
+| `mmw-evidence` | `scout`，以及探路与查清现状两格的主线程 | `references/investigate.md` 的取证纪律、上游 `codebase-design` 与 `diagnosing-bugs` |
 | `mmw-dispatch` | 主线程，要派角色出去时 | `scripts/worker.sh` 的派发与恢复、`scripts/review.sh` 的派发指南 |
 
-这七份都设 `user-invocable: false`：它们是背景知识，不是用户敲得出来的动作。
+这八份都设 `user-invocable: false`：它们是背景知识，不是用户敲得出来的动作。
 
 `mmw-dispatch` 是这批里唯一的适配层文件，见 2.5。
 
@@ -354,7 +355,7 @@
 | --- | --- | --- | --- |
 | `reviewer-claude` | Claude 推理型 / high | 只读 | 技能 `mmw-reviewer` |
 | `reviewer-gpt` | `gpt-5.6-sol` / high | 只读 | 技能 `mmw-reviewer` |
-| `scout` | 常规档 | 只读 | 技能 `mmw-retrieval` |
+| `scout` | 常规档 | 只读 | 技能 `mmw-evidence`、`mmw-retrieval` |
 | `plan-writer` | `gpt-5.6-sol` / high | 可写 | 技能 `mmw-plan-writer` |
 | `executor` | `gpt-5.6-terra` / high | 可写 | 技能 `mmw-worker` |
 | `executor-capable` | `gpt-5.6-sol` / medium | 可写 | 技能 `mmw-worker` |
@@ -617,6 +618,7 @@ Claude Code 与 Codex 的插件结构几乎一样：都是 `agents/`、`skills/`
 | `mmw-start` | 填完 |
 | `mmw-wayfind` | 填完 |
 | `mmw-investigate` | 填完 |
+| `mmw-evidence` | 填完（第四层新增的一份，骨架期没有） |
 | 其余 22 份 | 施工单还挂着 |
 
 填完的判据是三问过关加施工单退场：**施工单是骨架期的脚手架，填完这一份就把它换成「来源」与「没搬的」两段**，写清照着谁写的、哪些东西故意没搬。留着施工单等于这份还没做完。
@@ -643,12 +645,16 @@ Claude Code 与 Codex 的插件结构几乎一样：都是 `agents/`、`skills/`
 | --- | --- |
 | 落盘的产物（地图、报告、计划） | 技能的 `references/`，一份格式一个文件 |
 | 说给用户听的（清单、汇报、确认） | 技能正文里写死：该列表格还是分点、每一点说什么 |
-| 抄进派出去的活里的（回执要求） | 技能的 `references/`，整段可抄 |
+| 被派者每次都要遵的（回执格式、调查角度） | 一份共读技能的正文，写进那个角色的 `skills` 字段；提示词只写这次的活 |
 | 多个代理并发读写的（状态文件、旁路清单） | `templates/`，由 `task.sh` 注入，格式住文件自己身上 |
 
 **格式文档一份一个格式，不打包。**三个格式塞进一份 `formats.md` 的代价是：收口写报告要读到题目清单的格式，上下文压缩后重读又是全量。按步骤拆开，用到哪份读哪份。
 
-**每份 `references/*.md` 第一行写「谁读」**：主线程读的、被派者读的、抄进提示词的，写清楚。被派出去的角色只装了角色文件 `skills` 字段点名的那几份技能，读不到别的技能的 `references/`——要它照某个角度干活，得由主线程读了再写进这次的活里。
+**每份 `references/*.md` 第一行写「谁读」**：主线程读的还是被派者读的，写清楚。一份文件只对一个读者说话。
+
+被派出去的角色只装了角色文件 `skills` 字段点名的那几份技能。要它每次都照某套东西干活，正路是把那套东西做成一份共读技能、写进它的 `skills` 字段——`scout` 的取证手艺就是这么给的。只有一次性的交代才写进这次的活里。
+
+**一门手艺被两格用到，就整份搬进共读技能，两格平级调用。**写在其中一格里、另一格跨格引用，两处早晚漂成两套：取证手艺原先住查清现状那格，探路那格只好自己另写一套，同一个 `scout` 在两处拿到的指令厚度不同。
 
 ## 4.4 引用外部技能：吸取，不要指路
 
