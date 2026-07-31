@@ -13,6 +13,12 @@
 
 `archive/plugin-v1/` 冻结归档：不参与行为判断、构建或测试；无明确指令不改。
 
+`vendor/mattpocock-skills/` 是上游 `mattpocock/skills` 的完整副本，用 git subtree squash 拉入，供各 plugin 按名字引用其中的技能（如 `productivity/grilling`、`engineering/prototype`、`engineering/domain-modeling`）。不手改，改了下次拉取必冲突。更新：
+
+```bash
+git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock/skills main --squash
+```
+
 ## 当前工作流
 
 阶段、结论词、审闸、场景预设以各宿主 `state-schema/routes.json` 为准；统一入口 `scripts/mmw.sh`。
