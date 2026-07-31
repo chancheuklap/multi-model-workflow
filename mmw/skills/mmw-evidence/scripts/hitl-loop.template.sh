@@ -10,7 +10,8 @@
 #   step "<instruction>"          → show instruction, wait for Enter
 #   capture VAR "<question>"      → show question, read response into VAR
 #
-# At the end, captured values are printed as KEY=VALUE for the agent to parse.
+# At the end, every captured value is printed as KEY=VALUE for the agent to parse.
+# Only edit between the two markers below; the printing at the end takes care of itself.
 
 set -euo pipefail
 
@@ -19,11 +20,14 @@ step() {
   read -r -p "    [Enter when done] " _
 }
 
+CAPTURED=""
+
 capture() {
   local var="$1" question="$2" answer
   printf '\n>>> %s\n' "$question"
   read -r -p "    > " answer
   printf -v "$var" '%s' "$answer"
+  CAPTURED="$CAPTURED $var"
 }
 
 # --- edit below ---------------------------------------------------------
@@ -37,5 +41,4 @@ capture ERROR_MSG "Paste the error message (or 'none'):"
 # --- edit above ---------------------------------------------------------
 
 printf '\n--- Captured ---\n'
-printf 'ERRORED=%s\n' "$ERRORED"
-printf 'ERROR_MSG=%s\n' "$ERROR_MSG"
+for v in $CAPTURED; do printf '%s=%s\n' "$v" "${!v}"; done

@@ -7,8 +7,8 @@
 #
 #   task.sh new <任务名> [起点技能]
 #
-# 起什么名字、开在哪里都是判断，留给主线程；这里只校验拼写。两个开任务入口各自传死一个值：
-# mmw-start 传 mmw-wayfind，mmw-fix 传 mmw-fix。
+# 起什么名字、开在哪里都是判断，留给主线程；这里只校验拼写。唯一的调用方是 mmw-start：
+# 用户需求前面带 fix 就传 mmw-fix，不带就传 mmw-wayfind。
 #
 # 输出头四行机器可读：TASK= / WORKTREE= / BASE= / PHASE=。
 
