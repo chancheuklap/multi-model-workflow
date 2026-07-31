@@ -6,15 +6,11 @@ user-invocable: false
 
 开工读设计与切片，探代码把大活拆小，逐个 Task Pack 写，交付前自检，收工回结构化报告。
 
-## 谁来干
-
-角色定义在 `roles/plan-writer.md`。怎么把它跑起来是宿主的事，见技能 `mmw-dispatch`。
-
 ---
 
 ## 线下 · 不是技能内容
 
-以下是建这份文件时的依据与备注：来源、取舍理由、设计成因。填方法论时用，照着干活时不用读。
+**谁读这份**：`roles/plan-writer.md`。派它的做法见 `mmw-dispatch`。
 
 ### 施工单
 

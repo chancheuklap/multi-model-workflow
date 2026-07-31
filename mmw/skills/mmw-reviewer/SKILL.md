@@ -6,15 +6,11 @@ user-invocable: false
 
 开工读共享审查纪律，再读你这一路视角的审查角度，只读验证、引用具体位置，按返回合同回结构化发现。
 
-## 谁来干
-
-两路审者读这同一份方法论：`roles/reviewer-claude.md` 与 `roles/reviewer-gpt.md`。起审时按视角选派哪一路，不变量是写者与审者不能是同一个模型。怎么把它们跑起来是宿主的事，见技能 `mmw-dispatch`。
-
 ---
 
 ## 线下 · 不是技能内容
 
-以下是建这份文件时的依据与备注：来源、取舍理由、设计成因。填方法论时用，照着干活时不用读。
+**谁读这份**：`roles/reviewer-claude.md` 与 `roles/reviewer-gpt.md` 两路共用。选派哪一路是 `mmw-review` 的判断，派的做法见 `mmw-dispatch`。
 
 ### 施工单
 

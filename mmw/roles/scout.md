@@ -26,8 +26,6 @@ tools:
 
 ## 线下 · 不是技能内容
 
-以下是建这份文件时的依据与备注：来源、取舍理由、设计成因。填方法论时用，照着干活时不用读。
-
 ### 施工单
 
 - **来源**：`plugin/workflows/investigate-internal.workflow.js`、`investigate-external.workflow.js` 里的调查员角色

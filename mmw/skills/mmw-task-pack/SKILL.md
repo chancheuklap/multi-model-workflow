@@ -10,8 +10,6 @@ user-invocable: false
 
 ## 线下 · 不是技能内容
 
-以下是建这份文件时的依据与备注：来源、取舍理由、设计成因。填方法论时用，照着干活时不用读。
-
 ### 施工单
 
 - **来源**：`plugin/skills/orchestrate/references/plan/task-pack.md`（与 `worktree-plan/references/task-pack.md` 是同一份的两处复制）

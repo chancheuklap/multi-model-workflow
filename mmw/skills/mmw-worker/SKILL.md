@@ -4,17 +4,13 @@ description: 你被派进一个工作树落地一份计划时读这份。
 user-invocable: false
 ---
 
-开工读三份文档，逐个 Task Pack 严格测试先行，每个 Pack 一次提交，收工回结构化报告。
-
-## 谁来干
-
-角色定义在 `roles/executor.md` 与 `roles/executor-capable.md`——两档共用这一份方法论，差别只有模型与思考档。怎么把它们跑起来是宿主的事，见技能 `mmw-dispatch`。
+开工读计划、设计、切片这三份，逐个 Task Pack 严格测试先行，每个 Pack 一次提交，收工回结构化报告。
 
 ---
 
 ## 线下 · 不是技能内容
 
-以下是建这份文件时的依据与备注：来源、取舍理由、设计成因。填方法论时用，照着干活时不用读。
+**谁读这份**：`roles/executor.md` 与 `roles/executor-capable.md` 两档共用，差别只有模型与思考档。派它们的做法见 `mmw-dispatch`。
 
 ### 施工单
 

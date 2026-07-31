@@ -1,30 +1,26 @@
 ---
 name: mmw-next
-description: 往主干下一格走，或直接跳到指定那一格。
+description: 往主干下一格走，或跳到指定那一格。
 argument-hint: "[阶段]"
 ---
 
-读状态取当前格，定目标格，写回状态，说清目标格该读哪份技能与本任务的约定路径。全程无判断。唯一拒绝点：停在做设计且尚未过门。
+全程无判断，只改一个字段。
 
 ## 怎么做
 
 1. 读 `.mmw/task.json`。
-2. **唯一拒绝点**：当前是 `design` 且 `design_approved` 是 null，停下，让用户敲 `/mmw-approve-design`。除此之外不校验、不问理由。
+2. **唯一拒绝点**：当前是 `design` 且 `design_approved` 是 null，停下，让用户敲 `/mmw-approve-design`。
 3. 定目标格：给了参数就是那一格（中文名与英文键都认）；没给就取主干下一格。
-4. 写回 `phase`。这一步只改这一个字段。
+4. 写回 `phase`。
 5. 告诉用户到了哪一格、该读哪份技能（`mmw-<阶段键>`，只有收尾那一格读 `mmw-done`）、这一格的产物按约定该落在哪。
 
 无人值守时代理自己敲这条即为代敲，把决定与理由追加进 `note`。
 
 主干顺序：`wayfind` → `investigate` → `propose` → `design` → `to-issue` → `plan` → `build` → `package` → `closing`。
 
-落地完回设计再调，是预期路径不是异常：敲 `/mmw-back design`。
-
 ---
 
 ## 线下 · 不是技能内容
-
-以下是建这份文件时的依据与备注：来源、取舍理由、设计成因。填方法论时用，照着干活时不用读。
 
 ### 施工单
 
