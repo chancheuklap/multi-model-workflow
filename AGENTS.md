@@ -101,7 +101,7 @@ issue 在 GitHub Issues，一份设计一张父 issue 加若干子 issue；设�
 
 ### 模型角色
 
-Codex 写码与写计划，Claude 主线程只编排、审查、裁判。红线是写者与验者不同家，因此不设 Codex 审者。见 `docs/agents/models.md`。
+Codex 写码与写计划，设计文档由 Claude 主线程写，主线程不写代码。红线是每一道审至少有一路审者与作者不同家；同家可加派、不能是唯一。见 `docs/agents/models.md`。
 
 ### 任务隔离
 
