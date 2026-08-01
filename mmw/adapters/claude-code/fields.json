@@ -1,0 +1,31 @@
+{
+  "host": "claude-code",
+  "_": "参数翻译表。安装脚本读 roles/*.md 加这份，生成本宿主格式的角色文件。表里没出现的键一律不带进产物——skills 只给安装脚本读，tasks 渲染进正文。",
+
+  "agentDir": "~/.claude/agents",
+  "skillDir": "~/.claude/skills",
+  "hookDir": "~/.claude/hooks",
+
+  "model": {
+    "_": "值为 null 表示本宿主派不了这个模型，安装脚本据此把该角色划进无头那条路。",
+    "sonnet": "sonnet",
+    "fable": "fable",
+    "gpt-5.6-sol": null,
+    "gpt-5.6-terra": null
+  },
+
+  "effort": {
+    "field": "effort"
+  },
+
+  "write": {
+    "_": "本宿主没有只读的专门字段，用工具黑名单近似。挡顺手调编辑工具，挡不住 Bash 重定向——那一层靠角色正文那句话。",
+    "field": "disallowed-tools",
+    "whenFalse": ["Edit", "Write", "NotebookEdit"]
+  },
+
+  "mcp": {
+    "_": "本宿主不需要翻译：角色文件不列 tools 时继承默认工具集，MCP 工具本来就在里面。列了反而会把宿主原生检索工具挤掉。",
+    "field": null
+  }
+}

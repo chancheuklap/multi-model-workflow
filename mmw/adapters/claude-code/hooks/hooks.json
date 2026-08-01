@@ -7,19 +7,19 @@
           {
             "type": "command",
             "if": "Bash(*push*)",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-outbound.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/adapters/claude-code/hooks/guard-outbound.sh\"",
             "timeout": 5
           },
           {
             "type": "command",
             "if": "Bash(gh *)",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-outbound.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/adapters/claude-code/hooks/guard-outbound.sh\"",
             "timeout": 5
           },
           {
             "type": "command",
             "if": "Bash(*deploy*)",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-outbound.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/adapters/claude-code/hooks/guard-outbound.sh\"",
             "timeout": 5
           }
         ]
