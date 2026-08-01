@@ -124,12 +124,36 @@ Codex 写码与写计划，设计文档由 Claude 主线程写，主线程不写
 
 0 地基（文件夹 + manifest + 路由技能骨架）→ 1 纪律层原样搬 → 2 跨模型派发 + 亲验裁判（最难，先只接通一条审查路验证）→ 3 任务隔离 + implement 改造 → 4 设计闸整条 → 5 三条 on-ramp。一批跑通再动下一批。
 
+### 已定的设计结论
+
+批 2 真正写成技能后，本小节升格进 `SKILL.md` 并从这里删除。
+
+#### 亲验裁判（技能暂名 `judging-agent-output`，model-invoked，第 2 层）
+
+**适用面**：所有隔离上下文的劳动力产出——审查发现、Codex 工人完工报告、调查 agent 现状报告。一个技能两段：采信段所有产出都过，处置段只有审查发现过。旧 plugin 把这套纪律绑在审闸里，结果审查那条路把关严、其他路直接照抄。
+
+**采信段**：每条承重断言必须有一个主线程能自己复核的锚——审查发现的锚是 `file:line` 原文，完工报告的锚是能跑的测试与 diff，调查报告的锚是能读的源码。引不出锚的断言不进交付物，标 `needs-evidence`。承重之外的数字和定位不逐条复核，也不重做子 agent 已完成的整段调查。审者交回的是证据不是结论，也不是放行权人。
+
+**处置段两问**（旧四问里三问同义，已收敛）：
+
+1. 不修会伤到谁、在什么场景？说不清伤害面的，不能当承重项采信。
+2. 这轮花预算修，还是挪出去？
+
+**处置词五个**，英文，在留痕文件里当机器可扫标记：`accepted`（成立且本轮值得修，唯一能驱动返工的）、`rejected`（不成立或误读，写一句理由）、`duplicate`（指向保留条）、`needs-evidence`（可能成立但没坐实，补证前不修不争）、`waived`（可能成立但过度设计、低收益、超范围，理由必填）。
+
+**删掉了置信度这个维度**：坐实之后只有「有锚」和「没锚」两态，中间的置信度没有任何对应动作。
+
+**搁置去向按伤害面分流**：伤害面说得清的开一张 GitHub issue 打 `needs-triage`——issue 就是留痕，也是交给用户的通道；纯品味、无当前用户路径的只写进终审报告。**无人值守不为搁置停机**，会停的只有三种：缺输入、怀疑解错问题、要出站。
+
+**不收敛兜底**：同一条 `accepted` 修过两轮还在，停下来自问「是修错地方，还是根本不该采信」，然后上报用户。不算指纹、不设硬轮次上限；修了几轮从提交记录看得出来。
+
+**留痕**：findings 原样落盘，不重写不摘要。留痕和终审报告都落 worktree 内 gitignore 区，随 worktree 死。
+
 ### 待定事项
 
 | 要定什么 | 当时的背景与张力 | 旧实现位置（背景线索） |
 | --- | --- | --- |
-| 亲验裁判的形状 | 四问和五处置词是旧 plugin 里唯一反复验证过、Matt 完全没有的东西。它是无人值守的前提——你不在场时谁决定哪个 finding 值得修。先定它，派发要交回什么形状就自动清楚 | `plugin/skills/orchestrate/references/review/review.md` 的 2.1–2.5 |
-| 跨模型派发的形状 | 派 Codex 无头写码 / 写计划、派 Claude sub-agent 审。旧实现夹在阶段引擎里，要剥成独立能力 | `plugin/scripts/worker.sh`、`plugin/scripts/review.sh` |
+| 跨模型派发的形状 | 派 Codex 无头写码 / 写计划、派 Claude sub-agent 审。旧实现夹在阶段引擎里，要剥成独立能力。亲验裁判已定，派发要交回什么形状因此清楚了 | `plugin/scripts/worker.sh`、`plugin/scripts/review.sh` |
 | 任务隔离脚本 | 建 / 进 / 清 worktree 加 docs 落点。约定已定（见上），只剩薄脚本怎么写 | `plugin/scripts/prepare.sh` 的 task new / cleanup |
 | `/approve-design` 人闸和无人值守档 | 新架构没有阶段引擎，「设计过门」这个动作靠什么承载还没答案（issue 标签？提交？）。人闸只有这一道，口头同意不算 | `plugin/commands/approve-design.md`、`plugin/skills/orchestrate/references/control/attendance.md` |
 | 本地文档转 Wiki 的实现 | 谁触发、Wiki 页怎么命名和分层、转完怎么核。设计意图见 `docs/agents/issue-tracker.md` 的生命周期三段 | 无（新能力） |

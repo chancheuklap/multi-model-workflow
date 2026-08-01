@@ -39,6 +39,8 @@
 2. **代码落地后**：把定稿转成 GitHub Wiki 页，Wiki 从此是这份设计的唯一真相源。
 3. **合并前**：在任务分支上删掉本地那两个目录并提交，然后再合并。主线因此不留设计和计划文档，不会随项目演进变成过时残留。
 
+审查留痕和终审报告不走这条路：它们一次性写入、不打磨，落 worktree 内的 gitignore 区，随 worktree 一起死，不进 git 也不进 Wiki。搁置项里有长期价值的那部分已经开成 issue 了（见 `triage-labels.md`）。
+
 ## 开工顺序
 
 worktree 和分支名带父 issue 编号（见 `worktrees.md`），所以顺序只能是：先建父 issue 拿到编号，再建 worktree。不能反过来。
