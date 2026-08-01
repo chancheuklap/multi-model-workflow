@@ -45,6 +45,12 @@ git worktree add -b <name> .worktrees/<name> <父分支名>
 
 **会话限制**：`EnterWorktree` 从主仓库按路径进没问题；但同一个会话里从一个 worktree 直接跳到另一个 worktree 时，它只认 `.claude/worktrees/` 下的目标。我们是一个任务一个会话，正常撞不上；真要跳先回主仓库。
 
+## 目录用到才建
+
+新 worktree 里不预先铺 `docs/design/`、`docs/plans/`、`.reviews/` 这些目录。真要写第一个文件时 `mkdir -p` 一下就够了。
+
+空目录是噪音：它会让人以为该有内容却没有，也会让技能误判前一步是不是跑过。`.gitignore` 该挡的在 `/setup` 时已经一次挡掉，不需要每个 worktree 再铺一份脚手架。
+
 ## 清理
 
 worktree 在使用期持久，可以跨天，中途别删。

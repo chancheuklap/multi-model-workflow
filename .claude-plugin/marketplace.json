@@ -25,6 +25,26 @@
         "hitl",
         "claude-code"
       ]
+    },
+    {
+      "name": "mmw-v2",
+      "description": "多模型开发编排,重建中。长在 Matt Pocock 的工程技能之上:Codex 写、Claude 审、跨模型审闸、worktree 隔离。技能名与 mattpocock-skills 原版相同,两者不要同时装。",
+      "version": "0.1.0",
+      "author": {
+        "name": "Cheuk Lap Chan",
+        "email": "chancheuklapincn@gmail.com"
+      },
+      "source": "./mmw-v2",
+      "category": "development",
+      "tags": [
+        "multi-model",
+        "orchestration",
+        "codex",
+        "worktree",
+        "code-review",
+        "tdd",
+        "claude-code"
+      ]
     }
   ],
   "version": "8.5.0"

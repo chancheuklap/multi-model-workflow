@@ -38,6 +38,18 @@
 - **下一个能开工的切片**：父 issue 的 open 子 issue 中，`issue_dependencies_summary.blocked_by == 0` 且无 assignee 的，按父 body 里的顺序取第一个。
 - **认领**：`gh issue edit <n> --add-assignee @me`。这是开工前的第一个写动作。
 
+## Wayfinding operations
+
+`wayfinder` 会来查这一节。它问的是地图、决策票、阻塞、frontier 在本仓库怎么表达——答案就是上面那套，加上一条它专用的：
+
+- **地图**：一张 GitHub issue，打 `wayfinder:map` 标签。这个标签既不是状态也不是类型，只是「这张 issue 是一张地图」的记号（见 `triage-labels.md`）。
+- **决策票**：地图的原生 sub-issue，一张票一个待定的决策。
+- **阻塞**：原生 issue dependencies，加边命令见上。
+- **frontier 查询**：地图的 open 子 issue 中，`issue_dependencies_summary.blocked_by == 0` 且无 assignee 的全部——注意这里要的是全部，不是取第一个。`wayfinder` 允许你并行开几张票。
+- **决策的答案**：作为结案评论贴在票上，关票，再往地图的「已定决策」追加一行指针。**难以回退、有真取舍的那些还要另写一份架构决策记录**，别只留在评论里——评论区是最难检索的地方（见本文件最后一节的分流表）。
+
+`wayfinder` 找不到本节时会退化成本地 markdown 追踪器。本仓库有 GitHub，不要走那条退路。
+
 ## 技能里的说法对应什么动作
 
 - 「发布到 issue tracker」= 建一张 GitHub issue，长文另落文件、正文只留摘要和路径
@@ -69,4 +81,4 @@
 
 这些都写在 `wayfinder` 自己那个 worktree 的分支上，随整团活一起合回主线，中途不提前合（见 `worktrees.md`）。
 
-审查留痕和终审报告不走上面任何一条路：它们一次性写入、不打磨，落 worktree 内的 gitignore 区，随 worktree 一起死，不进 git 也不进 Wiki。搁置项里有长期价值的那部分已经开成 issue 了（见 `triage-labels.md`）。
+审查留痕和终审报告不走上面任何一条路：它们一次性写入、不打磨，落 **worktree 根的 `.reviews/`**，随 worktree 一起死，不进 git 也不进 Wiki。这个目录已在仓库根 `.gitignore` 里，写的时候 `mkdir -p` 即可，不需要另铺脚手架。搁置项里有长期价值的那部分已经开成 issue 了（见 `triage-labels.md`）。

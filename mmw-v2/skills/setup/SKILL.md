@@ -25,9 +25,16 @@ disable-model-invocation: true
 
 **已存在的不覆盖。** 目标文件已在，跳过它并在最后报告里列出来——用户可能改过 `models.md` 的型号，那份改动比种子新。
 
-## 2. 让 `.worktrees/` 不进 git
+## 2. 让两个目录不进 git
 
-目标仓库的 `.gitignore` 里没有 `.worktrees/` 就加一行。已有就跳过。
+目标仓库的 `.gitignore` 里缺哪行就加哪行，已有的跳过：
+
+| 行 | 挡的是什么 |
+| --- | --- |
+| `.worktrees/` | 任务 worktree，还有 Wiki 的 clone（`.worktrees/.wiki/`） |
+| `.reviews/` | 审查留痕和终审报告，随 worktree 死 |
+
+在这里一次挡掉，技能写文件时 `mkdir -p` 就行，不用在每个 worktree 里铺一份脚手架。
 
 ## 3. 加指针节
 
