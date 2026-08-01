@@ -22,7 +22,7 @@
 
 ## `wayfinder:map` 不属于上面两个维度
 
-跑 `wayfinder`（把一整块活画成一张决策地图的技能）时，那张地图 issue 打 `wayfinder:map`。它既不占状态位也不占类型位，只是「这张 issue 是一张地图，不是一件待办」的记号。地图底下的决策票照常带状态和类型。
+跑 `wayfinder`（把 effort 画成一张决策 map 的技能）时，那张 map issue 打 `wayfinder:map`。它既不占状态位也不占类型位，只是「这张 issue 是一张 map，不是一件待办」的记号。map 底下的 decision ticket 照常带状态和类型。
 
 ## 半路挖到的东西
 

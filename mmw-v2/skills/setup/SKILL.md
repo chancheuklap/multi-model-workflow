@@ -52,7 +52,7 @@ disable-model-invocation: true
 - **领域文档**：`docs/agents/domain.md`
 - **模型角色**：`docs/agents/models.md`
 - **任务隔离**：`docs/agents/worktrees.md`
-- **设计归档**：`docs/agents/wiki.md`
+- **spec 归档**：`docs/agents/wiki.md`
 ```
 
 ## 4. 报告
@@ -67,4 +67,4 @@ disable-model-invocation: true
 | --- | --- | --- |
 | 有 GitHub 远端 | `git remote -v` | issue 那套全不可用 |
 | `gh` 已登录 | `gh auth status` | 同上；顺手提醒跑一次 `gh auth setup-git`，推 Wiki 要用 |
-| Wiki 已初始化 | `git ls-remote "https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner).wiki.git"` | 设计无处归档。**只能由用户去仓库的 `/wiki` 页手建一页**，没有 API 能替他建，别试着绕 |
+| Wiki 已初始化 | `git ls-remote "https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner).wiki.git"` | spec 无处归档。**只能由用户去仓库的 `/wiki` 页手建一页**，没有 API 能替他建，别试着绕 |
