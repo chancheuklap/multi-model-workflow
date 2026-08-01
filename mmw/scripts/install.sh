@@ -6,11 +6,12 @@
 #   install.sh --host <宿主> --check      只看装没装好，不动手（装齐回 0，缺东西回 1）
 #   install.sh --host <宿主> --uninstall  拆掉本插件装的那些，别人的不碰
 #
-# 宿主取值就是 adapters/ 下的目录名。它做四件事，全是机械动作：
-#   1. 软链技能给主线程，含本宿主那一份 mmw-dispatch
-#   2. 按 fields.json 的模型表分组：翻得出模型名的走原生，翻出 null 的划进无头
-#   3. 有无头组的话，把那几个角色点名的技能软链到派发后端
-#   4. 按 fields.json 生成本宿主格式的角色文件
+# 宿主取值就是 adapters/ 下的目录名。它做五件事，全是机械动作：
+#   1. 把脚本目录软链到 ~/.mmw/scripts——技能里的命令一律写这个路径
+#   2. 软链技能给主线程，含本宿主那一份 mmw-dispatch
+#   3. 按 fields.json 的模型表分组：翻得出模型名的走原生，翻出 null 的划进无头
+#   4. 有无头组的话，把那几个角色点名的技能软链到派发后端
+#   5. 按 fields.json 生成本宿主格式的角色文件
 #
 # 技能一律软链，改了实时生效；角色文件是生成的，改了源角色文件要重装。
 # 这个分界是有意的：角色文件头部只有四个参数、正文是薄壳，改动频率极低；技能天天在改。
@@ -79,7 +80,18 @@ link() {  # $1=源 $2=目标 $3=显示名
   esac
 }
 
-# ---------- 一、主线程侧的技能 ----------
+# ---------- 一、脚本入口 ----------
+# 技能里的命令一律写 ~/.mmw/scripts/xxx。这个位置是产品自己的，四家宿主一个写法，
+# 产品层技能因此不用出现任何一家的目录名。
+#
+# 不能用宿主的插件根占位符：技能是软链进宿主的个人技能目录的，那不是插件组件，
+# 占位符在那里不会被替换（官方插件参考写明它指的从来不是 ~/.claude/）。
+link "$PLUGIN_ROOT/scripts" "$HOME/.mmw/scripts" "scripts（脚本入口）"
+# 角色源文件也放同一个位置：派活的人要读那一行「开工要拿到」，而走无头的那几个
+# 不生成角色文件，宿主的角色目录里找不到它们。
+link "$PLUGIN_ROOT/roles" "$HOME/.mmw/roles" "roles（角色源文件）"
+
+# ---------- 二、主线程侧的技能 ----------
 if [ "$skill_dir" = "$PENDING" ] || [ -z "$skill_dir" ]; then
   echo "跳过  主线程技能：${host} 的技能目录还没实测，填进 fields.json 再装" >&2
   rc=1
@@ -93,11 +105,11 @@ else
   link "$ADAPTER/mmw-dispatch" "$skill_dir/mmw-dispatch" "mmw-dispatch（${host}）"
 fi
 
-# ---------- 二、分组 ----------
+# ---------- 三、分组 ----------
 headless="$(python3 "$PLUGIN_ROOT/scripts/render-roles.py" \
               --fields "$FIELDS" --roles-dir "$PLUGIN_ROOT/roles" --list headless)"
 
-# ---------- 三、无头侧的技能 ----------
+# ---------- 四、无头侧的技能 ----------
 # 走无头的角色看不见宿主加载的技能，它们那一侧要单独装一份。名单不另写：
 # 那几个角色的 skills 字段合起来就是它。注意 mmw-evidence 不在里面——scout 走原生。
 if [ -n "$headless" ]; then
@@ -116,7 +128,7 @@ if [ -n "$headless" ]; then
   done
 fi
 
-# ---------- 四、角色文件 ----------
+# ---------- 五、角色文件 ----------
 if [ "$agent_dir" = "$PENDING" ] || [ -z "$agent_dir" ]; then
   echo "跳过  角色文件：${host} 的角色目录还没实测，填进 fields.json 再装" >&2
   rc=1
@@ -131,7 +143,7 @@ else
   python3 "$PLUGIN_ROOT/scripts/render-roles.py" "${args[@]}" || rc=1
 fi
 
-# ---------- 五、钩子 ----------
+# ---------- 六、钩子 ----------
 # 钩子的注册格式各家不同，所以它跟 mmw-dispatch 一样住适配层。
 # 这里只把文件放到位；怎么让宿主认它，各家不一样，装完自己核对一次。
 if [ -d "$ADAPTER/hooks" ]; then

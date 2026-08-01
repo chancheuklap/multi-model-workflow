@@ -9,11 +9,11 @@ user-invocable: false
 | 角色 | 怎么起 |
 | --- | --- |
 | `scout`、`reviewer-claude` | Task 工具，`subagent_type` 填角色名 |
-| `reviewer-gpt`、`plan-writer`、`executor` | `bash "${CLAUDE_PLUGIN_ROOT}/scripts/dispatch.sh" run --role <角色> --cwd <目录> --brief <文件>` |
+| `reviewer-gpt`、`plan-writer`、`executor` | `bash ~/.mmw/scripts/dispatch.sh run --role <角色> --cwd <目录> --brief <文件>` |
 
 无头那条**先把提示词写进一个文件再传路径**：一整段中文塞进命令行参数会被引号和换行咬坏。续接追问同一个角色，把 `run` 换成 `resume` 并加 `--session <会话号>`。
 
-**要交代哪几样，读 `${CLAUDE_PLUGIN_ROOT}/roles/<角色>.md` 那行「开工要拿到」**，逐项填齐。
+**要交代哪几样，读 `~/.mmw/roles/<角色>.md` 那行「开工要拿到」**，逐项填齐。
 
 **派可写角色前先给它一棵工作树**：从任务分支分叉出 `.mmw/worktrees/<任务名>-<片名>`。验收过了 `git merge --no-ff` 合回任务分支，再清掉那棵树。只读角色不建树，在任务工作树里跑。
 

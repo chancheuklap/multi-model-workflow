@@ -20,7 +20,7 @@ disable-model-invocation: true
 4. **建工作树。**执行下面这条命令。最后一个参数：开头是 `fix` 填 `mmw-fix`，不是填 `mmw-wayfind`。
 
    ```bash
-   bash "${CLAUDE_PLUGIN_ROOT}/scripts/task.sh" new <任务名> <mmw-fix 或 mmw-wayfind>
+   bash ~/.mmw/scripts/task.sh new <任务名> <mmw-fix 或 mmw-wayfind>
    ```
 
    它一次建好工作树和 `.mmw/` 下的状态文件，然后打印四行 `键=值`：`TASK=`、`WORKTREE=`、`BASE=`、`PHASE=`。
@@ -35,7 +35,7 @@ disable-model-invocation: true
 
 ## 线下 · 不是技能内容
 
-**`${CLAUDE_PLUGIN_ROOT}` 在技能正文里会被换成插件的安装目录**（官方插件参考的替换表：Skill and agent content — anywhere the placeholder appears）。旧插件那段读 `installed_plugins.json` 找激活安装位的定位块因此不搬，命令直接写绝对路径。
+**脚本为什么写 `~/.mmw/scripts/`**：安装脚本把仓库的 `scripts/` 软链到那里，四家宿主一个写法，产品层的技能因此不用出现任何一家的目录名。不能用宿主的插件根占位符——技能是软链进宿主的个人技能目录的，那不是插件组件，占位符在那里不会被替换。旧插件那段读 `installed_plugins.json` 找激活安装位的定位块同样不搬。
 
 **`fix` 只决定路由，不是一套预设的阶段序列**：带了就落 `mmw-fix`、往下按那一份走；没带就落探路、走主干。后面每一步照样靠用户敲命令走。
 
