@@ -3,6 +3,7 @@
 *.swo
 *~
 .claude/
+.worktrees/
 .codex/multi-model-workflow/
 .serena/
 graphify-out/

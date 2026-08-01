@@ -82,3 +82,27 @@ bash pi-plugin/workflows/install-workflows.sh --check
 ```
 
 提交前：`git diff --check`；本次改动的 JSON 用 `python3 -m json.tool` 校验。
+
+## Agent skills
+
+`mmw-v2` 重建期间，本仓库自己就是新工作流的第一个用户。以下五份配置是既定事实，技能不硬编码这些内容，一律读文件。
+
+### Issue tracker
+
+issue 在 GitHub Issues，一份设计一张父 issue 加若干子 issue；设计与计划文档任务期间落本地、代码落地后转 GitHub Wiki、合并前从分支删掉。见 `docs/agents/issue-tracker.md`。
+
+### Issue 标签
+
+状态五个（`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`），类型用 GitHub 自带的 `bug` / `enhancement`。见 `docs/agents/triage-labels.md`。
+
+### 领域文档
+
+单上下文：仓库根 `CONTEXT.md` 加 `docs/adr/`，跟代码同一个提交演进，缺文件静默继续。见 `docs/agents/domain.md`。
+
+### 模型角色
+
+Codex 写码与写计划，Claude 主线程只编排、审查、裁判。红线是写者与验者不同家，因此不设 Codex 审者。见 `docs/agents/models.md`。
+
+### 任务隔离
+
+默认一份设计一个 worktree，落 `.worktrees/`，命名 `<父 issue 编号>-<主题>`，合并后确认再删。见 `docs/agents/worktrees.md`。
