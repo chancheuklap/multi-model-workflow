@@ -98,7 +98,19 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 ### 搬迁批次
 
-0 地基（文件夹 + manifest + 路由技能骨架）→ 1 纪律层原样搬 → 2 跨模型派发 + 亲验裁判（最难，先只接通一条审查路验证）→ 3 任务隔离 + implement 改造 → 4 设计闸整条 → 5 三条 on-ramp。一批跑通再动下一批。
+搬迁已完成：19 个技能全在 `mmw-v2/skills/`，除自写的 `setup` 外一律原样复制自 vendor，未改一字。
+
+改造按 Matt 主干顺序推进，一个跑通再动下一个：
+
+| 顺序 | 技能 | 要加什么 |
+| --- | --- | --- |
+| 1 | `grill-with-docs` | 开问前先查仓库现状；摆路线让用户选；出口交给 `to-spec` |
+| 2 | `to-spec` | 测试接缝判据（用旧 plugin 那套测试规矩）、`/approve-design` 人闸、派 Codex 审这份设计——跨模型派发在这里第一次落地 |
+| 3 | `to-tickets` | 实施计划塞在哪：切片 issue 正文还是单独文档 |
+| 4 | `implement` | 换成 worktree + 派 Codex 无头写码 |
+| 5 | `code-review` | 接亲验裁判，把 Matt 明确不做的判断补上 |
+
+`ask-matt` 是 Matt 的路由器，留着做底子，最终名字和内容都要换成我们自己的入口。
 
 ### 已定的设计结论
 
@@ -132,6 +144,6 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | 跨模型派发的形状 | 派 Codex 无头写码 / 写计划、派 Claude sub-agent 审。旧实现夹在阶段引擎里，要剥成独立能力。亲验裁判已定，派发要交回什么形状因此清楚了 | `plugin/scripts/worker.sh`、`plugin/scripts/review.sh` |
 | `/setup` 要不要自动跑 | 现在得手敲，用户忘了跑配置就全空、技能读不到任何仓库事实。想用 SessionStart 钩子自动铺，但那要接 `hooks/hooks.json`，属于插件机械层，等第 2 层能力定形后一起做 | `plugin/hooks/` |
 | 纪律层八技能的适配 | 原样搬进来了，一个字没改。每个技能都有旧 plugin 里的自有加法要合（见下表）。已看清的第一个真冲突：Matt 的 `tdd` 要求写测试前跟用户确认接缝，我们的写码工人是无人值守 Codex，问不到人，所以要改成「接缝由计划的 Task Pack 钉死」 | `tdd` ← `worktree-build/references/tests.md`、`discipline.md`；`research` ← `investigate-internal` / `investigate-external`；`prototype` ← `scripts/prototype.sh`、`design/prototype-mockup.md`；`resolving-merge-conflicts` ← `scenario/merge.md`；`diagnosing-bugs` ← 悬空引用 + `scenario/bug.md`；`domain-modeling` ← 核 ADR 编号约定；`grilling` ← `design/discussion.md` |
-| 任务隔离脚本 | 建 / 进 / 清 worktree 加 docs 落点。约定已定（见上），只剩薄脚本怎么写 | `plugin/scripts/prepare.sh` 的 task new / cleanup |
+| 任务隔离脚本 | 建 / 进 / 清 worktree 加 docs 落点。约定全在 `mmw-v2/skills/setup/worktrees.md`，只剩薄脚本怎么写 | `plugin/scripts/prepare.sh` 的 task new / cleanup |
 | `/approve-design` 人闸和无人值守档 | 新架构没有阶段引擎，「设计过门」这个动作靠什么承载还没答案（issue 标签？提交？）。人闸只有这一道，口头同意不算 | `plugin/commands/approve-design.md`、`plugin/skills/orchestrate/references/control/attendance.md` |
-| 本地文档转 Wiki 的实现 | 谁触发、Wiki 页怎么命名和分层、转完怎么核。设计意图见 `docs/agents/issue-tracker.md` 的生命周期三段 | 无（新能力） |
+| 本地文档转 Wiki 的实现 | 分层已定（一份设计一页，切片的计划是这页的章节），剩下谁触发、页怎么命名、转完怎么核。落点与 `wayfinder` 产物的分流见 `mmw-v2/skills/setup/issue-tracker.md` | 无（新能力） |
