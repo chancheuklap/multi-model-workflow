@@ -106,3 +106,30 @@ Codex 写码与写计划，设计文档由 Claude 主线程写，主线程不写
 ### 任务隔离
 
 默认一份设计一个 worktree，落 `.worktrees/`，命名 `<父 issue 编号>-<主题>`，合并后确认再删。见 `docs/agents/worktrees.md`。
+
+## mmw-v2 重建（进行中，完成后本节删除）
+
+新 plugin 在 Matt 的技能上长出我们自己的骨架，不再把流程实现成引擎。上游副本在 `vendor/mattpocock-skills/`，旧实现在 `plugin/`（只作背景线索，不搬重流程）。落点暂名 `mmw-v2/`（仓库里已有上次失败的 `mmw/`，别混），全部弄好再改名。只做 Claude Code 一个宿主。
+
+### 地基四层
+
+| 层 | 内容 |
+| --- | --- |
+| 0 · 配置 | `docs/agents/` 五份，已落盘 |
+| 1 · 纪律 | Matt 的 model-invoked 技能原样搬：tdd、diagnosing-bugs、codebase-design、domain-modeling、grilling、prototype、resolving-merge-conflicts、research |
+| 2 · 自有能力 | 跨模型派发、亲验裁判、任务隔离。这三块 Matt 完全没有，是仓库存在的理由 |
+| 3 · 编排 | 改造 Matt 的 user-invoked 技能，把第 2 层注入进去 |
+
+### 搬迁批次
+
+0 地基（文件夹 + manifest + 路由技能骨架）→ 1 纪律层原样搬 → 2 跨模型派发 + 亲验裁判（最难，先只接通一条审查路验证）→ 3 任务隔离 + implement 改造 → 4 设计闸整条 → 5 三条 on-ramp。一批跑通再动下一批。
+
+### 待定事项
+
+| 要定什么 | 当时的背景与张力 | 旧实现位置（背景线索） |
+| --- | --- | --- |
+| 亲验裁判的形状 | 四问和五处置词是旧 plugin 里唯一反复验证过、Matt 完全没有的东西。它是无人值守的前提——你不在场时谁决定哪个 finding 值得修。先定它，派发要交回什么形状就自动清楚 | `plugin/skills/orchestrate/references/review/review.md` 的 2.1–2.5 |
+| 跨模型派发的形状 | 派 Codex 无头写码 / 写计划、派 Claude sub-agent 审。旧实现夹在阶段引擎里，要剥成独立能力 | `plugin/scripts/worker.sh`、`plugin/scripts/review.sh` |
+| 任务隔离脚本 | 建 / 进 / 清 worktree 加 docs 落点。约定已定（见上），只剩薄脚本怎么写 | `plugin/scripts/prepare.sh` 的 task new / cleanup |
+| `/approve-design` 人闸和无人值守档 | 新架构没有阶段引擎，「设计过门」这个动作靠什么承载还没答案（issue 标签？提交？）。人闸只有这一道，口头同意不算 | `plugin/commands/approve-design.md`、`plugin/skills/orchestrate/references/control/attendance.md` |
+| 本地文档转 Wiki 的实现 | 谁触发、Wiki 页怎么命名和分层、转完怎么核。设计意图见 `docs/agents/issue-tracker.md` 的生命周期三段 | 无（新能力） |
