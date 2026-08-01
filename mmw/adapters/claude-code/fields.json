@@ -1,6 +1,6 @@
 {
   "host": "claude-code",
-  "_": "参数翻译表。安装脚本读 roles/*.md 加这份，生成本宿主格式的角色文件。表里没出现的键一律不带进产物——skills 只给安装脚本读，tasks 渲染进正文。",
+  "_": "参数翻译表。安装脚本读 roles/*.md 加这份，生成本宿主格式的角色文件。表里没出现的键一律不带进产物——skills 只给安装脚本读，任务名表写在角色文件正文里、原样带过去。",
 
   "agentDir": "~/.claude/agents",
   "skillDir": "~/.claude/skills",
