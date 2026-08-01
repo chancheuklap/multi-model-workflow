@@ -83,30 +83,6 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 提交前：`git diff --check`；本次改动的 JSON 用 `python3 -m json.tool` 校验。
 
-## Agent skills
-
-`mmw-v2` 重建期间，本仓库自己就是新工作流的第一个用户。以下五份配置是既定事实，技能不硬编码这些内容，一律读文件。
-
-### Issue tracker
-
-issue 在 GitHub Issues，一份设计一张父 issue 加若干子 issue；设计与计划文档任务期间落本地、代码落地后转 GitHub Wiki、合并前从分支删掉。见 `docs/agents/issue-tracker.md`。
-
-### Issue 标签
-
-状态五个（`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`），类型用 GitHub 自带的 `bug` / `enhancement`。见 `docs/agents/triage-labels.md`。
-
-### 领域文档
-
-单上下文：仓库根 `CONTEXT.md` 加 `docs/adr/`，跟代码同一个提交演进，缺文件静默继续。见 `docs/agents/domain.md`。
-
-### 模型角色
-
-Codex 写码与写计划，设计文档由 Claude 主线程写，主线程不写代码。红线是每一道审至少有一路审者与作者不同家；同家可加派、不能是唯一。见 `docs/agents/models.md`。
-
-### 任务隔离
-
-默认一份设计一个 worktree，落 `.worktrees/`，命名 `<父 issue 编号>-<主题>`，合并后确认再删。见 `docs/agents/worktrees.md`。
-
 ## mmw-v2 重建（进行中，完成后本节删除）
 
 新 plugin 在 Matt 的技能上长出我们自己的骨架，不再把流程实现成引擎。上游副本在 `vendor/mattpocock-skills/`，旧实现在 `plugin/`（只作背景线索，不搬重流程）。落点暂名 `mmw-v2/`（仓库里已有上次失败的 `mmw/`，别混），全部弄好再改名。只做 Claude Code 一个宿主。
@@ -115,7 +91,7 @@ Codex 写码与写计划，设计文档由 Claude 主线程写，主线程不写
 
 | 层 | 内容 |
 | --- | --- |
-| 0 · 配置 | `docs/agents/` 五份，已落盘 |
+| 0 · 配置 | 五份种子随插件分发，在 `mmw-v2/skills/setup/`；`/setup` 铺进目标仓库的 `docs/agents/`。我们的选择全固定，所以 setup 不问问题（这是比 Matt 更简的形态：他要问，因为他的用户各不相同）。技能一律读目标仓库的 `docs/agents/*.md`，不读插件内路径——避免旧 plugin 那套「先定位插件根」的烂摊子 |
 | 1 · 纪律 | Matt 的 model-invoked 技能原样搬：tdd、diagnosing-bugs、codebase-design、domain-modeling、grilling、prototype、resolving-merge-conflicts、research |
 | 2 · 自有能力 | 跨模型派发、亲验裁判、任务隔离。这三块 Matt 完全没有，是仓库存在的理由 |
 | 3 · 编排 | 改造 Matt 的 user-invoked 技能，把第 2 层注入进去 |
@@ -154,6 +130,8 @@ Codex 写码与写计划，设计文档由 Claude 主线程写，主线程不写
 | 要定什么 | 当时的背景与张力 | 旧实现位置（背景线索） |
 | --- | --- | --- |
 | 跨模型派发的形状 | 派 Codex 无头写码 / 写计划、派 Claude sub-agent 审。旧实现夹在阶段引擎里，要剥成独立能力。亲验裁判已定，派发要交回什么形状因此清楚了 | `plugin/scripts/worker.sh`、`plugin/scripts/review.sh` |
+| `/setup` 要不要自动跑 | 现在得手敲，用户忘了跑配置就全空、技能读不到任何仓库事实。想用 SessionStart 钩子自动铺，但那要接 `hooks/hooks.json`，属于插件机械层，等第 2 层能力定形后一起做 | `plugin/hooks/` |
+| 纪律层八技能的适配 | 原样搬进来了，一个字没改。每个技能都有旧 plugin 里的自有加法要合（见下表）。已看清的第一个真冲突：Matt 的 `tdd` 要求写测试前跟用户确认接缝，我们的写码工人是无人值守 Codex，问不到人，所以要改成「接缝由计划的 Task Pack 钉死」 | `tdd` ← `worktree-build/references/tests.md`、`discipline.md`；`research` ← `investigate-internal` / `investigate-external`；`prototype` ← `scripts/prototype.sh`、`design/prototype-mockup.md`；`resolving-merge-conflicts` ← `scenario/merge.md`；`diagnosing-bugs` ← 悬空引用 + `scenario/bug.md`；`domain-modeling` ← 核 ADR 编号约定；`grilling` ← `design/discussion.md` |
 | 任务隔离脚本 | 建 / 进 / 清 worktree 加 docs 落点。约定已定（见上），只剩薄脚本怎么写 | `plugin/scripts/prepare.sh` 的 task new / cleanup |
 | `/approve-design` 人闸和无人值守档 | 新架构没有阶段引擎，「设计过门」这个动作靠什么承载还没答案（issue 标签？提交？）。人闸只有这一道，口头同意不算 | `plugin/commands/approve-design.md`、`plugin/skills/orchestrate/references/control/attendance.md` |
 | 本地文档转 Wiki 的实现 | 谁触发、Wiki 页怎么命名和分层、转完怎么核。设计意图见 `docs/agents/issue-tracker.md` 的生命周期三段 | 无（新能力） |

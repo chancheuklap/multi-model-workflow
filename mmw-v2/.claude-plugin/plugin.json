@@ -22,6 +22,7 @@
     "./skills/prototype",
     "./skills/research",
     "./skills/resolving-merge-conflicts",
+    "./skills/setup",
     "./skills/tdd"
   ]
 }
