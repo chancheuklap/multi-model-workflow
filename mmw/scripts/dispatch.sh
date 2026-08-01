@@ -1,19 +1,17 @@
 #!/usr/bin/env bash
-# 适配层。只有模型专用宿主（Claude Code、Codex CLI）需要它：这类宿主派不了别家模型的
-# 子代理，得起无头进程。多模型宿主（Cursor、pi、Droid）在角色文件里直接指定模型，不用这个。
+# 起一个无头 Codex 进程。只有模型专用宿主用得上：那类宿主派不了别家模型的子代理。
+# 多模型宿主（pi、Cursor、Droid）在角色文件里直接指定模型，五个角色全走原生，不碰这个脚本。
 #
-# 它只做机器能判死的事：读角色参数、把角色文件正文与技能名单抄进提示词开头、
-# 把命令行一次拼对、抓会话号。
+# 走哪条路不在这里判断——装机时读 adapters/<宿主>/fields.json 的模型表就定死了，
+# 本宿主派得了的角色装成原生子代理，翻出 null 的才落到这里。
+#
+#   dispatch.sh run    --role <角色> --cwd <目录> --brief <文件> [--add-dir <目录>]
+#   dispatch.sh resume --role <角色> --cwd <目录> --session <会话号> --brief <文件>
+#
+# 它只做机器能判死的事：读角色参数、把角色文件正文抄进提示词开头、把命令行一次拼对、抓会话号。
 # 这次干什么、建不建工作树、该派谁，是判断，留给主线程。
 #
-#   dispatch.sh run    --role <角色> --cwd <目录> --prompt <文件> [--add-dir <目录>]
-#   dispatch.sh resume --role <角色> --cwd <目录> --session <会话号> --prompt <文件>
-#   dispatch.sh preview --role <角色> --prompt <文件>          # 只打印会送出去的全文，不派
-#
-# 六份角色都往这里投，不必先自己判断走原生还是无头：碰到本宿主自家模型的角色，
-# 脚本回 NATIVE=<角色名> 并退 4，告诉调用方改用宿主的子代理工具、subagent_type 填什么。
-#
-# run / resume 头两行是机器可读的 SESSION= 与 EXIT=，之后是被派者的最后一条消息。
+# 头两行是机器可读的 SESSION= 与 EXIT=，之后是被派者的最后一条消息。
 # 会话号不落盘：主线程后台起、从输出里读，少一套记账。
 # 后台起由调用方负责——审一轮、落地一份计划都常超前台超时上限。
 
@@ -37,55 +35,45 @@ role_list() {  # $1=角色文件 $2=字段
     grab && /^[[:space:]]+-[[:space:]]/ { sub(/^[[:space:]]+-[[:space:]]*/, ""); print; next }
     grab { exit }'
 }
-# 角色文件正文：frontmatter 之后的全部
+# 角色文件正文：frontmatter 之后的全部，含「线下」那一节——
+# 那几段是给读源码的人看的，抄过去多几行，不值得为它写一套切割。
 role_body() {  # $1=角色文件
   awk 'n>=2; /^---$/{n++}' "$1"
 }
 
-# 送进被派进程的完整提示词。脚本只做拼接，一个字的内容都不在这里——
+# 送进被派进程的完整提示词，三段。脚本只做拼接，一个字的内容都不在这里——
 # 角色说明与边界在角色文件正文，方法论在技能里，这次干什么由调用方写。
-# 拼出来的四段长什么样，写在 skills/mmw-dispatch 里。
+#
+# 第二段非抄不可：无头那一侧看不见我们的角色文件。它进去之后按第一行的任务名，
+# 照正文那张表读到具体哪一份方法——技能由 install.sh 软链在它自己的技能目录下。
 build_prompt() {  # $1=角色文件 $2=角色名 $3=这次的活
   printf '你的角色是 %s。\n' "$2"
   { role_body "$1"; printf '\n'; } | cat -s   # 压掉连续空行，正文与前后各隔一行
-  printf '先读你已装的这几份 skill，照它们走：'
-  role_list "$1" skills | paste -sd'、' -
-  printf '\n\n## 这次的活\n\n'
+  printf '\n## 这次的活\n\n'
   cat "$3"
 }
 
 # ---------- 参数 ----------
-role="" cwd="" prompt="" add_dir="" session=""
-sub="${1:-}"; [ -n "$sub" ] || die "缺子命令: run | resume | preview"
+role="" cwd="" brief="" add_dir="" session=""
+sub="${1:-}"; [ -n "$sub" ] || die "缺子命令: run | resume"
 shift || true
 while [ $# -gt 0 ]; do
   case "$1" in
     --role) role="$2"; shift 2 ;;
     --cwd) cwd="$2"; shift 2 ;;
-    --prompt) prompt="$2"; shift 2 ;;
+    --brief) brief="$2"; shift 2 ;;
     --add-dir) add_dir="$2"; shift 2 ;;
     --session) session="$2"; shift 2 ;;
     *) die "未知参数: $1" ;;
   esac
 done
 [ -n "$role" ] || die "--role 必填"
-if [ "$sub" != preview ]; then
-  [ -n "$cwd" ] || die "--cwd 必填"
-  [ -d "$cwd" ] || die "--cwd 不是目录: $cwd"
-fi
+[ -n "$cwd" ] || die "--cwd 必填"
+[ -d "$cwd" ] || die "--cwd 不是目录: $cwd"
 
 # 角色文件不走命令替换取路径：那样 die 只杀得掉子 shell，主流程会带着空值往下跑。
 rf="$ROLES_DIR/$role.md"
 [ -f "$rf" ] || die "角色不存在: ${role}（找的是 ${rf}）"
-
-# 本宿主自家模型的角色由宿主原生派，脚本代劳不了，但可以把人指对地方——
-# 于是调用方永远只记一条命令，不必自己先翻角色文件判断走哪条路。
-NATIVE_MODELS="${MMW_NATIVE_MODELS:-fable opus sonnet haiku}"
-is_native() {
-  local m; m="$(role_field "$rf" model)"
-  local n; for n in $NATIVE_MODELS; do case "$m" in "$n"|"$n"-*|*"/$n") return 0 ;; esac; done
-  return 1
-}
 
 # ---------- 派发 ----------
 dispatch_codex() {  # $1=resume 的会话号（空=首派）
@@ -103,8 +91,8 @@ dispatch_codex() {  # $1=resume 的会话号（空=首派）
     *)     die "角色 $role 的 write 要么 true 要么 false，现在是「${write}」" ;;
   esac
 
-  [ -n "$prompt" ] || die "--prompt 必填"
-  [ -f "$prompt" ] || die "提示词文件不存在: $prompt"
+  [ -n "$brief" ] || die "--brief 必填"
+  [ -f "$brief" ] || die "这次的活那份文件不存在: $brief"
 
   # 开工前预检：被派者那一侧得先装好方法论技能，否则它按名字找不到。
   # 缺了就是没跑 install.sh，当场报错，不让它开工后才发现。
@@ -126,7 +114,7 @@ $(printf '%s\n' "$dirty" | sed 's/^/  /')"
   fi
 
   local full; full="$(mktemp)"
-  build_prompt "$rf" "$role" "$prompt" > "$full"
+  build_prompt "$rf" "$role" "$brief" > "$full"
 
   local last; last="$(mktemp)"
   local args=(exec -C "$cwd" --sandbox "$sandbox" --color never --json
@@ -159,21 +147,8 @@ $(printf '%s\n' "$dirty" | sed 's/^/  /')"
 }
 
 case "$sub" in
-  run|resume)
-    if is_native; then
-      echo "NATIVE=$role"
-      echo "这份角色用本宿主自己的子代理工具派，subagent_type 填 ${role}。" \
-           "模型、思考档、工具白名单由宿主按角色文件强制执行；开工提示词里让它读：" >&2
-      role_list "$rf" skills | paste -sd'、' - >&2
-      exit 4
-    fi
-    if [ "$sub" = resume ]; then
-      [ -n "$session" ] || die "--session 必填"
-      dispatch_codex "$session"
-    else
-      dispatch_codex ""
-    fi ;;
-  preview) [ -n "$prompt" ] || die "--prompt 必填"
-           build_prompt "$rf" "$role" "$prompt" ;;
-  *)      die "未知子命令: $sub（run | resume | preview）" ;;
+  run)    dispatch_codex "" ;;
+  resume) [ -n "$session" ] || die "--session 必填"
+          dispatch_codex "$session" ;;
+  *)      die "未知子命令: $sub（run | resume）" ;;
 esac
