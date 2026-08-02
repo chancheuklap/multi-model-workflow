@@ -37,7 +37,7 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 每张分诊过的 issue 应当正好带一个类别角色和一个状态角色。状态角色互相冲突时，先标出来问维护者，再做别的。
 
-以上是角色的规范名，issue tracker 里实际用的标签字符串可能不同。映射关系应该已经给你了——没有就跑 `/mmw-setup`。
+以上是角色的规范名，实际用的标签字符串见 `../../conventions/triage-labels.md`。仓库里这些标签还没建就先跑 `/mmw-setup`。
 
 状态怎么流转：没标签的 issue 通常先进 `needs-triage`；从那里去 `needs-info`、`ready-for-agent`、`ready-for-human` 或 `wontfix`。报告人回话之后 `needs-info` 退回 `needs-triage`。维护者随时可以推翻——看起来反常的流转先标出来问一句再走。
 

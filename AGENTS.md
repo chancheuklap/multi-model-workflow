@@ -94,7 +94,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 | 层 | 内容 |
 | --- | --- |
-| 0 · 配置 | 七份种子随插件分发，在 `mmw-v2/skills/mmw-setup/`；`/mmw-setup` 把前六份铺进目标仓库的 `docs/agents/`，第七份 `testing.md` 铺成仓库根的 `TESTING.md` 骨架。我们的选择全固定，所以 setup 不问问题（这是比 Matt 更简的形态：他要问，因为他的用户各不相同）。技能一律读目标仓库的 `docs/agents/*.md`，不读插件内路径——避免旧 plugin 那套「先定位插件根」的烂摊子 |
+| 0 · 配置 | 六份固定约定住在 `mmw-v2/conventions/`，随插件走，技能按相对自己技能目录的 `../../conventions/<名字>.md` 直接读，不复制进任何仓库。**允许的插件内引用只有这一种形状**：相对技能目录的同级或上级路径，不许「先定位插件根」再拼。落进目标仓库的只有 `TESTING.md` 骨架（种子在 `mmw-setup/testing.md`），因为测试目录怎么分层只有那个仓库自己知道。`/mmw-setup` 只做仓库这一侧的准备：查三项前提、建标签、加忽略规则、装方法论、铺骨架、加指针节。我们的选择全固定，所以 setup 不问问题（这是比 Matt 更简的形态：他要问，因为他的用户各不相同） |
 | 1 · 纪律 | Matt 的 model-invoked 技能原样搬：tdd、diagnosing-bugs、codebase-design、domain-modeling、grilling、prototype、research（原本还有 resolving-merge-conflicts，已吸收进 `mmw-review` 的 ⑥ 并删除） |
 | 2 · 自有能力 | 跨模型派发、亲验裁判、任务隔离。这三块 Matt 完全没有，是仓库存在的理由 |
 | 3 · 编排 | 改造 Matt 的 user-invoked 技能，把第 2 层注入进去 |
@@ -129,7 +129,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 | 落点 | 内容 | 怎么验的 |
 | --- | --- | --- |
-| `skills/mmw-dispatching-agents` | 两个后端（Claude sub-agent、Codex 无头）、模型档一律从 `docs/agents/models.md` 取、简报自包含 | 实跑派出过审者和写码工人各一轮 |
+| `skills/mmw-dispatching-agents` | 两个后端（Claude sub-agent、Codex 无头）、模型档一律从 `conventions/models.md` 取、简报自包含 | 实跑派出过审者和写码工人各一轮 |
 | `skills/mmw-verifying-agent-output` | 只管采信：每条承重断言要有主线程能自己复核的锚，加工人交回的四档怎么读。findings 怎么处置归 `mmw-review` | 实跑八条 findings 逐条复核，其中一条审者报的行号真的差了一行 |
 | `skills/mmw-review` | 主线程侧的编排：六道审各在哪、几路、谁配谁、每一路备齐什么材料、落盘命名、复审。③ 逐份验收与 ④ 合同门不派审者，判据也写在这里 | 未实跑 |
 | `skills/mmw-reviewer` | 审者侧的方法论单源：共享纪律加八路视角。标准原样搬旧 plugin，只补 Matt 那一路编码规范审。砍掉严重度与置信度，保留 `needs-redirection`、`needs-context` 两个出口 | 未实跑；装载脚本四种情形实测通过 |

@@ -1,6 +1,6 @@
 # Issue tracker:GitHub Issues
 
-本仓库 issue 全在 GitHub。所有操作走 `gh`，仓库从 `git remote -v` 自动推断（在 clone 内运行 `gh` 会自己认出来）。
+issue 全在 GitHub。所有操作走 `gh`，仓库从 `git remote -v` 自动推断（在 clone 内运行 `gh` 会自己认出来）。
 
 ## 基本操作
 
@@ -38,7 +38,7 @@
 
 ## Wayfinding operations
 
-`/mmw-wayfinder` 会来查这一节。它问的是 map、decision ticket、阻塞、frontier 在本仓库怎么表达——答案就是上面那套，加上一条它专用的：
+`/mmw-wayfinder` 会来查这一节。它问的是 map、decision ticket、阻塞、frontier 怎么表达——答案就是上面那套，加上一条它专用的：
 
 - **map**：一张 GitHub issue，打 `wayfinder:map` 标签。这个标签既不是状态也不是类型，只是「这张 issue 是一张 map」的记号（见 `triage-labels.md`）。
 - **decision ticket**：map 的子 issue，一张对应一个待定的决定，带一个 `wayfinder:<类型>` 标签（见 `triage-labels.md`）。
@@ -46,7 +46,7 @@
 - **frontier 查询**：map 的 open 子 issue 中，`issue_dependencies_summary.blocked_by == 0` 且无 assignee 的全部——注意这里要的是全部，不是取第一个。`/mmw-wayfinder` 允许几个会话各认领一条 decision ticket 链同时跑。
 - **决定的答案**：作为结案评论贴在 decision ticket 上，关掉它，再往 map 的 `Decisions so far` 追加一行指针。**难以回退、有真取舍的那些还要另写一份 ADR**，别只留在评论里——评论区是最难检索的地方（见本文件最后一节的分流表）。
 
-`/mmw-wayfinder` 找不到本节时会退化成拿本地 markdown 文件当 issue 追踪器。本仓库有 GitHub，不要走那条退路。
+`/mmw-wayfinder` 找不到本节时会退化成拿本地 markdown 文件当 issue 追踪器。这套工作流认 GitHub，不要走那条退路。
 
 ## 技能里的说法对应什么动作
 

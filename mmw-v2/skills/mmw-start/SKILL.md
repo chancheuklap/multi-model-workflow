@@ -30,23 +30,23 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 三种情况都通向 `/mmw-wayfinder`，但进去之后走的不是同一条路：报了 map 编号或某条 decision ticket 编号的，是回来认领一条链；报了一个还不知道要拆成几份 spec 的 effort，是要建一张新 map。判定归那个技能，你只要把用户原话原样传过去。
 
-**同一张 map 底下的两种 issue 靠标签分**：带 `wayfinder:` 类型标签的是还没解开的决定，归 `/mmw-wayfinder`；不带的是收口时切出来、可以开始做的一份 spec，归 `/mmw-to-spec`（见 `docs/agents/triage-labels.md`）。这两种都不要送去分诊——它们已经评估过了。
+**同一张 map 底下的两种 issue 靠标签分**：带 `wayfinder:` 类型标签的是还没解开的决定，归 `/mmw-wayfinder`；不带的是收口时切出来、可以开始做的一份 spec，归 `/mmw-to-spec`（见 `../../conventions/triage-labels.md`）。这两种都不要送去分诊——它们已经评估过了。
 
 **先做原型还是先谈清楚**：他要的是先看见一个能跑的东西，走 `/mmw-prototype`；他要的是先把这件事说清楚，走 `/mmw-grilling`。分不出来时走 `/mmw-grilling`，它问到定不下来时会自己转过去。
 
 **effort 怎么认**：判据是这件事要拆成几份 spec。一份 spec 说得完、拆出的 ticket 都挂在这份 spec 底下，走 `/mmw-grilling`，谈定之后由它移交 `/mmw-to-spec`。要好几份 spec 才做得完，而且哪几份、按什么顺序都还没有答案，才是 `/mmw-wayfinder`——它先把这堆决定画成一张 map，逐条散掉 fog of war，再派生出各份 spec。范围已经清楚的功能不要推进 `/mmw-wayfinder`，它慢得多也重得多。
 
-带 issue 编号的，先按 `docs/agents/issue-tracker.md` 把这张 issue 读出来再判，不要只看编号。
+带 issue 编号的，先按 `../../conventions/issue-tracker.md` 把这张 issue 读出来再判，不要只看编号。
 
 ## 2. 定 slug
 
-形状是 `<类型>-<短语>`，例如 `feat-phone-login`、`fix-refund-rounding`。类型取自第 1 步的判定结果：走 `/mmw-diagnosing-bugs` 的用 `fix`，新需求和先做原型的用 `feat`，`/improve-codebase-architecture` 用 `refactor`。完整规则在 `docs/agents/worktrees.md`。
+形状是 `<类型>-<短语>`，例如 `feat-phone-login`、`fix-refund-rounding`。类型取自第 1 步的判定结果：走 `/mmw-diagnosing-bugs` 的用 `fix`，新需求和先做原型的用 `feat`，`/improve-codebase-architecture` 用 `refactor`。完整规则在 `../../conventions/worktrees.md`。
 
 **用户报的是一张已有 map 的编号或链接，跳过这一步。** 这个会话要做的是认领 map 上的一条链，那棵 worktree 叫什么名字，要等读完 map、选中链首 ticket 才知道，由 `/mmw-wayfinder` 自己定。
 
 ## 3. 建树、进去、记原话
 
-按 `docs/agents/worktrees.md` 建 worktree、用 `EnterWorktree` 进去，然后打那个记原话的空提交。
+按 `../../conventions/worktrees.md` 建 worktree、用 `EnterWorktree` 进去，然后打那个记原话的空提交。
 
 从主线开新任务；这次任务是从一张 `/mmw-wayfinder` 的 map 派生出来的，就从那张 map 的分支分叉。
 

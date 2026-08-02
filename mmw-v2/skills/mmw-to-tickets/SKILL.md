@@ -5,7 +5,7 @@ description: 把一份 spec 拆成一组 tracer bullet ticket，每张声明被�
 
 把一份 spec、一份计划或当前这段对话拆成一组 **ticket**——每张是一条 tracer bullet 垂直切片，并声明**阻塞**它的那些 ticket。
 
-issue tracker 和标签词汇按 `docs/agents/issue-tracker.md` 与 `docs/agents/triage-labels.md`；读不到先跑 `/mmw-setup`。
+issue tracker 和标签词汇按 `../../conventions/issue-tracker.md` 与 `../../conventions/triage-labels.md`。
 
 ## 1. 取上下文
 
@@ -46,7 +46,7 @@ issue tracker 和标签词汇按 `docs/agents/issue-tracker.md` 与 `docs/agents
 
 ## 5. 发布
 
-按 `docs/agents/issue-tracker.md` 发布，一张 ticket 一张 issue，**按依赖顺序发**——阻塞方先发出去，后面那张才引得到真编号。阻塞关系用 tracker 原生的依赖边；每张挂在 spec issue 底下作子 issue。
+按 `../../conventions/issue-tracker.md` 发布，一张 ticket 一张 issue，**按依赖顺序发**——阻塞方先发出去，后面那张才引得到真编号。阻塞关系用 tracker 原生的依赖边；每张挂在 spec issue 底下作子 issue。
 
 打 `ready-for-agent`。打在 ticket 上的含义是「这张可以派工人开工」，跟打在 spec issue 上那个（人闸的凭据）不是一回事。
 

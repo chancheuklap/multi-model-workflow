@@ -17,16 +17,16 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 
 | 检查 | 怎么查 | 不满足怎么办 |
 | --- | --- | --- |
-| 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾 | 按 `docs/agents/worktrees.md` 建一个或进去 |
+| 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾 | 按 `../../conventions/worktrees.md` 建一个或进去 |
 | 这次需求写明了 seam | 读 spec 的 seam 一节，或读 agent brief 的 `**Test seam:**` 一栏 | spec 缺就回 `/mmw-to-spec` 第 3 步，brief 缺就回 `/mmw-triage` 补——工人问不到人，seam 只能由人先谈定 |
-| ticket 存在 | 按 `docs/agents/issue-tracker.md` 查 | 先跑 `/mmw-to-tickets` |
+| ticket 存在 | 按 `../../conventions/issue-tracker.md` 查 | 先跑 `/mmw-to-tickets` |
 | 这张 ticket 的 plan 写好了、过了 ② plan 审 | `docs/plans/<slug>/` 下有对应那一份 | 先跑 `/mmw-to-plan`。走 agent brief 那条路的需求没有 plan 这一层，这一行不适用 |
 
 ### 2. 取下一张 ticket
 
 在 **frontier** 上取：阻塞它的 ticket 全部关闭、没有 assignee、打着 `ready-for-agent` 的那些，按 `/mmw-to-tickets` 发布的顺序取。开工前先 claim 这张 ticket，两个会话同时开工靠它挡住。
 
-一个 worktree 一次做一张 ticket，一个 worktree 上只站一个工人。frontier 确实很宽、用户又要并行推进，就按 `docs/agents/worktrees.md` 从当前分支给每张 ticket 各分一个 worktree。
+一个 worktree 一次做一张 ticket，一个 worktree 上只站一个工人。frontier 确实很宽、用户又要并行推进，就按 `../../conventions/worktrees.md` 从当前分支给每张 ticket 各分一个 worktree。
 
 ### 3. 组装工人的提示词
 
@@ -46,7 +46,7 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 
 **先记下当前提交号**（`git rev-parse HEAD`）。验收读 diff、每一轮返工比的范围，都拿它做参照。
 
-然后按 `/mmw-dispatching-agents` 派。用可写 sandbox，并且首次派发之前工作区必须干净，否则你分不清哪些改动是工人的。模型档从 `docs/agents/models.md` 取——ticket 碰计费、权限或数据迁移时用高风险档。这个判断归你，不归工人。
+然后按 `/mmw-dispatching-agents` 派。用可写 sandbox，并且首次派发之前工作区必须干净，否则你分不清哪些改动是工人的。模型档从 `../../conventions/models.md` 取——ticket 碰计费、权限或数据迁移时用高风险档。这个判断归你，不归工人。
 
 ### 5. 验收：亲手核三关
 

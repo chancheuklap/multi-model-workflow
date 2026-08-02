@@ -5,7 +5,7 @@ description: 把已经谈定的内容综合成一份 spec：钉住测试 seam、
 
 把已经谈定的内容综合成一份 spec。**不采访，只综合**——要问的在 `/mmw-grilling` 里问完了，这里不重开任何一个决定。
 
-issue tracker 和标签词汇应该已经给你了，`docs/agents/issue-tracker.md` 不在就跑 `/mmw-setup`。
+issue tracker 怎么用看 `../../conventions/issue-tracker.md`，标签词汇看 `../../conventions/triage-labels.md`。这个仓库还没跑过 `/mmw-setup` 时标签可能一个都没建，发布那一步会失败。
 
 ## 1. 认出你从哪条路进来
 
@@ -49,7 +49,7 @@ issue tracker 和标签词汇应该已经给你了，`docs/agents/issue-tracker.
 
 ## 4. 写 spec
 
-模板和逐节要求在 [spec-template.md](spec-template.md)。落点是任务分支的 `docs/specs/<slug>/<slug>.md`（`docs/agents/worktrees.md`）。
+模板和逐节要求在 [spec-template.md](spec-template.md)。落点是任务分支的 `docs/specs/<slug>/<slug>.md`（`../../conventions/worktrees.md`）。
 
 从 `/mmw-wayfinder` 进来的，map 的三节这样落进去，**只搬运，不重新讨论**：
 
@@ -96,7 +96,7 @@ issue tracker 和标签词汇应该已经给你了，`docs/agents/issue-tracker.
 
 先把 spec 文件提交进任务分支，再建 issue——issue 正文要引用文件路径，文件得先存在。
 
-按 `docs/agents/issue-tracker.md` 建一张 GitHub issue，**正文只放一段摘要加上那个文件路径**，全文不进正文。从 `/mmw-wayfinder` 来的已经有一张 issue 了，改它的正文，不要另建。
+按 `../../conventions/issue-tracker.md` 建一张 GitHub issue，**正文只放一段摘要加上那个文件路径**，全文不进正文。从 `/mmw-wayfinder` 来的已经有一张 issue 了，改它的正文，不要另建。
 
 打 `ready-for-agent` 标签。打在 spec issue 上的含义是「这份 spec 定稿了，拆 ticket 和派工人都可以自动接下去」。
 

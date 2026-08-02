@@ -42,13 +42,13 @@ docs/prototypes/<slug>/
 └── runs/<三位轮次>/        这一轮的截图、运行输出等证据
 ```
 
-`<slug>` 取当前 worktree 的 slug（见 `docs/agents/worktrees.md`）。第 2 轮的证据放 `runs/002/`。
+`<slug>` 取当前 worktree 的 slug（见 `../../conventions/worktrees.md`）。第 2 轮的证据放 `runs/002/`。
 
-还在主仓库里、没有任务 worktree 的，先按 `docs/agents/worktrees.md` 建一棵再动手。原型要提交，主仓库不接受直接写。
+还在主仓库里、没有任务 worktree 的，先按 `../../conventions/worktrees.md` 建一棵再动手。原型要提交，主仓库不接受直接写。
 
 **原地迭代，不复制版本目录。** 下一轮继续改同一份源码，保留已经确认过的状态、交互和文案，历史由 git 保存。
 
-**这个目录不随 spec 一起删。** spec 落地之后要转 Wiki，本地的 `docs/specs/<slug>/` 会被删掉（见 `docs/agents/issue-tracker.md`）；原型产物留着，它们是实现时的素材。
+**这个目录不随 spec 一起删。** spec 落地之后要转 Wiki，本地的 `docs/specs/<slug>/` 会被删掉（见 `../../conventions/issue-tracker.md`）；原型产物留着，它们是实现时的素材。
 
 `README.md` 每轮追加一节，记五件事：这一轮要回答的问题、用户反馈或者本轮假设、基于上一轮实际改了什么、怎么验的和结果是什么、这一轮的结论。结论只有三个词：
 
