@@ -1,6 +1,6 @@
 # 任务隔离
 
-正式任务在独立 git worktree 里做，**从你开口的那一刻就建**，不等 issue、不等 spec。这台机器上会有好几个 agent 同时工作，主线程和 Codex 工人不在同一棵树上，工人正在改的文件才不会在主线程读它时变形。
+正式任务在独立 git worktree 里做，**从你开口的那一刻就建**，不等 issue、不等 spec。主线程和 Codex 工人不在同一棵树上。
 
 worktree 只是分支的载体，没有别的含义。它可以随便建、随便从别的 worktree 分叉，不是什么要小心对待的重资源。
 
@@ -8,7 +8,7 @@ worktree 只是分支的载体，没有别的含义。它可以随便建、随�
 
 默认**一份 spec 一个 worktree**：spec 拆出的几张 ticket 全在里面按顺序做完，整体合并一次、终审一次、Wiki 写一次。spec 是原子交付单元。
 
-effort——比一份 spec 大、要好几份 spec 才做得完的那种——哪几份 spec、按什么顺序都还罩着 fog of war 时，先跑 `/mmw-wayfinder`（把 effort 画成一张决定 map，逐条散掉 fog of war 的技能）。它有自己的 worktree，而且**一张 map 可能派生出好几份 spec**。这时的分叉关系是：
+effort——比一份 spec 大、要好几份 spec 才做得完的那种——哪几份 spec、按什么顺序都还罩着 fog of war 时，先跑 `/mmw-wayfinder`。它有自己的 worktree，而且**一张 map 可能派生出好几份 spec**。这时的分叉关系是：
 
 ```
 主线
@@ -17,7 +17,7 @@ effort——比一份 spec 大、要好几份 spec 才做得完的那种——�
       └── refund-window         ← 同上
 ```
 
-**问题没解决之前不合回主线。** spec worktree 从 wayfinder 分支分叉，做完合回 wayfinder 分支；effort 收尾时 wayfinder 分支才合回主线。跑 `/mmw-wayfinder` 期间写下的术语、ADR、决定不做的方向因此对所有兄弟 spec 都可见，不用提前往主线塞半成品。
+**问题没解决之前不合回主线。** spec worktree 从 wayfinder 分支分叉，做完合回 wayfinder 分支；effort 收尾时 wayfinder 分支才合回主线。期间写下的术语、ADR、决定不做的方向对所有兄弟 spec 都可见。
 
 确实能并行的 ticket 也照这个办法从当前 worktree 的分支分叉。**分支可以嵌套，目录不嵌套**——所有 worktree 一律扁平挂在 `.worktrees/` 下。
 
@@ -35,11 +35,11 @@ effort——比一份 spec 大、要好几份 spec 才做得完的那种——�
 | `test` | 只改测试 |
 | `chore` | 依赖、配置、构建脚本 |
 
-类型写在前面，是为了在 `git branch` 和 `.worktrees/` 的列表里一眼看出每条分支在做哪一类改动。它同时约束范围：一个 `fix` 里混进新功能，说明当初的类型定错了，或者这次改动该拆成两个。
+类型写在前面，同时约束范围：一个 `fix` 里混进新功能，说明当初的类型定错了，或者这次改动该拆成两个。
 
-**一个 slug 贯穿五处**——worktree 目录名、分支名、`docs/specs/<slug>/`、这个目录里的主文件 `<slug>.md`、Wiki 上的 `Spec-<slug>.md`。别的文件提到 `<slug>` 时指的都是它。主文件与目录同名，下游技能因此直接拼得出路径，不用先列目录再猜哪个是正文。类型前缀用连字符而不是斜杠，斜杠会在 `.worktrees/` 下建出子目录，破坏「目录不嵌套」。
+**一个 slug 贯穿五处**——worktree 目录名、分支名、`docs/specs/<slug>/`、这个目录里的主文件 `<slug>.md`、Wiki 上的 `Spec-<slug>.md`。别的文件提到 `<slug>` 时指的都是它。主文件与目录同名。类型前缀用连字符而不是斜杠，斜杠会在 `.worktrees/` 下建出子目录，破坏「目录不嵌套」。
 
-不带 issue 编号、不带日期。GitHub 把分支、PR 和 issue 串起来靠的是提交信息里的 `#42` 和 PR 正文的关键词，不靠分支名；带编号反而要求先建 issue 才能开工，而 issue 是过程中才建的。日期在提交记录里。同名冲突时加一个区分词，不加序号。
+不带 issue 编号、不带日期。同名冲突时加一个区分词，不加序号。
 
 ## 落点与建法
 
