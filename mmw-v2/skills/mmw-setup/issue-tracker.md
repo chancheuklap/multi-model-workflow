@@ -15,13 +15,11 @@
 
 ## issue 承载身份，文件承载内容
 
-一条铁律，先讲清楚再讲层级：**issue 正文只放这件事是什么、现在什么状态、内容在哪**，真正要反复打磨的长文放任务分支上的文件里。
-
-理由是 issue 正文没有逐行差异。spec 要过审、要返工，在 issue 正文上改，你看不出改了哪几个字，也没法确认审查意见真被吸收了。文件在 git 里就都有。而 issue 那些好处——原生父子、原生阻塞、UI 里看得见谁被谁挡住、关掉即归档——一样不丢。
+**issue 正文只放这件事是什么、现在什么状态、内容在哪**，真正要反复打磨的长文放任务分支上的文件里。
 
 ## 层级
 
-常态两层。跑了 `/mmw-wayfinder`（把 effort 画成一张决定 map，逐条散掉 fog of war 的技能）就是三层，因为一张 map 可能派生出好几份 spec。
+常态两层。跑了 `/mmw-wayfinder` 就是三层，因为一张 map 可能派生出好几份 spec。
 
 | 层 | 正文放什么 | 权威内容在哪 | 结局 |
 | --- | --- | --- | --- |
@@ -69,7 +67,7 @@
 
 ## `/mmw-wayfinder` 的产物不上 Wiki，但也不能死
 
-spec 是 map 的可读综合版——map 的 `Destination` 变成 spec 的问题陈述，`Decisions so far` 里的每一条变成 spec 的 `Implementation Decisions`，`Out of scope` 原样继承。正因为是综合版，两个都上 Wiki 就是两页内容重叠的东西摆在一起，读者不知道哪个权威。留综合版，不留原始日志。
+spec 是 map 的可读综合版——map 的 `Destination` 变成 spec 的问题陈述，`Decisions so far` 里的每一条变成 spec 的 `Implementation Decisions`，`Out of scope` 原样继承。Wiki 只留综合版，不留原始日志。
 
 但 map 上那些决定不能随任务一起消失，它们的归宿是仓库：
 

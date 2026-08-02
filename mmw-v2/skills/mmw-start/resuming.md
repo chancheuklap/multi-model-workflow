@@ -26,7 +26,7 @@ git worktree list
 | spec 过没过用户那道闸 | 那张 spec issue 在不在、带没带 `ready-for-agent` 标签。这两样齐了才算过门 |
 | ticket 有没有拆 | 那张 spec issue 有没有子 issue（`docs/agents/issue-tracker.md`） |
 | plan 写了没有 | `docs/plans/<slug>/` 在不在，里面的份数跟 ticket 数对不对得上 |
-| plan 审过没过 | spec 里有没有 `## Cross-Plan Contract Anchors` 一节且精确字段已经回填——那是 `/mmw-to-plan` 第 5 步的产物，回填完才起的审 |
+| plan 审过没过 | spec 的 `## Cross-Plan Contract Anchors` 一节在不在、精确字段回填了没有 |
 | 做到第几张 ticket | 子 issue 里哪些已经关掉；还开着的里面谁有 assignee，那张就是正在做的 |
 | 终审有没有跑 | `.reviews/` 里有没有终审报告 |
 | 有没有归档 | Wiki 上 `Spec-<slug>.md` 在不在（`docs/agents/wiki.md`） |

@@ -9,7 +9,7 @@ issue tracker 和标签词汇应该已经给你了，`docs/agents/issue-tracker.
 
 ## 1. 认出你从哪条路进来
 
-六条路都通向这里，每条在上游留下了不同的产物。**先把你这一条的产物取齐再往下走**——它们是这份 spec 的原料，不取就等于把上游的活重做一遍。
+六条路都通向这里，每条留下的产物不同。**先把你这一条的产物取齐再往下走。**
 
 | 从哪来 | 怎么认出来 | 必须取齐的 |
 | --- | --- | --- |
@@ -24,7 +24,7 @@ issue tracker 和标签词汇应该已经给你了，`docs/agents/issue-tracker.
 
 还没探过就先探，把这块地方现在怎么实现搞清楚。整份 spec 用项目领域词汇（`CONTEXT.md`），遵守你要碰的这块地方的 ADR。
 
-现状结论逐条带 `file:line` 引用写进 spec。理由是**这份 spec 会被派给一个问不到人的工人**：写「某个模块相应调整」，它只能自己猜一个。
+现状结论逐条带 `file:line` 引用写进 spec。写「某个模块相应调整」，工人只能自己猜一个。
 
 ## 3. 钉 seam
 
@@ -96,7 +96,7 @@ issue tracker 和标签词汇应该已经给你了，`docs/agents/issue-tracker.
 
 先把 spec 文件提交进任务分支，再建 issue——issue 正文要引用文件路径，文件得先存在。
 
-按 `docs/agents/issue-tracker.md` 建一张 GitHub issue，**正文只放一段摘要加上那个文件路径**，全文不进正文。理由是 issue 正文没有逐行差异，spec 要过审要返工，在正文上改看不出改了哪几个字。从 `/mmw-wayfinder` 来的已经有一张 issue 了，改它的正文，不要另建。
+按 `docs/agents/issue-tracker.md` 建一张 GitHub issue，**正文只放一段摘要加上那个文件路径**，全文不进正文。从 `/mmw-wayfinder` 来的已经有一张 issue 了，改它的正文，不要另建。
 
 打 `ready-for-agent` 标签。打在 spec issue 上的含义是「这份 spec 定稿了，拆 ticket 和派工人都可以自动接下去」。
 
