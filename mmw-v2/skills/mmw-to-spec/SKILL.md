@@ -14,7 +14,7 @@ issue tracker 怎么用在 `docs/agents/issue-tracker.md`，标签词汇在 `doc
 | 从哪来 | 怎么认出来 | 必须取齐的 |
 | --- | --- | --- |
 | `/mmw-grilling` 谈定 | 这次对话里刚谈完。`/mmw-wayfinder` 横扫下来判定不需要 map 的也走这一行——它在那之前已经 grill 过两轮 | 这一轮写进 `CONTEXT.md` 的术语、这一轮落成的 ADR、对话里达成的每一条共识 |
-| `/mmw-improve-codebase-architecture` 挑中的候选谈定 | slug 是 `refactor-` 开头，那个空提交里记着一张候选卡片的标题 | 这一轮写进 `CONTEXT.md` 的术语、这一轮落成的 ADR、对话里达成的每一条共识，外加**那张卡片**——它的文件清单是第 2 步探仓库的起点，它的 Problem 和 before/after 直接进 spec 的现状与目标状态。这次的外部行为不变，所以 `Solution` 写的是结构怎么变、谁的调用方式跟着变 |
+| `/mmw-improve-codebase-architecture` 挑中的候选谈定 | slug 是 `refactor-` 开头，那个空提交里记着一张候选卡片的标题 | 这一轮写进 `CONTEXT.md` 的术语、这一轮落成的 ADR、对话里达成的每一条共识，外加**那张卡片**——它的文件清单是第 2 步探仓库的起点，它的 Problem 和 before/after 直接进 spec 的 `## Current State` 与 `## Solution`。这次的外部行为不变，所以 `## Solution` 写的是结构怎么变、谁的调用方式跟着变 |
 | `/mmw-prototype` 走查完 | `docs/prototypes/<slug>/` 存在 | 那份 `README.md`——回填结论在里面等你取；每一轮的**选中的那一版**；界面那一侧的视觉契约 |
 | `/mmw-wayfinder` 切出的一份 spec | 有一张 issue 挂在带 `wayfinder:map` 标签的 issue 底下，自己不带任何 `wayfinder:` 标签 | 那张 map 的 `Destination`、`Decisions so far`、`Out of scope` 三节，各自落进 spec 哪里见第 4 步；走这张 map 过程中新增的 `docs/adr/` 与 `.out-of-scope/` |
 | `/mmw-triage` 判出这件事碰多处 | 那张 issue 上有一条 agent brief 评论 | 那份 brief 全文，尤其 `Test seam` 那一栏，以及 `/mmw-triage` 的「分诊一张具体的 issue 或 PR」第 3 步验过的断言 |

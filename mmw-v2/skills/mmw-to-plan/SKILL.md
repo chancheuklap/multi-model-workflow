@@ -19,7 +19,7 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 
 ## 1. 定 plan 清单
 
-读 spec，取出目标、architecture、`## Contract Boundaries` 一节、`## Testing Decisions` 一节里那张 seam 清单表。**只读，作为派发时给工人的上下文**，不在这里展开写作。
+读 spec，取出 `## Problem Statement`、`## Solution`、`## Implementation Decisions`、`## Contract Boundaries`、`## Testing Decisions` 一节里那张 seam 清单表。**只读，作为派发时给工人的上下文**，不在这里展开写作。
 
 取全部 ticket，读出各自要做什么和被谁阻塞，定下 plan 清单：**一张 ticket 一份 plan 一个工人**。落点就是每张 ticket 正文 `## Plan` 一节写着的那个路径（`docs/plans/<slug>/<两位编号>-<ticket-slug>.md`），编号照抄，不自己重排——工人和后面的写码工人都按那个路径找。ticket 正文没有这一节，按依赖顺序自己编号，被阻塞的排在阻塞它的后面。
 
@@ -33,7 +33,7 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 
 在 spec 里新增一节 `## Cross-Plan Contract Anchors`，**不改已有的 `## Contract Boundaries`**。
 
-从合同边界那一节、architecture 和 ticket 的依赖关系判断有没有跨 plan 的连接面——共享文件、共享模块、共享数据结构，或者一份 plan 产出、另一份 plan 消费的接口。有就把**骨架**写进新那一节：
+从 `## Contract Boundaries`、`## Implementation Decisions` 两节和 ticket 的依赖关系判断有没有跨 plan 的连接面——共享文件、共享模块、共享数据结构，或者一份 plan 产出、另一份 plan 消费的接口。有就把**骨架**写进新那一节：
 
 - **文件归属**：哪份 plan 可以碰哪些共享文件。一个文件一个归属方。
 - **跨 plan 接口**：按 plan 编号写清谁提供、谁消费（比如「01 提供鉴权令牌接口，02 消费」）。命名要到位，**精确字段和签名先标「字段待回填」**，第 5 步补实。

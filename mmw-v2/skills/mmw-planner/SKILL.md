@@ -16,7 +16,7 @@ disable-model-invocation: true
 
 | 读什么 | 从里面取什么 |
 | --- | --- |
-| spec | 目标、architecture、`## Contract Boundaries` 一节、`## Testing Decisions` 一节里那张 seam 清单表、全局约束。你 plan 头部的全局约束逐字从这里抄 |
+| spec | `## Problem Statement` 与 `## Solution`（这次要达成什么）、`## Implementation Decisions`（架构方向，填进你 plan 头部的 `**Architecture:**`）、`## Contract Boundaries`、`## Testing Decisions` 一节里那张 seam 清单表 |
 | 合同骨架 | spec 的 `## Cross-Plan Contract Anchors` 一节。它划定你的硬边界：你能碰哪些共享文件（不许认领别份 plan 拥有的文件）、你要提供或消费哪些跨 plan 接口（照它的命名对接）。标着「字段待回填」的精确字段由你写时定下来，主 agent 事后回填 |
 | 你那张 ticket | 标题、要做什么、每一条验收标准、被谁阻塞 |
 | 原型的选中的那一版 | 只有走过原型的需求才有。从选中的那一份提取状态机、reducer、数据结构、界面规格，拆进对应任务包的验收标准和数据形状。没被选中的变体不许当依据 |
@@ -66,7 +66,7 @@ ticket 已经是一条端到端的垂直切片，**你不再切一层切片**，
    **Tech stack:** <实际涉及的框架、服务、测试工具>
 
    ## Global Constraints
-   项目级硬约束，每条一行，**值从 spec 和项目规则逐字抄来**（版本下限、依赖限制、命名与文案规则、平台要求、项目不变量、计费与权限红线）。本节隐含适用于本 plan 每一个任务包。
+   项目级硬约束，每条一行。spec 里没有一节专门叫这个名字，值从 `## Implementation Decisions`、`## Contract Boundaries`、`## Release Risk` 三节，加上目标仓库根的 `CLAUDE.md` 或 `AGENTS.md` 及其链进去的规则，逐字抄来（版本下限、依赖限制、命名与文案规则、平台要求、项目不变量、计费与权限红线）。本节隐含适用于本 plan 每一个任务包。
 
    ## File / Responsibility Map
    **Create / Modify / Test / Docs·登记·迁移：** `path` — 负责什么 / 什么行为 / 为什么改它
