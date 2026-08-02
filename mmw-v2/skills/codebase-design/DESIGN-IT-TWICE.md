@@ -18,9 +18,9 @@ Show this to the user, then immediately proceed to Step 2. The user reads and th
 
 ### 2. Spawn sub-agents
 
-Spawn 3+ sub-agents in parallel using the Agent tool. Each must produce a **radically different** interface for the deepened module.
+Dispatch 3+ context-isolated subagents in parallel, following the `/mmw-dispatching-agents` skill. Each must produce a **radically different** interface for the deepened module.
 
-Prompt each sub-agent with a separate technical brief (file paths, coupling details, dependency category from [DEEPENING.md](DEEPENING.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Give each agent a different design constraint:
+Give each subagent a self-contained technical brief (file paths, coupling details, dependency category from [DEEPENING.md](DEEPENING.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Every brief carries the same context; only the design constraint differs:
 
 - Agent 1: "Minimize the interface — aim for 1–3 entry points max. Maximise leverage per entry point."
 - Agent 2: "Maximise flexibility — support many use cases and extension."
@@ -37,7 +37,13 @@ Each sub-agent outputs:
 4. Dependency strategy and adapters (see [DEEPENING.md](DEEPENING.md))
 5. Trade-offs — where leverage is high, where it's thin
 
-### 3. Present and compare
+### 3. Verify before you present
+
+A subagent returns evidence, not conclusions. Verify each design against the `/mmw-verifying-agent-output` skill before it reaches the user: the call sites it claims exist, the coupling it claims to remove, the dependency category it assigned. A design that reads well but rests on a misread of the current code will send the user down the wrong path — and this is the step where they choose one.
+
+Two designs that turn out to be the same shape under different names count as one. Re-dispatch that constraint with the overlap named as an exclusion.
+
+### 4. Present and compare
 
 Present designs sequentially so the user can absorb each one, then compare them in prose. Contrast by **depth** (leverage at the interface), **locality** (where change concentrates), and **seam placement**.
 
