@@ -11,11 +11,15 @@ issue tracker 和标签词汇按 `docs/agents/issue-tracker.md` 与 `docs/agents
 
 从这段对话里已有的材料开始。用户给了引用（spec 路径、issue 编号或链接），就取回来把正文和评论整个读完。
 
-## 2. 探代码（可选）
+## 2. 找 prefactor
 
-还没探过代码就探一遍，弄清现状。ticket 的标题和描述用项目领域术语表里的词，遵守这块地方的 ADR。
+**按 `/mmw-research` 的内部方向派一个 subagent**，题目是：这次要改的地方，有哪些可以先做 prefactor，让后面的实现更容易。「先把改动变容易，再做这个容易的改动。」
 
-找一找可以先做 prefactor 的地方，让后面的实现更容易。「先把改动变容易，再做这个容易的改动。」
+上游那份 spec 的现状调查已经覆盖了这块代码怎么实现，这里不重查，只查 prefactor 这一个角度。**上游没有 spec、这次是从对话直接拆 ticket 的**，就连现状一起查，一个角度一个 subagent。
+
+收回来按 `/mmw-verifying-agent-output` 验证过才写进 ticket——一张凭空捏造的 prefactor ticket 会让工人去改一处不存在的问题。
+
+ticket 的标题和描述用项目领域术语表里的词，遵守这块地方的 ADR。
 
 ## 3. 起草垂直切片
 

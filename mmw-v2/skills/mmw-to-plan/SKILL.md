@@ -78,11 +78,9 @@ ls "${CODEX_HOME:-$HOME/.codex}/skills/mmw-planner/SKILL.md"
 
 验证两件事：有没有工人认领了别人归属的文件；提供方声明的接口跟消费方期望的对不对得上。对不上就续接对应工人修。
 
-## 6. 起 ② plan 审
+## 6. 发起 ② plan 审
 
-**全部 plan 都验证过、合同也回填完之后，起一次审，不逐份起。** 按 `/mmw-review` 走。
-
-采信的 findings 续接对应工人改，改完按 `/mmw-review` 复审。
+**全部 plan 都验证过、合同也回填完之后，发起一次审查，不逐份发起。** 按 `/mmw-review` 走。
 
 ## 7. 提交
 
