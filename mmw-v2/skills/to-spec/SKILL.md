@@ -18,7 +18,7 @@ Check with the user that these seams match their expectations.
 
 3. Write the spec using the template below.
 
-4. 发布之前逐条对账原型证据：`Implementation Decisions` 里的**每一条**都要么指得到一份原型产物（写清楚是 `docs/prototypes/<slug>/` 下的哪一份、第几轮走查定的），要么在那一条后面写明它为什么不需要原型。两样都给不出来的，回 `/mmw-prototype` 补一轮再回来。用户走查过实物才算这条决定被验证过，讨论达成一致不算。
+4. 发布之前逐条核对原型证据：`Implementation Decisions` 里的**每一条**都要么指得到一份原型产物（写清楚是 `docs/prototypes/<slug>/` 下的哪一份、第几轮走查定的），要么在那一条后面写明它为什么不需要原型。两样都给不出来的，回 `/mmw-prototype` 补一轮再回来。用户走查过实物才算这条决定被验证过，讨论达成一致不算。
 
 5. Publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
 

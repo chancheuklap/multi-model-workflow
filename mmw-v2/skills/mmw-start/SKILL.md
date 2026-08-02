@@ -23,13 +23,13 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 | 一个 issue 编号，已是 `ready-for-agent`，brief 写明 `**Test seam:**`，而且只碰一处 | **移交**：`/mmw-implement` |
 | 有东西坏了、报错、跑不通、变慢了，或者挂了 `bug` | **移交**：`/mmw-diagnosing-bugs` |
 | 一个 effort，还不知道要拆成哪几份 spec，或者挂了 `big` | **移交**：`/mmw-wayfinder` |
-| 想先看看某个界面长什么样，或者不确定一套状态模型对不对，要做个东西试试 | **移交**：`/mmw-prototype` |
+| 想先看看某个界面长什么样，或者不确定一套状态模型对不对 | **移交**：`/mmw-prototype` |
 | 一个新需求，或对已有需求的改进 | **移交**：`/mmw-grilling` |
 | 没有具体需求，只说想让代码库更好维护 | **移交**：`/improve-codebase-architecture` |
 
 第一行和第五行都通向 `/mmw-wayfinder`，但进去之后走的不是同一条路：报了 map 编号的是回来认领一条链，报了新想法的是要建一张新 map。判定归那个技能，你只要把用户原话原样传过去。
 
-**原型那一行跟新需求那一行怎么分**：他要的是先看见一个能跑的东西，就走 `/mmw-prototype`；他要的是先把这件事说清楚，就走 `/mmw-grilling`。分不出来时走 `/mmw-grilling`，它谈不动时自己会转去做原型。
+**先做原型还是先谈清楚**：他要的是先看见一个能跑的东西，走 `/mmw-prototype`；他要的是先把这件事说清楚，走 `/mmw-grilling`。分不出来时走 `/mmw-grilling`，它问到定不下来时会自己转过去。
 
 **effort 怎么认**：判据是这件事要拆成几份 spec。一份 spec 说得完、拆出的 ticket 都挂在这份 spec 底下，走 `/mmw-grilling`，谈定之后由它移交 `/to-spec`。要好几份 spec 才做得完，而且哪几份、按什么顺序都还没有答案，才是 `/mmw-wayfinder`——它先把这堆决定画成一张 map，逐条散掉 fog of war，再派生出各份 spec。范围已经清楚的功能不要推进 `/mmw-wayfinder`，它慢得多也重得多。
 
