@@ -1,6 +1,6 @@
 # map 和 ticket 长什么样
 
-**map、它的子 ticket、阻塞关系、frontier 查询怎么表达，看 `../../conventions/issue-tracker.md` 的「Wayfinding operations」一节。** 下面写的是形状，不是命令。
+**map、它的子 ticket、阻塞关系、frontier 查询在本仓库怎么表达，看 `docs/agents/issue-tracker.md` 的「Wayfinding operations」一节。** 那份文档不在就跑 `/mmw-setup`。下面写的是形状，不是命令。
 
 ## map
 
@@ -75,6 +75,6 @@ fog of war 只会**朝着** destination 聚集。destination 固定了范围，�
 
 判出范围的工作不再回来。frontier 走到 destination 就停了，它只有在 destination 被重画时才回来，而且是作为一个新的 effort，不是接着做。
 
-判一件事出范围是一个划范围的动作，不是路线上的一步。已经存在的一张 ticket 后来发现坐在 destination 之外——画图时圈错了，或者被某次解答暴露出来——就**关掉它**，并在 `Out of scope` 一节留一行：概要加上为什么出范围，链到那张关掉的 ticket。同时按 `../../conventions/issue-tracker.md` 的产物分流表在 `.out-of-scope/` 写一份，一个概念一个文件。
+判一件事出范围是一个划范围的动作，不是路线上的一步。已经存在的一张 ticket 后来发现坐在 destination 之外——画图时圈错了，或者被某次解答暴露出来——就**关掉它**，并在 `Out of scope` 一节留一行：概要加上为什么出范围，链到那张关掉的 ticket。同时按 `docs/agents/issue-tracker.md` 的产物分流表在 `.out-of-scope/` 写一份，一个概念一个文件。
 
 它不进 `Decisions so far`。那里记的是真正走过的路线，一条范围边界不是路线上的一步。

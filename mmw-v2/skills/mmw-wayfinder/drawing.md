@@ -2,7 +2,7 @@
 
 用户带着一个还很松的想法来。这个会话只做一件事：把 map 建出来。**它一张 ticket 都不亲手解。**
 
-前置：`/mmw-start` 已经建好这张 map 的 worktree 并进去了，第一个提交里记着用户原话。没有的话先补上，按 `../../conventions/worktrees.md`。
+前置：`/mmw-start` 已经建好这张 map 的 worktree 并进去了，第一个提交里记着用户原话。没有的话先补上，按 `docs/agents/worktrees.md`。
 
 ## 1. 给 destination 命名
 

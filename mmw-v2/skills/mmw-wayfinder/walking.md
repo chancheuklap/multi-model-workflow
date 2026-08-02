@@ -8,7 +8,7 @@
 
 - `gh issue view <map 编号>` 读 map 正文，这是低分辨率视图，不要逐个打开 ticket。
 - `git show <map 分支>:CONTEXT.md` 之类，按需读 map 分支上的文件。
-- 按 `../../conventions/issue-tracker.md` 查一次 frontier。
+- 按 `docs/agents/issue-tracker.md` 查一次 frontier。
 
 frontier 空了，说明这张 map 该收口了，转 [closing.md](closing.md)。
 
@@ -18,7 +18,7 @@ frontier 空了，说明这张 map 该收口了，转 [closing.md](closing.md)�
 
 **先认领**：把它指派给自己。指派完成之前不要做任何事。
 
-再建这条链的 worktree，从 map 分支分叉，slug 是 `<map 的 slug>-<链首 ticket 的短语>`，建法见 `../../conventions/worktrees.md`。建完 `EnterWorktree` 进去。这是这个会话唯一一次进 worktree。
+再建这条链的 worktree，从 map 分支分叉，slug 是 `<map 的 slug>-<链首 ticket 的短语>`，建法见 `docs/agents/worktrees.md`。建完 `EnterWorktree` 进去。这是这个会话唯一一次进 worktree。
 
 ## 3. 解它
 
@@ -56,7 +56,7 @@ frontier 空了，说明这张 map 该收口了，转 [closing.md](closing.md)�
 
 链到头之后：
 
-1. 把这条链写的 `draft-<ticket 编号>-<短语>.md` 逐个改成正式 ADR 编号（四位、从 `0001` 起、只增不改，见 `../../conventions/domain.md`），提交。
+1. 把这条链写的 `draft-<ticket 编号>-<短语>.md` 逐个改成正式 ADR 编号（四位、从 `0001` 起、只增不改，见 `docs/agents/domain.md`），提交。
 2. 合回 map 分支。链会话不能跳到别的 worktree，所以用 `git -C` 指过去。**`.worktrees/` 是相对主仓库的，而你现在在链的 worktree 里，所以先把主仓库路径取出来**：
 
    ```bash

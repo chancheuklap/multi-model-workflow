@@ -5,7 +5,7 @@ description: 一次任务的收尾——把这份 spec 和它的 plan 转成 Wik
 
 代码已经落地，终审过了。这一步把设计文档搬到它的长期落点，再把工作区收干净。
 
-**Wiki 是这份 spec 之后唯一的真相源。** 完整约定在 `../../conventions/wiki.md`——命名、一页放什么、导航怎么生成、三条核验，全在那里，本文不复述。这里写的是这次收尾按什么顺序做。
+**Wiki 是这份 spec 之后唯一的真相源。** 完整约定在 `docs/agents/wiki.md`——命名、一页放什么、导航怎么生成、三条核验，全在那里，本文不复述。这里写的是这次收尾按什么顺序做。
 
 ## 前置条件
 
@@ -16,13 +16,13 @@ description: 一次任务的收尾——把这份 spec 和它的 plan 转成 Wik
 | 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾 |
 | 终审跑过，采信的 findings 都修完并复审通过 | `.reviews/` 里有终审报告；采信项各自有对应的修复提交 |
 | 工作区干净 | `git status --porcelain` 是空的 |
-| Wiki 已初始化 | 按 `../../conventions/wiki.md` 的检测命令查。没初始化就停，只能由用户去仓库的 `/wiki` 页手建一页 |
+| Wiki 已初始化 | 按 `docs/agents/wiki.md` 的检测命令查。没初始化就停，只能由用户去仓库的 `/wiki` 页手建一页 |
 
 没有 spec 的任务不走这一步。诊断一个 bug 修完就结束，没有要归档的设计文档。
 
 ## 1. 取 Wiki 的工作副本
 
-按 `../../conventions/wiki.md` 的落点那一节 clone 或 pull 到 `.worktrees/.wiki/`。
+按 `docs/agents/wiki.md` 的落点那一节 clone 或 pull 到 `.worktrees/.wiki/`。
 
 ## 2. 写这一页
 

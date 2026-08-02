@@ -17,7 +17,7 @@ frontier 上一张 ticket 都不剩了。收口就是把这张 map 结束掉：�
 
 ## 2. 决定各自归位
 
-map 关掉之后就不再是查阅入口，所以这一路做出的决定要按类型分开落到仓库里。这张表跟 `../../conventions/issue-tracker.md` 的产物分流表是同一份，那里是权威：
+map 关掉之后就不再是查阅入口，所以这一路做出的决定要按类型分开落到仓库里。这张表跟 `docs/agents/issue-tracker.md` 的产物分流表是同一份，那里是权威：
 
 | 这一路产出的 | 落到哪 |
 | --- | --- |
@@ -60,4 +60,4 @@ map 按**决定**组织，spec 按**能独立设计和实现的一块功能**组
 | 第 1 步问出来还有挡路的，已经建成 decision ticket | **停**：报又建了哪几张 ticket，让他另开一个会话认领 |
 | 决定归位完、spec 切完、map 关掉 | **停**：报这张 map 收了、切出了哪几份 spec，说明每份 spec 各开一个会话去做 |
 
-停下来时用 spec 的名字报，不用编号。每份 spec 的 worktree 从 map 分支分叉，做完合回 map 分支；整个 effort 收尾时 map 分支才合回主线（见 `../../conventions/worktrees.md`）。
+停下来时用 spec 的名字报，不用编号。每份 spec 的 worktree 从 map 分支分叉，做完合回 map 分支；整个 effort 收尾时 map 分支才合回主线（见 `docs/agents/worktrees.md`）。

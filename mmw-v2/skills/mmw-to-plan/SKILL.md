@@ -13,9 +13,9 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 
 | 检查 | 怎么查 |
 | --- | --- |
-| 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾；不在就按 `../../conventions/worktrees.md` 建一个或进去 |
+| 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾；不在就按 `docs/agents/worktrees.md` 建一个或进去 |
 | spec 已定稿并过了人闸 | `docs/specs/<slug>/<slug>.md` 存在，对应的 spec issue 已发布并带着 `ready-for-agent` |
-| ticket 已发布 | 按 `../../conventions/issue-tracker.md` 取得到这批 ticket；取不到先跑 `/mmw-to-tickets` |
+| ticket 已发布 | 按 `docs/agents/issue-tracker.md` 取得到这批 ticket；取不到先跑 `/mmw-to-tickets` |
 
 ## 1. 定 plan 清单
 
@@ -44,7 +44,7 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 
 ## 3. 派写计划工人
 
-一张 ticket 一个 Codex 无头工人，按 `/mmw-dispatching-agents` 派。模型档从 `../../conventions/models.md` 的写计划工人那一行取。
+一张 ticket 一个 Codex 无头工人，按 `/mmw-dispatching-agents` 派。模型档从 `docs/agents/models.md` 的写计划工人那一行取。
 
 派之前确认方法论装了：
 
