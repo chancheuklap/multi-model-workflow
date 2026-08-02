@@ -36,6 +36,12 @@ The agent needs to know when it's done. Every agent brief must have concrete, te
 
 State what is out of scope. This prevents the agent from gold-plating or making assumptions about adjacent features.
 
+### Name the test seam
+
+A brief that goes to `/implement` is the whole contract a headless worker gets, and a worker cannot agree a seam with anyone. So the brief names the seam itself: the level the regression test sits at, and the behaviour it asserts. Describe it behaviourally — "an integration test through the public triage command, asserting the label written to the tracker" — not as a file path.
+
+When you can't name a correct seam, say that in the brief and route the issue to `ready-for-human` instead. An unstated seam means the worker invents one, and a test at an invented seam gives false confidence.
+
 ## Template
 
 ```markdown
@@ -56,6 +62,9 @@ Be specific about edge cases and error conditions.
 - `TypeName` — what needs to change and why
 - `functionName()` return type — what it currently returns vs what it should return
 - Config shape — any new configuration options needed
+
+**Test seam:**
+The level the test sits at and what it asserts, described behaviourally.
 
 **Acceptance criteria:**
 - [ ] Specific, testable criterion 1
@@ -91,6 +100,10 @@ and append "..." to indicate truncation.
   but the validation/processing logic that populates it needs to respect
   word boundaries
 - Any function that reads SKILL.md frontmatter and extracts the description
+
+**Test seam:**
+A unit test on the truncation function itself, asserting the returned string
+for a description just under, exactly at, and well over the limit.
 
 **Acceptance criteria:**
 - [ ] Descriptions under 1024 chars are unchanged
@@ -130,6 +143,11 @@ checked for matches.
   and a `**Prior requests:**` list with issue links
 - The triage workflow should read all `.out-of-scope/*.md` files early
   and match incoming issues against them by concept similarity
+
+**Test seam:**
+An integration test through the wontfix path, against a temporary directory:
+close a feature request, then assert on the `.out-of-scope/` file that results.
+A unit test on the file writer alone would miss the append-vs-create branch.
 
 **Acceptance criteria:**
 - [ ] Closing a feature as wontfix creates/updates a file in `.out-of-scope/`
@@ -171,6 +189,10 @@ is untouched when the flag is absent.
   instead of the plain-text error
 - Reuse the existing serializer the PR already added; don't introduce a second
 
+**Test seam:**
+A CLI-level test invoking `triage list --json` against a stubbed tracker,
+asserting on parsed stdout and the exit code — both for a success and an error.
+
 **Acceptance criteria:**
 - [ ] `triage list --json` emits valid JSON for both success and error cases
 - [ ] Exit codes match the non-JSON command
@@ -205,3 +227,4 @@ This is bad because:
 - No acceptance criteria
 - No scope boundaries
 - No description of current vs desired behavior
+- No test seam, so a headless worker has to invent one

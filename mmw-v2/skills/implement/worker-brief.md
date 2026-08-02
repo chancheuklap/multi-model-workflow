@@ -8,7 +8,7 @@ You are building **one ticket** inside a git worktree that has already been prep
 
 ## Read first
 
-- The spec at the path given below: what problem this solves, and **the seams the tests go at**. Those seams are fixed. If this ticket needs one the spec doesn't name, stop and say so — do not invent one.
+- The spec — or the agent brief — at the path given below: what problem this solves, and **the seams the tests go at**. Those seams are fixed. If this ticket needs one that isn't named there, stop and say so — do not invent one.
 - `CONTEXT.md` at the repo root if it exists, so your names match the project's own vocabulary, and any ADR under `docs/adr/` touching the area you're changing.
 - Any `AGENTS.md` or override file governing a directory you edit. Read it before you touch that directory, and keep it current if your change makes it stale.
 
