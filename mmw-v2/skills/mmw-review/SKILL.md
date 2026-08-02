@@ -41,7 +41,7 @@ description: 发起一轮审查——选哪几个视角、给每个视角备齐�
 | 项目对齐审 | 这份 spec、走查过的原型产物（`docs/prototypes/<slug>/`），另加 `CONTEXT.md` 与这块地方的 ADR |
 | 覆盖质量审 | spec（含回填后的 `## Cross-Plan Contract Anchors`）、原型产物、全部 ticket、全部 plan |
 | 合规交叉审 | spec（含回填后的 `## Cross-Plan Contract Anchors`）、原型产物、全部 ticket、全部 plan |
-| 对照终审 | spec、全部 plan、diff 范围 |
+| 对照终审 | spec、全部 plan、diff 范围、走查过的原型产物（`docs/prototypes/<slug>/` 里选中的那一版，它是视觉的权威源） |
 | 独立终审 | **只有 diff 范围** |
 | 编码规范审 | diff 范围、仓库自己写下来的编码标准文件；仓库没有就明写「本仓库没有写下来的标准」 |
 | 合并集成审 | 各分支的 spec、合并后全貌的 diff 范围、之前的冲突解决记录 |
