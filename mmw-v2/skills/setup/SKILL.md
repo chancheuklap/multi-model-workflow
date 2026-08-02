@@ -33,6 +33,7 @@ disable-model-invocation: true
 | --- | --- |
 | `.worktrees/` | 任务 worktree，还有 Wiki 的 clone（`.worktrees/.wiki/`） |
 | `.reviews/` | 审查留痕和终审报告，随 worktree 死 |
+| `.dispatch/` | 派给工人的提示词和它交回的报告，随 worktree 死 |
 
 在这里一次挡掉，技能写文件时 `mkdir -p` 就行，不用在每个 worktree 里铺一份脚手架。
 
@@ -57,7 +58,7 @@ disable-model-invocation: true
 
 ## 4. 报告
 
-告诉用户：铺了哪几份、跳过了哪几份（连同原因）、指针加进了哪个文件。再提一句这五份可以直接改，重跑本技能不会覆盖已存在的文件。
+告诉用户：铺了哪几份、跳过了哪几份（连同原因）、指针加进了哪个文件。再提一句这六份可以直接改，重跑本技能不会覆盖已存在的文件。
 
 ## 前提
 

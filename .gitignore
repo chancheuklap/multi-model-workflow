@@ -10,3 +10,4 @@ graphify-out/
 node_modules/
 .reviews/
 __pycache__/
+.dispatch/

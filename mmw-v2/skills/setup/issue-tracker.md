@@ -81,4 +81,4 @@ spec 是 map 的可读综合版——map 的 destination 变成 spec 的问题�
 
 这些都写在 `wayfinder` 自己那个 worktree 的分支上，随 effort 一起合回主线，中途不提前合（见 `worktrees.md`）。
 
-审查留痕和终审报告不走上面任何一条路：它们一次性写入、不打磨，落 **worktree 根的 `.reviews/`**，随 worktree 一起死，不进 git 也不进 Wiki。这个目录已在仓库根 `.gitignore` 里，写的时候 `mkdir -p` 即可，不需要另铺脚手架。搁置项里有长期价值的那部分已经开成 issue 了（见 `triage-labels.md`）。
+派出去的劳动力那些进出材料不走上面任何一条路：它们一次性写入、不打磨，随 worktree 一起死，不进 git 也不进 Wiki。审查留痕和终审报告落 **worktree 根的 `.reviews/`**，派给工人的提示词和它交回的报告落 **`.dispatch/`**。两个目录都已在仓库根 `.gitignore` 里，写的时候 `mkdir -p` 即可，不需要另铺脚手架。搁置项里有长期价值的那部分已经开成 issue 了（见 `triage-labels.md`）。

@@ -57,7 +57,7 @@ description: 裁判隔离上下文的劳动力交回的产出——审查 findin
 
 findings 原样落盘，不重写不摘要。处置词就近标在每条下面，文末写一句总结论。
 
-留痕和报告落 worktree 根的 `.reviews/`，随 worktree 一起死，不进 git 也不进 Wiki。这个目录已在仓库根 `.gitignore` 里，写的时候 `mkdir -p` 即可。
+审查留痕和终审报告落 worktree 根的 `.reviews/`，工人的提示词和完工报告落 `.dispatch/`。两个都随 worktree 一起死，不进 git 也不进 Wiki，也都已在仓库根 `.gitignore` 里，写的时候 `mkdir -p` 即可。
 
 ## 不收敛
 

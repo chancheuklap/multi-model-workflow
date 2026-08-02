@@ -13,15 +13,17 @@ When exploring the codebase, read `CONTEXT.md` (if it exists) so test names and 
 
 Tests verify behavior through public interfaces, not implementation details. Code can change entirely; tests shouldn't. A good test reads like a specification — "user can checkout with valid cart" tells you exactly what capability exists — and survives refactors because it doesn't care about internal structure.
 
-See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for mocking guidelines.
+See [tests.md](tests.md) for examples, [mocking.md](mocking.md) for mocking guidelines, and [quality-bar.md](quality-bar.md) for the line a test has to clear to go in at all.
 
 ## Seams — where tests go
 
 A **seam** is the public boundary you test at: the interface where you observe behavior without reaching inside. Tests live at seams, never against internals.
 
-**Test only at pre-agreed seams.** Before writing any test, write down the seams under test and confirm them with the user. No test is written at an unconfirmed seam. You can't test everything — agreeing the seams up front is how testing effort lands on the critical paths and complex logic instead of every edge case.
+**Test only at pre-agreed seams.** The seams are settled in the spec, with the user, before any code exists — that is what step 2 of `to-spec` is for. Read them there and test at those. No test is written at a seam nobody agreed to. You can't test everything; agreeing the seams up front is how testing effort lands on the critical paths and complex logic instead of every edge case.
 
-Ask: "What's the public interface, and which seams should we test?"
+If there is no spec — you were called directly to build one concrete behaviour — write down the seams under test and confirm them with the user before writing a test. Ask: "What's the public interface, and which seams should we test?"
+
+If the seams are settled but this piece of work needs one the spec doesn't name, **stop and say so**. Do not invent a seam mid-build; a dispatched worker in particular has no user to ask, and inventing one silently breaks the promise that the tests target something durable.
 
 ## Anti-patterns
 
