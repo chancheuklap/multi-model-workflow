@@ -19,6 +19,8 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 | 情况 | 下一步 |
 | --- | --- |
 | 一张 map 的编号或链接，或者他说要接着做某张 map | **移交**：`/mmw-wayfinder` |
+| 一个 issue 编号，带着某个 `wayfinder:` 类型标签——那是一张 map 上的一条 decision ticket | **移交**：`/mmw-wayfinder` |
+| 一个 issue 编号，挂在一张带 `wayfinder:map` 标签的 issue 底下、自己不带 `wayfinder:` 标签——那是收口时切出来的一份 spec | **移交**：`/mmw-to-spec` |
 | 一个 issue 或 PR 编号，上面还没有状态角色 | **移交**：`/mmw-triage` |
 | 一个 issue 编号，已是 `ready-for-agent`，brief 写明 `**Test seam:**`，而且只碰一处 | **移交**：`/mmw-implement` |
 | 有东西坏了、报错、跑不通、变慢了，或者挂了 `bug` | **移交**：`/mmw-diagnosing-bugs` |
@@ -27,11 +29,13 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 | 一个新需求，或对已有需求的改进 | **移交**：`/mmw-grilling` |
 | 没有具体需求，只说想让代码库更好维护 | **移交**：`/improve-codebase-architecture` |
 
-第一行和第五行都通向 `/mmw-wayfinder`，但进去之后走的不是同一条路：报了 map 编号的是回来认领一条链，报了新想法的是要建一张新 map。判定归那个技能，你只要把用户原话原样传过去。
+三种情况都通向 `/mmw-wayfinder`，但进去之后走的不是同一条路：报了 map 编号或某条 decision ticket 编号的，是回来认领一条链；报了一个还不知道要拆成几份 spec 的 effort，是要建一张新 map。判定归那个技能，你只要把用户原话原样传过去。
+
+**同一张 map 底下的两种 issue 靠标签分**：带 `wayfinder:` 类型标签的是还没解开的决定，归 `/mmw-wayfinder`；不带的是收口时切出来、可以开始做的一份 spec，归 `/mmw-to-spec`（见 `docs/agents/triage-labels.md`）。这两种都不要送去分诊——它们已经评估过了。
 
 **先做原型还是先谈清楚**：他要的是先看见一个能跑的东西，走 `/mmw-prototype`；他要的是先把这件事说清楚，走 `/mmw-grilling`。分不出来时走 `/mmw-grilling`，它问到定不下来时会自己转过去。
 
-**effort 怎么认**：判据是这件事要拆成几份 spec。一份 spec 说得完、拆出的 ticket 都挂在这份 spec 底下，走 `/mmw-grilling`，谈定之后由它移交 `/to-spec`。要好几份 spec 才做得完，而且哪几份、按什么顺序都还没有答案，才是 `/mmw-wayfinder`——它先把这堆决定画成一张 map，逐条散掉 fog of war，再派生出各份 spec。范围已经清楚的功能不要推进 `/mmw-wayfinder`，它慢得多也重得多。
+**effort 怎么认**：判据是这件事要拆成几份 spec。一份 spec 说得完、拆出的 ticket 都挂在这份 spec 底下，走 `/mmw-grilling`，谈定之后由它移交 `/mmw-to-spec`。要好几份 spec 才做得完，而且哪几份、按什么顺序都还没有答案，才是 `/mmw-wayfinder`——它先把这堆决定画成一张 map，逐条散掉 fog of war，再派生出各份 spec。范围已经清楚的功能不要推进 `/mmw-wayfinder`，它慢得多也重得多。
 
 带 issue 编号的，先按 `docs/agents/issue-tracker.md` 把这张 issue 读出来再判，不要只看编号。
 

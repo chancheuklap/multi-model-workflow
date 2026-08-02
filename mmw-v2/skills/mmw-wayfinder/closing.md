@@ -35,7 +35,7 @@ map 按**决定**组织，spec 按**能独立设计和实现的一块功能**组
 
 一组一份 spec，各建一张 issue 挂在 map 底下，正文写清楚这份 spec 交付什么、它依赖 `Decisions so far` 里的哪几条。spec issue 跟 decision ticket 同处一层，靠**带不带 `wayfinder:` 类型标签**区分：decision ticket 带，spec issue 不带。
 
-切出来只有一份，说明当初路由判早了——一份 spec 说得完的事本该走 `/mmw-grilling` 再 `/to-spec`，不必画 map。发生了不用回头重来，照样派生这一份走下去。
+切出来只有一份，说明当初路由判早了——一份 spec 说得完的事本该走 `/mmw-grilling` 再 `/mmw-to-spec`，不必画 map。发生了不用回头重来，照样派生这一份走下去。
 
 ### 提前派生
 

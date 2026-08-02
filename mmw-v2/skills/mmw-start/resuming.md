@@ -23,6 +23,7 @@ git worktree list
 | 这张 map 走到哪一步了 | 查 frontier：还剩几张没人认领，几张有 assignee 正在别的会话里解 |
 | 有几条链在同时跑 | `.worktrees/` 下以这个 slug 开头、但不等于这个 slug 的目录，每一棵是一条链 |
 | spec 有没有写出来 | `docs/specs/<slug>/` 在不在，里面的文件有没有提交进分支 |
+| spec 过没过用户那道闸 | 那张 spec issue 在不在、带没带 `ready-for-agent` 标签。这两样齐了才算过门 |
 | ticket 有没有拆 | 那张 spec issue 有没有子 issue（`docs/agents/issue-tracker.md`） |
 | 做到第几张 ticket | 子 issue 里哪些已经关掉；还开着的里面谁有 assignee，那张就是正在做的 |
 | 终审有没有跑 | `.reviews/` 里有没有终审报告 |
@@ -30,9 +31,7 @@ git worktree list
 
 `.reviews/` 和 `.dispatch/` 随 worktree 存活，不进 git。它们是空的不代表没做过，只代表这台机器上这一轮没做过——以提交记录和 issue 状态为准。
 
-## 查不出来的那一件
-
-spec 里的 seam 有没有真的过了用户那道确认，产物上看不出来。spec 文件已提交进分支、之后再没改过，通常说明谈定了；拿不准就问用户一句，不要默认它过了——工人问不到人，seam 定错整批 ticket 都要返工。
+spec 文件已经提交、issue 却还没发布，是个中间状态：用户可能刚点完头，也可能还没看过。这时按没过门处理，重新摆给他一次。多问一次的代价，比 seam 定错了整批 ticket 返工小得多。
 
 ## 查完之后
 

@@ -40,7 +40,7 @@
     "./skills/setup-pre-commit",
     "./skills/setup-ts-deep-modules",
     "./skills/to-questionnaire",
-    "./skills/to-spec",
+    "./skills/mmw-to-spec",
     "./skills/to-tickets",
     "./skills/wizard",
     "./skills/writing-great-skills"

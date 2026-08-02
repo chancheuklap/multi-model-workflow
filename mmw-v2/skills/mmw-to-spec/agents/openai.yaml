@@ -1,0 +1,3 @@
+interface:
+  display_name: "To Spec"
+  short_description: "Synthesize agreed decisions into a spec"

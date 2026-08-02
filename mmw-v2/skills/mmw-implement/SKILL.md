@@ -18,7 +18,7 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 | 检查 | 怎么查 | 不满足怎么办 |
 | --- | --- | --- |
 | 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾 | 按 `docs/agents/worktrees.md` 建一个或进去 |
-| 这次需求写明了 seam | 读 spec 的 seam 一节，或读 agent brief 的 `**Test seam:**` 一栏 | spec 缺就回 `/to-spec` 第 2 步，brief 缺就回 `/mmw-triage` 补——工人问不到人，seam 只能由人先谈定 |
+| 这次需求写明了 seam | 读 spec 的 seam 一节，或读 agent brief 的 `**Test seam:**` 一栏 | spec 缺就回 `/mmw-to-spec` 第 3 步，brief 缺就回 `/mmw-triage` 补——工人问不到人，seam 只能由人先谈定 |
 | ticket 存在 | 按 `docs/agents/issue-tracker.md` 查 | 先跑 `/to-tickets` |
 
 ### 2. 取下一张 ticket
@@ -74,7 +74,7 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 | 所有 ticket 都关闭了 | **自己继续**：走第 6 步，对整个 diff 起 `/mmw-code-review` |
 | 审出了采信的 findings | **自己继续**：打包成一张修复 ticket 派新工人，然后按 `/mmw-code-review` 第 7 步复审 |
 | 审完没有采信项，或者修复已经复审通过 | **停**：用业务语言交代现在什么能用了、什么证明它能用、什么搁置了、搁到哪里。分支可以合并了，合并和清理 worktree 由用户批准 |
-| 第 1 步三项前置有一项不满足 | **停**：说清是哪一项。缺 seam 的按那张表回 `/to-spec` 第 2 步或 `/mmw-triage`，不要自己替用户定 seam |
+| 第 1 步三项前置有一项不满足 | **停**：说清是哪一项。缺 seam 的按那张表回 `/mmw-to-spec` 第 3 步或 `/mmw-triage`，不要自己替用户定 seam |
 | 工人卡在 ticket 与代码互相矛盾上 | **停**：它报告的是 spec 的问题，不是它自己的问题。把矛盾交给用户，不要换一个工人再派一遍 |
 | 工人自己停下，但不是因为矛盾 | **自己继续**：读它的尝试记录，把你看到的发回去，续接同一个工人会话——上下文还在它那里 |
 
