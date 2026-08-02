@@ -16,7 +16,7 @@
 
 **派工人前必须是 `ready-for-agent`。** 这是唯一一个机器可核的「够清楚了」信号，无人值守时靠它挡住模糊 issue。
 
-它打在一张 spec issue 上时含义更进一步：**这份 spec 已经过了用户那道确认**，拆 ticket 和派工人都可以自动接下去。`/mmw-to-spec` 只在用户点头之后才发布并打上这个标签，所以「issue 在且带这个标签」就是那道人闸过了的凭据，不需要另记状态。
+它打在一张 spec issue 上时含义更进一步：**这份 spec 已经过了用户那道确认**，拆 ticket 和派工人都可以自动接下去。`/mmw-to-spec` 只在用户点头之后才发布并打上这个标签，所以「issue 在且带这个标签」就是那道人工审批关卡过了的凭据，不需要另记状态。
 
 ## 类型：这张 issue 是什么性质
 
@@ -31,7 +31,7 @@
 | `wayfinder:map` | 那张 map 本身。含义是「这是一张 map，不是一件待办」 |
 | `wayfinder:grilling` | decision ticket，靠跟人对谈解掉。这是默认类型 |
 | `wayfinder:prototype` | decision ticket，要先跑 `/mmw-prototype` 做一个粗糙版本给用户走查 |
-| `wayfinder:research` | decision ticket，派子代理去查一条事实就能解掉 |
+| `wayfinder:research` | decision ticket，派 subagent 去查一条事实就能解掉 |
 | `wayfinder:task` | decision ticket，某个决定做得出来之前必须先完成的手工操作 |
 
 map 底下的 decision ticket 照常带状态和类型。

@@ -1,6 +1,6 @@
 # Phase 5 到 6 —— 修复与收尾
 
-根因已经定住了。这一段的修复动作派 Codex 无头工人做。
+根因已经定住了。这一段的修复动作派 Codex headless 工人做。
 
 ## Phase 5 —— 修复 + 回归测试
 
@@ -15,12 +15,12 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 有 correct seam 的话，按顺序做三件事：
 
 1. **先把工作区清干净。** grep `[DEBUG-` 前缀，把 Phase 4 的埋点全删掉。工人要在可写 sandbox 里跑，工作区不干净你就分不清哪些改动是它的（`/mmw-dispatching-agents`）。
-2. 按 `/mmw-dispatching-agents` 派一个工人，简报从文件和你已经跑过的内容里取：
+2. 按 `/mmw-dispatching-agents` 派一个工人，brief 从文件和你已经跑过的内容里取：
 
    | 给它什么 | 内容 |
    | --- | --- |
    | 复现命令 | 命令本身，加上你跑它时看到的输出原文 |
-   | 最小化的 repro | 场景，以及每一样为什么是承重的 |
+   | 最小化的 repro | 场景，以及每一样为什么是关键的 |
    | 那条假设 | 被验证的那条，以及验证它的那次观测 |
    | seam | 测试放在哪一层、断言什么——这条由你定，工人问不到人 |
    | 纪律 | `worker-brief.md`、TDD 全文、目标仓库的 `TESTING.md`，取法见 `/mmw-implement` 第 3 步 |

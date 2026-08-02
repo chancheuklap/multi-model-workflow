@@ -1,11 +1,11 @@
 ---
 name: mmw-to-plan
-description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan，派 Codex 工人写，主线程只做编排、亲验和合同回填。用户说要写 plan、要把 ticket 展开成可落地的步骤时用它；刚把 spec 拆完 ticket 的技能也移交这里。
+description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan，派 Codex 工人写，主 agent 只做编排、验证和合同回填。用户说要写 plan、要把 ticket 展开成可落地的步骤时用它；刚把 spec 拆完 ticket 的技能也移交这里。
 ---
 
 把每张 ticket 写成一份 plan，供后面派写码工人照着落地。
 
-**你不写 plan。** 写作全部下放给 Codex 无头工人，一张 ticket 一个。你的职责是定清单、划合同边界、派发、亲验、回填、起审。
+**你不写 plan。** 写作全部下放给 Codex headless 工人，一张 ticket 一个。你的职责是定清单、划合同边界、派发、验证、回填、发起审查。
 
 ## 前置条件
 
@@ -14,7 +14,7 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 | 检查 | 怎么查 |
 | --- | --- |
 | 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾；不在就按 `docs/agents/worktrees.md` 建一个或进去 |
-| spec 已定稿并过了人闸 | `docs/specs/<slug>/<slug>.md` 存在，对应的 spec issue 已发布并带着 `ready-for-agent` |
+| spec 已定稿并过了人工审批关卡 | `docs/specs/<slug>/<slug>.md` 存在，对应的 spec issue 已发布并带着 `ready-for-agent` |
 | ticket 已发布 | 按 `docs/agents/issue-tracker.md` 取得到这批 ticket；取不到先跑 `/mmw-to-tickets` |
 
 ## 1. 定 plan 清单
@@ -44,7 +44,7 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 
 ## 3. 派写计划工人
 
-一张 ticket 一个 Codex 无头工人，按 `/mmw-dispatching-agents` 派。模型档从 `docs/agents/models.md` 的写计划工人那一行取。
+一张 ticket 一个 Codex headless 工人，按 `/mmw-dispatching-agents` 派。模型档从 `docs/agents/models.md` 的写计划工人那一行取。
 
 派之前确认方法论装了：
 
@@ -59,28 +59,28 @@ ls "${CODEX_HOME:-$HOME/.codex}/skills/mmw-planner/SKILL.md"
 1. spec 在这个 worktree 里的路径，加上它的 seam 清单原文引用。
 2. **这张 ticket 的正文**：标题、要做什么、每一条验收标准、被谁阻塞，全部抄进去。工人能访问 tracker 也照样抄——让它自己去取可能取错一张，而且提示词就不再是你派发内容的完整记录。
 3. plan 文件的落点路径。
-4. 这次需求背后有原型的，给出**选中产物**的路径，加上 spec 里那一节视觉契约。只给选中的那一份。
+4. 这次需求背后有原型的，给出**选中的那一版**的路径，加上 spec 里那一节视觉契约。只给选中的那一份。
 5. 告诉它去自己技能目录里读 `mmw-planner`。
 
 **每个派发只装这五样。** 别的工人的历史、别份 plan 的内容、前面几轮的完成总结，一律不进。
 
 互不依赖的 plan 一条消息里并行发出去；有依赖链的按依赖顺序发。**不开子 worktree、不提交**：各份 plan 写不同文件，在任务 worktree 内并行是安全的。
 
-## 4. 亲验返回
+## 4. 验证返回
 
-每个工人交回 `pass` 之后，对它声明的事实至少抽验一条再采信：plan 文件真的存在、任务包数量对得上、它引用的 `文件:行号` 引得出来。用读文件和检索复核，不认「我写完了」。
+每个工人交回 `pass` 之后，对它声明的事实至少抽验一条再采信：plan 文件真的存在、任务包数量对得上、它引用的 `文件:行号` 引得出来。用读文件和检索验证，不认「我写完了」。
 
 失实就写修复指令续接原会话打回。交回 `needs-context`、`needs-repair` 或 `blocked` 的，按它说的补上下文或者修 spec 之后续接。
 
 ## 5. 回填精确字段，核边界
 
-把第 2 步标着「字段待回填」的格子补成真实的归属方、提供方、消费方和字段，写回 `## Cross-Plan Contract Anchors`。入口是每份 plan 的文件与职责表、合同锚点、迁移与登记，以及工人回执里的 `Cross-plan touchpoints`。
+把第 2 步标着「字段待回填」的格子补成真实的归属方、提供方、消费方和字段，写回 `## Cross-Plan Contract Anchors`。入口是每份 plan 的文件与职责表、合同锚点、迁移与登记，以及工人报告里的 `Cross-plan touchpoints`。
 
 核两件事：有没有工人认领了别人归属的文件；提供方声明的接口跟消费方期望的对不对得上。对不上就续接对应工人修。
 
 ## 6. 起 ② plan 审
 
-**全部 plan 都亲验过、合同也回填完之后，起一次审，不逐份起。** 按 `/mmw-review` 走。
+**全部 plan 都验证过、合同也回填完之后，起一次审，不逐份起。** 按 `/mmw-review` 走。
 
 采信的 findings 续接对应工人改，改完按 `/mmw-review` 复审。
 

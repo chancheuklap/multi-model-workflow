@@ -58,7 +58,7 @@
 三段，落地是分界点：
 
 1. **任务期间**：落在任务 worktree 的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`，提交进任务分支。打磨过程因此受 git 保护，改坏了能回退。
-2. **代码落地后**：转成 GitHub Wiki，Wiki 从此是这份 spec 的唯一真相源。命名、页面结构、写入顺序和核验清单全在 `wiki.md`。
+2. **代码落地后**：转成 GitHub Wiki，Wiki 从此是这份 spec 的唯一唯一事实来源。命名、页面结构、写入顺序和核验清单全在 `wiki.md`。
 3. **合回上一层之前**：在任务分支上删掉本地那两个目录并提交，然后再合并。主线因此不留 spec 和计划文档，不会随项目演进变成过时残留。
 
 第 3 步必须等 `wiki.md` 那三条核验全过才能做——本地文档一删就没有第二份了。
@@ -82,4 +82,4 @@ spec 是 map 的可读综合版——map 的 `Destination` 变成 spec 的问题
 
 这些都写在 wayfinder 那棵 worktree 的分支上，随 effort 一起合回主线，中途不提前合（见 `worktrees.md`）。
 
-派出去的劳动力那些进出材料不走上面任何一条路：它们一次性写入、不打磨，随 worktree 一起死，不进 git 也不进 Wiki。审查留痕和终审报告落 **worktree 根的 `.reviews/`**，派给工人的提示词和它交回的报告落 **`.dispatch/`**。两个目录都已在仓库根 `.gitignore` 里，写的时候 `mkdir -p` 即可，不需要另铺脚手架。搁置项里有长期价值的那部分已经开成 issue 了（见 `triage-labels.md`）。
+派出去的 subagent 那些进出材料不走上面任何一条路：它们一次性写入、不打磨，随 worktree 一起死，不进 git 也不进 Wiki。审查审查记录和终审报告落 **worktree 根的 `.reviews/`**，派给工人的提示词和它交回的报告落 **`.dispatch/`**。两个目录都已在仓库根 `.gitignore` 里，写的时候 `mkdir -p` 即可，不需要另铺脚手架。搁置项里有长期价值的那部分已经开成 issue 了（见 `triage-labels.md`）。

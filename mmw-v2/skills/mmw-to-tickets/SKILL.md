@@ -42,13 +42,13 @@ issue tracker 和标签词汇按 `docs/agents/issue-tracker.md` 与 `docs/agents
 - **Blocked by**：哪几张必须先做完
 - **What it delivers**：这张让什么端到端行为跑起来
 
-**亮完就往下走，不等确认。** 人闸在 `/mmw-to-spec` 第 7 步，spec 过了那道闸之后这条线是流水线态；切分粒度和阻塞边对不对，由 `/mmw-to-plan` 那道计划审兜住。用户看了要改，回第 3 步改完再亮一次。
+**亮完就往下走，不等确认。** 人工审批关卡在 `/mmw-to-spec` 第 7 步，spec 过了那道关卡之后这条线是流水线态；切分粒度和阻塞边对不对，由 `/mmw-to-plan` 那道计划审把关。用户看了要改，回第 3 步改完再亮一次。
 
 ## 5. 发布
 
 按 `docs/agents/issue-tracker.md` 发布，一张 ticket 一张 issue，**按依赖顺序发**——阻塞方先发出去，后面那张才引得到真编号。阻塞关系用 tracker 原生的依赖边；每张挂在 spec issue 底下作子 issue。
 
-打 `ready-for-agent`。打在 ticket 上的含义是「这张可以派工人开工」，跟打在 spec issue 上那个（人闸的凭据）不是一回事。
+打 `ready-for-agent`。打在 ticket 上的含义是「这张可以派工人开工」，跟打在 spec issue 上那个（人工审批关卡的凭据）不是一回事。
 
 发布顺序沿 **frontier** 走：阻塞它的都已发布的那些。纯线性链就是从上到下。
 
@@ -87,4 +87,4 @@ issue tracker 和标签词汇按 `docs/agents/issue-tracker.md` 与 `docs/agents
 | --- | --- |
 | ticket 全部发布完 | **移交**：`/mmw-to-plan`，一张 ticket 写一份 plan。文件路径和代码属于那里 |
 | 第 4 步用户要改切分 | **自己继续**：回第 3 步改，改完重亮一次清单 |
-| 来源是一份 spec，但那张 spec issue 没带 `ready-for-agent` | **停**：这份 spec 还没过人闸，回 `/mmw-to-spec` 第 7 步 |
+| 来源是一份 spec，但那张 spec issue 没带 `ready-for-agent` | **停**：这份 spec 还没过人工审批关卡，回 `/mmw-to-spec` 第 7 步 |

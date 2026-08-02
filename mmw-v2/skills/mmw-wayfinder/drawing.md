@@ -6,7 +6,7 @@
 
 ## 1. 给 destination 命名
 
-跑一场 `/mmw-grilling`，把这张 map 要找的东西钉死：那份 spec、那个决定或那次改动。destination 固定范围，所以它第一个定下来。
+跑一场 `/mmw-grilling`，把这张 map 要找的东西定死：那份 spec、那个决定或那次改动。destination 固定范围，所以它第一个定下来。
 
 完成的标志：一两行话说得出走到尽头是什么样子，而且用户认了这句话。
 
@@ -26,11 +26,11 @@
 
 然后用**第二遍**把阻塞关系连上——issue 要先有编号才能互相引用。连完边，这批 ticket 自然分成 frontier 和被阻塞的两类。
 
-## 5. 派调查劳动力，收回执
+## 5. 派调查 subagent，收报告
 
-刚建的每一张 `research` 类 ticket，各派一个劳动力去查，按 `/mmw-research`。它们只查事实、互不依赖，可以并行。
+刚建的每一张 `research` 类 ticket，各派一个 subagent 去查，按 `/mmw-research`。它们只查事实、互不依赖，可以并行。
 
-**回执收齐、复核完、写进 ticket 评论，这一步才算完。** 复核过的事实写进对应 ticket 的评论，没查清的另起一节列出来。查清了的那张 ticket 当场关掉，并往 map 的 `Decisions so far` 追加一行。
+**报告收齐、验证完、写进 ticket 评论，这一步才算完。** 验证过的事实写进对应 ticket 的评论，没查清的另起一节列出来。查清了的那张 ticket 当场关掉，并往 map 的 `Decisions so far` 追加一行。
 
 ## 6. 提交
 
@@ -41,6 +41,6 @@
 | 情况 | 下一步 |
 | --- | --- |
 | 第 2 步横扫下来，没有说不清楚的部分 | **移交**：调起 `/mmw-to-spec`，把用户原话原样传过去。一份 spec 就说得完的事不需要 map |
-| map 建好，第一批 ticket 建好，research 回执已经写进 ticket 评论，改动已提交 | **停**：报 map 已经建好、frontier 上有几张可以认领，并说明每认领一条链要另开一个会话 |
+| map 建好，第一批 ticket 建好，research 报告已经写进 ticket 评论，改动已提交 | **停**：报 map 已经建好、frontier 上有几张可以认领，并说明每认领一条链要另开一个会话 |
 
 停下来时报三件事：这张 map 的 destination 是什么、frontier 上现在有哪几张 ticket（用名字，不用编号）、他要开几个会话去认领。
