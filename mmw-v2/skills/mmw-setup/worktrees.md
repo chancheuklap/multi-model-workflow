@@ -73,7 +73,7 @@ git commit --allow-empty -m "<slug>" -m "<用户交代这件事时的原话>"
 
 ## 目录用到才建
 
-新 worktree 里不预先铺 `docs/specs/`、`docs/plans/`、`.reviews/`、`.dispatch/` 这些目录。真要写第一个文件时 `mkdir -p` 一下就够了。
+新 worktree 里不预先铺 `docs/specs/`、`docs/plans/`、`docs/prototypes/`、`.reviews/`、`.dispatch/` 这些目录。真要写第一个文件时 `mkdir -p` 一下就够了。
 
 空目录是噪音：它会让人以为该有内容却没有，也会让技能误判前一步是不是跑过。`.gitignore` 该挡的在 `/mmw-setup` 时已经一次挡掉，不需要每个 worktree 再铺一份脚手架。
 

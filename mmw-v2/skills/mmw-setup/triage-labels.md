@@ -28,7 +28,7 @@
 | --- | --- |
 | `wayfinder:map` | 那张 map 本身。含义是「这是一张 map，不是一件待办」 |
 | `wayfinder:grilling` | decision ticket，靠跟人对谈解掉。这是默认类型 |
-| `wayfinder:prototype` | decision ticket，要先做一个粗糙版本让人有对象可评价 |
+| `wayfinder:prototype` | decision ticket，要先跑 `/mmw-prototype` 做一个粗糙版本让人有对象可评价 |
 | `wayfinder:research` | decision ticket，派子代理去查一条事实就能解掉 |
 | `wayfinder:task` | decision ticket，某个决定做得出来之前必须先完成的手工操作 |
 

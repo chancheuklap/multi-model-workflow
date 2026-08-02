@@ -32,7 +32,7 @@
     "./skills/mmw-tdd",
     "./skills/mmw-triage",
     "./skills/mmw-wayfinder",
-    "./skills/prototype",
+    "./skills/mmw-prototype",
     "./skills/qa",
     "./skills/request-refactor-plan",
     "./skills/research",
