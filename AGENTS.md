@@ -53,6 +53,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - **Cursor**：源码只改 `cursor-plugin/`。本机跑 `bash cursor-plugin/scripts/install-local-surface.sh` 复制到 `~/.cursor/{agents,skills,commands,rules,hooks}`，合并 `hooks.json` / `mcp.json`，引擎树落到 `~/.cursor/multi-model-workflow-engine/`（可用 `MMW_ENGINE_ROOT`）。花名册 frontmatter（`model` 含 `id[effort=…]`、`is_background`）生效；Task 只传 `subagent_type`（+prompt/background）。细合同见 `cursor-plugin/skills/orchestrate/references/control/runtime-contract.md`。改完须再 install + Reload；运行时不以 `plugins/local` 为发现面。
 - 不用旧残留、兼容目录或静默默认值掩盖错误；脚本异常须非零退出或结构化告警。
 - **mmw-v2 的每份技能以一节「下一步」收尾**，形式固定成两列表（情况、下一步），动词只用「自己继续」「移交」「停」三个。只有两种情况允许停：agent 开不了新会话，或者事情要人拍板；其余一律自己接着做。
+- **审查方法论只有一份**，在 `mmw-reviewer`，审者读它，主线程不读也不转述。改审查判据只改那里；`mmw-review` 只管编排（哪一道、几路、谁去审、备什么材料）。审者靠装载读到它（软链进无头那一家自己的技能目录），不靠把方法论粘进提示词。
 - **技能里提到另一个技能一律写 `` `/技能名` ``**，跟上游合集一致，不分调起还是引用方法。同名的分支、`wayfinder:` 标签值、文件路径不加斜杠。
 
 ## Git 与安全
@@ -100,11 +101,11 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 ### 搬迁批次
 
-搬迁已完成：Matt 那边 18 个技能搬进 `mmw-v2/skills/`，除自写的 `mmw-setup` 外一律原样复制自 vendor。加上自写的 `mmw-dispatching-agents`、`mmw-judging-agent-output`、`mmw-start`，以及顺手补搬的 11 个上游技能，manifest 现在登记 29 个。
+搬迁已完成：Matt 那边 18 个技能搬进 `mmw-v2/skills/`，除自写的 `mmw-setup` 外一律原样复制自 vendor。加上自写的 `mmw-dispatching-agents`、`mmw-judging-agent-output`、`mmw-start`，以及顺手补搬的 11 个上游技能，manifest 现在登记 30 个。
 
 **触发方式**：Matt 大部分技能是人打名字才走（`disable-model-invocation: true`）。我们的入口是 `mmw-start`，它要能把活直接交给下游技能，所以链路上的技能一律改成模型可触发，description 按 `writing-great-skills` 的写法改成触发式。已经改过的技能正文一并译成中文，合集通用术语（spec、ticket、seam、frontier、worktree、tight、red、fog of war、destination、map、HITL / AFK、ready-for-agent）保持英文。
 
-**`mmw-` 前缀标记所有权。** 正文真正被我们改造过的技能，目录名和 `name` 一律加 `mmw-` 前缀，跟原样搬进来的上游技能区分开。现在有 13 个：`mmw-start`、`mmw-setup`、`mmw-dispatching-agents`、`mmw-judging-agent-output`、`mmw-grilling`、`mmw-triage`、`mmw-wayfinder`、`mmw-to-spec`、`mmw-implement`、`mmw-tdd`、`mmw-code-review`、`mmw-diagnosing-bugs`、`mmw-prototype`。`to-tickets` 目前只改过一两行指向和判据，还不算改造，等真正接进我们的工作流再改名。改名要同步 manifest 和全仓引用。
+**`mmw-` 前缀标记所有权。** 正文真正被我们改造过的技能，目录名和 `name` 一律加 `mmw-` 前缀，跟原样搬进来的上游技能区分开。现在有 14 个：`mmw-start`、`mmw-setup`、`mmw-dispatching-agents`、`mmw-judging-agent-output`、`mmw-grilling`、`mmw-triage`、`mmw-wayfinder`、`mmw-to-spec`、`mmw-implement`、`mmw-tdd`、`mmw-review`、`mmw-reviewer`、`mmw-diagnosing-bugs`、`mmw-prototype`。`to-tickets` 目前只改过一两行指向和判据，还不算改造，等真正接进我们的工作流再改名。改名要同步 manifest 和全仓引用。
 
 **不留只做跳转的空壳。** 一个技能正文只是「去跑另外那个技能」，就把它的内容并进被它调的那个，然后删掉它。已删四个：`grill-with-docs`（并进 `mmw-grilling`）、`ask-matt`（路由判据并进 `mmw-start`）、`batch-grill-me`、`claude-handoff`。
 
@@ -119,7 +120,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | 2 | `mmw-to-spec` | 测试 seam 判据（用旧 plugin 那套测试规矩）、`/approve-design` 人闸、派 Codex 审这份设计 | 已落地 |
 | 3 | `to-tickets` | 实施计划塞在哪：切片 issue 正文还是单独文档 | 待做 |
 | 4 | `mmw-implement` | 换成 worktree + 派 Codex 无头写码 | 已落地 |
-| 5 | `mmw-code-review` | 接亲验裁判，把 Matt 明确不做的判断补上 | 已落地 |
+| 5 | `mmw-review` 与 `mmw-reviewer` | 审查抽成一层：编排与纪律分开，八路视角，方法论装给审者不粘提示词 | 已落地 |
 
 ### 已落地
 
@@ -129,7 +130,8 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | --- | --- | --- |
 | `skills/mmw-dispatching-agents` | 两个后端（Claude sub-agent、Codex 无头）、模型档一律从 `docs/agents/models.md` 取、简报自包含 | 实跑派出过审者和写码工人各一轮 |
 | `skills/mmw-judging-agent-output` | 采信段（每条承重断言要有主线程能自己复核的锚）加处置段（五个英文处置词） | 实跑八条 findings 逐条坐实，其中一条审者报的行号真的差了一行 |
-| `skills/mmw-code-review` | Matt 两轴之外补第三轴 Correctness，跨家派发，findings 原样落盘再裁判 | 实跑一轮真 diff，Claude 和 Codex 各自捞到对方没看见的一条 |
+| `skills/mmw-review` | 主线程侧的编排：六道审各在哪、几路、谁配谁、每一路备齐什么材料、落盘命名、复审。③ 逐份验收与 ④ 合同门不派审者，判据也写在这里 | 未实跑 |
+| `skills/mmw-reviewer` | 审者侧的方法论单源：共享纪律加八路视角。标准原样搬旧 plugin，只补 Matt 那一路编码规范审。砍掉严重度与置信度，保留 `needs-redirection`、`needs-context` 两个出口 | 未实跑；装载脚本四种情形实测通过 |
 | `skills/mmw-implement` | 主线程不写码，一张 ticket 派一个 Codex 无头工人；主线程只做准备简报、派发、验收、起审 | 实跑一个真工人在 throwaway 仓库里做完一张 ticket，测试全绿 |
 | `skills/mmw-tdd` | 测试要求分三层：怎么写（本技能加 `tests.md`、`mocking.md`）、够不够格进仓库（`quality-bar.md`）、这个仓库的事实（目标仓库根 `TESTING.md`，由 `mmw-setup` 铺骨架）。seam 由 spec 钉死，因为无头工人问不到人 | 随 `mmw-implement` 一起跑过 |
 | `skills/mmw-start` | 七条路由判据（含「报了一张 map 的编号」）；worktree 建错了重建，所以报一句就走不等确认；`resuming.md` 靠查产物报进度，不设状态文件 | 未实跑 |
@@ -140,7 +142,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | `skills/mmw-prototype` | Matt 那份是一次性探路、做完扔废弃分支，旧 plugin 那份是设计内层循环、产物是正式资产。取旧的地位加 Matt 的手法：产物落 `docs/prototypes/<slug>/` 且不随 spec 转 Wiki 删除，一轮只验一个能判真假的问题，走查是人闸，界面变体一个变体派一个劳动力防趋同，`capture.md` 单独收回灌 | 未实跑 |
 | `skills/mmw-to-spec` | 六条入口路径各自要取齐哪些上游产物写成一张表；seam 一节的形状定死成清单，因为下游直接读它；模板吸收旧 plugin 的现状引用、失败路径、视觉契约、还没拍板的事；派一个 Codex 审这份 spec；用户点头之后才发布 issue 并打 `ready-for-agent`，这个动作就是人闸的凭据 | 未实跑 |
 
-十三个 `mmw-` 技能的 `## 下一步` 表已全量落地，形式一致：两列（情况、下一步），动词只有「自己继续」「移交」「停」。`mmw-tdd`、`mmw-code-review` 及各技能下的 reference 全部补译成中文（派给审者和工人的提示词也是中文，模板里的结构字段名保持英文），全仓用词已对齐（决策改为决定，坐实改为复核，雾改为 fog of war，map 与 spec 的模板节名一律用英文原文）。上游原样搬进来的技能不加这一节——`research`、`domain-modeling` 做完就是做完，没有会带跑我们流程的出口。
+十四个 `mmw-` 技能里，十三个有 `## 下一步` 表（`mmw-reviewer` 没有——它是审者读的方法论，不是流程技能），形式一致，形式一致：两列（情况、下一步），动词只有「自己继续」「移交」「停」。`mmw-tdd` 及各技能下的 reference 全部补译成中文（派给审者和工人的提示词也是中文，模板里的结构字段名保持英文），全仓用词已对齐（决策改为决定，坐实改为复核，雾改为 fog of war，map 与 spec 的模板节名一律用英文原文）。上游原样搬进来的技能不加这一节——`research`、`domain-modeling` 做完就是做完，没有会带跑我们流程的出口。
 
 断点续传不用状态文件：每一步都有一件落在 git 或 GitHub 上的产物对应它（分支上第一个空提交记用户原话、`docs/specs/<slug>/`、子 issue 的开关与 assignee、`.reviews/`、Wiki 页），查产物就知道走到哪。旧 plugin 需要状态文件是因为它有阶段引擎要记 phase 变量，新架构没有引擎。全流程唯一那道人闸也有产物：`mmw-to-spec` 只在用户点头之后才发布 spec issue 并打 `ready-for-agent`，issue 在且带这个标签就是过门的凭据。
 
@@ -151,6 +153,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | 要定什么 | 当时的背景与张力 | 旧实现位置（背景线索） |
 | --- | --- | --- |
 | `/mmw-setup` 要不要自动跑 | 现在得手敲，用户忘了跑配置就全空、技能读不到任何仓库事实。想用 SessionStart 钩子自动铺，但那要接 `hooks/hooks.json`，属于插件机械层，等第 2 层能力定形后一起做 | `plugin/hooks/` |
+| ⑥ 合并集成审的起点是断的 | `mmw-review` 写明了它什么时候起、派谁、七个角度看什么，但 `resolving-merge-conflicts` 还是上游原样，不知道要起这一道。它的改造在纪律层那一行里 | `plugin/skills/worktree-review/references/merge.md` |
 | 纪律层剩下四个技能的适配 | 八个里 `mmw-tdd`、`mmw-diagnosing-bugs`、`mmw-grilling`、`mmw-prototype` 已经改完，其余四个还是原样搬进来的，一个字没改。每个都有旧 plugin 里的自有加法要合（见右栏） | `research` ← `investigate-internal` / `investigate-external`；`resolving-merge-conflicts` ← `scenario/merge.md`；`domain-modeling` ← 核 ADR 编号约定；`codebase-design` ← 无 |
 | 补搬那 11 个上游技能留不留 | `qa`、`wizard`、`to-questionnaire`、`request-refactor-plan`、`design-an-interface`、`setup-ts-deep-modules`、`git-guardrails-claude-code`、`setup-pre-commit` 等来自上游 `deprecated/`、`in-progress/`、`misc/`，不在我们的主干上，但也不是空壳。留着占 description 的常驻成本，删了以后要用再搬回来 | 无 |
 | 任务隔离要不要脚本 | 建树、进树、打空提交这三步已经写进 `mmw-start` 的正文，主线程直接跑命令就够，暂时不做脚本。清理那一步要用户点头，本来也不适合脚本化 | `plugin/scripts/prepare.sh` 的 task new / cleanup |

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Reviewer"
+  short_description: "Review discipline, read by dispatched reviewers"
+policy:
+  allow_implicit_invocation: false
