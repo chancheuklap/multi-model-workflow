@@ -25,7 +25,6 @@
     "./skills/mmw-dispatching-agents",
     "./skills/mmw-grilling",
     "./skills/mmw-implement",
-    "./skills/mmw-judging-agent-output",
     "./skills/mmw-planner",
     "./skills/mmw-prototype",
     "./skills/mmw-review",
@@ -36,6 +35,7 @@
     "./skills/mmw-to-plan",
     "./skills/mmw-to-spec",
     "./skills/mmw-triage",
+    "./skills/mmw-verifying-agent-output",
     "./skills/mmw-wayfinder",
     "./skills/qa",
     "./skills/request-refactor-plan",
@@ -43,7 +43,7 @@
     "./skills/setup-pre-commit",
     "./skills/setup-ts-deep-modules",
     "./skills/to-questionnaire",
-    "./skills/to-tickets",
+    "./skills/mmw-to-tickets",
     "./skills/wizard",
     "./skills/writing-great-skills"
   ]

@@ -19,12 +19,12 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 | --- | --- | --- |
 | 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾 | 按 `docs/agents/worktrees.md` 建一个或进去 |
 | 这次需求写明了 seam | 读 spec 的 seam 一节，或读 agent brief 的 `**Test seam:**` 一栏 | spec 缺就回 `/mmw-to-spec` 第 3 步，brief 缺就回 `/mmw-triage` 补——工人问不到人，seam 只能由人先谈定 |
-| ticket 存在 | 按 `docs/agents/issue-tracker.md` 查 | 先跑 `/to-tickets` |
+| ticket 存在 | 按 `docs/agents/issue-tracker.md` 查 | 先跑 `/mmw-to-tickets` |
 | 这张 ticket 的 plan 写好了、过了 ② plan 审 | `docs/plans/<slug>/` 下有对应那一份 | 先跑 `/mmw-to-plan`。走 agent brief 那条路的需求没有 plan 这一层，这一行不适用 |
 
 ### 2. 取下一张 ticket
 
-在 **frontier** 上取：阻塞它的 ticket 全部关闭、没有 assignee、打着 `ready-for-agent` 的那些，按 `/to-tickets` 发布的顺序取。开工前先 claim 这张 ticket，两个会话同时开工靠它挡住。
+在 **frontier** 上取：阻塞它的 ticket 全部关闭、没有 assignee、打着 `ready-for-agent` 的那些，按 `/mmw-to-tickets` 发布的顺序取。开工前先 claim 这张 ticket，两个会话同时开工靠它挡住。
 
 一个 worktree 一次做一张 ticket，一个 worktree 上只站一个工人。frontier 确实很宽、用户又要并行推进，就按 `docs/agents/worktrees.md` 从当前分支给每张 ticket 各分一个 worktree。
 
@@ -44,17 +44,19 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 
 ### 4. 派发
 
-按 `/mmw-dispatching-agents` 派。用可写 sandbox，并且首次派发之前工作区必须干净，否则你分不清哪些改动是工人的。模型档从 `docs/agents/models.md` 取——ticket 碰计费、权限或数据迁移时用高风险档。这个判断归你，不归工人。
+**先记下当前提交号**（`git rev-parse HEAD`）。验收读 diff、每一轮返工比的范围，都拿它做参照。
+
+然后按 `/mmw-dispatching-agents` 派。用可写 sandbox，并且首次派发之前工作区必须干净，否则你分不清哪些改动是工人的。模型档从 `docs/agents/models.md` 取——ticket 碰计费、权限或数据迁移时用高风险档。这个判断归你，不归工人。
 
 ### 5. 验收：亲手核三关
 
-按 `/mmw-review` 的 **③ 逐份验收**，三关都过才允许合并回任务分支：做漏没有、测试达不达标、有没有偏离。判据在那个技能里，本文不重复。回执按 `/mmw-judging-agent-output` 采信——完工报告是证据不是结论。
+按 `/mmw-review` 的 **③ 逐份验收**，三关都过才允许合并回任务分支：做漏没有、测试达不达标、有没有偏离。判据和三关不过时的返工曲线都在那个技能里。回执按 `/mmw-verifying-agent-output` 采信——完工报告是证据不是结论，它交回的四档怎么读也在那里。
 
 具体到一个工人交回来时至少要做的：把它说跑过的测试再跑一遍读输出、读它产出的 diff、确认 commit 存在并引用了这张 ticket。
 
-测试仍然是红的、报告却说完成，那是一次失败的运行，不是一张做完的 ticket。把你看到的发回去，续接同一个工人会话——上下文还在它那里。
+测试仍然是红的、报告却说完成，那是一次失败的运行，不是一张做完的 ticket。把你看到的发回去，按返工曲线接着走。
 
-工人自己停下的，先读它的尝试记录再做别的。工人卡在 ticket 与代码互相矛盾上，它报告的是 spec 的问题，不是它自己的问题；这件事交给用户，不是换一个工人再派一遍。
+工人卡在 ticket 与代码互相矛盾上，它报告的是 spec 的问题，不是它自己的问题；这件事交给用户，不是换一个工人再派一遍。
 
 三关都过就关闭这张 ticket，取下一张。
 
@@ -83,4 +85,4 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 | 审完没有采信项，或者修复已经复审通过 | **停**：用业务语言交代现在什么能用了、什么证明它能用、什么搁置了、搁到哪里。分支可以合并了，合并和清理 worktree 由用户批准 |
 | 第 1 步三项前置有一项不满足 | **停**：说清是哪一项。缺 seam 的按那张表回 `/mmw-to-spec` 第 3 步或 `/mmw-triage`，不要自己替用户定 seam |
 | 工人卡在 ticket 与代码互相矛盾上 | **停**：它报告的是 spec 的问题，不是它自己的问题。把矛盾交给用户，不要换一个工人再派一遍 |
-| 工人自己停下，但不是因为矛盾 | **自己继续**：读它的尝试记录，把你看到的发回去，续接同一个工人会话——上下文还在它那里 |
+| 工人交回的不是「完成」，也不是因为矛盾 | **自己继续**：按 `/mmw-verifying-agent-output` 的四档读它交回的东西，再按返工曲线接着走 |

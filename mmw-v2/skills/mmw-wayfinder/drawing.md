@@ -30,7 +30,7 @@
 
 刚建的每一张 `research` 类 ticket，各派一个子代理去查（按 `/mmw-dispatching-agents`）。它们只查事实、互不依赖，可以并行。
 
-**回执收齐、裁判完、写进 ticket 评论，这一步才算完。** 逐条按 `/mmw-judging-agent-output` 裁判：复核过的事实写进对应 ticket 的评论，没查清的另起一节列出来。查清了的那张 ticket 当场关掉，并往 map 的 `Decisions so far` 追加一行。
+**回执收齐、复核完、写进 ticket 评论，这一步才算完。** 逐条按 `/mmw-verifying-agent-output` 复核：复核过的事实写进对应 ticket 的评论，没查清的另起一节列出来。查清了的那张 ticket 当场关掉，并往 map 的 `Decisions so far` 追加一行。
 
 ## 6. 提交
 

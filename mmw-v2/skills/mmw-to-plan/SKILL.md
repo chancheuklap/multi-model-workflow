@@ -15,13 +15,13 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 | --- | --- |
 | 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾；不在就按 `docs/agents/worktrees.md` 建一个或进去 |
 | spec 已定稿并过了人闸 | `docs/specs/<slug>/<slug>.md` 存在，对应的 spec issue 已发布并带着 `ready-for-agent` |
-| ticket 已发布 | 按 `docs/agents/issue-tracker.md` 取得到这批 ticket；取不到先跑 `/to-tickets` |
+| ticket 已发布 | 按 `docs/agents/issue-tracker.md` 取得到这批 ticket；取不到先跑 `/mmw-to-tickets` |
 
 ## 1. 定 plan 清单
 
 读 spec，取出目标、architecture、`## Contract Boundaries` 一节、seam 清单。**只读，作为派发时给工人的上下文**，不在这里展开写作。
 
-取全部 ticket，读出各自要做什么和被谁阻塞，定下 plan 清单：**一张 ticket 一份 plan 一个工人**。落点是 `docs/plans/<slug>/<两位编号>-<ticket-slug>.md`，编号按依赖顺序，被阻塞的排在阻塞它的后面。
+取全部 ticket，读出各自要做什么和被谁阻塞，定下 plan 清单：**一张 ticket 一份 plan 一个工人**。落点就是每张 ticket 正文 `## Plan` 一节写着的那个路径（`docs/plans/<slug>/<两位编号>-<ticket-slug>.md`），编号照抄，不自己重排——工人和后面的写码工人都按那个路径找。ticket 正文没有这一节，按依赖顺序自己编号，被阻塞的排在阻塞它的后面。
 
 **轻量核现状**：用检索确认 spec 涉及的落点目录和关键路径真实存在，够你判断派几个工人、各管哪张 ticket 就行。深度探代码由工人各自做，你不抢着探全。
 
@@ -96,6 +96,6 @@ plan 文档和 spec 新增那一节分两次提交。工人不提交，改动一
 | 审出了采信的 findings | **自己继续**：续接对应工人改，改完回第 6 步复审 |
 | 第 4 步某个工人交回 `needs-context` 或 `needs-repair` | **自己继续**：按它说的补上下文或修 spec，续接同一个工人会话——上下文还在它那里 |
 | 第 5 步发现工人认领了别人归属的文件，或者提供方跟消费方对不上 | **自己继续**：续接对应工人修，不要自己动它的 plan |
-| 前置三项有一项不满足 | **停**：说清是哪一项。缺 ticket 的回 `/to-tickets`，缺 spec 的回 `/mmw-to-spec` |
+| 前置三项有一项不满足 | **停**：说清是哪一项。缺 ticket 的回 `/mmw-to-tickets`，缺 spec 的回 `/mmw-to-spec` |
 | 工人交回 `needs-redirection` | **停**：它探代码撞破了 spec 的方向。把它说的哪里可疑、建议怎么重新框定原样交给用户，不要自己改 spec 绕过去 |
 | 工人交回 `blocked`，或者同一份 plan 返修三轮还没过 | **停**：报是哪一份、卡在哪里、三轮各自改了什么，让用户定 |
