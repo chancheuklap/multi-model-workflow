@@ -25,7 +25,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 | 一个 effort，还不知道要拆成哪几份 spec，或者挂了 `big` | **移交**：`/mmw-wayfinder` |
 | 想先看看某个界面长什么样，或者不确定一套状态模型对不对 | **移交**：`/mmw-prototype` |
 | 一个新需求，或对已有需求的改进 | **移交**：`/mmw-grilling` |
-| 没有具体需求，只说想让代码库更好维护 | **移交**：`/improve-codebase-architecture` |
+| 没有具体需求，只说想让代码库更好维护 | **移交**：`/mmw-improve-codebase-architecture`。要动哪里还没定，跳过第 2、3 步 |
 | 几条并行分支要合到一起，或者合并冲突要解 | **移交**：`/mmw-review` 的 ⑥ 合并集成审。这个视角不建任务 worktree，跳过第 2、3 步 |
 
 三种情况都通向 `/mmw-wayfinder`，但进去之后走的不是同一条路：报了 map 编号或某条 decision ticket 编号的，是回来认领一条链；报了一个还不知道要拆成几份 spec 的 effort，是要建一张新 map。判定归那个技能，你只要把用户原话原样传过去。
@@ -40,9 +40,12 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 ## 2. 定 slug
 
-形状是 `<类型>-<短语>`，例如 `feat-phone-login`、`fix-refund-rounding`。类型取自第 1 步的判定结果：走 `/mmw-diagnosing-bugs` 的用 `fix`，新需求和先做原型的用 `feat`，`/improve-codebase-architecture` 用 `refactor`。完整规则在 `docs/agents/worktrees.md`。
+形状是 `<类型>-<短语>`，例如 `feat-phone-login`、`fix-refund-rounding`。类型取自第 1 步的判定结果：走 `/mmw-diagnosing-bugs` 的用 `fix`，新需求和先做原型的用 `feat`。完整规则在 `docs/agents/worktrees.md`。
 
-**用户报的是一张已有 map 的编号或链接，跳过这一步。** 这个会话要做的是认领 map 上的一条链，那棵 worktree 叫什么名字，要等读完 map、选中链首 ticket 才知道，由 `/mmw-wayfinder` 自己定。
+**两种情况跳过这一步，slug 留给下游技能自己定**——它们此刻都还答不出短语该叫什么：
+
+- 用户报的是一张已有 map 的编号或链接。这个会话要做的是认领 map 上的一条链，那棵 worktree 叫什么名字，要等读完 map、选中链首 ticket 才知道，由 `/mmw-wayfinder` 定。
+- 判定走 `/mmw-improve-codebase-architecture`。他只说了想让代码库更好维护，要动哪一块还没定，等它扫完、用户挑中一个候选才知道，由它定，类型固定用 `refactor`。
 
 ## 3. 建树、进去、记原话
 
@@ -52,7 +55,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 worktree 是分支的载体，建错了重建即可，不用停下来等用户确认。报一句你定的 slug 和你要走的路线，然后接着做——他不同意会当场打断你。
 
-**用户报的是一张已有 map 的编号或链接，同样跳过这一步**，留在主仓库直接移交。`/mmw-wayfinder` 会先在主仓库读完 map 再建它自己那棵 worktree。一个会话只能进一次 worktree，在这里建了树，它就没法再进自己那棵。
+**上一步跳过的那两种情况，这一步同样跳过**，留在主仓库直接移交。`/mmw-wayfinder` 会先在主仓库读完 map，再建它自己那棵；`/mmw-improve-codebase-architecture` 扫描阶段全程只读，等用户挑中候选才建。一个会话只能进一次 worktree，在这里替它们建了树，它们就没法再进自己那棵。
 
 ## 下一步
 
