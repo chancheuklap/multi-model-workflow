@@ -16,11 +16,15 @@
   ],
   "skills": [
     "./skills/ask-matt",
+    "./skills/batch-grill-me",
+    "./skills/claude-handoff",
     "./skills/code-review",
     "./skills/codebase-design",
+    "./skills/design-an-interface",
     "./skills/diagnosing-bugs",
     "./skills/dispatching-agents",
     "./skills/domain-modeling",
+    "./skills/git-guardrails-claude-code",
     "./skills/grill-with-docs",
     "./skills/grilling",
     "./skills/handoff",
@@ -28,13 +32,20 @@
     "./skills/improve-codebase-architecture",
     "./skills/judging-agent-output",
     "./skills/prototype",
+    "./skills/qa",
+    "./skills/request-refactor-plan",
     "./skills/research",
     "./skills/resolving-merge-conflicts",
     "./skills/setup",
+    "./skills/setup-pre-commit",
+    "./skills/setup-ts-deep-modules",
     "./skills/tdd",
+    "./skills/to-questionnaire",
     "./skills/to-spec",
     "./skills/to-tickets",
     "./skills/triage",
-    "./skills/wayfinder"
+    "./skills/wayfinder",
+    "./skills/wizard",
+    "./skills/writing-great-skills"
   ]
 }
