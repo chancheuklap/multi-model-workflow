@@ -13,7 +13,7 @@ frontier 上一张 ticket 都不剩了。收尾就是把这张 map 结束掉：�
 
 这一步要用户拍板：agent 判得出一个条目说不说得清楚，判不出它对用户重不重要。
 
-用户点出会挡路的，就把它建成新的 decision ticket、连好阻塞关系，然后停——见文末的下一步表。用户没点出来的原样留在 `Not yet specified` 一节里，跟着 map issue 一起关掉。
+用户点出会挡路的，就把它建成新的 decision ticket、连好阻塞关系，然后停——处置见本文「下一步」一节。用户没点出来的原样留在 `Not yet specified` 一节里，跟着 map issue 一起关掉。
 
 ## 2. 决定各自归位
 

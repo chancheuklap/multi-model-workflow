@@ -1,6 +1,6 @@
 # 工人共用 brief
 
-粘进每一个写码工人的提示词，后面跟 TDD 那几份文件和这张 ticket。不要改写它。
+粘进每一个写码工人的提示词，后面跟 `mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md` 四份全文和这张 ticket。不要改写它。
 
 ---
 
@@ -22,7 +22,7 @@
 
 ## 循环
 
-照下面粘给你的 TDD 那几份做：一次一片竖切，先写失败的测试，确认它真的失败，写最小实现，确认它真的通过。边做边跑类型检查，边做边跑受影响的测试文件。整套测试在最后跑一次。
+照下面粘给你的 `mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md` 做：一次一片竖切，先写失败的测试，确认它真的失败，写最小实现，确认它真的通过。边做边跑类型检查，边做边跑受影响的测试文件。整套测试在最后跑一次。
 
 ## 边界
 

@@ -14,10 +14,10 @@ issue tracker 和标签词汇应该已经给你了，`docs/agents/issue-tracker.
 | 从哪来 | 怎么认出来 | 必须取齐的 |
 | --- | --- | --- |
 | `/mmw-grilling` 谈定 | 这次对话里刚谈完。`/mmw-wayfinder` 横扫下来判定不需要 map 的也走这一行——它在那之前已经 grill 过两轮 | 这一轮写进 `CONTEXT.md` 的术语、这一轮落成的 ADR、对话里达成的每一条共识 |
-| `/mmw-improve-codebase-architecture` 挑中的候选谈定 | slug 是 `refactor-` 开头，那个空提交里记着一张候选卡片的标题 | 上一行那三样，外加**那张卡片**——它的文件清单是第 2 步探仓库的起点，它的 Problem 和 before/after 直接进 spec 的现状与目标状态。这次的外部行为不变，所以 `Solution` 写的是结构怎么变、谁的调用方式跟着变 |
+| `/mmw-improve-codebase-architecture` 挑中的候选谈定 | slug 是 `refactor-` 开头，那个空提交里记着一张候选卡片的标题 | 这一轮写进 `CONTEXT.md` 的术语、这一轮落成的 ADR、对话里达成的每一条共识，外加**那张卡片**——它的文件清单是第 2 步探仓库的起点，它的 Problem 和 before/after 直接进 spec 的现状与目标状态。这次的外部行为不变，所以 `Solution` 写的是结构怎么变、谁的调用方式跟着变 |
 | `/mmw-prototype` 走查完 | `docs/prototypes/<slug>/` 存在 | 那份 `README.md`——回填结论在里面等你取；每一轮的**选中的那一版**；界面那一侧的视觉契约 |
-| `/mmw-wayfinder` 切出的一份 spec | 有一张 issue 挂在带 `wayfinder:map` 标签的 issue 底下，自己不带任何 `wayfinder:` 标签 | 那张 map 的正文三节，映射见第 4 步；这个视角新增的 `docs/adr/` 与 `.out-of-scope/` |
-| `/mmw-triage` 判出这件事碰多处 | 那张 issue 上有一条 agent brief 评论 | 那份 brief 全文，尤其 `Test seam` 那一栏和它第 3 步验过的断言 |
+| `/mmw-wayfinder` 切出的一份 spec | 有一张 issue 挂在带 `wayfinder:map` 标签的 issue 底下，自己不带任何 `wayfinder:` 标签 | 那张 map 的 `Destination`、`Decisions so far`、`Out of scope` 三节，各自落进 spec 哪里见第 4 步；这个视角新增的 `docs/adr/` 与 `.out-of-scope/` |
+| `/mmw-triage` 判出这件事碰多处 | 那张 issue 上有一条 agent brief 评论 | 那份 brief 全文，尤其 `Test seam` 那一栏，以及 `/mmw-triage` 的「分诊一张具体的 issue 或 PR」第 3 步验过的断言 |
 | `/mmw-implement` 回来补 seam | `docs/specs/<slug>/` 里已经有一份 spec | 现有那份 spec。**只补 seam 一节，不重写**——从第 2 步接着走，你得先知道现有的 seam 在哪 |
 | 用户直接叫你 | 上面都不成立 | 没有上游产物。先确认这件事真的谈定了，还在讨论阶段就先移交 `/mmw-grilling` |
 
@@ -44,7 +44,7 @@ issue tracker 和标签词汇应该已经给你了，`docs/agents/issue-tracker.
 
 从 `/mmw-triage` 进来的，那份 brief 的 `Test seam` 一栏是只碰一处时的初判。碰多处就要在它基础上扩，并说明为什么一个不够。
 
-某个 seam 定不下来就停——见下一步表。
+某个 seam 定不下来就停——处置见本文「下一步」一节。
 
 **从 `/mmw-implement` 回来补 seam 的**：补完这一节就跳到第 7 步，只把 seam 清单给用户看；他点头就把 spec 文件提交进分支，回 `/mmw-implement`。不重走第 6 步那一轮审，也不动那张已经发布的 issue。
 
