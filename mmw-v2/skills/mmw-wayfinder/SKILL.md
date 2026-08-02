@@ -1,5 +1,5 @@
 ---
-name: wayfinder
+name: mmw-wayfinder
 description: 把一个 effort——大到要拆成好几份 spec 才做得完——规划成 issue tracker 上一张共享的 map，上面挂 decision ticket，一次解一张，直到通往 destination 的路清楚为止。用户带着一个很大、很松、暂时看不到边界的想法过来，或者报出一张已有的 map 要接着往下走时用它。
 ---
 
@@ -21,7 +21,7 @@ map 是本仓库 issue tracker 上的一张 issue，打 `wayfinder:map` 标签�
 
 map 是一份**索引**，不是一个仓库。它列出已经做出的决策，并指向持有细节的那些 ticket；一个决策只住在一个地方——它自己那张 ticket——所以 map 从不复述它，只给一句概要再链过去。
 
-**map、它的子 ticket、阻塞关系、frontier 查询在物理上落在哪里，取决于 tracker。** issue tracker 应该已经给你了——没有就跑 `/setup`。查 tracker 那份文档的「Wayfinding operations」一节，看*本*仓库怎么表达这些东西。没有给你任何 tracker 时，退回到本地 markdown 那种 tracker。
+**map、它的子 ticket、阻塞关系、frontier 查询在物理上落在哪里，取决于 tracker。** issue tracker 应该已经给你了——没有就跑 `/mmw-setup`。查 tracker 那份文档的「Wayfinding operations」一节，看*本*仓库怎么表达这些东西。没有给你任何 tracker 时，退回到本地 markdown 那种 tracker。
 
 ### map 的正文
 
@@ -61,7 +61,7 @@ map 是一份**索引**，不是一个仓库。它列出已经做出的决策，
 <这张 ticket 要解掉的决策或调查>
 ```
 
-每张 ticket 带一个 `wayfinder:<type>` 标签，取值是 `research`、`prototype`、`grilling`、`task` 之一（见「Ticket 类型」一节）。
+每张 ticket 带一个 `wayfinder:<type>` 标签，取值是 `research`、`prototype`、`mmw-grilling`、`task` 之一（见「Ticket 类型」一节）。
 
 开工前先把 ticket 指派给驱动这张 map 的开发者来 **claim** 它，**在做任何事情之前指派**，这样并行跑的另一路会跳过它。那个 assignee *就是* claim：一张 open 且没有 assignee 的 ticket 就是没被 claim 的。
 
@@ -75,7 +75,7 @@ map 是一份**索引**，不是一个仓库。它列出已经做出的决策，
 
 - **Research**（AFK）：读文档、第三方 API，或者知识库这类本地资源，把某个决策在等的一条事实挖出来。由一个 `/research` **subagent** 解掉。当前工作目录之外的知识才用得上它。
 - **Prototype**（HITL）：做一个成本低、粗糙、具体的东西，让人有对象可以评价，把讨论的保真度抬上去——一份提纲、一个粗版本、一个桩，或者用 `/prototype` 技能写出界面／逻辑代码。把这个原型作为资产链到 issue 上。「它该长什么样」或者「它该怎么表现」是关键问题时用它。
-- **Grilling**（HITL）：用 `/grilling` 对谈，一次一个问题。这是默认类型。
+- **Grilling**（HITL）：用 `/mmw-grilling` 对谈，一次一个问题。这是默认类型。
 - **Task**（HITL 或 AFK）：某个*决策*做得出来之前必须先完成的手工操作——没有什么要决定、要做原型或要调研的，但讨论被它挡住。注册一个服务好让它的 API 能被评判、开通权限、把数据搬过来看清它的形状。这是唯一一类*做事*而不是*决策*的 ticket——它凭解除对某个决策的阻塞立足，不是凭交付 destination。agent 能自己完成就自己完成（AFK）；完成不了就交给人一份精确的清单（HITL）。操作完成就算解掉；答案里记下做了什么，以及后面 ticket 要依赖的那些结果事实（凭证放在哪、新的 URL、行数）。
 
 ## Fog of war
@@ -107,7 +107,7 @@ fog of war 只会*朝着* destination 聚集。destination 定住了范围，所
 
 用户带着一个还很松的想法来。
 
-1. **给 destination 命名。** 跑一场 `/grilling`，把这张 map 要找的东西钉死——那份 spec、那个决策或那次改动。destination 定住范围，所以它第一个定下来。
+1. **给 destination 命名。** 跑一场 `/mmw-grilling`，把这张 map 要找的东西钉死——那份 spec、那个决策或那次改动。destination 定住范围，所以它第一个定下来。
 2. **画出 frontier。** 再 grill 一次，这次**广度优先**：在整个空间上铺开，而不是在某一条线上扎深，把还开着的决策和现在就能迈的第一步找出来。**如果这一步找不出任何 fog of war**——通往 destination 的路已经清楚，一份 spec 就说得完——那你不需要 map。停下来问用户想怎么走，通常是直接移交 `/to-spec`。
 3. **建这张 map**（打 `wayfinder:map` 标签）：Destination 和 Notes 填好，Decisions so far 留空，把 fog of war 勾进 **Not yet specified**。
 4. **把现在就能说清楚的 ticket 建成 map 的子 issue**——然后用**第二遍**把阻塞边连上（issue 要先有 id 才能互相引用）。连边把它们分成 frontier 和被阻塞的两类；还说不清楚的全部留在 **Not yet specified** 一节。
@@ -120,7 +120,7 @@ fog of war 只会*朝着* destination 聚集。destination 定住了范围，所
 
 1. 加载这张 **map**——低分辨率视图，不是每张 ticket 的正文。
 2. 挑 ticket。用户点了名就用那张；没点就按顺序取 frontier 上的第一张。**claim 它**：做任何事之前先指派给自己。
-3. 解它——**按需放大**：随时按需取任何相关的或已关掉的 ticket 的完整正文；把 `## Notes` 里点名的技能调起来。拿不准就用 `/grilling`。
+3. 解它——**按需放大**：随时按需取任何相关的或已关掉的 ticket 的完整正文；把 `## Notes` 里点名的技能调起来。拿不准就用 `/mmw-grilling`。
 4. 记录解答：把答案作为一条**结案评论**贴上去，**关掉**这张 issue，再往 map 的 Decisions so far **追加一个 context pointer**。
 5. 把新出现的 ticket 加进去（先建后连边）；这次答案让哪一块 fog of war 能说清楚了就让它毕业，并把毕业掉的那块从 **Not yet specified** 里清掉，让它只以新 ticket 的形式存在。答案要是揭示出某张 ticket——这张或别张——坐在 destination 之外，就**判它出范围**，而不是在路线上把它解掉。这个决策让 map 的其他部分作废了，就更新或删掉那些 ticket。
 

@@ -8,7 +8,7 @@ worktree 只是分支的载体，没有别的含义。它可以随便建、随�
 
 默认**一份 spec 一个 worktree**：spec 拆出的几张 ticket 全在里面按顺序做完，整体合并一次、终审一次、Wiki 写一次。spec 是原子交付单元。
 
-effort——比一份 spec 大、要好几份 spec 才做得完的那种——哪几份 spec、按什么顺序都还在雾里时，先跑 `wayfinder`（把 effort 画成一张决策 map，逐条把雾散掉的技能）。它有自己的 worktree，而且**一张 map 可能派生出好几份 spec**。这时的分叉关系是：
+effort——比一份 spec 大、要好几份 spec 才做得完的那种——哪几份 spec、按什么顺序都还在雾里时，先跑 `mmw-wayfinder`（把 effort 画成一张决策 map，逐条把雾散掉的技能）。它有自己的 worktree，而且**一张 map 可能派生出好几份 spec**。这时的分叉关系是：
 
 ```
 主线
@@ -17,7 +17,7 @@ effort——比一份 spec 大、要好几份 spec 才做得完的那种——�
       └── refund-window         ← 同上
 ```
 
-**问题没解决之前不合回主线。** spec worktree 从 `wayfinder` 分支分叉，做完合回 `wayfinder` 分支；effort 收尾时 `wayfinder` 分支才合回主线。`wayfinder` 期间写下的术语、ADR、拒掉的方向因此对所有兄弟 spec 都可见，不用提前往主线塞半成品。
+**问题没解决之前不合回主线。** spec worktree 从 `mmw-wayfinder` 分支分叉，做完合回 `mmw-wayfinder` 分支；effort 收尾时 `mmw-wayfinder` 分支才合回主线。`mmw-wayfinder` 期间写下的术语、ADR、拒掉的方向因此对所有兄弟 spec 都可见，不用提前往主线塞半成品。
 
 确实能并行的 ticket 也照这个办法从当前 worktree 的分支分叉。**分支可以嵌套，目录不嵌套**——所有 worktree 一律扁平挂在 `.worktrees/` 下。
 
@@ -75,7 +75,7 @@ git commit --allow-empty -m "<slug>" -m "<用户交代这件事时的原话>"
 
 新 worktree 里不预先铺 `docs/specs/`、`docs/plans/`、`.reviews/`、`.dispatch/` 这些目录。真要写第一个文件时 `mkdir -p` 一下就够了。
 
-空目录是噪音：它会让人以为该有内容却没有，也会让技能误判前一步是不是跑过。`.gitignore` 该挡的在 `/setup` 时已经一次挡掉，不需要每个 worktree 再铺一份脚手架。
+空目录是噪音：它会让人以为该有内容却没有，也会让技能误判前一步是不是跑过。`.gitignore` 该挡的在 `/mmw-setup` 时已经一次挡掉，不需要每个 worktree 再铺一份脚手架。
 
 ## 清理
 

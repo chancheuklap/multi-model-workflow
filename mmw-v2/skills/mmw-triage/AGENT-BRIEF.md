@@ -22,7 +22,7 @@ Describe **what** the system should do, not **how** to implement it. The agent w
 
 - **Good:** "The `SkillConfig` type should accept an optional `schedule` field of type `CronExpression`"
 - **Bad:** "Open src/types/skill.ts and add a schedule field on line 42"
-- **Good:** "When a user runs `/triage` with no arguments, they should see a summary of issues needing attention"
+- **Good:** "When a user runs `/mmw-triage` with no arguments, they should see a summary of issues needing attention"
 - **Bad:** "Add a switch statement in the main handler function"
 
 ### Complete acceptance criteria
@@ -38,7 +38,7 @@ State what is out of scope. This prevents the agent from gold-plating or making 
 
 ### Name the test seam
 
-A brief that goes to `/implement` is the whole contract a headless worker gets, and a worker cannot agree a seam with anyone. So the brief names the seam itself: the level the regression test sits at, and the behaviour it asserts. Describe it behaviourally — "an integration test through the public triage command, asserting the label written to the tracker" — not as a file path.
+A brief that goes to `/mmw-implement` is the whole contract a headless worker gets, and a worker cannot agree a seam with anyone. So the brief names the seam itself: the level the regression test sits at, and the behaviour it asserts. Describe it behaviourally — "an integration test through the public triage command, asserting the label written to the tracker" — not as a file path.
 
 When you can't name a correct seam, say that in the brief and route the issue to `ready-for-human` instead. An unstated seam means the worker invents one, and a test at an invented seam gives false confidence.
 
@@ -216,7 +216,7 @@ The triage thing is broken. Look at the main file and fix it.
 The function around line 150 has the issue.
 
 **Files to change:**
-- src/triage/handler.ts (line 150)
+- src/mmw-triage/handler.ts (line 150)
 - src/types.ts (line 42)
 ```
 

@@ -1,5 +1,5 @@
 ---
-name: judging-agent-output
+name: mmw-judging-agent-output
 description: 裁判隔离上下文的劳动力交回的产出——审查 findings、工人完工报告、调查报告。先坐实证据锚，再定处置。收到任何 sub-agent 或无头进程的回执时用它。
 ---
 

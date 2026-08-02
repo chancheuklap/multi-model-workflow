@@ -1,5 +1,5 @@
 ---
-name: code-review
+name: mmw-code-review
 description: Review the changes since a fixed point (commit, branch, tag, or merge-base) along three axes — Standards (does the code follow this repo's documented coding standards?), Spec (does the code match what the originating issue/spec asked for?), and Correctness (does the code actually work?). Each axis runs as its own reviewer, at least one of them from a different model family than whoever wrote the code. Findings are verified one by one before they reach the report. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to "review since X".
 ---
 
@@ -11,7 +11,7 @@ Three-axis review of the diff between `HEAD` and a fixed point the user supplies
 
 Each axis runs as its own reviewer so they don't pollute each other's context, then this skill verifies every finding and reports the three axes side by side.
 
-The issue tracker should have been provided to you — run `/setup` if `docs/agents/issue-tracker.md` is missing. Who reviews what is decided by `docs/agents/models.md`.
+The issue tracker should have been provided to you — run `/mmw-setup` if `docs/agents/issue-tracker.md` is missing. Who reviews what is decided by `docs/agents/models.md`.
 
 ## Process
 
@@ -41,7 +41,7 @@ On top of whatever the repo documents, the Standards axis always carries a **sme
 
 ### 4. Dispatch the reviewers
 
-Four reviewers, one message. Follow `dispatching-agents` for the mechanics and `docs/agents/models.md` for the model of each.
+Four reviewers, one message. Follow `mmw-dispatching-agents` for the mechanics and `docs/agents/models.md` for the model of each.
 
 | Axis | Who reviews |
 | --- | --- |
@@ -65,7 +65,7 @@ If the spec was not found in step 2, drop the Spec reviewer and note it in the r
 
 Copy every reviewer's findings **verbatim** into `.reviews/<slug>-code-review-<n>.md`, grouped by axis. Do not rewrite or summarise them. Put one header line at the top recording the fixed point SHA.
 
-Then work through them with `judging-agent-output`: re-check each anchor yourself, ask who gets hurt and whether this round should pay for it, and mark one disposition word under each finding — `accepted`, `rejected`, `duplicate`, `needs-evidence`, or `waived`. Close the file with one line of overall conclusion.
+Then work through them with `mmw-judging-agent-output`: re-check each anchor yourself, ask who gets hurt and whether this round should pay for it, and mark one disposition word under each finding — `accepted`, `rejected`, `duplicate`, `needs-evidence`, or `waived`. Close the file with one line of overall conclusion.
 
 Only `accepted` findings drive rework. Shelved findings with a namable victim become GitHub issues tagged `needs-triage`; the rest live and die in the report.
 

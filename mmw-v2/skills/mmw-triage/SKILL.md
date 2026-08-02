@@ -1,5 +1,5 @@
 ---
-name: triage
+name: mmw-triage
 description: 分诊 issue 和外部 PR——定类别、验事实、需要时 grill，最后写出 agent brief 并决定出口。用户说要 triage、问有什么等着处理、报一个 issue 或 PR 编号要看、要把某条改成某个状态时用它；别的技能拿到一个还没评估过的 issue 时也用它。
 ---
 
@@ -39,7 +39,7 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 每张分诊过的 issue 应当正好带一个类别角色和一个状态角色。状态角色互相冲突时，先标出来问维护者，再做别的。
 
-以上是角色的规范名，issue tracker 里实际用的标签字符串可能不同。映射关系应该已经给你了——没有就跑 `/setup`。
+以上是角色的规范名，issue tracker 里实际用的标签字符串可能不同。映射关系应该已经给你了——没有就跑 `/mmw-setup`。
 
 状态怎么流转：没标签的 issue 通常先进 `needs-triage`；从那里去 `needs-info`、`ready-for-agent`、`ready-for-human` 或 `wontfix`。报告人回话之后 `needs-info` 退回 `needs-triage`。维护者随时可以推翻——看起来反常的流转先标出来问一句再走。
 
@@ -74,7 +74,7 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 
 3. **验断言。** 开始 grill 之前先确认这个断言站得住。是 bug，就照报告人的步骤复现。是 PR，就确认这份 diff 真的做到了它自称做到的事——签出来，跑相关测试或命令。然后报告结果：确认（附代码路径）、没能复现、或者信息不够（这是很强的 `needs-info` 信号）。验过的断言写出来的 agent brief 强得多。
 
-4. **Grill（需要时）。** 这个需求还不够具体，就跑 `/grilling`——一次一个问题地把它问成形，领域词随之收紧，决策定下来时更新 `CONTEXT.md` 和 ADR。
+4. **Grill（需要时）。** 这个需求还不够具体，就跑 `/mmw-grilling`——一次一个问题地把它问成形，领域词随之收紧，决策定下来时更新 `CONTEXT.md` 和 ADR。
 
 5. **落实结果：**
    - `ready-for-agent` —— 贴一条 agent brief 评论（[AGENT-BRIEF.md](AGENT-BRIEF.md)），brief 里必须有 `**Test seam:**` 那一栏。然后按下面「出口」决定它接着走哪条路。
@@ -92,7 +92,7 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 
 | 这次要碰 | 移交给 | 为什么 |
 | --- | --- | --- |
-| 一处，并且 brief 写明了 seam | `/implement` | 一份 brief 就是完整的合同，再写一份 spec 是把同一件事说两遍 |
+| 一处，并且 brief 写明了 seam | `/mmw-implement` | 一份 brief 就是完整的合同，再写一份 spec 是把同一件事说两遍 |
 | 多处，或者要先谈实现取舍 | `/to-spec` | seam 不止一个、决策不止一个，要先谈定再派工人 |
 
 seam 说不清楚的，改判 `ready-for-human`，理由写在 brief 里。

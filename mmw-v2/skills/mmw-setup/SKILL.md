@@ -1,5 +1,5 @@
 ---
-name: setup
+name: mmw-setup
 description: 把本插件的工作流约定铺进当前仓库。每个仓库跑一次，其它技能才有配置可读。
 disable-model-invocation: true
 ---

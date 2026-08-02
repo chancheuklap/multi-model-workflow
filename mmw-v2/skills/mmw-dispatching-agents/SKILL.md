@@ -1,5 +1,5 @@
 ---
-name: dispatching-agents
+name: mmw-dispatching-agents
 description: 把一件任务派给隔离上下文的劳动力——Claude 会话内 sub-agent，或 Codex 无头进程。管选后端、钉模型档、围栏、简报自包含、怎么收回。需要把任务派出去时用它。
 ---
 
@@ -57,4 +57,4 @@ codex exec -C . --sandbox read-only --color never \
 
 ## 收回
 
-回执是证据不是结论。收回来之后按 `judging-agent-output` 逐条坐实再处置，不要原样转发。
+回执是证据不是结论。收回来之后按 `mmw-judging-agent-output` 逐条坐实再处置，不要原样转发。

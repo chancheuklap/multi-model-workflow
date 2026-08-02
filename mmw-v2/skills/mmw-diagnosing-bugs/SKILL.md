@@ -1,5 +1,5 @@
 ---
-name: diagnosing-bugs
+name: mmw-diagnosing-bugs
 description: 难以定位的 bug 和性能回退的诊断循环——先造出一个能变 red 的 loop，再复现、最小化、提假设、埋点，最后把修复派给工人。用户说要 debug、要诊断，或者报告什么东西坏了、报错了、跑不通、变慢了时用它。
 ---
 
@@ -119,8 +119,8 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
 有 correct seam 的话：
 
-1. **先把工作区清干净。** grep `[DEBUG-` 前缀，把 Phase 4 的埋点全删掉。工人要在可写 sandbox 里跑，工作区不干净你就分不清哪些改动是它的（`dispatching-agents`）。
-2. 按 `dispatching-agents` 派一个工人，简报从文件和你已经跑过的内容里取，包含：
+1. **先把工作区清干净。** grep `[DEBUG-` 前缀，把 Phase 4 的埋点全删掉。工人要在可写 sandbox 里跑，工作区不干净你就分不清哪些改动是它的（`mmw-dispatching-agents`）。
+2. 按 `mmw-dispatching-agents` 派一个工人，简报从文件和你已经跑过的内容里取，包含：
 
    | 给它什么 | 内容 |
    | --- | --- |
@@ -128,11 +128,11 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
    | 最小化的 repro | 场景，以及每一样为什么是承重的 |
    | 那条假设 | 被验证的那条，以及验证它的那次观测 |
    | seam | 测试放在哪一层、断言什么——这条由你定，工人问不到人 |
-   | 纪律 | `worker-brief.md` 与 TDD 全文，取法见 `implement` 第 3 步 |
+   | 纪律 | `worker-brief.md` 与 TDD 全文，取法见 `mmw-implement` 第 3 步 |
 
 3. 工人要跑的循环是：在那个 seam 上把最小化 repro 变成一个失败的测试，看它红，写修复，看它绿。
 
-它交回来之后按 `judging-agent-output` 验收：自己把那个测试跑一遍，读它的 diff，再拿 Phase 1 的 loop 对着**原始的、没最小化的**场景跑一次。
+它交回来之后按 `mmw-judging-agent-output` 验收：自己把那个测试跑一遍，读它的 diff，再拿 Phase 1 的 loop 对着**原始的、没最小化的**场景跑一次。
 
 ## Phase 6 —— 清理 + 复盘
 
