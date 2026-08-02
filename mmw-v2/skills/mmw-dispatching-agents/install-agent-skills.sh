@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
-# 把审者要读的技能软链进无头命令行那一家自己的技能目录。
-# 用软链不拷贝:插件里改一次方法论,下一轮审者立刻读到新的。
+# 把无头劳动力要读的方法论软链进它自己的技能目录。
+# 用软链不拷贝:插件里改一次方法论,下一轮派出去的立刻读到新的。
 #
-#   install-reviewer.sh          装
-#   install-reviewer.sh --check  只看装没装。装齐回 0,缺东西回 1
+#   install-agent-skills.sh          装
+#   install-agent-skills.sh --check  只看装没装。装齐回 0,缺东西回 1
 
 set -euo pipefail
 
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SKILLS_DIR="${MMW_AGENT_SKILLS_DIR:-${CODEX_HOME:-$HOME/.codex}/skills}"
 
-# 审者要读的两份:审查方法论本身,加测试进仓资格线——
-# 独立终审那一路要按它核这次新增和改动的测试。
-WANTED=(mmw-reviewer mmw-tdd)
+# 审者读审查方法论,写计划工人读写计划方法论,两边都要读测试那一份:
+# 审者按它核这次新增和改动的测试,写计划工人按它写测试规划。
+WANTED=(mmw-reviewer mmw-planner mmw-tdd)
 
 mode=install
 case "${1:-}" in
   --check) mode=check ;;
   "") ;;
-  *) echo "用法: install-reviewer.sh [--check]" >&2; exit 2 ;;
+  *) echo "用法: install-agent-skills.sh [--check]" >&2; exit 2 ;;
 esac
 
 rc=0

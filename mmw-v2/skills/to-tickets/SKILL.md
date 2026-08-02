@@ -102,3 +102,7 @@ The end-to-end behaviour this ticket makes work, from the user's perspective —
 </issue-template>
 
 In either form, avoid specific file paths or code snippets — they go stale fast. Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
+
+## Next
+
+Once the tickets are published, hand off to `/mmw-to-plan`. It turns each ticket into an implementation plan — exact files, interfaces, and red-green steps — before any code gets written. That is where file paths and code belong.
