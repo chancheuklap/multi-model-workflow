@@ -23,7 +23,7 @@ git worktree list
 | 这张 map 走到哪一步了 | 查 frontier：还剩几张没人认领，几张有 assignee 正在别的会话里解 |
 | 有几条链在同时跑 | `.worktrees/` 下以这个 slug 开头、但不等于这个 slug 的目录，每一棵是一条链 |
 | spec 有没有写出来 | `docs/specs/<slug>/` 在不在，里面的文件有没有提交进分支 |
-| spec 过没过用户那道关卡 | 那张 spec issue 在不在、带没带 `ready-for-agent` 标签。这两样齐了才算过门 |
+| spec 过没过用户那道关卡 | 那张 spec issue 在不在、带没带 `ready-for-agent` 标签。这两样齐了才算过了这道关卡 |
 | ticket 有没有拆 | 那张 spec issue 有没有子 issue（`docs/agents/issue-tracker.md`） |
 | plan 写了没有 | `docs/plans/<slug>/` 在不在，里面的份数跟 ticket 数对不对得上 |
 | 合同锚点回填了没有 | spec 的 `## Cross-Plan Contract Anchors` 一节在不在、精确字段补实了没有 |
@@ -34,10 +34,10 @@ git worktree list
 
 `.reviews/` 和 `.dispatch/` 随 worktree 存活，不进 git。它们是空的不代表没做过，只代表这台机器上这一轮没做过——以提交记录和 issue 状态为准。
 
-spec 文件已经提交、issue 却还没发布，是个中间状态：用户可能刚点完头，也可能还没看过。这时按没过门处理，重新给他看一次。多问一次的代价，比 seam 定错了整批 ticket 返工小得多。
+spec 文件已经提交、issue 却还没发布，是个中间状态：用户可能刚点完头，也可能还没看过。这时按没过这道关卡处理，重新给他看一次。多问一次的代价，比 seam 定错了整批 ticket 返工小得多。
 
 ## 查完之后
 
-用业务语言报三句：这个任务当初要做什么、现在完成了哪些、下一步归谁。然后调起下一步那个技能接着走。
+用业务语言报三句：这个任务当初要做什么、现在完成了哪些、下一步归谁。然后调起下一步该走的那个技能接着走。
 
 用户报的 slug 在 `.worktrees/` 下找不到，按新任务处理，回 `SKILL.md` 第 1 步。

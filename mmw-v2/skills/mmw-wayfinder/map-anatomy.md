@@ -27,11 +27,11 @@ map 是一份**索引**，不是一个仓库。它列出已经做出的决定，
 
 ## Not yet specified
 
-<!-- 范围内、但还开不出 ticket 的 fog of war。判据见下面「fog of war 还是 ticket」 -->
+<!-- 范围内、但还开不出 ticket 的 fog of war。判据见本文「fog of war 还是 ticket」一节 -->
 
 ## Out of scope
 
-<!-- 判在 destination 之外的工作。关掉，不再回来。判据见下面「什么算判出范围」 -->
+<!-- 判在 destination 之外的工作。关掉，不再回来。判据见本文「什么算判出范围」一节 -->
 ```
 
 ## ticket
@@ -44,9 +44,29 @@ map 是一份**索引**，不是一个仓库。它列出已经做出的决定，
 <这张 ticket 要解掉的决定或调查>
 ```
 
-每张 ticket 带一个 `wayfinder:<类型>` 标签，四个取值：`grilling`、`prototype`、`research`、`task`。四类各自怎么解，见 [walking.md](walking.md)。
-
 答案不写进正文，它在解掉的时候作为结案评论记录。解 ticket 过程中产出的东西从 issue 链过去，不粘进正文。
+
+## 每张 ticket 的两条属性
+
+建 ticket 的时候把两条属性一起定下来：
+
+1. **它是 HITL 还是 AFK**——这件活要不要人在对话里参与才做得完。定义在 `docs/agents/triage-labels.md` 的「HITL 与 AFK」一节，本文不复述。
+2. **它是哪一个类型**——写成 `wayfinder:<类型>` 标签，四个取值见本文「四个类型」一节。
+
+HITL 还是 AFK 不单独打标签，从类型推出来；只有 `wayfinder:task` 例外。
+
+**HITL 的 ticket 不许 agent 替那个人回答。** 派一个 subagent 自问自答、或者主 agent 自己替用户把问题答掉，这张 ticket 解出来的决定不作数。这条禁令比它看上去要紧：解出来的决定会写进 map 的 `Decisions so far`，后面每一张 ticket 都建在它上面，错了要连着推翻一片。
+
+## 四个类型
+
+| 标签 | HITL 还是 AFK | 什么时候打这个标签 | 谁来解 |
+| --- | --- | --- | --- |
+| `wayfinder:grilling` | HITL | 默认。另外三个标签都不适用就打它 | 主 agent 跑 `/mmw-grilling`，一次问用户一个问题 |
+| `wayfinder:prototype` | HITL | 关键问题是「它该长什么样」或者「它该怎么表现」——光靠说定不下来，要有一个能上手的东西摆在面前才评得动 | 主 agent 跑 `/mmw-prototype` 做一个粗糙版本，用户走查 |
+| `wayfinder:research` | AFK | **要用的知识在当前工作目录之外**：第三方文档、外部接口、本地知识库。仓库里读得到的不打这个标签 | 主 agent 按 `/mmw-research` 派一个 subagent 去查 |
+| `wayfinder:task` | 两种都可能 | 某个决定做得出来之前必须先完成的手工操作：注册一个服务好让它的接口能被评判、开通权限、把数据搬过来看清它的形状。这是四类里唯一做事而不做决定的，它靠解除对某个决定的阻塞立足 | agent 自己做得完的是 AFK，agent 自己做；必须人动手的（要账号、要付钱、要点鼠标）是 HITL，agent 交一份精确的操作清单给用户 |
+
+**`wayfinder:task` 的 HITL 还是 AFK 从标签上看不出来，必须读这张 ticket 的正文才判得出。** 认领它之前先读正文。
 
 ## 认领
 

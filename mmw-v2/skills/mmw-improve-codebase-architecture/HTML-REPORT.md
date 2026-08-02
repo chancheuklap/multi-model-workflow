@@ -46,7 +46,7 @@
 - **标题**——短，说清这次做深的是什么（例如 "Collapse the Order intake pipeline"）。
 - **徽章行**——推荐强度（`Strong` 用 emerald、`Worth exploring` 用 amber、`Speculative` 用 slate），再加一个依赖类别的标签（`in-process`、`local-substitutable`、`ports & adapters`、`mock`）。
 - **文件**——等宽列表，`font-mono text-sm`。
-- **Before / After 图**——整张卡片的重心。两列并排，画法见下。
+- **Before / After 图**——整张卡片的重心。两列并排，画法见本文「图的几种画法」一节。
 - **Problem**——一句话。哪里疼。
 - **Solution**——一句话。改什么。
 - **Wins**——列点，每条不超过六个词。例如 "Tests hit one interface"、"Pricing logic stops leaking"、"Delete 4 shallow wrappers"。

@@ -1,6 +1,6 @@
 # 怎么写 agent brief
 
-agent brief 是一张 issue 或 PR 转到 `ready-for-agent` 时贴上去的一条结构化评论。它是无人值守的 agent 干活时依据的权威规格。原始正文和讨论是背景，agent brief 才是合同。
+agent brief 是一张 issue 或 PR 转到 `ready-for-agent` 时贴上去的一条结构化评论。它是 AFK 跑的工人干活时依据的权威规格。原始正文和讨论是背景，agent brief 才是合同。
 
 brief 说的是**这个 agent 该做什么**。两个面都适用：对一张 issue，那是从零把改动做出来；对一个 PR，那是*在已有的 diff 上*还剩什么要做——补完、堵住缺口、回应审查意见。原则一样，下面的 PR 例子展示差别在哪。
 
@@ -146,7 +146,7 @@ agent 需要知道什么时候算做完。每一份 agent brief 都必须有具�
 
 **Acceptance criteria:**
 - [ ] 以 wontfix 关掉一个功能需求会新建或更新 `.out-of-scope/` 下的文件
-- [ ] 那份文件含决定、理由，以及指向这张已关闭 issue 的链接
+- [ ] `.out-of-scope/` 下那份文件含决定、理由，以及指向这张已关闭 issue 的链接
 - [ ] 已经存在匹配的 `.out-of-scope/` 文件时，新 issue 追加进它的
       「Prior requests」清单，而不是新建一份重复的
 - [ ] 分诊过程中，已有的 `.out-of-scope/` 文件会被查阅；新 issue 跟

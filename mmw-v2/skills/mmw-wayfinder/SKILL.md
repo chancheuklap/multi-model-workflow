@@ -12,19 +12,19 @@ destination 每个 effort 各不相同。给它命名是画 map 的第一个动�
 
 ## 下一步
 
-三个入口都先读 [map-anatomy.md](map-anatomy.md)：map 和 ticket 长什么样、怎么认领、阻塞关系怎么表达，都在那里。
+三个入口都先读 [map-anatomy.md](map-anatomy.md)：map 和 ticket 长什么样、每张 ticket 是 HITL 还是 AFK、四个 `wayfinder:<类型>` 标签各自什么时候打、怎么认领、阻塞关系怎么表达，全在那里。
 
 | 情况 | 下一步 |
 | --- | --- |
 | 用户带来一个还很松的想法，还没有 map | **自己继续**：读 [drawing.md](drawing.md)，建这张 map |
 | 用户报了一张 map 的编号或链接 | **自己继续**：读 [walking.md](walking.md)，认领一条链 |
-| 那张 map 的 frontier 上一张 ticket 都不剩 | **自己继续**：读 [closing.md](closing.md)，收口 |
+| 那张 map 的 frontier 上一张 ticket 都不剩 | **自己继续**：读 [closing.md](closing.md)，收尾 |
 
 看不出是哪一个，就按他给的编号查一次 frontier：frontier 上还有 ticket 就走 walking.md，空了就走 closing.md。
 
 ## 只产出决定，不产出交付物
 
-每张 ticket 解掉一个决定，路清楚了这张 map 就完成——在有人真去实现之前，没有什么还需要决定。想直接动手实现，通常说明 map 已经走到边界，该收口了。某个 effort 要破例，在 map 的 `Notes` 一节里写明；没写就只产出决定。
+每张 ticket 解掉一个决定，路清楚了这张 map 就完成——在有人真去实现之前，没有什么还需要决定。想直接动手实现，通常说明 map 已经走到边界，该收尾了。某个 effort 要破例，在 map 的 `Notes` 一节里写明；没写就只产出决定。
 
 ## 用名字称呼
 
@@ -34,7 +34,7 @@ destination 每个 effort 各不相同。给它命名是画 map 的第一个动�
 
 一张 map 通常由好几个会话分头做：一个会话建 map，其余的各认领一条链。这带来四条硬约束，三个入口都适用。
 
-**一个会话只解一条链。** 链到头就停下来交回用户，让他另开一个会话认领下一条。
+**一个会话只解一条链。** 一条链在两种情况下到头，任一成立就停下来交回用户，让他另开一个会话认领下一条：解开的这张 ticket 没解锁出任何一张归你的（阻塞没清完，或者已经被别的会话认领走了），或者解锁出来的那张是 HITL 的。判法和理由在 [walking.md](walking.md) 第 5 步。
 
 **认领在动手之前。** 把 ticket 指派给自己就是认领。指派完成之前不要做任何事，否则另一个会话会同时解同一张。
 

@@ -14,7 +14,7 @@ effort——比一份 spec 大、要好几份 spec 才做得完的那种——�
 主线
  └── payments-overhaul          ← wayfinder 的 worktree
       ├── phone-login           ← 从 payments-overhaul 分支分叉
-      └── refund-window         ← 同上
+      └── refund-window         ← 同样从 payments-overhaul 分支分叉
 ```
 
 **问题没解决之前不合回主线。** spec worktree 从 wayfinder 分支分叉，做完合回 wayfinder 分支；effort 收尾时 wayfinder 分支才合回主线。期间写下的术语、ADR、决定不做的方向对所有兄弟 spec 都可见。
@@ -67,7 +67,7 @@ git commit --allow-empty -m "<slug>" -m "<用户交代这件事时的原话>"
 
 原话原样记，不要替他概括——这条提交是几天后回来时唯一还留着他当初怎么说的地方。
 
-它同时是这个任务的起点标记：`git merge-base` 取分支点取的就是它前面那一条，终审要的固定点因此不用另外记。
+它同时是这个任务的起点标记：`git merge-base` 取到的分支点就是这条空提交的父提交，终审要的固定点因此不用另外记。
 
 任务走到第几步不用状态文件，看产物在不在就知道：`docs/specs/<slug>/` 在不在、子 issue 谁开着谁有 assignee、`.reviews/` 里有没有终审报告、Wiki 上有没有那一页。
 

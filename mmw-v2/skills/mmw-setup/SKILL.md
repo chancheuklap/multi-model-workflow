@@ -48,7 +48,7 @@ gh label create "<名字>" --description "<一句话，抄 triage-labels.md 的�
 | 行 | 挡的是什么 |
 | --- | --- |
 | `.worktrees/` | 任务 worktree，还有 Wiki 的 clone（`.worktrees/.wiki/`） |
-| `.reviews/` | 审查审查记录和终审报告，随 worktree 死 |
+| `.reviews/` | 审查记录和终审报告，随 worktree 死 |
 | `.dispatch/` | 派给工人的提示词和它交回的报告，随 worktree 死 |
 
 在这里一次挡掉，技能写文件时 `mkdir -p` 就行，不用在每个 worktree 里铺一份脚手架。
@@ -103,5 +103,5 @@ bash "<本技能目录>/../mmw-dispatching-agents/install-agent-skills.sh"
 | 前提 | 怎么查 | 缺了会怎样 |
 | --- | --- | --- |
 | 有 GitHub 远端 | `git remote -v` | issue 那套全不可用 |
-| `gh` 已登录 | `gh auth status` | 同上；顺手提醒跑一次 `gh auth setup-git`，推 Wiki 要用 |
+| `gh` 已登录 | `gh auth status` | issue 那套全不可用；顺手提醒跑一次 `gh auth setup-git`，推 Wiki 要用 |
 | Wiki 已初始化 | `git ls-remote "https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner).wiki.git"` | spec 无处归档。**只能由用户去仓库的 `/wiki` 页手建一页**，没有 API 能替他建，别试着绕 |

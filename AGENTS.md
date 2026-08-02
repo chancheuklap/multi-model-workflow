@@ -73,15 +73,26 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
   | 审查记录落盘 | 审查记录 | 留痕 |
   | 审查分几个方向 | 视角 | 路（一路、几路） |
   | Claude 还是 Codex | 模型 | 家（一家、两家、另一家） |
-  | 必须人点头才能过的 | 人工审批关卡（HITL） | 人闸 |
-  | 流程上的其他关卡 | 关卡 | 闸 |
+  | 这件活要不要人在对话里参与 | HITL / AFK（成对使用，不译） | 无人值守、要人在场、人不用在场、AFK agent、AFK·HITL |
+  | 必须人点头才能过的关卡 | 人工审批关卡 | 人闸、HITL（那是上一行那条轴，不是关卡） |
+  | 流程上的其他关卡 | 关卡 | 闸、门、过门 |
+  | 把上游结论写回下游文档 | 回填 | 回灌 |
+  | 结束一张 map 或一次任务 | 收尾 | 收口 |
+  | 派审查者开始审 | 发起审查 | 起审 |
+  | 建任务隔离目录 | 建 worktree | 建树、进树 |
   | 测试够不够格进仓库 | 合入标准 | 进仓资格线 |
   | 一条 finding 的影响范围 | 影响面 | 伤害面 |
   | 把东西发到外部系统 | 对外发布 | 出站动作 |
   | 唯一权威的那一份 | 唯一事实来源 | 真相源、事实源 |
   | sandbox 与工具白名单 | 护栏（guardrails） | 围栏 |
 
+  「被派去写代码的」那一行同样禁「落地的人」；「它交回来的东西」那一行同样禁「笔记」；「给每条 finding 的结论」那一行同样禁「结论词」。
+
   比喻性动词同样不要：兜住、吃重、找茬、捞、栽在、坏事、要命。写它实际指的动作。
+
+  **这张表不是全集，是已经踩过的坑。** 写新技能遇到表上没有的概念，判据仍然是：有行业标准中文说法就用它，没有就用英文原词，两样都不做就是自造词。上游 `vendor/mattpocock-skills/` 有对应英文原文的，先去看它用的是什么词再决定译不译。
+
+- **技能正文不许有指代不明。** 技能是写给模型读的执行指令，不是给人读的散文。禁止「上面那个」「下面那份」「见上」「见下」「同上」「那个技能」「前面那一条」这类靠位置或上下文指代的写法——每次都指名道姓：写文件路径、写技能名（带斜杠）、写节标题、写标签字符串。表格里的「同上」一律展开成完整内容。用数量代替内容同样禁止（「那三条核验」「那两个目录」）：该列的全部列出来，或者指向持有清单的那一节。唯一的例外是「回到把你叫起来的那个技能」——调用方在写的时候确实还不知道是谁。
 
 ## Git 与安全
 
@@ -123,7 +134,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | --- | --- |
 | 0 · 配置 | 七份种子随插件分发，在 `mmw-v2/skills/mmw-setup/`；`/mmw-setup` 把前六份铺进目标仓库的 `docs/agents/`，第七份 `testing.md` 铺成仓库根的 `TESTING.md` 骨架。我们的选择全固定，所以 setup 不问问题（这是比 Matt 更简的形态：他要问，因为他的用户各不相同）。技能一律读目标仓库的 `docs/agents/*.md`，不读插件内路径——避免旧 plugin 那套「先定位插件根」的烂摊子 |
 | 1 · 纪律 | Matt 的 model-invoked 技能：tdd、diagnosing-bugs、codebase-design、domain-modeling、grilling、prototype、research（原本还有 resolving-merge-conflicts，已吸收进 `mmw-review` 的 ⑥ 并删除） |
-| 2 · 自有能力 | 跨模型派发、亲验裁判、任务隔离。这三块 Matt 完全没有，是仓库存在的理由 |
+| 2 · 自有能力 | 跨模型派发、验证与判定、任务隔离。这三块 Matt 完全没有，是仓库存在的理由 |
 | 3 · 编排 | 改造 Matt 的 user-invoked 技能，把第 2 层注入进去 |
 
 ### 搬迁批次
@@ -138,17 +149,17 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 **不按上下文容量做判断。** 我们不会因为窗口满了就重开会话，所以「一个会话装不装得下」不是任何判据。活的大小按**要拆成几份 spec** 衡量：一份 spec 说得清走 `mmw-grilling` → `mmw-to-spec`；哪几份 spec、按什么顺序都还没数才走 `mmw-wayfinder`。`handoff` 单独保留，供用户自己手动交接用。
 
-改造按 Matt 主干顺序推进，一个跑通再动下一个。先做了链条末端的两个，因为跨模型派发和亲验裁判在那里第一次落地，前面几个技能要复用同一套底子：
+改造按 Matt 主干顺序推进，一个跑通再动下一个。先做了链条末端的两个，因为跨模型派发和验证与判定在那里第一次落地，前面几个技能要复用同一套底子：
 
 | 顺序 | 技能 | 要加什么 | 状态 |
 | --- | --- | --- | --- |
-| 0 | `mmw-start` | 我们自己的入口：判定路线、定 slug、建树进树、记原话、移交 | 已落地 |
+| 0 | `mmw-start` | 我们自己的入口：判定路线、定 slug、建 worktree、进 worktree、记原话、移交 | 已落地 |
 | 1 | `mmw-grilling` | 开问前先查仓库现状；领域词与 ADR 随谈随落；出口交给 `mmw-to-spec` | 已落地 |
-| 2 | `mmw-to-spec` | 测试 seam 判据（用旧 plugin 那套测试规矩）、`/approve-design` 人闸、派 Codex 审这份设计 | 已落地 |
-| 3 | `mmw-to-tickets` | 接进我们的 tracker 约定：正文按三层结构写、`## Plan` 一节先占住 plan 路径、编号即 plan 编号；亮清单不等确认，因为人闸在 spec 那一步 | 已落地 |
+| 2 | `mmw-to-spec` | 测试 seam 判据（用旧 plugin 那套测试规矩）、`/approve-design` 人工审批关卡、派 Codex 审这份设计 | 已落地 |
+| 3 | `mmw-to-tickets` | 接进我们的 tracker 约定：正文按三层结构写、`## Plan` 一节先占住 plan 路径、编号即 plan 编号；亮清单不等确认，因为人工审批关卡在 spec 那一步 | 已落地 |
 | 3.5 | `mmw-to-plan` 与 `mmw-planner` | 补上旧 plugin 的二层拆解：一张 ticket 一份 plan 一个工人，编排与写作方法论分开 | 已落地 |
-| 4 | `mmw-implement` | 换成 worktree + 派 Codex 无头写码 | 已落地 |
-| 5 | `mmw-review` 与 `mmw-reviewer` | 审查抽成一层：编排与纪律分开，八路视角，方法论装给审者不粘提示词 | 已落地 |
+| 4 | `mmw-implement` | 换成 worktree + 派 Codex headless 写码 | 已落地 |
+| 5 | `mmw-review` 与 `mmw-reviewer` | 审查抽成一层：编排与纪律分开，八个视角，方法论装给审查者不粘提示词 | 已落地 |
 
 ### 已落地
 
@@ -156,30 +167,30 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 | 落点 | 内容 | 怎么验的 |
 | --- | --- | --- |
-| `skills/mmw-dispatching-agents` | 两个后端（Claude sub-agent、Codex 无头）、模型档一律从 `docs/agents/models.md` 取、简报自包含 | 实跑派出过审者和写码工人各一轮 |
-| `skills/mmw-verifying-agent-output` | 只管采信：每条承重断言要有主线程能自己复核的锚，加工人交回的四档怎么读。findings 怎么处置归 `mmw-review` | 实跑八条 findings 逐条复核，其中一条审者报的行号真的差了一行 |
-| `skills/mmw-review` | 主线程侧的编排：六道审各在哪、几路、谁配谁、每一路备齐什么材料、落盘命名、复审。③ 逐份验收与 ④ 合同门不派审者，判据也写在这里 | 未实跑 |
-| `skills/mmw-reviewer` | 审者侧的方法论单源：共享纪律加八路视角。标准原样搬旧 plugin，只补 Matt 那一路编码规范审。砍掉严重度与置信度，保留 `needs-redirection`、`needs-context` 两个出口 | 未实跑；装载脚本四种情形实测通过 |
-| `skills/mmw-dispatching-agents/install-agent-skills.sh` | 装载脚本，软链三份方法论进无头那一家自己的技能目录：审查、写计划、测试。从起审技能旁边挪到派发技能旁边，因为它不再只服务审者 | 三份装、幂等重跑、`--check` 实测通过 |
-| `skills/mmw-implement` | 主线程不写码，一张 ticket 派一个 Codex 无头工人；主线程只做准备简报、派发、验收、起审 | 实跑一个真工人在 throwaway 仓库里做完一张 ticket，测试全绿 |
-| `skills/mmw-tdd` | 测试要求分三层：怎么写（本技能加 `tests.md`、`mocking.md`）、够不够格进仓库（`quality-bar.md`）、这个仓库的事实（目标仓库根 `TESTING.md`，由 `mmw-setup` 铺骨架）。seam 由 spec 钉死，因为无头工人问不到人 | 随 `mmw-implement` 一起跑过 |
+| `skills/mmw-dispatching-agents` | 两个后端（Claude sub-agent、Codex headless）、模型档一律从 `docs/agents/models.md` 取、brief 自包含 | 实跑派出过审查者和写码工人各一轮 |
+| `skills/mmw-verifying-agent-output` | 只管采信：每条关键断言要有主 agent 能自己验证的出处，加工人交回的四档怎么读。findings 怎么处置归 `mmw-review` | 实跑八条 findings 逐条验证，其中一条审查者报的行号真的差了一行 |
+| `skills/mmw-review` | 主 agent 侧的编排：六道审各在哪、几个视角、谁配谁、每个视角备齐什么材料、落盘命名、复审。③ 逐份验收与 ④ 合同门不派审查者，判据也写在这里 | 未实跑 |
+| `skills/mmw-reviewer` | 审查者侧的方法论单源：共享纪律加八个视角。标准原样搬旧 plugin，只补 Matt 那个编码规范审视角。砍掉严重度与置信度，保留 `needs-redirection`、`needs-context` 两个出口 | 未实跑；装载脚本四种情形实测通过 |
+| `skills/mmw-dispatching-agents/install-agent-skills.sh` | 装载脚本，软链三份方法论进headless 那个模型自己的技能目录：审查、写计划、测试。从发起审查技能旁边挪到派发技能旁边，因为它不再只服务审查者 | 三份装、幂等重跑、`--check` 实测通过 |
+| `skills/mmw-implement` | 主 agent 不写码，一张 ticket 派一个 Codex headless 工人；主 agent 只做准备 brief、派发、验收、发起审查 | 实跑一个真工人在 throwaway 仓库里做完一张 ticket，测试全绿 |
+| `skills/mmw-tdd` | 测试要求分三层：怎么写（本技能加 `tests.md`、`mocking.md`）、够不够格进仓库（`quality-bar.md`）、这个仓库的事实（目标仓库根 `TESTING.md`，由 `mmw-setup` 铺骨架）。seam 由 spec 钉死，因为 headless 工人问不到人 | 随 `mmw-implement` 一起跑过 |
 | `skills/mmw-start` | 七条路由判据（含「报了一张 map 的编号」）；worktree 建错了重建，所以报一句就走不等确认；`resuming.md` 靠查产物报进度，不设状态文件 | 未实跑 |
-| `skills/mmw-wayfinder` | 按会话拆成三条 branch：`drawing.md` 建 map、`walking.md` 认领一条链、`closing.md` 收口，三条共用 `map-anatomy.md`。SKILL.md 只留入口判定和几个会话同时跑的四条硬约束 | 未实跑 |
+| `skills/mmw-wayfinder` | 按会话拆成三条 branch：`drawing.md` 建 map、`walking.md` 认领一条链、`closing.md` 收尾，三条共用 `map-anatomy.md`。SKILL.md 只留入口判定和几个会话同时跑的四条硬约束 | 未实跑 |
 | `skills/mmw-triage` | 新增「出口」一节：只碰一处且 brief 写明 seam 直走 `mmw-implement`，碰多处走 `mmw-to-spec`；agent brief 模板加 `Test seam` 栏 | 未实跑 |
 | `skills/mmw-diagnosing-bugs` | 按 Phase 拆三份：SKILL.md 只留 Phase 1 造 loop，`narrowing.md` 收窄，`fixing.md` 派工人修。拆的理由是知道后面还有五个 Phase 会让人草率对待 Phase 1 | 未实跑 |
 | `skills/mmw-grilling` | 吸收 `grill-with-docs`：开问前先查现状，谈的过程里按 `domain-modeling` 落术语与 ADR，主线出口交 `mmw-to-spec`。四个技能共用它，所以它单独存在，不并进任何一个 | 未实跑 |
-| `skills/mmw-prototype` | Matt 那份是一次性探路、做完扔废弃分支，旧 plugin 那份是设计内层循环、产物是正式资产。取旧的地位加 Matt 的手法：产物落 `docs/prototypes/<slug>/` 且不随 spec 转 Wiki 删除，一轮只验一个能判真假的问题，走查是人闸，界面变体一个变体派一个劳动力防趋同，`capture.md` 单独收回灌 | 未实跑 |
-| `skills/mmw-to-tickets` | 上游那份接进我们的 tracker 约定：正文只留摘要、`## Plan` 一节先把 plan 路径占住、编号即 plan 编号；发布沿 frontier 走，`ready-for-agent` 打在 ticket 上是「可开工」，跟 spec issue 上那个人闸凭据分开。切分清单亮给用户就往下走，不等确认——粒度由 ② plan 审兜住。tracer bullet、expand–contract 那几段判据原样译出 | 未实跑 |
-| `skills/mmw-to-plan` | 主线程侧的编排，原样搬旧 plugin 那五步：定 plan 清单、派工人之前把合同落到 plan 头上（spec 新增 `## Cross-Plan Contract Anchors` 一节，不动人闸过的 `## Contract Boundaries`）、扇出派工人、亲验返回、回填精确字段并核越界。收尾起一次 ② plan 审 | 未实跑 |
-| `skills/mmw-planner` | 写计划工人侧的方法论单源，原样搬旧 plugin `worktree-plan` 那三份。砍掉跨 plan 合同锚点的自行发明（改由主线程划）、砍掉再切一层 slice（ticket 已经是 tracer bullet，工人只拆它内部的实施步骤）。测试规划这一层留着，测试怎么写引 `mmw-tdd` | 未实跑 |
-| `skills/mmw-research` | 上游那 12 行只剩一条有用：一手来源。改造的要点是**判据下发到采集那一侧**——一手来源和事实写法两段原样写进简报，不是收回来才挑剔。派发与复核各引对应技能，不复述 | 未实跑 |
-| `skills/mmw-closing` | 一次任务的收尾：把 spec 与 plan 转成 Wiki 的一页、重生成两个导航文件、推送前给用户看、三条核验全过才删本地那两个目录。归档约定不复述，指 `docs/agents/wiki.md`。原型产物不删 | 未实跑 |
-| `skills/mmw-improve-codebase-architecture` | 上游那份是「一个 agent 扫全库、出 HTML 报告、挑中一个转 grilling」。改造四处：扫描一个方向派一个 subagent 防趋同、收回来过验证才进报告、领域文档按 `CONTEXT-MAP.md` 优先读、worktree 推迟到用户挑中候选之后再建（挑中之前 slug 的短语无从取，所以 `mmw-start` 对它跳过定 slug 与建树两步）。删掉 `allow_implicit_invocation: false`——它是 `mmw-start` 的路由终点，之前那个设置让移交根本走不过去 | 未实跑 |
-| `skills/mmw-to-spec` | 七条入口路径各自要取齐哪些上游产物写成一张表；seam 一节的形状定死成清单，因为下游直接读它；模板吸收旧 plugin 的现状引用、失败路径、视觉契约、还没拍板的事；派一个 Codex 审这份 spec；用户点头之后才发布 issue 并打 `ready-for-agent`，这个动作就是人闸的凭据 | 未实跑 |
+| `skills/mmw-prototype` | Matt 那份是一次性探路、做完扔废弃分支，旧 plugin 那份是设计内层循环、产物是正式资产。取旧的地位加 Matt 的手法：产物落 `docs/prototypes/<slug>/` 且不随 spec 转 Wiki 删除，一轮只验一个能判真假的问题，走查是人工审批关卡，界面变体一个变体派一个 subagent 防趋同，`capture.md` 单独承载回填 | 未实跑 |
+| `skills/mmw-to-tickets` | 上游那份接进我们的 tracker 约定：正文只留摘要、`## Plan` 一节先把 plan 路径占住、编号即 plan 编号；发布沿 frontier 走，`ready-for-agent` 打在 ticket 上是「可开工」，跟 spec issue 上那个人工审批关卡凭据分开。切分清单亮给用户就往下走，不等确认——粒度由 ② plan 审把关。tracer bullet、expand–contract 那几段判据原样译出 | 未实跑 |
+| `skills/mmw-to-plan` | 主 agent 侧的编排，原样搬旧 plugin 那五步：定 plan 清单、派工人之前把合同落到 plan 头上（spec 新增 `## Cross-Plan Contract Anchors` 一节，不动人工审批关卡过的 `## Contract Boundaries`）、扇出派工人、验证返回、回填精确字段并核越界。收尾起一次 ② plan 审 | 未实跑 |
+| `skills/mmw-planner` | 写计划工人侧的方法论单源，原样搬旧 plugin `worktree-plan` 那三份。砍掉跨 plan 合同锚点的自行发明（改由主 agent 划）、砍掉再切一层 slice（ticket 已经是 tracer bullet，工人只拆它内部的实施步骤）。测试规划这一层留着，测试怎么写引 `mmw-tdd` | 未实跑 |
+| `skills/mmw-research` | 上游那 12 行只剩一条有用：一手来源。改造的要点是**判据下发到采集那一侧**——一手来源和事实写法两段原样写进 brief，不是收回来才挑剔。派发与验证各引对应技能，不复述 | 未实跑 |
+| `skills/mmw-closing` | 一次任务的收尾：把 spec 与 plan 转成 Wiki 的一页、重生成两个导航文件、推送前给用户看、`docs/agents/wiki.md` 的核验清单全过才删本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`。归档约定不复述，指 `docs/agents/wiki.md`。原型产物不删 | 未实跑 |
+| `skills/mmw-improve-codebase-architecture` | 上游那份是「一个 agent 扫全库、出 HTML 报告、挑中一个转 grilling」。改造四处：扫描一个方向派一个 subagent 防趋同、收回来过验证才进报告、领域文档按 `CONTEXT-MAP.md` 优先读、worktree 推迟到用户挑中候选之后再建（挑中之前 slug 的短语无从取，所以 `mmw-start` 对它跳过定 slug 与建 worktree 两步）。删掉 `allow_implicit_invocation: false`——它是 `mmw-start` 的路由终点，之前那个设置让移交根本走不过去 | 未实跑 |
+| `skills/mmw-to-spec` | 七条入口路径各自要取齐哪些上游产物写成一张表；seam 一节的形状定死成清单，因为下游直接读它；模板吸收旧 plugin 的现状引用、失败路径、视觉契约、还没拍板的事；派一个 Codex 审这份 spec；用户点头之后才发布 issue 并打 `ready-for-agent`，这个动作就是人工审批关卡的凭据 | 未实跑 |
 
-二十个 `mmw-` 技能里，十八个有 `## 下一步` 表（`mmw-reviewer` 和 `mmw-planner` 没有——它们是派出去的劳动力读的方法论，不是流程技能），形式一致：两列（情况、下一步），动词只有「自己继续」「移交」「停」。`mmw-tdd` 及各技能下的 reference 全部补译成中文（派给审者和工人的提示词也是中文，模板里的结构字段名保持英文），全仓用词已对齐（决策改为决定，坐实改为复核，雾改为 fog of war，map 与 spec 的模板节名一律用英文原文）。上游原样搬进来的技能不加这一节——`domain-modeling`、`codebase-design` 做完就是做完，没有会带跑我们流程的出口。
+二十个 `mmw-` 技能里，十八个有 `## 下一步` 表（`mmw-reviewer` 和 `mmw-planner` 没有——它们是派出去的 subagent 读的方法论，不是流程技能），形式一致：两列（情况、下一步），动词只有「自己继续」「移交」「停」。`mmw-tdd` 及各技能下的 reference 全部补译成中文（派给审查者和工人的提示词也是中文，模板里的结构字段名保持英文），全仓用词已对齐（决策改为决定，坐实改为验证，雾改为 fog of war，map 与 spec 的模板节名一律用英文原文）。上游原样搬进来的技能不加这一节——`domain-modeling`、`codebase-design` 做完就是做完，没有会带跑我们流程的出口。
 
-断点续传不用状态文件：每一步都有一件落在 git 或 GitHub 上的产物对应它（分支上第一个空提交记用户原话、`docs/specs/<slug>/`、子 issue 的开关与 assignee、`.reviews/`、Wiki 页），查产物就知道走到哪。旧 plugin 需要状态文件是因为它有阶段引擎要记 phase 变量，新架构没有引擎。全流程唯一那道人闸也有产物：`mmw-to-spec` 只在用户点头之后才发布 spec issue 并打 `ready-for-agent`，issue 在且带这个标签就是过门的凭据。
+断点续传不用状态文件：每一步都有一件落在 git 或 GitHub 上的产物对应它（分支上第一个空提交记用户原话、`docs/specs/<slug>/`、子 issue 的开关与 assignee、`.reviews/`、Wiki 页），查产物就知道走到哪。旧 plugin 需要状态文件是因为它有阶段引擎要记 phase 变量，新架构没有引擎。全流程唯一那道人工审批关卡也有产物：`mmw-to-spec` 只在用户点头之后才发布 spec issue 并打 `ready-for-agent`，issue 在且带这个标签就是过关卡的凭据。
 
 派可写沙箱时踩到的坑已记进 `mmw-dispatching-agents`：`--sandbox workspace-write` 默认把 `.git` 锁成只读，工人提交会卡死，要把 worktree 的 `.git` 加进 `writable_roots`。
 
@@ -188,7 +199,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | 要定什么 | 当时的背景与张力 | 旧实现位置（背景线索） |
 | --- | --- | --- |
 | `/mmw-setup` 要不要自动跑 | 现在得手敲，用户忘了跑配置就全空、技能读不到任何仓库事实。想用 SessionStart 钩子自动铺，但那要接 `hooks/hooks.json`，属于插件机械层，等第 2 层能力定形后一起做 | `plugin/hooks/` |
-| 纪律层剩下两个技能的适配 | 八个里 `mmw-tdd`、`mmw-diagnosing-bugs`、`mmw-grilling`、`mmw-prototype`、`mmw-research` 已经改完，`resolving-merge-conflicts` 已吸收进 `mmw-review` 的 ⑥ 并删除，其余两个还是原样搬进来的，一个字没改。`domain-modeling` 的多 context 布局**保留**：读写规则是先查根 `CONTEXT-MAP.md`、按索引读对应子 context、没有才回退根 `CONTEXT.md`。子 context 落点定在 `docs/context/**`，不用上游那种贴着代码放 `src/<context>/CONTEXT.md` 的形态——旧 plugin 一直用前者、开发仓库已经在用，换布局要迁移既有文件；而且 `src/` 不是每个仓库都有（多语言、monorepo 就没有），拿它当锚点会落空。`codebase-design` 的 DESIGN-IT-TWICE 已改成走 `/mmw-dispatching-agents` 与 `/mmw-verifying-agent-output`（它是 `mmw-improve-codebase-architecture` 的出口之一，不接等于那条出口通向一个不守纪律的地方），该技能其余部分仍是上游原文 | `domain-modeling` ← 核 ADR 编号约定；`codebase-design` ← 无 |
+| 纪律层剩下两个技能的适配 | 八个里 `mmw-tdd`、`mmw-diagnosing-bugs`、`mmw-grilling`、`mmw-prototype`、`mmw-research` 已经改完，`resolving-merge-conflicts` 已吸收进 `mmw-review` 的 ⑥ 并删除，其余两个还是原样搬进来的，一个字没改。`domain-modeling` 的多 context 布局**保留**：读写规则是先查根 `CONTEXT-MAP.md`、按索引读对应子 context、没有才回退根 `CONTEXT.md`。子 context 落点定在 `docs/context/**`，不用上游那种贴着代码放 `src/<context>/CONTEXT.md` 的形态——旧 plugin 一直用前者、开发仓库已经在用，换布局要迁移既有文件；而且 `src/` 不是每个仓库都有（多语言、monorepo 就没有），拿它当固定路径会落空。`codebase-design` 的 DESIGN-IT-TWICE 已改成走 `/mmw-dispatching-agents` 与 `/mmw-verifying-agent-output`（它是 `mmw-improve-codebase-architecture` 的出口之一，不接等于那条出口通向一个不守纪律的地方），该技能其余部分仍是上游原文 | `domain-modeling` ← 核 ADR 编号约定；`codebase-design` ← 无 |
 | 补搬那 11 个上游技能留不留 | `qa`、`wizard`、`to-questionnaire`、`request-refactor-plan`、`design-an-interface`、`setup-ts-deep-modules`、`git-guardrails-claude-code`、`setup-pre-commit` 等来自上游 `deprecated/`、`in-progress/`、`misc/`，不在我们的主干上，但也不是空壳。留着占 description 的常驻成本，删了以后要用再搬回来 | 无 |
-| 任务隔离要不要脚本 | 建树、进树、打空提交这三步已经写进 `mmw-start` 的正文，主线程直接跑命令就够，暂时不做脚本。清理那一步要用户点头，本来也不适合脚本化 | `plugin/scripts/prepare.sh` 的 task new / cleanup |
-| 无人值守档 | 人闸已经有落点（`mmw-to-spec` 第 7 步用户点头，第 8 步发布 issue 打 `ready-for-agent` 即凭据）。旧 plugin 另有三档值守曲线，过门之后自动放权自主跑；新架构还没有对应的东西，也还不知道要不要 | `plugin/skills/orchestrate/references/control/attendance.md` |
+| 任务隔离要不要脚本 | 建 worktree、进 worktree、打空提交这三步已经写进 `mmw-start` 的正文，主 agent直接跑命令就够，暂时不做脚本。清理那一步要用户点头，本来也不适合脚本化 | `plugin/scripts/prepare.sh` 的 task new / cleanup |
+| AFK 的放权档位 | 人工审批关卡已经有落点（`mmw-to-spec` 第 7 步用户点头，第 8 步发布 issue 打 `ready-for-agent` 即凭据）。旧 plugin 另有三档放权曲线，过了人工审批关卡之后自动放权自主跑；新架构还没有对应的东西，也还不知道要不要 | `plugin/skills/orchestrate/references/control/attendance.md` |

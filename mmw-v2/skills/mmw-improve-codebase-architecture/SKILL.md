@@ -7,7 +7,7 @@ description: 扫一遍代码库找可以做深的模块，把候选出成一份�
 
 **本技能不改代码。** 它的产物是一份候选报告，加一个被用户选中的方向。真正的改动走后面的主干：谈清楚、写 spec、派工人。
 
-设计词汇一律用 `/codebase-design` 那一套（module、interface、implementation、depth、deep、shallow、seam、adapter、leverage、locality），连同它那几条判据——deletion test、interface 就是测试面、一个 adapter 是假 seam 两个才是真 seam。每条建议都用这些词的原词，不要漂成「组件」「服务」「API」「边界」。
+设计词汇一律用 `/codebase-design` 定的那一套（module、interface、implementation、depth、deep、shallow、seam、adapter、leverage、locality），连同它的判据——deletion test、interface 就是测试面、一个 adapter 是假 seam 两个才是真 seam。每条建议都用这些词的原词，不要漂成「组件」「服务」「API」「边界」。
 
 ## 先读领域文档
 
@@ -66,15 +66,15 @@ subagent 交回的是证据不是结论，按 `/mmw-verifying-agent-output` 逐�
 
 **这一步不要提 interface 方案。** 报告写完就停下来问用户：想深入看哪一个？
 
-## 5. 用户挑中之后再建树
+## 5. 用户挑中之后再建 worktree
 
 挑中之前不建 worktree。扫描是只读的，而且要改什么还没定，slug 的短语无从取。挑中了才知道。
 
-这时候按 `docs/agents/worktrees.md` 定 slug、建树、`EnterWorktree` 进去、打那个记原话的空提交。类型固定用 `refactor`，短语取被选中那个 module 的名字，例如 `refactor-order-intake`。空提交里记的是用户挑中这一项时说的原话，加上这张卡片的标题。
+这时候按 `docs/agents/worktrees.md` 定 slug、建 worktree、`EnterWorktree` 进去、打那个记原话的空提交。类型固定用 `refactor`，短语取被选中那个 module 的名字，例如 `refactor-order-intake`。空提交里记的是用户挑中这一项时说的原话，加上这张卡片的标题。
 
 ## 6. 就这一个候选谈下去
 
-跑 `/mmw-grilling` 把决定树跟用户走一遍：约束、依赖、做深之后这个 module 什么形状、seam 后面藏什么、哪些测试还活着。谈清楚之后它会回到本技能收口。
+跑 `/mmw-grilling` 把决定树跟用户走一遍：约束、依赖、做深之后这个 module 什么形状、seam 后面藏什么、哪些测试还活着。谈清楚之后它会回到本技能收尾。
 
 `/mmw-grilling` 自带 `/domain-modeling`，通用的那部分不用你再交代。这里只补三条本技能特有的：
 
@@ -87,7 +87,7 @@ subagent 交回的是证据不是结论，按 `/mmw-verifying-agent-output` 逐�
 | 情况 | 下一步 |
 | --- | --- |
 | 验证过的候选写成报告，已经打开给用户看 | **停**：挑哪一个是要人拍板的事。报出了几个候选、你推荐哪一个、为什么 |
-| 用户挑中一个 | **自己继续**：走第 5 步建树，再到第 6 步开谈 |
+| 用户挑中一个 | **自己继续**：走第 5 步建 worktree，再到第 6 步开谈 |
 | 谈到用户要先看见几种 interface 才判得下来 | **自己继续**：跑 `/codebase-design` 的 DESIGN-IT-TWICE，比完回第 6 步接着谈 |
 | `/mmw-grilling` 谈清楚了，回到本技能 | **移交**：`/mmw-to-spec`，把这张卡片的内容和谈出来的结论一起带过去 |
 | 扫完一个值得做的都没有 | **停**：明说这一片现在没有值得做的 deepening opportunity，列出你扫了哪些方向。不要为了交差凑几个 `Speculative` 出来 |

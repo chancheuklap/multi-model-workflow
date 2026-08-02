@@ -15,7 +15,7 @@ issue tracker 和标签词汇应该已经给你了，`docs/agents/issue-tracker.
 | --- | --- | --- |
 | `/mmw-grilling` 谈定 | 这次对话里刚谈完。`/mmw-wayfinder` 横扫下来判定不需要 map 的也走这一行——它在那之前已经 grill 过两轮 | 这一轮写进 `CONTEXT.md` 的术语、这一轮落成的 ADR、对话里达成的每一条共识 |
 | `/mmw-improve-codebase-architecture` 挑中的候选谈定 | slug 是 `refactor-` 开头，那个空提交里记着一张候选卡片的标题 | 上一行那三样，外加**那张卡片**——它的文件清单是第 2 步探仓库的起点，它的 Problem 和 before/after 直接进 spec 的现状与目标状态。这次的外部行为不变，所以 `Solution` 写的是结构怎么变、谁的调用方式跟着变 |
-| `/mmw-prototype` 走查完 | `docs/prototypes/<slug>/` 存在 | 那份 `README.md`——回灌结论在里面等你取；每一轮的**选中的那一版**；界面那一侧的视觉契约 |
+| `/mmw-prototype` 走查完 | `docs/prototypes/<slug>/` 存在 | 那份 `README.md`——回填结论在里面等你取；每一轮的**选中的那一版**；界面那一侧的视觉契约 |
 | `/mmw-wayfinder` 切出的一份 spec | 有一张 issue 挂在带 `wayfinder:map` 标签的 issue 底下，自己不带任何 `wayfinder:` 标签 | 那张 map 的正文三节，映射见第 4 步；这个视角新增的 `docs/adr/` 与 `.out-of-scope/` |
 | `/mmw-triage` 判出这件事碰多处 | 那张 issue 上有一条 agent brief 评论 | 那份 brief 全文，尤其 `Test seam` 那一栏和它第 3 步验过的断言 |
 | `/mmw-implement` 回来补 seam | `docs/specs/<slug>/` 里已经有一份 spec | 现有那份 spec。**只补 seam 一节，不重写**——从第 2 步接着走，你得先知道现有的 seam 在哪 |
@@ -79,7 +79,7 @@ issue tracker 和标签词汇应该已经给你了，`docs/agents/issue-tracker.
 
 自检全过之后按 `/mmw-review` 起 **① spec 审**。**这不是关卡，是给用户和你的参考。**
 
-两个视角各派一个审查者：设计内容审看这份 spec 本身立不立得住，项目对齐审看它跟项目既有的术语、硬约束、登记机制合不合。两个视角都来自另一个模型。材料怎么备、提示词什么形状、存盘叫什么名字，全在那个技能里。
+两个视角各派一个审查者：设计内容审看这份 spec 本身立不立得住，项目对齐审看它跟项目既有的术语、硬约束、登记机制合不合。两个视角都来自另一个模型。材料怎么备、提示词什么形状、存盘叫什么名字，全在 `/mmw-review`。
 
 采信的 findings 拿去改 spec，改完重走一遍第 5 步自检。
 
@@ -101,7 +101,7 @@ issue tracker 和标签词汇应该已经给你了，`docs/agents/issue-tracker.
 
 打 `ready-for-agent` 标签。打在 spec issue 上的含义是「这份 spec 定稿了，拆 ticket 和派工人都可以自动接下去」。
 
-**发布出去的这张 issue 加上这个标签，就是第 7 步那道人工审批关卡过了的凭据。** 没发布就是没过门。
+**发布出去的这张 issue 加上这个标签，就是第 7 步那道人工审批关卡过了的凭据。** 没发布就是没过这道关卡。
 
 ## 下一步
 

@@ -29,7 +29,7 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 - `needs-triage` —— 等维护者评估
 - `needs-info` —— 等报告人补信息
-- `ready-for-agent` —— 已经写完整，可以交给 AFK agent
+- `ready-for-agent` —— 已经写完整，可以 AFK 跑
 - `ready-for-human` —— 需要人来实现
 - `wontfix` —— 不做
 
@@ -91,7 +91,7 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 | `ready-for-agent`，只碰一处，brief 写明了 seam | **移交**：`/mmw-implement`。brief 已经是完整合同，不再写 spec |
 | `ready-for-agent`，碰多处，或者要先谈实现取舍 | **移交**：`/mmw-to-spec`，先谈定再派工人 |
 | 这个需求还不够具体，判不出状态 | **自己继续**：回第 4 步跑 `/mmw-grilling` 把它问成形，再回来落实结果 |
-| seam 说不清楚 | **自己继续**：改判 `ready-for-human`，理由写在 brief 里，然后按下面那行交回用户 |
+| seam 说不清楚 | **自己继续**：改判 `ready-for-human`，理由写在 brief 里，然后按本表最后一行交回用户 |
 | 落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage` | **停**：报这张判成了什么、为什么、下一步在等谁 |
 | 维护者一次交来好几张 | **自己继续**：一张一张走完上面的流程，全部落实之后再一起报 |
 

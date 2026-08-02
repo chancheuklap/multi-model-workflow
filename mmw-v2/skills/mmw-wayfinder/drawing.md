@@ -22,13 +22,13 @@
 
 ## 4. 建第一批 ticket，再连阻塞关系
 
-现在就能精确表述的问题，各建一张 decision ticket，各带一个 `wayfinder:<类型>` 标签。还说不清楚的全部留在 `Not yet specified`。
+现在就能精确表述的问题，各建一张 decision ticket，各带一个 `wayfinder:<类型>` 标签。**四个标签各自什么时候打，见 [map-anatomy.md](map-anatomy.md) 的「四个类型」一节**，不要凭感觉打。还说不清楚的全部留在 `Not yet specified`。
 
 然后用**第二遍**把阻塞关系连上——issue 要先有编号才能互相引用。连完边，这批 ticket 自然分成 frontier 和被阻塞的两类。
 
 ## 5. 派调查 subagent，收报告
 
-刚建的每一张 `research` 类 ticket，各派一个 subagent 去查，按 `/mmw-research`。它们只查事实、互不依赖，可以并行。
+刚建的每一张 `wayfinder:research` ticket，各派一个 subagent 去查，按 `/mmw-research`。它们只查事实、互不依赖，可以并行。
 
 **报告收齐、验证完、写进 ticket 评论，这一步才算完。** 验证过的事实写进对应 ticket 的评论，没查清的另起一节列出来。查清了的那张 ticket 当场关掉，并往 map 的 `Decisions so far` 追加一行。
 
