@@ -28,7 +28,7 @@
 
 ## 5. 派 research 子代理，收回执
 
-刚建的每一张 `research` 类 ticket，各派一个子代理去查（按 `/mmw-dispatching-agents`）。它们只查事实、互不依赖，可以并行。
+刚建的每一张 `research` 类 ticket，各派一个劳动力去查，按 `/mmw-research`——它管简报里那两段判据（一手来源、事实怎么写）。它们只查事实、互不依赖，可以并行。
 
 **回执收齐、复核完、写进 ticket 评论，这一步才算完。** 逐条按 `/mmw-verifying-agent-output` 复核：复核过的事实写进对应 ticket 的评论，没查清的另起一节列出来。查清了的那张 ticket 当场关掉，并往 map 的 `Decisions so far` 追加一行。
 
