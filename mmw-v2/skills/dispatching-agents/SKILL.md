@@ -1,6 +1,6 @@
 ---
 name: dispatching-agents
-description: 把一件活派给隔离上下文的劳动力——Claude 会话内 sub-agent，或 Codex 无头进程。管选后端、钉模型档、围栏、简报自包含、怎么收回。需要把活派出去时用它。
+description: 把一件任务派给隔离上下文的劳动力——Claude 会话内 sub-agent，或 Codex 无头进程。管选后端、钉模型档、围栏、简报自包含、怎么收回。需要把任务派出去时用它。
 ---
 
 # 派劳动力
@@ -30,7 +30,7 @@ codex exec -C . --sandbox read-only --color never \
 - 用 Bash 的 `run_in_background: true` 起。审一轮、写一份计划，都常常超过前台超时上限。
 - `-o` 把它最后一条消息写进回执文件。读那个文件就是回执，不用从事件流里捞。
 - 提示词走 stdin，所以先用 Write 把它写成文件。
-- 派可写的活时换 `--sandbox workspace-write`。**首派前工作树必须干净**，否则验收读 diff 时分不清哪些改动是它的。
+- 派可写任务时换 `--sandbox workspace-write`。**首次派发前工作区必须干净**，否则验收读 diff 时分不清哪些改动是它的。
 - **要它自己提交，还得单独放开 `.git`。** `workspace-write` 默认把 `.git` 锁成只读，工人写完代码会卡在 `.git/index.lock: Operation not permitted`。加这个覆盖：
 
   ```bash
