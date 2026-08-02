@@ -3,8 +3,6 @@ name: mmw-diagnosing-bugs
 description: 难以定位的 bug 和性能回退的诊断循环——先造出一个能变 red 的 loop，再复现、最小化、提假设、埋点，最后把修复派给工人。用户说要 debug、要诊断，或者报告什么东西坏了、报错了、跑不通、变慢了时用它。
 ---
 
-# Diagnosing Bugs
-
 一套对付难以定位的 bug 的纪律，六个 Phase。跳过某个 Phase 要给出明确理由。
 
 **Phase 1 在本文件里，其余分开放。** 这不是排版决定：知道后面还有五个 Phase 等着，会让人草率对待眼前这个，而 Phase 1 恰恰是不能草率的那个。造出 loop 之前不要去读后面的文件。

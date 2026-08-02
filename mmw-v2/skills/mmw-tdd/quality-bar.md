@@ -1,34 +1,36 @@
-# Bar for entry
+# 进仓资格线
 
-Every rule above says what a good test *is*. This file is the gate: a test that fails any line here does not go in, and a review sends it back.
+前面几份讲的是一个好测试**是什么**。这份是闸：任何一条不过，这个测试就不进仓库，审查一律打回。
 
-## Rules
+## 资格线
 
-- **One behaviour, one test, at the layer that owns it.** Don't assert the same fact again a layer up or down to lift a coverage number.
-- **Build test data through the real producer path** — the shared builder the production code uses. Never hand-roll a second copy of the producer's shape; the copy drifts and the test keeps passing.
-- **A bug's regression test lives in the file that owns that behaviour.** Never a new `fix_xxx` file — the behaviour has a home already, and a parallel file means nobody reading that home sees the case.
-- **Values the system owns elsewhere are read from their source, not retyped.** Prices, user-facing copy, enum members: read the authoritative source and compare. This sharpens the independent-source-of-truth rule rather than contradicting it — for a *computed* result the independent source is a known-good literal; for a value the system already holds, it is that source.
-- **When a behaviour is retired, its test dies in the same commit.** A `skip` that outlives one iteration is deleted, not left as a marker.
-- **Production code carries no test-only seam.** No `_for_test` back doors, no branches that exist because a test needed them. Testability comes from dependency injection and from returning results instead of reaching into state.
-- **The repo's own test guards, lint, and type checks must pass.** That is the machine floor. Green proves nothing about whether the test is worth keeping.
+- **测试名是一句业务行为陈述，不复述函数名。** 「激活码重放被拒绝」说清了它守的是什么；「test_validate_code_returns_false」只是把签名抄了一遍，读的人还得去看实现才知道它守什么。
+- **一个行为一个测试，在拥有这个行为的那一层测。** 不要为了把覆盖率数字抬上去，在上一层或下一层再断言同一件事。一个测试一条逻辑断言——一条断言可以核对多个字段，但它讲的是同一个行为事实。
+- **断言对象必须是外部可观察的事实**，按这个优先级取：系统自己的读接口最好，其次是 HTTP 响应、落盘的文件产物、账本行、命令行输出。内部调用序列、私有函数、源码文本一律不许断。
+- **测试数据走真实的 producer 路径构造**——用生产代码在用的那个共享 builder。绝不手搓第二份 producer 形状的拷贝；拷贝会漂移，而测试照样绿着。
+- **修 bug 的回归测试写进拥有那个行为的文件里。** 绝不新建 `fix_xxx` 文件——这个行为已经有家了，另起一份意味着读那个家的人看不见这个案例。
+- **系统在别处已经持有的值，从它的源头读出来比对，不重打一遍。** 价格、给用户看的文案、枚举成员都算。这跟「预期值要来自独立真相源」不矛盾，是把它说得更细：对一个*算出来的*结果，独立真相源是一个已知正确的字面量；对一个系统已经持有的值，独立真相源就是持有它的那个地方。
+- **一个行为退役时，它的测试在同一个提交里删掉。** `skip` 活过一个迭代就删，不要留成标记。
+- **生产代码里不为测试留 seam。** 没有 `_for_test` 之类的后门，没有只因为某个测试需要才存在的分支。可测试性靠依赖注入，靠让函数返回结果而不是伸手改状态。
+- **仓库自己的 test guards、lint 和类型检查必须过。** 那是机器底线。全绿不能证明这个测试值得留下。
 
-## Forbidden forms
+## 禁止形态
 
-Each of these is a defect on sight, however green it runs.
+下面每一种，写了就是缺陷，跑得再绿也一样。
 
-| Forbidden | Why | Instead |
+| 禁止 | 为什么 | 换成什么 |
 | --- | --- | --- |
-| Asserting on source text (grepping code or docs for a literal or a private symbol) | Renaming turns it red for nothing; routing round the literal makes it miss the real break. It locks the implementation, not the behaviour | Call the real function or command and assert the observable result; if you must assert structure, parse it (AST) rather than match text |
-| Locking UI copy or prose word for word | An edit for tone turns it red; prose is not a contract | Assert the semantic key or state; read the copy from its single source and compare |
-| Mirroring a whole field set, default set, or enum into the assertion | It copies the contract schema into a second place, so one change needs two edits | Go through the real contract type on a real producer→consumer path |
-| Counting things in documentation (this file contains N words, that list has M items) | Editing the doc turns it red | Don't assert on docs; read the fact from the code that owns it |
-| Tombstone path lists (retired files asserted absent one by one, archived files asserted present) | The list rots silently, and any tidy-up turns it red | Assert only which top-level directories should and shouldn't exist; an import that creeps back will fail a behaviour test on its own |
-| Meta-gates that test the tests (asserting some suite list contains a given test file) | Suite membership is derived from the directory; a registry of it has no reason to exist | Delete it |
-| Per-file allowlists (a hardcoded list of production paths, exempt or required) | It couples to the layout, and entries fail silently as the layout moves | Walk the structure and express the exception as a condition, not a list |
-| Mocking your own services or stubbing your own seams | The stub and the real implementation drift, and a green test hides a real break | Run your own seams for real; mock only at an outside supplier's boundary |
+| 断言源码文本（去 grep 代码或文档找某个字面量、某个私有符号） | 改个名就误红，绕开那个字面量就漏判，两头都失效。它锁的是实现，不是行为 | 调真函数或真命令，断它外部可观察的结果；确实要断结构就用 AST 之类的结构化解析，不做文本匹配 |
+| 逐字锁 UI 文案或文档正文 | 润色一次就假红；正文不是合同 | 断语义键或状态枚举；文案从它的单一来源读出来再比对 |
+| 把整套字段、整套默认值、整个枚举镜像进断言 | 等于把合同 schema 抄成第二份，改一处要改两处 | 走正式的契约类型，跑一条真实的 producer 到 consumer 链路 |
+| 对文档做计数断言（某个 `.md` 含 N 个词、某张清单有 M 条） | 文档润色一次就假红 | 不要断文档；事实从拥有它的代码里读 |
+| 墓碑路径清单（退役文件逐个断言不存在、归档文件逐个断言存在） | 清单会静默腐烂，整理一次目录就红 | 只断哪些顶级目录该在、哪些不该在；真有 import 回流，行为测试自己会报错 |
+| 测试测试的元闸（断言某个套件清单里含某个测试文件名） | 套件成员从目录推导得出，登记表没有存在理由 | 删掉 |
+| 按文件写豁免清单（硬编码一串生产文件路径当豁免或必备） | 跟目录布局强耦合，布局一动条目就静默失效 | 结构化遍历，把例外写成条件而不是清单 |
+| mock 自家服务、给自家 seam 打桩 | 桩和真实现会漂移，绿测试掩盖真断裂 | 自家 seam 走真代码；mock 只在外部供应商那道边界上 |
 
-## The admission question
+## 准入问题
 
-Before a new test goes in, answer it: **which user journey, which money, or which data does this test guard — and who gets hurt the day it breaks?**
+一个新测试进仓之前必须答得出：**这个测试守的是哪条用户旅程、哪笔钱、哪份数据？它坏掉的那天，哪个用户当天受伤？**
 
-No answer means the test hasn't earned its place.
+答不出来，这个测试就没挣到进仓库的资格。

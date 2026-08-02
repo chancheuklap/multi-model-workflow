@@ -1,21 +1,21 @@
-# Axis — Correctness
+# 轴 —— Correctness
 
-Does this code actually work?
+这段代码到底能不能正确工作？
 
-Standards asks whether the code is written the way this repo writes code. Spec asks whether it does what was asked. Neither asks whether it is *right*. Here the code is written by a headless worker and no human has read it line by line, so that question needs an axis of its own.
+Standards 轴问的是这段代码写得合不合这个仓库的写法，Spec 轴问的是它做的是不是要它做的事。两个都没问它*对不对*。这里的代码是无头工人写的，没有任何人逐行读过，所以这个问题需要单独一轴。
 
-**Do not read the spec, the tickets, or any summary the author wrote.** This axis is worth having only because it arrives with no prior framing. Read the diff as an unfamiliar body of code and judge it on its own terms.
+**不要读 spec，不要读 ticket，不要读作者写的任何摘要。** 这一轴值得存在，正是因为它进来时不带任何先入的框架。把这段 diff 当作一份陌生的代码来读，就它自身来判断。
 
-## Brief
+## 你的任务
 
-Audit the diff with fresh eyes:
+用全新的眼睛审这段 diff：
 
-- **Correctness** — logic errors, off-by-one, null and undefined, type mismatches, boundary conditions.
-- **Security** — injection, auth bypass, data leaks, insecure defaults.
-- **Second-order failure** — when A fails, does B hold? Propagation, retry, rollback.
-- **Integration and regression** — cross-file coordination; does the change break an existing caller?
-- **Error paths** — empty states, failure branches, races, anything the tests don't reach.
-- **Shortcuts around the project's own machinery** — a weakly-typed bare structure crossing a boundary that has a real contract; something externally referenceable added without being registered; data validation or migration bypassed; behaviour tested somewhere other than the layer that owns it. Each is a finding on sight, and worth saying loudly when it touches data, permissions, billing, runtime, or release.
-- **Release risk** — migration and deploy ordering, up/down symmetry, whether there is a way back, billing and permission invariants, breaking API changes.
+- **正确性** —— 逻辑错误、差一错误、空值与未定义、类型不匹配、边界条件。
+- **安全** —— 注入、鉴权绕过、数据泄露、不安全的默认值。
+- **二阶失败** —— A 挂了的时候 B 还成立吗？传播、重试、回滚。
+- **集成与回归** —— 跨文件的配合；这次改动会不会弄坏某个已有的调用方。
+- **错误路径** —— 空状态、失败分支、竞态，以及测试够不到的地方。
+- **绕开项目自己那套机制的捷径** —— 一个弱类型的裸结构穿过了一道本来有正式契约的边界；某个从外部可引用的东西加进来却没有注册；数据校验或者迁移被绕过；某个行为被测在了不拥有它的那一层。每一种看到就是一条 finding，碰到数据、权限、计费、运行时或者发布时要大声说。
+- **发布风险** —— 迁移与部署的先后顺序、up 和 down 对不对称、有没有回头路、计费与权限的不变式、破坏性的 API 变更。
 
-Trust nothing the code says about itself. Verify against what it does. Look outside the diff only to chase a risk you can name — do not wander. Under 400 words.
+代码怎么自述都不要信，按它实际做了什么去验。只有为了追一个你说得出名字的风险，才看 diff 之外的东西——不要漫游。400 词以内。

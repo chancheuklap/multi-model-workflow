@@ -1,34 +1,34 @@
-# Axis — Standards
+# 轴 —— Standards
 
-Does the code conform to this repo's documented coding standards?
+这段代码合不合这个仓库写下来的编码标准？
 
-## Standards sources
+## 标准写在哪
 
 <!-- Main thread: before pasting, list here the files found in step 3 — CODING_STANDARDS.md,
      CONTRIBUTING.md, or whatever this repo documents. Write "none documented" if there are none. -->
 
-## Smell baseline
+## smell baseline
 
-On top of whatever the repo documents, this axis always carries the baseline below — a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
+除了仓库自己写下来的那些，这一轴永远还带着下面这份基线——一组固定的 Fowler 代码气味（《重构》第三章），仓库什么都没写时它照样适用。两条规矩约束它：
 
-- **The repo overrides.** A documented repo standard always wins; where it endorses something the baseline would flag, suppress the smell.
-- **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation — and, like any standard here, skip anything tooling already enforces.
+- **仓库压过基线。** 仓库写下来的标准永远赢；它明确认可的做法，即使基线会标记，也压住不报。
+- **永远是判断题。** 每一条气味都是一个带标签的启发式（「可能是 Feature Envy」），不是硬性违规。跟这里的任何标准一样，工具已经在管的就跳过。
 
-Each smell reads *what it is* → *how to fix*; match it against the diff:
+每一条的读法是*它是什么* → *怎么改*，拿它对着 diff 比：
 
-- **Mysterious Name** — a function, variable, or type whose name doesn't reveal what it does or holds. → rename it; if no honest name comes, the design's murky.
-- **Duplicated Code** — the same logic shape appears in more than one hunk or file in the change. → extract the shared shape, call it from both.
-- **Feature Envy** — a method that reaches into another object's data more than its own. → move the method onto the data it envies.
-- **Data Clumps** — the same few fields or params keep travelling together (a type wanting to be born). → bundle them into one type, pass that.
-- **Primitive Obsession** — a primitive or string standing in for a domain concept that deserves its own type. → give the concept its own small type.
-- **Repeated Switches** — the same `switch`/`if`-cascade on the same type recurs across the change. → replace with polymorphism, or one map both sites share.
-- **Shotgun Surgery** — one logical change forces scattered edits across many files in the diff. → gather what changes together into one module.
-- **Divergent Change** — one file or module is edited for several unrelated reasons. → split so each module changes for one reason.
-- **Speculative Generality** — abstraction, parameters, or hooks added for needs the spec doesn't have. → delete it; inline back until a real need shows.
-- **Message Chains** — long `a.b().c().d()` navigation the caller shouldn't depend on. → hide the walk behind one method on the first object.
-- **Middle Man** — a class or function that mostly just delegates onward. → cut it, call the real target direct.
-- **Refused Bequest** — a subclass or implementer that ignores or overrides most of what it inherits. → drop the inheritance, use composition.
+- **Mysterious Name** —— 函数、变量或类型的名字看不出它做什么、装什么。→ 改名；起不出一个诚实的名字，说明设计本身还没想清楚。
+- **Duplicated Code** —— 同一个逻辑形状在这次改动的多个片段或多个文件里重复出现。→ 把共同的形状提出来，两边都调它。
+- **Feature Envy** —— 一个方法伸手去拿别的对象的数据，比拿自己的还多。→ 把这个方法搬到它羡慕的那份数据上。
+- **Data Clumps** —— 同样那几个字段或参数总是一起出现（一个想出生的类型）。→ 把它们捆成一个类型，传那个。
+- **Primitive Obsession** —— 用一个原始类型或字符串顶替了一个值得拥有自己类型的领域概念。→ 给这个概念一个自己的小类型。
+- **Repeated Switches** —— 对同一个类型的同一串 `switch` 或 `if` 级联，在这次改动里反复出现。→ 换成多态，或者两处共用同一张映射表。
+- **Shotgun Surgery** —— 一个逻辑上的改动，逼着你在 diff 里的许多文件之间散着改。→ 把一起变的东西收进一个模块。
+- **Divergent Change** —— 同一个文件或模块因为几件互不相干的理由被改。→ 拆开，让每个模块只因为一个理由改。
+- **Speculative Generality** —— 为了 spec 里没有的需求加的抽象、参数或者扩展点。→ 删掉；内联回去，等真需求出现再说。
+- **Message Chains** —— 长长的 `a.b().c().d()` 导航，调用方本不该依赖这条链。→ 把这段路藏进第一个对象上的一个方法里。
+- **Middle Man** —— 一个类或函数大部分工作只是往下转发。→ 砍掉它，直接调真正的目标。
+- **Refused Bequest** —— 一个子类或实现者忽略、或者覆盖掉了它继承来的大部分东西。→ 放弃继承，改用组合。
 
-## Brief
+## 你的任务
 
-Report — per file/hunk where relevant — (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls — documented-standard breaches can be hard, but baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Under 400 words.
+按文件或者按片段报两类：(a) diff 里每一处违反了写下来的标准的地方，把那条标准引出来（哪个文件、哪条规则）；(b) 你看到的任何一条基线气味，说出它的名字并把那段代码引出来。把硬性违规和判断题分开——违反写下来的标准可以算硬性违规，基线气味永远是判断题，而且仓库写下来的标准压过基线。工具已经在管的跳过。400 词以内。

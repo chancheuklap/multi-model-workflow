@@ -3,8 +3,6 @@ name: mmw-implement
 description: 把定好的需求实现成代码。用户说要开始实现、做下一张 ticket、把这张 issue 做掉时用它；别的技能判定某张 ticket 已是 ready-for-agent、可以开工时也用它。一张 ticket 派一个 Codex 无头工人在任务 worktree 里写，验收之后起 code-review。
 ---
 
-# Implement
-
 把 spec 和它的 ticket 描述的需求实现出来。spec 已定稿，seam 已谈定；本技能执行那份计划，不重开它。
 
 **你不写代码。** 每张 ticket 交给一个 Codex 无头工人。这不是偏好——`docs/agents/models.md` 不允许主线程成为代码的作者，因为作者没有资格裁判关于这份代码的 findings。你在这里的职责是准备简报、派发、验收、起审。
@@ -35,8 +33,9 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 
 1. 本文件旁边的 `worker-brief.md`，全文。
 2. TDD 纪律全文——`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md`。
-3. spec 或 agent brief 在这个 worktree 里的路径，以及它写明的 seam 清单，原文引用。
-4. ticket 本身：标题、要做什么、每一条验收标准，全部写进去。工人能访问 tracker 也照样写——让它自己去取，可能取错一张，而且提示词就不再是你派发内容的完整记录。
+3. 目标仓库的 `TESTING.md` 全文，那是测试三层里的第三层：目录分层、哪些边界允许打桩、值从哪个权威源读。**它跟前四份一起粘进去，不给路径**——工人在这个仓库里，理论上读得到，但它是不是真去读了你控制不了，而缺了这一层它会写出符合通用规范却不符合本仓库的测试。这个仓库还没有 `TESTING.md`，在简报里明说没有，让它按前四份做。
+4. spec 或 agent brief 在这个 worktree 里的路径，以及它写明的 seam 清单，原文引用。
+5. ticket 本身：标题、要做什么、每一条验收标准，全部写进去。工人能访问 tracker 也照样写——让它自己去取，可能取错一张，而且提示词就不再是你派发内容的完整记录。
 
 写到 `.dispatch/<slug>-<ticket>.prompt.md`（先 `mkdir -p .dispatch`）。给工人的路径一律是被审仓库里的路径；插件内的路径它读不到，读不到就会自己编一个。
 
