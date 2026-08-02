@@ -91,40 +91,47 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 | 层 | 内容 |
 | --- | --- |
-| 0 · 配置 | 五份种子随插件分发，在 `mmw-v2/skills/setup/`；`/setup` 铺进目标仓库的 `docs/agents/`。我们的选择全固定，所以 setup 不问问题（这是比 Matt 更简的形态：他要问，因为他的用户各不相同）。技能一律读目标仓库的 `docs/agents/*.md`，不读插件内路径——避免旧 plugin 那套「先定位插件根」的烂摊子 |
+| 0 · 配置 | 六份种子随插件分发，在 `mmw-v2/skills/setup/`；`/setup` 铺进目标仓库的 `docs/agents/`。我们的选择全固定，所以 setup 不问问题（这是比 Matt 更简的形态：他要问，因为他的用户各不相同）。技能一律读目标仓库的 `docs/agents/*.md`，不读插件内路径——避免旧 plugin 那套「先定位插件根」的烂摊子 |
 | 1 · 纪律 | Matt 的 model-invoked 技能原样搬：tdd、diagnosing-bugs、codebase-design、domain-modeling、grilling、prototype、resolving-merge-conflicts、research |
 | 2 · 自有能力 | 跨模型派发、亲验裁判、任务隔离。这三块 Matt 完全没有，是仓库存在的理由 |
 | 3 · 编排 | 改造 Matt 的 user-invoked 技能，把第 2 层注入进去 |
 
 ### 搬迁批次
 
-搬迁已完成：19 个技能全在 `mmw-v2/skills/`，除自写的 `setup` 外一律原样复制自 vendor，未改一字。
+搬迁已完成：Matt 那边 18 个技能全在 `mmw-v2/skills/`，搬进来时除自写的 `setup` 外一律原样复制自 vendor，未改一字。加上后来自写的 `dispatching-agents` 和 `judging-agent-output`，manifest 现在登记 21 个。
 
-改造按 Matt 主干顺序推进，一个跑通再动下一个：
+改造按 Matt 主干顺序推进，一个跑通再动下一个。先做了链条末端的两个，因为跨模型派发和亲验裁判在那里第一次落地，前面几个技能要复用同一套底子：
 
-| 顺序 | 技能 | 要加什么 |
+| 顺序 | 技能 | 要加什么 | 状态 |
+| --- | --- | --- | --- |
+| 1 | `grill-with-docs` | 开问前先查仓库现状；摆路线让用户选；出口交给 `to-spec` | 待做 |
+| 2 | `to-spec` | 测试接缝判据（用旧 plugin 那套测试规矩）、`/approve-design` 人闸、派 Codex 审这份设计 | 待做 |
+| 3 | `to-tickets` | 实施计划塞在哪：切片 issue 正文还是单独文档 | 待做 |
+| 4 | `implement` | 换成 worktree + 派 Codex 无头写码 | 已落地 |
+| 5 | `code-review` | 接亲验裁判，把 Matt 明确不做的判断补上 | 已落地 |
+
+`ask-matt` 是 Matt 的路由器，留着做底子，最终名字和内容都要换成我们自己的入口。它现在还有三处指向不存在技能的悬空引用（`/grill-me`、`/teach`、`/writing-great-skills`），改造它的时候一起清。
+
+### 已落地
+
+第 2 层三块自有能力里的两块，加上末端两个编排技能，都已写成技能并各自实跑验过一轮。设计结论住在技能自己那几份文件里，本文件不复述。
+
+| 落点 | 内容 | 怎么验的 |
 | --- | --- | --- |
-| 1 | `grill-with-docs` | 开问前先查仓库现状；摆路线让用户选；出口交给 `to-spec` |
-| 2 | `to-spec` | 测试接缝判据（用旧 plugin 那套测试规矩）、`/approve-design` 人闸、派 Codex 审这份设计——跨模型派发在这里第一次落地 |
-| 3 | `to-tickets` | 实施计划塞在哪：切片 issue 正文还是单独文档 |
-| 4 | `implement` | 换成 worktree + 派 Codex 无头写码 |
-| 5 | `code-review` | 接亲验裁判，把 Matt 明确不做的判断补上 |
+| `skills/dispatching-agents` | 两个后端（Claude sub-agent、Codex 无头）、模型档一律从 `docs/agents/models.md` 取、简报自包含 | 实跑派出过审者和写码工人各一轮 |
+| `skills/judging-agent-output` | 采信段（每条承重断言要有主线程能自己复核的锚）加处置段（五个英文处置词） | 实跑八条 findings 逐条坐实，其中一条审者报的行号真的差了一行 |
+| `skills/code-review` | Matt 两轴之外补第三轴 Correctness，跨家派发，findings 原样落盘再裁判 | 实跑一轮真 diff，Claude 和 Codex 各自捞到对方没看见的一条 |
+| `skills/implement` | 主线程不写码，一张 ticket 派一个 Codex 无头工人；主线程只做备料、派发、验收、起审 | 实跑一个真工人在 throwaway 仓库里做完一张 ticket，测试全绿 |
+| `skills/tdd` | 接缝改成由 spec 钉死（无头工人问不到人），另加 `quality-bar.md` 收下旧 plugin 那套测试规矩 | 随 `implement` 一起跑过 |
 
-`ask-matt` 是 Matt 的路由器，留着做底子，最终名字和内容都要换成我们自己的入口。
-
-### 批 2 已落地
-
-跨模型派发、亲验裁判、`code-review` 三轴改造已写成技能，实跑一轮验过（`mmw-v2/skills/dispatching-agents`、`judging-agent-output`、`code-review`）。设计结论住在那三份技能里，本文件不再复述。
-
-改造顺序表里 `code-review` 那一行因此完成；下一个是 `implement`（worktree 加派 Codex 无头写码），它复用同一套派发与裁判。
+派可写沙箱时踩到的坑已记进 `dispatching-agents`：`--sandbox workspace-write` 默认把 `.git` 锁成只读，工人提交会卡死，要把 worktree 的 `.git` 加进 `writable_roots`。
 
 ### 待定事项
 
 | 要定什么 | 当时的背景与张力 | 旧实现位置（背景线索） |
 | --- | --- | --- |
-| 派 Codex 无头写码 | 审那一侧的派发已落地，写那一侧还没：可写沙箱、首派前工作树要干净、交回的完工报告怎么验收。跟 `implement` 一起做 | `plugin/scripts/worker.sh` |
 | `/setup` 要不要自动跑 | 现在得手敲，用户忘了跑配置就全空、技能读不到任何仓库事实。想用 SessionStart 钩子自动铺，但那要接 `hooks/hooks.json`，属于插件机械层，等第 2 层能力定形后一起做 | `plugin/hooks/` |
-| 纪律层八技能的适配 | 原样搬进来了，一个字没改。每个技能都有旧 plugin 里的自有加法要合（见下表）。已看清的第一个真冲突：Matt 的 `tdd` 要求写测试前跟用户确认接缝，我们的写码工人是无人值守 Codex，问不到人，所以要改成「接缝由计划的 Task Pack 钉死」 | `tdd` ← `worktree-build/references/tests.md`、`discipline.md`；`research` ← `investigate-internal` / `investigate-external`；`prototype` ← `scripts/prototype.sh`、`design/prototype-mockup.md`；`resolving-merge-conflicts` ← `scenario/merge.md`；`diagnosing-bugs` ← 悬空引用 + `scenario/bug.md`；`domain-modeling` ← 核 ADR 编号约定；`grilling` ← `design/discussion.md` |
+| 纪律层剩下七个技能的适配 | 八个里 `tdd` 已经改完（接缝由 spec 钉死，另加 `quality-bar.md`），其余七个还是原样搬进来的，一个字没改。每个都有旧 plugin 里的自有加法要合（见右栏） | `research` ← `investigate-internal` / `investigate-external`；`prototype` ← `scripts/prototype.sh`、`design/prototype-mockup.md`；`resolving-merge-conflicts` ← `scenario/merge.md`；`diagnosing-bugs` ← 悬空引用 + `scenario/bug.md`；`domain-modeling` ← 核 ADR 编号约定；`grilling` ← `design/discussion.md` |
 | 任务隔离脚本 | 建 / 进 / 清 worktree 加 docs 落点。约定全在 `mmw-v2/skills/setup/worktrees.md`，只剩薄脚本怎么写 | `plugin/scripts/prepare.sh` 的 task new / cleanup |
 | `/approve-design` 人闸和无人值守档 | 新架构没有阶段引擎，「设计过门」这个动作靠什么承载还没答案（issue 标签？提交？）。人闸只有这一道，口头同意不算 | `plugin/commands/approve-design.md`、`plugin/skills/orchestrate/references/control/attendance.md` |
 | 本地文档转 Wiki 的脚本 | 约定全定完了，在 `mmw-v2/skills/setup/wiki.md`（命名、页面结构、导航生成、写入顺序、三条核验）。只剩生成 `Home.md` / `_Sidebar.md` 那段薄脚本怎么写，以及挂在收尾技能的哪一步 | 无（新能力） |
