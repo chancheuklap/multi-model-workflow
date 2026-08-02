@@ -1,7 +1,6 @@
 ---
 name: mmw-setup
-description: 把本插件的工作流约定铺进当前仓库。每个仓库跑一次，其它技能才有配置可读。
-disable-model-invocation: true
+description: 把本插件的工作流约定铺进当前仓库的 docs/agents/，并铺一份 TESTING.md 骨架。用户说要初始化、要配置这个仓库时用它；别的技能读不到 docs/agents/ 下的配置时也用它。
 ---
 
 本插件的技能不硬编码任何仓库事实——issue 存哪、领域文档在哪、谁写谁审，全读 `docs/agents/` 下的文件。这个技能负责把那些文件铺进当前仓库。
@@ -43,8 +42,10 @@ disable-model-invocation: true
 审者和写计划工人都不从提示词里读方法论，它们读自己技能目录里的那一份。跑 `/mmw-dispatching-agents` 旁边那个装载脚本，幂等，装过就跳过：
 
 ```bash
-bash <本插件>/skills/mmw-dispatching-agents/install-agent-skills.sh
+bash "<本技能目录>/../mmw-dispatching-agents/install-agent-skills.sh"
 ```
+
+`<本技能目录>` 就是这份 `SKILL.md` 所在的目录，脚本在它的同级目录里，不用去找插件根。
 
 这一步是**每台机器一次**，不是每个仓库一次，所以它跟前两步的粒度不同——重跑无害。
 

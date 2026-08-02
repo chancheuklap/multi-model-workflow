@@ -26,6 +26,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 | 想先看看某个界面长什么样，或者不确定一套状态模型对不对 | **移交**：`/mmw-prototype` |
 | 一个新需求，或对已有需求的改进 | **移交**：`/mmw-grilling` |
 | 没有具体需求，只说想让代码库更好维护 | **移交**：`/improve-codebase-architecture` |
+| 几条并行分支要合到一起，或者合并冲突要解 | **移交**：`/mmw-review` 的 ⑥ 合并集成审。这一路不建任务 worktree，跳过第 2、3 步 |
 
 三种情况都通向 `/mmw-wayfinder`，但进去之后走的不是同一条路：报了 map 编号或某条 decision ticket 编号的，是回来认领一条链；报了一个还不知道要拆成几份 spec 的 effort，是要建一张新 map。判定归那个技能，你只要把用户原话原样传过去。
 

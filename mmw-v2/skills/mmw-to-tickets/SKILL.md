@@ -58,7 +58,7 @@ issue tracker 和标签词汇按 `docs/agents/issue-tracker.md` 与 `docs/agents
 
 ## Parent
 
-指向这批 ticket 所属的 spec issue。
+指向这批 ticket 所属的 spec issue（来源不是一张 issue 就省掉这一节）。
 
 ## What to build
 
@@ -66,7 +66,7 @@ issue tracker 和标签词汇按 `docs/agents/issue-tracker.md` 与 `docs/agents
 
 ## Plan
 
-`docs/plans/<slug>/<NN>-<ticket-slug>.md`，`<NN>` 就是第 4 步给这张定的编号。文件由 `/mmw-to-plan` 写，这里先把路径占住。
+`docs/plans/<slug>/<NN>-<ticket-slug>.md`。`<slug>` 跟这次的 spec 目录同名（`docs/specs/<slug>/`），`<NN>` 是第 4 步给这张定的编号。文件由 `/mmw-to-plan` 写，这里先把路径占住。
 
 ## Acceptance criteria
 
@@ -87,4 +87,4 @@ issue tracker 和标签词汇按 `docs/agents/issue-tracker.md` 与 `docs/agents
 | --- | --- |
 | ticket 全部发布完 | **移交**：`/mmw-to-plan`，一张 ticket 写一份 plan。文件路径和代码属于那里 |
 | 第 4 步用户要改切分 | **自己继续**：回第 3 步改，改完重亮一次清单 |
-| spec issue 没带 `ready-for-agent` | **停**：这份 spec 还没过人闸，回 `/mmw-to-spec` 第 7 步 |
+| 来源是一份 spec，但那张 spec issue 没带 `ready-for-agent` | **停**：这份 spec 还没过人闸，回 `/mmw-to-spec` 第 7 步 |
