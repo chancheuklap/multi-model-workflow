@@ -1,6 +1,6 @@
 ---
 name: mmw-implement
-description: 把定好的需求实现成代码。用户说要开始实现、做下一张 ticket、把这张 issue 做掉时用它；别的技能判定某张 ticket 已是 ready-for-agent、可以开工时也用它。一张 ticket 派一个 Codex headless 工人在任务 worktree 里写，验收之后起 code-review。
+description: 把定好的需求实现成代码。用户说要开始实现、做下一张 ticket、把这张 issue 做掉时用它；别的技能判定某张 ticket 已是 ready-for-agent、可以开工时也用它。一张 ticket 派一个 Codex headless 工人在任务 worktree 里写，验收之后发起终审。
 ---
 
 把 spec 和它的 ticket 描述的需求实现出来。spec 已定稿，seam 已谈定；本技能执行那份计划，不重开它。
@@ -18,7 +18,7 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 | 检查 | 怎么查 | 不满足怎么办 |
 | --- | --- | --- |
 | 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾 | 按 `docs/agents/worktrees.md` 建一个或进去 |
-| 这次需求写明了 seam | 读 spec 的 seam 一节，或读 agent brief 的 `**Test seam:**` 一栏 | spec 缺就回 `/mmw-to-spec` 第 3 步，brief 缺就回 `/mmw-triage` 补——工人问不到人，seam 只能由人先谈定 |
+| 这次需求写明了 seam | 读 spec `## Testing Decisions` 一节里那张 seam 清单表，或读 agent brief 的 `**Test seam:**` 一栏 | spec 缺就回 `/mmw-to-spec` 第 3 步，brief 缺就回 `/mmw-triage` 补——工人问不到人，seam 只能由人先谈定 |
 | ticket 存在 | 按 `docs/agents/issue-tracker.md` 查 | 先跑 `/mmw-to-tickets` |
 | 这张 ticket 的 plan 写好了、过了 ② plan 审 | `docs/plans/<slug>/` 下有对应那一份 | 先跑 `/mmw-to-plan`。走 agent brief 那条路的需求没有 plan 这一层，这一行不适用 |
 
@@ -35,7 +35,7 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 1. 本文件旁边的 `worker-brief.md`，全文。
 2. TDD 纪律全文——`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md`。
 3. 目标仓库的 `TESTING.md` 全文，那是测试三层里的第三层：目录分层、哪些边界允许打桩、值从哪个权威源读。**它跟 `worker-brief.md` 和 `mmw-tdd` 那四份一起粘进去，不给路径**——工人读不读得到你控制不了。这个仓库还没有 `TESTING.md`，在 brief 里明说没有，让它按 `worker-brief.md` 加 `mmw-tdd` 那四份做。
-4. spec 或 agent brief 在这个 worktree 里的路径，以及它写明的 seam 清单，原文引用。
+4. spec 或 agent brief 在这个 worktree 里的路径，以及 spec `## Testing Decisions` 一节里那张 seam 清单表（agent brief 则是 `**Test seam:**` 一栏），原文引用。
 5. ticket 本身：标题、要做什么、每一条验收标准，全部写进去。工人能访问 tracker 也照样写——让它自己去取，可能取错一张，而且提示词就不再是你派发内容的完整记录。
 6. **这张 ticket 对应的那份 plan，全文。** spec、ticket、plan 三样都要给：spec 给意图和合同，ticket 给边界和验收，plan 给施工权威。走 agent brief 那条路的需求没有 plan，这一条跳过。
 7. 这次需求背后有原型的，给出**选中的那一版**在这个 worktree 里的路径，加上 spec 里那一节视觉契约。只给选中的那一份：`docs/prototypes/<slug>/` 下面还躺着落选变体和 TUI 壳，一起给它，它会照着错的那份做。同时说清怎么用——逻辑原型里那个可移植模块整块搬过去，不要重写；界面变体的代码按仓库规范重写，不要照抄。

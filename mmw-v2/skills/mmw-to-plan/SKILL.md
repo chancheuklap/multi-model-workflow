@@ -19,7 +19,7 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 
 ## 1. 定 plan 清单
 
-读 spec，取出目标、architecture、`## Contract Boundaries` 一节、seam 清单。**只读，作为派发时给工人的上下文**，不在这里展开写作。
+读 spec，取出目标、architecture、`## Contract Boundaries` 一节、`## Testing Decisions` 一节里那张 seam 清单表。**只读，作为派发时给工人的上下文**，不在这里展开写作。
 
 取全部 ticket，读出各自要做什么和被谁阻塞，定下 plan 清单：**一张 ticket 一份 plan 一个工人**。落点就是每张 ticket 正文 `## Plan` 一节写着的那个路径（`docs/plans/<slug>/<两位编号>-<ticket-slug>.md`），编号照抄，不自己重排——工人和后面的写码工人都按那个路径找。ticket 正文没有这一节，按依赖顺序自己编号，被阻塞的排在阻塞它的后面。
 
@@ -56,7 +56,7 @@ ls "${CODEX_HOME:-$HOME/.codex}/skills/mmw-planner/SKILL.md"
 
 提示词从文件里取，不凭记忆，写到 `.dispatch/<slug>-plan-<编号>.prompt.md` 再从那里派（先 `mkdir -p .dispatch`）：
 
-1. spec 在这个 worktree 里的路径，加上它的 seam 清单原文引用。
+1. spec 在这个 worktree 里的路径，加上 `## Testing Decisions` 一节里那张 seam 清单表的原文引用。
 2. **这张 ticket 的正文**：标题、要做什么、每一条验收标准、被谁阻塞，全部抄进去。工人能访问 tracker 也照样抄——让它自己去取可能取错一张，而且提示词就不再是你派发内容的完整记录。
 3. plan 文件的落点路径。
 4. 这次需求背后有原型的，给出**选中的那一版**的路径，加上 spec 里那一节视觉契约。只给选中的那一份。

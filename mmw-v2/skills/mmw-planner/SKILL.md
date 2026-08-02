@@ -16,14 +16,14 @@ disable-model-invocation: true
 
 | 读什么 | 从里面取什么 |
 | --- | --- |
-| spec | 目标、architecture、`## Contract Boundaries` 一节、seam 清单、全局约束。你 plan 头部的全局约束逐字从这里抄 |
+| spec | 目标、architecture、`## Contract Boundaries` 一节、`## Testing Decisions` 一节里那张 seam 清单表、全局约束。你 plan 头部的全局约束逐字从这里抄 |
 | 合同骨架 | spec 的 `## Cross-Plan Contract Anchors` 一节。它划定你的硬边界：你能碰哪些共享文件（不许认领别份 plan 拥有的文件）、你要提供或消费哪些跨 plan 接口（照它的命名对接）。标着「字段待回填」的精确字段由你写时定下来，主 agent 事后回填 |
 | 你那张 ticket | 标题、要做什么、每一条验收标准、被谁阻塞 |
 | 原型的选中的那一版 | 只有走过原型的需求才有。从选中的那一份提取状态机、reducer、数据结构、界面规格，拆进对应任务包的验收标准和数据形状。没被选中的变体不许当依据 |
 
 上面四份由派你的人给。还有一套测试标准不在提示词里，**已经装进你自己的技能目录**，写测试规划之前逐个读完：`mmw-tdd/SKILL.md`（循环的规矩）、`mmw-tdd/tests.md`（什么算好测试）、`mmw-tdd/mocking.md`（边界上怎么 mock）、`mmw-tdd/quality-bar.md`（合入标准，一条不过就打回），再加目标仓库根的 `TESTING.md`（这个仓库自己的事实）。合入标准在 `mmw-tdd/quality-bar.md` 里，只读 `mmw-tdd/SKILL.md` 拿不到它。
 
-**seam 由 spec 定死，你不重新定。** plan 里每条测试的落点对到 spec 那份 seam 清单，选最高的那一层，不要增殖插桩点。spec 里找不到对应的 seam，交 `needs-context`。
+**seam 由 spec 定死，你不重新定。** plan 里每条测试的落点对到 spec `## Testing Decisions` 一节里那张 seam 清单表，选最高的那一层，不要增殖插桩点。spec 里找不到对应的 seam，交 `needs-context`。
 
 材料缺任何一份，或者术语、验收标准不清楚，交 `needs-context`。不要自创 plan 结构、数据形状或界面方向。
 
