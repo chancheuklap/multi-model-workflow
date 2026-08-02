@@ -24,6 +24,22 @@
 
 ADR 编号四位、从 `0001` 起、只增不改。
 
+多上下文，仓库根放一份 `CONTEXT-MAP.md` 当索引，每个上下文一份自己的 `CONTEXT.md`，**一律落在 `docs/context/<上下文名>/CONTEXT.md`**：
+
+```
+/
+├── CONTEXT-MAP.md          ← 索引：有哪几个上下文、各自在哪、彼此什么关系
+├── docs/context/
+│   ├── ordering/CONTEXT.md
+│   └── billing/CONTEXT.md
+├── docs/adr/
+└── ...
+```
+
+`docs/context/**` 是本仓库的落点，**它压过 `/domain-modeling` 正文里那个 `src/<上下文名>/CONTEXT.md` 的示例**——那个位置假定仓库有 `src/`，多语言仓库和 monorepo 没有。`/domain-modeling` 的格式、写法和读取顺序照它的，只有落点按这里。
+
+读的顺序：先查仓库根有没有 `CONTEXT-MAP.md`。有就按它的索引找到这次要碰的那几个上下文，读它们各自的 `CONTEXT.md`；没有就回退根 `CONTEXT.md`；两个都没有就直接往下走。
+
 **几条分支同时写 ADR 时先用草稿名。** 跑 `/mmw-wayfinder` 时，好几个会话各在自己的分支上解一条 decision ticket 链，同时写 ADR 必定撞号——而且撞出来是两个文件名不同的 `0012`，git 不报冲突，静默留下两份。所以在这类分支上先写成 `docs/adr/draft-<ticket 编号>-<kebab-标题>.md`，等这条链合回上一层分支时再统一改成正式编号。单条分支独占的场景不用绕这一道，直接取下一个编号。
 
 ## 用 glossary 里的词
