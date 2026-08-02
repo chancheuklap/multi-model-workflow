@@ -101,11 +101,11 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 ### 搬迁批次
 
-搬迁已完成：Matt 那边 18 个技能搬进 `mmw-v2/skills/`，除自写的 `mmw-setup` 外一律原样复制自 vendor。加上自写的 `mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-start`、`mmw-to-plan`、`mmw-planner`，还有顺手补搬的 11 个上游技能，manifest 现在登记 31 个。
+搬迁已完成：Matt 那边 18 个技能搬进 `mmw-v2/skills/`，除自写的 `mmw-setup` 外一律原样复制自 vendor。加上自写的 `mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-start`、`mmw-to-plan`、`mmw-planner`，还有顺手补搬的 11 个上游技能，manifest 现在登记 32 个。
 
 **触发方式**：Matt 大部分技能是人打名字才走（`disable-model-invocation: true`）。我们的入口是 `mmw-start`，它要能把活直接交给下游技能，所以链路上的技能一律改成模型可触发，description 按 `writing-great-skills` 的写法改成触发式。已经改过的技能正文一并译成中文，合集通用术语（spec、ticket、seam、frontier、worktree、tight、red、fog of war、destination、map、HITL / AFK、ready-for-agent）保持英文。
 
-**`mmw-` 前缀标记所有权。** 正文真正被我们改造过的技能，目录名和 `name` 一律加 `mmw-` 前缀，跟原样搬进来的上游技能区分开。现在有 17 个：`mmw-start`、`mmw-setup`、`mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-grilling`、`mmw-triage`、`mmw-wayfinder`、`mmw-to-spec`、`mmw-to-tickets`、`mmw-to-plan`、`mmw-planner`、`mmw-implement`、`mmw-tdd`、`mmw-review`、`mmw-reviewer`、`mmw-diagnosing-bugs`、`mmw-prototype`。
+**`mmw-` 前缀标记所有权。** 正文真正被我们改造过的技能，目录名和 `name` 一律加 `mmw-` 前缀，跟原样搬进来的上游技能区分开。现在有 18 个：`mmw-start`、`mmw-setup`、`mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-grilling`、`mmw-triage`、`mmw-wayfinder`、`mmw-to-spec`、`mmw-to-tickets`、`mmw-to-plan`、`mmw-planner`、`mmw-implement`、`mmw-tdd`、`mmw-review`、`mmw-reviewer`、`mmw-diagnosing-bugs`、`mmw-prototype`、`mmw-closing`。
 
 **不留只做跳转的空壳。** 一个技能正文只是「去跑另外那个技能」，就把它的内容并进被它调的那个，然后删掉它。已删四个：`grill-with-docs`（并进 `mmw-grilling`）、`ask-matt`（路由判据并进 `mmw-start`）、`batch-grill-me`、`claude-handoff`。
 
@@ -145,9 +145,10 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | `skills/mmw-to-tickets` | 上游那份接进我们的 tracker 约定：正文只留摘要、`## Plan` 一节先把 plan 路径占住、编号即 plan 编号；发布沿 frontier 走，`ready-for-agent` 打在 ticket 上是「可开工」，跟 spec issue 上那个人闸凭据分开。切分清单亮给用户就往下走，不等确认——粒度由 ② plan 审兜住。tracer bullet、expand–contract 那几段判据原样译出 | 未实跑 |
 | `skills/mmw-to-plan` | 主线程侧的编排，原样搬旧 plugin 那五步：定 plan 清单、派工人之前把合同落到 plan 头上（spec 新增 `## Cross-Plan Contract Anchors` 一节，不动人闸过的 `## Contract Boundaries`）、扇出派工人、亲验返回、回填精确字段并核越界。收尾起一次 ② plan 审 | 未实跑 |
 | `skills/mmw-planner` | 写计划工人侧的方法论单源，原样搬旧 plugin `worktree-plan` 那三份。砍掉跨 plan 合同锚点的自行发明（改由主线程划）、砍掉再切一层 slice（ticket 已经是 tracer bullet，工人只拆它内部的实施步骤）。测试规划这一层留着，测试怎么写引 `mmw-tdd` | 未实跑 |
+| `skills/mmw-closing` | 一次任务的收尾：把 spec 与 plan 转成 Wiki 的一页、重生成两个导航文件、推送前给用户看、三条核验全过才删本地那两个目录。归档约定不复述，指 `conventions/wiki.md`。原型产物不删 | 未实跑 |
 | `skills/mmw-to-spec` | 六条入口路径各自要取齐哪些上游产物写成一张表；seam 一节的形状定死成清单，因为下游直接读它；模板吸收旧 plugin 的现状引用、失败路径、视觉契约、还没拍板的事；派一个 Codex 审这份 spec；用户点头之后才发布 issue 并打 `ready-for-agent`，这个动作就是人闸的凭据 | 未实跑 |
 
-十七个 `mmw-` 技能里，十五个有 `## 下一步` 表（`mmw-reviewer` 和 `mmw-planner` 没有——它们是派出去的劳动力读的方法论，不是流程技能），形式一致：两列（情况、下一步），动词只有「自己继续」「移交」「停」。`mmw-tdd` 及各技能下的 reference 全部补译成中文（派给审者和工人的提示词也是中文，模板里的结构字段名保持英文），全仓用词已对齐（决策改为决定，坐实改为复核，雾改为 fog of war，map 与 spec 的模板节名一律用英文原文）。上游原样搬进来的技能不加这一节——`research`、`domain-modeling` 做完就是做完，没有会带跑我们流程的出口。
+十八个 `mmw-` 技能里，十六个有 `## 下一步` 表（`mmw-reviewer` 和 `mmw-planner` 没有——它们是派出去的劳动力读的方法论，不是流程技能），形式一致：两列（情况、下一步），动词只有「自己继续」「移交」「停」。`mmw-tdd` 及各技能下的 reference 全部补译成中文（派给审者和工人的提示词也是中文，模板里的结构字段名保持英文），全仓用词已对齐（决策改为决定，坐实改为复核，雾改为 fog of war，map 与 spec 的模板节名一律用英文原文）。上游原样搬进来的技能不加这一节——`research`、`domain-modeling` 做完就是做完，没有会带跑我们流程的出口。
 
 断点续传不用状态文件：每一步都有一件落在 git 或 GitHub 上的产物对应它（分支上第一个空提交记用户原话、`docs/specs/<slug>/`、子 issue 的开关与 assignee、`.reviews/`、Wiki 页），查产物就知道走到哪。旧 plugin 需要状态文件是因为它有阶段引擎要记 phase 变量，新架构没有引擎。全流程唯一那道人闸也有产物：`mmw-to-spec` 只在用户点头之后才发布 spec issue 并打 `ready-for-agent`，issue 在且带这个标签就是过门的凭据。
 
@@ -162,4 +163,3 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | 补搬那 11 个上游技能留不留 | `qa`、`wizard`、`to-questionnaire`、`request-refactor-plan`、`design-an-interface`、`setup-ts-deep-modules`、`git-guardrails-claude-code`、`setup-pre-commit` 等来自上游 `deprecated/`、`in-progress/`、`misc/`，不在我们的主干上，但也不是空壳。留着占 description 的常驻成本，删了以后要用再搬回来 | 无 |
 | 任务隔离要不要脚本 | 建树、进树、打空提交这三步已经写进 `mmw-start` 的正文，主线程直接跑命令就够，暂时不做脚本。清理那一步要用户点头，本来也不适合脚本化 | `plugin/scripts/prepare.sh` 的 task new / cleanup |
 | 无人值守档 | 人闸已经有落点（`mmw-to-spec` 第 7 步用户点头，第 8 步发布 issue 打 `ready-for-agent` 即凭据）。旧 plugin 另有三档值守曲线，过门之后自动放权自主跑；新架构还没有对应的东西，也还不知道要不要 | `plugin/skills/orchestrate/references/control/attendance.md` |
-| 本地文档转 Wiki 的脚本 | 约定全定完了，在 `mmw-v2/skills/mmw-setup/wiki.md`（命名、页面结构、导航生成、写入顺序、三条核验）。只剩生成 `Home.md` / `_Sidebar.md` 那段薄脚本怎么写，以及挂在收尾技能的哪一步 | 无（新能力） |

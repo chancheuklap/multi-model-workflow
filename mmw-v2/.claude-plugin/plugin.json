@@ -21,6 +21,7 @@
     "./skills/git-guardrails-claude-code",
     "./skills/handoff",
     "./skills/improve-codebase-architecture",
+    "./skills/mmw-closing",
     "./skills/mmw-diagnosing-bugs",
     "./skills/mmw-dispatching-agents",
     "./skills/mmw-grilling",
@@ -34,6 +35,7 @@
     "./skills/mmw-tdd",
     "./skills/mmw-to-plan",
     "./skills/mmw-to-spec",
+    "./skills/mmw-to-tickets",
     "./skills/mmw-triage",
     "./skills/mmw-verifying-agent-output",
     "./skills/mmw-wayfinder",
@@ -43,7 +45,6 @@
     "./skills/setup-pre-commit",
     "./skills/setup-ts-deep-modules",
     "./skills/to-questionnaire",
-    "./skills/mmw-to-tickets",
     "./skills/wizard",
     "./skills/writing-great-skills"
   ]
