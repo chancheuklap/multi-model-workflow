@@ -24,7 +24,7 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 
 ### 2. 取下一张 ticket
 
-在 **frontier** 上取：阻塞它的 ticket 全部关闭、没有 assignee、打着 `ready-for-agent` 的那些，按 `/to-tickets` 发布的顺序取。开工前先 claim 这张 ticket——这是落在它上面的第一个写动作，两个会话同时开工靠它挡住。
+在 **frontier** 上取：阻塞它的 ticket 全部关闭、没有 assignee、打着 `ready-for-agent` 的那些，按 `/to-tickets` 发布的顺序取。开工前先 claim 这张 ticket，两个会话同时开工靠它挡住。
 
 一个 worktree 一次做一张 ticket，一个 worktree 上只站一个工人。frontier 确实很宽、用户又要并行推进，就按 `docs/agents/worktrees.md` 从当前分支给每张 ticket 各分一个 worktree。
 
@@ -34,7 +34,7 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 
 1. 本文件旁边的 `worker-brief.md`，全文。
 2. TDD 纪律全文——`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md`。
-3. 目标仓库的 `TESTING.md` 全文，那是测试三层里的第三层：目录分层、哪些边界允许打桩、值从哪个权威源读。**它跟前四份一起粘进去，不给路径**——工人在这个仓库里，理论上读得到，但它是不是真去读了你控制不了，而缺了这一层它会写出符合通用规范却不符合本仓库的测试。这个仓库还没有 `TESTING.md`，在简报里明说没有，让它按前四份做。
+3. 目标仓库的 `TESTING.md` 全文，那是测试三层里的第三层：目录分层、哪些边界允许打桩、值从哪个权威源读。**它跟前四份一起粘进去，不给路径**——工人读不读得到你控制不了。这个仓库还没有 `TESTING.md`，在简报里明说没有，让它按前四份做。
 4. spec 或 agent brief 在这个 worktree 里的路径，以及它写明的 seam 清单，原文引用。
 5. ticket 本身：标题、要做什么、每一条验收标准，全部写进去。工人能访问 tracker 也照样写——让它自己去取，可能取错一张，而且提示词就不再是你派发内容的完整记录。
 6. **这张 ticket 对应的那份 plan，全文。** spec、ticket、plan 三样都要给：spec 给意图和合同，ticket 给边界和验收，plan 给施工权威。走 agent brief 那条路的需求没有 plan，这一条跳过。
@@ -66,7 +66,7 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 
 ### 7. 起终审
 
-合同门过了之后，按 `/mmw-review` 起一轮 **⑤ final 终审**，固定点取分支点。审查要找的是一张 ticket 对另一张造成了什么影响，站在单张 ticket 里面看不见，所以整体审一次，不逐张审。
+合同门过了之后，按 `/mmw-review` 起一轮 **⑤ final 终审**，固定点取分支点。整体审一次，不逐张审——要找的是一张 ticket 对另一张造成了什么影响。
 
 分支点用 `git merge-base HEAD <父分支>` 取。父分支通常是主线；这次任务从一张 `/mmw-wayfinder` 的 map 分出来的，父分支就是那张 map 的分支。
 

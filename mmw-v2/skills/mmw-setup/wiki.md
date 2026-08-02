@@ -19,7 +19,7 @@ git ls-remote "https://github.com/$REPO.wiki.git" >/dev/null 2>&1
 
 ## 落点
 
-clone 到 `.worktrees/.wiki/`。`.worktrees/` 整个在 `.gitignore` 里，所以它不会污染任何任务分支。
+clone 到 `.worktrees/.wiki/`（整个目录在 `.gitignore` 里）。
 
 第一次 clone，之后 pull，不用每次重拉：
 
@@ -63,7 +63,7 @@ Wiki 不支持自动生成目录，长页面靠标题分节。页间链接用 `[
 - **`Home.md`**——一张表，每份 spec 一行：slug、一句话、落地日期、PR 链接。
 - **`_Sidebar.md`**——Home 加 spec 页列表，按落地时间倒序。
 
-GitHub 不会按目录自动生成导航树，没有 `_Sidebar.md` 时只有一个平铺的 Pages 列表。所以这两个文件不是可选装饰，是唯一的导航。
+GitHub 不按目录自动生成导航树，没有 `_Sidebar.md` 时只有一个平铺的 Pages 列表，所以这两个文件必须生成。
 
 ## 同一份 spec 再次改动
 
@@ -73,7 +73,7 @@ Wiki 本身是 git 仓库，旧版本天然留着，页面只呈现当前状态�
 
 ## 写入时机与顺序
 
-收尾时自动生成页面内容，**推送前把 diff 给用户看、等他确认**。推送到 Wiki 是出站动作，要人确认；但忘了转就是永久丢失（本地文档紧接着要删），所以不能只靠用户记得执行。
+收尾时自动生成页面内容，**推送前把 diff 给用户看、等他确认**。推送到 Wiki 是出站动作，要人确认。
 
 顺序不能反：
 

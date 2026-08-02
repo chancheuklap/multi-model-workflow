@@ -40,4 +40,4 @@ ADR 编号四位、从 `0001` 起、只增不改。
 
 ## 两者留在仓库里，跟代码同一个提交演进
 
-glossary 和 ADR 不上 Wiki。理由：agent 每次开工前都要读，本地文件不用联网；改了实现就该在同一个提交里改 ADR，脉落才不会分家。spec 和计划文档走的是另一条路（落地后上 Wiki，见 `issue-tracker.md`）。
+glossary 和 ADR 不上 Wiki，一直留在仓库里。spec 和计划文档走的是另一条路（落地后上 Wiki，见 `issue-tracker.md`）。
