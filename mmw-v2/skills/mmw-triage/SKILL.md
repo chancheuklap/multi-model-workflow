@@ -74,11 +74,11 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 
 3. **验断言。** 开始 grill 之前先确认这个断言站得住。是 bug，就照报告人的步骤复现。是 PR，就确认这份 diff 真的做到了它自称做到的事——签出来，跑相关测试或命令。然后报告结果：确认（附代码路径）、没能复现、或者信息不够（这是很强的 `needs-info` 信号）。验过的断言写出来的 agent brief 强得多。
 
-4. **Grill（需要时）。** 这个需求还不够具体，就跑 `/mmw-grilling`——一次一个问题地把它问成形，领域词随之收紧，决策定下来时更新 `CONTEXT.md` 和 ADR。
+4. **Grill（需要时）。** 这个需求还不够具体，就跑 `/mmw-grilling`——一次一个问题地把它问成形，领域词随之收紧，决定定下来时更新 `CONTEXT.md` 和 ADR。
 
 5. **落实结果：**
    - `ready-for-agent` —— 贴一条 agent brief 评论（[AGENT-BRIEF.md](AGENT-BRIEF.md)），brief 里必须有 `**Test seam:**` 那一栏。然后按下面「出口」决定它接着走哪条路。
-   - `ready-for-human` —— 结构和 agent brief 一样，但要写清为什么它派不出去（要拿判断、要外部权限、要做设计决策、要人工测试）。
+   - `ready-for-human` —— 结构和 agent brief 一样，但要写清为什么它派不出去（要拿判断、要外部权限、要做设计决定、要人工测试）。
    - `needs-info` —— 贴分诊记录（模板在下面）。
    - `wontfix` —— 关掉，评论内容取决于*为什么*：
      - **已经实现** —— 这个改动代码里已经有了。指出它在哪，并且**不要**写 `.out-of-scope/`（那个知识库收的是*被否掉*的需求，不是已经做出来的）。
@@ -86,16 +86,18 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
      - **否掉（enhancement）** —— 写进 `.out-of-scope/`，用评论链过去，然后关（[OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)）。
    - `needs-triage` —— 把这个角色打上。有部分进展就一并写一条评论。
 
-## 出口
+## 下一步
 
-一张 issue 进了 `ready-for-agent` 就要有下一步。按它要碰几个地方分：
+每一个状态角色都要有下一步，不是只有 `ready-for-agent` 那一条：
 
-| 这次要碰 | 移交给 | 为什么 |
-| --- | --- | --- |
-| 一处，并且 brief 写明了 seam | `/mmw-implement` | 一份 brief 就是完整的合同，再写一份 spec 是把同一件事说两遍 |
-| 多处，或者要先谈实现取舍 | `/to-spec` | seam 不止一个、决策不止一个，要先谈定再派工人 |
-
-seam 说不清楚的，改判 `ready-for-human`，理由写在 brief 里。
+| 情况 | 下一步 |
+| --- | --- |
+| `ready-for-agent`，只碰一处，brief 写明了 seam | **移交**：`/mmw-implement`。一份 brief 就是完整的合同，再写一份 spec 是把同一件事说两遍 |
+| `ready-for-agent`，碰多处，或者要先谈实现取舍 | **移交**：`/to-spec`。seam 不止一个、要定的事不止一个，先谈定再派工人 |
+| 这个需求还不够具体，判不出状态 | **自己继续**：回第 4 步跑 `/mmw-grilling` 把它问成形，再回来落实结果 |
+| seam 说不清楚 | **自己继续**：改判 `ready-for-human`，理由写在 brief 里，然后按下面那行交回用户 |
+| 落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage` | **停**：报这张判成了什么、为什么、下一步在等谁。这四个终态都要人接手，agent 接不下去 |
+| 维护者一次交来好几张 | **自己继续**：一张一张走完上面的流程，全部落实之后再一起报 |
 
 ## 快速改状态
 

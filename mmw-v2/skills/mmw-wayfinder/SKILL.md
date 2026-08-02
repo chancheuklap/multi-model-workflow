@@ -10,15 +10,15 @@ argument-hint: "[map 编号，或者要做的事]"
 
 destination 每个 effort 各不相同。给它命名是画 map 的第一个动作：它固定范围，也塑造后面每一张 ticket。它可能是一份要交出去继续做的 spec，可能是开始做计划之前必须锁死的一个决定，也可能是一次就地完成的改动，比如一次数据结构迁移。
 
-## 这次走哪个入口
+## 下一步
 
 三个入口都先读 [map-anatomy.md](map-anatomy.md)：map 和 ticket 长什么样、怎么认领、阻塞关系怎么表达，都在那里。
 
-| 用户带来的 | 下一步 |
+| 情况 | 下一步 |
 | --- | --- |
-| 一个还很松的想法，还没有 map | **自己继续**：读 [drawing.md](drawing.md)，建这张 map |
-| 一张 map 的编号或链接 | **自己继续**：读 [walking.md](walking.md)，认领一条链 |
-| 一张 map，而且 frontier 上一张 ticket 都不剩 | **自己继续**：读 [closing.md](closing.md)，收口 |
+| 用户带来一个还很松的想法，还没有 map | **自己继续**：读 [drawing.md](drawing.md)，建这张 map |
+| 用户报了一张 map 的编号或链接 | **自己继续**：读 [walking.md](walking.md)，认领一条链 |
+| 那张 map 的 frontier 上一张 ticket 都不剩 | **自己继续**：读 [closing.md](closing.md)，收口 |
 
 看不出是哪一个，就按他给的编号查一次 frontier：frontier 上还有 ticket 就走 walking.md，空了就走 closing.md。
 
