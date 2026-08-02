@@ -98,22 +98,24 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 ### 搬迁批次
 
-搬迁已完成：Matt 那边 18 个技能全在 `mmw-v2/skills/`，搬进来时除自写的 `setup` 外一律原样复制自 vendor，未改一字。加上自写的 `dispatching-agents`、`judging-agent-output`、`mmw-start`，以及顺手补搬的 11 个上游技能，manifest 现在登记 33 个。
+搬迁已完成：Matt 那边 18 个技能搬进 `mmw-v2/skills/`，除自写的 `setup` 外一律原样复制自 vendor。加上自写的 `dispatching-agents`、`judging-agent-output`、`mmw-start`，以及顺手补搬的 11 个上游技能，manifest 现在登记 29 个。
 
 **触发方式**：Matt 大部分技能是人打名字才走（`disable-model-invocation: true`）。我们的入口是 `mmw-start`，它要能把活直接交给下游技能，所以链路上的技能一律改成模型可触发，description 按 `writing-great-skills` 的写法改成触发式。已经改过的技能正文一并译成中文，合集通用术语（spec、ticket、seam、frontier、worktree、tight、red、fog of war、destination、map、HITL / AFK、ready-for-agent）保持英文。
+
+**不留只做跳转的空壳。** 一个技能正文只是「去跑另外那个技能」，就把它的内容并进被它调的那个，然后删掉它。已删四个：`grill-with-docs`（并进 `grilling`）、`ask-matt`（路由判据并进 `mmw-start`）、`batch-grill-me`、`claude-handoff`。
+
+**不按上下文容量做判断。** 我们不会因为窗口满了就重开会话，所以「一个会话装不装得下」不是任何判据。活的大小按**要拆成几份 spec** 衡量：一份 spec 说得清走 `grilling` → `to-spec`；哪几份 spec、按什么顺序都还没数才走 `wayfinder`。`handoff` 单独保留，供用户自己手动交接用。
 
 改造按 Matt 主干顺序推进，一个跑通再动下一个。先做了链条末端的两个，因为跨模型派发和亲验裁判在那里第一次落地，前面几个技能要复用同一套底子：
 
 | 顺序 | 技能 | 要加什么 | 状态 |
 | --- | --- | --- | --- |
 | 0 | `mmw-start` | 我们自己的入口：认路、起 slug、建树进树、记原话、交棒 | 已落地 |
-| 1 | `grill-with-docs` | 开问前先查仓库现状；摆路线让用户选；出口交给 `to-spec` | 待做（已转模型可触发） |
+| 1 | `grilling` | 开问前先查仓库现状；领域词与 ADR 随谈随落；出口交给 `to-spec` | 已落地 |
 | 2 | `to-spec` | 测试接缝判据（用旧 plugin 那套测试规矩）、`/approve-design` 人闸、派 Codex 审这份设计 | 待做 |
 | 3 | `to-tickets` | 实施计划塞在哪：切片 issue 正文还是单独文档 | 待做 |
 | 4 | `implement` | 换成 worktree + 派 Codex 无头写码 | 已落地 |
 | 5 | `code-review` | 接亲验裁判，把 Matt 明确不做的判断补上 | 已落地 |
-
-`ask-matt` 是 Matt 的路由器，路由判据已经被 `mmw-start` 吸收，本身不再有用途，等确认后删掉。它还留着三处指向不存在技能的悬空引用（`/grill-me`、`/teach`、`/writing-great-skills`）。
 
 ### 已落地
 
@@ -129,6 +131,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | `skills/mmw-start` | 六条路由判据；worktree 建错了重建，所以报一句就走不等确认；`resuming.md` 靠查产物报进度，不设状态文件 | 未实跑 |
 | `skills/triage` | 新增「出口」一节：只碰一处且 brief 写明 seam 直走 `implement`，碰多处走 `to-spec`；agent brief 模板加 `Test seam` 栏 | 未实跑 |
 | `skills/diagnosing-bugs` | 前四个 Phase 主线程做，Phase 5 的修派 Codex 工人；派发前先删 `[DEBUG-]` 埋点保证树干净 | 未实跑 |
+| `skills/grilling` | 吸收 `grill-with-docs`：开问前先查现状，谈的过程里按 `domain-modeling` 落术语与 ADR，主线出口交 `to-spec`。四个技能共用它，所以它单独存在，不并进任何一个 | 未实跑 |
 
 断点续传不用状态文件：每一步都有一件落在 git 或 GitHub 上的产物对应它（分支上第一个空提交记用户原话、`docs/specs/<slug>/`、子 issue 的开关与 assignee、`.reviews/`、Wiki 页），查产物就知道走到哪。旧 plugin 需要状态文件是因为它有阶段引擎要记 phase 变量，新架构没有引擎。唯一查不出来的是 seam 那道人闸过没过。
 
@@ -139,7 +142,8 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | 要定什么 | 当时的背景与张力 | 旧实现位置（背景线索） |
 | --- | --- | --- |
 | `/setup` 要不要自动跑 | 现在得手敲，用户忘了跑配置就全空、技能读不到任何仓库事实。想用 SessionStart 钩子自动铺，但那要接 `hooks/hooks.json`，属于插件机械层，等第 2 层能力定形后一起做 | `plugin/hooks/` |
-| 纪律层剩下六个技能的适配 | 八个里 `tdd` 和 `diagnosing-bugs` 已经改完，其余六个还是原样搬进来的，一个字没改。每个都有旧 plugin 里的自有加法要合（见右栏） | `research` ← `investigate-internal` / `investigate-external`；`prototype` ← `scripts/prototype.sh`、`design/prototype-mockup.md`；`resolving-merge-conflicts` ← `scenario/merge.md`；`domain-modeling` ← 核 ADR 编号约定；`grilling` ← `design/discussion.md` |
+| 纪律层剩下五个技能的适配 | 八个里 `tdd`、`diagnosing-bugs`、`grilling` 已经改完，其余五个还是原样搬进来的，一个字没改。每个都有旧 plugin 里的自有加法要合（见右栏） | `research` ← `investigate-internal` / `investigate-external`；`prototype` ← `scripts/prototype.sh`、`design/prototype-mockup.md`；`resolving-merge-conflicts` ← `scenario/merge.md`；`domain-modeling` ← 核 ADR 编号约定；`codebase-design` ← 无 |
+| 补搬那 11 个上游技能留不留 | `qa`、`wizard`、`to-questionnaire`、`request-refactor-plan`、`design-an-interface`、`setup-ts-deep-modules`、`git-guardrails-claude-code`、`setup-pre-commit` 等来自上游 `deprecated/`、`in-progress/`、`misc/`，不在我们的主干上，但也不是空壳。留着占 description 的常驻成本，删了以后要用再搬回来 | 无 |
 | 任务隔离要不要脚本 | 建树、进树、打空提交这三步已经写进 `mmw-start` 的正文，主线程直接跑命令就够，暂时不做脚本。清理那一步要用户点头，本来也不适合脚本化 | `plugin/scripts/prepare.sh` 的 task new / cleanup |
 | `/approve-design` 人闸和无人值守档 | 新架构没有阶段引擎，「设计过门」这个动作靠什么承载还没答案（issue 标签？提交？）。人闸只有这一道，口头同意不算 | `plugin/commands/approve-design.md`、`plugin/skills/orchestrate/references/control/attendance.md` |
 | 本地文档转 Wiki 的脚本 | 约定全定完了，在 `mmw-v2/skills/setup/wiki.md`（命名、页面结构、导航生成、写入顺序、三条核验）。只剩生成 `Home.md` / `_Sidebar.md` 那段薄脚本怎么写，以及挂在收尾技能的哪一步 | 无（新能力） |

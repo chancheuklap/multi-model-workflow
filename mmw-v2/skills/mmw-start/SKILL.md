@@ -20,10 +20,10 @@ argument-hint: "<你要做的事> [bug|big]"
 | 一个 issue 编号，已经是 `ready-for-agent`，brief 里有 `**Test seam:**`，而且只碰一处 | `/implement` |
 | 说有东西坏了、报错、跑不通、变慢了，或者挂了 `bug` | `/diagnosing-bugs` |
 | 一大块活，路还在雾里，或者挂了 `big` | `/wayfinder` |
-| 一个新需求或者对旧需求的改进 | `/grill-with-docs` |
+| 一个新需求或者对旧需求的改进 | `/grilling` |
 | 没有具体的活，说想让代码库更好待 | `/improve-codebase-architecture` |
 
-**一大块活怎么认**：要动的模块超过一个，或者有超过一个必须先拍板才动得了手的取舍，就是一个会话装不下——挂 `big` 走 `/wayfinder`。装得下的走 `/grill-with-docs`，别把一个范围清楚的功能推进 wayfinder，它慢得多也重得多。
+**一大块活怎么认**：判据是这件事要拆成几份 spec。一份 spec 说得清、拆出来的 ticket 都挂在同一份 spec 底下——走 `/grilling`，谈定之后由它交给 `/to-spec`。要好几份 spec 才做得完，而且哪几份、按什么顺序都还没数——那才是 `/wayfinder`：它先把这堆决策画成一张 map，逐条散雾，再派生出各份 spec。别把一个范围清楚的功能推进 wayfinder，它慢得多也重得多。
 
 带 issue 编号的先按 `docs/agents/issue-tracker.md` 把它读出来再判，别只看编号。
 

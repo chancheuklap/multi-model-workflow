@@ -8,7 +8,7 @@ worktree 只是分支的载体，没有别的含义。它可以随便建、随�
 
 默认**一份 spec 一个 worktree**：spec 拆出的几张 ticket 全在里面按顺序做完，整体合并一次、终审一次、Wiki 写一次。spec 是原子交付单元。
 
-effort——比一份 spec 大、要好几份 spec 才做得完的那种——大到一次会话装不下、路还在雾里时，先跑 `wayfinder`（把 effort 画成一张决策 map，逐条把雾散掉的技能）。它有自己的 worktree，而且**一张 map 可能派生出好几份 spec**。这时的分叉关系是：
+effort——比一份 spec 大、要好几份 spec 才做得完的那种——哪几份 spec、按什么顺序都还在雾里时，先跑 `wayfinder`（把 effort 画成一张决策 map，逐条把雾散掉的技能）。它有自己的 worktree，而且**一张 map 可能派生出好几份 spec**。这时的分叉关系是：
 
 ```
 主线
@@ -45,7 +45,7 @@ git worktree add -b <name> .worktrees/<name> <父分支名>
 
 然后 `EnterWorktree({ path: ".worktrees/<name>" })` 进去——只有这一步能切会话工作目录，脚本切不了。
 
-**会话限制**：`EnterWorktree` 从主仓库按路径进没问题；但同一个会话里从一个 worktree 直接跳到另一个 worktree 时，它只认 `.claude/worktrees/` 下的目标。我们是一个任务一个会话，正常撞不上；真要跳先回主仓库。
+**会话限制**：`EnterWorktree` 从主仓库按路径进没问题；但同一个会话里从一个 worktree 直接跳到另一个 worktree 时，它只认 `.claude/worktrees/` 下的目标。一个任务一棵树，正常撞不上；真要跳先回主仓库。
 
 ## 开工的第一个提交
 

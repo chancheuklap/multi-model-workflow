@@ -30,7 +30,7 @@ Break the work into **tracer bullet** tickets.
 
 - Each slice cuts a narrow but COMPLETE path through every layer (schema, API, UI, tests) — vertical, NOT a horizontal slice of one layer
 - A completed slice is demoable or verifiable on its own
-- Each slice is sized to fit in a single fresh context window
+- Each slice is sized to one ticket's worth of work — one behaviour a worker can take end to end
 - Any prefactoring should be done first
 
 </vertical-slice-rules>

@@ -1,12 +1,31 @@
 ---
 name: grilling
-description: Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
+description: 不留情面地追问一个计划、决策或想法，一次一个问题，问到能动手为止；领域词和难回退的决策随谈随落进 CONTEXT.md 和 ADR。用户带着一个还没定形的想法过来、说要把需求聊清楚、说这个设计还没想透、想压力测试自己的思路，或者说了任何「grill」类的话时用它；别的技能需要把一件事谈成形时也用它。
 ---
 
-Interview me relentlessly about every aspect of this until we reach a shared understanding. Walk down each branch of the decision tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
+# Grilling
 
-Ask the questions one at a time, waiting for feedback on each question before continuing. Asking multiple questions at once is bewildering.
+一次一个问题地把这件事问清楚，问到双方有共同理解为止。
 
-If a *fact* can be found by exploring the environment (filesystem, tools, etc.), look it up rather than asking me. The *decisions*, though, are mine — put each one to me and wait for my answer.
+## 开问之前先查
 
-Do not act on it until I confirm we have reached a shared understanding.
+**事实是你的活，决策是用户的活。** 文件系统、工具、代码里查得到的东西自己去查，不要拿它问用户；每一个决策都摆到他面前，等他回答。
+
+带着现状开问：这块地方现在是怎么做的、`CONTEXT.md` 里已有哪些领域词、这块地方有哪些 ADR。查过再问，问题才问得到点上。
+
+## 怎么问
+
+- 一次问一个，等他答完再问下一个。一口气抛一串问题会让人不知道从哪答起。
+- 沿着决策树一支一支走下去，决策之间的依赖一个一个解开。
+- 每个问题都给出你推荐的答案。
+- 达成共同理解之前不要动手做。
+
+## 一边谈一边落文档
+
+领域词和难回退的决策不要攒到最后。谈到某个词含糊、某个词被当成三个意思在用、或者某个改起来很贵的决策定下来了，当场按 `/domain-modeling` 处理：更新 `CONTEXT.md` 的术语表，或者写一份 ADR。
+
+## 谈完之后
+
+用户直接叫你来谈一个新需求的，谈定之后交给 `/to-spec`，把这次对话综合成一份 spec。
+
+别的技能把你叫起来的，收口归那个技能，你只负责把这一段谈清楚。
