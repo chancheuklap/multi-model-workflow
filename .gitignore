@@ -8,3 +8,5 @@
 .serena/
 graphify-out/
 node_modules/
+.reviews/
+__pycache__/

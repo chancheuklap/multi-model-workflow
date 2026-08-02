@@ -23,9 +23,9 @@ spec 的最终裁判是用户敲的那道人闸，不是主线程。
 | 角色 | 谁干 | 模型 | 档位 | 权限 |
 | --- | --- | --- | --- | --- |
 | 写码工人 | Codex 无头 | `gpt-5.6-terra` | high | 可写 |
-| 写码工人 · 高风险档 | Codex 无头 | `gpt-5.6-sol` | medium | 可写 |
-| 写计划工人 | Codex 无头 | `gpt-5.6-sol` | high | 只写计划与 issue |
-| Codex 审者 | Codex 无头 | `gpt-5.6-sol` | xhigh（spec 预审降 high） | 只读 |
+| 写码工人 · 高风险档 | Codex 无头 | `gpt-5.5` | medium | 可写 |
+| 写计划工人 | Codex 无头 | `gpt-5.5` | high | 只写计划与 issue |
+| Codex 审者 | Codex 无头 | `gpt-5.5` | xhigh（spec 预审降 high） | 只读 |
 | Claude 审者 | Claude 会话内 sub-agent | 继承主线程 | — | 只读 |
 | 编排与裁判 | Claude 主线程 | 继承会话 | — | 写 spec，不写代码 |
 
@@ -43,3 +43,5 @@ spec 的最终裁判是用户敲的那道人闸，不是主线程。
 ## 型号会过时
 
 上表的型号是当前可用的值，不是约束。换型号只改这份文件，技能正文不出现任何型号。
+
+Codex 报 `model is not supported when using Codex with a ChatGPT account`，就是这张表过期了。当前账号真正能用的型号读 `~/.codex/models_cache.json` 的 `models[].slug`。

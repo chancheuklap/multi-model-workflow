@@ -57,7 +57,7 @@ Each prompt is assembled from files, not from memory:
 2. Exactly one axis file — `standards.md`, `spec.md`, or `correctness.md` — with its `<!-- Main thread: -->` placeholder filled in first.
 3. The diff command and the commit list from step 1.
 
-Write each assembled prompt to `.reviews/<slug>-code-review-<n>-<axis>.prompt.md` and dispatch from there (`mkdir -p .reviews` if needed; `<n>` is the review round, starting at 1). Never hand a reviewer a path inside this plugin — the headless one cannot read it and will invent something instead.
+Write each assembled prompt to `.reviews/<slug>-code-review-<n>-<axis>.prompt.md` and dispatch from there (`mkdir -p .reviews` if needed; `<n>` is the review round, starting at 1). The headless reviewer reads it on stdin; the sub-agent is told to read that path and follow it as its whole brief. Never hand a reviewer a path inside this plugin — the headless one cannot read it and will invent something instead.
 
 If the spec was not found in step 2, drop the Spec reviewer and note it in the report.
 
