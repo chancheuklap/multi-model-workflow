@@ -1,6 +1,6 @@
 # 回来接着做
 
-用户不带内容叫 `mmw-start`，或者会话已经在一个任务 worktree 里，问的都是同一件事：这个任务现在走到哪一步。
+用户不带内容叫 `/mmw-start`，或者会话已经在一个任务 worktree 里，问的都是同一件事：这个任务现在走到哪一步。
 
 没有状态文件要读。每一步都有一件落在 git 或 GitHub 上的产物对应它，查产物在不在就够了。
 
@@ -19,7 +19,7 @@ git worktree list
 | 想知道 | 怎么查 |
 | --- | --- |
 | 当初用户要的是什么 | 分支上第一个提交的正文，也就是那个空提交：`git log --reverse --format='%B' $(git merge-base HEAD <父分支>)..HEAD \| head -20` |
-| 是不是一个 `mmw-wayfinder` 的 effort | 有没有一张打 `wayfinder:map` 标签的 issue 指向这个 slug |
+| 是不是一个 `/mmw-wayfinder` 的 effort | 有没有一张打 `wayfinder:map` 标签的 issue 指向这个 slug |
 | 这张 map 走到哪一步了 | 查 frontier：还剩几张没人认领，几张有 assignee 正在别的会话里解 |
 | 有几条链在同时跑 | `.worktrees/` 下以这个 slug 开头、但不等于这个 slug 的目录，每一棵是一条链 |
 | spec 有没有写出来 | `docs/specs/<slug>/` 在不在，里面的文件有没有提交进分支 |

@@ -41,7 +41,7 @@ issue tracker 的配置应该已经给你了，`docs/agents/issue-tracker.md` �
 
 ### 4. 派审者
 
-四个审者，一条消息发出去。机制按 `mmw-dispatching-agents`，各自用什么模型按 `docs/agents/models.md`。
+四个审者，一条消息发出去。机制按 `/mmw-dispatching-agents`，各自用什么模型按 `docs/agents/models.md`。
 
 | 轴 | 谁来审 |
 | --- | --- |
@@ -65,7 +65,7 @@ issue tracker 的配置应该已经给你了，`docs/agents/issue-tracker.md` �
 
 把每个审者的 findings **原样**抄进 `.reviews/<slug>-code-review-<轮次>.md`，按轴分组。不要重写，不要摘要。文件顶部写一行，记下固定点的提交号。
 
-然后按 `mmw-judging-agent-output` 逐条过：自己重新复核每一条的锚，问不修会伤到谁、这一轮该不该花预算修，然后在每条下面标一个处置词——`accepted`、`rejected`、`duplicate`、`needs-evidence` 或 `waived`。文末写一句总结论。
+然后按 `/mmw-judging-agent-output` 逐条过：自己重新复核每一条的锚，问不修会伤到谁、这一轮该不该花预算修，然后在每条下面标一个处置词——`accepted`、`rejected`、`duplicate`、`needs-evidence` 或 `waived`。文末写一句总结论。
 
 只有 `accepted` 驱动返工。搁置的 findings 里说得清伤害面的开成 GitHub issue 打 `needs-triage`，其余的活在报告里、也死在报告里。
 

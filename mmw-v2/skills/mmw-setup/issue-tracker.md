@@ -21,11 +21,11 @@
 
 ## 层级
 
-常态两层。跑了 `mmw-wayfinder`（把 effort 画成一张决定 map，逐条散掉 fog of war 的技能）就是三层，因为一张 map 可能派生出好几份 spec。
+常态两层。跑了 `/mmw-wayfinder`（把 effort 画成一张决定 map，逐条散掉 fog of war 的技能）就是三层，因为一张 map 可能派生出好几份 spec。
 
 | 层 | 正文放什么 | 权威内容在哪 | 结局 |
 | --- | --- | --- | --- |
-| map（跑了 `mmw-wayfinder` 才有） | `Destination`、`Decisions so far` 的一行索引、`Out of scope`、`Not yet specified` | 就在正文——它本来就是索引不是文档 | 关掉，不上 Wiki |
+| map（跑了 `/mmw-wayfinder` 才有） | `Destination`、`Decisions so far` 的一行索引、`Out of scope`、`Not yet specified` | 就在正文——它本来就是索引不是文档 | 关掉，不上 Wiki |
 | spec | 一段摘要说清要解决什么问题 + 指向分支上 spec 文件的路径 + ticket 清单 | 任务分支的 `docs/specs/<slug>/` | 落地后转一页 Wiki（见 `wiki.md`） |
 | ticket | 一段摘要 + 指向分支上该 ticket 计划的路径 + 阻塞关系 | 任务分支的 `docs/plans/<slug>/` | 并进 spec 那页 Wiki 的章节 |
 
@@ -40,15 +40,15 @@
 
 ## Wayfinding operations
 
-`mmw-wayfinder` 会来查这一节。它问的是 map、decision ticket、阻塞、frontier 在本仓库怎么表达——答案就是上面那套，加上一条它专用的：
+`/mmw-wayfinder` 会来查这一节。它问的是 map、decision ticket、阻塞、frontier 在本仓库怎么表达——答案就是上面那套，加上一条它专用的：
 
 - **map**：一张 GitHub issue，打 `wayfinder:map` 标签。这个标签既不是状态也不是类型，只是「这张 issue 是一张 map」的记号（见 `triage-labels.md`）。
 - **decision ticket**：map 的子 issue，一张对应一个待定的决定，带一个 `wayfinder:<类型>` 标签（见 `triage-labels.md`）。
 - **阻塞**：原生 issue dependencies，加边命令见上。
-- **frontier 查询**：map 的 open 子 issue 中，`issue_dependencies_summary.blocked_by == 0` 且无 assignee 的全部——注意这里要的是全部，不是取第一个。`mmw-wayfinder` 允许几个会话各认领一条 decision ticket 链同时跑。
+- **frontier 查询**：map 的 open 子 issue 中，`issue_dependencies_summary.blocked_by == 0` 且无 assignee 的全部——注意这里要的是全部，不是取第一个。`/mmw-wayfinder` 允许几个会话各认领一条 decision ticket 链同时跑。
 - **决定的答案**：作为结案评论贴在 decision ticket 上，关掉它，再往 map 的 `Decisions so far` 追加一行指针。**难以回退、有真取舍的那些还要另写一份 ADR**，别只留在评论里——评论区是最难检索的地方（见本文件最后一节的分流表）。
 
-`mmw-wayfinder` 找不到本节时会退化成拿本地 markdown 文件当 issue 追踪器。本仓库有 GitHub，不要走那条退路。
+`/mmw-wayfinder` 找不到本节时会退化成拿本地 markdown 文件当 issue 追踪器。本仓库有 GitHub，不要走那条退路。
 
 ## 技能里的说法对应什么动作
 
@@ -67,7 +67,7 @@
 
 **原型产物不走这三段。** `docs/prototypes/<slug>/` 随任务分支合回上一层，留在仓库里，不转 Wiki 也不删。spec 是给人读的说明，Wiki 上留一份就够；原型是实现时照着做的实物——里面那个逻辑模块会被搬进正式代码，界面变体是视觉契约的出处。删掉它，下一个人只能重新验一遍。
 
-## `mmw-wayfinder` 的产物不上 Wiki，但也不能死
+## `/mmw-wayfinder` 的产物不上 Wiki，但也不能死
 
 spec 是 map 的可读综合版——map 的 `Destination` 变成 spec 的问题陈述，`Decisions so far` 里的每一条变成 spec 的 `Implementation Decisions`，`Out of scope` 原样继承。正因为是综合版，两个都上 Wiki 就是两页内容重叠的东西摆在一起，读者不知道哪个权威。留综合版，不留原始日志。
 
@@ -82,6 +82,6 @@ spec 是 map 的可读综合版——map 的 `Destination` 变成 spec 的问题
 | 其余可回退的决定 | 被 spec 的 `Implementation Decisions` 吸收 | 不值得单独归档 |
 | map 本身 | 关掉即止 | 它是按走过顺序记的过程日志，含死路，价值在过程中 |
 
-这些都写在 `mmw-wayfinder` 自己那个 worktree 的分支上，随 effort 一起合回主线，中途不提前合（见 `worktrees.md`）。
+这些都写在 wayfinder 那棵 worktree 的分支上，随 effort 一起合回主线，中途不提前合（见 `worktrees.md`）。
 
 派出去的劳动力那些进出材料不走上面任何一条路：它们一次性写入、不打磨，随 worktree 一起死，不进 git 也不进 Wiki。审查留痕和终审报告落 **worktree 根的 `.reviews/`**，派给工人的提示词和它交回的报告落 **`.dispatch/`**。两个目录都已在仓库根 `.gitignore` 里，写的时候 `mkdir -p` 即可，不需要另铺脚手架。搁置项里有长期价值的那部分已经开成 issue 了（见 `triage-labels.md`）。

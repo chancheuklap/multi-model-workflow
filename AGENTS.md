@@ -53,6 +53,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - **Cursor**：源码只改 `cursor-plugin/`。本机跑 `bash cursor-plugin/scripts/install-local-surface.sh` 复制到 `~/.cursor/{agents,skills,commands,rules,hooks}`，合并 `hooks.json` / `mcp.json`，引擎树落到 `~/.cursor/multi-model-workflow-engine/`（可用 `MMW_ENGINE_ROOT`）。花名册 frontmatter（`model` 含 `id[effort=…]`、`is_background`）生效；Task 只传 `subagent_type`（+prompt/background）。细合同见 `cursor-plugin/skills/orchestrate/references/control/runtime-contract.md`。改完须再 install + Reload；运行时不以 `plugins/local` 为发现面。
 - 不用旧残留、兼容目录或静默默认值掩盖错误；脚本异常须非零退出或结构化告警。
 - **mmw-v2 的每份技能以一节「下一步」收尾**，形式固定成两列表（情况、下一步），动词只用「自己继续」「移交」「停」三个。只有两种情况允许停：agent 开不了新会话，或者事情要人拍板；其余一律自己接着做。
+- **技能里提到另一个技能一律写 `` `/技能名` ``**，跟上游合集一致，不分调起还是引用方法。同名的分支、`wayfinder:` 标签值、文件路径不加斜杠。
 
 ## Git 与安全
 

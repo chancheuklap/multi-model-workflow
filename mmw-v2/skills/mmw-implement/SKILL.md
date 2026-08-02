@@ -42,11 +42,11 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 
 ### 4. 派发
 
-按 `mmw-dispatching-agents` 派。用可写 sandbox，并且首次派发之前工作区必须干净，否则你分不清哪些改动是工人的。模型档从 `docs/agents/models.md` 取——ticket 碰计费、权限或数据迁移时用高风险档。这个判断归你，不归工人。
+按 `/mmw-dispatching-agents` 派。用可写 sandbox，并且首次派发之前工作区必须干净，否则你分不清哪些改动是工人的。模型档从 `docs/agents/models.md` 取——ticket 碰计费、权限或数据迁移时用高风险档。这个判断归你，不归工人。
 
 ### 5. 验收回执
 
-按 `mmw-judging-agent-output`，完工报告是证据不是结论。采信之前：
+按 `/mmw-judging-agent-output`，完工报告是证据不是结论。采信之前：
 
 - 把它说跑过的测试再跑一遍，读它的输出；
 - 读它产出的 diff；
@@ -62,7 +62,7 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 
 每张 ticket 都关闭之后，对这次整个 diff 跑 `/mmw-code-review`，固定点取分支点。审查要找的是一张 ticket 对另一张造成了什么影响，站在单张 ticket 里面看不见，所以整体审一次，不逐张审。
 
-分支点用 `git merge-base HEAD <父分支>` 取。父分支通常是主线；这次任务从一张 `mmw-wayfinder` 的 map 分出来的，父分支就是那张 map 的分支。
+分支点用 `git merge-base HEAD <父分支>` 取。父分支通常是主线；这次任务从一张 `/mmw-wayfinder` 的 map 分出来的，父分支就是那张 map 的分支。
 
 采信的 findings 打包成一张修复 ticket 派给新工人，带上 `file:line` 和要改成什么。然后按 `/mmw-code-review` 第 7 步复审，那一步只看修复本身和它碰到的地方。
 

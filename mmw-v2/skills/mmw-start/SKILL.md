@@ -45,7 +45,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 按 `docs/agents/worktrees.md` 建 worktree、用 `EnterWorktree` 进去，然后打那个记原话的空提交。
 
-从主线开新任务；这次任务是从一张 `mmw-wayfinder` 的 map 派生出来的，就从那张 map 的分支分叉。
+从主线开新任务；这次任务是从一张 `/mmw-wayfinder` 的 map 派生出来的，就从那张 map 的分支分叉。
 
 worktree 是分支的载体，建错了重建即可，不用停下来等用户确认。报一句你定的 slug 和你要走的路线，然后接着做——他不同意会当场打断你。
 
