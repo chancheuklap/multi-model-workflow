@@ -31,6 +31,13 @@ codex exec -C . --sandbox read-only --color never \
 - `-o` 把它最后一条消息写进回执文件。读那个文件就是回执，不用从事件流里捞。
 - 提示词走 stdin，所以先用 Write 把它写成文件。
 - 派可写的活时换 `--sandbox workspace-write`。**首派前工作树必须干净**，否则验收读 diff 时分不清哪些改动是它的。
+- **要它自己提交，还得单独放开 `.git`。** `workspace-write` 默认把 `.git` 锁成只读，工人写完代码会卡在 `.git/index.lock: Operation not permitted`。加这个覆盖：
+
+  ```bash
+  -c 'sandbox_workspace_write.writable_roots=["<worktree 绝对路径>/.git"]'
+  ```
+
+  放开之后它理论上也能改历史，所以派它的时候要说清：只许 `add` 加 `commit`，不许 `amend`、`rebase`、`reset` 或强推。
 - 续接用 `codex exec ... resume <会话号> "<追问>"`。**resume 不继承原来的围栏和模型档，整套重钉。** 会话号要用就加 `--json` 起，在事件流的 `thread_id` 里。
 - **不用 `codex review`。** 它自带提示词，会绕过我们的审查方法。
 

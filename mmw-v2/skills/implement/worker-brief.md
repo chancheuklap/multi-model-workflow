@@ -31,7 +31,9 @@ Follow the TDD files pasted below: one vertical slice at a time, failing test fi
 
 ## Commit
 
-One commit when the ticket is green. The message must reference the ticket, so the main thread can tell what landed. Don't commit a red state, and don't roll back a commit you already made.
+One commit when the ticket is green. The message must reference the ticket, so the main thread can tell what landed. Don't commit a red state.
+
+**`add` and `commit`, nothing else.** No `amend`, no `rebase`, no `reset`, no force push, and never roll back a commit you already made — including one of your own. History on this branch is how the main thread verifies you.
 
 ## When you're stuck
 
