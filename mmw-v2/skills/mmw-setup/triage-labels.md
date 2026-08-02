@@ -14,7 +14,7 @@
 | `ready-for-human` | `ready-for-human` | HITL 的活，不派工人 |
 | `wontfix` | `wontfix` | 决定不做 |
 
-**派工人前必须是 `ready-for-agent`。** 这是唯一一个机器可核的「够清楚了」信号，AFK 跑的时候靠它挡住模糊 issue。
+**派工人前必须是 `ready-for-agent`。** 这是唯一一个机器可验证的「够清楚了」信号，AFK 跑的时候靠它挡住模糊 issue。
 
 它打在一张 spec issue 上时含义更进一步：**这份 spec 已经过了用户那道确认**，拆 ticket 和派工人都可以自动接下去。`/mmw-to-spec` 只在用户点头之后才发布并打上这个标签，所以「issue 在且带这个标签」就是那道人工审批关卡过了的凭据，不需要另记状态。
 
