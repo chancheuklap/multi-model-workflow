@@ -20,9 +20,21 @@
 
 用 GitHub 自带的 `bug` 和 `enhancement`，不另立一套词汇。
 
-## `wayfinder:map` 不属于上面两个维度
+## `wayfinder:` 不属于上面两个维度
 
-跑 `mmw-wayfinder`（把 effort 画成一张决策 map 的技能）时，那张 map issue 打 `wayfinder:map`。它既不占状态位也不占类型位，只是「这张 issue 是一张 map，不是一件待办」的记号。map 底下的 decision ticket 照常带状态和类型。
+跑 `mmw-wayfinder`（把 effort 画成一张决定 map 的技能）时会用到五个标签。它们既不占状态位也不占类型位，只回答「这张 issue 在那张 map 上是什么角色」。
+
+| 标签 | 打在哪张 issue 上 |
+| --- | --- |
+| `wayfinder:map` | 那张 map 本身。含义是「这是一张 map，不是一件待办」 |
+| `wayfinder:grilling` | decision ticket，靠跟人对谈解掉。这是默认类型 |
+| `wayfinder:prototype` | decision ticket，要先做一个粗糙版本让人有对象可评价 |
+| `wayfinder:research` | decision ticket，派子代理去查一条事实就能解掉 |
+| `wayfinder:task` | decision ticket，某个决定做得出来之前必须先完成的手工操作 |
+
+map 底下的 decision ticket 照常带状态和类型。
+
+**收口时切出来的 spec issue 同样挂在 map 底下，但不带任何 `wayfinder:` 标签。** 这就是区分办法：带 `wayfinder:<类型>` 的是 decision ticket，不带的是 spec。
 
 ## 半路挖到的东西
 

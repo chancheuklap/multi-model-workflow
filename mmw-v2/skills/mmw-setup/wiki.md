@@ -48,7 +48,7 @@ slug 就是 worktree 名、分支名、`docs/specs/<slug>/` 的目录名——�
 | 落地信息 | 父 issue 链接、合并的 PR、落地日期 |
 | spec 正文 | `docs/specs/<slug>/` 的定稿 |
 | 计划章节 | 每张 ticket 一节，来自 `docs/plans/<slug>/` |
-| 相关决策 | **只放链接**指回仓库的 `docs/adr/`，用完整 URL |
+| 相关决定 | **只放链接**指回仓库的 `docs/adr/`，用完整 URL |
 
 计划不单独开页。一份 spec 拆八张 ticket 就开八页，会碎成没人看的东西。
 

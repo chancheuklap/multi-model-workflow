@@ -21,11 +21,11 @@
 
 ## 层级
 
-常态两层。跑了 `mmw-wayfinder`（把 effort 画成一张决策 map，逐条把雾散掉的技能）就是三层，因为一张 map 可能派生出好几份 spec。
+常态两层。跑了 `mmw-wayfinder`（把 effort 画成一张决定 map，逐条散掉 fog of war 的技能）就是三层，因为一张 map 可能派生出好几份 spec。
 
 | 层 | 正文放什么 | 权威内容在哪 | 结局 |
 | --- | --- | --- | --- |
-| map（跑了 `mmw-wayfinder` 才有） | destination、已定决策的一行索引、范围外、还在 fog 里的部分 | 就在正文——它本来就是索引不是文档 | 关掉，不上 Wiki |
+| map（跑了 `mmw-wayfinder` 才有） | `Destination`、`Decisions so far` 的一行索引、`Out of scope`、`Not yet specified` | 就在正文——它本来就是索引不是文档 | 关掉，不上 Wiki |
 | spec | 一段摘要说清要解决什么问题 + 指向分支上 spec 文件的路径 + ticket 清单 | 任务分支的 `docs/specs/<slug>/` | 落地后转一页 Wiki（见 `wiki.md`） |
 | ticket | 一段摘要 + 指向分支上该 ticket 计划的路径 + 阻塞关系 | 任务分支的 `docs/plans/<slug>/` | 并进 spec 那页 Wiki 的章节 |
 
@@ -43,10 +43,10 @@
 `mmw-wayfinder` 会来查这一节。它问的是 map、decision ticket、阻塞、frontier 在本仓库怎么表达——答案就是上面那套，加上一条它专用的：
 
 - **map**：一张 GitHub issue，打 `wayfinder:map` 标签。这个标签既不是状态也不是类型，只是「这张 issue 是一张 map」的记号（见 `triage-labels.md`）。
-- **decision ticket**：map 的子 issue，一张 decision ticket 对应一个待定的决策。
+- **decision ticket**：map 的子 issue，一张对应一个待定的决定，带一个 `wayfinder:<类型>` 标签（见 `triage-labels.md`）。
 - **阻塞**：原生 issue dependencies，加边命令见上。
-- **frontier 查询**：map 的 open 子 issue 中，`issue_dependencies_summary.blocked_by == 0` 且无 assignee 的全部——注意这里要的是全部，不是取第一个。`mmw-wayfinder` 允许你并行开几张 decision ticket。
-- **决策的答案**：作为结案评论贴在 decision ticket 上，关掉它，再往 map 的「已定决策」追加一行指针。**难以回退、有真取舍的那些还要另写一份 ADR**，别只留在评论里——评论区是最难检索的地方（见本文件最后一节的分流表）。
+- **frontier 查询**：map 的 open 子 issue 中，`issue_dependencies_summary.blocked_by == 0` 且无 assignee 的全部——注意这里要的是全部，不是取第一个。`mmw-wayfinder` 允许几个会话各认领一条 decision ticket 链同时跑。
+- **决定的答案**：作为结案评论贴在 decision ticket 上，关掉它，再往 map 的 `Decisions so far` 追加一行指针。**难以回退、有真取舍的那些还要另写一份 ADR**，别只留在评论里——评论区是最难检索的地方（见本文件最后一节的分流表）。
 
 `mmw-wayfinder` 找不到本节时会退化成拿本地 markdown 文件当 issue 追踪器。本仓库有 GitHub，不要走那条退路。
 
@@ -67,16 +67,16 @@
 
 ## `mmw-wayfinder` 的产物不上 Wiki，但也不能死
 
-spec 是 map 的可读综合版——map 的 destination 变成 spec 的问题陈述，每条已定决策变成 spec 的「已定实现决策」，范围外原样继承。正因为是综合版，两个都上 Wiki 就是两页内容重叠的东西摆在一起，读者不知道哪个权威。留综合版，不留原始日志。
+spec 是 map 的可读综合版——map 的 `Destination` 变成 spec 的问题陈述，`Decisions so far` 里的每一条变成 spec 的 `Implementation Decisions`，`Out of scope` 原样继承。正因为是综合版，两个都上 Wiki 就是两页内容重叠的东西摆在一起，读者不知道哪个权威。留综合版，不留原始日志。
 
-但 map 上那些决策不能随任务一起消失，它们的归宿是仓库：
+但 map 上那些决定不能随任务一起消失，它们的归宿是仓库：
 
 | 产物 | 去哪 | 为什么 |
 | --- | --- | --- |
-| 难以回退、有真取舍的决策 | `docs/adr/` | 改代码时同一次 diff 就能看见相关决策，Wiki 看不见 |
+| 难以回退、有真取舍的决定 | `docs/adr/` | 改代码时同一次 diff 就能看见相关决定，Wiki 看不见 |
 | 考察过但决定不做的方向 | `.out-of-scope/`，一个概念一个文件 | 分诊时按概念相似度查它，防止同一个需求换个说法再提一遍 |
 | 沉淀下来的术语 | `CONTEXT.md` | 见 `domain.md` |
-| 其余可回退的决策 | 被 spec 的「已定实现决策」吸收 | 不值得单独归档 |
+| 其余可回退的决定 | 被 spec 的 `Implementation Decisions` 吸收 | 不值得单独归档 |
 | map 本身 | 关掉即止 | 它是按走过顺序记的过程日志，含死路，价值在过程中 |
 
 这些都写在 `mmw-wayfinder` 自己那个 worktree 的分支上，随 effort 一起合回主线，中途不提前合（见 `worktrees.md`）。

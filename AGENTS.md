@@ -52,6 +52,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - 版本：Claude 同步 plugin manifest + marketplace（含根版本）；Droid 同步 plugin + marketplace；pi 以 `package.json` 为准；Cursor 同步 `cursor-plugin/.cursor-plugin/plugin.json` 与根 `.cursor-plugin/marketplace.json`。
 - **Cursor**：源码只改 `cursor-plugin/`。本机跑 `bash cursor-plugin/scripts/install-local-surface.sh` 复制到 `~/.cursor/{agents,skills,commands,rules,hooks}`，合并 `hooks.json` / `mcp.json`，引擎树落到 `~/.cursor/multi-model-workflow-engine/`（可用 `MMW_ENGINE_ROOT`）。花名册 frontmatter（`model` 含 `id[effort=…]`、`is_background`）生效；Task 只传 `subagent_type`（+prompt/background）。细合同见 `cursor-plugin/skills/orchestrate/references/control/runtime-contract.md`。改完须再 install + Reload；运行时不以 `plugins/local` 为发现面。
 - 不用旧残留、兼容目录或静默默认值掩盖错误；脚本异常须非零退出或结构化告警。
+- **mmw-v2 的每份技能以一节「下一步」收尾**，形式固定成两列表（情况、下一步），动词只用「自己继续」「移交」「停」三个。只有两种情况允许停：agent 开不了新会话，或者事情要人拍板；其余一律自己接着做。
 
 ## Git 与安全
 
@@ -130,7 +131,8 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | `skills/mmw-code-review` | Matt 两轴之外补第三轴 Correctness，跨家派发，findings 原样落盘再裁判 | 实跑一轮真 diff，Claude 和 Codex 各自捞到对方没看见的一条 |
 | `skills/mmw-implement` | 主线程不写码，一张 ticket 派一个 Codex 无头工人；主线程只做准备简报、派发、验收、起审 | 实跑一个真工人在 throwaway 仓库里做完一张 ticket，测试全绿 |
 | `skills/mmw-tdd` | seam 改成由 spec 钉死（无头工人问不到人），另加 `quality-bar.md` 收下旧 plugin 那套测试规矩 | 随 `mmw-implement` 一起跑过 |
-| `skills/mmw-start` | 六条路由判据；worktree 建错了重建，所以报一句就走不等确认；`resuming.md` 靠查产物报进度，不设状态文件 | 未实跑 |
+| `skills/mmw-start` | 七条路由判据（含「报了一张 map 的编号」）；worktree 建错了重建，所以报一句就走不等确认；`resuming.md` 靠查产物报进度，不设状态文件 | 未实跑 |
+| `skills/mmw-wayfinder` | 按会话拆成三条 branch：`drawing.md` 建 map、`walking.md` 认领一条链、`closing.md` 收口，三条共用 `map-anatomy.md`。SKILL.md 只留入口判定和几个会话同时跑的四条硬约束 | 未实跑 |
 | `skills/mmw-triage` | 新增「出口」一节：只碰一处且 brief 写明 seam 直走 `mmw-implement`，碰多处走 `to-spec`；agent brief 模板加 `Test seam` 栏 | 未实跑 |
 | `skills/mmw-diagnosing-bugs` | 前四个 Phase 主线程做，Phase 5 的修派 Codex 工人；派发前先删 `[DEBUG-]` 埋点保证树干净 | 未实跑 |
 | `skills/mmw-grilling` | 吸收 `grill-with-docs`：开问前先查现状，谈的过程里按 `domain-modeling` 落术语与 ADR，主线出口交 `to-spec`。四个技能共用它，所以它单独存在，不并进任何一个 | 未实跑 |
