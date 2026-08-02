@@ -11,7 +11,7 @@
 - **打 / 摘标签**：`gh issue edit <n> --add-label "..."` / `--remove-label "..."`
 - **关**：`gh issue close <n> --comment "..."`
 
-标签词汇见 `triage-labels.md`。上面的建、评论、关三个动作把内容发到了仓库外面，发之前先过 `triage-labels.md` 的「HITL 与 AFK」一节里那条对外发布授权的规矩。
+标签词汇见 `triage-labels.md`。
 
 ## issue 承载身份，文件承载内容
 

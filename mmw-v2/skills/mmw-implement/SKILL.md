@@ -32,7 +32,7 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 
 从文件里取，不凭记忆：
 
-1. 本文件旁边的 `worker-brief.md`，全文。
+1. 本文件旁边的 `worker-brief.md`，取 `---` 之后的全部内容。`---` 之前那几行是写给你的，粘进去工人只会读到一条它打不开的插件内路径。
 2. TDD 纪律全文——`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md`。
 3. 目标仓库的 `TESTING.md` 全文，那是测试三层里的第三层：目录分层、哪些边界允许打桩、值从哪个权威源读。**它跟 `worker-brief.md` 以及第 2 条列出的那四个文件一起粘进去，不给路径**——工人读不读得到你控制不了。这个仓库还没有 `TESTING.md`，在 brief 里明说没有，让它按 `worker-brief.md` 加第 2 条那四个文件做。
 4. spec 或 agent brief 在这个 worktree 里的路径，以及 spec `## Testing Decisions` 一节里那张 seam 清单表（agent brief 则是 `**Test seam:**` 一栏），原文引用。
