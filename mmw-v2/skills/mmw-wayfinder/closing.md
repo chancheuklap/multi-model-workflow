@@ -17,7 +17,7 @@ frontier 上一张 ticket 都不剩了。收尾就是把这张 map 结束掉：�
 
 ## 2. 决定各自归位
 
-map issue 关掉之后就不再是查阅入口，所以这张 map 上做出的决定要按类型分开落到仓库里。**去向表在 `docs/agents/issue-tracker.md` 的「`/mmw-wayfinder` 的产物不上 Wiki，但也不能死」一节，那里是唯一权威，本文不复述。**
+map issue 关掉之后就不再是查阅入口，所以这张 map 上做出的决定要按类型分开落到仓库里。**产物去向表在 `docs/agents/issue-tracker.md` 的「`/mmw-wayfinder` 的产物不上 Wiki，但也不能死」一节，那里是唯一权威，本文不复述。**
 
 走 map 的过程中该写的已经写了，这一步是补漏：逐条过一遍 map 的 `Decisions so far` 一节，看有没有当时判成「可回退」、现在回头看其实难以回退的。判成难以回退的补一份 ADR。
 

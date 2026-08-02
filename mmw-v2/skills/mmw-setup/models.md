@@ -40,7 +40,7 @@ spec 的最终判定是用户敲的那道人工审批关卡，不是主 agent。
 
 - Codex headless：`codex exec`，模型和档位用 `-m <模型> -c model_reasoning_effort=<档位>` 显式钉。
 - Codex 审查者一律 `--sandbox read-only`，审查者不许动代码。
-- 审查者和写计划工人的方法论不进提示词，装在它自己的技能目录里（`/mmw-dispatching-agents` 旁边那个装载脚本干这件事）。审查者的提示词只给任务名、审什么、材料、是不是复审。
+- 审查者和写计划工人的方法论不进提示词，装在它自己的技能目录里（`/mmw-dispatching-agents` 旁边那个安装脚本干这件事）。审查者的提示词只给任务名、审什么、材料、是不是复审。
 - Codex 会话续接（`codex exec resume`）不继承原来的护栏和模型档，追问时整套重新固定。
 - 不用 `codex review`——它自带提示词，会绕过我们的审查方法论。
 - 派给 headless 工人的 brief 要自包含：它看不见我们插件里的文件，所以工人要用的规矩写进提示词或者写进它读得到的仓库内文件。

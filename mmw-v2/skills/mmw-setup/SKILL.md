@@ -55,7 +55,7 @@ gh label create "<名字>" --description "<一句话，抄 triage-labels.md 的�
 
 ## 4. 把方法论装给 headless subagent
 
-审查者和写计划工人都不从提示词里读方法论，它们读自己技能目录里的那一份。跑 `/mmw-dispatching-agents` 旁边那个装载脚本，幂等，装过就跳过：
+审查者和写计划工人都不从提示词里读方法论，它们读自己技能目录里的那一份。跑 `/mmw-dispatching-agents` 旁边那个安装脚本，幂等，装过就跳过：
 
 ```bash
 bash "<本技能目录>/../mmw-dispatching-agents/install-agent-skills.sh"

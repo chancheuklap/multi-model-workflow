@@ -111,7 +111,7 @@ before：一棵函数调用树，画成嵌套的方框。after：同一棵树收
 
 **不要换成**：component、service、unit（当你指 module 时）· API、signature（当你指 interface 时）· boundary（当你指 seam 时）· layer、wrapper（当你指 module 时）。
 
-**合调子的说法**：
+**符合这份词汇表的说法**：
 
 - "Order intake module is shallow — interface nearly matches the implementation."
 - "Pricing leaks across the seam."

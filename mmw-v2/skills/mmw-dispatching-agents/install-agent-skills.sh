@@ -11,7 +11,7 @@ PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SKILLS_DIR="${MMW_AGENT_SKILLS_DIR:-${CODEX_HOME:-$HOME/.codex}/skills}"
 
 # 审查者读审查方法论,写计划工人读写计划方法论,两边都要读测试那一份:
-# 审查者按它核这次新增和改动的测试,写计划工人按它写测试规划。
+# 审查者按它验证这次新增和改动的测试,写计划工人按它写测试规划。
 WANTED=(mmw-reviewer mmw-planner mmw-tdd)
 
 mode=install
