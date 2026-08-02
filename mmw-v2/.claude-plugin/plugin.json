@@ -31,6 +31,7 @@
     "./skills/implement",
     "./skills/improve-codebase-architecture",
     "./skills/judging-agent-output",
+    "./skills/mmw-start",
     "./skills/prototype",
     "./skills/qa",
     "./skills/request-refactor-plan",

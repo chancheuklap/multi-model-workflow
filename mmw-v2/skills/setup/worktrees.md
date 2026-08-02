@@ -47,6 +47,20 @@ git worktree add -b <name> .worktrees/<name> <父分支名>
 
 **会话限制**：`EnterWorktree` 从主仓库按路径进没问题；但同一个会话里从一个 worktree 直接跳到另一个 worktree 时，它只认 `.claude/worktrees/` 下的目标。我们是一个任务一个会话，正常撞不上；真要跳先回主仓库。
 
+## 开工的第一个提交
+
+进去之后先打一个空提交：
+
+```bash
+git commit --allow-empty -m "<slug>" -m "<用户交代这件事时的原话>"
+```
+
+原话原样记，不要替他概括——这条提交是几天后回来时唯一还留着他当初怎么说的地方。
+
+它同时是这个任务的起点标记：`git merge-base` 取分支点取的就是它前面那一条，终审要的固定点因此不用另外记。
+
+任务走到第几步不用状态文件，看产物在不在就知道：`docs/specs/<slug>/` 在不在、子 issue 谁开着谁有 assignee、`.reviews/` 里有没有终审报告、Wiki 上有没有那一页。
+
 ## 目录用到才建
 
 新 worktree 里不预先铺 `docs/specs/`、`docs/plans/`、`.reviews/`、`.dispatch/` 这些目录。真要写第一个文件时 `mkdir -p` 一下就够了。
