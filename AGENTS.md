@@ -112,36 +112,17 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 `ask-matt` 是 Matt 的路由器，留着做底子，最终名字和内容都要换成我们自己的入口。
 
-### 已定的设计结论
+### 批 2 已落地
 
-批 2 真正写成技能后，本小节升格进 `SKILL.md` 并从这里删除。
+跨模型派发、亲验裁判、`code-review` 三轴改造已写成技能，实跑一轮验过（`mmw-v2/skills/dispatching-agents`、`judging-agent-output`、`code-review`）。设计结论住在那三份技能里，本文件不再复述。
 
-#### 亲验裁判（技能暂名 `judging-agent-output`，model-invoked，第 2 层）
-
-**适用面**：所有隔离上下文的劳动力产出——审查发现、Codex 工人完工报告、调查 agent 现状报告。一个技能两段：采信段所有产出都过，处置段只有审查发现过。旧 plugin 把这套纪律绑在审闸里，结果审查那条路把关严、其他路直接照抄。
-
-**采信段**：每条承重断言必须有一个主线程能自己复核的锚——审查发现的锚是 `file:line` 原文，完工报告的锚是能跑的测试与 diff，调查报告的锚是能读的源码。引不出锚的断言不进交付物，标 `needs-evidence`。承重之外的数字和定位不逐条复核，也不重做子 agent 已完成的整段调查。审者交回的是证据不是结论，也不是放行权人。
-
-**处置段两问**（旧四问里三问同义，已收敛）：
-
-1. 不修会伤到谁、在什么场景？说不清伤害面的，不能当承重项采信。
-2. 这轮花预算修，还是挪出去？
-
-**处置词五个**，英文，在留痕文件里当机器可扫标记：`accepted`（成立且本轮值得修，唯一能驱动返工的）、`rejected`（不成立或误读，写一句理由）、`duplicate`（指向保留条）、`needs-evidence`（可能成立但没坐实，补证前不修不争）、`waived`（可能成立但过度设计、低收益、超范围，理由必填）。
-
-**删掉了置信度这个维度**：坐实之后只有「有锚」和「没锚」两态，中间的置信度没有任何对应动作。
-
-**搁置去向按伤害面分流**：伤害面说得清的开一张 GitHub issue 打 `needs-triage`——issue 就是留痕，也是交给用户的通道；纯品味、无当前用户路径的只写进终审报告。**无人值守不为搁置停机**，会停的只有三种：缺输入、怀疑解错问题、要出站。
-
-**不收敛兜底**：同一条 `accepted` 修过两轮还在，停下来自问「是修错地方，还是根本不该采信」，然后上报用户。不算指纹、不设硬轮次上限；修了几轮从提交记录看得出来。
-
-**留痕**：findings 原样落盘，不重写不摘要。留痕和终审报告都落 worktree 内 gitignore 区，随 worktree 死。
+改造顺序表里 `code-review` 那一行因此完成；下一个是 `implement`（worktree 加派 Codex 无头写码），它复用同一套派发与裁判。
 
 ### 待定事项
 
 | 要定什么 | 当时的背景与张力 | 旧实现位置（背景线索） |
 | --- | --- | --- |
-| 跨模型派发的形状 | 派 Codex 无头写码 / 写计划、派 Claude sub-agent 审。旧实现夹在阶段引擎里，要剥成独立能力。亲验裁判已定，派发要交回什么形状因此清楚了 | `plugin/scripts/worker.sh`、`plugin/scripts/review.sh` |
+| 派 Codex 无头写码 | 审那一侧的派发已落地，写那一侧还没：可写沙箱、首派前工作树要干净、交回的完工报告怎么验收。跟 `implement` 一起做 | `plugin/scripts/worker.sh` |
 | `/setup` 要不要自动跑 | 现在得手敲，用户忘了跑配置就全空、技能读不到任何仓库事实。想用 SessionStart 钩子自动铺，但那要接 `hooks/hooks.json`，属于插件机械层，等第 2 层能力定形后一起做 | `plugin/hooks/` |
 | 纪律层八技能的适配 | 原样搬进来了，一个字没改。每个技能都有旧 plugin 里的自有加法要合（见下表）。已看清的第一个真冲突：Matt 的 `tdd` 要求写测试前跟用户确认接缝，我们的写码工人是无人值守 Codex，问不到人，所以要改成「接缝由计划的 Task Pack 钉死」 | `tdd` ← `worktree-build/references/tests.md`、`discipline.md`；`research` ← `investigate-internal` / `investigate-external`；`prototype` ← `scripts/prototype.sh`、`design/prototype-mockup.md`；`resolving-merge-conflicts` ← `scenario/merge.md`；`diagnosing-bugs` ← 悬空引用 + `scenario/bug.md`；`domain-modeling` ← 核 ADR 编号约定；`grilling` ← `design/discussion.md` |
 | 任务隔离脚本 | 建 / 进 / 清 worktree 加 docs 落点。约定全在 `mmw-v2/skills/setup/worktrees.md`，只剩薄脚本怎么写 | `plugin/scripts/prepare.sh` 的 task new / cleanup |
