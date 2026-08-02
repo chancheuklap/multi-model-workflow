@@ -14,7 +14,7 @@
 
 | 谁叫的 | 结论写去哪 |
 | --- | --- |
-| `/mmw-wayfinder` 的一张 `wayfinder:prototype` ticket | 回 `/mmw-wayfinder` 的 `walking.md` 第 4 步，按它那六件事记录这次解答；结案评论里留一个指向原型产物的路径。关 ticket、追加 map 索引、写 ADR 都归那一步，不要在这里先做一遍 |
+| `/mmw-wayfinder` 的一张 `wayfinder:prototype` ticket | 回 `/mmw-wayfinder` 的 `mmw-wayfinder/walking.md` 第 4 步，按它那六件事记录这次解答；结案评论里留一个指向原型产物的路径。关 ticket、追加 map 索引、写 ADR 都归那一步，不要在这里先做一遍 |
 | `/mmw-grilling`，或者用户直接叫你 | 写进这份 spec 的 `Implementation Decisions`；spec 还没建就先留在 `README.md` 里，`/mmw-to-spec` 会来取 |
 
 **每一条回填进去的决定，末尾标注它的原型出处**——第几轮、哪份产物。`/mmw-to-spec` 定稿时要逐条验证：每条需求都得指得到一份原型证据，或者写明它为什么不需要原型。

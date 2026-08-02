@@ -23,7 +23,7 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
    | 最小化的 repro | 场景，以及每一样为什么是关键的 |
    | 那条假设 | 被验证的那条，以及验证它的那次观测 |
    | seam | 测试放在哪一层、断言什么——这条由你定，工人问不到人 |
-   | 纪律 | `worker-brief.md`、TDD 全文、目标仓库的 `TESTING.md`，取法见 `/mmw-implement` 第 3 步 |
+   | 纪律 | `mmw-implement/worker-brief.md`、`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md`、目标仓库根的 `TESTING.md`，取法见 `/mmw-implement` 第 3 步 |
 
 3. 工人要跑的循环是：在那个 seam 上把最小化 repro 变成一个失败的测试，看它红，写修复，看它绿。
 

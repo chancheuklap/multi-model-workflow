@@ -5,7 +5,7 @@ description: 分诊 issue 和外部 PR——定类别、验事实、需要时 gr
 
 把项目 issue tracker 上的 issue 推过一台状态机。
 
-本仓库把外部 pull request 也当作一个提需求的入口（见 issue-tracker 配置），那么 triage 也管它们：**一个 PR 就是一个带着代码的 issue**——同样的角色、同样的状态、同样的状态机，差异标在下面「对 PR 而言」的地方。裸写的 `#42` 按 tracker 配置解析成 issue 或 PR。
+本仓库把外部 pull request 也当作一个提需求的入口（见 `docs/agents/issue-tracker.md`），那么 triage 也管它们：**一个 PR 就是一个带着代码的 issue**——同样的角色、同样的状态、同样的状态机，差异写在本文「角色」一节里以「对 PR 而言」开头的那一段。裸写的 `#42` 按 `docs/agents/issue-tracker.md` 解析成 issue 或 PR。
 
 triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**必须**以这句免责声明开头：
 
@@ -37,7 +37,7 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 每张分诊过的 issue 应当正好带一个类别角色和一个状态角色。状态角色互相冲突时，先标出来问维护者，再做别的。
 
-以上是角色的规范名，issue tracker 里实际用的标签字符串可能不同。映射关系应该已经给你了——没有就跑 `/mmw-setup`。
+以上是角色的规范名，issue tracker 里实际用的标签字符串可能不同。映射关系在 `docs/agents/triage-labels.md`——那份文件不在就跑 `/mmw-setup`。
 
 状态怎么流转：没标签的 issue 通常先进 `needs-triage`；从那里去 `needs-info`、`ready-for-agent`、`ready-for-human` 或 `wontfix`。报告人回话之后 `needs-info` 退回 `needs-triage`。维护者随时可以推翻——看起来反常的流转先标出来问一句再走。
 
@@ -60,7 +60,7 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 2. **`needs-triage`** —— 评估进行中。
 3. **`needs-info` 且报告人在上次分诊记录之后有过动静的** —— 需要重新评估。
 
-PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[issue]`。这一步只列出*外部* PR（谁算外部由 tracker 配置定义）——协作者正在做的 PR 不归分诊管。这条筛选只作用于发现环节；被点名的 PR 一律分诊，不看作者是谁。
+PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[issue]`。这一步只列出*外部* PR（谁算外部由 `docs/agents/issue-tracker.md` 定义）——协作者正在做的 PR 不归分诊管。这条筛选只作用于发现环节；被点名的 PR 一律分诊，不看作者是谁。
 
 给出每堆的数量和每条一行的摘要，让维护者挑。
 
@@ -75,9 +75,9 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 4. **Grill（需要时）。** 这个需求还不够具体，就跑 `/mmw-grilling`——一次一个问题地把它问成形，领域词随之收紧，决定定下来时更新 `CONTEXT.md` 和 ADR。
 
 5. **落实结果：**
-   - `ready-for-agent` —— 贴一条 agent brief 评论（[AGENT-BRIEF.md](AGENT-BRIEF.md)），brief 里必须有 `**Test seam:**` 那一栏。然后按下面「出口」决定它接着走哪条路。
+   - `ready-for-agent` —— 贴一条 agent brief 评论（[AGENT-BRIEF.md](AGENT-BRIEF.md)），brief 里必须有 `**Test seam:**` 那一栏。然后按本文「下一步」一节决定它接着走哪个技能。
    - `ready-for-human` —— 结构和 agent brief 一样，但要写清为什么它派不出去（要拿判断、要外部权限、要做设计决定、要人工测试）。
-   - `needs-info` —— 贴分诊记录（模板在下面）。
+   - `needs-info` —— 贴分诊记录（模板见本文「needs-info 模板」一节）。
    - `wontfix` —— 关掉，评论内容取决于*为什么*：
      - **已经实现** —— 这个改动代码里已经有了。指出它在哪，并且**不要**写 `.out-of-scope/`（那个知识库收的是*被否掉*的需求，不是已经做出来的）。
      - **否掉（bug）** —— 客气地解释，然后关。
@@ -91,13 +91,13 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 | `ready-for-agent`，只碰一处，brief 写明了 seam | **移交**：`/mmw-implement`。brief 已经是完整合同，不再写 spec |
 | `ready-for-agent`，碰多处，或者要先谈实现取舍 | **移交**：`/mmw-to-spec`，先谈定再派工人 |
 | 这个需求还不够具体，判不出状态 | **自己继续**：回第 4 步跑 `/mmw-grilling` 把它问成形，再回来落实结果 |
-| seam 说不清楚 | **自己继续**：改判 `ready-for-human`，理由写在 brief 里，然后按本表最后一行交回用户 |
+| seam 说不清楚 | **自己继续**：改判 `ready-for-human`，理由写在 brief 里，然后按本表「落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage`」那一行交回用户 |
 | 落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage` | **停**：报这张判成了什么、为什么、下一步在等谁 |
 | 维护者一次交来好几张 | **自己继续**：一张一张走完上面的流程，全部落实之后再一起报 |
 
 ## 快速改状态
 
-维护者说「把 #42 挪到 ready-for-agent」，就按他说的直接把角色打上。先确认你要做什么（改哪些角色、贴什么评论、关不关），然后动手。这条路跳过 grill。没经过 grill 就往 `ready-for-agent` 挪时，问一句他要不要写一份 agent brief。
+维护者说「把 #42 挪到 ready-for-agent」，就按他说的直接把角色打上。先确认你要做什么（改哪些角色、贴什么评论、关不关），然后动手。维护者直接指定状态的，跳过 grill。没经过 grill 就往 `ready-for-agent` 挪时，问一句他要不要写一份 agent brief。
 
 ## needs-info 模板
 

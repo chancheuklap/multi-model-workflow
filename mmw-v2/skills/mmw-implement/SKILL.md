@@ -13,7 +13,7 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 
 先确认这次需求出自哪里。碰多处的需求出自 `docs/specs/<slug>/` 里的 spec；只碰一处的需求出自 issue 上那份 `ready-for-agent` 的 agent brief。两条来源都成立。
 
-然后三件事必须满足。有一件不满足就停下，说清是哪一件。
+然后下面四件事每一件都必须满足。有一件不满足就停下，说清是哪一件。
 
 | 检查 | 怎么查 | 不满足怎么办 |
 | --- | --- | --- |
@@ -34,7 +34,7 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 
 1. 本文件旁边的 `worker-brief.md`，全文。
 2. TDD 纪律全文——`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md`。
-3. 目标仓库的 `TESTING.md` 全文，那是测试三层里的第三层：目录分层、哪些边界允许打桩、值从哪个权威源读。**它跟前四份一起粘进去，不给路径**——工人读不读得到你控制不了。这个仓库还没有 `TESTING.md`，在 brief 里明说没有，让它按前四份做。
+3. 目标仓库的 `TESTING.md` 全文，那是测试三层里的第三层：目录分层、哪些边界允许打桩、值从哪个权威源读。**它跟 `worker-brief.md` 和 `mmw-tdd` 那四份一起粘进去，不给路径**——工人读不读得到你控制不了。这个仓库还没有 `TESTING.md`，在 brief 里明说没有，让它按 `worker-brief.md` 加 `mmw-tdd` 那四份做。
 4. spec 或 agent brief 在这个 worktree 里的路径，以及它写明的 seam 清单，原文引用。
 5. ticket 本身：标题、要做什么、每一条验收标准，全部写进去。工人能访问 tracker 也照样写——让它自己去取，可能取错一张，而且提示词就不再是你派发内容的完整记录。
 6. **这张 ticket 对应的那份 plan，全文。** spec、ticket、plan 三样都要给：spec 给意图和合同，ticket 给边界和验收，plan 给施工权威。走 agent brief 那条路的需求没有 plan，这一条跳过。
@@ -79,6 +79,6 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 | 第 6 步有合同 grep 不到行号 | **停**：报是哪条合同、提供方或消费方缺在哪。这是落地漏了，不是审出来的意见 |
 | 审出了采信的 findings | **自己继续**：打包成一张修复 ticket 派新工人，然后按 `/mmw-review` 第 8 步复审 |
 | 审完没有采信项，或者修复已经复审通过 | **移交**：`/mmw-closing`，把 spec 与 plan 归档到 Wiki、删掉本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`，再交回用户合并 |
-| 第 1 步三项前置有一项不满足 | **停**：说清是哪一项。缺 seam 的按那张表回 `/mmw-to-spec` 第 3 步或 `/mmw-triage`，不要自己替用户定 seam |
+| 第 1 步四项前置有一项不满足 | **停**：说清是哪一项。缺 seam 的按第 1 步那张表回 `/mmw-to-spec` 第 3 步或 `/mmw-triage`，不要自己替用户定 seam |
 | 工人卡在 ticket 与代码互相矛盾上 | **停**：它报告的是 spec 的问题，不是它自己的问题。把矛盾交给用户，不要换一个工人再派一遍 |
 | 工人交回的不是「完成」，也不是因为矛盾 | **自己继续**：按 `/mmw-verifying-agent-output` 的四档读它交回的东西，再按返工升级策略接着走 |

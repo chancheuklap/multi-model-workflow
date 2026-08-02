@@ -75,7 +75,7 @@
 
 plan 必须自带完整的测试规划，不留到后面补。
 
-测试本身怎么写、够不够格进仓库，在你已装的 `mmw-tdd` 技能里，加上目标仓库根的 `TESTING.md` 补的本仓库事实。**写测试规划之前，这四份逐个读完**：`mmw-tdd/SKILL.md`（循环的规矩）、`mmw-tdd/tests.md`（什么算好测试）、`mmw-tdd/mocking.md`（边界上怎么 mock）、`mmw-tdd/quality-bar.md`（合入标准，一条不过就打回），再加目标仓库根的 `TESTING.md`。合入标准在 `quality-bar.md` 里，只读 `SKILL.md` 拿不到它。本文只讲规划这一层。
+测试本身怎么写、够不够格进仓库，在你已装的 `mmw-tdd` 技能里，加上目标仓库根的 `TESTING.md` 补的本仓库事实。**写测试规划之前，这四份逐个读完**：`mmw-tdd/SKILL.md`（循环的规矩）、`mmw-tdd/tests.md`（什么算好测试）、`mmw-tdd/mocking.md`（边界上怎么 mock）、`mmw-tdd/quality-bar.md`（合入标准，一条不过就打回），再加目标仓库根的 `TESTING.md`。合入标准在 `mmw-tdd/quality-bar.md` 里，只读 `mmw-tdd/SKILL.md` 拿不到它。本文只讲规划这一层。
 
 ### 追覆盖
 

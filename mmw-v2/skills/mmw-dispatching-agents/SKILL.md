@@ -14,7 +14,7 @@ description: 把一件任务派给隔离上下文的 subagent——Claude 会话
 | Claude | `Agent` 工具，`subagent_type: general-purpose` | 派 Claude |
 | Codex | `codex exec` headless 进程，Bash 后台起 | 派 Codex |
 
-派哪个模型由 `models.md` 的红线定：每一道审至少有一个视角的审查者与作者不是同一个模型。
+派哪个模型由 `docs/agents/models.md` 的红线定：每一道审至少有一个视角的审查者与作者不是同一个模型。
 
 ### Codex headless 怎么起
 
