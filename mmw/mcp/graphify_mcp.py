@@ -25,19 +25,26 @@ DEFAULT_DEPTH = 2
 ENSURE_TIMEOUT = 900
 QUERY_TIMEOUT = 120
 
+# 这段话是唯一对每个执行面都生效的一层：主 agent 读得到，派出去的 headless
+# subagent 也读得到，而它们读不到技能。所以使用纪律写在这里，不写在技能里；
+# 技能只装建图与维护，那是主 agent 才做的事。
 INSTRUCTIONS = (
     "Graphify answers structural questions over a repository graph: module relationships, "
-    "dependency paths, reverse impact, routes, IPC, events, dynamic imports and cross-language "
-    "data flow. Use it proactively during technical work whenever a non-trivial investigation "
-    "needs those; the user describes goals, not retrieval steps.\n\n"
+    "dependency paths, reverse impact, cross-service routes, IPC channels, event topics and "
+    "cross-language data flow. Use it proactively during technical work whenever a non-trivial "
+    "investigation needs those; the user describes goals, not retrieval steps.\n\n"
     "If your host defers tool schemas, load this tool now, before exploring relationships by hand.\n\n"
-    "Each call ensures the graph matches the current checkout before querying. Results are "
-    "candidates, not conclusions: locate them with grep and read the current source before the "
-    "finding enters a design, plan, review, fix or delivery report. An empty result never proves "
-    "absence.\n\n"
-    "Symbol definitions, direct references, implementations and file symbol overviews go to Serena "
-    "instead. When a repository declares its own graph build entry point, follow the repository's "
-    "rule rather than rebuilding here."
+    "Division of labour with Serena: symbol definitions, direct references, implementations and "
+    "file symbol overviews go to Serena. Two kinds of relationship are invisible to a language "
+    "server and belong here instead — handlers registered by a decorator, whose callers hold no "
+    "static reference to them, and symbols destructured from a dynamic import. Serena returning "
+    "nothing for those two is not evidence of absence; bring the question here.\n\n"
+    "Each call ensures the graph matches the current checkout before querying. When the graph is "
+    "missing, cannot be built, or is being built by another process, say so and fall back to grep "
+    "and read — a graph problem never blocks the task.\n\n"
+    "Results are candidates, not conclusions: locate them with grep and read the current source "
+    "before the finding enters a design, plan, review, fix or delivery report. An empty result "
+    "never proves absence."
 )
 
 TOOL = {

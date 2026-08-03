@@ -167,6 +167,47 @@ else
   check "命令不存在时探测退非零并指名道姓" "起不来的" \
     "$(printf '%s' "$out" | grep -o '起不来的' | head -1)"
 fi
+# 守：护栏没检查跟护栏检查通过是两回事。这棵临时插件树里没有 config/，正好用来
+# 断言合同读不出来时它会说出来，而不是安静地跳过检查。
+check "合同读不出来时说出来" 1 \
+  "$(printf '%s' "$out" | grep -c '没做护栏检查')"
+
+# 守：裁剪合同必须真的会红。上游哪天默认多暴露一个工具，五个派出去的角色立刻都
+# 拿得到——这一条要在体检里当场可见，而不是等某个角色真调用到它。
+echo
+echo "工具集合跟裁剪合同对不上"
+DRIFT="$WORK/drift-plugin"
+mkdir -p "$DRIFT/mcp" "$DRIFT/config"
+cp "$MMW_ROOT/mcp/probe.py" "$MMW_ROOT/mcp/resolve.py" "$DRIFT/mcp/"
+# 最小的假服务器：握手之后回两个工具，够用来验合同比对，不用真起上游那两个。
+cat > "$DRIFT/fake-server.py" <<'PY'
+import json, sys
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    msg = json.loads(line)
+    if msg.get("id") == 1:
+        print(json.dumps({"jsonrpc": "2.0", "id": 1, "result": {
+            "protocolVersion": "2024-11-05", "capabilities": {},
+            "serverInfo": {"name": "fake", "version": "0"}}}), flush=True)
+    elif msg.get("id") == 2:
+        print(json.dumps({"jsonrpc": "2.0", "id": 2, "result": {"tools": [
+            {"name": "该有的"}, {"name": "不该有的"}]}}), flush=True)
+        break
+PY
+cat > "$DRIFT/.mcp.json" <<JSON
+{"mcpServers":{"假的":{"command":"python3","args":["$DRIFT/fake-server.py"]}}}
+JSON
+cat > "$DRIFT/config/retrieval-contract.json" <<'JSON'
+{"servers":{"假的":{"exact_tools":["该有的"]}}}
+JSON
+if out="$(python3 "$DRIFT/mcp/probe.py" 2>&1)"; then
+  check "多出一个工具时应退非零" "退非零" "退 0：$out"
+else
+  check "多出一个工具时指名道姓" "多了 不该有的" \
+    "$(printf '%s' "$out" | grep -o '多了 不该有的' | head -1)"
+fi
 
 echo
 echo "过 $pass / 失败 $fail"

@@ -14,8 +14,12 @@
 #                编排流程的一部分，Cursor 不是 mmw 的宿主
 #
 # 服务器定义的唯一事实来源是插件根的 .mcp.json，本脚本只做翻译，不另存一份清单。
-# 不写 pi 的 directTools：只读白名单已经在 Serena 服务器那一侧（config/serena-readonly.yml），
-# 在这里再列一遍就是第二处要维护的清单，旧实现四个 harness 各抄一份白名单就是这么散掉的。
+# 只读白名单在 Serena 服务器那一侧（config/serena-readonly.yml），在这里再列一遍就是第二处
+# 要维护的清单，旧实现四个 harness 各抄一份白名单就是这么散掉的。
+#
+# 我们不主动写 pi 的 directTools，但也绝不覆盖它已有的那份。directTools 跟白名单是两回事：
+# 它把几个高频查询提升成宿主直接工具。整对象替换会把它冲掉，而且冲掉之后工具还在、只是
+# 退回成普通 MCP 工具，没有任何人看得见。所以合并一律用递归形式。
 #
 # 只加不删：用户自己配的别的服务器原样保留，同名的才覆盖成我们这份。
 #
@@ -91,7 +95,11 @@ check_face() {
   local have
   have="$(current_servers "$file")"
   for n in $names; do
-    if [ "$(jq -n --arg n "$n" --argjson h "$have" --argjson w "$wanted" '$h[$n] == $w[$n]')" = true ]; then
+    # 只断我们定义的那些字段，不断整个对象相等：目标那一侧可能有宿主自己的字段
+    # （pi 的 directTools 就是），断相等会把「它多了个我们不管的字段」误判成未装，
+    # 于是每次都重写一遍。合并后没有变化，就说明我们要的都已经在了。
+    if [ "$(jq -n --arg n "$n" --argjson h "$have" --argjson w "$wanted" \
+        '(($h[$n] // {}) * $w[$n]) == ($h[$n] // {})')" = true ]; then
       echo "已装  $label $n"
     else
       echo "未装  $label ${n}（或与插件当前定义不一致）" >&2
@@ -126,10 +134,13 @@ install_face() {
   shape="$(shape_of "$file")"
   # 原子写：先写同目录临时文件、验合法、再替换。中途失败保留原文件。
   tmp="$(mktemp "$dir/.mcpXXXXXX")"
+  # 递归合并而不是整对象替换：宿主自己在服务器对象里加的字段要留着。pi 的
+  # directTools 把四个查询提升成直接工具，那是宿主侧的能力，被我们覆盖掉的话
+  # 它会安静地退回成普通 MCP 工具，没有任何人看得见。
   if [ "$shape" = top ]; then
-    jq --argjson w "$wanted" '. + $w' "$file" > "$tmp"
+    jq --argjson w "$wanted" '. * $w' "$file" > "$tmp"
   else
-    jq --argjson w "$wanted" '.mcpServers = ((.mcpServers // {}) + $w)' "$file" > "$tmp"
+    jq --argjson w "$wanted" '.mcpServers = ((.mcpServers // {}) * $w)' "$file" > "$tmp"
   fi
   if [ ! -s "$tmp" ] || ! jq -e . "$tmp" >/dev/null 2>&1; then
     rm -f "$tmp"

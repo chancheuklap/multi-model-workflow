@@ -116,6 +116,38 @@ raise SystemExit(2)
         self.assertIn("FRESH", self.ensure().stdout)
         self.assertEqual(self.counter.read_text(), "2")
 
+    def test_markdown_only_change_stays_fresh(self) -> None:
+        # 守：Markdown 不进图，改文档不该触发几十兆图的重建。仓库天天改文档，
+        # 按全部内容算指纹的话每改一次说明文件就重建一次。
+        self.ensure()
+        (self.repo / "README.md").write_text("# 文档改了\n", encoding="utf-8")
+        self.assertIn("FRESH", self.ensure().stdout)
+        run(["git", "add", "."], self.repo)
+        run(["git", "commit", "-qm", "只改文档"], self.repo)
+        self.assertIn("FRESH", self.ensure().stdout)
+        self.assertEqual(self.counter.read_text(), "1")
+
+    def test_empty_commit_stays_fresh(self) -> None:
+        # 守：空提交不改任何文件，图仍然有效。任务 worktree 建出来时带一个记录
+        # 用户原话的空提交，按提交号判的话它一建出来就"过期"。
+        self.ensure()
+        run(["git", "commit", "-q", "--allow-empty", "-m", "记原话"], self.repo)
+        self.assertIn("FRESH", self.ensure().stdout)
+        self.assertEqual(self.counter.read_text(), "1")
+
+    def test_new_worktree_reuses_main_graph_without_source_flag(self) -> None:
+        # 守：任务 worktree 不用调用方显式指来源。它刚建出来时内容跟主仓库一样，
+        # 主仓库那份图直接复用，没有理由再花几分钟建一份一模一样的。
+        self.ensure()
+        target = self.root / "auto-target"
+        run(["git", "worktree", "add", "--detach", str(target), "HEAD"], self.repo)
+        try:
+            result = self.ensure(target)
+            self.assertIn("REUSED", result.stdout)
+            self.assertEqual(self.counter.read_text(), "1")
+        finally:
+            run(["git", "worktree", "remove", str(target)], self.repo)
+
     def test_hard_parser_warning_fails_and_restores_previous_graph(self) -> None:
         self.ensure()
         graph = self.repo / "graphify-out/graph.json"

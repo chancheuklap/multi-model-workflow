@@ -26,8 +26,8 @@ from resolve import MCP_JSON, Resolver  # noqa: E402  展开规则的唯一来�
 HANDSHAKE_TIMEOUT = 40
 
 
-def probe(spec: dict) -> tuple[bool, str]:
-    """起服务器、握手、列工具。回 (成不成, 说人话的一句)。
+def probe(spec: dict) -> tuple[bool, str, list[str]]:
+    """起服务器、握手、列工具。回 (成不成, 说人话的一句, 工具名清单)。
 
     spec 是 Resolver 展开过的，占位符已经是真值——体检要探的就是真正会跑起来的那份。
 
@@ -49,9 +49,9 @@ def probe(spec: dict) -> tuple[bool, str]:
             env=env,
         )
     except FileNotFoundError:
-        return False, f"起不来：找不到命令 {command}"
+        return False, f"起不来：找不到命令 {command}", []
     except OSError as exc:
-        return False, f"起不来：{exc}"
+        return False, f"起不来：{exc}", []
 
     requests = "".join(json.dumps(obj) + "\n" for obj in (
         {
@@ -71,7 +71,7 @@ def probe(spec: dict) -> tuple[bool, str]:
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.communicate()
-        return False, f"{HANDSHAKE_TIMEOUT} 秒内没应答"
+        return False, f"{HANDSHAKE_TIMEOUT} 秒内没应答", []
     finally:
         if proc.poll() is None:
             proc.kill()
@@ -91,11 +91,46 @@ def probe(spec: dict) -> tuple[bool, str]:
 
     if payload is None:
         tail = (err or "").strip().splitlines()
-        return False, f"没要到工具列表：{tail[-1] if tail else '进程没输出就退了'}"
+        return False, f"没要到工具列表：{tail[-1] if tail else '进程没输出就退了'}", []
     if "error" in payload:
-        return False, f"服务器报错：{payload['error']}"
+        return False, f"服务器报错：{payload['error']}", []
     tools = sorted(t["name"] for t in payload.get("result", {}).get("tools", []))
-    return True, f"{len(tools)} 个工具：{', '.join(tools)}"
+    return True, f"{len(tools)} 个工具：{', '.join(tools)}", tools
+
+
+CONTRACT = Path(__file__).resolve().parent.parent / "config" / "retrieval-contract.json"
+
+
+def contract_servers() -> tuple[dict, str | None]:
+    """读裁剪面合同。回 (每个服务器要什么, 读不出来的原因)。
+
+    读不出来不当场停：探测本身的价值不该被合同缺失抹掉。但也不能悄悄跳过——
+    护栏没检查跟护栏检查通过是两回事，所以单报一行，并且让退出码非零。
+    """
+    try:
+        payload = json.loads(CONTRACT.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {}, f"读不出 {CONTRACT}：{exc}"
+    return payload.get("servers", {}), None
+
+
+def contract_drift(name: str, tools: list[str], servers: dict) -> str | None:
+    """比对集合相等，回一句说人话的差异；对得上回 None。
+
+    多一个和少一个都算失败，而且不是同一件事：少了是能力缺失，多了是护栏破了——
+    上游默认多暴露一个工具，五个派出去的角色立刻都拿得到。
+    """
+    spec = servers.get(name)
+    if not spec or "exact_tools" not in spec:
+        return None
+    extra = sorted(set(tools) - set(spec["exact_tools"]))
+    missing = sorted(set(spec["exact_tools"]) - set(tools))
+    parts = []
+    if extra:
+        parts.append(f"多了 {', '.join(extra)}")
+    if missing:
+        parts.append(f"少了 {', '.join(missing)}")
+    return "；".join(parts) or None
 
 
 def main() -> int:
@@ -104,9 +139,19 @@ def main() -> int:
         print(f"ERROR: 插件里没有 .mcp.json: {MCP_JSON}", file=sys.stderr)
         return 2
     servers = Resolver().servers(want_type=False)
+    contract, contract_error = contract_servers()
     results, status = {}, 0
+    if contract_error:
+        status = 1
+        results["_contract"] = {"ok": False, "detail": contract_error}
+        if not as_json:
+            print(f"不可用  裁剪合同：{contract_error}。这一轮没做护栏检查")
     for name, spec in servers.items():
-        ok, detail = probe(spec)
+        ok, detail, tools = probe(spec)
+        drift = contract_drift(name, tools, contract) if ok else None
+        if drift:
+            ok = False
+            detail = f"{detail}。跟裁剪合同对不上：{drift}"
         results[name] = {"ok": ok, "detail": detail}
         if not ok:
             status = 1

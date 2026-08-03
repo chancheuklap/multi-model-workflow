@@ -29,6 +29,7 @@
     "./skills/mmw-prototype",
     "./skills/mmw-release",
     "./skills/mmw-research",
+    "./skills/mmw-retrieval",
     "./skills/mmw-review",
     "./skills/mmw-reviewer",
     "./skills/mmw-start",

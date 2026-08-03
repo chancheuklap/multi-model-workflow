@@ -70,21 +70,60 @@ def _git_bytes(repo: Path, *args: str) -> bytes:
     return bytes(proc.stdout)
 
 
+# 指纹只认图的输入。排除两样：
+#
+# Markdown——它不进图，文档改动不该让图过期。仓库天天改文档，按全部内容算指纹的话
+# 每改一次说明文件就要重建一次几十兆的图。
+#
+# 图自己的输出目录——把它算进去，指纹会在每次建完图之后立刻变，图永远新鲜不了。
+#
+# 仓库自己的排除清单（`.graphifyignore`）不在这里解析：那要实现一遍 gitignore 语法，
+# 而漏排的代价只是多建一次图，建出来的图仍然正确（那些路径本来就被检索工具忽略）。
+_EXCLUDE_PATHSPEC = (":(exclude)*.md", f":(exclude){OUT_DIR_NAME}", f":(exclude){OUT_DIR_NAME}/**")
+
+
+def _is_graph_input(rel: str) -> bool:
+    if rel == OUT_DIR_NAME or rel.startswith(f"{OUT_DIR_NAME}/"):
+        return False
+    return not rel.lower().endswith(".md")
+
+
 def _worktree_fingerprint(repo: Path) -> tuple[str, str]:
-    """返回 HEAD 与包含 staged、unstaged、untracked 内容的稳定指纹。"""
+    """返回 HEAD 与图输入的稳定指纹。
+
+    指纹算的是 HEAD 里每个输入文件的内容哈希，不是提交号——空提交不改任何文件，
+    图仍然有效。任务 worktree 建出来时会带一个记录用户原话的空提交，按提交号判
+    的话它一建出来就"过期"，主仓库那份现成的图白白复用不了。
+    """
     head = _head(repo)
     digest = hashlib.sha256()
-    digest.update(f"head\0{head}\0".encode())
+
     if head == "UNBORN":
-        digest.update(_git_bytes(repo, "diff", "--binary", "--cached"))
-        digest.update(_git_bytes(repo, "diff", "--binary"))
+        digest.update(b"unborn\0")
     else:
-        digest.update(_git_bytes(repo, "diff", "--binary", "--no-ext-diff", "HEAD", "--"))
+        # 每行形如 "<mode> <type> <object>\t<path>"。用 object 而不是文件内容：
+        # 它就是 git 算好的内容哈希，几万个文件也只是一次命令。
+        listing = _git_bytes(repo, "ls-tree", "-r", "-z", head)
+        for raw in sorted(item for item in listing.split(b"\0") if item):
+            entry = raw.decode("utf-8", errors="surrogateescape")
+            meta, _, rel = entry.partition("\t")
+            if not rel or not _is_graph_input(rel):
+                continue
+            digest.update(f"tracked\0{meta.split()[2]}\0{rel}\0".encode())
+
+    # 工作区里还没提交的部分，同样只算图的输入。
+    if head == "UNBORN":
+        digest.update(_git_bytes(repo, "diff", "--binary", "--cached", "--", ".", *_EXCLUDE_PATHSPEC))
+        digest.update(_git_bytes(repo, "diff", "--binary", "--", ".", *_EXCLUDE_PATHSPEC))
+    else:
+        digest.update(
+            _git_bytes(repo, "diff", "--binary", "--no-ext-diff", head, "--", ".", *_EXCLUDE_PATHSPEC)
+        )
 
     raw_untracked = _git_bytes(repo, "ls-files", "--others", "--exclude-standard", "-z")
     for raw in sorted(item for item in raw_untracked.split(b"\0") if item):
         rel = raw.decode("utf-8", errors="surrogateescape")
-        if rel == OUT_DIR_NAME or rel.startswith(f"{OUT_DIR_NAME}/"):
+        if not _is_graph_input(rel):
             continue
         path = repo / rel
         digest.update(b"untracked\0" + raw + b"\0")
@@ -195,7 +234,6 @@ def _is_fresh(
     graph_path: Path,
     freshness_path: Path,
     *,
-    head: str,
     fingerprint: str,
     version: str,
 ) -> tuple[bool, int]:
@@ -206,9 +244,10 @@ def _is_fresh(
     meta = _read_freshness(freshness_path)
     if meta is None:
         return False, 0
+    # 不比 head_sha：指纹已经把图的每个输入算进去了，提交号只是记录给人看的。
+    # 比它的话，一个不改任何文件的空提交也会让图作废。
     expected = (
         meta.get("schema_version") == SCHEMA_VERSION
-        and meta.get("head_sha") == head
         and meta.get("worktree_fingerprint") == fingerprint
         and meta.get("graphify_version") == version
     )
@@ -244,7 +283,6 @@ def _try_reuse(
     fresh, _ = _is_fresh(
         source_graph,
         source_meta,
-        head=source_head,
         fingerprint=source_fingerprint,
         version=version,
     )
@@ -342,9 +380,27 @@ def _build(repo: Path, binary: str, version: str, head: str, fingerprint: str) -
         raise
 
 
+def _main_worktree(repo: Path) -> Path | None:
+    """当前这棵树是任务 worktree 时，主仓库那棵树；否则 None。
+
+    自动找出来而不是等调用方传：任务 worktree 刚建出来时内容跟主仓库一样，主仓库
+    那份图直接复用就行，没有理由再花几分钟建一份一模一样的。
+    """
+    proc = _run(
+        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        cwd=repo,
+        check=False,
+        text=True,
+    )
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None
+    main = Path(proc.stdout.strip()).parent
+    return main if main != repo and main.is_dir() else None
+
+
 def ensure(repo_arg: Path, source_arg: Path | None = None) -> str:
     repo = _repo_root(repo_arg)
-    source = _repo_root(source_arg) if source_arg is not None else None
+    source = _repo_root(source_arg) if source_arg is not None else _main_worktree(repo)
     binary = _graphify_binary()
     version = _graphify_version(binary, repo)
     out_dir, graph, meta, _, _ = _graph_paths(repo)
@@ -356,7 +412,6 @@ def ensure(repo_arg: Path, source_arg: Path | None = None) -> str:
         fresh, warning_count = _is_fresh(
             graph,
             meta,
-            head=head,
             fingerprint=fingerprint,
             version=version,
         )
@@ -377,17 +432,39 @@ def ensure(repo_arg: Path, source_arg: Path | None = None) -> str:
         return f"BUILT repo={repo} warnings={warning_count}"
 
 
+def status(repo_arg: Path) -> str:
+    """只报状态，不建也不复用。
+
+    判据跟 ensure 共用同一个指纹与同一处 _is_fresh：分成两套的话，命令行报新鲜
+    而调用时又重建一次，谁都说不清哪个才算数。
+    """
+    repo = _repo_root(repo_arg)
+    _, graph, meta, _, _ = _graph_paths(repo)
+    if not graph.is_file():
+        return f"MISSING repo={repo}"
+    binary = _graphify_binary()
+    version = _graphify_version(binary, repo)
+    _, fingerprint = _worktree_fingerprint(repo)
+    fresh, warnings = _is_fresh(graph, meta, fingerprint=fingerprint, version=version)
+    return f"{'FRESH' if fresh else 'STALE'} repo={repo} warnings={warnings}"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=Path.cwd())
     parser.add_argument("--source", type=Path)
+    parser.add_argument(
+        "--status",
+        action="store_true",
+        help="只报 FRESH / STALE / MISSING，不建图也不复用",
+    )
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
     try:
-        print(ensure(args.repo, args.source))
+        print(status(args.repo) if args.status else ensure(args.repo, args.source))
         return 0
     except (EnsureError, OSError, UnicodeError, subprocess.SubprocessError) as exc:
         print(f"graphify-ensure: ERROR: {exc}", file=sys.stderr)

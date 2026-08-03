@@ -21,6 +21,8 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$MMW_ROOT/cli/lib/wiki.sh"
 # shellcheck source=lib/domain.sh
 . "$MMW_ROOT/cli/lib/domain.sh"
+# shellcheck source=lib/graph.sh
+. "$MMW_ROOT/cli/lib/graph.sh"
 # shellcheck source=lib/init.sh
 . "$MMW_ROOT/cli/lib/init.sh"
 
@@ -37,11 +39,12 @@ mmw <命令> [参数]
   issue       tracker：建 issue、挂父子、算可认领集合
   wiki        Wiki：clone、重建导航、删本地文档前的验证
   domain      领域文档：落点、下一个 ADR 编号
+  graph       结构图谱：状态、建一次、验证建对了
   release     出包：起循环、问状态、跑一个阶段、派修、收束
   doctor      检查这台机器上跑 mmw 需要的东西（无参：跑一次就是检查）
   init        把当前仓库配置成能跑这套工作流的样子；幂等（无参：跑一次就是配置）
 
-前七条不带参数跑一次，给它自己的用法。doctor 与 init 本来就不收参数，
+前八条不带参数跑一次，给它自己的用法。doctor 与 init 本来就不收参数，
 跑它们就是执行——查它们做什么看上面这两行，不要拿跑一次当查用法。
 EOF
   return 2
@@ -320,6 +323,26 @@ cmd_domain() {
   esac
 }
 
+usage_graph() {
+  cat >&2 <<'EOF'
+mmw graph status   图新不新鲜：FRESH / STALE / MISSING
+mmw graph build    建一次。已经新鲜就直接返回，不白建
+mmw graph verify   图里各类关系各有多少条，够不够用
+
+判据与构建都在 mcp/graphify_ensure.py，这三条只是它的入口。
+EOF
+  return 2
+}
+
+cmd_graph() {
+  case "${1:-}" in
+    status) mmw_graph_status ;;
+    build) mmw_graph_build ;;
+    verify) mmw_graph_verify ;;
+    *) usage_graph ;;
+  esac
+}
+
 cmd_doctor() {
   local host status=0
   echo "CLI      : ${BASH_SOURCE[0]} -> $MMW_ROOT"
@@ -413,6 +436,7 @@ case "${1:-}" in
   issue) shift; cmd_issue "$@" ;;
   wiki) shift; cmd_wiki "$@" ;;
   domain) shift; cmd_domain "$@" ;;
+  graph) shift; cmd_graph "$@" ;;
   release) shift; exec bash "$MMW_ROOT/release/release-flow.sh" "$@" ;;
   doctor) shift; cmd_doctor "$@" ;;
   init) shift; mmw_init "$@" ;;
