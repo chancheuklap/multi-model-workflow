@@ -27,7 +27,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 | 只要一条查得清的事实，比如某个库或某个外部接口的官方说法 | **移交**：`/mmw-research`，跳过第 2、3 步 |
 | 一个新需求，或对已有需求的改进 | **移交**：`/mmw-grilling` |
 | 没有具体需求，只说想让代码库更好维护 | **移交**：`/mmw-improve-codebase-architecture`，跳过第 2、3 步 |
-| 几条并行分支要合到一起，或者合并冲突要解 | **移交**：`/mmw-review` 的 ⑥ 合并集成审，跳过第 2、3 步 |
+| 几条并行分支要集成到主线，某条分支要跟上已经推进的主线，或者手上有一个正在进行中的冲突 | **移交**：`/mmw-integrate`，跳过第 2、3 步 |
 
 **先做原型还是先谈清楚**：他要的是先看见一个能跑的东西，走 `/mmw-prototype`；他要的是先把这件事说清楚，走 `/mmw-grilling`。分不出来时走 `/mmw-grilling`。
 
@@ -60,7 +60,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 - 用户报的是一张已有 map 的编号或链接。slug 由 `/mmw-wayfinder` 定。
 - 判定走 `/mmw-improve-codebase-architecture`。slug 由它定，类型固定用 `refactor`。
 - 判定走 `/mmw-research`。
-- 判定走 `/mmw-review` 的 ⑥ 合并集成审。
+- 判定走 `/mmw-integrate`。它在主仓库的主线上做，不要给它建 worktree。
 
 ## 3. 建 worktree、进去、记原话
 
