@@ -48,7 +48,13 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 ## 3. 建 worktree、进去、记原话
 
-按 `docs/agents/worktrees.md` 建 worktree、用 `EnterWorktree` 进去，然后打那个记原话的空提交。
+```bash
+mmw task new <slug> "<用户交代这件事时的原话>"
+```
+
+它一次做完三件事：建分支、建 worktree、打那个记原话的空提交。原话原样传，不要替他概括。
+
+然后用宿主的工作目录切换工具进到它输出的那个路径（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`；这一步脚本做不了，只有宿主工具做得到）。
 
 从主线开新任务；这次任务是从一张 `/mmw-wayfinder` 的 map 派生出来的，就从那张 map 的分支分叉。
 

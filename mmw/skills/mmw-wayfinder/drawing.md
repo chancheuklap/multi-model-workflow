@@ -24,7 +24,9 @@
 
 现在就能精确表述的问题，各建一张 decision ticket，各带一个 `wayfinder:<类型>` 标签。**四个标签各自什么时候打，见 [map-anatomy.md](map-anatomy.md) 的「四个类型」一节**，不要凭感觉打。还说不清楚的全部留在 `Not yet specified`。
 
-然后用**第二遍**把阻塞关系连上——issue 要先有编号才能互相引用。连完边，这批 ticket 自然分成 frontier 和被阻塞的两类。
+建的时候用 `mmw issue create --title <标题> --body-file <文件> --parent <map 编号> --label wayfinder:<类型>`，它一次做完建 issue、挂到 map 底下、打标签三件事，输出新 issue 的编号。
+
+然后用**第二遍**把阻塞关系连上：`mmw issue link <被挡的> --blocked-by <挡它的>`。要分两遍是因为 issue 要先有编号才能互相引用。连完边，这批 ticket 自然分成 frontier 和被阻塞的两类，用 `mmw issue frontier <map 编号>` 看。
 
 ## 5. 派调查 subagent，收报告
 

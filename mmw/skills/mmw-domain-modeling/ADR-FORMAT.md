@@ -1,6 +1,6 @@
 # ADR 的格式
 
-ADR 住在 `docs/adr/`，按顺序编号：`0001-slug.md`、`0002-slug.md`，依此类推。
+ADR 住在 `docs/adr/`，按顺序编号：`0001-slug.md`、`0002-slug.md`，依此类推。下一个号用 `mmw domain adr-next` 取。
 
 `docs/adr/` 目录按需建——第一份 ADR 要写时才建。
 

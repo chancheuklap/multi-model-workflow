@@ -50,11 +50,20 @@ ticket 的标题和描述用项目领域术语表里的词，遵守这块地方�
 
 ## 5. 发布
 
-按 `docs/agents/issue-tracker.md` 发布，一张 ticket 一张 issue，**按依赖顺序发**，阻塞方先发。阻塞关系用 tracker 原生的依赖边；每张挂在 spec issue 底下作子 issue。
+一张 ticket 一张 issue：
 
-打 `ready-for-agent`。打在 ticket 上的含义是「这张可以派工人开工」，跟打在 spec issue 上那个（人工审批关卡的凭据）不是一回事。
+```bash
+mmw issue create --title "<标题>" --body-file <正文文件> \
+  --parent <spec issue 编号> --blocked-by <编号,编号> --label ready-for-agent
+```
 
-发布顺序沿 **frontier** 走：阻塞它的都已发布的那些。
+它一次做完建 issue、挂到 spec issue 底下、连阻塞边、打标签四件事，输出新 issue 的编号。
+
+**按依赖顺序发，阻塞方先发**：`--blocked-by` 要的是已经存在的编号，挡它的那张还没发就填不进去。发布顺序沿 **frontier** 走——阻塞它的都已发布的那些。
+
+**顺序不是随便的。** 下游取下一张 ticket 靠 `mmw issue frontier`，那个命令按 issue 编号升序给，所以「按依赖顺序发」直接决定了后面开工的顺序。
+
+`ready-for-agent` 打在 ticket 上的含义是「这张可以派工人开工」，跟打在 spec issue 上那个（人工审批关卡的凭据）不是一回事。
 
 父 issue 不要关，也不要改。
 

@@ -27,7 +27,7 @@ issue tracker 怎么用在 `docs/agents/issue-tracker.md`，标签词汇在 `doc
 
 `/mmw-grilling` 谈的过程里已经查过一轮的，只补那一轮没覆盖的角度，不要整片重查。
 
-整份 spec 用项目领域词汇，遵守你要碰的这块地方的 ADR。领域文档这样读：先查仓库根有没有 `CONTEXT-MAP.md`，有就按它的索引读这次要碰的那几个上下文，没有就回退根 `CONTEXT.md`（落点以 `docs/agents/domain.md` 为准）。
+整份 spec 用项目领域词汇，遵守你要碰的这块地方的 ADR。领域文档这样读：跑 `mmw domain path`：报 `map` 就读它给的那份索引，按索引取这次要碰的那几个上下文，各读各的 `CONTEXT.md`；报 `single` 就读它给的那一份；报 `none` 就直接往下走。
 
 现状结论逐条带 `file:line` 引用写进 spec，**引用要你自己验证过**（`/mmw-verifying-agent-output`）。
 
@@ -105,9 +105,15 @@ issue tracker 怎么用在 `docs/agents/issue-tracker.md`，标签词汇在 `doc
 
 先把 spec 文件提交进任务分支，再建 issue。
 
-按 `docs/agents/issue-tracker.md` 建一张 GitHub issue，**正文只放一段摘要加上那个文件路径**，全文不进正文。从 `/mmw-wayfinder` 来的已经有一张 issue 了，改它的正文，不要另建。
+```bash
+mmw issue create --title "<一句话的名字>" --body-file <摘要文件> --label ready-for-agent
+```
 
-打 `ready-for-agent` 标签。**发布出去的这张 issue 加上这个标签，就是第 7 步那道人工审批关卡过了的凭据。** 没发布就是没过这道关卡。
+**正文只放一段摘要加上那个 spec 文件的路径**，全文不进正文。
+
+从 `/mmw-wayfinder` 来的已经有一张 issue 了，改它的正文再 `gh issue edit <编号> --add-label ready-for-agent`，不要另建。
+
+**发布出去的这张 issue 加上这个标签，就是第 7 步那道人工审批关卡过了的凭据。** 没发布就是没过这道关卡。
 
 ## 下一步
 
