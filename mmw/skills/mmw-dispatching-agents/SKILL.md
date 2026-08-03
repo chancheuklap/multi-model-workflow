@@ -54,9 +54,16 @@ skill-path: <方法论文件的绝对路径>     ← 可能没有这一行
 params: {"...": "..."}
 ```
 
-用 `tool:` 那个工具、按 `params:` 那个 JSON 逐字传参调一次。提示词读 `brief:` 那个文件。有 `skill-path:` 那一行时，把那个路径写进提示词，让它自己去读。`params:` 已经带了宿主自己的后台参数；不删除，也不改成前台。工具会先交回 run id，完成后再由宿主通知。不要用等待工具把主 agent 堵在这里；先继续不依赖结果的工作，收到通知后再读报告。
+调用宿主工具时原样传递 `params:` 的 JSON。
 
-起 `mmw dispatch` 本身时仍然一律用 Bash 的 `run_in_background: true`，因为调用前不知道返回哪一种 mode。`mode: executed` 的 subagent 就跑在那条后台 Bash 里；`mode: host-tool` 的 Bash 只负责返回参数，真正的 subagent 是否后台由 adapter 写进 `params:`，不靠 Bash，也不靠用户级默认配置。
+| `tool:` | 输入 |
+| --- | --- |
+| `Agent`、`subagent` | 把 `brief:` 文件全文作为提示词；有 `skill-path:` 时，要求 subagent 先读该路径 |
+| `Bash` | `command` 已带齐 brief 与执行参数，直接调用 |
+
+adapter 已在 `params:` 中写入后台参数。宿主工具先交回 run id，完成后再发通知。收到 run id 后继续不依赖报告的工作；没有独立工作时把控制权交回宿主，收到完成通知后再读报告。
+
+起 `mmw dispatch` 时一律使用 Bash 的 `run_in_background: true`。`mode: executed` 的 subagent 跑在该后台 Bash 里。`mode: host-tool` 的 Bash 只返回参数，adapter 负责把真正的 subagent 固定成后台执行。
 
 ## 方法论怎么到它手里
 
