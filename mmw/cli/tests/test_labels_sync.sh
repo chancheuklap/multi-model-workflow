@@ -10,6 +10,10 @@
 # 第一个方向只查 `wayfinder:` 开头的。那个命名空间是这套流程独占的，一眼认得
 # 出；`needs-triage` 这类通用词形没法跟别的东西机械区分——`needs-evidence`、
 # `needs-redirection` 是 findings 的处置词，长得一模一样但根本不是 issue 标签。
+#
+# mmw-setup 排除在外。那个目录是上一版做法的背景线索，不是技能，它那份
+# triage-labels.md 提到全部 12 个标签。不排除的话，往清单加一个新标签、忘了写
+# 进任何技能正文，也会因为那份过期文档提过而假过。
 
 set -euo pipefail
 
@@ -26,9 +30,10 @@ jq -r '.tracker.labels | keys[]' "$CONFIG" | sort > "$WORK/known"
 
 # 只认反引号包起来的。裸写的 bug 是普通名词，圈进来必然误报。
 grep -rhoE '`(wayfinder:[a-z-]+|needs-triage|needs-info|ready-for-agent|ready-for-human|wontfix|bug|enhancement)`' \
-  "$SKILLS" --include=*.md | tr -d '`' | sort -u > "$WORK/used"
+  "$SKILLS" --include=*.md --exclude-dir=mmw-setup | tr -d '`' | sort -u > "$WORK/used"
 
-grep -rhoE '`wayfinder:[a-z-]+`' "$SKILLS" --include=*.md | tr -d '`' | sort -u > "$WORK/wf"
+grep -rhoE '`wayfinder:[a-z-]+`' "$SKILLS" --include=*.md --exclude-dir=mmw-setup \
+  | tr -d '`' | sort -u > "$WORK/wf"
 grep -E '^wayfinder:' "$WORK/known" | sort > "$WORK/wf-known"
 
 extra="$(comm -23 "$WORK/wf" "$WORK/wf-known")"

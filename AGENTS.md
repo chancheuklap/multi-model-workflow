@@ -146,13 +146,17 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 ### 搬迁批次
 
-搬迁已完成：Matt 那边 18 个技能搬进 `mmw/skills/`，除自写的 `mmw-setup` 外一律原样复制自 vendor。加上自写的 `mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-start`、`mmw-to-plan`、`mmw-planner`，manifest 现在登记 24 个。
+搬迁已完成：Matt 那边的技能原样复制进 `mmw/skills/`，加上自写的 `mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-start`、`mmw-to-plan`、`mmw-planner`，manifest 现在登记 23 个。
+
+原先自写的 `mmw-setup` 已经不是技能。它的五步全进了 `mmw init`，`SKILL.md` 改名成 `legacy-setup.md` 并去掉 frontmatter，目录连同五份种子留在 `mmw/skills/mmw-setup/` 只作背景线索——正文描述的行为（把种子铺进 `docs/agents/`）已经不存在，文件顶部标了这一点。
+
+**技能要停用，改名和撤登记两件都得做。** Claude Code 会自动扫描 `skills/` 目录，不只读 manifest 的 `skills` 数组——证据是旧 plugin 的 `plugin/.claude-plugin/plugin.json` 根本没有 `skills` 字段，`plugin/skills/` 下那 5 个技能照样加载。所以从数组里去掉一个目录不足以停用它，那个目录里的 `SKILL.md` 还带着 frontmatter 就仍会被扫成技能。
 
 顺手补搬的上游技能已删掉 8 个：`qa`、`request-refactor-plan`、`design-an-interface`、`git-guardrails-claude-code`、`setup-pre-commit` 能被模型自动触发又不在主干上（前两个绕开 tracker 约定自开 issue，`design-an-interface` 是 `mmw-codebase-design/DESIGN-IT-TWICE.md` 的未适配副本，`git-guardrails-claude-code` 拦的命令里有 `mmw-start` 重建 worktree 要用的，`setup-pre-commit` 只对 Node.js 仓库有效）；`wizard`、`to-questionnaire`、`setup-ts-deep-modules` 只能手打触发、不占常驻成本，但跟多模型编排无关。剩下的 `handoff` 与 `writing-great-skills` 留着——前者供用户手动交接，后者是写新技能的方法论，本文件正在引用它。原件都在 `vendor/mattpocock-skills/`，要用再复制回来。
 
 **触发方式**：Matt 大部分技能是人打名字才走（`disable-model-invocation: true`）。我们的入口是 `mmw-start`，它要能把活直接交给下游技能，所以链路上的技能一律改成模型可触发，description 按 `writing-great-skills` 的写法改成触发式。已经改过的技能正文一并译成中文，合集通用术语（spec、ticket、seam、frontier、worktree、tight、red、fog of war、destination、map、HITL / AFK、ready-for-agent）保持英文。
 
-**`mmw-` 前缀标记所有权。** 正文真正被我们改造过的技能，目录名和 `name` 一律加 `mmw-` 前缀，跟原样搬进来的上游技能区分开。现在有 22 个：`mmw-start`、`mmw-setup`、`mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-grilling`、`mmw-triage`、`mmw-wayfinder`、`mmw-to-spec`、`mmw-to-tickets`、`mmw-to-plan`、`mmw-planner`、`mmw-implement`、`mmw-tdd`、`mmw-review`、`mmw-reviewer`、`mmw-diagnosing-bugs`、`mmw-prototype`、`mmw-closing`、`mmw-research`、`mmw-improve-codebase-architecture`、`mmw-codebase-design`、`mmw-domain-modeling`。
+**`mmw-` 前缀标记所有权。** 正文真正被我们改造过的技能，目录名和 `name` 一律加 `mmw-` 前缀，跟原样搬进来的上游技能区分开。现在有 21 个：`mmw-start`、`mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-grilling`、`mmw-triage`、`mmw-wayfinder`、`mmw-to-spec`、`mmw-to-tickets`、`mmw-to-plan`、`mmw-planner`、`mmw-implement`、`mmw-tdd`、`mmw-review`、`mmw-reviewer`、`mmw-diagnosing-bugs`、`mmw-prototype`、`mmw-closing`、`mmw-research`、`mmw-improve-codebase-architecture`、`mmw-codebase-design`、`mmw-domain-modeling`。
 
 **不留只做跳转的空壳。** 一个技能正文只是「去跑另外那个技能」，就把它的内容并进被它调的那个，然后删掉它。已删四个：`grill-with-docs`（并进 `mmw-grilling`）、`ask-matt`（路由判据并进 `mmw-start`）、`batch-grill-me`、`claude-handoff`。
 
@@ -201,7 +205,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | `skills/mmw-domain-modeling` | 它是唯一往仓库写 `CONTEXT.md` 和 ADR 的技能，原本却把落点写死，自带的示例还把多上下文画在 `src/` 下——读那份配置的三个技能守规矩，写的这一侧漏在外面。改成建文件前先跑 `mmw domain path` 与 `mmw domain dirs` 取形态和落点；`ADR-FORMAT.md` 的「扫最大号加一」换成 `mmw domain adr-next`，并补明草稿名怎么绕开几条链同时写 ADR 的撞号。四条问答纪律、`CONTEXT-FORMAT.md` 的写法规则、ADR 三条判据是纯方法论，原样保留 | 未实跑 |
 | `skills/mmw-codebase-design` | `DEEPENING.md` 的「replace, don't layer」说旧测试成废物就删、在新 interface 上重写，而 deepening 本质是挪 seam，`mmw-tdd` 规定 seam 由 spec 钉死。读者只有设计期的主 agent（`DESIGN-IT-TWICE.md` 给 subagent 的 brief 不带这一节），所以补一句挪 seam 属于设计决定、新 seam 与旧测试的删除一并写进 spec，不重写判据。词汇表、四条原则、可测试性三节跟宿主无关，原样保留 | 未实跑 |
 
-二十二个 `mmw-` 技能里，十八个有 `## 下一步` 表，形式一致：两列（情况、下一步），动词只有「自己继续」「移交」「停」。四个没有：`mmw-reviewer` 和 `mmw-planner` 是派出去的 subagent 读的方法论，不是流程技能；`mmw-codebase-design` 和 `mmw-domain-modeling` 是纪律层的词汇与方法论，做完就是做完，没有会带跑我们流程的出口。`mmw-tdd` 及各技能下的 reference 全部补译成中文（派给审查者和工人的提示词也是中文，模板里的结构字段名保持英文），全仓用词已统一（决策改为决定，坐实改为验证，雾改为 fog of war，map 与 spec 的模板节名一律用英文原文）。
+二十一个 `mmw-` 技能里，十七个有 `## 下一步` 表，形式一致：两列（情况、下一步），动词只有「自己继续」「移交」「停」。四个没有：`mmw-reviewer` 和 `mmw-planner` 是派出去的 subagent 读的方法论，不是流程技能；`mmw-codebase-design` 和 `mmw-domain-modeling` 是纪律层的词汇与方法论，做完就是做完，没有会带跑我们流程的出口。`mmw-tdd` 及各技能下的 reference 全部补译成中文（派给审查者和工人的提示词也是中文，模板里的结构字段名保持英文），全仓用词已统一（决策改为决定，坐实改为验证，雾改为 fog of war，map 与 spec 的模板节名一律用英文原文）。
 
 断点续传不用状态文件：每一步都有一件落在 git 或 GitHub 上的产物对应它（分支上第一个空提交记用户原话、`docs/specs/<slug>/`、子 issue 的开关与 assignee、`.reviews/`、Wiki 页），查产物就知道走到哪。旧 plugin 需要状态文件是因为它有阶段引擎要记 phase 变量，新架构没有引擎。全流程唯一那道人工审批关卡也有产物：`mmw-to-spec` 只在用户点头之后才发布 spec issue 并打 `ready-for-agent`，issue 在且带这个标签就是过关卡的凭据。
 
