@@ -194,8 +194,8 @@ for t in mmw/cli/tests/test_*.sh; do bash "$t" || exit 1; done
 
 | 落点 | 内容 | 怎么验的 |
 | --- | --- | --- |
-| `cli/mmw` | 机械层。每条命令是（仓库，参数）的纯函数，不写状态文件。宿主差异关在 `cli/adapters/{claude-code,pi}.sh` 里，产品语义（哪个角色用哪份花名册、挂哪份方法论、要不要写权限）留在主入口。参数在仓库根的 `.mmw.json` | 四份测试 41 个断言；`mmw task new` 与 `dispatch` 实跑过 |
-| `cli/tests/test_skill_refs.sh` | 技能之间三类引用的完整性：`` `/技能名` ``、同目录的 markdown 链接、「`/技能名` 第 N 步」。三类都在删节改名时静默失效，读到的 agent 不会报错，只会去找一个不存在的东西 | 307 条引用全过；它的由来是 `mmw-review` 重编号后三处「第 8 步」在仓库里躺了一轮 |
+| `cli/mmw` | 机械层。每条命令是（仓库，参数）的纯函数，不写状态文件。宿主差异关在 `cli/adapters/{claude-code,pi}.sh` 里，产品语义（哪个角色用哪份花名册、挂哪份方法论、要不要写权限）留在主入口。参数在仓库根的 `.mmw.json` | 六份测试 86 个断言；`mmw task new` 与 `dispatch` 实跑过 |
+| `cli/tests/test_skill_refs.sh` | 技能之间四类引用的完整性：`` `/技能名` ``、同目录的 markdown 链接、「`/技能名` 第 N 步」、散文里点名的 `` `x/y.md` ``。四类都在删节改名时静默失效，读到的 agent 不会报错，只会去找一个不存在的东西 | 364 条引用全过；它的由来是 `mmw-review` 重编号后三处「第 8 步」在仓库里躺了一轮 |
 | `cli/lib/{issue,wiki,domain}.sh` | 只收三类动作：要连着发好几个请求的、要先取 database id 的、要按规矩过滤排序的。一条 `gh` 命令做得完的不收 | 测试用 gh stub 与本地 bare 仓库，不碰网络也不碰真 issue |
 | `skills/mmw-dispatching-agents` | 六个角色、两种返回怎么读（`mode: executed` 与 `mode: host-tool`）、brief 自包含。模型、档位、护栏、沙箱、宿主差异全在 `mmw dispatch` 里，正文不出现型号 | 实跑派出过审查者和写码工人各一轮 |
 | `skills/mmw-verifying-agent-output` | 只管采信：每条关键断言要有主 agent 能自己验证的出处，加工人交回的四档怎么读。findings 怎么处置归 `mmw-review` | 实跑八条 findings 逐条验证，其中一条审查者报的行号真的差了一行 |

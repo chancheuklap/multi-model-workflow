@@ -6,9 +6,12 @@
 #   `/技能名`        那个技能目录真在
 #   [x.md](x.md)     同目录那个文件真在
 #   「第 N 步」       被指的那个技能真有第 N 步
+#   `x/y.md`         散文里点名的文件真在（跨技能引用大多长这样，不是 markdown 链接）
 #
 # 第三类是这个脚本的由来：mmw-review 删掉一节之后步骤重编号，三处「第 8 步复审」
-# 和一处指错节的「第 6 步」在仓库里躺了一轮才被发现。
+# 和一处指错节的「第 6 步」在仓库里躺了一轮才被发现。第四类补的是同一个洞的另一半：
+# 跨技能引用几乎都写成散文（「`/mmw-review` 目录里的 `self-review.md`」），第二类
+# 那条只认 markdown 链接语法，管不到它们。
 #
 # 解析用内嵌 python：三类都是正则提取加路径判断，写成 sed 管道要跟分隔符转义
 # 缠斗，BSD 与 GNU 的 sed 行为还不一样。
@@ -36,6 +39,17 @@ RE_SKILL = re.compile(r'`/([a-z0-9][a-z0-9-]*)`')
 RE_LINK = re.compile(r'\]\((?!http)([^)]+\.md)\)')
 RE_STEP = re.compile(r'`/([a-z0-9-]+)`[^|。，]{0,12}第 ([0-9]+) 步')
 RE_HEADING = re.compile(r'^#{2,3} ([0-9]+)\.', re.M)
+RE_FILE = re.compile(r'`([A-Za-z0-9_][A-Za-z0-9._/-]*\.md)`')
+
+# 目标仓库里的文件，不在插件里，查不到是正常的。
+HOST_REPO_FILES = {
+    'AGENTS.md', 'CLAUDE.md', 'CONTEXT.md', 'CONTEXT-MAP.md', 'TESTING.md',
+    'README.md', 'CODING_STANDARDS.md', 'CONTRIBUTING.md', 'Home.md', '_Sidebar.md',
+}
+# 讲命名规则时举的例子，不是真文件。
+NAMING_EXAMPLES = {
+    'dark-mode.md', 'plugin-system.md', 'graphql-api.md', '0001-slug.md', '0002-slug.md',
+}
 
 ok = 0
 bad = []
@@ -63,6 +77,25 @@ for p in sorted(skills.rglob('*.md')):
                     ok += 1
                 else:
                     bad.append(f"{rel}:{i} 链到不存在的文件 {m.group(1)}")
+
+        for m in RE_FILE.finditer(line):
+            ref = m.group(1)
+            # 模板占位（含 <> 或 *）、点开头的产出目录、docs/ 下的产出物都不是插件内的文件。
+            if ref in HOST_REPO_FILES or ref in NAMING_EXAMPLES:
+                continue
+            if ref.startswith('.') or ref.startswith('docs/'):
+                continue
+            if '/' in ref:
+                # 带技能名前缀的写法（`mmw-tdd/quality-bar.md`）从 skills 根解析。
+                found = (skills / ref).is_file()
+            else:
+                # 裸文件名：同目录优先，其次全树同名——跨技能引用常写成
+                # 「`/mmw-prototype` 的 `EVIDENCE.md`」，不带路径。
+                found = (p.parent / ref).is_file() or any(skills.rglob(ref))
+            if found:
+                ok += 1
+            else:
+                bad.append(f"{rel}:{i} 点名的文件不存在 {ref}")
 
         for m in RE_STEP.finditer(line):
             skill, step = m.group(1), m.group(2)
