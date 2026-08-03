@@ -1,6 +1,6 @@
 ---
 name: mmw-verifying-agent-output
-description: 验证隔离上下文的 subagent 交回的产出——审查 findings、工人完工报告、调查报告。每条关键断言先找到你自己能验证的出处，验证过才采信。收到任何 subagent 交回的报告时用它。
+description: 验证隔离上下文的 subagent 交回的产出——审查 findings、工人完工报告、调查报告。收到任何 subagent 交回的报告时用它。
 ---
 
 派出去的 subagent 交回的是证据，不是结论。
