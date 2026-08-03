@@ -21,7 +21,7 @@ disable-model-invocation: true
 | 你那张 ticket | 标题、要做什么、每一条验收标准、被谁阻塞 |
 | 原型的选中的那一版 | 只有走过原型的需求才有。从选中的那一份提取状态机、reducer、数据结构、界面规格，拆进对应任务包的验收标准和数据形状。没被选中的变体不许当依据 |
 
-上面四份由派你的人给。还有一套测试标准不在提示词里，**已经装进你自己的技能目录**，写测试规划之前逐个读完：`mmw-tdd/SKILL.md`（循环的规矩）、`mmw-tdd/tests.md`（什么算好测试）、`mmw-tdd/mocking.md`（边界上怎么 mock）、`mmw-tdd/quality-bar.md`（合入标准，一条不过就打回），再加目标仓库根的 `TESTING.md`（这个仓库自己的事实）。合入标准在 `mmw-tdd/quality-bar.md` 里，只读 `mmw-tdd/SKILL.md` 拿不到它。
+上面四份由派你的人给。还有一套测试标准不在提示词里，**已经装进你自己的技能目录**，写测试规划之前逐个读完：`mmw-tdd/SKILL.md`（循环的规矩）、`mmw-tdd/tests.md`（什么算好测试）、`mmw-tdd/mocking.md`（边界上怎么 mock）、`mmw-tdd/quality-bar.md`（合入标准，一条不过就打回），再加目标仓库根的 `TESTING.md`（这个仓库自己的事实）。
 
 **seam 由 spec 定死，你不重新定。** plan 里每条测试的落点对到 spec `## Testing Decisions` 一节里那张 seam 清单表，选最高的那一层，不要增殖插桩点。spec 里找不到对应的 seam，交 `needs-context`。
 
