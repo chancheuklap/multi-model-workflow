@@ -23,7 +23,7 @@ mmw_require_config() {
   local path
   path="$(mmw_config_path)"
   if [ ! -f "$path" ]; then
-    echo "mmw: 找不到 $path，先跑 mmw init" >&2
+    echo "mmw: 找不到 ${path}，先跑 mmw init" >&2
     return 1
   fi
   echo "$path"

@@ -15,6 +15,12 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$MMW_ROOT/cli/lib/config.sh"
 # shellcheck source=lib/task.sh
 . "$MMW_ROOT/cli/lib/task.sh"
+# shellcheck source=lib/issue.sh
+. "$MMW_ROOT/cli/lib/issue.sh"
+# shellcheck source=lib/wiki.sh
+. "$MMW_ROOT/cli/lib/wiki.sh"
+# shellcheck source=lib/domain.sh
+. "$MMW_ROOT/cli/lib/domain.sh"
 
 usage() {
   cat >&2 <<'EOF'
@@ -25,9 +31,29 @@ usage() {
       会写文件的角色（前三个）--cwd 必填
   mmw skill-path <角色>            派出去那一侧读方法论的路径；宿主自己会送
                                    到位的输出空
-  mmw task new <slug> [原话]      建 worktree 与分支，输出绝对路径
+
+  mmw task new <slug> [原话]       建 worktree 与分支，输出绝对路径
   mmw task enter <slug>            输出该 worktree 的绝对路径
   mmw task cleanup <slug>          删 worktree 与分支（非强制，有改动会失败）
+
+  mmw issue create --title <标题> --body-file <文件>
+                   [--parent <n>] [--blocked-by <n,n>] [--label <a,b>]
+                                   建 issue、挂父、连阻塞边、打标签，输出编号
+  mmw issue frontier <父编号> [--label <标签>]
+                                   open、没被挡、没人认领的子 issue，编号升序。
+                                   要全部的读全部行，要下一张的取第一行
+  mmw issue children <父编号>      全部子 issue 及状态，看任务走到哪一步
+  mmw issue claim <编号>           认领；已被别人占住就失败
+  mmw issue link <子> --blocked-by <n>
+                                   单连一条阻塞边
+
+  mmw wiki ensure                  clone 或 pull Wiki，输出本地路径
+  mmw wiki nav                     从各页面重新生成 Home.md 与 _Sidebar.md
+  mmw wiki verify <slug>           删本地文档前那三条验证
+
+  mmw domain path                  领域文档形态与落点：map / single / none
+  mmw domain adr-next              下一个 ADR 编号，四位
+
   mmw doctor                       检查这台机器上跑 mmw 需要的东西
   mmw init                         在当前仓库生成 .mmw.json，装转发脚本
 EOF
@@ -162,6 +188,61 @@ cmd_task() {
   esac
 }
 
+cmd_issue() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    create) mmw_issue_create "$@" ;;
+    children) [ -n "${1:-}" ] || usage; mmw_issue_children "$1" ;;
+    claim) [ -n "${1:-}" ] || usage; mmw_issue_claim "$1" ;;
+    frontier)
+      local parent="${1:-}" label=""
+      [ -n "$parent" ] || usage
+      shift
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --label) label="${2:-}"; shift 2 ;;
+          *) echo "mmw: issue frontier 认不出参数 $1" >&2; usage ;;
+        esac
+      done
+      mmw_issue_frontier "$parent" "$label"
+      ;;
+    link)
+      local child="${1:-}" blocker=""
+      [ -n "$child" ] || usage
+      shift
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --blocked-by) blocker="${2:-}"; shift 2 ;;
+          *) echo "mmw: issue link 认不出参数 $1" >&2; usage ;;
+        esac
+      done
+      [ -n "$blocker" ] || { echo "mmw: issue link 要 --blocked-by" >&2; usage; }
+      mmw_issue_link "$child" "$blocker"
+      ;;
+    *) usage ;;
+  esac
+}
+
+cmd_wiki() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    ensure) mmw_wiki_ensure ;;
+    nav) mmw_wiki_nav ;;
+    verify) [ -n "${1:-}" ] || usage; mmw_wiki_verify "$1" ;;
+    *) usage ;;
+  esac
+}
+
+cmd_domain() {
+  case "${1:-}" in
+    path) mmw_domain_path ;;
+    adr-next) mmw_domain_adr_next ;;
+    *) usage ;;
+  esac
+}
+
 cmd_doctor() {
   local host status=0
   echo "CLI      : ${BASH_SOURCE[0]} -> $MMW_ROOT"
@@ -211,7 +292,7 @@ cmd_init() {
   config="$root/.mmw.json"
 
   if [ -f "$config" ]; then
-    echo "已有 $config，不覆盖"
+    echo "已有 ${config}，不覆盖"
   else
     cp "$MMW_ROOT/cli/mmw.default.json" "$config"
     echo "已生成 $config"
@@ -249,6 +330,9 @@ case "${1:-}" in
   dispatch) shift; cmd_dispatch "$@" ;;
   skill-path) shift; cmd_skill_path "$@" ;;
   task) shift; cmd_task "$@" ;;
+  issue) shift; cmd_issue "$@" ;;
+  wiki) shift; cmd_wiki "$@" ;;
+  domain) shift; cmd_domain "$@" ;;
   doctor) shift; cmd_doctor "$@" ;;
   init) shift; cmd_init "$@" ;;
   *) usage ;;

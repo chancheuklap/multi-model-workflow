@@ -78,7 +78,7 @@ mmw_adapter_dispatch() {
       return "$code"
       ;;
     *)
-      echo "mmw: 认不出模型族 $MMW_D_FAMILY（只有 claude 和 gpt）" >&2
+      echo "mmw: 认不出模型族 ${MMW_D_FAMILY}（只有 claude 和 gpt）" >&2
       return 1
       ;;
   esac
