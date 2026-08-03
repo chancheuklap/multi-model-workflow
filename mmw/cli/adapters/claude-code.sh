@@ -68,14 +68,16 @@ mmw_adapter_dispatch() {
       if [ -n "$MMW_D_SKILL_PATH" ]; then
         printf 'skill-path: %s\n' "$MMW_D_SKILL_PATH"
       fi
+      # Agent 固定后台运行：派发不能占住主 agent 的前台，也不能依赖调用方补参数。
       jq -nc --arg r "$plugin_name:$MMW_D_ROSTER" --arg t "$tier" --arg e "$MMW_D_EFFORT" \
-        '{subagent_type: $r, model: $t, effort: $e}' \
+        '{subagent_type: $r, model: $t, effort: $e, run_in_background: true}' \
         | sed 's/^/params: /'
       ;;
     gpt)
       local report_dir="$MMW_D_CWD/.dispatch"
       mkdir -p "$report_dir"
-      local report="$report_dir/${MMW_D_ROLE}-$(basename "$MMW_D_BRIEF" .md).md"
+      local report
+      report="$report_dir/${MMW_D_ROLE}-$(basename "$MMW_D_BRIEF" .md).md"
       local sandbox=(--sandbox read-only)
       if [ "$MMW_D_WRITABLE" = "yes" ]; then
         # workspace-write 默认把 .git 锁成只读，工人提交会卡在 index.lock。

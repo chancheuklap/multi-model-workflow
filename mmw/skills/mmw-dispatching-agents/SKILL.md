@@ -22,7 +22,7 @@ description: 把一件任务派给隔离上下文的 subagent——派不派、�
 
 同一件活反复做很多遍时，先看能不能只派其中机械的那一半：验证可以拆成取证和判定，取证派得出去，判定派不出去（`/mmw-verifying-agent-output`）。
 
-**一个方向派一个人。** 要几个方向就派几个，每份 brief 只有方向那一栏不同。要并行就在一条消息里发多个 Bash 调用起多个 `mmw dispatch`。
+**一个方向派一个人。** 要几个方向就派几个，每份 brief 只有方向那一栏不同。要并行就在一条消息里发多个 Bash 调用起多个 `mmw dispatch`；拿到 `mode: host-tool` 的回执后，再在一条消息里调用各自的宿主工具。adapter 给每次调用都带了后台参数，所以同轮调用不会争抢前台。
 
 ## 派哪个角色
 
@@ -54,9 +54,9 @@ skill-path: <方法论文件的绝对路径>     ← 可能没有这一行
 params: {"...": "..."}
 ```
 
-用 `tool:` 那个工具、按 `params:` 那个 JSON 逐字传参调一次。提示词读 `brief:` 那个文件。有 `skill-path:` 那一行时，把那个路径写进提示词，让它自己去读。
+用 `tool:` 那个工具、按 `params:` 那个 JSON 逐字传参调一次。提示词读 `brief:` 那个文件。有 `skill-path:` 那一行时，把那个路径写进提示词，让它自己去读。`params:` 已经带了宿主自己的后台参数；不删除，也不改成前台。工具会先交回 run id，完成后再由宿主通知。不要用等待工具把主 agent 堵在这里；先继续不依赖结果的工作，收到通知后再读报告。
 
-**两种都用 Bash 的 `run_in_background: true` 起。** `mode: executed` 那种要跑几分钟，前台起会把你堵住；`mode: host-tool` 那种秒回，后台起没有损失。一律后台，你不用先知道会是哪一种。
+起 `mmw dispatch` 本身时仍然一律用 Bash 的 `run_in_background: true`，因为调用前不知道返回哪一种 mode。`mode: executed` 的 subagent 就跑在那条后台 Bash 里；`mode: host-tool` 的 Bash 只负责返回参数，真正的 subagent 是否后台由 adapter 写进 `params:`，不靠 Bash，也不靠用户级默认配置。
 
 ## 方法论怎么到它手里
 

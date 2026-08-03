@@ -34,13 +34,14 @@ mmw_adapter_dispatch() {
   printf 'brief: %s\n' "$MMW_D_BRIEF"
 
   # context 固定 fresh：MMW 要的是上下文隔离，不要从父会话分叉。
+  # async 固定 true：派发不能占住主 agent 的前台，也不能依赖用户级默认配置。
   jq -nc \
     --arg a "$MMW_D_ROSTER" \
     --arg m "$provider/$MMW_D_MODEL_ID" \
     --arg t "$MMW_D_EFFORT" \
     --arg c "$MMW_D_CWD" \
     --arg s "$MMW_D_SKILL" \
-    '{agent: $a, model: $m, thinking: $t, cwd: $c, context: "fresh"}
+    '{agent: $a, model: $m, thinking: $t, cwd: $c, context: "fresh", async: true}
      + (if $s == "" then {} else {skill: $s} end)' \
     | sed 's/^/params: /'
 }
