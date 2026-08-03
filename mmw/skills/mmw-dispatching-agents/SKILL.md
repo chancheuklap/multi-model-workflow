@@ -26,19 +26,9 @@ description: 把一件任务派给隔离上下文的 subagent——派不派、�
 
 ## 派哪个角色
 
-参数怎么写、哪几个角色可写，跑 `mmw dispatch` 就有。这里只写选哪个：
+角色有哪几个、各做什么、参数怎么写，跑 `mmw dispatch` 就有。这里只留它答不了的两条：哪一道审派哪两个角色，判据在 `/mmw-review`；`worker` 什么时候升 `worker-high-risk`，判据在 `/mmw-implement`。
 
-| 角色 | 派它做什么 |
-| --- | --- |
-| `worker` | 按一份 plan 写代码 |
-| `worker-high-risk` | 同上，但这块代码错了代价大 |
-| `planner` | 按一张 ticket 写一份 plan |
-| `investigator` | 查一个角度的事实，带出处交回 |
-| `reviewer-gpt`、`reviewer-claude` | 审查，两个模型各一侧 |
-
-哪一道审派哪两个角色，判据在 `/mmw-review`。`worker` 什么时候升 `worker-high-risk`，判据在 `/mmw-implement`。
-
-`--cwd` 指向它该待的那棵 worktree。命令会先检查那里工作区干净，不干净就不派——否则它的提交里会混进别人的改动。
+派会写文件的角色之前，它那棵 worktree 的工作区必须干净，`mmw dispatch` 会先查——否则它的提交里会混进别人的改动。
 
 ## 返回怎么读
 
@@ -88,6 +78,6 @@ params: {"...": "..."}
 | 报告里说它自己停下了 | **自己继续**：读它的尝试记录，把你看到的连同原来那份 brief 写成一份新的 brief，重派一次。不要试图续接原来那个会话——护栏和模型档要重新固定，重派比续接干净 |
 | 派发前自检发现 brief 里有不存在的仓库内路径 | **自己继续**：当场修掉路径再派 |
 | `mmw doctor` 说方法论没装 | **自己继续**：先跑 `install-agent-skills.sh` 装好再派，不要改成把方法论粘进提示词 |
-| 要派可写角色，`mmw dispatch` 报工作区不干净 | **停**：报那个目录里有哪些未提交的改动 |
+| 要派会写文件的角色，`mmw dispatch` 报工作区不干净 | **停**：报那个目录里有哪些未提交的改动 |
 | `mmw dispatch` 报认不出宿主 | **停**：报这台机器上 CLI 认不出自己跑在哪个宿主里 |
 | Codex 报 `model is not supported when using Codex with a ChatGPT account` | **停**：八成是这台机器的型号缓存旧了，不是 `.mmw.json` 写错。让用户在 Codex 里刷一次，再看 `~/.codex/models_cache.json` 的 `models[].slug` 里有没有这个型号。**没验证到缓存里确实没有之前不要改 `.mmw.json`**，更不要动用户的 `~/.codex/config.toml` |

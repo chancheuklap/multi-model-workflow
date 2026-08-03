@@ -14,7 +14,7 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
 有 correct seam 的话，按顺序做三件事：
 
-1. **先把工作区清干净。** grep `[DEBUG-` 前缀，把 Phase 4 的埋点全删掉。`worker` 是可写角色，`mmw dispatch` 会先检查工作区干净，不干净就不派。
+1. **先把工作区清干净。** grep `[DEBUG-` 前缀，把 Phase 4 的埋点全删掉。`worker` 是会写文件的角色，`mmw dispatch` 会先检查工作区干净，不干净就不派。
 2. 按 `/mmw-dispatching-agents` 派 `worker` 角色，`--cwd` 给这棵 worktree 的路径。brief 从文件和你已经跑过的内容里取：
 
    | 给它什么 | 内容 |

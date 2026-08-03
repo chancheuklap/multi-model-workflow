@@ -24,43 +24,103 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/init.sh
 . "$MMW_ROOT/cli/lib/init.sh"
 
+# 用法分两层：这里只列命令名，参数在各命令自己的 usage_* 里。要查 dispatch
+# 怎么写的人不该顺带读完 issue 的六个子命令——认不出参数时打的也是那一个命令
+# 自己的用法，不是全部。
 usage() {
   cat >&2 <<'EOF'
-用法：
-  mmw dispatch <角色> --brief <文件> [--cwd <目录>]
-      角色：worker | worker-high-risk | planner | investigator
-            | reviewer-gpt | reviewer-claude
-      会写文件的角色（前三个）--cwd 必填
-  mmw skill-path <角色>            派出去那一侧读方法论的路径；宿主自己会送
-                                   到位的输出空
+mmw <命令> [参数]
 
-  mmw task new <slug> [原话] [--from <基点>]
-                                   建 worktree 与分支，输出绝对路径。不给
-                                   --from 从当前 HEAD 分叉
-  mmw task enter <slug>            输出该 worktree 的绝对路径
-  mmw task cleanup <slug>          删 worktree 与分支（非强制，有改动会失败）
+  dispatch    把一件任务派给隔离上下文的 subagent
+  skill-path  派出去那一侧读方法论的路径
+  task        任务 worktree：建、进、删
+  issue       tracker：建 issue、挂父子、算可认领集合
+  wiki        Wiki：clone、重建导航、删本地文档前的验证
+  domain      领域文档：落点、下一个 ADR 编号
+  doctor      检查这台机器上跑 mmw 需要的东西
+  init        把当前仓库配置成能跑这套工作流的样子；幂等
 
-  mmw issue create --title <标题> --body-file <文件>
-                   [--parent <n>] [--blocked-by <n,n>] [--label <a,b>]
-                                   建 issue、挂父、连阻塞边、打标签，输出编号
-  mmw issue frontier <父编号> [--label <标签>]
-                                   open、没被挡、没人认领的子 issue，编号升序。
-                                   要全部的读全部行，要下一张的取第一行
-  mmw issue children <父编号>      全部子 issue 及状态，看任务走到哪一步
-  mmw issue claim <编号>           认领；已被别人占住就失败
-  mmw issue link <子> --blocked-by <n>
-                                   单连一条阻塞边
+命令不带参数跑一次，给它自己的用法。
+EOF
+  return 2
+}
 
-  mmw wiki ensure                  clone 或 pull Wiki，输出本地路径
-  mmw wiki nav                     从各页面重新生成 Home.md 与 _Sidebar.md
-  mmw wiki verify <slug>           删本地文档前那三条验证
+usage_dispatch() {
+  cat >&2 <<'EOF'
+mmw dispatch <角色> --brief <文件> [--cwd <目录>]
 
-  mmw domain path                  领域文档形态与落点：map / single / none
-  mmw domain adr-next              下一个 ADR 编号，四位
-  mmw domain dirs                  写入侧的两个落点：新上下文根、ADR 目录
+角色：
+  worker            按一份 plan 写代码
+  worker-high-risk  同上，但这块代码错了代价大
+  planner           按一张 ticket 写一份 plan
+  investigator      查一个角度的事实，带出处交回
+  reviewer-gpt      审查，GPT 那一侧
+  reviewer-claude   审查，Claude 那一侧
 
-  mmw doctor                       检查这台机器上跑 mmw 需要的东西
-  mmw init                         把当前仓库配置成能跑这套工作流的样子；幂等
+参数：
+  --brief <文件>  提示词文件，必填
+  --cwd <目录>    它待着的目录。前三个角色会写文件，必填，指向它那棵 worktree；
+                  只读的三个不给就是仓库根
+
+模型、档位、护栏由角色决定，取自仓库根 .mmw.json，这里不用管。
+EOF
+  return 2
+}
+
+usage_skill_path() {
+  cat >&2 <<'EOF'
+mmw skill-path <角色>
+
+角色同 mmw dispatch。输出派出去那一侧读方法论的绝对路径，写进给它的提示词里。
+宿主自己会把方法论送到位的角色什么都不输出，那时这句话省掉。
+EOF
+  return 2
+}
+
+usage_task() {
+  cat >&2 <<'EOF'
+mmw task new <slug> [原话] [--from <基点>]
+    建 worktree 与分支，输出绝对路径。原话记进分支上的第一个空提交。
+    不给 --from 就从当前 HEAD 分叉
+mmw task enter <slug>       输出该 worktree 的绝对路径
+mmw task cleanup <slug>     删 worktree 与分支；非强制，有未提交改动会失败
+
+切进 worktree 只有宿主工具做得到，这条命令只输出路径。
+EOF
+  return 2
+}
+
+usage_issue() {
+  cat >&2 <<'EOF'
+mmw issue create --title <标题> --body-file <文件>
+                 [--parent <n>] [--blocked-by <n,n>] [--label <a,b>]
+    建 issue、挂父、连阻塞边、打标签，输出编号
+mmw issue frontier <父编号> [--label <标签>]
+    open、没被挡、没人认领的子 issue，编号升序。要全部的读全部行，
+    要下一张的取第一行
+mmw issue children <父编号>          全部子 issue 及状态，看任务走到哪一步
+mmw issue claim <编号>               认领；已被别人占住就失败
+mmw issue link <子> --blocked-by <n> 单连一条阻塞边
+EOF
+  return 2
+}
+
+usage_wiki() {
+  cat >&2 <<'EOF'
+mmw wiki ensure         clone 或 pull Wiki，输出本地路径
+mmw wiki nav            从各页面重新生成 Home.md 与 _Sidebar.md
+mmw wiki verify <slug>  删本地文档前那三条验证
+
+推 Wiki 是对外发布，要用户点头，这里不做。
+EOF
+  return 2
+}
+
+usage_domain() {
+  cat >&2 <<'EOF'
+mmw domain path      领域文档形态与落点，第三列写着照它做什么
+mmw domain adr-next  下一个 ADR 编号，四位零填充
+mmw domain dirs      写入侧的两个落点：新上下文的根目录、ADR 目录
 EOF
   return 2
 }
@@ -97,12 +157,12 @@ role_writable() {
 cmd_dispatch() {
   local role="${1:-}"
   shift || true
-  [ -n "$role" ] || usage
+  [ -n "$role" ] || usage_dispatch
 
   local roster skill
   roster="$(role_roster "$role")" || {
     echo "mmw: 认不出角色 $role" >&2
-    usage
+    usage_dispatch
   }
   skill="$(role_skill "$role")"
 
@@ -111,11 +171,11 @@ cmd_dispatch() {
     case "$1" in
       --brief) brief="${2:-}"; shift 2 ;;
       --cwd) cwd="${2:-}"; shift 2 ;;
-      *) echo "mmw: 认不出参数 $1" >&2; usage ;;
+      *) echo "mmw: 认不出参数 $1" >&2; usage_dispatch ;;
     esac
   done
 
-  [ -n "$brief" ] || { echo "mmw: dispatch 要 --brief" >&2; usage; }
+  [ -n "$brief" ] || { echo "mmw: dispatch 要 --brief" >&2; usage_dispatch; }
   [ -f "$brief" ] || { echo "mmw: brief 文件不存在：$brief" >&2; return 1; }
   brief="$(cd "$(dirname "$brief")" && pwd)/$(basename "$brief")"
 
@@ -164,10 +224,10 @@ cmd_dispatch() {
 # 派出去的那一侧从哪个路径读方法论。宿主自己会送到位的，什么都不输出。
 cmd_skill_path() {
   local role="${1:-}"
-  [ -n "$role" ] || usage
+  [ -n "$role" ] || usage_skill_path
   role_roster "$role" >/dev/null || {
     echo "mmw: 认不出角色 $role" >&2
-    usage
+    usage_skill_path
   }
   local skill
   skill="$(role_skill "$role")"
@@ -189,7 +249,7 @@ cmd_task() {
     new) mmw_task_new "$@" ;;
     enter) mmw_task_enter "$@" ;;
     cleanup) mmw_task_cleanup "$@" ;;
-    *) usage ;;
+    *) usage_task ;;
   esac
 }
 
@@ -198,34 +258,34 @@ cmd_issue() {
   shift || true
   case "$sub" in
     create) mmw_issue_create "$@" ;;
-    children) [ -n "${1:-}" ] || usage; mmw_issue_children "$1" ;;
-    claim) [ -n "${1:-}" ] || usage; mmw_issue_claim "$1" ;;
+    children) [ -n "${1:-}" ] || usage_issue; mmw_issue_children "$1" ;;
+    claim) [ -n "${1:-}" ] || usage_issue; mmw_issue_claim "$1" ;;
     frontier)
       local parent="${1:-}" label=""
-      [ -n "$parent" ] || usage
+      [ -n "$parent" ] || usage_issue
       shift
       while [ $# -gt 0 ]; do
         case "$1" in
           --label) label="${2:-}"; shift 2 ;;
-          *) echo "mmw: issue frontier 认不出参数 $1" >&2; usage ;;
+          *) echo "mmw: issue frontier 认不出参数 $1" >&2; usage_issue ;;
         esac
       done
       mmw_issue_frontier "$parent" "$label"
       ;;
     link)
       local child="${1:-}" blocker=""
-      [ -n "$child" ] || usage
+      [ -n "$child" ] || usage_issue
       shift
       while [ $# -gt 0 ]; do
         case "$1" in
           --blocked-by) blocker="${2:-}"; shift 2 ;;
-          *) echo "mmw: issue link 认不出参数 $1" >&2; usage ;;
+          *) echo "mmw: issue link 认不出参数 $1" >&2; usage_issue ;;
         esac
       done
-      [ -n "$blocker" ] || { echo "mmw: issue link 要 --blocked-by" >&2; usage; }
+      [ -n "$blocker" ] || { echo "mmw: issue link 要 --blocked-by" >&2; usage_issue; }
       mmw_issue_link "$child" "$blocker"
       ;;
-    *) usage ;;
+    *) usage_issue ;;
   esac
 }
 
@@ -235,8 +295,8 @@ cmd_wiki() {
   case "$sub" in
     ensure) mmw_wiki_ensure ;;
     nav) mmw_wiki_nav ;;
-    verify) [ -n "${1:-}" ] || usage; mmw_wiki_verify "$1" ;;
-    *) usage ;;
+    verify) [ -n "${1:-}" ] || usage_wiki; mmw_wiki_verify "$1" ;;
+    *) usage_wiki ;;
   esac
 }
 
@@ -245,7 +305,7 @@ cmd_domain() {
     path) mmw_domain_path ;;
     adr-next) mmw_domain_adr_next ;;
     dirs) mmw_domain_dirs ;;
-    *) usage ;;
+    *) usage_domain ;;
   esac
 }
 
