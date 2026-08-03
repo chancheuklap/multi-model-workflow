@@ -16,9 +16,7 @@
   ],
   "skills": [
     "./skills/codebase-design",
-    "./skills/design-an-interface",
     "./skills/domain-modeling",
-    "./skills/git-guardrails-claude-code",
     "./skills/handoff",
     "./skills/mmw-closing",
     "./skills/mmw-diagnosing-bugs",
@@ -40,12 +38,6 @@
     "./skills/mmw-triage",
     "./skills/mmw-verifying-agent-output",
     "./skills/mmw-wayfinder",
-    "./skills/qa",
-    "./skills/request-refactor-plan",
-    "./skills/setup-pre-commit",
-    "./skills/setup-ts-deep-modules",
-    "./skills/to-questionnaire",
-    "./skills/wizard",
     "./skills/writing-great-skills"
   ]
 }
