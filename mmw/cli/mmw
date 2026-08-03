@@ -272,6 +272,17 @@ cmd_doctor() {
   fi
   command -v jq >/dev/null && echo "jq       : $(command -v jq)" || { echo "jq       : 没装"; status=1; }
   command -v gh >/dev/null && echo "gh       : $(command -v gh)" || { echo "gh       : 没装"; status=1; }
+  # Wiki 没有 API，读写一律 clone 加 push，走 https://github.com/<仓库>.wiki.git
+  # （见 lib/wiki.sh）。凭据助手没配好的话，要等到 /mmw-closing 第 5 步、用户
+  # 已经点头同意推送之后才发现推不上去。这里提前探一次：喂一条 github.com 的
+  # https 查询，走完整条助手链，只判有没有人答上密码，不回显。
+  if printf 'protocol=https\nhost=github.com\n\n' \
+     | GIT_TERMINAL_PROMPT=0 git credential fill 2>/dev/null | grep -q '^password='; then
+    echo "推送鉴权 : github.com 的 https 凭据有人答得上"
+  else
+    echo "推送鉴权 : github.com 的 https 凭据没人答得上，跑 gh auth setup-git（推 Wiki 要它）"
+    status=1
+  fi
   if [ "${host:-}" = "claude-code" ]; then
     command -v codex >/dev/null \
       && echo "codex    : $(command -v codex)" \
