@@ -150,7 +150,9 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 原先自写的 `mmw-setup` 已经不是技能。它的五步全进了 `mmw init`，`SKILL.md` 改名成 `legacy-setup.md` 并去掉 frontmatter，目录连同五份种子留在 `mmw/skills/mmw-setup/` 只作背景线索——正文描述的行为（把种子铺进 `docs/agents/`）已经不存在，文件顶部标了这一点。
 
-**技能要停用，改名和撤登记两件都得做。** Claude Code 会自动扫描 `skills/` 目录，不只读 manifest 的 `skills` 数组——证据是旧 plugin 的 `plugin/.claude-plugin/plugin.json` 根本没有 `skills` 字段，`plugin/skills/` 下那 5 个技能照样加载。所以从数组里去掉一个目录不足以停用它，那个目录里的 `SKILL.md` 还带着 frontmatter 就仍会被扫成技能。
+**技能要停用，改名和撤登记两件都做。** manifest 的 `skills` 数组跟 `skills/` 目录的自动扫描哪一个说了算，没有验证过：旧 plugin 的 `plugin/.claude-plugin/plugin.json` 没有 `skills` 字段，而 `plugin/skills/` 下那 5 个目录就是它的全部技能面，看着像自动扫描生效——但没有实际确认过它们加载成功，也推不出字段存在时扫描还生不生效（覆盖和叠加是两条不同的代码路径）。所以两件一起做：数组里去掉那一行，同时让目录里不再有带 frontmatter 的 `SKILL.md`。哪一种机制成立都停用得掉。
+
+`mmw/skills/mmw-setup/` 因此成了 `skills/` 下唯一不是技能的目录。**凡是扫描技能正文的检查都要排除它**，否则那六份过期文档会让检查假过。`test_labels_sync.sh` 已经排除，理由写在它的文件头。同理，「技能正文不许裸用 `gh` 做要连发好几个请求、要先取 database id、要按规矩过滤排序那三类动作」这条判据也按排除它来算——排除后清零，不排除的话 `issue-tracker.md` 里那几处旧写法会一直报。
 
 顺手补搬的上游技能已删掉 8 个：`qa`、`request-refactor-plan`、`design-an-interface`、`git-guardrails-claude-code`、`setup-pre-commit` 能被模型自动触发又不在主干上（前两个绕开 tracker 约定自开 issue，`design-an-interface` 是 `mmw-codebase-design/DESIGN-IT-TWICE.md` 的未适配副本，`git-guardrails-claude-code` 拦的命令里有 `mmw-start` 重建 worktree 要用的，`setup-pre-commit` 只对 Node.js 仓库有效）；`wizard`、`to-questionnaire`、`setup-ts-deep-modules` 只能手打触发、不占常驻成本，但跟多模型编排无关。剩下的 `handoff` 与 `writing-great-skills` 留着——前者供用户手动交接，后者是写新技能的方法论，本文件正在引用它。原件都在 `vendor/mattpocock-skills/`，要用再复制回来。
 
