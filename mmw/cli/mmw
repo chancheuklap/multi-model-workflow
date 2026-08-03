@@ -21,6 +21,8 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$MMW_ROOT/cli/lib/wiki.sh"
 # shellcheck source=lib/domain.sh
 . "$MMW_ROOT/cli/lib/domain.sh"
+# shellcheck source=lib/init.sh
+. "$MMW_ROOT/cli/lib/init.sh"
 
 usage() {
   cat >&2 <<'EOF'
@@ -58,7 +60,7 @@ usage() {
   mmw domain dirs                  写入侧的两个落点：新上下文根、ADR 目录
 
   mmw doctor                       检查这台机器上跑 mmw 需要的东西
-  mmw init                         在当前仓库生成 .mmw.json，装转发脚本
+  mmw init                         把当前仓库配置成能跑这套工作流的样子；幂等
 EOF
   return 2
 }
@@ -290,45 +292,6 @@ cmd_doctor() {
   return $status
 }
 
-cmd_init() {
-  local root config
-  root="$(mmw_repo_root)"
-  config="$root/.mmw.json"
-
-  if [ -f "$config" ]; then
-    echo "已有 ${config}，不覆盖"
-  else
-    cp "$MMW_ROOT/cli/mmw.default.json" "$config"
-    echo "已生成 $config"
-  fi
-
-  local bin="$HOME/.local/bin/mmw"
-  if [ -x "$bin" ]; then
-    echo "已有 $bin"
-  else
-    mkdir -p "$(dirname "$bin")"
-    cat > "$bin" <<'FORWARD'
-#!/usr/bin/env bash
-# mmw 转发脚本。先看当前 git 树里有没有 CLI——mmw 是自己开发自己的，任务
-# worktree 里改了 CLI 要能自测；没有再回退主仓库那份。
-set -euo pipefail
-root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-if [ -n "$root" ] && [ -x "$root/mmw/cli/mmw" ]; then
-  exec "$root/mmw/cli/mmw" "$@"
-fi
-exec "$HOME/multi-model-workflow/mmw/cli/mmw" "$@"
-FORWARD
-    chmod +x "$bin"
-    echo "已装 $bin"
-  fi
-
-  cat <<'NOTE'
-
-还有两件要改宿主的全局配置，不替你动，确认后自己加：
-  Claude Code  ~/.claude/settings.json 的 permissions.allow 加 "Bash(mmw:*)"
-  pi           无沙箱，不用加
-NOTE
-}
 
 case "${1:-}" in
   dispatch) shift; cmd_dispatch "$@" ;;
@@ -338,6 +301,6 @@ case "${1:-}" in
   wiki) shift; cmd_wiki "$@" ;;
   domain) shift; cmd_domain "$@" ;;
   doctor) shift; cmd_doctor "$@" ;;
-  init) shift; cmd_init "$@" ;;
+  init) shift; mmw_init "$@" ;;
   *) usage ;;
 esac
