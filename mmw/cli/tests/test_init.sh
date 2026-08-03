@@ -131,6 +131,17 @@ check "指针节进 AGENTS.md" 1 "$(grep -c '^## 多模型工作流' AGENTS.md)"
 check "不另建 CLAUDE.md" "no" "$([ -f CLAUDE.md ] && echo yes || echo no)"
 
 echo
+echo "两份都有"
+# 守:AGENTS.md 优先。CLAUDE.md 常被写成纯 import 列表,往里追加正文会把那个形态
+# 破坏掉;而那样的仓库通常正好从 CLAUDE.md 引用 AGENTS.md,写进后者一样生效。
+newrepo five
+printf '@AGENTS.md\n' > CLAUDE.md
+printf '# 约定\n' > AGENTS.md
+"$MMW" init > /dev/null 2>&1
+check "指针节进 AGENTS.md" 1 "$(grep -c '^## 多模型工作流' AGENTS.md)"
+check "CLAUDE.md 原样不动" 0 "$(grep -c '^## 多模型工作流' CLAUDE.md)"
+
+echo
 echo "旧的 docs/agents/ 还在"
 
 newrepo four

@@ -164,13 +164,16 @@ mmw_init_pointer_body() {
 BODY
 }
 
+# AGENTS.md 优先：它是跨宿主的约定文件，两个宿主都读得到。CLAUDE.md 在不少
+# 仓库里被写成纯 import 列表（整份只有几行 @ 引用），往里追加正文会破坏那个
+# 形态——而那些仓库的 CLAUDE.md 通常正好引用了 AGENTS.md，写进后者一样生效。
 mmw_init_pointer() {
   local root target
   root="$(mmw_repo_root)"
-  if [ -f "$root/CLAUDE.md" ]; then
-    target="$root/CLAUDE.md"
-  elif [ -f "$root/AGENTS.md" ]; then
+  if [ -f "$root/AGENTS.md" ]; then
     target="$root/AGENTS.md"
+  elif [ -f "$root/CLAUDE.md" ]; then
+    target="$root/CLAUDE.md"
   else
     mmw_init_say "指针节   : 这个仓库既没有 CLAUDE.md 也没有 AGENTS.md，指针节没处写"
     return 1

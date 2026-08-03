@@ -5,7 +5,7 @@
 # 归技能，不归这里——CLI 侧写一条匹配规则就等于凭空造了一条配置没持有的判据。
 #
 # 草稿编号那条分支也不归这里：几条分支同时写 ADR 时要先用 draft- 名，判断
-# 「我现在是不是那种分支」CLI 做不可靠，判据在目标仓库的 docs/agents/domain.md。
+# 「我现在是不是那种分支」CLI 做不可靠，判据在 mmw-domain-modeling/ADR-FORMAT.md。
 
 set -euo pipefail
 
