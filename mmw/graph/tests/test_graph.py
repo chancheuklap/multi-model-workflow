@@ -12,7 +12,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
+import pytest  # pyright: ignore[reportMissingImports]
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 

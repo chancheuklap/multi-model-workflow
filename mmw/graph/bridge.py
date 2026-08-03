@@ -18,7 +18,9 @@ import re
 import sys
 import tempfile
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any, cast
 
 BRIDGE_RELATION = "implements_route_handler"
 BRIDGE_KIND = "native_route_handler_bridge"
@@ -178,12 +180,11 @@ def validate_bridge_contract(graph: dict[str, object], expected_head_sha: str) -
     if not isinstance(stats, dict):
         raise BridgeError("route_handler_bridge metadata is missing")
 
-    handlers = [
-        node
-        for node in node_by_id.values()
-        if isinstance(node.get("metadata"), dict)
-        and node["metadata"].get("kind") == "route_handler"
-    ]
+    handlers = []
+    for node in node_by_id.values():
+        metadata = node.get("metadata")
+        if isinstance(metadata, dict) and metadata.get("kind") == "route_handler":
+            handlers.append(node)
     native_by_key: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
     for node in node_by_id.values():
         source_file = node.get("source_file")
@@ -285,7 +286,7 @@ def validate_bridge_contract(graph: dict[str, object], expected_head_sha: str) -
         )
 
 
-def _fixture() -> dict[str, object]:
+def _fixture() -> dict[str, Any]:
     return {
         "graph": {},
         "nodes": [
@@ -310,9 +311,9 @@ def _fixture() -> dict[str, object]:
     }
 
 
-def _expect_error(callback: object) -> None:
+def _expect_error(callback: Callable[[], object]) -> None:
     try:
-        callback()  # type: ignore[operator]
+        callback()
     except BridgeError:
         return
     raise AssertionError("expected BridgeError")
@@ -321,14 +322,14 @@ def _expect_error(callback: object) -> None:
 def _run_self_checks() -> None:
     head = "a" * 40
     original = _fixture()
-    bridged = bridge_graph(original, head)
+    bridged = cast(dict[str, Any], bridge_graph(original, head))
     assert original["links"] == _fixture()["links"]
     assert len(bridged["links"]) == 2
     validate_bridge_contract(bridged, head)
 
     local = _fixture()
     local["nodes"][1]["label"] = "outer.<locals>.inner() (example)"  # type: ignore[index]
-    local_result = bridge_graph(local, head)
+    local_result = cast(dict[str, Any], bridge_graph(local, head))
     assert (
         local_result["graph"]["mmw_build"]["route_handler_bridge"]["unsupported"]
         == 1

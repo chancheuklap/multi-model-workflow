@@ -23,6 +23,12 @@ mmw_graph_build() {
   python3 "$(mmw_graph_ensure_bin)" --repo "$(mmw_repo_root)" --force
 }
 
+# 图对不上当前代码才建。跟 build 的差别是它会先看主仓库那份能不能直接用——任务
+# worktree 刚建出来时内容跟主仓库一样，没有理由再花几分钟建一份一模一样的。
+mmw_graph_ensure() {
+  python3 "$(mmw_graph_ensure_bin)" --repo "$(mmw_repo_root)"
+}
+
 # 图里各类关系各有多少条。判据不是数量本身，是配置里声明要算的那几类边一条都
 # 不能是零——某一类是零，说明配置跟当前代码结构对不上，而不是这个仓库没有那种
 # 关系。

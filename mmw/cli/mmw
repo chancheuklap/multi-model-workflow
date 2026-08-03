@@ -326,10 +326,11 @@ cmd_domain() {
 usage_graph() {
   cat >&2 <<'EOF'
 mmw graph status   图新不新鲜：FRESH / STALE / MISSING
-mmw graph build    建一次。已经新鲜就直接返回，不白建
+mmw graph ensure   对不上当前代码才建。任务 worktree 里先看主仓库那份能不能直接用
+mmw graph build    不管新不新鲜都重建一次，也不复用。配置刚改完时用它
 mmw graph verify   图里各类关系各有多少条，够不够用
 
-判据与构建都在 mcp/graphify_ensure.py，这三条只是它的入口。
+判据与构建都在 mcp/graphify_ensure.py，这四条只是它的入口。
 EOF
   return 2
 }
@@ -337,6 +338,7 @@ EOF
 cmd_graph() {
   case "${1:-}" in
     status) mmw_graph_status ;;
+    ensure) mmw_graph_ensure ;;
     build) mmw_graph_build ;;
     verify) mmw_graph_verify ;;
     *) usage_graph ;;

@@ -18,19 +18,22 @@ import 插件的任何模块——插件不在仓库的依赖清单里。
 from __future__ import annotations
 
 import argparse
+import importlib
 import importlib.util
 import inspect
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import NoReturn, cast
 
 
-def _fail(reason: str) -> None:
+def _fail(reason: str) -> NoReturn:
     print(f"[FAIL] stage=route_probe reason={reason}", file=sys.stderr)
     raise SystemExit(1)
 
 
-def _load_callable(repo_root: Path, spec: str):
+def _load_callable(repo_root: Path, spec: str) -> Callable[[], object]:
     """按 `相对路径.py:函数名` 加载仓库自己的函数。"""
     rel, _, func_name = spec.partition(":")
     path = (repo_root / rel).resolve()
@@ -41,7 +44,6 @@ def _load_callable(repo_root: Path, spec: str):
     )
     if module_spec is None or module_spec.loader is None:
         _fail(f"provider 加载不了：{rel}")
-        raise AssertionError  # 上一行必定退出，这一行只为类型收敛
     module = importlib.util.module_from_spec(module_spec)
     try:
         module_spec.loader.exec_module(module)
@@ -50,7 +52,7 @@ def _load_callable(repo_root: Path, spec: str):
     func = getattr(module, func_name, None)
     if func is None or not callable(func):
         _fail(f"provider 里没有可调用的 {func_name}：{rel}")
-    return func
+    return cast(Callable[[], object], func)
 
 
 def _relative(repo_root: Path, value: str) -> str:
@@ -58,24 +60,23 @@ def _relative(repo_root: Path, value: str) -> str:
         return Path(value).resolve().relative_to(repo_root).as_posix()
     except ValueError:
         _fail(f"处理函数的源文件在仓库外：{value}")
-        raise AssertionError
 
 
 def collect(repo_root: Path, src_root: str, provider: str) -> list[dict[str, object]]:
     src = str(repo_root / src_root)
     sys.path.insert(0, src)
     try:
-        from fastapi.routing import APIRoute
-    except ImportError as exc:
-        _fail(f"仓库环境里没有 fastapi：{exc}")
-        raise AssertionError
+        api_route_type = getattr(
+            importlib.import_module("fastapi.routing"), "APIRoute"
+        )
+    except (ImportError, AttributeError) as exc:
+        _fail(f"仓库环境里没有 fastapi APIRoute：{exc}")
     try:
         apps = _load_callable(repo_root, provider)()
     except SystemExit:
         raise
     except Exception as exc:
         _fail(f"provider 调用失败：{type(exc).__name__}: {exc}")
-        raise AssertionError
     if not isinstance(apps, dict) or not apps:
         _fail("provider 必须返回非空的 {服务名: 应用对象}")
     records: list[dict[str, object]] = []
@@ -84,13 +85,16 @@ def collect(repo_root: Path, src_root: str, provider: str) -> list[dict[str, obj
         if routes is None:
             _fail(f"{service} 返回的对象没有 routes")
         for route in routes:
-            if not isinstance(route, APIRoute) or not route.methods or not route.path:
+            if (
+                not isinstance(route, api_route_type)
+                or not route.methods
+                or not route.path
+            ):
                 continue
             endpoint = inspect.unwrap(route.endpoint)
             source = inspect.getsourcefile(endpoint)
             if source is None:
                 _fail(f"{service} 有一条路由的处理函数找不到源文件")
-                raise AssertionError
             source_file = _relative(repo_root, source)
             line = inspect.getsourcelines(endpoint)[1]
             for method in sorted(set(route.methods) - {"HEAD", "OPTIONS"}):

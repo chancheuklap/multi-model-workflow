@@ -15,6 +15,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import NoReturn
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -206,7 +207,7 @@ def build(repo_root: Path, output: Path) -> BuildReport:
 
 
 class _Parser(argparse.ArgumentParser):
-    def error(self, message: str) -> None:
+    def error(self, message: str) -> NoReturn:
         raise CrossEdgeBuildError("preflight", message)
 
 
