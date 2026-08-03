@@ -37,10 +37,11 @@ mmw <命令> [参数]
   issue       tracker：建 issue、挂父子、算可认领集合
   wiki        Wiki：clone、重建导航、删本地文档前的验证
   domain      领域文档：落点、下一个 ADR 编号
+  release     出包：起循环、问状态、跑一个阶段、派修、收束
   doctor      检查这台机器上跑 mmw 需要的东西（无参：跑一次就是检查）
   init        把当前仓库配置成能跑这套工作流的样子；幂等（无参：跑一次就是配置）
 
-前六条不带参数跑一次，给它自己的用法。doctor 与 init 本来就不收参数，
+前七条不带参数跑一次，给它自己的用法。doctor 与 init 本来就不收参数，
 跑它们就是执行——查它们做什么看上面这两行，不要拿跑一次当查用法。
 EOF
   return 2
@@ -404,6 +405,7 @@ case "${1:-}" in
   issue) shift; cmd_issue "$@" ;;
   wiki) shift; cmd_wiki "$@" ;;
   domain) shift; cmd_domain "$@" ;;
+  release) shift; exec bash "$MMW_ROOT/release/release-flow.sh" "$@" ;;
   doctor) shift; cmd_doctor "$@" ;;
   init) shift; mmw_init "$@" ;;
   *) usage ;;

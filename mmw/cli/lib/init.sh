@@ -101,7 +101,7 @@ mmw_init_gitignore() {
   root="$(mmw_repo_root)"
   file="$root/.gitignore"
   touch "$file"
-  for line in "$(mmw_path_field worktrees)/" "$(mmw_path_field reviews)/" ".dispatch/"; do
+  for line in "$(mmw_path_field worktrees)/" "$(mmw_path_field reviews)/" "$(mmw_path_field release)/" ".dispatch/"; do
     if grep -qxF "$line" "$file"; then
       continue
     fi

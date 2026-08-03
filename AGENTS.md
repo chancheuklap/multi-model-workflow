@@ -164,7 +164,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 **触发方式**：Matt 大部分技能是人打名字才走（`disable-model-invocation: true`）。我们的入口是 `mmw-start`，它要能把活直接交给下游技能，所以链路上的技能一律改成模型可触发，description 按 `writing-great-skills` 的写法改成触发式。已经改过的技能正文一并译成中文，合集通用术语（spec、ticket、seam、frontier、worktree、tight、red、fog of war、destination、map、HITL / AFK、ready-for-agent）保持英文。
 
-**`mmw-` 前缀标记所有权。** 正文真正被我们改造过的技能，目录名和 `name` 一律加 `mmw-` 前缀，跟原样搬进来的上游技能区分开。现在有 21 个：`mmw-start`、`mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-grilling`、`mmw-triage`、`mmw-wayfinder`、`mmw-to-spec`、`mmw-to-tickets`、`mmw-to-plan`、`mmw-planner`、`mmw-implement`、`mmw-tdd`、`mmw-review`、`mmw-reviewer`、`mmw-diagnosing-bugs`、`mmw-prototype`、`mmw-closing`、`mmw-research`、`mmw-improve-codebase-architecture`、`mmw-codebase-design`、`mmw-domain-modeling`。
+**`mmw-` 前缀标记所有权。** 正文真正被我们改造过的技能，目录名和 `name` 一律加 `mmw-` 前缀，跟原样搬进来的上游技能区分开。现在有 22 个：`mmw-start`、`mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-grilling`、`mmw-triage`、`mmw-wayfinder`、`mmw-to-spec`、`mmw-to-tickets`、`mmw-to-plan`、`mmw-planner`、`mmw-implement`、`mmw-tdd`、`mmw-review`、`mmw-reviewer`、`mmw-diagnosing-bugs`、`mmw-prototype`、`mmw-closing`、`mmw-release`、`mmw-research`、`mmw-improve-codebase-architecture`、`mmw-codebase-design`、`mmw-domain-modeling`。
 
 **不留只做跳转的空壳。** 一个技能正文只是「去跑另外那个技能」，就把它的内容并进被它调的那个，然后删掉它。已删四个：`grill-with-docs`（并进 `mmw-grilling`）、`ask-matt`（路由判据并进 `mmw-start`）、`batch-grill-me`、`claude-handoff`。
 
@@ -190,7 +190,10 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 ```bash
 for t in mmw/cli/tests/test_*.sh; do bash "$t" || exit 1; done
+for t in mmw/release/tests/test_*.sh; do bash "$t" || exit 1; done
 (cd mmw/mcp && uv run --quiet --with pytest pytest test_graphify_ensure.py -q) || exit 1
+(cd mmw/release/tests && uv run --quiet --with pytest --with pydantic pytest \
+  test_release_contracts.py test_release_script_assembler.py -q) || exit 1
 ```
 
 | 落点 | 内容 | 怎么验的 |
@@ -204,6 +207,7 @@ for t in mmw/cli/tests/test_*.sh; do bash "$t" || exit 1; done
 | `skills/mmw-reviewer` | 审查者侧的方法论单源：共享纪律加八个视角。标准原样搬旧 plugin，只补 Matt 那个编码规范审视角。砍掉严重度与置信度，保留 `needs-redirection`、`needs-context` 两个出口 | 未实跑；安装脚本四种情形实测通过 |
 | `skills/mmw-dispatching-agents/install-agent-skills.sh` | 安装脚本，软链三份方法论进 headless 那个模型自己的技能目录：审查、写计划、测试。从发起审查技能旁边挪到派发技能旁边，因为它不再只服务审查者 | 三份装、幂等重跑、`--check` 实测通过 |
 | `.mcp.json`、`config/serena-readonly.yml`、`mcp/` | 三个检索工具随插件走。`.mcp.json` 是服务器定义的**唯一事实来源**：Claude Code 直接读它，`cli/adapters/claude-code.sh` 把同一份翻译成 `codex exec -c` 的覆盖项，`mcp/install-mcp.sh` 把同一份装进 pi 的用户配置（三个执行面里只有 pi 要写用户级配置，它的插件规格没有声明 MCP 的位置）。只读白名单做在 Serena 服务器那一侧而不是宿主那一侧——**Codex 的 MCP 配置没有任何工具过滤字段**，headless subagent 那一侧宿主过滤根本不存在。Graphify 走自写包装器不走官方入口：官方那个暴露 10 个工具（含三个查 GitHub PR 的）且不检查图新鲜度 | `test_mcp.sh` 八条；三个服务器实测探通（4 / 1 / 2 个工具）；`mcp/test_graphify_ensure.py` 六条过 |
+| `release/`、`skills/mmw-release` | 出包引擎整块从旧 plugin 搬来。**远程构建那 250 行零改动**——它是最复杂、坑最多的一段，而它的行为在 Mac 上验不了（`schtasks` 是 Windows 独有的），所以那一段的保证靠 diff 不靠测试。全文只有 4 处差异：状态落点改成从 `.mmw.json` 读（3 处），加上换掉旧宿主那份 runtime 常量。第 5 处是 `close` 改成留一份交付记录再删——一次改动影响多个产品时，后一个产品的自愈修复会推进 HEAD，早前那个产品的包就不是最终代码了；旧实现靠 `package-state.json` 那套状态机守这件事，新架构只留两个事实（产品、commit），判断归技能。`package-phase.sh` 不搬：产品影响解析归技能，两次人工确认收成一道 | 三份 shell 测试 62 / 41 / 19 条、两份 Python 测试 53 条，与旧家逐条一致；引擎全文 diff 证明改动面 |
 | `skills/mmw-implement` | 主 agent 不写码，一张 ticket 派一个 Codex headless 工人；主 agent 只做准备 brief、派发、验收、发起审查 | 实跑一个真工人在 throwaway 仓库里做完一张 ticket，测试全绿 |
 | `skills/mmw-tdd` | 测试要求分三层：怎么写（本技能加 `tests.md`、`mocking.md`）、够不够格进仓库（`quality-bar.md`）、这个仓库的事实（目标仓库根 `TESTING.md`，由 `mmw init` 铺骨架）。seam 由 spec 钉死，因为 headless 工人问不到人 | 随 `mmw-implement` 一起跑过 |
 | `skills/mmw-start` | 七条路由判据（含「报了一张 map 的编号」）；worktree 建错了重建，所以报一句就走不等确认；`resuming.md` 靠查产物报进度，不设状态文件 | 未实跑 |
@@ -222,7 +226,7 @@ for t in mmw/cli/tests/test_*.sh; do bash "$t" || exit 1; done
 | `skills/mmw-domain-modeling` | 它是唯一往仓库写 `CONTEXT.md` 和 ADR 的技能，原本却把落点写死，自带的示例还把多上下文画在 `src/` 下——读那份配置的三个技能守规矩，写的这一侧漏在外面。改成建文件前先跑 `mmw domain path` 与 `mmw domain dirs` 取形态和落点；`ADR-FORMAT.md` 的「扫最大号加一」换成 `mmw domain adr-next`，并补明草稿名怎么绕开几条链同时写 ADR 的撞号。四条问答纪律、`CONTEXT-FORMAT.md` 的写法规则、ADR 三条判据是纯方法论，原样保留 | 未实跑 |
 | `skills/mmw-codebase-design` | `DEEPENING.md` 的「replace, don't layer」说旧测试成废物就删、在新 interface 上重写，而 deepening 本质是挪 seam，`mmw-tdd` 规定 seam 由 spec 钉死。读者只有设计期的主 agent（`DESIGN-IT-TWICE.md` 给 subagent 的 brief 不带这一节），所以补一句挪 seam 属于设计决定、新 seam 与旧测试的删除一并写进 spec，不重写判据。词汇表、四条原则、可测试性三节跟宿主无关，原样保留 | 未实跑 |
 
-二十一个 `mmw-` 技能里，十七个有 `## 下一步` 表，形式一致：两列（情况、下一步），动词只有「自己继续」「移交」「停」。四个没有：`mmw-reviewer` 和 `mmw-planner` 是派出去的 subagent 读的方法论，不是流程技能；`mmw-codebase-design` 和 `mmw-domain-modeling` 是纪律层的词汇与方法论，做完就是做完，没有会带跑我们流程的出口。`mmw-tdd` 及各技能下的 reference 全部补译成中文（派给审查者和工人的提示词也是中文，模板里的结构字段名保持英文），全仓用词已统一（决策改为决定，坐实改为验证，雾改为 fog of war，map 与 spec 的模板节名一律用英文原文）。
+二十二个 `mmw-` 技能里，十八个有 `## 下一步` 表，形式一致：两列（情况、下一步），动词只有「自己继续」「移交」「停」。四个没有：`mmw-reviewer` 和 `mmw-planner` 是派出去的 subagent 读的方法论，不是流程技能；`mmw-codebase-design` 和 `mmw-domain-modeling` 是纪律层的词汇与方法论，做完就是做完，没有会带跑我们流程的出口。`mmw-tdd` 及各技能下的 reference 全部补译成中文（派给审查者和工人的提示词也是中文，模板里的结构字段名保持英文），全仓用词已统一（决策改为决定，坐实改为验证，雾改为 fog of war，map 与 spec 的模板节名一律用英文原文）。
 
 断点续传不用状态文件：每一步都有一件落在 git 或 GitHub 上的产物对应它（分支上第一个空提交记用户原话、`docs/specs/<slug>/`、子 issue 的开关与 assignee、`.reviews/`、Wiki 页），查产物就知道走到哪。旧 plugin 需要状态文件是因为它有阶段引擎要记 phase 变量，新架构没有引擎。全流程唯一那道人工审批关卡也有产物：`mmw-to-spec` 只在用户点头之后才发布 spec issue 并打 `ready-for-agent`，issue 在且带这个标签就是过关卡的凭据。
 
