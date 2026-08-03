@@ -11,18 +11,18 @@ description: 扫一遍代码库找可以做深的模块，把候选出成一份�
 
 ## 先读领域文档
 
-**按 `docs/agents/domain.md` 的读取顺序读领域文档**：先查仓库根有没有 `CONTEXT-MAP.md`，有就按它的索引读这次要碰的那几个上下文，没有就回退根 `CONTEXT.md`。两个都没有就直接往下走，不要停下来建——术语是谈出一个写一个的，不是开工前的填表作业。
+**按 `docs/agents/domain.md` 的读取顺序读领域文档**：先查仓库根有没有 `CONTEXT-MAP.md`，有就按它的索引读这次要碰的那几个上下文，没有就回退根 `CONTEXT.md`。两个都没有就直接往下走，不要停下来建。
 
-再读你要碰的那一片的 ADR。ADR 记着已经拍过板的决定，这次不重新拿出来吵。
+再读你要碰的那一片的 ADR。ADR 里已经拍过板的决定，这次不重新拿出来吵。
 
 领域文档给的是**好 seam 的名字**。`CONTEXT.md` 里定义了「订单」，你就说「订单受理这个 module」，不说「那个 FooBarHandler」，也不说「订单服务」。
 
 ## 1. 先定范围
 
-**扫之前先定扫哪。** 把一个 module 做深，回报是它以后好改；所以最近一直在改的地方权重最高，长期没人碰的地方做深了也没人受益。
+**扫之前先定扫哪。** 最近一直在改的地方权重最高。
 
 - 用户点了方向（某个 module、某个子系统、某个痛点），就用他点的，跳过下面的推断。
-- 没点，**按 `/mmw-research` 的内部方向派一个 subagent** 翻提交历史（`git log --oneline`），找反复出现的那几个文件和目录，让它们先吸引你的注意。翻的是几百上千条提交，得出的是一张热点清单——这种活不要自己做。改动散得到处都是、没有明显热点时，才把网撒大。
+- 没点，**按 `/mmw-research` 的内部方向派一个 subagent** 翻提交历史（`git log --oneline`），交回一张热点清单——反复出现的那几个文件和目录。改动散得到处都是、没有明显热点时，才把网撒大。
 
 定完的这一片，是下一步所有人共同的地盘。
 
@@ -38,7 +38,7 @@ description: 扫一遍代码库找可以做深的模块，把候选出成一份�
 | seam 漏了 | 哪些互相咬死的 module 从 seam 漏了出去？ |
 | 测不进去 | 哪些地方没有测试，或者隔着现在这个 interface 根本测不了？ |
 
-**按视角分，不按范围分。** 每个 subagent 都看第 1 步定下来的整片地方，不要把它切成几块各管一段——最值钱的那类发现恰恰是跨边界的：一个概念散在三个 module 里，一处耦合从 seam 漏进另一个子系统。范围一切，这类问题就没人看得见了。反过来，一个 subagent 同时背五个视角会趋同：它找到第一个候选之后，剩下的注意力都还留在那附近。
+**按视角分，不按范围分。** 每个 subagent 都看第 1 步定下来的整片地方，不要把它切成几块各管一段。
 
 每份 brief 给同样的仓库语境（领域文档里的词、`/codebase-design` 的词汇表、这一片的 ADR 结论、第 1 步定下的范围），只有视角那一栏不同。brief 要自包含。
 
@@ -48,15 +48,11 @@ description: 扫一遍代码库找可以做深的模块，把候选出成一份�
 
 ## 3. 收回来的先验证再采信
 
-subagent 交回的是证据不是结论，按 `/mmw-verifying-agent-output` 逐条验证。
-
-这一步不能省。报告里每张卡片的文件清单和问题描述，用户是照着它挑下一件事做的——挑错了，后面整条主干都在做一件不该做的事。它说某个 module 是 shallow 的，你自己打开那几个文件，确认 interface 真的和 implementation 一样宽；它说某处耦合漏出了 seam，你自己找到那几行。验证不出来的不进报告。
+subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说某个 module 是 shallow 的，你自己打开那几个文件，确认 interface 真的和 implementation 一样宽；它说某处耦合漏出了 seam，你自己找到那几行。验证不出来的不进报告。
 
 ## 4. 出报告
 
 写一个自包含的 HTML 文件，落系统临时目录：从 `$TMPDIR` 取，取不到退回 `/tmp`（Windows 上是 `%TEMP%`），文件名 `architecture-review-<时间戳>.html`，每次跑一份新的。然后打开它——macOS `open`、Linux `xdg-open`、Windows `start`——把绝对路径告诉用户。
-
-**不落仓库是有意的。** 到这一步还没有任务 worktree（要改什么都还没定），主仓库此刻是干净的只读状态，往里写文件就是污染。这份报告的寿命也就到用户挑中一项为止。过几天回来重扫一次就是了——代码变了本来也该重扫。
 
 每个候选一张卡片：涉及哪些文件、现在这个结构在哪里造成摩擦、改成什么样、好处（用 locality 和 leverage 说，以及测试会怎么变好）、一张 before/after 图、一个推荐强度徽章（`Strong`、`Worth exploring`、`Speculative`）。结尾一节 **Top recommendation**：你会先做哪一个，为什么。
 
@@ -68,9 +64,9 @@ subagent 交回的是证据不是结论，按 `/mmw-verifying-agent-output` 逐�
 
 ## 5. 用户挑中之后再建 worktree
 
-挑中之前不建 worktree。扫描是只读的，而且要改什么还没定，slug 的短语无从取。挑中了才知道。
+挑中之前不建 worktree，扫描全程只读。
 
-这时候按 `docs/agents/worktrees.md` 定 slug、建 worktree、`EnterWorktree` 进去、打那个记原话的空提交。类型固定用 `refactor`，短语取被选中那个 module 的名字，例如 `refactor-order-intake`。空提交里记的是用户挑中这一项时说的原话，加上这张卡片的标题。
+挑中了按 `docs/agents/worktrees.md` 定 slug、建 worktree、`EnterWorktree` 进去、打那个记原话的空提交。类型固定用 `refactor`，短语取被选中那个 module 的名字，例如 `refactor-order-intake`。空提交里记的是用户挑中这一项时说的原话，加上这张卡片的标题。
 
 ## 6. 就这一个候选谈下去
 
