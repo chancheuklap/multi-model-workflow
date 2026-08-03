@@ -28,7 +28,7 @@
     },
     {
       "name": "mmw",
-      "description": "多模型开发编排。Claude 主 agent 编排与判定,GPT 工人写码写计划,跨模型审查。长在 Matt Pocock 的工程技能之上。技能名与 mattpocock-skills 原版相同,两者不要同时装。",
+      "description": "多模型开发编排。Claude 主 agent 编排与判定,GPT 工人写码写计划,跨模型审查。长在 Matt Pocock 的工程技能之上:改造过的 22 个带 mmw- 前缀,不会撞;handoff 与 writing-great-skills 沿用原名,装了 mattpocock-skills 那两个会撞。",
       "version": "0.3.0",
       "author": {
         "name": "Cheuk Lap Chan",
