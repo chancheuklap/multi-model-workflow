@@ -17,7 +17,7 @@ issue tracker 和标签词汇按 `docs/agents/issue-tracker.md` 与 `docs/agents
 
 上游那份 spec 的现状调查已经覆盖了这块代码怎么实现，这里不重查，只查 prefactor 这一个角度。**上游没有 spec、这次是从对话直接拆 ticket 的**，就连现状一起查，一个角度一个 subagent。
 
-收回来按 `/mmw-verifying-agent-output` 验证过才写进 ticket——一张凭空捏造的 prefactor ticket 会让工人去改一处不存在的问题。
+收回来按 `/mmw-verifying-agent-output` 验证过才写进 ticket。
 
 ticket 的标题和描述用项目领域术语表里的词，遵守这块地方的 ADR。
 
@@ -36,7 +36,7 @@ ticket 的标题和描述用项目领域术语表里的词，遵守这块地方�
 
 给每张 ticket 标上**阻塞边**——必须先做完它才能开工的那些 ticket。没有阻塞边的可以立刻开工。
 
-**大范围重构是垂直切片的例外。** **大范围重构**是一次机械改动——改一个列名、给一个共享符号换类型——它的 **blast radius** 铺满整个代码库，一次编辑就打断上千个调用点，没有哪一片垂直切片能落地还是绿的。不要把它硬塞进 tracer bullet，按 **expand–contract** 排序。先 expand：新形式加在旧形式旁边，什么都不打断。再按 blast radius 分批迁移调用点（一个包一批、一个目录一批），每一批是自己那张 ticket、被 expand 阻塞，因为旧形式还在，批与批之间 CI 一直是绿的。最后 contract：没有调用方了就删掉旧形式，这张 ticket 被每一批迁移阻塞。连分批都单独绿不了时，序列照排，但让它们共用一条集成分支，全部阻塞最后那张集成并验证的 ticket——绿只在那里承诺。
+**大范围重构是垂直切片的例外。** **大范围重构**是一次机械改动——改一个列名、给一个共享符号换类型——它的 **blast radius** 铺满整个代码库，一次编辑就打断上千个调用点，没有哪一片垂直切片能落地还是绿的。不要把它硬塞进 tracer bullet，按 **expand–contract** 排序。先 expand：新形式加在旧形式旁边，什么都不打断。再按 blast radius 分批迁移调用点（一个包一批、一个目录一批），每一批是自己那张 ticket、被 expand 阻塞。最后 contract：没有调用方了就删掉旧形式，这张 ticket 被每一批迁移阻塞。连分批都单独绿不了时，序列照排，但让它们共用一条集成分支，全部阻塞最后那张集成并验证的 ticket——绿只在那里承诺。
 
 ## 4. 编号，把清单亮给用户
 
@@ -46,15 +46,15 @@ ticket 的标题和描述用项目领域术语表里的词，遵守这块地方�
 - **Blocked by**：哪几张必须先做完
 - **What it delivers**：这张让什么端到端行为跑起来
 
-**亮完就往下走，不等确认。** 人工审批关卡在 `/mmw-to-spec` 第 7 步，spec 过了那道关卡之后这条线是流水线态；切分粒度和阻塞边对不对，由 `/mmw-to-plan` 那道计划审把关。用户看了要改，回第 3 步改完再亮一次。
+**亮完就往下走，不等确认。** 用户看了要改，回第 3 步改完再亮一次。
 
 ## 5. 发布
 
-按 `docs/agents/issue-tracker.md` 发布，一张 ticket 一张 issue，**按依赖顺序发**——阻塞方先发出去，后面那张才引得到真编号。阻塞关系用 tracker 原生的依赖边；每张挂在 spec issue 底下作子 issue。
+按 `docs/agents/issue-tracker.md` 发布，一张 ticket 一张 issue，**按依赖顺序发**，阻塞方先发。阻塞关系用 tracker 原生的依赖边；每张挂在 spec issue 底下作子 issue。
 
 打 `ready-for-agent`。打在 ticket 上的含义是「这张可以派工人开工」，跟打在 spec issue 上那个（人工审批关卡的凭据）不是一回事。
 
-发布顺序沿 **frontier** 走：阻塞它的都已发布的那些。纯线性链就是从上到下。
+发布顺序沿 **frontier** 走：阻塞它的都已发布的那些。
 
 父 issue 不要关，也不要改。
 
@@ -83,12 +83,12 @@ ticket 的标题和描述用项目领域术语表里的词，遵守这块地方�
 
 </issue-template>
 
-正文里不要写具体文件路径和代码片段——它们过期得快，那些东西属于 plan。例外：原型产出了一段代码，它比散文更精确地编码了某个决定（状态机、reducer、schema、类型形状），就内联进去，并简短注明它来自原型。只留有决定含量的部分——不是一个能跑的 demo，只要要紧的那几行。
+正文里不要写具体文件路径和代码片段，那些东西属于 plan。例外：原型产出了一段代码，它比散文更精确地编码了某个决定（状态机、reducer、schema、类型形状），就内联进去，并简短注明它来自原型。只留有决定含量的部分——不是一个能跑的 demo，只要要紧的那几行。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
-| ticket 全部发布完 | **移交**：`/mmw-to-plan`，一张 ticket 写一份 plan。文件路径和代码属于那里 |
+| ticket 全部发布完 | **移交**：`/mmw-to-plan`，一张 ticket 写一份 plan |
 | 第 4 步用户要改切分 | **自己继续**：回第 3 步改，改完重亮一次清单 |
-| 来源是一份 spec，但那张 spec issue 没带 `ready-for-agent` | **停**：这份 spec 还没过人工审批关卡，回 `/mmw-to-spec` 第 7 步 |
+| 来源是一份 spec，但那张 spec issue 没带 `ready-for-agent` | **停**：回 `/mmw-to-spec` 第 7 步 |
