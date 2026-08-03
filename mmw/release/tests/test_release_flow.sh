@@ -45,7 +45,7 @@ else
 fi
 [ "$(bash "$RF" exit-check)" = "NOT-DONE:stages=compile" ] && ok "exit-check 列剩余" || no "exit-check ($(bash "$RF" exit-check))"
 
-bash "$RF" stage done --stage compile >/dev/null
+bash "$RF" stage "done" --stage compile >/dev/null
 [ "$(bash "$RF" exit-check)" = "DONE" ] && ok "全 done -> DONE" || no "DONE ($(bash "$RF" exit-check))"
 [ "$(bash "$RF" where)" = "SUCCESS:all stages done" ] && ok "where -> SUCCESS" || no "SUCCESS ($(bash "$RF" where))"
 
@@ -60,7 +60,7 @@ jq '.stages=[{name:"capture",run:["capture-argv","${RELEASE_PLUGIN_DIR}"]}]' "$F
 bash "$RF" init --manifest capture-manifest.json >/dev/null
 if PATH="$PWD/capture-bin:$PATH" ARGV_CAPTURE="$TMP/plugin-dir.argv" bash "$RF" stage run --stage capture >/dev/null; then
   expected_plugin_dir="$(
-    CDPATH= cd -- "$(dirname -- "$RF")"
+    CDPATH='' cd -- "$(dirname -- "$RF")"
     pwd -P
   )"
   [ "$(cat "$TMP/plugin-dir.argv")" = "$expected_plugin_dir" ] && ok "stage run 展开 RELEASE_PLUGIN_DIR 为引擎物理目录" || no "RELEASE_PLUGIN_DIR 展开错误"
@@ -92,7 +92,7 @@ bash "$RF" resume >/dev/null
 
 bash "$RF" close >/dev/null
 bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
-bash "$RF" stage done --stage doctor >/dev/null
+bash "$RF" stage "done" --stage doctor >/dev/null
 echo changed > source-change
 git add source-change
 git commit -qm source-change
@@ -291,7 +291,7 @@ esac
 # 回归:stage done 只是人工确认位,拒绝跳步把从未执行的 stage 标 done(伪造 exit-check DONE)。
 bash "$RF" close >/dev/null
 bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
-if bash "$RF" stage done --stage compile 2>/dev/null; then
+if bash "$RF" stage "done" --stage compile 2>/dev/null; then
   no "stage done 跳步应被拒绝"
 else
   ok "stage done 拒绝跳步标 done"
