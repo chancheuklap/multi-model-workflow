@@ -15,6 +15,17 @@
 
 set -euo pipefail
 
+# 派出去的那一侧从哪个路径读方法论。走 codex exec 的读它自己技能目录里的软链，
+# 会话内的 subagent 读插件原件。
+mmw_adapter_skill_path() {
+  local skill="$1" family="$2"
+  if [ "$family" = gpt ]; then
+    echo "${CODEX_HOME:-$HOME/.codex}/skills/$skill/SKILL.md"
+  else
+    echo "$MMW_ROOT/skills/$skill/SKILL.md"
+  fi
+}
+
 mmw_adapter_dispatch() {
   case "$MMW_D_FAMILY" in
     claude)
@@ -38,7 +49,9 @@ mmw_adapter_dispatch() {
       printf 'mode: host-tool\n'
       printf 'tool: Agent\n'
       printf 'brief: %s\n' "$MMW_D_BRIEF"
-      [ -n "$MMW_D_SKILL_PATH" ] && printf 'skill-path: %s\n' "$MMW_D_SKILL_PATH"
+      if [ -n "$MMW_D_SKILL_PATH" ]; then
+        printf 'skill-path: %s\n' "$MMW_D_SKILL_PATH"
+      fi
       jq -nc --arg r "$plugin_name:$MMW_D_ROSTER" --arg t "$tier" --arg e "$MMW_D_EFFORT" \
         '{subagent_type: $r, model: $t, effort: $e}' \
         | sed 's/^/params: /'

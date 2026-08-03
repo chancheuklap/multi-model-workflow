@@ -20,7 +20,11 @@ usage() {
   cat >&2 <<'EOF'
 用法：
   mmw dispatch <角色> --brief <文件> [--cwd <目录>]
-      角色：worker | worker-high-risk | planner | reviewer-gpt | reviewer-claude
+      角色：worker | worker-high-risk | planner | investigator
+            | reviewer-gpt | reviewer-claude
+      会写文件的角色（前三个）--cwd 必填
+  mmw skill-path <角色>            派出去那一侧读方法论的路径；宿主自己会送
+                                   到位的输出空
   mmw task new <slug> [原话]      建 worktree 与分支，输出绝对路径
   mmw task enter <slug>            输出该 worktree 的绝对路径
   mmw task cleanup <slug>          删 worktree 与分支（非强制，有改动会失败）
@@ -36,23 +40,25 @@ role_roster() {
   case "$1" in
     worker | worker-high-risk) echo "mmw-worker" ;;
     planner) echo "mmw-planner" ;;
+    investigator) echo "mmw-investigator" ;;
     reviewer-gpt | reviewer-claude) echo "mmw-reviewer" ;;
     *) return 1 ;;
   esac
 }
 
+# 挂哪份方法论。调查者没有——它每次的判据由派它的技能现写进提示词。
 role_skill() {
   case "$1" in
     worker | worker-high-risk) echo "mmw-tdd" ;;
     planner) echo "mmw-planner" ;;
     reviewer-gpt | reviewer-claude) echo "mmw-reviewer" ;;
-    *) return 1 ;;
+    *) echo "" ;;
   esac
 }
 
 role_writable() {
   case "$1" in
-    reviewer-gpt | reviewer-claude) echo "no" ;;
+    investigator | reviewer-gpt | reviewer-claude) echo "no" ;;
     *) echo "yes" ;;
   esac
 }
@@ -81,6 +87,15 @@ cmd_dispatch() {
   [ -n "$brief" ] || { echo "mmw: dispatch 要 --brief" >&2; usage; }
   [ -f "$brief" ] || { echo "mmw: brief 文件不存在：$brief" >&2; return 1; }
   brief="$(cd "$(dirname "$brief")" && pwd)/$(basename "$brief")"
+
+  local writable
+  writable="$(role_writable "$role")"
+  # 会写文件的角色必须显式指定工作目录：它要待在自己那棵 worktree 里，
+  # 默认到仓库根就会写进主工作树。只读角色默认在仓库根，没有这个风险。
+  if [ "$writable" = "yes" ] && [ -z "$cwd" ]; then
+    echo "mmw: $role 会写文件，--cwd 必填，指向它该待的那棵 worktree" >&2
+    return 1
+  fi
   [ -n "$cwd" ] || cwd="$(mmw_repo_root)"
   [ -d "$cwd" ] || { echo "mmw: 工作目录不存在：$cwd" >&2; return 1; }
   cwd="$(cd "$cwd" && pwd)"
@@ -93,15 +108,15 @@ cmd_dispatch() {
   export MMW_D_ROLE="$role"
   export MMW_D_ROSTER="$roster"
   export MMW_D_SKILL="$skill"
-  export MMW_D_SKILL_PATH="$MMW_ROOT/skills/$skill/SKILL.md"
+  export MMW_D_SKILL_PATH=""
+  [ -z "$skill" ] || MMW_D_SKILL_PATH="$MMW_ROOT/skills/$skill/SKILL.md"
   export MMW_D_FAMILY MMW_D_MODEL_ID MMW_D_EFFORT
   MMW_D_FAMILY="$(mmw_model_field "$role" family)"
   MMW_D_MODEL_ID="$(mmw_model_field "$role" id)"
   MMW_D_EFFORT="$(mmw_model_field "$role" effort)"
   export MMW_D_BRIEF="$brief"
   export MMW_D_CWD="$cwd"
-  export MMW_D_WRITABLE
-  MMW_D_WRITABLE="$(role_writable "$role")"
+  export MMW_D_WRITABLE="$writable"
 
   # 可写任务派出去之前工作区必须干净，否则工人的提交里会混进别人的改动。
   if [ "$MMW_D_WRITABLE" = "yes" ] && [ -n "$(git -C "$cwd" status --porcelain)" ]; then
@@ -113,6 +128,27 @@ cmd_dispatch() {
   # shellcheck source=/dev/null
   . "$adapter"
   mmw_adapter_dispatch
+}
+
+# 派出去的那一侧从哪个路径读方法论。宿主自己会送到位的，什么都不输出。
+cmd_skill_path() {
+  local role="${1:-}"
+  [ -n "$role" ] || usage
+  role_roster "$role" >/dev/null || {
+    echo "mmw: 认不出角色 $role" >&2
+    usage
+  }
+  local skill
+  skill="$(role_skill "$role")"
+  [ -n "$skill" ] || return 0
+
+  local host adapter
+  host="$(mmw_host)"
+  adapter="$MMW_ROOT/cli/adapters/$host.sh"
+  [ -f "$adapter" ] || { echo "mmw: 没有 $host 的 adapter" >&2; return 1; }
+  # shellcheck source=/dev/null
+  . "$adapter"
+  mmw_adapter_skill_path "$skill" "$(mmw_model_field "$role" family)"
 }
 
 cmd_task() {
@@ -211,6 +247,7 @@ NOTE
 
 case "${1:-}" in
   dispatch) shift; cmd_dispatch "$@" ;;
+  skill-path) shift; cmd_skill_path "$@" ;;
   task) shift; cmd_task "$@" ;;
   doctor) shift; cmd_doctor "$@" ;;
   init) shift; cmd_init "$@" ;;

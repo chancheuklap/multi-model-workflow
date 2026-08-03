@@ -13,6 +13,11 @@
 
 set -euo pipefail
 
+# 这个宿主的 subagent 工具自己解析 skill 参数并注入，不用把路径写进提示词。
+mmw_adapter_skill_path() {
+  :
+}
+
 mmw_adapter_dispatch() {
   local provider
   case "$MMW_D_FAMILY" in

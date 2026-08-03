@@ -5,6 +5,7 @@
     "worker":           {"family": "gpt",    "id": "gpt-5.6-terra",  "effort": "high"},
     "worker-high-risk": {"family": "gpt",    "id": "gpt-5.6-sol",    "effort": "medium"},
     "planner":          {"family": "gpt",    "id": "gpt-5.6-sol",    "effort": "high"},
+    "investigator":     {"family": "gpt",    "id": "gpt-5.6-sol",    "effort": "high"},
     "reviewer-gpt":     {"family": "gpt",    "id": "gpt-5.6-sol",    "effort": "xhigh"},
     "reviewer-claude":  {"family": "claude", "id": "claude-opus-5",  "effort": "high"}
   },
