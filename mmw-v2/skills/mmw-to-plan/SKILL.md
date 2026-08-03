@@ -21,7 +21,7 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 
 读 spec，取出 `## Problem Statement`、`## Solution`、`## Implementation Decisions`、`## Contract Boundaries`、`## Testing Decisions` 一节里那张 seam 清单表。**只读，作为派发时给工人的上下文**，不在这里展开写作。
 
-取全部 ticket，读出各自要做什么和被谁阻塞，定下 plan 清单：**一张 ticket 一份 plan 一个工人**。落点就是每张 ticket 正文 `## Plan` 一节写着的那个路径（`docs/plans/<slug>/<两位编号>-<ticket-slug>.md`），编号照抄，不自己重排——工人和后面的写码工人都按那个路径找。ticket 正文没有这一节，按依赖顺序自己编号，被阻塞的排在阻塞它的后面。
+取全部 ticket，读出各自要做什么和被谁阻塞，定下 plan 清单：**一张 ticket 一份 plan 一个工人**。落点就是每张 ticket 正文 `## Plan` 一节写着的那个路径（`docs/plans/<slug>/<两位编号>-<ticket-slug>.md`），编号照抄，不自己重排。ticket 正文没有这一节，按依赖顺序自己编号，被阻塞的排在阻塞它的后面。
 
 **轻量验证现状**：用检索确认 spec 涉及的落点目录和关键路径真实存在，够你判断派几个工人、各管哪张 ticket 就行。深度探代码由工人各自做，你不抢着探全。
 
@@ -40,7 +40,7 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 
 没有跨 plan 连接面就在这一节写明「无跨 plan 共享合同」。
 
-这一节随 spec 进入工人的上下文，是它的硬边界：工人不许认领别份 plan 归属的文件。
+这一节随 spec 进入工人的上下文：工人不许认领别份 plan 归属的文件。
 
 ## 3. 派写计划工人
 
@@ -57,14 +57,14 @@ ls "${CODEX_HOME:-$HOME/.codex}/skills/mmw-planner/SKILL.md"
 提示词从文件里取，不凭记忆，写到 `.dispatch/<slug>-plan-<编号>.prompt.md` 再从那里派（先 `mkdir -p .dispatch`）：
 
 1. spec 在这个 worktree 里的路径，加上 `## Testing Decisions` 一节里那张 seam 清单表的原文引用。
-2. **这张 ticket 的正文**：标题、要做什么、每一条验收标准、被谁阻塞，全部抄进去。工人能访问 tracker 也照样抄——让它自己去取可能取错一张，而且提示词就不再是你派发内容的完整记录。
+2. **这张 ticket 的正文**：标题、要做什么、每一条验收标准、被谁阻塞，全部抄进去。工人能访问 tracker 也照样抄。
 3. plan 文件的落点路径。
 4. 这次需求背后有原型的，给出**选中的那一版**的路径，加上 spec 里那一节视觉契约。只给选中的那一份。
 5. 它这次的方法论在 `${CODEX_HOME:-$HOME/.codex}/skills/mmw-planner/SKILL.md`，把这个路径写给它，让它进门先读完整份。
 
 **每个派发只装这五样。** 别的工人的历史、别份 plan 的内容、前面几轮的完成总结，一律不进。
 
-互不依赖的 plan 一条消息里并行发出去；有依赖链的按依赖顺序发。**不开子 worktree、不提交**：各份 plan 写不同文件，在任务 worktree 内并行是安全的。
+互不依赖的 plan 一条消息里并行发出去；有依赖链的按依赖顺序发。**不开子 worktree、不提交**，各份 plan 写不同文件，在任务 worktree 内并行。
 
 ## 4. 验证返回
 
@@ -92,8 +92,8 @@ plan 文档和 spec 新增那一节分两次提交。工人不提交，改动一
 | --- | --- |
 | plan 审过了 | **移交**：`/mmw-implement`，一张 ticket 一个写码工人开始落地 |
 | 审出了采信的 findings | **自己继续**：续接对应工人改，改完回第 6 步复审 |
-| 第 4 步某个工人交回 `needs-context` 或 `needs-repair` | **自己继续**：按它说的补上下文或修 spec，续接同一个工人会话——上下文还在它那里 |
+| 第 4 步某个工人交回 `needs-context` 或 `needs-repair` | **自己继续**：按它说的补上下文或修 spec，续接同一个工人会话 |
 | 第 5 步发现工人认领了别人归属的文件，或者提供方跟消费方对不上 | **自己继续**：续接对应工人修，不要自己动它的 plan |
 | 前置三项有一项不满足 | **停**：说清是哪一项。缺 ticket 的回 `/mmw-to-tickets`，缺 spec 的回 `/mmw-to-spec` |
-| 工人交回 `needs-redirection` | **停**：它探代码撞破了 spec 的方向。把它说的哪里可疑、建议怎么重新框定原样交给用户，不要自己改 spec 绕过去 |
+| 工人交回 `needs-redirection` | **停**：把它说的哪里可疑、建议怎么重新框定原样交给用户，不要自己改 spec 绕过去 |
 | 工人交回 `blocked`，或者同一份 plan 返修三轮还没过 | **停**：报是哪一份、卡在哪里、三轮各自改了什么，让用户定 |
