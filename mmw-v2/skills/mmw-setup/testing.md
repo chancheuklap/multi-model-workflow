@@ -1,6 +1,6 @@
 # TESTING.md（本仓库薄层）
 
-> 测试怎么写、够不够格进仓库，是插件随身带的：`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md` 这四份。本文只补**本仓库的事实**，不重复也不删减「测试怎么写」和「够不够格进仓库」这两层。这里写的任何内容都不能豁免 `mmw-tdd/quality-bar.md` 的资格线，也不能放行它列的禁止形态。
+> 测试怎么写、够不够格进仓库，是插件随身带的：`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md` 这四份。本文只补**本仓库的事实**。这里写的任何内容都不能豁免 `mmw-tdd/quality-bar.md` 的资格线，也不能放行它列的禁止形态。
 
 ## 目录分层
 

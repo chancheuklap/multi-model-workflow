@@ -50,7 +50,7 @@ map 是一份**索引**，不是一个仓库。它列出已经做出的决定，
 
 建 ticket 的时候把两条属性一起定下来：
 
-1. **它是 HITL 还是 AFK**——这件活要不要人在对话里参与才做得完。定义在 `docs/agents/triage-labels.md` 的「HITL 与 AFK」一节，本文不复述。
+1. **它是 HITL 还是 AFK**——这件活要不要人在对话里参与才做得完。定义在 `docs/agents/triage-labels.md` 的「HITL 与 AFK」一节。
 2. **它是哪一个类型**——写成 `wayfinder:<类型>` 标签，四个取值见本文「四个类型」一节。
 
 HITL 还是 AFK 不单独打标签，从类型推出来；只有 `wayfinder:task` 例外。

@@ -53,4 +53,3 @@ const api = {
   fetch: (endpoint, options) => fetch(endpoint, options),
 };
 ```
-
