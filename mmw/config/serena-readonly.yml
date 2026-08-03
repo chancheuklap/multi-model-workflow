@@ -1,0 +1,20 @@
+# Serena 的只读工具白名单，三个执行面共用这一份。
+#
+# 为什么白名单做在服务器这一侧，不做在宿主那一侧：Codex CLI 的 MCP 配置没有任何
+# 限制工具的字段（只有能不能用、怎么启动、超时多久），所以派出去的 headless
+# subagent 那一侧，宿主过滤根本不存在。上游默认暴露的工具里有任意命令执行、创建
+# 覆写文件、在符号前后插入代码、重命名与删除符号，还有一套往仓库落文件的记忆
+# 系统——这三类分别绕开我们的编辑纪律、安全边界和文档权威。fixed_tools 让 Serena
+# 进程自己只注册下面四个，任何客户端连上来看到的都一样。
+#
+# 改这份文件之前先想清楚：多放进来一个工具，五个 GPT 角色立刻都拿得到。
+description: MMW read-only symbol retrieval
+prompt: |
+  Use Serena only to retrieve static symbol candidates. Verify every candidate in the current source with the host's read and search tools before it enters a design, plan, review, fix or delivery report. An empty result never proves absence. Use the host's own editing tools for all changes.
+fixed_tools:
+  - find_symbol
+  - find_referencing_symbols
+  - get_symbols_overview
+  - find_implementations
+single_project: true
+structured_tool_output: true

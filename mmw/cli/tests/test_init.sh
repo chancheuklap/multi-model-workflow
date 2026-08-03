@@ -71,8 +71,16 @@ check "生成了 .mmw.json" "yes" "$([ -f .mmw.json ] && echo yes || echo no)"
 check "铺了 TESTING.md 骨架" "yes" "$([ -f TESTING.md ] && echo yes || echo no)"
 check "TESTING.md 是骨架不是填好的" "yes" \
   "$(grep -q '例如' TESTING.md && echo yes || echo no)"
-check "gitignore 三行" ".worktrees/ .reviews/ .dispatch/" \
-  "$(tr '\n' ' ' < .gitignore | sed 's/ $//')"
+# 守:随 worktree 死的过程材料不能进版本库——把任务 worktree、审查记录或出包状态提交
+# 上去,别人拉下来就是一堆跟他无关的中间产物。清单从 .mmw.json 读出来比对,不在这里
+# 手抄第二份:抄一份的话,加一个路径就得改两处,漏改的那天测试还是绿的。
+missing=""
+for key in worktrees reviews release; do
+  p="$(jq -r ".paths[\"$key\"]" .mmw.json)/"
+  grep -qxF "$p" .gitignore || missing="$missing $key"
+done
+grep -qxF '.dispatch/' .gitignore || missing="$missing dispatch"
+check "配置里声明的过程目录都被 gitignore 挡住" "" "$missing"
 check "指针节进了 CLAUDE.md" 1 "$(grep -c '^## 多模型工作流' CLAUDE.md)"
 check "装了转发脚本" "yes" \
   "$([ -x "$HOME/.local/bin/mmw" ] && echo yes || echo no)"
@@ -93,7 +101,9 @@ printf '本仓库的事实\n' >> TESTING.md
 check "配置不覆盖" 1 "$(grep -c '已有.*\.mmw\.json' "$WORK/out2")"
 check "TESTING.md 不覆盖，人填的内容还在" "yes" \
   "$(grep -q '本仓库的事实' TESTING.md && echo yes || echo no)"
-check "gitignore 不重复追加" 3 "$(grep -c . .gitignore)"
+# 守:重跑 init 是常事(换机器、加了新配置),每跑一次就往 .gitignore 里追加一遍同样的行,
+# 那个文件会越滚越长。断有没有重复行,不断总行数——总行数会随配置增删而变,那不是合同。
+check "gitignore 不重复追加" "" "$(sort .gitignore | uniq -d | tr '\n' ' ' | sed 's/ $//')"
 check "指针节不追加第二份" 1 "$(grep -c '^## 多模型工作流' CLAUDE.md)"
 check "标签一个都不再建" 0 "$(grep -c . "$MMW_TEST_CREATED" || true)"
 

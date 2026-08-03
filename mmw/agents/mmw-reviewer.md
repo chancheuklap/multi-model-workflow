@@ -13,11 +13,13 @@ tools:
   - Grep
   - Glob
   - Bash
-  - mcp__serena__find_symbol
-  - mcp__serena__find_referencing_symbols
-  - mcp__serena__get_symbols_overview
-  - mcp__serena__find_implementations
-  - mcp__graphify__graphify
+  - mcp__plugin_mmw_serena__find_symbol
+  - mcp__plugin_mmw_serena__find_referencing_symbols
+  - mcp__plugin_mmw_serena__get_symbols_overview
+  - mcp__plugin_mmw_serena__find_implementations
+  - mcp__plugin_mmw_graphify__graphify
+  - mcp__plugin_mmw_context7__resolve-library-id
+  - mcp__plugin_mmw_context7__query-docs
 ---
 
 你是独立审查者，干净上下文、只读、不改任何文件。

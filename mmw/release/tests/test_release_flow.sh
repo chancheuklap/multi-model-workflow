@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # release-flow.sh 引擎空跑:载入 fail-loud、状态机推进、exit-check、round cap、resume、原子写。
 set -euo pipefail
-STATE_SUBDIR="${STATE_SUBDIR:-.claude/multi-model-workflow}"
+STATE_SUBDIR="${STATE_SUBDIR:-.release}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 RF="$SCRIPT_DIR/../release-flow.sh"
 FIX="$SCRIPT_DIR/fixtures/release-flow"
@@ -16,6 +16,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 cd "$TMP"
 git init -q
+cp "$SCRIPT_DIR/../../cli/mmw.default.json" .mmw.json
 git config user.email t@t
 git config user.name t
 echo s > s
@@ -320,7 +321,21 @@ esac
 
 bash "$RF" close >/dev/null
 bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
-[ "$(bash "$SCRIPT_DIR/../mmw.sh" release where)" = "STAGE:doctor RUN:true" ] && ok "mmw release 路由到引擎" || no "mmw 路由"
+[ "$(bash "$SCRIPT_DIR/../../cli/mmw" release where)" = "STAGE:doctor RUN:true" ] && ok "mmw release 路由到引擎" || no "mmw 路由"
+
+# 守:一次改动影响多个产品时,后一个产品的自愈修复会推进 HEAD,早前那个产品的包就不是
+# 最终代码了。混着不同 commit 的包发给客户,他们装到的是两份不同的东西。收束时留下的
+# 交付记录是发出去之前唯一能发现这件事的地方——判断归技能,引擎只负责把事实留下。
+bash "$RF" close >/dev/null 2>&1 || true
+rm -rf "$STATE_SUBDIR/delivered"
+bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
+closed_at_commit="$(git rev-parse HEAD)"
+bash "$RF" close >/dev/null
+[ "$(jq -r '.product' "$STATE_SUBDIR/delivered/duck.json" 2>/dev/null)" = "duck" ] \
+  && ok "收束留下这个产品的交付记录" || no "收束没留交付记录"
+[ "$(jq -r '.source_commit' "$STATE_SUBDIR/delivered/duck.json" 2>/dev/null)" = "$closed_at_commit" ] \
+  && ok "交付记录钉住出包时的 commit" || no "交付记录的 commit 不对"
+[ ! -f "$SF" ] && ok "收束后不留活状态" || no "收束后仍有活状态"
 
 echo "=== $pass PASS / $fail FAIL ==="
 [ "$fail" -eq 0 ]
