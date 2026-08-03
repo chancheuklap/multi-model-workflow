@@ -15,12 +15,12 @@
     "worktree"
   ],
   "skills": [
-    "./skills/codebase-design",
-    "./skills/domain-modeling",
     "./skills/handoff",
     "./skills/mmw-closing",
+    "./skills/mmw-codebase-design",
     "./skills/mmw-diagnosing-bugs",
     "./skills/mmw-dispatching-agents",
+    "./skills/mmw-domain-modeling",
     "./skills/mmw-grilling",
     "./skills/mmw-implement",
     "./skills/mmw-improve-codebase-architecture",

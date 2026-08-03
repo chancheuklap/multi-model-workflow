@@ -39,7 +39,7 @@
 
 ## 候选卡片
 
-图承担主要信息，文字稀疏、平实，直接用 `/codebase-design` 词汇表里的词，不加修饰。
+图承担主要信息，文字稀疏、平实，直接用 `/mmw-codebase-design` 词汇表里的词，不加修饰。
 
 一个候选一个 `<article>`：
 
@@ -105,7 +105,7 @@ before：一棵函数调用树，画成嵌套的方框。after：同一棵树收
 
 ## 语气
 
-平实、简洁，架构上的名词和动词直接取自 `/codebase-design`。
+平实、简洁，架构上的名词和动词直接取自 `/mmw-codebase-design`。
 
 **只用**：module、interface、implementation、depth、deep、shallow、seam、adapter、leverage、locality。
 
@@ -120,4 +120,4 @@ before：一棵函数调用树，画成嵌套的方框。after：同一棵树收
 
 **Wins 那几条**用词汇表里的词说收益，例如 *"locality: bugs concentrate in one module"*、*"leverage: one interface, N call sites"*、*"interface shrinks; implementation absorbs the wrappers"*。不要写 *"easier to maintain"* 或 *"cleaner code"*，这些词不在词汇表里。
 
-不要模棱两可，不要清嗓子，不要「值得一提的是……」。一句话能写成一条列点就写成列点，一条列点能删就删。一个词不在 `/codebase-design` 的词汇表里，先找一个在里面的，再考虑发明新词。
+不要模棱两可，不要清嗓子，不要「值得一提的是……」。一句话能写成一条列点就写成列点，一条列点能删就删。一个词不在 `/mmw-codebase-design` 的词汇表里，先找一个在里面的，再考虑发明新词。

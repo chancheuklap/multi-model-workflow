@@ -28,7 +28,7 @@ description: 不留情面地追问一个计划、决定或想法，一次一个�
 
 ## 同时跑 domain-modeling
 
-grilling 和 `/domain-modeling` 默认成对运行。开问的同时就把它跑起来，不要等谈完。
+grilling 和 `/mmw-domain-modeling` 默认成对运行。开问的同时就把它跑起来，不要等谈完。
 
 它管三件事：某个词含糊或被当成几个意思在用时当场挑明并收紧；用边界场景压这些词站不站得住；术语一定下来就写进 `CONTEXT.md`，难以回退的决定一定下来就写成 ADR。
 

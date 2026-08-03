@@ -41,7 +41,7 @@ frontier 空了，说明这张 map 该收尾了，转 [closing.md](closing.md)�
 
 1. 答案写成**结案评论**贴在这张 ticket 上，然后**关掉**它。
 2. 往 map 的 `Decisions so far` 一节追加一行索引。**追加之前先重新拉一次 map 的最新正文**，写完再读一次确认自己那行在。
-3. 这个决定难以回退、而且真有取舍，就另写一份 ADR。链上先写成 `docs/adr/draft-<ticket 编号>-<短语>.md`，等这条链走完、合回 map 分支时再统一改成正式编号。判据见 `/domain-modeling`。
+3. 这个决定难以回退、而且真有取舍，就另写一份 ADR。链上先写成 `docs/adr/draft-<ticket 编号>-<短语>.md`，等这条链走完、合回 map 分支时再统一改成正式编号，见 `docs/agents/domain.md`。什么样的决定才够格写 ADR，判据见 `/mmw-domain-modeling`。
 4. 谈出来的新术语追加进 `CONTEXT.md`。
 5. 更新 map：这次答案让哪块 fog of war 说得清楚了，就从 `Not yet specified` 一节里拿出来建成新 ticket，再连阻塞关系（先建 issue，拿到编号再连边）。
 6. 这次答案要是暴露出某张 ticket 坐在 destination 之外，就判它出范围：关掉它，在 `Out of scope` 一节留一行，并在 `.out-of-scope/` 写一份。判据见 [map-anatomy.md](map-anatomy.md) 的「什么算判出范围」一节。这个决定让 map 的其他部分作废了，就更新或删掉作废的那些 ticket。
