@@ -27,7 +27,7 @@
 - subagent 3：「为最常见的调用方优化——让默认情形简单到不用想。」
 - subagent 4（用得上的话）：「跨 seam 的依赖按 ports & adapters 来设计。」
 
-brief 里同时带上 [SKILL.md](SKILL.md) 的词汇和领域词汇，这样每个 subagent 起的名字既跟架构语言一致，也跟项目的领域语言一致。领域词汇取自哪一份 `CONTEXT.md`：跑 `mmw domain path`，按它输出那一行说的做。
+brief 里同时带上 [SKILL.md](SKILL.md) 的词汇和领域词汇，这样每个 subagent 起的名字既跟架构语言一致，也跟项目的领域语言一致。领域词汇取自领域文档：落点跑 `mmw domain path` 取，三种返回怎么读见 `/mmw-domain-modeling` 的「读领域文档」一节。
 
 每个 subagent 交回：
 

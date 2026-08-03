@@ -36,7 +36,7 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 ### 3. 组装 `worker` 的提示词
 
-从文件里取，不凭记忆：
+组装规矩按 `/mmw-dispatching-agents` 的「组装与存盘」一节。装这七样：
 
 1. 本文件旁边的 `worker-brief.md`，取 `---` 之后的全部内容。
 2. TDD 纪律全文——`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md`。
@@ -46,7 +46,7 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 6. **这张 ticket 对应的那份 plan，全文。** spec、ticket、plan 三样都要给：spec 给意图和合同，ticket 给边界和验收，plan 给施工权威。走 agent brief 那条路的需求没有 plan，这一条跳过。
 7. 这次需求背后有原型的，给出**选中的那一版**在这个 worktree 里的路径，加上 spec 里那一节视觉契约。只给选中的那一份，`docs/prototypes/<slug>/` 下面还躺着落选变体和 TUI 壳。同时说清怎么用——逻辑原型里那个可移植模块整块搬过去，不要重写；界面变体的代码按仓库规范重写，不要照抄。
 
-写到 `.dispatch/<slug>-<ticket>.prompt.md`（先 `mkdir -p .dispatch`）。给 `worker` 的路径一律是它工作的那个仓库里的路径，插件内的路径它读不到。
+写到 `.dispatch/<slug>-<ticket>.prompt.md`。给 `worker` 的路径一律是它工作的那个仓库里的路径，插件内的路径它读不到。
 
 ### 4. 派发
 

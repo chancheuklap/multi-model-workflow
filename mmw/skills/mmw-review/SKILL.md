@@ -11,7 +11,7 @@ description: 发起一轮审查——选视角、备材料、并行派审查者�
 
 | 哪一道 | 什么时候发起 | 几个视角（任务名） | 谁去审 | 是不是关卡 |
 | --- | --- | --- | --- | --- |
-| ① spec 审 | spec 写完、自检过了，给用户看之前 | 设计内容审、项目对齐审 | 两个视角都派另一个模型 | 不是。findings 连同你的处置一起给用户看参考 |
+| ① spec 审 | spec 写完、自检过了，给用户看之前 | 设计内容审、项目一致性审 | 两个视角都派另一个模型 | 不是。findings 连同你的处置一起给用户看参考 |
 | ② plan 审 | 全部 plan 写完、主 agent 验证过、跨 plan 合同回填完之后，发起一次 | 覆盖质量审、合规交叉审 | 两个视角都派另一个模型 | 是 |
 | ③ 逐份验收 | 一个 `worker` 交回它写的代码 | 不派审查者 | **你自己**，判据读 [self-review.md](self-review.md) | 是。不过这一关不合并回任务分支 |
 | ④ 合同门 | 每份 plan 对应的代码都合并回任务分支之后，一次 | 不派审查者 | **你自己**，判据读 [self-review.md](self-review.md) | 是 |
@@ -47,7 +47,7 @@ description: 发起一轮审查——选视角、备材料、并行派审查者�
 | 任务名 | 这个视角的 Source |
 | --- | --- |
 | 设计内容审 | 这份 spec、走查过的原型产物（`docs/prototypes/<slug>/`） |
-| 项目对齐审 | 这份 spec、走查过的原型产物（`docs/prototypes/<slug>/`），另加领域文档（跑 `mmw domain path` 取落点，多上下文的仓库备这次要碰的那几份子上下文）与这块地方的 ADR |
+| 项目一致性审 | 这份 spec、走查过的原型产物（`docs/prototypes/<slug>/`），另加领域文档（跑 `mmw domain path` 取落点，多上下文的仓库备这次要碰的那几份子上下文）与这块地方的 ADR |
 | 覆盖质量审 | spec（含回填后的 `## Cross-Plan Contract Anchors`）、原型产物、全部 ticket、全部 plan |
 | 合规交叉审 | spec（含回填后的 `## Cross-Plan Contract Anchors`）、原型产物、全部 ticket、全部 plan |
 | 对照终审 | spec、全部 plan、diff 范围、走查过的原型产物（`docs/prototypes/<slug>/` 里选中的那一版） |
