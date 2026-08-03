@@ -38,7 +38,7 @@ description: 发起一轮审查——选哪几个视角、给每个视角备齐�
 | 任务名 | 这个视角的 Source |
 | --- | --- |
 | 设计内容审 | 这份 spec、走查过的原型产物（`docs/prototypes/<slug>/`） |
-| 项目对齐审 | 这份 spec、走查过的原型产物（`docs/prototypes/<slug>/`），另加 `CONTEXT.md` 与这块地方的 ADR |
+| 项目对齐审 | 这份 spec、走查过的原型产物（`docs/prototypes/<slug>/`），另加领域文档（多上下文的仓库备这次要碰的那几份子上下文，落点见 `docs/agents/domain.md`）与这块地方的 ADR |
 | 覆盖质量审 | spec（含回填后的 `## Cross-Plan Contract Anchors`）、原型产物、全部 ticket、全部 plan |
 | 合规交叉审 | spec（含回填后的 `## Cross-Plan Contract Anchors`）、原型产物、全部 ticket、全部 plan |
 | 对照终审 | spec、全部 plan、diff 范围、走查过的原型产物（`docs/prototypes/<slug>/` 里选中的那一版） |

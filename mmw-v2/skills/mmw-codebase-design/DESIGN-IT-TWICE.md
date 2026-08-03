@@ -27,7 +27,7 @@
 - subagent 3：「为最常见的调用方优化——让默认情形简单到不用想。」
 - subagent 4（用得上的话）：「跨 seam 的依赖按 ports & adapters 来设计。」
 
-brief 里同时带上 [SKILL.md](SKILL.md) 的词汇和 `CONTEXT.md` 的词汇，这样每个 subagent 起的名字既跟架构语言一致，也跟项目的领域语言一致。
+brief 里同时带上 [SKILL.md](SKILL.md) 的词汇和领域词汇，这样每个 subagent 起的名字既跟架构语言一致，也跟项目的领域语言一致。领域词汇取自哪一份 `CONTEXT.md`：先查仓库根有没有 `CONTEXT-MAP.md`，有就取这次要碰的那几个上下文各自那份，没有就回退根 `CONTEXT.md`（落点以 `docs/agents/domain.md` 为准）。
 
 每个 subagent 交回：
 
