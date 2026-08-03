@@ -80,7 +80,7 @@ check_face() {
   names="$(printf '%s' "$wanted" | jq -r 'keys[]')"
 
   if [ ! -d "$(dirname "$file")" ] && [ ! -e "$file" ]; then
-    echo "跳过  这台机器没有 $label（$(dirname "$file") 不在）"
+    echo "跳过  这台机器没有 ${label}（$(dirname "$file") 不在）"
     return 0
   fi
   if [ ! -f "$file" ]; then
@@ -94,7 +94,7 @@ check_face() {
     if [ "$(jq -n --arg n "$n" --argjson h "$have" --argjson w "$wanted" '$h[$n] == $w[$n]')" = true ]; then
       echo "已装  $label $n"
     else
-      echo "未装  $label $n（或与插件当前定义不一致）" >&2
+      echo "未装  $label ${n}（或与插件当前定义不一致）" >&2
       rc=1
     fi
   done
@@ -111,7 +111,7 @@ install_face() {
 
   # 这台机器压根没有这个面就不要凭空造出一个配置目录来。跳过是正确结果，不是失败。
   if [ ! -d "$dir" ] && [ ! -e "$file" ]; then
-    echo "跳过  这台机器没有 $label（$dir 不在）"
+    echo "跳过  这台机器没有 ${label}（${dir} 不在）"
     return 0
   fi
 

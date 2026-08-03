@@ -138,6 +138,19 @@ check "顶层形状的文件不会被塞进第二层" "some-tool" \
 check "也没有多长出一个 mcpServers" "null" \
   "$(jq -r '.mcpServers // "null"' "$WORK/cursor-existing.json")"
 
+# 守：脚本在任何 locale 下都要跑得动。派出去的 headless 进程、CI、cron 继承的
+# locale 都不受控，而 bash 在非 UTF-8 locale 下按单字节切词——`$label（` 这种写法
+# 会把中文全角括号的首字节当成变量名读下去，报「line 114: label」这类看不懂的错。
+# 两支都要跑到：真装那一支和目标目录不在时跳过那一支，报错的原本只在后者。
+echo
+echo "非 UTF-8 locale 下也能跑"
+LC_ALL=C LANG=C fake_install "$WORK/c-pi.json" "$WORK/c-cursor.json" > "$WORK/c-install" 2>&1 || true
+check "LC_ALL=C 装出来的内容跟平时一样" "some-tool" \
+  "$(jq -r '.mcpServers["新加的"].command' "$WORK/c-pi.json" 2>/dev/null)"
+LC_ALL=C LANG=C fake_install "$WORK/没有这个目录/mcp.json" "$WORK/也没有这个/mcp.json" \
+  > "$WORK/c-skip" 2>&1 || true
+check "LC_ALL=C 走跳过那一支不报 bash 错" "0" "$(grep -c 'line [0-9]*:' "$WORK/c-skip")"
+
 # 守：doctor 不能在服务器坏掉时报绿。旧实现出过这个事故——配置在、工具名在列表里、
 # 直到模型真去调用才报错，而那时它已经在一次审查中途了。
 echo
