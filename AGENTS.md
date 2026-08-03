@@ -71,6 +71,8 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
   | Fowler 的 code smell | 代码异味 | 代码气味 |
   | 把方法论软链进 headless 那个模型的技能目录 | 安装 | 装载 |
   | 能点开核对的位置 | 出处 | 锚 |
+  | 跨 plan 合同在 plan 头上的登记点 | 合同锚点（spec 节名 Cross-Plan Contract Anchors） | 这是唯一豁免「锚」字的专有名词，别处仍写「出处」 |
+  | spec 审的第二个视角 | 项目一致性审 | 项目对齐审（「对齐」在禁用表里） |
   | 错了会改变结论的那些 | 关键（结论 / 断言） | 承重 |
   | 给每条 finding 的结论 | 判定 + 五个英文处置词 | 裁判、裁决 |
   | 审查记录落盘 | 审查记录 | 留痕 |
