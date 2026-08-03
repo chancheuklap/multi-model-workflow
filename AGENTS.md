@@ -64,7 +64,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
   | 泛指被派出去的 | subagent | 劳动力、子代理、sub-agent |
   | 被派去写代码的 | `worker` | 工人、写码工人、落地的人 |
   | 被派去写计划的 | `planner` | 写计划工人 |
-  | 泛指那三个会写文件的角色 | 可写角色 | 工人 |
+  | 泛指 `worker`、`worker-high-risk`、`planner` | 会写文件的角色（`mmw dispatch` 的用法里就是这个说法） | 可写角色、工人 |
   | 被派去审查的 | 审查者；具体派哪个写 `reviewer-gpt` / `reviewer-claude` | 审者 |
   | 非交互式跑的 Codex | headless | 无头（无头浏览器例外，那是标准译法） |
   | 派出去时给的那份任务说明 | brief | 简报 |
@@ -93,7 +93,9 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
   「它交回来的东西」那一行同样禁「笔记」；「给每条 finding 的结论」那一行同样禁「结论词」。
 
-  **凡是 `mmw dispatch` 的参数值，技能正文里一律写 CLI 的字面串加反引号**，不另起中文名。`worker` 和 `planner` 是模型预训练里就有的词，译成「工人」既招募不到那份先验，又让 agent 多一道翻译才对得上命令。同理，六个角色有哪些、每条命令收什么参数，正文不复述——跑 `mmw` 就有，复述一遍是两处维护。
+  **凡是 `mmw dispatch` 的参数值，技能正文里一律写 CLI 的字面串加反引号**，不另起中文名。`worker` 和 `planner` 是模型预训练里就有的词，译成「工人」既招募不到那份先验，又让 agent 多一道翻译才对得上命令。同理，六个角色有哪些、每条命令收什么参数，正文不复述——跑那条命令本身不带参数就有（`mmw dispatch` 给六个角色，`mmw issue` 给它那几个子命令），复述一遍是两处维护。
+
+  **CLI 的用法也分两层，写新命令时照这个形状：** `mmw` 不带参数只列命令名，参数进各命令自己的 `usage_*`，认不出参数时打的也是那一条的用法。要查一条命令怎么写的 agent 不该顺带读完其余全部——它读进去的每一行都在稀释它对手头这件事的注意力。
 
   比喻性动词同样不要：兜住、吃重、找茬、捞、栽在、坏事、要命。写它实际指的动作。
 
@@ -184,9 +186,16 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 第 2 层三块自有能力里的两块，加上末端两个编排技能，都已写成技能并各自实跑验过一轮。设计结论住在技能自己那几份文件里，本文件不复述。
 
+改完跑测试：
+
+```bash
+for t in mmw/cli/tests/test_*.sh; do bash "$t" || exit 1; done
+```
+
 | 落点 | 内容 | 怎么验的 |
 | --- | --- | --- |
 | `cli/mmw` | 机械层。每条命令是（仓库，参数）的纯函数，不写状态文件。宿主差异关在 `cli/adapters/{claude-code,pi}.sh` 里，产品语义（哪个角色用哪份花名册、挂哪份方法论、要不要写权限）留在主入口。参数在仓库根的 `.mmw.json` | 四份测试 41 个断言；`mmw task new` 与 `dispatch` 实跑过 |
+| `cli/tests/test_skill_refs.sh` | 技能之间三类引用的完整性：`` `/技能名` ``、同目录的 markdown 链接、「`/技能名` 第 N 步」。三类都在删节改名时静默失效，读到的 agent 不会报错，只会去找一个不存在的东西 | 307 条引用全过；它的由来是 `mmw-review` 重编号后三处「第 8 步」在仓库里躺了一轮 |
 | `cli/lib/{issue,wiki,domain}.sh` | 只收三类动作：要连着发好几个请求的、要先取 database id 的、要按规矩过滤排序的。一条 `gh` 命令做得完的不收 | 测试用 gh stub 与本地 bare 仓库，不碰网络也不碰真 issue |
 | `skills/mmw-dispatching-agents` | 六个角色、两种返回怎么读（`mode: executed` 与 `mode: host-tool`）、brief 自包含。模型、档位、护栏、沙箱、宿主差异全在 `mmw dispatch` 里，正文不出现型号 | 实跑派出过审查者和写码工人各一轮 |
 | `skills/mmw-verifying-agent-output` | 只管采信：每条关键断言要有主 agent 能自己验证的出处，加工人交回的四档怎么读。findings 怎么处置归 `mmw-review` | 实跑八条 findings 逐条验证，其中一条审查者报的行号真的差了一行 |

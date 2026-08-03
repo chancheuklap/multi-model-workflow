@@ -56,7 +56,7 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 ### 5. 验收：亲手验证三关
 
-按 `/mmw-review` 的 **③ 逐份验收**，三关都过才允许合并回任务分支：做漏没有、测试达不达标、有没有偏离。判据和三关不过时的返工升级策略都在 `/mmw-review`。报告按 `/mmw-verifying-agent-output` 采信，它交回的四档怎么读也在那里。
+按 `/mmw-review` 的 **③ 逐份验收**，三关都过才允许合并回任务分支：做漏没有、测试达不达标、有没有偏离。三关各自的判据、三关不过时的返工升级策略，都在 `/mmw-review` 目录里的 `self-review.md`——**这一道不派审查者**，`/mmw-review` 正文其余各节跟它无关。报告按 `/mmw-verifying-agent-output` 采信，它交回的四档怎么读也在那里。
 
 三关之外还要确认一件本阶段特有的事：commit 存在，并且引用了这张 ticket。
 
@@ -64,9 +64,9 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 ### 6. 全部落地后验证合同
 
-每张 ticket 都关闭、改动都在任务分支上之后，按 `/mmw-review` 的 **④ 合同门**验证一次：spec 的 `## Cross-Plan Contract Anchors` 一节里每条跨 plan 合同，在合并后的代码里真兑现了——提供方的定义 grep 得到行号，消费方的调用签名对得上，版本一致、迁移在位、登记闭合。
+每张 ticket 都关闭、改动都在任务分支上之后，按 `/mmw-review` 的 **④ 合同门**验证一次：spec 的 `## Cross-Plan Contract Anchors` 一节里每条跨 plan 合同，在合并后的代码里真兑现了。逐条要查什么、合同条数多时怎么把取证派出去，在 `/mmw-review` 目录里的 `self-review.md`——**这一道也不派审查者**。
 
-**grep 不到行号就不算兑现**，回去补，不要留给终审。spec 里没有这一节，把这件事连同你据以确认的位置记下来，不要跳过不写。
+**grep 不到行号就不算兑现**，回去补，不要留给终审。这是本阶段特有的一句：终审那一道审的是代码本身，不替你补合同。
 
 ### 7. 发起 ⑤ final 终审
 
@@ -74,7 +74,7 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 分支点用 `git merge-base HEAD <父分支>` 取。父分支通常是主线；这次任务从一张 `/mmw-wayfinder` 的 map 分出来的，父分支就是那张 map 的分支。
 
-采信的 findings 打包成一张修复 ticket 派给新 `worker`，带上 `file:line` 和要改成什么。然后按 `/mmw-review` 第 8 步复审。
+采信的 findings 打包成一张修复 ticket 派给新 `worker`，带上 `file:line` 和要改成什么。然后按 `/mmw-review` 第 7 步复审。
 
 ## 下一步
 
@@ -83,7 +83,7 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 | 第 5 步三关都过，frontier 上还有 ticket | **自己继续**：回第 2 步取下一张 |
 | 所有 ticket 都关闭了 | **自己继续**：走第 6 步验证合同，过了再走第 7 步发起 ⑤ final 终审 |
 | 第 6 步有合同 grep 不到行号 | **停**：报是哪条合同、提供方或消费方缺在哪 |
-| 审出了采信的 findings | **自己继续**：打包成一张修复 ticket 派新 `worker`，然后按 `/mmw-review` 第 8 步复审 |
+| 审出了采信的 findings | **自己继续**：打包成一张修复 ticket 派新 `worker`，然后按 `/mmw-review` 第 7 步复审 |
 | 审完没有采信项，或者修复已经复审通过 | **移交**：`/mmw-closing`，把 spec 与 plan 归档到 Wiki、删掉本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`，再交回用户合并 |
 | 第 1 步四项前置有一项不满足 | **停**：说清是哪一项。缺 seam 的按第 1 步那张表回 `/mmw-to-spec` 第 3 步或 `/mmw-triage`，不要自己替用户定 seam |
 | `worker` 卡在 ticket 与代码互相矛盾上 | **停**：把矛盾交给用户，不要换一个 `worker` 再派一遍 |

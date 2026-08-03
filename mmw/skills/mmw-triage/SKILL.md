@@ -32,7 +32,7 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 每张分诊过的 issue 应当正好带一个类别角色和一个状态角色。状态角色互相冲突时，先标出来问维护者，再做别的。
 
-上面这些名字就是 issue 上的标签字符串本身，不用再查映射。**完整清单在仓库根 `.mmw.json` 的 `tracker.labels`**，`mmw init` 按它建标签。
+类别角色和状态角色这两组名字就是 issue 上的标签字符串本身，不用再查映射。**完整清单在仓库根 `.mmw.json` 的 `tracker.labels`**，`mmw init` 按它建标签。
 
 **派 `worker` 前必须是 `ready-for-agent`。** 这是唯一一个机器可验证的「够清楚了」信号，AFK 跑的时候靠它挡住模糊 issue。
 
@@ -99,7 +99,7 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 | 这个需求还不够具体，判不出状态 | **自己继续**：回第 4 步跑 `/mmw-grilling` 把它问成形，再回来落实结果 |
 | seam 说不清楚 | **自己继续**：改判 `ready-for-human`，理由写在 brief 里，然后按本表「落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage`」那一行交回用户 |
 | 落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage` | **停**：报这张判成了什么、为什么、下一步在等谁 |
-| 维护者一次交来好几张 | **自己继续**：一张一张走完上面的流程，全部落实之后再一起报 |
+| 维护者一次交来好几张 | **自己继续**：一张一张走完「分诊一张具体的 issue 或 PR」那一节的五步，全部落实之后再一起报 |
 
 ## 快速改状态
 
