@@ -2,7 +2,7 @@
 
 代码落地后，spec 与计划文档转成 GitHub Wiki，本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/` 随任务分支删掉。Wiki 从此是这份 spec 的唯一事实来源。
 
-任何时候打开 Wiki，看到的都是「这个仓库现在是怎么设计的」。它只有这一类内容，不夹带过程材料——map、审查记录、终审报告都不进（去向见 `issue-tracker.md`）。
+Wiki 不夹带过程材料——map、审查记录、终审报告都不进（去向见 `issue-tracker.md`）。
 
 ## 前提
 
@@ -36,7 +36,7 @@ Wiki 只有默认分支会发布。别在它上面开分支。
 
 slug 就是 worktree 名、分支名、`docs/specs/<slug>/` 的目录名——同一个词贯穿四处。`phone-login` 这份 spec 的页面就是 `Spec-phone-login.md`。
 
-不要建子目录。GitHub Wiki 的页面命名空间是平的：文件放进子目录也不改变标题和网址，页面名仍须全局唯一，唯一换来的是每个目录一个侧边栏，而网页编辑器改不了子目录的侧边栏。层级只能编进文件名，`Spec-` 前缀就是干这个的。
+不要建子目录。GitHub Wiki 的页面命名空间是平的，层级只能编进文件名，`Spec-` 前缀就是干这个的。
 
 标题禁用 `\ / : * ? " < > |`，slug 用连字符。
 
@@ -50,9 +50,9 @@ slug 就是 worktree 名、分支名、`docs/specs/<slug>/` 的目录名——�
 | 计划章节 | 每张 ticket 一节，来自 `docs/plans/<slug>/` |
 | 相关决定 | **只放链接**指回仓库的 `docs/adr/`，用完整 URL |
 
-计划不单独开页。一份 spec 拆八张 ticket 就开八页，会碎成没人看的东西。
+计划不单独开页。
 
-ADR 绝不复制进 Wiki——它在仓库里跟代码同一个提交演进，复制一份就立刻有两个版本各自漂移。
+ADR 绝不复制进 Wiki，只放指回 `docs/adr/` 的链接。
 
 Wiki 不支持自动生成目录，长页面靠标题分节。页间链接用 `[[Spec-phone-login|手机号登录]]`。
 
@@ -63,13 +63,9 @@ Wiki 不支持自动生成目录，长页面靠标题分节。页间链接用 `[
 - **`Home.md`**——一张表，每份 spec 一行：slug、一句话、落地日期、PR 链接。
 - **`_Sidebar.md`**——Home 加 spec 页列表，按落地时间倒序。
 
-GitHub 不按目录自动生成导航树，没有 `_Sidebar.md` 时只有一个平铺的 Pages 列表，所以这两个文件必须生成。
-
 ## 同一份 spec 再次改动
 
 slug 相同就是同一份 spec 的演进：**覆盖那一页，在页尾追加一条修订记录**（日期、PR、一句话改了什么）。不要新开 `Spec-phone-login-v2`。
-
-Wiki 本身是 git 仓库，旧版本天然留着，页面只呈现当前状态。
 
 ## 写入时机与顺序
 
