@@ -55,7 +55,7 @@ map 是一份**索引**，不是一个仓库。它列出已经做出的决定，
 
 HITL 还是 AFK 不单独打标签，从类型推出来；只有 `wayfinder:task` 例外。
 
-**HITL 的 ticket 不许 agent 替那个人回答。** 派一个 subagent 自问自答、或者主 agent 自己替用户把问题答掉，这张 ticket 解出来的决定不作数。这条禁令比它看上去要紧：解出来的决定会写进 map 的 `Decisions so far`，后面每一张 ticket 都建在它上面，错了要连着推翻一片。
+**HITL 的 ticket 不许 agent 替那个人回答。** 派一个 subagent 自问自答、或者主 agent 自己替用户把问题答掉，这张 ticket 解出来的决定不作数。
 
 ## 四个类型
 
@@ -74,7 +74,7 @@ HITL 还是 AFK 不单独打标签，从类型推出来；只有 `wayfinder:task
 
 ## 阻塞与 frontier
 
-阻塞用 tracker 的**原生**依赖关系。这一点重要：原生依赖能在 tracker 自己的界面里直接看出哪些 ticket 可以取，人不用打开 map。只有 tracker 没有原生依赖时才退回到正文里写约定。
+阻塞用 tracker 的**原生**依赖关系。只有 tracker 没有原生依赖时才退回到正文里写约定。
 
 一张 ticket 的**阻塞解除**，是指所有阻塞它的 ticket 都已关掉。**frontier** 是那些 open、无阻塞、还没人认领的子 issue，也就是已知区域的边缘。
 
@@ -87,7 +87,7 @@ HITL 还是 AFK 不单独打标签，从类型推出来；只有 `wayfinder:task
 - **建成 ticket**：问题已经很锐了，哪怕它被阻塞着、你现在动不了。
 - **写进 `Not yet specified`**：你还没法把它说得这么锐。不要提前把 fog of war 切成 ticket 大小的块——它比一张 ticket 粗，等 frontier 走到那里，一块 fog of war 可能变成好几张 ticket，也可能一张都不是。
 
-`Not yet specified` 一节写的就是这片模糊视野：怀疑存在的那个问题，以后要回来看的那块地方。它同时是给协作者看的路标，让人知道这个 effort 往哪里去。已经决定的（在 `Decisions so far`）、已经是 ticket 的、以及范围外的都不放这里。
+`Not yet specified` 一节写的就是这片模糊视野：怀疑存在的那个问题，以后要回来看的那块地方。已经决定的（在 `Decisions so far`）、已经是 ticket 的、以及范围外的都不放这里。
 
 ## 什么算判出范围
 
@@ -95,6 +95,6 @@ fog of war 只会**朝着** destination 聚集。destination 固定了范围，�
 
 判出范围的工作不再回来。frontier 走到 destination 就停了，它只有在 destination 被重画时才回来，而且是作为一个新的 effort，不是接着做。
 
-判一件事出范围是一个划范围的动作，不是路线上的一步。已经存在的一张 ticket 后来发现坐在 destination 之外——画图时圈错了，或者被某次解答暴露出来——就**关掉它**，并在 `Out of scope` 一节留一行：概要加上为什么出范围，链到那张关掉的 ticket。同时按 `docs/agents/issue-tracker.md` 的产物去向表在 `.out-of-scope/` 写一份，一个概念一个文件。
+已经存在的一张 ticket 后来发现坐在 destination 之外——画图时圈错了，或者被某次解答暴露出来——就**关掉它**，并在 `Out of scope` 一节留一行：概要加上为什么出范围，链到那张关掉的 ticket。同时按 `docs/agents/issue-tracker.md` 的产物去向表在 `.out-of-scope/` 写一份，一个概念一个文件。
 
-它不进 `Decisions so far`。那里记的是真正走过的路线，一条范围边界不是路线上的一步。
+它不进 `Decisions so far`，那里只记真正走过的路线。

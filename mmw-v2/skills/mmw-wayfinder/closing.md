@@ -11,13 +11,11 @@ frontier 上一张 ticket 都不剩了。收尾就是把这张 map 结束掉：�
 
 把 map 的 `Not yet specified` 一节剩下的条目原样列给用户看，问他里面还有没有会挡住后续工作的。
 
-这一步要用户拍板：agent 判得出一个条目说不说得清楚，判不出它对用户重不重要。
-
 用户点出会挡路的，就把它建成新的 decision ticket、连好阻塞关系，然后停——处置见本文「下一步」一节。用户没点出来的原样留在 `Not yet specified` 一节里，跟着 map issue 一起关掉。
 
 ## 2. 决定各自归位
 
-map issue 关掉之后就不再是查阅入口，所以这张 map 上做出的决定要按类型分开落到仓库里。**产物去向表在 `docs/agents/issue-tracker.md` 的「`/mmw-wayfinder` 的产物不上 Wiki，但也不能死」一节，那里是唯一权威，本文不复述。**
+这张 map 上做出的决定要按类型分开落到仓库里。**产物去向表在 `docs/agents/issue-tracker.md` 的「`/mmw-wayfinder` 的产物不上 Wiki，但也不能死」一节，那里是唯一权威，本文不复述。**
 
 走 map 的过程中该写的已经写了，这一步是补漏：逐条过一遍 map 的 `Decisions so far` 一节，看有没有当时判成「可回退」、现在回头看其实难以回退的。判成难以回退的补一份 ADR。
 
@@ -27,7 +25,7 @@ map 按**决定**组织，spec 按**能独立设计和实现的一块功能**组
 
 一组一份 spec，各建一张 issue 挂在 map 底下，正文写清楚两件事：这份 spec 交付什么，它依赖 map 的 `Decisions so far` 一节里的哪几条。spec issue 跟 decision ticket 同处一层，靠**带不带 `wayfinder:` 类型标签**区分：decision ticket 带，spec issue 不带。
 
-切出来只有一份，说明当初路由判早了——一份 spec 说得完的事本该走 `/mmw-grilling` 再 `/mmw-to-spec`，不必画 map。已经发生的不用回头重来，照样把这一份切出去走下去。
+切出来只有一份也照样切出去走下去，不回头重来。
 
 走链的中途也可以提前切 spec，判据见 [walking.md](walking.md) 的「判断能不能提前切一份 spec 出去」一节。
 
