@@ -129,7 +129,9 @@ mmw_adapter_dispatch() {
       return "$code"
       ;;
     *)
-      echo "mmw: 认不出模型族 ${MMW_D_FAMILY}（只有 claude 和 gpt）" >&2
+      # 这个宿主只有会话内 Agent 和 codex exec 两条通道，其他模型族无处可发。
+      echo "mmw: Claude Code 发不了模型族 ${MMW_D_FAMILY}（只有 claude 和 gpt）" >&2
+      echo "mmw: 该角色要在别的宿主用这个模型族，把它写进 .mmw.json 的 hosts 覆盖" >&2
       return 1
       ;;
   esac

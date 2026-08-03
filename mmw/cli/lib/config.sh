@@ -66,8 +66,18 @@ mmw_host() {
 }
 
 # mmw_model_field <角色> <字段>，字段是 family / id / effort。
+#
+# 一个角色的模型档默认对两个宿主相同。某个宿主接不了基线那个模型时，在这个角色
+# 底下写 hosts.<宿主> 覆盖同名字段——例如调查者在 Pi 走 xai/grok-4.5，而 Claude
+# Code 只有 Codex 一条外部通道，接不了 xai。覆盖按字段生效，覆盖里没写的字段仍读
+# 基线。
 mmw_model_field() {
-  local role="$1" field="$2"
+  local role="$1" field="$2" host override
+  host="$(mmw_host)" || return 1
+  if override="$(mmw_config ".models[\"$role\"].hosts[\"$host\"].$field" 2>/dev/null)"; then
+    echo "$override"
+    return 0
+  fi
   mmw_config ".models[\"$role\"].$field"
 }
 

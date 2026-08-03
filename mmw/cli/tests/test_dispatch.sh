@@ -40,6 +40,7 @@ for argument in "$@"; do
   [ "$previous" = "-o" ] && report="$argument"
   previous="$argument"
 done
+[ -n "${MMW_FAKE_CODEX_ARGS:-}" ] && printf '%s\n' "$@" > "$MMW_FAKE_CODEX_ARGS"
 cat >/dev/null
 [ -n "$report" ] && printf 'fake codex report\n' > "$report"
 SH
@@ -51,6 +52,14 @@ pi_params="$(MMW_HOST=pi "$MMW" dispatch investigator --brief "$WORK/repo/brief.
 check "adapter 显式要求 async，不吃用户默认值" "true" "$(jq -r '.async' <<<"$pi_params")"
 check "上下文仍然隔离" "fresh" "$(jq -r '.context' <<<"$pi_params")"
 
+# 调查者在两个宿主用不同模型：Pi 用 xai 的 Grok，Claude Code 接不了 xai，走
+# Codex 的 gpt-5.6-terra。这一差异写在 .mmw.json 的 hosts 覆盖里，不在技能里。
+printf '\n模型档的宿主覆盖\n'
+check "Pi 的调查者走 xai 的 Grok" "xai/grok-4.5" "$(jq -r '.model' <<<"$pi_params")"
+check "Pi 的调查者用覆盖里的档位" "high" "$(jq -r '.thinking' <<<"$pi_params")"
+baseline_params="$(MMW_HOST=pi "$MMW" dispatch reviewer-gpt --brief "$WORK/repo/brief.md" | params)"
+check "没写覆盖的角色仍读基线" "openai-codex/gpt-5.6-sol" "$(jq -r '.model' <<<"$baseline_params")"
+
 printf '\nClaude Code 后台派发\n'
 claude_params="$(MMW_HOST=claude-code "$MMW" dispatch reviewer-claude --brief "$WORK/repo/brief.md" | params)"
 check "Agent 工具显式在后台运行" "true" "$(jq -r '.run_in_background' <<<"$claude_params")"
@@ -60,7 +69,13 @@ check "GPT 先交回宿主工具参数" "host-tool" "$(sed -n 's/^mode: //p' <<<
 check "GPT 由 Bash 工具执行" "Bash" "$(sed -n 's/^tool: //p' <<<"$gpt_output")"
 gpt_params="$(params <<<"$gpt_output")"
 check "GPT 的 Bash 工具显式在后台运行" "true" "$(jq -r '.run_in_background' <<<"$gpt_params")"
-background_output="$(PATH="$WORK/bin:$PATH" bash -c "$(jq -r '.command' <<<"$gpt_params")")"
+codex_args="$WORK/codex-args"
+background_output="$(PATH="$WORK/bin:$PATH" MMW_FAKE_CODEX_ARGS="$codex_args" \
+  bash -c "$(jq -r '.command' <<<"$gpt_params")")"
+check "Claude Code 的调查者走 Codex 的 gpt-5.6-terra" "gpt-5.6-terra" \
+  "$(awk '/^-m$/ { getline; print }' "$codex_args")"
+check "Claude Code 的调查者用基线档位" 'model_reasoning_effort="xhigh"' \
+  "$(grep '^model_reasoning_effort=' "$codex_args")"
 check "后台命令执行后交回报告" "executed" "$(sed -n 's/^mode: //p' <<<"$background_output")"
 report="$(sed -n 's/^report: //p' <<<"$background_output")"
 check "后台命令写出报告" "fake codex report" "$(cat "$report")"

@@ -23,8 +23,15 @@
     },
     "investigator": {
       "family": "gpt",
-      "id": "gpt-5.6-sol",
-      "effort": "high"
+      "id": "gpt-5.6-terra",
+      "effort": "xhigh",
+      "hosts": {
+        "pi": {
+          "family": "grok",
+          "id": "grok-4.5",
+          "effort": "high"
+        }
+      }
     },
     "reviewer-gpt": {
       "family": "gpt",

@@ -34,10 +34,11 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 ## 宿主边界
 
-两个宿主共享角色、模型分配、技能和流程语义。宿主差异只留在 `mmw/cli/adapters/` 与各自 manifest：
+两个宿主共享角色、技能和流程语义。宿主差异只留在 `mmw/cli/adapters/`、各自 manifest 与 `.mmw.json` 的 hosts 覆盖：
 
-- Claude Code 的 GPT 角色通过后台 Bash 执行 Codex CLI；Claude 角色通过后台 Agent 工具执行。
-- Pi 的全部角色通过带 `async: true` 的 `subagent` 工具执行。
+- Claude Code 的 GPT 角色通过后台 Bash 执行 Codex CLI；Claude 角色通过后台 Agent 工具执行。这个宿主只接 claude 与 gpt 两个模型族。
+- Pi 的全部角色通过带 `async: true` 的 `subagent` 工具执行。模型族 claude、gpt、grok 分别对应 Provider `claude-provider`、`openai-codex`、`xai`。
+- 模型分配默认两宿主相同。某个宿主接不了基线模型时，在 `.mmw.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。调查者就是这样：Pi 走 `grok-4.5`，Claude Code 走 `gpt-5.6-terra`。
 - 技能正文只写 `mmw dispatch <角色>`，不写宿主分支和模型型号。
 - 运行时不得探测、调用或回退到归档插件。
 

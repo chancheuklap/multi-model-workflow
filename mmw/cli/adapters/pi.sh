@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # pi 宿主：怎么把一个角色变成一次真正的派发。
 #
-# 这个宿主两种模型都是同一个工具，只有 model 字段不同——GPT 走 openai-codex，
-# Claude 走 claude-provider（它把推理请求转给本机的 claude 可执行文件）。CLI
-# 跑不了会话内工具，所以两种都只给参数。
+# 这个宿主每种模型都是同一个工具，只有 model 字段不同——GPT 走 openai-codex，
+# Claude 走 claude-provider（它把推理请求转给本机的 claude 可执行文件），Grok 走
+# xai。CLI 跑不了会话内工具，所以都只给参数。
 #
 # 方法论走 skill 参数，从包声明的技能目录解析，不必软链。
 #
@@ -23,8 +23,9 @@ mmw_adapter_dispatch() {
   case "$MMW_D_FAMILY" in
     gpt) provider="openai-codex" ;;
     claude) provider="claude-provider" ;;
+    grok) provider="xai" ;;
     *)
-      echo "mmw: 认不出模型族 ${MMW_D_FAMILY}（只有 claude 和 gpt）" >&2
+      echo "mmw: 认不出模型族 ${MMW_D_FAMILY}（只有 claude、gpt 和 grok）" >&2
       return 1
       ;;
   esac
