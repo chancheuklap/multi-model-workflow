@@ -13,6 +13,9 @@ set -euo pipefail
 #   map      有索引，路径是索引本身，读它再决定取哪几份 CONTEXT.md
 #   single   单上下文，路径是根 CONTEXT.md
 #   none     两个都没有，直接往下走，别提它缺失
+#
+# 第三列是照着做的话，给读它的 agent 看。没有这一列，每个要读领域文档的技能
+# 都得自己把三种形态解释一遍——那段话原本在五份技能里逐字重复。
 mmw_domain_path() {
   local root map fallback
   root="$(mmw_repo_root)"
@@ -20,11 +23,11 @@ mmw_domain_path() {
   fallback="$(mmw_config '.domain.fallback // "CONTEXT.md"')"
 
   if [ -f "$root/$map" ]; then
-    printf 'map\t%s\n' "$root/$map"
+    printf 'map\t%s\t这是索引：读它，按它找出这次要碰的那几个上下文，各读各的 CONTEXT.md\n' "$root/$map"
   elif [ -f "$root/$fallback" ]; then
-    printf 'single\t%s\n' "$root/$fallback"
+    printf 'single\t%s\t单上下文，读这一份\n' "$root/$fallback"
   else
-    printf 'none\t\n'
+    printf 'none\t\t这个仓库没有领域文档：直接往下走，不要停下来建，也不要提它缺失\n'
   fi
 }
 

@@ -46,8 +46,6 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 一张 ticket 一个 `planner`，按 `/mmw-dispatching-agents` 派 `planner` 角色，`--cwd` 给任务 worktree 的路径。
 
-派之前跑 `mmw doctor`，它会告诉你方法论装没装。没装就先跑 `/mmw-dispatching-agents` 旁边的 `install-agent-skills.sh` 装，再派。
-
 提示词从文件里取，不凭记忆，写到 `.dispatch/<slug>-plan-<编号>.prompt.md` 再从那里派（先 `mkdir -p .dispatch`）：
 
 1. spec 在这个 worktree 里的路径，加上 `## Testing Decisions` 一节里那张 seam 清单表的原文引用。

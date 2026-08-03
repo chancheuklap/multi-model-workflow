@@ -27,7 +27,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 `/mmw-grilling` 谈的过程里已经查过一轮的，只补那一轮没覆盖的角度，不要整片重查。
 
-整份 spec 用项目领域词汇，遵守你要碰的这块地方的 ADR。领域文档这样读：跑 `mmw domain path`：报 `map` 就读它给的那份索引，按索引取这次要碰的那几个上下文，各读各的 `CONTEXT.md`；报 `single` 就读它给的那一份；报 `none` 就直接往下走。
+整份 spec 用项目领域词汇，遵守你要碰的这块地方的 ADR。领域文档这样读：跑 `mmw domain path`，按它输出那一行说的做。
 
 现状结论逐条带 `file:line` 引用写进 spec，**引用要你自己验证过**（`/mmw-verifying-agent-output`）。
 
