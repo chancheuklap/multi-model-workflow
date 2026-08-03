@@ -31,6 +31,19 @@ params() {
 git -C "$WORK" init -q repo
 cp "$HERE/../mmw.default.json" "$WORK/repo/.mmw.json"
 printf '只读烟雾测试。\n' > "$WORK/repo/brief.md"
+mkdir -p "$WORK/bin"
+cat > "$WORK/bin/codex" <<'SH'
+#!/usr/bin/env bash
+report=""
+previous=""
+for argument in "$@"; do
+  [ "$previous" = "-o" ] && report="$argument"
+  previous="$argument"
+done
+cat >/dev/null
+[ -n "$report" ] && printf 'fake codex report\n' > "$report"
+SH
+chmod +x "$WORK/bin/codex"
 cd "$WORK/repo"
 
 printf 'Pi 后台派发\n'
@@ -41,6 +54,16 @@ check "上下文仍然隔离" "fresh" "$(jq -r '.context' <<<"$pi_params")"
 printf '\nClaude Code 后台派发\n'
 claude_params="$(MMW_HOST=claude-code "$MMW" dispatch reviewer-claude --brief "$WORK/repo/brief.md" | params)"
 check "Agent 工具显式在后台运行" "true" "$(jq -r '.run_in_background' <<<"$claude_params")"
+
+gpt_output="$(PATH="$WORK/bin:$PATH" MMW_HOST=claude-code "$MMW" dispatch investigator --brief "$WORK/repo/brief.md")"
+check "GPT 先交回宿主工具参数" "host-tool" "$(sed -n 's/^mode: //p' <<<"$gpt_output")"
+check "GPT 由 Bash 工具执行" "Bash" "$(sed -n 's/^tool: //p' <<<"$gpt_output")"
+gpt_params="$(params <<<"$gpt_output")"
+check "GPT 的 Bash 工具显式在后台运行" "true" "$(jq -r '.run_in_background' <<<"$gpt_params")"
+background_output="$(PATH="$WORK/bin:$PATH" bash -c "$(jq -r '.command' <<<"$gpt_params")")"
+check "后台命令执行后交回报告" "executed" "$(sed -n 's/^mode: //p' <<<"$background_output")"
+report="$(sed -n 's/^report: //p' <<<"$background_output")"
+check "后台命令写出报告" "fake codex report" "$(cat "$report")"
 
 printf '\n过 %s，失败 %s\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

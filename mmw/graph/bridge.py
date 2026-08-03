@@ -328,20 +328,20 @@ def _run_self_checks() -> None:
     validate_bridge_contract(bridged, head)
 
     local = _fixture()
-    local["nodes"][1]["label"] = "outer.<locals>.inner() (example)"  # type: ignore[index]
+    local["nodes"][1]["label"] = "outer.<locals>.inner() (example)"
     local_result = cast(dict[str, Any], bridge_graph(local, head))
     assert (
         local_result["graph"]["mmw_build"]["route_handler_bridge"]["unsupported"]
         == 1
-    )  # type: ignore[index]
+    )
 
     missing = _fixture()
-    missing["nodes"][0]["label"] = "other()"  # type: ignore[index]
+    missing["nodes"][0]["label"] = "other()"
     _expect_error(lambda: bridge_graph(missing, head))
 
     ambiguous = _fixture()
-    ambiguous["nodes"].append(copy.deepcopy(ambiguous["nodes"][0]))  # type: ignore[index]
-    ambiguous["nodes"][-1]["id"] = "native-two"  # type: ignore[index]
+    ambiguous["nodes"].append(copy.deepcopy(ambiguous["nodes"][0]))
+    ambiguous["nodes"][-1]["id"] = "native-two"
     _expect_error(lambda: bridge_graph(ambiguous, head))
 
     for mutate in (

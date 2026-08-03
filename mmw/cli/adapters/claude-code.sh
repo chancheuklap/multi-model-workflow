@@ -74,6 +74,21 @@ mmw_adapter_dispatch() {
         | sed 's/^/params: /'
       ;;
     gpt)
+      # 第一次只生成宿主 Bash 工具调用。后台 Bash 再带内部标记进来执行 Codex；
+      # 这样后台属性是 adapter 的机械合同，不靠主 agent 记住额外参数。
+      if [ "${MMW_INTERNAL_BACKGROUND_DISPATCH:-}" != "1" ]; then
+        local command
+        printf -v command \
+          'cd %q && MMW_HOST=claude-code MMW_INTERNAL_BACKGROUND_DISPATCH=1 %q dispatch %q --brief %q --cwd %q' \
+          "$MMW_D_CWD" "$MMW_ROOT/cli/mmw" "$MMW_D_ROLE" "$MMW_D_BRIEF" "$MMW_D_CWD"
+        printf 'mode: host-tool\n'
+        printf 'tool: Bash\n'
+        printf 'brief: %s\n' "$MMW_D_BRIEF"
+        jq -nc --arg c "$command" '{command: $c, run_in_background: true}' \
+          | sed 's/^/params: /'
+        return
+      fi
+
       local report_dir="$MMW_D_CWD/.dispatch"
       mkdir -p "$report_dir"
       local report
