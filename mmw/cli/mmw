@@ -351,7 +351,9 @@ cmd_doctor() {
     if [ -e "$agent_skills/mmw-reviewer" ]; then
       echo "方法论   : 已装进 $agent_skills"
     else
-      echo "方法论   : 没装，跑 mmw/skills/mmw-dispatching-agents/install-agent-skills.sh"
+      # 绝对路径。插件装出去之后，读这行的 agent 待在用户自己的仓库里，
+      # 那里没有 mmw/ 这个目录，相对路径它跑不了。
+      echo "方法论   : 没装，跑 $MMW_ROOT/skills/mmw-dispatching-agents/install-agent-skills.sh"
       status=1
     fi
   elif [ "${host:-}" = "pi" ]; then
