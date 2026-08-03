@@ -337,5 +337,15 @@ bash "$RF" close >/dev/null
   && ok "交付记录钉住出包时的 commit" || no "交付记录的 commit 不对"
 [ ! -f "$SF" ] && ok "收束后不留活状态" || no "收束后仍有活状态"
 
+# 守:交付记录要落主仓库根,不能落当前这棵任务 worktree。它比对的是几次出包之间的
+# commit,跨任务才成立,而任务 worktree 收尾就删——落在树里的记录活不过一次任务,
+# 下次出另一个产品时看不到早前那个包基于哪个提交,混包正是它要防的。
+git worktree add -q wt -b task-y
+(cd wt && bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null && bash "$RF" close >/dev/null)
+[ -f "$STATE_SUBDIR/delivered/duck.json" ] \
+  && ok "在 worktree 里收束，交付记录落主仓库根" || no "交付记录没落主仓库根"
+[ ! -e "wt/$STATE_SUBDIR/delivered" ] \
+  && ok "worktree 里不留交付记录" || no "worktree 里留了交付记录"
+
 echo "=== $pass PASS / $fail FAIL ==="
 [ "$fail" -eq 0 ]

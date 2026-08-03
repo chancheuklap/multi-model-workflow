@@ -1256,7 +1256,7 @@ cmd_resume() {
 }
 
 cmd_close() {
-  local top sd f product commit
+  local top sd f main product commit
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "NO-GIT"; return 0; }
   sd="$(mmw_path_field release)"
   f="$top/$sd/$STATE_NAME"
@@ -1264,13 +1264,18 @@ cmd_close() {
   # 产生新提交推进 HEAD,早前那个产品的包就已经不是最终代码了——把几个包混着发出去,
   # 客户装到的是两份不同的东西。这几份记录是发出去之前唯一能发现这件事的地方。
   # 只记 product 与 commit 两个事实,判断「要不要重出」是技能的事,不在引擎里。
+  #
+  # 活状态跟着当前树走,交付记录落主仓库根:它要比对的是几次出包之间的 commit,
+  # 跨任务、跨会话才成立,而任务 worktree 收尾就删,记录跟着一起没。两边都在
+  # .gitignore 里,不进 git——出包是这台机器上的事实,不是仓库历史的一部分。
   if [ -f "$f" ]; then
     product="$(jq -r '.product // empty' "$f" 2>/dev/null || true)"
     commit="$(jq -r '.source_commit // empty' "$f" 2>/dev/null || true)"
     if [ -n "$product" ] && [ -n "$commit" ]; then
-      mkdir -p "$top/$sd/delivered"
+      main="$(mmw_main_root)"
+      mkdir -p "$main/$sd/delivered"
       jq -n --arg p "$product" --arg c "$commit" --arg at "$(now)" \
-        '{product:$p, source_commit:$c, closed_at:$at}' > "$top/$sd/delivered/$product.json"
+        '{product:$p, source_commit:$c, closed_at:$at}' > "$main/$sd/delivered/$product.json"
     fi
     rm -f "$f"
   fi
