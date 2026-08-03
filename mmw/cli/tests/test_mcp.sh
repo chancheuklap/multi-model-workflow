@@ -75,28 +75,68 @@ echo ".mcp.json 是唯一事实来源"
 FAKE_ROOT="$WORK/fake-plugin"
 mkdir -p "$FAKE_ROOT/cli/adapters" "$FAKE_ROOT/mcp"
 cp "$MMW_ROOT/cli/adapters/claude-code.sh" "$FAKE_ROOT/cli/adapters/"
-cp "$MMW_ROOT/mcp/install-mcp.sh" "$FAKE_ROOT/mcp/"
+cp "$MMW_ROOT/mcp/install-mcp.sh" "$MMW_ROOT/mcp/resolve.py" "$FAKE_ROOT/mcp/"
 cat > "$FAKE_ROOT/.mcp.json" <<'JSON'
-{"mcpServers":{"新加的":{"command":"some-tool","args":["--root","${CLAUDE_PLUGIN_ROOT}/x"]}}}
+{"mcpServers":{"新加的":{"command":"some-tool","args":["--root","${CLAUDE_PLUGIN_ROOT}/x"],
+ "env":{"要密钥的":"${MMW_TEST_SECRET:-}","不要密钥的":"固定值"}}}}
 JSON
+# 密钥文件指到临时目录：读用户真实的那份，这几条断言就随他机器上配没配而变。
+export MMW_SECRETS_FILE="$WORK/secrets.env"
+printf 'MMW_TEST_SECRET=真值\n' > "$MMW_SECRETS_FILE"
+# 两个面都指到临时文件。少指一个，测试会写到跑测试那个人真实的配置上。
+fake_install() { MMW_PI_MCP_FILE="$1" MMW_CURSOR_MCP_FILE="$2" bash "$FAKE_ROOT/mcp/install-mcp.sh"; }
+
 got="$(MMW_ROOT="$FAKE_ROOT" bash -c '. "$MMW_ROOT/cli/adapters/claude-code.sh"; mmw_adapter_mcp_overrides' \
   | grep -c '新加的' || true)"
-check "往 .mcp.json 加一个，codex 覆盖项跟着有" "2" "$got"
-MMW_PI_MCP_FILE="$WORK/pi-mcp.json" bash "$FAKE_ROOT/mcp/install-mcp.sh" >/dev/null
+check "往 .mcp.json 加一个，codex 覆盖项跟着有" "3" "$got"
+fake_install "$WORK/pi-mcp.json" "$WORK/cursor-mcp.json" >/dev/null
 check "同一个也进了 pi 的配置" "some-tool" \
   "$(jq -r '.mcpServers["新加的"].command' "$WORK/pi-mcp.json")"
-check "插件根路径被展开成绝对路径" "$FAKE_ROOT/x" \
+check "同一个也进了 Cursor 的配置" "some-tool" \
+  "$(jq -r '.mcpServers["新加的"].command' "$WORK/cursor-mcp.json")"
+# 期望值走一遍 pwd -P：展开出去的必须是解析过 symlink 的真路径（macOS 的
+# /var 就是 /private/var 的 symlink），下游进程按它去找文件。
+check "插件根路径被展开成解析过的绝对路径" "$(cd "$FAKE_ROOT" && pwd -P)/x" \
   "$(jq -r '.mcpServers["新加的"].args[1]' "$WORK/pi-mcp.json")"
+# 守：pi 认 type: stdio，Cursor 不认。同一份定义要按面翻译，不是一份到处抄。
+check "pi 那一面带 type" "stdio" "$(jq -r '.mcpServers["新加的"].type' "$WORK/pi-mcp.json")"
+check "Cursor 那一面不带 type" "null" "$(jq -r '.mcpServers["新加的"].type' "$WORK/cursor-mcp.json")"
+
+# 守：密钥不进仓库。.mcp.json 里只写 ${…} 声明，值住在机器上那份密钥文件里；
+# 没配的时候要的是「这个键不存在」，不是一个空字符串——下游拿到空串会当成配错了。
+echo
+echo "密钥从密钥文件展开"
+check "配了就展开成真值" "真值" \
+  "$(jq -r '.mcpServers["新加的"].env["要密钥的"]' "$WORK/pi-mcp.json")"
+check "不带占位符的原样保留" "固定值" \
+  "$(jq -r '.mcpServers["新加的"].env["不要密钥的"]' "$WORK/pi-mcp.json")"
+: > "$MMW_SECRETS_FILE"
+fake_install "$WORK/pi-nokey.json" "$WORK/cursor-nokey.json" >/dev/null
+check "没配就把那个键丢掉，不写空串" "null" \
+  "$(jq -r '.mcpServers["新加的"].env["要密钥的"]' "$WORK/pi-nokey.json")"
+check "同一个 env 里没占位符的键不受牵连" "固定值" \
+  "$(jq -r '.mcpServers["新加的"].env["不要密钥的"]' "$WORK/pi-nokey.json")"
+printf 'MMW_TEST_SECRET=真值\n' > "$MMW_SECRETS_FILE"
 
 # 守：用户自己配的 MCP 不能被我们的安装抹掉。
 echo
-echo "装 pi 的配置只加不删"
+echo "只加不删"
 cat > "$WORK/pi-existing.json" <<'JSON'
 {"mcpServers":{"用户自己的":{"type":"stdio","command":"his-tool"}}}
 JSON
-MMW_PI_MCP_FILE="$WORK/pi-existing.json" bash "$FAKE_ROOT/mcp/install-mcp.sh" >/dev/null
-check "别人的服务器还在" "his-tool" \
+# Cursor 会把这个文件规范化成顶层直接放服务器。认错层就会写出两套并存的定义。
+cat > "$WORK/cursor-existing.json" <<'JSON'
+{"用户自己的":{"command":"his-tool"}}
+JSON
+fake_install "$WORK/pi-existing.json" "$WORK/cursor-existing.json" >/dev/null
+check "pi 那边别人的服务器还在" "his-tool" \
   "$(jq -r '.mcpServers["用户自己的"].command' "$WORK/pi-existing.json")"
+check "Cursor 那边别人的服务器还在" "his-tool" \
+  "$(jq -r '.["用户自己的"].command' "$WORK/cursor-existing.json")"
+check "顶层形状的文件不会被塞进第二层" "some-tool" \
+  "$(jq -r '.["新加的"].command' "$WORK/cursor-existing.json")"
+check "也没有多长出一个 mcpServers" "null" \
+  "$(jq -r '.mcpServers // "null"' "$WORK/cursor-existing.json")"
 
 # 守：doctor 不能在服务器坏掉时报绿。旧实现出过这个事故——配置在、工具名在列表里、
 # 直到模型真去调用才报错，而那时它已经在一次审查中途了。
@@ -104,7 +144,7 @@ echo
 echo "探测发现起不来的服务器"
 BROKEN="$WORK/broken-plugin"
 mkdir -p "$BROKEN/mcp"
-cp "$MMW_ROOT/mcp/probe.py" "$BROKEN/mcp/"
+cp "$MMW_ROOT/mcp/probe.py" "$MMW_ROOT/mcp/resolve.py" "$BROKEN/mcp/"
 cat > "$BROKEN/.mcp.json" <<'JSON'
 {"mcpServers":{"起不来的":{"command":"这个命令根本不存在"}}}
 JSON

@@ -35,24 +35,11 @@ mmw_adapter_skill_path() {
 # 用 -c 覆盖而不是往 ~/.codex/config.toml 里写：用户那份配置是他自己的，我们只在
 # 自己派发的这一次进程里加工具，退出即无痕。
 #
-# 逐行输出 codex -c 要的 key=value，调用方读进数组。
+# 逐行输出 codex -c 要的 key=value，调用方读进数组。占位符怎么展开（插件根、密钥、
+# 默认值）全在 mcp/resolve.py 里，本文件不自己解析——两处解析就是两处维护。
 mmw_adapter_mcp_overrides() {
-  local mcp="$MMW_ROOT/.mcp.json"
-  [ -f "$mcp" ] || return 0
-  jq -r --arg root "$MMW_ROOT" '
-    def expand: gsub("\\$\\{CLAUDE_PLUGIN_ROOT\\}"; $root);
-    .mcpServers | to_entries[] |
-    .key as $n |
-    (
-      "mcp_servers.\($n).command=\(.value.command | expand | @json)",
-      (if (.value.args // []) | length > 0
-       then "mcp_servers.\($n).args=\([.value.args[] | expand] | @json)"
-       else empty end),
-      (if (.value.env // {}) | length > 0
-       then "mcp_servers.\($n).env={\([.value.env | to_entries[] | "\(.key)=\(.value | expand | @json)"] | join(", "))}"
-       else empty end)
-    )
-  ' "$mcp"
+  [ -f "$MMW_ROOT/.mcp.json" ] || return 0
+  python3 "$MMW_ROOT/mcp/resolve.py" --format codex
 }
 
 mmw_adapter_dispatch() {

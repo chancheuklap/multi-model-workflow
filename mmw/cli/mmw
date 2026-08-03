@@ -372,14 +372,22 @@ cmd_doctor() {
       && echo "claude   : $(command -v claude)（pi 派 Claude 靠它桥接）" \
       || { echo "claude   : 没装（pi 派 Claude 要它）"; status=1; }
     echo "方法论   : 走 subagent 的 skill 参数，不用安装"
-    # pi 是三个执行面里唯一要写用户配置的：它的插件规格没有声明 MCP 的位置。
-    if bash "$MMW_ROOT/mcp/install-mcp.sh" --check >/dev/null 2>&1; then
-      echo "pi 的 MCP: 已装"
-    else
-      echo "pi 的 MCP: 没装或与插件定义不一致，跑 $MMW_ROOT/mcp/install-mcp.sh"
-      status=1
-    fi
   fi
+
+  # pi 与 Cursor 的插件规格都没有声明 MCP 的位置，只能写用户级配置。不按当前宿主
+  # 分支报：在 Claude Code 里也要看得见另外两面装没装，否则换个宿主才发现断了。
+  if bash "$MMW_ROOT/mcp/install-mcp.sh" --check >/dev/null 2>&1; then
+    echo "pi/Cursor: 用户级 MCP 已装（这台机器上没有的那一面自动跳过）"
+  else
+    echo "pi/Cursor: 有一面没装或与插件定义不一致，跑 $MMW_ROOT/mcp/install-mcp.sh"
+    status=1
+  fi
+
+  # 密钥只报来源不报值。没配不算故障——三个服务器都能不带密钥跑，只是额度小。
+  local secrets
+  secrets="$(python3 "$MMW_ROOT/mcp/resolve.py" 2>&1)" || secrets="展开器跑不起来：$secrets"
+  printf '密钥     : %s\n' "$(printf '%s' "$secrets" | head -1)"
+  printf '%s\n' "$secrets" | tail -n +2 | sed 's/^/           /'
 
   # 真把每个服务器拉起来握一次手，不只看配置在不在——旧实现出过一次事故：配置在、
   # 工具名在列表里、直到模型真去调用才报错，那时它已经在一次审查中途了。
