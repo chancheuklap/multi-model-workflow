@@ -32,7 +32,9 @@ usage() {
   mmw skill-path <角色>            派出去那一侧读方法论的路径；宿主自己会送
                                    到位的输出空
 
-  mmw task new <slug> [原话]       建 worktree 与分支，输出绝对路径
+  mmw task new <slug> [原话] [--from <基点>]
+                                   建 worktree 与分支，输出绝对路径。不给
+                                   --from 从当前 HEAD 分叉
   mmw task enter <slug>            输出该 worktree 的绝对路径
   mmw task cleanup <slug>          删 worktree 与分支（非强制，有改动会失败）
 

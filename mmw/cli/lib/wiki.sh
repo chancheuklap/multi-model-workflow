@@ -19,6 +19,10 @@
 
 set -euo pipefail
 
+# Wiki 的工作副本落在**当前这棵树**下，不是主仓库——跟 mmw_task_dir 用
+# mmw_main_root 不一样，这是有意的。收尾的会话各自克隆一份，两个任务同时收尾
+# 时各写各的页面、各推各的；共用主仓库那一份的话，A 写完还没推、B 一跑 pull
+# 就撞上 A 的未提交改动。Wiki 仓库很小，多克隆几次不心疼。
 mmw_wiki_dir() {
   echo "$(mmw_repo_root)/$(mmw_path_field worktrees)/.wiki"
 }

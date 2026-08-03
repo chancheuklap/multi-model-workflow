@@ -74,9 +74,38 @@ check "挂回去不再打空提交" "feat-two" \
   "$(git -C .worktrees/feat-two log -1 --format='%s')"
 
 echo
-echo "task cleanup"
+echo "--from 显式基点"
 
 nonzero() { [ "$1" -ne 0 ] && echo 非零 || echo 零; }
+
+# `/mmw-wayfinder` 走链时会话还在主仓库，而那条链要从 map 分支分叉。主仓库的
+# HEAD 是主线，`git checkout` 又切不过去（map 分支被 map 的 worktree 占着），
+# 所以只能靠 --from。
+cd "$MAIN"
+"$MMW" task new feat-chain "解第一张 ticket" --from feat-one > /dev/null 2>&1
+check "--from 指定的分支才是父" "feat-one" \
+  "$(git -C .worktrees/feat-chain log --format='%s' | sed -n '2p')"
+
+"$MMW" task new feat-plain "不给基点" > /dev/null 2>&1
+check "不给 --from 时在主仓库从主线分叉" "init" \
+  "$(git -C .worktrees/feat-plain log --format='%s' | sed -n '2p')"
+
+set +e
+"$MMW" task new feat-bad "x" --from no-such-branch > /dev/null 2>&1
+rc=$?
+set -e
+check "--from 给不存在的分支时失败" "非零" "$(nonzero $rc)"
+check "失败之后没留下半棵 worktree" "no" \
+  "$([ -e .worktrees/feat-bad ] && echo yes || echo no)"
+
+set +e
+"$MMW" task new feat-bad2 --from > /dev/null 2>&1
+rc=$?
+set -e
+check "--from 后面缺值时失败" "非零" "$(nonzero $rc)"
+
+echo
+echo "task cleanup"
 
 set +e
 printf 'dirty\n' > .worktrees/feat-one/x.txt

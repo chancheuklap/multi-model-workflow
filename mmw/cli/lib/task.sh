@@ -18,12 +18,44 @@ mmw_task_dir() {
 
 # 建 worktree、建分支、打一个记住用户原话的空提交。
 #
-# 从哪里分叉由当前 HEAD 决定：在主仓库跑就从主线分叉，在某棵 worktree 里跑就
-# 从那条分支分叉。同名分支已经存在时挂回它，不新建也不打空提交——map 的
+# 用法：mmw_task_new <slug> [原话] [--from <基点>]
+#
+# 不给 --from 就从当前 HEAD 分叉：在主仓库跑从主线分叉，在某棵 worktree 里跑
+# 从那条分支分叉。要从别的分支分叉必须显式给 --from——`/mmw-wayfinder` 走链时
+# 会话还在主仓库，而那条链要从 map 分支分叉，光靠当前 HEAD 取不到；`git
+# checkout` 也切不过去，map 分支正被 map 的 worktree 占着。
+#
+# 同名分支已经存在时挂回它，不新建也不打空提交，--from 一并忽略——map 的
 # worktree 被清理过之后要建回来，走的就是这条。
 mmw_task_new() {
-  local slug="$1" note="${2:-}"
-  local root dir
+  local slug="" note="" from=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --from)
+        from="${2:-}"
+        if [ -z "$from" ]; then
+          echo "mmw: --from 要跟一个分支名或提交" >&2
+          return 1
+        fi
+        shift 2
+        ;;
+      -*)
+        echo "mmw: task new 不认识 $1" >&2
+        return 1
+        ;;
+      *)
+        if [ -z "$slug" ]; then slug="$1"; else note="$1"; fi
+        shift
+        ;;
+    esac
+  done
+
+  if [ -z "$slug" ]; then
+    echo "mmw: task new 要一个 slug" >&2
+    return 1
+  fi
+
+  local root dir base
   root="$(mmw_main_root)"
   dir="$(mmw_task_dir "$slug")"
 
@@ -38,7 +70,19 @@ mmw_task_new() {
     return 0
   fi
 
-  git worktree add -b "$slug" "$dir" >&2
+  if [ -n "$from" ]; then
+    if ! git rev-parse --verify --quiet "$from^{commit}" > /dev/null; then
+      echo "mmw: --from 给的 ${from} 不是这个仓库里的分支或提交" >&2
+      return 1
+    fi
+    base="$from"
+  else
+    # 当前 HEAD 要在这里取出来再传给 git -C "$root"。不传的话 worktree add 用
+    # 的是主仓库的 HEAD，在任务 worktree 里再开一棵就会错分叉到主线。
+    base="$(git rev-parse HEAD)"
+  fi
+
+  git -C "$root" worktree add -b "$slug" "$dir" "$base" >&2
   if [ -n "$note" ]; then
     git -C "$dir" commit --allow-empty -q -m "$slug" -m "$note"
   fi

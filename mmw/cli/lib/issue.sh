@@ -26,6 +26,9 @@ mmw_issue_dbid() {
 
 # 父 issue 的全部子 issue，一行一个 JSON 对象，按编号升序。
 # sub_issues 端点返回的对象不一定带依赖摘要，缺了就逐个补齐。
+#
+# 多页时 gh 把各页的数组合并成一个数组（gh 2.96 实测：82 条跨 5 页，顶层仍是
+# 单个 array），所以下面直接对整体取 length 和 .[0] 是成立的。
 mmw_issue_children_raw() {
   local parent="$1" repo list
   repo="$(mmw_gh_repo)"
@@ -134,7 +137,9 @@ mmw_issue_create() {
 
   local b
   for b in ${blocked_by//,/ }; do
-    [ -n "$b" ] && mmw_issue_link "$n" "$b" >/dev/null
+    if [ -n "$b" ]; then
+      mmw_issue_link "$n" "$b" > /dev/null
+    fi
   done
 
   echo "$n"

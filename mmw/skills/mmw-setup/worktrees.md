@@ -46,28 +46,25 @@ effort——比一份 spec 大、要好几份 spec 才做得完的那种——�
 仓库内 `.worktrees/`，已进 `.gitignore`。
 
 ```bash
-# 从主线开一个新任务
-git worktree add -b <name> .worktrees/<name> main
+# 从当前 HEAD 开一个新任务。会话在主仓库就是从主线分叉，在某棵 worktree
+# 里就是从那条分支分叉——拆并行 ticket 走的是这条
+mmw task new <slug> "<用户交代这件事时的原话>"
 
-# 从父 worktree 的分支分叉（wayfinder 派生 spec、拆并行 ticket 都走这个）
-git worktree add -b <name> .worktrees/<name> <父分支名>
+# 从别的分支分叉，wayfinder 派生 spec 走这条
+mmw task new <slug> "<原话>" --from <父分支名>
 ```
 
-然后 `EnterWorktree({ path: ".worktrees/<name>" })` 进去——只有这一步能切会话工作目录，脚本切不了。
+**会话还在主仓库、而要从别的分支分叉时，`--from` 必须给。** 当前 HEAD 是主线，`git checkout` 也切不过去——那条分支正被它自己的 worktree 占着。
 
-**会话限制**：`EnterWorktree` 从主仓库按路径进没问题；但同一个会话里从一个 worktree 直接跳到另一个 worktree 时，它只认 `.claude/worktrees/` 下的目标。一个任务一棵树，正常撞不上；真要跳先回主仓库。
+命令输出 worktree 的绝对路径。用宿主的工作目录切换工具进到那个路径（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`），只有这一步能切会话工作目录，脚本切不了。
+
+**会话限制**：从主仓库按路径进没问题；但同一个会话里从一棵 worktree 直接跳到另一棵会被拒绝。一个任务一棵树，正常撞不上；真要跳先回主仓库。
 
 ## 开工的第一个提交
 
-进去之后先打一个空提交：
+`mmw task new` 传了原话就已经打好那个空提交了，原话原样记在提交正文里，不要替用户概括。分支已经存在、命令是挂回它时不打，那条分支上本来就有起点。
 
-```bash
-git commit --allow-empty -m "<slug>" -m "<用户交代这件事时的原话>"
-```
-
-原话原样记，不要替他概括。
-
-它同时是这个任务的起点标记：`git merge-base` 取到的分支点就是这条空提交的父提交，终审要的固定点因此不用另外记。
+这个空提交同时是任务的起点标记：`git merge-base` 取到的分支点就是它的父提交，终审要的固定点因此不用另外记。
 
 任务走到第几步不用状态文件，看产物在不在就知道：`docs/specs/<slug>/` 在不在、子 issue 谁开着谁有 assignee、`.reviews/` 里有没有终审报告、Wiki 上有没有那一页。
 

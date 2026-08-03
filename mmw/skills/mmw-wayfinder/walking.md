@@ -18,7 +18,15 @@ frontier 空了，说明这张 map 该收尾了，转 [closing.md](closing.md)�
 
 **先认领**：`mmw issue claim <编号>`。它已经被别的会话占住就会失败，那就取下一张。认领成功之前不要做任何事。
 
-再建这条链的 worktree：`mmw task new <map 的 slug>-<链首 ticket 的短语> "<这张 ticket 要解的问题>"`。它从当前 HEAD 分叉，所以**先确认你在 map 分支上**。建完用宿主的工作目录切换工具进到它输出的那个路径（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`；这一步脚本做不了，只有宿主工具做得到）。这是这个会话唯一一次进 worktree。
+再建这条链的 worktree：
+
+```bash
+mmw task new <map 的 slug>-<链首 ticket 的短语> "<这张 ticket 要解的问题>" --from <map 的 slug>
+```
+
+**`--from` 必须给。** 这个会话此刻还在主仓库，当前 HEAD 是主线；`git checkout` 也切不到 map 分支，它正被 map 的 worktree 占着。不给就会把这条链错分叉到主线，map 上已经做出的决定一条都拿不到。
+
+建完用宿主的工作目录切换工具进到它输出的那个路径（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`；这一步脚本做不了，只有宿主工具做得到）。这是这个会话唯一一次进 worktree。
 
 ## 3. 解它
 
