@@ -1,6 +1,6 @@
 # 报告怎么写
 
-这份架构走查渲染成一个自包含的 HTML 文件，落系统临时目录。Tailwind 和 Mermaid 都走 CDN。Mermaid 画图结构的东西很稳；手搭的 div 和内联 SVG 负责更有编排感的那些视觉（体量图、剖面图）。两种混用——不要什么都交给 Mermaid，那样看起来会很模板。
+这份架构走查渲染成一个自包含的 HTML 文件，落系统临时目录。Tailwind 和 Mermaid 都走 CDN。Mermaid 画图结构的东西很稳；手搭的 div 和内联 SVG 负责更有编排感的那些视觉（体量图、剖面图）。两种混用，不要什么都交给 Mermaid。
 
 ## 骨架
 
@@ -56,11 +56,11 @@
 
 ## 图的几种画法
 
-按候选的情况挑，混着用。不要每张图都长一个样，多样本身就是重点之一。
+按候选的情况挑，混着用，不要每张图都长一个样。
 
 ### Mermaid 图（画依赖和调用流的主力）
 
-重点是「X 调 Y 调 Z，你看这一团」时，用 Mermaid 的 `flowchart` 或 `graph`。用 Tailwind 卡片包一层，别让它看起来像空投进来的。用 classDef 把漏出去的那条边标红、把 deep module 标深。「before 六次往返、after 一次」这种用序列图效果很好。
+重点是「X 调 Y 调 Z，你看这一团」时，用 Mermaid 的 `flowchart` 或 `graph`。用 Tailwind 卡片包一层。用 classDef 把漏出去的那条边标红、把 deep module 标深。「before 六次往返、after 一次」这种用序列图效果很好。
 
 ```html
 <div class="rounded-lg border border-slate-200 bg-white p-4">
@@ -77,7 +77,7 @@
 
 ### 手搭的方框加箭头（Mermaid 的自动布局不听话时）
 
-module 用带边框和标签的 `<div>`，箭头用内联 SVG 的 `<line>` 或 `<path>`，绝对定位盖在相对定位的容器上。想让 after 那张图呈现成一个粗边框的 deep module、内部件灰掉时用这个——Mermaid 渲不出那个分量。
+module 用带边框和标签的 `<div>`，箭头用内联 SVG 的 `<line>` 或 `<path>`，绝对定位盖在相对定位的容器上。想让 after 那张图呈现成一个粗边框的 deep module、内部件灰掉时用这个。
 
 ### 剖面图（适合分层式的 shallow）
 
@@ -96,7 +96,7 @@ before：一棵函数调用树，画成嵌套的方框。after：同一棵树收
 - 偏编排感，不要企业仪表盘感。留白给足。标题用衬线（`font-serif`）配 stone / slate 很好看。
 - 颜色克制：一个强调色（emerald 或 indigo），加红色标漏出去的耦合、琥珀色标警告。
 - 图控制在 320px 高左右，让 before/after 并排时不用滚动就看得完。
-- 图里的 module 标签用 `text-xs uppercase tracking-wider`——它们要读起来像示意图，不像界面控件。
+- 图里的 module 标签用 `text-xs uppercase tracking-wider`。
 - 只有 Tailwind CDN 和 Mermaid ESM 这两个脚本。报告本身是静态的，除了 Mermaid 自己的渲染之外没有任何交互。
 
 ## Top recommendation 一节
@@ -105,7 +105,7 @@ before：一棵函数调用树，画成嵌套的方框。after：同一棵树收
 
 ## 语气
 
-平实、简洁——但架构上的名词和动词直接取自 `/codebase-design`，简洁不是漂词的借口。
+平实、简洁，架构上的名词和动词直接取自 `/codebase-design`。
 
 **只用**：module、interface、implementation、depth、deep、shallow、seam、adapter、leverage、locality。
 
@@ -118,6 +118,6 @@ before：一棵函数调用树，画成嵌套的方框。after：同一棵树收
 - "Deepen: one interface, one place to test."
 - "Two adapters justify the seam: HTTP in prod, in-memory in tests."
 
-**Wins 那几条**用词汇表里的词说收益，例如 *"locality: bugs concentrate in one module"*、*"leverage: one interface, N call sites"*、*"interface shrinks; implementation absorbs the wrappers"*。不要写 *"easier to maintain"* 或 *"cleaner code"*——这些词不在词汇表里，也没资格占位置。
+**Wins 那几条**用词汇表里的词说收益，例如 *"locality: bugs concentrate in one module"*、*"leverage: one interface, N call sites"*、*"interface shrinks; implementation absorbs the wrappers"*。不要写 *"easier to maintain"* 或 *"cleaner code"*，这些词不在词汇表里。
 
 不要模棱两可，不要清嗓子，不要「值得一提的是……」。一句话能写成一条列点就写成列点，一条列点能删就删。一个词不在 `/codebase-design` 的词汇表里，先找一个在里面的，再考虑发明新词。
