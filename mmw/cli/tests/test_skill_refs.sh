@@ -7,11 +7,16 @@
 #   [x.md](x.md)     同目录那个文件真在
 #   「第 N 步」       被指的那个技能真有第 N 步
 #   `x/y.md`         散文里点名的文件真在（跨技能引用大多长这样，不是 markdown 链接）
+#   `mmw a b`        点名的命令与子命令 CLI 里真有
 #
 # 第三类是这个脚本的由来：mmw-review 删掉一节之后步骤重编号，三处「第 8 步复审」
 # 和一处指错节的「第 6 步」在仓库里躺了一轮才被发现。第四类补的是同一个洞的另一半：
 # 跨技能引用几乎都写成散文（「`/mmw-review` 目录里的 `self-review.md`」），第二类
 # 那条只认 markdown 链接语法，管不到它们。
+#
+# 第五类防的是承诺一条不存在的命令。指针节曾写着「标签清单用 mmw 的子命令查」，
+# 而那条命令根本没有——agent 照做只会打出一条报错。真实命令表从 cli/mmw 的两层
+# 分发里解析，不另手抄一份。
 #
 # 解析用内嵌 python：三类都是正则提取加路径判断，写成 sed 管道要跟分隔符转义
 # 缠斗，BSD 与 GNU 的 sed 行为还不一样。
@@ -23,12 +28,25 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS="$(cd "$HERE/../../skills" && pwd)"
+CLI="$(cd "$HERE/.." && pwd)"
 
-python3 - "$SKILLS" <<'PY'
+python3 - "$SKILLS" "$CLI" <<'PY'
 import pathlib, re, sys
 
 skills = pathlib.Path(sys.argv[1])
+cli = pathlib.Path(sys.argv[2])
 names = {d.name for d in skills.iterdir() if d.is_dir()}
+
+# 真实命令表从 cli/mmw 的两层分发解析出来，不另抄一份——抄一份就会跟 CLI 走散。
+cli_src = (cli / 'mmw').read_text()
+TOP_CMDS = set(re.findall(r'^  ([a-z-]+)\) shift; ', cli_src, re.M))
+SUB_CMDS = {}
+for m in re.finditer(r'^cmd_(\w+)\(\) \{(.*?)^\}', cli_src, re.M | re.S):
+    SUB_CMDS[m.group(1).replace('_', '-')] = set(
+        re.findall(r'^    ([a-z-]+)\)', m.group(2), re.M))
+if not TOP_CMDS:
+    print("  失败  解析不出 cli/mmw 的顶层命令表，分发写法变了就改这里")
+    sys.exit(1)
 
 # `/名字` 里排除真实路径与别的宿主的东西：/wiki 是 GitHub 的 wiki 页，/tmp 是
 # 目录，/install-wiki 是 Factory droid 的命令，/settings 与 /playwright-cli
@@ -40,6 +58,7 @@ RE_LINK = re.compile(r'\]\((?!http)([^)]+\.md)\)')
 RE_STEP = re.compile(r'`/([a-z0-9-]+)`[^|。，]{0,12}第 ([0-9]+) 步')
 RE_HEADING = re.compile(r'^#{2,3} ([0-9]+)\.', re.M)
 RE_FILE = re.compile(r'`([A-Za-z0-9_][A-Za-z0-9._/-]*\.md)`')
+RE_CMD = re.compile(r'`mmw ([a-z-]+)(?: ([a-z-]+))?')
 
 # 目标仓库里的文件，不在插件里，查不到是正常的。
 HOST_REPO_FILES = {
@@ -96,6 +115,19 @@ for p in sorted(skills.rglob('*.md')):
                 ok += 1
             else:
                 bad.append(f"{rel}:{i} 点名的文件不存在 {ref}")
+
+        for m in RE_CMD.finditer(line):
+            top, sub = m.group(1), m.group(2)
+            if top not in TOP_CMDS:
+                bad.append(f"{rel}:{i} 点名的命令不存在 mmw {top}")
+                continue
+            # 收子命令的那几条，第二个词必须是真子命令；不收的（dispatch 的角色、
+            # skill-path 的角色）第二个词是参数，不查。
+            expected = SUB_CMDS.get(top, set())
+            if expected and sub and sub not in expected:
+                bad.append(f"{rel}:{i} mmw {top} 没有子命令 {sub}")
+            else:
+                ok += 1
 
         for m in RE_STEP.finditer(line):
             skill, step = m.group(1), m.group(2)

@@ -37,10 +37,11 @@ mmw <命令> [参数]
   issue       tracker：建 issue、挂父子、算可认领集合
   wiki        Wiki：clone、重建导航、删本地文档前的验证
   domain      领域文档：落点、下一个 ADR 编号
-  doctor      检查这台机器上跑 mmw 需要的东西
-  init        把当前仓库配置成能跑这套工作流的样子；幂等
+  doctor      检查这台机器上跑 mmw 需要的东西（无参：跑一次就是检查）
+  init        把当前仓库配置成能跑这套工作流的样子；幂等（无参：跑一次就是配置）
 
-命令不带参数跑一次，给它自己的用法。
+前六条不带参数跑一次，给它自己的用法。doctor 与 init 本来就不收参数，
+跑它们就是执行——查它们做什么看上面这两行，不要拿跑一次当查用法。
 EOF
   return 2
 }
@@ -63,6 +64,9 @@ mmw dispatch <角色> --brief <文件> [--cwd <目录>]
                   只读的三个不给就是仓库根
 
 模型、档位、护栏由角色决定，取自仓库根 .mmw.json，这里不用管。
+
+返回开头一行是 mode: executed 或 mode: host-tool，两种读法不一样，
+判据在 mmw-dispatching-agents。
 EOF
   return 2
 }
@@ -71,7 +75,9 @@ usage_skill_path() {
   cat >&2 <<'EOF'
 mmw skill-path <角色>
 
-角色同 mmw dispatch。输出派出去那一侧读方法论的绝对路径，写进给它的提示词里。
+角色：worker、worker-high-risk、planner、investigator、reviewer-gpt、reviewer-claude
+
+输出派出去那一侧读方法论的绝对路径，写进给它的提示词里。
 宿主自己会把方法论送到位的角色什么都不输出，那时这句话省掉。
 EOF
   return 2
@@ -97,10 +103,14 @@ mmw issue create --title <标题> --body-file <文件>
     建 issue、挂父、连阻塞边、打标签，输出编号
 mmw issue frontier <父编号> [--label <标签>]
     open、没被挡、没人认领的子 issue，编号升序。要全部的读全部行，
-    要下一张的取第一行
-mmw issue children <父编号>          全部子 issue 及状态，看任务走到哪一步
+    要下一张的取第一行。每行两列，制表符分隔：编号、标题
+mmw issue children <父编号>
+    全部子 issue，编号升序，看任务走到哪一步。每行四列，制表符分隔：
+    编号、标题、认领人（无人为空）、被几张还开着的 issue 挡着
 mmw issue claim <编号>               认领；已被别人占住就失败
 mmw issue link <子> --blocked-by <n> 单连一条阻塞边
+
+--label 的取值由点名它的那个技能给，这里不列。
 EOF
   return 2
 }
