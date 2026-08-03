@@ -20,25 +20,24 @@ import subprocess
 import sys
 from pathlib import Path
 
-PLUGIN_ROOT = Path(__file__).resolve().parent.parent
-MCP_JSON = PLUGIN_ROOT / ".mcp.json"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from resolve import MCP_JSON, Resolver  # noqa: E402  展开规则的唯一来源
+
 HANDSHAKE_TIMEOUT = 40
-
-
-def expand(value: str) -> str:
-    return value.replace("${CLAUDE_PLUGIN_ROOT}", str(PLUGIN_ROOT))
 
 
 def probe(spec: dict) -> tuple[bool, str]:
     """起服务器、握手、列工具。回 (成不成, 说人话的一句)。
 
+    spec 是 Resolver 展开过的，占位符已经是真值——体检要探的就是真正会跑起来的那份。
+
     三条请求一次性写进 stdin 再用 communicate 收全部输出：stdio 上逐条 readline
     没有超时机制，服务器一卡住体检命令就跟着挂死，而体检本身必须有头。
     """
-    command = expand(spec["command"])
-    args = [expand(a) for a in spec.get("args", [])]
+    command = spec["command"]
+    args = spec.get("args", [])
     env = dict(os.environ)
-    env.update({k: expand(v) for k, v in (spec.get("env") or {}).items()})
+    env.update(spec.get("env") or {})
 
     try:
         proc = subprocess.Popen(
@@ -104,7 +103,7 @@ def main() -> int:
     if not MCP_JSON.is_file():
         print(f"ERROR: 插件里没有 .mcp.json: {MCP_JSON}", file=sys.stderr)
         return 2
-    servers = json.loads(MCP_JSON.read_text(encoding="utf-8")).get("mcpServers", {})
+    servers = Resolver().servers(want_type=False)
     results, status = {}, 0
     for name, spec in servers.items():
         ok, detail = probe(spec)
