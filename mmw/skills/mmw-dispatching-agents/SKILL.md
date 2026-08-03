@@ -85,9 +85,9 @@ params: {"...": "..."}
 
 派发前自检：brief 里提到的每个仓库内路径真实存在，缺了当场报错。
 
-## 存盘
+## 组装与存盘
 
-提示词和完工报告落 worktree 根的 `.dispatch/`，写之前 `mkdir -p`。这个目录已在仓库根 `.gitignore` 里。
+各技能组装 brief 时照这里做，各自不再复述：粘进 brief 的内容一律现从文件里读再粘，不凭记忆复述。提示词和完工报告落 worktree 根的 `.dispatch/`，写之前 `mkdir -p`。这个目录已在仓库根 `.gitignore` 里。审查那一道的落点不同，按 `/mmw-review` 落 `.reviews/`。
 
 ## 并行
 

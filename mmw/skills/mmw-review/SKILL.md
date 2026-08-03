@@ -60,7 +60,7 @@ spec 在哪按这个顺序找：这个分支上的 `docs/specs/<slug>/<slug>.md`
 
 ## 3. 确认方法论装了
 
-跑 `mmw doctor`，它会告诉你方法论装没装。没装就先跑 `/mmw-dispatching-agents` 旁边的 `install-agent-skills.sh` 装，再派。
+派之前按 `/mmw-dispatching-agents` 的「方法论怎么到它手里」一节跑 `mmw doctor` 确认，没装先装好再派。
 
 ## 4. 组装提示词，派发
 

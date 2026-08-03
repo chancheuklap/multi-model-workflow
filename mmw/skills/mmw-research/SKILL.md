@@ -44,7 +44,7 @@ description: 把「去查清楚」派出去——查这个仓库的现状，或�
 
 ## 3. 组装提示词
 
-一个题目一份，从文件里取，不凭记忆：
+一个题目一份，组装规矩按 `/mmw-dispatching-agents` 的「组装与存盘」一节：
 
 | 装什么 | 取自哪 | 哪个方向 |
 | --- | --- | --- |
@@ -54,7 +54,7 @@ description: 把「去查清楚」派出去——查这个仓库的现状，或�
 | 领域词 | 跑 `mmw domain path` 取落点，把取到的那几份的绝对路径写进去 | 只有内部 |
 | 已知背景 | 已经查过哪里、排除过什么 | 都要 |
 
-写到 `.dispatch/<slug>-research-<角度短名>.prompt.md`（先 `mkdir -p .dispatch`）。
+写到 `.dispatch/<slug>-research-<角度短名>.prompt.md`。
 
 ## 4. 派发
 

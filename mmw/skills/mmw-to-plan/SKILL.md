@@ -46,9 +46,9 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 
 一张 ticket 一个写计划工人，按 `/mmw-dispatching-agents` 派 `planner` 角色，`--cwd` 给任务 worktree 的路径。
 
-派之前跑 `mmw doctor`，它会告诉你方法论装没装。没装就先跑 `/mmw-dispatching-agents` 旁边的 `install-agent-skills.sh` 装，再派。
+方法论装没装，派之前按 `/mmw-dispatching-agents` 的「方法论怎么到它手里」一节跑 `mmw doctor` 确认。
 
-提示词从文件里取，不凭记忆，写到 `.dispatch/<slug>-plan-<编号>.prompt.md` 再从那里派（先 `mkdir -p .dispatch`）：
+提示词按 `/mmw-dispatching-agents` 的「组装与存盘」一节组装，写到 `.dispatch/<slug>-plan-<编号>.prompt.md` 再从那里派：
 
 1. spec 在这个 worktree 里的路径，加上 `## Testing Decisions` 一节里那张 seam 清单表的原文引用。
 2. **这张 ticket 的正文**：标题、要做什么、每一条验收标准、被谁阻塞，全部抄进去。工人能访问 tracker 也照样抄。
