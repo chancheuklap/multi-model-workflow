@@ -123,6 +123,10 @@ done
 
 python3 pi-plugin/scripts/render_agent_prompts.py --check
 bash pi-plugin/workflows/install-workflows.sh --check
+
+for test_file in mmw/cli/tests/test_*.sh; do
+  bash "$test_file" || exit 1
+done
 ```
 
 提交前：`git diff --check`；本次改动的 JSON 用 `python3 -m json.tool` 校验。
