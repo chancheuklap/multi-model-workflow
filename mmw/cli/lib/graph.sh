@@ -17,8 +17,10 @@ mmw_graph_status() {
   python3 "$(mmw_graph_ensure_bin)" --repo "$(mmw_repo_root)" --status
 }
 
+# 显式点名要建，就真的建一次，不因为"看着还新鲜"直接返回：会来敲这条命令的场合
+# 是配置刚改完、或者怀疑图跟代码对不上，那时新鲜度判断本身就是被怀疑的那一方。
 mmw_graph_build() {
-  python3 "$(mmw_graph_ensure_bin)" --repo "$(mmw_repo_root)"
+  python3 "$(mmw_graph_ensure_bin)" --repo "$(mmw_repo_root)" --force
 }
 
 # 图里各类关系各有多少条。判据不是数量本身，是配置里声明要算的那几类边一条都

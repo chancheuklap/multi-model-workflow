@@ -19,10 +19,10 @@ from typing import Any
 SCHEMA_VERSION = 1
 OUT_DIR_NAME = "graphify-out"
 GRAPH_NAME = "graph.json"
-FRESHNESS_NAME = ".pi-freshness.json"
-LOCK_NAME = ".pi-ensure.lock"
-BACKUP_GRAPH_NAME = ".pi-backup.graph.json"
-BACKUP_FRESHNESS_NAME = ".pi-backup.freshness.json"
+FRESHNESS_NAME = ".mmw-freshness.json"
+LOCK_NAME = ".mmw-ensure.lock"
+BACKUP_GRAPH_NAME = ".mmw-backup.graph.json"
+BACKUP_FRESHNESS_NAME = ".mmw-backup.freshness.json"
 HARD_WARNING_MARKERS = (
     "because a dependency is missing",
     "classified as code but graphify has no AST extractor",
@@ -316,7 +316,89 @@ def _restore_backup(graph: Path, meta: Path, backup_graph: Path, backup_meta: Pa
         os.replace(backup_meta, meta)
 
 
+def _cross_edge_config(repo: Path) -> tuple[bool, tuple[str, ...]]:
+    """这个仓库配没配跨语言边，以及它显式接受哪些能力缺口。
+
+    配了就必须走完整流水线。裸 `graphify update` 建出来的图看着正常——文件名、体积
+    都对——但前端调用连不到后端处理函数，而没有任何一处会报错。
+    """
+    config_path = repo / ".mmw.json"
+    if not config_path.is_file():
+        return False, ()
+    try:
+        raw = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False, ()
+    section = ((raw.get("retrieval") or {}).get("graph")) or {}
+    if not isinstance(section, dict) or not section:
+        return False, ()
+    tolerated = section.get("tolerated_warnings") or []
+    if not isinstance(tolerated, list):
+        tolerated = []
+    return True, tuple(str(item) for item in tolerated)
+
+
+def _hard_warnings(warnings: list[str], tolerated: tuple[str, ...]) -> list[str]:
+    """哪些警告说明这份图残缺到不能用。
+
+    豁免要显式写进 `.mmw.json`：一个仓库知道自己有两个 SQL 文件进不了图并接受它，
+    跟一个仓库连 Python 都解析不了，在输出里长得一模一样。默认按后者处理。
+    """
+    hard: list[str] = []
+    for line in warnings:
+        lowered = line.lower()
+        if not any(marker in lowered for marker in HARD_WARNING_MARKERS):
+            continue
+        if any(allowed.lower() in lowered for allowed in tolerated):
+            continue
+        hard.append(line)
+    return hard
+
+
+def _build_with_cross_edges(
+    repo: Path, version: str, head: str, fingerprint: str, tolerated: tuple[str, ...]
+) -> int:
+    """走完整流水线。它自己原子发布，这里只负责新鲜度元数据。"""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    try:
+        from graph.fragment import CrossEdgeBuildError
+        from graph.rebuild import rebuild as rebuild_graph
+    except ImportError as exc:
+        raise EnsureError(f"跨语言边流水线加载不了：{exc}") from exc
+    finally:
+        sys.path.pop(0)
+    _, _graph, meta, _backup_graph, _backup_meta = _graph_paths(repo)
+    try:
+        _, warnings = rebuild_graph(repo)
+    except CrossEdgeBuildError as exc:
+        raise EnsureError(f"建图失败：stage={exc.stage} {exc.reason}") from exc
+    hard = _hard_warnings(warnings, tolerated)
+    if hard:
+        raise EnsureError(
+            "Graphify 缺少源码解析能力，拒绝把残缺图标记为新鲜："
+            f"{hard[0]}；确实可以接受就写进 .mmw.json 的 "
+            "retrieval.graph.tolerated_warnings"
+        )
+    final_head, final_fingerprint = _worktree_fingerprint(repo)
+    if (final_head, final_fingerprint) != (head, fingerprint):
+        raise EnsureError("建图期间工作树发生变化；拒绝发布与当前内容不一致的图")
+    _write_json_atomic(
+        meta,
+        _freshness_payload(
+            head=head,
+            fingerprint=fingerprint,
+            version=version,
+            warnings=warnings,
+            source="built",
+        ),
+    )
+    return len(warnings)
+
+
 def _build(repo: Path, binary: str, version: str, head: str, fingerprint: str) -> int:
+    has_cross_edges, tolerated = _cross_edge_config(repo)
+    if has_cross_edges:
+        return _build_with_cross_edges(repo, version, head, fingerprint, tolerated)
     out_dir, graph, meta, backup_graph, backup_meta = _graph_paths(repo)
     out_dir.mkdir(parents=True, exist_ok=True)
     # 旧备份存在表示上次构建未完成；备份是最后一份已验证状态，优先于半成品新图。
@@ -398,7 +480,8 @@ def _main_worktree(repo: Path) -> Path | None:
     return main if main != repo and main.is_dir() else None
 
 
-def ensure(repo_arg: Path, source_arg: Path | None = None) -> str:
+def ensure(repo_arg: Path, source_arg: Path | None = None, *, force: bool = False) -> str:
+    """图对不上当前代码就重建。force 跳过新鲜度判断，也跳过复用主仓库那份。"""
     repo = _repo_root(repo_arg)
     source = _repo_root(source_arg) if source_arg is not None else _main_worktree(repo)
     binary = _graphify_binary()
@@ -415,9 +498,9 @@ def ensure(repo_arg: Path, source_arg: Path | None = None) -> str:
             fingerprint=fingerprint,
             version=version,
         )
-        if fresh:
+        if fresh and not force:
             return f"FRESH repo={repo} warnings={warning_count}"
-        if source is not None and source != repo and _try_reuse(
+        if not force and source is not None and source != repo and _try_reuse(
             source,
             repo,
             target_head=head,
@@ -458,13 +541,22 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="只报 FRESH / STALE / MISSING，不建图也不复用",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="不管新不新鲜都重建一次，也不复用主仓库那份",
+    )
     return parser
 
 
 def main() -> int:
     args = build_parser().parse_args()
     try:
-        print(status(args.repo) if args.status else ensure(args.repo, args.source))
+        print(
+            status(args.repo)
+            if args.status
+            else ensure(args.repo, args.source, force=args.force)
+        )
         return 0
     except (EnsureError, OSError, UnicodeError, subprocess.SubprocessError) as exc:
         print(f"graphify-ensure: ERROR: {exc}", file=sys.stderr)

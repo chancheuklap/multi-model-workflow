@@ -91,7 +91,7 @@ raise SystemExit(2)
         self.assertIn("BUILT", first.stdout)
         self.assertIn("FRESH", second.stdout)
         self.assertEqual(self.counter.read_text(), "1")
-        meta = json.loads((self.repo / "graphify-out/.pi-freshness.json").read_text())
+        meta = json.loads((self.repo / "graphify-out/.mmw-freshness.json").read_text())
         self.assertEqual(meta["graphify_version"], "graphify 0.test")
         self.assertEqual(meta["warnings"], [])
 
@@ -151,7 +151,7 @@ raise SystemExit(2)
     def test_hard_parser_warning_fails_and_restores_previous_graph(self) -> None:
         self.ensure()
         graph = self.repo / "graphify-out/graph.json"
-        meta = self.repo / "graphify-out/.pi-freshness.json"
+        meta = self.repo / "graphify-out/.mmw-freshness.json"
         old_graph = graph.read_bytes()
         old_meta = meta.read_bytes()
         (self.repo / "src/app.py").write_text("def changed():\n    return 1\n", encoding="utf-8")
@@ -165,11 +165,11 @@ raise SystemExit(2)
         self.ensure()
         out = self.repo / "graphify-out"
         graph = out / "graph.json"
-        meta = out / ".pi-freshness.json"
+        meta = out / ".mmw-freshness.json"
         old_graph = graph.read_bytes()
         old_meta = meta.read_bytes()
-        (out / ".pi-backup.graph.json").write_bytes(old_graph)
-        (out / ".pi-backup.freshness.json").write_bytes(old_meta)
+        (out / ".mmw-backup.graph.json").write_bytes(old_graph)
+        (out / ".mmw-backup.freshness.json").write_bytes(old_meta)
         graph.write_text(json.dumps({"nodes": [{"id": "half"}], "links": []}), encoding="utf-8")
         meta.write_text(json.dumps({"schema_version": 0}), encoding="utf-8")
         (self.repo / "src/app.py").write_text("def changed():\n    return 2\n", encoding="utf-8")

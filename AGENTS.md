@@ -136,6 +136,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 for t in mmw/cli/tests/test_*.sh; do bash "$t" || exit 1; done
 for t in mmw/release/tests/test_*.sh; do bash "$t" || exit 1; done
 (cd mmw/mcp && uv run --quiet --with pytest pytest test_graphify_ensure.py -q) || exit 1
+(cd mmw/graph && uv run --quiet --with pytest pytest tests/test_graph.py -q) || exit 1
 (cd mmw/release/tests && uv run --quiet --with pytest --with pydantic pytest \
   test_release_contracts.py test_release_script_assembler.py -q) || exit 1
 ```
