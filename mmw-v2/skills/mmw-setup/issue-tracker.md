@@ -1,6 +1,6 @@
 # Issue tracker:GitHub Issues
 
-本仓库 issue 全在 GitHub。所有操作走 `gh`，仓库从 `git remote -v` 自动推断（在 clone 内运行 `gh` 会自己认出来）。
+本仓库 issue 全在 GitHub。所有操作走 `gh`，仓库从 `git remote -v` 自动推断。
 
 ## 基本操作
 
@@ -19,11 +19,11 @@
 
 ## 层级
 
-常态两层。跑了 `/mmw-wayfinder` 就是三层，因为一张 map 可能派生出好几份 spec。
+常态两层。跑了 `/mmw-wayfinder` 就是三层。
 
 | 层 | 正文放什么 | 权威内容在哪 | 结局 |
 | --- | --- | --- | --- |
-| map（跑了 `/mmw-wayfinder` 才有） | `Destination`、`Decisions so far` 的一行索引、`Out of scope`、`Not yet specified` | 就在正文——它本来就是索引不是文档 | 关掉，不上 Wiki |
+| map（跑了 `/mmw-wayfinder` 才有） | `Destination`、`Decisions so far` 的一行索引、`Out of scope`、`Not yet specified` | 就在正文 | 关掉，不上 Wiki |
 | spec | 一段摘要说清要解决什么问题 + 指向分支上 spec 文件的路径 + ticket 清单 | 任务分支的 `docs/specs/<slug>/` | 落地后转一页 Wiki（见 `wiki.md`） |
 | ticket | 一段摘要 + 指向分支上该 ticket 计划的路径 + 阻塞关系 | 任务分支的 `docs/plans/<slug>/` | 并进 spec 那页 Wiki 的章节 |
 
@@ -44,7 +44,7 @@
 - **decision ticket**：map 的子 issue，一张对应一个待定的决定，带一个 `wayfinder:<类型>` 标签（见 `triage-labels.md`）。
 - **阻塞**：原生 issue dependencies，加边命令见本文「层级」一节。
 - **frontier 查询**：map 的 open 子 issue 中，`issue_dependencies_summary.blocked_by == 0` 且无 assignee 的全部——注意这里要的是全部，不是取第一个。`/mmw-wayfinder` 允许几个会话各认领一条 decision ticket 链同时跑。
-- **决定的答案**：作为结案评论贴在 decision ticket 上，关掉它，再往 map 的 `Decisions so far` 追加一行指针。**难以回退、有真取舍的那些还要另写一份 ADR**，别只留在评论里——评论区是最难检索的地方（见本文「`/mmw-wayfinder` 的产物不上 Wiki，但也不能死」一节的产物去向表）。
+- **决定的答案**：作为结案评论贴在 decision ticket 上，关掉它，再往 map 的 `Decisions so far` 追加一行指针。**难以回退、有真取舍的那些还要另写一份 ADR**，别只留在评论里（见本文「`/mmw-wayfinder` 的产物不上 Wiki，但也不能死」一节的产物去向表）。
 
 `/mmw-wayfinder` 找不到本节时会退化成拿本地 markdown 文件当 issue 追踪器。本仓库有 GitHub，不要走那条退路。
 
@@ -57,13 +57,13 @@
 
 三段，落地是分界点：
 
-1. **任务期间**：落在任务 worktree 的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`，提交进任务分支。打磨过程因此受 git 保护，改坏了能回退。
+1. **任务期间**：落在任务 worktree 的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`，提交进任务分支。
 2. **代码落地后**：转成 GitHub Wiki，Wiki 从此是这份 spec 的唯一事实来源。命名、页面结构、写入顺序和验证清单全在 `wiki.md`。
-3. **合回上一层之前**：在任务分支上删掉本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/` 并提交，然后再合并。主线因此不留 spec 和计划文档，不会随项目演进变成过时残留。
+3. **合回上一层之前**：在任务分支上删掉本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/` 并提交，然后再合并。主线因此不留 spec 和计划文档。
 
-第 3 步必须等 `wiki.md` 的验证清单全部通过才能做——本地文档一删就没有第二份了。
+第 3 步必须等 `wiki.md` 的验证清单全部通过才能做。
 
-**原型产物和取证台账不走这三段。** `docs/prototypes/<slug>/` 与 `docs/evidence/<slug>/` 随任务分支合回上一层，留在仓库里，不转 Wiki 也不删。spec 是给人读的说明，Wiki 上留一份就够；这两样是实物和事实——原型里那个逻辑模块会被搬进正式代码，界面变体是视觉契约的出处；台账记的是外部世界的表现（哪个供应商撑得住多少、哪个接口实际返回什么），下次要用同一个服务时直接查它。删掉它们，下一个人只能重新验一遍，而重测是要花钱花时间的。
+**原型产物和取证台账不走这三段。** `docs/prototypes/<slug>/` 与 `docs/evidence/<slug>/` 随任务分支合回上一层，留在仓库里，不转 Wiki 也不删。
 
 ## `/mmw-wayfinder` 的产物不上 Wiki，但也不能死
 
