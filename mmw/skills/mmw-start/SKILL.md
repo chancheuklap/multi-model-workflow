@@ -33,11 +33,27 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 **effort 怎么认**：判据是这件事要拆成几份 spec。一份 spec 说得完、拆出的 ticket 都挂在这份 spec 底下，走 `/mmw-grilling`。要好几份 spec 才做得完，而且哪几份、按什么顺序都还没有答案，才是 `/mmw-wayfinder`。
 
-带 issue 编号的，先按 `docs/agents/issue-tracker.md` 把这张 issue 读出来再判，不要只看编号；标签的含义见 `docs/agents/triage-labels.md`。
+带 issue 编号的，先 `gh issue view <编号> --comments` 把它读出来再判，不要只看编号。标签的含义见 `/mmw-triage`。
 
 ## 2. 定 slug
 
-形状是 `<类型>-<短语>`，例如 `feat-phone-login`、`fix-refund-rounding`。类型取自第 1 步的判定结果：走 `/mmw-diagnosing-bugs` 的用 `fix`，新需求和先做原型的用 `feat`。完整规则在 `docs/agents/worktrees.md`。
+名字叫 **slug**，形状是 `<类型>-<短语>`：类型取 Conventional Commits 那一套，短语用 kebab 说清这次做什么。例如 `feat-phone-login`、`fix-refund-rounding`、`refactor-order-state`。
+
+| 类型 | 用在 |
+| --- | --- |
+| `feat` | 新增用户可见的能力 |
+| `fix` | 修一个缺陷 |
+| `refactor` | 改内部结构，外部行为不变 |
+| `perf` | 改性能 |
+| `docs` | 只改文档 |
+| `test` | 只改测试 |
+| `chore` | 依赖、配置、构建脚本 |
+
+类型取自第 1 步的判定结果：走 `/mmw-diagnosing-bugs` 的用 `fix`，新需求和先做原型的用 `feat`。类型同时约束范围——一个 `fix` 里混进新功能，说明当初的类型定错了，或者这次改动该拆成两个。
+
+**一个 slug 贯穿五处**：worktree 目录名、分支名、`docs/specs/<slug>/`、这个目录里的主文件 `<slug>.md`、Wiki 上的 `Spec-<slug>.md`。别的技能提到 `<slug>` 时指的都是它。
+
+类型前缀用连字符不用斜杠——斜杠会在 worktree 落点下建出子目录，破坏「目录不嵌套」。不带 issue 编号、不带日期。同名冲突时加一个区分词，不加序号。
 
 **下面四种情况跳过这一步**，第 3 步也一并跳过：
 
@@ -63,6 +79,10 @@ mmw task new <slug> "<用户交代这件事时的原话>" --from <map 的 slug>
 ```
 
 这个会话此刻还在主仓库，当前 HEAD 是主线，不是 map 分支；`git checkout` 也切不到 map 分支，它正被 map 的 worktree 占着。不给 `--from` 就会把这次任务错分叉到主线，map 上已经做出的决定一条都拿不到。
+
+**粒度是一份 spec 一棵树。** 这份 spec 拆出的几张 ticket 全在这棵树里按顺序做完，整体合并一次、终审一次、Wiki 写一次。确实能并行的 ticket 从当前这棵树的分支再分叉出去（判据在 `/mmw-implement`）。**分支可以嵌套，目录不嵌套**——所有 worktree 一律扁平挂在同一个落点下。
+
+树在整个任务期间持久，可以跨天，中途别删。**新树里不预先铺目录**：`docs/specs/`、`docs/plans/`、`docs/prototypes/`、`.reviews/`、`.dispatch/` 都是真要写第一个文件时 `mkdir -p` 一下就够。
 
 报一句你定的 slug 和你要走的路线，然后接着做，不用停下来等用户确认。
 

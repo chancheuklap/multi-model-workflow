@@ -55,7 +55,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - **mmw 的每份技能以一节「下一步」收尾**，形式固定成两列表（情况、下一步），动词只用「自己继续」「移交」「停」三个。只有两种情况允许停：agent 开不了新会话，或者事情要人拍板；其余一律自己接着做。
 - **审查方法论只有一份**，在 `mmw-reviewer`，审查者读它，主 agent 不读也不转述。改审查判据只改那里；`mmw-review` 只管编排（哪一道、几个视角、谁去审、备什么材料）。审查者靠安装脚本读到它（软链进 headless 那个模型自己的技能目录），不靠把方法论粘进提示词。
 - **技能里提到另一个技能一律写 `` `/技能名` ``**，跟上游合集一致，不分调起还是引用方法。同名的分支、`wayfinder:` 标签值、文件路径不加斜杠。
-- **领域文档的落点不许写死成仓库根那一份 `CONTEXT.md`。** 技能要读它、要往里写、或者要把它备进 brief 时，一律按 `docs/agents/domain.md` 的读取顺序：先查仓库根有没有 `CONTEXT-MAP.md`，有就按它的索引取这次要碰的那几个上下文，没有才回退根 `CONTEXT.md`。多上下文的仓库没有根 `CONTEXT.md`——写死会读空，往里写更会在根上凭空造出一份不该存在的。判据由目标仓库的 `docs/agents/domain.md` 持有，技能只按它的顺序走。
+- **领域文档的落点不许写死成仓库根那一份 `CONTEXT.md`。** 技能要读它、要往里写、或者要把它备进 brief 时，落点一律跑 `mmw domain path` 取：给 `map` 就按仓库根那张 `CONTEXT-MAP.md` 的索引找这次要碰的那几个上下文，给 `single` 才是根 `CONTEXT.md`，给 `none` 直接往下走、别提它缺失。要建新上下文或者写 ADR 的另跑 `mmw domain dirs`。多上下文的仓库没有根 `CONTEXT.md`——写死会读空，往里写更会在根上凭空造出一份不该存在的。派出去的 Codex 工人 PATH 里不一定有 `mmw`，给它的 brief 里写成描述式（`mmw-tdd` 与 `mmw-implement/worker-brief.md` 就是这样）。
 - **概念有行业标准说法就用它，不自己造词、不自己缩写。** 有正式中文译法写中文，没有就直接写英文原词。技能是写给模型读的，标准词能调用它已有的先验，自造词只是白花 token 还制造歧义。下表是已经统一过的用法，写新技能照它，不要另起一套：
 
   | 概念 | 用这个 | 不要用 |
@@ -137,7 +137,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 | 层 | 内容 |
 | --- | --- |
-| 0 · 配置 | 七份种子随插件分发，在 `mmw/skills/mmw-setup/`；`/mmw-setup` 把前六份铺进目标仓库的 `docs/agents/`，第七份 `testing.md` 铺成仓库根的 `TESTING.md` 骨架。我们的选择全固定，所以 setup 不问问题（这是比 Matt 更简的形态：他要问，因为他的用户各不相同）。技能一律读目标仓库的 `docs/agents/*.md`，不读插件内路径——避免旧 plugin 那套「先定位插件根」的烂摊子 |
+| 0 · 配置 | 参数住在目标仓库根的 `.mmw.json`：模型档、标签清单、路径、领域文档落点。技能不硬编码这些值，一律跑 `mmw` 的子命令查。`mmw init` 把它铺进去，顺带建标签、补 `.gitignore`、装方法论、往 `CLAUDE.md` 或 `AGENTS.md` 加指针节，再铺一份仓库根的 `TESTING.md` 骨架。我们的选择全固定，所以它不问问题（这是比 Matt 更简的形态：他要问，因为他的用户各不相同）；唯一要人拿主意的是两份指针文件都不存在时往哪写，那时非零退出交给主 agent 去问 |
 | 1 · 纪律 | 从 Matt 那边搬来的七个，现已全部改造：`mmw-tdd`、`mmw-diagnosing-bugs`、`mmw-codebase-design`、`mmw-domain-modeling`、`mmw-grilling`、`mmw-prototype`、`mmw-research`（原本还有 resolving-merge-conflicts，已吸收进 `mmw-review` 的 ⑥ 并删除） |
 | 2 · 自有能力 | 跨模型派发、验证与判定、任务隔离。这三块 Matt 完全没有，是仓库存在的理由 |
 | 3 · 编排 | 改造 Matt 的 user-invoked 技能，把第 2 层注入进去 |
@@ -146,13 +146,17 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 ### 搬迁批次
 
-搬迁已完成：Matt 那边 18 个技能搬进 `mmw/skills/`，除自写的 `mmw-setup` 外一律原样复制自 vendor。加上自写的 `mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-start`、`mmw-to-plan`、`mmw-planner`，manifest 现在登记 24 个。
+搬迁已完成：Matt 那边的技能原样复制进 `mmw/skills/`，加上自写的 `mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-start`、`mmw-to-plan`、`mmw-planner`，manifest 现在登记 23 个。
+
+原先自写的 `mmw-setup` 已经不是技能。它的五步全进了 `mmw init`，`SKILL.md` 改名成 `legacy-setup.md` 并去掉 frontmatter，目录连同五份种子留在 `mmw/skills/mmw-setup/` 只作背景线索——正文描述的行为（把种子铺进 `docs/agents/`）已经不存在，文件顶部标了这一点。
+
+**技能要停用，改名和撤登记两件都得做。** Claude Code 会自动扫描 `skills/` 目录，不只读 manifest 的 `skills` 数组——证据是旧 plugin 的 `plugin/.claude-plugin/plugin.json` 根本没有 `skills` 字段，`plugin/skills/` 下那 5 个技能照样加载。所以从数组里去掉一个目录不足以停用它，那个目录里的 `SKILL.md` 还带着 frontmatter 就仍会被扫成技能。
 
 顺手补搬的上游技能已删掉 8 个：`qa`、`request-refactor-plan`、`design-an-interface`、`git-guardrails-claude-code`、`setup-pre-commit` 能被模型自动触发又不在主干上（前两个绕开 tracker 约定自开 issue，`design-an-interface` 是 `mmw-codebase-design/DESIGN-IT-TWICE.md` 的未适配副本，`git-guardrails-claude-code` 拦的命令里有 `mmw-start` 重建 worktree 要用的，`setup-pre-commit` 只对 Node.js 仓库有效）；`wizard`、`to-questionnaire`、`setup-ts-deep-modules` 只能手打触发、不占常驻成本，但跟多模型编排无关。剩下的 `handoff` 与 `writing-great-skills` 留着——前者供用户手动交接，后者是写新技能的方法论，本文件正在引用它。原件都在 `vendor/mattpocock-skills/`，要用再复制回来。
 
 **触发方式**：Matt 大部分技能是人打名字才走（`disable-model-invocation: true`）。我们的入口是 `mmw-start`，它要能把活直接交给下游技能，所以链路上的技能一律改成模型可触发，description 按 `writing-great-skills` 的写法改成触发式。已经改过的技能正文一并译成中文，合集通用术语（spec、ticket、seam、frontier、worktree、tight、red、fog of war、destination、map、HITL / AFK、ready-for-agent）保持英文。
 
-**`mmw-` 前缀标记所有权。** 正文真正被我们改造过的技能，目录名和 `name` 一律加 `mmw-` 前缀，跟原样搬进来的上游技能区分开。现在有 22 个：`mmw-start`、`mmw-setup`、`mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-grilling`、`mmw-triage`、`mmw-wayfinder`、`mmw-to-spec`、`mmw-to-tickets`、`mmw-to-plan`、`mmw-planner`、`mmw-implement`、`mmw-tdd`、`mmw-review`、`mmw-reviewer`、`mmw-diagnosing-bugs`、`mmw-prototype`、`mmw-closing`、`mmw-research`、`mmw-improve-codebase-architecture`、`mmw-codebase-design`、`mmw-domain-modeling`。
+**`mmw-` 前缀标记所有权。** 正文真正被我们改造过的技能，目录名和 `name` 一律加 `mmw-` 前缀，跟原样搬进来的上游技能区分开。现在有 21 个：`mmw-start`、`mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-grilling`、`mmw-triage`、`mmw-wayfinder`、`mmw-to-spec`、`mmw-to-tickets`、`mmw-to-plan`、`mmw-planner`、`mmw-implement`、`mmw-tdd`、`mmw-review`、`mmw-reviewer`、`mmw-diagnosing-bugs`、`mmw-prototype`、`mmw-closing`、`mmw-research`、`mmw-improve-codebase-architecture`、`mmw-codebase-design`、`mmw-domain-modeling`。
 
 **不留只做跳转的空壳。** 一个技能正文只是「去跑另外那个技能」，就把它的内容并进被它调的那个，然后删掉它。已删四个：`grill-with-docs`（并进 `mmw-grilling`）、`ask-matt`（路由判据并进 `mmw-start`）、`batch-grill-me`、`claude-handoff`。
 
@@ -184,7 +188,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | `skills/mmw-reviewer` | 审查者侧的方法论单源：共享纪律加八个视角。标准原样搬旧 plugin，只补 Matt 那个编码规范审视角。砍掉严重度与置信度，保留 `needs-redirection`、`needs-context` 两个出口 | 未实跑；安装脚本四种情形实测通过 |
 | `skills/mmw-dispatching-agents/install-agent-skills.sh` | 安装脚本，软链三份方法论进 headless 那个模型自己的技能目录：审查、写计划、测试。从发起审查技能旁边挪到派发技能旁边，因为它不再只服务审查者 | 三份装、幂等重跑、`--check` 实测通过 |
 | `skills/mmw-implement` | 主 agent 不写码，一张 ticket 派一个 Codex headless 工人；主 agent 只做准备 brief、派发、验收、发起审查 | 实跑一个真工人在 throwaway 仓库里做完一张 ticket，测试全绿 |
-| `skills/mmw-tdd` | 测试要求分三层：怎么写（本技能加 `tests.md`、`mocking.md`）、够不够格进仓库（`quality-bar.md`）、这个仓库的事实（目标仓库根 `TESTING.md`，由 `mmw-setup` 铺骨架）。seam 由 spec 钉死，因为 headless 工人问不到人 | 随 `mmw-implement` 一起跑过 |
+| `skills/mmw-tdd` | 测试要求分三层：怎么写（本技能加 `tests.md`、`mocking.md`）、够不够格进仓库（`quality-bar.md`）、这个仓库的事实（目标仓库根 `TESTING.md`，由 `mmw init` 铺骨架）。seam 由 spec 钉死，因为 headless 工人问不到人 | 随 `mmw-implement` 一起跑过 |
 | `skills/mmw-start` | 七条路由判据（含「报了一张 map 的编号」）；worktree 建错了重建，所以报一句就走不等确认；`resuming.md` 靠查产物报进度，不设状态文件 | 未实跑 |
 | `skills/mmw-wayfinder` | 按会话拆成三条 branch：`drawing.md` 建 map、`walking.md` 认领一条链、`closing.md` 收尾，三条共用 `map-anatomy.md`。SKILL.md 只留入口判定和几个会话同时跑的四条硬约束 | 未实跑 |
 | `skills/mmw-triage` | 新增「出口」一节：只碰一处且 brief 写明 seam 直走 `mmw-implement`，碰多处走 `mmw-to-spec`；agent brief 模板加 `Test seam` 栏 | 未实跑 |
@@ -195,13 +199,13 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | `skills/mmw-to-plan` | 主 agent 侧的编排，原样搬旧 plugin 那五步：定 plan 清单、派工人之前把合同落到 plan 头上（spec 新增 `## Cross-Plan Contract Anchors` 一节，不动人工审批关卡过的 `## Contract Boundaries`）、扇出派工人、验证返回、回填精确字段并核越界。收尾起一次 ② plan 审 | 未实跑 |
 | `skills/mmw-planner` | 写计划工人侧的方法论单源，原样搬旧 plugin `worktree-plan` 那三份。砍掉跨 plan 合同锚点的自行发明（改由主 agent 划）、砍掉再切一层 slice（ticket 已经是 tracer bullet，工人只拆它内部的实施步骤）。测试规划这一层留着，测试怎么写引 `mmw-tdd` | 未实跑 |
 | `skills/mmw-research` | 上游那 12 行只剩一条有用：一手来源。改造的要点是**判据下发到采集那一侧**——一手来源和事实写法两段原样写进 brief，不是收回来才挑剔。派发与验证各引对应技能，不复述 | 未实跑 |
-| `skills/mmw-closing` | 一次任务的收尾：把 spec 与 plan 转成 Wiki 的一页、重生成两个导航文件、推送前给用户看、`docs/agents/wiki.md` 的验证清单全过才删本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`。归档约定不复述，指 `docs/agents/wiki.md`。原型产物不删 | 未实跑 |
+| `skills/mmw-closing` | 一次任务的收尾：把 spec 与 plan 转成 Wiki 的一页、重生成两个导航文件、推送前给用户看、`mmw wiki verify` 那三条全过才删本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`。页面命名与五段结构写在技能正文里，clone、导航重建、验证走 CLI。原型产物不删 | 未实跑 |
 | `skills/mmw-improve-codebase-architecture` | 上游那份是「一个 agent 扫全库、出 HTML 报告、挑中一个转 grilling」。改造四处：扫描一个方向派一个 subagent 防趋同、收回来过验证才进报告、领域文档按 `CONTEXT-MAP.md` 优先读、worktree 推迟到用户挑中候选之后再建（挑中之前 slug 的短语无从取，所以 `mmw-start` 对它跳过定 slug 与建 worktree 两步）。删掉 `allow_implicit_invocation: false`——它是 `mmw-start` 的路由终点，之前那个设置让移交根本走不过去 | 未实跑 |
 | `skills/mmw-to-spec` | 七条入口路径各自要取齐哪些上游产物写成一张表；seam 一节的形状定死成清单，因为下游直接读它；模板吸收旧 plugin 的现状引用、失败路径、视觉契约、还没拍板的事；派一个 Codex 审这份 spec；用户点头之后才发布 issue 并打 `ready-for-agent`，这个动作就是人工审批关卡的凭据 | 未实跑 |
-| `skills/mmw-domain-modeling` | 它是唯一往仓库写 `CONTEXT.md` 和 ADR 的技能，原本却不读 `docs/agents/domain.md`，自带的示例把多上下文画在 `src/` 下——读那份配置的三个技能守规矩，写的这一侧漏在外面。改成建文件前先读仓库配置取落点与 ADR 编号方案，落点不写死进插件；`ADR-FORMAT.md` 的「扫最大号加一」补明这只是单条分支的情形。四条问答纪律、`CONTEXT-FORMAT.md` 的写法规则、ADR 三条判据是纯方法论，原样保留 | 未实跑 |
+| `skills/mmw-domain-modeling` | 它是唯一往仓库写 `CONTEXT.md` 和 ADR 的技能，原本却把落点写死，自带的示例还把多上下文画在 `src/` 下——读那份配置的三个技能守规矩，写的这一侧漏在外面。改成建文件前先跑 `mmw domain path` 与 `mmw domain dirs` 取形态和落点；`ADR-FORMAT.md` 的「扫最大号加一」换成 `mmw domain adr-next`，并补明草稿名怎么绕开几条链同时写 ADR 的撞号。四条问答纪律、`CONTEXT-FORMAT.md` 的写法规则、ADR 三条判据是纯方法论，原样保留 | 未实跑 |
 | `skills/mmw-codebase-design` | `DEEPENING.md` 的「replace, don't layer」说旧测试成废物就删、在新 interface 上重写，而 deepening 本质是挪 seam，`mmw-tdd` 规定 seam 由 spec 钉死。读者只有设计期的主 agent（`DESIGN-IT-TWICE.md` 给 subagent 的 brief 不带这一节），所以补一句挪 seam 属于设计决定、新 seam 与旧测试的删除一并写进 spec，不重写判据。词汇表、四条原则、可测试性三节跟宿主无关，原样保留 | 未实跑 |
 
-二十二个 `mmw-` 技能里，十八个有 `## 下一步` 表，形式一致：两列（情况、下一步），动词只有「自己继续」「移交」「停」。四个没有：`mmw-reviewer` 和 `mmw-planner` 是派出去的 subagent 读的方法论，不是流程技能；`mmw-codebase-design` 和 `mmw-domain-modeling` 是纪律层的词汇与方法论，做完就是做完，没有会带跑我们流程的出口。`mmw-tdd` 及各技能下的 reference 全部补译成中文（派给审查者和工人的提示词也是中文，模板里的结构字段名保持英文），全仓用词已统一（决策改为决定，坐实改为验证，雾改为 fog of war，map 与 spec 的模板节名一律用英文原文）。
+二十一个 `mmw-` 技能里，十七个有 `## 下一步` 表，形式一致：两列（情况、下一步），动词只有「自己继续」「移交」「停」。四个没有：`mmw-reviewer` 和 `mmw-planner` 是派出去的 subagent 读的方法论，不是流程技能；`mmw-codebase-design` 和 `mmw-domain-modeling` 是纪律层的词汇与方法论，做完就是做完，没有会带跑我们流程的出口。`mmw-tdd` 及各技能下的 reference 全部补译成中文（派给审查者和工人的提示词也是中文，模板里的结构字段名保持英文），全仓用词已统一（决策改为决定，坐实改为验证，雾改为 fog of war，map 与 spec 的模板节名一律用英文原文）。
 
 断点续传不用状态文件：每一步都有一件落在 git 或 GitHub 上的产物对应它（分支上第一个空提交记用户原话、`docs/specs/<slug>/`、子 issue 的开关与 assignee、`.reviews/`、Wiki 页），查产物就知道走到哪。旧 plugin 需要状态文件是因为它有阶段引擎要记 phase 变量，新架构没有引擎。全流程唯一那道人工审批关卡也有产物：`mmw-to-spec` 只在用户点头之后才发布 spec issue 并打 `ready-for-agent`，issue 在且带这个标签就是过关卡的凭据。
 
@@ -222,5 +226,5 @@ CLI 本身不受第一条影响：`~/.local/bin/mmw` 转发脚本先看当前 gi
 
 | 要定什么 | 当时的背景与张力 | 旧实现位置（背景线索） |
 | --- | --- | --- |
-| `/mmw-setup` 要不要自动跑 | 现在得手敲，用户忘了跑配置就全空、技能读不到任何仓库事实。想用 SessionStart 钩子自动铺，但那要接 `hooks/hooks.json`，属于插件机械层，等第 2 层能力定形后一起做 | `plugin/hooks/` |
+| `mmw init` 要不要自动跑 | 现在得手敲，用户忘了跑，`.mmw.json` 就不在，`mmw` 的每条命令都会报「先跑 mmw init」。想用 SessionStart 钩子自动铺，但那要接 `hooks/hooks.json`，属于插件机械层 | `plugin/hooks/` |
 | AFK 的放权档位 | 人工审批关卡已经有落点（`mmw-to-spec` 第 7 步用户点头，第 8 步发布 issue 打 `ready-for-agent` 即凭据）。旧 plugin 另有三档放权曲线，过了人工审批关卡之后自动放权自主跑；新架构还没有对应的东西，也还不知道要不要 | `plugin/skills/orchestrate/references/control/attendance.md` |

@@ -30,7 +30,7 @@ git worktree list
 | plan 审过没过 | `.reviews/` 里有没有 ② plan 审那一轮的审查记录。回填排在审之前，回填了不代表审过 |
 | 做到第几张 ticket | `mmw issue children <spec issue 编号>`：closed 的是做完的，open 且有认领人的是正在做的 |
 | 终审有没有跑 | `.reviews/` 里有没有终审报告 |
-| 有没有归档 | Wiki 上 `Spec-<slug>.md` 在不在（`docs/agents/wiki.md`） |
+| 有没有归档 | `mmw wiki ensure` 取到副本，看 `Spec-<slug>.md` 在不在 |
 
 `.reviews/` 和 `.dispatch/` 随 worktree 存活，不进 git。它们是空的不代表没做过，只代表这台机器上这一轮没做过——以提交记录和 issue 状态为准。
 

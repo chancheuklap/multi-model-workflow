@@ -52,7 +52,7 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 **先记下当前提交号**（`git rev-parse HEAD`）。
 
-然后按 `/mmw-dispatching-agents` 派 `worker` 角色，`--cwd` 给这棵任务 worktree 的路径。ticket 碰计费、权限或数据迁移时改派 `worker-high-risk`。**这个判断归你，不归工人。**
+然后按 `/mmw-dispatching-agents` 派 `worker` 角色，`--cwd` 给这棵任务 worktree 的路径。ticket 碰计费、权限、数据迁移，或者别的改错了不可逆的地方时，改派 `worker-high-risk`。**这个判断归你，不归工人**——工人不会自己要求升档。
 
 ### 5. 验收：亲手验证三关
 

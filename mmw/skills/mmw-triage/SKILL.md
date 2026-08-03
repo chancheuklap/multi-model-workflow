@@ -5,7 +5,7 @@ description: 分诊 issue 和外部 PR——定类别、验事实、需要时 gr
 
 把项目 issue tracker 上的 issue 推过一台状态机。
 
-本仓库把外部 pull request 也当作一个提需求的入口（见 `docs/agents/issue-tracker.md`），那么 triage 也管它们：**一个 PR 就是一个带着代码的 issue**——同样的角色、同样的状态、同样的状态机，差异写在本文「角色」一节里以「对 PR 而言」开头的那一段。裸写的 `#42` 按 `docs/agents/issue-tracker.md` 解析成 issue 或 PR。
+外部 pull request 同样是一个提需求的入口，所以 triage 也管它们：**一个 PR 就是一个带着代码的 issue**——同样的角色、同样的状态、同样的状态机，差异写在本文「角色」一节里以「对 PR 而言」开头的那一段。裸写的 `#42` 先用 `gh issue view 42` 试，报「不是 issue」就是 PR，再 `gh pr view 42`。
 
 triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**必须**以这句免责声明开头：
 
@@ -37,7 +37,11 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 每张分诊过的 issue 应当正好带一个类别角色和一个状态角色。状态角色互相冲突时，先标出来问维护者，再做别的。
 
-以上是角色的规范名，issue tracker 里实际用的标签字符串可能不同。映射关系在 `docs/agents/triage-labels.md`——那份文件不在就跑 `/mmw-setup`。
+上面这些名字就是 issue 上的标签字符串本身，不用再查映射。**完整清单在仓库根 `.mmw.json` 的 `tracker.labels`**，`mmw init` 按它建标签。
+
+**派工人前必须是 `ready-for-agent`。** 这是唯一一个机器可验证的「够清楚了」信号，AFK 跑的时候靠它挡住模糊 issue。
+
+**半路挖到的东西开新 issue。** 分诊或做任务时发现的另一个缺陷、优化机会、或者超出本次范围的事：开一张新 issue，打 `needs-triage` 加对应类别标签，主流程不动。不需要「旁路发现」这类专门标签——它是一张独立 issue 这个事实，已经把「不属于本任务」说完了。
 
 状态怎么流转：没标签的 issue 通常先进 `needs-triage`；从那里去 `needs-info`、`ready-for-agent`、`ready-for-human` 或 `wontfix`。报告人回话之后 `needs-info` 退回 `needs-triage`。维护者随时可以推翻——看起来反常的流转先标出来问一句再走。
 
@@ -60,7 +64,7 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 2. **`needs-triage`** —— 评估进行中。
 3. **`needs-info` 且报告人在上次分诊记录之后有过动静的** —— 需要重新评估。
 
-PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[issue]`。这一步只列出*外部* PR（谁算外部由 `docs/agents/issue-tracker.md` 定义）——协作者正在做的 PR 不归分诊管。这条筛选只作用于发现环节；被点名的 PR 一律分诊，不看作者是谁。
+PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[issue]`。这一步只列出*外部* PR（外部指不是本仓库协作者开的）——协作者正在做的 PR 不归分诊管。这条筛选只作用于发现环节；被点名的 PR 一律分诊，不看作者是谁。
 
 给出每堆的数量和每条一行的摘要，让维护者挑。
 

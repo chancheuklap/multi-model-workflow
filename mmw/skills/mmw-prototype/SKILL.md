@@ -56,7 +56,7 @@ docs/prototypes/<slug>/
 └── runs/<三位轮次>/        这一轮的截图、运行输出等证据
 ```
 
-`<slug>` 取当前 worktree 的 slug（见 `docs/agents/worktrees.md`）。第 2 轮的证据放 `runs/002/`。
+`<slug>` 取当前 worktree 的 slug（形状与规则见 `/mmw-start` 第 2 步）。第 2 轮的证据放 `runs/002/`。
 
 **[EVIDENCE.md](EVIDENCE.md) 那条 branch 落点不同**，在 `docs/evidence/<slug>/`。本节其余规矩它照样守：一条命令跑起来、逐轮记进 `README.md`、原地迭代、用户走查过才算数。
 
@@ -64,7 +64,7 @@ docs/prototypes/<slug>/
 
 **原地迭代，不复制版本目录。** 下一轮继续改同一份源码，保留已经确认过的状态、交互和文案。
 
-**这个目录不随 spec 一起删**（见 `docs/agents/issue-tracker.md`）。
+**这个目录不随 spec 一起删。** 逻辑模块会被搬进正式代码，界面变体是视觉契约的出处。
 
 `README.md` 每轮追加一节，记五件事：这一轮要回答的问题、用户反馈或者本轮假设、基于上一轮实际改了什么、怎么验的和结果是什么、这一轮的结论。结论只有三个词：
 

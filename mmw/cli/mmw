@@ -21,6 +21,8 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$MMW_ROOT/cli/lib/wiki.sh"
 # shellcheck source=lib/domain.sh
 . "$MMW_ROOT/cli/lib/domain.sh"
+# shellcheck source=lib/init.sh
+. "$MMW_ROOT/cli/lib/init.sh"
 
 usage() {
   cat >&2 <<'EOF'
@@ -55,9 +57,10 @@ usage() {
 
   mmw domain path                  领域文档形态与落点：map / single / none
   mmw domain adr-next              下一个 ADR 编号，四位
+  mmw domain dirs                  写入侧的两个落点：新上下文根、ADR 目录
 
   mmw doctor                       检查这台机器上跑 mmw 需要的东西
-  mmw init                         在当前仓库生成 .mmw.json，装转发脚本
+  mmw init                         把当前仓库配置成能跑这套工作流的样子；幂等
 EOF
   return 2
 }
@@ -241,6 +244,7 @@ cmd_domain() {
   case "${1:-}" in
     path) mmw_domain_path ;;
     adr-next) mmw_domain_adr_next ;;
+    dirs) mmw_domain_dirs ;;
     *) usage ;;
   esac
 }
@@ -268,6 +272,17 @@ cmd_doctor() {
   fi
   command -v jq >/dev/null && echo "jq       : $(command -v jq)" || { echo "jq       : 没装"; status=1; }
   command -v gh >/dev/null && echo "gh       : $(command -v gh)" || { echo "gh       : 没装"; status=1; }
+  # Wiki 没有 API，读写一律 clone 加 push，走 https://github.com/<仓库>.wiki.git
+  # （见 lib/wiki.sh）。凭据助手没配好的话，要等到 /mmw-closing 第 5 步、用户
+  # 已经点头同意推送之后才发现推不上去。这里提前探一次：喂一条 github.com 的
+  # https 查询，走完整条助手链，只判有没有人答上密码，不回显。
+  if printf 'protocol=https\nhost=github.com\n\n' \
+     | GIT_TERMINAL_PROMPT=0 git credential fill 2>/dev/null | grep -q '^password='; then
+    echo "推送鉴权 : github.com 的 https 凭据有人答得上"
+  else
+    echo "推送鉴权 : github.com 的 https 凭据没人答得上，跑 gh auth setup-git（推 Wiki 要它）"
+    status=1
+  fi
   if [ "${host:-}" = "claude-code" ]; then
     command -v codex >/dev/null \
       && echo "codex    : $(command -v codex)" \
@@ -288,45 +303,6 @@ cmd_doctor() {
   return $status
 }
 
-cmd_init() {
-  local root config
-  root="$(mmw_repo_root)"
-  config="$root/.mmw.json"
-
-  if [ -f "$config" ]; then
-    echo "已有 ${config}，不覆盖"
-  else
-    cp "$MMW_ROOT/cli/mmw.default.json" "$config"
-    echo "已生成 $config"
-  fi
-
-  local bin="$HOME/.local/bin/mmw"
-  if [ -x "$bin" ]; then
-    echo "已有 $bin"
-  else
-    mkdir -p "$(dirname "$bin")"
-    cat > "$bin" <<'FORWARD'
-#!/usr/bin/env bash
-# mmw 转发脚本。先看当前 git 树里有没有 CLI——mmw 是自己开发自己的，任务
-# worktree 里改了 CLI 要能自测；没有再回退主仓库那份。
-set -euo pipefail
-root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-if [ -n "$root" ] && [ -x "$root/mmw/cli/mmw" ]; then
-  exec "$root/mmw/cli/mmw" "$@"
-fi
-exec "$HOME/multi-model-workflow/mmw/cli/mmw" "$@"
-FORWARD
-    chmod +x "$bin"
-    echo "已装 $bin"
-  fi
-
-  cat <<'NOTE'
-
-还有两件要改宿主的全局配置，不替你动，确认后自己加：
-  Claude Code  ~/.claude/settings.json 的 permissions.allow 加 "Bash(mmw:*)"
-  pi           无沙箱，不用加
-NOTE
-}
 
 case "${1:-}" in
   dispatch) shift; cmd_dispatch "$@" ;;
@@ -336,6 +312,6 @@ case "${1:-}" in
   wiki) shift; cmd_wiki "$@" ;;
   domain) shift; cmd_domain "$@" ;;
   doctor) shift; cmd_doctor "$@" ;;
-  init) shift; cmd_init "$@" ;;
+  init) shift; mmw_init "$@" ;;
   *) usage ;;
 esac

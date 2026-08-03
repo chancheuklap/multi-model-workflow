@@ -1,27 +1,31 @@
----
-name: mmw-setup
-description: 把本插件的工作流约定铺进当前仓库的 docs/agents/，并铺一份 TESTING.md 骨架。用户说要初始化、要配置这个仓库时用它；别的技能读不到 docs/agents/ 下的配置时也用它。
+# 上一版的仓库配置做法（已被 `mmw init` 取代）
+
+这份文档和同目录那五份种子记的是插件早期的做法：种子铺进目标仓库的 `docs/agents/`，技能再去读那些文件取仓库事实。**这个行为已经不存在了。** 现在配置仓库跑 `mmw init`，参数进仓库根的 `.mmw.json`，五份种子里的方法论回到了各技能正文里，`TESTING.md` 的骨架搬到了 `mmw/cli/seeds/TESTING.md`。
+
+留着只作背景线索，不参与行为判断。当前的做法读 `mmw/cli/lib/init.sh`。正文里凡是提到 `docs/agents/` 落点的地方一律作废，提到的方法论要以对应技能的正文为准。
+
+以下是原文。
+
 ---
 
 本插件的技能一律读 `docs/agents/` 下的文件取仓库事实。这个技能负责把那些文件铺进当前仓库。
 
 **不问问题。** 你要做的是铺文件、加指针、报一句完成。
 
-## 1. 铺七份配置
+## 1. 铺六份配置
 
-把本技能目录下这七份原样复制到下表给的落点（目录不存在就建）：
+把本技能目录下这六份原样复制到下表给的落点（目录不存在就建）：
 
 | 种子 | 落点 |
 | --- | --- |
 | `issue-tracker.md` | `docs/agents/issue-tracker.md` |
 | `triage-labels.md` | `docs/agents/triage-labels.md` |
 | `domain.md` | `docs/agents/domain.md` |
-| `models.md` | `docs/agents/models.md` |
 | `worktrees.md` | `docs/agents/worktrees.md` |
 | `wiki.md` | `docs/agents/wiki.md` |
 | `testing.md` | `TESTING.md`（仓库根） |
 
-除 `testing.md` 之外的六份是填好的事实，拿来就能用。`TESTING.md` 是一份**骨架**，铺的是空位——测试目录怎么分层、哪些边界允许打桩、值从哪个权威源读，由第一次写测试的技能顺手填。它放在仓库根，不放 `docs/agents/`。
+除 `testing.md` 之外的五份是填好的事实，拿来就能用。`TESTING.md` 是一份**骨架**，铺的是空位——测试目录怎么分层、哪些边界允许打桩、值从哪个权威源读，由第一次写测试的技能顺手填。它放在仓库根，不放 `docs/agents/`。
 
 **已存在的不覆盖。** 目标文件已在，跳过它并在最后报告里列出来。
 
@@ -77,7 +81,6 @@ bash "<本技能目录>/../mmw-dispatching-agents/install-agent-skills.sh"
 - **Issue 与文档**：`docs/agents/issue-tracker.md`
 - **Issue 标签**：`docs/agents/triage-labels.md`
 - **领域文档**：`docs/agents/domain.md`
-- **模型角色**：`docs/agents/models.md`
 - **任务隔离**：`docs/agents/worktrees.md`
 - **spec 归档**：`docs/agents/wiki.md`
 - **测试的仓库事实**：根目录的 `TESTING.md`（通用测试规范随插件走，那份只补本仓库事实）
@@ -87,7 +90,7 @@ bash "<本技能目录>/../mmw-dispatching-agents/install-agent-skills.sh"
 
 | 情况 | 下一步 |
 | --- | --- |
-| 五步都做完 | **停**：报铺了哪几份、跳过了哪几份连同原因、建了哪几个标签、方法论装没装上、指针加进了哪个文件。再提一句这七份可以直接改，重跑本技能不会覆盖已存在的；`TESTING.md` 是骨架，要人或后续技能填上仓库事实 |
+| 五步都做完 | **停**：报铺了哪几份、跳过了哪几份连同原因、建了哪几个标签、方法论装没装上、指针加进了哪个文件。再提一句这六份可以直接改，重跑本技能不会覆盖已存在的；`TESTING.md` 是骨架，要人或后续技能填上仓库事实 |
 | 目标仓库既没有 `CLAUDE.md` 也没有 `AGENTS.md` | **停**：问用户建哪一个，不要替他选 |
 | 第 4 步报冲突 | **停**：把冲突的路径原样报给用户，删不删由他定，不要自己覆盖 |
 | 下面三项前提缺了任何一项 | **停**：在报告里指出来。**不要因此改配置内容，也不要退化成本地文件方案** |

@@ -49,8 +49,8 @@ mmw task new <map 的 slug>-<链首 ticket 的短语> "<这张 ticket 要解的�
 
 1. 答案写成**结案评论**贴在这张 ticket 上，然后**关掉**它。
 2. 往 map 的 `Decisions so far` 一节追加一行索引。**追加之前先重新拉一次 map 的最新正文**，写完再读一次确认自己那行在。
-3. 这个决定难以回退、而且真有取舍，就另写一份 ADR。链上先写成 `docs/adr/draft-<ticket 编号>-<短语>.md`，等这条链走完、合回 map 分支时再统一改成正式编号，见 `docs/agents/domain.md`。什么样的决定才够格写 ADR，判据见 `/mmw-domain-modeling`。
-4. 谈出来的新术语追加进 `CONTEXT.md`（多上下文的仓库加进这条链对应的那份子上下文，落点见 `docs/agents/domain.md`）。
+3. 这个决定难以回退、而且真有取舍，就另写一份 ADR。**链上先写草稿名** `draft-<ticket 编号>-<kebab-标题>.md`，落点跑 `mmw domain dirs` 取 `adr` 那一行；等这条链走完、合回 map 分支时再统一改成正式编号。几条链同时跑，各自取号必定撞，草稿名是绕开它的办法（见 `/mmw-domain-modeling` 的 `ADR-FORMAT.md`）。什么样的决定才够格写 ADR，判据也在那个技能里。
+4. 谈出来的新术语追加进领域文档。落点跑 `mmw domain path` 取：给 `single` 就是根 `CONTEXT.md`，给 `map` 就按那张索引找到这条链对应的那份子上下文。
 5. 更新 map：这次答案让哪块 fog of war 说得清楚了，就从 `Not yet specified` 一节里拿出来建成新 ticket，再连阻塞关系（先建 issue，拿到编号再连边）。
 6. 这次答案要是暴露出某张 ticket 坐在 destination 之外，就判它出范围：关掉它，在 `Out of scope` 一节留一行，并在 `.out-of-scope/` 写一份。判据见 [map-anatomy.md](map-anatomy.md) 的「什么算判出范围」一节。这个决定让 map 的其他部分作废了，就更新或删掉作废的那些 ticket。
 
@@ -90,18 +90,17 @@ mmw task new <map 的 slug>-<链首 ticket 的短语> "<这张 ticket 要解的�
 
 ## 7. 这条链走完之后
 
-1. 这条链写的每一份 `docs/adr/draft-<ticket 编号>-<短语>.md` 逐个改成正式编号：`mmw domain adr-next` 取下一个号，改名，再取下一个，直到改完。编号只增不改。提交。
-2. 合回 map 分支。这个会话不能跳到别的 worktree，所以用 `git -C` 指过去。**`.worktrees/` 是相对主仓库的路径，而这个会话现在在链的 worktree 里，所以先把主仓库路径取出来**：
+1. 这条链写的每一份 `draft-<ticket 编号>-<kebab-标题>.md`（落点跑 `mmw domain dirs` 取 `adr` 那一行）逐个改成正式编号：`mmw domain adr-next` 取下一个号，改名，再取下一个，直到改完。编号只增不改。提交。
+2. 合回 map 分支。这个会话不能跳到别的 worktree，所以用 `git -C` 指过去：
 
    ```bash
-   MAIN=$(git worktree list --porcelain | sed -n '1s/^worktree //p')
-   MAP="$MAIN/.worktrees/<map 的 slug>"
+   MAP=$(mmw task enter <map 的 slug>)   # 输出绝对路径，不受当前在哪棵树影响
 
    git -C "$MAP" status --porcelain   # 有输出就是不干净，停下来报给用户，不硬合
    git -C "$MAP" merge --no-ff <这条链的分支名>
    ```
 
-   map 的 worktree 已经不在（用户清理过）就先 `mmw task new <map 的 slug>` 建回来，它挂回那条已有分支。
+   `mmw task enter` 报那个目录不存在，说明 map 的 worktree 被用户清理过，先 `mmw task new <map 的 slug>` 建回来，它挂回那条已有分支。
 3. 再查一次 `mmw issue frontier <map 编号>`。
 
 ## 下一步

@@ -8,6 +8,13 @@
 # 顺序的判据：ticket 按依赖顺序发布、阻塞方先发（`/mmw-to-tickets` 第 5 步），
 # 所以 issue 编号升序就是依赖顺序。不靠 sub-issues 端点的返回顺序，那个没有
 # 文档化的保证；也不靠父正文的清单，父正文里没有清单。
+#
+# 父子关系用 sub-issues 端点、阻塞关系用 issue dependencies 端点，两者都没有
+# 降级路径，这是有意的：端点没开时 `mmw issue create --parent` 直接失败，不退
+# 回「父正文写任务清单、子正文顶部写 Blocked by」那套文本约定。理由是
+# `mmw issue frontier` 要靠这两个端点算出谁可认领，文本约定算不出来——留一条
+# 降级路径只会让 frontier 在那些仓库里静默返回错的结果。端点在 GitHub 上按仓
+# 库启用，报错了就去仓库设置里开，不要在这里绕。
 
 set -euo pipefail
 

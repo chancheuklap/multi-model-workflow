@@ -28,6 +28,15 @@ mmw_domain_path() {
   fi
 }
 
+# 写入侧要的两个落点：新上下文的根目录、ADR 目录。读的那一侧用 mmw_domain_path
+# 就够，写的那一侧还要知道往哪建。
+mmw_domain_dirs() {
+  local root
+  root="$(mmw_repo_root)"
+  printf 'context\t%s\n' "$root/$(mmw_config '.domain.context_dir // "docs/context"')"
+  printf 'adr\t%s\n' "$root/$(mmw_config '.domain.adr_dir // "docs/adr"')"
+}
+
 # 下一个 ADR 编号，四位、零填充。目录不存在或空的时候是 0001。
 # 只数正式编号，draft- 开头的不参与——它们还没占号。
 mmw_domain_adr_next() {
@@ -46,7 +55,9 @@ mmw_domain_adr_next() {
         *) continue ;;
       esac
       num=$((10#$num))
-      [ "$num" -gt "$max" ] && max="$num"
+      if [ "$num" -gt "$max" ]; then
+        max="$num"
+      fi
     done
   fi
 
