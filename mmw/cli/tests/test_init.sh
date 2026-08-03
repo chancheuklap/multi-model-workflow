@@ -65,6 +65,7 @@ echo "首次跑"
 
 newrepo one
 printf '# 项目\n' > CLAUDE.md
+git add CLAUDE.md && git commit -qm "加 CLAUDE.md"
 "$MMW" init > "$WORK/out1" 2>&1
 
 check "生成了 .mmw.json" "yes" "$([ -f .mmw.json ] && echo yes || echo no)"
@@ -90,6 +91,34 @@ check "只建缺的标签，已有的两个不重建" 10 \
   "$(grep -c . "$MMW_TEST_CREATED")"
 check "建的标签里没有 bug" 0 \
   "$(grep -cx 'bug' "$MMW_TEST_CREATED" || true)"
+# 守:配置留在工作区不提交,任务 worktree 检出的分支上就没有它们。.mmw.json 缺席时
+# worktree 里每条 mmw 命令都报没配置;.gitignore 缺席时过程材料变成未跟踪文件,
+# mmw task cleanup 被它们挡住,git 报的却是「contains untracked files」,看不出真因。
+check "配置文件都进了分支，工作区不留" "" "$(git status --porcelain)"
+for f in .mmw.json TESTING.md .gitignore CLAUDE.md; do
+  check "$f 在分支上" "yes" \
+    "$(git cat-file -e "HEAD:$f" 2>/dev/null && echo yes || echo no)"
+done
+
+echo
+echo "从这个提交建 worktree，过程材料不挡清理"
+
+# 守:上面那几条只证明文件进了分支,不证明它们真管用。这一段跑一遍真实路径——
+# 建 worktree、写三种过程材料、非强制清理。gitignore 少一行,这里就会被 git 拦住。
+git worktree add -q "$WORK/one-wt" -b task-x
+mkdir -p "$WORK/one-wt/.reviews" "$WORK/one-wt/.dispatch" "$WORK/one-wt/.release/delivered"
+printf 'x\n' > "$WORK/one-wt/.reviews/r.md"
+printf 'x\n' > "$WORK/one-wt/.dispatch/b.md"
+printf '{}\n' > "$WORK/one-wt/.release/delivered/p.json"
+check "worktree 里这三样都被忽略" "" "$(git -C "$WORK/one-wt" status --porcelain)"
+set +e
+git worktree remove "$WORK/one-wt" > "$WORK/wtrm" 2>&1
+rc=$?
+set -e
+check "非强制清理不被过程材料挡住" "零" "$(nonzero $rc)"
+check "目录连同过程材料一起没了" "no" \
+  "$([ -d "$WORK/one-wt" ] && echo yes || echo no)"
+git branch -q -D task-x
 
 echo
 echo "重跑"

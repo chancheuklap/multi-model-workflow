@@ -17,6 +17,13 @@ mmw_init_say() {
 "
 }
 
+# 本轮自己动过、要提交进分支的仓库内文件，仓库根的相对路径，一行一个。
+MMW_INIT_TOUCHED=""
+mmw_init_touch() {
+  MMW_INIT_TOUCHED="${MMW_INIT_TOUCHED}$1
+"
+}
+
 mmw_init_config() {
   local root config
   root="$(mmw_repo_root)"
@@ -25,6 +32,7 @@ mmw_init_config() {
     mmw_init_say "配置     : 已有 ${config}，不覆盖"
   else
     cp "$MMW_ROOT/cli/mmw.default.json" "$config"
+    mmw_init_touch ".mmw.json"
     mmw_init_say "配置     : 已生成 $config"
   fi
 }
@@ -61,6 +69,7 @@ mmw_init_testing() {
     mmw_init_say "TESTING  : 已有 ${target}，不覆盖"
   else
     cp "$MMW_ROOT/cli/seeds/TESTING.md" "$target"
+    mmw_init_touch "TESTING.md"
     mmw_init_say "TESTING  : 已铺骨架 ${target}，空位要人或后续技能填"
   fi
 }
@@ -95,7 +104,7 @@ mmw_init_labels() {
   mmw_init_say "标签     : 新建 ${created} 个，已有 ${existed} 个"
 }
 
-# 三个目录都是随 worktree 死的过程材料，不进 git。
+# 四个目录都是随 worktree 死的过程材料，不进 git。
 mmw_init_gitignore() {
   local root file added=0 line
   root="$(mmw_repo_root)"
@@ -109,10 +118,11 @@ mmw_init_gitignore() {
     added=$((added + 1))
   done
   if [ "$added" -eq 0 ]; then
-    mmw_init_say "gitignore: 三行都在"
-  else
-    mmw_init_say "gitignore: 补了 ${added} 行"
+    mmw_init_say "gitignore: 四行都在"
+    return 0
   fi
+  mmw_init_say "gitignore: 补了 ${added} 行"
+  mmw_init_touch ".gitignore"
 }
 
 # 三个检索工具。Claude Code 读插件自带的 .mcp.json、Codex 派发时注入，两边都不用装；
@@ -168,16 +178,17 @@ BODY
 # 仓库里被写成纯 import 列表（整份只有几行 @ 引用），往里追加正文会破坏那个
 # 形态——而那些仓库的 CLAUDE.md 通常正好引用了 AGENTS.md，写进后者一样生效。
 mmw_init_pointer() {
-  local root target
+  local root target rel
   root="$(mmw_repo_root)"
   if [ -f "$root/AGENTS.md" ]; then
-    target="$root/AGENTS.md"
+    rel="AGENTS.md"
   elif [ -f "$root/CLAUDE.md" ]; then
-    target="$root/CLAUDE.md"
+    rel="CLAUDE.md"
   else
     mmw_init_say "指针节   : 这个仓库既没有 CLAUDE.md 也没有 AGENTS.md，指针节没处写"
     return 1
   fi
+  target="$root/$rel"
 
   if grep -qF "$MMW_INIT_POINTER_HEADING" "$target"; then
     # 只认标题在不在，不比内容——那一节用户可能已经改过，覆盖会把他的改动
@@ -188,7 +199,44 @@ mmw_init_pointer() {
 
   printf '\n' >> "$target"
   mmw_init_pointer_body >> "$target"
+  mmw_init_touch "$rel"
   mmw_init_say "指针节   : 已追加到 $target"
+}
+
+# init 写的配置文件要提交进分支才算数。任务 worktree 检出的是分支上的版本：
+# .gitignore 那四行留在工作区没提交的话，worktree 里那份 .gitignore 里没有它
+# 们，于是 .reviews/ 与 .dispatch/ 变成未跟踪文件，mmw task cleanup 被它们挡
+# 住，git 报的却是「contains modified or untracked files」，看不出真因是配置
+# 没提交。.mmw.json 同理，它不在分支上时 worktree 里每条 mmw 命令都报没配置。
+#
+# 只提交本轮自己动过的那几个路径。带路径的提交形式不碰暂存区，用户已经
+# git add 的东西留在原地。
+mmw_init_commit() {
+  local root rel
+  root="$(mmw_repo_root)"
+
+  if [ -z "$MMW_INIT_TOUCHED" ]; then
+    mmw_init_say "提交     : 这一轮没有要提交的配置改动"
+    return 0
+  fi
+
+  local paths=""
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    git -C "$root" add -- "$rel" || {
+      mmw_init_say "提交     : git add 失败，${rel} 没提交，自己看是什么挡着"
+      return 1
+    }
+    paths="$paths $rel"
+  done <<< "$MMW_INIT_TOUCHED"
+
+  # shellcheck disable=SC2086
+  if git -C "$root" commit -q -m "chore(mmw): 配置多模型工作流" -- $paths; then
+    mmw_init_say "提交     : 已提交${paths}"
+  else
+    mmw_init_say "提交     : 提交失败，${paths} 还在工作区。原样报出来，自己看是 git 身份没配还是 hook 拦了"
+    return 1
+  fi
 }
 
 # 上一轮铺进去的 docs/agents/ 副本。技能不再读它，留着会被人当成有效配置。
@@ -212,6 +260,8 @@ mmw_init() {
   mmw_init_skills || status=1
   mmw_init_mcp || status=1
   mmw_init_pointer || status=1
+  # 提交排在最后：上面各步骤都登记完了，一个提交装下这一轮的全部配置改动。
+  mmw_init_commit || status=1
   mmw_init_legacy
 
   printf '%s' "$MMW_INIT_LOG"
