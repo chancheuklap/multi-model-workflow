@@ -52,7 +52,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - 版本：Claude 同步 plugin manifest + marketplace（含根版本）；Droid 同步 plugin + marketplace；pi 以 `package.json` 为准；Cursor 同步 `cursor-plugin/.cursor-plugin/plugin.json` 与根 `.cursor-plugin/marketplace.json`。
 - **Cursor**：源码只改 `cursor-plugin/`。本机跑 `bash cursor-plugin/scripts/install-local-surface.sh` 复制到 `~/.cursor/{agents,skills,commands,rules,hooks}`，合并 `hooks.json` / `mcp.json`，引擎树落到 `~/.cursor/multi-model-workflow-engine/`（可用 `MMW_ENGINE_ROOT`）。花名册 frontmatter（`model` 含 `id[effort=…]`、`is_background`）生效；Task 只传 `subagent_type`（+prompt/background）。细合同见 `cursor-plugin/skills/orchestrate/references/control/runtime-contract.md`。改完须再 install + Reload；运行时不以 `plugins/local` 为发现面。
 - 不用旧残留、兼容目录或静默默认值掩盖错误；脚本异常须非零退出或结构化告警。
-- **mmw-v2 的每份技能以一节「下一步」收尾**，形式固定成两列表（情况、下一步），动词只用「自己继续」「移交」「停」三个。只有两种情况允许停：agent 开不了新会话，或者事情要人拍板；其余一律自己接着做。
+- **mmw 的每份技能以一节「下一步」收尾**，形式固定成两列表（情况、下一步），动词只用「自己继续」「移交」「停」三个。只有两种情况允许停：agent 开不了新会话，或者事情要人拍板；其余一律自己接着做。
 - **审查方法论只有一份**，在 `mmw-reviewer`，审查者读它，主 agent 不读也不转述。改审查判据只改那里；`mmw-review` 只管编排（哪一道、几个视角、谁去审、备什么材料）。审查者靠安装脚本读到它（软链进 headless 那个模型自己的技能目录），不靠把方法论粘进提示词。
 - **技能里提到另一个技能一律写 `` `/技能名` ``**，跟上游合集一致，不分调起还是引用方法。同名的分支、`wayfinder:` 标签值、文件路径不加斜杠。
 - **领域文档的落点不许写死成仓库根那一份 `CONTEXT.md`。** 技能要读它、要往里写、或者要把它备进 brief 时，一律按 `docs/agents/domain.md` 的读取顺序：先查仓库根有没有 `CONTEXT-MAP.md`，有就按它的索引取这次要碰的那几个上下文，没有才回退根 `CONTEXT.md`。多上下文的仓库没有根 `CONTEXT.md`——写死会读空，往里写更会在根上凭空造出一份不该存在的。判据由目标仓库的 `docs/agents/domain.md` 持有，技能只按它的顺序走。
@@ -127,22 +127,24 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 提交前：`git diff --check`；本次改动的 JSON 用 `python3 -m json.tool` 校验。
 
-## mmw-v2 重建（进行中，完成后本节删除）
+## mmw 重建（进行中，完成后本节删除）
 
-新 plugin 在 Matt 的技能上长出我们自己的骨架，不再把流程实现成引擎。上游副本在 `vendor/mattpocock-skills/`，旧实现在 `plugin/`（只作背景线索，不搬重流程）。落点暂名 `mmw-v2/`（仓库里已有上次失败的 `mmw/`，别混），全部弄好再改名。只做 Claude Code 一个宿主。
+新 plugin 在 Matt 的技能上长出我们自己的骨架，不再把流程实现成引擎。上游副本在 `vendor/mattpocock-skills/`，旧实现在 `plugin/`（只作背景线索，不搬重流程）。落点是 `mmw/`；上一次失败的同名尝试已冻结进 `archive/mmw-v1-failed/`。
+
+宿主两个：Claude Code 与 pi。两边主 agent 都是 Claude Opus 5 high，派出去的工人与 GPT 审查者都是 GPT——模型分配和红线表两个宿主逐字相同，不按宿主反转。唯一的宿主差异是**怎么派**：Claude Code 派 GPT 走 `codex exec` 外部进程（它的会话内 subagent 只能是 Claude），派 Claude 走 `Agent` 工具；pi 两种都是 `subagent` 工具，只有 `model` 字段不同。这个差异由 CLI 的 adapter 吃掉，技能正文只写 `mmw dispatch <角色>`。Cursor 与 Droid 不做。
 
 ### 地基四层
 
 | 层 | 内容 |
 | --- | --- |
-| 0 · 配置 | 七份种子随插件分发，在 `mmw-v2/skills/mmw-setup/`；`/mmw-setup` 把前六份铺进目标仓库的 `docs/agents/`，第七份 `testing.md` 铺成仓库根的 `TESTING.md` 骨架。我们的选择全固定，所以 setup 不问问题（这是比 Matt 更简的形态：他要问，因为他的用户各不相同）。技能一律读目标仓库的 `docs/agents/*.md`，不读插件内路径——避免旧 plugin 那套「先定位插件根」的烂摊子 |
+| 0 · 配置 | 七份种子随插件分发，在 `mmw/skills/mmw-setup/`；`/mmw-setup` 把前六份铺进目标仓库的 `docs/agents/`，第七份 `testing.md` 铺成仓库根的 `TESTING.md` 骨架。我们的选择全固定，所以 setup 不问问题（这是比 Matt 更简的形态：他要问，因为他的用户各不相同）。技能一律读目标仓库的 `docs/agents/*.md`，不读插件内路径——避免旧 plugin 那套「先定位插件根」的烂摊子 |
 | 1 · 纪律 | 从 Matt 那边搬来的七个，现已全部改造：`mmw-tdd`、`mmw-diagnosing-bugs`、`mmw-codebase-design`、`mmw-domain-modeling`、`mmw-grilling`、`mmw-prototype`、`mmw-research`（原本还有 resolving-merge-conflicts，已吸收进 `mmw-review` 的 ⑥ 并删除） |
 | 2 · 自有能力 | 跨模型派发、验证与判定、任务隔离。这三块 Matt 完全没有，是仓库存在的理由 |
 | 3 · 编排 | 改造 Matt 的 user-invoked 技能，把第 2 层注入进去 |
 
 ### 搬迁批次
 
-搬迁已完成：Matt 那边 18 个技能搬进 `mmw-v2/skills/`，除自写的 `mmw-setup` 外一律原样复制自 vendor。加上自写的 `mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-start`、`mmw-to-plan`、`mmw-planner`，manifest 现在登记 24 个。
+搬迁已完成：Matt 那边 18 个技能搬进 `mmw/skills/`，除自写的 `mmw-setup` 外一律原样复制自 vendor。加上自写的 `mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-start`、`mmw-to-plan`、`mmw-planner`，manifest 现在登记 24 个。
 
 顺手补搬的上游技能已删掉 8 个：`qa`、`request-refactor-plan`、`design-an-interface`、`git-guardrails-claude-code`、`setup-pre-commit` 能被模型自动触发又不在主干上（前两个绕开 tracker 约定自开 issue，`design-an-interface` 是 `mmw-codebase-design/DESIGN-IT-TWICE.md` 的未适配副本，`git-guardrails-claude-code` 拦的命令里有 `mmw-start` 重建 worktree 要用的，`setup-pre-commit` 只对 Node.js 仓库有效）；`wizard`、`to-questionnaire`、`setup-ts-deep-modules` 只能手打触发、不占常驻成本，但跟多模型编排无关。剩下的 `handoff` 与 `writing-great-skills` 留着——前者供用户手动交接，后者是写新技能的方法论，本文件正在引用它。原件都在 `vendor/mattpocock-skills/`，要用再复制回来。
 
