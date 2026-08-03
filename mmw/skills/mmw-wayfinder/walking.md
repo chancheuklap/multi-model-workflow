@@ -7,7 +7,7 @@
 还不要建任何 worktree。这一步只读：
 
 - `gh issue view <map 编号>` 读 map 正文，不要逐个打开 ticket。
-- 按需读 map 分支上的文件，例如 `git show <map 分支>:CONTEXT.md`。
+- 按需读 map 分支上的文件，例如领域文档：落点跑 `mmw domain path` 取，再 `git show <map 分支>:<落点>`。多上下文的仓库没有根 `CONTEXT.md`，写死会读空。
 - `mmw issue frontier <map 编号>` 查一次 frontier。它给出全部可认领的 ticket，一行一张。
 
 frontier 空了，说明这张 map 该收尾了，转 [closing.md](closing.md)。
@@ -32,7 +32,7 @@ mmw task new <map 的 slug>-<链首 ticket 的短语> "<这张 ticket 要解的�
 
 **按需放大**：随时取任何相关的、或者已经关掉的 ticket 的完整正文；把 map 的 `Notes` 一节点名的技能调起来。
 
-四个类型各自的选用判据和 HITL / AFK 归属见 [map-anatomy.md](map-anatomy.md)，本节只写解的时候怎么做：
+建 ticket 时怎么选这四个类型见 [map-anatomy.md](map-anatomy.md)，本节只写解的时候怎么做（HITL / AFK 归属在第 5 步那张表里，判下一张归不归你时要用）：
 
 | 标签 | 解法 |
 | --- | --- |
