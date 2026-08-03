@@ -27,7 +27,7 @@ issue tracker 怎么用在 `docs/agents/issue-tracker.md`，标签词汇在 `doc
 
 `/mmw-grilling` 谈的过程里已经查过一轮的，只补那一轮没覆盖的角度，不要整片重查。
 
-整份 spec 用项目领域词汇（`CONTEXT.md`），遵守你要碰的这块地方的 ADR。
+整份 spec 用项目领域词汇，遵守你要碰的这块地方的 ADR。领域文档这样读：先查仓库根有没有 `CONTEXT-MAP.md`，有就按它的索引读这次要碰的那几个上下文，没有就回退根 `CONTEXT.md`（落点以 `docs/agents/domain.md` 为准）。
 
 现状结论逐条带 `file:line` 引用写进 spec，**引用要你自己验证过**（`/mmw-verifying-agent-output`）。
 

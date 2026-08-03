@@ -9,7 +9,7 @@
 ```markdown
 # <这次做什么> spec
 
-> 抬头一行：这份 spec 从哪来（一次 grilling、一张 map 的哪几条决定、哪张 issue），术语出处（`CONTEXT.md`）。
+> 抬头一行：这份 spec 从哪来（一次 grilling、一张 map 的哪几条决定、哪张 issue），术语出处（写明是哪一份 `CONTEXT.md`）。
 
 ## Problem Statement
 
