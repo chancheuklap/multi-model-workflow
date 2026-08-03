@@ -22,8 +22,21 @@
 ## 外部接缝(允许打桩的边界)
 
 - `codex` 与 `droid` CLI：worker 测试用 PATH 前插的 stub bin。
-- ssh / schtasks 远端（release）：fake transport 脚本记录调用序列。
+- ssh / schtasks 远端（release）：`fixtures/fake-remote/` 的假构建机。它维护一棵目录树当远端文件系统、一份登记表当 Task Scheduler，**不记录命令文本**——断言对象是这两样的最终状态，不是引擎发出了什么命令。构建结果由 `FAKE_BUILD_OUTCOME` 等环境变量摆布（成功、失败、卡死、退出码损坏、启动失败、清理失败）。
 - 宿主会话内的 Agent / subagent：不在 shell 测试中伪造模型判断，测到 prompt、brief 和派发账本生成为止。
+
+## 没有自动化覆盖的行为（改动它们必须在构建机上实测）
+
+下面这几条要一台 Windows 构建机才验得了，Mac 上跑不了，**也不要写假测试冒充覆盖**——假绿比没测更坏，它让人以为有保障。改动这些代码路径时，靠代码审查加构建机实跑，不靠 CI。
+
+| 行为 | 为什么这里验不了 |
+| --- | --- |
+| 脱附计划任务会话里日志到底落不落地（管道不落地、原生重定向才落地） | 要真的 Task Scheduler 脱附会话 |
+| PowerShell 5.1 原生重定向写 UTF-16LE 之后转 UTF-8 是否成功 | 开发机没有 PowerShell，且 PS Core 的编码行为跟 5.1 不同 |
+| 安装器 include 路径是否越过 Windows 路径长度上限 | 上限是 Windows 特有的 |
+| 上传的 `run-release.ps1` 内容对不对 | 同上两条。测试只断它被上传了、非空 |
+
+假构建机能覆盖的是这些的**外围**：文件确实上传了、源码确实解压且内容一致、旧产物确实被清、任务确实被清理、危险路径确实被拒。
 
 ## 权威源指针
 

@@ -275,7 +275,9 @@ run_package confirm --gate development-mode-test --by owner
 if [ "$RC" -eq 0 ]; then ok "具名开发模式确认落盘"; else no "开发模式确认 (rc=$RC err=$ERROR)"; fi
 run_package where
 if [ "$RC" -eq 0 ] && [ "$FIRST" = 'RELEASE product=duck manifest=fixtures/adapters/duck.release-adapter.json' ]; then ok "确认后只要求第一个 release"; else no "确认后 release 指引 (rc=$RC out=$RESULT err=$ERROR)"; fi
-if grep -q 'next=.*release init' "$OUT" && grep -q 'drive-loop.md' "$OUT" && grep -q 'record-release --product duck' "$OUT"; then ok "RELEASE 状态自带 next 指路(init/drive-loop/record-release)"; else no "RELEASE next 指路 (out=$RESULT)"; fi
+# 守:停在这一步的人要能照着 next= 直接敲下一条命令,不用回去翻文档猜。
+# 只断给出的是可执行的命令,不断它提到了哪份文档——文档会改名,那不是合同。
+if grep -q 'next=.*release init' "$OUT" && grep -q 'record-release --product duck' "$OUT"; then ok "RELEASE 状态的 next 给出可直接敲的两条命令"; else no "RELEASE next 指路 (out=$RESULT)"; fi
 VERB_OUT="$( (cd "$CASE" && bash "$MMW" package where) 2>/dev/null )"
 VERB_FIRST="${VERB_OUT%%
 *}"

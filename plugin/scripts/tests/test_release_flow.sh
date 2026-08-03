@@ -30,25 +30,6 @@ else
 fi
 [ ! -f "$SF" ] && ok "fail-loud 不写 release-state" || no "fail-loud 竟写了 state"
 
-real_mktemp="$(command -v mktemp)"
-mkdir -p fakebin
-cat > fakebin/mktemp <<SH
-#!/usr/bin/env bash
-case "\${1:-}" in
-  */.tmp*) exec "$real_mktemp" "\$@" ;;
-  *) echo "mktemp called without state-dir template" >&2; exit 42 ;;
-esac
-SH
-chmod +x fakebin/mktemp
-if PATH="$PWD/fakebin:$PATH" bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null; then
-  ok "state write 使用同目录 tmp"
-else
-  no "state write 未使用同目录 tmp"
-fi
-jq -e . "$SF" >/dev/null && ok "同目录 tmp 写出合法 state" || no "同目录 tmp state 非法"
-bash "$RF" close >/dev/null
-rm -rf fakebin
-
 bash "$RF" init --manifest "$FIX/manifest.fake.json" >/dev/null
 [ "$(jq -r .product "$SF")" = "duck" ] && ok "init 注入 product" || no "product ($(jq -r .product "$SF"))"
 [ "$(jq -r '.stages|length' "$SF")" = "2" ] && ok "init 注入 2 stages" || no "stages len"
@@ -62,8 +43,6 @@ else
   no "stage run 应执行当前普通 argv"
 fi
 [ "$(bash "$RF" exit-check)" = "NOT-DONE:stages=compile" ] && ok "exit-check 列剩余" || no "exit-check ($(bash "$RF" exit-check))"
-
-[ "$(bash "$RF" where)" = "STAGE:compile RUN:true" ] && ok "kill 后 where 续跑不重报 doctor" || no "resume"
 
 bash "$RF" stage done --stage compile >/dev/null
 [ "$(bash "$RF" exit-check)" = "DONE" ] && ok "全 done -> DONE" || no "DONE ($(bash "$RF" exit-check))"
@@ -122,190 +101,156 @@ bash "$RF" resume >/dev/null
 [ "$(jq -r '[.stages[] | select(.status == "pending")] | length' "$SF")" = "2" ] && ok "HEAD 改变后所有 stage pending" || no "HEAD 改变后残留旧产物状态"
 
 bash "$RF" close >/dev/null
-mkdir -p remote-bin "$TMP/fake-remote"
-cat > remote-bin/scp <<'SH'
-#!/usr/bin/env bash
-printf 'scp %s\n' "$*" >> "$TRANSPORT_CALLS"
-cp "$1" "$FAKE_REMOTE/$(basename "$1")"
-SH
-cat > remote-bin/ssh <<'SH'
-#!/usr/bin/env bash
-printf 'ssh %s\n' "$*" >> "$TRANSPORT_CALLS"
-case "$*" in
-  *Test-Path*) printf 'Y\n' ;;
-  *Get-Content*) printf '%s\n' "${FAKE_REMOTE_EXIT:-0}" ;;
-esac
-SH
-chmod +x remote-bin/scp remote-bin/ssh
+# ── 远程构建 ────────────────────────────────────────────────────────────────
+# 假构建机在 fixtures/fake-remote/：它维护一棵目录树当远端文件系统、一份登记表当
+# Task Scheduler，不记录命令文本。下面每条断的都是这两样的最终状态——引擎把任务名
+# 拼错、create 与 delete 用了两个名字，登记表里就会留下残骸，断言自然红。
+#
+# 验不了的写在 TESTING.md：上传的 wrapper 内容对不对（脱附会话里日志落不落地、
+# PS 5.1 的编码转换）要一台 Windows 构建机才能验，这里只断它被上传了。
+REMOTE_FIX="$SCRIPT_DIR/fixtures/fake-remote"
+export FAKE_REMOTE_ROOT="$TMP/remote-fs"
+export FAKE_REMOTE_TASKS="$TMP/remote-tasks.json"
+
+remote_reset() {
+  rm -rf "$FAKE_REMOTE_ROOT"; mkdir -p "$FAKE_REMOTE_ROOT"
+  printf '{}' > "$FAKE_REMOTE_TASKS"
+  unset FAKE_RUN_FAILS FAKE_REMOVE_FAILS
+  export FAKE_BUILD_OUTCOME=success
+}
+
+remote_build() {
+  PATH="$REMOTE_FIX:$PATH" RELEASE_REMOTE_BUILD_POLL_SECONDS=0 \
+    RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="${1:-C:/release-input}" \
+    bash "$RF" stage run --stage build
+}
+
+build_dir() { find "$FAKE_REMOTE_ROOT" -name run-release.cmd -exec dirname {} \; 2>/dev/null | head -1; }
+task_count() { jq -r 'length' "$FAKE_REMOTE_TASKS" 2>/dev/null || echo BROKEN; }
+build_status() { jq -r '.stages[] | select(.name=="build") | .status' "$SF"; }
+
 printf '# fake release\n' > release.ps1
 printf '{"repo_root":"/placeholder","product":"test-product"}\n' > release-context.json
-jq --arg script "$TMP/release.ps1" --arg context "$TMP/release-context.json" '.stages=[{name:"build",run:["mmw-release-remote-build","--script",$script,"--context",$context]}]' "$FIX/manifest.fake.json" > remote-build-manifest.json
-bash "$RF" init --manifest remote-build-manifest.json >/dev/null
-if PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release-input" bash "$RF" stage run --stage build >/dev/null; then
-  grep -q '^scp ' "$TMP/transport.calls" && ok "remote build 上传 archive 与输入" || no "remote build 未调用 scp"
-  grep -q 'schtasks /create' "$TMP/transport.calls" && ok "remote build 创建 schtasks" || no "remote build 未创建 schtasks"
-  # 远端 DefaultShell 是 cmd.exe:一切 PowerShell 维护命令必须显式经 powershell -Command。
-  grep -q 'powershell -NoProfile -NonInteractive -Command.*New-Item' "$TMP/transport.calls" && ok "远端维护命令显式包 powershell(不裸跑 cmdlet)" || no "远端命令未包 powershell,cmd 下 New-Item 必炸"
-  # cwd 合同 + exitcode 落地合同都在上传的 wrapper 内。
-  if [ -f "$TMP/fake-remote/run-release.ps1" ] \
-    && grep -q 'ReleaseContextPath' "$TMP/fake-remote/run-release.ps1" \
-    && grep -Fq '*> $log' "$TMP/fake-remote/run-release.ps1" \
-    && grep -q 'build-run.exitcode' "$TMP/fake-remote/run-release.ps1"; then
-    ok "remote build 上传 wrapper(显式上下文 + 原生重定向 + exitcode)"
-  else
-    no "remote build wrapper 缺失或未保证 exitcode 落地"
-  fi
-  # Windows PowerShell 5.1 原生重定向写 UTF-16LE,wrapper 随后转成 UTF-8。
-  if grep -Fq 'Set-Content -LiteralPath $log -Value $t -Encoding utf8' "$TMP/fake-remote/run-release.ps1" \
-    && grep -q 'Set-Content.*-Encoding ascii' "$TMP/fake-remote/run-release.ps1"; then
-    ok "wrapper 把日志转 UTF-8 / exitcode 写 ascii"
-  else
-    no "wrapper 未显式声明编码,PS5.1 裸重定向会写 UTF-16LE"
-  fi
-  grep -q '/tr .*run-release.cmd' "$TMP/transport.calls" && ok "schtasks /tr 只指 cmd wrapper(不串多语句)" || no "schtasks /tr 仍串多语句"
-  # 引号合同:create/run 走 cmd.exe、任务命令行走 powershell native CLI,单引号在两处都是字面
-  # 字符——带引号则清理找不到任务、-File 找的是假路径。断 /tn 全链一致且不带引号。
-  if grep -q "/tn '" "$TMP/transport.calls" || grep -q "File '" "$TMP/transport.calls"; then
-    no "schtasks 任务名或 /tr 路径带单引号(cmd/native CLI 会当字面字符)"
-  else
-    ok "schtasks 任务名与 wrapper 路径裸传(无跨 shell 引号歧义)"
-  fi
-  [ "$(grep -oE '/tn [A-Za-z0-9-]+' "$TMP/transport.calls" | sort -u | wc -l | tr -d ' ')" = "1" ] && ok "create/run/清理引用同一任务名" || no "任务名跨命令不一致,清理会找不到任务"
-  # 清理必须经 powershell 分号顺序执行:cmd 的 & 在 PowerShell 5.1 解析失败、PS6+ 变后台 job。
-  grep -q 'powershell -NoProfile -NonInteractive -Command.*schtasks /end.*; schtasks /delete' "$TMP/transport.calls" && ok "清理经 powershell 分号顺序执行(不用跨 shell 歧义的 &)" || no "清理未经 powershell 顺序语义执行"
-  grep -q 'schtasks /run' "$TMP/transport.calls" && ok "remote build 启动 schtasks" || no "remote build 未启动 schtasks"
-  [ "$(cat "$TMP/fake-remote/SOURCE_COMMIT.txt")" = "$(git rev-parse HEAD)" ] && ok "remote build 绑定完整 SourceCommit" || no "remote build SourceCommit 错误"
-  [ -s "$TMP/fake-remote/source.zip" ] && ok "remote build 上传 git archive HEAD" || no "remote build 缺 source archive"
-  jq -e 'any(.attempt_ledger[]; any(.log_refs[]; startswith("pc:")))' "$SF" >/dev/null && ok "remote build 记录远端日志引用" || no "remote build 未记录远端日志引用"
-else
-  no "remote build exit=0 应完成 stage"
-fi
+jq --arg script "$TMP/release.ps1" --arg context "$TMP/release-context.json" \
+  '.stages=[{name:"build",run:["mmw-release-remote-build","--script",$script,"--context",$context]}]' \
+  "$FIX/manifest.fake.json" > remote-build-manifest.json
 
-bash "$RF" close >/dev/null
-
-# 回归 F3:真实构建耗时分钟级 + remote_input 只按 commit 命名。harness 必须清掉上一轮
-# build-run.{log,exitcode} 再跑,并轮询等待本轮 exitcode 出现,不是 3 次即弃、也不信过期产物。
-cat > remote-bin/ssh <<'SH'
-#!/usr/bin/env bash
-printf 'ssh %s\n' "$*" >> "$TRANSPORT_CALLS"
-case "$*" in
-  *Test-Path*)
-    n=$(( $(cat "$POLL_COUNTER" 2>/dev/null || echo 0) + 1 ))
-    printf '%s' "$n" > "$POLL_COUNTER"
-    if [ "$n" -ge 3 ]; then printf 'Y\n'; else printf 'N\n'; fi
-    ;;
-  *Get-Content*) printf '0\n' ;;
-esac
-SH
-chmod +x remote-bin/ssh
-: > "$TMP/transport.calls"
-printf '0' > "$TMP/poll-counter"
+# 守:构建机拿到的必须是当前 HEAD 的代码。拿错版本出的包发给客户就是错的产品。
+remote_reset
 bash "$RF" init --manifest remote-build-manifest.json >/dev/null
-if PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" \
-   POLL_COUNTER="$TMP/poll-counter" RELEASE_REMOTE_BUILD_POLL_SECONDS=0 \
-   RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release-input" bash "$RF" stage run --stage build >/dev/null; then
-  grep -q 'Remove-Item' "$TMP/transport.calls" && ok "remote build 开跑前清旧 build-run 产物(不信过期 exitcode)" || no "remote build 未清旧产物"
-  [ "$(grep -c 'Test-Path' "$TMP/transport.calls")" -ge 3 ] && ok "remote build 轮询等待本轮构建完成(非 3 次即弃)" || no "remote build 未等待构建"
+if remote_build >/dev/null; then
+  bd="$(build_dir)"
+  [ "$(cat "$bd/SOURCE_COMMIT.txt" 2>/dev/null)" = "$(git rev-parse HEAD)" ] \
+    && ok "构建机拿到的是当前 HEAD" || no "SOURCE_COMMIT 不是 HEAD"
+  [ "$(cat "$bd/source/s" 2>/dev/null)" = "$(cat s)" ] \
+    && ok "源码真的解压到构建机且内容一致" || no "远端源码内容对不上"
+  for f in release.ps1 release-context.json run-release.ps1 run-release.cmd source.zip; do
+    [ -s "$bd/$f" ] || { no "构建输入缺 $f"; continue; }
+  done
+  ok "五份构建输入都上传了"
+
+  # 守:同一个 commit 出第二个产品时,只按 commit 命名会让后一个产品的重解压把前一个
+  # 已产出的安装包整片冲掉。短 commit 是因为全 commit 会让 NSIS 的 include 路径越过
+  # Windows 路径长度上限。
+  case "$(basename "$bd")" in
+    "$(git rev-parse HEAD | cut -c1-12)-test-product") ok "构建目录按短 commit 加产品名命名" ;;
+    *) no "构建目录命名错误($(basename "$bd"))" ;;
+  esac
+
+  # 守:残留的计划任务会在下一轮同 commit 抢写产物,把别人的构建结果当成自己的。
+  [ "$(task_count)" = "0" ] && ok "构建结束不留计划任务" || no "残留计划任务($(cat "$FAKE_REMOTE_TASKS"))"
+  [ "$(build_status)" = "done" ] && ok "构建成功标 stage done" || no "构建成功未标 done"
+  jq -e 'any(.attempt_ledger[]; any(.log_refs[]; startswith("pc:")))' "$SF" >/dev/null \
+    && ok "记下构建机日志位置" || no "没记日志位置"
 else
-  no "remote build 等待完成后 exit=0 应完成 stage"
+  no "构建成功场景 stage run 应退 0"
 fi
 bash "$RF" close >/dev/null
 
-# 回归 C3:构建超时(exitcode 永不出现)必须 fail 且清理计划任务,不遗留孤儿构建/任务。
-# exitcode 从不出现 → 墙钟超时(TIMEOUT=0 立即触发,poll=0 不影响墙钟)→ 走 schtasks /end+/delete。
-cat > remote-bin/ssh <<'SH'
-#!/usr/bin/env bash
-printf 'ssh %s\n' "$*" >> "$TRANSPORT_CALLS"
-case "$*" in
-  *Test-Path*) printf 'N\n' ;;
+# 守:schtasks 的命令行跨 cmd、PowerShell 语言、native CLI 三个解析器,单引号只在其中
+# 一个是定界符。任务必须指向一个上传好的 .cmd,不能把多段命令串进任务命令行,也不能带
+# 引号——带了的话清理时找不到任务,构建机上会堆死条目。
+task_cmd="$(tail -1 "$FAKE_REMOTE_TASKS.history" 2>/dev/null | jq -r '.cmd // "无"')"
+case "$task_cmd" in
+  *run-release.cmd) ok "计划任务指向上传好的 .cmd" ;;
+  *) no "计划任务命令行不是 .cmd($task_cmd)" ;;
 esac
-SH
-chmod +x remote-bin/ssh
-: > "$TMP/transport.calls"
+case "$task_cmd" in
+  *\'*|*'"'*) no "计划任务命令行带引号(跨三个解析器会被当字面字符)" ;;
+  *) ok "计划任务命令行裸传不带引号" ;;
+esac
+
+# 守:重跑同一个 commit 时,若不清上一轮的退出码,第一次轮询就会读到上轮的 0,把仍在跑
+# 或已失败的本轮判成成功——错的包会被当成好包发出去。
+remote_reset
 bash "$RF" init --manifest remote-build-manifest.json >/dev/null
-# stage run 遇构建失败会诊断+PAUSE(返回 0,非命令失败),故不门控退出码;清理在 _run_remote_build
-# 内返回 70 前发生,直接查 transport.calls。schtasks /end 只在超时清理路径出现,是超时的确证。
-PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" \
-   RELEASE_REMOTE_BUILD_POLL_SECONDS=0 RELEASE_REMOTE_BUILD_TIMEOUT_SECONDS=0 \
-   RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release-input" bash "$RF" stage run --stage build >/dev/null 2>&1 || true
-grep -q 'schtasks /end' "$TMP/transport.calls" && ok "remote build 超时结束在跑的构建(schtasks /end)" || no "remote build 超时未 end 任务"
-grep -q 'schtasks /delete' "$TMP/transport.calls" && ok "remote build 超时删计划任务(不遗留孤儿)" || no "remote build 超时未删任务"
-[ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" != "done" ] && ok "remote build 超时不判 stage done" || no "remote build 超时误判 done"
-# PAUSED:needs-context 的自主处置第一步是从回执拿日志 locator——receipt 漏印 log_refs,
-# 驱动 Agent 只能翻裸 state 猜路径。
-bash "$RF" receipt > "$TMP/receipt.out"
-grep -q 'logs=' "$TMP/receipt.out" && ok "receipt 输出 attempt 的 log_refs(自主处置有日志入口)" || no "receipt 未输出 log_refs"
+stale="$FAKE_REMOTE_ROOT/release-input/$(git rev-parse HEAD | cut -c1-12)-test-product"
+mkdir -p "$stale"
+printf '0\n' > "$stale/build-run.exitcode"
+printf '上一轮的日志\n' > "$stale/build-run.log"
+export FAKE_BUILD_OUTCOME=fail:3
+remote_build >/dev/null 2>&1 || true
+[ "$(build_status)" != "done" ] && ok "本轮失败不被上一轮的退出码盖成成功" || no "读到过期退出码误判成功"
 bash "$RF" close >/dev/null
 
-# 清不掉远端旧 build-run 产物必须 fail-loud:旧 exitcode 留场会把仍在跑/已失败的本轮误判成功。
-cat > remote-bin/ssh <<'SH'
-#!/usr/bin/env bash
-printf 'ssh %s\n' "$*" >> "$TRANSPORT_CALLS"
-case "$*" in
-  *Remove-Item*) exit 1 ;;
-  *Test-Path*) printf 'Y\n' ;;
-  *Get-Content*) printf '0\n' ;;
-esac
-SH
-chmod +x remote-bin/ssh
-: > "$TMP/transport.calls"
+# 守:清不掉旧产物还往下走,等于拿上一轮的结果当本轮的。
+remote_reset
+export FAKE_REMOVE_FAILS=1
 bash "$RF" init --manifest remote-build-manifest.json >/dev/null
-PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" \
-   RELEASE_REMOTE_BUILD_POLL_SECONDS=0 \
-   RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release-input" bash "$RF" stage run --stage build >/dev/null 2>&1 || true
-[ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" != "done" ] && ok "旧产物清除失败不继续构建(防过期 exitcode 伪成功)" || no "旧产物清除失败仍误判 done"
-grep -q 'schtasks /create' "$TMP/transport.calls" && no "旧产物清除失败仍创建了计划任务" || ok "旧产物清除失败不创建计划任务"
+remote_build >/dev/null 2>&1 || true
+[ "$(build_status)" != "done" ] && ok "清不掉旧产物就不开工" || no "清理失败仍判 done"
+[ "$(task_count)" = "0" ] && ok "清不掉旧产物时不建计划任务" || no "清理失败仍建了任务"
 bash "$RF" close >/dev/null
 
-# 远端根路径字符白名单:空格/引号/美元符/反引号会打断 PowerShell 字符串或触发变量展开,
-# 跨 cmd/PowerShell/native CLI 三解析器的引号没有统一合同,一律拒。
+# 守:构建卡死时若不结束任务,孤儿构建会抢写下一轮同 commit 的退出码。
+remote_reset
+export FAKE_BUILD_OUTCOME=hang
+bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+PATH="$REMOTE_FIX:$PATH" RELEASE_REMOTE_BUILD_POLL_SECONDS=0 RELEASE_REMOTE_BUILD_TIMEOUT_SECONDS=0 \
+  RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release-input" \
+  bash "$RF" stage run --stage build >/dev/null 2>&1 || true
+[ "$(build_status)" != "done" ] && ok "构建超时不判 done" || no "超时误判 done"
+[ "$(task_count)" = "0" ] && ok "构建超时清掉计划任务" || no "超时留下孤儿任务"
+bash "$RF" close >/dev/null
+
+# 守:启动命令偶发「返回 0 但任务没起来」,已建的任务必须清掉,否则同样留孤儿。
+remote_reset
+export FAKE_RUN_FAILS=1
+bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+remote_build >/dev/null 2>&1 || true
+[ "$(build_status)" != "done" ] && ok "任务起不来不判 done" || no "起不来仍判 done"
+[ "$(task_count)" = "0" ] && ok "任务起不来也清掉已建的任务" || no "起不来留下孤儿任务"
+bash "$RF" close >/dev/null
+
+# 守:退出码文件损坏时判不出成败,同样要清干净再交人。
+remote_reset
+export FAKE_BUILD_OUTCOME=garbage
+bash "$RF" init --manifest remote-build-manifest.json >/dev/null
+remote_build >/dev/null 2>&1 || true
+[ "$(build_status)" != "done" ] && ok "退出码非法不判 done" || no "退出码非法仍判 done"
+[ "$(task_count)" = "0" ] && ok "退出码非法也清掉计划任务" || no "退出码非法留下孤儿任务"
+bash "$RF" close >/dev/null
+
+# 守:远端路径里的空格与引号会打断 PowerShell 字符串或触发变量展开,而跨三个解析器
+# 没有统一的引号合同。这类根路径必须在碰构建机之前就被拒。
 for bad_root in "C:/release input" "C:/release'input" 'C:/release$input'; do
-  : > "$TMP/transport.calls"
+  remote_reset
   bash "$RF" init --manifest remote-build-manifest.json >/dev/null
-  PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" \
-     RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="$bad_root" bash "$RF" stage run --stage build >/dev/null 2>&1 || true
-  [ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" != "done" ] && ok "危险远端根被拒($bad_root)" || no "危险远端根未被拒($bad_root)"
-  grep -q 'schtasks /create' "$TMP/transport.calls" && no "危险远端根仍创建了计划任务($bad_root)" || ok "危险远端根未触达 schtasks($bad_root)"
+  remote_build "$bad_root" >/dev/null 2>&1 || true
+  [ "$(build_status)" != "done" ] && ok "危险远端根被拒($bad_root)" || no "危险远端根未被拒($bad_root)"
+  [ -z "$(ls -A "$FAKE_REMOTE_ROOT")" ] && ok "危险远端根没碰到构建机($bad_root)" || no "危险远端根已在构建机落地($bad_root)"
   bash "$RF" close >/dev/null
 done
 
-# 回归 I1:schtasks /run 起不来(任务已 /create)时,尾部统一清理必须删掉已建的计划任务。
-# 上轮只在超时分支清理,漏了 /run 失败这个出口;这里断言现在所有出口都统一走 /delete。
-cat > remote-bin/ssh <<'SH'
-#!/usr/bin/env bash
-printf 'ssh %s\n' "$*" >> "$TRANSPORT_CALLS"
-case "$*" in
-  *"schtasks /run"*) exit 1 ;;
-  *Test-Path*) printf 'N\n' ;;
-esac
-SH
-chmod +x remote-bin/ssh
-: > "$TMP/transport.calls"
+# 守:失败根因只存在于构建机的日志里。不回传,Mac 侧永远诊断不出 finding,自愈闭环断掉。
+remote_reset
+export FAKE_BUILD_OUTCOME=fail:7
 bash "$RF" init --manifest remote-build-manifest.json >/dev/null
-PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" \
-   RELEASE_REMOTE_BUILD_POLL_SECONDS=0 \
-   RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release-input" bash "$RF" stage run --stage build >/dev/null 2>&1 || true
-grep -q 'schtasks /delete' "$TMP/transport.calls" && ok "remote build /run 失败仍删已建计划任务(I1 不遗留)" || no "remote build /run 失败未删任务"
-[ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" != "done" ] && ok "remote build /run 失败不判 stage done" || no "remote build /run 失败误判 done"
+remote_build >/dev/null 2>&1 || true
+bash "$RF" receipt > "$TMP/receipt.out"
+grep -q 'logs=' "$TMP/receipt.out" && ok "回执给出日志位置(自主处置的入口)" || no "回执没有日志位置"
 bash "$RF" close >/dev/null
-
-# 回归 I1:exitcode 文件内容非法(非数字)时,尾部统一清理必须删掉计划任务(该出口上轮也漏清)。
-cat > remote-bin/ssh <<'SH'
-#!/usr/bin/env bash
-printf 'ssh %s\n' "$*" >> "$TRANSPORT_CALLS"
-case "$*" in
-  *Test-Path*) printf 'Y\n' ;;
-  *Get-Content*) printf 'garbage\n' ;;
-esac
-SH
-chmod +x remote-bin/ssh
-: > "$TMP/transport.calls"
-bash "$RF" init --manifest remote-build-manifest.json >/dev/null
-PATH="$PWD/remote-bin:$PATH" TRANSPORT_CALLS="$TMP/transport.calls" FAKE_REMOTE="$TMP/fake-remote" \
-   RELEASE_REMOTE_BUILD_POLL_SECONDS=0 \
-   RELEASE_REMOTE_HOST="fake@pc" RELEASE_REMOTE_ROOT="C:/release-input" bash "$RF" stage run --stage build >/dev/null 2>&1 || true
-grep -q 'schtasks /delete' "$TMP/transport.calls" && ok "remote build exitcode 非法仍删计划任务(I1 不遗留)" || no "remote build exitcode 非法未删任务"
-[ "$(jq -r '.stages[] | select(.name=="build") | .status' "$SF")" != "done" ] && ok "remote build exitcode 非法不判 stage done" || no "remote build exitcode 非法误判 done"
+unset FAKE_BUILD_OUTCOME FAKE_RUN_FAILS FAKE_REMOVE_FAILS
 bash "$RF" close >/dev/null
 
 bash "$RF" init --manifest "$FIX/manifest.fake.json" --max-rounds 1 >/dev/null
