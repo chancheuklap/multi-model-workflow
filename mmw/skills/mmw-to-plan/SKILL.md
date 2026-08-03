@@ -1,6 +1,6 @@
 ---
 name: mmw-to-plan
-description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan，派 `planner` 写，主 agent 只做编排、验证和合同回填。用户说要写 plan、要把 ticket 展开成可落地的步骤时用它；刚把 spec 拆完 ticket 的技能也移交这里。
+description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `planner` 写。用户说要写 plan 时用它；刚把 spec 拆完 ticket 的技能也移交这里。
 ---
 
 把每张 ticket 写成一份 plan，供后面派 `worker` 照着落地。

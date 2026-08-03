@@ -1,6 +1,6 @@
 ---
 name: mmw-closing
-description: 一次任务的收尾——把这份 spec 和它的 plan 转成 Wiki 的一页，验证之后删掉本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`，再把分支交回用户合并。终审过了、采信的 findings 都修完时用它；用户说要收尾、要归档、要合并这个分支时也用它。
+description: 一次任务的收尾——spec 和 plan 转成 Wiki 的一页，删掉本地副本，分支交回用户合并。用户说要收尾、要归档时用它；终审过了、采信的 findings 都修完的技能也移交这里。
 ---
 
 代码已经落地，终审过了。这一步把设计文档搬到它的长期落点，再把工作区收干净。

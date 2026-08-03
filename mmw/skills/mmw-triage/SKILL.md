@@ -1,6 +1,6 @@
 ---
 name: mmw-triage
-description: 分诊 issue 和外部 PR——定类别、验事实、需要时 grill，最后写出 agent brief 并决定出口。用户说要 triage、问有什么等着处理、报一个 issue 或 PR 编号要看、要把某条改成某个状态时用它；别的技能拿到一个还没评估过的 issue 时也用它。
+description: 分诊 issue 和外部 PR，写出 agent brief 并决定出口。用户说要 triage、问有什么等着处理、报一个 issue 或 PR 编号时用它；别的技能拿到还没评估过的 issue 时也用它。
 ---
 
 把项目 issue tracker 上的 issue 推过一台状态机。

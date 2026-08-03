@@ -1,6 +1,6 @@
 ---
 name: mmw-codebase-design
-description: 设计 deep module 用的那套共同词汇——module、interface、seam、adapter、depth，连同判据。用户要设计或改进一个 module 的 interface、要找 deepening opportunity、要定 seam 放哪、要让代码更好测或更好让 agent 读懂时用它；别的技能需要这套 deep module 词汇时也用它。
+description: deep module 的共同词汇与判据：module、interface、seam、adapter、depth。用户要设计一个 module 的 interface、要定 seam 放哪时用它；别的技能需要这套词汇时也用它。
 ---
 
 # Codebase Design

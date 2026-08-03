@@ -1,6 +1,6 @@
 ---
 name: mmw-dispatching-agents
-description: 把一件任务派给隔离上下文的 subagent。管派不派、派哪个角色、brief 自包含、方法论怎么送到它手里、怎么收回。需要把任务派出去时用它。
+description: 把一件任务派给隔离上下文的 subagent——派不派、派哪个角色、怎么收回。需要把任务派出去时用它。
 ---
 
 把一件任务派给隔离上下文的 subagent。
@@ -22,28 +22,23 @@ description: 把一件任务派给隔离上下文的 subagent。管派不派、�
 
 同一件活反复做很多遍时，先看能不能只派其中机械的那一半：验证可以拆成取证和判定，取证派得出去，判定派不出去（`/mmw-verifying-agent-output`）。
 
-**一个方向派一个人。** 要几个方向就派几个，并行，每份 brief 只有方向那一栏不同。
+**一个方向派一个人。** 要几个方向就派几个，每份 brief 只有方向那一栏不同。要并行就在一条消息里发多个 Bash 调用起多个 `mmw dispatch`。
 
-## 怎么派
+## 派哪个角色
 
-```
-mmw dispatch <角色> --brief <提示词文件> [--cwd <工作目录>]
-```
+参数怎么写、哪几个角色可写，跑 `mmw dispatch` 就有。这里只写选哪个：
 
-六个角色：
+| 角色 | 派它做什么 |
+| --- | --- |
+| `worker` | 按一份 plan 写代码 |
+| `worker-high-risk` | 同上，但这块代码错了代价大 |
+| `planner` | 按一张 ticket 写一份 plan |
+| `investigator` | 查一个角度的事实，带出处交回 |
+| `reviewer-gpt`、`reviewer-claude` | 审查，两个模型各一侧 |
 
-| 角色 | 派它做什么 | 写权限 |
-| --- | --- | --- |
-| `worker` | 按一份 plan 写代码 | 可写，`--cwd` 必填 |
-| `worker-high-risk` | 同上，但这块代码错了代价大 | 可写，`--cwd` 必填 |
-| `planner` | 按一张 ticket 写一份 plan | 可写，`--cwd` 必填 |
-| `investigator` | 查一个角度的事实，带出处交回 | 只读 |
-| `reviewer-gpt` | 审查，GPT 那一侧 | 只读 |
-| `reviewer-claude` | 审查，Claude 那一侧 | 只读 |
+哪一道审派哪两个角色，判据在 `/mmw-review`。`worker` 什么时候升 `worker-high-risk`，判据在 `/mmw-implement`。
 
-哪一道审派哪两个角色，判据在 `/mmw-review`，不在这里。`worker` 什么时候升 `worker-high-risk`，判据在 `/mmw-implement`。
-
-**可写角色的 `--cwd` 必填**，指向它该待的那棵 worktree。命令会先检查那个目录的工作区干净，不干净就不派——否则 `worker` 的提交里会混进别人的改动。
+`--cwd` 指向它该待的那棵 worktree。命令会先检查那里工作区干净，不干净就不派——否则它的提交里会混进别人的改动。
 
 ## 返回怎么读
 
@@ -75,7 +70,7 @@ params: {"...": "..."}
 
 ## 方法论怎么到它手里
 
-长的、改得勤的方法论（审查那一整套、写计划那一套、测试标准）**装进它自己的技能目录**，`mmw dispatch` 会按宿主把它送到位，你不用管送法。装没装用 `mmw doctor` 看，它会告诉你缺了就跑 `install-agent-skills.sh`（本文旁边那个）。安装走软链不走拷贝，插件里改一次，下一轮派出去的立刻读到新的。
+长的、改得勤的方法论（审查那一整套、写计划那一套、测试标准）**装进它自己的技能目录**，`mmw dispatch` 会按宿主把它送到位，你不用管送法。装没装用 `mmw doctor` 看。
 
 短的、不常改的**原文粘进提示词**，比如给 `worker` 的 `mmw-implement/worker-brief.md` 和 TDD 纪律（要粘哪几个文件，清单在 `/mmw-implement` 第 3 步）。代价是提示词长，而且改了之后已经派出去的那批读的还是旧的。
 
@@ -83,15 +78,7 @@ params: {"...": "..."}
 
 同一个视角派给两个角色时用**同一份 brief 文本**，只有「你负责哪个视角」那一栏不同。
 
-派发前自检：brief 里提到的每个仓库内路径真实存在，缺了当场报错。
-
-## 存盘
-
-提示词和完工报告落 worktree 根的 `.dispatch/`，写之前 `mkdir -p`。这个目录已在仓库根 `.gitignore` 里。
-
-## 并行
-
-要并行就在一条消息里发多个 Bash 调用起多个 `mmw dispatch`，它们各自后台跑。`mode: executed` 的和 `mode: host-tool` 的可以同时在跑。
+派发前自检：brief 里提到的每个仓库内路径真实存在，缺了当场报错。提示词和完工报告落 worktree 根的 `.dispatch/`。
 
 ## 下一步
 

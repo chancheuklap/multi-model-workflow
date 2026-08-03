@@ -1,6 +1,6 @@
 ---
 name: mmw-to-tickets
-description: 把一份 spec 拆成一组 tracer bullet ticket，每张声明被谁阻塞，按依赖顺序发布到 issue tracker。用户说要拆 ticket、要把 spec 拆成 issue、要定先做哪一块时用它；刚写完 spec 的技能也移交这里。
+description: 把一份 spec 拆成一组 tracer bullet ticket，按依赖顺序发布。用户说要拆 ticket、要定先做哪一块时用它；刚写完 spec 的技能也移交这里。
 ---
 
 把一份 spec、一份计划或当前这段对话拆成一组 **ticket**——每张是一条 tracer bullet 垂直切片，并声明**阻塞**它的那些 ticket。

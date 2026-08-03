@@ -1,6 +1,6 @@
 ---
 name: mmw-wayfinder
-description: 把一个 effort——大到要拆成好几份 spec 才做得完——规划成 issue tracker 上一张共享的 map，map 底下挂 decision ticket，一条链一条链地解，直到通往 destination 的路清楚。用户带来一个很大、很松、暂时看不到边界的想法时用它；用户报出一张已有 map 的编号或链接、要认领一条链接着往下走时也用它。
+description: 把一个大到要拆成好几份 spec 的 effort 规划成 issue tracker 上一张共享的 map。用户带来一个很大、很松、暂时看不到边界的想法时用它；报出一张已有 map 的编号、要认领一条链接着往下走时也用它。
 argument-hint: "[map 编号，或者要做的事]"
 ---
 
