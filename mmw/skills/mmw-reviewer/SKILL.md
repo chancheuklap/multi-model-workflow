@@ -15,7 +15,7 @@ disable-model-invocation: true
 | 任务名 | 读这一份 |
 | --- | --- |
 | 设计内容审 | [references/spec-content.md](references/spec-content.md) |
-| 项目对齐审 | [references/spec-alignment.md](references/spec-alignment.md) |
+| 项目一致性审 | [references/spec-alignment.md](references/spec-alignment.md) |
 | 覆盖质量审 | [references/plan-coverage.md](references/plan-coverage.md) |
 | 合规交叉审 | [references/plan-compliance.md](references/plan-compliance.md) |
 | 对照终审 | [references/final-trace.md](references/final-trace.md) |
@@ -62,12 +62,12 @@ disable-model-invocation: true
 
 别默认那个问题是对的、只查产物对不对得上它。退一步问：这是个**真问题**吗？换个框架会不会让它**整个消失**？**什么都不做**的代价是什么？**现有代码已经解掉了多少**（优先复用）？
 
-要解决的问题本身选错了方向，就算产物完美对齐它也要报——出口是 `needs-redirection`，写法见本文「两个出口」一节。
+要解决的问题本身选错了方向，就算产物跟它完全一致也要报——出口是 `needs-redirection`，写法见本文「两个出口」一节。
 
 **方法级：**
 
 - **重造轮子**：通用问题（解析结构化文档、数据清洗、状态机、调度、序列化、缓存、解析器）先问有没有成熟库、标准做法或者平台现成的能力。手搓通用能力要点名该用什么，不要只夸它实现得对。
-- **地基还是样本**：「在现有样本上恰好跑通」不等于对。要由构造证明，或者拿对抗输入证明；「跑了一批样本全绿」不算。靠输入格式的偶然规律成立的要报。
+- **地基还是样本**：「在现有样本上恰好通过」不等于对。要由构造证明，或者拿对抗输入证明；「一批样本测下来全绿」不算。靠输入格式的偶然规律成立的要报。
 - **这层该不该存在**：不是删多余代码，是问这整块抽象是不是选错了、有没有更上游的解法让它整个消失。**仅当它已经造成真实成本**（挡住验收、放大影响面、明显拖慢或容易出错）才报；只是「可以更干净」就不报。
 - **越改越对不等于方法对**：在精雕一个本不该存在的东西，这件事本身就是一条 finding。
 

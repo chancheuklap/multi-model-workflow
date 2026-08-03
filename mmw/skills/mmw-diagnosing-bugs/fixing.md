@@ -45,7 +45,7 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
 | 情况 | 下一步 |
 | --- | --- |
-| `worker` 交回的修复验收通过，Phase 6 五条全过 | **停**：用业务语言报什么坏了、根因是什么、修成什么样、怎么证明它好了。合并和清理 worktree 由用户批准 |
+| `worker` 交回的修复验收通过，Phase 6 五条全过 | **停**：用业务语言报什么坏了、根因是什么、修成什么样、怎么证明它好了。合并和清理 worktree 由用户批准，他批准后清理跑 `mmw task cleanup <slug>` |
 | 复盘的答案牵涉架构改动（没有好的测试 seam、调用方互相缠绕、藏着的耦合） | **移交**：`/mmw-improve-codebase-architecture`，把具体情况带过去当它的扫描方向 |
 | 找不到 correct seam | **移交**：`/mmw-improve-codebase-architecture`，把「找不到 correct seam」这件事带过去当它的扫描方向 |
 | `worker` 卡在 bug 与代码互相矛盾上 | **停**：把矛盾交给用户，不要换一个 `worker` 再派一遍 |

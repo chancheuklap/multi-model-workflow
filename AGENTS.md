@@ -73,6 +73,8 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
   | Fowler 的 code smell | 代码异味 | 代码气味 |
   | 把方法论软链进 headless 那个模型的技能目录 | 安装 | 装载 |
   | 能点开核对的位置 | 出处 | 锚 |
+  | 跨 plan 合同在 plan 头上的登记点 | 合同锚点（spec 节名 Cross-Plan Contract Anchors） | 这是唯一豁免「锚」字的专有名词，别处仍写「出处」 |
+  | spec 审的第二个视角 | 项目一致性审 | 项目对齐审（「对齐」在禁用表里） |
   | 错了会改变结论的那些 | 关键（结论 / 断言） | 承重 |
   | 给每条 finding 的结论 | 判定 + 五个英文处置词 | 裁判、裁决 |
   | 审查记录落盘 | 审查记录 | 留痕 |
@@ -129,6 +131,12 @@ done
 
 python3 pi-plugin/scripts/render_agent_prompts.py --check
 bash pi-plugin/workflows/install-workflows.sh --check
+
+for t in mmw/cli/tests/test_*.sh; do bash "$t" || exit 1; done
+for t in mmw/release/tests/test_*.sh; do bash "$t" || exit 1; done
+(cd mmw/mcp && uv run --quiet --with pytest pytest test_graphify_ensure.py -q) || exit 1
+(cd mmw/release/tests && uv run --quiet --with pytest --with pydantic pytest \
+  test_release_contracts.py test_release_script_assembler.py -q) || exit 1
 ```
 
 提交前：`git diff --check`；本次改动的 JSON 用 `python3 -m json.tool` 校验。
@@ -186,15 +194,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 第 2 层三块自有能力里的两块，加上末端两个编排技能，都已写成技能并各自实跑验过一轮。设计结论住在技能自己那几份文件里，本文件不复述。
 
-改完跑测试：
-
-```bash
-for t in mmw/cli/tests/test_*.sh; do bash "$t" || exit 1; done
-for t in mmw/release/tests/test_*.sh; do bash "$t" || exit 1; done
-(cd mmw/mcp && uv run --quiet --with pytest pytest test_graphify_ensure.py -q) || exit 1
-(cd mmw/release/tests && uv run --quiet --with pytest --with pydantic pytest \
-  test_release_contracts.py test_release_script_assembler.py -q) || exit 1
-```
+改完跑测试：命令在本文件「构建与测试」一节，跟四宿主那几条在一起。放那里是因为 mmw 是长期资产，而本节写着「完成后本节删除」——命令留在本节会随节一起消失。
 
 | 落点 | 内容 | 怎么验的 |
 | --- | --- | --- |
