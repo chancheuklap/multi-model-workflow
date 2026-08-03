@@ -74,6 +74,21 @@ current_servers() {
   fi
 }
 
+# pi 那一面的 env 保留 ${VAR} 不写密钥明文（它的目标文件入库）。展开由宿主在启动服务器
+# 时做，取的是宿主进程的环境。值只写在密钥文件里宿主看不到，那时它展成空串，
+# 服务器把空 key 当成配错，而配置文件看上去是对的。这一步把那种失败当场说出来。
+warn_unreachable_placeholders() {
+  local label="$1" file="$2" names name
+  names="$(current_servers "$file" \
+    | jq -r '.[] | (.env // {}) | .[]' \
+    | { grep -o '\${[A-Za-z_][A-Za-z0-9_]*}' || true; } \
+    | tr -d '${}' | sort -u)"
+  for name in $names; do
+    [ -z "${!name:-}" ] || continue
+    echo "注意  ${label} 的 ${name} 不在进程环境里，宿主启动服务器时会把它展成空串；在 shell 启动文件里导出它" >&2
+  done
+}
+
 check_face() {
   local label="$1" file="$2"
   local wanted names rc=0
@@ -94,6 +109,7 @@ check_face() {
 
   local have
   have="$(current_servers "$file")"
+  warn_unreachable_placeholders "$label" "$file"
   for n in $names; do
     # 只断我们定义的那些字段，不断整个对象相等：目标那一侧可能有宿主自己的字段
     # （pi 的 directTools 就是），断相等会把「它多了个我们不管的字段」误判成未装，
@@ -149,6 +165,7 @@ install_face() {
   fi
   mv "$tmp" "$file"
 
+  warn_unreachable_placeholders "$label" "$file"
   for n in $names; do echo "装好  $label $n → $file"; done
 }
 
