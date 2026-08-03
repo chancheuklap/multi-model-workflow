@@ -42,7 +42,11 @@ check "Claude manifest 与 marketplace 同版" "$market_version" \
 check "Pi package 与 marketplace 同版" "$market_version" \
   "$(jq -r '.version' "$ROOT/mmw/package.json")"
 check "marketplace 顶层版本同步" "$market_version" "$(jq -r '.version' "$marketplace")"
-check "当前发布版本" "0.4.0" "$market_version"
+# 版本号具体是多少由发布决定，这里不锁字面值。锁了的话每次升版都要同步改这一行，
+# 0.4.0 升 0.5.0 那次就漏了——测试红了，而产品没坏。上面三条已经守住四处同版，
+# 这里只再守形状：发布出去的必须是一个合法的语义化版本。
+check "版本号是语义化版本" "合法" \
+  "$(printf '%s' "$market_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' && echo 合法 || echo "不合法：$market_version")"
 
 printf '\n归档完整\n'
 archive="$ROOT/archive/legacy-host-plugins"
