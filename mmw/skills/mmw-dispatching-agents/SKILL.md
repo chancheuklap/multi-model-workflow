@@ -103,3 +103,4 @@ params: {"...": "..."}
 | `mmw doctor` 说方法论没装 | **自己继续**：先跑 `install-agent-skills.sh` 装好再派，不要改成把方法论粘进提示词 |
 | 要派可写角色，`mmw dispatch` 报工作区不干净 | **停**：报那个目录里有哪些未提交的改动 |
 | `mmw dispatch` 报认不出宿主 | **停**：报这台机器上 CLI 认不出自己跑在哪个宿主里 |
+| Codex 报 `model is not supported when using Codex with a ChatGPT account` | **停**：八成是这台机器的型号缓存旧了，不是 `.mmw.json` 写错。让用户在 Codex 里刷一次，再看 `~/.codex/models_cache.json` 的 `models[].slug` 里有没有这个型号。**没验证到缓存里确实没有之前不要改 `.mmw.json`**，更不要动用户的 `~/.codex/config.toml` |
