@@ -2,253 +2,102 @@
 
 ## 仓库范围
 
-本仓库是同一套多模型开发编排的四个单宿主实现：共享产品语义，接线、状态目录、派发后端各自独立；运行时不得互相探测或调用。
+`mmw/` 是仓库唯一活跃的多模型工作流（Multi-Model Workflow，MMW）插件。它共享一套产品语义，只为两个宿主提供独立接线。
 
-| 宿主 | 源码目录 | 发布入口 | 状态目录 | 任务 worktree | 角色执行后端 |
-| --- | --- | --- | --- | --- | --- |
-| Claude Code | `plugin/` | `plugin/.claude-plugin/plugin.json`、`.claude-plugin/marketplace.json` | `.claude/multi-model-workflow/` | `.claude/worktrees/` | Codex CLI 工人 + 宿主 sub-agent 审者 |
-| Factory Droid | `droid-plugin/` | `droid-plugin/.factory-plugin/plugin.json`、`.factory-plugin/marketplace.json` | `.factory/multi-model-workflow/` | `.factory/worktrees/` | `droid exec` + Custom Droids |
-| pi | `pi-plugin/` | `pi-plugin/package.json` | `.pi/multi-model-workflow/` | `.pi/worktrees/` | pi-subagents + 动态 workflows |
-| Cursor | `cursor-plugin/` | `cursor-plugin/.cursor-plugin/plugin.json`、根 `.cursor-plugin/marketplace.json` | `.cursor/multi-model-workflow/` | `.cursor/worktrees/`（任务 wt 常 UI 悬空创建后 `mmw task adopt`） | Cursor Task + `~/.cursor/agents` |
+| 宿主 | 发布入口 | 角色执行后端 |
+| --- | --- | --- |
+| Claude Code | `mmw/.claude-plugin/plugin.json`、根 `.claude-plugin/marketplace.json` | GPT 走后台 Codex CLI；Claude 走后台 Agent 工具 |
+| Pi | `mmw/package.json` | GPT 与 Claude 都走后台 `subagent` 工具，由 model 字段选择 Provider |
 
-`archive/plugin-v1/` 冻结归档：不参与行为判断、构建或测试；无明确指令不改。
+`archive/` 是冻结归档。归档内容不参与行为判断、构建、测试或发布；没有明确指令时不修改。旧 Claude Code、Factory Droid、Pi 和 Cursor 插件统一归档在 `archive/legacy-host-plugins/`。
 
-`vendor/mattpocock-skills/` 是上游 `mattpocock/skills` 的完整副本，用 git subtree squash 拉入，供各 plugin 按名字引用其中的技能（如 `productivity/grilling`、`engineering/prototype`、`engineering/domain-modeling`）。不手改，改了下次拉取必冲突。更新：
+`vendor/mattpocock-skills/` 是上游 `mattpocock/skills` 的完整副本，通过 Git subtree squash 更新。不要手改；更新时运行：
 
 ```bash
 git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock/skills main --squash
 ```
 
-## 当前工作流
+根文档保留 `AGENTS.md`、`CLAUDE.md`、`TESTING.md`。根 `mmw-skill-map.html` 是当前 MMW 架构的可视化产物，必须保留并随架构变化更新。不要新增其他 README、架构、设计、调查、计划或审查类根文档。长期规则写本文件；运行行为写 `mmw/skills/`、`mmw/cli/` 与测试。
 
-阶段、结论词、审闸、场景预设以各宿主 `state-schema/routes.json` 为准；统一入口 `scripts/mmw.sh`。
+## 唯一事实来源
 
-| 场景 | 阶段 |
-| --- | --- |
-| `small-change` | build → final review → closing |
-| `bug` | investigate → build → final review → closing |
-| `develop` | 可选 wayfind → investigate → propose → design → to-issue → plan → plan review → build → final review → package → closing |
-| `merge` | 不建任务 worktree；单独处理意图与实现冲突 |
+同一项行为按以下顺序核对：
 
-- 正式任务先跑该宿主 `bash <源码目录>/scripts/mmw.sh where`（Cursor 本机也可用引擎根下 `mmw.sh`），按 `load` / `do` / `then` 行动。
-- 设计只认 `/approve-design`；口头同意不过门。计划审与终审是模型闸（终审分档见 routes / runtime-contract）。package 有目标安装包时，功能测试与安装后测试仍需负责人确认。
-- 状态、接力单、brief、账本、进度板只认该宿主状态目录。
+1. Claude Code manifest、根 marketplace 或 Pi package。
+2. `mmw/cli/` 的机械动作、宿主 adapter 和 `.mmw.json` 配置合同。
+3. `mmw/skills/` 的流程判据与方法论。
+4. `mmw/cli/tests/`、`mmw/release/tests/`、`mmw/mcp/` 和 `mmw/graph/tests/`。
 
-## 事实源
+`.mmw.json` 保存目标仓库的模型档、标签、路径和领域文档形态。技能不硬编码这些值；通过 `mmw` 对应子命令读取。
 
-同一宿主内按序核对：manifest / package → `state-schema/*.json` → `scripts/`、`hooks/`（pi 另含 `extensions/`、`workflows/`）→ `scripts/tests/`、`build/tests/` → 运行时 Markdown。
+`.mcp.json` 是检索服务器声明的唯一事实来源。占位符只由 `mmw/mcp/resolve.py` 展开。图谱只由 `mmw graph build` 更新；Graphify 和 Serena 的结果都是候选，关键结论必须回当前源码验证。
 
-四宿主不必逐字一致；共性行为变更要四个都查。宿主专属路径、工具名、生命周期、派发后端禁止抄成兼容分支。
+## 宿主边界
 
-根文档只保留 `AGENTS.md`、`CLAUDE.md`、`TESTING.md`。勿新增 README / 架构 / 设计 / 调查 / 计划 / 审查类仓库说明。长期规则写本文件；运行行为写对应宿主 runtime 与测试。
+两个宿主共享角色、模型分配、技能和流程语义。宿主差异只留在 `mmw/cli/adapters/` 与各自 manifest：
 
-运行时 Markdown（宿主加载或 Cursor install 后生效，不是说明文档）在各宿主 `agents|droids|agents-roster`、`commands`、`skills`、`build/fragments/`（pi 另有 `prompts/`；Cursor 源码整树在 `cursor-plugin/`，本机生效面见下）。
+- Claude Code 的 GPT 角色通过后台 Bash 执行 Codex CLI；Claude 角色通过后台 Agent 工具执行。
+- Pi 的全部角色通过带 `async: true` 的 `subagent` 工具执行。
+- 技能正文只写 `mmw dispatch <角色>`，不写宿主分支和模型型号。
+- 运行时不得探测、调用或回退到归档插件。
 
 ## 修改规则
 
-- 改宿主前读该宿主 `skills/orchestrate/SKILL.md`、完整 reference、脚本与测试。测前读根 `TESTING.md`。
-- 共用片段只改 `build/fragments/*.md`，再对该宿主 `build/build.sh --apply` 与 `--check`；锚点生成区禁手改。两份 `task-pack.md` 必须一致（`test_shared_refs_sync.sh`）。
-- pi：GPT 公共提示词改 `agents-roster/_fragments/` 后跑 `render_agent_prompts.py`；workflow 改 `workflows/*.workflow.js` 后跑 `install-workflows.sh`（含 `--check`）。
-- 版本：Claude 同步 plugin manifest + marketplace（含根版本）；Droid 同步 plugin + marketplace；pi 以 `package.json` 为准；Cursor 同步 `cursor-plugin/.cursor-plugin/plugin.json` 与根 `.cursor-plugin/marketplace.json`。
-- **Cursor**：源码只改 `cursor-plugin/`。本机跑 `bash cursor-plugin/scripts/install-local-surface.sh` 复制到 `~/.cursor/{agents,skills,commands,rules,hooks}`，合并 `hooks.json` / `mcp.json`，引擎树落到 `~/.cursor/multi-model-workflow-engine/`（可用 `MMW_ENGINE_ROOT`）。花名册 frontmatter（`model` 含 `id[effort=…]`、`is_background`）生效；Task 只传 `subagent_type`（+prompt/background）。细合同见 `cursor-plugin/skills/orchestrate/references/control/runtime-contract.md`。改完须再 install + Reload；运行时不以 `plugins/local` 为发现面。
-- 不用旧残留、兼容目录或静默默认值掩盖错误；脚本异常须非零退出或结构化告警。
-- **mmw 的每份技能以一节「下一步」收尾**，形式固定成两列表（情况、下一步），动词只用「自己继续」「移交」「停」三个。只有两种情况允许停：agent 开不了新会话，或者事情要人拍板；其余一律自己接着做。
-- **审查方法论只有一份**，在 `mmw-reviewer`，审查者读它，主 agent 不读也不转述。改审查判据只改那里；`mmw-review` 只管编排（哪一道、几个视角、谁去审、备什么材料）。审查者靠安装脚本读到它（软链进 headless 那个模型自己的技能目录），不靠把方法论粘进提示词。
-- **技能里提到另一个技能一律写 `` `/技能名` ``**，跟上游合集一致，不分调起还是引用方法。同名的分支、`wayfinder:` 标签值、文件路径不加斜杠。
-- **领域文档的落点不许写死成仓库根那一份 `CONTEXT.md`。** 技能要读它、要往里写、或者要把它备进 brief 时，落点一律跑 `mmw domain path` 取：给 `map` 就按仓库根那张 `CONTEXT-MAP.md` 的索引找这次要碰的那几个上下文，给 `single` 才是根 `CONTEXT.md`，给 `none` 直接往下走、别提它缺失。要建新上下文或者写 ADR 的另跑 `mmw domain dirs`。多上下文的仓库没有根 `CONTEXT.md`——写死会读空，往里写更会在根上凭空造出一份不该存在的。派出去的 Codex 工人 PATH 里不一定有 `mmw`，给它的 brief 里写成描述式（`mmw-tdd` 与 `mmw-implement/worker-brief.md` 就是这样）。
-- **概念有行业标准说法就用它，不自己造词、不自己缩写。** 有正式中文译法写中文，没有就直接写英文原词。技能是写给模型读的，标准词能调用它已有的先验，自造词只是白花 token 还制造歧义。下表是已经统一过的用法，写新技能照它，不要另起一套：
+- 改技能前读完整 `SKILL.md` 及其链接的 reference。测前读根 `TESTING.md`。
+- 只实现请求范围内行为；不用归档残留、兼容目录或静默默认值掩盖错误。
+- 脚本异常必须非零退出或留下结构化告警。
+- Claude Code 版本同步修改 `mmw/.claude-plugin/plugin.json`、根 marketplace 的插件版本和 marketplace 顶层版本。Pi 同步修改 `mmw/package.json`。
+- `mmw/skills/mmw-setup/` 只保存旧背景材料，不是技能。扫描技能正文时必须排除它。
+- 每份流程技能以 `## 下一步` 收尾。表格固定为“情况、下一步”两列，动作只用“自己继续”“移交”“停”。只有 agent 无法开启新会话或需要用户决定时才停。
+- 审查方法论只在 `/mmw-reviewer`；`/mmw-review` 只管编排。审查者通过安装的技能读取方法论，不把整份方法论粘进提示词。
+- 技能引用另一个技能时写 `` `/技能名` ``。同名分支、标签值和文件路径不加斜杠。
+- 领域文档位置必须通过 `mmw domain path` 与 `mmw domain dirs` 获取，不写死根 `CONTEXT.md`。
+- `mmw dispatch` 的角色参数值使用 CLI 字面串并加反引号，不另起中文名。
+- CLI 不带参数只列命令名；每条命令的参数进入自己的 `usage_*`。认不出参数时只输出该命令的用法。
+- Shell 变量后紧跟非 ASCII 字母、数字或下划线时使用 `${var}`，避免非 UTF-8 locale 误解析。
+- 技能正文不得使用“同上”“见上”“前面那条”等位置指代。每次写清文件路径、技能名、节名或完整清单。
 
-  | 概念 | 用这个 | 不要用 |
-  | --- | --- | --- |
-  | 发起并协调其他 agent 的那个 | 主 agent | 主线程（它不是线程） |
-  | 泛指被派出去的 | subagent | 劳动力、子代理、sub-agent |
-  | 被派去写代码的 | `worker` | 工人、写码工人、落地的人 |
-  | 被派去写计划的 | `planner` | 写计划工人 |
-  | 泛指 `worker`、`worker-high-risk`、`planner` | 会写文件的角色（`mmw dispatch` 的用法里就是这个说法） | 可写角色、工人 |
-  | 被派去审查的 | 审查者；具体派哪个写 `reviewer-gpt` / `reviewer-claude` | 审者 |
-  | 非交互式跑的 Codex | headless | 无头（无头浏览器例外，那是标准译法） |
-  | 派出去时给的那份任务说明 | brief | 简报 |
-  | 它交回来的东西 | 报告 | 回执 |
-  | 主 agent 自己去核对 | 验证 | 亲验、复核、核验、核对、单用一个「核」字 |
-  | Fowler 的 code smell | 代码异味 | 代码气味 |
-  | 把方法论软链进 headless 那个模型的技能目录 | 安装 | 装载 |
-  | 能点开核对的位置 | 出处 | 锚 |
-  | 跨 plan 合同在 plan 头上的登记点 | 合同锚点（spec 节名 Cross-Plan Contract Anchors） | 这是唯一豁免「锚」字的专有名词，别处仍写「出处」 |
-  | spec 审的第二个视角 | 项目一致性审 | 项目对齐审（「对齐」在禁用表里） |
-  | 错了会改变结论的那些 | 关键（结论 / 断言） | 承重 |
-  | 给每条 finding 的结论 | 判定 + 五个英文处置词 | 裁判、裁决 |
-  | 审查记录落盘 | 审查记录 | 留痕 |
-  | 审查分几个方向 | 视角 | 路（一路、几路） |
-  | Claude 还是 Codex | 模型 | 家（一家、两家、另一家） |
-  | 这件活要不要人在对话里参与 | HITL / AFK（成对使用，不译） | 无人值守、要人在场、人不用在场、AFK agent、AFK·HITL |
-  | 必须人点头才能过的关卡 | 人工审批关卡 | 人闸、HITL（那是上一行那条轴，不是关卡） |
-  | 流程上的其他关卡 | 关卡 | 闸、门、过门 |
-  | 把上游结论写回下游文档 | 回填 | 回灌 |
-  | 结束一张 map 或一次任务 | 收尾 | 收口 |
-  | 派审查者开始审 | 发起审查 | 起审 |
-  | 建任务隔离目录 | 建 worktree | 建树、进树 |
-  | 测试够不够格进仓库 | 合入标准 | 进仓资格线 |
-  | 一条 finding 的影响范围 | 影响面 | 伤害面 |
-  | 把东西发到外部系统 | 对外发布 | 出站动作 |
-  | 唯一权威的那一份 | 唯一事实来源 | 真相源、事实源 |
-  | sandbox 与工具白名单 | 护栏（guardrails） | 围栏 |
+## 术语
 
-  「它交回来的东西」那一行同样禁「笔记」；「给每条 finding 的结论」那一行同样禁「结论词」。
+| 概念 | 使用 | 不使用 |
+| --- | --- | --- |
+| 发起并协调其他 agent | 主 agent | 主线程 |
+| 被派出的执行者 | subagent | 子代理、sub-agent |
+| 写代码角色 | `worker` | 工人、写码工人 |
+| 写计划角色 | `planner` | 计划工人 |
+| 审查角色 | 审查者；具体写 `reviewer-gpt`、`reviewer-claude` | 审者 |
+| 非交互式 Codex | headless | 无头 |
+| 派发任务说明 | brief | 简报 |
+| subagent 交回内容 | 报告 | 回执、笔记 |
+| 主 agent 检查事实 | 验证 | 复核、核验、亲验 |
+| 可点击的位置 | 出处 | 锚 |
+| 唯一权威内容 | 唯一事实来源 | 真相源、事实源 |
+| 必须用户确认的关卡 | 人工审批关卡 | 人闸 |
+| 建隔离目录 | 建 worktree | 建树、进树 |
+| 发送到外部系统 | 对外发布 | 出站动作 |
+| sandbox 与工具白名单 | 护栏（guardrails） | 围栏 |
 
-  **凡是 `mmw dispatch` 的参数值，技能正文里一律写 CLI 的字面串加反引号**，不另起中文名。`worker` 和 `planner` 是模型预训练里就有的词，译成「工人」既招募不到那份先验，又让 agent 多一道翻译才对得上命令。同理，六个角色有哪些、每条命令收什么参数，正文不复述——跑那条命令本身不带参数就有（`mmw dispatch` 给六个角色，`mmw issue` 给它那几个子命令），复述一遍是两处维护。
-
-  **CLI 的用法也分两层，写新命令时照这个形状：** `mmw` 不带参数只列命令名，参数进各命令自己的 `usage_*`，认不出参数时打的也是那一条的用法。要查一条命令怎么写的 agent 不该顺带读完其余全部——它读进去的每一行都在稀释它对手头这件事的注意力。
-
-  比喻性动词同样不要：兜住、吃重、找茬、捞、栽在、坏事、要命。写它实际指的动作。
-
-  **这张表不是全集，是已经踩过的坑。** 写新技能遇到表上没有的概念，判据仍然是：有行业标准中文说法就用它，没有就用英文原词，两样都不做就是自造词。上游 `vendor/mattpocock-skills/` 有对应英文原文的，先去看它用的是什么词再决定译不译。
-
-- **shell 脚本里变量紧跟中文标点时必须写 `${var}`。** `echo "没有 $label（$dir 不在）"` 在非 UTF-8 locale 下会挂：bash 按单字节切词，把全角括号的首字节当成变量名继续读，报出「line 114: label」这种指不到真因的错。而 locale 不受我们控制——派出去的 headless 进程、CI、cron 各是各的。判据是变量后面紧跟的字符不是 ASCII 字母数字下划线就加花括号。`mmw/cli/tests/test_mcp.sh` 用 `LC_ALL=C` 跑一遍安装守着这条。
-- **技能正文不许有指代不明。** 技能是写给模型读的执行指令，不是给人读的散文。禁止「上面那个」「下面那份」「见上」「见下」「同上」「那个技能」「前面那一条」这类靠位置或上下文指代的写法——每次都指名道姓：写文件路径、写技能名（带斜杠）、写节标题、写标签字符串。表格里的「同上」一律展开成完整内容。用数量代替内容同样禁止（「那三条验证」「那两个目录」）：该列的全部列出来，或者指向持有清单的那一节。唯一的例外是「回到把你叫起来的那个技能」——调用方在写的时候确实还不知道是谁。
+有行业标准中文译名时使用标准中文；没有时使用英文原词。不要自造术语、缩写或比喻性动词。
 
 ## Git 与安全
 
-- 正式改动在独立 worktree；合回主分支用 `git merge --no-ff`，禁止 squash。
-- 写码工人禁改 `docs/`；计划工人只改自己的 plan 与对应 issue（`worker verify` / `plan-check`）。
-- 本地 commit / merge 可自主；`git push`、远端合并、部署须用户批准。
-- subagent 输出不是唯一事实来源；关键定位与测试结论写入前由主 agent 验证。
+- 正式改动在独立 worktree；合回主分支使用 `git merge --no-ff`，禁止 squash。
+- 本地提交和合并可自主执行。`git push`、远端合并、部署和正式发布必须得到用户明确授权。
+- subagent 报告不是唯一事实来源。关键定位、测试结果和发布结论由主 agent 用当前源码或运行结果验证。
+- 删除、覆盖、归档或移动现有发布入口前确认用户授权。
+- 禁止使用 `--no-verify`。
 
 ## 构建与测试
 
+完整门控以根 `TESTING.md` 为准。最低提交门槛：
+
 ```bash
-for host in plugin droid-plugin pi-plugin cursor-plugin; do
-  bash "$host/build/build.sh" --check || exit 1
-  bash "$host/build/tests/test_build.sh" || exit 1
-  for test_file in "$host"/scripts/tests/test_*.sh; do
-    bash "$test_file" || exit 1
-  done
-done
-
-for host in plugin droid-plugin pi-plugin cursor-plugin; do
-  uv run --with pytest --with pydantic pytest \
-    "$host/scripts/tests/test_release_contracts.py" \
-    "$host/scripts/tests/test_release_script_assembler.py" || exit 1
-done
-
-python3 pi-plugin/scripts/render_agent_prompts.py --check
-bash pi-plugin/workflows/install-workflows.sh --check
-
-for t in mmw/cli/tests/test_*.sh; do bash "$t" || exit 1; done
-for t in mmw/release/tests/test_*.sh; do bash "$t" || exit 1; done
+for test_file in mmw/cli/tests/test_*.sh; do bash "$test_file" || exit 1; done
+for test_file in mmw/release/tests/test_*.sh; do bash "$test_file" || exit 1; done
 (cd mmw/mcp && uv run --quiet --with pytest pytest test_graphify_ensure.py -q) || exit 1
 (cd mmw/graph && uv run --quiet --with pytest pytest tests/test_graph.py -q) || exit 1
 (cd mmw/release/tests && uv run --quiet --with pytest --with pydantic pytest \
   test_release_contracts.py test_release_script_assembler.py -q) || exit 1
 ```
 
-提交前：`git diff --check`；本次改动的 JSON 用 `python3 -m json.tool` 校验。
-
-## mmw 重建（进行中，完成后本节删除）
-
-新 plugin 在 Matt 的技能上长出我们自己的骨架，不再把流程实现成引擎。上游副本在 `vendor/mattpocock-skills/`，旧实现在 `plugin/`（只作背景线索，不搬重流程）。落点是 `mmw/`；上一次失败的同名尝试已冻结进 `archive/mmw-v1-failed/`。
-
-宿主两个：Claude Code 与 pi。两边主 agent 都是 Claude Opus 5 high，派出去的工人与 GPT 审查者都是 GPT——模型分配和红线表两个宿主逐字相同，不按宿主反转。唯一的宿主差异是**怎么派**：Claude Code 派 GPT 走 `codex exec` 外部进程（它的会话内 subagent 只能是 Claude），派 Claude 走 `Agent` 工具；pi 两种都是 `subagent` 工具，只有 `model` 字段不同。这个差异由 CLI 的 adapter 吃掉，技能正文只写 `mmw dispatch <角色>`。Cursor 与 Droid 不做。
-
-### 地基四层
-
-| 层 | 内容 |
-| --- | --- |
-| 0 · 配置 | 参数住在目标仓库根的 `.mmw.json`：模型档、标签清单、路径、领域文档落点。技能不硬编码这些值，一律跑 `mmw` 的子命令查。`mmw init` 把它铺进去，顺带建标签、补 `.gitignore`、装方法论、装检索工具、往 `CLAUDE.md` 或 `AGENTS.md` 加指针节，再铺一份仓库根的 `TESTING.md` 骨架。我们的选择全固定，所以它不问问题（这是比 Matt 更简的形态：他要问，因为他的用户各不相同）；唯一要人拿主意的是两份指针文件都不存在时往哪写，那时非零退出交给主 agent 去问 |
-| 1 · 纪律 | 从 Matt 那边搬来的七个，现已全部改造：`mmw-tdd`、`mmw-diagnosing-bugs`、`mmw-codebase-design`、`mmw-domain-modeling`、`mmw-grilling`、`mmw-prototype`、`mmw-research`（原本还有 resolving-merge-conflicts，已吸收进 `mmw-review` 的 ⑥ 并删除） |
-| 2 · 自有能力 | 跨模型派发、验证与判定、任务隔离。这三块 Matt 完全没有，是仓库存在的理由 |
-| 3 · 编排 | 改造 Matt 的 user-invoked 技能，把第 2 层注入进去 |
-
-第 2 层的机械部分住在 `mmw/cli/`，不住在技能正文里。技能写判据，CLI 做动作。
-
-### 搬迁批次
-
-搬迁已完成：Matt 那边的技能原样复制进 `mmw/skills/`，加上自写的 `mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-start`、`mmw-to-plan`、`mmw-planner`，manifest 现在登记 23 个。
-
-原先自写的 `mmw-setup` 已经不是技能。它的五步全进了 `mmw init`，`SKILL.md` 改名成 `legacy-setup.md` 并去掉 frontmatter，目录连同五份种子留在 `mmw/skills/mmw-setup/` 只作背景线索——正文描述的行为（把种子铺进 `docs/agents/`）已经不存在，文件顶部标了这一点。
-
-**技能要停用，改名和撤登记两件都做。** manifest 的 `skills` 数组跟 `skills/` 目录的自动扫描哪一个说了算，没有验证过：旧 plugin 的 `plugin/.claude-plugin/plugin.json` 没有 `skills` 字段，而 `plugin/skills/` 下那 5 个目录就是它的全部技能面，看着像自动扫描生效——但没有实际确认过它们加载成功，也推不出字段存在时扫描还生不生效（覆盖和叠加是两条不同的代码路径）。所以两件一起做：数组里去掉那一行，同时让目录里不再有带 frontmatter 的 `SKILL.md`。哪一种机制成立都停用得掉。
-
-`mmw/skills/mmw-setup/` 因此成了 `skills/` 下唯一不是技能的目录。**凡是扫描技能正文的检查都要排除它**，否则那六份过期文档会让检查假过。`test_labels_sync.sh` 已经排除，理由写在它的文件头。同理，「技能正文不许裸用 `gh` 做要连发好几个请求、要先取 database id、要按规矩过滤排序那三类动作」这条判据也按排除它来算——排除后清零，不排除的话 `issue-tracker.md` 里那几处旧写法会一直报。
-
-顺手补搬的上游技能已删掉 8 个：`qa`、`request-refactor-plan`、`design-an-interface`、`git-guardrails-claude-code`、`setup-pre-commit` 能被模型自动触发又不在主干上（前两个绕开 tracker 约定自开 issue，`design-an-interface` 是 `mmw-codebase-design/DESIGN-IT-TWICE.md` 的未适配副本，`git-guardrails-claude-code` 拦的命令里有 `mmw-start` 重建 worktree 要用的，`setup-pre-commit` 只对 Node.js 仓库有效）；`wizard`、`to-questionnaire`、`setup-ts-deep-modules` 只能手打触发、不占常驻成本，但跟多模型编排无关。剩下的 `handoff` 与 `writing-great-skills` 留着——前者供用户手动交接，后者是写新技能的方法论，本文件正在引用它。原件都在 `vendor/mattpocock-skills/`，要用再复制回来。
-
-**触发方式**：Matt 大部分技能是人打名字才走（`disable-model-invocation: true`）。我们的入口是 `mmw-start`，它要能把活直接交给下游技能，所以链路上的技能一律改成模型可触发，description 按 `writing-great-skills` 的写法改成触发式。已经改过的技能正文一并译成中文，合集通用术语（spec、ticket、seam、frontier、worktree、tight、red、fog of war、destination、map、HITL / AFK、ready-for-agent）保持英文。
-
-**`mmw-` 前缀标记所有权。** 正文真正被我们改造过的技能，目录名和 `name` 一律加 `mmw-` 前缀，跟原样搬进来的上游技能区分开。现在有 22 个：`mmw-start`、`mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-grilling`、`mmw-triage`、`mmw-wayfinder`、`mmw-to-spec`、`mmw-to-tickets`、`mmw-to-plan`、`mmw-planner`、`mmw-implement`、`mmw-tdd`、`mmw-review`、`mmw-reviewer`、`mmw-diagnosing-bugs`、`mmw-prototype`、`mmw-closing`、`mmw-release`、`mmw-research`、`mmw-improve-codebase-architecture`、`mmw-codebase-design`、`mmw-domain-modeling`。
-
-**不留只做跳转的空壳。** 一个技能正文只是「去跑另外那个技能」，就把它的内容并进被它调的那个，然后删掉它。已删四个：`grill-with-docs`（并进 `mmw-grilling`）、`ask-matt`（路由判据并进 `mmw-start`）、`batch-grill-me`、`claude-handoff`。
-
-**不按上下文容量做判断。** 我们不会因为窗口满了就重开会话，所以「一个会话装不装得下」不是任何判据。活的大小按**要拆成几份 spec** 衡量：一份 spec 说得清走 `mmw-grilling` → `mmw-to-spec`；哪几份 spec、按什么顺序都还没数才走 `mmw-wayfinder`。`handoff` 单独保留，供用户自己手动交接用。
-
-改造按 Matt 主干顺序推进，一个跑通再动下一个。先做了链条末端的两个，因为跨模型派发和验证与判定在那里第一次落地，前面几个技能要复用同一套底子：
-
-| 顺序 | 技能 | 要加什么 | 状态 |
-| --- | --- | --- | --- |
-| 0 | `mmw-start` | 我们自己的入口：判定路线、定 slug、建 worktree、进 worktree、记原话、移交 | 已落地 |
-| 1 | `mmw-grilling` | 开问前先查仓库现状；领域词与 ADR 随谈随落；出口交给 `mmw-to-spec` | 已落地 |
-| 2 | `mmw-to-spec` | 测试 seam 判据（用旧 plugin 那套测试规矩）、`/approve-design` 人工审批关卡、派 Codex 审这份设计 | 已落地 |
-| 3 | `mmw-to-tickets` | 接进我们的 tracker 约定：正文按三层结构写、`## Plan` 一节先占住 plan 路径、编号即 plan 编号；亮清单不等确认，因为人工审批关卡在 spec 那一步 | 已落地 |
-| 3.5 | `mmw-to-plan` 与 `mmw-planner` | 补上旧 plugin 的二层拆解：一张 ticket 一份 plan 一个工人，编排与写作方法论分开 | 已落地 |
-| 4 | `mmw-implement` | 换成 worktree + 派 Codex headless 写码 | 已落地 |
-| 5 | `mmw-review` 与 `mmw-reviewer` | 审查抽成一层：编排与纪律分开，八个视角，方法论装给审查者不粘提示词 | 已落地 |
-
-### 已落地
-
-第 2 层三块自有能力里的两块，加上末端两个编排技能，都已写成技能并各自实跑验过一轮。设计结论住在技能自己那几份文件里，本文件不复述。
-
-改完跑测试：命令在本文件「构建与测试」一节，跟四宿主那几条在一起。放那里是因为 mmw 是长期资产，而本节写着「完成后本节删除」——命令留在本节会随节一起消失。
-
-| 落点 | 内容 | 怎么验的 |
-| --- | --- | --- |
-| `cli/mmw` | 机械层。每条命令是（仓库，参数）的纯函数，不写状态文件。宿主差异关在 `cli/adapters/{claude-code,pi}.sh` 里，产品语义（哪个角色用哪份花名册、挂哪份方法论、要不要写权限）留在主入口。参数在仓库根的 `.mmw.json` | 六份测试 86 个断言；`mmw task new` 与 `dispatch` 实跑过 |
-| `cli/tests/test_skill_refs.sh` | 技能之间四类引用的完整性：`` `/技能名` ``、同目录的 markdown 链接、「`/技能名` 第 N 步」、散文里点名的 `` `x/y.md` ``。四类都在删节改名时静默失效，读到的 agent 不会报错，只会去找一个不存在的东西 | 364 条引用全过；它的由来是 `mmw-review` 重编号后三处「第 8 步」在仓库里躺了一轮 |
-| `cli/lib/{issue,wiki,domain}.sh` | 只收三类动作：要连着发好几个请求的、要先取 database id 的、要按规矩过滤排序的。一条 `gh` 命令做得完的不收 | 测试用 gh stub 与本地 bare 仓库，不碰网络也不碰真 issue |
-| `skills/mmw-dispatching-agents` | 六个角色、两种返回怎么读（`mode: executed` 与 `mode: host-tool`）、brief 自包含。模型、档位、护栏、沙箱、宿主差异全在 `mmw dispatch` 里，正文不出现型号 | 实跑派出过审查者和写码工人各一轮 |
-| `skills/mmw-verifying-agent-output` | 只管采信：每条关键断言要有主 agent 能自己验证的出处，加工人交回的四档怎么读。findings 怎么处置归 `mmw-review` | 实跑八条 findings 逐条验证，其中一条审查者报的行号真的差了一行 |
-| `skills/mmw-review` | 主 agent 侧的编排：六道审各在哪、几个视角、谁配谁、每个视角备齐什么材料、落盘命名、复审。③ 逐份验收与 ④ 合同门不派审查者，判据也写在这里 | 未实跑 |
-| `skills/mmw-reviewer` | 审查者侧的方法论单源：共享纪律加八个视角。标准原样搬旧 plugin，只补 Matt 那个编码规范审视角。砍掉严重度与置信度，保留 `needs-redirection`、`needs-context` 两个出口 | 未实跑；安装脚本四种情形实测通过 |
-| `skills/mmw-dispatching-agents/install-agent-skills.sh` | 安装脚本，软链三份方法论进 headless 那个模型自己的技能目录：审查、写计划、测试。从发起审查技能旁边挪到派发技能旁边，因为它不再只服务审查者 | 三份装、幂等重跑、`--check` 实测通过 |
-| `.mcp.json`、`config/serena-readonly.yml`、`mcp/` | 三个检索工具随插件走。`.mcp.json` 是服务器定义的**唯一事实来源**，四个执行面各自翻译：Claude Code 直接读它，`cli/adapters/claude-code.sh` 翻成 `codex exec -c` 的覆盖项，`mcp/install-mcp.sh` 翻进 pi 的 `~/.pi/agent/mcp.json` 与 Cursor 的 `~/.cursor/mcp.json`（这两个的插件规格都没有声明 MCP 的位置，只能写用户级配置；Cursor 只接管这三个检索工具，不装技能和花名册）。占位符怎么展开只有 `mcp/resolve.py` 一处，三个翻译点都调它——分散三处的话，加一条新占位符就要改三处，漏改的那处静默写出带 `${…}` 原文的配置。密钥同理：`.mcp.json` 里只写 `${VAR:-默认}` 声明，值住在 `~/.mmw/secrets.env`（不进任何仓库），展开不出来时把那个 `env` 键整个丢掉而不是写空串。只读白名单做在 Serena 服务器那一侧而不是宿主那一侧——**Codex 的 MCP 配置没有任何工具过滤字段**，headless subagent 那一侧宿主过滤根本不存在。Graphify 走自写包装器不走官方入口：官方那个暴露 10 个工具（含三个查 GitHub PR 的）且不检查图新鲜度 | `test_mcp.sh` 十八条；三个服务器实测探通（4 / 1 / 2 个工具）；`mcp/test_graphify_ensure.py` 六条过 |
-| `release/`、`skills/mmw-release` | 出包引擎整块从旧 plugin 搬来。**远程构建那 250 行零改动**——它是最复杂、坑最多的一段，而它的行为在 Mac 上验不了（`schtasks` 是 Windows 独有的），所以那一段的保证靠 diff 不靠测试。全文只有 4 处差异：状态落点改成从 `.mmw.json` 读（3 处），加上换掉旧宿主那份 runtime 常量。第 5 处是 `close` 改成留一份交付记录再删——一次改动影响多个产品时，后一个产品的自愈修复会推进 HEAD，早前那个产品的包就不是最终代码了；旧实现靠 `package-state.json` 那套状态机守这件事，新架构只留两个事实（产品、commit），判断归技能。`package-phase.sh` 不搬：产品影响解析归技能，两次人工确认收成一道 | 三份 shell 测试 62 / 41 / 19 条、两份 Python 测试 53 条，与旧家逐条一致；引擎全文 diff 证明改动面 |
-| `skills/mmw-implement` | 主 agent 不写码，一张 ticket 派一个 Codex headless 工人；主 agent 只做准备 brief、派发、验收、发起审查 | 实跑一个真工人在 throwaway 仓库里做完一张 ticket，测试全绿 |
-| `skills/mmw-tdd` | 测试要求分三层：怎么写（本技能加 `tests.md`、`mocking.md`）、够不够格进仓库（`quality-bar.md`）、这个仓库的事实（目标仓库根 `TESTING.md`，由 `mmw init` 铺骨架）。seam 由 spec 钉死，因为 headless 工人问不到人 | 随 `mmw-implement` 一起跑过 |
-| `skills/mmw-start` | 七条路由判据（含「报了一张 map 的编号」）；worktree 建错了重建，所以报一句就走不等确认；`resuming.md` 靠查产物报进度，不设状态文件 | 未实跑 |
-| `skills/mmw-wayfinder` | 按会话拆成三条 branch：`drawing.md` 建 map、`walking.md` 认领一条链、`closing.md` 收尾，三条共用 `map-anatomy.md`。SKILL.md 只留入口判定和几个会话同时跑的四条硬约束 | 未实跑 |
-| `skills/mmw-triage` | 新增「出口」一节：只碰一处且 brief 写明 seam 直走 `mmw-implement`，碰多处走 `mmw-to-spec`；agent brief 模板加 `Test seam` 栏 | 未实跑 |
-| `skills/mmw-diagnosing-bugs` | 按 Phase 拆三份：SKILL.md 只留 Phase 1 造 loop，`narrowing.md` 收窄，`fixing.md` 派工人修。拆的理由是知道后面还有五个 Phase 会让人草率对待 Phase 1 | 未实跑 |
-| `skills/mmw-grilling` | 吸收 `grill-with-docs`：开问前先查现状，谈的过程里按 `mmw-domain-modeling` 落术语与 ADR，主线出口交 `mmw-to-spec`。四个技能共用它，所以它单独存在，不并进任何一个 | 未实跑 |
-| `skills/mmw-prototype` | Matt 那份是一次性探路、做完扔废弃分支，旧 plugin 那份是设计内层循环、产物是正式资产。取旧的地位加 Matt 的手法：产物落 `docs/prototypes/<slug>/` 且不随 spec 转 Wiki 删除，一轮只验一个能判真假的问题，走查是人工审批关卡，界面变体一个变体派一个 subagent 防趋同，`capture.md` 单独承载回填 | 未实跑 |
-| `skills/mmw-to-tickets` | 上游那份接进我们的 tracker 约定：正文只留摘要、`## Plan` 一节先把 plan 路径占住、编号即 plan 编号；发布沿 frontier 走，`ready-for-agent` 打在 ticket 上是「可开工」，跟 spec issue 上那个人工审批关卡凭据分开。切分清单亮给用户就往下走，不等确认——粒度由 ② plan 审把关。tracer bullet、expand–contract 那几段判据原样译出 | 未实跑 |
-| `skills/mmw-to-plan` | 主 agent 侧的编排，原样搬旧 plugin 那五步：定 plan 清单、派工人之前把合同落到 plan 头上（spec 新增 `## Cross-Plan Contract Anchors` 一节，不动人工审批关卡过的 `## Contract Boundaries`）、扇出派工人、验证返回、回填精确字段并核越界。收尾起一次 ② plan 审 | 未实跑 |
-| `skills/mmw-planner` | 写计划工人侧的方法论单源，原样搬旧 plugin `worktree-plan` 那三份。砍掉跨 plan 合同锚点的自行发明（改由主 agent 划）、砍掉再切一层 slice（ticket 已经是 tracer bullet，工人只拆它内部的实施步骤）。测试规划这一层留着，测试怎么写引 `mmw-tdd` | 未实跑 |
-| `skills/mmw-research` | 上游那 12 行只剩一条有用：一手来源。改造的要点是**判据下发到采集那一侧**——一手来源和事实写法两段原样写进 brief，不是收回来才挑剔。派发与验证各引对应技能，不复述 | 未实跑 |
-| `skills/mmw-closing` | 一次任务的收尾：把 spec 与 plan 转成 Wiki 的一页、重生成两个导航文件、推送前给用户看、`mmw wiki verify` 那三条全过才删本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`。页面命名与五段结构写在技能正文里，clone、导航重建、验证走 CLI。原型产物不删 | 未实跑 |
-| `skills/mmw-improve-codebase-architecture` | 上游那份是「一个 agent 扫全库、出 HTML 报告、挑中一个转 grilling」。改造四处：扫描一个方向派一个 subagent 防趋同、收回来过验证才进报告、领域文档按 `CONTEXT-MAP.md` 优先读、worktree 推迟到用户挑中候选之后再建（挑中之前 slug 的短语无从取，所以 `mmw-start` 对它跳过定 slug 与建 worktree 两步）。删掉 `allow_implicit_invocation: false`——它是 `mmw-start` 的路由终点，之前那个设置让移交根本走不过去 | 未实跑 |
-| `skills/mmw-to-spec` | 七条入口路径各自要取齐哪些上游产物写成一张表；seam 一节的形状定死成清单，因为下游直接读它；模板吸收旧 plugin 的现状引用、失败路径、视觉契约、还没拍板的事；派一个 Codex 审这份 spec；用户点头之后才发布 issue 并打 `ready-for-agent`，这个动作就是人工审批关卡的凭据 | 未实跑 |
-| `skills/mmw-domain-modeling` | 它是唯一往仓库写 `CONTEXT.md` 和 ADR 的技能，原本却把落点写死，自带的示例还把多上下文画在 `src/` 下——读那份配置的三个技能守规矩，写的这一侧漏在外面。改成建文件前先跑 `mmw domain path` 与 `mmw domain dirs` 取形态和落点；`ADR-FORMAT.md` 的「扫最大号加一」换成 `mmw domain adr-next`，并补明草稿名怎么绕开几条链同时写 ADR 的撞号。四条问答纪律、`CONTEXT-FORMAT.md` 的写法规则、ADR 三条判据是纯方法论，原样保留 | 未实跑 |
-| `skills/mmw-codebase-design` | `DEEPENING.md` 的「replace, don't layer」说旧测试成废物就删、在新 interface 上重写，而 deepening 本质是挪 seam，`mmw-tdd` 规定 seam 由 spec 钉死。读者只有设计期的主 agent（`DESIGN-IT-TWICE.md` 给 subagent 的 brief 不带这一节），所以补一句挪 seam 属于设计决定、新 seam 与旧测试的删除一并写进 spec，不重写判据。词汇表、四条原则、可测试性三节跟宿主无关，原样保留 | 未实跑 |
-
-二十二个 `mmw-` 技能里，十八个有 `## 下一步` 表，形式一致：两列（情况、下一步），动词只有「自己继续」「移交」「停」。四个没有：`mmw-reviewer` 和 `mmw-planner` 是派出去的 subagent 读的方法论，不是流程技能；`mmw-codebase-design` 和 `mmw-domain-modeling` 是纪律层的词汇与方法论，做完就是做完，没有会带跑我们流程的出口。`mmw-tdd` 及各技能下的 reference 全部补译成中文（派给审查者和工人的提示词也是中文，模板里的结构字段名保持英文），全仓用词已统一（决策改为决定，坐实改为验证，雾改为 fog of war，map 与 spec 的模板节名一律用英文原文）。
-
-断点续传不用状态文件：每一步都有一件落在 git 或 GitHub 上的产物对应它（分支上第一个空提交记用户原话、`docs/specs/<slug>/`、子 issue 的开关与 assignee、`.reviews/`、Wiki 页），查产物就知道走到哪。旧 plugin 需要状态文件是因为它有阶段引擎要记 phase 变量，新架构没有引擎。全流程唯一那道人工审批关卡也有产物：`mmw-to-spec` 只在用户点头之后才发布 spec issue 并打 `ready-for-agent`，issue 在且带这个标签就是过关卡的凭据。
-
-派可写沙箱时踩到的坑已记进 `mmw-dispatching-agents`：`--sandbox workspace-write` 默认把 `.git` 锁成只读，工人提交会卡死，要把 worktree 的 `.git` 加进 `writable_roots`。
-
-### 自举开发的已知边界
-
-改这个仓库时会踩到的两条，跟别的仓库用 mmw 无关：
-
-| 边界 | 表现 | 怎么办 |
-| --- | --- | --- |
-| **方法论与花名册的改动要合回主分支才生效** | 派出去的 subagent 读的是主仓库那份，不是你正在改的 worktree 那份。Claude Code 那侧靠 `~/.codex/skills/` 的软链，指向脚本跑起来时所在的那棵树；pi 那侧靠 `~/.pi/agent/settings.json` 里钉死的包路径，永远是主仓库 | 改完 `skills/mmw-reviewer/`、`skills/mmw-planner/`、`skills/mmw-tdd/` 或 `agents-pi/` 之后，要先合回主分支才派得出读新版本的 subagent。两侧的失败方式不同：Claude Code 那侧 `install-agent-skills.sh --check` 会报冲突，看得见；pi 那侧没有任何检查，静默读旧版本 |
-| **pi 与 Cursor 的 MCP 配置钉的是跑安装脚本时所在那棵树** | `mcp/install-mcp.sh` 往 `~/.pi/agent/mcp.json` 与 `~/.cursor/mcp.json` 写的是绝对路径。在任务 worktree 里跑它，worktree 一删这两侧的三个检索工具就全断 | 正式安装从主仓库跑。Claude Code 与 Codex 两侧不受影响：前者读插件自带的 `.mcp.json`，后者每次派发现场注入 |
-| **切会话工作目录只有宿主工具做得到** | `mmw task new` 输出路径，但切不进去。非交互模式下这一步也补发不了 | 技能正文里点名了两个宿主的工具（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`）。CLI 侧不要试图代劳 |
-
-CLI 本身不受第一条影响：`~/.local/bin/mmw` 转发脚本先看当前 git 树里有没有 `mmw/cli/mmw`，有就用那份。
-
-### 待定事项
-
-| 要定什么 | 当时的背景与张力 | 旧实现位置（背景线索） |
-| --- | --- | --- |
-| `mmw init` 要不要自动跑 | 现在得手敲，用户忘了跑，`.mmw.json` 就不在，`mmw` 的每条命令都会报「先跑 mmw init」。想用 SessionStart 钩子自动铺，但那要接 `hooks/hooks.json`，属于插件机械层 | `plugin/hooks/` |
-| AFK 的放权档位 | 人工审批关卡已经有落点（`mmw-to-spec` 第 7 步用户点头，第 8 步发布 issue 打 `ready-for-agent` 即凭据）。旧 plugin 另有三档放权曲线，过了人工审批关卡之后自动放权自主跑；新架构还没有对应的东西，也还不知道要不要 | `plugin/skills/orchestrate/references/control/attendance.md` |
+提交前运行 `git diff --check`。本次改动的 JSON 使用 `python3 -m json.tool` 校验；本次改动的 Shell 使用 ShellCheck 校验。

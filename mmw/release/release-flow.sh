@@ -10,7 +10,7 @@
 #   dispatch    --stage <n> --findings <p>  收敛护栏 + 按 tier 派修(P2 derive/P1 fix/P0 停)
 set -euo pipefail
 
-SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # 状态落点从目标仓库的 .mmw.json 读。旧宿主这里读的是一个写死的常量，那份常量
 # 属于已经不存在的阶段引擎；除此之外整个引擎不认识任何宿主。
 # shellcheck source=../cli/lib/config.sh
@@ -128,6 +128,7 @@ _match_any() {
   local path="$1" g
   shift
   for g in "$@"; do
+    # shellcheck disable=SC2053 # $g 是 release_protection 配置的 glob，不是字面字符串。
     [[ "$path" == $g ]] && return 0
   done
   return 1
@@ -862,8 +863,8 @@ _remote_run_and_poll() {
   local launched=0 attempt probe
   for attempt in 1 2; do
     ssh "$remote_host" "schtasks /run /tn $task_name" || return $?
-    local i
-    for i in 1 2 3 4 5 6 7 8; do
+    local _
+    for _ in 1 2 3 4 5 6 7 8; do
       probe="$(_ssh_ps "$remote_host" "if ((Test-Path '$remote_input/build-run.log') -or (Test-Path '$remote_input/build-run.exitcode')) { 'Y' } else { 'N' }" 2>/dev/null || true)"
       probe="${probe%%[$'\r\n']*}"
       if [ "$probe" = "Y" ]; then launched=1; break; fi
