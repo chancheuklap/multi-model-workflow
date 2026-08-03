@@ -143,7 +143,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 | 层 | 内容 |
 | --- | --- |
-| 0 · 配置 | 参数住在目标仓库根的 `.mmw.json`：模型档、标签清单、路径、领域文档落点。技能不硬编码这些值，一律跑 `mmw` 的子命令查。`mmw init` 把它铺进去，顺带建标签、补 `.gitignore`、装方法论、往 `CLAUDE.md` 或 `AGENTS.md` 加指针节，再铺一份仓库根的 `TESTING.md` 骨架。我们的选择全固定，所以它不问问题（这是比 Matt 更简的形态：他要问，因为他的用户各不相同）；唯一要人拿主意的是两份指针文件都不存在时往哪写，那时非零退出交给主 agent 去问 |
+| 0 · 配置 | 参数住在目标仓库根的 `.mmw.json`：模型档、标签清单、路径、领域文档落点。技能不硬编码这些值，一律跑 `mmw` 的子命令查。`mmw init` 把它铺进去，顺带建标签、补 `.gitignore`、装方法论、装检索工具、往 `CLAUDE.md` 或 `AGENTS.md` 加指针节，再铺一份仓库根的 `TESTING.md` 骨架。我们的选择全固定，所以它不问问题（这是比 Matt 更简的形态：他要问，因为他的用户各不相同）；唯一要人拿主意的是两份指针文件都不存在时往哪写，那时非零退出交给主 agent 去问 |
 | 1 · 纪律 | 从 Matt 那边搬来的七个，现已全部改造：`mmw-tdd`、`mmw-diagnosing-bugs`、`mmw-codebase-design`、`mmw-domain-modeling`、`mmw-grilling`、`mmw-prototype`、`mmw-research`（原本还有 resolving-merge-conflicts，已吸收进 `mmw-review` 的 ⑥ 并删除） |
 | 2 · 自有能力 | 跨模型派发、验证与判定、任务隔离。这三块 Matt 完全没有，是仓库存在的理由 |
 | 3 · 编排 | 改造 Matt 的 user-invoked 技能，把第 2 层注入进去 |
@@ -190,6 +190,7 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 ```bash
 for t in mmw/cli/tests/test_*.sh; do bash "$t" || exit 1; done
+(cd mmw/mcp && uv run --quiet --with pytest pytest test_graphify_ensure.py -q) || exit 1
 ```
 
 | 落点 | 内容 | 怎么验的 |
@@ -202,6 +203,7 @@ for t in mmw/cli/tests/test_*.sh; do bash "$t" || exit 1; done
 | `skills/mmw-review` | 主 agent 侧的编排：六道审各在哪、几个视角、谁配谁、每个视角备齐什么材料、落盘命名、复审。③ 逐份验收与 ④ 合同门不派审查者，判据也写在这里 | 未实跑 |
 | `skills/mmw-reviewer` | 审查者侧的方法论单源：共享纪律加八个视角。标准原样搬旧 plugin，只补 Matt 那个编码规范审视角。砍掉严重度与置信度，保留 `needs-redirection`、`needs-context` 两个出口 | 未实跑；安装脚本四种情形实测通过 |
 | `skills/mmw-dispatching-agents/install-agent-skills.sh` | 安装脚本，软链三份方法论进 headless 那个模型自己的技能目录：审查、写计划、测试。从发起审查技能旁边挪到派发技能旁边，因为它不再只服务审查者 | 三份装、幂等重跑、`--check` 实测通过 |
+| `.mcp.json`、`config/serena-readonly.yml`、`mcp/` | 三个检索工具随插件走。`.mcp.json` 是服务器定义的**唯一事实来源**：Claude Code 直接读它，`cli/adapters/claude-code.sh` 把同一份翻译成 `codex exec -c` 的覆盖项，`mcp/install-mcp.sh` 把同一份装进 pi 的用户配置（三个执行面里只有 pi 要写用户级配置，它的插件规格没有声明 MCP 的位置）。只读白名单做在 Serena 服务器那一侧而不是宿主那一侧——**Codex 的 MCP 配置没有任何工具过滤字段**，headless subagent 那一侧宿主过滤根本不存在。Graphify 走自写包装器不走官方入口：官方那个暴露 10 个工具（含三个查 GitHub PR 的）且不检查图新鲜度 | `test_mcp.sh` 八条；三个服务器实测探通（4 / 1 / 2 个工具）；`mcp/test_graphify_ensure.py` 六条过 |
 | `skills/mmw-implement` | 主 agent 不写码，一张 ticket 派一个 Codex headless 工人；主 agent 只做准备 brief、派发、验收、发起审查 | 实跑一个真工人在 throwaway 仓库里做完一张 ticket，测试全绿 |
 | `skills/mmw-tdd` | 测试要求分三层：怎么写（本技能加 `tests.md`、`mocking.md`）、够不够格进仓库（`quality-bar.md`）、这个仓库的事实（目标仓库根 `TESTING.md`，由 `mmw init` 铺骨架）。seam 由 spec 钉死，因为 headless 工人问不到人 | 随 `mmw-implement` 一起跑过 |
 | `skills/mmw-start` | 七条路由判据（含「报了一张 map 的编号」）；worktree 建错了重建，所以报一句就走不等确认；`resuming.md` 靠查产物报进度，不设状态文件 | 未实跑 |
@@ -233,6 +235,7 @@ for t in mmw/cli/tests/test_*.sh; do bash "$t" || exit 1; done
 | 边界 | 表现 | 怎么办 |
 | --- | --- | --- |
 | **方法论与花名册的改动要合回主分支才生效** | 派出去的 subagent 读的是主仓库那份，不是你正在改的 worktree 那份。Claude Code 那侧靠 `~/.codex/skills/` 的软链，指向脚本跑起来时所在的那棵树；pi 那侧靠 `~/.pi/agent/settings.json` 里钉死的包路径，永远是主仓库 | 改完 `skills/mmw-reviewer/`、`skills/mmw-planner/`、`skills/mmw-tdd/` 或 `agents-pi/` 之后，要先合回主分支才派得出读新版本的 subagent。两侧的失败方式不同：Claude Code 那侧 `install-agent-skills.sh --check` 会报冲突，看得见；pi 那侧没有任何检查，静默读旧版本 |
+| **pi 的 MCP 配置钉的是跑安装脚本时所在那棵树** | `mcp/install-mcp.sh` 往 `~/.pi/agent/mcp.json` 写的是绝对路径。在任务 worktree 里跑它，worktree 一删 pi 那侧的三个检索工具就全断 | 正式安装从主仓库跑。Claude Code 与 Codex 两侧不受影响：前者读插件自带的 `.mcp.json`，后者每次派发现场注入 |
 | **切会话工作目录只有宿主工具做得到** | `mmw task new` 输出路径，但切不进去。非交互模式下这一步也补发不了 | 技能正文里点名了两个宿主的工具（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`）。CLI 侧不要试图代劳 |
 
 CLI 本身不受第一条影响：`~/.local/bin/mmw` 转发脚本先看当前 git 树里有没有 `mmw/cli/mmw`，有就用那份。

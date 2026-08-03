@@ -371,6 +371,27 @@ cmd_doctor() {
       && echo "claude   : $(command -v claude)（pi 派 Claude 靠它桥接）" \
       || { echo "claude   : 没装（pi 派 Claude 要它）"; status=1; }
     echo "方法论   : 走 subagent 的 skill 参数，不用安装"
+    # pi 是三个执行面里唯一要写用户配置的：它的插件规格没有声明 MCP 的位置。
+    if bash "$MMW_ROOT/mcp/install-mcp.sh" --check >/dev/null 2>&1; then
+      echo "pi 的 MCP: 已装"
+    else
+      echo "pi 的 MCP: 没装或与插件定义不一致，跑 $MMW_ROOT/mcp/install-mcp.sh"
+      status=1
+    fi
+  fi
+
+  # 真把每个服务器拉起来握一次手，不只看配置在不在——旧实现出过一次事故：配置在、
+  # 工具名在列表里、直到模型真去调用才报错，那时它已经在一次审查中途了。
+  local probe_out
+  if probe_out="$(python3 "$MMW_ROOT/mcp/probe.py" 2>&1)"; then
+    printf '检索工具 : %s\n' "$(printf '%s' "$probe_out" | head -1)"
+    printf '%s\n' "$probe_out" | tail -n +2 | sed 's/^/           /'
+  else
+    printf '检索工具 : 有起不来的，下面这几行说的是哪一个\n'
+    printf '%s\n' "$probe_out" | sed 's/^/           /'
+    echo "           Serena 与 Graphify 是两个 Python 工具包，插件替不了你装："
+    echo "           uv tool install serena-agent && uv tool install graphifyy"
+    status=1
   fi
   return $status
 }

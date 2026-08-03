@@ -1,7 +1,7 @@
 ---
 name: mmw-worker
 description: 写码工人。由 `mmw-implement` 派发，一张 ticket 一个，在已经建好的任务 worktree 里做完它。按 `mmw-tdd` 做 TDD，逐步本地 commit。不改 `docs/`、不 push、不扩大 ticket 的范围。
-tools: read, grep, find, ls, bash, edit, write, mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations, graphify
+tools: read, grep, find, ls, bash, edit, write, mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations, mcp:graphify/graphify, mcp:context7/resolve-library-id, mcp:context7/query-docs
 acceptanceRole: writer
 ---
 

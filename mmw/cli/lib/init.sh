@@ -115,6 +115,23 @@ mmw_init_gitignore() {
   fi
 }
 
+# 三个检索工具。Claude Code 读插件自带的 .mcp.json、Codex 派发时注入，两边都不用装；
+# 只有 pi 要写用户级配置，脚本自己判断这台机器有没有 pi。同样是每台机器一次。
+mmw_init_mcp() {
+  local script="$MMW_ROOT/mcp/install-mcp.sh"
+  if [ ! -x "$script" ]; then
+    mmw_init_say "检索工具 : 找不到安装脚本 $script"
+    return 1
+  fi
+  local out
+  if out="$(bash "$script" 2>&1)"; then
+    mmw_init_say "检索工具 : $(printf '%s' "$out" | tail -1)"
+  else
+    mmw_init_say "检索工具 : 装不上，原样报出——$(printf '%s' "$out" | tail -3 | tr '\n' ' ')"
+    return 1
+  fi
+}
+
 # 装方法论是每台机器一次，不是每个仓库一次。脚本自己幂等。
 mmw_init_skills() {
   local script="$MMW_ROOT/skills/mmw-dispatching-agents/install-agent-skills.sh"
@@ -190,6 +207,7 @@ mmw_init() {
   mmw_init_labels
   mmw_init_gitignore
   mmw_init_skills || status=1
+  mmw_init_mcp || status=1
   mmw_init_pointer || status=1
   mmw_init_legacy
 

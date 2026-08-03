@@ -26,6 +26,35 @@ mmw_adapter_skill_path() {
   fi
 }
 
+# 派 codex 时把三个检索工具带上。
+#
+# 唯一事实来源是插件根的 .mcp.json——Claude Code 直接读它，这里把同一份翻译成
+# codex 的配置覆盖项。不另写一份 codex 专用配置：旧实现就是四个 harness 各写一套，
+# 结果 Graphify 的接法在两份里是矛盾的，白名单抄了三份还各不相同。
+#
+# 用 -c 覆盖而不是往 ~/.codex/config.toml 里写：用户那份配置是他自己的，我们只在
+# 自己派发的这一次进程里加工具，退出即无痕。
+#
+# 逐行输出 codex -c 要的 key=value，调用方读进数组。
+mmw_adapter_mcp_overrides() {
+  local mcp="$MMW_ROOT/.mcp.json"
+  [ -f "$mcp" ] || return 0
+  jq -r --arg root "$MMW_ROOT" '
+    def expand: gsub("\\$\\{CLAUDE_PLUGIN_ROOT\\}"; $root);
+    .mcpServers | to_entries[] |
+    .key as $n |
+    (
+      "mcp_servers.\($n).command=\(.value.command | expand | @json)",
+      (if (.value.args // []) | length > 0
+       then "mcp_servers.\($n).args=\([.value.args[] | expand] | @json)"
+       else empty end),
+      (if (.value.env // {}) | length > 0
+       then "mcp_servers.\($n).env={\([.value.env | to_entries[] | "\(.key)=\(.value | expand | @json)"] | join(", "))}"
+       else empty end)
+    )
+  ' "$mcp"
+}
+
 mmw_adapter_dispatch() {
   case "$MMW_D_FAMILY" in
     claude)
@@ -66,9 +95,16 @@ mmw_adapter_dispatch() {
         sandbox=(--sandbox workspace-write
                  -c "sandbox_workspace_write.writable_roots=[\"$MMW_D_CWD/.git\"]")
       fi
+      local mcp=() line
+      while IFS= read -r line; do
+        [ -n "$line" ] && mcp+=(-c "$line")
+      done < <(mmw_adapter_mcp_overrides)
       local code=0
+      # ${mcp[@]+...}：.mcp.json 缺失时数组为空，macOS 自带的 bash 3.2 在 set -u 下
+      # 展开空数组会报 unbound variable，整次派发就废了。工具没有不该拖垮派发本身。
       codex exec -C "$MMW_D_CWD" --color never \
         "${sandbox[@]}" \
+        ${mcp[@]+"${mcp[@]}"} \
         -m "$MMW_D_MODEL_ID" -c "model_reasoning_effort=\"$MMW_D_EFFORT\"" \
         -o "$report" \
         - < "$MMW_D_BRIEF" || code=$?
