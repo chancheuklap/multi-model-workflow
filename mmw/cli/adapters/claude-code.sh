@@ -86,15 +86,26 @@ mmw_adapter_dispatch() {
       while IFS= read -r line; do
         [ -n "$line" ] && mcp+=(-c "$line")
       done < <(mmw_adapter_mcp_overrides)
+      # Codex 不读 MCP 握手交回的服务器说明（实测：问它「有没有收到说明」，答没有）。
+      # 工具挂上了、说明书没到，工人就不知道什么问题该问图、哪两类关系静态分析看不见。
+      # 这里把两处唯一事实来源里的纪律取出来拼在提示词前面。取不出来当场失败：那说明
+      # 插件自己装坏了，让工人裸跑比派发失败更糟。
+      local preamble
+      preamble="$(python3 "$MMW_ROOT/mcp/discipline.py")" || {
+        echo "mmw: 检索纪律取不出来，拒绝派一个没有说明书的工人" >&2
+        return 1
+      }
+
       local code=0
       # ${mcp[@]+...}：.mcp.json 缺失时数组为空，macOS 自带的 bash 3.2 在 set -u 下
       # 展开空数组会报 unbound variable，整次派发就废了。工具没有不该拖垮派发本身。
-      codex exec -C "$MMW_D_CWD" --color never \
+      { printf '%s\n' "$preamble"; cat "$MMW_D_BRIEF"; } \
+      | codex exec -C "$MMW_D_CWD" --color never \
         "${sandbox[@]}" \
         ${mcp[@]+"${mcp[@]}"} \
         -m "$MMW_D_MODEL_ID" -c "model_reasoning_effort=\"$MMW_D_EFFORT\"" \
         -o "$report" \
-        - < "$MMW_D_BRIEF" || code=$?
+        - || code=$?
       printf 'mode: executed\n'
       printf 'report: %s\n' "$report"
       printf 'exit: %s\n' "$code"

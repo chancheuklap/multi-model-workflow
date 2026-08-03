@@ -209,6 +209,34 @@ else
     "$(printf '%s' "$out" | grep -o '多了 不该有的' | head -1)"
 fi
 
+# Codex 不读 MCP 握手交回的服务器说明，所以派 GPT 时纪律要拼进提示词。这几条守的是
+# 那段拼得出来、内容对得上两处唯一事实来源、以及来源坏掉时当场失败而不是静默少一段。
+discipline="$(python3 "$MMW_ROOT/mcp/discipline.py")" \
+  && check "纪律拼得出来" "退 0" "退 0" \
+  || check "纪律拼得出来" "退 0" "退非零"
+check "纪律里有 Serena 那一段" "有" \
+  "$(printf '%s' "$discipline" | grep -q 'find_referencing_symbols' && echo 有 || echo 没有)"
+check "纪律里有 Graphify 那一段" "有" \
+  "$(printf '%s' "$discipline" | grep -q 'reverse impact' && echo 有 || echo 没有)"
+check "纪律讲了两类静态分析看不见的关系" "有" \
+  "$(printf '%s' "$discipline" | grep -q 'registered by a decorator' && echo 有 || echo 没有)"
+check "纪律讲了候选必须回源码验证" "有" \
+  "$(printf '%s' "$discipline" | grep -qi 'verify every candidate' && echo 有 || echo 没有)"
+
+# 来源坏掉：prompt 块被改名，取不出来必须非零退出。静默少一段的话，工人手里有工具、
+# 没有说明书，而派发看起来是成功的。
+BROKEN_D="$WORK/broken-discipline"
+mkdir -p "$BROKEN_D/mcp" "$BROKEN_D/config"
+cp "$MMW_ROOT/mcp/discipline.py" "$BROKEN_D/mcp/"
+cp "$MMW_ROOT/mcp/graphify_mcp.py" "$BROKEN_D/mcp/"
+sed 's/^prompt: |$/promptx: |/' "$MMW_ROOT/config/serena-readonly.yml" \
+  > "$BROKEN_D/config/serena-readonly.yml"
+if python3 "$BROKEN_D/mcp/discipline.py" >/dev/null 2>&1; then
+  check "prompt 块缺失时退非零" "退非零" "退 0"
+else
+  check "prompt 块缺失时退非零" "退非零" "退非零"
+fi
+
 echo
 echo "过 $pass / 失败 $fail"
 [ "$fail" -eq 0 ]

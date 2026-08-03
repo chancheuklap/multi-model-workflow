@@ -104,13 +104,15 @@ mmw_init_labels() {
   mmw_init_say "标签     : 新建 ${created} 个，已有 ${existed} 个"
 }
 
-# 四个目录都是随 worktree 死的过程材料，不进 git。
+# 前四个是随 worktree 死的过程材料。graphify-out 是结构图谱：本机派生物，几十兆，
+# 每次改代码都变。漏掉它，第一次建完图那几十兆就跟着下一次提交进了版本库。
 mmw_init_gitignore() {
   local root file added=0 line
   root="$(mmw_repo_root)"
   file="$root/.gitignore"
   touch "$file"
-  for line in "$(mmw_path_field worktrees)/" "$(mmw_path_field reviews)/" "$(mmw_path_field release)/" ".dispatch/"; do
+  for line in "$(mmw_path_field worktrees)/" "$(mmw_path_field reviews)/" \
+              "$(mmw_path_field release)/" ".dispatch/" "graphify-out/"; do
     if grep -qxF "$line" "$file"; then
       continue
     fi
@@ -118,7 +120,7 @@ mmw_init_gitignore() {
     added=$((added + 1))
   done
   if [ "$added" -eq 0 ]; then
-    mmw_init_say "gitignore: 四行都在"
+    mmw_init_say "gitignore: 五行都在"
     return 0
   fi
   mmw_init_say "gitignore: 补了 ${added} 行"

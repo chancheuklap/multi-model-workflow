@@ -8,8 +8,11 @@
 # 进程自己只注册下面四个，任何客户端连上来看到的都一样。
 #
 # 改这份文件之前先想清楚：多放进来一个工具，五个 GPT 角色立刻都拿得到。
-# prompt 覆盖掉上游那份自带的系统提示词。它是唯一对每个执行面都生效的一层：主 agent
-# 读得到，派出去的 headless subagent 也读得到，而它们读不到技能。所以使用纪律写在这里。
+#
+# prompt 覆盖掉上游那份自带的系统提示词，是使用纪律的单一事实来源。它对宿主自己的
+# 会话直接生效——Claude Code 把服务器说明摆进系统提示。**Codex 不读它**：实测问过一个
+# 挂着这三个服务器的 codex 进程，它答「没有说明」。所以派 GPT 时由 mcp/discipline.py
+# 把这段取出来拼进提示词，纪律仍然只在这里维护一份。
 description: MMW read-only symbol retrieval
 prompt: |
   Use Serena to retrieve static symbol candidates from the current checkout: find_symbol for a definition or a symbol body, find_referencing_symbols for direct references, get_symbols_overview for one file's top-level symbols, find_implementations for implementations of an interface or abstract method. The last three need the repo-relative path of the file that holds the definition.

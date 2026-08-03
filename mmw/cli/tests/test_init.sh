@@ -81,6 +81,9 @@ for key in worktrees reviews release; do
   grep -qxF "$p" .gitignore || missing="$missing $key"
 done
 grep -qxF '.dispatch/' .gitignore || missing="$missing dispatch"
+# 图谱几十兆、每次改代码都变。漏掉这一行，第一次建完图它就跟着下一次提交进版本库，
+# 而那时没有任何一处会提醒。
+grep -qxF 'graphify-out/' .gitignore || missing="$missing graphify-out"
 check "配置里声明的过程目录都被 gitignore 挡住" "" "$missing"
 check "指针节进了 CLAUDE.md" 1 "$(grep -c '^## 多模型工作流' CLAUDE.md)"
 check "装了转发脚本" "yes" \
