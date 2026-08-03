@@ -104,12 +104,22 @@ check "Cursor 那一面不带 type" "null" "$(jq -r '.mcpServers["新加的"].ty
 
 # 守：密钥不进仓库。.mcp.json 里只写 ${…} 声明，值住在机器上那份密钥文件里；
 # 没配的时候要的是「这个键不存在」，不是一个空字符串——下游拿到空串会当成配错了。
+# pi 那一面多一道：它的目标文件 ~/.pi/agent/mcp.json 入库，写进去的密钥下一次
+# git add 就跟着进仓库，所以只写 pi 自己认的 ${VAR}。Cursor 的配置不在任何仓库里。
 echo
 echo "密钥从密钥文件展开"
-check "配了就展开成真值" "真值" \
+check "pi 那一面只写占位符，不写真值" '${MMW_TEST_SECRET}' \
   "$(jq -r '.mcpServers["新加的"].env["要密钥的"]' "$WORK/pi-mcp.json")"
+check "Cursor 那一面展开成真值" "真值" \
+  "$(jq -r '.mcpServers["新加的"].env["要密钥的"]' "$WORK/cursor-mcp.json")"
 check "不带占位符的原样保留" "固定值" \
   "$(jq -r '.mcpServers["新加的"].env["不要密钥的"]' "$WORK/pi-mcp.json")"
+# 守：占位符留在 pi 的配置里、值却只写在密钥文件时，Pi 启动服务器取不到，会把它
+# 展成空串。配置文件看上去完全正常，所以这件事只能在安装时说出来。
+check "值只在密钥文件时安装会报出来" "1" \
+  "$(fake_install "$WORK/pi-warn.json" "$WORK/cursor-warn.json" 2>&1 >/dev/null | grep -c 'MMW_TEST_SECRET' || true)"
+check "值已经在进程环境里就不报" "0" \
+  "$(MMW_TEST_SECRET=真值 fake_install "$WORK/pi-env.json" "$WORK/cursor-env.json" 2>&1 >/dev/null | grep -c 'MMW_TEST_SECRET' || true)"
 : > "$MMW_SECRETS_FILE"
 fake_install "$WORK/pi-nokey.json" "$WORK/cursor-nokey.json" >/dev/null
 check "没配就把那个键丢掉，不写空串" "null" \
