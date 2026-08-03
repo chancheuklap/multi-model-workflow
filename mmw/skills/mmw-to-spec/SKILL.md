@@ -120,7 +120,7 @@ mmw issue create --title "<一句话的名字>" --body-file <摘要文件> --lab
 | 情况 | 下一步 |
 | --- | --- |
 | 发布完了 | **移交**：`/mmw-to-tickets`，把这份 spec 拆成 tracer bullet ticket |
-| 从 `/mmw-implement` 回来补 seam，补完了、用户也点过头 | **移交**：回 `/mmw-implement`，它接着派工人 |
+| 从 `/mmw-implement` 回来补 seam，补完了、用户也点过头 | **移交**：回 `/mmw-implement`，它接着派 `worker` |
 | 第 1 步发现这件事还没谈定 | **移交**：`/mmw-grilling`，把用户原话原样传过去，它谈定后会回到这里 |
 | 第 5 步验证出某条决定既没有原型证据、也说不出为什么不需要 | **移交**：`/mmw-prototype` 补一轮，走查完回到第 5 步接着验证 |
 | 某条决定建立在一条没人验过的外部事实上（那个服务撑得住多少、那个接口实际返回什么） | **移交**：`/mmw-prototype` 的 `EVIDENCE.md`。这条决定先留在 `## Open Decisions` 里，测出来再回填，不要拿一个猜的数字定稿 |

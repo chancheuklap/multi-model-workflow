@@ -62,8 +62,10 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
   | --- | --- | --- |
   | 发起并协调其他 agent 的那个 | 主 agent | 主线程（它不是线程） |
   | 泛指被派出去的 | subagent | 劳动力、子代理、sub-agent |
-  | 被派去写代码的 | 工人（worker） | — |
-  | 被派去审查的 | 审查者（reviewer） | 审者 |
+  | 被派去写代码的 | `worker` | 工人、写码工人、落地的人 |
+  | 被派去写计划的 | `planner` | 写计划工人 |
+  | 泛指那三个会写文件的角色 | 可写角色 | 工人 |
+  | 被派去审查的 | 审查者；具体派哪个写 `reviewer-gpt` / `reviewer-claude` | 审者 |
   | 非交互式跑的 Codex | headless | 无头（无头浏览器例外，那是标准译法） |
   | 派出去时给的那份任务说明 | brief | 简报 |
   | 它交回来的东西 | 报告 | 回执 |
@@ -89,7 +91,9 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
   | 唯一权威的那一份 | 唯一事实来源 | 真相源、事实源 |
   | sandbox 与工具白名单 | 护栏（guardrails） | 围栏 |
 
-  「被派去写代码的」那一行同样禁「落地的人」；「它交回来的东西」那一行同样禁「笔记」；「给每条 finding 的结论」那一行同样禁「结论词」。
+  「它交回来的东西」那一行同样禁「笔记」；「给每条 finding 的结论」那一行同样禁「结论词」。
+
+  **凡是 `mmw dispatch` 的参数值，技能正文里一律写 CLI 的字面串加反引号**，不另起中文名。`worker` 和 `planner` 是模型预训练里就有的词，译成「工人」既招募不到那份先验，又让 agent 多一道翻译才对得上命令。同理，六个角色有哪些、每条命令收什么参数，正文不复述——跑 `mmw` 就有，复述一遍是两处维护。
 
   比喻性动词同样不要：兜住、吃重、找茬、捞、栽在、坏事、要命。写它实际指的动作。
 

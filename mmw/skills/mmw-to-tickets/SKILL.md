@@ -39,7 +39,7 @@ ticket 的标题和描述用项目领域术语表里的词，遵守这块地方�
 
 - 每一片切出一条窄但**完整**的路径，穿过每一层（schema、API、界面、测试）——是垂直的，**不是**某一层的横切
 - 一片做完，它自己就能演示或验证
-- 每一片的大小正好是一张 ticket 的活——一个行为，工人能端到端接下来
+- 每一片的大小正好是一张 ticket 的活——一个行为，`worker` 能端到端接下来
 - prefactor 排在最前面
 
 </vertical-slice-rules>
@@ -73,7 +73,7 @@ mmw issue create --title "<标题>" --body-file <正文文件> \
 
 **顺序不是随便的。** 下游取下一张 ticket 靠 `mmw issue frontier`，那个命令按 issue 编号升序给，所以「按依赖顺序发」直接决定了后面开工的顺序。
 
-`ready-for-agent` 打在 ticket 上的含义是「这张可以派工人开工」，跟打在 spec issue 上那个（人工审批关卡的凭据）不是一回事。
+`ready-for-agent` 打在 ticket 上的含义是「这张可以派 `worker` 开工」，跟打在 spec issue 上那个（人工审批关卡的凭据）不是一回事。
 
 父 issue 不要关，也不要改。
 

@@ -1,6 +1,6 @@
 # 怎么写 agent brief
 
-agent brief 是一张 issue 或 PR 转到 `ready-for-agent` 时贴上去的一条结构化评论。它是 AFK 跑的工人干活时依据的权威规格。原始正文和讨论是背景，agent brief 才是合同。
+agent brief 是一张 issue 或 PR 转到 `ready-for-agent` 时贴上去的一条结构化评论。它是 AFK 跑的 `worker` 干活时依据的权威规格。原始正文和讨论是背景，agent brief 才是合同。
 
 brief 说的是**这个 agent 该做什么**。两个面都适用：对一张 issue，那是从零把改动做出来；对一个 PR，那是*在已有的 diff 上*还剩什么要做——补完、堵住缺口、回应审查意见。原则一样，下面的 PR 例子展示差别在哪。
 
@@ -44,7 +44,7 @@ brief 自己点名：回归测试坐在哪一层，断言什么行为。用行�
 
 ## 模板
 
-字段名保持英文，它们是结构键，工人按名字找；内容用中文写。
+字段名保持英文，它们是结构键，`worker` 按名字找；内容用中文写。
 
 ```markdown
 ## Agent Brief

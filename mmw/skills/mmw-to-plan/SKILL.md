@@ -1,11 +1,11 @@
 ---
 name: mmw-to-plan
-description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan，派写计划工人写，主 agent 只做编排、验证和合同回填。用户说要写 plan、要把 ticket 展开成可落地的步骤时用它；刚把 spec 拆完 ticket 的技能也移交这里。
+description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan，派 `planner` 写，主 agent 只做编排、验证和合同回填。用户说要写 plan、要把 ticket 展开成可落地的步骤时用它；刚把 spec 拆完 ticket 的技能也移交这里。
 ---
 
-把每张 ticket 写成一份 plan，供后面派写码工人照着落地。
+把每张 ticket 写成一份 plan，供后面派 `worker` 照着落地。
 
-**你不写 plan。** 写作全部下放给写计划工人，一张 ticket 一个。你的职责是定清单、划合同边界、派发、验证、回填、发起审查。
+**你不写 plan。** 写作全部下放给 `planner`，一张 ticket 一个。你的职责是定清单、划合同边界、派发、验证、回填、发起审查。
 
 ## 前置条件
 
@@ -19,17 +19,17 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 
 ## 1. 定 plan 清单
 
-读 spec，取出 `## Problem Statement`、`## Solution`、`## Implementation Decisions`、`## Contract Boundaries`、`## Testing Decisions` 一节里那张 seam 清单表。**只读，作为派发时给工人的上下文**，不在这里展开写作。
+读 spec，取出 `## Problem Statement`、`## Solution`、`## Implementation Decisions`、`## Contract Boundaries`、`## Testing Decisions` 一节里那张 seam 清单表。**只读，作为派发时给 `planner` 的上下文**，不在这里展开写作。
 
-取全部 ticket，读出各自要做什么和被谁阻塞，定下 plan 清单：**一张 ticket 一份 plan 一个工人**。落点就是每张 ticket 正文 `## Plan` 一节写着的那个路径（`docs/plans/<slug>/<两位编号>-<ticket-slug>.md`），编号照抄，不自己重排。ticket 正文没有这一节，按依赖顺序自己编号，被阻塞的排在阻塞它的后面。
+取全部 ticket，读出各自要做什么和被谁阻塞，定下 plan 清单：**一张 ticket 一份 plan 一个 `planner`**。落点就是每张 ticket 正文 `## Plan` 一节写着的那个路径（`docs/plans/<slug>/<两位编号>-<ticket-slug>.md`），编号照抄，不自己重排。ticket 正文没有这一节，按依赖顺序自己编号，被阻塞的排在阻塞它的后面。
 
-**轻量验证现状**：用检索确认 spec 涉及的落点目录和关键路径真实存在，够你判断派几个工人、各管哪张 ticket 就行。深度探代码由工人各自做，你不抢着探全。
+**轻量验证现状**：用检索确认 spec 涉及的落点目录和关键路径真实存在，够你判断派几个 `planner`、各管哪张 ticket 就行。深度探代码由 `planner` 各自做，你不抢着探全。
 
 术语或验收标准不清楚，回 `/mmw-to-spec` 改；架构假设跟代码现实对不上，先弄清楚再派。
 
 ## 2. 把合同落到 plan 头上
 
-**这一步在派工人之前做**，多份 plan 时必做，只有一份 plan 时跳过。
+**这一步在派 `planner` 之前做**，多份 plan 时必做，只有一份 plan 时跳过。
 
 在 spec 里新增一节 `## Cross-Plan Contract Anchors`，**不改已有的 `## Contract Boundaries`**。
 
@@ -40,37 +40,37 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 
 没有跨 plan 连接面就在这一节写明「无跨 plan 共享合同」。
 
-这一节随 spec 进入工人的上下文：工人不许认领别份 plan 归属的文件。
+这一节随 spec 进入 `planner` 的上下文：`planner` 不许认领别份 plan 归属的文件。
 
-## 3. 派写计划工人
+## 3. 派 `planner`
 
-一张 ticket 一个写计划工人，按 `/mmw-dispatching-agents` 派 `planner` 角色，`--cwd` 给任务 worktree 的路径。
+一张 ticket 一个 `planner`，按 `/mmw-dispatching-agents` 派 `planner` 角色，`--cwd` 给任务 worktree 的路径。
 
 派之前跑 `mmw doctor`，它会告诉你方法论装没装。没装就先跑 `/mmw-dispatching-agents` 旁边的 `install-agent-skills.sh` 装，再派。
 
 提示词从文件里取，不凭记忆，写到 `.dispatch/<slug>-plan-<编号>.prompt.md` 再从那里派（先 `mkdir -p .dispatch`）：
 
 1. spec 在这个 worktree 里的路径，加上 `## Testing Decisions` 一节里那张 seam 清单表的原文引用。
-2. **这张 ticket 的正文**：标题、要做什么、每一条验收标准、被谁阻塞，全部抄进去。工人能访问 tracker 也照样抄。
+2. **这张 ticket 的正文**：标题、要做什么、每一条验收标准、被谁阻塞，全部抄进去。`planner` 能访问 tracker 也照样抄。
 3. plan 文件的落点路径。
 4. 这次需求背后有原型的，给出**选中的那一版**的路径，加上 spec 里那一节视觉契约。只给选中的那一份。
 5. 它这次的方法论：跑 `mmw skill-path planner`。有输出就把那个路径写给它，让它进门先读完整份；没有输出说明这个宿主自己会把方法论送到位，这一样跳过。
 
-**每个派发只装这五样。** 别的工人的历史、别份 plan 的内容、前面几轮的完成总结，一律不进。
+**每个派发只装这五样。** 别的 `planner` 的历史、别份 plan 的内容、前面几轮的完成总结，一律不进。
 
 互不依赖的 plan 一条消息里并行发出去；有依赖链的按依赖顺序发。**不开子 worktree、不提交**，各份 plan 写不同文件，在任务 worktree 内并行。
 
 ## 4. 验证返回
 
-每个工人交回 `pass` 之后，对它声明的事实至少抽验一条再采信：plan 文件真的存在、任务包数量对得上、它引用的 `文件:行号` 引得出来。用读文件和检索验证，不认「我写完了」。
+每个 `planner` 交回 `pass` 之后，对它声明的事实至少抽验一条再采信：plan 文件真的存在、任务包数量对得上、它引用的 `文件:行号` 引得出来。用读文件和检索验证，不认「我写完了」。
 
 失实就把原来那份 brief 加上修复指令重派一次。交回 `needs-context`、`needs-repair` 或 `blocked` 的，按它说的补上下文或者修 spec 之后重派。
 
 ## 5. 回填精确字段，验证边界
 
-把第 2 步标着「字段待回填」的格子补成真实的归属方、提供方、消费方和字段，写回 `## Cross-Plan Contract Anchors`。入口是每份 plan 的文件与职责表、合同锚点、迁移与登记，以及工人报告里的 `Cross-plan touchpoints`。
+把第 2 步标着「字段待回填」的格子补成真实的归属方、提供方、消费方和字段，写回 `## Cross-Plan Contract Anchors`。入口是每份 plan 的文件与职责表、合同锚点、迁移与登记，以及 `planner` 报告里的 `Cross-plan touchpoints`。
 
-验证两件事：有没有工人认领了别人归属的文件；提供方声明的接口跟消费方期望的对不对得上。对不上就重派一个工人修那一份。
+验证两件事：有没有 `planner` 认领了别人归属的文件；提供方声明的接口跟消费方期望的对不对得上。对不上就重派一个 `planner` 修那一份。
 
 ## 6. 发起 ② plan 审
 
@@ -78,16 +78,16 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 
 ## 7. 提交
 
-plan 文档和 spec 新增那一节分两次提交。工人不提交，改动一直是未暂存的，由你统一收。
+plan 文档和 spec 新增那一节分两次提交。`planner` 不提交，改动一直是未暂存的，由你统一收。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
-| plan 审过了 | **移交**：`/mmw-implement`，一张 ticket 一个写码工人开始落地 |
-| 审出了采信的 findings | **自己继续**：重派工人改对应那份 plan，改完回第 6 步复审 |
-| 第 4 步某个工人交回 `needs-context` 或 `needs-repair` | **自己继续**：按它说的补上下文或修 spec，然后带上补齐的材料重派 |
-| 第 5 步发现工人认领了别人归属的文件，或者提供方跟消费方对不上 | **自己继续**：重派工人修那一份，不要自己动它的 plan |
+| plan 审过了 | **移交**：`/mmw-implement`，一张 ticket 一个 `worker` 开始落地 |
+| 审出了采信的 findings | **自己继续**：重派 `planner` 改对应那份 plan，改完回第 6 步复审 |
+| 第 4 步某个 `planner` 交回 `needs-context` 或 `needs-repair` | **自己继续**：按它说的补上下文或修 spec，然后带上补齐的材料重派 |
+| 第 5 步发现 `planner` 认领了别人归属的文件，或者提供方跟消费方对不上 | **自己继续**：重派 `planner` 修那一份，不要自己动它的 plan |
 | 前置三项有一项不满足 | **停**：说清是哪一项。缺 ticket 的回 `/mmw-to-tickets`，缺 spec 的回 `/mmw-to-spec` |
-| 工人交回 `needs-redirection` | **停**：把它说的哪里可疑、建议怎么重新框定原样交给用户，不要自己改 spec 绕过去 |
-| 工人交回 `blocked`，或者同一份 plan 返修三轮还没过 | **停**：报是哪一份、卡在哪里、三轮各自改了什么，让用户定 |
+| `planner` 交回 `needs-redirection` | **停**：把它说的哪里可疑、建议怎么重新框定原样交给用户，不要自己改 spec 绕过去 |
+| `planner` 交回 `blocked`，或者同一份 plan 返修三轮还没过 | **停**：报是哪一份、卡在哪里、三轮各自改了什么，让用户定 |

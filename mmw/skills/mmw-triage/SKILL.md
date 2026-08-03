@@ -39,7 +39,7 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 上面这些名字就是 issue 上的标签字符串本身，不用再查映射。**完整清单在仓库根 `.mmw.json` 的 `tracker.labels`**，`mmw init` 按它建标签。
 
-**派工人前必须是 `ready-for-agent`。** 这是唯一一个机器可验证的「够清楚了」信号，AFK 跑的时候靠它挡住模糊 issue。
+**派 `worker` 前必须是 `ready-for-agent`。** 这是唯一一个机器可验证的「够清楚了」信号，AFK 跑的时候靠它挡住模糊 issue。
 
 **半路挖到的东西开新 issue。** 分诊或做任务时发现的另一个缺陷、优化机会、或者超出本次范围的事：开一张新 issue，打 `needs-triage` 加对应类别标签，主流程不动。不需要「旁路发现」这类专门标签——它是一张独立 issue 这个事实，已经把「不属于本任务」说完了。
 
@@ -100,7 +100,7 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 | 情况 | 下一步 |
 | --- | --- |
 | `ready-for-agent`，只碰一处，brief 写明了 seam | **移交**：`/mmw-implement`。brief 已经是完整合同，不再写 spec |
-| `ready-for-agent`，碰多处，或者要先谈实现取舍 | **移交**：`/mmw-to-spec`，先谈定再派工人 |
+| `ready-for-agent`，碰多处，或者要先谈实现取舍 | **移交**：`/mmw-to-spec`，先谈定再派 `worker` |
 | 这个需求还不够具体，判不出状态 | **自己继续**：回第 4 步跑 `/mmw-grilling` 把它问成形，再回来落实结果 |
 | seam 说不清楚 | **自己继续**：改判 `ready-for-human`，理由写在 brief 里，然后按本表「落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage`」那一行交回用户 |
 | 落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage` | **停**：报这张判成了什么、为什么、下一步在等谁 |

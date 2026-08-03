@@ -1,11 +1,11 @@
 ---
 name: mmw-implement
-description: 把定好的需求实现成代码。用户说要开始实现、做下一张 ticket、把这张 issue 做掉时用它；别的技能判定某张 ticket 已是 ready-for-agent、可以开工时也用它。一张 ticket 派一个写码工人在任务 worktree 里写，验收之后发起终审。
+description: 把定好的需求实现成代码。用户说要开始实现、做下一张 ticket、把这张 issue 做掉时用它；别的技能判定某张 ticket 已是 ready-for-agent、可以开工时也用它。一张 ticket 派一个 `worker` 在任务 worktree 里写，验收之后发起终审。
 ---
 
 把 spec 和它的 ticket 描述的需求实现出来。spec 已定稿，seam 已谈定；本技能执行那份计划，不重开它。
 
-**你不写代码。** 每张 ticket 交给一个写码工人。你的职责是准备 brief、派发、验收、发起审查。
+**你不写代码。** 每张 ticket 交给一个 `worker`。你的职责是准备 brief、派发、验收、发起审查。
 
 ## 流程
 
@@ -32,9 +32,9 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 开工前先 `mmw issue claim <编号>`。认领失败说明别的会话抢先了，取下一行。
 
-一个 worktree 一次做一张 ticket，一个 worktree 上只站一个工人。frontier 确实很宽、用户又要并行推进，就给每张 ticket 各跑一次 `mmw task new <slug>-<ticket 短语>`，它们都从你当前这条分支分叉。
+一个 worktree 一次做一张 ticket，一个 worktree 上只站一个 `worker`。frontier 确实很宽、用户又要并行推进，就给每张 ticket 各跑一次 `mmw task new <slug>-<ticket 短语>`，它们都从你当前这条分支分叉。
 
-### 3. 组装工人的提示词
+### 3. 组装 `worker` 的提示词
 
 从文件里取，不凭记忆：
 
@@ -42,17 +42,17 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 2. TDD 纪律全文——`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md`。
 3. 目标仓库的 `TESTING.md` 全文，那是测试三层里的第三层：目录分层、哪些边界允许打桩、值从哪个权威源读。**它跟 `worker-brief.md` 以及第 2 条列出的那四个文件一起粘进去，不给路径。** 这个仓库还没有 `TESTING.md`，在 brief 里明说没有，让它按 `worker-brief.md` 加第 2 条那四个文件做。
 4. spec 或 agent brief 在这个 worktree 里的路径，以及 spec `## Testing Decisions` 一节里那张 seam 清单表（agent brief 则是 `**Test seam:**` 一栏），原文引用。
-5. ticket 本身：标题、要做什么、每一条验收标准，全部写进去。工人能访问 tracker 也照样写。
+5. ticket 本身：标题、要做什么、每一条验收标准，全部写进去。`worker` 能访问 tracker 也照样写。
 6. **这张 ticket 对应的那份 plan，全文。** spec、ticket、plan 三样都要给：spec 给意图和合同，ticket 给边界和验收，plan 给施工权威。走 agent brief 那条路的需求没有 plan，这一条跳过。
 7. 这次需求背后有原型的，给出**选中的那一版**在这个 worktree 里的路径，加上 spec 里那一节视觉契约。只给选中的那一份，`docs/prototypes/<slug>/` 下面还躺着落选变体和 TUI 壳。同时说清怎么用——逻辑原型里那个可移植模块整块搬过去，不要重写；界面变体的代码按仓库规范重写，不要照抄。
 
-写到 `.dispatch/<slug>-<ticket>.prompt.md`（先 `mkdir -p .dispatch`）。给工人的路径一律是它工作的那个仓库里的路径，插件内的路径它读不到。
+写到 `.dispatch/<slug>-<ticket>.prompt.md`（先 `mkdir -p .dispatch`）。给 `worker` 的路径一律是它工作的那个仓库里的路径，插件内的路径它读不到。
 
 ### 4. 派发
 
 **先记下当前提交号**（`git rev-parse HEAD`）。
 
-然后按 `/mmw-dispatching-agents` 派 `worker` 角色，`--cwd` 给这棵任务 worktree 的路径。ticket 碰计费、权限、数据迁移，或者别的改错了不可逆的地方时，改派 `worker-high-risk`。**这个判断归你，不归工人**——工人不会自己要求升档。
+然后按 `/mmw-dispatching-agents` 派 `worker` 角色，`--cwd` 给这棵任务 worktree 的路径。ticket 碰计费、权限、数据迁移，或者别的改错了不可逆的地方时，改派 `worker-high-risk`。**这个判断归你，不归 `worker`**——`worker` 不会自己要求升档。
 
 ### 5. 验收：亲手验证三关
 
@@ -74,7 +74,7 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 分支点用 `git merge-base HEAD <父分支>` 取。父分支通常是主线；这次任务从一张 `/mmw-wayfinder` 的 map 分出来的，父分支就是那张 map 的分支。
 
-采信的 findings 打包成一张修复 ticket 派给新工人，带上 `file:line` 和要改成什么。然后按 `/mmw-review` 第 8 步复审。
+采信的 findings 打包成一张修复 ticket 派给新 `worker`，带上 `file:line` 和要改成什么。然后按 `/mmw-review` 第 8 步复审。
 
 ## 下一步
 
@@ -83,8 +83,8 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 | 第 5 步三关都过，frontier 上还有 ticket | **自己继续**：回第 2 步取下一张 |
 | 所有 ticket 都关闭了 | **自己继续**：走第 6 步验证合同，过了再走第 7 步发起 ⑤ final 终审 |
 | 第 6 步有合同 grep 不到行号 | **停**：报是哪条合同、提供方或消费方缺在哪 |
-| 审出了采信的 findings | **自己继续**：打包成一张修复 ticket 派新工人，然后按 `/mmw-review` 第 8 步复审 |
+| 审出了采信的 findings | **自己继续**：打包成一张修复 ticket 派新 `worker`，然后按 `/mmw-review` 第 8 步复审 |
 | 审完没有采信项，或者修复已经复审通过 | **移交**：`/mmw-closing`，把 spec 与 plan 归档到 Wiki、删掉本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`，再交回用户合并 |
 | 第 1 步四项前置有一项不满足 | **停**：说清是哪一项。缺 seam 的按第 1 步那张表回 `/mmw-to-spec` 第 3 步或 `/mmw-triage`，不要自己替用户定 seam |
-| 工人卡在 ticket 与代码互相矛盾上 | **停**：把矛盾交给用户，不要换一个工人再派一遍 |
-| 工人交回的不是「完成」，也不是因为矛盾 | **自己继续**：按 `/mmw-verifying-agent-output` 的四档读它交回的东西，再按返工升级策略接着走 |
+| `worker` 卡在 ticket 与代码互相矛盾上 | **停**：把矛盾交给用户，不要换一个 `worker` 再派一遍 |
+| `worker` 交回的不是「完成」，也不是因为矛盾 | **自己继续**：按 `/mmw-verifying-agent-output` 的四档读它交回的东西，再按返工升级策略接着走 |
