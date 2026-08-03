@@ -17,16 +17,22 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 
 | 检查 | 怎么查 | 不满足怎么办 |
 | --- | --- | --- |
-| 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾 | 按 `docs/agents/worktrees.md` 建一个或进去 |
+| 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾 | `mmw task new <slug>` 建一个，或 `mmw task enter <slug>` 取路径再进去 |
 | 这次需求写明了 seam | 读 spec `## Testing Decisions` 一节里那张 seam 清单表，或读 agent brief 的 `**Test seam:**` 一栏 | spec 缺就回 `/mmw-to-spec` 第 3 步，brief 缺就回 `/mmw-triage` 补 |
-| ticket 存在 | 按 `docs/agents/issue-tracker.md` 查 | 先跑 `/mmw-to-tickets` |
+| ticket 存在 | `mmw issue children <spec issue 编号>` 有输出 | 先跑 `/mmw-to-tickets` |
 | 这张 ticket 的 plan 写好了、过了 ② plan 审 | `docs/plans/<slug>/` 下有对应那一份 | 先跑 `/mmw-to-plan`。走 agent brief 那条路的需求没有 plan 这一层，这一行不适用 |
 
 ### 2. 取下一张 ticket
 
-在 **frontier** 上取：阻塞它的 ticket 全部关闭、没有 assignee、打着 `ready-for-agent` 的那些，按 `/mmw-to-tickets` 发布的顺序取。开工前先 claim 这张 ticket。
+```bash
+mmw issue frontier <spec issue 编号> --label ready-for-agent
+```
 
-一个 worktree 一次做一张 ticket，一个 worktree 上只站一个工人。frontier 确实很宽、用户又要并行推进，就按 `docs/agents/worktrees.md` 从当前分支给每张 ticket 各分一个 worktree。
+它给出阻塞全部关闭、没人认领、带这个标签的那些，按 `/mmw-to-tickets` 的发布顺序排。**取第一行那张。**
+
+开工前先 `mmw issue claim <编号>`。认领失败说明别的会话抢先了，取下一行。
+
+一个 worktree 一次做一张 ticket，一个 worktree 上只站一个工人。frontier 确实很宽、用户又要并行推进，就给每张 ticket 各跑一次 `mmw task new <slug>-<ticket 短语>`，它们都从你当前这条分支分叉。
 
 ### 3. 组装工人的提示词
 

@@ -33,7 +33,7 @@
   gh api --method POST repos/<owner>/<repo>/issues/<子>/dependencies/blocked_by -F issue_id=<阻塞方的 database id>
   ```
   `database id` 用 `gh api repos/<owner>/<repo>/issues/<n> --jq .id` 取——不是 `#编号`，也不是 `node_id`。不可用时退化成子 body 顶部一行 `Blocked by: #<n>, #<n>`。
-- **下一个能开工的 ticket**：父 issue 的 open 子 issue 中，`issue_dependencies_summary.blocked_by == 0` 且无 assignee 的，按父 body 里的顺序取第一个。
+- **下一个能开工的 ticket**：父 issue 的 open 子 issue 中，`issue_dependencies_summary.blocked_by == 0` 且无 assignee 的，按 **issue 编号升序**取第一个。编号升序就是依赖顺序：ticket 按依赖顺序发布、阻塞方先发（见 `/mmw-to-tickets`）。不按 sub-issues 端点的返回顺序取，那个顺序 GitHub 没有文档化的保证。
 - **认领**：`gh issue edit <n> --add-assignee @me`。这是开工前的第一个写动作。
 
 ## Wayfinding operations

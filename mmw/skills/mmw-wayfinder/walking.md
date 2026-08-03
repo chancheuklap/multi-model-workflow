@@ -8,7 +8,7 @@
 
 - `gh issue view <map 编号>` 读 map 正文，不要逐个打开 ticket。
 - 按需读 map 分支上的文件，例如 `git show <map 分支>:CONTEXT.md`。
-- 按 `docs/agents/issue-tracker.md` 的「Wayfinding operations」一节查一次 frontier。
+- `mmw issue frontier <map 编号>` 查一次 frontier。它给出全部可认领的 ticket，一行一张。
 
 frontier 空了，说明这张 map 该收尾了，转 [closing.md](closing.md)。
 
@@ -16,9 +16,17 @@ frontier 空了，说明这张 map 该收尾了，转 [closing.md](closing.md)�
 
 用户点了名就用他点的那张，没点就取 frontier 上的第一张。
 
-**先认领**：把它指派给自己。指派完成之前不要做任何事。
+**先认领**：`mmw issue claim <编号>`。它已经被别的会话占住就会失败，那就取下一张。认领成功之前不要做任何事。
 
-再建这条链的 worktree，从 map 分支分叉，slug 是 `<map 的 slug>-<链首 ticket 的短语>`，建法见 `docs/agents/worktrees.md`。建完 `EnterWorktree` 进去。这是这个会话唯一一次进 worktree。
+再建这条链的 worktree：
+
+```bash
+mmw task new <map 的 slug>-<链首 ticket 的短语> "<这张 ticket 要解的问题>" --from <map 的 slug>
+```
+
+**`--from` 必须给。** 这个会话此刻还在主仓库，当前 HEAD 是主线；`git checkout` 也切不到 map 分支，它正被 map 的 worktree 占着。不给就会把这条链错分叉到主线，map 上已经做出的决定一条都拿不到。
+
+建完用宿主的工作目录切换工具进到它输出的那个路径（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`；这一步脚本做不了，只有宿主工具做得到）。这是这个会话唯一一次进 worktree。
 
 ## 3. 解它
 
@@ -52,7 +60,7 @@ frontier 空了，说明这张 map 该收尾了，转 [closing.md](closing.md)�
 
 查这次解开的这张 ticket 解锁了哪些 ticket，**逐张**按下面两关判。
 
-**第一关，这张还归不归你。** 查两样：阻塞的 ticket 是否全部关掉了，它有没有 assignee。有一样不满足就跳过这张。一张 ticket 可能被两条链同时解锁，谁先指派上谁继续，另一条到此为止。
+**第一关，这张还归不归你。** 再查一次 `mmw issue frontier <map 编号>`，这次解开的这张所解锁的 ticket 里，出现在 frontier 上的才归你——没出现就是还被别的 ticket 挡着，或者已经被别的会话认领走了。一张 ticket 可能被两条链同时解锁，谁先认领上谁继续，另一条到此为止。
 
 **第二关，这张是 HITL 还是 AFK。** 这一关在指派之前判，判法：
 
@@ -62,7 +70,7 @@ frontier 空了，说明这张 map 该收尾了，转 [closing.md](closing.md)�
 | `wayfinder:grilling`、`wayfinder:prototype` | HITL |
 | `wayfinder:task` | 读它的正文才判得出：agent 自己做得完是 AFK，必须人动手是 HITL |
 
-**判成 AFK**：认领它，回第 3 步接着解，还在同一棵 worktree 里。
+**判成 AFK**：`mmw issue claim <编号>`，回第 3 步接着解，还在同一棵 worktree 里。认领失败说明别的会话抢先了，这条链到此为止。
 
 **判成 HITL**：**不要认领它。** 这条链到此为止，停下来交回用户。
 
@@ -82,7 +90,7 @@ frontier 空了，说明这张 map 该收尾了，转 [closing.md](closing.md)�
 
 ## 7. 这条链走完之后
 
-1. 这条链写的每一份 `docs/adr/draft-<ticket 编号>-<短语>.md` 逐个改成正式 ADR 编号（四位、从 `0001` 起、只增不改，见 `docs/agents/domain.md`），提交。
+1. 这条链写的每一份 `docs/adr/draft-<ticket 编号>-<短语>.md` 逐个改成正式编号：`mmw domain adr-next` 取下一个号，改名，再取下一个，直到改完。编号只增不改。提交。
 2. 合回 map 分支。这个会话不能跳到别的 worktree，所以用 `git -C` 指过去。**`.worktrees/` 是相对主仓库的路径，而这个会话现在在链的 worktree 里，所以先把主仓库路径取出来**：
 
    ```bash
@@ -93,8 +101,8 @@ frontier 空了，说明这张 map 该收尾了，转 [closing.md](closing.md)�
    git -C "$MAP" merge --no-ff <这条链的分支名>
    ```
 
-   map 的 worktree 已经不在（用户清理过）就先建回来：`git -C "$MAIN" worktree add .worktrees/<map 的 slug> <map 分支>`。
-3. 再查一次 frontier。
+   map 的 worktree 已经不在（用户清理过）就先 `mmw task new <map 的 slug>` 建回来，它挂回那条已有分支。
+3. 再查一次 `mmw issue frontier <map 编号>`。
 
 ## 下一步
 

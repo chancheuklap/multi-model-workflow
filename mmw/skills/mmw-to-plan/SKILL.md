@@ -13,7 +13,7 @@ description: 把已发布的 ticket 写成 plan——一张 ticket 一份 plan�
 
 | 检查 | 怎么查 |
 | --- | --- |
-| 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾；不在就按 `docs/agents/worktrees.md` 建一个或进去 |
+| 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾；不在就 `mmw task new <slug>` 建一个，或 `mmw task enter <slug>` 取路径再进去 |
 | spec 已定稿并过了人工审批关卡 | `docs/specs/<slug>/<slug>.md` 存在，对应的 spec issue 已发布并带着 `ready-for-agent` |
 | ticket 已发布 | 按 `docs/agents/issue-tracker.md` 取得到这批 ticket；取不到先跑 `/mmw-to-tickets` |
 

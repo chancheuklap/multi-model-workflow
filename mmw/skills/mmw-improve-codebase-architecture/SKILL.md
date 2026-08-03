@@ -11,7 +11,7 @@ description: 扫一遍代码库找可以做深的模块，把候选出成一份�
 
 ## 先读领域文档
 
-**按 `docs/agents/domain.md` 的读取顺序读领域文档**：先查仓库根有没有 `CONTEXT-MAP.md`，有就按它的索引读这次要碰的那几个上下文，没有就回退根 `CONTEXT.md`。两个都没有就直接往下走，不要停下来建。
+**先读领域文档**：跑 `mmw domain path`：报 `map` 就读它给的那份索引，按索引取这次要碰的那几个上下文，各读各的 `CONTEXT.md`；报 `single` 就读它给的那一份；报 `none` 就直接往下走，不要停下来建。
 
 再读你要碰的那一片的 ADR。ADR 里已经拍过板的决定，这次不重新拿出来吵。
 
@@ -66,7 +66,7 @@ subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说�
 
 挑中之前不建 worktree，扫描全程只读。
 
-挑中了按 `docs/agents/worktrees.md` 定 slug、建 worktree、`EnterWorktree` 进去、打那个记原话的空提交。类型固定用 `refactor`，短语取被选中那个 module 的名字，例如 `refactor-order-intake`。空提交里记的是用户挑中这一项时说的原话，加上这张卡片的标题。
+挑中了就定 slug，跑 `mmw task new <slug> "<原话加这张卡片的标题>"`，再用宿主的工作目录切换工具进到它输出的那个路径（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`；这一步脚本做不了，只有宿主工具做得到）。类型固定用 `refactor`，短语取被选中那个 module 的名字，例如 `refactor-order-intake`。
 
 ## 6. 就这一个候选谈下去
 

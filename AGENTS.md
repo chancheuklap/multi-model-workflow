@@ -142,6 +142,8 @@ bash pi-plugin/workflows/install-workflows.sh --check
 | 2 · 自有能力 | 跨模型派发、验证与判定、任务隔离。这三块 Matt 完全没有，是仓库存在的理由 |
 | 3 · 编排 | 改造 Matt 的 user-invoked 技能，把第 2 层注入进去 |
 
+第 2 层的机械部分住在 `mmw/cli/`，不住在技能正文里。技能写判据，CLI 做动作。
+
 ### 搬迁批次
 
 搬迁已完成：Matt 那边 18 个技能搬进 `mmw/skills/`，除自写的 `mmw-setup` 外一律原样复制自 vendor。加上自写的 `mmw-dispatching-agents`、`mmw-verifying-agent-output`、`mmw-start`、`mmw-to-plan`、`mmw-planner`，manifest 现在登记 24 个。
@@ -174,7 +176,9 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 | 落点 | 内容 | 怎么验的 |
 | --- | --- | --- |
-| `skills/mmw-dispatching-agents` | 两个后端（Claude sub-agent、Codex headless）、模型档一律从 `docs/agents/models.md` 取、brief 自包含 | 实跑派出过审查者和写码工人各一轮 |
+| `cli/mmw` | 机械层。每条命令是（仓库，参数）的纯函数，不写状态文件。宿主差异关在 `cli/adapters/{claude-code,pi}.sh` 里，产品语义（哪个角色用哪份花名册、挂哪份方法论、要不要写权限）留在主入口。参数在仓库根的 `.mmw.json` | 四份测试 41 个断言；`mmw task new` 与 `dispatch` 实跑过 |
+| `cli/lib/{issue,wiki,domain}.sh` | 只收三类动作：要连着发好几个请求的、要先取 database id 的、要按规矩过滤排序的。一条 `gh` 命令做得完的不收 | 测试用 gh stub 与本地 bare 仓库，不碰网络也不碰真 issue |
+| `skills/mmw-dispatching-agents` | 六个角色、两种返回怎么读（`mode: executed` 与 `mode: host-tool`）、brief 自包含。模型、档位、护栏、沙箱、宿主差异全在 `mmw dispatch` 里，正文不出现型号 | 实跑派出过审查者和写码工人各一轮 |
 | `skills/mmw-verifying-agent-output` | 只管采信：每条关键断言要有主 agent 能自己验证的出处，加工人交回的四档怎么读。findings 怎么处置归 `mmw-review` | 实跑八条 findings 逐条验证，其中一条审查者报的行号真的差了一行 |
 | `skills/mmw-review` | 主 agent 侧的编排：六道审各在哪、几个视角、谁配谁、每个视角备齐什么材料、落盘命名、复审。③ 逐份验收与 ④ 合同门不派审查者，判据也写在这里 | 未实跑 |
 | `skills/mmw-reviewer` | 审查者侧的方法论单源：共享纪律加八个视角。标准原样搬旧 plugin，只补 Matt 那个编码规范审视角。砍掉严重度与置信度，保留 `needs-redirection`、`needs-context` 两个出口 | 未实跑；安装脚本四种情形实测通过 |
@@ -203,10 +207,20 @@ bash pi-plugin/workflows/install-workflows.sh --check
 
 派可写沙箱时踩到的坑已记进 `mmw-dispatching-agents`：`--sandbox workspace-write` 默认把 `.git` 锁成只读，工人提交会卡死，要把 worktree 的 `.git` 加进 `writable_roots`。
 
+### 自举开发的已知边界
+
+改这个仓库时会踩到的两条，跟别的仓库用 mmw 无关：
+
+| 边界 | 表现 | 怎么办 |
+| --- | --- | --- |
+| **方法论与花名册的改动要合回主分支才生效** | 派出去的 subagent 读的是主仓库那份，不是你正在改的 worktree 那份。Claude Code 那侧靠 `~/.codex/skills/` 的软链，指向脚本跑起来时所在的那棵树；pi 那侧靠 `~/.pi/agent/settings.json` 里钉死的包路径，永远是主仓库 | 改完 `skills/mmw-reviewer/`、`skills/mmw-planner/`、`skills/mmw-tdd/` 或 `agents-pi/` 之后，要先合回主分支才派得出读新版本的 subagent。两侧的失败方式不同：Claude Code 那侧 `install-agent-skills.sh --check` 会报冲突，看得见；pi 那侧没有任何检查，静默读旧版本 |
+| **切会话工作目录只有宿主工具做得到** | `mmw task new` 输出路径，但切不进去。非交互模式下这一步也补发不了 | 技能正文里点名了两个宿主的工具（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`）。CLI 侧不要试图代劳 |
+
+CLI 本身不受第一条影响：`~/.local/bin/mmw` 转发脚本先看当前 git 树里有没有 `mmw/cli/mmw`，有就用那份。
+
 ### 待定事项
 
 | 要定什么 | 当时的背景与张力 | 旧实现位置（背景线索） |
 | --- | --- | --- |
 | `/mmw-setup` 要不要自动跑 | 现在得手敲，用户忘了跑配置就全空、技能读不到任何仓库事实。想用 SessionStart 钩子自动铺，但那要接 `hooks/hooks.json`，属于插件机械层，等第 2 层能力定形后一起做 | `plugin/hooks/` |
-| 任务隔离要不要脚本 | 建 worktree、进 worktree、打空提交这三步已经写进 `mmw-start` 的正文，主 agent直接跑命令就够，暂时不做脚本。清理那一步要用户点头，本来也不适合脚本化 | `plugin/scripts/prepare.sh` 的 task new / cleanup |
 | AFK 的放权档位 | 人工审批关卡已经有落点（`mmw-to-spec` 第 7 步用户点头，第 8 步发布 issue 打 `ready-for-agent` 即凭据）。旧 plugin 另有三档放权曲线，过了人工审批关卡之后自动放权自主跑；新架构还没有对应的东西，也还不知道要不要 | `plugin/skills/orchestrate/references/control/attendance.md` |

@@ -5,13 +5,13 @@ frontier 上一张 ticket 都不剩了。收尾就是把这张 map 结束掉：�
 进来的方式有两种，都合法：
 
 - **刚解完最后一条链**，这个会话还在那条链的 worktree 里。就地做，收尾写的文件跟着这条链的分支一起合回 map 分支。
-- **新会话进来发现 frontier 空了**，这个会话还在主仓库。`EnterWorktree` 进 map 的 worktree 做，map 的 worktree 不在就先 `git worktree add` 建回来。
+- **新会话进来发现 frontier 空了**，这个会话还在主仓库。用宿主的工作目录切换工具（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`）进 map 的 worktree 做。map 的 worktree 不在就先 `mmw task new <map 的 slug>` 建回来——分支还在时它挂回那条分支，不新建也不打空提交。
 
 ## 1. 清算 `Not yet specified` 剩下的条目
 
 把 map 的 `Not yet specified` 一节剩下的条目原样列给用户看，问他里面还有没有会挡住后续工作的。
 
-用户点出会挡路的，就把它建成新的 decision ticket、连好阻塞关系，然后停——处置见本文「下一步」一节。用户没点出来的原样留在 `Not yet specified` 一节里，跟着 map issue 一起关掉。
+用户点出会挡路的，就用 `mmw issue create --parent <map 编号> --label wayfinder:<类型>` 建成新的 decision ticket，再用 `mmw issue link` 连好阻塞关系，然后停——处置见本文「下一步」一节。用户没点出来的原样留在 `Not yet specified` 一节里，跟着 map issue 一起关掉。
 
 ## 2. 决定各自归位
 

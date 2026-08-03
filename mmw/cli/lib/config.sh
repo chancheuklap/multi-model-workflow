@@ -14,6 +14,17 @@ mmw_repo_root() {
   }
 }
 
+# 主仓库根。在任务 worktree 里跑时，mmw_repo_root 给的是那棵 worktree，不是
+# 主仓库——worktree 一律扁平挂在主仓库的 .worktrees/ 下，所以落点要用这个。
+mmw_main_root() {
+  local common
+  common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || {
+    echo "mmw: 当前目录不在 git 仓库里" >&2
+    return 1
+  }
+  dirname "$common"
+}
+
 mmw_config_path() {
   echo "$(mmw_repo_root)/.mmw.json"
 }
@@ -23,7 +34,7 @@ mmw_require_config() {
   local path
   path="$(mmw_config_path)"
   if [ ! -f "$path" ]; then
-    echo "mmw: 找不到 $path，先跑 mmw init" >&2
+    echo "mmw: 找不到 ${path}，先跑 mmw init" >&2
     return 1
   fi
   echo "$path"

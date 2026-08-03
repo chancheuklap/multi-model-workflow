@@ -51,7 +51,7 @@ description: 把「去查清楚」派出去——查这个仓库的现状，或�
 | 调查纪律 | `internal-brief.md` 或 `external-brief.md`，取 `---` 之后的全部内容，排最前面。`---` 之前那几行是写给你的 | 各拿各的那一份 |
 | 这一题 | 第 1 步定的角度和要回答什么 | 都要 |
 | 仓库根 | 目标仓库根的**绝对路径**，写明只许在这个路径下取证 | 只有内部 |
-| 领域词 | `CONTEXT.md`；多 context 的仓库按 `CONTEXT-MAP.md` 找到对应那几份 | 只有内部 |
+| 领域词 | 跑 `mmw domain path` 取落点，把取到的那几份的绝对路径写进去 | 只有内部 |
 | 已知背景 | 已经查过哪里、排除过什么 | 都要 |
 
 写到 `.dispatch/<slug>-research-<角度短名>.prompt.md`（先 `mkdir -p .dispatch`）。

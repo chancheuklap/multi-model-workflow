@@ -60,7 +60,7 @@ docs/prototypes/<slug>/
 
 **[EVIDENCE.md](EVIDENCE.md) 那条 branch 落点不同**，在 `docs/evidence/<slug>/`。本节其余规矩它照样守：一条命令跑起来、逐轮记进 `README.md`、原地迭代、用户走查过才算数。
 
-还在主仓库里、没有任务 worktree 的，先按 `docs/agents/worktrees.md` 建一棵再动手。
+还在主仓库里、没有任务 worktree 的，先 `mmw task new <slug> "<原话>"` 建一棵，用宿主的工作目录切换工具进到它输出的那个路径（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`；这一步脚本做不了，只有宿主工具做得到），再动手。
 
 **原地迭代，不复制版本目录。** 下一轮继续改同一份源码，保留已经确认过的状态、交互和文案。
 
