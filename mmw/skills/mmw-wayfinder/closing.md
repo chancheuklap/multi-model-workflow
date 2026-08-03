@@ -15,13 +15,27 @@ frontier 上一张 ticket 都不剩了。收尾就是把这张 map 结束掉：�
 
 ## 2. 决定各自归位
 
-这张 map 上做出的决定要按类型分开落到仓库里。**产物去向表在 `docs/agents/issue-tracker.md` 的「`/mmw-wayfinder` 的产物不上 Wiki，但也不能死」一节，那里是唯一权威。**
+map 本身不上 Wiki，但它上面那些决定不能随任务一起消失。按类型分开落到仓库里：
+
+| 产物 | 去哪 | 为什么 |
+| --- | --- | --- |
+| 难以回退、有真取舍的决定 | ADR，落点与编号方案跑 `mmw domain adr-next` 取，写法见 `/mmw-domain-modeling` | 改代码时同一次 diff 就能看见相关决定，Wiki 看不见 |
+| 考察过但决定不做的方向 | `.out-of-scope/`，一个概念一个文件 | 分诊时按概念相似度查它，防止同一个需求换个说法再提一遍 |
+| 沉淀下来的术语 | 领域文档，落点跑 `mmw domain path` 取 | 项目自己的话怎么说，要跟代码一起演进 |
+| 用户走查过的原型产物 | `docs/prototypes/<slug>/` | 逻辑模块会被搬进正式代码，界面变体是视觉契约的出处 |
+| 实测出来的外部事实与原始产物 | `docs/evidence/<slug>/` | 记的是外部世界的表现，spec 归档之后仍然成立。重测要花钱花时间 |
+| 其余可回退的决定 | 被 spec 的 `Implementation Decisions` 吸收 | 不值得单独归档 |
+| map 本身 | 关掉即止 | 它是按走过顺序记的过程日志，含死路，价值在过程中 |
+
+这些都写在 map 那棵 worktree 的分支上，随 effort 一起合回主线，中途不提前合。
 
 走 map 的过程中该写的已经写了，这一步是补漏：逐条过一遍 map 的 `Decisions so far` 一节，看有没有当时判成「可回退」、现在回头看其实难以回退的。判成难以回退的补一份 ADR。
 
 ## 3. 切出 spec
 
 map 按**决定**组织，spec 按**能独立设计和实现的一块功能**组织。这一步把已经定好的决定重新分组，看哪些凑起来是一份做得下去的东西。**只分组，不重新讨论任何决定。**
+
+spec 是 map 的可读综合版：map 的 `Destination` 变成 spec 的问题陈述，`Decisions so far` 里的每一条变成 spec 的 `Implementation Decisions`，`Out of scope` 原样继承。Wiki 上只留这份综合版，不留原始日志。
 
 一组一份 spec，各建一张 issue 挂在 map 底下，正文写清楚两件事：这份 spec 交付什么，它依赖 map 的 `Decisions so far` 一节里的哪几条。spec issue 跟 decision ticket 同处一层，靠**带不带 `wayfinder:` 类型标签**区分：decision ticket 带，spec issue 不带。
 
@@ -40,4 +54,4 @@ map 按**决定**组织，spec 按**能独立设计和实现的一块功能**组
 | 第 1 步用户点出还有会挡路的条目，已经建成 decision ticket | **停**：报新建了哪几张 ticket（用名字，不用编号），让用户另开一个会话认领 |
 | 决定归位完、spec 切完、map issue 关掉 | **停**：报这张 map 收尾了、切出了哪几份 spec（用名字，不用编号），说明每份 spec 各开一个会话去做 |
 
-每份 spec 的 worktree 从 map 分支分叉，做完合回 map 分支；整个 effort 收尾时 map 分支才合回主线（见 `docs/agents/worktrees.md`）。
+每份 spec 的 worktree 从 map 分支分叉（`mmw task new <spec 的 slug> "<原话>" --from <map 的 slug>`），做完合回 map 分支。**整个 effort 收尾之前不合回主线**——map 分支才是这几份 spec 的汇合点。

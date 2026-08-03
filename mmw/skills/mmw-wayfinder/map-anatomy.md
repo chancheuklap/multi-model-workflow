@@ -1,6 +1,8 @@
 # map 和 ticket 长什么样
 
-**map、它的子 ticket、阻塞关系、frontier 查询在本仓库怎么表达，看 `docs/agents/issue-tracker.md` 的「Wayfinding operations」一节。** 那份文档不在就跑 `/mmw-setup`。下面写的是形状，不是命令。
+`wayfinder:map` 这个标签既不是状态也不是类型，只是「这张 issue 是一张 map」的记号。阻塞关系用 GitHub 原生 issue dependencies，加边命令 `mmw issue link <被挡的> --blocked-by <挡它的>`，UI 里看得见。
+
+**收尾时切出来的 spec issue 同样挂在 map 底下，但不带任何 `wayfinder:` 标签。** 这就是区分办法：带 `wayfinder:<类型>` 的是 decision ticket，不带的是 spec。
 
 ## map
 
@@ -50,7 +52,17 @@ map 是一份**索引**，不是一个仓库。它列出已经做出的决定，
 
 建 ticket 的时候把两条属性一起定下来：
 
-1. **它是 HITL 还是 AFK**——这件活要不要人在对话里参与才做得完。定义在 `docs/agents/triage-labels.md` 的「HITL 与 AFK」一节。
+1. **它是 HITL 还是 AFK**——这件活要不要人在对话里参与才做得完。一件活只分这两种：
+
+   | 词 | 展开 | 含义 | 判据 |
+   | --- | --- | --- | --- |
+   | **HITL** | human in the loop | 必须有人在对话里一来一回才做得完 | 少了那个人的回答，这件事根本没有答案 |
+   | **AFK** | away from keyboard | agent 自己就能做完，人不在也跑得动 | 人回来只需要看结果，不需要中途参与 |
+
+   这两个词成对使用，不另写中文说法——拆开翻译就散了。
+
+   这条轴跟**人工审批关卡**不是一回事：人工审批关卡是「必须用户点头这件事才能往下走」的关卡，全流程只有 `/mmw-to-spec` 第 7 步那一道；HITL 说的是「这件活本身要人参与才做得完」。一件 AFK 的活照样可能撞上人工审批关卡。
+
 2. **它是哪一个类型**——写成 `wayfinder:<类型>` 标签，四个取值见本文「四个类型」一节。
 
 HITL 还是 AFK 不单独打标签，从类型推出来；只有 `wayfinder:task` 例外。
@@ -95,6 +107,6 @@ fog of war 只会**朝着** destination 聚集。destination 固定了范围，�
 
 判出范围的工作不再回来。frontier 走到 destination 就停了，它只有在 destination 被重画时才回来，而且是作为一个新的 effort，不是接着做。
 
-已经存在的一张 ticket 后来发现坐在 destination 之外——画图时圈错了，或者被某次解答暴露出来——就**关掉它**，并在 `Out of scope` 一节留一行：概要加上为什么出范围，链到那张关掉的 ticket。同时按 `docs/agents/issue-tracker.md` 的产物去向表在 `.out-of-scope/` 写一份，一个概念一个文件。
+已经存在的一张 ticket 后来发现坐在 destination 之外——画图时圈错了，或者被某次解答暴露出来——就**关掉它**，并在 `Out of scope` 一节留一行：概要加上为什么出范围，链到那张关掉的 ticket。同时在 `.out-of-scope/` 写一份，一个概念一个文件——产物去向表在 [closing.md](closing.md) 第 2 步。
 
 它不进 `Decisions so far`，那里只记真正走过的路线。

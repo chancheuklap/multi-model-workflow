@@ -5,7 +5,7 @@ description: 把已经谈定的内容综合成一份 spec：确定测试 seam、
 
 把已经谈定的内容综合成一份 spec。**不采访，只综合**，不重开任何一个决定。
 
-issue tracker 怎么用在 `docs/agents/issue-tracker.md`，标签词汇在 `docs/agents/triage-labels.md`；哪一份不在就跑 `/mmw-setup`。
+issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw issue`，读一张、评论、打标签这类一条命令做得完的直接用 `gh`。标签清单在仓库根 `.mmw.json` 的 `tracker.labels`。
 
 ## 1. 认出你从哪条路进来
 
@@ -54,7 +54,7 @@ issue tracker 怎么用在 `docs/agents/issue-tracker.md`，标签词汇在 `doc
 
 ## 4. 写 spec
 
-模板和逐节要求在 [spec-template.md](spec-template.md)。落点是任务分支的 `docs/specs/<slug>/<slug>.md`（`docs/agents/worktrees.md`）。
+模板和逐节要求在 [spec-template.md](spec-template.md)。落点是任务分支的 `docs/specs/<slug>/<slug>.md`，主文件与目录同名。
 
 从 `/mmw-wayfinder` 进来的，map 的三节这样落进去，**只搬运，不重新讨论**：
 

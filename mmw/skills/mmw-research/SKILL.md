@@ -82,7 +82,7 @@ description: 把「去查清楚」派出去——查这个仓库的现状，或�
 | --- | --- |
 | `/mmw-wayfinder` 的一张 `wayfinder:research` ticket | 那张 ticket 的评论，然后关掉它 |
 | 别的技能 | 交回给把你叫起来的那个技能 |
-| 用户直接叫你来查 | 按 `docs/agents/domain.md` 的落点写一份文件，或者他指定的位置 |
+| 用户直接叫你来查 | 写成一份文件，落点用他指定的位置；他没指定就跑 `mmw domain dirs` 按 `adr` 那一行的同级放 |
 
 ## 下一步
 

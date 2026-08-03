@@ -77,7 +77,7 @@ docs/evidence/<slug>/
 └── runs/<战役名>/                探测脚本与原始产物
 ```
 
-**这个目录不随 spec 删**（`docs/agents/issue-tracker.md`）。
+**这个目录不随 spec 删。** 它记的是外部世界的表现，spec 归档之后仍然成立，而且重测要花钱花时间。
 
 另外三条 branch 的产物落 `docs/prototypes/<slug>/`，两边不混：测出来的数据不塞进原型目录，走查用的界面变体不塞进台账。
 

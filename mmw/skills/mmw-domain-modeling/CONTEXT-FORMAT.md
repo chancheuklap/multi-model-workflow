@@ -33,7 +33,7 @@ _Avoid_: Client, buyer, account
 
 **单上下文（多数仓库）：** 仓库根一份 `CONTEXT.md`。
 
-**多上下文：** 仓库根一份 `CONTEXT-MAP.md`，列出有哪几个上下文、各自住在哪、彼此什么关系。**每个上下文的路径以本仓库 `docs/agents/domain.md` 写的为准**——例子里用 `docs/context/` 只是为了展示形状：
+**多上下文：** 仓库根一份 `CONTEXT-MAP.md`，列出有哪几个上下文、各自住在哪、彼此什么关系。**每个上下文的路径跑 `mmw domain dirs` 取 `context` 那一行**——例子里用 `docs/context/` 只是为了展示形状：
 
 ```md
 # Context Map

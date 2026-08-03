@@ -55,6 +55,7 @@ usage() {
 
   mmw domain path                  领域文档形态与落点：map / single / none
   mmw domain adr-next              下一个 ADR 编号，四位
+  mmw domain dirs                  写入侧的两个落点：新上下文根、ADR 目录
 
   mmw doctor                       检查这台机器上跑 mmw 需要的东西
   mmw init                         在当前仓库生成 .mmw.json，装转发脚本
@@ -241,6 +242,7 @@ cmd_domain() {
   case "${1:-}" in
     path) mmw_domain_path ;;
     adr-next) mmw_domain_adr_next ;;
+    dirs) mmw_domain_dirs ;;
     *) usage ;;
   esac
 }

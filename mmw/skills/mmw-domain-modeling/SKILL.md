@@ -9,9 +9,14 @@ description: 把项目的领域模型建起来、磨锋利。用户要把领域�
 
 ## 文件放哪
 
-**文件落在哪、ADR 怎么编号，是目标仓库的事实，不是这个技能的事实。** 建任何文件之前先读目标仓库的 `docs/agents/domain.md`。它定死了每个上下文的 `CONTEXT.md` 落在哪、ADR 用什么编号方案、几条分支同时写 ADR 时怎么办。只有 `docs/agents/domain.md` 不存在，才退回本节这套默认值。
+**落点是目标仓库的事实，不是这个技能的事实，不要写死。** 建任何文件之前先跑这两条：
 
-多数仓库只有一个上下文：
+```bash
+mmw domain path    # 这个仓库现在是哪种形态：map / single / none，加对应的路径
+mmw domain dirs    # 写入侧的两个落点：新上下文的根目录、ADR 目录
+```
+
+`mmw domain path` 给 `single` 或 `none`，说明这个仓库只有一个上下文，术语全写在根 `CONTEXT.md`：
 
 ```
 /
@@ -23,17 +28,19 @@ description: 把项目的领域模型建起来、磨锋利。用户要把领域�
 └── src/
 ```
 
-仓库根有 `CONTEXT-MAP.md`，说明这个仓库有多个上下文。这张索引指出每个上下文住在哪——**具体路径以 `docs/agents/domain.md` 写的为准**，不是一个固定约定：
+给 `map`，说明有多个上下文，根上那份 `CONTEXT-MAP.md` 是索引，指出每个上下文住在哪。新上下文建在 `mmw domain dirs` 给的 `context` 那一行下面：
 
 ```
 /
 ├── CONTEXT-MAP.md
 ├── docs/
 │   └── adr/                          ← 全系统级的决定
-├── <上下文根，按 docs/agents/domain.md>/
+├── <mmw domain dirs 给的 context 落点>/
 │   ├── ordering/CONTEXT.md
 │   └── billing/CONTEXT.md
 ```
+
+**多上下文的仓库没有根 `CONTEXT.md`。** 往那里写会在根上凭空造出一份不该存在的。
 
 文件按需建——有东西要写了才建。没有 `CONTEXT.md`，第一个术语定下来时建。没有 `docs/adr/`，第一份 ADR 要写时建。
 
