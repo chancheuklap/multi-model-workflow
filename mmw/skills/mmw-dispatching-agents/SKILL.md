@@ -1,11 +1,11 @@
 ---
 name: mmw-dispatching-agents
-description: 把一件任务派给隔离上下文的 subagent——Claude 会话内 subagent，或 Codex headless 进程。管选后端、固定模型档位、护栏、brief 自包含、怎么收回。需要把任务派出去时用它。
+description: 把一件任务派给隔离上下文的 subagent。管派不派、派哪个角色、brief 自包含、方法论怎么送到它手里、怎么收回。需要把任务派出去时用它。
 ---
 
 把一件任务派给隔离上下文的 subagent。
 
-模型和档位一律从目标仓库的 `docs/agents/models.md` 取。**本技能正文和任何提示词里都不出现型号**——换型号只改 `docs/agents/models.md`。
+派发这个动作由 `mmw dispatch` 执行。**模型、档位、护栏、沙箱、宿主差异全在它里面**，本技能正文和任何提示词里都不出现型号——换型号只改仓库根的 `.mmw.json`。
 
 ## 派不派
 
@@ -24,69 +24,82 @@ description: 把一件任务派给隔离上下文的 subagent——Claude 会话
 
 **一个方向派一个人。** 要几个方向就派几个，并行，每份 brief 只有方向那一栏不同。
 
-## 两个后端
+## 怎么派
 
-| 后端 | 怎么起 | 什么时候用 |
-| --- | --- | --- |
-| Claude | `Agent` 工具，`subagent_type: general-purpose` | 派 Claude |
-| Codex | `codex exec` headless 进程，Bash 后台起 | 派 Codex |
-
-派哪个模型由 `docs/agents/models.md` 的红线定：每一道审至少有一个视角的审查者与作者不是同一个模型。
-
-### Codex headless 怎么起
-
-```bash
-codex exec -C . --sandbox read-only --color never \
-  -m <模型> -c model_reasoning_effort="<档位>" \
-  -o <报告文件> \
-  - < <提示词文件>
+```
+mmw dispatch <角色> --brief <提示词文件> [--cwd <工作目录>]
 ```
 
-- 用 Bash 的 `run_in_background: true` 跑。
-- `-o` 把它最后一条消息写进报告文件。读那个文件就是报告，不用从事件流里取。
-- 提示词走 stdin，所以先用 Write 把它写成文件。
-- 派可写任务时换 `--sandbox workspace-write`。**首次派发前工作区必须干净。**
-- **要它自己提交，还得单独放开 `.git`。** `workspace-write` 默认把 `.git` 锁成只读，工人写完代码会卡在 `.git/index.lock: Operation not permitted`。加这个覆盖：
+六个角色：
 
-  ```bash
-  -c 'sandbox_workspace_write.writable_roots=["<worktree 绝对路径>/.git"]'
-  ```
+| 角色 | 派它做什么 | 写权限 |
+| --- | --- | --- |
+| `worker` | 按一份 plan 写代码 | 可写，`--cwd` 必填 |
+| `worker-high-risk` | 同上，但这块代码错了代价大 | 可写，`--cwd` 必填 |
+| `planner` | 按一张 ticket 写一份 plan | 可写，`--cwd` 必填 |
+| `investigator` | 查一个角度的事实，带出处交回 | 只读 |
+| `reviewer-gpt` | 审查，GPT 那一侧 | 只读 |
+| `reviewer-claude` | 审查，Claude 那一侧 | 只读 |
 
-  派它的时候要说清：只许 `add` 加 `commit`，不许 `amend`、`rebase`、`reset` 或强推。
-- 续接用 `codex exec ... resume <会话号> "<追问>"`。**resume 不继承原来的护栏和模型档，整套重新固定。** 会话号要用就加 `--json` 起，在事件流的 `thread_id` 里。
-- **不用 `codex review`。**
+哪一道审派哪两个角色，判据在 `/mmw-review`，不在这里。写码工人什么时候升 `worker-high-risk`，判据在 `/mmw-implement`。
+
+**可写角色的 `--cwd` 必填**，指向它该待的那棵 worktree。命令会先检查那个目录的工作区干净，不干净就不派——否则工人的提交里会混进别人的改动。
+
+## 返回怎么读
+
+`mmw dispatch` 有两种返回，第一行的 `mode:` 说明是哪一种。
+
+**`mode: executed`** —— CLI 已经把这个 subagent 跑完了。
+
+```
+mode: executed
+report: <报告文件的绝对路径>
+exit: 0
+```
+
+读 `report:` 那个文件就是它交回来的报告。
+
+**`mode: host-tool`** —— 这次派发要用宿主的会话内工具，CLI 跑不了，只给你参数。
+
+```
+mode: host-tool
+tool: <工具名>
+brief: <提示词文件的绝对路径>
+skill-path: <方法论文件的绝对路径>     ← 可能没有这一行
+params: {"...": "..."}
+```
+
+用 `tool:` 那个工具、按 `params:` 那个 JSON 逐字传参调一次。提示词读 `brief:` 那个文件。有 `skill-path:` 那一行时，把那个路径写进提示词，让它自己去读。
+
+**两种都用 Bash 的 `run_in_background: true` 起。** `mode: executed` 那种要跑几分钟，前台起会把你堵住；`mode: host-tool` 那种秒回，后台起没有损失。一律后台，你不用先知道会是哪一种。
 
 ## 方法论怎么到它手里
 
-headless 那一侧看不见我们的插件文件。有两条路解决，按方法论的长短选：
+长的、改得勤的方法论（审查那一整套、写计划那一套、测试标准）**装进它自己的技能目录**，`mmw dispatch` 会按宿主把它送到位，你不用管送法。装没装用 `mmw doctor` 看，它会告诉你缺了就跑 `install-agent-skills.sh`（本文旁边那个）。安装走软链不走拷贝，插件里改一次，下一轮派出去的立刻读到新的。
 
-| 怎么送 | 什么时候用 | 代价 |
-| --- | --- | --- |
-| **装进它自己的技能目录** | 长、改得勤的，比如审查那一整套 | 要装一次。派之前先确认装了没有，没装先装再派 |
-| **原文粘进提示词** | 短、不常改的，比如给写码工人的 `mmw-implement/worker-brief.md` 和 TDD 纪律（要粘哪几个文件，清单在 `/mmw-implement` 第 3 步） | 提示词长；改了之后已经派出去的那批读的还是旧的 |
+短的、不常改的**原文粘进提示词**，比如给写码工人的 `mmw-implement/worker-brief.md` 和 TDD 纪律（要粘哪几个文件，清单在 `/mmw-implement` 第 3 步）。代价是提示词长，而且改了之后已经派出去的那批读的还是旧的。
 
-安装走软链不走拷贝。安装脚本是本文旁边的 `install-agent-skills.sh`，它装三份技能：`mmw-reviewer`（审查方法论）、`mmw-planner`（写计划方法论）、`mmw-tdd`（测试标准）。
+**插件内路径只在返回里出现 `skill-path:` 那一行时才给。** 其余情况派出去的那个模型看不见我们的插件文件，给了它读不到。被审仓库里的路径可以给——它就在那个仓库里，读得到。
 
-**两条路都不把插件内路径给 headless 那个模型。** 被审仓库里的路径可以给——它 `-C .` 就在那个仓库里，读得到。会话内的 subagent 不受这条限制，它读得到插件里的原件，给绝对路径即可。
-
-同一个视角派给两个模型时用**同一份 brief 文本**，只有「你负责哪个视角」和那句方法论路径不同。
+同一个视角派给两个角色时用**同一份 brief 文本**，只有「你负责哪个视角」那一栏不同。
 
 派发前自检：brief 里提到的每个仓库内路径真实存在，缺了当场报错。
 
 ## 存盘
 
-工人的提示词和完工报告落 worktree 根的 `.dispatch/`，写之前 `mkdir -p`。这个目录已在仓库根 `.gitignore` 里。
+提示词和完工报告落 worktree 根的 `.dispatch/`，写之前 `mkdir -p`。这个目录已在仓库根 `.gitignore` 里。
 
 ## 并行
 
-一条消息里发多个 `Agent` 调用，它们并行跑。派给 Codex 的那些各自后台起，也并行。两边可以同时在跑。
+要并行就在一条消息里发多个 Bash 调用起多个 `mmw dispatch`，它们各自后台跑。`mode: executed` 的和 `mode: host-tool` 的可以同时在跑。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
 | 派出去的都交回了报告 | **移交**：`/mmw-verifying-agent-output`，逐条验证过才能用，绝不原样转发 |
-| 报告里说它自己停下了 | **自己继续**：读它的尝试记录，把你看到的发回去，用 `resume` 续接同一个会话。**resume 不继承原来的护栏和模型档，整套重新固定** |
+| 报告里说它自己停下了 | **自己继续**：读它的尝试记录，把你看到的连同原来那份 brief 写成一份新的 brief，重派一次。不要试图续接原来那个会话——护栏和模型档要重新固定，重派比续接干净 |
 | 派发前自检发现 brief 里有不存在的仓库内路径 | **自己继续**：当场修掉路径再派 |
-| 要派的活靠安装脚本送方法论，但 Codex 自己的技能目录里没有 | **自己继续**：先跑安装脚本装好再派，不要改成把方法论粘进提示词 |
-| 要派可写任务，但工作区不干净 | **停**：报工作区里有哪些未提交的改动 |
+| `mmw doctor` 说方法论没装 | **自己继续**：先跑 `install-agent-skills.sh` 装好再派，不要改成把方法论粘进提示词 |
+| 要派可写角色，`mmw dispatch` 报工作区不干净 | **停**：报那个目录里有哪些未提交的改动 |
+| `mmw dispatch` 报认不出宿主 | **停**：报这台机器上 CLI 认不出自己跑在哪个宿主里 |

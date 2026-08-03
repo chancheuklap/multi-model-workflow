@@ -1,6 +1,6 @@
 # Phase 5 到 6 —— 修复与收尾
 
-根因已经定住了。这一段的修复动作派 Codex headless 工人做。
+根因已经定住了。这一段的修复动作派写码工人做。
 
 ## Phase 5 —— 修复 + 回归测试
 
@@ -14,8 +14,8 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
 有 correct seam 的话，按顺序做三件事：
 
-1. **先把工作区清干净。** grep `[DEBUG-` 前缀，把 Phase 4 的埋点全删掉。工人要在可写 sandbox 里跑，派发前工作区必须干净（`/mmw-dispatching-agents`）。
-2. 按 `/mmw-dispatching-agents` 派一个工人，brief 从文件和你已经跑过的内容里取：
+1. **先把工作区清干净。** grep `[DEBUG-` 前缀，把 Phase 4 的埋点全删掉。写码工人是可写角色，`mmw dispatch` 会先检查工作区干净，不干净就不派。
+2. 按 `/mmw-dispatching-agents` 派 `worker` 角色，`--cwd` 给这棵 worktree 的路径。brief 从文件和你已经跑过的内容里取：
 
    | 给它什么 | 内容 |
    | --- | --- |

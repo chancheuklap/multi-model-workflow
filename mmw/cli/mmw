@@ -1,0 +1,255 @@
+#!/usr/bin/env bash
+# mmw：多模型开发编排的机械层。
+#
+# 每条命令是（仓库，参数）的纯函数：不写状态文件，不记得上一步是什么。走到哪
+# 一步由技能决定，这里永远不知道。
+#
+# 这里也不放 git push、不放远端合并、不放部署。宿主的命令白名单一旦放行
+# `mmw`，CLI 内部起的 git 与 gh 子进程就不再经过宿主的权限层，那三件事必须留
+# 在外面由人决定。
+
+set -euo pipefail
+
+MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/config.sh
+. "$MMW_ROOT/cli/lib/config.sh"
+# shellcheck source=lib/task.sh
+. "$MMW_ROOT/cli/lib/task.sh"
+
+usage() {
+  cat >&2 <<'EOF'
+用法：
+  mmw dispatch <角色> --brief <文件> [--cwd <目录>]
+      角色：worker | worker-high-risk | planner | investigator
+            | reviewer-gpt | reviewer-claude
+      会写文件的角色（前三个）--cwd 必填
+  mmw skill-path <角色>            派出去那一侧读方法论的路径；宿主自己会送
+                                   到位的输出空
+  mmw task new <slug> [原话]      建 worktree 与分支，输出绝对路径
+  mmw task enter <slug>            输出该 worktree 的绝对路径
+  mmw task cleanup <slug>          删 worktree 与分支（非强制，有改动会失败）
+  mmw doctor                       检查这台机器上跑 mmw 需要的东西
+  mmw init                         在当前仓库生成 .mmw.json，装转发脚本
+EOF
+  return 2
+}
+
+# 角色的产品语义：用哪份花名册、挂哪份方法论、要不要写权限。
+# 这三样两个宿主完全相同，所以留在这里，不进 adapter。
+role_roster() {
+  case "$1" in
+    worker | worker-high-risk) echo "mmw-worker" ;;
+    planner) echo "mmw-planner" ;;
+    investigator) echo "mmw-investigator" ;;
+    reviewer-gpt | reviewer-claude) echo "mmw-reviewer" ;;
+    *) return 1 ;;
+  esac
+}
+
+# 挂哪份方法论。调查者没有——它每次的判据由派它的技能现写进提示词。
+role_skill() {
+  case "$1" in
+    worker | worker-high-risk) echo "mmw-tdd" ;;
+    planner) echo "mmw-planner" ;;
+    reviewer-gpt | reviewer-claude) echo "mmw-reviewer" ;;
+    *) echo "" ;;
+  esac
+}
+
+role_writable() {
+  case "$1" in
+    investigator | reviewer-gpt | reviewer-claude) echo "no" ;;
+    *) echo "yes" ;;
+  esac
+}
+
+cmd_dispatch() {
+  local role="${1:-}"
+  shift || true
+  [ -n "$role" ] || usage
+
+  local roster skill
+  roster="$(role_roster "$role")" || {
+    echo "mmw: 认不出角色 $role" >&2
+    usage
+  }
+  skill="$(role_skill "$role")"
+
+  local brief="" cwd=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --brief) brief="${2:-}"; shift 2 ;;
+      --cwd) cwd="${2:-}"; shift 2 ;;
+      *) echo "mmw: 认不出参数 $1" >&2; usage ;;
+    esac
+  done
+
+  [ -n "$brief" ] || { echo "mmw: dispatch 要 --brief" >&2; usage; }
+  [ -f "$brief" ] || { echo "mmw: brief 文件不存在：$brief" >&2; return 1; }
+  brief="$(cd "$(dirname "$brief")" && pwd)/$(basename "$brief")"
+
+  local writable
+  writable="$(role_writable "$role")"
+  # 会写文件的角色必须显式指定工作目录：它要待在自己那棵 worktree 里，
+  # 默认到仓库根就会写进主工作树。只读角色默认在仓库根，没有这个风险。
+  if [ "$writable" = "yes" ] && [ -z "$cwd" ]; then
+    echo "mmw: $role 会写文件，--cwd 必填，指向它该待的那棵 worktree" >&2
+    return 1
+  fi
+  [ -n "$cwd" ] || cwd="$(mmw_repo_root)"
+  [ -d "$cwd" ] || { echo "mmw: 工作目录不存在：$cwd" >&2; return 1; }
+  cwd="$(cd "$cwd" && pwd)"
+
+  local host adapter
+  host="$(mmw_host)"
+  adapter="$MMW_ROOT/cli/adapters/$host.sh"
+  [ -f "$adapter" ] || { echo "mmw: 没有 $host 的 adapter" >&2; return 1; }
+
+  export MMW_D_ROLE="$role"
+  export MMW_D_ROSTER="$roster"
+  export MMW_D_SKILL="$skill"
+  export MMW_D_SKILL_PATH=""
+  [ -z "$skill" ] || MMW_D_SKILL_PATH="$MMW_ROOT/skills/$skill/SKILL.md"
+  export MMW_D_FAMILY MMW_D_MODEL_ID MMW_D_EFFORT
+  MMW_D_FAMILY="$(mmw_model_field "$role" family)"
+  MMW_D_MODEL_ID="$(mmw_model_field "$role" id)"
+  MMW_D_EFFORT="$(mmw_model_field "$role" effort)"
+  export MMW_D_BRIEF="$brief"
+  export MMW_D_CWD="$cwd"
+  export MMW_D_WRITABLE="$writable"
+
+  # 可写任务派出去之前工作区必须干净，否则工人的提交里会混进别人的改动。
+  if [ "$MMW_D_WRITABLE" = "yes" ] && [ -n "$(git -C "$cwd" status --porcelain)" ]; then
+    echo "mmw: $cwd 工作区不干净，可写任务不派" >&2
+    git -C "$cwd" status --short >&2
+    return 1
+  fi
+
+  # shellcheck source=/dev/null
+  . "$adapter"
+  mmw_adapter_dispatch
+}
+
+# 派出去的那一侧从哪个路径读方法论。宿主自己会送到位的，什么都不输出。
+cmd_skill_path() {
+  local role="${1:-}"
+  [ -n "$role" ] || usage
+  role_roster "$role" >/dev/null || {
+    echo "mmw: 认不出角色 $role" >&2
+    usage
+  }
+  local skill
+  skill="$(role_skill "$role")"
+  [ -n "$skill" ] || return 0
+
+  local host adapter
+  host="$(mmw_host)"
+  adapter="$MMW_ROOT/cli/adapters/$host.sh"
+  [ -f "$adapter" ] || { echo "mmw: 没有 $host 的 adapter" >&2; return 1; }
+  # shellcheck source=/dev/null
+  . "$adapter"
+  mmw_adapter_skill_path "$skill" "$(mmw_model_field "$role" family)"
+}
+
+cmd_task() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    new) mmw_task_new "$@" ;;
+    enter) mmw_task_enter "$@" ;;
+    cleanup) mmw_task_cleanup "$@" ;;
+    *) usage ;;
+  esac
+}
+
+cmd_doctor() {
+  local host status=0
+  echo "CLI      : ${BASH_SOURCE[0]} -> $MMW_ROOT"
+  if host="$(mmw_host 2>/dev/null)"; then
+    echo "宿主     : $host"
+  else
+    echo "宿主     : 认不出（CLAUDECODE 与 PI_CODING_AGENT 都没设）"
+    status=1
+  fi
+  if git rev-parse --show-toplevel >/dev/null 2>&1; then
+    echo "仓库     : $(mmw_repo_root)"
+    if [ -f "$(mmw_config_path)" ]; then
+      echo "配置     : $(mmw_config_path)"
+    else
+      echo "配置     : 缺 .mmw.json，跑 mmw init"
+      status=1
+    fi
+  else
+    echo "仓库     : 当前目录不在 git 仓库里"
+    status=1
+  fi
+  command -v jq >/dev/null && echo "jq       : $(command -v jq)" || { echo "jq       : 没装"; status=1; }
+  command -v gh >/dev/null && echo "gh       : $(command -v gh)" || { echo "gh       : 没装"; status=1; }
+  if [ "${host:-}" = "claude-code" ]; then
+    command -v codex >/dev/null \
+      && echo "codex    : $(command -v codex)" \
+      || { echo "codex    : 没装（这个宿主派 GPT 要它）"; status=1; }
+    local agent_skills="${CODEX_HOME:-$HOME/.codex}/skills"
+    if [ -e "$agent_skills/mmw-reviewer" ]; then
+      echo "方法论   : 已装进 $agent_skills"
+    else
+      echo "方法论   : 没装，跑 mmw/skills/mmw-dispatching-agents/install-agent-skills.sh"
+      status=1
+    fi
+  elif [ "${host:-}" = "pi" ]; then
+    command -v claude >/dev/null \
+      && echo "claude   : $(command -v claude)（pi 派 Claude 靠它桥接）" \
+      || { echo "claude   : 没装（pi 派 Claude 要它）"; status=1; }
+    echo "方法论   : 走 subagent 的 skill 参数，不用安装"
+  fi
+  return $status
+}
+
+cmd_init() {
+  local root config
+  root="$(mmw_repo_root)"
+  config="$root/.mmw.json"
+
+  if [ -f "$config" ]; then
+    echo "已有 $config，不覆盖"
+  else
+    cp "$MMW_ROOT/cli/mmw.default.json" "$config"
+    echo "已生成 $config"
+  fi
+
+  local bin="$HOME/.local/bin/mmw"
+  if [ -x "$bin" ]; then
+    echo "已有 $bin"
+  else
+    mkdir -p "$(dirname "$bin")"
+    cat > "$bin" <<'FORWARD'
+#!/usr/bin/env bash
+# mmw 转发脚本。先看当前 git 树里有没有 CLI——mmw 是自己开发自己的，任务
+# worktree 里改了 CLI 要能自测；没有再回退主仓库那份。
+set -euo pipefail
+root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -n "$root" ] && [ -x "$root/mmw/cli/mmw" ]; then
+  exec "$root/mmw/cli/mmw" "$@"
+fi
+exec "$HOME/multi-model-workflow/mmw/cli/mmw" "$@"
+FORWARD
+    chmod +x "$bin"
+    echo "已装 $bin"
+  fi
+
+  cat <<'NOTE'
+
+还有两件要改宿主的全局配置，不替你动，确认后自己加：
+  Claude Code  ~/.claude/settings.json 的 permissions.allow 加 "Bash(mmw:*)"
+  pi           无沙箱，不用加
+NOTE
+}
+
+case "${1:-}" in
+  dispatch) shift; cmd_dispatch "$@" ;;
+  skill-path) shift; cmd_skill_path "$@" ;;
+  task) shift; cmd_task "$@" ;;
+  doctor) shift; cmd_doctor "$@" ;;
+  init) shift; cmd_init "$@" ;;
+  *) usage ;;
+esac

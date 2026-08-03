@@ -1,11 +1,11 @@
 ---
 name: mmw-implement
-description: 把定好的需求实现成代码。用户说要开始实现、做下一张 ticket、把这张 issue 做掉时用它；别的技能判定某张 ticket 已是 ready-for-agent、可以开工时也用它。一张 ticket 派一个 Codex headless 工人在任务 worktree 里写，验收之后发起终审。
+description: 把定好的需求实现成代码。用户说要开始实现、做下一张 ticket、把这张 issue 做掉时用它；别的技能判定某张 ticket 已是 ready-for-agent、可以开工时也用它。一张 ticket 派一个写码工人在任务 worktree 里写，验收之后发起终审。
 ---
 
 把 spec 和它的 ticket 描述的需求实现出来。spec 已定稿，seam 已谈定；本技能执行那份计划，不重开它。
 
-**你不写代码。** 每张 ticket 交给一个 Codex headless 工人。你的职责是准备 brief、派发、验收、发起审查。
+**你不写代码。** 每张 ticket 交给一个写码工人。你的职责是准备 brief、派发、验收、发起审查。
 
 ## 流程
 
@@ -46,7 +46,7 @@ description: 把定好的需求实现成代码。用户说要开始实现、做�
 
 **先记下当前提交号**（`git rev-parse HEAD`）。
 
-然后按 `/mmw-dispatching-agents` 派。用可写 sandbox，并且首次派发之前工作区必须干净。模型档从 `docs/agents/models.md` 取——ticket 碰计费、权限或数据迁移时用高风险档。这个判断归你，不归工人。
+然后按 `/mmw-dispatching-agents` 派 `worker` 角色，`--cwd` 给这棵任务 worktree 的路径。ticket 碰计费、权限或数据迁移时改派 `worker-high-risk`。**这个判断归你，不归工人。**
 
 ### 5. 验收：亲手验证三关
 

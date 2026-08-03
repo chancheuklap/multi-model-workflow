@@ -58,7 +58,7 @@ description: 把「去查清楚」派出去——查这个仓库的现状，或�
 
 ## 4. 派发
 
-按 `/mmw-dispatching-agents` 派，**只读沙箱**。模型档从 `docs/agents/models.md` 取。题目之间互不依赖，一条消息里全部并行发出去。
+按 `/mmw-dispatching-agents` 派 `investigator` 角色，它是只读的。题目之间互不依赖，一条消息里全部并行发出去。
 
 ## 5. 过滤
 
