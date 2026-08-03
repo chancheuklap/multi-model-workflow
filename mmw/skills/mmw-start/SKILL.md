@@ -1,46 +1,64 @@
 ---
 name: mmw-start
-description: 开一个任务：起名、建工作树、写状态、进去。改一处已知的地方，需求前面加 fix。
-argument-hint: "[fix] <需求>"
-disable-model-invocation: true
+description: 多模型工作流的入口——判定这次的任务走哪条路，定 slug，建 worktree 并进去，把用户原话记进第一个提交，然后移交给对应技能。用户开始一件新任务、提一个新需求、报一个 issue 编号、说要接着做某张 map、说有东西坏了、或者只说要开工时用它；没有交代任何内容时，它报当前任务的进度。
+argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 ---
 
-用户输入了这条命令，就是要把一件事立成任务。$ARGUMENTS 是他这次要做的事。
+本技能只做路由，这次任务本身一个字都不实现。
 
-先把任务建起来，再往下细谈。建树之前谈的内容没有地方存放，关掉会话就全部丢失。
+本次输入：`$ARGUMENTS`
 
-## 步骤
+这一栏为空、用户也没有在对话里交代要做什么，走 [resuming.md](resuming.md)。已经在一个任务 worktree 里的，同样走 [resuming.md](resuming.md)。
 
-1. **看开头是不是 `fix`。**是，那个词后面的内容才是需求，这件事走短路径；不是，整串都是需求，走主干。用户没写 `fix` 就按没写处理，这件事是大是小不由你替他判断。
+## 1. 判定路线
 
-2. **起一个任务名。**动作加对象，全小写，短横线连写，例如 `fix-payment-retry`、`add-oauth-login`。名字要具体到隔一个月还能认出是哪件事——`update`、`refactor`、`task-1` 认不出来。
+读用户说的内容，加上他在开头挂的标签。有标签就直接用，不要再推断。
 
-3. **把任务名告诉用户，等他修改或确认。**这个名字会写进分支名和目录名，建完工作树再改就得删掉重建。
+| 情况 | 下一步 |
+| --- | --- |
+| 一张 map 的编号或链接，或者他说要接着做某张 map | **移交**：`/mmw-wayfinder` |
+| 一个 issue 编号，带着某个 `wayfinder:` 类型标签——那是一张 map 上的一条 decision ticket | **移交**：`/mmw-wayfinder` |
+| 一个 issue 编号，挂在一张带 `wayfinder:map` 标签的 issue 底下、自己不带 `wayfinder:` 标签——那是收尾时切出来的一份 spec | **移交**：`/mmw-to-spec` |
+| 一个 issue 或 PR 编号，上面还没有状态角色 | **移交**：`/mmw-triage` |
+| 一个 issue 编号，已是 `ready-for-agent`，brief 写明 `**Test seam:**`，而且只碰一处 | **移交**：`/mmw-implement` |
+| 有东西坏了、报错、跑不通、变慢了，或者挂了 `bug` | **移交**：`/mmw-diagnosing-bugs` |
+| 一个 effort，还不知道要拆成哪几份 spec，或者挂了 `big` | **移交**：`/mmw-wayfinder` |
+| 想先看看某个界面长什么样，或者不确定一套状态模型对不对 | **移交**：`/mmw-prototype` |
+| 只要一条查得清的事实，比如某个库或某个外部接口的官方说法 | **移交**：`/mmw-research`，跳过第 2、3 步 |
+| 一个新需求，或对已有需求的改进 | **移交**：`/mmw-grilling` |
+| 没有具体需求，只说想让代码库更好维护 | **移交**：`/mmw-improve-codebase-architecture`，跳过第 2、3 步 |
+| 几条并行分支要合到一起，或者合并冲突要解 | **移交**：`/mmw-review` 的 ⑥ 合并集成审，跳过第 2、3 步 |
 
-4. **建工作树。**执行下面这条命令。最后一个参数：开头是 `fix` 填 `mmw-fix`，不是填 `mmw-wayfind`。
+**先做原型还是先谈清楚**：他要的是先看见一个能跑的东西，走 `/mmw-prototype`；他要的是先把这件事说清楚，走 `/mmw-grilling`。分不出来时走 `/mmw-grilling`。
 
-   ```bash
-   bash ~/.mmw/scripts/task.sh new <任务名> <mmw-fix 或 mmw-wayfind>
-   ```
+**effort 怎么认**：判据是这件事要拆成几份 spec。一份 spec 说得完、拆出的 ticket 都挂在这份 spec 底下，走 `/mmw-grilling`。要好几份 spec 才做得完，而且哪几份、按什么顺序都还没有答案，才是 `/mmw-wayfinder`。
 
-   它一次建好工作树和 `.mmw/` 下的状态文件，然后打印四行 `键=值`：`TASK=`、`WORKTREE=`、`BASE=`、`PHASE=`。
+带 issue 编号的，先按 `docs/agents/issue-tracker.md` 把这张 issue 读出来再判，不要只看编号；标签的含义见 `docs/agents/triage-labels.md`。
 
-5. **进入工作树。**调用 `EnterWorktree({ path: "<上一步 WORKTREE= 后面那段>" })`。这个任务往后每一步都在工作树里进行，状态、代码、旁路记录都存放在那里；留在主仓库的话，下一份技能读不到状态。
+## 2. 定 slug
 
-6. **把用户的原话写进状态。**打开工作树里的 `.mmw/task.json`，把 $ARGUMENTS 整串原样填进 `note` 字段——开头那个 `fix` 也保留，这里存的是他输入了什么，不是需求本身。这句话没有别的地方可存，下次新开会话时，`/mmw` 就是靠它告诉用户这个任务在做什么。
+形状是 `<类型>-<短语>`，例如 `feat-phone-login`、`fix-refund-rounding`。类型取自第 1 步的判定结果：走 `/mmw-diagnosing-bugs` 的用 `fix`，新需求和先做原型的用 `feat`。完整规则在 `docs/agents/worktrees.md`。
 
-7. **继续。**开头是 `fix` 就读 `mmw-fix`，不是就读 `mmw-wayfind`。
+**下面四种情况跳过这一步**，第 3 步也一并跳过：
 
----
+- 用户报的是一张已有 map 的编号或链接。slug 由 `/mmw-wayfinder` 定。
+- 判定走 `/mmw-improve-codebase-architecture`。slug 由它定，类型固定用 `refactor`。
+- 判定走 `/mmw-research`。
+- 判定走 `/mmw-review` 的 ⑥ 合并集成审。
 
-## 线下 · 不是技能内容
+## 3. 建 worktree、进去、记原话
 
-**脚本为什么写 `~/.mmw/scripts/`**：安装脚本把仓库的 `scripts/` 软链到那里，四家宿主一个写法，产品层的技能因此不用出现任何一家的目录名。不能用宿主的插件根占位符——技能是软链进宿主的个人技能目录的，那不是插件组件，占位符在那里不会被替换。旧插件那段读 `installed_plugins.json` 找激活安装位的定位块同样不搬。
+按 `docs/agents/worktrees.md` 建 worktree、用 `EnterWorktree` 进去，然后打那个记原话的空提交。
 
-**`fix` 只决定路由，不是一套预设的阶段序列**：带了就落 `mmw-fix`、往下按那一份走；没带就落探路、走主干。后面每一步照样靠用户敲命令走。
+从主线开新任务；这次任务是从一张 `/mmw-wayfinder` 的 map 派生出来的，就从那张 map 的分支分叉。
 
-**补全提示只放占位符**：`[]` 可选、`<>` 必填，照官方示例与本机在跑的技能（`impeccable`、`save-x-article`）的形状写，不往里塞说明句。`fix` 是什么意思写在 `description` 里——这一份 `disable-model-invocation`，它的 `description` 不进模型上下文，就是给用户看的那一行。
+报一句你定的 slug 和你要走的路线，然后接着做，不用停下来等用户确认。
 
-**来源**：`plugin/scripts/prepare.sh`（315 行）——建工作树、从当前 HEAD 分叉、回执点名 `EnterWorktree` 照它；它第 8 行「路由由 LLM 当场判，不在本脚本」与这里脚本只校验拼写的分工一致。`fix` 这一层对应旧插件 `routes.json` 里 `develop` 与 `bug` / `small-change` 的分界，只取「一开始就分开」这一点；旧的两个场景在新插件里并成一条。
+**第 2 步列出的那四条路线，这一步同样跳过**，留在主仓库直接移交。一个会话只能进一次 worktree，在这里替它们建了，它们就没法再进自己那棵。
 
-**没搬的**：入口能力判定那六种治理能力与「须给用户原话当证据」——敲了这个命令就是要用；三十九字段任务档案；场景预设的阶段序列与强制走完。
+## 下一步
+
+| 情况 | 下一步 |
+| --- | --- |
+| 第 1 步判出了路线 | **移交**：调起第 1 步判出的那个技能，把用户原话原样传过去 |
+| 第 1 步那张表哪一行都对不上，或者同时对上互相冲突的两行 | **停**：把你认为可能的那两三条路线连同各自的判据摆给用户，让他点一条。不要挑一条最像的就往下走 |
