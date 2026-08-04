@@ -20,7 +20,7 @@
     "./skills/mmw-closing",
     "./skills/mmw-codebase-design",
     "./skills/mmw-diagnosing-bugs",
-    "./skills/mmw-dispatching-agents",
+    "./skills-claude-code/mmw-dispatching-agents",
     "./skills/mmw-domain-modeling",
     "./skills/mmw-grilling",
     "./skills/mmw-implement",

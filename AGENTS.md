@@ -47,7 +47,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - Claude Code 的 GPT 角色通过后台 Bash 执行 Codex CLI；Claude 角色通过后台 Agent 工具执行。这个宿主只接 claude 与 gpt 两个模型族。派发走 `mmw dispatch`，由 adapter 写出工具参数。
 - Pi / Cursor 的全部角色走宿主原生 subagent。型号、思考档、`async`、`context`、`skill` 物化在 agent frontmatter（`mmw agents materialize`）。**运行时主 agent 直调原生工具**，只传 agent 名、task（brief 全文）、可写时的 cwd；不经 `mmw dispatch` 转发。可写角色派前跑 `mmw agents guard`。
 - 模型分配默认各宿主相同。某个宿主接不了基线模型时，在 `.mmw.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。
-- 流程技能只写「按 `/mmw-dispatching-agents` 派 `<角色>`」，不写型号、不写宿主工具名。宿主分支与调用形状只写在 `/mmw-dispatching-agents`。
+- 流程技能只写「按 `/mmw-dispatching-agents` 派 `<角色>`」，不写型号、不写宿主工具名。**派发技能正文按发布面写死**：Pi 包与 Cursor 安装面用 `mmw/skills/mmw-dispatching-agents`（只直调原生 agent）；Claude Code 用 `mmw/skills-claude-code/mmw-dispatching-agents`（只 `mmw dispatch`）。同一技能名，两套正文，安装哪面就只看见哪套，禁止在一份正文里让 agent 按宿主二选一。
 - 运行时不得探测、调用或回退到归档插件。
 
 ## 修改规则
