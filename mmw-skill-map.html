@@ -430,12 +430,12 @@ flowchart LR
 
 subgraph SETUP["前置"]
   direction TB
-  set(["<b>mmw init</b><br/>· 铺 .mmw.json 与 TESTING.md 骨架<br/>· 建标签、加忽略规则、装方法论<br/>· 往 CLAUDE.md 加指针节<br/>· 每个仓库跑一次，幂等"])
+  set(["<b>mmw init</b><br/>· 铺 .mmw.json 与 TESTING.md 骨架<br/>· 建标签、加忽略规则、装宿主运行面<br/>· 往 AGENTS.md 或 CLAUDE.md 加指针节<br/>· 每个仓库跑一次，幂等"])
   subgraph CLIBOX["mmw · 技能写判据，它做动作"]
     direction TB
     cl1(["<b>mmw task</b><br/>new / enter / cleanup"])
     cl2(["<b>mmw issue</b><br/>create / frontier / children<br/>claim / link"])
-    cl3(["<b>mmw dispatch</b><br/>六个角色；模型、档位、护栏<br/>由角色决定，宿主差异关在 adapter"])
+    cl3(["<b>宿主角色入口</b><br/>Codex：后台任务或原生 subagent<br/>Pi：原生 subagent<br/>Claude Code：mmw dispatch"])
     cl4(["<b>mmw domain</b><br/>path / dirs / adr-next"])
     cl5(["<b>mmw wiki</b><br/>ensure / nav / verify"])
     cl6(["<b>mmw skill-path</b><br/>方法论在派出去那一侧的路径"])
@@ -444,7 +444,7 @@ subgraph SETUP["前置"]
   cfg[/"<b>.mmw.json</b> · 仓库根<br/>· 模型档 · 标签清单<br/>· 路径 · 领域文档落点<br/>· 技能不硬编码，一律跑 mmw 查"/]
 end
 
-  mms(["<b>mmw-start</b><br/>· 按十二条判据判路线<br/>· 定 slug<br/>· 建 worktree 并进去<br/>· 空提交记下用户原话"])
+  mms(["<b>mmw-start</b><br/>· 按十二条判据判路线<br/>· 定 slug<br/>· Codex 绑定 App 已分配的 detached worktree<br/>· 空提交记下用户原话"])
 
 subgraph MAIN["主干 · 从想法到落地"]
   direction LR
@@ -452,7 +452,7 @@ subgraph MAIN["主干 · 从想法到落地"]
   pro[["<b>mmw-prototype</b><br/>· 一轮只回答一个问题<br/>· 四条 branch，前三条验我们要写的<br/>· 第四条验外部系统<br/>· 产物是资产，不是一次性代码"]]
   tsp[["<b>mmw-to-spec</b><br/>· 七条入口各自取齐上游产物<br/>· seam 在这里钉死<br/>· 用户点头之后才发布"]]
   ttk[["<b>mmw-to-tickets</b><br/>· 切成 tracer bullet<br/>· 正文只留摘要<br/>· ## Plan 一节先占住 plan 路径<br/>· 清单亮完就走"]]
-  imp[["<b>mmw-implement</b><br/>· 一张 ticket 派一个 headless worker<br/>· 每份走 ③ 逐份验收三关<br/>· 全部合并后走 ④ 合同门"]]
+  imp[["<b>mmw-implement</b><br/>· 一张 ticket 派一个可写 worker<br/>· Codex 用独立后台 Worktree 任务<br/>· 每份走 ③ 逐份验收三关<br/>· 全部合并后走 ④ 合同门"]]
   tdd[("<b>mmw-tdd</b><br/>· red 到 green 的循环<br/>· seam 由 spec 钉死<br/>· 整份由 worker 技能注入，不进 task 正文")]
   pln[["<b>mmw-to-plan</b><br/>· 一张 ticket 一份 plan<br/>· 派 planner 写<br/>· 主 agent 先划跨 plan 合同<br/>· 验证返回，回填精确字段"]]
   pnr[("<b>mmw-planner</b><br/>· 写计划方法论<br/>· planner 进门读它<br/>· 主 agent 不读")]
@@ -472,7 +472,9 @@ end
 
 subgraph VOCAB["跑在别的技能底下"]
   direction TB
-  dsp["<b>启动句物化</b><br/>· 源：[[mmw-launch:角色:cwd]]<br/>· mmw skills materialize<br/>· Pi→subagent / CC→dispatch"]
+  dsp["<b>启动句物化</b><br/>· 源：[[mmw-launch:角色:cwd]]<br/>· mmw skills materialize<br/>· Codex→后台任务或原生 subagent<br/>· Pi→subagent / CC→dispatch"]
+  cdx["<b>Codex App 原生运行面</b><br/>· plugin 提供 skills 与 MCP<br/>· investigator / reviewer 两个只读 agent<br/>· profiles 只保存 GPT model 与 thinking"]
+  cwt["<b>Codex worktree 合同</b><br/>· 用户创建 detached 主任务<br/>· 确认范围后绑定 codex/&lt;slug&gt;<br/>· 后台结果验证分支、HEAD SHA 与基点"]
   vfy["<b>mmw-verifying-agent-output</b><br/>· 关键断言都要有出处<br/>· 取证可以派，判定不可以"]
   dmo["<b>mmw-domain-modeling</b><br/>· 唯一往仓库写领域文档的技能<br/>· 落点跑 mmw domain path 取"]
   cbd["<b>mmw-codebase-design</b><br/>· module · interface · seam<br/>· adapter · depth<br/>· 加 DESIGN-IT-TWICE"]
@@ -564,10 +566,13 @@ pln ==>|"发起 ② plan 审，两个视角"| crv
 crv ==>|"派出去的审查者都读这一份"| rvr
 pln ==>|"派出去的 planner 都读这一份"| pnr
 
-mms -.->|"建 worktree"| cl1
+mms -.->|"Claude Code / Pi 建 worktree"| cl1
+mms -.->|"Codex 绑定当前 worktree"| cwt
 imp -.->|"取 frontier 上的 ticket"| cl2
 clo -.->|"Wiki 与三条验证"| cl5
-dsp -.->|"物化进 skills-pi / skills-claude-code"| cl3
+dsp -.->|"物化进 skills-pi / skills-claude-code / Codex plugin"| cl3
+dsp -.->|"Codex profile 与安装面"| cdx
+cdx -.->|"可写任务交接"| cwt
 imp ==>|"四栏 task + 宿主写死启动句"| dsp
 dsp ==>|"交回报告<br/>绝不原样转发"| vfy
 vfy ==>|"验证过出处才采信"| crv
@@ -596,7 +601,7 @@ classDef hIca fill:#E4EDF0,stroke:#7E22CE,stroke-width:2.4px,color:#14282C;
 class wgs,hof user;
 class cbd,tdd,crv,dbg,imp,pro,res,ttk,tsp,rvr,pln,pnr,clo model;
 class trk,oos,pta,wik art;
-class dsp,vfy hOwn;
+class dsp,vfy,cdx,cwt hOwn;
 class cl1,cl2,cl3,cl4,cl5,cl6,cl7 hSetCli;
 class shp term;
 class set hSetCli;
@@ -715,7 +720,7 @@ linkStyle 72 stroke:#15803D,color:#15803D,stroke-width:1.8px;
 <pre class="mermaid">%%{init: {"theme":"base","themeVariables":{"background":"#FAFAF8","primaryColor":"#FBF2E4","primaryTextColor":"#20262B","primaryBorderColor":"#8A9490","lineColor":"#8A9490","secondaryColor":"#E4EDF0","tertiaryColor":"#FFFFFF","fontSize":"13.5px","fontFamily":"-apple-system, PingFang SC, Helvetica, sans-serif","edgeLabelBackground":"#FAFAF8","clusterBkg":"#F2F2EE","clusterBorder":"#CBCFC9","titleColor":"#4E5A55","nodeTextColor":"#20262B"},"flowchart":{"curve":"basis","nodeSpacing":30,"rankSpacing":54,"padding":9,"useMaxWidth":false}}%%
 flowchart TB
 
-ent["mmw-start 判定这是一个 effort<br/>建 wayfinder worktree，用一个空提交记下用户原话"]
+ent["mmw-start 判定这是一个 effort<br/>Codex 绑定 App 已创建的 detached worktree<br/>用一个空提交记下用户原话"]
 
 subgraph PA["A 段 · 一个会话建 map · 建完就停，一张 ticket 都不亲手解"]
 direction TB
@@ -735,14 +740,14 @@ direction TB
   b1["读一遍 map，只看整体，不逐个打开 ticket"]
   b0{"frontier 上<br/>还有 ticket 吗？"}
   b2["挑一张没有阻塞、也没人认领的"]
-  b3["先指派给自己，再从 map 分支分叉出这条链的 worktree"]
+  b3["先指派给自己；Codex 从 map 分支创建独立 Worktree 任务并绑定任务分支"]
   b4{"这张是哪一类？"}
   b5["把答案写成结案评论，然后关掉这张 ticket"]
   b6{"这个决定难以回退，<br/>而且真有取舍吗？"}
   b7["回头改 map。<br/>新问题先建 ticket 再连阻塞关系，<br/>判出范围的直接关掉"]
   b8{"这张解开之后，下一张<br/>出现在 frontier 上、没人认领吗？"}
   b8b{"那一张是 HITL 还是 AFK？<br/>按 wayfinder: 标签判"}
-  b9["这条链收尾：草稿 ADR 改成正式编号，<br/>链分支合回 map 分支，再查一次 frontier"]
+  b9["这条链收尾：草稿 ADR 改成正式编号，<br/>交回分支与 HEAD SHA；map 任务验证后合并，再查 frontier"]
 end
 
 hB(["停，交回用户<br/>报这条链做完了，frontier 上还剩几张可以认领"])
@@ -759,7 +764,7 @@ direction TB
   hT(["停，交回用户<br/>给一份精确的操作清单，等他做完再继续"])
 end
 
-subgraph PC["C 段 · 收尾 · frontier 空了就地进入，不用另开会话"]
+subgraph PC["C 段 · 收尾 · frontier 空了后由 map 任务统一收口"]
 direction TB
   c1["把 map 上还没说清楚的条目，列给用户看"]
   c2{"里面还有会挡住<br/>后续工作的吗？"}
@@ -772,11 +777,11 @@ hC(["停，交回用户<br/>报派生了哪几份 spec，各开一个会话去�
 
 subgraph PD["D 段 · 每份 spec 各自的会话"]
 direction TB
-  d1["从 map 分支分叉出这份 spec 的 worktree"]
+  d1["Codex 从 map 分支创建这份 spec 的 Worktree 任务并绑定任务分支"]
   d2["mmw-to-spec 综合成 spec，钉住 seam。<br/>用户点头是全程唯一一道人工审批关卡"]
   d3["mmw-to-tickets 切 tracer bullet"]
-  d4[["mmw-implement，一张 ticket 派一个 Codex headless 工人"]]
-  d5[["mmw-review，Claude 与 Codex 分路审"]]
+  d4[["mmw-implement，一张 ticket 创建一个 Codex 后台 Worktree 任务"]]
+  d5[["mmw-review，每个视角派独立的只读 reviewer subagent"]]
   d6["spec 分支合回 map 分支"]
   d7["整个 effort 收尾，map 分支合回主线"]
 end
