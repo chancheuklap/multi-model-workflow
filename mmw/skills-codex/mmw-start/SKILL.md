@@ -1,6 +1,6 @@
 ---
 name: mmw-start
-description: MMW 开发工作流的入口——判定这次的任务走哪条路，绑定 Codex App 已创建的 worktree 再移交。用户开始一件新任务、提一个新需求、报一个 issue 编号、说要接着做某张 map、说有东西坏了、或者只说要开工时用它；什么都没交代时它报当前进度。
+description: 多模型工作流的入口——判定这次的任务走哪条路，建立任务 worktree 再移交。用户开始一件新任务、提一个新需求、报一个 issue 编号、说要接着做某张 map、说有东西坏了、或者只说要开工时用它；什么都没交代时它报当前进度。
 argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 ---
 
@@ -8,7 +8,9 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 本次输入：`$ARGUMENTS`
 
-这一栏为空、用户也没有在对话里交代要做什么，走 [resuming.md](resuming.md)。已经在一个任务 worktree 里的，同样走 [resuming.md](resuming.md)。
+这一栏为空、用户也没有在对话里交代要做什么，走 [resuming.md](resuming.md)。
+
+有输入时先运行 `mmw task state`。只有输出以 `bound` 开头，才走 [resuming.md](resuming.md)。`detached` 表示宿主已经准备好 worktree，但 MMW 尚未绑定任务；这时继续判定路线和 slug。
 
 ## 1. 判定路线
 
@@ -27,7 +29,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 | 只要一条查得清的事实，比如某个库或某个外部接口的官方说法 | **移交**：`$mmw:mmw-research`，跳过第 2、3 步 |
 | 一个新需求，或对已有需求的改进 | **移交**：`$mmw:mmw-grilling` |
 | 没有具体需求，只说想让代码库更好维护 | **移交**：`$mmw:mmw-improve-codebase-architecture`，跳过第 2、3 步 |
-| 几条并行分支要集成到本轮目标分支，某条分支要跟上已经推进的目标分支，或者手上有一个正在进行中的冲突 | **移交**：`$mmw:mmw-integrate` |
+| 几条并行分支要集成到当前目标分支，某条分支要跟上已经推进的目标分支，或者手上有一个正在进行中的冲突 | **移交**：`$mmw:mmw-integrate`，跳过第 2、3 步 |
 
 **先做原型还是先谈清楚**：他要的是先看见一个能跑的东西，走 `$mmw:mmw-prototype`；他要的是先把这件事说清楚，走 `$mmw:mmw-grilling`。分不出来时走 `$mmw:mmw-grilling`。
 
@@ -51,31 +53,30 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 类型取自第 1 步的判定结果：走 `$mmw:mmw-diagnosing-bugs` 的用 `fix`，新需求和先做原型的用 `feat`。类型同时约束范围——一个 `fix` 里混进新功能，说明当初的类型定错了，或者这次改动该拆成两个。
 
-**一个 slug 贯穿四处**：分支名 `codex/<slug>`、`docs/specs/<slug>/`、这个目录里的主文件 `<slug>.md`、Wiki 上的 `Spec-<slug>.md`。Codex App 自己决定 managed worktree 的物理目录名；MMW 不从该目录名识别任务。
+**一个 slug 贯穿四处**：任务分支名、`docs/specs/<slug>/`、这个目录里的主文件 `<slug>.md`、Wiki 上的 `Spec-<slug>.md`。worktree 的物理目录由宿主管理，不参与任务识别。
 
-类型前缀用连字符，不用斜杠；分支的斜杠只来自固定前缀 `codex/`。slug 不带 issue 编号、不带日期。同名冲突时加一个区分词，不加序号。
+slug 的类型前缀用连字符。不带 issue 编号，不带日期。同名冲突时加一个区分词，不加序号。宿主可以在分支名前增加固定命名空间；该命名空间不属于 slug。
 
-**下面三种情况跳过这一步**，第 3 步也一并跳过：
+**下面四种情况跳过这一步**，第 3 步也一并跳过：
 
 - 用户报的是一张已有 map 的编号或链接。slug 由 `$mmw:mmw-wayfinder` 定。
 - 判定走 `$mmw:mmw-improve-codebase-architecture`。slug 由它定，类型固定用 `refactor`。
 - 判定走 `$mmw:mmw-research`。
+- 判定走 `$mmw:mmw-integrate`。它使用当前目标分支，不新建任务分支。
 
-## 3. 绑定 Codex App 已创建的 worktree
+## 3. 建立任务 worktree
 
-Codex App 在任务创建时已经固定当前 worktree。确认任务范围之前只读，不建分支、不改文件。
+任务 worktree 必须从正确的父分支开始。普通任务使用当前目标分支；从 `$mmw:mmw-wayfinder` map 派生的任务使用 map 分支。父分支不包含任务所需决定时停下，不在错误基点上补提交。
 
-任务范围确认后，先确认当前 checkout 满足三条：它是 linked worktree；`HEAD` 是 detached；`git status --porcelain` 为空。然后运行与本 `SKILL.md` 同目录的 `scripts/bind-current-worktree.sh`：
+Codex App 在任务创建时已经准备好 detached worktree。确认任务范围和父分支后，运行 `mmw task bind codex/<slug> "<用户原话>" --from <父分支或基点 SHA>`。命令必须返回任务分支名和起始提交；当前状态不是 detached、工作区不干净、分支已存在或父分支不正确时停下。
 
-```bash
-bash <本技能目录>/scripts/bind-current-worktree.sh "codex/<slug>" "<用户交代这件事时的原话>"
-```
+**粒度是一份 spec 一棵树。** 这份 spec 拆出的几张 ticket 全在这棵树里按顺序做完，整体合并一次、终审一次、Wiki 写一次。确实能并行的 ticket 从当前这棵树的分支再分叉出去（判据在 `$mmw:mmw-implement`）。**分支可以嵌套，目录不嵌套**——所有 worktree 一律扁平挂在同一个落点下。
 
-脚本只在干净的 detached worktree 上创建分支，并用空提交保存用户原话。分支已经存在、当前 checkout 不是 detached、工作区不干净时，脚本必须失败。
+任务 worktree 在整个任务期间持久，可以跨天，中途不要清理。**新 worktree 不预先创建目录**：`docs/specs/`、`docs/plans/`、`docs/prototypes/` 和 `.reviews/` 都在首次写入时创建。
 
-从 map 派生的任务必须在创建 Codex App 任务时把 `startingState` 选为 map 分支。当前 `HEAD` 不包含 map 分支提交时停下，不能在已经创建的 worktree 里改基点。
+报一句你定的 slug 和你要走的路线，然后接着做，不用停下来等用户确认。
 
-当前任务不是 Codex App worktree 时停下，让用户新建 Worktree 任务。主 agent 不创建替代目录，也不切换当前任务的工作根目录。
+**第 2 步列出的四条路线同样跳过本步**，直接移交。
 
 ## 下一步
 

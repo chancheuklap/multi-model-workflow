@@ -13,7 +13,7 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 | 检查 | 怎么查 |
 | --- | --- |
-| 你在任务 worktree 里 | 当前 checkout 是已绑定 `codex/<slug>` 分支的 linked worktree；不满足就停下，让用户新建 Codex App Worktree 任务并用 `$mmw:mmw-start` 绑定分支 |
+| 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头；不满足就回 `$mmw:mmw-start` 建立或绑定任务 worktree |
 | spec 已定稿并过了人工审批关卡 | `docs/specs/<slug>/<slug>.md` 存在，对应的 spec issue 已发布并带着 `ready-for-agent` |
 | ticket 已发布 | `mmw issue children <spec issue 编号>` 列得出这批 ticket；列不出先跑 `$mmw:mmw-to-tickets` |
 
@@ -53,15 +53,13 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 | 约束 | 只写该 plan 文件；不提交；不认领 `## Cross-Plan Contract Anchors` 划给别人的文件；不写其它 plan 的正文 |
 | 验收 | plan 文件存在且可被抽验；任务包覆盖 ticket `#<编号>` 的验收（详见 issue，不抄正文） |
 
+启动：按名称调用 Codex 原生 subagent `mmw-planner`，task 传四栏表全文；该 subagent 直接使用当前任务 worktree，不创建后台 worktree 任务。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
 
-
-启动：先调用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`；target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型设为 `gpt-5.6-sol`，思考档设为 `high`。把四栏 task 全文作为任务提示，并要求后台任务先用 `$mmw:mmw-start` 的绑定脚本创建独立 `codex/<slug>` 分支，再完整读取 `$mmw:mmw-planner` 后工作。后台任务必须提交改动，并交回分支名、HEAD SHA 与测试结果；`create_thread` 交回 threadId 后，主 agent 用 `wait_threads` 等它完成。如果只交回 clientThreadId，先等 App 完成 worktree 设置，不能把 clientThreadId 传给 `wait_threads`。
-
-互不依赖的 plan：同一条消息里创建多个 Codex App 后台 Worktree 任务。有依赖链：按依赖顺序创建。每个 `planner` 只写自己的 plan、提交自己的分支并交回分支名与 HEAD SHA；主 agent 逐个验证后用 `$mmw:mmw-integrate` 合入当前任务分支。
+互不依赖的 plan：同一条消息里并行启动多个 `planner`。有依赖链：按依赖顺序启动。`planner` 使用当前任务 worktree，不建独立 worktree，不提交。每个 `planner` 只写自己的 plan 文件。
 
 ## 4. 验证返回
 
-每个 `planner` 交回 `pass` 之后，对它声明的事实至少抽验一条再采信：plan 文件真的存在、任务包数量对得上、它引用的 `文件:行号` 引得出来。用读文件和检索验证，不认「我写完了」。
+每个 `planner` 交回 `pass` 之后，对它声明的事实至少抽验一条再采信：plan 文件真的存在、任务包数量对得上、它引用的 `文件:行号` 引得出来。读取文件并检索源码，不认「我写完了」。
 
 失实就把原 task 加上修复说明重派一次。交回 `needs-context`、`needs-repair` 或 `blocked` 的，按它说的补路径或修 spec 之后重派。
 
@@ -77,7 +75,7 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 ## 7. 提交
 
-plan 文档和 spec 的 `## Cross-Plan Contract Anchors` 分两次提交。每个 `planner` 在自己的结果分支提交；主 agent 验证并合入后，再分别提交 plan 文档与合同回填。
+plan 文档和 spec 的 `## Cross-Plan Contract Anchors` 分两次提交。`planner` 不提交，改动一直是未暂存的，由你统一收。
 
 ## 下一步
 

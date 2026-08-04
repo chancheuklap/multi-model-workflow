@@ -40,4 +40,4 @@ destination 每个 effort 各不相同。给它命名是画 map 的第一个动�
 
 **改 map 正文之前先重新拉一次最新的。** GitHub 编辑 issue 正文是整体替换。写完再读一次，确认自己那行在；不在就重来一遍。
 
-**一个会话只进一次 worktree。** 认领一条链和收尾这两个入口，会话先在主仓库里读 map（`gh issue view`）和 map 分支上的文件（`git show <map 分支>:<路径>`），选定这次要做什么，再建自己那棵 worktree 并进去。建这张 map 那个入口没有 map 可读，`/mmw-start` 已经替它建好 map 的 worktree 并进去了，它不再建第二棵。从一棵 worktree 直接跳到另一棵会被拒绝；需要动别的 worktree 时用 `git -C <那棵 worktree 的路径> <git 命令>`，不切会话目录。
+**每个任务只使用自己的 worktree。** map 任务拥有 map 分支；每条链和每份 spec 使用从 map 分支派生的独立任务分支。任务之间只交回分支名、HEAD SHA、基点 SHA 和报告，由拥有目标分支的任务验证并集成。主 agent 不切换到另一个任务的工作目录。

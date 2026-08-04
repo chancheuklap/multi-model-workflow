@@ -6,21 +6,28 @@
       "body": "mmw-worker.md",
       "skill": "mmw-tdd",
       "writable": true,
-      "description": "写码工人。由 mmw-implement 派发，一张 ticket 一个，在已经建好的任务 worktree 里做完它。按 mmw-tdd 做 TDD，逐步本地 commit。不改 docs/、不 push、不扩大 ticket 的范围。"
+      "description": "实现角色。由 mmw-implement 派发，一张 ticket 一个，在指定 worktree 完成实现。按 mmw-tdd 执行 TDD 并提交；不改 docs/，不 push，不扩大 ticket 范围。"
     },
     "worker-high-risk": {
       "agent": "mmw-worker-high-risk",
       "body": "mmw-worker.md",
       "skill": "mmw-tdd",
       "writable": true,
-      "description": "高风险写码工人。由 mmw-implement 在计费、权限、数据迁移等改错不可逆时派发。按 mmw-tdd 做 TDD，逐步本地 commit。不改 docs/、不 push、不扩大 ticket 的范围。"
+      "description": "高风险实现角色。由 mmw-implement 在计费、权限、数据迁移或不可逆改动中派发。按 mmw-tdd 执行 TDD 并提交；不改 docs/，不 push，不扩大 ticket 范围。"
+    },
+    "prototype-worker": {
+      "agent": "mmw-prototype-worker",
+      "body": "mmw-prototype-worker.md",
+      "skill": "",
+      "writable": true,
+      "description": "原型执行者。由 mmw-prototype 派发，在独立 worktree 完成一个指定原型变体。不加载 TDD，不修改正式设计结论，不扩大变体范围。"
     },
     "planner": {
       "agent": "mmw-planner",
       "body": "mmw-planner.md",
       "skill": "mmw-planner",
       "writable": true,
-      "description": "写计划工人。由 mmw-to-plan 派发，一张 ticket 一份 plan 一个工人。按 mmw-planner 技能的方法论把 ticket 拆成实施步骤，只写自己那份 plan 与对应 issue，不改源码。"
+      "description": "计划编写角色。由 mmw-to-plan 派发，一张 ticket 对应一个 planner 和一份 plan。按 mmw-planner 方法论拆出实施步骤；只写指定 plan，不改源码。"
     },
     "investigator": {
       "agent": "mmw-investigator",
@@ -28,6 +35,13 @@
       "skill": "",
       "writable": false,
       "description": "上下文隔离的会话内调查者，只读。由 mmw-research 与 mmw-diagnosing-bugs 派发：一个角度一个，并行。查一个问题的事实，带出处交回，不下判断、不改任何文件。它交回的每条断言由主 agent 验证过才作数。"
+    },
+    "designer": {
+      "agent": "mmw-designer",
+      "body": "mmw-designer.md",
+      "skill": "",
+      "writable": false,
+      "description": "只读 interface 设计者。由 Design It Twice 派发，一个设计约束一个实例。提出 interface、用法与取舍，不修改文件。"
     },
     "reviewer-gpt": {
       "agent": "mmw-reviewer-gpt",

@@ -29,7 +29,7 @@ mmw release where
 
 `stage run` 失败时引擎已经在它内部跑完诊断并分好级了。看 `where`：
 
-- 报 `PAUSED` —— 引擎已经把它拦下来了，读回执，别派修。
+- 报 `PAUSED` —— 引擎已经把它拦下来了，读状态输出，别派修。
 - 报 `RETRY-STAGE` —— 跑一次 `mmw release dispatch --stage <名字>`，让引擎按分级裁决怎么修（findings 它自己从账本读回，你不用管在哪）。
 - `dispatch` 之后 `where` 仍是 `STAGE` 或 `RETRY-STAGE` —— 跑一次 `mmw release round next`，然后回到状态表重跑那个阶段。
 
@@ -50,6 +50,6 @@ mmw release where
 ## 收尾
 
 - `SUCCESS` 不等于口头成功。只有 `mmw release exit-check` 回 `DONE` 才能说安装包就绪，随后 `mmw release close` 收束。
-- 安装包路径只从刚跑完那个阶段的输出或产物记录里读。回执没记路径就如实说「回执没有记安装包路径」，不要按目录约定猜一个。
+- 安装包路径只从刚跑完那个阶段的输出或产物记录里读。状态输出没记路径就如实说「状态输出没有记安装包路径」，不要按目录约定猜一个。
 - `close` 会留下一份交付记录（产品名加出包时的 commit），`/mmw-release` 第 4 步靠它核对几个包是不是同一份代码。**不要手工删它。**
-- `CORRUPT`、`FAILED-STAGE`、`NO-STAGES` 一律不跑下一个阶段、不自动 `resume`。回执里的记录是「已经试过什么」的唯一来源，原样交用户判断。
+- `CORRUPT`、`FAILED-STAGE`、`NO-STAGES` 一律不跑下一个阶段、不自动 `resume`。状态输出里的记录是「已经试过什么」的唯一来源，原样交用户判断。

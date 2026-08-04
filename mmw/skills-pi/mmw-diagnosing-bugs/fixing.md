@@ -24,7 +24,13 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
    | 约束 | 先在 seam 上把 repro 变成失败测试再修；不扩大范围 |
    | 验收 | 新测试红后绿；Phase 1 原始 loop 不再复现 |
 
-   启动：`subagent({ agent: "mmw-worker", task: <四栏表全文>, cwd: <worktree 绝对路径> })`（可写；先确认该 worktree 上 `git status --porcelain` 为空）。
+   派发前确认当前任务分支已经提交且工作区干净。为这次修复确定唯一、完整的结果分支名，并记下 `git rev-parse HEAD` 作为基点。结果分支名和基点 SHA 都要写入 task。
+
+   启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --from <基点 SHA>`，使用命令返回的 worktree 绝对路径作为 cwd。然后调用原生 `subagent`，agent 设为 `mmw-worker`，task 传四栏表全文，cwd 设为该绝对路径。
+
+   `worker` 完成后，先收取结果：
+
+   该角色完成后，运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。命令通过后，从输出取得结果 worktree 路径；在该路径读取报告与 diff，并运行本技能规定的验收。此动作不合入结果分支。
 
 3. `worker` 要跑的循环是：在那个 seam 上把最小化 repro 变成一个失败的测试，看它红，写修复，看它绿。
 
@@ -40,13 +46,17 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 - [ ] 一次性 harness 已删除（或者挪到一个明确标出来的调试位置）
 - [ ] 结果证明成立的那条假设写进了 `worker` 那次提交的信息里，或者由你追加一条评论
 
+五项全部通过后，集成结果：
+
+本技能规定的验收全部通过后，运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。命令成功后，结果提交才算进入当前任务分支。
+
 **然后问：什么本来能防住这个 bug？** 这个建议在修复落地**之后**给，不在之前。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
-| `worker` 交回的修复验收通过，Phase 6 五条全过 | **停**：用业务语言报什么坏了、根因是什么、修成什么样、怎么证明它好了。合并和清理 worktree 由用户批准，他批准后清理跑 `mmw task cleanup <slug>` |
+| `worker` 的修复验收通过、Phase 6 五条全过、结果已集成 | **停**：用业务语言报什么坏了、根因是什么、修成什么样、怎么证明它好了。结果 worktree 由宿主管理，不在这里另行清理 |
 | 复盘的答案牵涉架构改动（没有好的测试 seam、调用方互相缠绕、藏着的耦合） | **移交**：`/mmw-improve-codebase-architecture`，把具体情况带过去当它的扫描方向 |
 | 找不到 correct seam | **移交**：`/mmw-improve-codebase-architecture`，把「找不到 correct seam」这件事带过去当它的扫描方向 |
 | `worker` 卡在 bug 与代码互相矛盾上 | **停**：把矛盾交给用户，不要换一个 `worker` 再派一遍 |

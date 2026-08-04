@@ -37,7 +37,8 @@ mmw <命令> [参数]
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
   skill-path  派出去那一侧读方法论的路径
-  task        任务 worktree：建、进、删
+  task        任务 worktree：查状态、建、绑分支、进、删
+  result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
   wiki        Wiki：clone、重建导航、删本地文档前的验证
   domain      领域文档：落点、下一个 ADR 编号
@@ -47,7 +48,7 @@ mmw <命令> [参数]
   doctor      检查这台机器上跑 mmw 需要的东西（无参：跑一次就是检查）
   init        把当前仓库配置成能跑这套工作流的样子；幂等（无参：跑一次就是配置）
 
-前九条不带参数跑一次，给它自己的用法。doctor 与 init 本来就不收参数，
+除 doctor 与 init 外，各命令不带参数运行时只显示该命令的用法。doctor 与 init 不收参数，
 跑它们就是执行——查它们做什么看上面这两行，不要拿跑一次当查用法。
 EOF
   return 2
@@ -60,15 +61,16 @@ mmw dispatch <角色> --task <文件> [--cwd <目录>]
 角色：
   worker            按一份 plan 写代码
   worker-high-risk  同上，但这块代码错了代价大
+  prototype-worker  做一个指定的原型变体
   planner           按一张 ticket 写一份 plan
   investigator      查一个角度的事实，带出处交回
+  designer          按一个约束提出 interface 方案
   reviewer-gpt      审查，GPT 那一侧
   reviewer-claude   审查，Claude 那一侧
 
 参数：
   --task <文件>   task 四栏表文件，必填（与 Pi 的 task 同一概念）
-  --cwd <目录>    它待着的目录。前三个角色会写文件，必填，指向它那棵 worktree；
-                  只读的三个不给就是仓库根
+  --cwd <目录>    角色的工作目录。会写文件的角色必填；只读角色省略时使用仓库根
 
 模型、档位、护栏由角色决定，取自仓库根 .mmw.json，这里不用管。
 
@@ -82,7 +84,7 @@ usage_skill_path() {
   cat >&2 <<'EOF'
 mmw skill-path <角色>
 
-角色：worker、worker-high-risk、planner、investigator、reviewer-gpt、reviewer-claude
+角色：worker、worker-high-risk、prototype-worker、planner、investigator、designer、reviewer-gpt、reviewer-claude
 
 输出派出去那一侧读方法论的绝对路径，写进给它的提示词里。
 宿主自己会把方法论送到位的角色什么都不输出，那时这句话省掉。
@@ -97,8 +99,21 @@ mmw task new <slug> [原话] [--from <基点>]
     不给 --from 就从当前 HEAD 分叉
 mmw task enter <slug>       输出该 worktree 的绝对路径
 mmw task cleanup <slug>     删 worktree 与分支；非强制，有未提交改动会失败
+mmw task state              输出 outside、local、detached 或 bound
+mmw task bind <完整分支名> <用户原话或任务目标> [--from <预期基点>]
+                            把 detached linked worktree 绑到任务分支；给基点时先校验 HEAD
 
 切进 worktree 只有宿主工具做得到，这条命令只输出路径。
+EOF
+  return 2
+}
+
+usage_result() {
+  cat >&2 <<'EOF'
+mmw result verify <结果分支> <HEAD SHA> <基点 SHA>
+    验证分支、HEAD、基点和新提交，并返回结果 worktree 路径；不改 Git 状态
+mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>
+    先验证，再用 git merge --no-ff 合入当前任务分支
 EOF
   return 2
 }
@@ -373,7 +388,7 @@ cmd_agents() {
 usage_skills() {
   cat >&2 <<'EOF'
 mmw skills materialize --host <pi|claude-code|codex|all> [--check] [--out <目录>]
-    把 skills/ 源里的 [[mmw-launch:…]] 物化成宿主写死的启动句
+    把 skills/ 源里的启动块与宿主动作块物化成宿主写死的操作
     pi → skills-pi/；claude-code → skills-claude-code/；codex → skills-codex/
 EOF
   return 2
@@ -419,6 +434,9 @@ cmd_skill_path() {
 
   local host adapter
   host="$(mmw_host)"
+  if [ "$host" = "codex" ]; then
+    return 0
+  fi
   adapter="$MMW_ROOT/cli/adapters/$host.sh"
   [ -f "$adapter" ] || { echo "mmw: 没有 $host 的 adapter" >&2; return 1; }
   # shellcheck source=/dev/null
@@ -429,17 +447,25 @@ cmd_skill_path() {
 cmd_task() {
   local host
   host="$(mmw_host)" || return 1
-  if [ "$host" = "codex" ]; then
-    echo "mmw: Codex App 负责创建和清理 worktree；当前任务用 /mmw-start 绑定 codex/<slug> 分支" >&2
-    return 1
-  fi
   local sub="${1:-}"
   shift || true
   case "$sub" in
-    new) mmw_task_new "$@" ;;
-    enter) mmw_task_enter "$@" ;;
-    cleanup) mmw_task_cleanup "$@" ;;
+    state) [ $# -eq 0 ] || usage_task; mmw_task_state ;;
+    bind) [ "$host" = "codex" ] || { echo "mmw: task bind 只用于 Codex App 已创建的 detached worktree" >&2; return 1; }; mmw_task_bind "$@" ;;
+    new) [ "$host" != "codex" ] || { echo "mmw: Codex App 负责创建 worktree，这里只用 task bind" >&2; return 1; }; mmw_task_new "$@" ;;
+    enter) [ "$host" != "codex" ] || { echo "mmw: Codex App 任务不切换工作根目录" >&2; return 1; }; mmw_task_enter "$@" ;;
+    cleanup) [ "$host" != "codex" ] || { echo "mmw: Codex App 负责清理 managed worktree" >&2; return 1; }; mmw_task_cleanup "$@" ;;
     *) usage_task ;;
+  esac
+}
+
+cmd_result() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    verify) mmw_result_verify "$@" ;;
+    integrate) mmw_result_integrate "$@" ;;
+    *) usage_result ;;
   esac
 }
 
@@ -596,7 +622,7 @@ cmd_doctor() {
     echo "方法论   : 走 subagent 的 skill 参数，不用安装"
   elif [ "${host:-}" = "codex" ]; then
     if python3 "$MMW_ROOT/codex/runtime.py" check >/dev/null 2>&1; then
-      echo "Codex    : 两个只读 agent 与 mmw 转发脚本已安装"
+      echo "Codex    : 四个原生 subagent 与 mmw 转发脚本已安装"
     else
       echo "Codex    : 运行时未装或过期，跑 python3 $MMW_ROOT/codex/runtime.py install"
       status=1
@@ -697,6 +723,7 @@ case "${1:-}" in
   skills) shift; cmd_skills "$@" ;;
   skill-path) shift; cmd_skill_path "$@" ;;
   task) shift; cmd_task "$@" ;;
+  result) shift; cmd_result "$@" ;;
   issue) shift; cmd_issue "$@" ;;
   wiki) shift; cmd_wiki "$@" ;;
   domain) shift; cmd_domain "$@" ;;

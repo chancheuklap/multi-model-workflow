@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 任务隔离：建 worktree、给出路径、清理。
+# 任务隔离：查状态、建 worktree、绑定分支、给出路径、清理。
 #
 # 切会话工作目录只有宿主工具做得到，脚本做不了。所以 new 与 enter 都只输出路
 # 径，切目录那一步由技能用宿主自己的工具做。
@@ -10,6 +10,150 @@
 # 清理一律用非强制形式：有未合并的改动时 git 自己会失败，那正是要的行为。
 
 set -euo pipefail
+
+mmw_task_state() {
+  if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "outside"
+    return 0
+  fi
+
+  local git_dir common_dir branch head
+  git_dir="$(git rev-parse --path-format=absolute --git-dir)"
+  common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
+  branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  head="$(git rev-parse HEAD)"
+
+  if [ "$git_dir" = "$common_dir" ]; then
+    echo "local ${branch:-detached} ${head}"
+  elif [ -z "$branch" ]; then
+    echo "detached ${head}"
+  else
+    echo "bound ${branch} ${head}"
+  fi
+}
+
+# 把宿主已经创建的 detached linked worktree 绑到任务分支。
+# 用法：mmw_task_bind <完整分支名> <用户原话或任务目标> [--from <预期基点>]
+mmw_task_bind() {
+  local branch="${1:-}" note="${2:-}" from=""
+  shift 2 2>/dev/null || true
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --from)
+        from="${2:-}"
+        [ -n "$from" ] || { echo "mmw: task bind 的 --from 要基点" >&2; return 1; }
+        shift 2
+        ;;
+      *)
+        echo "mmw: task bind 不认识 $1" >&2
+        return 1
+        ;;
+    esac
+  done
+  [ -n "$branch" ] || { echo "mmw: task bind 要完整分支名" >&2; return 1; }
+  [ -n "$note" ] || { echo "mmw: task bind 要用户原话或任务目标" >&2; return 1; }
+  git check-ref-format --branch "$branch" >/dev/null 2>&1 || {
+    echo "mmw: ${branch} 不是合法分支名" >&2
+    return 1
+  }
+  [ "$(mmw_task_state | awk '{print $1}')" = "detached" ] || {
+    echo "mmw: task bind 只能在 detached linked worktree 执行" >&2
+    return 1
+  }
+  [ -z "$(git status --porcelain)" ] || {
+    echo "mmw: 当前 worktree 不干净，不绑定分支" >&2
+    return 1
+  }
+  if git show-ref --verify --quiet "refs/heads/$branch"; then
+    echo "mmw: ${branch} 已存在" >&2
+    return 1
+  fi
+  if [ -n "$from" ]; then
+    git rev-parse --verify --quiet "${from}^{commit}" >/dev/null || {
+      echo "mmw: task bind 的基点无效：${from}" >&2
+      return 1
+    }
+    if [ "$(git rev-parse HEAD)" != "$(git rev-parse "$from")" ]; then
+      echo "mmw: detached worktree 不在预期基点 ${from}" >&2
+      return 1
+    fi
+  fi
+
+  git switch -c "$branch"
+  git commit --allow-empty -q -m "$branch" -m "$note"
+  printf '%s\t%s\n' "$branch" "$(git rev-parse HEAD)"
+}
+
+mmw_result_verify() {
+  local branch="${1:-}" reported_head="${2:-}" base="${3:-}"
+  [ -n "$branch" ] && [ -n "$reported_head" ] && [ -n "$base" ] || {
+    echo "mmw: result verify 要 <结果分支> <HEAD SHA> <基点 SHA>" >&2
+    return 1
+  }
+  git show-ref --verify --quiet "refs/heads/$branch" || {
+    echo "mmw: 结果分支不存在：${branch}" >&2
+    return 1
+  }
+  git rev-parse --verify --quiet "${reported_head}^{commit}" >/dev/null || {
+    echo "mmw: 报告的 HEAD 不是有效提交：${reported_head}" >&2
+    return 1
+  }
+  git rev-parse --verify --quiet "${base}^{commit}" >/dev/null || {
+    echo "mmw: 基点不是有效提交：${base}" >&2
+    return 1
+  }
+
+  local actual_head
+  actual_head="$(git rev-parse "$branch")"
+  [ "$actual_head" = "$(git rev-parse "$reported_head")" ] || {
+    echo "mmw: ${branch} 当前 HEAD ${actual_head} 与报告不一致" >&2
+    return 1
+  }
+  [ "$actual_head" != "$(git rev-parse "$base")" ] || {
+    echo "mmw: ${branch} 没有产生新提交" >&2
+    return 1
+  }
+  git merge-base --is-ancestor "$base" "$actual_head" || {
+    echo "mmw: ${branch} 不是从基点 ${base} 开始" >&2
+    return 1
+  }
+  local worktree_path
+  worktree_path="$(git worktree list --porcelain | awk -v wanted="refs/heads/$branch" '
+    /^worktree / { path = substr($0, 10) }
+    /^branch / && substr($0, 8) == wanted { print path; found = 1; exit }
+    END { if (!found) exit 1 }
+  ')" || {
+    echo "mmw: 找不到 ${branch} 对应的 worktree；先恢复拥有该分支的后台任务" >&2
+    return 1
+  }
+  printf 'verified\t%s\t%s\t%s\t%s\n' \
+    "$branch" "$actual_head" "$(git rev-list --count "${base}..${actual_head}")" "$worktree_path"
+}
+
+mmw_result_integrate() {
+  local branch="${1:-}" reported_head="${2:-}" base="${3:-}"
+  mmw_result_verify "$branch" "$reported_head" "$base" >/dev/null || return 1
+  local target
+  target="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  [ -n "$target" ] || {
+    echo "mmw: result integrate 要求当前 checkout 已绑定目标分支" >&2
+    return 1
+  }
+  [ "$target" != "$branch" ] || {
+    echo "mmw: 结果分支不能与当前目标分支相同：${branch}" >&2
+    return 1
+  }
+  git merge-base --is-ancestor "$base" HEAD || {
+    echo "mmw: 基点 ${base} 不在当前目标分支 ${target} 的历史中" >&2
+    return 1
+  }
+  [ -z "$(git status --porcelain)" ] || {
+    echo "mmw: 当前工作区不干净，不集成结果" >&2
+    return 1
+  }
+  git merge --no-ff --no-edit "$branch"
+  printf 'integrated\t%s\t%s\n' "$branch" "$(git rev-parse HEAD)"
+}
 
 mmw_task_dir() {
   local slug="$1"

@@ -59,12 +59,12 @@ FORWARD
   mmw_init_say "转发脚本 : 已装 $bin"
 }
 
-# Codex 的本机运行面一次装齐：两个只读 agent、指向已安装 plugin 的 mmw 命令，
+# Codex 的本机运行面一次装齐：原生 agent、指向已安装 plugin 的 mmw 命令，
 # 并清掉旧 Claude bridge 的三个技能链接。
 mmw_init_codex_runtime() {
   local out
   if out="$(python3 "$MMW_ROOT/codex/runtime.py" install 2>&1)"; then
-    mmw_init_say "Codex运行时: 已装两个只读 agent 与 mmw 转发脚本；旧 Claude bridge 已检查"
+    mmw_init_say "Codex运行时: 已装四个原生 subagent 与 mmw 转发脚本；旧 Claude bridge 已检查"
     return 0
   fi
   mmw_init_say "Codex运行时: 装不上，原样报出——$(printf '%s' "$out" | tail -5 | tr '\n' ' ')"
@@ -116,15 +116,19 @@ mmw_init_labels() {
   mmw_init_say "标签     : 新建 ${created} 个，已有 ${existed} 个"
 }
 
-# 前四个是随 worktree 死的过程材料。graphify-out 是结构图谱：本机派生物，几十兆，
+# 过程材料随 worktree 存活。graphify-out 是结构图谱：本机派生物，几十兆，
 # 每次改代码都变。漏掉它，第一次建完图那几十兆就跟着下一次提交进了版本库。
 mmw_init_gitignore() {
-  local root file added=0 line
+  local root file added=0 line host
   root="$(mmw_repo_root)"
   file="$root/.gitignore"
+  host="$(mmw_host)" || return 1
   touch "$file"
-  for line in "$(mmw_path_field worktrees)/" "$(mmw_path_field reviews)/" \
-              "$(mmw_path_field release)/" ".dispatch/" "graphify-out/"; do
+  local -a lines=("$(mmw_path_field reviews)/" "$(mmw_path_field release)/" "graphify-out/")
+  if [ "$host" != "codex" ]; then
+    lines+=("$(mmw_path_field worktrees)/" ".dispatch/")
+  fi
+  for line in "${lines[@]}"; do
     if grep -qxF "$line" "$file"; then
       continue
     fi
@@ -132,7 +136,7 @@ mmw_init_gitignore() {
     added=$((added + 1))
   done
   if [ "$added" -eq 0 ]; then
-    mmw_init_say "gitignore: 五行都在"
+    mmw_init_say "gitignore: 所需条目都在"
     return 0
   fi
   mmw_init_say "gitignore: 补了 ${added} 行"
@@ -193,7 +197,7 @@ mmw_init_pointer_body() {
 本仓库使用安装在 Codex App 中的 MMW plugin。MMW 源码仓库只负责维护和发布，不是本仓库的运行目录。
 
 - **当前项目**：Codex App 当前任务打开的 Git 项目。MMW 的技能、命令、检索和发布动作都以当前项目为目标。
-- **worktree**：主任务和可写后台任务都使用 Codex App 创建的 managed worktree。App 设置里的 Worktree root 只控制这些 managed worktree 的全局物理存放位置；它不是 MMW 项目路径，也不读取 `.mmw.json` 的 `paths.worktrees`。确认任务范围后，运行 MMW start 技能提供的绑定脚本创建 `codex/<slug>` 分支。
+- **worktree**：主任务和可写后台任务都使用 Codex App 创建的 managed worktree。App 设置里的 Worktree root 只控制这些 managed worktree 的全局物理存放位置；它不是 MMW 项目路径，也不读取 `.mmw.json` 的 `paths.worktrees`。确认任务范围和父分支后，运行 `mmw task bind codex/<slug> "<用户原话>" --from <父分支或基点 SHA>` 绑定任务分支。
 - **机械动作**：`mmw` 命令来自已安装的 MMW plugin，不从当前项目或 MMW 源码 checkout 加载。不带参数运行一次只列命令；要查看某条命令的参数，就运行该命令但不带参数。`mmw doctor` 与 `mmw init` 本来就不收参数，运行一次就是执行。
 - **项目参数**：仓库根 `.mmw.json` 保存标签、产物路径和领域文档落点。Codex 角色的模型和思考档由已安装 plugin 的 Codex profile 决定，全部使用 Codex 内置 GPT 模型，不读取 `.mmw.json` 的多模型配置。
 - **测试事实**：仓库根 `TESTING.md` 只记录本仓库的测试目录、外部 seam、权威来源和运行命令；测试方法由 MMW plugin 提供。
@@ -342,8 +346,8 @@ NOTE
     codex)
       cat <<'NOTE'
 
-Codex 运行时由已安装的 MMW plugin 加两个只读自定义 agent 组成。
-两个 agent、指向已安装 plugin 的 mmw 命令与旧 Claude bridge 清理已经完成。
+Codex 运行时由已安装的 MMW plugin 和四个原生 subagent 组成。
+四个 subagent、指向已安装 plugin 的 mmw 命令与旧 Claude bridge 清理已经完成。
 NOTE
       ;;
   esac

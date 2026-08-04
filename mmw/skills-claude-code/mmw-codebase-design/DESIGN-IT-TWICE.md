@@ -18,8 +18,9 @@
 
 ### 2. 派 subagent
 
-一个约束一个 subagent，至少三个，并行。每个约束：四栏表（目标=该设计约束下的 interface；读=技术材料路径 + `SKILL.md` + 领域文档路径；约束=只读且与其它变体结构不同；验收=交回 interface/用法/取舍）。
-启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch investigator --task <task 文件绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
+一个约束一个 `designer`，至少三个，并行。每个约束使用四栏表：目标是该设计约束下的 interface；读是技术材料路径、`SKILL.md` 和领域文档路径；约束是只读且与其它变体结构不同；验收是交回 interface、用法和取舍。
+
+启动：把四栏表写入 task 文件，后台执行 `mmw dispatch designer --task <task 文件绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 每个 subagent 须产出**截然不同**的 interface。
 
 每份 task 点名同样的技术材料路径（相关文件、耦合点、[DEEPENING.md](DEEPENING.md)、seam 位置），只有设计约束那一栏不同。task 与第 1 步给用户看的问题空间说明是两回事。

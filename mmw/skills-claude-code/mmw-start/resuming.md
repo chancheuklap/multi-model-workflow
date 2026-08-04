@@ -1,16 +1,12 @@
 # 回来接着做
 
-用户不带内容叫 `/mmw-start`，或者会话已经在一个任务 worktree 里，问的都是同一件事：这个任务现在走到哪一步。
+用户不带内容叫 `/mmw-start`，或者当前 checkout 已绑定任务分支，问的都是同一件事：这个任务现在走到哪一步。
 
 没有状态文件要读。每一步都有一件落在 git 或 GitHub 上的产物对应它，查产物在不在就够了。
 
 ## 有哪些任务在进行
 
-```bash
-git worktree list
-```
-
-`.worktrees/` 下的每一棵都是一个进行中的任务，目录名就是它的 slug。只有一棵就直接查它；有好几棵就把清单连同各自的进度报出来，让用户挑。
+运行 `git worktree list --porcelain`。已绑定分支的 linked worktree 是进行中的任务；分支名按当前宿主的任务命名规则给出 slug。detached worktree 尚未绑定，不替用户猜 slug。只有一项就直接查；有多项就把分支名和进度报给用户选择。
 
 ## 一个任务走到哪一步
 
@@ -21,7 +17,7 @@ git worktree list
 | 当初用户要的是什么 | 分支上第一个提交的正文，也就是那个空提交：`git log --reverse --format='%B' $(git merge-base HEAD <父分支>)..HEAD \| head -20` |
 | 是不是一个 `/mmw-wayfinder` 的 effort | 有没有一张打 `wayfinder:map` 标签的 issue 指向这个 slug |
 | 这张 map 走到哪一步了 | `mmw issue children <map 编号>`：一行一张，带状态、认领人、被几张挡着 |
-| 有几条链在同时跑 | `.worktrees/` 下以这个 slug 开头、但不等于这个 slug 的目录，每一棵是一条链 |
+| 有几条链在同时跑 | 查从该任务分支派生的 worktree 与结果分支；每个结果分支是一条链 |
 | spec 有没有写出来 | `docs/specs/<slug>/` 在不在，里面的文件有没有提交进分支 |
 | spec 过没过用户那道关卡 | 那张 spec issue 在不在、带没带 `ready-for-agent` 标签。这两样齐了才算过了这道关卡 |
 | ticket 有没有拆 | `mmw issue children <spec issue 编号>` 有没有输出 |
@@ -32,7 +28,7 @@ git worktree list
 | 终审有没有跑 | `.reviews/` 里有没有终审报告 |
 | 有没有归档 | `mmw wiki ensure` 取到副本，看 `Spec-<slug>.md` 在不在 |
 
-`.reviews/` 和 `.dispatch/` 随 worktree 存活，不进 git。它们是空的不代表没做过，只代表这台机器上这一轮没做过——以提交记录和 issue 状态为准。
+`.reviews/` 随 worktree 存活，不进 git。它是空的不代表没做过，只代表这台机器上这一轮没做过——以提交记录和 issue 状态为准。
 
 spec 文件已经提交、issue 却还没发布，是个中间状态：用户可能刚点完头，也可能还没看过。这时按没过这道关卡处理，重新给他看一次。
 
@@ -40,4 +36,4 @@ spec 文件已经提交、issue 却还没发布，是个中间状态：用户可
 
 用业务语言报三句：这个任务当初要做什么、现在完成了哪些、下一步归谁。然后调起下一步该走的那个技能接着走。
 
-用户报的 slug 在 `.worktrees/` 下找不到，按新任务处理，回 `SKILL.md` 第 1 步。
+用户报的 slug 在任务分支和 worktree 清单中都找不到，按新任务处理，回 `SKILL.md` 第 1 步。

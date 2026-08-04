@@ -13,7 +13,7 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 | 检查 | 怎么查 |
 | --- | --- |
-| 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 `.worktrees/<slug>` 结尾；不在就 `mmw task new <slug>` 建一个，或 `mmw task enter <slug>` 取路径再进去 |
+| 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头；不满足就回 `/mmw-start` 建立或绑定任务 worktree |
 | spec 已定稿并过了人工审批关卡 | `docs/specs/<slug>/<slug>.md` 存在，对应的 spec issue 已发布并带着 `ready-for-agent` |
 | ticket 已发布 | `mmw issue children <spec issue 编号>` 列得出这批 ticket；列不出先跑 `/mmw-to-tickets` |
 
@@ -53,15 +53,13 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 | 约束 | 只写该 plan 文件；不提交；不认领 `## Cross-Plan Contract Anchors` 划给别人的文件；不写其它 plan 的正文 |
 | 验收 | plan 文件存在且可被抽验；任务包覆盖 ticket `#<编号>` 的验收（详见 issue，不抄正文） |
 
-可选：四栏表写入 `.dispatch/<slug>-plan-<编号>.prompt.md`。
+启动：把四栏表写入 task 文件，后台执行 `mmw dispatch planner --task <task 文件绝对路径> --cwd <当前任务 worktree 绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 
-启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch planner --task <task 文件绝对路径> --cwd <worktree 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
-
-互不依赖的 plan：同一条消息里并行启动多个 `planner`。有依赖链：按依赖顺序启动。不开子 worktree；`planner` 不提交；各 plan 写不同文件，同在任务 worktree 内。
+互不依赖的 plan：同一条消息里并行启动多个 `planner`。有依赖链：按依赖顺序启动。`planner` 使用当前任务 worktree，不建独立 worktree，不提交。每个 `planner` 只写自己的 plan 文件。
 
 ## 4. 验证返回
 
-每个 `planner` 交回 `pass` 之后，对它声明的事实至少抽验一条再采信：plan 文件真的存在、任务包数量对得上、它引用的 `文件:行号` 引得出来。用读文件和检索验证，不认「我写完了」。
+每个 `planner` 交回 `pass` 之后，对它声明的事实至少抽验一条再采信：plan 文件真的存在、任务包数量对得上、它引用的 `文件:行号` 引得出来。读取文件并检索源码，不认「我写完了」。
 
 失实就把原 task 加上修复说明重派一次。交回 `needs-context`、`needs-repair` 或 `blocked` 的，按它说的补路径或修 spec 之后重派。
 

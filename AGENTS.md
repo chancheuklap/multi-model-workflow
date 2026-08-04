@@ -6,7 +6,7 @@
 
 | 宿主 | 发布入口 | 角色执行后端 |
 | --- | --- | --- |
-| Codex App | 根 `.agents/plugins/marketplace.json`、`mmw/.codex-plugin/plugin.json`、`mmw/codex/runtime.py` | 可写角色走 App 后台 Worktree 任务；只读角色走 `mmw-investigator` 或 `mmw-reviewer` 原生 subagent；全部使用 Codex 内置 GPT 模型 |
+| Codex App | 根 `.agents/plugins/marketplace.json`、`mmw/.codex-plugin/plugin.json`、`mmw/codex/runtime.py` | `worker`、`worker-high-risk`、`prototype-worker` 走 App 后台 Worktree 任务；`planner`、`designer`、`investigator`、`reviewer` 走原生 subagent；全部使用 Codex 内置 GPT 模型 |
 | Claude Code | `mmw/.claude-plugin/plugin.json`、根 `.claude-plugin/marketplace.json` | GPT 走后台 Codex CLI；Claude 走后台 Agent 工具 |
 | Pi | `mmw/package.json` | 原生 `subagent` 直调；型号/思考档/async/context/skill 在 `agents-pi` frontmatter；不经 `mmw dispatch` |
 | Cursor（安装面） | `mmw agents materialize --host cursor` → `~/.cursor/agents/` | 原生 subagent；frontmatter 由同一套 `agent-src/` 按 profile 生成 |
@@ -16,7 +16,7 @@
 ```bash
 mmw agents materialize --host pi      # 更新包内 agents-pi/
 mmw agents materialize --host cursor  # 安装到 ~/.cursor/agents/
-python3 mmw/codex/runtime.py materialize  # 更新 Codex plugin 与两个只读 agent
+python3 mmw/codex/runtime.py materialize  # 更新 Codex plugin 与四个原生 subagent
 ```
 
 `archive/` 是冻结归档。归档内容不参与行为判断、构建、测试或发布；没有明确指令时不修改。旧 Claude Code、Factory Droid、Pi 和 Cursor 插件统一归档在 `archive/legacy-host-plugins/`。
@@ -35,7 +35,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 1. 对应宿主的 manifest、根 marketplace 或 Pi package；Codex profile 只认 `mmw/codex/profiles.json`。
 2. `mmw/cli/` 的机械动作、宿主 adapter 和 `.mmw.json` 配置合同。
-3. `mmw/skills/` 技能源（含 `[[mmw-launch:…]]`）与 `mmw skills materialize` 产物；流程判据以源为准，宿主启动句以对应产物为准。
+3. `mmw/skills/` 技能源（含 `[[mmw-launch:…]]` 与 `[[mmw-host-action:…]]`）与 `mmw skills materialize` 产物；流程判据以源为准，宿主动作以对应产物为准。
 4. `mmw/cli/tests/`、`mmw/release/tests/`、`mmw/mcp/` 和 `mmw/graph/tests/`。
 
 `.mmw.json` 保存目标仓库的模型档、标签、路径和领域文档形态。技能不硬编码这些值；通过 `mmw` 对应子命令读取。
@@ -46,13 +46,13 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 共享角色、技能和流程语义。宿主差异留在 Codex profile、原生 agent frontmatter、`mmw/cli/adapters/`、manifest 与 `.mmw.json` 的 hosts 覆盖：
 
-- Codex App 是 MMW 的主 agent 运行时，不调用外部模型 CLI 或 harness。`worker`、`worker-high-risk`、`planner` 通过 App 后台任务获得独立 worktree；`investigator` 与 `reviewer` 通过两个只读原生 subagent 运行。`mmw/codex/profiles.json` 只允许 GPT model 与 thinking，不允许 family、provider、Claude 或 Grok 配置。
-- Codex 主任务的 worktree 由用户创建。App 设置里的 Worktree root 是所有项目共用的 managed worktree 物理存放目录，不是 MMW 源码路径，也不受目标项目 `.mmw.json` 的 `paths.worktrees` 控制。确认任务后，`mmw-start/scripts/bind-current-worktree.sh` 把干净 detached HEAD 绑定为 `codex/<slug>`；后台任务提交后，主 agent 先运行 `mmw-integrate/scripts/verify-worker-result.sh` 验证分支、HEAD SHA 与基点，再 `git merge --no-ff`。
-- Codex plugin 以 `mmw/` 为发布根，直接复用现有 Graph、MCP 与配置源码，并生成 `skills-codex/` 和 `.mcp-codex.json`。MCP 配置不得写插件缓存路径或 `${PLUGIN_ROOT}`；Codex 的旧 plugin MCP 解析器不会展开该占位符。`mmw/codex/runtime.py install` 只安装两个只读 agent 和指向已安装 plugin cache 的 `mmw` 命令，并删除旧 Claude Code bridge 在 `~/.codex/skills/` 下的三个 MMW 链接；运行时不得回退 MMW 源码 checkout 或目标项目里的同名目录。安装器不改 `~/.codex/config.toml`，也不直接写 App plugin cache。
+- Codex App 是 MMW 的主 agent 运行时，不调用外部模型 CLI 或 harness。`worker`、`worker-high-risk` 与 `prototype-worker` 使用独立后台 Worktree 任务。`planner` 在当前任务 worktree 写指定 plan；`designer`、`investigator` 与 `reviewer` 只交报告。四个原生 subagent 由 `mmw/codex/profiles.json` 物化。
+- Codex 主任务的 worktree 由用户创建。App 设置里的 Worktree root 是所有项目共用的 managed worktree 物理存放目录，不是 MMW 源码路径，也不受目标项目 `.mmw.json` 的 `paths.worktrees` 控制。确认任务和父分支后，运行 `mmw task bind codex/<slug> "<用户原话>" --from <父分支或基点 SHA>`。后台结果先用 `mmw result verify` 验证分支、HEAD SHA 与基点，并在命令返回的 worktree 路径验收；验收通过后再用 `mmw result integrate` 合入当前任务分支。
+- Codex plugin 以 `mmw/` 为发布根，直接复用 Graph、MCP 与配置源码，并生成 `skills-codex/` 和 `.mcp-codex.json`。`mmw/codex/runtime.py install` 安装四个原生 subagent 和指向已安装 plugin cache 的 `mmw` 命令，并删除旧 Claude Code bridge 在 `~/.codex/skills/` 下的三个 MMW 链接；运行时不得回退 MMW 源码 checkout 或目标项目里的同名目录。安装器不改 `~/.codex/config.toml`，也不直接写 App plugin cache。
 - Claude Code 的 GPT 角色通过后台 Bash 执行 Codex CLI；Claude 角色通过后台 Agent 工具执行。这个宿主只接 claude 与 gpt 两个模型族。技能产物在 `mmw/skills-claude-code/`：启动句已物化为 `mmw dispatch`。
 - Pi 的全部角色走宿主原生 `subagent`。技能产物在 `mmw/skills-pi/`：启动句已物化为 `subagent({ agent, task, cwd })`。型号等在 agent frontmatter（`mmw agents materialize`）。可写前确认 worktree 干净。
 - 模型分配默认各宿主相同。某个宿主接不了基线模型时，在 `.mmw.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。
-- **禁止**在技能源或产物正文里让 agent 按宿主二选一。宿主差只通过 `mmw skills materialize --host pi|claude-code|codex` 写入启动句和 Codex worktree/reviewer 覆盖。流程技能自带四栏 task 与 `[[mmw-launch:角色:worktree|none]]`；审查批次用 `[[mmw-launch-group:reviewers:none]]`；**没有** `mmw-dispatching-agents` 中转技能。
+- **禁止**在技能源或产物正文里让 agent 按宿主二选一。共享技能用完整自然语言规定流程；宿主差异只写成完整的 `[[mmw-launch:…]]`、`[[mmw-launch-group:…]]` 或 `[[mmw-host-action:…]]` 动作块，再由 `mmw skills materialize` 整块替换。物化器不得按自然语言句子做局部替换；**没有** `mmw-dispatching-agents` 中转技能。
 - 运行时不得探测、调用或回退到归档插件。
 
 ## 修改规则

@@ -2,11 +2,8 @@
 # 把三个检索工具装进那些「宿主规格里没有声明 MCP 位置」的执行面。
 #
 # 四个执行面各自怎么拿到这三个工具：
-#   Claude Code  插件根的 .mcp.json 自动生效，什么都不用做
-#   Codex        mmw dispatch 派发时用 -c 注入，退出即无痕，什么都不用做。
-#                不往 ~/.codex/config.toml 写：那份配置是用户自己的，而且它是 TOML，
-#                里面还有别的程序（比如 ChatGPT.app）在维护的段落，我们去改会破坏
-#                它的格式、注释和顺序
+#   Claude Code  插件根的 .mcp.json 自动生效；它启动 headless Codex 时由 adapter 临时注入
+#   Codex App    plugin 的 .mcp-codex.json 把三个入口统一指向 mmw mcp serve；不写用户 config.toml
 #   pi           package.json 的 pi 字段只收 extensions / skills / prompts，扩展接口
 #                也没有注册 MCP 的能力，所以只能写用户级的 ~/.pi/agent/mcp.json
 #   Cursor       它的插件规格同样没有 MCP 的位置，只能写用户级的 ~/.cursor/mcp.json。

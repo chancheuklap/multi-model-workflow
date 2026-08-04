@@ -67,7 +67,9 @@ subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说�
 
 挑中之前不建 worktree，扫描全程只读。
 
-挑中了就定 slug，跑 `mmw task new <slug> "<原话加这张卡片的标题>"`，再用宿主的工作目录切换工具进到它输出的那个路径（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`；这一步脚本做不了，只有宿主工具做得到）。类型固定用 `refactor`，短语取被选中那个 module 的名字，例如 `refactor-order-intake`。
+挑中后再定 slug。类型固定用 `refactor`，短语取被选中 module 的名字，例如 `refactor-order-intake`。然后按下面的宿主动作建立任务 worktree，任务目标写用户原话和卡片标题：
+
+[[mmw-host-action:prepare-task-worktree]]
 
 ## 6. 就这一个候选谈下去
 

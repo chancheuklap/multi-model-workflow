@@ -11,10 +11,9 @@
       "thinking": "max",
       "method_skill": "mmw:mmw-tdd"
     },
-    "planner": {
-      "model": "gpt-5.6-sol",
-      "thinking": "high",
-      "method_skill": "mmw:mmw-planner"
+    "prototype-worker": {
+      "model": "gpt-5.6-terra",
+      "thinking": "high"
     }
   },
   "subagents": {
@@ -23,7 +22,8 @@
       "description": "只读调查者。按一个明确角度检索仓库或一手资料，逐条给出出处，不修改文件。",
       "model": "gpt-5.6-terra",
       "thinking": "medium",
-      "body": "mmw-investigator.md"
+      "body": "mmw-investigator.md",
+      "sandbox_mode": "read-only"
     },
     "reviewer": {
       "name": "mmw-reviewer",
@@ -31,7 +31,25 @@
       "model": "gpt-5.6-terra",
       "thinking": "high",
       "body": "mmw-reviewer.md",
-      "method_skill": "mmw:mmw-reviewer"
+      "method_skill": "mmw:mmw-reviewer",
+      "sandbox_mode": "read-only"
+    },
+    "planner": {
+      "name": "mmw-planner",
+      "description": "计划编写者。在当前任务 worktree 中把一张 ticket 写成一份 plan，不提交、不修改源码。",
+      "model": "gpt-5.6-sol",
+      "thinking": "high",
+      "body": "mmw-planner.md",
+      "method_skill": "mmw:mmw-planner",
+      "sandbox_mode": "workspace-write"
+    },
+    "designer": {
+      "name": "mmw-designer",
+      "description": "Interface 设计者。按指定设计约束提出一套完整方案，不修改文件。",
+      "model": "gpt-5.6-terra",
+      "thinking": "high",
+      "body": "mmw-designer.md",
+      "sandbox_mode": "read-only"
     }
   }
 }

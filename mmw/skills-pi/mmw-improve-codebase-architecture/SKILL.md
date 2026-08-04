@@ -29,7 +29,7 @@ description: 扫一遍代码库找可以做深的模块，出一份候选报告�
 ## 2. 一个视角派一个 subagent 去扫
 
 五个视角，一个视角一个 subagent，并行扫描。每个视角：四栏表（目标=该视角问题；读=范围路径 + 领域文档 + `/mmw-codebase-design` + ADR 路径；约束=只读；验收=摩擦点带出处）。
-启动：`subagent({ agent: "mmw-investigator", task: <四栏表全文> })`（只读）。
+启动：调用原生 `subagent`，agent 设为 `mmw-investigator`，task 传四栏表全文。
 
 | 视角 | 让它去看 |
 | --- | --- |
@@ -67,7 +67,9 @@ subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说�
 
 挑中之前不建 worktree，扫描全程只读。
 
-挑中了就定 slug，跑 `mmw task new <slug> "<原话加这张卡片的标题>"`，再用宿主的工作目录切换工具进到它输出的那个路径（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`；这一步脚本做不了，只有宿主工具做得到）。类型固定用 `refactor`，短语取被选中那个 module 的名字，例如 `refactor-order-intake`。
+挑中后再定 slug。类型固定用 `refactor`，短语取被选中 module 的名字，例如 `refactor-order-intake`。然后按下面的宿主动作建立任务 worktree，任务目标写用户原话和卡片标题：
+
+运行 `mmw task new <slug> "<用户原话>"` 创建任务 worktree；从 map 分支派生时增加 `--from <map 分支>`。命令返回绝对路径后，使用宿主的 `enter_worktree` 进入该 worktree。
 
 ## 6. 就这一个候选谈下去
 

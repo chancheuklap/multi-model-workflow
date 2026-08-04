@@ -18,8 +18,9 @@
 
 ### 2. 派 subagent
 
-一个约束一个 subagent，至少三个，并行。每个约束：四栏表（目标=该设计约束下的 interface；读=技术材料路径 + `SKILL.md` + 领域文档路径；约束=只读且与其它变体结构不同；验收=交回 interface/用法/取舍）。
-启动：`subagent({ agent: "mmw-investigator", task: <四栏表全文> })`（只读）。
+一个约束一个 `designer`，至少三个，并行。每个约束使用四栏表：目标是该设计约束下的 interface；读是技术材料路径、`SKILL.md` 和领域文档路径；约束是只读且与其它变体结构不同；验收是交回 interface、用法和取舍。
+
+启动：调用原生 `subagent`，agent 设为 `mmw-designer`，task 传四栏表全文。
 每个 subagent 须产出**截然不同**的 interface。
 
 每份 task 点名同样的技术材料路径（相关文件、耦合点、[DEEPENING.md](DEEPENING.md)、seam 位置），只有设计约束那一栏不同。task 与第 1 步给用户看的问题空间说明是两回事。

@@ -2,31 +2,25 @@
 
 用户带着一张 map 来（编号或链接）。这个会话解**一条链**：解开一张 ticket，接着解被它解锁的那张，直到不能再往下走。判断能不能往下走的规矩在第 5 步。
 
-## 1. 在主仓库里读
+## 1. 读取 map
 
-还不要建任何 worktree。这一步只读：
+这一步只读：
 
 - `gh issue view <map 编号>` 读 map 正文，不要逐个打开 ticket。
-- 按需读 map 分支上的文件，例如领域文档：落点跑 `mmw domain path` 取，再 `git show <map 分支>:<落点>`。多上下文的仓库没有根 `CONTEXT.md`，写死会读空。
+- 按需读取 map 分支上的文件。领域文档落点通过 `mmw domain path` 取得，再运行 `git show <map 分支>:<落点>`。
 - `mmw issue frontier <map 编号>` 查一次 frontier。它给出全部可认领的 ticket，一行一张。
 
-frontier 空了，说明这张 map 该收尾了，转 [closing.md](closing.md)。
+frontier 为空时，不建立链任务。停止并让用户恢复拥有 map 分支的任务；该任务读取 [closing.md](closing.md)。
 
-## 2. 挑一张，认领，建这条链的 worktree
+## 2. 挑一张，认领，建立链任务 worktree
 
 用户点了名就用他点的那张，没点就取 frontier 上的第一张。
 
 **先认领**：`mmw issue claim <编号>`。它已经被别的会话占住就会失败，那就取下一张。认领成功之前不要做任何事。
 
-再建这条链的 worktree：
+链任务的 slug 使用 `<map slug>-<链首 ticket 短语>`。父分支必须是 map 分支；链任务从 map 分支当前已提交的 HEAD 开始。
 
-```bash
-mmw task new <map 的 slug>-<链首 ticket 的短语> "<这张 ticket 要解的问题>" --from <map 的 slug>
-```
-
-**`--from` 必须给。** 这个会话此刻还在主仓库，当前 HEAD 是主线；`git checkout` 也切不到 map 分支，它正被 map 的 worktree 占着。不给就会把这条链错分叉到主线，map 上已经做出的决定一条都拿不到。
-
-建完用宿主的工作目录切换工具进到它输出的那个路径（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`；这一步脚本做不了，只有宿主工具做得到）。这是这个会话唯一一次进 worktree。
+[[mmw-host-action:prepare-task-worktree]]
 
 ## 3. 解它
 
@@ -91,17 +85,9 @@ mmw task new <map 的 slug>-<链首 ticket 的短语> "<这张 ticket 要解的�
 ## 7. 这条链走完之后
 
 1. 这条链写的每一份 `draft-<ticket 编号>-<kebab-标题>.md`（落点跑 `mmw domain dirs` 取 `adr` 那一行）逐个改成正式编号：`mmw domain adr-next` 取下一个号，改名，再取下一个，直到改完。编号只增不改。提交。
-2. 合回 map 分支。这个会话不能跳到别的 worktree，所以用 `git -C` 指过去：
-
-   ```bash
-   MAP=$(mmw task enter <map 的 slug>)   # 输出绝对路径，不受当前在哪棵树影响
-
-   git -C "$MAP" status --porcelain   # 有输出就是不干净，停下来报给用户，不硬合
-   git -C "$MAP" merge --no-ff <这条链的分支名>
-   ```
-
-   `mmw task enter` 报那个目录不存在，说明 map 的 worktree 被用户清理过，先 `mmw task new <map 的 slug>` 建回来，它挂回那条已有分支。
-3. 再查一次 `mmw issue frontier <map 编号>`。
+2. 记录链任务的分支名、`git rev-parse HEAD` 和建立链任务时的 map 基点 SHA。
+3. 把分支名、HEAD SHA、基点 SHA 和链报告交回 map 任务。map 任务运行 `mmw result verify`，验证报告和 diff 后再运行 `mmw result integrate`。
+4. map 任务集成后重新查询 `mmw issue frontier <map 编号>`。
 
 ## 下一步
 
@@ -111,5 +97,5 @@ mmw task new <map 的 slug>-<链首 ticket 的短语> "<这张 ticket 要解的�
 | 第 5 步判出下一张归你、但是 HITL | **停**：不要认领它。报这条链解掉了哪几张 ticket、下一张是哪张、它为什么要人参与，让用户另开一个会话认领它 |
 | 手上这张是 `wayfinder:task`，而且必须人动手 | **停**：交一份精确的操作清单——要做什么、做完之后哪些结果事实要记下来（凭证放在哪、新的地址是什么、数据有多少行）——等用户做完再回第 4 步 |
 | 第 6 步判出某份 spec 三条都齐了 | **停**：报这份 spec 现在可以开始做，让用户另开一个会话走 `/mmw-to-spec` |
-| 这条链走完，frontier 上还有 ticket | **停**：报这条链解掉了哪几张、frontier 上还剩哪几张（用名字，不用编号），让用户另开一个会话认领下一条 |
-| 这条链走完，frontier 空了 | **自己继续**：读 [closing.md](closing.md) |
+| 这条链走完 | **停**：交回分支名、HEAD SHA、基点 SHA、解掉的 ticket 和当前 frontier；由 map 任务验证并集成 |
+| map 任务集成链结果后发现 frontier 为空 | **移交**：map 任务读取 [closing.md](closing.md) |
