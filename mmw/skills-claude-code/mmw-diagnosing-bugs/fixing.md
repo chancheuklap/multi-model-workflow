@@ -24,7 +24,7 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
    | 约束 | 先在 seam 上把 repro 变成失败测试再修；不扩大范围 |
    | 验收 | 新测试红后绿；Phase 1 原始 loop 不再复现 |
 
-   启动：四栏表写入 brief 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch worker --brief <brief 绝对路径> --cwd <worktree 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具。
+   启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch worker --task <task 文件绝对路径> --cwd <worktree 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
 
 3. `worker` 要跑的循环是：在那个 seam 上把最小化 repro 变成一个失败的测试，看它红，写修复，看它绿。
 

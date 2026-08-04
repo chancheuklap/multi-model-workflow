@@ -77,8 +77,8 @@ spec 在哪按这个顺序找：这个分支上的 `docs/specs/<slug>/<slug>.md`
 可选：四栏表写入 `.reviews/<slug>-<哪一道>-<轮次>-<任务名>.prompt.md`，轮次从 1 起。
 
 每个（视角 × 角色）各写一张四栏表并启动一次；同一条消息里全部发出。
-`reviewer-gpt`：启动：四栏表写入 brief 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch reviewer-gpt --brief <brief 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具。
-`reviewer-claude`：启动：四栏表写入 brief 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch reviewer-claude --brief <brief 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具。
+`reviewer-gpt`：启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch reviewer-gpt --task <task 文件绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
+`reviewer-claude`：启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch reviewer-claude --task <task 文件绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
 
 ## 4. findings 存盘
 

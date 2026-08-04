@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # pi 宿主 adapter。
 #
-# 主路径：宿主技能产物已写死 subagent({ agent, task, cwd })；本 adapter 仅兼容 mmw dispatch。
-# 本文件仅在有人仍调用 `mmw dispatch` 时给出兼容回执；新技能不应依赖它。
-# 型号/thinking/async/context/skill 在 agents-pi frontmatter，不进 params。
+# 主路径：宿主技能产物已写死 subagent({ agent, task, cwd })；本文件仅在有人仍调用
+# `mmw dispatch` 时给出兼容回执。型号/thinking/async/context/skill 在 agents-pi
+# frontmatter，不进 params。
 #
 # 入参走 MMW_D_* 环境变量，由 cli/mmw 设好。
 
@@ -26,14 +26,16 @@ mmw_adapter_dispatch() {
 
   printf 'mode: host-tool\n'
   printf 'tool: subagent\n'
-  printf 'brief: %s\n' "$MMW_D_BRIEF"
+  printf 'task-file: %s\n' "$MMW_D_TASK"
   printf 'native: agents-pi\n'
-  printf 'note: model/thinking/context/async/skill 已在 agent 定义里；只传 params，并另附 task=指令与路径（subagent 自读文件）\n'
+  printf 'note: model/thinking/context/async/skill 已在 agent 定义里；params 含 task 正文\n'
 
-  # 策略字段不进 params：省略时由原生 agent 默认值生效，避免主 agent 手抄漏字段。
+  # 策略字段不进 params：省略时由原生 agent 默认值生效。
+  # task 正文进 params，与直调 subagent({ task }) 同一字段、同一四栏内容。
   jq -nc \
     --arg a "$MMW_D_ROSTER" \
     --arg c "$MMW_D_CWD" \
-    '{agent: $a, cwd: $c}' \
+    --rawfile t "$MMW_D_TASK" \
+    '{agent: $a, cwd: $c, task: $t}' \
     | sed 's/^/params: /'
 }

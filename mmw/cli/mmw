@@ -33,7 +33,7 @@ usage() {
   cat >&2 <<'EOF'
 mmw <命令> [参数]
 
-  dispatch    Claude Code：把 brief 编成宿主工具参数（Pi 主路径不用）
+  dispatch    Claude Code：把 task 文件编成宿主工具参数（Pi 主路径不用）
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
   skill-path  派出去那一侧读方法论的路径
@@ -54,7 +54,7 @@ EOF
 
 usage_dispatch() {
   cat >&2 <<'EOF'
-mmw dispatch <角色> --brief <文件> [--cwd <目录>]
+mmw dispatch <角色> --task <文件> [--cwd <目录>]
 
 角色：
   worker            按一份 plan 写代码
@@ -65,14 +65,14 @@ mmw dispatch <角色> --brief <文件> [--cwd <目录>]
   reviewer-claude   审查，Claude 那一侧
 
 参数：
-  --brief <文件>  提示词文件，必填
+  --task <文件>   task 四栏表文件，必填（与 Pi 的 task 同一概念）
   --cwd <目录>    它待着的目录。前三个角色会写文件，必填，指向它那棵 worktree；
                   只读的三个不给就是仓库根
 
 模型、档位、护栏由角色决定，取自仓库根 .mmw.json，这里不用管。
 
 返回开头一行是 mode: executed 或 mode: host-tool。
-host-tool 时原样用回执 params 调工具。
+host-tool 时原样用回执 params 调工具（params 内已含 task 正文或等价字段）。
 EOF
   return 2
 }
@@ -194,18 +194,18 @@ cmd_dispatch() {
   }
   skill="$(role_skill "$role")"
 
-  local brief="" cwd=""
+  local task="" cwd=""
   while [ $# -gt 0 ]; do
     case "$1" in
-      --brief) brief="${2:-}"; shift 2 ;;
+      --task) task="${2:-}"; shift 2 ;;
       --cwd) cwd="${2:-}"; shift 2 ;;
       *) echo "mmw: 认不出参数 $1" >&2; usage_dispatch ;;
     esac
   done
 
-  [ -n "$brief" ] || { echo "mmw: dispatch 要 --brief" >&2; usage_dispatch; }
-  [ -f "$brief" ] || { echo "mmw: brief 文件不存在：$brief" >&2; return 1; }
-  brief="$(cd "$(dirname "$brief")" && pwd)/$(basename "$brief")"
+  [ -n "$task" ] || { echo "mmw: dispatch 要 --task" >&2; usage_dispatch; }
+  [ -f "$task" ] || { echo "mmw: task 文件不存在：$task" >&2; return 1; }
+  task="$(cd "$(dirname "$task")" && pwd)/$(basename "$task")"
 
   local writable
   writable="$(role_writable "$role")"
@@ -233,7 +233,7 @@ cmd_dispatch() {
   MMW_D_FAMILY="$(mmw_model_field "$role" family)"
   MMW_D_MODEL_ID="$(mmw_model_field "$role" id)"
   MMW_D_EFFORT="$(mmw_model_field "$role" effort)"
-  export MMW_D_BRIEF="$brief"
+  export MMW_D_TASK="$task"
   export MMW_D_CWD="$cwd"
   export MMW_D_WRITABLE="$writable"
 
@@ -262,7 +262,7 @@ mmw agents list
 
 Pi / Cursor：主 agent 直调原生 subagent，不经 mmw dispatch。
 先 resolve（或看 list）拿 agent 名，可写角色先 guard，再调宿主工具，
-只传 agent、task=brief 全文、可写时的 cwd。
+只传 agent、task 四栏全文、可写时的 cwd。
 Claude Code：仍用 mmw dispatch。
 EOF
   return 2

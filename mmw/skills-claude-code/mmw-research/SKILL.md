@@ -57,7 +57,7 @@ description: 把「去查清楚」派出去，查这个仓库的现状或者仓�
 
 ## 4. 派发
 
-启动：四栏表写入 brief 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch investigator --brief <brief 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具。
+启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch investigator --task <task 文件绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
 题目互不依赖时：同一条消息里并行多个启动调用。
 
 ## 5. 过滤

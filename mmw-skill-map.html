@@ -453,7 +453,7 @@ subgraph MAIN["主干 · 从想法到落地"]
   tsp[["<b>mmw-to-spec</b><br/>· 七条入口各自取齐上游产物<br/>· seam 在这里钉死<br/>· 用户点头之后才发布"]]
   ttk[["<b>mmw-to-tickets</b><br/>· 切成 tracer bullet<br/>· 正文只留摘要<br/>· ## Plan 一节先占住 plan 路径<br/>· 清单亮完就走"]]
   imp[["<b>mmw-implement</b><br/>· 一张 ticket 派一个 headless worker<br/>· 每份走 ③ 逐份验收三关<br/>· 全部合并后走 ④ 合同门"]]
-  tdd[("<b>mmw-tdd</b><br/>· red 到 green 的循环<br/>· seam 由 spec 钉死<br/>· 整份粘进 worker 的 brief")]
+  tdd[("<b>mmw-tdd</b><br/>· red 到 green 的循环<br/>· seam 由 spec 钉死<br/>· 整份由 worker 技能注入，不进 task 正文")]
   pln[["<b>mmw-to-plan</b><br/>· 一张 ticket 一份 plan<br/>· 派 planner 写<br/>· 主 agent 先划跨 plan 合同<br/>· 验证返回，回填精确字段"]]
   pnr[("<b>mmw-planner</b><br/>· 写计划方法论<br/>· planner 进门读它<br/>· 主 agent 不读")]
   clo["<b>mmw-closing</b><br/>· spec 与 plan 转成 Wiki 一页<br/>· 推送前给用户看<br/>· verify 三条全过才删本地"]
@@ -480,7 +480,7 @@ end
 
 subgraph SOLO["独立使用"]
   direction TB
-  res[["<b>mmw-research</b><br/>· 查内部与查外部两个方向<br/>· 一个角度一个 subagent<br/>· 各拿各的 brief"]]
+  res[["<b>mmw-research</b><br/>· 查内部与查外部两个方向<br/>· 一个角度一个 subagent<br/>· 各拿各的 task"]]
   hof["<b>handoff</b>"]
   wgs["<b>writing-great-skills</b>"]
 end

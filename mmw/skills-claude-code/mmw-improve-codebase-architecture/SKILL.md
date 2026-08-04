@@ -29,7 +29,7 @@ description: 扫一遍代码库找可以做深的模块，出一份候选报告�
 ## 2. 一个视角派一个 subagent 去扫
 
 五个视角，一个视角一个 subagent，并行扫描。每个视角：四栏表（目标=该视角问题；读=范围路径 + 领域文档 + `/mmw-codebase-design` + ADR 路径；约束=只读；验收=摩擦点带出处）。
-启动：四栏表写入 brief 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch investigator --brief <brief 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具。
+启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch investigator --task <task 文件绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
 
 | 视角 | 让它去看 |
 | --- | --- |

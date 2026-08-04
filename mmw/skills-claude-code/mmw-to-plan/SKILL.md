@@ -55,7 +55,7 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 可选：四栏表写入 `.dispatch/<slug>-plan-<编号>.prompt.md`。
 
-启动：四栏表写入 brief 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch planner --brief <brief 绝对路径> --cwd <worktree 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具。
+启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch planner --task <task 文件绝对路径> --cwd <worktree 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
 
 互不依赖的 plan：同一条消息里并行启动多个 `planner`。有依赖链：按依赖顺序启动。不开子 worktree；`planner` 不提交；各 plan 写不同文件，同在任务 worktree 内。
 

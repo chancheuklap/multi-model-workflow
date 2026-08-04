@@ -81,14 +81,14 @@ def expand_claude(role: str, agent: str, cwd_mode: str) -> str:
     del agent  # Claude dispatch 用角色名，不用 mmw-* 文件名
     if cwd_mode == "worktree":
         return (
-            f"启动：四栏表写入 brief 文件后，Bash（`run_in_background: true`）执行 "
-            f"`mmw dispatch {role} --brief <brief 绝对路径> --cwd <worktree 绝对路径>`；"
-            f"回执 `mode: host-tool` 时原样传入 `params` 调用对应工具。"
+            f"启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 "
+            f"`mmw dispatch {role} --task <task 文件绝对路径> --cwd <worktree 绝对路径>`；"
+            f"回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。"
         )
     return (
-        f"启动：四栏表写入 brief 文件后，Bash（`run_in_background: true`）执行 "
-        f"`mmw dispatch {role} --brief <brief 绝对路径>`；"
-        f"回执 `mode: host-tool` 时原样传入 `params` 调用对应工具。"
+        f"启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 "
+        f"`mmw dispatch {role} --task <task 文件绝对路径>`；"
+        f"回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。"
     )
 
 

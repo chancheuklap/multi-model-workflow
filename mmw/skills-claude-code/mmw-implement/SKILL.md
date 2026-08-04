@@ -53,10 +53,10 @@ TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
 
 **先记下当前提交号**（`git rev-parse HEAD`），供验收对照。
 
-启动：四栏表写入 brief 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch worker --brief <brief 绝对路径> --cwd <worktree 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具。
+启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch worker --task <task 文件绝对路径> --cwd <worktree 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
 
 ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
-启动：四栏表写入 brief 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch worker-high-risk --brief <brief 绝对路径> --cwd <worktree 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具。
+启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch worker-high-risk --task <task 文件绝对路径> --cwd <worktree 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
 升档由你决定，不由 worker 自报。
 
 ### 5. 验收：亲手验证三关

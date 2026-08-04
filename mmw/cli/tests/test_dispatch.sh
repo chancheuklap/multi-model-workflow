@@ -30,7 +30,7 @@ params() {
 
 git -C "$WORK" init -q repo
 cp "$HERE/../mmw.default.json" "$WORK/repo/.mmw.json"
-printf '只读烟雾测试。\n' > "$WORK/repo/brief.md"
+printf '只读烟雾测试。\n' > "$WORK/repo/task.md"
 mkdir -p "$WORK/bin"
 cat > "$WORK/bin/codex" <<'SH'
 #!/usr/bin/env bash
@@ -48,10 +48,10 @@ chmod +x "$WORK/bin/codex"
 cd "$WORK/repo"
 
 printf 'Pi 原生 agent 派发\n'
-pi_output="$(MMW_HOST=pi "$MMW" dispatch investigator --brief "$WORK/repo/brief.md")"
+pi_output="$(MMW_HOST=pi "$MMW" dispatch investigator --task "$WORK/repo/task.md")"
 pi_params="$(params <<<"$pi_output")"
 check "Pi 标 native" "agents-pi" "$(sed -n 's/^native: //p' <<<"$pi_output")"
-check "Pi params 只有 agent 与 cwd" "agent cwd" "$(jq -r 'keys | sort | join(" ")' <<<"$pi_params")"
+check "Pi params 含 agent cwd task" "agent cwd task" "$(jq -r 'keys | sort | join(" ")' <<<"$pi_params")"
 check "Pi agent 名" "mmw-investigator" "$(jq -r '.agent' <<<"$pi_params")"
 check "上下文隔离与后台不进 params" "null" "$(jq -r '.context // .async // "null"' <<<"$pi_params")"
 
@@ -66,11 +66,13 @@ check "没写覆盖的审查者仍读基线型号" "openai-codex/gpt-5.6-sol" \
   "$(sed -n 's/^model: //p' "$baseline_agent" | head -1)"
 
 printf '\nClaude Code 后台派发\n'
-claude_params="$(MMW_HOST=claude-code "$MMW" dispatch reviewer-claude --brief "$WORK/repo/brief.md" | params)"
+claude_params="$(MMW_HOST=claude-code "$MMW" dispatch reviewer-claude --task "$WORK/repo/task.md" | params)"
 check "Agent 工具显式在后台运行" "true" "$(jq -r '.run_in_background' <<<"$claude_params")"
 check "Claude 审查者仍映射 mmw-reviewer" "mmw:mmw-reviewer" "$(jq -r '.subagent_type' <<<"$claude_params")"
+check "Claude Agent params 含 prompt" "true" "$(jq -r 'has("prompt")' <<<"$claude_params")"
+check "Claude Agent prompt 即 task 正文" "只读烟雾测试。" "$(jq -r '.prompt' <<<"$claude_params" | head -1 | tr -d '\n')"
 
-gpt_output="$(PATH="$WORK/bin:$PATH" MMW_HOST=claude-code "$MMW" dispatch investigator --brief "$WORK/repo/brief.md")"
+gpt_output="$(PATH="$WORK/bin:$PATH" MMW_HOST=claude-code "$MMW" dispatch investigator --task "$WORK/repo/task.md")"
 check "GPT 先交回宿主工具参数" "host-tool" "$(sed -n 's/^mode: //p' <<<"$gpt_output")"
 check "GPT 由 Bash 工具执行" "Bash" "$(sed -n 's/^tool: //p' <<<"$gpt_output")"
 gpt_params="$(params <<<"$gpt_output")"

@@ -76,7 +76,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 | 写计划角色 | `planner` | 计划工人 |
 | 审查角色 | 审查者；具体写 `reviewer-gpt`、`reviewer-claude` | 审者 |
 | 非交互式 Codex | headless | 无头 |
-| 派发任务说明 | task / brief | 简报 |
+| 派发任务说明 | task | brief、简报 |
 | subagent 交回内容 | 报告 | 回执、笔记 |
 | 主 agent 检查事实 | 验证 | 复核、核验、亲验 |
 | 可点击的位置 | 出处 | 锚 |

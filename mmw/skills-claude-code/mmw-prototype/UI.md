@@ -37,7 +37,7 @@
 ## 2. 一个变体派一个 subagent
 
 一个变体一个 subagent，并行。每个变体：四栏表（目标=该结构方向的变体；读=页面语境路径；约束=禁止其它变体方向 + 质量门见本文件「3. 每个变体都要过质量门」；验收=可切换可走查）。
-启动：四栏表写入 brief 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch worker --brief <brief 绝对路径> --cwd <worktree 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具。
+启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch worker --task <task 文件绝对路径> --cwd <worktree 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
 
 每份 task 给同样的页面语境路径（用途、数据、组件库与样式系统在仓库里的位置），但**各自指定一个不同的结构方向**，并明说不许用另外两个方向。质量门写路径或点名本文件「每个变体都要过质量门」一节，由 subagent 自读。
 

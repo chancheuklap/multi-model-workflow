@@ -70,13 +70,14 @@ mmw_adapter_dispatch() {
 
       printf 'mode: host-tool\n'
       printf 'tool: Agent\n'
-      printf 'brief: %s\n' "$MMW_D_BRIEF"
+      printf 'task-file: %s\n' "$MMW_D_TASK"
       if [ -n "$MMW_D_SKILL_PATH" ]; then
         printf 'skill-path: %s\n' "$MMW_D_SKILL_PATH"
       fi
-      # Agent 固定后台运行：派发不能占住主 agent 的前台，也不能依赖调用方补参数。
+      # Agent 固定后台运行；task 正文进 prompt，与 Pi 的 task 同一概念。
       jq -nc --arg r "$plugin_name:$roster" --arg t "$tier" --arg e "$MMW_D_EFFORT" \
-        '{subagent_type: $r, model: $t, effort: $e, run_in_background: true}' \
+        --rawfile p "$MMW_D_TASK" \
+        '{subagent_type: $r, model: $t, effort: $e, prompt: $p, run_in_background: true}' \
         | sed 's/^/params: /'
       ;;
     gpt)
@@ -85,11 +86,11 @@ mmw_adapter_dispatch() {
       if [ "${MMW_INTERNAL_BACKGROUND_DISPATCH:-}" != "1" ]; then
         local command
         printf -v command \
-          'cd %q && MMW_HOST=claude-code MMW_INTERNAL_BACKGROUND_DISPATCH=1 %q dispatch %q --brief %q --cwd %q' \
-          "$MMW_D_CWD" "$MMW_ROOT/cli/mmw" "$MMW_D_ROLE" "$MMW_D_BRIEF" "$MMW_D_CWD"
+          'cd %q && MMW_HOST=claude-code MMW_INTERNAL_BACKGROUND_DISPATCH=1 %q dispatch %q --task %q --cwd %q' \
+          "$MMW_D_CWD" "$MMW_ROOT/cli/mmw" "$MMW_D_ROLE" "$MMW_D_TASK" "$MMW_D_CWD"
         printf 'mode: host-tool\n'
         printf 'tool: Bash\n'
-        printf 'brief: %s\n' "$MMW_D_BRIEF"
+        printf 'task-file: %s\n' "$MMW_D_TASK"
         jq -nc --arg c "$command" '{command: $c, run_in_background: true}' \
           | sed 's/^/params: /'
         return
@@ -98,7 +99,7 @@ mmw_adapter_dispatch() {
       local report_dir="$MMW_D_CWD/.dispatch"
       mkdir -p "$report_dir"
       local report
-      report="$report_dir/${MMW_D_ROLE}-$(basename "$MMW_D_BRIEF" .md).md"
+      report="$report_dir/${MMW_D_ROLE}-$(basename "$MMW_D_TASK" .md).md"
       local sandbox=(--sandbox read-only)
       if [ "$MMW_D_WRITABLE" = "yes" ]; then
         # workspace-write 默认把 .git 锁成只读，工人提交会卡在 index.lock。
@@ -122,7 +123,7 @@ mmw_adapter_dispatch() {
       local code=0
       # ${mcp[@]+...}：.mcp.json 缺失时数组为空，macOS 自带的 bash 3.2 在 set -u 下
       # 展开空数组会报 unbound variable，整次派发就废了。工具没有不该拖垮派发本身。
-      { printf '%s\n' "$preamble"; cat "$MMW_D_BRIEF"; } \
+      { printf '%s\n' "$preamble"; cat "$MMW_D_TASK"; } \
       | codex exec -C "$MMW_D_CWD" --color never \
         "${sandbox[@]}" \
         ${mcp[@]+"${mcp[@]}"} \

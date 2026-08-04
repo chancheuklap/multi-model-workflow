@@ -79,17 +79,17 @@ fi
 printf '\nPi dispatch 只回 agent+cwd\n'
 git -C "$WORK" init -q repo
 cp "$ROOT/mmw/cli/mmw.default.json" "$WORK/repo/.mmw.json"
-printf 'brief\n' > "$WORK/repo/brief.md"
+printf 'task\n' > "$WORK/repo/task.md"
 cd "$WORK/repo"
-pi_params="$(MMW_HOST=pi "$MMW" dispatch investigator --brief "$WORK/repo/brief.md" | sed -n 's/^params: //p')"
+pi_params="$(MMW_HOST=pi "$MMW" dispatch investigator --task "$WORK/repo/task.md" | sed -n 's/^params: //p')"
 check "Pi params 只有 agent" "mmw-investigator" "$(jq -r '.agent' <<<"$pi_params")"
 check "Pi params 无 thinking" "null" "$(jq -r '.thinking // "null"' <<<"$pi_params")"
 check "Pi params 无 model" "null" "$(jq -r '.model // "null"' <<<"$pi_params")"
 check "Pi params 无 async" "null" "$(jq -r '.async // "null"' <<<"$pi_params")"
-check "Pi params 键集合" "agent cwd" "$(jq -r 'keys | sort | join(" ")' <<<"$pi_params")"
+check "Pi params 键集合" "agent cwd task" "$(jq -r 'keys | sort | join(" ")' <<<"$pi_params")"
 
 printf '\nClaude Code reviewer 仍映射到 mmw-reviewer\n'
-claude_params="$(MMW_HOST=claude-code "$MMW" dispatch reviewer-claude --brief "$WORK/repo/brief.md" | sed -n 's/^params: //p')"
+claude_params="$(MMW_HOST=claude-code "$MMW" dispatch reviewer-claude --task "$WORK/repo/task.md" | sed -n 's/^params: //p')"
 check "Claude reviewer subagent_type" "mmw:mmw-reviewer" "$(jq -r '.subagent_type' <<<"$claude_params")"
 
 printf '\n包内 agents-pi 与真源一致\n'
