@@ -62,7 +62,7 @@ brief **只放指令与路径**。文件正文由 subagent 自己读取。
 mmw dispatch <角色> --brief <brief文件绝对路径> [--cwd <worktree绝对路径>]
 ```
 
-- `<角色>`：上一节列出的角色名之一
+- `<角色>`：「角色」节列出的名字之一
 - 可写角色（`worker`、`worker-high-risk`、`planner`）：`--cwd` **必填**，值为 worktree 根绝对路径；工作区不干净时命令失败
 - 只读角色：可省略 `--cwd`
 

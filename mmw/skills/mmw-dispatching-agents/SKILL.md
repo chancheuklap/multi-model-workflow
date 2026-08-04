@@ -24,7 +24,7 @@ subagent 内部的探路仍派。只有**你**要改判断方向时才留下。
 
 ## 角色与 agent 名
 
-调用方写的是**角色**。启动工具的 `agent` 参数必须用下表右列，不能把角色名原样当 agent 名。
+调用方写的是**角色**。启动工具的 `agent` 参数必须用「角色与 agent 名」表右列，不能把角色名原样当 agent 名。
 
 | 角色 | `agent` 参数 | 可写 worktree |
 | --- | --- | --- |
@@ -59,13 +59,13 @@ task **只放指令与路径**。spec、plan、纪律文件、源码的正文由
 
 ### 可写角色：确认 worktree
 
-若角色在上表「可写 worktree」为「是」：
+若角色在「角色与 agent 名」表中「可写 worktree」为「是」：
 
 1. 在目标 worktree 根执行 `git status --porcelain`
 2. 有任何输出 → **停**，先清理，不启动
 3. 记下该 worktree 根的**绝对路径**，启动时作 `cwd`
 
-只读角色（上表为「否」）跳过本节。
+只读角色（「角色与 agent 名」表中「可写 worktree」为「否」）跳过本节。
 
 **完成判据：** 可写角色已有干净 worktree 的绝对路径；只读角色无额外状态。
 
@@ -80,8 +80,8 @@ task **只放指令与路径**。spec、plan、纪律文件、源码的正文由
 
 | 参数 | 值 |
 | --- | --- |
-| `agent` | 上表右列，例如 `mmw-worker` |
-| `task` | 「写 task」一节定稿的全文 |
+| `agent` | 「角色与 agent 名」表右列，例如 `mmw-worker` |
+| `task` | 「写 task」小节定稿的全文 |
 | `cwd` | 可写角色：必给 worktree 绝对路径。只读角色：可省略 |
 
 下列键**不要传入**（已在 agent 文件 frontmatter 中）：`model`、`thinking`、`context`、`async`、`skill`。
