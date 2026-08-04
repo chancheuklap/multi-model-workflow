@@ -44,9 +44,13 @@ else
 fi
 
 printf '\nguard\n'
-git -C "$WORK" init -q repo
-cd "$WORK/repo"
-# 干净空库
+# 主仓 + 任务 worktree
+git -C "$WORK" init -q main
+cd "$WORK/main"
+git -C "$WORK/main" commit --allow-empty -q -m init
+mkdir -p "$WORK/main/.worktrees"
+git -C "$WORK/main" worktree add -q "$WORK/main/.worktrees/t1" -b t1
+
 check "只读角色无需 cwd" "ok" "$("$MMW" agents guard investigator | sed -n 's/^ok: //p' | awk '{print "ok"}')"
 
 if "$MMW" agents guard planner >/dev/null 2>&1; then
@@ -55,14 +59,26 @@ else
   check "可写缺 cwd 失败" "fail" "fail"
 fi
 
-"$MMW" agents guard planner --cwd "$WORK/repo" >/dev/null
-check "可写干净通过" "0" "$?"
-
-printf 'dirty\n' > "$WORK/repo/x.txt"
-if "$MMW" agents guard planner --cwd "$WORK/repo" >/dev/null 2>&1; then
-  check "可写脏区失败" "fail" "pass"
+if "$MMW" agents guard planner --cwd /tmp >/dev/null 2>&1; then
+  check "可写 /tmp 失败" "fail" "pass"
 else
-  check "可写脏区失败" "fail" "fail"
+  check "可写 /tmp 失败" "fail" "fail"
+fi
+
+if "$MMW" agents guard planner --cwd "$WORK/main" >/dev/null 2>&1; then
+  check "可写主仓根失败" "fail" "pass"
+else
+  check "可写主仓根失败" "fail" "fail"
+fi
+
+"$MMW" agents guard planner --cwd "$WORK/main/.worktrees/t1" >/dev/null
+check "可写干净 worktree 通过" "0" "$?"
+
+printf 'dirty\n' > "$WORK/main/.worktrees/t1/x.txt"
+if "$MMW" agents guard planner --cwd "$WORK/main/.worktrees/t1" >/dev/null 2>&1; then
+  check "可写脏 worktree 失败" "fail" "pass"
+else
+  check "可写脏 worktree 失败" "fail" "fail"
 fi
 
 printf '\n过 %s，失败 %s\n' "$pass" "$fail"

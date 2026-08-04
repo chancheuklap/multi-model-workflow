@@ -36,12 +36,12 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 ### 3. 写派工 task
 
-按 **四栏表**（目标 / 读 / 约束 / 验收）填写。本角色各栏取值：
+按 **四栏表**（目标 / 读 / 约束 / 验收）填写。issue 上的 **agent brief** 是 tracker 分诊合同，只作「读」栏材料；派给 `worker` 的仍是本表 task。本角色各栏取值：
 
 | 栏 | 本角色填写 |
 | --- | --- |
 | 目标 | 完成 ticket `#<编号>`（或 tracker 等价编号） |
-| 读 | 一行一条，只写定位：① `worker-brief.md`（与本 `SKILL.md` 同目录）；② 本 worktree 内 spec 路径，或 agent brief 所在 issue 编号；③ 本张 ticket 的 issue 编号；④ 对应 plan 路径（无 plan 写「无 plan」）；⑤ 仓库根 `TESTING.md`（无则写「无」）；⑥ 若有选中原型：该版路径 |
+| 读 | 一行一条，只写定位：① `worker-brief.md`（与本 `SKILL.md` 同目录）；② 本 worktree 内 spec 路径，或 agent brief 所在 issue 编号；③ 本张 ticket 的 issue 编号；④ 对应 plan 路径（无 plan 写「无 plan」）；⑤ 仓库根 `TESTING.md`（无则写「无」）；⑥ 选中原型路径（无则写「无原型」） |
 | 约束 | 只改本 worktree 源码与测试；不改 `docs/`；不扩大 ticket 范围。有原型时：逻辑可移植模块整块搬、界面按仓库规范重写 |
 | 验收 | 见 ticket `#<编号>` 的验收标准；seam 见 spec `## Testing Decisions` 或 agent brief 的 `**Test seam:**`（在「读」里已给出定位，此处不抄正文） |
 

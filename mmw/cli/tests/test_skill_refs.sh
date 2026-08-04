@@ -188,8 +188,8 @@ pi_impl = skills_roots[0] / 'mmw-implement' / 'SKILL.md'
 cc_impl = skills_roots[1] / 'mmw-implement' / 'SKILL.md'
 if pi_impl.is_file():
     t = pi_impl.read_text()
-    if 'subagent({' not in t or 'mmw-worker' not in t:
-        bad.append('skills-pi/mmw-implement 未物化为 subagent + mmw-worker')
+    if 'mmw-worker' not in t or 'task' not in t:
+        bad.append('skills-pi/mmw-implement 缺 worker agent 或 task 字段合同')
     else:
         ok += 1
     if 'mmw dispatch' in t:
@@ -201,12 +201,10 @@ else:
 
 if cc_impl.is_file():
     t = cc_impl.read_text()
-    if 'mmw dispatch worker' not in t:
-        bad.append('skills-claude-code/mmw-implement 未物化为 mmw dispatch worker')
+    if 'mmw dispatch' not in t or '--task' not in t or 'worker' not in t:
+        bad.append('skills-claude-code/mmw-implement 缺 dispatch worker --task 合同')
     else:
         ok += 1
-    if 'subagent({' in t:
-        bad.append('skills-claude-code/mmw-implement 不得含 subagent({')
     if '[[mmw-launch:' in t:
         bad.append('skills-claude-code 仍残留 launch 占位符')
 else:

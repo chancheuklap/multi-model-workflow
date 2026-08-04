@@ -44,15 +44,16 @@
 
 **这几件事动手之前先问用户**：要用真实凭证、要连生产环境、要在真机上跑、会产生费用、会写入外部系统的数据。他点头再动。
 
-多候选、多轮时：一个对象一个 subagent。
+多候选、多轮时：
 
-只读探测：按 **四栏表**（目标 / 读 / 约束 / 验收）填写——目标「按本文件「2. 立计划」对该对象跑探测并交回原始输出路径」；读=该对象的 test-plan 路径 + 仓库根；约束=只读、不改代码、不写结论等级；验收=产物落在 `docs/evidence/<slug>/runs/…` 且可打开。
+- **test-plan、探测脚本、`runs/` 原始产物、台账**一律由**主 agent**写入 `docs/evidence/`（本文件第 2、4 步）。
+- 需要并行只读取证时：一个对象一个 `investigator`。四栏表——目标「对该对象跑探测，原样交回命令与关键输出」；读=该对象 test-plan 路径 + 仓库根；约束=只读、不改仓库、不写 `docs/`、不写结论等级；验收=交回可复述的命令原文与输出摘要（或临时路径说明），**不要求**它创建 `docs/evidence` 下文件。
 启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch investigator --task <task 文件绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
+- 主 agent 把交回的输出落入 `docs/evidence/<slug>/runs/…` 并写台账。
+- 只有一两个对象则主 agent 自己跑，不派 subagent。
+- **不派 `worker` 改 `docs/`。** 脚本与产物归主 agent。
 
-要改探测脚本：按 **四栏表** 填写——目标「编写或修改探测脚本并跑通该对象」；读=test-plan 路径 + 既有 `runs/`（无则写「无」）；约束=只改 evidence 目录下脚本与产物、不改产品源码；验收=脚本可复跑且输出路径写入报告。
-启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch worker --task <task 文件绝对路径> --cwd <worktree 绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
-
-收回后按 `/mmw-verifying-agent-output` 验证。只有一两个对象则自己跑。
+收回后按 `/mmw-verifying-agent-output` 验证。
 
 ## 4. 记台账
 

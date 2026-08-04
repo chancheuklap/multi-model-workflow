@@ -99,5 +99,29 @@ else
   check "仓库 agents-pi --check" "0" "1"
 fi
 
+printf '\n仓库 .mmw.json 默认进 materialize\n'
+cfg_repo="$WORK/cfg-repo"
+git -C "$WORK" init -q cfg-repo
+cd "$cfg_repo"
+git -C "$cfg_repo" commit --allow-empty -q -m init
+python3 - "$HERE/../mmw.default.json" "$cfg_repo/.mmw.json" <<'PY'
+import json, pathlib, sys
+src, dst = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+data = json.loads(src.read_text())
+data["models"]["planner"]["id"] = "custom-planner-from-repo"
+dst.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+PY
+cfg_out="$WORK/cfg-agents"
+mkdir -p "$cfg_out"
+(cd "$cfg_repo" && "$MMW" agents materialize --host pi --out "$cfg_out") >/dev/null
+check "无 --config 读仓库 planner id" "yes" "$(grep -q 'custom-planner-from-repo' "$cfg_out/mmw-planner.md" && echo yes || echo no)"
+
+printf 'not-json' > "$cfg_repo/.mmw.json"
+if (cd "$cfg_repo" && "$MMW" agents materialize --host pi --out "$WORK/cfg-bad" >/dev/null 2>&1); then
+  check "非法 .mmw.json 失败" "fail" "pass"
+else
+  check "非法 .mmw.json 失败" "fail" "fail"
+fi
+
 printf '\n过 %s，失败 %s\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

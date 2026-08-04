@@ -153,10 +153,12 @@ def materialize_host(
                 print(f"缺  {out_root}")
                 return 1
             drift = 0
+            expected_files = set()
             for path in sorted(tmp.rglob("*")):
                 if not path.is_file():
                     continue
                 rel = path.relative_to(tmp)
+                expected_files.add(rel)
                 target = out_root / rel
                 if not target.is_file():
                     print(f"缺  {target}")
@@ -165,7 +167,14 @@ def materialize_host(
                 if path.read_bytes() != target.read_bytes():
                     print(f"异  {target}")
                     drift = 1
-            # 发布面不得再出现派发中转技能
+            # 反向：输出树多出来的文件也算漂移
+            for path in sorted(out_root.rglob("*")):
+                if not path.is_file():
+                    continue
+                rel = path.relative_to(out_root)
+                if rel not in expected_files:
+                    print(f"多  {out_root / rel}")
+                    drift = 1
             banned = out_root / "mmw-dispatching-agents"
             if banned.exists():
                 print(f"禁  不应存在 {banned}")

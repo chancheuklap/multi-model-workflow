@@ -84,3 +84,57 @@ mmw_model_field() {
 mmw_path_field() {
   mmw_config ".paths[\"$1\"]"
 }
+
+# 任务 worktree 相对主仓的目录名；无 .mmw.json 时用默认 .worktrees。
+mmw_worktrees_rel() {
+  mmw_path_field worktrees 2>/dev/null || echo ".worktrees"
+}
+
+# 可写角色的 cwd：必须是干净的 git 任务 worktree（主仓 paths.worktrees/<slug>）。
+# 成功时把绝对路径打到 stdout；失败非零，绝不把 git 报错当成干净。
+mmw_require_writable_cwd() {
+  local cwd="${1:-}"
+  if [ -z "$cwd" ]; then
+    echo "mmw: 可写任务 --cwd 必填，指向任务 worktree" >&2
+    return 1
+  fi
+  if [ ! -d "$cwd" ]; then
+    echo "mmw: 工作目录不存在：$cwd" >&2
+    return 1
+  fi
+  cwd="$(cd "$cwd" && pwd -P)" || return 1
+
+  if ! git -C "$cwd" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "mmw: $cwd 不是 git 工作树，可写任务不派" >&2
+    return 1
+  fi
+
+  local st
+  if ! st="$(git -C "$cwd" status --porcelain 2>&1)"; then
+    echo "mmw: 无法读取 $cwd 的 git 状态" >&2
+    printf '%s\n' "$st" >&2
+    return 1
+  fi
+  if [ -n "$st" ]; then
+    echo "mmw: $cwd 工作区不干净，可写任务不派" >&2
+    git -C "$cwd" status --short >&2
+    return 1
+  fi
+
+  local common main wt_root
+  common="$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || {
+    echo "mmw: 无法解析 $cwd 的主仓库" >&2
+    return 1
+  }
+  main="$(cd "$(dirname "$common")" && pwd -P)"
+  wt_root="$main/$(mmw_worktrees_rel)"
+  case "$cwd" in
+    "$wt_root"/*) ;;
+    *)
+      echo "mmw: 可写任务的 --cwd 必须是任务 worktree（${wt_root}/<slug>），不是 $cwd" >&2
+      return 1
+      ;;
+  esac
+
+  printf '%s\n' "$cwd"
+}

@@ -237,11 +237,10 @@ cmd_dispatch() {
   export MMW_D_CWD="$cwd"
   export MMW_D_WRITABLE="$writable"
 
-  # 可写任务派出去之前工作区必须干净，否则工人的提交里会混进别人的改动。
-  if [ "$MMW_D_WRITABLE" = "yes" ] && [ -n "$(git -C "$cwd" status --porcelain)" ]; then
-    echo "mmw: $cwd 工作区不干净，可写任务不派" >&2
-    git -C "$cwd" status --short >&2
-    return 1
+  # 可写：必须是干净任务 worktree（与 agents guard 同一套）。
+  if [ "$MMW_D_WRITABLE" = "yes" ]; then
+    MMW_D_CWD="$(mmw_require_writable_cwd "$MMW_D_CWD")" || return 1
+    export MMW_D_CWD
   fi
 
   # shellcheck source=/dev/null
@@ -332,13 +331,7 @@ cmd_agents_guard() {
       echo "mmw: $role 会写文件，--cwd 必填，指向它该待的那棵 worktree" >&2
       return 1
     fi
-    [ -d "$cwd" ] || { echo "mmw: 工作目录不存在：$cwd" >&2; return 1; }
-    cwd="$(cd "$cwd" && pwd)"
-    if [ -n "$(git -C "$cwd" status --porcelain)" ]; then
-      echo "mmw: $cwd 工作区不干净，可写任务不派" >&2
-      git -C "$cwd" status --short >&2
-      return 1
-    fi
+    cwd="$(mmw_require_writable_cwd "$cwd")" || return 1
   fi
   printf 'ok: %s -> %s\n' "$role" "$agent"
 }
@@ -576,13 +569,13 @@ cmd_doctor() {
   fi
 
   if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host pi --check >/dev/null 2>&1; then
-    echo "Pi agent : agents-pi 与 agent-src / 默认型号表一致"
+    echo "Pi agent : agents-pi 与 agent-src / 型号表一致"
   else
     echo "Pi agent : 与真源不一致，跑 mmw agents materialize --host pi"
     status=1
   fi
   if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host cursor --check >/dev/null 2>&1; then
-    echo "Cursor   : ~/.cursor/agents 与真源一致"
+    echo "Cursor   : ~/.cursor/agents 与型号表一致"
   else
     echo "Cursor   : 未装或过期，跑 mmw agents materialize --host cursor"
   fi

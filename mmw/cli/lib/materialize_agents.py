@@ -46,6 +46,40 @@ def expand_user_path(raw: str) -> Path:
     return Path(os.path.expanduser(raw)).resolve()
 
 
+
+def resolve_config_path(explicit: str = "") -> Path:
+    """显式 --config → 当前 git 根 .mmw.json → 插件 default。
+
+    仓库配置存在但非法 JSON 时直接失败，不回退 default。
+    """
+    if explicit:
+        path = Path(explicit).expanduser()
+        if not path.is_file():
+            die(f"配置不存在：{path}")
+        load_json(path)
+        return path.resolve()
+
+    import subprocess
+
+    try:
+        root = subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        root = ""
+    if root:
+        cand = Path(root) / ".mmw.json"
+        if cand.is_file():
+            load_json(cand)
+            return cand.resolve()
+
+    if not DEFAULT_CONFIG.is_file():
+        die(f"配置不存在：{DEFAULT_CONFIG}")
+    return DEFAULT_CONFIG.resolve()
+
+
 def resolve_model(config: dict[str, Any], role: str, host: str) -> dict[str, str]:
     models = config.get("models") or {}
     if role not in models:
@@ -278,7 +312,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="materialize_agents.py")
     parser.add_argument("--host", required=True, help="pi | cursor | all")
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--config", default="", help=".mmw.json 路径；默认插件 default")
+    parser.add_argument("--config", default="", help=".mmw.json 路径；默认：仓库 .mmw.json 或插件 default")
     parser.add_argument("--out", default="", help="覆盖输出目录")
     args = parser.parse_args(argv)
 
@@ -293,9 +327,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.out and host_arg == "all":
         die("--out 不能与 --host all 同用")
 
-    config_path = Path(args.config) if args.config else DEFAULT_CONFIG
-    if not config_path.is_file():
-        die(f"配置不存在：{config_path}")
+    config_path = resolve_config_path(args.config)
     config = load_json(config_path)
     roles_doc = load_json(ROLES_PATH)
     roles = roles_doc.get("roles") or {}
