@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 from pathlib import Path
 from typing import NoReturn
 
@@ -360,13 +361,60 @@ def uninstall() -> int:
     return 0
 
 
+def check_mcp_configs(paths: list[str]) -> int:
+    """拒绝会绕过已安装 plugin 的旧 MCP 命令；等价的显式项目配置允许保留。"""
+    expected = {
+        name: {"command": "mmw", "args": ["mcp", "serve", name]}
+        for name in ("serena", "graphify", "context7")
+    }
+    failures = 0
+    for raw_path in paths:
+        path = Path(raw_path).expanduser()
+        if not path.is_file():
+            continue
+        try:
+            payload = tomllib.loads(path.read_text(encoding="utf-8"))
+        except (OSError, tomllib.TOMLDecodeError) as exc:
+            print(f"读不到 Codex 配置 {path}: {exc}", file=sys.stderr)
+            failures += 1
+            continue
+        servers = payload.get("mcp_servers") or {}
+        if not isinstance(servers, dict):
+            print(f"Codex 配置的 mcp_servers 不是表: {path}", file=sys.stderr)
+            failures += 1
+            continue
+        for name, wanted in expected.items():
+            actual = servers.get(name)
+            if actual is None:
+                continue
+            if not isinstance(actual, dict) or any(
+                actual.get(field) != value for field, value in wanted.items()
+            ):
+                print(
+                    f"{path}: mcp_servers.{name} 没有通过已安装的 MMW plugin 启动",
+                    file=sys.stderr,
+                )
+                failures += 1
+    return 1 if failures else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="管理 MMW Codex 原生运行时")
-    parser.add_argument("command", choices=("materialize", "install", "check", "uninstall"))
+    parser.add_argument(
+        "command",
+        choices=("materialize", "install", "check", "uninstall", "check-mcp-config"),
+    )
+    parser.add_argument("paths", nargs="*")
     parser.add_argument("--check", action="store_true", help="materialize 时只检查漂移")
     args = parser.parse_args(argv)
     if args.command == "materialize":
         return materialize(args.check)
+    if args.command == "check-mcp-config":
+        if args.check or not args.paths:
+            die("check-mcp-config 需要至少一个配置路径", code=2)
+        return check_mcp_configs(args.paths)
+    if args.paths:
+        die(f"{args.command} 不接受路径参数", code=2)
     if args.check:
         die("--check 只用于 materialize", code=2)
     return {"install": install, "check": check, "uninstall": uninstall}[args.command]()

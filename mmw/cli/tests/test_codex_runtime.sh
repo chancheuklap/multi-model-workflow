@@ -214,7 +214,7 @@ check "Codex doctor 不检查 Pi/Cursor 用户级 MCP" test \
 check "Codex doctor 不检查其他宿主产物" test \
   "$(grep -Ec '^(Pi agent|Pi skills|Cursor|CC skills)' <<<"$doctor_out")" = 0
 check "Codex doctor 使用 plugin MCP" grep -qF \
-  'Codex MCP: 由 plugin 直接启动' <<<"$doctor_out"
+  'Codex MCP: 三台服务器由 plugin 或等价的 mmw 项目入口启动' <<<"$doctor_out"
 
 printf '\nInstalled plugin in an unrelated project\n'
 user_project="$WORK/unrelated-product"
@@ -244,6 +244,31 @@ installed_probe="$(cd "$user_project" && MMW_CODEX_BIN_DIR="$fake_bin" \
   python3 "$fake_cache/mcp/probe.py" --config "$fake_cache/.mcp-codex.json" --json)"
 check "任意项目通过已安装 plugin 握手三台 MCP" jq -e \
   '.serena.ok and .graphify.ok and .context7.ok' <<<"$installed_probe"
+mkdir -p "$user_project/.codex"
+printf '[mcp_servers.serena]\ncommand = "serena"\n' > "$user_project/.codex/config.toml"
+override_doctor="$(cd "$user_project" && HOME="$fake_home" CODEX_HOME="$fake_codex" \
+  MMW_CODEX_BIN_DIR="$fake_bin" MMW_HOST=codex PATH="$fake_tools:$fake_bin:$PATH" \
+  mmw doctor 2>&1 || true)"
+check "Codex doctor 拒绝项目级同名 MCP 覆盖" grep -qF \
+  "$user_project/.codex/config.toml" <<<"$override_doctor"
+cat > "$user_project/.codex/config.toml" <<'EOF'
+[mcp_servers.serena]
+command = "mmw"
+args = ["mcp", "serve", "serena"]
+[mcp_servers.graphify]
+command = "mmw"
+args = ["mcp", "serve", "graphify"]
+[mcp_servers.context7]
+command = "mmw"
+args = ["mcp", "serve", "context7"]
+EOF
+configured_doctor="$(cd "$user_project" && HOME="$fake_home" CODEX_HOME="$fake_codex" \
+  MMW_CODEX_BIN_DIR="$fake_bin" MMW_HOST=codex PATH="$fake_tools:$fake_bin:$PATH" \
+  mmw doctor 2>&1 || true)"
+check "Codex doctor 接受通过 plugin 启动的项目级 MCP 配置" grep -qF \
+  'Codex MCP: 三台服务器由 plugin 或等价的 mmw 项目入口启动' \
+  <<<"$configured_doctor"
+rm "$user_project/.codex/config.toml"
 (cd "$user_project" && HOME="$fake_home" CODEX_HOME="$fake_codex" \
   MMW_CODEX_BIN_DIR="$fake_bin" MMW_HOST=codex PATH="$fake_tools:$fake_bin:$PATH" \
   mmw init >/dev/null)
