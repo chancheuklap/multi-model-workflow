@@ -1,13 +1,12 @@
 ---
 name: mmw-dispatching-agents
 description: >
-  把一件活派给隔离上下文的 subagent。在要派 worker、planner、investigator、
-  审查者，或别的技能写「打开并执行 /mmw-dispatching-agents 的启动」时用。
+  把一件活派给隔离上下文的 subagent。要派 worker、planner、investigator、
+  审查者，或其它技能要求打开并执行本技能的启动步骤时用。
 ---
 
 把活派给隔离上下文的 subagent。你编排；它执行。
-
-其它技能写「打开并执行 `/mmw-dispatching-agents` 的「启动」四节」时：打开本技能，按下方 **启动** 四节依次做完。调用方技能负责写清角色、cwd、task 里要点名的路径；本技能负责启动与收回。
+按下方「启动」四节依次做完。
 
 ## 派不派
 
