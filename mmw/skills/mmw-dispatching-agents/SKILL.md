@@ -1,8 +1,8 @@
 ---
 name: mmw-dispatching-agents
 description: >
-  把一件活派给隔离上下文的 subagent。要派 worker、planner、investigator、
-  审查者，或其它技能要求打开并执行本技能的启动步骤时用。
+  把一件活派给隔离上下文的 subagent。要启动 worker、planner、investigator
+  或审查者时用。
 ---
 
 把活派给隔离上下文的 subagent。你编排；它执行。
@@ -23,7 +23,7 @@ subagent 内部的探路仍派。只有**你**要改判断方向时才留下。
 
 ## 角色与 agent 名
 
-调用方写的是**角色**。启动工具的 `agent` 参数必须用「角色与 agent 名」表右列，不能把角色名原样当 agent 名。
+当前任务给出的是**角色名**。启动工具的 `agent` 参数必须用下表右列，不能把角色名原样当作 agent 名。
 
 | 角色 | `agent` 参数 | 可写 worktree |
 | --- | --- | --- |
@@ -34,9 +34,9 @@ subagent 内部的探路仍派。只有**你**要改判断方向时才留下。
 | `reviewer-gpt` | `mmw-reviewer-gpt` | 否 |
 | `reviewer-claude` | `mmw-reviewer-claude` | 否 |
 
-例：调用方写派 `worker` → 工具里 `agent` 传 `mmw-worker`。
+例：任务要求派 `worker` → 工具里 `agent` 传 `mmw-worker`。
 
-选哪个审查角色、是否改用 `worker-high-risk`，由调用方技能决定，本技能不改。
+角色以当前任务说明为准（含是否改用 `worker-high-risk`、派哪个审查角色）。
 
 ## 启动
 
@@ -44,11 +44,11 @@ subagent 内部的探路仍派。只有**你**要改判断方向时才留下。
 
 task 是一段给 subagent 的指令，只含：
 
-1. 要交付什么、边界与验收
-2. **去读哪些路径**（仓库内路径派前确认存在；tracker 项写清用什么命令或 URL 读）
-3. 调用方技能列出的其它必写项
+1. 要交付什么、边界与验收  
+2. **去读哪些路径**（仓库内路径派前确认存在；tracker 项写清用什么命令或 URL 读）  
+3. 当前任务说明里要求写入的其它项  
 
-路径优先写绝对路径。相对路径必须相对下面将传入的 `cwd` 能打开。
+路径优先写绝对路径。相对路径必须相对将传入的 `cwd` 能打开。
 
 task **只放指令与路径**。spec、plan、纪律文件、源码的正文由 subagent 自己打开路径读取。
 
@@ -60,11 +60,11 @@ task **只放指令与路径**。spec、plan、纪律文件、源码的正文由
 
 若角色在「角色与 agent 名」表中「可写 worktree」为「是」：
 
-1. 在目标 worktree 根执行 `git status --porcelain`
-2. 有任何输出 → **停**，先清理，不启动
+1. 在目标 worktree 根执行 `git status --porcelain`  
+2. 有任何输出 → **停**，先清理，不启动  
 3. 记下该 worktree 根的**绝对路径**，启动时作 `cwd`
 
-只读角色（「角色与 agent 名」表中「可写 worktree」为「否」）跳过本节。
+只读角色（表中「可写 worktree」为「否」）跳过本节。
 
 **完成判据：** 可写角色已有干净 worktree 的绝对路径；只读角色无额外状态。
 
@@ -72,7 +72,7 @@ task **只放指令与路径**。spec、plan、纪律文件、源码的正文由
 
 使用本宿主启动已安装 agent 的工具。
 
-- **Pi：** 工具名是 `subagent`
+- **Pi：** 工具名是 `subagent`  
 - **Cursor：** 使用 Cursor 启动 agent 的对应工具（agent 名与 `~/.cursor/agents/mmw-*.md` 一致）
 
 传入参数**仅限**：
@@ -83,7 +83,7 @@ task **只放指令与路径**。spec、plan、纪律文件、源码的正文由
 | `task` | 「写 task」小节定稿的全文 |
 | `cwd` | 可写角色：必给 worktree 绝对路径。只读角色：可省略 |
 
-下列键**不要传入**（已在 agent 文件 frontmatter 中）：`model`、`thinking`、`context`、`async`、`skill`。
+`model`、`thinking`、`context`、`async`、`skill` 已在 agent 定义里，调用时不要传。
 
 可并行的多个方向：同一条助手消息里发出多个启动调用。
 
@@ -91,7 +91,7 @@ task **只放指令与路径**。spec、plan、纪律文件、源码的正文由
 
 ### 收回
 
-subagent 结束后，将其报告交给 `/mmw-verifying-agent-output` 验证。
+subagent 结束后，将其报告交给 `/mmw-verifying-agent-output` 验证。  
 未经验证的句子不当作事实写进交付物或对用户的结论。
 
 **完成判据：** 已打开 `/mmw-verifying-agent-output` 并按其正文处理该报告；或已根据验证结果改好 task、准备按「启动」重新跑一遍（新会话，不续接旧 subagent）。

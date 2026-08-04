@@ -1,12 +1,12 @@
 ---
 name: mmw-dispatching-agents
 description: >
-  把一件活派给隔离上下文的 subagent。要派 worker、planner、investigator、
-  审查者，或其它技能要求打开并执行本技能的启动步骤时用。
+  把一件活派给隔离上下文的 subagent。要启动 worker、planner、investigator
+  或审查者时用。
 ---
 
 把活派给隔离上下文的 subagent。你编排；它执行。
-本安装面用 `mmw dispatch` 启动（型号与后台由 CLI 写入，你不填型号）。
+用 `mmw dispatch` 启动（型号与后台由 CLI 写入，你不填型号）。
 按下方「启动」四节依次做完。
 
 ## 派不派
@@ -28,25 +28,25 @@ subagent 内部的探路仍派。只有**你**要改判断方向时才留下。
 
 `worker` · `worker-high-risk` · `planner` · `investigator` · `reviewer-gpt` · `reviewer-claude`
 
-不带参数执行 `mmw dispatch` 可查看用法。
-选哪个审查角色、是否改用 `worker-high-risk`，由调用方技能决定，本技能不改。
+不带参数执行 `mmw dispatch` 可查看用法。  
+角色以当前任务说明为准（含是否改用 `worker-high-risk`、派哪个审查角色）。
 
 ## 启动
 
 ### 写 brief 文件
 
-brief 是写在磁盘上的一段指令，内容与 task 相同，只含：
+brief 是写在磁盘上的一段指令，只含：
 
-1. 要交付什么、边界与验收
-2. **去读哪些路径**（派前确认仓库内路径存在）
-3. 调用方技能列出的其它必写项
+1. 要交付什么、边界与验收  
+2. **去读哪些路径**（派前确认仓库内路径存在）  
+3. 当前任务说明里要求写入的其它项  
 
 brief **只放指令与路径**。文件正文由 subagent 自己读取。
 
 落盘位置：
 
-- 一般派发：目标 worktree 下 `.dispatch/<名>.md`
-- 审查派发：目标 worktree 下 `.reviews/<名>.md`
+- 一般派发：目标 worktree 下 `.dispatch/<名>.md`  
+- 审查派发：目标 worktree 下 `.reviews/<名>.md`  
 
 需要时先 `mkdir -p` 对应目录。路径使用**绝对路径**传给后面的 `--brief`。
 
@@ -60,8 +60,8 @@ brief **只放指令与路径**。文件正文由 subagent 自己读取。
 mmw dispatch <角色> --brief <brief文件绝对路径> [--cwd <worktree绝对路径>]
 ```
 
-- `<角色>`：「角色」节列出的名字之一
-- 可写角色（`worker`、`worker-high-risk`、`planner`）：`--cwd` **必填**，值为 worktree 根绝对路径；工作区不干净时命令失败
+- `<角色>`：「角色」节列出的名字之一  
+- 可写角色（`worker`、`worker-high-risk`、`planner`）：`--cwd` **必填**，值为 worktree 根绝对路径；工作区不干净时命令失败  
 - 只读角色：可省略 `--cwd`
 
 **完成判据：** 后台命令已启动，且你已读到该次运行的完整回执文本（含首行 `mode:`）。
@@ -70,13 +70,13 @@ mmw dispatch <角色> --brief <brief文件绝对路径> [--cwd <worktree绝对�
 
 读回执第一行 `mode:`。
 
-**`mode: executed`**
+**`mode: executed`**  
 报告路径在 `report:` 字段。读该文件即 subagent 报告。本节无其它动作。
 
-**`mode: host-tool`**
+**`mode: host-tool`**  
 
-1. 读取 `tool:` 字段（`Agent` 或 `Bash`）
-2. 读取 `params:` 后的整包 JSON
+1. 读取 `tool:` 字段（`Agent` 或 `Bash`）  
+2. 读取 `params:` 后的整包 JSON  
 3. 调用对应宿主工具时，**原样传入该 JSON 的每一个键**（不删键、不改名、不手写子集）
 
 | `tool` 值 | 你要做的 |
@@ -88,12 +88,12 @@ mmw dispatch <角色> --brief <brief文件绝对路径> [--cwd <worktree绝对�
 
 **完成判据：**
 
-- `executed`：已拿到 `report:` 路径
-- `host-tool`：已按 `tool` 启动，且传入的 params 键集合与回执一致
+- `executed`：已拿到 `report:` 路径  
+- `host-tool`：已按 `tool` 启动，且传入的 params 键集合与回执一致  
 
 ### 收回
 
-将报告交给 `/mmw-verifying-agent-output` 验证。
+将报告交给 `/mmw-verifying-agent-output` 验证。  
 未经验证的句子不当作事实写进交付物或对用户的结论。
 
 **完成判据：** 已打开 `/mmw-verifying-agent-output` 并按其正文处理；或已改好 brief、准备从「写 brief 文件」重新跑一遍（新会话）。
