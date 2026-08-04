@@ -1,6 +1,8 @@
 # 怎么写 agent brief
 
-agent brief 是一张 issue 或 PR 转到 `ready-for-agent` 时贴上去的一条结构化评论。它是 `worker` 实现这张 issue 或补完这份 PR 时，行为合同的唯一事实来源。原始正文和讨论只提供背景。
+agent brief 是 `$mmw:mmw-triage` 对一张已有 issue 或 PR 完成分诊后，贴到 issue tracker 上的一条结构化评论。它与 `ready-for-agent` 状态一起产生。
+
+agent brief 记录已经确认的当前行为、目标行为、验收标准、范围边界和测试 seam。它是这张已分诊需求的权威行为合同，原始正文和讨论只提供背景。主 agent 派发时通过 task 引用 agent brief，并在 task 中补充本次运行的执行边界。
 
 agent brief 说的是**这个 agent 该做什么**。两个面都适用：对一张 issue，那是从零把改动做出来；对一个 PR，那是*在已有的 diff 上*还剩什么要做——补完、堵住缺口、回应审查意见。原则一样，下面的 PR 例子展示差别在哪。
 
