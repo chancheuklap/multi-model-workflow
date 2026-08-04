@@ -36,7 +36,7 @@
 
 ## 2. 一个变体派一个 subagent
 
-一个变体派一个上下文隔离的 subagent，并行做，按 `/mmw-dispatching-agents` 派 `worker`（cwd 为任务 worktree 绝对路径）。
+一个变体一个 subagent，并行。每个变体：写 task（页面语境相关路径 + 该变体结构方向 + 禁止的其它方向 + 质量门指向本文件「3. 每个变体都要过质量门」），打开并执行 `/mmw-dispatching-agents` 的「启动」四节，角色为 `worker`，`cwd` 为任务 worktree 根绝对路径。
 
 每份 task 给同样的页面语境路径（用途、数据、组件库与样式系统在仓库里的位置），但**各自指定一个不同的结构方向**，并明说不许用另外两个方向。质量门写路径或点名本文件「每个变体都要过质量门」一节，由 subagent 自读。
 

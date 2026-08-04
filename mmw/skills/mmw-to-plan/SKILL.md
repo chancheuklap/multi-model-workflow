@@ -44,23 +44,23 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 ## 3. 派 `planner`
 
-一张 ticket 一个 `planner`。task **只写指令与路径**，不要粘文件正文；`planner` 自己读。
+一张 ticket 一个 `planner`。task **只写指令与路径**；`planner` 自己打开路径读文件。
 
-task 必须点名：
+task 必须包含：
 
-1. spec 在本 worktree 的路径；并写明 seam 在 `## Testing Decisions` 表，合同边界在 `## Cross-Plan Contract Anchors`（若有）。
-2. 本张 ticket：编号、标题、要做什么、验收、被谁阻塞（可写在 task 里，或给出 tracker 上可读位置）。
-3. plan 落点路径（ticket `## Plan` 写的那条，或本技能第 1 步定的路径）。
-4. 有选中原型时：该版路径 + 指出 spec 里视觉契约那一节。
-5. 方法论：跑 `mmw skill-path planner`；有输出则把该路径写进 task 让它进门先读；无输出则宿主已注入，跳过。
+1. 本 worktree 内 spec 的路径；写明 seam 在 `## Testing Decisions` 表；若有 `## Cross-Plan Contract Anchors` 也写明去读该节。
+2. 本张 ticket：编号、标题、要做什么、验收、被谁阻塞（可写在 task 正文，或写清 tracker 上如何读到）。
+3. plan 落点路径：优先 ticket 正文 `## Plan` 写出的路径；否则用本技能「1. 定 plan 清单」为该 ticket 定下的路径。
+4. 若有选中原型：该版路径，并指出 spec 里视觉契约所在节。
+5. 方法论路径：执行 `mmw skill-path planner`；有输出则写入 task 并要求进门先读；无输出则写「方法论由宿主注入」，不写路径。
 
-可选：把这段 task 存成 `.dispatch/<slug>-plan-<编号>.prompt.md`。
+可选留痕：写入本 worktree `.dispatch/<slug>-plan-<编号>.prompt.md`。
 
-按 `/mmw-dispatching-agents` 派 `planner`（cwd 为任务 worktree 的**绝对路径**）。
+task 不要包含：其它 planner 的历史、其它 plan 文件正文、此前几轮完成总结。
 
-**每个派发只装上面这些。** 别的 `planner` 的历史、别份 plan、前面几轮总结，一律不进 task。
+打开并执行 `/mmw-dispatching-agents` 的「启动」四节，角色为 `planner`，`cwd` 为任务 worktree 根的绝对路径。
 
-互不依赖的 plan 同一条消息里并行派；有依赖链的按依赖顺序派。**不开子 worktree、不提交**，各份 plan 写不同文件，在任务 worktree 内并行。
+互不依赖的 plan：同一条消息里并行启动多个 `planner`。有依赖链：按依赖顺序启动。不开子 worktree；`planner` 不提交；各 plan 写不同文件，同在任务 worktree 内。
 
 ## 4. 验证返回
 

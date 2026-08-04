@@ -28,7 +28,7 @@ description: 扫一遍代码库找可以做深的模块，出一份候选报告�
 
 ## 2. 一个视角派一个 subagent 去扫
 
-五个视角，一个视角派一个上下文隔离的 subagent，并行扫，按 `/mmw-dispatching-agents` 派 `investigator`（只读）。
+五个视角，一个视角一个 subagent，并行扫描。每个视角：写 task（范围路径 + 该视角问题 + 领域文档/`/mmw-codebase-design`/ADR 路径），打开并执行 `/mmw-dispatching-agents` 的「启动」四节，角色为 `investigator`（只读）。
 
 | 视角 | 让它去看 |
 | --- | --- |

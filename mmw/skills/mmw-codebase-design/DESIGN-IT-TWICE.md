@@ -18,7 +18,7 @@
 
 ### 2. 派 subagent
 
-一个约束派一个上下文隔离的 subagent，至少三个，并行做，按 `/mmw-dispatching-agents` 派 `investigator`（只读）。每个都要产出一个**截然不同**的 interface。
+一个约束一个 subagent，至少三个，并行。每个约束：写 task（同一套技术材料路径 + 仅该约束不同的设计要求 + `SKILL.md` 与领域文档路径），打开并执行 `/mmw-dispatching-agents` 的「启动」四节，角色为 `investigator`（只读）。每个 subagent 须产出**截然不同**的 interface。
 
 每份 task 点名同样的技术材料路径（相关文件、耦合点、[DEEPENING.md](DEEPENING.md)、seam 位置），只有设计约束那一栏不同。task 与第 1 步给用户看的问题空间说明是两回事。
 

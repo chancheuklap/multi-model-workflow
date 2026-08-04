@@ -2,23 +2,31 @@
 name: mmw-dispatching-agents
 description: >
   把一件活派给隔离上下文的 subagent。在要派 worker、planner、investigator、
-  审查者，或别的技能写「按 /mmw-dispatching-agents 派」时用。
+  审查者，或别的技能写「打开并执行 /mmw-dispatching-agents 的启动」时用。
 ---
 
 把活派给隔离上下文的 subagent。你编排；它执行。
-调用方已写好角色与 task 要点时，从「步骤」做起。
+
+其它技能写「打开并执行 `/mmw-dispatching-agents` 的「启动」四节」时：打开本技能，按下方 **启动** 四节依次做完。调用方技能负责写清角色、cwd、task 里要点名的路径；本技能负责启动与收回。
 
 ## 派不派
 
-**默认派。** 仅下面情况自己做：要跟用户来回；结论必须由你对用户负责；事先写不出 task、只能边看边定方向；一句话就做完、派发往返更慢。
+**默认派。** 仅下列情形自己做，不启动 subagent：
 
-subagent 内部的探路照派。只有**你**要换判断方向时才留下。
+- 必须和用户来回才能推进
+- 结论必须由你对用户负责（不能下放）
+- 事先写不出 task，只能边看边改方向
+- 一句话能做完，派发往返更慢
 
-**一个方向一个人。** 多方向就多派，并行时同一条消息里多个调用。
+subagent 内部的探路仍派。只有**你**要改判断方向时才留下。
 
-## 角色 → agent
+**一个方向一个人。** 多个独立方向就多次启动；可并行时在同一条消息里发出多个调用。
 
-| 角色（调用方写的名字） | 工具参数 `agent` | 可写 |
+## 角色与 agent 名
+
+调用方写的是**角色**。启动工具的 `agent` 参数必须用下表右列，不能把角色名原样当 agent 名。
+
+| 角色 | `agent` 参数 | 可写 worktree |
 | --- | --- | --- |
 | `worker` | `mmw-worker` | 是 |
 | `worker-high-risk` | `mmw-worker-high-risk` | 是 |
@@ -27,54 +35,73 @@ subagent 内部的探路照派。只有**你**要换判断方向时才留下。
 | `reviewer-gpt` | `mmw-reviewer-gpt` | 否 |
 | `reviewer-claude` | `mmw-reviewer-claude` | 否 |
 
-调用方写 `worker` 时，工具里传 `mmw-worker`，不要传 `worker`。
-哪两个审查角色、何时升 `worker-high-risk`，由调用方技能决定。
+例：调用方写派 `worker` → 工具里 `agent` 传 `mmw-worker`。
 
-## 步骤
+选哪个审查角色、是否改用 `worker-high-risk`，由调用方技能决定，本技能不改。
 
-### 1. 写 task
+## 启动
 
-写清：要交付什么、去读哪些路径（或 tracker 上读什么）、边界与验收。
-路径用绝对路径，或相对即将传入的 `cwd` 能打开的路径；派前确认仓库内路径存在。
+### 写 task
 
-task 里只放指令与路径列表。文件内容由 subagent 打开路径自读。
-调用方技能若列出「task 要点名的材料」，照那份清单写。
+task 是一段给 subagent 的指令，只含：
 
-可选留痕：同一段文字写入 worktree 下 `.dispatch/<名>.md`（审查用 `.reviews/`）。
+1. 要交付什么、边界与验收
+2. **去读哪些路径**（仓库内路径派前确认存在；tracker 项写清用什么命令或 URL 读）
+3. 调用方技能列出的其它必写项
 
-**完成**：task 文本已定；其中每个仓库内路径存在（或已标明「无」）。
+路径优先写绝对路径。相对路径必须相对下面将传入的 `cwd` 能打开。
 
-### 2. 可写角色清场
+task **只放指令与路径**。spec、plan、纪律文件、源码的正文由 subagent 自己打开路径读取。
 
-可写角色：在目标 worktree 执行 `git status --porcelain`。有输出则停，先清理。
-记下该 worktree 的绝对路径，作为 `cwd`。
+可选：把同一段 task 写入目标 worktree 的 `.dispatch/<名>.md`（审查类写入 `.reviews/<名>.md`）便于留痕。留痕文件不是启动所必需。
 
-**完成**：可写则 porcelain 为空且已有绝对路径；只读可跳过。
+**完成判据：** task 文本已定稿；其中每个声称存在的仓库内路径用 `test -e` 或等价检查为真，或不存在的已在 task 里写明「无」。
 
-### 3. 调用
+### 可写角色：确认 worktree
 
-使用本宿主的 **`subagent` 工具**（不要改用其它派发入口），参数仅：
+若角色在上表「可写 worktree」为「是」：
 
-- `agent`：上表第二列（如 `mmw-worker`）
-- `task`：第 1 步文本
-- `cwd`：可写角色必给；只读可省
+1. 在目标 worktree 根执行 `git status --porcelain`
+2. 有任何输出 → **停**，先清理，不启动
+3. 记下该 worktree 根的**绝对路径**，启动时作 `cwd`
 
-型号、思考档、后台、技能注入已在 agent 定义中，调用时不传这些键。
-同一轮并行：一条消息里多个 `subagent` 调用。
+只读角色（上表为「否」）跳过本节。
 
-**完成**：每个方向已发出调用；参数键仅为上列允许项。
+**完成判据：** 可写角色已有干净 worktree 的绝对路径；只读角色无额外状态。
 
-### 4. 收回
+### 调用宿主工具
 
-报告交 `/mmw-verifying-agent-output`。未经验证的句子不当事实用。
+使用本宿主启动已安装 agent 的工具。
 
-**完成**：已移交验证，或已按验证结果准备重派 task。
+- **Pi：** 工具名是 `subagent`
+- **Cursor：** 使用 Cursor 启动 agent 的对应工具（agent 名与 `~/.cursor/agents/mmw-*.md` 一致）
+
+传入参数**仅限**：
+
+| 参数 | 值 |
+| --- | --- |
+| `agent` | 上表右列，例如 `mmw-worker` |
+| `task` | 「写 task」一节定稿的全文 |
+| `cwd` | 可写角色：必给 worktree 绝对路径。只读角色：可省略 |
+
+下列键**不要传入**（已在 agent 文件 frontmatter 中）：`model`、`thinking`、`context`、`async`、`skill`。
+
+可并行的多个方向：同一条助手消息里发出多个启动调用。
+
+**完成判据：** 每个方向都已发出一次启动调用；每次调用的参数键集合是 `{agent, task}` 或 `{agent, task, cwd}`。
+
+### 收回
+
+subagent 结束后，将其报告交给 `/mmw-verifying-agent-output` 验证。
+未经验证的句子不当作事实写进交付物或对用户的结论。
+
+**完成判据：** 已打开 `/mmw-verifying-agent-output` 并按其正文处理该报告；或已根据验证结果改好 task、准备按「启动」重新跑一遍（新会话，不续接旧 subagent）。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
 | 报告已交回 | **移交**：`/mmw-verifying-agent-output` |
-| 验证后要重派 | **自己继续**：task 补路径或修复说明，再走第 2–3 步（新会话） |
-| 可写 worktree 不干净 | **停**：列出未提交改动 |
-| task 里的路径不存在 | **自己继续**：改路径或补材料后再派 |
+| 验证后要重派 | **自己继续**：改 task（补路径或修复说明），再从「可写角色：确认 worktree」做到「调用宿主工具」（新会话） |
+| 可写 worktree 不干净 | **停**：列出 `git status --porcelain` 的全部输出 |
+| task 中的路径不存在 | **自己继续**：改正路径或补材料后，从「写 task」重做 |

@@ -168,8 +168,12 @@ if native_dispatch.is_file():
     text = native_dispatch.read_text()
     if 'mmw dispatch' in text:
         bad.append('skills/mmw-dispatching-agents 含 mmw dispatch（Pi/Cursor 面应写死直调）')
-    elif '只放指令与路径' not in text and '文件正文写进 task' not in text:
-        bad.append('skills/mmw-dispatching-agents 未写明 task 不粘文件正文')
+    elif '## 启动' not in text:
+        bad.append('skills/mmw-dispatching-agents 缺少「启动」节')
+    elif '只放指令与路径' not in text:
+        bad.append('skills/mmw-dispatching-agents 未写明 task 只放指令与路径')
+    elif 'mmw-worker' not in text:
+        bad.append('skills/mmw-dispatching-agents 缺少角色到 agent 映射')
     elif '组装与存盘' in text:
         bad.append('skills/mmw-dispatching-agents 仍含组装与存盘（已废止）')
     else:
@@ -178,8 +182,12 @@ if claude_dispatch.is_file():
     text = claude_dispatch.read_text()
     if 'mmw dispatch' not in text:
         bad.append('skills-claude-code/mmw-dispatching-agents 缺少 mmw dispatch')
-    elif '只放指令与路径' not in text and '文件正文写进 brief' not in text:
-        bad.append('skills-claude-code/mmw-dispatching-agents 未写明 brief 不粘文件正文')
+    elif '## 启动' not in text:
+        bad.append('skills-claude-code/mmw-dispatching-agents 缺少「启动」节')
+    elif '只放指令与路径' not in text:
+        bad.append('skills-claude-code/mmw-dispatching-agents 未写明 brief 只放指令与路径')
+    elif 'params' not in text or 'host-tool' not in text:
+        bad.append('skills-claude-code/mmw-dispatching-agents 缺少 host-tool/params 接线')
     else:
         ok += 1
 else:
@@ -194,6 +202,22 @@ if plugin.is_file():
         bad.append('Claude plugin.json 未指向 skills-claude-code/mmw-dispatching-agents')
     if '"./skills/mmw-dispatching-agents"' in pj:
         bad.append('Claude plugin.json 仍指向 skills/mmw-dispatching-agents（会装到 Pi 正文）')
+
+
+# 主流程调用方须写死「打开并执行 … 启动」
+for rel, needle in [
+    ('skills/mmw-implement/SKILL.md', '打开并执行 `/mmw-dispatching-agents` 的「启动」四节'),
+    ('skills/mmw-to-plan/SKILL.md', '打开并执行 `/mmw-dispatching-agents` 的「启动」四节'),
+    ('skills/mmw-research/SKILL.md', '打开并执行 `/mmw-dispatching-agents` 的「启动」四节'),
+    ('skills/mmw-review/SKILL.md', '打开并执行 `/mmw-dispatching-agents` 的「启动」四节'),
+]:
+    fp = cli.parent / rel
+    if not fp.is_file():
+        bad.append(f'缺少 {rel}')
+    elif needle not in fp.read_text():
+        bad.append(f'{rel} 未写「打开并执行 … 启动」')
+    else:
+        ok += 1
 
 for b in bad:
     print(f"  失败  {b}")

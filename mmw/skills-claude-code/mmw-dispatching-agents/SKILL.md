@@ -2,79 +2,111 @@
 name: mmw-dispatching-agents
 description: >
   把一件活派给隔离上下文的 subagent。在要派 worker、planner、investigator、
-  审查者，或别的技能写「按 /mmw-dispatching-agents 派」时用。
+  审查者，或别的技能写「打开并执行 /mmw-dispatching-agents 的启动」时用。
 ---
 
 把活派给隔离上下文的 subagent。你编排；它执行。
-启动：`mmw dispatch`（型号与后台由它写入）。调用方已写好角色与 brief 要点时，从「步骤」做起。
+
+本安装面通过 `mmw dispatch` 启动（型号、后台、沙箱由 CLI 与 adapter 写入）。你不要手填型号。
+
+其它技能写「打开并执行 `/mmw-dispatching-agents` 的「启动」四节」时：打开本技能，按下方 **启动** 四节依次做完。调用方技能负责写清角色、cwd、brief 里要点名的路径；本技能负责启动与收回。
 
 ## 派不派
 
-**默认派。** 仅下面情况自己做：要跟用户来回；结论必须由你对用户负责；事先写不出 brief、只能边看边定方向；一句话就做完、派发往返更慢。
+**默认派。** 仅下列情形自己做，不启动 subagent：
 
-subagent 内部的探路照派。只有**你**要换判断方向时才留下。
+- 必须和用户来回才能推进
+- 结论必须由你对用户负责（不能下放）
+- 事先写不出 brief，只能边看边改方向
+- 一句话能做完，派发往返更慢
 
-**一个方向一个人。** 多方向就多派。并行：一条消息里多个后台 `mmw dispatch`；拿到 `mode: host-tool` 后，再一条消息里调各自的宿主工具。
+subagent 内部的探路仍派。只有**你**要改判断方向时才留下。
+
+**一个方向一个人。** 多个独立方向就多次启动。并行时：先在同一条消息里发出多个后台 `mmw dispatch`；收齐 `mode: host-tool` 回执后，再在同一条消息里调用各自的宿主工具。
 
 ## 角色
 
-角色名原样传给 `mmw dispatch`：`worker`、`worker-high-risk`、`planner`、`investigator`、`reviewer-gpt`、`reviewer-claude`。
-不带参数跑 `mmw dispatch` 可看用法。哪两个审查角色、何时升 `worker-high-risk`，由调用方技能决定。
+下列名字原样作为 `mmw dispatch` 的角色参数（不要改成 `mmw-worker` 这种 agent 文件名）：
 
-## 步骤
+`worker` · `worker-high-risk` · `planner` · `investigator` · `reviewer-gpt` · `reviewer-claude`
 
-### 1. 写 brief 文件
+不带参数执行 `mmw dispatch` 可查看用法。
+选哪个审查角色、是否改用 `worker-high-risk`，由调用方技能决定，本技能不改。
 
-内容：要交付什么、去读哪些路径、边界与验收。路径须真实存在。
-brief 里只放指令与路径；文件内容由 subagent 自读。
+## 启动
 
-写到 worktree 下 `.dispatch/<名>.md`（审查写 `.reviews/<名>.md`），`mkdir -p` 按需。
-调用方技能若列出要点名的材料，照那份清单写。
+### 写 brief 文件
 
-**完成**：brief 文件在磁盘上；其中每个仓库内路径存在（或已标明「无」）。
+brief 是写在磁盘上的一段指令，内容与 task 相同，只含：
 
-### 2. 派发
+1. 要交付什么、边界与验收
+2. **去读哪些路径**（派前确认仓库内路径存在）
+3. 调用方技能列出的其它必写项
 
-Bash，`run_in_background: true`：
+brief **只放指令与路径**。文件正文由 subagent 自己读取。
+
+落盘位置：
+
+- 一般派发：目标 worktree 下 `.dispatch/<名>.md`
+- 审查派发：目标 worktree 下 `.reviews/<名>.md`
+
+需要时先 `mkdir -p` 对应目录。路径使用**绝对路径**传给后面的 `--brief`。
+
+**完成判据：** brief 文件已存在且非空；其中每个声称存在的仓库内路径检查为真，或不存在的已在 brief 里写明「无」。
+
+### 运行 mmw dispatch
+
+用 Bash 工具，`run_in_background: true`：
 
 ```bash
 mmw dispatch <角色> --brief <brief文件绝对路径> [--cwd <worktree绝对路径>]
 ```
 
-可写角色 `--cwd` 必填；工作区不干净时命令失败。
+- `<角色>`：上一节列出的角色名之一
+- 可写角色（`worker`、`worker-high-risk`、`planner`）：`--cwd` **必填**，值为 worktree 根绝对路径；工作区不干净时命令失败
+- 只读角色：可省略 `--cwd`
 
-**完成**：命令已在后台启动并已读到回执文本。
+**完成判据：** 后台命令已启动，且你已读到该次运行的完整回执文本（含首行 `mode:`）。
 
-### 3. 接回执
+### 按回执调用宿主工具
 
-看第一行 `mode:`。
+读回执第一行 `mode:`。
 
-**`mode: executed`** — 读 `report:` 路径即报告。
+**`mode: executed`**
+报告路径在 `report:` 字段。读该文件即 subagent 报告。本节无其它动作。
 
-**`mode: host-tool`** — 调 `tool:` 指名的工具，**原样**传入 `params:` 整包 JSON（每个键都保留）。
+**`mode: host-tool`**
 
-| tool | 做法 |
+1. 读取 `tool:` 字段（`Agent` 或 `Bash`）
+2. 读取 `params:` 后的整包 JSON
+3. 调用对应宿主工具时，**原样传入该 JSON 的每一个键**（不删键、不改名、不手写子集）
+
+| `tool` 值 | 你要做的 |
 | --- | --- |
-| `Agent` | 将 brief 文件内容作为提示词；有 `skill-path:` 则要求 subagent 先读该路径；`params` 整包带上 |
-| `Bash` | 使用 params 里的 `command`（已含后台） |
+| `Agent` | 将 brief 文件的**完整文件内容**作为提示词；若回执有 `skill-path:`，在提示词中要求 subagent 先读该路径；`params` 整包带上 |
+| `Bash` | 使用 `params` 里的 `command` 字段（命令已含后台语义） |
 
-工具先回 run id；完成后再读报告。
+工具会先返回 run id；等该次运行结束后再读报告。
 
-**完成**：宿主工具已按回执启动；未改写 params 键集。
+**完成判据：**
 
-### 4. 收回
+- `executed`：已拿到 `report:` 路径
+- `host-tool`：已按 `tool` 启动，且传入的 params 键集合与回执一致
 
-报告交 `/mmw-verifying-agent-output`。未经验证的句子不当事实用。
+### 收回
 
-**完成**：已移交验证，或已按验证结果准备重派。
+将报告交给 `/mmw-verifying-agent-output` 验证。
+未经验证的句子不当作事实写进交付物或对用户的结论。
+
+**完成判据：** 已打开 `/mmw-verifying-agent-output` 并按其正文处理；或已改好 brief、准备从「写 brief 文件」重新跑一遍（新会话）。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
 | 报告已交回 | **移交**：`/mmw-verifying-agent-output` |
-| 验证后要重派 | **自己继续**：改 brief 后重新 `mmw dispatch`（新会话） |
+| 验证后要重派 | **自己继续**：修改 brief 文件后，从「运行 mmw dispatch」重做（新会话） |
 | 工作区不干净 | **停**：列出未提交改动 |
-| brief 路径不存在 | **自己继续**：改路径后再派 |
-| 认不出宿主 | **停**：说明当前环境没有宿主标记 |
-| Codex 报 model is not supported（ChatGPT 账号） | **停**：先让用户刷新 Codex 型号缓存并核对 `~/.codex/models_cache.json`；未证实缓存缺型号前不改 `.mmw.json` |
+| brief 路径或其中引用的路径不存在 | **自己继续**：改路径后从「写 brief 文件」重做 |
+| 回执表明认不出宿主 | **停**：说明当前环境没有宿主标记 |
+| Codex 报 model is not supported（ChatGPT 账号） | **停**：请用户刷新 Codex 型号缓存并核对 `~/.codex/models_cache.json`；未证实缓存缺该型号前不改 `.mmw.json` |

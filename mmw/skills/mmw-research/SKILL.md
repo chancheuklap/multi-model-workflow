@@ -44,21 +44,22 @@ description: 把「去查清楚」派出去，查这个仓库的现状或者仓�
 
 ## 3. 写 task
 
-一个题目一份 task，**只写指令与路径**，不要粘文件正文。
+一个题目一份 task，**只写指令与路径**。
 
-| 写什么 | 取自哪 | 哪个方向 |
+| 必须写入 task 的项 | 取值 | 方向 |
 | --- | --- | --- |
-| 纪律文件绝对路径（进门先读） | 本技能旁 `internal-brief.md` 或 `external-brief.md` | 各拿各的 |
-| 角度与要回答什么 | 第 1 步 | 都要 |
-| 仓库根绝对路径，只许在此取证 | 目标仓库 | 内部 |
-| 领域文档路径 | `mmw domain path` 的输出 | 内部 |
-| 已知背景 | 已查过哪里、排除过什么 | 都要 |
+| 纪律文件绝对路径，并要求进门先读 | 与本 `SKILL.md` 同目录的 `internal-brief.md` 或 `external-brief.md` | 内部用 internal；外部用 external |
+| 角度与要回答什么 | 「1. 定题目」为该题写下的两栏 | 都要 |
+| 仓库根绝对路径，并写明只许在此取证 | 目标仓库根 | 仅内部 |
+| 领域文档路径 | `mmw domain path` 的输出 | 仅内部 |
+| 已知背景 | 已查过哪里、排除过什么；无则写「无」 | 都要 |
 
-可选：存成 `.dispatch/<slug>-research-<角度短名>.prompt.md`。
+可选留痕：本 worktree 或主仓库 `.dispatch/<slug>-research-<角度短名>.prompt.md`。
 
 ## 4. 派发
 
-按 `/mmw-dispatching-agents` 派 `investigator`。题目互不依赖时同一条消息并行派。
+打开并执行 `/mmw-dispatching-agents` 的「启动」四节，角色为 `investigator`（只读，不传可写 cwd）。
+题目互不依赖时：同一条消息里并行启动多个 `investigator`。
 
 ## 5. 过滤
 

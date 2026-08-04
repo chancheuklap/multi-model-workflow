@@ -14,18 +14,20 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
 有 correct seam 的话，按顺序做三件事：
 
-1. **先把工作区清干净。** grep `[DEBUG-` 前缀，把 Phase 4 的埋点全删掉。可写 worktree 不干净就不派（`git status --porcelain` 有输出则先清）。
-2. 按 `/mmw-dispatching-agents` 派 `worker`（cwd 为这棵 worktree 的绝对路径）。task **只写指令与路径**，至少点名：
+1. **先把工作区清干净。** grep `[DEBUG-` 前缀，删掉 Phase 4 埋点。在 worktree 根执行 `git status --porcelain`；有输出则先清理，再派发。
+2. 写 task（只写指令与路径），至少包含：
 
-   | 写什么 | 内容 |
+   | 项 | 内容 |
    | --- | --- |
-   | 复现 | 命令本身 + 你跑它时看到的输出路径或原文要点 |
-   | 最小化 repro | 场景，以及每样为什么关键 |
-   | 假设 | 已验证的那条，以及验证它的观测 |
-   | seam | 测试放哪一层、断言什么——你定 |
-   | 纪律路径 | `mmw-implement/worker-brief.md` 绝对路径；仓库根 `TESTING.md`（有则路径，无则写明没有） |
+   | 复现 | 命令 + 你跑过时的输出要点或输出文件路径 |
+   | 最小化 repro | 场景，以及各项为何关键 |
+   | 假设 | 已验证的那条，以及验证时的观测 |
+   | seam | 测试放哪一层、断言什么（你定） |
+   | 纪律 | `worker-brief.md` 绝对路径（与 `/mmw-implement` 的 `SKILL.md` 同目录）；仓库根 `TESTING.md`（有则路径，无则写「无」） |
 
-   TDD 在 `worker` 技能里，不要往 task 粘 `mmw-tdd` 全文。
+   TDD 由 worker 的 `mmw-tdd` 技能提供，task 不粘贴 `mmw-tdd` 文件正文。
+
+   打开并执行 `/mmw-dispatching-agents` 的「启动」四节，角色为 `worker`，`cwd` 为该 worktree 根绝对路径。
 
 3. `worker` 要跑的循环是：在那个 seam 上把最小化 repro 变成一个失败的测试，看它红，写修复，看它绿。
 
