@@ -192,6 +192,12 @@ check "旧 Claude bridge 已清" test ! -e "$fake_codex/skills/mmw-tdd"
 check "不改 config.toml" grep -qxF 'keep = true' "$fake_codex/config.toml"
 check "安装 mmw 转发脚本" test -x "$fake_bin/mmw"
 check "runtime check" env HOME="$fake_home" CODEX_HOME="$fake_codex" MMW_CODEX_BIN_DIR="$fake_bin" python3 "$RUNTIME" check
+doctor_out="$(cd "$REPO" && HOME="$fake_home" CODEX_HOME="$fake_codex" \
+  MMW_CODEX_BIN_DIR="$fake_bin" MMW_HOST=codex "$ROOT/cli/mmw" doctor 2>&1 || true)"
+check "Codex doctor 不检查 Pi/Cursor 用户级 MCP" test \
+  "$(grep -c '^pi/Cursor:' <<<"$doctor_out")" = 0
+check "Codex doctor 使用 plugin MCP" grep -qF \
+  'Codex MCP: 由 plugin 直接启动' <<<"$doctor_out"
 HOME="$fake_home" CODEX_HOME="$fake_codex" MMW_CODEX_BIN_DIR="$fake_bin" \
   python3 "$RUNTIME" uninstall >/dev/null
 check "uninstall 清理两个 agent" test "$(find "$fake_codex/agents" -type f -name 'mmw-*.toml' | wc -l | tr -d ' ')" = 0
