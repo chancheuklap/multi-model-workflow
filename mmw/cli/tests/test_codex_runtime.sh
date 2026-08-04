@@ -211,6 +211,8 @@ doctor_out="$(cd "$REPO" && HOME="$fake_home" CODEX_HOME="$fake_codex" \
   MMW_CODEX_BIN_DIR="$fake_bin" MMW_HOST=codex "$ROOT/cli/mmw" doctor 2>&1 || true)"
 check "Codex doctor 不检查 Pi/Cursor 用户级 MCP" test \
   "$(grep -c '^pi/Cursor:' <<<"$doctor_out")" = 0
+check "Codex doctor 不检查其他宿主产物" test \
+  "$(grep -Ec '^(Pi agent|Pi skills|Cursor|CC skills)' <<<"$doctor_out")" = 0
 check "Codex doctor 使用 plugin MCP" grep -qF \
   'Codex MCP: 由 plugin 直接启动' <<<"$doctor_out"
 

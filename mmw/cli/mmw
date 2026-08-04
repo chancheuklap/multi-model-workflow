@@ -604,36 +604,38 @@ cmd_doctor() {
     echo "方法论   : 由 Codex plugin 直接提供，不用装旧 Claude bridge"
   fi
 
-  if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host pi --check >/dev/null 2>&1; then
-    echo "Pi agent : agents-pi 与 agent-src / 型号表一致"
-  else
-    echo "Pi agent : 与真源不一致，跑 mmw agents materialize --host pi"
-    status=1
-  fi
-  if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host cursor --check >/dev/null 2>&1; then
-    echo "Cursor   : ~/.cursor/agents 与型号表一致"
-  else
-    echo "Cursor   : 未装或过期，跑 mmw agents materialize --host cursor"
-  fi
-
-  if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host pi --check >/dev/null 2>&1; then
-    echo "Pi skills: skills-pi 与 skills/ 源一致"
-  else
-    echo "Pi skills: 与真源不一致，跑 mmw skills materialize --host pi"
-    status=1
-  fi
-  if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host claude-code --check >/dev/null 2>&1; then
-    echo "CC skills: skills-claude-code 与 skills/ 源一致"
-  else
-    echo "CC skills: 与真源不一致，跑 mmw skills materialize --host claude-code"
-    status=1
-  fi
-  if python3 "$MMW_ROOT/codex/runtime.py" materialize --check >/dev/null 2>&1; then
-    echo "Codex src: plugin、agent 与 profiles 一致"
-  else
-    echo "Codex src: 生成物漂移，跑 python3 $MMW_ROOT/codex/runtime.py materialize"
-    status=1
-  fi
+  case "${host:-}" in
+    pi)
+      if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host pi --check >/dev/null 2>&1; then
+        echo "Pi agent : agents-pi 与 agent-src / 型号表一致"
+      else
+        echo "Pi agent : 与真源不一致，跑 mmw agents materialize --host pi"
+        status=1
+      fi
+      if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host pi --check >/dev/null 2>&1; then
+        echo "Pi skills: skills-pi 与 skills/ 源一致"
+      else
+        echo "Pi skills: 与真源不一致，跑 mmw skills materialize --host pi"
+        status=1
+      fi
+      ;;
+    claude-code)
+      if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host claude-code --check >/dev/null 2>&1; then
+        echo "CC skills: skills-claude-code 与 skills/ 源一致"
+      else
+        echo "CC skills: 与真源不一致，跑 mmw skills materialize --host claude-code"
+        status=1
+      fi
+      ;;
+    codex)
+      if python3 "$MMW_ROOT/codex/runtime.py" materialize --check >/dev/null 2>&1; then
+        echo "Codex src: plugin、agent 与 profiles 一致"
+      else
+        echo "Codex src: 生成物漂移，跑 python3 $MMW_ROOT/codex/runtime.py materialize"
+        status=1
+      fi
+      ;;
+  esac
 
   # Pi 与 Cursor 的插件规格没有声明 MCP 的位置，只能写用户级配置。Codex plugin
   # 自己携带 MCP，不能让另外两个宿主的本机安装状态把 Codex 体检判红。
