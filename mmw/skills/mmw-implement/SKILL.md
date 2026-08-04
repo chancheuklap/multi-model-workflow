@@ -36,20 +36,18 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 ### 3. 写派工 task
 
-给 `worker` 的 task **只写指令与路径**。`worker` 自己打开路径读文件。
+按 `/mmw-dispatching-agents`「写 task」的**四栏表**填写（目标 / 读 / 约束 / 验收）。本角色各栏取值：
 
-task 必须包含下列各项（缺一不可）：
+| 栏 | 本角色填写 |
+| --- | --- |
+| 目标 | 完成 ticket `#<编号>`（或 tracker 等价编号） |
+| 读 | 一行一条，只写定位：① `worker-brief.md`（与本 `SKILL.md` 同目录）；② 本 worktree 内 spec 路径，或 agent brief 所在 issue 编号；③ 本张 ticket 的 issue 编号；④ 对应 plan 路径（无 plan 写「无 plan」）；⑤ 仓库根 `TESTING.md`（无则写「无」）；⑥ 若有选中原型：该版路径 |
+| 约束 | 只改本 worktree 源码与测试；不改 `docs/`；不扩大 ticket 范围。有原型时：逻辑可移植模块整块搬、界面按仓库规范重写 |
+| 验收 | 见 ticket `#<编号>` 的验收标准；seam 见 spec `## Testing Decisions` 或 agent brief 的 `**Test seam:**`（在「读」里已给出定位，此处不抄正文） |
 
-1. `worker-brief.md` 的绝对路径：与本技能 `SKILL.md` 同目录（插件树中为 `…/mmw-implement/worker-brief.md`）。要求 worker 进门先读。
-2. 本 worktree 内 spec 路径，或 issue 上 agent brief 的读取方式；并写明 seam 位置——spec 的 `## Testing Decisions` 表，或 agent brief 的 `**Test seam:**` 栏。
-3. 本张 ticket：编号、标题、要做什么、每一条验收（可写在 task 正文，或写清 tracker 上如何读到全文）。
-4. 本 worktree 内对应 plan 的路径；走 agent brief、无 plan 的路线则写明「无 plan」。
-5. 仓库根 `TESTING.md`：有则给绝对路径，无则写「无 TESTING.md」。
-6. 若有选中原型：该版在本 worktree 的路径，并指出 spec 里视觉契约所在节；写明逻辑原型可移植模块整块搬、界面按仓库规范重写。
+TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
 
-TDD 方法论由 worker 已安装的 `mmw-tdd` 技能提供，task 不粘贴 `mmw-tdd` 下任何文件正文。
-
-可选留痕：将 task 全文写入本 worktree `.dispatch/<slug>-<ticket>.prompt.md`。
+可选：四栏表写入 `.dispatch/<slug>-<ticket>.prompt.md`。
 
 ### 4. 派发
 

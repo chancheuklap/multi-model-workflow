@@ -170,8 +170,10 @@ if native_dispatch.is_file():
         bad.append('skills/mmw-dispatching-agents 含 mmw dispatch（Pi/Cursor 面应写死直调）')
     elif '## 启动' not in text:
         bad.append('skills/mmw-dispatching-agents 缺少「启动」节')
-    elif '只放指令与路径' not in text:
-        bad.append('skills/mmw-dispatching-agents 未写明 task 只放指令与路径')
+    elif '四栏' not in text and '| 目标 |' not in text:
+        bad.append('skills/mmw-dispatching-agents 缺少统一 task 四栏表')
+    elif '不抄正文' not in text:
+        bad.append('skills/mmw-dispatching-agents 未写明不抄正文')
     elif 'mmw-worker' not in text:
         bad.append('skills/mmw-dispatching-agents 缺少角色到 agent 映射')
     elif '组装与存盘' in text:
@@ -184,8 +186,10 @@ if claude_dispatch.is_file():
         bad.append('skills-claude-code/mmw-dispatching-agents 缺少 mmw dispatch')
     elif '## 启动' not in text:
         bad.append('skills-claude-code/mmw-dispatching-agents 缺少「启动」节')
-    elif '只放指令与路径' not in text:
-        bad.append('skills-claude-code/mmw-dispatching-agents 未写明 brief 只放指令与路径')
+    elif '四栏' not in text and '| 目标 |' not in text:
+        bad.append('skills-claude-code/mmw-dispatching-agents 缺少统一 task 四栏表')
+    elif '不抄正文' not in text:
+        bad.append('skills-claude-code/mmw-dispatching-agents 未写明不抄正文')
     elif 'params' not in text or 'host-tool' not in text:
         bad.append('skills-claude-code/mmw-dispatching-agents 缺少 host-tool/params 接线')
     else:

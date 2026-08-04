@@ -15,17 +15,14 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 有 correct seam 的话，按顺序做三件事：
 
 1. **先把工作区清干净。** grep `[DEBUG-` 前缀，删掉 Phase 4 埋点。在 worktree 根执行 `git status --porcelain`；有输出则先清理，再派发。
-2. 写 task（只写指令与路径），至少包含：
+2. 按 `/mmw-dispatching-agents`「写 task」的**四栏表**填写后启动 `worker`：
 
-   | 项 | 内容 |
+   | 栏 | 本角色填写 |
    | --- | --- |
-   | 复现 | 命令 + 你跑过时的输出要点或输出文件路径 |
-   | 最小化 repro | 场景，以及各项为何关键 |
-   | 假设 | 已验证的那条，以及验证时的观测 |
-   | seam | 测试放哪一层、断言什么（你定） |
-   | 纪律 | `worker-brief.md` 绝对路径（与 `/mmw-implement` 的 `SKILL.md` 同目录）；仓库根 `TESTING.md`（有则路径，无则写「无」） |
-
-   TDD 由 worker 的 `mmw-tdd` 技能提供，task 不粘贴 `mmw-tdd` 文件正文。
+   | 目标 | 修根因并补回归测试 |
+   | 读 | ① 复现命令与输出若已落盘则给路径，否则写命令本身一行；② 最小化 repro / 假设若已落盘给路径；③ seam 说明（一层、断言什么）；④ `worker-brief.md`（与 `/mmw-implement` 的 `SKILL.md` 同目录）；⑤ 仓库根 `TESTING.md`（无则「无」） |
+   | 约束 | 先在 seam 上把 repro 变成失败测试再修；不扩大范围 |
+   | 验收 | 新测试红后绿；Phase 1 原始 loop 不再复现 |
 
    打开并执行 `/mmw-dispatching-agents` 的「启动」四节，角色为 `worker`，`cwd` 为该 worktree 根绝对路径。
 
