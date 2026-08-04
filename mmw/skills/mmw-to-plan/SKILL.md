@@ -44,25 +44,29 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 ## 3. 派 `planner`
 
-一张 ticket 一个 `planner`，按 `/mmw-dispatching-agents` 派 `planner` 角色，`--cwd` 给任务 worktree 的路径。
+一张 ticket 一个 `planner`。task **只写指令与路径**，不要粘文件正文；`planner` 自己读。
 
-提示词按 `/mmw-dispatching-agents` 的「组装与存盘」一节组装，写到 `.dispatch/<slug>-plan-<编号>.prompt.md` 再从那里派：
+task 必须点名：
 
-1. spec 在这个 worktree 里的路径，加上 `## Testing Decisions` 一节里那张 seam 清单表的原文引用。
-2. **这张 ticket 的正文**：标题、要做什么、每一条验收标准、被谁阻塞，全部抄进去。`planner` 能访问 tracker 也照样抄。
-3. plan 文件的落点路径。
-4. 这次需求背后有原型的，给出**选中的那一版**的路径，加上 spec 里那一节视觉契约。只给选中的那一份。
-5. 它这次的方法论：跑 `mmw skill-path planner`。有输出就把那个路径写给它，让它进门先读完整份；没有输出说明这个宿主自己会把方法论送到位，这一样跳过。
+1. spec 在本 worktree 的路径；并写明 seam 在 `## Testing Decisions` 表，合同边界在 `## Cross-Plan Contract Anchors`（若有）。
+2. 本张 ticket：编号、标题、要做什么、验收、被谁阻塞（可写在 task 里，或给出 tracker 上可读位置）。
+3. plan 落点路径（ticket `## Plan` 写的那条，或本技能第 1 步定的路径）。
+4. 有选中原型时：该版路径 + 指出 spec 里视觉契约那一节。
+5. 方法论：跑 `mmw skill-path planner`；有输出则把该路径写进 task 让它进门先读；无输出则宿主已注入，跳过。
 
-**每个派发只装这五样。** 别的 `planner` 的历史、别份 plan 的内容、前面几轮的完成总结，一律不进。
+可选：把这段 task 存成 `.dispatch/<slug>-plan-<编号>.prompt.md`。
 
-互不依赖的 plan 一条消息里并行发出去；有依赖链的按依赖顺序发。**不开子 worktree、不提交**，各份 plan 写不同文件，在任务 worktree 内并行。
+按 `/mmw-dispatching-agents` 派 `planner`（cwd 为任务 worktree）。
+
+**每个派发只装上面这些。** 别的 `planner` 的历史、别份 plan、前面几轮总结，一律不进 task。
+
+互不依赖的 plan 同一条消息里并行派；有依赖链的按依赖顺序派。**不开子 worktree、不提交**，各份 plan 写不同文件，在任务 worktree 内并行。
 
 ## 4. 验证返回
 
 每个 `planner` 交回 `pass` 之后，对它声明的事实至少抽验一条再采信：plan 文件真的存在、任务包数量对得上、它引用的 `文件:行号` 引得出来。用读文件和检索验证，不认「我写完了」。
 
-失实就把原来那份 brief 加上修复指令重派一次。交回 `needs-context`、`needs-repair` 或 `blocked` 的，按它说的补上下文或者修 spec 之后重派。
+失实就把原 task 加上修复说明重派一次。交回 `needs-context`、`needs-repair` 或 `blocked` 的，按它说的补路径或修 spec 之后重派。
 
 ## 5. 回填精确字段，验证边界
 

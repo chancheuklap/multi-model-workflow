@@ -28,7 +28,7 @@ mmw_adapter_dispatch() {
   printf 'tool: subagent\n'
   printf 'brief: %s\n' "$MMW_D_BRIEF"
   printf 'native: agents-pi\n'
-  printf 'note: model/thinking/context/async/skill 已在 agent 定义里；只传 params，并另附 task=brief 全文\n'
+  printf 'note: model/thinking/context/async/skill 已在 agent 定义里；只传 params，并另附 task=指令与路径（subagent 自读文件）\n'
 
   # 策略字段不进 params：省略时由原生 agent 默认值生效，避免主 agent 手抄漏字段。
   jq -nc \

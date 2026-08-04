@@ -5,7 +5,7 @@ description: 把定好的需求实现成代码，一张 ticket 派一个 `worker
 
 把 spec 和它的 ticket 描述的需求实现出来。spec 已定稿，seam 已谈定；本技能执行那份计划，不重开它。
 
-**你不写代码。** 每张 ticket 交给一个 `worker`。你的职责是准备 brief、派发、验收、发起审查。
+**你不写代码。** 每张 ticket 交给一个 `worker`。你的职责是写清派工 task、派发、验收、发起审查。
 
 ## 流程
 
@@ -34,25 +34,28 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 一个 worktree 一次做一张 ticket，一个 worktree 上只站一个 `worker`。frontier 确实很宽、用户又要并行推进，就给每张 ticket 各跑一次 `mmw task new <slug>-<ticket 短语>`，它们都从你当前这条分支分叉。
 
-### 3. 组装 `worker` 的提示词
+### 3. 写派工 task
 
-组装规矩按 `/mmw-dispatching-agents` 的「组装与存盘」一节。装这七样：
+给 `worker` 的 task **只写指令与路径**，不要粘文件正文。`worker` 自己读。
 
-1. 本文件旁边的 `worker-brief.md`，取 `---` 之后的全部内容。
-2. TDD 纪律全文——`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md`。
-3. 目标仓库的 `TESTING.md` 全文，那是测试三层里的第三层：目录分层、哪些边界允许打桩、值从哪个权威源读。**它跟 `worker-brief.md` 以及第 2 条列出的那四个文件一起粘进去，不给路径。** 这个仓库还没有 `TESTING.md`，在 brief 里明说没有，让它按 `worker-brief.md` 加第 2 条那四个文件做。
-4. spec 或 agent brief 在这个 worktree 里的路径，以及 spec `## Testing Decisions` 一节里那张 seam 清单表（agent brief 则是 `**Test seam:**` 一栏），原文引用。
-5. ticket 本身：标题、要做什么、每一条验收标准，全部写进去。`worker` 能访问 tracker 也照样写。
-6. **这张 ticket 对应的那份 plan，全文。** spec、ticket、plan 三样都要给：spec 给意图和合同，ticket 给边界和验收，plan 给施工权威。走 agent brief 那条路的需求没有 plan，这一条跳过。
-7. 这次需求背后有原型的，给出**选中的那一版**在这个 worktree 里的路径，加上 spec 里那一节视觉契约。只给选中的那一份，`docs/prototypes/<slug>/` 下面还躺着落选变体和 TUI 壳。同时说清怎么用——逻辑原型里那个可移植模块整块搬过去，不要重写；界面变体的代码按仓库规范重写，不要照抄。
+task 必须点名：
 
-写到 `.dispatch/<slug>-<ticket>.prompt.md`。给 `worker` 的路径一律是它工作的那个仓库里的路径，插件内的路径它读不到。
+1. 本文件旁 `worker-brief.md` 的绝对路径（进门先读）。
+2. spec 或 agent brief 在本 worktree 的路径；并写明 seam 在 spec 的 `## Testing Decisions` 表，或 agent brief 的 `**Test seam:**`。
+3. 本张 ticket：编号、标题、要做什么、每条验收（可写在 task 里，或给出 tracker 上可读的位置）。
+4. 对应 plan 在本 worktree 的路径（agent brief 那条路无 plan 则写明无 plan）。
+5. 仓库根是否有 `TESTING.md`：有则给路径，无则写明没有。
+6. 有选中原型时：该版路径 + 指出 spec 里视觉契约那一节；说明逻辑原型可移植模块整块搬、界面按仓库规范重写。
+
+TDD 方法论在 `worker` 的技能里，不要往 task 里粘 `mmw-tdd` 全文。
+
+可选：把这段 task 存成 `.dispatch/<slug>-<ticket>.prompt.md` 留痕。
 
 ### 4. 派发
 
 **先记下当前提交号**（`git rev-parse HEAD`）。
 
-然后按 `/mmw-dispatching-agents` 派 `worker` 角色，`--cwd` 给这棵任务 worktree 的路径。ticket 碰计费、权限、数据迁移，或者别的改错了不可逆的地方时，改派 `worker-high-risk`。**这个判断归你，不归 `worker`**——`worker` 不会自己要求升档。
+按 `/mmw-dispatching-agents` 派 `worker`（cwd 为本任务 worktree）。ticket 碰计费、权限、数据迁移或改错不可逆时，改派 `worker-high-risk`。**升档归你，不归 worker。**
 
 ### 5. 验收：亲手验证三关
 

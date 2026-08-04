@@ -1,6 +1,6 @@
 ---
 name: mmw-tdd
-description: 测试先行地写代码，走 red 到 green 的循环。用户说要测试先行做功能或修 bug、提到 red-green-refactor 时用它；派 `worker` 写代码的技能也把它整份粘进 brief。
+description: 测试先行地写代码，走 red 到 green 的循环。用户说要测试先行做功能或修 bug、提到 red-green-refactor 时用它；`worker` 写代码时通过自身 skill 加载本方法论。
 ---
 
 TDD 就是 red → green 这个循环。本技能是让这个循环产出值得留下的测试的那份规矩：什么算一个好测试、测试放在哪、哪些写法不能要、循环本身的规矩。**每一节在每一轮循环上都适用**——在循环之前和循环之中查阅它们，不是循环之后。

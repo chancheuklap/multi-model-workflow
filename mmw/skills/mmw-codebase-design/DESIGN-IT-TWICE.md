@@ -20,14 +20,14 @@
 
 一个约束派一个上下文隔离的 subagent，至少三个，并行做，按 `/mmw-dispatching-agents`。每个都要产出一个**截然不同**的 interface。
 
-给每个 subagent 一份自包含的技术 brief（文件路径、耦合细节、[DEEPENING.md](DEEPENING.md) 里的依赖分类、seam 后面坐着什么）。brief 跟第 1 步那段面向用户的问题空间说明是两回事，互不依赖。每份 brief 带的语境都一样，只有设计约束那一栏不同：
+每份 task 点名同样的技术材料路径（相关文件、耦合点、[DEEPENING.md](DEEPENING.md)、seam 位置），只有设计约束那一栏不同。task 与第 1 步给用户看的问题空间说明是两回事。
 
 - subagent 1：「把 interface 压到最小——最多一到三个入口。每个入口的 leverage 拉到最大。」
 - subagent 2：「把灵活性拉到最大——支持多种用法和扩展。」
 - subagent 3：「为最常见的调用方优化——让默认情形简单到不用想。」
 - subagent 4（用得上的话）：「跨 seam 的依赖按 ports & adapters 来设计。」
 
-brief 里同时带上 [SKILL.md](SKILL.md) 的词汇和领域词汇，这样每个 subagent 起的名字既跟架构语言一致，也跟项目的领域语言一致。领域词汇取自领域文档：落点跑 `mmw domain path` 取，三种返回怎么读见 `/mmw-domain-modeling` 的「读领域文档」一节。
+task 同时点名 [SKILL.md](SKILL.md) 与领域文档路径（`mmw domain path`），让命名跟架构语言和领域语言一致。领域文档三种返回怎么读见 `/mmw-domain-modeling` 的「读领域文档」一节。
 
 每个 subagent 交回：
 
