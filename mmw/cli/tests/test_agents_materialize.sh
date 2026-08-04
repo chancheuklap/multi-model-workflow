@@ -51,7 +51,7 @@ check "Pi investigator 无 skill 键" "0" "$(grep -c '^skill:' "$pi_out/mmw-inve
 
 check "Pi worker 型号" "openai-codex/gpt-5.6-terra" "$(fm "$pi_out/mmw-worker.md" model)"
 check "Pi worker-high-risk 型号" "openai-codex/gpt-5.6-sol" "$(fm "$pi_out/mmw-worker-high-risk.md" model)"
-check "Pi reviewer-claude 型号" "claude-provider/claude-opus-5" "$(fm "$pi_out/mmw-reviewer-claude.md" model)"
+check "Pi reviewer-claude 型号" "xai/grok-4.5" "$(fm "$pi_out/mmw-reviewer-claude.md" model)"
 
 "$MMW" agents materialize --host pi --out "$pi_out" --check
 check "Pi --check 与刚写内容一致" "0" "$?"
