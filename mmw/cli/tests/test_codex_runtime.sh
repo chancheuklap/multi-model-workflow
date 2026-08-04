@@ -84,6 +84,12 @@ assert '调用 `create_thread`' in implement and 'environment.type 设为 `workt
 assert 'gpt-5.6-sol' in implement and '思考档设为 `high`' in implement
 assert '`create_thread`' in implement and '`wait_threads`' in implement
 assert 'clientThreadId' in implement and 'startingState.type' in implement
+start = (skills/'mmw-start/SKILL.md').read_text()
+assert 'MMW 不从该目录名识别任务' in start
+assert 'mmw-integrate`，跳过第 2、3 步' not in start
+rebase = (skills/'mmw-integrate/rebasing.md').read_text()
+assert '`send_message_to_thread`' in rebase
+assert '主 agent 不切换当前工作根目录' in rebase
 research = (skills/'mmw-research/SKILL.md').read_text()
 assert 'agent 设为 `mmw-investigator`' in research
 review = (skills/'mmw-review/SKILL.md').read_text()
@@ -178,7 +184,10 @@ printf '\nRuntime install and legacy cleanup\n'
 fake_home="$WORK/home"
 fake_codex="$fake_home/.codex"
 fake_bin="$fake_home/bin"
-mkdir -p "$fake_codex/skills" "$fake_bin"
+plugin_version="$(jq -r .version "$ROOT/.codex-plugin/plugin.json")"
+fake_cache="$fake_codex/plugins/cache/mmw-codex/mmw/$plugin_version"
+mkdir -p "$fake_codex/skills" "$fake_bin" "$(dirname "$fake_cache")"
+cp -R "$ROOT" "$fake_cache"
 main_root="$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir)"
 main_root="$(dirname "$main_root")"
 for skill in mmw-planner mmw-reviewer mmw-tdd; do
@@ -191,6 +200,12 @@ check "只安装两个只读 agent" test "$(find "$fake_codex/agents" -type f -n
 check "旧 Claude bridge 已清" test ! -e "$fake_codex/skills/mmw-tdd"
 check "不改 config.toml" grep -qxF 'keep = true' "$fake_codex/config.toml"
 check "安装 mmw 转发脚本" test -x "$fake_bin/mmw"
+if grep -qF "$REPO" "$fake_bin/mmw"; then
+  check "mmw 命令不依赖 MMW 源码仓库" false
+else
+  check "mmw 命令不依赖 MMW 源码仓库" true
+fi
+check "mmw 命令只指向已安装 plugin" grep -qF "$fake_cache/cli/mmw" "$fake_bin/mmw"
 check "runtime check" env HOME="$fake_home" CODEX_HOME="$fake_codex" MMW_CODEX_BIN_DIR="$fake_bin" python3 "$RUNTIME" check
 doctor_out="$(cd "$REPO" && HOME="$fake_home" CODEX_HOME="$fake_codex" \
   MMW_CODEX_BIN_DIR="$fake_bin" MMW_HOST=codex "$ROOT/cli/mmw" doctor 2>&1 || true)"
@@ -198,6 +213,57 @@ check "Codex doctor 不检查 Pi/Cursor 用户级 MCP" test \
   "$(grep -c '^pi/Cursor:' <<<"$doctor_out")" = 0
 check "Codex doctor 使用 plugin MCP" grep -qF \
   'Codex MCP: 由 plugin 直接启动' <<<"$doctor_out"
+
+printf '\nInstalled plugin in an unrelated project\n'
+user_project="$WORK/unrelated-product"
+app_worktree="$WORK/codex-managed-worktree"
+git -C "$WORK" init -q unrelated-product
+git -C "$user_project" config user.name test
+git -C "$user_project" config user.email test@example.com
+printf '# Product rules\n' > "$user_project/AGENTS.md"
+git -C "$user_project" add AGENTS.md
+git -C "$user_project" commit -q -m base
+fake_tools="$WORK/fake-tools"
+mkdir -p "$fake_tools"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$fake_tools/gh"
+chmod +x "$fake_tools/gh"
+init_out="$(cd "$user_project" && HOME="$fake_home" CODEX_HOME="$fake_codex" \
+  MMW_CODEX_BIN_DIR="$fake_bin" MMW_HOST=codex PATH="$fake_tools:$fake_bin:$PATH" \
+  mmw init)"
+check "任意项目从已安装 plugin 初始化" test -f "$user_project/.mmw.json"
+check "项目说明声明 MMW 源码仓库不是运行目录" grep -qF \
+  'MMW 源码仓库只负责维护和发布，不是本仓库的运行目录' "$user_project/AGENTS.md"
+check "项目说明声明 App Worktree root 是全局物理位置" grep -qF \
+  'Worktree root 只控制这些 managed worktree 的全局物理存放位置' "$user_project/AGENTS.md"
+check "Codex 初始化不安装用户级 MCP" grep -qF \
+  'Codex plugin 直接提供，不写用户配置' <<<"$init_out"
+installed_probe="$(cd "$user_project" && MMW_CODEX_BIN_DIR="$fake_bin" \
+  MMW_HOST=codex PATH="$fake_bin:$PATH" \
+  python3 "$fake_cache/mcp/probe.py" --config "$fake_cache/.mcp-codex.json" --json)"
+check "任意项目通过已安装 plugin 握手三台 MCP" jq -e \
+  '.serena.ok and .graphify.ok and .context7.ok' <<<"$installed_probe"
+(cd "$user_project" && HOME="$fake_home" CODEX_HOME="$fake_codex" \
+  MMW_CODEX_BIN_DIR="$fake_bin" MMW_HOST=codex PATH="$fake_tools:$fake_bin:$PATH" \
+  mmw init >/dev/null)
+check "Codex 项目说明幂等" test \
+  "$(grep -c '^## MMW 开发工作流$' "$user_project/AGENTS.md")" = 1
+
+base="$(git -C "$user_project" rev-parse HEAD)"
+git -C "$user_project" worktree add -q --detach "$app_worktree" "$base"
+(cd "$app_worktree" && bash "$fake_cache/skills-codex/mmw-start/scripts/bind-current-worktree.sh" \
+  codex/feat-unrelated '另一个产品里的任务') >/dev/null
+HOME="$fake_home" CODEX_HOME="$fake_codex" MMW_CODEX_BIN_DIR="$fake_bin" \
+  MMW_HOST=codex PATH="$fake_tools:$fake_bin:$PATH" \
+  "$fake_bin/mmw" agents guard worker --cwd "$app_worktree" >/dev/null
+check "Codex 可写 guard 接受 App 全局目录里的 linked worktree" true
+if (cd "$user_project" && HOME="$fake_home" CODEX_HOME="$fake_codex" \
+  MMW_CODEX_BIN_DIR="$fake_bin" MMW_HOST=codex PATH="$fake_tools:$fake_bin:$PATH" \
+  mmw task new should-not-exist) >/dev/null 2>&1; then
+  check "Codex 禁止旧 mmw task worktree 管理" false
+else
+  check "Codex 禁止旧 mmw task worktree 管理" true
+fi
+
 HOME="$fake_home" CODEX_HOME="$fake_codex" MMW_CODEX_BIN_DIR="$fake_bin" \
   python3 "$RUNTIME" uninstall >/dev/null
 check "uninstall 清理两个 agent" test "$(find "$fake_codex/agents" -type f -name 'mmw-*.toml' | wc -l | tr -d ' ')" = 0

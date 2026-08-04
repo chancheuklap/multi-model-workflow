@@ -468,13 +468,13 @@ subgraph RAMP["支线入口 · 先产生工作，再并回主干"]
   wfd[["<b>mmw-wayfinder</b><br/>· 三条 branch：画 map、走一条链、收尾<br/>· 内部展开见第二张图"]]
 end
 
-  ica[["<b>mmw-improve-codebase-architecture</b><br/>· 一个视角一个 subagent<br/>· 五个都扫同一片地方<br/>· 用户挑中候选之后才建 worktree"]]
+  ica[["<b>mmw-improve-codebase-architecture</b><br/>· 一个视角一个 subagent<br/>· 五个都扫同一片地方<br/>· 用户挑中候选之后才绑定 App worktree"]]
 
 subgraph VOCAB["跑在别的技能底下"]
   direction TB
   dsp["<b>启动句物化</b><br/>· 源：[[mmw-launch:角色:cwd]]<br/>· mmw skills materialize<br/>· Codex→后台任务或原生 subagent<br/>· Pi→subagent / CC→dispatch"]
-  cdx["<b>Codex App 原生运行面</b><br/>· plugin 提供 25 个 skills 与三台 MCP<br/>· MCP 经 mmw mcp serve 读取共同定义<br/>· investigator / reviewer 两个只读 agent<br/>· profiles 只保存 GPT model 与 thinking"]
-  cwt["<b>Codex worktree 合同</b><br/>· 用户创建 detached 主任务<br/>· 确认范围后绑定 codex/&lt;slug&gt;<br/>· 后台结果验证分支、HEAD SHA 与基点"]
+  cdx["<b>Codex App 原生运行面</b><br/>· 已安装 plugin 提供 25 个 skills 与三台 MCP<br/>· mmw 命令只指向 plugin cache，不依赖源码 checkout<br/>· investigator / reviewer 两个只读 agent<br/>· profiles 只保存 GPT model 与 thinking"]
+  cwt["<b>Codex worktree 合同</b><br/>· Worktree root 是 App 的跨项目全局存放目录<br/>· 用户创建 detached 主任务，确认后绑定 codex/&lt;slug&gt;<br/>· MMW 不从物理目录名识别任务<br/>· 后台结果验证分支、HEAD SHA 与基点"]
   vfy["<b>mmw-verifying-agent-output</b><br/>· 关键断言都要有出处<br/>· 取证可以派，判定不可以"]
   dmo["<b>mmw-domain-modeling</b><br/>· 唯一往仓库写领域文档的技能<br/>· 落点跑 mmw domain path 取"]
   cbd["<b>mmw-codebase-design</b><br/>· module · interface · seam<br/>· adapter · depth<br/>· 加 DESIGN-IT-TWICE"]
@@ -549,7 +549,7 @@ wfd -->|"map 与它的 decision ticket"| trk
 wfd ==>|"收尾时派生 spec，它自己不实现"| tsp
 
 ica ==>|"deep module 的判据<br/>以及 DESIGN-IT-TWICE"| cbd
-ica ==>|"用户挑中一个之后<br/>先建 worktree 再开谈"| gri
+ica ==>|"用户挑中一个之后<br/>先绑定 App worktree 再开谈"| gri
 ica ==>|"命名和被否掉的方案当场写进 ADR"| dmo
 ica ==>|"grilling 谈定之后回到它，由它移交"| tsp
 

@@ -30,7 +30,7 @@
 | `exclude_roots` | 不该进图的根目录，发布前逐个节点核对 | 只挡 Markdown |
 | `tolerated_warnings` | 这个仓库已知且接受的能力缺口，见第 5 节 | 任何一条能力缺失的警告都会让整张图被拒 |
 
-排除哪些路径主要走仓库根的 `.graphifyignore`，那是检索工具自己的机制；`exclude_roots` 是发布前的双保险。**任务 worktree 的目录必须排除**——每棵 worktree 是一整份代码副本，不排除的话图会翻好几倍，而且全是重复节点。
+排除哪些路径主要走仓库根的 `.graphifyignore`，那是检索工具自己的机制；`exclude_roots` 是发布前的双保险。Codex App 的 managed worktree 由全局 Worktree root 存放，建图只扫描当前 checkout，不会扫描兄弟 worktree。不要把全局 Worktree root 设置成某个目标项目的子目录，也不要把该全局路径写进项目的 `.graphifyignore`。
 
 ## 2. 路由怎么枚举
 
@@ -80,6 +80,6 @@ mmw graph verify
 
 ## 6. 任务 worktree
 
-新建的任务 worktree 跟主仓库内容相同时，直接复用主仓库那份图，不重建。内容一旦不同就自己建一份。
+新建的 managed worktree 与当前目标项目的 Local checkout 内容相同时，直接复用该目标项目的图，不重建。内容一旦不同就在当前 worktree 建一份。MMW 源码仓库不参与这个判断。
 
 worktree 里的图不进版本库，也不同步到别的机器——它是本机派生物，几十兆。

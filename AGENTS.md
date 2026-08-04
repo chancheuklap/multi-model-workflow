@@ -47,8 +47,8 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 共享角色、技能和流程语义。宿主差异留在 Codex profile、原生 agent frontmatter、`mmw/cli/adapters/`、manifest 与 `.mmw.json` 的 hosts 覆盖：
 
 - Codex App 是 MMW 的主 agent 运行时，不调用外部模型 CLI 或 harness。`worker`、`worker-high-risk`、`planner` 通过 App 后台任务获得独立 worktree；`investigator` 与 `reviewer` 通过两个只读原生 subagent 运行。`mmw/codex/profiles.json` 只允许 GPT model 与 thinking，不允许 family、provider、Claude 或 Grok 配置。
-- Codex 主任务的 worktree 由用户创建。确认任务后，`mmw-start/scripts/bind-current-worktree.sh` 把干净 detached HEAD 绑定为 `codex/<slug>`；后台任务提交后，主 agent 先运行 `mmw-integrate/scripts/verify-worker-result.sh` 验证分支、HEAD SHA 与基点，再 `git merge --no-ff`。
-- Codex plugin 以 `mmw/` 为根，直接复用现有 Graph、MCP 与配置源码，只新增 `skills-codex/` 和 `.mcp-codex.json` 两份物化产物。MCP 配置不得写插件缓存路径或 `${PLUGIN_ROOT}`；Codex 的旧 plugin MCP 解析器不会展开该占位符。`mmw/codex/runtime.py install` 只安装两个只读 agent 和 `mmw` 转发脚本，并删除旧 Claude Code bridge 在 `~/.codex/skills/` 下的三个 MMW 链接；它不改 `~/.codex/config.toml`，也不直接写 App plugin cache。
+- Codex 主任务的 worktree 由用户创建。App 设置里的 Worktree root 是所有项目共用的 managed worktree 物理存放目录，不是 MMW 源码路径，也不受目标项目 `.mmw.json` 的 `paths.worktrees` 控制。确认任务后，`mmw-start/scripts/bind-current-worktree.sh` 把干净 detached HEAD 绑定为 `codex/<slug>`；后台任务提交后，主 agent 先运行 `mmw-integrate/scripts/verify-worker-result.sh` 验证分支、HEAD SHA 与基点，再 `git merge --no-ff`。
+- Codex plugin 以 `mmw/` 为发布根，直接复用现有 Graph、MCP 与配置源码，并生成 `skills-codex/` 和 `.mcp-codex.json`。MCP 配置不得写插件缓存路径或 `${PLUGIN_ROOT}`；Codex 的旧 plugin MCP 解析器不会展开该占位符。`mmw/codex/runtime.py install` 只安装两个只读 agent 和指向已安装 plugin cache 的 `mmw` 命令，并删除旧 Claude Code bridge 在 `~/.codex/skills/` 下的三个 MMW 链接；运行时不得回退 MMW 源码 checkout 或目标项目里的同名目录。安装器不改 `~/.codex/config.toml`，也不直接写 App plugin cache。
 - Claude Code 的 GPT 角色通过后台 Bash 执行 Codex CLI；Claude 角色通过后台 Agent 工具执行。这个宿主只接 claude 与 gpt 两个模型族。技能产物在 `mmw/skills-claude-code/`：启动句已物化为 `mmw dispatch`。
 - Pi 的全部角色走宿主原生 `subagent`。技能产物在 `mmw/skills-pi/`：启动句已物化为 `subagent({ agent, task, cwd })`。型号等在 agent frontmatter（`mmw agents materialize`）。可写前确认 worktree 干净。
 - 模型分配默认各宿主相同。某个宿主接不了基线模型时，在 `.mmw.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。

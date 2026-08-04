@@ -166,6 +166,42 @@ def replace_section(
 def apply_codex_overrides(rel: Path, text: str) -> str:
     """清除 Codex 产物中的旧宿主 worktree 与跨模型合同。"""
     if rel == Path("mmw-start/SKILL.md"):
+        text = replace_exact(
+            text,
+            "description: 多模型工作流的入口——判定这次的任务走哪条路，建 worktree 再移交。",
+            "description: MMW 开发工作流的入口——判定这次的任务走哪条路，绑定 Codex App 已创建的 worktree 再移交。",
+            rel=rel,
+        )
+        text = replace_exact(
+            text,
+            "| 几条并行分支要集成到主线，某条分支要跟上已经推进的主线，或者手上有一个正在进行中的冲突 | **移交**：`$mmw:mmw-integrate`，跳过第 2、3 步 |",
+            "| 几条并行分支要集成到本轮目标分支，某条分支要跟上已经推进的目标分支，或者手上有一个正在进行中的冲突 | **移交**：`$mmw:mmw-integrate` |",
+            rel=rel,
+        )
+        text = replace_exact(
+            text,
+            "**一个 slug 贯穿五处**：worktree 目录名、分支名、`docs/specs/<slug>/`、这个目录里的主文件 `<slug>.md`、Wiki 上的 `Spec-<slug>.md`。别的技能提到 `<slug>` 时指的都是它。",
+            "**一个 slug 贯穿四处**：分支名 `codex/<slug>`、`docs/specs/<slug>/`、这个目录里的主文件 `<slug>.md`、Wiki 上的 `Spec-<slug>.md`。Codex App 自己决定 managed worktree 的物理目录名；MMW 不从该目录名识别任务。",
+            rel=rel,
+        )
+        text = replace_exact(
+            text,
+            "类型前缀用连字符不用斜杠——斜杠会在 worktree 落点下建出子目录，破坏「目录不嵌套」。不带 issue 编号、不带日期。同名冲突时加一个区分词，不加序号。",
+            "类型前缀用连字符，不用斜杠；分支的斜杠只来自固定前缀 `codex/`。slug 不带 issue 编号、不带日期。同名冲突时加一个区分词，不加序号。",
+            rel=rel,
+        )
+        text = replace_exact(
+            text,
+            "**下面四种情况跳过这一步**，第 3 步也一并跳过：",
+            "**下面三种情况跳过这一步**，第 3 步也一并跳过：",
+            rel=rel,
+        )
+        text = replace_exact(
+            text,
+            "- 判定走 `$mmw:mmw-integrate`。它在主仓库的主线上做，不要给它建 worktree。\n",
+            "",
+            rel=rel,
+        )
         text = replace_section(
             text,
             "## 3. 建 worktree、进去、记原话",
@@ -253,7 +289,10 @@ bash <本技能目录>/scripts/bind-current-worktree.sh "codex/<slug>" "<用户�
             (
                 "挑中了就定 slug，跑 `mmw task new <slug> \"<原话加这张卡片的标题>\"`，再用宿主的工作目录切换工具进到它输出的那个路径（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`；这一步脚本做不了，只有宿主工具做得到）。",
                 "挑中了就定 slug。当前任务已经是 Codex App worktree 时，用 `$mmw:mmw-start` 的绑定脚本创建 `codex/<slug>` 分支；当前任务不是 worktree 时停下，让用户新建 Codex App Worktree 任务。",
-            )
+            ),
+            ("## 5. 用户挑中之后再建 worktree", "## 5. 用户挑中之后再绑定任务 worktree"),
+            ("挑中之前不建 worktree，扫描全程只读。", "挑中之前不绑定分支，扫描全程只读。"),
+            ("走第 5 步建 worktree，再到第 6 步开谈", "走第 5 步绑定任务 worktree，再到第 6 步开谈"),
         ],
         Path("mmw-prototype/SKILL.md"): [
             (
@@ -278,6 +317,36 @@ bash <本技能目录>/scripts/bind-current-worktree.sh "codex/<slug>" "<用户�
             ),
             ("当前不在主线上", "当前不在本轮目标分支"),
         ],
+        Path("mmw-release/SKILL.md"): [
+            (
+                "| 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 worktree 目录结尾 |",
+                "| 你在任务 worktree 里 | 当前 checkout 是 linked worktree，且分支名为 `codex/<slug>` |",
+            ),
+            (
+                "交付记录落在**主仓库根**，不在当前这棵任务 worktree 里——它比对的是几次出包之间的 commit，worktree 收尾就删，落在树里的记录活不过一次任务。",
+                "交付记录落在当前目标项目的 Git 共享根，也就是 `git-common-dir` 对应的 Local checkout；它不落在 MMW 源码仓库，也不落在当前 managed worktree。记录要跨多次出包存活，不能随 App 清理当前 worktree 一起消失。",
+            ),
+        ],
+        Path("mmw-retrieval/building.md"): [
+            (
+                "排除哪些路径主要走仓库根的 `.graphifyignore`，那是检索工具自己的机制；`exclude_roots` 是发布前的双保险。**任务 worktree 的目录必须排除**——每棵 worktree 是一整份代码副本，不排除的话图会翻好几倍，而且全是重复节点。",
+                "排除哪些路径主要走仓库根的 `.graphifyignore`，那是检索工具自己的机制；`exclude_roots` 是发布前的双保险。Codex App 的 managed worktree 由全局 Worktree root 存放，建图只扫描当前 checkout，不会扫描兄弟 worktree。不要把全局 Worktree root 设置成某个目标项目的子目录，也不要把该全局路径写进项目的 `.graphifyignore`。",
+            ),
+            (
+                "新建的任务 worktree 跟主仓库内容相同时，直接复用主仓库那份图，不重建。内容一旦不同就自己建一份。",
+                "新建的 managed worktree 与当前目标项目的 Local checkout 内容相同时，直接复用该目标项目的图，不重建。内容一旦不同就在当前 worktree 建一份。MMW 源码仓库不参与这个判断。",
+            ),
+        ],
+        Path("mmw-retrieval/SKILL.md"): [
+            (
+                "按提交号判的话，任务 worktree 一建出来就\"过期\"，主仓库那份现成的图白白复用不了。",
+                "按提交号判的话，managed worktree 一创建就\"过期\"，当前目标项目 Local checkout 的现成图会无法复用。",
+            ),
+            (
+                "任务 worktree 怎么复用主仓库那份。",
+                "managed worktree 怎么复用当前目标项目 Local checkout 那份。",
+            ),
+        ],
     }
     for old, new in simple_replacements.get(rel, []):
         text = replace_exact(text, old, new, rel=rel)
@@ -289,6 +358,23 @@ bash <本技能目录>/scripts/bind-current-worktree.sh "codex/<slug>" "<用户�
             "后台 Worktree 任务交回后，先运行与本 `SKILL.md` 同目录的 `scripts/verify-worker-result.sh <结果分支> <报告的 HEAD SHA> <派发前基点 SHA>`；验证通过后再按第 2 步定的顺序，一条一条来。",
             rel=rel,
         )
+        text = text.replace("主线", "本轮目标分支")
+
+    if rel == Path("mmw-integrate/merging.md"):
+        text = text.replace("主线", "本轮目标分支")
+
+    if rel == Path("mmw-integrate/rebasing.md"):
+        text = replace_exact(
+            text,
+            "**在这条分支自己的 worktree 里做**，不在主仓库。它没完成，主仓库的主线上不该出现它。",
+            "**只在这条结果分支关联的后台 Worktree 任务里做。** 主 agent 使用派发时保存的 threadId 调用 `send_message_to_thread`，让原后台任务在自己的 worktree 中完成 rebase、测试和提交；主 agent 不切换当前工作根目录，也不直接修改别的任务 worktree。原任务无法继续时停下，不能在当前任务里代做。",
+            rel=rel,
+        )
+        text = text.replace("主线", "本轮目标分支")
+
+    if rel == Path("mmw-review/SKILL.md"):
+        text = text.replace("集成到主线之后", "集成到本轮目标分支之后")
+        text = text.replace("集成后主线的 `HEAD`", "集成后本轮目标分支的 `HEAD`")
 
     if rel == Path("mmw-review/SKILL.md"):
         for old, new in (

@@ -192,6 +192,11 @@ printf '# 约定\n' > AGENTS.md
 git add AGENTS.md && git commit -qm "加 AGENTS.md"
 export HOME="$WORK/home-codex" CODEX_HOME="$WORK/codex-native" MMW_HOST=codex
 mkdir -p "$CODEX_HOME/skills"
+mmw_plugin_root="$(cd "$HERE/../.." && pwd)"
+mmw_plugin_version="$(jq -r .version "$mmw_plugin_root/.codex-plugin/plugin.json")"
+mmw_plugin_cache="$CODEX_HOME/plugins/cache/mmw-codex/mmw/$mmw_plugin_version"
+mkdir -p "$(dirname "$mmw_plugin_cache")"
+cp -R "$mmw_plugin_root" "$mmw_plugin_cache"
 mmw_main_root="$(git -C "$HERE/../../.." rev-parse --path-format=absolute --git-common-dir)"
 mmw_main_root="$(dirname "$mmw_main_root")"
 for skill in mmw-planner mmw-reviewer mmw-tdd; do
@@ -205,7 +210,9 @@ check "Codex 转发脚本由原生运行时管理" "yes" \
 check "Codex 清掉旧 Claude bridge" "no" \
   "$([ -e "$CODEX_HOME/skills/mmw-reviewer" ] && echo yes || echo no)"
 check "Codex 不装用户级 MCP" 0 "$(grep -c 'install-mcp' "$WORK/out-codex" || true)"
-check "Codex 提示 App 安装 plugin" 1 "$(grep -c 'plugin 在 Codex App 安装' "$WORK/out-codex")"
+check "Codex 命令指向已安装 plugin" 1 \
+  "$(grep -cF "$mmw_plugin_cache/cli/mmw" "$HOME/.local/bin/mmw")"
+check "Codex 项目说明使用原生合同" 1 "$(grep -c '^## MMW 开发工作流' AGENTS.md)"
 
 echo
 echo "过 ${pass}，失败 ${fail}"

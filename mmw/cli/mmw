@@ -427,6 +427,12 @@ cmd_skill_path() {
 }
 
 cmd_task() {
+  local host
+  host="$(mmw_host)" || return 1
+  if [ "$host" = "codex" ]; then
+    echo "mmw: Codex App 负责创建和清理 worktree；当前任务用 /mmw-start 绑定 codex/<slug> 分支" >&2
+    return 1
+  fi
   local sub="${1:-}"
   shift || true
   case "$sub" in

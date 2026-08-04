@@ -59,8 +59,8 @@ FORWARD
   mmw_init_say "转发脚本 : 已装 $bin"
 }
 
-# Codex 的本机运行面一次装齐：两个只读 agent、mmw 转发脚本，并清掉旧 Claude
-# bridge 的三个技能链接。安装器只删除能精确确认来自当前 MMW 主仓库的旧链接。
+# Codex 的本机运行面一次装齐：两个只读 agent、指向已安装 plugin 的 mmw 命令，
+# 并清掉旧 Claude bridge 的三个技能链接。
 mmw_init_codex_runtime() {
   local out
   if out="$(python3 "$MMW_ROOT/codex/runtime.py" install 2>&1)"; then
@@ -186,6 +186,22 @@ mmw_init_skills() {
 MMW_INIT_POINTER_HEADING="## 多模型工作流"
 
 mmw_init_pointer_body() {
+  if [ "$(mmw_host)" = "codex" ]; then
+    cat <<'BODY'
+## MMW 开发工作流
+
+本仓库使用安装在 Codex App 中的 MMW plugin。MMW 源码仓库只负责维护和发布，不是本仓库的运行目录。
+
+- **当前项目**：Codex App 当前任务打开的 Git 项目。MMW 的技能、命令、检索和发布动作都以当前项目为目标。
+- **worktree**：主任务和可写后台任务都使用 Codex App 创建的 managed worktree。App 设置里的 Worktree root 只控制这些 managed worktree 的全局物理存放位置；它不是 MMW 项目路径，也不读取 `.mmw.json` 的 `paths.worktrees`。确认任务范围后，运行 MMW start 技能提供的绑定脚本创建 `codex/<slug>` 分支。
+- **机械动作**：`mmw` 命令来自已安装的 MMW plugin，不从当前项目或 MMW 源码 checkout 加载。不带参数运行一次只列命令；要查看某条命令的参数，就运行该命令但不带参数。`mmw doctor` 与 `mmw init` 本来就不收参数，运行一次就是执行。
+- **项目参数**：仓库根 `.mmw.json` 保存标签、产物路径和领域文档落点。Codex 角色的模型和思考档由已安装 plugin 的 Codex profile 决定，全部使用 Codex 内置 GPT 模型，不读取 `.mmw.json` 的多模型配置。
+- **测试事实**：仓库根 `TESTING.md` 只记录本仓库的测试目录、外部 seam、权威来源和运行命令；测试方法由 MMW plugin 提供。
+
+**AFK 不附带对外发布授权。** `git push`、推 Wiki、向外部服务写数据都要先取得用户明确同意。issue tracker 是 MMW 自己的工作面；创建 ticket、评论、标签和关闭 issue 按对应技能执行。
+BODY
+    return 0
+  fi
   cat <<'BODY'
 ## 多模型工作流
 
@@ -203,8 +219,12 @@ BODY
 # 仓库里被写成纯 import 列表（整份只有几行 @ 引用），往里追加正文会破坏那个
 # 形态——而那些仓库的 CLAUDE.md 通常正好引用了 AGENTS.md，写进后者一样生效。
 mmw_init_pointer() {
-  local root target rel
+  local root target rel heading
   root="$(mmw_repo_root)"
+  heading="$MMW_INIT_POINTER_HEADING"
+  if [ "$(mmw_host)" = "codex" ]; then
+    heading="## MMW 开发工作流"
+  fi
   if [ -f "$root/AGENTS.md" ]; then
     rel="AGENTS.md"
   elif [ -f "$root/CLAUDE.md" ]; then
@@ -215,7 +235,7 @@ mmw_init_pointer() {
   fi
   target="$root/$rel"
 
-  if grep -qF "$MMW_INIT_POINTER_HEADING" "$target"; then
+  if grep -qF "$heading" "$target"; then
     # 只认标题在不在，不比内容——那一节用户可能已经改过，覆盖会把他的改动
     # 冲掉。代价是插件升级后老仓库拿不到新文案，所以这里说出来。
     mmw_init_say "指针节   : $target 里已经有，原样留着。插件升级过的话，新文案要自己对照更新"
@@ -229,8 +249,8 @@ mmw_init_pointer() {
 }
 
 # init 写的配置文件要提交进分支才算数。任务 worktree 检出的是分支上的版本：
-# .gitignore 那四行留在工作区没提交的话，worktree 里那份 .gitignore 里没有它
-# 们，于是 .reviews/ 与 .dispatch/ 变成未跟踪文件，mmw task cleanup 被它们挡
+# .gitignore 那几行留在工作区没提交的话，worktree 里那份 .gitignore 里没有它
+# 们，于是 .reviews/ 与 .dispatch/ 变成未跟踪文件，旧宿主的 mmw task cleanup 被它们挡
 # 住，git 报的却是「contains modified or untracked files」，看不出真因是配置
 # 没提交。.mmw.json 同理，它不在分支上时 worktree 里每条 mmw 命令都报没配置。
 #
@@ -322,8 +342,8 @@ NOTE
     codex)
       cat <<'NOTE'
 
-Codex 运行时由仓库 marketplace 的 MMW plugin 加两个只读自定义 agent 组成。
-两个 agent、mmw 转发脚本与旧 Claude bridge 清理已经完成；plugin 在 Codex App 安装。
+Codex 运行时由已安装的 MMW plugin 加两个只读自定义 agent 组成。
+两个 agent、指向已安装 plugin 的 mmw 命令与旧 Claude bridge 清理已经完成。
 NOTE
       ;;
   esac

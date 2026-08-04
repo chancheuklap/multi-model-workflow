@@ -1,6 +1,6 @@
 ---
 name: mmw-start
-description: 多模型工作流的入口——判定这次的任务走哪条路，建 worktree 再移交。用户开始一件新任务、提一个新需求、报一个 issue 编号、说要接着做某张 map、说有东西坏了、或者只说要开工时用它；什么都没交代时它报当前进度。
+description: MMW 开发工作流的入口——判定这次的任务走哪条路，绑定 Codex App 已创建的 worktree 再移交。用户开始一件新任务、提一个新需求、报一个 issue 编号、说要接着做某张 map、说有东西坏了、或者只说要开工时用它；什么都没交代时它报当前进度。
 argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 ---
 
@@ -27,7 +27,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 | 只要一条查得清的事实，比如某个库或某个外部接口的官方说法 | **移交**：`$mmw:mmw-research`，跳过第 2、3 步 |
 | 一个新需求，或对已有需求的改进 | **移交**：`$mmw:mmw-grilling` |
 | 没有具体需求，只说想让代码库更好维护 | **移交**：`$mmw:mmw-improve-codebase-architecture`，跳过第 2、3 步 |
-| 几条并行分支要集成到主线，某条分支要跟上已经推进的主线，或者手上有一个正在进行中的冲突 | **移交**：`$mmw:mmw-integrate`，跳过第 2、3 步 |
+| 几条并行分支要集成到本轮目标分支，某条分支要跟上已经推进的目标分支，或者手上有一个正在进行中的冲突 | **移交**：`$mmw:mmw-integrate` |
 
 **先做原型还是先谈清楚**：他要的是先看见一个能跑的东西，走 `$mmw:mmw-prototype`；他要的是先把这件事说清楚，走 `$mmw:mmw-grilling`。分不出来时走 `$mmw:mmw-grilling`。
 
@@ -51,16 +51,15 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 类型取自第 1 步的判定结果：走 `$mmw:mmw-diagnosing-bugs` 的用 `fix`，新需求和先做原型的用 `feat`。类型同时约束范围——一个 `fix` 里混进新功能，说明当初的类型定错了，或者这次改动该拆成两个。
 
-**一个 slug 贯穿五处**：worktree 目录名、分支名、`docs/specs/<slug>/`、这个目录里的主文件 `<slug>.md`、Wiki 上的 `Spec-<slug>.md`。别的技能提到 `<slug>` 时指的都是它。
+**一个 slug 贯穿四处**：分支名 `codex/<slug>`、`docs/specs/<slug>/`、这个目录里的主文件 `<slug>.md`、Wiki 上的 `Spec-<slug>.md`。Codex App 自己决定 managed worktree 的物理目录名；MMW 不从该目录名识别任务。
 
-类型前缀用连字符不用斜杠——斜杠会在 worktree 落点下建出子目录，破坏「目录不嵌套」。不带 issue 编号、不带日期。同名冲突时加一个区分词，不加序号。
+类型前缀用连字符，不用斜杠；分支的斜杠只来自固定前缀 `codex/`。slug 不带 issue 编号、不带日期。同名冲突时加一个区分词，不加序号。
 
-**下面四种情况跳过这一步**，第 3 步也一并跳过：
+**下面三种情况跳过这一步**，第 3 步也一并跳过：
 
 - 用户报的是一张已有 map 的编号或链接。slug 由 `$mmw:mmw-wayfinder` 定。
 - 判定走 `$mmw:mmw-improve-codebase-architecture`。slug 由它定，类型固定用 `refactor`。
 - 判定走 `$mmw:mmw-research`。
-- 判定走 `$mmw:mmw-integrate`。它在主仓库的主线上做，不要给它建 worktree。
 
 ## 3. 绑定 Codex App 已创建的 worktree
 
