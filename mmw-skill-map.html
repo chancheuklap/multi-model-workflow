@@ -475,7 +475,7 @@ end
 subgraph VOCAB["跑在别的技能底下"]
   direction TB
   dsp["<b>宿主动作整块物化</b><br/>· 源：[[mmw-launch:…]] / [[mmw-host-action:…]]<br/>· 不匹配或改写自然语言句子<br/>· Codex→后台任务或原生 subagent<br/>· Pi→subagent / CC→dispatch"]
-  cdx["<b>Codex App 原生运行面</b><br/>· 已安装 plugin 提供全部 skills 与三台 MCP<br/>· mmw 命令只指向 plugin cache，不依赖源码 checkout<br/>· investigator / reviewer / planner / designer 原生 subagent<br/>· profiles 只保存 GPT model 与 thinking"]
+  cdx["<b>Codex App 原生运行面</b><br/>· 已安装 plugin 提供全部 skills 与三台 MCP<br/>· mmw 命令只指向 plugin cache，不依赖源码 checkout<br/>· investigator / reviewer-gpt / planner / designer 原生 subagent<br/>· 模型从 hosts.codex 覆盖解析"]
   cwt["<b>Codex worktree 合同</b><br/>· Worktree root 是 App 的跨项目全局存放目录<br/>· 用户创建 detached 主任务，确认父分支后绑定 codex/&lt;slug&gt;<br/>· MMW 不从物理目录名识别任务<br/>· 后台结果先验证与验收，通过后再集成"]
   vfy["<b>mmw-verifying-agent-output</b><br/>· 关键断言都要有出处<br/>· 取证可以派，判定不可以"]
   dmo["<b>mmw-domain-modeling</b><br/>· 唯一往仓库写领域文档的技能<br/>· 落点跑 mmw domain path 取"]

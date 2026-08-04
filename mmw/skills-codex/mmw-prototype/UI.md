@@ -28,7 +28,7 @@
 
 ## 1. 定变体数量
 
-默认 **3 个**，上限 5 个。
+默认 **3 个**，上限 5 个。超过 5 个以后，变体会从结构差异变成噪声，很难再逐个判断。
 
 把这一轮的打算写成一行，放在原型所在位置或者文件顶部注释：
 
@@ -38,7 +38,7 @@
 
 一个变体一个 `prototype-worker`，并行。每个变体使用独立 worktree，且只写分配给自己的变体组件。四栏表写明：目标是该结构方向的变体；读是页面语境路径；约束是其它变体方向、独占文件和本文件「3. 每个变体都要过质量门」；验收是可切换、可走查。派发前为每个变体确定唯一、完整的结果分支名，并记录当前任务分支的基点 SHA。
 
-启动：先用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`。target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型使用 `gpt-5.6-terra`，思考档使用 `high`。任务提示包含四栏 task、主 agent 已确定的完整结果分支名和派发前基点 SHA；结果分支名使用独立的 `codex/<slug>`。后台 agent 先运行 `mmw task bind <完整结果分支名> <目标栏原文> --from <基点 SHA>`，然后完成工作并提交。后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 worktree 设置，取得 threadId 后再等待。
+启动：先用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`。target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型使用 `gpt-5.6-sol`，思考档使用 `medium`。任务提示包含四栏 task、主 agent 已确定的完整结果分支名和派发前基点 SHA；结果分支名使用独立的 `codex/<slug>`。后台 agent 先运行 `mmw task bind <完整结果分支名> <目标栏原文> --from <基点 SHA>`，然后完成工作并提交。后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 worktree 设置，取得 threadId 后再等待。
 
 每个 `prototype-worker` 完成后，逐个收取结果：
 

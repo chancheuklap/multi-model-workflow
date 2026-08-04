@@ -6,7 +6,7 @@
 
 | 宿主 | 发布入口 | 角色执行后端 |
 | --- | --- | --- |
-| Codex App | 根 `.agents/plugins/marketplace.json`、`mmw/.codex-plugin/plugin.json`、`mmw/codex/runtime.py` | `worker`、`worker-high-risk`、`prototype-worker` 走 App 后台 Worktree 任务；`planner`、`designer`、`investigator`、`reviewer` 走原生 subagent；全部使用 Codex 内置 GPT 模型 |
+| Codex App | 根 `.agents/plugins/marketplace.json`、`mmw/.codex-plugin/plugin.json`、`mmw/codex/runtime.py` | `worker`、`worker-high-risk`、`prototype-worker` 走 App 后台 Worktree 任务；`planner`、`designer`、`investigator`、`reviewer-gpt` 走原生 subagent；全部使用 Codex 内置 GPT 模型 |
 | Claude Code | `mmw/.claude-plugin/plugin.json`、根 `.claude-plugin/marketplace.json` | GPT 走后台 Codex CLI；Claude 走后台 Agent 工具 |
 | Pi | `mmw/package.json` | 原生 `subagent` 直调；型号/思考档/async/context/skill 在 `agents-pi` frontmatter；不经 `mmw dispatch` |
 | Cursor（安装面） | `mmw agents materialize --host cursor` → `~/.cursor/agents/` | 原生 subagent；frontmatter 由同一套 `agent-src/` 按 profile 生成 |
@@ -27,16 +27,15 @@ python3 mmw/codex/runtime.py materialize  # 更新 Codex plugin 与四个原生 
 git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock/skills main --squash
 ```
 
-根文档保留 `AGENTS.md`、`CLAUDE.md`、`TESTING.md`。根 `mmw-skill-map.html` 是当前 MMW 架构的可视化产物，必须保留并随架构变化更新。不要新增其他 README、架构、设计、调查、计划或审查类根文档。长期规则写本文件；运行行为写 `mmw/skills/`（源）、物化产物 `mmw/skills-pi/`、`mmw/skills-claude-code/` 与 `mmw/skills-codex/`、`mmw/cli/` 与测试。
+根文档保留 `AGENTS.md`、`CLAUDE.md`、`TESTING.md`。根 `mmw-skill-map.html` 是当前 MMW 架构的可视化产物，必须保留并随架构变化更新。不要新增其他 README、架构、设计、调查、计划或审查类根文档。长期规则写本文件；运行行为写 `mmw/skills/`（源）、物化产物 `mmw/skills-pi/`、`mmw/skills-claude-code/` 与 `mmw/skills-codex/`、`mmw/cli/`。
 
 ## 唯一事实来源
 
 同一项行为按以下顺序核对：
 
-1. 对应宿主的 manifest、根 marketplace 或 Pi package；Codex profile 只认 `mmw/codex/profiles.json`。
+1. 对应宿主的 manifest、根 marketplace 或 Pi package；Codex 角色结构只认 `mmw/codex/profiles.json`，模型只认 `mmw/cli/mmw.default.json` 的 `hosts.codex` 覆盖。
 2. `mmw/cli/` 的机械动作、宿主 adapter 和 `.mmw.json` 配置合同。
 3. `mmw/skills/` 技能源（含 `[[mmw-launch:…]]` 与 `[[mmw-host-action:…]]`）与 `mmw skills materialize` 产物；流程判据以源为准，宿主动作以对应产物为准。
-4. `mmw/cli/tests/`、`mmw/release/tests/`、`mmw/mcp/` 和 `mmw/graph/tests/`。
 
 `.mmw.json` 保存目标仓库的模型档、标签、路径和领域文档形态。技能不硬编码这些值；通过 `mmw` 对应子命令读取。
 
@@ -46,7 +45,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 共享角色、技能和流程语义。宿主差异留在 Codex profile、原生 agent frontmatter、`mmw/cli/adapters/`、manifest 与 `.mmw.json` 的 hosts 覆盖：
 
-- Codex App 是 MMW 的主 agent 运行时，不调用外部模型 CLI 或 harness。`worker`、`worker-high-risk` 与 `prototype-worker` 使用独立后台 Worktree 任务。`planner` 在当前任务 worktree 写指定 plan；`designer`、`investigator` 与 `reviewer` 只交报告。四个原生 subagent 由 `mmw/codex/profiles.json` 物化。
+- Codex App 是 MMW 的主 agent 运行时，不调用外部模型 CLI 或 harness。`worker`、`worker-high-risk` 与 `prototype-worker` 使用独立后台 Worktree 任务。`planner` 在当前任务 worktree 写指定 plan；`designer`、`investigator` 与 `reviewer-gpt` 只交报告。四个原生 subagent 的结构由 `mmw/codex/profiles.json` 物化，模型从 `mmw/cli/mmw.default.json` 解析。
 - Codex 主任务的 worktree 由用户创建。App 设置里的 Worktree root 是所有项目共用的 managed worktree 物理存放目录，不是 MMW 源码路径，也不受目标项目 `.mmw.json` 的 `paths.worktrees` 控制。确认任务和父分支后，运行 `mmw task bind codex/<slug> "<用户原话>" --from <父分支或基点 SHA>`。后台结果先用 `mmw result verify` 验证分支、HEAD SHA 与基点，并在命令返回的 worktree 路径验收；验收通过后再用 `mmw result integrate` 合入当前任务分支。
 - Codex plugin 以 `mmw/` 为发布根，直接复用 Graph、MCP 与配置源码，并生成 `skills-codex/` 和 `.mcp-codex.json`。`mmw/codex/runtime.py install` 安装四个原生 subagent 和指向已安装 plugin cache 的 `mmw` 命令，并删除旧 Claude Code bridge 在 `~/.codex/skills/` 下的三个 MMW 链接；运行时不得回退 MMW 源码 checkout 或目标项目里的同名目录。安装器不改 `~/.codex/config.toml`，也不直接写 App plugin cache。
 - Claude Code 的 GPT 角色通过后台 Bash 执行 Codex CLI；Claude 角色通过后台 Agent 工具执行。这个宿主只接 claude 与 gpt 两个模型族。技能产物在 `mmw/skills-claude-code/`：启动句已物化为 `mmw dispatch`。
@@ -57,7 +56,8 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 ## 修改规则
 
-- 改技能前读完整 `SKILL.md` 及其链接的 reference。测前读根 `TESTING.md`。
+- 改技能前读完整 `SKILL.md` 及其链接的 reference。运行提交检查前读根 `TESTING.md`。
+- 改一份有 Matt Pocock 上游对应项的共享技能时，同时读完 `vendor/mattpocock-skills/` 中对应的 `SKILL.md` 与相关 reference。比较方法论、步骤、完成判据和承载理解的解释性文字，不做机械 diff。MMW 的 worktree、tracker、验证、人工审批关卡与宿主适配是本仓库的正式工作流；只有当前仓库证据无法解释的偏离，才按方法论失真处理。删改上游的方法论、步骤、完成判据或解释性文字时，在提交说明中写明对应的 MMW 证据；只有理由本身属于长期工作流合同，才写进技能或本文件。
 - 只实现请求范围内行为；不用归档残留、兼容目录或静默默认值掩盖错误。
 - 脚本异常必须非零退出或留下结构化告警。
 - 产品版本同步修改 Codex manifest、Claude Code manifest、根 Claude marketplace 的插件版本与顶层版本，以及 Pi package。
@@ -79,7 +79,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 | 被派出的执行者 | subagent | 子代理、sub-agent |
 | 写代码角色 | `worker` | 工人、写码工人 |
 | 写计划角色 | `planner` | 计划工人 |
-| 审查角色 | 审查者；Codex 写 `reviewer`，Claude Code/Pi 具体写 `reviewer-gpt`、`reviewer-claude` | 审者 |
+| 审查角色 | 审查者；Codex 写 `reviewer-gpt`，Claude Code/Pi 写 `reviewer-gpt`、`reviewer-claude` | 审者 |
 | 非交互式 Codex | headless | 无头 |
 | 派发任务说明 | task（四栏表） | brief、简报 |
 | issue 分诊合同 | agent brief | 不是 host 工具参数；经 task「读」栏引用 |
@@ -102,17 +102,8 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - 删除、覆盖、归档或移动现有发布入口前确认用户授权。
 - 禁止使用 `--no-verify`。
 
-## 构建与测试
+## 提交检查
 
-完整门控以根 `TESTING.md` 为准。最低提交门槛：
+本仓库不保留自动化测试、测试夹具或测试套件。提交前检查以根 `TESTING.md` 为准。
 
-```bash
-for test_file in mmw/cli/tests/test_*.sh; do bash "$test_file" || exit 1; done
-for test_file in mmw/release/tests/test_*.sh; do bash "$test_file" || exit 1; done
-(cd mmw/mcp && uv run --quiet --with pytest pytest test_graphify_ensure.py -q) || exit 1
-(cd mmw/graph && uv run --quiet --with pytest pytest tests/test_graph.py -q) || exit 1
-(cd mmw/release/tests && uv run --quiet --with pytest --with pydantic pytest \
-  test_release_contracts.py test_release_script_assembler.py -q) || exit 1
-```
-
-提交前运行 `git diff --check`。本次改动的 JSON 使用 `python3 -m json.tool` 校验；本次改动的 Shell 使用 ShellCheck 校验。
+提交前运行 `git diff --check`。本次改动的 JSON 使用 `python3 -m json.tool` 校验；本次改动的 Shell 使用 ShellCheck 校验；改动 Codex 物化输入时运行 `python3 mmw/codex/runtime.py materialize --check`。

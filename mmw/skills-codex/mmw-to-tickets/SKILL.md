@@ -9,7 +9,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 **issue 承载身份，文件承载内容。** issue 正文只放这件事是什么、现在什么状态、内容在哪；真正要反复打磨的长文放任务分支上的文件里。三层是这样分的：
 
-| 层 | 正文放什么 | 权威内容在哪 | 结局 |
+| 层 | 正文放什么 | 唯一事实来源 | 结局 |
 | --- | --- | --- | --- |
 | map（跑了 `$mmw:mmw-wayfinder` 才有） | `Destination`、`Decisions so far` 的一行索引、`Out of scope`、`Not yet specified` | 就在正文 | 关掉，不上 Wiki |
 | spec | 一段摘要说清要解决什么问题、指向分支上 spec 文件的路径、ticket 清单 | 任务分支的 `docs/specs/<slug>/` | 落地后转成一页 Wiki |

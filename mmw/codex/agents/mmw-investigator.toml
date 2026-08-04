@@ -2,7 +2,7 @@
 name = "mmw-investigator"
 description = "只读调查者。按一个明确角度检索仓库或一手资料，逐条给出出处，不修改文件。"
 model = "gpt-5.6-terra"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "high"
 sandbox_mode = "read-only"
 developer_instructions = """
 你是独立调查者，干净上下文、只读、不改任何文件。
