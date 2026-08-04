@@ -50,7 +50,7 @@ mmw_config() {
   }
 }
 
-# 当前宿主：claude-code | pi。两个变量都没有时报错，不猜。
+# 当前宿主：claude-code | pi | codex。宿主变量都没有时报错，不猜。
 mmw_host() {
   if [ -n "${MMW_HOST:-}" ]; then
     echo "$MMW_HOST"
@@ -58,9 +58,11 @@ mmw_host() {
     echo "claude-code"
   elif [ -n "${PI_CODING_AGENT:-}" ]; then
     echo "pi"
+  elif [ -n "${CODEX_THREAD_ID:-}" ]; then
+    echo "codex"
   else
-    echo "mmw: 认不出当前宿主（CLAUDECODE 与 PI_CODING_AGENT 都没有设）" >&2
-    echo "mmw: 要在别处跑，用 MMW_HOST=claude-code 或 MMW_HOST=pi 显式指定" >&2
+    echo "mmw: 认不出当前宿主（Claude Code、Pi 与 Codex 标识都没有）" >&2
+    echo "mmw: 要在别处跑，用 MMW_HOST=claude-code、pi 或 codex 显式指定" >&2
     return 1
   fi
 }

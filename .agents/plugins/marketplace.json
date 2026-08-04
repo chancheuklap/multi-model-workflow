@@ -1,0 +1,20 @@
+{
+  "name": "mmw-codex",
+  "interface": {
+    "displayName": "MMW for Codex"
+  },
+  "plugins": [
+    {
+      "name": "mmw",
+      "source": {
+        "source": "local",
+        "path": "./mmw"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

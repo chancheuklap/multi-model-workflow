@@ -371,9 +371,9 @@ cmd_agents() {
 
 usage_skills() {
   cat >&2 <<'EOF'
-mmw skills materialize --host <pi|claude-code|all> [--check] [--out <目录>]
+mmw skills materialize --host <pi|claude-code|codex|all> [--check] [--out <目录>]
     把 skills/ 源里的 [[mmw-launch:…]] 物化成宿主写死的启动句
-    pi → skills-pi/；claude-code → skills-claude-code/
+    pi → skills-pi/；claude-code → skills-claude-code/；codex → skills-codex/
 EOF
   return 2
 }
@@ -520,7 +520,7 @@ cmd_doctor() {
   if host="$(mmw_host 2>/dev/null)"; then
     echo "宿主     : $host"
   else
-    echo "宿主     : 认不出（CLAUDECODE 与 PI_CODING_AGENT 都没设）"
+    echo "宿主     : 认不出（Claude Code、Pi 与 Codex 标识都没有）"
     status=1
   fi
   if git rev-parse --show-toplevel >/dev/null 2>&1; then
@@ -566,6 +566,14 @@ cmd_doctor() {
       && echo "claude   : $(command -v claude)（pi 派 Claude 靠它桥接）" \
       || { echo "claude   : 没装（pi 派 Claude 要它）"; status=1; }
     echo "方法论   : 走 subagent 的 skill 参数，不用安装"
+  elif [ "${host:-}" = "codex" ]; then
+    if python3 "$MMW_ROOT/codex/runtime.py" check >/dev/null 2>&1; then
+      echo "Codex    : 两个只读 agent 与 mmw 转发脚本已安装"
+    else
+      echo "Codex    : 运行时未装或过期，跑 python3 $MMW_ROOT/codex/runtime.py install"
+      status=1
+    fi
+    echo "方法论   : 由 Codex plugin 直接提供，不用装旧 Claude bridge"
   fi
 
   if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host pi --check >/dev/null 2>&1; then
@@ -590,6 +598,12 @@ cmd_doctor() {
     echo "CC skills: skills-claude-code 与 skills/ 源一致"
   else
     echo "CC skills: 与真源不一致，跑 mmw skills materialize --host claude-code"
+    status=1
+  fi
+  if python3 "$MMW_ROOT/codex/runtime.py" materialize --check >/dev/null 2>&1; then
+    echo "Codex src: plugin、agent 与 profiles 一致"
+  else
+    echo "Codex src: 生成物漂移，跑 python3 $MMW_ROOT/codex/runtime.py materialize"
     status=1
   fi
 

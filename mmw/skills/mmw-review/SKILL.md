@@ -77,8 +77,7 @@ spec 在哪按这个顺序找：这个分支上的 `docs/specs/<slug>/<slug>.md`
 可选：四栏表写入 `.reviews/<slug>-<哪一道>-<轮次>-<任务名>.prompt.md`，轮次从 1 起。
 
 每个（视角 × 角色）各写一张四栏表并启动一次；同一条消息里全部发出。
-`reviewer-gpt`：[[mmw-launch:reviewer-gpt:none]]
-`reviewer-claude`：[[mmw-launch:reviewer-claude:none]]
+[[mmw-launch-group:reviewers:none]]
 
 ## 4. findings 存盘
 

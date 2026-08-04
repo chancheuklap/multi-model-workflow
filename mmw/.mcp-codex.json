@@ -1,0 +1,33 @@
+{
+  "serena": {
+    "command": "serena",
+    "args": [
+      "start-mcp-server",
+      "--context",
+      "${PLUGIN_ROOT}/config/serena-readonly.yml",
+      "--project-from-cwd",
+      "--enable-web-dashboard",
+      "false",
+      "--open-web-dashboard",
+      "false",
+      "--enable-gui-log-window",
+      "false"
+    ]
+  },
+  "graphify": {
+    "command": "python3",
+    "args": [
+      "${PLUGIN_ROOT}/mcp/graphify_mcp.py"
+    ],
+    "env": {
+      "GRAPHIFY_ENSURE_BIN": "${PLUGIN_ROOT}/mcp/graphify_ensure.py"
+    }
+  },
+  "context7": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@upstash/context7-mcp"
+    ]
+  }
+}

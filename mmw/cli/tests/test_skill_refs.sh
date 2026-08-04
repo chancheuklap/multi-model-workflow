@@ -30,15 +30,16 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$(cd "$HERE/../../skills" && pwd)"
 SKILLS_PI="$(cd "$HERE/../../skills-pi" && pwd)"
 SKILLS_CLAUDE="$(cd "$HERE/../../skills-claude-code" && pwd)"
+SKILLS_CODEX="$(cd "$HERE/../../skills-codex" && pwd)"
 CLI="$(cd "$HERE/.." && pwd)"
 
 # 引用扫描扫发布面；源目录只参与占位符与存在性
-python3 - "$SKILLS_SRC" "$SKILLS_PI" "$SKILLS_CLAUDE" "$CLI" <<'PY'
+python3 - "$SKILLS_SRC" "$SKILLS_PI" "$SKILLS_CLAUDE" "$SKILLS_CODEX" "$CLI" <<'PY'
 import pathlib, re, sys
 
 skills_src = pathlib.Path(sys.argv[1])
-skills_roots = [pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])]
-cli = pathlib.Path(sys.argv[4])
+skills_roots = [pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3]), pathlib.Path(sys.argv[4])]
+cli = pathlib.Path(sys.argv[5])
 names = set()
 for root in [skills_src, *skills_roots]:
     if root.is_dir():
@@ -61,6 +62,7 @@ if not TOP_CMDS:
 NOT_SKILLS = {'wiki', 'tmp', 'install-wiki', 'settings', 'playwright-cli'}
 
 RE_SKILL = re.compile(r'`/([a-z0-9][a-z0-9-]*)`')
+RE_CODEX_SKILL = re.compile(r'`\$mmw:(mmw-[a-z0-9-]+)`')
 RE_LINK = re.compile(r'\]\((?!http)([^)]+\.md)\)')
 RE_STEP = re.compile(r'`/([a-z0-9-]+)`[^|。，]{0,12}第 ([0-9]+) 步')
 RE_HEADING = re.compile(r'^#{2,3} ([0-9]+)\.', re.M)
@@ -113,6 +115,13 @@ for skills in skills_roots:
                     ok += 1
                 else:
                     bad.append(f"{rel}:{i} 引用了不存在的技能 /{name}")
+
+            for m in RE_CODEX_SKILL.finditer(line):
+                name = m.group(1)
+                if name in names:
+                    ok += 1
+                else:
+                    bad.append(f"{rel}:{i} 引用了不存在的 Codex 技能 $mmw:{name}")
 
             # CONTEXT-FORMAT.md 画的是目标仓库里的目录树示例，不是本仓库的路径。
             if p.name != 'CONTEXT-FORMAT.md':
@@ -186,6 +195,7 @@ else:
 
 pi_impl = skills_roots[0] / 'mmw-implement' / 'SKILL.md'
 cc_impl = skills_roots[1] / 'mmw-implement' / 'SKILL.md'
+codex_impl = skills_roots[2] / 'mmw-implement' / 'SKILL.md'
 if pi_impl.is_file():
     t = pi_impl.read_text()
     if 'mmw-worker' not in t or 'task' not in t:
@@ -209,6 +219,17 @@ if cc_impl.is_file():
         bad.append('skills-claude-code 仍残留 launch 占位符')
 else:
     bad.append('缺少 skills-claude-code/mmw-implement/SKILL.md')
+
+if codex_impl.is_file():
+    t = codex_impl.read_text()
+    if '`create_thread`' not in t or '`wait_threads`' not in t or 'gpt-5.6-sol' not in t:
+        bad.append('Codex mmw-implement 缺后台 Worktree 任务调用合同')
+    else:
+        ok += 1
+    if 'mmw dispatch' in t or 'codex exec' in t or '[[mmw-launch:' in t:
+        bad.append('Codex mmw-implement 仍残留旧派发合同')
+else:
+    bad.append('缺少 skills-codex/mmw-implement/SKILL.md')
 
 plugin = cli.parent / '.claude-plugin' / 'plugin.json'
 if plugin.is_file():
@@ -234,7 +255,7 @@ for rel, needle in [
     ('skills/mmw-implement/SKILL.md', '[[mmw-launch:worker:worktree]]'),
     ('skills/mmw-to-plan/SKILL.md', '[[mmw-launch:planner:worktree]]'),
     ('skills/mmw-research/SKILL.md', '[[mmw-launch:investigator:none]]'),
-    ('skills/mmw-review/SKILL.md', '[[mmw-launch:reviewer-gpt:none]]'),
+    ('skills/mmw-review/SKILL.md', '[[mmw-launch-group:reviewers:none]]'),
 ]:
     fp = cli.parent / rel
     if not fp.is_file():
