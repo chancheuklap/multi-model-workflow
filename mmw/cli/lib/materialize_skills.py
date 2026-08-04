@@ -13,9 +13,12 @@ from pathlib import Path
 from typing import NoReturn
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
+CODEX_ROOT = PLUGIN_ROOT / "codex"
+sys.path.insert(0, str(CODEX_ROOT))
+from config import CodexConfigError, load_profiles as load_codex_profiles  # noqa: E402
+
 SKILLS_SRC = PLUGIN_ROOT / "skills"
 ROLES_PATH = PLUGIN_ROOT / "agent-src" / "roles.json"
-CODEX_PROFILES_PATH = PLUGIN_ROOT / "codex" / "profiles.json"
 DEFAULT_OUT = {
     "pi": PLUGIN_ROOT / "skills-pi",
     "claude-code": PLUGIN_ROOT / "skills-claude-code",
@@ -48,24 +51,6 @@ def load_role_agents() -> dict[str, str]:
             die(f"roles.json 角色 {role} 缺 agent")
         agents[str(role)] = str(agent)
     return agents
-
-
-def load_codex_profiles() -> dict:
-    try:
-        data = json.loads(CODEX_PROFILES_PATH.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        die(f"读不到 Codex profile：{exc}")
-    if data.get("version") != 1:
-        die("Codex profile version 必须是 1")
-    for section in ("background_roles", "subagents"):
-        profiles = data.get(section) or {}
-        if not isinstance(profiles, dict):
-            die(f"Codex profile {section} 必须是对象")
-        for role, profile in profiles.items():
-            model = str((profile or {}).get("model") or "")
-            if not model.startswith("gpt-"):
-                die(f"Codex 角色 {role} 必须使用内置 GPT 模型")
-    return data
 
 
 def expand_pi(role: str, agent: str, cwd_mode: str) -> str:
@@ -137,12 +122,14 @@ def expand_codex(role: str, cwd_mode: str, profiles: dict) -> str:
 
 def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> str:
     if host == "codex":
-        profile = (profiles.get("subagents") or {}).get("reviewer")
+        profile = (profiles.get("subagents") or {}).get("reviewer-gpt")
         if not profile:
-            die("Codex 缺 reviewer subagent profile")
+            die("Codex 缺 reviewer-gpt subagent profile")
         return (
-            f"按本节为每个视角规定的实例数，以名称启动 Codex 原生 `{profile['name']}` subagent。"
-            "每个实例只收到自己的四栏 task；互不依赖的实例在同一条消息中并行启动。"
+            "Codex 只使用一个审查角色。①、②、⑤ 每个视角各启动一个 "
+            f"Codex 原生 `{profile['name']}` subagent；⑥ 启动一个该 subagent 完成全部七个角度。"
+            "每个审查者使用独立上下文，可以与产物作者使用相同模型。"
+            "互不依赖的审查任务在同一条消息中并行启动。"
         )
     for role in ("reviewer-gpt", "reviewer-claude"):
         if role not in role_agents:
@@ -151,9 +138,12 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
     gpt = expand("reviewer-gpt", role_agents["reviewer-gpt"], "none")
     claude = expand("reviewer-claude", role_agents["reviewer-claude"], "none")
     return (
-        "当前宿主用两个角色保持作者与审查者分离：主 agent 定稿的 spec、map 和调查综合使用 "
-        f"`reviewer-gpt`。{gpt} plan 和代码使用 `reviewer-claude`。{claude} "
-        "本节要求两个独立实例时，两个角色各启动一次。每个实例只收到自己的四栏 task。"
+        "当前宿主使用两个审查角色。① 每个视角启动一个 `reviewer-gpt`。"
+        f"{gpt}② 每个视角启动一个 `reviewer-claude`。{claude}"
+        "⑤ 每个视角分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude`；"
+        "⑥ 分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude` 完成全部七个角度。"
+        "同一视角的两份 findings 并排比较；只由一个审查者报告的条目优先验证，"
+        "两个审查者都报告的条目仍需验证出处。每个审查者只收到自己的四栏 task。"
     )
 
 
@@ -319,7 +309,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     role_agents = load_role_agents()
-    codex_profiles = load_codex_profiles()
+    try:
+        codex_profiles = load_codex_profiles()
+    except CodexConfigError as exc:
+        die(str(exc))
     hosts = ["pi", "claude-code", "codex"] if args.host == "all" else [args.host]
     status = 0
     for host in hosts:

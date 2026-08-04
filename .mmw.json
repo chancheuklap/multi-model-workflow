@@ -9,28 +9,52 @@
     "worker": {
       "family": "gpt",
       "id": "gpt-5.6-terra",
-      "effort": "high"
+      "effort": "high",
+      "hosts": {
+        "codex": {
+          "effort": "xhigh"
+        }
+      }
     },
     "worker-high-risk": {
       "family": "gpt",
       "id": "gpt-5.6-sol",
-      "effort": "medium"
+      "effort": "medium",
+      "hosts": {
+        "codex": {
+          "effort": "high"
+        }
+      }
     },
     "prototype-worker": {
       "family": "gpt",
       "id": "gpt-5.6-terra",
-      "effort": "high"
+      "effort": "high",
+      "hosts": {
+        "codex": {
+          "id": "gpt-5.6-sol",
+          "effort": "medium"
+        }
+      }
     },
     "planner": {
       "family": "gpt",
       "id": "gpt-5.6-sol",
-      "effort": "high"
+      "effort": "high",
+      "hosts": {
+        "codex": {
+          "effort": "xhigh"
+        }
+      }
     },
     "investigator": {
       "family": "gpt",
       "id": "gpt-5.6-terra",
       "effort": "xhigh",
       "hosts": {
+        "codex": {
+          "effort": "high"
+        },
         "pi": {
           "family": "grok",
           "id": "grok-4.5",
@@ -41,7 +65,13 @@
     "designer": {
       "family": "gpt",
       "id": "gpt-5.6-terra",
-      "effort": "high"
+      "effort": "high",
+      "hosts": {
+        "codex": {
+          "id": "gpt-5.6-sol",
+          "effort": "medium"
+        }
+      }
     },
     "reviewer-gpt": {
       "family": "gpt",

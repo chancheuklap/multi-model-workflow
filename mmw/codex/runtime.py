@@ -18,9 +18,10 @@ import tomllib
 from pathlib import Path
 from typing import NoReturn
 
+from config import CodexConfigError, load_profiles as load_codex_profiles
+
 CODEX_ROOT = Path(__file__).resolve().parent
 MMW_ROOT = CODEX_ROOT.parent
-PROFILES_PATH = CODEX_ROOT / "profiles.json"
 AGENTS_DIR = CODEX_ROOT / "agents"
 BODY_DIR = MMW_ROOT / "agent-src" / "bodies"
 PLUGIN_ROOT = MMW_ROOT
@@ -38,19 +39,9 @@ def die(message: str, code: int = 1) -> NoReturn:
 
 def load_profiles() -> dict:
     try:
-        data = json.loads(PROFILES_PATH.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        die(f"读不到 {PROFILES_PATH}: {exc}")
-    if data.get("version") != 1:
-        die("profiles.json version 必须是 1")
-    for section in ("background_roles", "subagents"):
-        profiles = data.get(section) or {}
-        if not isinstance(profiles, dict):
-            die(f"profiles.json {section} 必须是对象")
-        for role, profile in profiles.items():
-            if not str((profile or {}).get("model") or "").startswith("gpt-"):
-                die(f"{role} 必须使用 Codex 内置 GPT 模型")
-    return data
+        return load_codex_profiles()
+    except CodexConfigError as exc:
+        die(str(exc))
 
 
 def toml_string(value: str) -> str:
@@ -88,7 +79,7 @@ def render_agent(role: str, profile: dict) -> str:
 def rendered_agents() -> dict[str, str]:
     profiles = load_profiles()
     agents = profiles.get("subagents") or {}
-    expected_roles = {"investigator", "reviewer", "planner", "designer"}
+    expected_roles = {"investigator", "reviewer-gpt", "planner", "designer"}
     if set(agents) != expected_roles:
         die(f"Codex 原生 subagent 必须是 {', '.join(sorted(expected_roles))}")
     rendered: dict[str, str] = {}
@@ -214,6 +205,7 @@ def valid_plugin_root(root: Path, version: str) -> bool:
         plugin_version(root) == version
         and (root / "cli" / "mmw").is_file()
         and (root / "codex" / "runtime.py").is_file()
+        and (root / "codex" / "config.py").is_file()
         and (root / "skills-codex" / "mmw-start" / "SKILL.md").is_file()
         and (root / ".mcp-codex.json").is_file()
         and (root / ".mcp.json").is_file()
