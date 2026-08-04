@@ -430,7 +430,7 @@ flowchart LR
 
 subgraph SETUP["前置"]
   direction TB
-  set(["<b>mmw init</b><br/>· 铺 .mmw.json 与 TESTING.md 骨架<br/>· 建标签、加忽略规则、装宿主运行面<br/>· 往 AGENTS.md 或 CLAUDE.md 加指针节<br/>· 每个仓库跑一次，幂等"])
+  set(["<b>mmw init</b><br/>· 铺 .mmw.json 与 TESTING.md 骨架<br/>· 建标签、加忽略规则、装宿主运行面<br/>· 每个仓库跑一次，幂等"])
   subgraph CLIBOX["mmw · 技能写判据，它做动作"]
     direction TB
     cl1(["<b>mmw task / result</b><br/>state / bind / new / enter / cleanup<br/>verify / integrate"])

@@ -3,10 +3,6 @@
 #
 # 幂等。每一步已经做过就跳过并报一行，重跑无害。不覆盖任何已存在的文件，也不
 # 删任何东西——要删的由人决定。
-#
-# 这条命令问不了问题。全流程只有一处要人拿主意：仓库既没有 CLAUDE.md 也没有
-# AGENTS.md 时，指针节往哪一份写。那时非零退出说清缺什么，由主 agent 去问，
-# CLI 不替用户挑一个。
 
 set -euo pipefail
 
@@ -187,71 +183,6 @@ mmw_init_skills() {
   fi
 }
 
-MMW_INIT_POINTER_HEADING="## 多模型工作流"
-
-mmw_init_pointer_body() {
-  if [ "$(mmw_host)" = "codex" ]; then
-    cat <<'BODY'
-## MMW 开发工作流
-
-本仓库使用安装在 Codex App 中的 MMW plugin。MMW 源码仓库只负责维护和发布，不是本仓库的运行目录。
-
-- **当前项目**：Codex App 当前任务打开的 Git 项目。MMW 的技能、命令、检索和发布动作都以当前项目为目标。
-- **worktree**：主任务和可写后台任务都使用 Codex App 创建的 managed worktree。App 设置里的 Worktree root 只控制这些 managed worktree 的全局物理存放位置；它不是 MMW 项目路径，也不读取 `.mmw.json` 的 `paths.worktrees`。确认任务范围和父分支后，运行 `mmw task bind codex/<slug> "<用户原话>" --from <父分支或基点 SHA>` 绑定任务分支。
-- **机械动作**：`mmw` 命令来自已安装的 MMW plugin，不从当前项目或 MMW 源码 checkout 加载。不带参数运行一次只列命令；要查看某条命令的参数，就运行该命令但不带参数。`mmw doctor` 与 `mmw init` 本来就不收参数，运行一次就是执行。
-- **项目参数**：仓库根 `.mmw.json` 保存标签、产物路径和领域文档落点。Codex 角色的模型和思考档由已安装 plugin 的 Codex profile 决定，全部使用 Codex 内置 GPT 模型，不读取 `.mmw.json` 的多模型配置。
-- **测试事实**：仓库根 `TESTING.md` 只记录本仓库的测试目录、外部 seam、权威来源和运行命令；测试方法由 MMW plugin 提供。
-
-**AFK 不附带对外发布授权。** `git push`、推 Wiki、向外部服务写数据都要先取得用户明确同意。issue tracker 是 MMW 自己的工作面；创建 ticket、评论、标签和关闭 issue 按对应技能执行。
-BODY
-    return 0
-  fi
-  cat <<'BODY'
-## 多模型工作流
-
-本仓库装了多模型开发编排插件。约定住在三个地方，技能不硬编码它们的值：
-
-- **机械动作**：`mmw` 这个 CLI。不带参数跑一次列出全部命令；**要哪条命令的参数，就跑那条命令本身不带参数**，只拿到那一条的。例外是 `mmw doctor` 与 `mmw init`，它们本来就不收参数，跑一次就是执行。技能正文不复述这些，不确定就跑一次，不要凭记忆拼。
-- **参数**：仓库根 `.mmw.json` 存着模型档、标签清单、路径、领域文档落点。技能会用到的两样跑 `mmw` 查：领域文档落在哪跑 `mmw domain path` 与 `mmw domain dirs`，有哪些角色、对应哪个原生 agent 跑 `mmw agents list` 或 `mmw agents resolve <角色>`。标签名一律由点名它的那个技能给出，模型档由角色决定，这两样不用你挑，也不要手抄 `.mmw.json` 里的值。
-- **本仓库的测试事实**：根目录的 `TESTING.md`。测试怎么写、够不够格进仓库随插件走，那一份只补本仓库的目录分层、外部 seam、权威源和跑法。
-
-**AFK 不附带把东西发出仓库的授权。** `git push`、推 Wiki、往外部服务写数据这三类动作把东西送到别人看得见、也收不回的地方。要发的内容用户还没看过就停下来，把内容原样给他看，他点头再发。issue tracker 不在这三类里——它是这套流程自己的工作面，建 ticket、贴评论、打标签、关 issue 都照各技能自己的步骤做。
-BODY
-}
-
-# AGENTS.md 优先：它是跨宿主的约定文件，两个宿主都读得到。CLAUDE.md 在不少
-# 仓库里被写成纯 import 列表（整份只有几行 @ 引用），往里追加正文会破坏那个
-# 形态——而那些仓库的 CLAUDE.md 通常正好引用了 AGENTS.md，写进后者一样生效。
-mmw_init_pointer() {
-  local root target rel heading
-  root="$(mmw_repo_root)"
-  heading="$MMW_INIT_POINTER_HEADING"
-  if [ "$(mmw_host)" = "codex" ]; then
-    heading="## MMW 开发工作流"
-  fi
-  if [ -f "$root/AGENTS.md" ]; then
-    rel="AGENTS.md"
-  elif [ -f "$root/CLAUDE.md" ]; then
-    rel="CLAUDE.md"
-  else
-    mmw_init_say "指针节   : 这个仓库既没有 CLAUDE.md 也没有 AGENTS.md，指针节没处写"
-    return 1
-  fi
-  target="$root/$rel"
-
-  if grep -qF "$heading" "$target"; then
-    # 只认标题在不在，不比内容——那一节用户可能已经改过，覆盖会把他的改动
-    # 冲掉。代价是插件升级后老仓库拿不到新文案，所以这里说出来。
-    mmw_init_say "指针节   : $target 里已经有，原样留着。插件升级过的话，新文案要自己对照更新"
-    return 0
-  fi
-
-  printf '\n' >> "$target"
-  mmw_init_pointer_body >> "$target"
-  mmw_init_touch "$rel"
-  mmw_init_say "指针节   : 已追加到 $target"
-}
-
 # init 写的配置文件要提交进分支才算数。任务 worktree 检出的是分支上的版本：
 # .gitignore 那几行留在工作区没提交的话，worktree 里那份 .gitignore 里没有它
 # 们，于是 .reviews/ 与 .dispatch/ 变成未跟踪文件，旧宿主的 mmw task cleanup 被它们挡
@@ -320,7 +251,6 @@ mmw_init() {
   fi
   mmw_init_skills || status=1
   mmw_init_mcp || status=1
-  mmw_init_pointer || status=1
   # 提交排在最后：上面各步骤都登记完了，一个提交装下这一轮的全部配置改动。
   mmw_init_commit || status=1
   mmw_init_legacy
@@ -330,8 +260,7 @@ mmw_init() {
   if [ "$status" -ne 0 ]; then
     cat >&2 <<'NOTE'
 
-上面有步骤没做完，看那几行说的是什么。指针节没处写时不要替用户挑一份建，
-问他要 CLAUDE.md 还是 AGENTS.md。
+上面有步骤没做完，看那几行说的是什么。
 NOTE
   fi
 
