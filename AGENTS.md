@@ -27,7 +27,7 @@ python3 mmw/codex/runtime.py materialize  # 更新 Codex plugin 与四个原生 
 git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock/skills main --squash
 ```
 
-根文档保留 `AGENTS.md`、`CLAUDE.md`、`TESTING.md`。根 `mmw-skill-map.html` 是当前 MMW 架构的可视化产物，必须保留并随架构变化更新。不要新增其他 README、架构、设计、调查、计划或审查类根文档。长期规则写本文件；运行行为写 `mmw/skills/`（源）、物化产物 `mmw/skills-pi/`、`mmw/skills-claude-code/` 与 `mmw/skills-codex/`、`mmw/cli/` 与测试。
+根文档保留 `AGENTS.md`、`CLAUDE.md`、`TESTING.md`。根 `mmw-skill-map.html` 是当前 MMW 架构的可视化产物，必须保留并随架构变化更新。不要新增其他 README、架构、设计、调查、计划或审查类根文档。长期规则写本文件；运行行为写 `mmw/skills/`（源）、物化产物 `mmw/skills-pi/`、`mmw/skills-claude-code/` 与 `mmw/skills-codex/`、`mmw/cli/`。
 
 ## 唯一事实来源
 
@@ -36,7 +36,6 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 1. 对应宿主的 manifest、根 marketplace 或 Pi package；Codex 角色结构只认 `mmw/codex/profiles.json`，模型只认 `mmw/cli/mmw.default.json` 的 `hosts.codex` 覆盖。
 2. `mmw/cli/` 的机械动作、宿主 adapter 和 `.mmw.json` 配置合同。
 3. `mmw/skills/` 技能源（含 `[[mmw-launch:…]]` 与 `[[mmw-host-action:…]]`）与 `mmw skills materialize` 产物；流程判据以源为准，宿主动作以对应产物为准。
-4. `mmw/cli/tests/`、`mmw/release/tests/`、`mmw/mcp/` 和 `mmw/graph/tests/`。
 
 `.mmw.json` 保存目标仓库的模型档、标签、路径和领域文档形态。技能不硬编码这些值；通过 `mmw` 对应子命令读取。
 
@@ -57,7 +56,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 ## 修改规则
 
-- 改技能前读完整 `SKILL.md` 及其链接的 reference。测前读根 `TESTING.md`。
+- 改技能前读完整 `SKILL.md` 及其链接的 reference。运行提交检查前读根 `TESTING.md`。
 - 改一份有 Matt Pocock 上游对应项的共享技能时，同时读完 `vendor/mattpocock-skills/` 中对应的 `SKILL.md` 与相关 reference。比较方法论、步骤、完成判据和承载理解的解释性文字，不做机械 diff。MMW 的 worktree、tracker、验证、人工审批关卡与宿主适配是本仓库的正式工作流；只有当前仓库证据无法解释的偏离，才按方法论失真处理。删改上游的方法论、步骤、完成判据或解释性文字时，在提交说明中写明对应的 MMW 证据；只有理由本身属于长期工作流合同，才写进技能或本文件。
 - 只实现请求范围内行为；不用归档残留、兼容目录或静默默认值掩盖错误。
 - 脚本异常必须非零退出或留下结构化告警。
@@ -103,17 +102,8 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - 删除、覆盖、归档或移动现有发布入口前确认用户授权。
 - 禁止使用 `--no-verify`。
 
-## 构建与测试
+## 提交检查
 
-完整门控以根 `TESTING.md` 为准。最低提交门槛：
+本仓库不保留自动化测试、测试夹具或测试套件。提交前检查以根 `TESTING.md` 为准。
 
-```bash
-for test_file in mmw/cli/tests/test_*.sh; do bash "$test_file" || exit 1; done
-for test_file in mmw/release/tests/test_*.sh; do bash "$test_file" || exit 1; done
-(cd mmw/mcp && uv run --quiet --with pytest pytest test_graphify_ensure.py -q) || exit 1
-(cd mmw/graph && uv run --quiet --with pytest pytest tests/test_graph.py -q) || exit 1
-(cd mmw/release/tests && uv run --quiet --with pytest --with pydantic pytest \
-  test_release_contracts.py test_release_script_assembler.py -q) || exit 1
-```
-
-提交前运行 `git diff --check`。本次改动的 JSON 使用 `python3 -m json.tool` 校验；本次改动的 Shell 使用 ShellCheck 校验。
+提交前运行 `git diff --check`。本次改动的 JSON 使用 `python3 -m json.tool` 校验；本次改动的 Shell 使用 ShellCheck 校验；改动 Codex 物化输入时运行 `python3 mmw/codex/runtime.py materialize --check`。
