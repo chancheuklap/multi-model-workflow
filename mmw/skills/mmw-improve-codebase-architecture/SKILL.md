@@ -28,7 +28,7 @@ description: 扫一遍代码库找可以做深的模块，出一份候选报告�
 
 ## 2. 一个视角派一个 subagent 去扫
 
-五个视角，一个视角派一个上下文隔离的 subagent，并行扫，按 `/mmw-dispatching-agents`。
+五个视角，一个视角派一个上下文隔离的 subagent，并行扫，按 `/mmw-dispatching-agents` 派 `investigator`（只读）。
 
 | 视角 | 让它去看 |
 | --- | --- |

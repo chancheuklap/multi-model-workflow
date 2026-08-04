@@ -44,7 +44,7 @@
 
 **这几件事动手之前先问用户**：要用真实凭证、要连生产环境、要在真机上跑、会产生费用、会写入外部系统的数据。他点头再动。
 
-多候选、多轮的按对象并行派 subagent，一个对象一个，按 `/mmw-dispatching-agents`；派出去的那些收回来按 `/mmw-verifying-agent-output` 验证。只有一两个对象就自己跑。
+多候选、多轮的按对象并行派 subagent，一个对象一个，按 `/mmw-dispatching-agents` 派 `investigator`（只读探测）或 `worker`（要改探测脚本时）；派出去的那些收回来按 `/mmw-verifying-agent-output` 验证。只有一两个对象就自己跑。
 
 ## 4. 记台账
 

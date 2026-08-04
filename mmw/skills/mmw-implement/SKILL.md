@@ -40,7 +40,7 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 task 必须点名：
 
-1. 本文件旁 `worker-brief.md` 的绝对路径（进门先读）。
+1. `mmw-implement/worker-brief.md` 的绝对路径（与本 `SKILL.md` 同目录；进门先读）。
 2. spec 或 agent brief 在本 worktree 的路径；并写明 seam 在 spec 的 `## Testing Decisions` 表，或 agent brief 的 `**Test seam:**`。
 3. 本张 ticket：编号、标题、要做什么、每条验收（可写在 task 里，或给出 tracker 上可读的位置）。
 4. 对应 plan 在本 worktree 的路径（agent brief 那条路无 plan 则写明无 plan）。
@@ -55,7 +55,7 @@ TDD 方法论在 `worker` 的技能里，不要往 task 里粘 `mmw-tdd` 全文�
 
 **先记下当前提交号**（`git rev-parse HEAD`）。
 
-按 `/mmw-dispatching-agents` 派 `worker`（cwd 为本任务 worktree）。ticket 碰计费、权限、数据迁移或改错不可逆时，改派 `worker-high-risk`。**升档归你，不归 worker。**
+按 `/mmw-dispatching-agents` 派 `worker`（cwd 为本任务 worktree 的**绝对路径**）。ticket 碰计费、权限、数据迁移或改错不可逆时，改派 `worker-high-risk`。**升档归你，不归 worker。**
 
 ### 5. 验收：亲手验证三关
 

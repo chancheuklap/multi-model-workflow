@@ -14,16 +14,18 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
 有 correct seam 的话，按顺序做三件事：
 
-1. **先把工作区清干净。** grep `[DEBUG-` 前缀，把 Phase 4 的埋点全删掉。`worker` 是会写文件的角色，派之前按 `/mmw-dispatching-agents` 做可写护栏，工作区不干净就不派。
-2. 按 `/mmw-dispatching-agents` 派 `worker` 角色，`--cwd` 给这棵 worktree 的路径。brief 从文件和你已经跑过的内容里取：
+1. **先把工作区清干净。** grep `[DEBUG-` 前缀，把 Phase 4 的埋点全删掉。可写 worktree 不干净就不派（`git status --porcelain` 有输出则先清）。
+2. 按 `/mmw-dispatching-agents` 派 `worker`（cwd 为这棵 worktree 的绝对路径）。task **只写指令与路径**，至少点名：
 
-   | 给它什么 | 内容 |
+   | 写什么 | 内容 |
    | --- | --- |
-   | 复现命令 | 命令本身，加上你跑它时看到的输出原文 |
-   | 最小化的 repro | 场景，以及每一样为什么是关键的 |
-   | 那条假设 | 被验证的那条，以及验证它的那次观测 |
-   | seam | 测试放在哪一层、断言什么——这条由你定 |
-   | 纪律 | `mmw-implement/worker-brief.md`、`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md`、目标仓库根的 `TESTING.md`，取法见 `/mmw-implement` 第 3 步 |
+   | 复现 | 命令本身 + 你跑它时看到的输出路径或原文要点 |
+   | 最小化 repro | 场景，以及每样为什么关键 |
+   | 假设 | 已验证的那条，以及验证它的观测 |
+   | seam | 测试放哪一层、断言什么——你定 |
+   | 纪律路径 | `mmw-implement/worker-brief.md` 绝对路径；仓库根 `TESTING.md`（有则路径，无则写明没有） |
+
+   TDD 在 `worker` 技能里，不要往 task 粘 `mmw-tdd` 全文。
 
 3. `worker` 要跑的循环是：在那个 seam 上把最小化 repro 变成一个失败的测试，看它红，写修复，看它绿。
 

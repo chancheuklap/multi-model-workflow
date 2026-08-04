@@ -6,7 +6,7 @@ description: >
 ---
 
 把活派给隔离上下文的 subagent。你编排；它执行。
-启动方式：`mmw dispatch`（型号与后台参数由它写入，你不要手填型号）。
+启动：`mmw dispatch`（型号与后台由它写入）。调用方已写好角色与 brief 要点时，从「步骤」做起。
 
 ## 派不派
 
@@ -18,29 +18,32 @@ subagent 内部的探路照派。只有**你**要换判断方向时才留下。
 
 ## 角色
 
-角色名：`worker`、`worker-high-risk`、`planner`、`investigator`、`reviewer-gpt`、`reviewer-claude`。
-用法见 `mmw dispatch` 不带参数。哪两个审查角色、何时升 `worker-high-risk`，由调用你的技能决定。
+角色名原样传给 `mmw dispatch`：`worker`、`worker-high-risk`、`planner`、`investigator`、`reviewer-gpt`、`reviewer-claude`。
+不带参数跑 `mmw dispatch` 可看用法。哪两个审查角色、何时升 `worker-high-risk`，由调用方技能决定。
 
 ## 步骤
 
 ### 1. 写 brief 文件
 
-内容与 task 相同：要交付什么、**去读哪些路径**、边界与验收。
-路径须真实存在。**不要**把文件正文写进 brief；subagent 自己读。
+内容：要交付什么、去读哪些路径、边界与验收。路径须真实存在。
+brief 里只放指令与路径；文件内容由 subagent 自读。
 
 写到 worktree 下 `.dispatch/<名>.md`（审查写 `.reviews/<名>.md`），`mkdir -p` 按需。
+调用方技能若列出要点名的材料，照那份清单写。
 
-调用方技能若列出「brief 里要点名的路径/材料」，照那份清单写。
+**完成**：brief 文件在磁盘上；其中每个仓库内路径存在（或已标明「无」）。
 
 ### 2. 派发
 
 Bash，`run_in_background: true`：
 
 ```bash
-mmw dispatch <角色> --brief <brief文件绝对路径> [--cwd <worktree>]
+mmw dispatch <角色> --brief <brief文件绝对路径> [--cwd <worktree绝对路径>]
 ```
 
-可写角色 `--cwd` 必填；不干净时命令会失败。
+可写角色 `--cwd` 必填；工作区不干净时命令失败。
+
+**完成**：命令已在后台启动并已读到回执文本。
 
 ### 3. 接回执
 
@@ -48,18 +51,22 @@ mmw dispatch <角色> --brief <brief文件绝对路径> [--cwd <worktree>]
 
 **`mode: executed`** — 读 `report:` 路径即报告。
 
-**`mode: host-tool`** — 调 `tool:` 指名的工具，**原样**传入 `params:` 整包 JSON（禁止删键、重拼、只挑字段）。
+**`mode: host-tool`** — 调 `tool:` 指名的工具，**原样**传入 `params:` 整包 JSON（每个键都保留）。
 
 | tool | 做法 |
 | --- | --- |
-| `Agent` | brief 文件全文作提示词；有 `skill-path:` 则要求 subagent 先读该路径；params 原样带上 |
-| `Bash` | 直接用 params 里的 command（已含后台） |
+| `Agent` | 将 brief 文件内容作为提示词；有 `skill-path:` 则要求 subagent 先读该路径；`params` 整包带上 |
+| `Bash` | 使用 params 里的 `command`（已含后台） |
 
 工具先回 run id；完成后再读报告。
 
+**完成**：宿主工具已按回执启动；未改写 params 键集。
+
 ### 4. 收回
 
-报告交 `/mmw-verifying-agent-output`。未验证不当事实用。
+报告交 `/mmw-verifying-agent-output`。未经验证的句子不当事实用。
+
+**完成**：已移交验证，或已按验证结果准备重派。
 
 ## 下一步
 

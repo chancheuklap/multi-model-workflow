@@ -56,7 +56,7 @@ task 必须点名：
 
 可选：把这段 task 存成 `.dispatch/<slug>-plan-<编号>.prompt.md`。
 
-按 `/mmw-dispatching-agents` 派 `planner`（cwd 为任务 worktree）。
+按 `/mmw-dispatching-agents` 派 `planner`（cwd 为任务 worktree 的**绝对路径**）。
 
 **每个派发只装上面这些。** 别的 `planner` 的历史、别份 plan、前面几轮总结，一律不进 task。
 
