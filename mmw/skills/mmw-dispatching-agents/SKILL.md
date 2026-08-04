@@ -51,19 +51,23 @@ mode: host-tool
 tool: <工具名>
 brief: <提示词文件的绝对路径>
 skill-path: <方法论文件的绝对路径>     ← 可能没有这一行
+native: agents-pi                     ← 仅 Pi：策略已在原生 agent 里
 params: {"...": "..."}
 ```
 
-调用宿主工具时原样传递 `params:` 的 JSON。
+调用宿主工具时原样传递 `params:` 的 JSON。**禁止按记忆重拼、禁止删键、禁止只挑熟悉字段。**
 
 | `tool:` | 输入 |
 | --- | --- |
-| `Agent`、`subagent` | 把 `brief:` 文件全文作为提示词；有 `skill-path:` 时，要求 subagent 先读该路径 |
+| `subagent`（Pi） | `params` 只有 `agent` 与 `cwd`。型号、`thinking`、`context`、`async`、`skill` 已写在 `mmw agents materialize --host pi` 生成的原生 agent 里，调用时不要再传这些键。把 `brief:` 文件全文作为 `task`。 |
+| `Agent`（Claude Code） | 把 `brief:` 文件全文作为提示词；有 `skill-path:` 时，要求 subagent 先读该路径；`params` 原样带上 |
 | `Bash` | `command` 已带齐 brief 与执行参数，直接调用 |
 
-adapter 已在 `params:` 中写入后台参数。宿主工具先交回 run id，完成后再发通知。收到 run id 后继续不依赖报告的工作；没有独立工作时把控制权交回宿主，收到完成通知后再读报告。
+adapter 已在需要后台的宿主参数里写入后台标记（Claude Code 的 `run_in_background`；Pi 的 `async` 在 agent 默认值里）。宿主工具先交回 run id，完成后再发通知。收到 run id 后继续不依赖报告的工作；没有独立工作时把控制权交回宿主，收到完成通知后再读报告。
 
 起 `mmw dispatch` 时一律使用 Bash 的 `run_in_background: true`。`mode: executed` 的 subagent 跑在该后台 Bash 里。`mode: host-tool` 的 Bash 只返回参数，adapter 负责把真正的 subagent 固定成后台执行。
+
+Pi 与 Cursor 的原生 agent 文件由 `mmw agents materialize` 从 `agent-src/` 与 `.mmw.json` 生成。改型号只改配置再物化，不要手改生成物里的 model/thinking 行。
 
 ## 方法论怎么到它手里
 

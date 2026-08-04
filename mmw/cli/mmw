@@ -34,6 +34,7 @@ usage() {
 mmw <命令> [参数]
 
   dispatch    把一件任务派给隔离上下文的 subagent
+  agents      把角色物化成宿主原生 subagent 文件
   skill-path  派出去那一侧读方法论的路径
   task        任务 worktree：建、进、删
   issue       tracker：建 issue、挂父子、算可认领集合
@@ -44,7 +45,7 @@ mmw <命令> [参数]
   doctor      检查这台机器上跑 mmw 需要的东西（无参：跑一次就是检查）
   init        把当前仓库配置成能跑这套工作流的样子；幂等（无参：跑一次就是配置）
 
-前八条不带参数跑一次，给它自己的用法。doctor 与 init 本来就不收参数，
+前九条不带参数跑一次，给它自己的用法。doctor 与 init 本来就不收参数，
 跑它们就是执行——查它们做什么看上面这两行，不要拿跑一次当查用法。
 EOF
   return 2
@@ -143,10 +144,12 @@ EOF
 # 这三样两个宿主完全相同，所以留在这里，不进 adapter。
 role_roster() {
   case "$1" in
-    worker | worker-high-risk) echo "mmw-worker" ;;
+    worker) echo "mmw-worker" ;;
+    worker-high-risk) echo "mmw-worker-high-risk" ;;
     planner) echo "mmw-planner" ;;
     investigator) echo "mmw-investigator" ;;
-    reviewer-gpt | reviewer-claude) echo "mmw-reviewer" ;;
+    reviewer-gpt) echo "mmw-reviewer-gpt" ;;
+    reviewer-claude) echo "mmw-reviewer-claude" ;;
     *) return 1 ;;
   esac
 }
@@ -233,6 +236,54 @@ cmd_dispatch() {
   # shellcheck source=/dev/null
   . "$adapter"
   mmw_adapter_dispatch
+}
+
+usage_agents() {
+  cat >&2 <<'EOF'
+mmw agents materialize --host <pi|cursor|all> [--check] [--config <文件>] [--out <目录>]
+
+把 agent-src/roles.json 与 .mmw.json（或 --config）里的型号表，按
+agent-src/profiles/<host>.json 物化成该宿主原生 subagent 文件。
+
+  --host     pi：写入插件 agents-pi/；cursor：写入 ~/.cursor/agents/；all：两个都写
+  --check    只比对，漂移非零退出
+  --config   型号表路径；默认用插件 cli/mmw.default.json
+  --out      覆盖该次宿主的输出目录（不能与 --host all 同用）
+
+型号、思考档、后台、隔离默认值写进 frontmatter。主 agent 调用时只交
+agent 名、task（brief 全文）和可写角色的 cwd。
+EOF
+  return 2
+}
+
+cmd_agents() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    materialize)
+      local host=""
+      local -a args=()
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --host) host="${2:-}"; shift 2 ;;
+          --check) args+=(--check); shift ;;
+          --config)
+            [ -n "${2:-}" ] || { echo "mmw: --config 要路径" >&2; usage_agents; }
+            args+=(--config "$2"); shift 2
+            ;;
+          --out)
+            [ -n "${2:-}" ] || { echo "mmw: --out 要目录" >&2; usage_agents; }
+            args+=(--out "$2"); shift 2
+            ;;
+          *) echo "mmw: 认不出参数 $1" >&2; usage_agents ;;
+        esac
+      done
+      [ -n "$host" ] || { echo "mmw: agents materialize 要 --host" >&2; usage_agents; }
+      args+=(--host "$host")
+      python3 "$MMW_ROOT/cli/lib/materialize_agents.py" "${args[@]}"
+      ;;
+    *) usage_agents ;;
+  esac
 }
 
 # 派出去的那一侧从哪个路径读方法论。宿主自己会送到位的，什么都不输出。
@@ -399,6 +450,18 @@ cmd_doctor() {
     echo "方法论   : 走 subagent 的 skill 参数，不用安装"
   fi
 
+  if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host pi --check >/dev/null 2>&1; then
+    echo "Pi agent : agents-pi 与 agent-src / 默认型号表一致"
+  else
+    echo "Pi agent : 与真源不一致，跑 mmw agents materialize --host pi"
+    status=1
+  fi
+  if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host cursor --check >/dev/null 2>&1; then
+    echo "Cursor   : ~/.cursor/agents 与真源一致"
+  else
+    echo "Cursor   : 未装或过期，跑 mmw agents materialize --host cursor"
+  fi
+
   # pi 与 Cursor 的插件规格都没有声明 MCP 的位置，只能写用户级配置。不按当前宿主
   # 分支报：在 Claude Code 里也要看得见另外两面装没装，否则换个宿主才发现断了。
   if bash "$MMW_ROOT/mcp/install-mcp.sh" --check >/dev/null 2>&1; then
@@ -433,6 +496,7 @@ cmd_doctor() {
 
 case "${1:-}" in
   dispatch) shift; cmd_dispatch "$@" ;;
+  agents) shift; cmd_agents "$@" ;;
   skill-path) shift; cmd_skill_path "$@" ;;
   task) shift; cmd_task "$@" ;;
   issue) shift; cmd_issue "$@" ;;

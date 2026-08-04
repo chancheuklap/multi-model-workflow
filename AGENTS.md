@@ -2,12 +2,20 @@
 
 ## 仓库范围
 
-`mmw/` 是仓库唯一活跃的多模型工作流（Multi-Model Workflow，MMW）插件。它共享一套产品语义，只为两个宿主提供独立接线。
+`mmw/` 是仓库唯一活跃的多模型工作流（Multi-Model Workflow，MMW）插件。它共享一套产品语义；Claude Code 与 Pi 有正式发布入口，Cursor 通过 `mmw agents materialize` 安装原生 subagent。
 
 | 宿主 | 发布入口 | 角色执行后端 |
 | --- | --- | --- |
 | Claude Code | `mmw/.claude-plugin/plugin.json`、根 `.claude-plugin/marketplace.json` | GPT 走后台 Codex CLI；Claude 走后台 Agent 工具 |
-| Pi | `mmw/package.json` | GPT 与 Claude 都走后台 `subagent` 工具，由 model 字段选择 Provider |
+| Pi | `mmw/package.json` | 全部角色走后台 `subagent`；型号/思考档/async/context/skill 物化在 `mmw/agents-pi/` 原生 agent frontmatter |
+| Cursor（安装面） | `mmw agents materialize --host cursor` → `~/.cursor/agents/` | 原生 subagent；frontmatter 由同一套 `agent-src/` 按 profile 生成 |
+
+原生多模型宿主的 agent 文件不要手改 model 行。改 `.mmw.json` 或 `mmw/cli/mmw.default.json` 后执行：
+
+```bash
+mmw agents materialize --host pi      # 更新包内 agents-pi/
+mmw agents materialize --host cursor  # 安装到 ~/.cursor/agents/
+```
 
 `archive/` 是冻结归档。归档内容不参与行为判断、构建、测试或发布；没有明确指令时不修改。旧 Claude Code、Factory Droid、Pi 和 Cursor 插件统一归档在 `archive/legacy-host-plugins/`。
 
@@ -37,7 +45,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 两个宿主共享角色、技能和流程语义。宿主差异只留在 `mmw/cli/adapters/`、各自 manifest 与 `.mmw.json` 的 hosts 覆盖：
 
 - Claude Code 的 GPT 角色通过后台 Bash 执行 Codex CLI；Claude 角色通过后台 Agent 工具执行。这个宿主只接 claude 与 gpt 两个模型族。
-- Pi 的全部角色通过带 `async: true` 的 `subagent` 工具执行。模型族 claude、gpt、grok 分别对应 Provider `claude-provider`、`openai-codex`、`xai`。
+- Pi 的全部角色通过原生 `subagent` 执行；`async: true` 与 `defaultContext: fresh` 写在 `agents-pi` frontmatter 里，dispatch 的 params 只含 agent 与 cwd。模型族 claude、gpt、grok 分别对应 Provider `claude-provider`、`openai-codex`、`xai`。
 - 模型分配默认两宿主相同。某个宿主接不了基线模型时，在 `.mmw.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。调查者就是这样：Pi 走 `grok-4.5`，Claude Code 走 `gpt-5.6-terra`。
 - 技能正文只写 `mmw dispatch <角色>`，不写宿主分支和模型型号。
 - 运行时不得探测、调用或回退到归档插件。

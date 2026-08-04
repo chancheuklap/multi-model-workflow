@@ -59,8 +59,14 @@ mmw_adapter_dispatch() {
       esac
       # 这个宿主给插件带来的角色加插件名前缀，形如 mmw:mmw-reviewer。插件名
       # 从 plugin.json 读，改名时跟着变。
-      local plugin_name
+      # Claude Code 会话内 agent 文件仍是 agents/mmw-reviewer.md；原生多模型宿主
+      # 才拆成 mmw-reviewer-gpt / mmw-reviewer-claude。
+      local plugin_name roster
       plugin_name="$(jq -er .name "$MMW_ROOT/.claude-plugin/plugin.json")"
+      roster="$MMW_D_ROSTER"
+      case "$roster" in
+        mmw-reviewer-claude) roster="mmw-reviewer" ;;
+      esac
 
       printf 'mode: host-tool\n'
       printf 'tool: Agent\n'
@@ -69,7 +75,7 @@ mmw_adapter_dispatch() {
         printf 'skill-path: %s\n' "$MMW_D_SKILL_PATH"
       fi
       # Agent 固定后台运行：派发不能占住主 agent 的前台，也不能依赖调用方补参数。
-      jq -nc --arg r "$plugin_name:$MMW_D_ROSTER" --arg t "$tier" --arg e "$MMW_D_EFFORT" \
+      jq -nc --arg r "$plugin_name:$roster" --arg t "$tier" --arg e "$MMW_D_EFFORT" \
         '{subagent_type: $r, model: $t, effort: $e, run_in_background: true}' \
         | sed 's/^/params: /'
       ;;

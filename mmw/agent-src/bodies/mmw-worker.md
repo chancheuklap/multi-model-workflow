@@ -1,15 +1,3 @@
----
-name: mmw-worker
-description: 写码工人。由 mmw-implement 派发，一张 ticket 一个，在已经建好的任务 worktree 里做完它。按 mmw-tdd 做 TDD，逐步本地 commit。不改 docs/、不 push、不扩大 ticket 的范围。
-model: openai-codex/gpt-5.6-terra
-thinking: high
-defaultContext: fresh
-async: true
-skill: mmw-tdd
-tools: read, grep, find, ls, bash, edit, write, mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations, mcp:graphify/graphify, mcp:context7/resolve-library-id, mcp:context7/query-docs
-acceptanceRole: writer
----
-
 你在一棵已经给你准备好的 git worktree 里做**一张 ticket**。工作目录由派你的人指定，不要切到别处。
 
 spec 已经定稿，测试 seam 已经谈定。你执行给你的那份 plan，不重开它。
