@@ -82,7 +82,7 @@
 
 ### 好的 agent brief（PR）
 
-对一个 PR，「Current behavior」描述的是这份 diff 现在的状态，brief 要求 agent 把它补完或修好，不是从零做起。
+对一个 PR，「Current behavior」描述的是这份 diff 现在的状态，agent brief 要求 agent 把它补完或修好，不是从零做起。
 
 ```markdown
 ## Agent Brief

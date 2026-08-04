@@ -28,7 +28,7 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 - `ready-for-human` —— 需要人来实现
 - `wontfix` —— 不做
 
-对 PR 而言，同样这几个状态是对着那份代码读的：`ready-for-agent` 表示 brief 已附上、该由 agent 接着动这份 diff；`ready-for-human` 表示可以由人来合了。
+对 PR 而言，同样这几个状态是对着那份代码读的：`ready-for-agent` 表示 agent brief 已附上、该由 agent 接着动这份 diff；`ready-for-human` 表示可以由人来合了。
 
 每张分诊过的 issue 应当正好带一个类别角色和一个状态角色。状态角色互相冲突时，先标出来问维护者，再做别的。
 
@@ -81,7 +81,7 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 4. **Grill（需要时）。** 这个需求还不够具体，就跑 `/mmw-grilling`——一次一个问题地把它问成形，领域词随之收紧，决定定下来时更新 `CONTEXT.md` 和 ADR。
 
 5. **落实结果：**
-   - `ready-for-agent` —— 贴一条 agent brief 评论（[AGENT-BRIEF.md](AGENT-BRIEF.md)），brief 里必须有 `**Test seam:**` 那一栏。然后按本文「下一步」一节决定它接着走哪个技能。
+   - `ready-for-agent` —— 贴一条 agent brief 评论（[AGENT-BRIEF.md](AGENT-BRIEF.md)），agent brief 里必须有 `**Test seam:**` 那一栏。然后按本文「下一步」一节决定它接着走哪个技能。
    - `ready-for-human` —— 结构和 agent brief 一样，但要写清为什么它派不出去（要拿判断、要外部权限、要做设计决定、要人工测试）。
    - `needs-info` —— 贴分诊记录，模板和写法在 [NEEDS-INFO.md](NEEDS-INFO.md)。
    - `wontfix` —— 关掉，评论内容取决于*为什么*：
@@ -94,10 +94,10 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 
 | 情况 | 下一步 |
 | --- | --- |
-| `ready-for-agent`，只碰一处，brief 写明了 seam | **移交**：`/mmw-implement`。brief 已经是完整合同，不再写 spec |
+| `ready-for-agent`，只碰一处，agent brief 写明了 seam | **移交**：`/mmw-implement`。agent brief 已经是完整合同，不再写 spec |
 | `ready-for-agent`，碰多处，或者要先谈实现取舍 | **移交**：`/mmw-to-spec`，先谈定再派 `worker` |
 | 这个需求还不够具体，判不出状态 | **自己继续**：回第 4 步跑 `/mmw-grilling` 把它问成形，再回来落实结果 |
-| seam 说不清楚 | **自己继续**：改判 `ready-for-human`，理由写在 brief 里，然后按本文「下一步」表中情况为落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage` 的那一行交回用户 |
+| seam 说不清楚 | **自己继续**：改判 `ready-for-human`，理由写在 agent brief 里，然后按本文「下一步」表中情况为落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage` 的那一行交回用户 |
 | 落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage` | **停**：报这张判成了什么、为什么、下一步在等谁 |
 | 维护者一次交来好几张 | **自己继续**：一张一张走完本文「分诊一张具体的 issue 或 PR」节的五步，全部落实之后再一起报 |
 

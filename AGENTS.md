@@ -58,6 +58,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 ## 修改规则
 
 - 改技能前读完整 `SKILL.md` 及其链接的 reference。测前读根 `TESTING.md`。
+- 改一份有 Matt Pocock 上游对应项的共享技能时，同时读完 `vendor/mattpocock-skills/` 中对应的 `SKILL.md` 与相关 reference。比较方法论、步骤、完成判据和承载理解的解释性文字，不做机械 diff。MMW 的 worktree、tracker、验证、人工审批关卡与宿主适配是本仓库的正式工作流；只有当前仓库证据无法解释的偏离，才按方法论失真处理。删改上游承重内容时，在同一提交中保留可验证的 MMW 理由。
 - 只实现请求范围内行为；不用归档残留、兼容目录或静默默认值掩盖错误。
 - 脚本异常必须非零退出或留下结构化告警。
 - 产品版本同步修改 Codex manifest、Claude Code manifest、根 Claude marketplace 的插件版本与顶层版本，以及 Pi package。
