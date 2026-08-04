@@ -42,6 +42,7 @@ mmw <命令> [参数]
   wiki        Wiki：clone、重建导航、删本地文档前的验证
   domain      领域文档：落点、下一个 ADR 编号
   graph       结构图谱：状态、建一次、验证建对了
+  mcp         MCP：按唯一服务器定义启动 Codex plugin 的 stdio 进程
   release     出包：起循环、问状态、跑一个阶段、派修、收束
   doctor      检查这台机器上跑 mmw 需要的东西（无参：跑一次就是检查）
   init        把当前仓库配置成能跑这套工作流的样子；幂等（无参：跑一次就是配置）
@@ -504,6 +505,27 @@ EOF
   return 2
 }
 
+usage_mcp() {
+  cat >&2 <<'EOF'
+mmw mcp serve <服务器名>
+    从 mmw/.mcp.json 展开并启动一台 stdio MCP 服务器。
+    这是 Codex plugin 的进程入口，不安装用户级 MCP 配置。
+EOF
+  return 2
+}
+
+cmd_mcp() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    serve)
+      [ $# -eq 1 ] || usage_mcp
+      exec python3 "$MMW_ROOT/mcp/serve.py" "$1"
+      ;;
+    *) usage_mcp ;;
+  esac
+}
+
 cmd_graph() {
   case "${1:-}" in
     status) mmw_graph_status ;;
@@ -625,7 +647,11 @@ cmd_doctor() {
   # 真把每个服务器拉起来握一次手，不只看配置在不在——旧实现出过一次事故：配置在、
   # 工具名在列表里、直到模型真去调用才报错，那时它已经在一次审查中途了。
   local probe_out
-  if probe_out="$(python3 "$MMW_ROOT/mcp/probe.py" 2>&1)"; then
+  local -a probe_args=()
+  if [ "${host:-}" = "codex" ]; then
+    probe_args+=(--config "$MMW_ROOT/.mcp-codex.json")
+  fi
+  if probe_out="$(python3 "$MMW_ROOT/mcp/probe.py" "${probe_args[@]}" 2>&1)"; then
     printf '检索工具 : %s\n' "$(printf '%s' "$probe_out" | head -1)"
     printf '%s\n' "$probe_out" | tail -n +2 | sed 's/^/           /'
   else
@@ -649,6 +675,7 @@ case "${1:-}" in
   wiki) shift; cmd_wiki "$@" ;;
   domain) shift; cmd_domain "$@" ;;
   graph) shift; cmd_graph "$@" ;;
+  mcp) shift; cmd_mcp "$@" ;;
   release) shift; exec bash "$MMW_ROOT/release/release-flow.sh" "$@" ;;
   doctor) shift; cmd_doctor "$@" ;;
   init) shift; mmw_init "$@" ;;

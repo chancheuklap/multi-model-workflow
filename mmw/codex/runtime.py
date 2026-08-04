@@ -125,29 +125,17 @@ def bundled_files() -> dict[Path, str]:
     if not isinstance(servers, dict):
         die("MMW .mcp.json 缺 mcpServers")
 
-    def transform(value: object) -> object:
-        if isinstance(value, str):
-            return value.replace("${CLAUDE_PLUGIN_ROOT}", "${PLUGIN_ROOT}")
-        if isinstance(value, list):
-            return [transform(item) for item in value]
-        if isinstance(value, dict):
-            out = {}
-            for key, item in value.items():
-                if (
-                    isinstance(item, str)
-                    and item.startswith("${")
-                    and item.endswith(":-}")
-                ):
-                    continue
-                transformed = transform(item)
-                if key == "env" and transformed == {}:
-                    continue
-                out[key] = transformed
-            return out
-        return value
+    codex_servers = {}
+    for name, spec in servers.items():
+        if not isinstance(spec, dict) or not isinstance(spec.get("command"), str):
+            die(f"Codex plugin 只支持由 mmw mcp serve 启动的 stdio 服务器: {name}")
+        codex_servers[name] = {
+            "command": "mmw",
+            "args": ["mcp", "serve", name],
+        }
 
     files[Path(".mcp-codex.json")] = (
-        json.dumps(transform(servers), ensure_ascii=False, indent=2) + "\n"
+        json.dumps(codex_servers, ensure_ascii=False, indent=2) + "\n"
     )
     return files
 

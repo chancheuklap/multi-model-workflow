@@ -7,7 +7,7 @@
 | 层 | 位置 | 验证内容 |
 | --- | --- | --- |
 | CLI 合同 | `mmw/cli/tests/test_*.sh` | 配置、任务 worktree、issue、Wiki、领域文档、检索接入、技能引用和跨宿主派发参数 |
-| Codex 原生运行时 | `mmw/cli/tests/test_codex_runtime.sh` | plugin/marketplace、GPT profiles、两个只读 agent、技能物化、MCP bundle、detached worktree 绑定、结果分支验证和旧 Claude bridge 清理 |
+| Codex 原生运行时 | `mmw/cli/tests/test_codex_runtime.sh` | plugin/marketplace、GPT profiles、两个只读 agent、全部技能与资源物化、缓存外 MCP 真实握手、detached worktree 绑定、结果分支验证和旧 Claude bridge 清理 |
 | Release Shell | `mmw/release/tests/test_*.sh` | finding 分类、修复派发、远端构建状态和失败清理 |
 | Release Python | `mmw/release/tests/test_release_*.py` | 发布合同解析和脚本装配 |
 | MCP | `mmw/mcp/test_graphify_ensure.py` | 图谱新鲜度、主仓库复用和失败边界 |
@@ -22,7 +22,7 @@
 - Codex App：源码测试验证可写角色的后台 Worktree 任务提示和只读原生 subagent 合同；真实任务创建、模型/思考档、任务进度与 App plugin 启用状态必须在安装后的新任务中烟雾测试。
 - Claude Code Agent 与 Pi subagent：Shell 测试验证 adapter 生成的宿主工具参数；真实模型判断通过安装后的烟雾测试验证。
 - GitHub CLI：issue 和 Wiki 测试使用 stub 或本地 bare 仓库，不访问真实远端。
-- MCP：测试启动本地 fake server，验证协议握手、工具裁剪和配置合并。
+- MCP：测试真实启动 Serena、Graphify 与 Context7，并验证协议握手、精确工具集合、服务器说明、Graphify action、密钥读取和配置合并；fake server 只用于故障与漂移分支。
 - Windows 远端构建：`mmw/release/tests/fixtures/fake-remote/` 模拟文件系统与 Task Scheduler 最终状态。
 
 ## Mac 无法自动验证的行为

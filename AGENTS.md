@@ -40,7 +40,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 `.mmw.json` 保存目标仓库的模型档、标签、路径和领域文档形态。技能不硬编码这些值；通过 `mmw` 对应子命令读取。
 
-`mmw/.mcp.json` 是检索服务器声明的唯一事实来源。Claude Code、Pi 与 Cursor 的占位符由 `mmw/mcp/resolve.py` 展开；Codex 的直接 server map `mmw/.mcp-codex.json` 由 `mmw/codex/runtime.py materialize` 生成。图谱只由 `mmw graph build` 更新；Graphify 和 Serena 的结果都是候选，关键结论必须回当前源码验证。
+`mmw/.mcp.json` 是检索服务器声明的唯一事实来源。Claude Code、Pi 与 Cursor 的占位符由 `mmw/mcp/resolve.py` 展开。Codex 的直接 server map `mmw/.mcp-codex.json` 由 `mmw/codex/runtime.py materialize` 生成，三台服务器都通过 `mmw mcp serve` 回到同一份定义；该入口保留任务目录，并读取同一份密钥文件。图谱只由 `mmw graph build` 更新；Graphify 和 Serena 的结果都是候选，关键结论必须回当前源码验证。
 
 ## 宿主边界
 
@@ -48,7 +48,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 - Codex App 是 MMW 的主 agent 运行时，不调用外部模型 CLI 或 harness。`worker`、`worker-high-risk`、`planner` 通过 App 后台任务获得独立 worktree；`investigator` 与 `reviewer` 通过两个只读原生 subagent 运行。`mmw/codex/profiles.json` 只允许 GPT model 与 thinking，不允许 family、provider、Claude 或 Grok 配置。
 - Codex 主任务的 worktree 由用户创建。确认任务后，`mmw-start/scripts/bind-current-worktree.sh` 把干净 detached HEAD 绑定为 `codex/<slug>`；后台任务提交后，主 agent 先运行 `mmw-integrate/scripts/verify-worker-result.sh` 验证分支、HEAD SHA 与基点，再 `git merge --no-ff`。
-- Codex plugin 以 `mmw/` 为根，直接复用现有 Graph、MCP 与配置源码，只新增 `skills-codex/` 和 `.mcp-codex.json` 两份物化产物。`mmw/codex/runtime.py install` 只安装两个只读 agent 和 `mmw` 转发脚本，并删除旧 Claude Code bridge 在 `~/.codex/skills/` 下的三个 MMW 链接；它不改 `~/.codex/config.toml`，也不直接写 App plugin cache。
+- Codex plugin 以 `mmw/` 为根，直接复用现有 Graph、MCP 与配置源码，只新增 `skills-codex/` 和 `.mcp-codex.json` 两份物化产物。MCP 配置不得写插件缓存路径或 `${PLUGIN_ROOT}`；Codex 的旧 plugin MCP 解析器不会展开该占位符。`mmw/codex/runtime.py install` 只安装两个只读 agent 和 `mmw` 转发脚本，并删除旧 Claude Code bridge 在 `~/.codex/skills/` 下的三个 MMW 链接；它不改 `~/.codex/config.toml`，也不直接写 App plugin cache。
 - Claude Code 的 GPT 角色通过后台 Bash 执行 Codex CLI；Claude 角色通过后台 Agent 工具执行。这个宿主只接 claude 与 gpt 两个模型族。技能产物在 `mmw/skills-claude-code/`：启动句已物化为 `mmw dispatch`。
 - Pi 的全部角色走宿主原生 `subagent`。技能产物在 `mmw/skills-pi/`：启动句已物化为 `subagent({ agent, task, cwd })`。型号等在 agent frontmatter（`mmw agents materialize`）。可写前确认 worktree 干净。
 - 模型分配默认各宿主相同。某个宿主接不了基线模型时，在 `.mmw.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。

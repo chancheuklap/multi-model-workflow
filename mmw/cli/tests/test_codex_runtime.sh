@@ -50,6 +50,24 @@ for path in agents:
     assert 'model = "gpt-' in text
 
 skills = root/'skills-codex'
+source_skills = root/'skills'
+source_names = {p.name for p in source_skills.iterdir() if (p/'SKILL.md').is_file()}
+codex_names = {p.name for p in skills.iterdir() if (p/'SKILL.md').is_file()}
+assert codex_names == source_names
+for name in source_names:
+    source_files = {
+        p.relative_to(source_skills/name).as_posix()
+        for p in (source_skills/name).rglob('*') if p.is_file()
+    }
+    codex_files = {
+        p.relative_to(skills/name).as_posix()
+        for p in (skills/name).rglob('*') if p.is_file()
+    }
+    assert codex_files == source_files, name
+    for relative in source_files:
+        if pathlib.Path(relative).suffix != '.md':
+            assert (skills/name/relative).read_bytes() == (source_skills/name/relative).read_bytes()
+
 bad = ('mmw dispatch', 'codex exec', 'reviewer-gpt', 'reviewer-claude',
        'Claude Code', 'EnterWorktree', 'enter_worktree', 'mmw task new',
        'mmw task enter', 'mmw task cleanup', 'subagent({', '.dispatch/',
@@ -74,10 +92,47 @@ assert '只使用内置 GPT 模型' in review
 
 mcp = json.loads((root/'.mcp-codex.json').read_text())
 assert set(mcp) == {'serena', 'graphify', 'context7'}
-assert '${PLUGIN_ROOT}' in json.dumps(mcp)
-assert 'CLAUDE_PLUGIN_ROOT' not in json.dumps(mcp)
+assert '${' not in json.dumps(mcp)
+for name, spec in mcp.items():
+    assert spec == {'command': 'mmw', 'args': ['mcp', 'serve', name]}
 PY
 check "Codex 合同无旧宿主语义" true
+
+printf '\nCodex bundled MCP real handshake\n'
+probe_bin="$WORK/probe-bin"
+mkdir -p "$probe_bin"
+printf '#!/usr/bin/env bash\nexec %q "$@"\n' "$ROOT/cli/mmw" > "$probe_bin/mmw"
+chmod +x "$probe_bin/mmw"
+plugin_cache="$WORK/plugin-cache/mmw/local"
+user_repo="$WORK/user-repo"
+mkdir -p "$plugin_cache" "$user_repo"
+cp "$ROOT/.mcp-codex.json" "$plugin_cache/.mcp-codex.json"
+probe_json="$(cd "$user_repo" && PATH="$probe_bin:$PATH" python3 "$ROOT/mcp/probe.py" \
+  --config "$plugin_cache/.mcp-codex.json" --json)"
+check "Codex plugin 三台服务器实际握手" jq -e \
+  '.serena.ok and .graphify.ok and .context7.ok' <<<"$probe_json"
+check "Serena 固定四个只读工具" grep -qF \
+  '4 个工具：find_implementations, find_referencing_symbols, find_symbol, get_symbols_overview' \
+  <<<"$(jq -r '.serena.detail' <<<"$probe_json")"
+check "Graphify 保持单工具包装" grep -qF '1 个工具：graphify' \
+  <<<"$(jq -r '.graphify.detail' <<<"$probe_json")"
+check "Context7 两个文档工具" grep -qF \
+  '2 个工具：query-docs, resolve-library-id' \
+  <<<"$(jq -r '.context7.detail' <<<"$probe_json")"
+
+printf '#!/usr/bin/env bash\nprintf "%%s" "$CONTEXT7_API_KEY" > %q\n' \
+  "$WORK/context7-key" > "$probe_bin/npx"
+chmod +x "$probe_bin/npx"
+printf 'CONTEXT7_API_KEY=codex-secret\n' > "$WORK/secrets.env"
+env -u CONTEXT7_API_KEY PATH="$probe_bin:$PATH" MMW_SECRETS_FILE="$WORK/secrets.env" \
+  "$ROOT/cli/mmw" mcp serve context7
+check "Codex Context7 读取 MMW 密钥文件" grep -qxF codex-secret "$WORK/context7-key"
+
+if "$ROOT/cli/mmw" mcp serve 不存在 >/dev/null 2>&1; then
+  check "MCP 入口拒绝未知服务器" false
+else
+  check "MCP 入口拒绝未知服务器" true
+fi
 
 printf '\nBind current detached worktree\n'
 git -C "$WORK" init -q main
