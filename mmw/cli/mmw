@@ -629,13 +629,17 @@ cmd_doctor() {
     status=1
   fi
 
-  # pi 与 Cursor 的插件规格都没有声明 MCP 的位置，只能写用户级配置。不按当前宿主
-  # 分支报：在 Claude Code 里也要看得见另外两面装没装，否则换个宿主才发现断了。
-  if bash "$MMW_ROOT/mcp/install-mcp.sh" --check >/dev/null 2>&1; then
-    echo "pi/Cursor: 用户级 MCP 已装（这台机器上没有的那一面自动跳过）"
+  # Pi 与 Cursor 的插件规格没有声明 MCP 的位置，只能写用户级配置。Codex plugin
+  # 自己携带 MCP，不能让另外两个宿主的本机安装状态把 Codex 体检判红。
+  if [ "${host:-}" != "codex" ]; then
+    if bash "$MMW_ROOT/mcp/install-mcp.sh" --check >/dev/null 2>&1; then
+      echo "pi/Cursor: 用户级 MCP 已装（这台机器上没有的那一面自动跳过）"
+    else
+      echo "pi/Cursor: 有一面没装或与插件定义不一致，跑 $MMW_ROOT/mcp/install-mcp.sh"
+      status=1
+    fi
   else
-    echo "pi/Cursor: 有一面没装或与插件定义不一致，跑 $MMW_ROOT/mcp/install-mcp.sh"
-    status=1
+    echo "Codex MCP: 由 plugin 直接启动，不读取 Pi/Cursor 用户级配置"
   fi
 
   # 密钥只报来源不报值。没配不算故障——三个服务器都能不带密钥跑，只是额度小。
