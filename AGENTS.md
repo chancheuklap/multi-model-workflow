@@ -7,7 +7,7 @@
 | 宿主 | 发布入口 | 角色执行后端 |
 | --- | --- | --- |
 | Claude Code | `mmw/.claude-plugin/plugin.json`、根 `.claude-plugin/marketplace.json` | GPT 走后台 Codex CLI；Claude 走后台 Agent 工具 |
-| Pi | `mmw/package.json` | 全部角色走后台 `subagent`；型号/思考档/async/context/skill 物化在 `mmw/agents-pi/` 原生 agent frontmatter |
+| Pi | `mmw/package.json` | 原生 `subagent` 直调；型号/思考档/async/context/skill 在 `agents-pi` frontmatter；不经 `mmw dispatch` |
 | Cursor（安装面） | `mmw agents materialize --host cursor` → `~/.cursor/agents/` | 原生 subagent；frontmatter 由同一套 `agent-src/` 按 profile 生成 |
 
 原生多模型宿主的 agent 文件不要手改 model 行。改 `.mmw.json` 或 `mmw/cli/mmw.default.json` 后执行：
@@ -42,12 +42,12 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 ## 宿主边界
 
-两个宿主共享角色、技能和流程语义。宿主差异只留在 `mmw/cli/adapters/`、各自 manifest 与 `.mmw.json` 的 hosts 覆盖：
+共享角色、技能和流程语义。宿主差异留在原生 agent frontmatter、`mmw/cli/adapters/`、manifest 与 `.mmw.json` 的 hosts 覆盖：
 
-- Claude Code 的 GPT 角色通过后台 Bash 执行 Codex CLI；Claude 角色通过后台 Agent 工具执行。这个宿主只接 claude 与 gpt 两个模型族。
-- Pi 的全部角色通过原生 `subagent` 执行；`async: true` 与 `defaultContext: fresh` 写在 `agents-pi` frontmatter 里，dispatch 的 params 只含 agent 与 cwd。模型族 claude、gpt、grok 分别对应 Provider `claude-provider`、`openai-codex`、`xai`。
-- 模型分配默认两宿主相同。某个宿主接不了基线模型时，在 `.mmw.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。调查者就是这样：Pi 走 `grok-4.5`，Claude Code 走 `gpt-5.6-terra`。
-- 技能正文只写 `mmw dispatch <角色>`，不写宿主分支和模型型号。
+- Claude Code 的 GPT 角色通过后台 Bash 执行 Codex CLI；Claude 角色通过后台 Agent 工具执行。这个宿主只接 claude 与 gpt 两个模型族。派发走 `mmw dispatch`，由 adapter 写出工具参数。
+- Pi / Cursor 的全部角色走宿主原生 subagent。型号、思考档、`async`、`context`、`skill` 物化在 agent frontmatter（`mmw agents materialize`）。**运行时主 agent 直调原生工具**，只传 agent 名、task（brief 全文）、可写时的 cwd；不经 `mmw dispatch` 转发。可写角色派前跑 `mmw agents guard`。
+- 模型分配默认各宿主相同。某个宿主接不了基线模型时，在 `.mmw.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。
+- 流程技能只写「按 `/mmw-dispatching-agents` 派 `<角色>`」，不写型号、不写宿主工具名。宿主分支与调用形状只写在 `/mmw-dispatching-agents`。
 - 运行时不得探测、调用或回退到归档插件。
 
 ## 修改规则
@@ -61,7 +61,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - 审查方法论只在 `/mmw-reviewer`；`/mmw-review` 只管编排。审查者通过安装的技能读取方法论，不把整份方法论粘进提示词。
 - 技能引用另一个技能时写 `` `/技能名` ``。同名分支、标签值和文件路径不加斜杠。
 - 领域文档位置必须通过 `mmw domain path` 与 `mmw domain dirs` 获取，不写死根 `CONTEXT.md`。
-- `mmw dispatch` 的角色参数值使用 CLI 字面串并加反引号，不另起中文名。
+- 派发角色名使用 CLI / `roles.json` 字面串并加反引号（如 `worker`、`planner`），不另起中文名。Claude Code 路径里的 `mmw dispatch` 角色参数同此。
 - CLI 不带参数只列命令名；每条命令的参数进入自己的 `usage_*`。认不出参数时只输出该命令的用法。
 - Shell 变量后紧跟非 ASCII 字母、数字或下划线时使用 `${var}`，避免非 UTF-8 locale 误解析。
 - 技能正文不得使用“同上”“见上”“前面那条”等位置指代。每次写清文件路径、技能名、节名或完整清单。

@@ -140,34 +140,44 @@ EOF
   return 2
 }
 
-# 角色的产品语义：用哪份花名册、挂哪份方法论、要不要写权限。
-# 这三样两个宿主完全相同，所以留在这里，不进 adapter。
+# 角色的产品语义：agent 名、方法论、是否可写。唯一事实来源是 agent-src/roles.json。
 role_roster() {
-  case "$1" in
-    worker) echo "mmw-worker" ;;
-    worker-high-risk) echo "mmw-worker-high-risk" ;;
-    planner) echo "mmw-planner" ;;
-    investigator) echo "mmw-investigator" ;;
-    reviewer-gpt) echo "mmw-reviewer-gpt" ;;
-    reviewer-claude) echo "mmw-reviewer-claude" ;;
-    *) return 1 ;;
-  esac
+  agents_role_field "$1" agent
 }
 
-# 挂哪份方法论。调查者没有——它每次的判据由派它的技能现写进提示词。
 role_skill() {
-  case "$1" in
-    worker | worker-high-risk) echo "mmw-tdd" ;;
-    planner) echo "mmw-planner" ;;
-    reviewer-gpt | reviewer-claude) echo "mmw-reviewer" ;;
-    *) echo "" ;;
-  esac
+  agents_role_field "$1" skill
 }
 
 role_writable() {
-  case "$1" in
-    investigator | reviewer-gpt | reviewer-claude) echo "no" ;;
-    *) echo "yes" ;;
+  local w
+  w="$(agents_role_field "$1" writable)" || return 1
+  if [ "$w" = "true" ]; then
+    echo yes
+  else
+    echo no
+  fi
+}
+
+# 从 agent-src/roles.json 读角色字段。
+agents_role_field() {
+  local role="$1" field="$2"
+  local path="$MMW_ROOT/agent-src/roles.json"
+  [ -f "$path" ] || { echo "mmw: 找不到 $path" >&2; return 1; }
+  jq -e --arg r "$role" '.roles | has($r)' "$path" >/dev/null 2>&1 || return 1
+  case "$field" in
+    agent)
+      jq -er --arg r "$role" '.roles[$r].agent' "$path"
+      ;;
+    skill)
+      jq -r --arg r "$role" '.roles[$r].skill // empty' "$path"
+      ;;
+    writable)
+      jq -r --arg r "$role" 'if .roles[$r].writable then "true" else "false" end' "$path"
+      ;;
+    *)
+      return 1
+      ;;
   esac
 }
 
@@ -241,19 +251,95 @@ cmd_dispatch() {
 usage_agents() {
   cat >&2 <<'EOF'
 mmw agents materialize --host <pi|cursor|all> [--check] [--config <文件>] [--out <目录>]
+    把 agent-src 与型号表物化成宿主原生 subagent 文件
+mmw agents resolve <角色>
+    打印该角色的原生 agent 名、是否可写、skill（键: 值，一行一个）
+mmw agents guard <角色> [--cwd <目录>]
+    派前护栏：可写角色必须给干净 worktree；只读角色不需要 --cwd
+mmw agents list
+    列出全部角色与对应 agent 名
 
-把 agent-src/roles.json 与 .mmw.json（或 --config）里的型号表，按
-agent-src/profiles/<host>.json 物化成该宿主原生 subagent 文件。
-
-  --host     pi：写入插件 agents-pi/；cursor：写入 ~/.cursor/agents/；all：两个都写
-  --check    只比对，漂移非零退出
-  --config   型号表路径；默认用插件 cli/mmw.default.json
-  --out      覆盖该次宿主的输出目录（不能与 --host all 同用）
-
-型号、思考档、后台、隔离默认值写进 frontmatter。主 agent 调用时只交
-agent 名、task（brief 全文）和可写角色的 cwd。
+Pi / Cursor：主 agent 直调原生 subagent，不经 mmw dispatch。
+先 resolve（或看 list）拿 agent 名，可写角色先 guard，再调宿主工具，
+只传 agent、task=brief 全文、可写时的 cwd。
+Claude Code：仍用 mmw dispatch。
 EOF
   return 2
+}
+
+cmd_agents_resolve() {
+  local role="${1:-}"
+  [ -n "$role" ] || { echo "mmw: agents resolve 要角色名" >&2; usage_agents; }
+  local agent skill writable
+  agent="$(agents_role_field "$role" agent)" || {
+    echo "mmw: 认不出角色 $role" >&2
+    usage_agents
+  }
+  skill="$(agents_role_field "$role" skill)"
+  writable="$(agents_role_field "$role" writable)"
+  # json bool → yes/no，与 role_writable 口径一致
+  if [ "$writable" = "true" ]; then
+    writable="yes"
+  else
+    writable="no"
+  fi
+  printf 'role: %s\n' "$role"
+  printf 'agent: %s\n' "$agent"
+  printf 'writable: %s\n' "$writable"
+  printf 'skill: %s\n' "$skill"
+}
+
+cmd_agents_list() {
+  local path="$MMW_ROOT/agent-src/roles.json"
+  [ -f "$path" ] || { echo "mmw: 找不到 $path" >&2; return 1; }
+  jq -r '.roles | to_entries[] | "\(.key)\t\(.value.agent)\t\(if .value.writable then "writable" else "readonly" end)"' "$path"
+}
+
+cmd_agents_guard() {
+  local role="" cwd=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --cwd) cwd="${2:-}"; shift 2 ;;
+      --role)
+        # 兼容 --role 写法
+        role="${2:-}"; shift 2
+        ;;
+      -*)
+        echo "mmw: 认不出参数 $1" >&2
+        usage_agents
+        ;;
+      *)
+        if [ -z "$role" ]; then
+          role="$1"; shift
+        else
+          echo "mmw: 认不出参数 $1" >&2
+          usage_agents
+        fi
+        ;;
+    esac
+  done
+  [ -n "$role" ] || { echo "mmw: agents guard 要角色名" >&2; usage_agents; }
+
+  local agent writable
+  agent="$(agents_role_field "$role" agent)" || {
+    echo "mmw: 认不出角色 $role" >&2
+    usage_agents
+  }
+  writable="$(agents_role_field "$role" writable)"
+  if [ "$writable" = "true" ]; then
+    if [ -z "$cwd" ]; then
+      echo "mmw: $role 会写文件，--cwd 必填，指向它该待的那棵 worktree" >&2
+      return 1
+    fi
+    [ -d "$cwd" ] || { echo "mmw: 工作目录不存在：$cwd" >&2; return 1; }
+    cwd="$(cd "$cwd" && pwd)"
+    if [ -n "$(git -C "$cwd" status --porcelain)" ]; then
+      echo "mmw: $cwd 工作区不干净，可写任务不派" >&2
+      git -C "$cwd" status --short >&2
+      return 1
+    fi
+  fi
+  printf 'ok: %s -> %s\n' "$role" "$agent"
 }
 
 cmd_agents() {
@@ -282,6 +368,9 @@ cmd_agents() {
       args+=(--host "$host")
       python3 "$MMW_ROOT/cli/lib/materialize_agents.py" "${args[@]}"
       ;;
+    resolve) cmd_agents_resolve "$@" ;;
+    guard) cmd_agents_guard "$@" ;;
+    list) cmd_agents_list ;;
     *) usage_agents ;;
   esac
 }

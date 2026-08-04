@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# 派发参数是宿主会话真正执行 subagent 的合同。
-# Pi：策略在原生 agent frontmatter，params 只含 agent+cwd。
-# Claude Code：adapter 仍把后台与 effort 写进 params。
+# Claude Code：dispatch 仍是真执行入口。
+# Pi：主路径已改为直调原生 agent；此处仅回归兼容的 dispatch 回执形状。
 
 set -euo pipefail
 

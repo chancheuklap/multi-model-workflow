@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
-# pi 宿主：怎么把一个角色变成一次真正的派发。
+# pi 宿主 adapter。
 #
-# 型号、思考档、async、context、skill 已物化进 agents-pi 原生 agent 的
-# frontmatter（mmw agents materialize --host pi）。这里只回 agent 名与 cwd，
-# 主 agent 再补 task=brief 全文。禁止在调用时重拼策略字段。
-#
-# 本文件不做流程判断。它只回答「这个宿主管这个动作叫什么」。
+# 主路径已改为：主 agent 直调原生 subagent（见 mmw-dispatching-agents）。
+# 本文件仅在有人仍调用 `mmw dispatch` 时给出兼容回执；新技能不应依赖它。
+# 型号/thinking/async/context/skill 在 agents-pi frontmatter，不进 params。
 #
 # 入参走 MMW_D_* 环境变量，由 cli/mmw 设好。
 
