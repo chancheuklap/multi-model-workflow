@@ -14,16 +14,17 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
 有 correct seam 的话，按顺序做三件事：
 
-1. **先把工作区清干净。** grep `[DEBUG-` 前缀，把 Phase 4 的埋点全删掉。`worker` 是会写文件的角色，`mmw dispatch` 会先检查工作区干净，不干净就不派。
-2. 按 `/mmw-dispatching-agents` 派 `worker` 角色，`--cwd` 给这棵 worktree 的路径。brief 从文件和你已经跑过的内容里取：
+1. **先把工作区清干净。** grep `[DEBUG-` 前缀，删掉 Phase 4 埋点。在 worktree 根执行 `git status --porcelain`；有输出则先清理，再派发。
+2. 按 **四栏表**（目标 / 读 / 约束 / 验收）填写后启动 `worker`：
 
-   | 给它什么 | 内容 |
+   | 栏 | 本角色填写 |
    | --- | --- |
-   | 复现命令 | 命令本身，加上你跑它时看到的输出原文 |
-   | 最小化的 repro | 场景，以及每一样为什么是关键的 |
-   | 那条假设 | 被验证的那条，以及验证它的那次观测 |
-   | seam | 测试放在哪一层、断言什么——这条由你定 |
-   | 纪律 | `mmw-implement/worker-brief.md`、`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md`、目标仓库根的 `TESTING.md`，取法见 `/mmw-implement` 第 3 步 |
+   | 目标 | 修根因并补回归测试 |
+   | 读 | ① 复现命令与输出若已落盘则给路径，否则写命令本身一行；② 最小化 repro / 假设若已落盘给路径；③ seam 说明（一层、断言什么）；④ `worker-brief.md`（与 `/mmw-implement` 的 `SKILL.md` 同目录）；⑤ 仓库根 `TESTING.md`（无则「无」） |
+   | 约束 | 先在 seam 上把 repro 变成失败测试再修；不扩大范围 |
+   | 验收 | 新测试红后绿；Phase 1 原始 loop 不再复现 |
+
+   [[mmw-launch:worker:worktree]]
 
 3. `worker` 要跑的循环是：在那个 seam 上把最小化 repro 变成一个失败的测试，看它红，写修复，看它绿。
 

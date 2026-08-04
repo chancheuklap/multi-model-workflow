@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""把 Graphify 结构检索包成一个常驻 MCP 工具，三个执行面共用。
+"""把 Graphify 结构检索包成一个常驻 MCP 工具，各宿主共用。
 
 一次调用内先跑 ensure 保证图对得上当前 checkout，再按 action 查询。查询直接调
 官方 `graphify` CLI，本文件不重写检索语义。
@@ -28,9 +28,8 @@ QUERY_TIMEOUT = 120
 # 使用纪律的单一事实来源。写在这里而不是技能里：技能只装建图与维护，那是主 agent
 # 才做的事，而用工具的是每一个角色。
 #
-# 宿主自己的会话直接读到这段——Claude Code 把服务器说明摆进系统提示。**Codex 不读**：
-# 实测问过一个挂着这三个服务器的 codex 进程，它答「没有说明」。所以派 GPT 时由
-# discipline.py 把这段取出来拼进提示词，仍然只在这里维护一份。
+# 支持 MCP server instructions 的宿主直接读取这一段；其他宿主由各自 adapter 读取
+# 同一个常量，不另存一份检索纪律。
 INSTRUCTIONS = (
     "Graphify answers structural questions over a repository graph: module relationships, "
     "dependency paths, reverse impact, cross-service routes, IPC channels, event topics and "

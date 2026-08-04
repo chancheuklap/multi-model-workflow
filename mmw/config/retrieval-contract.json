@@ -28,14 +28,17 @@
         "find_referencing_symbols",
         "find_symbol",
         "get_symbols_overview"
-      ]
+      ],
+      "instruction_tokens": ["Graphify", "verify in the current source", "empty result never proves"]
     },
     "graphify": {
       "exact_tools": ["graphify"],
-      "actions": ["affected", "explain", "path", "query"]
+      "actions": ["affected", "explain", "path", "query"],
+      "instruction_tokens": ["Division of labour with Serena", "ensures the graph matches", "Results are candidates"]
     },
     "context7": {
-      "exact_tools": ["query-docs", "resolve-library-id"]
+      "exact_tools": ["query-docs", "resolve-library-id"],
+      "instruction_tokens": ["fetch current documentation", "Prefer this over web search"]
     }
   }
 }

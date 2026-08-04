@@ -1,18 +1,16 @@
-# Serena 的只读工具白名单，三个执行面共用这一份。
+# Serena 的只读工具白名单，四个宿主共用这一份。
 #
-# 为什么白名单做在服务器这一侧，不做在宿主那一侧：Codex CLI 的 MCP 配置没有任何
-# 限制工具的字段（只有能不能用、怎么启动、超时多久），所以派出去的 headless
-# subagent 那一侧，宿主过滤根本不存在。上游默认暴露的工具里有任意命令执行、创建
-# 覆写文件、在符号前后插入代码、重命名与删除符号，还有一套往仓库落文件的记忆
-# 系统——这三类分别绕开我们的编辑纪律、安全边界和文档权威。fixed_tools 让 Serena
-# 进程自己只注册下面四个，任何客户端连上来看到的都一样。
+# 为什么白名单做在服务器这一侧，不只做在宿主那一侧：Claude Code 派出的 headless
+# Codex 没有宿主工具过滤；Codex App、Pi 与 Cursor 的策略也可能由用户改动。上游默认
+# 暴露的工具里有任意命令执行、创建覆写文件、在符号前后插入代码、重命名与删除符号，
+# 还有一套往仓库落文件的记忆系统。fixed_tools 让 Serena 进程自己只注册下面四个，
+# 任何客户端连上来看到的都一样。
 #
 # 改这份文件之前先想清楚：多放进来一个工具，五个 GPT 角色立刻都拿得到。
 #
-# prompt 覆盖掉上游那份自带的系统提示词，是使用纪律的单一事实来源。它对宿主自己的
-# 会话直接生效——Claude Code 把服务器说明摆进系统提示。**Codex 不读它**：实测问过一个
-# 挂着这三个服务器的 codex 进程，它答「没有说明」。所以派 GPT 时由 mcp/discipline.py
-# 把这段取出来拼进提示词，纪律仍然只在这里维护一份。
+# prompt 覆盖掉上游那份自带的系统提示词，是使用纪律的单一事实来源。Claude Code 与
+# Codex App 直接读取服务器说明。Claude Code 派出的旧 headless Codex 不读取说明，仍由
+# mcp/discipline.py 把同一段拼进提示词。
 description: MMW read-only symbol retrieval
 prompt: |
   Use Serena to retrieve static symbol candidates from the current checkout: find_symbol for a definition or a symbol body, find_referencing_symbols for direct references, get_symbols_overview for one file's top-level symbols, find_implementations for implementations of an interface or abstract method. The last three need the repo-relative path of the file that holds the definition.

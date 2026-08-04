@@ -1,0 +1,26 @@
+{
+  "serena": {
+    "command": "mmw",
+    "args": [
+      "mcp",
+      "serve",
+      "serena"
+    ]
+  },
+  "graphify": {
+    "command": "mmw",
+    "args": [
+      "mcp",
+      "serve",
+      "graphify"
+    ]
+  },
+  "context7": {
+    "command": "mmw",
+    "args": [
+      "mcp",
+      "serve",
+      "context7"
+    ]
+  }
+}

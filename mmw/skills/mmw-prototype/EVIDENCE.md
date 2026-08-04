@@ -44,7 +44,16 @@
 
 **这几件事动手之前先问用户**：要用真实凭证、要连生产环境、要在真机上跑、会产生费用、会写入外部系统的数据。他点头再动。
 
-多候选、多轮的按对象并行派 subagent，一个对象一个，按 `/mmw-dispatching-agents`；派出去的那些收回来按 `/mmw-verifying-agent-output` 验证。只有一两个对象就自己跑。
+多候选、多轮时：
+
+- **test-plan、探测脚本、`runs/` 原始产物、台账**一律由**主 agent**写入 `docs/evidence/`（本文件第 2、4 步）。
+- 需要并行只读取证时：一个对象一个 `investigator`。四栏表——目标「对该对象跑探测，原样交回命令与关键输出」；读=该对象 test-plan 路径 + 仓库根；约束=只读、不改仓库、不写 `docs/`、不写结论等级；验收=交回可复述的命令原文与输出摘要（或临时路径说明），**不要求**它创建 `docs/evidence` 下文件。
+[[mmw-launch:investigator:none]]
+- 主 agent 把交回的输出落入 `docs/evidence/<slug>/runs/…` 并写台账。
+- 只有一两个对象则主 agent 自己跑，不派 subagent。
+- **不派 `worker` 改 `docs/`。** 脚本与产物归主 agent。
+
+收回后按 `/mmw-verifying-agent-output` 验证。
 
 ## 4. 记台账
 

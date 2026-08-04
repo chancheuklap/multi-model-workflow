@@ -5,7 +5,7 @@ description: 把定好的需求实现成代码，一张 ticket 派一个 `worker
 
 把 spec 和它的 ticket 描述的需求实现出来。spec 已定稿，seam 已谈定；本技能执行那份计划，不重开它。
 
-**你不写代码。** 每张 ticket 交给一个 `worker`。你的职责是准备 brief、派发、验收、发起审查。
+**你不写代码。** 每张 ticket 交给一个 `worker`。你的职责是写清派工 task、派发、验收、发起审查。
 
 ## 流程
 
@@ -34,25 +34,30 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 一个 worktree 一次做一张 ticket，一个 worktree 上只站一个 `worker`。frontier 确实很宽、用户又要并行推进，就给每张 ticket 各跑一次 `mmw task new <slug>-<ticket 短语>`，它们都从你当前这条分支分叉。
 
-### 3. 组装 `worker` 的提示词
+### 3. 写派工 task
 
-组装规矩按 `/mmw-dispatching-agents` 的「组装与存盘」一节。装这七样：
+按 **四栏表**（目标 / 读 / 约束 / 验收）填写。issue 上的 **agent brief** 是 tracker 分诊合同，只作「读」栏材料；派给 `worker` 的仍是本表 task。本角色各栏取值：
 
-1. 本文件旁边的 `worker-brief.md`，取 `---` 之后的全部内容。
-2. TDD 纪律全文——`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md`、`mmw-tdd/quality-bar.md`。
-3. 目标仓库的 `TESTING.md` 全文，那是测试三层里的第三层：目录分层、哪些边界允许打桩、值从哪个权威源读。**它跟 `worker-brief.md` 以及第 2 条列出的那四个文件一起粘进去，不给路径。** 这个仓库还没有 `TESTING.md`，在 brief 里明说没有，让它按 `worker-brief.md` 加第 2 条那四个文件做。
-4. spec 或 agent brief 在这个 worktree 里的路径，以及 spec `## Testing Decisions` 一节里那张 seam 清单表（agent brief 则是 `**Test seam:**` 一栏），原文引用。
-5. ticket 本身：标题、要做什么、每一条验收标准，全部写进去。`worker` 能访问 tracker 也照样写。
-6. **这张 ticket 对应的那份 plan，全文。** spec、ticket、plan 三样都要给：spec 给意图和合同，ticket 给边界和验收，plan 给施工权威。走 agent brief 那条路的需求没有 plan，这一条跳过。
-7. 这次需求背后有原型的，给出**选中的那一版**在这个 worktree 里的路径，加上 spec 里那一节视觉契约。只给选中的那一份，`docs/prototypes/<slug>/` 下面还躺着落选变体和 TUI 壳。同时说清怎么用——逻辑原型里那个可移植模块整块搬过去，不要重写；界面变体的代码按仓库规范重写，不要照抄。
+| 栏 | 本角色填写 |
+| --- | --- |
+| 目标 | 完成 ticket `#<编号>`（或 tracker 等价编号） |
+| 读 | 一行一条，只写定位：① `worker-brief.md`（与本 `SKILL.md` 同目录）；② 本 worktree 内 spec 路径，或 agent brief 所在 issue 编号；③ 本张 ticket 的 issue 编号；④ 对应 plan 路径（无 plan 写「无 plan」）；⑤ 仓库根 `TESTING.md`（无则写「无」）；⑥ 选中原型路径（无则写「无原型」） |
+| 约束 | 只改本 worktree 源码与测试；不改 `docs/`；不扩大 ticket 范围。有原型时：逻辑可移植模块整块搬、界面按仓库规范重写 |
+| 验收 | 见 ticket `#<编号>` 的验收标准；seam 见 spec `## Testing Decisions` 或 agent brief 的 `**Test seam:**`（在「读」里已给出定位，此处不抄正文） |
 
-写到 `.dispatch/<slug>-<ticket>.prompt.md`。给 `worker` 的路径一律是它工作的那个仓库里的路径，插件内的路径它读不到。
+TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
+
+可选：四栏表写入 `.dispatch/<slug>-<ticket>.prompt.md`。
 
 ### 4. 派发
 
-**先记下当前提交号**（`git rev-parse HEAD`）。
+**先记下当前提交号**（`git rev-parse HEAD`），供验收对照。
 
-然后按 `/mmw-dispatching-agents` 派 `worker` 角色，`--cwd` 给这棵任务 worktree 的路径。ticket 碰计费、权限、数据迁移，或者别的改错了不可逆的地方时，改派 `worker-high-risk`。**这个判断归你，不归 `worker`**——`worker` 不会自己要求升档。
+[[mmw-launch:worker:worktree]]
+
+ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
+[[mmw-launch:worker-high-risk:worktree]]
+升档由你决定，不由 worker 自报。
 
 ### 5. 验收：亲手验证三关
 

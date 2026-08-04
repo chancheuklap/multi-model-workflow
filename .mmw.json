@@ -2,8 +2,8 @@
   "version": 1,
   "models": {
     "orchestrator": {
-      "family": "claude",
-      "id": "claude-opus-5",
+      "family": "grok",
+      "id": "grok-4.5",
       "effort": "high"
     },
     "worker": {
@@ -39,9 +39,16 @@
       "effort": "xhigh"
     },
     "reviewer-claude": {
-      "family": "claude",
-      "id": "claude-opus-5",
-      "effort": "high"
+      "family": "grok",
+      "id": "grok-4.5",
+      "effort": "high",
+      "hosts": {
+        "claude-code": {
+          "family": "claude",
+          "id": "claude-opus-5",
+          "effort": "high"
+        }
+      }
     }
   },
   "tracker": {

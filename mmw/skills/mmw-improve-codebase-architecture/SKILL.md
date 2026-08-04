@@ -28,7 +28,8 @@ description: 扫一遍代码库找可以做深的模块，出一份候选报告�
 
 ## 2. 一个视角派一个 subagent 去扫
 
-五个视角，一个视角派一个上下文隔离的 subagent，并行扫，按 `/mmw-dispatching-agents`。
+五个视角，一个视角一个 subagent，并行扫描。每个视角：四栏表（目标=该视角问题；读=范围路径 + 领域文档 + `/mmw-codebase-design` + ADR 路径；约束=只读；验收=摩擦点带出处）。
+[[mmw-launch:investigator:none]]
 
 | 视角 | 让它去看 |
 | --- | --- |
@@ -40,7 +41,7 @@ description: 扫一遍代码库找可以做深的模块，出一份候选报告�
 
 **按视角分，不按范围分。** 每个 subagent 都看第 1 步定下来的整片地方，不要把它切成几块各管一段。
 
-每份 brief 给同样的仓库语境（领域文档里的词、`/mmw-codebase-design` 的词汇表、这一片的 ADR 结论、第 1 步定下的范围），只有视角那一栏不同。brief 要自包含。
+每份 task 给同样的路径与范围（领域文档路径、`/mmw-codebase-design` 词汇表路径、这一片的 ADR 路径、第 1 步定下的范围），只有视角那一栏不同。subagent 自己读路径。
 
 **不要给它僵硬的打分表**，让它有机地探，记下它在哪里觉得摩擦大。
 
@@ -74,7 +75,7 @@ subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说�
 
 `/mmw-grilling` 自带 `/mmw-domain-modeling`，通用的那部分不用你再交代。这里只补三条本技能特有的：
 
-- **给做深后的 module 起的名字不在 `CONTEXT.md` 里**，就把这个词加进去（多 context 的仓库加进对应那份子 context）。
+- **给做深后的 module 起的名字不在 `CONTEXT.md` 里**，就把这个词加进去（多 context 的仓库：加进 `mmw domain path` 在 map 模式下为本次范围指出的那份 `CONTEXT.md`）。
 - **用户否掉这个候选**，提议写一份 ADR，话这么说：「要不要记成 ADR，免得下次架构走查又提一遍？」只在这个理由是未来的人真需要、否则同一件事会被重复提议时才提；一次性的理由（「现在不值得做」）和不言自明的理由跳过。
 - **想看看这个 module 还能有哪几种 interface**，跑 `/mmw-codebase-design`，用它的 DESIGN-IT-TWICE。
 

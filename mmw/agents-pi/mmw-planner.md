@@ -1,6 +1,11 @@
 ---
 name: mmw-planner
-description: 写计划工人。由 `mmw-to-plan` 派发，一张 ticket 一份 plan 一个工人。按 `mmw-planner` 技能的方法论把 ticket 拆成实施步骤，只写自己那份 plan 与对应 issue，不改源码。
+description: 写计划工人。由 mmw-to-plan 派发，一张 ticket 一份 plan 一个工人。按 mmw-planner 技能的方法论把 ticket 拆成实施步骤，只写自己那份 plan 与对应 issue，不改源码。
+model: openai-codex/gpt-5.6-sol
+thinking: high
+defaultContext: fresh
+async: true
+skill: mmw-planner
 tools: read, grep, find, ls, bash, edit, write, mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations, mcp:graphify/graphify, mcp:context7/resolve-library-id, mcp:context7/query-docs
 acceptanceRole: writer
 ---

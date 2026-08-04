@@ -59,6 +59,18 @@ FORWARD
   mmw_init_say "转发脚本 : 已装 $bin"
 }
 
+# Codex 的本机运行面一次装齐：两个只读 agent、mmw 转发脚本，并清掉旧 Claude
+# bridge 的三个技能链接。安装器只删除能精确确认来自当前 MMW 主仓库的旧链接。
+mmw_init_codex_runtime() {
+  local out
+  if out="$(python3 "$MMW_ROOT/codex/runtime.py" install 2>&1)"; then
+    mmw_init_say "Codex运行时: 已装两个只读 agent 与 mmw 转发脚本；旧 Claude bridge 已检查"
+    return 0
+  fi
+  mmw_init_say "Codex运行时: 装不上，原样报出——$(printf '%s' "$out" | tail -5 | tr '\n' ' ')"
+  return 1
+}
+
 # TESTING.md 铺的是骨架，不是填好的事实。测试怎么写、够不够格进仓库随插件走，
 # 这一份只留空位给本仓库的目录分层、外部 seam、权威源和跑法。
 mmw_init_testing() {
@@ -127,9 +139,14 @@ mmw_init_gitignore() {
   mmw_init_touch ".gitignore"
 }
 
-# 三个检索工具。Claude Code 读插件自带的 .mcp.json、Codex 派发时注入，两边都不用装；
-# 只有 pi 要写用户级配置，脚本自己判断这台机器有没有 pi。同样是每台机器一次。
+# 三个检索工具。Codex 与 Claude Code 都由各自 plugin 直接提供；Pi/Cursor 才写用户配置。
 mmw_init_mcp() {
+  local host
+  host="$(mmw_host)" || return 1
+  if [ "$host" = "codex" ]; then
+    mmw_init_say "检索工具 : Codex plugin 直接提供，不写用户配置"
+    return 0
+  fi
   local script="$MMW_ROOT/mcp/install-mcp.sh"
   if [ ! -x "$script" ]; then
     mmw_init_say "检索工具 : 找不到安装脚本 $script"
@@ -144,9 +161,15 @@ mmw_init_mcp() {
   fi
 }
 
-# 装方法论是每台机器一次，不是每个仓库一次。脚本自己幂等。
+# 旧方法论链接只服务 Claude Code 启动的外部 Codex 进程。Codex plugin 不装这些链接。
 mmw_init_skills() {
-  local script="$MMW_ROOT/skills/mmw-dispatching-agents/install-agent-skills.sh"
+  local host
+  host="$(mmw_host)" || return 1
+  if [ "$host" = "codex" ]; then
+    mmw_init_say "方法论   : Codex plugin 直接提供，不装旧 Claude bridge"
+    return 0
+  fi
+  local script="$MMW_ROOT/cli/lib/install-agent-skills.sh"
   if [ ! -x "$script" ]; then
     mmw_init_say "方法论   : 找不到安装脚本 $script"
     return 1
@@ -169,7 +192,7 @@ mmw_init_pointer_body() {
 本仓库装了多模型开发编排插件。约定住在三个地方，技能不硬编码它们的值：
 
 - **机械动作**：`mmw` 这个 CLI。不带参数跑一次列出全部命令；**要哪条命令的参数，就跑那条命令本身不带参数**，只拿到那一条的。例外是 `mmw doctor` 与 `mmw init`，它们本来就不收参数，跑一次就是执行。技能正文不复述这些，不确定就跑一次，不要凭记忆拼。
-- **参数**：仓库根 `.mmw.json` 存着模型档、标签清单、路径、领域文档落点。技能会用到的两样跑 `mmw` 查：领域文档落在哪跑 `mmw domain path` 与 `mmw domain dirs`，有哪些角色、各配什么模型跑 `mmw dispatch`。标签名一律由点名它的那个技能给出，模型档由角色决定，这两样不用你挑，也不要手抄 `.mmw.json` 里的值。
+- **参数**：仓库根 `.mmw.json` 存着模型档、标签清单、路径、领域文档落点。技能会用到的两样跑 `mmw` 查：领域文档落在哪跑 `mmw domain path` 与 `mmw domain dirs`，有哪些角色、对应哪个原生 agent 跑 `mmw agents list` 或 `mmw agents resolve <角色>`。标签名一律由点名它的那个技能给出，模型档由角色决定，这两样不用你挑，也不要手抄 `.mmw.json` 里的值。
 - **本仓库的测试事实**：根目录的 `TESTING.md`。测试怎么写、够不够格进仓库随插件走，那一份只补本仓库的目录分层、外部 seam、权威源和跑法。
 
 **AFK 不附带把东西发出仓库的授权。** `git push`、推 Wiki、往外部服务写数据这三类动作把东西送到别人看得见、也收不回的地方。要发的内容用户还没看过就停下来，把内容原样给他看，他点头再发。issue tracker 不在这三类里——它是这套流程自己的工作面，建 ticket、贴评论、打标签、关 issue 都照各技能自己的步骤做。
@@ -253,12 +276,24 @@ mmw_init_legacy() {
 }
 
 mmw_init() {
-  local status=0
+  local status=0 host
+  host="$(mmw_host)" || return 1
   mmw_init_config
-  mmw_init_forward
+  if [ "$host" = "codex" ]; then
+    mmw_init_codex_runtime || status=1
+  else
+    mmw_init_forward
+  fi
   mmw_init_testing
   mmw_init_labels
   mmw_init_gitignore
+  if [ "$host" != "codex" ]; then
+    if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host all; then
+      :
+    else
+      status=1
+    fi
+  fi
   mmw_init_skills || status=1
   mmw_init_mcp || status=1
   mmw_init_pointer || status=1
@@ -276,11 +311,21 @@ mmw_init() {
 NOTE
   fi
 
-  cat <<'NOTE'
+  case "$host" in
+    claude-code)
+      cat <<'NOTE'
 
 还有一件要改宿主的全局配置，不替你动，确认后自己加：
-  Claude Code  ~/.claude/settings.json 的 permissions.allow 加 "Bash(mmw:*)"
-  pi           无沙箱，不用加
+  ~/.claude/settings.json 的 permissions.allow 加 "Bash(mmw:*)"
 NOTE
+      ;;
+    codex)
+      cat <<'NOTE'
+
+Codex 运行时由仓库 marketplace 的 MMW plugin 加两个只读自定义 agent 组成。
+两个 agent、mmw 转发脚本与旧 Claude bridge 清理已经完成；plugin 在 Codex App 安装。
+NOTE
+      ;;
+  esac
   return "$status"
 }

@@ -1,0 +1,22 @@
+{
+  "host": "cursor",
+  "output": {
+    "kind": "user-dir",
+    "path": "~/.cursor/agents"
+  },
+  "managed_glob": "mmw-*.md",
+  "provider_map": {},
+  "model_format": "{id}[effort={effort}]",
+  "tools": {
+    "writable": "mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations, mcp:graphify/graphify, mcp:context7/resolve-library-id, mcp:context7/query-docs",
+    "readonly": "mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations, mcp:graphify/graphify, mcp:context7/resolve-library-id, mcp:context7/query-docs"
+  },
+  "frontmatter": {
+    "name": "{agent}",
+    "description": "{description}",
+    "model": "{model}",
+    "readonly": "{readonly}",
+    "is_background": true,
+    "tools": "{tools}"
+  }
+}

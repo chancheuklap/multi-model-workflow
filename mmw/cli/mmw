@@ -33,18 +33,21 @@ usage() {
   cat >&2 <<'EOF'
 mmw <命令> [参数]
 
-  dispatch    把一件任务派给隔离上下文的 subagent
+  dispatch    Claude Code：把 task 文件编成宿主工具参数（Pi 主路径不用）
+  agents      把角色物化成宿主原生 subagent 文件
+  skills      把技能源占位符物化成宿主写死的启动句
   skill-path  派出去那一侧读方法论的路径
   task        任务 worktree：建、进、删
   issue       tracker：建 issue、挂父子、算可认领集合
   wiki        Wiki：clone、重建导航、删本地文档前的验证
   domain      领域文档：落点、下一个 ADR 编号
   graph       结构图谱：状态、建一次、验证建对了
+  mcp         MCP：按唯一服务器定义启动 Codex plugin 的 stdio 进程
   release     出包：起循环、问状态、跑一个阶段、派修、收束
   doctor      检查这台机器上跑 mmw 需要的东西（无参：跑一次就是检查）
   init        把当前仓库配置成能跑这套工作流的样子；幂等（无参：跑一次就是配置）
 
-前八条不带参数跑一次，给它自己的用法。doctor 与 init 本来就不收参数，
+前九条不带参数跑一次，给它自己的用法。doctor 与 init 本来就不收参数，
 跑它们就是执行——查它们做什么看上面这两行，不要拿跑一次当查用法。
 EOF
   return 2
@@ -52,7 +55,7 @@ EOF
 
 usage_dispatch() {
   cat >&2 <<'EOF'
-mmw dispatch <角色> --brief <文件> [--cwd <目录>]
+mmw dispatch <角色> --task <文件> [--cwd <目录>]
 
 角色：
   worker            按一份 plan 写代码
@@ -63,14 +66,14 @@ mmw dispatch <角色> --brief <文件> [--cwd <目录>]
   reviewer-claude   审查，Claude 那一侧
 
 参数：
-  --brief <文件>  提示词文件，必填
+  --task <文件>   task 四栏表文件，必填（与 Pi 的 task 同一概念）
   --cwd <目录>    它待着的目录。前三个角色会写文件，必填，指向它那棵 worktree；
                   只读的三个不给就是仓库根
 
 模型、档位、护栏由角色决定，取自仓库根 .mmw.json，这里不用管。
 
-返回开头一行是 mode: executed 或 mode: host-tool，两种读法不一样，
-判据在 mmw-dispatching-agents。
+返回开头一行是 mode: executed 或 mode: host-tool。
+host-tool 时原样用回执 params 调工具（params 内已含 task 正文或等价字段）。
 EOF
   return 2
 }
@@ -139,32 +142,44 @@ EOF
   return 2
 }
 
-# 角色的产品语义：用哪份花名册、挂哪份方法论、要不要写权限。
-# 这三样两个宿主完全相同，所以留在这里，不进 adapter。
+# 角色的产品语义：agent 名、方法论、是否可写。唯一事实来源是 agent-src/roles.json。
 role_roster() {
-  case "$1" in
-    worker | worker-high-risk) echo "mmw-worker" ;;
-    planner) echo "mmw-planner" ;;
-    investigator) echo "mmw-investigator" ;;
-    reviewer-gpt | reviewer-claude) echo "mmw-reviewer" ;;
-    *) return 1 ;;
-  esac
+  agents_role_field "$1" agent
 }
 
-# 挂哪份方法论。调查者没有——它每次的判据由派它的技能现写进提示词。
 role_skill() {
-  case "$1" in
-    worker | worker-high-risk) echo "mmw-tdd" ;;
-    planner) echo "mmw-planner" ;;
-    reviewer-gpt | reviewer-claude) echo "mmw-reviewer" ;;
-    *) echo "" ;;
-  esac
+  agents_role_field "$1" skill
 }
 
 role_writable() {
-  case "$1" in
-    investigator | reviewer-gpt | reviewer-claude) echo "no" ;;
-    *) echo "yes" ;;
+  local w
+  w="$(agents_role_field "$1" writable)" || return 1
+  if [ "$w" = "true" ]; then
+    echo yes
+  else
+    echo no
+  fi
+}
+
+# 从 agent-src/roles.json 读角色字段。
+agents_role_field() {
+  local role="$1" field="$2"
+  local path="$MMW_ROOT/agent-src/roles.json"
+  [ -f "$path" ] || { echo "mmw: 找不到 $path" >&2; return 1; }
+  jq -e --arg r "$role" '.roles | has($r)' "$path" >/dev/null 2>&1 || return 1
+  case "$field" in
+    agent)
+      jq -er --arg r "$role" '.roles[$r].agent' "$path"
+      ;;
+    skill)
+      jq -r --arg r "$role" '.roles[$r].skill // empty' "$path"
+      ;;
+    writable)
+      jq -r --arg r "$role" 'if .roles[$r].writable then "true" else "false" end' "$path"
+      ;;
+    *)
+      return 1
+      ;;
   esac
 }
 
@@ -180,18 +195,18 @@ cmd_dispatch() {
   }
   skill="$(role_skill "$role")"
 
-  local brief="" cwd=""
+  local task="" cwd=""
   while [ $# -gt 0 ]; do
     case "$1" in
-      --brief) brief="${2:-}"; shift 2 ;;
+      --task) task="${2:-}"; shift 2 ;;
       --cwd) cwd="${2:-}"; shift 2 ;;
       *) echo "mmw: 认不出参数 $1" >&2; usage_dispatch ;;
     esac
   done
 
-  [ -n "$brief" ] || { echo "mmw: dispatch 要 --brief" >&2; usage_dispatch; }
-  [ -f "$brief" ] || { echo "mmw: brief 文件不存在：$brief" >&2; return 1; }
-  brief="$(cd "$(dirname "$brief")" && pwd)/$(basename "$brief")"
+  [ -n "$task" ] || { echo "mmw: dispatch 要 --task" >&2; usage_dispatch; }
+  [ -f "$task" ] || { echo "mmw: task 文件不存在：$task" >&2; return 1; }
+  task="$(cd "$(dirname "$task")" && pwd)/$(basename "$task")"
 
   local writable
   writable="$(role_writable "$role")"
@@ -219,20 +234,175 @@ cmd_dispatch() {
   MMW_D_FAMILY="$(mmw_model_field "$role" family)"
   MMW_D_MODEL_ID="$(mmw_model_field "$role" id)"
   MMW_D_EFFORT="$(mmw_model_field "$role" effort)"
-  export MMW_D_BRIEF="$brief"
+  export MMW_D_TASK="$task"
   export MMW_D_CWD="$cwd"
   export MMW_D_WRITABLE="$writable"
 
-  # 可写任务派出去之前工作区必须干净，否则工人的提交里会混进别人的改动。
-  if [ "$MMW_D_WRITABLE" = "yes" ] && [ -n "$(git -C "$cwd" status --porcelain)" ]; then
-    echo "mmw: $cwd 工作区不干净，可写任务不派" >&2
-    git -C "$cwd" status --short >&2
-    return 1
+  # 可写：必须是干净任务 worktree（与 agents guard 同一套）。
+  if [ "$MMW_D_WRITABLE" = "yes" ]; then
+    MMW_D_CWD="$(mmw_require_writable_cwd "$MMW_D_CWD")" || return 1
+    export MMW_D_CWD
   fi
 
   # shellcheck source=/dev/null
   . "$adapter"
   mmw_adapter_dispatch
+}
+
+usage_agents() {
+  cat >&2 <<'EOF'
+mmw agents materialize --host <pi|cursor|all> [--check] [--config <文件>] [--out <目录>]
+    把 agent-src 与型号表物化成宿主原生 subagent 文件
+mmw agents resolve <角色>
+    打印该角色的原生 agent 名、是否可写、skill（键: 值，一行一个）
+mmw agents guard <角色> [--cwd <目录>]
+    派前护栏：可写角色必须给干净 worktree；只读角色不需要 --cwd
+mmw agents list
+    列出全部角色与对应 agent 名
+
+Pi / Cursor：主 agent 直调原生 subagent，不经 mmw dispatch。
+先 resolve（或看 list）拿 agent 名，可写角色先 guard，再调宿主工具，
+只传 agent、task 四栏全文、可写时的 cwd。
+Claude Code：仍用 mmw dispatch。
+EOF
+  return 2
+}
+
+cmd_agents_resolve() {
+  local role="${1:-}"
+  [ -n "$role" ] || { echo "mmw: agents resolve 要角色名" >&2; usage_agents; }
+  local agent skill writable
+  agent="$(agents_role_field "$role" agent)" || {
+    echo "mmw: 认不出角色 $role" >&2
+    usage_agents
+  }
+  skill="$(agents_role_field "$role" skill)"
+  writable="$(agents_role_field "$role" writable)"
+  # json bool → yes/no，与 role_writable 口径一致
+  if [ "$writable" = "true" ]; then
+    writable="yes"
+  else
+    writable="no"
+  fi
+  printf 'role: %s\n' "$role"
+  printf 'agent: %s\n' "$agent"
+  printf 'writable: %s\n' "$writable"
+  printf 'skill: %s\n' "$skill"
+}
+
+cmd_agents_list() {
+  local path="$MMW_ROOT/agent-src/roles.json"
+  [ -f "$path" ] || { echo "mmw: 找不到 $path" >&2; return 1; }
+  jq -r '.roles | to_entries[] | "\(.key)\t\(.value.agent)\t\(if .value.writable then "writable" else "readonly" end)"' "$path"
+}
+
+cmd_agents_guard() {
+  local role="" cwd=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --cwd) cwd="${2:-}"; shift 2 ;;
+      --role)
+        # 兼容 --role 写法
+        role="${2:-}"; shift 2
+        ;;
+      -*)
+        echo "mmw: 认不出参数 $1" >&2
+        usage_agents
+        ;;
+      *)
+        if [ -z "$role" ]; then
+          role="$1"; shift
+        else
+          echo "mmw: 认不出参数 $1" >&2
+          usage_agents
+        fi
+        ;;
+    esac
+  done
+  [ -n "$role" ] || { echo "mmw: agents guard 要角色名" >&2; usage_agents; }
+
+  local agent writable
+  agent="$(agents_role_field "$role" agent)" || {
+    echo "mmw: 认不出角色 $role" >&2
+    usage_agents
+  }
+  writable="$(agents_role_field "$role" writable)"
+  if [ "$writable" = "true" ]; then
+    if [ -z "$cwd" ]; then
+      echo "mmw: $role 会写文件，--cwd 必填，指向它该待的那棵 worktree" >&2
+      return 1
+    fi
+    cwd="$(mmw_require_writable_cwd "$cwd")" || return 1
+  fi
+  printf 'ok: %s -> %s\n' "$role" "$agent"
+}
+
+cmd_agents() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    materialize)
+      local host=""
+      local -a args=()
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --host) host="${2:-}"; shift 2 ;;
+          --check) args+=(--check); shift ;;
+          --config)
+            [ -n "${2:-}" ] || { echo "mmw: --config 要路径" >&2; usage_agents; }
+            args+=(--config "$2"); shift 2
+            ;;
+          --out)
+            [ -n "${2:-}" ] || { echo "mmw: --out 要目录" >&2; usage_agents; }
+            args+=(--out "$2"); shift 2
+            ;;
+          *) echo "mmw: 认不出参数 $1" >&2; usage_agents ;;
+        esac
+      done
+      [ -n "$host" ] || { echo "mmw: agents materialize 要 --host" >&2; usage_agents; }
+      args+=(--host "$host")
+      python3 "$MMW_ROOT/cli/lib/materialize_agents.py" "${args[@]}"
+      ;;
+    resolve) cmd_agents_resolve "$@" ;;
+    guard) cmd_agents_guard "$@" ;;
+    list) cmd_agents_list ;;
+    *) usage_agents ;;
+  esac
+}
+
+usage_skills() {
+  cat >&2 <<'EOF'
+mmw skills materialize --host <pi|claude-code|codex|all> [--check] [--out <目录>]
+    把 skills/ 源里的 [[mmw-launch:…]] 物化成宿主写死的启动句
+    pi → skills-pi/；claude-code → skills-claude-code/；codex → skills-codex/
+EOF
+  return 2
+}
+
+cmd_skills() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    materialize)
+      local host=""
+      local -a args=()
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --host) host="${2:-}"; shift 2 ;;
+          --check) args+=(--check); shift ;;
+          --out)
+            [ -n "${2:-}" ] || { echo "mmw: --out 要目录" >&2; usage_skills; }
+            args+=(--out "$2"); shift 2
+            ;;
+          *) echo "mmw: 认不出参数 $1" >&2; usage_skills ;;
+        esac
+      done
+      [ -n "$host" ] || { echo "mmw: skills materialize 要 --host" >&2; usage_skills; }
+      args+=(--host "$host")
+      python3 "$MMW_ROOT/cli/lib/materialize_skills.py" "${args[@]}"
+      ;;
+    *) usage_skills ;;
+  esac
 }
 
 # 派出去的那一侧从哪个路径读方法论。宿主自己会送到位的，什么都不输出。
@@ -335,6 +505,27 @@ EOF
   return 2
 }
 
+usage_mcp() {
+  cat >&2 <<'EOF'
+mmw mcp serve <服务器名>
+    从 mmw/.mcp.json 展开并启动一台 stdio MCP 服务器。
+    这是 Codex plugin 的进程入口，不安装用户级 MCP 配置。
+EOF
+  return 2
+}
+
+cmd_mcp() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    serve)
+      [ $# -eq 1 ] || usage_mcp
+      exec python3 "$MMW_ROOT/mcp/serve.py" "$1"
+      ;;
+    *) usage_mcp ;;
+  esac
+}
+
 cmd_graph() {
   case "${1:-}" in
     status) mmw_graph_status ;;
@@ -351,7 +542,7 @@ cmd_doctor() {
   if host="$(mmw_host 2>/dev/null)"; then
     echo "宿主     : $host"
   else
-    echo "宿主     : 认不出（CLAUDECODE 与 PI_CODING_AGENT 都没设）"
+    echo "宿主     : 认不出（Claude Code、Pi 与 Codex 标识都没有）"
     status=1
   fi
   if git rev-parse --show-toplevel >/dev/null 2>&1; then
@@ -389,7 +580,7 @@ cmd_doctor() {
     else
       # 绝对路径。插件装出去之后，读这行的 agent 待在用户自己的仓库里，
       # 那里没有 mmw/ 这个目录，相对路径它跑不了。
-      echo "方法论   : 没装，跑 $MMW_ROOT/skills/mmw-dispatching-agents/install-agent-skills.sh"
+      echo "方法论   : 没装，跑 $MMW_ROOT/cli/lib/install-agent-skills.sh"
       status=1
     fi
   elif [ "${host:-}" = "pi" ]; then
@@ -397,6 +588,45 @@ cmd_doctor() {
       && echo "claude   : $(command -v claude)（pi 派 Claude 靠它桥接）" \
       || { echo "claude   : 没装（pi 派 Claude 要它）"; status=1; }
     echo "方法论   : 走 subagent 的 skill 参数，不用安装"
+  elif [ "${host:-}" = "codex" ]; then
+    if python3 "$MMW_ROOT/codex/runtime.py" check >/dev/null 2>&1; then
+      echo "Codex    : 两个只读 agent 与 mmw 转发脚本已安装"
+    else
+      echo "Codex    : 运行时未装或过期，跑 python3 $MMW_ROOT/codex/runtime.py install"
+      status=1
+    fi
+    echo "方法论   : 由 Codex plugin 直接提供，不用装旧 Claude bridge"
+  fi
+
+  if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host pi --check >/dev/null 2>&1; then
+    echo "Pi agent : agents-pi 与 agent-src / 型号表一致"
+  else
+    echo "Pi agent : 与真源不一致，跑 mmw agents materialize --host pi"
+    status=1
+  fi
+  if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host cursor --check >/dev/null 2>&1; then
+    echo "Cursor   : ~/.cursor/agents 与型号表一致"
+  else
+    echo "Cursor   : 未装或过期，跑 mmw agents materialize --host cursor"
+  fi
+
+  if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host pi --check >/dev/null 2>&1; then
+    echo "Pi skills: skills-pi 与 skills/ 源一致"
+  else
+    echo "Pi skills: 与真源不一致，跑 mmw skills materialize --host pi"
+    status=1
+  fi
+  if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host claude-code --check >/dev/null 2>&1; then
+    echo "CC skills: skills-claude-code 与 skills/ 源一致"
+  else
+    echo "CC skills: 与真源不一致，跑 mmw skills materialize --host claude-code"
+    status=1
+  fi
+  if python3 "$MMW_ROOT/codex/runtime.py" materialize --check >/dev/null 2>&1; then
+    echo "Codex src: plugin、agent 与 profiles 一致"
+  else
+    echo "Codex src: 生成物漂移，跑 python3 $MMW_ROOT/codex/runtime.py materialize"
+    status=1
   fi
 
   # pi 与 Cursor 的插件规格都没有声明 MCP 的位置，只能写用户级配置。不按当前宿主
@@ -417,7 +647,11 @@ cmd_doctor() {
   # 真把每个服务器拉起来握一次手，不只看配置在不在——旧实现出过一次事故：配置在、
   # 工具名在列表里、直到模型真去调用才报错，那时它已经在一次审查中途了。
   local probe_out
-  if probe_out="$(python3 "$MMW_ROOT/mcp/probe.py" 2>&1)"; then
+  local -a probe_args=()
+  if [ "${host:-}" = "codex" ]; then
+    probe_args+=(--config "$MMW_ROOT/.mcp-codex.json")
+  fi
+  if probe_out="$(python3 "$MMW_ROOT/mcp/probe.py" "${probe_args[@]}" 2>&1)"; then
     printf '检索工具 : %s\n' "$(printf '%s' "$probe_out" | head -1)"
     printf '%s\n' "$probe_out" | tail -n +2 | sed 's/^/           /'
   else
@@ -433,12 +667,15 @@ cmd_doctor() {
 
 case "${1:-}" in
   dispatch) shift; cmd_dispatch "$@" ;;
+  agents) shift; cmd_agents "$@" ;;
+  skills) shift; cmd_skills "$@" ;;
   skill-path) shift; cmd_skill_path "$@" ;;
   task) shift; cmd_task "$@" ;;
   issue) shift; cmd_issue "$@" ;;
   wiki) shift; cmd_wiki "$@" ;;
   domain) shift; cmd_domain "$@" ;;
   graph) shift; cmd_graph "$@" ;;
+  mcp) shift; cmd_mcp "$@" ;;
   release) shift; exec bash "$MMW_ROOT/release/release-flow.sh" "$@" ;;
   doctor) shift; cmd_doctor "$@" ;;
   init) shift; mmw_init "$@" ;;

@@ -1,0 +1,29 @@
+{
+  "host": "pi",
+  "output": {
+    "kind": "package-dir",
+    "path": "agents-pi"
+  },
+  "managed_glob": "mmw-*.md",
+  "provider_map": {
+    "gpt": "openai-codex",
+    "claude": "claude-provider",
+    "grok": "xai"
+  },
+  "model_format": "{provider}/{id}",
+  "tools": {
+    "writable": "read, grep, find, ls, bash, edit, write, mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations, mcp:graphify/graphify, mcp:context7/resolve-library-id, mcp:context7/query-docs",
+    "readonly": "read, grep, find, ls, bash, mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations, mcp:graphify/graphify, mcp:context7/resolve-library-id, mcp:context7/query-docs"
+  },
+  "frontmatter": {
+    "name": "{agent}",
+    "description": "{description}",
+    "model": "{model}",
+    "thinking": "{effort}",
+    "defaultContext": "fresh",
+    "async": true,
+    "skill": "{skill}",
+    "tools": "{tools}",
+    "acceptanceRole": "{acceptance_role}"
+  }
+}

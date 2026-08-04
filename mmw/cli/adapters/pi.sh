@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
-# pi 宿主：怎么把一个角色变成一次真正的派发。
+# pi 宿主 adapter。
 #
-# 这个宿主每种模型都是同一个工具，只有 model 字段不同——GPT 走 openai-codex，
-# Claude 走 claude-provider（它把推理请求转给本机的 claude 可执行文件），Grok 走
-# xai。CLI 跑不了会话内工具，所以都只给参数。
-#
-# 方法论走 skill 参数，从包声明的技能目录解析，不必软链。
-#
-# 本文件不做流程判断。它只回答「这个宿主管这个动作叫什么」。
+# 主路径：宿主技能产物已写死 subagent({ agent, task, cwd })；本文件仅在有人仍调用
+# `mmw dispatch` 时给出兼容回执。型号/thinking/async/context/skill 在 agents-pi
+# frontmatter，不进 params。
 #
 # 入参走 MMW_D_* 环境变量，由 cli/mmw 设好。
 
@@ -19,11 +15,9 @@ mmw_adapter_skill_path() {
 }
 
 mmw_adapter_dispatch() {
-  local provider
+  # 仍校验模型族能映射，避免 .mmw.json 配了 Pi 接不住的族却静默写出坏 agent。
   case "$MMW_D_FAMILY" in
-    gpt) provider="openai-codex" ;;
-    claude) provider="claude-provider" ;;
-    grok) provider="xai" ;;
+    gpt|claude|grok) ;;
     *)
       echo "mmw: 认不出模型族 ${MMW_D_FAMILY}（只有 claude、gpt 和 grok）" >&2
       return 1
@@ -32,17 +26,16 @@ mmw_adapter_dispatch() {
 
   printf 'mode: host-tool\n'
   printf 'tool: subagent\n'
-  printf 'brief: %s\n' "$MMW_D_BRIEF"
+  printf 'task-file: %s\n' "$MMW_D_TASK"
+  printf 'native: agents-pi\n'
+  printf 'note: model/thinking/context/async/skill 已在 agent 定义里；params 含 task 正文\n'
 
-  # context 固定 fresh：MMW 要的是上下文隔离，不要从父会话分叉。
-  # async 固定 true：派发不能占住主 agent 的前台，也不能依赖用户级默认配置。
+  # 策略字段不进 params：省略时由原生 agent 默认值生效。
+  # task 正文进 params，与直调 subagent({ task }) 同一字段、同一四栏内容。
   jq -nc \
     --arg a "$MMW_D_ROSTER" \
-    --arg m "$provider/$MMW_D_MODEL_ID" \
-    --arg t "$MMW_D_EFFORT" \
     --arg c "$MMW_D_CWD" \
-    --arg s "$MMW_D_SKILL" \
-    '{agent: $a, model: $m, thinking: $t, cwd: $c, context: "fresh", async: true}
-     + (if $s == "" then {} else {skill: $s} end)' \
+    --rawfile t "$MMW_D_TASK" \
+    '{agent: $a, cwd: $c, task: $t}' \
     | sed 's/^/params: /'
 }

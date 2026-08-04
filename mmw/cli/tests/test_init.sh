@@ -185,5 +185,28 @@ check "但不删" "yes" \
   "$([ -f docs/agents/issue-tracker.md ] && echo yes || echo no)"
 
 echo
+echo "Codex 原生运行面"
+
+newrepo six
+printf '# 约定\n' > AGENTS.md
+git add AGENTS.md && git commit -qm "加 AGENTS.md"
+export HOME="$WORK/home-codex" CODEX_HOME="$WORK/codex-native" MMW_HOST=codex
+mkdir -p "$CODEX_HOME/skills"
+mmw_main_root="$(git -C "$HERE/../../.." rev-parse --path-format=absolute --git-common-dir)"
+mmw_main_root="$(dirname "$mmw_main_root")"
+for skill in mmw-planner mmw-reviewer mmw-tdd; do
+  ln -s "$mmw_main_root/mmw/skills/$skill" "$CODEX_HOME/skills/$skill"
+done
+"$MMW" init > "$WORK/out-codex" 2>&1
+check "Codex 装两个只读 agent" "2" \
+  "$(find "$CODEX_HOME/agents" -type f -name 'mmw-*.toml' | wc -l | tr -d ' ')"
+check "Codex 转发脚本由原生运行时管理" "yes" \
+  "$(grep -qF '# Managed by MMW Codex runtime.' "$HOME/.local/bin/mmw" && echo yes || echo no)"
+check "Codex 清掉旧 Claude bridge" "no" \
+  "$([ -e "$CODEX_HOME/skills/mmw-reviewer" ] && echo yes || echo no)"
+check "Codex 不装用户级 MCP" 0 "$(grep -c 'install-mcp' "$WORK/out-codex" || true)"
+check "Codex 提示 App 安装 plugin" 1 "$(grep -c 'plugin 在 Codex App 安装' "$WORK/out-codex")"
+
+echo
 echo "过 ${pass}，失败 ${fail}"
 [ "$fail" -eq 0 ]
