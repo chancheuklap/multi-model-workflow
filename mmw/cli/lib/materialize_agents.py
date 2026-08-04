@@ -17,7 +17,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
@@ -28,7 +28,7 @@ BODIES_DIR = AGENTS_ROOT / "bodies"
 DEFAULT_CONFIG = PLUGIN_ROOT / "cli" / "mmw.default.json"
 
 
-def die(msg: str, code: int = 1) -> None:
+def die(msg: str, code: int = 1) -> NoReturn:
     print(f"mmw agents: {msg}", file=sys.stderr)
     raise SystemExit(code)
 
@@ -135,12 +135,12 @@ def output_dir_for(profile: dict[str, Any], out_override: str | None) -> Path:
     output = profile.get("output") or {}
     kind = output.get("kind")
     raw = output.get("path")
-    if not kind or not raw:
+    if not isinstance(kind, str) or not kind or not isinstance(raw, str) or not raw:
         die(f"profile {profile.get('host')} 缺 output.kind/path")
     if kind == "package-dir":
         return (PLUGIN_ROOT / raw).resolve()
     if kind == "user-dir":
-        return expand_user_path(str(raw))
+        return expand_user_path(raw)
     if kind == "repo-dir":
         # 相对当前 git 根；测试可 --out 覆盖
         try:
