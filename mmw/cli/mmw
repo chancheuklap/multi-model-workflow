@@ -33,8 +33,9 @@ usage() {
   cat >&2 <<'EOF'
 mmw <命令> [参数]
 
-  dispatch    把一件任务派给隔离上下文的 subagent
+  dispatch    Claude Code：把 brief 编成宿主工具参数（Pi 主路径不用）
   agents      把角色物化成宿主原生 subagent 文件
+  skills      把技能源占位符物化成宿主写死的启动句
   skill-path  派出去那一侧读方法论的路径
   task        任务 worktree：建、进、删
   issue       tracker：建 issue、挂父子、算可认领集合
@@ -70,8 +71,8 @@ mmw dispatch <角色> --brief <文件> [--cwd <目录>]
 
 模型、档位、护栏由角色决定，取自仓库根 .mmw.json，这里不用管。
 
-返回开头一行是 mode: executed 或 mode: host-tool，两种读法不一样，
-判据在 mmw-dispatching-agents。
+返回开头一行是 mode: executed 或 mode: host-tool。
+host-tool 时原样用回执 params 调工具。
 EOF
   return 2
 }
@@ -375,6 +376,41 @@ cmd_agents() {
   esac
 }
 
+usage_skills() {
+  cat >&2 <<'EOF'
+mmw skills materialize --host <pi|claude-code|all> [--check] [--out <目录>]
+    把 skills/ 源里的 [[mmw-launch:…]] 物化成宿主写死的启动句
+    pi → skills-pi/；claude-code → skills-claude-code/
+EOF
+  return 2
+}
+
+cmd_skills() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    materialize)
+      local host=""
+      local -a args=()
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --host) host="${2:-}"; shift 2 ;;
+          --check) args+=(--check); shift ;;
+          --out)
+            [ -n "${2:-}" ] || { echo "mmw: --out 要目录" >&2; usage_skills; }
+            args+=(--out "$2"); shift 2
+            ;;
+          *) echo "mmw: 认不出参数 $1" >&2; usage_skills ;;
+        esac
+      done
+      [ -n "$host" ] || { echo "mmw: skills materialize 要 --host" >&2; usage_skills; }
+      args+=(--host "$host")
+      python3 "$MMW_ROOT/cli/lib/materialize_skills.py" "${args[@]}"
+      ;;
+    *) usage_skills ;;
+  esac
+}
+
 # 派出去的那一侧从哪个路径读方法论。宿主自己会送到位的，什么都不输出。
 cmd_skill_path() {
   local role="${1:-}"
@@ -529,7 +565,7 @@ cmd_doctor() {
     else
       # 绝对路径。插件装出去之后，读这行的 agent 待在用户自己的仓库里，
       # 那里没有 mmw/ 这个目录，相对路径它跑不了。
-      echo "方法论   : 没装，跑 $MMW_ROOT/skills/mmw-dispatching-agents/install-agent-skills.sh"
+      echo "方法论   : 没装，跑 $MMW_ROOT/cli/lib/install-agent-skills.sh"
       status=1
     fi
   elif [ "${host:-}" = "pi" ]; then
@@ -549,6 +585,19 @@ cmd_doctor() {
     echo "Cursor   : ~/.cursor/agents 与真源一致"
   else
     echo "Cursor   : 未装或过期，跑 mmw agents materialize --host cursor"
+  fi
+
+  if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host pi --check >/dev/null 2>&1; then
+    echo "Pi skills: skills-pi 与 skills/ 源一致"
+  else
+    echo "Pi skills: 与真源不一致，跑 mmw skills materialize --host pi"
+    status=1
+  fi
+  if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host claude-code --check >/dev/null 2>&1; then
+    echo "CC skills: skills-claude-code 与 skills/ 源一致"
+  else
+    echo "CC skills: 与真源不一致，跑 mmw skills materialize --host claude-code"
+    status=1
   fi
 
   # pi 与 Cursor 的插件规格都没有声明 MCP 的位置，只能写用户级配置。不按当前宿主
@@ -586,6 +635,7 @@ cmd_doctor() {
 case "${1:-}" in
   dispatch) shift; cmd_dispatch "$@" ;;
   agents) shift; cmd_agents "$@" ;;
+  skills) shift; cmd_skills "$@" ;;
   skill-path) shift; cmd_skill_path "$@" ;;
   task) shift; cmd_task "$@" ;;
   issue) shift; cmd_issue "$@" ;;

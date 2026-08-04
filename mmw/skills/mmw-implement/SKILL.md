@@ -36,7 +36,7 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 ### 3. 写派工 task
 
-按 `/mmw-dispatching-agents`「写 task」的**四栏表**填写（目标 / 读 / 约束 / 验收）。本角色各栏取值：
+按 **四栏表**（目标 / 读 / 约束 / 验收）填写。本角色各栏取值：
 
 | 栏 | 本角色填写 |
 | --- | --- |
@@ -53,9 +53,11 @@ TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
 
 **先记下当前提交号**（`git rev-parse HEAD`），供验收对照。
 
-打开并执行 `/mmw-dispatching-agents` 的「启动」四节，角色为 `worker`，`cwd` 为本任务 worktree 根的绝对路径。
+[[mmw-launch:worker:worktree]]
 
-ticket 涉及计费、权限、数据迁移，或改错不可逆时：角色改为 `worker-high-risk`。升档由你决定，不由 worker 自报。
+ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
+[[mmw-launch:worker-high-risk:worktree]]
+升档由你决定，不由 worker 自报。
 
 ### 5. 验收：亲手验证三关
 

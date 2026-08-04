@@ -25,7 +25,7 @@ mmw agents materialize --host cursor  # 安装到 ~/.cursor/agents/
 git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock/skills main --squash
 ```
 
-根文档保留 `AGENTS.md`、`CLAUDE.md`、`TESTING.md`。根 `mmw-skill-map.html` 是当前 MMW 架构的可视化产物，必须保留并随架构变化更新。不要新增其他 README、架构、设计、调查、计划或审查类根文档。长期规则写本文件；运行行为写 `mmw/skills/`、`mmw/cli/` 与测试。
+根文档保留 `AGENTS.md`、`CLAUDE.md`、`TESTING.md`。根 `mmw-skill-map.html` 是当前 MMW 架构的可视化产物，必须保留并随架构变化更新。不要新增其他 README、架构、设计、调查、计划或审查类根文档。长期规则写本文件；运行行为写 `mmw/skills/`（源）、物化产物 `mmw/skills-pi/` 与 `mmw/skills-claude-code/`、`mmw/cli/` 与测试。
 
 ## 唯一事实来源
 
@@ -33,7 +33,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 1. Claude Code manifest、根 marketplace 或 Pi package。
 2. `mmw/cli/` 的机械动作、宿主 adapter 和 `.mmw.json` 配置合同。
-3. `mmw/skills/` 的流程判据与方法论。
+3. `mmw/skills/` 技能源（含 `[[mmw-launch:…]]`）与 `mmw skills materialize` 产物；流程判据以源为准，宿主启动句以对应产物为准。
 4. `mmw/cli/tests/`、`mmw/release/tests/`、`mmw/mcp/` 和 `mmw/graph/tests/`。
 
 `.mmw.json` 保存目标仓库的模型档、标签、路径和领域文档形态。技能不硬编码这些值；通过 `mmw` 对应子命令读取。
@@ -44,10 +44,10 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 共享角色、技能和流程语义。宿主差异留在原生 agent frontmatter、`mmw/cli/adapters/`、manifest 与 `.mmw.json` 的 hosts 覆盖：
 
-- Claude Code 的 GPT 角色通过后台 Bash 执行 Codex CLI；Claude 角色通过后台 Agent 工具执行。这个宿主只接 claude 与 gpt 两个模型族。派发走 `mmw dispatch`，由 adapter 写出工具参数。
-- Pi / Cursor 的全部角色走宿主原生 subagent。型号、思考档、`async`、`context`、`skill` 物化在 agent frontmatter（`mmw agents materialize`）。**运行时主 agent 直调原生工具**，只传 agent 名、task（指令与路径，不粘文件正文）、可写时的 cwd；不经 `mmw dispatch` 转发。可写前确认 worktree 干净（`git status`）。
+- Claude Code 的 GPT 角色通过后台 Bash 执行 Codex CLI；Claude 角色通过后台 Agent 工具执行。这个宿主只接 claude 与 gpt 两个模型族。技能产物在 `mmw/skills-claude-code/`：启动句已物化为 `mmw dispatch`。
+- Pi 的全部角色走宿主原生 `subagent`。技能产物在 `mmw/skills-pi/`：启动句已物化为 `subagent({ agent, task, cwd })`。型号等在 agent frontmatter（`mmw agents materialize`）。可写前确认 worktree 干净。
 - 模型分配默认各宿主相同。某个宿主接不了基线模型时，在 `.mmw.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。
-- 流程技能写「打开并执行 `/mmw-dispatching-agents` 的「启动」四节」，并写明角色与 cwd；不写型号、不写宿主工具参数细节。**派发技能正文按发布面写死**：Pi 包与 Cursor 安装面用 `mmw/skills/mmw-dispatching-agents`（原生 agent 直调）；Claude Code 用 `mmw/skills-claude-code/mmw-dispatching-agents`（只 `mmw dispatch`）。同一技能名，两套正文，安装哪面就只看见哪套，禁止在一份正文里让 agent 按宿主二选一。
+- **禁止**在技能源或产物正文里让 agent 按宿主二选一。宿主差只通过 `mmw skills materialize --host pi|claude-code` 写入启动句。流程技能自带四栏 task 与 `[[mmw-launch:角色:worktree|none]]`；**没有** `mmw-dispatching-agents` 中转技能。
 - 运行时不得探测、调用或回退到归档插件。
 
 ## 修改规则

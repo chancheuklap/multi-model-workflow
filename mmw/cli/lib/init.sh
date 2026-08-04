@@ -146,7 +146,7 @@ mmw_init_mcp() {
 
 # 装方法论是每台机器一次，不是每个仓库一次。脚本自己幂等。
 mmw_init_skills() {
-  local script="$MMW_ROOT/skills/mmw-dispatching-agents/install-agent-skills.sh"
+  local script="$MMW_ROOT/cli/lib/install-agent-skills.sh"
   if [ ! -x "$script" ]; then
     mmw_init_say "方法论   : 找不到安装脚本 $script"
     return 1
@@ -259,6 +259,11 @@ mmw_init() {
   mmw_init_testing
   mmw_init_labels
   mmw_init_gitignore
+  if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host all; then
+    :
+  else
+    status=1
+  fi
   mmw_init_skills || status=1
   mmw_init_mcp || status=1
   mmw_init_pointer || status=1

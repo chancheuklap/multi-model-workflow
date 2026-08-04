@@ -15,7 +15,7 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 有 correct seam 的话，按顺序做三件事：
 
 1. **先把工作区清干净。** grep `[DEBUG-` 前缀，删掉 Phase 4 埋点。在 worktree 根执行 `git status --porcelain`；有输出则先清理，再派发。
-2. 按 `/mmw-dispatching-agents`「写 task」的**四栏表**填写后启动 `worker`：
+2. 按 **四栏表**（目标 / 读 / 约束 / 验收）填写后启动 `worker`：
 
    | 栏 | 本角色填写 |
    | --- | --- |
@@ -24,7 +24,7 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
    | 约束 | 先在 seam 上把 repro 变成失败测试再修；不扩大范围 |
    | 验收 | 新测试红后绿；Phase 1 原始 loop 不再复现 |
 
-   打开并执行 `/mmw-dispatching-agents` 的「启动」四节，角色为 `worker`，`cwd` 为该 worktree 根绝对路径。
+   [[mmw-launch:worker:worktree]]
 
 3. `worker` 要跑的循环是：在那个 seam 上把最小化 repro 变成一个失败的测试，看它红，写修复，看它绿。
 

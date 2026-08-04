@@ -27,19 +27,22 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SKILLS="$(cd "$HERE/../../skills" && pwd)"
+SKILLS_SRC="$(cd "$HERE/../../skills" && pwd)"
+SKILLS_PI="$(cd "$HERE/../../skills-pi" && pwd)"
 SKILLS_CLAUDE="$(cd "$HERE/../../skills-claude-code" && pwd)"
 CLI="$(cd "$HERE/.." && pwd)"
 
-python3 - "$SKILLS" "$CLI" "$SKILLS_CLAUDE" <<'PY'
+# 引用扫描扫发布面；源目录只参与占位符与存在性
+python3 - "$SKILLS_SRC" "$SKILLS_PI" "$SKILLS_CLAUDE" "$CLI" <<'PY'
 import pathlib, re, sys
 
-skills_roots = [pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[3])]
-cli = pathlib.Path(sys.argv[2])
+skills_src = pathlib.Path(sys.argv[1])
+skills_roots = [pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])]
+cli = pathlib.Path(sys.argv[4])
 names = set()
-for root in skills_roots:
+for root in [skills_src, *skills_roots]:
     if root.is_dir():
-        names |= {d.name for d in root.iterdir() if d.is_dir()}
+        names |= {d.name for d in root.iterdir() if d.is_dir() and d.name != 'mmw-setup'}
 
 # 真实命令表从 cli/mmw 的两层分发解析出来，不另抄一份——抄一份就会跟 CLI 走散。
 cli_src = (cli / 'mmw').read_text()
@@ -161,65 +164,85 @@ for skills in skills_roots:
                 else:
                     bad.append(f"{rel}:{i} 说「/{skill} 第 {step} 步」，但那个技能里没有第 {step} 步")
 
-# Pi/Cursor 面的派发技能不得出现 mmw dispatch；Claude Code 面必须出现。
-native_dispatch = skills_roots[0] / 'mmw-dispatching-agents' / 'SKILL.md'
-claude_dispatch = skills_roots[1] / 'mmw-dispatching-agents' / 'SKILL.md'
-if native_dispatch.is_file():
-    text = native_dispatch.read_text()
-    if 'mmw dispatch' in text:
-        bad.append('skills/mmw-dispatching-agents 含 mmw dispatch（Pi/Cursor 面应写死直调）')
-    elif '## 启动' not in text:
-        bad.append('skills/mmw-dispatching-agents 缺少「启动」节')
-    elif '四栏' not in text and '| 目标 |' not in text:
-        bad.append('skills/mmw-dispatching-agents 缺少统一 task 四栏表')
-    elif '不抄正文' not in text:
-        bad.append('skills/mmw-dispatching-agents 未写明不抄正文')
-    elif 'mmw-worker' not in text:
-        bad.append('skills/mmw-dispatching-agents 缺少角色到 agent 映射')
-    elif '组装与存盘' in text:
-        bad.append('skills/mmw-dispatching-agents 仍含组装与存盘（已废止）')
+# 已废除中转派发技能；源用占位符，发布面写死启动句
+for root in skills_roots:
+    banned = root / 'mmw-dispatching-agents'
+    if banned.exists():
+        bad.append(f'发布面不应再有 {banned}')
     else:
         ok += 1
-if claude_dispatch.is_file():
-    text = claude_dispatch.read_text()
-    if 'mmw dispatch' not in text:
-        bad.append('skills-claude-code/mmw-dispatching-agents 缺少 mmw dispatch')
-    elif '## 启动' not in text:
-        bad.append('skills-claude-code/mmw-dispatching-agents 缺少「启动」节')
-    elif '四栏' not in text and '| 目标 |' not in text:
-        bad.append('skills-claude-code/mmw-dispatching-agents 缺少统一 task 四栏表')
-    elif '不抄正文' not in text:
-        bad.append('skills-claude-code/mmw-dispatching-agents 未写明不抄正文')
-    elif 'params' not in text or 'host-tool' not in text:
-        bad.append('skills-claude-code/mmw-dispatching-agents 缺少 host-tool/params 接线')
-    else:
-        ok += 1
+
+src_impl = skills_src / 'mmw-implement' / 'SKILL.md'
+if not src_impl.is_file():
+    bad.append('缺少 skills/mmw-implement/SKILL.md 源')
 else:
-    bad.append('缺少 skills-claude-code/mmw-dispatching-agents/SKILL.md')
+    st = src_impl.read_text()
+    if '[[mmw-launch:worker:worktree]]' not in st:
+        bad.append('skills 源 implement 缺 [[mmw-launch:worker:worktree]]')
+    elif 'mmw-dispatching-agents' in st:
+        bad.append('skills 源 implement 仍引用派发中转技能')
+    else:
+        ok += 1
+
+pi_impl = skills_roots[0] / 'mmw-implement' / 'SKILL.md'
+cc_impl = skills_roots[1] / 'mmw-implement' / 'SKILL.md'
+if pi_impl.is_file():
+    t = pi_impl.read_text()
+    if 'subagent({' not in t or 'mmw-worker' not in t:
+        bad.append('skills-pi/mmw-implement 未物化为 subagent + mmw-worker')
+    else:
+        ok += 1
+    if 'mmw dispatch' in t:
+        bad.append('skills-pi/mmw-implement 不得含 mmw dispatch')
+    if '[[mmw-launch:' in t:
+        bad.append('skills-pi 仍残留 launch 占位符')
+else:
+    bad.append('缺少 skills-pi/mmw-implement/SKILL.md（先 mmw skills materialize --host pi）')
+
+if cc_impl.is_file():
+    t = cc_impl.read_text()
+    if 'mmw dispatch worker' not in t:
+        bad.append('skills-claude-code/mmw-implement 未物化为 mmw dispatch worker')
+    else:
+        ok += 1
+    if 'subagent({' in t:
+        bad.append('skills-claude-code/mmw-implement 不得含 subagent({')
+    if '[[mmw-launch:' in t:
+        bad.append('skills-claude-code 仍残留 launch 占位符')
+else:
+    bad.append('缺少 skills-claude-code/mmw-implement/SKILL.md')
 
 plugin = cli.parent / '.claude-plugin' / 'plugin.json'
 if plugin.is_file():
     pj = plugin.read_text()
-    if './skills-claude-code/mmw-dispatching-agents' in pj:
+    if './skills-claude-code/mmw-implement' in pj:
         ok += 1
     else:
-        bad.append('Claude plugin.json 未指向 skills-claude-code/mmw-dispatching-agents')
-    if '"./skills/mmw-dispatching-agents"' in pj:
-        bad.append('Claude plugin.json 仍指向 skills/mmw-dispatching-agents（会装到 Pi 正文）')
+        bad.append('Claude plugin.json 未指向 skills-claude-code/mmw-implement')
+    if 'mmw-dispatching-agents' in pj:
+        bad.append('Claude plugin.json 仍列出 mmw-dispatching-agents')
+    if './skills/mmw-' in pj:
+        bad.append('Claude plugin.json 仍直接指向 skills/ 源（应指向 skills-claude-code）')
 
+pkg = cli.parent / 'package.json'
+if pkg.is_file():
+    pt = pkg.read_text()
+    if './skills-pi' in pt:
+        ok += 1
+    else:
+        bad.append('Pi package.json 未指向 ./skills-pi')
 
-# 主流程调用方须写死「打开并执行 … 启动」
 for rel, needle in [
-    ('skills/mmw-implement/SKILL.md', '打开并执行 `/mmw-dispatching-agents` 的「启动」四节'),
-    ('skills/mmw-to-plan/SKILL.md', '打开并执行 `/mmw-dispatching-agents` 的「启动」四节'),
-    ('skills/mmw-research/SKILL.md', '打开并执行 `/mmw-dispatching-agents` 的「启动」四节'),
-    ('skills/mmw-review/SKILL.md', '打开并执行 `/mmw-dispatching-agents` 的「启动」四节'),
+    ('skills/mmw-implement/SKILL.md', '[[mmw-launch:worker:worktree]]'),
+    ('skills/mmw-to-plan/SKILL.md', '[[mmw-launch:planner:worktree]]'),
+    ('skills/mmw-research/SKILL.md', '[[mmw-launch:investigator:none]]'),
+    ('skills/mmw-review/SKILL.md', '[[mmw-launch:reviewer-gpt:none]]'),
 ]:
     fp = cli.parent / rel
     if not fp.is_file():
         bad.append(f'缺少 {rel}')
     elif needle not in fp.read_text():
-        bad.append(f'{rel} 未写「打开并执行 … 启动」')
+        bad.append(f'{rel} 缺占位符 {needle}')
     else:
         ok += 1
 

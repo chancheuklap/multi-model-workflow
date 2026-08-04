@@ -55,10 +55,10 @@ gh label create "<名字>" --description "<一句话，抄 triage-labels.md 的�
 
 ## 4. 把方法论装给 headless subagent
 
-跑 `/mmw-dispatching-agents` 旁边那个安装脚本，幂等，装过就跳过：
+跑 CLI 里的安装脚本，幂等，装过就跳过：
 
 ```bash
-bash "<本技能目录>/../mmw-dispatching-agents/install-agent-skills.sh"
+bash "<插件根>/cli/lib/install-agent-skills.sh"
 ```
 
 `<本技能目录>` 就是这份 `SKILL.md` 所在的目录，不用去找插件根。

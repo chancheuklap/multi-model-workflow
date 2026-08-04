@@ -410,7 +410,7 @@
   <span class="hue tri"><i></i>mmw-triage</span>
   <span class="hue ica"><i></i>mmw-improve-codebase-architecture</span>
   <span class="hue judge"><i></i>起审与审查方法论</span>
-  <span class="hue own"><i></i>mmw-dispatching-agents 与验证</span>
+  <span class="hue own"><i></i>启动句物化与验证</span>
   <span class="hue rest"><i></i>其余单条连线</span>
 </div>
 
@@ -472,7 +472,7 @@ end
 
 subgraph VOCAB["跑在别的技能底下"]
   direction TB
-  dsp["<b>mmw-dispatching-agents</b><br/>· 派不派、派哪个角色<br/>· 返回怎么读<br/>· 六个角色都经它派出去"]
+  dsp["<b>启动句物化</b><br/>· 源：[[mmw-launch:角色:cwd]]<br/>· mmw skills materialize<br/>· Pi→subagent / CC→dispatch"]
   vfy["<b>mmw-verifying-agent-output</b><br/>· 关键断言都要有出处<br/>· 取证可以派，判定不可以"]
   dmo["<b>mmw-domain-modeling</b><br/>· 唯一往仓库写领域文档的技能<br/>· 落点跑 mmw domain path 取"]
   cbd["<b>mmw-codebase-design</b><br/>· module · interface · seam<br/>· adapter · depth<br/>· 加 DESIGN-IT-TWICE"]
@@ -567,8 +567,8 @@ pln ==>|"派出去的 planner 都读这一份"| pnr
 mms -.->|"建 worktree"| cl1
 imp -.->|"取 frontier 上的 ticket"| cl2
 clo -.->|"Wiki 与三条验证"| cl5
-dsp -.->|"六个角色都从这里派"| cl3
-imp ==>|"派 worker 与 reviewer<br/>都走这一份"| dsp
+dsp -.->|"物化进 skills-pi / skills-claude-code"| cl3
+imp ==>|"四栏 task + 宿主写死启动句"| dsp
 dsp ==>|"交回报告<br/>绝不原样转发"| vfy
 vfy ==>|"验证过出处才采信"| crv
 mms ==>|"只要一条查得清的事实"| res

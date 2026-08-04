@@ -61,7 +61,7 @@ spec 在哪按这个顺序找：这个分支上的 `docs/specs/<slug>/<slug>.md`
 
 ## 3. 写 task，派发
 
-每个（视角 × 角色）一份。按 `/mmw-dispatching-agents`「写 task」的**四栏表**填写：
+每个（视角 × 角色）一份。按 **四栏表**（目标 / 读 / 约束 / 验收）填写：
 
 | 栏 | 本角色填写 |
 | --- | --- |
@@ -76,7 +76,9 @@ spec 在哪按这个顺序找：这个分支上的 `docs/specs/<slug>/<slug>.md`
 
 可选：四栏表写入 `.reviews/<slug>-<哪一道>-<轮次>-<任务名>.prompt.md`，轮次从 1 起。
 
-打开并执行 `/mmw-dispatching-agents` 的「启动」四节：每个（视角 × 角色）启动一次；同一条消息里全部发出。审查角色只读，不传可写 cwd。
+每个（视角 × 角色）各写一张四栏表并启动一次；同一条消息里全部发出。
+`reviewer-gpt`：[[mmw-launch:reviewer-gpt:none]]
+`reviewer-claude`：[[mmw-launch:reviewer-claude:none]]
 
 ## 4. findings 存盘
 

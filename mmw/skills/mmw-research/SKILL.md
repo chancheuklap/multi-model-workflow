@@ -44,7 +44,7 @@ description: 把「去查清楚」派出去，查这个仓库的现状或者仓�
 
 ## 3. 写 task
 
-一个题目一份。按 `/mmw-dispatching-agents`「写 task」的**四栏表**填写：
+一个题目一份。按 **四栏表**（目标 / 读 / 约束 / 验收）填写：
 
 | 栏 | 本角色填写 |
 | --- | --- |
@@ -57,8 +57,8 @@ description: 把「去查清楚」派出去，查这个仓库的现状或者仓�
 
 ## 4. 派发
 
-打开并执行 `/mmw-dispatching-agents` 的「启动」四节，角色为 `investigator`（只读，不传可写 cwd）。
-题目互不依赖时：同一条消息里并行启动多个 `investigator`。
+[[mmw-launch:investigator:none]]
+题目互不依赖时：同一条消息里并行多个启动调用。
 
 ## 5. 过滤
 

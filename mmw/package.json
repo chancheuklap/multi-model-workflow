@@ -7,7 +7,7 @@
   "repository": "https://github.com/chancheuklap/multi-model-workflow",
   "pi": {
     "skills": [
-      "./skills"
+      "./skills-pi"
     ],
     "subagents": {
       "agents": [

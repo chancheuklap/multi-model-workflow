@@ -44,7 +44,7 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 ## 3. 派 `planner`
 
-一张 ticket 一个 `planner`。按 `/mmw-dispatching-agents`「写 task」的**四栏表**填写：
+一张 ticket 一个 `planner`。按 **四栏表**（目标 / 读 / 约束 / 验收）填写：
 
 | 栏 | 本角色填写 |
 | --- | --- |
@@ -55,7 +55,7 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 可选：四栏表写入 `.dispatch/<slug>-plan-<编号>.prompt.md`。
 
-打开并执行 `/mmw-dispatching-agents` 的「启动」四节，角色为 `planner`，`cwd` 为任务 worktree 根的绝对路径。
+[[mmw-launch:planner:worktree]]
 
 互不依赖的 plan：同一条消息里并行启动多个 `planner`。有依赖链：按依赖顺序启动。不开子 worktree；`planner` 不提交；各 plan 写不同文件，同在任务 worktree 内。
 

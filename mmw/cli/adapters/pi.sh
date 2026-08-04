@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # pi 宿主 adapter。
 #
-# 主路径已改为：主 agent 直调原生 subagent（见 mmw-dispatching-agents）。
+# 主路径：宿主技能产物已写死 subagent({ agent, task, cwd })；本 adapter 仅兼容 mmw dispatch。
 # 本文件仅在有人仍调用 `mmw dispatch` 时给出兼容回执；新技能不应依赖它。
 # 型号/thinking/async/context/skill 在 agents-pi frontmatter，不进 params。
 #

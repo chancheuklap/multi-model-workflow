@@ -44,7 +44,11 @@
 
 **这几件事动手之前先问用户**：要用真实凭证、要连生产环境、要在真机上跑、会产生费用、会写入外部系统的数据。他点头再动。
 
-多候选、多轮时：一个对象一个 subagent。只读探测用角色 `investigator`；需要改探测脚本用角色 `worker`（可写 cwd）。各自写 task 后打开并执行 `/mmw-dispatching-agents` 的「启动」四节；收回后按 `/mmw-verifying-agent-output` 验证。只有一两个对象则自己跑。
+多候选、多轮时：一个对象一个 subagent。只读探测：四栏表后
+[[mmw-launch:investigator:none]]
+要改探测脚本：四栏表后
+[[mmw-launch:worker:worktree]]
+收回后按 `/mmw-verifying-agent-output` 验证。只有一两个对象则自己跑。
 
 ## 4. 记台账
 
