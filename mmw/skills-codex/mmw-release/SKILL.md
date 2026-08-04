@@ -16,7 +16,7 @@ description: 把已经改完并通过终审的代码出成正式安装包，失�
 | 终审跑过，采信的 findings 都修完并复审通过 | `.reviews/` 里有终审报告；采信项各自有对应的修复提交 |
 | 工作区干净 | `git status --porcelain` 是空的。引擎拒绝把自愈修复混进你没提交的改动里 |
 | 这个仓库配了出包 | `mmw` 的配置里有 `paths.release`，且仓库里能找到至少一份出包配置（下一步） |
-| 你在任务 worktree 里 | `git rev-parse --show-toplevel` 以 worktree 目录结尾 |
+| 你在任务 worktree 里 | 当前 checkout 是 linked worktree，且分支名为 `codex/<slug>` |
 
 **没有出包配置不是失败。** 这个仓库不出包，直接移交 `$mmw:mmw-closing`。
 
@@ -59,7 +59,7 @@ git rev-parse HEAD
 cat "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)"/<配置里 paths.release>/delivered/*.json
 ```
 
-交付记录落在**主仓库根**，不在当前这棵任务 worktree 里——它比对的是几次出包之间的 commit，worktree 收尾就删，落在树里的记录活不过一次任务。
+交付记录落在当前目标项目的 Git 共享根，也就是 `git-common-dir` 对应的 Local checkout；它不落在 MMW 源码仓库，也不落在当前 managed worktree。记录要跨多次出包存活，不能随 App 清理当前 worktree 一起消失。
 
 每份交付记录里的 `source_commit` 都等于当前 HEAD，才算这批包是同一份代码。
 

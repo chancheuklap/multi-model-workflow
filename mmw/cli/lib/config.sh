@@ -14,8 +14,8 @@ mmw_repo_root() {
   }
 }
 
-# 主仓库根。在任务 worktree 里跑时，mmw_repo_root 给的是那棵 worktree，不是
-# 主仓库——worktree 一律扁平挂在主仓库的 .worktrees/ 下，所以落点要用这个。
+# Git 共享根。在 linked worktree 里跑时，mmw_repo_root 给当前 checkout；这里通过
+# git-common-dir 找到创建这些 worktree 的 Local checkout。共享运行记录落在这里。
 mmw_main_root() {
   local common
   common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || {
@@ -92,7 +92,8 @@ mmw_worktrees_rel() {
   mmw_path_field worktrees 2>/dev/null || echo ".worktrees"
 }
 
-# 可写角色的 cwd：必须是干净的 git 任务 worktree（主仓 paths.worktrees/<slug>）。
+# 可写角色的 cwd：必须是干净的 git 任务 worktree。Codex App 的 managed worktree
+# 可以位于全局 Worktree root 下，不受目标仓库 paths.worktrees 约束。
 # 成功时把绝对路径打到 stdout；失败非零，绝不把 git 报错当成干净。
 mmw_require_writable_cwd() {
   local cwd="${1:-}"
@@ -123,11 +124,30 @@ mmw_require_writable_cwd() {
     return 1
   fi
 
-  local common main wt_root
+  local common main wt_root host git_dir branch
   common="$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || {
     echo "mmw: 无法解析 $cwd 的主仓库" >&2
     return 1
   }
+  host="$(mmw_host)" || return 1
+  if [ "$host" = "codex" ]; then
+    git_dir="$(git -C "$cwd" rev-parse --path-format=absolute --git-dir 2>/dev/null)" || {
+      echo "mmw: 无法解析 $cwd 的 worktree 元数据" >&2
+      return 1
+    }
+    if [ "$git_dir" = "$common" ]; then
+      echo "mmw: Codex 可写任务必须使用 App 创建的 linked worktree，不是 Local checkout" >&2
+      return 1
+    fi
+    branch="$(git -C "$cwd" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+    case "$branch" in
+      codex/*) ;;
+      *) echo "mmw: Codex 可写任务必须先绑定 codex/<slug> 分支：$cwd" >&2; return 1 ;;
+    esac
+    printf '%s\n' "$cwd"
+    return 0
+  fi
+
   main="$(cd "$(dirname "$common")" && pwd -P)"
   wt_root="$main/$(mmw_worktrees_rel)"
   case "$cwd" in

@@ -63,9 +63,9 @@ subagent 交回的东西按 `$mmw:mmw-verifying-agent-output` 逐条验证。它
 
 **这一步不要提 interface 方案。** 报告写完就停下来问用户：想深入看哪一个？
 
-## 5. 用户挑中之后再建 worktree
+## 5. 用户挑中之后再绑定任务 worktree
 
-挑中之前不建 worktree，扫描全程只读。
+挑中之前不绑定分支，扫描全程只读。
 
 挑中了就定 slug。当前任务已经是 Codex App worktree 时，用 `$mmw:mmw-start` 的绑定脚本创建 `codex/<slug>` 分支；当前任务不是 worktree 时停下，让用户新建 Codex App Worktree 任务。类型固定用 `refactor`，短语取被选中那个 module 的名字，例如 `refactor-order-intake`。
 
@@ -84,7 +84,7 @@ subagent 交回的东西按 `$mmw:mmw-verifying-agent-output` 逐条验证。它
 | 情况 | 下一步 |
 | --- | --- |
 | 验证过的候选写成报告，已经打开给用户看 | **停**：挑哪一个是要人拍板的事。报出了几个候选、你推荐哪一个、为什么 |
-| 用户挑中一个 | **自己继续**：走第 5 步建 worktree，再到第 6 步开谈 |
+| 用户挑中一个 | **自己继续**：走第 5 步绑定任务 worktree，再到第 6 步开谈 |
 | 谈到用户要先看见几种 interface 才判得下来 | **自己继续**：跑 `$mmw:mmw-codebase-design` 的 DESIGN-IT-TWICE，比完回第 6 步接着谈 |
 | `$mmw:mmw-grilling` 谈清楚了，回到本技能 | **移交**：`$mmw:mmw-to-spec`，把这张卡片的内容和谈出来的结论一起带过去 |
 | 扫完一个值得做的都没有 | **停**：明说这一片现在没有值得做的 deepening opportunity，列出你扫了哪些方向。不要为了交差凑几个 `Speculative` 出来 |

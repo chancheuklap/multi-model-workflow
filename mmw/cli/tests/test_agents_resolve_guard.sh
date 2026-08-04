@@ -7,6 +7,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MMW="$HERE/../mmw"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
+export MMW_HOST=pi
 
 pass=0
 fail=0
