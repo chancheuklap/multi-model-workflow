@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Claude Code：dispatch 仍是真执行入口。
-# Pi：主路径已改为直调原生 agent；此处仅回归兼容的 dispatch 回执形状。
+# 派发参数是宿主会话真正执行 subagent 的合同。MMW 的 subagent 一律后台运行；
+# 这个行为由 adapter 明写，不能依赖用户级默认配置。
 
 set -euo pipefail
 
@@ -30,7 +30,7 @@ params() {
 
 git -C "$WORK" init -q repo
 cp "$HERE/../mmw.default.json" "$WORK/repo/.mmw.json"
-printf '只读烟雾测试。\n' > "$WORK/repo/task.md"
+printf '只读烟雾测试。\n' > "$WORK/repo/brief.md"
 mkdir -p "$WORK/bin"
 cat > "$WORK/bin/codex" <<'SH'
 #!/usr/bin/env bash
@@ -47,32 +47,24 @@ SH
 chmod +x "$WORK/bin/codex"
 cd "$WORK/repo"
 
-printf 'Pi 原生 agent 派发\n'
-pi_output="$(MMW_HOST=pi "$MMW" dispatch investigator --task "$WORK/repo/task.md")"
-pi_params="$(params <<<"$pi_output")"
-check "Pi 标 native" "agents-pi" "$(sed -n 's/^native: //p' <<<"$pi_output")"
-check "Pi params 含 agent cwd task" "agent cwd task" "$(jq -r 'keys | sort | join(" ")' <<<"$pi_params")"
-check "Pi agent 名" "mmw-investigator" "$(jq -r '.agent' <<<"$pi_params")"
-check "上下文隔离与后台不进 params" "null" "$(jq -r '.context // .async // "null"' <<<"$pi_params")"
+printf 'Pi 后台派发\n'
+pi_params="$(MMW_HOST=pi "$MMW" dispatch investigator --brief "$WORK/repo/brief.md" | params)"
+check "adapter 显式要求 async，不吃用户默认值" "true" "$(jq -r '.async' <<<"$pi_params")"
+check "上下文仍然隔离" "fresh" "$(jq -r '.context' <<<"$pi_params")"
 
-# 调查者在两个宿主用不同模型：写在原生 agent / .mmw.json hosts 覆盖里。
-printf '\n模型档的宿主覆盖仍由配置持有\n'
-check "Pi 调查者 agent 文件存在" "yes" \
-  "$([ -f "$HERE/../../agents-pi/mmw-investigator.md" ] && echo yes || echo no)"
-check "Pi 调查者 agent 用 Grok" "xai/grok-4.5" \
-  "$(sed -n 's/^model: //p' "$HERE/../../agents-pi/mmw-investigator.md" | head -1)"
-baseline_agent="$HERE/../../agents-pi/mmw-reviewer-gpt.md"
-check "没写覆盖的审查者仍读基线型号" "openai-codex/gpt-5.6-sol" \
-  "$(sed -n 's/^model: //p' "$baseline_agent" | head -1)"
+# 调查者在两个宿主用不同模型：Pi 用 xai 的 Grok，Claude Code 接不了 xai，走
+# Codex 的 gpt-5.6-terra。这一差异写在 .mmw.json 的 hosts 覆盖里，不在技能里。
+printf '\n模型档的宿主覆盖\n'
+check "Pi 的调查者走 xai 的 Grok" "xai/grok-4.5" "$(jq -r '.model' <<<"$pi_params")"
+check "Pi 的调查者用覆盖里的档位" "high" "$(jq -r '.thinking' <<<"$pi_params")"
+baseline_params="$(MMW_HOST=pi "$MMW" dispatch reviewer-gpt --brief "$WORK/repo/brief.md" | params)"
+check "没写覆盖的角色仍读基线" "openai-codex/gpt-5.6-sol" "$(jq -r '.model' <<<"$baseline_params")"
 
 printf '\nClaude Code 后台派发\n'
-claude_params="$(MMW_HOST=claude-code "$MMW" dispatch reviewer-claude --task "$WORK/repo/task.md" | params)"
+claude_params="$(MMW_HOST=claude-code "$MMW" dispatch reviewer-claude --brief "$WORK/repo/brief.md" | params)"
 check "Agent 工具显式在后台运行" "true" "$(jq -r '.run_in_background' <<<"$claude_params")"
-check "Claude 审查者仍映射 mmw-reviewer" "mmw:mmw-reviewer" "$(jq -r '.subagent_type' <<<"$claude_params")"
-check "Claude Agent params 含 prompt" "true" "$(jq -r 'has("prompt")' <<<"$claude_params")"
-check "Claude Agent prompt 即 task 正文" "只读烟雾测试。" "$(jq -r '.prompt' <<<"$claude_params" | head -1 | tr -d '\n')"
 
-gpt_output="$(PATH="$WORK/bin:$PATH" MMW_HOST=claude-code "$MMW" dispatch investigator --task "$WORK/repo/task.md")"
+gpt_output="$(PATH="$WORK/bin:$PATH" MMW_HOST=claude-code "$MMW" dispatch investigator --brief "$WORK/repo/brief.md")"
 check "GPT 先交回宿主工具参数" "host-tool" "$(sed -n 's/^mode: //p' <<<"$gpt_output")"
 check "GPT 由 Bash 工具执行" "Bash" "$(sed -n 's/^tool: //p' <<<"$gpt_output")"
 gpt_params="$(params <<<"$gpt_output")"

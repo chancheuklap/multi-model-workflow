@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 仓库只发布 MMW。旧宿主源码和 release manifest 必须留在 archive，不能重新出现在根目录。
+# 仓库只发布 mmw。旧宿主源码和 release manifest 必须留在 archive，不能重新出现在根目录。
 
 set -euo pipefail
 
@@ -35,23 +35,12 @@ check "Claude marketplace 只发布一个插件" "1" "$(jq '.plugins | length' "
 check "唯一插件名是 mmw" "mmw" "$(jq -r '.plugins[0].name' "$marketplace")"
 check "唯一插件从 mmw 目录发布" "./mmw" "$(jq -r '.plugins[0].source' "$marketplace")"
 
-codex_marketplace="$ROOT/.agents/plugins/marketplace.json"
-codex_manifest="$ROOT/mmw/.codex-plugin/plugin.json"
-check "Codex marketplace 只发布一个 plugin" "1" "$(jq '.plugins | length' "$codex_marketplace")"
-check "Codex plugin 名是 mmw" "mmw" "$(jq -r '.plugins[0].name' "$codex_marketplace")"
-check "Codex plugin 从 mmw 目录发布" "./mmw" \
-  "$(jq -r '.plugins[0].source.path' "$codex_marketplace")"
-check "Codex plugin 可由用户安装" "AVAILABLE" \
-  "$(jq -r '.plugins[0].policy.installation' "$codex_marketplace")"
-
 printf '\n版本同步\n'
 market_version="$(jq -r '.plugins[0].version' "$marketplace")"
 check "Claude manifest 与 marketplace 同版" "$market_version" \
   "$(jq -r '.version' "$ROOT/mmw/.claude-plugin/plugin.json")"
 check "Pi package 与 marketplace 同版" "$market_version" \
   "$(jq -r '.version' "$ROOT/mmw/package.json")"
-check "Codex manifest 与 marketplace 同版" "$market_version" \
-  "$(jq -r '.version' "$codex_manifest")"
 check "marketplace 顶层版本同步" "$market_version" "$(jq -r '.version' "$marketplace")"
 # 版本号具体是多少由发布决定，这里不锁字面值。锁了的话每次升版都要同步改这一行，
 # 0.4.0 升 0.5.0 那次就漏了——测试红了，而产品没坏。上面三条已经守住四处同版，

@@ -9,9 +9,9 @@ description: 验证 subagent 交回的产出——审查 findings、完工报告
 
 | 产出 | 出处是什么 | 你怎么验证 |
 | --- | --- | --- |
-| 审查 findings | `file:line` 加那一行原文 | Read 那个位置，看原文对不对得上 |
+| 审查 findings | `file:line` 加该行原文 | 读取该位置，确认原文一致 |
 | 完工报告 | 能跑的测试、能读的 diff | 跑一次，读一遍 |
-| 调查报告 | 能读的源码位置 | Read 它引的位置 |
+| 调查报告 | 可读取的源码位置 | 读取报告引用的位置 |
 
 引不出出处的断言不进交付物，标 `needs-evidence`。
 
@@ -33,7 +33,7 @@ description: 验证 subagent 交回的产出——审查 findings、完工报告
 **什么时候值得派取证**：条目多到你逐个打开会撑满上下文。三五条的时候自己打开更快。
 
 派取证时：四栏表——目标「原样抄回下列位置的原文」；读=位置清单路径或逐条 `文件:行号` + 仓库根路径；约束=「不要判断成立与否」；验收=每条一行原文或「不存在」。
-启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch investigator --task <task 文件绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
+启动：把四栏表写入 task 文件，后台执行 `mmw dispatch investigator --task <task 文件绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 
 它要交回的形状固定：一条位置一行，写那一行的原文加真实行号；位置不存在的写「不存在」；行号对不上但附近有相似内容的，把附近那几行一起抄回来。**不许写「这条成立」或者「这条不成立」。**
 

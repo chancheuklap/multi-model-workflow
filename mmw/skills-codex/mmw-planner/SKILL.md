@@ -1,10 +1,10 @@
 ---
 name: mmw-planner
-description: 写计划方法论。被派去把一张 ticket 写成一份 plan 的 `worker` 进门读这一份，不是给主 agent 读的。
+description: 写计划方法论。被派去把一张 ticket 写成一份 plan 的 `planner` 进门读这一份，不是给主 agent 读的。
 disable-model-invocation: true
 ---
 
-你被派进任务 worktree，把**一张 ticket** 写成一份 plan——`worker` 零上下文也能照着做完。
+你是被派到当前任务 worktree 的 `planner`。你把**一张 ticket** 写成一份 plan，让后续 `worker` 在零上下文下也能照着完成。
 
 **写完就交，不要一次性输出整份文档。** 不扩大范围、不碰别的 plan、不改 spec、不提交。**坏的产出比没有产出更糟**：拿不准就停下交 `needs-context`，不要靠猜往前冲。
 
@@ -21,7 +21,7 @@ disable-model-invocation: true
 | 你那张 ticket | 标题、要做什么、每一条验收标准、被谁阻塞 |
 | 原型的选中的那一版 | 只有走过原型的需求才有。从选中的那一份提取状态机、reducer、数据结构、界面规格，拆进对应任务包的验收标准和数据形状。没被选中的变体不许当依据 |
 
-上面四份由派你的人给。还有一套测试标准不在提示词里，**已经装进你自己的技能目录**，写测试规划之前逐个读完：`mmw-tdd/SKILL.md`（循环的规矩）、`mmw-tdd/tests.md`（什么算好测试）、`mmw-tdd/mocking.md`（边界上怎么 mock）、`mmw-tdd/quality-bar.md`（合入标准，一条不过就打回），再加目标仓库根的 `TESTING.md`（这个仓库自己的事实）。
+上面四份由主 agent 提供。写测试规划前完整读取 `$mmw:mmw-tdd`，包括它指向的测试、mock 和质量标准，再读取目标仓库根的 `TESTING.md`。目标仓库没有 `TESTING.md` 时继续，不自行创建。
 
 **seam 由 spec 定死，你不重新定。** plan 里每条测试的落点对到 spec `## Testing Decisions` 一节里那张 seam 清单表，选最高的那一层，不要增殖插桩点。spec 里找不到对应的 seam，交 `needs-context`。
 
@@ -29,7 +29,7 @@ disable-model-invocation: true
 
 ## 核心原则
 
-写计划时假设 `worker`**对这个代码库零上下文、对这个问题领域一无所知、品味存疑、测试设计能力一般**。他需要知道的一切都要写进来：每一块看哪些文件、改什么、怎么测、依据在哪。小块、DRY、YAGNI、TDD、频繁提交。
+写计划时假设 `worker` 对代码库和问题领域没有上下文。每个任务包都要写清读取位置、修改目标、验证方式和依据。任务包保持小而完整，遵守 DRY、YAGNI 和 TDD。
 
 **每个任务包必须能单独抽出来当一份自洽说明。** `worker` 通常只看自己那一包，不读全文，还可能乱序读。所以：不写「跟第 N 包一样」（重复写出来）；不引用本包和前文都没定义过的类型、函数、字段；要传给下一包的信息写进本包的 Interfaces，不靠「看上一包」。
 

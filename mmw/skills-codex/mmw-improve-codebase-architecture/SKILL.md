@@ -29,7 +29,7 @@ description: 扫一遍代码库找可以做深的模块，出一份候选报告�
 ## 2. 一个视角派一个 subagent 去扫
 
 五个视角，一个视角一个 subagent，并行扫描。每个视角：四栏表（目标=该视角问题；读=范围路径 + 领域文档 + `$mmw:mmw-codebase-design` + ADR 路径；约束=只读；验收=摩擦点带出处）。
-启动：调用 Codex 原生 subagent，agent 设为 `mmw-investigator`，task 传四栏表全文；同一批独立角度在一条消息中并行启动，全部完成后再汇总。
+启动：按名称调用 Codex 原生 subagent `mmw-investigator`，task 传四栏表全文。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
 
 | 视角 | 让它去看 |
 | --- | --- |
@@ -63,11 +63,13 @@ subagent 交回的东西按 `$mmw:mmw-verifying-agent-output` 逐条验证。它
 
 **这一步不要提 interface 方案。** 报告写完就停下来问用户：想深入看哪一个？
 
-## 5. 用户挑中之后再绑定任务 worktree
+## 5. 用户挑中之后再建 worktree
 
-挑中之前不绑定分支，扫描全程只读。
+挑中之前不建 worktree，扫描全程只读。
 
-挑中了就定 slug。当前任务已经是 Codex App worktree 时，用 `$mmw:mmw-start` 的绑定脚本创建 `codex/<slug>` 分支；当前任务不是 worktree 时停下，让用户新建 Codex App Worktree 任务。类型固定用 `refactor`，短语取被选中那个 module 的名字，例如 `refactor-order-intake`。
+挑中后再定 slug。类型固定用 `refactor`，短语取被选中 module 的名字，例如 `refactor-order-intake`。然后按下面的宿主动作建立任务 worktree，任务目标写用户原话和卡片标题：
+
+Codex App 在任务创建时已经准备好 detached worktree。确认任务范围和父分支后，运行 `mmw task bind codex/<slug> "<用户原话>" --from <父分支或基点 SHA>`。命令必须返回任务分支名和起始提交；当前状态不是 detached、工作区不干净、分支已存在或父分支不正确时停下。
 
 ## 6. 就这一个候选谈下去
 
@@ -84,7 +86,7 @@ subagent 交回的东西按 `$mmw:mmw-verifying-agent-output` 逐条验证。它
 | 情况 | 下一步 |
 | --- | --- |
 | 验证过的候选写成报告，已经打开给用户看 | **停**：挑哪一个是要人拍板的事。报出了几个候选、你推荐哪一个、为什么 |
-| 用户挑中一个 | **自己继续**：走第 5 步绑定任务 worktree，再到第 6 步开谈 |
+| 用户挑中一个 | **自己继续**：走第 5 步建 worktree，再到第 6 步开谈 |
 | 谈到用户要先看见几种 interface 才判得下来 | **自己继续**：跑 `$mmw:mmw-codebase-design` 的 DESIGN-IT-TWICE，比完回第 6 步接着谈 |
 | `$mmw:mmw-grilling` 谈清楚了，回到本技能 | **移交**：`$mmw:mmw-to-spec`，把这张卡片的内容和谈出来的结论一起带过去 |
 | 扫完一个值得做的都没有 | **停**：明说这一片现在没有值得做的 deepening opportunity，列出你扫了哪些方向。不要为了交差凑几个 `Speculative` 出来 |

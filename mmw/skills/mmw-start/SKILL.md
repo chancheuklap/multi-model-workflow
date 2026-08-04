@@ -1,6 +1,6 @@
 ---
 name: mmw-start
-description: 多模型工作流的入口——判定这次的任务走哪条路，建 worktree 再移交。用户开始一件新任务、提一个新需求、报一个 issue 编号、说要接着做某张 map、说有东西坏了、或者只说要开工时用它；什么都没交代时它报当前进度。
+description: 多模型工作流的入口——判定这次的任务走哪条路，建立任务 worktree 再移交。用户开始一件新任务、提一个新需求、报一个 issue 编号、说要接着做某张 map、说有东西坏了、或者只说要开工时用它；什么都没交代时它报当前进度。
 argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 ---
 
@@ -8,7 +8,9 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 本次输入：`$ARGUMENTS`
 
-这一栏为空、用户也没有在对话里交代要做什么，走 [resuming.md](resuming.md)。已经在一个任务 worktree 里的，同样走 [resuming.md](resuming.md)。
+这一栏为空、用户也没有在对话里交代要做什么，走 [resuming.md](resuming.md)。
+
+有输入时先运行 `mmw task state`。只有输出以 `bound` 开头，才走 [resuming.md](resuming.md)。`detached` 表示宿主已经准备好 worktree，但 MMW 尚未绑定任务；这时继续判定路线和 slug。
 
 ## 1. 判定路线
 
@@ -27,7 +29,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 | 只要一条查得清的事实，比如某个库或某个外部接口的官方说法 | **移交**：`/mmw-research`，跳过第 2、3 步 |
 | 一个新需求，或对已有需求的改进 | **移交**：`/mmw-grilling` |
 | 没有具体需求，只说想让代码库更好维护 | **移交**：`/mmw-improve-codebase-architecture`，跳过第 2、3 步 |
-| 几条并行分支要集成到主线，某条分支要跟上已经推进的主线，或者手上有一个正在进行中的冲突 | **移交**：`/mmw-integrate`，跳过第 2、3 步 |
+| 几条并行分支要集成到当前目标分支，某条分支要跟上已经推进的目标分支，或者手上有一个正在进行中的冲突 | **移交**：`/mmw-integrate`，跳过第 2、3 步 |
 
 **先做原型还是先谈清楚**：他要的是先看见一个能跑的东西，走 `/mmw-prototype`；他要的是先把这件事说清楚，走 `/mmw-grilling`。分不出来时走 `/mmw-grilling`。
 
@@ -51,42 +53,30 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 类型取自第 1 步的判定结果：走 `/mmw-diagnosing-bugs` 的用 `fix`，新需求和先做原型的用 `feat`。类型同时约束范围——一个 `fix` 里混进新功能，说明当初的类型定错了，或者这次改动该拆成两个。
 
-**一个 slug 贯穿五处**：worktree 目录名、分支名、`docs/specs/<slug>/`、这个目录里的主文件 `<slug>.md`、Wiki 上的 `Spec-<slug>.md`。别的技能提到 `<slug>` 时指的都是它。
+**一个 slug 贯穿四处**：任务分支名、`docs/specs/<slug>/`、这个目录里的主文件 `<slug>.md`、Wiki 上的 `Spec-<slug>.md`。worktree 的物理目录由宿主管理，不参与任务识别。
 
-类型前缀用连字符不用斜杠——斜杠会在 worktree 落点下建出子目录，破坏「目录不嵌套」。不带 issue 编号、不带日期。同名冲突时加一个区分词，不加序号。
+slug 的类型前缀用连字符。不带 issue 编号，不带日期。同名冲突时加一个区分词，不加序号。宿主可以在分支名前增加固定命名空间；该命名空间不属于 slug。
 
 **下面四种情况跳过这一步**，第 3 步也一并跳过：
 
 - 用户报的是一张已有 map 的编号或链接。slug 由 `/mmw-wayfinder` 定。
 - 判定走 `/mmw-improve-codebase-architecture`。slug 由它定，类型固定用 `refactor`。
 - 判定走 `/mmw-research`。
-- 判定走 `/mmw-integrate`。它在主仓库的主线上做，不要给它建 worktree。
+- 判定走 `/mmw-integrate`。它使用当前目标分支，不新建任务分支。
 
-## 3. 建 worktree、进去、记原话
+## 3. 建立任务 worktree
 
-```bash
-mmw task new <slug> "<用户交代这件事时的原话>"
-```
+任务 worktree 必须从正确的父分支开始。普通任务使用当前目标分支；从 `/mmw-wayfinder` map 派生的任务使用 map 分支。父分支不包含任务所需决定时停下，不在错误基点上补提交。
 
-它一次做完三件事：建分支、建 worktree、打那个记原话的空提交。原话原样传，不要替他概括。
-
-然后用宿主的工作目录切换工具进到它输出的那个路径（Claude Code 是 `EnterWorktree`，pi 是 `enter_worktree`；这一步脚本做不了，只有宿主工具做得到）。
-
-不给基点时它从当前 HEAD 分叉，从主线开的新任务正好要这个。**这次任务是从一张 `/mmw-wayfinder` 的 map 派生出来的（用户报的是那张 map 切出来的 spec），就要显式给基点**：
-
-```bash
-mmw task new <slug> "<用户交代这件事时的原话>" --from <map 的 slug>
-```
-
-这个会话此刻还在主仓库，当前 HEAD 是主线，不是 map 分支；`git checkout` 也切不到 map 分支，它正被 map 的 worktree 占着。不给 `--from` 就会把这次任务错分叉到主线，map 上已经做出的决定一条都拿不到。
+[[mmw-host-action:prepare-task-worktree]]
 
 **粒度是一份 spec 一棵树。** 这份 spec 拆出的几张 ticket 全在这棵树里按顺序做完，整体合并一次、终审一次、Wiki 写一次。确实能并行的 ticket 从当前这棵树的分支再分叉出去（判据在 `/mmw-implement`）。**分支可以嵌套，目录不嵌套**——所有 worktree 一律扁平挂在同一个落点下。
 
-树在整个任务期间持久，可以跨天，中途别删。**新树里不预先铺目录**：`docs/specs/`、`docs/plans/`、`docs/prototypes/`、`.reviews/`、`.dispatch/` 都是真要写第一个文件时 `mkdir -p` 一下就够。
+任务 worktree 在整个任务期间持久，可以跨天，中途不要清理。**新 worktree 不预先创建目录**：`docs/specs/`、`docs/plans/`、`docs/prototypes/` 和 `.reviews/` 都在首次写入时创建。
 
 报一句你定的 slug 和你要走的路线，然后接着做，不用停下来等用户确认。
 
-**第 2 步列出的那四条路线，这一步同样跳过**，留在主仓库直接移交。一个会话只能进一次 worktree，在这里替它们建了，它们就没法再进自己那棵。
+**第 2 步列出的四条路线同样跳过本步**，直接移交。
 
 ## 下一步
 

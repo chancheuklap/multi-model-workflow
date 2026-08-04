@@ -2,7 +2,7 @@
 
 用户带着一个还很松的想法来。这个会话只做一件事：把 map 建出来。**它一张 ticket 都不亲手解。**
 
-前置：`$mmw:mmw-start` 已经建好这张 map 的 worktree 并进去了，第一个提交里记着用户原话。没有的话先补上，按 `$mmw:mmw-start` 第 2、3 步定 slug 并建树。
+前置：`$mmw:mmw-start` 已经建立并绑定 map 任务 worktree，第一个提交记录用户原话。`mmw task state` 不以 `bound` 开头时，回 `$mmw:mmw-start` 完成绑定。
 
 ## 1. 给 destination 命名
 

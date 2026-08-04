@@ -2,10 +2,7 @@
 
 frontier 上一张 ticket 都不剩了。收尾就是把这张 map 结束掉：清算 `Not yet specified` 一节剩下的条目、把这张 map 上做出的决定各自归位、切出 spec、关掉 map issue。
 
-进来的方式有两种，都合法：
-
-- **刚解完最后一条链**：在链任务中完成收尾并提交，交回结果分支与 HEAD SHA；map 主任务验证后合入。
-- **新任务进来发现 frontier 空了**：该 Codex App Worktree 任务必须从 map 分支创建，进入后用 `$mmw:mmw-start` 绑定独立收尾分支。基点不对时停下，让用户从 map 分支新建任务。
+本文件只在拥有 map 分支的任务中执行。`mmw task state` 必须显示当前 checkout 已绑定 map 分支；不满足时停止并让用户恢复原 map 任务。然后确认所有链结果已经通过 `mmw result verify` 并集成到 map 分支，再确认 `mmw issue frontier <map 编号>` 没有输出。链任务不能直接执行 map 收尾。
 
 ## 1. 清算 `Not yet specified` 剩下的条目
 
@@ -27,7 +24,7 @@ map 本身不上 Wiki，但 map 上记下的那些决定不能随任务一起消
 | 其余可回退的决定 | 被 spec 的 `Implementation Decisions` 吸收 | 不值得单独归档 |
 | map 本身 | 关掉即止 | 它是按走过顺序记的过程日志，含死路，价值在过程中 |
 
-这些都写在 map 那棵 worktree 的分支上，随 effort 一起合回主线，中途不提前合。
+这些内容都写在 map 任务分支上，随 effort 一起合回最终目标分支，中途不提前合。
 
 走 map 的过程中该写的已经写了，这一步是补漏：逐条重读 map 的 `Decisions so far` 一节，看有没有当时判成「可回退」、现在回头看其实难以回退的。判成难以回退的补一份 ADR。
 
@@ -45,7 +42,7 @@ spec 是 map 的可读综合版：map 的 `Destination` 变成 spec 的问题陈
 
 ## 4. 关掉 map
 
-关掉 map issue。把第 1 步到第 3 步写下的文件提交进 map 分支；刚解完最后一条链的会话，随这条链的分支合回 map 分支。
+关掉 map issue。把第 1 步到第 3 步写下的文件提交进 map 分支。
 
 ## 下一步
 
@@ -54,4 +51,4 @@ spec 是 map 的可读综合版：map 的 `Destination` 变成 spec 的问题陈
 | 第 1 步用户点出还有会挡路的条目，已经建成 decision ticket | **停**：报新建了哪几张 ticket（用名字，不用编号），让用户另开一个会话认领 |
 | 决定归位完、spec 切完、map issue 关掉 | **停**：报这张 map 收尾了、切出了哪几份 spec（用名字，不用编号），说明每份 spec 各开一个会话去做 |
 
-每份 spec 各建一个 Codex App Worktree 任务，`startingState` 设为 map 分支，进入后绑定独立 `codex/<spec-slug>` 分支；做完后由 map 主任务验证结果分支与 SHA，再用 `git merge --no-ff` 合回 map 分支。**整个 effort 收尾之前不合回主线**——map 分支是这些 spec 的汇合点。
+每份 spec 使用从 map 分支派生的独立任务。spec 任务完成后交回分支名、HEAD SHA 和 map 基点 SHA，由 map 任务用 `mmw result verify` 和 `mmw result integrate` 集成。整个 effort 完成前不合回最终目标分支；map 分支是这些 spec 的汇合点。

@@ -52,10 +52,10 @@ else
   echo "  跳过 这台机器没装 graphify（uv tool install graphifyy）"
 fi
 
-# 守：Claude Code 宿主派出的 GPT 角色真的拿得到工具。它们仍走 Codex 外部进程，
-# 这条只断 Claude adapter 的旧运行面；Codex App plugin 在 test_codex_runtime.sh 单独实测。
+# 守：五个 GPT 角色（写码、写计划、调查、GPT 审查）真的拿得到工具。它们走 codex
+# 外部进程，而 codex 的 MCP 配置没有任何工具过滤字段——这条断的是注入本身成不成立。
 echo
-echo "Claude Code 的 Codex 外部进程注入"
+echo "Codex 侧注入"
 if command -v codex >/dev/null 2>&1; then
   overrides=()
   while IFS= read -r line; do
@@ -88,7 +88,7 @@ fake_install() { MMW_PI_MCP_FILE="$1" MMW_CURSOR_MCP_FILE="$2" bash "$FAKE_ROOT/
 
 got="$(MMW_ROOT="$FAKE_ROOT" bash -c '. "$MMW_ROOT/cli/adapters/claude-code.sh"; mmw_adapter_mcp_overrides' \
   | grep -c '新加的' || true)"
-check "往 .mcp.json 加一个，Claude adapter 覆盖项跟着有" "3" "$got"
+check "往 .mcp.json 加一个，codex 覆盖项跟着有" "3" "$got"
 fake_install "$WORK/pi-mcp.json" "$WORK/cursor-mcp.json" >/dev/null
 check "同一个也进了 pi 的配置" "some-tool" \
   "$(jq -r '.mcpServers["新加的"].command' "$WORK/pi-mcp.json")"
@@ -219,8 +219,8 @@ else
     "$(printf '%s' "$out" | grep -o '多了 不该有的' | head -1)"
 fi
 
-# Claude Code 派出的旧 headless Codex 不读 MCP 握手交回的服务器说明，所以该运行面仍
-# 要把纪律拼进提示词。Codex App 直接读取服务器说明，由 probe 的 instruction_tokens 验证。
+# Codex 不读 MCP 握手交回的服务器说明，所以派 GPT 时纪律要拼进提示词。这几条守的是
+# 那段拼得出来、内容对得上两处唯一事实来源、以及来源坏掉时当场失败而不是静默少一段。
 discipline="$(python3 "$MMW_ROOT/mcp/discipline.py")" \
   && check "纪律拼得出来" "退 0" "退 0" \
   || check "纪律拼得出来" "退 0" "退非零"

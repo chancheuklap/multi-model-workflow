@@ -16,7 +16,7 @@ description: 把「去查清楚」派出去，查这个仓库的现状或者仓�
 
 **本技能只管读得到的东西。** 一条事实要真实跑一次才知道——那个服务撑得住多少、几个候选哪个扛得住——那是 `/mmw-prototype` 的 `EVIDENCE.md`。
 
-**不派的情况**：一个函数、一个已知文件、一条命令答得完的，自己 `Read`、`Grep` 或者跑一次。
+**不派的情况**：一个函数、一个已知文件或一条命令能答完的，主 agent 自己读取、检索或运行一次。
 
 ## 1. 定题目
 
@@ -53,11 +53,9 @@ description: 把「去查清楚」派出去，查这个仓库的现状或者仓�
 | 约束 | 只读；不改代码；不提方案。内部：取证不得超出「读」中的仓库根 |
 | 验收 | 每条结论带出处（内部 `文件:行号`；外部一手链接或命令+输出） |
 
-可选：四栏表写入 `.dispatch/<slug>-research-<角度短名>.prompt.md`。
-
 ## 4. 派发
 
-启动：四栏表写入 task 文件后，Bash（`run_in_background: true`）执行 `mmw dispatch investigator --task <task 文件绝对路径>`；回执 `mode: host-tool` 时原样传入 `params` 调用对应工具（params 已含 task 正文）。
+启动：把四栏表写入 task 文件，后台执行 `mmw dispatch investigator --task <task 文件绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 题目互不依赖时：同一条消息里并行多个启动调用。
 
 ## 5. 过滤

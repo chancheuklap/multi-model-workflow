@@ -2,25 +2,25 @@
 
 用户带着一张 map 来（编号或链接）。这个会话解**一条链**：解开一张 ticket，接着解被它解锁的那张，直到不能再往下走。判断能不能往下走的规矩在第 5 步。
 
-## 1. 在当前任务里只读
+## 1. 读取 map
 
-还不要建任何 worktree。这一步只读：
+这一步只读：
 
 - `gh issue view <map 编号>` 读 map 正文，不要逐个打开 ticket。
-- 按需读 map 分支上的文件，例如领域文档：落点跑 `mmw domain path` 取，再 `git show <map 分支>:<落点>`。多上下文的仓库没有根 `CONTEXT.md`，写死会读空。
+- 按需读取 map 分支上的文件。领域文档落点通过 `mmw domain path` 取得，再运行 `git show <map 分支>:<落点>`。
 - `mmw issue frontier <map 编号>` 查一次 frontier。它给出全部可认领的 ticket，一行一张。
 
-frontier 空了，说明这张 map 该收尾了，转 [closing.md](closing.md)。
+frontier 为空时，不建立链任务。停止并让用户恢复拥有 map 分支的任务；该任务读取 [closing.md](closing.md)。
 
-## 2. 挑一张，认领，绑定这条链的任务分支
+## 2. 挑一张，认领，建立链任务 worktree
 
 用户点了名就用他点的那张，没点就取 frontier 上的第一张。
 
-**先认领**：`mmw issue claim <编号>`。它已经被别的任务占住就会失败，那就取下一张。认领成功之前不要做任何事。
+**先认领**：`mmw issue claim <编号>`。它已经被别的会话占住就会失败，那就取下一张。认领成功之前不要做任何事。
 
-一条链必须运行在独立的 Codex App Worktree 任务中。创建任务时把 `startingState` 设为 map 分支，并在任务提示里写明 map、链首 ticket 和四栏 task。当前任务不是从 map 分支创建的独立 worktree 时停下，让用户新建对应任务。
+链任务的 slug 使用 `<map slug>-<链首 ticket 短语>`。父分支必须是 map 分支；链任务从 map 分支当前已提交的 HEAD 开始。
 
-进入 detached worktree 后，运行 `$mmw:mmw-start` 的绑定脚本，创建 `codex/<map-slug>-<链首-ticket-短语>` 分支。脚本保存用户原话；当前任务不得再创建或切换 worktree。
+Codex App 在任务创建时已经准备好 detached worktree。确认任务范围和父分支后，运行 `mmw task bind codex/<slug> "<用户原话>" --from <父分支或基点 SHA>`。命令必须返回任务分支名和起始提交；当前状态不是 detached、工作区不干净、分支已存在或父分支不正确时停下。
 
 ## 3. 解它
 
@@ -84,9 +84,10 @@ frontier 空了，说明这张 map 该收尾了，转 [closing.md](closing.md)�
 
 ## 7. 这条链走完之后
 
-1. 这条链写的每一份 `draft-<ticket 编号>-<kebab-标题>.md` 逐个改成正式编号并提交。
-2. 确认工作区干净，交回结果分支名、HEAD SHA、创建任务时的 map 分支基点 SHA 和 frontier 状态。
-3. map 的主任务用 `$mmw:mmw-integrate` 中的结果验证脚本检查分支、HEAD SHA 与基点，再用 `git merge --no-ff` 合回 map 分支。链任务不直接进入 map 的 worktree。
+1. 这条链写的每一份 `draft-<ticket 编号>-<kebab-标题>.md`（落点跑 `mmw domain dirs` 取 `adr` 那一行）逐个改成正式编号：`mmw domain adr-next` 取下一个号，改名，再取下一个，直到改完。编号只增不改。提交。
+2. 记录链任务的分支名、`git rev-parse HEAD` 和建立链任务时的 map 基点 SHA。
+3. 把分支名、HEAD SHA、基点 SHA 和链报告交回 map 任务。map 任务运行 `mmw result verify`，验证报告和 diff 后再运行 `mmw result integrate`。
+4. map 任务集成后重新查询 `mmw issue frontier <map 编号>`。
 
 ## 下一步
 
@@ -96,5 +97,5 @@ frontier 空了，说明这张 map 该收尾了，转 [closing.md](closing.md)�
 | 第 5 步判出下一张归你、但是 HITL | **停**：不要认领它。报这条链解掉了哪几张 ticket、下一张是哪张、它为什么要人参与，让用户另开一个会话认领它 |
 | 手上这张是 `wayfinder:task`，而且必须人动手 | **停**：交一份精确的操作清单——要做什么、做完之后哪些结果事实要记下来（凭证放在哪、新的地址是什么、数据有多少行）——等用户做完再回第 4 步 |
 | 第 6 步判出某份 spec 三条都齐了 | **停**：报这份 spec 现在可以开始做，让用户另开一个会话走 `$mmw:mmw-to-spec` |
-| 这条链走完，frontier 上还有 ticket | **停**：报这条链解掉了哪几张、frontier 上还剩哪几张（用名字，不用编号），让用户另开一个会话认领下一条 |
-| 这条链走完，frontier 空了 | **自己继续**：读 [closing.md](closing.md) |
+| 这条链走完 | **停**：交回分支名、HEAD SHA、基点 SHA、解掉的 ticket 和当前 frontier；由 map 任务验证并集成 |
+| map 任务集成链结果后发现 frontier 为空 | **移交**：map 任务读取 [closing.md](closing.md) |

@@ -2,7 +2,7 @@
 """物化、安装、检查或卸载 MMW 的 Codex 原生运行时文件。
 
 Codex App 自己安装 plugin，并由 plugin 提供 skills、MCP 与 `mmw` 机械层。
-这个脚本只把两个自定义 subagent 和指向已安装 plugin 的命令入口装到用户目录。
+这个脚本只把自定义 subagent 和指向已安装 plugin 的命令入口装到用户目录。
 """
 
 from __future__ import annotations
@@ -43,10 +43,13 @@ def load_profiles() -> dict:
         die(f"读不到 {PROFILES_PATH}: {exc}")
     if data.get("version") != 1:
         die("profiles.json version 必须是 1")
-    text = json.dumps(data, ensure_ascii=False).lower()
-    for banned in ('"family"', '"provider"', "claude", "grok"):
-        if banned in text:
-            die(f"Codex profile 不得包含 {banned}")
+    for section in ("background_roles", "subagents"):
+        profiles = data.get(section) or {}
+        if not isinstance(profiles, dict):
+            die(f"profiles.json {section} 必须是对象")
+        for role, profile in profiles.items():
+            if not str((profile or {}).get("model") or "").startswith("gpt-"):
+                die(f"{role} 必须使用 Codex 内置 GPT 模型")
     return data
 
 
@@ -59,7 +62,6 @@ def render_agent(role: str, profile: dict) -> str:
     if not body_path.is_file():
         die(f"{role} 的 body 不存在: {body_path}")
     body = body_path.read_text(encoding="utf-8").strip()
-    body = body.replace("`mmw-reviewer` 技能", "`$mmw:mmw-reviewer` 技能")
     method = profile.get("method_skill")
     if method:
         body = (
@@ -74,7 +76,7 @@ def render_agent(role: str, profile: dict) -> str:
         f"description = {toml_string(profile['description'])}",
         f"model = {toml_string(profile['model'])}",
         f"model_reasoning_effort = {toml_string(profile['thinking'])}",
-        'sandbox_mode = "read-only"',
+        f"sandbox_mode = {toml_string(profile.get('sandbox_mode', 'read-only'))}",
         'developer_instructions = """',
         body,
         '"""',
@@ -86,8 +88,9 @@ def render_agent(role: str, profile: dict) -> str:
 def rendered_agents() -> dict[str, str]:
     profiles = load_profiles()
     agents = profiles.get("subagents") or {}
-    if set(agents) != {"investigator", "reviewer"}:
-        die("Codex 只注册 investigator 与 reviewer 两个只读 subagent")
+    expected_roles = {"investigator", "reviewer", "planner", "designer"}
+    if set(agents) != expected_roles:
+        die(f"Codex 原生 subagent 必须是 {', '.join(sorted(expected_roles))}")
     rendered: dict[str, str] = {}
     for role, profile in agents.items():
         model = str(profile.get("model") or "")
@@ -213,6 +216,10 @@ def valid_plugin_root(root: Path, version: str) -> bool:
         and (root / "codex" / "runtime.py").is_file()
         and (root / "skills-codex" / "mmw-start" / "SKILL.md").is_file()
         and (root / ".mcp-codex.json").is_file()
+        and (root / ".mcp.json").is_file()
+        and (root / "codex" / "profiles.json").is_file()
+        and (root / "mcp" / "resolve.py").is_file()
+        and (root / "mcp" / "serve.py").is_file()
     )
 
 
@@ -301,22 +308,32 @@ def install() -> int:
     if materialize(check=True):
         die("仓库内 Codex agent 产物已漂移，先运行 runtime.py materialize")
     plugin_root = installed_plugin_root()
-    remove_legacy_links()
     target_agents = codex_home() / "agents"
     target_agents.mkdir(parents=True, exist_ok=True)
+    expected_agents = {source.name for source in AGENTS_DIR.glob("mmw-*.toml")}
     for source in sorted(AGENTS_DIR.glob("mmw-*.toml")):
         target = target_agents / source.name
         if target.exists() and not target.read_text(encoding="utf-8").startswith(MANAGED_HEADER):
             die(f"拒绝覆盖非 MMW 管理的 agent: {target}")
-        write_atomic(target, source.read_text(encoding="utf-8"))
-        print(f"装  {target}")
     forward_path = bin_path()
-    desired = forwarder(plugin_root)
     if forward_path.exists():
         current = forward_path.read_text(encoding="utf-8")
         legacy = 'exec "$HOME/multi-model-workflow/mmw/cli/mmw" "$@"' in current
         if FORWARD_HEADER not in current and not legacy:
             die(f"拒绝覆盖非 MMW 管理的命令: {forward_path}")
+
+    remove_legacy_links()
+    for target in sorted(target_agents.glob("mmw-*.toml")):
+        if target.name in expected_agents:
+            continue
+        if target.read_text(encoding="utf-8").startswith(MANAGED_HEADER):
+            target.unlink()
+            print(f"删  {target}")
+    for source in sorted(AGENTS_DIR.glob("mmw-*.toml")):
+        target = target_agents / source.name
+        write_atomic(target, source.read_text(encoding="utf-8"))
+        print(f"装  {target}")
+    desired = forwarder(plugin_root)
     write_atomic(forward_path, desired, 0o755)
     print(f"装  {forward_path}")
     print("Codex plugin 由 App 从仓库 marketplace 安装；本脚本不改 config.toml 或 plugin cache。")
@@ -332,6 +349,11 @@ def check() -> int:
         target = target_agents / name
         if not target.is_file() or target.read_text(encoding="utf-8") != content:
             print(f"缺或旧  {target}", file=sys.stderr)
+            failures += 1
+    expected_names = set(expected)
+    for target in sorted(target_agents.glob("mmw-*.toml")):
+        if target.name not in expected_names and target.read_text(encoding="utf-8").startswith(MANAGED_HEADER):
+            print(f"旧残留  {target}", file=sys.stderr)
             failures += 1
     forward_path = bin_path()
     if not forward_path.is_file() or forward_path.read_text(encoding="utf-8") != forwarder(plugin_root):
@@ -389,7 +411,7 @@ def check_mcp_configs(paths: list[str]) -> int:
                 continue
             if not isinstance(actual, dict) or any(
                 actual.get(field) != value for field, value in wanted.items()
-            ):
+            ) or actual.get("enabled") is False or "cwd" in actual:
                 print(
                     f"{path}: mcp_servers.{name} 没有通过已安装的 MMW plugin 启动",
                     file=sys.stderr,

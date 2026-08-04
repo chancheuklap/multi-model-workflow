@@ -60,7 +60,9 @@ docs/prototypes/<slug>/
 
 **[EVIDENCE.md](EVIDENCE.md) 那条 branch 落点不同**，在 `docs/evidence/<slug>/`。本节其余规矩它照样守：一条命令就能运行、逐轮记进 `README.md`、原地迭代、用户走查过才算数。
 
-当前任务不是 Codex App worktree 时停下，让用户新建 Worktree 任务；当前任务是尚未绑定的 detached worktree 时，先用 `$mmw:mmw-start` 的绑定脚本创建 `codex/<slug>` 分支，再动手。
+开始写原型之前，先确认当前任务已有正确的 slug 和任务 worktree。没有时按下面的宿主动作建立任务 worktree：
+
+Codex App 在任务创建时已经准备好 detached worktree。确认任务范围和父分支后，运行 `mmw task bind codex/<slug> "<用户原话>" --from <父分支或基点 SHA>`。命令必须返回任务分支名和起始提交；当前状态不是 detached、工作区不干净、分支已存在或父分支不正确时停下。
 
 **原地迭代，不复制版本目录。** 下一轮继续改同一份源码，保留已经确认过的状态、交互和文案。
 

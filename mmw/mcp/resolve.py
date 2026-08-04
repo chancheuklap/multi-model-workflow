@@ -26,7 +26,7 @@ install-mcp.sh 装完会对每个保留下来的变量查一次可达性，取�
     resolve.py --format raw    展开后的 {"mcpServers": {...}}
     resolve.py --format pi     pi 的 ~/.pi/agent/mcp.json 要的服务器 map（带 type）
     resolve.py --format cursor Cursor 的 ~/.cursor/mcp.json 要的服务器 map（不带 type）
-    resolve.py --format codex  codex exec -c 要的 key=value，一行一条
+    resolve.py --format codex  Claude Code 启动 headless Codex 时注入的 key=value
 """
 
 from __future__ import annotations

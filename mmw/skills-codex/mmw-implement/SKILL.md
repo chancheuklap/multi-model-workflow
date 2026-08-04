@@ -17,7 +17,7 @@ description: 把定好的需求实现成代码，一张 ticket 派一个 `worker
 
 | 检查 | 怎么查 | 不满足怎么办 |
 | --- | --- | --- |
-| 你在任务 worktree 里 | 当前 checkout 是已绑定 `codex/<slug>` 分支的 linked worktree | 停下，让用户新建 Codex App Worktree 任务，确认范围后用 `$mmw:mmw-start` 绑定分支 |
+| 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 | 回 `$mmw:mmw-start` 建立或绑定任务 worktree |
 | 这次需求写明了 seam | 读 spec `## Testing Decisions` 一节里那张 seam 清单表，或读 agent brief 的 `**Test seam:**` 一栏 | spec 缺就回 `$mmw:mmw-to-spec` 第 3 步，brief 缺就回 `$mmw:mmw-triage` 补 |
 | ticket 存在 | `mmw issue children <spec issue 编号>` 有输出 | 先跑 `$mmw:mmw-to-tickets` |
 | 这张 ticket 的 plan 写好了、过了 ② plan 审 | `docs/plans/<slug>/` 下有对应那一份 | 先跑 `$mmw:mmw-to-plan`。走 agent brief 那条路的需求没有 plan 这一层，这一行不适用 |
@@ -32,7 +32,7 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 开工前先 `mmw issue claim <编号>`。认领失败说明别的会话抢先了，取下一行。
 
-一个后台 Worktree 任务一次只做一张 ticket。frontier 确实很宽、用户又明确要求并行推进时，每张 ticket 各创建一个 Codex App 后台 Worktree 任务，`startingState` 都设为当前已提交的任务分支。
+一个 `worker` 的独立 worktree 一次只做一张 ticket。frontier 确实很宽、用户又明确要求并行推进时，每张 ticket 各派一个 `worker`，都从当前已提交的任务分支开始。
 
 ### 3. 写派工 task
 
@@ -47,17 +47,19 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
 
-
-
 ### 4. 派发
 
-**先记下当前提交号**（`git rev-parse HEAD`），供验收对照。
+派发前确认当前任务分支已经提交且工作区干净。为这次工作确定唯一、完整的结果分支名，并记下 `git rev-parse HEAD` 作为基点。结果分支名和基点 SHA 都要写入 task。
 
-启动：先调用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`；target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型设为 `gpt-5.6-sol`，思考档设为 `high`。把四栏 task 全文作为任务提示，并要求后台任务先用 `$mmw:mmw-start` 的绑定脚本创建独立 `codex/<slug>` 分支，再完整读取 `$mmw:mmw-tdd` 后工作。后台任务必须提交改动，并交回分支名、HEAD SHA 与测试结果；`create_thread` 交回 threadId 后，主 agent 用 `wait_threads` 等它完成。如果只交回 clientThreadId，先等 App 完成 worktree 设置，不能把 clientThreadId 传给 `wait_threads`。
+启动：先用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`。target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型使用 `gpt-5.6-sol`，思考档使用 `high`。任务提示包含四栏 task、主 agent 已确定的完整结果分支名和派发前基点 SHA；结果分支名使用独立的 `codex/<slug>`。后台 agent 先运行 `mmw task bind <完整结果分支名> <目标栏原文> --from <基点 SHA>`，并在工作前完整读取 `$mmw:mmw-tdd`，然后完成工作并提交。后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 worktree 设置，取得 threadId 后再等待。
 
 ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
-启动：先调用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`；target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型设为 `gpt-5.6-sol`，思考档设为 `max`。把四栏 task 全文作为任务提示，并要求后台任务先用 `$mmw:mmw-start` 的绑定脚本创建独立 `codex/<slug>` 分支，再完整读取 `$mmw:mmw-tdd` 后工作。后台任务必须提交改动，并交回分支名、HEAD SHA 与测试结果；`create_thread` 交回 threadId 后，主 agent 用 `wait_threads` 等它完成。如果只交回 clientThreadId，先等 App 完成 worktree 设置，不能把 clientThreadId 传给 `wait_threads`。
+启动：先用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`。target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型使用 `gpt-5.6-sol`，思考档使用 `max`。任务提示包含四栏 task、主 agent 已确定的完整结果分支名和派发前基点 SHA；结果分支名使用独立的 `codex/<slug>`。后台 agent 先运行 `mmw task bind <完整结果分支名> <目标栏原文> --from <基点 SHA>`，并在工作前完整读取 `$mmw:mmw-tdd`，然后完成工作并提交。后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 worktree 设置，取得 threadId 后再等待。
 升档由你决定，不由 worker 自报。
+
+`worker` 完成后，先收取结果：
+
+该角色完成后，运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。命令通过后，从输出取得结果 worktree 路径；在该路径读取报告与 diff，并运行本技能规定的验收。此动作不合入结果分支。
 
 ### 5. 验收：亲手验证三关
 
@@ -65,7 +67,11 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 
 三关之外还要确认一件本阶段特有的事：commit 存在，并且引用了这张 ticket。
 
-三关都过就关闭这张 ticket，取下一张。
+三关都过后，集成结果：
+
+本技能规定的验收全部通过后，运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。命令成功后，结果提交才算进入当前任务分支。
+
+结果提交已经进入当前任务分支，才关闭这张 ticket 并取下一张。
 
 ### 6. 全部落地后验证合同
 
@@ -77,7 +83,7 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 
 合同门过了之后，按 `$mmw:mmw-review` 发起一轮 **⑤ final 终审**，固定点取分支点。整体审一次，不逐张审。
 
-分支点用 `git merge-base HEAD <父分支>` 取。父分支通常是主线；这次任务从一张 `$mmw:mmw-wayfinder` 的 map 分出来的，父分支就是那张 map 的分支。
+分支点用 `git merge-base HEAD <父分支>` 取。普通任务的父分支是创建任务时选择的目标分支；从 `$mmw:mmw-wayfinder` map 派生的任务以 map 分支为父分支。
 
 采信的 findings 打包成一张修复 ticket 派给新 `worker`，带上 `file:line` 和要改成什么。然后按 `$mmw:mmw-review` 第 7 步复审。
 

@@ -40,4 +40,4 @@ destination 每个 effort 各不相同。给它命名是画 map 的第一个动�
 
 **改 map 正文之前先重新拉一次最新的。** GitHub 编辑 issue 正文是整体替换。写完再读一次，确认自己那行在；不在就重来一遍。
 
-**一个 Codex App 任务只使用创建时分配的一个 worktree。** map、每条链和每份 spec 各用独立 Worktree 任务。新任务创建时选择正确的父分支作为 `startingState`，进入后用 `$mmw:mmw-start` 的绑定脚本创建自己的 `codex/<slug>` 分支。任务不能切换到别的 worktree；跨任务结果只通过已验证的分支和 commit 交接。
+**每个任务只使用自己的 worktree。** map 任务拥有 map 分支；每条链和每份 spec 使用从 map 分支派生的独立任务分支。任务之间只交回分支名、HEAD SHA、基点 SHA 和报告，由拥有目标分支的任务验证并集成。主 agent 不切换到另一个任务的工作目录。

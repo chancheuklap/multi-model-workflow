@@ -36,12 +36,21 @@
 
 ## 2. 一个变体派一个 subagent
 
-一个变体一个 subagent，并行。每个变体：四栏表（目标=该结构方向的变体；读=页面语境路径；约束=禁止其它变体方向 + 质量门见本文件「3. 每个变体都要过质量门」；验收=可切换可走查）。
-启动：先调用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`；target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型设为 `gpt-5.6-sol`，思考档设为 `high`。把四栏 task 全文作为任务提示，并要求后台任务先用 `$mmw:mmw-start` 的绑定脚本创建独立 `codex/<slug>` 分支，再完整读取 `$mmw:mmw-tdd` 后工作。后台任务必须提交改动，并交回分支名、HEAD SHA 与测试结果；`create_thread` 交回 threadId 后，主 agent 用 `wait_threads` 等它完成。如果只交回 clientThreadId，先等 App 完成 worktree 设置，不能把 clientThreadId 传给 `wait_threads`。
+一个变体一个 `prototype-worker`，并行。每个变体使用独立 worktree，且只写分配给自己的变体组件。四栏表写明：目标是该结构方向的变体；读是页面语境路径；约束是其它变体方向、独占文件和本文件「3. 每个变体都要过质量门」；验收是可切换、可走查。派发前为每个变体确定唯一、完整的结果分支名，并记录当前任务分支的基点 SHA。
 
-每份 task 给同样的页面语境路径（用途、数据、组件库与样式系统在仓库里的位置），但**各自指定一个不同的结构方向**，并明说不许用另外两个方向。质量门写路径或点名本文件「每个变体都要过质量门」一节，由 subagent 自读。
+启动：先用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`。target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型使用 `gpt-5.6-terra`，思考档使用 `high`。任务提示包含四栏 task、主 agent 已确定的完整结果分支名和派发前基点 SHA；结果分支名使用独立的 `codex/<slug>`。后台 agent 先运行 `mmw task bind <完整结果分支名> <目标栏原文> --from <基点 SHA>`，然后完成工作并提交。后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 worktree 设置，取得 threadId 后再等待。
+
+每个 `prototype-worker` 完成后，逐个收取结果：
+
+该角色完成后，运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。命令通过后，从输出取得结果 worktree 路径；在该路径读取报告与 diff，并运行本技能规定的验收。此动作不合入结果分支。
+
+每份 task 给同样的页面语境路径（用途、数据、组件库与样式系统在仓库里的位置），但各自指定一个不同的结构方向和一组不重叠的文件。质量门点名本文件「每个变体都要过质量门」一节，由 `prototype-worker` 自读。
 
 收回的变体按 `$mmw:mmw-verifying-agent-output` 逐个验证：真的结构不同吗，真的用了项目的组件库吗，质量门过了吗。两份太像就重做一份，task 里明写「不要用卡片网格」这类排除项。
+
+每个变体通过验证后，集成该变体的结果：
+
+本技能规定的验收全部通过后，运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。命令成功后，结果提交才算进入当前任务分支。
 
 变体自己也需要一个清楚的导出名，例如 `VariantA`、`VariantB`、`VariantC`。
 

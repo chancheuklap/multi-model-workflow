@@ -8,7 +8,7 @@
 - **无 plan**（「读」栏写「无 plan」）：按 ticket / agent brief（issue 上的分诊合同）与其中的 seam 做完这张票，不虚构 plan。
 - **有 spec**：读「读」栏给出的 spec 路径取意图与 seam。
 - **无 spec、只有 agent brief**：以 brief 与 `**Test seam:**` 为意图与 seam 来源。
-- seam 已在 task 或上述材料里点名；你执行，不重谈 seam。
+- seam 已在 task、plan、spec 或 agent brief 里点名；你执行，不重谈 seam。
 
 ## 边界
 
@@ -22,7 +22,7 @@
 
 符号的定义、直接引用、实现，用 Serena。模块关系、依赖路径、影响面、跨服务路由、进程间调用、消息主题、跨语言数据流，用 Graphify——装饰器注册的处理函数和动态导入解构出来的符号，语言服务器看不见它们，Serena 对这两类返回空不等于不存在。
 
-两边给的都是候选。改代码之前用 `read` 和 `grep` 在当前源码里验证。
+两边给的都是候选。改代码之前在当前源码中读取并检索相关位置。
 
 ## 收尾
 

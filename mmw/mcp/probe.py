@@ -27,8 +27,8 @@ from resolve import MCP_JSON, Resolver  # noqa: E402  展开规则的唯一来�
 HANDSHAKE_TIMEOUT = 40
 
 
-def probe(spec: dict) -> tuple[bool, str, list[str], str, dict[str, dict]]:
-    """起服务器、握手、列工具。回状态、说明、工具名、服务器说明与工具定义。
+def probe(spec: dict) -> tuple[bool, str, list[str]]:
+    """起服务器、握手、列工具。回状态、说明与工具名。
 
     默认 spec 由 Resolver 展开。--config 读到的是宿主最终配置；两种路径都探真正会启动的
     command、args、env 与 cwd。
@@ -52,9 +52,9 @@ def probe(spec: dict) -> tuple[bool, str, list[str], str, dict[str, dict]]:
             cwd=spec.get("cwd"),
         )
     except FileNotFoundError:
-        return False, f"起不来：找不到命令 {command}", [], "", {}
+        return False, f"起不来：找不到命令 {command}", []
     except OSError as exc:
-        return False, f"起不来：{exc}", [], "", {}
+        return False, f"起不来：{exc}", []
 
     requests = "".join(json.dumps(obj) + "\n" for obj in (
         {
@@ -74,12 +74,11 @@ def probe(spec: dict) -> tuple[bool, str, list[str], str, dict[str, dict]]:
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.communicate()
-        return False, f"{HANDSHAKE_TIMEOUT} 秒内没应答", [], "", {}
+        return False, f"{HANDSHAKE_TIMEOUT} 秒内没应答", []
     finally:
         if proc.poll() is None:
             proc.kill()
 
-    init_payload = None
     payload = None
     for line in out.splitlines():
         line = line.strip()
@@ -89,24 +88,16 @@ def probe(spec: dict) -> tuple[bool, str, list[str], str, dict[str, dict]]:
             obj = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if obj.get("id") == 1:
-            init_payload = obj
-        elif obj.get("id") == 2:
+        if obj.get("id") == 2:
             payload = obj
 
     if payload is None:
         tail = (err or "").strip().splitlines()
-        return False, f"没要到工具列表：{tail[-1] if tail else '进程没输出就退了'}", [], "", {}
+        return False, f"没要到工具列表：{tail[-1] if tail else '进程没输出就退了'}", []
     if "error" in payload:
-        return False, f"服务器报错：{payload['error']}", [], "", {}
-    tool_specs = {
-        tool["name"]: tool for tool in payload.get("result", {}).get("tools", [])
-    }
-    tools = sorted(tool_specs)
-    instructions = ""
-    if init_payload:
-        instructions = str(init_payload.get("result", {}).get("instructions") or "")
-    return True, f"{len(tools)} 个工具：{', '.join(tools)}", tools, instructions, tool_specs
+        return False, f"服务器报错：{payload['error']}", []
+    tools = sorted(tool["name"] for tool in payload.get("result", {}).get("tools", []))
+    return True, f"{len(tools)} 个工具：{', '.join(tools)}", tools
 
 
 CONTRACT = Path(__file__).resolve().parent.parent / "config" / "retrieval-contract.json"
@@ -125,13 +116,7 @@ def contract_servers() -> tuple[dict, str | None]:
     return payload.get("servers", {}), None
 
 
-def contract_drift(
-    name: str,
-    tools: list[str],
-    instructions: str,
-    tool_specs: dict[str, dict],
-    servers: dict,
-) -> str | None:
+def contract_drift(name: str, tools: list[str], servers: dict) -> str | None:
     """比对集合相等，回一句说人话的差异；对得上回 None。
 
     多一个和少一个都算失败，而且不是同一件事：少了是能力缺失，多了是护栏破了——
@@ -147,25 +132,6 @@ def contract_drift(
         parts.append(f"多了 {', '.join(extra)}")
     if missing:
         parts.append(f"少了 {', '.join(missing)}")
-    missing_instructions = [
-        token for token in spec.get("instruction_tokens", []) if token not in instructions
-    ]
-    if missing_instructions:
-        parts.append(f"服务器说明少了 {', '.join(missing_instructions)}")
-    if "actions" in spec:
-        action_enum = (
-            tool_specs.get(name, {})
-            .get("inputSchema", {})
-            .get("properties", {})
-            .get("action", {})
-            .get("enum", [])
-        )
-        if set(action_enum) != set(spec["actions"]):
-            parts.append(
-                "action 不一致："
-                f"实际 {', '.join(sorted(action_enum)) or '(空)'}；"
-                f"合同 {', '.join(sorted(spec['actions']))}"
-            )
     return "；".join(parts) or None
 
 
@@ -202,10 +168,8 @@ def main() -> int:
         if not as_json:
             print(f"不可用  裁剪合同：{contract_error}。这一轮没做护栏检查")
     for name, spec in servers.items():
-        ok, detail, tools, instructions, tool_specs = probe(spec)
-        drift = (
-            contract_drift(name, tools, instructions, tool_specs, contract) if ok else None
-        )
+        ok, detail, tools = probe(spec)
+        drift = contract_drift(name, tools, contract) if ok else None
         if drift:
             ok = False
             detail = f"{detail}。跟裁剪合同对不上：{drift}"
