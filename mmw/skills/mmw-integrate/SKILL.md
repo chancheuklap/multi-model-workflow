@@ -7,7 +7,7 @@ description: 把并行开发的几条分支集成到一起——定顺序、逐�
 
 **集成在主仓库的主线上做，不建 worktree。** 各条分支的 worktree 留着，集成完了再由用户清理。当前不在主线上就停下——切分支归用户。
 
-`git status` 已经显示有一个进行中的 merge 或 rebase 的，第 1、2 步跳过，直接按第 3 步认路走对应那份文件。
+`git status` 已经显示有一个进行中的 merge 或 rebase 的，第 1、2 步跳过，直接按第 3 步：merge 走 [merging.md](merging.md)，rebase 走 [rebasing.md](rebasing.md)。
 
 ## 1. 认现状
 

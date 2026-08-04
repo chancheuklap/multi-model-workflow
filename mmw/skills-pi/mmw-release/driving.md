@@ -18,7 +18,7 @@ mmw release where
 | --- | --- | --- |
 | `STAGE:<名字>` 或 `RETRY-STAGE:<名字>` | `mmw release stage run --stage <名字>`。引擎自己展开参数、路由远端构建、跑诊断、按退出码写结果并记 findings | 不用 |
 | `SUCCESS:all stages done` | `mmw release exit-check` 必须回 `DONE`，然后 `mmw release close` | 不用。`exit-check` 不是 `DONE` 却报成功，那是引擎出错，别宣布成功 |
-| `PAUSED:needs-context` | 看下面「自己处置」那一节。这不是终点 | 处置两次仍不成才交人 |
+| `PAUSED:needs-context` | 看本文「自己处置：缺信息的那类暂停」。这不是终点 | 处置两次仍不成才交人 |
 | `PAUSED:needs-redirection` | 读 `mmw release receipt`，原样交用户 | 要。这是保护性暂停：碰了受保护路径、熔断、预算烧完，都不许自己续 |
 | `CORRUPT:` / `FAILED-STAGE:` / `NO-STAGES:` | 读 `mmw release receipt`，不跑阶段、不 `resume` | 要 |
 | 别的输出，或命令本身报错 | 不猜状态，不重新 `init` | 要，带上原始输出 |

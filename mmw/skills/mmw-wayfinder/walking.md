@@ -32,7 +32,7 @@ mmw task new <map 的 slug>-<链首 ticket 的短语> "<这张 ticket 要解的�
 
 **按需放大**：随时取任何相关的、或者已经关掉的 ticket 的完整正文；把 map 的 `Notes` 一节点名的技能调起来。
 
-建 ticket 时怎么选这四个类型见 [map-anatomy.md](map-anatomy.md)，本节只写解的时候怎么做（HITL / AFK 归属在第 5 步那张表里，判下一张归不归你时要用）：
+建 ticket 时怎么选这四个类型见 [map-anatomy.md](map-anatomy.md)，本节只写解的时候怎么做（HITL / AFK 归属见本文第 5 步内的归属表，判下一张归不归你时要用）：
 
 | 标签 | 解法 |
 | --- | --- |

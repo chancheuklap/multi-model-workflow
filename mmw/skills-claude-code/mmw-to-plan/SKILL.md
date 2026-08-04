@@ -33,7 +33,7 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 在 spec 里新增一节 `## Cross-Plan Contract Anchors`，**不改已有的 `## Contract Boundaries`**。
 
-从 `## Contract Boundaries`、`## Implementation Decisions` 两节和 ticket 的依赖关系判断有没有跨 plan 的连接面——共享文件、共享模块、共享数据结构，或者一份 plan 产出、另一份 plan 消费的接口。有就把**骨架**写进新那一节：
+从 `## Contract Boundaries`、`## Implementation Decisions` 两节和 ticket 的依赖关系判断有没有跨 plan 的连接面——共享文件、共享模块、共享数据结构，或者一份 plan 产出、另一份 plan 消费的接口。有就把**骨架**写进刚新增的 `## Cross-Plan Contract Anchors`：
 
 - **文件归属**：哪份 plan 可以碰哪些共享文件。一个文件一个归属方。
 - **跨 plan 接口**：按 plan 编号写清谁提供、谁消费（比如「01 提供鉴权令牌接口，02 消费」）。命名要到位，**精确字段和签名先标「字段待回填」**，第 5 步补实。
@@ -77,14 +77,14 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 ## 7. 提交
 
-plan 文档和 spec 新增那一节分两次提交。`planner` 不提交，改动一直是未暂存的，由你统一收。
+plan 文档和 spec 的 `## Cross-Plan Contract Anchors` 分两次提交。`planner` 不提交，改动一直是未暂存的，由你统一收。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
 | plan 审过了 | **移交**：`/mmw-implement`，一张 ticket 一个 `worker` 开始落地 |
-| 审出了采信的 findings | **自己继续**：重派 `planner` 改对应那份 plan，改完回第 6 步复审 |
+| 审出了采信的 findings | **自己继续**：重派 `planner` 改 findings 点名的那份 plan 路径，改完回第 6 步复审 |
 | 第 4 步某个 `planner` 交回 `needs-context` 或 `needs-repair` | **自己继续**：按它说的补上下文或修 spec，然后带上补齐的材料重派 |
 | 第 5 步发现 `planner` 认领了别人归属的文件，或者提供方跟消费方对不上 | **自己继续**：重派 `planner` 修那一份，不要自己动它的 plan |
 | 前置三项有一项不满足 | **停**：说清是哪一项。缺 ticket 的回 `/mmw-to-tickets`，缺 spec 的回 `/mmw-to-spec` |
