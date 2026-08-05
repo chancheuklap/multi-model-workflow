@@ -114,7 +114,7 @@ mmw issue create --title "<一句话的名字>" --body-file <摘要文件> --lab
 
 从 `/mmw-wayfinder` 来的已经有一张 issue 了，改它的正文再 `gh issue edit <编号> --add-label ready-for-agent`，不要另建。
 
-**发布出去的这张 issue 加上这个标签，就是第 7 步那道人工审批关卡过了的凭据。** 没发布就是没过这道关卡。
+**发布出去的这张 issue 加上这个标签，就是第 7 步人工审批关卡通过的凭据。** 没发布就是没过这道关卡。
 
 ## 下一步
 

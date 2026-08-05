@@ -78,7 +78,7 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 
 3. **验断言。** 开始 grill 之前先确认这个断言站得住。是 bug，就照报告人的步骤复现。是 PR，就确认这份 diff 真的做到了它自称做到的事——签出来，跑相关测试或命令。然后报告结果：确认（附代码路径）、没能复现、或者信息不够（这是很强的 `needs-info` 信号）。
 
-4. **Grill（需要时）。** 这个需求还不够具体，就跑 `$mmw:mmw-grilling`——一次一个问题地把它问成形，领域词随之收紧，决定定下来时更新拥有该术语的 leaf 和相关 ADR。
+4. **Grill（需要时）。** 这个需求还不够具体，就跑 `$mmw:mmw-grilling` 把它谈成双方确认的共同理解。它完成后回到本技能继续分诊。
 
 5. **落实结果：**
    - `ready-for-agent` —— 先按 [AGENT-BRIEF.md](AGENT-BRIEF.md) 贴一条完整的 agent brief 评论，再把状态改成 `ready-for-agent`。`**Acceptance criteria:**` 和 `**Test seam:**` 都是必填栏。然后按本文「下一步」一节决定它接着走哪个技能。

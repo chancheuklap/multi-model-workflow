@@ -448,7 +448,7 @@ end
 
 subgraph MAIN["主干 · 从想法到落地"]
   direction LR
-  gri["<b>mmw-grilling</b><br/>· 开问前先查仓库现状<br/>· 一次问一个问题<br/>· 一场最多 15 轮"]
+  gri["<b>mmw-grilling</b><br/>· 开问前先查仓库现状<br/>· 用设计树组织当前 frontier<br/>· 每轮批量提出整个 frontier<br/>· 同时应用 domain-modeling<br/>· 共同理解经用户确认才完成"]
   pro[["<b>mmw-prototype</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 一轮只回答一个问题<br/>· 界面变体派 prototype-worker<br/>· 第四条 branch 验外部系统<br/>· 产物是资产，不是一次性代码"]]
   tsp[["<b>mmw-to-spec</b><br/>· 七条入口各自取齐上游产物<br/>· seam 在这里钉死<br/>· spec 定稿的人工审批关卡通过后发布"]]
   ttk[["<b>mmw-to-tickets</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 切成 tracer bullet<br/>· 正文只留摘要<br/>· ## Plan 一节先占住 plan 路径<br/>· 清单亮完就走"]]
@@ -478,7 +478,7 @@ subgraph VOCAB["跑在别的技能底下"]
   cdx["<b>Codex App 原生运行面</b><br/>· 已安装 plugin 提供全部 skills 与三台 MCP<br/>· mmw 命令只指向 plugin cache，不依赖源码 checkout<br/>· investigator / reviewer-gpt / planner / designer 原生 subagent<br/>· 模型从 hosts.codex 覆盖解析"]
   cwt["<b>Codex worktree 合同</b><br/>· Worktree root 是 App 的跨项目全局存放目录<br/>· 用户创建 detached 主任务，确认父分支后绑定 codex/&lt;slug&gt;<br/>· MMW 不从物理目录名识别任务<br/>· 后台结果先验证与验收，通过后再集成"]
   vfy["<b>mmw-verifying-agent-output</b><br/>· 关键断言都要有出处<br/>· 取证可以派，判定不可以"]
-  dmo["<b>mmw-domain-modeling</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 唯一往仓库写领域文档的技能<br/>· none 仅在明确建模且首个长期术语定下时创建<br/>· 多 context 首次建模由 mmw domain map-init 注入受管骨架<br/>· 维护标准 Map、命名 leaf 与 authoritative 引用<br/>· 落点跑 mmw domain path / dirs 取"]
+  dmo["<b>mmw-domain-modeling</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 计划或想法的整体追问转 grilling<br/>· 唯一往仓库写领域文档的技能<br/>· none 仅在明确建模且首个长期术语定下时创建<br/>· 多 context 首次建模由 mmw domain map-init 注入受管骨架<br/>· 术语写 leaf；三项判据全成立才写 ADR<br/>· 落点跑 mmw domain path / dirs 取"]
   cbd["<b>mmw-codebase-design</b><br/>· module · interface · seam<br/>· adapter · depth<br/>· DESIGN-IT-TWICE 派 designer"]
 end
 
@@ -514,7 +514,7 @@ mms ==>|"issue 已是 ready-for-agent<br/>可作为一张 ticket 独立验收<br
 mms ==>|"只说想让代码库更好维护<br/>这一条不定 slug、不建 worktree"| ica
 mms ==>|"几条分支要合到一起<br/>或冲突要解"| intg
 
-gri ==>|"默认成对运行，边谈边落文档"| dmo
+gri ==>|"同一段对话中默认应用"| dmo
 dmo ==>|"术语写进领域文档<br/>三个条件齐了才写 ADR"| ctx
 ctx -.->|"测试名用领域语言"| tdd
 ctx -.->|"spec 用术语表里的词"| tsp
@@ -552,12 +552,12 @@ wfd ==>|"收尾时派生 spec，它自己不实现"| tsp
 
 ica ==>|"deep module 的判据<br/>以及 DESIGN-IT-TWICE"| cbd
 ica ==>|"用户挑中一个之后<br/>先绑定 App worktree 再开谈"| gri
-ica ==>|"命名和被否掉的方案当场写进 ADR"| dmo
+ica ==>|"术语当场更新 leaf<br/>ADR 按三项判据决定"| dmo
 ica ==>|"grilling 谈定之后回到它，由它移交"| tsp
 
 tdd -.->|"seam 的权威定义"| cbd
 res -->|"一份带引用的 markdown 作为输入"| gri
-gri ==>|"同一个决定问了两三轮<br/>还定不下来"| pro
+gri ==>|"某个决定必须看见实物<br/>才能判断"| pro
 pro -->|"逐轮迭代，走查过的产物留在仓库里"| pta
 pro ==>|"用户走查过了<br/>结论回填成 Implementation Decisions"| tsp
 mms ==>|"想先看看长什么样<br/>或不确定这套状态对不对"| pro
@@ -752,7 +752,7 @@ direction TB
   b3["先指派给自己；Codex 从 map 分支创建独立 Worktree 任务并绑定任务分支"]
   b4{"这张是哪一类？"}
   b5["把答案写成结案评论，然后关掉这张 ticket"]
-  b6{"这个决定难以回退，<br/>而且真有取舍吗？"}
+  b6{"mmw-domain-modeling 的<br/>三项 ADR 判据全部成立吗？"}
   b7["回头改 map。<br/>新问题先建 ticket 再连阻塞关系，<br/>判出范围的直接关掉"]
   b8{"这张解开之后，下一张<br/>出现在 frontier 上、没人认领吗？"}
   b8b{"那一张是 HITL 还是 AFK？<br/>按 wayfinder: 标签判"}
@@ -763,7 +763,7 @@ hB(["停，交回用户<br/>报这条链做完了，frontier 上还剩几张可�
 
 subgraph TY["四类 ticket 怎么解 · 要人在场的那三类，agent 不许替人回答"]
 direction TB
-  t1["grilling 类，要人在场。<br/>这是默认类型，一场最多 15 轮"]
+  t1["grilling 类，要人在场。<br/>跑 mmw-grilling，按设计树的<br/>整个 frontier 分轮提问"]
   t2[["prototype 类，要人在场。<br/>跑 mmw-prototype，一轮回答一个问题"]]
   t3[["research 类，人不用在场。<br/>只查当前这一个决定，答完就停"]]
   t4{"task 类。<br/>agent 自己做得了吗？"}
@@ -797,7 +797,7 @@ end
 
 pmap[/"<b>map issue</b> · GitHub<br/>· A 段建<br/>· B 段每解完一张追加一行索引<br/>· C 段关掉，不转 Wiki"/]
 ptk[/"<b>decision ticket</b> · map 的子 issue<br/>· A 段建第一批，B 段边走边补<br/>· 解开就关掉<br/>· 答案本体留在结案评论里"/]
-adr[/"<b>ADR</b> · 落点跑 mmw domain dirs 取<br/>· 一解出难以回退的决定就写<br/>· 链上先写 draft- 草稿名<br/>· 随 map 分支进入最终目标"/]
+adr[/"<b>ADR</b> · 落点跑 mmw domain dirs 取<br/>· 三项判据全部成立才写<br/>· 链上先写 draft- 草稿名<br/>· 随 map 分支进入最终目标"/]
 ctx[/"<b>目标 AGENTS.md 与领域文档</b> · 住 map 分支<br/>· 主 agent 与 subagent 共用领域入口<br/>· Map 登记命名 Markdown leaf 与 authoritative 引用<br/>· leaf 与 ADR 随 map 分支进入最终目标"/]
 oos[/"<b>.out-of-scope/</b> · 住 map 分支<br/>· 判出范围时写<br/>· 一个概念一个文件<br/>· 下次分诊先查它去重"/]
 spf[/"<b>docs/specs/&lt;slug&gt;/</b> · 住 spec 分支<br/>· D 段 mmw-to-spec 写<br/>· mmw-to-plan 补 plan<br/>· 代码落地后转成 Wiki 一页"/]
@@ -851,7 +851,7 @@ hB -.->|"用户再开一个会话"| b1
 c1 --> c2
 c2 -->|"有。建成新的 decision ticket"| hB
 c2 -->|"没有"| c3
-c3 -->|"难以回退且有取舍的"| adr
+c3 -->|"三项 ADR 判据全部成立的"| adr
 c3 -->|"考察过但否掉的方向"| oos
 c3 -->|"写进文档的术语"| ctx
 c3 --> c4
