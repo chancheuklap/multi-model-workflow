@@ -3,6 +3,8 @@ name: mmw-to-tickets
 description: 把一份 spec 拆成一组 tracer bullet ticket，按依赖顺序发布。用户说要拆 ticket、要定先做哪一块时用它；刚写完 spec 的技能也移交这里。
 ---
 
+开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
+
 把一份 spec、一份计划或当前这段对话拆成一组 **ticket**——每张是一条 tracer bullet 垂直切片，并声明**阻塞**它的那些 ticket。
 
 issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw issue`，读一张、评论、打标签这类一条命令做得完的直接用 `gh`。标签清单在仓库根 `.mmw.json` 的 `tracker.labels`。

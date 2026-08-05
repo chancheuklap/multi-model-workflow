@@ -5,11 +5,11 @@ description: 把项目的领域模型建起来、磨锋利。用户要把领域�
 
 # Domain Modeling
 
-一边设计一边主动把项目的领域模型建起来、磨锋利。这是*主动*的那份纪律——挑战用词、造边界场景、一旦想清楚就当场把 glossary 和决定写下来。（只是*读* `CONTEXT.md` 取用词不算这个技能——那是任何技能都能做的一行习惯。这个技能管的是你在改这个模型，不是消费它。）
+一边设计一边主动把项目的领域模型建起来、磨锋利。这是*主动*的那份纪律——挑战用词、造边界场景、一旦想清楚就当场把 glossary 和决定写下来。（只是*读*领域文档取用词不算这个技能——那是任何技能都能做的一行习惯。这个技能管的是你在改这个模型，不是消费它。）
 
 ## 读领域文档
 
-别的技能要读领域文档时照这里做，各自不再复述：跑 `mmw domain path`——报 `map` 就读它给的那份索引，按索引取这次要碰的那几个上下文，各读各的 `CONTEXT.md`；报 `single` 就读它给的那一份；报 `none` 就直接往下走，不要停下来建。
+开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。运行 `mmw domain path`：返回 `map` 时，先读 Map，再读本次涉及的全部命名 leaf；返回 `single` 时，读命令返回的领域文档；返回 `none` 时，直接继续，不报告缺失，也不创建领域文档。
 
 ## 文件放哪
 
@@ -20,39 +20,37 @@ mmw domain path    # 这个仓库现在是哪种形态：map / single / none，�
 mmw domain dirs    # 写入侧的两个落点：新上下文的根目录、ADR 目录
 ```
 
-`mmw domain path` 给 `single` 或 `none`，说明这个仓库只有一个上下文，术语全写在根 `CONTEXT.md`：
+`mmw domain path` 给 `single` 时，术语写进命令返回的领域文档：
 
 ```
 /
-├── CONTEXT.md
-├── docs/
-│   └── adr/
-│       ├── 0001-event-sourced-orders.md
-│       └── 0002-postgres-for-write-model.md
+├── <mmw domain path 返回的 single leaf>
+├── <mmw domain dirs 返回的 adr 落点>/
+│   ├── 0001-event-sourced-orders.md
+│   └── 0002-postgres-for-write-model.md
 └── src/
 ```
 
-给 `map`，说明有多个上下文，根上那份 `CONTEXT-MAP.md` 是索引，指出每个上下文住在哪。新上下文建在 `mmw domain dirs` 给的 `context` 那一行下面：
+给 `map`，说明有多个上下文。命令返回的 Map 是索引，指出每个上下文的命名 leaf。新 leaf 建在 `mmw domain dirs` 给的 `context` 路径或其子目录中，并使用 `.md` 扩展名：
 
 ```
 /
-├── CONTEXT-MAP.md
-├── docs/
-│   └── adr/                          ← 全系统级的决定
+├── <mmw domain path 返回的 Map>
+├── <mmw domain dirs 返回的 adr 落点>/   ← 全系统级的决定
 ├── <mmw domain dirs 给的 context 落点>/
-│   ├── ordering/CONTEXT.md
-│   └── billing/CONTEXT.md
+│   ├── ordering.md
+│   └── billing/billing-language.md
 ```
 
-**多上下文的仓库没有根 `CONTEXT.md`。** 往那里写会在根上凭空造出一份不该存在的。
+Map 中的 `Leaf` 链接决定已有上下文的真实落点。不要根据上下文名推测文件名，也不要在 Map 之外另建没有登记的 leaf。
 
-文件按需建——有东西要写了才建。没有 `CONTEXT.md`，第一个术语定下来时建。没有 `docs/adr/`，第一份 ADR 要写时建。
+文件按需建——有东西要写了才建。Map 形态新增 leaf 时，同时登记 Map 的 `Contexts` 和 `Relationships`。没有 ADR 目录时，第一份 ADR 要写时再按 `mmw domain dirs` 返回的 `adr` 路径创建。
 
 ## 谈的过程里
 
 ### 拿 glossary 挑战他
 
-用户用了一个跟 `CONTEXT.md` 里既有说法冲突的词，当场挑明。「你的 glossary 把『取消』定义成 X，但你现在说的像是 Y——到底是哪个？」
+用户用了一个跟相关 leaf 里既有说法冲突的词，当场挑明。「你的 glossary 把『取消』定义成 X，但你现在说的像是 Y——到底是哪个？」
 
 ### 把含糊的说法收紧
 
@@ -66,11 +64,11 @@ mmw domain dirs    # 写入侧的两个落点：新上下文的根目录、ADR �
 
 用户说某件事是怎么运作的，去看代码同不同意。发现矛盾就摆到明面上：「你的代码取消的是整张 Order，但你刚说可以部分取消——哪个是对的？」
 
-### 当场更新 CONTEXT.md
+### 当场更新拥有术语的 leaf
 
-一个术语定下来，就地更新 `CONTEXT.md`。不要攒着——想清楚一个记一个。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
+一个术语定下来，就地更新拥有这个术语的 leaf。不要攒着——想清楚一个记一个。共享术语只在权威 leaf 定义，其他 leaf 使用权威引用。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
 
-`CONTEXT.md` 里绝不能有实现细节。不要把 `CONTEXT.md` 当 spec、当草稿纸、当实现决定的收纳箱。它是一份 glossary，仅此而已。
+领域 leaf 里绝不能有实现细节。不要把 leaf 当 spec、当草稿纸、当实现决定的收纳箱。它是一份 glossary，仅此而已。
 
 ### ADR 少提
 

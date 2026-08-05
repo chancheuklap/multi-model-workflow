@@ -9,6 +9,7 @@ shellcheck --severity=warning mmw/cli/mmw mmw/cli/adapters/*.sh mmw/cli/lib/*.sh
   mmw/mcp/install-mcp.sh mmw/release/release-flow.sh
 
 git diff --check
+mmw/cli/mmw skills materialize --host all --check
 python3 mmw/codex/runtime.py materialize --check
 python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
 python3 -m json.tool mmw/codex/profiles.json >/dev/null
