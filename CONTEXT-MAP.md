@@ -16,29 +16,22 @@
 
 | Context | Leaf | Owns |
 | --- | --- | --- |
-| Workflow Orchestration | [Workflow Orchestration](./docs/context/workflow-orchestration.md) | MMW 任务、slug、任务 worktree、任务分支、结果分支与移交。 |
-| Intake and Triage | [Intake and Triage](./docs/context/intake-and-triage.md) | issue 与外部 PR 的分诊状态、agent brief 和 `ready-for-agent`。 |
-| Wayfinding | [Wayfinding](./docs/context/wayfinding.md) | effort、destination、Wayfinder map、decision ticket、chain 与 frontier。 |
-| Product Definition | [Product Definition](./docs/context/product-definition.md) | grilling、prototype、walkthrough、spec、视觉合同与人工审批关卡。 |
-| Delivery Planning | [Delivery Planning](./docs/context/delivery-planning.md) | tracer bullet ticket、plan、任务包与跨 plan 合同。 |
-| Agent Operation | [Agent Operation](./docs/context/agent-operation.md) | 主 agent、subagent、角色、task、报告、取证与验证。 |
-| Implementation Quality | [Implementation Quality](./docs/context/implementation-quality.md) | 诊断 loop、TDD、回归测试、mock 与测试质量门。 |
-| Review and Integration | [Review and Integration](./docs/context/review-and-integration.md) | 六道审查、finding、处置、固定点、结果验证与分支集成。 |
-| Codebase Design | [Codebase Design](./docs/context/codebase-design.md) | module、interface、implementation、depth、seam 与 adapter。 |
-| Knowledge and Domain | [Knowledge and Domain](./docs/context/knowledge-and-domain.md) | 调查、检索图、领域模型、Context Map、leaf 与 ADR。 |
-| Release and Closure | [Release and Closure](./docs/context/release-and-closure.md) | 产品出包、release engine、安装包实测、Wiki 归档与任务收尾。 |
-| Skill Authoring | [Skill Authoring](./docs/context/skill-authoring.md) | 技能源、物化技能、调用方式、信息层级、steering 与 pruning。 |
+| 交付工作流 | [交付工作流](./docs/context/delivery-workflow.md) | 从需求定形到实现完成的正式产物、参与方式和人工审批关卡。 |
+| Tracker 管理 | [Tracker 管理](./docs/context/tracker.md) | issue 与外部 PR 的角色标签、执行合同、认领和 frontier。 |
+| Wayfinding | [Wayfinding](./docs/context/wayfinding.md) | 大型 effort 的 Wayfinder map、decision ticket、chain 和 fog of war。 |
+| Agent 协作 | [Agent 协作](./docs/context/agent-coordination.md) | 主 agent、subagent、角色、task、报告、验证和结果分支。 |
+| 审查 | [审查](./docs/context/review.md) | 审查阶段、审查视角、finding、处置、固定点和审查记录。 |
+| 发布与收尾 | [发布与收尾](./docs/context/release-and-closure.md) | 产品出包、交付记录、安装包实测、对外发布和 Wiki 收尾。 |
+| 宿主运行时 | [宿主运行时](./docs/context/host-runtime.md) | 共享技能源、宿主物化产物、角色 profile 和宿主动作块。 |
+| 项目上下文 | [项目上下文](./docs/context/project-context.md) | 领域文档、检索图、结构候选和权威引用。 |
 
 ## Relationships
 
-- Workflow Orchestration 为一项工作建立 MMW 任务，并把请求路由到 Intake and Triage、Wayfinding、Product Definition、Knowledge and Domain 或 Review and Integration。
-- Intake and Triage 把已分诊需求交给 Product Definition 或 Delivery Planning；`ready-for-agent` 只表示当前 work item 的下一步 agent 合同已经完整。
-- Wayfinding 把一个 effort 逐步收敛成一份或多份 spec issue；Product Definition 把每份 spec issue 写成经过人工审批关卡的 spec。
-- Product Definition 定义 spec 与测试 seam；Delivery Planning 把 spec 拆成实现 ticket 和 plan。
-- Delivery Planning 通过 task 把 plan 交给 Agent Operation 中的 `planner` 或 `worker`；Agent Operation 只交回报告，关键断言由主 agent 验证。
-- Implementation Quality 约束 `worker` 的诊断、TDD 和测试；测试 seam 使用 Codebase Design 的权威定义。
-- Review and Integration 审查 spec、plan、实现与合并结果；采信的 finding 返回产物拥有者修复。
-- Codebase Design 为 Product Definition、Delivery Planning 与 Implementation Quality 提供 module、interface、seam 和 adapter 的共同语言。
-- Knowledge and Domain 为所有上下文提供验证过的仓库事实、外部事实与领域术语；Context Map 与 Wayfinder map 是两个不同对象。
-- Release and Closure 只接收通过 final 终审的任务；安装包实测通过后，spec 与 plan 才进入 Wiki 并从任务分支移除。
-- Skill Authoring 规定前述工作流如何写成技能并物化到各宿主；它不拥有任何产品工作流的业务语义。
+- Tracker 管理保存交付工作流和 Wayfinding 的 work item；`ready-for-agent` 只表示 agent 可以按拥有该 work item 的技能继续 AFK 推进。
+- Wayfinding 把一个 effort 收敛成一份或多份 spec issue；交付工作流拥有这些 spec 的定稿、拆分、计划和实现。
+- 交付工作流通过 Agent 协作派发工作；subagent 交回报告，主 agent 验证关键断言后才采信。
+- 审查读取交付工作流的 spec、plan 和实现产物；采信的 finding 返回产物拥有者处理。
+- 发布与收尾只接收通过 final 终审的交付结果；安装包实测和对外发布各自遵守交付工作流定义的人工审批关卡。
+- 宿主运行时把共享技能中的角色启动和宿主动作物化成各宿主的原生执行方式，不改变交付工作流语义。
+- 项目上下文为其他上下文提供项目术语和结构候选；关键结论仍由 Agent 协作中的主 agent 回到当前源码验证。
+- Context Map 属于项目上下文；Wayfinder map 属于 Wayfinding。两者都称 map，但不共享对象含义。

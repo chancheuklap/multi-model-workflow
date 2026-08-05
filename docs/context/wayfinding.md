@@ -1,6 +1,6 @@
 # Wayfinding
 
-这个上下文处理尚不能由一份 spec 说清的大型 effort。它用 issue tracker 上的共享索引逐个解除未知决定。
+这个上下文定义 MMW 如何把一项尚未看清完整路径的大型 effort 收敛成一份或多份可交付 spec。
 
 ## Language
 
@@ -25,16 +25,13 @@ _Avoid_: 实现 ticket、tracer bullet ticket
 _Avoid_: 并行 ticket 列表、任务分支
 
 **frontier**：
-依赖已经解除、尚未关闭且无人认领的 work item 集合。Wayfinding 与实现排程都使用这个同一图概念。
-_Avoid_: backlog、下一张固定 ticket
+(authoritative: [frontier](./tracker.md))
 
 **HITL**：
-缺少人的对话回答就无法完成的 work item 属性。HITL 描述完成方式，不表示 `/mmw-to-spec` 的人工审批关卡。
-_Avoid_: `ready-for-human`、人工审批关卡
+(authoritative: [HITL](./delivery-workflow.md))
 
 **AFK**：
-agent 可以在没有人中途参与时完成的 work item 属性。人只在完成后查看结果。
-_Avoid_: 全自动发布、无需验证
+(authoritative: [AFK](./delivery-workflow.md))
 
 **`wayfinder:grilling`**：
 必须通过一问一答形成决定的 HITL decision ticket。
