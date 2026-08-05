@@ -20,10 +20,10 @@ MMW 对 `domain-modeling` 的主体方法保留得较完整。领域文档位置
 | --- | --- |
 | MMW 源码 | 当前 worktree |
 | Codex 已安装技能 | `mmw-codex` 0.9.0 |
-| 仓库内 Matt Pocock 副本 | 上游提交 `0986ebaf5d29e812162702b2633a2942c30200d2`，2026-08-06 更新 |
-| Matt Pocock 当前上游 | `0986ebaf5d29e812162702b2633a2942c30200d2`，2026-08-05 核对 |
+| 仓库内 Matt Pocock 副本 | 上游提交 `8b36d4fb2635b3c21998dcd8144439c9e5ba7302`，2026-08-06 更新 |
+| Matt Pocock 当前上游 | `8b36d4fb2635b3c21998dcd8144439c9e5ba7302`，2026-08-06 核对 |
 
-本调查最初以仓库原有的 `2ab958093e83e0ec752e6c1c5932da465bf23e0c` 副本为基线。仓库随后通过 Git subtree 更新到 `0986ebaf5d29e812162702b2633a2942c30200d2`。`grill-with-docs`、`domain-modeling` 和问题上限规则没有变化。`grilling` 的提问协议发生了变化。[上游比较](https://github.com/mattpocock/skills/compare/2ab958093e83e0ec752e6c1c5932da465bf23e0c...0986ebaf5d29e812162702b2633a2942c30200d2)
+本调查最初以仓库原有的 `2ab958093e83e0ec752e6c1c5932da465bf23e0c` 副本为基线。仓库先通过 Git subtree 更新到 `0986ebaf5d29e812162702b2633a2942c30200d2`，定稿前再更新到 `8b36d4fb2635b3c21998dcd8144439c9e5ba7302`。第一次更新改变了 `grilling` 的提问协议；第二次更新只调整相关说明文件的叙述人称，没有修改四项相关技能的方法正文。[上游比较](https://github.com/mattpocock/skills/compare/2ab958093e83e0ec752e6c1c5932da465bf23e0c...8b36d4fb2635b3c21998dcd8144439c9e5ba7302)
 
 ## 上游如何搭配两个技能
 

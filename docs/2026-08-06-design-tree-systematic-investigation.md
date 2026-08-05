@@ -12,9 +12,9 @@ MMW 当前没有完整引入设计树。`mmw-grilling` 只保留了“沿着决�
 
 ## 上游副本状态
 
-本次调查先按仓库合同更新了 `vendor/mattpocock-skills/`。Git subtree 从上游提交 `2ab958093e83e0ec752e6c1c5932da465bf23e0c` 更新到 `0986ebaf5d29e812162702b2633a2942c30200d2`。仓库合并提交是 `11c07e7f395cf80aa78fed81b07326ca46d2f3b6`。
+本次调查先按仓库合同更新了 `vendor/mattpocock-skills/`。Git subtree 先从上游提交 `2ab958093e83e0ec752e6c1c5932da465bf23e0c` 更新到 `0986ebaf5d29e812162702b2633a2942c30200d2`，定稿前再更新到 `8b36d4fb2635b3c21998dcd8144439c9e5ba7302`。最终仓库合并提交是 `0126774715560481b09e5459293708607e2e5260`。
 
-设计树随上游 1.2.0 发布。当前上游提交只把插件版本准备到 1.2.1，没有继续修改 grilling 方法。[1.2.0 发布记录](https://github.com/mattpocock/skills/releases/tag/v1.2.0)
+设计树随上游 1.2.0 发布。当前上游版本是 1.2.2；1.2.1 和 1.2.2 没有继续修改 grilling 方法。[1.2.0 发布记录](https://github.com/mattpocock/skills/releases/tag/v1.2.0)
 
 ## 设计树的模型
 
