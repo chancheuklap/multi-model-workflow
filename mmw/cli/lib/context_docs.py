@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import subprocess
 import sys
@@ -39,6 +40,12 @@ class Target:
     original: bytes | None
     candidate: bytes | None
     mode: int | None
+
+
+@dataclass(frozen=True)
+class CheckResult:
+    shape: str
+    rel_path: str
 
 
 def fail(rel_path: str, code: str, message: str) -> NoReturn:
@@ -95,6 +102,23 @@ def replace_managed_block(
     before = b"".join(lines[: start_lines[0]])
     after = b"".join(lines[end_lines[0] + 1 :])
     return before + seed + after, True
+
+
+def check_managed_block(
+    path: Path,
+    rel_path: str,
+    seed: bytes,
+    start_marker: str,
+    end_marker: str,
+) -> None:
+    if not path.is_file():
+        fail(rel_path, "managed-drift", "缺少领域上下文受管区块")
+    original = read_bytes(path, rel_path)
+    candidate, had_markers = replace_managed_block(
+        original, seed, start_marker, end_marker, rel_path
+    )
+    if not had_markers or candidate != original:
+        fail(rel_path, "managed-drift", "领域上下文受管区块与 MMW 种子不一致")
 
 
 def append_block(original: bytes, seed: bytes) -> bytes:
@@ -302,6 +326,205 @@ def load_domain_config(root: Path, config_path: Path) -> dict[str, str]:
     return result
 
 
+def is_readable_file(path: Path) -> bool:
+    if not path.is_file() or not os.access(path, os.R_OK):
+        return False
+    try:
+        with path.open("rb") as source:
+            source.read(1)
+    except OSError:
+        return False
+    return True
+
+
+def is_within(path: Path, directory: Path) -> bool:
+    try:
+        path.relative_to(directory)
+    except ValueError:
+        return False
+    return True
+
+
+def section_lines(text: str, heading: str, rel_path: str) -> list[str]:
+    lines = text.splitlines()
+    matches = [
+        index for index, line in enumerate(lines) if line.rstrip(" \t") == heading
+    ]
+    if len(matches) != 1:
+        fail(rel_path, "missing-section", f"Map 必须包含唯一的 {heading}")
+    start = matches[0] + 1
+    end = next(
+        (
+            index
+            for index in range(start, len(lines))
+            if re.match(r"^##\s+\S", lines[index])
+        ),
+        len(lines),
+    )
+    return lines[start:end]
+
+
+def table_cells(line: str) -> list[str] | None:
+    stripped = line.strip()
+    if not stripped.startswith("|") or not stripped.endswith("|"):
+        return None
+    return [cell.strip() for cell in stripped[1:-1].split("|")]
+
+
+def resolve_leaf(
+    raw_target: str,
+    base_dir: Path,
+    context_dir: Path,
+    map_rel: str,
+) -> Path:
+    if (
+        Path(raw_target).is_absolute()
+        or raw_target.startswith("\\")
+        or re.match(r"^[A-Za-z]:[\\/]", raw_target)
+        or re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", raw_target)
+    ):
+        fail(map_rel, "invalid-leaf", f"Leaf 必须使用 Map 相对路径：{raw_target}")
+    resolved = (base_dir / raw_target).resolve()
+    if (
+        not is_within(resolved, context_dir)
+        or resolved.suffix != ".md"
+        or not is_readable_file(resolved)
+    ):
+        fail(map_rel, "invalid-leaf", f"Leaf 越界、失效、不可读或不是 Markdown：{raw_target}")
+    return resolved
+
+
+def check_context_table(
+    lines: list[str], map_path: Path, map_rel: str, context_dir: Path
+) -> set[Path]:
+    content = [line for line in lines if line.strip()]
+    if len(content) < 3:
+        fail(map_rel, "invalid-context-table", "Contexts 必须包含三列表格和至少一个上下文")
+    header = table_cells(content[0])
+    separator = table_cells(content[1])
+    if header != ["Context", "Leaf", "Owns"] or separator is None or len(separator) != 3:
+        fail(map_rel, "invalid-context-table", "Contexts 表头必须依次为 Context、Leaf、Owns")
+    if not all(re.fullmatch(r":?-{3,}:?", cell) for cell in separator):
+        fail(map_rel, "invalid-context-table", "Contexts 表格分隔行无效")
+
+    names: set[str] = set()
+    leaves: set[Path] = set()
+    link_pattern = re.compile(r"^\[([^\]]+)\]\(([^)]+)\)$")
+    for line in content[2:]:
+        cells = table_cells(line)
+        if cells is None or len(cells) != 3:
+            fail(map_rel, "invalid-context-table", "Contexts 每一行都必须有三列")
+        context, leaf_cell, owns = cells
+        if not context or context in names:
+            fail(map_rel, "invalid-context-table", "Context 必须非空且唯一")
+        match = link_pattern.fullmatch(leaf_cell)
+        if match is None or not match.group(1).strip():
+            fail(map_rel, "invalid-context-table", "Leaf 单元格必须且只能包含一个 Markdown 链接")
+        if not owns:
+            fail(map_rel, "invalid-context-table", "Owns 必须是非空所有权说明")
+        names.add(context)
+        leaves.add(resolve_leaf(match.group(2), map_path.parent, context_dir, map_rel))
+    return leaves
+
+
+def check_relationships(lines: list[str], map_rel: str) -> None:
+    if not any(re.match(r"^\s*(?:[-+*]|\d+\.)\s+\S", line) for line in lines):
+        fail(map_rel, "invalid-relationships", "Relationships 必须包含至少一个 Markdown 列表项")
+
+
+def check_authoritative_references(
+    leaves: set[Path], context_dir: Path, root: Path
+) -> None:
+    reference_pattern = re.compile(
+        r"\(authoritative: \[([^\]]+)\]\(([^)]+)\)\)"
+    )
+    for leaf in sorted(leaves):
+        rel_path = leaf.relative_to(root).as_posix()
+        text = decode_markdown(read_bytes(leaf, rel_path), rel_path)
+        matches = list(reference_pattern.finditer(text))
+        if text.count("authoritative:") != len(matches):
+            fail(rel_path, "invalid-authoritative", "authoritative 引用格式无效")
+        for match in matches:
+            raw_target = match.group(2)
+            if (
+                Path(raw_target).is_absolute()
+                or raw_target.startswith("\\")
+                or re.match(r"^[A-Za-z]:[\\/]", raw_target)
+                or re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", raw_target)
+            ):
+                fail(rel_path, "invalid-authoritative", f"authoritative 引用越界：{raw_target}")
+            target = (leaf.parent / raw_target).resolve()
+            if (
+                not match.group(1).strip()
+                or not is_within(target, context_dir)
+                or target.suffix != ".md"
+                or target not in leaves
+                or not is_readable_file(target)
+            ):
+                fail(
+                    rel_path,
+                    "invalid-authoritative",
+                    f"authoritative 引用必须指向 Map 已登记的可读 leaf：{raw_target}",
+                )
+
+
+def check_map(root: Path, map_rel: str, context_rel: str, map_seed: bytes) -> None:
+    map_path = root / map_rel
+    check_managed_block(map_path, map_rel, map_seed, MAP_START, MAP_END)
+    text = decode_markdown(read_bytes(map_path, map_rel), map_rel)
+    contexts = section_lines(text, "## Contexts", map_rel)
+    relationships = section_lines(text, "## Relationships", map_rel)
+    lines = text.splitlines()
+    context_index = next(
+        index for index, line in enumerate(lines) if line.rstrip(" \t") == "## Contexts"
+    )
+    relationship_index = next(
+        index
+        for index, line in enumerate(lines)
+        if line.rstrip(" \t") == "## Relationships"
+    )
+    if context_index >= relationship_index:
+        fail(map_rel, "missing-section", "Map 必须先列 Contexts，再列 Relationships")
+    context_dir = (root / context_rel).resolve()
+    leaves = check_context_table(contexts, map_path, map_rel, context_dir)
+    check_relationships(relationships, map_rel)
+    check_authoritative_references(leaves, context_dir, root)
+
+
+def check_contracts(root: Path, config_path: Path, host: str) -> CheckResult:
+    if host not in {"claude-code", "pi", "codex"}:
+        fail("-", "invalid-config", f"无法识别宿主：{host}")
+    domain = load_domain_config(root, config_path)
+    agents_seed = read_seed("AGENTS-domain-context.md")
+    map_seed = read_seed("CONTEXT-MAP-rules.md")
+    check_managed_block(
+        root / "AGENTS.md", "AGENTS.md", agents_seed, AGENTS_START, AGENTS_END
+    )
+    if host == "claude-code":
+        claude_path = root / "CLAUDE.md"
+        if not claude_path.is_file():
+            fail("CLAUDE.md", "missing-claude-import", "Claude Code 缺少根 AGENTS.md 导入")
+        claude_text = decode_markdown(read_bytes(claude_path, "CLAUDE.md"), "CLAUDE.md")
+        if not any(
+            line.rstrip("\r\n") == "@AGENTS.md"
+            for line in claude_text.splitlines(keepends=True)
+        ):
+            fail("CLAUDE.md", "missing-claude-import", "Claude Code 缺少根 AGENTS.md 导入")
+
+    map_rel = domain["map"]
+    fallback_rel = domain["fallback"]
+    map_path = root / map_rel
+    fallback_path = root / fallback_rel
+    if map_path.is_file():
+        check_map(root, map_rel, domain["context_dir"], map_seed)
+        return CheckResult("map", map_rel)
+    if fallback_path.is_file():
+        if not is_readable_file(fallback_path):
+            fail(fallback_rel, "unreadable-single", "单领域文档不可读")
+        return CheckResult("single", fallback_rel)
+    return CheckResult("none", "-")
+
+
 def sync_contracts(root: Path, config_path: Path, host: str) -> list[Target]:
     if host not in {"claude-code", "pi", "codex"}:
         fail("-", "invalid-config", f"无法识别宿主：{host}")
@@ -344,6 +567,10 @@ def parse_args() -> argparse.Namespace:
     sync.add_argument("--root", required=True, type=Path)
     sync.add_argument("--config", required=True, type=Path)
     sync.add_argument("--host", required=True)
+    check = subparsers.add_parser("check")
+    check.add_argument("--root", required=True, type=Path)
+    check.add_argument("--config", required=True, type=Path)
+    check.add_argument("--host", required=True)
     return parser.parse_args()
 
 
@@ -355,6 +582,10 @@ def main() -> int:
             targets = sync_contracts(root, args.config.resolve(), args.host)
             for target in targets:
                 print(f"sync\t{target.kind}\t{target.rel_path}\t{target.status}")
+            return 0
+        if args.command == "check":
+            result = check_contracts(root, args.config.resolve(), args.host)
+            print(f"check\t{result.shape}\t{result.rel_path}\tvalid")
             return 0
     except ContractError as error:
         print(

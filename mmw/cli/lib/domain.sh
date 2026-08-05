@@ -23,7 +23,7 @@ mmw_domain_path() {
   fallback="$(mmw_config '.domain.fallback // "CONTEXT.md"')"
 
   if [ -f "$root/$map" ]; then
-    printf 'map\t%s\t这是索引：读它，按它找出这次要碰的那几个上下文，各读各的 CONTEXT.md\n' "$root/$map"
+    printf 'map\t%s\t这是索引：读它，再读取它列出的本次相关全部 leaf\n' "$root/$map"
   elif [ -f "$root/$fallback" ]; then
     printf 'single\t%s\t单上下文，读这一份\n' "$root/$fallback"
   else
@@ -39,6 +39,18 @@ mmw_domain_sync() {
   config="$(mmw_require_config)" || return 1
   host="$(mmw_host)" || return 1
   python3 "$MMW_ROOT/cli/lib/context_docs.py" sync \
+    --root "$root" \
+    --config "$config" \
+    --host "$host"
+}
+
+# 检查器与同步器消费同一份种子和配置，避免 doctor 另抄一套受管正文。
+mmw_domain_check() {
+  local root config host
+  root="$(mmw_repo_root)"
+  config="$(mmw_require_config)" || return 1
+  host="$(mmw_host)" || return 1
+  python3 "$MMW_ROOT/cli/lib/context_docs.py" check \
     --root "$root" \
     --config "$config" \
     --host "$host"
