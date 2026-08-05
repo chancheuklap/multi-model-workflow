@@ -70,6 +70,10 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 
 三关之外还要确认一件本阶段特有的事：commit 存在，并且引用了这张 ticket。
 
+ticket 涉及界面时，还要完成浏览器验收：
+
+[[mmw-host-action:browser-ui-acceptance]]
+
 三关都过后，集成结果：
 
 [[mmw-host-action:integrate-worktree-result]]

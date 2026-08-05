@@ -20,7 +20,7 @@ description: 难以定位的 bug 和性能回退的诊断循环，先造出一�
 1. **失败的测试**，放在任何一个够得到这个 bug 的 seam 上——单元、集成、e2e 都行。
 2. **curl / HTTP 脚本**，打一个跑着的 dev server。
 3. **CLI 调用**，喂一份 fixture 输入，把 stdout 和一份已知正确的快照做 diff。
-4. **headless 浏览器脚本**（Playwright / Puppeteer）——驱动界面，对 DOM／console／网络下断言。
+4. [[mmw-host-action:browser-bug-reproduction]]
 5. **回放抓下来的 trace。** 把一次真实的网络请求／载荷／事件日志存到磁盘，隔离出来在那条代码路径上回放。
 6. **一次性 harness。** 起一个最小子集（一个服务，依赖打桩），用一次函数调用就走到出 bug 的那条路径。
 7. **属性／模糊测试循环。** bug 表现为「有时候输出不对」，就跑 1000 个随机输入，找那个失败形态。

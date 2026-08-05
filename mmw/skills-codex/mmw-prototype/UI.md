@@ -40,6 +40,8 @@
 
 启动：先用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`。target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型使用 `gpt-5.6-sol`，思考档使用 `medium`。任务提示包含四栏 task、主 agent 已确定的完整结果分支名和派发前基点 SHA；结果分支名使用独立的 `codex/<slug>`。后台 agent 先运行 `mmw task bind <完整结果分支名> <目标栏原文> --from <基点 SHA>`，然后完成工作并提交。后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 worktree 设置，取得 threadId 后再等待。
 
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的调查、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+
 每个 `prototype-worker` 完成后，逐个收取结果：
 
 该角色完成后，运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。命令通过后，从输出取得结果 worktree 路径；在该路径读取报告与 diff，并运行本技能规定的验收。此动作不合入结果分支。
@@ -105,6 +107,8 @@ return (
 ## 5. 交给用户
 
 把地址和 `?variant=` 的取值给他。他常给的反馈是**「我要 B 的页头配 C 的侧边栏」**，据此再开一轮。
+
+完整读取并遵守 `/browser:control-in-app-browser`。使用 Codex 内置浏览器，该 skill 不可用时明确报告 blocker，不得改用 Playwright CLI 冒充用户走查。先清点全部相关页面或 URL，每个页面使用独立标签页；不得用一个标签页依次覆盖多份 mockup。把浏览器设为可见，并用 `codex_app__open_in_codex` 在当前任务的 Codex 面板打开第一个标签页。读取实际 URL、标题和可见状态；没有确认可见时，不得声称已经打开。交给用户前，为每个相关页面的当前状态截图；把截图保留在当前对话，有正式原型或走查目录时同时保存到该目录并记录路径。用户需要继续标记或操作时，保留全部相关标签页为 `handoff`；`finalize` 必须是本回合最后一个浏览器动作。页面交给用户后停止导航，等待用户反馈。
 
 ## 下一步
 

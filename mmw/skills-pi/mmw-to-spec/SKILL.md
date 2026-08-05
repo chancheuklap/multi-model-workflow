@@ -17,7 +17,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 | `/mmw-improve-codebase-architecture` 挑中的候选谈定 | slug 是 `refactor-` 开头，那个空提交里记着一张候选卡片的标题 | 这一轮写进领域文档的术语（落点跑 `mmw domain path` 取）、这一轮落成的 ADR、对话里达成的每一条共识，外加**那张卡片**——它的文件清单是第 2 步探仓库的起点，它的 Problem 和 before/after 直接进 spec 的 `## Current State` 与 `## Solution`。这次的外部行为不变，所以 `## Solution` 写的是结构怎么变、谁的调用方式跟着变 |
 | `/mmw-prototype` 走查完 | `docs/prototypes/<slug>/` 存在 | 那份 `README.md` 里回填的结论；每一轮的**选中的那一版**；界面那一侧的视觉契约 |
 | `/mmw-wayfinder` 切出的一份 spec | 有一张 issue 挂在带 `wayfinder:map` 标签的 issue 底下，自己不带任何 `wayfinder:` 标签 | 那张 map 的 `Destination`、`Decisions so far`、`Out of scope` 三节，各自落进 spec 哪里见第 4 步；走这张 map 过程中新增的 `docs/adr/` 与 `.out-of-scope/` |
-| `/mmw-triage` 判出这件事碰多处 | 那张 issue 上有一条 agent brief 评论 | 那份 brief 全文，尤其 `Test seam` 那一栏，以及 `/mmw-triage` 的「分诊一张具体的 issue 或 PR」第 3 步验过的断言 |
+| `/mmw-triage` 判出这件事需要多张 ticket、多个测试 seam，或者还有设计取舍要谈 | 那张 issue 或 PR 上有一条 agent brief 评论 | 那份 agent brief 全文，尤其 `Test seam` 那一栏，以及 `/mmw-triage` 的「分诊一张具体的 issue 或 PR」第 3 步验过的断言 |
 | `/mmw-implement` 回来补 seam | `docs/specs/<slug>/` 里已经有一份 spec | 现有那份 spec。**只补 seam 一节，不重写**，从第 2 步接着走 |
 | 用户直接叫你 | 上面都不成立 | 没有上游产物。先确认这件事真的谈定了，还在讨论阶段就先移交 `/mmw-grilling` |
 
@@ -46,7 +46,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 这一步只定**测在哪**，不定怎么写。一个测试要满足哪些条件才允许进仓库，在 `mmw-tdd/quality-bar.md` 里。
 
-从 `/mmw-triage` 进来的，那份 brief 的 `Test seam` 一栏是只碰一处时的初判。碰多处就要在它基础上扩，并说明为什么一个不够。
+从 `/mmw-triage` 进来的，那份 agent brief 的 `Test seam` 一栏是分诊时的初判。需要多个 seam 时，在它的基础上扩，并逐条说明为什么一个 seam 覆盖不了。只有一个 seam、但因为要拆多张 ticket 或讨论设计取舍而进入本技能时，保留并重新验证这个 seam。
 
 某个 seam 定不下来就停——处置见本文「下一步」一节。
 
@@ -81,6 +81,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
   三种免除情形，**只有这三种**：这条决定是照搬既有实现、既有约定或者一条已经拍板的 ADR；它的对错查一次代码或文档就能确定，不需要用户判断；它不改变任何用户看得见的行为（纯内部结构调整、重命名、搬移）。
 
   不算免除的：「时间紧」「显然是对的」「先做了再说」「用户已经口头同意」。**用户口头同意跟他走查过实物是两回事。** 写不出属于哪一种免除情形，就是要补一轮原型
+- **视觉合同逐项可验收**：用户的浏览器标记、选中页面和对应截图已经写成持久出处；每个页面、viewport 和真实状态各有一条可观察结果，没有只引用临时标签页，也没有把多个状态压成一句「与原型一致」
 - `## Testing Decisions` 一节里那张 seam 清单表逐条填齐了，每行都写了在哪测、测什么行为、为什么是这一层
 
 ## 6. 发起 ① spec 审

@@ -56,8 +56,12 @@ TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
 
 启动：先用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`。target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型使用 `gpt-5.6-terra`，思考档使用 `xhigh`。任务提示包含四栏 task、主 agent 已确定的完整结果分支名和派发前基点 SHA；结果分支名使用独立的 `codex/<slug>`。后台 agent 先运行 `mmw task bind <完整结果分支名> <目标栏原文> --from <基点 SHA>`，并在工作前完整读取 `$mmw:mmw-tdd`，然后完成工作并提交。后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 worktree 设置，取得 threadId 后再等待。
 
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的调查、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+
 ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 启动：先用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`。target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型使用 `gpt-5.6-sol`，思考档使用 `high`。任务提示包含四栏 task、主 agent 已确定的完整结果分支名和派发前基点 SHA；结果分支名使用独立的 `codex/<slug>`。后台 agent 先运行 `mmw task bind <完整结果分支名> <目标栏原文> --from <基点 SHA>`，并在工作前完整读取 `$mmw:mmw-tdd`，然后完成工作并提交。后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 worktree 设置，取得 threadId 后再等待。
+
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的调查、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
 升档由你决定，不由 worker 自报。
 
 `worker` 完成后，先收取结果：
@@ -69,6 +73,10 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 按 `$mmw:mmw-review` 的 **③ 逐份验收**，三关都过才允许合并回任务分支：做漏没有、测试达不达标、有没有偏离。三关各自的判据、三关不过时的返工升级策略，都在 `$mmw:mmw-review` 目录里的 `self-review.md`——**这一道不派审查者**，`$mmw:mmw-review` 正文其余各节跟它无关。报告按 `$mmw:mmw-verifying-agent-output` 采信，它交回的四档怎么读也在那里。
 
 三关之外还要确认一件本阶段特有的事：commit 存在，并且引用了这张 ticket。
+
+ticket 涉及界面时，还要完成浏览器验收：
+
+完整读取并遵守 `/browser:control-in-app-browser`。主 agent 在结果 worktree 启动界面，使用 Codex 内置浏览器走通黄金路径和本次相关边界状态。按视觉合同设置 viewport，逐个检查加载、空、错误、成功和部分完成中实际存在的状态。保存关键截图；交互异常时同时读取 DOM 和 console。保存最后一份证据后恢复默认 viewport。浏览器验收没有通过，或者浏览器不可用且没有等价证据时，不得集成结果分支。
 
 三关都过后，集成结果：
 

@@ -55,6 +55,8 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 启动：按名称调用 Codex 原生 subagent `mmw-planner`，task 传四栏表全文；该 subagent 直接使用当前任务 worktree，不创建后台 worktree 任务。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
 
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的调查、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+
 互不依赖的 plan：同一条消息里并行启动多个 `planner`。有依赖链：按依赖顺序启动。`planner` 使用当前任务 worktree，不建独立 worktree，不提交。每个 `planner` 只写自己的 plan 文件。
 
 ## 4. 验证返回
