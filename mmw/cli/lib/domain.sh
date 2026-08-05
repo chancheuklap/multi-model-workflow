@@ -56,8 +56,7 @@ mmw_domain_check() {
     --host "$host"
 }
 
-# 路径查询与同步、检查共用 Python 配置边界。该入口只供本文件消费，正常的
-# domain dirs 与 adr-next 输出保持原合同。
+# 路径查询与同步、检查共用 Python 配置边界。该入口只供本文件消费。
 mmw_domain_validated_config() {
   local root config
   root="$(mmw_repo_root)"
@@ -67,14 +66,18 @@ mmw_domain_validated_config() {
     --config "$config"
 }
 
-# 写入侧要的两个落点：新上下文的根目录、ADR 目录。读的那一侧用 mmw_domain_path
-# 就够，写的那一侧还要知道往哪建。
+# 写入侧的四个配置落点。single 与 map 让 none 形态的领域建模流程知道首份
+# 文档建在哪里；context 与 adr 分别约束 leaf 和 ADR 的目录。
 mmw_domain_dirs() {
-  local root domain context_dir adr_dir
+  local root domain fallback map context_dir adr_dir
   root="$(mmw_repo_root)"
   domain="$(mmw_domain_validated_config)" || return 1
+  fallback="$(jq -er '.fallback' <<< "$domain")" || return 1
+  map="$(jq -er '.map' <<< "$domain")" || return 1
   context_dir="$(jq -er '.context_dir' <<< "$domain")" || return 1
   adr_dir="$(jq -er '.adr_dir' <<< "$domain")" || return 1
+  printf 'single\t%s\n' "$root/$fallback"
+  printf 'map\t%s\n' "$root/$map"
   printf 'context\t%s\n' "$root/$context_dir"
   printf 'adr\t%s\n' "$root/$adr_dir"
 }

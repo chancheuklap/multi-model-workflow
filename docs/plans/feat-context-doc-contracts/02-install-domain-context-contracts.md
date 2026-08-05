@@ -76,6 +76,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 | `mmw domain sync` | `0` | `1` | 每个目标一行：`sync<TAB><agents\|map\|claude><TAB><仓库相对路径><TAB><created\|inserted\|updated\|appended\|current\|not-present\|not-required>`。 |
 | `mmw domain check` | `0` | `1` | 成功时一行：`check<TAB><none\|single\|map><TAB><仓库相对路径或 -><TAB>valid`。失败时 stdout 为空，诊断写 stderr。 |
 | `mmw domain path` | `0` | `1` | 保持三列 TSV：`<none\|single\|map><TAB><绝对路径或空><TAB><操作提示>`。`map` 的第三列固定为 `这是索引：读它，再读取它列出的本次相关全部 leaf`。 |
+| `mmw domain dirs` | `0` | `1` | 固定四行 TSV，顺序为 `single`、`map`、`context`、`adr`；每行是 `<类型><TAB><配置验证后的绝对路径>`。 |
 | `mmw doctor` | 所有检查通过时 `0` | 任一检查失败时 `1` | 领域成功行：`领域合同 : valid shape=<none\|single\|map> path=<仓库相对路径或 ->`；领域失败行：`领域合同 : invalid`，后接缩进诊断。 |
 
 同步与检查失败的 stderr 每行固定为 `error<TAB><仓库相对路径><TAB><错误码><TAB><中文说明>`。本 ticket 使用 `invalid-markers`、`dirty-target`、`managed-drift`、`missing-claude-import`、`unreadable-single`、`missing-section`、`invalid-context-table`、`invalid-leaf`、`invalid-relationships`、`invalid-authoritative`、`invalid-config` 与 `io-error`。
@@ -248,7 +249,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 ### Task Pack 02.3: doctor 与三形态 fixture 验证
 
 **Ticket:** GitHub issue `#16`
-**Goal behavior:** `mmw domain check` 和 `mmw doctor` 接受合法的 `none`、`single`、`map`，并用可定位诊断拒绝损坏规则、Map、leaf 或权威引用。
+**Goal behavior:** `mmw domain check` 和 `mmw doctor` 接受合法的 `none`、`single`、`map`，并用可定位诊断拒绝损坏规则、Map、leaf 或权威引用；`mmw domain dirs` 返回领域建模所需的四个配置落点。
 **Why this matters:** agent 开工前需要发现领域消费合同漂移，避免使用错误术语或遗漏相关 leaf。
 **Owned files:** Modify `mmw/cli/lib/context_docs.py` / Modify `mmw/cli/lib/domain.sh:12` / Modify `mmw/cli/mmw:151` / Modify `mmw/cli/mmw:519` / Modify `mmw/cli/mmw:571`
 
@@ -258,12 +259,12 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 
 **Interfaces:**
 
-- **Consumes:** 02.1 的两份种子与 marker；02.2 完成后的仓库文件；`.mmw.json` 的 map、fallback 与 context 目录。
-- **Produces:** `mmw domain check`、更新后的 `mmw domain path` 和 `mmw doctor` 领域状态行。退出码和 stdout 遵守 `Cross-Plan CLI Contract`。
+- **Consumes:** 02.1 的两份种子与 marker；02.2 完成后的仓库文件；`.mmw.json` 的 map、fallback、context 与 ADR 路径。
+- **Produces:** `mmw domain check`、更新后的 `mmw domain path`、四行 `mmw domain dirs` 和 `mmw doctor` 领域状态行。退出码和 stdout 遵守 `Cross-Plan CLI Contract`。
 
 **Contract anchors:** Plan 02 拥有检查器和 CLI 输出。Plan 03 消费命令名、退出码、stdout 形状和 marker 字面量；Plan 03 不复制检查逻辑。Map 的 `Contexts` 与 `Relationships` 由目标仓库提供，doctor 只验证结构和路径，不解释关系语义。
 
-**Schema / API shapes:** 三种领域形态先检查 AGENTS 受管区块。`MMW_HOST=claude-code` 时还要求根 `CLAUDE.md` 含独立一行 `@AGENTS.md`；文件缺失或缺少该行时返回 `missing-claude-import`。Pi 与 Codex 不检查 Claude bridge。`single` 另读取 fallback；`map` 另检查 Map 规则、唯一的 `## Contexts`、唯一的 `## Relationships`、精确三列表头 `Context`、`Leaf`、`Owns`、至少一条关系以及每一行 leaf。`Context` 非空且唯一；`Leaf` 整格只能是一个 Markdown 链接，按 Map 位置解析后必须在 context 目录内、以 `.md` 结尾且可读；`Owns` 非空。每个已登记 leaf 中出现的 `authoritative:` 都必须符合 `(authoritative: [显示文本](相对路径))`，并解析为 context 目录内且已登记的 leaf。
+**Schema / API shapes:** 三种领域形态先检查 AGENTS 受管区块。`MMW_HOST=claude-code` 时还要求根 `CLAUDE.md` 含独立一行 `@AGENTS.md`；文件缺失或缺少该行时返回 `missing-claude-import`。Pi 与 Codex 不检查 Claude bridge。`single` 另读取 fallback；`map` 另检查 Map 规则、唯一的 `## Contexts`、唯一的 `## Relationships`、精确三列表头 `Context`、`Leaf`、`Owns`、至少一条关系以及每一行 leaf。`Context` 非空且唯一；`Leaf` 整格只能是一个 Markdown 链接，按 Map 位置解析后必须位于 `mmw domain dirs` 返回的 `context` 目录内、以 `.md` 结尾且可读；`Owns` 非空。每个已登记 leaf 中出现的 `authoritative:` 都必须符合 `(authoritative: [显示文本](相对路径))`，并解析为 context 目录内且已登记的 leaf。`mmw domain dirs` 使用同一配置验证结果，按 `single`、`map`、`context`、`adr` 顺序输出四个绝对路径；即使当前形态为 `none`，前两行仍提供按需创建首份 fallback 或 Map 的落点。
 
 **Mockup specs:** 不适用。本任务包没有界面或原型。
 
@@ -284,6 +285,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 9. [ ] `mmw domain path` 的 `map` 第三列使用 Cross-Plan CLI Contract 的固定提示，不再出现 leaf 文件名假设。
 10. [ ] 本 MMW 仓库的 `mmw domain check` 输出 `check<TAB>none<TAB>-<TAB>valid`；`mmw doctor` 输出 `领域合同 : valid shape=none path=-`，领域检查本身不再判红。
 11. [ ] 同一个合法领域 fixture 在 Claude Code 宿主下，根 `CLAUDE.md` 含独立一行 `@AGENTS.md` 时 `domain check` 和 doctor 的领域检查均为 valid；缺少文件或缺少该行时均返回 `missing-claude-import`，`domain check` 返回 `1` 且 doctor 最终返回 `1`。同一 fixture 在 Pi 与 Codex 宿主下不因缺少 `CLAUDE.md` 判红。
+12. [ ] 自定义 map、fallback、context 和 ADR 路径时，`mmw domain dirs` 按固定顺序返回四个准确绝对路径；任一字段越出仓库时返回 `invalid-config`。
 
 **Verification commands:**
 
@@ -291,6 +293,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 - 在损坏 marker、缺节、错表头、空关系、越界 leaf、失效 leaf、非 Markdown leaf、未登记权威引用和失效权威引用 fixture 运行同一命令 → Expected: 全部退出 `1`，stdout 为空，stderr 点名来源路径和对应错误码。
 - 对同一个合法 `none` fixture 分别运行：Claude Code 且有 `@AGENTS.md`、Claude Code 且缺 `CLAUDE.md`、Claude Code 且文件中缺该行、Codex/Pi 且无 `CLAUDE.md` → Expected: 第一种 `domain check` 返回 `0`；中间两种返回 `1` 和 `missing-claude-import`，doctor 领域行是 invalid 且最终返回 `1`；最后一种在 Codex 与 Pi 下均保持 valid。
 - `MMW_HOST=codex "${source_root}/mmw/cli/mmw" domain path` → Expected: `map` fixture 第三列精确等于 `这是索引：读它，再读取它列出的本次相关全部 leaf`。
+- 在四个领域路径均使用自定义相对路径的 `none` fixture 运行 `MMW_HOST=codex "${source_root}/mmw/cli/mmw" domain dirs` → Expected: 依次输出 `single`、`map`、`context`、`adr` 及对应绝对路径；把 `adr_dir` 改为 `../outside` 后返回 `1` 和 `invalid-config`。
 - `MMW_HOST=codex "${source_root}/mmw/cli/mmw" doctor` → Expected: 合法 fixture 包含 `领域合同 : valid shape=...`；非法 fixture 包含 `领域合同 : invalid`，且最终退出码为 `1`。doctor 的其他本机检查结果不替代领域行断言。
 - 在本 MMW 仓库运行 `MMW_HOST=codex "${source_root}/mmw/cli/mmw" domain check` 和 `MMW_HOST=codex "${source_root}/mmw/cli/mmw" doctor` → Expected: 前者返回 `check<TAB>none<TAB>-<TAB>valid`；后者包含 `领域合同 : valid shape=none path=-`。doctor 的总退出码仍由其他本机检查共同决定。
 
@@ -300,7 +303,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 
 | 层 | 测什么 | 数量 |
 | --- | --- | ---: |
-| 临时 Git 仓库行为检查 | 三种合法形态、四个宿主 bridge fixture、六类受管规则错误、八类 Map 结构错误、五类 leaf 错误、四类权威引用错误；doctor 与 domain path 复用这些仓库。 | 30 个 fixture |
+| 临时 Git 仓库行为检查 | 三种合法形态、四个宿主 bridge fixture、六类受管规则错误、八类 Map 结构错误、五类 leaf 错误、四类权威引用错误，以及自定义四路径与越界路径；doctor、domain path 与 domain dirs 复用这些仓库。 | 32 个 fixture |
 | 提交前静态检查 | ShellCheck、Python 语法、完整仓库检查。 | 4 条命令 |
 | 真实宿主验证 | CLI 文件行为不声明五个真实宿主已经通过。 | 0 |
 
@@ -318,8 +321,8 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 
 - [ ] Step 1: 建立检查 red fixture。对 02.2 产出的合法 `none`、`single`、`map` 仓库，以及 Claude bridge valid、缺文件、缺导入行仓库运行 `mmw domain check`。预期当前命令进入 `usage_domain` 并返回 `2`。
 - [ ] Step 2: 在领域合同模块实现三形态和宿主 bridge 检查，并在 `domain.sh` 和 `mmw` 暴露 `mmw domain check`。按 `Schema / API shapes` 读取真实文件，不扫描源码文本，不修改 fixture。
-- [ ] Step 3: 运行三种合法形态、Claude Code bridge valid/缺文件/缺导入行、Pi/Codex 无 CLAUDE 和其他错误矩阵。预期合法 fixture 返回四列 `valid`；Claude 两种缺失都返回 `missing-claude-import`；Pi/Codex 不因缺桥判红；其他非法 fixture stdout 为空、stderr 返回精确错误码和路径。
+- [ ] Step 3: 运行三种合法形态、Claude Code bridge valid/缺文件/缺导入行、Pi/Codex 无 CLAUDE、自定义四路径、越界路径和其他错误矩阵。预期合法 fixture 返回四列 `valid`；`domain dirs` 返回固定顺序的四个绝对路径；Claude 两种缺失都返回 `missing-claude-import`；Pi/Codex 不因缺桥判红；其他非法 fixture stdout 为空、stderr 返回精确错误码和路径。
 - [ ] Step 4: 建立 CLI 集成 red 证据。对 `map` fixture 断言 `mmw domain path` 第三列的固定提示；对一般合法/非法 fixture 和 Claude bridge valid/missing fixture 断言 `mmw doctor` 领域行和最终退出码。预期当前提示或领域行至少一项不符合合同。
 - [ ] Step 5: 更新 `mmw domain path` 的 Map 提示，并在 `cmd_doctor` 检查到仓库与配置后调用同一个领域检查入口。成功时打印 `valid` 行；失败时打印 `invalid`、缩进诊断并把最终状态置为 `1`。
-- [ ] Step 6: 重跑 `domain path`、`domain check` 与 doctor fixture，再在本 MMW 仓库运行 `domain check` 和 doctor。预期 fixture 的命令名、退出码和 stdout 逐字符合 `Cross-Plan CLI Contract`；当前仓库领域形态为 `none`，两条命令的领域检查均为 valid。
+- [ ] Step 6: 重跑 `domain path`、`domain dirs`、`domain check` 与 doctor fixture，再在本 MMW 仓库运行 `domain check` 和 doctor。预期 fixture 的命令名、退出码和 stdout 逐字符合 `Cross-Plan CLI Contract`；当前仓库领域形态为 `none`，两条检查命令的领域合同均为 valid。
 - [ ] Step 7: 运行 `python3 -m py_compile mmw/cli/lib/context_docs.py`、`shellcheck --severity=warning mmw/cli/mmw mmw/cli/lib/domain.sh mmw/cli/lib/init.sh`、`git diff --check` 和根 `TESTING.md` 的全部静态检查。确认 diff 不含技能、物化目录、架构图、manifest 或版本字段后，按 Commit boundary 提交。

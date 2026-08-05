@@ -154,7 +154,7 @@ mmw domain path      领域文档形态与落点，第三列写着照它做什�
 mmw domain sync      幂等同步领域上下文消费合同
 mmw domain check     检查领域上下文消费合同
 mmw domain adr-next  下一个 ADR 编号，四位零填充
-mmw domain dirs      写入侧的两个落点：新上下文的根目录、ADR 目录
+mmw domain dirs      写入侧的四个配置落点：single、map、context、adr
 EOF
   return 2
 }

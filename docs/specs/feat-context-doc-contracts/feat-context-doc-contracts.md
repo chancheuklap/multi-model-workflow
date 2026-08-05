@@ -51,7 +51,7 @@ MMW 接受 `context` 目录下的命名 Markdown leaf。AgentFlow 保留现有�
 9. `Relationships` 是非空的 Markdown 列表，由 agent 读取，不建立新的机器语法。doctor 只检查该节存在且含有列表项，不猜关系端点或所有权。
 10. leaf 的权威引用格式固定为 `(authoritative: [显示文本](相对路径))`。路径相对当前 leaf 解析，目标必须位于 `context` 目录内，并且必须等于 `Contexts` 已登记的某个 leaf。
 11. `mmw doctor` 检查对应领域形态的受管区块、Map 固定节、三列表格、leaf 范围和文件类型，以及 `authoritative` 引用。发现错误时返回非零。
-12. `mmw domain path` 的 `map` 提示改为“读取 Map 列出的相关 leaf”，移除 `CONTEXT.md` 文件名假设。领域格式和领域建模技能同步采用命名 leaf 合同。
+12. `mmw domain path` 的 `map` 提示改为“读取 Map 列出的相关 leaf”，移除 `CONTEXT.md` 文件名假设。`mmw domain dirs` 按 `single`、`map`、`context`、`adr` 的固定顺序输出四个已验证绝对路径，使 `none` 形态的领域建模流程也能取得首份领域文档落点。领域格式和领域建模技能同步采用命名 leaf 合同。
 13. 直接产生原型、ticket、plan、Wiki 或集成取舍记录的关键技能增加一句短提醒：遵守目标仓库 `AGENTS.md` 的领域上下文规则。完整消费逻辑不复制到技能中，subagent task 也不注入 leaf 路径。
 14. 发现冲突后，主 agent 停止依赖该语义的工作并交给用户决定；subagent 把冲突报告给主 agent。未受冲突影响的只读调查可以继续。
 15. AgentFlow 的根 Map 使用用户批准的标准结构。通用规则来自 MMW 受管区块；七个项目路由和五条关系留在项目区块。宿主加载细节不进入 Map。
@@ -113,6 +113,7 @@ MMW 接受 `context` 目录下的命名 Markdown leaf。AgentFlow 保留现有�
 | Seam | 验证什么行为 | 为什么是这一层 |
 | --- | --- | --- |
 | 临时 Git 仓库中的领域规则同步 CLI | 创建、插入、升级、幂等、损坏标记原样保留 | 这是用户实际调用的文件边界，能覆盖种子、解析、原子写和退出码 |
+| 临时 Git 仓库中的领域路径 CLI | 自定义 map、fallback、context 和 ADR 路径的四行落点，以及越界配置失败 | 这是领域建模流程取得首份文档落点的公开边界 |
 | 临时 `none`、`single`、`map` fixture 上的领域检查 CLI | 三种合法形态、固定节、三列表格、leaf 边界和 authoritative 引用 | 这是领域文档合同的最高稳定边界，不绑定内部函数 |
 | `mmw init` 临时仓库流程 | 新仓库、已有干净仓库、已有脏目标、Claude bridge 和实际变化路径登记 | 这是配置流程的公开入口 |
 | 技能与 Codex 物化检查 | 三套技能产物和 Codex 发布输入无漂移 | 这是宿主发布结果的现有检查 seam |
@@ -136,12 +137,12 @@ MMW 接受 `context` 目录下的命名 Markdown leaf。AgentFlow 保留现有�
 | Plan | 文件归属 | 提供 | 消费 |
 | --- | --- | --- | --- |
 | 01 | 当前已漂移的 Pi 与 Claude Code 物化文件；不得修改技能源 | `mmw skills materialize --host all --check` 返回成功的三宿主零漂移基线 | 03 在 01 集成后重新物化领域技能改动 |
-| 02 | 两份领域规则种子、`context_docs.py`、init、domain、doctor CLI 接入和根 `AGENTS.md` 受管区块 | `mmw domain sync` 四列 TSV、`mmw domain check` 四列 TSV、`mmw domain path` 三列 TSV、doctor 领域状态行和两对固定 marker | 03 的领域建模技能、关键产出技能和架构图 |
+| 02 | 两份领域规则种子、`context_docs.py`、init、domain、doctor CLI 接入和根 `AGENTS.md` 受管区块 | `mmw domain sync` 四列 TSV、`mmw domain check` 四列 TSV、`mmw domain path` 三列 TSV、`mmw domain dirs` 四行 TSV、doctor 领域状态行和两对固定 marker | 03 的领域建模技能、关键产出技能和架构图 |
 | 03 | 领域技能源、01 基线完成后的三宿主物化产物、根 `TESTING.md`、架构可视化和发布版本字段 | `0.9.0` 正式发布内容 | AgentFlow 独立迁移任务 |
 
 物化目录采用阶段性交接：01 只恢复既有源对应的基线并先集成；03 才能在领域技能源改变后重新生成最终产物。02 不修改物化目录。
 
-Plan 02 固定使用以下公开命令：`mmw domain sync` 成功时逐目标输出 `sync<TAB><agents|map|claude><TAB><仓库相对路径><TAB><状态>`；`mmw domain check` 成功时输出 `check<TAB><none|single|map><TAB><仓库相对路径或 -><TAB>valid`。失败统一返回 `1`，并把可定位诊断写入 stderr。Plan 03 只消费这些合同，不复制检查逻辑。
+Plan 02 固定使用以下公开命令：`mmw domain sync` 成功时逐目标输出 `sync<TAB><agents|map|claude><TAB><仓库相对路径><TAB><状态>`；`mmw domain check` 成功时输出 `check<TAB><none|single|map><TAB><仓库相对路径或 -><TAB>valid`；`mmw domain dirs` 成功时按 `single`、`map`、`context`、`adr` 顺序输出 `<类型><TAB><绝对路径>`。失败统一返回 `1`，并把可定位诊断写入 stderr。Plan 03 只消费这些合同，不复制检查逻辑。
 
 ## Release Risk
 
