@@ -4,7 +4,7 @@
 
 MMW 可以把 Grilling 改成按设计树的当前 frontier 批量提问。现有 Wayfinder 的 ticket、分支、结果集成和人工审批合同都位于 Grilling 外层，不依赖每轮只出现一个问题。
 
-批量提问需要遵守一条范围边界：一场由 `wayfinder:grilling` ticket 发起的 Grilling 只解决这张 ticket 的决定。问答中新出现的独立决定需要写回 map，成为新的 ticket 或保留在 fog of war，留给新的会话处理。批量提问不表示在当前会话继续解决新 ticket。
+批量提问需要遵守一条范围边界：一场由 `wayfinder:grilling` ticket 发起的 Grilling 只形成这张 ticket 所问问题的一个结论。形成该结论所需的依赖选择仍属于当前设计树。问答中新出现、但不属于当前问题结论的另一项问题，才写回 map，成为新的 ticket 或保留在 fog of war。批量提问不表示在当前会话继续解决新 ticket。
 
 上游当前已经使用这套组合。Wayfinder 调用 `/grilling`，而 `/grilling` 默认一次提出整个 frontier。上游没有为 Wayfinder 设置逐题例外，也没有保留独立的批量技能。[当前上游 Wayfinder](https://github.com/mattpocock/skills/blob/main/skills/engineering/wayfinder/SKILL.md)；[当前上游 Grilling](https://github.com/mattpocock/skills/blob/main/skills/productivity/grilling/SKILL.md)
 
@@ -26,13 +26,13 @@ MMW 可以把 Grilling 改成按设计树的当前 frontier 批量提问。现�
 
 | 外层合同 | 是否依赖逐题提问 | 依据 |
 | --- | --- | --- |
-| 一张 ticket 只解一个决定 | 不依赖每轮问题数 | ticket 正文只保存要解决的一个决定（`mmw/skills/mmw-wayfinder/map-anatomy.md:39-49`） |
+| 一张 ticket 只形成一个结论 | 不依赖每轮问题数 | ticket 正文只保存要解决的一个问题；设计树中的依赖选择是形成该结论的问答过程（`mmw/skills/mmw-wayfinder/map-anatomy.md:39-49`） |
 | HITL 决定必须由用户回答 | 不依赖每轮问题数 | Agent 不得代答（`mmw/skills/mmw-wayfinder/map-anatomy.md:55-70`） |
 | 答案写入结案评论 | 不依赖每轮问题数 | Grilling 完成后统一记录（`mmw/skills/mmw-wayfinder/walking.md:40-49`） |
 | 新决定进入 ticket 或 fog of war | 不依赖每轮问题数 | Wayfinder 在记录答案后更新 map（`mmw/skills/mmw-wayfinder/walking.md:48-49`） |
 | 新解锁的 HITL ticket 使用新会话 | 不依赖每轮问题数 | 当前链不认领 HITL ticket，立即停止（`mmw/skills/mmw-wayfinder/walking.md:53-71`） |
 | 分支验证和集成 | 不依赖每轮问题数 | 发生在链任务完成后（`mmw/skills/mmw-wayfinder/SKILL.md:33-43`） |
-| 人工审批关卡 | 不依赖每轮问题数 | 唯一关卡在 `/mmw-to-spec` 第 7 步（`mmw/skills/mmw-wayfinder/map-anatomy.md:64`；`mmw/skills/mmw-to-spec/SKILL.md:95-117`） |
+| 正式人工审批关卡 | 不依赖每轮问题数 | 发布 spec 的唯一正式审批关卡在 `/mmw-to-spec` 第 7 步；Grilling 结束时的共同理解确认只确认对话总结准确，不授权发布或实施（`mmw/skills/mmw-wayfinder/map-anatomy.md:64`；`mmw/skills/mmw-to-spec/SKILL.md:95-117`） |
 
 因此，批量提问改变的是 Grilling 与用户之间的交互次数。它不直接改变 ticket 数量、tracker 状态、worktree、分支集成或人工审批关卡。
 
@@ -47,7 +47,9 @@ MMW 当前已经提供两层防护：
 1. 建 map 的会话只建 map，不解决 ticket（`mmw/skills/mmw-wayfinder/drawing.md:3`）。
 2. 走链时，新解锁的 HITL ticket 不得在当前会话认领，链任务到此停止（`mmw/skills/mmw-wayfinder/walking.md:53-71`）。
 
-批量 Grilling 必须保留这两层边界。当前 ticket 的问答中发现新的独立决定时，只把它写回 map，不在当前 Grilling 中继续解决。
+批量 Grilling 必须保留这两层边界。当前 ticket 的问答中发现不属于当前问题结论的另一项问题时，只把它写回 map，不在当前 Grilling 中继续解决。
+
+MMW 当前允许一个链任务继续处理新解锁的 AFK ticket，并在遇到 HITL ticket 时停止。上游则要求一场会话只解决一张非 research ticket。这个差异早于本次批量 Grilling 方案，属于 Wayfinder 调度层的既有定制。本次方案不得借批量提问扩大或改写这项调度合同。
 
 ## 上游性能证据
 
