@@ -3,6 +3,8 @@ name: mmw-closing
 description: 一次任务的收尾——spec 和 plan 转成 Wiki 的一页，删掉本地副本，分支交回用户合并。用户说要收尾、要归档时用它；终审过了、采信的 findings 都修完的技能也移交这里。
 ---
 
+开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
+
 代码已经落地，终审过了。这一步把设计文档搬到它的长期落点，再把工作区收干净。
 
 **Wiki 从此是这份 spec 的唯一事实来源。** 本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/` 随任务分支删掉，主线不留 spec 和计划文档。
@@ -42,7 +44,7 @@ mmw wiki ensure
 | 落地信息 | 父 spec issue 的链接、这条任务分支的名字、归档日期。**合并的 PR 这时候通常还不存在**，先写分支名，合并之后再补 |
 | spec 正文 | `docs/specs/<slug>/` 的定稿 |
 | 计划章节 | `docs/plans/<slug>/` 的每一份，一张 ticket 一节。计划不单独开页 |
-| 相关决定 | **只放指回仓库 `docs/adr/` 的完整链接**，绝不把 ADR 复制进来 |
+| 相关决定 | **只放指回仓库实际 ADR 文件的完整链接**，路径跑 `mmw domain dirs` 取，绝不把 ADR 复制进来 |
 
 Wiki 不支持自动生成目录，长页面靠标题分节。页间链接用 `[[Spec-phone-login|手机号登录]]`。
 

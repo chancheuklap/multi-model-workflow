@@ -13,11 +13,10 @@ mmw_init_say() {
 "
 }
 
-# 本轮自己动过、要提交进分支的仓库内文件，仓库根的相对路径，一行一个。
-MMW_INIT_TOUCHED=""
+# 本轮自己动过、要提交进分支的仓库内文件，仓库根的相对路径。
+MMW_INIT_TOUCHED=()
 mmw_init_touch() {
-  MMW_INIT_TOUCHED="${MMW_INIT_TOUCHED}$1
-"
+  MMW_INIT_TOUCHED+=("$1")
 }
 
 mmw_init_config() {
@@ -80,6 +79,51 @@ mmw_init_testing() {
     mmw_init_touch "TESTING.md"
     mmw_init_say "TESTING  : 已铺骨架 ${target}，空位要人或后续技能填"
   fi
+}
+
+# 同步器已经完成整轮 marker 与 Git 状态预检。init 只消费稳定的四列结果，
+# 并把确实变化的仓库路径交给现有按路径提交机制。
+mmw_init_domain_context() {
+  local out line prefix kind rel state
+  local agents_state="" map_state="" claude_state=""
+  if ! out="$(mmw_domain_sync 2>&1)"; then
+    mmw_init_say "领域规则 : 同步失败"
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      mmw_init_say "             $line"
+    done <<< "$out"
+    return 1
+  fi
+
+  while IFS=$'\t' read -r prefix kind rel state; do
+    if [ "$prefix" != "sync" ] || [ -z "$rel" ] || [ -z "$state" ]; then
+      mmw_init_say "领域规则 : 同步器返回了无法识别的结果：$prefix $kind $rel $state"
+      return 1
+    fi
+    case "$kind" in
+      agents) agents_state="$state" ;;
+      map) map_state="$state" ;;
+      claude) claude_state="$state" ;;
+      *)
+        mmw_init_say "领域规则 : 同步器返回了无法识别的目标：$kind"
+        return 1
+        ;;
+    esac
+    case "$state" in
+      created|inserted|updated|appended) mmw_init_touch "$rel" ;;
+      current|not-present|not-required) ;;
+      *)
+        mmw_init_say "领域规则 : 同步器返回了无法识别的状态：$state"
+        return 1
+        ;;
+    esac
+  done <<< "$out"
+
+  if [ -z "$agents_state" ] || [ -z "$map_state" ] || [ -z "$claude_state" ]; then
+    mmw_init_say "领域规则 : 同步结果缺少 agents、map 或 claude"
+    return 1
+  fi
+  mmw_init_say "领域规则 : agents=${agents_state} map=${map_state} claude=${claude_state}"
 }
 
 # 标签清单的唯一事实来源是 .mmw.json 的 tracker.labels。这里只建缺的。
@@ -192,29 +236,28 @@ mmw_init_skills() {
 # 只提交本轮自己动过的那几个路径。带路径的提交形式不碰暂存区，用户已经
 # git add 的东西留在原地。
 mmw_init_commit() {
-  local root rel
+  local root rel paths_display=""
+  local -a paths=()
   root="$(mmw_repo_root)"
 
-  if [ -z "$MMW_INIT_TOUCHED" ]; then
+  if [ "${#MMW_INIT_TOUCHED[@]}" -eq 0 ]; then
     mmw_init_say "提交     : 这一轮没有要提交的配置改动"
     return 0
   fi
 
-  local paths=""
-  while IFS= read -r rel; do
-    [ -n "$rel" ] || continue
+  for rel in "${MMW_INIT_TOUCHED[@]}"; do
     git -C "$root" add -- "$rel" || {
       mmw_init_say "提交     : git add 失败，${rel} 没提交，自己看是什么挡着"
       return 1
     }
-    paths="$paths $rel"
-  done <<< "$MMW_INIT_TOUCHED"
+    paths+=("$rel")
+    paths_display="${paths_display} ${rel}"
+  done
 
-  # shellcheck disable=SC2086
-  if git -C "$root" commit -q -m "chore(mmw): 配置多模型工作流" -- $paths; then
-    mmw_init_say "提交     : 已提交${paths}"
+  if git -C "$root" commit -q -m "chore(mmw): 配置多模型工作流" -- "${paths[@]}"; then
+    mmw_init_say "提交     : 已提交${paths_display}"
   else
-    mmw_init_say "提交     : 提交失败，${paths} 还在工作区。原样报出来，自己看是 git 身份没配还是 hook 拦了"
+    mmw_init_say "提交     : 提交失败，${paths_display} 还在工作区。原样报出来，自己看是 git 身份没配还是 hook 拦了"
     return 1
   fi
 }
@@ -234,6 +277,7 @@ mmw_init() {
   local status=0 host
   host="$(mmw_host)" || return 1
   mmw_init_config
+  mmw_init_domain_context || status=1
   if [ "$host" = "codex" ]; then
     mmw_init_codex_runtime || status=1
   else

@@ -3,6 +3,8 @@ name: mmw-integrate
 description: 把并行开发的结果分支集成到当前任务分支——定顺序、逐条推进、解冲突，完成后发起集成审。用户说要合并几条分支、让未完成分支跟上目标分支，或者处理正在进行的冲突时用它；收尾完等待合并的技能也移交这里。
 ---
 
+开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
+
 把几条结果分支集成到当前任务分支。当前任务分支是本轮唯一目标；主 agent 不切换工作目录，也不把结果直接合入仓库的默认分支。
 
 当前已经存在 merge 或 rebase 冲突时，直接进入第 3 步。merge 读 [merging.md](merging.md)，rebase 读 [rebasing.md](rebasing.md)。

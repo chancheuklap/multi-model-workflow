@@ -36,7 +36,7 @@
 
 ## 6. 提交
 
-把这场谈话期间落下的东西提交进 map 分支：新写进 `CONTEXT.md` 的术语、按 `$mmw:mmw-domain-modeling` 三个条件写下的 ADR。不要留未提交的改动。
+把这场谈话期间落下的东西提交进 map 分支：新写进相关 leaf 的术语、按 `$mmw:mmw-domain-modeling` 三个条件写下的 ADR。不要留未提交的改动。
 
 ## 下一步
 
