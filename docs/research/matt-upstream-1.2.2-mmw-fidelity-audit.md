@@ -32,7 +32,7 @@
 
 | 优先级 | 范围 | 当前问题 | 应恢复的上游合同 | MMW 适配边界 |
 | --- | --- | --- | --- | --- |
-| P0 | Prototype | 逻辑原型固定为 TUI；缺少 guided walkthrough | 单文件 HTML；非开发者双击运行；free-play；按 tab 的场景；每个场景重置已知初态；HTML 外壳不进入生产代码 | 保留 MMW 的一轮一问题、用户走查、逐轮证据、结论回填和 `docs/prototypes/` 长期资产合同；正式实现阶段从已确认资产吸收决定，不新增 prototype 分支 |
+| P0 | Prototype | 逻辑原型固定为 TUI；缺少 guided walkthrough | 单文件 HTML；非开发者双击运行；free-play；按 tab 的场景；每个场景重置已知初态；纯逻辑模块可移入正式代码；HTML 外壳不进入生产代码 | 保留 MMW 的一轮一问题、用户走查、逐轮证据、结论回填和 `docs/prototypes/` 长期资产合同；后续 ticket 把已确认的纯逻辑模块移入正式路径并补 TDD，不新增 prototype 分支 |
 | P0 | Wayfinder | 一次会话可沿 AFK 链连续解决多张 decision ticket | 一次会话只解决一张 decision ticket；建图时并行 research ticket 是唯一例外 | 保留 claim、frontier、worktree、报告验证和 map 集成；删除“链可连续燃尽多张 AFK ticket”的调度扩展 |
 | P0 | Ticket 拆分 | 清单展示后直接发布 | 询问粒度、blocking edge、是否合并或拆分；迭代到用户批准后才发布 | MMW 可把它定义为 ticket 拆分人工审批关卡，或至少恢复明确的发布前确认；不能继续采用静默默认发布 |
 | P0 | Agent 文档写作 | 旧名、旧范围、旧结构、user-invoked | 改为 `writing-for-agents`；model-invoked；覆盖所有 agent 消费文档；将 skill mechanics 单独披露；加入 cache | 保留 MMW 宿主物化规则与项目写作规范；更新 manifest、技能引用和三套物化产物 |
@@ -75,7 +75,7 @@ MMW 保留了一轮一个可回答问题、最小可运行、默认内存状态�
 
 MMW 当前 `mmw/skills/mmw-prototype/LOGIC.md:41-61` 指定 TUI。上游 `vendor/mattpocock-skills/skills/engineering/prototype/LOGIC.md:35-58` 指定单文件 HTML、free-play 和 guided walkthrough。这里不能按“宿主适配”解释，因为产物面向用户，选择 TUI 会直接降低非开发者的可运行性和场景可重复性。
 
-MMW 当前 `mmw/skills/mmw-prototype/SKILL.md:8-10,51-71` 把原型定义为 `docs/prototypes/` 下的重要资产。上游 `vendor/mattpocock-skills/skills/engineering/prototype/SKILL.md:19-26` 要求 prototype 按 throwaway 约束编写，并保留为可追溯 primary source。两边对“保留资产”和“生产代码只吸收已验证决定”的意图一致，只是 Git 承载位置不同。MMW 的目录、spec、ticket、plan 和 closing 已经围绕仓库内路径形成完整消费链，因此保留当前承载位置。需要纠正的是产物形态和生产吸收边界，不是资产位置。
+MMW 当前 `mmw/skills/mmw-prototype/SKILL.md:8-10,51-71` 把原型定义为 `docs/prototypes/` 下的重要资产。上游 `vendor/mattpocock-skills/skills/engineering/prototype/SKILL.md:19-26` 要求 prototype 按 throwaway 约束编写，并保留为可追溯 primary source。两边对保留 primary source 的意图一致，只是 Git 承载位置不同。逻辑 branch 还有一项更强合同：HTML 外壳可丢弃，纯逻辑模块必须保持可移植，并在正式实现时移入真实 module。MMW 的目录、spec、ticket、plan 和 closing 已经围绕仓库内路径形成完整消费链，因此保留当前承载位置，并让后续 ticket 完成模块移入和 TDD。需要纠正的是产物形态和生产吸收边界，不是资产位置。
 
 ### Spec、ticket、plan
 

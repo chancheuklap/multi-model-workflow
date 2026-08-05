@@ -5,7 +5,7 @@
 ## Language
 
 **effort**：
-大到要拆成多份 spec，而且尚未看清这些 spec 边界或顺序的工作。
+超出一次 agent session，而且从当前状态到 destination 的路线仍不清楚的工作。最终形成一份或多份 spec 不影响入口判定。
 _Avoid_: 大 ticket、大 spec
 
 **destination**：
@@ -19,10 +19,6 @@ _Avoid_: Context Map、plan、仓库
 **decision ticket**：
 map 下解除一个决定或其前置阻塞的子 issue，带 `wayfinder:<类型>` 标签。
 _Avoid_: tracer bullet ticket、任务包
-
-**链**：
-一个会话从已认领 decision ticket 开始连续处理的单链。一个会话只解一条链。
-_Avoid_: decision chain、并行 ticket 列表、任务分支
 
 **fog of war**：
 范围内已经看得出会出现、但尚不能精确写成 decision ticket 的部分，保存在 `Not yet specified`。
@@ -51,3 +47,7 @@ _Avoid_: decision ticket、Out of scope
 
 **`wayfinder:task`**：
 一个决定形成之前必须完成的手工操作。它可以是 HITL，也可以是 AFK。
+
+## 会话边界
+
+一个会话只解决一张 decision ticket。建图会话可以并行派发多张 `wayfinder:research` ticket，但每个调查者仍只解决一张 ticket。

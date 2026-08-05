@@ -12,7 +12,7 @@ MMW 基于 Matt Pocock Skills 改造。上游升级到 1.2.2 后，MMW 的大部
 
 MMW 按上游 1.2.2 恢复八项方法合同：prototype、Wayfinder、ticket 拆分、agent 文档写作、阶段边界、TDD 与 `/mmw-implement`、`/mmw-release`、`/mmw-integrate`。MMW 同时补齐三处 Grilling 解释性细节。每项改动只做 MMW 工作流所需的宿主、tracker、worktree、领域文档和人工审批关卡适配，不另造方法。
 
-正式实现从 prototype 资产吸收已验证的决定，完整 prototype 继续保存在任务分支的 `docs/prototypes/`。Wayfinder 恢复一会话一张 decision ticket。Ticket 写入 tracker 前增加明确的用户批准。Agent 文档写作迁移到上游当前的 `writing-for-agents`。阶段边界按上游的五步有序决策树执行，并为 Codex、Claude Code 和 Pi 物化真实可用的动作。TDD、`/mmw-implement`、`/mmw-release` 和 `/mmw-integrate` 恢复遗漏的引用、频率、重审和意图边界。
+正式实现从 prototype 资产吸收已验证的决定；逻辑 branch 还会把确认过的纯逻辑模块移入正式路径。完整 prototype 继续保存在任务分支的 `docs/prototypes/`。Wayfinder 恢复一会话一张 decision ticket。Ticket 写入 tracker 前增加明确的用户批准。Agent 文档写作迁移到上游当前的 `writing-for-agents`。阶段边界按上游的五步有序决策树执行，并为 Codex、Claude Code 和 Pi 物化真实可用的动作。TDD、`/mmw-implement`、`/mmw-release` 和 `/mmw-integrate` 恢复遗漏的引用、频率、重审和意图边界。
 
 MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方配置和 cutover。`to-questionnaire` 把当前用户无法回答的知识缺口交给真正掌握信息的人。`wait-what` 提供即时的表达纠错入口。这三个技能不进入 `mmw-start` 的工程路由。
 
@@ -60,7 +60,7 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 3. 设计 prototype 保留“一轮一个可回答问题”、最小可运行、默认内存状态、少打磨、完整状态可见、真实边界、用户走查、逐轮证据和结论回填。最小脚本和外部系统 Evidence 分支保持现有职责。原型免除：该决定照搬现有 MMW 合同。
 4. 每项设计 prototype 继续保存在任务分支的 `docs/prototypes/<slug>/`。目录保存全部源码、变体、运行说明、逐轮记录和证据，并随本轮结果提交。`/mmw-to-spec`、`/mmw-to-tickets`、`/mmw-to-plan`、审查和 `worker` 继续通过仓库路径消费同一资产。结果分支只提供 worktree 隔离和验证，验收通过后仍按现有合同集成回任务分支。原型免除：该决定来自 MMW 已形成闭环的资产流转合同。
 5. Wayfinder prototype 的结案评论指向任务分支内的 prototype 资产路径。Grilling 或直接调用在 spec 产生前完成 prototype 时，资产和逐轮结论已经存在于 `docs/prototypes/<slug>/README.md`；`/mmw-to-spec` 直接读取并吸收。`/mmw-to-tickets` 把相关资产路径和决定含量传给消费该决定的 tracer bullet ticket。主分支长期保留 prototype、verdict、验收标准和视觉合同。原型免除：该决定来自 MMW 的 tracker 与资产消费链。
-6. Prototype 阶段只形成并提交资产、走查证据和已验证决定，不提前完成正式实现。实现阶段从已确认资产吸收逻辑，并由同一 ticket 的测试证明。HTML shell 不进入生产模块。UI 按仓库规范重写；prototype route、变体和切换器在回填时归档到 `docs/prototypes/<slug>/`，不留在正式路由。原型免除：该决定同时保留上游的 throwaway 编写约束和 MMW 的 spec-to-ticket 实现顺序。
+6. Prototype 阶段只形成并提交资产、走查证据和已验证决定，不提前完成正式集成。实现阶段把已确认的纯逻辑模块移入正式 module，并由同一 ticket 的 TDD 证明行为。HTML shell 不进入生产模块。UI 按仓库规范重写；prototype route、变体和切换器在回填时归档到 `docs/prototypes/<slug>/`，不留在正式路由。原型免除：该决定同时保留上游“纯逻辑模块可移入、HTML 外壳可丢弃”的合同和 MMW 的 spec-to-ticket 实现顺序。
 7. Wayfinder 的 effort 统一定义为“超出一次 agent session，且从当前状态到 destination 的路线仍不清楚”。是否最终形成一份或多份 spec 不再作为入口条件。保留 destination、map、decision ticket、frontier、fog of war 和提前提取独立 spec。原型免除：该决定由上游文档和现有 MMW map 合同判定，不需要用户判断。
 8. Wayfinder 的工作单位改成“一会话一张 decision ticket”。建图会话不手工解决 ticket。解决任一非 `wayfinder:research` ticket 后，本会话完成回填并停止，不沿新 frontier 继续。建图时可并行派发多张 `wayfinder:research` ticket；每个调查者仍只负责一张 ticket，主 agent 在同一建图会话验证报告并写入各自评论。删除“链”这一调度概念及其领域定义。原型免除：该决定由上游完成判据明确规定，不需要用户判断。
 9. `/mmw-to-tickets` 在写入 tracker 前展示 ticket、blocking edge 和执行顺序。用户可以按粒度、blocking edge、合并和拆分提出修改。只有用户明确批准后才创建 ticket。该确认是 ticket 拆分人工审批关卡，不替代共同理解或 spec 定稿的人工审批关卡。原型免除：该决定由上游 tracker 流程明确规定，不需要用户判断。
@@ -70,7 +70,7 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 13. 阶段边界的共享正文使用完整宿主动作块物化。Continue 继续当前任务。Portability 调用 `handoff`。AFK 使用宿主已有的 subagent 或后台 Worktree 任务。清空或 compact 能由 agent 执行时直接执行；只能由用户触发时，停在边界并给出一条精确宿主操作，等用户完成后恢复；agent 与用户都无法触发时，不执行 phase transfer。此时 Continue 仍安全就继续，否则停下并报告宿主能力 blocker。MMW 不声称已经清空或压缩，也不静默用 handoff 替代。原型免除：该决定可由宿主能力和 MMW 物化规则判定，不需要用户判断。
 14. TDD 在测试 seam、module depth 或 interface 暴露面尚未确定时读取 `/mmw-codebase-design`，只使用其 module、interface、seam、adapter 和 depth 词汇帮助澄清边界；已由 spec 决定的 seam 不重新设计。原型免除：该决定由上游文档和现有 spec 责任边界判定，不需要用户判断。
 15. `/mmw-implement` 继续让目标仓库的 `TESTING.md` 决定命令和测试层次，并恢复上游原文的执行频率：实现过程中定期运行类型检查和当前测试文件，全部实现完成后运行一次完整测试套件。“定期”表示这些命令与实现循环交错，不能全部推迟到结束；不把上游的判断改成固定时间或固定次数。`worker` 报告按发生顺序列出命令与结果。仓库没有对应命令时明确报告不适用，不编造命令。原型免除：该决定由上游文档和仓库测试入口判定，不需要用户判断。
-16. final 终审记录同时登记固定点和终审提交。固定点限定 diff 范围；终审提交是该轮实际审查并通过的被审分支 HEAD。`/mmw-release` 在开始时读取终审提交。任何 release 自愈、人工修复或重新出包过程只要改变 HEAD，就立即使该凭据失效，并移交 final 终审。新 HEAD 终审通过后从 `/mmw-release` 前置检查重新开始。包的 `source_commit` 一致仍是必要条件，但不能替代终审。原型免除：该决定可由 review 记录、Git 和 release 状态判定，不需要用户判断。
+16. 每轮 final 终审记录固定点和被审 HEAD；只有没有 `accepted` 的通过轮次才登记终审提交。固定点限定 diff 范围；终审提交是该轮实际审查并通过的被审 HEAD。`/mmw-release` 在开始时读取终审提交。任何 release 自愈、人工修复或重新出包过程只要改变 HEAD，就立即使该凭据失效，并移交 final 终审。新 HEAD 终审通过后从 `/mmw-release` 前置检查重新开始。包的 `source_commit` 一致仍是必要条件，但不能替代终审。原型免除：该决定可由 review 记录、Git 和 release 状态判定，不需要用户判断。
 17. `/mmw-integrate` 解每个冲突时只使用双方提交、issue、spec 和既定集成目标中的行为。兼容行为都保留；不兼容行为按既定目标取舍；任何合成都不得发明新行为。用户取消或现有目标不足以决定取舍时，保留 MMW 的安全 abort 和停止出口。原型免除：该决定由上游文档和现有安全边界判定，不需要用户判断。
 18. Grilling 补充三项解释性合同：用户可以按编号回答整轮；“不知道”、指出范围漂移和推回不合适的问题都是有效回答；开问前的事实调查只暂停依赖该事实的 frontier，其余问题继续。设计树、动态重算和共同理解人工审批关卡不变。原型免除：该决定由上游文档和当前技能正文判定，不需要用户判断。
 19. 新增 model-invoked 的 `wizard`。它只处理 agent 无法代办的人工作业。生成前读取仓库并向用户展示步骤、值来源、写入位置和 secret 属性，取得确认后才生成。脚本实现继续使用上游模板的 `stage` 函数，不把该代码标识符定义成 MMW 领域术语。模板提供进度、URL 打开、秘密输入、幂等环境变量写入、CI secret、不可逆动作确认和总结。脚本默认临时，用户要求可重复路径时才进入仓库。原型免除：该决定采用上游已有模板和步骤，不需要用户判断。
@@ -128,7 +128,7 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 | --- | --- | --- | --- | --- | --- |
 | 上游方法 | Matt Pocock Skills | Vendored 1.2.2 技能与 reference | MMW 共享技能源 | 方法论、步骤、解释和完成判据 | 源级语义对照与两道 spec 审查 |
 | MMW 工作流适配 | MMW | worktree、tracker、报告验证、领域文档、人工审批关卡 | 共享流程技能 | 不改变上游意图的承载与关卡 | 项目一致性审与真实流程验证 |
-| prototype 资产 | 当前任务分支 | `docs/prototypes/<slug>/` 下的源码、证据、问题和 verdict | spec、ticket、plan、审查者、`worker` | 当前任务提交可读取；完整资产长期保留；正式实现只吸收已验证决定 | 结果验证、仓库路径解析和 final 终审 |
+| prototype 资产 | 当前任务分支 | `docs/prototypes/<slug>/` 下的源码、证据、问题和 verdict | spec、ticket、plan、审查者、`worker` | 当前任务提交可读取；完整资产长期保留；正式实现吸收已验证决定，逻辑 branch 的纯模块移入正式代码 | 结果验证、仓库路径解析和 final 终审 |
 | 阶段边界语义 | `mmw-start` | 单一披露 reference | 所有流程技能 | 五步有序决策树 | 每个 phase transfer 的 pointer 与源级审查 |
 | 阶段边界宿主动作 | MMW 物化器 | Codex、Claude Code、Pi 的完整动作块 | 对应宿主技能 | 只描述宿主真实能力 | 三宿主物化正文检查 |
 | Ticket 创建 | `/mmw-to-tickets` | 用户批准和 ticket 清单 | issue tracker | 批准前零写入，批准后按 blocking edge 创建 | 测试 issue 或 dry-run |
@@ -139,7 +139,7 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 
 ## Release Risk
 
-prototype 继续作为任务分支中的重要资产。风险在于临时 route、切换器或 HTML 外壳被误当成正式实现。回填必须同时完成两件事：把完整产物归档到 `docs/prototypes/<slug>/`，并从正式应用路径撤掉 prototype 壳。正式实现只在后续 ticket 中吸收已验证决定。
+prototype 继续作为任务分支中的重要资产。风险在于临时 route、切换器或 HTML 外壳被误当成正式实现。回填必须同时完成两件事：把完整产物归档到 `docs/prototypes/<slug>/`，并从正式应用路径撤掉 prototype 壳。正式实现只在后续 ticket 中进行；逻辑 branch 移入已确认的纯逻辑模块，UI branch 按视觉合同重写。
 
 Ticket 拆分新增人工审批关卡，会让全自动交付在写入 tracker 前多一次停顿。这是恢复上游方法所需的有意变化。共同理解、spec 定稿和 ticket 拆分三个关卡分别批准不同产物，互不替代。
 

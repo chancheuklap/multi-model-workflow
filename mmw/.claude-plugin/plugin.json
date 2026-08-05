@@ -40,6 +40,6 @@
     "./skills-claude-code/mmw-triage",
     "./skills-claude-code/mmw-verifying-agent-output",
     "./skills-claude-code/mmw-wayfinder",
-    "./skills-claude-code/writing-great-skills"
+    "./skills-claude-code/writing-for-agents"
   ]
 }

@@ -43,6 +43,6 @@
 | 情况 | 下一步 |
 | --- | --- |
 | 第 2 步横扫下来，没有说不清楚的部分 | **移交**：调起 `$mmw:mmw-to-spec`，把用户原话原样传过去 |
-| map 建好，第一批 ticket 建好，research 报告已经写进 ticket 评论，改动已提交 | **停**：报 map 已经建好、frontier 上有几张可以认领，并说明每认领一条链要另开一个会话 |
+| map 建好，第一批 ticket 建好，research 报告已经写进 ticket 评论，改动已提交 | **停**：报 map 已经建好、frontier 上有几张可以认领，并说明每张 decision ticket 使用一个新会话 |
 
-停下来时报三件事：这张 map 的 destination 是什么、frontier 上现在有哪几张 ticket（用名字，不用编号）、他要开几个会话去认领。
+停下来时报三件事：这张 map 的 destination 是什么、frontier 上现在有哪几张 ticket（用名字，不用编号）、哪些 ticket 可以并行认领。

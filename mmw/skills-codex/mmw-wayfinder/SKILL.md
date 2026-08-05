@@ -1,14 +1,16 @@
 ---
 name: mmw-wayfinder
-description: 把一个大到要拆成好几份 spec 的 effort 规划成 issue tracker 上一张共享的 map。用户带来一个很大、很松、暂时看不到边界的想法时用它；报出一张已有 map 的编号、要认领一条链接着往下走时也用它。
+description: 把一个超出一次 agent session、而且路线还看不清的 effort 规划成 issue tracker 上一张共享的 map。用户带来一个很大、很松、暂时看不到边界的想法时用它；报出一张已有 map 的编号、要认领一张 decision ticket 时也用它。
 argument-hint: "[map 编号，或者要做的事]"
 ---
 
 本次输入：`$ARGUMENTS`
 
-一个还很松的想法来了，大到要拆成好几份 spec 才做得完，而且路上罩着 fog of war：从这里到 **destination** 的路看不见。本技能要做的是找到这条路，不是直接朝 destination 推进。它把这条路画成 issue tracker 上一张**共享的 map**，map 底下挂 **decision ticket**——每一张解出来是一个决定，不是一次构建里的切片——然后一条链一条链地解，直到路清楚。
+一个还很松的想法来了，超出一次 agent session 能容纳的范围，而且路上罩着 fog of war：从这里到 **destination** 的路线看不见。本技能要做的是找到路线，不是直接朝 destination 推进。它把路线画成 issue tracker 上一张**共享的 map**，map 底下挂 **decision ticket**。每张 decision ticket 解出一个决定，不是一次构建里的切片。各会话一次解决一张，直到路线清楚。
 
 destination 每个 effort 各不相同。给它命名是画 map 的第一个动作：它固定范围，也塑造后面每一张 ticket。它可能是一份要交出去继续做的 spec，可能是开始做计划之前必须锁死的一个决定，也可能是一次就地完成的改动，比如一次数据结构迁移。
+
+下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 
 ## 下一步
 
@@ -17,7 +19,7 @@ destination 每个 effort 各不相同。给它命名是画 map 的第一个动�
 | 情况 | 下一步 |
 | --- | --- |
 | 用户带来一个还很松的想法，还没有 map | **自己继续**：读 [drawing.md](drawing.md)，建这张 map |
-| 用户报了一张 map 的编号或链接 | **自己继续**：读 [walking.md](walking.md)，认领一条链 |
+| 用户报了一张 map 的编号或链接 | **自己继续**：读 [walking.md](walking.md)，认领一张 decision ticket |
 | 那张 map 的 frontier 上一张 ticket 都不剩 | **自己继续**：读 [closing.md](closing.md)，收尾 |
 
 看不出是哪一个，就按他给的编号查一次 frontier：frontier 上还有 ticket 就走 walking.md，空了就走 closing.md。
@@ -32,12 +34,12 @@ destination 每个 effort 各不相同。给它命名是画 map 的第一个动�
 
 ## 几个会话同时跑这张 map
 
-一张 map 通常由好几个会话分头做：一个会话建 map，其余的各认领一条链。这带来四条硬约束，三个入口都适用。
+一张 map 通常由好几个会话分头做：一个会话建 map，其余会话各认领一张 decision ticket。这带来四条硬约束，三个入口都适用。
 
-**一个会话只解一条链。** 一条链在两种情况下到头，任一成立就停下来交回用户，让他另开一个会话认领下一条：解开的这张 ticket 没解锁出任何一张归你的（阻塞没清完，或者已经被别的会话认领走了），或者解锁出来的那张是 HITL 的。判法和理由在 [walking.md](walking.md) 第 5 步。
+**一个会话只解一张 decision ticket。** 回填、提交和交回 map 任务后停止。新出现的 frontier 由另一个会话认领。唯一例外是建图会话可以为刚创建的多张 `wayfinder:research` ticket 并行派调查者；每个调查者仍只解一张 ticket。
 
 **认领在动手之前。** 把 ticket 指派给自己就是认领。指派完成之前不要做任何事。
 
 **改 map 正文之前先重新拉一次最新的。** GitHub 编辑 issue 正文是整体替换。写完再读一次，确认自己那行在；不在就重来一遍。
 
-**每个任务只使用自己的 worktree。** map 任务拥有 map 分支；每条链和每份 spec 使用从 map 分支派生的独立任务分支。任务之间只交回分支名、HEAD SHA、基点 SHA 和报告，由拥有目标分支的任务验证并集成。主 agent 不切换到另一个任务的工作目录。
+**每个任务只使用自己的 worktree。** map 任务拥有 map 分支；每张 decision ticket 和每份 spec 使用从 map 分支派生的独立任务分支。任务之间只交回分支名、HEAD SHA、基点 SHA 和报告，由拥有目标分支的任务验证并集成。主 agent 不切换到另一个任务的工作目录。

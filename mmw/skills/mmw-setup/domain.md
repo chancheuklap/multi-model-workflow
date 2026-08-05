@@ -40,7 +40,7 @@ ADR 编号四位、从 `0001` 起、只增不改。
 
 读的顺序：先查仓库根有没有 `CONTEXT-MAP.md`。有就按它的索引找到这次要碰的那几个上下文，读它们各自的 `CONTEXT.md`；没有就回退根 `CONTEXT.md`；两个都没有就直接往下走。
 
-**几条分支同时写 ADR 时先用草稿名。** 跑 `/mmw-wayfinder` 时，好几个会话各在自己的分支上解一条 decision ticket 链，同时写 ADR 必定撞号，所以在这类分支上先写成 `docs/adr/draft-<ticket 编号>-<kebab-标题>.md`，等这条链合回上一层分支时再统一改成正式编号。单条分支独占的场景不用绕这一道，直接取下一个编号。
+**几条分支同时写 ADR 时先用草稿名。** 跑 `/mmw-wayfinder` 时，好几个会话各在自己的分支上解一张 decision ticket，同时写 ADR 必定撞号，所以在这类分支上先写成 `docs/adr/draft-<ticket 编号>-<kebab-标题>.md`，等这张 decision ticket 的结果分支合回上一层分支时再统一改成正式编号。单条分支独占的场景不用绕这一道，直接取下一个编号。
 
 ## 用 glossary 里的词
 

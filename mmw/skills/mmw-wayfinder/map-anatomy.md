@@ -61,7 +61,7 @@ map 是一份**索引**，不是一个仓库。它列出已经做出的决定，
 
    这两个词成对使用，不另写中文说法——拆开翻译就散了。
 
-   这条轴跟**人工审批关卡**不是一回事：人工审批关卡是「必须用户点头这件事才能往下走」的关卡；HITL 说的是「这件活本身要人参与才做得完」。`/mmw-grilling` 要用户确认共同理解，`/mmw-to-spec` 第 7 步要用户确认 spec 定稿。这两处各自是对应产物的人工审批关卡。一件 AFK 的活也可能在后续流程遇到人工审批关卡。
+   这条轴跟**人工审批关卡**不是一回事：人工审批关卡是“必须用户点头这件事才能往下走”的关卡；HITL 说的是“这件活本身要人参与才做得完”。`/mmw-grilling` 确认共同理解，`/mmw-to-spec` 确认 spec 定稿，`/mmw-to-tickets` 确认 ticket 清单。三处各自批准不同产物。一件 AFK 的活也可能在后续流程遇到人工审批关卡。
 
 2. **它是哪一个类型**——写成 `wayfinder:<类型>` 标签，四个取值见本文「四个类型」一节。
 
@@ -76,7 +76,7 @@ HITL 还是 AFK 不单独打标签，从类型推出来；只有 `wayfinder:task
 | `wayfinder:grilling` | HITL | 默认。另外三个标签都不适用就打它 | 主 agent 跑 `/mmw-grilling`；它用设计树组织提问，并在同一段对话中应用 `/mmw-domain-modeling` |
 | `wayfinder:prototype` | HITL | 关键问题是「它该长什么样」或者「它该怎么表现」——光靠说定不下来，要有一个能上手的东西摆在面前才评得动 | 主 agent 跑 `/mmw-prototype` 做一个粗糙版本，用户走查 |
 | `wayfinder:research` | AFK | **要用的知识在当前工作目录之外**：第三方文档、外部接口、本地知识库。仓库里读得到的不打这个标签 | 主 agent 按 `/mmw-research` 派一个 subagent 去查。查下来发现这条事实要真实跑一次才知道，转 `/mmw-prototype` 的 `EVIDENCE.md`——这时候这张 ticket 变成 HITL，凭证和环境要用户点头 |
-| `wayfinder:task` | 两种都可能 | 某个决定做得出来之前必须先完成的手工操作：注册一个服务好让它的接口能被评判、开通权限、把数据搬过来看清它的形状。这是四类里唯一做事而不做决定的，它靠解除对某个决定的阻塞立足 | agent 自己做得完的是 AFK，agent 自己做；必须人动手的（要账号、要付钱、要点鼠标）是 HITL，agent 交一份精确的操作清单给用户 |
+| `wayfinder:task` | 两种都可能 | 某个决定做得出来之前必须先完成的手工操作：注册一个服务好让它的接口能被评判、开通权限、把数据搬过来看清它的形状。这是四类里唯一做事而不做决定的，它靠解除对某个决定的阻塞立足 | agent 自己做得完的是 AFK，agent 自己做；必须人动手的是 HITL。简单操作给精确清单；多步骤配置、值采集或 secret 落点使用 `/wizard` |
 
 **`wayfinder:task` 的 HITL 还是 AFK 从标签上看不出来，必须读这张 ticket 的正文才判得出。** 认领它之前先读正文。
 
@@ -107,6 +107,6 @@ fog of war 只会**朝着** destination 聚集。destination 固定了范围，�
 
 判出范围的工作不再回来。frontier 走到 destination 就停了，它只有在 destination 被重画时才回来，而且是作为一个新的 effort，不是接着做。
 
-已经存在的一张 ticket 后来发现坐在 destination 之外——画图时圈错了，或者被某次解答暴露出来——就**关掉它**，并在 `Out of scope` 一节留一行：概要加上为什么出范围，链到那张关掉的 ticket。同时在 `.out-of-scope/` 写一份，一个概念一个文件——产物去向表在 [closing.md](closing.md) 第 2 步。
+已经存在的一张 ticket 后来发现坐在 destination 之外——画图时圈错了，或者被某次解答暴露出来——就**关掉它**，并在 `Out of scope` 一节留一行：概要加上为什么出范围，并链接到那张关掉的 ticket。同时在 `.out-of-scope/` 写一份，一个概念一个文件——产物去向表在 [closing.md](closing.md) 第 2 步。
 
 它不进 `Decisions so far`，那里只记真正走过的路线。
