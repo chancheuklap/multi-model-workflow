@@ -5,7 +5,7 @@ description: 把一份 spec 拆成一组 tracer bullet ticket，按依赖顺序�
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
 
-把一份 spec、一份计划或当前这段对话拆成一组 **ticket**——每张是一条 tracer bullet 垂直切片，并声明**阻塞**它的那些 ticket。
+把一份已批准的 spec 拆成一组 **tracer bullet ticket**——每张是一条 tracer bullet 垂直切片，并声明**阻塞**它的那些 tracer bullet ticket。
 
 issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw issue`，读一张、评论、打标签这类一条命令做得完的直接用 `gh`。标签清单在仓库根 `.mmw.json` 的 `tracker.labels`。
 
@@ -15,23 +15,25 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 | --- | --- | --- | --- |
 | map（跑了 `/mmw-wayfinder` 才有） | `Destination`、`Decisions so far` 的一行索引、`Out of scope`、`Not yet specified` | 就在正文 | 关掉，不上 Wiki |
 | spec | 一段摘要说清要解决什么问题、指向分支上 spec 文件的路径、ticket 清单 | 任务分支的 `docs/specs/<slug>/` | 落地后转成一页 Wiki |
-| ticket | 一段摘要、指向分支上该 ticket 计划的路径、阻塞关系 | 任务分支的 `docs/plans/<slug>/` | 并进 spec 那页 Wiki 的一节 |
+| tracer bullet ticket | 一段摘要、验收标准、对应 plan 的预定路径、阻塞关系 | 行为与验收以 Tracker issue 为准；实施合同以对应 plan 为准 | 并进 Wiki spec 页面的一个计划章节 |
 
 本技能建的是第三层。
 
 ## 1. 取上下文
 
-从这段对话里已有的材料开始。用户给了引用（spec 路径、issue 编号或链接），就取回来把正文和评论整个读完。
+读取已批准 spec 的文件与对应 spec issue。用户给了 spec issue 编号或链接时，把正文和评论整个读完。
+
+运行 `gh issue view <spec issue 编号> --json state,labels`，确认 spec issue 已发布、仍是 open，而且带 `ready-for-agent`。issue 和标签只证明发布状态与 Tracker 状态，不替代 `/mmw-to-spec` 的用户批准凭据。任一条件不满足时，在创建 tracer bullet ticket 之前停下并回 `/mmw-to-spec` 第 7 步。
 
 ## 2. 找 prefactor
 
 **按 `/mmw-research` 的内部方向派一个 subagent**，题目是：这次要改的地方，有哪些可以先做 prefactor，让后面的实现更容易。「先把改动变容易，再做这个容易的改动。」
 
-上游那份 spec 的现状调查已经覆盖了这块代码怎么实现，这里不重查，只查 prefactor 这一个角度。**上游没有 spec、这次是从对话直接拆 ticket 的**，就连现状一起查，一个角度一个 subagent。
+上游那份 spec 的现状调查已经覆盖了这块代码怎么实现，这里不重查，只查 prefactor 这一个角度。
 
 收回来按 `/mmw-verifying-agent-output` 验证过才写进 ticket。
 
-ticket 的标题和描述用项目领域术语表里的词，遵守这块地方的 ADR。
+tracer bullet ticket 的标题和描述用相关 leaf 定义的领域术语，遵守这块地方的 ADR。
 
 ## 3. 起草垂直切片
 
@@ -75,7 +77,7 @@ mmw issue create --title "<标题>" --body-file <正文文件> \
 
 **顺序不是随便的。** 下游取下一张 ticket 靠 `mmw issue frontier`，那个命令按 issue 编号升序给，所以「按依赖顺序发」直接决定了后面开工的顺序。
 
-`ready-for-agent` 始终表示「当前 work item 的合同已足以让 agent 按拥有它的技能 AFK 继续」。spec issue 依靠已批准 spec 进入本技能；新建实现 ticket 依靠验收标准进入 `/mmw-to-plan`。标签不豁免 `/mmw-implement` 对 plan 和 plan 审的前置检查。
+`ready-for-agent` 始终表示「当前 work item 的合同已足以让 agent 按拥有该 work item 的技能继续 AFK 推进。它不指定下一项技能，也不豁免该技能自己的前置条件。」spec issue 依靠已批准 spec 进入本技能；新建 tracer bullet ticket 依靠验收标准进入 `/mmw-to-plan`。标签不豁免 `/mmw-implement` 对 plan 和 plan 审的前置检查。
 
 父 issue 不要关，也不要改。
 
@@ -112,4 +114,4 @@ mmw issue create --title "<标题>" --body-file <正文文件> \
 | --- | --- |
 | ticket 全部发布完 | **移交**：`/mmw-to-plan`，一张 ticket 写一份 plan |
 | 第 4 步用户要改切分 | **自己继续**：回第 3 步改，改完重亮一次清单 |
-| 来源是一份 spec，但那张 spec issue 没带 `ready-for-agent` | **停**：回 `/mmw-to-spec` 第 7 步 |
+| 第 1 步发现 spec issue 未发布、不是 open 或没带 `ready-for-agent` | **停**：不要创建 tracer bullet ticket；回 `/mmw-to-spec` 第 7 步 |

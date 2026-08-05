@@ -94,18 +94,18 @@
   "tracker": {
     "kind": "github",
     "labels": {
-      "needs-triage": "还没评估过，不知道该不该做、怎么做",
-      "needs-info": "缺输入，等人补",
-      "ready-for-agent": "当前合同已写清，可以由 agent AFK 继续",
-      "ready-for-human": "下一步由人承担，agent 不代替",
-      "wontfix": "决定不做",
-      "bug": "有东西坏了",
-      "enhancement": "新功能或改进",
+      "needs-triage": "当前 work item 等待维护者评估",
+      "needs-info": "当前 work item 等待报告人补充完成分诊所需的信息",
+      "ready-for-agent": "当前 work item 的合同已足以让 agent 按拥有该 work item 的技能继续 AFK 推进。它不指定下一项技能，也不豁免该技能自己的前置条件",
+      "ready-for-human": "当前 work item 的下一步由人承担，agent 不得代替这个人完成",
+      "wontfix": "当前 work item 无需实现：维护者已经决定不做，或者当前行为已经存在",
+      "bug": "当前行为与预期行为冲突",
+      "enhancement": "请求新增能力或改进现有能力",
       "wayfinder:map": "这张 issue 是一张 map，不是一件待办",
-      "wayfinder:grilling": "decision ticket，靠跟人对谈解掉",
-      "wayfinder:prototype": "decision ticket，要先做一个粗糙版本给用户走查",
-      "wayfinder:research": "decision ticket，派 subagent 查一条事实就能解掉",
-      "wayfinder:task": "decision ticket，某个决定做得出来之前必须先完成的手工操作"
+      "wayfinder:grilling": "HITL decision ticket，必须通过一问一答形成决定",
+      "wayfinder:prototype": "HITL decision ticket，必须由用户走查可运行产物形成决定",
+      "wayfinder:research": "AFK decision ticket，通过当前工作目录之外的可读事实形成决定",
+      "wayfinder:task": "为解除另一个决定的阻塞而完成的具体操作；参与方式由 ticket 正文判定为 HITL 或 AFK"
     }
   },
   "paths": {

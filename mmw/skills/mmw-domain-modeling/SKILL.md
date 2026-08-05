@@ -33,7 +33,7 @@ mmw domain dirs    # 写入侧的四个落点：single、map、context、adr
 
 - 明确只有一个 bounded context：在 `mmw domain dirs` 返回的 `single` 路径创建领域文档，并写入首个长期术语。
 - 明确存在多个 bounded context：先运行 `mmw domain map-init`。只有命令输出 `map-init<TAB><相对路径><TAB>created` 后才编辑它创建的 Map；禁止直接创建 Map，也禁止复制受管规则。然后在 `mmw domain dirs` 返回的 `context` 路径或其子目录创建首个命名 leaf。在 Map 中登记它的实际路径，补齐全部已确认的 `Contexts` 行，并写入至少一条已确认的 `Relationships` 关系。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
-- bounded context 的数量、术语归属或跨上下文关系不清楚：一次只问用户一个具体问题。用户确认之前不创建领域文档。
+- bounded context 的数量、术语归属或跨上下文关系不清楚：一次只问用户一个具体问题。用户明确决定之前不创建领域文档。
 
 首次建模写完后运行 `mmw domain check`。检查失败就修正 Map、leaf 或受管规则；检查通过之前不得提交。
 

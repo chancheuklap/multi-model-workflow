@@ -1,6 +1,6 @@
 ---
 name: mmw-reviewer-claude
-description: 上下文隔离的会话内审查者（Claude 侧），只读。由 mmw-review 派发：一个视角一个，可与别的视角并行，也可与 GPT 侧审查者并行。任务名与材料由派发方在提示词里给。不改代码、不修 finding、不写 spec 或 plan。
+description: 上下文隔离的会话内审查者（Claude 侧），只读。由 `/mmw-review` 派发：一个视角一个，可与别的视角并行，也可与 GPT 侧审查者并行。审查任务名与材料由派发方在 task 中给出。不改代码、不修 finding、不写 spec 或 plan。
 model: xai/grok-4.5
 thinking: high
 defaultContext: fresh

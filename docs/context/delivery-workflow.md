@@ -28,17 +28,17 @@ _Avoid_: 自动验收、审查
 记录目标行为、实现决定、合同边界和测试决定的定稿设计合同。
 _Avoid_: 需求草稿、plan、Wiki 页面
 
-**实现 ticket**：
-由一名 `worker` 独立实现和验收的一条端到端交付切片。
+**tracer bullet ticket**：
+由一名 `worker` 独立实现并提交验证证据的一条端到端交付切片。主 agent 负责验收和结果验证。
 _Avoid_: decision ticket、任务包、横向层任务
 
 **plan**：
-一张实现 ticket 的可执行实施合同。一张实现 ticket 恰好对应一份 plan。
-_Avoid_: spec、ticket 正文、路线图
+一张 tracer bullet ticket 的可执行实施合同。一张 tracer bullet ticket 恰好对应一份 plan。
+_Avoid_: spec、tracer bullet ticket 正文、路线图
 
 **任务包**：
 plan 内可以独立实现、独立验证并值得单独审查的最小交付单元。
-_Avoid_: 实现 ticket、阶段、代码层
+_Avoid_: tracer bullet ticket、阶段、代码层
 
 **人工审批关卡**：
 主 agent 必须取得用户对指定产物或动作的明确批准，才能执行下一次流程转换的关卡。各技能可以定义不同实例，但不得改名或改变这项批准责任。

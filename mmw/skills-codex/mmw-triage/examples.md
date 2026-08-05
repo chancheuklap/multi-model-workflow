@@ -56,8 +56,8 @@
 
 **Key interfaces:**
 - `.out-of-scope/` 下的 Markdown 格式 —— 每份文件有一个 `# 概念名` 标题、
-  一行 `**Decision:**`、一行 `**Reason:**`，以及一份带 issue 链接的
-  `**Prior requests:**` 清单
+  `## 为什么判在范围外` 一节，以及一份带 issue 链接的
+  `## 提过这个需求的` 清单
 - 分诊流程应当在早期就读完所有 `.out-of-scope/*.md`，按概念相似度
   跟进来的 issue 比对
 
@@ -70,7 +70,7 @@
 - [ ] 以 wontfix 关掉一个功能需求会新建或更新 `.out-of-scope/` 下的文件
 - [ ] `.out-of-scope/` 下那份文件含决定、理由，以及指向这张已关闭 issue 的链接
 - [ ] 已经存在匹配的 `.out-of-scope/` 文件时，新 issue 追加进它的
-      「Prior requests」清单，而不是新建一份重复的
+      `## 提过这个需求的` 清单，而不是新建一份重复的
 - [ ] 分诊过程中，已有的 `.out-of-scope/` 文件会被查阅；新 issue 跟
       某次否决匹配上时把它呈现出来
 

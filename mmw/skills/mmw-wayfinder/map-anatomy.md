@@ -75,8 +75,8 @@ HITL 还是 AFK 不单独打标签，从类型推出来；只有 `wayfinder:task
 | --- | --- | --- | --- |
 | `wayfinder:grilling` | HITL | 默认。另外三个标签都不适用就打它 | 主 agent 跑 `/mmw-grilling`，一次问用户一个问题 |
 | `wayfinder:prototype` | HITL | 关键问题是「它该长什么样」或者「它该怎么表现」——光靠说定不下来，要有一个能上手的东西摆在面前才评得动 | 主 agent 跑 `/mmw-prototype` 做一个粗糙版本，用户走查 |
-| `wayfinder:research` | AFK | **要用的知识在当前工作目录之外**：第三方文档、外部接口、本地知识库。仓库里读得到的不打这个标签 | 主 agent 按 `/mmw-research` 派一个 subagent 去查。查下来发现这条事实要真实跑一次才知道，转 `/mmw-prototype` 的 `EVIDENCE.md`——这时候这张 ticket 变成 HITL，凭证和环境要用户点头 |
-| `wayfinder:task` | 两种都可能 | 某个决定做得出来之前必须先完成的手工操作：注册一个服务好让它的接口能被评判、开通权限、把数据搬过来看清它的形状。这是四类里唯一做事而不做决定的，它靠解除对某个决定的阻塞立足 | agent 自己做得完的是 AFK，agent 自己做；必须人动手的（要账号、要付钱、要点鼠标）是 HITL，agent 交一份精确的操作清单给用户 |
+| `wayfinder:research` | AFK | **要用的知识在当前工作目录之外**：第三方文档、外部接口、本地知识库。仓库里读得到的不打这个标签 | 主 agent 按 `/mmw-research` 派一个 subagent 去查。一项决定被实测结果阻塞，而且实测需要 test plan、多候选对比、多轮测量、真实凭证或真实环境时，转 `/mmw-prototype` 的 `EVIDENCE.md`。受控实测遵守 `EVIDENCE.md` 第 3 步的实测人工审批关卡 |
+| `wayfinder:task` | 两种都可能 | 某个决定做得出来之前必须先完成的具体操作：注册一个服务好让它的接口能被评判、开通权限、把数据搬过来看清它的形状。这是四类里唯一做事而不做决定的，它靠解除对某个决定的阻塞立足 | agent 自己做得完的是 AFK，agent 自己做；必须人动手的（要账号、要付钱、要点鼠标）是 HITL，agent 交一份精确的操作清单给用户 |
 
 **`wayfinder:task` 的 HITL 还是 AFK 从标签上看不出来，必须读这张 ticket 的正文才判得出。** 认领它之前先读正文。
 

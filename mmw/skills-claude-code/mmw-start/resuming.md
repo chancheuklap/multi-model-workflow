@@ -19,7 +19,7 @@
 | 这张 map 走到哪一步了 | `mmw issue children <map 编号>`：一行一张，带状态、认领人、被几张挡着 |
 | 有几条链在同时跑 | 查从该任务分支派生的 worktree 与结果分支；每个结果分支是一条链 |
 | spec 有没有写出来 | `docs/specs/<slug>/` 在不在，里面的文件有没有提交进分支 |
-| spec 过没过用户那道关卡 | 那张 spec issue 在不在、带没带 `ready-for-agent` 标签。这两样齐了才算过了这道关卡 |
+| spec 是否已发布并可进入拆 ticket | 那张 spec issue 在不在、带没带 `ready-for-agent` 标签。这两样齐了才算发布步骤完成；用户批准本身仍以 `/mmw-to-spec` 的 spec 定稿人工审批关卡为准 |
 | ticket 有没有拆 | `mmw issue children <spec issue 编号>` 有没有输出 |
 | plan 写了没有 | `docs/plans/<slug>/` 在不在，里面的份数跟 ticket 数对不对得上 |
 | 合同锚点回填了没有 | spec 的 `## Cross-Plan Contract Anchors` 一节在不在、精确字段补实了没有 |
@@ -30,7 +30,7 @@
 
 `.reviews/` 随 worktree 存活，不进 git。它是空的不代表没做过，只代表这台机器上这一轮没做过——以提交记录和 issue 状态为准。
 
-spec 文件已经提交、issue 却还没发布，是个中间状态：用户可能刚点完头，也可能还没看过。这时按没过这道关卡处理，重新给他看一次。
+spec 文件已经提交、issue 却还没发布，是个中间状态：无法从持久产物判断用户是否已经批准。这时重新执行 `/mmw-to-spec` 的 spec 定稿人工审批关卡：批准对象是 spec 定稿、审查处置和 seam 清单，批准人是用户，通过凭据是用户明确批准这三项，通过后发布 spec issue。
 
 ## 查完之后
 

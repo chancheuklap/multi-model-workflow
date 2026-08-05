@@ -27,7 +27,7 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$MMW_ROOT/cli/lib/init.sh"
 
 # 用法分两层：这里只列命令名，参数在各命令自己的 usage_* 里。要查 dispatch
-# 怎么写的人不该顺带读完 issue 的六个子命令——认不出参数时打的也是那一个命令
+# 怎么写的人不该顺带读完 issue 的五个子命令——认不出参数时打的也是那一个命令
 # 自己的用法，不是全部。
 usage() {
   cat >&2 <<'EOF'
@@ -59,8 +59,8 @@ usage_dispatch() {
 mmw dispatch <角色> --task <文件> [--cwd <目录>]
 
 角色：
-  worker            按一份 plan 写代码
-  worker-high-risk  同上，但这块代码错了代价大
+  worker            实现一张 ticket；task 可引用 plan 或 agent brief
+  worker-high-risk  实现一张高风险 ticket；用于计费、权限、数据迁移或不可逆改动
   prototype-worker  做一个指定的原型变体
   planner           按一张 ticket 写一份 plan
   investigator      查一个角度的事实，带出处交回
@@ -75,7 +75,7 @@ mmw dispatch <角色> --task <文件> [--cwd <目录>]
 模型、档位、护栏由角色决定，取自仓库根 .mmw.json，这里不用管。
 
 返回开头一行是 mode: executed 或 mode: host-tool。
-host-tool 时原样用回执 params 调工具（params 内已含 task 正文或等价字段）。
+host-tool 时原样用返回结果里的 params 调工具（params 内已含 task 正文或等价字段）。
 EOF
   return 2
 }
@@ -127,8 +127,8 @@ mmw issue frontier <父编号> [--label <标签>]
     open、没被挡、没人认领的子 issue，编号升序。要全部的读全部行，
     要下一张的取第一行。每行两列，制表符分隔：编号、标题
 mmw issue children <父编号>
-    全部子 issue，编号升序，看任务走到哪一步。每行四列，制表符分隔：
-    编号、标题、认领人（无人为空）、被几张还开着的 issue 挡着
+    全部子 issue，编号升序，看任务走到哪一步。每行六列，制表符分隔：
+    编号、状态、认领人（无人为 -）、被几张还开着的 issue 挡着、标签、标题
 mmw issue claim <编号>               认领；已被别人占住就失败
 mmw issue link <子> --blocked-by <n> 单连一条阻塞边
 
@@ -143,7 +143,7 @@ mmw wiki ensure         clone 或 pull Wiki，输出本地路径
 mmw wiki nav            从各页面重新生成 Home.md 与 _Sidebar.md
 mmw wiki verify <slug>  删本地文档前那三条验证
 
-推 Wiki 是对外发布，要用户点头，这里不做。
+推 Wiki 是对外发布，必须通过人工审批关卡，这里不做。
 EOF
   return 2
 }
@@ -620,7 +620,7 @@ cmd_doctor() {
   command -v gh >/dev/null && echo "gh       : $(command -v gh)" || { echo "gh       : 没装"; status=1; }
   # Wiki 没有 API，读写一律 clone 加 push，走 https://github.com/<仓库>.wiki.git
   # （见 lib/wiki.sh）。凭据助手没配好的话，要等到 /mmw-closing 第 5 步、用户
-  # 已经点头同意推送之后才发现推不上去。这里提前探一次：喂一条 github.com 的
+  # 用户明确批准推送之后才发现推不上去会浪费一次人工审批关卡。这里提前探一次：喂一条 github.com 的
   # https 查询，走完整条助手链，只判有没有人答上密码，不回显。
   if printf 'protocol=https\nhost=github.com\n\n' \
      | GIT_TERMINAL_PROMPT=0 git credential fill 2>/dev/null | grep -q '^password='; then

@@ -49,7 +49,7 @@
 - **Before / After 图**——整张卡片的重心。两列并排，画法见本文「图的几种画法」一节。
 - **Problem**——一句话。哪里疼。
 - **Solution**——一句话。改什么。
-- **Wins**——列点，每条不超过六个词。例如 "Tests hit one interface"、"Pricing logic stops leaking"、"Delete 4 shallow wrappers"。
+- **Wins**——列点，每条不超过六个词。例如 "Tests hit one interface"、"Pricing logic stops leaking"、"Delete 4 shallow modules"。
 - **ADR 提示**（如果撞上了）——琥珀色底的一行。
 
 不写解释性的段落。一张图需要一段话才看得懂，就把图重画。
@@ -118,6 +118,6 @@ before：一棵函数调用树，画成嵌套的方框。after：同一棵树收
 - "Deepen: one interface, one place to test."
 - "Two adapters justify the seam: HTTP in prod, in-memory in tests."
 
-**Wins 那几条**用词汇表里的词说收益，例如 *"locality: bugs concentrate in one module"*、*"leverage: one interface, N call sites"*、*"interface shrinks; implementation absorbs the wrappers"*。不要写 *"easier to maintain"* 或 *"cleaner code"*，这些词不在词汇表里。
+**Wins 那几条**用词汇表里的词说收益，例如 *"locality: bugs concentrate in one module"*、*"leverage: one interface, N call sites"*、*"interface shrinks; implementation absorbs the shallow modules"*。不要写 *"easier to maintain"* 或 *"cleaner code"*，这些词不在词汇表里。
 
 不要模棱两可，不要清嗓子，不要「值得一提的是……」。一句话能写成一条列点就写成列点，一条列点能删就删。一个词不在 `$mmw:mmw-codebase-design` 的词汇表里，先找一个在里面的，再考虑发明新词。

@@ -17,24 +17,24 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 两个**类别**角色：
 
-- `bug` —— 有东西坏了
-- `enhancement` —— 新功能或改进
+- `bug` —— 当前行为与预期行为冲突
+- `enhancement` —— 请求新增能力或改进现有能力
 
 五个**状态**角色：
 
-- `needs-triage` —— 等维护者评估
-- `needs-info` —— 等报告人补信息
-- `ready-for-agent` —— 当前合同已经完整，可以由 agent AFK 继续
-- `ready-for-human` —— 需要人来实现
-- `wontfix` —— 不做
+- `needs-triage` —— 当前 work item 等待维护者评估
+- `needs-info` —— 当前 work item 等待报告人补充完成分诊所需的信息
+- `ready-for-agent` —— 当前 work item 的合同已足以让 agent 按拥有该 work item 的技能继续 AFK 推进。它不指定下一项技能，也不豁免该技能自己的前置条件
+- `ready-for-human` —— 当前 work item 的下一步由人承担，agent 不得代替这个人完成
+- `wontfix` —— 当前 work item 无需实现：维护者已经决定不做，或者当前行为已经存在
 
-对 PR 而言，同样这几个状态是对着那份代码读的：`ready-for-agent` 表示 agent brief 已附上、该由 agent 接着动这份 diff；`ready-for-human` 表示可以由人来合了。
+对 PR 而言，同样这几个状态是对着那份代码读的：`ready-for-agent` 表示 agent brief 已附上、该由 agent 接着动这份 diff；`ready-for-human` 表示这份 PR 的下一步由人承担。`ready-for-human` 不构成远端合并授权。
 
 每张分诊过的 issue 应当正好带一个类别角色和一个状态角色。状态角色互相冲突时，先标出来问维护者，再做别的。
 
 类别角色和状态角色这两组名字就是 issue 上的标签字符串本身，不用再查映射。**完整清单在仓库根 `.mmw.json` 的 `tracker.labels`**，`mmw init` 按它建标签。
 
-`ready-for-agent` 的统一含义是「当前 work item 的合同已足以让 agent 按拥有它的技能 AFK 继续」。它不指定下一项技能，也不豁免承接技能的前置条件。对本技能分诊的 issue 或 PR，合同是完整 agent brief；对 spec issue，合同是用户批准的 spec；对实现 ticket，合同先支持 `$mmw:mmw-to-plan` 写 plan，进入 `$mmw:mmw-implement` 前仍须通过 plan 审。
+`ready-for-agent` 的统一含义是「当前 work item 的合同已足以让 agent 按拥有该 work item 的技能继续 AFK 推进。它不指定下一项技能，也不豁免该技能自己的前置条件。」对本技能分诊的 issue 或 PR，合同是完整 agent brief；对 spec issue，合同是用户批准的 spec；对 tracer bullet ticket，合同先支持 `$mmw:mmw-to-plan` 写 plan，进入 `$mmw:mmw-implement` 前仍须通过 plan 审。
 
 **派 `worker` 前必须是 `ready-for-agent`，而且当前实现 work item 的行为合同必须完整。** 直接实现一张已分诊 issue 或 PR 时，行为合同来自 agent brief；实现 spec 下的 ticket 时，行为合同来自 spec、ticket 与已通过 plan 审的 plan。状态角色不能替代这项检查。
 
@@ -67,7 +67,7 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 
 ## 分诊一张具体的 issue 或 PR
 
-1. **收集上下文。** 把这张 issue 或 PR 整个读完（正文、评论、标签、作者、日期；PR 还要读 diff）。把之前的分诊记录读出来，已经解决的问题不要再问一遍。用项目的领域术语表探索代码，遵守这块地方的 ADR。
+1. **收集上下文。** 把这张 issue 或 PR 整个读完（正文、评论、标签、作者、日期；PR 还要读 diff）。把之前的分诊记录读出来，已经解决的问题不要再问一遍。用相关 leaf 定义的领域术语探索代码，遵守这块地方的 ADR。
 
    然后做两项检查，**按 `$mmw:mmw-research` 的内部方向派出去**，一项一个 subagent，并行：
 
@@ -76,11 +76,11 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 
    收回来按 `$mmw:mmw-verifying-agent-output` 验证——**报告说「没有找到」的，你自己再搜一次**。第二步给建议时要报你搜了哪些地方，那份清单从它的报告里取。
 
-2. **给建议。** 把你的类别和状态建议连同理由告诉维护者，再加一段与这次需求相关的代码现状摘要——包括它是不是已经实现。等他给方向。
+2. **给建议。** 把你的类别角色和状态角色建议连同理由告诉维护者，再加一段与这次需求相关的代码现状摘要——包括它是不是已经实现。建议 `ready-for-agent` 时一并给出拟写入 agent brief 的 `Test seam`。这是落实分诊结果的人工审批关卡：批准对象是类别角色、状态角色、拟执行的 tracker 动作，以及适用时的 `Test seam`，批准人是当前用户（本流程中的维护者），通过凭据是用户明确批准这些对象，通过后才进入第 3 步并在第 5 步执行 tracker 动作。第 3、4 步改变了任何批准对象时，回到本步重新批准。
 
-3. **验断言。** 开始 grill 之前先确认这个断言站得住。是 bug，就照报告人的步骤复现。是 PR，就确认这份 diff 真的做到了它自称做到的事——签出来，跑相关测试或命令。然后报告结果：确认（附代码路径）、没能复现、或者信息不够（这是很强的 `needs-info` 信号）。
+3. **验断言。** 运行 `$mmw:mmw-grilling` 之前先确认这个断言站得住。是 bug，就照报告人的步骤复现。是 PR，就确认这份 diff 真的做到了它自称做到的事——签出来，跑相关测试或命令。然后报告结果：确认（附代码路径）、没能复现、或者信息不够（这是很强的 `needs-info` 信号）。
 
-4. **Grill（需要时）。** 这个需求还不够具体，就跑 `$mmw:mmw-grilling`——一次一个问题地把它问成形，领域词随之收紧，决定定下来时更新拥有该术语的 leaf 和相关 ADR。
+4. **运行 `$mmw:mmw-grilling`（需要时）。** 这个需求还不够具体，就跑 `$mmw:mmw-grilling`——一次一个问题地把它问成形，领域词随之收紧，决定定下来时更新拥有该术语的 leaf 和相关 ADR。
 
 5. **落实结果：**
    - `ready-for-agent` —— 先按 [AGENT-BRIEF.md](AGENT-BRIEF.md) 贴一条完整的 agent brief 评论，再把状态改成 `ready-for-agent`。`**Acceptance criteria:**` 和 `**Test seam:**` 都是必填栏。然后按本文「下一步」一节决定它接着走哪个技能。
@@ -105,7 +105,7 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 
 ## 快速改状态
 
-维护者说「把 #42 挪到 ready-for-agent」，就接受他的状态判断，不重跑 grill。先确认你要做什么（改哪些角色、贴什么评论、关不关），再从现有 issue 或 PR 材料综合出一份完整 agent brief。`Acceptance criteria` 或 `Test seam` 缺内容时，保持当前状态并向维护者追问缺失的那一项。agent brief 完整后，先贴评论，再把状态改成 `ready-for-agent`。
+维护者说「把 #42 挪到 ready-for-agent」，就接受他的状态判断，不重跑 `$mmw:mmw-grilling`。先确认你要做什么（改哪些角色、贴什么评论、关不关），再从现有 issue 或 PR 材料综合出一份完整 agent brief。`Acceptance criteria` 或 `Test seam` 缺内容时，保持当前状态并向维护者追问缺失的那一项。agent brief 完整后，先贴评论，再把状态改成 `ready-for-agent`。
 
 ## 接上一次分诊
 

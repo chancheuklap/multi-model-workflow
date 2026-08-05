@@ -9,20 +9,24 @@
 _Avoid_: 大 ticket、大 spec
 
 **destination**：
-一张 Wayfinder map 要抵达的清晰终态。destination 固定 effort 的范围，并决定哪些 decision ticket 有关。
+Wayfinding 的 map 要抵达的清晰终态。destination 固定 effort 的范围，并决定哪些 decision ticket 有关。
 _Avoid_: 目标列表、交付清单
 
-**Wayfinder map**：
+**map**：
 issue tracker 上一项 effort 的唯一索引，带 `wayfinder:map` 标签。它只索引决定与未解问题，不复制各 decision ticket 的完整结论。
 _Avoid_: Context Map、计划、仓库
 
 **decision ticket**：
-Wayfinder map 下解除一个决定或其前置阻塞的子 issue。带 `wayfinder:<类型>` 标签；收尾时切出的 spec issue 不属于 decision ticket。
-_Avoid_: 实现 ticket、tracer bullet ticket
+Wayfinding 的 map 下解除一个决定或其前置阻塞的子 issue。带 `wayfinder:<类型>` 标签；收尾时切出的 spec issue 不属于 decision ticket。
+_Avoid_: tracer bullet ticket、任务包
 
-**decision chain**：
-一个会话从已认领 decision ticket 开始连续解锁并处理的单链。一个会话一次只拥有一条 decision chain。
-_Avoid_: 并行 ticket 列表、任务分支
+**链**：
+一个会话从已认领 decision ticket 开始连续解锁并处理的单链。一个会话一次只拥有一条链。
+_Avoid_: decision chain、并行 ticket 列表、任务分支
+
+**fog of war**：
+map 范围内已经看得出会出现、但尚不能精确写成 decision ticket 的未解区域。它保存在 `Not yet specified`，直到前置决定使其可以被切成 decision ticket 或被证明不需要。
+_Avoid_: decision ticket、范围外工作
 
 **frontier**：
 (authoritative: [frontier](./tracker.md))
@@ -40,7 +44,7 @@ _Avoid_: 并行 ticket 列表、任务分支
 必须先让用户走查可运行产物才能形成决定的 HITL decision ticket。
 
 **`wayfinder:research`**：
-通过当前工作目录之外的可读事实形成决定的 AFK decision ticket。必须真实运行才能知道的事实改走 prototype evidence。
+通过当前工作目录之外的可读事实形成决定的 AFK decision ticket。主 agent 或 `/mmw-research` 可以运行一次安全、只读的命令；一项决定被实测结果阻塞，而且实测需要 test plan、多候选对比、多轮测量、真实凭证或真实环境时，改走 `/mmw-prototype` 的 `EVIDENCE.md`。
 
 **`wayfinder:task`**：
 为解除另一个决定的阻塞而完成的具体操作。它可能是 HITL，也可能是 AFK，本身通常不产出决定。

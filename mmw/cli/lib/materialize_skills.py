@@ -156,7 +156,7 @@ def expand_host_action(name: str, host: str) -> str:
     if name == "present-ui-review":
         if host == "codex":
             return (
-                "完整读取并遵守 `/browser:control-in-app-browser`。使用 Codex 内置浏览器，"
+                "完整读取并遵守 `$browser:control-in-app-browser`。使用 Codex 内置浏览器，"
                 "该 skill 不可用时明确报告 blocker，不得改用 Playwright CLI 冒充用户走查。"
                 "先清点全部相关页面或 URL，每个页面使用独立标签页；不得用一个标签页依次覆盖多份 mockup。"
                 "把浏览器设为可见，并用 `codex_app__open_in_codex` 在当前任务的 Codex 面板打开第一个标签页。"
@@ -175,7 +175,7 @@ def expand_host_action(name: str, host: str) -> str:
     if name == "browser-evidence":
         if host == "codex":
             return (
-                "完整读取并遵守 `/browser:control-in-app-browser`。"
+                "完整读取并遵守 `$browser:control-in-app-browser`。"
                 "交互式浏览器取证使用 Codex 内置浏览器，保存相关状态的截图、DOM 和 console 证据。"
                 "需要多轮测量或稳定断言时，仍使用项目已有的 Playwright 或 Puppeteer 入口。"
                 "取证时覆盖过 viewport 的，保存最后一份证据后恢复默认 viewport。"
@@ -189,7 +189,7 @@ def expand_host_action(name: str, host: str) -> str:
     if name == "browser-bug-reproduction":
         if host == "codex":
             return (
-                "完整读取并遵守 `/browser:control-in-app-browser`。"
+                "完整读取并遵守 `$browser:control-in-app-browser`。"
                 "**Codex 内置浏览器复现**——先确认用户看到的界面、状态和交互，"
                 "采集截图、DOM 与 console；这一步只负责复现和缩小范围，"
                 "复现时覆盖过 viewport 的，保存最后一份证据后恢复默认 viewport；"
@@ -203,7 +203,7 @@ def expand_host_action(name: str, host: str) -> str:
     if name == "browser-ui-acceptance":
         if host == "codex":
             return (
-                "完整读取并遵守 `/browser:control-in-app-browser`。"
+                "完整读取并遵守 `$browser:control-in-app-browser`。"
                 "主 agent 在结果 worktree 启动界面，使用 Codex 内置浏览器走通黄金路径和本次相关边界状态。"
                 "按视觉合同设置 viewport，逐个检查加载、空、错误、成功和部分完成中实际存在的状态。"
                 "保存关键截图；交互异常时同时读取 DOM 和 console。"
@@ -218,7 +218,7 @@ def expand_host_action(name: str, host: str) -> str:
     if name == "browser-review-evidence":
         if host == "codex":
             return (
-                "完整读取并遵守 `/browser:control-in-app-browser`。"
+                "完整读取并遵守 `$browser:control-in-app-browser`。"
                 "主 agent 在派审查者前使用 Codex 内置浏览器运行界面改动，"
                 "按视觉合同采集关键状态的截图、DOM 和 console 证据。"
                 "保存最后一份证据后恢复默认 viewport。"

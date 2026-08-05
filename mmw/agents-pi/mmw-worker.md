@@ -1,6 +1,6 @@
 ---
 name: mmw-worker
-description: 实现角色。由 mmw-implement 派发，一张 ticket 一个，在指定 worktree 完成实现。按 mmw-tdd 执行 TDD 并提交；不改 docs/，不 push，不扩大 ticket 范围。
+description: 实现角色。由 `/mmw-implement` 派发，一张 ticket 一个，在指定 worktree 完成实现。按 `/mmw-tdd` 执行 TDD 并提交；不改 docs/，不 push，不扩大 ticket 范围。
 model: openai-codex/gpt-5.6-terra
 thinking: high
 defaultContext: fresh

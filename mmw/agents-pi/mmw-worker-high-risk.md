@@ -1,6 +1,6 @@
 ---
 name: mmw-worker-high-risk
-description: 高风险实现角色。由 mmw-implement 在计费、权限、数据迁移或不可逆改动中派发。按 mmw-tdd 执行 TDD 并提交；不改 docs/，不 push，不扩大 ticket 范围。
+description: 高风险实现角色。由 `/mmw-implement` 在计费、权限、数据迁移或不可逆改动中派发。按 `/mmw-tdd` 执行 TDD 并提交；不改 docs/，不 push，不扩大 ticket 范围。
 model: openai-codex/gpt-5.6-sol
 thinking: medium
 defaultContext: fresh

@@ -8,7 +8,7 @@ frontier 上一张 ticket 都不剩了。收尾就是把这张 map 结束掉：�
 
 把 map 的 `Not yet specified` 一节剩下的条目原样列给用户看，问他里面还有没有会挡住后续工作的。
 
-用户点出会挡路的，就用 `mmw issue create --parent <map 编号> --label wayfinder:<类型>` 建成新的 decision ticket，再用 `mmw issue link` 连好阻塞关系，然后停——处置见本文「下一步」一节。用户没点出来的原样留在 `Not yet specified` 一节里，跟着 map issue 一起关掉。
+用户点出会挡路的，就先按 [map-anatomy.md](map-anatomy.md) 写 decision ticket 正文文件，再运行 `mmw issue create --title <标题> --body-file <正文文件> --parent <map 编号> --label wayfinder:<类型>` 建成新的 decision ticket。然后用 `mmw issue link` 连好阻塞关系并停下；出口见本文「下一步」一节。用户没点出来的原样留在 `Not yet specified` 一节里，跟着 map issue 一起关掉。
 
 ## 2. 决定各自归位
 
