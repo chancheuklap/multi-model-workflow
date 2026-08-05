@@ -24,7 +24,7 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 - `needs-triage` —— 等维护者评估
 - `needs-info` —— 等报告人补信息
-- `ready-for-agent` —— 当前 work item 的下一步 agent 合同已经完整，可以 AFK 推进
+- `ready-for-agent` —— 当前合同已经完整，可以由 agent AFK 继续
 - `ready-for-human` —— 需要人来实现
 - `wontfix` —— 不做
 
@@ -34,9 +34,9 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 类别角色和状态角色这两组名字就是 issue 上的标签字符串本身，不用再查映射。**完整清单在仓库根 `.mmw.json` 的 `tracker.labels`**，`mmw init` 按它建标签。
 
-`ready-for-agent` 的统一含义是「当前 work item 的下一步 agent 合同已经完整」。对本技能分诊的 issue 或 PR，这份合同是完整 agent brief；对 `/mmw-to-spec` 发布的 spec issue，这份合同是用户批准的 spec；对 `/mmw-to-tickets` 新建的实现 ticket，验收标准足以进入 plan，plan 审通过后才具备 `worker` 实现合同。
+`ready-for-agent` 的统一含义是「当前 work item 的合同已足以让 agent 按拥有它的技能 AFK 继续」。它不指定下一项技能，也不豁免承接技能的前置条件。对本技能分诊的 issue 或 PR，合同是完整 agent brief；对 spec issue，合同是用户批准的 spec；对实现 ticket，合同先支持 `/mmw-to-plan` 写 plan，进入 `/mmw-implement` 前仍须通过 plan 审。
 
-**派 `worker` 前必须是 `ready-for-agent`，而且当前实现 work item 的行为合同必须完整。** 直接实现一张已分诊 issue 或 PR 时，行为合同来自 agent brief；实现 spec 下的 ticket 时，行为合同来自 spec、ticket 与 plan。状态角色和行为合同一起挡住模糊工作。
+**派 `worker` 前必须是 `ready-for-agent`，而且当前实现 work item 的行为合同必须完整。** 直接实现一张已分诊 issue 或 PR 时，行为合同来自 agent brief；实现 spec 下的 ticket 时，行为合同来自 spec、ticket 与已通过 plan 审的 plan。状态角色不能替代这项检查。
 
 **半路挖到的东西开新 issue。** 分诊或做任务时发现的另一个缺陷、优化机会、或者超出本次范围的事：开一张新 issue，打 `needs-triage` 加对应类别标签，主流程不动。不需要「旁路发现」这类专门标签——它是一张独立 issue 这个事实，已经把「不属于本任务」说完了。
 

@@ -51,7 +51,7 @@ gh label create "<名字>" --description "<一句话，抄 triage-labels.md 的�
 | --- | --- |
 | `.worktrees/` | 任务 worktree，还有 Wiki 的 clone（`.worktrees/.wiki/`） |
 | `.reviews/` | 审查记录和终审报告，随 worktree 死 |
-| `.dispatch/` | 派给工人的提示词和它交回的报告，随 worktree 死 |
+| `.dispatch/` | 派给 `worker` 的 task 和它交回的报告，随 worktree 死 |
 
 ## 4. 把方法论装给 headless subagent
 

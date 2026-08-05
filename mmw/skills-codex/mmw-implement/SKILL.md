@@ -31,7 +31,7 @@ spec 分支运行：
 mmw issue frontier <spec issue 编号> --label ready-for-agent
 ```
 
-它给出阻塞全部关闭、没人认领、带这个标签的那些，按 `$mmw:mmw-to-tickets` 的发布顺序排。**取第一行那张。** agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一张 ticket。用 `gh issue view <编号> --json state,assignees,labels` 确认它仍然 open、无人认领并带 `ready-for-agent`。
+它给出阻塞全部关闭、没人认领、带这个标签的那些，按 `$mmw:mmw-to-tickets` 的发布顺序排。`ready-for-agent` 只说明这张 ticket 可以由 agent AFK 继续；第 1 步的 plan 和 plan 审前置条件仍然必须满足。**取第一行那张。** agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一张 ticket。用 `gh issue view <编号> --json state,assignees,labels` 确认它仍然 open、无人认领并带 `ready-for-agent`。
 
 开工前先 `mmw issue claim <编号>`。认领失败说明别的会话抢先了。spec 分支取下一行；agent brief 分支没有下一张，停止并报告这张 issue 已被谁认领。
 

@@ -34,4 +34,4 @@ git rebase --continue
 
 rebase 进行中可运行 `git rebase --abort` 回到开始前。rebase 完成后不要用 `reset --hard` 回退；需要撤销时先由用户确认。
 
-结果分支已经推送到远端时，更新远端需要 `--force-with-lease`。推送属于对外发布，必须先得到用户明确授权。
+结果分支已经推送到远端时，更新远端需要 `--force-with-lease`。这是对外发布的人工审批关卡；批准对象是将要更新的远端分支和提交范围，批准人是用户，通过凭据是用户明确授权这次推送，通过后才允许执行 `git push --force-with-lease`。

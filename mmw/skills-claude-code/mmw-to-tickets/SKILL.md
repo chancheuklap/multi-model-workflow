@@ -75,7 +75,7 @@ mmw issue create --title "<标题>" --body-file <正文文件> \
 
 **顺序不是随便的。** 下游取下一张 ticket 靠 `mmw issue frontier`，那个命令按 issue 编号升序给，所以「按依赖顺序发」直接决定了后面开工的顺序。
 
-`ready-for-agent` 始终表示「当前 work item 的下一步 agent 合同已经完整」。打在 spec issue 上时，下一步是按已批准 spec 拆 ticket；新建实现 ticket 带着它时，下一步是按验收标准写 plan。plan 审通过后，同一标签加上 spec、ticket 与 plan 才允许派 `worker` 开工。
+`ready-for-agent` 始终表示「当前 work item 的合同已足以让 agent 按拥有它的技能 AFK 继续」。spec issue 依靠已批准 spec 进入本技能；新建实现 ticket 依靠验收标准进入 `/mmw-to-plan`。标签不豁免 `/mmw-implement` 对 plan 和 plan 审的前置检查。
 
 父 issue 不要关，也不要改。
 

@@ -73,6 +73,17 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 ## 术语
 
+以下四个维度互相独立。任何技能都不得用其中一个维度替代另一个维度。
+
+| 维度 | 回答的问题 | 规范语义 |
+| --- | --- | --- |
+| 参与方式 | 完成工作时是否需要人在场 | 只用 HITL 或 AFK。 |
+| Tracker 状态 | 当前 work item 由谁继续、合同是否足够 | 使用 `ready-for-agent`、`ready-for-human` 等状态角色。 |
+| 流程授权 | 下一次流程转换是否必须得到用户明确批准 | 统一称为人工审批关卡。不同技能可以定义不同关卡实例。 |
+| 验证方式 | 用什么证据判断产物是否正确 | 使用测试、主 agent 验证、浏览器验收或安装包实测。验证本身不等于用户授权。 |
+
+每一道人工审批关卡必须写清批准对象、批准人、通过凭据和通过后的动作。HITL 工作、`ready-for-human` 状态、浏览器验收和安装包实测都不能单独替代人工审批关卡；某项验收需要用户明确说通过时，该批准动作构成对应阶段的人工审批关卡。
+
 | 概念 | 使用 | 不使用 |
 | --- | --- | --- |
 | 发起并协调其他 agent | 主 agent | 主线程 |
@@ -87,7 +98,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 | 主 agent 检查事实 | 验证 | 复核、核验、亲验 |
 | 可点击的位置 | 出处 | 锚 |
 | 唯一权威内容 | 唯一事实来源 | 真相源、事实源 |
-| 必须用户确认的关卡 | 人工审批关卡 | 人闸 |
+| 必须用户确认的关卡 | 人工审批关卡 | 人闸、人工门禁、用户决策点、人工参与点 |
 | 建隔离目录 | 建 worktree | 建树、进树 |
 | 发送到外部系统 | 对外发布 | 出站动作 |
 | sandbox 与工具白名单 | 护栏（guardrails） | 围栏 |
@@ -97,7 +108,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 ## Git 与安全
 
 - 正式改动在独立 worktree；合回主分支使用 `git merge --no-ff`，禁止 squash。
-- 本地提交和合并可自主执行。`git push`、远端合并、部署和正式发布必须得到用户明确授权。
+- 本地提交和合并可自主执行。`git push`、远端合并、部署和正式发布属于对外发布；执行前必须通过人工审批关卡。
 - subagent 报告不是唯一事实来源。关键定位、测试结果和发布结论由主 agent 用当前源码或运行结果验证。
 - 删除、覆盖、归档或移动现有发布入口前确认用户授权。
 - 禁止使用 `--no-verify`。

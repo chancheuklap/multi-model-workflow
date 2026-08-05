@@ -96,8 +96,8 @@
     "labels": {
       "needs-triage": "还没评估过，不知道该不该做、怎么做",
       "needs-info": "缺输入，等人补",
-      "ready-for-agent": "已写清楚，可以直接派工人 AFK 跑",
-      "ready-for-human": "HITL 的活，不派工人",
+      "ready-for-agent": "当前合同已写清，可以由 agent AFK 继续",
+      "ready-for-human": "下一步由人承担，agent 不代替",
       "wontfix": "决定不做",
       "bug": "有东西坏了",
       "enhancement": "新功能或改进",

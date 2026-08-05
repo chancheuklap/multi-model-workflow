@@ -1111,7 +1111,7 @@ cmd_stage_fail() {
   if [ "$tier" = "P0" ]; then
     edit "$f" --arg n "$name" --arg fp "$fp" \
       '.pause={at_stage:$n, kind:"surface", reason:"needs-redirection",
-               question:("stage "+$n+" P0 硬约束失败("+$fp+"),触人工门禁,停")}'
+               question:("stage "+$n+" P0 硬约束失败("+$fp+"),触发人工审批关卡,停")}'
     emit_event "$f" "paused" "$name" "P0" "$fp" "$aref"
     echo "CLASSIFY=P0 $name -> PAUSE(交人)"
     return 0
@@ -1180,7 +1180,7 @@ cmd_dispatch() {
         '(.stages |= map(if .name==$n then .status="failed" else . end))
          | .current_stage=$n
          | .pause={at_stage:$n, kind:"surface", reason:"needs-redirection",
-                  question:("dispatch "+$n+" P0 硬约束("+$fp+"),触人工门禁,停")}'
+                  question:("dispatch "+$n+" P0 硬约束("+$fp+"),触发人工审批关卡,停")}'
       emit_event "$f" "paused" "$name" "P0" "$fp" "$aref"
       echo "P0:$name P0 硬约束($fp),交人(已 PAUSE)"
       ;;

@@ -7,7 +7,7 @@
 
 这个模块不写第三份纪律，只从两处唯一事实来源取：Serena 的在 config/serena-readonly.yml
 的 prompt，Graphify 的在 mcp/graphify_mcp.py 的 INSTRUCTIONS。取不出来就非零退出——
-那说明插件自己装坏了，让工人裸跑比派发失败更糟。
+那说明插件自己装坏了，让 `worker` 裸跑比派发失败更糟。
 
 四个执行面各自怎么拿到纪律，看着像重复，其实是四条互不相通的路：
 
