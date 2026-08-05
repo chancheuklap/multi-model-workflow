@@ -6,7 +6,7 @@
 
 ## map
 
-map 是 issue tracker 上的一张 issue，打 `wayfinder:map` 标签，它是权威产物。它的 ticket 是这张 map 的子 issue。
+map 是 issue tracker 上的一张 issue，打 `wayfinder:map` 标签。它是这项 effort 的唯一索引。map 的 ticket 是这张 map 的子 issue。
 
 map 是一份**索引**，不是一个仓库。它列出已经做出的决定，并指向持有细节的那些 ticket。一个决定只住在一个地方——它自己那张 ticket 的结案评论——所以 map 从不复述它，只给一句概要再链过去。
 

@@ -22,7 +22,9 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 | 一个 issue 编号，带着某个 `wayfinder:` 类型标签——那是一张 map 上的一条 decision ticket | **移交**：`/mmw-wayfinder` |
 | 一个 issue 编号，挂在一张带 `wayfinder:map` 标签的 issue 底下、自己不带 `wayfinder:` 标签——那是收尾时切出来的一份 spec | **移交**：`/mmw-to-spec` |
 | 一个 issue 或 PR 编号，上面还没有状态角色 | **移交**：`/mmw-triage` |
-| 一个 issue 编号，已是 `ready-for-agent`，brief 写明 `**Test seam:**`，而且只碰一处 | **移交**：`/mmw-implement` |
+| 一个 issue 或 PR 编号，已是 `ready-for-agent`，但没有完整 agent brief | **移交**：`/mmw-triage`，补齐 `Acceptance criteria`、范围边界和 `Test seam` |
+| 一个 issue 编号，已是 `ready-for-agent`，整项工作可以作为一张 ticket 独立验收，只有一个已确认的测试 seam，而且没有未决设计取舍 | **移交**：`/mmw-implement` |
+| 一个 issue 或 PR 编号，已是 `ready-for-agent`，但需要拆成多张 ticket、需要多个测试 seam，或者还有设计取舍要谈 | **移交**：`/mmw-to-spec` |
 | 有东西坏了、报错、跑不通、变慢了，或者挂了 `bug` | **移交**：`/mmw-diagnosing-bugs` |
 | 一个 effort，还不知道要拆成哪几份 spec，或者挂了 `big` | **移交**：`/mmw-wayfinder` |
 | 想先看看某个界面长什么样，或者不确定一套状态模型对不对 | **移交**：`/mmw-prototype` |
