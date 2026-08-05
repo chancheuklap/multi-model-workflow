@@ -2,7 +2,7 @@
   "name": "@cheuklapchan/mmw",
   "version": "0.9.0",
   "private": true,
-  "description": "多模型开发编排。主 agent 编排与判定，`worker` 写代码，`planner` 写计划，审查者独立审查。",
+  "description": "多模型开发编排。Claude 主 agent 编排与判定，GPT 工人写码写计划，跨模型审查。",
   "license": "MIT",
   "repository": "https://github.com/chancheuklap/multi-model-workflow",
   "pi": {
