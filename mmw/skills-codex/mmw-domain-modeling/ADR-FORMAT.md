@@ -1,8 +1,8 @@
 # ADR 的格式
 
-ADR 住在 `docs/adr/`，按顺序编号：`0001-slug.md`、`0002-slug.md`，依此类推。下一个号用 `mmw domain adr-next` 取。
+ADR 住在 `mmw domain dirs` 返回的 `adr` 路径，按顺序编号：`0001-slug.md`、`0002-slug.md`，依此类推。下一个号用 `mmw domain adr-next` 取。
 
-`docs/adr/` 目录按需建——第一份 ADR 要写时才建。
+这个 `adr` 路径按需建——第一份 ADR 要写时才建。
 
 ## 模板
 
@@ -28,9 +28,7 @@ ADR 住在 `docs/adr/`，按顺序编号：`0001-slug.md`、`0002-slug.md`，依
 
 **这是单条分支的情形。** 几条分支可能同时写 ADR 时，各自加一必定撞号——跑 `$mmw:mmw-wayfinder` 就是这种情形，好几个会话各在自己的分支上解一条 decision ticket 链。这类分支上先写成草稿名：
 
-```
-docs/adr/draft-<ticket 编号>-<kebab-标题>.md
-```
+文件名用 `draft-<ticket 编号>-<kebab-标题>.md`，落在 `mmw domain dirs` 返回的 `adr` 路径。
 
 草稿不占号（`mmw domain adr-next` 只数正式编号）。等这条链合回上一层分支时再统一改成正式编号。单条分支独占的场景不用绕这一道，直接取下一个号。
 

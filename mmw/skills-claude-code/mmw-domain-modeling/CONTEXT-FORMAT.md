@@ -68,7 +68,7 @@ _Avoid_: Client, buyer, account
 
 ```md
 **Customer**：
-付款请求关联的下单方。(authoritative: [Customer](../ordering.md))
+(authoritative: [Customer](../ordering.md))
 ```
 
 路径相对当前 leaf 解析。引用目标必须是同一 Map 的 `Contexts` 已登记 leaf。

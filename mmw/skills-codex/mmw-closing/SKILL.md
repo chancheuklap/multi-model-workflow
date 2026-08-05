@@ -44,7 +44,7 @@ mmw wiki ensure
 | 落地信息 | 父 spec issue 的链接、这条任务分支的名字、归档日期。**合并的 PR 这时候通常还不存在**，先写分支名，合并之后再补 |
 | spec 正文 | `docs/specs/<slug>/` 的定稿 |
 | 计划章节 | `docs/plans/<slug>/` 的每一份，一张 ticket 一节。计划不单独开页 |
-| 相关决定 | **只放指回仓库 `docs/adr/` 的完整链接**，绝不把 ADR 复制进来 |
+| 相关决定 | **只放指回仓库实际 ADR 文件的完整链接**，路径跑 `mmw domain dirs` 取，绝不把 ADR 复制进来 |
 
 Wiki 不支持自动生成目录，长页面靠标题分节。页间链接用 `[[Spec-phone-login|手机号登录]]`。
 

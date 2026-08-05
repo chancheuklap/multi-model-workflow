@@ -16,7 +16,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 | `/mmw-grilling` 谈定 | 这次对话里刚谈完。`/mmw-wayfinder` 横扫下来判定不需要 map 的也走这一行 | 这一轮写进领域文档的术语（落点跑 `mmw domain path` 取）、这一轮落成的 ADR、对话里达成的每一条共识 |
 | `/mmw-improve-codebase-architecture` 挑中的候选谈定 | slug 是 `refactor-` 开头，那个空提交里记着一张候选卡片的标题 | 这一轮写进领域文档的术语（落点跑 `mmw domain path` 取）、这一轮落成的 ADR、对话里达成的每一条共识，外加**那张卡片**——它的文件清单是第 2 步探仓库的起点，它的 Problem 和 before/after 直接进 spec 的 `## Current State` 与 `## Solution`。这次的外部行为不变，所以 `## Solution` 写的是结构怎么变、谁的调用方式跟着变 |
 | `/mmw-prototype` 走查完 | `docs/prototypes/<slug>/` 存在 | 那份 `README.md` 里回填的结论；每一轮的**选中的那一版**；界面那一侧的视觉契约 |
-| `/mmw-wayfinder` 切出的一份 spec | 有一张 issue 挂在带 `wayfinder:map` 标签的 issue 底下，自己不带任何 `wayfinder:` 标签 | 那张 map 的 `Destination`、`Decisions so far`、`Out of scope` 三节，各自落进 spec 哪里见第 4 步；走这张 map 过程中新增的 `docs/adr/` 与 `.out-of-scope/` |
+| `/mmw-wayfinder` 切出的一份 spec | 有一张 issue 挂在带 `wayfinder:map` 标签的 issue 底下，自己不带任何 `wayfinder:` 标签 | 那张 map 的 `Destination`、`Decisions so far`、`Out of scope` 三节，各自落进 spec 哪里见第 4 步；走这张 map 过程中新增的 ADR 与 `.out-of-scope/` |
 | `/mmw-triage` 判出这件事需要多张 ticket、多个测试 seam，或者还有设计取舍要谈 | 那张 issue 或 PR 上有一条 agent brief 评论 | 那份 agent brief 全文，尤其 `Test seam` 那一栏，以及 `/mmw-triage` 的「分诊一张具体的 issue 或 PR」第 3 步验过的断言 |
 | `/mmw-implement` 回来补 seam | `docs/specs/<slug>/` 里已经有一份 spec | 现有那份 spec。**只补 seam 一节，不重写**，从第 2 步接着走 |
 | 用户直接叫你 | 上面都不成立 | 没有上游产物。先确认这件事真的谈定了，还在讨论阶段就先移交 `/mmw-grilling` |

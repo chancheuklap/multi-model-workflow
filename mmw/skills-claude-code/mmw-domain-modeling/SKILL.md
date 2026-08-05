@@ -9,7 +9,7 @@ description: 把项目的领域模型建起来、磨锋利。用户要把领域�
 
 ## 读领域文档
 
-开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。运行 `mmw domain path`：返回 `map` 时，先读 Map，再读本次涉及的全部命名 leaf；返回 `single` 时，读命令返回的领域文档；返回 `none` 时，直接继续，不报告缺失，也不创建领域文档。
+开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。运行 `mmw domain path`：返回 `map` 时，先读 Map，再读本次涉及的全部命名 leaf；返回 `single` 时，读命令返回的领域文档；返回 `none` 时，默认直接继续，不报告缺失，也不创建领域文档。只有本文「`none` 形态首次建模」一节规定的场景可以创建。
 
 ## 文件放哪
 
@@ -17,8 +17,23 @@ description: 把项目的领域模型建起来、磨锋利。用户要把领域�
 
 ```bash
 mmw domain path    # 这个仓库现在是哪种形态：map / single / none，加对应的路径
-mmw domain dirs    # 写入侧的两个落点：新上下文的根目录、ADR 目录
+mmw domain dirs    # 写入侧的四个落点：single、map、context、adr
 ```
+
+### `none` 形态首次建模
+
+`none` 是合法形态。只读领域文档，或者其他技能顺带调用本技能时，不创建领域文档。
+
+只有以下两个条件同时成立时，才按需创建首份领域文档：
+
+1. 用户当前请求本身是建立或维护领域模型。
+2. 对话已经定下至少一个需要长期保留的领域术语。
+
+条件满足后，先判断 bounded context 的数量和边界：
+
+- 明确只有一个 bounded context：在 `mmw domain dirs` 返回的 `single` 路径创建领域文档，并写入首个长期术语。
+- 明确存在多个 bounded context：在 `mmw domain dirs` 返回的 `map` 路径创建 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md) 规定的标准 Map。在 `context` 路径或其子目录创建首个命名 leaf，并把实际 leaf 路径登记进 Map。`Contexts`、`Relationships` 只写已经确认的边界和关系。
+- bounded context 的数量、术语归属或跨上下文关系不清楚：一次只问用户一个具体问题。用户确认之前不创建领域文档。
 
 `mmw domain path` 给 `single` 时，术语写进命令返回的领域文档：
 

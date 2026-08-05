@@ -478,7 +478,7 @@ subgraph VOCAB["跑在别的技能底下"]
   cdx["<b>Codex App 原生运行面</b><br/>· 已安装 plugin 提供全部 skills 与三台 MCP<br/>· mmw 命令只指向 plugin cache，不依赖源码 checkout<br/>· investigator / reviewer-gpt / planner / designer 原生 subagent<br/>· 模型从 hosts.codex 覆盖解析"]
   cwt["<b>Codex worktree 合同</b><br/>· Worktree root 是 App 的跨项目全局存放目录<br/>· 用户创建 detached 主任务，确认父分支后绑定 codex/&lt;slug&gt;<br/>· MMW 不从物理目录名识别任务<br/>· 后台结果先验证与验收，通过后再集成"]
   vfy["<b>mmw-verifying-agent-output</b><br/>· 关键断言都要有出处<br/>· 取证可以派，判定不可以"]
-  dmo["<b>mmw-domain-modeling</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 唯一往仓库写领域文档的技能<br/>· 维护标准 Map、命名 leaf 与 authoritative 引用<br/>· 落点跑 mmw domain path / dirs 取"]
+  dmo["<b>mmw-domain-modeling</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 唯一往仓库写领域文档的技能<br/>· none 仅在明确建模且首个长期术语定下时创建<br/>· 维护标准 Map、命名 leaf 与 authoritative 引用<br/>· 落点跑 mmw domain path / dirs 取"]
   cbd["<b>mmw-codebase-design</b><br/>· module · interface · seam<br/>· adapter · depth<br/>· DESIGN-IT-TWICE 派 designer"]
 end
 
@@ -797,8 +797,8 @@ end
 
 pmap[/"<b>map issue</b> · GitHub<br/>· A 段建<br/>· B 段每解完一张追加一行索引<br/>· C 段关掉，不转 Wiki"/]
 ptk[/"<b>decision ticket</b> · map 的子 issue<br/>· A 段建第一批，B 段边走边补<br/>· 解开就关掉<br/>· 答案本体留在结案评论里"/]
-adr[/"<b>docs/adr/</b> · 住 map 分支<br/>· 一解出难以回退的决定就写<br/>· 链上先写 draft- 草稿名<br/>· 随 map 分支进入最终目标"/]
-ctx[/"<b>目标 AGENTS.md 与领域文档</b> · 住 map 分支<br/>· 主 agent 与 subagent 共用领域入口<br/>· Map 登记命名 Markdown leaf 与 authoritative 引用<br/>· leaf 与 docs/adr/ 随 map 分支进入最终目标"/]
+adr[/"<b>ADR</b> · 落点跑 mmw domain dirs 取<br/>· 一解出难以回退的决定就写<br/>· 链上先写 draft- 草稿名<br/>· 随 map 分支进入最终目标"/]
+ctx[/"<b>目标 AGENTS.md 与领域文档</b> · 住 map 分支<br/>· 主 agent 与 subagent 共用领域入口<br/>· Map 登记命名 Markdown leaf 与 authoritative 引用<br/>· leaf 与 ADR 随 map 分支进入最终目标"/]
 oos[/"<b>.out-of-scope/</b> · 住 map 分支<br/>· 判出范围时写<br/>· 一个概念一个文件<br/>· 下次分诊先查它去重"/]
 spf[/"<b>docs/specs/&lt;slug&gt;/</b> · 住 spec 分支<br/>· D 段 mmw-to-spec 写<br/>· mmw-to-plan 补 plan<br/>· 代码落地后转成 Wiki 一页"/]
 wik[/"<b>Wiki 的 Spec-&lt;slug&gt;.md</b><br/>· D 段收尾时写<br/>· 此后是这份 spec 的<br/>  唯一事实来源"/]
