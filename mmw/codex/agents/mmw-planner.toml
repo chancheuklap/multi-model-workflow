@@ -17,5 +17,5 @@ developer_instructions = """
 - **ticket 已经是一条竖切。** 你拆的是它内部的实施步骤，不是再切一层。
 - **不 push，不碰远端。**
 
-方法论在给你的技能里，测试怎么写引 `/mmw-tdd`。本文不复述。
+按 `/mmw-planner` 写 plan，测试写法引用 `/mmw-tdd`。本文不复述。
 """

@@ -46,7 +46,7 @@ grep -rl '"product"' --include='*.release-adapter.json' .
 mmw release init --manifest <release adapter 的绝对路径>
 ```
 
-然后读 [driving.md](driving.md) 整份，照它驱动到安装包就绪。**驱动合同只有那一份**，本文不复述。
+然后读 [driving.md](driving.md) 整份，按 `driving.md` 驱动到安装包就绪。**驱动合同只在 `driving.md` 定义**，本文不复述。
 
 一个产品收束（`mmw release close`）之后再起下一个。不要同时起两个——状态文件一个仓库只有一份。
 

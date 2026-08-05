@@ -65,6 +65,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - 每份流程技能以 `## 下一步` 收尾。表格固定为“情况、下一步”两列，动作只用“自己继续”“移交”“停”。只有 agent 无法开启新会话或需要用户决定时才停。
 - 审查方法论只在 `/mmw-reviewer`；`/mmw-review` 只管编排。审查者通过安装的技能读取方法论，不把整份方法论粘进提示词。
 - 技能引用另一个技能时写 `` `/技能名` ``。同名分支、标签值和文件路径不加斜杠。
+- 编辑技能时按 `/writing-great-skills` 的 context pointer 规则引用现有目标。能用文件名、技能名、命令名或节名定位时，直接使用该字面名称，不另起描述性名称。
 - 领域文档位置必须通过 `mmw domain path` 与 `mmw domain dirs` 获取，不写死根 `CONTEXT.md`。
 - 派发角色名使用 CLI / `roles.json` 字面串并加反引号（如 `worker`、`planner`），不另起中文名。Claude Code 路径里的 `mmw dispatch` 角色参数同此。
 - CLI 不带参数只列命令名；每条命令的参数进入自己的 `usage_*`。认不出参数时只输出该命令的用法。

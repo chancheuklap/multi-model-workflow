@@ -1,6 +1,6 @@
 # 合入标准
 
-`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md` 讲的是一个好测试**是什么**。这份是合入标准：任何一条不过，这个测试就不进仓库，审查一律打回。
+`mmw-tdd/SKILL.md`、`mmw-tdd/tests.md`、`mmw-tdd/mocking.md` 讲的是一个好测试**是什么**。`mmw-tdd/quality-bar.md` 是合入标准：任何一条不过，这个测试就不进仓库，审查一律打回。
 
 ## 资格线
 

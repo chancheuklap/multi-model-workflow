@@ -70,7 +70,7 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 
 ### 5. 验收：亲手验证三关
 
-按 `$mmw:mmw-review` 的 **③ 逐份验收**，三关都过才允许合并回任务分支：做漏没有、测试达不达标、有没有偏离。三关各自的判据、三关不过时的返工升级策略，都在 `$mmw:mmw-review` 目录里的 `self-review.md`——**这一道不派审查者**，`$mmw:mmw-review` 正文其余各节跟它无关。报告按 `$mmw:mmw-verifying-agent-output` 采信，它交回的四档怎么读也在那里。
+按 `$mmw:mmw-review` 的 **③ 逐份验收**，三关都过才允许合并回任务分支：做漏没有、测试达不达标、有没有偏离。三关各自的判据、三关不过时的返工升级策略，都在 `$mmw:mmw-review` 目录里的 `self-review.md`——**这一道不派审查者**，`$mmw:mmw-review` 正文其余各节跟它无关。报告按 `$mmw:mmw-verifying-agent-output` 采信；交回结果的四档解释在 `$mmw:mmw-verifying-agent-output` 的「`worker` 交回的四档」一节。
 
 三关之外还要确认一件本阶段特有的事：commit 存在，并且引用了这张 ticket。
 

@@ -10,7 +10,7 @@ disable-model-invocation: true
 
 **写完就交，不要一次性输出整份文档。** 不扩大范围、不碰别的 plan、不改 spec、不提交。**坏的产出比没有产出更糟**：拿不准就停下交 `needs-context`，不要靠猜往前冲。
 
-本文是总纲。细纪律在 `references/` 下，到那一步再读。
+第 3 步读取 `references/task-pack.md`，交回前读取 `references/self-check.md`。
 
 ## 开工前先读
 

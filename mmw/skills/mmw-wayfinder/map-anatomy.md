@@ -107,6 +107,6 @@ fog of war 只会**朝着** destination 聚集。destination 固定了范围，�
 
 判出范围的工作不再回来。frontier 走到 destination 就停了，它只有在 destination 被重画时才回来，而且是作为一个新的 effort，不是接着做。
 
-已经存在的一张 ticket 后来发现坐在 destination 之外——画图时圈错了，或者被某次解答暴露出来——就**关掉它**，并在 `Out of scope` 一节留一行：概要加上为什么出范围，链到那张关掉的 ticket。同时在 `.out-of-scope/` 写一份，一个概念一个文件——产物去向表在 [closing.md](closing.md) 第 2 步。
+已经存在的一张 ticket 后来发现坐在 destination 之外——画图时圈错了，或者被某次解答暴露出来——就**关掉它**，并在 `Out of scope` 一节留一行：概要加上为什么出范围，链到那张关掉的 ticket。同时在 `.out-of-scope/` 写一份，一个概念一个文件；`.out-of-scope/` 文件的去向按 [closing.md](closing.md) 第 2 步处理。
 
 它不进 `Decisions so far`，那里只记真正走过的路线。

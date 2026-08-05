@@ -1,6 +1,6 @@
 # Deepening
 
-给定一簇 shallow module 的依赖情况，怎么安全地把它 deepen。用的是 [SKILL.md](SKILL.md) 那套词汇——**module**、**interface**、**seam**、**adapter**。
+给定一簇 shallow module 的依赖情况，怎么安全地把它 deepen。使用 [SKILL.md](SKILL.md) 定义的 **module**、**interface**、**seam** 和 **adapter**。
 
 ## 依赖分类
 

@@ -5,7 +5,7 @@ description: 难以定位的 bug 和性能回退的诊断循环，先造出一�
 
 一套对付难以定位的 bug 的纪律，六个 Phase。跳过某个 Phase 要给出明确理由。
 
-**Phase 1 在本文件里，其余分开放。** 造出 loop 之前不要去读后面的文件。
+**Phase 1 在本 `SKILL.md` 里，Phase 2 至 Phase 4 在 `narrowing.md`，Phase 5 与 Phase 6 在 `fixing.md`。** 造出 loop 之前不要读 `narrowing.md` 或 `fixing.md`。
 
 探索代码时先读领域文档，对相关模块建立清楚的心智模型：落点跑 `mmw domain path` 取，三种返回怎么读见 `/mmw-domain-modeling` 的「读领域文档」一节；再读一遍你要碰的这块地方的 ADR。
 

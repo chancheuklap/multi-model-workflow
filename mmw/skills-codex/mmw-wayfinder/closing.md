@@ -16,7 +16,7 @@ map 本身不上 Wiki，但 map 上记下的那些决定不能随任务一起消
 
 | 产物 | 去哪 | 为什么 |
 | --- | --- | --- |
-| 难以回退、有真取舍的决定 | ADR，落点与编号方案跑 `mmw domain adr-next` 取，写法见 `$mmw:mmw-domain-modeling` | 改代码时同一次 diff 就能看见相关决定，Wiki 看不见 |
+| 难以回退、有真取舍的决定 | ADR，落点与编号方案跑 `mmw domain adr-next` 取，写法见 `$mmw:mmw-domain-modeling` 的 `ADR-FORMAT.md` | 改代码时同一次 diff 就能看见相关决定，Wiki 看不见 |
 | 考察过但决定不做的方向 | `.out-of-scope/`，一个概念一个文件 | 分诊时按概念相似度查它，防止同一个需求换个说法再提一遍 |
 | 谈出来的术语 | 领域文档，落点跑 `mmw domain path` 取 | 项目自己的话怎么说，要跟代码一起演进 |
 | 用户走查过的原型产物 | `docs/prototypes/<slug>/` | 逻辑模块会被搬进正式代码，界面变体是视觉契约的出处 |

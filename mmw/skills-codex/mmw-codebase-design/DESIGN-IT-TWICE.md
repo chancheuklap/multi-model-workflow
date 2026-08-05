@@ -2,7 +2,7 @@
 
 用户想给选定的 deepening 候选探索几种不同的 interface 时，用这个并行派 subagent 的做法。出自 Ousterhout 的「Design It Twice」——你的第一个想法多半不是最好的那个。
 
-用的是 [SKILL.md](SKILL.md) 那套词汇——**module**、**interface**、**seam**、**adapter**、**leverage**。
+使用 [SKILL.md](SKILL.md) 定义的 **module**、**interface**、**seam**、**adapter** 和 **leverage**。
 
 ## 流程
 

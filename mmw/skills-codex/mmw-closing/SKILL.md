@@ -9,7 +9,7 @@ description: 一次任务的收尾——spec 和 plan 转成 Wiki 的一页，�
 
 **Wiki spec 页面从此是这份 spec 的唯一事实来源。** 本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/` 随任务分支删掉，主线不留 spec 和 plan。
 
-Wiki 只放这一样东西。Wayfinding 的 map、审查记录、终审报告都不进——它们各自的去向见 `$mmw:mmw-wayfinder` 与 `$mmw:mmw-review`。
+Wiki 只放这一样东西。Wayfinding 的 map、审查记录、终审报告都不进。map 的去向按 `$mmw:mmw-wayfinder` 的 `closing.md` 第 2、4 步处理；审查记录与终审报告按 `$mmw:mmw-review` 第 4、6 步处理。
 
 ## 前置条件
 
