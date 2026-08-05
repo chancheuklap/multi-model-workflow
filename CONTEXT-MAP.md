@@ -16,11 +16,11 @@
 
 | Context | Leaf | Owns |
 | --- | --- | --- |
-| 交付工作流 | [交付工作流](./docs/context/delivery-workflow.md) | prototype、共同理解、spec、tracer bullet ticket、plan、任务包、HITL、AFK 和人工审批关卡。 |
+| 交付工作流 | [交付工作流](./docs/context/delivery-workflow.md) | prototype、prototype 资产、共同理解、spec、tracer bullet ticket、plan、任务包、HITL、AFK 和人工审批关卡。 |
 | Tracker | [Tracker](./docs/context/tracker.md) | 类别角色、状态角色、agent brief、认领、frontier 和 `.out-of-scope/`。 |
-| Wayfinding | [Wayfinding](./docs/context/wayfinding.md) | effort、destination、map、decision ticket、链和 fog of war。 |
+| Wayfinding | [Wayfinding](./docs/context/wayfinding.md) | effort、destination、map、decision ticket、会话边界和 fog of war。 |
 | Agent | [Agent](./docs/context/agent-coordination.md) | 主 agent、subagent、角色、task、报告、验证、任务分支和结果分支。 |
-| 审查 | [审查](./docs/context/review.md) | 六道审、视角（任务名）、finding、处置、固定点和审查记录。 |
+| 审查 | [审查](./docs/context/review.md) | 六道审、视角（任务名）、finding、处置、固定点、被审 HEAD、终审提交和审查记录。 |
 | 出包与收尾 | [出包与收尾](./docs/context/release-and-closure.md) | 产品、出包配置、`mmw release`、交付记录、用户实测、对外发布和 Wiki 页面。 |
 | 宿主 | [宿主](./docs/context/host-runtime.md) | 技能源、技能产物、物化、原生 subagent 和 Codex App 后台 Worktree 任务。 |
 | 领域上下文与检索 | [领域上下文与检索](./docs/context/project-context.md) | 领域模型、Context Map、leaf、ADR、权威引用、结构图谱和结构候选。 |

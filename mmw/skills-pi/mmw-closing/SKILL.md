@@ -89,6 +89,8 @@ mmw wiki nav
 
 **`docs/prototypes/<slug>/` 与 `docs/evidence/<slug>/` 不删。**
 
+下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
+
 ## 下一步
 
 | 情况 | 下一步 |

@@ -44,8 +44,8 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 | 栏 | 本角色填写 |
 | --- | --- |
 | 目标 | 完成 ticket `#<编号>`（或 tracker 等价编号） |
-| 读 | 一行一条，只写定位：① `worker-brief.md`（与本 `SKILL.md` 同目录）；② 本 worktree 内 spec 路径，或 agent brief 所在 issue 编号；③ 本张 ticket 的 issue 编号；④ 对应 plan 路径（无 plan 写「无 plan」）；⑤ 仓库根 `TESTING.md`（无则写「无」）；⑥ 选中原型路径（无则写「无原型」） |
-| 约束 | 只改本 worktree 源码与测试；不改 `docs/`；不扩大 ticket 范围。有原型时：逻辑可移植模块整块搬、界面按仓库规范重写 |
+| 读 | 一行一条，只写定位：① `worker-brief.md`（与本 `SKILL.md` 同目录）；② 本 worktree 内 spec 路径，或 agent brief 所在 issue 编号；③ 本张 ticket 的 issue 编号；④ 对应 plan 路径（无 plan 写“无 plan”）；⑤ 仓库根 `TESTING.md`（无则写“无”）；⑥ 选中的 prototype 资产路径（无则写“无 prototype”） |
+| 约束 | 只改本 worktree 源码与测试；不改 `docs/`；不扩大 ticket 范围。有 prototype 时：把用户确认过的纯逻辑模块移入正式 module 并用 TDD 集成，界面按仓库规范重写；不复制 HTML 外壳、临时 route、切换器或落选变体 |
 | 验收 | spec 分支：见 ticket `#<编号>` 的验收标准，seam 见 spec `## Testing Decisions`；agent brief 分支：见原 issue 的 agent brief 中 `**Acceptance criteria:**` 与 `**Test seam:**`（在「读」里已给出定位，此处不抄正文） |
 
 TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
@@ -68,7 +68,7 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 
 按 `/mmw-review` 的 **③ 逐份验收**，三关都过才允许合并回任务分支：做漏没有、测试达不达标、有没有偏离。三关各自的判据、三关不过时的返工升级策略，都在 `/mmw-review` 目录里的 `self-review.md`——**这一道不派审查者**，`/mmw-review` 正文其余各节跟它无关。报告按 `/mmw-verifying-agent-output` 采信，它交回的四档怎么读也在那里。
 
-三关之外还要确认一件本阶段特有的事：commit 存在，并且引用了这张 ticket。
+三关之外还要确认两件本阶段特有的事：commit 存在并引用这张 ticket；报告显示类型检查和当前测试文件在实现过程中交错运行，完整测试套件在结束时运行一次。具体命令由目标仓库 `TESTING.md` 决定；仓库缺少某一层入口时，报告必须写明不适用的证据。
 
 ticket 涉及界面时，还要完成浏览器验收：
 
@@ -95,6 +95,8 @@ spec 分支通过合同门，或者 agent brief 分支完成第 5 步后，按 `
 分支点用 `git merge-base HEAD <父分支>` 取。普通任务的父分支是创建任务时选择的目标分支；从 `/mmw-wayfinder` map 派生的任务以 map 分支为父分支。
 
 采信的 findings 打包成一张修复 ticket 派给新 `worker`，带上 `file:line` 和要改成什么。然后按 `/mmw-review` 第 7 步复审。
+
+下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 
 ## 下一步
 

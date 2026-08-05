@@ -14,6 +14,7 @@ description: 把已经改完并通过终审的代码出成正式安装包，失�
 | 检查 | 怎么查 |
 | --- | --- |
 | 终审跑过，采信的 findings 都修完并复审通过 | `.reviews/` 里有终审报告；采信项各自有对应的修复提交 |
+| 当前 HEAD 就是终审通过的提交 | 读取最后一轮没有 `accepted` 的 ⑤ final 终审记录中的 `终审提交`，确认它等于 `git rev-parse HEAD` |
 | 工作区干净 | `git status --porcelain` 是空的。引擎拒绝把自愈修复混进你没提交的改动里 |
 | 这个仓库配了出包 | `mmw` 的配置里有 `paths.release`，且仓库里能找到至少一份出包配置（下一步） |
 | 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 |
@@ -61,7 +62,7 @@ cat "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)"/<
 
 交付记录落在**主仓库根**，不在当前这棵任务 worktree 里——它比对的是几次出包之间的 commit，worktree 收尾就删，落在树里的记录活不过一次任务。
 
-每份交付记录里的 `source_commit` 都等于当前 HEAD，才算这批包是同一份代码。
+每份交付记录里的 `source_commit` 都等于当前 HEAD，才算这批包是同一份代码。当前 HEAD 还必须等于有效的终审提交。
 
 有对不上的：那个产品重出一遍（回第 3 步，只重出对不上的那些）。重出之后再核对一次——重出的过程可能又产生新提交。
 
@@ -74,6 +75,8 @@ cat "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)"/<
 把这些交给用户：出了哪几个产品、每个包在哪、这批包对应哪个 commit。
 
 **然后停下来等他装上去实测。** 包能不能装、装完能不能用，机器判不了。他说通过了才走下一步；不通过就按他报的问题回 `$mmw:mmw-implement` 修，修完重走终审和本技能。
+
+下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 
 ## 下一步
 
@@ -89,4 +92,5 @@ cat "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)"/<
 | 驱动中引擎报了缺信息的暂停 | **自己继续**：按 [driving.md](driving.md) 的「自己处置：缺信息的那类暂停」办。同一个根因处置两次仍不成才交人 |
 | 第 1 步工作区不干净 | **停**：列出没提交的文件。引擎拒绝把自愈修复混进它们里面，这是防止你的改动被自动提交带走 |
 | 第 1 步终审没跑，或还有采信的 findings 没修完 | **停**：说清缺哪一样。回 `$mmw:mmw-implement` 第 7 步发起终审，或按 `$mmw:mmw-review` 第 7 步复审 |
+| 当前 HEAD 与最后一轮有效的终审提交不同 | **移交**：`$mmw:mmw-review`，对新 HEAD 重新发起 ⑤ final 终审；通过后从本技能第 1 步重新检查 |
 | 第 2 步判不准这次要出哪几个产品 | **停**：把全部产品和这次改动碰的路径列给用户，让他点 |

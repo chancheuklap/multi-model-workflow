@@ -67,6 +67,8 @@ mmw doctor
 
 一个仓库第一次接入，或者查询结果异常时，读取 [building.md](building.md)：它规定跨语言边、配置、验证、失败处置和任务 worktree 的图复用。
 
+下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
+
 ## 下一步
 
 | 情况 | 下一步 |

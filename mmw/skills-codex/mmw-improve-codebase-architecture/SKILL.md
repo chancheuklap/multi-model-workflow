@@ -83,6 +83,8 @@ Codex App 在任务创建时已经准备好 detached worktree。确认任务范�
 - **用户否掉这个候选**，按 `$mmw:mmw-domain-modeling` 的完整 ADR 判据决定是否提议记录。三项判据缺一项就不写。
 - **想看看这个 module 还能有哪几种 interface**，跑 `$mmw:mmw-codebase-design`，用它的 DESIGN-IT-TWICE。
 
+下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
+
 ## 下一步
 
 | 情况 | 下一步 |

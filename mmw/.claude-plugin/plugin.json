@@ -17,6 +17,9 @@
   ],
   "skills": [
     "./skills-claude-code/handoff",
+    "./skills-claude-code/to-questionnaire",
+    "./skills-claude-code/wait-what",
+    "./skills-claude-code/wizard",
     "./skills-claude-code/mmw-closing",
     "./skills-claude-code/mmw-codebase-design",
     "./skills-claude-code/mmw-diagnosing-bugs",

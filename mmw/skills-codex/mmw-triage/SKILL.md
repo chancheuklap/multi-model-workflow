@@ -90,6 +90,8 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
      - **否掉（enhancement）** —— 写进 `.out-of-scope/`，用评论链过去，然后关（[OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)）。
    - `needs-triage` —— 把这个角色打上。有部分进展就一并写一条评论。
 
+下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
+
 ## 下一步
 
 | 情况 | 下一步 |

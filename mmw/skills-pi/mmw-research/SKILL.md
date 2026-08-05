@@ -82,6 +82,8 @@ description: 把「去查清楚」派出去，查这个仓库的现状或者仓�
 | 别的技能 | 交回给把你叫起来的那个技能 |
 | 用户直接叫你来查 | 写成一份文件，落点用他指定的位置；他没指定就跑 `mmw domain dirs` 按 `adr` 那一行的同级放 |
 
+下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
+
 ## 下一步
 
 | 情况 | 下一步 |
