@@ -104,6 +104,27 @@ def replace_managed_block(
     return before + seed + after, True
 
 
+def reject_unsafe_target(path: Path, rel_path: str) -> None:
+    if path.is_symlink():
+        fail(rel_path, "unsafe-target", "受管目标不得是符号链接")
+    if path.exists() and not path.is_file():
+        fail(rel_path, "unsafe-target", "受管目标必须是普通文件")
+
+
+def check_managed_content(
+    original: bytes,
+    rel_path: str,
+    seed: bytes,
+    start_marker: str,
+    end_marker: str,
+) -> None:
+    candidate, had_markers = replace_managed_block(
+        original, seed, start_marker, end_marker, rel_path
+    )
+    if not had_markers or candidate != original:
+        fail(rel_path, "managed-drift", "领域上下文受管区块与 MMW 种子不一致")
+
+
 def check_managed_block(
     path: Path,
     rel_path: str,
@@ -111,14 +132,11 @@ def check_managed_block(
     start_marker: str,
     end_marker: str,
 ) -> None:
+    reject_unsafe_target(path, rel_path)
     if not path.is_file():
         fail(rel_path, "managed-drift", "缺少领域上下文受管区块")
     original = read_bytes(path, rel_path)
-    candidate, had_markers = replace_managed_block(
-        original, seed, start_marker, end_marker, rel_path
-    )
-    if not had_markers or candidate != original:
-        fail(rel_path, "managed-drift", "领域上下文受管区块与 MMW 种子不一致")
+    check_managed_content(original, rel_path, seed, start_marker, end_marker)
 
 
 def append_block(original: bytes, seed: bytes) -> bytes:
@@ -163,6 +181,7 @@ def managed_target(
     end_marker: str,
 ) -> Target:
     path = root / rel_path
+    reject_unsafe_target(path, rel_path)
     if not path.exists():
         return Target(kind, rel_path, path, "created", None, seed, None)
 
@@ -196,6 +215,7 @@ def claude_target(root: Path, host: str) -> Target:
     path = root / rel_path
     if host != "claude-code":
         return Target("claude", rel_path, path, "not-required", None, None, None)
+    reject_unsafe_target(path, rel_path)
     if not path.exists():
         return Target("claude", rel_path, path, "created", None, b"@AGENTS.md\n", None)
 
@@ -247,6 +267,41 @@ def ensure_safe_target(root: Path, target: Target) -> None:
         )
 
 
+def rollback_replaced_targets(targets: list[Target]) -> tuple[list[str], list[str]]:
+    unrestored: list[str] = []
+    uncleared: list[str] = []
+    for target in reversed(targets):
+        if target.original is None:
+            try:
+                target.path.unlink(missing_ok=True)
+            except OSError:
+                unrestored.append(target.rel_path)
+            continue
+
+        rollback_path: Path | None = None
+        try:
+            descriptor, rollback_name = tempfile.mkstemp(
+                dir=target.path.parent,
+                prefix=f".{target.path.name}.mmw-rollback-",
+            )
+            rollback_path = Path(rollback_name)
+            with os.fdopen(descriptor, "wb") as rollback_file:
+                rollback_file.write(target.original)
+                rollback_file.flush()
+                os.fsync(rollback_file.fileno())
+            os.chmod(rollback_path, target.mode if target.mode is not None else 0o644)
+            os.replace(rollback_path, target.path)
+        except OSError:
+            unrestored.append(target.rel_path)
+        finally:
+            if rollback_path is not None and rollback_path.exists():
+                try:
+                    rollback_path.unlink()
+                except OSError:
+                    uncleared.append(rollback_path.name)
+    return unrestored, uncleared
+
+
 def atomic_write_targets(targets: list[Target]) -> None:
     changed = [target for target in targets if target.status in CHANGED_STATUSES]
     staged: dict[Path, Path] = {}
@@ -271,25 +326,13 @@ def atomic_write_targets(targets: list[Target]) -> None:
             staged.pop(target.path, None)
             replaced.append(target)
     except OSError as error:
-        for target in reversed(replaced):
-            try:
-                if target.original is None:
-                    target.path.unlink(missing_ok=True)
-                    continue
-                descriptor, rollback_name = tempfile.mkstemp(
-                    dir=target.path.parent,
-                    prefix=f".{target.path.name}.mmw-rollback-",
-                )
-                rollback_path = Path(rollback_name)
-                with os.fdopen(descriptor, "wb") as rollback_file:
-                    rollback_file.write(target.original)
-                    rollback_file.flush()
-                    os.fsync(rollback_file.fileno())
-                os.chmod(rollback_path, target.mode if target.mode is not None else 0o644)
-                os.replace(rollback_path, target.path)
-            except OSError:
-                pass
-        fail("-", "io-error", f"无法原子写入领域规则：{error}")
+        unrestored, uncleared = rollback_replaced_targets(replaced)
+        message = f"无法原子写入领域规则：{error}"
+        if unrestored:
+            message += f"；未恢复目标：{', '.join(unrestored)}"
+        if uncleared:
+            message += f"；未清理回滚临时文件：{', '.join(uncleared)}"
+        fail("-", "io-error", message)
     finally:
         for temp_path in staged.values():
             try:
@@ -319,6 +362,8 @@ def load_domain_config(root: Path, config_path: Path) -> dict[str, str]:
         value = domain.get(field, default)
         if not isinstance(value, str) or not value:
             fail(".mmw.json", "invalid-config", f"domain.{field} 必须是非空相对路径")
+        if any(separator in value for separator in ("\t", "\r", "\n")):
+            fail(".mmw.json", "invalid-config", f"domain.{field} 不得包含 TAB 或换行")
         path = Path(value)
         if path.is_absolute():
             fail(".mmw.json", "invalid-config", f"domain.{field} 必须是仓库相对路径")
@@ -371,9 +416,52 @@ def section_lines(text: str, heading: str, rel_path: str) -> list[str]:
 
 def table_cells(line: str) -> list[str] | None:
     stripped = line.strip()
-    if not stripped.startswith("|") or not stripped.endswith("|"):
+    if (
+        not stripped.startswith("|")
+        or not stripped.endswith("|")
+        or is_escaped_character(stripped, len(stripped) - 1)
+    ):
         return None
-    return [cell.strip() for cell in stripped[1:-1].split("|")]
+    cells: list[str] = []
+    current: list[str] = []
+    code_delimiter = 0
+    content = stripped[1:-1]
+    index = 0
+    while index < len(content):
+        character = content[index]
+        if character == "`":
+            run_end = index
+            while run_end < len(content) and content[run_end] == "`":
+                run_end += 1
+            run_length = run_end - index
+            current.append(content[index:run_end])
+            if code_delimiter == 0:
+                code_delimiter = run_length
+            elif code_delimiter == run_length:
+                code_delimiter = 0
+            index = run_end
+            continue
+        if (
+            character == "|"
+            and code_delimiter == 0
+            and not is_escaped_character(content, index)
+        ):
+            cells.append("".join(current).strip())
+            current = []
+        else:
+            current.append(character)
+        index += 1
+    cells.append("".join(current).strip())
+    return cells
+
+
+def is_escaped_character(text: str, index: int) -> bool:
+    backslashes = 0
+    cursor = index - 1
+    while cursor >= 0 and text[cursor] == "\\":
+        backslashes += 1
+        cursor -= 1
+    return backslashes % 2 == 1
 
 
 def resolve_leaf(
@@ -473,10 +561,16 @@ def check_authoritative_references(
                 )
 
 
-def check_map(root: Path, map_rel: str, context_rel: str, map_seed: bytes) -> None:
-    map_path = root / map_rel
-    check_managed_block(map_path, map_rel, map_seed, MAP_START, MAP_END)
-    text = decode_markdown(read_bytes(map_path, map_rel), map_rel)
+def check_map_content(
+    root: Path,
+    map_path: Path,
+    map_rel: str,
+    context_rel: str,
+    map_seed: bytes,
+    content: bytes,
+) -> None:
+    check_managed_content(content, map_rel, map_seed, MAP_START, MAP_END)
+    text = decode_markdown(content, map_rel)
     contexts = section_lines(text, "## Contexts", map_rel)
     relationships = section_lines(text, "## Relationships", map_rel)
     lines = text.splitlines()
@@ -496,10 +590,54 @@ def check_map(root: Path, map_rel: str, context_rel: str, map_seed: bytes) -> No
     check_authoritative_references(leaves, context_dir, root)
 
 
+def check_map(root: Path, map_rel: str, context_rel: str, map_seed: bytes) -> None:
+    map_path = root / map_rel
+    reject_unsafe_target(map_path, map_rel)
+    if not map_path.is_file():
+        fail(map_rel, "managed-drift", "缺少领域上下文受管区块")
+    content = read_bytes(map_path, map_rel)
+    check_map_content(root, map_path, map_rel, context_rel, map_seed, content)
+
+
+def ensure_unique_managed_targets(root: Path, map_rel: str) -> None:
+    seen: dict[Path, tuple[str, str]] = {}
+    for kind, rel_path in (
+        ("agents", "AGENTS.md"),
+        ("map", map_rel),
+        ("claude", "CLAUDE.md"),
+    ):
+        resolved = (root / rel_path).resolve()
+        previous = seen.get(resolved)
+        if previous is not None:
+            previous_kind, previous_rel = previous
+            fail(
+                ".mmw.json",
+                "conflicting-targets",
+                f"{previous_kind} ({previous_rel}) 与 {kind} ({rel_path}) 解析到同一路径",
+            )
+        seen[resolved] = (kind, rel_path)
+
+
+def check_single_document(path: Path, rel_path: str) -> None:
+    if (
+        path.suffix != ".md"
+        or path.is_symlink()
+        or not path.is_file()
+        or not os.access(path, os.R_OK)
+    ):
+        fail(rel_path, "unreadable-single", "单领域文档必须是可读的普通 UTF-8 Markdown 文件")
+    try:
+        content = path.read_bytes()
+        content.decode("utf-8")
+    except (OSError, UnicodeDecodeError):
+        fail(rel_path, "unreadable-single", "单领域文档必须是可读的普通 UTF-8 Markdown 文件")
+
+
 def check_contracts(root: Path, config_path: Path, host: str) -> CheckResult:
     if host not in {"claude-code", "pi", "codex"}:
         fail("-", "invalid-config", f"无法识别宿主：{host}")
     domain = load_domain_config(root, config_path)
+    ensure_unique_managed_targets(root, domain["map"])
     agents_seed = read_seed("AGENTS-domain-context.md")
     map_seed = read_seed("CONTEXT-MAP-rules.md")
     check_managed_block(
@@ -507,6 +645,7 @@ def check_contracts(root: Path, config_path: Path, host: str) -> CheckResult:
     )
     if host == "claude-code":
         claude_path = root / "CLAUDE.md"
+        reject_unsafe_target(claude_path, "CLAUDE.md")
         if not claude_path.is_file():
             fail("CLAUDE.md", "missing-claude-import", "Claude Code 缺少根 AGENTS.md 导入")
         claude_text = decode_markdown(read_bytes(claude_path, "CLAUDE.md"), "CLAUDE.md")
@@ -520,12 +659,11 @@ def check_contracts(root: Path, config_path: Path, host: str) -> CheckResult:
     fallback_rel = domain["fallback"]
     map_path = root / map_rel
     fallback_path = root / fallback_rel
-    if map_path.is_file():
+    if map_path.exists() or map_path.is_symlink():
         check_map(root, map_rel, domain["context_dir"], map_seed)
         return CheckResult("map", map_rel)
-    if fallback_path.is_file():
-        if not is_readable_file(fallback_path):
-            fail(fallback_rel, "unreadable-single", "单领域文档不可读")
+    if fallback_path.exists() or fallback_path.is_symlink():
+        check_single_document(fallback_path, fallback_rel)
         return CheckResult("single", fallback_rel)
     return CheckResult("none", "-")
 
@@ -534,6 +672,7 @@ def sync_contracts(root: Path, config_path: Path, host: str) -> list[Target]:
     if host not in {"claude-code", "pi", "codex"}:
         fail("-", "invalid-config", f"无法识别宿主：{host}")
     domain = load_domain_config(root, config_path)
+    ensure_unique_managed_targets(root, domain["map"])
     agents_seed = read_seed("AGENTS-domain-context.md")
     map_seed = read_seed("CONTEXT-MAP-rules.md")
 
@@ -549,18 +688,27 @@ def sync_contracts(root: Path, config_path: Path, host: str) -> list[Target]:
     ]
     map_rel = domain["map"]
     map_path = root / map_rel
-    if map_path.exists():
-        targets.append(
-            managed_target(
-                "map", root, map_rel, map_seed, MAP_START, MAP_END
-            )
+    map_target: Target | None = None
+    if map_path.exists() or map_path.is_symlink():
+        map_target = managed_target(
+            "map", root, map_rel, map_seed, MAP_START, MAP_END
         )
+        targets.append(map_target)
     else:
         targets.append(Target("map", map_rel, map_path, "not-present", None, None, None))
     targets.append(claude_target(root, host))
 
     for target in targets:
         ensure_safe_target(root, target)
+    if map_target is not None:
+        check_map_content(
+            root,
+            map_path,
+            map_rel,
+            domain["context_dir"],
+            map_seed,
+            map_target.candidate or b"",
+        )
     atomic_write_targets(targets)
     return targets
 

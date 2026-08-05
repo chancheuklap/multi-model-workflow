@@ -13,11 +13,10 @@ mmw_init_say() {
 "
 }
 
-# 本轮自己动过、要提交进分支的仓库内文件，仓库根的相对路径，一行一个。
-MMW_INIT_TOUCHED=""
+# 本轮自己动过、要提交进分支的仓库内文件，仓库根的相对路径。
+MMW_INIT_TOUCHED=()
 mmw_init_touch() {
-  MMW_INIT_TOUCHED="${MMW_INIT_TOUCHED}$1
-"
+  MMW_INIT_TOUCHED+=("$1")
 }
 
 mmw_init_config() {
@@ -237,29 +236,28 @@ mmw_init_skills() {
 # 只提交本轮自己动过的那几个路径。带路径的提交形式不碰暂存区，用户已经
 # git add 的东西留在原地。
 mmw_init_commit() {
-  local root rel
+  local root rel paths_display=""
+  local -a paths=()
   root="$(mmw_repo_root)"
 
-  if [ -z "$MMW_INIT_TOUCHED" ]; then
+  if [ "${#MMW_INIT_TOUCHED[@]}" -eq 0 ]; then
     mmw_init_say "提交     : 这一轮没有要提交的配置改动"
     return 0
   fi
 
-  local paths=""
-  while IFS= read -r rel; do
-    [ -n "$rel" ] || continue
+  for rel in "${MMW_INIT_TOUCHED[@]}"; do
     git -C "$root" add -- "$rel" || {
       mmw_init_say "提交     : git add 失败，${rel} 没提交，自己看是什么挡着"
       return 1
     }
-    paths="$paths $rel"
-  done <<< "$MMW_INIT_TOUCHED"
+    paths+=("$rel")
+    paths_display="${paths_display} ${rel}"
+  done
 
-  # shellcheck disable=SC2086
-  if git -C "$root" commit -q -m "chore(mmw): 配置多模型工作流" -- $paths; then
-    mmw_init_say "提交     : 已提交${paths}"
+  if git -C "$root" commit -q -m "chore(mmw): 配置多模型工作流" -- "${paths[@]}"; then
+    mmw_init_say "提交     : 已提交${paths_display}"
   else
-    mmw_init_say "提交     : 提交失败，${paths} 还在工作区。原样报出来，自己看是 git 身份没配还是 hook 拦了"
+    mmw_init_say "提交     : 提交失败，${paths_display} 还在工作区。原样报出来，自己看是 git 身份没配还是 hook 拦了"
     return 1
   fi
 }

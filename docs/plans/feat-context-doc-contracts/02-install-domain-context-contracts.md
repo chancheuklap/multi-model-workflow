@@ -15,6 +15,8 @@
 - `none`、`single`、`map` 都是合法领域形态。`none` 不创建领域文档，`single` 不创建 Map，`map` 只更新已经存在的 Map。
 - 修改既有 `AGENTS.md`、`CLAUDE.md` 或 Map 前，目标必须已被 Git 跟踪，且暂存区和工作区都干净。文件不存在时可以创建。
 - 标记缺失一端、重复或次序错误时，命令必须非零退出。失败不得改写目标文件。
+- AGENTS、Map 与 CLAUDE 目标必须是普通文件且解析后互不重合；符号链接和目标冲突整轮失败。
+- 四个领域路径必须是仓库内的非空相对路径，且不得包含 TAB 或换行。
 - 相同输入不得重写文件，也不得登记进初始化提交。
 - 本仓库不保留自动化测试、测试夹具或测试套件。行为检查使用运行后删除的临时 Git 仓库。
 - `archive/` 与 `vendor/` 是冻结内容，不参与本 plan。
@@ -79,7 +81,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 | `mmw domain dirs` | `0` | `1` | 固定四行 TSV，顺序为 `single`、`map`、`context`、`adr`；每行是 `<类型><TAB><配置验证后的绝对路径>`。 |
 | `mmw doctor` | 所有检查通过时 `0` | 任一检查失败时 `1` | 领域成功行：`领域合同 : valid shape=<none\|single\|map> path=<仓库相对路径或 ->`；领域失败行：`领域合同 : invalid`，后接缩进诊断。 |
 
-同步与检查失败的 stderr 每行固定为 `error<TAB><仓库相对路径><TAB><错误码><TAB><中文说明>`。本 ticket 使用 `invalid-markers`、`dirty-target`、`managed-drift`、`missing-claude-import`、`unreadable-single`、`missing-section`、`invalid-context-table`、`invalid-leaf`、`invalid-relationships`、`invalid-authoritative`、`invalid-config` 与 `io-error`。
+同步与检查失败的 stderr 每行固定为 `error<TAB><仓库相对路径><TAB><错误码><TAB><中文说明>`。本 ticket 使用 `invalid-markers`、`dirty-target`、`unsafe-target`、`conflicting-targets`、`managed-drift`、`missing-claude-import`、`unreadable-single`、`missing-section`、`invalid-context-table`、`invalid-leaf`、`invalid-relationships`、`invalid-authoritative`、`invalid-config` 与 `io-error`。
 
 两个受管区块使用以下 marker 字面量：
 
@@ -108,12 +110,12 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 
 **Interfaces:**
 
-- **Consumes:** `.mmw.json` 的 `domain.map`、`domain.fallback` 与 `domain.context_dir`；两份种子文件的完整 UTF-8 字节。
+- **Consumes:** `.mmw.json` 的 `domain.map`、`domain.fallback`、`domain.context_dir` 与 `domain.adr_dir`；两份种子文件的完整 UTF-8 字节。
 - **Produces:** `mmw domain sync`。成功输出遵守 `Cross-Plan CLI Contract` 的四列 TSV；失败输出 `error` 四列 TSV 并返回 `1`。
 
 **Contract anchors:** 归属方是 Plan 02。提供方是两份种子和目标仓库 `.mmw.json`。消费方是 `mmw init`、Plan 03 的架构图和后续 AgentFlow 迁移。同步器不修改 `Contexts`、`Relationships` 或 leaf。
 
-**Schema / API shapes:** `agents` 永远是同步目标；`map` 只在配置的 Map 已存在时是同步目标。Claude Code 下，缺少 `CLAUDE.md` 时创建精确内容 `@AGENTS.md\n`；已有文件缺少独立一行 `@AGENTS.md` 时追加该行；已有该行时返回 `current`。Pi 与 Codex 返回 `claude not-required`。无 marker 时，`AGENTS.md` 在文件末尾插入种子，Map 在第一个 `## Contexts` 前插入种子；完整唯一 marker 对原位替换；单边、重复或逆序 marker 返回 `invalid-markers`。同步器先计算整轮目标与候选内容，再检查每个待修改的既有目标：该文件必须已被 Git 跟踪，且 `git diff --quiet -- <path>` 与 `git diff --cached --quiet -- <path>` 都成功；任一目标不安全时返回 `dirty-target`，整轮不写文件。每个安全目标在同目录写临时文件，再用原子替换写回。现有文件权限保持不变。
+**Schema / API shapes:** `agents` 永远是同步目标；`map` 只在配置的 Map 已存在时是同步目标。Claude Code 下，缺少 `CLAUDE.md` 时创建精确内容 `@AGENTS.md\n`；已有文件缺少独立一行 `@AGENTS.md` 时追加该行；已有该行时返回 `current`。Pi 与 Codex 返回 `claude not-required`。AGENTS、Map 与 CLAUDE 受管目标必须是普通文件且解析后互不重合；符号链接返回 `unsafe-target`，重合返回 `conflicting-targets`。无 marker 时，`AGENTS.md` 在文件末尾插入种子，Map 在第一个 `## Contexts` 前插入种子；完整唯一 marker 对原位替换；单边、重复或逆序 marker 返回 `invalid-markers`。同步器先计算整轮目标与候选内容，再检查每个待修改的既有目标：该文件必须已被 Git 跟踪，且 `git diff --quiet -- <path>` 与 `git diff --cached --quiet -- <path>` 都成功；任一目标不安全时返回 `dirty-target`，整轮不写文件。已有 Map 的候选正文必须通过三列表格、Relationships、leaf 与 authoritative 检查。每个安全目标在同目录写临时文件，再用原子替换写回。现有文件权限保持不变。正向替换失败时回滚已替换目标；回滚失败在 `io-error` 中列出未恢复路径并清理回滚临时文件。
 
 **Mockup specs:** 不适用。本 ticket 没有界面或原型。
 
@@ -132,6 +134,9 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 7. [ ] Claude Code 新仓库创建单行 `CLAUDE.md`；已有干净文件追加精确导入；已有导入返回 `current`；Pi 与 Codex 返回 `not-required`。
 8. [ ] 待修改的既有 AGENTS、CLAUDE 或 Map 处于未跟踪、已暂存或工作区修改状态时，直接运行 `mmw domain sync` 返回 `1` 和 `dirty-target`；整轮所有目标的 SHA-256 与暂存区不变。
 9. [ ] 在本 MMW 仓库运行新同步命令后，根 `AGENTS.md` 包含与种子逐字一致的唯一受管区块并进入 02.1 提交；根 `CLAUDE.md` 返回 `current` 且无 diff。
+10. [ ] AGENTS、Map、CLAUDE 任一目标为符号链接时，sync 与 check 返回 `unsafe-target`，链接及其目标字节不变；Map 与 AGENTS 或 CLAUDE 解析到同一路径时返回 `conflicting-targets`。
+11. [ ] 已有 Map 的同步后候选正文不满足表格、Relationships、leaf 或 authoritative 合同时，整轮不写任何目标，init 不登记或提交领域路径。
+12. [ ] 正向替换失败后回滚失败时，`io-error` 点名每个未恢复目标，且不残留 `.mmw-rollback-*` 临时文件。
 
 **Verification commands:**
 
@@ -140,6 +145,9 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 - 对单边、重复和逆序 marker fixture 运行同一命令 → Expected: 三次均退出 `1`，stderr 错误码为 `invalid-markers`，完整目标 SHA-256 不变。
 - 使用 `MMW_HOST=claude-code` 对缺少 CLAUDE、已有其他正文、已有 `@AGENTS.md` 三个 fixture 运行同一命令 → Expected: `claude` 状态依次为 `created`、`appended`、`current`。
 - 对 AGENTS、CLAUDE 和 Map 分别建立未跟踪、已暂存、工作区修改三个待更新 fixture，直接运行同一命令 → Expected: 九个 fixture 都退出 `1` 并报告 `dirty-target`；整轮目标摘要和用户暂存区不变。
+- 分别把 AGENTS、Map、CLAUDE 设为符号链接，并把 `domain.map` 设为 AGENTS 或 CLAUDE 路径 → Expected: 前三种返回 `unsafe-target`，后两种返回 `conflicting-targets`；所有目标摘要不变。
+- 对缺少 Owns、关系、有效 leaf 或有效 authoritative 引用的已有 Map 运行 sync 和 init → Expected: 返回对应结构化错误，AGENTS 与 Map 字节、init HEAD 和提交路径不变。
+- 在临时 Python fixture 注入第二次正向替换和后续回滚替换失败 → Expected: 返回 `io-error`，说明包含未恢复目标，目录中没有 `.mmw-rollback-*`。
 - 对已经同步并提交的 fixture 连续运行两次同一命令 → Expected: 第二次目标状态为 `current`，`git diff --exit-code` 返回 `0`，mtime 不变。
 - 在本 MMW 仓库先运行 `MMW_HOST=codex "${source_root}/mmw/cli/mmw" domain sync`，再运行 `MMW_HOST=claude-code "${source_root}/mmw/cli/mmw" domain sync` → Expected: 第一次 `agents` 为 `inserted`；第二次 AGENTS 与 CLAUDE 都为 `current`；根 `CLAUDE.md` 无 diff。
 
@@ -149,7 +157,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 
 | 层 | 测什么 | 数量 |
 | --- | --- | ---: |
-| 临时 Git 仓库行为检查 | 创建、插入、升级、Map 保留、缺失 Map、Claude 三种状态、六个损坏 marker、九个 Git 状态错误、幂等、原子失败。 | 25 个 fixture |
+| 临时 Git 仓库行为检查 | 创建、插入、升级、Map 保留、缺失 Map、Claude 三种状态、六个损坏 marker、九个 Git 状态错误、符号链接、目标冲突、Map 候选、幂等与可见回滚失败。 | 35 个 fixture |
 | 提交前静态检查 | ShellCheck、Python 语法、空白错误。 | 3 条命令 |
 | 真实宿主验证 | 本包不改变宿主运行面。 | 0 |
 
@@ -170,6 +178,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 - [ ] Step 3: 在 `domain.sh` 和 `mmw` 暴露 `mmw domain sync`，输出 `Cross-Plan CLI Contract` 的四列 TSV。运行缺文件、无 marker、旧区块、已有 Map 和 Claude 三种状态 fixture，预期退出 `0` 且状态分别准确。
 - [ ] Step 4: 建立失败 red fixture。为 AGENTS 与 Map 分别构造单边、重复、逆序 marker；为 AGENTS、CLAUDE 与 Map 分别构造未跟踪、已暂存、工作区修改状态；保存整轮目标 SHA-256 和暂存区 diff 后运行同步。若任一命令返回 `0` 或任一证据改变，则该步失败。
 - [ ] Step 5: 让失败路径变绿。同步器在生成任何临时文件前完成整轮 marker 和 Git 状态预检；六个 marker fixture 返回 `invalid-markers`，九个 Git fixture 返回 `dirty-target`，所有文件摘要和暂存区不变。
+- [ ] Step 5a: 在写入前拒绝受管符号链接、解析后重合的目标和无效 Map 候选；回滚失败时点名未恢复目标并清理回滚临时文件。
 - [ ] Step 6: 验证幂等、Map 所有权和当前仓库安装。对已同步并提交的 Map 再运行两次，确认项目正文、Git diff 与 mtime 不变；随后在本 MMW 仓库先以 Codex 宿主同步，再以 Claude Code 宿主同步，确认根 `AGENTS.md` 从 `inserted` 变为 `current`，根 `CLAUDE.md` 始终是 `current` 且无 diff。
 - [ ] Step 7: 运行 `python3 -m py_compile mmw/cli/lib/context_docs.py`、`shellcheck --severity=warning mmw/cli/mmw mmw/cli/lib/domain.sh` 与 `git diff --check`。确认根 `AGENTS.md` 在 diff 中且根 `CLAUDE.md` 不在 diff 中；全部返回 `0` 后按 Commit boundary 提交。
 
@@ -191,7 +200,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 
 **Contract anchors:** `AGENTS.md` 与 Map 受管正文由 02.1 提供。根 `CLAUDE.md` 由目标仓库提供并由 Claude Code 消费。`MMW_INIT_TOUCHED` 只登记状态为 `created`、`inserted`、`updated` 或 `appended` 的仓库相对路径。
 
-**Schema / API shapes:** `mmw init` 不重复实现同步、Claude bridge 或 Git 状态预检，只解析 02.1 的安全同步结果。`created`、`inserted`、`updated`、`appended` 进入 `MMW_INIT_TOUCHED`；`current`、`not-present`、`not-required` 不登记。同步命令返回 `1` 时，init 记录 stderr、最终返回非零，并且不登记任何领域路径。
+**Schema / API shapes:** `mmw init` 不重复实现同步、Claude bridge、Map 检查或 Git 状态预检，只解析 02.1 的安全同步结果。`created`、`inserted`、`updated`、`appended` 进入 Bash 数组 `MMW_INIT_TOUCHED`；`current`、`not-present`、`not-required` 不登记。数组逐项传给 `git add` 和 `git commit`，保留路径中的空格。同步命令返回 `1` 时，init 记录 stderr、最终返回非零，并且不登记任何领域路径。
 
 **Mockup specs:** 不适用。本任务包没有界面或原型。
 
@@ -207,6 +216,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 4. [ ] 连续第二次运行 `mmw init` 不产生领域文件 diff，也不产生只包含领域文件的空提交。
 5. [ ] `mmw init` 消费 AGENTS 与 CLAUDE 均为 `current` 的安全结果时，不登记这两个路径，也不产生领域文件 diff。
 6. [ ] AGENTS、CLAUDE、Map 分别处于未跟踪、已暂存或工作区修改状态且需要更新时，经 `mmw init` 运行的九个 fixture 都返回非零；日志包含 `dirty-target` 和未完成提示；目标 SHA-256、暂存区 diff 与用户改动保持不变；初始化提交不包含对应脏目标。
+7. [ ] Map 路径含空格时，init 把完整路径作为一个数组元素暂存和提交；无效 Map 候选让 init 返回非零，且不产生领域提交。
 
 **Verification commands:**
 
@@ -215,6 +225,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 - `git show --name-only --format= HEAD` → Expected: 现有初始化路径可以出现；领域路径只包含本轮状态为 `created`、`inserted`、`updated` 或 `appended` 的 AGENTS、CLAUDE 或 Map，不能出现脏目标。
 - 在 AGENTS 与 CLAUDE 已是 current 的临时仓库再次运行 `mmw init` → Expected: 初始化日志显示两个 `current`；提交路径不含 AGENTS 或 CLAUDE；领域文件无 diff。
 - 对 AGENTS、CLAUDE、Map 分别建立未跟踪、已暂存、工作区修改三个待更新 fixture，经对应宿主运行 `mmw init` → Expected: 九次均返回非零；stdout 或 stderr 保留 `dirty-target` 和 init 未完成信息；运行前后的目标 SHA-256、`git diff --cached --binary` 与用户工作区 diff 相同；若 init 提交了其他新配置，`git show --name-only --format= HEAD` 不含脏目标。
+- 对带空格的 Map 路径运行 init，并对无效 Map 候选运行 init → Expected: 前者的提交只包含完整 Map 路径；后者返回非零，HEAD 和 Map 摘要不变。
 
 **Browser acceptance:** 不适用。本任务包没有界面行为。
 
@@ -222,7 +233,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 
 | 层 | 测什么 | 数量 |
 | --- | --- | ---: |
-| 临时 Git 仓库行为检查 | 三形态路由、Claude 新建与追加、已有导入、九个脏目标的失败传播、实际变化登记、第二轮幂等。 | 17 个 fixture |
+| 临时 Git 仓库行为检查 | 三形态路由、Claude 新建与追加、已有导入、九个脏目标的失败传播、带空格路径、无效 Map、实际变化登记和第二轮幂等。 | 19 个 fixture |
 | 提交前静态检查 | ShellCheck、空白错误。 | 2 条命令 |
 | 真实宿主验证 | fixture 通过 `MMW_HOST` 和隔离的 Codex 路径运行；不声明真实宿主已验证。 | 0 |
 
@@ -264,7 +275,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 
 **Contract anchors:** Plan 02 拥有检查器和 CLI 输出。Plan 03 消费命令名、退出码、stdout 形状和 marker 字面量；Plan 03 不复制检查逻辑。Map 的 `Contexts` 与 `Relationships` 由目标仓库提供，doctor 只验证结构和路径，不解释关系语义。
 
-**Schema / API shapes:** 三种领域形态先检查 AGENTS 受管区块。`MMW_HOST=claude-code` 时还要求根 `CLAUDE.md` 含独立一行 `@AGENTS.md`；文件缺失或缺少该行时返回 `missing-claude-import`。Pi 与 Codex 不检查 Claude bridge。`single` 另读取 fallback；`map` 另检查 Map 规则、唯一的 `## Contexts`、唯一的 `## Relationships`、精确三列表头 `Context`、`Leaf`、`Owns`、至少一条关系以及每一行 leaf。`Context` 非空且唯一；`Leaf` 整格只能是一个 Markdown 链接，按 Map 位置解析后必须位于 `mmw domain dirs` 返回的 `context` 目录内、以 `.md` 结尾且可读；`Owns` 非空。每个已登记 leaf 中出现的 `authoritative:` 都必须符合 `(authoritative: [显示文本](相对路径))`，并解析为 context 目录内且已登记的 leaf。`mmw domain dirs` 使用同一配置验证结果，按 `single`、`map`、`context`、`adr` 顺序输出四个绝对路径；即使当前形态为 `none`，前两行仍提供按需创建首份 fallback 或 Map 的落点。
+**Schema / API shapes:** 三种领域形态先检查 AGENTS 受管区块。AGENTS、Map 与 Claude bridge 都拒绝符号链接。`MMW_HOST=claude-code` 时还要求根 `CLAUDE.md` 含独立一行 `@AGENTS.md`；文件缺失或缺少该行时返回 `missing-claude-import`。Pi 与 Codex 不检查 Claude bridge。`single` 另要求 fallback 是可读普通 UTF-8 Markdown 文件；fallback 已存在但不合格时返回 `unreadable-single`，不得降级为 `none`。`map` 另检查 Map 规则、唯一的 `## Contexts`、唯一的 `## Relationships`、精确三列表头 `Context`、`Leaf`、`Owns`、至少一条关系以及每一行 leaf。GFM 表格中的转义竖线和行内代码竖线不分列。`Context` 非空且唯一；`Leaf` 整格只能是一个 Markdown 链接，按 Map 位置解析后必须位于 `mmw domain dirs` 返回的 `context` 目录内、以 `.md` 结尾且可读；`Owns` 非空。每个已登记 leaf 中出现的 `authoritative:` 都必须符合 `(authoritative: [显示文本](相对路径))`，并解析为 context 目录内且已登记的 leaf。`mmw domain dirs` 使用同一配置验证结果，按 `single`、`map`、`context`、`adr` 顺序输出四个绝对路径；即使当前形态为 `none`，前两行仍提供按需创建首份 fallback 或 Map 的落点。任一配置路径含 TAB、换行、绝对路径或越出仓库时返回 `invalid-config`。
 
 **Mockup specs:** 不适用。本任务包没有界面或原型。
 
@@ -286,6 +297,9 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 10. [ ] 本 MMW 仓库的 `mmw domain check` 输出 `check<TAB>none<TAB>-<TAB>valid`；`mmw doctor` 输出 `领域合同 : valid shape=none path=-`，领域检查本身不再判红。
 11. [ ] 同一个合法领域 fixture 在 Claude Code 宿主下，根 `CLAUDE.md` 含独立一行 `@AGENTS.md` 时 `domain check` 和 doctor 的领域检查均为 valid；缺少文件或缺少该行时均返回 `missing-claude-import`，`domain check` 返回 `1` 且 doctor 最终返回 `1`。同一 fixture 在 Pi 与 Codex 宿主下不因缺少 `CLAUDE.md` 判红。
 12. [ ] 自定义 map、fallback、context 和 ADR 路径时，`mmw domain dirs` 按固定顺序返回四个准确绝对路径；任一字段越出仓库时返回 `invalid-config`。
+13. [ ] AGENTS、Map 或 Claude bridge 是符号链接时，check 返回 `unsafe-target`，不跟随链接读取合同。
+14. [ ] fallback 已存在但为目录、符号链接、不可读文件或非法 UTF-8 时返回 `unreadable-single`，不得返回 `none` 或 `single valid`。
+15. [ ] Contexts 表格允许转义竖线和行内代码中的竖线，且仍准确识别固定三列。
 
 **Verification commands:**
 
@@ -294,6 +308,8 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 - 对同一个合法 `none` fixture 分别运行：Claude Code 且有 `@AGENTS.md`、Claude Code 且缺 `CLAUDE.md`、Claude Code 且文件中缺该行、Codex/Pi 且无 `CLAUDE.md` → Expected: 第一种 `domain check` 返回 `0`；中间两种返回 `1` 和 `missing-claude-import`，doctor 领域行是 invalid 且最终返回 `1`；最后一种在 Codex 与 Pi 下均保持 valid。
 - `MMW_HOST=codex "${source_root}/mmw/cli/mmw" domain path` → Expected: `map` fixture 第三列精确等于 `这是索引：读它，再读取它列出的本次相关全部 leaf`。
 - 在四个领域路径均使用自定义相对路径的 `none` fixture 运行 `MMW_HOST=codex "${source_root}/mmw/cli/mmw" domain dirs` → Expected: 依次输出 `single`、`map`、`context`、`adr` 及对应绝对路径；把 `adr_dir` 改为 `../outside` 后返回 `1` 和 `invalid-config`。
+- 对 AGENTS、Map 和 Claude bridge 符号链接运行 check，对目录、符号链接、不可读和非法 UTF-8 fallback 运行 check → Expected: 受管目标返回 `unsafe-target`，四类 fallback 返回 `unreadable-single`，均不跟随或降级。
+- 在 Context 与 Owns 中分别使用 `\|` 和行内代码竖线的合法 Map 运行 sync 与 check → Expected: 两条命令都成功，Contexts 仍解析为三列。
 - `MMW_HOST=codex "${source_root}/mmw/cli/mmw" doctor` → Expected: 合法 fixture 包含 `领域合同 : valid shape=...`；非法 fixture 包含 `领域合同 : invalid`，且最终退出码为 `1`。doctor 的其他本机检查结果不替代领域行断言。
 - 在本 MMW 仓库运行 `MMW_HOST=codex "${source_root}/mmw/cli/mmw" domain check` 和 `MMW_HOST=codex "${source_root}/mmw/cli/mmw" doctor` → Expected: 前者返回 `check<TAB>none<TAB>-<TAB>valid`；后者包含 `领域合同 : valid shape=none path=-`。doctor 的总退出码仍由其他本机检查共同决定。
 
@@ -303,7 +319,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 
 | 层 | 测什么 | 数量 |
 | --- | --- | ---: |
-| 临时 Git 仓库行为检查 | 三种合法形态、四个宿主 bridge fixture、六类受管规则错误、八类 Map 结构错误、五类 leaf 错误、四类权威引用错误，以及自定义四路径与越界路径；doctor、domain path 与 domain dirs 复用这些仓库。 | 32 个 fixture |
+| 临时 Git 仓库行为检查 | 三种合法形态、四个宿主 bridge fixture、受管符号链接、六类受管规则错误、八类 Map 结构错误、GFM 竖线、四类 fallback、五类 leaf 错误、四类权威引用错误，以及自定义四路径与越界路径；doctor、domain path 与 domain dirs 复用这些仓库。 | 40 个 fixture |
 | 提交前静态检查 | ShellCheck、Python 语法、完整仓库检查。 | 4 条命令 |
 | 真实宿主验证 | CLI 文件行为不声明五个真实宿主已经通过。 | 0 |
 
@@ -321,7 +337,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 
 - [ ] Step 1: 建立检查 red fixture。对 02.2 产出的合法 `none`、`single`、`map` 仓库，以及 Claude bridge valid、缺文件、缺导入行仓库运行 `mmw domain check`。预期当前命令进入 `usage_domain` 并返回 `2`。
 - [ ] Step 2: 在领域合同模块实现三形态和宿主 bridge 检查，并在 `domain.sh` 和 `mmw` 暴露 `mmw domain check`。按 `Schema / API shapes` 读取真实文件，不扫描源码文本，不修改 fixture。
-- [ ] Step 3: 运行三种合法形态、Claude Code bridge valid/缺文件/缺导入行、Pi/Codex 无 CLAUDE、自定义四路径、越界路径和其他错误矩阵。预期合法 fixture 返回四列 `valid`；`domain dirs` 返回固定顺序的四个绝对路径；Claude 两种缺失都返回 `missing-claude-import`；Pi/Codex 不因缺桥判红；其他非法 fixture stdout 为空、stderr 返回精确错误码和路径。
+- [ ] Step 3: 运行三种合法形态、Claude Code bridge valid/缺文件/缺导入行、受管符号链接、Pi/Codex 无 CLAUDE、自定义四路径、控制字符路径、四类 fallback、GFM 竖线和其他错误矩阵。预期合法 fixture 返回四列 `valid`；`domain dirs` 返回固定顺序的四个绝对路径；Claude 两种缺失都返回 `missing-claude-import`；Pi/Codex 不因缺桥判红；其他非法 fixture stdout 为空、stderr 返回精确错误码和路径。
 - [ ] Step 4: 建立 CLI 集成 red 证据。对 `map` fixture 断言 `mmw domain path` 第三列的固定提示；对一般合法/非法 fixture 和 Claude bridge valid/missing fixture 断言 `mmw doctor` 领域行和最终退出码。预期当前提示或领域行至少一项不符合合同。
 - [ ] Step 5: 更新 `mmw domain path` 的 Map 提示，并在 `cmd_doctor` 检查到仓库与配置后调用同一个领域检查入口。成功时打印 `valid` 行；失败时打印 `invalid`、缩进诊断并把最终状态置为 `1`。
 - [ ] Step 6: 重跑 `domain path`、`domain dirs`、`domain check` 与 doctor fixture，再在本 MMW 仓库运行 `domain check` 和 doctor。预期 fixture 的命令名、退出码和 stdout 逐字符合 `Cross-Plan CLI Contract`；当前仓库领域形态为 `none`，两条检查命令的领域合同均为 valid。
