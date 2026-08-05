@@ -73,12 +73,12 @@ subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说�
 
 ## 6. 就这一个候选谈下去
 
-跑 `/mmw-grilling` 把决定树跟用户走一遍：约束、依赖、做深之后这个 module 什么形状、seam 后面藏什么、哪些测试还活着。谈清楚之后它会回到本技能收尾。
+跑 `/mmw-grilling`，用它的设计树把这些内容跟用户走一遍：约束、依赖、做深之后这个 module 什么形状、seam 后面藏什么、哪些测试还活着。谈清楚之后它会回到本技能收尾。
 
 `/mmw-grilling` 自带 `/mmw-domain-modeling`，通用的那部分不用你再交代。这里只补三条本技能特有的：
 
 - **给做深后的 module 起的名字不在相关 leaf 里**，就把这个词加进去。先跑 `mmw domain path`：`single` 使用命令返回的 leaf；`map` 使用 Map 为本次范围登记的实际 leaf。
-- **用户否掉这个候选**，提议写一份 ADR，话这么说：「要不要记成 ADR，免得下次架构走查又提一遍？」只在这个理由是未来的人真需要、否则同一件事会被重复提议时才提；一次性的理由（「现在不值得做」）和不言自明的理由跳过。
+- **用户否掉这个候选**，按 `/mmw-domain-modeling` 的完整 ADR 判据决定是否提议记录。三项判据缺一项就不写。
 - **想看看这个 module 还能有哪几种 interface**，跑 `/mmw-codebase-design`，用它的 DESIGN-IT-TWICE。
 
 ## 下一步

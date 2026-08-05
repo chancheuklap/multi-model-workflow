@@ -75,7 +75,7 @@ mmw dispatch <角色> --task <文件> [--cwd <目录>]
 模型、档位、护栏由角色决定，取自仓库根 .mmw.json，这里不用管。
 
 返回开头一行是 mode: executed 或 mode: host-tool。
-host-tool 时原样用回执 params 调工具（params 内已含 task 正文或等价字段）。
+host-tool 时原样用返回中的 params 调工具（params 内已含 task 正文或等价字段）。
 EOF
   return 2
 }

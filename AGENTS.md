@@ -92,6 +92,8 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 | 发送到外部系统 | 对外发布 | 出站动作 |
 | sandbox 与工具白名单 | 护栏（guardrails） | 围栏 |
 
+人工审批关卡始终表示用户必须明确确认，主 agent 才能继续。各技能只规定本关卡要确认的产物或动作，不改变“人工审批关卡”的含义。
+
 有行业标准中文译名时使用标准中文；没有时使用英文原词。不要自造术语、缩写或比喻性动词。
 
 ## Git 与安全

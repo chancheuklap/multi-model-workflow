@@ -30,7 +30,7 @@ frontier 为空时，不建立链任务。停止并让用户恢复拥有 map 分
 
 | 标签 | 解法 |
 | --- | --- |
-| `wayfinder:grilling` | 跑 `/mmw-grilling`，一次问用户一个问题 |
+| `wayfinder:grilling` | 跑 `/mmw-grilling`，把 ticket 的 `Question` 谈成双方确认的共同理解；提问方式全部由该技能决定 |
 | `wayfinder:prototype` | 跑 `/mmw-prototype` 做一个粗糙版本给用户走查。产物落 `docs/prototypes/<slug>/`，结论按 `/mmw-prototype` 的回填规矩写成结案评论，评论里留一个指向产物目录的路径 |
 | `wayfinder:research` | 按 `/mmw-research` 派一个 subagent 去查，只查这一个决定要等的那条事实，答完就停。按 `/mmw-verifying-agent-output` 验证过的事实才写进 ticket 评论，没查清的另起一节列出来 |
 | `wayfinder:task` | agent 自己做得完就自己做完，把结果事实记进结案评论：凭证放在哪、新的地址是什么、数据有多少行。必须人动手的，停下来交一份精确的操作清单给用户，等他做完再回第 4 步 |
@@ -43,7 +43,7 @@ frontier 为空时，不建立链任务。停止并让用户恢复拥有 map 分
 
 1. 答案写成**结案评论**贴在这张 ticket 上，然后**关掉**它。
 2. 往 map 的 `Decisions so far` 一节追加一行索引。**追加之前先重新拉一次 map 的最新正文**，写完再读一次确认自己那行在。
-3. 这个决定难以回退、而且真有取舍，就另写一份 ADR。**链上先写草稿名** `draft-<ticket 编号>-<kebab-标题>.md`，落点跑 `mmw domain dirs` 取 `adr` 那一行；等这条链走完、合回 map 分支时再统一改成正式编号。几条链同时跑，各自取号必定撞，草稿名是绕开它的办法（见 `/mmw-domain-modeling` 的 `ADR-FORMAT.md`）。什么样的决定才够格写 ADR，判据也在那个技能里。
+3. 按 `/mmw-domain-modeling` 的完整 ADR 判据评估这个决定。三项判据全部成立才写 ADR。**链上先写草稿名** `draft-<ticket 编号>-<kebab-标题>.md`，落点跑 `mmw domain dirs` 取 `adr` 那一行；等这条链走完、合回 map 分支时再统一改成正式编号。几条链同时跑，各自取号必定撞，草稿名是绕开它的办法（见 `/mmw-domain-modeling` 的 `ADR-FORMAT.md`）。
 4. 谈出来的新术语追加进领域文档。落点跑 `mmw domain path` 取：`single` 使用命令返回的 leaf；`map` 使用 Map 为这条链登记的实际 leaf 路径。
 5. 更新 map：这次答案让哪块 fog of war 说得清楚了，就从 `Not yet specified` 一节里拿出来建成新 ticket，再连阻塞关系（先建 issue，拿到编号再连边）。
 6. 这次答案要是暴露出某张 ticket 坐在 destination 之外，就判它出范围：关掉它，在 `Out of scope` 一节留一行，并在 `.out-of-scope/` 写一份。判据见 [map-anatomy.md](map-anatomy.md) 的「什么算判出范围」一节。这个决定让 map 的其他部分作废了，就更新或删掉作废的那些 ticket。

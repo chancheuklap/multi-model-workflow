@@ -293,7 +293,7 @@ _path_gate() {
       BLOCKED_PATHS+=("$path")
       continue
     fi
-    # P2 derive:引擎从真相源单向重生消费方派生物,derive.regenerate 自身已把输出约束在派生目录;
+    # P2 derive:引擎从唯一事实来源单向重生消费方派生物,derive.regenerate 自身已把输出约束在派生目录;
     # 派生物刻意不入 P1 的 editable_paths(否则 P1 fix_executor 能直改派生物,破坏「derive 唯一 writer」)。
     # 设计意图是 derive 只过 P0 保护路径 hard-deny,不施 P1 的 editable 白名单;否则 P2 无感自愈对真钥匙失效。
     if [ "$mode" = "derive" ]; then
@@ -491,7 +491,7 @@ cmd_dispatch_direct() {
     artifact_ref="$PATH_GATE_ARTIFACT"
     blocked_json="$(_json_array "${BLOCKED_PATHS[@]-}")"
     _record_pause "$f" "$name" "path_gate" "rejected" "$fp" "$artifact_ref" \
-      "needs-context" "protection_source 无法作为路径闸真相源($PATH_GATE_ERROR)，已保存 patch 并停下交人" \
+      "needs-context" "protection_source 无法作为路径闸唯一事实来源($PATH_GATE_ERROR)，已保存 patch 并停下交人" \
       "$changed_json" "$blocked_json" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "PATH-GATE-REJECT:$name protection_source=[$PATH_GATE_ERROR]"
     return 0
@@ -1111,7 +1111,7 @@ cmd_stage_fail() {
   if [ "$tier" = "P0" ]; then
     edit "$f" --arg n "$name" --arg fp "$fp" \
       '.pause={at_stage:$n, kind:"surface", reason:"needs-redirection",
-               question:("stage "+$n+" P0 硬约束失败("+$fp+"),触人工门禁,停")}'
+               question:("stage "+$n+" P0 硬约束失败("+$fp+"),触发人工审批关卡,停")}'
     emit_event "$f" "paused" "$name" "P0" "$fp" "$aref"
     echo "CLASSIFY=P0 $name -> PAUSE(交人)"
     return 0
@@ -1180,7 +1180,7 @@ cmd_dispatch() {
         '(.stages |= map(if .name==$n then .status="failed" else . end))
          | .current_stage=$n
          | .pause={at_stage:$n, kind:"surface", reason:"needs-redirection",
-                  question:("dispatch "+$n+" P0 硬约束("+$fp+"),触人工门禁,停")}'
+                  question:("dispatch "+$n+" P0 硬约束("+$fp+"),触发人工审批关卡,停")}'
       emit_event "$f" "paused" "$name" "P0" "$fp" "$aref"
       echo "P0:$name P0 硬约束($fp),交人(已 PAUSE)"
       ;;
@@ -1304,14 +1304,14 @@ cmd_receipt() {
   local f
   f="$(need_state)"
   jq -e . "$f" >/dev/null 2>&1 || { echo "CORRUPT:release-state 空/非法 JSON"; return 0; }
-  echo "# Release 回执 - product=$(jq -r .product "$f")"
+  echo "# mmw release receipt - product=$(jq -r .product "$f")"
   if [ "$(jq -r '.pause // "null"' "$f")" != "null" ]; then
     echo "## 停在 stage=$(jq -r '.pause.at_stage' "$f") 原因=$(jq -r '.pause.reason' "$f")"
     jq -r '.pause.question' "$f"
   fi
   echo "## 已试 attempt:"
-  # log_refs 必须进回执:PAUSED:needs-context 的自主处置政策(drive-loop.md)第一步就是从
-  # 回执拿日志 locator(file:/pc:),漏印 = 驱动 Agent 只能翻裸 state 文件猜路径。
+  # log_refs 必须进入 mmw release receipt：PAUSED:needs-context 的自主处置政策
+  # 在 driving.md 第一步从该命令读取日志 locator(file:/pc:)，漏印会迫使主 agent 翻 state 文件猜路径。
   jq -r '.attempt_ledger[] | "- ["+.action_kind+"] stage="+.stage+" outcome="+.outcome+(if .root_cause_fingerprint then " fp="+.root_cause_fingerprint else "" end)+(if (.artifact_refs|length)>0 then " findings="+(.artifact_refs|join(",")) else "" end)+(if (.log_refs//[]|length)>0 then " logs="+(.log_refs|join(",")) else "" end)' "$f"
   echo "## fingerprint 累计:"
   jq -r '.fingerprint_ledger[] | "- "+.fingerprint+" x"+(.count|tostring)' "$f"

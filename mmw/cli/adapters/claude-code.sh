@@ -102,7 +102,7 @@ mmw_adapter_dispatch() {
       report="$report_dir/${MMW_D_ROLE}-$(basename "$MMW_D_TASK" .md).md"
       local sandbox=(--sandbox read-only)
       if [ "$MMW_D_WRITABLE" = "yes" ]; then
-        # workspace-write 默认把 .git 锁成只读，工人提交会卡在 index.lock。
+        # workspace-write 默认把 .git 锁成只读，`worker` 提交会卡在 index.lock。
         sandbox=(--sandbox workspace-write
                  -c "sandbox_workspace_write.writable_roots=[\"$MMW_D_CWD/.git\"]")
       fi
@@ -111,12 +111,12 @@ mmw_adapter_dispatch() {
         [ -n "$line" ] && mcp+=(-c "$line")
       done < <(mmw_adapter_mcp_overrides)
       # Codex 不读 MCP 握手交回的服务器说明（实测：问它「有没有收到说明」，答没有）。
-      # 工具挂上了、说明书没到，工人就不知道什么问题该问图、哪两类关系静态分析看不见。
+      # 工具挂上了、说明书没到，`worker` 就不知道什么问题该问图、哪两类关系静态分析看不见。
       # 这里把两处唯一事实来源里的纪律取出来拼在提示词前面。取不出来当场失败：那说明
-      # 插件自己装坏了，让工人裸跑比派发失败更糟。
+      # 插件自己装坏了，让 `worker` 裸跑比派发失败更糟。
       local preamble
       preamble="$(python3 "$MMW_ROOT/mcp/discipline.py")" || {
-        echo "mmw: 检索纪律取不出来，拒绝派一个没有说明书的工人" >&2
+        echo "mmw: 检索纪律取不出来，拒绝派一个没有说明书的 worker" >&2
         return 1
       }
 

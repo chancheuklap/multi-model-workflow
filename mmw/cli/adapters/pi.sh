@@ -2,7 +2,7 @@
 # pi 宿主 adapter。
 #
 # 主路径：宿主技能产物已写死 subagent({ agent, task, cwd })；本文件仅在有人仍调用
-# `mmw dispatch` 时给出兼容回执。型号/thinking/async/context/skill 在 agents-pi
+# `mmw dispatch` 时给出兼容返回。型号/thinking/async/context/skill 在 agents-pi
 # frontmatter，不进 params。
 #
 # 入参走 MMW_D_* 环境变量，由 cli/mmw 设好。
