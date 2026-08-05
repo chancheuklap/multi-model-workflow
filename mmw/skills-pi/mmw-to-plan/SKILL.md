@@ -3,6 +3,8 @@ name: mmw-to-plan
 description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `planner` 写。用户说要写 plan、要把 ticket 展开成可落地的实施步骤时用它；刚把 spec 拆完 ticket 的技能也移交这里。
 ---
 
+开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
+
 把每张 ticket 写成一份 plan，供后面派 `worker` 照着落地。
 
 **你不写 plan。** 写作全部下放给 `planner`，一张 ticket 一个。你的职责是定清单、划合同边界、派发、验证、回填、发起审查。

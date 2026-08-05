@@ -3,6 +3,8 @@ name: mmw-closing
 description: 一次任务的收尾——spec 和 plan 转成 Wiki 的一页，删掉本地副本，分支交回用户合并。用户说要收尾、要归档时用它；终审过了、采信的 findings 都修完的技能也移交这里。
 ---
 
+开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
+
 代码已经落地，终审过了。这一步把设计文档搬到它的长期落点，再把工作区收干净。
 
 **Wiki 从此是这份 spec 的唯一事实来源。** 本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/` 随任务分支删掉，主线不留 spec 和计划文档。
