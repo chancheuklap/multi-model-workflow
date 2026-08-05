@@ -10,15 +10,13 @@
 | --- | --- | --- |
 | `needs-triage` | `needs-triage` | 还没评估过，不知道该不该做、怎么做 |
 | `needs-info` | `needs-info` | 缺输入，等人补 |
-| `ready-for-agent` | `ready-for-agent` | 当前合同已写清，可以由 agent AFK 继续 |
-| `ready-for-human` | `ready-for-human` | 下一步由人承担，agent 不代替 |
+| `ready-for-agent` | `ready-for-agent` | 已写清楚，可以直接派工人 AFK 跑 |
+| `ready-for-human` | `ready-for-human` | HITL 的活，不派工人 |
 | `wontfix` | `wontfix` | 决定不做 |
 
-`ready-for-agent` 是唯一一个机器可验证的「合同足够让 agent AFK 继续」信号。它不指定下一项技能，也不豁免承接技能自己的前置条件。
+**派工人前必须是 `ready-for-agent`。** 这是唯一一个机器可验证的「够清楚了」信号，AFK 跑的时候靠它挡住模糊 issue。
 
-不同 work item 的合同不同：已分诊 issue 或外部 PR 使用 agent brief；spec issue 使用用户批准的 spec；实现 ticket 使用验收标准，进入 `/mmw-implement` 前还必须有通过 plan 审的 plan。
-
-`/mmw-to-spec` 只在用户批准 spec 后发布或更新 spec issue。因此，spec issue 存在且带 `ready-for-agent`，同时也是 spec 定稿人工审批关卡的通过凭据。这个附加事实不改变标签的通用含义。
+它打在一张 spec issue 上时含义更进一步：**这份 spec 已经过了用户那道确认**，拆 ticket 和派工人都可以自动接下去。`/mmw-to-spec` 只在用户点头之后才发布并打上这个标签，所以「issue 在且带这个标签」就是那道人工审批关卡过了的凭据，不需要另记状态。
 
 ## HITL 与 AFK：这件活要不要人在场
 
@@ -29,15 +27,15 @@
 | **HITL** | human in the loop | 必须有人在对话里一来一回才做得完 | 少了那个人的回答，这件事根本没有答案 |
 | **AFK** | away from keyboard | agent 自己就能做完，人不在也跑得动 | 人回来只需要看结果，不需要中途参与 |
 
-HITL/AFK 与状态角色相关，但不等同。HITL/AFK 描述完成方式；状态角色描述 tracker 上当前由谁继续以及合同是否足够。
+上面两个标签就是这条轴的标签形态：`ready-for-agent` 说的是这张 issue 可以 AFK 跑，`ready-for-human` 说的是它是 HITL 的。
 
 **HITL 的活不许 agent 替人回答。** 派一个 subagent 自问自答，得出的结论不作数。这是最容易犯、事后也最难发现的错误——产出看起来完整，只是那个人从没参与过。
 
 **AFK 不附带把东西发出仓库的授权。** 三类动作把东西送到这个仓库之外、别人看得见也收不回的地方：`git push`、推 Wiki、往外部服务写数据。要发的内容用户还没看过就停下来，把内容原样给他看，他点头再发——发出去收不回来，缓存和索引也留着。`/mmw-closing` 第 4 步推 Wiki 之前那道确认，就是这条规矩的落点。
 
-**issue tracker 不在这三类里。** 它是这套流程自己的工作面：建 ticket、贴 agent brief 评论、开 `needs-triage` issue、打标签、关 issue，都照各技能自己的步骤做，不为这条规矩额外增加人工审批关卡。`/mmw-to-spec` 第 7 步要求用户批准 spec，属于该技能明确规定的人工审批关卡。
+**issue tracker 不在这三类里。** 它是这套流程自己的工作面：建 ticket、贴 agent brief 评论、开 `needs-triage` issue、打标签、关 issue，都照各技能自己的步骤做，不为这条规矩额外停一次。tracker 上唯一要用户点头的是 `/mmw-to-spec` 第 7 步那张 spec issue，那是设计的人工审批关卡，跟本条规矩是两回事。
 
-人工审批关卡是「必须取得用户对指定产物或动作的明确批准，才能执行下一次流程转换」。prototype 走查、spec 定稿、安装包实测和对外发布都可以按各自技能形成关卡实例；它们使用同一个术语和批准责任。HITL/AFK、tracker 状态和验证方式不能替代人工审批关卡。
+这条轴跟**人工审批关卡**不是一回事：人工审批关卡是「必须用户点头这件事才能往下走」的关卡（全流程只有 `/mmw-to-spec` 第 7 步那一道），HITL 说的是「这件活本身要人参与才做得完」。一件 AFK 的活照样可能撞上人工审批关卡。
 
 ## 类型：这张 issue 是什么性质
 

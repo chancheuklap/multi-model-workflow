@@ -18,31 +18,31 @@ How a skill is reached — and the two loads you pay for the choice.
 
 ### Model-Invoked
 
-A skill whose **description** is visible to the agent because `disable-model-invocation` is absent. The agent can fire it autonomously, other skills can reach it, and the human can still type its name, so model-invocation always _includes_ user reach. It pays permanent **context load** for that discoverability. A model-invoked skill whose content is all **reference** is also one home for shared reference: another skill can invoke it, so reference needed by several skills lives in one place. Pick model-invocation only when the agent must reach the skill on its own.
+A skill that keeps its **description** field, so the agent can see it and fire it autonomously — and the human can still type its name, so model-invocation always _includes_ user reach. There is no model-only state: a description only ever _adds_ agent discovery, never removes the human's. Pays a permanent **context load** on every turn in exchange for that discoverability. Reachable by other skills, because the description that makes it agent-discoverable makes it invocable. A model-invoked skill whose content is all **reference** is also one home for shared reference: another skill can invoke it, so reference needed by several skills lives in one place. Pick model-invocation only when the agent must reach the skill on its own; if it never fires except by hand, drop the description and pay no context load.
 
 _Avoid_: ability, tool, capability
 
 ### User-Invoked
 
-A skill with `disable-model-invocation: true`. Its **description** may remain as a human-facing one-line summary, but the description is unavailable to the agent. The skill is reachable only by the human typing its name (user-_only_, where **model-invoked** is user-_and-agent_). It trades agent-discoverability for zero **context load**; no other skill can fire it.
+A skill with its **description** stripped — invisible to the agent and reachable only by the human typing its name (user-_only_, where **model-invoked** is user-_and-agent_). Trades agent-discoverability for zero **context load**. Because it has no description, nothing but the human can reach it: no other skill can fire it.
 
 _Avoid_: procedure, workflow, command
 
 ### Description
 
-The frontmatter field used as a machine-readable trigger for a **model-invoked** skill and as a human-facing one-line summary for a **user-invoked** skill. `disable-model-invocation` controls which meaning applies. Only a model-visible description is a **context pointer** and a source of **context load**.
+The skill's machine-readable trigger, and the one **context pointer** a **model-invoked** skill is forced to keep loaded at all times. Its mere presence _is_ the invocation axis: keep it and the skill is model-invoked (and reachable by other skills); delete it and the skill is **user-invoked**, reachable only by the human. The source of a model-invoked skill's **context load**.
 
 _Avoid_: frontmatter, summary
 
 ### Context Pointer
 
-A reference held in the agent's context that names some out-of-context material and encodes the condition for reaching it. A model-visible **description** is the top-level context pointer (context window → skill); pointers to disclosed files are the same object one level down. Name an existing target with its literal filename, `/skill-name`, command, or section heading, and repeat that identifier wherever the loading instruction recurs. Its wording, not the target, decides _when_ the agent reaches — and _how reliably_. A must-have target behind a weakly worded pointer is a variance bug: fix the wording first, and inline the material only if sharpening fails.
+A reference held in the agent's context that names some out-of-context material and encodes the condition for reaching it. The **description** is the top-level context pointer (context window → skill); pointers to disclosed files are the same object one level down. Its wording, not the target, decides _when_ the agent reaches — and _how reliably_. A must-have target behind a weakly worded pointer is a variance bug: fix the wording first, and inline the material only if sharpening fails.
 
 _Avoid_: link, reference, import
 
 ### Context Load
 
-The cost a **model-invoked** skill imposes on the agent's context window — its model-visible **description**, always loaded, spending both tokens and attention. What **user-invoked** skills escape because their human-facing description is unavailable to the agent, and the brake on splitting into more model-invoked skills.
+The cost a **model-invoked** skill imposes on the agent's context window — its **description**, always loaded, spending both tokens and attention. What **user-invoked** skills escape by having no description, and the brake on splitting into more model-invoked skills.
 
 _Avoid_: token cost, context bloat
 
@@ -54,7 +54,7 @@ _Avoid_: human index, burden, overhead
 
 ### Router Skill
 
-A **user-invoked** skill whose job is to point at your other user-invoked skills — naming each and when to reach for it — so the human has one skill to remember instead of many. It can only hint, never fire them: user-invoked skills have no model-visible **description**, so nothing but the human can reach them. The cure for **cognitive load** when user-invoked skills multiply.
+A **user-invoked** skill whose job is to point at your other user-invoked skills — naming each and when to reach for it — so the human has one skill to remember instead of many. It can only hint, never fire them: user-invoked skills have no **description**, so nothing but the human can reach them. The cure for **cognitive load** when user-invoked skills multiply.
 
 _Avoid_: dispatcher, menu, registry, index, router procedure
 
@@ -70,14 +70,13 @@ How a skill's content is arranged, and how far down the ladder each piece sits.
 
 ### Information Hierarchy
 
-A skill's content ranked by how immediately the agent needs it. The rungs are:
+A skill's content ranked by how immediately the agent needs it — a single ladder, produced by two cuts: in-file or behind a pointer, and step or reference. The rungs:
 
 - **Steps** — in-file, primary
 - **Reference**, in-file — secondary
-- **Disclosed Reference** — a sibling file inside the skill, behind a **context pointer**
-- **External Reference** — outside the skill system, behind a **context pointer**
+- **Reference**, disclosed — behind a **context pointer**
 
-A skill with no **steps** can use in-skill and disclosed reference, and it may point to external reference. A flat peer-set of in-skill reference (for example, every rule of a review on one rung) is a fine arrangement, not a smell. The hierarchy is independent of invocation: a skill can be model- or user-invoked whether it is all steps, all reference, or both. When a skill has steps, in-file reference that should be disclosed buries them and turns attending to them into a coin-flip — a variance lever, not just a legibility one. Keep the top of the ladder legible; push down it whatever you can.
+A skill with no **steps** uses just the bottom two rungs — often a legitimately flat peer-set (e.g. every rule of a review on one rung), which is a fine arrangement, not a smell. The hierarchy is independent of invocation: a skill can be model- or user-invoked whether it is all steps, all reference, or both. When a skill has steps, in-file reference that should be disclosed buries them and turns attending to them into a coin-flip — a variance lever, not just a legibility one. Keep the top of the ladder legible; push down it whatever you can.
 
 _Avoid_: structure, organization, layout
 
@@ -93,15 +92,9 @@ Material the agent refers to on demand — definitions, facts, parameters, examp
 
 _Avoid_: supporting material, docs, background
 
-### Disclosed Reference
-
-**Reference** moved out of `SKILL.md` into a sibling file that remains part of the same skill, such as this skill's `GLOSSARY.md`. It is loaded only when a **context pointer** in the skill fires.
-
-_Avoid_: External Reference, in-skill reference
-
 ### External Reference
 
-**Reference** that lives outside the skill system — a plain file with no skill invocation contract and no **steps** — that any skill can point at. The home for shared reference that needn't fire on its own, and the only shared home two **user-invoked** skills can use, since neither exposes a model-visible **description** and therefore neither can fire the other.
+**Reference** that lives outside the skill system — a plain file, no **description**, no **steps**, not invocable — that any skill can point at. The home for shared reference that needn't fire on its own, and the only shared home two **user-invoked** skills can use, since neither has a description and so neither can fire the other.
 
 _Avoid_: doc, resource, knowledge base
 

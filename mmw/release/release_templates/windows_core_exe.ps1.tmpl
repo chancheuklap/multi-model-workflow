@@ -32,7 +32,7 @@ $DesktopDir = Join-Path $RepoRoot ${DESKTOP_DIR_LITERAL}
 # 用户数据)只存在于它手写的 NSIS 里,electron-builder 通用 NSIS 复刻不了。
 # 通用 build_machine 协议:setup 在耗时步骤前备好构建机(应用 uv 镜像/ccache/电子镜像/PYTHONDONTWRITEBYTECODE/
 # TEMP 重定向等 env + 加系统级杀软排除 + 构建缓存预检),teardown 在 finally 移除本次杀软排除。值/探测全在
-# 仓库侧脚本，release engine 只搬运。null 时整段跳过（不声明 build_machine 的 release adapter 不受影响）。
+# 仓库侧脚本,引擎只搬运。null 时整段跳过(不声明 build_machine 的钥匙不受影响)。
 $BuildMachine = if ($Context.PSObject.Properties.Match('build_machine').Count -gt 0) { $Context.build_machine } else { $null }
 try {
   if ($BuildMachine -and $BuildMachine.setup) {

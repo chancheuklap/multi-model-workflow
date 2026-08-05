@@ -16,7 +16,7 @@
 - question 2
 ```
 
-`/mmw-grilling` 期间定下来的内容全部写进 established so far——报告人回来时才知道哪些已经不用再答。
+grill 期间定下来的内容全部写进 established so far——报告人回来时才知道哪些已经不用再答。
 
 问题要具体、能照着答。「请补充更多信息」这种问不出东西，报告人不知道你要什么，issue 就卡在 `needs-info` 不动了。
 

@@ -1,11 +1,11 @@
 ---
 name: mmw-to-plan
-description: 把已发布的 tracer bullet ticket 写成 plan，一张 tracer bullet ticket 一份，派 `planner` 写。用户说要写 plan、要把 tracer bullet ticket 展开成可落地的实施步骤时用它；刚把 spec 拆完 tracer bullet ticket 的技能也移交这里。
+description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `planner` 写。用户说要写 plan、要把 ticket 展开成可落地的实施步骤时用它；刚把 spec 拆完 ticket 的技能也移交这里。
 ---
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
 
-把每张 tracer bullet ticket 写成一份 plan，供后面派 `worker` 照着落地。本文后续的 ticket 都指 tracer bullet ticket，不指 Wayfinding 的 decision ticket。
+把每张 ticket 写成一份 plan，供后面派 `worker` 照着落地。
 
 **你不写 plan。** 写作全部下放给 `planner`，一张 ticket 一个。你的职责是定清单、划合同边界、派发、验证、回填、发起审查。
 
@@ -16,7 +16,7 @@ description: 把已发布的 tracer bullet ticket 写成 plan，一张 tracer bu
 | 检查 | 怎么查 |
 | --- | --- |
 | 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头；不满足就回 `/mmw-start` 建立或绑定任务 worktree |
-| spec 已完成定稿人工审批关卡并发布 | `docs/specs/<slug>/<slug>.md` 存在，对应的 spec issue 已发布并带着 `ready-for-agent`；issue 和标签只证明发布状态，批准凭据仍是 `/mmw-to-spec` 记录的用户明确批准 spec 定稿、审查处置和 seam 清单 |
+| spec 已定稿并过了人工审批关卡 | `docs/specs/<slug>/<slug>.md` 存在，对应的 spec issue 已发布并带着 `ready-for-agent` |
 | ticket 已发布 | `mmw issue children <spec issue 编号>` 列得出这批 ticket；列不出先跑 `/mmw-to-tickets` |
 
 ## 1. 定 plan 清单

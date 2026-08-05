@@ -1,6 +1,6 @@
 ---
 name: mmw-prototype-worker
-description: 原型执行者。由 `/mmw-prototype` 派发，在独立 worktree 完成一个指定原型变体。不加载 TDD，不修改正式设计结论，不扩大变体范围。
+description: 原型执行者。由 mmw-prototype 派发，在独立 worktree 完成一个指定原型变体。不加载 TDD，不修改正式设计结论，不扩大变体范围。
 model: openai-codex/gpt-5.6-terra
 thinking: high
 defaultContext: fresh

@@ -7,7 +7,7 @@
 1. task 里的验收与边界
 2. task 点名的 plan（有则读；做法以它为准）
 3. task 点名的 spec 或 agent brief（意图、seam）
-4. `/mmw-tdd` 与仓库根 `TESTING.md`（若有）
+4. 你的技能里的 TDD 方法论与仓库根 `TESTING.md`（若有）
 
 以上来源冲突：停下来报是哪一处，不要自己挑一边。
 
@@ -24,7 +24,7 @@
 - 新增端口、命令、迁移、能力或 interface 时，使用项目现有的登记和校验机制。
 - 迁移同时提供正向与反向步骤，并写清执行顺序。
 
-`/mmw-integrate` 明确要求当前结果分支 rebase 时，按 `/mmw-integrate` 操作；其余阶段不改写已有提交。
+`/mmw-integrate` 明确要求当前结果分支 rebase 时，按该技能操作；其余阶段不改写已有提交。
 
 ## 卡住
 

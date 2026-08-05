@@ -1,6 +1,6 @@
 # Deepening
 
-给定一簇 shallow module 的依赖情况，怎么安全地把它 deepen。使用 [SKILL.md](SKILL.md) 定义的 **module**、**interface**、**seam** 和 **adapter**。
+给定一簇 shallow module 的依赖情况，怎么安全地把它 deepen。用的是 [SKILL.md](SKILL.md) 那套词汇——**module**、**interface**、**seam**、**adapter**。
 
 ## 依赖分类
 
@@ -10,15 +10,15 @@
 
 纯计算、内存状态、没有 I/O。永远可以 deepen——把这几个 module 合并，直接隔着新 interface 测。不需要 adapter。
 
-### 2. 本地 I/O
+### 2. 本地可替身
 
-系统拥有的本地 I/O 使用真实测试实例：Postgres 使用测试数据库，文件系统使用临时目录。deepen 之后的 module 隔着新 interface 测，不给数据库或文件系统另写测试替身。这条 seam 是内部的，module 的外部 interface 上不开 port。
+有本地测试替身的依赖（Postgres 用 PGLite、文件系统用内存实现）。替身存在就可以 deepen。deepen 之后的 module 在测试套件里跑着替身来测。这条 seam 是内部的，module 的外部 interface 上不开 port。
 
 ### 3. 远端但自有（Ports & Adapters）
 
-自家的服务，隔着一道网络边界（微服务、内部 API）。在这条 seam 上定义一个 **port**（interface）。逻辑归 deep module 所有，传输层作为 **adapter** 注入。测试连接真实测试服务，并走生产使用的 HTTP、gRPC 或队列 adapter；不写内存 adapter 代替自家服务。
+自家的服务，隔着一道网络边界（微服务、内部 API）。在这条 seam 上定义一个 **port**（interface）。逻辑归 deep module 所有，传输层作为 **adapter** 注入。测试用内存 adapter，生产用 HTTP、gRPC 或队列 adapter。
 
-建议的措辞形状：*「在这条 seam 上定义一个 port，HTTP adapter 连接真实测试服务与生产服务。逻辑坐在一个 deep module 里，测试仍走自家服务的真实代码。」*
+建议的措辞形状：*「在这条 seam 上定义一个 port，生产实现 HTTP adapter、测试实现内存 adapter，这样逻辑坐在一个 deep module 里，即便它部署时跨了一道网络。」*
 
 ### 4. 真外部（Mock）
 
@@ -26,8 +26,8 @@
 
 ## seam 纪律
 
-- **同一进程内只有一个 adapter 时，这条 seam 通常是假的。** 至少两个 adapter，或者 seam 两侧独立部署、独立变化，才开这个 port。测试 adapter 不用于凑数。
-- **内部 seam 与外部 seam。** 一个 deep module 可以有内部 seam（私有的，只供 module 内部协作，不作为测试入口），也有 interface 上那条外部 seam。测试只跨 module 的 interface，不把内部 seam 暴露成测试入口。
+- **一个 adapter 是假 seam，两个才是真 seam。** 至少有两个 adapter 说得通（通常是生产加测试）才开这个 port。只有一个 adapter 的 seam 只是一层拐弯。
+- **内部 seam 与外部 seam。** 一个 deep module 可以有内部 seam（私有的，只给它自己的测试用），也有 interface 上那条外部 seam。不要只因为测试用到了就把内部 seam 暴露到 interface 上。
 
 ## 测试策略：替换，不要叠加
 

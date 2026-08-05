@@ -12,7 +12,7 @@ destination 每个 effort 各不相同。给它命名是画 map 的第一个动�
 
 ## 下一步
 
-三个入口都先读 [map-anatomy.md](map-anatomy.md)。`map-anatomy.md` 定义 map 和 ticket 长什么样、每张 ticket 是 HITL 还是 AFK、四个 `wayfinder:<类型>` 标签各自什么时候打、怎么认领、阻塞关系怎么表达。
+三个入口都先读 [map-anatomy.md](map-anatomy.md)：map 和 ticket 长什么样、每张 ticket 是 HITL 还是 AFK、四个 `wayfinder:<类型>` 标签各自什么时候打、怎么认领、阻塞关系怎么表达，全在那里。
 
 | 情况 | 下一步 |
 | --- | --- |

@@ -11,7 +11,7 @@
 #   slug: feat-phone-login
 #   summary: 手机号登录取代邮箱验证码
 #   date: 2026-08-03
-#   source: https://github.com/o/r/pull/42
+#   pr: https://github.com/o/r/pull/42
 #   -->
 #
 # 用 HTML 注释不用 YAML frontmatter：GitHub Wiki 不解析 frontmatter，会把它当
@@ -74,35 +74,33 @@ mmw_wiki_nav() {
   home="$dir/Home.md"
   sidebar="$dir/_Sidebar.md"
 
-  local rows="" page slug summary date source count=0 missing=""
+  local rows="" page slug summary date pr count=0 missing=""
   for page in "$dir"/Spec-*.md; do
     [ -e "$page" ] || continue
     slug="$(mmw_wiki_field "$page" slug)"
-    summary="$(mmw_wiki_field "$page" summary)"
-    date="$(mmw_wiki_field "$page" date)"
-    source="$(mmw_wiki_field "$page" source)"
-    # 旧页面使用 pr 字段。读取兼容只用于导航，不要求重写历史页面。
-    [ -n "$source" ] || source="$(mmw_wiki_field "$page" pr)"
-    if [ -z "$slug" ] || [ -z "$summary" ] || [ -z "$date" ] || [ -z "$source" ]; then
+    if [ -z "$slug" ]; then
       missing="$missing $(basename "$page")"
       continue
     fi
-    rows="$rows$date\t$slug\t$summary\t$source\n"
+    summary="$(mmw_wiki_field "$page" summary)"
+    date="$(mmw_wiki_field "$page" date)"
+    pr="$(mmw_wiki_field "$page" pr)"
+    rows="$rows$date\t$slug\t$summary\t$pr\n"
     count=$((count + 1))
   done
 
   if [ -n "$missing" ]; then
-    echo "mmw: 这几页缺 slug、summary、date 或 source/pr 元数据，没进导航：$missing" >&2
+    echo "mmw: 这几页缺 mmw:spec 块，没进导航：$missing" >&2
   fi
 
   {
     printf '# Specs\n\n'
-    printf '| Spec | 解决什么 | 落地日期 | Source |\n'
+    printf '| Spec | 解决什么 | 落地日期 | PR |\n'
     printf '| --- | --- | --- | --- |\n'
     if [ "$count" -gt 0 ]; then
-      printf '%b' "$rows" | sort -r | while IFS=$'\t' read -r d s sm src; do
+      printf '%b' "$rows" | sort -r | while IFS=$'\t' read -r d s sm p; do
         [ -n "$s" ] || continue
-        printf '| [[Spec-%s\|%s]] | %s | %s | %s |\n' "$s" "$s" "$sm" "$d" "${src:--}"
+        printf '| [[Spec-%s\|%s]] | %s | %s | %s |\n' "$s" "$s" "$sm" "$d" "${p:--}"
       done
     fi
   } > "$home"
@@ -110,7 +108,7 @@ mmw_wiki_nav() {
   {
     printf '**[[Home]]**\n\n'
     if [ "$count" -gt 0 ]; then
-      printf '%b' "$rows" | sort -r | while IFS=$'\t' read -r d s sm src; do
+      printf '%b' "$rows" | sort -r | while IFS=$'\t' read -r d s sm p; do
         [ -n "$s" ] || continue
         printf -- '- [[Spec-%s|%s]]\n' "$s" "$s"
       done
@@ -121,9 +119,9 @@ mmw_wiki_nav() {
   [ -z "$missing" ]
 }
 
-# 页面及四项元数据、两个导航条目、远端一致性三组验证全过才允许删本地文档。
+# 三条验证全过才允许删本地文档。
 mmw_wiki_verify() {
-  local slug="$1" dir page page_slug summary date source rc=0
+  local slug="$1" dir page rc=0
   dir="$(mmw_wiki_dir)"
   page="$dir/Spec-$slug.md"
 
@@ -131,19 +129,6 @@ mmw_wiki_verify() {
     echo "页面     : $page"
   else
     echo "页面     : 不存在或是空的 — $page" >&2
-    rc=1
-  fi
-
-  page_slug="$(mmw_wiki_field "$page" slug 2>/dev/null || true)"
-  summary="$(mmw_wiki_field "$page" summary 2>/dev/null || true)"
-  date="$(mmw_wiki_field "$page" date 2>/dev/null || true)"
-  source="$(mmw_wiki_field "$page" source 2>/dev/null || true)"
-  # 旧页面使用 pr 字段。验证兼容旧页面，不要求重写历史元数据。
-  [ -n "$source" ] || source="$(mmw_wiki_field "$page" pr 2>/dev/null || true)"
-  if [ "$page_slug" = "$slug" ] && [ -n "$summary" ] && [[ "$date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && [ -n "$source" ]; then
-    echo "元数据   : slug、summary、date、source 完整"
-  else
-    echo "元数据   : 不完整 — 必须有匹配的 slug、非空 summary、YYYY-MM-DD date 和 source/pr" >&2
     rc=1
   fi
 

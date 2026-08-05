@@ -1,32 +1,32 @@
 # Wayfinding
 
-这个上下文定义 MMW 如何把一项尚未看清完整路径的大型 effort 收敛成一份或多份可交付 spec。
+这个 Context 定义 `/mmw-wayfinder` 使用的 map 和 decision ticket。
 
 ## Language
 
 **effort**：
-需要多份 spec 才能完成，而且尚不清楚这些 spec 的边界或顺序的一项大型工作。
+大到要拆成多份 spec，而且尚未看清这些 spec 边界或顺序的工作。
 _Avoid_: 大 ticket、大 spec
 
 **destination**：
-Wayfinding 的 map 要抵达的清晰终态。destination 固定 effort 的范围，并决定哪些 decision ticket 有关。
+Wayfinding 的 map 要抵达的终态。destination 固定 effort 的范围。
 _Avoid_: 目标列表、交付清单
 
 **map**：
-issue tracker 上一项 effort 的唯一索引，带 `wayfinder:map` 标签。它只索引决定与未解问题，不复制各 decision ticket 的完整结论。
-_Avoid_: Context Map、计划、仓库
+issue tracker 上一项 effort 的共享索引，带 `wayfinder:map` 标签。
+_Avoid_: Context Map、plan、仓库
 
 **decision ticket**：
-Wayfinding 的 map 下解除一个决定或其前置阻塞的子 issue。带 `wayfinder:<类型>` 标签；收尾时切出的 spec issue 不属于 decision ticket。
+map 下解除一个决定或其前置阻塞的子 issue，带 `wayfinder:<类型>` 标签。
 _Avoid_: tracer bullet ticket、任务包
 
 **链**：
-一个会话从已认领 decision ticket 开始连续解锁并处理的单链。一个会话一次只拥有一条链。
+一个会话从已认领 decision ticket 开始连续处理的单链。一个会话只解一条链。
 _Avoid_: decision chain、并行 ticket 列表、任务分支
 
 **fog of war**：
-map 范围内已经看得出会出现、但尚不能精确写成 decision ticket 的未解区域。它保存在 `Not yet specified`，直到前置决定使其可以被切成 decision ticket 或被证明不需要。
-_Avoid_: decision ticket、范围外工作
+范围内已经看得出会出现、但尚不能精确写成 decision ticket 的部分，保存在 `Not yet specified`。
+_Avoid_: decision ticket、Out of scope
 
 **frontier**：
 (authoritative: [frontier](./tracker.md))
@@ -38,13 +38,13 @@ _Avoid_: decision ticket、范围外工作
 (authoritative: [AFK](./delivery-workflow.md))
 
 **`wayfinder:grilling`**：
-必须通过一问一答形成决定的 HITL decision ticket。
+用 `/mmw-grilling` 一次问一个问题来解的 HITL decision ticket。
 
 **`wayfinder:prototype`**：
-必须先让用户走查可运行产物才能形成决定的 HITL decision ticket。
+用 `/mmw-prototype` 做出粗糙可运行产物并由用户走查的 HITL decision ticket。
 
 **`wayfinder:research`**：
-通过当前工作目录之外的可读事实形成决定的 AFK decision ticket。主 agent 或 `/mmw-research` 可以运行一次安全、只读的命令；一项决定被实测结果阻塞，而且实测需要 test plan、多候选对比、多轮测量、真实凭证或真实环境时，改走 `/mmw-prototype` 的 `EVIDENCE.md`。
+需要当前工作目录之外的知识，由 `/mmw-research` 调查的 AFK decision ticket。
 
 **`wayfinder:task`**：
-为解除另一个决定的阻塞而完成的具体操作。它可能是 HITL，也可能是 AFK，本身通常不产出决定。
+一个决定形成之前必须完成的手工操作。它可以是 HITL，也可以是 AFK。

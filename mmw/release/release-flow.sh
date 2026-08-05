@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# release-flow.sh -- 通用 release engine（确定层：操作 release-state.json）。
+# release-flow.sh -- 通用 release-flow 引擎(确定层:操作 release-state.json)。
 #
 #   init        --manifest <path> [--max-rounds N]
 #   where       报当前 stage+run / SUCCESS / PAUSED / NO-STAGES / CORRUPT
@@ -12,7 +12,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # 状态落点从目标仓库的 .mmw.json 读。旧宿主这里读的是一个写死的常量，那份常量
-# 属于已经不存在的旧 release engine；除此之外 release engine 不认识任何宿主。
+# 属于已经不存在的阶段引擎；除此之外整个引擎不认识任何宿主。
 # shellcheck source=../cli/lib/config.sh
 . "$SCRIPT_DIR/../cli/lib/config.sh"
 STATE_NAME="release-state.json"
@@ -85,9 +85,9 @@ _convergence_guard() {
     if [ "$cnt" -ge "$RF_MAX_SAME_FINGERPRINT" ]; then
       edit "$f" --arg s "$stage" --arg fp "$fp" --argjson n "$RF_MAX_SAME_FINGERPRINT" \
         '.pause={at_stage:$s, kind:"surface", reason:"needs-redirection",
-                 question:("同根因("+$fp+")重复达阈值 "+($n|tostring)+" 次仍未收敛,release engine 熔断并暂停")}'
+                 question:("同根因("+$fp+")重复达阈值 "+($n|tostring)+" 次仍未收敛,引擎熔断交人")}'
       emit_event "$f" "paused" "$stage" "" "$fp" ""
-      echo "CIRCUIT-BREAK:fingerprint=$fp ×$cnt(>=$RF_MAX_SAME_FINGERPRINT),熔断并暂停"
+      echo "CIRCUIT-BREAK:fingerprint=$fp ×$cnt(>=$RF_MAX_SAME_FINGERPRINT),熔断交人"
       return 1
     fi
   done < <(printf '%s' "$cls" | jq -r '.failing[].root_cause_fingerprint')
@@ -101,9 +101,9 @@ _convergence_guard() {
   if [ "$max" -gt 0 ] && [ "$fr" -ge "$max" ]; then
     edit "$f" --arg s "$stage" --argjson a "$fr" --argjson m "$max" \
       '.pause={at_stage:$s, kind:"surface", reason:"needs-redirection",
-               question:("修复轮次预算越界(fix_rounds="+($a|tostring)+">=max="+($m|tostring)+"),release engine 熔断并暂停")}'
+               question:("修复轮次预算越界(fix_rounds="+($a|tostring)+">=max="+($m|tostring)+"),引擎熔断交人")}'
     emit_event "$f" "paused" "$stage" "" "" ""
-    echo "BUDGET-EXCEEDED:fix_rounds=$fr>=max=$max,熔断并暂停"
+    echo "BUDGET-EXCEEDED:fix_rounds=$fr>=max=$max,熔断交人"
     return 1
   fi
 
@@ -115,9 +115,9 @@ _convergence_guard() {
     if [ "$elapsed" -ge "$wallmax" ]; then
       edit "$f" --arg s "$stage" --argjson e "$elapsed" --argjson w "$wallmax" \
         '.pause={at_stage:$s, kind:"surface", reason:"needs-redirection",
-                 question:("墙钟预算越界(elapsed="+($e|tostring)+"s>=max="+($w|tostring)+"s),release engine 熔断并暂停")}'
+                 question:("墙钟预算越界(elapsed="+($e|tostring)+"s>=max="+($w|tostring)+"s),引擎熔断交人")}'
       emit_event "$f" "paused" "$stage" "" "" ""
-      echo "BUDGET-EXCEEDED:wallclock=${elapsed}s>=${wallmax}s,熔断并暂停"
+      echo "BUDGET-EXCEEDED:wallclock=${elapsed}s>=${wallmax}s,熔断交人"
       return 1
     fi
   fi
@@ -166,7 +166,7 @@ _snapshot_baseline_untracked() {
     BASELINE_UNTRACKED_PATHS+=("$path")
     BASELINE_UNTRACKED_HASHES+=("$(_file_sha256 "$top/$path")")
   done < <(git -C "$top" ls-files --others --exclude-standard)
-  # P0:被 gitignore 的受保护文件(如已有 .env)也纳入 baseline(带原始 hash),让「自动修复改写
+  # P0:被 gitignore 的受保护文件(如已有 .env)也纳入 baseline(带原始 hash),让「自愈修复改写
   # 已有受保护文件」走 baseline_untracked_changed 的诚实 PAUSE、保留原文件,而不是被当成本轮
   # 新建候选、在 reject cleanup 时误 rm 掉(会丢失原 secret)。
   if [ -n "$f" ] && _load_path_hard_deny "$f" 2>/dev/null; then
@@ -215,7 +215,7 @@ _collect_candidate_paths() {
     [ -n "$path" ] || continue
     _is_baseline_untracked "$path" || NEW_UNTRACKED_PATHS+=("$path")
   done < <(git -C "$top" ls-files --others --exclude-standard)
-  # P0 安全:一般候选集用 --exclude-standard 排除 gitignored,曾致自动修复新建的 gitignored
+  # P0 安全:一般候选集用 --exclude-standard 排除 gitignored,曾致自愈修复新建的 gitignored
   # 受保护文件(如 .env/secret)看不见,流程误判「无改动」直接放过、不进 path-gate、不拦不存 patch。
   # 这里额外扫 gitignored 未跟踪文件,只把匹配 hard-deny 的纳入候选(缓存等不匹配的不受影响)。
   if [ -n "${f:-}" ] && _load_path_hard_deny "$f" 2>/dev/null; then
@@ -293,9 +293,9 @@ _path_gate() {
       BLOCKED_PATHS+=("$path")
       continue
     fi
-    # P2 derive：release engine 从唯一事实来源单向重生消费方派生物；derive.regenerate 自身已把输出约束在派生目录；
+    # P2 derive:引擎从唯一事实来源单向重生消费方派生物,derive.regenerate 自身已把输出约束在派生目录;
     # 派生物刻意不入 P1 的 editable_paths(否则 P1 fix_executor 能直改派生物,破坏「derive 唯一 writer」)。
-    # 设计意图是 derive 只过 P0 保护路径 hard-deny，不施 P1 的 editable 白名单；否则 P2 自动修复会误改 release adapter。
+    # 设计意图是 derive 只过 P0 保护路径 hard-deny,不施 P1 的 editable 白名单;否则 P2 无感自愈对真钥匙失效。
     if [ "$mode" = "derive" ]; then
       continue
     fi
@@ -362,7 +362,7 @@ _run_direct_action() {
   esac
   ACTION_ARGV=()
   while IFS= read -r arg; do ACTION_ARGV+=("$arg"); done < <(jq -r --arg key "$key" '.[$key][]' "$mp")
-  [ ${#ACTION_ARGV[@]} -gt 0 ] || die "manifest.$key 为空(release engine 载入应已挡,防御)"
+  [ ${#ACTION_ARGV[@]} -gt 0 ] || die "manifest.$key 为空(引擎载入应已挡,防御)"
   ACTION_COMMAND="${ACTION_ARGV[*]}"
   ACTION_RC=0
   RF_WORKER_REF=""
@@ -390,7 +390,7 @@ _post_fix_gate() {
   mp="$(jq -r '.manifest_path' "$f")"
   local gate_argv=()
   while IFS= read -r a; do gate_argv+=("$a"); done < <(jq -r '.post_fix_gate[]' "$mp")
-  [ ${#gate_argv[@]} -gt 0 ] || die "manifest.post_fix_gate 为空(release engine 载入应已挡,防御)"
+  [ ${#gate_argv[@]} -gt 0 ] || die "manifest.post_fix_gate 为空(引擎载入应已挡,防御)"
   gate_out="$( cd "$(_repo_top)" && "${gate_argv[@]}" 2>&1 )" || rc=$?
 
   local gate_cmd
@@ -412,7 +412,7 @@ _post_fix_gate() {
   top="$(_repo_top)"
   if ! git -C "$top" revert --no-edit "$repair_sha" >/dev/null; then
     _record_pause "$f" "$name" "post_fix_gate" "revert_failed" "$fp" "git-commit:$repair_sha" \
-      "needs-context" "post-fix-gate 红后无法撤回 repair commit，暂停并交给用户" "[]" "[]" "" "$gate_cmd" "P1"
+      "needs-context" "post-fix-gate 红后无法撤回 repair commit，停下交人" "[]" "[]" "" "$gate_cmd" "P1"
     echo "POST-FIX-GATE-REVERT-FAILED:$name"
     return 0
   fi
@@ -442,11 +442,11 @@ cmd_dispatch_direct() {
   fi
 
   # P0:跑修复前先加载并冻结 protection hard-deny 快照;后续 baseline/candidate/path-gate 都用它,
-  # 使「自动修复改写 protection_source 本身」仍被判 P0 受保护路径违规,而非降级成「规则源不可读」。
+  # 使「自愈修复改写 protection_source 本身」仍被判 P0 受保护路径违规,而非降级成「规则源不可读」。
   PROTECTION_FROZEN=0
   if ! _load_path_hard_deny "$f"; then
     _record_pause "$f" "$name" "preflight" "protection_source_unreadable" "$fp" "" \
-      "needs-context" "protection_source 在自动修复前已不可用($PATH_GATE_ERROR)，保留现场并交给用户" "[]" "[]" "" "" ""
+      "needs-context" "protection_source 在自动修复前已不可用($PATH_GATE_ERROR)，保留现场交人" "[]" "[]" "" "" ""
     echo "DISPATCH-PAUSED:$name(protection source unreadable)"
     return 0
   fi
@@ -459,7 +459,7 @@ cmd_dispatch_direct() {
 
   if ! _baseline_untracked_changed "$top"; then
     _record_pause "$f" "$name" "$action_kind" "baseline_untracked_changed" "$fp" "" \
-      "needs-context" "自动修复改写了本轮前已存在的未跟踪文件，保留现场并交给用户" \
+      "needs-context" "自动修复改写了本轮前已存在的未跟踪文件，保留现场交人" \
       "$(_json_array "${BASELINE_CHANGED_PATHS[@]-}")" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name(baseline untracked changed)"
     return 0
@@ -467,7 +467,7 @@ cmd_dispatch_direct() {
 
   if [ "$ACTION_RC" -ne 0 ]; then
     _record_pause "$f" "$name" "$action_kind" "action_failed" "$fp" "" \
-      "needs-context" "$mode 执行非零退出，保留现场并交给用户" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+      "needs-context" "$mode 执行非零退出，保留现场交人" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name($mode rc=$ACTION_RC)"
     return 0
   fi
@@ -483,7 +483,7 @@ cmd_dispatch_direct() {
     BLOCKED_PATHS=("${CHANGED_PATHS[@]-}")
     if ! _write_path_gate_patch "$f" "$name" "$top" || ! _restore_rejected_candidates "$top"; then
       _record_pause "$f" "$name" "path_gate" "cleanup_failed" "$fp" "" \
-        "needs-context" "protection_source 不可用且无法完整保存或复原本轮改动，保留现场并交给用户" \
+        "needs-context" "protection_source 不可用且无法完整保存或复原本轮改动，保留现场交人" \
         "$changed_json" "$(_json_array "${BLOCKED_PATHS[@]-}")" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
       echo "PATH-GATE-PAUSED:$name($PATH_GATE_ERROR)"
       return 0
@@ -491,7 +491,7 @@ cmd_dispatch_direct() {
     artifact_ref="$PATH_GATE_ARTIFACT"
     blocked_json="$(_json_array "${BLOCKED_PATHS[@]-}")"
     _record_pause "$f" "$name" "path_gate" "rejected" "$fp" "$artifact_ref" \
-      "needs-context" "protection_source 无法作为路径护栏的唯一事实来源($PATH_GATE_ERROR)，已保存 patch，暂停并交给用户" \
+      "needs-context" "protection_source 无法作为路径闸唯一事实来源($PATH_GATE_ERROR)，已保存 patch 并停下交人" \
       "$changed_json" "$blocked_json" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "PATH-GATE-REJECT:$name protection_source=[$PATH_GATE_ERROR]"
     return 0
@@ -500,7 +500,7 @@ cmd_dispatch_direct() {
   if [ ${#BLOCKED_PATHS[@]} -gt 0 ]; then
     if ! _write_path_gate_patch "$f" "$name" "$top" || ! _restore_rejected_candidates "$top"; then
       _record_pause "$f" "$name" "path_gate" "cleanup_failed" "$fp" "" \
-        "needs-context" "路径护栏拒绝后无法完整保存或复原本轮改动，保留现场并交给用户" \
+        "needs-context" "路径闸拒绝后无法完整保存或复原本轮改动，保留现场交人" \
         "$changed_json" "$(_json_array "${BLOCKED_PATHS[@]-}")" "$RF_WORKER_REF" "$ACTION_COMMAND" "P0"
       echo "PATH-GATE-PAUSED:$name(cleanup failed)"
       return 0
@@ -516,7 +516,7 @@ cmd_dispatch_direct() {
 
   if ! git -C "$top" add -- "${CHANGED_PATHS[@]-}"; then
     _record_pause "$f" "$name" "$action_kind" "add_failed" "$fp" "" \
-      "needs-context" "自动修复通过路径护栏后无法暂存改动，保留现场并交给用户" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+      "needs-context" "自动修复通过路径闸后无法暂存改动，保留现场交人" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name(git add failed)"
     return 0
   fi
@@ -526,7 +526,7 @@ cmd_dispatch_direct() {
   esac
   if ! git -C "$top" commit -m "$message" >/dev/null; then
     _record_pause "$f" "$name" "$action_kind" "commit_failed" "$fp" "" \
-      "needs-context" "自动修复通过路径护栏后无法创建功能分支提交，保留现场并交给用户" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
+      "needs-context" "自动修复通过路径闸后无法创建功能分支提交，保留现场交人" "$changed_json" "[]" "$RF_WORKER_REF" "$ACTION_COMMAND" ""
     echo "DISPATCH-PAUSED:$name(git commit failed)"
     return 0
   fi
@@ -572,15 +572,15 @@ emit_event() {
           round:$r, trace_id:$tr,
           attempt_ref:(if $ar=="" then null else $ar end), timestamp:$ts}')"
   printf '%s' "$ev" | uv run --quiet "$SCRIPT_DIR/release_contracts.py" validate-event - \
-    || { echo "ERROR: release engine 产出非法 ReleaseLoopEvent: $ev" >&2; return 0; }
+    || { echo "ERROR: 引擎产出非法 ReleaseLoopEvent: $ev" >&2; return 0; }
 
   local sink_argv=()
   while IFS= read -r arg; do
     sink_argv+=("$arg")
   done < <(jq -r '.event_sink[]' "$mp")
-  # sink 要按 ReleaseLoopEvent 合同 model_validate 后再落地，得先拿到 release engine 正在用的那份
-  # release_contracts.py。`emit_event` 使用 `$SCRIPT_DIR/release_contracts.py validate-event`；
-  # 已安装扁平 cache 与源仓库 plugin/scripts/ 两种布局都成立。把这个权威
+  # sink 要按 ReleaseLoopEvent 合同 model_validate 后再落地,得先拿到本引擎正在用的那份
+  # release_contracts.py。它恒是 release-flow.sh 的同目录兄弟($SCRIPT_DIR/release_contracts.py,
+  # 见上方 validate-event),已安装扁平 cache 与源仓库 plugin/scripts/ 两种布局都成立。把这个权威
   # 路径交给 sink,两端加载同一份合同、不靠 sink 自己猜 plugin 根下的子路径(那条假设只在源仓库
   # 布局成立、已安装 cache 无 plugin/ 中间层,是 event 落地长期失败的根因)。
   printf '%s\n' "$ev" | MMW_PLUGIN_DIR="$SCRIPT_DIR" "${sink_argv[@]}" || echo "WARN: event_sink 落地失败: $event" >&2
@@ -605,7 +605,7 @@ cmd_init() {
 
   local canon
   canon="$(uv run --quiet "$SCRIPT_DIR/release_contracts.py" validate-manifest "$manifest")" \
-    || die "manifest 不合规(release engine 载入 fail-loud，请人改 manifest)"
+    || die "manifest 不合规(引擎载入 fail-loud，请人改 manifest)"
 
   local f top sd mp source_commit
   top="$(git rev-parse --show-toplevel)"
@@ -817,7 +817,7 @@ _run_remote_build() {
   if ! _ssh_ps "$remote_host" "schtasks /end /tn $task_name; schtasks /delete /tn $task_name /f" >/dev/null 2>&1; then
     echo "WARN: 远端计划任务清理失败(task=$task_name),残留条目需手动 schtasks /delete" >&2
   fi
-  # 构建成功且 release adapter 声明了安装包落点：把安装包从 commit 哈希构建目录收拢到统一交付目录
+  # 构建成功且钥匙声明了安装包落点:把安装包从 commit 哈希构建目录收拢到统一交付目录
   # $RELEASE_DELIVERY_ROOT/<product>/(缺省 D:\agentflow-releases),按产品分子目录、覆盖同名(每产品各占各的,
   # 不同产品不互删——覆盖问题在构建目录命名处已解;交付目录同产品新包盖旧包是预期)。排除 electron-builder
   # 的卸载器(*__*)与 .blockmap(-File + 扩展名 .exe + 非 __)。交付失败只 loud WARN 不改判定:包已在
@@ -852,7 +852,7 @@ DELIVER_PS1
 # 起远程计划任务并轮询到本轮 exitcode。构建退 0 返 0、退非零返其码;/run 起不来返 ssh 退出码;
 # 轮询超时或 exitcode 非法返 70。拿到合法 exitcode(含构建失败)即设全局 REMOTE_LOG_REF 供调用方引日志,
 # 并把 build-run.log 回传到 stage_dir(设 REMOTE_LOG_LOCAL):失败根因只存在于构建机日志,不回传
-# 则 Mac 侧 diagnose 永远翻译不出 ReleaseFinding，自动修复闭环断裂。
+# 则 Mac 侧 diagnose 永远翻译不出 finding,自愈闭环断裂。
 # 计划任务的 /end + /delete 清理由调用方 _run_remote_build 统一在尾部做,本函数只管 run+poll+判定。
 _remote_run_and_poll() {
   local remote_host="$1" remote_input="$2" task_name="$3" stage_dir="$4"
@@ -944,7 +944,7 @@ cmd_stage_run() {
   # 跨 stage 产物交接目录:整轮固定(不随 attempt 序号变)。${RELEASE_STAGE_DIR} 是每-attempt 目录
   # (a0-verify_key / a1-assemble / a2-build ...),只存本 stage 自己的日志与临时输入;它无法在
   # stage 之间传产物——assemble 写进 a1、build 从 a2 读同名文件永远错开。真正的 stage 交接产物
-  # (`release_script_assembler.py` 产出的 release.ps1 / release-context.json 供 build 消费)必须落这个整轮固定目录。
+  # (拼脚本器产出的 release.ps1 / release-context.json 供 build 消费)必须落这个整轮固定目录。
   loop_dir="$(dirname "$f")/release-artifacts/_loop"
   log_file="$stage_dir/$name.log"
   mkdir -p "$stage_dir" "$loop_dir"
@@ -1012,8 +1012,8 @@ cmd_stage_run() {
   done < <(jq -r '.diagnose[]' "$mp")
   [ ${#diagnose_argv[@]} -gt 0 ] || die "manifest.diagnose 为空"
   # 把失败现场交给 diagnose:RELEASE_BUILD_LOG 是回传的远端构建日志(仅远程 build 失败时有),
-  # RELEASE_STAGE_LOG 是本 release stage 的 release engine 日志。diagnose 据此把真实失败翻译成带 tier+fingerprint
-  # 的 ReleaseFinding，而不是只看 Mac 本地状态、把远程失败降级成「无法分类并暂停」。
+  # RELEASE_STAGE_LOG 是本 stage 的引擎侧日志。diagnose 据此把真实失败翻译成带 tier+fingerprint
+  # 的 finding,而不是只看 Mac 本地状态、把远程失败降级成「无法分类交人」。
   (
     cd "$top"
     RELEASE_FAILED_STAGE="$name" \
@@ -1073,7 +1073,7 @@ cmd_stage_fail() {
       '(.stages |= map(if .name==$n then .status="failed" else . end))
        | .current_stage=$n
        | .pause={at_stage:$n, kind:"surface", reason:"needs-context",
-                 question:("stage "+$n+" 的 diagnose 产不出合规 ReleaseFinding("+$fd+"),无法分级并暂停")}'
+                 question:("stage "+$n+" 的 diagnose 产不出合规 Finding("+$fd+"),无法分级,交人")}'
     emit_event "$f" "stage.failed" "$name" "" "" ""
     echo "UNCLASSIFIABLE:$name(escalate PAUSE)"
     return 0
@@ -1085,7 +1085,7 @@ cmd_stage_fail() {
       '(.stages |= map(if .name==$n then .status="failed" else . end))
        | .current_stage=$n
        | .pause={at_stage:$n, kind:"surface", reason:"needs-context",
-                 question:("stage "+$n+" 的 diagnose 未产出 fail ReleaseFinding("+$fd+"),无法诊断并暂停")}'
+                 question:("stage "+$n+" 的 diagnose 未产出 fail Finding("+$fd+"),无法诊断,交人")}'
     emit_event "$f" "stage.failed" "$name" "" "" "$(jq -r '.attempt_ledger[-1].attempt_id' "$f")"
     echo "UNCLASSIFIABLE:$name(empty findings escalate PAUSE)"
     return 0
@@ -1113,7 +1113,7 @@ cmd_stage_fail() {
       '.pause={at_stage:$n, kind:"surface", reason:"needs-redirection",
                question:("stage "+$n+" P0 硬约束失败("+$fp+"),触发人工审批关卡,停")}'
     emit_event "$f" "paused" "$name" "P0" "$fp" "$aref"
-    echo "CLASSIFY=P0 $name -> PAUSE"
+    echo "CLASSIFY=P0 $name -> PAUSE(交人)"
     return 0
   fi
 
@@ -1134,8 +1134,8 @@ cmd_dispatch() {
 
   local f cls
   f="$(need_state)"
-  # 主 agent 执行 stage run 失败时，diagnose findings 已由 cmd_stage_fail 记进最近一条 attempt 的 artifact_refs；
-  # 省略 --findings 即从 state 读回，主 agent 无须复制 release engine 的内部 findings 路径。
+  # 驱动器经 stage run 失败时,diagnose findings 已由 cmd_stage_fail 记进最近一条 attempt 的 artifact_refs;
+  # 省略 --findings 即从 state 读回,驱动器无须复制引擎的内部 findings 路径。
   if [ -z "$findings" ]; then
     findings="$(jq -r '.attempt_ledger[-1].artifact_refs[0] // ""' "$f")"
   fi
@@ -1146,7 +1146,7 @@ cmd_dispatch() {
   if ! cls="$(uv run --quiet "$SCRIPT_DIR/release_contracts.py" classify-findings "$findings")"; then
     edit "$f" --arg n "$name" --arg fd "$findings" \
       '.pause={at_stage:$n, kind:"surface", reason:"needs-context",
-               question:("dispatch 时 findings("+$fd+")产不出合规 ReleaseFinding,无法分级并暂停")}'
+               question:("dispatch 时 findings("+$fd+")产不出合规 Finding,无法分级,交人")}'
     echo "UNCLASSIFIABLE:$name(dispatch escalate)"
     return 0
   fi
@@ -1154,10 +1154,10 @@ cmd_dispatch() {
   local tier fp
   tier="$(printf '%s' "$cls" | jq -r '.highest_tier // ""')"
   fp="$(printf '%s' "$cls" | jq -r '.failing[0].root_cause_fingerprint // ""')"
-  [ -n "$tier" ] || { echo "NOTHING-TO-DISPATCH:$name 无 failing ReleaseFinding"; return 0; }
+  [ -n "$tier" ] || { echo "NOTHING-TO-DISPATCH:$name 无 failing finding"; return 0; }
   if ! _convergence_guard "$f" "$cls" "$name"; then return 0; fi
 
-  # 瞬态失败（fingerprint 前缀 transient:，如构建机网络抖动）没有可修的代码，正确处理方式是直接
+  # 瞬态失败(fingerprint 前缀 transient:,如构建机网络抖动)没有可修的代码——正确处置是直接
   # 重跑该 stage,不派 fix executor。同指纹熔断(RF_MAX_SAME_FINGERPRINT)兜底防无限重试。
   local non_transient
   non_transient="$(printf '%s' "$cls" | jq -r '[.failing[] | select((.root_cause_fingerprint // "") | startswith("transient:") | not)] | length')"
@@ -1182,7 +1182,7 @@ cmd_dispatch() {
          | .pause={at_stage:$n, kind:"surface", reason:"needs-redirection",
                   question:("dispatch "+$n+" P0 硬约束("+$fp+"),触发人工审批关卡,停")}'
       emit_event "$f" "paused" "$name" "P0" "$fp" "$aref"
-      echo "P0:$name P0 硬约束($fp),已 PAUSE"
+      echo "P0:$name P0 硬约束($fp),交人(已 PAUSE)"
       ;;
     P2) cmd_dispatch_p2 "$f" "$name" "$fp" "$findings" ;;
     P1) cmd_dispatch_p1 "$f" "$name" "$fp" "$findings" ;;
@@ -1200,9 +1200,9 @@ cmd_round() {
   cur="$(jq -r '.round // 1' "$f")"
   new=$(( cur + 1 ))
   if [ "$max" -gt 0 ] && [ "$new" -gt "$max" ]; then
-    edit "$f" --arg q "跑满 $max 轮未收敛，release engine 熔断并暂停(防无限打转)" \
+    edit "$f" --arg q "跑满 $max 轮未收敛，引擎熔断交人(防无限打转)" \
       '.pause={at_stage:(.current_stage // ""), kind:"surface", reason:"needs-redirection", question:$q}'
-    echo "ROUND-CAP:max=$max(已自动 surface 为 PAUSED)"
+    echo "ROUND-CAP:max=$max(已自动 surface 交人)"
     return 0
   fi
   edit "$f" --argjson r "$new" '.round=$r'
@@ -1261,10 +1261,10 @@ cmd_close() {
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "NO-GIT"; return 0; }
   sd="$(mmw_path_field release)"
   f="$top/$sd/$STATE_NAME"
-  # 收束时留一份交付记录再删状态。一次改动影响多个产品时,后一个产品的自动修复会
+  # 收束时留一份交付记录再删状态。一次改动影响多个产品时,后一个产品的自愈修复会
   # 产生新提交推进 HEAD,早前那个产品的包就已经不是最终代码了——把几个包混着发出去,
   # 客户装到的是两份不同的东西。这几份记录是发出去之前唯一能发现这件事的地方。
-  # 只记 product 与 commit 两个事实，判断「要不要重出」是技能的事，不在 release engine 里。
+  # 只记 product 与 commit 两个事实,判断「要不要重出」是技能的事,不在引擎里。
   #
   # 活状态跟着当前树走,交付记录落主仓库根:它要比对的是几次出包之间的 commit,
   # 跨任务、跨会话才成立,而任务 worktree 收尾就删,记录跟着一起没。两边都在
@@ -1304,14 +1304,14 @@ cmd_receipt() {
   local f
   f="$(need_state)"
   jq -e . "$f" >/dev/null 2>&1 || { echo "CORRUPT:release-state 空/非法 JSON"; return 0; }
-  echo "# release receipt - product=$(jq -r .product "$f")"
+  echo "# mmw release receipt - product=$(jq -r .product "$f")"
   if [ "$(jq -r '.pause // "null"' "$f")" != "null" ]; then
     echo "## 停在 stage=$(jq -r '.pause.at_stage' "$f") 原因=$(jq -r '.pause.reason' "$f")"
     jq -r '.pause.question' "$f"
   fi
   echo "## 已试 attempt:"
-  # log_refs 必须进 release receipt。PAUSED:needs-context 的处理规则（mmw-release/driving.md）第一步就是从
-  # release receipt 取得日志 locator(file:/pc:)；漏印会迫使主 agent 翻裸 state 文件猜路径。
+  # log_refs 必须进入 mmw release receipt：PAUSED:needs-context 的自主处置政策
+  # 在 driving.md 第一步从该命令读取日志 locator(file:/pc:)，漏印会迫使主 agent 翻 state 文件猜路径。
   jq -r '.attempt_ledger[] | "- ["+.action_kind+"] stage="+.stage+" outcome="+.outcome+(if .root_cause_fingerprint then " fp="+.root_cause_fingerprint else "" end)+(if (.artifact_refs|length)>0 then " findings="+(.artifact_refs|join(",")) else "" end)+(if (.log_refs//[]|length)>0 then " logs="+(.log_refs|join(",")) else "" end)' "$f"
   echo "## fingerprint 累计:"
   jq -r '.fingerprint_ledger[] | "- "+.fingerprint+" x"+(.count|tostring)' "$f"

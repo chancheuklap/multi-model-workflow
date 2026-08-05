@@ -263,7 +263,7 @@ mmw_init_commit() {
 }
 
 # 上一轮铺进去的 docs/agents/ 副本。技能不再读它，留着会被人当成有效配置。
-# 只报不删——删文件要取得用户明确授权。
+# 只报不删——删文件要用户点头。
 mmw_init_legacy() {
   local root dir
   root="$(mmw_repo_root)"

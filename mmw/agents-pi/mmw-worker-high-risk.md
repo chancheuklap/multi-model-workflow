@@ -1,6 +1,6 @@
 ---
 name: mmw-worker-high-risk
-description: 高风险实现角色。由 `/mmw-implement` 在计费、权限、数据迁移或不可逆改动中派发。按 `/mmw-tdd` 执行 TDD 并提交；不改 docs/，不 push，不扩大 ticket 范围。
+description: 高风险实现角色。由 mmw-implement 在计费、权限、数据迁移或不可逆改动中派发。按 mmw-tdd 执行 TDD 并提交；不改 docs/，不 push，不扩大 ticket 范围。
 model: openai-codex/gpt-5.6-sol
 thinking: medium
 defaultContext: fresh
@@ -38,4 +38,4 @@ acceptanceRole: writer
 
 ## 收尾
 
-按 `/mmw-tdd` 写代码。交回时说明：做了什么、关键提交、每条验收怎么验的、还剩什么。卡住就写尝试过什么与卡点，不要假装完成。
+方法论在给你的技能里。交回时说明：做了什么、关键提交、每条验收怎么验的、还剩什么。卡住就写尝试过什么与卡点，不要假装完成。

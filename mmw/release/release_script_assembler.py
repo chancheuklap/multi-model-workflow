@@ -169,7 +169,7 @@ def _render_hook_calls(calls: list[dict[str, object]], *, stage: int) -> str:
 
 def _render_lane_block(manifest: ReleaseAdapterManifest) -> str:
     # 造运行时(嵌入式 Python / 编译后端 / 补原生 DLL / 落资产 / BGM)是每个产品出包独特的一步,
-    # 各产品不同、无法通用几行复刻。按设计留在仓库的 release adapter，由 release adapter 的 runtime_prepare 钩子整段
+    # 各产品不同、无法通用几行复刻。按设计留在仓库当"钥匙",由钥匙的 runtime_prepare 钩子整段
     # 准备(小黄鸭 prepare_duck_core_runtime.py / 小鹦鹉小刺猬 prepare_*_embedded_runtime.py);
     # plugin 只做通用编排,不在模板里通用地造包——过度抽象只会让每接一个产品都更复杂、且复刻不全。
     # 两条车道都把造运行时交给紧随其后的 ${RUNTIME_HOOK_CALLS} 里的 runtime_prepare 钩子。

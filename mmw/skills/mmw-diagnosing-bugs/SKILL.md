@@ -5,7 +5,7 @@ description: 难以定位的 bug 和性能回退的诊断循环，先造出一�
 
 一套对付难以定位的 bug 的纪律，六个 Phase。跳过某个 Phase 要给出明确理由。
 
-**Phase 1 在本 `SKILL.md` 里，Phase 2 至 Phase 4 在 `narrowing.md`，Phase 5 与 Phase 6 在 `fixing.md`。** 造出 loop 之前不要读 `narrowing.md` 或 `fixing.md`。
+**Phase 1 在本文件里，其余分开放。** 造出 loop 之前不要去读后面的文件。
 
 探索代码时先读领域文档，对相关模块建立清楚的心智模型：落点跑 `mmw domain path` 取，三种返回怎么读见 `/mmw-domain-modeling` 的「读领域文档」一节；再读一遍你要碰的这块地方的 ADR。
 
@@ -49,7 +49,7 @@ Phase 1 完成的标志是这个 loop 既 **tight** 又 **red-capable**：你能
 - [ ] **red-capable** —— 它走的是真正出 bug 的那条代码路径，断言的是**用户说的那个确切症状**，所以它会因为这个 bug 变 red、修好之后变绿。不是「运行没报错」——它必须能*抓到这个具体的 bug*。
 - [ ] **确定** —— 每次跑结论一样（会抖的 bug：先按「非确定性的 bug」一节把复现率抬上去）。
 - [ ] **快** —— 以秒计，不是以分钟计。
-- [ ] **可重复运行** —— AFK loop 由 agent 直接运行；HITL loop 只经由本技能目录下的 `scripts/hitl-loop.template.sh` 驱动用户操作。无论选哪种模式，都必须留下该模式的一条可重复调用命令和结构化输出。
+- [ ] **agent 能跑** —— 你能 AFK 跑它；要人参与就只经由本技能目录下的 `scripts/hitl-loop.template.sh`。
 
 发现自己在这条命令还不存在的时候就开始读代码建理论，**停下**。
 

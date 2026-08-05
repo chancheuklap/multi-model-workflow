@@ -1,6 +1,6 @@
-# 项目上下文
+# 领域上下文与检索
 
-这个上下文定义 MMW 如何保存项目特有语言，并把结构检索结果转换为可验证的代码事实。
+这个 Context 定义 MMW 如何保存项目语言并验证结构关系。
 
 ## Language
 
@@ -9,25 +9,33 @@
 _Avoid_: 数据模型、实现架构
 
 **Context Map**：
-多 bounded context 仓库的领域索引，登记每个 context 的 leaf、所有权和跨 context 关系。
+多 bounded context 仓库的索引，登记 Context、leaf、所有权和关系。
 _Avoid_: Wayfinding 的 map、架构图
 
 **leaf**：
-一个 bounded context 的权威 glossary，只定义项目特有术语。
+一个 bounded context 的 glossary，只定义该 Context 特有的术语。
 _Avoid_: spec、流程文档、参考手册
 
+**ADR**：
+记录难以回退、会让未来读者意外且经过真实取舍的决定。
+_Avoid_: plan、变更日志、普通说明
+
 **权威引用**：
-非拥有 leaf 指向术语拥有 leaf 的固定引用。共享术语只在一个 leaf 中定义。
+非拥有 leaf 指向术语拥有 leaf 的引用。
 _Avoid_: 重复定义、同义转述
 
-**检索图**：
-由当前源码构建、供结构查询使用的关系图。
+**canonical 术语**：
+拥有术语的 leaf 规定的用词。
+_Avoid_: `_Avoid_` 中列出的说法、自造同义词
+
+**结构图谱**：
+由 `mmw graph build` 构建的本机派生物。
 _Avoid_: Context Map、Wayfinding 的 map
 
 **结构候选**：
-检索图或符号查询返回、尚未由当前源码验证的可能关系。
+Serena 或 Graphify 返回、尚未回到当前源码验证的关系。
 _Avoid_: 代码事实、已验证关系
 
-**图新鲜度**：
-检索图相对当前源码提交的同步状态，正式取值为 `FRESH`、`STALE` 或 `MISSING`。
-_Avoid_: 查询成功、Markdown 改动时间
+**`mmw graph status`**：
+报告结构图谱是 `FRESH`、`STALE` 还是 `MISSING` 的命令。
+_Avoid_: 查询成功、文件修改时间

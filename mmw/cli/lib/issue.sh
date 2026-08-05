@@ -56,7 +56,7 @@ mmw_issue_children_raw() {
   done | jq -c .
 }
 
-# 过滤成一行一张：编号、状态、认领人、未关闭阻塞数、标签、标题。
+# 过滤成一行一张：编号、标题、状态、有没有人认领、还被几张挡着。
 mmw_issue_children() {
   mmw_issue_children_raw "$1" | jq -r '
     [ .number,

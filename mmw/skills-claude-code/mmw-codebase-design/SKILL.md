@@ -59,10 +59,10 @@ description: deep module 的共同词汇与判据：module、interface、seam、
 
 ## 原则
 
-- **depth 是 interface 的属性，不是 implementation 的属性。** 一个 deep module 内部完全可以由小的、可替换的零件组成——它们只是不属于 interface。一个 module 可以有**内部 seam**（私有的，只供 module 内部协作，不作为测试入口），也有 interface 上那条**外部 seam**。
+- **depth 是 interface 的属性，不是 implementation 的属性。** 一个 deep module 内部完全可以由小的、可 mock 的、可替换的零件组成——它们只是不属于 interface。一个 module 可以有**内部 seam**（私有的，只给它自己的测试用），也有 interface 上那条**外部 seam**。
 - **deletion test。** 设想把这个 module 删掉。复杂度跟着消失，它就是个转手的。复杂度在 N 个调用方身上重新冒出来，它就在挣自己的饭钱。
 - **interface 就是测试面。** 调用方和测试跨的是同一条 seam。你想测到 interface *后面*去，多半是这个 module 形状不对。
-- **同一进程内只有一个 adapter 时，这条 seam 通常是假的。** 至少两个 adapter，或者 seam 两侧独立部署、独立变化，才证明这条 seam 真实存在。
+- **一个 adapter 是假 seam，两个才是真 seam。** 没有东西真的在这条线两侧变化，就不要开这条 seam。
 
 ## 为可测性设计
 
@@ -97,7 +97,7 @@ description: deep module 的共同词汇与判据：module、interface、seam、
 ## 这几个词之间的关系
 
 - 一个 **module** 恰好有一个 **interface**（它呈现给调用方和测试的那一面）。
-- **depth** 是 **interface** 的属性，用它判断一个 **module** 是 deep 还是 shallow。
+- **depth** 是 **module** 的属性，量它的尺子是它的 **interface**。
 - **seam** 是一个 **module** 的 **interface** 所在的位置。
 - **adapter** 坐在 **seam** 上，满足那个 **interface**。
 - **depth** 给调用方产出 **leverage**，给维护者产出 **locality**。

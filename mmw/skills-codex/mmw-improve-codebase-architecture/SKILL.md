@@ -15,7 +15,7 @@ description: 扫一遍代码库找可以做深的模块，出一份候选报告�
 
 再读你要碰的那一片的 ADR。ADR 里已经拍过板的决定，这次不重新拿出来吵。
 
-领域文档提供命名 module 时采用的领域术语。相关 leaf 里定义了「订单」，你就说「订单受理这个 module」，不说「那个 FooBarHandler」，也不说「订单服务」。seam 仍然只指 module 的 interface 所在位置。
+领域文档给的是**好 seam 的名字**。相关 leaf 里定义了「订单」，你就说「订单受理这个 module」，不说「那个 FooBarHandler」，也不说「订单服务」。
 
 ## 1. 先定范围
 
@@ -43,7 +43,7 @@ description: 扫一遍代码库找可以做深的模块，出一份候选报告�
 
 **按视角分，不按范围分。** 每个 subagent 都看第 1 步定下来的整片地方，不要把它切成几块各管一段。
 
-每份 task 给同样的路径与范围（领域文档路径、`$mmw:mmw-codebase-design` 路径、这一片的 ADR 路径、第 1 步定下的范围），只有视角那一栏不同。subagent 自己读路径。
+每份 task 给同样的路径与范围（领域文档路径、`$mmw:mmw-codebase-design` 词汇表路径、这一片的 ADR 路径、第 1 步定下的范围），只有视角那一栏不同。subagent 自己读路径。
 
 **不要给它僵硬的打分表**，让它有机地探，记下它在哪里觉得摩擦大。
 
@@ -79,7 +79,7 @@ Codex App 在任务创建时已经准备好 detached worktree。确认任务范�
 
 `$mmw:mmw-grilling` 自带 `$mmw:mmw-domain-modeling`，通用的那部分不用你再交代。这里只补三条本技能特有的：
 
-- **给做深后的 module 起的名字形成了新确认的长期领域术语**，才把这个词加进拥有它的 leaf。单纯的代码 module 名留在代码、spec 或 plan。先跑 `mmw domain path`：`single` 使用命令返回的 leaf；`map` 使用 Map 为本次范围登记的实际 leaf。
+- **给做深后的 module 起的名字不在相关 leaf 里**，就把这个词加进去。先跑 `mmw domain path`：`single` 使用命令返回的 leaf；`map` 使用 Map 为本次范围登记的实际 leaf。
 - **用户否掉这个候选**，提议写一份 ADR，话这么说：「要不要记成 ADR，免得下次架构走查又提一遍？」只在这个理由是未来的人真需要、否则同一件事会被重复提议时才提；一次性的理由（「现在不值得做」）和不言自明的理由跳过。
 - **想看看这个 module 还能有哪几种 interface**，跑 `$mmw:mmw-codebase-design`，用它的 DESIGN-IT-TWICE。
 

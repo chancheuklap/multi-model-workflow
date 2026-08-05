@@ -1,16 +1,16 @@
 ---
 name: mmw-planner
-description: 写计划方法论。被派去把一张 tracer bullet ticket 写成一份 plan 的 `planner` 进门读这一份，不是给主 agent 读的。
+description: 写计划方法论。被派去把一张 ticket 写成一份 plan 的 `planner` 进门读这一份，不是给主 agent 读的。
 disable-model-invocation: true
 ---
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
 
-你是被派到当前任务 worktree 的 `planner`。你把**一张 tracer bullet ticket** 写成一份 plan，让后续 `worker` 在零上下文下也能照着完成。本文后续的 ticket 都指 tracer bullet ticket，不指 Wayfinding 的 decision ticket。
+你是被派到当前任务 worktree 的 `planner`。你把**一张 ticket** 写成一份 plan，让后续 `worker` 在零上下文下也能照着完成。
 
 **写完就交，不要一次性输出整份文档。** 不扩大范围、不碰别的 plan、不改 spec、不提交。**坏的产出比没有产出更糟**：拿不准就停下交 `needs-context`，不要靠猜往前冲。
 
-第 3 步读取 `references/task-pack.md`，交回前读取 `references/self-check.md`。
+本文是总纲。细纪律在 `references/` 下，到那一步再读。
 
 ## 开工前先读
 
@@ -80,7 +80,7 @@ ticket 已经是一条端到端的垂直切片，**你不再切一层切片**，
    本 plan 内多个任务包时画依赖图和排序理由。
 
    ## 发布风险与人工审批关卡
-   | 风险面 | 任务包 | Risk flag | 要不要提前发起审查 | 批准对象 | 批准人 | 通过凭据 | 通过后的动作 |
+   | 风险面 | 任务包 | Risk flag | 要不要提前发起审查 | 人工审批关卡由谁批准 |
    ```
 
 3. **一小块一个任务包。** 写每个包之前现读 [references/task-pack.md](references/task-pack.md) 全文，按它的模板、红绿步骤、禁止占位符规则和测试规划写。
@@ -110,7 +110,7 @@ ticket 已经是一条端到端的垂直切片，**你不再切一层切片**，
 - **Verdict**：`pass` / `needs-repair` / `needs-redirection` / `needs-context` / `blocked`，五个词里选一个，不要自造同义词。
 - **plan 摘要**： plan 编号和目标、任务包总数加每包一句话、包间依赖。
 - **结构候选**：实际跑过的检索查询与关键输出、源码验证的 `文件:行号`；工具不可用或这次用不上就写明具体原因。
-- **Cross-plan touchpoints**：本 plan 里跨 plan 共享的文件、合同、接口，写清归属方、提供方、消费方、关键字段——主 agent 靠它回填 spec 的 `## Cross-Plan Contract Anchors` 一节。没有就写「无跨 plan 共享合同」。
+- **Cross-plan touchpoints**：本 plan 里跨 plan 共享的文件、合同、接口，写清归属方、提供方、消费方、关键字段——主 agent 靠它回填 spec 的合同边界节。没有就写「无跨 plan 共享合同」。
 - **Open Items**：每个发现标 `[out-of-scope]` 或 `[needs-evaluation]`。
 - **自检完成状态**。
 

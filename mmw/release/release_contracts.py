@@ -41,9 +41,9 @@ class ReleaseFinding(BaseModel):
         if self.status != "fail":
             return self
         if self.tier is None:
-            raise ValueError("status=fail 的 ReleaseFinding 必须带 tier")
+            raise ValueError("status=fail 的 Finding 必须带 tier")
         if not self.root_cause_fingerprint:
-            raise ValueError("status=fail 的 ReleaseFinding 必须带 root_cause_fingerprint")
+            raise ValueError("status=fail 的 Finding 必须带 root_cause_fingerprint")
         return self
 
 
@@ -83,7 +83,7 @@ class NativeExtDll(BaseModel):
     """一条产品特有的原生扩展 DLL 打包事实（消灭深抽丢编译知识：F-A）。
 
     Nuitka 冻结后端不会自动带 abi3 转发库 / MSVC C++ 运行库，必须显式打进包。
-    这些事实随 release adapter 声明，由 release adapter 校验对实际 `.pyd` 核对，再由脚本拼装器写入脚本；漏一条
+    这些事实随钥匙声明、由验钥匙对实际 `.pyd` 核对、由拼脚本器落进脚本；漏一条
     = 客户跑到该功能就空 ImportError 整批崩（如 uharfbuzz 字幕、hedgehog 后端）。
     """
 
@@ -103,10 +103,10 @@ class NativeExtDll(BaseModel):
 
 
 class BuildTarget(BaseModel):
-    """release adapter 的 `build_target`：声明本产品出包差异的构建目标。
+    """钥匙的 build 齿：声明本产品出包差异的**构建目标**（修正1 验齿 + 修正2 深抽）。
 
-    非自由 argv——`release_script_assembler.py` 只认这里声明的产品差异，Mac 上跑裸 python 插不进；
-    release adapter 校验使用这些字段核对产品当前状态，过时即 fail-loud。
+    非自由 argv——拼脚本器只认这里声明的产品差异，Mac 上跑裸 python 插不进；
+    验钥匙拿这些字段对产品活状态核对，过时即 fail-loud（修正4 命根子）。
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -115,9 +115,9 @@ class BuildTarget(BaseModel):
     runtime_lane: RuntimeLane
     entry_module: str = Field(min_length=1)
     installer_brand: str = Field(min_length=1)
-    # 产品成品安装包在源码树里的落点（仓库相对 glob）。出包成功后 release engine 按此把安装包收拢到统一交付目录
+    # 产品成品安装包在源码树里的落点（仓库相对 glob）。出包成功后引擎按此把安装包收拢到统一交付目录
     # （$RELEASE_DELIVERY_ROOT/<product>/），不再让客户去 commit 哈希构建目录里翻。产品各自落点不同
-    # （duck 在 runtime/assistant-release，parrot/hedgehog 在 desktop-*/dist），故随 release adapter 声明，release engine 不含产品知识。
+    # （duck 在 runtime/assistant-release，parrot/hedgehog 在 desktop-*/dist），故随钥匙声明、引擎零产品知识。
     installer_glob: str | None = None
     deps_extra: str | None = None
     asset_roots: list[str] = Field(default_factory=list)
@@ -147,7 +147,7 @@ class BuildMachine(BaseModel):
     内部还可加系统级杀软排除（对后续全部子进程生效）并跑构建缓存预检（缺被墙下载点/磁盘/依赖即 fail-loud）。
     setup 非零退出即中止构建。teardown 在 finally 跑（移除本次加的杀软排除等），best-effort，不改变构建判定。
 
-    值与探测逻辑全在仓库侧脚本（探 ccache 真实路径、镜像默认值等），release engine 只按协议搬运，不含项目知识。"""
+    值与探测逻辑全在仓库侧脚本（探 ccache 真实路径、镜像默认值等），引擎只按协议搬运、不含项目知识。"""
 
     model_config = ConfigDict(extra="forbid")
 

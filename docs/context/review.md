@@ -1,41 +1,33 @@
 # 审查
 
-这个上下文定义 MMW 对 spec、plan、实现和集成结果进行独立审查时使用的语言。
+这个 Context 定义 `/mmw-review` 和 `/mmw-reviewer` 使用的语言。
 
 ## Language
 
-**审查阶段**：
-MMW 为不同产物和风险边界规定的六个审查位置：spec 审、plan 审、逐份验收、合同门、final 终审和合并集成审。
-_Avoid_: 流程步骤、人工审批关卡
+**六道审**：
+spec 审、plan 审、逐份验收、合同门、final 终审和合并集成审。
+_Avoid_: 人工审批关卡
 
-**审查视角**：
-一次审查中交给一名审查者的单一问题角度。设计内容审、项目一致性审、覆盖质量审、合规交叉审、对照终审、独立终审和编码规范审各自是一个审查视角。
-_Avoid_: 审查阶段、审查者角色、合并集成审
-
-**审查任务名**：
-审查 task「目标」栏第一句使用的固定字面串。七个单一审查视角各自使用同名任务；合并集成审是包含七个检查角度的复合审查任务。
-_Avoid_: 自定义任务名、视角摘要
+**视角（任务名）**：
+一名审查者在独立上下文中检查的一个角度；task 的目标栏第一句使用表中任务名。
+_Avoid_: 六道审、自定义任务名、视角摘要
 
 **finding**：
-审查者报告的一个可定位问题候选。主 agent 先验证 finding 的出处；出处无法验证时标记 `needs-evidence`，出处验证后才能使用其余四种处置。
-_Avoid_: ReleaseFinding、已确认缺陷、建议清单
+审查者报告的一个可定位问题候选。
+_Avoid_: 已确认缺陷、ReleaseFinding、建议清单
 
 **处置**：
-主 agent 对 finding 作出的五种机器可扫描判断：`accepted`、`rejected`、`duplicate`、`needs-evidence` 或 `waived`。
-_Avoid_: 修复、审查报告
+主 agent 对 finding 使用的五个标记：`accepted`、`rejected`、`duplicate`、`needs-evidence` 和 `waived`。
+_Avoid_: finding、修复状态
 
 **固定点**：
-一轮审查用于限定被审改动范围的提交基点。
-_Avoid_: 当前 HEAD、最新提交
-
-**被审 HEAD SHA**：
-一轮 final 终审或合并集成审实际审到的目标提交。复审以此作为新的固定点。
-_Avoid_: 固定点、当前分支名
+final 终审或合并集成审用于限定 diff 范围的提交。
+_Avoid_: 当前 HEAD、分支名
 
 **审查记录**：
-保存审查阶段、审查任务名、对应审查视角或检查角度、finding 和处置结果的持久文档。spec 审与 plan 审记录被审路径；final 终审与合并集成审另记录固定点和被审 HEAD SHA。
+保存在 `.reviews/` 中的审查者原始报告和主 agent 处置。
 _Avoid_: subagent 报告、聊天摘要
 
 **合同门**：
-主 agent 在全部实现集成后验证跨 plan 合同是否兑现的质量关卡。
+主 agent 在全部实现合入任务分支后检查跨 plan 合同是否兑现的第四道审。
 _Avoid_: 人工审批关卡、final 终审

@@ -18,7 +18,7 @@
     },
     "reviewer-gpt": {
       "name": "mmw-reviewer-gpt",
-      "description": "只读审查者。按 `/mmw-reviewer` 检查一个指定视角，只报告有证据的实际问题。",
+      "description": "只读审查者。按 MMW 审查方法论检查一个指定视角，只报告有证据的实际问题。",
       "body": "mmw-reviewer.md",
       "method_skill": "mmw:mmw-reviewer",
       "sandbox_mode": "read-only"

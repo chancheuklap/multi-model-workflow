@@ -116,7 +116,7 @@ mmw_adapter_dispatch() {
       # 插件自己装坏了，让 `worker` 裸跑比派发失败更糟。
       local preamble
       preamble="$(python3 "$MMW_ROOT/mcp/discipline.py")" || {
-        echo "mmw: 检索纪律取不出来，拒绝派一个没有说明书的 `worker`" >&2
+        echo "mmw: 检索纪律取不出来，拒绝派一个没有说明书的 worker" >&2
         return 1
       }
 

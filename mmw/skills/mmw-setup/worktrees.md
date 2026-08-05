@@ -1,6 +1,6 @@
 # 任务隔离
 
-正式任务在独立 git worktree 里做，**从你开口的那一刻就建**，不等 issue、不等 spec。主 agent 和 Codex `worker` 不在同一棵树上。
+正式任务在独立 git worktree 里做，**从你开口的那一刻就建**，不等 issue、不等 spec。主 agent 和 Codex 工人不在同一棵树上。
 
 worktree 只是分支的载体，可以随便建、随便从别的 worktree 分叉。
 
