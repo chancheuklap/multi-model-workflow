@@ -444,7 +444,7 @@ subgraph SETUP["前置"]
   cfg[/"<b>.mmw.json</b> · 仓库根<br/>· 模型档 · 标签清单<br/>· 路径 · 领域文档落点<br/>· 技能不硬编码，一律跑 mmw 查"/]
 end
 
-  mms(["<b>mmw-start</b><br/>· 按十二条判据判路线<br/>· 定 slug<br/>· Codex 绑定 App 已分配的 detached worktree<br/>· 空提交记下用户原话"])
+  mms(["<b>mmw-start</b><br/>· 按任务类型与 tracker 状态判路线<br/>· 定 slug<br/>· Codex 绑定 App 已分配的 detached worktree<br/>· 空提交记下用户原话"])
 
 subgraph MAIN["主干 · 从想法到落地"]
   direction LR
@@ -458,7 +458,7 @@ subgraph MAIN["主干 · 从想法到落地"]
   pnr[("<b>mmw-planner</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 写计划方法论<br/>· planner 进门读它<br/>· 主 agent 不读")]
   clo["<b>mmw-closing</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· spec 与 plan 转成 Wiki 一页<br/>· 推送前给用户看<br/>· verify 三条全过才删本地"]
   intg[["<b>mmw-integrate</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 验证结果分支、HEAD 与基点<br/>· 按合同依赖排序<br/>· 合入当前任务分支"]]
-  rel[["<b>mmw-release</b><br/>· 驱动正式出包循环<br/>· 核对所有包的 source commit<br/>· 用户实测通过后收尾"]]
+  rel["<b>mmw-release</b><br/>· 主 agent 驱动正式出包循环<br/>· 核对所有包的 source commit<br/>· 用户实测通过后收尾"]
   crv[["<b>mmw-review</b><br/>· 六道审的编排<br/>· 选视角、备材料、派发<br/>· findings 逐条判定"]]
   shp((("<b>提交到<br/>当前分支</b>")))
 end
@@ -510,7 +510,7 @@ mms ==>|"新需求，先谈"| gri
 mms ==>|"报 map 或 decision ticket 的编号、<br/>标了 big，或要拆成好几份 spec"| wfd
 mms ==>|"用户标了 bug<br/>或说有东西坏了"| dbg
 mms ==>|"issue 还没评估过"| tri
-mms ==>|"issue 已是 ready-for-agent<br/>brief 写明 Test seam，且只碰一处"| imp
+mms ==>|"issue 已是 ready-for-agent<br/>可作为一张 ticket 独立验收<br/>只有一个 Test seam，没有未决取舍"| imp
 mms ==>|"只说想让代码库更好维护<br/>这一条不定 slug、不建 worktree"| ica
 mms ==>|"几条分支要合到一起<br/>或冲突要解"| intg
 
@@ -538,7 +538,7 @@ trk -.->|"ready-for-agent 的 ticket"| imp
 tri ==>|"需要谈清楚的时候"| gri
 tri ==>|"否掉的 enhancement"| oos
 tri ==>|"碰多处，先写 spec"| tsp
-tri ==>|"只碰一处，且 brief 写明 seam"| imp
+tri ==>|"可作为一张 ticket 独立验收<br/>只有一个 Test seam，没有未决取舍"| imp
 oos -.->|"分诊前先查有没有否过"| tri
 tri -->|"agent brief"| trk
 
