@@ -10,7 +10,7 @@
 set -euo pipefail
 
 # 这个仓库的领域文档是哪种形态。输出两列：形态、路径。
-#   map      有索引，路径是索引本身，读它再决定取哪几份 CONTEXT.md
+#   map      有索引，路径是索引本身，读它再决定取哪几份 leaf
 #   single   单上下文，路径是根 CONTEXT.md
 #   none     两个都没有，直接往下走，别提它缺失
 #
@@ -29,6 +29,19 @@ mmw_domain_path() {
   else
     printf 'none\t\t这个仓库没有领域文档：直接往下走，不要停下来建，也不要提它缺失\n'
   fi
+}
+
+# 从 MMW 持有的种子同步目标仓库规则。Python 模块负责整轮预检和原子写入；
+# shell 只提供当前仓库、配置与宿主，不复制 Markdown 合同。
+mmw_domain_sync() {
+  local root config host
+  root="$(mmw_repo_root)"
+  config="$(mmw_require_config)" || return 1
+  host="$(mmw_host)" || return 1
+  python3 "$MMW_ROOT/cli/lib/context_docs.py" sync \
+    --root "$root" \
+    --config "$config" \
+    --host "$host"
 }
 
 # 写入侧要的两个落点：新上下文的根目录、ADR 目录。读的那一侧用 mmw_domain_path
