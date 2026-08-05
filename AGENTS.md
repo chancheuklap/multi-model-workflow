@@ -27,7 +27,7 @@ python3 mmw/codex/runtime.py materialize  # 更新 Codex plugin 与四个原生 
 git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock/skills main --squash
 ```
 
-根文档保留 `AGENTS.md`、`CLAUDE.md`、`TESTING.md`。根 `mmw-skill-map.html` 是当前 MMW 架构的可视化产物，必须保留并随架构变化更新。不要新增其他 README、架构、设计、调查、计划或审查类根文档。长期规则写本文件；运行行为写 `mmw/skills/`（源）、物化产物 `mmw/skills-pi/`、`mmw/skills-claude-code/` 与 `mmw/skills-codex/`、`mmw/cli/`。
+根文档保留 `README.md`、`AGENTS.md`、`CLAUDE.md`、`TESTING.md`。根 `mmw-skill-map.html` 是当前 MMW 架构的可视化产物，必须保留并随架构变化更新。不要新增其他架构、设计、调查、计划或审查类根文档。长期规则写本文件；运行行为写 `mmw/skills/`（源）、物化产物 `mmw/skills-pi/`、`mmw/skills-claude-code/` 与 `mmw/skills-codex/`、`mmw/cli/`。
 
 ## 唯一事实来源
 
