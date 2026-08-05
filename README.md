@@ -8,10 +8,12 @@ MMW 的用户界面是技能。日常工作的统一入口是 `$mmw:mmw-start`�
 
 | 项目 | 数量 | 结论 |
 | --- | --- | --- |
+| 当前版本 | 0.10.0 | 对齐 Matt Pocock Skills 1.2.2，并保留 MMW 的正式工作流合同 |
 | 日常工作流入口 | 1 个 | `$mmw:mmw-start` |
 | Codex 技能调用方式 | 2 种 | 显式调用和隐式调用 |
 | `mmw-start` 识别的输入情况 | 15 种 | 恢复当前任务，或者移交 10 个下游技能 |
 | MMW 工作流技能 | 23 个 | 21 个可触发技能，2 个角色方法论技能 |
+| 辅助技能 | 5 个 | 支持交接、agent 文档、人工向导、问卷和用户说明 |
 
 ## MMW 怎样管理上下文
 
@@ -78,6 +80,22 @@ MMW 插件（plugin）还包含五个辅助技能。它们不属于上述 23 个
 | `to-questionnaire` | 把缺失信息整理成可转交给另一位知识持有者的问题清单 |
 | `wait-what` | 从目标仓库当前事实生成面向用户的功能说明 |
 
+## MMW 与 Matt Pocock Skills 的关系
+
+MMW 基于 Matt Pocock Skills 的工程方法构建。对于有上游对应项的技能，Matt Pocock Skills 提供方法、步骤、解释和完成判据。MMW 提供 worktree、tracker、报告验证、领域文档、人工审批关卡和多宿主物化等正式工作流承载。
+
+两套合同必须同时成立。MMW 不会因为上游更新而删除自己的工作流，也不会用工作流适配改写上游方法的执行效果。
+
+| 出现差异时 | 处理方式 |
+| --- | --- |
+| MMW 的差异有当前工作流合同支持，而且不改变方法效果 | 保留差异，并验证上下游接缝 |
+| MMW 的差异缺少仓库证据，而且删改了方法步骤、解释或完成判据 | 恢复上游合同，再接回 MMW 工作流 |
+| 当前证据无法判断，而且选择会改变方法效果或用户流程 | 收敛成一个必要决定，再请用户确认 |
+
+prototype 同时体现这两层合同。它遵循上游的单文件 HTML、自由操作、引导式走查和可重复初态方法。用户走查过的完整 prototype、逐轮记录和证据仍是 MMW 的 prototype 资产，长期保存在 `docs/prototypes/<slug>/`。spec、ticket、plan、实现和审查继续引用这份资产。正式实现只吸收已经验证的决定和可移植逻辑，不把 prototype 外壳当成生产代码。
+
+0.10.0 还恢复了一次会话只解决一张 Wayfinder decision ticket、ticket 发布前人工审批关卡、阶段边界决策树、实现阶段测试频率和出包后重新终审等合同。它新增 `writing-for-agents`、`wizard`、`to-questionnaire` 和 `wait-what`，但没有把这些辅助技能加入日常主路由。
+
 ## 用户使用的三个阶段
 
 用户会接触安装、仓库初始化和日常工作三个阶段。安装和初始化是准备工作。MMW 日常工作流只有一个入口。
@@ -118,6 +136,29 @@ Codex 支持两种技能调用方式。具体语法见 [Codex Skills 文档](htt
 ```
 
 安装会修改 Codex 的全局 plugin 状态、`~/.codex/agents/` 和 `~/.local/bin/`。安装完成后，新建一个 Codex 任务，让新任务加载 MMW。
+
+### 从已有版本升级
+
+升级也需要同时更新两个安装面。Codex plugin cache 提供技能和 MCP。MMW 运行时安装器提供四个原生 subagent 和指向当前 plugin cache 的 `mmw` 命令。只更新其中一处不算完成。
+
+用户可以在 MMW 源码仓库的 Codex 任务中发送：
+
+```text
+请把当前 MMW 升级安装到 Codex。
+
+先确认源码版本和工作区状态，再更新 Codex plugin cache。
+随后安装原生 subagent 和 mmw 命令，并运行 Codex runtime 检查。
+最后确认 plugin、运行时入口和源码使用同一版本。
+不要推送或正式发布。
+```
+
+升级完成需要同时满足以下条件：
+
+1. `codex plugin list` 显示 MMW 已安装、已启用，并使用当前版本。
+2. 四个原生 subagent 已更新。
+3. `mmw` 命令指向当前版本的 plugin cache。
+4. Codex runtime 检查和物化检查通过。
+5. 用户新建 Codex 任务，或者重启 Codex。已经打开的任务不会热加载新技能。
 
 ## 初始化目标仓库
 

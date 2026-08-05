@@ -120,6 +120,32 @@
 
   .masthead h1 em { font-style: normal; color: var(--accent); }
 
+  .contract-strip {
+    display: grid;
+    grid-template-columns: auto auto minmax(420px, 1fr);
+    gap: 1px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--rule);
+  }
+
+  .contract-strip > div {
+    padding: 9px 18px;
+    background: var(--paper-raised);
+    color: var(--ink-soft);
+    font-size: 12px;
+    line-height: 1.55;
+  }
+
+  .contract-strip strong {
+    color: var(--ink);
+    font-family: var(--mono);
+    font-weight: 600;
+  }
+
+  @media (max-width: 900px) {
+    .contract-strip { grid-template-columns: 1fr; }
+  }
+
   .standfirst {
     margin: 6px 0 0;
     max-width: 72ch;
@@ -199,6 +225,8 @@
   .hue.ica { color: var(--h-ica); }
   .hue.spine { color: var(--h-spine); }
   .hue.judge { color: var(--h-judge); }
+  .hue.upstream { color: var(--accent); }
+  .hue.workflow { color: #15803D; }
   .hue.own { color: #15803D; }
   .hue.rest { color: var(--h-rest); }
   .hue.rest i { border-top-width: 2px; }
@@ -399,8 +427,16 @@
   </div>
 </header>
 
+<div class="contract-strip" aria-label="版本与方法合同">
+  <div><strong>MMW 0.10.0</strong></div>
+  <div><strong>上游基线 Matt Pocock Skills 1.2.2</strong></div>
+  <div>上游规定方法、步骤、解释和完成判据；MMW 规定 worktree、tracker、报告验证、领域文档、人工审批关卡和宿主承载。两套合同共同进入共享技能源。</div>
+</div>
+
 <div class="hue-strip">
   <span>连线颜色 ＝ 起点</span>
+  <span class="hue upstream"><i></i>Matt 方法合同</span>
+  <span class="hue workflow"><i></i>MMW 工作流合同</span>
   <span class="hue spine"><i></i>主干</span>
   <span class="hue mms"><i></i>mmw-start</span>
   <span class="hue set"><i></i>mmw init 与 .mmw.json</span>
@@ -474,6 +510,9 @@ end
 
 subgraph VOCAB["跑在别的技能底下"]
   direction TB
+  ups[/"<b>Matt Pocock Skills 1.2.2</b><br/>· 对应技能的方法、步骤与解释<br/>· 完成判据和产物方法"/]
+  mmwc[/"<b>MMW 正式工作流合同</b><br/>· worktree · tracker · 报告验证<br/>· 领域文档 · 人工审批关卡 · 宿主边界"/]
+  src["<b>共享技能源 · mmw/skills/</b><br/>· 同时保留上游方法与 MMW 工作流<br/>· 有证据的适配保留<br/>· 无证据且改变方法效果的偏离修正"]
   dsp["<b>宿主动作整块物化</b><br/>· 源：[[mmw-launch:…]] / [[mmw-host-action:…]]<br/>· 不匹配或改写自然语言句子<br/>· Codex→后台任务或原生 subagent<br/>· Pi→subagent / CC→dispatch"]
   cdx["<b>Codex App 原生运行面</b><br/>· 已安装 plugin 提供全部 skills 与三台 MCP<br/>· mmw 命令只指向 plugin cache，不依赖源码 checkout<br/>· investigator / reviewer-gpt / planner / designer 原生 subagent<br/>· 模型从 hosts.codex 覆盖解析"]
   cwt["<b>Codex worktree 合同</b><br/>· Worktree root 是 App 的跨项目全局存放目录<br/>· 用户创建 detached 主任务，确认父分支后绑定 codex/&lt;slug&gt;<br/>· MMW 不从物理目录名识别任务<br/>· 后台结果先验证与验收，通过后再集成"]
@@ -595,6 +634,13 @@ rel ==>|"安装包由用户实测通过"| clo
 intg -.->|"mmw result verify → 主 agent 验收 → integrate"| cl1
 phb -.->|"移交时选择上下文动作"| hof
 phb -.->|"能继续时保留当前上下文"| mms
+ups -.->|"方法、步骤、解释和完成判据"| src
+mmwc -.->|"工作流承载与关卡"| src
+src -.->|"完整语义进入物化"| dsp
+pta -.->|"已确认的状态、交互和全部变体"| tsp
+pta -.->|"资产路径与 prototype 决定"| ttk
+pta -.->|"实施证据与可移植逻辑边界"| pln
+pta -.->|"视觉合同与走查证据"| crv
 
 classDef user fill:#FBF2E4,stroke:#8A9490,stroke-width:1.5px,color:#2B2419;
 classDef model fill:#E4EDF0,stroke:#8A9490,stroke-width:1.5px,color:#14282C;
@@ -616,9 +662,10 @@ classDef hIca fill:#E4EDF0,stroke:#7E22CE,stroke-width:2.4px,color:#14282C;
 class wfa,hof,wiz,tq,wwt user;
 class cbd,tdd,crv,dbg,imp,pro,res,ttk,tsp,rvr,pln,pnr,clo,intg,rel model;
 class trk,oos,pta,wik art;
-class dsp,vfy,cdx,cwt hOwn;
+class src,dsp,vfy,cdx,cwt hOwn;
 class cl1,cl2,cl3,cl4,cl5,cl6,cl7 hSetCli;
 class shp term;
+class ups,mmwc art;
 class set hSetCli;
 class cfg hSetArt;
 class mms hMms;
@@ -704,6 +751,9 @@ linkStyle 71 stroke:#15803D,color:#15803D,stroke-width:1.8px;
 linkStyle 72 stroke:#15803D,color:#15803D,stroke-width:1.8px;
 linkStyle 73,74,75,76 stroke:#1F2937,color:#1F2937,stroke-width:2.6px;
 linkStyle 77 stroke:#A16207,color:#A16207,stroke-width:1.8px;
+linkStyle 78 stroke:#9C6414,color:#9C6414,stroke-width:2px;
+linkStyle 79,80 stroke:#15803D,color:#15803D,stroke-width:2px;
+linkStyle 81,82,83,84 stroke:#BE185D,color:#BE185D,stroke-width:1.8px;
 </pre>
 </div>
 </div>
