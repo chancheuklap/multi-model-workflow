@@ -41,7 +41,7 @@ mmw <命令> [参数]
   result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
   wiki        Wiki：clone、重建导航、删本地文档前的验证
-  domain      领域文档：落点、下一个 ADR 编号
+  domain      领域文档：同步和检查消费合同、查询落点与下一个 ADR 编号
   graph       结构图谱：状态、建一次、验证建对了
   mcp         MCP：按唯一服务器定义启动 Codex plugin 的 stdio 进程
   release     出包：起循环、问状态、跑一个阶段、派修、收束
@@ -151,6 +151,8 @@ EOF
 usage_domain() {
   cat >&2 <<'EOF'
 mmw domain path      领域文档形态与落点，第三列写着照它做什么
+mmw domain sync      幂等同步领域上下文消费合同
+mmw domain check     检查领域上下文消费合同
 mmw domain adr-next  下一个 ADR 编号，四位零填充
 mmw domain dirs      写入侧的两个落点：新上下文的根目录、ADR 目录
 EOF
@@ -517,8 +519,13 @@ cmd_wiki() {
 }
 
 cmd_domain() {
-  case "${1:-}" in
+  local sub="${1:-}"
+  shift || true
+  [ $# -eq 0 ] || usage_domain
+  case "$sub" in
     path) mmw_domain_path ;;
+    sync) mmw_domain_sync ;;
+    check) mmw_domain_check ;;
     adr-next) mmw_domain_adr_next ;;
     dirs) mmw_domain_dirs ;;
     *) usage_domain ;;
@@ -569,7 +576,7 @@ cmd_graph() {
 }
 
 cmd_doctor() {
-  local host status=0
+  local host status=0 domain_ready=0
   echo "CLI      : ${BASH_SOURCE[0]} -> $MMW_ROOT"
   if host="$(mmw_host 2>/dev/null)"; then
     echo "宿主     : $host"
@@ -581,6 +588,7 @@ cmd_doctor() {
     echo "仓库     : $(mmw_repo_root)"
     if [ -f "$(mmw_config_path)" ]; then
       echo "配置     : $(mmw_config_path)"
+      domain_ready=1
     else
       echo "配置     : 缺 .mmw.json，跑 mmw init"
       status=1
@@ -588,6 +596,23 @@ cmd_doctor() {
   else
     echo "仓库     : 当前目录不在 git 仓库里"
     status=1
+  fi
+  if [ "$domain_ready" -eq 1 ] && [ -n "${host:-}" ]; then
+    local domain_out domain_prefix domain_shape domain_path domain_state
+    if domain_out="$(mmw_domain_check 2>&1)"; then
+      IFS=$'\t' read -r domain_prefix domain_shape domain_path domain_state <<< "$domain_out"
+      if [ "$domain_prefix" = "check" ] && [ "$domain_state" = "valid" ]; then
+        echo "领域合同 : valid shape=${domain_shape} path=${domain_path}"
+      else
+        echo "领域合同 : invalid"
+        printf '%s\n' "$domain_out" | sed 's/^/           /'
+        status=1
+      fi
+    else
+      echo "领域合同 : invalid"
+      printf '%s\n' "$domain_out" | sed 's/^/           /'
+      status=1
+    fi
   fi
   command -v jq >/dev/null && echo "jq       : $(command -v jq)" || { echo "jq       : 没装"; status=1; }
   command -v gh >/dev/null && echo "gh       : $(command -v gh)" || { echo "gh       : 没装"; status=1; }
