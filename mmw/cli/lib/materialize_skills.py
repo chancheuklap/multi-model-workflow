@@ -219,6 +219,20 @@ def expand_host_action(name: str, host: str) -> str:
             "把证据路径只加入“对照终审”的读栏；无法运行时把 blocker 写入审查材料。"
         )
 
+    if name == "browser-plan-validation":
+        if host == "codex":
+            return (
+                "界面任务包把自动回归与人工浏览器审批分开写。"
+                "`Verification commands` 只写能重复执行的测试命令和预期结果；"
+                "`Browser acceptance` 写明由主 agent 使用 Codex 内置浏览器检查的页面、黄金路径、"
+                "本次相关状态、viewport 和每项可见结果。"
+                "不得把 Playwright CLI 写成人工走查的替代品，也不得把内置浏览器操作伪装成自动回归命令。"
+            )
+        return (
+            "界面任务包把可重复执行的自动回归命令与当前宿主的人工浏览器审批分开写。"
+            "人工审批逐项写明页面、路径、状态、viewport 和可见结果；没有界面时写“不适用”。"
+        )
+
     if name == "prepare-task-worktree":
         if host == "codex":
             return (
