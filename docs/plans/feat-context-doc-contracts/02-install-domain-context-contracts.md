@@ -117,7 +117,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 
 **Contract anchors:** 归属方是 Plan 02。提供方是两份种子和目标仓库 `.mmw.json`。消费方是 `mmw init`、Plan 03 的领域建模技能、架构图和后续 AgentFlow 迁移。map-init 只提供首次空骨架；目标仓库拥有并补齐 `Contexts` 与 `Relationships`。同步器不修改项目区块或 leaf。
 
-**Schema / API shapes:** map-init 先读取规则种子并生成 `# Context Map`、精确受管区块、空三列表头和 `## Relationships` 骨架，再以 `O_EXCL` 独占创建配置 Map。普通文件返回 `target-exists`；符号链接或目录返回 `unsafe-target`；与 AGENTS、CLAUDE 重合返回 `conflicting-targets`。竞争创建也返回 `target-exists`。写入失败时删除自己创建的不完整文件。`agents` 永远是同步目标；`map` 只在配置的 Map 已存在时是同步目标。Claude Code 下，缺少 `CLAUDE.md` 时创建精确内容 `@AGENTS.md\n`；已有文件缺少独立一行 `@AGENTS.md` 时追加该行；已有该行时返回 `current`。Pi 与 Codex 返回 `claude not-required`。无 marker 时，`AGENTS.md` 在文件末尾插入种子，Map 在第一个 `## Contexts` 前插入种子；完整唯一 marker 对原位替换；单边、重复或逆序 marker 返回 `invalid-markers`。同步器先计算整轮目标与候选内容，再检查每个待修改的既有目标：该文件必须已被 Git 跟踪，且 `git diff --quiet -- <path>` 与 `git diff --cached --quiet -- <path>` 都成功；任一目标不安全时返回 `dirty-target`，整轮不写文件。已有 Map 的候选正文必须通过三列表格、Relationships、leaf 与 authoritative 检查。每个安全目标在同目录写 staging 临时文件，再用原子替换写回。正向替换失败时回滚已替换目标；最终 `io-error` 同时列出未恢复目标、未清理 rollback 文件和未清理 staging 文件。
+**Schema / API shapes:** map-init 先读取规则种子并生成 `# Context Map`、精确受管区块、空三列表头和 `## Relationships` 骨架，再逐级创建缺失父目录，并以 `O_EXCL` 独占创建配置 Map。它只记录每次 mkdir 实际成功创建的目录，不登记预先存在或被并发创建的目录。mkdir、open、write 或 fsync 失败时，先删除本轮创建的不完整文件，再对记录目录从深到浅调用只删除空目录的 `rmdir`。预存目录和含并发内容的目录必须保留。文件或目录清理失败追加到同一个 `io-error`。普通文件返回 `target-exists`；符号链接或目录返回 `unsafe-target`；与 AGENTS、CLAUDE 重合返回 `conflicting-targets`。竞争创建也返回 `target-exists`。`agents` 永远是同步目标；`map` 只在配置的 Map 已存在时是同步目标。Claude Code 下，缺少 `CLAUDE.md` 时创建精确内容 `@AGENTS.md\n`；已有文件缺少独立一行 `@AGENTS.md` 时追加该行；已有该行时返回 `current`。Pi 与 Codex 返回 `claude not-required`。无 marker 时，`AGENTS.md` 在文件末尾插入种子，Map 在第一个 `## Contexts` 前插入种子；完整唯一 marker 对原位替换；单边、重复或逆序 marker 返回 `invalid-markers`。同步器先计算整轮目标与候选内容，再检查每个待修改的既有目标：该文件必须已被 Git 跟踪，且 `git diff --quiet -- <path>` 与 `git diff --cached --quiet -- <path>` 都成功；任一目标不安全时返回 `dirty-target`，整轮不写文件。已有 Map 的候选正文必须通过三列表格、Relationships、leaf 与 authoritative 检查。每个安全目标在同目录写 staging 临时文件，再用原子替换写回。正向替换失败时回滚已替换目标；最终 `io-error` 同时列出未恢复目标、未清理 rollback 文件和未清理 staging 文件。
 
 **Mockup specs:** 不适用。本 ticket 没有界面或原型。
 
@@ -141,10 +141,12 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 12. [ ] 正向替换失败后回滚失败时，`io-error` 点名每个未恢复目标，且不残留 `.mmw-rollback-*` 临时文件。
 13. [ ] 自定义 Map 路径运行 `mmw domain map-init` 时，输出精确三列 TSV，并创建标准空骨架；骨架不含任何项目 Context 行或 Relationship 项。
 14. [ ] Map 已是普通文件、符号链接或目录时，map-init 返回结构化错误且原目标不变；Map 与 AGENTS 或 CLAUDE 重合时返回 `conflicting-targets`。
-15. [ ] map-init 在检查目标后出现竞争创建时仍不覆盖；种子读取失败时不创建目标；独占创建后的写入失败删除不完整文件。
+15. [ ] map-init 在检查目标后出现竞争创建时仍不覆盖；种子读取失败时不创建目标；mkdir、open、write 或 fsync 失败时删除本轮不完整文件和本轮创建的空父目录。
 16. [ ] map-init 创建的空骨架必须由领域建模技能补齐项目区块；补齐前 `domain check` 返回结构化 Map 错误，补齐后才允许 valid。
 17. [ ] `domain sync` 对缺少 Map 的仓库仍返回 `map not-present`，不创建任何 Map 骨架。
 18. [ ] 正向写入失败后的最终 `io-error` 同时点名未恢复目标、未清理 rollback 临时文件和未清理 staging 临时文件。
+19. [ ] 多级 Map 父目录全新时，失败清理删除全部本轮空目录；部分父目录预存时只删除新建后缀；目录创建中途失败时清理此前已创建目录。
+20. [ ] 并发内容进入本轮创建目录时，清理保留该内容和非空祖先，只删除仍为空的更深目录；任一文件或目录清理失败写入同一个 `io-error`。
 
 **Verification commands:**
 
@@ -159,7 +161,8 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 - 对已经同步并提交的 fixture 连续运行两次同一命令 → Expected: 第二次目标状态为 `current`，`git diff --exit-code` 返回 `0`，mtime 不变。
 - 在本 MMW 仓库先运行 `MMW_HOST=codex "${source_root}/mmw/cli/mmw" domain sync`，再运行 `MMW_HOST=claude-code "${source_root}/mmw/cli/mmw" domain sync` → Expected: 第一次 `agents` 为 `inserted`；第二次 AGENTS 与 CLAUDE 都为 `current`；根 `CLAUDE.md` 无 diff。
 - 对自定义 Map 路径运行 `mmw domain map-init` → Expected: 输出 `map-init<TAB><相对路径><TAB>created`；文件逐字等于标准空骨架，Contexts 没有数据行，Relationships 没有列表项。
-- 对已有普通文件、符号链接、目录、AGENTS/CLAUDE 重合、竞争创建、种子读取失败和注入写入失败运行 map-init → Expected: 全部返回结构化错误；已有目标不变；种子失败不创建文件；写入失败不残留不完整 Map。
+- 对已有普通文件、符号链接、目录、AGENTS/CLAUDE 重合、竞争创建、种子读取失败和注入 mkdir/open/write/fsync 失败运行 map-init → Expected: 全部返回结构化错误；已有目标不变；种子失败不创建文件；运行失败不残留不完整 Map。
+- 对全新多级父目录、部分预存父目录、目录创建中途失败和并发写入内容运行故障 fixture → Expected: 只从深到浅删除本轮创建且为空的目录；预存目录、并发内容及其非空祖先保留；注入 unlink 或 rmdir 失败时同一个 `io-error` 点名全部清理失败。
 - 在同一缺少 Map 的 fixture 运行 `domain sync` → Expected: 输出 `map not-present`，配置 Map 仍不存在。
 - 注入正向替换、回滚替换、rollback unlink 和 staging unlink 失败 → Expected: 同一个 `io-error` 同时包含未恢复目标、未清理 rollback 与未清理 staging 三组证据。
 
@@ -169,7 +172,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 
 | 层 | 测什么 | 数量 |
 | --- | --- | ---: |
-| 临时 Git 仓库行为检查 | Map 独占初始化、创建、插入、升级、Map 保留、缺失 Map、Claude 三种状态、损坏 marker、Git 状态错误、符号链接、目标冲突、Map 候选、幂等与全部临时文件清理失败。 | 45 个 fixture |
+| 临时 Git 仓库行为检查 | Map 独占初始化、父目录所有权与故障清理、创建、插入、升级、Map 保留、缺失 Map、Claude 三种状态、损坏 marker、Git 状态错误、符号链接、目标冲突、Map 候选、幂等与全部临时文件清理失败。 | 53 个 fixture |
 | 提交前静态检查 | ShellCheck、Python 语法、空白错误。 | 3 条命令 |
 | 真实宿主验证 | 本包不改变宿主运行面。 | 0 |
 
@@ -192,6 +195,7 @@ Plan 03 只消费下表中的公开合同，不修改本 plan 拥有的种子、
 - [ ] Step 5: 让失败路径变绿。同步器在生成任何临时文件前完成整轮 marker 和 Git 状态预检；六个 marker fixture 返回 `invalid-markers`，九个 Git fixture 返回 `dirty-target`，所有文件摘要和暂存区不变。
 - [ ] Step 5a: 在写入前拒绝受管符号链接、解析后重合的目标和无效 Map 候选；回滚失败时点名未恢复目标并清理回滚临时文件。
 - [ ] Step 5b: 暴露 `mmw domain map-init`。先读取种子，再独占创建标准空骨架；验证已有目标、竞争创建、种子失败和写入失败不会覆盖或留下不完整 Map。
+- [ ] Step 5c: 逐级记录 map-init 本轮实际创建的父目录。注入 mkdir、open、write、fsync、unlink、rmdir 和并发内容，确认失败时先删不完整文件，再只删除本轮仍为空的目录，并在同一个 `io-error` 中报告全部清理失败。
 - [ ] Step 6: 验证幂等、Map 所有权和当前仓库安装。对已同步并提交的 Map 再运行两次，确认项目正文、Git diff 与 mtime 不变；随后在本 MMW 仓库先以 Codex 宿主同步，再以 Claude Code 宿主同步，确认根 `AGENTS.md` 从 `inserted` 变为 `current`，根 `CLAUDE.md` 始终是 `current` 且无 diff。
 - [ ] Step 7: 运行 `python3 -m py_compile mmw/cli/lib/context_docs.py`、`shellcheck --severity=warning mmw/cli/mmw mmw/cli/lib/domain.sh` 与 `git diff --check`。确认根 `AGENTS.md` 在 diff 中且根 `CLAUDE.md` 不在 diff 中；全部返回 `0` 后按 Commit boundary 提交。
 

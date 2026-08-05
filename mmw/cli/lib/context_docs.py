@@ -686,6 +686,54 @@ def map_skeleton(map_seed: bytes) -> bytes:
     )
 
 
+def create_map_parent_directories(
+    root: Path, parent: Path, created: list[Path]
+) -> None:
+    missing: list[Path] = []
+    cursor = parent
+    while cursor != root and not cursor.exists():
+        missing.append(cursor)
+        cursor = cursor.parent
+
+    for directory in reversed(missing):
+        try:
+            directory.mkdir()
+        except FileExistsError:
+            if not directory.is_dir():
+                raise
+        else:
+            created.append(directory)
+
+
+def cleanup_map_creation(
+    root: Path,
+    map_path: Path,
+    file_created: bool,
+    created_directories: list[Path],
+) -> list[str]:
+    failures: list[str] = []
+    if file_created:
+        try:
+            map_path.unlink(missing_ok=True)
+        except OSError as error:
+            failures.append(f"未删除不完整文件 {map_path.relative_to(root)}：{error}")
+
+    for directory in reversed(created_directories):
+        try:
+            directory.rmdir()
+        except FileNotFoundError:
+            continue
+        except OSError as error:
+            failures.append(f"未删除本轮创建目录 {directory.relative_to(root)}：{error}")
+    return failures
+
+
+def fail_map_creation(rel_path: str, message: str, cleanup_failures: list[str]) -> NoReturn:
+    if cleanup_failures:
+        message += f"；清理失败：{'；'.join(cleanup_failures)}"
+    fail(rel_path, "io-error", message)
+
+
 def init_map(root: Path, config_path: Path) -> str:
     domain = load_domain_config(root, config_path)
     map_rel = domain["map"]
@@ -696,17 +744,37 @@ def init_map(root: Path, config_path: Path) -> str:
         fail(map_rel, "target-exists", "配置 Map 已存在，map-init 不会覆盖")
     skeleton = map_skeleton(read_seed("CONTEXT-MAP-rules.md"))
 
+    created_directories: list[Path] = []
     try:
-        map_path.parent.mkdir(parents=True, exist_ok=True)
+        create_map_parent_directories(root, map_path.parent, created_directories)
+    except OSError as error:
+        cleanup_failures = cleanup_map_creation(
+            root, map_path, False, created_directories
+        )
+        fail_map_creation(map_rel, f"无法创建 Map 父目录：{error}", cleanup_failures)
+
+    try:
         descriptor = os.open(
             map_path,
             os.O_WRONLY | os.O_CREAT | os.O_EXCL,
             0o644,
         )
     except FileExistsError:
+        cleanup_failures = cleanup_map_creation(
+            root, map_path, False, created_directories
+        )
+        if cleanup_failures:
+            fail_map_creation(
+                map_rel,
+                "配置 Map 在独占创建前已出现，map-init 未覆盖",
+                cleanup_failures,
+            )
         fail(map_rel, "target-exists", "配置 Map 已存在，map-init 不会覆盖")
     except OSError as error:
-        fail(map_rel, "io-error", f"无法独占创建 Map：{error}")
+        cleanup_failures = cleanup_map_creation(
+            root, map_path, False, created_directories
+        )
+        fail_map_creation(map_rel, f"无法独占创建 Map：{error}", cleanup_failures)
 
     try:
         with os.fdopen(descriptor, "wb") as map_file:
@@ -718,15 +786,10 @@ def init_map(root: Path, config_path: Path) -> str:
             os.close(descriptor)
         except OSError:
             pass
-        try:
-            map_path.unlink(missing_ok=True)
-        except OSError as cleanup_error:
-            fail(
-                map_rel,
-                "io-error",
-                f"写入 Map 失败：{error}；无法删除不完整文件：{cleanup_error}",
-            )
-        fail(map_rel, "io-error", f"写入 Map 失败，已删除不完整文件：{error}")
+        cleanup_failures = cleanup_map_creation(
+            root, map_path, True, created_directories
+        )
+        fail_map_creation(map_rel, f"写入 Map 失败：{error}", cleanup_failures)
     return map_rel
 
 
