@@ -106,6 +106,8 @@ return (
 
 把地址和 `?variant=` 的取值给他。他常给的反馈是**「我要 B 的页头配 C 的侧边栏」**，据此再开一轮。
 
+[[mmw-host-action:present-ui-review]]
+
 ## 下一步
 
 | 情况 | 下一步 |

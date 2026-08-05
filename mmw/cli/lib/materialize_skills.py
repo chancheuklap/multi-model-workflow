@@ -153,6 +153,72 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
 
 
 def expand_host_action(name: str, host: str) -> str:
+    if name == "present-ui-review":
+        if host == "codex":
+            return (
+                "完整读取并遵守 `browser:control-in-app-browser`。使用 Codex 内置浏览器，"
+                "该 skill 不可用时明确报告 blocker，不得改用 Playwright CLI 冒充用户走查。"
+                "先清点全部相关页面或 URL，每个页面使用独立标签页；不得用一个标签页依次覆盖多份 mockup。"
+                "把浏览器设为可见，并用 `codex_app__open_in_codex` 在当前任务的 Codex 面板打开第一个标签页。"
+                "读取实际 URL、标题和可见状态；没有确认可见时，不得声称已经打开。"
+                "用户需要继续标记或操作时，保留全部相关标签页为 `handoff`；"
+                "`finalize` 必须是本回合最后一个浏览器动作。页面交给用户后停止导航，等待用户反馈。"
+            )
+        return (
+            "使用当前宿主已有的浏览器工具打开全部相关页面，并保留给用户走查。"
+            "没有可用浏览器工具时，给出一条运行命令、全部页面地址和目标 viewport，等待用户反馈。"
+        )
+
+    if name == "browser-evidence":
+        if host == "codex":
+            return (
+                "交互式浏览器取证使用 Codex 内置浏览器，保存相关状态的截图、DOM 和 console 证据。"
+                "需要多轮测量或稳定断言时，仍使用项目已有的 Playwright 或 Puppeteer 入口。"
+                "项目没有自动化入口时，记录可重复执行的浏览器步骤；不为本次取证安装新的浏览器工具。"
+            )
+        return (
+            "浏览器验证使用项目已有的 Playwright 入口；项目没有入口时，"
+            "记录可重复执行的人工步骤，不为本次验证新增浏览器工具。"
+        )
+
+    if name == "browser-bug-reproduction":
+        if host == "codex":
+            return (
+                "**Codex 内置浏览器复现**——先确认用户看到的界面、状态和交互，"
+                "采集截图、DOM 与 console；这一步只负责复现和缩小范围，"
+                "完成 Phase 1 前仍要把症状收敛成一条可重复执行的 red-capable 命令。"
+            )
+        return (
+            "**headless 浏览器脚本**（Playwright / Puppeteer）——驱动界面，"
+            "对 DOM／console／网络下断言。"
+        )
+
+    if name == "browser-ui-acceptance":
+        if host == "codex":
+            return (
+                "主 agent 在结果 worktree 启动界面，使用 Codex 内置浏览器走通黄金路径和本次相关边界状态。"
+                "按视觉合同设置 viewport，逐个检查加载、空、错误、成功和部分完成中实际存在的状态。"
+                "保存关键截图；交互异常时同时读取 DOM 和 console。"
+                "浏览器验收没有通过，或者浏览器不可用且没有等价证据时，不得集成结果分支。"
+            )
+        return (
+            "界面 ticket 使用目标仓库已有的浏览器测试入口走通黄金路径和本次相关边界状态。"
+            "没有入口时记录可重复执行的人工步骤；验收没有通过时不得集成结果分支。"
+        )
+
+    if name == "browser-review-evidence":
+        if host == "codex":
+            return (
+                "主 agent 在派审查者前使用 Codex 内置浏览器运行界面改动，"
+                "按视觉合同采集关键状态的截图、DOM 和 console 证据。"
+                "把证据路径只加入“对照终审”的读栏；“独立终审”仍只读 diff 范围。"
+                "无法运行界面时，把具体 blocker 写入审查材料，不得把未验证写成通过。"
+            )
+        return (
+            "主 agent 使用当前宿主已有的浏览器入口采集界面关键状态证据。"
+            "把证据路径只加入“对照终审”的读栏；无法运行时把 blocker 写入审查材料。"
+        )
+
     if name == "prepare-task-worktree":
         if host == "codex":
             return (
