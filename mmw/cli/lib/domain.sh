@@ -17,18 +17,12 @@ set -euo pipefail
 # 第三列是照着做的话，给读它的 agent 看。没有这一列，每个要读领域文档的技能
 # 都得自己把三种形态解释一遍——那段话原本在五份技能里逐字重复。
 mmw_domain_path() {
-  local root map fallback
+  local root config
   root="$(mmw_repo_root)"
-  map="$(mmw_config '.domain.map // "CONTEXT-MAP.md"')"
-  fallback="$(mmw_config '.domain.fallback // "CONTEXT.md"')"
-
-  if [ -f "$root/$map" ]; then
-    printf 'map\t%s\t这是索引：读它，再读取它列出的本次相关全部 leaf\n' "$root/$map"
-  elif [ -f "$root/$fallback" ]; then
-    printf 'single\t%s\t单上下文，读这一份\n' "$root/$fallback"
-  else
-    printf 'none\t\t这个仓库没有领域文档：直接往下走，不要停下来建，也不要提它缺失\n'
-  fi
+  config="$(mmw_require_config)" || return 1
+  python3 "$MMW_ROOT/cli/lib/context_docs.py" path \
+    --root "$root" \
+    --config "$config"
 }
 
 # 从 MMW 持有的种子同步目标仓库规则。Python 模块负责整轮预检和原子写入；
@@ -42,6 +36,17 @@ mmw_domain_sync() {
     --root "$root" \
     --config "$config" \
     --host "$host"
+}
+
+# 多上下文领域建模的首次 Map 骨架。Python 入口独占创建配置目标；shell 不复制
+# 规则种子，也不代替领域建模流程填写项目拥有的 Contexts 与 Relationships。
+mmw_domain_map_init() {
+  local root config
+  root="$(mmw_repo_root)"
+  config="$(mmw_require_config)" || return 1
+  python3 "$MMW_ROOT/cli/lib/context_docs.py" map-init \
+    --root "$root" \
+    --config "$config"
 }
 
 # 检查器与同步器消费同一份种子和配置，避免 doctor 另抄一套受管正文。

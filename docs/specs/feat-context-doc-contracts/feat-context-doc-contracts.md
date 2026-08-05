@@ -42,16 +42,16 @@ MMW 接受 `context` 目录下的命名 Markdown leaf。AgentFlow 保留现有�
 
 1. `AGENTS.md` 使用 `MMW-DOMAIN-CONTEXT-START` 与 `MMW-DOMAIN-CONTEXT-END` 标记一段 MMW 受管区块。内容只写 agent 要执行的动作、术语约束、冲突处理和更新边界。该规则覆盖主 agent 与 subagent。无需原型，因为这是仓库行为合同，没有可视界面。
 2. `CONTEXT-MAP.md` 使用 `MMW-CONTEXT-MAP-RULES-START` 与 `MMW-CONTEXT-MAP-RULES-END` 标记 `使用规则`。MMW 只管理这一区块。`Contexts` 和 `Relationships` 由项目持有。无需原型，因为输出格式已经由用户逐字批准。
-3. 同步器以种子文件为唯一事实来源。缺少 `AGENTS.md` 时创建；存在完整标记时替换区块；没有标记时插入区块；标记缺失、重复或次序错误时非零退出且不改原文件。同步器不创建 Map；Map 由领域建模流程按需创建。AGENTS、Map 与 CLAUDE 目标必须是普通文件，不能是符号链接；三个目标解析后不得重合。已有 Map 使用同步后的候选正文完成表格、Relationships、leaf 与 authoritative 检查后才允许整轮写入。
-4. 同步器先读取原文件内容，再生成同目录临时文件并原子替换，避免留下半写文件。相同输入不产生文件变化。同步前的 Git 干净检查保护已有用户改动；初始化期间不支持并发编辑同一目标文件，也不承诺合并并发修改。正向替换失败时恢复已替换目标；任一恢复失败都在 `io-error` 中点名未恢复目标，并清理回滚临时文件。
+3. 同步器以种子文件为唯一事实来源。缺少 `AGENTS.md` 时创建；存在完整标记时替换区块；没有标记时插入区块；标记缺失、重复或次序错误时非零退出且不改原文件。同步器不创建 Map。领域建模流程只通过 `mmw domain map-init` 创建首次 Map 骨架，不自行复制受管规则。骨架包含 `# Context Map`、精确种子、空三列表头和 `## Relationships`；目标仓库随后补齐并拥有 `Contexts` 与 `Relationships`。AGENTS、Map 与 CLAUDE 目标必须是普通文件，不能是符号链接；三个目标解析后不得重合。已有 Map 使用同步后的候选正文完成表格、Relationships、leaf 与 authoritative 检查后才允许整轮写入。
+4. 同步器先读取原文件内容，再生成同目录临时文件并原子替换，避免留下半写文件。相同输入不产生文件变化。同步前的 Git 干净检查保护已有用户改动；初始化期间不支持并发编辑同一目标文件，也不承诺合并并发修改。正向替换失败时恢复已替换目标；最终 `io-error` 同时点名未恢复目标、未清理回滚临时文件和未清理 staging 临时文件。
 5. `mmw init` 修改既有 `AGENTS.md`、`CLAUDE.md` 或 Map 前，要求该文件已被 Git 跟踪且暂存区和工作区都干净。文件不存在时可以创建。文件未跟踪或已有修改时，初始化报告目标并停止同步，避免把用户改动带入 MMW 配置提交。只有实际变化且满足上述条件的路径进入本轮提交。初始化使用 Bash 数组逐项暂存和提交路径，保留路径中的空格。
 6. `none` 和 `single` 只同步 `AGENTS.md`。`map` 同步 `AGENTS.md` 和已经存在的 Map。`none` 不创建领域文档。doctor 在 `none` 只检查 AGENTS 规则；在 `single` 另检查 fallback 是可读的普通 UTF-8 Markdown 文件；在 `map` 才检查 Map 规则、结构和 leaf。fallback 已存在但不合格时必须失败，不得降级为 `none`。三种形态都是合法成功状态。
 7. Claude Code 宿主确保根 `CLAUDE.md` 导入 `AGENTS.md`。缺少文件时创建单行 `@AGENTS.md`；已有干净文件缺少该导入时追加；已有导入时不改。Pi 与 Codex 继续使用各自原生的 AGENTS 加载行为。
-8. 多上下文 leaf 可以是 `context` 目录或其子目录中的 Markdown 文件。Map 的 `Contexts` 使用 GitHub 风格 Markdown 表格，列名和顺序固定为 `Context`、`Leaf`、`Owns`。表格解析遵守 GitHub 风格 Markdown，转义竖线和行内代码中的竖线不分列。`Context` 是非空且唯一的上下文名。`Leaf` 是且仅是一个 Markdown 链接；链接目标相对 Map 文件解析，解析后必须位于 `mmw domain dirs` 返回的 `context` 目录内，并以 `.md` 结尾。`Owns` 是非空的自然语言所有权说明，doctor 不解析其内部语义。
+8. 多上下文 leaf 可以是 `context` 目录或其子目录中的 Markdown 文件。Map 的 `Contexts` 使用 GitHub 风格 Markdown 表格，列名和顺序固定为 `Context`、`Leaf`、`Owns`。表格解析遵守 GitHub 风格 Markdown Example 200：只有 `\|` 不分列；代码跨度内未转义的 `|` 仍是列分隔符。`Context` 是非空且唯一的上下文名。`Leaf` 是且仅是一个 Markdown 链接；链接目标相对 Map 文件解析，解析后必须位于 `mmw domain dirs` 返回的 `context` 目录内，并以 `.md` 结尾。`Owns` 是非空的自然语言所有权说明，doctor 不解析其内部语义。
 9. `Relationships` 是非空的 Markdown 列表，由 agent 读取，不建立新的机器语法。doctor 只检查该节存在且含有列表项，不猜关系端点或所有权。
 10. leaf 的权威引用格式固定为 `(authoritative: [显示文本](相对路径))`。路径相对当前 leaf 解析，目标必须位于 `context` 目录内，并且必须等于 `Contexts` 已登记的某个 leaf。
 11. `mmw doctor` 检查对应领域形态的受管区块、Map 固定节、三列表格、leaf 范围和文件类型，以及 `authoritative` 引用。发现错误时返回非零。
-12. `mmw domain path` 的 `map` 提示改为“读取 Map 列出的相关 leaf”，移除 `CONTEXT.md` 文件名假设。map、fallback、context 与 ADR 四个配置字段必须是仓库内的非空相对路径，并且不能包含 TAB 或换行。`mmw domain dirs` 按 `single`、`map`、`context`、`adr` 的固定顺序输出四个已验证绝对路径，使 `none` 形态的领域建模流程也能取得首份领域文档落点。领域格式和领域建模技能同步采用命名 leaf 合同。
+12. `mmw domain path` 的定位逻辑与其他领域命令共用 Python 配置边界，先验证 map、fallback、context 与 ADR 四个仓库内非空相对路径。字段不能包含 TAB 或换行。path 只安全定位实际选择的领域文档，不要求 AGENTS 或 Map 受管区块已同步；Map 优先于 fallback。选中的文件必须是仓库内可读、非符号链接、以 `.md` 结尾的普通 UTF-8 文件。`map` 提示改为“读取 Map 列出的相关 leaf”，移除 `CONTEXT.md` 文件名假设。`mmw domain dirs` 按 `single`、`map`、`context`、`adr` 的固定顺序输出四个已验证绝对路径，使 `none` 形态的领域建模流程也能取得首份领域文档落点。领域格式和领域建模技能同步采用命名 leaf 合同。
 13. 直接产生原型、ticket、plan、Wiki 或集成取舍记录的关键技能增加一句短提醒：遵守目标仓库 `AGENTS.md` 的领域上下文规则。完整消费逻辑不复制到技能中，subagent task 也不注入 leaf 路径。
 14. 发现冲突后，主 agent 停止依赖该语义的工作并交给用户决定；subagent 把冲突报告给主 agent。未受冲突影响的只读调查可以继续。
 15. AgentFlow 的根 Map 使用用户批准的标准结构。通用规则来自 MMW 受管区块；七个项目路由和五条关系留在项目区块。宿主加载细节不进入 Map。
@@ -104,12 +104,14 @@ MMW 接受 `context` 目录下的命名 Markdown leaf。AgentFlow 保留现有�
 | 受管标记损坏 | 标记缺失一端、重复或次序错误 | 领域规则同步器 | 点名文件和标记错误 | 非零退出，不改原文件 | 同步失败保持原文件字节不变 |
 | 目标文件已有用户改动 | 既有目标未跟踪、已暂存或有工作区修改 | `mmw init` | 点名目标文件并要求先处理现有改动 | 不同步该文件，不提交 | 用户改动不进入初始化提交 |
 | 受管目标不安全 | AGENTS、Map 或 CLAUDE 是符号链接，或多个目标解析到同一路径 | 领域规则同步器、`mmw doctor` | 点名目标或冲突配置 | 返回 `unsafe-target` 或 `conflicting-targets`，整轮不写 | 受管目标不跟随链接且不互相覆盖 |
+| Map 首次创建目标已存在 | 配置 Map 是普通文件、符号链接、目录，或与 AGENTS、CLAUDE 重合 | `mmw domain map-init` | 点名 Map 或冲突配置 | 返回结构化错误，绝不覆盖；写入失败删除自己创建的不完整文件 | 目标仓库正文只能由领域建模流程补齐 |
+| 领域路径不安全 | path 选中的 Map 或 fallback 越界、是符号链接、目录、非 `.md` 或非法 UTF-8 | `mmw domain path` | 点名配置或文件 | 返回结构化错误，不输出领域形态 | agent 不读取不安全领域文档 |
 | Map 结构不合格 | 缺少固定节或表格列 | `mmw doctor` | 点名缺少的节或列 | 返回非零 | doctor 能定位结构错误 |
 | Map 候选不合格 | 已有 Map 在同步规则后仍有表格、关系、leaf 或权威引用错误 | 领域规则同步器 | 点名 Map、leaf 与错误 | 整轮不写，init 不登记领域路径 | 无效项目正文不因规则同步进入提交 |
 | leaf 链接失效 | `Leaf` 指向不可读文件 | `mmw doctor` | 显示失效路径 | 返回非零 | 每条 Map leaf 均存在 |
 | 权威引用失效 | `authoritative` 指向 Map 未登记的 leaf | `mmw doctor` | 显示来源 leaf 与失效目标 | 返回非零 | 权威引用可解析 |
 | fallback 不合格 | fallback 已存在但不是普通、可读的 UTF-8 Markdown 文件 | `mmw doctor` | 点名 fallback | 返回 `unreadable-single` | 不把损坏 single 静默当成 none |
-| 回滚不完整 | 正向替换失败后任一已替换目标恢复失败 | 领域规则同步器 | `io-error` 点名未恢复目标 | 清理回滚临时文件并返回非零 | 失败状态完整可见 |
+| 写入或清理不完整 | 正向替换、回滚或临时文件清理失败 | 领域规则同步器 | `io-error` 点名未恢复目标和未清理的 rollback、staging 文件 | 尽力清理全部临时文件并返回非零 | 失败状态完整可见 |
 | 同步无变化 | 目标区块已经等于种子 | 同步器 | 报告已是最新 | 不重写文件，不登记提交 | 连续同步第二次无 diff |
 
 ## Testing Decisions
@@ -117,8 +119,9 @@ MMW 接受 `context` 目录下的命名 Markdown leaf。AgentFlow 保留现有�
 | Seam | 验证什么行为 | 为什么是这一层 |
 | --- | --- | --- |
 | 临时 Git 仓库中的领域规则同步 CLI | 创建、插入、升级、幂等、损坏标记、符号链接、目标冲突、Map 候选和原子失败 | 这是用户实际调用的文件边界，能覆盖种子、解析、原子写和退出码 |
-| 临时 Git 仓库中的领域路径 CLI | 自定义 map、fallback、context 和 ADR 路径的四行落点，以及越界或含控制字符的配置失败 | 这是领域建模流程取得首份文档落点的公开边界 |
-| 临时 `none`、`single`、`map` fixture 上的领域检查 CLI | 三种合法形态、普通 UTF-8 fallback、GFM 三列表格、leaf 边界和 authoritative 引用 | 这是领域文档合同的最高稳定边界，不绑定内部函数 |
+| 临时 Git 仓库中的 Map 初始化 CLI | 自定义落点、标准空骨架、独占创建、已有目标和写入失败清理 | 这是领域建模流程创建首次 Map 的唯一写入边界 |
+| 临时 Git 仓库中的领域路径 CLI | 安全选择 Map 或 fallback、四路径验证、四行落点，以及越界或含控制字符的配置失败 | 这是 agent 取得领域文档和首次写入落点的公开边界 |
+| 临时 `none`、`single`、`map` fixture 上的领域检查 CLI | 三种合法形态、普通 UTF-8 fallback、GFM Example 200 三列表格、leaf 边界和 authoritative 引用 | 这是领域文档合同的最高稳定边界，不绑定内部函数 |
 | `mmw init` 临时仓库流程 | 新仓库、已有干净仓库、已有脏目标、带空格路径、无效 Map、Claude bridge 和实际变化路径登记 | 这是配置流程的公开入口 |
 | 技能与 Codex 物化检查 | 三套技能产物和 Codex 发布输入无漂移 | 这是宿主发布结果的现有检查 seam |
 | AgentFlow 仓库 guard 与真实 Map | 标准 Map、现有七份 leaf、宿主规则加载均有效 | 这是首个消费仓库的真实验收边界 |
@@ -129,10 +132,10 @@ MMW 接受 `context` 目录下的命名 Markdown leaf。AgentFlow 保留现有�
 
 | 边界 | 归属方 | 提供方 | 消费方 | 合同 | 登记与验证 |
 | --- | --- | --- | --- | --- | --- |
-| 目标仓库领域路径 | 目标仓库 | `.mmw.json` | 领域同步器、`mmw domain path`、`mmw domain dirs` | `map`、`fallback`、`context_dir`、`adr_dir` | `mmw doctor` 读取真实文件验证 |
+| 目标仓库领域路径 | 目标仓库 | `.mmw.json` | Map 初始化器、领域同步器、`mmw domain path`、`mmw domain dirs` | `map`、`fallback`、`context_dir`、`adr_dir` | 领域 CLI 共用配置边界验证 |
 | `AGENTS.md` 受管区块 | MMW | AGENTS 种子 | 主 agent、subagent | 一对唯一标记及其间的固定正文；目标是普通文件且不与 Map、CLAUDE 重合 | 同步器精确比较，doctor 检查 |
 | Claude Code 规则入口 | 目标仓库 | 根 `CLAUDE.md` | Claude Code 主 agent、subagent | 导入根 `AGENTS.md` | init 同步并检查导入 |
-| Map 使用规则区块 | MMW | Map 规则种子 | 读取 Map 的 agent | 一对唯一标记及其间的固定正文 | 同步器精确比较，doctor 检查 |
+| Map 使用规则区块 | MMW | Map 规则种子 | Map 初始化器、同步器、读取 Map 的 agent | 一对唯一标记及其间的固定正文 | map-init 注入首次骨架；同步器精确比较，doctor 检查 |
 | Map 项目路由 | 目标仓库 | `Contexts`、`Relationships` | 读取 Map 的 agent、doctor | GFM 三列表格、自然语言关系列表、真实 leaf 路径 | 同步前与 doctor 都验证结构和路径；agent 解释关系语义 |
 | 技能发布产物 | MMW 技能源 | 技能物化器 | Pi、Claude Code、Codex | 三个宿主的物化 Markdown | 物化 `--check` 与 Codex runtime 检查 |
 
@@ -141,12 +144,12 @@ MMW 接受 `context` 目录下的命名 Markdown leaf。AgentFlow 保留现有�
 | Plan | 文件归属 | 提供 | 消费 |
 | --- | --- | --- | --- |
 | 01 | 当前已漂移的 Pi 与 Claude Code 物化文件；不得修改技能源 | `mmw skills materialize --host all --check` 返回成功的三宿主零漂移基线 | 03 在 01 集成后重新物化领域技能改动 |
-| 02 | 两份领域规则种子、`context_docs.py`、init、domain、doctor CLI 接入和根 `AGENTS.md` 受管区块 | `mmw domain sync` 四列 TSV、`mmw domain check` 四列 TSV、`mmw domain path` 三列 TSV、`mmw domain dirs` 四行 TSV、doctor 领域状态行和两对固定 marker | 03 的领域建模技能、关键产出技能和架构图 |
+| 02 | 两份领域规则种子、`context_docs.py`、init、domain、doctor CLI 接入和根 `AGENTS.md` 受管区块 | `mmw domain map-init` 三列 TSV、`mmw domain sync` 四列 TSV、`mmw domain check` 四列 TSV、`mmw domain path` 三列 TSV、`mmw domain dirs` 四行 TSV、doctor 领域状态行和两对固定 marker | 03 的领域建模技能、关键产出技能和架构图 |
 | 03 | 领域技能源、01 基线完成后的三宿主物化产物、根 `TESTING.md`、架构可视化和发布版本字段 | `0.9.0` 正式发布内容 | AgentFlow 独立迁移任务 |
 
 物化目录采用阶段性交接：01 只恢复既有源对应的基线并先集成；03 才能在领域技能源改变后重新生成最终产物。02 不修改物化目录。
 
-Plan 02 固定使用以下公开命令：`mmw domain sync` 成功时逐目标输出 `sync<TAB><agents|map|claude><TAB><仓库相对路径><TAB><状态>`；`mmw domain check` 成功时输出 `check<TAB><none|single|map><TAB><仓库相对路径或 -><TAB>valid`；`mmw domain dirs` 成功时按 `single`、`map`、`context`、`adr` 顺序输出 `<类型><TAB><绝对路径>`。失败统一返回 `1`，并把可定位诊断写入 stderr。Plan 03 只消费这些合同，不复制检查逻辑。
+Plan 02 固定使用以下公开命令：`mmw domain map-init` 成功时输出 `map-init<TAB><仓库相对路径><TAB>created`；`mmw domain sync` 成功时逐目标输出 `sync<TAB><agents|map|claude><TAB><仓库相对路径><TAB><状态>`；`mmw domain check` 成功时输出 `check<TAB><none|single|map><TAB><仓库相对路径或 -><TAB>valid`；`mmw domain dirs` 成功时按 `single`、`map`、`context`、`adr` 顺序输出 `<类型><TAB><绝对路径>`。失败统一返回 `1`，并把可定位诊断写入 stderr。Plan 03 只消费这些合同，不复制检查逻辑。
 
 ## Release Risk
 

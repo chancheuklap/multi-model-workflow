@@ -48,6 +48,13 @@ class CheckResult:
     rel_path: str
 
 
+@dataclass(frozen=True)
+class PathResult:
+    shape: str
+    path: str
+    instruction: str
+
+
 def fail(rel_path: str, code: str, message: str) -> NoReturn:
     raise ContractError(rel_path, code, message)
 
@@ -306,6 +313,9 @@ def atomic_write_targets(targets: list[Target]) -> None:
     changed = [target for target in targets if target.status in CHANGED_STATUSES]
     staged: dict[Path, Path] = {}
     replaced: list[Target] = []
+    write_error: OSError | None = None
+    unrestored: list[str] = []
+    uncleared_rollback: list[str] = []
     try:
         for target in changed:
             target.path.parent.mkdir(parents=True, exist_ok=True)
@@ -326,19 +336,25 @@ def atomic_write_targets(targets: list[Target]) -> None:
             staged.pop(target.path, None)
             replaced.append(target)
     except OSError as error:
-        unrestored, uncleared = rollback_replaced_targets(replaced)
-        message = f"无法原子写入领域规则：{error}"
+        write_error = error
+        unrestored, uncleared_rollback = rollback_replaced_targets(replaced)
+
+    uncleared_staging: list[str] = []
+    for temp_path in staged.values():
+        try:
+            temp_path.unlink(missing_ok=True)
+        except OSError:
+            uncleared_staging.append(temp_path.name)
+
+    if write_error is not None:
+        message = f"无法原子写入领域规则：{write_error}"
         if unrestored:
             message += f"；未恢复目标：{', '.join(unrestored)}"
-        if uncleared:
-            message += f"；未清理回滚临时文件：{', '.join(uncleared)}"
+        if uncleared_rollback:
+            message += f"；未清理回滚临时文件：{', '.join(uncleared_rollback)}"
+        if uncleared_staging:
+            message += f"；未清理 staging 临时文件：{', '.join(uncleared_staging)}"
         fail("-", "io-error", message)
-    finally:
-        for temp_path in staged.values():
-            try:
-                temp_path.unlink(missing_ok=True)
-            except OSError:
-                pass
 
 
 def load_domain_config(root: Path, config_path: Path) -> dict[str, str]:
@@ -424,33 +440,13 @@ def table_cells(line: str) -> list[str] | None:
         return None
     cells: list[str] = []
     current: list[str] = []
-    code_delimiter = 0
     content = stripped[1:-1]
-    index = 0
-    while index < len(content):
-        character = content[index]
-        if character == "`":
-            run_end = index
-            while run_end < len(content) and content[run_end] == "`":
-                run_end += 1
-            run_length = run_end - index
-            current.append(content[index:run_end])
-            if code_delimiter == 0:
-                code_delimiter = run_length
-            elif code_delimiter == run_length:
-                code_delimiter = 0
-            index = run_end
-            continue
-        if (
-            character == "|"
-            and code_delimiter == 0
-            and not is_escaped_character(content, index)
-        ):
+    for index, character in enumerate(content):
+        if character == "|" and not is_escaped_character(content, index):
             cells.append("".join(current).strip())
             current = []
         else:
             current.append(character)
-        index += 1
     cells.append("".join(current).strip())
     return cells
 
@@ -633,6 +629,107 @@ def check_single_document(path: Path, rel_path: str) -> None:
         fail(rel_path, "unreadable-single", "单领域文档必须是可读的普通 UTF-8 Markdown 文件")
 
 
+def check_path_document(
+    path: Path, rel_path: str, unreadable_code: str, document_name: str
+) -> None:
+    reject_unsafe_target(path, rel_path)
+    if path.suffix != ".md" or not os.access(path, os.R_OK):
+        fail(
+            rel_path,
+            unreadable_code,
+            f"{document_name} 必须是可读的普通 UTF-8 Markdown 文件",
+        )
+    try:
+        path.read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError):
+        fail(
+            rel_path,
+            unreadable_code,
+            f"{document_name} 必须是可读的普通 UTF-8 Markdown 文件",
+        )
+
+
+def locate_domain_document(root: Path, config_path: Path) -> PathResult:
+    domain = load_domain_config(root, config_path)
+    map_rel = domain["map"]
+    fallback_rel = domain["fallback"]
+    map_path = root / map_rel
+    fallback_path = root / fallback_rel
+
+    if map_path.exists() or map_path.is_symlink():
+        check_path_document(map_path, map_rel, "unreadable-map", "Map")
+        return PathResult(
+            "map",
+            str(map_path),
+            "这是索引：读它，再读取它列出的本次相关全部 leaf",
+        )
+    if fallback_path.exists() or fallback_path.is_symlink():
+        check_path_document(
+            fallback_path, fallback_rel, "unreadable-single", "单领域文档"
+        )
+        return PathResult("single", str(fallback_path), "单上下文，读这一份")
+    return PathResult(
+        "none",
+        "",
+        "这个仓库没有领域文档：直接往下走，不要停下来建，也不要提它缺失",
+    )
+
+
+def map_skeleton(map_seed: bytes) -> bytes:
+    return (
+        b"# Context Map\n\n"
+        + map_seed
+        + b"\n## Contexts\n\n"
+        + b"| Context | Leaf | Owns |\n"
+        + b"| --- | --- | --- |\n\n"
+        + b"## Relationships\n"
+    )
+
+
+def init_map(root: Path, config_path: Path) -> str:
+    domain = load_domain_config(root, config_path)
+    map_rel = domain["map"]
+    ensure_unique_managed_targets(root, map_rel)
+    map_path = root / map_rel
+    reject_unsafe_target(map_path, map_rel)
+    if map_path.exists():
+        fail(map_rel, "target-exists", "配置 Map 已存在，map-init 不会覆盖")
+    skeleton = map_skeleton(read_seed("CONTEXT-MAP-rules.md"))
+
+    try:
+        map_path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor = os.open(
+            map_path,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            0o644,
+        )
+    except FileExistsError:
+        fail(map_rel, "target-exists", "配置 Map 已存在，map-init 不会覆盖")
+    except OSError as error:
+        fail(map_rel, "io-error", f"无法独占创建 Map：{error}")
+
+    try:
+        with os.fdopen(descriptor, "wb") as map_file:
+            map_file.write(skeleton)
+            map_file.flush()
+            os.fsync(map_file.fileno())
+    except OSError as error:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        try:
+            map_path.unlink(missing_ok=True)
+        except OSError as cleanup_error:
+            fail(
+                map_rel,
+                "io-error",
+                f"写入 Map 失败：{error}；无法删除不完整文件：{cleanup_error}",
+            )
+        fail(map_rel, "io-error", f"写入 Map 失败，已删除不完整文件：{error}")
+    return map_rel
+
+
 def check_contracts(root: Path, config_path: Path, host: str) -> CheckResult:
     if host not in {"claude-code", "pi", "codex"}:
         fail("-", "invalid-config", f"无法识别宿主：{host}")
@@ -727,6 +824,12 @@ def parse_args() -> argparse.Namespace:
     paths = subparsers.add_parser("paths")
     paths.add_argument("--root", required=True, type=Path)
     paths.add_argument("--config", required=True, type=Path)
+    path = subparsers.add_parser("path")
+    path.add_argument("--root", required=True, type=Path)
+    path.add_argument("--config", required=True, type=Path)
+    map_init = subparsers.add_parser("map-init")
+    map_init.add_argument("--root", required=True, type=Path)
+    map_init.add_argument("--config", required=True, type=Path)
     return parser.parse_args()
 
 
@@ -746,6 +849,14 @@ def main() -> int:
         if args.command == "paths":
             domain = load_domain_config(root, args.config.resolve())
             print(json.dumps(domain, ensure_ascii=False))
+            return 0
+        if args.command == "path":
+            result = locate_domain_document(root, args.config.resolve())
+            print(f"{result.shape}\t{result.path}\t{result.instruction}")
+            return 0
+        if args.command == "map-init":
+            map_rel = init_map(root, args.config.resolve())
+            print(f"map-init\t{map_rel}\tcreated")
             return 0
     except ContractError as error:
         print(
