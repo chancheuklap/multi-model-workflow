@@ -26,11 +26,11 @@ ADR 住在 `mmw domain dirs` 返回的 `adr` 路径，按顺序编号：`0001-sl
 
 跑 `mmw domain adr-next`，它扫 ADR 目录取最大的号加一，四位零填充。目录不存在或者空的时候给 `0001`。
 
-**这是单条分支的情形。** 几条分支可能同时写 ADR 时，各自加一必定撞号——跑 `/mmw-wayfinder` 就是这种情形，好几个会话各在自己的分支上解一条 decision ticket 链。这类分支上先写成草稿名：
+**这是单条分支的情形。** 几条分支可能同时写 ADR 时，各自加一必定撞号——跑 `/mmw-wayfinder` 就是这种情形，好几个会话各在自己的分支上解一张 decision ticket。这类分支上先写成草稿名：
 
 文件名用 `draft-<ticket 编号>-<kebab-标题>.md`，落在 `mmw domain dirs` 返回的 `adr` 路径。
 
-草稿不占号（`mmw domain adr-next` 只数正式编号）。等这条链合回上一层分支时再统一改成正式编号。单条分支独占的场景不用绕这一道，直接取下一个号。
+草稿不占号（`mmw domain adr-next` 只数正式编号）。等这张 decision ticket 的结果分支合回上一层分支时再统一改成正式编号。单条分支独占的场景不用绕这一道，直接取下一个号。
 
 ## 什么时候才提议写 ADR
 

@@ -26,7 +26,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 | 一个 issue 编号，已是 `ready-for-agent`，整项工作可以作为一张 ticket 独立验收，只有一个已确认的测试 seam，而且没有未决设计取舍 | **移交**：`$mmw:mmw-implement` |
 | 一个 issue 或 PR 编号，已是 `ready-for-agent`，但需要拆成多张 ticket、需要多个测试 seam，或者还有设计取舍要谈 | **移交**：`$mmw:mmw-to-spec` |
 | 有东西坏了、报错、跑不通、变慢了，或者挂了 `bug` | **移交**：`$mmw:mmw-diagnosing-bugs` |
-| 一个 effort，还不知道要拆成哪几份 spec，或者挂了 `big` | **移交**：`$mmw:mmw-wayfinder` |
+| 一个 effort 超出一次 agent session，而且从当前状态到 destination 的路线还看不清，或者挂了 `big` | **移交**：`$mmw:mmw-wayfinder` |
 | 想先看看某个界面长什么样，或者不确定一套状态模型对不对 | **移交**：`$mmw:mmw-prototype` |
 | 只要一条查得清的事实，比如某个库或某个外部接口的官方说法 | **移交**：`$mmw:mmw-research`，跳过第 2、3 步 |
 | 一个新需求，或对已有需求的改进 | **移交**：`$mmw:mmw-grilling` |
@@ -35,7 +35,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 **先做原型还是先谈清楚**：他要的是先看见一个能跑的东西，走 `$mmw:mmw-prototype`；他要的是先把这件事说清楚，走 `$mmw:mmw-grilling`。分不出来时走 `$mmw:mmw-grilling`。
 
-**effort 怎么认**：判据是这件事要拆成几份 spec。一份 spec 说得完、拆出的 ticket 都挂在这份 spec 底下，走 `$mmw:mmw-grilling`。要好几份 spec 才做得完，而且哪几份、按什么顺序都还没有答案，才是 `$mmw:mmw-wayfinder`。
+**effort 怎么认**：同时满足两个条件才走 `$mmw:mmw-wayfinder`。第一，这件事超出一次 agent session 能容纳的范围。第二，从当前状态到 destination 的路线还看不清。最终形成一份还是多份 spec 不是入口判据。范围大但路线已经清楚时，直接进入 `$mmw:mmw-to-spec` 或 `$mmw:mmw-to-tickets`；路线模糊但一次会话能谈清时，走 `$mmw:mmw-grilling`。
 
 带 issue 编号的，先 `gh issue view <编号> --comments` 把它读出来再判，不要只看编号。标签的含义见 `$mmw:mmw-triage`。
 
@@ -79,6 +79,8 @@ Codex App 在任务创建时已经准备好 detached worktree。确认任务范�
 报一句你定的 slug 和你要走的路线，然后接着做，不用停下来等用户确认。
 
 **第 2 步列出的四条路线同样跳过本步**，直接移交。
+
+下表准备移交下一技能时，先读 [phase-boundaries.md](phase-boundaries.md)，按顺序判断是否留在当前会话。因路由冲突停下不触发阶段边界判断。
 
 ## 下一步
 

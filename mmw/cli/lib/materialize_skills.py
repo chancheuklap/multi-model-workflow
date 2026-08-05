@@ -290,6 +290,26 @@ def expand_host_action(name: str, host: str) -> str:
             return "Codex App 管理后台任务的 worktree；归档对应任务后由 App 清理，不运行 `mmw task cleanup`。"
         return "用户批准清理后，运行 `mmw task cleanup <slug>`。"
 
+    if name == "phase-boundary-capabilities":
+        if host == "codex":
+            return (
+                "Codex App 会在当前任务中自动管理上下文压缩，主 agent 没有可调用的 `clear` 或 "
+                "`compact` 动作。Continue 时留在当前任务；需要 portability 时调用 `/handoff`；"
+                "AFK 工作只按调用技能已有的原生 subagent 或后台 Worktree 合同派发。"
+                "不得要求用户执行不存在的 Codex 命令，也不得声称自动压缩已经发生。"
+            )
+        if host == "claude-code":
+            return (
+                "Claude Code 的 `/clear` 与 `/compact` 由用户触发。决策树选中其中一个时，"
+                "停在阶段边界，给出准确命令和恢复所需出处，等用户执行后继续。"
+                "需要 portability 时调用 `/handoff`；AFK 工作按调用技能的 Agent 或后台 dispatch 合同派发。"
+            )
+        return (
+            "Pi 没有由本 plugin 保证可调用的 clear 或 compact 动作。Continue 时留在当前会话；"
+            "需要 portability 时调用 `/handoff`；AFK 工作按调用技能的原生 subagent 合同派发。"
+            "不得声称已经清空或压缩上下文。"
+        )
+
     die(f"不认识的宿主动作：{name}")
 
 

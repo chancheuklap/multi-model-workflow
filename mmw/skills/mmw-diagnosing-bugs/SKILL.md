@@ -53,6 +53,8 @@ Phase 1 完成的标志是这个 loop 既 **tight** 又 **red-capable**：你能
 
 发现自己在这条命令还不存在的时候就开始读代码建理论，**停下**。
 
+下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
+
 ## 下一步
 
 | 情况 | 下一步 |

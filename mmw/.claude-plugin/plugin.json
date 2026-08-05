@@ -1,6 +1,6 @@
 {
   "name": "mmw",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "多模型开发编排。Claude 主 agent 编排与判定，GPT `worker` 写代码，GPT `planner` 写 plan，`reviewer-gpt` 与 `reviewer-claude` 跨模型审查。长在 Matt Pocock 的工程技能之上。",
   "author": {
     "name": "Cheuklap Chan",
@@ -17,6 +17,9 @@
   ],
   "skills": [
     "./skills-claude-code/handoff",
+    "./skills-claude-code/to-questionnaire",
+    "./skills-claude-code/wait-what",
+    "./skills-claude-code/wizard",
     "./skills-claude-code/mmw-closing",
     "./skills-claude-code/mmw-codebase-design",
     "./skills-claude-code/mmw-diagnosing-bugs",
@@ -40,6 +43,6 @@
     "./skills-claude-code/mmw-triage",
     "./skills-claude-code/mmw-verifying-agent-output",
     "./skills-claude-code/mmw-wayfinder",
-    "./skills-claude-code/writing-great-skills"
+    "./skills-claude-code/writing-for-agents"
   ]
 }

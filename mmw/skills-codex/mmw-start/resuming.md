@@ -17,7 +17,7 @@
 | 当初用户要的是什么 | 分支上第一个提交的正文，也就是那个空提交：`git log --reverse --format='%B' $(git merge-base HEAD <父分支>)..HEAD \| head -20` |
 | 是不是一个 `$mmw:mmw-wayfinder` 的 effort | 有没有一张打 `wayfinder:map` 标签的 issue 指向这个 slug |
 | 这张 map 走到哪一步了 | `mmw issue children <map 编号>`：一行一张，带状态、认领人、被几张挡着 |
-| 有几条链在同时跑 | 查从该任务分支派生的 worktree 与结果分支；每个结果分支是一条链 |
+| 有几张 decision ticket 在同时推进 | 查从该任务分支派生的 worktree 与结果分支；每个结果分支只对应一张 decision ticket |
 | spec 有没有写出来 | `docs/specs/<slug>/` 在不在，里面的文件有没有提交进分支 |
 | spec 过没过用户那道关卡 | 那张 spec issue 在不在、带没带 `ready-for-agent` 标签。这两样齐了才算过了这道关卡 |
 | ticket 有没有拆 | `mmw issue children <spec issue 编号>` 有没有输出 |

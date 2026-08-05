@@ -449,16 +449,16 @@ end
 subgraph MAIN["主干 · 从想法到落地"]
   direction LR
   gri["<b>mmw-grilling</b><br/>· 开问前先查仓库现状<br/>· 用设计树组织当前 frontier<br/>· 每轮批量提出整个 frontier<br/>· 同时应用 domain-modeling<br/>· 共同理解经用户确认才完成"]
-  pro[["<b>mmw-prototype</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 一轮只回答一个问题<br/>· 界面变体派 prototype-worker<br/>· 第四条 branch 验外部系统<br/>· 产物是资产，不是一次性代码"]]
+  pro[["<b>mmw-prototype</b><br/>· 一轮只回答一个设计问题<br/>· 逻辑原型是可双击打开的单文件 HTML<br/>· 同时提供自由操作与引导式走查<br/>· 走查后的资产保留在 docs/prototypes/"]]
   tsp[["<b>mmw-to-spec</b><br/>· 七条入口各自取齐上游产物<br/>· seam 在这里钉死<br/>· spec 定稿的人工审批关卡通过后发布"]]
-  ttk[["<b>mmw-to-tickets</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 切成 tracer bullet<br/>· 正文只留摘要<br/>· ## Plan 一节先占住 plan 路径<br/>· 清单亮完就走"]]
+  ttk[["<b>mmw-to-tickets</b><br/>· 切成 tracer bullet<br/>· 声明阻塞关系与 prototype 资产<br/>· 用户通过 ticket 切分人工审批关卡<br/>· 批准后才发布到 tracker"]]
   imp[["<b>mmw-implement</b><br/>· 一张 ticket 派一个可写 worker<br/>· Codex 用独立后台 Worktree 任务<br/>· 每份走 ③ 逐份验收三关<br/>· 全部合并后走 ④ 合同门"]]
-  tdd[("<b>mmw-tdd</b><br/>· red 到 green 的循环<br/>· seam 由 spec 钉死<br/>· 整份由 worker 技能注入，不进 task 正文")]
+  tdd[("<b>mmw-tdd</b><br/>· red 到 green 的循环<br/>· seam 由 spec 钉死<br/>· seam 未定时读 codebase-design<br/>· 当前测试交错运行，全套只在末尾运行一次")]
   pln[["<b>mmw-to-plan</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 一张 ticket 一份 plan<br/>· 派 planner 写<br/>· 主 agent 先划跨 plan 合同<br/>· 验证返回，回填精确字段"]]
   pnr[("<b>mmw-planner</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 写计划方法论<br/>· planner 进门读它<br/>· 主 agent 不读")]
   clo["<b>mmw-closing</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· spec 与 plan 转成 Wiki 一页<br/>· 推送前给用户看<br/>· verify 三条全过才删本地"]
   intg[["<b>mmw-integrate</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 验证结果分支、HEAD 与基点<br/>· 按合同依赖排序<br/>· 合入当前任务分支"]]
-  rel["<b>mmw-release</b><br/>· 主 agent 驱动正式出包循环<br/>· 核对所有包的 source commit<br/>· 用户实测通过后收尾"]
+  rel["<b>mmw-release</b><br/>· 当前 HEAD 必须等于终审提交<br/>· 主 agent 驱动正式出包循环<br/>· 核对所有包的 source commit<br/>· 用户实测通过后收尾"]
   crv[["<b>mmw-review</b><br/>· 六道审的编排<br/>· 选视角、备材料、派发<br/>· findings 逐条判定"]]
   shp((("<b>提交到<br/>当前分支</b>")))
 end
@@ -467,7 +467,7 @@ subgraph RAMP["支线入口 · 先产生工作，再并回主干"]
   direction TB
   tri[["<b>mmw-triage</b><br/>· 收集上下文，给建议<br/>· 验断言<br/>· 判状态，写 agent brief"]]
   dbg[["<b>mmw-diagnosing-bugs</b><br/>· Phase 1 造 loop<br/>· 复现、最小化、提假设、埋点<br/>· Phase 5 的修派 worker"]]
-  wfd[["<b>mmw-wayfinder</b><br/>· 三条 branch：画 map、走一条链、收尾<br/>· 内部展开见第二张图"]]
+  wfd[["<b>mmw-wayfinder</b><br/>· effort 超过一个 agent 会话且路线尚不清楚<br/>· 三段：画 map、每会话解一张 decision ticket、收尾<br/>· 内部展开见第二张图"]]
 end
 
   ica[["<b>mmw-improve-codebase-architecture</b><br/>· 一个视角一个 subagent<br/>· 五个都扫同一片地方<br/>· 用户挑中候选之后才绑定 App worktree"]]
@@ -480,19 +480,23 @@ subgraph VOCAB["跑在别的技能底下"]
   vfy["<b>mmw-verifying-agent-output</b><br/>· 关键断言都要有出处<br/>· 取证可以派，判定不可以"]
   dmo["<b>mmw-domain-modeling</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 计划或想法的整体追问转 grilling<br/>· 唯一往仓库写领域文档的技能<br/>· none 仅在明确建模且首个长期术语定下时创建<br/>· 多 context 首次建模由 mmw domain map-init 注入受管骨架<br/>· 术语写 leaf；三项判据全成立才写 ADR<br/>· 落点跑 mmw domain path / dirs 取"]
   cbd["<b>mmw-codebase-design</b><br/>· module · interface · seam<br/>· adapter · depth<br/>· DESIGN-IT-TWICE 派 designer"]
+  phb["<b>phase boundaries</b><br/>· 只在移交新阶段时检查<br/>· 默认 Continue<br/>· 必要时 clear、handoff、AFK 或 compact<br/>· 宿主不支持的动作不伪装"]
 end
 
 subgraph SOLO["独立使用"]
   direction TB
   res[["<b>mmw-research</b><br/>· 查内部与查外部两个方向<br/>· 一个角度一个 subagent<br/>· 各拿各的 task"]]
   hof["<b>handoff</b>"]
-  wgs["<b>writing-great-skills</b>"]
+  wfa["<b>writing-for-agents</b>"]
+  wiz["<b>wizard</b><br/>复杂人工操作的可审查向导"]
+  tq["<b>to-questionnaire</b><br/>转交知识持有者的问题清单"]
+  wwt["<b>wait-what</b><br/>从仓库事实生成用户说明"]
 end
 
 ctx[/"<b>目标 AGENTS.md 与领域文档</b><br/>· 主 agent 与 subagent 的共同领域入口<br/>· Map 是 Context / Leaf / Owns 三列表<br/>· leaf 是已登记的命名 Markdown 文件<br/>· 共享术语使用 authoritative 引用<br/>· ADR 落点跑 mmw domain dirs 取"/]
 trk[/"<b>issue tracker</b><br/>· map、spec、ticket 三层"/]
 oos[/"<b>.out-of-scope/</b><br/>· 一个概念一个文件"/]
-pta[/"<b>docs/prototypes/</b><br/>· 不随 spec 转 Wiki 删除"/]
+pta[/"<b>docs/prototypes/</b><br/>· 不随 spec 转 Wiki 删除<br/>· 逻辑 branch 的纯模块移入正式代码<br/>· HTML 外壳与全部变体继续留作 primary source"/]
 wik[/"<b>GitHub Wiki</b><br/>· 此后是这份 spec 的<br/>  唯一事实来源"/]
 rvr[("<b>mmw-reviewer</b><br/>· 审查方法论单源<br/>· 共享纪律加八个视角<br/>· 审查者进门读它，主 agent 不读")]
 
@@ -507,7 +511,7 @@ cfg -.->|"mmw domain path 读它"| ctx
 cfg -.->|"Wiki 与路径"| clo
 
 mms ==>|"新需求，先谈"| gri
-mms ==>|"报 map 或 decision ticket 的编号、<br/>标了 big，或要拆成好几份 spec"| wfd
+mms ==>|"报 map 或 decision ticket 的编号、<br/>标了 big，或 effort 超过一个会话且路线未清"| wfd
 mms ==>|"用户标了 bug<br/>或说有东西坏了"| dbg
 mms ==>|"issue 还没评估过"| tri
 mms ==>|"issue 已是 ready-for-agent<br/>可作为一张 ticket 独立验收<br/>只有一个 Test seam，没有未决取舍"| imp
@@ -524,7 +528,7 @@ ctx -.->|"用领域语言给 seam 起名"| ica
 gri ==>|"谈定就综合成 spec"| tsp
 tsp -->|"用户点头才发布 issue<br/>打 ready-for-agent"| trk
 tsp ==>|"切 tracer bullet"| ttk
-ttk -->|"阻塞边"| trk
+ttk -->|"用户批准切分与阻塞关系后才发布"| trk
 ttk ==>|"从 frontier 一张一张取<br/>各写一份 plan"| pln
 imp ==>|"seam 由 spec 钉死<br/>走 red 到 green"| tdd
 tdd ==>|"重构不在这个循环里，留到终审"| crv
@@ -547,6 +551,7 @@ dbg ==>|"找不到 correct seam<br/>或复盘牵涉架构改动"| ica
 wfd ==>|"给 destination 命名<br/>再广度优先横扫"| gri
 wfd ==>|"research ticket，AFK"| res
 wfd ==>|"prototype ticket，HITL"| pro
+wfd -.->|"复杂人工 task"| wiz
 wfd -->|"map 与它的 decision ticket"| trk
 wfd ==>|"收尾时派生 spec，它自己不实现"| tsp
 
@@ -558,6 +563,7 @@ ica ==>|"grilling 谈定之后回到它，由它移交"| tsp
 tdd -.->|"seam 的权威定义"| cbd
 res -->|"一份带引用的 markdown 作为输入"| gri
 gri ==>|"某个决定必须看见实物<br/>才能判断"| pro
+gri -.->|"需要另一位知识持有者回答"| tq
 pro -->|"逐轮迭代，走查过的产物留在仓库里"| pta
 pro ==>|"用户走查过了<br/>结论回填成 Implementation Decisions"| tsp
 mms ==>|"想先看看长什么样<br/>或不确定这套状态对不对"| pro
@@ -587,6 +593,8 @@ intg ==>|"需要 ⑥ 合并集成审"| crv
 imp ==>|"终审通过且产品需要出包"| rel
 rel ==>|"安装包由用户实测通过"| clo
 intg -.->|"mmw result verify → 主 agent 验收 → integrate"| cl1
+phb -.->|"移交时选择上下文动作"| hof
+phb -.->|"能继续时保留当前上下文"| mms
 
 classDef user fill:#FBF2E4,stroke:#8A9490,stroke-width:1.5px,color:#2B2419;
 classDef model fill:#E4EDF0,stroke:#8A9490,stroke-width:1.5px,color:#14282C;
@@ -605,7 +613,7 @@ classDef hWfd fill:#E4EDF0,stroke:#0F766E,stroke-width:2.4px,color:#14282C;
 classDef hTri fill:#E4EDF0,stroke:#0369A1,stroke-width:2.4px,color:#14282C;
 classDef hIca fill:#E4EDF0,stroke:#7E22CE,stroke-width:2.4px,color:#14282C;
 
-class wgs,hof user;
+class wfa,hof,wiz,tq,wwt user;
 class cbd,tdd,crv,dbg,imp,pro,res,ttk,tsp,rvr,pln,pnr,clo,intg,rel model;
 class trk,oos,pta,wik art;
 class dsp,vfy,cdx,cwt hOwn;
@@ -620,6 +628,7 @@ class ctx hCtx;
 class wfd hWfd;
 class tri hTri;
 class ica hIca;
+class phb term;
 linkStyle 0 stroke:#A16207,color:#A16207,stroke-width:2.2px;
 linkStyle 1 stroke:#A16207,color:#A16207,stroke-width:1.8px;
 linkStyle 2 stroke:#A16207,color:#A16207,stroke-width:1.8px;
@@ -735,16 +744,16 @@ subgraph PA["A 段 · 一个会话建 map · 建完就停，一张 ticket 都不
 direction TB
   a1["第一步，给 destination 命名。<br/>它固定了范围，所以最先定"]
   a2["第二步，广度优先横扫整个空间。<br/>每条线都碰一下，不在任何一条上扎深"]
-  a3{"横扫下来，还有<br/>说不清楚的部分吗？"}
+  a3{"这项工作是否超过一个 agent 会话，<br/>而且路线仍不清楚？"}
   a4["建 map issue，打上 wayfinder:map 标签"]
   a5["已经能精确表述的问题，各建一张 decision ticket"]
   a6["第二遍补阻塞关系。<br/>issue 要先有编号，才能互相引用"]
   a7[["派 research subagent，逐条判定报告，<br/>把验证过的事实写进对应 ticket 的评论"]]
 end
 
-hA(["停，交回用户<br/>报 map 已经建好，说明怎么开会话认领链"])
+hA(["停，交回用户<br/>报 map 已经建好，说明怎样另开会话认领一张 decision ticket"])
 
-subgraph PB["B 段 · 一个会话解一条链 · 链到头就停"]
+subgraph PB["B 段 · 一个会话解一张 decision ticket · 解完就停"]
 direction TB
   b1["读一遍 map，只看整体，不逐个打开 ticket"]
   b0{"frontier 上<br/>还有 ticket 吗？"}
@@ -754,12 +763,10 @@ direction TB
   b5["把答案写成结案评论，然后关掉这张 ticket"]
   b6{"mmw-domain-modeling 的<br/>三项 ADR 判据全部成立吗？"}
   b7["回头改 map。<br/>新问题先建 ticket 再连阻塞关系，<br/>判出范围的直接关掉"]
-  b8{"这张解开之后，下一张<br/>出现在 frontier 上、没人认领吗？"}
-  b8b{"那一张是 HITL 还是 AFK？<br/>按 wayfinder: 标签判"}
-  b9["这条链收尾：草稿 ADR 改成正式编号，<br/>交回分支、HEAD SHA 与基点 SHA；map 任务验证后集成"]
+  b9["本张 decision ticket 收尾：草稿 ADR 改成正式编号，<br/>交回分支、HEAD SHA 与基点 SHA；map 任务验证后集成"]
 end
 
-hB(["停，交回用户<br/>报这条链做完了，frontier 上还剩几张可以认领"])
+hB(["停，交回用户<br/>报本张 decision ticket 已完成，并列出当前 frontier"])
 
 subgraph TY["四类 ticket 怎么解 · 要人在场的那三类，agent 不许替人回答"]
 direction TB
@@ -770,7 +777,7 @@ direction TB
   r1[["按 mmw-research 派 subagent"]]
   r2["按 mmw-verifying-agent-output 逐条验证。<br/>每条关键断言都要有主 agent 能自己验证的出处"]
   r3["验证过的事实写进 ticket 评论，<br/>没查清的另起一节列出来"]
-  hT(["停，交回用户<br/>给一份精确的操作清单，等他做完再继续"])
+  hT(["停，交回用户<br/>简单任务给精确清单；复杂任务先用 wizard 生成向导"])
 end
 
 subgraph PC["C 段 · 收尾 · frontier 空了后由 map 任务统一收口"]
@@ -788,7 +795,7 @@ subgraph PD["D 段 · 每份 spec 各自的会话"]
 direction TB
   d1["Codex 从 map 分支创建这份 spec 的 Worktree 任务并绑定任务分支"]
   d2["mmw-to-spec 综合成 spec，钉住 seam。<br/>用户点头通过 spec 定稿的人工审批关卡"]
-  d3["mmw-to-tickets 切 tracer bullet"]
+  d3["mmw-to-tickets 切 tracer bullet。<br/>用户批准切分与阻塞关系后才发布"]
   d4[["mmw-implement，一张 ticket 创建一个 Codex 后台 Worktree 任务"]]
   d5[["mmw-review，每个视角派独立 reviewer subagent"]]
   d6["spec 任务交回分支、HEAD 与基点；map 任务验证后集成"]
@@ -797,7 +804,7 @@ end
 
 pmap[/"<b>map issue</b> · GitHub<br/>· A 段建<br/>· B 段每解完一张追加一行索引<br/>· C 段关掉，不转 Wiki"/]
 ptk[/"<b>decision ticket</b> · map 的子 issue<br/>· A 段建第一批，B 段边走边补<br/>· 解开就关掉<br/>· 答案本体留在结案评论里"/]
-adr[/"<b>ADR</b> · 落点跑 mmw domain dirs 取<br/>· 三项判据全部成立才写<br/>· 链上先写 draft- 草稿名<br/>· 随 map 分支进入最终目标"/]
+adr[/"<b>ADR</b> · 落点跑 mmw domain dirs 取<br/>· 三项判据全部成立才写<br/>· decision ticket 内先写 draft- 草稿名<br/>· 随 map 分支进入最终目标"/]
 ctx[/"<b>目标 AGENTS.md 与领域文档</b> · 住 map 分支<br/>· 主 agent 与 subagent 共用领域入口<br/>· Map 登记命名 Markdown leaf 与 authoritative 引用<br/>· leaf 与 ADR 随 map 分支进入最终目标"/]
 oos[/"<b>.out-of-scope/</b> · 住 map 分支<br/>· 判出范围时写<br/>· 一个概念一个文件<br/>· 下次分诊先查它去重"/]
 spf[/"<b>docs/specs/&lt;slug&gt;/</b> · 住 spec 分支<br/>· D 段 mmw-to-spec 写<br/>· mmw-to-plan 补 plan<br/>· 代码落地后转成 Wiki 一页"/]
@@ -806,8 +813,8 @@ wik[/"<b>Wiki 的 Spec-&lt;slug&gt;.md</b><br/>· D 段收尾时写<br/>· 此�
 ent --> a1
 a1 --> a2
 a2 --> a3
-a3 -->|"没有。一份 spec 就说得完，不用画 map，直接移交"| d2
-a3 -->|"有"| a4
+a3 -->|"否。路线清楚且能在一个会话内推进，直接移交"| d2
+a3 -->|"是"| a4
 a4 --> a5
 a5 --> a6
 a6 --> a7
@@ -837,9 +844,7 @@ b5 --> b6
 b6 -->|"是，另写一份 ADR"| adr
 b6 -->|"否，结案评论就够了"| b7
 adr --> b7
-b7 --> b8
-b8 -->|"在，还没被认领"| b8b
-b8 -->|"不在，这条链到头了"| b9
+b7 --> b9
 b9 -->|"frontier 还有"| hB
 b9 -->|"frontier 空了，map 任务收尾"| c1
 b5 -.->|"答案写进结案评论，然后关掉"| ptk
@@ -847,7 +852,7 @@ b5 -.->|"追加一行索引"| pmap
 b5 -.->|"谈出来的新术语"| ctx
 b7 -.->|"判出范围的写一份"| oos
 b7 -.->|"新建的 ticket"| ptk
-hB -.->|"用户再开一个会话"| b1
+hB -.->|"用户为另一张 decision ticket 开新会话"| b1
 c1 --> c2
 c2 -->|"有。建成新的 decision ticket"| hB
 c2 -->|"没有"| c3
@@ -868,8 +873,6 @@ d5 --> d6
 d6 --> d7
 d2 -.->|"spec 正文落盘"| spf
 spf -.->|"代码落地后转成一页"| wik
-b8b -->|"AFK：mmw issue claim 认领，接着解，<br/>还在同一棵 worktree 里"| b4
-b8b -->|"HITL：不认领，交回用户"| hB
 a7 -.->|"查清的当场关掉，答案写进结案评论"| ptk
 a7 -.->|"往 Decisions so far 追加一行"| pmap
 
@@ -884,24 +887,13 @@ classDef sink fill:#FFFFFF,stroke:#4D7C0F,stroke-width:2.2px,color:#22300B;
 
 class ent hMms;
 class a1,a2,a3,a4,a5,a6,a7 pa;
-class b0,b1,b2,b3,b4,b5,b6,b7,b8,b8b,b9 pb;
+class b0,b1,b2,b3,b4,b5,b6,b7,b9 pb;
 class t1,t2,t3,t4,r1,r2,r3 ty;
 class c1,c2,c3,c4,c5 pc;
 class d1,d2,d3,d4,d5,d6,d7 pd;
 class pmap,ptk,adr,oos,ctx,spf,wik sink;
 class hA,hB,hC,hT halt;
 
-linkStyle 0,1,2,4,5,6,7,8 stroke:#0F766E,color:#0B5C56,stroke-width:2.4px;
-linkStyle 11,24,25,44,56 stroke:#C2410C,color:#9A330A,stroke-width:3px;
-linkStyle 12,13,14,15,16,30,32,33,34,35,36,37,38 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 17,18,19,20,21,22,23,26,27,28,29 stroke:#0369A1,color:#02537E,stroke-width:2.2px;
-linkStyle 45,46,47,51,52,54 stroke:#7E22CE,color:#661BA6,stroke-width:2.2px;
-linkStyle 57,58,59,60,61,62 stroke:#BE185D,color:#9C1049,stroke-width:2.2px;
-linkStyle 9,10,31,39,40,41,42,43,48,49,50,53,55,63,64 stroke:#4D7C0F,color:#3D640C,stroke-width:2px;
-linkStyle 3 stroke:#8A9490,color:#5E6A66,stroke-width:1.6px;
-linkStyle 65 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 66 stroke:#C2410C,color:#9A330A,stroke-width:3px;
-linkStyle 67,68 stroke:#4D7C0F,color:#3D640C,stroke-width:2px;
 </pre>
 </div>
 </div>

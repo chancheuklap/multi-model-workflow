@@ -30,6 +30,8 @@ MMW 的用户界面是技能。日常工作的统一入口是 `$mmw:mmw-start`�
 
 MMW 会在每个 agent 开工前选择本次涉及的领域文档。任务进入另一个 bounded context 时，agent 会重新选择相应 leaf。长期形成的新术语和关系由 `mmw-domain-modeling` 写回拥有它们的 leaf。难以回退的决定进入 ADR。
 
+每次技能准备移交到新阶段时，MMW 会检查上下文边界。默认先继续当前会话。只有当前上下文已经不适合下个阶段时，才交接到新会话、交给独立 subagent，或者生成 `handoff` 文档。宿主没有清理或压缩能力时，MMW 不会假装执行这些动作。
+
 ### task（四栏表）
 
 主 agent 派发 subagent 时，会写一份四栏 task。task 是一次派发的完整合同。
@@ -57,7 +59,7 @@ subagent 交回的是报告。报告中的断言只有经过主 agent 验证才�
 
 | 分组 | 技能 | 职责 |
 | --- | --- | --- |
-| 入口与分诊 | `mmw-start`、`mmw-triage`、`mmw-wayfinder` | 路由新工作；分诊 issue 和 PR；规划需要多份 spec 的 effort |
+| 入口与分诊 | `mmw-start`、`mmw-triage`、`mmw-wayfinder` | 路由新工作；分诊 issue 和 PR；规划超过一个 agent 会话且路线尚不清楚的 effort |
 | 调查与收敛 | `mmw-grilling`、`mmw-prototype`、`mmw-research`、`mmw-retrieval`、`mmw-diagnosing-bugs`、`mmw-improve-codebase-architecture` | 谈清需求；用原型回答设计问题；调查事实；恢复检索能力；诊断 bug；寻找架构改进候选 |
 | 领域与设计 | `mmw-domain-modeling`、`mmw-codebase-design` | 维护领域语言和 ADR；定义 module、interface、seam、adapter 与 depth |
 | 交付 | `mmw-to-spec`、`mmw-to-tickets`、`mmw-to-plan`、`mmw-implement`、`mmw-tdd` | 发布 spec；拆 tracer bullet ticket；写 plan；派 `worker` 实现；执行 red 到 green 的测试循环 |
@@ -66,7 +68,15 @@ subagent 交回的是报告。报告中的断言只有经过主 agent 验证才�
 
 直接触发专业技能时使用 `$mmw:<技能名>`。例如，审查一条已有分支可以显式调用 `$mmw:mmw-review`。日常使用仍以 `$mmw:mmw-start` 为主。
 
-MMW 插件（plugin）还包含 `handoff` 和 `writing-great-skills` 两个辅助技能。它们不属于上述 23 个 MMW 工作流技能，也不参与 `mmw-start` 路由。
+MMW 插件（plugin）还包含五个辅助技能。它们不属于上述 23 个 MMW 工作流技能，也不参与 `mmw-start` 的日常路线。
+
+| 辅助技能 | 用途 |
+| --- | --- |
+| `handoff` | 把当前会话压缩成可由另一个 agent 继续的交接文档 |
+| `writing-for-agents` | 约束技能、agent 指令和其他供 agent 读取的文本 |
+| `wizard` | 为复杂的人工操作生成可审查、可逐步执行的向导脚本 |
+| `to-questionnaire` | 把缺失信息整理成可转交给另一位知识持有者的问题清单 |
+| `wait-what` | 从目标仓库当前事实生成面向用户的功能说明 |
 
 ## 用户使用的三个阶段
 
@@ -205,7 +215,7 @@ $mmw:mmw-start <map 编号或链接>
 | 7 | 已是 `ready-for-agent`，可以作为一张 ticket 独立验收，只有一个 Test seam，没有未决设计取舍 | `mmw-implement` |
 | 8 | 已是 `ready-for-agent`，但需要多张 ticket、多个 Test seam 或仍有设计取舍 | `mmw-to-spec` |
 | 9 | 有东西坏了、报错、跑不通、变慢，或者显式使用 `bug` | `mmw-diagnosing-bugs` |
-| 10 | 一项需要多份 spec 的 effort，或者显式使用 `big` | `mmw-wayfinder` |
+| 10 | 一项超过一个 agent 会话且路线尚不清楚的 effort，或者显式使用 `big` | `mmw-wayfinder` |
 | 11 | 想先看界面原型，或者要验证一套状态模型 | `mmw-prototype` |
 | 12 | 只需要查清一条内部或外部事实 | `mmw-research` |
 | 13 | 新需求，或者对已有需求的改进 | `mmw-grilling` |
@@ -213,6 +223,10 @@ $mmw:mmw-start <map 编号或链接>
 | 15 | 集成并行分支、让结果分支跟上目标分支，或者处理冲突 | `mmw-integrate` |
 
 issue 或 PR 的标签和 agent brief 会影响路由。用户只需提供编号或链接，`mmw-start` 负责读取完整内容和状态。
+
+`mmw-prototype` 产生的原型是任务资产。逻辑原型使用可直接双击打开的单文件 HTML，并同时提供自由操作和引导式走查。确认后的原型保留在 `docs/prototypes/<slug>/`，供 spec、ticket 和正式实现继续引用。
+
+`mmw-to-tickets` 会先展示 tracer bullet 切分、阻塞关系和 prototype 资产引用。用户通过 ticket 切分的人工审批关卡后，MMW 才把 ticket 发布到 tracker。
 
 ## 用户与主 agent 的责任
 

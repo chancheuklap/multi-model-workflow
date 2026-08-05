@@ -8,6 +8,10 @@
 回答一个只靠讨论定不下来的设计问题的粗糙可运行产物。
 _Avoid_: MVP、正式实现、静态设计稿
 
+**prototype 资产**：
+用户走查过的完整 prototype、逐轮记录和证据，保存在任务分支的 `docs/prototypes/<slug>/`，供 spec、ticket、plan、审查和实现持续引用。
+_Avoid_: 临时文件、生产实现、只留结论
+
 **走查**：
 用户使用 prototype 并给出接受、拒绝或修改意见。
 _Avoid_: 审查、自动验收
@@ -33,7 +37,7 @@ plan 内能携带自身测试周期、值得一名新审查者单独检查的最
 _Avoid_: tracer bullet ticket、阶段、代码层
 
 **人工审批关卡**：
-必须取得用户明确确认才能继续的关卡。`/mmw-grilling` 的人工审批关卡确认共同理解；`/mmw-to-spec` 的人工审批关卡确认 spec 定稿。两者不能互相替代。
+必须取得用户明确确认才能继续的关卡。`/mmw-grilling` 的关卡确认共同理解；`/mmw-to-spec` 的关卡确认 spec 定稿；`/mmw-to-tickets` 的关卡确认 ticket 粒度、blocking edge、合并和拆分。三者不能互相替代。
 _Avoid_: 人闸、人工门禁
 
 **HITL**：
