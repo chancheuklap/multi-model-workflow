@@ -131,6 +131,18 @@ MMW 接受 `context` 目录下的命名 Markdown leaf。AgentFlow 保留现有�
 | Map 项目路由 | 目标仓库 | `Contexts`、`Relationships` | 读取 Map 的 agent、doctor | 固定三列表格、自然语言关系列表、真实 leaf 路径 | doctor 验证结构和路径；agent 解释关系语义 |
 | 技能发布产物 | MMW 技能源 | 技能物化器 | Pi、Claude Code、Codex | 三个宿主的物化 Markdown | 物化 `--check` 与 Codex runtime 检查 |
 
+## Cross-Plan Contract Anchors
+
+| Plan | 文件归属 | 提供 | 消费 |
+| --- | --- | --- | --- |
+| 01 | 当前已漂移的 Pi 与 Claude Code 物化文件；不得修改技能源 | `mmw skills materialize --host all --check` 返回成功的三宿主零漂移基线 | 03 在 01 集成后重新物化领域技能改动 |
+| 02 | 两份领域规则种子、`context_docs.py`、init、domain、doctor CLI 接入和根 `AGENTS.md` 受管区块 | `mmw domain sync` 四列 TSV、`mmw domain check` 四列 TSV、`mmw domain path` 三列 TSV、doctor 领域状态行和两对固定 marker | 03 的领域建模技能、关键产出技能和架构图 |
+| 03 | 领域技能源、01 基线完成后的三宿主物化产物、根 `TESTING.md`、架构可视化和发布版本字段 | `0.9.0` 正式发布内容 | AgentFlow 独立迁移任务 |
+
+物化目录采用阶段性交接：01 只恢复既有源对应的基线并先集成；03 才能在领域技能源改变后重新生成最终产物。02 不修改物化目录。
+
+Plan 02 固定使用以下公开命令：`mmw domain sync` 成功时逐目标输出 `sync<TAB><agents|map|claude><TAB><仓库相对路径><TAB><状态>`；`mmw domain check` 成功时输出 `check<TAB><none|single|map><TAB><仓库相对路径或 -><TAB>valid`。失败统一返回 `1`，并把可定位诊断写入 stderr。Plan 03 只消费这些合同，不复制检查逻辑。
+
 ## Release Risk
 
 改动只更新 Markdown 合同、CLI 同步和检查行为，不迁移业务数据。受管区块更新可由版本控制回滚。同步器遇到歧义标记时停止，避免覆盖用户内容。
