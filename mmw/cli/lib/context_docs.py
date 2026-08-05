@@ -301,15 +301,20 @@ def atomic_write_targets(targets: list[Target]) -> None:
 def load_domain_config(root: Path, config_path: Path) -> dict[str, str]:
     try:
         raw = json.loads(config_path.read_text(encoding="utf-8"))
-        domain = raw["domain"]
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, KeyError, TypeError) as error:
         fail(".mmw.json", "invalid-config", f"无法读取 domain 配置：{error}")
+    if not isinstance(raw, dict) or "domain" not in raw:
+        fail(".mmw.json", "invalid-config", "配置必须包含 domain object")
+    domain = raw["domain"]
+    if not isinstance(domain, dict):
+        fail(".mmw.json", "invalid-config", "domain 必须是 object")
 
     result: dict[str, str] = {}
     for field, default in (
         ("map", "CONTEXT-MAP.md"),
         ("fallback", "CONTEXT.md"),
         ("context_dir", "docs/context"),
+        ("adr_dir", "docs/adr"),
     ):
         value = domain.get(field, default)
         if not isinstance(value, str) or not value:
@@ -317,10 +322,10 @@ def load_domain_config(root: Path, config_path: Path) -> dict[str, str]:
         path = Path(value)
         if path.is_absolute():
             fail(".mmw.json", "invalid-config", f"domain.{field} 必须是仓库相对路径")
-        resolved = (root / path).resolve()
         try:
+            resolved = (root / path).resolve()
             resolved.relative_to(root)
-        except ValueError:
+        except (OSError, RuntimeError, ValueError):
             fail(".mmw.json", "invalid-config", f"domain.{field} 不得越出仓库")
         result[field] = path.as_posix()
     return result
@@ -571,6 +576,9 @@ def parse_args() -> argparse.Namespace:
     check.add_argument("--root", required=True, type=Path)
     check.add_argument("--config", required=True, type=Path)
     check.add_argument("--host", required=True)
+    paths = subparsers.add_parser("paths")
+    paths.add_argument("--root", required=True, type=Path)
+    paths.add_argument("--config", required=True, type=Path)
     return parser.parse_args()
 
 
@@ -586,6 +594,10 @@ def main() -> int:
         if args.command == "check":
             result = check_contracts(root, args.config.resolve(), args.host)
             print(f"check\t{result.shape}\t{result.rel_path}\tvalid")
+            return 0
+        if args.command == "paths":
+            domain = load_domain_config(root, args.config.resolve())
+            print(json.dumps(domain, ensure_ascii=False))
             return 0
     except ContractError as error:
         print(

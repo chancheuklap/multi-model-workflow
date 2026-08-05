@@ -56,21 +56,37 @@ mmw_domain_check() {
     --host "$host"
 }
 
+# 路径查询与同步、检查共用 Python 配置边界。该入口只供本文件消费，正常的
+# domain dirs 与 adr-next 输出保持原合同。
+mmw_domain_validated_config() {
+  local root config
+  root="$(mmw_repo_root)"
+  config="$(mmw_require_config)" || return 1
+  python3 "$MMW_ROOT/cli/lib/context_docs.py" paths \
+    --root "$root" \
+    --config "$config"
+}
+
 # 写入侧要的两个落点：新上下文的根目录、ADR 目录。读的那一侧用 mmw_domain_path
 # 就够，写的那一侧还要知道往哪建。
 mmw_domain_dirs() {
-  local root
+  local root domain context_dir adr_dir
   root="$(mmw_repo_root)"
-  printf 'context\t%s\n' "$root/$(mmw_config '.domain.context_dir // "docs/context"')"
-  printf 'adr\t%s\n' "$root/$(mmw_config '.domain.adr_dir // "docs/adr"')"
+  domain="$(mmw_domain_validated_config)" || return 1
+  context_dir="$(jq -er '.context_dir' <<< "$domain")" || return 1
+  adr_dir="$(jq -er '.adr_dir' <<< "$domain")" || return 1
+  printf 'context\t%s\n' "$root/$context_dir"
+  printf 'adr\t%s\n' "$root/$adr_dir"
 }
 
 # 下一个 ADR 编号，四位、零填充。目录不存在或空的时候是 0001。
 # 只数正式编号，draft- 开头的不参与——它们还没占号。
 mmw_domain_adr_next() {
-  local root dir max next
+  local root domain adr_dir dir max next
   root="$(mmw_repo_root)"
-  dir="$root/$(mmw_config '.domain.adr_dir // "docs/adr"')"
+  domain="$(mmw_domain_validated_config)" || return 1
+  adr_dir="$(jq -er '.adr_dir' <<< "$domain")" || return 1
+  dir="$root/$adr_dir"
 
   max=0
   if [ -d "$dir" ]; then
