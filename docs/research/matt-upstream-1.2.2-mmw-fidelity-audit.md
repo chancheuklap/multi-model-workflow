@@ -6,7 +6,7 @@
 
 这次上游更新仍暴露出八项需要修改的合同。其中四项会直接改变方法效果，应优先处理：
 
-1. `/mmw-prototype` 的逻辑原型仍是 TUI。上游已改为单文件可分享 HTML，并要求 free-play、guided walkthrough 和可重复初态。MMW 还把原型定义为会进入主分支的长期资产，与上游“实现只吸收已验证决定，原型留在主分支外作为 primary source”的边界冲突。
+1. `/mmw-prototype` 的逻辑原型仍是 TUI。上游已改为单文件可分享 HTML，并要求 free-play、guided walkthrough 和可重复初态。MMW 把原型作为 `docs/prototypes/` 下的重要资产长期保存；这是 MMW 的正式产物流转合同，不改变 prototype 的探索方法，也不能被上游的 Git 分支约定覆盖。
 2. `/mmw-wayfinder` 把“一次会话最多解决一张 decision ticket”放宽为同一 AFK 链连续处理多张 ticket。仓库没有解释这个偏离。它改变了 decision ticket 的上下文隔离和粒度。
 3. `/mmw-to-tickets` 删除了发布前的用户批准。上游要求围绕粒度、blocking edge、合并和拆分持续迭代，直到用户批准；MMW 当前明确“亮完就往下走”。
 4. MMW 仍保留旧版 `/writing-great-skills`。上游已将它改名并重构为 model-invoked 的 `/writing-for-agents`，范围扩展到 skills、`AGENTS.md`、`CLAUDE.md` 和被 context pointer 引用的 agent 文档，并加入 environment-as-source-of-truth 与 cache 方法。
@@ -32,7 +32,7 @@
 
 | 优先级 | 范围 | 当前问题 | 应恢复的上游合同 | MMW 适配边界 |
 | --- | --- | --- | --- | --- |
-| P0 | Prototype | 逻辑原型固定为 TUI；缺少 guided walkthrough；原型长期进入主线 | 单文件 HTML；非开发者双击运行；free-play；按 tab 的场景；每个场景重置已知初态；已验证逻辑进入正式实现，原型在主分支外保留为 primary source | 保留 MMW 的一轮一问题、用户走查、证据记录和回填；把原型源码与正式主线分开，用结果分支或专门 prototype 分支加 ticket pointer 承载 |
+| P0 | Prototype | 逻辑原型固定为 TUI；缺少 guided walkthrough | 单文件 HTML；非开发者双击运行；free-play；按 tab 的场景；每个场景重置已知初态；HTML 外壳不进入生产代码 | 保留 MMW 的一轮一问题、用户走查、逐轮证据、结论回填和 `docs/prototypes/` 长期资产合同；正式实现阶段从已确认资产吸收决定，不新增 prototype 分支 |
 | P0 | Wayfinder | 一次会话可沿 AFK 链连续解决多张 decision ticket | 一次会话只解决一张 decision ticket；建图时并行 research ticket 是唯一例外 | 保留 claim、frontier、worktree、报告验证和 map 集成；删除“链可连续燃尽多张 AFK ticket”的调度扩展 |
 | P0 | Ticket 拆分 | 清单展示后直接发布 | 询问粒度、blocking edge、是否合并或拆分；迭代到用户批准后才发布 | MMW 可把它定义为 ticket 拆分人工审批关卡，或至少恢复明确的发布前确认；不能继续采用静默默认发布 |
 | P0 | Agent 文档写作 | 旧名、旧范围、旧结构、user-invoked | 改为 `writing-for-agents`；model-invoked；覆盖所有 agent 消费文档；将 skill mechanics 单独披露；加入 cache | 保留 MMW 宿主物化规则与项目写作规范；更新 manifest、技能引用和三套物化产物 |
@@ -75,7 +75,7 @@ MMW 保留了一轮一个可回答问题、最小可运行、默认内存状态�
 
 MMW 当前 `mmw/skills/mmw-prototype/LOGIC.md:41-61` 指定 TUI。上游 `vendor/mattpocock-skills/skills/engineering/prototype/LOGIC.md:35-58` 指定单文件 HTML、free-play 和 guided walkthrough。这里不能按“宿主适配”解释，因为产物面向用户，选择 TUI 会直接降低非开发者的可运行性和场景可重复性。
 
-MMW 当前 `mmw/skills/mmw-prototype/SKILL.md:8-10,51-71` 把原型定义为进入仓库主线的长期资产。上游 `vendor/mattpocock-skills/skills/engineering/prototype/SKILL.md:19-26` 的边界是：原型写法必须保持 throwaway；答案进入正式代码；原型本身在主分支外作为可追溯 primary source。MMW 应保留证据，但改变承载位置。
+MMW 当前 `mmw/skills/mmw-prototype/SKILL.md:8-10,51-71` 把原型定义为 `docs/prototypes/` 下的重要资产。上游 `vendor/mattpocock-skills/skills/engineering/prototype/SKILL.md:19-26` 要求 prototype 按 throwaway 约束编写，并保留为可追溯 primary source。两边对“保留资产”和“生产代码只吸收已验证决定”的意图一致，只是 Git 承载位置不同。MMW 的目录、spec、ticket、plan 和 closing 已经围绕仓库内路径形成完整消费链，因此保留当前承载位置。需要纠正的是产物形态和生产吸收边界，不是资产位置。
 
 ### Spec、ticket、plan
 
@@ -119,7 +119,7 @@ MMW 的六道审扩展与上游双轴 `code-review` 相容。final 终审仍覆�
 | `grill-with-docs` | `/mmw-grilling` 加 `/mmw-domain-modeling` | 充分覆盖 |
 | `implement` | `/mmw-implement` | 核心保留；补测试频率 |
 | `improve-codebase-architecture` | `/mmw-improve-codebase-architecture` | 已吸收本轮 YAGNI 更新 |
-| `prototype` | `/mmw-prototype` | 需要按上游重做逻辑产物与 primary-source 承载 |
+| `prototype` | `/mmw-prototype` | 需要按上游重做逻辑产物；保留 MMW 的 primary-source 承载 |
 | `research` | `/mmw-research` | 核心保留；验证与按调用方落点为合理适配 |
 | `resolving-merge-conflicts` | `/mmw-integrate` | 核心覆盖；补“不发明行为”；安全 abort 保留 |
 | `setup-matt-pocock-skills` | `mmw init` 和项目配置间接覆盖 | 不新增同名 skill；初始化已由确定 CLI 与 `.mmw.json` 承担 |
@@ -168,6 +168,7 @@ MMW 的六道审扩展与上游双轴 `code-review` 相容。final 终审仍覆�
 - 六道审；final 终审仍包含上游 Standards 与 Spec 两轴。
 - Context Map、leaf、权威引用、结构图谱和结构候选。
 - Codex App 后台 Worktree 任务、结果分支、基点验证和非 fast-forward 集成。
+- `docs/prototypes/` 作为走查资产和视觉合同出处，随任务分支进入正式历史。
 - `/mmw-retrieval`、`/mmw-closing` 和 release 状态机本身。
 - Wayfinder research 报告先验证再写入 ticket 评论。该行为服务 MMW 的证据责任，可以替代未经验证的 raw report pointer。
 

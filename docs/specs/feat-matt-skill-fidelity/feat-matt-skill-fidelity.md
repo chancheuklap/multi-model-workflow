@@ -12,7 +12,7 @@ MMW 基于 Matt Pocock Skills 改造。上游升级到 1.2.2 后，MMW 的大部
 
 MMW 按上游 1.2.2 恢复八项方法合同：prototype、Wayfinder、ticket 拆分、agent 文档写作、阶段边界、TDD 与 `/mmw-implement`、`/mmw-release`、`/mmw-integrate`。MMW 同时补齐三处 Grilling 解释性细节。每项改动只做 MMW 工作流所需的宿主、tracker、worktree、领域文档和人工审批关卡适配，不另造方法。
 
-正式实现吸收 prototype 已验证的决定，prototype 源码留在主分支外。Wayfinder 恢复一会话一张 decision ticket。Ticket 写入 tracker 前增加明确的用户批准。Agent 文档写作迁移到上游当前的 `writing-for-agents`。阶段边界按上游的五步有序决策树执行，并为 Codex、Claude Code 和 Pi 物化真实可用的动作。TDD、`/mmw-implement`、`/mmw-release` 和 `/mmw-integrate` 恢复遗漏的引用、频率、重审和意图边界。
+正式实现从 prototype 资产吸收已验证的决定，完整 prototype 继续保存在任务分支的 `docs/prototypes/`。Wayfinder 恢复一会话一张 decision ticket。Ticket 写入 tracker 前增加明确的用户批准。Agent 文档写作迁移到上游当前的 `writing-for-agents`。阶段边界按上游的五步有序决策树执行，并为 Codex、Claude Code 和 Pi 物化真实可用的动作。TDD、`/mmw-implement`、`/mmw-release` 和 `/mmw-integrate` 恢复遗漏的引用、频率、重审和意图边界。
 
 MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方配置和 cutover。`to-questionnaire` 把当前用户无法回答的知识缺口交给真正掌握信息的人。`wait-what` 提供即时的表达纠错入口。这三个技能不进入 `mmw-start` 的工程路由。
 
@@ -21,7 +21,7 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 - Vendored 上游版本是 1.2.2，正式 manifest 发布 25 项技能。调查逐项检查了 25 项正式技能和 10 项未发布或 misc 技能（`docs/research/matt-upstream-1.2.2-mmw-fidelity-audit.md:23-29`、`docs/research/matt-upstream-1.2.2-mmw-fidelity-audit.md:183-188`）。
 - Bug 诊断、Research、Domain Modeling、Codebase Design、架构改进、Spec、TDD 主循环、Triage 和双轴 Code Review 的核心方法已经保留，不需要因本轮更新重写（`docs/research/matt-upstream-1.2.2-mmw-fidelity-audit.md:99-108`）。
 - Grilling 已恢复设计树、frontier、整轮提问、事实调查、动态重算和共同理解确认，只缺三处用户参与与调查并行的解释性合同（`docs/research/matt-upstream-1.2.2-mmw-fidelity-audit.md:46-56`）。
-- 逻辑 prototype 当前固定为 TUI。设计 prototype 会保存在任务分支的 `docs/prototypes/` 并随设计提交。上游当前要求单文件 HTML、free-play、guided walkthrough、已知初态，以及主分支外的 primary source（`mmw/skills/mmw-prototype/SKILL.md:8-10`、`mmw/skills/mmw-prototype/SKILL.md:20-31`、`mmw/skills/mmw-prototype/LOGIC.md:41-61`、`vendor/mattpocock-skills/skills/engineering/prototype/SKILL.md:19-26`、`vendor/mattpocock-skills/skills/engineering/prototype/LOGIC.md:35-58`）。
+- 逻辑 prototype 当前固定为 TUI。设计 prototype 会保存在任务分支的 `docs/prototypes/` 并随设计提交。上游当前要求单文件 HTML、free-play、guided walkthrough 和已知初态；上游的分支承载方式不覆盖 MMW 已有的资产流转合同（`mmw/skills/mmw-prototype/SKILL.md:8-10`、`mmw/skills/mmw-prototype/SKILL.md:20-31`、`mmw/skills/mmw-prototype/LOGIC.md:41-61`、`vendor/mattpocock-skills/skills/engineering/prototype/LOGIC.md:35-58`）。
 - Wayfinder 当前把 effort 限定为需要多份 spec，并允许一个会话沿 AFK 链连续解决多张 decision ticket。上游入口是超出一次 agent session 且路线不清，一次会话只解决一张 decision ticket，建图时并行 Research 是唯一例外（`mmw/skills/mmw-wayfinder/SKILL.md:3-9`、`mmw/skills/mmw-wayfinder/SKILL.md:35-37`、`mmw/skills/mmw-wayfinder/walking.md:1-3`、`vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:3-13`、`vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:105-116`）。
 - Ticket 拆分已经保留 tracer bullet、垂直路径、独立验证、prefactor、blocking edge、frontier 和 expand-contract 例外，但清单展示后会直接写入 tracker。上游要求围绕粒度、blocking edge、合并与拆分迭代到用户批准（`docs/research/matt-upstream-1.2.2-mmw-fidelity-audit.md:80-86`）。
 - `writing-great-skills` 仍是旧名称和旧范围。上游 `writing-for-agents` 已扩展到 skill、`AGENTS.md`、`CLAUDE.md` 和 context pointer 文档，并把 skill mechanics 单独披露（`docs/research/matt-upstream-1.2.2-mmw-fidelity-audit.md:110-139`）。
@@ -32,14 +32,14 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 - MMW 当前有 23 个工作流技能，以及 `handoff` 和 `writing-great-skills` 两个辅助技能。Claude Code manifest 显式列出每个技能；Pi 与 Codex 使用目录入口（`README.md:54-69`、`mmw/.claude-plugin/plugin.json:7-44`、`mmw/package.json:8-16`、`mmw/.codex-plugin/plugin.json:19-20`）。
 - 共享技能源会物化到 Pi、Claude Code 和 Codex。物化器可以把完整的宿主动作块展开为不同宿主的真实动作（`mmw/cli/lib/materialize_skills.py:247-332`）。
 - 产品版本当前为 0.9.0。版本分布在 Codex manifest、Claude Code manifest、根 Claude marketplace 和 Pi package（`mmw/.codex-plugin/plugin.json:1-4`、`mmw/.claude-plugin/plugin.json:1-5`、`.claude-plugin/marketplace.json:9-31`、`mmw/package.json:1-4`）。
-- 根架构图仍展示旧辅助技能、Wayfinder 链和主分支内的 prototype 目录。Wayfinder SVG 也展示旧链式调度（`mmw-skill-map.html:470`、`mmw-skill-map.html:489-495`、`mmw-skill-map.html:747`、`README.md:225`）。
+- 根架构图仍展示旧辅助技能和 Wayfinder 链。Wayfinder SVG 也展示旧链式调度（`mmw-skill-map.html:470`、`mmw-skill-map.html:747`、`README.md:225`）。
 
-复用现有技能源、宿主动作物化器、tracker 命令、结果分支验证、报告验证、六道审和 release 状态机。新增 prototype primary source 分支合同和阶段边界宿主动作，因为现有机械层没有对应的完整行为。
+复用现有技能源、宿主动作物化器、tracker 命令、结果分支验证、报告验证、六道审、prototype 资产目录和 release 状态机。新增阶段边界宿主动作，因为现有机械层没有对应的完整行为。
 
 ## User Stories
 
 1. 作为 MMW 用户，我要用双击可运行的 HTML 走查状态模型，以便非开发者也能重复执行 free-play 和 guided walkthrough。
-2. 作为 MMW 用户，我要让已经走查的 prototype 保持可追溯但不进入主分支，以便生产代码只保留验证过的决定。
+2. 作为 MMW 用户，我要让已经走查的 prototype 作为重要资产进入任务历史，以便 spec、ticket、plan、审查和实现都能读取同一份出处。
 3. 作为 Wayfinder 用户，我要让一个会话只解决一张 decision ticket，以便每项决定保持清楚的上下文边界和粒度。
 4. 作为 Wayfinder 用户，我要在一项工作超出一次 agent session 且路线不清时进入 map，以便单一 spec 数量不会错误限制入口。
 5. 作为 spec 负责人，我要在 tracer bullet ticket 写入 tracker 前检查粒度、blocking edge、合并和拆分，以便 tracker 不会固化错误切片。
@@ -58,9 +58,9 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 1. 以 vendored 1.2.2 的对应技能为方法论唯一上游。实现只允许调整 MMW 的 worktree、tracker、报告验证、领域文档、人工审批关卡和宿主动作。每项删改都要能指向已确认的 MMW 合同。原型免除：该决定可由上游文档和当前仓库规则判定，不需要用户判断。
 2. 逻辑 prototype 改成一个自包含 HTML 文件。文件使用内联 HTML、CSS 和 JavaScript，无框架、bundler 或服务器。页面同时提供 free-play、按 tab 分组的 guided walkthrough、每个场景的自然语言说明、真实动作按钮和启动场景时的已知初态重置。逻辑仍隔离为纯 reducer、状态机、函数集或持有状态的模块。原型免除：产物形态由上游文档明确规定，不需要用户判断。
 3. 设计 prototype 保留“一轮一个可回答问题”、最小可运行、默认内存状态、少打磨、完整状态可见、真实边界、用户走查、逐轮证据和结论回填。最小脚本和外部系统 Evidence 分支保持现有职责。原型免除：该决定照搬现有 MMW 合同。
-4. 每项设计 prototype 使用独立的 `prototype/<slug>` primary source 分支。`prototype-worker` 的结果经主 agent 验证后进入该分支，不合入任务分支或默认分支。分支保存全部源码、变体、运行说明、逐轮记录和证据。调用方的持久记录保存分支名、提交 SHA、相对路径、问题和 verdict。原型免除：该决定可由上游文档和当前 Git 工作流判定，不需要用户判断。
-5. Wayfinder prototype 把 context pointer 写入对应 decision ticket。Grilling 或直接调用在 spec 产生前完成 prototype 时，把 pointer 写入当前任务的 prototype source registry；`/mmw-to-spec` 读取 registry，把每项 pointer 吸收到 spec 后删除 registry。`/mmw-to-tickets` 再把每条实现决定的 pointer 写入消费该决定的 tracer bullet ticket。审查和 `worker` 通过固定提交读取选中产物。主分支只保存 verdict、验收标准、视觉合同和 pointer。原型免除：该决定可由上游文档和当前 tracker 合同判定，不需要用户判断。
-6. 已验证的逻辑在正式实现阶段进入生产模块，并由同一 ticket 的测试证明。HTML shell 不进入生产。UI 按仓库规范重写，prototype route、变体和切换器只留在 primary source 分支。prototype 阶段不提前改生产代码。原型免除：该决定由上游文档明确规定，不需要用户判断。
+4. 每项设计 prototype 继续保存在任务分支的 `docs/prototypes/<slug>/`。目录保存全部源码、变体、运行说明、逐轮记录和证据，并随本轮结果提交。`/mmw-to-spec`、`/mmw-to-tickets`、`/mmw-to-plan`、审查和 `worker` 继续通过仓库路径消费同一资产。结果分支只提供 worktree 隔离和验证，验收通过后仍按现有合同集成回任务分支。原型免除：该决定来自 MMW 已形成闭环的资产流转合同。
+5. Wayfinder prototype 的结案评论指向任务分支内的 prototype 资产路径。Grilling 或直接调用在 spec 产生前完成 prototype 时，资产和逐轮结论已经存在于 `docs/prototypes/<slug>/README.md`；`/mmw-to-spec` 直接读取并吸收。`/mmw-to-tickets` 把相关资产路径和决定含量传给消费该决定的 tracer bullet ticket。主分支长期保留 prototype、verdict、验收标准和视觉合同。原型免除：该决定来自 MMW 的 tracker 与资产消费链。
+6. Prototype 阶段只形成并提交资产、走查证据和已验证决定，不提前完成正式实现。实现阶段从已确认资产吸收逻辑，并由同一 ticket 的测试证明。HTML shell 不进入生产模块。UI 按仓库规范重写；prototype route、变体和切换器在回填时归档到 `docs/prototypes/<slug>/`，不留在正式路由。原型免除：该决定同时保留上游的 throwaway 编写约束和 MMW 的 spec-to-ticket 实现顺序。
 7. Wayfinder 的 effort 统一定义为“超出一次 agent session，且从当前状态到 destination 的路线仍不清楚”。是否最终形成一份或多份 spec 不再作为入口条件。保留 destination、map、decision ticket、frontier、fog of war 和提前提取独立 spec。原型免除：该决定由上游文档和现有 MMW map 合同判定，不需要用户判断。
 8. Wayfinder 的工作单位改成“一会话一张 decision ticket”。建图会话不手工解决 ticket。解决任一非 `wayfinder:research` ticket 后，本会话完成回填并停止，不沿新 frontier 继续。建图时可并行派发多张 `wayfinder:research` ticket；每个调查者仍只负责一张 ticket，主 agent 在同一建图会话验证报告并写入各自评论。删除“链”这一调度概念及其领域定义。原型免除：该决定由上游完成判据明确规定，不需要用户判断。
 9. `/mmw-to-tickets` 在写入 tracker 前展示 ticket、blocking edge 和执行顺序。用户可以按粒度、blocking edge、合并和拆分提出修改。只有用户明确批准后才创建 ticket。该确认是 ticket 拆分人工审批关卡，不替代共同理解或 spec 定稿的人工审批关卡。原型免除：该决定由上游 tracker 流程明确规定，不需要用户判断。
@@ -77,8 +77,8 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 20. 新增 user-invoked 的 `to-questionnaire`。它只采访“发给谁”和“需要拿回什么”，再生成按重要性排序、每题一个意图、有回答占位的 discovery questionnaire。它可以作为 Grilling 因当前用户不掌握事实而阻塞时的出口；答案回来后仍回 Grilling 建立共同理解。原型免除：该决定采用上游现有文档合同，不需要用户判断。
 21. 新增 user-invoked 的 `wait-what`。它要求 agent 补充必要上下文，使用简化技术英语，并遵守目标仓库 `AGENTS.md` 指向的 canonical 术语。它不写文件，不进入工程交付路由。原型免除：该决定采用上游当前正文并按现有领域规则定位术语，不需要用户判断。
 22. 不吸收 `teach`、`grill-me`、`claude-handoff`、`loop-me`、`setup-ts-deep-modules`、文章写作技能和 misc 专项工具。它们分别超出仓库工程交付范围、重复 repo 内主流程、绑定单一宿主或属于一次性专项能力。原型免除：该决定来自逐项范围调查，不需要用户判断。
-23. 所有改动从共享技能源生成 Pi、Claude Code 和 Codex 产物。Claude Code 显式 manifest 加入新技能并移除旧技能。README 同步工作流与辅助技能说明。根架构图和 Wayfinder SVG 同步 prototype primary source 分支、阶段边界、ticket 拆分人工审批关卡、一会话一 ticket 和新增辅助技能。原型免除：该决定照搬现有发布合同。
-24. 领域文档与流程同时更新。交付工作流登记共同理解、spec 定稿和 ticket 拆分三个不同的人工审批关卡。Wayfinding 把 effort 改为“超出一次 agent session 且路线不清”，删除“链”及其所有权。Agent 登记与任务分支、结果分支不同的 prototype 分支。审查登记与固定点不同的终审提交。Context Map 的 Owns 列同步上述所有权。每个概念只在 owning leaf 定义，其余 leaf 使用权威引用。原型免除：该决定照搬现有领域文档合同。
+23. 所有改动从共享技能源生成 Pi、Claude Code 和 Codex 产物。Claude Code 显式 manifest 加入新技能并移除旧技能。README 同步工作流与辅助技能说明。根架构图和 Wayfinder SVG 同步 prototype 资产合同、阶段边界、ticket 拆分人工审批关卡、一会话一 ticket 和新增辅助技能。原型免除：该决定照搬现有发布合同。
+24. 领域文档与流程同时更新。交付工作流登记共同理解、spec 定稿和 ticket 拆分三个不同的人工审批关卡，并明确 prototype 资产归属。Wayfinding 把 effort 改为“超出一次 agent session 且路线不清”，删除“链”及其所有权。审查登记与固定点不同的终审提交。Context Map 的 Owns 列同步上述所有权。每个概念只在 owning leaf 定义，其余 leaf 使用权威引用。原型免除：该决定照搬现有领域文档合同。
 25. 发布版本统一提升为 0.10.0。该版本表示方法合同、辅助技能集合和宿主物化都发生兼容性可见变化。Codex manifest、Claude Code manifest、根 Claude marketplace 的插件版本和顶层版本，以及 Pi package 同步更新。原型免除：该决定可由现有版本合同判定，不需要用户判断。
 26. 实施按四个原子主题提交：核心 P0 保真修复；阶段边界与 P1/P2 闭环；新增辅助技能；宿主物化、文档、架构图和版本。每个主题完成后检查共享源与三宿主产物。原型免除：该决定只改变内部提交结构，不改变用户可见行为。
 
@@ -86,10 +86,10 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 
 | 失败 | 什么触发 | 谁捕获 | 用户看到什么 | 系统做什么 | 对应哪条验收 |
 | --- | --- | --- | --- | --- | --- |
-| prototype primary source 进入主分支 | 集成动作包含 prototype 源码或变体 | 主 agent、final 终审 | 点名误入的路径和提交 | 拒绝集成，保留 verdict 和 pointer | 默认分支 diff 不含设计 prototype 源码 |
-| prototype pointer 失效 | 分支、提交或相对路径无法解析 | `/mmw-to-spec`、`/mmw-to-tickets`、审查者、`worker` | 点名失效 pointer | 停止消费该决定，不猜选中版本 | 每个 pointer 可按固定 SHA 读取 |
-| prototype 结果未经验证 | `prototype-worker` 报告与分支、HEAD 或基点不符 | 主 agent | 显示报告值与实际值 | 不创建或推进 primary source 分支 | 结果验证先于 pointer 回填 |
-| prototype registry 遗失 | spec 产生前发生 handoff、compact 或会话结束 | `/mmw-prototype`、`/mmw-to-spec` | 点名缺少的 pointer 或 registry | prototype 回填完成前不结束；spec 不消费仅存于会话的 pointer | registry 在 phase transfer 前已写入任务分支 |
+| prototype 资产没有进入任务分支 | 走查后只留下会话记录或结果分支 | 主 agent、`/mmw-to-spec`、final 终审 | 点名缺少的资产与证据 | 不结束回填，不删除结果 worktree | `docs/prototypes/<slug>/` 可从任务分支读取 |
+| prototype 资产路径失效 | spec、ticket、plan 或 task 指向不存在的产物 | `/mmw-to-spec`、`/mmw-to-tickets`、审查者、`worker` | 点名失效路径 | 停止消费该决定，不猜选中版本 | 每个引用可在当前任务提交读取 |
+| prototype 结果未经验证 | `prototype-worker` 报告与分支、HEAD 或基点不符 | 主 agent | 显示报告值与实际值 | 不集成结果分支 | 结果验证先于资产进入任务分支 |
+| prototype 临时代码残留正式路由 | 回填后应用仍包含切换器、落选变体或 prototype route | 主 agent、final 终审 | 点名残留路径 | 完成归档和清理后再推进 | 正式路由不含 prototype 壳，资产目录内容完整 |
 | Wayfinder 会话继续第二张非 `wayfinder:research` ticket | 一张 ticket 已完成并解锁下一张 | `/mmw-wayfinder` | 报告本会话已完成的 ticket 和新 frontier | 停止本会话，等待另一个会话认领 | 每个非 `wayfinder:research` 会话只关闭一张 ticket |
 | Ticket 未经批准写入 | 用户尚未明确同意清单 | `/mmw-to-tickets` | 显示待确认清单 | 不调用 tracker 创建命令 | Ticket 创建记录晚于批准消息 |
 | 宿主动作被伪造 | 物化正文声称执行宿主不存在的 clear 或 compact | 物化检查、项目一致性审 | 点名宿主和虚假动作 | 物化失败或修正文案 | 三宿主正文只包含真实能力 |
@@ -106,7 +106,7 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 | Seam | 验证什么行为 | 为什么是这一层 |
 | --- | --- | --- |
 | 共享技能与对应上游 reference 的语义对照 | 八项合同、三项 Grilling 细节和四项新增技能逐条保留上游步骤、解释和完成判据 | 方法保真无法由机械文本 diff 判断，必须在源级审查语义 |
-| 临时 Git 仓库中的 prototype 分支流程 | primary source 分支创建、结果验证、固定 SHA pointer、spec 前 registry、主分支无原型源码、正式实现只消费 verdict 与选中产物 | 这是 prototype 与 MMW worktree、tracker 和 Git 的真实交界 |
+| 临时 Git 仓库中的 prototype 资产流程 | 结果验证、任务分支集成、逐轮证据、资产路径传递、临时代码归档和正式实现延后 | 这是 prototype 与 MMW worktree、spec、tracker 和 Git 的真实交界 |
 | 临时 tracker 或测试 issue 上的 Wayfinder 流程 | effort 入口、建图不解票、一会话一 ticket、并行 `wayfinder:research` 例外、回填后停止、frontier 保留 | 这是 Wayfinder 调度方法的最高稳定边界 |
 | 临时 tracker 或 dry-run 上的 ticket 拆分 | 写入前可修改粒度、blocking edge、合并与拆分，未批准零写入，批准后才创建 | 这是新增人工审批关卡的 tracker 写入边界 |
 | 三宿主阶段边界物化正文 | 五步顺序一致，Continue 优先，handoff 与 AFK 可执行，clear 和 compact 不虚构；能力缺失时出口确定 | 宿主差异只应存在于完整动作块的生成结果 |
@@ -128,19 +128,18 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 | --- | --- | --- | --- | --- | --- |
 | 上游方法 | Matt Pocock Skills | Vendored 1.2.2 技能与 reference | MMW 共享技能源 | 方法论、步骤、解释和完成判据 | 源级语义对照与两道 spec 审查 |
 | MMW 工作流适配 | MMW | worktree、tracker、报告验证、领域文档、人工审批关卡 | 共享流程技能 | 不改变上游意图的承载与关卡 | 项目一致性审与真实流程验证 |
-| prototype primary source | prototype 分支 | 固定分支、提交 SHA、相对路径、问题和 verdict | spec、ticket、审查者、`worker` | 固定提交可读取；源码不进主分支 | Git 解析、结果验证和默认分支 diff |
-| prototype source registry | 当前任务分支 | spec 产生前的分支、SHA、路径、问题和 verdict | `/mmw-to-spec` | `docs/specs/<slug>/prototype-sources.md`；写入后可跨 phase boundary 恢复；吸收到 spec 后删除 | phase transfer 前存在；spec 中逐项可追溯 |
+| prototype 资产 | 当前任务分支 | `docs/prototypes/<slug>/` 下的源码、证据、问题和 verdict | spec、ticket、plan、审查者、`worker` | 当前任务提交可读取；完整资产长期保留；正式实现只吸收已验证决定 | 结果验证、仓库路径解析和 final 终审 |
 | 阶段边界语义 | `mmw-start` | 单一披露 reference | 所有流程技能 | 五步有序决策树 | 每个 phase transfer 的 pointer 与源级审查 |
 | 阶段边界宿主动作 | MMW 物化器 | Codex、Claude Code、Pi 的完整动作块 | 对应宿主技能 | 只描述宿主真实能力 | 三宿主物化正文检查 |
 | Ticket 创建 | `/mmw-to-tickets` | 用户批准和 ticket 清单 | issue tracker | 批准前零写入，批准后按 blocking edge 创建 | 测试 issue 或 dry-run |
 | 终审提交 | final 终审 | 该轮实际审查并通过的被审分支 HEAD | `/mmw-release` | 最终交付 HEAD 必须等于有效终审提交；与限定 diff 范围的固定点分开登记 | 审查记录、release 前置检查和交付记录 |
-| Canonical 领域术语 | 交付工作流、Wayfinding、Agent、审查 owning leaf | 人工审批关卡、effort、prototype 分支、终审提交 | 全部流程技能和角色 | 一个概念只在 owning leaf 定义；Context Map 登记所有权 | `mmw domain check`、项目一致性审和静态 diff |
+| Canonical 领域术语 | 交付工作流、Wayfinding、审查 owning leaf | 人工审批关卡、prototype 资产、effort、终审提交 | 全部流程技能和角色 | 一个概念只在 owning leaf 定义；Context Map 登记所有权 | `mmw domain check`、项目一致性审和静态 diff |
 | 新增技能 invocation | 各技能 frontmatter | manifest 与宿主 skill loader | 用户与模型 | model-invoked 或 user-invoked 与上游一致 | 目录、manifest 和物化检查 |
 | 产品版本 | MMW 发布入口 | 五个版本字段 | Codex、Claude Code、Pi 用户 | Codex manifest、Claude Code manifest、Claude marketplace 插件版本、Claude marketplace 顶层版本和 Pi package 全部为 0.10.0 | JSON 检查和静态 diff |
 
 ## Release Risk
 
-prototype 的承载从主分支目录改为独立分支。旧任务中已经进入主分支的 `docs/prototypes/` 不做历史迁移；新合同只约束本版本之后创建的 prototype。新 pointer 使用固定提交，避免分支后续迭代改变已批准的视觉或逻辑合同。spec 产生前的 registry 只保存 pointer，不保存 prototype 源码；pointer 吸收到 spec 后删除 registry。
+prototype 继续作为任务分支中的重要资产。风险在于临时 route、切换器或 HTML 外壳被误当成正式实现。回填必须同时完成两件事：把完整产物归档到 `docs/prototypes/<slug>/`，并从正式应用路径撤掉 prototype 壳。正式实现只在后续 ticket 中吸收已验证决定。
 
 Ticket 拆分新增人工审批关卡，会让全自动交付在写入 tracker 前多一次停顿。这是恢复上游方法所需的有意变化。共同理解、spec 定稿和 ticket 拆分三个关卡分别批准不同产物，互不替代。
 
@@ -152,7 +151,7 @@ Ticket 拆分新增人工审批关卡，会让全自动交付在写入 tracker �
 
 - 不重写已经充分保真的 Bug 诊断、Research、Domain Modeling、Codebase Design、架构改进、Triage、Spec 和 Review 方法。
 - 不删除 MMW 的报告验证、plan 层、六道审、Context Map/leaf、Worktree 结果验证、Retrieval、Closing 或 Release 状态机。
-- 不迁移历史任务已经提交到主分支的 prototype 目录；历史产物仍按其提交时合同解释。
+- 不迁移或删除历史 prototype 资产；历史产物与新产物都继续按 `docs/prototypes/` 资产合同解释。
 - 不吸收 `teach`、`grill-me`、`claude-handoff`、`loop-me`、`setup-ts-deep-modules`、文章写作技能或 misc 专项工具。
 - 不新增与 `mmw-start` 并列的工程路由入口。新增技能保持辅助技能身份。
 - 不推送分支、不正式发布 plugin，也不安装 0.10.0 到用户运行时；这些动作需要后续明确授权。
