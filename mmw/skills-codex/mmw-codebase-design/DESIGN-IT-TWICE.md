@@ -21,6 +21,8 @@
 一个约束一个 `designer`，至少三个，并行。每个约束使用四栏表：目标是该设计约束下的 interface；读是技术材料路径、`SKILL.md` 和领域文档路径；约束是只读且与其它变体结构不同；验收是交回 interface、用法和取舍。
 
 启动：按名称调用 Codex 原生 subagent `mmw-designer`，task 传四栏表全文。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
+
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的调查、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
 每个 subagent 须产出**截然不同**的 interface。
 
 每份 task 点名同样的技术材料路径（相关文件、耦合点、[DEEPENING.md](DEEPENING.md)、seam 位置），只有设计约束那一栏不同。task 与第 1 步给用户看的问题空间说明是两回事。

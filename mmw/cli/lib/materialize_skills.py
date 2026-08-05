@@ -34,6 +34,11 @@ LAUNCH_GROUP_RE = re.compile(
 HOST_ACTION_RE = re.compile(r"\[\[mmw-host-action:([a-z0-9-]+)\]\]")
 CODEX_SKILL_REF_RE = re.compile(r"`/(mmw-[a-z0-9-]+)`")
 SKIP_DIR_NAMES = frozenset({"mmw-dispatching-agents", "mmw-setup"})
+POST_LAUNCH_RULE = (
+    "派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的调查、实现或审查。"
+    "没有明确不重叠的协调工作时，立即等待 subagent 交回报告；"
+    "报告交回后只按 `/mmw-verifying-agent-output` 验证关键断言，不重做整个 task。"
+)
 
 
 def die(message: str, code: int = 1) -> NoReturn:
@@ -210,14 +215,18 @@ def expand_text(
         if role not in role_agents:
             die(f"占位符角色不在 roles.json：{role}")
         if host == "codex":
-            return expand_codex(role, cwd_mode, codex_profiles)
+            instruction = expand_codex(role, cwd_mode, codex_profiles)
+            return f"{instruction}\n\n{POST_LAUNCH_RULE}"
         return expand(role, role_agents[role], cwd_mode)
 
     def launch_group(match: re.Match[str]) -> str:
         group, cwd_mode = match.group(1), match.group(2)
         if group != "reviewers" or cwd_mode != "none":
             die(f"不认识的启动组：{group}:{cwd_mode}")
-        return expand_reviewers(host, role_agents, codex_profiles)
+        instruction = expand_reviewers(host, role_agents, codex_profiles)
+        if host == "codex":
+            return f"{instruction}\n\n{POST_LAUNCH_RULE}"
+        return instruction
 
     def host_action(match: re.Match[str]) -> str:
         return expand_host_action(match.group(1), host)

@@ -49,6 +49,8 @@
 - **test-plan、探测脚本、`runs/` 原始产物、台账**一律由**主 agent**写入 `docs/evidence/`（本文件第 2、4 步）。
 - 需要并行只读取证时：一个对象一个 `investigator`。四栏表——目标「对该对象跑探测，原样交回命令与关键输出」；读=该对象 test-plan 路径 + 仓库根；约束=只读、不改仓库、不写 `docs/`、不写结论等级；验收=交回可复述的命令原文与输出摘要（或临时路径说明），**不要求**它创建 `docs/evidence` 下文件。
 启动：按名称调用 Codex 原生 subagent `mmw-investigator`，task 传四栏表全文。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
+
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的调查、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
 - 主 agent 把交回的输出落入 `docs/evidence/<slug>/runs/…` 并写台账。
 - 只有一两个对象则主 agent 自己跑，不派 subagent。
 - **不派 `worker` 改 `docs/`。** 脚本与产物归主 agent。

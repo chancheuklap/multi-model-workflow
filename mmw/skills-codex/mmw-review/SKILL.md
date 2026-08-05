@@ -69,6 +69,8 @@ spec 在哪按这个顺序找：这个分支上的 `docs/specs/<slug>/<slug>.md`
 每个视角各写一张四栏表。按当前宿主的审查策略启动；互不依赖的审查任务同时启动。
 Codex 只使用一个审查角色。①、②、⑤ 每个视角各启动一个 Codex 原生 `mmw-reviewer-gpt` subagent；⑥ 启动一个该 subagent 完成全部七个角度。每个审查者使用独立上下文，可以与产物作者使用相同模型。互不依赖的审查任务在同一条消息中并行启动。
 
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的调查、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+
 ## 4. findings 存盘
 
 把每个审查者交回的东西**原样**抄进 `.reviews/<slug>-<哪一道>-<轮次>.md`，按任务名分组。不要重写，不要摘要。文件顶部记下固定点的提交号。
