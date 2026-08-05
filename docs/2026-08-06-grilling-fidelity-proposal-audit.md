@@ -73,6 +73,8 @@ Domain Modeling 的主体方法不重写。只处理 wrapper 被吸收后留下�
 5. 保留三条件 ADR：难以回退、缺少上下文会令人意外、存在真实取舍三项必须同时成立。`mmw-grilling` 不再写一份缩减摘要，只引用 `/mmw-domain-modeling` 的判据。
 6. 为 `mmw-domain-modeling` 补齐仓库要求的 `## 下一步`。嵌入调用完成后回到调用方；直接建模完成后报告写入结果。
 
+所有调用方都只引用 `/mmw-domain-modeling` 的 ADR 判据。`mmw-wayfinder/walking.md`、`mmw-wayfinder/closing.md` 和 `mmw-improve-codebase-architecture/SKILL.md` 中现有的单条件或双条件摘要全部删除。Wayfinder 的草稿文件名和最终编号规则继续保留，它们是并行分支的写入协调，不是 ADR 资格判据。
+
 ## Wayfinder 的最小调整
 
 Wayfinder 不新增批量提问逻辑。它只调用 `/mmw-grilling`，因此会自动获得整轮 frontier 方法。
@@ -93,8 +95,12 @@ MMW 当前允许一个链任务继续处理新解锁的 AFK ticket，而上游�
 | `mmw/skills/mmw-domain-modeling/SKILL.md` | 增加基于用户目标的误路由判断，闭合 `none` 和 `## 下一步`；主体方法不改 |
 | `mmw/skills/mmw-triage/SKILL.md` | 删除调用点对逐题方法的复制，只保留为什么调用 `/mmw-grilling` 和期望得到什么答案 |
 | `mmw/skills/mmw-wayfinder/map-anatomy.md` | 删除 Grilling 的逐题复制；澄清正式发布审批与共同理解确认的责任 |
-| `mmw/skills/mmw-wayfinder/walking.md` | 删除 Grilling 的逐题复制；保留 ticket、HITL、链和结果记录合同 |
-| `mmw-skill-map.html` 与宿主物化产物 | 只同步上述源行为，不增加宿主分支 |
+| `mmw/skills/mmw-wayfinder/walking.md` | 删除 Grilling 的逐题复制和 ADR 双条件摘要；保留 ticket、HITL、链、ADR 草稿名和结果记录合同 |
+| `mmw/skills/mmw-wayfinder/closing.md` | 删除 ADR 单条件或双条件补漏判据，统一引用 `/mmw-domain-modeling` |
+| `mmw/skills/mmw-improve-codebase-architecture/SKILL.md` | 保留选中候选后调用 `/mmw-grilling`；被否候选是否写 ADR 统一使用 `/mmw-domain-modeling` 三条件 |
+| `mmw/skills/mmw-to-spec/SKILL.md` | 把“全流程唯一人工审批关卡”收紧为“spec 发布审批关卡”，不改变用户点头后才发布的行为 |
+| `mmw-skill-map.html` | 更新 Grilling、Wayfinder、ADR 和审批关卡说明；删除逐题、15 轮和缩减 ADR 判据 |
+| 三套宿主物化产物 | 由技能源重新物化，只同步上述共享行为，不增加宿主分支 |
 
 ## 验证标准
 
@@ -110,6 +116,36 @@ MMW 当前允许一个链任务继续处理新解锁的 AFK ticket，而上游�
 8. ADR 同时满足三个条件；不满足时不创建。
 9. Wayfinder 建图会话不解决 ticket；一张 Grilling ticket 只形成一个结论；新问题回到 map。
 10. 三套宿主物化结果的共享语义一致，Codex 物化检查和仓库静态检查通过。
+
+### 验收场景
+
+| 场景 | 必须观察到的结果 |
+| --- | --- |
+| 一项含三个互不依赖决定的新需求 | 第一轮同时出现三个编号问题，每题有独立推荐答案 |
+| 第四个问题依赖第一题答案 | 第四题只在下一轮出现，内容反映第一题答案 |
+| 后续答案暴露同轮两题实际有依赖 | 受影响分支在下一轮重新打开，不沿用已经失效的答案 |
+| 一个分支需要查文件或环境事实 | 派 subagent 调查；同轮继续询问不依赖该事实的问题 |
+| 需求必须先看已有页面才能决定 | 调查和出处验证完成后先执行 `present-ui-review`；用户反馈前没有第一轮问题 |
+| 用户明确要求一次只问一题 | 仍维护同一棵设计树和 frontier，但每次只展示一个当前可问问题 |
+| Agent 误路由到 Domain Modeling，用户实际要谈整项方案 | Domain Modeling 移交 `/mmw-grilling`，并由 Grilling 同时应用 Domain Modeling |
+| 用户直接要求建立多个 bounded context | 保持在 Domain Modeling；按现有首次建模合同逐题确认边界，不误转 Grilling |
+| `mmw domain path` 返回 `none`，Domain Modeling 由 Grilling 嵌入调用 | 不创建领域文档；术语和决定留在当前对话供下游综合 |
+| 已有 leaf 中形成新术语 | 术语定下时立即写入拥有它的 leaf；普通产品或实现决定不进入 leaf |
+| 一个决定只满足“难以回退” | 不创建 ADR；三个条件全部成立时才创建 |
+| Wayfinder 建图 | destination Grilling 和广度优先 Grilling 可以按 frontier 批量，但建图会话不解决任何 ticket |
+| 一张 `wayfinder:grilling` ticket 有多个依赖选择 | 依赖选择在设计树中完成，ticket 最终只记录一个问题结论 |
+| ticket 问答发现另一项不属于当前结论的问题 | 当前 Grilling 不继续解决；Wayfinder 把它登记为 ticket 或 fog of war |
+| frontier 为空 | Agent 总结共同理解并等用户确认；确认前不发布或实施 |
+| 主线路径进入 `/mmw-to-spec` | Grilling 确认只确认对话总结；spec 经过综合和审查后仍需独立的发布审批 |
+
+## 实施顺序
+
+1. 先修改 `mmw-domain-modeling` 的路由、`none`、ADR 唯一事实来源和 `## 下一步`，保证 Grilling 可以引用一个完整且闭合的领域合同。
+2. 再按上游顺序重写 `mmw-grilling` 的方法内核，并把 MMW 的调查、界面走查和下游移交放在内核外层。
+3. 删除 Triage、Wayfinder、架构改进和 Wayfinder 收尾中的提问方法与 ADR 判据副本。
+4. 修正 `/mmw-to-spec` 与 Wayfinder 对正式发布审批的称呼，不改变任何审批动作。
+5. 更新 `mmw-skill-map.html`，随后运行三套宿主技能物化。
+6. 先做静态与物化检查，再逐项运行本报告的验收场景。任何场景失败都回到技能源修正，不直接手改物化产物。
 
 ## 审查处置
 
