@@ -16,7 +16,7 @@
 
 | Context | Leaf | Owns |
 | --- | --- | --- |
-| 交付工作流 | [交付工作流](./docs/context/delivery-workflow.md) | prototype、spec、tracer bullet ticket、plan、任务包、HITL、AFK 和人工审批关卡。 |
+| 交付工作流 | [交付工作流](./docs/context/delivery-workflow.md) | prototype、共同理解、spec、tracer bullet ticket、plan、任务包、HITL、AFK 和人工审批关卡。 |
 | Tracker | [Tracker](./docs/context/tracker.md) | 类别角色、状态角色、agent brief、认领、frontier 和 `.out-of-scope/`。 |
 | Wayfinding | [Wayfinding](./docs/context/wayfinding.md) | effort、destination、map、decision ticket、链和 fog of war。 |
 | Agent | [Agent](./docs/context/agent-coordination.md) | 主 agent、subagent、角色、task、报告、验证、任务分支和结果分支。 |

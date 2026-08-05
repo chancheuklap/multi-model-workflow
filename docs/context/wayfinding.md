@@ -37,8 +37,11 @@ _Avoid_: decision ticket、Out of scope
 **AFK**：
 (authoritative: [AFK](./delivery-workflow.md))
 
+**共同理解**：
+(authoritative: [共同理解](./delivery-workflow.md))
+
 **`wayfinder:grilling`**：
-用 `/mmw-grilling` 一次问一个问题来解的 HITL decision ticket。
+用 `/mmw-grilling` 把 `Question` 谈成共同理解的 HITL decision ticket。提问方式由 `/mmw-grilling` 决定。
 
 **`wayfinder:prototype`**：
 用 `/mmw-prototype` 做出粗糙可运行产物并由用户走查的 HITL decision ticket。
