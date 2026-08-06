@@ -428,7 +428,7 @@
 </header>
 
 <div class="contract-strip" aria-label="版本与方法合同">
-  <div><strong>MMW 0.10.0</strong></div>
+  <div><strong>MMW 0.10.1</strong></div>
   <div><strong>上游基线 Matt Pocock Skills 1.2.2</strong></div>
   <div>MMW 技能源保留 Matt 的方法、步骤、解释和完成判据，并接入 MMW 的 worktree、tracker、报告验证、领域文档、人工审批关卡和宿主承载。</div>
 </div>
@@ -485,17 +485,17 @@ end
 subgraph MAIN["主干 · 从想法到落地"]
   direction LR
   gri["<b>mmw-grilling</b><br/>· 开问前先查仓库现状<br/>· 用设计树组织当前 frontier<br/>· 每轮批量提出整个 frontier<br/>· 同时应用 domain-modeling<br/>· 共同理解经用户确认才完成"]
-  pro[["<b>mmw-prototype</b><br/>· 一轮只回答一个设计问题<br/>· 逻辑原型是可双击打开的单文件 HTML<br/>· 同时提供自由操作与引导式走查<br/>· 走查后的资产保留在 docs/prototypes/"]]
+  pro[["<b>mmw-prototype</b><br/>· 一轮只回答一个设计问题<br/>· 逻辑 prototype 是可双击打开的单文件 HTML<br/>· 同时提供自由操作与引导式走查<br/>· 走查后的完整资产保留在 docs/prototypes/"]]
   tsp[["<b>mmw-to-spec</b><br/>· 七条入口各自取齐上游产物<br/>· seam 在这里钉死<br/>· spec 定稿的人工审批关卡通过后发布"]]
   ttk[["<b>mmw-to-tickets</b><br/>· 切成 tracer bullet<br/>· 声明阻塞关系与 prototype 资产<br/>· 用户通过 ticket 切分人工审批关卡<br/>· 批准后才发布到 tracker"]]
   imp[["<b>mmw-implement</b><br/>· 一张 ticket 派一个可写 worker<br/>· Codex 用独立后台 Worktree 任务<br/>· 每份走 ③ 逐份验收三关<br/>· 全部合并后走 ④ 合同门"]]
   tdd[("<b>mmw-tdd</b><br/>· red 到 green 的循环<br/>· seam 由 spec 钉死<br/>· seam 未定时读 codebase-design<br/>· 当前测试交错运行，全套只在末尾运行一次")]
-  pln[["<b>mmw-to-plan</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 一张 ticket 一份 plan<br/>· 派 planner 写<br/>· 主 agent 先划跨 plan 合同<br/>· 验证返回，回填精确字段"]]
-  pnr[("<b>mmw-planner</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 写计划方法论<br/>· planner 进门读它<br/>· 主 agent 不读")]
+  pln[["<b>mmw-to-plan</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 一张 ticket 一份 plan<br/>· 派 planner 写<br/>· 传入完整 prototype 资产与用户选中版本<br/>· 验证返回，回填精确字段"]]
+  pnr[("<b>mmw-planner</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 写计划方法论<br/>· 从 prototype 资产提取已确认决定<br/>· planner 进门读它，主 agent 不读")]
   clo["<b>mmw-closing</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· spec 与 plan 转成 Wiki 一页<br/>· 推送前给用户看<br/>· verify 三条全过才删本地"]
   intg[["<b>mmw-integrate</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 验证结果分支、HEAD 与基点<br/>· 按合同依赖排序<br/>· 合入当前任务分支"]]
   rel["<b>mmw-release</b><br/>· 当前 HEAD 必须等于终审提交<br/>· 主 agent 驱动正式出包循环<br/>· 核对所有包的 source commit<br/>· 用户实测通过后收尾"]
-  crv[["<b>mmw-review</b><br/>· 六道审的编排<br/>· 选视角、备材料、派发<br/>· findings 逐条判定"]]
+  crv[["<b>mmw-review</b><br/>· 六道审的编排<br/>· 按视角传入完整 prototype 资产与选中版本<br/>· findings 逐条判定"]]
   shp((("<b>提交到<br/>当前分支</b>")))
 end
 
@@ -639,8 +639,8 @@ mmwc -.->|"工作流承载与关卡"| src
 src -.->|"完整语义进入物化"| dsp
 pta -.->|"已确认的状态、交互和全部变体"| tsp
 pta -.->|"资产路径与 prototype 决定"| ttk
-pta -.->|"实施证据与可移植逻辑边界"| pln
-pta -.->|"视觉合同与走查证据"| crv
+pta -.->|"完整资产、选中版本与逐轮记录"| pln
+pta -.->|"完整资产与选中版本的视觉合同"| crv
 
 classDef user fill:#FBF2E4,stroke:#8A9490,stroke-width:1.5px,color:#2B2419;
 classDef model fill:#E4EDF0,stroke:#8A9490,stroke-width:1.5px,color:#14282C;
