@@ -70,15 +70,7 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 
 ### 5. 验收：亲手验证三关
 
-按 `$mmw:mmw-review` 的 **③ 逐份验收**验证，三关都过才允许合并：
-
-| 关卡 | 判据来源 |
-| --- | --- |
-| 做漏没有 | `$mmw:mmw-review` 目录中的 `self-review.md` |
-| 测试达不达标 | `$mmw:mmw-review` 目录中的 `self-review.md` |
-| 有没有偏离 | `$mmw:mmw-review` 目录中的 `self-review.md` |
-
-这一道由主 agent 执行，不派审查者。报告按 `$mmw:mmw-verifying-agent-output` 验证。
+按 `$mmw:mmw-review` 的 **③ 逐份验收**验证做漏没有、测试达不达标、有没有偏离。三关的判据和返工升级策略都在 `$mmw:mmw-review` 目录中的 `self-review.md`。三关都过才允许合并。这一道由主 agent 执行，不派审查者。报告按 `$mmw:mmw-verifying-agent-output` 验证。
 
 再验证两项本阶段合同：
 

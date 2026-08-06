@@ -3,12 +3,7 @@ name: mmw-retrieval
 description: 图谱缺失、过期、建不出来时用它；结构查询答不出一个明明存在的关系时也用它；检索工具调不动或者报工具集对不上时也用它；一个仓库第一次接入检索能力时也用它。
 ---
 
-检索用法的唯一事实来源：
-
-| 工具 | 说明位置 |
-| --- | --- |
-| Serena | `config/serena-readonly.yml` 的 `prompt` |
-| Graphify | `mcp/graphify_mcp.py` 的 `INSTRUCTIONS` |
+检索用法的唯一事实来源是 Serena 的 `config/serena-readonly.yml` 中的 `prompt`，以及 Graphify 的 `mcp/graphify_mcp.py` 中的 `INSTRUCTIONS`。
 
 本技能只处理两件事：图如何保持可用，以及工具无法连接时如何诊断。这两件事都由主 agent 执行。
 

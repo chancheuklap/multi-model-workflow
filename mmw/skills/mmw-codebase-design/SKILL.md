@@ -9,20 +9,23 @@ description: deep module 的共同词汇与判据：module、interface、seam、
 
 ## 词汇表
 
-这些词原样使用。不要换成「组件」「服务」「API」或「边界」。
+这些词原样用。不要换成「组件」「服务」「API」或「边界」。
 
-| 术语 | 定义 | 不使用 |
-| --- | --- | --- |
-| **module** | 任何有 interface 和 implementation 的东西。规模不限：函数、类、包或跨层切片都算 | 单元、组件、服务 |
-| **interface** | 调用方正确使用 module 必须知道的全部：类型签名、不变量、顺序约束、错误模式、必需配置和性能特征 | API、签名；两者只覆盖类型层面 |
-| **implementation** | module 内部的代码。谈 seam 时使用 adapter，其余时候使用 implementation | 不能与 adapter 互换；两者描述不同维度 |
-| **depth** | interface 上的 leverage。大量行为位于小 interface 后面是 **deep**；interface 几乎与 implementation 一样复杂是 **shallow** | implementation 的行数 |
-| **seam** | Michael Feathers 所说的可替换行为位置，也就是 module 的 interface 所在位置。seam 的位置与其后内容是两个设计决定 | 边界；该词与 DDD 的 bounded context 重名 |
-| **adapter** | 在 seam 上满足某个 interface 的具体东西。它描述角色，不描述内部实质 | 不能与 implementation 互换 |
-| **leverage** | 调用方从 depth 获得的能力：每学习一个单位的 interface，可以驱动更多行为；一份 implementation 在多个调用点和测试上复用 | — |
-| **locality** | 维护者从 depth 获得的集中性：改动、缺陷、知识和验证位于一处；修一次即可覆盖全部调用方 | — |
+**module** —— 任何有 interface 和 implementation 的东西。规模不限：一个函数、一个类、一个包或一片跨层切片都算。不要用：单元、组件、服务。
 
-implementation 与 adapter 可以任意组合。例如，Postgres 仓储可以是小 adapter 加大 implementation；内存假实现可以是大 adapter 加小 implementation。
+**interface** —— 调用方正确使用 module 必须知道的全部：类型签名、不变量、顺序约束、错误模式、必需配置和性能特征。不要用：API、签名；两者只覆盖类型层面。
+
+**implementation** —— module 内部的代码。谈 seam 时使用 adapter，其余时候使用 implementation。implementation 与 adapter 描述不同维度：Postgres 仓储可以是小 adapter 加大 implementation；内存假实现可以是大 adapter 加小 implementation。
+
+**depth** —— interface 上的 leverage。大量行为位于小 interface 后面是 **deep**；interface 几乎与 implementation 一样复杂是 **shallow**。
+
+**seam** —— Michael Feathers 所说的可替换行为位置，也就是 module 的 interface 所在位置。seam 的位置与其后内容是两个设计决定。不要用：边界；该词与 DDD 的 bounded context 重名。
+
+**adapter** —— 在 seam 上满足某个 interface 的具体东西。它描述角色，不描述内部实质。
+
+**leverage** —— 调用方从 depth 获得的能力：每学习一个单位的 interface，可以驱动更多行为；一份 implementation 在多个调用点和测试上复用。
+
+**locality** —— 维护者从 depth 获得的集中性：改动、缺陷、知识和验证位于一处；修一次即可覆盖全部调用方。
 
 ## deep 与 shallow
 

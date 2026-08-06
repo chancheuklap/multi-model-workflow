@@ -37,10 +37,8 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 从 `## Contract Boundaries`、`## Implementation Decisions` 和 ticket 依赖中识别跨 plan 连接面：
 
-| 连接面 | 写入 `## Cross-Plan Contract Anchors` 的内容 |
-| --- | --- |
-| 共享文件或共享 module | 文件归属；一个文件只归一份 plan |
-| 共享数据结构或跨 plan interface | 提供方、消费方和命名；精确字段与签名先标「字段待回填」 |
+- 共享文件或共享 module：写明文件归属，一个文件只归一份 plan。
+- 共享数据结构或跨 plan interface：写明提供方、消费方和命名；精确字段与签名先标「字段待回填」。
 
 没有跨 plan 连接面就在这一节写明「无跨 plan 共享合同」。
 

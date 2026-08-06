@@ -43,12 +43,7 @@ destination 是画 map 的第一项决定。它固定 effort 的范围，并决�
 
 三个入口都遵守以下并发合同：
 
-| 合同 | 要求 |
-| --- | --- |
-| 会话粒度 | 一个会话只解一张 decision ticket；回填、提交并交回 map 任务后停止 |
-| 研究例外 | 建图会话可以并行派发多张 `wayfinder:research` ticket；每个调查者仍只解一张 |
-| 认领 | 动手前把 ticket 指派给自己 |
-| map 更新 | 编辑前重新读取最新正文；写完再次读取并确认自己的内容仍在 |
-| worktree | map、每张 decision ticket 和每份 spec 各用自己的任务分支与 worktree；任务之间只交回分支名、HEAD SHA、基点 SHA 和报告 |
-
-拥有目标分支的任务负责验证并集成。主 agent 不切换到其他任务的工作目录。新出现的 frontier 由另一个会话认领。
+- **一个会话只解一张 decision ticket。** 回填、提交并交回 map 任务后停止。新出现的 frontier 由另一个会话认领。建图会话可以并行派发多张 `wayfinder:research` ticket；每个调查者仍只解一张。
+- **认领在动手之前。** 把 ticket 指派给自己就是认领。
+- **编辑 map 前后都重新读取最新正文。** 写完确认自己的内容仍在。
+- **每个任务只使用自己的 worktree。** map、每张 decision ticket 和每份 spec 各用自己的任务分支与 worktree。任务之间只交回分支名、HEAD SHA、基点 SHA 和报告。拥有目标分支的任务负责验证并集成。主 agent 不切换到其他任务的工作目录。

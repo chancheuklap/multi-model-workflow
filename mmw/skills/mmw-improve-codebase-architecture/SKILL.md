@@ -55,16 +55,14 @@ subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说�
 
 写一个自包含的 HTML 文件，落系统临时目录：从 `$TMPDIR` 取，取不到退回 `/tmp`（Windows 上是 `%TEMP%`），文件名 `architecture-review-<时间戳>.html`，每次跑一份新的。然后打开它——macOS `open`、Linux `xdg-open`、Windows `start`——把绝对路径告诉用户。
 
-每个候选一张卡片：
+每个候选一张卡片，包含：
 
-| 内容 | 要求 |
-| --- | --- |
-| 文件 | 列出涉及文件 |
-| 摩擦 | 说明当前结构的具体成本 |
-| 目标 | 说明改成什么形状 |
-| 收益 | 使用 locality、leverage 和测试变化说明 |
-| 图 | 一张 before/after 图 |
-| 强度 | `Strong`、`Worth exploring` 或 `Speculative` |
+- 涉及文件。
+- 当前结构的具体成本。
+- 目标结构。
+- 用 locality、leverage 和测试变化说明的收益。
+- 一张 before/after 图。
+- `Strong`、`Worth exploring` 或 `Speculative` 推荐强度。
 
 结尾使用 **Top recommendation** 说明首选候选及理由。
 

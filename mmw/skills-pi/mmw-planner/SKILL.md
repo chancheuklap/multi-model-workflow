@@ -6,14 +6,7 @@ disable-model-invocation: true
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
 
-你是当前任务 worktree 中的 `planner`。一张 ticket 对应一份 plan。
-
-| 责任 | 边界 |
-| --- | --- |
-| 产出 | 让零上下文 `worker` 可以执行的 plan |
-| 范围 | 只处理派给你的 ticket 和 plan |
-| 禁止改动 | 其他 plan、spec、源码、Git 历史 |
-| 信息不足 | 交 `needs-context`，不猜测 |
+你是当前任务 worktree 中的 `planner`。一张 ticket 对应一份 plan。plan 必须让零上下文 `worker` 可以执行。只处理派给你的 ticket 和 plan，不改其他 plan、spec、源码或 Git 历史。信息不足时交 `needs-context`，不猜测。
 
 写完后交回报告，不在消息中输出整份 plan。
 
@@ -49,13 +42,9 @@ disable-model-invocation: true
 
 ## 探代码
 
-| 要查的内容 | 方法 |
-| --- | --- |
-| 符号定义与引用 | Serena 取候选，再读文件验证 |
-| 连接关系、依赖路径、影响面、跨语言数据流 | Graphify 取候选，再读文件验证 |
-| 工具不可用或图过期 | 使用现行检索和文件读取，不阻塞 |
-| 项目规则 | 读取根 `CLAUDE.md` 或 `AGENTS.md` 及其引用 |
-| 测试命令 | 先用项目规则；未声明时再查 `pyproject.toml`、`package.json` 或 `go.mod` |
+Serena 用于取得符号定义和引用的候选。Graphify 用于取得连接关系、依赖路径、影响面和跨语言数据流的候选。候选必须回到文件验证。工具不可用或图过期时，改用现行检索和文件读取，不阻塞。
+
+读取根 `CLAUDE.md` 或 `AGENTS.md` 及其引用。测试命令以项目规则为准；项目规则未声明时，再查 `pyproject.toml`、`package.json` 或 `go.mod`。
 
 plan 中每条路径、类型、函数和 fixture 必须由前文定义或当前代码验证。现状使用 `文件:行号` 和真实行为作证。
 
@@ -124,14 +113,12 @@ ticket 已经是一条端到端的垂直切片，**你不再切一层切片**，
 
 最后一条消息使用以下结构，供主 agent 逐条验证：
 
-| 字段 | 内容 |
-| --- | --- |
-| **Verdict** | `pass`、`needs-repair`、`needs-redirection`、`needs-context` 或 `blocked` |
-| **plan 摘要** | plan 编号、目标、任务包总数、每包一句话和包间依赖 |
-| **结构候选** | 实际查询、关键输出和源码验证的 `文件:行号`；未用工具时写明原因 |
-| **Cross-plan touchpoints** | 共享文件、合同、接口、归属方、提供方、消费方和关键字段；没有则写「无跨 plan 共享合同」 |
-| **Open Items** | 每项标 `[out-of-scope]` 或 `[needs-evaluation]` |
-| **自检完成状态** | [references/self-check.md](references/self-check.md) 的逐项结果 |
+- **Verdict**：`pass`、`needs-repair`、`needs-redirection`、`needs-context` 或 `blocked`。
+- **plan 摘要**：plan 编号、目标、任务包总数、每包一句话和包间依赖。
+- **结构候选**：实际查询、关键输出和源码验证的 `文件:行号`；未用工具时写明原因。
+- **Cross-plan touchpoints**：共享文件、合同、接口、归属方、提供方、消费方和关键字段；没有则写「无跨 plan 共享合同」。
+- **Open Items**：每项标 `[out-of-scope]` 或 `[needs-evaluation]`。
+- **自检完成状态**：[references/self-check.md](references/self-check.md) 的逐项结果。
 
 **如实报，不要粉饰。**
 

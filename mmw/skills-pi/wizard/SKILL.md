@@ -41,19 +41,9 @@ Wizard 默认是临时产物，保存在 scratch 或临时 `scripts/` 路径。�
 
 以 [template.sh](template.sh) 为模板，在目标路径生成脚本。保留 `STAGES` 标记上方的 library，只替换示例步骤。
 
-按依赖顺序写一个步骤一个 `stage`：
+按依赖顺序写一个步骤一个 `stage`。使用现有 helper：`say`、`step`、`open_url`、`ask`、`ask_secret`、`write_env`、`set_secret`、`set_var`、`pause` 和 `confirm`。
 
-| 需要 | helper |
-| --- | --- |
-| 开始一个步骤 | `stage` |
-| 显示说明 | `say`、`step` |
-| 打开页面 | `open_url` |
-| 读取公开值或 secret | `ask`、`ask_secret` |
-| 写入 `.env` | `write_env` |
-| 写入 CI secret 或 variable | `set_secret`、`set_var` |
-| 等待或确认 | `pause`、`confirm` |
-
-设置诚实的 `TOTAL_STAGES` 和 `TOTAL_MINUTES`。先打开 URL，再索取值。只有 CI 实际消费的值才使用 `set_secret`。不可逆动作前使用 `confirm`。
+设置诚实的 `TOTAL_STAGES` 和 `TOTAL_MINUTES`。先打开 URL，再索取值。公开值使用 `ask`，secret 使用 `ask_secret`。需要持久化的值使用 `write_env`。只有 CI 实际消费的值才使用 `set_secret`。不可逆动作前使用 `confirm`。
 
 一个 `stage` 只完成一个聚焦任务。`stage` 会清屏，当前步骤所需内容必须留在同一屏。
 

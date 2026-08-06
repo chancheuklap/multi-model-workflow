@@ -15,15 +15,18 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 ## 角色
 
-| 角色组 | 角色 | 含义 |
-| --- | --- | --- |
-| 类别 | `bug` | 有东西坏了 |
-| 类别 | `enhancement` | 新功能或改进 |
-| 状态 | `needs-triage` | 等维护者评估 |
-| 状态 | `needs-info` | 等报告人补信息 |
-| 状态 | `ready-for-agent` | agent brief 完整，可以 AFK 跑 |
-| 状态 | `ready-for-human` | 需要人来实现 |
-| 状态 | `wontfix` | 不做 |
+两个类别角色：
+
+- `bug`：有东西坏了。
+- `enhancement`：新功能或改进。
+
+五个状态角色：
+
+- `needs-triage`：等维护者评估。
+- `needs-info`：等报告人补信息。
+- `ready-for-agent`：agent brief 完整，可以 AFK 跑。
+- `ready-for-human`：需要人来实现。
+- `wontfix`：不做。
 
 对 PR 而言，同样这几个状态是对着那份代码读的：`ready-for-agent` 表示 agent brief 已附上、该由 agent 接着动这份 diff；`ready-for-human` 表示可以由人来合了。
 
@@ -40,11 +43,7 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 **半路挖到的东西开新 issue。** 分诊或做任务时发现的另一个缺陷、优化机会、或者超出本次范围的事：开一张新 issue，打 `needs-triage` 加对应类别标签，主流程不动。不需要「旁路发现」这类专门标签——它是一张独立 issue 这个事实，已经把「不属于本任务」说完了。
 
-| 当前状态 | 下一状态 |
-| --- | --- |
-| 无状态角色 | 通常进入 `needs-triage` |
-| `needs-triage` | `needs-info`、`ready-for-agent`、`ready-for-human` 或 `wontfix` |
-| `needs-info` 且报告人回复 | 返回 `needs-triage` |
+无状态角色通常进入 `needs-triage`。`needs-triage` 可以转到 `needs-info`、`ready-for-agent`、`ready-for-human` 或 `wontfix`。报告人回复后，`needs-info` 返回 `needs-triage`。
 
 维护者可以覆盖流转。流转反常时，先标出并询问维护者。
 
