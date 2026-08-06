@@ -81,6 +81,7 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 24. 领域文档与流程同时更新。交付工作流登记共同理解、spec 定稿和 ticket 拆分三个不同的人工审批关卡，并明确 prototype 资产归属。Wayfinding 把 effort 改为“超出一次 agent session 且路线不清”，删除“链”及其所有权。审查登记与固定点不同的终审提交。Context Map 的 Owns 列同步上述所有权。每个概念只在 owning leaf 定义，其余 leaf 使用权威引用。原型免除：该决定照搬现有领域文档合同。
 25. 发布版本统一提升为 0.10.0。该版本表示方法合同、辅助技能集合和宿主物化都发生兼容性可见变化。Codex manifest、Claude Code manifest、根 Claude marketplace 的插件版本和顶层版本，以及 Pi package 同步更新。原型免除：该决定可由现有版本合同判定，不需要用户判断。
 26. 实施按四个原子主题提交：核心 P0 保真修复；阶段边界与 P1/P2 闭环；新增辅助技能；宿主物化、文档、架构图和版本。每个主题完成后检查共享源与三宿主产物。原型免除：该决定只改变内部提交结构，不改变用户可见行为。
+27. `/mmw-research` 是需要多个独立角度和系统取证的重型调查。单个文件、符号、事实、文件计数和一条命令能完成的确认由主 agent 直接处理。`/mmw-start`、Grilling、Triage、ticket 拆分和架构热点选择使用同一触发边界，不为普通检索派 `investigator`。原型免除：该决定来自用户对调查成本和技能触发边界的明确要求。
 
 ## Failure Paths
 
@@ -149,7 +150,7 @@ Ticket 拆分新增人工审批关卡，会让全自动交付在写入 tracker �
 
 ## Out of Scope
 
-- 不重写已经充分保真的 Bug 诊断、Research、Domain Modeling、Codebase Design、架构改进、Triage、Spec 和 Review 方法。
+- 不重写已经充分保真的 Bug 诊断、Research 取证方法、Domain Modeling、Codebase Design、架构改进、Triage、Spec 和 Review 方法。
 - 不删除 MMW 的报告验证、plan 层、六道审、Context Map/leaf、Worktree 结果验证、Retrieval、Closing 或 Release 状态机。
 - 不迁移或删除历史 prototype 资产；历史产物与新产物都继续按 `docs/prototypes/` 资产合同解释。
 - 不吸收 `teach`、`grill-me`、`claude-handoff`、`loop-me`、`setup-ts-deep-modules`、文章写作技能或 misc 专项工具。

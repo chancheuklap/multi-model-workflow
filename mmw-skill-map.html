@@ -524,7 +524,7 @@ end
 
 subgraph SOLO["独立使用"]
   direction TB
-  res[["<b>mmw-research</b><br/>· 查内部与查外部两个方向<br/>· 一个角度一个 subagent<br/>· 各拿各的 task"]]
+  res[["<b>mmw-research</b><br/>· 重型多角度调查<br/>· 查内部与查外部两个方向<br/>· 一个角度一个 subagent"]]
   hof["<b>handoff</b>"]
   wfa["<b>writing-for-agents</b>"]
   wiz["<b>wizard</b><br/>复杂人工操作的可审查向导"]
@@ -623,7 +623,7 @@ cdx -.->|"可写任务交接"| cwt
 imp ==>|"四栏 task + 宿主写死启动句"| dsp
 dsp ==>|"交回报告<br/>绝不原样转发"| vfy
 vfy ==>|"验证过出处才采信"| crv
-mms ==>|"只要一条查得清的事实"| res
+mms ==>|"多角度系统取证"| res
 dbg ==>|"修复验收过了<br/>发起 ⑤ final 终审"| crv
 vfy -.->|"派前查方法论装没装"| cl7
 cfg -.->|"skill-path 给审查者与 planner 指方法论路径"| cl6

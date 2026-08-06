@@ -25,11 +25,9 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 ## 2. 找 prefactor
 
-**按 `/mmw-research` 的内部方向派一个 subagent**，题目是：这次要改的地方，有哪些可以先做 prefactor，让后面的实现更容易。「先把改动变容易，再做这个容易的改动。」
+从已有 spec、对话和现状调查中找能让后续实现更容易的 prefactor。「先把改动变容易，再做这个容易的改动。」材料没有覆盖相关代码时，主 agent 直接读取实施范围内的入口、调用方和测试。只有范围跨多个模块、需要从调用链、数据流或影响面等独立角度系统取证时，才调用 `/mmw-research`。
 
-上游那份 spec 的现状调查已经覆盖了这块代码怎么实现，这里不重查，只查 prefactor 这一个角度。**上游没有 spec、这次是从对话直接拆 ticket 的**，就连现状一起查，一个角度一个 subagent。
-
-收回来按 `/mmw-verifying-agent-output` 验证过才写进 ticket。
+没有值得单独落地的 prefactor 就直接进入第 3 步，不为填这一步制造 ticket。
 
 ticket 的标题和描述用项目领域术语表里的词，遵守这块地方的 ADR。
 
