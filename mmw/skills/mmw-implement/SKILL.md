@@ -39,13 +39,23 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 ### 3. 写派工 task
 
-按 **四栏表**（目标 / 读 / 约束 / 验收）填写。issue 上的 **agent brief** 是 tracker 里的权威行为合同，进入「读」栏。派给 `worker` 的 task 负责补充本次运行的执行边界。本角色各栏取值：
+| 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
+| --- | --- | --- | --- | --- |
+| `worker-brief.md` | 始终 | 文件路径 | 正文副本 | 文件路径 |
+| spec 或 agent brief | 始终 | 当前需求的精确位置 | 其它需求 | 精确位置 |
+| ticket | 始终 | 当前 ticket 编号 | 其它 ticket | ticket 编号 |
+| plan | spec 分支 | 当前 ticket 的 plan 路径 | 其它 plan | plan 路径 |
+| `TESTING.md` | 文件存在时 | 仓库根文件 | 自拟测试命令 | 文件路径 |
+| prototype | 当前 ticket 引用时 | 索引、选中产物和明确相关证据 | 整个产物目录和过程材料 | 精确路径 |
+| research | 当前 ticket 引用时 | research 索引和精确文件 | research 的上级目录和 subagent 原始报告 | 精确路径 |
+
+按 **四栏表**（目标 / 读 / 约束 / 验收）填写。issue 上的 **agent brief** 是 tracker 里的权威行为合同，进入「读」栏。
 
 | 栏 | 本角色填写 |
 | --- | --- |
 | 目标 | 完成 ticket `#<编号>`（或 tracker 等价编号） |
-| 读 | 一行一条，只写定位：① `worker-brief.md`（与本 `SKILL.md` 同目录）；② 本 worktree 内 spec 路径，或 agent brief 所在 issue 编号；③ 本张 ticket 的 issue 编号；④ 对应 plan 路径（无 plan 写“无 plan”）；⑤ 仓库根 `TESTING.md`（无则写“无”）；⑥ prototype 资产索引 `README.md`；⑦ 本 ticket 使用的选中产物和明确相关的走查或长期证据路径；⑧ investigation 资产索引 `README.md`；⑨ 本 ticket 使用的验证后报告和配套资产精确路径。没有对应资产时，第⑥项写“无 prototype 资产”并省略第⑦项，第⑧项写“无 investigation 资产”并省略第⑨项 |
-| 约束 | 只改本 worktree 源码与测试；不改 `docs/`；不扩大 ticket 范围。有 prototype 时：先读索引，再只读 task 点名的精确路径；把用户确认过的纯逻辑模块移入正式 module 并用 TDD 集成，界面按仓库规范重写；不复制 prototype 外壳、临时 route、切换器或落选变体 |
+| 读 | 按上方上下文清单逐行列出精确路径。没有 plan、prototype 或 research 时分别写「无 plan」「无 prototype 资产」「无 research」 |
+| 约束 | 只改本 worktree 源码与测试；不改 `docs/`；不扩大 ticket 范围；所有上下文只读 task 点名的精确路径 |
 | 验收 | spec 分支：见 ticket `#<编号>` 的验收标准，seam 见 spec `## Testing Decisions`；agent brief 分支：见原 issue 的 agent brief 中 `**Acceptance criteria:**` 与 `**Test seam:**`（在「读」里已给出定位，此处不抄正文） |
 
 TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。

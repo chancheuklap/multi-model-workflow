@@ -42,7 +42,7 @@ _Avoid_: task、plan、brief
 
 **认领**：
 把 work item 指派给当前执行者。认领成功之前不开始工作。
-_Avoid_: 读取、开始调查
+_Avoid_: 读取、开始 research
 
 **frontier**：
 一个父 issue 下 open、无阻塞、未认领的子 issue。

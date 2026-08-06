@@ -29,7 +29,7 @@
 
 ## 2. 立计划
 
-使用 [SKILL.md](SKILL.md) 通过 `mmw artifact path evidence` 取得的 evidence 产物路径。写 `<evidence 产物路径>/<日期>-<对象>-test-plan.md`，四栏：
+使用 [SKILL.md](SKILL.md) 通过 `mmw path evidence` 取得的 evidence 产物路径。写 `<evidence 产物路径>/<日期>-<对象>-test-plan.md`，四栏：
 
 | 栏 | 写什么 |
 | --- | --- |
@@ -40,7 +40,7 @@
 
 ## 3. 真实跑
 
-使用 [SKILL.md](SKILL.md) 通过 `mmw artifact path scratch` 取得的 scratch 路径。探测脚本、过程截图、DOM、console、录屏、完整命令输出和生成中间物默认落在 `<scratch 路径>/runs/<战役名>/`，不进 Git。
+使用 [SKILL.md](SKILL.md) 通过 `mmw path scratch` 取得的 scratch 路径。探测脚本、过程截图、DOM、console、录屏、完整命令输出和生成中间物默认落在 `<scratch 路径>/runs/<战役名>/`，不进 Git。
 
 [[mmw-host-action:browser-evidence]]
 

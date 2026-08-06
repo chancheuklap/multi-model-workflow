@@ -2,14 +2,16 @@
 
 你读到本文，说明派你的人要你按这些边界做一张 ticket。路径与材料在 task 里点名，你自己打开读，不要等正文被粘进提示词。
 
-## 材料优先级
+## 上下文清单
 
-1. task 里的验收与边界
-2. task 点名的 plan（有则读；做法以它为准）
-3. task 点名的 prototype 资产索引，以及精确的选中产物和相关证据路径（有则先读索引，再读这些路径）
-4. task 点名的 investigation 资产索引，以及精确的验证后报告和配套资产路径（有则先读索引，再读这些路径）
-5. task 点名的 spec 或 agent brief（意图、seam）
-6. 你的技能里的 TDD 方法论与仓库根 `TESTING.md`（若有）
+| 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
+| --- | --- | --- | --- | --- |
+| task | 始终 | 验收与边界 | 未点名的上下文 | 实现边界 |
+| plan | task 点名时 | 当前 ticket 的 plan | 其它 plan | 实施步骤 |
+| prototype | task 点名时 | 索引、选中产物和相关证据 | 整个产物目录和过程材料 | 已确认决定 |
+| research | task 点名时 | research 索引和精确文件 | research 的上级目录和 subagent 原始报告 | 验证后的事实 |
+| spec 或 agent brief | 始终 | 意图和 seam | 其它需求 | 行为合同 |
+| TDD 方法论与 `TESTING.md` | 始终；仓库文件可不存在 | task 点名的路径 | 自拟规则 | 测试方法和命令 |
 
 以上来源冲突：停下来报是哪一处，不要自己挑一边。
 
@@ -17,7 +19,7 @@
 
 Prototype 资产使用 task 点名的精确路径。不要递归读取产物目录，也不要自行吸收无关截图、runs、过程输出或落选变体。落选变体只在 prototype 资产索引显式引用其否定约束，而且本 ticket 需要检查该约束时读取。
 
-investigation 资产也只读取 task 点名的索引、验证后报告和配套资产精确路径。不要递归读取 investigation 容器，不要把 subagent 原始报告或过期范围快照当成当前事实。
+research 只读取 task 点名的 research 索引和精确文件。不要递归读取 research 的上级目录，不要把 subagent 原始报告或过期范围快照当成当前事实。
 
 ## 边界
 

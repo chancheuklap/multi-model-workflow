@@ -9,14 +9,14 @@
 4. 读取 `mmw domain dirs` 返回的 `adr` 路径下与本次范围相关的 ADR。
 5. 用户说法、多个 leaf、ADR 或代码现状互相冲突时，明确列出冲突，不得静默覆盖。
 6. 长期术语、关系和歧义只写入拥有它们的 leaf。只有上下文集合、所有权或跨上下文关系改变时才修改本 Map。
-7. 操作步骤、实施计划、发布状态和一次性调查不进入领域文档。
+7. 操作步骤、实施计划、发布状态和一次性 research 不进入领域文档。
 <!-- MMW-CONTEXT-MAP-RULES-END -->
 
 ## Contexts
 
 | Context | Leaf | Owns |
 | --- | --- | --- |
-| 交付工作流 | [交付工作流](./docs/context/delivery-workflow.md) | prototype、prototype 资产、共同理解、spec、tracer bullet ticket、plan、任务包、HITL、AFK 和人工审批关卡。 |
+| 交付工作流 | [交付工作流](./docs/context/delivery-workflow.md) | prototype、prototype 资产、research、research 索引、research 报告、research 配套文件、research 目录、research 路径、共同理解、spec、tracer bullet ticket、plan、任务包、HITL、AFK 和人工审批关卡。 |
 | Tracker | [Tracker](./docs/context/tracker.md) | 类别角色、状态角色、agent brief、认领、frontier 和 `.out-of-scope/`。 |
 | Wayfinding | [Wayfinding](./docs/context/wayfinding.md) | effort、destination、map、decision ticket、会话边界和 fog of war。 |
 | Agent | [Agent](./docs/context/agent-coordination.md) | 主 agent、subagent、角色、task、报告、验证、任务分支和结果分支。 |
