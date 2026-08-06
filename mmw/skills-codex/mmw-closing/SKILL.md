@@ -1,6 +1,6 @@
 ---
 name: mmw-closing
-description: 一次任务的收尾——spec 和 plan 转成 Wiki 的一页，删掉本地副本，分支交回用户合并。用户说要收尾、要归档时用它；终审过了、采信的 findings 都修完的技能也移交这里。
+description: 完成 spec 任务的归档和交回。用于用户要求收尾，或终审提交已登记且无需出包，或安装包实测通过。
 ---
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
@@ -18,7 +18,7 @@ Wiki 只放这一样东西。map、审查记录、终审报告都不进——它
 | 检查 | 怎么查 |
 | --- | --- |
 | 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 |
-| 终审跑过，采信的 findings 都修完并复审通过 | `.reviews/` 里有终审报告；采信项各自有对应的修复提交 |
+| 终审跑过，采信的 findings 都已修复并验证 | `mmw path review` 返回的审查记录目录里有终审报告；有采信项时，记录顶部有 `修复提交` |
 | 工作区干净 | `git status --porcelain` 是空的 |
 | Wiki 已初始化 | `mmw wiki ensure` 跑得通。没初始化它会报出来，只能由用户去仓库的 `/wiki` 页手建一页 |
 
@@ -87,7 +87,21 @@ mmw wiki nav
 
 「验证」一节那份清单全过之后，在任务分支上删掉 `docs/specs/<slug>/` 与 `docs/plans/<slug>/` 并提交。
 
-**`docs/prototypes/<slug>/` 与 `docs/evidence/<slug>/` 不删。**
+**持久 prototype 资产、用户选择保存的 research 与 evidence 不删。**
+
+## 7. 清理当前任务的过程材料
+
+Wiki 验证通过，而且第 6 步已经归档并提交本地 spec 与 plan 后，清理当前任务自己的过程材料。
+
+先确定产物目录。从 Wayfinder 切出的 spec issue 读取 issue 正文继承的 `## 产物目录`；普通 spec 使用 spec slug。再从已绑定任务状态读取当前任务 slug。不要从任务 worktree 的物理目录名推断。
+
+Wayfinder 派生的 spec 运行 `mmw path scratch <产物目录> task-<任务 slug>`；普通 spec 运行 `mmw path scratch <产物目录>`。只删除命令返回的当前任务 scratch 目录。
+
+运行 `mmw path review`。审查记录使用任务 slug，不使用产物目录；只删除 `<命令返回目录>/<任务 slug>-*`。`.dispatch` 也归任务 worktree；只删除文件名或派发记录明确属于当前任务 slug 的 task 和报告文件。删除前列出目标，并逐项验证归属。无法确认归属的条目保留并报告。
+
+不得整目录清空共享 scratch、审查记录目录或 `.dispatch` 目录。只删除 `mmw path scratch` 返回的当前任务目录、`mmw path review` 返回目录中属于当前任务 slug 的文件，以及 `.dispatch` 中明确属于当前任务 slug 的文件。持久 prototype 资产、用户选择保存的 research、evidence 和其他持久内容继续保留。
+
+完成判据：当前任务的 scratch、审查与派发过程材料已经清理；其他任务的过程材料、prototype 资产、用户选择保存的 research、evidence 和其他持久内容仍在。
 
 下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 
@@ -96,9 +110,9 @@ mmw wiki nav
 | 情况 | 下一步 |
 | --- | --- |
 | 第 3 步报出别人以前手写的旧页缺那个块 | **自己继续**：记下来，末尾一并交给用户，不要改别人的页面 |
-| 六步都做完 | **停**：用业务语言交代现在什么能用了、什么证明它能用、这份 spec 归档到了哪一页、什么搁置了搁到哪里。这条分支就绪待集成——用户要现在就集成走 `$mmw:mmw-integrate`，要等别的并行分支一起再集成就先放着，worktree 在那之前别清理 |
+| 七步都做完 | **停**：用业务语言交代现在什么能用了、什么证明它能用、这份 spec 归档到了哪一页、什么搁置了搁到哪里。这条分支就绪待集成——用户要现在就集成走 `$mmw:mmw-integrate`，要等别的并行分支一起再集成就先放着，worktree 在那之前别清理 |
 | 第 4 步用户不同意推送 | **停**：问清他要改哪里，改完重走第 2 步 |
 | 第 5 步 `mmw wiki verify` 有一条不过 | **停**：报是哪一条、看到的是什么。**不要删本地文档**，也不要重推一遍指望它自己好 |
 | `mmw wiki ensure` 报 Wiki 还没初始化 | **停**：告诉用户去仓库的 `/wiki` 页建一页任意内容。没有 API 能替他建，不要试着绕 |
 | 推上去的页面被自动任务覆盖或删除 | **停**：检查仓库是否存在从代码全量重建 Wiki 的自动任务。全量重建与本技能的增量追加不能同时管理同一组页面；让用户决定保留哪一种发布方式 |
-| 终审还没跑，或者还有采信的 findings 没修完 | **停**：说清缺哪一样。回 `$mmw:mmw-implement` 第 7 步发起终审，或者按 `$mmw:mmw-review` 第 7 步复审 |
+| 终审还没跑，或者还有采信的 findings 没修完 | **停**：说清缺哪一样。没审就回 `$mmw:mmw-implement` 第 7 步；审过就按 `$mmw:mmw-review` 第 7 步完成修复验证 |

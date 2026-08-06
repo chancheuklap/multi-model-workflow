@@ -27,7 +27,7 @@ python3 mmw/codex/runtime.py materialize  # 更新 Codex plugin 与四个原生 
 git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock/skills main --squash
 ```
 
-根文档保留 `README.md`、`AGENTS.md`、`CLAUDE.md`、`TESTING.md`。根 `mmw-skill-map.html` 是当前 MMW 架构的可视化产物，必须保留并随架构变化更新。不要新增其他架构、设计、调查、计划或审查类根文档。长期规则写本文件；运行行为写 `mmw/skills/`（源）、物化产物 `mmw/skills-pi/`、`mmw/skills-claude-code/` 与 `mmw/skills-codex/`、`mmw/cli/`。
+根文档保留 `README.md`、`AGENTS.md`、`CLAUDE.md`、`TESTING.md`。根 `mmw-skill-map.html` 是当前 MMW 架构的可视化产物，必须保留并随架构变化更新。不要新增其他架构、设计、research、计划或审查类根文档。长期规则写本文件；运行行为写 `mmw/skills/`（源）、物化产物 `mmw/skills-pi/`、`mmw/skills-claude-code/` 与 `mmw/skills-codex/`、`mmw/cli/`。
 
 ## 唯一事实来源
 
@@ -59,6 +59,9 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - 改技能前读完整 `SKILL.md` 及其链接的 reference。运行提交检查前读根 `TESTING.md`。
 - 只实现请求范围内行为；不用归档残留、兼容目录或静默默认值掩盖错误。
 - 脚本异常必须非零退出或留下结构化告警。
+- 机械校验只覆盖机器能直接判定的事实：语法与固定结构可解析、路径与文件安全、配置完整性和生成产物一致性。
+- 产物质量、方法选择、语义真实性和完成度由技能与主 agent 判断。不用计数、列表形状、固定阈值或豁免清单伪装成机械校验。
+- 已有校验越过这条边界时删除该校验，不增加例外分支。
 - 产品版本同步修改 Codex manifest、Claude Code manifest、根 Claude marketplace 的插件版本与顶层版本，以及 Pi package。
 - `mmw/skills/mmw-setup/` 只保存旧背景材料，不是技能。扫描技能正文时必须排除它。
 - 每份流程技能以 `## 下一步` 收尾。表格固定为“情况、下一步”两列，动作只用“自己继续”“移交”“停”。只有 agent 无法开启新会话或需要用户决定时才停。
@@ -89,9 +92,11 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 上游技能合集升级时，逐项检查全部 active MMW 技能、全部上游正式技能和本次新增技能。结果至少区分：直接保留、按 MMW 工作流适配、吸收新增技能和不吸收。`/mmw-wayfinder` 等大型路由技能，以及 `/writing-for-agents` 等被其他技能依赖的方法论，必须继续检查每个调用方和完成判据，不能只检查改名文件或入口正文。
 
-prototype 遵守上游的探索方法，也遵守 MMW 的资产合同。用户走查过的完整 prototype、逐轮记录和证据保留在任务分支的 `docs/prototypes/<slug>/`，由 spec、ticket、plan、实现和审查持续引用。正式实现吸收已经验证的决定和可移植逻辑；prototype 外壳与落选变体继续作为 prototype 资产，不进入生产路由。
+prototype 遵守上游的探索方法，也遵守 MMW 的资产合同。Wayfinder map 固定一个 `产物目录`；每张 decision ticket 在该目录下使用自己的 `issue-<编号>` 子目录。持久 prototype 资产保留可运行 prototype、完整界面变体、用户走查结论、选中产物和明确引用的必要证据；过程材料进入 Git 忽略的 scratch。下游先读 prototype 资产索引，再读取精确的选中产物和证据路径。正式实现吸收已经验证的决定和可移植逻辑；prototype 外壳与落选变体继续作为 prototype 资产，不进入生产路由。
 
-用户已经提供定稿 spec 或调查报告，并明确要求直接实施时，把任务作为 plugin 维护直接落地。只有仍有一个靠讨论无法决定的设计问题时，才使用 prototype 取得可运行证据。prototype 一旦形成，就按 prototype 资产合同保留，不把它误作待提交的生产实现。
+每次 `/mmw-research` 完成验证与综合后，先展示结论摘要、拟保存文件和完整路径，再通过人工审批关卡询问用户是否保存。research 路径只通过 `mmw path research` 取得。保存和下游引用独立；下游只读取当前工作点名的 research 索引和精确文件。subagent 原始报告、网页转储、抓取缓存和未采信内容进入 scratch；research 不进入 ADR 目录。
+
+用户已经提供定稿 spec 或 research 报告，并明确要求直接实施时，把任务作为 plugin 维护直接落地。只有仍有一个靠讨论无法决定的设计问题时，才使用 prototype 取得可运行证据。prototype 一旦形成，就按 prototype 资产合同保留，不把它误作待提交的生产实现。
 
 吸收上游新增技能时，先判断它是否服务 MMW 的仓库交付范围。吸收后保留上游 invocation 方式、步骤、完成判据和配套 reference 或模板；只在现有 MMW 路由确实需要它时才接入主流程。辅助技能保持辅助技能身份。
 
@@ -139,7 +144,7 @@ prototype 遵守上游的探索方法，也遵守 MMW 的资产合同。用户�
 <!-- MMW-DOMAIN-CONTEXT-START -->
 ## 领域上下文
 
-开始调查、讨论、设计、写文档、写代码或审查前，运行 `mmw domain path`：
+开始 research、讨论、设计、写文档、写代码或审查前，运行 `mmw domain path`：
 
 - 返回 `map`：先读 Map，再读本次涉及的全部 leaf。
 - 返回 `single`：读命令返回的领域文档。

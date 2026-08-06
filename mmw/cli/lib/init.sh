@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # mmw init：把一个仓库配置成能跑这套工作流的样子。
 #
-# 幂等。每一步已经做过就跳过并报一行，重跑无害。不覆盖任何已存在的文件，也不
-# 删任何东西——要删的由人决定。
+# 幂等。每一步已经做过就跳过并报一行，重跑无害。已有配置只执行字段迁移；其他
+# 已存在文件不覆盖，要删除的内容由人决定。
 
 set -euo pipefail
 
@@ -20,13 +20,45 @@ mmw_init_touch() {
 }
 
 mmw_init_config() {
-  local root config
+  local root config default_config default_research default_evidence default_scratch temp config_mode
   root="$(mmw_repo_root)"
   config="$root/.mmw.json"
+  default_config="$MMW_ROOT/cli/mmw.default.json"
   if [ -f "$config" ]; then
-    mmw_init_say "配置     : 已有 ${config}，不覆盖"
+    if jq -e '.paths.research != null and .paths.investigations == null and .paths.evidence != null and .paths.scratch != null' "$config" >/dev/null 2>&1; then
+      mmw_init_say "配置     : 已有 ${config}，无需迁移"
+      return 0
+    fi
+    default_research="$(jq -er '.paths.research' "$default_config")" || return 1
+    default_evidence="$(jq -er '.paths.evidence' "$default_config")" || return 1
+    default_scratch="$(jq -er '.paths.scratch' "$default_config")" || return 1
+    mmw_path_safe_base "$default_research" || return 1
+    mmw_path_safe_base "$default_evidence" || return 1
+    mmw_path_safe_base "$default_scratch" || return 1
+    if config_mode="$(stat -f '%Lp' "$config" 2>/dev/null)"; then
+      :
+    elif config_mode="$(stat -c '%a' "$config" 2>/dev/null)"; then
+      :
+    else
+      return 1
+    fi
+    temp="$(mktemp "$root/.mmw.json.migrate.XXXXXX")" || return 1
+    if ! jq --arg research "$default_research" --arg evidence "$default_evidence" --arg scratch "$default_scratch" '
+      .paths = (.paths // {}) |
+      .paths.research //= $research |
+      del(.paths.investigations) |
+      .paths.evidence //= $evidence |
+      .paths.scratch //= $scratch
+    ' "$config" > "$temp"; then
+      rm -f "$temp"
+      return 1
+    fi
+    chmod "$config_mode" "$temp"
+    mv -f "$temp" "$config"
+    mmw_init_touch ".mmw.json"
+    mmw_init_say "配置     : 已为 ${config} 补入 paths.research、paths.evidence 与 paths.scratch，并删除旧 research 路径字段"
   else
-    cp "$MMW_ROOT/cli/mmw.default.json" "$config"
+    cp "$default_config" "$config"
     mmw_init_touch ".mmw.json"
     mmw_init_say "配置     : 已生成 $config"
   fi
@@ -66,8 +98,8 @@ mmw_init_codex_runtime() {
   return 1
 }
 
-# TESTING.md 铺的是骨架，不是填好的事实。测试怎么写、够不够格进仓库随插件走，
-# 这一份只留空位给本仓库的目录分层、外部 seam、权威源和跑法。
+# TESTING.md 铺的是骨架，不是填好的事实。通用测试方法随插件走，
+# 这一份留空位给本仓库的目录分层、外部 seam、权威源和跑法。
 mmw_init_testing() {
   local root target
   root="$(mmw_repo_root)"
@@ -156,15 +188,15 @@ mmw_init_labels() {
   mmw_init_say "标签     : 新建 ${created} 个，已有 ${existed} 个"
 }
 
-# 过程材料随 worktree 存活。graphify-out 是结构图谱：本机派生物，几十兆，
-# 每次改代码都变。漏掉它，第一次建完图那几十兆就跟着下一次提交进了版本库。
+# scratch 只随任务存活，不进 Git。graphify-out 是结构图谱：本机派生物，
+# 几十兆，每次改代码都变。漏掉它，第一次建完图那几十兆就跟着下一次提交进了版本库。
 mmw_init_gitignore() {
   local root file added=0 line host
   root="$(mmw_repo_root)"
   file="$root/.gitignore"
   host="$(mmw_host)" || return 1
   touch "$file"
-  local -a lines=("$(mmw_path_field reviews)/" "$(mmw_path_field release)/" "graphify-out/")
+  local -a lines=("$(mmw_path_field reviews)/" "$(mmw_path_field release)/" "$(mmw_path_field scratch)/" "graphify-out/")
   if [ "$host" != "codex" ]; then
     lines+=("$(mmw_path_field worktrees)/" ".dispatch/")
   fi

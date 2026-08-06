@@ -1,11 +1,13 @@
 ---
 name: mmw-triage
-description: 分诊 issue 和外部 PR，写出 agent brief 并决定出口。用户说要 triage、问有什么等着处理、报一个 issue 或 PR 编号时用它；别的技能拿到还没评估过的 issue 时也用它。
+description: 分诊 issue 和 PR，并维护状态和 agent brief。用于列待处理的 issue 与外部 PR、评估指定 issue 或 PR、补全 ready-for-agent brief、快速改状态或接上一次分诊。
 ---
 
 把项目 issue tracker 上的 issue 推过一台状态机。
 
-外部 pull request 同样是一个提需求的入口，所以 triage 也管它们：**一个 PR 就是一个带着代码的 issue**——同样的角色、同样的状态、同样的状态机，差异写在本文「角色」一节里以「对 PR 而言」开头的那一段。裸写的 `#42` 先用 `gh issue view 42` 试，报「不是 issue」就是 PR，再 `gh pr view 42`。
+外部 pull request 同样是一个提需求的入口，所以 triage 也管它们：**一个 PR 就是一个带着代码的 issue**——同样的角色、同样的状态、同样的状态机，差异写在本文「角色」一节里以「对 PR 而言」开头的那一段。
+
+裸写的 `#42` 先用 `gh issue view 42` 试，报「不是 issue」就是 PR，再 `gh pr view 42`。
 
 triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**必须**以这句免责声明开头：
 
@@ -15,18 +17,17 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 ## 角色
 
-两个**类别**角色：
+两个**类别**角色和五个**状态**角色：
 
-- `bug` —— 有东西坏了
-- `enhancement` —— 新功能或改进
-
-五个**状态**角色：
-
-- `needs-triage` —— 等维护者评估
-- `needs-info` —— 等报告人补信息
-- `ready-for-agent` —— agent brief 已经写完整，可以 AFK 跑
-- `ready-for-human` —— 需要人来实现
-- `wontfix` —— 不做
+| 角色组 | 角色 | 含义 |
+| --- | --- | --- |
+| 类别 | `bug` | 有东西坏了 |
+| 类别 | `enhancement` | 新功能或改进 |
+| 状态 | `needs-triage` | 等维护者评估 |
+| 状态 | `needs-info` | 等报告人补信息 |
+| 状态 | `ready-for-agent` | agent brief 已经写完整，可以 AFK 跑 |
+| 状态 | `ready-for-human` | 需要人来实现 |
+| 状态 | `wontfix` | 不做 |
 
 对 PR 而言，同样这几个状态是对着那份代码读的：`ready-for-agent` 表示 agent brief 已附上、该由 agent 接着动这份 diff；`ready-for-human` 表示可以由人来合了。
 
@@ -38,7 +39,13 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 **半路挖到的东西开新 issue。** 分诊或做任务时发现的另一个缺陷、优化机会、或者超出本次范围的事：开一张新 issue，打 `needs-triage` 加对应类别标签，主流程不动。不需要「旁路发现」这类专门标签——它是一张独立 issue 这个事实，已经把「不属于本任务」说完了。
 
-状态怎么流转：没标签的 issue 通常先进 `needs-triage`；从那里去 `needs-info`、`ready-for-agent`、`ready-for-human` 或 `wontfix`。报告人回话之后 `needs-info` 退回 `needs-triage`。维护者随时可以推翻——看起来反常的流转先标出来问一句再走。
+| 当前状态 | 下一状态 |
+| --- | --- |
+| 没标签的 issue | 通常先进 `needs-triage` |
+| `needs-triage` | `needs-info`、`ready-for-agent`、`ready-for-human` 或 `wontfix` |
+| `needs-info` 且报告人回话 | 退回 `needs-triage` |
+
+维护者随时可以推翻——看起来反常的流转先标出来问一句再走。
 
 ## 怎么被叫起来
 
@@ -65,14 +72,22 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 
 ## 分诊一张具体的 issue 或 PR
 
-1. **收集上下文。** 把这张 issue 或 PR 整个读完（正文、评论、标签、作者、日期；PR 还要读 diff）。把之前的分诊记录读出来，已经解决的问题不要再问一遍。用项目的领域术语表探索代码，遵守这块地方的 ADR。
+1. **收集上下文。**
 
-   然后做两项检查，**按 `/mmw-research` 的内部方向派出去**，一项一个 subagent，并行：
+   | 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
+   | --- | --- | --- | --- | --- |
+   | issue 或 PR | 始终 | 正文、评论、标签、作者和日期；PR 再读 diff | 无关 issue 和 PR | 分诊建议 |
+   | 既有分诊记录 | 有历史记录时 | 当前 issue 或 PR 的全部记录 | 其他条目的记录 | 不重复已经解决的问题 |
+   | 是否已有同一行为 | 每次分诊 | 主 agent 按领域概念搜索相关实现 | 无关模块 | 已验证的代码事实 |
+   | 是否已被否过 | 每次分诊 | 主 agent 读取相似的 `.out-of-scope/*.md` | 不相似的概念 | 已确认的旧决定 |
+   | 领域文档和 ADR | 每次分诊 | 本次范围相关文件 | 无关 leaf 和 ADR | canonical 术语和约束 |
+
+   主 agent 直接做两项检查：
 
    - **是否已有** —— 按领域概念（不是按需求的字面措辞）搜有没有已经实现的同一行为。搜到了就是「已经实现」的 `wontfix`（第 5 步）。
    - **是否已被否过** —— 读 `.out-of-scope/*.md`，把与这次需求相似的都列出来。
 
-   收回来按 `/mmw-verifying-agent-output` 验证——**报告说「没有找到」的，你自己再搜一次**。第二步给建议时要报你搜了哪些地方，那份清单从它的报告里取。
+   第二步给建议时列出搜索过的代码范围和 `.out-of-scope/` 文件。找到已有实现或旧决定时给出 `文件:行号`；没有找到时如实写明搜索范围。
 
 2. **给建议。** 把你的类别和状态建议连同理由告诉维护者，再加一段与这次需求相关的代码现状摘要——包括它是不是已经实现。等他给方向。
 
@@ -81,7 +96,7 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 4. **Grill（需要时）。** 这个需求还不够具体，就跑 `/mmw-grilling` 把它谈成双方确认的共同理解。它完成后回到本技能继续分诊。
 
 5. **落实结果：**
-   - `ready-for-agent` —— 先按 [AGENT-BRIEF.md](AGENT-BRIEF.md) 贴一条完整的 agent brief 评论，再把状态改成 `ready-for-agent`。`**Acceptance criteria:**` 和 `**Test seam:**` 都是必填栏。然后按本文「下一步」一节决定它接着走哪个技能。
+   - `ready-for-agent` —— 先按 [AGENT-BRIEF.md](AGENT-BRIEF.md) 贴一条完整的 agent brief 评论，再把状态改成 `ready-for-agent`。`**Acceptance criteria:**` 和 `**Test seam:**` 都是必填栏。后续工作依赖已保存的 research 时，agent brief 同时写 research 索引和精确文件路径。然后按本文「下一步」一节决定它接着走哪个技能。
    - `ready-for-human` —— 贴一条与 agent brief 使用相同字段的分诊记录，并写清为什么它派不出去（要拿判断、要外部权限、要做设计决定、要人工测试）。
    - `needs-info` —— 贴分诊记录，模板和写法在 [NEEDS-INFO.md](NEEDS-INFO.md)。
    - `wontfix` —— 关掉，评论内容取决于*为什么*：
@@ -89,6 +104,19 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
      - **否掉（bug）** —— 客气地解释，然后关。
      - **否掉（enhancement）** —— 写进 `.out-of-scope/`，用评论链过去，然后关（[OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)）。
    - `needs-triage` —— 把这个角色打上。有部分进展就一并写一条评论。
+
+## 快速改状态
+
+维护者说「把 #42 挪到 ready-for-agent」，就接受他的状态判断，不重跑 grill：
+
+1. 先确认你要做什么：改哪些角色、贴什么评论、关不关。
+2. 再从现有 issue 或 PR 材料综合出一份完整 agent brief。
+3. `Acceptance criteria` 或 `Test seam` 缺内容时，保持当前状态并向维护者追问缺失的那一项。
+4. agent brief 完整后，先贴评论，再把状态改成 `ready-for-agent`。
+
+## 接上一次分诊
+
+issue 或 PR 上已经有分诊记录，就先读它，看报告人有没有回答掉悬着的问题，把更新后的情况呈现出来，再往下走。已经解决的问题不再问一遍。
 
 下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 
@@ -102,11 +130,3 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 | seam 说不清楚 | **自己继续**：改判 `ready-for-human`，理由写在同字段的分诊记录里，然后按本文「下一步」表中情况为落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage` 的那一行交回用户 |
 | 落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage` | **停**：报这张判成了什么、为什么、下一步在等谁 |
 | 维护者一次交来好几张 | **自己继续**：一张一张走完本文「分诊一张具体的 issue 或 PR」节的五步，全部落实之后再一起报 |
-
-## 快速改状态
-
-维护者说「把 #42 挪到 ready-for-agent」，就接受他的状态判断，不重跑 grill。先确认你要做什么（改哪些角色、贴什么评论、关不关），再从现有 issue 或 PR 材料综合出一份完整 agent brief。`Acceptance criteria` 或 `Test seam` 缺内容时，保持当前状态并向维护者追问缺失的那一项。agent brief 完整后，先贴评论，再把状态改成 `ready-for-agent`。
-
-## 接上一次分诊
-
-issue 或 PR 上已经有分诊记录，就先读它，看报告人有没有回答掉悬着的问题，把更新后的情况呈现出来，再往下走。已经解决的问题不再问一遍。

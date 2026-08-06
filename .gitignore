@@ -9,5 +9,6 @@
 graphify-out/
 node_modules/
 .reviews/
+.scratch/
 __pycache__/
 .dispatch/

@@ -1,6 +1,6 @@
 ---
 name: mmw-implement
-description: 把定好的需求实现成代码，一张 ticket 派一个 `worker`。用户说要开始实现、做下一张 ticket 时用它；别的技能判定某张 ticket 已是 ready-for-agent 时也用它。
+description: 派 `worker` 落地已准备好的工作。用于完整的 `ready-for-agent` agent brief，或全部 plans 已通过审查的 spec。
 ---
 
 把 spec 和它的 ticket 描述的需求实现出来。spec 已定稿，seam 已谈定；本技能执行那份计划，不重开它。
@@ -11,7 +11,10 @@ description: 把定好的需求实现成代码，一张 ticket 派一个 `worker
 
 ### 1. 确认前置条件
 
-先确认这次需求出自哪里。`docs/specs/<slug>/` 里已经有 spec，就走 spec 分支。没有 spec，就读取原 issue 上那份 `ready-for-agent` 的 agent brief；只有整项工作可以作为一张 ticket 独立验收、只有一个已确认测试 seam、没有未决设计取舍时，才走 agent brief 分支。
+先确认这次需求出自哪里：
+
+- `docs/specs/<slug>/` 里已经有 spec，就走 spec 分支。
+- 没有 spec，就读取原 issue 上那份 `ready-for-agent` 的 agent brief。只有整项工作可以作为一张 ticket 独立验收、只有一个已确认测试 seam、没有未决设计取舍时，才走 agent brief 分支。
 
 然后检查下面各项。标明来源分支的检查只在对应分支适用；适用项有一件不满足就按表中出口处理。
 
@@ -21,17 +24,19 @@ description: 把定好的需求实现成代码，一张 ticket 派一个 `worker
 | spec 分支写明了测试 seam | 读 spec `## Testing Decisions` 一节里的 seam 清单表 | 回 `/mmw-to-spec` 第 3 步补 |
 | agent brief 分支的行为合同完整 | 原 issue 的 agent brief 有当前行为、目标行为、可独立验证的 `Acceptance criteria`、范围边界和且仅一个 `Test seam`；整项工作可以作为一张 ticket 独立验收，而且没有未决设计取舍 | 缺字段就回 `/mmw-triage` 补；需要多张 ticket、多个 seam 或设计取舍就转 `/mmw-to-spec` |
 | ticket 存在 | spec 分支：`mmw issue children <spec issue 编号>` 有输出；agent brief 分支：带 agent brief 的原 issue 就是这张 ticket | spec 分支先跑 `/mmw-to-tickets`；agent brief 分支回 `/mmw-triage` 补齐或修正 issue |
-| 这张 ticket 的 plan 写好了、过了 ② plan 审 | `docs/plans/<slug>/` 下有对应那一份 | 先跑 `/mmw-to-plan`。走 agent brief 那条路的需求没有 plan 这一层，这一行不适用 |
+| 这张 ticket 的 plan 已提交 | `git cat-file -e "HEAD:<plan 路径>"` 成功 | 先跑 `/mmw-to-plan`。走 agent brief 那条路的需求没有 plan 这一层，这一行不适用 |
 
 ### 2. 取下一张 ticket
 
-spec 分支运行：
+spec 分支先重新读取全部子 issue。任何 open tracer bullet ticket 缺少 `ready-for-agent` 时，回 `/mmw-to-plan`。全部齐全后运行：
 
 ```bash
 mmw issue frontier <spec issue 编号> --label ready-for-agent
 ```
 
-它给出阻塞全部关闭、没人认领、带这个标签的那些，按 `/mmw-to-tickets` 的发布顺序排。**取第一行那张。** agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一张 ticket。用 `gh issue view <编号> --json state,assignees,labels` 确认它仍然 open、无人认领并带 `ready-for-agent`。
+它给出阻塞全部关闭、没人认领、带这个标签的那些，按 `/mmw-to-tickets` 的发布顺序排。**取第一行那张。** 认领前，用 `gh issue view <编号> --json state,assignees,labels` 确认它仍然 open、无人认领并带 `ready-for-agent`。
+
+agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一张 ticket。用 `gh issue view <编号> --json state,assignees,labels` 确认它仍然 open、无人认领并带 `ready-for-agent`。
 
 开工前先 `mmw issue claim <编号>`。认领失败说明别的会话抢先了。spec 分支取下一行；agent brief 分支没有下一张，停止并报告这张 issue 已被谁认领。
 
@@ -39,13 +44,23 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 
 ### 3. 写派工 task
 
-按 **四栏表**（目标 / 读 / 约束 / 验收）填写。issue 上的 **agent brief** 是 tracker 里的权威行为合同，进入「读」栏。派给 `worker` 的 task 负责补充本次运行的执行边界。本角色各栏取值：
+| 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
+| --- | --- | --- | --- | --- |
+| `worker-brief.md` | 始终 | 文件路径 | 正文副本 | 文件路径 |
+| spec 或 agent brief | 始终 | 当前需求的精确位置 | 其他需求 | 精确位置 |
+| ticket | 始终 | 当前 ticket 编号 | 其他 ticket | ticket 编号 |
+| plan | spec 分支 | 当前 ticket 的 plan 路径 | 其他 plan | plan 路径 |
+| `TESTING.md` | 文件存在时 | 仓库根文件 | 自拟测试命令 | 文件路径 |
+| prototype | 当前 ticket 引用时 | 索引、选中产物和明确相关证据 | 整个产物目录和过程材料 | 精确路径 |
+| research | 当前 ticket 引用时 | research 索引和精确文件 | research 的上级目录和 subagent 原始报告 | 精确路径 |
+
+按 **四栏表**（目标 / 读 / 约束 / 验收）填写。issue 上的 **agent brief** 是 tracker 里的权威行为合同，进入「读」栏。
 
 | 栏 | 本角色填写 |
 | --- | --- |
 | 目标 | 完成 ticket `#<编号>`（或 tracker 等价编号） |
-| 读 | 一行一条，只写定位：① `worker-brief.md`（与本 `SKILL.md` 同目录）；② 本 worktree 内 spec 路径，或 agent brief 所在 issue 编号；③ 本张 ticket 的 issue 编号；④ 对应 plan 路径（无 plan 写“无 plan”）；⑤ 仓库根 `TESTING.md`（无则写“无”）；⑥ 选中的 prototype 资产路径（无则写“无 prototype”） |
-| 约束 | 只改本 worktree 源码与测试；不改 `docs/`；不扩大 ticket 范围。有 prototype 时：把用户确认过的纯逻辑模块移入正式 module 并用 TDD 集成，界面按仓库规范重写；不复制 HTML 外壳、临时 route、切换器或落选变体 |
+| 读 | 按本节的上下文表逐行列出精确路径。没有 plan、prototype 或 research 时分别写「无 plan」「无 prototype 资产」「无 research」 |
+| 约束 | 只改本 worktree 源码与测试；不改 `docs/`；不扩大 ticket 范围；所有上下文只读 task 点名的精确路径 |
 | 验收 | spec 分支：见 ticket `#<编号>` 的验收标准，seam 见 spec `## Testing Decisions`；agent brief 分支：见原 issue 的 agent brief 中 `**Acceptance criteria:**` 与 `**Test seam:**`（在「读」里已给出定位，此处不抄正文） |
 
 TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
@@ -66,9 +81,14 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 
 ### 5. 验收：亲手验证三关
 
-按 `/mmw-review` 的 **③ 逐份验收**，三关都过才允许合并回任务分支：做漏没有、测试达不达标、有没有偏离。三关各自的判据、三关不过时的返工升级策略，都在 `/mmw-review` 目录里的 `self-review.md`——**这一道不派审查者**，`/mmw-review` 正文其余各节跟它无关。报告按 `/mmw-verifying-agent-output` 采信，它交回的四档怎么读也在那里。
+按 `/mmw-review` 的 **③ 逐份验收**验证三关：做漏没有、测试达不达标、有没有偏离。三关各自的判据、三关不过时的返工升级策略，都在 `/mmw-review` 目录里的 `self-review.md`。
 
-三关之外还要确认两件本阶段特有的事：commit 存在并引用这张 ticket；报告显示类型检查和当前测试文件在实现过程中交错运行，完整测试套件在结束时运行一次。具体命令由目标仓库 `TESTING.md` 决定；仓库缺少某一层入口时，报告必须写明不适用的证据。
+三关都过才允许合并回任务分支。**这一道不派审查者**，`/mmw-review` 正文其余各节跟它无关。报告按 `/mmw-verifying-agent-output` 采信，它交回的四档怎么读也在那里。
+
+再验证两项本阶段合同：
+
+- commit 存在并引用这张 ticket。
+- 报告显示类型检查和当前测试文件在实现过程中交错运行，完整测试套件在结束时运行一次。具体命令由目标仓库 `TESTING.md` 决定；仓库缺少某一层入口时，报告必须写明不适用的证据。
 
 ticket 涉及界面时，还要完成浏览器验收：
 
@@ -84,7 +104,9 @@ ticket 涉及界面时，还要完成浏览器验收：
 
 本节只适用于有 spec 的分支。agent brief 分支没有跨 plan 合同，跳到第 7 步。
 
-每张 ticket 都关闭、改动都在任务分支上之后，按 `/mmw-review` 的 **④ 合同门**验证一次：spec 的 `## Cross-Plan Contract Anchors` 一节里每条跨 plan 合同，在合并后的代码里真兑现了。逐条要查什么、合同条数多时怎么把取证派出去，在 `/mmw-review` 目录里的 `self-review.md`——**这一道也不派审查者**。
+每张 ticket 都关闭、改动都在任务分支上之后，按 `/mmw-review` 的 **④ 合同门**验证一次：spec 的 `## Cross-Plan Contract Anchors` 一节里每条跨 plan 合同，在合并后的代码里真兑现了。
+
+逐条要查什么、合同条数多时怎么把取证派出去，见 `/mmw-review` 目录里的 `self-review.md`。**这一道也不派审查者**。
 
 **grep 不到行号就不算兑现**，回去补，不要留给终审。这是本阶段特有的一句：终审那一道审的是代码本身，不替你补合同。
 
@@ -94,7 +116,7 @@ spec 分支通过合同门，或者 agent brief 分支完成第 5 步后，按 `
 
 分支点用 `git merge-base HEAD <父分支>` 取。普通任务的父分支是创建任务时选择的目标分支；从 `/mmw-wayfinder` map 派生的任务以 map 分支为父分支。
 
-采信的 findings 打包成一张修复 ticket 派给新 `worker`，带上 `file:line` 和要改成什么。然后按 `/mmw-review` 第 7 步复审。
+采信的 findings 打包成一张修复 ticket 派给新 `worker`，带上 `file:line` 和要改成什么。修复回来后逐条验证原问题已经消失，并运行修复涉及的验收命令。全部通过后按 `/mmw-review` 第 7 步在原审查记录登记 `修复提交` 和 `终审提交`；不再派审查者。
 
 下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 
@@ -106,10 +128,10 @@ spec 分支通过合同门，或者 agent brief 分支完成第 5 步后，按 `
 | spec 分支的 ticket 全部关闭了 | **自己继续**：走第 6 步验证合同，过了再走第 7 步发起 ⑤ final 终审 |
 | agent brief 分支第 5 步三关都过，原 issue 已关闭 | **自己继续**：跳过第 6 步，走第 7 步发起 ⑤ final 终审 |
 | 第 6 步有合同 grep 不到行号 | **停**：报是哪条合同、提供方或消费方缺在哪 |
-| 审出了采信的 findings | **自己继续**：打包成一张修复 ticket 派新 `worker`，然后按 `/mmw-review` 第 7 步复审 |
-| 审完没有采信项，或者修复已经复审通过，而且这次改动碰了带出包配置的产品 | **移交**：`/mmw-release`，先把安装包出出来。仓库里有没有出包配置，跑 `grep -rl '"product"' --include='*.release-adapter.json' .` |
-| 审完没有采信项，或者修复已经复审通过；这次不用出包，而且有 spec | **移交**：`/mmw-closing`，把 spec 与 plan 归档到 Wiki、删掉本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`，再交回用户合并 |
-| 审完没有采信项，或者修复已经复审通过；这次不用出包，而且只有 agent brief | **停**：报告实现结果、验证证据和当前分支 HEAD。这项任务没有 spec，不走 `/mmw-closing`；分支已就绪，交回用户集成 |
+| 审出了采信的 findings | **自己继续**：按第 7 步一次性修复并验证；有一条没修好就停，不再审 |
+| 审完没有采信项，或者采信项已经修复并验证，而且这次改动碰了带出包配置的产品 | **移交**：`/mmw-release`，先把安装包出出来。仓库里有没有出包配置，跑 `grep -rl '"product"' --include='*.release-adapter.json' .` |
+| 审完没有采信项，或者采信项已经修复并验证；这次不用出包，而且有 spec | **移交**：`/mmw-closing`，把 spec 与 plan 归档到 Wiki、删掉本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`，再交回用户合并 |
+| 审完没有采信项，或者采信项已经修复并验证；这次不用出包，而且只有 agent brief | **停**：报告实现结果、验证证据和当前分支 HEAD。这项任务没有 spec，不走 `/mmw-closing`；分支已就绪，交回用户集成 |
 | 第 1 步有一项前置不满足 | **停**：说清是哪一项，按第 1 步表中的出口回 `/mmw-triage`、`/mmw-to-spec`、`/mmw-to-tickets` 或 `/mmw-to-plan` |
 | `worker` 卡在 ticket 与代码互相矛盾上 | **停**：把矛盾交给用户，不要换一个 `worker` 再派一遍 |
 | `worker` 交回的不是「完成」，也不是因为矛盾 | **自己继续**：按 `/mmw-verifying-agent-output` 的四档读它交回的东西，再按返工升级策略接着走 |

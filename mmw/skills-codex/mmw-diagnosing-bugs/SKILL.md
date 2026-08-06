@@ -1,13 +1,26 @@
 ---
 name: mmw-diagnosing-bugs
-description: 难以定位的 bug 和性能回退的诊断循环，先造出一个能变 red 的 loop。用户说要 debug、报告什么东西坏了或者变慢了时用它。
+description: 需要查明根因的 bug 和性能回退诊断。用于功能损坏、报错、跑不通或变慢，而根因尚未确定。
 ---
 
 一套对付难以定位的 bug 的纪律，六个 Phase。跳过某个 Phase 要给出明确理由。
 
 **Phase 1 在本文件里，其余分开放。** 造出 loop 之前不要去读后面的文件。
 
-探索代码时先读领域文档，对相关模块建立清楚的心智模型：落点跑 `mmw domain path` 取，三种返回怎么读见 `$mmw:mmw-domain-modeling` 的「读领域文档」一节；再读一遍你要碰的这块地方的 ADR。
+## 取上下文
+
+| 材料 | 取得方式 | 读取内容 |
+| --- | --- | --- |
+| 领域文档 | 跑 `mmw domain path` 取落点；三种返回按 `$mmw:mmw-domain-modeling` 的「读领域文档」处理 | 相关模块 |
+| ADR | 再读一遍你要碰的这块地方的 ADR | 你要碰的这块地方 |
+
+对相关模块建立清楚的心智模型。
+
+## 过程材料落点
+
+开始诊断时确定当前任务的产物目录。Wayfinder 场景从当前 map 或子 issue 正文的 `## 产物目录` 读取；decision ticket 同时读取正文记录的 `issue-<编号>`。Wayfinder 派生的 spec 任务从已绑定任务状态读取任务 slug，并使用 `task-<任务 slug>` 子目录。普通任务使用当前任务 slug，不带子目录。不要从任务 worktree 的物理目录名推断。
+
+运行 `mmw path scratch <产物目录> [issue-<编号>|task-<任务 slug>]`。HAR、trace、日志转储、core dump、录屏、一次性 harness、临时埋点输出和其他过程材料默认写入命令返回的 Git 忽略 scratch 目录。已经位于 correct seam、准备长期防回归的测试源码按 Phase 5 处理。
 
 ## Phase 1 —— 造一个反馈 loop
 
@@ -21,8 +34,8 @@ description: 难以定位的 bug 和性能回退的诊断循环，先造出一�
 2. **curl / HTTP 脚本**，打一个跑着的 dev server。
 3. **CLI 调用**，喂一份 fixture 输入，把 stdout 和一份已知正确的快照做 diff。
 4. 完整读取并遵守 `/browser:control-in-app-browser`。**Codex 内置浏览器复现**——先确认用户看到的界面、状态和交互，采集截图、DOM 与 console；这一步只负责复现和缩小范围，复现时覆盖过 viewport 的，保存最后一份证据后恢复默认 viewport；完成 Phase 1 前仍要把症状收敛成一条可重复执行的 red-capable 命令。
-5. **回放抓下来的 trace。** 把一次真实的网络请求／载荷／事件日志存到磁盘，隔离出来在那条代码路径上回放。
-6. **一次性 harness。** 起一个最小子集（一个服务，依赖打桩），用一次函数调用就走到出 bug 的那条路径。
+5. **回放抓下来的 trace。** 把一次真实的网络请求／载荷／事件日志存到任务 scratch，隔离出来在那条代码路径上回放。
+6. **一次性 harness。** 在任务 scratch 起一个最小子集（一个服务，依赖打桩），用一次函数调用就走到出 bug 的那条路径。
 7. **属性／模糊测试循环。** bug 表现为「有时候输出不对」，就跑 1000 个随机输入，找那个失败形态。
 8. **二分 harness。** bug 是在两个已知状态之间（提交、数据集、版本）出现的，就把「在状态 X 启动、检查、重复」自动化，让 `git bisect run` 能直接运行它。
 9. **对照循环。** 同一份输入分别过旧版本和新版本（或者两套配置），diff 输出。

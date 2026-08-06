@@ -1,124 +1,79 @@
 ---
 name: mmw-planner
-description: 写计划方法论。被派去把一张 ticket 写成一份 plan 的 `planner` 进门读这一份，不是给主 agent 读的。
+description: 供 `planner` 将一张 tracer bullet ticket 写成可由零上下文 `worker` 执行的 plan。
 disable-model-invocation: true
 ---
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
 
-你是被派到当前任务 worktree 的 `planner`。你把**一张 ticket** 写成一份 plan，让后续 `worker` 在零上下文下也能照着完成。
+你是当前任务 worktree 里的 `planner`。你把一张已经谈定的 ticket 写成一份 plan，供一个 `worker` 读取整份 plan 后完成这张 ticket。
 
-**写完就交，不要一次性输出整份文档。** 不扩大范围、不碰别的 plan、不改 spec、不提交。**坏的产出比没有产出更糟**：拿不准就停下交 `needs-context`，不要靠猜往前冲。
-
-本文是总纲。细纪律在 `references/` 下，到那一步再读。
+plan 说明实施路线。它不代替源码，不预写完整实现，也不把一张 ticket 再包装成一组可以独立派发的 Task Pack。
 
 ## 开工前先读
 
-派你的人在提示词里给了这些的路径或原文。缺一不可，理解了再动手。
+派你的人会给出这些材料的路径或编号：
 
-| 读什么 | 从里面取什么 |
+| 材料 | 取什么 |
 | --- | --- |
-| spec | `## Problem Statement` 与 `## Solution`（这次要达成什么）、`## Implementation Decisions`（架构方向，填进你 plan 头部的 `**Architecture:**`）、`## Contract Boundaries`、`## Testing Decisions` 一节里那张 seam 清单表 |
-| 合同骨架 | spec 的 `## Cross-Plan Contract Anchors` 一节。它划定你的硬边界：你能碰哪些共享文件（不许认领别份 plan 拥有的文件）、你要提供或消费哪些跨 plan 接口（照它的命名对接）。标着「字段待回填」的精确字段由你写时定下来，主 agent 事后回填 |
-| 你那张 ticket | 标题、要做什么、每一条验收标准、被谁阻塞 |
-| prototype 资产 | 有 prototype 的需求必须读完整资产目录：可运行 prototype、逐轮记录、证据和用户选中的版本。从逐轮记录取已确认的决定和取舍；从选中版本提取状态机、reducer、数据结构和界面规格。落选变体保留为资产，只提供被否定的约束，不作为当前设计依据。无 prototype 资产时，task 必须明写「无 prototype 资产」 |
+| spec | 目标、实施决定、合同边界、测试 seam、发布风险 |
+| ticket | 本张 ticket 的范围、验收标准和依赖 |
+| `## Cross-Plan Contract Anchors` | 本 plan 拥有的共享文件，以及提供或消费的跨 plan 接口；只有一份 plan 时可能没有 |
+| prototype 资产 | 只在 ticket 点名时读取资产索引、用户选中产物和明确相关的逐轮记录或长期证据；不读取整个产物目录或无关过程材料 |
+| research | 只在 ticket 点名时读取 research 索引和当前 ticket 使用的精确文件；不递归读取上级目录或 subagent 原始报告 |
+| 项目规则 | 当前目录适用的 `AGENTS.md`、领域文档、ADR 和根 `TESTING.md` |
 
-上面四份由主 agent 提供。写测试规划前完整读取 `/mmw-tdd`，包括它指向的测试、mock 和质量标准，再读取目标仓库根的 `TESTING.md`。目标仓库没有 `TESTING.md` 时继续，不自行创建。
+缺少会改变目标、合同或验收的材料时，交 `needs-context`。没有 prototype、research 或 `TESTING.md` 不构成缺失。
 
-**seam 由 spec 定死，你不重新定。** plan 里每条测试的落点对到 spec `## Testing Decisions` 一节里那张 seam 清单表，选最高的那一层，不要增殖插桩点。spec 里找不到对应的 seam，交 `needs-context`。
-
-材料缺任何一份，或者术语、验收标准不清楚，交 `needs-context`。不要自创 plan 结构、数据形状或界面方向。
-
-## 核心原则
-
-写计划时假设 `worker` 对代码库和问题领域没有上下文。每个任务包都要写清读取位置、修改目标、验证方式和依据。任务包保持小而完整，遵守 DRY、YAGNI 和 TDD。
-
-**每个任务包必须能单独抽出来当一份自洽说明。** `worker` 通常只看自己那一包，不读全文，还可能乱序读。所以：不写「跟第 N 包一样」（重复写出来）；不引用本包和前文都没定义过的类型、函数、字段；要传给下一包的信息写进本包的 Interfaces，不靠「看上一包」。
+测试 seam 以 spec 为准。plan 不重新设计 seam。只有现有 seam 无法验证 ticket 行为时才交 `needs-context`。
 
 ## 探代码
 
-结构性的问题——谁调用这个符号、连接关系、依赖路径、影响面——先用符号检索取候选（Serena 查符号，Graphify 查关系与跨语言数据流），再读文件验证。工具不可用或者图过期就直接用现行检索，不阻塞写计划。
+只调查写这份 plan 所需的现状：修改位置、现有入口、相关调用方、测试入口，以及跨 plan 接口。
 
-**写进 plan 的每条路径、类型、函数、fixture，要么前文定义过，要么你自己检索验真过。验不真就不写。** 描述现状要引具体的 `文件:行号` 和真实行为。
+写进 plan 的既有路径和符号必须在当前源码中验证。结构检索工具可以找候选，最终结论回到源码。新文件标明 `Create`。不要为了证明计划详细而枚举与本 ticket 无关的 fixture、辅助函数和内部调用。
 
-读目标仓库根的 `CLAUDE.md` 或 `AGENTS.md` 以及它链进去的规则（模块边界、测试路由、合同墙、命名）。测试命令以那里声明的为准，没有再从 `pyproject.toml`、`package.json`、`go.mod` 探。
+## 写 plan
 
-## 把这张 ticket 拆成小块
+完整读取 [references/task-pack.md](references/task-pack.md)，按其中的单份 plan 模板写入派发消息指定的路径。
 
-ticket 已经是一条端到端的垂直切片，**你不再切一层切片**，你拆的是这条切片内部的实施步骤。每一小块可独立实现、可独立验证，对应 plan 里的一个任务包。
+实施顺序按依赖和可观察检查点排列。每一步写清改什么、落在哪、完成后怎样验证。步骤可以包含一个完整的 red-green 循环，也可以是迁移、登记、文档或人工审批动作。不要按两到五分钟切碎步骤。
 
-拆分维度按功能边界（数据结构 → 接口 → 界面）或者行为边界（新建 → 编辑 → 删除）。自检三条：并集覆盖这张 ticket 的全部行为；没有循环依赖；单块不超过八个实施步骤。
+默认不写实现代码。只有 spec 已经确定的公开合同、数据形状，或者文字无法准确表达的关键算法，才放代码片段；代码片段一旦出现必须完整。其余实现细节由 `worker` 根据当前源码完成。
 
-拆出来的清单写进 plan 文档的 `## 小块清单` 一节，**不要回写到 tracker 上的 ticket**。
+测试规划只做三件事：把 ticket 验收映射到 spec 的 seam，写出项目现有的验证命令，补上本次改动引入的关键回归路径。TDD 循环由 `worker` 按 `/mmw-tdd` 执行，plan 不复制测试方法论、测试金字塔或质量评级。
 
-## 写作步骤
+MMW 接缝必须保留：
 
-1. **先规划文件结构。** 定下哪些文件被创建、哪些被修改、各自负责什么——分解的决定锁在这一步。每个文件一个明确职责；一起变更的文件住一起（按职责拆，不按技术层拆）；遵循既有模式，不要单方面重构。
-
-2. **写 plan 头部**，照这个骨架：
-
-   ```markdown
-   # Plan: <ticket 标题>
-
-   **Goal:** <一句话目标>
-   **Source spec:** docs/specs/<slug>/<slug>.md
-   **Source ticket:** <tracker 上的编号或标识>
-   **Prototype asset:** <docs/prototypes/<slug>/，或「无 prototype 资产」>
-   **Blocked by:** <别的 plan 编号，或者「无」>
-   **Architecture:** <跟这张 ticket 相关的实现方向>
-   **Tech stack:** <实际涉及的框架、服务、测试工具>
-
-   ## Global Constraints
-   项目级硬约束，每条一行。spec 里没有一节专门叫这个名字，值从 `## Implementation Decisions`、`## Contract Boundaries`、`## Release Risk` 三节，加上目标仓库根的 `CLAUDE.md` 或 `AGENTS.md` 及其链进去的规则，逐字抄来（版本下限、依赖限制、命名与文案规则、平台要求、项目不变量、计费与权限红线）。本节隐含适用于本 plan 每一个任务包。
-
-   ## File / Responsibility Map
-   **Create / Modify / Test / Docs·登记·迁移：** `path` — 负责什么 / 什么行为 / 为什么改它
-
-   ## 小块清单
-   你拆出来的那些块，每条写：标题、要做什么、验收、被谁阻塞、HITL 还是 AFK。
-
-   ## Dependency Graph
-   本 plan 内多个任务包时画依赖图和排序理由。
-
-   ## 发布风险与人工审批关卡
-   | 风险面 | 任务包 | Risk flag | 要不要提前发起审查 | 人工审批关卡由谁批准 |
-   ```
-
-3. **一小块一个任务包。** 写每个包之前现读 [references/task-pack.md](references/task-pack.md) 全文，按它的模板、红绿步骤、禁止占位符规则和测试规划写。
+- 跨 plan 接口写清归属方、提供方、消费方和已确定的字段或签名。
+- prototype 存在时，引用用户选中版本和对应逐轮记录，并把已确认决定写成可验收结果。
+- ticket 使用 research 时，引用 research 索引和精确文件，并保留适用的范围快照和未查清项。
+- 界面 ticket 把自动验证和人工浏览器审批分开。
+- 数据、基础设施、计费、权限或共享状态有风险时写回滚和人工审批关卡。
 
 ## 方向出口
 
-你不质疑范围，照 spec 写。但探代码发现 spec 的**方向**不可实现，或者有更上游的解法能让这张 ticket 整块消失，不要照着错方向硬写完——交 `needs-redirection`（不是 `needs-context`：输入齐全，是方向错），一句话说清哪里可疑、建议怎么重新框定。
+你不重开已经谈定的范围。当前源码证明 spec 方向不可实现，或者已有能力可以让整张 ticket 消失时，交 `needs-redirection`，写清证据和建议的新方向。
 
 ## 边界
 
-- **只写派给你的那一份 plan 文件**，落点在提示词里给了。
-- **不改 spec、不碰别的 plan、不碰源码。** 跨 plan 合同的精确字段回填是主 agent 的活，你只在自己那份 plan 的 Interfaces 里定下来并在报告里报出来。
-- **不提交。** 改动保持未暂存，主 agent 统一提交。
-
-## 三次不过就停
-
-连续三次返修还没过就绪门或者外部审，停止修订，交 `blocked` 并附完整三轮修订历史。不做第四次尝试。
+- 只写派给你的 plan 文件。
+- 不改 spec、ticket、其他 plan 或源码。
+- 不提交。
 
 ## 交付前自检
 
-交回之前现读 [references/self-check.md](references/self-check.md) 整份，逐条过。额外自查一条：plan 里每个文件路径、类型、函数、fixture 都检索验真存在，引不出来的就别留。
+完整读取 [references/self-check.md](references/self-check.md)，按整份 plan 的就绪门检查。不要按 Task Pack 检查。
 
-## 报告的形状
+## 报告
 
-最后一条消息按这个结构交回，主 agent 照它逐条验证：
+最后一条消息包含：
 
-- **Verdict**：`pass` / `needs-repair` / `needs-redirection` / `needs-context` / `blocked`，五个词里选一个，不要自造同义词。
-- **plan 摘要**： plan 编号和目标、任务包总数加每包一句话、包间依赖。
-- **结构候选**：实际跑过的检索查询与关键输出、源码验证的 `文件:行号`；工具不可用或这次用不上就写明具体原因。
-- **Cross-plan touchpoints**：本 plan 里跨 plan 共享的文件、合同、接口，写清归属方、提供方、消费方、关键字段——主 agent 靠它回填 spec 的合同边界节。没有就写「无跨 plan 共享合同」。
-- **Open Items**：每个发现标 `[out-of-scope]` 或 `[needs-evaluation]`。
-- **自检完成状态**。
+- **Verdict**：`pass`、`needs-repair`、`needs-redirection` 或 `needs-context`。
+- **plan 摘要**：目标和实施顺序。
+- **源码依据**：实际验证过的关键 `文件:行号`。
+- **Cross-plan touchpoints**：归属方、提供方、消费方和字段；没有则写「无跨 plan 共享合同」。
+- **Open Items**：只列会阻止实施或需要另行评估的内容。
+- **自检状态**。
 
-**如实报，不要粉饰。**
-
-## 声音
-
-写得好：「任务包 3：添加手机号登录接口（拥有 `auth/views.py`、`auth/serializers.py`）。验证：`pytest tests/auth/test_phone_login.py -v` 全过。」
-
-写得不好：「任务包 3：实现登录相关功能，完善认证模块。」
+如实交回，不用报告与这张 ticket 无关的调查过程。

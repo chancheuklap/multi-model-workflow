@@ -71,12 +71,14 @@ mmw_issue_children() {
 # frontier：open、没被挡、没人认领的子 issue，按编号升序。
 # 全部要的自己读全部行，只要下一张的取第一行。
 mmw_issue_frontier() {
-  local parent="$1" label="${2:-}"
-  mmw_issue_children_raw "$parent" | jq -r --arg label "$label" '
+  local parent="$1" label="${2:-}" label_prefix="${3:-}"
+  mmw_issue_children_raw "$parent" | jq -r --arg label "$label" --arg label_prefix "$label_prefix" '
     select(.state == "open")
     | select((.issue_dependencies_summary.blocked_by // 0) == 0)
     | select((.assignees | length) == 0)
-    | select($label == "" or ([.labels[].name] | index($label)))
+    | [(.labels // [])[].name] as $labels
+    | select($label == "" or ($labels | index($label)))
+    | select($label_prefix == "" or any($labels[]; startswith($label_prefix)))
     | [.number, .title] | @tsv'
 }
 

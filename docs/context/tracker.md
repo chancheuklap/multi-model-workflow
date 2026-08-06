@@ -25,7 +25,7 @@ _Avoid_: 类别角色、流程阶段
 等待报告人补信息。
 
 **`ready-for-agent`**：
-状态角色，其具体条件由 work item 的种类决定。分诊 issue 或 PR 要有完整 agent brief；spec issue 表示 `/mmw-to-spec` 第 7 步已经通过；tracer bullet ticket 表示可以派 `worker`。
+状态角色，其具体条件由 work item 的种类决定。分诊 issue 或 PR 要有完整 agent brief；spec issue 表示 `/mmw-to-spec` 第 7 步已经通过；tracer bullet ticket 表示 plan 已经通过 ② plan 审。tracer bullet ticket 还要进入 frontier，才能认领并派 `worker`。
 _Avoid_: 已完成、可以无条件派 `worker`
 
 **`ready-for-human`**：
@@ -42,7 +42,7 @@ _Avoid_: task、plan、brief
 
 **认领**：
 把 work item 指派给当前执行者。认领成功之前不开始工作。
-_Avoid_: 读取、开始调查
+_Avoid_: 读取、开始 research
 
 **frontier**：
 一个父 issue 下 open、无阻塞、未认领的子 issue。

@@ -13,6 +13,8 @@ set -euo pipefail
 MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/config.sh
 . "$MMW_ROOT/cli/lib/config.sh"
+# shellcheck source=lib/path.sh
+. "$MMW_ROOT/cli/lib/path.sh"
 # shellcheck source=lib/task.sh
 . "$MMW_ROOT/cli/lib/task.sh"
 # shellcheck source=lib/issue.sh
@@ -37,6 +39,7 @@ mmw <命令> [参数]
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
   skill-path  派出去那一侧读方法论的路径
+  path        prototype、research、evidence、scratch 与 review 的仓库内路径
   task        任务 worktree：查状态、建、绑分支、进、删
   result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
@@ -123,7 +126,7 @@ usage_issue() {
 mmw issue create --title <标题> --body-file <文件>
                  [--parent <n>] [--blocked-by <n,n>] [--label <a,b>]
     建 issue、挂父、连阻塞边、打标签，输出编号
-mmw issue frontier <父编号> [--label <标签>]
+mmw issue frontier <父编号> [--label <标签> | --label-prefix <前缀>]
     open、没被挡、没人认领的子 issue，编号升序。要全部的读全部行，
     要下一张的取第一行。每行两列，制表符分隔：编号、标题
 mmw issue children <父编号>
@@ -156,6 +159,21 @@ mmw domain sync      幂等同步领域上下文消费合同
 mmw domain check     检查领域上下文消费合同
 mmw domain adr-next  下一个 ADR 编号，四位零填充
 mmw domain dirs      写入侧的四个配置落点：single、map、context、adr
+EOF
+  return 2
+}
+
+usage_path() {
+  cat >&2 <<'EOF'
+mmw path prototype <产物目录> [issue-<编号>]
+mmw path research  <产物目录> [issue-<编号>]
+mmw path evidence  <产物目录> [issue-<编号>]
+mmw path scratch   <产物目录> [issue-<编号>|task-<任务 slug>]
+mmw path review
+
+产物目录必须是单个安全路径段。Wayfinder decision ticket 传入它自己的
+issue-<编号> 子目录；Wayfinder 派生的 spec 任务传入 task-<任务 slug>；普通任务
+只传任务 slug。输出是基于 .mmw.json paths 的仓库相对路径。
 EOF
   return 2
 }
@@ -480,16 +498,21 @@ cmd_issue() {
     children) [ -n "${1:-}" ] || usage_issue; mmw_issue_children "$1" ;;
     claim) [ -n "${1:-}" ] || usage_issue; mmw_issue_claim "$1" ;;
     frontier)
-      local parent="${1:-}" label=""
+      local parent="${1:-}" label="" label_prefix=""
       [ -n "$parent" ] || usage_issue
       shift
       while [ $# -gt 0 ]; do
         case "$1" in
           --label) label="${2:-}"; shift 2 ;;
+          --label-prefix) label_prefix="${2:-}"; shift 2 ;;
           *) echo "mmw: issue frontier 认不出参数 $1" >&2; usage_issue ;;
         esac
       done
-      mmw_issue_frontier "$parent" "$label"
+      if [ -n "$label" ] && [ -n "$label_prefix" ]; then
+        echo "mmw: issue frontier 不能同时使用 --label 和 --label-prefix" >&2
+        usage_issue
+      fi
+      mmw_issue_frontier "$parent" "$label" "$label_prefix"
       ;;
     link)
       local child="${1:-}" blocker=""
@@ -531,6 +554,20 @@ cmd_domain() {
     adr-next) mmw_domain_adr_next ;;
     dirs) mmw_domain_dirs ;;
     *) usage_domain ;;
+  esac
+}
+
+cmd_path() {
+  case "${1:-}" in
+    review)
+      [ "$#" -eq 1 ] || usage_path
+      mmw_path_root review
+      ;;
+    prototype|research|evidence|scratch)
+      [ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage_path
+      mmw_path_resolve "$@"
+      ;;
+    *) usage_path ;;
   esac
 }
 
@@ -749,6 +786,7 @@ case "${1:-}" in
   agents) shift; cmd_agents "$@" ;;
   skills) shift; cmd_skills "$@" ;;
   skill-path) shift; cmd_skill_path "$@" ;;
+  path) shift; cmd_path "$@" ;;
   task) shift; cmd_task "$@" ;;
   result) shift; cmd_result "$@" ;;
   issue) shift; cmd_issue "$@" ;;

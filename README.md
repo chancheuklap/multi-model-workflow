@@ -1,6 +1,6 @@
 # Multi-Model Workflow
 
-多模型工作流（Multi-Model Workflow，MMW）是一套面向软件开发 agent 团队的交付工作流。它把需求讨论、调查、设计、计划、实现、审查、集成和发布连接起来，让一项工作可以跨 agent、跨会话、跨 worktree 持续推进。
+多模型工作流（Multi-Model Workflow，MMW）是一套面向软件开发 agent 团队的交付工作流。它把需求讨论、research、设计、计划、实现、审查、集成和发布连接起来，让一项工作可以跨 agent、跨会话、跨 worktree 持续推进。
 
 MMW 的用户界面是技能。日常工作的统一入口是 `$mmw:mmw-start`。用户把目标、issue、PR、map 或当前任务交给它，它负责判断路线、建立或绑定任务 worktree，再移交给对应技能。
 
@@ -8,7 +8,7 @@ MMW 的用户界面是技能。日常工作的统一入口是 `$mmw:mmw-start`�
 
 | 项目 | 数量 | 结论 |
 | --- | --- | --- |
-| 当前版本 | 0.10.1 | 对齐 Matt Pocock Skills 1.2.2，并保留 MMW 的正式工作流合同 |
+| 当前版本 | 0.10.3 | 对齐 Matt Pocock Skills 1.2.2，并保留 MMW 的正式工作流合同 |
 | 日常工作流入口 | 1 个 | `$mmw:mmw-start` |
 | Codex 技能调用方式 | 2 种 | 显式调用和隐式调用 |
 | `mmw-start` 识别的输入情况 | 15 种 | 恢复当前任务，或者移交 10 个下游技能 |
@@ -45,13 +45,13 @@ MMW 会在每个 agent 开工前选择本次涉及的领域文档。任务进入
 | 约束 | 只读还是可写，可以改哪些文件，哪些决定已经确认 |
 | 验收 | 必须交回什么，以及完成需要哪些证据 |
 
-task 的“读”栏保存路径和 issue 编号。唯一事实来源留在原处，subagent 每次读取当前版本。返工和复审使用新的 subagent，不继承上一轮上下文。材料不足时，subagent 必须报告 `needs-context`，不能自行猜测。
+task 的“读”栏保存路径和 issue 编号。唯一事实来源留在原处，subagent 每次读取当前版本。返工使用新的 subagent，不继承上一轮上下文。审查只运行一轮；采信项由主 agent 验证修复，不再派审查者。材料不足时，subagent 必须报告 `needs-context`，不能自行猜测。
 
 ### 报告、验证与独立上下文
 
 subagent 交回的是报告。报告中的断言只有经过主 agent 验证才能进入项目结论。
 
-调查者只回答一个可验证的问题。`worker` 只实现一张 ticket。审查者只检查一个视角。审查者使用独立上下文，产物作者不审查自己的结果。
+`investigator` 只回答一个可验证的 research 问题。`worker` 只实现一张 ticket。审查者只检查一个视角。审查者使用独立上下文，产物作者不审查自己的结果。
 
 可写任务使用独立结果分支。主 agent 验证结果分支、HEAD 和基点，并在结果 worktree 验收实际差异。验收通过后才能集成到当前任务分支。
 
@@ -62,7 +62,7 @@ subagent 交回的是报告。报告中的断言只有经过主 agent 验证才�
 | 分组 | 技能 | 职责 |
 | --- | --- | --- |
 | 入口与分诊 | `mmw-start`、`mmw-triage`、`mmw-wayfinder` | 路由新工作；分诊 issue 和 PR；规划超过一个 agent 会话且路线尚不清楚的 effort |
-| 调查与收敛 | `mmw-grilling`、`mmw-prototype`、`mmw-research`、`mmw-retrieval`、`mmw-diagnosing-bugs`、`mmw-improve-codebase-architecture` | 谈清需求；用 prototype 回答设计问题；调查事实；恢复检索能力；诊断 bug；寻找架构改进候选 |
+| research 与收敛 | `mmw-grilling`、`mmw-prototype`、`mmw-research`、`mmw-retrieval`、`mmw-diagnosing-bugs`、`mmw-improve-codebase-architecture` | 谈清需求；用 prototype 回答设计问题；执行重型多角度 research；恢复检索能力；诊断 bug；寻找架构改进候选 |
 | 领域与设计 | `mmw-domain-modeling`、`mmw-codebase-design` | 维护领域语言和 ADR；定义 module、interface、seam、adapter 与 depth |
 | 交付 | `mmw-to-spec`、`mmw-to-tickets`、`mmw-to-plan`、`mmw-implement`、`mmw-tdd` | 发布 spec；拆 tracer bullet ticket；写 plan；派 `worker` 实现；执行 red 到 green 的测试循环 |
 | 验证与交付完成 | `mmw-verifying-agent-output`、`mmw-review`、`mmw-integrate`、`mmw-release`、`mmw-closing` | 验证报告；编排审查；集成分支；出正式安装包；归档 spec 和 plan |
@@ -78,7 +78,7 @@ MMW 插件（plugin）还包含五个辅助技能。它们不属于上述 23 个
 | `writing-for-agents` | 约束技能、agent 指令和其他供 agent 读取的文本 |
 | `wizard` | 为复杂的人工操作生成可审查、可逐步执行的向导脚本 |
 | `to-questionnaire` | 把缺失信息整理成可转交给另一位知识持有者的问题清单 |
-| `wait-what` | 从目标仓库当前事实生成面向用户的功能说明 |
+| `wait-what` | 重新说明上一条消息；按要求生成本地可视化 HTML，并在 Codex 保存 Sites 版本 |
 
 ## MMW 与 Matt Pocock Skills 的关系
 
@@ -92,11 +92,17 @@ MMW 基于 Matt Pocock Skills 的工程方法构建。对于有上游对应项�
 | MMW 的差异缺少仓库证据，而且删改了方法步骤、解释或完成判据 | 恢复上游合同，再接回 MMW 工作流 |
 | 当前证据无法判断，而且选择会改变方法效果或用户流程 | 收敛成一个必要决定，再请用户确认 |
 
-prototype 同时体现这两层合同。它遵循上游的单文件 HTML、自由操作、引导式走查和可重复初态方法。用户走查过的完整 prototype、逐轮记录和证据仍是 MMW 的 prototype 资产，长期保存在 `docs/prototypes/<slug>/`。spec、ticket、plan、实现和审查继续引用这份资产。正式实现只吸收已经验证的决定和可移植逻辑，不把 prototype 外壳当成生产代码。
+prototype 同时体现这两层合同。它遵循上游的单文件 HTML、自由操作、引导式走查和可重复初态方法。Wayfinder map 在正文固定一个 `产物目录`；prototype 路径由 `mmw path prototype` 计算。默认配置下，Wayfinder decision ticket 使用 `docs/prototypes/<产物目录>/issue-<编号>/`，普通任务使用 `docs/prototypes/<任务 slug>/`。每个 prototype 资产索引只向下游传递用户选中的产物、走查结论和明确引用的长期证据；完整界面变体继续保留为 primary source。过程截图、DOM、console、录屏和生成中间物进入 Git 忽略的 scratch。正式实现只吸收已经验证的决定和可移植逻辑，不把 prototype 外壳当成生产代码。
+
+每次 `mmw-research` 完成验证与综合后，MMW 都展示结论摘要、拟保存文件和完整路径，并询问用户是否保存。research 路径由 `mmw path research` 计算。默认配置下，普通任务使用 `docs/research/<产物目录>/<research 主题>/`，Wayfinder decision ticket 使用 `docs/research/<产物目录>/issue-<编号>/<research 主题>/`。用户选择不保存时，不创建 research 目录或文件。保存不代表下游必须引用。下游只读取当前工作点名的 `README.md` 和精确文件。subagent 原始报告、网页转储和抓取缓存进入 Git 忽略的 scratch。
 
 0.10.0 还恢复了一次会话只解决一张 Wayfinder decision ticket、ticket 发布前人工审批关卡、阶段边界决策树、实现阶段测试频率和出包后重新终审等合同。它新增 `writing-for-agents`、`wizard`、`to-questionnaire` 和 `wait-what`，但没有把这些辅助技能加入日常主路由。
 
-0.10.1 补齐了 prototype 资产在 `planner` 与 `reviewer-gpt` 中的读取合同。plan 与审查现在同时引用完整资产目录、用户选中版本和对应逐轮记录。
+0.10.1 补齐了 prototype 资产在 `planner` 与 `reviewer-gpt` 中的读取接缝。当前合同进一步把读取范围收紧到 prototype 资产索引、用户选中的产物和明确相关的走查证据，避免把无关过程材料传给下游。
+
+0.10.2 扩展 `wait-what`：默认生成与要解释的内容放在一起的完整 HTML，并由 Codex Sites 保存版本。
+
+0.10.3 统一 active skill 的触发描述和文档结构，明确 prototype、research、evidence、scratch 与 review 的资产合同，并校正 Research、plan、审查和 tracer bullet ticket 的职责边界。⑤ final 终审与 ⑥ 合并集成审是互斥终审；多分支集成通过 ⑥ 后不再发起 ⑤。
 
 ## 用户使用的三个阶段
 
@@ -260,16 +266,19 @@ $mmw:mmw-start <map 编号或链接>
 | 9 | 有东西坏了、报错、跑不通、变慢，或者显式使用 `bug` | `mmw-diagnosing-bugs` |
 | 10 | 一项超过一个 agent 会话且路线尚不清楚的 effort，或者显式使用 `big` | `mmw-wayfinder` |
 | 11 | 想先看界面 prototype，或者要验证一套状态模型 | `mmw-prototype` |
-| 12 | 只需要查清一条内部或外部事实 | `mmw-research` |
-| 13 | 新需求，或者对已有需求的改进 | `mmw-grilling` |
-| 14 | 没有具体需求，只想找代码库的可维护性问题 | `mmw-improve-codebase-architecture` |
-| 15 | 集成并行分支、让结果分支跟上目标分支，或者处理冲突 | `mmw-integrate` |
+| 12 | 单个文件、符号、事实或一条命令能答完 | 主 agent 直接查询并回答 |
+| 13 | 需要多个独立角度或多份一手资料的重型调查 | `mmw-research` |
+| 14 | 新需求，或者对已有需求的改进 | `mmw-grilling` |
+| 15 | 没有具体需求，只想找代码库的可维护性问题 | `mmw-improve-codebase-architecture` |
+| 16 | 集成并行分支、让结果分支跟上目标分支，或者处理冲突 | `mmw-integrate` |
 
 issue 或 PR 的标签和 agent brief 会影响路由。用户只需提供编号或链接，`mmw-start` 负责读取完整内容和状态。
 
-`mmw-prototype` 产生 prototype 资产。逻辑 prototype 使用可直接双击打开的单文件 HTML，并同时提供自由操作和引导式走查。用户走查过的完整 prototype、逐轮记录和证据保留在 `docs/prototypes/<slug>/`，供 spec、ticket、plan、审查和正式实现继续引用。
+`mmw-prototype` 产生 prototype 资产。逻辑 prototype 使用可直接双击打开的单文件 HTML，并同时提供自由操作和引导式走查。同一 Wayfinder effort 共用 map 的 `产物目录`，每张 decision ticket 使用自己的 `issue-<编号>` 子目录。下游先读该子目录的 `README.md`，再读取用户选中的产物和明确引用的长期证据。临时运行材料进入 Git 忽略的 scratch。
 
-`mmw-to-tickets` 会先展示 tracer bullet 切分、阻塞关系和 prototype 资产引用。用户通过 ticket 切分的人工审批关卡后，MMW 才把 ticket 发布到 tracker。
+`mmw-research` 每次完成 research 后都询问用户是否保存。用户选择保存时，`README.md` 是 research 索引。下游只在当前工作需要时读取 research 索引和点名的精确文件。research 不进入 ADR 目录；只有满足 ADR 判据的决定才进入 ADR。
+
+`mmw-to-tickets` 会先展示 tracer bullet 切分、阻塞关系，以及 prototype 与 research 引用。用户通过 ticket 切分的人工审批关卡后，MMW 才把 ticket 发布到 tracker。
 
 ## 用户与主 agent 的责任
 

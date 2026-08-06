@@ -1,35 +1,32 @@
 ---
 name: mmw-to-tickets
-description: 把一份 spec 拆成一组 tracer bullet ticket，按依赖顺序发布。用户说要拆 ticket、要定先做哪一块时用它；刚写完 spec 的技能也移交这里。
+description: 把已发布 spec 拆成有阻塞关系的 tracer bullet tickets。用户在 spec 发布后要求拆 tickets 时使用。
 ---
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
 
-把一份 spec、一份计划或当前这段对话拆成一组 **ticket**——每张是一条 tracer bullet 垂直切片，并声明**阻塞**它的那些 ticket。
+把一份已发布的 spec 拆成一组 **ticket**——每张是一条 tracer bullet 垂直切片，并声明**阻塞**它的那些 ticket。
 
 issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw issue`，读一张、评论、打标签这类一条命令做得完的直接用 `gh`。标签清单在仓库根 `.mmw.json` 的 `tracker.labels`。
 
-**issue 承载身份，文件承载内容。** issue 正文只放这件事是什么、现在什么状态、内容在哪；真正要反复打磨的长文放任务分支上的文件里。三层是这样分的：
+**issue 承载身份，文件承载内容。** 本技能为每张 tracer bullet ticket 创建一张 issue。issue 正文保存摘要、plan 路径和阻塞关系。`/mmw-to-plan` 后续把实施内容写入该路径下的 plan 文件。
 
-| 层 | 正文放什么 | 唯一事实来源 | 结局 |
-| --- | --- | --- | --- |
-| map（跑了 `/mmw-wayfinder` 才有） | `Destination`、`Decisions so far` 的一行索引、`Out of scope`、`Not yet specified` | 就在正文 | 关掉，不上 Wiki |
-| spec | 一段摘要说清要解决什么问题、指向分支上 spec 文件的路径、ticket 清单 | 任务分支的 `docs/specs/<slug>/` | 落地后转成一页 Wiki |
-| ticket | 一段摘要、指向分支上该 ticket 计划的路径、阻塞关系 | 任务分支的 `docs/plans/<slug>/` | 并进 spec 那页 Wiki 的一节 |
+## 1. 上下文清单
 
-本技能建的是第三层。
+| 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
+| --- | --- | --- | --- | --- |
+| spec、对应 issue 或链接 | 始终 | 正文和评论全文 | 无关 issue | 每张 ticket 需要的目标、验收和阻塞关系 |
+| prototype | 上游引用时 | 索引、相关选中产物、明确相关的走查或长期证据 | 整个产物目录、无关过程材料；落选变体只在 ticket 必须落实其否定约束时读取 | 只传给消费该决定的 ticket |
+| research | 上游引用时 | research 索引和本批 ticket 需要的精确文件 | research 的上级目录、subagent 原始报告 | 只传给消费该事实的 ticket |
 
-## 1. 取上下文
+prototype 索引缺少问题、逐轮用户结论、选中产物、落选约束或长期证据时，回 `/mmw-prototype` 补齐；没有的项目写「无」。
 
-从这段对话里已有的材料开始。用户给了引用（spec 路径、issue 编号或链接），就取回来把正文和评论整个读完。
+## 2. 检查现状与 prefactor
 
-## 2. 找 prefactor
+从已有 spec 和现状调查中找能让后续实现更容易的 prefactor。「先把改动变容易，再做这个容易的改动。」材料没有覆盖相关代码时，主 agent 直接读取实施范围内的入口、调用方和测试。只有范围跨多个模块、需要从调用链、数据流或影响面等独立角度系统取证时，才调用 `/mmw-research`。
 
-**按 `/mmw-research` 的内部方向派一个 subagent**，题目是：这次要改的地方，有哪些可以先做 prefactor，让后面的实现更容易。「先把改动变容易，再做这个容易的改动。」
-
-上游那份 spec 的现状调查已经覆盖了这块代码怎么实现，这里不重查，只查 prefactor 这一个角度。**上游没有 spec、这次是从对话直接拆 ticket 的**，就连现状一起查，一个角度一个 subagent。
-
-收回来按 `/mmw-verifying-agent-output` 验证过才写进 ticket。
+没有值得单独落地的 prefactor 就直接进入第 3 步，不为填这一步制造 ticket。
+使用 subagent 取得报告时，按 `/mmw-verifying-agent-output` 验证后再写进 ticket。
 
 ticket 的标题和描述用项目领域术语表里的词，遵守这块地方的 ADR。
 
@@ -48,7 +45,15 @@ ticket 的标题和描述用项目领域术语表里的词，遵守这块地方�
 
 给每张 ticket 标上**阻塞边**——必须先做完它才能开工的那些 ticket。没有阻塞边的可以立刻开工。
 
-**大范围重构是垂直切片的例外。** **大范围重构**是一次机械改动——改一个列名、给一个共享符号换类型——它的 **blast radius** 铺满整个代码库，一次编辑就打断上千个调用点，没有哪一片垂直切片能落地还是绿的。不要把它硬塞进 tracer bullet，按 **expand–contract** 排序。先 expand：新形式加在旧形式旁边，什么都不打断。再按 blast radius 分批迁移调用点（一个包一批、一个目录一批），每一批是自己那张 ticket、被 expand 阻塞。最后 contract：没有调用方了就删掉旧形式，这张 ticket 被每一批迁移阻塞。连分批都单独绿不了时，序列照排，但让它们共用一条集成分支，全部阻塞最后那张集成并验证的 ticket——绿只在那里承诺。
+**大范围重构是垂直切片的例外。** **大范围重构**是一次机械改动——改一个列名、给一个共享符号换类型——它的 **blast radius** 铺满整个代码库，一次编辑就打断上千个调用点，没有哪一片垂直切片能落地还是绿的。不要把它硬塞进 tracer bullet，按 **expand–contract** 排序：
+
+| 阶段 | ticket 形状 | 阻塞关系 |
+| --- | --- | --- |
+| expand | 在旧形式旁加入新形式，不打断现有调用方 | 无 |
+| migrate | 按包或目录分批迁移调用点 | 每批被 expand 阻塞 |
+| contract | 没有调用方后删除旧形式 | 被全部 migrate ticket 阻塞 |
+
+连分批都单独绿不了时，序列照排，但让它们共用一条集成分支，全部阻塞最后那张集成并验证的 ticket——绿只在那里承诺。
 
 ## 4. 编号，请用户批准清单
 
@@ -72,16 +77,14 @@ ticket 的标题和描述用项目领域术语表里的词，遵守这块地方�
 
 ```bash
 mmw issue create --title "<标题>" --body-file <正文文件> \
-  --parent <spec issue 编号> --blocked-by <编号,编号> --label ready-for-agent
+  --parent <spec issue 编号> --blocked-by <编号,编号>
 ```
 
-它一次做完建 issue、挂到 spec issue 底下、连阻塞边、打标签四件事，输出新 issue 的编号。
+它一次做完建 issue、挂到 spec issue 底下和连阻塞边三件事，输出新 issue 的编号。
 
-**按依赖顺序发，阻塞方先发**：`--blocked-by` 要的是已经存在的编号，挡它的那张还没发就填不进去。发布顺序沿 **frontier** 走——阻塞它的都已发布的那些。
+**按依赖顺序发，阻塞方先发**：`--blocked-by` 要的是已经存在的编号，挡它的那张还没发就填不进去。
 
 **顺序不是随便的。** 下游取下一张 ticket 靠 `mmw issue frontier`，那个命令按 issue 编号升序给，所以「按依赖顺序发」直接决定了后面开工的顺序。
-
-`ready-for-agent` 打在 ticket 上的含义是「这张可以派 `worker` 开工」，跟打在 spec issue 上那个（人工审批关卡的凭据）不是一回事。
 
 父 issue 不要关，也不要改。
 
@@ -104,9 +107,18 @@ mmw issue create --title "<标题>" --body-file <正文文件> \
 - [ ] 判据 1
 - [ ] 判据 2
 
-## Prototype assets
+## prototype 资产
 
-- 指向这张 ticket 消费的 `docs/prototypes/<slug>/` 资产和对应决定；没有就省略本节。
+- prototype 资产索引：对应的 `README.md` 精确路径。
+- 选中产物：这张 ticket 消费的精确路径。
+- 走查或长期证据：与这张 ticket 明确相关的精确路径。
+- 没有资产时写「无 prototype 资产」。
+
+## research
+
+- research 索引：对应的 `README.md` 精确路径。
+- research 文件：这张 ticket 消费的精确路径。
+- 没有时写「无 research」。
 
 ## Blocked by
 
@@ -114,7 +126,7 @@ mmw issue create --title "<标题>" --body-file <正文文件> \
 
 </issue-template>
 
-正文里不要写实现文件路径和代码片段，那些东西属于 plan。Prototype 资产路径是例外：它是长期出处，必须写进消费该决定的 ticket。Prototype 产出的一段代码若比散文更精确地编码决定（状态机、reducer、schema、类型形状），可以内联，并注明对应资产路径。只保留决定含量，不粘贴完整 demo。
+正文里不要写实现文件路径和代码片段，那些东西属于 plan。prototype 的精确出处和当前 ticket 消费的 research 是例外。prototype 产出的一段代码若比散文更精确地编码决定，可以内联并注明选中产物路径；只保留决定含量，不粘贴完整 demo。
 
 下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 

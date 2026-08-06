@@ -1,6 +1,6 @@
 ---
 name: mmw-to-spec
-description: 把已经谈定的内容综合成一份 spec，用户点头之后才发布。用户说要写 spec、要把刚才谈的落成设计时用它；别的技能把一件事谈定或者走查完时也移交这里。
+description: 综合、审查并发布 spec。用于需求或架构候选已经谈定、prototype 已走查、Wayfinding 已切出 spec、分诊判定需要多 tickets、多 seams 或设计取舍、实现阶段回来补 seam，或用户直接要求写 spec。
 ---
 
 把已经谈定的内容综合成一份 spec。**不采访，只综合**，不重开任何一个决定。
@@ -15,7 +15,8 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 | --- | --- | --- |
 | `$mmw:mmw-grilling` 谈定 | 这次对话里刚谈完。`$mmw:mmw-wayfinder` 横扫下来判定不需要 map 的也走这一行 | 这一轮写进领域文档的术语（落点跑 `mmw domain path` 取）、这一轮落成的 ADR、对话里达成的每一条共识 |
 | `$mmw:mmw-improve-codebase-architecture` 挑中的候选谈定 | slug 是 `refactor-` 开头，那个空提交里记着一张候选卡片的标题 | 这一轮写进领域文档的术语（落点跑 `mmw domain path` 取）、这一轮落成的 ADR、对话里达成的每一条共识，外加**那张卡片**——它的文件清单是第 2 步探仓库的起点，它的 Problem 和 before/after 直接进 spec 的 `## Current State` 与 `## Solution`。这次的外部行为不变，所以 `## Solution` 写的是结构怎么变、谁的调用方式跟着变 |
-| `$mmw:mmw-prototype` 走查完 | `docs/prototypes/<slug>/` 存在 | 那份 `README.md` 里回填的结论；每一轮的**选中的那一版**；界面那一侧的视觉契约 |
+| `$mmw:mmw-prototype` 走查完 | 能从上游取得 `产物目录`；Wayfinder decision ticket 还能取得 `issue-<编号>` | 运行 `mmw path prototype <产物目录> [issue-<编号>]`，先读命令返回目录中的 `README.md`，再只读本 spec 需要的选中产物，以及索引显式引用的对应走查记录和长期证据。普通非 Wayfinder 任务不传 issue 子目录。索引必须列出问题、逐轮用户结论、用户选中的路径、落选变体形成的约束、被提升为长期证据的路径；没有选中产物、落选约束或长期证据时，对应项写「无」，不能省略。缺一项就回 `$mmw:mmw-prototype` 补齐 |
+| `$mmw:mmw-research` 交回 | 上游交回验证后的事实；用户选择保存时还会交回 research 索引 | 始终取验证后的事实与出处。只有本 spec 依赖已保存的 research 时，才读取索引和精确文件路径；不递归读取 research 的上级目录 |
 | `$mmw:mmw-wayfinder` 切出的一份 spec | 有一张 issue 挂在带 `wayfinder:map` 标签的 issue 底下，自己不带任何 `wayfinder:` 标签 | 那张 map 的 `Destination`、`Decisions so far`、`Out of scope` 三节，各自落进 spec 哪里见第 4 步；走这张 map 过程中新增的 ADR 与 `.out-of-scope/` |
 | `$mmw:mmw-triage` 判出这件事需要多张 ticket、多个测试 seam，或者还有设计取舍要谈 | 那张 issue 或 PR 上有一条 agent brief 评论 | 那份 agent brief 全文，尤其 `Test seam` 那一栏，以及 `$mmw:mmw-triage` 的「分诊一张具体的 issue 或 PR」第 3 步验过的断言 |
 | `$mmw:mmw-implement` 回来补 seam | `docs/specs/<slug>/` 里已经有一份 spec | 现有那份 spec。**只补 seam 一节，不重写**，从第 2 步接着走 |
@@ -23,13 +24,13 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 ## 2. 探仓库
 
-还没探过就先探，把这块地方现在怎么实现搞清楚。**按 `$mmw:mmw-research` 的内部方向派出去**，一个角度一个 subagent：这块功能现在怎么实现、它的 seam 在哪、数据从哪来到哪去、哪些地方会被这次改动波及。
+还没做过 research 就先做。**按 `$mmw:mmw-research` 的内部方向派出去**，一个角度一个 subagent：这块功能现在怎么实现、它的 seam 在哪、数据从哪来到哪去、哪些地方会被这次改动波及。
 
-`$mmw:mmw-grilling` 谈的过程里已经查过一轮的，只补那一轮没覆盖的角度，不要整片重查。
+`$mmw:mmw-grilling` 已经做过一轮 research 的，只补没有覆盖的角度。
 
 整份 spec 用项目领域词汇，遵守你要碰的这块地方的 ADR。领域文档落点跑 `mmw domain path` 取，三种返回怎么读见 `$mmw:mmw-domain-modeling` 的「读领域文档」一节。
 
-现状结论逐条带 `file:line` 引用写进 spec，**引用要你自己验证过**（`$mmw:mmw-verifying-agent-output`）。
+现状结论逐条带 `file:line` 引用写进 spec，**引用要你自己验证过**（`$mmw:mmw-verifying-agent-output`）。用户选择保存，而且本 spec 依赖该 research 时，spec 同时引用 research 索引和实际使用的精确文件路径。
 
 ## 3. 钉 seam
 
@@ -44,7 +45,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 - **越少越好，理想数量是一。**
 - **确实要新开，提在最高点**，取舍理由写进这一节。
 
-这一步只定**测在哪**，不定怎么写。一个测试要满足哪些条件才允许进仓库，在 `mmw-tdd/quality-bar.md` 里。
+这一步只定**测在哪**，不定怎么写。测试写法由 `$mmw:mmw-tdd` 和目标仓库的 `TESTING.md` 规定。
 
 从 `$mmw:mmw-triage` 进来的，那份 agent brief 的 `Test seam` 一栏是分诊时的初判。需要多个 seam 时，在它的基础上扩，并逐条说明为什么一个 seam 覆盖不了。只有一个 seam、但因为要拆多张 ticket 或讨论设计取舍而进入本技能时，保留并重新验证这个 seam。
 
@@ -76,13 +77,17 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 - 每个决定都写了为什么，落点精确到函数或模块，没有「某个模块」「相应调整」这类悬空话
 - 每条真实的失败路径都答得出四问：什么触发、谁捕获、用户看到什么、对应哪条验收
 - 新增或改变的对象、状态、角色写清了谁写谁读，稳定下来的术语已经进领域文档
-- **原型证据逐条验证**：`Implementation Decisions` 里的每一条，要么指得到 `docs/prototypes/<slug>/` 下的一份产物（写明是哪一份、第几轮走查定的），要么符合下面三种免除情形之一并在那条后面写明是哪一种。两样都给不出来的，移交 `$mmw:mmw-prototype` 补一轮再回来。用户走查过实物才算这条决定被验证过，讨论达成一致不算
-
-  三种免除情形，**只有这三种**：这条决定是照搬既有实现、既有约定或者一条已经拍板的 ADR；它的对错查一次代码或文档就能确定，不需要用户判断；它不改变任何用户看得见的行为（纯内部结构调整、重命名、搬移）。
-
-  不算免除的：「时间紧」「显然是对的」「先做了再说」「用户已经口头同意」。**用户口头同意跟他走查过实物是两回事。** 写不出属于哪一种免除情形，就是要补一轮原型
-- **视觉合同逐项可验收**：用户的浏览器标记、选中页面和对应截图已经写成持久出处；每个页面、viewport 和真实状态各有一条可观察结果，没有只引用临时标签页，也没有把多个状态压成一句「与原型一致」
+- **已有 prototype 时**：spec 只吸收用户选中的版本和已确认的决定。每条来自 prototype 的决定都写明资产路径和走查轮次。落选变体不进入当前方案。没有 prototype 不构成缺失
+- **有界面时**：每个页面、viewport 和真实状态各有一条可观察结果。已有 prototype 时，同时保存选中产物和走查证据的持久出处
 - `## Testing Decisions` 一节里那张 seam 清单表逐条填齐了，每行都写了在哪测、测什么行为、为什么是这一层
+
+完整 UI 变体集继续保留在 prototype 资产中，作为 primary source。prototype 资产索引只负责路由，不替代原始产物；本技能只读取选中产物和索引显式引用的证据或具体落选变体，不递归读取产物目录。
+
+### Wayfinder 派生的 spec 需要补充 prototype 或 evidence
+
+当 Wayfinder 派生的 spec 需要补充 prototype 或 evidence 时，先停止 spec 工作。拥有 map 分支的任务在 map issue 已关闭时重新打开它，再新建 `wayfinder:prototype` 或 `wayfinder:research` decision ticket。Decision ticket 原样继承 map 的 `产物目录`，并使用自己的 `issue-<编号>` 子目录。
+
+Decision ticket 任务完成后，map 任务运行 `mmw result verify` 和 `mmw result integrate`。然后 map 任务按 `$mmw:mmw-integrate` 让未完成的 spec 分支 rebase 到更新后的 map 分支。Spec 任务只在 rebase 完成后回到第 5 步。
 
 ## 6. 发起 ① spec 审
 
@@ -100,7 +105,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 2. 审查者报了什么、你怎么处置的。还开着的严重问题不许埋着给他看——改掉，或者写明为什么判成不改。
 3. seam 清单单独再说一遍。这是他这一轮唯一必须亲自过目的技术决定。
 
-他点头之前不要发布。他要改就回第 4 步，改完重走第 5 步和第 6 步。
+他点头之前不要发布。他要改就回第 4 步，改完重走第 5 步自检，不再发起审查。
 
 ## 8. 发布
 
@@ -125,9 +130,9 @@ mmw issue create --title "<一句话的名字>" --body-file <摘要文件> --lab
 | 发布完了 | **移交**：`$mmw:mmw-to-tickets`，把这份 spec 拆成 tracer bullet ticket |
 | 从 `$mmw:mmw-implement` 回来补 seam，补完了、用户也点过头 | **移交**：回 `$mmw:mmw-implement`，它接着派 `worker` |
 | 第 1 步发现这件事还没谈定 | **移交**：`$mmw:mmw-grilling`，把用户原话原样传过去，它谈定后会回到这里 |
-| 第 5 步验证出某条决定既没有原型证据、也说不出为什么不需要 | **移交**：`$mmw:mmw-prototype` 补一轮，走查完回到第 5 步接着验证 |
-| 某条决定建立在一条没人验过的外部事实上（那个服务撑得住多少、那个接口实际返回什么） | **移交**：`$mmw:mmw-prototype` 的 `EVIDENCE.md`。这条决定先留在 `## Open Decisions` 里，测出来再回填，不要拿一个猜的数字定稿 |
-| 第 7 步用户要改 | **自己继续**：回第 4 步改，改完重走第 5 步和第 6 步 |
+| 某条决定建立在一条没人验过的外部事实上；当前 spec 来自 Wayfinder | **移交**：拥有 map 分支的任务执行本文“Wayfinder 派生的 spec 需要补充 prototype 或 evidence”流程，新建 `wayfinder:research` decision ticket；需要实测时由该 ticket 升级到 `$mmw:mmw-prototype` 的 `EVIDENCE.md` |
+| 某条决定建立在一条没人验过的外部事实上；当前 spec 不来自 Wayfinder | **移交**：`$mmw:mmw-prototype` 的 `EVIDENCE.md`。这条决定先留在 `## Open Decisions` 里，测出来再回填，不要拿一个猜的数字定稿 |
+| 第 7 步用户要改 | **自己继续**：回第 4 步改，改完重走第 5 步自检，不再发起审查 |
 | 审查者交回 `needs-redirection` | **停**：把它说的哪里可疑、建议怎么重新框定原样交给用户，不要自己改 spec 绕过去 |
 | 第 3 步某个 seam 定不下来 | **停**：说清是哪个行为找不到合适的边界、你考虑过哪几个位置，不要自己发明一个 |
 | 给用户看之后他不点头，也说不清要改什么 | **停**：报 spec 已定稿在哪个路径、审查者报了什么、卡在哪一条上 |

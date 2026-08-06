@@ -1,6 +1,6 @@
 ---
 name: mmw-verifying-agent-output
-description: 验证 subagent 交回的产出——审查 findings、完工报告、调查报告。收到任何 subagent 交回的报告时用它。
+description: 验证 subagent 报告中的关键断言。每次收到审查 findings、`worker` 完工报告或 research 报告时使用。
 ---
 
 派出去的 subagent 交回的是报告，不是结论。报告里的事实断言只有带着出处、再经过主 agent 验证，才能成为可用证据。
@@ -11,11 +11,11 @@ description: 验证 subagent 交回的产出——审查 findings、完工报告
 | --- | --- | --- |
 | 审查 findings | `file:line` 加该行原文 | 读取该位置，确认原文一致 |
 | 完工报告 | 能跑的测试、能读的 diff | 跑一次，读一遍 |
-| 调查报告 | 可读取的源码位置 | 读取报告引用的位置 |
+| research 报告 | 可读取的源码位置或一手链接 | 读取报告引用的位置 |
 
 引不出出处的断言不进交付物，标 `needs-evidence`。
 
-哪条算关键：这条断言如果是假的，会不会改变代码、改变结论、或改变你给用户的交代。关键之外的数字和定位不逐条验证，也不重做 subagent 已经做完的整段调查。
+哪条算关键：这条断言如果是假的，会不会改变代码、改变结论、或改变你给用户的交代。关键之外的数字和定位不逐条验证，也不重做 subagent 已经完成的整段 research。
 
 **验证过才采信。它的原话不转发出去，转出去的是你验证之后的结论。**
 
@@ -35,7 +35,7 @@ description: 验证 subagent 交回的产出——审查 findings、完工报告
 派取证时：四栏表——目标「原样抄回下列位置的原文」；读=位置清单路径或逐条 `文件:行号` + 仓库根路径；约束=「不要判断成立与否」；验收=每条一行原文或「不存在」。
 启动：按名称调用 Codex 原生 subagent `mmw-investigator`，task 传四栏表全文。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的调查、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
 
 它要交回的形状固定：一条位置一行，写那一行的原文加真实行号；位置不存在的写「不存在」；行号对不上但附近有相似内容的，把附近那几行一起抄回来。**不许写「这条成立」或者「这条不成立」。**
 

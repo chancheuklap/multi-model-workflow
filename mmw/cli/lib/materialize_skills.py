@@ -35,7 +35,7 @@ HOST_ACTION_RE = re.compile(r"\[\[mmw-host-action:([a-z0-9-]+)\]\]")
 CODEX_SKILL_REF_RE = re.compile(r"`/(mmw-[a-z0-9-]+)`")
 SKIP_DIR_NAMES = frozenset({"mmw-dispatching-agents", "mmw-setup"})
 POST_LAUNCH_RULE = (
-    "派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的调查、实现或审查。"
+    "派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。"
     "没有明确不重叠的协调工作时，立即等待 subagent 交回报告；"
     "报告交回后只按 `/mmw-verifying-agent-output` 验证关键断言，不重做整个 task。"
 )
@@ -132,7 +132,8 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
             die("Codex 缺 reviewer-gpt subagent profile")
         return (
             "Codex 只使用一个审查角色。①、②、⑤ 每个视角各启动一个 "
-            f"Codex 原生 `{profile['name']}` subagent；⑥ 启动一个该 subagent 完成全部七个角度。"
+            f"Codex 原生 `{profile['name']}` subagent；⑥ 同时启动两个该 subagent，"
+            "各自完成全部七个角度。"
             "每个审查者使用独立上下文，可以与产物作者使用相同模型。"
             "互不依赖的审查任务在同一条消息中并行启动。"
         )
@@ -233,15 +234,38 @@ def expand_host_action(name: str, host: str) -> str:
     if name == "browser-plan-validation":
         if host == "codex":
             return (
-                "界面任务包把自动回归与人工浏览器审批分开写。"
+                "界面 plan 把自动回归与人工浏览器审批分开写。"
                 "`Verification commands` 只写能重复执行的测试命令和预期结果；"
                 "`Browser acceptance` 写明由主 agent 使用 Codex 内置浏览器检查的页面、黄金路径、"
                 "本次相关状态、viewport 和每项可见结果。"
                 "不得把 Playwright CLI 写成人工走查的替代品，也不得把内置浏览器操作伪装成自动回归命令。"
             )
         return (
-            "界面任务包把可重复执行的自动回归命令与当前宿主的人工浏览器审批分开写。"
+            "界面 plan 把可重复执行的自动回归命令与当前宿主的人工浏览器审批分开写。"
             "人工审批逐项写明页面、路径、状态、viewport 和可见结果；没有界面时写“不适用”。"
+        )
+
+    if name == "render-inline-visual-explanation":
+        if host == "codex":
+            return (
+                "完整读取并遵守 `$visualize:visualize`。使用 HTML fragment 完整解释用户指定的这一个小范围。"
+            )
+        return (
+            "**宿主动作待实现：`render-inline-visual-explanation`。**"
+            "当前宿主明确报告对话内可视化尚未实现。"
+        )
+
+    if name == "publish-visual-explanation":
+        if host == "codex":
+            return (
+                "完整读取并遵守 `$sites:sites-building` 和 `$sites:sites-hosting`。"
+                "把已经保存的本地 HTML 作为 Sites 网站的完整内容发布，发布的页面内容与本地 HTML 一致。"
+                "同一份本地 HTML 更新时复用同一个 Sites 网站，并保存一个新版本。"
+                "发布成功后返回本地 HTML 路径和 Sites 网址。"
+            )
+        return (
+            "**宿主动作待实现：`publish-visual-explanation`。**"
+            "当前宿主保留本地 HTML，并明确报告 Sites 发布尚未实现。"
         )
 
     if name == "prepare-task-worktree":
