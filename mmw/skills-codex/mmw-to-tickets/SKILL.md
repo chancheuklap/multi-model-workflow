@@ -122,7 +122,10 @@ mmw issue create --title "<标题>" --body-file <正文文件> \
 
 </issue-template>
 
-正文里不要写实现文件路径和代码片段，那些东西属于 plan。Prototype 资产路径是例外：它是长期出处，必须写进消费该决定的 ticket。Prototype 产出的一段代码若比散文更精确地编码决定（状态机、reducer、schema、类型形状），可以内联，并注明对应资产路径。只保留决定含量，不粘贴完整 demo。
+正文不写实现文件路径和代码片段，这些内容属于 plan。以下两种 prototype 内容例外：
+
+- prototype 资产路径是长期出处，必须写入消费该决定的 ticket。
+- 状态机、reducer、schema 或类型形状等代码比散文更精确时，可以内联决定相关的部分，并注明资产路径。不要粘贴完整 demo。
 
 下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 

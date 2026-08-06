@@ -27,9 +27,11 @@ description: 把项目的领域模型建起来、磨锋利。用户要定义领�
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。运行 `mmw domain path`：
 
-- 返回 `map`：先读 Map，再读本次涉及的全部命名 leaf。
-- 返回 `single`：读命令返回的领域文档。
-- 返回 `none`：直接继续，不报告缺失，也不创建领域文档。只有本文「`none` 形态首次建模」规定的场景可以创建。
+| 返回 | 读取动作 |
+| --- | --- |
+| `map` | 先读 Map，再读本次涉及的全部命名 leaf |
+| `single` | 读命令返回的领域文档 |
+| `none` | 直接继续，不报告缺失，也不创建领域文档；只有本文「`none` 形态首次建模」规定的场景可以创建 |
 
 ## 文件放哪
 
@@ -52,7 +54,11 @@ mmw domain dirs    # 写入侧的四个落点：single、map、context、adr
 条件满足后，按 bounded context 的数量和边界处理：
 
 - 明确只有一个 bounded context：在 `mmw domain dirs` 返回的 `single` 路径创建领域文档，并写入首个长期术语。
-- 明确存在多个 bounded context：运行 `mmw domain map-init`。只有命令输出 `map-init<TAB><相对路径><TAB>created` 后才编辑它创建的 Map；禁止直接创建 Map，也禁止复制受管规则。然后在 `context` 路径创建首个命名 leaf，在 Map 中登记实际路径，补齐已确认的 `Contexts` 和至少一条 `Relationships`。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
+- 明确存在多个 bounded context：
+  1. 运行 `mmw domain map-init`。
+  2. 确认输出为 `map-init<TAB><相对路径><TAB>created`，再编辑命令创建的 Map。禁止直接创建 Map 或复制受管规则。
+  3. 在 `context` 路径创建首个命名 leaf。
+  4. 在 Map 中登记实际路径，补齐已确认的 `Contexts` 和至少一条 `Relationships`。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
 - 数量、术语归属或关系不清楚：一次询问一个具体问题。用户确认前不创建领域文档。
 
 首次建模写完后运行 `mmw domain check`。检查失败就修正 Map、leaf 或受管规则；检查通过之前不得提交。

@@ -42,7 +42,11 @@ disable-model-invocation: true
 
 ## 探代码
 
-Serena 用于取得符号定义和引用的候选。Graphify 用于取得连接关系、依赖路径、影响面和跨语言数据流的候选。候选必须回到文件验证。工具不可用或图过期时，改用现行检索和文件读取，不阻塞。
+| 要查的内容 | 方法 |
+| --- | --- |
+| 符号定义和引用 | Serena 取候选，再读文件验证 |
+| 连接关系、依赖路径、影响面和跨语言数据流 | Graphify 取候选，再读文件验证 |
+| 工具不可用或图过期 | 使用现行检索和文件读取，不阻塞 |
 
 读取根 `CLAUDE.md` 或 `AGENTS.md` 及其引用。测试命令以项目规则为准；项目规则未声明时，再查 `pyproject.toml`、`package.json` 或 `go.mod`。
 
@@ -74,7 +78,10 @@ ticket 已经是一条端到端的垂直切片，**你不再切一层切片**，
    **Tech stack:** <实际涉及的框架、服务、测试工具>
 
    ## Global Constraints
-   项目级硬约束，每条一行。spec 里没有一节专门叫这个名字，值从 `## Implementation Decisions`、`## Contract Boundaries`、`## Release Risk` 三节，加上目标仓库根的 `CLAUDE.md` 或 `AGENTS.md` 及其链进去的规则，逐字抄来（版本下限、依赖限制、命名与文案规则、平台要求、项目不变量、计费与权限红线）。本节隐含适用于本 plan 每一个任务包。
+   项目级硬约束，每条一行。来源只有：
+   - spec 的 `## Implementation Decisions`、`## Contract Boundaries` 和 `## Release Risk`。
+   - 目标仓库根的 `CLAUDE.md` 或 `AGENTS.md` 及其引用。
+   逐字抄录版本下限、依赖限制、命名与文案规则、平台要求、项目不变量、计费与权限红线。本节适用于本 plan 的每一个任务包。
 
    ## File / Responsibility Map
    **Create / Modify / Test / Docs·登记·迁移：** `path` — 负责什么 / 什么行为 / 为什么改它
@@ -113,12 +120,14 @@ ticket 已经是一条端到端的垂直切片，**你不再切一层切片**，
 
 最后一条消息使用以下结构，供主 agent 逐条验证：
 
-- **Verdict**：`pass`、`needs-repair`、`needs-redirection`、`needs-context` 或 `blocked`。
-- **plan 摘要**：plan 编号、目标、任务包总数、每包一句话和包间依赖。
-- **结构候选**：实际查询、关键输出和源码验证的 `文件:行号`；未用工具时写明原因。
-- **Cross-plan touchpoints**：共享文件、合同、接口、归属方、提供方、消费方和关键字段；没有则写「无跨 plan 共享合同」。
-- **Open Items**：每项标 `[out-of-scope]` 或 `[needs-evaluation]`。
-- **自检完成状态**：[references/self-check.md](references/self-check.md) 的逐项结果。
+| 字段 | 内容 |
+| --- | --- |
+| **Verdict** | `pass`、`needs-repair`、`needs-redirection`、`needs-context` 或 `blocked` |
+| **plan 摘要** | plan 编号、目标、任务包总数、每包一句话和包间依赖 |
+| **结构候选** | 实际查询、关键输出和源码验证的 `文件:行号`；未用工具时写明原因 |
+| **Cross-plan touchpoints** | 共享文件、合同、接口、归属方、提供方、消费方和关键字段；没有则写「无跨 plan 共享合同」 |
+| **Open Items** | 每项标 `[out-of-scope]` 或 `[needs-evaluation]` |
+| **自检完成状态** | [references/self-check.md](references/self-check.md) 的逐项结果 |
 
 **如实报，不要粉饰。**
 

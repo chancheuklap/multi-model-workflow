@@ -15,7 +15,9 @@ description: deep module 的共同词汇与判据：module、interface、seam、
 
 **interface** —— 调用方正确使用 module 必须知道的全部：类型签名、不变量、顺序约束、错误模式、必需配置和性能特征。不要用：API、签名；两者只覆盖类型层面。
 
-**implementation** —— module 内部的代码。谈 seam 时使用 adapter，其余时候使用 implementation。implementation 与 adapter 描述不同维度：Postgres 仓储可以是小 adapter 加大 implementation；内存假实现可以是大 adapter 加小 implementation。
+**implementation** —— module 内部的代码。谈 seam 时使用 adapter，其余时候使用 implementation。
+
+implementation 与 adapter 描述不同维度。Postgres 仓储可以是小 adapter 加大 implementation；内存假实现可以是大 adapter 加小 implementation。
 
 **depth** —— interface 上的 leverage。大量行为位于小 interface 后面是 **deep**；interface 几乎与 implementation 一样复杂是 **shallow**。
 
@@ -59,7 +61,8 @@ description: deep module 的共同词汇与判据：module、interface、seam、
 
 ## 原则
 
-- **depth 是 interface 的属性，不是 implementation 的属性。** 一个 deep module 内部完全可以由小的、可 mock 的、可替换的零件组成——它们只是不属于 interface。一个 module 可以有**内部 seam**（私有的，只给它自己的测试用），也有 interface 上那条**外部 seam**。
+- **depth 是 interface 的属性，不是 implementation 的属性。** deep module 内部可以由小的、可 mock、可替换的零件组成；这些零件不属于 interface。
+- **内部 seam 和外部 seam 可以同时存在。** 内部 seam 是私有的，只供 module 自己的测试使用；外部 seam 位于 interface 上。
 - **deletion test。** 设想把这个 module 删掉。复杂度跟着消失，它就是个转手的。复杂度在 N 个调用方身上重新冒出来，它就在挣自己的饭钱。
 - **interface 就是测试面。** 调用方和测试跨的是同一条 seam。你想测到 interface *后面*去，多半是这个 module 形状不对。
 - **一个 adapter 是假 seam，两个才是真 seam。** 没有东西真的在这条线两侧变化，就不要开这条 seam。

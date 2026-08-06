@@ -7,7 +7,11 @@ description: 扫一遍代码库找可以做深的模块，出一份候选报告�
 
 **本技能不改代码。** 它的产物是一份候选报告，加一个被用户选中的方向。真正的改动走后面的主干：谈清楚、写 spec、派 `worker`。
 
-设计词汇一律用 `$mmw:mmw-codebase-design` 定的那一套（module、interface、implementation、depth、deep、shallow、seam、adapter、leverage、locality），连同它的判据——deletion test、interface 就是测试面、一个 adapter 是假 seam 两个才是真 seam。每条建议都用这些词的原词，不要漂成「组件」「服务」「API」「边界」。
+设计时完整应用 `$mmw:mmw-codebase-design`：
+
+- 使用 module、interface、implementation、depth、deep、shallow、seam、adapter、leverage 和 locality。
+- 使用 deletion test、interface 就是测试面、一个 adapter 是假 seam 两个才是真 seam 等判据。
+- 每条建议都使用这些原词，不改写成「组件」「服务」「API」或「边界」。
 
 ## 先读领域文档
 
@@ -55,16 +59,20 @@ subagent 交回的东西按 `$mmw:mmw-verifying-agent-output` 逐条验证。它
 
 ## 4. 出报告
 
-写一个自包含的 HTML 文件，落系统临时目录：从 `$TMPDIR` 取，取不到退回 `/tmp`（Windows 上是 `%TEMP%`），文件名 `architecture-review-<时间戳>.html`，每次跑一份新的。然后打开它——macOS `open`、Linux `xdg-open`、Windows `start`——把绝对路径告诉用户。
+写一份自包含的 `architecture-review-<时间戳>.html`，每次运行创建新文件。文件放在系统临时目录：优先使用 `$TMPDIR`，取不到时使用 `/tmp`；Windows 使用 `%TEMP%`。
 
-每个候选一张卡片，包含：
+生成后打开文件：macOS 使用 `open`，Linux 使用 `xdg-open`，Windows 使用 `start`。把绝对路径告诉用户。
 
-- 涉及文件。
-- 当前结构的具体成本。
-- 目标结构。
-- 用 locality、leverage 和测试变化说明的收益。
-- 一张 before/after 图。
-- `Strong`、`Worth exploring` 或 `Speculative` 推荐强度。
+每个候选一张卡片：
+
+| 字段 | 内容 |
+| --- | --- |
+| 涉及文件 | 文件清单 |
+| 当前摩擦 | 当前结构造成的具体成本 |
+| 目标结构 | 改动后的结构 |
+| 收益 | 用 locality、leverage 和测试变化说明 |
+| 图 | 一张 before/after 图 |
+| 推荐强度 | `Strong`、`Worth exploring` 或 `Speculative` |
 
 结尾使用 **Top recommendation** 说明首选候选及理由。
 

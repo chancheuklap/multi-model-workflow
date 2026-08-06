@@ -35,7 +35,12 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 **先做原型还是先谈清楚**：他要的是先看见一个能跑的东西，走 `/mmw-prototype`；他要的是先把这件事说清楚，走 `/mmw-grilling`。分不出来时走 `/mmw-grilling`。
 
-**effort 怎么认**：同时满足两个条件才走 `/mmw-wayfinder`。第一，这件事超出一次 agent session 能容纳的范围。第二，从当前状态到 destination 的路线还看不清。最终形成一份还是多份 spec 不是入口判据。范围大但路线已经清楚时，直接进入 `/mmw-to-spec` 或 `/mmw-to-tickets`；路线模糊但一次会话能谈清时，走 `/mmw-grilling`。
+同时满足以下两个条件才走 `/mmw-wayfinder`：
+
+1. effort 超出一次 agent session。
+2. 从当前状态到 destination 的路线仍不清楚。
+
+最终形成一份还是多份 spec 不属于入口判据。范围大但路线清楚时，进入 `/mmw-to-spec` 或 `/mmw-to-tickets`；路线模糊但能在一次会话中谈清时，进入 `/mmw-grilling`。
 
 带 issue 编号的，先 `gh issue view <编号> --comments` 把它读出来再判，不要只看编号。标签的含义见 `/mmw-triage`。
 

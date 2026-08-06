@@ -11,7 +11,13 @@ description: 做一个能跑的粗糙版本，回答一个光靠讨论定不下�
 
 ## 一轮只回答一个问题
 
-开写前，用一句话记录本轮问题。用户走查后必须能给出明确答案。例如，状态模型回答「对」或「不对，因为退款窗口关闭后这条路走不通」；界面回答「选 B，页头换成 C 的」；数据或合同回答「够用」或「缺少退款发起人字段」。
+开写前，用一句话记录本轮问题。用户走查后必须能给出明确答案：
+
+| 问题类型 | 合格答案示例 |
+| --- | --- |
+| 状态模型 | 「对」；「不对，因为退款窗口关闭后这条路走不通」 |
+| 界面 | 「选 B，页头换成 C 的」 |
+| 数据或合同 | 「够用」；「缺少退款发起人字段」 |
 
 「这个设计好不好」无法得到明确答案。问题收不到这种形状时，先回 `/mmw-grilling`。
 
@@ -63,7 +69,11 @@ docs/prototypes/<slug>/
 
 `<slug>` 取当前 worktree 的 slug（形状与规则见 `/mmw-start` 第 2 步）。第 2 轮的证据放 `runs/002/`。
 
-**[EVIDENCE.md](EVIDENCE.md) 那条 branch 落点不同**，在 `docs/evidence/<slug>/`。它仍然要先确认任务 worktree，并在原路径迭代；文件形状、运行记录和完成判据只按 [EVIDENCE.md](EVIDENCE.md)，不套用前三条设计 branch 的 `README.md` 和用户走查合同。
+**[EVIDENCE.md](EVIDENCE.md) branch 使用单独合同：**
+
+- 落点是 `docs/evidence/<slug>/`。
+- 开始前确认任务 worktree，后续在原路径迭代。
+- 文件形状、运行记录和完成判据只按 [EVIDENCE.md](EVIDENCE.md)。不套用前三条设计 branch 的 `README.md` 和用户走查合同。
 
 开始写原型之前，先确认当前任务已有正确的 slug 和任务 worktree。没有时按下面的宿主动作建立任务 worktree：
 

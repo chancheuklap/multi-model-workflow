@@ -21,9 +21,19 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 ## 1. 定 plan 清单
 
-读 spec，取出 `## Problem Statement`、`## Solution`、`## Implementation Decisions`、`## Contract Boundaries`、`## Testing Decisions` 一节里那张 seam 清单表。**只读，作为派发时给 `planner` 的上下文**，不在这里展开写作。
+读取 spec 中的以下内容，作为派发给 `planner` 的只读上下文：
 
-取全部 ticket，读出各自要做什么和被谁阻塞，定下 plan 清单：**一张 ticket 一份 plan 一个 `planner`**。落点就是每张 ticket 正文 `## Plan` 一节写着的那个路径（`docs/plans/<slug>/<两位编号>-<ticket-slug>.md`），编号照抄，不自己重排。ticket 正文没有这一节，按依赖顺序自己编号，被阻塞的排在阻塞它的后面。
+- `## Problem Statement`
+- `## Solution`
+- `## Implementation Decisions`
+- `## Contract Boundaries`
+- `## Testing Decisions` 中的 seam 清单表
+
+本步骤不展开 plan 写作。
+
+读取全部 ticket 的目标和阻塞关系，形成 plan 清单。每张 ticket 对应一份 plan 和一个 `planner`。
+
+优先使用 ticket 正文 `## Plan` 中的路径：`docs/plans/<slug>/<两位编号>-<ticket-slug>.md`。照抄已有编号，不重新排序。ticket 没有 `## Plan` 时，按依赖顺序编号；被阻塞的 ticket 排在阻塞方之后。
 
 **轻量验证现状**：用检索确认 spec 涉及的落点目录和关键路径真实存在，够你判断派几个 `planner`、各管哪张 ticket 就行。深度探代码由 `planner` 各自做，你不抢着探全。
 
