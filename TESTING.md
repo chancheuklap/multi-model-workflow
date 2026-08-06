@@ -21,6 +21,25 @@ test "$(MMW_HOST=codex mmw/cli/mmw artifact >/dev/null 2>&1; echo $?)" = 2
 ! MMW_HOST=codex mmw/cli/mmw path prototype effort ticket-42 >/dev/null 2>&1
 test "$(MMW_HOST=codex mmw/cli/mmw path unknown effort >/dev/null 2>&1; echo $?)" = 2
 
+gh() {
+  if [ "$1" = "api" ] && [ "$2" = "--paginate" ]; then
+    printf '%s\n' '[
+      {"number":101,"title":"Spec issue","state":"open","assignees":[],"labels":[],"issue_dependencies_summary":{"blocked_by":0}},
+      {"number":102,"title":"Prototype decision","state":"open","assignees":[],"labels":[{"name":"wayfinder:prototype"}],"issue_dependencies_summary":{"blocked_by":0}}
+    ]'
+    return 0
+  fi
+  return 1
+}
+export -f gh
+test "$(MMW_GH_REPO=owner/repo MMW_HOST=codex mmw/cli/mmw issue frontier 1 \
+  --label-prefix wayfinder:)" = $'102\tPrototype decision'
+test "$(MMW_GH_REPO=owner/repo MMW_HOST=codex mmw/cli/mmw issue frontier 1 \
+  --label wayfinder:prototype)" = $'102\tPrototype decision'
+test "$(MMW_GH_REPO=owner/repo MMW_HOST=codex mmw/cli/mmw issue frontier 1 \
+  --label ready-for-agent --label-prefix wayfinder: >/dev/null 2>&1; echo $?)" = 2
+unset -f gh
+
 mmw_source_root="$PWD/mmw"
 path_test_dir="$(mktemp -d "${TMPDIR:-/tmp}/mmw-path-test.XXXXXX")"
 git -C "$path_test_dir" init -q

@@ -126,7 +126,7 @@ usage_issue() {
 mmw issue create --title <标题> --body-file <文件>
                  [--parent <n>] [--blocked-by <n,n>] [--label <a,b>]
     建 issue、挂父、连阻塞边、打标签，输出编号
-mmw issue frontier <父编号> [--label <标签>]
+mmw issue frontier <父编号> [--label <标签> | --label-prefix <前缀>]
     open、没被挡、没人认领的子 issue，编号升序。要全部的读全部行，
     要下一张的取第一行。每行两列，制表符分隔：编号、标题
 mmw issue children <父编号>
@@ -498,16 +498,21 @@ cmd_issue() {
     children) [ -n "${1:-}" ] || usage_issue; mmw_issue_children "$1" ;;
     claim) [ -n "${1:-}" ] || usage_issue; mmw_issue_claim "$1" ;;
     frontier)
-      local parent="${1:-}" label=""
+      local parent="${1:-}" label="" label_prefix=""
       [ -n "$parent" ] || usage_issue
       shift
       while [ $# -gt 0 ]; do
         case "$1" in
           --label) label="${2:-}"; shift 2 ;;
+          --label-prefix) label_prefix="${2:-}"; shift 2 ;;
           *) echo "mmw: issue frontier 认不出参数 $1" >&2; usage_issue ;;
         esac
       done
-      mmw_issue_frontier "$parent" "$label"
+      if [ -n "$label" ] && [ -n "$label_prefix" ]; then
+        echo "mmw: issue frontier 不能同时使用 --label 和 --label-prefix" >&2
+        usage_issue
+      fi
+      mmw_issue_frontier "$parent" "$label" "$label_prefix"
       ;;
     link)
       local child="${1:-}" blocker=""

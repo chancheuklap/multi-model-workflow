@@ -109,7 +109,7 @@ HITL 还是 AFK 不单独打标签，从类型推出来；只有 `wayfinder:task
 
 阻塞用 tracker 的**原生**依赖关系。只有 tracker 没有原生依赖时才退回到正文里写约定。
 
-一张 ticket 的**阻塞解除**，是指所有阻塞它的 ticket 都已关掉。**frontier** 是那些 open、无阻塞、还没人认领的子 issue，也就是已知区域的边缘，用 `mmw issue frontier <map 编号>` 取，一行一张，按编号升序。
+一张 ticket 的**阻塞解除**，是指所有阻塞它的 ticket 都已关掉。**frontier** 是那些 open、无阻塞、还没人认领的 decision ticket，也就是已知区域的边缘，用 `mmw issue frontier <map 编号> --label-prefix wayfinder:` 取，一行一张，按编号升序。
 
 ## fog of war 还是 ticket
 
