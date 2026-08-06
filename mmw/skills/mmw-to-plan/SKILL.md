@@ -23,8 +23,8 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 | 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
 | --- | --- | --- | --- | --- |
-| spec | 始终 | 问题、方案、实现决定、合同边界和测试 seam | 其它 spec | spec 路径 |
-| ticket | 始终 | 目标、验收、阻塞关系和 plan 路径 | 其它 ticket | ticket 编号和 plan 路径 |
+| spec | 始终 | 问题、方案、实现决定、合同边界和测试 seam | 其他 spec | spec 路径 |
+| ticket | 始终 | 目标、验收、阻塞关系和 plan 路径 | 其他 ticket | ticket 编号和 plan 路径 |
 | prototype | ticket 引用时 | 索引、选中产物、明确相关的走查或长期证据 | 整个产物目录、无关过程材料 | 精确路径；没有写「无 prototype 资产」 |
 | research | ticket 引用时 | research 索引和当前 ticket 使用的精确文件 | research 的上级目录、subagent 原始报告 | 精确路径；没有写「无 research」 |
 
@@ -59,7 +59,7 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 | --- | --- |
 | 目标 | 为 ticket `#<编号>` 写 plan，落到指定路径 |
 | 读 | 按「1. 定 plan 清单」逐行列出当前 ticket 的精确路径；最后加入 `mmw skill-path planner` 的输出，没有则写「无（宿主已注入）」 |
-| 约束 | 只写该 plan 文件；不提交；不认领 `## Cross-Plan Contract Anchors` 划给别人的文件；不写其它 plan 的正文 |
+| 约束 | 只写该 plan 文件；不提交；不认领 `## Cross-Plan Contract Anchors` 划给别人的文件；不写其他 plan 的正文 |
 | 验收 | plan 文件存在且可被抽验；任务包覆盖 ticket `#<编号>` 的验收（详见 issue，不抄正文） |
 
 [[mmw-launch:planner:current]]

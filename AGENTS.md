@@ -91,7 +91,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 prototype 遵守上游的探索方法，也遵守 MMW 的资产合同。Wayfinder map 固定一个 `产物目录`；每张 decision ticket 在该目录下使用自己的 `issue-<编号>` 子目录。持久 prototype 资产保留可运行 prototype、完整界面变体、用户走查结论、选中产物和明确引用的必要证据；过程材料进入 Git 忽略的 scratch。下游先读 prototype 资产索引，再读取精确的选中产物和证据路径。正式实现吸收已经验证的决定和可移植逻辑；prototype 外壳与落选变体继续作为 prototype 资产，不进入生产路由。
 
-每次 `/mmw-research` 完成验证与综合后，都通过人工审批关卡询问用户是否保存。询问前展示结论摘要、拟保存文件和完整路径。用户选择保存时，普通任务写入 `docs/research/<产物目录>/<research 主题>/`；Wayfinder 写入 `docs/research/<产物目录>/issue-<编号>/<research 主题>/`。用户选择不保存时，不创建 research 目录或文件。保存不代表下游必须引用。下游只读取当前工作点名的 research 索引和精确文件，不递归读取 research 的上级目录。subagent 原始报告、网页转储、抓取缓存和未采信内容进入 Git 忽略的 scratch。research 不进入 ADR 目录。
+每次 `/mmw-research` 完成验证与综合后，先展示结论摘要、拟保存文件和完整路径，再通过人工审批关卡询问用户是否保存。research 路径只通过 `mmw path research` 取得。保存和下游引用独立；下游只读取当前工作点名的 research 索引和精确文件。subagent 原始报告、网页转储、抓取缓存和未采信内容进入 scratch；research 不进入 ADR 目录。
 
 用户已经提供定稿 spec 或 research 报告，并明确要求直接实施时，把任务作为 plugin 维护直接落地。只有仍有一个靠讨论无法决定的设计问题时，才使用 prototype 取得可运行证据。prototype 一旦形成，就按 prototype 资产合同保留，不把它误作待提交的生产实现。
 

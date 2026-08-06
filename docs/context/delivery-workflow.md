@@ -9,7 +9,7 @@
 _Avoid_: MVP、正式实现、静态设计稿
 
 **prototype 资产**：
-用户走查过的可运行 prototype、完整界面变体、README 中的问题、逐轮用户走查结论和用户选中的路径。确实作为设计合同出处的证据也属于 prototype 资产。Prototype 资产保存在 `mmw path prototype` 返回的路径，供 spec、ticket、plan、审查和实现持续引用。
+用户走查过的可运行 prototype、完整界面变体、README 中的问题、逐轮用户走查结论和用户选中的路径。确实作为设计合同出处的证据也属于 prototype 资产。prototype 资产保存在 `mmw path prototype` 返回的路径，供 spec、ticket、plan、审查和实现持续引用。
 _Avoid_: 过程截图、DOM、console、录屏、临时探测输出、生成中间物、生产实现、只留结论
 
 **research**：
@@ -25,7 +25,7 @@ _Avoid_: 资产索引、调查索引
 _Avoid_: investigation report、调查报告、subagent 原始报告
 
 **research 配套文件**：
-用户批准随 research 保存的 HTML、字段表、脚本或其它文件。research 索引必须说明每个文件的用途。
+用户批准随 research 保存的 HTML、字段表、脚本或其他文件。research 索引必须说明每个文件的用途。
 _Avoid_: research 资产、调查资产、配套资产
 
 **research 目录**：
@@ -33,11 +33,11 @@ _Avoid_: research 资产、调查资产、配套资产
 _Avoid_: investigation 目录、artifact 目录、调查目录
 
 **research 路径**：
-research 目录的精确仓库相对路径。普通任务使用 `docs/research/<产物目录>/<research 主题>/`；Wayfinder 使用 `docs/research/<产物目录>/issue-<编号>/<research 主题>/`。
+research 目录的精确仓库相对路径。它由 `mmw path research` 的返回目录加 `<research 主题>/` 构成。默认配置下，普通任务使用 `docs/research/<产物目录>/<research 主题>/`，Wayfinder 使用 `docs/research/<产物目录>/issue-<编号>/<research 主题>/`。
 _Avoid_: worktree 路径、任务 slug 推导路径
 
 **evidence**：
-外部系统实测形成的测试计划、结论台账，以及不能低成本重建且直接支撑结论的最小原始证据。需要保留的原始证据必须脱敏。Evidence 保存在 `mmw path evidence` 返回的路径。
+外部系统实测形成的测试计划、结论台账，以及不能低成本重建且直接支撑结论的最小原始证据。需要保留的原始证据必须脱敏。evidence 保存在 `mmw path evidence` 返回的路径。
 _Avoid_: 全部运行输出、未脱敏原始数据、可低成本重建的过程材料
 
 **scratch**：

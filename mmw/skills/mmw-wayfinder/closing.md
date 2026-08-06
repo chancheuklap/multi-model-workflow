@@ -27,7 +27,7 @@ map 本身不上 Wiki，但 map 上记下的那些决定不能随任务一起消
 
 这些内容都写在 map 任务分支上，随 effort 一起合回最终目标分支，中途不提前合。
 
-同一 effort 下保留 map 的产物目录和各张 decision ticket 的 `issue-<编号>` 子目录。每张 decision ticket 必须在自己的 worktree 中按 [walking.md](walking.md) 的「清理当前 decision ticket 的 scratch」一节完成清理。map 任务不能代替 decision ticket 清理其它 worktree 的 scratch。Scratch 不随 effort 合回。
+同一 effort 下保留 map 的产物目录和各张 decision ticket 的 `issue-<编号>` 子目录。每张 decision ticket 必须在自己的 worktree 中按 [walking.md](walking.md) 的「清理当前 decision ticket 的 scratch」一节完成清理。map 任务不能代替 decision ticket 清理其他 worktree 的 scratch。scratch 不随 effort 合回。
 
 走 map 的过程中该写的已经写了，这一步是补漏：逐条重读 map 的 `Decisions so far` 一节，按 `/mmw-domain-modeling` 的完整 ADR 判据重新检查。三项判据现在全部成立的，补一份 ADR。
 

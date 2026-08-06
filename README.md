@@ -92,9 +92,9 @@ MMW 基于 Matt Pocock Skills 的工程方法构建。对于有上游对应项�
 | MMW 的差异缺少仓库证据，而且删改了方法步骤、解释或完成判据 | 恢复上游合同，再接回 MMW 工作流 |
 | 当前证据无法判断，而且选择会改变方法效果或用户流程 | 收敛成一个必要决定，再请用户确认 |
 
-prototype 同时体现这两层合同。它遵循上游的单文件 HTML、自由操作、引导式走查和可重复初态方法。Wayfinder map 在正文固定一个 `产物目录`；同一 effort 的 prototype 资产保存在 `docs/prototypes/<产物目录>/issue-<编号>/`，不会随 decision ticket 的任务 worktree 改名。普通任务直接使用 `docs/prototypes/<任务 slug>/`。每个 prototype 资产索引只向下游传递用户选中的产物、走查结论和明确引用的长期证据；完整界面变体继续保留为 primary source。过程截图、DOM、console、录屏和生成中间物进入 Git 忽略的 scratch。正式实现只吸收已经验证的决定和可移植逻辑，不把 prototype 外壳当成生产代码。
+prototype 同时体现这两层合同。它遵循上游的单文件 HTML、自由操作、引导式走查和可重复初态方法。Wayfinder map 在正文固定一个 `产物目录`；prototype 路径由 `mmw path prototype` 计算。默认配置下，Wayfinder decision ticket 使用 `docs/prototypes/<产物目录>/issue-<编号>/`，普通任务使用 `docs/prototypes/<任务 slug>/`。每个 prototype 资产索引只向下游传递用户选中的产物、走查结论和明确引用的长期证据；完整界面变体继续保留为 primary source。过程截图、DOM、console、录屏和生成中间物进入 Git 忽略的 scratch。正式实现只吸收已经验证的决定和可移植逻辑，不把 prototype 外壳当成生产代码。
 
-每次 `mmw-research` 完成验证与综合后，MMW 都展示结论摘要、拟保存文件和完整路径，并询问用户是否保存。用户选择保存时，普通任务写入 `docs/research/<产物目录>/<research 主题>/`；Wayfinder decision ticket 写入 `docs/research/<产物目录>/issue-<编号>/<research 主题>/`。用户选择不保存时，不创建 research 目录或文件。保存不代表下游必须引用。下游只读取当前工作点名的 `README.md` 和精确文件。subagent 原始报告、网页转储和抓取缓存进入 Git 忽略的 scratch。
+每次 `mmw-research` 完成验证与综合后，MMW 都展示结论摘要、拟保存文件和完整路径，并询问用户是否保存。research 路径由 `mmw path research` 计算。默认配置下，普通任务使用 `docs/research/<产物目录>/<research 主题>/`，Wayfinder decision ticket 使用 `docs/research/<产物目录>/issue-<编号>/<research 主题>/`。用户选择不保存时，不创建 research 目录或文件。保存不代表下游必须引用。下游只读取当前工作点名的 `README.md` 和精确文件。subagent 原始报告、网页转储和抓取缓存进入 Git 忽略的 scratch。
 
 0.10.0 还恢复了一次会话只解决一张 Wayfinder decision ticket、ticket 发布前人工审批关卡、阶段边界决策树、实现阶段测试频率和出包后重新终审等合同。它新增 `writing-for-agents`、`wizard`、`to-questionnaire` 和 `wait-what`，但没有把这些辅助技能加入日常主路由。
 
