@@ -525,7 +525,7 @@ end
 
 subgraph SOLO["独立使用"]
   direction TB
-  res[["<b>mmw-research</b><br/>· 内部与外部两个方向<br/>· 一个问题一个 subagent<br/>· 验证综合后询问用户是否保存"]]
+  res[["<b>mmw-research</b><br/>· start、grilling、wayfinder、spec、tickets、triage、架构改进和 prototype 都会调用<br/>· 内部与外部两个方向，一个问题一个 subagent<br/>· 主 agent 过滤、验证、综合后询问用户是否保存<br/>· 保存与下游引用分开决定；内部展开见第三张图"]]
   hof["<b>handoff</b>"]
   wfa["<b>writing-for-agents</b>"]
   wiz["<b>wizard</b><br/>复杂人工操作的可审查向导"]
@@ -833,12 +833,12 @@ subgraph TY["四类 ticket 怎么解 · 要人在场的那三类，agent 不许�
 direction TB
   t1["grilling 类，要人在场。<br/>跑 mmw-grilling，按设计树的<br/>整个 frontier 分轮提问"]
   t2[["prototype 类，要人在场。<br/>跑 mmw-prototype，一轮回答一个问题。<br/>持久资产与 Git 忽略的过程材料分开保存"]]
-  t3[["research 类，人不用在场。<br/>只查当前这一个决定，答完就停"]]
+  t3[["research 类，人不用在场。<br/>只查当前这一个决定等待的事实，答完就停"]]
   t4{"task 类。<br/>agent 自己做得了吗？"}
-  r1[["按 mmw-research 派 subagent"]]
-  r2["按 mmw-verifying-agent-output 逐条验证。<br/>每条关键断言都要有主 agent 能自己验证的出处"]
-  r4{"展示摘要、拟保存文件和路径。<br/>用户是否保存本次 research？"}
-  r3["验证过的事实写进 ticket 评论，<br/>没查清的另起一节列出来"]
+  r1[["按 mmw-research 列 research 清单，<br/>一个问题派一个 investigator"]]
+  r2["过滤无出处断言，打开出处验证，再由主 agent 综合。<br/>subagent 原始报告不等于 research"]
+  r4{"继承 map 的产物目录，计算 issue 子目录。<br/>展示摘要、拟保存文件和完整路径后，<br/>用户是否保存本次 research？"}
+  r3["验证过的事实始终写进 ticket 评论。<br/>保存时再链接 research 索引；<br/>没查清的另起一节列出来"]
   hT(["停，交回用户<br/>简单任务给精确清单；复杂任务先用 wizard 生成向导"])
 end
 
@@ -958,6 +958,158 @@ class d1,d2,d3,d4,d5,d6,d7 pd;
 class pmap,ptk,adr,oos,ctx,spf,wik sink;
 class hA,hB,hC,hT halt;
 
+</pre>
+</div>
+</div>
+
+<header class="subhead">
+  <span class="kicker">第三张图</span>
+  <h1><code>mmw-research</code> 的完整覆盖面 <em>·</em> 从事实问题到精确下游引用</h1>
+</header>
+
+<div class="hue-strip">
+  <span>节点颜色 ＝ 所属阶段</span>
+  <span class="hue mms"><i></i>谁会调用</span>
+  <span class="hue tri"><i></i>问题分流与派发</span>
+  <span class="hue spine"><i></i>主 agent 验证与综合</span>
+  <span class="hue set"><i></i>保存人工审批关卡</span>
+  <span class="hue ctx"><i></i>research 与 scratch</span>
+  <span class="hue gwd"><i></i>交回与下游读取</span>
+</div>
+
+<div class="toolbar">
+  <span class="hint"></span>
+  <button type="button" data-zoom="out">缩小</button>
+  <button type="button" data-zoom="reset">实际大小</button>
+  <button type="button" data-zoom="in">放大</button>
+  <span class="zoom-readout">100%</span>
+</div>
+
+<div class="canvas">
+<div class="zoomer">
+<pre class="mermaid">%%{init: {"theme":"base","themeVariables":{"background":"#FAFAF8","primaryColor":"#FBF2E4","primaryTextColor":"#20262B","primaryBorderColor":"#8A9490","lineColor":"#8A9490","secondaryColor":"#E4EDF0","tertiaryColor":"#FFFFFF","fontSize":"13.5px","fontFamily":"-apple-system, PingFang SC, Helvetica, sans-serif","edgeLabelBackground":"#FAFAF8","clusterBkg":"#F2F2EE","clusterBorder":"#CBCFC9","titleColor":"#4E5A55","nodeTextColor":"#20262B"},"flowchart":{"wrappingWidth":410,"curve":"basis","nodeSpacing":30,"rankSpacing":56,"padding":9,"useMaxWidth":false}}}%%
+flowchart TB
+
+subgraph RCALL["一、谁会调用 · research 不是一条孤立支线"]
+direction LR
+  c0["用户直接要求查清一个事实，<br/>或 mmw-start 判定只需要一条事实"]
+  c1["讨论与设计：mmw-grilling、mmw-to-spec"]
+  c2["拆分与分诊：mmw-to-tickets、mmw-triage"]
+  c3["探索与路线：mmw-wayfinder、<br/>mmw-improve-codebase-architecture"]
+  c4["mmw-prototype 发现读文档或源码就能回答，<br/>无需真实运行"]
+  list["先列本次全部 research 问题。<br/>每个问题必须能用一句话判定真假"]
+end
+
+subgraph RROUTE["二、问题分流 · 只把需要隔离取证的工作派出去"]
+direction LR
+  easy{"一个函数、一个已知文件<br/>或一条命令就能回答？"}
+  local["主 agent 直接读取或运行，<br/>不派 subagent"]
+  live{"必须在真实环境、多候选<br/>或多轮测量后才知道？"}
+  evidence["移交 mmw-prototype 的 EVIDENCE.md。<br/>先写判据，再运行并保留 evidence"]
+  kind{"事实在哪？"}
+  internal[["内部 research<br/>当前仓库的实现、seam、数据流、<br/>调用链、影响面与根因<br/>出处是文件与行号"]]
+  external[["外部 research<br/>第三方库、接口、规范与本地知识库<br/>出处是一手链接或命令与输出"]]
+  tasks["一个问题一份四栏 task。<br/>目标、读、约束、验收写全；<br/>互不依赖的问题并行派 investigator"]
+  reports["subagent 交回原始报告。<br/>它是待验证输入，还不是 research"]
+end
+
+subgraph RVERIFY["三、主 agent 验证与综合 · 判定权不下放"]
+direction LR
+  filter["过滤没有出处的断言，<br/>记录被过滤的数量与内容"]
+  verify["打开每个出处验证。<br/>内部的「没有找到」与外部二手来源必须重新查"]
+  conflict["证据冲突时并列展示，<br/>未通过验证的内容只进未查清项"]
+  synth["跨问题去重并综合。<br/>每条保留出处；综合不再派发"]
+  done["此时才形成 research：<br/>主 agent 验证并综合的最终事实"]
+end
+
+subgraph RSAVE["四、保存人工审批关卡 · 每次 research 只问一次"]
+direction LR
+  owner["先确定产物目录。<br/>已有 effort 必须复用；Wayfinder 继承 map；<br/>普通任务使用任务 slug；无 effort 时向用户提议"]
+  path{"是否是 Wayfinder<br/>decision ticket？"}
+  normal["运行 mmw path research &lt;产物目录&gt;"]
+  wfpath["运行 mmw path research &lt;产物目录&gt; issue-&lt;编号&gt;"]
+  proposal["在命令返回目录下追加 research 主题。<br/>展示结论摘要、拟保存文件和完整路径"]
+  gate{"用户是否保存<br/>本次 research？"}
+  saved["创建并独立保留 research 目录。<br/>README.md 是 research 索引；report.md 是 research 报告；<br/>只加入用户批准的 research 配套文件。<br/>research 不进入 ADR，也不因 spec 未引用而删除"]
+  none["不创建 research 目录或文件。<br/>验证后的事实仍然有效，仍可交回调用方"]
+  scratch["subagent 原始报告、网页转储、抓取缓存、<br/>未采信内容需要跨进程转交时写入 scratch。<br/>scratch 不进 Git，任务结束时清理"]
+end
+
+subgraph RRETURN["五、交回与下游读取 · 保存和引用是两次独立决定"]
+direction LR
+  handoff["始终交回验证后的事实、出处、<br/>未查清项和被过滤内容"]
+  whandoff["Wayfinder：事实写入 decision ticket 评论。<br/>保存时再链接 research 索引"]
+  dhandoff["用户直接调用：结论留在当前会话。<br/>保存时再给 research 索引路径"]
+  callers["其他技能：先接收事实。<br/>只有确实需要已保存 research 时，<br/>再接收索引与精确文件路径"]
+  design["spec 与 ticket<br/>只传给消费该事实的范围"]
+  delivery["plan、planner、implement 与 worker<br/>保留范围快照和未查清项"]
+  assurance["review 与 reviewer<br/>只读本视角点名的 research"]
+  rule["共同读取规则：<br/>先读 research 索引，再读精确文件。<br/>不递归读取 research 的上级目录，<br/>不把 subagent 原始报告当成 research"]
+end
+
+rindex[/"<b>research 索引 · README.md</b><br/>问题、范围快照、结论摘要、文件索引、<br/>下游用途与未查清项；内部记录 commit，<br/>外部记录访问日期与版本"/]
+rreport[/"<b>research 报告 · report.md</b><br/>验证后的完整结论与逐条出处"/]
+rfiles[/"<b>research 配套文件</b><br/>用户批准保存的 HTML、字段表、脚本等；<br/>用途必须写进 research 索引"/]
+
+c0 --> list
+c1 --> list
+c2 --> list
+c3 --> list
+c4 --> list
+list --> easy
+easy -->|"是"| local
+easy -->|"否"| live
+live -->|"是"| evidence
+live -->|"否"| kind
+kind -->|"当前仓库"| internal
+kind -->|"仓库之外"| external
+internal --> tasks
+external --> tasks
+tasks --> reports
+reports --> filter
+filter --> verify
+verify --> conflict
+conflict --> synth
+synth --> done
+reports -.->|"确需跨进程转交"| scratch
+done --> owner
+owner --> path
+path -->|"否"| normal
+path -->|"是"| wfpath
+normal --> proposal
+wfpath --> proposal
+proposal --> gate
+gate -->|"保存"| saved
+gate -->|"不保存"| none
+saved --> handoff
+none --> handoff
+saved -.-> rindex
+saved -.-> rreport
+saved -.-> rfiles
+handoff --> whandoff
+handoff --> dhandoff
+handoff --> callers
+callers --> design
+callers --> delivery
+callers --> assurance
+design --> rule
+delivery --> rule
+assurance --> rule
+rindex -.->|"调用方确实需要时才点名"| rule
+
+classDef caller fill:#E4EDF0,stroke:#C2410C,stroke-width:2.2px,color:#14282C;
+classDef route fill:#E4EDF0,stroke:#0369A1,stroke-width:2.2px,color:#0B2A3D;
+classDef verify fill:#E4EDF0,stroke:#1F2937,stroke-width:2.2px,color:#16202B;
+classDef save fill:#FBF2E4,stroke:#A16207,stroke-width:2.2px,color:#3B2F0B;
+classDef output fill:#FFFFFF,stroke:#4D7C0F,stroke-width:2.2px,color:#22300B;
+classDef downstream fill:#FBF2E4,stroke:#BE185D,stroke-width:2.2px,color:#3E0F26;
+
+class c0,c1,c2,c3,c4,list caller;
+class easy,local,live,evidence,kind,internal,external,tasks,reports route;
+class filter,verify,conflict,synth,done verify;
+class owner,path,normal,wfpath,proposal,gate save;
+class saved,none,scratch,rindex,rreport,rfiles output;
+class handoff,whandoff,dhandoff,callers,design,delivery,assurance,rule downstream;
 </pre>
 </div>
 </div>
