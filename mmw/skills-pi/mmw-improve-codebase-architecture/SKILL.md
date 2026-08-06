@@ -1,6 +1,6 @@
 ---
 name: mmw-improve-codebase-architecture
-description: 扫描 deepening opportunities 并让用户选择。用于没有具体需求的代码库可维护性、可测性或 agent 可导航性改善，或 bug 诊断确认缺少可用 seam。
+description: 扫描 deepening opportunities，生成候选报告供用户选择。用户没有具体改动，只要求提升代码库的可维护性、可测性或 agent 可导航性；某块代码难改难测；或 bug 诊断确认缺少 seam、调用方纠缠或隐藏耦合时使用。
 ---
 
 把架构上的摩擦翻出来，提成 **deepening opportunity**——把 shallow 的 module 改成 deep 的那类重构。目的是可测，以及 agent 读得懂。

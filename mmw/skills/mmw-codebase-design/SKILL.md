@@ -1,6 +1,6 @@
 ---
 name: mmw-codebase-design
-description: deep module 的设计判据。用于设计或比较 module interface、选择 seam 或 adapter，或评估 module depth。
+description: deep module 的共同词汇和设计判据。设计或比较 module interface、选择 seam 或 adapter、评估 module depth，或其他技能需要这套词汇与判据时使用。
 ---
 
 # Codebase Design

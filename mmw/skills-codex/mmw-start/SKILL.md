@@ -1,6 +1,6 @@
 ---
 name: mmw-start
-description: MMW 日常工作的统一路由器。用于开始或恢复一项 MMW 任务，且用户没有直接指定下游技能。
+description: MMW 的统一入口和任务恢复路由。用户开始新任务、提出需求或 bug、提供 issue、PR、map 或 big effort、要求改善架构或集成分支，或没有交代内容而要恢复当前进度时使用；已直接指定下游技能时跳过。
 argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 ---
 
