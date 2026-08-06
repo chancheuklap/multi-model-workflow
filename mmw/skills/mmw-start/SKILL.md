@@ -21,8 +21,9 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 | 一张 map 的编号或链接，或者他说要接着做某张 map | **移交**：`/mmw-wayfinder` |
 | 一个 issue 编号，带着某个 `wayfinder:` 类型标签——那是一张 map 上的一条 decision ticket | **移交**：`/mmw-wayfinder` |
 | 一个 issue 编号，挂在一张带 `wayfinder:map` 标签的 issue 底下、自己不带 `wayfinder:` 标签——那是收尾时切出来的一份 spec | **移交**：`/mmw-to-spec` |
+| 一个 issue 编号，挂在 spec issue 下，正文 `## Plan` 写有 plan 路径，评论里有 `/mmw-to-plan` 第 8 步定义的 `<!-- mmw:plan-review-passed -->`，并已是 `ready-for-agent`——那是一张 plan 已通过 ② plan 审的 tracer bullet ticket | **移交**：`/mmw-implement`；tracer bullet ticket 不要求 agent brief |
+| 一个 issue 编号，挂在 spec issue 下，但 plan 路径、`<!-- mmw:plan-review-passed -->` 或 `ready-for-agent` 缺少任何一项 | **移交**：`/mmw-to-plan`；只有升级前旧标签也走这条，不送 `/mmw-triage` |
 | 一个 issue 或 PR 编号，上面还没有状态角色 | **移交**：`/mmw-triage` |
-| 一个 issue 编号，挂在 spec issue 下，正文 `## Plan` 写有 plan 路径，并已是 `ready-for-agent`——那是一张 plan 已通过 ② plan 审的 tracer bullet ticket | **移交**：`/mmw-implement`；tracer bullet ticket 不要求 agent brief |
 | 一个 issue 或 PR 编号，已是 `ready-for-agent`，但没有完整 agent brief | **移交**：`/mmw-triage`，补齐 `Acceptance criteria`、范围边界和 `Test seam` |
 | 一个 issue 编号，已是 `ready-for-agent`，整项工作可以作为一张 ticket 独立验收，只有一个已确认的测试 seam，而且没有未决设计取舍 | **移交**：`/mmw-implement` |
 | 一个 issue 或 PR 编号，已是 `ready-for-agent`，但需要拆成多张 ticket、需要多个测试 seam，或者还有设计取舍要谈 | **移交**：`/mmw-to-spec` |
