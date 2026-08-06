@@ -21,15 +21,15 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 ## 0. 收敛旧状态
 
-开始写 plan 前，重新读取全部子 issue，并逐张读取评论和标签。第 8 步定义的 `<!-- mmw:plan-review-passed -->` 是 plan 过审的 tracker 凭据。凡是带 `ready-for-agent`、但没有该标记的 tracer bullet ticket，都是升级前旧状态；先移除标签：
+开始写 plan 前，重新读取全部子 issue，并逐张读取评论和标签。逐张按第 8 步验证有效过审凭据。凡是没有有效过审凭据的 tracer bullet ticket，都不得带 `ready-for-agent`；已有标签时先移除：
 
 ```bash
 gh issue edit <ticket 编号> --remove-label ready-for-agent
 ```
 
-只对当前带标签但缺少标记的 ticket 运行移除命令。移除后重新读取对应 ticket，确认旧标签已经消失。plan 文件存在或旧标签存在都不能证明 ② plan 审通过。
+只对当前带标签但缺少有效过审凭据的 ticket 运行移除命令。移除后重新读取对应 ticket，确认旧标签已经消失。plan 文件、固定标记或旧标签单独存在都不能证明 ② plan 审通过。
 
-然后独立确认这批 ticket 是否已经全部通过 ② plan 审。已经通过，只因 tracker 状态不齐而重新进入本技能时，直接走第 8 步。仍未通过时，确认全部缺少标记的 tracer bullet ticket 都不再带 `ready-for-agent`，再进入第 1 步。
+全部 open tracer bullet ticket 都有有效过审凭据，只有标签不齐时，直接走第 8 步。任何 ticket 的凭据缺失、结构不完整、无法解析或已经过期时，先确认该 ticket 不带 `ready-for-agent`，再进入第 1 步重新走 ② plan 审。不得给无效凭据直接补标签。
 
 ## 1. 定 plan 清单
 
@@ -93,33 +93,34 @@ plan 文档和 spec 的 `## Cross-Plan Contract Anchors` 分两次提交。`plan
 
 ## 8. 标记 ticket 就绪
 
-全部 plan 通过 ② plan 审，而且第 7 步完成后，重新读取全部子 issue。plan 过审的结构化评论标记只在这里定义，固定字面串是 `<!-- mmw:plan-review-passed -->`。
+全部 plan 通过 ② plan 审，而且第 7 步完成后，重新读取全部子 issue。plan 过审的结构化评论凭据只在这里定义。每条凭据同时包含固定标记 `<!-- mmw:plan-review-passed -->` 和一行 `plan-commit: <完整 SHA>`。`plan-commit` 的值必须是第 7 步提交后的 `git rev-parse HEAD`。
 
-逐张读取 ticket 评论，先确认标记是否已经存在：
+一张 ticket 的有效过审凭据必须同时满足以下判据；这是判断凭据有效的唯一判据：
 
-```bash
-gh issue view <ticket 编号> --json comments --jq '.comments[].body' | \
-  grep -F '<!-- mmw:plan-review-passed -->'
-```
+1. 同一条评论的结构完整：同时含固定标记和唯一一行 `plan-commit: <完整 SHA>`。
+2. `git rev-parse --verify "${plan_commit}^{commit}"` 能把该完整 SHA 解析为当前仓库的 commit。
+3. 从该 SHA 到当前 HEAD，当前 ticket 正文 `## Plan` 指向的 plan 文件和对应的 `docs/specs/<slug>/<slug>.md` 均无 diff。使用 `git diff --quiet "${plan_commit}..HEAD" -- "${plan_path}" "${spec_path}"` 验证。
 
-只有查不到标记时，才评论一次。评论同时记录第 7 步完成后的当前提交，供恢复时定位当时已经提交的 plan：
+只改无关文件不会使凭据失效。plan 文件或对应 spec 文件改变后，旧凭据立即失效。回第 0 步移除 `ready-for-agent`，重新走 ② plan 审；复审通过并完成第 7 步提交后，再写一条绑定新 SHA 的凭据。
+
+逐张读取 ticket 评论并按上述判据验证。已有有效过审凭据时复用，不重复评论。没有有效过审凭据时，写入一条绑定当前 HEAD 的新凭据：
 
 ```bash
 plan_commit=$(git rev-parse HEAD)
 gh issue comment <ticket 编号> --body "<!-- mmw:plan-review-passed -->
 ② plan 审已通过。
-plan commit: ${plan_commit}"
+plan-commit: ${plan_commit}"
 ```
 
-确认评论已经包含标记后，再给该 ticket 幂等添加 `ready-for-agent`：
+确认 ticket 已有有效过审凭据后，再给该 ticket 幂等添加 `ready-for-agent`：
 
 ```bash
 gh issue edit <ticket 编号> --add-label ready-for-agent
 ```
 
-每次进入第 8 步都检查全部 tracer bullet ticket。已有标记的不重复评论；标签可以重复执行添加命令。中断后重跑同一步会收敛到相同状态。
+每次进入第 8 步都检查全部 tracer bullet ticket。已有有效过审凭据的不重复评论；标签可以重复执行添加命令。中断后重跑同一步会收敛到相同状态。
 
-添加完成后，再运行 `mmw issue children <spec issue 编号>` 重新读取全部子 issue，并逐张读取 open ticket 的评论和标签。所有 open tracer bullet ticket 都同时有 `<!-- mmw:plan-review-passed -->` 和 `ready-for-agent`，第 8 步才完成。仍有缺失时继续留在第 8 步补齐和重新检查，不得移交实现。
+添加完成后，再运行 `mmw issue children <spec issue 编号>` 重新读取全部子 issue，并逐张读取 open ticket 的评论和标签。所有 open tracer bullet ticket 都同时有有效过审凭据和 `ready-for-agent`，第 8 步才完成。仍有缺失时按凭据是否有效，回第 0 步或留在第 8 步，不得移交实现。
 
 `ready-for-agent` 表示 ticket 的 plan 已经通过 ② plan 审。`Blocked by` 和 `mmw issue frontier` 继续决定哪张 ticket 已经无阻塞并且可以认领；只有进入 frontier 的 ticket 才能派 `worker`。
 
@@ -129,7 +130,7 @@ gh issue edit <ticket 编号> --add-label ready-for-agent
 
 | 情况 | 下一步 |
 | --- | --- |
-| 全部 plan 过审、提交，且全部 open tracer bullet ticket 已确认同时有 `<!-- mmw:plan-review-passed -->` 和 `ready-for-agent` | **移交**：`/mmw-implement`，从 `mmw issue frontier` 返回的 ticket 开始落地 |
+| 全部 plan 过审、提交，且全部 open tracer bullet ticket 已确认同时有有效过审凭据和 `ready-for-agent` | **移交**：`/mmw-implement`，从 `mmw issue frontier` 返回的 ticket 开始落地 |
 | 审出了采信的 findings | **自己继续**：重派 `planner` 改 findings 点名的那份 plan 路径，改完回第 6 步复审 |
 | 第 4 步某个 `planner` 交回 `needs-context` 或 `needs-repair` | **自己继续**：按它说的补上下文或修 spec，然后带上补齐的材料重派 |
 | 第 5 步发现 `planner` 认领了别人归属的文件，或者提供方跟消费方对不上 | **自己继续**：重派 `planner` 修那一份，不要自己动它的 plan |

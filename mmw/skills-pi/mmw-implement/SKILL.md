@@ -25,13 +25,13 @@ description: 把定好的需求实现成代码，一张 ticket 派一个 `worker
 
 ### 2. 取下一张 ticket
 
-spec 分支先重新读取全部子 issue，再逐张读取 open ticket 的评论和标签。任何 open tracer bullet ticket 缺少 `/mmw-to-plan` 第 8 步定义的 `<!-- mmw:plan-review-passed -->` 或 `ready-for-agent` 时，回 `/mmw-to-plan` 第 8 步收敛 tracker 状态。两项齐全后运行：
+spec 分支先重新读取全部子 issue，再逐张读取 open ticket 的评论和标签。任何 open tracer bullet ticket 缺少 `/mmw-to-plan` 第 8 步定义的有效过审凭据或 `ready-for-agent` 时，回 `/mmw-to-plan`。两项齐全后运行：
 
 ```bash
 mmw issue frontier <spec issue 编号> --label ready-for-agent
 ```
 
-它给出阻塞全部关闭、没人认领、带这个标签的那些，按 `/mmw-to-tickets` 的发布顺序排。**取第一行那张。** 认领前，用 `gh issue view <编号> --json state,assignees,labels,comments` 确认它仍然 open、无人认领，同时有 `/mmw-to-plan` 第 8 步定义的 `<!-- mmw:plan-review-passed -->` 和 `ready-for-agent`。缺少标记或标签时回 `/mmw-to-plan` 第 8 步；plan 文件存在不能单独证明 ② plan 审通过。
+它给出阻塞全部关闭、没人认领、带这个标签的那些，按 `/mmw-to-tickets` 的发布顺序排。**取第一行那张。** 认领前，用 `gh issue view <编号> --json state,assignees,labels,comments` 确认它仍然 open、无人认领并带 `ready-for-agent`，再按 `/mmw-to-plan` 第 8 步重新验证所选 ticket 的有效过审凭据。凭据或标签无效时回 `/mmw-to-plan`；plan 文件或评论里的固定标记单独存在不能证明 ② plan 审通过。
 
 agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一张 ticket。用 `gh issue view <编号> --json state,assignees,labels` 确认它仍然 open、无人认领并带 `ready-for-agent`。
 
