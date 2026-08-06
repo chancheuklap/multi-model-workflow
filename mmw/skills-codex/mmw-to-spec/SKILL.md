@@ -44,7 +44,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 - **越少越好，理想数量是一。**
 - **确实要新开，提在最高点**，取舍理由写进这一节。
 
-这一步只定**测在哪**，不定怎么写。一个测试要满足哪些条件才允许进仓库，在 `mmw-tdd/quality-bar.md` 里。
+这一步只定**测在哪**，不定怎么写。测试写法由 `$mmw:mmw-tdd` 和目标仓库的 `TESTING.md` 规定。
 
 从 `$mmw:mmw-triage` 进来的，那份 agent brief 的 `Test seam` 一栏是分诊时的初判。需要多个 seam 时，在它的基础上扩，并逐条说明为什么一个 seam 覆盖不了。只有一个 seam、但因为要拆多张 ticket 或讨论设计取舍而进入本技能时，保留并重新验证这个 seam。
 
