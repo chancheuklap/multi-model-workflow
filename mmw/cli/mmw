@@ -167,11 +167,12 @@ usage_artifact() {
   cat >&2 <<'EOF'
 mmw artifact path prototype <产物目录> [issue-<编号>]
 mmw artifact path evidence  <产物目录> [issue-<编号>]
-mmw artifact path scratch   <产物目录> [issue-<编号>]
+mmw artifact path scratch   <产物目录> [issue-<编号>|task-<任务 slug>]
+mmw artifact root review
 
 产物目录必须是单个安全路径段。Wayfinder decision ticket 传入它自己的
-issue-<编号> 子目录；普通任务只传任务 slug。输出是基于 .mmw.json paths
-的仓库相对路径。
+issue-<编号> 子目录；Wayfinder 派生的 spec 任务传入 task-<任务 slug>；普通任务
+只传任务 slug。输出是基于 .mmw.json paths 的仓库相对路径。
 EOF
   return 2
 }
@@ -556,7 +557,16 @@ cmd_artifact() {
   case "$sub" in
     path)
       [ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage_artifact
+      case "${1:-}" in
+        prototype|evidence|scratch) ;;
+        *) usage_artifact ;;
+      esac
       mmw_artifact_path "$@"
+      ;;
+    root)
+      [ "$#" -eq 1 ] || usage_artifact
+      [ "${1:-}" = "review" ] || usage_artifact
+      mmw_artifact_root "$1"
       ;;
     *) usage_artifact ;;
   esac
