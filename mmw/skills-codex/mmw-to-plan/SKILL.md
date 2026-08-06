@@ -19,6 +19,18 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 | spec 已定稿并过了人工审批关卡 | `docs/specs/<slug>/<slug>.md` 存在，对应的 spec issue 已发布并带着 `ready-for-agent` |
 | ticket 已发布 | `mmw issue children <spec issue 编号>` 列得出这批 ticket；列不出先跑 `$mmw:mmw-to-tickets` |
 
+## 0. 收敛旧状态
+
+开始写 plan 前，先确认这批 ticket 是否已经全部通过 ② plan 审。仍未通过时，重新读取全部子 issue，并从每张仍带标签的 tracer bullet ticket 移除旧 `ready-for-agent`：
+
+```bash
+gh issue edit <ticket 编号> --remove-label ready-for-agent
+```
+
+只对当前带标签的 ticket 运行移除命令。重新读取全部子 issue，确认这批 ticket 都不再带 `ready-for-agent`，再进入第 1 步。升级前留下的标签不能继续表示 ticket 可实施。
+
+这批 ticket 已经全部通过 ② plan 审，只因 tracker 状态不齐而重新进入本技能时，直接走第 8 步，不移除已经成立的状态。
+
 ## 1. 定 plan 清单
 
 读 spec，取出 `## Problem Statement`、`## Solution`、`## Implementation Decisions`、`## Contract Boundaries`、`## Testing Decisions` 一节里那张 seam 清单表。**只读，作为派发时给 `planner` 的上下文**，不在这里展开写作。
@@ -83,11 +95,15 @@ plan 文档和 spec 的 `## Cross-Plan Contract Anchors` 分两次提交。`plan
 
 ## 8. 标记 ticket 就绪
 
-全部 plan 通过 ② plan 审，而且第 7 步完成后，给这批 tracer bullet ticket 全部加上 `ready-for-agent`：
+全部 plan 通过 ② plan 审，而且第 7 步完成后，重新读取全部子 issue，并给这批 tracer bullet ticket 全部幂等添加 `ready-for-agent`：
 
 ```bash
 gh issue edit <ticket 编号> --add-label ready-for-agent
 ```
+
+每次进入第 8 步都对全部 tracer bullet ticket 执行添加命令。中断后重跑同一步会收敛到相同状态。
+
+添加完成后，再运行 `mmw issue children <spec issue 编号>` 重新读取全部子 issue，并逐张读取 open ticket 的标签。所有 open tracer bullet ticket 都带 `ready-for-agent`，第 8 步才完成。仍有缺失时继续留在第 8 步补齐和重新检查，不得移交实现。
 
 `ready-for-agent` 表示 ticket 的 plan 已经通过 ② plan 审。`Blocked by` 和 `mmw issue frontier` 继续决定哪张 ticket 已经无阻塞并且可以认领；只有进入 frontier 的 ticket 才能派 `worker`。
 
@@ -97,7 +113,7 @@ gh issue edit <ticket 编号> --add-label ready-for-agent
 
 | 情况 | 下一步 |
 | --- | --- |
-| 全部 plan 过审、提交并加上 `ready-for-agent` | **移交**：`$mmw:mmw-implement`，从 `mmw issue frontier` 返回的 ticket 开始落地 |
+| 全部 plan 过审、提交，且全部 open tracer bullet ticket 已确认带 `ready-for-agent` | **移交**：`$mmw:mmw-implement`，从 `mmw issue frontier` 返回的 ticket 开始落地 |
 | 审出了采信的 findings | **自己继续**：重派 `planner` 改 findings 点名的那份 plan 路径，改完回第 6 步复审 |
 | 第 4 步某个 `planner` 交回 `needs-context` 或 `needs-repair` | **自己继续**：按它说的补上下文或修 spec，然后带上补齐的材料重派 |
 | 第 5 步发现 `planner` 认领了别人归属的文件，或者提供方跟消费方对不上 | **自己继续**：重派 `planner` 修那一份，不要自己动它的 plan |
