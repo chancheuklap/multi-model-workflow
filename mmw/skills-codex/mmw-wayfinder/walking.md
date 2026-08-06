@@ -72,7 +72,11 @@ HITL ticket 不许 agent 替用户回答。
 
 这一步只报告可切出的 spec，不在当前会话继续写 spec。
 
-## 6. 提交并交回 map 任务
+## 6. 清理当前 decision ticket 的 scratch
+
+持久内容已经写入 prototype、research、evidence、ADR、领域文档或 ticket 评论后，运行 `mmw path scratch <产物目录> issue-<编号>`。只清理命令返回的当前 worktree 路径。不要把 scratch 交给 map 任务清理；Git 不会集成忽略文件。
+
+## 7. 提交并交回 map 任务
 
 1. 把本任务写的 ADR 草稿逐个改为正式编号。每次运行 `mmw domain adr-next` 取得一个新编号。提交全部改动。
 2. 记录任务分支名、`git rev-parse HEAD` 和建立任务时的 map 基点 SHA。

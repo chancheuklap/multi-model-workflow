@@ -99,7 +99,7 @@ Wayfinder 派生的 spec 运行 `mmw path scratch <产物目录> task-<任务 sl
 
 运行 `mmw path review`。审查记录使用任务 slug，不使用产物目录；只删除 `<命令返回目录>/<任务 slug>-*`。`.dispatch` 也归任务 worktree；只删除文件名或派发记录明确属于当前任务 slug 的 task 和报告文件。删除前列出目标，并逐项验证归属。无法确认归属的条目保留并报告。
 
-不得整目录清空共享 scratch、审查记录目录或 `.dispatch` 目录；只删除前两段已经验证属于当前任务的路径。持久 prototype 资产、用户选择保存的 research、evidence 和其他持久内容继续保留。
+不得整目录清空共享 scratch、审查记录目录或 `.dispatch` 目录。只删除 `mmw path scratch` 返回的当前任务目录、`mmw path review` 返回目录中属于当前任务 slug 的文件，以及 `.dispatch` 中明确属于当前任务 slug 的文件。持久 prototype 资产、用户选择保存的 research、evidence 和其他持久内容继续保留。
 
 完成判据：当前任务的 scratch、审查与派发过程材料已经清理；其他任务的过程材料和全部持久资产仍在。
 

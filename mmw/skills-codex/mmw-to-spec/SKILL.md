@@ -128,7 +128,8 @@ mmw issue create --title "<一句话的名字>" --body-file <摘要文件> --lab
 | 发布完了 | **移交**：`$mmw:mmw-to-tickets`，把这份 spec 拆成 tracer bullet ticket |
 | 从 `$mmw:mmw-implement` 回来补 seam，补完了、用户也点过头 | **移交**：回 `$mmw:mmw-implement`，它接着派 `worker` |
 | 第 1 步发现这件事还没谈定 | **移交**：`$mmw:mmw-grilling`，把用户原话原样传过去，它谈定后会回到这里 |
-| 第 5 步验证出某条决定既没有原型证据、也说不出为什么不需要 | **移交**：`$mmw:mmw-prototype` 补一轮，走查完回到第 5 步接着验证 |
+| 第 5 步验证出某条决定既没有 prototype 证据、也说不出为什么不需要；当前 spec 来自 Wayfinder | **移交**：回到拥有 map 分支的任务，新建一张 `wayfinder:prototype` decision ticket；该 ticket 走查完成并集成后，再回第 5 步 |
+| 第 5 步验证出某条决定既没有 prototype 证据、也说不出为什么不需要；当前 spec 不来自 Wayfinder | **移交**：`$mmw:mmw-prototype` 补一轮，走查完回到第 5 步接着验证 |
 | 某条决定建立在一条没人验过的外部事实上（那个服务撑得住多少、那个接口实际返回什么） | **移交**：`$mmw:mmw-prototype` 的 `EVIDENCE.md`。这条决定先留在 `## Open Decisions` 里，测出来再回填，不要拿一个猜的数字定稿 |
 | 第 7 步用户要改 | **自己继续**：回第 4 步改，改完重走第 5 步和第 6 步 |
 | 审查者交回 `needs-redirection` | **停**：把它说的哪里可疑、建议怎么重新框定原样交给用户，不要自己改 spec 绕过去 |

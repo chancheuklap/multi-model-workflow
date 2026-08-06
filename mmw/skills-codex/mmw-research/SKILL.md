@@ -54,8 +54,17 @@ subagent 原始报告不是 research。research 是主 agent 验证和综合后�
 
 | 用户选择 | 处理 |
 | --- | --- |
-| 保存 | 按下方结构写入拟保存路径 |
+| 保存 | 按本节定义的 research 目录结构写入拟保存路径 |
 | 不保存 | 不创建 research 目录；验证后的事实仍可写入当前 ticket、spec、ADR 或代码 |
+
+先按下表确定 `产物目录`。当前 research 属于已有 effort 时，必须复用已有值，不得新建 slug。
+
+| 场景 | `产物目录` 来源 |
+| --- | --- |
+| Wayfinder decision ticket | map 正文继承的 `产物目录` |
+| 已绑定的普通任务 | 当前任务 slug |
+| 其它技能调用 | 调用方已有的 `产物目录` |
+| 用户直接调用，而且没有已有 effort | 主 agent 根据 research 所属主题提议一个稳定的单路径段；拟保存表展示该值和完整路径，用户可在同一次人工审批中确认或改正 |
 
 普通任务运行 `mmw path research <产物目录>`。Wayfinder decision ticket 运行 `mmw path research <产物目录> issue-<编号>`。命令返回 research 的上级目录；在其下建立一个 `<research 主题 slug>/`：
 
