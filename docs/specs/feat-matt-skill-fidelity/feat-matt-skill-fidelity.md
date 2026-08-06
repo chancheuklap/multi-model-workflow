@@ -12,7 +12,7 @@ MMW 基于 Matt Pocock Skills 改造。上游升级到 1.2.2 后，MMW 的大部
 
 MMW 按上游 1.2.2 恢复八项方法合同：prototype、Wayfinder、ticket 拆分、agent 文档写作、阶段边界、TDD 与 `/mmw-implement`、`/mmw-release`、`/mmw-integrate`。MMW 同时补齐三处 Grilling 解释性细节。每项改动只做 MMW 工作流所需的宿主、tracker、worktree、领域文档和人工审批关卡适配，不另造方法。
 
-正式实现从 prototype 资产吸收已验证的决定；逻辑 branch 还会把确认过的纯逻辑模块移入正式路径。完整 prototype 继续保存在任务分支的 `docs/prototypes/`。Wayfinder 恢复一会话一张 decision ticket。Ticket 写入 tracker 前增加明确的用户批准。Agent 文档写作迁移到上游当前的 `writing-for-agents`。阶段边界按上游的五步有序决策树执行，并为 Codex、Claude Code 和 Pi 物化真实可用的动作。TDD、`/mmw-implement`、`/mmw-release` 和 `/mmw-integrate` 恢复遗漏的引用、频率、重审和意图边界。
+正式实现从 prototype 资产吸收已验证的决定；逻辑 branch 还会把确认过的纯逻辑模块移入正式路径。完整 prototype 继续保存在任务分支的 `docs/prototypes/`。Wayfinder 恢复一会话一张 decision ticket。Ticket 写入 tracker 前增加明确的用户批准。Agent 文档写作迁移到上游当前的 `writing-for-agents`。阶段边界按上游的五步有序决策树执行，并为 Codex、Claude Code 和 Pi 物化真实可用的动作。TDD、`/mmw-implement`、`/mmw-release` 和 `/mmw-integrate` 保留必要的执行与意图边界；每道审查只运行一轮，采信项修复后由主 agent 验证完成。
 
 MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方配置和 cutover。`to-questionnaire` 把当前用户无法回答的知识缺口交给真正掌握信息的人。`wait-what` 提供即时的表达纠错入口。这三个技能不进入 `mmw-start` 的工程路由。
 
@@ -27,7 +27,7 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 - `writing-great-skills` 仍是旧名称和旧范围。上游 `writing-for-agents` 已扩展到 skill、`AGENTS.md`、`CLAUDE.md` 和 context pointer 文档，并把 skill mechanics 单独披露（`docs/research/matt-upstream-1.2.2-mmw-fidelity-audit.md:110-139`）。
 - `mmw-start` 没有阶段边界决策树。上游依次判断 Continue、上下文是否无关、是否需要 portability、是否可 AFK，最后才 compact，并明确说明离开当前会话会把 primary source 降为 secondary source（`docs/research/matt-upstream-1.2.2-mmw-fidelity-audit.md:14-19`、`vendor/mattpocock-skills/skills/engineering/ask-matt/PHASE-BOUNDARIES.md:1-49`）。
 - `mmw-tdd` 缺少 interface 未定时读取 Codebase Design 的条款。`mmw-implement` 缺少定期 typecheck、定期运行当前测试、结束运行完整测试套件的频率合同（`docs/research/matt-upstream-1.2.2-mmw-fidelity-audit.md:88-97`）。
-- `/mmw-release` 可以在 final 终审后生成修复提交，但当前前置条件只证明曾经终审，没有证明当前 HEAD 就是终审通过的提交（`mmw/skills/mmw-release/SKILL.md:10-19`、`mmw/skills/mmw-release/SKILL.md:53-68`）。
+- 旧流程会在 final 终审发现问题后反复派审查者。当前流程只保留一轮审查；采信项一次性修复并由主 agent 验证，出包阶段的自愈提交由对应 stage 和最终产物验证。
 - `/mmw-integrate` 已按双方意图处理冲突，并保留目标不足时停下交用户决定的安全边界，但没有明说不能发明新行为（`mmw/skills/mmw-integrate/SKILL.md:52-60`、`mmw/skills/mmw-integrate/SKILL.md:72-83`）。
 - MMW 当前有 23 个工作流技能，以及 `handoff` 和 `writing-great-skills` 两个辅助技能。Claude Code manifest 显式列出每个技能；Pi 与 Codex 使用目录入口（`README.md:54-69`、`mmw/.claude-plugin/plugin.json:7-44`、`mmw/package.json:8-16`、`mmw/.codex-plugin/plugin.json:19-20`）。
 - 共享技能源会物化到 Pi、Claude Code 和 Codex。物化器可以把完整的宿主动作块展开为不同宿主的真实动作（`mmw/cli/lib/materialize_skills.py:247-332`）。
@@ -46,7 +46,7 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 6. 作为 MMW 维护者，我要使用上游当前的 Agent 文档写作方法，以便 skill、规则文件和 context pointer 文档遵守同一套信息层级和 cache 原则。
 7. 作为主 agent，我要只在阶段边界按固定顺序决定继续、丢弃上下文、handoff、派 subagent 或 compact，以便保留 primary source 并减少无谓上下文切换。
 8. 作为 `worker`，我要在 interface 尚未定形时读取 `/mmw-codebase-design`，并在实现过程中定期运行类型检查和当前测试、结束时运行完整测试套件，以便 TDD 不替代接口设计且错误能尽早暴露。
-9. 作为发布负责人，我要确保交付包对应的 HEAD 经过 final 终审，以便 release 自愈提交不能绕过审查。
+9. 作为发布负责人，我要让 final 终审只运行一轮，以便审查发现的问题在一次修复和验证后结束，不形成无休止的审查循环。
 10. 作为集成负责人，我要只根据双方 primary source 和既定目标解冲突，以便合并过程不会发明新行为。
 11. 作为需要用户完成第三方设置的 agent，我要使用 `wizard` 生成带确认、秘密输入和持久化落点的脚本，以便用户能安全重复执行人工步骤。
 12. 作为缺少他人专业知识的用户，我要使用 `to-questionnaire` 生成一份针对知识持有者的问卷，以便异步补齐决定所需事实。
@@ -70,7 +70,7 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 13. 阶段边界的共享正文使用完整宿主动作块物化。Continue 继续当前任务。Portability 调用 `handoff`。AFK 使用宿主已有的 subagent 或后台 Worktree 任务。清空或 compact 能由 agent 执行时直接执行；只能由用户触发时，停在边界并给出一条精确宿主操作，等用户完成后恢复；agent 与用户都无法触发时，不执行 phase transfer。此时 Continue 仍安全就继续，否则停下并报告宿主能力 blocker。MMW 不声称已经清空或压缩，也不静默用 handoff 替代。原型免除：该决定可由宿主能力和 MMW 物化规则判定，不需要用户判断。
 14. TDD 在测试 seam、module depth 或 interface 暴露面尚未确定时读取 `/mmw-codebase-design`，只使用其 module、interface、seam、adapter 和 depth 词汇帮助澄清边界；已由 spec 决定的 seam 不重新设计。原型免除：该决定由上游文档和现有 spec 责任边界判定，不需要用户判断。
 15. `/mmw-implement` 继续让目标仓库的 `TESTING.md` 决定命令和测试层次，并恢复上游原文的执行频率：实现过程中定期运行类型检查和当前测试文件，全部实现完成后运行一次完整测试套件。“定期”表示这些命令与实现循环交错，不能全部推迟到结束；不把上游的判断改成固定时间或固定次数。`worker` 报告按发生顺序列出命令与结果。仓库没有对应命令时明确报告不适用，不编造命令。原型免除：该决定由上游文档和仓库测试入口判定，不需要用户判断。
-16. 每轮 final 终审记录固定点和被审 HEAD；只有没有 `accepted` 的通过轮次才登记终审提交。固定点限定 diff 范围；终审提交是该轮实际审查并通过的被审 HEAD。`/mmw-release` 在开始时读取终审提交。任何 release 自愈、人工修复或重新出包过程只要改变 HEAD，就立即使该凭据失效，并移交 final 终审。新 HEAD 终审通过后从 `/mmw-release` 前置检查重新开始。包的 `source_commit` 一致仍是必要条件，但不能替代终审。原型免除：该决定可由 review 记录、Git 和 release 状态判定，不需要用户判断。
+16. 每道审查只运行一轮。审查记录保存固定点、被审 HEAD、findings 和处置；没有 `accepted` 时直接登记终审提交。有 `accepted` 时，调用方一次性修复全部采信项，主 agent 逐条验证原问题和相关验收命令，再登记修复提交；final 终审把该修复提交同时登记为终审提交。修复验收不再派审查者。出包开始后的自愈提交由对应 stage 和最终全量出包结果验证。原型免除：该决定来自用户对审查成本和完成边界的明确要求。
 17. `/mmw-integrate` 解每个冲突时只使用双方提交、issue、spec 和既定集成目标中的行为。兼容行为都保留；不兼容行为按既定目标取舍；任何合成都不得发明新行为。用户取消或现有目标不足以决定取舍时，保留 MMW 的安全 abort 和停止出口。原型免除：该决定由上游文档和现有安全边界判定，不需要用户判断。
 18. Grilling 补充三项解释性合同：用户可以按编号回答整轮；“不知道”、指出范围漂移和推回不合适的问题都是有效回答；开问前的事实调查只暂停依赖该事实的 frontier，其余问题继续。设计树、动态重算和共同理解人工审批关卡不变。原型免除：该决定由上游文档和当前技能正文判定，不需要用户判断。
 19. 新增 model-invoked 的 `wizard`。它只处理 agent 无法代办的人工作业。生成前读取仓库并向用户展示步骤、值来源、写入位置和 secret 属性，取得确认后才生成。脚本实现继续使用上游模板的 `stage` 函数，不把该代码标识符定义成 MMW 领域术语。模板提供进度、URL 打开、秘密输入、幂等环境变量写入、CI secret、不可逆动作确认和总结。脚本默认临时，用户要求可重复路径时才进入仓库。原型免除：该决定采用上游已有模板和步骤，不需要用户判断。
@@ -95,7 +95,7 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 | 宿主动作被伪造 | 物化正文声称执行宿主不存在的 clear 或 compact | 物化检查、项目一致性审 | 点名宿主和虚假动作 | 物化失败或修正文案 | 三宿主正文只包含真实能力 |
 | 阶段边界动作不可用 | 决策树选中的 clear 或 compact 既不能由 agent 执行，也不能由用户触发 | 阶段边界宿主动作 | 显示缺失能力和未执行的 phase transfer | Continue 安全时继续，否则停在边界 | 不产生虚假 handoff、clear 或 compact 状态 |
 | 实现阶段缺少测试入口 | 目标仓库没有类型检查、当前测试或完整套件命令 | `worker`、主 agent | 分项报告不适用及仓库证据 | 运行存在的层次，不编造命令 | 报告列出每层实际命令或不适用原因 |
-| `/mmw-release` 后 HEAD 未重审 | 出包期间生成新提交 | `/mmw-release` 状态机、主 agent | 显示旧终审提交与新 HEAD | 停止交付并移交 final 终审 | 交付 HEAD 等于终审提交 |
+| 采信项修复后再次派审查者 | 任一道审查已经完成，修复返回后仍进入 review | 调用方、`/mmw-review` | 显示原审查记录和修复结果 | 主 agent 验证修复并完成，不再派审查者 | 每道审查只有一份审查记录 |
 | 冲突需要新行为才能解决 | 双方意图和既定目标都没有答案 | 主 agent | 显示冲突位置和两边意图 | 安全 abort 或停止让用户决定 | 集成记录不含新发明行为 |
 | 新技能缺少配套资产 | `wizard` 缺模板，`writing-for-agents` 缺 `SKILL-MECHANICS.md` | 物化检查、manifest 检查 | 点名缺失文件 | 发布失败 | 每个新增技能目录完整物化 |
 | 宿主产物漂移 | 共享源与任一物化目录不一致 | 技能物化检查、Codex runtime 检查 | 显示具体宿主和文件 | 不提交发布版本 | 全宿主物化检查通过 |
@@ -111,7 +111,7 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 | 临时 tracker 或 dry-run 上的 ticket 拆分 | 写入前可修改粒度、blocking edge、合并与拆分，未批准零写入，批准后才创建 | 这是新增人工审批关卡的 tracker 写入边界 |
 | 三宿主阶段边界物化正文 | 五步顺序一致，Continue 优先，handoff 与 AFK 可执行，clear 和 compact 不虚构；能力缺失时出口确定 | 宿主差异只应存在于完整动作块的生成结果 |
 | `worker` task 和结果报告 | `/mmw-codebase-design` 条件引用；类型检查与当前测试在实现过程中交错出现；结束运行完整套件 | 这是 `/mmw-implement` 与 TDD 执行合同的消费边界 |
-| `/mmw-release` 的终审提交与最终 HEAD | 无新提交时继续出包；任何新提交使审查失效；重审后恢复；交付记录对应同一终审提交 | 这是 final 终审与 release 状态机之间的断点 |
+| 一轮审查与修复完成 | 无采信项直接完成；有采信项时一次性修复、主 agent 逐条验证并登记修复提交；修复后不再审 | 这是 review 与各调用方的完成边界 |
 | 冲突 fixture 与集成记录 | 兼容意图合并、不兼容意图按目标取舍、无依据时停止、从不发明新行为 | 这是 `/mmw-integrate` 的行为边界 |
 | 新增辅助技能目录与 invocation 元数据 | `writing-for-agents` 和 `wizard` 可由模型触发；`to-questionnaire` 和 `wait-what` 只能由用户触发；配套 reference 和模板齐全 | invocation 是技能是否按上游方式工作的公开合同 |
 | `wizard` 临时脚本静态走查 | `bash -n`、ShellCheck、所有值的来源和落点、secret 输入、幂等写入、CI 名称、不可逆动作确认 | 上游明确禁止 agent 端到端代用户运行，静态走查是最高安全 seam |
@@ -132,7 +132,7 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 | 阶段边界语义 | `mmw-start` | 单一披露 reference | 所有流程技能 | 五步有序决策树 | 每个 phase transfer 的 pointer 与源级审查 |
 | 阶段边界宿主动作 | MMW 物化器 | Codex、Claude Code、Pi 的完整动作块 | 对应宿主技能 | 只描述宿主真实能力 | 三宿主物化正文检查 |
 | Ticket 创建 | `/mmw-to-tickets` | 用户批准和 ticket 清单 | issue tracker | 批准前零写入，批准后按 blocking edge 创建 | 测试 issue 或 dry-run |
-| 终审提交 | final 终审 | 该轮实际审查并通过的被审分支 HEAD | `/mmw-release` | 最终交付 HEAD 必须等于有效终审提交；与限定 diff 范围的固定点分开登记 | 审查记录、release 前置检查和交付记录 |
+| 终审提交 | final 终审 | 无采信项时的被审 HEAD，或全部采信项修复并验证后的修复提交 | `/mmw-release` | final 终审只运行一次；与限定 diff 范围的固定点分开登记 | 审查记录和 release 前置检查 |
 | Canonical 领域术语 | 交付工作流、Wayfinding、审查 owning leaf | 人工审批关卡、prototype 资产、effort、终审提交 | 全部流程技能和角色 | 一个概念只在 owning leaf 定义；Context Map 登记所有权 | `mmw domain check`、项目一致性审和静态 diff |
 | 新增技能 invocation | 各技能 frontmatter | manifest 与宿主 skill loader | 用户与模型 | model-invoked 或 user-invoked 与上游一致 | 目录、manifest 和物化检查 |
 | 产品版本 | MMW 发布入口 | 五个版本字段 | Codex、Claude Code、Pi 用户 | Codex manifest、Claude Code manifest、Claude marketplace 插件版本、Claude marketplace 顶层版本和 Pi package 全部为 0.10.0 | JSON 检查和静态 diff |

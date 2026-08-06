@@ -86,7 +86,7 @@ plan 文档和 spec 的 `## Cross-Plan Contract Anchors` 分两次提交。`plan
 | 情况 | 下一步 |
 | --- | --- |
 | plan 审过了 | **移交**：`/mmw-implement`，一张 ticket 一个 `worker` 开始落地 |
-| 审出了采信的 findings | **自己继续**：重派 `planner` 改 findings 点名的那份 plan 路径，改完回第 6 步复审 |
+| 审出了采信的 findings | **自己继续**：把全部采信项一次性重派给对应 `planner`；主 agent 逐条验证修复后直接进入第 7 步提交，不再审 |
 | 第 4 步某个 `planner` 交回 `needs-context` 或 `needs-repair` | **自己继续**：按它说的补上下文或修 spec，然后带上补齐的材料重派 |
 | 第 5 步发现 `planner` 认领了别人归属的文件，或者提供方跟消费方对不上 | **自己继续**：重派 `planner` 修那一份，不要自己动它的 plan |
 | 前置三项有一项不满足 | **停**：说清是哪一项。缺 ticket 的回 `/mmw-to-tickets`，缺 spec 的回 `/mmw-to-spec` |
