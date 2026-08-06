@@ -19,7 +19,7 @@ plan 说明实施路线。它不代替源码，不预写完整实现，也不把
 | spec | 目标、实施决定、合同边界、测试 seam、发布风险 |
 | ticket | 本张 ticket 的范围、验收标准和依赖 |
 | `## Cross-Plan Contract Anchors` | 本 plan 拥有的共享文件，以及提供或消费的跨 plan 接口；只有一份 plan 时可能没有 |
-| prototype 资产 | 只在存在时读取完整目录、逐轮记录和用户选中版本；落选变体只说明什么不要做 |
+| prototype 资产 | 只在 ticket 点名时读取资产索引、用户选中产物和明确相关的逐轮记录或长期证据；不读取整个产物目录或无关过程材料 |
 | research | 只在 ticket 点名时读取 research 索引和当前 ticket 使用的精确文件；不递归读取上级目录或 subagent 原始报告 |
 | 项目规则 | 当前目录适用的 `AGENTS.md`、领域文档、ADR 和根 `TESTING.md` |
 

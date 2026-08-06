@@ -1,11 +1,11 @@
 ---
 name: mmw-to-tickets
-description: 把 spec、计划或当前对话拆成有阻塞关系的 tracer bullet tickets。用于 spec 发布后，或用户明确要求拆 tickets。
+description: 把已发布 spec 拆成有阻塞关系的 tracer bullet tickets。用户在 spec 发布后要求拆 tickets 时使用。
 ---
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
 
-把一份 spec、一份计划或当前这段对话拆成一组 **ticket**——每张是一条 tracer bullet 垂直切片，并声明**阻塞**它的那些 ticket。
+把一份已发布的 spec 拆成一组 **ticket**——每张是一条 tracer bullet 垂直切片，并声明**阻塞**它的那些 ticket。
 
 issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw issue`，读一张、评论、打标签这类一条命令做得完的直接用 `gh`。标签清单在仓库根 `.mmw.json` 的 `tracker.labels`。
 
@@ -15,7 +15,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 | 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
 | --- | --- | --- | --- | --- |
-| 对话、spec、issue 或链接 | 始终 | 正文和评论全文 | 无关 issue | 每张 ticket 需要的目标、验收和阻塞关系 |
+| spec、对应 issue 或链接 | 始终 | 正文和评论全文 | 无关 issue | 每张 ticket 需要的目标、验收和阻塞关系 |
 | prototype | 上游引用时 | 索引、相关选中产物、明确相关的走查或长期证据 | 整个产物目录、无关过程材料；落选变体只在 ticket 必须落实其否定约束时读取 | 只传给消费该决定的 ticket |
 | research | 上游引用时 | research 索引和本批 ticket 需要的精确文件 | research 的上级目录、subagent 原始报告 | 只传给消费该事实的 ticket |
 
@@ -23,7 +23,7 @@ prototype 索引缺少问题、逐轮用户结论、选中产物、落选约束�
 
 ## 2. 检查现状与 prefactor
 
-从已有 spec、对话和现状调查中找能让后续实现更容易的 prefactor。「先把改动变容易，再做这个容易的改动。」材料没有覆盖相关代码时，主 agent 直接读取实施范围内的入口、调用方和测试。只有范围跨多个模块、需要从调用链、数据流或影响面等独立角度系统取证时，才调用 `/mmw-research`。
+从已有 spec 和现状调查中找能让后续实现更容易的 prefactor。「先把改动变容易，再做这个容易的改动。」材料没有覆盖相关代码时，主 agent 直接读取实施范围内的入口、调用方和测试。只有范围跨多个模块、需要从调用链、数据流或影响面等独立角度系统取证时，才调用 `/mmw-research`。
 
 没有值得单独落地的 prefactor 就直接进入第 3 步，不为填这一步制造 ticket。
 使用 subagent 取得报告时，按 `/mmw-verifying-agent-output` 验证后再写进 ticket。
