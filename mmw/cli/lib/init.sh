@@ -156,15 +156,15 @@ mmw_init_labels() {
   mmw_init_say "标签     : 新建 ${created} 个，已有 ${existed} 个"
 }
 
-# 过程材料随 worktree 存活。graphify-out 是结构图谱：本机派生物，几十兆，
-# 每次改代码都变。漏掉它，第一次建完图那几十兆就跟着下一次提交进了版本库。
+# scratch 只随任务存活，不进 Git。graphify-out 是结构图谱：本机派生物，
+# 几十兆，每次改代码都变。漏掉它，第一次建完图那几十兆就跟着下一次提交进了版本库。
 mmw_init_gitignore() {
   local root file added=0 line host
   root="$(mmw_repo_root)"
   file="$root/.gitignore"
   host="$(mmw_host)" || return 1
   touch "$file"
-  local -a lines=("$(mmw_path_field reviews)/" "$(mmw_path_field release)/" "graphify-out/")
+  local -a lines=("$(mmw_path_field reviews)/" "$(mmw_path_field release)/" "$(mmw_path_field scratch)/" "graphify-out/")
   if [ "$host" != "codex" ]; then
     lines+=("$(mmw_path_field worktrees)/" ".dispatch/")
   fi

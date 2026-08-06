@@ -9,8 +9,16 @@
 _Avoid_: MVP、正式实现、静态设计稿
 
 **prototype 资产**：
-用户走查过的完整 prototype、逐轮记录和证据，保存在任务分支的 `docs/prototypes/<slug>/`，供 spec、ticket、plan、审查和实现持续引用。
-_Avoid_: 临时文件、生产实现、只留结论
+用户走查过的可运行 prototype、完整界面变体、README 中的问题、逐轮用户走查结论和用户选中的路径。确实作为设计合同出处的证据也属于 prototype 资产。Prototype 资产保存在 `mmw artifact path prototype` 返回的路径，供 spec、ticket、plan、审查和实现持续引用。
+_Avoid_: 过程截图、DOM、console、录屏、临时探测输出、生成中间物、生产实现、只留结论
+
+**evidence**：
+外部系统实测形成的测试计划、结论台账，以及不能低成本重建且直接支撑结论的最小原始证据。需要保留的原始证据必须脱敏。Evidence 保存在 `mmw artifact path evidence` 返回的路径。
+_Avoid_: 全部运行输出、未脱敏原始数据、可低成本重建的过程材料
+
+**scratch**：
+prototype 和外部系统实测产生的临时过程材料。过程截图、DOM、console、录屏、临时探测输出和生成中间物默认保存在 `mmw artifact path scratch` 返回的路径，不进入 Git；任务结束时清理。
+_Avoid_: prototype 资产、evidence、长期合同出处
 
 **走查**：
 用户使用 prototype 并给出接受、拒绝或修改意见。

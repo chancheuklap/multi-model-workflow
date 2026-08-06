@@ -13,6 +13,8 @@ set -euo pipefail
 MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/config.sh
 . "$MMW_ROOT/cli/lib/config.sh"
+# shellcheck source=lib/artifact.sh
+. "$MMW_ROOT/cli/lib/artifact.sh"
 # shellcheck source=lib/task.sh
 . "$MMW_ROOT/cli/lib/task.sh"
 # shellcheck source=lib/issue.sh
@@ -37,6 +39,7 @@ mmw <命令> [参数]
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
   skill-path  派出去那一侧读方法论的路径
+  artifact    prototype、evidence 与 scratch 的仓库内落点
   task        任务 worktree：查状态、建、绑分支、进、删
   result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
@@ -156,6 +159,19 @@ mmw domain sync      幂等同步领域上下文消费合同
 mmw domain check     检查领域上下文消费合同
 mmw domain adr-next  下一个 ADR 编号，四位零填充
 mmw domain dirs      写入侧的四个配置落点：single、map、context、adr
+EOF
+  return 2
+}
+
+usage_artifact() {
+  cat >&2 <<'EOF'
+mmw artifact path prototype <产物目录> [issue-<编号>]
+mmw artifact path evidence  <产物目录> [issue-<编号>]
+mmw artifact path scratch   <产物目录> [issue-<编号>]
+
+产物目录必须是单个安全路径段。Wayfinder decision ticket 传入它自己的
+issue-<编号> 子目录；普通任务只传任务 slug。输出是基于 .mmw.json paths
+的仓库相对路径。
 EOF
   return 2
 }
@@ -534,6 +550,18 @@ cmd_domain() {
   esac
 }
 
+cmd_artifact() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    path)
+      [ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage_artifact
+      mmw_artifact_path "$@"
+      ;;
+    *) usage_artifact ;;
+  esac
+}
+
 usage_graph() {
   cat >&2 <<'EOF'
 mmw graph status   图新不新鲜：FRESH / STALE / MISSING
@@ -749,6 +777,7 @@ case "${1:-}" in
   agents) shift; cmd_agents "$@" ;;
   skills) shift; cmd_skills "$@" ;;
   skill-path) shift; cmd_skill_path "$@" ;;
+  artifact) shift; cmd_artifact "$@" ;;
   task) shift; cmd_task "$@" ;;
   result) shift; cmd_result "$@" ;;
   issue) shift; cmd_issue "$@" ;;
