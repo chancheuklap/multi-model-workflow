@@ -40,22 +40,11 @@ description: 把 research 派出去，查当前仓库的现状或仓库之外的
 
 subagent 原始报告不是 research。research 是主 agent 验证和综合后的最终内容。
 
+完成判据：保留的每条事实都有主 agent 打开过的出处；互相冲突的证据已明示；没有通过验证的内容只进被过滤内容或未查清项。
+
 ## 保存人工审批关卡
 
-每次 `/mmw-research` 只问一次。主 agent 完成综合后，先展示：
-
-| research 主题 | 结论摘要 | 拟保存文件 | 拟保存路径 |
-| --- | --- | --- | --- |
-| `<research 主题>` | `<验证后的摘要>` | `README.md`、`report.md` 和确实需要的配套文件 | `<完整仓库相对路径>` |
-
-然后询问用户是否保存本次 research。用户明确选择前，不创建 research 目录，不写 research 文件。
-
-| 用户选择 | 处理 |
-| --- | --- |
-| 保存 | 按本节定义的 research 目录结构写入拟保存路径 |
-| 不保存 | 不创建 research 目录；验证后的事实仍可写入当前 ticket、spec、ADR 或代码 |
-
-先按下表确定 `产物目录`。当前 research 属于已有 effort 时，必须复用已有值，不得新建 slug。
+每次 `/mmw-research` 只问一次。主 agent 完成综合后，先按下表确定 `产物目录`。当前 research 属于已有 effort 时，必须复用已有值，不得新建 slug。
 
 | 场景 | `产物目录` 来源 |
 | --- | --- |
@@ -64,10 +53,27 @@ subagent 原始报告不是 research。research 是主 agent 验证和综合后�
 | 其他技能调用，而且调用方已有 effort | 调用方已有的 `产物目录` |
 | 用户直接调用，或调用方还没有 effort | 主 agent 根据 research 所属主题提议一个稳定的单路径段；拟保存表展示该值和完整路径，用户可在同一次人工审批中确认或改正 |
 
-普通任务运行 `mmw path research <产物目录>`。Wayfinder decision ticket 运行 `mmw path research <产物目录> issue-<编号>`。命令返回 research 的上级目录；在其下建立一个 `<research 主题 slug>/`：
+普通任务运行 `mmw path research <产物目录>`。Wayfinder decision ticket 运行 `mmw path research <产物目录> issue-<编号>`。命令返回 research 的上级目录。拟保存路径是 `<命令返回目录>/<research 主题 slug>/`。
+
+展示拟保存内容：
+
+| research 主题 | 结论摘要 | 拟保存文件 | 拟保存路径 |
+| --- | --- | --- | --- |
+| `<research 主题>` | `<验证后的摘要>` | `README.md`、`report.md` 和确实需要的 research 配套文件 | `<完整仓库相对路径>` |
+
+然后询问用户是否保存本次 research。用户明确选择前，不创建 research 目录，不写 research 文件。
+
+用户在同一次人工审批中改正 `产物目录` 时，用新值重新运行 `mmw path research`，再写入文件。
+
+| 用户选择 | 处理 |
+| --- | --- |
+| 保存 | 按拟保存路径创建下列 research 目录结构 |
+| 不保存 | 不创建 research 目录；验证后的事实仍可写入当前 ticket、spec、ADR 或代码 |
+
+用户选择保存时，创建：
 
 ```text
-<research 路径>/<research 主题 slug>/
+<拟保存路径>/
 ├── README.md
 ├── report.md
 └── <research 配套文件>
@@ -78,6 +84,8 @@ subagent 原始报告不是 research。research 是主 agent 验证和综合后�
 | `README.md` | 问题、范围快照、结论摘要、文件索引、下游用途、未查清项；内部 research 记录 commit，外部 research 记录访问日期和版本 |
 | `report.md` | 验证后的完整结论和逐条出处 |
 | research 配套文件 | 用户批准保存的 HTML、字段表、脚本或其他文件；用途写进 `README.md` |
+
+完成判据：用户已明确选择。选择保存时，research 目录与拟保存表一致。选择不保存时，没有 research 目录或文件。
 
 subagent 原始报告默认不落盘。确需跨进程转交时，使用 `mmw path scratch <产物目录> [issue-<编号>|task-<任务 slug>]`，与网页转储、抓取缓存和未采信内容一起写入 scratch，不进 Git。research 不进入 ADR 目录；只有满足 `/mmw-domain-modeling` 判据的决定才进入 ADR。
 

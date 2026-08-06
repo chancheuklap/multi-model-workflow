@@ -19,7 +19,7 @@
 **Verified current state:**（改既有行为时填）现状的真实行为加 `文件:行号` 加核实日期；改同族成员里的某一个时，给一张同族对照表（组件 × 有没有 × 缺口）。
 
 **先读：** <spec 章节、ADR、项目规则，以及项目指令链实际指向的测试规则>
-**Prototype evidence:**（本包吸收 prototype 决定时必填）prototype 资产索引 `README.md` / 精确的选中产物 / 明确相关的走查或长期证据
+**prototype 出处:**（本包吸收 prototype 决定时必填）prototype 资产索引 `README.md` / 精确的选中产物 / 明确相关的走查或长期证据
 **research:**（本包使用 research 结论时必填）research 索引 `README.md` / research 报告或配套文件的精确路径 / 适用的范围快照与未查清项
 
 **Interfaces:**

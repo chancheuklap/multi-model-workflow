@@ -85,7 +85,13 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 - **视觉合同逐项可验收**：用户的浏览器标记、选中页面和对应走查记录已经写成精确持久出处；每个页面、viewport 和真实状态各有一条可观察结果，没有只引用临时标签页，也没有把多个状态压成一句「与原型一致」。可运行的选中页面本身可以作为证据；只有截图是长期视觉决定的必要证据时，才持久保存并引用截图
 - `## Testing Decisions` 一节里那张 seam 清单表逐条填齐了，每行都写了在哪测、测什么行为、为什么是这一层
 
-完整 UI 变体集继续保留在 prototype 资产中，作为 primary source。Prototype 资产索引只负责路由，不替代原始产物；本技能只读取选中产物和索引显式引用的证据或具体落选变体，不递归读取产物目录。
+完整 UI 变体集继续保留在 prototype 资产中，作为 primary source。prototype 资产索引只负责路由，不替代原始产物；本技能只读取选中产物和索引显式引用的证据或具体落选变体，不递归读取产物目录。
+
+### Wayfinder 派生的 spec 需要补充 prototype 或 evidence
+
+当 Wayfinder 派生的 spec 需要补充 prototype 或 evidence 时，先停止 spec 工作。拥有 map 分支的任务在 map issue 已关闭时重新打开它，再新建 `wayfinder:prototype` 或 `wayfinder:research` decision ticket。Decision ticket 原样继承 map 的 `产物目录`，并使用自己的 `issue-<编号>` 子目录。
+
+Decision ticket 任务完成后，map 任务运行 `mmw result verify` 和 `mmw result integrate`。然后 map 任务按 `$mmw:mmw-integrate` 让未完成的 spec 分支 rebase 到更新后的 map 分支。Spec 任务只在 rebase 完成后回到第 5 步。
 
 ## 6. 发起 ① spec 审
 
@@ -118,12 +124,6 @@ mmw issue create --title "<一句话的名字>" --body-file <摘要文件> --lab
 从 `$mmw:mmw-wayfinder` 来的已经有一张 issue 了，改它的正文再 `gh issue edit <编号> --add-label ready-for-agent`，不要另建。
 
 **发布出去的这张 issue 加上这个标签，就是第 7 步人工审批关卡通过的凭据。** 没发布就是没过这道关卡。
-
-### Wayfinder 派生的 spec 需要补充 prototype 或 evidence
-
-当 Wayfinder 派生的 spec 需要补充 prototype 或 evidence 时，先停止 spec 工作。拥有 map 分支的任务在 map issue 已关闭时重新打开它，再新建 `wayfinder:prototype` 或 `wayfinder:research` decision ticket。Decision ticket 原样继承 map 的 `产物目录`，并使用自己的 `issue-<编号>` 子目录。
-
-Decision ticket 任务完成后，map 任务运行 `mmw result verify` 和 `mmw result integrate`。然后 map 任务按 `$mmw:mmw-integrate` 让未完成的 spec 分支 rebase 到更新后的 map 分支。Spec 任务只在 rebase 完成后回到第 5 步。
 
 下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 

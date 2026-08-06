@@ -18,9 +18,9 @@ disable-model-invocation: true
 
 | 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
 | --- | --- | --- | --- | --- |
-| spec | 始终 | 问题、方案、实现决定、合同边界和测试 seam | 其它 spec | plan 目标与约束 |
-| 合同骨架 | 多份 plan 时 | `## Cross-Plan Contract Anchors` | 其它 plan 拥有的文件 | 共享文件和跨 plan 接口 |
-| 当前 ticket | 始终 | 标题、目标、验收标准和阻塞关系 | 其它 ticket | 当前 plan 的工作范围 |
+| spec | 始终 | 问题、方案、实现决定、合同边界和测试 seam | 其他 spec | plan 目标与约束 |
+| 合同骨架 | 多份 plan 时 | `## Cross-Plan Contract Anchors` | 其他 plan 拥有的文件 | 共享文件和跨 plan 接口 |
+| 当前 ticket | 始终 | 标题、目标、验收标准和阻塞关系 | 其他 ticket | 当前 plan 的工作范围 |
 | prototype | task 点名时 | 索引、选中产物和明确相关证据 | 整个产物目录和无关变体 | 已确认决定；没有写「无 prototype 资产」 |
 | research | task 点名时 | research 索引和当前 ticket 使用的精确文件 | research 的上级目录和 subagent 原始报告 | 验证后的事实；没有写「无 research」 |
 
@@ -36,7 +36,7 @@ disable-model-invocation: true
 
 **每个任务包必须能单独抽出来当一份自洽说明。** `worker` 通常只看自己那一包，不读全文，还可能乱序读。所以：不写「跟第 N 包一样」（重复写出来）；不引用本包和前文都没定义过的类型、函数、字段；要传给下一包的信息写进本包的 Interfaces，不靠「看上一包」。
 
-Plan 吸收 prototype 资产索引记录的明确决定，以及选中产物中的可移植逻辑。Prototype 外壳、无关过程材料和落选变体不进入 plan；落选变体只在本 ticket 必须落实其否定约束时引用。
+plan 吸收 prototype 资产索引记录的明确决定，以及选中产物中的可移植逻辑。prototype 外壳、无关过程材料和落选变体不进入 plan；落选变体只在本 ticket 必须落实其否定约束时引用。
 
 Plan 使用 research 中的验证后事实，并保留适用的范围快照、出处和未查清项。subagent 原始报告和过程材料不进入 plan。
 
@@ -68,9 +68,9 @@ ticket 已经是一条端到端的垂直切片，**你不再切一层切片**，
    **Goal:** <一句话目标>
    **Source spec:** docs/specs/<slug>/<slug>.md
    **Source ticket:** <tracker 上的编号或标识>
-   **Prototype asset index:** <README.md 的精确路径，或「无 prototype 资产」>
-   **Selected prototype output:** <本 ticket 使用的精确路径，或「无 prototype 资产」>
-   **Prototype evidence:** <明确相关的走查或长期证据路径，或「无 prototype 资产」>
+   **prototype 资产索引:** <README.md 的精确路径，或「无 prototype 资产」>
+   **prototype 选中产物:** <本 ticket 使用的精确路径，或「无 prototype 资产」>
+   **prototype 走查出处:** <明确相关的走查或长期证据路径，或「无 prototype 资产」>
    **research 索引:** <research 索引的精确路径，或「无 research」>
    **research 文件:** <本 ticket 使用的精确文件路径，或「无 research」>
    **Blocked by:** <别的 plan 编号，或者「无」>

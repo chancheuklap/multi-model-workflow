@@ -60,7 +60,7 @@ issue-<这张 ticket 的编号>
 
 答案不写进正文，它在解掉的时候作为结案评论记录。解 ticket 过程中产出的东西从 issue 链过去，不粘进正文。
 
-Decision ticket 的 `issue 子目录` 只由 tracker 编号决定。建 issue 后立即把 `issue-<编号>` 回填正文，再连阻塞边。Prototype、research、evidence 和 scratch 的精确落点分别用下列命令计算，不从任务分支或 worktree 目录推断：
+Decision ticket 的 `issue 子目录` 只由 tracker 编号决定。建 issue 后立即把 `issue-<编号>` 回填正文，再连阻塞边。prototype、research、evidence 和 scratch 的精确落点分别用下列命令计算，不从任务分支或 worktree 目录推断：
 
 ```bash
 mmw path prototype <产物目录> issue-<编号>

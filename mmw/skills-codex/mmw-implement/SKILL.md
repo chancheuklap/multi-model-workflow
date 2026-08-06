@@ -42,9 +42,9 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 | 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
 | --- | --- | --- | --- | --- |
 | `worker-brief.md` | 始终 | 文件路径 | 正文副本 | 文件路径 |
-| spec 或 agent brief | 始终 | 当前需求的精确位置 | 其它需求 | 精确位置 |
-| ticket | 始终 | 当前 ticket 编号 | 其它 ticket | ticket 编号 |
-| plan | spec 分支 | 当前 ticket 的 plan 路径 | 其它 plan | plan 路径 |
+| spec 或 agent brief | 始终 | 当前需求的精确位置 | 其他需求 | 精确位置 |
+| ticket | 始终 | 当前 ticket 编号 | 其他 ticket | ticket 编号 |
+| plan | spec 分支 | 当前 ticket 的 plan 路径 | 其他 plan | plan 路径 |
 | `TESTING.md` | 文件存在时 | 仓库根文件 | 自拟测试命令 | 文件路径 |
 | prototype | 当前 ticket 引用时 | 索引、选中产物和明确相关证据 | 整个产物目录和过程材料 | 精确路径 |
 | research | 当前 ticket 引用时 | research 索引和精确文件 | research 的上级目录和 subagent 原始报告 | 精确路径 |

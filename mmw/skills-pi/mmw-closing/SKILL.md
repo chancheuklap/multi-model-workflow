@@ -101,7 +101,7 @@ Wayfinder 派生的 spec 运行 `mmw path scratch <产物目录> task-<任务 sl
 
 不得整目录清空共享 scratch、审查记录目录或 `.dispatch` 目录。只删除 `mmw path scratch` 返回的当前任务目录、`mmw path review` 返回目录中属于当前任务 slug 的文件，以及 `.dispatch` 中明确属于当前任务 slug 的文件。持久 prototype 资产、用户选择保存的 research、evidence 和其他持久内容继续保留。
 
-完成判据：当前任务的 scratch、审查与派发过程材料已经清理；其他任务的过程材料和全部持久资产仍在。
+完成判据：当前任务的 scratch、审查与派发过程材料已经清理；其他任务的过程材料、prototype 资产、用户选择保存的 research、evidence 和其他持久内容仍在。
 
 下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 
