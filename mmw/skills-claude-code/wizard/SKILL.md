@@ -9,7 +9,7 @@ Wizard 是一个 Bash 脚本。它逐步带用户完成必须由人操作的流�
 
 [template.sh](template.sh) 已经实现统一交互：阶段进度、预计剩余时间、跨平台打开 URL、隐藏 secret 输入、幂等 `.env` 写入、GitHub secret 和 variable 写入，以及结束总结。你的职责是限定流程并编写各个 `stage`。`STAGES` 标记上方是固定 library，不修改。
 
-Wizard 默认是临时产物，保存在 scratch 或临时 `scripts/` 路径。只有用户明确要求可重复的仓库设置入口时，才提交进仓库。
+Wizard 默认是临时产物，固定保存在当前任务的 Git 忽略 scratch。流程完成或放弃后删除。只有用户明确要求可重复的仓库设置入口时，才写入并提交仓库的正式路径。
 
 ## 1. 限定流程
 
@@ -39,7 +39,11 @@ Wizard 默认是临时产物，保存在 scratch 或临时 `scripts/` 路径。�
 
 ## 3. 生成 wizard
 
-以 [template.sh](template.sh) 为模板，在目标路径生成脚本。保留 `STAGES` 标记上方的 library，只替换示例步骤。
+先确定当前任务的产物目录。Wayfinder 场景从当前 map 或子 issue 正文的 `## 产物目录` 读取；decision ticket 同时读取正文记录的 `issue-<编号>`。普通任务使用当前任务 slug，不带 issue 子目录。不要从任务 worktree 的物理目录名推断。
+
+运行 `mmw artifact path scratch <产物目录> [issue-<编号>]`。以 [template.sh](template.sh) 为模板，在命令返回的 scratch 目录生成 `wizard-<slug>.sh`。保留 `STAGES` 标记上方的 library，只替换示例步骤。
+
+用户明确要求把 wizard 变成可重复的仓库入口时，改用用户确认的正式路径，不在 scratch 保留第二份。
 
 按依赖顺序写一个步骤一个 `stage`。使用现有 helper：`stage`、`say`、`step`、`open_url`、`ask`、`ask_secret`、`write_env`、`set_secret`、`set_var`、`pause` 和 `confirm`。设置诚实的 `TOTAL_STAGES` 和 `TOTAL_MINUTES`。
 
@@ -57,12 +61,14 @@ Wizard 默认是临时产物，保存在 scratch 或临时 `scripts/` 路径。�
 
 不要替用户端到端运行脚本。它会打开浏览器并等待人工输入。把运行命令交给用户。
 
-用户要求把 wizard 作为重复设置入口保存在仓库时，提交脚本并从 README 链接。临时 wizard 在任务完成后按用户决定清理。
+用户要求把 wizard 作为重复设置入口保存在仓库时，提交脚本并从正式文档链接。临时 wizard 在流程完成或放弃后删除。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
-| 脚本通过静态验证 | **停**：给用户运行命令、脚本路径、会写入的位置和不可逆步骤 |
+| 临时脚本通过静态验证 | **停**：给用户运行命令、scratch 脚本路径、会写入的位置和不可逆步骤；等待流程完成或放弃后清理 |
+| 用户确认临时流程已经完成或放弃 | **自己继续**：删除当前任务 scratch 中这份 wizard，再报告清理结果 |
+| 用户明确要求可重复的仓库入口，脚本通过静态验证 | **停**：确认脚本已写入正式路径，并从正式文档链接 |
 | 用户修改步骤、顺序或值落点 | **自己继续**：回第 1 步重新确认，再更新脚本 |
 | 当前 UI 或命令无法从一手来源确认 | **停**：点名未知步骤和所需信息，不生成猜测版本 |

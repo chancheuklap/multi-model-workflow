@@ -15,7 +15,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 | --- | --- | --- |
 | `/mmw-grilling` 谈定 | 这次对话里刚谈完。`/mmw-wayfinder` 横扫下来判定不需要 map 的也走这一行 | 这一轮写进领域文档的术语（落点跑 `mmw domain path` 取）、这一轮落成的 ADR、对话里达成的每一条共识 |
 | `/mmw-improve-codebase-architecture` 挑中的候选谈定 | slug 是 `refactor-` 开头，那个空提交里记着一张候选卡片的标题 | 这一轮写进领域文档的术语（落点跑 `mmw domain path` 取）、这一轮落成的 ADR、对话里达成的每一条共识，外加**那张卡片**——它的文件清单是第 2 步探仓库的起点，它的 Problem 和 before/after 直接进 spec 的 `## Current State` 与 `## Solution`。这次的外部行为不变，所以 `## Solution` 写的是结构怎么变、谁的调用方式跟着变 |
-| `/mmw-prototype` 走查完 | `docs/prototypes/<slug>/` 存在 | 那份 `README.md` 里回填的结论；每一轮的**选中的那一版**；界面那一侧的视觉契约 |
+| `/mmw-prototype` 走查完 | `docs/prototypes/<产物目录>/issue-<编号>/README.md` 存在；普通非 Wayfinder 任务也可以是 `docs/prototypes/<产物目录>/README.md` | 先读这份 prototype 资产索引，再只读本 spec 需要的选中产物，以及索引显式引用的对应走查记录和长期证据。索引必须列出问题、逐轮用户结论、用户选中的路径、落选变体形成的约束、被提升为长期证据的路径；缺一项就回 `/mmw-prototype` 补齐 |
 | `/mmw-wayfinder` 切出的一份 spec | 有一张 issue 挂在带 `wayfinder:map` 标签的 issue 底下，自己不带任何 `wayfinder:` 标签 | 那张 map 的 `Destination`、`Decisions so far`、`Out of scope` 三节，各自落进 spec 哪里见第 4 步；走这张 map 过程中新增的 ADR 与 `.out-of-scope/` |
 | `/mmw-triage` 判出这件事需要多张 ticket、多个测试 seam，或者还有设计取舍要谈 | 那张 issue 或 PR 上有一条 agent brief 评论 | 那份 agent brief 全文，尤其 `Test seam` 那一栏，以及 `/mmw-triage` 的「分诊一张具体的 issue 或 PR」第 3 步验过的断言 |
 | `/mmw-implement` 回来补 seam | `docs/specs/<slug>/` 里已经有一份 spec | 现有那份 spec。**只补 seam 一节，不重写**，从第 2 步接着走 |
@@ -76,13 +76,15 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 - 每个决定都写了为什么，落点精确到函数或模块，没有「某个模块」「相应调整」这类悬空话
 - 每条真实的失败路径都答得出四问：什么触发、谁捕获、用户看到什么、对应哪条验收
 - 新增或改变的对象、状态、角色写清了谁写谁读，稳定下来的术语已经进领域文档
-- **原型证据逐条验证**：`Implementation Decisions` 里的每一条，要么指得到 `docs/prototypes/<slug>/` 下的一份产物（写明是哪一份、第几轮走查定的），要么符合下面三种免除情形之一并在那条后面写明是哪一种。两样都给不出来的，移交 `/mmw-prototype` 补一轮再回来。用户走查过实物才算这条决定被验证过，讨论达成一致不算
+- **原型证据逐条验证**：`Implementation Decisions` 里的每一条，要么指得到 prototype 资产索引、精确的选中产物路径和对应走查记录，要么符合下面三种免除情形之一并在那条后面写明是哪一种。两样都给不出来的，移交 `/mmw-prototype` 补一轮再回来。用户走查过实物才算这条决定被验证过，讨论达成一致不算。落选变体只提供索引已经归纳的否定约束；确需验证该约束时，才读取索引显式引用的具体变体
 
   三种免除情形，**只有这三种**：这条决定是照搬既有实现、既有约定或者一条已经拍板的 ADR；它的对错查一次代码或文档就能确定，不需要用户判断；它不改变任何用户看得见的行为（纯内部结构调整、重命名、搬移）。
 
   不算免除的：「时间紧」「显然是对的」「先做了再说」「用户已经口头同意」。**用户口头同意跟他走查过实物是两回事。** 写不出属于哪一种免除情形，就是要补一轮原型
-- **视觉合同逐项可验收**：用户的浏览器标记、选中页面和对应截图已经写成持久出处；每个页面、viewport 和真实状态各有一条可观察结果，没有只引用临时标签页，也没有把多个状态压成一句「与原型一致」
+- **视觉合同逐项可验收**：用户的浏览器标记、选中页面和对应走查记录已经写成精确持久出处；每个页面、viewport 和真实状态各有一条可观察结果，没有只引用临时标签页，也没有把多个状态压成一句「与原型一致」。可运行的选中页面本身可以作为证据；只有截图是长期视觉决定的必要证据时，才持久保存并引用截图
 - `## Testing Decisions` 一节里那张 seam 清单表逐条填齐了，每行都写了在哪测、测什么行为、为什么是这一层
+
+完整 UI 变体集继续保留在 prototype 资产中，作为 primary source。Prototype 资产索引只负责路由，不替代原始产物；本技能只读取选中产物和索引显式引用的证据或具体落选变体，不递归读取产物目录。
 
 ## 6. 发起 ① spec 审
 

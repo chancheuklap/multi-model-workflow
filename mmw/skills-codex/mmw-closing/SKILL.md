@@ -87,7 +87,21 @@ mmw wiki nav
 
 「验证」一节那份清单全过之后，在任务分支上删掉 `docs/specs/<slug>/` 与 `docs/plans/<slug>/` 并提交。
 
-**`docs/prototypes/<slug>/` 与 `docs/evidence/<slug>/` 不删。**
+**spec 明确引用的持久 prototype 资产与 evidence 不删。**
+
+## 7. 清理当前任务的过程材料
+
+Wiki 验证通过，而且第 6 步已经归档并提交本地 spec 与 plan 后，清理当前任务自己的过程材料。
+
+先确定产物目录。从 Wayfinder 切出的 spec issue 读取 issue 正文继承的 `## 产物目录`；普通 spec 使用 spec slug。收尾 spec 不带 decision ticket 的 issue 子目录。不要从任务 worktree 的物理目录名推断。
+
+运行 `mmw artifact path scratch <产物目录>`，只删除命令返回的当前任务 scratch 目录。
+
+再从已绑定任务状态读取当前任务 slug。`.reviews` 使用任务 slug，不使用产物目录；只删除 `.reviews/<任务 slug>-*`。`.dispatch` 也归任务 worktree；只删除文件名或派发记录明确属于当前任务 slug 的 task 和报告文件。删除前列出目标，并逐项验证归属。无法确认归属的条目保留并报告。
+
+禁止清空共享 scratch、`.reviews` 或 `.dispatch` 目录。spec 明确引用的持久 prototype 资产、evidence 和其他持久资产继续保留。
+
+完成判据：当前任务的 scratch、审查与派发过程材料已经清理；其他任务的过程材料和全部持久资产仍在。
 
 下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 
@@ -96,7 +110,7 @@ mmw wiki nav
 | 情况 | 下一步 |
 | --- | --- |
 | 第 3 步报出别人以前手写的旧页缺那个块 | **自己继续**：记下来，末尾一并交给用户，不要改别人的页面 |
-| 六步都做完 | **停**：用业务语言交代现在什么能用了、什么证明它能用、这份 spec 归档到了哪一页、什么搁置了搁到哪里。这条分支就绪待集成——用户要现在就集成走 `$mmw:mmw-integrate`，要等别的并行分支一起再集成就先放着，worktree 在那之前别清理 |
+| 七步都做完 | **停**：用业务语言交代现在什么能用了、什么证明它能用、这份 spec 归档到了哪一页、什么搁置了搁到哪里。这条分支就绪待集成——用户要现在就集成走 `$mmw:mmw-integrate`，要等别的并行分支一起再集成就先放着，worktree 在那之前别清理 |
 | 第 4 步用户不同意推送 | **停**：问清他要改哪里，改完重走第 2 步 |
 | 第 5 步 `mmw wiki verify` 有一条不过 | **停**：报是哪一条、看到的是什么。**不要删本地文档**，也不要重推一遍指望它自己好 |
 | `mmw wiki ensure` 报 Wiki 还没初始化 | **停**：告诉用户去仓库的 `/wiki` 页建一页任意内容。没有 API 能替他建，不要试着绕 |

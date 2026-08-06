@@ -23,6 +23,8 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 从这段对话里已有的材料开始。用户给了引用（spec 路径、issue 编号或链接），就取回来把正文和评论整个读完。
 
+spec 或上游材料引用 prototype 时，先读对应的 prototype 资产索引：Wayfinder decision ticket 使用 `docs/prototypes/<产物目录>/issue-<编号>/README.md`；普通非 Wayfinder 任务可以使用 `docs/prototypes/<产物目录>/README.md`。索引应列出问题、逐轮用户结论、用户选中的路径、落选变体形成的约束、被提升为长期证据的路径；缺一项就回 `$mmw:mmw-prototype` 补齐。再只读本批 ticket 需要的选中产物和索引显式引用的走查或长期证据，不递归读取产物目录。落选变体只提供已被否定的约束；确需把该约束分配给 ticket 时，才读取索引显式引用的具体变体。
+
 ## 2. 找 prefactor
 
 **按 `$mmw:mmw-research` 的内部方向派一个 subagent**，题目是：这次要改的地方，有哪些可以先做 prefactor，让后面的实现更容易。「先把改动变容易，再做这个容易的改动。」
@@ -106,7 +108,10 @@ mmw issue create --title "<标题>" --body-file <正文文件> \
 
 ## Prototype assets
 
-- 指向这张 ticket 消费的 `docs/prototypes/<slug>/` 资产和对应决定；没有就省略本节。
+- Prototype 资产索引：对应的 `README.md` 精确路径。
+- 选中产物：这张 ticket 消费的精确路径。
+- 走查或长期证据：与这张 ticket 明确相关的精确路径。
+- 没有资产时写「无 prototype 资产」。
 
 ## Blocked by
 
@@ -114,7 +119,7 @@ mmw issue create --title "<标题>" --body-file <正文文件> \
 
 </issue-template>
 
-正文里不要写实现文件路径和代码片段，那些东西属于 plan。Prototype 资产路径是例外：它是长期出处，必须写进消费该决定的 ticket。Prototype 产出的一段代码若比散文更精确地编码决定（状态机、reducer、schema、类型形状），可以内联，并注明对应资产路径。只保留决定含量，不粘贴完整 demo。
+正文里不要写实现文件路径和代码片段，那些东西属于 plan。Prototype 资产索引、选中产物和明确相关证据的精确路径是例外：它们是长期出处，必须写进消费该决定的 ticket。Prototype 产出的一段代码若比散文更精确地编码决定（状态机、reducer、schema、类型形状），可以内联，并注明对应选中产物路径。只保留决定含量，不粘贴完整 demo。
 
 下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 

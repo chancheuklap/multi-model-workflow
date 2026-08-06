@@ -7,6 +7,7 @@
 这一步只读：
 
 - `gh issue view <map 编号>` 读 map 正文，不逐个打开 ticket。
+- 读取 map 正文的 `产物目录`。这个值在整个 effort 内保持不变。
 - 按需读取 map 分支上的文件。领域文档落点通过 `mmw domain path` 取得，再运行 `git show <map 分支>:<落点>`。
 - `mmw issue frontier <map 编号>` 查一次 frontier。它给出全部可认领的 ticket，一行一张。
 
@@ -18,7 +19,7 @@ frontier 为空时，不建立 decision ticket 任务。停止并让用户恢复
 
 先运行 `mmw issue claim <编号>` 完成认领。认领失败说明另一个会话已经占用，改取下一张。认领成功前不调查、不讨论、不修改文件。
 
-任务 slug 使用 `<map slug>-<ticket 短语>`。父分支必须是 map 分支；任务从 map 分支当前已提交的 HEAD 开始。
+任务 slug 使用 `<map slug>-<ticket 短语>`。父分支必须是 map 分支；任务从 map 分支当前已提交的 HEAD 开始。任务 slug 只识别任务，不决定产物落点。
 
 运行 `mmw task new <slug> "<用户原话>"` 创建任务 worktree；从 map 分支派生时增加 `--from <map 分支>`。命令返回绝对路径后，使用宿主的 `EnterWorktree` 进入该 worktree。
 
@@ -26,11 +27,21 @@ frontier 为空时，不建立 decision ticket 任务。停止并让用户恢复
 
 按需读取相关或已关闭 ticket 的完整正文，并调用 map `Notes` 点名的技能。
 
+先确认 ticket 原样继承了 map 的 `产物目录`，并且 `issue 子目录` 是这张 ticket 的 `issue-<编号>`。然后计算精确路径：
+
+```bash
+mmw artifact path prototype <产物目录> issue-<编号>
+mmw artifact path evidence <产物目录> issue-<编号>
+mmw artifact path scratch <产物目录> issue-<编号>
+```
+
+只把这三条命令的实际输出传给 prototype 或外部系统实测流程，不传 worktree slug 代替路径。
+
 | 标签 | 解法 |
 | --- | --- |
 | `wayfinder:grilling` | 跑 `/mmw-grilling`，把 `Question` 谈成双方确认的共同理解；提问方式全部由该技能决定 |
-| `wayfinder:prototype` | 跑 `/mmw-prototype` 做一个粗糙版本给用户走查；完整资产保存在 `docs/prototypes/<slug>/`，结案评论指向该路径 |
-| `wayfinder:research` | 按 `/mmw-research` 派一个 subagent，只调查这一个决定等待的事实；按 `/mmw-verifying-agent-output` 验证后再写入 ticket 评论 |
+| `wayfinder:prototype` | 跑 `/mmw-prototype` 做一个粗糙版本给用户走查；传入 prototype 产物路径和 scratch 路径的精确输出，结案评论指向 prototype 产物路径 |
+| `wayfinder:research` | 按 `/mmw-research` 派一个 subagent，只调查这一个决定等待的事实；按 `/mmw-verifying-agent-output` 验证后再写入 ticket 评论。如果调查升级为外部系统实测，向 `/mmw-prototype` 传入 evidence 产物路径和 scratch 路径的精确输出 |
 | `wayfinder:task` | agent 能完成就执行，并在结案评论记录结果事实；必须人动手时，简单操作给精确清单，包含多个步骤、值采集或 secret 落点的流程使用 `/wizard` 生成脚本 |
 
 HITL ticket 不许 agent 替用户回答。
@@ -43,7 +54,7 @@ HITL ticket 不许 agent 替用户回答。
 2. 往 map 的 `Decisions so far` 追加一行索引。修改前重新读取 map 最新正文；修改后再次读取，确认该行存在。
 3. 按 `/mmw-domain-modeling` 的完整 ADR 判据评估决定。三项判据全部成立时，先写 `draft-<ticket 编号>-<kebab-标题>.md`。ADR 目录通过 `mmw domain dirs` 取得。
 4. 把新术语写入拥有该概念的 leaf。领域文档落点通过 `mmw domain path` 取得。
-5. 把这次答案已经驱散的 fog of war 从 `Not yet specified` 移出。能精确表述的部分建立为新 ticket，再连接阻塞关系。
+5. 把这次答案已经驱散的 fog of war 从 `Not yet specified` 移出。能精确表述的部分建立为新 ticket。新 ticket 原样继承 map 的 `产物目录`；取得 tracker 编号后，回填自己的 `issue-<编号>` 子目录，再连接阻塞关系。
 6. 这次答案若证明某张 ticket 位于 destination 之外，关闭该 ticket，在 `Out of scope` 留一行，并在 `.out-of-scope/` 保存理由。若其他 ticket 已失效，同步更新或删除。
 
 修改 map 正文时只改本次涉及的行，不整份重写。

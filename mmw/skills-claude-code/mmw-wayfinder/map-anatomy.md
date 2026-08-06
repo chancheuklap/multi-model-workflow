@@ -17,6 +17,10 @@ map 是一份**索引**，不是一个仓库。它列出已经做出的决定，
 
 <走到这张 map 的尽头是什么样子——这个 effort 要找到的那份 spec、那个决定或那次改动。一两行；挑任何一张 ticket 之前先对准它。>
 
+## 产物目录
+
+<这个 effort 共用的单个安全路径段。map 创建后保持不变；decision ticket、任务 worktree 和 subagent 都不改它。>
+
 ## Notes
 
 <领域；每次接手都该查阅的技能；这个 effort 的固定偏好>
@@ -44,9 +48,25 @@ map 是一份**索引**，不是一个仓库。它列出已经做出的决定，
 ## Question
 
 <这张 ticket 要解掉的决定或调查>
+
+## 产物目录
+
+<原样继承 map 的「产物目录」值>
+
+## issue 子目录
+
+issue-<这张 ticket 的编号>
 ```
 
 答案不写进正文，它在解掉的时候作为结案评论记录。解 ticket 过程中产出的东西从 issue 链过去，不粘进正文。
+
+Decision ticket 的 `issue 子目录` 只由 tracker 编号决定。建 issue 后立即把 `issue-<编号>` 回填正文，再连阻塞边。Prototype、evidence 和 scratch 的精确落点分别用下列命令计算，不从任务分支或 worktree 目录推断：
+
+```bash
+mmw artifact path prototype <产物目录> issue-<编号>
+mmw artifact path evidence <产物目录> issue-<编号>
+mmw artifact path scratch <产物目录> issue-<编号>
+```
 
 ## 每张 ticket 的两条属性
 

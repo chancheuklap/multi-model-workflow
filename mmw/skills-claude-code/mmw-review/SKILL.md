@@ -40,11 +40,11 @@ description: 发起一轮审查——选视角、备材料、并行派审查者�
 
 | 任务名 | 这个视角的 Source |
 | --- | --- |
-| 设计内容审 | 这份 spec、完整 prototype 资产目录（`docs/prototypes/<slug>/`，含逐轮记录、证据和用户选中版本） |
-| 项目一致性审 | 这份 spec、完整 prototype 资产目录（`docs/prototypes/<slug>/`），另加领域文档（跑 `mmw domain path` 取落点；`map` 使用 Map 为本次范围登记的实际 leaf 路径）与这块地方的 ADR（跑 `mmw domain dirs` 取 `adr` 路径） |
-| 覆盖质量审 | spec（含回填后的 `## Cross-Plan Contract Anchors`）、完整 prototype 资产目录、全部 ticket、全部 plan |
-| 合规交叉审 | spec（含回填后的 `## Cross-Plan Contract Anchors`）、完整 prototype 资产目录、全部 ticket、全部 plan |
-| 对照终审 | spec、全部 plan、diff 范围、完整 prototype 资产目录，并点名其中用户选中的版本 |
+| 设计内容审 | 这份 spec、相关 prototype 资产索引、支撑 spec 决定的选中产物和对应走查或长期证据精确路径 |
+| 项目一致性审 | 这份 spec、相关 prototype 资产索引、本视角需要检查的选中产物和证据精确路径，另加领域文档（跑 `mmw domain path` 取落点；`map` 使用 Map 为本次范围登记的实际 leaf 路径）与这块地方的 ADR（跑 `mmw domain dirs` 取 `adr` 路径） |
+| 覆盖质量审 | spec（含回填后的 `## Cross-Plan Contract Anchors`）、相关 prototype 资产索引、全部 ticket、全部 plan，以及被这些 plan 消费的选中产物和对应走查或长期证据精确路径 |
+| 合规交叉审 | spec（含回填后的 `## Cross-Plan Contract Anchors`）、相关 prototype 资产索引、全部 ticket、全部 plan，以及这些 plan 引用的选中产物和证据精确路径 |
+| 对照终审 | spec、全部 plan、diff 范围、相关 prototype 资产索引，以及实现应覆盖的选中产物和对应走查或长期证据精确路径 |
 | 独立终审 | **只有 diff 范围** |
 | 编码规范审 | diff 范围、仓库自己写下来的编码标准文件；仓库没有就明写「本仓库没有写下来的标准」 |
 | 合并集成审 | 各分支的 spec、集成后全貌的 diff 范围、`/mmw-integrate` 第 3 步的取舍记录 |
@@ -52,6 +52,8 @@ description: 发起一轮审查——选视角、备材料、并行派审查者�
 spec 在哪按这个顺序找：这个分支上的 `docs/specs/<slug>/<slug>.md`；提交信息里引用的 issue（`gh issue view <编号>`）；用户当参数传进来的路径。都找不到就问用户。他说没有，就只保留不要 spec 的两个视角——独立终审和编码规范审——其余视角全部撤掉，并在报告里说明。
 
 任务没有 prototype 资产时，在相关视角的 task「读」栏明写「无 prototype 资产」，不用一个空路径代替。
+
+Prototype 资产索引是对应 decision ticket 子目录的 `README.md`，路径形如 `docs/prototypes/<产物目录>/issue-<编号>/README.md`；普通非 Wayfinder 任务可以没有 issue 子目录。索引应列出问题、逐轮用户结论、用户选中的路径、落选变体形成的约束、被提升为长期证据的路径；缺一项就作为材料缺失处理。先读索引，再按本视角只提供精确路径。不要把整个产物目录、无关截图、runs 或过程输出放进 task，也不要递归读取目录。完整 UI 变体集保留在 prototype 资产中，作为 primary source；落选变体只提供已被否定的约束，本视角确需验证该约束时，才把索引显式引用的具体变体路径加入 task。
 
 **路径一律是被审仓库里的路径。** 派发前逐个确认它们真的存在，缺了当场报错。
 

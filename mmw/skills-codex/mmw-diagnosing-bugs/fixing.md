@@ -14,7 +14,7 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
 有 correct seam 的话，按顺序做三件事：
 
-1. **先把工作区清干净。** grep `[DEBUG-` 前缀，删掉 Phase 4 埋点。在 worktree 根执行 `git status --porcelain`；有输出则先清理，再派发。
+1. **先把工作区清干净。** grep `[DEBUG-` 前缀，删掉 Phase 4 埋点。埋点输出仍留在任务 scratch，供 Phase 6 统一处置。在 worktree 根执行 `git status --porcelain`；有输出则先清理，再派发。
 2. 按 **四栏表**（目标 / 读 / 约束 / 验收）填写后启动 `worker`：
 
    | 栏 | 本角色填写 |
@@ -45,10 +45,11 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 - [ ] 原始的复现不再复现（重跑 Phase 1 的 loop）
 - [ ] 回归测试通过（或者没有 correct seam 这件事已经写下来）
 - [ ] `[DEBUG-...]` 埋点全部不在了（grep 那个前缀确认）
-- [ ] 一次性 harness 已删除（或者挪到一个明确标出来的调试位置）
+- [ ] 只保留能长期防回归的测试，以及测试必需、已经脱敏、无法低成本重建的最小 fixture
+- [ ] 其余 HAR、trace、日志转储、core dump、录屏、一次性 harness、临时埋点输出和过程材料已经从任务 scratch 删除
 - [ ] 结果证明成立的那条假设写进了 `worker` 那次提交的信息里，或者由你追加一条评论
 
-五项全部通过后，集成结果：
+六项全部通过后，集成结果：
 
 本技能规定的验收全部通过后，运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。命令成功后，结果提交才算进入当前任务分支。
 
@@ -58,7 +59,7 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
 | 情况 | 下一步 |
 | --- | --- |
-| `worker` 的修复验收通过、Phase 6 五条全过、结果已集成 | **停**：用业务语言报什么坏了、根因是什么、修成什么样、怎么证明它好了。结果 worktree 由宿主管理，不在这里另行清理 |
+| `worker` 的修复验收通过、Phase 6 六条全过、结果已集成 | **停**：用业务语言报什么坏了、根因是什么、修成什么样、怎么证明它好了。结果 worktree 由宿主管理，不在这里另行清理 |
 | 复盘的答案牵涉架构改动（没有好的测试 seam、调用方互相缠绕、藏着的耦合） | **移交**：`$mmw:mmw-improve-codebase-architecture`，把具体情况带过去当它的扫描方向 |
 | 找不到 correct seam | **移交**：`$mmw:mmw-improve-codebase-architecture`，把「找不到 correct seam」这件事带过去当它的扫描方向 |
 | `worker` 卡在 bug 与代码互相矛盾上 | **停**：把矛盾交给用户，不要换一个 `worker` 再派一遍 |

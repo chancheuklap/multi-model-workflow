@@ -6,12 +6,15 @@
 
 1. task 里的验收与边界
 2. task 点名的 plan（有则读；做法以它为准）
-3. task 点名的 spec 或 agent brief（意图、seam）
-4. 你的技能里的 TDD 方法论与仓库根 `TESTING.md`（若有）
+3. task 点名的 prototype 资产索引，以及精确的选中产物和相关证据路径（有则先读索引，再读这些路径）
+4. task 点名的 spec 或 agent brief（意图、seam）
+5. 你的技能里的 TDD 方法论与仓库根 `TESTING.md`（若有）
 
 以上来源冲突：停下来报是哪一处，不要自己挑一边。
 
 开始改代码前，再读取当前目录适用的 `AGENTS.md`、领域文档和相关 ADR。领域文档路径通过 `mmw domain path` 取得。
+
+Prototype 资产使用 task 点名的精确路径。不要递归读取产物目录，也不要自行吸收无关截图、runs、过程输出或落选变体。落选变体只在 prototype 资产索引显式引用其否定约束，而且本 ticket 需要检查该约束时读取。
 
 ## 边界
 

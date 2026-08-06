@@ -36,7 +36,7 @@ description: 做一个能跑的粗糙版本，回答一个光靠讨论定不下�
 
 判据是**用户要不要手动改变状态才判得出来**。要改（先退款再取消，看它拦不拦得住），走逻辑 HTML；不用改（这份订单快照的字段够不够用），做最小脚本。
 
-这条 branch 照样守本技能其余各节的通用规矩、照样落 `docs/prototypes/<slug>/`、照样逐轮记进 `README.md`、照样要用户走查过才算数。它省掉的只是那层壳。
+这条 branch 照样守本技能其余各节的通用规矩、照样落在 prototype 产物路径、照样逐轮记进 `README.md`、照样要用户走查过才算数。它省掉的只是那层壳。
 
 产物放 `logic/` 目录，跟逻辑 HTML 那条 branch 同一个位置。
 
@@ -50,17 +50,28 @@ description: 做一个能跑的粗糙版本，回答一个光靠讨论定不下�
 
 ## 落在哪
 
-```
-docs/prototypes/<slug>/
-├── README.md              逐轮记录
-├── logic/                 逻辑原型源码
-├── mockup/                界面变体
-└── runs/<三位轮次>/        这一轮的截图、运行输出等证据
+调用方必须给出产物目录。从 `/mmw-wayfinder` 来的任务还必须给出当前 decision ticket 的 `issue-<编号>` 子目录。普通非 Wayfinder 任务使用任务 slug 作为产物目录，不加 issue 子目录。
+
+开始之前运行对应命令，把输出分别记为 prototype 产物路径、evidence 产物路径和 scratch 路径：
+
+```bash
+mmw artifact path prototype <产物目录> [issue-<编号>]
+mmw artifact path evidence <产物目录> [issue-<编号>]
+mmw artifact path scratch <产物目录> [issue-<编号>]
 ```
 
-`<slug>` 取当前 worktree 的 slug（形状与规则见 `/mmw-start` 第 2 步）。第 2 轮的证据放 `runs/002/`。
+前三条设计 branch 的持久目录只保存设计合同需要的东西：
 
-**[EVIDENCE.md](EVIDENCE.md) 那条 branch 落点不同**，在 `docs/evidence/<slug>/`。它仍然要先确认任务 worktree，并在原路径迭代；文件形状、运行记录和完成判据只按 [EVIDENCE.md](EVIDENCE.md)，不套用前三条设计 branch 的 `README.md` 和用户走查合同。
+```
+<prototype 产物路径>/
+├── README.md              本轮问题、逐轮用户走查结论、用户选中的路径
+├── logic/                 可运行逻辑 prototype 和确认过的可移植逻辑
+└── mockup/                完整 UI 变体集
+```
+
+过程截图、DOM、console、录屏、临时探测输出和生成中间物默认写入 scratch 路径，不进 Git。只有直接支撑长期决定、且无法用持久 prototype 本身低成本重建的最小证据，才提升到 prototype 产物路径或 evidence 产物路径。每份提升的证据都要在 `README.md` 或结论台账里逐条引用。
+
+**[EVIDENCE.md](EVIDENCE.md) 那条 branch 使用 evidence 产物路径和 scratch 路径**。它仍然要先确认任务 worktree，并在原路径迭代；文件形状、运行记录和完成判据只按 [EVIDENCE.md](EVIDENCE.md)，不套用前三条设计 branch 的 `README.md` 和用户走查合同。
 
 开始写原型之前，先确认当前任务已有正确的 slug 和任务 worktree。没有时按下面的宿主动作建立任务 worktree：
 
@@ -68,9 +79,9 @@ docs/prototypes/<slug>/
 
 **原地迭代，不复制版本目录。** 下一轮继续改同一份源码，保留已经确认过的状态、交互和文案。
 
-**这个目录不随 spec 一起删。** 它是逻辑决定和视觉合同的 primary source。正式实现只吸收用户已经确认的决定；逻辑 branch 还会移入其中可移植的纯逻辑模块。
+**Prototype 产物路径不随 spec 一起删。** 它是逻辑决定和视觉合同的 primary source。正式实现只吸收用户已经确认的决定；逻辑 branch 还会移入其中可移植的纯逻辑模块。Scratch 路径随任务清理。
 
-前三条设计 branch 的 `README.md` 每轮追加一节，记五件事：这一轮要回答的问题、用户反馈或者本轮假设、基于上一轮实际改了什么、怎么验的和结果是什么、这一轮的结论。结论只有三个词：
+前三条设计 branch 的 `README.md` 顶部写本轮问题。每轮只追加用户走查反馈、结论和用户选中的路径。UI 走查还要列出所有落选或 `superseded` 变体的路径，以及它们形成的明确否定约束；没有则写「无」。提升了必要证据时，在对应轮次逐条引用其持久路径。修改过程、验证过程和未提升的材料留在 scratch。结论只有三个词：
 
 | 结论 | 什么意思 |
 | --- | --- |
@@ -78,7 +89,7 @@ docs/prototypes/<slug>/
 | `accepted` | 用户明确接受了，写清楚选中的是哪几份产物 |
 | `superseded` | 验证证明这个方向本身不成立 |
 
-前三条设计 branch 每轮走查完立刻提交：这一轮的源码、`README.md`、证据文件放同一个提交，不夹带无关文件。
+前三条设计 branch 每轮走查完立刻提交：这一轮的可运行源码、`README.md` 和确实提升且已引用的证据放同一个提交，不夹带 scratch 或无关文件。
 
 ## 走查是人工审批关卡
 
