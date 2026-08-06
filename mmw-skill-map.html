@@ -20,6 +20,7 @@
     --h-wfd: #0F766E;
     --h-tri: #0369A1;
     --h-ica: #7E22CE;
+    --h-res: #4338CA;
     --h-spine: #1F2937;
     --h-rest: #8A9490;
 
@@ -45,6 +46,7 @@
       --h-wfd: #4FB3A6;
       --h-tri: #56A9DA;
       --h-ica: #B98AE8;
+      --h-res: #818CF8;
       --h-spine: #C3CBD3;
       --h-rest: #7E8A86;
     }
@@ -66,6 +68,7 @@
     --h-wfd: #4FB3A6;
     --h-tri: #56A9DA;
     --h-ica: #B98AE8;
+    --h-res: #818CF8;
     --h-spine: #C3CBD3;
     --h-rest: #7E8A86;
   }
@@ -85,6 +88,7 @@
     --h-wfd: #0F766E;
     --h-tri: #0369A1;
     --h-ica: #7E22CE;
+    --h-res: #4338CA;
     --h-spine: #1F2937;
     --h-rest: #8A9490;
   }
@@ -223,6 +227,7 @@
   .hue.wfd { color: var(--h-wfd); }
   .hue.tri { color: var(--h-tri); }
   .hue.ica { color: var(--h-ica); }
+  .hue.res { color: var(--h-res); }
   .hue.spine { color: var(--h-spine); }
   .hue.judge { color: var(--h-judge); }
   .hue.upstream { color: var(--accent); }
@@ -445,6 +450,7 @@
   <span class="hue wfd"><i></i>mmw-wayfinder</span>
   <span class="hue tri"><i></i>mmw-triage</span>
   <span class="hue ica"><i></i>mmw-improve-codebase-architecture</span>
+  <span class="hue res"><i></i>mmw-research</span>
   <span class="hue judge"><i></i>起审与审查方法论</span>
   <span class="hue own"><i></i>启动句物化与验证</span>
   <span class="hue rest"><i></i>其余单条连线</span>
@@ -525,7 +531,7 @@ end
 
 subgraph SOLO["独立使用"]
   direction TB
-  res[["<b>mmw-research</b><br/>· start、grilling、wayfinder、spec、tickets、triage、架构改进和 prototype 都会调用<br/>· 内部与外部两个方向，一个问题一个 subagent<br/>· 主 agent 过滤、验证、综合后询问用户是否保存<br/>· 保存与下游引用分开决定；内部展开见第三张图"]]
+  res[["<b>mmw-research</b>"]]
   hof["<b>handoff</b>"]
   wfa["<b>writing-for-agents</b>"]
   wiz["<b>wizard</b><br/>复杂人工操作的可审查向导"]
@@ -538,6 +544,7 @@ trk[/"<b>issue tracker</b><br/>· map、spec、ticket 三层"/]
 oos[/"<b>.out-of-scope/</b><br/>· 一个概念一个文件"/]
 pta[/"<b>持久 prototype / evidence 资产</b><br/>· Wayfinder 共用 map 的产物目录<br/>· decision ticket 使用 issue 子目录<br/>· 索引列出选中产物与长期证据<br/>· HTML 外壳与全部界面变体继续留作 primary source"/]
 ina[/"<b>用户选择保存的 research</b><br/>· 一个 research 主题一个子目录<br/>· README 是 research 索引<br/>· 下游只读点名的索引与精确文件<br/>· 保存不代表下游必须引用"/]
+rfacts["<b>验证后的 research</b><br/>直接交回当前调用方；<br/>是否保存不影响结果成立"]
 tmp[/"<b>Git 忽略的 scratch</b><br/>· 截图、DOM、console、录屏与中间输出<br/>· 只提升长期决定所需的最小证据<br/>· 收尾清理当前任务自己的内容"/]
 wik[/"<b>GitHub Wiki</b><br/>· 此后是这份 spec 的<br/>  唯一事实来源"/]
 rvr[("<b>mmw-reviewer</b><br/>· 审查方法论单源<br/>· 共享纪律加八个视角<br/>· 审查者进门读它，主 agent 不读")]
@@ -603,7 +610,7 @@ ica ==>|"术语当场更新 leaf<br/>ADR 按三项判据决定"| dmo
 ica ==>|"grilling 谈定之后回到它，由它移交"| tsp
 
 tdd -.->|"seam 的权威定义"| cbd
-res -->|"验证后的事实直接交回<br/>用户决定是否保存"| gri
+res -->|"过滤、验证与综合"| rfacts
 gri ==>|"某个决定必须看见实物<br/>才能判断"| pro
 gri -.->|"需要另一位知识持有者回答"| tq
 pro -->|"逐轮迭代，走查过的产物留在仓库里"| pta
@@ -649,6 +656,12 @@ pro -->|"过程材料默认不进 Git"| tmp
 clo -->|"清理当前任务过程材料"| tmp
 res -->|"用户选择保存"| ina
 ina -.->|"索引与精确路径"| tsp
+gri -.->|"事实问题"| res
+tsp -.->|"现状与影响面"| res
+ttk -.->|"prefactor"| res
+tri -.->|"实现与历史"| res
+ica -.->|"热点与历史"| res
+pro -.->|"可查证的问题"| res
 
 classDef user fill:#FBF2E4,stroke:#8A9490,stroke-width:1.5px,color:#2B2419;
 classDef model fill:#E4EDF0,stroke:#8A9490,stroke-width:1.5px,color:#14282C;
@@ -666,13 +679,14 @@ classDef hCtx fill:#FFFFFF,stroke:#4D7C0F,stroke-width:2.2px,color:#22300B;
 classDef hWfd fill:#E4EDF0,stroke:#0F766E,stroke-width:2.4px,color:#14282C;
 classDef hTri fill:#E4EDF0,stroke:#0369A1,stroke-width:2.4px,color:#14282C;
 classDef hIca fill:#E4EDF0,stroke:#7E22CE,stroke-width:2.4px,color:#14282C;
+classDef hRes fill:#E4EDF0,stroke:#4338CA,stroke-width:2.6px,color:#1E1B4B;
 
 class wfa,hof,wiz,tq,wwt user;
-class cbd,tdd,crv,dbg,imp,pro,res,ttk,tsp,rvr,pln,pnr,clo,intg,rel model;
+class cbd,tdd,crv,dbg,imp,pro,ttk,tsp,rvr,pln,pnr,clo,intg,rel model;
 class trk,oos,pta,ina,tmp,wik art;
 class src,dsp,vfy,cdx,cwt hOwn;
 class cl1,cl2,cl3,cl4,cl5,cl6,cl7,cl8 hSetCli;
-class shp term;
+class shp,rfacts term;
 class ups,mmwc art;
 class set hSetCli;
 class cfg hSetArt;
@@ -683,6 +697,7 @@ class ctx hCtx;
 class wfd hWfd;
 class tri hTri;
 class ica hIca;
+class res hRes;
 class phb term;
 linkStyle 0 stroke:#A16207,color:#A16207,stroke-width:2.2px;
 linkStyle 1 stroke:#A16207,color:#A16207,stroke-width:1.8px;
@@ -765,6 +780,7 @@ linkStyle 81,82,83,84 stroke:#BE185D,color:#BE185D,stroke-width:1.8px;
 linkStyle 85 stroke:#A16207,color:#A16207,stroke-width:1.8px;
 linkStyle 86 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
 linkStyle 87 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
+linkStyle 42,52,74,95,97,98,99,100,101,102 stroke:#4338CA,color:#4338CA,stroke-width:2px;
 </pre>
 </div>
 </div>
