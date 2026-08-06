@@ -433,7 +433,7 @@
 </header>
 
 <div class="contract-strip" aria-label="版本与方法合同">
-  <div><strong>MMW 0.10.2</strong></div>
+  <div><strong>MMW 0.10.3</strong></div>
   <div><strong>上游基线 Matt Pocock Skills 1.2.2</strong></div>
   <div>MMW 技能源保留 Matt 的方法、步骤、解释和完成判据，并接入 MMW 的 worktree、tracker、报告验证、领域文档、人工审批关卡和宿主承载。</div>
 </div>
@@ -502,7 +502,7 @@ subgraph MAIN["主干 · 从想法到落地"]
   clo["<b>mmw-closing</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· spec 与 plan 转成 Wiki 一页<br/>· 推送前给用户看<br/>· verify 通过后归档文档并清理任务过程材料"]
   intg[["<b>mmw-integrate</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 验证结果分支、HEAD 与基点<br/>· 按合同依赖排序<br/>· 合入当前任务分支"]]
   rel["<b>mmw-release</b><br/>· 出包前 HEAD 必须等于终审提交<br/>· 主 agent 驱动正式出包循环<br/>· 核对所有包的 source commit<br/>· 用户实测通过后收尾"]
-  crv[["<b>mmw-review</b><br/>· 六道审的编排，每道只运行一轮<br/>· 按视角传入需要的索引与精确路径<br/>· findings 逐条判定<br/>· 采信项修复后由主 agent 验证完成"]]
+  crv[["<b>mmw-review</b><br/>· 六道审的编排，每道只运行一轮<br/>· ⑤ 与 ⑥ 是互斥终审<br/>· 按视角传入需要的索引与精确路径<br/>· findings 逐条判定<br/>· 采信项修复后由主 agent 验证完成"]]
   shp((("<b>提交到<br/>当前分支</b>")))
 end
 
@@ -582,7 +582,7 @@ ttk ==>|"全部 tracer bullet ticket<br/>各写一份 plan"| pln
 imp ==>|"seam 由 spec 钉死<br/>走 red 到 green"| tdd
 tdd ==>|"重构不在这个循环里，留到终审"| crv
 imp ==>|"全部 ticket 落地、合同门过了<br/>发起 ⑤ final 终审"| crv
-crv ==>|"③ 验收与 ⑤ 终审的采信项落进提交<br/>其余道的 findings 回各自调用方"| shp
+crv ==>|"③ 验收、⑤ 或 ⑥ 的采信项落进提交<br/>其余道的 findings 回各自调用方"| shp
 imp ==>|"终审过了，采信项都修完"| clo
 clo -->|"推送前把 diff 给用户看"| wik
 trk -.->|"spec 找不到时<br/>从提交信息引的 issue 取"| crv
@@ -638,7 +638,7 @@ dbg ==>|"修复验收过了<br/>发起 ⑤ final 终审"| crv
 vfy -.->|"派前查方法论装没装"| cl7
 cfg -.->|"skill-path 给审查者与 planner 指方法论路径"| cl6
 clo ==>|"多条已完成任务分支"| intg
-intg ==>|"需要 ⑥ 合并集成审"| crv
+intg ==>|"⑥ 是集成结果的终审<br/>完成后不再发起 ⑤"| crv
 imp ==>|"终审通过且产品需要出包"| rel
 rel ==>|"安装包由用户实测通过"| clo
 intg -.->|"mmw result verify → 主 agent 验收 → integrate"| cl1

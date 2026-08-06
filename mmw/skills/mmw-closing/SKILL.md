@@ -1,6 +1,6 @@
 ---
 name: mmw-closing
-description: 完成 spec 任务的归档和交回。用于用户要求收尾，或 final 终审通过且无需出包，或安装包实测通过。
+description: 完成 spec 任务的归档和交回。用于用户要求收尾，或终审提交已登记且无需出包，或安装包实测通过。
 ---
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。

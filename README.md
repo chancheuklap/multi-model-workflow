@@ -8,7 +8,7 @@ MMW 的用户界面是技能。日常工作的统一入口是 `$mmw:mmw-start`�
 
 | 项目 | 数量 | 结论 |
 | --- | --- | --- |
-| 当前版本 | 0.10.2 | 对齐 Matt Pocock Skills 1.2.2，并保留 MMW 的正式工作流合同 |
+| 当前版本 | 0.10.3 | 对齐 Matt Pocock Skills 1.2.2，并保留 MMW 的正式工作流合同 |
 | 日常工作流入口 | 1 个 | `$mmw:mmw-start` |
 | Codex 技能调用方式 | 2 种 | 显式调用和隐式调用 |
 | `mmw-start` 识别的输入情况 | 15 种 | 恢复当前任务，或者移交 10 个下游技能 |
@@ -101,6 +101,8 @@ prototype 同时体现这两层合同。它遵循上游的单文件 HTML、自�
 0.10.1 补齐了 prototype 资产在 `planner` 与 `reviewer-gpt` 中的读取接缝。当前合同进一步把读取范围收紧到 prototype 资产索引、用户选中的产物和明确相关的走查证据，避免把无关过程材料传给下游。
 
 0.10.2 扩展 `wait-what`：默认生成与要解释的内容放在一起的完整 HTML，并由 Codex Sites 保存版本。
+
+0.10.3 统一 active skill 的触发描述和文档结构，明确 prototype、research、evidence、scratch 与 review 的资产合同，并校正 Research、plan、审查和 tracer bullet ticket 的职责边界。⑤ final 终审与 ⑥ 合并集成审是互斥终审；多分支集成通过 ⑥ 后不再发起 ⑤。
 
 ## 用户使用的三个阶段
 
