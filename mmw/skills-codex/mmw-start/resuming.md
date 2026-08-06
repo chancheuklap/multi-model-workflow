@@ -23,8 +23,7 @@
 | ticket 有没有拆 | `mmw issue children <spec issue 编号>` 有没有输出 |
 | plan 写了没有 | `docs/plans/<slug>/` 在不在，里面的份数跟 ticket 数对不对得上 |
 | 合同锚点回填了没有 | spec 的 `## Cross-Plan Contract Anchors` 一节在不在、精确字段补实了没有 |
-| plan 审过没过 | 逐张按 `$mmw:mmw-to-plan` 第 8 步验证有效过审凭据；`.reviews/` 的本机记录只用于定位审查历史，不替代有效过审凭据 |
-| plan 审过后 ticket 状态齐不齐 | 重新运行 `mmw issue children <spec issue 编号>` 读取全部子 issue，再逐张读取评论和标签。全部 open tracer bullet ticket 都有有效过审凭据和 `ready-for-agent` 才算齐 |
+| plan 审过没过 | 逐张读取 open tracer bullet ticket；全部带 `ready-for-agent` 才算通过并完成 tracker 回填 |
 | 做到第几张 ticket | `mmw issue children <spec issue 编号>`：closed 的是做完的，open 且有认领人的是正在做的 |
 | 终审有没有跑 | `.reviews/` 里有没有终审报告 |
 | 有没有归档 | `mmw wiki ensure` 取到副本，看 `Spec-<slug>.md` 在不在 |
@@ -33,7 +32,7 @@
 
 spec 文件已经提交、issue 却还没发布，是个中间状态：用户可能刚点完头，也可能还没看过。这时按没过这道关卡处理，重新给他看一次。
 
-全部 open tracer bullet ticket 都有有效过审凭据，只有 `ready-for-agent` 不齐时，回 `$mmw:mmw-to-plan` 第 8 步收敛 tracker 状态。任何 ticket 的有效过审凭据缺失或过期时，回 `$mmw:mmw-to-plan`；它会移除不符合合同的旧标签，并重新发起 ② plan 审。全部 open ticket 的有效过审凭据和标签齐全后，才进入 `$mmw:mmw-implement`。
+有 open tracer bullet ticket 缺少 `ready-for-agent` 时，回 `$mmw:mmw-to-plan`。全部齐全后，才进入 `$mmw:mmw-implement`。
 
 ## 查完之后
 

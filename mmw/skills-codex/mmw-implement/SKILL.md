@@ -21,17 +21,17 @@ description: 把定好的需求实现成代码，一张 ticket 派一个 `worker
 | spec 分支写明了测试 seam | 读 spec `## Testing Decisions` 一节里的 seam 清单表 | 回 `$mmw:mmw-to-spec` 第 3 步补 |
 | agent brief 分支的行为合同完整 | 原 issue 的 agent brief 有当前行为、目标行为、可独立验证的 `Acceptance criteria`、范围边界和且仅一个 `Test seam`；整项工作可以作为一张 ticket 独立验收，而且没有未决设计取舍 | 缺字段就回 `$mmw:mmw-triage` 补；需要多张 ticket、多个 seam 或设计取舍就转 `$mmw:mmw-to-spec` |
 | ticket 存在 | spec 分支：`mmw issue children <spec issue 编号>` 有输出；agent brief 分支：带 agent brief 的原 issue 就是这张 ticket | spec 分支先跑 `$mmw:mmw-to-tickets`；agent brief 分支回 `$mmw:mmw-triage` 补齐或修正 issue |
-| 这张 ticket 的 plan 已提交 | ticket 正文 `## Plan` 指向的文件存在 | 先跑 `$mmw:mmw-to-plan`。走 agent brief 那条路的需求没有 plan 这一层，这一行不适用 |
+| 这张 ticket 的 plan 已提交 | `git cat-file -e "HEAD:<plan 路径>"` 成功 | 先跑 `$mmw:mmw-to-plan`。走 agent brief 那条路的需求没有 plan 这一层，这一行不适用 |
 
 ### 2. 取下一张 ticket
 
-spec 分支先重新读取全部子 issue，再逐张读取 open ticket 的评论和标签。任何 open tracer bullet ticket 缺少 `$mmw:mmw-to-plan` 第 8 步定义的有效过审凭据或 `ready-for-agent` 时，回 `$mmw:mmw-to-plan`。两项齐全后运行：
+spec 分支先重新读取全部子 issue。任何 open tracer bullet ticket 缺少 `ready-for-agent` 时，回 `$mmw:mmw-to-plan`。全部齐全后运行：
 
 ```bash
 mmw issue frontier <spec issue 编号> --label ready-for-agent
 ```
 
-它给出阻塞全部关闭、没人认领、带这个标签的那些，按 `$mmw:mmw-to-tickets` 的发布顺序排。**取第一行那张。** 认领前，用 `gh issue view <编号> --json state,assignees,labels,comments` 确认它仍然 open、无人认领并带 `ready-for-agent`，再按 `$mmw:mmw-to-plan` 第 8 步重新验证所选 ticket 的有效过审凭据。凭据或标签无效时回 `$mmw:mmw-to-plan`；plan 文件或评论里的固定标记单独存在不能证明 ② plan 审通过。
+它给出阻塞全部关闭、没人认领、带这个标签的那些，按 `$mmw:mmw-to-tickets` 的发布顺序排。**取第一行那张。** 认领前，用 `gh issue view <编号> --json state,assignees,labels` 确认它仍然 open、无人认领并带 `ready-for-agent`。
 
 agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一张 ticket。用 `gh issue view <编号> --json state,assignees,labels` 确认它仍然 open、无人认领并带 `ready-for-agent`。
 
