@@ -9,25 +9,23 @@ description: deep module 的共同词汇与判据：module、interface、seam、
 
 ## 词汇表
 
-这些词原样用。不要换成「组件」「服务」「API」或「边界」。
+这些词原样用——不要换成「组件」「服务」「API」「边界」。用词一致本身就是全部意义所在。
 
-**module** —— 任何有 interface 和 implementation 的东西。规模不限：一个函数、一个类、一个包或一片跨层切片都算。不要用：单元、组件、服务。
+**module** —— 任何有 interface 和 implementation 的东西。刻意不限规模：一个函数、一个类、一个包、一片跨层的切片都算。*不要用*：单元、组件、服务。
 
-**interface** —— 调用方正确使用 module 必须知道的全部：类型签名、不变量、顺序约束、错误模式、必需配置和性能特征。不要用：API、签名；两者只覆盖类型层面。
+**interface** —— 调用方要正确使用这个 module 必须知道的全部：类型签名，还有不变量、顺序约束、错误模式、必需的配置、性能特征。*不要用*：API、签名（太窄——它们只指类型层面那一面）。
 
-**implementation** —— module 内部的代码。谈 seam 时使用 adapter，其余时候使用 implementation。
+**implementation** —— module 内部的东西，它的代码本体。跟 **adapter** 是两回事：一个东西可以是小 adapter 配大 implementation（一个 Postgres 仓储），也可以是大 adapter 配小 implementation（一个内存假实现）。谈 seam 的时候用 adapter，其余时候用 implementation。
 
-implementation 与 adapter 描述不同维度。Postgres 仓储可以是小 adapter 加大 implementation；内存假实现可以是大 adapter 加小 implementation。
+**depth** —— interface 上的 leverage：调用方（或测试）每学一个单位的 interface，能驱动多少行为。大量行为坐在一个小 interface 后面就是 **deep**，interface 复杂得几乎跟 implementation 一样就是 **shallow**。
 
-**depth** —— interface 上的 leverage。大量行为位于小 interface 后面是 **deep**；interface 几乎与 implementation 一样复杂是 **shallow**。
+**seam**（Michael Feathers 的说法）—— 能在别处改变行为而不用改动这个地方的位置；也就是一个 module 的 interface 所在的*位置*。seam 放哪是一个独立的设计决定，跟 seam 后面装什么是两件事。*不要用*：边界（跟 DDD 的 bounded context 重名）。
 
-**seam** —— Michael Feathers 所说的可替换行为位置，也就是 module 的 interface 所在位置。seam 的位置与其后内容是两个设计决定。不要用：边界；该词与 DDD 的 bounded context 重名。
+**adapter** —— 在一条 seam 上满足某个 interface 的具体东西。它描述的是*角色*（填哪个槽），不是实质（里面装什么）。
 
-**adapter** —— 在 seam 上满足某个 interface 的具体东西。它描述角色，不描述内部实质。
+**leverage** —— 调用方从 depth 里拿到的东西：每学一个单位的 interface 换来更多能力。一份 implementation 在 N 个调用点和 M 个测试上回本。
 
-**leverage** —— 调用方从 depth 获得的能力：每学习一个单位的 interface，可以驱动更多行为；一份 implementation 在多个调用点和测试上复用。
-
-**locality** —— 维护者从 depth 获得的集中性：改动、缺陷、知识和验证位于一处；修一次即可覆盖全部调用方。
+**locality** —— 维护者从 depth 里拿到的东西：改动、缺陷、知识和验证都集中在一处，不散到各个调用方。修一次，处处修好。
 
 ## deep 与 shallow
 
@@ -61,8 +59,7 @@ implementation 与 adapter 描述不同维度。Postgres 仓储可以是小 adap
 
 ## 原则
 
-- **depth 是 interface 的属性，不是 implementation 的属性。** deep module 内部可以由小的、可 mock、可替换的零件组成；这些零件不属于 interface。
-- **内部 seam 和外部 seam 可以同时存在。** 内部 seam 是私有的，只供 module 自己的测试使用；外部 seam 位于 interface 上。
+- **depth 是 interface 的属性，不是 implementation 的属性。** 一个 deep module 内部完全可以由小的、可 mock 的、可替换的零件组成——它们只是不属于 interface。一个 module 可以有**内部 seam**（私有的，只给它自己的测试用），也有 interface 上那条**外部 seam**。
 - **deletion test。** 设想把这个 module 删掉。复杂度跟着消失，它就是个转手的。复杂度在 N 个调用方身上重新冒出来，它就在挣自己的饭钱。
 - **interface 就是测试面。** 调用方和测试跨的是同一条 seam。你想测到 interface *后面*去，多半是这个 module 形状不对。
 - **一个 adapter 是假 seam，两个才是真 seam。** 没有东西真的在这条线两侧变化，就不要开这条 seam。

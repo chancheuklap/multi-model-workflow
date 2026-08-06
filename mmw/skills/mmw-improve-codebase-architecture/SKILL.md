@@ -7,19 +7,16 @@ description: 扫一遍代码库找可以做深的模块，出一份候选报告�
 
 **本技能不改代码。** 它的产物是一份候选报告，加一个被用户选中的方向。真正的改动走后面的主干：谈清楚、写 spec、派 `worker`。
 
-设计时完整应用 `/mmw-codebase-design`：
+设计词汇一律用 `/mmw-codebase-design` 定的那一套（module、interface、implementation、depth、deep、shallow、seam、adapter、leverage、locality），连同它的判据——deletion test、interface 就是测试面、一个 adapter 是假 seam 两个才是真 seam。每条建议都用这些词的原词，不要漂成「组件」「服务」「API」「边界」。
 
-- 使用 module、interface、implementation、depth、deep、shallow、seam、adapter、leverage 和 locality。
-- 使用 deletion test、interface 就是测试面、一个 adapter 是假 seam 两个才是真 seam 等判据。
-- 每条建议都使用这些原词，不改写成「组件」「服务」「API」或「边界」。
+## 取上下文
 
-## 先读领域文档
+| 材料 | 取得方式 | 读取内容 |
+| --- | --- | --- |
+| 领域文档 | **先读领域文档**：落点跑 `mmw domain path` 取；三种返回按 `/mmw-domain-modeling` 的「读领域文档」处理 | **好 seam 的名字**；不要停下来建 |
+| ADR | 读你要碰的那一片的 ADR | ADR 里已经拍过板的决定，这次不重新拿出来吵 |
 
-**先读领域文档**：落点跑 `mmw domain path` 取，三种返回怎么读见 `/mmw-domain-modeling` 的「读领域文档」一节，不要停下来建。
-
-再读你要碰的那一片的 ADR。ADR 里已经拍过板的决定，这次不重新拿出来吵。
-
-领域文档给的是**好 seam 的名字**。相关 leaf 里定义了「订单」，你就说「订单受理这个 module」，不说「那个 FooBarHandler」，也不说「订单服务」。
+相关 leaf 里定义了「订单」，你就说「订单受理这个 module」，不说「那个 FooBarHandler」，也不说「订单服务」。
 
 ## 1. 先定范围
 
@@ -57,7 +54,7 @@ subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说�
 
 ## 4. 出报告
 
-写一份自包含的 `architecture-review-<时间戳>.html`，每次运行创建新文件。文件放在系统临时目录：优先使用 `$TMPDIR`，取不到时使用 `/tmp`；Windows 使用 `%TEMP%`。
+写一个自包含的 HTML 文件，落系统临时目录：从 `$TMPDIR` 取，取不到退回 `/tmp`（Windows 上是 `%TEMP%`）。文件名是 `architecture-review-<时间戳>.html`，每次跑一份新的。
 
 生成后打开文件：macOS 使用 `open`，Linux 使用 `xdg-open`，Windows 使用 `start`。把绝对路径告诉用户。
 
@@ -65,14 +62,14 @@ subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说�
 
 | 字段 | 内容 |
 | --- | --- |
-| 涉及文件 | 文件清单 |
-| 当前摩擦 | 当前结构造成的具体成本 |
-| 目标结构 | 改动后的结构 |
-| 收益 | 用 locality、leverage 和测试变化说明 |
+| 涉及文件 | 涉及哪些文件 |
+| 当前摩擦 | 现在这个结构在哪里造成摩擦 |
+| 目标结构 | 改成什么样 |
+| 收益 | 用 locality 和 leverage 说明好处，以及测试会怎么变好 |
 | 图 | 一张 before/after 图 |
 | 推荐强度 | `Strong`、`Worth exploring` 或 `Speculative` |
 
-结尾使用 **Top recommendation** 说明首选候选及理由。
+结尾一节 **Top recommendation**：你会先做哪一个，为什么。
 
 **跟 ADR 打架的候选**：只有摩擦真的大到值得重开那份 ADR 才提，提就在卡片里标明白（例如「与 ADR-0007 矛盾——但值得重开，因为……」）。不要把 ADR 禁掉的重构一条条列出来。
 

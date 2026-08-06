@@ -7,7 +7,7 @@ description: 为只能由用户完成的人工流程生成交互式 Bash wizard�
 
 Wizard 是一个 Bash 脚本。它逐步带用户完成必须由人操作的流程：打开 URL，说明点击和复制位置，读取用户输入，把值写入 `.env` 或 GitHub secrets，在不可逆动作前确认，并显示剩余进度。
 
-[template.sh](template.sh) 已经实现阶段进度、预计剩余时间、跨平台打开 URL、隐藏 secret 输入、幂等 `.env` 写入、GitHub secret 和 variable 写入，以及结束总结。
+[template.sh](template.sh) 已经实现统一交互：阶段进度、预计剩余时间、跨平台打开 URL、隐藏 secret 输入、幂等 `.env` 写入、GitHub secret 和 variable 写入，以及结束总结。
 
 你的职责是限定流程并编写各个 `stage`。`STAGES` 标记上方是固定 library，不修改。
 
@@ -47,6 +47,7 @@ Wizard 默认是临时产物，保存在 scratch 或临时 `scripts/` 路径。�
 
 | 需要 | helper |
 | --- | --- |
+| 开始一个步骤 | `stage` |
 | 显示说明 | `say`、`step` |
 | 打开页面 | `open_url` |
 | 读取公开值 | `ask` |
@@ -55,7 +56,7 @@ Wizard 默认是临时产物，保存在 scratch 或临时 `scripts/` 路径。�
 | 写入 CI secret 或 variable | `set_secret`、`set_var` |
 | 等待或确认 | `pause`、`confirm` |
 
-设置诚实的 `TOTAL_STAGES` 和 `TOTAL_MINUTES`。先打开 URL，再索取值。公开值使用 `ask`，secret 使用 `ask_secret`。需要持久化的值使用 `write_env`。只有 CI 实际消费的值才使用 `set_secret`。不可逆动作前使用 `confirm`。
+设置诚实的 `TOTAL_STAGES` 和 `TOTAL_MINUTES`。打开 URL 后再索取值。Secret 使用 `ask_secret`。需要持久化的值使用 `write_env`。只有 CI 实际消费的值才使用 `set_secret`。不可逆动作前必须使用 `confirm`。
 
 一个 `stage` 只完成一个聚焦任务。`stage` 会清屏，当前步骤所需内容必须留在同一屏。
 

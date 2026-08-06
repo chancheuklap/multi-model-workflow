@@ -6,16 +6,26 @@ argument-hint: "[map 编号，或者要做的事]"
 
 本次输入：`$ARGUMENTS`
 
-本技能处理同时满足两个条件的 effort：
+一个还很松的想法来了，超出一次 agent session 能容纳的范围，而且路上罩着 fog of war：从这里到 **destination** 的路线看不见。本技能要做的是找到路线，不是直接朝 destination 推进。它把路线画成 issue tracker 上一张**共享的 map**，map 底下挂 **decision ticket**。每张 decision ticket 解出一个决定，不是一次构建里的切片。各会话一次解决一张，直到路线清楚。
 
-1. 超出一次 agent session。
-2. 从当前位置到 **destination** 的路线仍有 fog of war。
+destination 每个 effort 各不相同。给它命名是画 map 的第一个动作：它固定范围，也塑造后面每一张 ticket。它可能是一份要交出去继续做的 spec，可能是开始做计划之前必须锁死的一个决定，也可能是一次就地完成的改动，比如一次数据结构迁移。
 
-产物是 issue tracker 上的共享 **map**。map 下的每张 **decision ticket** 解决一个决定，不是构建切片。每个会话解决一张，直到路线清楚。
+## 只产出决定，不产出交付物
 
-本技能负责找到路线，不直接实现 destination。
+每张 ticket 解掉一个决定，路清楚了这张 map 就完成——在有人真去实现之前，没有什么还需要决定。想直接动手实现，通常说明 map 已经走到边界，该收尾了。某个 effort 要破例，在 map 的 `Notes` 一节里写明；没写就只产出决定。
 
-destination 是画 map 的第一项决定。它固定 effort 的范围，并决定后续 ticket。destination 可以是 spec、计划前必须确定的决定，或数据结构迁移等就地改动。
+## 用名字称呼
+
+每一张 map 和 ticket 都是一张 issue，它有一个名字，就是它的标题。凡是人要读的地方——你的叙述、map 的 `Decisions so far`——都用这个名字称呼它，不要用裸的编号。编号包在名字外面的那个链接里。
+
+## 几个会话同时跑这张 map
+
+一张 map 通常由好几个会话分头做：一个会话建 map，其余会话各认领一张 decision ticket。这带来四条硬约束，三个入口都适用。
+
+- **一个会话只解一张 decision ticket。** 回填、提交和交回 map 任务后停止。新出现的 frontier 由另一个会话认领。唯一例外是建图会话可以为刚创建的多张 `wayfinder:research` ticket 并行派调查者；每个调查者仍只解一张 ticket。
+- **认领在动手之前。** 把 ticket 指派给自己就是认领。指派完成之前不要做任何事。
+- **改 map 正文之前先重新拉一次最新的。** GitHub 编辑 issue 正文是整体替换。写完再读一次，确认自己那行在；不在就重来一遍。
+- **每个任务只使用自己的 worktree。** map 任务拥有 map 分支；每张 decision ticket 和每份 spec 使用从 map 分支派生的独立任务分支。任务之间只交回分支名、HEAD SHA、基点 SHA 和报告，由拥有目标分支的任务验证并集成。主 agent 不切换到另一个任务的工作目录。
 
 下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 
@@ -30,20 +40,3 @@ destination 是画 map 的第一项决定。它固定 effort 的范围，并决�
 | 那张 map 的 frontier 上一张 ticket 都不剩 | **自己继续**：读 [closing.md](closing.md)，收尾 |
 
 看不出是哪一个，就按他给的编号查一次 frontier：frontier 上还有 ticket 就走 walking.md，空了就走 closing.md。
-
-## 只产出决定，不产出交付物
-
-每张 ticket 解掉一个决定，路清楚了这张 map 就完成——在有人真去实现之前，没有什么还需要决定。想直接动手实现，通常说明 map 已经走到边界，该收尾了。某个 effort 要破例，在 map 的 `Notes` 一节里写明；没写就只产出决定。
-
-## 用名字称呼
-
-每一张 map 和 ticket 都是一张 issue，它有一个名字，就是它的标题。凡是人要读的地方——你的叙述、map 的 `Decisions so far`——都用这个名字称呼它，不要用裸的编号。编号包在名字外面的那个链接里。
-
-## 几个会话同时跑这张 map
-
-三个入口都遵守以下并发合同：
-
-- **一个会话只解一张 decision ticket。** 回填、提交并交回 map 任务后停止。新出现的 frontier 由另一个会话认领。建图会话可以并行派发多张 `wayfinder:research` ticket；每个调查者仍只解一张。
-- **认领在动手之前。** 把 ticket 指派给自己就是认领。
-- **编辑 map 前后都重新读取最新正文。** 写完确认自己的内容仍在。
-- **每个任务只使用自己的 worktree。** map、每张 decision ticket 和每份 spec 各用自己的任务分支与 worktree。任务之间只交回分支名、HEAD SHA、基点 SHA 和报告。拥有目标分支的任务负责验证并集成。主 agent 不切换到其他任务的工作目录。

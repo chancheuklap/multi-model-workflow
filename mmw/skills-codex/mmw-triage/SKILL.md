@@ -5,9 +5,9 @@ description: 分诊 issue 和外部 PR，写出 agent brief 并决定出口。�
 
 把项目 issue tracker 上的 issue 推过一台状态机。
 
-外部 pull request 也是需求入口。triage 把 PR 视为带代码的 issue，使用相同的角色、状态和状态机；差异见本文「角色」一节。
+外部 pull request 同样是一个提需求的入口，所以 triage 也管它们：**一个 PR 就是一个带着代码的 issue**——同样的角色、同样的状态、同样的状态机，差异写在本文「角色」一节里以「对 PR 而言」开头的那一段。
 
-用户只给出 `#42` 时，先运行 `gh issue view 42`。命令报告目标不是 issue 时，再运行 `gh pr view 42`。
+裸写的 `#42` 先用 `gh issue view 42` 试，报「不是 issue」就是 PR，再 `gh pr view 42`。
 
 triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**必须**以这句免责声明开头：
 
@@ -17,13 +17,15 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 ## 角色
 
+两个**类别**角色和五个**状态**角色：
+
 | 角色组 | 角色 | 含义 |
 | --- | --- | --- |
 | 类别 | `bug` | 有东西坏了 |
 | 类别 | `enhancement` | 新功能或改进 |
 | 状态 | `needs-triage` | 等维护者评估 |
 | 状态 | `needs-info` | 等报告人补信息 |
-| 状态 | `ready-for-agent` | agent brief 完整，可以 AFK 跑 |
+| 状态 | `ready-for-agent` | agent brief 已经写完整，可以 AFK 跑 |
 | 状态 | `ready-for-human` | 需要人来实现 |
 | 状态 | `wontfix` | 不做 |
 
@@ -33,22 +35,17 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 类别角色和状态角色这两组名字就是 issue 上的标签字符串本身，不用再查映射。**完整清单在仓库根 `.mmw.json` 的 `tracker.labels`**，`mmw init` 按它建标签。
 
-派 `worker` 前必须同时满足：
-
-- 状态角色是 `ready-for-agent`。
-- agent brief 包含验收标准、范围边界和测试 seam。
-
-状态角色提供机器可验证的就绪信号。agent brief 提供行为合同。
+**派 `worker` 前必须是 `ready-for-agent`，而且 agent brief 必须完整。** 状态角色是机器可验证的「够清楚了」信号；agent brief 里的验收标准、范围边界和测试 seam 是它对应的行为合同。两者一起挡住模糊 issue。
 
 **半路挖到的东西开新 issue。** 分诊或做任务时发现的另一个缺陷、优化机会、或者超出本次范围的事：开一张新 issue，打 `needs-triage` 加对应类别标签，主流程不动。不需要「旁路发现」这类专门标签——它是一张独立 issue 这个事实，已经把「不属于本任务」说完了。
 
 | 当前状态 | 下一状态 |
 | --- | --- |
-| 无状态角色 | 通常进入 `needs-triage` |
+| 没标签的 issue | 通常先进 `needs-triage` |
 | `needs-triage` | `needs-info`、`ready-for-agent`、`ready-for-human` 或 `wontfix` |
-| `needs-info` 且报告人回复 | 返回 `needs-triage` |
+| `needs-info` 且报告人回话 | 退回 `needs-triage` |
 
-维护者可以覆盖流转。流转反常时，先标出并询问维护者。
+维护者随时可以推翻——看起来反常的流转先标出来问一句再走。
 
 ## 怎么被叫起来
 
@@ -69,13 +66,20 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 2. **`needs-triage`** —— 评估进行中。
 3. **`needs-info` 且报告人在上次分诊记录之后有过动静的** —— 需要重新评估。
 
-PR 在范围内时，把外部 PR 放入同样的三组，每行标 `[PR]` 或 `[issue]`。发现环节只列出非仓库协作者创建的外部 PR；协作者正在处理的 PR 不归分诊管。用户点名的 PR 一律分诊，不按作者过滤。
+PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[issue]`。这一步只列出*外部* PR（外部指不是本仓库协作者开的）——协作者正在做的 PR 不归分诊管。这条筛选只作用于发现环节；被点名的 PR 一律分诊，不看作者是谁。
 
 给出每堆的数量和每条一行的摘要，让维护者挑。
 
 ## 分诊一张具体的 issue 或 PR
 
-1. **收集上下文。** 把这张 issue 或 PR 整个读完（正文、评论、标签、作者、日期；PR 还要读 diff）。把之前的分诊记录读出来，已经解决的问题不要再问一遍。用项目的领域术语表探索代码，遵守这块地方的 ADR。
+1. **取上下文。**
+
+   | 材料 | 取得方式 | 读取内容 |
+   | --- | --- | --- |
+   | 当前 issue 或 PR | 把这张 issue 或 PR 整个读完 | 正文、评论、标签、作者、日期；PR 还要读 diff |
+   | 之前的分诊记录 | 把之前的分诊记录读出来 | 已经解决的问题不要再问一遍 |
+   | 领域术语表 | 读取项目的领域术语表 | 用项目的领域术语表探索代码 |
+   | ADR | 读取这块地方的 ADR | 遵守这块地方的 ADR |
 
    然后做两项检查，**按 `$mmw:mmw-research` 的内部方向派出去**，一项一个 subagent，并行：
 
@@ -92,9 +96,9 @@ PR 在范围内时，把外部 PR 放入同样的三组，每行标 `[PR]` 或 `
 
 5. **落实结果：**
    - `ready-for-agent`：
-     1. 按 [AGENT-BRIEF.md](AGENT-BRIEF.md) 发布完整的 agent brief 评论。`**Acceptance criteria:**` 和 `**Test seam:**` 都是必填栏。
-     2. 把状态改成 `ready-for-agent`。
-     3. 按本文「下一步」选择后续技能。
+     1. 先按 [AGENT-BRIEF.md](AGENT-BRIEF.md) 贴一条完整的 agent brief 评论。`**Acceptance criteria:**` 和 `**Test seam:**` 都是必填栏。
+     2. 再把状态改成 `ready-for-agent`。
+     3. 然后按本文「下一步」一节决定它接着走哪个技能。
    - `ready-for-human` —— 贴一条与 agent brief 使用相同字段的分诊记录，并写清为什么它派不出去（要拿判断、要外部权限、要做设计决定、要人工测试）。
    - `needs-info` —— 贴分诊记录，模板和写法在 [NEEDS-INFO.md](NEEDS-INFO.md)。
    - `wontfix` —— 关掉，评论内容取决于*为什么*：
@@ -102,6 +106,19 @@ PR 在范围内时，把外部 PR 放入同样的三组，每行标 `[PR]` 或 `
      - **否掉（bug）** —— 客气地解释，然后关。
      - **否掉（enhancement）** —— 写进 `.out-of-scope/`，用评论链过去，然后关（[OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)）。
    - `needs-triage` —— 把这个角色打上。有部分进展就一并写一条评论。
+
+## 快速改状态
+
+维护者说「把 #42 挪到 ready-for-agent」，就接受他的状态判断，不重跑 grill：
+
+1. 先确认你要做什么：改哪些角色、贴什么评论、关不关。
+2. 再从现有 issue 或 PR 材料综合出一份完整 agent brief。
+3. `Acceptance criteria` 或 `Test seam` 缺内容时，保持当前状态并向维护者追问缺失的那一项。
+4. agent brief 完整后，先贴评论，再把状态改成 `ready-for-agent`。
+
+## 接上一次分诊
+
+issue 或 PR 上已经有分诊记录，就先读它，看报告人有没有回答掉悬着的问题，把更新后的情况呈现出来，再往下走。已经解决的问题不再问一遍。
 
 下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 
@@ -115,16 +132,3 @@ PR 在范围内时，把外部 PR 放入同样的三组，每行标 `[PR]` 或 `
 | seam 说不清楚 | **自己继续**：改判 `ready-for-human`，理由写在同字段的分诊记录里，然后按本文「下一步」表中情况为落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage` 的那一行交回用户 |
 | 落到 `ready-for-human`、`needs-info`、`wontfix` 或 `needs-triage` | **停**：报这张判成了什么、为什么、下一步在等谁 |
 | 维护者一次交来好几张 | **自己继续**：一张一张走完本文「分诊一张具体的 issue 或 PR」节的五步，全部落实之后再一起报 |
-
-## 快速改状态
-
-维护者要求把目标改为 `ready-for-agent` 时，接受他的状态判断，不重跑 grill：
-
-1. 确认要修改的角色、要发布的评论，以及是否关闭目标。
-2. 从现有 issue 或 PR 材料综合完整的 agent brief。
-3. `Acceptance criteria` 或 `Test seam` 缺内容时，保持当前状态，只追问缺失项。
-4. agent brief 完整后，先发布评论，再把状态改成 `ready-for-agent`。
-
-## 接上一次分诊
-
-issue 或 PR 上已经有分诊记录，就先读它，看报告人有没有回答掉悬着的问题，把更新后的情况呈现出来，再往下走。已经解决的问题不再问一遍。
