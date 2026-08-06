@@ -63,8 +63,8 @@ subagent 原始报告不是 research。research 是主 agent 验证和综合后�
 | --- | --- |
 | Wayfinder decision ticket | map 正文继承的 `产物目录` |
 | 已绑定的普通任务 | 当前任务 slug |
-| 其它技能调用 | 调用方已有的 `产物目录` |
-| 用户直接调用，而且没有已有 effort | 主 agent 根据 research 所属主题提议一个稳定的单路径段；拟保存表展示该值和完整路径，用户可在同一次人工审批中确认或改正 |
+| 其他技能调用，而且调用方已有 effort | 调用方已有的 `产物目录` |
+| 用户直接调用，或调用方还没有 effort | 主 agent 根据 research 所属主题提议一个稳定的单路径段；拟保存表展示该值和完整路径，用户可在同一次人工审批中确认或改正 |
 
 普通任务运行 `mmw path research <产物目录>`。Wayfinder decision ticket 运行 `mmw path research <产物目录> issue-<编号>`。命令返回 research 的上级目录；在其下建立一个 `<research 主题 slug>/`：
 
@@ -79,7 +79,7 @@ subagent 原始报告不是 research。research 是主 agent 验证和综合后�
 | --- | --- |
 | `README.md` | 问题、范围快照、结论摘要、文件索引、下游用途、未查清项；内部 research 记录 commit，外部 research 记录访问日期和版本 |
 | `report.md` | 验证后的完整结论和逐条出处 |
-| research 配套文件 | 用户批准保存的 HTML、字段表、脚本或其它文件；用途写进 `README.md` |
+| research 配套文件 | 用户批准保存的 HTML、字段表、脚本或其他文件；用途写进 `README.md` |
 
 subagent 原始报告默认不落盘。确需跨进程转交时，使用 `mmw path scratch <产物目录> [issue-<编号>|task-<任务 slug>]`，与网页转储、抓取缓存和未采信内容一起写入 scratch，不进 Git。research 不进入 ADR 目录；只有满足 `$mmw:mmw-domain-modeling` 判据的决定才进入 ADR。
 
@@ -88,7 +88,7 @@ subagent 原始报告默认不落盘。确需跨进程转交时，使用 `mmw pa
 | 调用方 | 交回内容 |
 | --- | --- |
 | `$mmw:mmw-wayfinder` | ticket 评论写验证后的结论；用户选择保存时，再加 research 索引路径 |
-| 其它技能 | 验证后的事实与出处；用户选择保存且调用方确实需要时，再加 research 索引和精确文件路径 |
+| 其他技能 | 验证后的事实与出处；用户选择保存且调用方确实需要时，再加 research 索引和精确文件路径 |
 | 用户直接调用 | 当前会话中的结论、出处、未查清项和被过滤内容；用户选择保存时，再加 research 索引路径 |
 
 保存不代表下游必须引用。下游只读取当前工作明确点名的 research 索引和精确文件，不递归读取 research 的上级目录。
