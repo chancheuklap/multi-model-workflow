@@ -9,27 +9,17 @@ description: 把一份 spec 拆成一组 tracer bullet ticket，按依赖顺序�
 
 issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw issue`，读一张、评论、打标签这类一条命令做得完的直接用 `gh`。标签清单在仓库根 `.mmw.json` 的 `tracker.labels`。
 
-**issue 承载身份，文件承载内容。** issue 正文只放这件事是什么、现在什么状态、内容在哪；真正要反复打磨的长文放任务分支上的文件里。三层是这样分的：
-
-| 层 | 正文放什么 | 唯一事实来源 | 结局 |
-| --- | --- | --- | --- |
-| map（跑了 `$mmw:mmw-wayfinder` 才有） | `Destination`、`Decisions so far` 的一行索引、`Out of scope`、`Not yet specified` | 就在正文 | 关掉，不上 Wiki |
-| spec | 一段摘要说清要解决什么问题、指向分支上 spec 文件的路径、ticket 清单 | 任务分支的 `docs/specs/<slug>/` | 落地后转成一页 Wiki |
-| ticket | 一段摘要、指向分支上该 ticket 计划的路径、阻塞关系 | 任务分支的 `docs/plans/<slug>/` | 并进 spec 那页 Wiki 的一节 |
-
-本技能建的是第三层。
+**issue 承载身份，文件承载内容。** 本技能为每张 tracer bullet ticket 创建一张 issue。issue 正文保存摘要、plan 路径和阻塞关系。`$mmw:mmw-to-plan` 后续把实施内容写入该路径下的 plan 文件。
 
 ## 1. 取上下文
 
 从这段对话里已有的材料开始。用户给了引用（spec 路径、issue 编号或链接），就取回来把正文和评论整个读完。
 
-## 2. 找 prefactor
+## 2. 检查现状与 prefactor
 
-**按 `$mmw:mmw-research` 的内部方向派一个 subagent**，题目是：这次要改的地方，有哪些可以先做 prefactor，让后面的实现更容易。「先把改动变容易，再做这个容易的改动。」
+先检查已有且已经验证的 spec、调查报告或当前源码证据是否覆盖这次改动的现状。材料已经覆盖时直接复用，不重复调查。材料没有覆盖时，调用 `$mmw:mmw-research` 查清当前实现和可能的 prefactor。
 
-上游那份 spec 的现状调查已经覆盖了这块代码怎么实现，这里不重查，只查 prefactor 这一个角度。**上游没有 spec、这次是从对话直接拆 ticket 的**，就连现状一起查，一个角度一个 subagent。
-
-收回来按 `$mmw:mmw-verifying-agent-output` 验证过才写进 ticket。
+只有当前源码证据表明 prefactor 能让后续实现更容易时，才把它拆成 ticket。「先把改动变容易，再做这个容易的改动。」使用 subagent 取得报告时，按 `$mmw:mmw-verifying-agent-output` 验证后再写进 ticket。
 
 ticket 的标题和描述用项目领域术语表里的词，遵守这块地方的 ADR。
 
@@ -72,16 +62,14 @@ ticket 的标题和描述用项目领域术语表里的词，遵守这块地方�
 
 ```bash
 mmw issue create --title "<标题>" --body-file <正文文件> \
-  --parent <spec issue 编号> --blocked-by <编号,编号> --label ready-for-agent
+  --parent <spec issue 编号> --blocked-by <编号,编号>
 ```
 
-它一次做完建 issue、挂到 spec issue 底下、连阻塞边、打标签四件事，输出新 issue 的编号。
+它一次做完建 issue、挂到 spec issue 底下和连阻塞边三件事，输出新 issue 的编号。
 
-**按依赖顺序发，阻塞方先发**：`--blocked-by` 要的是已经存在的编号，挡它的那张还没发就填不进去。发布顺序沿 **frontier** 走——阻塞它的都已发布的那些。
+**按依赖顺序发，阻塞方先发**：`--blocked-by` 要的是已经存在的编号，挡它的那张还没发就填不进去。
 
 **顺序不是随便的。** 下游取下一张 ticket 靠 `mmw issue frontier`，那个命令按 issue 编号升序给，所以「按依赖顺序发」直接决定了后面开工的顺序。
-
-`ready-for-agent` 打在 ticket 上的含义是「这张可以派 `worker` 开工」，跟打在 spec issue 上那个（人工审批关卡的凭据）不是一回事。
 
 父 issue 不要关，也不要改。
 

@@ -81,13 +81,23 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 plan 文档和 spec 的 `## Cross-Plan Contract Anchors` 分两次提交。`planner` 不提交，改动一直是未暂存的，由你统一收。
 
+## 8. 标记 ticket 就绪
+
+全部 plan 通过 ② plan 审，而且第 7 步完成后，给这批 tracer bullet ticket 全部加上 `ready-for-agent`：
+
+```bash
+gh issue edit <ticket 编号> --add-label ready-for-agent
+```
+
+`ready-for-agent` 表示 ticket 的 plan 已经通过 ② plan 审。`Blocked by` 和 `mmw issue frontier` 继续决定哪张 ticket 已经无阻塞并且可以认领；只有进入 frontier 的 ticket 才能派 `worker`。
+
 下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
-| plan 审过了 | **移交**：`$mmw:mmw-implement`，一张 ticket 一个 `worker` 开始落地 |
+| 全部 plan 过审、提交并加上 `ready-for-agent` | **移交**：`$mmw:mmw-implement`，从 `mmw issue frontier` 返回的 ticket 开始落地 |
 | 审出了采信的 findings | **自己继续**：重派 `planner` 改 findings 点名的那份 plan 路径，改完回第 6 步复审 |
 | 第 4 步某个 `planner` 交回 `needs-context` 或 `needs-repair` | **自己继续**：按它说的补上下文或修 spec，然后带上补齐的材料重派 |
 | 第 5 步发现 `planner` 认领了别人归属的文件，或者提供方跟消费方对不上 | **自己继续**：重派 `planner` 修那一份，不要自己动它的 plan |
