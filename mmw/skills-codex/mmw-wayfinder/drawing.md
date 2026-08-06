@@ -28,7 +28,7 @@
 
 建的时候，ticket 正文先写 `Question` 和从 map 原样继承的 `产物目录`。用 `mmw issue create --title <标题> --body-file <文件> --parent <map 编号> --label wayfinder:<类型>` 建立 issue，取得编号后在正文加上 `issue 子目录`，值是 `issue-<编号>`，然后用 `gh issue edit <编号> --body-file <文件>` 回填。
 
-每张 ticket 的产物目录和 issue 子目录回填完成后，再用**第二遍**把阻塞关系连上：`mmw issue link <被挡的> --blocked-by <挡它的>`。要分两遍是因为 issue 要先有编号才能互相引用。连完边，这批 ticket 自然分成 frontier 和被阻塞的两类，用 `mmw issue frontier <map 编号>` 看。
+每张 ticket 的产物目录和 issue 子目录回填完成后，再用**第二遍**把阻塞关系连上：`mmw issue link <被挡的> --blocked-by <挡它的>`。要分两遍是因为 issue 要先有编号才能互相引用。连完边，这批 ticket 自然分成 frontier 和被阻塞的两类，用 `mmw issue frontier <map 编号> --label-prefix wayfinder:` 看。
 
 ## 5. 派 research subagent，收报告
 

@@ -2,7 +2,7 @@
 
 frontier 上一张 ticket 都不剩了。收尾就是把这张 map 结束掉：清算 `Not yet specified` 一节剩下的条目、把这张 map 上做出的决定各自归位、切出 spec、关掉 map issue。
 
-本文件只在拥有 map 分支的任务中执行。`mmw task state` 必须显示当前 checkout 已绑定 map 分支；不满足时停止并让用户恢复原 map 任务。然后确认所有 decision ticket 任务结果已经通过 `mmw result verify` 并集成到 map 分支，再确认 `mmw issue frontier <map 编号>` 没有输出。Decision ticket 任务不能直接执行 map 收尾。
+本文件只在拥有 map 分支的任务中执行。`mmw task state` 必须显示当前 checkout 已绑定 map 分支；不满足时停止并让用户恢复原 map 任务。然后确认所有 decision ticket 任务结果已经通过 `mmw result verify` 并集成到 map 分支，再确认 `mmw issue frontier <map 编号> --label-prefix wayfinder:` 没有输出。Decision ticket 任务不能直接执行 map 收尾。
 
 ## 1. 清算 `Not yet specified` 剩下的条目
 

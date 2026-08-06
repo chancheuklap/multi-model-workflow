@@ -22,7 +22,7 @@ destination 每个 effort 各不相同。给它命名是画 map 的第一个动�
 | 用户报了一张 map 的编号或链接 | **自己继续**：读 [walking.md](walking.md)，认领一张 decision ticket |
 | 那张 map 的 frontier 上一张 ticket 都不剩 | **自己继续**：读 [closing.md](closing.md)，收尾 |
 
-看不出是哪一个，就按他给的编号查一次 frontier：frontier 上还有 ticket 就走 walking.md，空了就走 closing.md。
+看不出是哪一个，就按他给的编号运行 `mmw issue frontier <map 编号> --label-prefix wayfinder:`。Frontier 上还有 decision ticket 就走 walking.md，空了就走 closing.md。
 
 ## 只产出决定，不产出交付物
 

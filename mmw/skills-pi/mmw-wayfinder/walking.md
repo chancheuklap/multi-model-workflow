@@ -9,7 +9,7 @@
 - `gh issue view <map 编号>` 读 map 正文，不逐个打开 ticket。
 - 读取 map 正文的 `产物目录`。这个值在整个 effort 内保持不变。
 - 按需读取 map 分支上的文件。领域文档落点通过 `mmw domain path` 取得，再运行 `git show <map 分支>:<落点>`。
-- `mmw issue frontier <map 编号>` 查一次 frontier。它给出全部可认领的 ticket，一行一张。
+- `mmw issue frontier <map 编号> --label-prefix wayfinder:` 查一次 frontier。它给出全部可认领的 decision ticket，一行一张。
 
 frontier 为空时，不建立 decision ticket 任务。停止并让用户恢复拥有 map 分支的任务；该任务读取 [closing.md](closing.md)。
 
@@ -81,7 +81,7 @@ HITL ticket 不许 agent 替用户回答。
 1. 把本任务写的 ADR 草稿逐个改为正式编号。每次运行 `mmw domain adr-next` 取得一个新编号。提交全部改动。
 2. 记录任务分支名、`git rev-parse HEAD` 和建立任务时的 map 基点 SHA。
 3. 把分支名、HEAD SHA、基点 SHA 和报告交回 map 任务。map 任务先运行 `mmw result verify`，验证报告与 diff，再运行 `mmw result integrate`。
-4. map 任务集成后重新查询 `mmw issue frontier <map 编号>`。
+4. map 任务集成后重新查询 `mmw issue frontier <map 编号> --label-prefix wayfinder:`。
 
 ## 下一步
 
