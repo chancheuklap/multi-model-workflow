@@ -23,7 +23,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 从这段对话里已有的材料开始。用户给了引用（spec 路径、issue 编号或链接），就取回来把正文和评论整个读完。
 
-spec 或上游材料引用 prototype 时，先读对应的 prototype 资产索引：Wayfinder decision ticket 使用 `docs/prototypes/<产物目录>/issue-<编号>/README.md`；普通非 Wayfinder 任务可以使用 `docs/prototypes/<产物目录>/README.md`。索引应列出问题、逐轮用户结论、用户选中的路径、落选变体形成的约束、被提升为长期证据的路径；缺一项就回 `$mmw:mmw-prototype` 补齐。再只读本批 ticket 需要的选中产物和索引显式引用的走查或长期证据，不递归读取产物目录。落选变体只提供已被否定的约束；确需把该约束分配给 ticket 时，才读取索引显式引用的具体变体。
+spec 或上游材料引用 prototype 时，运行 `mmw artifact path prototype <产物目录> [issue-<编号>]`，先读命令返回目录中的 `README.md`；普通非 Wayfinder 任务不传 issue 子目录。索引应列出问题、逐轮用户结论、用户选中的路径、落选变体形成的约束、被提升为长期证据的路径；没有选中产物、落选约束或长期证据时，对应项写「无」，不能省略。缺一项就回 `$mmw:mmw-prototype` 补齐。再只读本批 ticket 需要的选中产物和索引显式引用的走查或长期证据，不递归读取产物目录。落选变体只提供已被否定的约束；确需把该约束分配给 ticket 时，才读取索引显式引用的具体变体。
 
 ## 2. 找 prefactor
 

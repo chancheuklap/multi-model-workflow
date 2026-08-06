@@ -25,7 +25,7 @@ disable-model-invocation: true
 
 上面四份由主 agent 提供。写测试规划前完整读取 `$mmw:mmw-tdd`，包括它指向的测试、mock 和质量标准，再读取目标仓库根的 `TESTING.md`。目标仓库没有 `TESTING.md` 时继续，不自行创建。
 
-Prototype 资产索引必须列出问题、逐轮用户结论、用户选中的路径、落选变体形成的约束、被提升为长期证据的路径。Wayfinder decision ticket 的索引路径形如 `docs/prototypes/<产物目录>/issue-<编号>/README.md`；普通非 Wayfinder 任务可以没有 issue 子目录。不要递归读取产物目录，也不要自行吸收 task 没点名的截图、runs 或过程输出。
+运行 `mmw artifact path prototype <产物目录> [issue-<编号>]`，命令返回目录中的 `README.md` 是 prototype 资产索引；普通非 Wayfinder 任务不传 issue 子目录。索引必须列出问题、逐轮用户结论、用户选中的路径、落选变体形成的约束、被提升为长期证据的路径；没有选中产物、落选约束或长期证据时，对应项写「无」，不能省略。不要递归读取产物目录，也不要自行吸收 task 没点名的截图、runs 或过程输出。
 
 **seam 由 spec 定死，你不重新定。** plan 里每条测试的落点对到 spec `## Testing Decisions` 一节里那张 seam 清单表，选最高的那一层，不要增殖插桩点。spec 里找不到对应的 seam，交 `needs-context`。
 

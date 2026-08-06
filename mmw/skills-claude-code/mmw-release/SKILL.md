@@ -13,7 +13,7 @@ description: 把已经改完并通过终审的代码出成正式安装包，失�
 
 | 检查 | 怎么查 |
 | --- | --- |
-| 终审跑过，采信的 findings 都修完并复审通过 | `.reviews/` 里有终审报告；采信项各自有对应的修复提交 |
+| 终审跑过，采信的 findings 都修完并复审通过 | `mmw artifact root review` 返回的审查记录目录里有终审报告；采信项各自有对应的修复提交 |
 | 当前 HEAD 就是终审通过的提交 | 读取最后一轮没有 `accepted` 的 ⑤ final 终审记录中的 `终审提交`，确认它等于 `git rev-parse HEAD` |
 | 工作区干净 | `git status --porcelain` 是空的。引擎拒绝把自愈修复混进你没提交的改动里 |
 | 这个仓库配了出包 | `mmw` 的配置里有 `paths.release`，且仓库里能找到至少一份出包配置（下一步） |

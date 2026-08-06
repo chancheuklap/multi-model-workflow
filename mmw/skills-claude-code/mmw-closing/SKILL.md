@@ -18,7 +18,7 @@ Wiki 只放这一样东西。map、审查记录、终审报告都不进——它
 | 检查 | 怎么查 |
 | --- | --- |
 | 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 |
-| 终审跑过，采信的 findings 都修完并复审通过 | `.reviews/` 里有终审报告；采信项各自有对应的修复提交 |
+| 终审跑过，采信的 findings 都修完并复审通过 | `mmw artifact root review` 返回的审查记录目录里有终审报告；采信项各自有对应的修复提交 |
 | 工作区干净 | `git status --porcelain` 是空的 |
 | Wiki 已初始化 | `mmw wiki ensure` 跑得通。没初始化它会报出来，只能由用户去仓库的 `/wiki` 页手建一页 |
 
@@ -93,13 +93,13 @@ mmw wiki nav
 
 Wiki 验证通过，而且第 6 步已经归档并提交本地 spec 与 plan 后，清理当前任务自己的过程材料。
 
-先确定产物目录。从 Wayfinder 切出的 spec issue 读取 issue 正文继承的 `## 产物目录`；普通 spec 使用 spec slug。收尾 spec 不带 decision ticket 的 issue 子目录。不要从任务 worktree 的物理目录名推断。
+先确定产物目录。从 Wayfinder 切出的 spec issue 读取 issue 正文继承的 `## 产物目录`；普通 spec 使用 spec slug。再从已绑定任务状态读取当前任务 slug。不要从任务 worktree 的物理目录名推断。
 
-运行 `mmw artifact path scratch <产物目录>`，只删除命令返回的当前任务 scratch 目录。
+Wayfinder 派生的 spec 运行 `mmw artifact path scratch <产物目录> task-<任务 slug>`；普通 spec 运行 `mmw artifact path scratch <产物目录>`。只删除命令返回的当前任务 scratch 目录。
 
-再从已绑定任务状态读取当前任务 slug。`.reviews` 使用任务 slug，不使用产物目录；只删除 `.reviews/<任务 slug>-*`。`.dispatch` 也归任务 worktree；只删除文件名或派发记录明确属于当前任务 slug 的 task 和报告文件。删除前列出目标，并逐项验证归属。无法确认归属的条目保留并报告。
+运行 `mmw artifact root review`。审查记录使用任务 slug，不使用产物目录；只删除 `<命令返回目录>/<任务 slug>-*`。`.dispatch` 也归任务 worktree；只删除文件名或派发记录明确属于当前任务 slug 的 task 和报告文件。删除前列出目标，并逐项验证归属。无法确认归属的条目保留并报告。
 
-禁止清空共享 scratch、`.reviews` 或 `.dispatch` 目录。spec 明确引用的持久 prototype 资产、evidence 和其他持久资产继续保留。
+禁止清空共享 scratch、审查记录目录或 `.dispatch` 目录。spec 明确引用的持久 prototype 资产、evidence 和其他持久资产继续保留。
 
 完成判据：当前任务的 scratch、审查与派发过程材料已经清理；其他任务的过程材料和全部持久资产仍在。
 
