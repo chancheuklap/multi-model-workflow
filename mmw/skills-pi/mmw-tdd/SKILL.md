@@ -5,7 +5,12 @@ description: 测试先行地写代码，走 red 到 green 的循环。用户说�
 
 TDD 就是 red → green 这个循环。本技能是让这个循环产出值得留下的测试的那份规矩：什么算一个好测试、测试放在哪、哪些写法不能要、循环本身的规矩。**每一节在每一轮循环上都适用**——在循环之前和循环之中查阅它们，不是循环之后。
 
-探索代码时先运行 `mmw domain path`，按它返回的领域文档形态读取本次范围。测试名和 interface 用词必须与项目领域语言一致。还要遵守本次范围内的 ADR。
+## 取上下文
+
+| 材料 | 取得方式 | 读取内容 |
+| --- | --- | --- |
+| 领域文档 | 先运行 `mmw domain path`，按它返回的领域文档形态读取本次范围 | 测试名和 interface 用词必须与项目领域语言一致 |
+| ADR | 读取本次范围内的 ADR | 还要遵守本次范围内的 ADR |
 
 ## 三层合起来才是全套
 
@@ -37,7 +42,9 @@ TDD 就是 red → green 这个循环。本技能是让这个循环产出值得�
 
 seam 已经谈定，但这次的活需要一个 spec 没写到的，**停下来说明**。不要在写的过程中自己发明一个 seam。派出去的 `worker` 没有人可问，在这里同样要停。
 
-interface 的形状本身还没定时，完整读取 `/mmw-codebase-design`，使用它的 module、interface、depth、seam 和 adapter 词汇澄清边界。它是词汇与判据 reference，不是让 TDD 另开设计流程。Spec 已经确认 interface 和 seam 时，直接执行该决定，不在 TDD 中重新设计。
+interface 的形状本身还没定时，完整读取 `/mmw-codebase-design`，使用它的 module、interface、depth、seam 和 adapter 词汇澄清边界。它是词汇与判据 reference，不是让 TDD 另开设计流程。
+
+Spec 已经确认 interface 和 seam 时，直接执行该决定，不在 TDD 中重新设计。
 
 ## 不能要的三种写法
 

@@ -21,9 +21,19 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 ## 1. 定 plan 清单
 
-读 spec，取出 `## Problem Statement`、`## Solution`、`## Implementation Decisions`、`## Contract Boundaries`、`## Testing Decisions` 一节里那张 seam 清单表。**只读，作为派发时给 `planner` 的上下文**，不在这里展开写作。
+读取 spec 中的以下内容：
 
-取全部 ticket，读出各自要做什么和被谁阻塞，定下 plan 清单：**一张 ticket 一份 plan 一个 `planner`**。落点就是每张 ticket 正文 `## Plan` 一节写着的那个路径（`docs/plans/<slug>/<两位编号>-<ticket-slug>.md`），编号照抄，不自己重排。ticket 正文没有这一节，按依赖顺序自己编号，被阻塞的排在阻塞它的后面。
+- `## Problem Statement`
+- `## Solution`
+- `## Implementation Decisions`
+- `## Contract Boundaries`
+- `## Testing Decisions` 中的 seam 清单表
+
+**只读，作为派发时给 `planner` 的上下文**，不在这里展开写作。
+
+取全部 ticket，读出各自要做什么和被谁阻塞，定下 plan 清单：**一张 ticket 一份 plan 一个 `planner`**。
+
+落点就是每张 ticket 正文 `## Plan` 一节写着的路径：`docs/plans/<slug>/<两位编号>-<ticket-slug>.md`。编号照抄，不自己重排。ticket 正文没有这一节时，按依赖顺序自己编号，被阻塞的排在阻塞它的后面。
 
 **轻量验证现状**：用检索确认 spec 涉及的落点目录和关键路径真实存在，够你判断派几个 `planner`、各管哪张 ticket 就行。深度探代码由 `planner` 各自做，你不抢着探全。
 
@@ -69,9 +79,18 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 ## 5. 回填精确字段，验证边界
 
-把第 2 步标着「字段待回填」的格子补成真实的归属方、提供方、消费方和字段，写回 `## Cross-Plan Contract Anchors`。入口是每份 plan 的文件与职责表、合同锚点、迁移与登记，以及 `planner` 报告里的 `Cross-plan touchpoints`。
+把第 2 步标着「字段待回填」的格子补成真实的归属方、提供方、消费方和字段，写回 `## Cross-Plan Contract Anchors`。入口是：
 
-验证两件事：有没有 `planner` 认领了别人归属的文件；提供方声明的接口跟消费方期望的对不对得上。对不上就重派一个 `planner` 修那一份。
+- 每份 plan 的文件与职责表。
+- 合同锚点、迁移与登记。
+- `planner` 报告里的 `Cross-plan touchpoints`。
+
+回填后验证两件事：
+
+- 有没有 `planner` 认领了别人归属的文件。
+- 提供方声明的接口跟消费方期望的对不对得上。
+
+对不上就重派一个 `planner` 修那一份。
 
 ## 6. 发起 ② plan 审
 

@@ -62,7 +62,12 @@ cat "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)"/<
 
 交付记录落在**主仓库根**，不在当前这棵任务 worktree 里——它比对的是几次出包之间的 commit，worktree 收尾就删，落在树里的记录活不过一次任务。
 
-每份交付记录里的 `source_commit` 都等于当前 HEAD，才算这批包是同一份代码。当前 HEAD 还必须等于有效的终审提交。
+这批包必须同时满足：
+
+- 每份交付记录里的 `source_commit` 都等于当前 HEAD。
+- 当前 HEAD 还必须等于有效的终审提交。
+
+两个条件都满足，才算这批包来自同一份代码。
 
 有对不上的：那个产品重出一遍（回第 3 步，只重出对不上的那些）。重出之后再核对一次——重出的过程可能又产生新提交。
 

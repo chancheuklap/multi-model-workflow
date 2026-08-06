@@ -12,18 +12,18 @@ disable-model-invocation: true
 
 本文是总纲。细纪律在 `references/` 下，到那一步再读。
 
-## 开工前先读
+## 取上下文
 
 派你的人在提示词里给了这些的路径或原文。缺一不可，理解了再动手。
 
-| 读什么 | 从里面取什么 |
-| --- | --- |
-| spec | `## Problem Statement` 与 `## Solution`（这次要达成什么）、`## Implementation Decisions`（架构方向，填进你 plan 头部的 `**Architecture:**`）、`## Contract Boundaries`、`## Testing Decisions` 一节里那张 seam 清单表 |
-| 合同骨架 | spec 的 `## Cross-Plan Contract Anchors` 一节。它划定你的硬边界：你能碰哪些共享文件（不许认领别份 plan 拥有的文件）、你要提供或消费哪些跨 plan 接口（照它的命名对接）。标着「字段待回填」的精确字段由你写时定下来，主 agent 事后回填 |
-| 你那张 ticket | 标题、要做什么、每一条验收标准、被谁阻塞 |
-| prototype 资产 | 有 prototype 的需求必须读完整资产目录：可运行 prototype、逐轮记录、证据和用户选中的版本。从逐轮记录取已确认的决定和取舍；从选中版本提取状态机、reducer、数据结构和界面规格。落选变体保留为资产，只提供被否定的约束，不作为当前设计依据。无 prototype 资产时，task 必须明写「无 prototype 资产」 |
-
-上面四份由主 agent 提供。写测试规划前完整读取 `$mmw:mmw-tdd`，包括它指向的测试、mock 和质量标准，再读取目标仓库根的 `TESTING.md`。目标仓库没有 `TESTING.md` 时继续，不自行创建。
+| 材料 | 取得方式 | 读取内容 |
+| --- | --- | --- |
+| spec | 主 agent 提供路径或原文 | `## Problem Statement` 与 `## Solution`（这次要达成什么）、`## Implementation Decisions`（架构方向，填进你 plan 头部的 `**Architecture:**`）、`## Contract Boundaries`、`## Testing Decisions` 一节里那张 seam 清单表 |
+| 合同骨架 | 主 agent 提供 spec | spec 的 `## Cross-Plan Contract Anchors` 一节。它划定你的硬边界：你能碰哪些共享文件（不许认领别份 plan 拥有的文件）、你要提供或消费哪些跨 plan 接口（照它的命名对接）。标着「字段待回填」的精确字段由你写时定下来，主 agent 事后回填 |
+| 你那张 ticket | 主 agent 提供路径或原文 | 标题、要做什么、每一条验收标准、被谁阻塞 |
+| prototype 资产 | 主 agent 提供完整资产目录；没有时，task 必须明写「无 prototype 资产」 | 可运行 prototype、逐轮记录、证据和用户选中的版本。从逐轮记录取已确认的决定和取舍；从选中版本提取状态机、reducer、数据结构和界面规格。落选变体保留为资产，只提供被否定的约束，不作为当前设计依据 |
+| TDD 方法 | 完整读取 `$mmw:mmw-tdd`，包括它指向的文件 | 测试、mock 和质量标准 |
+| 项目测试规则 | 读取目标仓库根的 `TESTING.md` | 目标仓库没有 `TESTING.md` 时继续，不自行创建 |
 
 **seam 由 spec 定死，你不重新定。** plan 里每条测试的落点对到 spec `## Testing Decisions` 一节里那张 seam 清单表，选最高的那一层，不要增殖插桩点。spec 里找不到对应的 seam，交 `needs-context`。
 
@@ -37,7 +37,11 @@ disable-model-invocation: true
 
 ## 探代码
 
-结构性的问题——谁调用这个符号、连接关系、依赖路径、影响面——先用符号检索取候选（Serena 查符号，Graphify 查关系与跨语言数据流），再读文件验证。工具不可用或者图过期就直接用现行检索，不阻塞写计划。
+| 要查的内容 | 方法 |
+| --- | --- |
+| 谁调用这个符号 | Serena 查符号，取候选后读文件验证 |
+| 连接关系、依赖路径、影响面 | Graphify 查关系与跨语言数据流，取候选后读文件验证 |
+| 工具不可用或者图过期 | 直接用现行检索，不阻塞写计划 |
 
 **写进 plan 的每条路径、类型、函数、fixture，要么前文定义过，要么你自己检索验真过。验不真就不写。** 描述现状要引具体的 `文件:行号` 和真实行为。
 
@@ -69,7 +73,10 @@ ticket 已经是一条端到端的垂直切片，**你不再切一层切片**，
    **Tech stack:** <实际涉及的框架、服务、测试工具>
 
    ## Global Constraints
-   项目级硬约束，每条一行。spec 里没有一节专门叫这个名字，值从 `## Implementation Decisions`、`## Contract Boundaries`、`## Release Risk` 三节，加上目标仓库根的 `CLAUDE.md` 或 `AGENTS.md` 及其链进去的规则，逐字抄来（版本下限、依赖限制、命名与文案规则、平台要求、项目不变量、计费与权限红线）。本节隐含适用于本 plan 每一个任务包。
+   项目级硬约束，每条一行。spec 里没有一节专门叫这个名字。值从以下位置逐字抄来：
+   - `## Implementation Decisions`、`## Contract Boundaries`、`## Release Risk` 三节。
+   - 目标仓库根的 `CLAUDE.md` 或 `AGENTS.md` 及其链进去的规则。
+   抄录版本下限、依赖限制、命名与文案规则、平台要求、项目不变量、计费与权限红线。本节隐含适用于本 plan 每一个任务包。
 
    ## File / Responsibility Map
    **Create / Modify / Test / Docs·登记·迁移：** `path` — 负责什么 / 什么行为 / 为什么改它
@@ -108,12 +115,14 @@ ticket 已经是一条端到端的垂直切片，**你不再切一层切片**，
 
 最后一条消息按这个结构交回，主 agent 照它逐条验证：
 
-- **Verdict**：`pass` / `needs-repair` / `needs-redirection` / `needs-context` / `blocked`，五个词里选一个，不要自造同义词。
-- **plan 摘要**： plan 编号和目标、任务包总数加每包一句话、包间依赖。
-- **结构候选**：实际跑过的检索查询与关键输出、源码验证的 `文件:行号`；工具不可用或这次用不上就写明具体原因。
-- **Cross-plan touchpoints**：本 plan 里跨 plan 共享的文件、合同、接口，写清归属方、提供方、消费方、关键字段——主 agent 靠它回填 spec 的合同边界节。没有就写「无跨 plan 共享合同」。
-- **Open Items**：每个发现标 `[out-of-scope]` 或 `[needs-evaluation]`。
-- **自检完成状态**。
+| 字段 | 内容 |
+| --- | --- |
+| **Verdict** | `pass` / `needs-repair` / `needs-redirection` / `needs-context` / `blocked`，五个词里选一个，不要自造同义词 |
+| **plan 摘要** | plan 编号和目标、任务包总数加每包一句话、包间依赖 |
+| **结构候选** | 实际跑过的检索查询与关键输出、源码验证的 `文件:行号`；工具不可用或这次用不上就写明具体原因 |
+| **Cross-plan touchpoints** | 本 plan 里跨 plan 共享的文件、合同、接口，写清归属方、提供方、消费方、关键字段——主 agent 靠它回填 spec 的合同边界节。没有就写「无跨 plan 共享合同」 |
+| **Open Items** | 每个发现标 `[out-of-scope]` 或 `[needs-evaluation]` |
+| **自检完成状态** | 自检完成状态 |
 
 **如实报，不要粉饰。**
 

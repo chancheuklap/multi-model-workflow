@@ -9,13 +9,14 @@ description: 扫一遍代码库找可以做深的模块，出一份候选报告�
 
 设计词汇一律用 `/mmw-codebase-design` 定的那一套（module、interface、implementation、depth、deep、shallow、seam、adapter、leverage、locality），连同它的判据——deletion test、interface 就是测试面、一个 adapter 是假 seam 两个才是真 seam。每条建议都用这些词的原词，不要漂成「组件」「服务」「API」「边界」。
 
-## 先读领域文档
+## 取上下文
 
-**先读领域文档**：落点跑 `mmw domain path` 取，三种返回怎么读见 `/mmw-domain-modeling` 的「读领域文档」一节，不要停下来建。
+| 材料 | 取得方式 | 读取内容 |
+| --- | --- | --- |
+| 领域文档 | **先读领域文档**：落点跑 `mmw domain path` 取；三种返回按 `/mmw-domain-modeling` 的「读领域文档」处理 | **好 seam 的名字**；不要停下来建 |
+| ADR | 读你要碰的那一片的 ADR | ADR 里已经拍过板的决定，这次不重新拿出来吵 |
 
-再读你要碰的那一片的 ADR。ADR 里已经拍过板的决定，这次不重新拿出来吵。
-
-领域文档给的是**好 seam 的名字**。相关 leaf 里定义了「订单」，你就说「订单受理这个 module」，不说「那个 FooBarHandler」，也不说「订单服务」。
+相关 leaf 里定义了「订单」，你就说「订单受理这个 module」，不说「那个 FooBarHandler」，也不说「订单服务」。
 
 ## 1. 先定范围
 
@@ -53,9 +54,22 @@ subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说�
 
 ## 4. 出报告
 
-写一个自包含的 HTML 文件，落系统临时目录：从 `$TMPDIR` 取，取不到退回 `/tmp`（Windows 上是 `%TEMP%`），文件名 `architecture-review-<时间戳>.html`，每次跑一份新的。然后打开它——macOS `open`、Linux `xdg-open`、Windows `start`——把绝对路径告诉用户。
+写一个自包含的 HTML 文件，落系统临时目录：从 `$TMPDIR` 取，取不到退回 `/tmp`（Windows 上是 `%TEMP%`）。文件名是 `architecture-review-<时间戳>.html`，每次跑一份新的。
 
-每个候选一张卡片：涉及哪些文件、现在这个结构在哪里造成摩擦、改成什么样、好处（用 locality 和 leverage 说，以及测试会怎么变好）、一张 before/after 图、一个推荐强度徽章（`Strong`、`Worth exploring`、`Speculative`）。结尾一节 **Top recommendation**：你会先做哪一个，为什么。
+生成后打开文件：macOS 使用 `open`，Linux 使用 `xdg-open`，Windows 使用 `start`。把绝对路径告诉用户。
+
+每个候选一张卡片：
+
+| 字段 | 内容 |
+| --- | --- |
+| 涉及文件 | 涉及哪些文件 |
+| 当前摩擦 | 现在这个结构在哪里造成摩擦 |
+| 目标结构 | 改成什么样 |
+| 收益 | 用 locality 和 leverage 说明好处，以及测试会怎么变好 |
+| 图 | 一张 before/after 图 |
+| 推荐强度 | `Strong`、`Worth exploring` 或 `Speculative` |
+
+结尾一节 **Top recommendation**：你会先做哪一个，为什么。
 
 **跟 ADR 打架的候选**：只有摩擦真的大到值得重开那份 ADR 才提，提就在卡片里标明白（例如「与 ADR-0007 矛盾——但值得重开，因为……」）。不要把 ADR 禁掉的重构一条条列出来。
 

@@ -11,7 +11,10 @@ description: 把定好的需求实现成代码，一张 ticket 派一个 `worker
 
 ### 1. 确认前置条件
 
-先确认这次需求出自哪里。`docs/specs/<slug>/` 里已经有 spec，就走 spec 分支。没有 spec，就读取原 issue 上那份 `ready-for-agent` 的 agent brief；只有整项工作可以作为一张 ticket 独立验收、只有一个已确认测试 seam、没有未决设计取舍时，才走 agent brief 分支。
+先确认这次需求出自哪里：
+
+- `docs/specs/<slug>/` 里已经有 spec，就走 spec 分支。
+- 没有 spec，就读取原 issue 上那份 `ready-for-agent` 的 agent brief。只有整项工作可以作为一张 ticket 独立验收、只有一个已确认测试 seam、没有未决设计取舍时，才走 agent brief 分支。
 
 然后检查下面各项。标明来源分支的检查只在对应分支适用；适用项有一件不满足就按表中出口处理。
 
@@ -31,7 +34,12 @@ spec 分支运行：
 mmw issue frontier <spec issue 编号> --label ready-for-agent
 ```
 
-它给出阻塞全部关闭、没人认领、带这个标签的那些，按 `/mmw-to-tickets` 的发布顺序排。**取第一行那张。** agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一张 ticket。用 `gh issue view <编号> --json state,assignees,labels` 确认它仍然 open、无人认领并带 `ready-for-agent`。
+按来源分支选择 ticket：
+
+- spec 分支：命令给出阻塞全部关闭、没人认领、带这个标签的 ticket，并按 `/mmw-to-tickets` 的发布顺序排。**取第一行那张。**
+- agent brief 分支：不查 frontier。带 agent brief 的原 issue 就是唯一一张 ticket。
+
+用 `gh issue view <编号> --json state,assignees,labels` 确认它仍然 open、无人认领并带 `ready-for-agent`。
 
 开工前先 `mmw issue claim <编号>`。认领失败说明别的会话抢先了。spec 分支取下一行；agent brief 分支没有下一张，停止并报告这张 issue 已被谁认领。
 
@@ -66,9 +74,14 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 
 ### 5. 验收：亲手验证三关
 
-按 `/mmw-review` 的 **③ 逐份验收**，三关都过才允许合并回任务分支：做漏没有、测试达不达标、有没有偏离。三关各自的判据、三关不过时的返工升级策略，都在 `/mmw-review` 目录里的 `self-review.md`——**这一道不派审查者**，`/mmw-review` 正文其余各节跟它无关。报告按 `/mmw-verifying-agent-output` 采信，它交回的四档怎么读也在那里。
+按 `/mmw-review` 的 **③ 逐份验收**验证三关：做漏没有、测试达不达标、有没有偏离。三关各自的判据、三关不过时的返工升级策略，都在 `/mmw-review` 目录里的 `self-review.md`。
 
-三关之外还要确认两件本阶段特有的事：commit 存在并引用这张 ticket；报告显示类型检查和当前测试文件在实现过程中交错运行，完整测试套件在结束时运行一次。具体命令由目标仓库 `TESTING.md` 决定；仓库缺少某一层入口时，报告必须写明不适用的证据。
+三关都过才允许合并回任务分支。**这一道不派审查者**，`/mmw-review` 正文其余各节跟它无关。报告按 `/mmw-verifying-agent-output` 采信，它交回的四档怎么读也在那里。
+
+再验证两项本阶段合同：
+
+- commit 存在并引用这张 ticket。
+- 报告显示类型检查和当前测试文件在实现过程中交错运行，完整测试套件在结束时运行一次。具体命令由目标仓库 `TESTING.md` 决定；仓库缺少某一层入口时，报告必须写明不适用的证据。
 
 ticket 涉及界面时，还要完成浏览器验收：
 
@@ -84,7 +97,9 @@ ticket 涉及界面时，还要完成浏览器验收：
 
 本节只适用于有 spec 的分支。agent brief 分支没有跨 plan 合同，跳到第 7 步。
 
-每张 ticket 都关闭、改动都在任务分支上之后，按 `/mmw-review` 的 **④ 合同门**验证一次：spec 的 `## Cross-Plan Contract Anchors` 一节里每条跨 plan 合同，在合并后的代码里真兑现了。逐条要查什么、合同条数多时怎么把取证派出去，在 `/mmw-review` 目录里的 `self-review.md`——**这一道也不派审查者**。
+每张 ticket 都关闭、改动都在任务分支上之后，按 `/mmw-review` 的 **④ 合同门**验证一次：spec 的 `## Cross-Plan Contract Anchors` 一节里每条跨 plan 合同，在合并后的代码里真兑现了。
+
+逐条要查什么、合同条数多时怎么把取证派出去，见 `/mmw-review` 目录里的 `self-review.md`。**这一道也不派审查者**。
 
 **grep 不到行号就不算兑现**，回去补，不要留给终审。这是本阶段特有的一句：终审那一道审的是代码本身，不替你补合同。
 
