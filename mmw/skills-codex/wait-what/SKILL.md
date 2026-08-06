@@ -1,6 +1,6 @@
 ---
 name: wait-what
-description: 停一下，上一条没有说明白；补齐必要上下文并用更简单的语言重述。
+description: 补齐必要上下文，用更简单的语言重述上一条消息。
 disable-model-invocation: true
 ---
 

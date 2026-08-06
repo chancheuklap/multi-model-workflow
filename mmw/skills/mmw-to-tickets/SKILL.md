@@ -1,6 +1,6 @@
 ---
 name: mmw-to-tickets
-description: 把一份 spec 拆成一组 tracer bullet ticket，按依赖顺序发布。用户说要拆 ticket、要定先做哪一块时用它；刚写完 spec 的技能也移交这里。
+description: 把 spec、计划或当前对话拆成有阻塞关系的 tracer bullet tickets。用于 spec 发布后，或用户明确要求拆 tickets。
 ---
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。

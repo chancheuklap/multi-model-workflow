@@ -1,6 +1,6 @@
 ---
 name: mmw-start
-description: 多模型工作流的入口——判定这次的任务走哪条路，建立任务 worktree 再移交。用户开始一件新任务、提一个新需求、报一个 issue 编号、说要接着做某张 map、说有东西坏了、或者只说要开工时用它；什么都没交代时它报当前进度。
+description: MMW 的统一入口和任务恢复路由。用户开始新任务、提出需求或 bug、提供 issue、PR、map 或 big effort、要求改善架构或集成分支，或没有交代内容而要恢复当前进度时使用；已直接指定下游技能时跳过。
 argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 ---
 

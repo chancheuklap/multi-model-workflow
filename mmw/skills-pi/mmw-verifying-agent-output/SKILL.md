@@ -1,6 +1,6 @@
 ---
 name: mmw-verifying-agent-output
-description: 验证 subagent 交回的产出——审查 findings、完工报告、research 报告。收到任何 subagent 交回的报告时用它。
+description: 验证 subagent 报告中的关键断言。每次收到审查 findings、`worker` 完工报告或 research 报告时使用。
 ---
 
 派出去的 subagent 交回的是报告，不是结论。报告里的事实断言只有带着出处、再经过主 agent 验证，才能成为可用证据。

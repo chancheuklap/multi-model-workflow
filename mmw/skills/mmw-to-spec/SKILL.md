@@ -1,6 +1,6 @@
 ---
 name: mmw-to-spec
-description: 把已经谈定的内容综合成一份 spec，用户点头之后才发布。用户说要写 spec、要把刚才谈的落成设计时用它；别的技能把一件事谈定或者走查完时也移交这里。
+description: 综合、审查并发布 spec。用于需求或架构候选已经谈定、prototype 已走查、Wayfinding 已切出 spec、分诊判定需要多 tickets、多 seams 或设计取舍、实现阶段回来补 seam，或用户直接要求写 spec。
 ---
 
 把已经谈定的内容综合成一份 spec。**不采访，只综合**，不重开任何一个决定。

@@ -1,6 +1,6 @@
 ---
 name: wizard
-description: 为只能由用户完成的人工流程生成交互式 Bash wizard。配置第三方服务、凭证或 CI secret，或者执行一次性迁移和 cutover 时使用；agent 能直接完成的步骤不使用。
+description: 为只能由用户完成的多步流程生成 Bash wizard。用于第三方服务配置、凭证或 CI secret、一次性迁移或 cutover。
 ---
 
 # Wizard

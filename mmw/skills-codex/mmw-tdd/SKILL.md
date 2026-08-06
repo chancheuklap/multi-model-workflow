@@ -1,6 +1,6 @@
 ---
 name: mmw-tdd
-description: 测试先行地写代码，走 red 到 green 的循环。用户说要测试先行做功能或修 bug、提到 red-green-refactor 时用它；`worker` 写代码时通过自身 skill 加载本方法论。
+description: 在 correct seam 上执行 red-to-green 的测试方法。用于用户要求 TDD 或 integration test，或 `planner`、`worker`、审查者需要测试设计与质量判据。
 ---
 
 TDD 就是 red → green 这个循环。本技能规定什么算一个好测试、测试放在哪个 seam、哪些写法不能要，以及循环本身的规矩。在每一轮循环之前和进行中使用这些方法。

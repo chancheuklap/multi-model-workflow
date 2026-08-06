@@ -1,6 +1,6 @@
 ---
 name: mmw-wayfinder
-description: 把一个超出一次 agent session、而且路线还看不清的 effort 规划成 issue tracker 上一张共享的 map。用户带来一个很大、很松、暂时看不到边界的想法时用它；报出一张已有 map 的编号、要认领一张 decision ticket 时也用它。
+description: Wayfinding：把同时超出一次 agent session 且存在 fog of war 的 effort 组织成共享 map。用于新建 map、认领 decision ticket、frontier 为空时收尾，或用户显式标记 big。
 argument-hint: "[map 编号，或者要做的事]"
 ---
 
