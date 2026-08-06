@@ -33,6 +33,7 @@ migration_dir="$(mktemp -d "${TMPDIR:-/tmp}/mmw-init-test.XXXXXX")"
 # 模拟仍使用旧 research 路径字段的配置。
 jq '.paths.investigations = "docs/investigating" | del(.paths.research, .paths.evidence, .paths.scratch)' \
   mmw/cli/mmw.default.json > "$migration_dir/.mmw.json"
+chmod 0600 "$migration_dir/.mmw.json"
 git -C "$migration_dir" init -q
 (
   cd "$migration_dir"
@@ -46,6 +47,12 @@ test "$(jq -r '.paths.research' "$migration_dir/.mmw.json")" = "docs/research"
 test "$(jq -r '.paths | has("investigations")' "$migration_dir/.mmw.json")" = "false"
 test "$(jq -r '.paths.evidence' "$migration_dir/.mmw.json")" = "docs/evidence"
 test "$(jq -r '.paths.scratch' "$migration_dir/.mmw.json")" = ".scratch"
+if migration_mode="$(stat -f '%Lp' "$migration_dir/.mmw.json" 2>/dev/null)"; then
+  :
+else
+  migration_mode="$(stat -c '%a' "$migration_dir/.mmw.json")"
+fi
+test "$migration_mode" = "600"
 find "$migration_dir" -depth -delete
 
 git diff --check

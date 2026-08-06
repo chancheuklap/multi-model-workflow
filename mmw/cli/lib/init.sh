@@ -20,7 +20,7 @@ mmw_init_touch() {
 }
 
 mmw_init_config() {
-  local root config default_config default_research default_evidence default_scratch temp
+  local root config default_config default_research default_evidence default_scratch temp config_mode
   root="$(mmw_repo_root)"
   config="$root/.mmw.json"
   default_config="$MMW_ROOT/cli/mmw.default.json"
@@ -35,6 +35,13 @@ mmw_init_config() {
     mmw_path_safe_base "$default_research" || return 1
     mmw_path_safe_base "$default_evidence" || return 1
     mmw_path_safe_base "$default_scratch" || return 1
+    if config_mode="$(stat -f '%Lp' "$config" 2>/dev/null)"; then
+      :
+    elif config_mode="$(stat -c '%a' "$config" 2>/dev/null)"; then
+      :
+    else
+      return 1
+    fi
     temp="$(mktemp "$root/.mmw.json.migrate.XXXXXX")" || return 1
     if ! jq --arg research "$default_research" --arg evidence "$default_evidence" --arg scratch "$default_scratch" '
       .paths = (.paths // {}) |
@@ -46,7 +53,7 @@ mmw_init_config() {
       rm -f "$temp"
       return 1
     fi
-    chmod 0644 "$temp"
+    chmod "$config_mode" "$temp"
     mv -f "$temp" "$config"
     mmw_init_touch ".mmw.json"
     mmw_init_say "配置     : 已为 ${config} 补入 paths.research、paths.evidence 与 paths.scratch，并删除旧 research 路径字段"
