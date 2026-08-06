@@ -55,33 +55,34 @@ MMW 新增三个辅助技能。`wizard` 处理必须由用户完成的第三方�
 
 ## Implementation Decisions
 
-1. 以 vendored 1.2.2 的对应技能为方法论唯一上游。实现只允许调整 MMW 的 worktree、tracker、报告验证、领域文档、人工审批关卡和宿主动作。每项删改都要能指向已确认的 MMW 合同。原型免除：该决定可由上游文档和当前仓库规则判定，不需要用户判断。
-2. 逻辑 prototype 改成一个自包含 HTML 文件。文件使用内联 HTML、CSS 和 JavaScript，无框架、bundler 或服务器。页面同时提供 free-play、按 tab 分组的 guided walkthrough、每个场景的自然语言说明、真实动作按钮和启动场景时的已知初态重置。逻辑仍隔离为纯 reducer、状态机、函数集或持有状态的模块。原型免除：产物形态由上游文档明确规定，不需要用户判断。
-3. 设计 prototype 保留“一轮一个可回答问题”、最小可运行、默认内存状态、少打磨、完整状态可见、真实边界、用户走查、逐轮证据和结论回填。最小脚本和外部系统 Evidence 分支保持现有职责。原型免除：该决定照搬现有 MMW 合同。
-4. 每项设计 prototype 继续保存在任务分支的 `docs/prototypes/<slug>/`。目录保存全部源码、变体、运行说明、逐轮记录和证据，并随本轮结果提交。`/mmw-to-spec`、`/mmw-to-tickets`、`/mmw-to-plan`、审查和 `worker` 继续通过仓库路径消费同一资产。结果分支只提供 worktree 隔离和验证，验收通过后仍按现有合同集成回任务分支。原型免除：该决定来自 MMW 已形成闭环的资产流转合同。
-5. Wayfinder prototype 的结案评论指向任务分支内的 prototype 资产路径。Grilling 或直接调用在 spec 产生前完成 prototype 时，资产和逐轮结论已经存在于 `docs/prototypes/<slug>/README.md`；`/mmw-to-spec` 直接读取并吸收。`/mmw-to-tickets` 把相关资产路径和决定含量传给消费该决定的 tracer bullet ticket。主分支长期保留 prototype、verdict、验收标准和视觉合同。原型免除：该决定来自 MMW 的 tracker 与资产消费链。
-6. Prototype 阶段只形成并提交资产、走查证据和已验证决定，不提前完成正式集成。实现阶段把已确认的纯逻辑模块移入正式 module，并由同一 ticket 的 TDD 证明行为。HTML shell 不进入生产模块。UI 按仓库规范重写；prototype route、变体和切换器在回填时归档到 `docs/prototypes/<slug>/`，不留在正式路由。原型免除：该决定同时保留上游“纯逻辑模块可移入、HTML 外壳可丢弃”的合同和 MMW 的 spec-to-ticket 实现顺序。
-7. Wayfinder 的 effort 统一定义为“超出一次 agent session，且从当前状态到 destination 的路线仍不清楚”。是否最终形成一份或多份 spec 不再作为入口条件。保留 destination、map、decision ticket、frontier、fog of war 和提前提取独立 spec。原型免除：该决定由上游文档和现有 MMW map 合同判定，不需要用户判断。
-8. Wayfinder 的工作单位改成“一会话一张 decision ticket”。建图会话不手工解决 ticket。解决任一非 `wayfinder:research` ticket 后，本会话完成回填并停止，不沿新 frontier 继续。建图时可并行派发多张 `wayfinder:research` ticket；每个调查者仍只负责一张 ticket，主 agent 在同一建图会话验证报告并写入各自评论。删除“链”这一调度概念及其领域定义。原型免除：该决定由上游完成判据明确规定，不需要用户判断。
-9. `/mmw-to-tickets` 在写入 tracker 前展示 ticket、blocking edge 和执行顺序。用户可以按粒度、blocking edge、合并和拆分提出修改。只有用户明确批准后才创建 ticket。该确认是 ticket 拆分人工审批关卡，不替代共同理解或 spec 定稿的人工审批关卡。原型免除：该决定由上游 tracker 流程明确规定，不需要用户判断。
-10. `writing-great-skills` 由 model-invoked 的 `writing-for-agents` 取代，不保留 alias。新正文覆盖所有 agent 消费文档，保留 context pointer、context load、cognitive load、information hierarchy、completion criterion、leading word、environment source of truth、cache、pruning 和 no-op。Skill 专有的 frontmatter、invocation、按 invocation 拆分和 router skill 进入单独的 `SKILL-MECHANICS.md`。MMW 只增加现有项目写作规范和物化边界，不另写第二套方法。原型免除：该决定采用上游当前参考，不需要用户判断。
-11. 阶段边界规则作为 `mmw-start` 的披露 reference 保存。所有工作流技能在执行 `## 下一步` 的 phase transfer 前读取同一 reference，不复制五步方法。规则只在阶段边界应用；阶段中继续当前步骤，或把剩余 AFK 工作派给 subagent。原型免除：该决定可由上游文档和当前技能结构判定，不需要用户判断。
-12. 阶段边界按固定顺序判断：先判断当前会话能否继续；再判断现有上下文是否与下一阶段无关；再判断是否需要跨 harness、目录、同事或中途支线的 portability；再判断下一阶段是否可 AFK；最后才 compact。每一步都说明 primary source 转成 secondary source 的信息损失。原型免除：该顺序由上游决策树明确规定，不需要用户判断。
-13. 阶段边界的共享正文使用完整宿主动作块物化。Continue 继续当前任务。Portability 调用 `handoff`。AFK 使用宿主已有的 subagent 或后台 Worktree 任务。清空或 compact 能由 agent 执行时直接执行；只能由用户触发时，停在边界并给出一条精确宿主操作，等用户完成后恢复；agent 与用户都无法触发时，不执行 phase transfer。此时 Continue 仍安全就继续，否则停下并报告宿主能力 blocker。MMW 不声称已经清空或压缩，也不静默用 handoff 替代。原型免除：该决定可由宿主能力和 MMW 物化规则判定，不需要用户判断。
-14. TDD 在测试 seam、module depth 或 interface 暴露面尚未确定时读取 `/mmw-codebase-design`，只使用其 module、interface、seam、adapter 和 depth 词汇帮助澄清边界；已由 spec 决定的 seam 不重新设计。原型免除：该决定由上游文档和现有 spec 责任边界判定，不需要用户判断。
-15. `/mmw-implement` 继续让目标仓库的 `TESTING.md` 决定命令和测试层次，并恢复上游原文的执行频率：实现过程中定期运行类型检查和当前测试文件，全部实现完成后运行一次完整测试套件。“定期”表示这些命令与实现循环交错，不能全部推迟到结束；不把上游的判断改成固定时间或固定次数。`worker` 报告按发生顺序列出命令与结果。仓库没有对应命令时明确报告不适用，不编造命令。原型免除：该决定由上游文档和仓库测试入口判定，不需要用户判断。
-16. 每道审查只运行一轮。审查记录保存固定点、被审 HEAD、findings 和处置；没有 `accepted` 时直接登记终审提交。有 `accepted` 时，调用方一次性修复全部采信项，主 agent 逐条验证原问题和相关验收命令，再登记修复提交；final 终审把该修复提交同时登记为终审提交。修复验收不再派审查者。出包开始后的自愈提交由对应 stage 和最终全量出包结果验证。原型免除：该决定来自用户对审查成本和完成边界的明确要求。
-17. `/mmw-integrate` 解每个冲突时只使用双方提交、issue、spec 和既定集成目标中的行为。兼容行为都保留；不兼容行为按既定目标取舍；任何合成都不得发明新行为。用户取消或现有目标不足以决定取舍时，保留 MMW 的安全 abort 和停止出口。原型免除：该决定由上游文档和现有安全边界判定，不需要用户判断。
-18. Grilling 补充三项解释性合同：用户可以按编号回答整轮；“不知道”、指出范围漂移和推回不合适的问题都是有效回答；开问前的事实调查只暂停依赖该事实的 frontier，其余问题继续。设计树、动态重算和共同理解人工审批关卡不变。原型免除：该决定由上游文档和当前技能正文判定，不需要用户判断。
-19. 新增 model-invoked 的 `wizard`。它只处理 agent 无法代办的人工作业。生成前读取仓库并向用户展示步骤、值来源、写入位置和 secret 属性，取得确认后才生成。脚本实现继续使用上游模板的 `stage` 函数，不把该代码标识符定义成 MMW 领域术语。模板提供进度、URL 打开、秘密输入、幂等环境变量写入、CI secret、不可逆动作确认和总结。脚本默认临时，用户要求可重复路径时才进入仓库。原型免除：该决定采用上游已有模板和步骤，不需要用户判断。
-20. 新增 user-invoked 的 `to-questionnaire`。它只采访“发给谁”和“需要拿回什么”，再生成按重要性排序、每题一个意图、有回答占位的 discovery questionnaire。它可以作为 Grilling 因当前用户不掌握事实而阻塞时的出口；答案回来后仍回 Grilling 建立共同理解。原型免除：该决定采用上游现有文档合同，不需要用户判断。
-21. 新增 user-invoked 的 `wait-what`。它要求 agent 补充必要上下文，使用简化技术英语，并遵守目标仓库 `AGENTS.md` 指向的 canonical 术语。它不写文件，不进入工程交付路由。原型免除：该决定采用上游当前正文并按现有领域规则定位术语，不需要用户判断。
-22. 不吸收 `teach`、`grill-me`、`claude-handoff`、`loop-me`、`setup-ts-deep-modules`、文章写作技能和 misc 专项工具。它们分别超出仓库工程交付范围、重复 repo 内主流程、绑定单一宿主或属于一次性专项能力。原型免除：该决定来自逐项范围调查，不需要用户判断。
-23. 所有改动从共享技能源生成 Pi、Claude Code 和 Codex 产物。Claude Code 显式 manifest 加入新技能并移除旧技能。README 同步工作流与辅助技能说明。根架构图和 Wayfinder SVG 同步 prototype 资产合同、阶段边界、ticket 拆分人工审批关卡、一会话一 ticket 和新增辅助技能。原型免除：该决定照搬现有发布合同。
-24. 领域文档与流程同时更新。交付工作流登记共同理解、spec 定稿和 ticket 拆分三个不同的人工审批关卡，并明确 prototype 资产归属。Wayfinding 把 effort 改为“超出一次 agent session 且路线不清”，删除“链”及其所有权。审查登记与固定点不同的终审提交。Context Map 的 Owns 列同步上述所有权。每个概念只在 owning leaf 定义，其余 leaf 使用权威引用。原型免除：该决定照搬现有领域文档合同。
-25. 发布版本统一提升为 0.10.0。该版本表示方法合同、辅助技能集合和宿主物化都发生兼容性可见变化。Codex manifest、Claude Code manifest、根 Claude marketplace 的插件版本和顶层版本，以及 Pi package 同步更新。原型免除：该决定可由现有版本合同判定，不需要用户判断。
-26. 实施按四个原子主题提交：核心 P0 保真修复；阶段边界与 P1/P2 闭环；新增辅助技能；宿主物化、文档、架构图和版本。每个主题完成后检查共享源与三宿主产物。原型免除：该决定只改变内部提交结构，不改变用户可见行为。
-27. `/mmw-research` 是需要多个独立角度和系统取证的重型调查。单个文件、符号、事实、文件计数和一条命令能完成的确认由主 agent 直接处理。`/mmw-start`、Grilling、Triage、ticket 拆分和架构热点选择使用同一触发边界，不为普通检索派 `investigator`。原型免除：该决定来自用户对调查成本和技能触发边界的明确要求。
+1. 以 vendored 1.2.2 的对应技能为方法论唯一上游。实现只允许调整 MMW 的 worktree、tracker、报告验证、领域文档、人工审批关卡和宿主动作。每项删改都要能指向已确认的 MMW 合同。
+2. 逻辑 prototype 改成一个自包含 HTML 文件。文件使用内联 HTML、CSS 和 JavaScript，无框架、bundler 或服务器。页面同时提供 free-play、按 tab 分组的 guided walkthrough、每个场景的自然语言说明、真实动作按钮和启动场景时的已知初态重置。逻辑仍隔离为纯 reducer、状态机、函数集或持有状态的模块。
+3. 设计 prototype 保留“一轮一个可回答问题”、最小可运行、默认内存状态、少打磨、完整状态可见、真实边界、用户走查、逐轮证据和结论回填。最小脚本和外部系统 Evidence 分支保持现有职责。
+4. 每项设计 prototype 继续保存在任务分支的 `docs/prototypes/<slug>/`。目录保存全部源码、变体、运行说明、逐轮记录和证据，并随本轮结果提交。`/mmw-to-spec`、`/mmw-to-tickets`、`/mmw-to-plan`、审查和 `worker` 继续通过仓库路径消费同一资产。结果分支只提供 worktree 隔离和验证，验收通过后仍按现有合同集成回任务分支。
+5. Wayfinder prototype 的结案评论指向任务分支内的 prototype 资产路径。Grilling 或直接调用在 spec 产生前完成 prototype 时，资产和逐轮结论已经存在于 `docs/prototypes/<slug>/README.md`；`/mmw-to-spec` 直接读取并吸收。`/mmw-to-tickets` 把相关资产路径和决定含量传给消费该决定的 tracer bullet ticket。主分支长期保留 prototype、verdict、验收标准和视觉合同。
+6. Prototype 阶段只形成并提交资产、走查证据和已验证决定，不提前完成正式集成。实现阶段把已确认的纯逻辑模块移入正式 module，并由同一 ticket 的 TDD 证明行为。HTML shell 不进入生产模块。UI 按仓库规范重写；prototype route、变体和切换器在回填时归档到 `docs/prototypes/<slug>/`，不留在正式路由。
+7. Wayfinder 的 effort 统一定义为“超出一次 agent session，且从当前状态到 destination 的路线仍不清楚”。是否最终形成一份或多份 spec 不再作为入口条件。保留 destination、map、decision ticket、frontier、fog of war 和提前提取独立 spec。
+8. Wayfinder 的工作单位改成“一会话一张 decision ticket”。建图会话不手工解决 ticket。解决任一非 `wayfinder:research` ticket 后，本会话完成回填并停止，不沿新 frontier 继续。建图时可并行派发多张 `wayfinder:research` ticket；每个调查者仍只负责一张 ticket，主 agent 在同一建图会话验证报告并写入各自评论。删除“链”这一调度概念及其领域定义。
+9. `/mmw-to-tickets` 在写入 tracker 前展示 ticket、blocking edge 和执行顺序。用户可以按粒度、blocking edge、合并和拆分提出修改。只有用户明确批准后才创建 ticket。该确认是 ticket 拆分人工审批关卡，不替代共同理解或 spec 定稿的人工审批关卡。
+10. `writing-great-skills` 由 model-invoked 的 `writing-for-agents` 取代，不保留 alias。新正文覆盖所有 agent 消费文档，保留 context pointer、context load、cognitive load、information hierarchy、completion criterion、leading word、environment source of truth、cache、pruning 和 no-op。Skill 专有的 frontmatter、invocation、按 invocation 拆分和 router skill 进入单独的 `SKILL-MECHANICS.md`。MMW 只增加现有项目写作规范和物化边界，不另写第二套方法。
+11. 阶段边界规则作为 `mmw-start` 的披露 reference 保存。所有工作流技能在执行 `## 下一步` 的 phase transfer 前读取同一 reference，不复制五步方法。规则只在阶段边界应用；阶段中继续当前步骤，或把剩余 AFK 工作派给 subagent。
+12. 阶段边界按固定顺序判断：先判断当前会话能否继续；再判断现有上下文是否与下一阶段无关；再判断是否需要跨 harness、目录、同事或中途支线的 portability；再判断下一阶段是否可 AFK；最后才 compact。每一步都说明 primary source 转成 secondary source 的信息损失。
+13. 阶段边界的共享正文使用完整宿主动作块物化。Continue 继续当前任务。Portability 调用 `handoff`。AFK 使用宿主已有的 subagent 或后台 Worktree 任务。清空或 compact 能由 agent 执行时直接执行；只能由用户触发时，停在边界并给出一条精确宿主操作，等用户完成后恢复；agent 与用户都无法触发时，不执行 phase transfer。此时 Continue 仍安全就继续，否则停下并报告宿主能力 blocker。MMW 不声称已经清空或压缩，也不静默用 handoff 替代。
+14. TDD 在测试 seam、module depth 或 interface 暴露面尚未确定时读取 `/mmw-codebase-design`，只使用其 module、interface、seam、adapter 和 depth 词汇帮助澄清边界；已由 spec 决定的 seam 不重新设计。
+15. `/mmw-implement` 继续让目标仓库的 `TESTING.md` 决定命令和测试层次，并恢复上游原文的执行频率：实现过程中定期运行类型检查和当前测试文件，全部实现完成后运行一次完整测试套件。“定期”表示这些命令与实现循环交错，不能全部推迟到结束；不把上游的判断改成固定时间或固定次数。`worker` 报告按发生顺序列出命令与结果。仓库没有对应命令时明确报告不适用，不编造命令。
+16. 每道审查只运行一轮。审查记录保存固定点、被审 HEAD、findings 和处置；没有 `accepted` 时直接登记终审提交。有 `accepted` 时，调用方一次性修复全部采信项，主 agent 逐条验证原问题和相关验收命令，再登记修复提交；final 终审把该修复提交同时登记为终审提交。修复验收不再派审查者。出包开始后的自愈提交由对应 stage 和最终全量出包结果验证。
+17. `/mmw-integrate` 解每个冲突时只使用双方提交、issue、spec 和既定集成目标中的行为。兼容行为都保留；不兼容行为按既定目标取舍；任何合成都不得发明新行为。用户取消或现有目标不足以决定取舍时，保留 MMW 的安全 abort 和停止出口。
+18. Grilling 补充三项解释性合同：用户可以按编号回答整轮；“不知道”、指出范围漂移和推回不合适的问题都是有效回答；开问前的事实调查只暂停依赖该事实的 frontier，其余问题继续。设计树、动态重算和共同理解人工审批关卡不变。
+19. 新增 model-invoked 的 `wizard`。它只处理 agent 无法代办的人工作业。生成前读取仓库并向用户展示步骤、值来源、写入位置和 secret 属性，取得确认后才生成。脚本实现继续使用上游模板的 `stage` 函数，不把该代码标识符定义成 MMW 领域术语。模板提供进度、URL 打开、秘密输入、幂等环境变量写入、CI secret、不可逆动作确认和总结。脚本默认临时，用户要求可重复路径时才进入仓库。
+20. 新增 user-invoked 的 `to-questionnaire`。它只采访“发给谁”和“需要拿回什么”，再生成按重要性排序、每题一个意图、有回答占位的 discovery questionnaire。它可以作为 Grilling 因当前用户不掌握事实而阻塞时的出口；答案回来后仍回 Grilling 建立共同理解。
+21. 新增 user-invoked 的 `wait-what`。它要求 agent 补充必要上下文，使用简化技术英语，并遵守目标仓库 `AGENTS.md` 指向的 canonical 术语。它不写文件，不进入工程交付路由。
+22. 不吸收 `teach`、`grill-me`、`claude-handoff`、`loop-me`、`setup-ts-deep-modules`、文章写作技能和 misc 专项工具。它们分别超出仓库工程交付范围、重复 repo 内主流程、绑定单一宿主或属于一次性专项能力。
+23. 所有改动从共享技能源生成 Pi、Claude Code 和 Codex 产物。Claude Code 显式 manifest 加入新技能并移除旧技能。README 同步工作流与辅助技能说明。根架构图和 Wayfinder SVG 同步 prototype 资产合同、阶段边界、ticket 拆分人工审批关卡、一会话一 ticket 和新增辅助技能。
+24. 领域文档与流程同时更新。交付工作流登记共同理解、spec 定稿和 ticket 拆分三个不同的人工审批关卡，并明确 prototype 资产归属。Wayfinding 把 effort 改为“超出一次 agent session 且路线不清”，删除“链”及其所有权。审查登记与固定点不同的终审提交。Context Map 的 Owns 列同步上述所有权。每个概念只在 owning leaf 定义，其余 leaf 使用权威引用。
+25. 发布版本统一提升为 0.10.0。该版本表示方法合同、辅助技能集合和宿主物化都发生兼容性可见变化。Codex manifest、Claude Code manifest、根 Claude marketplace 的插件版本和顶层版本，以及 Pi package 同步更新。
+26. 实施按四个原子主题提交：核心 P0 保真修复；阶段边界与 P1/P2 闭环；新增辅助技能；宿主物化、文档、架构图和版本。每个主题完成后检查共享源与三宿主产物。
+27. `/mmw-research` 是需要多个独立角度和系统取证的重型调查。单个文件、符号、事实、文件计数和一条命令能完成的确认由主 agent 直接处理。`/mmw-start`、Grilling、Triage、ticket 拆分和架构热点选择使用同一触发边界，不为普通检索派 `investigator`。
+28. Prototype 只用于回答靠讨论无法定下来的设计问题。已有 prototype 时，`/mmw-to-spec` 保留用户选中的版本、资产路径、走查轮次和已确认决定。没有 prototype 时，spec 直接使用已确认的讨论结论和当前界面，不为每条决定生成免除理由。
 
 ## Failure Paths
 
