@@ -39,4 +39,24 @@ destination 每个 effort 各不相同。给它命名是画 map 的第一个动�
 | 用户报了一张 map 的编号或链接 | **自己继续**：读 [walking.md](walking.md)，认领一张 decision ticket |
 | 那张 map 的 frontier 上一张 ticket 都不剩 | **自己继续**：读 [closing.md](closing.md)，收尾 |
 
-看不出是哪一个，就按他给的编号查一次 frontier：frontier 上还有 ticket 就走 walking.md，空了就走 closing.md。
+看不出是哪一个，就按他给的编号运行 `mmw issue frontier <map 编号> --label-prefix wayfinder:`。Frontier 上还有 decision ticket 就走 walking.md，空了就走 closing.md。
+
+## 只产出决定，不产出交付物
+
+每张 ticket 解掉一个决定，路清楚了这张 map 就完成——在有人真去实现之前，没有什么还需要决定。想直接动手实现，通常说明 map 已经走到边界，该收尾了。某个 effort 要破例，在 map 的 `Notes` 一节里写明；没写就只产出决定。
+
+## 用名字称呼
+
+每一张 map 和 ticket 都是一张 issue，它有一个名字，就是它的标题。凡是人要读的地方——你的叙述、map 的 `Decisions so far`——都用这个名字称呼它，不要用裸的编号。编号包在名字外面的那个链接里。
+
+## 几个会话同时跑这张 map
+
+一张 map 通常由好几个会话分头做：一个会话建 map，其余会话各认领一张 decision ticket。这带来四条硬约束，三个入口都适用。
+
+**一个会话只解一张 decision ticket。** 回填、提交和交回 map 任务后停止。新出现的 frontier 由另一个会话认领。唯一例外是建图会话可以为刚创建的多张 `wayfinder:research` ticket 并行派 `investigator`；每个 `investigator` 仍只解一张 ticket。
+
+**认领在动手之前。** 把 ticket 指派给自己就是认领。指派完成之前不要做任何事。
+
+**改 map 正文之前先重新拉一次最新的。** GitHub 编辑 issue 正文是整体替换。写完再读一次，确认自己那行在；不在就重来一遍。
+
+**每个任务只使用自己的 worktree。** map 任务拥有 map 分支；每张 decision ticket 和每份 spec 使用从 map 分支派生的独立任务分支。任务之间只交回分支名、HEAD SHA、基点 SHA 和报告，由拥有目标分支的任务验证并集成。主 agent 不切换到另一个任务的工作目录。

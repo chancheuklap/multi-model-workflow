@@ -21,7 +21,14 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 ## 1. 定 plan 清单
 
-读取 spec 中的以下内容：
+| 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
+| --- | --- | --- | --- | --- |
+| spec | 始终 | 问题、方案、实现决定、合同边界和测试 seam | 其他 spec | spec 路径 |
+| ticket | 始终 | 目标、验收、阻塞关系和 plan 路径 | 其他 ticket | ticket 编号和 plan 路径 |
+| prototype | ticket 引用时 | 索引、选中产物、明确相关的走查或长期证据 | 整个产物目录、无关过程材料 | 精确路径；没有写「无 prototype 资产」 |
+| research | ticket 引用时 | research 索引和当前 ticket 使用的精确文件 | research 的上级目录、subagent 原始报告 | 精确路径；没有写「无 research」 |
+
+prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 
 - `## Problem Statement`
 - `## Solution`
@@ -61,8 +68,8 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 | 栏 | 本角色填写 |
 | --- | --- |
 | 目标 | 为 ticket `#<编号>` 写 plan，落到指定路径 |
-| 读 | ① 本 worktree 内 spec 路径；② ticket issue 编号；③ plan 落点路径（ticket `## Plan` 或本技能「1. 定 plan 清单」所定）；④ prototype 资产目录 `docs/prototypes/<slug>/`，并点名用户选中的版本和对应逐轮记录路径（无则写「无 prototype 资产」）；⑤ `mmw skill-path planner` 有输出则写入该方法论路径，无输出写「无（宿主已注入）」 |
-| 约束 | 只写该 plan 文件；不提交；不认领 `## Cross-Plan Contract Anchors` 划给别人的文件；不写其它 plan 的正文 |
+| 读 | 按「1. 定 plan 清单」逐行列出当前 ticket 的精确路径；最后加入 `mmw skill-path planner` 的输出，没有则写「无（宿主已注入）」 |
+| 约束 | 只写该 plan 文件；不提交；不认领 `## Cross-Plan Contract Anchors` 划给别人的文件；不写其他 plan 的正文 |
 | 验收 | plan 文件存在且可被抽验；任务包覆盖 ticket `#<编号>` 的验收（详见 issue，不抄正文） |
 
 启动：把四栏表写入 task 文件，后台执行 `mmw dispatch planner --task <task 文件绝对路径> --cwd <当前任务 worktree 绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。

@@ -18,7 +18,7 @@
 | --- | --- |
 | **挂进已有页面**（首选） | 路由已经存在。变体渲染在**同一个路由**上，用 `?variant=` 查询参数切换，原有的取数、参数和鉴权全部保留，只换渲染的那一层。要做的东西还没有页面、但天然属于某个页面里面（仪表盘的一个新区块、设置页的一张新卡片、既有流程里的一步），也算这一种，把变体挂进宿主页面 |
 | **新开一个一次性路由** | 要做的东西确实没有任何已有页面装得下：一个全新的顶层界面，或者一个嵌不进任何地方的流程。按项目已有的路由约定建，名字里带上 `prototype` |
-| **独立 HTML 稿** | 项目里还没有能承载它的应用——纯后端仓库，或者产品的界面部分尚未存在。直接写在 `docs/prototypes/<slug>/mockup/` 里，同样带切换器 |
+| **独立 HTML 稿** | 项目里还没有能承载它的应用——纯后端仓库，或者产品的界面部分尚未存在。直接写在 [SKILL.md](SKILL.md) 通过 `mmw path prototype` 取得的 prototype 产物路径下的 `mockup/`，同样带切换器 |
 
 前两种的变体代码写在项目路由里，走查完成之后才归档（见 [capture.md](capture.md)）。独立 HTML 稿从一开始就在原型目录里。
 
@@ -36,11 +36,11 @@
 
 ## 2. 一个变体派一个 subagent
 
-一个变体一个 `prototype-worker`，并行。每个变体使用独立 worktree，且只写分配给自己的变体组件。四栏表写明：目标是该结构方向的变体；读是页面语境路径；约束是其它变体方向、独占文件和本文件「3. 每个变体都要过质量门」；验收是可切换、可走查。派发前为每个变体确定唯一、完整的结果分支名，并记录当前任务分支的基点 SHA。
+一个变体一个 `prototype-worker`，并行。每个变体使用独立 worktree，且只写分配给自己的变体组件。四栏表写明：目标是该结构方向的变体；读是页面语境路径；约束是其他变体方向、独占文件和本文件「3. 每个变体都要过质量门」；验收是可切换、可走查。派发前为每个变体确定唯一、完整的结果分支名，并记录当前任务分支的基点 SHA。
 
 启动：先用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`。target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型使用 `gpt-5.6-sol`，思考档使用 `medium`。任务提示包含四栏 task、主 agent 已确定的完整结果分支名和派发前基点 SHA；结果分支名使用独立的 `codex/<slug>`。后台 agent 先运行 `mmw task bind <完整结果分支名> <目标栏原文> --from <基点 SHA>`，然后完成工作并提交。后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 worktree 设置，取得 threadId 后再等待。
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的调查、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
 
 每个 `prototype-worker` 完成后，逐个收取结果：
 

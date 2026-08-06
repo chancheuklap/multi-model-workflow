@@ -79,7 +79,7 @@ slug 的类型前缀用连字符。不带 issue 编号，不带日期。同名�
 
 **粒度是一份 spec 一棵树。** 这份 spec 拆出的几张 ticket 全在这棵树里按顺序做完，整体合并一次、终审一次、Wiki 写一次。确实能并行的 ticket 从当前这棵树的分支再分叉出去（判据在 `/mmw-implement`）。**分支可以嵌套，目录不嵌套**——所有 worktree 一律扁平挂在同一个落点下。
 
-任务 worktree 在整个任务期间持久，可以跨天，中途不要清理。**新 worktree 不预先创建目录**：`docs/specs/`、`docs/plans/`、`docs/prototypes/` 和 `.reviews/` 都在首次写入时创建。
+任务 worktree 在整个任务期间持久，可以跨天，中途不要清理。**新 worktree 不预先创建产物目录**：spec、plan、prototype 和审查记录的配置落点都在首次写入时创建。
 
 报一句你定的 slug 和你要走的路线，然后接着做，不用停下来等用户确认。
 

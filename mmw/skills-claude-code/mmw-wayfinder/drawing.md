@@ -10,6 +10,8 @@
 
 完成的标志：一两行话说得出走到尽头是什么样子，而且用户认了这句话。
 
+同时给这个 effort 定一个「产物目录」。它是一个能通过 `mmw path scratch <产物目录>` 验证的单路径段。这个值属于 effort，不由 map 任务或 decision ticket 的 worktree slug 推导。map 创建后不再改。
+
 ## 2. 广度优先横扫
 
 再 grill 一次，这次**广度优先**：在整个空间上铺开，不在任何一条线上扎深。要找出来的是还开着的决定，以及现在就能迈的第一步。
@@ -18,21 +20,21 @@
 
 ## 3. 建 map
 
-打 `wayfinder:map` 标签。`Destination` 和 `Notes` 填好，`Decisions so far` 留空，横扫出来的 fog of war 写进 `Not yet specified`。
+打 `wayfinder:map` 标签。`Destination`、`产物目录` 和 `Notes` 填好，`Decisions so far` 留空，横扫出来的 fog of war 写进 `Not yet specified`。
 
 ## 4. 建第一批 ticket，再连阻塞关系
 
 现在就能精确表述的问题，各建一张 decision ticket，各带一个 `wayfinder:<类型>` 标签。**四个标签各自什么时候打，见 [map-anatomy.md](map-anatomy.md) 的「四个类型」一节**，不要凭感觉打。还说不清楚的全部留在 `Not yet specified`。
 
-建的时候用 `mmw issue create --title <标题> --body-file <文件> --parent <map 编号> --label wayfinder:<类型>`，它一次做完建 issue、挂到 map 底下、打标签三件事，输出新 issue 的编号。
+建的时候，ticket 正文先写 `Question` 和从 map 原样继承的 `产物目录`。用 `mmw issue create --title <标题> --body-file <文件> --parent <map 编号> --label wayfinder:<类型>` 建立 issue，取得编号后在正文加上 `issue 子目录`，值是 `issue-<编号>`，然后用 `gh issue edit <编号> --body-file <文件>` 回填。
 
-然后用**第二遍**把阻塞关系连上：`mmw issue link <被挡的> --blocked-by <挡它的>`。要分两遍是因为 issue 要先有编号才能互相引用。连完边，这批 ticket 自然分成 frontier 和被阻塞的两类，用 `mmw issue frontier <map 编号>` 看。
+每张 ticket 的产物目录和 issue 子目录回填完成后，再用**第二遍**把阻塞关系连上：`mmw issue link <被挡的> --blocked-by <挡它的>`。要分两遍是因为 issue 要先有编号才能互相引用。连完边，这批 ticket 自然分成 frontier 和被阻塞的两类，用 `mmw issue frontier <map 编号> --label-prefix wayfinder:` 看。
 
-## 5. 派调查 subagent，收报告
+## 5. 派 research subagent，收报告
 
 刚建的每一张 `wayfinder:research` ticket，各派一个 subagent 去查，按 `/mmw-research`。它们只查事实、互不依赖，可以并行。
 
-**报告收齐、验证完、写进 ticket 评论，这一步才算完。** 验证过的事实写进对应 ticket 的评论，没查清的另起一节列出来。查清了的那张 ticket 当场关掉，并往 map 的 `Decisions so far` 追加一行。
+**报告收齐、验证完、写进 ticket 评论，这一步才算完。** 每次 research 都按 `/mmw-research` 询问用户是否保存。验证过的事实写进对应 ticket 的评论。用户选择保存时，再链接 research 索引。没查清的另起一节列出来。查清了的那张 ticket 当场关掉，并往 map 的 `Decisions so far` 追加一行。
 
 ## 6. 提交
 
@@ -45,4 +47,4 @@
 | 第 2 步横扫下来，没有说不清楚的部分 | **移交**：调起 `/mmw-to-spec`，把用户原话原样传过去 |
 | map 建好，第一批 ticket 建好，research 报告已经写进 ticket 评论，改动已提交 | **停**：报 map 已经建好、frontier 上有几张可以认领，并说明每张 decision ticket 使用一个新会话 |
 
-停下来时报三件事：这张 map 的 destination 是什么、frontier 上现在有哪几张 ticket（用名字，不用编号）、哪些 ticket 可以并行认领。
+停下来时报四件事：这张 map 的 destination 是什么、产物目录是什么、frontier 上现在有哪几张 ticket（用名字，不用编号）、哪些 ticket 可以并行认领。

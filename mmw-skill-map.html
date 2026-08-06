@@ -20,6 +20,7 @@
     --h-wfd: #0F766E;
     --h-tri: #0369A1;
     --h-ica: #7E22CE;
+    --h-res: #4338CA;
     --h-spine: #1F2937;
     --h-rest: #8A9490;
 
@@ -45,6 +46,7 @@
       --h-wfd: #4FB3A6;
       --h-tri: #56A9DA;
       --h-ica: #B98AE8;
+      --h-res: #818CF8;
       --h-spine: #C3CBD3;
       --h-rest: #7E8A86;
     }
@@ -66,6 +68,7 @@
     --h-wfd: #4FB3A6;
     --h-tri: #56A9DA;
     --h-ica: #B98AE8;
+    --h-res: #818CF8;
     --h-spine: #C3CBD3;
     --h-rest: #7E8A86;
   }
@@ -85,6 +88,7 @@
     --h-wfd: #0F766E;
     --h-tri: #0369A1;
     --h-ica: #7E22CE;
+    --h-res: #4338CA;
     --h-spine: #1F2937;
     --h-rest: #8A9490;
   }
@@ -223,6 +227,7 @@
   .hue.wfd { color: var(--h-wfd); }
   .hue.tri { color: var(--h-tri); }
   .hue.ica { color: var(--h-ica); }
+  .hue.res { color: var(--h-res); }
   .hue.spine { color: var(--h-spine); }
   .hue.judge { color: var(--h-judge); }
   .hue.upstream { color: var(--accent); }
@@ -445,6 +450,7 @@
   <span class="hue wfd"><i></i>mmw-wayfinder</span>
   <span class="hue tri"><i></i>mmw-triage</span>
   <span class="hue ica"><i></i>mmw-improve-codebase-architecture</span>
+  <span class="hue res"><i></i>mmw-research</span>
   <span class="hue judge"><i></i>起审与审查方法论</span>
   <span class="hue own"><i></i>启动句物化与验证</span>
   <span class="hue rest"><i></i>其余单条连线</span>
@@ -476,6 +482,7 @@ subgraph SETUP["前置"]
     cl5(["<b>mmw wiki</b><br/>ensure / nav / verify"])
     cl6(["<b>mmw skill-path</b><br/>方法论在派出去那一侧的路径"])
     cl7(["<b>mmw doctor</b><br/>检查机器依赖与领域合同"])
+    cl8(["<b>mmw path</b><br/>按产物目录与 issue 或任务子目录<br/>查询 prototype / research / evidence / scratch 落点"])
   end
   cfg[/"<b>.mmw.json</b> · 仓库根<br/>· 模型档 · 标签清单<br/>· 路径 · 领域文档落点<br/>· 技能不硬编码，一律跑 mmw 查"/]
 end
@@ -485,17 +492,17 @@ end
 subgraph MAIN["主干 · 从想法到落地"]
   direction LR
   gri["<b>mmw-grilling</b><br/>· 开问前先查仓库现状<br/>· 用设计树组织当前 frontier<br/>· 每轮批量提出整个 frontier<br/>· 同时应用 domain-modeling<br/>· 共同理解经用户确认才完成"]
-  pro[["<b>mmw-prototype</b><br/>· 一轮只回答一个设计问题<br/>· 逻辑 prototype 是可双击打开的单文件 HTML<br/>· 同时提供自由操作与引导式走查<br/>· 走查后的完整资产保留在 docs/prototypes/"]]
+  pro[["<b>mmw-prototype</b><br/>· 一轮只回答一个设计问题<br/>· 逻辑 prototype 是可双击打开的单文件 HTML<br/>· 同时提供自由操作与引导式走查<br/>· 持久资产与过程材料分层保存"]]
   tsp[["<b>mmw-to-spec</b><br/>· 七条入口各自取齐上游产物<br/>· seam 在这里钉死<br/>· spec 定稿的人工审批关卡通过后发布"]]
-  ttk[["<b>mmw-to-tickets</b><br/>· 切成 tracer bullet<br/>· 声明阻塞关系与 prototype 资产<br/>· 用户通过 ticket 切分人工审批关卡<br/>· 批准后才发布到 tracker"]]
+  ttk[["<b>mmw-to-tickets</b><br/>· 切成 tracer bullet<br/>· 声明阻塞关系与精确上下文路径<br/>· 用户通过 ticket 切分人工审批关卡<br/>· 批准后才发布到 tracker"]]
   imp[["<b>mmw-implement</b><br/>· 一张 ticket 派一个可写 worker<br/>· Codex 用独立后台 Worktree 任务<br/>· 每份走 ③ 逐份验收三关<br/>· 全部合并后走 ④ 合同门"]]
   tdd[("<b>mmw-tdd</b><br/>· red 到 green 的循环<br/>· seam 由 spec 钉死<br/>· seam 未定时读 codebase-design<br/>· 当前测试交错运行，全套只在末尾运行一次")]
-  pln[["<b>mmw-to-plan</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 一张 ticket 一份 plan<br/>· 派 planner 写<br/>· 传入完整 prototype 资产与用户选中版本<br/>· 验证返回，回填精确字段"]]
+  pln[["<b>mmw-to-plan</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 一张 ticket 一份 plan<br/>· 派 planner 写<br/>· 只传入本 ticket 使用的精确上下文路径<br/>· 验证返回，回填精确字段"]]
   pnr[("<b>mmw-planner</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 写计划方法论<br/>· 从 prototype 资产提取已确认决定<br/>· planner 进门读它，主 agent 不读")]
-  clo["<b>mmw-closing</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· spec 与 plan 转成 Wiki 一页<br/>· 推送前给用户看<br/>· verify 三条全过才删本地"]
+  clo["<b>mmw-closing</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· spec 与 plan 转成 Wiki 一页<br/>· 推送前给用户看<br/>· verify 通过后归档文档并清理任务过程材料"]
   intg[["<b>mmw-integrate</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 验证结果分支、HEAD 与基点<br/>· 按合同依赖排序<br/>· 合入当前任务分支"]]
   rel["<b>mmw-release</b><br/>· 当前 HEAD 必须等于终审提交<br/>· 主 agent 驱动正式出包循环<br/>· 核对所有包的 source commit<br/>· 用户实测通过后收尾"]
-  crv[["<b>mmw-review</b><br/>· 六道审的编排<br/>· 按视角传入完整 prototype 资产与选中版本<br/>· findings 逐条判定"]]
+  crv[["<b>mmw-review</b><br/>· 六道审的编排<br/>· 按视角传入需要的索引与精确路径<br/>· findings 逐条判定"]]
   shp((("<b>提交到<br/>当前分支</b>")))
 end
 
@@ -524,7 +531,7 @@ end
 
 subgraph SOLO["独立使用"]
   direction TB
-  res[["<b>mmw-research</b><br/>· 查内部与查外部两个方向<br/>· 一个角度一个 subagent<br/>· 各拿各的 task"]]
+  res[["<b>mmw-research</b>"]]
   hof["<b>handoff</b>"]
   wfa["<b>writing-for-agents</b>"]
   wiz["<b>wizard</b><br/>复杂人工操作的可审查向导"]
@@ -535,7 +542,10 @@ end
 ctx[/"<b>目标 AGENTS.md 与领域文档</b><br/>· 主 agent 与 subagent 的共同领域入口<br/>· Map 是 Context / Leaf / Owns 三列表<br/>· leaf 是已登记的命名 Markdown 文件<br/>· 共享术语使用 authoritative 引用<br/>· ADR 落点跑 mmw domain dirs 取"/]
 trk[/"<b>issue tracker</b><br/>· map、spec、ticket 三层"/]
 oos[/"<b>.out-of-scope/</b><br/>· 一个概念一个文件"/]
-pta[/"<b>docs/prototypes/</b><br/>· 不随 spec 转 Wiki 删除<br/>· 逻辑 branch 的纯模块移入正式代码<br/>· HTML 外壳与全部变体继续留作 primary source"/]
+pta[/"<b>持久 prototype / evidence 资产</b><br/>· Wayfinder 共用 map 的产物目录<br/>· decision ticket 使用 issue 子目录<br/>· 索引列出选中产物与长期证据<br/>· HTML 外壳与全部界面变体继续留作 primary source"/]
+ina[/"<b>用户选择保存的 research</b><br/>· 一个 research 主题一个子目录<br/>· README 是 research 索引<br/>· 下游只读点名的索引与精确文件<br/>· 保存不代表下游必须引用"/]
+rfacts["<b>验证后的 research</b><br/>直接交回当前调用方；<br/>是否保存不影响结果成立"]
+tmp[/"<b>Git 忽略的 scratch</b><br/>· 截图、DOM、console、录屏与中间输出<br/>· 只提升长期决定所需的最小证据<br/>· 收尾清理当前任务自己的内容"/]
 wik[/"<b>GitHub Wiki</b><br/>· 此后是这份 spec 的<br/>  唯一事实来源"/]
 rvr[("<b>mmw-reviewer</b><br/>· 审查方法论单源<br/>· 共享纪律加八个视角<br/>· 审查者进门读它，主 agent 不读")]
 
@@ -600,7 +610,7 @@ ica ==>|"术语当场更新 leaf<br/>ADR 按三项判据决定"| dmo
 ica ==>|"grilling 谈定之后回到它，由它移交"| tsp
 
 tdd -.->|"seam 的权威定义"| cbd
-res -->|"一份带引用的 markdown 作为输入"| gri
+res -->|"过滤、验证与综合"| rfacts
 gri ==>|"某个决定必须看见实物<br/>才能判断"| pro
 gri -.->|"需要另一位知识持有者回答"| tq
 pro -->|"逐轮迭代，走查过的产物留在仓库里"| pta
@@ -639,8 +649,19 @@ mmwc -.->|"工作流承载与关卡"| src
 src -.->|"完整语义进入物化"| dsp
 pta -.->|"已确认的状态、交互和全部变体"| tsp
 pta -.->|"资产路径与 prototype 决定"| ttk
-pta -.->|"完整资产、选中版本与逐轮记录"| pln
-pta -.->|"完整资产与选中版本的视觉合同"| crv
+pta -.->|"索引、选中产物与明确证据"| pln
+pta -.->|"索引与本视角需要的精确路径"| crv
+cfg -.->|"产物落点"| cl8
+pro -->|"过程材料默认不进 Git"| tmp
+clo -->|"清理当前任务过程材料"| tmp
+res -->|"用户选择保存"| ina
+ina -.->|"索引与精确路径"| tsp
+gri -.->|"事实问题"| res
+tsp -.->|"现状与影响面"| res
+ttk -.->|"prefactor"| res
+tri -.->|"实现与历史"| res
+ica -.->|"热点与历史"| res
+pro -.->|"可查证的问题"| res
 
 classDef user fill:#FBF2E4,stroke:#8A9490,stroke-width:1.5px,color:#2B2419;
 classDef model fill:#E4EDF0,stroke:#8A9490,stroke-width:1.5px,color:#14282C;
@@ -658,13 +679,14 @@ classDef hCtx fill:#FFFFFF,stroke:#4D7C0F,stroke-width:2.2px,color:#22300B;
 classDef hWfd fill:#E4EDF0,stroke:#0F766E,stroke-width:2.4px,color:#14282C;
 classDef hTri fill:#E4EDF0,stroke:#0369A1,stroke-width:2.4px,color:#14282C;
 classDef hIca fill:#E4EDF0,stroke:#7E22CE,stroke-width:2.4px,color:#14282C;
+classDef hRes fill:#E4EDF0,stroke:#4338CA,stroke-width:2.6px,color:#1E1B4B;
 
 class wfa,hof,wiz,tq,wwt user;
-class cbd,tdd,crv,dbg,imp,pro,res,ttk,tsp,rvr,pln,pnr,clo,intg,rel model;
-class trk,oos,pta,wik art;
+class cbd,tdd,crv,dbg,imp,pro,ttk,tsp,rvr,pln,pnr,clo,intg,rel model;
+class trk,oos,pta,ina,tmp,wik art;
 class src,dsp,vfy,cdx,cwt hOwn;
-class cl1,cl2,cl3,cl4,cl5,cl6,cl7 hSetCli;
-class shp term;
+class cl1,cl2,cl3,cl4,cl5,cl6,cl7,cl8 hSetCli;
+class shp,rfacts term;
 class ups,mmwc art;
 class set hSetCli;
 class cfg hSetArt;
@@ -675,6 +697,7 @@ class ctx hCtx;
 class wfd hWfd;
 class tri hTri;
 class ica hIca;
+class res hRes;
 class phb term;
 linkStyle 0 stroke:#A16207,color:#A16207,stroke-width:2.2px;
 linkStyle 1 stroke:#A16207,color:#A16207,stroke-width:1.8px;
@@ -754,6 +777,10 @@ linkStyle 77 stroke:#A16207,color:#A16207,stroke-width:1.8px;
 linkStyle 78 stroke:#9C6414,color:#9C6414,stroke-width:2px;
 linkStyle 79,80 stroke:#15803D,color:#15803D,stroke-width:2px;
 linkStyle 81,82,83,84 stroke:#BE185D,color:#BE185D,stroke-width:1.8px;
+linkStyle 85 stroke:#A16207,color:#A16207,stroke-width:1.8px;
+linkStyle 86 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
+linkStyle 87 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
+linkStyle 42,52,74,95,97,98,99,100,101,102 stroke:#4338CA,color:#4338CA,stroke-width:2px;
 </pre>
 </div>
 </div>
@@ -795,10 +822,10 @@ direction TB
   a1["第一步，给 destination 命名。<br/>它固定了范围，所以最先定"]
   a2["第二步，广度优先横扫整个空间。<br/>每条线都碰一下，不在任何一条上扎深"]
   a3{"这项工作是否超过一个 agent 会话，<br/>而且路线仍不清楚？"}
-  a4["建 map issue，打上 wayfinder:map 标签"]
+  a4["建 map issue，打上 wayfinder:map 标签。<br/>正文固定一个产物目录，整个 effort 不再改名"]
   a5["已经能精确表述的问题，各建一张 decision ticket"]
   a6["第二遍补阻塞关系。<br/>issue 要先有编号，才能互相引用"]
-  a7[["派 research subagent，逐条判定报告，<br/>把验证过的事实写进对应 ticket 的评论"]]
+  a7[["派 research subagent，逐条判定报告。<br/>每次询问用户是否保存，再把事实写进 ticket 评论"]]
 end
 
 hA(["停，交回用户<br/>报 map 已经建好，说明怎样另开会话认领一张 decision ticket"])
@@ -808,7 +835,7 @@ direction TB
   b1["读一遍 map，只看整体，不逐个打开 ticket"]
   b0{"frontier 上<br/>还有 ticket 吗？"}
   b2["挑一张没有阻塞、也没人认领的"]
-  b3["先指派给自己；Codex 从 map 分支创建独立 Worktree 任务并绑定任务分支"]
+  b3["先指派给自己；Codex 从 map 分支创建独立 Worktree 任务并绑定任务分支。<br/>ticket 继承 map 的产物目录，并使用 issue 编号子目录"]
   b4{"这张是哪一类？"}
   b5["把答案写成结案评论，然后关掉这张 ticket"]
   b6{"mmw-domain-modeling 的<br/>三项 ADR 判据全部成立吗？"}
@@ -821,12 +848,13 @@ hB(["停，交回用户<br/>报本张 decision ticket 已完成，并列出当�
 subgraph TY["四类 ticket 怎么解 · 要人在场的那三类，agent 不许替人回答"]
 direction TB
   t1["grilling 类，要人在场。<br/>跑 mmw-grilling，按设计树的<br/>整个 frontier 分轮提问"]
-  t2[["prototype 类，要人在场。<br/>跑 mmw-prototype，一轮回答一个问题"]]
-  t3[["research 类，人不用在场。<br/>只查当前这一个决定，答完就停"]]
+  t2[["prototype 类，要人在场。<br/>跑 mmw-prototype，一轮回答一个问题。<br/>持久资产与 Git 忽略的过程材料分开保存"]]
+  t3[["research 类，人不用在场。<br/>只查当前这一个决定等待的事实，答完就停"]]
   t4{"task 类。<br/>agent 自己做得了吗？"}
-  r1[["按 mmw-research 派 subagent"]]
-  r2["按 mmw-verifying-agent-output 逐条验证。<br/>每条关键断言都要有主 agent 能自己验证的出处"]
-  r3["验证过的事实写进 ticket 评论，<br/>没查清的另起一节列出来"]
+  r1[["按 mmw-research 列 research 清单，<br/>一个问题派一个 investigator"]]
+  r2["过滤无出处断言，打开出处验证，再由主 agent 综合。<br/>subagent 原始报告不等于 research"]
+  r4{"继承 map 的产物目录，计算 issue 子目录。<br/>展示摘要、拟保存文件和完整路径后，<br/>用户是否保存本次 research？"}
+  r3["验证过的事实始终写进 ticket 评论。<br/>保存时再链接 research 索引；<br/>没查清的另起一节列出来"]
   hT(["停，交回用户<br/>简单任务给精确清单；复杂任务先用 wizard 生成向导"])
 end
 
@@ -835,7 +863,7 @@ direction TB
   c1["把 map 上还没说清楚的条目，列给用户看"]
   c2{"里面还有会挡住<br/>后续工作的吗？"}
   c3["把这个视角的决定按类型分开，各写各的落点"]
-  c4["派生 spec。把已定的决定按<br/>「哪些能凑成一份独立做得下去的东西」分组，一组一份。<br/>这一步只分组，不重新讨论。<br/>每份建一张 issue 挂在 map 底下，不带 wayfinder: 标签，<br/>靠这个跟 decision ticket 区分"]
+  c4["派生 spec。把已定的决定按<br/>「哪些能凑成一份独立做得下去的东西」分组，一组一份。<br/>这一步只分组，不重新讨论。<br/>每份建一张 issue 挂在 map 底下，不带 wayfinder: 标签，<br/>并继承 map 的产物目录"]
   c5["关掉 map"]
 end
 
@@ -883,7 +911,9 @@ b4 -->|"research"| t3
 b4 -->|"task"| t4
 t3 --> r1
 r1 --> r2
-r2 --> r3
+r2 --> r4
+r4 -->|"保存：写 research 并链接索引"| r3
+r4 -->|"不保存：不创建 research 文件"| r3
 t4 -->|"做不了"| hT
 hT -.->|"用户按清单做完"| b5
 t1 --> b5
@@ -944,6 +974,158 @@ class d1,d2,d3,d4,d5,d6,d7 pd;
 class pmap,ptk,adr,oos,ctx,spf,wik sink;
 class hA,hB,hC,hT halt;
 
+</pre>
+</div>
+</div>
+
+<header class="subhead">
+  <span class="kicker">第三张图</span>
+  <h1><code>mmw-research</code> 的完整覆盖面 <em>·</em> 从事实问题到精确下游引用</h1>
+</header>
+
+<div class="hue-strip">
+  <span>节点颜色 ＝ 所属阶段</span>
+  <span class="hue mms"><i></i>谁会调用</span>
+  <span class="hue tri"><i></i>问题分流与派发</span>
+  <span class="hue spine"><i></i>主 agent 验证与综合</span>
+  <span class="hue set"><i></i>保存人工审批关卡</span>
+  <span class="hue ctx"><i></i>research 与 scratch</span>
+  <span class="hue gwd"><i></i>交回与下游读取</span>
+</div>
+
+<div class="toolbar">
+  <span class="hint"></span>
+  <button type="button" data-zoom="out">缩小</button>
+  <button type="button" data-zoom="reset">实际大小</button>
+  <button type="button" data-zoom="in">放大</button>
+  <span class="zoom-readout">100%</span>
+</div>
+
+<div class="canvas">
+<div class="zoomer">
+<pre class="mermaid">%%{init: {"theme":"base","themeVariables":{"background":"#FAFAF8","primaryColor":"#FBF2E4","primaryTextColor":"#20262B","primaryBorderColor":"#8A9490","lineColor":"#8A9490","secondaryColor":"#E4EDF0","tertiaryColor":"#FFFFFF","fontSize":"13.5px","fontFamily":"-apple-system, PingFang SC, Helvetica, sans-serif","edgeLabelBackground":"#FAFAF8","clusterBkg":"#F2F2EE","clusterBorder":"#CBCFC9","titleColor":"#4E5A55","nodeTextColor":"#20262B"},"flowchart":{"wrappingWidth":410,"curve":"basis","nodeSpacing":30,"rankSpacing":56,"padding":9,"useMaxWidth":false}}}%%
+flowchart TB
+
+subgraph RCALL["一、谁会调用 · research 不是一条孤立支线"]
+direction LR
+  c0["用户直接要求查清一个事实，<br/>或 mmw-start 判定只需要一条事实"]
+  c1["讨论与设计：mmw-grilling、mmw-to-spec"]
+  c2["拆分与分诊：mmw-to-tickets、mmw-triage"]
+  c3["探索与路线：mmw-wayfinder、<br/>mmw-improve-codebase-architecture"]
+  c4["mmw-prototype 发现读文档或源码就能回答，<br/>无需真实运行"]
+  list["先列本次全部 research 问题。<br/>每个问题必须能用一句话判定真假"]
+end
+
+subgraph RROUTE["二、问题分流 · 只把需要隔离取证的工作派出去"]
+direction LR
+  easy{"一个函数、一个已知文件<br/>或一条命令就能回答？"}
+  local["主 agent 直接读取或运行，<br/>不派 subagent"]
+  live{"必须在真实环境、多候选<br/>或多轮测量后才知道？"}
+  evidence["移交 mmw-prototype 的 EVIDENCE.md。<br/>先写判据，再运行并保留 evidence"]
+  kind{"事实在哪？"}
+  internal[["内部 research<br/>当前仓库的实现、seam、数据流、<br/>调用链、影响面与根因<br/>出处是文件与行号"]]
+  external[["外部 research<br/>第三方库、接口、规范与本地知识库<br/>出处是一手链接或命令与输出"]]
+  tasks["一个问题一份四栏 task。<br/>目标、读、约束、验收写全；<br/>互不依赖的问题并行派 investigator"]
+  reports["subagent 交回原始报告。<br/>它是待验证输入，还不是 research"]
+end
+
+subgraph RVERIFY["三、主 agent 验证与综合 · 判定权不下放"]
+direction LR
+  filter["过滤没有出处的断言，<br/>记录被过滤的数量与内容"]
+  verify["打开每个出处验证。<br/>内部的「没有找到」与外部二手来源必须重新查"]
+  conflict["证据冲突时并列展示，<br/>未通过验证的内容只进未查清项"]
+  synth["跨问题去重并综合。<br/>每条保留出处；综合不再派发"]
+  done["此时才形成 research：<br/>主 agent 验证并综合的最终事实"]
+end
+
+subgraph RSAVE["四、保存人工审批关卡 · 每次 research 只问一次"]
+direction LR
+  owner["先确定产物目录。<br/>已有 effort 必须复用；Wayfinder 继承 map；<br/>普通任务使用任务 slug；无 effort 时向用户提议"]
+  path{"是否是 Wayfinder<br/>decision ticket？"}
+  normal["运行 mmw path research &lt;产物目录&gt;"]
+  wfpath["运行 mmw path research &lt;产物目录&gt; issue-&lt;编号&gt;"]
+  proposal["在命令返回目录下追加 research 主题。<br/>展示结论摘要、拟保存文件和完整路径"]
+  gate{"用户是否保存<br/>本次 research？"}
+  saved["创建并独立保留 research 目录。<br/>README.md 是 research 索引；report.md 是 research 报告；<br/>只加入用户批准的 research 配套文件。<br/>research 不进入 ADR，也不因 spec 未引用而删除"]
+  none["不创建 research 目录或文件。<br/>验证后的事实仍然有效，仍可交回调用方"]
+  scratch["subagent 原始报告、网页转储、抓取缓存、<br/>未采信内容需要跨进程转交时写入 scratch。<br/>scratch 不进 Git，任务结束时清理"]
+end
+
+subgraph RRETURN["五、交回与下游读取 · 保存和引用是两次独立决定"]
+direction LR
+  handoff["始终交回验证后的事实、出处、<br/>未查清项和被过滤内容"]
+  whandoff["Wayfinder：事实写入 decision ticket 评论。<br/>保存时再链接 research 索引"]
+  dhandoff["用户直接调用：结论留在当前会话。<br/>保存时再给 research 索引路径"]
+  callers["其他技能：先接收事实。<br/>只有确实需要已保存 research 时，<br/>再接收索引与精确文件路径"]
+  design["spec 与 ticket<br/>只传给消费该事实的范围"]
+  delivery["plan、planner、implement 与 worker<br/>保留范围快照和未查清项"]
+  assurance["review 与 reviewer<br/>只读本视角点名的 research"]
+  rule["共同读取规则：<br/>先读 research 索引，再读精确文件。<br/>不递归读取 research 的上级目录，<br/>不把 subagent 原始报告当成 research"]
+end
+
+rindex[/"<b>research 索引 · README.md</b><br/>问题、范围快照、结论摘要、文件索引、<br/>下游用途与未查清项；内部记录 commit，<br/>外部记录访问日期与版本"/]
+rreport[/"<b>research 报告 · report.md</b><br/>验证后的完整结论与逐条出处"/]
+rfiles[/"<b>research 配套文件</b><br/>用户批准保存的 HTML、字段表、脚本等；<br/>用途必须写进 research 索引"/]
+
+c0 --> list
+c1 --> list
+c2 --> list
+c3 --> list
+c4 --> list
+list --> easy
+easy -->|"是"| local
+easy -->|"否"| live
+live -->|"是"| evidence
+live -->|"否"| kind
+kind -->|"当前仓库"| internal
+kind -->|"仓库之外"| external
+internal --> tasks
+external --> tasks
+tasks --> reports
+reports --> filter
+filter --> verify
+verify --> conflict
+conflict --> synth
+synth --> done
+reports -.->|"确需跨进程转交"| scratch
+done --> owner
+owner --> path
+path -->|"否"| normal
+path -->|"是"| wfpath
+normal --> proposal
+wfpath --> proposal
+proposal --> gate
+gate -->|"保存"| saved
+gate -->|"不保存"| none
+saved --> handoff
+none --> handoff
+saved -.-> rindex
+saved -.-> rreport
+saved -.-> rfiles
+handoff --> whandoff
+handoff --> dhandoff
+handoff --> callers
+callers --> design
+callers --> delivery
+callers --> assurance
+design --> rule
+delivery --> rule
+assurance --> rule
+rindex -.->|"调用方确实需要时才点名"| rule
+
+classDef caller fill:#E4EDF0,stroke:#C2410C,stroke-width:2.2px,color:#14282C;
+classDef route fill:#E4EDF0,stroke:#0369A1,stroke-width:2.2px,color:#0B2A3D;
+classDef verify fill:#E4EDF0,stroke:#1F2937,stroke-width:2.2px,color:#16202B;
+classDef save fill:#FBF2E4,stroke:#A16207,stroke-width:2.2px,color:#3B2F0B;
+classDef output fill:#FFFFFF,stroke:#4D7C0F,stroke-width:2.2px,color:#22300B;
+classDef downstream fill:#FBF2E4,stroke:#BE185D,stroke-width:2.2px,color:#3E0F26;
+
+class c0,c1,c2,c3,c4,list caller;
+class easy,local,live,evidence,kind,internal,external,tasks,reports route;
+class filter,verify,conflict,synth,done verify;
+class owner,path,normal,wfpath,proposal,gate save;
+class saved,none,scratch,rindex,rreport,rfiles output;
+class handoff,whandoff,dhandoff,callers,design,delivery,assurance,rule downstream;
 </pre>
 </div>
 </div>

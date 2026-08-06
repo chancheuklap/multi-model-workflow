@@ -43,7 +43,7 @@
 - **map**：一张 GitHub issue，打 `wayfinder:map` 标签。这个标签既不是状态也不是类型，只是「这张 issue 是一张 map」的记号（见 `triage-labels.md`）。
 - **decision ticket**：map 的子 issue，一张对应一个待定的决定，带一个 `wayfinder:<类型>` 标签（见 `triage-labels.md`）。
 - **阻塞**：原生 issue dependencies，加边命令见本文「层级」一节。
-- **frontier 查询**：map 的 open 子 issue 中，`issue_dependencies_summary.blocked_by == 0` 且无 assignee 的全部——注意这里要的是全部，不是取第一个。`/mmw-wayfinder` 允许几个会话各认领一条 decision ticket 链同时跑。
+- **frontier 查询**：运行 `mmw issue frontier <map 编号> --label-prefix wayfinder:`。它只从 map 的 decision ticket 中返回 open、`issue_dependencies_summary.blocked_by == 0` 且无 assignee 的全部结果；不得把无 `wayfinder:` 标签的 spec issue 算进 frontier。`/mmw-wayfinder` 允许几个会话各认领一条 decision ticket 链同时跑。
 - **决定的答案**：作为结案评论贴在 decision ticket 上，关掉它，再往 map 的 `Decisions so far` 追加一行指针。**难以回退、有真取舍的那些还要另写一份 ADR**，别只留在评论里（见本文「`/mmw-wayfinder` 的产物不上 Wiki，但也不能死」一节的产物去向表）。
 
 `/mmw-wayfinder` 找不到本节时会退化成拿本地 markdown 文件当 issue 追踪器。本仓库有 GitHub，不要走那条退路。

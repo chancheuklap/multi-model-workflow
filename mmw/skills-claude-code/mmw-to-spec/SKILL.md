@@ -15,7 +15,8 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 | --- | --- | --- |
 | `/mmw-grilling` 谈定 | 这次对话里刚谈完。`/mmw-wayfinder` 横扫下来判定不需要 map 的也走这一行 | 这一轮写进领域文档的术语（落点跑 `mmw domain path` 取）、这一轮落成的 ADR、对话里达成的每一条共识 |
 | `/mmw-improve-codebase-architecture` 挑中的候选谈定 | slug 是 `refactor-` 开头，那个空提交里记着一张候选卡片的标题 | 这一轮写进领域文档的术语（落点跑 `mmw domain path` 取）、这一轮落成的 ADR、对话里达成的每一条共识，外加**那张卡片**——它的文件清单是第 2 步探仓库的起点，它的 Problem 和 before/after 直接进 spec 的 `## Current State` 与 `## Solution`。这次的外部行为不变，所以 `## Solution` 写的是结构怎么变、谁的调用方式跟着变 |
-| `/mmw-prototype` 走查完 | `docs/prototypes/<slug>/` 存在 | 那份 `README.md` 里回填的结论；每一轮的**选中的那一版**；界面那一侧的视觉契约 |
+| `/mmw-prototype` 走查完 | 能从上游取得 `产物目录`；Wayfinder decision ticket 还能取得 `issue-<编号>` | 运行 `mmw path prototype <产物目录> [issue-<编号>]`，先读命令返回目录中的 `README.md`，再只读本 spec 需要的选中产物，以及索引显式引用的对应走查记录和长期证据。普通非 Wayfinder 任务不传 issue 子目录。索引必须列出问题、逐轮用户结论、用户选中的路径、落选变体形成的约束、被提升为长期证据的路径；没有选中产物、落选约束或长期证据时，对应项写「无」，不能省略。缺一项就回 `/mmw-prototype` 补齐 |
+| `/mmw-research` 交回 | 上游交回验证后的事实；用户选择保存时还会交回 research 索引 | 始终取验证后的事实与出处。只有本 spec 依赖已保存的 research 时，才读取索引和精确文件路径；不递归读取 research 的上级目录 |
 | `/mmw-wayfinder` 切出的一份 spec | 有一张 issue 挂在带 `wayfinder:map` 标签的 issue 底下，自己不带任何 `wayfinder:` 标签 | 那张 map 的 `Destination`、`Decisions so far`、`Out of scope` 三节，各自落进 spec 哪里见第 4 步；走这张 map 过程中新增的 ADR 与 `.out-of-scope/` |
 | `/mmw-triage` 判出这件事需要多张 ticket、多个测试 seam，或者还有设计取舍要谈 | 那张 issue 或 PR 上有一条 agent brief 评论 | 那份 agent brief 全文，尤其 `Test seam` 那一栏，以及 `/mmw-triage` 的「分诊一张具体的 issue 或 PR」第 3 步验过的断言 |
 | `/mmw-implement` 回来补 seam | `docs/specs/<slug>/` 里已经有一份 spec | 现有那份 spec。**只补 seam 一节，不重写**，从第 2 步接着走 |
@@ -23,13 +24,13 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 ## 2. 探仓库
 
-还没探过就先探，把这块地方现在怎么实现搞清楚。**按 `/mmw-research` 的内部方向派出去**，一个角度一个 subagent：这块功能现在怎么实现、它的 seam 在哪、数据从哪来到哪去、哪些地方会被这次改动波及。
+还没做过 research 就先做。**按 `/mmw-research` 的内部方向派出去**，一个角度一个 subagent：这块功能现在怎么实现、它的 seam 在哪、数据从哪来到哪去、哪些地方会被这次改动波及。
 
-`/mmw-grilling` 谈的过程里已经查过一轮的，只补那一轮没覆盖的角度，不要整片重查。
+`/mmw-grilling` 已经做过一轮 research 的，只补没有覆盖的角度。
 
 整份 spec 用项目领域词汇，遵守你要碰的这块地方的 ADR。领域文档落点跑 `mmw domain path` 取，三种返回怎么读见 `/mmw-domain-modeling` 的「读领域文档」一节。
 
-现状结论逐条带 `file:line` 引用写进 spec，**引用要你自己验证过**（`/mmw-verifying-agent-output`）。
+现状结论逐条带 `file:line` 引用写进 spec，**引用要你自己验证过**（`/mmw-verifying-agent-output`）。用户选择保存，而且本 spec 依赖该 research 时，spec 同时引用 research 索引和实际使用的精确文件路径。
 
 ## 3. 钉 seam
 
@@ -76,20 +77,24 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 - 每个决定都写了为什么，落点精确到函数或模块，没有「某个模块」「相应调整」这类悬空话
 - 每条真实的失败路径都答得出四问：什么触发、谁捕获、用户看到什么、对应哪条验收
 - 新增或改变的对象、状态、角色写清了谁写谁读，稳定下来的术语已经进领域文档
-- **原型证据逐条验证**：`Implementation Decisions` 里的每一条：
-  - 要么指得到 `docs/prototypes/<slug>/` 下的一份产物（写明是哪一份、第几轮走查定的）。
-  - 要么符合下面三种免除情形之一，并在那条后面写明是哪一种。
+- **原型证据逐条验证**：`Implementation Decisions` 里的每一条，要么指得到 prototype 资产索引、精确的选中产物路径和对应走查记录，要么符合下面三种免除情形之一并在那条后面写明是哪一种。两样都给不出来的，移交 `/mmw-prototype` 补一轮再回来。用户走查过实物才算这条决定被验证过，讨论达成一致不算。落选变体只提供索引已经归纳的否定约束；确需验证该约束时，才读取索引显式引用的具体变体
 
   三种免除情形，**只有这三种**：
   1. 这条决定是照搬既有实现、既有约定或者一条已经拍板的 ADR。
   2. 它的对错查一次代码或文档就能确定，不需要用户判断。
   3. 它不改变任何用户看得见的行为（纯内部结构调整、重命名、搬移）。
 
-  两样都给不出来的，移交 `/mmw-prototype` 补一轮再回来。用户走查过实物才算这条决定被验证过，讨论达成一致不算。
-
-  不算免除的：「时间紧」「显然是对的」「先做了再说」「用户已经口头同意」。**用户口头同意跟他走查过实物是两回事。** 写不出属于哪一种免除情形，就是要补一轮原型。
-- **视觉合同逐项可验收**：用户的浏览器标记、选中页面和对应截图已经写成持久出处；每个页面、viewport 和真实状态各有一条可观察结果，没有只引用临时标签页，也没有把多个状态压成一句「与原型一致」
+  不算免除的：「时间紧」「显然是对的」「先做了再说」「用户已经口头同意」。**用户口头同意跟他走查过实物是两回事。** 写不出属于哪一种免除情形，就是要补一轮原型
+- **视觉合同逐项可验收**：用户的浏览器标记、选中页面和对应走查记录已经写成精确持久出处；每个页面、viewport 和真实状态各有一条可观察结果，没有只引用临时标签页，也没有把多个状态压成一句「与原型一致」。可运行的选中页面本身可以作为证据；只有截图是长期视觉决定的必要证据时，才持久保存并引用截图
 - `## Testing Decisions` 一节里那张 seam 清单表逐条填齐了，每行都写了在哪测、测什么行为、为什么是这一层
+
+完整 UI 变体集继续保留在 prototype 资产中，作为 primary source。prototype 资产索引只负责路由，不替代原始产物；本技能只读取选中产物和索引显式引用的证据或具体落选变体，不递归读取产物目录。
+
+### Wayfinder 派生的 spec 需要补充 prototype 或 evidence
+
+当 Wayfinder 派生的 spec 需要补充 prototype 或 evidence 时，先停止 spec 工作。拥有 map 分支的任务在 map issue 已关闭时重新打开它，再新建 `wayfinder:prototype` 或 `wayfinder:research` decision ticket。Decision ticket 原样继承 map 的 `产物目录`，并使用自己的 `issue-<编号>` 子目录。
+
+Decision ticket 任务完成后，map 任务运行 `mmw result verify` 和 `mmw result integrate`。然后 map 任务按 `/mmw-integrate` 让未完成的 spec 分支 rebase 到更新后的 map 分支。Spec 任务只在 rebase 完成后回到第 5 步。
 
 ## 6. 发起 ① spec 审
 
@@ -132,8 +137,10 @@ mmw issue create --title "<一句话的名字>" --body-file <摘要文件> --lab
 | 发布完了 | **移交**：`/mmw-to-tickets`，把这份 spec 拆成 tracer bullet ticket |
 | 从 `/mmw-implement` 回来补 seam，补完了、用户也点过头 | **移交**：回 `/mmw-implement`，它接着派 `worker` |
 | 第 1 步发现这件事还没谈定 | **移交**：`/mmw-grilling`，把用户原话原样传过去，它谈定后会回到这里 |
-| 第 5 步验证出某条决定既没有原型证据、也说不出为什么不需要 | **移交**：`/mmw-prototype` 补一轮，走查完回到第 5 步接着验证 |
-| 某条决定建立在一条没人验过的外部事实上（那个服务撑得住多少、那个接口实际返回什么） | **移交**：`/mmw-prototype` 的 `EVIDENCE.md`。这条决定先留在 `## Open Decisions` 里，测出来再回填，不要拿一个猜的数字定稿 |
+| 第 5 步验证出某条决定既没有 prototype 证据、也说不出为什么不需要；当前 spec 来自 Wayfinder | **移交**：拥有 map 分支的任务执行本文“Wayfinder 派生的 spec 需要补充 prototype 或 evidence”流程，新建 `wayfinder:prototype` decision ticket |
+| 第 5 步验证出某条决定既没有 prototype 证据、也说不出为什么不需要；当前 spec 不来自 Wayfinder | **移交**：`/mmw-prototype` 补一轮，走查完回到第 5 步接着验证 |
+| 某条决定建立在一条没人验过的外部事实上；当前 spec 来自 Wayfinder | **移交**：拥有 map 分支的任务执行本文“Wayfinder 派生的 spec 需要补充 prototype 或 evidence”流程，新建 `wayfinder:research` decision ticket；需要实测时由该 ticket 升级到 `/mmw-prototype` 的 `EVIDENCE.md` |
+| 某条决定建立在一条没人验过的外部事实上；当前 spec 不来自 Wayfinder | **移交**：`/mmw-prototype` 的 `EVIDENCE.md`。这条决定先留在 `## Open Decisions` 里，测出来再回填，不要拿一个猜的数字定稿 |
 | 第 7 步用户要改 | **自己继续**：回第 4 步改，改完重走第 5 步和第 6 步 |
 | 审查者交回 `needs-redirection` | **停**：把它说的哪里可疑、建议怎么重新框定原样交给用户，不要自己改 spec 绕过去 |
 | 第 3 步某个 seam 定不下来 | **停**：说清是哪个行为找不到合适的边界、你考虑过哪几个位置，不要自己发明一个 |

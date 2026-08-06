@@ -1,7 +1,7 @@
 <!-- MMW-DOMAIN-CONTEXT-START -->
 ## 领域上下文
 
-开始调查、讨论、设计、写文档、写代码或审查前，运行 `mmw domain path`：
+开始 research、讨论、设计、写文档、写代码或审查前，运行 `mmw domain path`：
 
 - 返回 `map`：先读 Map，再读本次涉及的全部 leaf。
 - 返回 `single`：读命令返回的领域文档。
