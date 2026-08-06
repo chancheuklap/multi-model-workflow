@@ -9,15 +9,7 @@ description: 把一份 spec 拆成一组 tracer bullet ticket，按依赖顺序�
 
 issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw issue`，读一张、评论、打标签这类一条命令做得完的直接用 `gh`。标签清单在仓库根 `.mmw.json` 的 `tracker.labels`。
 
-**issue 承载身份，文件承载内容。** issue 正文只放这件事是什么、现在什么状态、内容在哪；真正要反复打磨的长文放任务分支上的文件里。三层是这样分的：
-
-| 层 | 正文放什么 | 唯一事实来源 | 结局 |
-| --- | --- | --- | --- |
-| map（跑了 `$mmw:mmw-wayfinder` 才有） | `Destination`、`Decisions so far` 的一行索引、`Out of scope`、`Not yet specified` | 就在正文 | 关掉，不上 Wiki |
-| spec | 一段摘要说清要解决什么问题、指向分支上 spec 文件的路径、ticket 清单 | 任务分支的 `docs/specs/<slug>/` | 落地后转成一页 Wiki |
-| ticket | 一段摘要、指向分支上该 ticket 计划的路径、阻塞关系 | 任务分支的 `docs/plans/<slug>/` | 并进 spec 那页 Wiki 的一节 |
-
-本技能建的是第三层。
+**issue 承载身份，文件承载内容。** 本技能为每张 tracer bullet ticket 创建一张 issue。issue 正文保存摘要、plan 路径和阻塞关系。`$mmw:mmw-to-plan` 后续把实施内容写入该路径下的 plan 文件。
 
 ## 1. 上下文清单
 
@@ -29,11 +21,12 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 prototype 索引缺少问题、逐轮用户结论、选中产物、落选约束或长期证据时，回 `$mmw:mmw-prototype` 补齐；没有的项目写「无」。
 
-## 2. 找 prefactor
+## 2. 检查现状与 prefactor
 
 从已有 spec、对话和现状调查中找能让后续实现更容易的 prefactor。「先把改动变容易，再做这个容易的改动。」材料没有覆盖相关代码时，主 agent 直接读取实施范围内的入口、调用方和测试。只有范围跨多个模块、需要从调用链、数据流或影响面等独立角度系统取证时，才调用 `$mmw:mmw-research`。
 
 没有值得单独落地的 prefactor 就直接进入第 3 步，不为填这一步制造 ticket。
+使用 subagent 取得报告时，按 `$mmw:mmw-verifying-agent-output` 验证后再写进 ticket。
 
 ticket 的标题和描述用项目领域术语表里的词，遵守这块地方的 ADR。
 
@@ -84,16 +77,14 @@ ticket 的标题和描述用项目领域术语表里的词，遵守这块地方�
 
 ```bash
 mmw issue create --title "<标题>" --body-file <正文文件> \
-  --parent <spec issue 编号> --blocked-by <编号,编号> --label ready-for-agent
+  --parent <spec issue 编号> --blocked-by <编号,编号>
 ```
 
-它一次做完建 issue、挂到 spec issue 底下、连阻塞边、打标签四件事，输出新 issue 的编号。
+它一次做完建 issue、挂到 spec issue 底下和连阻塞边三件事，输出新 issue 的编号。
 
-**按依赖顺序发，阻塞方先发**：`--blocked-by` 要的是已经存在的编号，挡它的那张还没发就填不进去。发布顺序沿 **frontier** 走——阻塞它的都已发布的那些。
+**按依赖顺序发，阻塞方先发**：`--blocked-by` 要的是已经存在的编号，挡它的那张还没发就填不进去。
 
 **顺序不是随便的。** 下游取下一张 ticket 靠 `mmw issue frontier`，那个命令按 issue 编号升序给，所以「按依赖顺序发」直接决定了后面开工的顺序。
-
-`ready-for-agent` 打在 ticket 上的含义是「这张可以派 `worker` 开工」，跟打在 spec issue 上那个（人工审批关卡的凭据）不是一回事。
 
 父 issue 不要关，也不要改。
 

@@ -23,7 +23,7 @@
 | ticket 有没有拆 | `mmw issue children <spec issue 编号>` 有没有输出 |
 | plan 写了没有 | `docs/plans/<slug>/` 在不在，里面的份数跟 ticket 数对不对得上 |
 | 合同锚点回填了没有 | spec 的 `## Cross-Plan Contract Anchors` 一节在不在、精确字段补实了没有 |
-| plan 审过没过 | 审查记录目录里有没有 ② plan 审那一轮的审查记录。回填排在审之前，回填了不代表审过 |
+| plan 审过没过 | 逐张读取 open tracer bullet ticket；全部带 `ready-for-agent` 才算通过并完成 tracker 回填 |
 | 做到第几张 ticket | `mmw issue children <spec issue 编号>`：closed 的是做完的，open 且有认领人的是正在做的 |
 | 终审有没有跑 | 审查记录目录里有没有终审报告 |
 | 有没有归档 | `mmw wiki ensure` 取到副本，看 `Spec-<slug>.md` 在不在 |
@@ -31,6 +31,8 @@
 审查记录目录随 worktree 存活，不进 Git。它是空的不代表没做过，只代表这台机器上这一轮没做过。以提交记录和 issue 状态为准。
 
 spec 文件已经提交、issue 却还没发布，是个中间状态：用户可能刚点完头，也可能还没看过。这时按没过这道关卡处理，重新给他看一次。
+
+有 open tracer bullet ticket 缺少 `ready-for-agent` 时，回 `$mmw:mmw-to-plan`。全部齐全后，才进入 `$mmw:mmw-implement`。
 
 ## 查完之后
 
