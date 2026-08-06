@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# prototype、evidence 与 scratch 的仓库内落点。
+# prototype、investigation、evidence、scratch 与 review 的仓库内落点。
 
 set -euo pipefail
 
@@ -74,11 +74,12 @@ mmw_artifact_root() {
   local kind="${1:-}" base
   case "$kind" in
     prototype) base="$(mmw_path_field prototypes)" ;;
+    investigation) base="$(mmw_path_field investigations)" ;;
     evidence) base="$(mmw_path_field evidence)" ;;
     scratch) base="$(mmw_path_field scratch)" ;;
     review) base="$(mmw_path_field reviews)" ;;
     *)
-      echo "mmw: artifact root 类型只能是 prototype、evidence、scratch 或 review：${kind:-<空>}" >&2
+      echo "mmw: artifact root 类型只能是 prototype、investigation、evidence、scratch 或 review：${kind:-<空>}" >&2
       return 1
       ;;
   esac
@@ -89,9 +90,9 @@ mmw_artifact_root() {
 mmw_artifact_path() {
   local argument_count="$#" kind="${1:-}" artifact_dir="${2:-}" issue_dir="${3:-}" base
   case "$kind" in
-    prototype|evidence|scratch) base="$(mmw_artifact_root "$kind")" ;;
+    prototype|investigation|evidence|scratch) base="$(mmw_artifact_root "$kind")" ;;
     *)
-      echo "mmw: artifact path 类型只能是 prototype、evidence 或 scratch：${kind:-<空>}" >&2
+      echo "mmw: artifact path 类型只能是 prototype、investigation、evidence 或 scratch：${kind:-<空>}" >&2
       return 1
       ;;
   esac

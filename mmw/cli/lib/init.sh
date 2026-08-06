@@ -20,22 +20,25 @@ mmw_init_touch() {
 }
 
 mmw_init_config() {
-  local root config default_config default_evidence default_scratch temp
+  local root config default_config default_investigations default_evidence default_scratch temp
   root="$(mmw_repo_root)"
   config="$root/.mmw.json"
   default_config="$MMW_ROOT/cli/mmw.default.json"
   if [ -f "$config" ]; then
-    if jq -e '.paths.evidence != null and .paths.scratch != null' "$config" >/dev/null 2>&1; then
+    if jq -e '.paths.investigations != null and .paths.evidence != null and .paths.scratch != null' "$config" >/dev/null 2>&1; then
       mmw_init_say "配置     : 已有 ${config}，无需迁移"
       return 0
     fi
+    default_investigations="$(jq -er '.paths.investigations' "$default_config")" || return 1
     default_evidence="$(jq -er '.paths.evidence' "$default_config")" || return 1
     default_scratch="$(jq -er '.paths.scratch' "$default_config")" || return 1
+    mmw_artifact_safe_base "$default_investigations" || return 1
     mmw_artifact_safe_base "$default_evidence" || return 1
     mmw_artifact_safe_base "$default_scratch" || return 1
     temp="$(mktemp "$root/.mmw.json.migrate.XXXXXX")" || return 1
-    if ! jq --arg evidence "$default_evidence" --arg scratch "$default_scratch" '
+    if ! jq --arg investigations "$default_investigations" --arg evidence "$default_evidence" --arg scratch "$default_scratch" '
       .paths = (.paths // {}) |
+      .paths.investigations //= $investigations |
       .paths.evidence //= $evidence |
       .paths.scratch //= $scratch
     ' "$config" > "$temp"; then
@@ -45,7 +48,7 @@ mmw_init_config() {
     cp "$temp" "$config"
     rm -f "$temp"
     mmw_init_touch ".mmw.json"
-    mmw_init_say "配置     : 已为 ${config} 补入 paths.evidence 与 paths.scratch"
+    mmw_init_say "配置     : 已为 ${config} 补入 paths.investigations、paths.evidence 与 paths.scratch"
   else
     cp "$default_config" "$config"
     mmw_init_touch ".mmw.json"

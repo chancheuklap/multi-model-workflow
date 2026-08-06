@@ -39,7 +39,7 @@ mmw <命令> [参数]
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
   skill-path  派出去那一侧读方法论的路径
-  artifact    prototype、evidence 与 scratch 的仓库内落点
+  artifact    investigation、prototype、evidence、scratch 与 review 的仓库内落点
   task        任务 worktree：查状态、建、绑分支、进、删
   result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
@@ -166,6 +166,7 @@ EOF
 usage_artifact() {
   cat >&2 <<'EOF'
 mmw artifact path prototype <产物目录> [issue-<编号>]
+mmw artifact path investigation <产物目录> [issue-<编号>]
 mmw artifact path evidence  <产物目录> [issue-<编号>]
 mmw artifact path scratch   <产物目录> [issue-<编号>|task-<任务 slug>]
 mmw artifact root review
@@ -558,7 +559,7 @@ cmd_artifact() {
     path)
       [ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage_artifact
       case "${1:-}" in
-        prototype|evidence|scratch) ;;
+        prototype|investigation|evidence|scratch) ;;
         *) usage_artifact ;;
       esac
       mmw_artifact_path "$@"
