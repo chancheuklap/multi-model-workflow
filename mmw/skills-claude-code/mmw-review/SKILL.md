@@ -40,16 +40,18 @@ description: 发起一轮审查——选视角、备材料、并行派审查者�
 
 | 任务名 | 这个视角的 Source |
 | --- | --- |
-| 设计内容审 | 这份 spec、走查过的原型产物（`docs/prototypes/<slug>/`） |
-| 项目一致性审 | 这份 spec、走查过的原型产物（`docs/prototypes/<slug>/`），另加领域文档（跑 `mmw domain path` 取落点；`map` 使用 Map 为本次范围登记的实际 leaf 路径）与这块地方的 ADR（跑 `mmw domain dirs` 取 `adr` 路径） |
-| 覆盖质量审 | spec（含回填后的 `## Cross-Plan Contract Anchors`）、原型产物、全部 ticket、全部 plan |
-| 合规交叉审 | spec（含回填后的 `## Cross-Plan Contract Anchors`）、原型产物、全部 ticket、全部 plan |
-| 对照终审 | spec、全部 plan、diff 范围、走查过的原型产物（`docs/prototypes/<slug>/` 里选中的那一版） |
+| 设计内容审 | 这份 spec、完整 prototype 资产目录（`docs/prototypes/<slug>/`，含逐轮记录、证据和用户选中版本） |
+| 项目一致性审 | 这份 spec、完整 prototype 资产目录（`docs/prototypes/<slug>/`），另加领域文档（跑 `mmw domain path` 取落点；`map` 使用 Map 为本次范围登记的实际 leaf 路径）与这块地方的 ADR（跑 `mmw domain dirs` 取 `adr` 路径） |
+| 覆盖质量审 | spec（含回填后的 `## Cross-Plan Contract Anchors`）、完整 prototype 资产目录、全部 ticket、全部 plan |
+| 合规交叉审 | spec（含回填后的 `## Cross-Plan Contract Anchors`）、完整 prototype 资产目录、全部 ticket、全部 plan |
+| 对照终审 | spec、全部 plan、diff 范围、完整 prototype 资产目录，并点名其中用户选中的版本 |
 | 独立终审 | **只有 diff 范围** |
 | 编码规范审 | diff 范围、仓库自己写下来的编码标准文件；仓库没有就明写「本仓库没有写下来的标准」 |
 | 合并集成审 | 各分支的 spec、集成后全貌的 diff 范围、`/mmw-integrate` 第 3 步的取舍记录 |
 
 spec 在哪按这个顺序找：这个分支上的 `docs/specs/<slug>/<slug>.md`；提交信息里引用的 issue（`gh issue view <编号>`）；用户当参数传进来的路径。都找不到就问用户。他说没有，就只保留不要 spec 的两个视角——独立终审和编码规范审——其余视角全部撤掉，并在报告里说明。
+
+任务没有 prototype 资产时，在相关视角的 task「读」栏明写「无 prototype 资产」，不用一个空路径代替。
 
 **路径一律是被审仓库里的路径。** 派发前逐个确认它们真的存在，缺了当场报错。
 

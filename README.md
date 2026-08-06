@@ -8,7 +8,7 @@ MMW 的用户界面是技能。日常工作的统一入口是 `$mmw:mmw-start`�
 
 | 项目 | 数量 | 结论 |
 | --- | --- | --- |
-| 当前版本 | 0.10.0 | 对齐 Matt Pocock Skills 1.2.2，并保留 MMW 的正式工作流合同 |
+| 当前版本 | 0.10.1 | 对齐 Matt Pocock Skills 1.2.2，并保留 MMW 的正式工作流合同 |
 | 日常工作流入口 | 1 个 | `$mmw:mmw-start` |
 | Codex 技能调用方式 | 2 种 | 显式调用和隐式调用 |
 | `mmw-start` 识别的输入情况 | 15 种 | 恢复当前任务，或者移交 10 个下游技能 |
@@ -62,7 +62,7 @@ subagent 交回的是报告。报告中的断言只有经过主 agent 验证才�
 | 分组 | 技能 | 职责 |
 | --- | --- | --- |
 | 入口与分诊 | `mmw-start`、`mmw-triage`、`mmw-wayfinder` | 路由新工作；分诊 issue 和 PR；规划超过一个 agent 会话且路线尚不清楚的 effort |
-| 调查与收敛 | `mmw-grilling`、`mmw-prototype`、`mmw-research`、`mmw-retrieval`、`mmw-diagnosing-bugs`、`mmw-improve-codebase-architecture` | 谈清需求；用原型回答设计问题；调查事实；恢复检索能力；诊断 bug；寻找架构改进候选 |
+| 调查与收敛 | `mmw-grilling`、`mmw-prototype`、`mmw-research`、`mmw-retrieval`、`mmw-diagnosing-bugs`、`mmw-improve-codebase-architecture` | 谈清需求；用 prototype 回答设计问题；调查事实；恢复检索能力；诊断 bug；寻找架构改进候选 |
 | 领域与设计 | `mmw-domain-modeling`、`mmw-codebase-design` | 维护领域语言和 ADR；定义 module、interface、seam、adapter 与 depth |
 | 交付 | `mmw-to-spec`、`mmw-to-tickets`、`mmw-to-plan`、`mmw-implement`、`mmw-tdd` | 发布 spec；拆 tracer bullet ticket；写 plan；派 `worker` 实现；执行 red 到 green 的测试循环 |
 | 验证与交付完成 | `mmw-verifying-agent-output`、`mmw-review`、`mmw-integrate`、`mmw-release`、`mmw-closing` | 验证报告；编排审查；集成分支；出正式安装包；归档 spec 和 plan |
@@ -95,6 +95,8 @@ MMW 基于 Matt Pocock Skills 的工程方法构建。对于有上游对应项�
 prototype 同时体现这两层合同。它遵循上游的单文件 HTML、自由操作、引导式走查和可重复初态方法。用户走查过的完整 prototype、逐轮记录和证据仍是 MMW 的 prototype 资产，长期保存在 `docs/prototypes/<slug>/`。spec、ticket、plan、实现和审查继续引用这份资产。正式实现只吸收已经验证的决定和可移植逻辑，不把 prototype 外壳当成生产代码。
 
 0.10.0 还恢复了一次会话只解决一张 Wayfinder decision ticket、ticket 发布前人工审批关卡、阶段边界决策树、实现阶段测试频率和出包后重新终审等合同。它新增 `writing-for-agents`、`wizard`、`to-questionnaire` 和 `wait-what`，但没有把这些辅助技能加入日常主路由。
+
+0.10.1 补齐了 prototype 资产在 `planner` 与 `reviewer-gpt` 中的读取合同。plan 与审查现在同时引用完整资产目录、用户选中版本和对应逐轮记录。
 
 ## 用户使用的三个阶段
 
@@ -257,7 +259,7 @@ $mmw:mmw-start <map 编号或链接>
 | 8 | 已是 `ready-for-agent`，但需要多张 ticket、多个 Test seam 或仍有设计取舍 | `mmw-to-spec` |
 | 9 | 有东西坏了、报错、跑不通、变慢，或者显式使用 `bug` | `mmw-diagnosing-bugs` |
 | 10 | 一项超过一个 agent 会话且路线尚不清楚的 effort，或者显式使用 `big` | `mmw-wayfinder` |
-| 11 | 想先看界面原型，或者要验证一套状态模型 | `mmw-prototype` |
+| 11 | 想先看界面 prototype，或者要验证一套状态模型 | `mmw-prototype` |
 | 12 | 只需要查清一条内部或外部事实 | `mmw-research` |
 | 13 | 新需求，或者对已有需求的改进 | `mmw-grilling` |
 | 14 | 没有具体需求，只想找代码库的可维护性问题 | `mmw-improve-codebase-architecture` |
@@ -265,7 +267,7 @@ $mmw:mmw-start <map 编号或链接>
 
 issue 或 PR 的标签和 agent brief 会影响路由。用户只需提供编号或链接，`mmw-start` 负责读取完整内容和状态。
 
-`mmw-prototype` 产生的原型是任务资产。逻辑原型使用可直接双击打开的单文件 HTML，并同时提供自由操作和引导式走查。确认后的原型保留在 `docs/prototypes/<slug>/`，供 spec、ticket 和正式实现继续引用。
+`mmw-prototype` 产生 prototype 资产。逻辑 prototype 使用可直接双击打开的单文件 HTML，并同时提供自由操作和引导式走查。用户走查过的完整 prototype、逐轮记录和证据保留在 `docs/prototypes/<slug>/`，供 spec、ticket、plan、审查和正式实现继续引用。
 
 `mmw-to-tickets` 会先展示 tracer bullet 切分、阻塞关系和 prototype 资产引用。用户通过 ticket 切分的人工审批关卡后，MMW 才把 ticket 发布到 tracker。
 

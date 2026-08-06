@@ -21,7 +21,7 @@ disable-model-invocation: true
 | spec | `## Problem Statement` 与 `## Solution`（这次要达成什么）、`## Implementation Decisions`（架构方向，填进你 plan 头部的 `**Architecture:**`）、`## Contract Boundaries`、`## Testing Decisions` 一节里那张 seam 清单表 |
 | 合同骨架 | spec 的 `## Cross-Plan Contract Anchors` 一节。它划定你的硬边界：你能碰哪些共享文件（不许认领别份 plan 拥有的文件）、你要提供或消费哪些跨 plan 接口（照它的命名对接）。标着「字段待回填」的精确字段由你写时定下来，主 agent 事后回填 |
 | 你那张 ticket | 标题、要做什么、每一条验收标准、被谁阻塞 |
-| 原型的选中的那一版 | 只有走过原型的需求才有。从选中的那一份提取状态机、reducer、数据结构、界面规格，拆进对应任务包的验收标准和数据形状。没被选中的变体不许当依据 |
+| prototype 资产 | 有 prototype 的需求必须读完整资产目录：可运行 prototype、逐轮记录、证据和用户选中的版本。从逐轮记录取已确认的决定和取舍；从选中版本提取状态机、reducer、数据结构和界面规格。落选变体保留为资产，只提供被否定的约束，不作为当前设计依据。无 prototype 资产时，task 必须明写「无 prototype 资产」 |
 
 上面四份由主 agent 提供。写测试规划前完整读取 `/mmw-tdd`，包括它指向的测试、mock 和质量标准，再读取目标仓库根的 `TESTING.md`。目标仓库没有 `TESTING.md` 时继续，不自行创建。
 
@@ -63,6 +63,7 @@ ticket 已经是一条端到端的垂直切片，**你不再切一层切片**，
    **Goal:** <一句话目标>
    **Source spec:** docs/specs/<slug>/<slug>.md
    **Source ticket:** <tracker 上的编号或标识>
+   **Prototype asset:** <docs/prototypes/<slug>/，或「无 prototype 资产」>
    **Blocked by:** <别的 plan 编号，或者「无」>
    **Architecture:** <跟这张 ticket 相关的实现方向>
    **Tech stack:** <实际涉及的框架、服务、测试工具>
