@@ -1,6 +1,6 @@
 ---
 name: mmw-diagnosing-bugs
-description: 难以定位的 bug 和性能回退的诊断循环，先造出一个能变 red 的 loop。用户说要 debug、报告什么东西坏了或者变慢了时用它。
+description: 需要查明根因的 bug 和性能回退诊断。用于功能损坏、报错、跑不通或变慢，而根因尚未确定。
 ---
 
 一套对付难以定位的 bug 的纪律，六个 Phase。跳过某个 Phase 要给出明确理由。

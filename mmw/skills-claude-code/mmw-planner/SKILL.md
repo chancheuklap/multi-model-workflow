@@ -1,6 +1,6 @@
 ---
 name: mmw-planner
-description: 写计划方法论。被派去把一张 ticket 写成一份 plan 的 `planner` 进门读这一份，不是给主 agent 读的。
+description: 供 `planner` 将一张 tracer bullet ticket 写成可由零上下文 `worker` 执行的 plan。
 disable-model-invocation: true
 ---
 

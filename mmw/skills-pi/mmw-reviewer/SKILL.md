@@ -1,6 +1,6 @@
 ---
 name: mmw-reviewer
-description: 审查方法论。被派出去审一份产物的审查者进门读这一份，不是给主 agent 读的。
+description: 供独立审查者按指定视角审查 spec、plan、代码 diff 或分支集成结果。
 disable-model-invocation: true
 ---
 

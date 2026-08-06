@@ -1,6 +1,6 @@
 ---
 name: mmw-review
-description: 发起一轮审查——选视角、备材料、并行派审查者、findings 逐条判定。用户说要审一份 spec、一个分支、一个 PR 或者还没提交的改动时用它；写完 spec、写完 plan、写完代码、要合并并行分支的技能也移交这里。
+description: 编排 MMW 六道审查并处置 findings。用于 spec、整批 plan、`worker` 结果、最终代码或分支集成到达审查关卡，或用户要求审查 spec、plan、分支、PR 或未提交改动。
 ---
 
 发起一轮审查。**审查方法论不在本文**，在 `/mmw-reviewer` 里。你不读它，也不转述。

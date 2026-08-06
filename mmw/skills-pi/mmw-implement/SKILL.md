@@ -1,6 +1,6 @@
 ---
 name: mmw-implement
-description: 把定好的需求实现成代码，一张 ticket 派一个 `worker`。用户说要开始实现、做下一张 ticket 时用它；别的技能判定某张 ticket 已是 ready-for-agent 时也用它。
+description: 派 `worker` 落地已准备好的工作。用于完整的 `ready-for-agent` agent brief，或全部 plans 已通过审查的 spec。
 ---
 
 把 spec 和它的 ticket 描述的需求实现出来。spec 已定稿，seam 已谈定；本技能执行那份计划，不重开它。

@@ -1,6 +1,6 @@
 ---
 name: to-questionnaire
-description: 把当前用户无法独自回答的决定写成给知识持有者填写的 questionnaire。
+description: 把当前用户无法回答的问题整理成给知识持有者填写的 questionnaire。
 disable-model-invocation: true
 ---
 

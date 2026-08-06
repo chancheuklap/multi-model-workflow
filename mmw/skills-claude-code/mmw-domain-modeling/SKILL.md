@@ -1,6 +1,6 @@
 ---
 name: mmw-domain-modeling
-description: 把项目的领域模型建起来、磨锋利。用户要定义领域术语、ubiquitous language、bounded context 或 ADR 时用它；别的技能需要维护领域模型时也用它。用户要追问整个计划、决定或未成形想法时转交 /mmw-grilling，由它在追问中应用本技能。
+description: 领域模型维护方法。用于定义或修正项目术语、bounded context 或 ADR，或其他技能形成这类长期结论；读取领域文档不属于本技能。
 ---
 
 # Domain Modeling

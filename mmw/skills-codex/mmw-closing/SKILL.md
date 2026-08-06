@@ -1,6 +1,6 @@
 ---
 name: mmw-closing
-description: 一次任务的收尾——spec 和 plan 转成 Wiki 的一页，删掉本地副本，分支交回用户合并。用户说要收尾、要归档时用它；终审过了、采信的 findings 都修完的技能也移交这里。
+description: 完成 spec 任务的归档和交回。用于用户要求收尾，或 final 终审通过且无需出包，或安装包实测通过。
 ---
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
