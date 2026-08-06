@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # mmw init：把一个仓库配置成能跑这套工作流的样子。
 #
-# 幂等。每一步已经做过就跳过并报一行，重跑无害。不覆盖任何已存在的文件，也不
-# 删任何东西——要删的由人决定。
+# 幂等。每一步已经做过就跳过并报一行，重跑无害。已有配置只执行字段迁移；其它
+# 已存在文件不覆盖，要删除的内容由人决定。
 
 set -euo pipefail
 
@@ -46,8 +46,8 @@ mmw_init_config() {
       rm -f "$temp"
       return 1
     fi
-    cp "$temp" "$config"
-    rm -f "$temp"
+    chmod 0644 "$temp"
+    mv -f "$temp" "$config"
     mmw_init_touch ".mmw.json"
     mmw_init_say "配置     : 已为 ${config} 补入 paths.research、paths.evidence 与 paths.scratch，并删除旧 research 路径字段"
   else

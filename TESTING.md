@@ -21,29 +21,32 @@ test "$(MMW_HOST=codex mmw/cli/mmw artifact >/dev/null 2>&1; echo $?)" = 2
 ! MMW_HOST=codex mmw/cli/mmw path prototype effort ticket-42 >/dev/null 2>&1
 test "$(MMW_HOST=codex mmw/cli/mmw path unknown effort >/dev/null 2>&1; echo $?)" = 2
 
-(
-  source mmw/cli/lib/path.sh
-  mmw_path_field() { printf '%s\n' '../outside'; }
-  ! mmw_path_resolve scratch effort >/dev/null 2>&1
-)
+mmw_source_root="$PWD/mmw"
+path_test_dir="$(mktemp -d "${TMPDIR:-/tmp}/mmw-path-test.XXXXXX")"
+git -C "$path_test_dir" init -q
+jq '.paths.scratch = "../outside"' mmw/cli/mmw.default.json > "$path_test_dir/.mmw.json"
+! (cd "$path_test_dir" && MMW_HOST=codex "$mmw_source_root/cli/mmw" path scratch effort) \
+  >/dev/null 2>&1
+find "$path_test_dir" -depth -delete
 
 migration_dir="$(mktemp -d "${TMPDIR:-/tmp}/mmw-init-test.XXXXXX")"
 # 模拟仍使用旧 research 路径字段的配置。
 jq '.paths.investigations = "docs/investigating" | del(.paths.research, .paths.evidence, .paths.scratch)' \
   mmw/cli/mmw.default.json > "$migration_dir/.mmw.json"
+git -C "$migration_dir" init -q
 (
-  source mmw/cli/lib/path.sh
-  source mmw/cli/lib/init.sh
-  MMW_ROOT="$PWD/mmw"
-  mmw_repo_root() { printf '%s\n' "$migration_dir"; }
+  cd "$migration_dir"
+  source "$mmw_source_root/cli/lib/config.sh"
+  source "$mmw_source_root/cli/lib/path.sh"
+  source "$mmw_source_root/cli/lib/init.sh"
+  MMW_ROOT="$mmw_source_root"
   mmw_init_config
 )
 test "$(jq -r '.paths.research' "$migration_dir/.mmw.json")" = "docs/research"
 test "$(jq -r '.paths | has("investigations")' "$migration_dir/.mmw.json")" = "false"
 test "$(jq -r '.paths.evidence' "$migration_dir/.mmw.json")" = "docs/evidence"
 test "$(jq -r '.paths.scratch' "$migration_dir/.mmw.json")" = ".scratch"
-unlink "$migration_dir/.mmw.json"
-rmdir "$migration_dir"
+find "$migration_dir" -depth -delete
 
 git diff --check
 mmw/cli/mmw skills materialize --host all --check

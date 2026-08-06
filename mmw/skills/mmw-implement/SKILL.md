@@ -54,7 +54,7 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 | 栏 | 本角色填写 |
 | --- | --- |
 | 目标 | 完成 ticket `#<编号>`（或 tracker 等价编号） |
-| 读 | 按上方上下文清单逐行列出精确路径。没有 plan、prototype 或 research 时分别写「无 plan」「无 prototype 资产」「无 research」 |
+| 读 | 按本节的上下文表逐行列出精确路径。没有 plan、prototype 或 research 时分别写「无 plan」「无 prototype 资产」「无 research」 |
 | 约束 | 只改本 worktree 源码与测试；不改 `docs/`；不扩大 ticket 范围；所有上下文只读 task 点名的精确路径 |
 | 验收 | spec 分支：见 ticket `#<编号>` 的验收标准，seam 见 spec `## Testing Decisions`；agent brief 分支：见原 issue 的 agent brief 中 `**Acceptance criteria:**` 与 `**Test seam:**`（在「读」里已给出定位，此处不抄正文） |
 

@@ -24,7 +24,7 @@ disable-model-invocation: true
 | prototype | task 点名时 | 索引、选中产物和明确相关证据 | 整个产物目录和无关变体 | 已确认决定；没有写「无 prototype 资产」 |
 | research | task 点名时 | research 索引和当前 ticket 使用的精确文件 | research 的上级目录和 subagent 原始报告 | 验证后的事实；没有写「无 research」 |
 
-上面五份由主 agent 提供。写测试规划前完整读取 `/mmw-tdd`，包括它指向的测试、mock 和质量标准，再读取目标仓库根的 `TESTING.md`。目标仓库没有 `TESTING.md` 时继续，不自行创建。
+本节上下文表列出的五类材料由主 agent 提供。写测试规划前完整读取 `/mmw-tdd`，包括它指向的测试、mock 和质量标准，再读取目标仓库根的 `TESTING.md`。目标仓库没有 `TESTING.md` 时继续，不自行创建。
 
 **seam 由 spec 定死，你不重新定。** plan 里每条测试的落点对到 spec `## Testing Decisions` 一节里那张 seam 清单表，选最高的那一层，不要增殖插桩点。spec 里找不到对应的 seam，交 `needs-context`。
 
