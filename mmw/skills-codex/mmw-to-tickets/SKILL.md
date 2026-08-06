@@ -31,11 +31,9 @@ prototype 索引缺少问题、逐轮用户结论、选中产物、落选约束�
 
 ## 2. 找 prefactor
 
-**按 `$mmw:mmw-research` 的内部方向派一个 subagent**，题目是：这次要改的地方，有哪些可以先做 prefactor，让后面的实现更容易。「先把改动变容易，再做这个容易的改动。」
+从已有 spec、对话和现状调查中找能让后续实现更容易的 prefactor。「先把改动变容易，再做这个容易的改动。」材料没有覆盖相关代码时，主 agent 直接读取实施范围内的入口、调用方和测试。只有范围跨多个模块、需要从调用链、数据流或影响面等独立角度系统取证时，才调用 `$mmw:mmw-research`。
 
-上游 spec 的现状 research 已经覆盖实现时，只做 prefactor research。没有 spec 时，把现状一起纳入。
-
-收回来按 `$mmw:mmw-verifying-agent-output` 验证过才写进 ticket。
+没有值得单独落地的 prefactor 就直接进入第 3 步，不为填这一步制造 ticket。
 
 ticket 的标题和描述用项目领域术语表里的词，遵守这块地方的 ADR。
 

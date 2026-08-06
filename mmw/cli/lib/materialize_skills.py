@@ -132,7 +132,8 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
             die("Codex 缺 reviewer-gpt subagent profile")
         return (
             "Codex 只使用一个审查角色。①、②、⑤ 每个视角各启动一个 "
-            f"Codex 原生 `{profile['name']}` subagent；⑥ 启动一个该 subagent 完成全部七个角度。"
+            f"Codex 原生 `{profile['name']}` subagent；⑥ 同时启动两个该 subagent，"
+            "各自完成全部七个角度。"
             "每个审查者使用独立上下文，可以与产物作者使用相同模型。"
             "互不依赖的审查任务在同一条消息中并行启动。"
         )
@@ -233,14 +234,14 @@ def expand_host_action(name: str, host: str) -> str:
     if name == "browser-plan-validation":
         if host == "codex":
             return (
-                "界面任务包把自动回归与人工浏览器审批分开写。"
+                "界面 plan 把自动回归与人工浏览器审批分开写。"
                 "`Verification commands` 只写能重复执行的测试命令和预期结果；"
                 "`Browser acceptance` 写明由主 agent 使用 Codex 内置浏览器检查的页面、黄金路径、"
                 "本次相关状态、viewport 和每项可见结果。"
                 "不得把 Playwright CLI 写成人工走查的替代品，也不得把内置浏览器操作伪装成自动回归命令。"
             )
         return (
-            "界面任务包把可重复执行的自动回归命令与当前宿主的人工浏览器审批分开写。"
+            "界面 plan 把可重复执行的自动回归命令与当前宿主的人工浏览器审批分开写。"
             "人工审批逐项写明页面、路径、状态、viewport 和可见结果；没有界面时写“不适用”。"
         )
 

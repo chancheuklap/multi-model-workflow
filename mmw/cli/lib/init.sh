@@ -98,8 +98,8 @@ mmw_init_codex_runtime() {
   return 1
 }
 
-# TESTING.md 铺的是骨架，不是填好的事实。测试怎么写、够不够格进仓库随插件走，
-# 这一份只留空位给本仓库的目录分层、外部 seam、权威源和跑法。
+# TESTING.md 铺的是骨架，不是填好的事实。通用测试方法随插件走，
+# 这一份留空位给本仓库的目录分层、外部 seam、权威源和跑法。
 mmw_init_testing() {
   local root target
   root="$(mmw_repo_root)"

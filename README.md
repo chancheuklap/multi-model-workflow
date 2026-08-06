@@ -45,7 +45,7 @@ MMW 会在每个 agent 开工前选择本次涉及的领域文档。任务进入
 | 约束 | 只读还是可写，可以改哪些文件，哪些决定已经确认 |
 | 验收 | 必须交回什么，以及完成需要哪些证据 |
 
-task 的“读”栏保存路径和 issue 编号。唯一事实来源留在原处，subagent 每次读取当前版本。返工和复审使用新的 subagent，不继承上一轮上下文。材料不足时，subagent 必须报告 `needs-context`，不能自行猜测。
+task 的“读”栏保存路径和 issue 编号。唯一事实来源留在原处，subagent 每次读取当前版本。返工使用新的 subagent，不继承上一轮上下文。审查只运行一轮；采信项由主 agent 验证修复，不再派审查者。材料不足时，subagent 必须报告 `needs-context`，不能自行猜测。
 
 ### 报告、验证与独立上下文
 
@@ -62,7 +62,7 @@ subagent 交回的是报告。报告中的断言只有经过主 agent 验证才�
 | 分组 | 技能 | 职责 |
 | --- | --- | --- |
 | 入口与分诊 | `mmw-start`、`mmw-triage`、`mmw-wayfinder` | 路由新工作；分诊 issue 和 PR；规划超过一个 agent 会话且路线尚不清楚的 effort |
-| research 与收敛 | `mmw-grilling`、`mmw-prototype`、`mmw-research`、`mmw-retrieval`、`mmw-diagnosing-bugs`、`mmw-improve-codebase-architecture` | 谈清需求；用 prototype 回答设计问题；查清事实；恢复检索能力；诊断 bug；寻找架构改进候选 |
+| research 与收敛 | `mmw-grilling`、`mmw-prototype`、`mmw-research`、`mmw-retrieval`、`mmw-diagnosing-bugs`、`mmw-improve-codebase-architecture` | 谈清需求；用 prototype 回答设计问题；执行重型多角度 research；恢复检索能力；诊断 bug；寻找架构改进候选 |
 | 领域与设计 | `mmw-domain-modeling`、`mmw-codebase-design` | 维护领域语言和 ADR；定义 module、interface、seam、adapter 与 depth |
 | 交付 | `mmw-to-spec`、`mmw-to-tickets`、`mmw-to-plan`、`mmw-implement`、`mmw-tdd` | 发布 spec；拆 tracer bullet ticket；写 plan；派 `worker` 实现；执行 red 到 green 的测试循环 |
 | 验证与交付完成 | `mmw-verifying-agent-output`、`mmw-review`、`mmw-integrate`、`mmw-release`、`mmw-closing` | 验证报告；编排审查；集成分支；出正式安装包；归档 spec 和 plan |
@@ -262,10 +262,11 @@ $mmw:mmw-start <map 编号或链接>
 | 9 | 有东西坏了、报错、跑不通、变慢，或者显式使用 `bug` | `mmw-diagnosing-bugs` |
 | 10 | 一项超过一个 agent 会话且路线尚不清楚的 effort，或者显式使用 `big` | `mmw-wayfinder` |
 | 11 | 想先看界面 prototype，或者要验证一套状态模型 | `mmw-prototype` |
-| 12 | 只需要查清一条内部或外部事实 | `mmw-research` |
-| 13 | 新需求，或者对已有需求的改进 | `mmw-grilling` |
-| 14 | 没有具体需求，只想找代码库的可维护性问题 | `mmw-improve-codebase-architecture` |
-| 15 | 集成并行分支、让结果分支跟上目标分支，或者处理冲突 | `mmw-integrate` |
+| 12 | 单个文件、符号、事实或一条命令能答完 | 主 agent 直接查询并回答 |
+| 13 | 需要多个独立角度或多份一手资料的重型调查 | `mmw-research` |
+| 14 | 新需求，或者对已有需求的改进 | `mmw-grilling` |
+| 15 | 没有具体需求，只想找代码库的可维护性问题 | `mmw-improve-codebase-architecture` |
+| 16 | 集成并行分支、让结果分支跟上目标分支，或者处理冲突 | `mmw-integrate` |
 
 issue 或 PR 的标签和 agent brief 会影响路由。用户只需提供编号或链接，`mmw-start` 负责读取完整内容和状态。
 

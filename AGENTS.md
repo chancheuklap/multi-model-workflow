@@ -59,6 +59,9 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - 改技能前读完整 `SKILL.md` 及其链接的 reference。运行提交检查前读根 `TESTING.md`。
 - 只实现请求范围内行为；不用归档残留、兼容目录或静默默认值掩盖错误。
 - 脚本异常必须非零退出或留下结构化告警。
+- 机械校验只覆盖机器能直接判定的事实：语法与固定结构可解析、路径与文件安全、配置完整性和生成产物一致性。
+- 产物质量、方法选择、语义真实性和完成度由技能与主 agent 判断。不用计数、列表形状、固定阈值或豁免清单伪装成机械校验。
+- 已有校验越过这条边界时删除该校验，不增加例外分支。
 - 产品版本同步修改 Codex manifest、Claude Code manifest、根 Claude marketplace 的插件版本与顶层版本，以及 Pi package。
 - `mmw/skills/mmw-setup/` 只保存旧背景材料，不是技能。扫描技能正文时必须排除它。
 - 每份流程技能以 `## 下一步` 收尾。表格固定为“情况、下一步”两列，动作只用“自己继续”“移交”“停”。只有 agent 无法开启新会话或需要用户决定时才停。

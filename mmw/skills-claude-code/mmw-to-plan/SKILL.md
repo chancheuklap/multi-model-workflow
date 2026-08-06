@@ -70,7 +70,7 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 | 目标 | 为 ticket `#<编号>` 写 plan，落到指定路径 |
 | 读 | 按「1. 定 plan 清单」逐行列出当前 ticket 的精确路径；最后加入 `mmw skill-path planner` 的输出，没有则写「无（宿主已注入）」 |
 | 约束 | 只写该 plan 文件；不提交；不认领 `## Cross-Plan Contract Anchors` 划给别人的文件；不写其他 plan 的正文 |
-| 验收 | plan 文件存在且可被抽验；任务包覆盖 ticket `#<编号>` 的验收（详见 issue，不抄正文） |
+| 验收 | plan 文件存在且可被抽验；`## Acceptance` 覆盖 ticket `#<编号>` 的全部验收（详见 issue，不抄正文） |
 
 启动：把四栏表写入 task 文件，后台执行 `mmw dispatch planner --task <task 文件绝对路径> --cwd <当前任务 worktree 绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 
@@ -78,13 +78,13 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 
 ## 4. 验证返回
 
-每个 `planner` 交回 `pass` 之后，对它声明的事实至少抽验一条再采信：plan 文件真的存在、任务包数量对得上、它引用的 `文件:行号` 引得出来。读取文件并检索源码，不认「我写完了」。
+每个 `planner` 交回 `pass` 之后，验证 plan 文件存在，ticket 的每条验收都能映射到 `## Acceptance`，再抽验至少一条源码依据。读取文件并检索源码，不认「我写完了」。
 
-失实就把原 task 加上修复说明重派一次。交回 `needs-context`、`needs-repair` 或 `blocked` 的，按它说的补路径或修 spec 之后重派。
+失实就把原 task 加上修复说明重派一次。交回 `needs-context` 或 `needs-repair` 的，按它说的补路径或修 spec 之后重派。
 
 ## 5. 回填精确字段，验证边界
 
-把第 2 步标着「字段待回填」的格子补成真实的归属方、提供方、消费方和字段，写回 `## Cross-Plan Contract Anchors`。入口是：
+把第 2 步标着「字段待回填」的格子补成真实的归属方、提供方、消费方和字段，写回 `## Cross-Plan Contract Anchors`。入口是每份 plan 的 `## Change Map`、`## Contracts and Seams`，以及 `planner` 报告里的 `Cross-plan touchpoints`。
 
 - 每份 plan 的文件与职责表。
 - 合同锚点、迁移与登记。
@@ -112,9 +112,9 @@ plan 文档和 spec 的 `## Cross-Plan Contract Anchors` 分两次提交。`plan
 | 情况 | 下一步 |
 | --- | --- |
 | plan 审过了 | **移交**：`/mmw-implement`，一张 ticket 一个 `worker` 开始落地 |
-| 审出了采信的 findings | **自己继续**：重派 `planner` 改 findings 点名的那份 plan 路径，改完回第 6 步复审 |
+| 审出了采信的 findings | **自己继续**：把全部采信项一次性重派给对应 `planner`；主 agent 逐条验证修复后直接进入第 7 步提交，不再审 |
 | 第 4 步某个 `planner` 交回 `needs-context` 或 `needs-repair` | **自己继续**：按它说的补上下文或修 spec，然后带上补齐的材料重派 |
 | 第 5 步发现 `planner` 认领了别人归属的文件，或者提供方跟消费方对不上 | **自己继续**：重派 `planner` 修那一份，不要自己动它的 plan |
 | 前置三项有一项不满足 | **停**：说清是哪一项。缺 ticket 的回 `/mmw-to-tickets`，缺 spec 的回 `/mmw-to-spec` |
 | `planner` 交回 `needs-redirection` | **停**：把它说的哪里可疑、建议怎么重新框定原样交给用户，不要自己改 spec 绕过去 |
-| `planner` 交回 `blocked`，或者同一份 plan 返修三轮还没过 | **停**：报是哪一份、卡在哪里、三轮各自改了什么，让用户定 |
+| 同一份 plan 返修三轮还没过 | **停**：报是哪一份、卡在哪里、三轮各自改了什么，让用户定 |

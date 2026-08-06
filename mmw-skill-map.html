@@ -501,8 +501,8 @@ subgraph MAIN["主干 · 从想法到落地"]
   pnr[("<b>mmw-planner</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 写计划方法论<br/>· 从 prototype 资产提取已确认决定<br/>· planner 进门读它，主 agent 不读")]
   clo["<b>mmw-closing</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· spec 与 plan 转成 Wiki 一页<br/>· 推送前给用户看<br/>· verify 通过后归档文档并清理任务过程材料"]
   intg[["<b>mmw-integrate</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 验证结果分支、HEAD 与基点<br/>· 按合同依赖排序<br/>· 合入当前任务分支"]]
-  rel["<b>mmw-release</b><br/>· 当前 HEAD 必须等于终审提交<br/>· 主 agent 驱动正式出包循环<br/>· 核对所有包的 source commit<br/>· 用户实测通过后收尾"]
-  crv[["<b>mmw-review</b><br/>· 六道审的编排<br/>· 按视角传入需要的索引与精确路径<br/>· findings 逐条判定"]]
+  rel["<b>mmw-release</b><br/>· 出包前 HEAD 必须等于终审提交<br/>· 主 agent 驱动正式出包循环<br/>· 核对所有包的 source commit<br/>· 用户实测通过后收尾"]
+  crv[["<b>mmw-review</b><br/>· 六道审的编排，每道只运行一轮<br/>· 按视角传入需要的索引与精确路径<br/>· findings 逐条判定<br/>· 采信项修复后由主 agent 验证完成"]]
   shp((("<b>提交到<br/>当前分支</b>")))
 end
 
@@ -633,7 +633,7 @@ cdx -.->|"可写任务交接"| cwt
 imp ==>|"四栏 task + 宿主写死启动句"| dsp
 dsp ==>|"交回报告<br/>绝不原样转发"| vfy
 vfy ==>|"验证过出处才采信"| crv
-mms ==>|"只要一条查得清的事实"| res
+mms ==>|"多角度系统取证"| res
 dbg ==>|"修复验收过了<br/>发起 ⑤ final 终审"| crv
 vfy -.->|"派前查方法论装没装"| cl7
 cfg -.->|"skill-path 给审查者与 planner 指方法论路径"| cl6

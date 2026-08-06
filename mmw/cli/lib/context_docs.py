@@ -516,11 +516,6 @@ def check_context_table(
     return leaves
 
 
-def check_relationships(lines: list[str], map_rel: str) -> None:
-    if not any(re.match(r"^\s*(?:[-+*]|\d+\.)\s+\S", line) for line in lines):
-        fail(map_rel, "invalid-relationships", "Relationships 必须包含至少一个 Markdown 列表项")
-
-
 def check_authoritative_references(
     leaves: set[Path], context_dir: Path, root: Path
 ) -> None:
@@ -568,7 +563,7 @@ def check_map_content(
     check_managed_content(content, map_rel, map_seed, MAP_START, MAP_END)
     text = decode_markdown(content, map_rel)
     contexts = section_lines(text, "## Contexts", map_rel)
-    relationships = section_lines(text, "## Relationships", map_rel)
+    section_lines(text, "## Relationships", map_rel)
     lines = text.splitlines()
     context_index = next(
         index for index, line in enumerate(lines) if line.rstrip(" \t") == "## Contexts"
@@ -582,7 +577,6 @@ def check_map_content(
         fail(map_rel, "missing-section", "Map 必须先列 Contexts，再列 Relationships")
     context_dir = (root / context_rel).resolve()
     leaves = check_context_table(contexts, map_path, map_rel, context_dir)
-    check_relationships(relationships, map_rel)
     check_authoritative_references(leaves, context_dir, root)
 
 
