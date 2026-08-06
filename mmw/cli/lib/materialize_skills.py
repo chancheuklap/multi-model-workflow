@@ -244,6 +244,29 @@ def expand_host_action(name: str, host: str) -> str:
             "人工审批逐项写明页面、路径、状态、viewport 和可见结果；没有界面时写“不适用”。"
         )
 
+    if name == "render-inline-visual-explanation":
+        if host == "codex":
+            return (
+                "完整读取并遵守 `$visualize:visualize`。使用 HTML fragment 完整解释用户指定的这一个小范围。"
+            )
+        return (
+            "**宿主动作待实现：`render-inline-visual-explanation`。**"
+            "当前宿主明确报告对话内可视化尚未实现。"
+        )
+
+    if name == "publish-visual-explanation":
+        if host == "codex":
+            return (
+                "完整读取并遵守 `$sites:sites-building` 和 `$sites:sites-hosting`。"
+                "把已经保存的本地 HTML 作为 Sites 网站的完整内容发布，发布的页面内容与本地 HTML 一致。"
+                "同一份本地 HTML 更新时复用同一个 Sites 网站，并保存一个新版本。"
+                "发布成功后返回本地 HTML 路径和 Sites 网址。"
+            )
+        return (
+            "**宿主动作待实现：`publish-visual-explanation`。**"
+            "当前宿主保留本地 HTML，并明确报告 Sites 发布尚未实现。"
+        )
+
     if name == "prepare-task-worktree":
         if host == "codex":
             return (
