@@ -8,6 +8,12 @@
 shellcheck --severity=warning mmw/cli/mmw mmw/cli/adapters/*.sh mmw/cli/lib/*.sh \
   mmw/mcp/install-mcp.sh mmw/release/release-flow.sh
 
+test "$(MMW_HOST=codex mmw/cli/mmw artifact path prototype effort issue-42)" = \
+  "docs/prototypes/effort/issue-42"
+test "$(MMW_HOST=codex mmw/cli/mmw artifact path scratch effort)" = ".scratch/effort"
+! MMW_HOST=codex mmw/cli/mmw artifact path prototype .. >/dev/null 2>&1
+! MMW_HOST=codex mmw/cli/mmw artifact path prototype effort ticket-42 >/dev/null 2>&1
+
 git diff --check
 mmw/cli/mmw skills materialize --host all --check
 python3 mmw/codex/runtime.py materialize --check

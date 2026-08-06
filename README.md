@@ -92,11 +92,11 @@ MMW 基于 Matt Pocock Skills 的工程方法构建。对于有上游对应项�
 | MMW 的差异缺少仓库证据，而且删改了方法步骤、解释或完成判据 | 恢复上游合同，再接回 MMW 工作流 |
 | 当前证据无法判断，而且选择会改变方法效果或用户流程 | 收敛成一个必要决定，再请用户确认 |
 
-prototype 同时体现这两层合同。它遵循上游的单文件 HTML、自由操作、引导式走查和可重复初态方法。用户走查过的完整 prototype、逐轮记录和证据仍是 MMW 的 prototype 资产，长期保存在 `docs/prototypes/<slug>/`。spec、ticket、plan、实现和审查继续引用这份资产。正式实现只吸收已经验证的决定和可移植逻辑，不把 prototype 外壳当成生产代码。
+prototype 同时体现这两层合同。它遵循上游的单文件 HTML、自由操作、引导式走查和可重复初态方法。Wayfinder map 在正文固定一个 `产物目录`；同一 effort 的 prototype 资产保存在 `docs/prototypes/<产物目录>/issue-<编号>/`，不会随 decision ticket 的任务 worktree 改名。普通任务直接使用 `docs/prototypes/<任务 slug>/`。每个 prototype 资产索引只向下游传递用户选中的产物、走查结论和明确引用的长期证据；完整界面变体继续保留为 primary source。过程截图、DOM、console、录屏和生成中间物进入 Git 忽略的 scratch。正式实现只吸收已经验证的决定和可移植逻辑，不把 prototype 外壳当成生产代码。
 
 0.10.0 还恢复了一次会话只解决一张 Wayfinder decision ticket、ticket 发布前人工审批关卡、阶段边界决策树、实现阶段测试频率和出包后重新终审等合同。它新增 `writing-for-agents`、`wizard`、`to-questionnaire` 和 `wait-what`，但没有把这些辅助技能加入日常主路由。
 
-0.10.1 补齐了 prototype 资产在 `planner` 与 `reviewer-gpt` 中的读取合同。plan 与审查现在同时引用完整资产目录、用户选中版本和对应逐轮记录。
+0.10.1 补齐了 prototype 资产在 `planner` 与 `reviewer-gpt` 中的读取接缝。当前合同进一步把读取范围收紧到 prototype 资产索引、用户选中的产物和明确相关的走查证据，避免把无关过程材料传给下游。
 
 ## 用户使用的三个阶段
 
@@ -267,7 +267,7 @@ $mmw:mmw-start <map 编号或链接>
 
 issue 或 PR 的标签和 agent brief 会影响路由。用户只需提供编号或链接，`mmw-start` 负责读取完整内容和状态。
 
-`mmw-prototype` 产生 prototype 资产。逻辑 prototype 使用可直接双击打开的单文件 HTML，并同时提供自由操作和引导式走查。用户走查过的完整 prototype、逐轮记录和证据保留在 `docs/prototypes/<slug>/`，供 spec、ticket、plan、审查和正式实现继续引用。
+`mmw-prototype` 产生 prototype 资产。逻辑 prototype 使用可直接双击打开的单文件 HTML，并同时提供自由操作和引导式走查。同一 Wayfinder effort 共用 map 的 `产物目录`，每张 decision ticket 使用自己的 `issue-<编号>` 子目录。下游先读该子目录的 `README.md`，再读取用户选中的产物和明确引用的长期证据。临时运行材料进入 Git 忽略的 scratch。
 
 `mmw-to-tickets` 会先展示 tracer bullet 切分、阻塞关系和 prototype 资产引用。用户通过 ticket 切分的人工审批关卡后，MMW 才把 ticket 发布到 tracker。
 

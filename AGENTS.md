@@ -89,7 +89,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 上游技能合集升级时，逐项检查全部 active MMW 技能、全部上游正式技能和本次新增技能。结果至少区分：直接保留、按 MMW 工作流适配、吸收新增技能和不吸收。`/mmw-wayfinder` 等大型路由技能，以及 `/writing-for-agents` 等被其他技能依赖的方法论，必须继续检查每个调用方和完成判据，不能只检查改名文件或入口正文。
 
-prototype 遵守上游的探索方法，也遵守 MMW 的资产合同。用户走查过的完整 prototype、逐轮记录和证据保留在任务分支的 `docs/prototypes/<slug>/`，由 spec、ticket、plan、实现和审查持续引用。正式实现吸收已经验证的决定和可移植逻辑；prototype 外壳与落选变体继续作为 prototype 资产，不进入生产路由。
+prototype 遵守上游的探索方法，也遵守 MMW 的资产合同。Wayfinder map 固定一个 `产物目录`；每张 decision ticket 在该目录下使用自己的 `issue-<编号>` 子目录。持久 prototype 资产保留可运行 prototype、完整界面变体、用户走查结论、选中产物和明确引用的必要证据；过程材料进入 Git 忽略的 scratch。下游先读 prototype 资产索引，再读取精确的选中产物和证据路径。正式实现吸收已经验证的决定和可移植逻辑；prototype 外壳与落选变体继续作为 prototype 资产，不进入生产路由。
 
 用户已经提供定稿 spec 或调查报告，并明确要求直接实施时，把任务作为 plugin 维护直接落地。只有仍有一个靠讨论无法决定的设计问题时，才使用 prototype 取得可运行证据。prototype 一旦形成，就按 prototype 资产合同保留，不把它误作待提交的生产实现。
 
