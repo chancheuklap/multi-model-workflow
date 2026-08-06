@@ -31,17 +31,18 @@ frontier 为空时，不建立 decision ticket 任务。停止并让用户恢复
 
 ```bash
 mmw artifact path prototype <产物目录> issue-<编号>
+mmw artifact path investigation <产物目录> issue-<编号>
 mmw artifact path evidence <产物目录> issue-<编号>
 mmw artifact path scratch <产物目录> issue-<编号>
 ```
 
-只把这三条命令的实际输出传给 prototype 或外部系统实测流程，不传 worktree slug 代替路径。
+只把这四条命令的实际输出传给对应流程，不传 worktree slug 代替路径。
 
 | 标签 | 解法 |
 | --- | --- |
 | `wayfinder:grilling` | 跑 `/mmw-grilling`，把 `Question` 谈成双方确认的共同理解；提问方式全部由该技能决定 |
 | `wayfinder:prototype` | 跑 `/mmw-prototype` 做一个粗糙版本给用户走查；传入 prototype 产物路径和 scratch 路径的精确输出，结案评论指向 prototype 产物路径 |
-| `wayfinder:research` | 按 `/mmw-research` 派一个 subagent，只调查这一个决定等待的事实；按 `/mmw-verifying-agent-output` 验证后再写入 ticket 评论。如果调查升级为外部系统实测，向 `/mmw-prototype` 传入 evidence 产物路径和 scratch 路径的精确输出 |
+| `wayfinder:research` | 按 `/mmw-research` 派一个 subagent，只调查这一个决定等待的事实；传入 investigation 产物路径和 scratch 路径的精确输出。按 `/mmw-verifying-agent-output` 验证后再写入 ticket 评论；形成 investigation 资产时，同时链接资产索引。如果调查升级为外部系统实测，向 `/mmw-prototype` 传入 evidence 产物路径和 scratch 路径的精确输出 |
 | `wayfinder:task` | agent 能完成就执行，并在结案评论记录结果事实；必须人动手时，简单操作给精确清单，包含多个步骤、值采集或 secret 落点的流程使用 `/wizard` 生成脚本 |
 
 HITL ticket 不许 agent 替用户回答。

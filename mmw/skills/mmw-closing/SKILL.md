@@ -87,7 +87,7 @@ mmw wiki nav
 
 「验证」一节那份清单全过之后，在任务分支上删掉 `docs/specs/<slug>/` 与 `docs/plans/<slug>/` 并提交。
 
-**spec 明确引用的持久 prototype 资产与 evidence 不删。**
+**spec 明确引用的持久 prototype 资产、investigation 资产与 evidence 不删。**
 
 ## 7. 清理当前任务的过程材料
 
@@ -99,7 +99,7 @@ Wayfinder 派生的 spec 运行 `mmw artifact path scratch <产物目录> task-<
 
 运行 `mmw artifact root review`。审查记录使用任务 slug，不使用产物目录；只删除 `<命令返回目录>/<任务 slug>-*`。`.dispatch` 也归任务 worktree；只删除文件名或派发记录明确属于当前任务 slug 的 task 和报告文件。删除前列出目标，并逐项验证归属。无法确认归属的条目保留并报告。
 
-禁止清空共享 scratch、审查记录目录或 `.dispatch` 目录。spec 明确引用的持久 prototype 资产、evidence 和其他持久资产继续保留。
+不得整目录清空共享 scratch、审查记录目录或 `.dispatch` 目录；只删除前两段已经验证属于当前任务的路径。spec 明确引用的持久 prototype 资产、investigation 资产、evidence 和其他持久资产继续保留。
 
 完成判据：当前任务的 scratch、审查与派发过程材料已经清理；其他任务的过程材料和全部持久资产仍在。
 

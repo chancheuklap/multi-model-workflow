@@ -44,7 +44,7 @@ mmw issue frontier <spec issue 编号> --label ready-for-agent
 | 栏 | 本角色填写 |
 | --- | --- |
 | 目标 | 完成 ticket `#<编号>`（或 tracker 等价编号） |
-| 读 | 一行一条，只写定位：① `worker-brief.md`（与本 `SKILL.md` 同目录）；② 本 worktree 内 spec 路径，或 agent brief 所在 issue 编号；③ 本张 ticket 的 issue 编号；④ 对应 plan 路径（无 plan 写“无 plan”）；⑤ 仓库根 `TESTING.md`（无则写“无”）；⑥ prototype 资产索引 `README.md`；⑦ 本 ticket 使用的选中产物和明确相关的走查或长期证据路径。没有资产时，第⑥项写“无 prototype 资产”并省略第⑦项 |
+| 读 | 一行一条，只写定位：① `worker-brief.md`（与本 `SKILL.md` 同目录）；② 本 worktree 内 spec 路径，或 agent brief 所在 issue 编号；③ 本张 ticket 的 issue 编号；④ 对应 plan 路径（无 plan 写“无 plan”）；⑤ 仓库根 `TESTING.md`（无则写“无”）；⑥ prototype 资产索引 `README.md`；⑦ 本 ticket 使用的选中产物和明确相关的走查或长期证据路径；⑧ investigation 资产索引 `README.md`；⑨ 本 ticket 使用的验证后报告和配套资产精确路径。没有对应资产时，第⑥项写“无 prototype 资产”并省略第⑦项，第⑧项写“无 investigation 资产”并省略第⑨项 |
 | 约束 | 只改本 worktree 源码与测试；不改 `docs/`；不扩大 ticket 范围。有 prototype 时：先读索引，再只读 task 点名的精确路径；把用户确认过的纯逻辑模块移入正式 module 并用 TDD 集成，界面按仓库规范重写；不复制 prototype 外壳、临时 route、切换器或落选变体 |
 | 验收 | spec 分支：见 ticket `#<编号>` 的验收标准，seam 见 spec `## Testing Decisions`；agent brief 分支：见原 issue 的 agent brief 中 `**Acceptance criteria:**` 与 `**Test seam:**`（在「读」里已给出定位，此处不抄正文） |
 

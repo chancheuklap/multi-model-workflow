@@ -20,6 +20,7 @@ map 本身不上 Wiki，但 map 上记下的那些决定不能随任务一起消
 | 考察过但决定不做的方向 | `.out-of-scope/`，一个概念一个文件 | 分诊时按概念相似度查它，防止同一个需求换个说法再提一遍 |
 | 谈出来的术语 | 领域文档，落点跑 `mmw domain path` 取 | 项目自己的话怎么说，要跟代码一起演进 |
 | 用户走查过的 prototype 资产 | map 产物目录下的 prototype 路径及 decision ticket 的 `issue-<编号>` 子目录 | 它是逻辑决定和视觉合同的 primary source；正式实现吸收已确认决定，并移入逻辑 branch 的可移植模块 |
+| 需要跨会话复用的 investigation 资产 | map 产物目录下的 investigation 路径及 decision ticket 的 `issue-<编号>` 子目录 | 保留验证后报告、范围快照、出处、未查清项和可复用配套资产；简单事实只写 ticket 评论 |
 | 外部系统实测结论 | map 产物目录下的 evidence 路径及 decision ticket 的 `issue-<编号>` 子目录 | 保留测试计划、结论台账，以及不能低成本重建且直接支撑结论的最小脱敏原始证据 |
 | 其余可回退的决定 | 被 spec 的 `Implementation Decisions` 吸收 | 不值得单独归档 |
 | map 本身 | 关掉即止 | 它是按走过顺序记的过程日志，含死路，价值在过程中 |
@@ -36,7 +37,7 @@ map 按**决定**组织，spec 按**能独立设计和实现的一块功能**组
 
 spec 是 map 的可读综合版：map 的 `Destination` 变成 spec 的问题陈述，`Decisions so far` 里的每一条变成 spec 的 `Implementation Decisions`，`Out of scope` 原样继承。Wiki 上只留这份综合版，不留原始日志。
 
-一组一份 spec，各建一张 issue 挂在 map 底下。正文写清楚三件事：这份 spec 交付什么，它依赖 map 的 `Decisions so far` 一节里的哪几条，以及 map 原样继承的 `产物目录`。spec issue 不新建 `issue 子目录`；它通过依赖的 decision ticket 引用已有 `issue-<编号>` 子目录中的 prototype 和 evidence 资产。spec issue 跟 decision ticket 同处一层，靠**带不带 `wayfinder:` 类型标签**区分：decision ticket 带，spec issue 不带。
+一组一份 spec，各建一张 issue 挂在 map 底下。正文写清楚三件事：这份 spec 交付什么，它依赖 map 的 `Decisions so far` 一节里的哪几条，以及 map 原样继承的 `产物目录`。spec issue 不新建 `issue 子目录`；它通过依赖的 decision ticket 引用已有 `issue-<编号>` 子目录中的 prototype、investigation 和 evidence 资产。spec issue 跟 decision ticket 同处一层，靠**带不带 `wayfinder:` 类型标签**区分：decision ticket 带，spec issue 不带。
 
 切出来只有一份也照样切出去走下去，不回头重来。
 

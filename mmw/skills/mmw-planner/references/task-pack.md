@@ -20,6 +20,7 @@
 
 **先读：** <spec 章节、ADR、项目规则，以及项目指令链实际指向的测试规则>
 **Prototype evidence:**（本包吸收 prototype 决定时必填）prototype 资产索引 `README.md` / 精确的选中产物 / 明确相关的走查或长期证据
+**investigation evidence:**（本包消费调查结论时必填）investigation 资产索引 `README.md` / 验证后报告或配套资产精确路径 / 适用的范围快照与未查清项
 
 **Interfaces:**
 - **Consumes:** <本包用到的、来自前序包的东西——精确签名>

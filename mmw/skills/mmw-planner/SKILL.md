@@ -22,8 +22,9 @@ disable-model-invocation: true
 | 合同骨架 | spec 的 `## Cross-Plan Contract Anchors` 一节。它划定你的硬边界：你能碰哪些共享文件（不许认领别份 plan 拥有的文件）、你要提供或消费哪些跨 plan 接口（照它的命名对接）。标着「字段待回填」的精确字段由你写时定下来，主 agent 事后回填 |
 | 你那张 ticket | 标题、要做什么、每一条验收标准、被谁阻塞 |
 | prototype 资产 | 有 prototype 时，先读 task 点名的 prototype 资产索引 `README.md`，再只读本 ticket 使用的选中产物，以及明确相关的走查或长期证据路径。从索引和走查记录取已确认的决定与取舍；从选中产物提取状态机、reducer、数据结构和界面规格。落选变体只提供索引记录的否定约束，不作为当前设计依据；确需验证该约束时，只读索引显式引用的具体变体。无 prototype 资产时，task 必须明写「无 prototype 资产」 |
+| investigation 资产 | spec 或 ticket 引用调查时，先读 task 点名的 investigation 资产索引 `README.md`，再只读本 ticket 需要的验证后报告和配套资产精确路径。从索引取调查问题、范围快照、下游用途和未查清项。无 investigation 资产时，task 必须明写「无 investigation 资产」 |
 
-上面四份由主 agent 提供。写测试规划前完整读取 `/mmw-tdd`，包括它指向的测试、mock 和质量标准，再读取目标仓库根的 `TESTING.md`。目标仓库没有 `TESTING.md` 时继续，不自行创建。
+上面五份由主 agent 提供。写测试规划前完整读取 `/mmw-tdd`，包括它指向的测试、mock 和质量标准，再读取目标仓库根的 `TESTING.md`。目标仓库没有 `TESTING.md` 时继续，不自行创建。
 
 运行 `mmw artifact path prototype <产物目录> [issue-<编号>]`，命令返回目录中的 `README.md` 是 prototype 资产索引；普通非 Wayfinder 任务不传 issue 子目录。索引必须列出问题、逐轮用户结论、用户选中的路径、落选变体形成的约束、被提升为长期证据的路径；没有选中产物、落选约束或长期证据时，对应项写「无」，不能省略。不要递归读取产物目录，也不要自行吸收 task 没点名的截图、runs 或过程输出。
 
@@ -38,6 +39,8 @@ disable-model-invocation: true
 **每个任务包必须能单独抽出来当一份自洽说明。** `worker` 通常只看自己那一包，不读全文，还可能乱序读。所以：不写「跟第 N 包一样」（重复写出来）；不引用本包和前文都没定义过的类型、函数、字段；要传给下一包的信息写进本包的 Interfaces，不靠「看上一包」。
 
 Plan 吸收 prototype 资产索引记录的明确决定，以及选中产物中的可移植逻辑。Prototype 外壳、无关过程材料和落选变体不进入 plan；落选变体只在本 ticket 必须落实其否定约束时引用。
+
+Plan 使用 investigation 资产中的验证后事实，并保留适用的范围快照、出处和未查清项。subagent 原始报告和调查过程材料不进入 plan。
 
 ## 探代码
 
@@ -70,6 +73,8 @@ ticket 已经是一条端到端的垂直切片，**你不再切一层切片**，
    **Prototype asset index:** <README.md 的精确路径，或「无 prototype 资产」>
    **Selected prototype output:** <本 ticket 使用的精确路径，或「无 prototype 资产」>
    **Prototype evidence:** <明确相关的走查或长期证据路径，或「无 prototype 资产」>
+   **investigation asset index:** <README.md 的精确路径，或「无 investigation 资产」>
+   **investigation evidence:** <本 ticket 使用的验证后报告与配套资产精确路径，或「无 investigation 资产」>
    **Blocked by:** <别的 plan 编号，或者「无」>
    **Architecture:** <跟这张 ticket 相关的实现方向>
    **Tech stack:** <实际涉及的框架、服务、测试工具>
