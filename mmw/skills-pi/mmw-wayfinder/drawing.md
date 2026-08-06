@@ -10,7 +10,7 @@
 
 完成的标志：一两行话说得出走到尽头是什么样子，而且用户认了这句话。
 
-同时给这个 effort 定一个「产物目录」。它是一个能通过 `mmw artifact path scratch <产物目录>` 验证的单路径段。这个值属于 effort，不由 map 任务或 decision ticket 的 worktree slug 推导。map 创建后不再改。
+同时给这个 effort 定一个「产物目录」。它是一个能通过 `mmw path scratch <产物目录>` 验证的单路径段。这个值属于 effort，不由 map 任务或 decision ticket 的 worktree slug 推导。map 创建后不再改。
 
 ## 2. 广度优先横扫
 
@@ -30,11 +30,11 @@
 
 每张 ticket 的产物目录和 issue 子目录回填完成后，再用**第二遍**把阻塞关系连上：`mmw issue link <被挡的> --blocked-by <挡它的>`。要分两遍是因为 issue 要先有编号才能互相引用。连完边，这批 ticket 自然分成 frontier 和被阻塞的两类，用 `mmw issue frontier <map 编号>` 看。
 
-## 5. 派调查 subagent，收报告
+## 5. 派 research subagent，收报告
 
 刚建的每一张 `wayfinder:research` ticket，各派一个 subagent 去查，按 `/mmw-research`。它们只查事实、互不依赖，可以并行。
 
-**报告收齐、验证完、写进 ticket 评论，这一步才算完。** 验证过的事实写进对应 ticket 的评论，没查清的另起一节列出来。查清了的那张 ticket 当场关掉，并往 map 的 `Decisions so far` 追加一行。
+**报告收齐、验证完、写进 ticket 评论，这一步才算完。** 每次 research 都按 `/mmw-research` 询问用户是否保存。验证过的事实写进对应 ticket 的评论。用户选择保存时，再链接 research 索引。没查清的另起一节列出来。查清了的那张 ticket 当场关掉，并往 map 的 `Decisions so far` 追加一行。
 
 ## 6. 提交
 

@@ -13,7 +13,7 @@ description: 难以定位的 bug 和性能回退的诊断循环，先造出一�
 
 开始诊断时确定当前任务的产物目录。Wayfinder 场景从当前 map 或子 issue 正文的 `## 产物目录` 读取；decision ticket 同时读取正文记录的 `issue-<编号>`。Wayfinder 派生的 spec 任务从已绑定任务状态读取任务 slug，并使用 `task-<任务 slug>` 子目录。普通任务使用当前任务 slug，不带子目录。不要从任务 worktree 的物理目录名推断。
 
-运行 `mmw artifact path scratch <产物目录> [issue-<编号>|task-<任务 slug>]`。HAR、trace、日志转储、core dump、录屏、一次性 harness、临时埋点输出和其他过程材料默认写入命令返回的 Git 忽略 scratch 目录。已经位于 correct seam、准备长期防回归的测试源码按 Phase 5 处理。
+运行 `mmw path scratch <产物目录> [issue-<编号>|task-<任务 slug>]`。HAR、trace、日志转储、core dump、录屏、一次性 harness、临时埋点输出和其他过程材料默认写入命令返回的 Git 忽略 scratch 目录。已经位于 correct seam、准备长期防回归的测试源码按 Phase 5 处理。
 
 ## Phase 1 —— 造一个反馈 loop
 

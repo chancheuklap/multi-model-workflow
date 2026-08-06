@@ -4,7 +4,7 @@
 
 ## 1. 先把这一轮记完
 
-往 [SKILL.md](SKILL.md) 通过 `mmw artifact path prototype` 取得的 prototype 产物路径下的 `README.md` 追加这一轮用户走查结论。处置词写 `accepted`，并列出**选中的是哪几份产物**（写路径）。UI 走查还要列出所有落选或 `superseded` 变体的路径，以及它们形成的明确否定约束；没有则写「无」。落选的全部 UI 变体留在原地作为 primary source，但不往下传。
+往 [SKILL.md](SKILL.md) 通过 `mmw path prototype` 取得的 prototype 产物路径下的 `README.md` 追加这一轮用户走查结论。处置词写 `accepted`，并列出**选中的是哪几份产物**（写路径）。UI 走查还要列出所有落选或 `superseded` 变体的路径，以及它们形成的明确否定约束；没有则写「无」。落选的全部 UI 变体留在原地作为 primary source，但不往下传。
 
 过程截图、DOM、console、录屏、临时探测输出和生成中间物留在 scratch 路径。只有长期决定必需的最小证据才提升，并在 `README.md` 里逐条引用。然后把源码、`README.md` 和已引用的提升证据放进同一个提交；不提交 scratch。回填完成后清理当前 scratch 路径。
 

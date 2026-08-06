@@ -36,7 +36,7 @@ destination 每个 effort 各不相同。给它命名是画 map 的第一个动�
 
 一张 map 通常由好几个会话分头做：一个会话建 map，其余会话各认领一张 decision ticket。这带来四条硬约束，三个入口都适用。
 
-**一个会话只解一张 decision ticket。** 回填、提交和交回 map 任务后停止。新出现的 frontier 由另一个会话认领。唯一例外是建图会话可以为刚创建的多张 `wayfinder:research` ticket 并行派调查者；每个调查者仍只解一张 ticket。
+**一个会话只解一张 decision ticket。** 回填、提交和交回 map 任务后停止。新出现的 frontier 由另一个会话认领。唯一例外是建图会话可以为刚创建的多张 `wayfinder:research` ticket 并行派 `investigator`；每个 `investigator` 仍只解一张 ticket。
 
 **认领在动手之前。** 把 ticket 指派给自己就是认领。指派完成之前不要做任何事。
 

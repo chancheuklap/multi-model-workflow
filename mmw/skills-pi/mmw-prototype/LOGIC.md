@@ -25,7 +25,7 @@
 
 ## 3. 生成一个自包含 HTML 文件
 
-文件放在 [SKILL.md](SKILL.md) 通过 `mmw artifact path prototype` 取得的 prototype 产物路径下的 `logic/`。HTML、CSS 和 JavaScript 全部内联。不要使用框架、bundler、服务器或外部依赖。用户双击文件就能运行，也能直接把文件交给不写代码的人。
+文件放在 [SKILL.md](SKILL.md) 通过 `mmw path prototype` 取得的 prototype 产物路径下的 `logic/`。HTML、CSS 和 JavaScript 全部内联。不要使用框架、bundler、服务器或外部依赖。用户双击文件就能运行，也能直接把文件交给不写代码的人。
 
 页面按以下顺序布局：
 

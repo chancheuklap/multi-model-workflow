@@ -22,7 +22,7 @@ description: 扫一遍代码库找可以做深的模块，出一份候选报告�
 **扫之前先定扫哪。** 最近一直在改的地方权重最高。
 
 - 用户点了方向（某个 module、某个子系统、某个痛点），就用他点的，跳过下面的推断。
-- 没点，**按 `$mmw:mmw-research` 的内部方向派一个 subagent** 翻提交历史（`git log --oneline`），交回一张热点清单——反复出现的那几个文件和目录。改动散得到处都是、没有明显热点时，才把网撒大。
+- 没点，**按 `$mmw:mmw-research` 的内部方向派一个 subagent** 翻提交历史（`git log --oneline`），交回一张热点清单。用户选择保存，而且后续候选依赖该 research 时，候选同时记录 research 索引和精确文件路径。改动没有明显热点时，才扩大范围。
 
 定完的这一片，是下一步所有人共同的地盘。
 
@@ -31,7 +31,7 @@ description: 扫一遍代码库找可以做深的模块，出一份候选报告�
 五个视角，一个视角一个 subagent，并行扫描。每个视角：四栏表（目标=该视角问题；读=范围路径 + 领域文档 + `$mmw:mmw-codebase-design` + ADR 路径；约束=只读；验收=摩擦点带出处）。
 启动：按名称调用 Codex 原生 subagent `mmw-investigator`，task 传四栏表全文。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的调查、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
 
 | 视角 | 让它去看 |
 | --- | --- |

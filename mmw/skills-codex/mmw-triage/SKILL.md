@@ -65,14 +65,17 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 
 ## 分诊一张具体的 issue 或 PR
 
-1. **收集上下文。** 把这张 issue 或 PR 整个读完（正文、评论、标签、作者、日期；PR 还要读 diff）。把之前的分诊记录读出来，已经解决的问题不要再问一遍。用项目的领域术语表探索代码，遵守这块地方的 ADR。
+1. **收集上下文。**
 
-   然后做两项检查，**按 `$mmw:mmw-research` 的内部方向派出去**，一项一个 subagent，并行：
+   | 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
+   | --- | --- | --- | --- | --- |
+   | issue 或 PR | 始终 | 正文、评论、标签、作者和日期；PR 再读 diff | 无关 issue 和 PR | 分诊建议 |
+   | 既有分诊记录 | 有历史记录时 | 当前 issue 或 PR 的全部记录 | 其它条目的记录 | 不重复已经解决的问题 |
+   | 是否已有同一行为 | 每次分诊 | `$mmw:mmw-research` 验证的相关实现 | 无关模块 | 验证后的事实；已保存且后续需要时再传 research 路径 |
+   | 是否已被否过 | 每次分诊 | `$mmw:mmw-research` 验证的相似 `.out-of-scope/*.md` | 不相似的概念 | 验证后的事实；已保存且后续需要时再传 research 路径 |
+   | 领域文档和 ADR | 每次分诊 | 本次范围相关文件 | 无关 leaf 和 ADR | canonical 术语和约束 |
 
-   - **是否已有** —— 按领域概念（不是按需求的字面措辞）搜有没有已经实现的同一行为。搜到了就是「已经实现」的 `wontfix`（第 5 步）。
-   - **是否已被否过** —— 读 `.out-of-scope/*.md`，把与这次需求相似的都列出来。
-
-   收回来按 `$mmw:mmw-verifying-agent-output` 验证——**报告说「没有找到」的，你自己再搜一次**。第二步给建议时要报你搜了哪些地方，那份清单从它的报告里取。
+   两项 research 并行派发。按 `$mmw:mmw-verifying-agent-output` 验证；“没有找到”的结论由主 agent 再搜一次。
 
 2. **给建议。** 把你的类别和状态建议连同理由告诉维护者，再加一段与这次需求相关的代码现状摘要——包括它是不是已经实现。等他给方向。
 
@@ -81,7 +84,7 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 4. **Grill（需要时）。** 这个需求还不够具体，就跑 `$mmw:mmw-grilling` 把它谈成双方确认的共同理解。它完成后回到本技能继续分诊。
 
 5. **落实结果：**
-   - `ready-for-agent` —— 先按 [AGENT-BRIEF.md](AGENT-BRIEF.md) 贴一条完整的 agent brief 评论，再把状态改成 `ready-for-agent`。`**Acceptance criteria:**` 和 `**Test seam:**` 都是必填栏。然后按本文「下一步」一节决定它接着走哪个技能。
+   - `ready-for-agent` —— 先按 [AGENT-BRIEF.md](AGENT-BRIEF.md) 贴一条完整的 agent brief 评论，再把状态改成 `ready-for-agent`。`**Acceptance criteria:**` 和 `**Test seam:**` 都是必填栏。后续工作依赖已保存的 research 时，agent brief 同时写 research 索引和精确文件路径。然后按本文「下一步」一节决定它接着走哪个技能。
    - `ready-for-human` —— 贴一条与 agent brief 使用相同字段的分诊记录，并写清为什么它派不出去（要拿判断、要外部权限、要做设计决定、要人工测试）。
    - `needs-info` —— 贴分诊记录，模板和写法在 [NEEDS-INFO.md](NEEDS-INFO.md)。
    - `wontfix` —— 关掉，评论内容取决于*为什么*：

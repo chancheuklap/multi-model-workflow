@@ -55,9 +55,9 @@ description: 做一个能跑的粗糙版本，回答一个光靠讨论定不下�
 开始之前运行对应命令，把输出分别记为 prototype 产物路径、evidence 产物路径和 scratch 路径：
 
 ```bash
-mmw artifact path prototype <产物目录> [issue-<编号>]
-mmw artifact path evidence <产物目录> [issue-<编号>]
-mmw artifact path scratch <产物目录> [issue-<编号>]
+mmw path prototype <产物目录> [issue-<编号>]
+mmw path evidence <产物目录> [issue-<编号>]
+mmw path scratch <产物目录> [issue-<编号>]
 ```
 
 前三条设计 branch 的持久目录只保存设计合同需要的东西：

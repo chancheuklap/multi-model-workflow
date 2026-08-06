@@ -16,16 +16,15 @@ disable-model-invocation: true
 
 派你的人在提示词里给了这些的路径或原文。缺一不可，理解了再动手。
 
-| 读什么 | 从里面取什么 |
-| --- | --- |
-| spec | `## Problem Statement` 与 `## Solution`（这次要达成什么）、`## Implementation Decisions`（架构方向，填进你 plan 头部的 `**Architecture:**`）、`## Contract Boundaries`、`## Testing Decisions` 一节里那张 seam 清单表 |
-| 合同骨架 | spec 的 `## Cross-Plan Contract Anchors` 一节。它划定你的硬边界：你能碰哪些共享文件（不许认领别份 plan 拥有的文件）、你要提供或消费哪些跨 plan 接口（照它的命名对接）。标着「字段待回填」的精确字段由你写时定下来，主 agent 事后回填 |
-| 你那张 ticket | 标题、要做什么、每一条验收标准、被谁阻塞 |
-| prototype 资产 | 有 prototype 时，先读 task 点名的 prototype 资产索引 `README.md`，再只读本 ticket 使用的选中产物，以及明确相关的走查或长期证据路径。从索引和走查记录取已确认的决定与取舍；从选中产物提取状态机、reducer、数据结构和界面规格。落选变体只提供索引记录的否定约束，不作为当前设计依据；确需验证该约束时，只读索引显式引用的具体变体。无 prototype 资产时，task 必须明写「无 prototype 资产」 |
+| 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
+| --- | --- | --- | --- | --- |
+| spec | 始终 | 问题、方案、实现决定、合同边界和测试 seam | 其它 spec | plan 目标与约束 |
+| 合同骨架 | 多份 plan 时 | `## Cross-Plan Contract Anchors` | 其它 plan 拥有的文件 | 共享文件和跨 plan 接口 |
+| 当前 ticket | 始终 | 标题、目标、验收标准和阻塞关系 | 其它 ticket | 当前 plan 的工作范围 |
+| prototype | task 点名时 | 索引、选中产物和明确相关证据 | 整个产物目录和无关变体 | 已确认决定；没有写「无 prototype 资产」 |
+| research | task 点名时 | research 索引和当前 ticket 使用的精确文件 | research 的上级目录和 subagent 原始报告 | 验证后的事实；没有写「无 research」 |
 
-上面四份由主 agent 提供。写测试规划前完整读取 `/mmw-tdd`，包括它指向的测试、mock 和质量标准，再读取目标仓库根的 `TESTING.md`。目标仓库没有 `TESTING.md` 时继续，不自行创建。
-
-运行 `mmw artifact path prototype <产物目录> [issue-<编号>]`，命令返回目录中的 `README.md` 是 prototype 资产索引；普通非 Wayfinder 任务不传 issue 子目录。索引必须列出问题、逐轮用户结论、用户选中的路径、落选变体形成的约束、被提升为长期证据的路径；没有选中产物、落选约束或长期证据时，对应项写「无」，不能省略。不要递归读取产物目录，也不要自行吸收 task 没点名的截图、runs 或过程输出。
+上面五份由主 agent 提供。写测试规划前完整读取 `/mmw-tdd`，包括它指向的测试、mock 和质量标准，再读取目标仓库根的 `TESTING.md`。目标仓库没有 `TESTING.md` 时继续，不自行创建。
 
 **seam 由 spec 定死，你不重新定。** plan 里每条测试的落点对到 spec `## Testing Decisions` 一节里那张 seam 清单表，选最高的那一层，不要增殖插桩点。spec 里找不到对应的 seam，交 `needs-context`。
 
@@ -38,6 +37,8 @@ disable-model-invocation: true
 **每个任务包必须能单独抽出来当一份自洽说明。** `worker` 通常只看自己那一包，不读全文，还可能乱序读。所以：不写「跟第 N 包一样」（重复写出来）；不引用本包和前文都没定义过的类型、函数、字段；要传给下一包的信息写进本包的 Interfaces，不靠「看上一包」。
 
 Plan 吸收 prototype 资产索引记录的明确决定，以及选中产物中的可移植逻辑。Prototype 外壳、无关过程材料和落选变体不进入 plan；落选变体只在本 ticket 必须落实其否定约束时引用。
+
+Plan 使用 research 中的验证后事实，并保留适用的范围快照、出处和未查清项。subagent 原始报告和过程材料不进入 plan。
 
 ## 探代码
 
@@ -70,6 +71,8 @@ ticket 已经是一条端到端的垂直切片，**你不再切一层切片**，
    **Prototype asset index:** <README.md 的精确路径，或「无 prototype 资产」>
    **Selected prototype output:** <本 ticket 使用的精确路径，或「无 prototype 资产」>
    **Prototype evidence:** <明确相关的走查或长期证据路径，或「无 prototype 资产」>
+   **research 索引:** <research 索引的精确路径，或「无 research」>
+   **research 文件:** <本 ticket 使用的精确文件路径，或「无 research」>
    **Blocked by:** <别的 plan 编号，或者「无」>
    **Architecture:** <跟这张 ticket 相关的实现方向>
    **Tech stack:** <实际涉及的框架、服务、测试工具>

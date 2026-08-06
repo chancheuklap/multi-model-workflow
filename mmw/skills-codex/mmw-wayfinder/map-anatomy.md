@@ -47,7 +47,7 @@ map 是一份**索引**，不是一个仓库。它列出已经做出的决定，
 ```markdown
 ## Question
 
-<这张 ticket 要解掉的决定或调查>
+<这张 ticket 要解掉的决定或 research 问题>
 
 ## 产物目录
 
@@ -60,12 +60,13 @@ issue-<这张 ticket 的编号>
 
 答案不写进正文，它在解掉的时候作为结案评论记录。解 ticket 过程中产出的东西从 issue 链过去，不粘进正文。
 
-Decision ticket 的 `issue 子目录` 只由 tracker 编号决定。建 issue 后立即把 `issue-<编号>` 回填正文，再连阻塞边。Prototype、evidence 和 scratch 的精确落点分别用下列命令计算，不从任务分支或 worktree 目录推断：
+Decision ticket 的 `issue 子目录` 只由 tracker 编号决定。建 issue 后立即把 `issue-<编号>` 回填正文，再连阻塞边。Prototype、research、evidence 和 scratch 的精确落点分别用下列命令计算，不从任务分支或 worktree 目录推断：
 
 ```bash
-mmw artifact path prototype <产物目录> issue-<编号>
-mmw artifact path evidence <产物目录> issue-<编号>
-mmw artifact path scratch <产物目录> issue-<编号>
+mmw path prototype <产物目录> issue-<编号>
+mmw path research <产物目录> issue-<编号>
+mmw path evidence <产物目录> issue-<编号>
+mmw path scratch <产物目录> issue-<编号>
 ```
 
 ## 每张 ticket 的两条属性
@@ -112,7 +113,7 @@ HITL 还是 AFK 不单独打标签，从类型推出来；只有 `wayfinder:task
 
 ## fog of war 还是 ticket
 
-这张 map 是**刻意**不完整的：看不见的东西不要画。还开着的 ticket 之外是 **fog of war**——那些你看得出要来、但还钉不住的决定和调查，因为它们悬在还没解开的问题上。解掉一张 ticket 会驱散它前面的 fog of war，此刻能说清楚的部分就从 `Not yet specified` 里拿出来，建成新的 ticket。
+这张 map 是**刻意**不完整的：看不见的东西不要画。还开着的 ticket 之外是 **fog of war**——那些你看得出要来、但还钉不住的决定和 research 问题，因为它们悬在还没解开的问题上。解掉一张 ticket 会驱散它前面的 fog of war，此刻能说清楚的部分就从 `Not yet specified` 里拿出来，建成新的 ticket。
 
 判据是你此刻能不能把问题**精确地陈述出来**，不是你此刻能不能回答它。
 

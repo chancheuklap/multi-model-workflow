@@ -17,7 +17,7 @@ frontier 为空时，不建立 decision ticket 任务。停止并让用户恢复
 
 用户点了名就用他点的那张。用户没有点名时，取 frontier 上的第一张。
 
-先运行 `mmw issue claim <编号>` 完成认领。认领失败说明另一个会话已经占用，改取下一张。认领成功前不调查、不讨论、不修改文件。
+先运行 `mmw issue claim <编号>` 完成认领。认领失败说明另一个会话已经占用，改取下一张。认领成功前不执行 research、不讨论、不修改文件。
 
 任务 slug 使用 `<map slug>-<ticket 短语>`。父分支必须是 map 分支；任务从 map 分支当前已提交的 HEAD 开始。任务 slug 只识别任务，不决定产物落点。
 
@@ -30,18 +30,19 @@ Codex App 在任务创建时已经准备好 detached worktree。确认任务范�
 先确认 ticket 原样继承了 map 的 `产物目录`，并且 `issue 子目录` 是这张 ticket 的 `issue-<编号>`。然后计算精确路径：
 
 ```bash
-mmw artifact path prototype <产物目录> issue-<编号>
-mmw artifact path evidence <产物目录> issue-<编号>
-mmw artifact path scratch <产物目录> issue-<编号>
+mmw path prototype <产物目录> issue-<编号>
+mmw path research <产物目录> issue-<编号>
+mmw path evidence <产物目录> issue-<编号>
+mmw path scratch <产物目录> issue-<编号>
 ```
 
-只把这三条命令的实际输出传给 prototype 或外部系统实测流程，不传 worktree slug 代替路径。
+只把这四条命令的实际输出传给对应流程，不传 worktree slug 代替路径。
 
 | 标签 | 解法 |
 | --- | --- |
 | `wayfinder:grilling` | 跑 `$mmw:mmw-grilling`，把 `Question` 谈成双方确认的共同理解；提问方式全部由该技能决定 |
 | `wayfinder:prototype` | 跑 `$mmw:mmw-prototype` 做一个粗糙版本给用户走查；传入 prototype 产物路径和 scratch 路径的精确输出，结案评论指向 prototype 产物路径 |
-| `wayfinder:research` | 按 `$mmw:mmw-research` 派一个 subagent，只调查这一个决定等待的事实；按 `$mmw:mmw-verifying-agent-output` 验证后再写入 ticket 评论。如果调查升级为外部系统实测，向 `$mmw:mmw-prototype` 传入 evidence 产物路径和 scratch 路径的精确输出 |
+| `wayfinder:research` | 按 `$mmw:mmw-research` 只查这一个决定等待的事实。验证后的事实始终写入 ticket 评论。用户选择保存时，再链接 research 索引；用户选择不保存时，不创建 research 目录。如果 research 升级为外部系统实测，向 `$mmw:mmw-prototype` 传入 evidence 路径和 scratch 路径 |
 | `wayfinder:task` | agent 能完成就执行，并在结案评论记录结果事实；必须人动手时，简单操作给精确清单，包含多个步骤、值采集或 secret 落点的流程使用 `/wizard` 生成脚本 |
 
 HITL ticket 不许 agent 替用户回答。

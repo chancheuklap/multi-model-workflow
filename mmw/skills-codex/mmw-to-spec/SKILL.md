@@ -15,7 +15,8 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 | --- | --- | --- |
 | `$mmw:mmw-grilling` 谈定 | 这次对话里刚谈完。`$mmw:mmw-wayfinder` 横扫下来判定不需要 map 的也走这一行 | 这一轮写进领域文档的术语（落点跑 `mmw domain path` 取）、这一轮落成的 ADR、对话里达成的每一条共识 |
 | `$mmw:mmw-improve-codebase-architecture` 挑中的候选谈定 | slug 是 `refactor-` 开头，那个空提交里记着一张候选卡片的标题 | 这一轮写进领域文档的术语（落点跑 `mmw domain path` 取）、这一轮落成的 ADR、对话里达成的每一条共识，外加**那张卡片**——它的文件清单是第 2 步探仓库的起点，它的 Problem 和 before/after 直接进 spec 的 `## Current State` 与 `## Solution`。这次的外部行为不变，所以 `## Solution` 写的是结构怎么变、谁的调用方式跟着变 |
-| `$mmw:mmw-prototype` 走查完 | 能从上游取得 `产物目录`；Wayfinder decision ticket 还能取得 `issue-<编号>` | 运行 `mmw artifact path prototype <产物目录> [issue-<编号>]`，先读命令返回目录中的 `README.md`，再只读本 spec 需要的选中产物，以及索引显式引用的对应走查记录和长期证据。普通非 Wayfinder 任务不传 issue 子目录。索引必须列出问题、逐轮用户结论、用户选中的路径、落选变体形成的约束、被提升为长期证据的路径；没有选中产物、落选约束或长期证据时，对应项写「无」，不能省略。缺一项就回 `$mmw:mmw-prototype` 补齐 |
+| `$mmw:mmw-prototype` 走查完 | 能从上游取得 `产物目录`；Wayfinder decision ticket 还能取得 `issue-<编号>` | 运行 `mmw path prototype <产物目录> [issue-<编号>]`，先读命令返回目录中的 `README.md`，再只读本 spec 需要的选中产物，以及索引显式引用的对应走查记录和长期证据。普通非 Wayfinder 任务不传 issue 子目录。索引必须列出问题、逐轮用户结论、用户选中的路径、落选变体形成的约束、被提升为长期证据的路径；没有选中产物、落选约束或长期证据时，对应项写「无」，不能省略。缺一项就回 `$mmw:mmw-prototype` 补齐 |
+| `$mmw:mmw-research` 交回 | 上游交回验证后的事实；用户选择保存时还会交回 research 索引 | 始终取验证后的事实与出处。只有本 spec 依赖已保存的 research 时，才读取索引和精确文件路径；不递归读取 research 的上级目录 |
 | `$mmw:mmw-wayfinder` 切出的一份 spec | 有一张 issue 挂在带 `wayfinder:map` 标签的 issue 底下，自己不带任何 `wayfinder:` 标签 | 那张 map 的 `Destination`、`Decisions so far`、`Out of scope` 三节，各自落进 spec 哪里见第 4 步；走这张 map 过程中新增的 ADR 与 `.out-of-scope/` |
 | `$mmw:mmw-triage` 判出这件事需要多张 ticket、多个测试 seam，或者还有设计取舍要谈 | 那张 issue 或 PR 上有一条 agent brief 评论 | 那份 agent brief 全文，尤其 `Test seam` 那一栏，以及 `$mmw:mmw-triage` 的「分诊一张具体的 issue 或 PR」第 3 步验过的断言 |
 | `$mmw:mmw-implement` 回来补 seam | `docs/specs/<slug>/` 里已经有一份 spec | 现有那份 spec。**只补 seam 一节，不重写**，从第 2 步接着走 |
@@ -23,13 +24,13 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 ## 2. 探仓库
 
-还没探过就先探，把这块地方现在怎么实现搞清楚。**按 `$mmw:mmw-research` 的内部方向派出去**，一个角度一个 subagent：这块功能现在怎么实现、它的 seam 在哪、数据从哪来到哪去、哪些地方会被这次改动波及。
+还没做过 research 就先做。**按 `$mmw:mmw-research` 的内部方向派出去**，一个角度一个 subagent：这块功能现在怎么实现、它的 seam 在哪、数据从哪来到哪去、哪些地方会被这次改动波及。
 
-`$mmw:mmw-grilling` 谈的过程里已经查过一轮的，只补那一轮没覆盖的角度，不要整片重查。
+`$mmw:mmw-grilling` 已经做过一轮 research 的，只补没有覆盖的角度。
 
 整份 spec 用项目领域词汇，遵守你要碰的这块地方的 ADR。领域文档落点跑 `mmw domain path` 取，三种返回怎么读见 `$mmw:mmw-domain-modeling` 的「读领域文档」一节。
 
-现状结论逐条带 `file:line` 引用写进 spec，**引用要你自己验证过**（`$mmw:mmw-verifying-agent-output`）。
+现状结论逐条带 `file:line` 引用写进 spec，**引用要你自己验证过**（`$mmw:mmw-verifying-agent-output`）。用户选择保存，而且本 spec 依赖该 research 时，spec 同时引用 research 索引和实际使用的精确文件路径。
 
 ## 3. 钉 seam
 

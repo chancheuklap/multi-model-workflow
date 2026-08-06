@@ -21,9 +21,14 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 ## 1. 定 plan 清单
 
-读 spec，取出 `## Problem Statement`、`## Solution`、`## Implementation Decisions`、`## Contract Boundaries`、`## Testing Decisions` 一节里那张 seam 清单表。**只读，作为派发时给 `planner` 的上下文**，不在这里展开写作。
+| 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
+| --- | --- | --- | --- | --- |
+| spec | 始终 | 问题、方案、实现决定、合同边界和测试 seam | 其它 spec | spec 路径 |
+| ticket | 始终 | 目标、验收、阻塞关系和 plan 路径 | 其它 ticket | ticket 编号和 plan 路径 |
+| prototype | ticket 引用时 | 索引、选中产物、明确相关的走查或长期证据 | 整个产物目录、无关过程材料 | 精确路径；没有写「无 prototype 资产」 |
+| research | ticket 引用时 | research 索引和当前 ticket 使用的精确文件 | research 的上级目录、subagent 原始报告 | 精确路径；没有写「无 research」 |
 
-ticket 引用 prototype 时，运行 `mmw artifact path prototype <产物目录> [issue-<编号>]`，先读命令返回目录中的 `README.md`，再确认这张 ticket 使用的选中产物和明确相关的走查或长期证据路径。普通非 Wayfinder 任务不传 issue 子目录。索引缺少问题、逐轮用户结论、用户选中的路径、落选变体形成的约束或被提升为长期证据的路径时，回 `/mmw-prototype` 补齐；没有选中产物、落选约束或长期证据时，对应项应写「无」，不能省略。不递归读取产物目录，也不把无关截图、runs 或过程输出放进 task。
+prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 
 取全部 ticket，读出各自要做什么和被谁阻塞，定下 plan 清单：**一张 ticket 一份 plan 一个 `planner`**。落点就是每张 ticket 正文 `## Plan` 一节写着的那个路径（`docs/plans/<slug>/<两位编号>-<ticket-slug>.md`），编号照抄，不自己重排。ticket 正文没有这一节，按依赖顺序自己编号，被阻塞的排在阻塞它的后面。
 
@@ -53,7 +58,7 @@ ticket 引用 prototype 时，运行 `mmw artifact path prototype <产物目录>
 | 栏 | 本角色填写 |
 | --- | --- |
 | 目标 | 为 ticket `#<编号>` 写 plan，落到指定路径 |
-| 读 | ① 本 worktree 内 spec 路径；② ticket issue 编号；③ plan 落点路径（ticket `## Plan` 或本技能「1. 定 plan 清单」所定）；④ prototype 资产索引 `README.md`、本 ticket 使用的选中产物路径、明确相关的走查或长期证据路径（无则写「无 prototype 资产」）；⑤ `mmw skill-path planner` 有输出则写入该方法论路径，无输出写「无（宿主已注入）」 |
+| 读 | 按「1. 定 plan 清单」逐行列出当前 ticket 的精确路径；最后加入 `mmw skill-path planner` 的输出，没有则写「无（宿主已注入）」 |
 | 约束 | 只写该 plan 文件；不提交；不认领 `## Cross-Plan Contract Anchors` 划给别人的文件；不写其它 plan 的正文 |
 | 验收 | plan 文件存在且可被抽验；任务包覆盖 ticket `#<编号>` 的验收（详见 issue，不抄正文） |
 
