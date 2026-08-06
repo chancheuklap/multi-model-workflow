@@ -35,10 +35,12 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 在 spec 里新增一节 `## Cross-Plan Contract Anchors`，**不改已有的 `## Contract Boundaries`**。
 
-从 `## Contract Boundaries`、`## Implementation Decisions` 两节和 ticket 的依赖关系判断有没有跨 plan 的连接面——共享文件、共享模块、共享数据结构，或者一份 plan 产出、另一份 plan 消费的接口。有就把**骨架**写进刚新增的 `## Cross-Plan Contract Anchors`：
+从 `## Contract Boundaries`、`## Implementation Decisions` 和 ticket 依赖中识别跨 plan 连接面：
 
-- **文件归属**：哪份 plan 可以碰哪些共享文件。一个文件一个归属方。
-- **跨 plan 接口**：按 plan 编号写清谁提供、谁消费（比如「01 提供鉴权令牌接口，02 消费」）。命名要到位，**精确字段和签名先标「字段待回填」**，第 5 步补实。
+| 连接面 | 写入 `## Cross-Plan Contract Anchors` 的内容 |
+| --- | --- |
+| 共享文件或共享 module | 文件归属；一个文件只归一份 plan |
+| 共享数据结构或跨 plan interface | 提供方、消费方和命名；精确字段与签名先标「字段待回填」 |
 
 没有跨 plan 连接面就在这一节写明「无跨 plan 共享合同」。
 
@@ -67,9 +69,19 @@ description: 把已发布的 ticket 写成 plan，一张 ticket 一份，派 `pl
 
 ## 5. 回填精确字段，验证边界
 
-把第 2 步标着「字段待回填」的格子补成真实的归属方、提供方、消费方和字段，写回 `## Cross-Plan Contract Anchors`。入口是每份 plan 的文件与职责表、合同锚点、迁移与登记，以及 `planner` 报告里的 `Cross-plan touchpoints`。
+根据以下来源回填「字段待回填」：
 
-验证两件事：有没有 `planner` 认领了别人归属的文件；提供方声明的接口跟消费方期望的对不对得上。对不上就重派一个 `planner` 修那一份。
+- 每份 plan 的文件与职责表。
+- 合同锚点、迁移和登记。
+- `planner` 报告的 `Cross-plan touchpoints`。
+
+回填后验证：
+
+- 文件归属没有冲突。
+- 提供方 interface 与消费方预期一致。
+- 迁移和登记位置完整。
+
+验证失败时，重派拥有对应 plan 的 `planner`。
 
 ## 6. 发起 ② plan 审
 

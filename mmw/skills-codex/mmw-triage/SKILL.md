@@ -15,18 +15,15 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 ## 角色
 
-两个**类别**角色：
-
-- `bug` —— 有东西坏了
-- `enhancement` —— 新功能或改进
-
-五个**状态**角色：
-
-- `needs-triage` —— 等维护者评估
-- `needs-info` —— 等报告人补信息
-- `ready-for-agent` —— agent brief 已经写完整，可以 AFK 跑
-- `ready-for-human` —— 需要人来实现
-- `wontfix` —— 不做
+| 角色组 | 角色 | 含义 |
+| --- | --- | --- |
+| 类别 | `bug` | 有东西坏了 |
+| 类别 | `enhancement` | 新功能或改进 |
+| 状态 | `needs-triage` | 等维护者评估 |
+| 状态 | `needs-info` | 等报告人补信息 |
+| 状态 | `ready-for-agent` | agent brief 完整，可以 AFK 跑 |
+| 状态 | `ready-for-human` | 需要人来实现 |
+| 状态 | `wontfix` | 不做 |
 
 对 PR 而言，同样这几个状态是对着那份代码读的：`ready-for-agent` 表示 agent brief 已附上、该由 agent 接着动这份 diff；`ready-for-human` 表示可以由人来合了。
 
@@ -34,11 +31,22 @@ triage 期间发到 issue tracker 上的每一条评论和每一张 issue，**�
 
 类别角色和状态角色这两组名字就是 issue 上的标签字符串本身，不用再查映射。**完整清单在仓库根 `.mmw.json` 的 `tracker.labels`**，`mmw init` 按它建标签。
 
-**派 `worker` 前必须是 `ready-for-agent`，而且 agent brief 必须完整。** 状态角色是机器可验证的「够清楚了」信号；agent brief 里的验收标准、范围边界和测试 seam 是它对应的行为合同。两者一起挡住模糊 issue。
+派 `worker` 前必须同时满足：
+
+- 状态角色是 `ready-for-agent`。
+- agent brief 包含验收标准、范围边界和测试 seam。
+
+状态角色提供机器可验证的就绪信号。agent brief 提供行为合同。
 
 **半路挖到的东西开新 issue。** 分诊或做任务时发现的另一个缺陷、优化机会、或者超出本次范围的事：开一张新 issue，打 `needs-triage` 加对应类别标签，主流程不动。不需要「旁路发现」这类专门标签——它是一张独立 issue 这个事实，已经把「不属于本任务」说完了。
 
-状态怎么流转：没标签的 issue 通常先进 `needs-triage`；从那里去 `needs-info`、`ready-for-agent`、`ready-for-human` 或 `wontfix`。报告人回话之后 `needs-info` 退回 `needs-triage`。维护者随时可以推翻——看起来反常的流转先标出来问一句再走。
+| 当前状态 | 下一状态 |
+| --- | --- |
+| 无状态角色 | 通常进入 `needs-triage` |
+| `needs-triage` | `needs-info`、`ready-for-agent`、`ready-for-human` 或 `wontfix` |
+| `needs-info` 且报告人回复 | 返回 `needs-triage` |
+
+维护者可以覆盖流转。流转反常时，先标出并询问维护者。
 
 ## 怎么被叫起来
 

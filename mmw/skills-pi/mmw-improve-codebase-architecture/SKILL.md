@@ -55,7 +55,18 @@ subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说�
 
 写一个自包含的 HTML 文件，落系统临时目录：从 `$TMPDIR` 取，取不到退回 `/tmp`（Windows 上是 `%TEMP%`），文件名 `architecture-review-<时间戳>.html`，每次跑一份新的。然后打开它——macOS `open`、Linux `xdg-open`、Windows `start`——把绝对路径告诉用户。
 
-每个候选一张卡片：涉及哪些文件、现在这个结构在哪里造成摩擦、改成什么样、好处（用 locality 和 leverage 说，以及测试会怎么变好）、一张 before/after 图、一个推荐强度徽章（`Strong`、`Worth exploring`、`Speculative`）。结尾一节 **Top recommendation**：你会先做哪一个，为什么。
+每个候选一张卡片：
+
+| 内容 | 要求 |
+| --- | --- |
+| 文件 | 列出涉及文件 |
+| 摩擦 | 说明当前结构的具体成本 |
+| 目标 | 说明改成什么形状 |
+| 收益 | 使用 locality、leverage 和测试变化说明 |
+| 图 | 一张 before/after 图 |
+| 强度 | `Strong`、`Worth exploring` 或 `Speculative` |
+
+结尾使用 **Top recommendation** 说明首选候选及理由。
 
 **跟 ADR 打架的候选**：只有摩擦真的大到值得重开那份 ADR 才提，提就在卡片里标明白（例如「与 ADR-0007 矛盾——但值得重开，因为……」）。不要把 ADR 禁掉的重构一条条列出来。
 

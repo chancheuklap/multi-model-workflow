@@ -5,7 +5,13 @@ description: 把项目的领域模型建起来、磨锋利。用户要定义领�
 
 # Domain Modeling
 
-一边设计一边主动把项目的领域模型建起来、磨锋利。这是*主动*的那份纪律——挑战用词、造边界场景，术语一旦想清楚就当场写进 glossary，决定只有满足完整的三项判据才写成 ADR。（只是*读*领域文档取用词不算这个技能——那是任何技能都能做的一行习惯。这个技能管的是你在改这个模型，不是消费它。）
+本技能只处理领域模型的变更：
+
+- 挑战用词并构造边界场景。
+- 术语确定后立即写入 glossary。
+- 决定满足三项判据后才写成 ADR。
+
+读取领域文档取用词不属于本技能。
 
 ## 先判入口
 
@@ -19,7 +25,13 @@ description: 把项目的领域模型建起来、磨锋利。用户要定义领�
 
 ## 读领域文档
 
-开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。运行 `mmw domain path`：返回 `map` 时，先读 Map，再读本次涉及的全部命名 leaf；返回 `single` 时，读命令返回的领域文档；返回 `none` 时，默认直接继续，不报告缺失，也不创建领域文档。只有本文「`none` 形态首次建模」一节规定的场景可以创建。
+开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。运行 `mmw domain path`：
+
+| 返回 | 读取动作 |
+| --- | --- |
+| `map` | 先读 Map，再读本次涉及的全部命名 leaf |
+| `single` | 读命令返回的领域文档 |
+| `none` | 直接继续，不报告缺失，也不创建领域文档；只有本文「`none` 形态首次建模」规定的场景可以创建 |
 
 ## 文件放哪
 
@@ -39,11 +51,15 @@ mmw domain dirs    # 写入侧的四个落点：single、map、context、adr
 1. 用户当前请求本身是建立或维护领域模型。
 2. 对话已经定下至少一个需要长期保留的领域术语。
 
-条件满足后，先判断 bounded context 的数量和边界：
+条件满足后，按 bounded context 的数量和边界处理：
 
-- 明确只有一个 bounded context：在 `mmw domain dirs` 返回的 `single` 路径创建领域文档，并写入首个长期术语。
-- 明确存在多个 bounded context：先运行 `mmw domain map-init`。只有命令输出 `map-init<TAB><相对路径><TAB>created` 后才编辑它创建的 Map；禁止直接创建 Map，也禁止复制受管规则。然后在 `mmw domain dirs` 返回的 `context` 路径或其子目录创建首个命名 leaf。在 Map 中登记它的实际路径，补齐全部已确认的 `Contexts` 行，并写入至少一条已确认的 `Relationships` 关系。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
-- bounded context 的数量、术语归属或跨上下文关系不清楚：一次只问用户一个具体问题。用户确认之前不创建领域文档。
+| 现状 | 动作 |
+| --- | --- |
+| 明确只有一个 bounded context | 在 `mmw domain dirs` 返回的 `single` 路径创建领域文档，并写入首个长期术语 |
+| 明确存在多个 bounded context | 运行 `mmw domain map-init`。命令输出 `map-init<TAB><相对路径><TAB>created` 后，编辑它创建的 Map；在 `context` 路径创建首个命名 leaf；登记实际路径，补齐已确认的 `Contexts` 和至少一条 `Relationships`。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md) |
+| 数量、术语归属或关系不清楚 | 一次询问一个具体问题。用户确认前不创建领域文档 |
+
+Map 必须由 `mmw domain map-init` 创建。受管规则不得复制或手工创建。
 
 首次建模写完后运行 `mmw domain check`。检查失败就修正 Map、leaf 或受管规则；检查通过之前不得提交。
 
