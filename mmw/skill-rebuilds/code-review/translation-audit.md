@@ -31,13 +31,13 @@
 | `SKILL.md:15` | `Process` 译为“流程” |
 | `SKILL.md:17` | 第 1 步和固定固定点的动作已保留 |
 | `SKILL.md:19` | 用户说法决定固定点、六类示例和未指定时询问用户均已保留 |
-| `SKILL.md:21` | 三点 diff、merge-base 原因和 commit 清单命令均已保留 |
+| `SKILL.md:21` | 三点 diff、merge-base 原因和提交清单命令均已保留 |
 | `SKILL.md:23` | rev-parse、非空 diff、错误 ref 与空 diff 必须在派发前失败均已保留 |
 | `SKILL.md:25` | 第 2 步和找出 spec 来源已保留 |
 | `SKILL.md:27` | 按顺序寻找的要求已保留 |
-| `SKILL.md:29` | commit message 中三类 issue 引用和按 tracker 文档取得内容已保留 |
+| `SKILL.md:29` | 提交信息中三类 issue 引用和按 tracker 文档取得内容已保留 |
 | `SKILL.md:30` | 用户传入的路径已保留 |
-| `SKILL.md:31` | 三个目录和 branch 名称或功能匹配条件均已保留 |
+| `SKILL.md:31` | 三个目录和分支名称或功能匹配条件均已保留 |
 | `SKILL.md:32` | 没找到时询问、用户确认无 spec、跳过 Spec subagent 和固定报告文字均已保留 |
 | `SKILL.md:34` | 第 3 步和找出标准来源已保留 |
 | `SKILL.md:36` | 仓库内代码写法文档的定义和两个示例均已保留 |
@@ -60,11 +60,11 @@
 | `SKILL.md:58` | 第 4 步、两个 subagent 和并行要求均已保留 |
 | `SKILL.md:60` | 一条消息、两次 Agent 调用和两者都用 general-purpose 均已保留 |
 | `SKILL.md:62` | Standards subagent task 及其包含项引导已保留 |
-| `SKILL.md:64` | 完整 diff 命令和 commit 清单已保留 |
+| `SKILL.md:64` | 完整 diff 命令和提交清单已保留 |
 | `SKILL.md:65` | 标准来源、完整粘贴异味基线和 subagent 无其他访问方式均已保留 |
 | `SKILL.md:66` | 两类报告、文件或区块定位、标准引用、异味命名与引用、硬性和判断项区分、仓库优先、跳过工具项和 400 词限制均已保留 |
 | `SKILL.md:68` | Spec subagent task 及其包含项引导已保留 |
-| `SKILL.md:70` | diff 命令和 commit 清单已保留 |
+| `SKILL.md:70` | diff 命令和提交清单已保留 |
 | `SKILL.md:71` | spec 路径或取得的正文已保留 |
 | `SKILL.md:72` | 缺失或部分需求、scope creep、错误实现、每项引用 spec 行和 400 词限制均已保留 |
 | `SKILL.md:74` | 无 spec 时跳过 Spec subagent 并在最终报告注明已保留 |

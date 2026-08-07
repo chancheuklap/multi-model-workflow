@@ -7,7 +7,7 @@
 ```yaml
 ---
 name: code-review
-description: 沿两条轴审查从一个固定点（commit、branch、tag 或 merge-base）开始的改动——Standards（代码是否遵循本仓库记录的编码标准？）和 Spec（代码是否符合来源 issue 或 spec 的要求？）。在并行 subagent 中运行两项审查，并把报告并列展示。用户想要审查 branch、PR、进行中的改动，或要求“审查从 X 开始的改动”时使用。
+description: 沿两条轴审查从一个固定点（提交、分支、标签或 merge-base）开始的改动——Standards（代码是否遵循本仓库记录的编码标准？）和 Spec（代码是否符合来源 issue 或 spec 的要求？）。在并行 subagent 中运行两项审查，并把报告并列展示。用户想要审查分支、PR、进行中的改动，或要求“审查从 X 开始的改动”时使用。
 ---
 ```
 
@@ -28,9 +28,9 @@ issue tracker 应该已经提供给你；如果缺少 `docs/agents/issue-tracker
 
 ### 1. 锁定固定点
 
-用户所说的对象就是固定点，例如 commit SHA、branch 名称、tag、`main` 或 `HEAD~5`。如果用户没有指定，就询问用户。
+用户所说的对象就是固定点，例如提交 SHA、分支名称、标签、`main` 或 `HEAD~5`。如果用户没有指定，就询问用户。
 
-只记录一次 diff 命令：`git diff <fixed-point>...HEAD`。使用三个点，使比较以 merge-base 为基准。同时通过 `git log <fixed-point>..HEAD --oneline` 记录 commit 清单。
+只记录一次 diff 命令：`git diff <fixed-point>...HEAD`。使用三个点，使比较以 merge-base 为基准。同时通过 `git log <fixed-point>..HEAD --oneline` 记录提交清单。
 
 继续之前，确认固定点能够解析（`git rev-parse <fixed-point>`），并且 diff 不为空。错误的 ref 或空 diff 应该在这里失败，不要等到两个并行 subagent 内部才失败。
 
@@ -40,9 +40,9 @@ issue tracker 应该已经提供给你；如果缺少 `docs/agents/issue-tracker
 
 按照以下顺序寻找来源 spec：
 
-1. commit message 中的 issue 引用，例如 `#123`、`Closes #45` 或 GitLab `!67`。使用 `docs/agents/issue-tracker.md` 中的工作流取得内容。
+1. 提交信息中的 issue 引用，例如 `#123`、`Closes #45` 或 GitLab `!67`。使用 `docs/agents/issue-tracker.md` 中的工作流取得内容。
 2. 用户通过参数传入的路径。
-3. `docs/`、`specs/` 或 `.scratch/` 下与 branch 名称或功能匹配的 spec 文件。
+3. `docs/`、`specs/` 或 `.scratch/` 下与分支名称或功能匹配的 spec 文件。
 4. 如果没有找到任何内容，询问用户 spec 在哪里。如果用户说不存在 spec，**Spec** subagent 将跳过，并报告“没有可用的 spec”。
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/code-review/SKILL.md:34-43 -->
@@ -81,13 +81,13 @@ issue tracker 应该已经提供给你；如果缺少 `docs/agents/issue-tracker
 
 **Standards subagent task**——包含：
 
-- 完整的 diff 命令和 commit 清单。
+- 完整的 diff 命令和提交清单。
 - 第 3 步找到的标准来源文件清单，**再加上完整粘贴的第 3 步代码异味基线**。这个 subagent 无法通过其他方式访问该基线。
 - task：“在相关位置按文件或 diff 区块报告：(a) diff 违反已记录标准的每一处位置，并引用该标准，包括文件和规则；(b) 发现的任何基线代码异味，写出名称并引用 diff 区块。区分硬性违规和判断项。已记录标准的违反可以是硬性违规，但基线代码异味始终是判断项，而且仓库记录的标准优先于基线。跳过工具已经强制执行的内容。控制在 400 个词以内。”
 
 **Spec subagent task**——包含：
 
-- diff 命令和 commit 清单。
+- diff 命令和提交清单。
 - spec 的路径或取得的正文。
 - task：“报告：(a) spec 要求但缺失或只完成一部分的需求；(b) diff 中没有被要求的行为，也就是 scope creep；(c) 看起来已经实施，但实施方式似乎错误的需求。每项 finding 都要引用对应的 spec 行。控制在 400 个词以内。”
 
