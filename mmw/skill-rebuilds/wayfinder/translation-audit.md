@@ -100,7 +100,7 @@
 | `SKILL.md:79` | Grilling 是默认对话并总是调用两个技能已保留 |
 | `SKILL.md:80` | Task 前置手工工作、三项排除、三类例子、唯一执行类型、HITL/AFK 和完成记录均已保留 |
 | `SKILL.md:82` | Fog of war 标题已保留 |
-| `SKILL.md:84` | 刻意不完整、fog 定义、依赖 open 问题、逐张转化至路线清楚且无 ticket 均已保留 |
+| `SKILL.md:84` | 刻意不完整、fog 定义、依赖 open 问题、逐张转化至路线清楚且没有尚待解决的 ticket 均已保留 |
 | `SKILL.md:86` | Not yet specified 内容、朝向 destination、范围内、松紧程度和协作者路标均已保留 |
 | `SKILL.md:88` | fog 与 ticket 的判据是能否精确提问而非能否回答已保留 |
 | `SKILL.md:90` | 问题清晰即建 ticket，即使被阻塞也一样已保留 |
@@ -120,7 +120,7 @@
 | `SKILL.md:114` | 当前可精确表述的 ticket 全部创建、第二遍 wire、frontier/blocked 和其余 fog 均已保留 |
 | `SKILL.md:115` | 每张 research ticket 并行派 subagent、throwaway branch 和 ticket 指针均已保留 |
 | `SKILL.md:116` | charting 占一个 session 且本 session 不亲手解决 ticket 已保留 |
-| `SKILL.md:118` | Work through the map 标题已翻译 |
+| `SKILL.md:118` | Work through the map 已准确翻译为“沿 map 推进”，没有写成一次走完整张 map |
 | `SKILL.md:120` | map 可用 URL 或编号、ticket 可选且 agent 自选下一决定均已保留 |
 | `SKILL.md:122` | 只加载低分辨率 map 而非全部 ticket 正文已保留 |
 | `SKILL.md:123` | 用户点名优先、否则首张 frontier、工作前 claim 均已保留 |
@@ -145,6 +145,9 @@
 7. 上游第 114 行虽未出现 `all`，其指令对象是当前能够精确表述的 ticket 集合，并与第 88-91 行的 fog-or-ticket 判据共同要求全部建立。翻译使用“当前能够精确表述的 ticket 全部创建出来”，没有把范围缩成“第一批 ticket”。
 8. `chart/charting` 曾被分别翻成“画、绘制、建图”，已经统一恢复英文原词。
 9. `map` 的动词用法、`wire` 和 `throwaway branch` 曾被换成中文操作词，已经统一恢复英文原词。
+10. `a spec to hand off and iterate on` 曾被加上上游没有使用的“下游”方位词，已经恢复为“要交出去并继续迭代的 spec”。
+11. `until ... no tickets remain` 曾被写成“没有 ticket 留下”，容易被理解成已关闭的 ticket 也不再保留，已经明确为“没有尚待解决的 ticket”。
+12. `Work through the map` 曾被写成“走完整张 map”，容易使 agent 在一个 session 内连续解决多张 ticket，已经改为“沿 map 推进”。
 
 ## 无新增语义检查
 
