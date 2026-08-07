@@ -13,13 +13,23 @@
 | glossary | 术语表 | 有稳定中文译名 |
 | relentless | 毫不松懈 | 保留持续追问、不能过早结束的强度 |
 
-## 逐段完整性检查
+## 逐行完整性检查
 
-| 上游位置 | 结论 |
+空行只承担 Markdown 分隔，不包含待翻译文字。
+
+| 上游行 | 本行翻译检查 |
 | --- | --- |
-| `SKILL.md:1-5` | 技能名、description 和 `disable-model-invocation: true` 均已保留；description 中访谈强度、目标和同时创建文档三层含义均已翻译 |
-| `SKILL.md:7` | `/grilling` session 与在其中使用 `/domain-modeling` 的关系均已保留 |
-| `agents/openai.yaml:1-5` | `display_name`、`short_description` 和禁止隐式调用的 policy 均已保留；字段名与布尔字面量未翻译 |
+| `SKILL.md:1` | YAML 起始分隔符已保留 |
+| `SKILL.md:2` | 技能名已保留 |
+| `SKILL.md:3` | 毫不松懈的访谈、磨清计划或设计和同步创建 ADR 与术语表均已保留 |
+| `SKILL.md:4` | 禁止模型隐式调用已保留 |
+| `SKILL.md:5` | YAML 结束分隔符已保留 |
+| `SKILL.md:7` | 运行 grilling session 并使用 domain-modeling 的关系已保留 |
+| `agents/openai.yaml:1` | interface 配置键已保留 |
+| `agents/openai.yaml:2` | 显示名已保留 |
+| `agents/openai.yaml:3` | 追问设计并编写文档的短描述已翻译 |
+| `agents/openai.yaml:4` | policy 配置键已保留 |
+| `agents/openai.yaml:5` | 禁止隐式调用已保留 |
 
 ## 四类检查
 
