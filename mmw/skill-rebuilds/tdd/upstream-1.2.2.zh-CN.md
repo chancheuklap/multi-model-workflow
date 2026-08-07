@@ -15,13 +15,13 @@ description: 测试驱动开发。用户想以测试优先方式构建功能或�
 
 # 测试驱动开发
 
-TDD 是 red → green 循环。本技能是一份 reference，使该循环产出值得保留的测试：它说明什么是良好测试、测试写在哪里、有哪些反模式，以及循环规则。每个章节都适用于每次循环；在循环开始前和进行中查阅，不要等结束后再看。
+TDD 是 red → green 循环。本技能是一份参考内容，使该循环产出值得保留的测试：它说明什么是良好测试、测试写在哪里、有哪些反模式，以及循环规则。每个章节都适用于每次循环；在循环开始前和进行中查阅，不要等结束后再看。
 
 探索代码库时，读取 `CONTEXT.md`（如果存在），使测试名称和 interface 词汇符合项目领域语言；同时遵守本次涉及区域内的 ADR。
 
 ## 什么是良好测试
 
-测试通过公开 interface 验证行为，不验证 implementation 细节。代码可以完全改变；测试不应改变。良好测试读起来像 spec，例如“用户可以使用有效购物车结账”会准确说明存在什么能力；由于测试不关心内部结构，它能够承受 refactor。
+测试通过公开 interface 验证行为，不验证 implementation 细节。代码可以完全改变；测试不应改变。良好测试读起来像 spec，例如“用户可以使用有效购物车结账”会准确说明存在什么能力；由于测试不关心内部结构，它能够承受重构。
 
 例子参见 [tests.md](tests.md)，mock 指引参见 [mocking.md](mocking.md)。
 
@@ -35,7 +35,7 @@ TDD 是 red → green 循环。本技能是一份 reference，使该循环产出
 
 询问：“公开 interface 是什么？我们应该测试哪些 seam？”
 
-如果该 interface 的形态本身仍然存在问题，例如 module 应该有多 deep、seam 应该位于哪里、interface 应该暴露什么，就使用 `/codebase-design` 技能取得词汇。它是 module、interface、depth、seam、adapter、leverage 和 locality 词汇的共享来源；它是一份需要查阅的 reference，不是一次需要运行的 session。
+如果该 interface 的形态本身仍然存在问题，例如 module 应该有多 deep、seam 应该位于哪里、interface 应该暴露什么，就使用 `/codebase-design` 技能取得词汇。它是 module、interface、depth、seam、adapter、leverage 和 locality 词汇的共享来源；它是一份需要查阅的参考内容，不是一次需要运行的 session。
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/tdd/SKILL.md:28-38 -->
 
@@ -49,7 +49,7 @@ TDD 是 red → green 循环。本技能是一份 reference，使该循环产出
 
 - **先 red，后 green。** 先编写失败测试，然后只编写足以让它通过的代码。不要预判未来测试，也不要加入推测性功能。
 - **每次一个切片。** 每轮一个 seam、一个测试、一份最小 implementation。
-- **重构不属于循环。** 它属于 review 阶段，参见 `code-review` 技能；不属于 red → green implementation 循环。
+- **重构不属于循环。** 它属于审查阶段，参见 `code-review` 技能；不属于 red → green implementation 循环。
 
 ## `MOCKING.md`
 

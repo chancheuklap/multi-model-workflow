@@ -27,7 +27,7 @@
 | `SKILL.md:3` | 测试驱动开发、功能、bug、测试优先、red-green-refactor 和集成测试触发均已保留 |
 | `SKILL.md:4` | YAML 结束分隔符已保留 |
 | `SKILL.md:6` | 测试驱动开发标题已翻译 |
-| `SKILL.md:8` | TDD 是 red-green、reference 作用、四类内容、每轮全章节适用和前中查阅而非事后均已保留 |
+| `SKILL.md:8` | TDD 是 red-green、参考内容作用、四类内容、每轮全章节适用和前中查阅而非事后均已保留 |
 | `SKILL.md:10` | 探索时读取可选 CONTEXT、测试名和 interface 词汇匹配领域语言、遵守相关 ADR 均已保留 |
 | `SKILL.md:12` | 良好测试标题已保留 |
 | `SKILL.md:14` | 经公开 interface 测行为、非 implementation、代码可全变测试不变、spec 式测试名例子和不关心内部而承受重构均已保留 |
@@ -36,7 +36,7 @@
 | `SKILL.md:20` | seam 是公开测试边界、经 interface 观察不伸内部，以及测试只在 seam 不对 internal 均已保留 |
 | `SKILL.md:22` | 只测预先商定 seam、写前记录并用户确认、未确认不写、无法测一切和精力落关键复杂路径而非每边界均已保留 |
 | `SKILL.md:24` | 公开 interface 与测试 seam 的原始问句已保留 |
-| `SKILL.md:26` | interface 形态存疑、deep 程度、seam 位置、暴露内容、使用 codebase-design 七词、共享来源和 reference 非 session 均已保留 |
+| `SKILL.md:26` | interface 形态存疑、deep 程度、seam 位置、暴露内容、使用 codebase-design 七词、共享来源和参考内容非 session 均已保留 |
 | `SKILL.md:28` | 反模式标题已保留 |
 | `SKILL.md:30` | implementation-coupled、三类行为、数据库旁路例和重构不改行为却破测试的识别信号均已保留 |
 | `SKILL.md:31` | tautological、三类例子、按构造必过、无法不同意代码、独立唯一事实来源和三类来源均已保留 |
@@ -44,7 +44,7 @@
 | `SKILL.md:34` | 循环规则标题已保留 |
 | `SKILL.md:36` | red 先 green 后、先失败测试、仅足够代码、禁止预判和推测功能均已保留 |
 | `SKILL.md:37` | 每轮一 seam、一测试、一最小 implementation 均已保留 |
-| `SKILL.md:38` | 重构不属于循环、属于 review、code-review 链接和不属 red-green implementation 均已保留 |
+| `SKILL.md:38` | 重构不属于循环、属于审查、code-review 链接和不属 red-green implementation 均已保留 |
 | `MOCKING.md:1` | When to Mock 标题已翻译 |
 | `MOCKING.md:3` | 只在系统边界 mock 已保留 |
 | `MOCKING.md:5` | 外部 API 和支付电子邮件例子已保留 |
