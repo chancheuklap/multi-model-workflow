@@ -35,7 +35,7 @@ disable-model-invocation: true
    - **是** → 使用 **`/to-spec`** 把当前对话转成 spec，然后使用 **`/to-tickets`** 把它拆成 tracer bullet ticket；每张 ticket 都声明自己的 **blocking edge**。使用本地 tracker 时，每张 ticket 对应 `.scratch/<feature>/issues/` 下的一个文件，由人工按照 blocker 优先的顺序处理。使用真实 tracker 时，edge 变成原生 blocking link，因此 blocker 已完成的任何 ticket 都可以被认领。为每张 ticket 分别启动 **`/implement`**，并且**每完成一张就使用 `/clear` 清空上下文**。每张 ticket 都是自包含的，因此上一张 ticket 的上下文可以丢弃。
    - **否** → 就在这里、同一个上下文窗口中使用 **`/implement`**。
 
-   无论哪种情况，**`/implement`** 都会在内部驱动 **`/tdd`** 来构建每个 issue，一次完成一个 red-green 切片；随后在 commit 前运行 **`/code-review`** 来收尾，对 diff 进行双轴审查，也就是 Standards 与 Spec。只想以测试优先方式构建一项具体行为、不需要完整 spec 时，单独使用 **`/tdd`**。想要相对于一个固定点审查 branch 或 PR 时，单独使用 **`/code-review`**。
+   无论哪种情况，**`/implement`** 都会在内部驱动 **`/tdd`** 来构建每个 issue，一次完成一个 red-green 切片；随后在提交前运行 **`/code-review`** 来收尾，对 diff 进行双轴审查，也就是 Standards 与 Spec。只想以测试优先方式构建一项具体行为、不需要完整 spec 时，单独使用 **`/tdd`**。想要相对于一个固定点审查分支或 PR 时，单独使用 **`/code-review`**。
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/ask-matt/SKILL.md:28-32 -->
 
@@ -99,7 +99,7 @@ disable-model-invocation: true
 - **`/grill-me`**——与 `/grill-with-docs` 相同的持续追问访谈，但它**没有状态**：不在本地保存任何内容，也不构建 `CONTEXT.md`。当你**没有在工作目录中工作**时使用，例如明确一份计划、一项设计、一段文字，或任何底下没有仓库的内容。如果你位于工作目录中，改用 `/grill-with-docs`；它运行相同的访谈并留下书面记录，因此严格来说是更好的选择。
 - **`/grilling`**——访谈原语本身：多轮访谈、frontier、事实由 agent 负责，决定由你负责。`/grill-me` 和 `/grill-with-docs` 是两个具名入口；`/triage`、`/wayfinder` 和 `/improve-codebase-architecture` 都在内部运行它。只有当你想要不带任何包装的访谈时，才直接使用它。
 - **`/resolving-merge-conflicts`**——逐个 conflict hunk 处理进行中的 merge 或 rebase。它依据追溯到双方一手来源的**意图**解决冲突，不是选择某些代码行；随后完成当前操作。它绝不运行 `--abort`。该技能独立运行，位于所有流程之外；当你已经处于冲突中时使用。
-- **`/prototype`**——用一个小型一次性程序回答一个设计问题，例如这个状态模型感觉是否正确，或这个 UI 应该是什么样子。一次性是对代码编写方式的约束，不是销毁代码的承诺。答案会融入真实代码，prototype 本身则作为**一手来源**保留在从 main 分出的 `prototype/<name>` branch 上，并由 implementation issue 指向它。它是主流程第 2 步中的绕行路径；任何设计问题难以在文字中确定时，也可以使用它。
+- **`/prototype`**——用一个小型一次性程序回答一个设计问题，例如这个状态模型感觉是否正确，或这个 UI 应该是什么样子。一次性是对代码编写方式的约束，不是销毁代码的承诺。答案会融入真实代码，prototype 本身则作为**一手来源**保留在从 `main` 分出的 `prototype/<name>` 分支上，并由实施 issue 指向它。它是主流程第 2 步中的绕行路径；任何设计问题难以在文字中确定时，也可以使用它。
 - **`/research`**——把阅读工作委托给一个**后台 agent**：它根据**一手来源**调查一个问题，随后在仓库中留下带引用的 Markdown 文件。它阅读时，你可以继续工作。它产生的文件应在 `/grill-with-docs` 处被带入主流程。research 为思考提供材料，不取代思考。
 - **`/to-questionnaire`**——当阻挡你的内容不在你的脑中或代码库中，而在**另一个人的脑中**时，它会编写一份问卷供对方填写。它是 `/grill-me` 的反向形式：它不会就主题采访你，而会就**发送行为**采访你，包括要发给谁、需要对方返回什么；然后把问题对准信息缺口。返回的内容可作为 `/grill-with-docs` 或 `/to-spec` 的材料。
 - **`/wizard`**——用于只有**人类**才能执行的步骤，例如配置基础设施、设置凭证或 CI secret、在不熟悉的第三方 dashboard 中完成点击操作，或运行一次性 migration 或 cutover。它会生成一份交互式 Bash 脚本，打开每个 URL、捕获每个值，并把值写入 `.env` 和 GitHub secret。这样，该流程就不再需要你每次都向 agent 重新解释。它由模型调用，因此 agent 一遇到只有你能越过的障碍就会使用它。如果 agent 自己能够执行，就应该自己执行；本技能只用于确实需要人类参与的地方。

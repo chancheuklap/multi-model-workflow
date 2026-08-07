@@ -41,7 +41,7 @@
 | `SKILL.md:22` | 是否跨多个 session 的分支问题已保留 |
 | `SKILL.md:23` | 是分支中的 to-spec、to-tickets、tracer bullet、blocking edge、两类 tracker、blocker 优先、原生 link、可认领判据、逐 ticket implement、逐次 clear 和上下文可丢弃均已保留 |
 | `SKILL.md:24` | 否分支在同一上下文窗口直接 implement 已保留 |
-| `SKILL.md:26` | 两种分支都由 implement 内部驱动 tdd、逐 red-green 切片、code-review 双轴收尾、commit 时点，以及单独使用 tdd 和 code-review 的条件均已保留 |
+| `SKILL.md:26` | 两种分支都由 implement 内部驱动 tdd、逐 red-green 切片、code-review 双轴收尾、提交时点，以及单独使用 tdd 和 code-review 的条件均已保留 |
 | `SKILL.md:28` | `Context hygiene` 译为“上下文管理” |
 | `SKILL.md:30` | 第 1 至 3 步保持同一窗口、to-tickets 前不 compact 或 clear、三阶段共享思考，以及每次 implement 从 ticket 和新上下文开始均已保留 |
 | `SKILL.md:32` | smart zone、约 15 万 token、推理敏锐范围、to-tickets 前接近上限、禁止退化推进和最近阶段边界 compact 均已保留 |
@@ -72,7 +72,7 @@
 | `SKILL.md:77` | grill-me 同访谈、无状态、无本地保存、无 CONTEXT、无工作目录条件、四类内容、有目录时改用 grill-with-docs 和后者严格更优均已保留 |
 | `SKILL.md:78` | grilling 原语、round、frontier、事实和决定责任、两个入口、三个内部调用方和仅在无需包装时直接使用均已保留 |
 | `SKILL.md:79` | resolving-merge-conflicts、merge 或 rebase、逐 hunk、按双方一手意图而非选行、完成操作、禁止 abort、独立及冲突中使用均已保留 |
-| `SKILL.md:80` | prototype 小型一次性程序、两个问题例子、一次性约束不等于销毁、答案进入真实代码、prototype 作为一手来源保留在指定 branch 并由 issue 指向，以及两类使用时机均已保留 |
+| `SKILL.md:80` | prototype 小型一次性程序、两个问题例子、一次性约束不等于销毁、答案进入真实代码、prototype 作为一手来源保留在指定分支并由实施 issue 指向，以及两类使用时机均已保留 |
 | `SKILL.md:81` | research 委托后台 agent 阅读、一手来源、带引用 Markdown、并行继续工作、产物进入 grilling 和提供材料但不取代思考均已保留 |
 | `SKILL.md:82` | to-questionnaire 的外部知识阻塞、供他人填写、grill-me 反向形式、采访发送对象和所需结果、问题对准缺口及回流两项技能均已保留 |
 | `SKILL.md:83` | wizard 只用于人类步骤、五类例子、交互 Bash、打开 URL、捕获值、写入两类位置、避免重复解释、模型调用时点、agent 能做则自己做和确需人类的边界均已保留 |
