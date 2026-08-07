@@ -1,14 +1,12 @@
 # Chart the map
 
-<!-- upstream: 103-116 -->
-
 用户带着一个松散的想法调用。
 
 1. **给 destination 命名。** 运行一场 `/mmw-grilling` session；它在同一场讨论中应用 `/mmw-domain-modeling`，确定这张 map 正在寻找的 spec、决定或改动。destination 固定范围，所以先确定它。
 
    给这项 effort 确定一个 `产物目录`。它是 prototype、research、evidence 和 scratch 共用的单个安全路径段。运行 `mmw path scratch <产物目录>` 验证该值；map 创建后保持不变。
 
-2. **map frontier。** 再次 grilling，这次采用**广度优先**方式：在整个空间铺开，不在任何一条问题线上深入。找出 open 的决定，以及当前可以采取的起始步骤。
+2. **map frontier。** 在当前 charting session 中采用**广度优先**方式：在整个空间铺开，不在任何一条问题线上深入。找出 open 的决定，以及当前可以采取的起始步骤。这里只识别当前能够精确表述的问题和仍处于 fog 中的区域，不解决这些 open 决定。
 
    如果这一步没有发现 fog，通往 destination 的路线已经清楚，整个过程也足够小，能够放进一个 session，因此不需要 map。向用户说明这个判断，询问接下来怎样进行，然后停止。不要执行第 3—6 步。
 

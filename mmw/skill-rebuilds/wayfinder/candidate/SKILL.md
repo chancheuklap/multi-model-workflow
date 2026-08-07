@@ -6,35 +6,23 @@ argument-hint: "[map 编号、ticket 编号，或者要做的事]"
 
 本次输入：`$ARGUMENTS`
 
-<!-- upstream: 7 -->
-
 一个松散的想法出现了。它太大，一次 agent session 容纳不下，而且被 fog 包围：从这里到 **destination** 的路线还看不见。Wayfinding 负责找到这条路线，不是径直冲向 destination。本技能把这条路线 chart 成仓库 issue tracker 上的一张**共享 map**，再逐张处理它的 **decision ticket**。Decision ticket 承载的问题在解决后得到一个决定，不是等待执行的构建切片。每次处理一张，直到路线清楚。
 
-<!-- upstream: 9 -->
-
 destination 随 effort 而异。给它命名是 charting 的第一个动作，因为它会塑造后面的每一张 ticket。destination 可能是一份要交出去并继续迭代的 spec，可能是开始规划前必须锁定的一个决定，也可能是一次就地完成的改动，例如数据结构迁移。map 与领域无关；工程工作、课程内容或其他符合这种形态的工作都可以使用。
-
-<!-- upstream: 11-13 -->
 
 ## 规划，不执行
 
 Wayfinder 默认负责**规划**。每张 ticket 解决一个决定；当路线清楚时，map 就完成了：在有人开始执行那件事之前，已经没有决定尚待解决。想要直接开始执行，通常说明你已经抵达 map 的边界，现在应该交给下游。某项 effort 可以在 **Notes** 中覆盖这项默认行为，把执行也带进 map。没有这项覆盖时，产出决定，不产出交付物。
 
-<!-- upstream: 15-17 -->
-
 ## 用名称称呼
 
 每张 map 和 ticket 都是一张 issue，因此都有一个**名称**，也就是它的标题。在所有给人阅读的内容中，包括叙述和 map 的 Decisions so far，都使用名称称呼它；绝不使用裸的 id、编号或 slug。一整面 `#42, #43, #44` 无法阅读，名称则能让人一眼看懂。id 和 URL 不会消失；名称包裹对应链接。id 和 URL 位于名称内部，绝不代替名称单独出现。
-
-<!-- upstream: 19-25 -->
 
 ## Map
 
 map 是当前仓库 issue tracker 上的一张 issue，带 `wayfinder:map` 标签。它是权威产物。map 的 ticket 是它的子 issue。
 
 map 是**索引**，不是存储库。它列出已经形成的决定，并指向保存细节的 ticket。一个决定只存在于一个地方，也就是它自己的 ticket。因此，map 绝不复述决定，只写一句概要并提供链接。
-
-<!-- upstream: 27-53 -->
 
 ### map 正文
 
@@ -68,8 +56,6 @@ map 正文是整个 map 的低分辨率视图。每个 session 加载一次。op
 <!-- 见“Out of scope”：已经判定越过 destination 的工作；关闭，并且永远不会转成 ticket。 -->
 ```
 
-<!-- upstream: 55-71 -->
-
 ### Tickets
 
 每张 ticket 都是 map 的一个**子 issue**；tracker 的 issue id 就是它的身份。ticket 正文承载问题，必须能在一次 agent session 内解决：
@@ -96,20 +82,16 @@ blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 
 
 答案不属于 ticket 正文。答案在 ticket 解决时记录，见 [walking.md](walking.md) 的“沿 map 推进”流程。解决 ticket 期间建立的资产从 issue 链接，不粘贴进正文。
 
-<!-- upstream: 73-80 -->
-
 ## Ticket 类型
 
 每张 ticket 要么是 **HITL**，即 human in the loop，由一个亲自表达意见的人与 agent 共同处理；要么是 **AFK**，由 agent 独立推动。HITL ticket 只能通过这场实时交流解决；agent 绝不代替人的一方回答。一个 grilling agent 自己回答自己的问题，就已经破坏了这项合同。
 
 - **Research**（AFK）：阅读文档、第三方 API 或本地知识库等资源，找出某项决定正在等待的事实。由 `/mmw-research` 解决。需要当前工作目录之外的知识时使用。
-- **Prototype**（HITL）：制作一个具体、可运行的产物，提高讨论的保真度。初版可以粗糙；用户持续走查并迭代，直到它接近可以真实落地的状态，使后续实现可以直接参考或复用已经验证的设计与逻辑。把 prototype 作为资产链接到 ticket。关键问题是“它应该长什么样”或“它应该怎样表现”，而且只靠讨论无法决定时使用。
+- **Prototype**（HITL）：制作一个具体的可运行资产，提高讨论的保真度。初版可以粗糙；用户持续走查并迭代，直到它接近可以真实落地的状态，使后续实现可以直接参考或复用已经验证的设计与逻辑。把 prototype 作为资产链接到 ticket。关键问题是“它应该长什么样”或“它应该怎样表现”，而且只靠讨论无法决定时使用。
 - **Grilling**（HITL）：对话。默认情况。始终调用 `/mmw-grilling`；它在同一场讨论中应用 `/mmw-domain-modeling`。
 - **Task**（HITL 或 AFK）：形成一个**决定**之前必须完成的手工工作。此时没有需要讨论的决定，也不需要 prototype 或 research，但讨论必须等这项工作完成才能继续。例如注册一个服务以便评估它的 API、开通访问权限，或者移动数据以便看清数据形状。这是唯一一种执行操作而不形成决定的类型。它通过解除一个决定的 blocker 取得存在理由，不通过交付 destination 取得存在理由。agent 能独立推动时，由 agent 独立完成（AFK）；否则，向用户提供精确清单（HITL）。工作完成时，ticket 才算解决。答案记录完成了什么，以及后续 ticket 依赖的结果事实，例如凭证位置、新 URL 和行数。
 
 prototype ticket 调用 `/mmw-prototype`。必须由用户完成的多步 task 流程可以使用 `/wizard`。
-
-<!-- upstream: 82-93 -->
 
 ## Fog of war
 
@@ -124,8 +106,6 @@ map 的 **Not yet specified** 一节记录这片模糊视野：怀疑存在的�
 
 **Not yet specified** 不包含已经决定的内容（Decisions so far）、已经存在的 open ticket，以及范围外内容（见下一节）。
 
-<!-- upstream: 95-101 -->
-
 ## Out of scope
 
 fog 只朝 destination 聚集。destination 固定范围，所以越过 destination 的工作属于 **out of scope**。它不是 fog，也不属于 **Not yet specified**。map 使用独立的 **Out of scope** 一节记录已经明确排除在当前 effort 之外的工作。范围决定一项工作是否进入这里，清晰度不决定。
@@ -133,8 +113,6 @@ fog 只朝 destination 聚集。destination 固定范围，所以越过 destinat
 out-of-scope 工作永远不会转成 ticket；frontier 在 destination 停止。只有 destination 被 redraw 时，这项工作才会回来，而且它会成为一项新的 effort，不是恢复当前 effort。
 
 rule out of scope 是一项范围决定，不是路线上的一步。如果一张已经存在的 ticket 后来被证明位于 destination 之外，例如 charting 时错误地把它纳入范围，或者某次解决结果暴露了这个事实，就**关闭它**。关闭的 ticket 会明确地离开 frontier。随后在 **Out of scope** 中留下一行：概要、越界理由，以及指向已关闭 ticket 的链接。它不进入 **Decisions so far**；后者只记录实际走过的路线，而范围边界不是路线上的一步。
-
-<!-- upstream: 103-116 -->
 
 ## 调用方式
 

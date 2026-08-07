@@ -1,7 +1,5 @@
 # 沿 map 推进
 
-<!-- upstream: 118-128 -->
-
 用户带着一张 map 调用，可以使用 URL 或编号。ticket 是可选项；用户没有指定 ticket 时，由你选择下一个决定，不要求用户选择。
 
 1. 加载 **map**，也就是低分辨率视图，不加载每张 ticket 的正文。
@@ -34,9 +32,9 @@
 
    `wayfinder:task` 必须等待用户操作时，给出精确操作并停止本步骤。用户返回后继续处理同一张 ticket；不要提前执行第 4 步。
 
-   HITL ticket 只能由用户与 agent 共同解决。`wayfinder:grilling` 已经通过 `/mmw-grilling` 在同一段对话中应用 `/mmw-domain-modeling`，不重复调用。
+   HITL ticket 只能由用户与 agent 共同解决。`wayfinder:grilling` 已经通过 `/mmw-grilling` 在同一段对话中应用 `/mmw-domain-modeling`，并完成本次讨论需要的领域模型修改；不要为同一项结果重复调用 `/mmw-domain-modeling`。
 
-   每张 ticket 得到结果后，检查它是否形成需要长期保留的领域术语、bounded context、bounded context 之间的关系，或者符合 ADR 三项判据的决定。形成其中任何一项时，调用 `/mmw-domain-modeling`；没有形成时，不增加领域文档步骤。答案明确否决一个 enhancement 时，按 tracker 合同把理由保存到 `.out-of-scope/`。这些仓库改动在更新 tracker 之前完成。
+   `wayfinder:prototype`、`wayfinder:research` 或 `wayfinder:task` 得到结果后，检查它是否形成需要长期保留的领域术语、bounded context、bounded context 之间的关系，或者符合 ADR 三项判据的决定。形成其中任何一项时，调用 `/mmw-domain-modeling`；没有形成时，不增加领域文档步骤。答案明确否决一个 enhancement 时，按 tracker 合同把理由保存到 `.out-of-scope/`。这些仓库改动在更新 tracker 之前完成。
 
    scratch 清理和 worktree 判定由实际创建文件的下游技能负责。Wayfinder 不为每张 decision ticket 另建一套 worktree 或分支集成流程。存在持久仓库内容时，确认下游技能已经完成自己的清理，并在继续第 4 步前提交仍未提交的持久内容；没有仓库改动时不制造空提交。
 

@@ -1,6 +1,6 @@
 ---
 name: mmw-to-spec
-description: 把已经谈定的内容综合、审查并发布成 spec。用于用户直接要求写 spec，或者 `/mmw-grilling` 已经形成共同理解、`/mmw-prototype` 已经形成用户走查结论、`/mmw-wayfinder` 已关闭且 destination 是 spec 后进入本技能。
+description: 把已经谈定的内容综合、审查并发布成 spec。用于用户直接要求写 spec；或者 `/mmw-grilling` 已经形成用户确认的共同理解、没有调用方等待且当前工作需要形成 spec；或者 `/mmw-prototype` 已经形成用户走查结论、没有调用方等待且当前工作需要形成 spec；或者 `/mmw-wayfinder` 已关闭且 destination 是 spec。
 ---
 
 本技能使用当前对话上下文和对代码库的理解来生成一份 spec。**不要**访谈用户；只综合已经掌握的内容。
@@ -13,7 +13,7 @@ description: 把已经谈定的内容综合、审查并发布成 spec。用于�
 
 | 当前情况 | 要读取的已有产物 | 产物位置 | 怎样找到属于这份 spec 的内容 |
 | --- | --- | --- | --- |
-| 用户直接调用 To Spec | 当前对话中已经谈定的内容 | 当前对话 | 从用户提出本次需求的位置开始，读取已经明确形成的决定。不要使用尚未得到确认的建议或问题 |
+| 用户直接调用 `/mmw-to-spec` | 当前对话中已经谈定的内容 | 当前对话 | 从用户提出本次需求的位置开始，读取已经明确形成的决定。不要使用尚未得到确认的建议或问题 |
 | `/mmw-grilling` 完成后进入 To Spec | 用户已经确认的共同理解 | 当前对话中 `/mmw-grilling` 最后一次总结的问题、约束、决定、取舍和范围 | 找到用户明确确认的最后一份完整总结。`/mmw-grilling` 调用过 `/mmw-research` 或 `/mmw-prototype` 时，同时读取这份总结引用的结论和精确产物路径 |
 | `/mmw-prototype` 完成后直接进入 To Spec | prototype 资产索引，以及索引记录的用户走查结论、选中产物、否定约束、长期证据和可复用内容 | `/mmw-prototype` 交回的 prototype 资产索引精确路径。该文件是 `<mmw path prototype <产物目录> [issue-<编号>]>/README.md` | 读取交回的 `README.md`。确认其中的“当前问题”属于这份 spec，再读取索引点名的选中产物、长期证据和可复用内容。不要扫描其他 prototype 目录 |
 | `/mmw-wayfinder` 关闭 map 后进入 To Spec | 已关闭的 map、相关 decision ticket 的解决结果，以及解决结果链接的 prototype、research 或 evidence | 使用 `/mmw-wayfinder` 交回的 map URL 或编号，运行 `gh issue view <map 编号> --comments` | 确认 map 的 `Destination` 是这份 spec。沿 `Decisions so far` 中的 `context pointer` 读取相关 decision ticket。对每张相关 ticket 运行 `gh issue view <ticket 编号> --comments`，读取 resolution comment 和其中链接的精确产物。不要读取与 destination 无关的 ticket |

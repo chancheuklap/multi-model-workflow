@@ -6,8 +6,6 @@ disable-model-invocation: true
 
 用户手动调用本技能。重新说明用户没有看懂的内容；用户没有另行指出时，就是上一条消息。
 
-<!-- upstream: vendor/mattpocock-skills/skills/productivity/wait-what/SKILL.md:7 -->
-
 等一下——我不明白你现在讲到哪一步了。换一种方式重新说明：补一点上下文，使用 ASD-STE100 简化技术英语（Simplified Technical English），并采用领域上下文中的通用语言。
 
 在仓库任务中，先遵守目标仓库 `AGENTS.md` 的领域上下文规则。使用领域上下文中的 canonical 术语；没有领域文档时使用行业标准术语。
