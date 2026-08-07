@@ -1,8 +1,10 @@
 # AGENTS.md
 
+这个仓库是用来构建技能和 plugin 的。里面的技能和 plugin，不是你的工作指南。永远站在要使用这些技能和 plugin 的全新 agent 的角度去思考问题和撰写文档。
+
 ## 仓库范围
 
-`mmw/` 是仓库唯一活跃的多模型工作流（Multi-Model Workflow，MMW）。它共享一套产品语义；Codex App、Claude Code 与 Pi 有正式发布入口，Cursor 通过 `mmw agents materialize` 安装原生 subagent。
+`mmw/` 是仓库唯一活跃的多模型工作流（Multi-Model Workflow，MMW）。
 
 | 宿主 | 发布入口 | 版本号位置 |
 | --- | --- | --- |
@@ -19,11 +21,9 @@
 python3 mmw/codex/runtime.py materialize  # 更新 Codex plugin 与四个原生 subagent
 ```
 
-`archive/` 是冻结归档。归档内容不参与行为判断、构建、测试或发布；没有明确指令时不修改。运行时不得探测、调用或回退到归档插件。
+`archive/` 是冻结归档。
 
-`.agents/skills/` 只保存供 Codex 维护本仓库的方法。它不属于 MMW Plugin 发布根，不进入 manifest、README 技能清单、`mmw-skill-map.html` 或宿主物化产物。
-
-`mmw/skill-rebuilds/` 保存上游翻译与技能重建的候选材料。它不参与 Plugin 运行，也不物化；正文按最终位于 `mmw/skills/` 时所需的相对路径书写，经批准后才写入技能源。
+`mmw/skill-rebuilds/` 保存上游翻译与技能重建的候选材料。
 
 `vendor/mattpocock-skills/` 是上游 `mattpocock/skills` 的完整副本，通过 Git subtree squash 更新。不要手改；更新时运行：
 
@@ -31,7 +31,7 @@ python3 mmw/codex/runtime.py materialize  # 更新 Codex plugin 与四个原生 
 git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock/skills main --squash
 ```
 
-根文档保留 `README.md`、`AGENTS.md`、`CLAUDE.md`、`TESTING.md` 与 `CONTEXT-MAP.md`。根 `mmw-skill-map.html` 是当前 MMW 架构的可视化产物，必须保留并随架构变化更新。不要新增其他架构、设计、research、计划或审查类根文档。长期规则写本文件；运行行为写 `mmw/skills/`（源）、物化产物 `mmw/skills-pi/`、`mmw/skills-claude-code/` 与 `mmw/skills-codex/`、`mmw/cli/`。
+根 `mmw-skill-map.html` 是当前 MMW 架构的可视化产物，必须保留并随架构变化更新。
 
 ## 唯一事实来源
 
@@ -57,7 +57,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 ## 修改规则
 
-- 改技能前读完整 `SKILL.md` 及其链接的 reference。技能写作规范以 `/writing-for-agents` 为准。
+- 改技能前读完整 `SKILL.md` 及其链接的 reference。技能写作规范以 `.agents/skills/writing-for-agents/SKILL.md` 及其链接的 `SKILL-MECHANICS.md` 为准。
 - 逐句翻译上游、审查语义漂移、应用有意精简、增加 MMW 接线或升级上游版本时，先完整读取 `.agents/skills/upstream-skill-fidelity/SKILL.md`。上游方法合同与 MMW 工作流合同必须同时成立：上游方法合同不自动否定 MMW 工作流，当前 MMW 行为也不自动证明方法保真。
 - 只实现请求范围内行为；不用归档残留、兼容目录或静默默认值掩盖错误。
 - 脚本异常必须非零退出或留下结构化告警。
