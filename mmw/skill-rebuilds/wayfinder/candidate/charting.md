@@ -4,8 +4,6 @@
 
 用户带着一个松散的想法调用。
 
-运行 `mmw task state`。当前 checkout 必须是 `/mmw-start` 已经建立并绑定的 map 任务 worktree；输出不以 `bound` 开头时，移交 `/mmw-start` 完成绑定。
-
 1. **给 destination 命名。** 运行一场 `/mmw-grilling` session；它在同一场讨论中应用 `/mmw-domain-modeling`，确定这张 map 正在寻找的 spec、决定或改动。destination 固定范围，所以先确定它。
 
    给这项 effort 确定一个 `产物目录`。它是 prototype、research、evidence 和 scratch 共用的单个安全路径段。运行 `mmw path scratch <产物目录>` 验证该值；map 创建后保持不变。
@@ -41,11 +39,11 @@
 
 5. **启动 research subagent。** 对刚创建的每张 `wayfinder:research` ticket，先运行 `mmw issue claim <编号>`。claim 成功后，运行 `mmw path research <产物目录> issue-<编号>` 和 `mmw path scratch <产物目录> issue-<编号>`，把实际输出和 ticket 的 Question 传给 `/mmw-research`，各派一个 `investigator` 并行解决；每个 `investigator` 只处理一张 ticket。claim 失败的 ticket 已由其他 session 占用，不重复派发。等待本次派出的 research 全部交回。
 
-   `/mmw-research` 负责报告验证、综合和保存人工审批关卡，本文不重复这些步骤。全部 research 交回后，先提交用户批准保存的 research 和本会话已经形成的其他仓库改动；没有仓库改动时不制造空提交。然后在每张 ticket 的 resolution comment 写入验证后的事实和未查清项；用户选择保存时，再加入 research 索引的精确路径。关闭 ticket，并在 map 的 Decisions so far 中追加 context pointer。修改 map 前重新读取最新正文，修改后再次读取，确认 context pointer 存在。research 新显露的精确问题继续使用第 4 步的 create-then-wire；仍无法精确表述的内容留在 Not yet specified。
+   `/mmw-research` 负责报告验证、综合、保存人工审批关卡和清理自己的 scratch，本文不重复这些步骤。全部 research 交回后，提交用户批准保存的 research 和本会话已经形成的其他仓库改动；没有仓库改动时不制造空提交。然后在每张 ticket 的 resolution comment 写入验证后的事实和未查清项；用户选择保存时，再加入 research 索引的精确路径。关闭 ticket，并在 map 的 Decisions so far 中追加 context pointer。修改 map 前重新读取最新正文，修改后再次读取，确认 context pointer 存在。research 新显露的精确问题继续使用第 4 步的 create-then-wire；仍无法精确表述的内容留在 Not yet specified。
 
-6. **完成 charting。** charting 是一个 session 的工作；这个 session 不亲手解决任何 ticket。
+6. **完成 charting。** charting 是一个 session 的工作。除第 5 步并行处理的 research ticket 外，这个 session 不解决其他 decision ticket。
 
-   确认当前 worktree 没有漏交的仓库改动。准备 destination、map 名称和当前 frontier，交给文末“下一步”报告；decision ticket 由其他 session claim。
+   确认没有漏交的仓库改动。准备 destination、map 名称和当前 frontier，交给文末“下一步”报告；其他 decision ticket 由后续 session claim。
 
 ## 下一步
 
