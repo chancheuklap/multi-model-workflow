@@ -14,17 +14,28 @@
 | redact | 隐去 | 表达保留文档、去除敏感内容的动作，不误写成删除文件 |
 | personally identifiable information | 个人身份信息 | 标准中文译名 |
 
-## 逐段完整性检查
+## 逐行完整性检查
 
-| 上游位置 | 结论 |
+空行只承担 Markdown 分隔，不包含待翻译文字。
+
+| 上游行 | 本行翻译检查 |
 | --- | --- |
-| `SKILL.md:1-6` | 技能名、description、参数提示和 user-invoked 设置均已保留 |
-| `SKILL.md:8` | 概括当前对话、供新 agent 继续、保存到操作系统临时目录和不写当前 workspace 均已保留 |
-| `SKILL.md:10` | `suggested skills` 章节及其推荐调用用途均已保留 |
-| `SKILL.md:12` | 六类既有产物不得重复，以及改用路径或 URL 引用均已保留 |
-| `SKILL.md:14` | API key、密码和个人身份信息三类敏感信息均已保留 |
-| `SKILL.md:16` | 参数用于说明下一次 session 重点并据此定制文档均已保留 |
-| `agents/openai.yaml:1-5` | 展示信息和禁止隐式调用的 policy 均已保留 |
+| `SKILL.md:1` | YAML 起始分隔符已保留 |
+| `SKILL.md:2` | 技能名已保留 |
+| `SKILL.md:3` | 压缩当前对话为供另一个 agent 接手的 handoff 文档已保留 |
+| `SKILL.md:4` | 下一次 session 用途的参数提示已翻译 |
+| `SKILL.md:5` | 禁止模型隐式调用已保留 |
+| `SKILL.md:6` | YAML 结束分隔符已保留 |
+| `SKILL.md:8` | 概括对话、供新 agent 继续、操作系统临时目录及排除当前 workspace 均已保留 |
+| `SKILL.md:10` | suggested skills 章节及建议调用技能已保留 |
+| `SKILL.md:12` | 六类既有产物不得重复并改用路径或 URL 引用均已保留 |
+| `SKILL.md:14` | 隐去 API key、密码和个人身份信息已保留 |
+| `SKILL.md:16` | 参数作为下一 session 重点并据此调整文档已保留 |
+| `agents/openai.yaml:1` | interface 配置键已保留 |
+| `agents/openai.yaml:2` | 显示名已保留 |
+| `agents/openai.yaml:3` | 对话压缩为 handoff 的短描述已翻译 |
+| `agents/openai.yaml:4` | policy 配置键已保留 |
+| `agents/openai.yaml:5` | 禁止隐式调用已保留 |
 
 ## 四类检查
 
