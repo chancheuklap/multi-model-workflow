@@ -14,17 +14,24 @@
 | stage | 暂存 | Git 操作的标准中文译名 |
 | `--abort` | 保留原文 | Git 参数字面量 |
 
-## 逐段完整性检查
+## 逐行完整性检查
 
-| 上游位置 | 结论 |
+空行只承担 Markdown 分隔，不包含待翻译文字。
+
+| 上游行 | 本行翻译检查 |
 | --- | --- |
-| `SKILL.md:1-4` | 正在进行的 merge 或 rebase 冲突这一 invocation 条件已完整保留 |
-| `SKILL.md:6` | 当前状态、Git 历史和冲突文件三项检查均已保留 |
-| `SKILL.md:8` | 双方一手来源、改动原因和原始意图，以及 commit、PR、issue、ticket 四类证据均已保留 |
-| `SKILL.md:10` | 同时保留双方意图、按已声明目标取舍、记录取舍、不发明行为和绝不 `--abort` 均已保留 |
-| `SKILL.md:12` | 自动发现检查、典型顺序和修复 merge 破坏内容均已保留 |
-| `SKILL.md:14` | 暂存、提交和持续 rebase 直到全部提交完成均已保留 |
-| `agents/openai.yaml:1-3` | 展示名称和短描述均已保留 |
+| `SKILL.md:1` | YAML 起始分隔符已保留 |
+| `SKILL.md:2` | 技能名已保留 |
+| `SKILL.md:3` | 正在进行的 Git merge 或 rebase 冲突使用条件已保留 |
+| `SKILL.md:4` | YAML 结束分隔符已保留 |
+| `SKILL.md:6` | 当前状态、Git 历史和冲突文件检查已保留 |
+| `SKILL.md:8` | 一手来源、改动原因、原始意图、提交信息、PR、issue 和 ticket 均已保留 |
+| `SKILL.md:10` | 逐区块解决、尽量兼顾、冲突时按既定目标取舍、不发明行为和绝不 abort 均已保留 |
+| `SKILL.md:12` | 发现自动检查、典型顺序及修复 merge 破坏均已保留 |
+| `SKILL.md:14` | 暂存提交和继续 rebase 至全部完成均已保留 |
+| `agents/openai.yaml:1` | interface 配置键已保留 |
+| `agents/openai.yaml:2` | 显示名已保留 |
+| `agents/openai.yaml:3` | 解决 merge 与 rebase 冲突的短描述已翻译 |
 
 ## 四类检查
 
