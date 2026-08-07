@@ -35,11 +35,11 @@ description: 毫不松懈地追问用户的计划、决定或想法。用户希�
 
 <!-- source: vendor/mattpocock-skills/skills/productivity/grilling/SKILL.md:20 -->
 
-查明**事实**是你的工作，绝不是用户的工作。Frontier 上的问题需要从环境中取得事实时，例如文件系统或工具，派一个 subagent 去查；凡是你能自行查找的内容，都不要向用户提问。不要让这项调查阻塞整个 frontier：正在进行的探索是一项尚未确定的前置条件，因此只有依赖它的问题等待 subagent 报告；立即提出 frontier 中其余问题。**决定**属于用户；逐项交给用户，并等待回答。
+查明**事实**是你的工作，绝不是用户的工作。frontier 上的问题需要从环境中取得事实时，例如文件系统或工具，派一个 subagent 去查；凡是你能自行查找的内容，都不要向用户提问。不要让这项调查阻塞整个 frontier：正在进行的探索是一项尚未确定的前置条件，因此只有依赖它的问题等待 subagent 报告；立即提出 frontier 中其余问题。**决定**属于用户；逐项交给用户，并等待回答。
 
 <!-- source: vendor/mattpocock-skills/skills/productivity/grilling/SKILL.md:22 -->
 
-Frontier 为空时，session 才完成：设计树的每个分支都已经访问，没有任何内容被静默假设。在用户确认双方已经形成共同理解之前，不得据此采取行动。
+frontier 为空时，session 才完成：设计树的每个分支都已经访问，没有任何内容被静默假设。在用户确认双方已经形成共同理解之前，不得据此采取行动。
 
 ## `agents/openai.yaml`
 
