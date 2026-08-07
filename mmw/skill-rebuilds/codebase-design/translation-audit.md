@@ -8,6 +8,7 @@
 | depth、deep、shallow | `depth`、`deep`、`shallow` | 同一组深度概念，不另造中文近义词 |
 | seam、adapter、leverage、locality | `seam`、`adapter`、`leverage`、`locality` | 上游要求精确使用的核心词汇 |
 | deepening | `deepening` | 方法名称及过程统一使用原词 |
+| deletion test | `deletion test` | Codebase Design 的固定检验名称，与调用技能保持一致 |
 | port | `port` | Ports & Adapters 中的固定角色词 |
 | test surface | 测试表面 | 保留测试只能跨 interface 观察的含义 |
 | internal seam、external seam | `internal seam`、`external seam` | 不与 module 的外部边界混同 |
@@ -61,7 +62,7 @@
 | `SKILL.md:58` | 隐藏更多内部复杂性的问题已保留 |
 | `SKILL.md:60` | `Principles` 译为“原则” |
 | `SKILL.md:62` | Depth 属于 interface、内部可由小型可 mock 可替换部分组成、不属于 interface、internal seam 与 external seam 均已保留 |
-| `SKILL.md:63` | 删除检验、删除 module、复杂性消失代表透传、复杂性在 N 个调用方重现代表发挥价值均已保留 |
+| `SKILL.md:63` | deletion test、删除 module、复杂性消失代表透传、复杂性在 N 个调用方重现代表发挥价值均已保留 |
 | `SKILL.md:64` | interface 是测试表面、调用方与测试跨同一 seam，以及越过 interface 测试说明形状可能错误均已保留 |
 | `SKILL.md:65` | 一个 adapter 对应假设 seam、两个对应真实 seam，以及只有确实变化才引入均已保留 |
 | `SKILL.md:67` | 为可测试性设计标题已保留 |
@@ -103,19 +104,19 @@
 | `DEEPENING.md:5` | 依赖分类标题已保留 |
 | `DEEPENING.md:7` | 评估候选项时分类依赖，以及分类决定跨 seam 测试方式均已保留 |
 | `DEEPENING.md:9` | 第一类 In-process 译为“进程内” |
-| `DEEPENING.md:11` | 纯计算、in-memory 状态、无 I/O、始终可 deepening、合并 module、直接经新 interface 测试和无需 adapter 均已保留 |
+| `DEEPENING.md:11` | 纯计算、内存状态、无 I/O、始终可 deepening、合并 module、直接经新 interface 测试和无需 adapter 均已保留 |
 | `DEEPENING.md:13` | 第二类 Local-substitutable 译为“可在本地替代” |
 | `DEEPENING.md:15` | 本地测试替代物、两个例子、存在时可 deepening、测试套件中运行替代物、internal seam 和 external interface 无 port 均已保留 |
 | `DEEPENING.md:17` | 第三类 Remote but owned 和 Ports & Adapters 已保留 |
-| `DEEPENING.md:19` | 自有跨网络 service、两个例子、seam 上 port、deep module 拥有逻辑、transport 注入、测试与 production adapter 均已保留 |
-| `DEEPENING.md:21` | 建议句中的 port、production HTTP adapter、测试 in-memory adapter、逻辑集中和跨网络部署均已保留 |
+| `DEEPENING.md:19` | 自有跨网络 service、两个例子、seam 上 port、deep module 拥有逻辑、传输层注入、测试与生产环境 adapter 均已保留 |
+| `DEEPENING.md:21` | 建议句中的 port、生产环境 HTTP adapter、测试内存 adapter、逻辑集中和跨网络部署均已保留 |
 | `DEEPENING.md:23` | 第四类 True external 和 Mock 已保留 |
 | `DEEPENING.md:25` | 不受控第三方 service、两个例子、外部依赖作为注入 port 和测试 mock adapter 均已保留 |
 | `DEEPENING.md:27` | Seam 纪律标题已保留 |
-| `DEEPENING.md:29` | 一个与两个 adapter 判据、至少两者才引入 port、production 加 test 典型组合，以及单 adapter 只是间接层均已保留 |
+| `DEEPENING.md:29` | 一个与两个 adapter 判据、至少两者才引入 port、生产环境加测试的典型组合，以及单 adapter 只是间接层均已保留 |
 | `DEEPENING.md:30` | internal 与 external seam、各自位置和禁止因测试而暴露 internal seam 均已保留 |
 | `DEEPENING.md:32` | 测试策略“替换，不要叠加”已保留 |
-| `DEEPENING.md:34` | deepened interface 测试存在后旧 shallow unit test 变成浪费并删除均已保留 |
+| `DEEPENING.md:34` | deepened interface 测试存在后旧 shallow 单元测试变成浪费并删除均已保留 |
 | `DEEPENING.md:35` | 在 deepened module interface 写新测试和 interface 是测试表面均已保留 |
 | `DEEPENING.md:36` | 通过 interface 断言可观察结果而非内部状态已保留 |
 | `DEEPENING.md:37` | 测试承受内部 refactor、描述行为而非 implementation，以及随 implementation 改变代表越过 interface 均已保留 |
@@ -138,7 +139,7 @@
 | `DESIGN-IT-TWICE.md:28` | 可选 Agent 4 的 Ports & Adapters 和跨 seam 依赖均已保留 |
 | `DESIGN-IT-TWICE.md:30` | task 同时包含 SKILL 和 CONTEXT 词汇，以及架构与领域命名一致目的均已保留 |
 | `DESIGN-IT-TWICE.md:32` | 每个 subagent 输出引导已保留 |
-| `DESIGN-IT-TWICE.md:34` | Interface 输出的 type、method、parameter、invariant、顺序和错误模式均已保留 |
+| `DESIGN-IT-TWICE.md:34` | Interface 输出的类型、方法、参数、不变量、顺序和错误模式均已保留 |
 | `DESIGN-IT-TWICE.md:35` | 调用方使用示例已保留 |
 | `DESIGN-IT-TWICE.md:36` | implementation 在 seam 后隐藏的内容已保留 |
 | `DESIGN-IT-TWICE.md:37` | 依赖策略、adapter 和 DEEPENING 链接已保留 |

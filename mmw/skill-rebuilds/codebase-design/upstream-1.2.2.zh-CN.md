@@ -23,11 +23,11 @@ description: 设计 deep module 的共享词汇。用户想要设计或改进 mo
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/codebase-design/SKILL.md:14-28 -->
 
-**Module**——任何具有 interface 和 implementation 的内容。有意不限定规模：它可以是 function、class、package，也可以是跨 tier 的切片。_避免使用_：unit、component、service。
+**Module**——任何具有 interface 和 implementation 的内容。有意不限定规模：它可以是函数、类、软件包，也可以是跨层切片。_避免使用_：unit、component、service。
 
-**Interface**——调用方为了正确使用 module 而必须知道的一切：包括 type signature，也包括 invariant、顺序约束、错误模式、必需配置和性能特征。_避免使用_：API、signature。后两者过于狭窄，只指 type 层面的表面。
+**Interface**——调用方为了正确使用 module 而必须知道的一切：包括类型签名，也包括不变量、顺序约束、错误模式、必需配置和性能特征。_避免使用_：API、signature。后两者过于狭窄，只指类型层面的表面。
 
-**Implementation**——module 内部的内容，也就是它的代码主体。它不同于 **Adapter**：一个对象可以是小型 adapter，却有大型 implementation，例如 Postgres repo；也可以是大型 adapter，却有小型 implementation，例如 in-memory fake。讨论 seam 时使用 `adapter`，其他时候使用 `implementation`。
+**Implementation**——module 内部的内容，也就是它的代码主体。它不同于 **Adapter**：一个对象可以是小型 adapter，却有大型 implementation，例如 Postgres 仓储；也可以是大型 adapter，却有小型 implementation，例如内存假实现。讨论 seam 时使用 `adapter`，其他时候使用 `implementation`。
 
 **Depth**——interface 上的 leverage：调用方或测试每学习一个单位的 interface，能够使用多少行为。当大量行为位于小型 interface 后面时，module 是 **deep** 的；当 interface 几乎与 implementation 一样复杂时，module 是 **shallow** 的。
 
@@ -76,7 +76,7 @@ description: 设计 deep module 的共享词汇。用户想要设计或改进 mo
 ## 原则
 
 - **Depth 是 interface 的属性，不是 implementation 的属性。** deep module 的内部可以由小型、可 mock、可替换的部分组成；这些部分只是不属于 interface。module 可以有 **internal seam**，由自己的测试使用，并且只在 implementation 内部可见；也可以在 interface 上有 **external seam**。
-- **删除检验。** 想象删除这个 module。如果复杂性消失了，它原本只是透传。如果复杂性重新出现在 N 个调用方中，它原本发挥了应有价值。
+- **`deletion test`。** 想象删除这个 module。如果复杂性消失了，它原本只是透传。如果复杂性重新出现在 N 个调用方中，它原本发挥了应有价值。
 - **Interface 就是测试表面。** 调用方和测试穿过同一个 seam。如果你想越过 interface 进行测试，这个 module 的形状可能有误。
 - **一个 adapter 意味着假设性的 seam；两个 adapter 意味着真实 seam。** 除非确实有内容会跨越 seam 发生变化，否则不要引入 seam。
 
@@ -149,15 +149,15 @@ description: 设计 deep module 的共享词汇。用户想要设计或改进 mo
 
 ### 1. 进程内
 
-纯计算、in-memory 状态、没有 I/O。始终可以执行 deepening：合并这些 module，并直接通过新的 interface 测试。不需要 adapter。
+纯计算、内存状态、没有 I/O。始终可以执行 deepening：合并这些 module，并直接通过新的 interface 测试。不需要 adapter。
 
 ### 2. 可在本地替代
 
-具有本地测试替代物的依赖，例如用 PGLite 代替 Postgres、使用 in-memory filesystem。存在替代物时可以执行 deepening。测试套件运行该替代物，并用它测试 deepening 后的 module。seam 位于内部；module 的 external interface 上没有 port。
+具有本地测试替代物的依赖，例如用 PGLite 代替 Postgres、使用内存文件系统。存在替代物时可以执行 deepening。测试套件运行该替代物，并用它测试 deepening 后的 module。seam 位于内部；module 的 external interface 上没有 port。
 
 ### 3. 远程但自有（Ports & Adapters）
 
-跨越 network boundary 的自有 service，例如 microservice 或 internal API。在 seam 上定义一个 **port**，也就是 interface。deep module 拥有逻辑；transport 以 **adapter** 形式注入。测试使用 in-memory adapter。production 使用 HTTP、gRPC 或 queue adapter。
+跨越网络边界的自有 service，例如微服务或内部 API。在 seam 上定义一个 **port**，也就是 interface。deep module 拥有逻辑；传输层以 **adapter** 形式注入。测试使用内存 adapter。生产环境使用 HTTP、gRPC 或队列 adapter。
 
 建议采用以下形状：“在 seam 上定义 port，为 production 实现 HTTP adapter，并为测试实现 in-memory adapter。这样，即使逻辑跨网络部署，它仍然位于一个 deep module 中。”
 
@@ -174,7 +174,7 @@ description: 设计 deep module 的共享词汇。用户想要设计或改进 mo
 
 ## 测试策略：替换，不要叠加
 
-- 一旦 deepening 后的 module interface 上已经存在测试，原先针对 shallow module 的 unit test 就变成了浪费；删除它们。
+- 一旦 deepening 后的 module interface 上已经存在测试，原先针对 shallow module 的单元测试就变成了浪费；删除它们。
 - 在 deepening 后的 module interface 上编写新测试。**Interface 就是测试表面。**
 - 测试通过 interface 断言可观察结果，不要断言内部状态。
 - 测试应当能承受内部 refactor：测试描述行为，不描述 implementation。如果 implementation 改变时测试也必须改变，说明测试越过了 interface。
@@ -222,7 +222,7 @@ description: 设计 deep module 的共享词汇。用户想要设计或改进 mo
 
 每个 subagent 输出：
 
-1. Interface，包括 type、method、parameter，以及 invariant、顺序和错误模式
+1. Interface，包括类型、方法、参数，以及不变量、顺序和错误模式
 2. 展示调用方如何使用它的使用示例
 3. implementation 在 seam 后面隐藏的内容
 4. 依赖策略和 adapter，参见 [DEEPENING.md](DEEPENING.md)
