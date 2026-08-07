@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-第一阶段已经完成上游 `SKILL.md`、`ADR-FORMAT.md`、`CONTEXT-FORMAT.md` 和 `agents/openai.yaml` 的逐行中文翻译。翻译保留领域词汇维护、代码交叉检查、即时更新、ADR 三项门槛和单 context 与多 context 文件形态，不加入 MMW 领域路由接线。
+第一阶段已经完成上游 `SKILL.md`、`ADR-FORMAT.md`、`CONTEXT-FORMAT.md` 和 `agents/openai.yaml` 的逐行中文翻译。第二阶段的精简稿与翻译基线逐字一致，没有删改上游方法。第三阶段在 `candidate/` 中加入已经确认的 MMW 领域文档、CLI、并行 ADR 和 Grilling 路由接线。当前发布技能仍未修改。
 
 ## 文件
 
@@ -12,5 +12,7 @@
 | --- | --- |
 | `upstream-1.2.2.zh-CN.md` | 上游 1.2.2 的逐行中文翻译基线 |
 | `translation-audit.md` | 术语选择、逐行完整性与无新增语义检查 |
+| `simplified.zh-CN.md` | 与翻译基线逐字一致的精简层 |
+| `candidate/` | 在精简层基础上增加最小 MMW 接线的候选技能 |
 
-后续只有在用户确认精简方案后，才增加 `simplified.zh-CN.md`；只有在用户确认接线方案后，才增加 `candidate/`。
+候选内容经过用户批准后，才进入 `mmw/skills/mmw-domain-modeling/`。
