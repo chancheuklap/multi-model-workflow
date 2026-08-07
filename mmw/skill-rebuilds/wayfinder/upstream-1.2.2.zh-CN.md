@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 <!-- upstream: 7 -->
 
-一个松散的想法出现了。它太大，一次 agent session 容纳不下，而且被 fog 包围：从这里到 **destination** 的路线还看不见。Wayfinding 负责找到这条路线，不是径直冲向 destination。本技能把这条路线 chart 成仓库 issue tracker 上的一张**共享 map**，再逐张处理它的 **decision ticket**。Decision ticket 承载的问题在解决后得到一个决定，不是等待执行的构建切片。每次处理一张，直到路线清楚。
+一个松散的想法出现了。它太大，一次 agent session 容纳不下，而且被 fog 包围：从这里到 **destination** 的路线还看不见。Wayfinding 负责找到这条路线，不是径直冲向 destination。本技能把这条路线 chart 成仓库 issue tracker 上的一张**共享 map**，再逐张处理它的 **decision ticket**。decision ticket 承载的问题在解决后得到一个决定，不是等待执行的构建切片。每次处理一张，直到路线清楚。
 
 <!-- upstream: 9 -->
 
