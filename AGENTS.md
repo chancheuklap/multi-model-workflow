@@ -96,7 +96,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 上游技能合集升级时，逐项检查全部 active MMW 技能、全部上游正式技能和本次新增技能。结果至少区分：直接保留、按 MMW 工作流适配、吸收新增技能和不吸收。`/mmw-wayfinder` 等大型路由技能，以及 `/writing-for-agents` 等被其他技能依赖的方法论，必须继续检查每个调用方和完成判据，不能只检查改名文件或入口正文。
 
-prototype 遵守上游的探索方法，也遵守 MMW 的资产合同。Wayfinder map 固定一个 `产物目录`；每张 decision ticket 在该目录下使用自己的 `issue-<编号>` 子目录。持久 prototype 资产保留可运行 prototype、完整界面变体、用户走查结论、选中产物和明确引用的必要证据；过程材料进入 Git 忽略的 scratch。下游先读 prototype 资产索引，再读取精确的选中产物和证据路径。正式实现吸收已经验证的决定和可移植逻辑；prototype 外壳与落选变体继续作为 prototype 资产，不进入生产路由。
+prototype 遵守上游的探索方法，也遵守 MMW 的资产合同。Wayfinder map 固定一个 `产物目录`；每张 decision ticket 在该目录下使用自己的 `issue-<编号>` 子目录。持久 prototype 资产保留可运行 prototype、完整界面变体、用户走查结论、选中产物和明确引用的长期证据；过程材料进入 Git 忽略的 scratch。下游先读 prototype 资产索引，再读取精确的选中产物和长期证据路径。正式实现吸收已经验证的决定和达到项目质量要求的可移植内容；prototype 外壳与落选变体继续作为 prototype 资产，不进入生产路由。
 
 每次 `/mmw-research` 完成验证与综合后，先展示结论摘要、拟保存文件和完整路径，再通过人工审批关卡询问用户是否保存。research 路径只通过 `mmw path research` 取得。保存和下游引用独立；下游只读取当前工作点名的 research 索引和精确文件。subagent 原始报告、网页转储、抓取缓存和未采信内容进入 scratch；research 不进入 ADR 目录。
 

@@ -5,12 +5,12 @@
 ## Language
 
 **prototype**：
-回答一个只靠讨论定不下来的设计问题的粗糙可运行产物。
-_Avoid_: MVP、正式实现、静态设计稿
+在真实代码落地前，用持续迭代的可运行资产回答只靠讨论无法判定的问题。初版可以粗糙；后续轮次原地修改，直到它接近可以真实落地的状态。符合项目技术与质量要求的可移植内容可以被正式实现直接复用。
+_Avoid_: MVP、静态设计稿、用完即丢的临时代码、把 prototype 外壳直接当成正式实现
 
 **prototype 资产**：
-用户走查过的可运行 prototype、完整界面变体、README 中的问题、逐轮用户走查结论和用户选中的路径。确实作为设计合同出处的证据也属于 prototype 资产。prototype 资产保存在 `mmw path prototype` 返回的路径，供 spec、ticket、plan、审查和实现持续引用。
-_Avoid_: 过程截图、DOM、console、录屏、临时探测输出、生成中间物、生产实现、只留结论
+用户走查过的可运行 prototype、完整界面变体、README 中的问题、逐轮用户走查结论、用户选中的产物和被提升为长期证据的文件。prototype 资产保存在 `mmw path prototype` 返回的路径，供 spec、ticket、plan、审查和实现持续引用。达到项目技术与质量要求的组件、纯逻辑、接口合同和后端脚本可以直接复用；调试外壳、切换器和落选变体继续作为 prototype 资产保存。
+_Avoid_: 过程截图、DOM、console、录屏、临时探测输出、生成中间物、把未达到项目质量要求的内容接入生产路由、只留结论
 
 **research**：
 `/mmw-research` 中由主 agent 验证并综合的事实。每次 research 完成后，用户决定是否保存。用户选择不保存时，不创建 research 目录或文件。保存不代表下游必须引用。

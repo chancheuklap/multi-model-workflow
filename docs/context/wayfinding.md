@@ -44,7 +44,7 @@ _Avoid_: decision ticket、Out of scope
 用 `/mmw-grilling` 把 `Question` 谈成共同理解的 HITL decision ticket。提问方式由 `/mmw-grilling` 决定。
 
 **`wayfinder:prototype`**：
-用 `/mmw-prototype` 做出粗糙可运行产物并由用户走查的 HITL decision ticket。
+用 `/mmw-prototype` 持续迭代可运行资产，并由用户走查来回答问题的 HITL decision ticket。
 
 **`wayfinder:research`**：
 需要当前工作目录之外的知识，由 `/mmw-research` 完成 research 的 AFK decision ticket。
