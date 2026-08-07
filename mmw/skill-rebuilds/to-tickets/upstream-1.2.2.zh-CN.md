@@ -57,7 +57,7 @@ issue tracker 和 triage 标签词汇应该已经提供给你；如果没有，�
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/to-tickets/SKILL.md:40 -->
 
-**Wide refactor 是垂直切片的例外。** **Wide refactor** 是一项机械改动，例如重命名一列或重新确定一个共享 symbol 的类型。它的 **blast radius** 会扩散到整个代码库，因此一次编辑会同时破坏成千上万个调用位置，没有任何垂直切片能够以 green 状态落地。不要强行把它塞进 tracer bullet；应按 **expand–contract** 排列。首先 expand：在旧形式旁边增加新形式，使任何内容都不会损坏。随后按 blast radius 大小分批迁移调用位置，例如每个 package 或每个目录一批；每一批都是一张独立 ticket，并被 expand ticket 阻塞。旧形式仍然存在，因此 CI 可以在批次之间保持 green。最后 contract：确认没有调用方剩下后删除旧形式；这张 ticket 被每一张迁移批次 ticket 阻塞。如果连各个批次都无法单独保持 green，就保留这个顺序，但让这些批次共用一条 integration branch，并让它们全部阻塞最后一张 integrate-and-verify ticket；只有在最后一张 ticket 上才承诺 green。
+**Wide refactor 是垂直切片的例外。** **Wide refactor** 是一项机械改动，例如重命名一列或重新确定一个共享符号的类型。它的 **blast radius** 会扩散到整个代码库，因此一次编辑会同时破坏成千上万个调用位置，没有任何垂直切片能够以 green 状态落地。不要强行把它塞进 tracer bullet；应按 **expand–contract** 排列。首先 expand：在旧形式旁边增加新形式，使任何内容都不会损坏。随后按 blast radius 大小分批迁移调用位置，例如每个软件包或每个目录一批；每一批都是一张独立 ticket，并被 expand ticket 阻塞。旧形式仍然存在，因此 CI 可以在批次之间保持 green。最后 contract：确认没有调用方剩下后删除旧形式；这张 ticket 被每一张迁移批次 ticket 阻塞。如果连各个批次都无法单独保持 green，就保留这个顺序，但让这些批次共用一条集成分支，并让它们全部阻塞最后一张“集成并验证”ticket；只有在最后一张 ticket 上才承诺 green。
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/to-tickets/SKILL.md:42-56 -->
 

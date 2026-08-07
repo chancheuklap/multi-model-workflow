@@ -47,7 +47,7 @@
 | `SKILL.md:34` | 所有 prefactor 先完成已保留 |
 | `SKILL.md:36` | `</vertical-slice-rules>` 结束标签已保留 |
 | `SKILL.md:38` | 每张 ticket 的 blocking edge、必须先完成的 ticket 和无 blocker 可立即开始均已保留 |
-| `SKILL.md:40` | wide refactor 的机械改动定义、两个例子、blast radius、无法垂直保持 green、expand、分批迁移、每批 blocking、CI 持续 green、contract、无调用方、全部迁移批次 blocking、integration branch、最终 integrate-and-verify ticket 和只在最后承诺 green 均已逐项保留 |
+| `SKILL.md:40` | wide refactor 的机械改动定义、两个例子、blast radius、无法垂直保持 green、expand、分批迁移、每批 blocking、CI 持续 green、contract、无调用方、全部迁移批次 blocking、集成分支、最终“集成并验证”ticket 和只在最后承诺 green 均已逐项保留 |
 | `SKILL.md:42` | `Quiz the user` 的步骤编号已保留，译为“询问用户”而非自动审查 |
 | `SKILL.md:44` | 以编号清单展示拟议拆分，以及每张 ticket 都要展示信息均已保留 |
 | `SKILL.md:46` | `Title` 和简短描述性名称已保留 |
