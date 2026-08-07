@@ -8,10 +8,10 @@
 | tight | 紧密 | 表达快速、明确、确定的循环质量 |
 | red、green、red-capable | 变红、变绿、能够变红 | 保留测试信号语义 |
 | harness | `harness` | 不与测试框架或宿主混同 |
-| instrumentation | `instrumentation` | 不把诊断观测手段缩成普通日志 |
-| hypothesis、prediction、probe | 假设、预测、`probe` | 前两者有标准中文，probe 保留诊断动作名 |
+| instrumentation | 插桩 | 诊断和性能工程中的标准中文译名 |
+| hypothesis、prediction、probe | 假设、预测、探针 | 均使用标准中文技术词 |
 | seam、shallow | `seam`、`shallow` | 与 codebase-design 词汇一致 |
-| finding | `finding` | 与审查和诊断产出术语一致 |
+| finding | 发现 | 本文指诊断中发现的架构事实，不是审查 finding 对象 |
 | regression test | 回归测试 | 标准中文译名 |
 | post-mortem | 事后分析 | 标准中文译名 |
 | flaky、flake | `flaky`、`flake` | 不与一般随机性混同 |
@@ -36,25 +36,25 @@
 | `SKILL.md:18` | 构建方法和大致尝试顺序已保留 |
 | `SKILL.md:20` | 触及 bug 的 seam、失败测试和三类测试均已保留 |
 | `SKILL.md:21` | 运行中开发服务器上的 Curl 或 HTTP 脚本已保留 |
-| `SKILL.md:22` | CLI、fixture input、stdout 与已知正确 snapshot diff 均已保留 |
+| `SKILL.md:22` | CLI、fixture 输入、stdout 与已知正确快照 diff 均已保留 |
 | `SKILL.md:23` | headless 浏览器、两个工具、驱动 UI 和三个断言面均已保留 |
 | `SKILL.md:24` | 重放 trace、三类真实捕获物、保存磁盘和隔离重放代码路径均已保留 |
 | `SKILL.md:25` | 一次性 harness、最小系统子集、两个例子和单函数调用执行 bug 路径均已保留 |
 | `SKILL.md:26` | property 或 fuzz、偶发错误输出、1000 个随机输入和寻找失败模式均已保留 |
 | `SKILL.md:27` | 二分 harness、两个已知状态、三类状态、自动循环形状和 git bisect run 均已保留 |
-| `SKILL.md:28` | 差异循环、同输入、旧新 version 或两套 config 和输出 diff 均已保留 |
+| `SKILL.md:28` | 差异循环、同输入、旧新版本或两套配置和输出 diff 均已保留 |
 | `SKILL.md:29` | HITL Bash 是最后手段、人类点击、模板驱动人、结构化循环和捕获输出返回均已保留 |
 | `SKILL.md:31` | 正确反馈循环代表 bug 已修复 90% 已保留 |
 | `SKILL.md:33` | 收紧循环标题已保留 |
 | `SKILL.md:35` | 把循环视为产品、已有循环后收紧均已保留 |
 | `SKILL.md:37` | 提速问题和缓存、跳过初始化、缩范围三个例子均已保留 |
 | `SKILL.md:38` | 信号更明确、断言具体症状和不只检查未崩溃均已保留 |
-| `SKILL.md:39` | 确定性问题和固定时间、RNG seed、filesystem、network 四项均已保留 |
+| `SKILL.md:39` | 确定性问题和固定时间、RNG seed、文件系统、网络四项均已保留 |
 | `SKILL.md:41` | 30 秒 flaky 与 2 秒确定循环对比和调试超级能力均已保留 |
 | `SKILL.md:43` | 非确定性 bug 标题已保留 |
 | `SKILL.md:45` | 目标是提高复现率而非干净复现、五种增率手段和 50% 与 1% 对比均已保留 |
 | `SKILL.md:47` | 确实无法建立循环的标题已保留 |
-| `SKILL.md:49` | 停止并说明、列出尝试、环境访问、四类捕获产物、临时 production instrumentation 许可和禁止无循环假设均已保留 |
+| `SKILL.md:49` | 停止并说明、列出尝试、环境访问、四类捕获产物、临时生产环境插桩许可和禁止无循环假设均已保留 |
 | `SKILL.md:51` | 紧密且会变红的完成判据标题已保留 |
 | `SKILL.md:53` | 紧密、red-capable、一条命令、三种命令例子、至少已运行一次、粘贴调用与输出均已保留 |
 | `SKILL.md:55` | red-capable、真实 bug 路径、用户准确症状、当前变红修后变绿、非仅无错误和捕获具体 bug 均已保留 |
@@ -80,17 +80,17 @@
 | `SKILL.md:90` | 无法说明预测就是凭感觉，需丢弃或明确均已保留 |
 | `SKILL.md:92` | 测试前展示排序、用户领域知识和已排除信息、部署示例、低成本高收益、不阻塞和 AFK 时继续均已保留 |
 | `SKILL.md:94` | 阶段 4 Instrumentation 已保留 |
-| `SKILL.md:96` | 每个 probe 对应具体预测和每次只改一个变量均已保留 |
+| `SKILL.md:96` | 每个探针对应具体预测和每次只改一个变量均已保留 |
 | `SKILL.md:98` | 工具优先顺序引导已保留 |
-| `SKILL.md:100` | 环境支持时 debugger 或 REPL 优先和一个 breakpoint 胜过十 log 均已保留 |
-| `SKILL.md:101` | 在区分假设的边界增加定向 log 已保留 |
+| `SKILL.md:100` | 环境支持时调试器或 REPL 优先和一个断点胜过十条日志均已保留 |
+| `SKILL.md:101` | 在区分假设的边界增加定向日志已保留 |
 | `SKILL.md:102` | 禁止记录一切再 grep 已保留 |
-| `SKILL.md:104` | 每条 debug log 唯一 prefix、示例、一次 grep 清理和 tagged 死 untaged 留均已保留 |
-| `SKILL.md:106` | 性能回归通常不用 log、四类 baseline measurement、随后二分和先测后修均已保留 |
+| `SKILL.md:104` | 每条调试日志使用唯一前缀标记、示例、一次 grep 清理和无标记会残留均已保留 |
+| `SKILL.md:106` | 性能回归通常不用日志、四类基线测量、随后二分和先测后修均已保留 |
 | `SKILL.md:108` | 阶段 5 修复与回归测试已保留 |
 | `SKILL.md:110` | 修前测试和必须存在正确 seam 的条件均已保留 |
 | `SKILL.md:112` | 正确 seam 的真实 bug 模式与调用位置定义、太 shallow 的两个例子和虚假信心均已保留 |
-| `SKILL.md:114` | 无正确 seam 本身是 finding、记录、架构阻止锁定 bug 和为下一阶段标记均已保留 |
+| `SKILL.md:114` | 无正确 seam 本身是一项发现、记录、架构阻止锁定 bug 和为下一阶段标记均已保留 |
 | `SKILL.md:116` | 存在正确 seam 时的步骤引导已保留 |
 | `SKILL.md:118` | 最小复现转成 seam 上失败测试已保留 |
 | `SKILL.md:119` | 观察失败已保留 |
@@ -101,14 +101,14 @@
 | `SKILL.md:126` | 宣布完成前必需清单已保留 |
 | `SKILL.md:128` | 重跑阶段 1 后原始复现不再出现已保留 |
 | `SKILL.md:129` | 回归测试通过或记录缺少 seam 已保留 |
-| `SKILL.md:130` | grep prefix 并移除全部 DEBUG instrumentation 已保留 |
+| `SKILL.md:130` | grep 前缀并移除全部 DEBUG 插桩已保留 |
 | `SKILL.md:131` | 删除一次性 prototype 或移到明确 debug 位置已保留 |
-| `SKILL.md:132` | 正确假设写入 commit 或 PR message 供下位调试者学习已保留 |
+| `SKILL.md:132` | 正确假设写入提交或 PR 消息供下位调试者学习已保留 |
 | `SKILL.md:134` | 预防问题、三类架构答案、带细节移交架构改进、修后而非修前建议和信息增量理由均已保留 |
 | `scripts/hitl-loop.template.sh:1` | Bash shebang 已保留 |
 | `scripts/hitl-loop.template.sh:2` | Human-in-the-loop 复现循环注释已翻译 |
 | `scripts/hitl-loop.template.sh:3` | 复制、编辑步骤和运行三项说明已翻译 |
-| `scripts/hitl-loop.template.sh:4` | agent 运行、用户按 terminal 提示操作的分工已翻译 |
+| `scripts/hitl-loop.template.sh:4` | agent 运行、用户按终端提示操作的分工已翻译 |
 | `scripts/hitl-loop.template.sh:5` | 注释分隔行已保留 |
 | `scripts/hitl-loop.template.sh:6` | Usage 注释已翻译 |
 | `scripts/hitl-loop.template.sh:7` | Bash 调用字面量已保留 |
@@ -148,4 +148,4 @@
 | 遗漏 | 无。三个上游文件的每个非空行，包括 Bash 模板，都有对应译文和独立检查记录 |
 | 增写 | 无。没有加入 MMW 的角色、tracker、worktree、验证或架构接线 |
 | 曲解 | 无。必须先有能够变红的紧密循环、再复现最小化、再排序假设、最后修复的阶段顺序保持原样 |
-| 术语漂移 | 无。反馈循环、变红、变绿、instrumentation、seam、finding 和回归测试使用一致 |
+| 术语漂移 | 无。反馈循环、变红、变绿、插桩、seam、发现和回归测试使用一致 |
