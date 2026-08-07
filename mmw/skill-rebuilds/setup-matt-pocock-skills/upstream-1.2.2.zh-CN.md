@@ -7,7 +7,7 @@
 ```yaml
 ---
 name: setup-matt-pocock-skills
-description: 为本仓库配置工程技能，包括设置 issue tracker、triage label 词汇和领域文档布局。在首次使用其他工程技能前运行一次。
+description: 为本仓库配置工程技能，包括设置 issue tracker、triage 标签词汇和领域文档布局。在首次使用其他工程技能前运行一次。
 disable-model-invocation: true
 ---
 ```
@@ -19,7 +19,7 @@ disable-model-invocation: true
 建立工程技能所假定的仓库级配置：
 
 - **Issue tracker**——issue 存放的位置。默认使用 GitHub；开箱即用地支持本地 Markdown。
-- **Triage label**——五种规范 triage role 使用的字符串。
+- **Triage 标签**——五种规范分诊角色使用的字符串。
 - **领域文档**——`CONTEXT.md` 和 ADR 的位置，以及读取它们的消费规则。
 
 这是提示驱动的技能，不是确定性脚本。先探索，再展示发现，请用户确认，然后写入。
@@ -66,13 +66,13 @@ disable-model-invocation: true
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/SKILL.md:51-61 -->
 
-**B 节——Triage label 词汇。** 如果没有安装 `triage` 技能，就完全跳过本节；探索步骤已经提供答案。未安装的技能不需要 label。
+**B 节——Triage 标签词汇。** 如果没有安装 `triage` 技能，就完全跳过本节；探索步骤已经提供答案。未安装的技能不需要标签。
 
 如果已经安装，只询问一个问题：
 
-> 你想保留默认 triage label 吗？推荐答案：**是**。
+> 你想保留默认 triage 标签吗？推荐答案：**是**。
 
-默认值是五种规范 role，每个 label 字符串与 role 名称相同：`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`。用户回答**是**时，原样写入。只有用户回答否时才收集覆盖值；通常是因为 tracker 已经使用其他名称，例如用 `bug:triage` 表示 `needs-triage`。这样，`triage` 会使用现有 label，不会创建重复项。
+默认值是五种规范分诊角色，每个标签字符串与角色名称相同：`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`。用户回答**是**时，原样写入。只有用户回答否时才收集覆盖值；通常是因为 tracker 已经使用其他名称，例如用 `bug:triage` 表示 `needs-triage`。这样，`triage` 会使用现有标签，不会创建重复项。
 
 **C 节——领域文档。** 默认使用**单 context**，也就是仓库根目录的一个 `CONTEXT.md` 和 `docs/adr/`。这适合几乎所有仓库；无需询问，直接写入。
 
@@ -114,25 +114,25 @@ disable-model-invocation: true
 
 [用一行总结 issue 在哪里跟踪]。参见 `docs/agents/issue-tracker.md`。
 
-### Triage labels
+### Triage 标签
 
-[用一行总结 label 词汇]。参见 `docs/agents/triage-labels.md`。
+[用一行总结标签词汇]。参见 `docs/agents/triage-labels.md`。
 
-### Domain docs
+### 领域文档
 
 [用一行总结布局，例如 "single-context" 或 "multi-context"]。参见 `docs/agents/domain.md`。
 ```
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/SKILL.md:102-116 -->
 
-只有安装了 `triage` 且运行了 B 节时，才加入 `### Triage labels` 子区块，并写入 `docs/agents/triage-labels.md`。否则，两者都省略。
+只有安装了 `triage` 且运行了 B 节时，才加入 `### Triage 标签` 子区块，并写入 `docs/agents/triage-labels.md`。否则，两者都省略。
 
 随后使用本技能目录中的初始模板作为起点，写入文档文件：
 
 - [issue-tracker-github.md](./issue-tracker-github.md)——GitHub issue tracker
 - [issue-tracker-gitlab.md](./issue-tracker-gitlab.md)——GitLab issue tracker
 - [issue-tracker-local.md](./issue-tracker-local.md)——本地 Markdown issue tracker
-- [triage-labels.md](./triage-labels.md)——label 映射，只在安装了 `triage` 时
+- [triage-labels.md](./triage-labels.md)——标签映射，只在安装了 `triage` 时
 - [domain.md](./domain.md)——领域文档消费规则和布局
 
 对于“其他”issue tracker，根据用户说明从零编写 `docs/agents/issue-tracker.md`。
@@ -212,23 +212,23 @@ disable-model-invocation: true
 ## 约定
 
 - **创建 issue**：`gh issue create --title "..." --body "..."`。多行正文使用 heredoc。
-- **读取 issue**：`gh issue view <number> --comments`；使用 `jq` 过滤 comment，并同时取得 label。
+- **读取 issue**：`gh issue view <number> --comments`；使用 `jq` 过滤评论，并同时取得标签。
 - **列出 issue**：`gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`，并使用适当的 `--label` 和 `--state` 筛选条件。
 - **评论 issue**：`gh issue comment <number> --body "..."`
-- **应用或移除 label**：`gh issue edit <number> --add-label "..."` 或 `--remove-label "..."`
+- **应用或移除标签**：`gh issue edit <number> --add-label "..."` 或 `--remove-label "..."`
 - **关闭**：`gh issue close <number> --comment "..."`
 
 从 `git remote -v` 推断仓库；在克隆仓库内运行时，`gh` 会自动完成。
 
-## 把 Pull request 作为 triage 入口
+## 把 PR 作为 triage 入口
 
 **把 PR 作为请求入口：no。** _如果本仓库把外部 PR 当成功能请求，就设为 `yes`；`/triage` 会读取这个标志位。_
 
-设为 `yes` 时，PR 使用与 issue 相同的 label 和状态，并使用对应的 `gh pr` 命令：
+设为 `yes` 时，PR 使用与 issue 相同的标签和状态，并使用对应的 `gh pr` 命令：
 
 - **读取 PR**：`gh pr view <number> --comments`，并用 `gh pr diff <number>` 取得 diff。
 - **列出供 triage 的外部 PR**：`gh pr list --state open --json number,title,body,labels,author,authorAssociation,comments`；随后只保留 `authorAssociation` 为 `CONTRIBUTOR`、`FIRST_TIME_CONTRIBUTOR` 或 `NONE` 的项目，删除 `OWNER`、`MEMBER`、`COLLABORATOR`。
-- **评论、设置 label 或关闭**：`gh pr comment`、`gh pr edit --add-label` 或 `--remove-label`、`gh pr close`。
+- **评论、设置标签或关闭**：`gh pr comment`、`gh pr edit --add-label` 或 `--remove-label`、`gh pr close`。
 
 GitHub 的 issue 和 PR 共用一个编号空间，因此单独的 `#42` 可能是任一类型；先用 `gh pr view 42` 解析，失败时回退到 `gh issue view 42`。
 
@@ -246,12 +246,12 @@ GitHub 的 issue 和 PR 共用一个编号空间，因此单独的 `#42` 可能�
 
 供 `/wayfinder` 使用。**map** 是一张 issue，**child** issue 是 ticket。
 
-- **Map**：一张带 `wayfinder:map` label 的 issue，正文保存 Notes、Decisions-so-far 和 Fog。使用 `gh issue create --label wayfinder:map`。
-- **Child ticket**：通过 GitHub sub-issue 把一张 issue 连接到 map，使用 sub-issues endpoint 的 `gh api`。没有启用 sub-issue 时，把 child 加入 map 正文的 task list，并在 child 正文顶部写 `Part of #<map>`。Label 为 `wayfinder:<type>`，其中 type 是 `research`、`prototype`、`grilling` 或 `task`。ticket 被认领后，分配给负责推进的开发者。
-- **Blocking**：GitHub 的**原生 issue dependency**，这是规范且在 UI 中可见的表达。使用 `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>` 增加 edge；`<blocker-db-id>` 是 blocker 的数字 **database ID**，通过 `gh api repos/<owner>/<repo>/issues/<n> --jq .id` 取得，**不是** `#number` 或 `node_id`。GitHub 报告 `issue_dependencies_summary.blocked_by`，只包含仍 open 的 blocker，是实时关卡。无法使用 dependency 时，回退到 child 正文顶部的 `Blocked by: #<n>, #<n>`。每个 blocker 都 closed 后，ticket 才 unblocked。
-- **Frontier query**：列出 map 中 open 的 child，使用 `gh issue list --state open`，并限定在 map 的 sub-issue 或 task list；删除有 open blocker 的项目，包括 `issue_dependencies_summary.blocked_by > 0` 或 `Blocked by` 行引用 open issue，以及有 assignee 的项目；按 map 顺序的第一张获胜。
+- **Map**：一张带 `wayfinder:map` 标签的 issue，正文保存 Notes、Decisions-so-far 和 Fog。使用 `gh issue create --label wayfinder:map`。
+- **Child ticket**：通过 GitHub sub-issue 把一张 issue 连接到 map，使用 sub-issue 端点的 `gh api`。没有启用 sub-issue 时，把 child 加入 map 正文的任务清单，并在 child 正文顶部写 `Part of #<map>`。标签为 `wayfinder:<type>`，其中 type 是 `research`、`prototype`、`grilling` 或 `task`。ticket 被认领后，分配给负责推进的开发者。
+- **Blocking**：GitHub 的**原生 issue dependency**，这是规范且在 UI 中可见的表达。使用 `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>` 增加 blocking edge；`<blocker-db-id>` 是 blocker 的数字**数据库 ID**，通过 `gh api repos/<owner>/<repo>/issues/<n> --jq .id` 取得，**不是** `#number` 或 `node_id`。GitHub 报告 `issue_dependencies_summary.blocked_by`，只包含仍 open 的 blocker，是实时关卡。无法使用 dependency 时，回退到 child 正文顶部的 `Blocked by: #<n>, #<n>`。每个 blocker 都 closed 后，ticket 才 unblocked。
+- **Frontier query**：列出 map 中 open 的 child，使用 `gh issue list --state open`，并限定在 map 的 sub-issue 或任务清单；删除有 open blocker 的项目，包括 `issue_dependencies_summary.blocked_by > 0` 或 `Blocked by` 行引用 open issue，以及有 assignee 的项目；按 map 顺序的第一张获胜。
 - **Claim**：`gh issue edit <n> --add-assignee @me`，这是 session 的第一次写入。
-- **Resolve**：运行 `gh issue comment <n> --body "<answer>"`，随后运行 `gh issue close <n>`，再把 context pointer，也就是 gist 和 link，追加到 map 的 Decisions-so-far。
+- **Resolve**：运行 `gh issue comment <n> --body "<answer>"`，随后运行 `gh issue close <n>`，再把 context pointer，也就是概要和链接，追加到 map 的 Decisions-so-far。
 
 ## `issue-tracker-gitlab.md`
 
@@ -263,12 +263,12 @@ GitHub 的 issue 和 PR 共用一个编号空间，因此单独的 `#42` 可能�
 
 ## 约定
 
-- **创建 issue**：`glab issue create --title "..." --description "..."`。多行 description 使用 heredoc。传入 `--description -` 会打开 editor。
+- **创建 issue**：`glab issue create --title "..." --description "..."`。多行描述使用 heredoc。传入 `--description -` 会打开编辑器。
 - **读取 issue**：`glab issue view <number> --comments`。使用 `-F json` 取得机器可读输出。
 - **列出 issue**：`glab issue list -F json`，并使用适当的 `--label` 筛选条件。
-- **评论 issue**：`glab issue note <number> --message "..."`。GitLab 把 comment 称为 note。
-- **应用或移除 label**：`glab issue update <number> --label "..."` 或 `--unlabel "..."`。多个 label 可以用逗号分隔，也可以重复传入 flag。
-- **关闭**：`glab issue close <number>`。`glab issue close` 不接受关闭 comment，因此先用 `glab issue note <number> --message "..."` 发布说明，然后关闭。
+- **评论 issue**：`glab issue note <number> --message "..."`。GitLab 把评论称为 note。
+- **应用或移除标签**：`glab issue update <number> --label "..."` 或 `--unlabel "..."`。多个标签可以用逗号分隔，也可以重复传入标志位。
+- **关闭**：`glab issue close <number>`。`glab issue close` 不接受关闭评论，因此先用 `glab issue note <number> --message "..."` 发布说明，然后关闭。
 - **Merge request**：GitLab 把 PR 称为 merge request。使用 `glab mr create`、`glab mr view`、`glab mr note` 等；形态与 `gh pr ...` 相同，只把 `pr` 换成 `mr`，并把 `comment` 或 `--body` 换成 `note` 或 `--message`。
 
 从 `git remote -v` 推断仓库；在克隆仓库内运行时，`glab` 会自动完成。
@@ -277,11 +277,11 @@ GitHub 的 issue 和 PR 共用一个编号空间，因此单独的 `#42` 可能�
 
 **把 MR 作为请求入口：no。** _如果本仓库把外部 merge request 当成功能请求，就设为 `yes`；`/triage` 会读取这个标志位。_
 
-设为 `yes` 时，MR 使用与 issue 相同的 label 和状态，并使用对应的 `glab mr` 命令：
+设为 `yes` 时，MR 使用与 issue 相同的标签和状态，并使用对应的 `glab mr` 命令：
 
 - **读取 MR**：`glab mr view <number> --comments`，并用 `glab mr diff <number>` 取得 diff。
 - **列出供 triage 的外部 MR**：`glab mr list -F json`；随后只保留作者不是项目成员或所有者的 MR，也就是贡献者的 MR，不是维护者正在进行的工作。
-- **评论、设置 label 或关闭**：`glab mr note`、`glab mr update --label` 或 `--unlabel`、`glab mr close`。
+- **评论、设置标签或关闭**：`glab mr note`、`glab mr update --label` 或 `--unlabel`、`glab mr close`。
 
 GitLab 与 GitHub 不同，issue 和 MR 分别编号，因此知道 maintainer 所指入口后，`#42` 就没有歧义。
 
@@ -299,9 +299,9 @@ GitLab 与 GitHub 不同，issue 和 MR 分别编号，因此知道 maintainer �
 
 供 `/wayfinder` 使用。**map** 是一张 issue，**child** issue 是 ticket。
 
-- **Map**：一张带 `wayfinder:map` label 的 issue，正文保存 Notes、Decisions-so-far 和 Fog。使用 `glab issue create --label wayfinder:map`。（在支持原生 epic 的 GitLab tier 上，也可以让 epic 承载 map；带 label 的 issue 适用于所有 tier。）
-- **Child ticket**：description 顶部带 `Part of #<map>` 的 issue，并带 `wayfinder:<type>` label，其中 type 是 `research`、`prototype`、`grilling` 或 `task`。ticket 被认领后，分配给负责推进的开发者。
-- **Blocking**：GitLab 的**原生 blocking link**，这是规范且在 UI 中可见的表达。把 `/blocked_by #<n>` quick action 作为 note 发布，命令为 `glab issue note <child> --message "/blocked_by #<blocker>"`。原生 blocking link 是 Premium 或 Ultimate 功能；免费 tier 或无法使用时，回退到 description 顶部的 `Blocked by: #<n>, #<n>`。每个 blocker 都 closed 后，ticket 才 unblocked。
+- **Map**：一张带 `wayfinder:map` 标签的 issue，正文保存 Notes、Decisions-so-far 和 Fog。使用 `glab issue create --label wayfinder:map`。（在支持原生 epic 的 GitLab 层级上，也可以让 epic 承载 map；带标签的 issue 适用于所有层级。）
+- **Child ticket**：description 顶部带 `Part of #<map>` 的 issue，并带 `wayfinder:<type>` 标签，其中 type 是 `research`、`prototype`、`grilling` 或 `task`。ticket 被认领后，分配给负责推进的开发者。
+- **Blocking**：GitLab 的**原生 blocking link**，这是规范且在 UI 中可见的表达。把 `/blocked_by #<n>` quick action 作为 note 发布，命令为 `glab issue note <child> --message "/blocked_by #<blocker>"`。原生 blocking link 是 Premium 或 Ultimate 功能；免费层级或无法使用时，回退到 description 顶部的 `Blocked by: #<n>, #<n>`。每个 blocker 都 closed 后，ticket 才 unblocked。
 - **Frontier query**：运行 `glab issue list -F json` 并限定在 map child；删除有 open blocker 的项目，包括指向 open issue 的原生 `blocked_by` link，通过 `glab api projects/:id/issues/:iid/links` 取得，或者 `Blocked by` 行引用 open issue，以及有 assignee 的项目；按 map 顺序的第一张获胜。
 - **Claim**：`glab issue update <n> --assignee @me`，这是 session 的第一次写入。
 - **Resolve**：运行 `glab issue note <n> --message "<answer>"`，随后运行 `glab issue close <n>`，再把 context pointer，也就是 gist 和 link，追加到 map 的 Decisions-so-far。
@@ -318,8 +318,8 @@ GitLab 与 GitHub 不同，issue 和 MR 分别编号，因此知道 maintainer �
 
 - 每项功能一个目录：`.scratch/<feature-slug>/`
 - spec 是 `.scratch/<feature-slug>/spec.md`
-- implementation issue 每张 ticket 一个文件，位于 `.scratch/<feature-slug>/issues/<NN>-<slug>.md`，从 `01` 开始编号；绝不使用单一合并 ticket 文件
-- Triage 状态记录为每份 issue 文件顶部附近的 `Status:` 行；role 字符串参见 `triage-labels.md`
+- 实施 issue 每张 ticket 一个文件，位于 `.scratch/<feature-slug>/issues/<NN>-<slug>.md`，从 `01` 开始编号；绝不使用单一合并 ticket 文件
+- Triage 状态记录为每份 issue 文件顶部附近的 `Status:` 行；角色字符串参见 `triage-labels.md`
 - Comment 和对话历史追加到文件底部的 `## Comments` 标题下
 
 ## 当技能说“发布到 issue tracker”时
@@ -347,9 +347,9 @@ GitLab 与 GitHub 不同，issue 和 MR 分别编号，因此知道 maintainer �
 
 # Triage Label
 
-各技能使用五种规范 triage role。本文件把这些 role 映射到本仓库 issue tracker 实际使用的 label 字符串。
+各技能使用五种规范分诊角色。本文件把这些角色映射到本仓库 issue tracker 实际使用的标签字符串。
 
-| mattpocock/skills 中的 label | 我们 tracker 中的 label | 含义 |
+| mattpocock/skills 中的标签 | 我们 tracker 中的标签 | 含义 |
 | --- | --- | --- |
 | `needs-triage` | `needs-triage` | 维护者需要评估这张 issue |
 | `needs-info` | `needs-info` | 等待报告者提供更多信息 |
@@ -357,7 +357,7 @@ GitLab 与 GitHub 不同，issue 和 MR 分别编号，因此知道 maintainer �
 | `ready-for-human` | `ready-for-human` | 需要人工实施 |
 | `wontfix` | `wontfix` | 不会执行 |
 
-技能提到某个 role 时，例如“应用 AFK-ready triage label”，使用本表中对应的 label 字符串。
+技能提到某个角色时，例如“应用 AFK-ready triage 标签”，使用本表中对应的标签字符串。
 
 编辑右侧列，使它符合你实际使用的词汇。
 

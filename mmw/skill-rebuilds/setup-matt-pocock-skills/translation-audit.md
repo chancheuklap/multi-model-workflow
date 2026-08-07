@@ -5,10 +5,10 @@
 | 上游原词 | 统一写法 | 理由 |
 | --- | --- | --- |
 | issue tracker、issue、ticket | `issue tracker`、`issue`、`ticket` | 三种不同 tracker 对象不混称 |
-| triage role、triage label | `triage role`、`triage label` | role 与实际 label 字符串保持区分 |
+| triage role、triage label | 分诊角色、triage 标签 | 角色与实际标签字符串保持区分，并与 triage 技能统一 |
 | request surface | 请求入口 | 表达 PR 或 MR 是否进入 triage 队列 |
 | single-context、multi-context | 单 context、多 context | context 不擅自补成 bounded context |
-| canonical | 规范 | 表达上游选定的固定 role 集合 |
+| canonical | 规范 | 表达上游选定的固定角色集合 |
 | flag | 标志位 | 配置中的可切换状态 |
 | child ticket、blocking、frontier | `child ticket`、`blocking`、`frontier` | Wayfinding 方法和 tracker 对象 |
 | claim、resolve | `Claim`、`Resolve` | tracker 操作标题与状态动作 |
@@ -23,13 +23,13 @@
 | --- | --- |
 | `SKILL.md:1` | YAML 起始分隔符已保留 |
 | `SKILL.md:2` | setup 技能名已保留 |
-| `SKILL.md:3` | 配置仓库、tracker、label、领域布局和首次使用前运行均已保留 |
+| `SKILL.md:3` | 配置仓库、tracker、标签、领域布局和首次使用前运行均已保留 |
 | `SKILL.md:4` | 禁止隐式调用已保留 |
 | `SKILL.md:5` | YAML 结束分隔符已保留 |
 | `SKILL.md:7` | 技能标题已保留 |
 | `SKILL.md:9` | 建立仓库级假定配置已保留 |
 | `SKILL.md:11` | issue tracker 定义、GitHub 默认和本地 Markdown 支持已保留 |
-| `SKILL.md:12` | 五种规范 triage role 的 label 字符串已保留 |
+| `SKILL.md:12` | 五种规范分诊角色的标签字符串已保留 |
 | `SKILL.md:13` | CONTEXT、ADR 位置和消费规则已保留 |
 | `SKILL.md:15` | 提示驱动、非确定脚本、探索展示确认再写入均已保留 |
 | `SKILL.md:17` | 流程标题已保留 |
@@ -53,11 +53,11 @@
 | `SKILL.md:45` | GitLab Issues 与 glab 链接已保留 |
 | `SKILL.md:46` | 本地 Markdown 路径和两类适用仓库已保留 |
 | `SKILL.md:47` | 其他 tracker、两个例子、用户一段说明和自由文本记录均已保留 |
-| `SKILL.md:49` | 记录文件、PR request flag、默认 off、不主动提和用户日后打开均已保留 |
-| `SKILL.md:51` | B 节、无 triage 完全跳过和无技能无需 label 均已保留 |
+| `SKILL.md:49` | 记录文件、PR request 标志位、默认 off、不主动提和用户日后打开均已保留 |
+| `SKILL.md:51` | B 节、无 triage 完全跳过和无技能无需标签均已保留 |
 | `SKILL.md:53` | 已安装时只问一问已保留 |
-| `SKILL.md:55` | 保留默认 label 的原问句和推荐 yes 已保留 |
-| `SKILL.md:57` | 五种 role 字面量、yes 原样写、no 才收 override、bug:triage 例和避免重复均已保留 |
+| `SKILL.md:55` | 保留默认标签的原问句和推荐 yes 已保留 |
+| `SKILL.md:57` | 五种角色字面量、yes 原样写、no 才收覆盖值、bug:triage 例和避免重复均已保留 |
 | `SKILL.md:59` | C 节默认单 context、根两类文件、几乎全仓库和不询问直接写均已保留 |
 | `SKILL.md:61` | 只有 monorepo 信号才提供多 context、map 指向和确认布局均已保留 |
 | `SKILL.md:63` | 第 3 步确认并编辑已保留 |
@@ -77,9 +77,9 @@
 | `SKILL.md:87` | Agent skills 标题已保留 |
 | `SKILL.md:89` | Issue tracker 子标题已保留 |
 | `SKILL.md:91` | 一行 tracker 总结占位与链接已翻译 |
-| `SKILL.md:93` | Triage labels 子标题已保留 |
-| `SKILL.md:95` | 一行 label 总结占位与链接已翻译 |
-| `SKILL.md:97` | Domain docs 子标题已保留 |
+| `SKILL.md:93` | Triage 标签子标题已翻译 |
+| `SKILL.md:95` | 一行标签总结占位与链接已翻译 |
+| `SKILL.md:97` | 领域文档子标题已翻译 |
 | `SKILL.md:99` | 一行布局总结、两个字面形态和链接已翻译 |
 | `SKILL.md:100` | 代码块结束已保留 |
 | `SKILL.md:102` | 仅 triage 安装且 B 运行才写子 block 与文件，否则均省略已保留 |
@@ -87,7 +87,7 @@
 | `SKILL.md:106` | GitHub template 链接已保留 |
 | `SKILL.md:107` | GitLab template 链接已保留 |
 | `SKILL.md:108` | local template 链接已保留 |
-| `SKILL.md:109` | label template 与安装条件已保留 |
+| `SKILL.md:109` | 标签模板与安装条件已保留 |
 | `SKILL.md:110` | domain template 与消费规则布局已保留 |
 | `SKILL.md:112` | 其他 tracker 从用户说明重新编写已保留 |
 | `SKILL.md:114` | 第 5 步完成已保留 |
@@ -133,17 +133,17 @@
 | `issue-tracker-github.md:5` | 约定标题已保留 |
 | `issue-tracker-github.md:7` | 创建命令和多行 heredoc 已保留 |
 | `issue-tracker-github.md:8` | 读取含 comments、jq filter 和 labels 均已保留 |
-| `issue-tracker-github.md:9` | 列表完整命令和 label state filter 均已保留 |
-| `issue-tracker-github.md:10` | comment 命令已保留 |
-| `issue-tracker-github.md:11` | label 增删命令已保留 |
-| `issue-tracker-github.md:12` | close 命令与 comment 已保留 |
+| `issue-tracker-github.md:9` | 列表完整命令和标签状态筛选条件均已保留 |
+| `issue-tracker-github.md:10` | 评论命令已保留 |
+| `issue-tracker-github.md:11` | 标签增删命令已保留 |
+| `issue-tracker-github.md:12` | 关闭命令与评论已保留 |
 | `issue-tracker-github.md:14` | remote 推断和 clone 内 gh 自动判定已保留 |
 | `issue-tracker-github.md:16` | PR 作为 triage 入口标题已保留 |
-| `issue-tracker-github.md:18` | request surface no、改 yes 条件和 triage 读 flag 均已保留 |
+| `issue-tracker-github.md:18` | request surface no、改 yes 条件和 triage 读标志位均已保留 |
 | `issue-tracker-github.md:20` | yes 后 PR 同 labels states 和 gh pr 等价命令均已保留 |
 | `issue-tracker-github.md:22` | PR 读取与 diff 两命令已保留 |
 | `issue-tracker-github.md:23` | 外部 PR 列表命令、保留三 association 和删除三 association 均已保留 |
-| `issue-tracker-github.md:24` | comment label close 三类命令已保留 |
+| `issue-tracker-github.md:24` | 评论、标签、关闭三类命令已保留 |
 | `issue-tracker-github.md:26` | GitHub 共用编号、裸 42 二义和先 PR 后 issue fallback 均已保留 |
 | `issue-tracker-github.md:28` | publish to tracker 标题已保留 |
 | `issue-tracker-github.md:30` | 创建 GitHub issue 已保留 |
@@ -151,29 +151,29 @@
 | `issue-tracker-github.md:34` | 读取 issue 命令已保留 |
 | `issue-tracker-github.md:36` | Wayfinding 操作标题已保留 |
 | `issue-tracker-github.md:38` | wayfinder 使用、单 map issue 和 child issue ticket 均已保留 |
-| `issue-tracker-github.md:40` | map label、三段正文和创建命令均已保留 |
-| `issue-tracker-github.md:41` | child sub-issue、endpoint、fallback task list 与 Part of、四 type label 和认领分配均已保留 |
+| `issue-tracker-github.md:40` | map 标签、三段正文和创建命令均已保留 |
+| `issue-tracker-github.md:41` | child sub-issue、端点、fallback 任务清单与 Part of、四种类型标签和认领分配均已保留 |
 | `issue-tracker-github.md:42` | 原生 dependency、完整 add edge 命令、database id 获取与两个非 id、summary gate、fallback 行和全 closed 解阻塞均已保留 |
 | `issue-tracker-github.md:43` | frontier 开 child、scope、两类 open blocker、assignee 和 map 顺序首项均已保留 |
 | `issue-tracker-github.md:44` | claim 命令和 session 首次写已保留 |
-| `issue-tracker-github.md:45` | comment close、context pointer 与 map Decisions 追加均已保留 |
+| `issue-tracker-github.md:45` | 评论、关闭、context pointer 与 map Decisions 追加均已保留 |
 | `issue-tracker-gitlab.md:1` | GitLab tracker 标题已保留 |
 | `issue-tracker-gitlab.md:3` | issue spec 存 GitLab issue、glab 链接和全操作已保留 |
 | `issue-tracker-gitlab.md:5` | 约定标题已保留 |
-| `issue-tracker-gitlab.md:7` | 创建、description、heredoc 和 editor flag 均已保留 |
+| `issue-tracker-gitlab.md:7` | 创建、description、heredoc 和编辑器标志位均已保留 |
 | `issue-tracker-gitlab.md:8` | 读取与 JSON 输出已保留 |
-| `issue-tracker-gitlab.md:9` | 列表和 label filter 已保留 |
-| `issue-tracker-gitlab.md:10` | comment note 命令和 GitLab 命名已保留 |
-| `issue-tracker-gitlab.md:11` | label 增删、逗号或重复 flag 均已保留 |
-| `issue-tracker-gitlab.md:12` | close 无 comment、先 note 后 close 均已保留 |
+| `issue-tracker-gitlab.md:9` | 列表和标签筛选条件已保留 |
+| `issue-tracker-gitlab.md:10` | 评论命令、note 命名和 GitLab 术语已保留 |
+| `issue-tracker-gitlab.md:11` | 标签增删、逗号或重复标志位均已保留 |
+| `issue-tracker-gitlab.md:12` | 关闭命令不接评论、先 note 后关闭均已保留 |
 | `issue-tracker-gitlab.md:13` | MR 命名、三命令和 gh pr 到 glab mr note message 映射均已保留 |
 | `issue-tracker-gitlab.md:15` | remote 推断与 clone 内 glab 自动判定已保留 |
 | `issue-tracker-gitlab.md:17` | MR 作为 triage 入口标题已保留 |
-| `issue-tracker-gitlab.md:19` | request surface no、改 yes 条件和 triage 读 flag 均已保留 |
-| `issue-tracker-gitlab.md:21` | yes 后 MR 同 label state 和 glab mr 等价命令均已保留 |
+| `issue-tracker-gitlab.md:19` | request surface no、改 yes 条件和 triage 读标志位均已保留 |
+| `issue-tracker-gitlab.md:21` | yes 后 MR 同标签和状态及 glab mr 等价命令均已保留 |
 | `issue-tracker-gitlab.md:23` | MR 读取与 diff 已保留 |
 | `issue-tracker-gitlab.md:24` | 外部 MR 列表、作者非 member owner 和 contributor 非 maintainer 条件均已保留 |
-| `issue-tracker-gitlab.md:25` | comment label close 命令已保留 |
+| `issue-tracker-gitlab.md:25` | 评论、标签和关闭命令已保留 |
 | `issue-tracker-gitlab.md:27` | GitLab 分开编号和知道 surface 后无歧义均已保留 |
 | `issue-tracker-gitlab.md:29` | publish 标题已保留 |
 | `issue-tracker-gitlab.md:31` | 创建 GitLab issue 已保留 |
@@ -181,9 +181,9 @@
 | `issue-tracker-gitlab.md:35` | 读取命令已保留 |
 | `issue-tracker-gitlab.md:37` | Wayfinding 操作标题已保留 |
 | `issue-tracker-gitlab.md:39` | 单 map issue 和 child issue ticket 已保留 |
-| `issue-tracker-gitlab.md:41` | map label、三段正文、创建命令、native epic tier 例外和 issue 通用均已保留 |
-| `issue-tracker-gitlab.md:42` | child Part of、四 type label 和认领分配均已保留 |
-| `issue-tracker-gitlab.md:43` | 原生 blocking link、quick action note 命令、付费 tier、免费 fallback 和全 closed 解阻塞均已保留 |
+| `issue-tracker-gitlab.md:41` | map 标签、三段正文、创建命令、原生 epic 层级例外和 issue 通用均已保留 |
+| `issue-tracker-gitlab.md:42` | child Part of、四种类型标签和认领分配均已保留 |
+| `issue-tracker-gitlab.md:43` | 原生 blocking link、quick action note 命令、付费层级、免费 fallback 和全 closed 解阻塞均已保留 |
 | `issue-tracker-gitlab.md:44` | frontier 命令、map child scope、两类 open blocker、API、assignee 和 map 顺序首项均已保留 |
 | `issue-tracker-gitlab.md:45` | claim 命令和 session 首次写已保留 |
 | `issue-tracker-gitlab.md:46` | note close、context pointer 与 map Decisions 追加均已保留 |
@@ -192,8 +192,8 @@
 | `issue-tracker-local.md:5` | 约定标题已保留 |
 | `issue-tracker-local.md:7` | 每 feature 一目录路径已保留 |
 | `issue-tracker-local.md:8` | spec 路径已保留 |
-| `issue-tracker-local.md:9` | 每 ticket 一 implementation 文件、路径、01 编号和禁止合并文件均已保留 |
-| `issue-tracker-local.md:10` | Status 行和 role 字符串 reference 已保留 |
+| `issue-tracker-local.md:9` | 每 ticket 一份实施 issue 文件、路径、01 编号和禁止合并文件均已保留 |
+| `issue-tracker-local.md:10` | Status 行和角色字符串 reference 已保留 |
 | `issue-tracker-local.md:11` | Comments 标题下追加历史已保留 |
 | `issue-tracker-local.md:13` | publish 标题已保留 |
 | `issue-tracker-local.md:15` | scratch 路径新文件和按需建目录已保留 |
@@ -208,15 +208,15 @@
 | `issue-tracker-local.md:29` | 工作前 claim 并保存已保留 |
 | `issue-tracker-local.md:30` | Answer、resolved 和 context pointer 追加 map Decisions 均已保留 |
 | `triage-labels.md:1` | Triage Labels 标题已保留 |
-| `triage-labels.md:3` | 五种规范 role 和映射实际 label 字符串均已保留 |
+| `triage-labels.md:3` | 五种规范角色和映射实际标签字符串均已保留 |
 | `triage-labels.md:5` | 三列表头已翻译 |
 | `triage-labels.md:6` | 表格分隔行已保留 |
 | `triage-labels.md:7` | needs-triage 两侧字面量和 maintainer 评估含义已保留 |
 | `triage-labels.md:8` | needs-info 两侧字面量和等待 reporter 含义已保留 |
 | `triage-labels.md:9` | ready-for-agent 两侧字面量、完全明确和 AFK agent 含义已保留 |
-| `triage-labels.md:10` | ready-for-human 两侧字面量和人类 implementation 含义已保留 |
+| `triage-labels.md:10` | ready-for-human 两侧字面量和人工实现含义已保留 |
 | `triage-labels.md:11` | wontfix 两侧字面量和不执行含义已保留 |
-| `triage-labels.md:13` | 技能提 role、AFK-ready 例和使用对应 label 字符串均已保留 |
+| `triage-labels.md:13` | 技能提角色、AFK-ready 例和使用对应标签字符串均已保留 |
 | `triage-labels.md:15` | 编辑右列匹配实际词汇已保留 |
 | `agents/openai.yaml:1` | interface 字段已保留 |
 | `agents/openai.yaml:2` | display name 已保留 |
@@ -231,4 +231,4 @@
 | 遗漏 | 无。七个上游文件的每个非空行，包括三种 tracker 的完整 Wayfinding 操作，都有对应译文和独立检查记录 |
 | 增写 | 无。没有加入 `.mmw.json`、MMW CLI、宿主物化、当前 tracker 合同或其他 MMW 接线 |
 | 曲解 | 无。探索后逐节询问、用户审阅草稿后才写入、已有 agent 文档二选一和 tracker 模板完整保留 |
-| 术语漂移 | 无。issue tracker、triage role、triage label、context、request surface、child ticket、blocking 和 frontier 使用一致 |
+| 术语漂移 | 无。issue tracker、分诊角色、triage 标签、context、request surface、child ticket、blocking 和 frontier 使用一致 |
