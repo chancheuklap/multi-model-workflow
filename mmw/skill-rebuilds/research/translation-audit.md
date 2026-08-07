@@ -13,14 +13,24 @@
 | claim | 断言 | 本文指需要出处支持的陈述，不是 tracker 的 `claim` 动作 |
 | spec | `spec` | 上游产物词 |
 
-## 逐段完整性检查
+## 逐行完整性检查
 
-| 上游位置 | 结论 |
+空行只承担 Markdown 分隔，不包含待翻译文字。
+
+| 上游行 | 本行翻译检查 |
 | --- | --- |
-| `SKILL.md:1-4` | 问题调查、高可信度一手来源、单一 Markdown 产物和三类 invocation 分支均已保留 |
-| `SKILL.md:6` | 后台执行与主 agent 同时继续工作的并行关系均已保留 |
-| `SKILL.md:8-12` | 一手来源范围、逐项追溯、逐项引用、单文件产物、沿用仓库约定和无约定时说明位置均已保留 |
-| `agents/openai.yaml:1-3` | 展示名称与短描述均已保留；字段名没有翻译 |
+| `SKILL.md:1` | YAML 起始分隔符已保留 |
+| `SKILL.md:2` | 技能名已保留 |
+| `SKILL.md:3` | 高可信一手来源、Markdown 产物和三类使用场景均已保留 |
+| `SKILL.md:4` | YAML 结束分隔符已保留 |
+| `SKILL.md:6` | 后台 agent 研究与当前 agent 继续工作的并行关系已保留 |
+| `SKILL.md:8` | 后台 agent 的任务引导已翻译 |
+| `SKILL.md:10` | 一手来源四类例子、排除二手转述和逐项追溯均已保留 |
+| `SKILL.md:11` | 单一 Markdown 文件和逐项引用均已保留 |
+| `SKILL.md:12` | 沿用仓库位置约定、无约定时合理保存并说明位置均已保留 |
+| `agents/openai.yaml:1` | interface 配置键已保留 |
+| `agents/openai.yaml:2` | 显示名已保留 |
+| `agents/openai.yaml:3` | 高可信来源 research 的短描述已翻译 |
 
 ## 四类检查
 
