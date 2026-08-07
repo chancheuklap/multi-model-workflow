@@ -10,13 +10,23 @@
 | ubiquitous language | 通用语言 | 领域驱动设计的标准中文译名 |
 | `CONTEXT.md` | 保留原文 | 文件名字面量 |
 
-## 逐段完整性检查
+## 逐行完整性检查
 
-| 上游位置 | 结论 |
+空行只承担 Markdown 分隔，不包含待翻译文字。
+
+| 上游行 | 本行翻译检查 |
 | --- | --- |
-| `SKILL.md:1-5` | 停止当前表达、上一条消息未传达清楚、重新表述和 user-invoked 设置均已保留 |
-| `SKILL.md:7` | 缺少进度理解、补一点上下文、简化技术英语和 `CONTEXT.md` 通用语言四项要求均已保留 |
-| `agents/openai.yaml:1-5` | 展示信息和禁止隐式调用的 policy 均已保留 |
+| `SKILL.md:1` | YAML 起始分隔符已保留 |
+| `SKILL.md:2` | 技能名已保留 |
+| `SKILL.md:3` | 停止、上一条未传达清楚和重新表述均已保留 |
+| `SKILL.md:4` | 禁止模型隐式调用已保留 |
+| `SKILL.md:5` | YAML 结束分隔符已保留 |
+| `SKILL.md:7` | 不理解当前进度、补上下文、简化技术英语和 CONTEXT 通用语言均已保留 |
+| `agents/openai.yaml:1` | interface 配置键已保留 |
+| `agents/openai.yaml:2` | 显示名已保留 |
+| `agents/openai.yaml:3` | 补缺少上下文并更简单重述的短描述已翻译 |
+| `agents/openai.yaml:4` | policy 配置键已保留 |
+| `agents/openai.yaml:5` | 禁止隐式调用已保留 |
 
 ## 四类检查
 
