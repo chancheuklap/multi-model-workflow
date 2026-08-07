@@ -77,7 +77,7 @@ description: 构建并明确项目的领域模型。用户想要明确领域术�
 
 一个术语得到解决时，立即更新 `CONTEXT.md`。不要成批积攒；在术语明确时就记录。使用 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md) 中的格式。
 
-`CONTEXT.md` 必须完全不包含 implementation 细节。不要把 `CONTEXT.md` 当作 spec、scratch pad 或存放 implementation 决定的仓库。它只是术语表，没有其他用途。
+`CONTEXT.md` 必须完全不包含实现细节。不要把 `CONTEXT.md` 当作 spec、scratch pad 或存放实现决定的仓库。它只是术语表，没有其他用途。
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/domain-modeling/SKILL.md:66-74 -->
 
@@ -143,7 +143,7 @@ ADR 位于 `docs/adr/` 中，并使用连续编号，例如 `0001-slug.md`、`00
 
 - **架构形状。** “我们使用 monorepo。”“write model 采用 event sourcing，read model 被投影到 Postgres。”
 - **context 之间的集成模式。** “Ordering 和 Billing 通过 domain event 通信，不使用同步 HTTP。”
-- **带来 lock-in 的技术选择。** Database、message bus、auth provider、deployment target。不是每个 library；只记录那些更换需要一个季度的选择。
+- **带来 lock-in 的技术选择。** 数据库、消息总线、鉴权提供方、部署目标。不是每个库；只记录那些更换需要一个季度的选择。
 - **边界和范围决定。** “Customer data 由 Customer context 拥有；其他 context 只通过 ID 引用它。”明确说明“不采用什么”与明确说明“采用什么”同样有价值。
 - **有意偏离显然路径。** “因为 X，我们使用手写 SQL，不使用 ORM。”任何理性读者都会假定相反做法的情形都属于这一类。它们能防止下一位 engineer 去“修复”一项有意为之的内容。
 - **代码中不可见的约束。** “由于合规要求，我们不能使用 AWS。”“由于 partner API contract，响应时间必须低于 200ms。”
@@ -183,7 +183,7 @@ _避免使用_：Client、buyer、account
 
 - **要有明确主张。** 同一个概念存在多个词时，选出最合适的一个，并把其他词列在 `_Avoid_` 下。
 - **定义必须紧凑。** 最多一两句话。定义它**是什么**，不要定义它做什么。
-- **只加入本项目 context 特有的术语。** 通用编程概念，例如 timeout、error type、utility pattern，即使项目大量使用也不应加入。增加术语前，先问：这是当前 context 独有的概念，还是通用编程概念？只有前者可以加入。
+- **只加入本项目 context 特有的术语。** 通用编程概念，例如超时、错误类型、工具模式，即使项目大量使用也不应加入。增加术语前，先问：这是当前 context 独有的概念，还是通用编程概念？只有前者可以加入。
 - 自然形成集群时，**用副标题组织术语**。如果所有术语都属于一个紧密统一的领域，扁平清单也可以。
 
 ## 单 context 与多 context 仓库
@@ -207,7 +207,7 @@ _避免使用_：Client、buyer、account
 
 - **Ordering → Fulfillment**: Ordering 发出 `OrderPlaced` event；Fulfillment 消费它们并开始拣货
 - **Fulfillment → Billing**: Fulfillment 发出 `ShipmentDispatched` event；Billing 消费它们并生成 invoice
-- **Ordering ↔ Billing**: 共享 `CustomerId` 和 `Money` type
+- **Ordering ↔ Billing**: 共享 `CustomerId` 和 `Money` 类型
 ```
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/domain-modeling/CONTEXT-FORMAT.md:54-60 -->

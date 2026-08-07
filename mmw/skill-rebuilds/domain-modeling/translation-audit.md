@@ -10,7 +10,7 @@
 | glossary | 术语表 | 标准中文译名 |
 | canonical term | 规范术语 | 表达被选定的统一用词 |
 | decision | 决定 | 与 ADR 记录的实际选择一致 |
-| implementation | `implementation` | 与 codebase-design 核心词汇一致 |
+| implementation | 实现 | 本文指一般实现细节与决定，不是在定义 Codebase Design 的核心词汇 |
 | lazy、lazily | 按需 | 表达首次需要时才创建 |
 | lock-in | `lock-in` | 行业通用词，不误缩成依赖 |
 | event sourcing、event-sourced | `event sourcing`、采用 `event sourcing` | 保留架构模式名称 |
@@ -64,7 +64,7 @@
 | `SKILL.md:58` | 用户陈述时检查代码、发现矛盾时呈现，以及 Order 整体与部分取消问句均已保留 |
 | `SKILL.md:60` | 就地更新 CONTEXT 标题已保留 |
 | `SKILL.md:62` | 术语解决时立即更新、不批量积攒、发生时记录和格式链接均已保留 |
-| `SKILL.md:64` | CONTEXT 完全排除 implementation、禁止三种用途和仅作为术语表均已保留 |
+| `SKILL.md:64` | CONTEXT 完全排除实现细节、禁止三种用途和仅作为术语表均已保留 |
 | `SKILL.md:66` | 谨慎提议 ADR 标题已保留 |
 | `SKILL.md:68` | 只有三项全满足才提议已保留 |
 | `SKILL.md:70` | 难逆转和未来改主意成本均已保留 |
@@ -96,7 +96,7 @@
 | `ADR-FORMAT.md:39` | 符合条件内容标题已保留 |
 | `ADR-FORMAT.md:41` | 架构形状、monorepo、event-sourced write model 和 Postgres read projection 两例均已保留 |
 | `ADR-FORMAT.md:42` | context 间集成、Ordering、Billing、domain event 和非同步 HTTP 均已保留 |
-| `ADR-FORMAT.md:43` | lock-in 技术、四类例子、非所有 library 和更换需一季度门槛均已保留 |
+| `ADR-FORMAT.md:43` | lock-in 技术、四类例子、非所有库和更换需一季度门槛均已保留 |
 | `ADR-FORMAT.md:44` | 边界范围、Customer data 所有权、其他 context 仅 ID 引用和 no 与 yes 同等价值均已保留 |
 | `ADR-FORMAT.md:45` | 有意偏离、手写 SQL 非 ORM、合理读者会假定相反和防止后续误修均已保留 |
 | `ADR-FORMAT.md:46` | 代码不可见约束、AWS 合规和 200ms partner contract 两例均已保留 |
@@ -134,7 +134,7 @@
 | `CONTEXT-FORMAT.md:47` | Relationships 标题已保留 |
 | `CONTEXT-FORMAT.md:49` | Ordering 到 Fulfillment、OrderPlaced、发出消费和开始拣货均已保留 |
 | `CONTEXT-FORMAT.md:50` | Fulfillment 到 Billing、ShipmentDispatched、发出消费和生成 invoice 均已保留 |
-| `CONTEXT-FORMAT.md:51` | Ordering 与 Billing 双向关系及共享两个 type 均已保留 |
+| `CONTEXT-FORMAT.md:51` | Ordering 与 Billing 双向关系及共享两个类型均已保留 |
 | `CONTEXT-FORMAT.md:52` | Context Map 模板代码块结束已保留 |
 | `CONTEXT-FORMAT.md:54` | 技能推断适用结构已保留 |
 | `CONTEXT-FORMAT.md:56` | 有 CONTEXT-MAP 时读取寻找 context 已保留 |
@@ -152,4 +152,4 @@
 | 遗漏 | 无。四个上游文件的每个非空行，包括目录树和模板，都有对应译文和独立检查记录 |
 | 增写 | 无。没有加入 `mmw domain path`、leaf、MMW ADR 路径或其他 MMW 接线 |
 | 曲解 | 无。主动维护与只读消费的边界、即时写入和 ADR 三项门槛保持原样 |
-| 术语漂移 | 无。领域模型、通用语言、context、术语表、规范术语、决定和 implementation 使用一致 |
+| 术语漂移 | 无。领域模型、通用语言、context、术语表、规范术语、决定和实现使用一致 |
