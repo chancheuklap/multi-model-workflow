@@ -476,7 +476,7 @@ Triage 期间，也就是第 1 步“收集上下文”，读取 `.out-of-scope/
 ```yaml
 interface:
   display_name: "Triage"
-  short_description: "让 issue 经过 triage role"
+  short_description: "让 issue 经过分诊角色"
 policy:
   allow_implicit_invocation: false
 ```
