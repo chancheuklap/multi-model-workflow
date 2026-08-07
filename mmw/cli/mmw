@@ -130,8 +130,8 @@ mmw issue frontier <父编号> [--label <标签> | --label-prefix <前缀>]
     open、没被挡、没人认领的子 issue，编号升序。要全部的读全部行，
     要下一张的取第一行。每行两列，制表符分隔：编号、标题
 mmw issue children <父编号>
-    全部子 issue，编号升序，看任务走到哪一步。每行四列，制表符分隔：
-    编号、标题、认领人（无人为空）、被几张还开着的 issue 挡着
+    全部子 issue，编号升序，看任务走到哪一步。每行六列，制表符分隔：
+    编号、状态、认领人（无人为 -）、被几张还开着的 issue 挡着、标签、标题
 mmw issue claim <编号>               认领；已被别人占住就失败
 mmw issue link <子> --blocked-by <n> 单连一条阻塞边
 
