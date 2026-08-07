@@ -81,7 +81,7 @@ _为什么这很重要：答案决定我们现在就按突发流量配置资源�
 ```yaml
 interface:
   display_name: "To Questionnaire"
-  short_description: "把决定整理成供他人回答的问卷"
+  short_description: "把问题预先整理进文档，交给他人回答"
 policy:
   allow_implicit_invocation: false
 ```
