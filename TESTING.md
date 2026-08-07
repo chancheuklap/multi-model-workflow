@@ -15,10 +15,13 @@ test "$(MMW_HOST=codex mmw/cli/mmw path research effort issue-42)" = \
 test "$(MMW_HOST=codex mmw/cli/mmw path scratch effort)" = ".scratch/effort"
 test "$(MMW_HOST=codex mmw/cli/mmw path scratch effort task-feat-a)" = \
   ".scratch/effort/task-feat-a"
+test "$(MMW_HOST=codex mmw/cli/mmw path spec feat-a)" = \
+  "docs/specs/feat-a/feat-a.md"
 test "$(MMW_HOST=codex mmw/cli/mmw path review)" = ".reviews"
 test "$(MMW_HOST=codex mmw/cli/mmw artifact >/dev/null 2>&1; echo $?)" = 2
 ! MMW_HOST=codex mmw/cli/mmw path prototype .. >/dev/null 2>&1
 ! MMW_HOST=codex mmw/cli/mmw path prototype effort ticket-42 >/dev/null 2>&1
+! MMW_HOST=codex mmw/cli/mmw path spec ../feat-a >/dev/null 2>&1
 test "$(MMW_HOST=codex mmw/cli/mmw path unknown effort >/dev/null 2>&1; echo $?)" = 2
 
 gh() {
@@ -45,6 +48,9 @@ path_test_dir="$(mktemp -d "${TMPDIR:-/tmp}/mmw-path-test.XXXXXX")"
 git -C "$path_test_dir" init -q
 jq '.paths.scratch = "../outside"' mmw/cli/mmw.default.json > "$path_test_dir/.mmw.json"
 ! (cd "$path_test_dir" && MMW_HOST=codex "$mmw_source_root/cli/mmw" path scratch effort) \
+  >/dev/null 2>&1
+jq '.paths.specs = "../outside"' mmw/cli/mmw.default.json > "$path_test_dir/.mmw.json"
+! (cd "$path_test_dir" && MMW_HOST=codex "$mmw_source_root/cli/mmw" path spec feat-a) \
   >/dev/null 2>&1
 find "$path_test_dir" -depth -delete
 

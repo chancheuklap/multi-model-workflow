@@ -53,7 +53,7 @@ _Avoid_: 审查、自动验收
 _Avoid_: spec、讨论记录、单方面假设
 
 **spec**：
-把已经谈定的内容综合成的设计合同。
+把已经谈定的内容综合成的设计合同。spec 文件的精确仓库相对路径由 `mmw path spec <任务 slug>` 返回。
 _Avoid_: plan、Wiki 页面、讨论草稿
 
 **tracer bullet ticket**：

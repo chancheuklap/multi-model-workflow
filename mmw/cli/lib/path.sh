@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# prototype、research、evidence、scratch 与 review 的仓库内路径。
+# spec、prototype、research、evidence、scratch 与 review 的仓库内路径。
 
 set -euo pipefail
 
@@ -73,18 +73,26 @@ mmw_path_safe_base() {
 mmw_path_root() {
   local kind="${1:-}" base
   case "$kind" in
+    spec) base="$(mmw_path_field specs)" ;;
     prototype) base="$(mmw_path_field prototypes)" ;;
     research) base="$(mmw_path_field research)" ;;
     evidence) base="$(mmw_path_field evidence)" ;;
     scratch) base="$(mmw_path_field scratch)" ;;
     review) base="$(mmw_path_field reviews)" ;;
     *)
-      echo "mmw: path 类型只能是 prototype、research、evidence、scratch 或 review：${kind:-<空>}" >&2
+      echo "mmw: path 类型只能是 spec、prototype、research、evidence、scratch 或 review：${kind:-<空>}" >&2
       return 1
       ;;
   esac
   mmw_path_safe_base "$base" || return 1
   printf '%s\n' "$base"
+}
+
+mmw_path_spec() {
+  local slug="${1:-}" base
+  mmw_path_safe_segment "$slug" "任务 slug" || return 1
+  base="$(mmw_path_root spec)" || return 1
+  printf '%s/%s/%s.md\n' "${base%/}" "$slug" "$slug"
 }
 
 mmw_path_resolve() {

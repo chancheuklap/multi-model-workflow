@@ -39,7 +39,7 @@ mmw <命令> [参数]
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
   skill-path  派出去那一侧读方法论的路径
-  path        prototype、research、evidence、scratch 与 review 的仓库内路径
+  path        spec、prototype、research、evidence、scratch 与 review 的仓库内路径
   task        任务 worktree：查状态、建、绑分支、进、删
   result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
@@ -169,6 +169,7 @@ mmw path prototype <产物目录> [issue-<编号>]
 mmw path research  <产物目录> [issue-<编号>]
 mmw path evidence  <产物目录> [issue-<编号>]
 mmw path scratch   <产物目录> [issue-<编号>|task-<任务 slug>]
+mmw path spec      <任务 slug>
 mmw path review
 
 产物目录必须是单个安全路径段。Wayfinder decision ticket 传入它自己的
@@ -559,6 +560,10 @@ cmd_domain() {
 
 cmd_path() {
   case "${1:-}" in
+    spec)
+      [ "$#" -eq 2 ] || usage_path
+      mmw_path_spec "$2"
+      ;;
     review)
       [ "$#" -eq 1 ] || usage_path
       mmw_path_root review
