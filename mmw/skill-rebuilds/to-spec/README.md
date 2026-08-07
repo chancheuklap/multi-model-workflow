@@ -8,19 +8,20 @@
 
 第二阶段已经形成单文件精简稿。精简稿删除上游安装说明，明确 user story 只覆盖真实场景，并允许没有内容时删除 `Further Notes`；其余上游方法、步骤和完成判据保持不变。
 
-第三阶段已经在 `candidate/` 形成两文件候选。`candidate/SKILL.md` 只增加 MMW 所需的精确输入指针、领域上下文、① spec 审、spec 人工审批关卡、仓库文件与 tracker 发布接线。输入来源不改变 To Spec 的固定流程；缺少决定时只报告准确缺口并停止，不在 To Spec 内建立跨技能回退流程。`candidate/spec-template.md` 保留上游模板原文，并加入已经确认的条件式 MMW section。当前发布技能仍不修改。
+第三阶段已经在 `candidate/` 形成两文件候选。`candidate/SKILL.md` 保留上游三步流程，并在流程前写清四种真实入口怎样找到已经形成的产物。① spec 审、spec 人工审批关卡、仓库文件与 tracker 发布接线在第三步内部按执行顺序完成。缺少决定时只报告准确缺口并停止，不在 To Spec 内建立跨技能回退流程。`candidate/spec-template.md` 保留上游模板原文，并加入已经确认的条件式 MMW section。当前发布技能仍不修改。
 
 ## 已确认的接线边界
 
 | 内容 | candidate 的处理 |
 | --- | --- |
-| 多种上游来源 | 只接收当前对话和精确 context pointer；不按调用方切换流程 |
-| Grilling | 接收用户已经确认的共同理解 |
-| Prototype | 接收 prototype 资产索引；再按索引读取选中产物和精确证据 |
-| Research | 已保存时接收 research 索引和精确文件；未保存时使用当前上下文中的已验证事实、出处和未查清项 |
-| Wayfinder | 只接收已关闭 map 的名称及其 URL 或编号；沿 `Decisions so far` 读取相关 decision ticket |
+| 真实入口 | 只列用户直接调用、`/mmw-grilling`、`/mmw-prototype` 和已关闭的 `/mmw-wayfinder` map |
+| 用户直接调用 | 使用当前对话中已经明确形成的决定 |
+| `/mmw-grilling` | 使用用户确认的共同理解，以及共同理解引用的结论和精确产物路径 |
+| `/mmw-prototype` | 使用交回的 prototype 资产索引，再读取索引点名的选中产物、长期证据和可复用内容 |
+| `/mmw-wayfinder` | 使用已关闭 map 的 URL 或编号；沿 `Decisions so far` 读取相关 decision ticket 的 resolution comment 和精确产物链接 |
+| research | 不是 To Spec 入口；只读取共同理解或 Wayfinder resolution comment 明确引用的 research 结论和精确文件 |
 | 输入缺少决定 | 报告准确缺口并停止；不由 To Spec 调用其他技能形成决定 |
-| spec 文件 | 使用 `mmw path spec <slug>` 返回的精确路径 |
+| spec 文件 | 使用 `mmw path spec <任务 slug>` 返回的精确路径 |
 | MMW 质量关卡 | 依次完成 ① spec 审和 spec 人工审批关卡 |
 | tracker | 用户批准后提交 spec，再创建带 `ready-for-agent` 的 spec issue |
 | 下游 | 只移交 `/mmw-to-tickets`；To Spec 不拆 ticket、不写 plan、不开始实现 |
