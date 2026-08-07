@@ -2,7 +2,8 @@
 *.swp
 *.swo
 *~
-.claude/
+.claude/*
+!.claude/skills/
 .worktrees/
 .codex/multi-model-workflow/
 .serena/

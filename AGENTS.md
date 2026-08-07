@@ -4,12 +4,14 @@
 
 `mmw/` 是仓库唯一活跃的多模型工作流（Multi-Model Workflow，MMW）。它共享一套产品语义；Codex App、Claude Code 与 Pi 有正式发布入口，Cursor 通过 `mmw agents materialize` 安装原生 subagent。
 
-| 宿主 | 发布入口 |
-| --- | --- |
-| Codex App | 根 `.agents/plugins/marketplace.json`、`mmw/.codex-plugin/plugin.json`、`mmw/codex/runtime.py` |
-| Claude Code | `mmw/.claude-plugin/plugin.json`、根 `.claude-plugin/marketplace.json` |
-| Pi | `mmw/package.json` |
-| Cursor（安装面） | `mmw agents materialize --host cursor` → `~/.cursor/agents/` |
+| 宿主 | 发布入口 | 版本号位置 |
+| --- | --- | --- |
+| Codex App | 根 `.agents/plugins/marketplace.json`、`mmw/.codex-plugin/plugin.json`、`mmw/codex/runtime.py` | `mmw/.codex-plugin/plugin.json` |
+| Claude Code | `mmw/.claude-plugin/plugin.json`、根 `.claude-plugin/marketplace.json` | 两份都有；根 marketplace 的插件版本与顶层版本各算一处 |
+| Pi | `mmw/package.json` | `mmw/package.json` |
+| Cursor（安装面） | `mmw agents materialize --host cursor` → `~/.cursor/agents/` | 无 |
+
+改产品版本时，上表「版本号位置」列的全部五处必须同步。
 
 原生多模型宿主的 agent 文件不要手改 model 行。改 `.mmw.json` 或 `mmw/cli/mmw.default.json` 后，用 `mmw agents materialize` 更新 Pi 与 Cursor，并运行：
 
@@ -20,6 +22,8 @@ python3 mmw/codex/runtime.py materialize  # 更新 Codex plugin 与四个原生 
 `archive/` 是冻结归档。归档内容不参与行为判断、构建、测试或发布；没有明确指令时不修改。运行时不得探测、调用或回退到归档插件。
 
 `.agents/skills/` 只保存供 Codex 维护本仓库的方法。它不属于 MMW Plugin 发布根，不进入 manifest、README 技能清单、`mmw-skill-map.html` 或宿主物化产物。
+
+`mmw/skill-rebuilds/` 保存上游翻译与技能重建的候选材料。它不参与 Plugin 运行，也不物化；正文按最终位于 `mmw/skills/` 时所需的相对路径书写，经批准后才写入技能源。
 
 `vendor/mattpocock-skills/` 是上游 `mattpocock/skills` 的完整副本，通过 Git subtree squash 更新。不要手改；更新时运行：
 
@@ -59,7 +63,6 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - 脚本异常必须非零退出或留下结构化告警。
 - 机械校验只覆盖机器能直接判定的事实：语法与固定结构可解析、路径与文件安全、配置完整性和生成产物一致性。
 - 产物质量、方法选择、语义真实性和完成度由技能与主 agent 判断。不用计数、列表形状、固定阈值或豁免清单伪装成机械校验。已有校验越过这条边界时删除该校验，不增加例外分支。
-- 产品版本同步修改 Codex manifest、Claude Code manifest、根 Claude marketplace 的插件版本与顶层版本，以及 Pi package。
 - `mmw/skills/mmw-setup/` 只保存旧背景材料，不是技能。扫描技能正文时必须排除它。
 
 ## Git 与安全
