@@ -12,16 +12,27 @@
 | full test suite | 完整测试套件 | 保留全量范围 |
 | regularly | 定期 | 保留与实现过程交错的频率，不自创固定次数 |
 
-## 逐段完整性检查
+## 逐行完整性检查
 
-| 上游位置 | 结论 |
+空行只承担 Markdown 分隔，不包含待翻译文字。
+
+| 上游行 | 本行翻译检查 |
 | --- | --- |
-| `SKILL.md:1-5` | 技能名、description 与 user-invoked 设置均已保留 |
-| `SKILL.md:7` | 实施对象仍是用户在 spec 或 ticket 中描述的工作 |
-| `SKILL.md:9` | “只要可行”和“预先约定的 seam”两个限制均已保留 |
-| `SKILL.md:11` | 类型检查与单个测试文件的定期频率，以及末尾只运行一次完整套件均已保留 |
-| `SKILL.md:13-15` | 完成后的 `/code-review` 与提交到当前分支的顺序均已保留 |
-| `agents/openai.yaml:1-5` | 展示信息和禁止隐式调用的 policy 均已保留 |
+| `SKILL.md:1` | YAML 起始分隔符已保留 |
+| `SKILL.md:2` | 技能名已保留 |
+| `SKILL.md:3` | 根据 spec 或一组 ticket 实施工作已保留 |
+| `SKILL.md:4` | 禁止模型隐式调用已保留 |
+| `SKILL.md:5` | YAML 结束分隔符已保留 |
+| `SKILL.md:7` | 实施用户在 spec 或 ticket 中描述的工作已保留 |
+| `SKILL.md:9` | 可行时在预先约定 seam 使用 TDD 已保留 |
+| `SKILL.md:11` | 定期类型检查、定期单文件测试和最后一次全套测试均已保留 |
+| `SKILL.md:13` | 完成后调用 code-review 已保留 |
+| `SKILL.md:15` | 提交到当前分支已保留 |
+| `agents/openai.yaml:1` | interface 配置键已保留 |
+| `agents/openai.yaml:2` | 显示名已保留 |
+| `agents/openai.yaml:3` | 从 spec 或 ticket 构建工作的短描述已翻译 |
+| `agents/openai.yaml:4` | policy 配置键已保留 |
+| `agents/openai.yaml:5` | 禁止隐式调用已保留 |
 
 ## 四类检查
 
