@@ -5,7 +5,7 @@ description: relentless 地追问用户的计划、决定或想法。用户希�
 
 以 relentless 的方式访谈用户，直到双方形成共同理解。把这次访谈组织成一棵**设计树**：每个决定都会分叉出依赖它的决定。
 
-在同一段对话中完整读取并持续应用 `/mmw-domain-modeling`。讨论形成长期领域术语、bounded context、关系或符合三项判据的 ADR 时，由 `/mmw-domain-modeling` 当场维护；本技能不重复它的方法。
+在同一段对话中完整读取并持续应用 `/mmw-domain-modeling`。讨论形成需要长期保留的领域术语、bounded context、bounded context 之间的关系，或者符合 ADR 三项判据的决定时，由 `/mmw-domain-modeling` 当场维护领域模型；本技能不重复领域模型维护方法。
 
 按**轮**遍历设计树。**frontier** 包含所有前置条件已经确定的决定，也就是现在提问时不需要猜测尚未听到的答案。每一轮提出整个 frontier：给每个问题编号，并给出你的推荐答案。随后等待用户回答，再进入下一轮。
 
@@ -25,7 +25,7 @@ description: relentless 地追问用户的计划、决定或想法。用户希�
 
 - 单个文件、符号、事实或一条命令能答完时，由主 agent 直接查明。
 - 问题需要拆成多个独立角度系统取证时，调用 `/mmw-research`。报告返回后，按 `/mmw-verifying-agent-output` 验证会改变问题或结论的关键断言。
-- 用户必须看见已有页面或 mockup 才能作决定时，读取全部相关页面，再执行：
+- 用户必须看见已有页面或 mockup 才能回答当前 frontier 问题时，读取与当前 frontier 问题有关的全部已有页面和 mockup，再执行：
 
   [[mmw-host-action:present-ui-review]]
 
@@ -33,7 +33,7 @@ description: relentless 地追问用户的计划、决定或想法。用户希�
 
 讨论无法判定一个决定，而且可运行资产能够回答时，调用 `/mmw-prototype`。把该决定收敛成一个走查后能得到明确答案的问题。用户走查完成后回到本技能，把结论放回设计树，重新计算 frontier。
 
-某项事实必须通过真实运行才能知道时，调用 `/mmw-prototype` 取得 `EVIDENCE.md`。只暂停依赖该事实的分支。证据返回后重新计算 frontier。
+某项事实必须通过运行可操作的产物才能知道时，调用 `/mmw-prototype`。把需要查明的事实写成一个能够由用户走查得到明确答案的问题。`/mmw-prototype` 根据问题选择后端脚本、Logic HTML 或 UI/UX prototype；本技能不指定 `/mmw-prototype` 的内部工作面。只暂停依赖该事实的分支。用户走查结论返回后，把已经确认的事实放回设计树，重新计算 frontier。
 
 某项事实只由另一位知识持有者掌握，而且当前用户无法回答时，调用 `/to-questionnaire`。答案返回后把事实放回设计树，重新计算 frontier。
 
@@ -47,7 +47,7 @@ frontier 为空后，总结已经谈定的问题、约束、决定、取舍和�
 
 用户要求提前停止时，报告已经确定的内容、尚未解决的决定和仍在等待的事实。不要宣称已经形成完整的共同理解。
 
-真正移交下一技能前，完整读取 [`../../../skills/mmw-start/phase-boundaries.md`](../../../skills/mmw-start/phase-boundaries.md)，按其中的顺序判断是否留在当前会话。
+真正移交下一技能前，完整读取 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按其中的顺序判断是否留在当前会话。
 
 ## 下一步
 
