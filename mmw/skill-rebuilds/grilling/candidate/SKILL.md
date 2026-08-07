@@ -24,7 +24,7 @@ description: relentless 地追问用户的计划、决定或想法。用户希�
 查明**事实**是你的工作，绝不是用户的工作。frontier 上的问题需要从环境中取得事实时，凡是你能自行查找的内容，都不要向用户提问。
 
 - 单个文件、符号、事实或一条命令能答完时，由主 agent 直接查明。
-- 问题需要拆成多个独立角度系统取证时，调用 `/mmw-research`。报告返回后，按 `/mmw-verifying-agent-output` 验证会改变问题或结论的关键断言。
+- 问题需要拆成多个独立角度系统取证时，调用 `/mmw-research`。接收它交回的已验证事实、出处和未查清项，再把事实放回设计树。
 - 用户必须看见已有页面或 mockup 才能回答当前 frontier 问题时，读取与当前 frontier 问题有关的全部已有页面和 mockup，再执行：
 
   [[mmw-host-action:present-ui-review]]
