@@ -5,7 +5,7 @@
 ## Language
 
 **effort**：
-超出一次 agent session，而且从当前状态到 destination 的路线仍不清楚的工作。最终形成一份或多份 spec 不影响入口判定。
+超出一次 agent session，而且从当前状态到 destination 的路线仍不清楚的工作。destination 是否是一份 spec 不影响入口判定。
 _Avoid_: 大 ticket、大 spec
 
 **destination**：
