@@ -1,6 +1,8 @@
 # `writing-for-agents` 1.2.2 翻译审查
 
-## 固定术语
+## 本技能术语应用
+
+共享术语只由 [上游技能翻译共享术语](../translation-terms.md) 定义。下表记录本技能的术语应用和独有术语，不建立第二份定义。
 
 | 上游原词 | 统一写法 | 理由 |
 | --- | --- | --- |
@@ -9,13 +11,14 @@
 | context load、cognitive load | 上下文负荷、认知负荷 | 有准确、稳定的中文译名 |
 | information hierarchy | 信息层级 | 有准确中文译名 |
 | step、reference | 步骤、参考内容 | 两类文档内容的固定译名 |
+| disclosed reference | `disclosed reference` | 信息层级中的上游方法词，没有稳定且等价的中文专名 |
 | progressive disclosure | 渐进式披露 | 有稳定中文译名 |
 | co-location | 共置 | 表达相关定义、规则和注意事项放在一起 |
 | sprawl | `sprawl` | 上游 leading word，没有稳定中文专名 |
 | completion criterion | 完成判据 | MMW 已采用的 canonical 术语 |
 | premature completion | 过早完成 | 有准确中文译名 |
 | post-completion steps | `post-completion steps` | 保留上游概念名，正文同时解释其含义 |
-| demand、legwork | 要求力度、`legwork` | `demand` 使用中文解释；`legwork` 保留 leading word并在正文定义 |
+| demand、legwork | `demand`、`legwork` | 上游方法词；保留原词并在正文定义 |
 | leading word | `leading word` | 上游核心概念，保留原词 |
 | negation | 否定表达 | 准确表达通过禁止语引导的写法 |
 | single source of truth | 唯一事实来源 | MMW canonical 术语 |
@@ -51,7 +54,7 @@
 | `SKILL.md:31` | 步骤与参考两类内容、三种组合和信息层级定义均已保留 |
 | `SKILL.md:33` | 文件内步骤为第一层且按顺序执行已翻译 |
 | `SKILL.md:34` | 文件内参考按需查阅、合理扁平同级内容不是坏味道已保留 |
-| `SKILL.md:35` | 披露式参考、单独文件、pointer 条件加载和外部范围均已保留 |
+| `SKILL.md:35` | disclosed reference、单独文件、pointer 条件加载和外部范围均已保留 |
 | `SKILL.md:37` | 向下太少与太多的张力已翻译 |
 | `SKILL.md:39` | 渐进式披露、保护层级、分支判据和步骤被掩埋的 variance 风险均已保留 |
 | `SKILL.md:41` | 共置定义、同标题归组、文档判据及与重复和散落区别均已保留 |
@@ -59,7 +62,7 @@
 | `SKILL.md:45` | 步骤和完成判据标题已翻译 |
 | `SKILL.md:47` | 每步以完成判据结束及两项属性引导已保留 |
 | `SKILL.md:49` | 清晰度、过早完成、后续步骤拉力、修正顺序和真实上下文边界均已保留 |
-| `SKILL.md:50` | 要求力度、两个例子、legwork、非步骤约束及参考穷尽性均已保留 |
+| `SKILL.md:50` | demand、两个例子、legwork、非步骤约束及参考穷尽性均已保留 |
 | `SKILL.md:52` | 最强判据同时可检查和穷尽已翻译 |
 | `SKILL.md:54` | 何时拆分标题已翻译 |
 | `SKILL.md:56` | 拆分消耗负荷且只在值得时执行已翻译 |

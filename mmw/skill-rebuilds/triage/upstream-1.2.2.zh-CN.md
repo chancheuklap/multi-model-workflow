@@ -173,7 +173,7 @@ Agent 需要知道何时完成。每份 agent brief 都必须提供具体、可�
 
 ## 模板
 
-<!-- source: vendor/mattpocock-skills/skills/engineering/triage/AGENT-BRIEF.md:41-68 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/triage/AGENT-BRIEF.md:41-70 -->
 
 ```markdown
 ## Agent Brief
@@ -405,7 +405,7 @@ interface ThemeConfig {
 }
 ```
 
-## 先前请求
+## Prior requests
 
 - #42 — “增加深色模式支持”
 - #87 — “为可访问性提供夜间主题”
@@ -440,7 +440,7 @@ Triage 期间，也就是第 1 步“收集上下文”，读取 `.out-of-scope/
 
 维护者可以：
 
-- **确认**——把新 issue 加入现有文件的“先前请求”清单，然后关闭
+- **确认**——把新 issue 加入现有文件的 “Prior requests” 清单，然后关闭
 - **重新考虑**——删除或更新 out-of-scope 文件，issue 进入正常 triage
 - **不同意**——issue 相互关联但并不相同，继续正常 triage
 
@@ -456,8 +456,8 @@ Triage 期间，也就是第 1 步“收集上下文”，读取 `.out-of-scope/
 
 1. 维护者决定一项功能请求不在范围内
 2. 检查是否已经存在匹配的 `.out-of-scope/` 文件
-3. 如果有，把新 issue 追加到“先前请求”清单
-4. 如果没有，使用概念名称、决定、理由和第一项先前请求创建新文件
+3. 如果有，把新 issue 追加到 “Prior requests” 清单
+4. 如果没有，使用概念名称、决定、理由和第一条先前请求创建新文件
 5. 在 issue 上发布评论，说明决定并提到 `.out-of-scope/` 文件
 6. 带 `wontfix` 标签关闭 issue
 

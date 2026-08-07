@@ -1,6 +1,8 @@
 # `triage` 1.2.2 翻译审查
 
-## 固定术语
+## 本技能术语应用
+
+共享术语只由 [上游技能翻译共享术语](../translation-terms.md) 定义。下表记录本技能的术语应用和独有术语，不建立第二份定义。
 
 | 上游原词 | 统一写法 | 理由 |
 | --- | --- | --- |
@@ -138,6 +140,7 @@
 | `AGENT-BRIEF.md:66` | 本 issue 不应改动或处理的内容已翻译 |
 | `AGENT-BRIEF.md:67` | 看似相关但独立的相邻功能已翻译 |
 | `AGENT-BRIEF.md:68` | Markdown 代码块结束已保留 |
+| `AGENT-BRIEF.md:70` | 示例标题已翻译 |
 | `AGENT-BRIEF.md:70` | 示例标题已翻译 |
 | `AGENT-BRIEF.md:72` | 良好 bug agent brief 标题已翻译 |
 | `AGENT-BRIEF.md:74` | Markdown 代码块起始已保留 |
@@ -278,7 +281,7 @@
 | `OUT-OF-SCOPE.md:45` | fonts 字段与 FontStack 类型已保留 |
 | `OUT-OF-SCOPE.md:46` | interface 结束大括号已保留 |
 | `OUT-OF-SCOPE.md:47` | TypeScript 代码块结束已保留 |
-| `OUT-OF-SCOPE.md:49` | 先前请求标题已翻译 |
+| `OUT-OF-SCOPE.md:49` | `Prior requests` 固定标题已保留 |
 | `OUT-OF-SCOPE.md:51` | #42 深色模式支持请求已翻译 |
 | `OUT-OF-SCOPE.md:52` | #87 可访问性夜间主题请求已翻译 |
 | `OUT-OF-SCOPE.md:53` | #134 深色主题选项请求已翻译 |
@@ -297,7 +300,7 @@
 | `OUT-OF-SCOPE.md:75` | 按概念相似性而非关键词及 night theme 示例已保留 |
 | `OUT-OF-SCOPE.md:76` | 呈现匹配、先前否决理由和询问当前看法的完整话术已翻译 |
 | `OUT-OF-SCOPE.md:78` | 维护者可选动作引导已翻译 |
-| `OUT-OF-SCOPE.md:80` | 确认后追加先前请求并关闭已翻译 |
+| `OUT-OF-SCOPE.md:80` | 确认后追加到 `Prior requests` 并关闭已保留 |
 | `OUT-OF-SCOPE.md:81` | 重新考虑后删除或更新文件并正常分诊已翻译 |
 | `OUT-OF-SCOPE.md:82` | 不同意匹配时按不同请求继续正常分诊已翻译 |
 | `OUT-OF-SCOPE.md:84` | 何时写入知识库标题已翻译 |
@@ -306,7 +309,8 @@
 | `OUT-OF-SCOPE.md:90` | 流程引导已翻译 |
 | `OUT-OF-SCOPE.md:92` | 维护者决定功能请求不在范围内已翻译 |
 | `OUT-OF-SCOPE.md:93` | 检查匹配文件已翻译 |
-| `OUT-OF-SCOPE.md:94` | 已有文件时追加新 issue 到先前请求清单已翻译 |
+| `OUT-OF-SCOPE.md:94` | 已有文件时把新 issue 追加到 `Prior requests` 清单已保留 |
+| `OUT-OF-SCOPE.md:95` | 新文件记录概念名称、决定、理由和第一条先前请求已保留 |
 | `OUT-OF-SCOPE.md:95` | 无文件时以概念、决定、理由和首项请求创建已翻译 |
 | `OUT-OF-SCOPE.md:96` | 在 issue 发布解释决定并提到文件的评论已翻译 |
 | `OUT-OF-SCOPE.md:97` | 带 wontfix 标签关闭 issue 已翻译 |

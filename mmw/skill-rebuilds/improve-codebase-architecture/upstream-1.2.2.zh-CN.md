@@ -20,7 +20,7 @@ disable-model-invocation: true
 
 这条命令以项目的领域模型为依据，并建立在共享设计词汇上：
 
-- 运行 `/codebase-design` 技能，取得架构词汇（**module**、**interface**、**depth**、**seam**、**adapter**、**leverage**、**locality**）和对应原则（`deletion test`、“interface 是测试表面”、“一个 adapter 是假设性 seam，两个才是真实 seam”）。在每条建议中准确使用这些术语；不要漂移到 `component`、`service`、`API` 或 `boundary`。
+- 运行 `/codebase-design` 技能，取得架构词汇（**module**、**interface**、**depth**、**seam**、**adapter**、**leverage**、**locality**）和对应原则（`deletion test`、“interface 是 test surface”、“一个 adapter 是假设性 seam，两个才是真实 seam”）。在每条建议中准确使用这些术语；不要漂移到 `component`、`service`、`API` 或 `boundary`。
 - `CONTEXT.md` 中的领域语言为良好的 seam 命名；`docs/adr/` 中的 ADR 记录本命令不应重新争论的决定。
 
 ## 流程
@@ -58,7 +58,7 @@ disable-model-invocation: true
 
 - **文件**——涉及哪些文件或 module
 - **问题**——当前架构为何产生摩擦
-- **方案**——用直白英语说明会改变什么
+- **方案**——用直白语言说明会改变什么
 - **收益**——用 locality 和 leverage 解释，并说明测试如何改进
 - **改动前/后图示**——并排、手工绘制，展示 shallow 状态和 deepening 后状态
 - **推荐强度**——`Strong`、`Worth exploring`、`Speculative` 三者之一，渲染为徽章
@@ -209,7 +209,7 @@ disable-model-invocation: true
 
 ## 语气
 
-使用直白英语，并保持简洁；但架构名词和动词必须直接来自 `/codebase-design` 技能。简洁不能成为术语漂移的借口。
+使用直白语言，并保持简洁；但架构名词和动词必须直接来自 `/codebase-design` 技能。简洁不能成为术语漂移的借口。
 
 **必须准确使用：** module、interface、implementation、depth、deep、shallow、seam、adapter、leverage、locality。
 
@@ -233,7 +233,7 @@ disable-model-invocation: true
 ```yaml
 interface:
   display_name: "Improve Codebase Architecture"
-  short_description: "寻找并讨论架构改进"
+  short_description: "寻找架构改进并进行 grilling"
 policy:
   allow_implicit_invocation: false
 ```

@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-第一阶段已经完成上游 `SKILL.md` 和 `agents/openai.yaml` 的逐行中文翻译。翻译保留 Standards 与 Spec 两条审查轴、固定点判据、代码异味基线、并行 subagent 和分轴汇总，不加入 MMW 的六道审查、角色派发、验证或人工审批关卡接线。
+第一阶段已经完成上游 `SKILL.md` 和 `agents/openai.yaml` 的逐行中文翻译。翻译保留 Standards 与 Spec 两条审查轴、基准点判据、代码异味基线、并行 subagent 和分轴汇总，不加入 MMW 的六道审查、角色派发、验证或人工审批关卡接线。
 
 ## 文件
 

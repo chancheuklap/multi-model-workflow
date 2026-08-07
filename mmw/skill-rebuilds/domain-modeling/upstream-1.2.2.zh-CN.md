@@ -166,15 +166,15 @@ ADR 位于 `docs/adr/` 中，并使用连续编号，例如 `0001-slug.md`、`00
 
 **Order**:
 {用一两句话描述该术语}
-_避免使用_：Purchase、transaction
+_Avoid_：Purchase、transaction
 
 **Invoice**:
 交付后发送给 customer 的付款请求。
-_避免使用_：Bill、payment request
+_Avoid_：Bill、payment request
 
 **Customer**:
 下订单的人或组织。
-_避免使用_：Client、buyer、account
+_Avoid_：Client、buyer、account
 ```
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/domain-modeling/CONTEXT-FORMAT.md:25-36 -->

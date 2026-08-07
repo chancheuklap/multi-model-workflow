@@ -1,6 +1,8 @@
 # `improve-codebase-architecture` 1.2.2 翻译审查
 
-## 固定术语
+## 本技能术语应用
+
+共享术语只由 [上游技能翻译共享术语](../translation-terms.md) 定义。下表记录本技能的术语应用和独有术语，不建立第二份定义。
 
 | 上游原词 | 统一写法 | 理由 |
 | --- | --- | --- |
@@ -51,7 +53,7 @@
 | `SKILL.md:43` | 每候选一张卡片及内容引导已保留 |
 | `SKILL.md:45` | 文件字段和涉及文件 module 已保留 |
 | `SKILL.md:46` | 问题字段和架构摩擦原因已保留 |
-| `SKILL.md:47` | 方案字段和直白英语说明变化已保留 |
+| `SKILL.md:47` | 方案字段和直白语言说明变化已保留 |
 | `SKILL.md:48` | 收益字段用 locality、leverage 和测试改善说明均已保留 |
 | `SKILL.md:49` | Before After 并排自绘、展示 shallow 与 deepening 均已保留 |
 | `SKILL.md:50` | 三档 recommendation strength 和 badge 均已保留 |
@@ -145,7 +147,7 @@
 | `HTML-REPORT.md:102` | 首要推荐章节标题已保留 |
 | `HTML-REPORT.md:104` | 大卡片、候选名、一句原因、anchor link 和仅此而已均已保留 |
 | `HTML-REPORT.md:106` | Tone 译为“语气” |
-| `HTML-REPORT.md:108` | 直白英语、简洁、架构词直接来自技能和禁止以简洁为漂移借口均已保留 |
+| `HTML-REPORT.md:108` | 直白语言、简洁、架构词直接来自技能和禁止以简洁为漂移借口均已保留 |
 | `HTML-REPORT.md:110` | 必须准确使用的十个词均已保留 |
 | `HTML-REPORT.md:112` | 四组禁止替代词及其目标概念均已保留 |
 | `HTML-REPORT.md:114` | 合适措辞引导已保留 |

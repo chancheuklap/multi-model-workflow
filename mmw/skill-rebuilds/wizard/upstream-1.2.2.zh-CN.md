@@ -56,7 +56,7 @@ Wizard 默认是临时产物：为一次运行而构建，保存在 scratch 或 
 
 ### 4. 验证并交给用户
 
-- 运行 `bash -n <script>`；如果可以使用 ShellCheck，就运行 ShellCheck。
+- 运行 `bash -n <script>`；如果可以使用 `shellcheck`，就运行 `shellcheck`。
 - 运行 `chmod +x <script>`。
 - 不要自己端到端运行；脚本会打开浏览器并阻塞等待人工输入。改为静态追踪：第 1 步中的每个值都被捕获，并写入第 1 步所说的位置；每个 `set_secret` 名称都与 CI 中的一项 `secrets.*` 引用准确匹配。
 - 告诉用户如何运行。如果它是一条可重复的设置路径，就提交脚本，并从 README 链接它，使下一位用户直接运行脚本，不必询问 AI。

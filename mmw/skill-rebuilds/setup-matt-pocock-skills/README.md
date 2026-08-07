@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-第一阶段已经完成上游 `SKILL.md`、五份配置模板和 `agents/openai.yaml` 的逐行中文翻译。翻译保留 tracker 选择、triage label、领域文档布局、用户确认、Agent skills block 和三种 tracker 的 Wayfinding 操作，不加入 MMW 配置或 CLI 接线。
+第一阶段已经完成上游 `SKILL.md`、五份配置模板和 `agents/openai.yaml` 的逐行中文翻译。翻译保留 tracker 选择、triage label、领域文档布局、用户确认、Agent skills block 和三种 tracker 的 `Wayfinding operations`，不加入 MMW 配置或 CLI 接线。
 
 ## 文件
 

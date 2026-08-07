@@ -1,6 +1,8 @@
 # `domain-modeling` 1.2.2 翻译审查
 
-## 固定术语
+## 本技能术语应用
+
+共享术语只由 [上游技能翻译共享术语](../translation-terms.md) 定义。下表记录本技能的术语应用和独有术语，不建立第二份定义。
 
 | 上游原词 | 统一写法 | 理由 |
 | --- | --- | --- |
@@ -109,13 +111,13 @@
 | `CONTEXT-FORMAT.md:10` | Language 标题译为“语言” |
 | `CONTEXT-FORMAT.md:12` | Order 术语示例已保留 |
 | `CONTEXT-FORMAT.md:13` | 一两句术语描述占位符已翻译 |
-| `CONTEXT-FORMAT.md:14` | Avoid 和 Purchase、transaction 已保留 |
+| `CONTEXT-FORMAT.md:14` | `_Avoid_` 字面量和 Purchase、transaction 已保留 |
 | `CONTEXT-FORMAT.md:16` | Invoice 术语示例已保留 |
 | `CONTEXT-FORMAT.md:17` | 交付后向 customer 发送付款请求的定义已翻译 |
-| `CONTEXT-FORMAT.md:18` | Avoid 和 Bill、payment request 已保留 |
+| `CONTEXT-FORMAT.md:18` | `_Avoid_` 字面量和 Bill、payment request 已保留 |
 | `CONTEXT-FORMAT.md:20` | Customer 术语示例已保留 |
 | `CONTEXT-FORMAT.md:21` | 下订单的人或组织定义已翻译 |
-| `CONTEXT-FORMAT.md:22` | Avoid 和 Client、buyer、account 已保留 |
+| `CONTEXT-FORMAT.md:22` | `_Avoid_` 字面量和 Client、buyer、account 已保留 |
 | `CONTEXT-FORMAT.md:23` | 模板代码块结束已保留 |
 | `CONTEXT-FORMAT.md:25` | 规则标题已保留 |
 | `CONTEXT-FORMAT.md:27` | 明确主张、同概念多词、选最佳和其余列 Avoid 均已保留 |

@@ -7,7 +7,7 @@
 ```yaml
 ---
 name: grill-with-docs
-description: 通过毫不松懈的访谈把计划或设计磨清楚，并在过程中创建文档（ADR 和术语表）。
+description: 通过 relentless 访谈使计划或设计更加明确，并在过程中创建文档（ADR 和术语表）。
 disable-model-invocation: true
 ---
 ```
@@ -23,7 +23,7 @@ disable-model-invocation: true
 ```yaml
 interface:
   display_name: "Grill with Docs"
-  short_description: "追问一项设计，并编写相应文档"
+  short_description: "对一项设计进行 grilling，并编写相应文档"
 policy:
   allow_implicit_invocation: false
 ```

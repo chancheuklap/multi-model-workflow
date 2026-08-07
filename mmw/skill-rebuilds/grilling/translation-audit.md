@@ -1,15 +1,17 @@
 # `grilling` 1.2.2 翻译审查
 
-## 固定术语
+## 本技能术语应用
+
+共享术语只由 [上游技能翻译共享术语](../translation-terms.md) 定义。下表记录本技能的术语应用和独有术语，不建立第二份定义。
 
 | 上游原词 | 统一写法 | 理由 |
 | --- | --- | --- |
 | grilling、grill | `grilling`、`grill` | 技能名与触发语字面词 |
-| relentlessly | 毫不松懈 | 保留不能过早停止访谈的强度 |
+| relentlessly | `relentless` | 统一使用上游 leading word，与 writing-for-agents 保持同一 token |
 | design tree | 设计树 | 有准确、稳定的中文表达 |
 | frontier | `frontier` | 上游 leading word，也是 MMW canonical 术语 |
 | round | 轮 | 有稳定中文译名 |
-| prerequisite | 前置决定、前置条件 | 根据对象分别指已经确定的决定和正在探索的事实；不混同为 blocking edge |
+| prerequisite | 前置条件 | 统一指必须先确定的决定或事实；不混同为 blocking edge |
 | sub-agent | `subagent` | MMW canonical 术语，含义未改变 |
 | shared understanding | 共同理解 | MMW canonical 术语 |
 | fact、decision | 事实、决定 | 保留双方责任边界 |
@@ -22,10 +24,10 @@
 | --- | --- |
 | `SKILL.md:1` | YAML 起始分隔符已保留 |
 | `SKILL.md:2` | 技能名已保留 |
-| `SKILL.md:3` | 三类讨论对象、毫不松懈、压力测试和 grill 触发语均已保留 |
+| `SKILL.md:3` | 三类讨论对象、relentless 强度、压力测试和 grill 触发语均已保留 |
 | `SKILL.md:4` | YAML 结束分隔符已保留 |
 | `SKILL.md:6` | 持续访谈、共同理解和决定依赖形成设计树均已保留 |
-| `SKILL.md:8` | 按轮、frontier 定义、整轮提问、编号、推荐答案和等待均已保留 |
+| `SKILL.md:8` | 按轮、前置条件、frontier 定义、整轮提问、编号、推荐答案和等待均已保留 |
 | `SKILL.md:10` | 问题格式引导已翻译 |
 | `SKILL.md:12` | 代码块起始已保留 |
 | `SKILL.md:13` | 问题编号、标题、正文、多段落和多选项占位均已保留 |

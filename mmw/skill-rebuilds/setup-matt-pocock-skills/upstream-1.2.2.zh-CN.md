@@ -114,18 +114,18 @@ disable-model-invocation: true
 
 [用一行总结 issue 在哪里跟踪]。参见 `docs/agents/issue-tracker.md`。
 
-### Triage 标签
+### Triage labels
 
 [用一行总结标签词汇]。参见 `docs/agents/triage-labels.md`。
 
-### 领域文档
+### Domain docs
 
 [用一行总结布局，例如 "single-context" 或 "multi-context"]。参见 `docs/agents/domain.md`。
 ```
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/SKILL.md:102-116 -->
 
-只有安装了 `triage` 且运行了 B 节时，才加入 `### Triage 标签` 子区块，并写入 `docs/agents/triage-labels.md`。否则，两者都省略。
+只有安装了 `triage` 且运行了 B 节时，才加入 `### Triage labels` 子区块，并写入 `docs/agents/triage-labels.md`。否则，两者都省略。
 
 随后使用本技能目录中的初始模板作为起点，写入文档文件：
 
@@ -222,7 +222,7 @@ disable-model-invocation: true
 
 ## 把 PR 作为 triage 入口
 
-**把 PR 作为请求入口：no。** _如果本仓库把外部 PR 当成功能请求，就设为 `yes`；`/triage` 会读取这个标志位。_
+**PRs as a request surface: no.** _如果本仓库把外部 PR 当成功能请求，就设为 `yes`；`/triage` 会读取这个标志位。_
 
 设为 `yes` 时，PR 使用与 issue 相同的标签和状态，并使用对应的 `gh pr` 命令：
 
@@ -242,7 +242,7 @@ GitHub 的 issue 和 PR 共用一个编号空间，因此单独的 `#42` 可能�
 
 运行 `gh issue view <number> --comments`。
 
-## Wayfinding 操作
+## Wayfinding operations
 
 供 `/wayfinder` 使用。**map** 是一张 issue，**child** issue 是 ticket。
 
@@ -275,7 +275,7 @@ GitHub 的 issue 和 PR 共用一个编号空间，因此单独的 `#42` 可能�
 
 ## 把 Merge request 作为 triage 入口
 
-**把 MR 作为请求入口：no。** _如果本仓库把外部 merge request 当成功能请求，就设为 `yes`；`/triage` 会读取这个标志位。_
+**MRs as a request surface: no.** _如果本仓库把外部 merge request 当成功能请求，就设为 `yes`；`/triage` 会读取这个标志位。_
 
 设为 `yes` 时，MR 使用与 issue 相同的标签和状态，并使用对应的 `glab mr` 命令：
 
@@ -295,7 +295,7 @@ GitLab 与 GitHub 不同，issue 和 MR 分别编号，因此知道 maintainer �
 
 运行 `glab issue view <number> --comments`。
 
-## Wayfinding 操作
+## Wayfinding operations
 
 供 `/wayfinder` 使用。**map** 是一张 issue，**child** issue 是 ticket。
 
@@ -330,7 +330,7 @@ GitLab 与 GitHub 不同，issue 和 MR 分别编号，因此知道 maintainer �
 
 读取所引用路径中的文件。用户通常会直接传入路径或 issue 编号。
 
-## Wayfinding 操作
+## Wayfinding operations
 
 供 `/wayfinder` 使用。**map** 是一个文件，每张 ticket 对应一个 **child** 文件。
 
@@ -345,7 +345,7 @@ GitLab 与 GitHub 不同，issue 和 MR 分别编号，因此知道 maintainer �
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/setup-matt-pocock-skills/triage-labels.md:1-15 -->
 
-# Triage Label
+# Triage Labels
 
 各技能使用五种规范分诊角色。本文件把这些角色映射到本仓库 issue tracker 实际使用的标签字符串。
 

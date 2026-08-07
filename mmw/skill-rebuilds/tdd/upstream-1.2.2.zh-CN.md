@@ -51,9 +51,9 @@ TDD 是 red → green 循环。本技能是一份参考内容，使该循环产�
 - **每次一个切片。** 每轮一个 seam、一个测试、一份最小 implementation。
 - **重构不属于循环。** 它属于审查阶段，参见 `code-review` 技能；不属于 red → green implementation 循环。
 
-## `MOCKING.md`
+## `mocking.md`
 
-<!-- source: vendor/mattpocock-skills/skills/engineering/tdd/MOCKING.md:1-18 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/tdd/mocking.md:1-18 -->
 
 # 何时使用 Mock
 
@@ -74,7 +74,7 @@ TDD 是 red → green 循环。本技能是一份参考内容，使该循环产�
 
 在系统边界上，设计容易 mock 的 interface：
 
-<!-- source: vendor/mattpocock-skills/skills/engineering/tdd/MOCKING.md:20-35 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/tdd/mocking.md:20-35 -->
 
 **1. 使用依赖注入**
 
@@ -93,7 +93,7 @@ function processPayment(order) {
 }
 ```
 
-<!-- source: vendor/mattpocock-skills/skills/engineering/tdd/MOCKING.md:37-59 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/tdd/mocking.md:37-59 -->
 
 **2. 优先使用 SDK 风格的 interface，不要使用通用 fetcher**
 
@@ -119,9 +119,9 @@ SDK 方式意味着：
 - 更容易看出一项测试执行了哪些端点
 - 每个端点都有类型安全
 
-## `TESTS.md`
+## `tests.md`
 
-<!-- source: vendor/mattpocock-skills/skills/engineering/tdd/TESTS.md:1-23 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/tdd/tests.md:1-23 -->
 
 # 良好测试与不良测试
 
@@ -147,7 +147,7 @@ test("用户可以使用有效购物车结账", async () => {
 - 描述**做什么**，不描述**如何做**
 - 每项测试只有一项逻辑断言
 
-<!-- source: vendor/mattpocock-skills/skills/engineering/tdd/TESTS.md:25-45 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/tdd/tests.md:25-45 -->
 
 ## 不良测试
 
@@ -171,7 +171,7 @@ test("checkout 调用 paymentService.process", async () => {
 - 测试名称描述**如何做**，不描述**做什么**
 - 不通过 interface，而通过外部手段验证
 
-<!-- source: vendor/mattpocock-skills/skills/engineering/tdd/TESTS.md:47-61 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/tdd/tests.md:47-61 -->
 
 ```typescript
 // 差：绕过 interface 进行验证
@@ -189,7 +189,7 @@ test("createUser 使用户可以被取得", async () => {
 });
 ```
 
-<!-- source: vendor/mattpocock-skills/skills/engineering/tdd/TESTS.md:63-77 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/tdd/tests.md:63-77 -->
 
 **同义反复测试**：期望值重新陈述 implementation，因此测试按照构造方式必然通过。
 

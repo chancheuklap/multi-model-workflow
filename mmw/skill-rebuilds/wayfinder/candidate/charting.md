@@ -10,7 +10,7 @@
 
    给这项 effort 确定一个 `产物目录`。它是 prototype、research、evidence 和 scratch 共用的单个安全路径段。运行 `mmw path scratch <产物目录>` 验证该值；map 创建后保持不变。
 
-2. **map frontier。** 再次 grilling，这次采用 **breadth-first**：在整个空间铺开，不在任何一条问题线上深入。找出 open 的决定，以及当前可以采取的起始步骤。**如果这一步没有发现 fog**，通往 destination 的路线已经清楚，整个过程也足够小，能够放进一个 session，因此不需要 map。停止并询问用户接下来想怎样进行。
+2. **map frontier。** 再次 grilling，这次采用**广度优先**方式：在整个空间铺开，不在任何一条问题线上深入。找出 open 的决定，以及当前可以采取的起始步骤。**如果这一步没有发现 fog**，通往 destination 的路线已经清楚，整个过程也足够小，能够放进一个 session，因此不需要 map。停止并询问用户接下来想怎样进行。
 
 3. **创建 map**，并添加 `wayfinder:map` 标签。填写 Destination 和 Notes；Decisions so far 留空；把 fog 的轮廓写入 **Not yet specified**。
 

@@ -1,6 +1,8 @@
 # `prototype` 1.2.2 翻译审查
 
-## 固定术语
+## 本技能术语应用
+
+共享术语只由 [上游技能翻译共享术语](../translation-terms.md) 定义。下表记录本技能的术语应用和独有术语，不建立第二份定义。
 
 | 上游原词 | 统一写法 | 理由 |
 | --- | --- | --- |
@@ -17,7 +19,7 @@
 | sub-shape | 子形态 | 两种 UI 承载形态的固定称呼 |
 | switcher | 切换器 | 有准确中文译名，并与 active MMW 一致 |
 | route、page、memory、database | 路由、页面、内存、数据库 | 使用正统中文技术术语 |
-| primary affordance | 主要操作方式 | 保留设计中的主要操作线索，不缩成按钮 |
+| primary affordance | `primary affordance` | 设计术语没有稳定且等价的中文专名；不缩成操作方式或按钮 |
 
 ## 逐行完整性检查
 
@@ -61,7 +63,7 @@
 | `LOGIC.md:28` | pure reducer 签名、离散 event 和单一 state value 适用条件均已保留 |
 | `LOGIC.md:29` | 状态机、显式 state 与 transition，以及合法 action 是问题时适用均已保留 |
 | `LOGIC.md:30` | 普通 data type 上 pure function 集合，以及无隐式 current state 只有 transformation 的条件均已保留 |
-| `LOGIC.md:31` | class 或 module、清晰 method surface 和持续 internal state 条件均已保留 |
+| `LOGIC.md:31` | class 或 module、清晰方法集合和持续 internal state 条件均已保留 |
 | `LOGIC.md:33` | 按问题而非接 page 难度选形态、pure 禁止三项、单向调用，以及验证 logic 可独立移入真实 module 均已保留 |
 | `LOGIC.md:35` | 第 3 步构建可分享 HTML 已保留 |
 | `LOGIC.md:37` | 单文件、原生三技术、无三类工具、全部内联、双击、email 后运行和任何人可打开均已保留 |
@@ -133,7 +135,7 @@
 | `UI.md:77` | 第 4 步构建悬浮 switcher 已保留 |
 | `UI.md:79` | 屏幕底部中央 fixed bar 和三个部分均已保留 |
 | `UI.md:81` | 左箭头、前一 variant 和循环已保留 |
-| `UI.md:82` | label 显示 key、可选 export name 和 B 示例均已保留 |
+| `UI.md:82` | label 显示 key 和可选 export name 均已保留；可见界面示例 `B — Sidebar layout` 已本地化为 `B — 侧边栏布局`，不把普通界面文案误作代码字面量 |
 | `UI.md:83` | 右箭头、向前和循环已保留 |
 | `UI.md:85` | 行为引导已保留 |
 | `UI.md:87` | click 更新 URL、使用 framework router、两个框架例子、可分享和 reload 稳定均已保留 |

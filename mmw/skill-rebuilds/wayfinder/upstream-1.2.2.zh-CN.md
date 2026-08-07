@@ -4,37 +4,39 @@ description: 把一项庞大的工作规划成 issue tracker 上由 decision tic
 disable-model-invocation: true
 ---
 
-<!-- upstream: 7 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:1-5 -->
+
+<!-- source: vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:7 -->
 
 一个松散的想法出现了。它太大，一次 agent session 容纳不下，而且被 fog 包围：从这里到 **destination** 的路线还看不见。Wayfinding 负责找到这条路线，不是径直冲向 destination。本技能把这条路线 chart 成仓库 issue tracker 上的一张**共享 map**，再逐张处理它的 **decision ticket**。decision ticket 承载的问题在解决后得到一个决定，不是等待执行的构建切片。每次处理一张，直到路线清楚。
 
-<!-- upstream: 9 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:9 -->
 
-destination 随 effort 而异。给它命名是 charting 的第一个动作，因为它会塑造后面的每一张 ticket。destination 可能是一份要交给下游继续迭代的 spec，可能是开始规划前必须锁定的一个决定，也可能是一次就地完成的改动，例如数据结构迁移。map 是 domain-agnostic 的；工程工作、课程内容或其他符合这种形态的工作都可以使用。
+destination 随 effort 而异。给它命名是 charting 的第一个动作，因为它会塑造后面的每一张 ticket。destination 可能是一份要交给下游继续迭代的 spec，可能是开始规划前必须锁定的一个决定，也可能是一次就地完成的改动，例如数据结构迁移。map 与领域无关；工程工作、课程内容或其他符合这种形态的工作都可以使用。
 
-<!-- upstream: 11-13 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:11-13 -->
 
 ## 规划，不执行
 
 Wayfinder 默认负责**规划**。每张 ticket 解决一个决定；当路线清楚时，map 就完成了：在有人开始执行那件事之前，已经没有决定尚待解决。想要直接开始执行，通常说明你已经抵达 map 的边界，现在应该交给下游。某项 effort 可以在 **Notes** 中覆盖这项默认行为，把执行也带进 map。没有这项覆盖时，产出决定，不产出交付物。
 
-<!-- upstream: 15-17 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:15-17 -->
 
 ## 用名称称呼
 
-每张 map 和 ticket 都是一张 issue，因此都有一个**名称**，也就是它的标题。在所有给人阅读的内容中，包括叙述和 map 的 Decisions so far，都使用名称称呼它；绝不使用裸的 id、编号或 slug。一整面 `#42、#43、#44` 无法阅读，名称则能让人一眼看懂。id 和 URL 不会消失；名称包裹对应链接。id 和 URL 位于名称内部，绝不代替名称单独出现。
+每张 map 和 ticket 都是一张 issue，因此都有一个**名称**，也就是它的标题。在所有给人阅读的内容中，包括叙述和 map 的 Decisions so far，都使用名称称呼它；绝不使用裸的 id、编号或 slug。一整面 `#42, #43, #44` 无法阅读，名称则能让人一眼看懂。id 和 URL 不会消失；名称包裹对应链接。id 和 URL 位于名称内部，绝不代替名称单独出现。
 
-<!-- upstream: 19-25 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:19-25 -->
 
 ## Map
 
-map 是当前仓库 issue tracker 上的一张 issue，带 `wayfinder:map` 标签。它是 canonical artifact。map 的 ticket 是它的子 issue。
+map 是当前仓库 issue tracker 上的一张 issue，带 `wayfinder:map` 标签。它是权威产物。map 的 ticket 是它的子 issue。
 
 map 是**索引**，不是存储库。它列出已经形成的决定，并指向保存细节的 ticket。一个决定只存在于一个地方，也就是它自己的 ticket。因此，map 绝不复述决定，只写一句概要并提供链接。
 
-map、它的子 ticket、blocking 和 frontier 查询具体存放在哪里，是 tracker-specific 的。issue tracker 应该已经提供给你；如果没有，运行 `/setup-matt-pocock-skills`。查阅 tracker 文档中的“Wayfinding operations”一节，确认当前仓库如何表达这些对象。如果没有提供 tracker，默认使用 local-markdown tracker。
+map、它的子 ticket、blocking 和 frontier 查询具体存放在哪里，由具体 tracker 决定。issue tracker 应该已经提供给你；如果没有，运行 `/setup-matt-pocock-skills`。查阅 tracker 文档中的“Wayfinding operations”一节，确认当前仓库如何表达这些对象。如果没有提供 tracker，默认使用 local-markdown tracker。
 
-<!-- upstream: 27-53 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:27-53 -->
 
 ### map 正文
 
@@ -64,7 +66,7 @@ map 正文是整个 map 的低分辨率视图。每个 session 加载一次。op
 <!-- 见“Out of scope”：已经判定越过 destination 的工作；关闭，并且永远不会转成 ticket。 -->
 ```
 
-<!-- upstream: 55-71 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:55-71 -->
 
 ### Tickets
 
@@ -80,22 +82,22 @@ map 正文是整个 map 的低分辨率视图。每个 session 加载一次。op
 
 一个 session 通过把 ticket 指派给推动这张 map 的开发者来 **claim** 它。claim 必须发生在任何工作之前，使并发 session 能够跳过这张 ticket。assignee 就是 claim：open 且没有 assignee 的 ticket 是 unclaimed。
 
-blocking 使用 tracker 的 **native dependency relationship**。这一点很重要，因为 tracker 会在自己的 UI 中把 frontier **可视化**，人不需要打开 map 就能看见当前可以处理的内容。只有缺少 native blocking 的 tracker 才退回正文约定。一张 ticket 的所有 blocker 都已关闭时，它才是 unblocked。**frontier** 是 open、unblocked、unclaimed 的子 issue，也就是已知区域的边缘。
+blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 tracker 会在自己的 UI 中把 frontier **可视化**，人不需要打开 map 就能看见当前可以处理的内容。只有缺少原生 blocking 的 tracker 才退回正文约定。一张 ticket 的所有 blocker 都已关闭时，它才是 unblocked。**frontier** 是 open、unblocked、unclaimed 的子 issue，也就是已知区域的边缘。
 
 答案不属于 ticket 正文。答案在 ticket 解决时记录，见[走完整张 map](#走完整张-map)。解决 ticket 期间建立的资产从 issue 链接，不粘贴进正文。
 
-<!-- upstream: 73-80 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:73-80 -->
 
 ## Ticket 类型
 
 每张 ticket 要么是 **HITL**，即 human in the loop，由一个亲自表达意见的人与 agent 共同处理；要么是 **AFK**，由 agent 独立推动。HITL ticket 只能通过这场实时交流解决；agent 绝不代替人的一方回答。一个 grilling agent 自己回答自己的问题，就已经破坏了这项合同。
 
 - **Research**（AFK）：阅读文档、第三方 API 或本地知识库等资源，找出某项决定正在等待的事实。由一个 `/research` **subagent** 解决。需要当前工作目录之外的知识时使用。
-- **Prototype**（HITL）：制作一个便宜、粗糙、具体、可供回应的产物，提高讨论的保真度。产物可以是一份 outline、一个 rough take、一个 stub，也可以是通过 `/prototype` 技能制作的 UI 或逻辑代码。把 prototype 作为资产链接到 ticket。关键问题是“它应该长什么样”或“它应该怎样表现”时使用。
+- **Prototype**（HITL）：制作一个低成本、粗糙、具体、可供回应的产物，提高讨论的保真度。产物可以是一份提纲、一个粗略版本、一个 stub，也可以是通过 `/prototype` 技能制作的 UI 或逻辑代码。把 prototype 作为资产链接到 ticket。关键问题是“它应该长什么样”或“它应该怎样表现”时使用。
 - **Grilling**（HITL）：对话。默认情况。始终调用 `/grilling` 和 `/domain-modeling` 技能。
 - **Task**（HITL 或 AFK）：形成一个**决定**之前必须完成的手工工作。此时没有需要讨论的决定，也不需要 prototype 或 research，但讨论必须等这项工作完成才能继续。例如注册一个服务以便评估它的 API、开通访问权限，或者移动数据以便看清数据形状。这是唯一一种执行操作而不形成决定的类型。它通过解除一个决定的 blocker 取得存在理由，不通过交付 destination 取得存在理由。agent 能独立推动时，由 agent 独立完成（AFK）；否则，向用户提供精确清单（HITL）。工作完成时，ticket 才算解决。答案记录完成了什么，以及后续 ticket 依赖的结果事实，例如凭证位置、新 URL 和行数。
 
-<!-- upstream: 82-93 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:82-93 -->
 
 ## Fog of war
 
@@ -110,7 +112,7 @@ map 的 **Not yet specified** 一节记录这片模糊视野：怀疑存在的�
 
 **Not yet specified** 不包含已经决定的内容（Decisions so far）、已经存在的 open ticket，以及范围外内容（见下一节）。
 
-<!-- upstream: 95-101 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:95-101 -->
 
 ## Out of scope
 
@@ -120,7 +122,7 @@ out-of-scope 工作永远不会转成 ticket；frontier 在 destination 停止�
 
 rule out of scope 是一项范围决定，不是路线上的一步。如果一张已经存在的 ticket 后来被证明位于 destination 之外，例如 charting 时错误地把它纳入范围，或者某次解决结果暴露了这个事实，就**关闭它**。关闭的 ticket 会明确地离开 frontier。随后在 **Out of scope** 中留下一行：概要、越界理由，以及指向已关闭 ticket 的链接。它不进入 **Decisions so far**；后者只记录实际走过的路线，而范围边界不是路线上的一步。
 
-<!-- upstream: 103-116 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:103-116 -->
 
 ## 调用方式
 
@@ -131,13 +133,13 @@ rule out of scope 是一项范围决定，不是路线上的一步。如果一�
 用户带着一个松散的想法调用。
 
 1. **给 destination 命名。** 运行一场 `/grilling` 和 `/domain-modeling` session，确定这张 map 正在寻找的 spec、决定或改动。destination 固定范围，所以先确定它。
-2. **map frontier。** 再次 grilling，这次采用 **breadth-first**：在整个空间铺开，不在任何一条问题线上深入。找出 open 的决定，以及当前可以采取的起始步骤。**如果这一步没有发现 fog**，通往 destination 的路线已经清楚，整个过程也足够小，能够放进一个 session，因此不需要 map。停止并询问用户接下来想怎样进行。
+2. **map frontier。** 再次 grilling，这次采用**广度优先**方式：在整个空间铺开，不在任何一条问题线上深入。找出 open 的决定，以及当前可以采取的起始步骤。**如果这一步没有发现 fog**，通往 destination 的路线已经清楚，整个过程也足够小，能够放进一个 session，因此不需要 map。停止并询问用户接下来想怎样进行。
 3. **创建 map**，并添加 `wayfinder:map` 标签。填写 Destination 和 Notes；Decisions so far 留空；把 fog 的轮廓写入 **Not yet specified**。
 4. 把**当前能够精确表述的 ticket 全部创建出来**，作为 map 的子 issue。随后在**第二遍** wire blocking edge，因为 issue 取得 id 后才能互相引用。wire 完成后，这些 ticket 会分成 frontier 和 blocked 两组。当前仍无法精确表述的所有内容继续留在 fog，也就是 **Not yet specified** 一节。
 5. **启动 research subagent。** 对刚创建的每张 `research` ticket，启动一个 `/research` subagent 并行解决。把调查结果保存在 throwaway `research/<name>` branch 上，并在 ticket 中留下指向该 branch 的 context pointer。
 6. 停止。charting 是一个 session 的工作；这个 session 不亲手解决任何 ticket。
 
-<!-- upstream: 118-128 -->
+<!-- source: vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md:118-128 -->
 
 ### 走完整张 map
 
@@ -150,3 +152,15 @@ rule out of scope 是一项范围决定，不是路线上的一步。如果一�
 5. 添加 newly-surfaced ticket，采用 **create-then-wire**：先创建，再连接 blocking edge。把这次答案已经变得可以精确表述的 fog 转成 ticket；每块转成 ticket 的 fog 都要从 **Not yet specified** 删除，使它只存在于新 ticket 中。如果答案表明某张 ticket 位于 destination 之外，无论是当前 ticket 还是另一张 ticket，都把它 **rule out of scope**，不要把它当作路线上的决定来解决。如果这项决定使 map 的其他部分失效，更新或删除对应 ticket。
 
 用户可以并行处理没有阻塞的 ticket。因此，要预期其他 session 会同时编辑 tracker。
+
+## `agents/openai.yaml`
+
+<!-- source: vendor/mattpocock-skills/skills/engineering/wayfinder/agents/openai.yaml:1-5 -->
+
+```yaml
+interface:
+  display_name: "Wayfinder"
+  short_description: "把一项大型 effort map 成 decision ticket"
+policy:
+  allow_implicit_invocation: false
+```

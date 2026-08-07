@@ -23,15 +23,15 @@ description: 设计 deep module 的共享词汇。用户想要设计或改进 mo
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/codebase-design/SKILL.md:14-28 -->
 
-**Module**——任何具有 interface 和 implementation 的内容。有意不限定规模：它可以是函数、类、软件包，也可以是跨层切片。_避免使用_：unit、component、service。
+**Module**——任何具有 interface 和 implementation 的内容。有意不限定规模：它可以是函数、类、软件包，也可以是跨层切片。_Avoid_：unit、component、service。
 
-**Interface**——调用方为了正确使用 module 而必须知道的一切：包括类型签名，也包括不变量、顺序约束、错误模式、必需配置和性能特征。_避免使用_：API、signature。后两者过于狭窄，只指类型层面的表面。
+**Interface**——调用方为了正确使用 module 而必须知道的一切：包括类型签名，也包括不变量、顺序约束、错误模式、必需配置和性能特征。_Avoid_：API、signature。后两者过于狭窄，只涉及类型层面的接口形态。
 
 **Implementation**——module 内部的内容，也就是它的代码主体。它不同于 **Adapter**：一个对象可以是小型 adapter，却有大型 implementation，例如 Postgres 仓储；也可以是大型 adapter，却有小型 implementation，例如内存假实现。讨论 seam 时使用 `adapter`，其他时候使用 `implementation`。
 
 **Depth**——interface 上的 leverage：调用方或测试每学习一个单位的 interface，能够使用多少行为。当大量行为位于小型 interface 后面时，module 是 **deep** 的；当 interface 几乎与 implementation 一样复杂时，module 是 **shallow** 的。
 
-**Seam**（Michael Feathers）——无需在某个位置编辑，就能改变行为的位置；也就是 module interface 所处的**位置**。seam 放在哪里本身就是一项设计决定，不同于 seam 后面放什么。_避免使用_：boundary，因为它与 DDD 的 bounded context 含义重叠。
+**Seam**（Michael Feathers）——无需在某个位置编辑，就能改变行为的位置；也就是 module interface 所处的**位置**。seam 放在哪里本身就是一项设计决定，不同于 seam 后面放什么。_Avoid_：boundary，因为它与 DDD 的 bounded context 含义重叠。
 
 **Adapter**——在一个 seam 上满足某个 interface 的具体对象。它描述的是**角色**，也就是填补哪个位置，不是实质，也就是内部有什么。
 
@@ -77,7 +77,7 @@ description: 设计 deep module 的共享词汇。用户想要设计或改进 mo
 
 - **Depth 是 interface 的属性，不是 implementation 的属性。** deep module 的内部可以由小型、可 mock、可替换的部分组成；这些部分只是不属于 interface。module 可以有 **internal seam**，由自己的测试使用，并且只在 implementation 内部可见；也可以在 interface 上有 **external seam**。
 - **`deletion test`。** 想象删除这个 module。如果复杂性消失了，它原本只是透传。如果复杂性重新出现在 N 个调用方中，它原本发挥了应有价值。
-- **Interface 就是测试表面。** 调用方和测试穿过同一个 seam。如果你想越过 interface 进行测试，这个 module 的形状可能有误。
+- **Interface 就是 test surface。** 调用方和测试穿过同一个 seam。如果你想越过 interface 进行测试，这个 module 的形状可能有误。
 - **一个 adapter 意味着假设性的 seam；两个 adapter 意味着真实 seam。** 除非确实有内容会跨越 seam 发生变化，否则不要引入 seam。
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/codebase-design/SKILL.md:67-95 -->
@@ -175,7 +175,7 @@ description: 设计 deep module 的共享词汇。用户想要设计或改进 mo
 ## 测试策略：替换，不要叠加
 
 - 一旦 deepening 后的 module interface 上已经存在测试，原先针对 shallow module 的单元测试就变成了浪费；删除它们。
-- 在 deepening 后的 module interface 上编写新测试。**Interface 就是测试表面。**
+- 在 deepening 后的 module interface 上编写新测试。**Interface 就是 test surface。**
 - 测试通过 interface 断言可观察结果，不要断言内部状态。
 - 测试应当能承受内部 refactor：测试描述行为，不描述 implementation。如果 implementation 改变时测试也必须改变，说明测试越过了 interface。
 
@@ -209,14 +209,14 @@ description: 设计 deep module 的共享词汇。用户想要设计或改进 mo
 
 使用 Agent 工具并行派出至少 3 个 subagent。每个 subagent 都必须为 deepening 后的 module 产出一个**截然不同**的 interface。
 
-向每个 subagent 提供一份独立的技术 task，包括文件路径、耦合细节、[DEEPENING.md](DEEPENING.md) 中的依赖分类，以及 seam 后面的内容。这份 task 独立于第 1 步中面向用户的问题空间说明。为每个 agent 指定不同的设计约束：
+向每个 subagent 提供一份独立的 technical brief，包括文件路径、耦合细节、[DEEPENING.md](DEEPENING.md) 中的依赖分类，以及 seam 后面的内容。这份 brief 独立于第 1 步中面向用户的问题空间说明。为每个 agent 指定不同的设计约束：
 
 - Agent 1：“让 interface 最小化，最多只提供 1 至 3 个入口。让每个入口的 leverage 最大化。”
 - Agent 2：“让灵活性最大化，支持许多使用场景和扩展方式。”
 - Agent 3：“为最常见的调用方进行优化，让默认情况变得简单。”
 - Agent 4（如果适用）：“围绕 Ports & Adapters 设计跨 seam 依赖。”
 
-在 task 中同时包含 [SKILL.md](SKILL.md) 词汇和 `CONTEXT.md` 词汇，使每个 subagent 的命名都同时符合架构语言和项目领域语言。
+在 brief 中同时包含 [SKILL.md](SKILL.md) 词汇和 `CONTEXT.md` 词汇，使每个 subagent 的命名都同时符合架构语言和项目领域语言。
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/codebase-design/DESIGN-IT-TWICE.md:32-38 -->
 

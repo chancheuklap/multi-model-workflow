@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-第一阶段已经完成上游 `SKILL.md`、`MOCKING.md`、`TESTS.md` 和 `agents/openai.yaml` 的逐行中文翻译。翻译保留良好测试定义、预先确认 seam、三类反模式、red-green 循环、mock 边界和测试例子，不加入 MMW 审查或实施接线。
+第一阶段已经完成上游 `SKILL.md`、`mocking.md`、`tests.md` 和 `agents/openai.yaml` 的逐行中文翻译。翻译保留良好测试定义、预先确认 seam、三类反模式、red-green 循环、mock 边界和测试例子，不加入 MMW 审查或实施接线。
 
 ## 文件
 

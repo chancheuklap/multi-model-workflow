@@ -17,7 +17,7 @@ description: "需要解决正在进行的 Git merge 或 rebase 冲突时使用�
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/resolving-merge-conflicts/SKILL.md:8 -->
 
-2. **找出每处冲突的一手来源。** 深入理解每项改动为何产生，以及它原本的意图。阅读提交信息，并检查原始 PR、issue 或 ticket。
+2. **找出每处冲突的一手来源。** 深入理解每项改动为何产生，以及它原本的意图。阅读提交信息，检查 PR，并检查原始 issue 或 ticket。
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/resolving-merge-conflicts/SKILL.md:10 -->
 

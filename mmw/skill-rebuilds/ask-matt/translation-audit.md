@@ -1,11 +1,13 @@
 # `ask-matt` 1.2.2 翻译审查
 
-## 固定术语
+## 本技能术语应用
+
+共享术语只由 [上游技能翻译共享术语](../translation-terms.md) 定义。下表记录本技能的术语应用和独有术语，不建立第二份定义。
 
 | 上游原词 | 统一写法 | 理由 |
 | --- | --- | --- |
 | flow、main flow | 流程、主流程 | 使用标准中文，并保留层级 |
-| on-ramp | 汇入路径 | 表达生成工作后并入主流程的关系 |
+| on-ramp | `on-ramp` | 流程图中的上游方法词，没有稳定且等价的中文专名 |
 | context window | 上下文窗口 | 标准中文译名 |
 | session | `session` | 不与上下文窗口或宿主任务混同 |
 | skill | 技能 | 标准中文译名 |
@@ -30,7 +32,7 @@
 | `SKILL.md:5` | YAML 结束分隔符已保留 |
 | `SKILL.md:7` | `Ask Matt` 标题已保留 |
 | `SKILL.md:9` | 不记得所有技能时直接询问已保留 |
-| `SKILL.md:11` | 流程定义、主流程、两条汇入路径和其他内容独立或位于底层均已保留；没有纠正上游所写的数量 |
+| `SKILL.md:11` | 流程定义、主流程、两条 on-ramp 和其他内容独立或位于底层均已保留；没有纠正上游所写的数量 |
 | `SKILL.md:13` | 主流程的 idea 到 ship 方向已译为“想法到交付” |
 | `SKILL.md:15` | 多数工作经过、从想法到构建均已保留 |
 | `SKILL.md:17` | grill-with-docs 访谈、工作目录触发、有状态、两个持久文档、无目录 fallback、共享 grilling 原语、书面记录和有仓库时更优均已保留 |
@@ -45,11 +47,11 @@
 | `SKILL.md:28` | `Context hygiene` 译为“上下文管理” |
 | `SKILL.md:30` | 第 1 至 3 步保持同一窗口、to-tickets 前不 compact 或 clear、三阶段共享思考，以及每次 implement 从 ticket 和新上下文开始均已保留 |
 | `SKILL.md:32` | smart zone、约 15 万 token、推理敏锐范围、to-tickets 前接近上限、禁止退化推进和最近阶段边界 compact 均已保留 |
-| `SKILL.md:34` | `On-ramps` 译为“汇入路径” |
+| `SKILL.md:34` | `On-ramps` 方法标题已保留 |
 | `SKILL.md:36` | 起始情形产生工作并并入主流程的定义已保留 |
 | `SKILL.md:38` | bug 与请求堆积进入 triage、经过角色、产出 agent-ready issue 和 implement 后续认领均已保留 |
 | `SKILL.md:40` | triage 只处理非自己创建的原始 issue、三类例子和禁止 triage to-tickets 产物均已保留 |
-| `SKILL.md:42` | 损坏进入 diagnosing-bugs、三类困难 bug、先取得本 bug 变红的单命令反馈循环、拒绝过早理论、回归测试修复和无 seam 时移交架构改进均已保留 |
+| `SKILL.md:42` | 损坏进入 diagnosing-bugs、三类困难 bug、先取得会因本 bug 变成 red 的 tight 单命令反馈循环、拒绝过早理论、回归测试修复和无 seam 时移交架构改进均已保留 |
 | `SKILL.md:44` | 巨大模糊 effort、两个例子、单 session 上限、wayfinder 认知负担、道路不可见、共享 map、decision ticket、逐张解决、决定而非交付物、清雾、与 grilling 的边界和禁止用于范围明确功能均已保留 |
 | `SKILL.md:46` | map 清晰后移交而不构建、在 to-spec 并入、归并关联决定、正常进入 to-tickets 与 implement、禁止直接循环及小型 effort 例外均已保留 |
 | `SKILL.md:48` | `Codebase health` 译为“代码库健康” |
@@ -66,7 +68,7 @@
 | `SKILL.md:67` | handoff 的可移植 Markdown、四项窄条件和可移植性收益均已保留 |
 | `SKILL.md:68` | Subagent 的严格范围 task、独立窗口和返回报告均已保留 |
 | `SKILL.md:69` | compact 压缩、初始化新 session、默认但位于树底部而非首选均已保留 |
-| `SKILL.md:71` | reference 链接、有序树、五个问题、分支理由、一手来源成本、先判断 Continue、边界时点和阶段中途仅继续或拆 subagent 均已保留 |
+| `SKILL.md:71` | reference 链接、有序树、五个问题、分支理由、一手来源成本、只有不能 Continue 才考虑其他选项、边界时点和阶段中途仅继续或拆 subagent 均已保留 |
 | `SKILL.md:73` | `Standalone` 译为“独立技能” |
 | `SKILL.md:75` | 完全位于主流程之外已保留 |
 | `SKILL.md:77` | grill-me 同访谈、无状态、无本地保存、无 CONTEXT、无工作目录条件、四类内容、有目录时改用 grill-with-docs 和后者严格更优均已保留 |
@@ -76,7 +78,7 @@
 | `SKILL.md:81` | research 委托后台 agent 阅读、一手来源、带引用 Markdown、并行继续工作、产物进入 grilling 和提供材料但不取代思考均已保留 |
 | `SKILL.md:82` | to-questionnaire 的外部知识阻塞、供他人填写、grill-me 反向形式、采访发送对象和所需结果、问题对准缺口及回流两项技能均已保留 |
 | `SKILL.md:83` | wizard 只用于人类步骤、五类例子、交互 Bash、打开 URL、捕获值、写入两类位置、避免重复解释、模型调用时点、agent 能做则自己做和确需人类的边界均已保留 |
-| `SKILL.md:84` | wait-what 的纠正目的、任意技能中途、补上下文、直白英语、CONTEXT 词汇、事后作用和 grilling 事前预防均已保留 |
+| `SKILL.md:84` | wait-what 的纠正目的、任意技能中途、补上下文、直白语言、CONTEXT 词汇、事后作用和 grilling 事前预防均已保留 |
 | `SKILL.md:85` | teach 跨 session 学习和当前目录有状态工作区已保留 |
 | `SKILL.md:86` | writing-for-agents 的 agent 文档 reference 和三类对象均已保留 |
 | `SKILL.md:88` | `Precondition` 译为“前置条件” |
@@ -94,7 +96,7 @@
 | `PHASE-BOUNDARIES.md:15` | compact 压缩上下文并以摘要初始化新 session 已保留 |
 | `PHASE-BOUNDARIES.md:17` | `The tree` 译为“决策树” |
 | `PHASE-BOUNDARIES.md:19` | 边界上从上到下判断和第一个是获胜均已保留 |
-| `PHASE-BOUNDARIES.md:21` | Continue 问题、两个为是的条件、一手来源、smart zone、15 万 token、grilling 到 implementation 案例、需要逐字推理而非摘要，以及最先判断的理由均已保留 |
+| `PHASE-BOUNDARIES.md:21` | Continue 问题、两个为是的条件、一手来源、smart zone、15 万 token、grilling 到 implementation 案例、需要逐字推理而非摘要，以及只有答案为否才考虑其他选项均已保留 |
 | `PHASE-BOUNDARIES.md:23` | context 是否无关、三类可丢弃内容、clear、最低成本、零时间、归还窗口和旧 session 可恢复均已保留 |
 | `PHASE-BOUNDARIES.md:25` | 错误成本单向、清除相关上下文丢失原因和重读 diff 无法取回均已保留 |
 | `PHASE-BOUNDARIES.md:27` | handoff 问题、适用范围窄和只有四种情形已保留 |
@@ -113,7 +115,7 @@
 | `PHASE-BOUNDARIES.md:48` | 一手来源 Continue 的完整、多噪声和少空间已保留 |
 | `PHASE-BOUNDARIES.md:49` | 二手来源 compact 与 handoff 的有损、少噪声和多空间已保留 |
 | `PHASE-BOUNDARIES.md:51` | 问题 1 优先和仅在留下成本更高时接受有损均已保留 |
-| `PHASE-BOUNDARIES.md:53` | 判断题标题已保留 |
+| `PHASE-BOUNDARIES.md:53` | 这些事项都需要判断的标题已保留 |
 | `PHASE-BOUNDARIES.md:55` | 非客观、包含判断、同边界可有不同结果，以及依次在边界而非中途提问的价值均已保留 |
 | `agents/openai.yaml:1` | `interface` 字段已保留 |
 | `agents/openai.yaml:2` | `display_name: "Ask Matt"` 已保留 |
@@ -127,5 +129,5 @@
 | --- | --- |
 | 遗漏 | 无。三个上游文件的每个非空行都有对应译文和独立检查记录 |
 | 增写 | 无。没有加入 MMW 入口、角色、CLI、tracker、worktree 或宿主物化接线 |
-| 曲解 | 无。主流程、汇入路径、独立技能和阶段边界决策树的先后与完成关系保持原样 |
+| 曲解 | 无。主流程、on-ramp、独立技能和阶段边界决策树的先后与完成关系保持原样 |
 | 术语漂移 | 无。流程、阶段边界、session、上下文窗口、subagent、一手来源和二手来源使用一致 |

@@ -1,6 +1,8 @@
 # `tdd` 1.2.2 翻译审查
 
-## 固定术语
+## 本技能术语应用
+
+共享术语只由 [上游技能翻译共享术语](../translation-terms.md) 定义。下表记录本技能的术语应用和独有术语，不建立第二份定义。
 
 | 上游原词 | 统一写法 | 理由 |
 | --- | --- | --- |
@@ -45,112 +47,112 @@
 | `SKILL.md:36` | red 先 green 后、先失败测试、仅足够代码、禁止预判和推测功能均已保留 |
 | `SKILL.md:37` | 每轮一 seam、一测试、一最小 implementation 均已保留 |
 | `SKILL.md:38` | 重构不属于循环、属于审查、code-review 链接和不属 red-green implementation 均已保留 |
-| `MOCKING.md:1` | When to Mock 标题已翻译 |
-| `MOCKING.md:3` | 只在系统边界 mock 已保留 |
-| `MOCKING.md:5` | 外部 API 和支付电子邮件例子已保留 |
-| `MOCKING.md:6` | 数据库有时 mock 且优先测试数据库已保留 |
-| `MOCKING.md:7` | 时间和随机性已保留 |
-| `MOCKING.md:8` | 文件系统有时 mock 已保留 |
-| `MOCKING.md:10` | 不要 mock 引导已保留 |
-| `MOCKING.md:12` | 自己的类或 module 已保留 |
-| `MOCKING.md:13` | 内部协作者已保留 |
-| `MOCKING.md:14` | 自己控制的一切已保留 |
-| `MOCKING.md:16` | 为可 mock 性设计标题已保留 |
-| `MOCKING.md:18` | 系统边界设计易 mock interface 已保留 |
-| `MOCKING.md:20` | 第一项依赖注入已保留 |
-| `MOCKING.md:22` | 传入外部依赖而非内部创建已保留 |
-| `MOCKING.md:24` | 第一段 TypeScript 代码块起始已保留 |
-| `MOCKING.md:25` | 容易 mock 注释已翻译 |
-| `MOCKING.md:26` | 接收 paymentClient 的函数起始已保留 |
-| `MOCKING.md:27` | paymentClient charge 调用已保留 |
-| `MOCKING.md:28` | 函数结束已保留 |
-| `MOCKING.md:30` | 难 mock 注释已翻译 |
-| `MOCKING.md:31` | 内部创建依赖函数起始已保留 |
-| `MOCKING.md:32` | StripeClient 和环境变量已保留 |
-| `MOCKING.md:33` | client charge 调用已保留 |
-| `MOCKING.md:34` | 函数结束已保留 |
-| `MOCKING.md:35` | 第一段代码块结束已保留 |
-| `MOCKING.md:37` | 第二项 SDK 风格 interface 优先于通用 fetcher 已保留 |
-| `MOCKING.md:39` | 每外部操作具体函数而非条件通用函数已保留 |
-| `MOCKING.md:41` | 第二段 TypeScript 代码块起始已保留 |
-| `MOCKING.md:42` | 好例：每函数独立 mock 注释已翻译 |
-| `MOCKING.md:43` | api 对象起始已保留 |
-| `MOCKING.md:44` | getUser endpoint 已保留 |
-| `MOCKING.md:45` | getOrders endpoint 已保留 |
-| `MOCKING.md:46` | createOrder POST 与 body 已保留 |
-| `MOCKING.md:47` | api 对象结束已保留 |
-| `MOCKING.md:49` | 差例：mock 内部需条件逻辑注释已翻译 |
-| `MOCKING.md:50` | 第二个 api 对象起始已保留 |
-| `MOCKING.md:51` | 通用 fetch 函数已保留 |
-| `MOCKING.md:52` | 第二个 api 对象结束已保留 |
-| `MOCKING.md:53` | 第二段代码块结束已保留 |
-| `MOCKING.md:55` | SDK 方式意味着的引导已保留 |
-| `MOCKING.md:56` | 每 mock 一种具体返回形状已保留 |
-| `MOCKING.md:57` | 测试设置无条件逻辑已保留 |
-| `MOCKING.md:58` | 易看出测试执行端点已保留 |
-| `MOCKING.md:59` | 每端点类型安全已保留 |
-| `TESTS.md:1` | Good and Bad Tests 标题已翻译 |
-| `TESTS.md:3` | 良好测试标题已保留 |
-| `TESTS.md:5` | 集成风格、经真实 interface 和不 mock 内部均已保留 |
-| `TESTS.md:7` | 第一段 TypeScript 代码块起始已保留 |
-| `TESTS.md:8` | 好例测试可观察行为注释已翻译 |
-| `TESTS.md:9` | 有效购物车结账测试名已翻译，异步结构已保留 |
-| `TESTS.md:10` | createCart 已保留 |
-| `TESTS.md:11` | cart add product 已保留 |
-| `TESTS.md:12` | checkout 和 paymentMethod 已保留 |
-| `TESTS.md:13` | confirmed 状态断言已保留 |
-| `TESTS.md:14` | 测试结束已保留 |
-| `TESTS.md:15` | 第一段代码块结束已保留 |
-| `TESTS.md:17` | 特征引导已保留 |
-| `TESTS.md:19` | 用户或调用方关心行为已保留 |
-| `TESTS.md:20` | 只用公开 API 已保留 |
-| `TESTS.md:21` | 承受内部重构已保留 |
-| `TESTS.md:22` | 描述做什么而非如何做已保留 |
-| `TESTS.md:23` | 每测试一项逻辑断言已保留 |
-| `TESTS.md:25` | 不良测试标题已保留 |
-| `TESTS.md:27` | implementation-detail test 与内部结构耦合已保留 |
-| `TESTS.md:29` | 第二段 TypeScript 代码块起始已保留 |
-| `TESTS.md:30` | 差例测试 implementation 注释已翻译 |
-| `TESTS.md:31` | checkout 调 paymentService 测试名已翻译 |
-| `TESTS.md:32` | jest mock paymentService 已保留 |
-| `TESTS.md:33` | checkout 调用已保留 |
-| `TESTS.md:34` | process 调用参数断言已保留 |
-| `TESTS.md:35` | 测试结束已保留 |
-| `TESTS.md:36` | 第二段代码块结束已保留 |
-| `TESTS.md:38` | 危险信号引导已保留 |
-| `TESTS.md:40` | mock 内部协作者已保留 |
-| `TESTS.md:41` | 测试私有方法已保留 |
-| `TESTS.md:42` | 断言调用次数或顺序已保留 |
-| `TESTS.md:43` | 无行为变化的重构导致测试坏已保留 |
-| `TESTS.md:44` | 测试名描述如何做而非做什么已保留 |
-| `TESTS.md:45` | 经外部手段而非 interface 验证已保留 |
-| `TESTS.md:47` | 第三段 TypeScript 代码块起始已保留 |
-| `TESTS.md:48` | 差例绕过 interface 注释已翻译 |
-| `TESTS.md:49` | createUser 保存数据库测试名已翻译 |
-| `TESTS.md:50` | createUser Alice 已保留 |
-| `TESTS.md:51` | 直接 SQL 查询已保留 |
-| `TESTS.md:52` | row defined 断言已保留 |
-| `TESTS.md:53` | 差例测试结束已保留 |
-| `TESTS.md:55` | 好例经 interface 验证注释已翻译 |
-| `TESTS.md:56` | createUser 可取得测试名已翻译 |
-| `TESTS.md:57` | createUser 返回 user 已保留 |
-| `TESTS.md:58` | getUser user.id 已保留 |
-| `TESTS.md:59` | Alice 名称断言已保留 |
-| `TESTS.md:60` | 好例测试结束已保留 |
-| `TESTS.md:61` | 第三段代码块结束已保留 |
-| `TESTS.md:63` | 同义反复测试、期望值重述 implementation 和按构造必过均已保留 |
-| `TESTS.md:65` | 第四段 TypeScript 代码块起始已保留 |
-| `TESTS.md:66` | 差例相同算法重算期望注释已翻译 |
-| `TESTS.md:67` | calculateTotal 求和测试名已翻译 |
-| `TESTS.md:68` | 两项 price 输入已保留 |
-| `TESTS.md:69` | reduce 重算 expected 已保留 |
-| `TESTS.md:70` | 计算结果等于 expected 断言已保留 |
-| `TESTS.md:71` | 差例测试结束已保留 |
-| `TESTS.md:73` | 好例独立已知字面值注释已翻译 |
-| `TESTS.md:74` | calculateTotal 求和测试名已翻译 |
-| `TESTS.md:75` | 输入和独立 15 断言已保留 |
-| `TESTS.md:76` | 好例测试结束已保留 |
-| `TESTS.md:77` | 第四段代码块结束已保留 |
+| `mocking.md:1` | When to Mock 标题已翻译 |
+| `mocking.md:3` | 只在系统边界 mock 已保留 |
+| `mocking.md:5` | 外部 API 和支付电子邮件例子已保留 |
+| `mocking.md:6` | 数据库有时 mock 且优先测试数据库已保留 |
+| `mocking.md:7` | 时间和随机性已保留 |
+| `mocking.md:8` | 文件系统有时 mock 已保留 |
+| `mocking.md:10` | 不要 mock 引导已保留 |
+| `mocking.md:12` | 自己的类或 module 已保留 |
+| `mocking.md:13` | 内部协作者已保留 |
+| `mocking.md:14` | 自己控制的一切已保留 |
+| `mocking.md:16` | 为可 mock 性设计标题已保留 |
+| `mocking.md:18` | 系统边界设计易 mock interface 已保留 |
+| `mocking.md:20` | 第一项依赖注入已保留 |
+| `mocking.md:22` | 传入外部依赖而非内部创建已保留 |
+| `mocking.md:24` | 第一段 TypeScript 代码块起始已保留 |
+| `mocking.md:25` | 容易 mock 注释已翻译 |
+| `mocking.md:26` | 接收 paymentClient 的函数起始已保留 |
+| `mocking.md:27` | paymentClient charge 调用已保留 |
+| `mocking.md:28` | 函数结束已保留 |
+| `mocking.md:30` | 难 mock 注释已翻译 |
+| `mocking.md:31` | 内部创建依赖函数起始已保留 |
+| `mocking.md:32` | StripeClient 和环境变量已保留 |
+| `mocking.md:33` | client charge 调用已保留 |
+| `mocking.md:34` | 函数结束已保留 |
+| `mocking.md:35` | 第一段代码块结束已保留 |
+| `mocking.md:37` | 第二项 SDK 风格 interface 优先于通用 fetcher 已保留 |
+| `mocking.md:39` | 每外部操作具体函数而非条件通用函数已保留 |
+| `mocking.md:41` | 第二段 TypeScript 代码块起始已保留 |
+| `mocking.md:42` | 好例：每函数独立 mock 注释已翻译 |
+| `mocking.md:43` | api 对象起始已保留 |
+| `mocking.md:44` | getUser endpoint 已保留 |
+| `mocking.md:45` | getOrders endpoint 已保留 |
+| `mocking.md:46` | createOrder POST 与 body 已保留 |
+| `mocking.md:47` | api 对象结束已保留 |
+| `mocking.md:49` | 差例：mock 内部需条件逻辑注释已翻译 |
+| `mocking.md:50` | 第二个 api 对象起始已保留 |
+| `mocking.md:51` | 通用 fetch 函数已保留 |
+| `mocking.md:52` | 第二个 api 对象结束已保留 |
+| `mocking.md:53` | 第二段代码块结束已保留 |
+| `mocking.md:55` | SDK 方式意味着的引导已保留 |
+| `mocking.md:56` | 每 mock 一种具体返回形状已保留 |
+| `mocking.md:57` | 测试设置无条件逻辑已保留 |
+| `mocking.md:58` | 易看出测试执行端点已保留 |
+| `mocking.md:59` | 每端点类型安全已保留 |
+| `tests.md:1` | Good and Bad Tests 标题已翻译 |
+| `tests.md:3` | 良好测试标题已保留 |
+| `tests.md:5` | 集成风格、经真实 interface 和不 mock 内部均已保留 |
+| `tests.md:7` | 第一段 TypeScript 代码块起始已保留 |
+| `tests.md:8` | 好例测试可观察行为注释已翻译 |
+| `tests.md:9` | 有效购物车结账测试名已翻译，异步结构已保留 |
+| `tests.md:10` | createCart 已保留 |
+| `tests.md:11` | cart add product 已保留 |
+| `tests.md:12` | checkout 和 paymentMethod 已保留 |
+| `tests.md:13` | confirmed 状态断言已保留 |
+| `tests.md:14` | 测试结束已保留 |
+| `tests.md:15` | 第一段代码块结束已保留 |
+| `tests.md:17` | 特征引导已保留 |
+| `tests.md:19` | 用户或调用方关心行为已保留 |
+| `tests.md:20` | 只用公开 API 已保留 |
+| `tests.md:21` | 承受内部重构已保留 |
+| `tests.md:22` | 描述做什么而非如何做已保留 |
+| `tests.md:23` | 每测试一项逻辑断言已保留 |
+| `tests.md:25` | 不良测试标题已保留 |
+| `tests.md:27` | implementation-detail test 与内部结构耦合已保留 |
+| `tests.md:29` | 第二段 TypeScript 代码块起始已保留 |
+| `tests.md:30` | 差例测试 implementation 注释已翻译 |
+| `tests.md:31` | checkout 调 paymentService 测试名已翻译 |
+| `tests.md:32` | jest mock paymentService 已保留 |
+| `tests.md:33` | checkout 调用已保留 |
+| `tests.md:34` | process 调用参数断言已保留 |
+| `tests.md:35` | 测试结束已保留 |
+| `tests.md:36` | 第二段代码块结束已保留 |
+| `tests.md:38` | 危险信号引导已保留 |
+| `tests.md:40` | mock 内部协作者已保留 |
+| `tests.md:41` | 测试私有方法已保留 |
+| `tests.md:42` | 断言调用次数或顺序已保留 |
+| `tests.md:43` | 无行为变化的重构导致测试坏已保留 |
+| `tests.md:44` | 测试名描述如何做而非做什么已保留 |
+| `tests.md:45` | 经外部手段而非 interface 验证已保留 |
+| `tests.md:47` | 第三段 TypeScript 代码块起始已保留 |
+| `tests.md:48` | 差例绕过 interface 注释已翻译 |
+| `tests.md:49` | createUser 保存数据库测试名已翻译 |
+| `tests.md:50` | createUser Alice 已保留 |
+| `tests.md:51` | 直接 SQL 查询已保留 |
+| `tests.md:52` | row defined 断言已保留 |
+| `tests.md:53` | 差例测试结束已保留 |
+| `tests.md:55` | 好例经 interface 验证注释已翻译 |
+| `tests.md:56` | createUser 可取得测试名已翻译 |
+| `tests.md:57` | createUser 返回 user 已保留 |
+| `tests.md:58` | getUser user.id 已保留 |
+| `tests.md:59` | Alice 名称断言已保留 |
+| `tests.md:60` | 好例测试结束已保留 |
+| `tests.md:61` | 第三段代码块结束已保留 |
+| `tests.md:63` | 同义反复测试、期望值重述 implementation 和按构造必过均已保留 |
+| `tests.md:65` | 第四段 TypeScript 代码块起始已保留 |
+| `tests.md:66` | 差例相同算法重算期望注释已翻译 |
+| `tests.md:67` | calculateTotal 求和测试名已翻译 |
+| `tests.md:68` | 两项 price 输入已保留 |
+| `tests.md:69` | reduce 重算 expected 已保留 |
+| `tests.md:70` | 计算结果等于 expected 断言已保留 |
+| `tests.md:71` | 差例测试结束已保留 |
+| `tests.md:73` | 好例独立已知字面值注释已翻译 |
+| `tests.md:74` | calculateTotal 求和测试名已翻译 |
+| `tests.md:75` | 输入和独立 15 断言已保留 |
+| `tests.md:76` | 好例测试结束已保留 |
+| `tests.md:77` | 第四段代码块结束已保留 |
 | `agents/openai.yaml:1` | `interface` 字段已保留 |
 | `agents/openai.yaml:2` | `display_name: "TDD"` 已保留 |
 | `agents/openai.yaml:3` | 测试驱动 red-green-refactor 已保留 |

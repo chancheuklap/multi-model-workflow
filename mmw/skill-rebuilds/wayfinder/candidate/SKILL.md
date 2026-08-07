@@ -12,7 +12,7 @@ argument-hint: "[map 编号、ticket 编号，或者要做的事]"
 
 <!-- upstream: 9 -->
 
-destination 随 effort 而异。给它命名是 charting 的第一个动作，因为它会塑造后面的每一张 ticket。destination 可能是一份要交给下游继续迭代的 spec，可能是开始规划前必须锁定的一个决定，也可能是一次就地完成的改动，例如数据结构迁移。map 是 domain-agnostic 的；工程工作、课程内容或其他符合这种形态的工作都可以使用。
+destination 随 effort 而异。给它命名是 charting 的第一个动作，因为它会塑造后面的每一张 ticket。destination 可能是一份要交给下游继续迭代的 spec，可能是开始规划前必须锁定的一个决定，也可能是一次就地完成的改动，例如数据结构迁移。map 与领域无关；工程工作、课程内容或其他符合这种形态的工作都可以使用。
 
 <!-- upstream: 11-13 -->
 
@@ -30,7 +30,7 @@ Wayfinder 默认负责**规划**。每张 ticket 解决一个决定；当路线�
 
 ## Map
 
-map 是当前仓库 issue tracker 上的一张 issue，带 `wayfinder:map` 标签。它是 canonical artifact。map 的 ticket 是它的子 issue。
+map 是当前仓库 issue tracker 上的一张 issue，带 `wayfinder:map` 标签。它是权威产物。map 的 ticket 是它的子 issue。
 
 map 是**索引**，不是存储库。它列出已经形成的决定，并指向保存细节的 ticket。一个决定只存在于一个地方，也就是它自己的 ticket。因此，map 绝不复述决定，只写一句概要并提供链接。
 
@@ -92,7 +92,7 @@ issue-<这张 ticket 的编号>
 
 一个 session 通过把 ticket 指派给推动这张 map 的开发者来 **claim** 它。claim 必须发生在任何工作之前，使并发 session 能够跳过这张 ticket。assignee 就是 claim：open 且没有 assignee 的 ticket 是 unclaimed。
 
-blocking 使用 tracker 的 **native dependency relationship**。这一点很重要，因为 tracker 会在自己的 UI 中把 frontier **可视化**，人不需要打开 map 就能看见当前可以处理的内容。只有缺少 native blocking 的 tracker 才退回正文约定。一张 ticket 的所有 blocker 都已关闭时，它才是 unblocked。**frontier** 是 open、unblocked、unclaimed 的子 issue，也就是已知区域的边缘。
+blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 tracker 会在自己的 UI 中把 frontier **可视化**，人不需要打开 map 就能看见当前可以处理的内容。只有缺少原生 blocking 的 tracker 才退回正文约定。一张 ticket 的所有 blocker 都已关闭时，它才是 unblocked。**frontier** 是 open、unblocked、unclaimed 的子 issue，也就是已知区域的边缘。
 
 答案不属于 ticket 正文。答案在 ticket 解决时记录，见[走完整张 map](walking.md#走完整张-map)。解决 ticket 期间建立的资产从 issue 链接，不粘贴进正文。
 

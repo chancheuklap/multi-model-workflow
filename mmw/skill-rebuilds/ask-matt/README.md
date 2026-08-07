@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-第一阶段已经完成上游 `SKILL.md`、`PHASE-BOUNDARIES.md` 和 `agents/openai.yaml` 的逐行中文翻译。翻译保留主流程、汇入路径、代码库健康、底层词汇、阶段边界、独立技能和前置条件，不加入 MMW 路由或宿主接线。
+第一阶段已经完成上游 `SKILL.md`、`PHASE-BOUNDARIES.md` 和 `agents/openai.yaml` 的逐行中文翻译。翻译保留主流程、on-ramp、代码库健康、底层词汇、阶段边界、独立技能和前置条件，不加入 MMW 路由或宿主接线。
 
 ## 文件
 

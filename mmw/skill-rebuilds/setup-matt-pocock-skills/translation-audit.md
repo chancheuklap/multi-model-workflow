@@ -1,6 +1,8 @@
 # `setup-matt-pocock-skills` 1.2.2 翻译审查
 
-## 固定术语
+## 本技能术语应用
+
+共享术语只由 [上游技能翻译共享术语](../translation-terms.md) 定义。下表记录本技能的术语应用和独有术语，不建立第二份定义。
 
 | 上游原词 | 统一写法 | 理由 |
 | --- | --- | --- |
@@ -77,9 +79,9 @@
 | `SKILL.md:87` | Agent skills 标题已保留 |
 | `SKILL.md:89` | Issue tracker 子标题已保留 |
 | `SKILL.md:91` | 一行 tracker 总结占位与链接已翻译 |
-| `SKILL.md:93` | Triage 标签子标题已翻译 |
+| `SKILL.md:93` | `Triage labels` 固定子标题已保留 |
 | `SKILL.md:95` | 一行标签总结占位与链接已翻译 |
-| `SKILL.md:97` | 领域文档子标题已翻译 |
+| `SKILL.md:97` | `Domain docs` 固定子标题已保留 |
 | `SKILL.md:99` | 一行布局总结、两个字面形态和链接已翻译 |
 | `SKILL.md:100` | 代码块结束已保留 |
 | `SKILL.md:102` | 仅 triage 安装且 B 运行才写子 block 与文件，否则均省略已保留 |
@@ -139,7 +141,7 @@
 | `issue-tracker-github.md:12` | 关闭命令与评论已保留 |
 | `issue-tracker-github.md:14` | remote 推断和 clone 内 gh 自动判定已保留 |
 | `issue-tracker-github.md:16` | PR 作为 triage 入口标题已保留 |
-| `issue-tracker-github.md:18` | request surface no、改 yes 条件和 triage 读标志位均已保留 |
+| `issue-tracker-github.md:18` | `PRs as a request surface: no` 字面量、改 yes 条件和 triage 读标志位均已保留 |
 | `issue-tracker-github.md:20` | yes 后 PR 同 labels states 和 gh pr 等价命令均已保留 |
 | `issue-tracker-github.md:22` | PR 读取与 diff 两命令已保留 |
 | `issue-tracker-github.md:23` | 外部 PR 列表命令、保留三 association 和删除三 association 均已保留 |
@@ -149,7 +151,7 @@
 | `issue-tracker-github.md:30` | 创建 GitHub issue 已保留 |
 | `issue-tracker-github.md:32` | fetch ticket 标题已保留 |
 | `issue-tracker-github.md:34` | 读取 issue 命令已保留 |
-| `issue-tracker-github.md:36` | Wayfinding 操作标题已保留 |
+| `issue-tracker-github.md:36` | `Wayfinding operations` 固定标题已保留 |
 | `issue-tracker-github.md:38` | wayfinder 使用、单 map issue 和 child issue ticket 均已保留 |
 | `issue-tracker-github.md:40` | map 标签、三段正文和创建命令均已保留 |
 | `issue-tracker-github.md:41` | child sub-issue、端点、fallback 任务清单与 Part of、四种类型标签和认领分配均已保留 |
@@ -169,7 +171,7 @@
 | `issue-tracker-gitlab.md:13` | MR 命名、三命令和 gh pr 到 glab mr note message 映射均已保留 |
 | `issue-tracker-gitlab.md:15` | remote 推断与 clone 内 glab 自动判定已保留 |
 | `issue-tracker-gitlab.md:17` | MR 作为 triage 入口标题已保留 |
-| `issue-tracker-gitlab.md:19` | request surface no、改 yes 条件和 triage 读标志位均已保留 |
+| `issue-tracker-gitlab.md:19` | `MRs as a request surface: no` 字面量、改 yes 条件和 triage 读标志位均已保留 |
 | `issue-tracker-gitlab.md:21` | yes 后 MR 同标签和状态及 glab mr 等价命令均已保留 |
 | `issue-tracker-gitlab.md:23` | MR 读取与 diff 已保留 |
 | `issue-tracker-gitlab.md:24` | 外部 MR 列表、作者非 member owner 和 contributor 非 maintainer 条件均已保留 |
@@ -179,7 +181,7 @@
 | `issue-tracker-gitlab.md:31` | 创建 GitLab issue 已保留 |
 | `issue-tracker-gitlab.md:33` | fetch ticket 标题已保留 |
 | `issue-tracker-gitlab.md:35` | 读取命令已保留 |
-| `issue-tracker-gitlab.md:37` | Wayfinding 操作标题已保留 |
+| `issue-tracker-gitlab.md:37` | `Wayfinding operations` 固定标题已保留 |
 | `issue-tracker-gitlab.md:39` | 单 map issue 和 child issue ticket 已保留 |
 | `issue-tracker-gitlab.md:41` | map 标签、三段正文、创建命令、原生 epic 层级例外和 issue 通用均已保留 |
 | `issue-tracker-gitlab.md:42` | child Part of、四种类型标签和认领分配均已保留 |
@@ -199,7 +201,7 @@
 | `issue-tracker-local.md:15` | scratch 路径新文件和按需建目录已保留 |
 | `issue-tracker-local.md:17` | fetch 标题已保留 |
 | `issue-tracker-local.md:19` | 读引用路径和用户通常传路径或编号已保留 |
-| `issue-tracker-local.md:21` | Wayfinding 操作标题已保留 |
+| `issue-tracker-local.md:21` | `Wayfinding operations` 固定标题已保留 |
 | `issue-tracker-local.md:23` | map 文件与每 ticket child 文件已保留 |
 | `issue-tracker-local.md:25` | map 路径和三段正文已保留 |
 | `issue-tracker-local.md:26` | child 路径、01 编号、问题、Type 四值和 Status 两值均已保留 |
@@ -228,7 +230,7 @@
 
 | 检查 | 结果 |
 | --- | --- |
-| 遗漏 | 无。七个上游文件的每个非空行，包括三种 tracker 的完整 Wayfinding 操作，都有对应译文和独立检查记录 |
+| 遗漏 | 无。七个上游文件的每个非空行，包括三种 tracker 的完整 `Wayfinding operations`，都有对应译文和独立检查记录 |
 | 增写 | 无。没有加入 `.mmw.json`、MMW CLI、宿主物化、当前 tracker 合同或其他 MMW 接线 |
 | 曲解 | 无。探索后逐节询问、用户审阅草稿后才写入、已有 agent 文档二选一和 tracker 模板完整保留 |
 | 术语漂移 | 无。issue tracker、分诊角色、triage 标签、context、request surface、child ticket、blocking 和 frontier 使用一致 |

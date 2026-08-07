@@ -1,6 +1,8 @@
 # Wayfinder 1.2.2 翻译审查
 
-## 固定术语
+## 本技能术语应用
+
+共享术语只由 [上游技能翻译共享术语](../translation-terms.md) 定义。下表记录本技能的术语应用和独有术语，不建立第二份定义。
 
 下列词是 Wayfinder 的 leading word、tracker 术语、代码字面值或上游技能名。中文翻译中保留英文原词，不为同一个词另造多个中文名称。
 
@@ -16,13 +18,10 @@
 | claim、claimed、unclaimed | `claim`、`claimed`、`unclaimed` |
 | blocking、blocked、blocker、unblocked | 保留英文原词 |
 | open、assignee | `open`、`assignee` |
-| canonical artifact | `canonical artifact` |
-| domain-agnostic、tracker-specific | `domain-agnostic`、`tracker-specific` |
 | chart、charting、redraw | `chart`、`charting`、`redraw` |
 | map（名词或动词） | `map` |
-| native dependency relationship、native blocking | 保留英文原词 |
 | context pointer、resolution comment | 保留英文原词 |
-| breadth-first、wire、zoom、create-then-wire、rule out of scope | 保留英文原词 |
+| wire、zoom、create-then-wire、rule out of scope | 保留英文原词 |
 | branch、throwaway branch | `branch`、`throwaway branch` |
 | `wayfinder:map`、`wayfinder:<type>` | 保留代码字面值 |
 | `/setup-matt-pocock-skills`、`/research`、`/prototype`、`/grilling`、`/domain-modeling` | 保留技能名 |
@@ -36,6 +35,11 @@
 | decision | 决定 |
 | deliverable | 交付物 |
 | artifact、asset | 产物、资产 |
+| canonical artifact | 权威产物 |
+| domain-agnostic | 领域无关 |
+| tracker-specific | 由具体 tracker 决定 |
+| native dependency relationship、native blocking | 原生依赖关系、原生 blocking |
+| breadth-first | 广度优先 |
 | index | 索引 |
 | body | 正文 |
 | title、name | 标题、名称 |
@@ -55,13 +59,13 @@
 | `SKILL.md:4` | 禁止模型隐式调用已保留 |
 | `SKILL.md:5` | YAML 结束分隔符已保留 |
 | `SKILL.md:7` | 松散想法、单 session 容量、fog、destination、chart、decision ticket 与构建切片区别均已保留 |
-| `SKILL.md:9` | destination 因 effort 而异、先命名、三类终点例子和 domain-agnostic 均已保留 |
+| `SKILL.md:9` | destination 因 effort 而异、先命名、三类终点例子和领域无关均已保留 |
 | `SKILL.md:11` | Plan, don't do 标题已翻译 |
 | `SKILL.md:13` | 默认 planning、完成判据、执行冲动代表交接边界和 Notes 覆盖均已保留 |
 | `SKILL.md:15` | Refer by name 标题已翻译 |
 | `SKILL.md:17` | 名称即标题、人读内容禁用裸 id、名称包裹链接及可读性理由均已保留 |
 | `SKILL.md:19` | Map 标题已保留 |
-| `SKILL.md:21` | 单一 tracker issue、wayfinder 标签、canonical artifact 和子 issue 均已保留 |
+| `SKILL.md:21` | 单一 tracker issue、wayfinder 标签、权威产物和子 issue 均已保留 |
 | `SKILL.md:23` | map 是索引非存储库、决定只在 ticket 一处、只写概要和链接均已保留 |
 | `SKILL.md:25` | 存放方式由 tracker 决定、setup fallback、Wayfinding operations 和 local Markdown 默认均已保留 |
 | `SKILL.md:27` | map 正文标题已翻译 |
@@ -87,12 +91,12 @@
 | `SKILL.md:63` | Markdown 代码块结束已保留 |
 | `SKILL.md:65` | wayfinder 类型标签、四种类型和链接均已保留 |
 | `SKILL.md:67` | 工作前 claim、指派开发者、并发跳过和 assignee 等同 claim 均已保留 |
-| `SKILL.md:69` | native dependency、UI 可视化、fallback、unblocked 和 frontier 定义均已保留 |
+| `SKILL.md:69` | 原生依赖关系、UI 可视化、fallback、unblocked 和 frontier 定义均已保留 |
 | `SKILL.md:71` | 答案不在正文、解决时记录及资产只链接不粘贴均已保留 |
 | `SKILL.md:73` | Ticket Types 标题已保留 |
 | `SKILL.md:75` | HITL、AFK、实时交流及 agent 不代答的人机合同均已保留 |
 | `SKILL.md:77` | Research 的资源范围、事实目的、research subagent 和目录外知识条件均已保留 |
-| `SKILL.md:78` | Prototype 提高讨论保真度、便宜粗糙具体产物、四类形态、资产链接和使用问题均已保留 |
+| `SKILL.md:78` | Prototype 提高讨论保真度、低成本且粗糙的具体产物、提纲、粗略版本、stub、UI 或 logic code、资产链接和使用问题均已保留 |
 | `SKILL.md:79` | Grilling 是默认对话并总是调用两个技能已保留 |
 | `SKILL.md:80` | Task 前置手工工作、三项排除、三类例子、唯一执行类型、HITL/AFK 和完成记录均已保留 |
 | `SKILL.md:82` | Fog of war 标题已保留 |
@@ -111,7 +115,7 @@
 | `SKILL.md:107` | Chart the map 标题已保留 |
 | `SKILL.md:109` | 用户以松散想法调用已翻译 |
 | `SKILL.md:111` | 先命名 destination、运行两个技能、三类终点和先固定范围均已保留 |
-| `SKILL.md:112` | breadth-first 展开、open 决定、当前起始步骤和无 fog 时停止询问均已保留 |
+| `SKILL.md:112` | 广度优先展开、open 决定、当前起始步骤和无 fog 时停止询问均已保留 |
 | `SKILL.md:113` | 创建 map、标签、填写两节、清空决定和 fog 写入对应章节均已保留 |
 | `SKILL.md:114` | 当前可精确表述的 ticket 全部创建、第二遍 wire、frontier/blocked 和其余 fog 均已保留 |
 | `SKILL.md:115` | 每张 research ticket 并行派 subagent、throwaway branch 和 ticket 指针均已保留 |
@@ -126,7 +130,7 @@
 | `SKILL.md:128` | 用户可并行运行 unblocked ticket 及并发编辑 tracker 预期已保留 |
 | `agents/openai.yaml:1` | interface 配置键已保留 |
 | `agents/openai.yaml:2` | 显示名已保留 |
-| `agents/openai.yaml:3` | 大型 effort 映射为 decision ticket 的短描述已翻译 |
+| `agents/openai.yaml:3` | 大型 effort map 成 decision ticket 的短描述已翻译 |
 | `agents/openai.yaml:4` | policy 配置键已保留 |
 | `agents/openai.yaml:5` | 禁止隐式调用已保留 |
 
@@ -134,8 +138,8 @@
 
 1. description 中“各会话逐张解决”可能被理解成一个会话连续解决多张 ticket，已经改成“一次解决一张 ticket”。
 2. 上游标题 `Tickets` 曾被误写成单数 `Ticket`，已经恢复复数。
-3. `canonical artifact`、`domain-agnostic` 和 `tracker-specific` 曾被直接换成中文表达，已经恢复英文 leading word。
-4. `claim`、`unclaimed`、`native dependency relationship`、`unblocked`、`resolution comment`、`zoom`、`create-then-wire` 和 `rule out of scope` 曾被翻成不同中文操作词，已经统一恢复英文原词。
+3. `canonical artifact`、`domain-agnostic` 和 `tracker-specific` 都是普通技术表达，不是 Wayfinder leading word；已经分别改为“权威产物”“领域无关”和“由具体 tracker 决定”。
+4. `native dependency relationship` 和 `native blocking` 已改为正统中文“原生依赖关系”和“原生 blocking”；`claim`、`unclaimed`、`unblocked`、`resolution comment`、`zoom`、`create-then-wire` 和 `rule out of scope` 继续保留上游原词。
 5. research 的 context pointer 曾被写成“从 ticket 提供”，没有说明指向关系。现在明确为“在 ticket 中留下指向该分支的 context pointer”。
 6. `first steps takeable now` 保持复数含义，翻译为“当前可以采取的起始步骤”。它没有被改成单一“第一步”。
 7. 上游第 114 行虽未出现 `all`，其指令对象是当前能够精确表述的 ticket 集合，并与第 88-91 行的 fog-or-ticket 判据共同要求全部建立。翻译使用“当前能够精确表述的 ticket 全部创建出来”，没有把范围缩成“第一批 ticket”。

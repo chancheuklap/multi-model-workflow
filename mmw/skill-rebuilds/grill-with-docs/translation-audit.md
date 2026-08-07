@@ -1,6 +1,8 @@
 # `grill-with-docs` 1.2.2 翻译审查
 
-## 固定术语
+## 本技能术语应用
+
+共享术语只由 [上游技能翻译共享术语](../translation-terms.md) 定义。下表记录本技能的术语应用和独有术语，不建立第二份定义。
 
 | 上游原词 | 统一写法 | 理由 |
 | --- | --- | --- |
@@ -11,7 +13,7 @@
 | docs | 文档 | 有稳定中文译名 |
 | ADR | `ADR` | 行业缩写 |
 | glossary | 术语表 | 有稳定中文译名 |
-| relentless | 毫不松懈 | 保留持续追问、不能过早结束的强度 |
+| relentless | `relentless` | 上游 leading word；与 grilling 和 writing-for-agents 保持同一 token |
 
 ## 逐行完整性检查
 
@@ -21,13 +23,13 @@
 | --- | --- |
 | `SKILL.md:1` | YAML 起始分隔符已保留 |
 | `SKILL.md:2` | 技能名已保留 |
-| `SKILL.md:3` | 毫不松懈的访谈、磨清计划或设计和同步创建 ADR 与术语表均已保留 |
+| `SKILL.md:3` | relentless 访谈、使计划或设计更加明确，以及同步创建 ADR 与术语表均已保留 |
 | `SKILL.md:4` | 禁止模型隐式调用已保留 |
 | `SKILL.md:5` | YAML 结束分隔符已保留 |
 | `SKILL.md:7` | 运行 grilling session 并使用 domain-modeling 的关系已保留 |
 | `agents/openai.yaml:1` | interface 配置键已保留 |
 | `agents/openai.yaml:2` | 显示名已保留 |
-| `agents/openai.yaml:3` | 追问设计并编写文档的短描述已翻译 |
+| `agents/openai.yaml:3` | 对设计进行 grilling 并编写文档的短描述已翻译 |
 | `agents/openai.yaml:4` | policy 配置键已保留 |
 | `agents/openai.yaml:5` | 禁止隐式调用已保留 |
 

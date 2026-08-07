@@ -10,7 +10,7 @@ disable-model-invocation: true
 
 <!-- upstream: 9 -->
 
-destination 随 effort 而异。给它命名是 charting 的第一个动作，因为它会塑造后面的每一张 ticket。destination 可能是一份要交给下游继续迭代的 spec，可能是开始规划前必须锁定的一个决定，也可能是一次就地完成的改动，例如数据结构迁移。map 是 domain-agnostic 的；工程工作、课程内容或其他符合这种形态的工作都可以使用。
+destination 随 effort 而异。给它命名是 charting 的第一个动作，因为它会塑造后面的每一张 ticket。destination 可能是一份要交给下游继续迭代的 spec，可能是开始规划前必须锁定的一个决定，也可能是一次就地完成的改动，例如数据结构迁移。map 与领域无关；工程工作、课程内容或其他符合这种形态的工作都可以使用。
 
 <!-- upstream: 11-13 -->
 
@@ -22,13 +22,13 @@ Wayfinder 默认负责**规划**。每张 ticket 解决一个决定；当路线�
 
 ## 用名称称呼
 
-每张 map 和 ticket 都是一张 issue，因此都有一个**名称**，也就是它的标题。在所有给人阅读的内容中，包括叙述和 map 的 Decisions so far，都使用名称称呼它；绝不使用裸的 id、编号或 slug。一整面 `#42、#43、#44` 无法阅读，名称则能让人一眼看懂。id 和 URL 不会消失；名称包裹对应链接。id 和 URL 位于名称内部，绝不代替名称单独出现。
+每张 map 和 ticket 都是一张 issue，因此都有一个**名称**，也就是它的标题。在所有给人阅读的内容中，包括叙述和 map 的 Decisions so far，都使用名称称呼它；绝不使用裸的 id、编号或 slug。一整面 `#42, #43, #44` 无法阅读，名称则能让人一眼看懂。id 和 URL 不会消失；名称包裹对应链接。id 和 URL 位于名称内部，绝不代替名称单独出现。
 
 <!-- upstream: 19-25 -->
 
 ## Map
 
-map 是当前仓库 issue tracker 上的一张 issue，带 `wayfinder:map` 标签。它是 canonical artifact。map 的 ticket 是它的子 issue。
+map 是当前仓库 issue tracker 上的一张 issue，带 `wayfinder:map` 标签。它是权威产物。map 的 ticket 是它的子 issue。
 
 map 是**索引**，不是存储库。它列出已经形成的决定，并指向保存细节的 ticket。一个决定只存在于一个地方，也就是它自己的 ticket。因此，map 绝不复述决定，只写一句概要并提供链接。
 
@@ -78,7 +78,7 @@ map 正文是整个 map 的低分辨率视图。每个 session 加载一次。op
 
 一个 session 通过把 ticket 指派给推动这张 map 的开发者来 **claim** 它。claim 必须发生在任何工作之前，使并发 session 能够跳过这张 ticket。assignee 就是 claim：open 且没有 assignee 的 ticket 是 unclaimed。
 
-blocking 使用 tracker 的 **native dependency relationship**。这一点很重要，因为 tracker 会在自己的 UI 中把 frontier **可视化**，人不需要打开 map 就能看见当前可以处理的内容。只有缺少 native blocking 的 tracker 才退回正文约定。一张 ticket 的所有 blocker 都已关闭时，它才是 unblocked。**frontier** 是 open、unblocked、unclaimed 的子 issue，也就是已知区域的边缘。
+blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 tracker 会在自己的 UI 中把 frontier **可视化**，人不需要打开 map 就能看见当前可以处理的内容。只有缺少原生 blocking 的 tracker 才退回正文约定。一张 ticket 的所有 blocker 都已关闭时，它才是 unblocked。**frontier** 是 open、unblocked、unclaimed 的子 issue，也就是已知区域的边缘。
 
 答案不属于 ticket 正文。答案在 ticket 解决时记录，见[走完整张 map](#走完整张-map)。解决 ticket 期间建立的资产从 issue 链接，不粘贴进正文。
 
@@ -129,7 +129,7 @@ rule out of scope 是一项范围决定，不是路线上的一步。如果一�
 用户带着一个松散的想法调用。
 
 1. **给 destination 命名。** 运行一场 `/mmw-grilling` session；它在同一场讨论中应用 `/mmw-domain-modeling`，确定这张 map 正在寻找的 spec、决定或改动。destination 固定范围，所以先确定它。
-2. **map frontier。** 再次 grilling，这次采用 **breadth-first**：在整个空间铺开，不在任何一条问题线上深入。找出 open 的决定，以及当前可以采取的起始步骤。**如果这一步没有发现 fog**，通往 destination 的路线已经清楚，整个过程也足够小，能够放进一个 session，因此不需要 map。停止并询问用户接下来想怎样进行。
+2. **map frontier。** 再次 grilling，这次采用**广度优先**方式：在整个空间铺开，不在任何一条问题线上深入。找出 open 的决定，以及当前可以采取的起始步骤。**如果这一步没有发现 fog**，通往 destination 的路线已经清楚，整个过程也足够小，能够放进一个 session，因此不需要 map。停止并询问用户接下来想怎样进行。
 3. **创建 map**，并添加 `wayfinder:map` 标签。填写 Destination 和 Notes；Decisions so far 留空；把 fog 的轮廓写入 **Not yet specified**。
 4. 把**当前能够精确表述的 ticket 全部创建出来**，作为 map 的子 issue。随后在**第二遍** wire blocking edge，因为 issue 取得 id 后才能互相引用。wire 完成后，这些 ticket 会分成 frontier 和 blocked 两组。当前仍无法精确表述的所有内容继续留在 fog，也就是 **Not yet specified** 一节。
 5. **启动 research subagent。** 对刚创建的每张 `research` ticket，启动一个 `/research` subagent 并行解决。把调查结果保存在 throwaway `research/<name>` branch 上，并在 ticket 中留下指向该 branch 的 context pointer。

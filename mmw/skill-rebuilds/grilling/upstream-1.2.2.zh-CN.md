@@ -7,17 +7,17 @@
 ```yaml
 ---
 name: grilling
-description: 毫不松懈地追问用户的计划、决定或想法。用户希望对自己的思路进行压力测试，或者使用任何“grill”触发语时使用。
+description: relentless 地追问用户的计划、决定或想法。用户希望对自己的思路进行压力测试，或者使用任何“grill”触发语时使用。
 ---
 ```
 
 <!-- source: vendor/mattpocock-skills/skills/productivity/grilling/SKILL.md:6 -->
 
-毫不松懈地访谈用户，直到双方形成共同理解。把这次访谈组织成一棵**设计树**：每个决定都会分叉出依赖它的决定。
+以 relentless 的方式访谈用户，直到双方形成共同理解。把这次访谈组织成一棵**设计树**：每个决定都会分叉出依赖它的决定。
 
 <!-- source: vendor/mattpocock-skills/skills/productivity/grilling/SKILL.md:8 -->
 
-按**轮**遍历设计树。**frontier** 包含所有前置决定已经确定的决定，也就是现在提问时不需要猜测尚未听到的答案。每一轮提出整个 frontier：给每个问题编号，并给出你的推荐答案。随后等待用户回答，再进入下一轮。
+按**轮**遍历设计树。**frontier** 包含所有前置条件已经确定的决定，也就是现在提问时不需要猜测尚未听到的答案。每一轮提出整个 frontier：给每个问题编号，并给出你的推荐答案。随后等待用户回答，再进入下一轮。
 
 <!-- source: vendor/mattpocock-skills/skills/productivity/grilling/SKILL.md:10-16 -->
 
