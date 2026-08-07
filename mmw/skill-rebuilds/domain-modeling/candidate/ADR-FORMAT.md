@@ -26,7 +26,7 @@ ADR 位于 `mmw domain dirs` 返回的 `adr` 路径中，并使用连续编号�
 
 运行 `mmw domain adr-next`，取得现有最大编号之后的下一个四位编号。
 
-如果多条 decision ticket 结果分支可能同时创建 ADR，结果分支先使用 `draft-<ticket id>-<slug>.md`。结果分支集成到拥有 Wayfinding map 的任务分支后，任务分支重新运行 `mmw domain adr-next`，按顺序分配正式编号，并提交重命名。草稿文件不占用正式编号。
+如果多条 decision ticket 结果分支可能同时创建 ADR，结果分支先使用 `draft-<ticket 编号>-<slug>.md`。结果分支集成到拥有 Wayfinding map 的任务分支后，任务分支重新运行 `mmw domain adr-next`，按顺序分配正式编号，并提交重命名。草稿文件不占用正式编号。
 
 ## 何时提议 ADR
 

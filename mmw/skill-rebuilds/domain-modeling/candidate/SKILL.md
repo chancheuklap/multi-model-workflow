@@ -10,7 +10,7 @@ description: 构建并明确项目的领域模型。用户想要明确领域术�
 ## 选择入口
 
 - 用户想把整个计划、决定或未成形的想法追问清楚时，移交 `/mmw-grilling`。它会在同一段对话中应用本技能。
-- 用户想定义或修正领域术语、通用语言、bounded context、上下文关系或 ADR 时，继续本技能。
+- 用户想定义或修正领域术语、通用语言、bounded context、bounded context 之间的关系或 ADR 时，继续本技能。
 - 其他技能为了维护领域模型而调用时，继续本技能；维护完成后交回调用方。
 
 ## 文件结构
@@ -28,7 +28,7 @@ mmw domain dirs
 | --- | --- |
 | `single` | 读取命令返回的领域文档。该仓库只有一个 bounded context |
 | `map` | 先读取命令返回的 Context Map，再读取本次涉及的全部 leaf |
-| `none` | 当前没有领域文档。继续讨论；第一个长期术语得到解决时按需创建 |
+| `none` | 当前没有领域文档。继续讨论；第一个需要长期保留的领域术语得到解决时按需创建 |
 
 `mmw domain dirs` 返回 `single`、`map`、`context` 和 `adr` 的写入位置。文件位置属于目标仓库合同，不在技能中写死。
 
@@ -55,15 +55,15 @@ mmw domain dirs
 └── src/
 ```
 
-按需创建文件，也就是只有在确实有内容要写时才创建。如果当前形态是 `none`，就在第一个需要长期保留的领域术语得到解决时创建领域文档。直接运行本技能和 `/mmw-grilling` 应用本技能遵守同一条规则。如果尚未形成长期领域结论，不创建文件。
+按需创建文件，也就是只有在确实有内容要写时才创建。如果当前形态是 `none`，直接运行本技能时，在第一个需要长期保留的领域术语得到解决时创建领域文档。如果当前形态是 `none`，而且 `/mmw-grilling` 正在应用本技能，也要在第一个需要长期保留的领域术语得到解决时创建领域文档。尚未形成需要长期保留的领域术语时，不创建领域文档。尚未形成符合 ADR 三项判据的决定时，不创建 ADR。
 
 创建首份领域文档前，先判断项目有一个还是多个 bounded context：
 
-- 明确只有一个 bounded context：在 `mmw domain dirs` 返回的 `single` 路径创建领域文档，并写入已经解决的首个术语。
-- 明确存在多个 bounded context：运行 `mmw domain map-init`。命令成功创建 Context Map 后，在 `context` 路径创建首个 leaf，并在 Context Map 中登记实际路径、所有权和已经确认的关系。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
-- bounded context 的数量、术语归属或关系仍不明确：当场询问用户。取得答案后继续当前步骤。
+- 明确只有一个 bounded context：在 `mmw domain dirs` 返回的 `single` 路径创建领域文档，并写入第一个需要长期保留的领域术语。
+- 明确存在多个 bounded context：运行 `mmw domain map-init`。命令成功创建 Context Map 后，在 `context` 路径创建首个 leaf，并在 Context Map 中登记实际路径、所有权和 bounded context 之间已经确认的关系。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
+- bounded context 的数量、术语归属或 bounded context 之间的关系仍不明确：当场询问用户。取得答案后继续创建首份领域文档。
 
-创建或修改 Context Map 和 leaf 后运行 `mmw domain check`。检查通过后，这一步才完成。
+创建或修改 Context Map 和 leaf 后运行 `mmw domain check`。`mmw domain check` 检查通过后，创建首份领域文档或修改 Context Map 和 leaf 的操作才完成。
 
 如果不存在 ADR 路径，就在需要第一份 ADR 时按需创建。
 
@@ -71,11 +71,11 @@ mmw domain dirs
 
 ### 对照术语表提出质疑
 
-用户使用的术语与相关领域文档中的现有语言冲突时，立即指出。“你的术语表把 cancellation 定义为 X，但你现在表达的意思似乎是 Y；到底是哪一个？”
+用户使用的术语与拥有该术语的领域文档中的现有语言冲突时，立即指出。“你的术语表把 cancellation 定义为 X，但你现在表达的意思似乎是 Y；到底是哪一个？”
 
 ### 明确含混语言
 
-用户使用含混或承担多重含义的术语时，提出一个准确的规范术语。“你说的是 account；你指 Customer 还是 User？二者是不同事物。”
+用户使用含混或承担多重含义的术语时，提出一个准确的 canonical 术语。“你说的是 account；你指 Customer 还是 User？二者是不同事物。”
 
 ### 讨论具体场景
 
@@ -107,5 +107,5 @@ mmw domain dirs
 
 | 情况 | 下一步 |
 | --- | --- |
-| 其他技能调用了本技能，而且领域模型维护已经完成 | **移交**：把更新的术语、关系和 ADR 交回调用方 |
-| 用户直接要求维护领域模型，而且领域模型维护已经完成 | **停**：报告更新的术语、关系和 ADR |
+| 其他技能调用了本技能，而且领域模型维护已经完成 | **移交**：把更新的领域术语、bounded context、bounded context 之间的关系和 ADR 交回调用方 |
+| 用户直接要求维护领域模型，而且领域模型维护已经完成 | **停**：报告更新的领域术语、bounded context、bounded context 之间的关系和 ADR |
