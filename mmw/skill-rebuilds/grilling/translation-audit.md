@@ -14,18 +14,29 @@
 | shared understanding | 共同理解 | MMW canonical 术语 |
 | fact、decision | 事实、决定 | 保留双方责任边界 |
 
-## 逐段完整性检查
+## 逐行完整性检查
 
-| 上游位置 | 结论 |
+空行只承担 Markdown 分隔，不包含待翻译文字。
+
+| 上游行 | 本行翻译检查 |
 | --- | --- |
-| `SKILL.md:1-4` | 三类访谈对象、压力测试和 `grill` 触发语均已保留 |
-| `SKILL.md:6` | 毫不松懈的访谈、共同理解和决定之间的设计树依赖均已保留 |
-| `SKILL.md:8` | frontier 定义、整轮提出、编号、推荐答案和等待用户回答均已保留 |
-| `SKILL.md:10-16` | 问题模板中的编号、标题、正文、多段落、多选项和推荐答案均已保留 |
-| `SKILL.md:18` | 每轮重塑设计树、重新计算 frontier，以及仍有本轮依赖的问题推迟到后续轮次均已保留 |
-| `SKILL.md:20` | 事实由 agent 查、决定由用户作、调查只阻塞依赖分支和其余 frontier 立即继续均已保留 |
-| `SKILL.md:22` | frontier 为空、每个分支已访问、无静默假设和用户确认共同理解四项完成条件均已保留 |
-| `agents/openai.yaml:1-3` | 展示名称和短描述均已保留 |
+| `SKILL.md:1` | YAML 起始分隔符已保留 |
+| `SKILL.md:2` | 技能名已保留 |
+| `SKILL.md:3` | 三类讨论对象、毫不松懈、压力测试和 grill 触发语均已保留 |
+| `SKILL.md:4` | YAML 结束分隔符已保留 |
+| `SKILL.md:6` | 持续访谈、共同理解和决定依赖形成设计树均已保留 |
+| `SKILL.md:8` | 按轮、frontier 定义、整轮提问、编号、推荐答案和等待均已保留 |
+| `SKILL.md:10` | 问题格式引导已翻译 |
+| `SKILL.md:12` | 代码块起始已保留 |
+| `SKILL.md:13` | 问题编号、标题、正文、多段落和多选项占位均已保留 |
+| `SKILL.md:15` | 推荐答案占位已翻译 |
+| `SKILL.md:16` | 代码块结束已保留 |
+| `SKILL.md:18` | 回答重塑树、推进 frontier、重新计算及依赖未决问题推迟均已保留 |
+| `SKILL.md:20` | 事实与决定责任、派 subagent、局部等待及其余 frontier 立即提问均已保留 |
+| `SKILL.md:22` | frontier 为空、遍历全部分支、无静默假设和用户确认后行动均已保留 |
+| `agents/openai.yaml:1` | interface 配置键已保留 |
+| `agents/openai.yaml:2` | 显示名已保留 |
+| `agents/openai.yaml:3` | 逐轮问题压力测试的短描述已翻译 |
 
 ## 四类检查
 
