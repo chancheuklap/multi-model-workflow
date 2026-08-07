@@ -22,7 +22,7 @@
 
 4. 把**当前能够精确表述的 ticket 全部创建出来**，作为 map 的子 issue。随后在**第二遍** wire blocking edge，因为 issue 取得 id 后才能互相引用。wire 完成后，这些 ticket 会分成 frontier 和 blocked 两组。当前仍无法精确表述的所有内容继续留在 fog，也就是 **Not yet specified** 一节。
 
-   按 [SKILL.md](SKILL.md#ticket-类型) 的判据为每张 ticket 选择 `wayfinder:<type>`。创建时先在正文写 `Question` 和从 map 原样继承的 `产物目录`：
+   按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节为每张 ticket 选择 `wayfinder:<type>`。创建时先在正文写 `Question` 和从 map 原样继承的 `产物目录`：
 
    ```bash
    mmw issue create --title "<ticket 名称>" --body-file <正文文件> \

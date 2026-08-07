@@ -6,10 +6,10 @@
 
 ## 1. 判断路线是否真的清楚
 
-读取 Not yet specified 中的剩余内容，逐项应用 [SKILL.md](SKILL.md#fog-of-war) 的判据：
+读取 Not yet specified 中的剩余内容，逐项应用 [SKILL.md](SKILL.md) 的“Fog of war”一节判据：
 
-- 已经能够精确表述，而且仍位于通往 destination 的路线中：按 [SKILL.md](SKILL.md#ticket-类型) 选择 `wayfinder:<type>`，建立新的 decision ticket，原样继承 map 的 `产物目录`，回填 `issue-<编号>`，再 wire blocking edge。map 尚未完成。
-- 已经确定越过 destination：移入 Out of scope。存在对应 ticket 时，按 [SKILL.md](SKILL.md#out-of-scope) 的规则关闭并链接它；明确否决的 enhancement 同时按 Tracker 合同把理由保存到 `.out-of-scope/`。
+- 已经能够精确表述，而且仍位于通往 destination 的路线中：按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节选择 `wayfinder:<type>`，建立新的 decision ticket，原样继承 map 的 `产物目录`，回填 `issue-<编号>`，再 wire blocking edge。map 尚未完成。
+- 已经确定越过 destination：移入 Out of scope。存在对应 ticket 时，按 [SKILL.md](SKILL.md) 的“Out of scope”一节关闭并链接它；明确否决的 enhancement 同时按 Tracker 合同把理由保存到 `.out-of-scope/`。
 - 仍然是通往 destination 的 fog：map 尚未完成。报告这块 fog 为什么仍无法形成 ticket；只有 destination 或范围本身需要用户决定时才询问用户。
 
 只有通往 destination 的路线已经清楚，而且没有 decision ticket 留下时，才能继续。

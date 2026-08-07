@@ -12,11 +12,11 @@
 
 唯一上游是：
 
-`vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md`
+[上游 Wayfinder `SKILL.md`](../../../vendor/mattpocock-skills/skills/engineering/wayfinder/SKILL.md)
 
 当前文件：
 
-- `upstream-1.2.2.zh-CN.md`：上游 `SKILL.md` 的中文翻译。每段用 HTML 注释标出对应的上游行号。
-- `translation-audit.md`：本轮翻译使用的固定术语表，以及逐段完整性和语义检查结果。
-- `simplified.zh-CN.md`：以精确翻译为基线形成的单文件精简稿。它继续保留上游行号注释，不包含 research、Invocation、worktree、资产或收尾接线。
-- `candidate/`：在精简稿外层增加 MMW 接线的四文件候选。这个目录仍不会被 `mmw skills materialize` 物化。
+- [upstream-1.2.2.zh-CN.md](upstream-1.2.2.zh-CN.md)：上游 `SKILL.md` 的中文翻译。每段用 HTML 注释标出对应的上游行号。
+- [translation-audit.md](translation-audit.md)：本轮翻译使用的固定术语表，以及逐段完整性和语义检查结果。
+- [simplified.zh-CN.md](simplified.zh-CN.md)：以精确翻译为基线形成的单文件精简稿。它继续保留上游行号注释，不包含 research、Invocation、worktree、资产或收尾接线。
+- [candidate/](candidate/)：在精简稿外层增加 MMW 接线的四文件候选。这个目录仍不会被 `mmw skills materialize` 物化。

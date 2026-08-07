@@ -88,13 +88,13 @@ map 正文是整个 map 的低分辨率视图。每个 session 加载一次。op
 issue-<这张 ticket 的编号>
 ```
 
-每张 ticket 都带一个 `wayfinder:<type>` 标签。type 是 `research`、`prototype`、`grilling` 或 `task` 中的一个，见 [Ticket 类型](#ticket-类型)。
+每张 ticket 都带一个 `wayfinder:<type>` 标签。type 是 `research`、`prototype`、`grilling` 或 `task` 中的一个，见下方“Ticket 类型”一节。
 
 一个 session 通过把 ticket 指派给推动这张 map 的开发者来 **claim** 它。claim 必须发生在任何工作之前，使并发 session 能够跳过这张 ticket。assignee 就是 claim：open 且没有 assignee 的 ticket 是 unclaimed。
 
 blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 tracker 会在自己的 UI 中把 frontier **可视化**，人不需要打开 map 就能看见当前可以处理的内容。只有缺少原生 blocking 的 tracker 才退回正文约定。一张 ticket 的所有 blocker 都已关闭时，它才是 unblocked。**frontier** 是 open、unblocked、unclaimed 的子 issue，也就是已知区域的边缘。
 
-答案不属于 ticket 正文。答案在 ticket 解决时记录，见[走完整张 map](walking.md#走完整张-map)。解决 ticket 期间建立的资产从 issue 链接，不粘贴进正文。
+答案不属于 ticket 正文。答案在 ticket 解决时记录，见 [walking.md](walking.md) 的“走完整张 map”流程。解决 ticket 期间建立的资产从 issue 链接，不粘贴进正文。
 
 <!-- upstream: 73-80 -->
 

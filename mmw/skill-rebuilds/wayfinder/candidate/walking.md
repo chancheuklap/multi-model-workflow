@@ -16,7 +16,7 @@
 
 3. 解决 ticket。根据需要 **zoom**：按需取得相关或已关闭 ticket 的完整正文；调用 `## Notes` 区块点名的技能。不确定时，使用 `/mmw-grilling`；它在同一场讨论中应用 `/mmw-domain-modeling`。
 
-   按 [SKILL.md](SKILL.md#ticket-类型) 的类型定义处理，只计算该分支需要的路径：
+   按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节处理，只计算该分支需要的路径：
 
    | 标签 | MMW 接口和路径 |
    | --- | --- |
