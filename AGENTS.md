@@ -21,6 +21,8 @@ python3 mmw/codex/runtime.py materialize  # 更新 Codex plugin 与四个原生 
 
 `archive/` 是冻结归档。归档内容不参与行为判断、构建、测试或发布；没有明确指令时不修改。旧 Claude Code、Factory Droid、Pi 和 Cursor 插件统一归档在 `archive/legacy-host-plugins/`。
 
+`.agents/skills/` 只保存供 Codex 维护本仓库的方法。它不属于 MMW Plugin 发布根，不进入 manifest、README 技能清单、`mmw-skill-map.html` 或宿主物化产物。
+
 `vendor/mattpocock-skills/` 是上游 `mattpocock/skills` 的完整副本，通过 Git subtree squash 更新。不要手改；更新时运行：
 
 ```bash
@@ -74,6 +76,8 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - 技能正文不得使用“同上”“见上”“前面那条”等位置指代。每次写清文件路径、技能名、节名或完整清单。
 
 ### Matt 上游技能保真
+
+逐句翻译上游、审查语义漂移、应用有意精简、增加 MMW 接线或升级上游版本时，先完整读取 `.agents/skills/upstream-skill-fidelity/SKILL.md`。这是维护 MMW 仓库的方法，不是 MMW Plugin 的运行技能。
 
 有 Matt Pocock 上游对应项的 MMW 技能同时受两份合同约束：
 
