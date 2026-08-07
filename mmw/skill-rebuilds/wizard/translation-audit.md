@@ -5,16 +5,16 @@
 | 上游原词 | 统一写法 | 理由 |
 | --- | --- | --- |
 | wizard | `wizard` | 技能和生成脚本的固定名称 |
-| stage | 阶段；helper 写 `stage` | 普通叙述使用中文，函数名保留 |
-| helper | `helper` | 指模板中固定可调用函数集合 |
+| stage | 阶段；辅助函数写 `stage` | 普通叙述使用中文，函数名保留 |
+| helper | 辅助函数 | 标准中文技术译名；具体函数名保留英文 |
 | secret、variable | `secret`、`variable` | GitHub 与 CI 对象名称 |
 | cutover | `cutover` | 上游触发词，避免误缩成普通切换 |
-| migration | `migration` | 不限定为数据库迁移 |
+| migration | 迁移 | 标准中文技术译名，不额外限定为数据库迁移 |
 | upsert | `upsert` | 固定写入语义 |
 | idempotent | 幂等 | 标准中文技术译名 |
 | confirmation gate | 确认关卡 | 保留继续执行前必须确认的含义 |
 | ephemeral | 临时 | 表达默认只供一次运行 |
-| library | `library` | `STAGES` 上方固定代码区名称 |
+| library | 库 | 标准中文技术译名；指 `STAGES` 上方固定代码区 |
 
 ## 逐行完整性检查
 
@@ -24,25 +24,25 @@
 | --- | --- |
 | `SKILL.md:1` | YAML 起始分隔符已保留 |
 | `SKILL.md:2` | `name: wizard` 字面量已保留 |
-| `SKILL.md:3` | 交互 Bash、人类专属步骤、基础设施、凭证、CI secret、第三方 dashboard、一次性 migration、cutover 和 agent 能做则不用均已保留 |
+| `SKILL.md:3` | 交互 Bash、人类专属步骤、基础设施、凭证、CI secret、第三方仪表板、一次性迁移、cutover 和 agent 能做则不用均已保留 |
 | `SKILL.md:4` | YAML 结束分隔符已保留 |
 | `SKILL.md:6` | Wizard 标题已保留 |
 | `SKILL.md:8` | Bash 脚本、人类逐步手动流程、两种繁琐、开 URL、点击复制、捕获写入、两类落点、逐阶段确认、剩余量和三类用途均已保留 |
-| `SKILL.md:10` | 模板已解决 UX、七项能力、职责仅 scope 与 stage、STAGES 上 library 相同、一致性目的和禁止手改均已保留 |
+| `SKILL.md:10` | 模板已解决 UX、七项能力、职责仅限定流程与编写阶段、STAGES 上方库相同、一致性目的和禁止手改均已保留 |
 | `SKILL.md:12` | 默认临时、一次运行、scratch 或 scripts、完工删除和用户要可重复路径才 commit 均已保留 |
 | `SKILL.md:14` | 流程标题已保留 |
 | `SKILL.md:16` | 第 1 步限定流程已保留 |
 | `SKILL.md:18` | 找全人工步骤和值、先读仓库和不冷问均已保留 |
 | `SKILL.md:20` | 设置流程的七类文件、workflow glob 和每个 secrets vars 引用必须产值均已保留 |
-| `SKILL.md:21` | migration transition 的当前、目标和不可逆动作均已保留 |
+| `SKILL.md:21` | 迁移过渡的当前状态、目标状态和不可逆动作均已保留 |
 | `SKILL.md:23` | 展示有序 stage 与产值、用户确认和可增删排序均已保留 |
 | `SKILL.md:25` | 完成判据中的阶段顺序、值来源、四类落点、纯动作例外、secret 隐藏与公开均已保留 |
 | `SKILL.md:27` | 第 2 步描绘每阶段 journey 已保留 |
 | `SKILL.md:29` | URL、动作、值位置、变量、完整示例、不知 UI 命令时说明询问查文档和禁止编造均已保留 |
 | `SKILL.md:31` | 每阶段具体到陌生人可遵循的完成判据已保留 |
 | `SKILL.md:33` | 第 3 步编写 wizard 已保留 |
-| `SKILL.md:35` | 复制模板、每步一 stage、依赖顺序、全部 helper、两个总量诚实估计和剩余时间用途均已保留 |
-| `SKILL.md:37` | 先开 URL、secret helper、所有持久值、仅 CI 值、不可逆确认、每 stage 清屏、聚焦单任务、防滚屏和禁止改 library 均已保留 |
+| `SKILL.md:35` | 复制模板、每步一 stage、依赖顺序、全部辅助函数、两个总量诚实估计和剩余时间用途均已保留 |
+| `SKILL.md:37` | 先开 URL、secret 辅助函数、所有持久值、仅 CI 值、不可逆确认、每 stage 清屏、聚焦单任务、防滚屏和禁止改库均已保留 |
 | `SKILL.md:39` | 第 4 步验证与 hand off 已保留 |
 | `SKILL.md:41` | bash -n 和可用时 shellcheck 已保留 |
 | `SKILL.md:42` | chmod +x 已保留 |
@@ -53,12 +53,12 @@
 | `template.sh:3` | wizard 逐步人工流程注释已翻译 |
 | `template.sh:4` | 由 wizard 技能生成已翻译 |
 | `template.sh:5` | 注释分隔行已保留 |
-| `template.sh:6` | STAGES 上方是 library 且禁止手改已翻译 |
+| `template.sh:6` | STAGES 上方是库且禁止手改已翻译 |
 | `template.sh:7` | 标记下方编写阶段已翻译 |
 | `template.sh:9` | `set -euo pipefail` 已保留 |
-| `template.sh:11` | library 上分隔线已保留 |
-| `template.sh:12` | wizard library 的愉悦一致 UX 和全 wizard 相同已翻译 |
-| `template.sh:13` | library 下分隔线已保留 |
+| `template.sh:11` | 库上方分隔线已保留 |
+| `template.sh:12` | wizard 库的愉悦一致 UX 和全 wizard 相同已翻译 |
+| `template.sh:13` | 库下方分隔线已保留 |
 | `template.sh:15` | terminal、tput、colors 条件已保留 |
 | `template.sh:16` | BOLD DIM RESET 赋值已保留 |
 | `template.sh:17` | 四个颜色变量赋值已保留 |
@@ -245,5 +245,5 @@
 | --- | --- |
 | 遗漏 | 无。三个上游文件的每个非空行，包括 211 行 Bash 模板，都有对应译文和独立检查记录 |
 | 增写 | 无。没有加入 `mmw path scratch`、任务 slug、Wayfinder 产物目录或其他 MMW 接线 |
-| 曲解 | 无。先与用户确认阶段和值落点、再生成，固定 library 不手改，只静态验证不代替用户运行三项保持原样 |
-| 术语漂移 | 无。wizard、阶段、helper、secret、variable、migration、cutover、upsert、幂等和 library 使用一致 |
+| 曲解 | 无。先与用户确认阶段和值落点、再生成，固定库不手改，只静态验证不代替用户运行三项保持原样 |
+| 术语漂移 | 无。wizard、阶段、辅助函数、secret、variable、迁移、cutover、upsert、幂等和库使用一致 |

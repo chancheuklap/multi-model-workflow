@@ -7,7 +7,7 @@
 ```yaml
 ---
 name: wizard
-description: 生成一个交互式 Bash wizard，逐步引导人类完成只有他们才能执行的操作。配置基础设施、设置凭证或 CI secret、操作不熟悉的第三方 dashboard，或者运行一次性 migration 或 cutover 时使用。不要为 agent 自己能够执行的步骤调用本技能。
+description: 生成一个交互式 Bash wizard，逐步引导人类完成只有他们才能执行的操作。配置基础设施、设置凭证或 CI secret、操作不熟悉的第三方仪表板，或者运行一次性迁移或 cutover 时使用。不要为 agent 自己能够执行的步骤调用本技能。
 ---
 ```
 
@@ -15,9 +15,9 @@ description: 生成一个交互式 Bash wizard，逐步引导人类完成只有�
 
 # Wizard
 
-**Wizard** 是一份 Bash 脚本，逐步引导人类完成手动流程；该流程由人手动完成很繁琐，每次向 AI 重新解释也很繁琐。它会打开每个 URL，准确说明点击和复制什么，捕获各项值，把值写入对应位置，例如 `.env` 和 GitHub secret，在每个阶段进行确认，并显示剩余进度。它可以配置第三方 service、运行一次性 migration，或把项目从一种状态迁移到另一种状态。
+**Wizard** 是一份 Bash 脚本，逐步引导人类完成手动流程；该流程由人手动完成很繁琐，每次向 AI 重新解释也很繁琐。它会打开每个 URL，准确说明点击和复制什么，捕获各项值，把值写入对应位置，例如 `.env` 和 GitHub secret，在每个阶段进行确认，并显示剩余进度。它可以配置第三方服务、运行一次性迁移，或把项目从一种状态迁移到另一种状态。
 
-[template.sh](template.sh) 已经解决令人愉悦的 UX：显示进度和剩余时间、设置确认关卡、跨平台打开 URL，包括 WSL、隐藏 secret 输入、幂等 upsert `.env`、写入 `gh secret` 或 `gh variable`，以及结束总结。**你的职责只有限定流程并编写各个阶段。** `STAGES` 标记上方的 library 在每份 wizard 中完全相同；一致性就是目的，绝不要手工编辑。
+[template.sh](template.sh) 已经解决令人愉悦的 UX：显示进度和剩余时间、设置确认关卡、跨平台打开 URL，包括 WSL、隐藏 secret 输入、幂等 upsert `.env`、写入 `gh secret` 或 `gh variable`，以及结束总结。**你的职责只有限定流程并编写各个阶段。** `STAGES` 标记上方的库在每份 wizard 中完全相同；一致性就是目的，绝不要手工编辑。
 
 Wizard 默认是临时产物：为一次运行而构建，保存在 scratch 或 `scripts/` 路径中，并在工作完成时删除。只有用户想要一条应该长期保存在仓库中的可重复设置路径时，才提交它。
 
@@ -30,7 +30,7 @@ Wizard 默认是临时产物：为一次运行而构建，保存在 scratch 或 
 找出人类必须执行的每一个手动步骤，以及过程中捕获的每一项值。先读取仓库，不要在毫无上下文时提问：
 
 - 对于设置流程：读取 `.env`、`.env.example`、`.env.*`、`README`、`docker-compose*`、框架配置和 `.github/workflows/*`。每个 `secrets.*` 或 `vars.*` 引用都是 wizard 必须产生的一项值。
-- 对于 migration 或 transition：读取当前状态、目标状态，以及二者之间的不可逆动作。
+- 对于迁移或过渡：读取当前状态、目标状态，以及二者之间的不可逆动作。
 
 随后向用户展示有序的阶段清单和每个阶段产生的值，并请求确认；用户可能会增加、删除或重新排序。
 
@@ -48,9 +48,9 @@ Wizard 默认是临时产物：为一次运行而构建，保存在 scratch 或 
 
 ### 3. 编写 wizard
 
-把 `template.sh` 复制到目标路径。按照依赖顺序，用每个步骤一个 `stage` 替换示例阶段。使用 library helper：`stage`、`say` 或 `step`、`open_url`、`ask` 或 `ask_secret`、`write_env`、`set_secret` 或 `set_var`、`pause` 或 `confirm`。把 `TOTAL_STAGES` 和 `TOTAL_MINUTES` 设置为诚实估计；这两个值驱动剩余时间显示。
+把 `template.sh` 复制到目标路径。按照依赖顺序，用每个步骤一个 `stage` 替换示例阶段。使用库中的辅助函数：`stage`、`say` 或 `step`、`open_url`、`ask` 或 `ask_secret`、`write_env`、`set_secret` 或 `set_var`、`pause` 或 `confirm`。把 `TOTAL_STAGES` 和 `TOTAL_MINUTES` 设置为诚实估计；这两个值驱动剩余时间显示。
 
-达到模板设定的标准：索取值前先打开 URL；所有 secret 都使用 `ask_secret`；所有持久化值都使用 `write_env`；只有 CI 实际需要的值才使用 `set_secret`；任何不可逆动作前都使用 `confirm`。每个 `stage` 会清空屏幕，使画面上只显示当前步骤；一个阶段只完成一项聚焦任务，避免人类需要的信息滚出画面。不要改动标记上方的 library。
+达到模板设定的标准：索取值前先打开 URL；所有 secret 都使用 `ask_secret`；所有持久化值都使用 `write_env`；只有 CI 实际需要的值才使用 `set_secret`；任何不可逆动作前都使用 `confirm`。每个 `stage` 会清空屏幕，使画面上只显示当前步骤；一个阶段只完成一项聚焦任务，避免人类需要的信息滚出画面。不要改动标记上方的库。
 
 <!-- source: vendor/mattpocock-skills/skills/engineering/wizard/SKILL.md:39-44 -->
 
@@ -71,13 +71,13 @@ Wizard 默认是临时产物：为一次运行而构建，保存在 scratch 或 
 # Wizard——逐步引导人类完成手动流程。
 # 由 /wizard 技能生成。
 #
-# "STAGES" 标记上方的所有内容都是 wizard library；不要手工编辑。
+# "STAGES" 标记上方的所有内容都是 wizard 库；不要手工编辑。
 # 在标记下方编写各个步骤的阶段。
 
 set -euo pipefail
 
 # ──────────────────────────────────────────────────────────────────────────
-# Wizard library——令人愉悦且一致的 UX。每份 wizard 都完全相同。
+# Wizard 库——令人愉悦且一致的 UX。每份 wizard 都完全相同。
 # ──────────────────────────────────────────────────────────────────────────
 
 if [[ -t 1 ]] && command -v tput >/dev/null 2>&1 && [[ "$(tput colors 2>/dev/null || echo 0)" -ge 8 ]]; then
