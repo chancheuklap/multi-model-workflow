@@ -10,7 +10,9 @@
 
    给这项 effort 确定一个 `产物目录`。它是 prototype、research、evidence 和 scratch 共用的单个安全路径段。运行 `mmw path scratch <产物目录>` 验证该值；map 创建后保持不变。
 
-2. **map frontier。** 再次 grilling，这次采用**广度优先**方式：在整个空间铺开，不在任何一条问题线上深入。找出 open 的决定，以及当前可以采取的起始步骤。**如果这一步没有发现 fog**，通往 destination 的路线已经清楚，整个过程也足够小，能够放进一个 session，因此不需要 map。停止并询问用户接下来想怎样进行。
+2. **map frontier。** 再次 grilling，这次采用**广度优先**方式：在整个空间铺开，不在任何一条问题线上深入。找出 open 的决定，以及当前可以采取的起始步骤。
+
+   如果这一步没有发现 fog，通往 destination 的路线已经清楚，整个过程也足够小，能够放进一个 session，因此不需要 map。向用户说明这个判断，询问接下来怎样进行，然后停止。不要执行第 3—6 步。
 
 3. **创建 map**，并添加 `wayfinder:map` 标签。填写 Destination 和 Notes；Decisions so far 留空；把 fog 的轮廓写入 **Not yet specified**。
 
@@ -41,13 +43,12 @@
 
    `/mmw-research` 负责报告验证、综合和保存人工审批关卡，本文不重复这些步骤。全部 research 交回后，先提交用户批准保存的 research 和本会话已经形成的其他仓库改动；没有仓库改动时不制造空提交。然后在每张 ticket 的 resolution comment 写入验证后的事实和未查清项；用户选择保存时，再加入 research 索引的精确路径。关闭 ticket，并在 map 的 Decisions so far 中追加 context pointer。修改 map 前重新读取最新正文，修改后再次读取，确认 context pointer 存在。research 新显露的精确问题继续使用第 4 步的 create-then-wire；仍无法精确表述的内容留在 Not yet specified。
 
-6. 停止。charting 是一个 session 的工作；这个 session 不亲手解决任何 ticket。
+6. **完成 charting。** charting 是一个 session 的工作；这个 session 不亲手解决任何 ticket。
 
-   确认当前 worktree 没有漏交的仓库改动。报告 destination、map 名称和当前 frontier，decision ticket 由其他 session claim。
+   确认当前 worktree 没有漏交的仓库改动。准备 destination、map 名称和当前 frontier，交给文末“下一步”报告；decision ticket 由其他 session claim。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
-| 第 2 步没有发现 fog | **停**：说明不需要 map，并询问用户接下来想怎样进行 |
 | map、当前能够精确表述的 ticket 和 blocking edge 已建立，research 已全部交回 | **停**：报告 destination、map 名称和当前 frontier |
