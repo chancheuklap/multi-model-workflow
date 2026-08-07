@@ -10,7 +10,7 @@ disable-model-invocation: true
 
 <!-- upstream: 9 -->
 
-destination 随 effort 而异。给它命名是 charting 的第一个动作，因为它会塑造后面的每一张 ticket。destination 可能是一份要交给下游继续迭代的 spec，可能是开始规划前必须锁定的一个决定，也可能是一次就地完成的改动，例如数据结构迁移。map 与领域无关；工程工作、课程内容或其他符合这种形态的工作都可以使用。
+destination 随 effort 而异。给它命名是 charting 的第一个动作，因为它会塑造后面的每一张 ticket。destination 可能是一份要交出去并继续迭代的 spec，可能是开始规划前必须锁定的一个决定，也可能是一次就地完成的改动，例如数据结构迁移。map 与领域无关；工程工作、课程内容或其他符合这种形态的工作都可以使用。
 
 <!-- upstream: 11-13 -->
 
@@ -78,9 +78,9 @@ map 正文是整个 map 的低分辨率视图。每个 session 加载一次。op
 
 一个 session 通过把 ticket 指派给推动这张 map 的开发者来 **claim** 它。claim 必须发生在任何工作之前，使并发 session 能够跳过这张 ticket。assignee 就是 claim：open 且没有 assignee 的 ticket 是 unclaimed。
 
-blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 tracker 会在自己的 UI 中把 frontier **可视化**，人不需要打开 map 就能看见当前可以处理的内容。只有缺少原生 blocking 的 tracker 才退回正文约定。一张 ticket 的所有 blocker 都已关闭时，它才是 unblocked。**frontier** 是 open、unblocked、unclaimed 的子 issue，也就是已知区域的边缘。
+blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 tracker 会在自己的 UI 中把 frontier **可视化**，人不需要打开 map 就能看见当前可以处理的内容。一张 ticket 的所有 blocker 都已关闭时，它才是 unblocked。**frontier** 是 open、unblocked、unclaimed 的子 issue，也就是已知区域的边缘。
 
-答案不属于 ticket 正文。答案在 ticket 解决时记录，见[走完整张 map](#走完整张-map)。解决 ticket 期间建立的资产从 issue 链接，不粘贴进正文。
+答案不属于 ticket 正文。答案在 ticket 解决时记录，见[沿 map 推进](#沿-map-推进)。解决 ticket 期间建立的资产从 issue 链接，不粘贴进正文。
 
 <!-- upstream: 73-80 -->
 
@@ -97,7 +97,7 @@ blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 
 
 ## Fog of war
 
-map 是**刻意**不完整的：不要 chart 当前还看不见的内容。open ticket 之外是 **fog of war**。那里是一些决定和调查问题的模糊轮廓；你知道它们将会出现，却还无法确定具体问题，因为它们依赖仍然 open 的问题。解决一张 ticket 会驱散前方的 fog，把此时已经能够精确表述的内容转成新的 ticket。每次处理一张，直到通往 destination 的路线清楚，而且没有 ticket 留下。
+map 是**刻意**不完整的：不要 chart 当前还看不见的内容。open ticket 之外是 **fog of war**。那里是一些决定和调查问题的模糊轮廓；你知道它们将会出现，却还无法确定具体问题，因为它们依赖仍然 open 的问题。解决一张 ticket 会驱散前方的 fog，把此时已经能够精确表述的内容转成新的 ticket。每次处理一张，直到通往 destination 的路线清楚，而且没有尚待解决的 ticket。
 
 map 的 **Not yet specified** 一节记录这片模糊视野：怀疑存在的问题，以及以后需要回看的区域。它是朝向 destination、尚未发现的 frontier。这里的所有内容都在范围内，只是还不够清晰，无法建立 ticket。按照当前视野允许的程度书写，可以很松，也可以很完整。它同时是给协作者看的路标，让协作者知道这项 effort 正朝哪里发展。
 
@@ -137,7 +137,7 @@ rule out of scope 是一项范围决定，不是路线上的一步。如果一�
 
 <!-- upstream: 118-128 -->
 
-### 走完整张 map
+### 沿 map 推进
 
 用户带着一张 map 调用，可以使用 URL 或编号。ticket 是可选项；用户没有指定 ticket 时，由你选择下一个决定，不要求用户选择。
 
