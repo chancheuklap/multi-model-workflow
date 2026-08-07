@@ -32,7 +32,7 @@
 
    `wayfinder:task` 必须等待用户操作时，给出精确操作并停止本步骤。用户返回后继续处理同一张 ticket；不要提前执行第 4 步。
 
-   HITL ticket 只能由用户与 agent 共同解决。ticket 的结果确实形成长期术语、bounded context 或 ADR 时，调用 `/mmw-domain-modeling`；其他结果不增加领域文档步骤。答案明确否决一个 enhancement 时，按 Tracker 合同把理由保存到 `.out-of-scope/`。这些仓库改动在更新 tracker 之前完成。
+   HITL ticket 只能由用户与 agent 共同解决。`wayfinder:grilling` 已经通过 `/mmw-grilling` 在同一段对话中应用 `/mmw-domain-modeling`，不要重复调用。其他 HITL ticket 的结果确实形成长期术语、bounded context 或 ADR 时，调用 `/mmw-domain-modeling`；其他结果不增加领域文档步骤。答案明确否决一个 enhancement 时，按 Tracker 合同把理由保存到 `.out-of-scope/`。这些仓库改动在更新 tracker 之前完成。
 
    prototype、research 或 `/wizard` 使用了 scratch 时，清理 `mmw path scratch <产物目录> issue-<编号>` 返回的当前 ticket scratch。存在仓库改动时提交结果分支，并交回结果分支名、HEAD SHA、基点 SHA 和报告。结果分支在这里停止，不执行第 4 步。拥有 map 分支的任务先运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`，再运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`；没有仓库改动时不制造空提交或空集成。仓库改动完成集成后，由拥有 map 分支的任务继续第 4 步。
 
