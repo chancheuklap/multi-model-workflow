@@ -1,4 +1,4 @@
-# 走完整张 map
+# 沿 map 推进
 
 <!-- upstream: 118-128 -->
 
@@ -6,7 +6,11 @@
 
 1. 加载 **map**，也就是低分辨率视图，不加载每张 ticket 的正文。
 
-   读取 map 正文中的 `产物目录`，再运行 `mmw issue frontier <map 编号> --label-prefix wayfinder:`。frontier 至少有一张 ticket 时，继续第 2 步。frontier 为空时，立即运行 `mmw issue children <map 编号>`：
+   读取 map 正文中的 `产物目录`，再运行 `mmw issue frontier <map 编号> --label-prefix wayfinder:`。
+
+   用户指定 ticket 时，运行 `mmw issue children <map 编号>`，在输出中确认这张 ticket 是当前 map 的子 issue，带 `wayfinder:` 标签，状态是 open，没有 assignee，而且被阻塞数量为零。五项全部成立时继续第 2 步；任何一项不成立时，报告实际状态并停止，不 claim 或解决这张 ticket。
+
+   用户没有指定 ticket 时，frontier 至少有一张 ticket 就继续第 2 步。frontier 为空时，立即运行 `mmw issue children <map 编号>`：
 
    | 查询结果 | 处理 |
    | --- | --- |
@@ -30,7 +34,9 @@
 
    `wayfinder:task` 必须等待用户操作时，给出精确操作并停止本步骤。用户返回后继续处理同一张 ticket；不要提前执行第 4 步。
 
-   HITL ticket 只能由用户与 agent 共同解决。`wayfinder:grilling` 已经通过 `/mmw-grilling` 在同一段对话中应用 `/mmw-domain-modeling`，不要重复调用。其他 HITL ticket 的结果确实形成需要长期保留的领域术语、bounded context、bounded context 之间的关系，或者符合 ADR 三项判据的决定时，调用 `/mmw-domain-modeling`；没有形成需要长期保留的领域术语、bounded context、bounded context 之间的关系或符合 ADR 三项判据的决定时，不增加领域文档步骤。答案明确否决一个 enhancement 时，按 tracker 合同把理由保存到 `.out-of-scope/`。这些仓库改动在更新 tracker 之前完成。
+   HITL ticket 只能由用户与 agent 共同解决。`wayfinder:grilling` 已经通过 `/mmw-grilling` 在同一段对话中应用 `/mmw-domain-modeling`，不重复调用。
+
+   每张 ticket 得到结果后，检查它是否形成需要长期保留的领域术语、bounded context、bounded context 之间的关系，或者符合 ADR 三项判据的决定。形成其中任何一项时，调用 `/mmw-domain-modeling`；没有形成时，不增加领域文档步骤。答案明确否决一个 enhancement 时，按 tracker 合同把理由保存到 `.out-of-scope/`。这些仓库改动在更新 tracker 之前完成。
 
    scratch 清理和 worktree 判定由实际创建文件的下游技能负责。Wayfinder 不为每张 decision ticket 另建一套 worktree 或分支集成流程。存在持久仓库内容时，确认下游技能已经完成自己的清理，并在继续第 4 步前提交仍未提交的持久内容；没有仓库改动时不制造空提交。
 

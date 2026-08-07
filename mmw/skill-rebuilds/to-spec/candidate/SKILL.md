@@ -1,6 +1,6 @@
 ---
 name: mmw-to-spec
-description: 把已经谈定的对话和证据综合、审查并发布成 spec。用于 Grilling 已经确认共同理解、prototype 已经形成用户结论、research 事实已经进入确定的方案、Wayfinder 已经建立 spec issue、其他调用方已经形成完整决定、实现阶段需要回补测试 seam，或用户直接要求把已经谈定的内容写成 spec。
+description: 把已经谈定的对话和证据综合、审查并发布成 spec。用于 Grilling 已经确认共同理解、prototype 已经形成用户结论、research 事实已经进入确定的方案、Wayfinder 的路线已经清楚并交出 map、其他调用方已经形成完整决定、实现阶段需要回补测试 seam，或用户直接要求把已经谈定的内容写成 spec。
 ---
 
 本技能使用当前对话上下文、调用方交回的材料和对代码库的理解来生成一份 spec。**不要**访谈用户；只综合已经掌握的内容。spec 记录已经形成的决定，不在写作过程中产生新决定。
@@ -16,17 +16,17 @@ description: 把已经谈定的对话和证据综合、审查并发布成 spec�
 | `/mmw-grilling` | 当前对话中已经确认的共同理解，以及本轮形成的领域术语和 ADR |
 | `/mmw-prototype` | 当前问题、用户逐轮结论、prototype 资产索引、选中产物、当前验证事实、否定约束、UI 与后端的对应关系、可复用内容和精确证据路径 |
 | `/mmw-research` | 已验证的事实、出处和未查清项；本次 spec 确实引用已保存 research 时，再读取 research 索引和精确文件 |
-| `/mmw-wayfinder` | map 下不带 `wayfinder:` 标签的当前 spec issue；读取其中点名的决定、原样继承的 `产物目录`，以及确实需要的 prototype、research 或 evidence 精确路径 |
+| `/mmw-wayfinder` | 已关闭的 map；读取 Destination、Decisions so far、Out of scope，以及相关 decision ticket 点名的 prototype、research 或 evidence 精确路径 |
 | `/mmw-improve-codebase-architecture`、`/mmw-triage` 或其他调用方 | 已经谈定的问题、方案、范围边界、测试 seam 初判和经过验证的现状事实；只把当前调用方实际提供的字段当作输入 |
 | `/mmw-implement` | 当前 spec 和实现阶段发现缺少的测试 seam；本次只补 seam，不重写其他内容 |
 | 用户直接调用 | 当前对话中已经谈定的内容；没有单独的上游产物 |
 
 逐项检查输入是否仍有未决内容：
 
+- Wayfinder map 仍缺少一项必须通过 decision ticket 才能形成的决定或事实时，保持 map 和已有 ticket 不变，向用户报告缺少的完整问题和已有出处，并停止本步骤。
 - 产品、设计或架构决定尚未形成时，移交 `/mmw-grilling`，并停止本步骤。
 - 问题必须通过可运行资产才能判断时，移交 `/mmw-prototype`，并停止本步骤。
 - 问题需要多个独立角度或多份一手来源才能取得事实时，移交 `/mmw-research`，并停止本步骤。
-- Wayfinder 派生的 spec 仍缺少一项必须通过 decision ticket 才能形成的决定或事实时，把 map 编号、spec issue 编号、缺少的完整问题和已有出处交回 `/mmw-wayfinder`，并停止本步骤。`/mmw-wayfinder` 负责重新接管 map、decision ticket 和分支集成。
 
 一个仓库文件、一个符号或一次直接查询能够补齐的代码库事实不属于未决设计。把它留给第 2 步直接读取。
 
@@ -68,7 +68,7 @@ description: 把已经谈定的对话和证据综合、审查并发布成 spec�
 | Destination | `Problem Statement` 和 `Solution` |
 | 已关闭 decision ticket 中与当前 spec 有关的决定 | `Implementation Decisions` 及其他对应 section |
 | Out of scope | `Out of Scope` |
-| spec issue 点名的 prototype、research 或 evidence | spec 抬头的输入出处，以及对应的决定、现状事实或视觉合同 |
+| decision ticket 点名的 prototype、research 或 evidence | spec 抬头的输入出处，以及对应的决定、现状事实或视觉合同 |
 
 prototype 的完整可运行资产继续留在 prototype 目录。spec 只吸收用户确认的结论、选中产物、否定约束和可移植决定。subagent 原始报告、网页转储和未采信内容不进入 spec；只使用主 agent 已经验证并综合的 research 事实，并在需要时引用 research 索引和精确文件。
 
@@ -113,16 +113,10 @@ prototype 的完整可运行资产继续留在 prototype 目录。spec 只吸收
 
 先提交 spec 文件，再更新 issue tracker。tracker 更新必须指向已经提交的 spec。
 
-普通任务使用一张新的 spec issue。issue 正文只保存完整 spec 的摘要和精确文件路径：
+创建一张新的 spec issue。issue 正文只保存完整 spec 的摘要、精确文件路径和输入出处；从 Wayfinder 进入时，输入出处包含 map 名称及其 URL 或编号：
 
 ```bash
 mmw issue create --title "<spec 名称>" --body-file <摘要文件> --label ready-for-agent
-```
-
-Wayfinder 已经建立 spec issue 时，更新原 issue 的正文并添加 `ready-for-agent`，不要创建第二张 issue：
-
-```bash
-gh issue edit <spec issue 编号> --body-file <摘要文件> --add-label ready-for-agent
 ```
 
 发布完成的判据是：spec 文件已经提交；对应 spec issue 指向该文件；spec issue 带 `ready-for-agent`。这个标签记录第 7 步人工审批关卡已经通过，不表示直接实施整份 spec。

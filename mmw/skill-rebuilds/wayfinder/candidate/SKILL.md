@@ -1,6 +1,6 @@
 ---
 name: mmw-wayfinder
-description: Wayfinding：把同时超出一次 agent session 且存在 fog of war 的 effort 组织成 issue tracker 上由 decision ticket 组成的共享 map。用于新建 map、认领 decision ticket、没有 open decision ticket 时收尾，或用户显式标记 big。
+description: Wayfinding：把同时超出一次 agent session 且存在 fog of war 的 effort 组织成 issue tracker 上由 decision ticket 组成的共享 map。用于新建 map、认领并解决一张 decision ticket、没有 open decision ticket 时检查路线是否清楚并完成移交，或用户显式标记 big。
 argument-hint: "[map 编号、ticket 编号，或者要做的事]"
 ---
 
@@ -12,7 +12,7 @@ argument-hint: "[map 编号、ticket 编号，或者要做的事]"
 
 <!-- upstream: 9 -->
 
-destination 随 effort 而异。给它命名是 charting 的第一个动作，因为它会塑造后面的每一张 ticket。destination 可能是一份要交给下游继续迭代的 spec，可能是开始规划前必须锁定的一个决定，也可能是一次就地完成的改动，例如数据结构迁移。map 与领域无关；工程工作、课程内容或其他符合这种形态的工作都可以使用。
+destination 随 effort 而异。给它命名是 charting 的第一个动作，因为它会塑造后面的每一张 ticket。destination 可能是一份要交出去并继续迭代的 spec，可能是开始规划前必须锁定的一个决定，也可能是一次就地完成的改动，例如数据结构迁移。map 与领域无关；工程工作、课程内容或其他符合这种形态的工作都可以使用。
 
 <!-- upstream: 11-13 -->
 
@@ -92,9 +92,9 @@ issue-<这张 ticket 的编号>
 
 一个 session 通过把 ticket 指派给推动这张 map 的开发者来 **claim** 它。claim 必须发生在任何工作之前，使并发 session 能够跳过这张 ticket。assignee 就是 claim：open 且没有 assignee 的 ticket 是 unclaimed。
 
-blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 tracker 会在自己的 UI 中把 frontier **可视化**，人不需要打开 map 就能看见当前可以处理的内容。只有缺少原生 blocking 的 tracker 才退回正文约定。一张 ticket 的所有 blocker 都已关闭时，它才是 unblocked。**frontier** 是 open、unblocked、unclaimed 的子 issue，也就是已知区域的边缘。
+blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 tracker 会在自己的 UI 中把 frontier **可视化**，人不需要打开 map 就能看见当前可以处理的内容。一张 ticket 的所有 blocker 都已关闭时，它才是 unblocked。**frontier** 是 open、unblocked、unclaimed 的子 issue，也就是已知区域的边缘。
 
-答案不属于 ticket 正文。答案在 ticket 解决时记录，见 [walking.md](walking.md) 的“走完整张 map”流程。解决 ticket 期间建立的资产从 issue 链接，不粘贴进正文。
+答案不属于 ticket 正文。答案在 ticket 解决时记录，见 [walking.md](walking.md) 的“沿 map 推进”流程。解决 ticket 期间建立的资产从 issue 链接，不粘贴进正文。
 
 <!-- upstream: 73-80 -->
 
@@ -102,7 +102,7 @@ blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 
 
 每张 ticket 要么是 **HITL**，即 human in the loop，由一个亲自表达意见的人与 agent 共同处理；要么是 **AFK**，由 agent 独立推动。HITL ticket 只能通过这场实时交流解决；agent 绝不代替人的一方回答。一个 grilling agent 自己回答自己的问题，就已经破坏了这项合同。
 
-- **Research**（AFK）：阅读文档、第三方 API 或本地知识库等资源，找出某项决定正在等待的事实。由 `/mmw-research` 派一个 `investigator` 解决。需要当前工作目录之外的知识时使用。
+- **Research**（AFK）：阅读文档、第三方 API 或本地知识库等资源，找出某项决定正在等待的事实。由 `/mmw-research` 解决。需要当前工作目录之外的知识时使用。
 - **Prototype**（HITL）：制作一个具体、可运行的产物，提高讨论的保真度。初版可以粗糙；用户持续走查并迭代，直到它接近可以真实落地的状态，使后续实现可以直接参考或复用已经验证的设计与逻辑。把 prototype 作为资产链接到 ticket。关键问题是“它应该长什么样”或“它应该怎样表现”，而且只靠讨论无法决定时使用。
 - **Grilling**（HITL）：对话。默认情况。始终调用 `/mmw-grilling`；它在同一场讨论中应用 `/mmw-domain-modeling`。
 - **Task**（HITL 或 AFK）：形成一个**决定**之前必须完成的手工工作。此时没有需要讨论的决定，也不需要 prototype 或 research，但讨论必须等这项工作完成才能继续。例如注册一个服务以便评估它的 API、开通访问权限，或者移动数据以便看清数据形状。这是唯一一种执行操作而不形成决定的类型。它通过解除一个决定的 blocker 取得存在理由，不通过交付 destination 取得存在理由。agent 能独立推动时，由 agent 独立完成（AFK）；否则，向用户提供精确清单（HITL）。工作完成时，ticket 才算解决。答案记录完成了什么，以及后续 ticket 依赖的结果事实，例如凭证位置、新 URL 和行数。
@@ -113,7 +113,7 @@ prototype ticket 调用 `/mmw-prototype`。必须由用户完成的多步 task �
 
 ## Fog of war
 
-map 是**刻意**不完整的：不要 chart 当前还看不见的内容。open ticket 之外是 **fog of war**。那里是一些决定和调查问题的模糊轮廓；你知道它们将会出现，却还无法确定具体问题，因为它们依赖仍然 open 的问题。解决一张 ticket 会驱散前方的 fog，把此时已经能够精确表述的内容转成新的 ticket。每次处理一张，直到通往 destination 的路线清楚，而且没有 ticket 留下。
+map 是**刻意**不完整的：不要 chart 当前还看不见的内容。open ticket 之外是 **fog of war**。那里是一些决定和调查问题的模糊轮廓；你知道它们将会出现，却还无法确定具体问题，因为它们依赖仍然 open 的问题。解决一张 ticket 会驱散前方的 fog，把此时已经能够精确表述的内容转成新的 ticket。每次处理一张，直到通往 destination 的路线清楚，而且没有尚待解决的 ticket。
 
 map 的 **Not yet specified** 一节记录这片模糊视野：怀疑存在的问题，以及以后需要回看的区域。它是朝向 destination、尚未发现的 frontier。这里的所有内容都在范围内，只是还不够清晰，无法建立 ticket。按照当前视野允许的程度书写，可以很松，也可以很完整。它同时是给协作者看的路标，让协作者知道这项 effort 正朝哪里发展。
 
@@ -145,4 +145,4 @@ rule out of scope 是一项范围决定，不是路线上的一步。如果一�
 | 情况 | 下一步 |
 | --- | --- |
 | 用户带着一个松散的想法调用 | **自己继续**：读取 [charting.md](charting.md)，执行 Chart the map |
-| 用户带着一张 map 调用，可以使用 URL 或编号；ticket 可以指定，也可以不指定 | **自己继续**：读取 [walking.md](walking.md)，走完整张 map |
+| 用户带着一张 map 调用，可以使用 URL 或编号；ticket 可以指定，也可以不指定 | **自己继续**：读取 [walking.md](walking.md)，沿 map 推进 |
