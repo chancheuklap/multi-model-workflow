@@ -32,7 +32,7 @@ disable-model-invocation: true
 **扫描前先确定范围——YAGNI。** 对 module 执行 deepening 的回报，是让未来对它的改动更容易，因此要额外重视代码库最近改动的部分。开始查看前，先决定**查看哪里**：
 
 - 如果用户指定了方向，例如一个 module、子系统或痛点，就采用该方向，并跳过下方推断。
-- 否则，沿 commit 历史向前查看足够长的一段（`git log --oneline`），找出代码库热点，也就是反复出现的文件和区域；先让这些路径吸引你的注意。如果改动分散，没有清晰热点，就扩大范围。
+- 否则，沿提交历史向前查看足够长的一段（`git log --oneline`），找出代码库热点，也就是反复出现的文件和区域；先让这些路径吸引你的注意。如果改动分散，没有清晰热点，就扩大范围。
 
 先读取项目的领域术语表（`CONTEXT.md`）和本次涉及区域内的全部 ADR。
 
@@ -56,14 +56,14 @@ disable-model-invocation: true
 
 为每个候选项渲染一张卡片，其中包含：
 
-- **Files**——涉及哪些文件或 module
-- **Problem**——当前架构为何产生摩擦
-- **Solution**——用直白英语说明会改变什么
-- **Benefits**——用 locality 和 leverage 解释，并说明测试如何改进
-- **Before / After diagram**——并排、手工绘制，展示 shallow 状态和 deepening 后状态
-- **Recommendation strength**——`Strong`、`Worth exploring`、`Speculative` 三者之一，渲染为徽章
+- **文件**——涉及哪些文件或 module
+- **问题**——当前架构为何产生摩擦
+- **方案**——用直白英语说明会改变什么
+- **收益**——用 locality 和 leverage 解释，并说明测试如何改进
+- **改动前/后图示**——并排、手工绘制，展示 shallow 状态和 deepening 后状态
+- **推荐强度**——`Strong`、`Worth exploring`、`Speculative` 三者之一，渲染为徽章
 
-在报告末尾加入 **Top recommendation** 章节：说明你会最先处理哪个候选项，以及原因。
+在报告末尾加入**首要推荐**章节：说明你会最先处理哪个候选项，以及原因。
 
 **领域内容使用 `CONTEXT.md` 词汇，架构内容使用 `/codebase-design` 词汇。** 如果 `CONTEXT.md` 定义了 `Order`，就说 `Order intake module`，不要说 `FooBarHandler`，也不要说 `Order service`。
 
@@ -139,14 +139,14 @@ disable-model-invocation: true
 
 每个候选项对应一个 `<article>`：
 
-- **Title**——简短，为 deepening 命名，例如“归并 Order intake pipeline”。
-- **Badge row**——推荐强度（`Strong` 使用 emerald，`Worth exploring` 使用 amber，`Speculative` 使用 slate），并加上依赖分类 tag（`in-process`、`local-substitutable`、`ports & adapters`、`mock`）。
-- **Files**——使用等宽字体的清单，样式为 `font-mono text-sm`。
-- **Before / After diagram**——核心内容。两列并排。参见下方模式。
-- **Problem**——一句话。说明哪里造成困难。
-- **Solution**——一句话。说明什么会改变。
-- **Wins**——项目符号，每项不超过 6 个词。例如“测试只经过一个 interface”“Pricing logic 不再泄漏”“删除 4 个 shallow wrapper”。
-- **ADR callout**（如果适用）——amber 浅色框中的一行文字。
+- **标题**——简短，为 deepening 命名，例如“归并 Order 接收管线”。
+- **徽章行**——推荐强度（`Strong` 使用 emerald，`Worth exploring` 使用 amber，`Speculative` 使用 slate），并加上依赖分类标记（`in-process`、`local-substitutable`、`ports & adapters`、`mock`）。
+- **文件**——使用等宽字体的清单，样式为 `font-mono text-sm`。
+- **改动前/后图示**——核心内容。两列并排。参见下方模式。
+- **问题**——一句话。说明哪里造成困难。
+- **方案**——一句话。说明什么会改变。
+- **收益**——项目符号，每项不超过 6 个词。例如“测试只经过一个 interface”“Pricing 逻辑不再泄漏”“删除 4 个 shallow wrapper”。
+- **ADR 提示框**（如果适用）——amber 浅色框中的一行文字。
 
 不要写解释段落。如果图示需要一个段落才能理解，就重画图示。
 
@@ -222,7 +222,7 @@ disable-model-invocation: true
 - “执行 deepening：一个 interface，一个测试位置。”
 - “两个 adapter 证明这条 seam 成立：生产环境使用 HTTP，测试使用内存实现。”
 
-**Wins 项目符号**要使用术语表中的词说明收益，例如“locality：bug 集中在一个 module 中”“leverage：一个 interface，N 个调用位置”“interface 缩小；implementation 吸收 wrapper”。不要写“更容易维护”或“代码更干净”；这些词不在术语表中，不值得出现。
+**收益项目符号**要使用术语表中的词说明收益，例如“locality：bug 集中在一个 module 中”“leverage：一个 interface，N 个调用位置”“interface 缩小；implementation 吸收 wrapper”。不要写“更容易维护”或“代码更干净”；这些词不在术语表中，不值得出现。
 
 不要含糊，不要先说空话，不要写“值得注意的是……”。一句话能变成项目符号，就改成项目符号。一个项目符号能够删掉，就删掉。如果某个术语不在 `/codebase-design` 术语表中，先寻找术语表里可用的词，再考虑创造新词。
 

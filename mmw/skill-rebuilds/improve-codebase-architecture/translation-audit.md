@@ -36,7 +36,7 @@
 | `SKILL.md:18` | 第 1 步探索已保留 |
 | `SKILL.md:20` | 扫描前范围、YAGNI、未来改动回报、最近改动加权和先定查看位置均已保留 |
 | `SKILL.md:22` | 用户指定 module、subsystem 或痛点时采用并跳过推断均已保留 |
-| `SKILL.md:23` | 否则回看足够 commit 历史、命令、热点定义、优先路径和分散时扩大范围均已保留 |
+| `SKILL.md:23` | 否则回看足够提交历史、命令、热点定义、优先路径和分散时扩大范围均已保留 |
 | `SKILL.md:25` | 先读领域术语表和相关 ADR 均已保留 |
 | `SKILL.md:27` | Agent 工具、Explore 类型、非僵化启发法、自然探索和记录摩擦均已保留 |
 | `SKILL.md:29` | 理解一概念需跨多个小 module 跳转的问题已保留 |
@@ -49,13 +49,13 @@
 | `SKILL.md:39` | 自包含 HTML、OS 临时目录、不落仓库、TMPDIR 与两类 fallback、带 timestamp 新文件、三平台打开命令和绝对路径均已保留 |
 | `SKILL.md:41` | Tailwind、Mermaid、两者 CDN、适用图形条件、与 CSS SVG 混合、三类图关系、三类编辑图示、每候选前后图和视觉优先均已保留 |
 | `SKILL.md:43` | 每候选一张卡片及内容引导已保留 |
-| `SKILL.md:45` | Files 和涉及文件 module 已保留 |
-| `SKILL.md:46` | Problem 和架构摩擦原因已保留 |
-| `SKILL.md:47` | Solution 和直白英语说明变化已保留 |
-| `SKILL.md:48` | Benefits 用 locality leverage 和测试改善说明均已保留 |
+| `SKILL.md:45` | 文件字段和涉及文件 module 已保留 |
+| `SKILL.md:46` | 问题字段和架构摩擦原因已保留 |
+| `SKILL.md:47` | 方案字段和直白英语说明变化已保留 |
+| `SKILL.md:48` | 收益字段用 locality、leverage 和测试改善说明均已保留 |
 | `SKILL.md:49` | Before After 并排自绘、展示 shallow 与 deepening 均已保留 |
 | `SKILL.md:50` | 三档 recommendation strength 和 badge 均已保留 |
-| `SKILL.md:52` | 报告末尾 Top recommendation、首选候选和原因均已保留 |
+| `SKILL.md:52` | 报告末尾首要推荐、首选候选和原因均已保留 |
 | `SKILL.md:54` | 领域用 CONTEXT、架构用 codebase-design、Order intake module 正例和两个反例均已保留 |
 | `SKILL.md:56` | ADR 冲突只在真实摩擦值得重开时呈现、明确 warning 示例和不列理论禁止项均已保留 |
 | `SKILL.md:58` | HTML-REPORT 链接和三项内容均已保留 |
@@ -103,14 +103,14 @@
 | `HTML-REPORT.md:40` | Candidate card 标题已翻译 |
 | `HTML-REPORT.md:42` | 图示承担重量、文字稀少直白和自然使用术语均已保留 |
 | `HTML-REPORT.md:44` | 每候选一个 article 已保留 |
-| `HTML-REPORT.md:46` | Title、简短、命名 deepening 和 Order 示例均已保留 |
-| `HTML-REPORT.md:47` | Badge row、三档颜色和四类依赖 tag 均已保留 |
-| `HTML-REPORT.md:48` | Files、等宽清单和 class 已保留 |
+| `HTML-REPORT.md:46` | 标题、简短、命名 deepening 和 Order 示例均已保留 |
+| `HTML-REPORT.md:47` | 徽章行、三档颜色和四类依赖标记均已保留 |
+| `HTML-REPORT.md:48` | 文件、等宽清单和 class 已保留 |
 | `HTML-REPORT.md:49` | Before After 核心、两列并排和下方模式已保留 |
-| `HTML-REPORT.md:50` | Problem 一句和困难点已保留 |
-| `HTML-REPORT.md:51` | Solution 一句和变化已保留 |
-| `HTML-REPORT.md:52` | Wins、每项至多 6 词和三个例子均已保留 |
-| `HTML-REPORT.md:53` | 可选 ADR callout 和 amber 框已保留 |
+| `HTML-REPORT.md:50` | 问题一句和困难点已保留 |
+| `HTML-REPORT.md:51` | 方案一句和变化已保留 |
+| `HTML-REPORT.md:52` | 收益、每项至多 6 词和三个例子均已保留 |
+| `HTML-REPORT.md:53` | 可选 ADR 提示框和 amber 框已保留 |
 | `HTML-REPORT.md:55` | 禁止解释段和难懂时重画图均已保留 |
 | `HTML-REPORT.md:57` | 图示模式标题已保留 |
 | `HTML-REPORT.md:59` | 按候选适配、混用、不全相同和多样性目的均已保留 |
@@ -142,7 +142,7 @@
 | `HTML-REPORT.md:98` | 约 320px 和前后并排无需滚动目的均已保留 |
 | `HTML-REPORT.md:99` | module label class 和 schematic 非 UI 的视觉目的均已保留 |
 | `HTML-REPORT.md:100` | 仅两个 script、其余静态、无 app code 和仅 Mermaid 渲染交互均已保留 |
-| `HTML-REPORT.md:102` | Top recommendation section 标题已保留 |
+| `HTML-REPORT.md:102` | 首要推荐章节标题已保留 |
 | `HTML-REPORT.md:104` | 大卡片、候选名、一句原因、anchor link 和仅此而已均已保留 |
 | `HTML-REPORT.md:106` | Tone 译为“语气” |
 | `HTML-REPORT.md:108` | 直白英语、简洁、架构词直接来自技能和禁止以简洁为漂移借口均已保留 |
@@ -153,7 +153,7 @@
 | `HTML-REPORT.md:117` | Pricing 跨 seam 泄漏示例已保留 |
 | `HTML-REPORT.md:118` | Deepen 为一个 interface 一个测试位置示例已保留 |
 | `HTML-REPORT.md:119` | 两 adapter 证明 seam、production HTTP 和 tests in-memory 均已保留 |
-| `HTML-REPORT.md:121` | Wins 使用 glossary、三个例子、禁止两个含混收益词和不值得出现的理由均已保留 |
+| `HTML-REPORT.md:121` | 收益使用术语表、三个例子、禁止两个含混收益词和不值得出现的理由均已保留 |
 | `HTML-REPORT.md:123` | 无 hedging throat-clearing、禁用开场、句转 bullet、可删则删和先用 glossary 再造词均已保留 |
 | `agents/openai.yaml:1` | `interface` 字段已保留 |
 | `agents/openai.yaml:2` | display name 已保留 |
