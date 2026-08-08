@@ -121,8 +121,6 @@ mmw issue create --title "<一句话的名字>" --body-file <摘要文件> --lab
 
 **发布出去的这张 issue 加上这个标签，就是第 7 步人工审批关卡通过的凭据。** 没发布就是没过这道关卡。
 
-下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
-
 ## 下一步
 
 | 情况 | 下一步 |

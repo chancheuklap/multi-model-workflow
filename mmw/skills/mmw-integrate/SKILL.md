@@ -73,8 +73,6 @@ mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>
 
 ⑥ 合并集成审是集成结果的终审。完成后在审查记录中登记 `终审提交`，不再发起 ⑤ final 终审。
 
-下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
-
 ## 下一步
 
 | 情况 | 下一步 |

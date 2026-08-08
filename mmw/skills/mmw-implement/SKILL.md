@@ -118,8 +118,6 @@ spec 分支通过合同门，或者 agent brief 分支完成第 5 步后，按 `
 
 采信的 findings 打包成一张修复 ticket 派给新 `worker`，带上 `file:line` 和要改成什么。修复回来后逐条验证原问题已经消失，并运行修复涉及的验收命令。全部通过后按 `/mmw-review` 第 7 步在原审查记录登记 `修复提交` 和 `终审提交`；不再派审查者。
 
-下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
-
 ## 下一步
 
 | 情况 | 下一步 |

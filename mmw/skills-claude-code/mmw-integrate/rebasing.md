@@ -2,6 +2,12 @@
 
 本操作只在拥有结果分支的任务 worktree 中执行。主 agent 继续留在当前任务分支的 worktree。
 
+## 先看清楚现在停在哪
+
+`git status` 说 rebase 已经在进行中时，**不要再跑「开始」那条命令**——那会另起一次 rebase。先取现状：`git status` 看停在第几条提交、哪些文件还冲突着，`git log --oneline` 看已经重放过哪些。然后直接从「识别两边」往下走。
+
+没有进行中的 rebase 时，从下面「开始」起。
+
 ## 开始
 
 ```bash
@@ -32,6 +38,8 @@ git rebase --continue
 
 ## 停止
 
-rebase 进行中可运行 `git rebase --abort` 回到开始前。rebase 完成后不要用 `reset --hard` 回退；需要撤销时先由用户确认。
+`git rebase --abort` 会回到 rebase 开始前。只有用户取消本次集成，或现有目标无法决定冲突取舍时才停止；不要用停止代替冲突判断。
+
+rebase 完成后不要用 `reset --hard` 回退；需要撤销时先由用户确认。
 
 结果分支已经推送到远端时，更新远端需要 `--force-with-lease`。推送属于对外发布，必须先得到用户明确授权。

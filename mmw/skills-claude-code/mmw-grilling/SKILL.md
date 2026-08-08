@@ -91,8 +91,6 @@ research 报告交回后，按 `/mmw-verifying-agent-output` 验证会改变问�
 
 用户要求提前停止时，分别报告已经定下来的内容、仍未解决的内容和仍在等待的事实。不要宣称已经形成完整的共同理解。
 
-下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
-
 ## 下一步
 
 | 情况 | 下一步 |

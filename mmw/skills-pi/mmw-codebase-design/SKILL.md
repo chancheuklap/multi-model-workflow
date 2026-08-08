@@ -1,6 +1,6 @@
 ---
 name: mmw-codebase-design
-description: deep module 的共同词汇和设计判据。设计或比较 module interface、选择 seam 或 adapter、评估 module depth，或其他技能需要这套词汇与判据时使用。
+description: deep module 的共同词汇和设计判据。设计或比较 module interface、选择 seam 或 adapter、评估 module depth、提升代码可测性或 agent 可导航性，或其他技能需要这套词汇与判据时使用。
 ---
 
 # Codebase Design
@@ -62,7 +62,7 @@ description: deep module 的共同词汇和设计判据。设计或比较 module
 - **depth 是 interface 的属性，不是 implementation 的属性。** 一个 deep module 内部完全可以由小的、可 mock 的、可替换的零件组成——它们只是不属于 interface。一个 module 可以有**内部 seam**（私有的，只给它自己的测试用），也有 interface 上那条**外部 seam**。
 - **deletion test。** 设想把这个 module 删掉。复杂度跟着消失，它就是个转手的。复杂度在 N 个调用方身上重新冒出来，它就在挣自己的饭钱。
 - **interface 就是测试面。** 调用方和测试跨的是同一条 seam。你想测到 interface *后面*去，多半是这个 module 形状不对。
-- **一个 adapter 是假 seam，两个才是真 seam。** 没有东西真的在这条线两侧变化，就不要开这条 seam。
+- **一个 adapter 只是假设有这条 seam，两个 adapter 才证明它真的存在。** 说的是举证不足，不是这条 seam 错了。没有东西真的在这条线两侧变化，就不要开这条 seam。
 
 ## 为可测性设计
 

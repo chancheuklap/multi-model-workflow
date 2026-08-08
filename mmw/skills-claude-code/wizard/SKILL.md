@@ -1,15 +1,17 @@
 ---
 name: wizard
-description: 为只能由用户完成的多步流程生成 Bash wizard。用于第三方服务配置、凭证或 CI secret、一次性迁移或 cutover。
+description: 为只能由用户完成的多步流程生成 Bash wizard。用于第三方服务配置、凭证或 CI secret、一次性迁移或 cutover。agent 自己跑得了的步骤不要调用本技能。
 ---
 
 # Wizard
 
 Wizard 是一个 Bash 脚本。它逐步带用户完成必须由人操作的流程：打开 URL，说明点击和复制位置，读取用户输入，把值写入 `.env` 或 GitHub secrets，在不可逆动作前确认，并显示剩余进度。
 
+**它针对的是两头都繁琐的流程**：用户每次手动做一遍很繁琐，每次向 agent 重新解释一遍同样繁琐。脚本一旦存在，这段流程就不必再解释第二次。只发生一次、以后不会再来的人工步骤，做成 wizard 不回本。
+
 [template.sh](template.sh) 已经实现统一交互：阶段进度、预计剩余时间、跨平台打开 URL、隐藏 secret 输入、幂等 `.env` 写入、GitHub secret 和 variable 写入，以及结束总结。
 
-你的职责是限定流程并编写各个 `stage`。`STAGES` 标记上方是固定 library，不修改。
+你的职责是限定流程并编写各个 `stage`。`STAGES` 标记上方是固定 library，一个字都不改——**每一份 wizard 的这一段完全相同，一致性本身就是目的**，用户第二次跑另一份 wizard 时不用重新认界面。
 
 Wizard 默认是临时产物，固定保存在当前任务的 Git 忽略 scratch。流程完成或放弃后删除。只有用户明确要求可重复的仓库设置入口时，才写入并提交仓库的正式路径。
 
@@ -24,7 +26,7 @@ Wizard 默认是临时产物，固定保存在当前任务的 Git 忽略 scratch
 向用户展示有序步骤，以及每步产生的值。每个值写清：
 
 - 用户从哪里取得。
-- 写到 `.env`、GitHub secret、两边，还是不持久化。
+- 写到 `.env`、GitHub secret、两边，还是哪儿都不写——有些步骤只有动作，不产生值。
 - 它是 secret 还是公开值。
 
 用户确认步骤、顺序和值落点后，才能生成脚本。

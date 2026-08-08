@@ -101,8 +101,6 @@ subagent 原始报告默认不落盘。确需跨进程转交时，使用 `mmw pa
 
 保存不代表下游必须引用。下游只读取当前工作明确点名的 research 索引和精确文件，不递归读取 research 的上级目录。
 
-下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
-
 ## 下一步
 
 | 情况 | 下一步 |

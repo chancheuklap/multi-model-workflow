@@ -26,7 +26,7 @@
 
 ## seam 纪律
 
-- **一个 adapter 是假 seam，两个才是真 seam。** 至少有两个 adapter 说得通（通常是生产加测试）才开这个 port。只有一个 adapter 的 seam 只是一层拐弯。
+- **一个 adapter 只是假设有这条 seam，两个 adapter 才证明它真的存在。** 至少有两个 adapter 说得通（通常是生产加测试）才开这个 port。只有一个 adapter 的 seam 只是一层拐弯。这条判据管的是**要不要新开**一条 seam；已经存在的单 adapter seam 是举证不足，不是错，不要拿这条去删它。
 - **内部 seam 与外部 seam。** 一个 deep module 可以有内部 seam（私有的，只给它自己的测试用），也有 interface 上那条外部 seam。不要只因为测试用到了就把内部 seam 暴露到 interface 上。
 
 ## 测试策略：替换，不要叠加

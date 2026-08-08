@@ -76,8 +76,6 @@ cat "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)"/<
 
 **然后停下来等他装上去实测。** 包能不能装、装完能不能用，机器判不了。他说通过了才走下一步；不通过就按他报的问题回 `$mmw:mmw-implement` 修，修完重新出包，不再审。
 
-下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
-
 ## 下一步
 
 | 情况 | 下一步 |

@@ -2,6 +2,10 @@
 
 正常入口是 `/mmw-integrate` 的 `mmw result integrate`。本文件只说明 merge 冲突和完成动作。
 
+## 先看清楚现在停在哪
+
+带着一个已经存在的冲突进来时，先取现状再动手：`git status` 看这次 merge 停在哪一步、哪些文件还冲突着，`git log --oneline HEAD..MERGE_HEAD` 看正在合进来的是哪几条提交。没弄清楚合的是谁、卡在哪几个文件，不要开始解冲突。
+
 ## 识别两边
 
 | 标记 | 内容 |

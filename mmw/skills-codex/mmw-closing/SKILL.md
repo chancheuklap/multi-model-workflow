@@ -103,8 +103,6 @@ Wayfinder 派生的 spec 运行 `mmw path scratch <产物目录> task-<任务 sl
 
 完成判据：当前任务的 scratch、审查与派发过程材料已经清理；其他任务的过程材料、prototype 资产、用户选择保存的 research、evidence 和其他持久内容仍在。
 
-下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
-
 ## 下一步
 
 | 情况 | 下一步 |

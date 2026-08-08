@@ -27,8 +27,6 @@ destination 每个 effort 各不相同。给它命名是画 map 的第一个动�
 - **改 map 正文之前先重新拉一次最新的。** GitHub 编辑 issue 正文是整体替换。写完再读一次，确认自己那行在；不在就重来一遍。
 - **每个任务只使用自己的 worktree。** map 任务拥有 map 分支；每张 decision ticket 和每份 spec 使用从 map 分支派生的独立任务分支。任务之间只交回分支名、HEAD SHA、基点 SHA 和报告，由拥有目标分支的任务验证并集成。主 agent 不切换到另一个任务的工作目录。
 
-下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
-
 ## 下一步
 
 三个入口都先读 [map-anatomy.md](map-anatomy.md)：map 和 ticket 长什么样、每张 ticket 是 HITL 还是 AFK、四个 `wayfinder:<类型>` 标签各自什么时候打、怎么认领、阻塞关系怎么表达，全在那里。

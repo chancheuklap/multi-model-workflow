@@ -126,9 +126,7 @@ mmw issue create --title "<标题>" --body-file <正文文件> \
 
 </issue-template>
 
-正文里不要写实现文件路径和代码片段，那些东西属于 plan。prototype 的精确出处和当前 ticket 消费的 research 是例外。prototype 产出的一段代码若比散文更精确地编码决定，可以内联并注明选中产物路径；只保留决定含量，不粘贴完整 demo。
-
-下表准备移交下一技能时，先读 [`../mmw-start/phase-boundaries.md`](../mmw-start/phase-boundaries.md)，按顺序判断是否留在当前会话。自己继续和因 blocker 停下不触发阶段边界判断。
+正文里不要写实现文件路径和代码片段。两个理由：它们属于 plan 那一层；而且**它们很快就会过期**——ticket 在 tracker 上可能放上几周，路径改名、函数搬家之后，写死的位置会把 `worker` 带到不存在的地方。同一条风险在 plan 里同样成立，plan 只是过期得慢一些。prototype 的精确出处和当前 ticket 消费的 research 是例外。prototype 产出的一段代码若比散文更精确地编码决定，可以内联并注明选中产物路径；只保留决定含量，不粘贴完整 demo。
 
 ## 下一步
 

@@ -88,8 +88,6 @@ Codex App 在任务创建时已经准备好 detached worktree。确认任务范�
 
 **第 2 步列出的四条路线同样跳过本步**，直接移交。
 
-下表准备移交下一技能时，先读 [phase-boundaries.md](phase-boundaries.md)，按顺序判断是否留在当前会话。因路由冲突停下不触发阶段边界判断。
-
 ## 下一步
 
 | 情况 | 下一步 |
