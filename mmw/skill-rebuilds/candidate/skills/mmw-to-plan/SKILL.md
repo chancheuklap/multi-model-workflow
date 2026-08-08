@@ -76,7 +76,7 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 
 派一个 `planner`，它在**当前任务 worktree** 里写 plan 文件，不另开分支。手上有名为 `mmw-planner` 的原生 subagent，就按名字调它，task 传四栏表全文，工作目录设成当前任务 worktree 的绝对路径；没有的话，把四栏表写进 `.dispatch/planner-<ticket 编号>.md`，后台跑 `mmw dispatch planner --task <这个文件的绝对路径> --cwd <当前任务 worktree 绝对路径>`。它的输出第一行是 `mode:`：`executed` 表示它已经自己跑完了，按 `report:` 那行的路径读报告；`host-tool` 表示要你来调，`tool:` 那行是宿主工具名，`params:` 那几行是 JSON 参数，原样传给它。
 
-互不依赖的实例在同一条消息里一起启动。
+**当前任务 worktree 的绝对路径**：`git rev-parse --show-toplevel`。
 
 互不依赖的 plan：同一条消息里并行启动多个 `planner`。有依赖链：按依赖顺序启动。`planner` 使用当前任务 worktree，不建独立 worktree，不提交。每个 `planner` 只写自己的 plan 文件。
 

@@ -29,7 +29,7 @@ description: 为终审通过的改动构建正式安装包。用于用户要求�
 grep -rl '"product"' --include='*.release-adapter.json' .
 ```
 
-再判断这次要出哪几个：**看这次改动碰了哪些路径**（`git diff --name-only $(git merge-base HEAD <父分支>)..HEAD`；父分支就是这条任务分支分叉出来的那条），对照每份配置里 `build_target.desktop_dir` 与 `asset_roots` 声明的范围。碰到了就要出。
+再判断这次要出哪几个：**看这次改动碰了哪些路径**（`git diff --name-only $(git merge-base HEAD <父分支>)..HEAD`；`<父分支>` 是这条任务分支分叉出来的那条：普通任务是仓库默认分支，从 Wayfinder map 派生的是 map 分支，分支名记在 map 正文的 `## 分支` 一节），对照每份配置里 `build_target.desktop_dir` 与 `asset_roots` 声明的范围。碰到了就要出。
 
 判不准就问用户，不要漏出一个——漏了的那个产品，用户装到的还是旧代码。
 
@@ -62,7 +62,7 @@ cat "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)"/.
 
 交付记录落在**主仓库根**，不在当前这棵任务 worktree 里——它比对的是几次出包之间的 commit，worktree 收尾就删，落在树里的记录活不过一次任务。
 
-每份交付记录里的 `source_commit` 都等于当前 HEAD，才算这批包是同一份代码。
+这个目录里躺着历次出包的记录，一个产品一份、后一次盖前一次。**只看第 2 步清单上那几个产品的那几份**，其余的跟这一轮无关。它们的 `source_commit` 都等于当前 HEAD，才算这批包是同一份代码。
 
 有对不上的：那个产品重出一遍（回第 3 步，只重出对不上的那些）。重出之后再核对一次——重出的过程可能又产生新提交。
 
@@ -70,9 +70,9 @@ cat "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)"/.
 
 ## 5. 交给用户实测
 
-安装包在哪，从引擎打出的 `DELIVERED` 行读——出包成功时它把包从构建目录收拢到交付根，一个包一行，行里就是完整路径。交付根按产品分子目录，默认 `D:\agentflow-releases\<产品>\`，`RELEASE_DELIVERY_ROOT` 可以改。
+安装包在哪，从引擎打出的 `DELIVERED` 行读——出包成功时它把包收拢到交付根，一个包一行，行里就是完整路径。
 
-收拢失败时引擎打的是 WARN，里面带着包留在构建目录的位置——那也是有效路径，照它报，同时说清这个包没进交付根。两样都没有就如实说没拿到路径，不按目录约定猜。
+收拢失败时引擎打的是 WARN，里面带着包留在构建目录的位置——那也是有效路径，照它报，同时说清这个包没进交付根。两样都没有就如实说没拿到路径，不按目录约定猜一个。
 
 把这些交给用户：出了哪几个产品、每个包在哪、这批包对应哪个 commit。
 

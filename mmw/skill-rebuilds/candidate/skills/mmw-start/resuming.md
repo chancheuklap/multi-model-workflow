@@ -6,7 +6,7 @@
 
 ## 有哪些任务在进行
 
-运行 `git worktree list --porcelain`。已绑定分支的 linked worktree 是进行中的任务。**slug 是分支名去掉宿主命名空间前缀之后剩下的部分**（Codex App 的任务分支形如 `codex/<slug>`，其余宿主直接就是 `<slug>`）。detached worktree 尚未绑定，不替用户猜 slug。只有一项就直接查；有多项就把分支名和进度报给用户选择。
+运行 `git worktree list --porcelain`。已绑定分支的 linked worktree 是进行中的任务。**slug 是分支名最后一个 `/` 之后的部分**——slug 本身不含斜杠，所以有斜杠就一定是宿主的命名空间前缀（Codex App 是 `codex/`）。detached worktree 尚未绑定，不替用户猜 slug。只有一项就直接查；有多项就把分支名和进度报给用户选择。
 
 ## 一个任务走到哪一步
 
@@ -19,7 +19,7 @@
 | 这张 map 走到哪一步了 | `mmw issue children <map 编号>`：一行一张，带状态、认领人、被几张挡着 |
 | 有几张 decision ticket 在同时推进 | 查从该任务分支派生的 worktree 与结果分支。**结果分支**是派出去的角色在自己那棵树上写代码用的分支，做完由主 agent 用 `mmw result verify` 收、`mmw result integrate` 合；每个结果分支只对应一张 decision ticket |
 | spec 有没有写出来 | `docs/specs/<slug>/` 在不在，里面的文件有没有提交进分支 |
-| spec 过没过用户那道关卡 | 先反查那张 spec issue：`gh issue list --search "docs/specs/<slug>/<slug>.md" --state all --json number,title`。`/mmw-to-spec` 发布时把 spec 的精确路径写进了 issue 正文，所以搜得到。它在、而且带 `ready-for-agent`，才算过了这道关卡。**下面几行里的 `<spec issue 编号>` 就是它的编号** |
+| spec 过没过用户那道关卡 | 先反查那张 spec issue：`gh issue list --search "docs/specs/<slug>/<slug>.md" --state all --json number,title,labels`。`/mmw-to-spec` 发布时把 spec 的精确路径写进了 issue 正文，所以搜得到。它在、而且带 `ready-for-agent`，才算过了这道关卡。**下面几行里的 `<spec issue 编号>` 就是它的编号** |
 | ticket 有没有拆 | `mmw issue children <spec issue 编号>` 有没有输出 |
 | plan 写了没有 | `docs/plans/<slug>/` 在不在，里面的份数跟 ticket 数对不对得上 |
 | 合同锚点回填了没有 | spec 的 `## Cross-Plan Contract Anchors` 一节在不在、精确字段补实了没有 |

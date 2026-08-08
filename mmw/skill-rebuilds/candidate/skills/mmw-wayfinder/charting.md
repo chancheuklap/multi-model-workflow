@@ -24,7 +24,7 @@
 
 3. **创建 map**，并添加 `wayfinder:map` 标签。填写 Destination 和 Notes；Decisions so far 留空；把 fog 的轮廓写入 **Not yet specified**。
 
-   同时把第 1 步确定的 `产物目录` 写入 map 正文，并把 `mmw task state` 报的当前分支名写进 `## 分支`——这个会话的任务分支就是 map 分支，后来的会话只能从这里拿到它。使用完整的 map 正文文件创建 issue：
+   同时把第 1 步确定的 `产物目录` 写入 map 正文，并把 `mmw task state` 报的当前分支名写进 `## 分支`——这个会话的任务分支就是 map 分支，后来的会话只能从这里拿到它。把完整的 map 正文写进 `.scratch/<产物目录>/map-body.md`，再用它创建 issue：
 
    ```bash
    mmw issue create --title "<map 名称>" --body-file .scratch/<产物目录>/map-body.md --label wayfinder:map
@@ -32,7 +32,7 @@
 
 4. 把**当前能够精确表述的问题全部建成 ticket**，作为 map 的子 issue。当前仍说不清楚的内容继续留在 **Not yet specified** 一节。
 
-   分两遍做，因为 issue 要先有编号才能互相引用。第一遍全部建出来，按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节为每张选一个 `wayfinder:<type>`，正文只写 `Question`：
+   分两遍做，因为 issue 要先有编号才能互相引用。第一遍全部建出来，按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节为每张选一个 `wayfinder:<type>`。每张的正文只写 `Question`，先写进 `.scratch/<产物目录>/ticket-<序号>.md`，再发：
 
    ```bash
    mmw issue create --title "<ticket 名称>" --body-file .scratch/<产物目录>/ticket-<序号>.md \

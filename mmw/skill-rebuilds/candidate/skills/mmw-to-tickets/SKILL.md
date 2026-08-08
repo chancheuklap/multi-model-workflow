@@ -11,7 +11,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 **issue 承载身份，文件承载内容。** 本技能为每张 tracer bullet ticket 创建一张 issue。issue 正文保存摘要、plan 路径和阻塞关系。`/mmw-to-plan` 后续把实施内容写入该路径下的 plan 文件。
 
-`<spec issue 编号>` 由调用方移交时给你。上下文断了、手上只有 slug 时，按 `/mmw-start` 的「回来接着做」那张表反查它。
+`<slug>` 和 `<spec issue 编号>` 都由调用方移交时给你：`<slug>` 是这次的任务 slug，也就是 `docs/specs/<slug>/` 的那个名字。上下文断了、手上只有分支名时，按 `/mmw-start` 的「回来接着做」那张表推 slug 并反查 issue 编号。
 
 ## 1. 上下文清单
 
@@ -20,6 +20,8 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 | spec、对应 issue 或链接 | 始终 | 正文和评论全文 | 无关 issue | 每张 ticket 需要的目标、验收和阻塞关系 |
 | prototype | 上游引用时 | 索引、相关选中产物、明确相关的走查或长期证据 | 整个产物目录、无关过程材料；落选变体只在 ticket 必须落实其否定约束时读取 | 只传给消费该决定的 ticket |
 | research | 上游引用时 | research 索引和本批 ticket 需要的精确文件 | research 的上级目录、subagent 原始报告 | 只传给消费该事实的 ticket |
+
+**索引**指 prototype 或 research 目录里的那份 `README.md`——prototype 的在 `docs/prototypes/<产物目录>/README.md`，research 的在 `docs/research/<产物目录>[/issue-<编号>]/<主题>/README.md`。精确路径从 spec issue 正文的输入出处一节读，那是 `/mmw-to-spec` 发布时写进去的；那儿没有就是这份 spec 没用过 prototype 或 research。
 
 prototype 索引缺少问题、逐轮用户结论、选中产物、落选约束或长期证据时，回 `/mmw-prototype` 补齐；没有的项目写「无」。
 
@@ -75,7 +77,7 @@ ticket 的标题和描述用项目领域术语表里的词，遵守这块地方�
 
 ## 5. 发布
 
-一张 ticket 一张 issue：
+一张 ticket 一张 issue。先按下面的正文模板把每张的正文写进 `.scratch/<slug>/ticket-<NN>.md`，再逐张发：
 
 ```bash
 mmw issue create --title "<标题>" --body-file .scratch/<slug>/ticket-<NN>.md \
