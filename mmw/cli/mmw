@@ -607,16 +607,16 @@ cmd_doctor() {
       ;;
   esac
 
-  # Pi 与 Cursor 的插件规格没有声明 MCP 的位置，只能写用户级配置。Codex plugin
-  # 自己携带 MCP，不能让另外两个宿主的本机安装状态把 Codex 体检判红。
-  if [ "${host:-}" != "codex" ]; then
+  # Pi 与 Cursor 的插件规格没有声明 MCP 的位置，只能写用户级配置。
+  # Codex 与 Claude Code 的 plugin 自己携带 MCP。
+  if [ "${host:-}" = "pi" ]; then
     if bash "$MMW_ROOT/mcp/install-mcp.sh" --check >/dev/null 2>&1; then
       echo "pi/Cursor: 用户级 MCP 已装（这台机器上没有的那一面自动跳过）"
     else
       echo "pi/Cursor: 有一面没装或与 plugin 定义不一致，重新运行 $repair"
       status=1
     fi
-  else
+  elif [ "${host:-}" = "codex" ]; then
     local codex_config project_codex_config
     codex_config="${CODEX_HOME:-$HOME/.codex}/config.toml"
     project_codex_config=""
@@ -643,11 +643,11 @@ cmd_doctor() {
   # 真把每个服务器拉起来握一次手，不只看配置在不在——旧实现出过一次事故：配置在、
   # 工具名在列表里、直到模型真去调用才报错，那时它已经在一次审查中途了。
   local probe_out
-  local -a probe_args=()
+  local -a probe_command=(python3 "$MMW_ROOT/mcp/probe.py")
   if [ "${host:-}" = "codex" ]; then
-    probe_args+=(--config "$MMW_ROOT/.mcp-codex.json")
+    probe_command+=(--config "$MMW_ROOT/.mcp-codex.json")
   fi
-  if probe_out="$(python3 "$MMW_ROOT/mcp/probe.py" "${probe_args[@]}" 2>&1)"; then
+  if probe_out="$("${probe_command[@]}" 2>&1)"; then
     printf '检索工具 : %s\n' "$(printf '%s' "$probe_out" | head -1)"
     printf '%s\n' "$probe_out" | tail -n +2 | sed 's/^/           /'
   else
