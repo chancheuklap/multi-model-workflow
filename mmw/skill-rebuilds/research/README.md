@@ -65,3 +65,5 @@ Claude Code 派出的 headless Codex 也必须读取这五份文件。候选安�
 消费者检查：原第 4 节取值表被删，它承担的取值问题全部由合同表接手，逐行核对无遗漏；charting 侧「明确写一句直接保存」的指示同轮删除（见 wayfinder 台账），其功能由合同表 ticket 行接手；`MAIN.md` 第 5 节「调用方明确传入直接保存」分支保留在合同表第二行，仍有消费者。
 
 发布时同步：`docs/context/wayfinding.md` 的 `wayfinder:research` 定义仍写「需要当前工作目录之外的知识」，与本轮扩张后的判据不一致。候选进入发布面时按 `/mmw-domain-modeling` 更新该 leaf。
+
+本轮候选交付前对 `MAIN.md` 和 `EVIDENCE.md` 各跑了一次单文件冷读。修掉的命中：入口合同表第 3、4 行补上「起的目录名就是 `产物目录`」（原来这两行落 scratch 公式时 `产物目录` 无来源）；第 4 节补主题名与 `产物目录` 两层不同名的规则；「description 排除条款」的指代改为直述；`task-<当前任务 slug>` 补来源说明；`EVIDENCE.md` 的「AFK」改为直述 ticket 入口免掉什么、免不掉什么。未修：`[[mmw-launch:…]]` 是物化宏，属既有机制；「宿主自带的可控浏览器」是按能力判断的自然语言，属有意写法。

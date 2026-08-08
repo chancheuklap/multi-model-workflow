@@ -12,13 +12,13 @@ research 要做的是：对照拥有这个事实的一手来源回答问题，�
 | --- | --- | --- | --- | --- |
 | `/mmw-wayfinder` 派来的 `wayfinder:research` ticket | ticket 的 Question、research 路径的上一级（到 `issue-<编号>` 为止）、scratch 路径 | 用传入的那条 | 直接保存，不问用户 | 交回 `/mmw-wayfinder`：验证后的事实、出处、未查清项、research 索引的精确路径 |
 | 其他技能中途调用，上下文里有 `产物目录` | 要查的问题、`产物目录` | `docs/research/<产物目录>` | 问用户；调用方明确传入「直接保存」时才免问 | 交回调用方：验证后的事实、出处、未查清项；保存了而且调用方需要时，再附 research 索引和精确文件路径 |
-| 其他技能中途调用，上下文里没有 `产物目录` | 只有要查的问题 | 按这次 research 的主题起一个目录名，第 5 节询问时让用户确认或改正 | 问用户 | 同上一行 |
-| 用户直接调用 | 用户的问题 | 按这次 research 的主题起一个目录名，第 5 节询问时让用户确认或改正 | 问用户 | 报告给用户：结论、出处、未查清项、保存结果 |
+| 其他技能中途调用，上下文里没有 `产物目录` | 只有要查的问题 | 给这项工作起一个名字当作 `产物目录`，上一级就是 `docs/research/<产物目录>`；第 5 节询问时让用户确认或改正 | 问用户 | 同上一行 |
+| 用户直接调用 | 用户的问题 | 给这项工作起一个名字当作 `产物目录`，上一级就是 `docs/research/<产物目录>`；第 5 节询问时让用户确认或改正 | 问用户 | 报告给用户：结论、出处、未查清项、保存结果 |
 | 以上都对不上 | —— | 按「用户直接调用」行处理，并向调用方或用户说明你判断不了入口 | 按「用户直接调用」行 | 按「用户直接调用」行 |
 
 表里的 research 索引指保存后 research 目录里的 `README.md`，第 6 节写它。
 
-`wayfinder:research` ticket 不受本技能 description 里排除条款的约束：问题再小，ticket 也无条件进入本技能。那张 ticket 本身就是用户对这次调查的批准，而它要的是一条后来的 session 也能查到的记录。
+问题再小的 `wayfinder:research` ticket 也无条件进入本技能，不因为「一条命令就能答」而回退给调用方。那张 ticket 本身就是用户对这次调查的批准，而它要的是一条后来的 session 也能查到的记录。
 
 ## 1. 确定问题
 
@@ -79,7 +79,7 @@ subagent 报告不是 research。research 是你验证并综合后的事实、�
 
 本节给出这次的 research 路径。走本文件时在验证和综合完成之后执行；从 [EVIDENCE.md](EVIDENCE.md) 过来时提前到立计划之前执行，取法一样。
 
-上一级目录按你入口的「research 路径的上一级」列取。再给这次 research 起一个主题名。research 路径就是：
+上一级目录按你入口的「research 路径的上一级」列取。再给这次 research 起一个主题名：主题名是这一次要回答的问题的短名，上一级目录是你刚起的 `产物目录` 时，两层不要同名。research 路径就是：
 
 ```text
 <上一级目录>/<research 主题>/
@@ -117,7 +117,7 @@ subagent 报告不是 research。research 是你验证并综合后的事实、�
 .scratch/<产物目录>/issue-<编号>
 ```
 
-末尾那一段这样给：这次 research 属于一张 Wayfinder decision ticket 的，写 `issue-<这张 ticket 的编号>`；属于一个从 Wayfinder map 切出来的 spec 任务的，写 `task-<当前任务 slug>`；两样都不是的普通任务，没有这一段。
+末尾那一段这样给：这次 research 属于一张 Wayfinder decision ticket 的，写 `issue-<这张 ticket 的编号>`；属于一个从 Wayfinder map 切出来的 spec 任务的，写 `task-<当前任务 slug>`（当前任务 slug 就是建这个任务 worktree 时用的那个 slug）；两样都不是的普通任务，没有这一段。
 
 交回结果之前，只删掉这次 research 自己在这个路径下建的文件，别人的留着。
 
