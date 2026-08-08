@@ -26,3 +26,7 @@ Logic HTML 是 prototype 自己的一个工作面，方法写在 `../candidate/s
 | [candidate/](../candidate/skills/mmw-prototype/) | 在精简稿外层增加 MMW 接线的三文件候选；不会被 `mmw skills materialize` 物化 |
 
 当前发布技能保持不变。
+
+## 2026-08 复审改动
+
+复审确认候选把 prototype 从上游「一次性反应物」改为「持久资产」后，丢掉了上游的第二道防线（`UI.md`「Promoting the prototype directly to production… Rewrite it properly when you fold it in」、`LOGIC.md`「Don't ship the HTML shell into production」）。已补回，且因为候选模型下风险更高而放在下游必读处：`capture.md` 第 2 节新增「可复用指的是想法，不是工程完备度」段（并要求写进 README 的可复用项开头）、`LOGIC.md` 补「HTML 外壳不挂进产品路由」、`SKILL.md` 开头改为「复用的是想法，不是代码」并指回 capture.md。

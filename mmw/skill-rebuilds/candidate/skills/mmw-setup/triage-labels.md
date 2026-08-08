@@ -1,5 +1,7 @@
 # Issue 标签
 
+> 已过时的背景材料，不参与行为判断；作废范围和当前做法见 [legacy-setup.md](legacy-setup.md)。
+
 两个维度，互不干涉：一张 issue 各带一个。
 
 ## 状态：这张 issue 现在够不够清楚

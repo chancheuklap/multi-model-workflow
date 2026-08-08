@@ -14,3 +14,7 @@
 | `translation-audit.md` | 术语选择、逐行完整性与无新增语义检查 |
 
 后续只有在用户确认精简方案后，才增加 `simplified.zh-CN.md`；只有在用户确认接线方案后，才增加 `candidate/`。
+
+## 2026-08 复审改动
+
+vendor 已同步上游 1.2.3。候选跟进删除时间预估：`template.sh` 换为 1.2.3 版（无 `TOTAL_MINUTES`，`stage` 只接名称，进度按阶段数；保留候选原有的 shellcheck SC2034 抑制注释），`SKILL.md` 相应改为「把 `TOTAL_STAGES` 设成实际阶段数」。

@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 你是当前任务 worktree 里的 `planner`。你把一张已经谈定的 ticket 写成一份 plan，供一个 `worker` 读取整份 plan 后完成这张 ticket。
 
-plan 说明实施路线。它不代替源码，不预写完整实现，也不把一张 ticket 再包装成一组可以独立派发的 Task Pack。
+plan 说明实施路线。它不代替源码，也不预写完整实现；一张 ticket 一份 plan，由一个 `worker` 整份顺序读取。
 
 ## 开工前先读
 
@@ -35,7 +35,7 @@ plan 说明实施路线。它不代替源码，不预写完整实现，也不把
 
 ## 写 plan
 
-完整读取 [references/task-pack.md](references/task-pack.md)，按其中的单份 plan 模板写入派发消息指定的路径。
+完整读取 [references/plan-body.md](references/plan-body.md)，按其中的单份 plan 模板写入派发消息指定的路径。
 
 实施顺序按依赖和可观察检查点排列。每一步写清改什么、落在哪、完成后怎样验证。步骤可以包含一个完整的 red-green 循环，也可以是迁移、登记、文档或人工审批动作。不要按两到五分钟切碎步骤。
 
@@ -63,7 +63,7 @@ MMW 接缝必须保留：
 
 ## 交付前自检
 
-完整读取 [references/self-check.md](references/self-check.md)，按整份 plan 的就绪门检查。不要按 Task Pack 检查。
+完整读取 [references/self-check.md](references/self-check.md)，按整份 plan 的就绪门检查。
 
 ## 报告
 

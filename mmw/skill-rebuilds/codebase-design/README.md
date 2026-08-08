@@ -14,3 +14,7 @@
 | `translation-audit.md` | 术语选择、逐行完整性与无新增语义检查 |
 
 后续只有在用户确认精简方案后，才增加 `simplified.zh-CN.md`；只有在用户确认接线方案后，才增加 `candidate/`。
+
+## 2026-08 复审改动
+
+用户裁定本技能完全参考上游，MMW 只做路由接线。删除了候选自行引申的判据（`SKILL.md` 与 `DEEPENING.md` 中「已经存在的单 adapter seam 是举证不足，不是错，不要拿这条去删它」），回到上游原文语义：判据只管要不要新开 seam。`DESIGN-IT-TWICE.md` 的 designer 派发段收回 `[[mmw-launch:designer:none]]` 占位块。

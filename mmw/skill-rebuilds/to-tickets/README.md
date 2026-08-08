@@ -13,4 +13,4 @@
 | `upstream-1.2.2.zh-CN.md` | 上游 1.2.2 的逐行中文翻译基线 |
 | `translation-audit.md` | 术语选择、逐行完整性与无新增语义检查 |
 
-后续只有在用户确认精简方案后，才增加 `simplified.zh-CN.md`；只有在用户确认接线方案后，才增加 `candidate/`。
+接线候选已存在于 [candidate/](../candidate/skills/mmw-to-tickets/)：它以现役已接线版本为基础并入整棵候选树，翻译基线与审计仍是保真依据。本目录未单独保存精简稿。

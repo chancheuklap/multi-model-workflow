@@ -31,3 +31,14 @@ MMW 的重建区。这里装两样东西，作用完全不同：
 `candidate/skills/` 和 `candidate/cli/` 一起替换 `mmw/skills/` 和 `mmw/cli/`，然后按根 `TESTING.md` 跑整段、同步 `AGENTS.md` 里列的五处版本号、更新 `mmw-skill-map.html`。
 
 在那之前，候选区的任何东西都不参与物化，也不改变任何宿主的运行行为。
+
+## 发布时连带的合同更新（候选替换现役的同一轮做，不提前）
+
+候选做了几个正确但与现行合同冲突的决定。整体替换现役时，这些必须同步落地，否则文档与实物立刻互相矛盾：
+
+1. **路径合同翻转**：候选技能硬编码产物路径（`docs/specs` 等），候选 CLI 已删 `mmw path`/`mmw skill-path`，`.mmw.json` 的 `paths` 只剩 CLI 自己消费的四个键。根 `AGENTS.md`「技能不硬编码这些值；通过 `mmw` 对应子命令读取」一句要改写。
+2. **宿主边界规则改写**：候选对宿主差异采用两种正统写法——派发类动作用 `[[mmw-launch:…]]` 占位块（逐宿主机械不同且多技能复用）；其余宿主能力（发布 HTML、对话内渲染、浏览器走查）用按**能力**分支的条件自然语言，在所有宿主上原样成立。根 `AGENTS.md`「宿主边界」的禁令要改写成「禁止按宿主名分支」，并把这条双轨认定写进去。
+3. **五道审**：候选把「合并集成审」并入 ⑤ final 终审（集成调查拆回 `/mmw-integrate`）。`docs/context/review.md` 仍定义六道审，替换时用 `/mmw-domain-modeling` 更新该 leaf。
+4. **`mmw-improve-codebase-architecture` 保持 model-invoked**：上游有 `disable-model-invocation: true`；候选去掉它是有意的——`/mmw-diagnosing-bugs` 确认缺 seam 时要能移交到本技能，按 `writing-for-agents/SKILL-MECHANICS.md` 的机制这要求 model-invoked。
+5. **`handoff` 与 `writing-for-agents` 正文保持英文**：writing-for-agents 的方法论（leading word 等）依赖英文 pretraining priors，翻译会削弱效果；handoff 随其惯例。这是决定，不是漏译。
+6. **`mmw-triage` 不再要求 agent brief 携带 research 索引**：候选两侧（triage 与 to-spec 分诊入口）一致收窄，链路闭合。

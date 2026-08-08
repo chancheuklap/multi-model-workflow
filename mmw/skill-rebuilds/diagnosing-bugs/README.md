@@ -14,3 +14,7 @@
 | `translation-audit.md` | 术语选择、逐行完整性与无新增语义检查 |
 
 后续只有在用户确认精简方案后，才增加 `simplified.zh-CN.md`；只有在用户确认接线方案后，才增加 `candidate/`。
+
+## 2026-08 复审改动
+
+vendor 已同步上游 1.2.3。候选跟进其 Redact 修补：`SKILL.md` 新增「脱敏」一节（密钥写 `<REDACTED>`、loop 用环境变量取凭据、产物只引承载信号的行、脱敏后不够诊断就问用户），完成判据与「造不出 loop」分支的产物要求同步加「脱敏」限定；`scripts/hitl-loop.template.sh` 更新为 1.2.3 版（注明 `capture` 会回显值，登录留给 `step`）。

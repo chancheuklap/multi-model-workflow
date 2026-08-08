@@ -1,5 +1,7 @@
 # Issue tracker:GitHub Issues
 
+> 已过时的背景材料，不参与行为判断；作废范围和当前做法见 [legacy-setup.md](legacy-setup.md)。
+
 本仓库 issue 全在 GitHub。所有操作走 `gh`，仓库从 `git remote -v` 自动推断。
 
 ## 基本操作

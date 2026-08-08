@@ -28,3 +28,7 @@ ticket 正文只写 `Question`：`产物目录` 从 map 正文读，`issue-<编�
 - [translation-audit.md](translation-audit.md)：本轮翻译使用的固定术语表，以及逐段完整性和语义检查结果。
 - [simplified.zh-CN.md](simplified.zh-CN.md)：以精确翻译为基线形成的单文件精简稿。它继续保留上游行号注释，不包含 research、Invocation、worktree、资产或收尾接线。
 - [candidate/](../candidate/skills/mmw-wayfinder/)：在精简稿外层增加 MMW 接线的四文件候选。这个目录仍不会被 `mmw skills materialize` 物化。
+
+## 2026-08 复审确认
+
+上游「sized to one 100K token agent session」的具体刻度在候选中改为「必须能在一次 agent session 内解决」。用户确认这是 MMW 自己的工作流取舍（各宿主与模型的窗口不同，不锚定具体数字），不是漏译。

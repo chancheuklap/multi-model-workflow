@@ -1,6 +1,6 @@
 # Plan 正文怎么写
 
-当前 MMW 一张 ticket 对应一份 plan，再由一个 `worker` 读取整份 plan。plan 内不再拆成需要独立派发、独立审查或乱序阅读的 Task Pack。
+一张 ticket 对应一份 plan，由一个 `worker` 从头到尾顺序读取整份 plan。
 
 ## 模板
 
