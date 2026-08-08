@@ -233,16 +233,6 @@ mmw_task_new() {
   echo "$dir"
 }
 
-mmw_task_enter() {
-  local dir
-  dir="$(mmw_task_dir "$1")"
-  if [ ! -d "$dir" ]; then
-    echo "mmw: ${dir} 不存在" >&2
-    return 1
-  fi
-  echo "$dir"
-}
-
 mmw_task_cleanup() {
   local slug="$1"
   local root dir onto

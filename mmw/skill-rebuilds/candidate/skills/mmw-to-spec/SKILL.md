@@ -7,7 +7,7 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 
 已经谈定的内容不一定在当前对话里。从 `/mmw-wayfinder` 进来时，那些决定分散在一张 map 和它的 decision ticket 上，当前对话里什么都没有。所以先看下一节，把它们读出来，再开始写。
 
-开始前运行 `mmw domain path`，按它第三列的说明读取这个仓库的领域文档。整份 spec 使用其中定义的术语。
+开始前按 `/mmw-domain-modeling` 的「读领域文档」读取这个仓库的领域文档。整份 spec 使用其中定义的术语。
 
 ## 读取已经形成的产物
 
@@ -24,7 +24,7 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 
 ## 确定任务 slug
 
-`mmw path spec` 需要一个任务 slug。按下表取得，不要自己另起一个：
+spec 的落点由任务 slug 决定。按下表取得，不要自己另起一个：
 
 | 当前情况 | 任务 slug |
 | --- | --- |
@@ -33,11 +33,13 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 | 当前任务已经有任务 slug | 复用已有值 |
 | 用户直接调用，而且当前任务还没有任务 slug | 根据这份 spec 要交付的东西提议一个名字，请用户确认后再使用 |
 
-这个名字要能通过 `mmw path` 的检查：首字符是字母或数字，其余只能是字母、数字、点、下划线、连字符，不能含斜杠。命令报错时按它的提示换一个。
+这个名字必须是单个路径段：首字符是字母或数字，其余只能是字母、数字、点、下划线、连字符，不能含斜杠。
+
+定下 slug 之后，这份 spec 的落点就是 `docs/specs/<任务 slug>/<任务 slug>.md`。
 
 ## 流程
 
-1. 如果还没有探索过仓库，就探索仓库，以理解代码库当前状态。运行 `mmw domain dirs`，读取 `adr` 那一行给出的目录下与本次范围相关的 ADR，spec 里的决定不能和它们冲突。
+1. 如果还没有探索过仓库，就探索仓库，以理解代码库当前状态。读取 `docs/adr/` 下与本次范围相关的 ADR，spec 里的决定不能和它们冲突。
 
 2. 勾勒将用于测试这项功能的 seam。已有 seam 应优先于新 seam。使用尽可能高层的 seam。确实需要新 seam 时，在能够达到的最高层提出。整个代码库中的 seam 越少越好；理想数量是一个。
 
@@ -48,7 +50,7 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 
 向用户确认这些 seam 是否符合预期。用户确认前不要写 spec。
 
-3. 完整读取 [spec-template.md](spec-template.md)，使用该模板编写 spec。运行 `mmw path spec <任务 slug>`，把 spec 写入命令返回的精确路径。
+3. 完整读取 [spec-template.md](spec-template.md)，使用该模板编写 spec。把 spec 写入 `docs/specs/<任务 slug>/<任务 slug>.md`。
 
 只记录已经形成的决定。写作中发现缺少决定时，写清缺少的完整内容和已经检查的位置，然后停止。
 
@@ -62,7 +64,7 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 
 展示之前先通读一遍整份 spec，确认里面没有任何一处还写着待定、二选一、待确认或类似说法。一份合格的 spec 里每一项决定都已经有答案；下游拿到它就直接开工，没有人会回来替它做决定。发现还有没定的地方时，写清是哪一项、缺什么，然后停止，不要把它作为待定项写进 spec 发出去。
 
-6. 用户明确批准后，先提交 spec 文件，再把它发布到项目 issue tracker，添加 `ready-for-agent` triage 标签，不需要再次 triage。issue 正文保存 spec 摘要、`mmw path spec <任务 slug>` 返回的精确路径，以及本 spec 实际使用的输入出处；从 Wayfinder 进入时，输入出处包含 map 名称及其 URL 或编号。
+6. 用户明确批准后，先提交 spec 文件，再把它发布到项目 issue tracker，添加 `ready-for-agent` triage 标签，不需要再次 triage。issue 正文保存 spec 摘要、spec 的精确路径，以及本 spec 实际使用的输入出处；从 Wayfinder 进入时，输入出处包含 map 名称及其 URL 或编号。
 
 ```bash
 mmw issue create --title "<spec 名称>" --body-file <摘要文件> --label ready-for-agent

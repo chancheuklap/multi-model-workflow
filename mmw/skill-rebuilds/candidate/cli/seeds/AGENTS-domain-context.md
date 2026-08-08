@@ -1,13 +1,13 @@
 <!-- MMW-DOMAIN-CONTEXT-START -->
 ## 领域上下文
 
-开始 research、讨论、设计、写文档、写代码或审查前，运行 `mmw domain path`：
+开始 research、讨论、设计、写文档、写代码或审查前，先读领域文档。看仓库根有什么，形态就定了：
 
-- 返回 `map`：先读 Map，再读本次涉及的全部 leaf。
-- 返回 `single`：读命令返回的领域文档。
-- 返回 `none`：直接继续，不报告缺失，也不创建领域文档。
+- 根上有 `CONTEXT-MAP.md`：它是索引。先读它，再读它列出的、本次涉及的全部 leaf（leaf 在 `docs/context/` 下）。
+- 根上只有 `CONTEXT.md`：直接读它。
+- 两个都没有：直接继续，不报告缺失，也不创建领域文档。
 
-运行 `mmw domain dirs`，读取 `adr` 路径下与本次范围相关的 ADR。
+读取 `docs/adr/` 下与本次范围相关的 ADR。
 
 任何面向用户或写入仓库的内容，都使用 leaf 定义的 canonical 术语。代码标识符和测试名也适用。不得使用 `_Avoid_` 中列出的说法。
 

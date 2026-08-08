@@ -21,19 +21,26 @@
 
    claim 成功后，为这张 ticket 建立自己的任务 worktree。任务 slug 由两段拼成，中间一个连字符：前一段取 map 标题的短名（全小写、空格换成连字符），后一段取这张 ticket 标题的短名。父分支是 map 分支，起点是 map 分支当前已提交的 HEAD——先运行 `git rev-parse <map 分支>` 记下它，交回结果时要用。
 
-   [[mmw-host-action:prepare-task-worktree]]
+   先跑 `mmw task state`，它决定这棵树要不要你自己建：
+
+- 返回 `detached`——宿主已经把你放在一棵干净的树上了，只需要绑定：
+  `mmw task bind <分支名> "<用户原话>" --from <父分支或基点 SHA>`。命令必须返回任务分支名和起始提交。
+- 返回别的——这棵树要你自己建：`mmw task new <slug> "<用户原话>"`，从 map 分支派生时加 `--from <map 分支>`。
+  命令返回绝对路径，用宿主切换工作目录的能力进去。
+
+两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
 
 3. 解决 ticket。需要更多背景时，按需取得相关或已关闭 ticket 的完整正文，不要一次把所有 ticket 都读进来。调用 map `## Notes` 区块点名的技能。不确定用什么时，使用 `/mmw-grilling`；它在同一场讨论中应用 `/mmw-domain-modeling`。
 
-   需要资产路径时，用 map 的 `产物目录` 和这张 ticket 自己的编号计算：
+   需要资产路径时，用 map 的 `产物目录` 和这张 ticket 自己的编号拼：
 
-   ```bash
-   mmw path prototype <产物目录> issue-<编号>
-   mmw path research <产物目录> issue-<编号>
-   mmw path scratch <产物目录> issue-<编号>
-   ```
+   | 资产 | 路径 |
+   | --- | --- |
+   | prototype | `docs/prototypes/<产物目录>/issue-<编号>` |
+   | research | `docs/research/<产物目录>/issue-<编号>` |
+   | 过程材料 | `.scratch/<产物目录>/issue-<编号>` |
 
-   只把命令的实际输出传给下游技能，不传任务 slug 代替路径。按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节处理：
+   只把拼好的完整路径传给下游技能，不传任务 slug 代替路径。按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节处理：
 
    | 标签 | MMW 接口 |
    | --- | --- |
@@ -74,11 +81,11 @@
 
 7. **只有当前分支是 map 分支时才做这一节。** 收到一张 decision ticket 交回的分支名、HEAD SHA 和基点 SHA 之后：
 
-   [[mmw-host-action:collect-worktree-result]]
+   该角色完成后，运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。命令通过后，从输出取得结果 worktree 路径；在该路径读取报告与 diff，并运行本技能规定的验收。这一步不合入结果分支。
 
    在命令返回的路径里读报告和 diff，确认两件事：ticket 上那条答案评论和 diff 说的是同一件事；这次改动的领域文档和 ADR 草稿只涉及这张 ticket 的决定，没有顺手改别的。两件都成立才合并：
 
-   [[mmw-host-action:integrate-worktree-result]]
+   本技能规定的验收全部通过后，运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。命令成功后，结果提交才算进入当前任务分支。
 
    合并之后，把这次带回来的 `draft-<编号>-<短名>.md` 逐个换成正式编号：每份跑一次 `mmw domain adr-next` 取一个号，按 `<编号>-<短名>.md` 重命名，然后提交。这一轮没有 ADR 草稿就跳过。
 

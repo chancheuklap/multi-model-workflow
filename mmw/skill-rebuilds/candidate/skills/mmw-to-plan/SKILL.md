@@ -72,7 +72,9 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 | 约束 | 只写该 plan 文件；不提交；不认领 `## Cross-Plan Contract Anchors` 划给别人的文件；不写其他 plan 的正文 |
 | 验收 | plan 文件存在且可被抽验；`## Acceptance` 覆盖 ticket `#<编号>` 的全部验收（详见 issue，不抄正文） |
 
-[[mmw-launch:planner:current]]
+派一个 `planner`，它在**当前任务 worktree** 里写 plan 文件，不另开分支。手上有名为 `mmw-planner` 的原生 subagent，就按名字调它，task 传四栏表全文，工作目录设成当前任务 worktree 的绝对路径；没有的话，把四栏表写进 task 文件，后台跑 `mmw dispatch planner --task <task 文件绝对路径> --cwd <当前任务 worktree 绝对路径>`——返回 `mode: host-tool` 时用输出里的 `params` 调宿主工具。
+
+互不依赖的实例在同一条消息里一起启动。
 
 互不依赖的 plan：同一条消息里并行启动多个 `planner`。有依赖链：按依赖顺序启动。`planner` 使用当前任务 worktree，不建独立 worktree，不提交。每个 `planner` 只写自己的 plan 文件。
 

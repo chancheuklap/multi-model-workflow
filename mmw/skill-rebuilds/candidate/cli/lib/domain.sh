@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 领域文档：落点在哪、下一个 ADR 编号是几。
+# 领域文档：初始化 Map、同步与检查消费合同、下一个 ADR 编号是几。
 #
 # 只答机械问题。「这次要碰哪几个上下文」是读 CONTEXT-MAP.md 正文之后的判断，
 # 归技能，不归这里——CLI 侧写一条匹配规则就等于凭空造了一条配置没持有的判据。
@@ -8,22 +8,6 @@
 # 「我现在是不是那种分支」CLI 做不可靠，判据在 mmw-domain-modeling/ADR-FORMAT.md。
 
 set -euo pipefail
-
-# 这个仓库的领域文档是哪种形态。输出两列：形态、路径。
-#   map      有索引，路径是索引本身，读它再决定取哪几份 leaf
-#   single   单上下文，路径是根 CONTEXT.md
-#   none     两个都没有，直接往下走，别提它缺失
-#
-# 第三列是照着做的话，给读它的 agent 看。没有这一列，每个要读领域文档的技能
-# 都得自己把三种形态解释一遍——那段话原本在五份技能里逐字重复。
-mmw_domain_path() {
-  local root config
-  root="$(mmw_repo_root)"
-  config="$(mmw_require_config)" || return 1
-  python3 "$MMW_ROOT/cli/lib/context_docs.py" path \
-    --root "$root" \
-    --config "$config"
-}
 
 # 从 MMW 持有的种子同步目标仓库规则。Python 模块负责整轮预检和原子写入；
 # shell 只提供当前仓库、配置与宿主，不复制 Markdown 合同。
@@ -69,22 +53,6 @@ mmw_domain_validated_config() {
   python3 "$MMW_ROOT/cli/lib/context_docs.py" paths \
     --root "$root" \
     --config "$config"
-}
-
-# 写入侧的四个配置落点。single 与 map 让 none 形态的领域建模流程知道首份
-# 文档建在哪里；context 与 adr 分别约束 leaf 和 ADR 的目录。
-mmw_domain_dirs() {
-  local root domain fallback map context_dir adr_dir
-  root="$(mmw_repo_root)"
-  domain="$(mmw_domain_validated_config)" || return 1
-  fallback="$(jq -er '.fallback' <<< "$domain")" || return 1
-  map="$(jq -er '.map' <<< "$domain")" || return 1
-  context_dir="$(jq -er '.context_dir' <<< "$domain")" || return 1
-  adr_dir="$(jq -er '.adr_dir' <<< "$domain")" || return 1
-  printf 'single\t%s\n' "$root/$fallback"
-  printf 'map\t%s\n' "$root/$map"
-  printf 'context\t%s\n' "$root/$context_dir"
-  printf 'adr\t%s\n' "$root/$adr_dir"
 }
 
 # 下一个 ADR 编号，四位、零填充。目录不存在或空的时候是 0001。

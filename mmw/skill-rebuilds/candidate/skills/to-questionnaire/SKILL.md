@@ -22,9 +22,16 @@ disable-model-invocation: true
 
 ## 3. 写 questionnaire
 
-先确定当前任务的产物目录。Wayfinder 场景从当前 map 或子 issue 正文的 `## 产物目录` 读取；decision ticket 同时读取正文记录的 `issue-<编号>`。Wayfinder 派生的 spec 任务从已绑定任务状态读取任务 slug，并使用 `task-<任务 slug>` 子目录。普通任务使用当前任务 slug，不带子目录。不要从任务 worktree 的物理目录名推断。
+这次的 scratch 落点形状是 `.scratch/<产物目录>/<子目录>`：
 
-运行 `mmw path scratch <产物目录> [issue-<编号>|task-<任务 slug>]`，在命令返回的 Git 忽略 scratch 目录写 `to-questionnaire-<slug>.md`，slug 取主题。不要写当前目录。完成后报告路径。
+| 段 | 取值 |
+| --- | --- |
+| `<产物目录>` | 普通任务用当前任务 slug；Wayfinder 场景从当前 map 或子 issue 正文的 `## 产物目录` 读取 |
+| `<子目录>` | 普通任务没有这一层；Wayfinder 的 decision ticket 用正文记录的 `issue-<编号>`；Wayfinder 派生的 spec 任务用 `task-<任务 slug>`，slug 从已绑定任务状态读 |
+
+不要从任务 worktree 的物理目录名推断产物目录。`.scratch/` 在 `.gitignore` 里，放这儿的东西不进 Git。
+
+在这个 scratch 目录里写 `to-questionnaire-<slug>.md`，slug 取主题。不要写当前目录。完成后报告路径。
 
 用户明确要求长期保存 questionnaire 时，改写到用户指定的正式落点。
 

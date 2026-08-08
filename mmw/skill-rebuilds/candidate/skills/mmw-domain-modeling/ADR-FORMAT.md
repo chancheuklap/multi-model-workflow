@@ -1,6 +1,6 @@
 # ADR 格式
 
-ADR 位于 `mmw domain dirs` 返回的 `adr` 路径中，并使用连续编号，例如 `0001-slug.md`、`0002-slug.md`。
+ADR 位于 `docs/adr/`，并使用连续编号，例如 `0001-slug.md`、`0002-slug.md`。
 
 按需创建 `adr` 路径，也就是只在需要第一份 ADR 时创建。
 

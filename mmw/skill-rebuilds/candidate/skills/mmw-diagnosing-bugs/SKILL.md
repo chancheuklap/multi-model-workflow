@@ -11,16 +11,23 @@ description: 需要查明根因的 bug 和性能回退诊断。用于功能损�
 
 | 材料 | 取得方式 | 读取内容 |
 | --- | --- | --- |
-| 领域文档 | 跑 `mmw domain path` 取落点；三种返回按 `/mmw-domain-modeling` 的「读领域文档」处理 | 相关模块 |
+| 领域文档 | 按 `/mmw-domain-modeling` 的「读领域文档」读 | 相关模块 |
 | ADR | 再读一遍你要碰的这块地方的 ADR | 你要碰的这块地方 |
 
 对相关模块建立清楚的心智模型。
 
 ## 过程材料落点
 
-开始诊断时确定当前任务的产物目录。Wayfinder 场景从当前 map 或子 issue 正文的 `## 产物目录` 读取；decision ticket 同时读取正文记录的 `issue-<编号>`。Wayfinder 派生的 spec 任务从已绑定任务状态读取任务 slug，并使用 `task-<任务 slug>` 子目录。普通任务使用当前任务 slug，不带子目录。不要从任务 worktree 的物理目录名推断。
+开始诊断时先定下这次的 scratch 落点，形状是 `.scratch/<产物目录>/<子目录>`：
 
-运行 `mmw path scratch <产物目录> [issue-<编号>|task-<任务 slug>]`。HAR、trace、日志转储、core dump、录屏、一次性 harness、临时埋点输出和其他过程材料默认写入命令返回的 Git 忽略 scratch 目录。已经位于 correct seam、准备长期防回归的测试源码按 Phase 5 处理。
+| 段 | 取值 |
+| --- | --- |
+| `<产物目录>` | 普通任务用当前任务 slug；Wayfinder 场景从当前 map 或子 issue 正文的 `## 产物目录` 读取 |
+| `<子目录>` | 普通任务没有这一层；Wayfinder 的 decision ticket 用正文记录的 `issue-<编号>`；Wayfinder 派生的 spec 任务用 `task-<任务 slug>`，slug 从已绑定任务状态读 |
+
+不要从任务 worktree 的物理目录名推断产物目录。`.scratch/` 在 `.gitignore` 里，放这儿的东西不进 Git。
+
+HAR、trace、日志转储、core dump、录屏、一次性 harness、临时埋点输出和其他过程材料默认写进这个目录。已经位于 correct seam、准备长期防回归的测试源码按 Phase 5 处理。
 
 ## Phase 1 —— 造一个反馈 loop
 
@@ -33,7 +40,7 @@ description: 需要查明根因的 bug 和性能回退诊断。用于功能损�
 1. **失败的测试**，放在任何一个够得到这个 bug 的 seam 上——单元、集成、e2e 都行。
 2. **curl / HTTP 脚本**，打一个跑着的 dev server。
 3. **CLI 调用**，喂一份 fixture 输入，把 stdout 和一份已知正确的快照做 diff。
-4. [[mmw-host-action:browser-bug-reproduction]]
+4. **浏览器脚本**——驱动界面，对 DOM、console、网络下断言。宿主自带可控浏览器时，可以先用它复现、缩小范围、采集截图和 console；但这一节要的仍然是一条可重复执行的 red-capable 命令，交互式复现代替不了它。
 5. **回放抓下来的 trace。** 把一次真实的网络请求／载荷／事件日志存到任务 scratch，隔离出来在那条代码路径上回放。
 6. **一次性 harness。** 在任务 scratch 起一个最小子集（一个服务，依赖打桩），用一次函数调用就走到出 bug 的那条路径。
 7. **属性／模糊测试循环。** bug 表现为「有时候输出不对」，就跑 1000 个随机输入，找那个失败形态。

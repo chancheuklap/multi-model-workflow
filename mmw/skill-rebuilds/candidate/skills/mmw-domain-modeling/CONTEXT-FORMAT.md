@@ -31,11 +31,11 @@ _Avoid_: Client, buyer, account
 
 ## 单 bounded context 与多 bounded context 仓库
 
-开始前运行 `mmw domain path`。返回 `single` 时，按照本文件 `## 结构` 中的领域文档格式维护命令返回的领域文档。返回 `map` 时，先读取 Context Map，再读取本次涉及的全部 leaf。返回 `none` 时，完整读取 [SKILL.md 的“文件结构”](SKILL.md#文件结构)，在第一个需要长期保留的领域术语得到解决后，根据 bounded context 的数量创建 single 领域文档，或者创建 Context Map 和首个 leaf。
+开始前按 [SKILL.md 的「文件结构」](SKILL.md#文件结构)判定形态。只有 `CONTEXT.md` 时，按本文件 `## 结构` 维护它。有 `CONTEXT-MAP.md` 时，先读 Map，再读本次涉及的全部 leaf。两个都没有时，完整读取那一节，在第一个需要长期保留的领域术语得到解决后，根据 bounded context 的数量创建 `CONTEXT.md`，或者创建 Context Map 和首个 leaf。
 
 多个 bounded context 使用 Context Map。Context Map 的 `Contexts` 使用固定三列表格，`Relationships` 使用非空的自然语言列表。
 
-以下 Context Map 中的 `./docs/context/` 只展示相对链接的写法。每个 leaf 的实际路径必须位于 `mmw domain dirs` 返回的 `context` 路径中：
+以下 Context Map 中的 `./docs/context/` 只展示相对链接的写法。每个 leaf 的实际路径必须位于 `docs/context/` 中：
 
 ```md
 # Context Map
@@ -58,7 +58,7 @@ _Avoid_: Client, buyer, account
 Context Map 遵守以下合同：
 
 - `Context` 是非空且唯一的 bounded context 名称。
-- `Leaf` 整格是一个 Markdown 链接。链接相对 Context Map 解析，目标位于 `mmw domain dirs` 返回的 `context` 路径中，并以 `.md` 结尾。
+- `Leaf` 整格是一个 Markdown 链接。链接相对 Context Map 解析，目标位于 `docs/context/` 中，并以 `.md` 结尾。
 - `Owns` 是非空的自然语言所有权说明。
 - `Relationships` 至少包含一个 Markdown 列表项。bounded context 之间的关系使用自然语言。
 - `mmw domain sync` 管理规则标记之间的完整正文。项目只维护 `Contexts` 和 `Relationships`。

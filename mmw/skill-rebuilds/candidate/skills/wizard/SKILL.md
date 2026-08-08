@@ -43,9 +43,16 @@ Wizard 默认是临时产物，固定保存在当前任务的 Git 忽略 scratch
 
 ## 3. 生成 wizard
 
-先确定当前任务的产物目录。Wayfinder 场景从当前 map 或子 issue 正文的 `## 产物目录` 读取；decision ticket 同时读取正文记录的 `issue-<编号>`。Wayfinder 派生的 spec 任务从已绑定任务状态读取任务 slug，并使用 `task-<任务 slug>` 子目录。普通任务使用当前任务 slug，不带子目录。不要从任务 worktree 的物理目录名推断。
+这次的 scratch 落点形状是 `.scratch/<产物目录>/<子目录>`：
 
-运行 `mmw path scratch <产物目录> [issue-<编号>|task-<任务 slug>]`。以 [template.sh](template.sh) 为模板，在命令返回的 scratch 目录生成 `wizard-<slug>.sh`。保留 `STAGES` 标记上方的 library，只替换示例步骤。
+| 段 | 取值 |
+| --- | --- |
+| `<产物目录>` | 普通任务用当前任务 slug；Wayfinder 场景从当前 map 或子 issue 正文的 `## 产物目录` 读取 |
+| `<子目录>` | 普通任务没有这一层；Wayfinder 的 decision ticket 用正文记录的 `issue-<编号>`；Wayfinder 派生的 spec 任务用 `task-<任务 slug>`，slug 从已绑定任务状态读 |
+
+不要从任务 worktree 的物理目录名推断产物目录。`.scratch/` 在 `.gitignore` 里，放这儿的东西不进 Git。
+
+以 [template.sh](template.sh) 为模板，在这个 scratch 目录里生成 `wizard-<slug>.sh`。保留 `STAGES` 标记上方的 library，只替换示例步骤。
 
 用户明确要求把 wizard 变成可重复的仓库入口时，改用用户确认的正式路径，不在 scratch 保留第二份。
 

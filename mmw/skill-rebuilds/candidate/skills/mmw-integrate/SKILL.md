@@ -45,7 +45,9 @@ mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>
 
 未完成分支需要跟上当前任务分支时：
 
-[[mmw-host-action:continue-result-worktree]]
+**这条结果分支归谁，就让谁推进它。** 它是宿主后台任务产出的，就让那个后台任务在它自己的 worktree 里继续；它是本地 worktree，用 `git worktree list` 找到路径，切进那棵树。无论哪种，**主 agent 不切换自己的工作目录**。
+
+完成后交回新的 HEAD SHA 和验证结果；主 agent 拿新 HEAD 重新跑 `mmw result verify`。
 
 然后按 [rebasing.md](rebasing.md) 操作。该分支完成后交回新的 HEAD SHA；主 agent 重新运行 `mmw result verify`。
 
@@ -57,7 +59,7 @@ mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>
 
 冲突解决只组合已有意图，不发明新行为。若必须增加第三种行为才能让代码通过，现有目标不足以决定取舍，按“下一步”停止并交用户判断。
 
-运行 `mmw path review`，把实质取舍写入命令返回目录的 `integration-<YYYY-MM-DD>.md`。同一天第二轮在日期后加序号。每条记录文件位置、双方意图、保留内容和理由。
+把实质取舍写入 `.reviews/integration-<YYYY-MM-DD>.md`。同一天第二轮在日期后加序号。每条记录文件位置、双方意图、保留内容和理由。
 
 完成条件：没有进行中的 merge 或 rebase；工作区干净；本轮应合入的分支都出现在当前任务分支历史中。
 
@@ -85,4 +87,4 @@ mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>
 | 项目检查因本次集成失败且无法当场修复 | **停**：报告失败命令和引入失败的集成步骤 |
 | 用户要求合入一条尚未通过终审的分支 | **停**：说明该分支缺少终审；先让它跟上当前任务分支，或先运行 ⑤ final 终审 |
 
-[[mmw-host-action:cleanup-worktree]]
+**不是你建的树就不归你清。** `mmw task state` 当初返回 `detached` 的，说明这棵树是宿主给的，它会在任务归档后自己回收，你不要跑 `mmw task cleanup`。是你自己 `mmw task new` 建的，等用户批准之后跑 `mmw task cleanup <slug>`。

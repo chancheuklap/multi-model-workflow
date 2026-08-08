@@ -46,7 +46,7 @@
 
 需要在浏览器里取证时：
 
-[[mmw-host-action:browser-evidence]]
+浏览器取证优先用宿主自带的可控浏览器，保存相关状态的截图、DOM 和 console。宿主没有，就用项目已有的 Playwright 或 Puppeteer 入口。需要多轮测量或稳定断言时一律走脚本入口，不用交互式浏览器。改过 viewport 的，留下最后一份证据之后恢复默认。宿主和项目都没有入口时，记录一遍可重复执行的人工步骤——不为这次取证新装浏览器工具。
 
 对象只有一两个时，你自己跑完。
 
@@ -54,7 +54,9 @@
 
 派之前先对着这条探测确认一遍：它不施加负载、不需要多轮测量、不用真实凭证、不连生产、不花钱、不写外部系统的数据。这六条是 `investigator` 那边的硬边界，碰到任何一条它都会停下来把任务交回给你，白跑一轮。
 
-[[mmw-launch:investigator:none]]
+派一个独立上下文的 `investigator`。手上有名为 `mmw-investigator` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进一个 task 文件，后台跑 `mmw dispatch investigator --task <task 文件绝对路径>`——它返回 `mode: host-tool` 时，用输出里的 `params` 去调宿主工具。这个角色只读，不指定工作目录。
+
+互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 
 `investigator` 只交回命令原文和关键输出，不做判断，不写仓库文件。它交回之后，你把完整输出落进 `<scratch 路径>/runs/` 再往下走。
 

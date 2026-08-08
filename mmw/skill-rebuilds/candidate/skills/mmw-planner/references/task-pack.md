@@ -49,7 +49,7 @@
 ## Browser Acceptance
 
 <只有界面 ticket 才写页面、路径、状态、viewport 和可见结果。>
-[[mmw-host-action:browser-plan-validation]]
+自动回归和人工浏览器审批分两栏写，不要混。`Verification commands` 只写能重复执行、带预期结果的测试命令；本节只写人工审批——由主 agent 在浏览器里逐项看的页面、黄金路径、本次相关状态、viewport 和每项可见结果。**两边不能互相冒充**：Playwright CLI 跑出来的不算人工走查，人在浏览器里点出来的也不算自动回归。没有界面就写「不适用」。
 
 ## Rollback and Gates
 

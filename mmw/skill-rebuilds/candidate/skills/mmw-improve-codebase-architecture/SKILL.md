@@ -13,7 +13,7 @@ description: 扫描 deepening opportunities，生成候选报告供用户选择�
 
 | 材料 | 取得方式 | 读取内容 |
 | --- | --- | --- |
-| 领域文档 | **先读领域文档**：落点跑 `mmw domain path` 取；三种返回按 `/mmw-domain-modeling` 的「读领域文档」处理 | **好 seam 的名字**；不要停下来建 |
+| 领域文档 | **先读领域文档**：按 `/mmw-domain-modeling` 的「读领域文档」处理 | **好 seam 的名字**；不要停下来建 |
 | ADR | 读你要碰的那一片的 ADR | ADR 里已经拍过板的决定，这次不重新拿出来吵 |
 
 相关 leaf 里定义了「订单」，你就说「订单受理这个 module」，不说「那个 FooBarHandler」，也不说「订单服务」。
@@ -30,7 +30,9 @@ description: 扫描 deepening opportunities，生成候选报告供用户选择�
 ## 2. 派几个 `investigator` 各自去探
 
 派 3 到 4 个 `investigator`，**每份 task 完全一样**，都探第 1 步定下的整片地方。四栏表：目标=在这片地方找架构摩擦；读=范围路径 + 领域文档 + `/mmw-codebase-design` + ADR 路径；约束=只读；验收=摩擦点带出处。
-[[mmw-launch:investigator:none]]
+派一个独立上下文的 `investigator`。手上有名为 `mmw-investigator` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进一个 task 文件，后台跑 `mmw dispatch investigator --task <task 文件绝对路径>`——它返回 `mode: host-tool` 时，用输出里的 `params` 去调宿主工具。这个角色只读，不指定工作目录。
+
+互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 按这个方式启动，重复 3 到 4 次，几个同时跑。
 
 **不给分工，也不给检查清单。** 让它有机地探，记下它自己在哪里觉得摩擦大。下面这五问写进每份 task，作为**起手的入口**，不是要它逐条打钩的表：
@@ -90,7 +92,14 @@ task 里把这句原样写给它：**这五问是入口，不是清单。撞见�
 
 挑中后再定 slug。类型固定用 `refactor`，短语取被选中 module 的名字，例如 `refactor-order-intake`。然后按下面的宿主动作建立任务 worktree，任务目标写用户原话和卡片标题：
 
-[[mmw-host-action:prepare-task-worktree]]
+先跑 `mmw task state`，它决定这棵树要不要你自己建：
+
+- 返回 `detached`——宿主已经把你放在一棵干净的树上了，只需要绑定：
+  `mmw task bind <分支名> "<用户原话>" --from <父分支或基点 SHA>`。命令必须返回任务分支名和起始提交。
+- 返回别的——这棵树要你自己建：`mmw task new <slug> "<用户原话>"`，从 map 分支派生时加 `--from <map 分支>`。
+  命令返回绝对路径，用宿主切换工作目录的能力进去。
+
+两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
 
 ## 6. 就这一个候选谈下去
 
@@ -98,7 +107,7 @@ task 里把这句原样写给它：**这五问是入口，不是清单。撞见�
 
 `/mmw-grilling` 自带 `/mmw-domain-modeling`，通用的那部分不用你再交代。这里只补三条本技能特有的：
 
-- **给做深后的 module 起的名字不在相关 leaf 里**，就把这个词加进去。先跑 `mmw domain path`：`single` 使用命令返回的 leaf；`map` 使用 Map 为本次范围登记的实际 leaf。
+- **给做深后的 module 起的名字不在相关 leaf 里**，就把这个词加进去。单 context 仓库加进仓库根 `CONTEXT.md`；有 Context Map 的加进 Map 为本次范围登记的那个 leaf。
 - **用户否掉这个候选**，按 `/mmw-domain-modeling` 的完整 ADR 判据决定是否提议记录。三项判据缺一项就不写。
 - **想看看这个 module 还能有哪几种 interface**，跑 `/mmw-codebase-design`，用它的 DESIGN-IT-TWICE。
 

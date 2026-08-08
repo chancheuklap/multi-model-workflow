@@ -42,7 +42,9 @@ research 要做的是：对照拥有这个事实的一手来源回答问题，�
 
 互不依赖的角度并行派发。派发以后，继续处理不依赖这些事实的工作。
 
-[[mmw-launch:investigator:none]]
+派一个独立上下文的 `investigator`。手上有名为 `mmw-investigator` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进一个 task 文件，后台跑 `mmw dispatch investigator --task <task 文件绝对路径>`——它返回 `mode: host-tool` 时，用输出里的 `params` 去调宿主工具。这个角色只读，不指定工作目录。
+
+互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 
 ## 3. 验证并综合
 
@@ -62,7 +64,7 @@ subagent 报告不是 research。research 是你验证并综合后的事实、�
 
 本节给出这次 research 的落点。走本文件时在验证和综合完成之后执行；从 [EVIDENCE.md](EVIDENCE.md) 过来时提前到立计划之前执行，取值规则一样。
 
-调用方已经传入 `mmw path research` 的实际输出时，直接使用该输出。调用方没有传入时，按下表取得 `产物目录`：
+调用方已经传入 research 落点时，直接使用它。调用方没有传入时，按下表取得 `产物目录`：
 
 | 场景 | 处理 |
 | --- | --- |
@@ -70,19 +72,13 @@ subagent 报告不是 research。research 是你验证并综合后的事实、�
 | 当前工作已经有 `产物目录` | 复用已有值 |
 | 用户直接调用，而且当前工作没有 `产物目录` | 按这次 research 的主题起一个目录名，在第 5 节让用户确认或改正 |
 
-运行下面这条（上表说要传 `issue-<编号>` 时才带第二个参数）：
-
-```bash
-mmw path research <产物目录> issue-<编号>
-```
-
-命令输出的是上一级目录。再给这次 research 起一个主题名，接在后面：
+再给这次 research 起一个主题名。落点就是（上表说要传 `issue-<编号>` 时才有中间那一段）：
 
 ```text
-<mmw path research 的输出>/<research 主题>/
+docs/research/<产物目录>/issue-<编号>/<research 主题>/
 ```
 
-`产物目录` 和 `<research 主题>` 都要能通过 `mmw path` 的检查：首字符是字母或数字，其余只能是字母、数字、点、下划线、连字符，不能含斜杠。命令报错时按它的提示换一个名字。
+`产物目录` 和 `<research 主题>` 都必须是单个路径段：首字符是字母或数字，其余只能是字母、数字、点、下划线、连字符，不能含斜杠。
 
 ## 5. 决定是否保存
 
@@ -114,11 +110,13 @@ mmw path research <产物目录> issue-<编号>
 
 这次 research 里出现了需要长期留下来的领域术语，或者一项值得记进 ADR 的决定时，不要自己往领域文档或 ADR 目录里写。有调用方时把这件事连同相关事实一起交回，由调用方去调 `/mmw-domain-modeling`；用户直接调用你时，你自己移交 `/mmw-domain-modeling`。
 
-`investigator` 交回来的报告默认不写进仓库。取证过程中确实需要留网页存档、抓取缓存、被你否掉的材料或者跨进程的临时文件时，写进调用方传给你的过程材料路径；调用方没传时自己算一个（第二个参数按第 4 节的规则给，普通任务写 `task-<任务 slug>`）：
+`investigator` 交回来的报告默认不写进仓库。取证过程中确实需要留网页存档、抓取缓存、被你否掉的材料或者跨进程的临时文件时，写进调用方传给你的过程材料路径；调用方没传时自己拼一个：
 
-```bash
-mmw path scratch <产物目录> issue-<编号>
+```text
+.scratch/<产物目录>/issue-<编号>
 ```
+
+末尾那一段按第 4 节的规则给：Wayfinder decision ticket 写 `issue-<编号>`，Wayfinder 派生的 spec 任务写 `task-<任务 slug>`，普通任务没有这一段。
 
 交回结果之前，只删掉这次 research 自己在这个路径下建的文件，别人的留着。
 

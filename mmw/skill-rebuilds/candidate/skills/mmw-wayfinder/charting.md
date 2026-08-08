@@ -4,11 +4,18 @@
 
 这个会话的任务分支就是 map 分支，后面每张 decision ticket 都从它派生。运行 `mmw task state` 确认输出以 `bound` 开头；不是时执行宿主动作：
 
-[[mmw-host-action:prepare-task-worktree]]
+先跑 `mmw task state`，它决定这棵树要不要你自己建：
+
+- 返回 `detached`——宿主已经把你放在一棵干净的树上了，只需要绑定：
+  `mmw task bind <分支名> "<用户原话>" --from <父分支或基点 SHA>`。命令必须返回任务分支名和起始提交。
+- 返回别的——这棵树要你自己建：`mmw task new <slug> "<用户原话>"`，从 map 分支派生时加 `--from <map 分支>`。
+  命令返回绝对路径，用宿主切换工作目录的能力进去。
+
+两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
 
 1. **给 destination 命名。** 运行一场 `/mmw-grilling` session；它在同一场讨论中应用 `/mmw-domain-modeling`，确定这张 map 正在寻找的 spec、决定或改动。destination 固定范围，所以先确定它。
 
-   给这项 effort 定一个 `产物目录`。它是这项 effort 的 prototype、research 和过程材料共用的一个目录名。定好之后运行 `mmw path scratch <产物目录>`：命令成功就说明这个名字可用，失败就按它的提示换一个。map 建好之后这个值不再改。
+   给这项 effort 定一个 `产物目录`。它是这项 effort 的 prototype、research 和过程材料共用的一个目录名。它必须是单个路径段：首字符是字母或数字，其余只能是字母、数字、点、下划线、连字符，不能含斜杠。map 建好之后这个值不再改。
 
 2. **map frontier。** 在当前 charting session 中采用**广度优先**方式：在整个空间铺开，不在任何一条问题线上深入。找出 open 的决定，以及当前可以采取的起始步骤。这里只识别当前能够精确表述的问题和仍处于 fog 中的区域，不解决这些 open 决定。
 
@@ -41,7 +48,7 @@
 
 5. **启动 research。** 对刚创建的每张 `wayfinder:research` ticket，先运行 `mmw issue claim <编号>`。claim 失败的 ticket 已由其他 session 占用，不重复派发。
 
-   claim 成功后，运行 `mmw path research <产物目录> issue-<编号>` 和 `mmw path scratch <产物目录> issue-<编号>`，把两条命令的实际输出和 ticket 的 Question 传给 `/mmw-research`。每张 ticket 作为一项独立 research 并行处理；`/mmw-research` 根据取证角度决定 `investigator` 的数量。
+   claim 成功后，把 `docs/research/<产物目录>/issue-<编号>` 和 `.scratch/<产物目录>/issue-<编号>` 这两条路径连同 ticket 的 Question 一起传给 `/mmw-research`。每张 ticket 作为一项独立 research 并行处理；`/mmw-research` 根据取证角度决定 `investigator` 的数量。
 
    在传给 `/mmw-research` 的内容里明确写一句：这次直接保存，不用问用户。理由是这张 ticket 本身就是用户对这次调查的批准，而且这里同时跑着好几张，各自停下来等人回答就没法并行了。
 

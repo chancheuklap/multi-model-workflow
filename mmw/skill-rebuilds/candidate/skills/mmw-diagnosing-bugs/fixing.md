@@ -30,7 +30,7 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
    `worker` 完成后，先收取结果：
 
-   [[mmw-host-action:collect-worktree-result]]
+   该角色完成后，运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。命令通过后，从输出取得结果 worktree 路径；在该路径读取报告与 diff，并运行本技能规定的验收。这一步不合入结果分支。
 
 3. `worker` 要跑的循环是：在那个 seam 上把最小化 repro 变成一个失败的测试，看它红，写修复，看它绿。
 
@@ -49,7 +49,7 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
 六项全部通过后，集成结果：
 
-[[mmw-host-action:integrate-worktree-result]]
+本技能规定的验收全部通过后，运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。命令成功后，结果提交才算进入当前任务分支。
 
 **然后问：什么本来能防住这个 bug？** 这个建议在修复落地**之后**给，不在之前。
 

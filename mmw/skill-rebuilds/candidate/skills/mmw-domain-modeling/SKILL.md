@@ -15,57 +15,63 @@ description: 构建并明确项目的领域模型。用户想要明确领域术�
 
 ## 文件结构
 
-开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。运行：
+开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
 
-```bash
-mmw domain path
-mmw domain dirs
-```
+### 读领域文档
 
-`mmw domain path` 返回当前领域文档形态和读取路径：
+**看仓库根有什么，形态就定了**，别的技能说「按本节读领域文档」指的就是这张表：
 
-| 返回 | 处理方式 |
+| 仓库根有 | 形态 | 怎么读 |
+| --- | --- | --- |
+| `CONTEXT-MAP.md` | 多个 bounded context | 它是索引：先读它，再读它列出的、本次涉及的**全部** leaf。leaf 在 `docs/context/` 下 |
+| 只有 `CONTEXT.md` | 单个 bounded context | 直接读它 |
+| 两个都没有 | 还没有领域文档 | 继续做事。**不报缺失，也不顺手创建**——第一个需要长期保留的领域术语真的谈出来了才创建 |
+
+两个都在时以 `CONTEXT-MAP.md` 为准。
+
+### 写在哪
+
+| 要写什么 | 落点 |
 | --- | --- |
-| `single` | 读取命令返回的领域文档。该仓库只有一个 bounded context |
-| `map` | 先读取命令返回的 Context Map，再读取本次涉及的全部 leaf |
-| `none` | 当前没有领域文档。继续讨论；第一个需要长期保留的领域术语得到解决时按需创建 |
-
-`mmw domain dirs` 返回 `single`、`map`、`context` 和 `adr` 的写入位置。文件位置属于目标仓库合同，不在技能中写死。
+| 单 context 的领域文档 | 仓库根 `CONTEXT.md` |
+| Context Map | 仓库根 `CONTEXT-MAP.md` |
+| 各 leaf | `docs/context/` |
+| ADR | `docs/adr/` |
 
 多数仓库只有一个 bounded context：
 
 ```
 /
-├── <single 领域文档>
-├── <adr 路径>/
+├── CONTEXT.md
+├── docs/adr/
 │   ├── 0001-event-sourced-orders.md
 │   └── 0002-postgres-for-write-model.md
 └── src/
 ```
 
-如果 `mmw domain path` 返回 `map`，该仓库有多个 bounded context。Context Map 会指向每个 leaf 的实际位置：
+有 `CONTEXT-MAP.md` 的仓库有多个 bounded context，Map 指向每个 leaf 的实际位置：
 
 ```
 /
-├── <Context Map>
-├── <adr 路径>/                    ← 全系统决定
-├── <context 路径>/
+├── CONTEXT-MAP.md
+├── docs/adr/                    ← 全系统决定
+├── docs/context/
 │   ├── ordering.md
 │   └── billing.md
 └── src/
 ```
 
-按需创建文件，也就是只有在确实有内容要写时才创建。当前形态是 `none` 时，在第一个需要长期保留的领域术语得到解决时创建领域文档；`/mmw-grilling` 调用本技能时同样如此。尚未形成需要长期保留的领域术语时，不创建领域文档；本文「谨慎提议 ADR」一节列了三项条件，还没有出现三项同时成立的决定时，不创建 ADR。
+按需创建文件，也就是只有在确实有内容要写时才创建。两个都没有时，在第一个需要长期保留的领域术语得到解决时创建领域文档；`/mmw-grilling` 调用本技能时同样如此。尚未形成需要长期保留的领域术语时，不创建领域文档；本文「谨慎提议 ADR」一节列了三项条件，还没有出现三项同时成立的决定时，不创建 ADR。
 
 创建首份领域文档前，先判断项目有一个还是多个 bounded context：
 
-- 明确只有一个 bounded context：在 `mmw domain dirs` 返回的 `single` 路径创建领域文档，并写入第一个需要长期保留的领域术语。
-- 明确存在多个 bounded context：运行 `mmw domain map-init`。命令成功创建 Context Map 后，在 `context` 路径创建首个 leaf，并在 Context Map 中登记实际路径、所有权和 bounded context 之间已经确认的关系。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
+- 明确只有一个 bounded context：创建仓库根 `CONTEXT.md`，并写入第一个需要长期保留的领域术语。
+- 明确存在多个 bounded context：运行 `mmw domain map-init`。命令成功创建 Context Map 后，在 `docs/context/` 创建首个 leaf，并在 Context Map 中登记实际路径、所有权和 bounded context 之间已经确认的关系。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
 - bounded context 的数量、术语归属或 bounded context 之间的关系仍不明确：当场询问用户。取得答案后继续创建首份领域文档。
 
 创建或修改 Context Map 和 leaf 后运行 `mmw domain check`。`mmw domain check` 检查通过后，创建首份领域文档或修改 Context Map 和 leaf 的操作才完成。
 
-如果不存在 ADR 路径，就在需要第一份 ADR 时按需创建。
+`docs/adr/` 不存在时，在需要第一份 ADR 时按需创建。
 
 ## Session 期间
 
@@ -87,7 +93,7 @@ mmw domain dirs
 
 ### 就地更新领域文档
 
-一个术语得到解决时，立即更新拥有该术语的领域文档。不要成批积攒；在术语明确时就记录。单 bounded context 仓库更新 `single` 文档。多 bounded context 仓库更新拥有该术语的 leaf。使用 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md) 中的格式。
+一个术语得到解决时，立即更新拥有该术语的领域文档。不要成批积攒；在术语明确时就记录。单 bounded context 仓库更新 `CONTEXT.md`。多 bounded context 仓库更新拥有该术语的 leaf。使用 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md) 中的格式。
 
 共享术语只在一个 leaf 中定义。其他 leaf 使用权威引用指向拥有该术语的 leaf。
 

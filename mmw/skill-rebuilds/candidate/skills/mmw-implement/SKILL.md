@@ -77,7 +77,7 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 
 `worker` 完成后，先收取结果：
 
-[[mmw-host-action:collect-worktree-result]]
+该角色完成后，运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。命令通过后，从输出取得结果 worktree 路径；在该路径读取报告与 diff，并运行本技能规定的验收。这一步不合入结果分支。
 
 ### 5. 验收：亲手验证三关
 
@@ -92,11 +92,11 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 
 ticket 涉及界面时，还要完成浏览器验收：
 
-[[mmw-host-action:browser-ui-acceptance]]
+在结果 worktree 里把界面启动起来，用手上的浏览器入口走通黄金路径和本次相关的边界状态。按视觉合同设置 viewport，逐个检查加载、空、错误、成功、部分完成里**这次实际存在**的那些状态。保存关键截图；交互异常时同时读 DOM 和 console。改过 viewport 的，留下最后一份证据之后恢复默认。宿主和项目都没有浏览器入口时，记录一遍可重复执行的人工步骤。**验收没过，或者拿不出等价证据，就不许集成结果分支。**
 
 三关都过后，集成结果：
 
-[[mmw-host-action:integrate-worktree-result]]
+本技能规定的验收全部通过后，运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。命令成功后，结果提交才算进入当前任务分支。
 
 结果提交已经进入当前任务分支，才关闭这张 ticket。spec 分支继续取下一张；agent brief 分支只有这一张，直接进入第 7 步。
 

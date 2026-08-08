@@ -39,7 +39,6 @@ mmw <命令> [参数]
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
   skill-path  派出去那一侧读方法论的路径
-  path        spec、prototype、research、evidence、scratch 与 review 的仓库内路径
   task        任务 worktree：查状态、建、绑分支、进、删
   result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
@@ -101,8 +100,6 @@ mmw task new <slug> [用户原话] [--from <基点分支或 SHA>]
     建任务 worktree 和同名分支，输出这个 worktree 的绝对路径。
     用户原话记进这条分支的第一个空提交，让后来的人知道这个任务从哪来。
     不给 --from 就从当前 HEAD 分叉；从 Wayfinding 的 map 分支派生时给 --from <map 分支>。
-mmw task enter <slug>
-    输出这个 worktree 的绝对路径。
 mmw task cleanup <slug>
     删掉这个 worktree 和它的分支。有未提交改动时失败，不强制删除。
 mmw task state
@@ -113,7 +110,7 @@ mmw task bind <完整分支名> <用户原话或任务目标> [--from <预期基
 
 这条命令只输出路径；真正切进 worktree 要用宿主自己的工具。
 在 Codex App 上只有 state 和 bind 可用，worktree 由 App 创建和清理；
-在其他宿主上只有 state、new、enter、cleanup 可用。
+在其他宿主上只有 state、new、cleanup 可用。
 EOF
   return 2
 }
@@ -181,17 +178,6 @@ EOF
 
 usage_domain() {
   cat >&2 <<'EOF'
-mmw domain path
-    这个仓库的领域文档是什么形态、在哪、该怎么读。输出一行三列，制表符分隔：
-    形态、路径、照它做什么。形态是下面三个之一：
-      map     第二列是 Context Map 的路径。先读 Map，再读本次涉及的全部 leaf。
-      single  第二列是唯一那份领域文档的路径，直接读它。
-      none    这个仓库还没有领域文档。直接继续，不要报告缺失，也不要创建。
-
-mmw domain dirs
-    写入领域文档时用的四个落点。每行两列，制表符分隔：名字和它的配置路径。
-    四个名字是 single、map、context、adr。
-
 mmw domain adr-next
     下一个可用的 ADR 编号，四位零填充，例如 0007。每次调用都重新扫描 adr 目录。
     多个会话可能并行写 ADR 时不要提前取号：先用 draft-<标识>-<slug>.md 命名，
@@ -208,32 +194,6 @@ mmw domain sync
 mmw domain check
     检查那段提示和 Context Map 的结构是否完整。退出码非 0 时按输出修好，
     这次修改才算完成。
-EOF
-  return 2
-}
-
-usage_path() {
-  cat >&2 <<'EOF'
-mmw path prototype <产物目录> [issue-<编号>]
-mmw path research  <产物目录> [issue-<编号>]
-mmw path evidence  <产物目录> [issue-<编号>]
-mmw path scratch   <产物目录> [issue-<编号> | task-<任务 slug>]
-mmw path spec      <任务 slug>
-mmw path review
-
-输出一行仓库相对路径。照它写文件，不要自己拼路径。命令不创建目录。
-
-参数取值来源：
-  <产物目录>   这个 effort 的产物共用的目录名。Wayfinder 任务从 map 正文的
-               「产物目录」一节读到它；普通任务用任务 slug。
-  <任务 slug>  这次任务的名字。Wayfinder 派生的 spec 用 map 的 slug。
-  第二个参数   Wayfinder 的 decision ticket 传 issue-<这张 ticket 的编号>；
-               Wayfinder 派生的 spec 任务在 scratch 下传 task-<任务 slug>；
-               普通任务不传第二个参数。
-
-<产物目录>、<任务 slug> 和 task- 后面的 slug 都必须是单个路径段：首字符是字母或
-数字，其余只能是字母、数字、点、下划线、连字符，不能含斜杠，不能是 . 或 .. 。
-不合规时退出码非 0 并说明原因。这时改传入的值，不要绕开这条命令自己拼路径。
 EOF
   return 2
 }
@@ -349,88 +309,10 @@ usage_agents() {
   cat >&2 <<'EOF'
 mmw agents materialize --host <pi|cursor|all> [--check] [--config <文件>] [--out <目录>]
     把 agent-src 与型号表物化成宿主原生 subagent 文件
-mmw agents resolve <角色>
-    打印该角色的原生 agent 名、是否可写、skill（键: 值，一行一个）
-mmw agents guard <角色> [--cwd <目录>]
-    派前护栏：可写角色必须给干净 worktree；只读角色不需要 --cwd
-mmw agents list
-    列出全部角色与对应 agent 名
-
 Pi / Cursor：主 agent 直调原生 subagent，不经 mmw dispatch。
-先 resolve（或看 list）拿 agent 名，可写角色先 guard，再调宿主工具，
-只传 agent、task 四栏全文、可写时的 cwd。
 Claude Code：仍用 mmw dispatch。
 EOF
   return 2
-}
-
-cmd_agents_resolve() {
-  local role="${1:-}"
-  [ -n "$role" ] || { echo "mmw: agents resolve 要角色名" >&2; usage_agents; }
-  local agent skill writable
-  agent="$(agents_role_field "$role" agent)" || {
-    echo "mmw: 认不出角色 $role" >&2
-    usage_agents
-  }
-  skill="$(agents_role_field "$role" skill)"
-  writable="$(agents_role_field "$role" writable)"
-  # json bool → yes/no，与 role_writable 口径一致
-  if [ "$writable" = "true" ]; then
-    writable="yes"
-  else
-    writable="no"
-  fi
-  printf 'role: %s\n' "$role"
-  printf 'agent: %s\n' "$agent"
-  printf 'writable: %s\n' "$writable"
-  printf 'skill: %s\n' "$skill"
-}
-
-cmd_agents_list() {
-  local path="$MMW_ROOT/agent-src/roles.json"
-  [ -f "$path" ] || { echo "mmw: 找不到 $path" >&2; return 1; }
-  jq -r '.roles | to_entries[] | "\(.key)\t\(.value.agent)\t\(if .value.writable then "writable" else "readonly" end)"' "$path"
-}
-
-cmd_agents_guard() {
-  local role="" cwd=""
-  while [ $# -gt 0 ]; do
-    case "$1" in
-      --cwd) cwd="${2:-}"; shift 2 ;;
-      --role)
-        # 兼容 --role 写法
-        role="${2:-}"; shift 2
-        ;;
-      -*)
-        echo "mmw: 认不出参数 $1" >&2
-        usage_agents
-        ;;
-      *)
-        if [ -z "$role" ]; then
-          role="$1"; shift
-        else
-          echo "mmw: 认不出参数 $1" >&2
-          usage_agents
-        fi
-        ;;
-    esac
-  done
-  [ -n "$role" ] || { echo "mmw: agents guard 要角色名" >&2; usage_agents; }
-
-  local agent writable
-  agent="$(agents_role_field "$role" agent)" || {
-    echo "mmw: 认不出角色 $role" >&2
-    usage_agents
-  }
-  writable="$(agents_role_field "$role" writable)"
-  if [ "$writable" = "true" ]; then
-    if [ -z "$cwd" ]; then
-      echo "mmw: $role 会写文件，--cwd 必填，指向它该待的那棵 worktree" >&2
-      return 1
-    fi
-    cwd="$(mmw_require_writable_cwd "$cwd")" || return 1
-  fi
-  printf 'ok: %s -> %s\n' "$role" "$agent"
 }
 
 cmd_agents() {
@@ -459,9 +341,6 @@ cmd_agents() {
       args+=(--host "$host")
       python3 "$MMW_ROOT/cli/lib/materialize_agents.py" "${args[@]}"
       ;;
-    resolve) cmd_agents_resolve "$@" ;;
-    guard) cmd_agents_guard "$@" ;;
-    list) cmd_agents_list ;;
     *) usage_agents ;;
   esac
 }
@@ -534,7 +413,6 @@ cmd_task() {
     state) [ $# -eq 0 ] || usage_task; mmw_task_state ;;
     bind) [ "$host" = "codex" ] || { echo "mmw: task bind 只用于 Codex App 已创建的 detached worktree" >&2; return 1; }; mmw_task_bind "$@" ;;
     new) [ "$host" != "codex" ] || { echo "mmw: Codex App 负责创建 worktree，这里只用 task bind" >&2; return 1; }; mmw_task_new "$@" ;;
-    enter) [ "$host" != "codex" ] || { echo "mmw: Codex App 任务不切换工作根目录" >&2; return 1; }; mmw_task_enter "$@" ;;
     cleanup) [ "$host" != "codex" ] || { echo "mmw: Codex App 负责清理 managed worktree" >&2; return 1; }; mmw_task_cleanup "$@" ;;
     *) usage_task ;;
   esac
@@ -607,42 +485,20 @@ cmd_domain() {
   shift || true
   [ $# -eq 0 ] || usage_domain
   case "$sub" in
-    path) mmw_domain_path ;;
     map-init) mmw_domain_map_init ;;
     sync) mmw_domain_sync ;;
     check) mmw_domain_check ;;
     adr-next) mmw_domain_adr_next ;;
-    dirs) mmw_domain_dirs ;;
     *) usage_domain ;;
-  esac
-}
-
-cmd_path() {
-  case "${1:-}" in
-    spec)
-      [ "$#" -eq 2 ] || usage_path
-      mmw_path_spec "$2"
-      ;;
-    review)
-      [ "$#" -eq 1 ] || usage_path
-      mmw_path_root review
-      ;;
-    prototype|research|evidence|scratch)
-      [ "$#" -ge 2 ] && [ "$#" -le 3 ] || usage_path
-      mmw_path_resolve "$@"
-      ;;
-    *) usage_path ;;
   esac
 }
 
 usage_graph() {
   cat >&2 <<'EOF'
-mmw graph status   图新不新鲜：FRESH / STALE / MISSING
-mmw graph ensure   对不上当前代码才建。任务 worktree 里先看主仓库那份能不能直接用
-mmw graph build    不管新不新鲜都重建一次，也不复用。配置刚改完时用它
+mmw graph build    重建一次结构图谱
 mmw graph verify   图里各类关系各有多少条，够不够用
 
-判据与构建都在 mcp/graphify_ensure.py，这四条只是它的入口。
+构建在 mcp/graphify_ensure.py，这两条只是它的入口。
 EOF
   return 2
 }
@@ -670,8 +526,6 @@ cmd_mcp() {
 
 cmd_graph() {
   case "${1:-}" in
-    status) mmw_graph_status ;;
-    ensure) mmw_graph_ensure ;;
     build) mmw_graph_build ;;
     verify) mmw_graph_verify ;;
     *) usage_graph ;;
@@ -850,7 +704,6 @@ case "${1:-}" in
   agents) shift; cmd_agents "$@" ;;
   skills) shift; cmd_skills "$@" ;;
   skill-path) shift; cmd_skill_path "$@" ;;
-  path) shift; cmd_path "$@" ;;
   task) shift; cmd_task "$@" ;;
   result) shift; cmd_result "$@" ;;
   issue) shift; cmd_issue "$@" ;;
