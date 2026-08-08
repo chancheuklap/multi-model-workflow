@@ -57,8 +57,8 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 ## 修改规则
 
-- 改技能前读完整 `SKILL.md` 及其链接的 reference。技能写作规范以 `.agents/skills/writing-for-agents/SKILL.md` 及其链接的 `SKILL-MECHANICS.md` 为准。
-- 逐句翻译上游、审查语义漂移、应用有意精简、增加 MMW 接线或升级上游版本时，先完整读取 `.agents/skills/upstream-skill-fidelity/SKILL.md`。上游方法合同与 MMW 工作流合同必须同时成立：上游方法合同不自动否定 MMW 工作流，当前 MMW 行为也不自动证明方法保真。
+- 改技能前读完整 `SKILL.md` 及其链接的 reference。技能写作规范以 `writing-for-agents` 及其链接的 `SKILL-MECHANICS.md` 为准。
+- 逐句翻译上游、审查语义漂移、应用有意精简、增加 MMW 接线或升级上游版本时，先完整读取 `upstream-skill-fidelity`。上游的方法要求和 MMW 的工作流要求必须同时成立：上游方法不自动否定 MMW 工作流，当前 MMW 行为也不自动证明方法保真。
 - 只实现请求范围内行为；不用归档残留、兼容目录或静默默认值掩盖错误。
 - 脚本异常必须非零退出或留下结构化告警。
 - 机械校验只覆盖机器能直接判定的事实：语法与固定结构可解析、路径与文件安全、配置完整性和生成产物一致性。
