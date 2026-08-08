@@ -58,7 +58,8 @@ jq -e '.models == null' "$init_dir/.mmw.json" >/dev/null
 test "$(jq -c '.paths | keys' "$init_dir/.mmw.json")" = \
   '["release","reviews","scratch","worktrees"]'
 grep -q 'MMW-DOMAIN-CONTEXT-START' "$init_dir/AGENTS.md"
-grep -q 'MMW-DOMAIN-CONTEXT-START' "$init_dir/CLAUDE.md"
+# init 生成的 CLAUDE.md 是一行 @AGENTS.md 引用（mmw/cli/lib/context_docs.py），标记本体在 AGENTS.md。
+grep -qxF '@AGENTS.md' "$init_dir/CLAUDE.md"
 grep -qxF '.scratch/' "$init_dir/.gitignore"
 grep -qxF '.reviews/' "$init_dir/.gitignore"
 test -z "$(git -C "$init_dir" status --porcelain)"
