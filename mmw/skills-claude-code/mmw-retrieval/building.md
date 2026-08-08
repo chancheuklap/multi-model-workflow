@@ -30,7 +30,11 @@
 | `exclude_roots` | 不该进图的根目录，发布前逐个节点核对 | 只挡 Markdown |
 | `tolerated_warnings` | 这个仓库已知且接受的能力缺口，见第 5 节 | 任何一条能力缺失的警告都会让整张图被拒 |
 
-排除哪些路径主要走仓库根的 `.graphifyignore`，那是检索工具自己的机制；`exclude_roots` 是发布前的双保险。**任务 worktree 的目录必须排除**——每棵 worktree 是一整份代码副本，不排除的话图会翻好几倍，而且全是重复节点。
+排除哪些路径主要走仓库根的 `.graphifyignore`，那是检索工具自己的机制；`exclude_roots` 是发布前的双保险。`mmw init` 已经往这个文件里铺了两行：`*.md`，还有任务 worktree 的目录。
+
+**Markdown 必须排除。** 新鲜度指纹本来就不看 `.md`。文档一旦进图，改文档不会让图过期，图里那份正文就一直是旧的，而状态照报新鲜。`exclude_roots` 那道校验挡得住 Markdown，但它只在配了 `retrieval.graph` 的仓库里走到；没配的仓库走裸 `graphify update`，没有任何一处拦截。所以这一条只能靠 `.graphifyignore`。
+
+**任务 worktree 的目录必须排除。** 每棵 worktree 是一整份代码副本，不排除的话图会翻好几倍，而且全是重复节点。这个仓库还有别的整份副本——上游镜像、重建候选、vendor 目录——自己往这个文件里加。
 
 ## 2. 路由怎么枚举
 

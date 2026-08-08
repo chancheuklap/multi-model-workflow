@@ -62,6 +62,9 @@ grep -q 'MMW-DOMAIN-CONTEXT-START' "$init_dir/AGENTS.md"
 grep -qxF '@AGENTS.md' "$init_dir/CLAUDE.md"
 grep -qxF '.scratch/' "$init_dir/.gitignore"
 grep -qxF '.reviews/' "$init_dir/.gitignore"
+# Markdown 进图会让「改文档不算过期」这条新鲜度规则失真，图里的正文一直是旧的。
+grep -qxF '*.md' "$init_dir/.graphifyignore"
+grep -qxF '/.worktrees/' "$init_dir/.graphifyignore"
 test -z "$(git -C "$init_dir" status --porcelain)"
 
 init_head="$(git -C "$init_dir" rev-parse HEAD)"

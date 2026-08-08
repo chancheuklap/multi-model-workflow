@@ -201,6 +201,40 @@ mmw_init_gitignore() {
   mmw_init_touch ".gitignore"
 }
 
+# 结构图谱的排除清单。graphify 自己读这个文件，gitignore 语法。
+#
+# Markdown 必须排除，否则「文档不进图」这句话是假的。新鲜度指纹排除 .md
+# （mmw/mcp/graphify_ensure.py 的 _EXCLUDE_PATHSPEC），两边不一致的后果是静默的：
+# 文档进了图，改文档不会让图过期，图里那份正文永远是旧的，而 mmw graph status
+# 照报 FRESH。完整流水线有一道校验挡住 Markdown（mmw/graph/rebuild.py），但它只在
+# 配了 retrieval.graph 的仓库里走到；没配的仓库走裸 graphify update，没有任何拦截。
+#
+# 任务 worktree 是一整份代码副本。不排除的话每个符号在图里有两份，查询预算
+# 全花在重复节点上。
+mmw_init_graphifyignore() {
+  local root file added=0 line
+  root="$(mmw_repo_root)"
+  file="$root/.graphifyignore"
+  touch "$file"
+  local -a lines=(
+    "*.md"
+    "/$(mmw_path_field worktrees)/"
+  )
+  for line in "${lines[@]}"; do
+    if grep -qxF "$line" "$file"; then
+      continue
+    fi
+    printf '%s\n' "$line" >> "$file"
+    added=$((added + 1))
+  done
+  if [ "$added" -eq 0 ]; then
+    mmw_init_say "graphify : 排除清单都在"
+    return 0
+  fi
+  mmw_init_say "graphify : .graphifyignore 补了 ${added} 行"
+  mmw_init_touch ".graphifyignore"
+}
+
 # init 写的配置文件要提交进分支才算数。任务 worktree 检出的是分支上的版本：
 # .gitignore 那几行留在工作区没提交的话，worktree 里那份 .gitignore 里没有它
 # 们，于是 .reviews/ 与 .dispatch/ 变成未跟踪文件，旧宿主的 mmw task cleanup 被它们挡
@@ -254,6 +288,7 @@ mmw_init() {
   mmw_init_testing
   mmw_init_labels
   mmw_init_gitignore
+  mmw_init_graphifyignore
   # 提交排在最后：上面各步骤都登记完了，一个提交装下这一轮的全部配置改动。
   mmw_init_commit || status=1
   mmw_init_legacy

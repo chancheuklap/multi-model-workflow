@@ -1,2 +1,12 @@
+# Markdown 不是图的输入。它进来一次，此后每改一次文档图就作废一次。
+# 新鲜度指纹也排除 .md（mmw/mcp/graphify_ensure.py 的 _EXCLUDE_PATHSPEC），
+# 两边必须一致：文档进了图，改文档就不会让图过期，图里存的正文会一直是旧的。
+*.md
+
+# 上游翻译与技能重建的候选材料。它是一整份代码与文档副本，
+# 构建 runtime 时 mmw/install.sh 会整个删掉，不属于发布面。
+# 不排除的话每个符号在图里有两份，查询预算全花在重复节点上。
+/mmw/skill-rebuilds/
+
 /archive/
 /.pi-subagents/
