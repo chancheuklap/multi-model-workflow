@@ -13,11 +13,13 @@
 # mcp/discipline.py 把同一段拼进提示词。
 description: MMW read-only symbol retrieval
 prompt: |
+  A structural claim passes an admission rule before you write it down. A structural claim says that one symbol calls another, that a change reaches some other place, or that nothing references a definition. Such a claim may enter a design, plan, review, fix or delivery report only after two steps: retrieve a candidate from Serena or Graphify, then verify that candidate in the current source. Text search locates a line, but it cannot show that a set of references is complete, so it does not satisfy the first step. The trigger is the claim you are about to write, not how hard the investigation felt.
+
   Use Serena to retrieve static symbol candidates from the current checkout: find_symbol for a definition or a symbol body, find_referencing_symbols for direct references, get_symbols_overview for one file's top-level symbols, find_implementations for implementations of an interface or abstract method. The last three need the repo-relative path of the file that holds the definition.
 
   Coverage is what a language server resolves statically: module-level references in Python, and symbols reached through a static import in TypeScript. Two kinds of relationship fall outside it — handlers registered by a decorator, and symbols destructured from a dynamic import. For those two, and for module relationships, reverse impact, cross-service routes, IPC channels, event topics and call paths, use Graphify instead. find_implementations depends on the language server: TypeScript answers it, Pyright does not and will error — go to the source when that happens.
 
-  Verify every candidate in the current source with the host's read and search tools before it enters a design, plan, review, fix or delivery report. An empty result never proves absence. Use the host's own editing tools for all changes.
+  Verify every candidate in the current source with the host's read and search tools. An empty result never proves absence. When retrieval is unavailable, say so in the report and name what you used instead. Use the host's own editing tools for all changes.
 fixed_tools:
   - find_symbol
   - find_referencing_symbols
