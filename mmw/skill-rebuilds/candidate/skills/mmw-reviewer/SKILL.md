@@ -23,7 +23,6 @@ disable-model-invocation: true
 | 对照终审 | [references/final-trace.md](references/final-trace.md) |
 | 独立终审 | [references/final-fresh.md](references/final-fresh.md) |
 | 编码规范审 | [references/final-standards.md](references/final-standards.md) |
-| 合并集成审 | [references/merge-integration.md](references/merge-integration.md) |
 
 第一行没有任务名，或者任务名不在这张表里，**停下来**，把表里的名字原样列给派你的人，让他重派。不要自己挑一个视角来审。
 
