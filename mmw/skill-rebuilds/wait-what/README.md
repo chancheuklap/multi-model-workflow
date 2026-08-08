@@ -8,7 +8,11 @@
 
 第二阶段已经形成单文件精简稿。上游正文只有一个执行段落，没有需要删除的方法内容，因此精简稿完整保留翻译基线。
 
-第三阶段已经在 `candidate/` 形成三文件候选。`candidate/SKILL.md` 保留手动调用，并在文字重述、普通文档可视化和 Logic HTML 三种请求之间路由；`candidate/VISUAL.md` 负责普通文档解释；`candidate/LOGIC.md` 负责让用户用按钮驱动状态模型。Logic HTML 只保存本地产物，除非用户明确要求发布。当前发布技能仍不修改。
+第三阶段已经在 `candidate/` 形成两文件候选。`candidate/SKILL.md` 保留手动调用，并在文字重述、普通 HTML 可视化解释和「需要按按钮走一遍才能明白」三种请求之间路由；`candidate/VISUAL.md` 负责普通文档解释。
+
+需要按按钮驱动状态模型时，本技能移交 `/mmw-prototype`，由它按 Logic HTML 工作面制作页面。本技能是 user-invoked，任何技能都够不到它，所以依赖方向只能是它调用别人；把 Logic HTML 的制作方法留在这里，会迫使 `/mmw-prototype` 停下来请用户手动敲一次技能名。
+
+覆盖范围是用户看不懂的任何内容：session 里的输出，以及仓库里的各种文档。当前发布技能仍不修改。
 
 ## 文件
 

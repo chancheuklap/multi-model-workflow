@@ -1,10 +1,10 @@
 # 沿 map 推进
 
-用户带着一张 map 调用，可以使用 URL 或编号。ticket 是可选项；用户没有指定 ticket 时，由你选择下一个决定，不要求用户选择。
+用户带着一张 map 调用，可以使用 URL 或编号。ticket 是可选项；用户没有指定 ticket 时，由你选择下一个决定，不要求用户选择。这个会话只解决一张 decision ticket。
 
 1. 加载 **map**，也就是低分辨率视图，不加载每张 ticket 的正文。
 
-   读取 map 正文中的 `产物目录`，再运行 `mmw issue frontier <map 编号> --label-prefix wayfinder:`。
+   运行 `gh issue view <map 编号>` 读取 map 正文，记下 `产物目录` 和 Notes 点名的技能。再运行 `mmw issue frontier <map 编号> --label-prefix wayfinder:`。
 
    用户指定 ticket 时，运行 `mmw issue children <map 编号>`，在输出中确认这张 ticket 是当前 map 的子 issue，带 `wayfinder:` 标签，状态是 open，没有 assignee，而且被阻塞数量为零。五项全部成立时继续第 2 步；任何一项不成立时，报告实际状态并停止，不 claim 或解决这张 ticket。
 
@@ -12,48 +12,84 @@
 
    | 查询结果 | 处理 |
    | --- | --- |
-   | 仍有带 `wayfinder:` 标签的 open decision ticket | 报告这些 ticket 已被 claim 或仍被 blocking，保持 map open，并停止本次 session；不要进入第 2 步 |
+   | 仍有带 `wayfinder:` 标签的 open decision ticket | 报告这些 ticket 已经被别人认领或仍被挡着，map 保持 open，然后停止；不要进入第 2 步 |
    | 没有带 `wayfinder:` 标签的 open decision ticket | 读取 [closing.md](closing.md)；不要进入第 2 步 |
 
 2. 选择 ticket。用户点名一张时使用那一张；用户没有点名时，按顺序取得第一张 frontier ticket。**claim 它**：开始任何工作前先把 ticket 指派给自己。
 
    使用 `mmw issue claim <编号>` claim。失败说明另一个 session 已经 claim 这张 ticket，改取下一张。所有 frontier ticket 都 claim 失败时，报告这些 ticket 已被其他 session 认领，然后停止；不要进入第 3 步。
 
-3. 解决 ticket。根据需要 **zoom**：按需取得相关或已关闭 ticket 的完整正文；调用 `## Notes` 区块点名的技能。不确定时，使用 `/mmw-grilling`；它在同一场讨论中应用 `/mmw-domain-modeling`。
+   claim 成功后，为这张 ticket 建立自己的任务 worktree。任务 slug 由两段拼成，中间一个连字符：前一段取 map 标题的短名（全小写、空格换成连字符），后一段取这张 ticket 标题的短名。父分支是 map 分支，起点是 map 分支当前已提交的 HEAD——先运行 `git rev-parse <map 分支>` 记下它，交回结果时要用。
 
-   按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节处理。把 map 的 `产物目录` 和当前 ticket 的 `issue-<编号>` 原样交给需要资产路径的下游技能；精确路径由实际写入资产的技能计算：
+   [[mmw-host-action:prepare-task-worktree]]
+
+3. 解决 ticket。需要更多背景时，按需取得相关或已关闭 ticket 的完整正文，不要一次把所有 ticket 都读进来。调用 map `## Notes` 区块点名的技能。不确定用什么时，使用 `/mmw-grilling`；它在同一场讨论中应用 `/mmw-domain-modeling`。
+
+   需要资产路径时，用 map 的 `产物目录` 和这张 ticket 自己的编号计算：
+
+   ```bash
+   mmw path prototype <产物目录> issue-<编号>
+   mmw path research <产物目录> issue-<编号>
+   mmw path scratch <产物目录> issue-<编号>
+   ```
+
+   只把命令的实际输出传给下游技能，不传任务 slug 代替路径。按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节处理：
 
    | 标签 | MMW 接口 |
    | --- | --- |
    | `wayfinder:grilling` | 调用 `/mmw-grilling` |
-   | `wayfinder:prototype` | 把 `Question`、`产物目录` 和 `issue-<编号>` 交给 `/mmw-prototype` |
-   | `wayfinder:research` | 把 `Question`、`产物目录` 和 `issue-<编号>` 交给 `/mmw-research` |
-   | `wayfinder:task` | agent 能完成时直接完成；必须由用户完成的多步流程调用 `/wizard`，并交给它 `产物目录` 和 `issue-<编号>` |
+   | `wayfinder:prototype` | 把 `Question`、prototype 产物路径和 scratch 路径交给 `/mmw-prototype` |
+   | `wayfinder:research` | 把 `Question`、research 路径和 scratch 路径交给 `/mmw-research`；这张 ticket 就是用户对本次调查的批准，research 直接保存，不再询问。这个问题只有把外部系统真跑起来才能答时，`/mmw-research` 会自己升级成实测；实测里要动真实凭证、生产环境或者会花钱的操作，仍然要停下来找用户点头 |
+   | `wayfinder:task` | agent 能完成时直接完成；必须由用户完成的多步流程调用 `/wizard` |
 
    `wayfinder:task` 必须等待用户操作时，给出精确操作并停止本步骤。用户返回后继续处理同一张 ticket；不要提前执行第 4 步。
 
    HITL ticket 只能由用户与 agent 共同解决。`wayfinder:grilling` 已经通过 `/mmw-grilling` 在同一段对话中应用 `/mmw-domain-modeling`，并完成本次讨论需要的领域模型修改；不要为同一项结果重复调用 `/mmw-domain-modeling`。
 
-   `wayfinder:prototype`、`wayfinder:research` 或 `wayfinder:task` 得到结果后，检查它是否形成需要长期保留的领域术语、bounded context、bounded context 之间的关系，或者符合 ADR 三项判据的决定。形成其中任何一项时，调用 `/mmw-domain-modeling`；没有形成时，不增加领域文档步骤。答案明确否决一个 enhancement 时，按 tracker 合同把理由保存到 `.out-of-scope/`。这些仓库改动在更新 tracker 之前完成。
+   `wayfinder:prototype`、`wayfinder:research` 或 `wayfinder:task` 得到结果后，看这次结果里有没有需要长期留下来的领域术语、bounded context、bounded context 之间的关系，或者一项值得记进 ADR 的决定。有其中任何一项时调用 `/mmw-domain-modeling`，由它判断和落笔。
 
-   scratch 清理和 worktree 判定由实际创建文件的下游技能负责。Wayfinder 不为每张 decision ticket 另建一套 worktree 或分支集成流程。存在持久仓库内容时，确认下游技能已经完成自己的清理，并在继续第 4 步前提交仍未提交的持久内容；没有仓库改动时不制造空提交。
+   这次要写 ADR 时，文件先命名成 `draft-<这张 ticket 的编号>-<短名>.md`，不要现在去取正式编号：别的会话可能正在同时写另一份 ADR，两边会拿到同一个号。正式编号在结果合回 map 分支之后统一分配。
 
-4. 记录解决结果：把答案发布为一条 **resolution comment**，**关闭** issue，并在 map 的 Decisions so far 中追加一个 context pointer。
+   这次的答案明确否掉了一个功能需求时，把否掉它的理由写进仓库根目录的 `.out-of-scope/`，一个概念一份文件，格式见 [`../mmw-triage/OUT-OF-SCOPE.md`](../mmw-triage/OUT-OF-SCOPE.md)。这个文件要在更新 tracker 之前写好。
 
-   resolution comment 链接这张 ticket 实际形成的 prototype、research 或 evidence；没有资产时只记录答案。修改 map 前重新读取最新正文，修改后再次读取，确认本次 context pointer 存在，并保留其他 session 的并发修改。
+   过程材料的清理由实际创建它们的下游技能负责，你不用管。你这个会话写下的持久内容，全部提交在这条任务分支上。
 
-5. 添加 newly-surfaced ticket，采用 **create-then-wire**：先创建，再连接 blocking edge。把这次答案已经变得可以精确表述的 fog 转成 ticket；每块转成 ticket 的 fog 都要从 **Not yet specified** 删除，使它只存在于新 ticket 中。如果答案表明某张 ticket 位于 destination 之外，无论是当前 ticket 还是另一张 ticket，都把它 **rule out of scope**，不要把它当作路线上的决定来解决。如果这项决定使 map 的其他部分失效，更新或删除对应 ticket。
+4. 记录这次的答案。三件事：
 
-   新 ticket 原样继承 map 的 `产物目录`，取得 tracker 编号后回填自己的 `issue-<编号>`，然后第二遍 wire blocking edge。rule out of scope 时，在 Out of scope 留下概要、越界理由和 ticket 链接；明确否决 enhancement 的 `.out-of-scope/` 理由已经在第 3 步保存并提交。
+   1. 把答案作为一条评论发在这张 ticket 上：`gh issue comment <编号> --body-file <文件>`。评论里链接这张 ticket 实际形成的 prototype 或 research；没有资产时只写答案。
+   2. 关闭这张 ticket：`gh issue close <编号>`。
+   3. 在 map 的 `Decisions so far` 追加一行：ticket 名称包着它的链接，加一句话概要。改 map 正文之前先 `gh issue view <map 编号>` 重新读一遍最新的，改完再读一遍确认自己那行在。别的会话可能刚改过 map，不要把它们的行覆盖掉。
 
-用户可以并行处理没有阻塞的 ticket。因此，要预期其他 session 会同时编辑 tracker。
+5. 这次的答案会让一部分原本说不清楚的问题变得说得清楚。把这些问题建成新的 decision ticket：先全部建出来，取得编号之后再连阻塞关系（issue 要先有编号才能互相引用）。每块变成 ticket 的内容都要从 `Not yet specified` 里删掉，让它只存在于新 ticket。
 
-完成第 5 步后重新运行 `mmw issue frontier <map 编号> --label-prefix wayfinder:`。frontier 为空时，再运行 `mmw issue children <map 编号>`。当前 ticket 的处理到这里完成；按照文末“下一步”处理查询结果，不继续 claim 新 ticket。
+   如果这次的答案说明某张 ticket 其实越过了 destination——不管是当前这张还是别的哪张——就关掉它，在 `Out of scope` 留一行：概要、为什么越界、以及指向这张已关闭 ticket 的链接。不要把它当成路线上的一个决定去解。如果这次的决定让 map 的其他部分失效了，同步更新或删掉对应 ticket。
+
+6. 提交，然后把结果交回去。
+
+   提交这条任务分支上还没提交的全部持久内容。这一轮没有动过仓库文件时，不要制造一个空提交。
+
+   然后把三个值和一份报告交回给拥有 map 分支的那个会话：任务分支名、`git rev-parse HEAD` 的输出、第 2 步记下的基点 SHA。
+
+   到这里你解这张 ticket 的工作就结束了。下面第 7 节是拥有 map 分支的会话要做的，你不执行。
+
+7. **只有当前分支是 map 分支时才做这一节。** 收到一张 decision ticket 交回的分支名、HEAD SHA 和基点 SHA 之后：
+
+   [[mmw-host-action:collect-worktree-result]]
+
+   在命令返回的路径里读报告和 diff，确认两件事：ticket 上那条答案评论和 diff 说的是同一件事；这次改动的领域文档和 ADR 草稿只涉及这张 ticket 的决定，没有顺手改别的。两件都成立才合并：
+
+   [[mmw-host-action:integrate-worktree-result]]
+
+   合并之后，把这次带回来的 `draft-<编号>-<短名>.md` 逐个换成正式编号：每份跑一次 `mmw domain adr-next` 取一个号，按 `<编号>-<短名>.md` 重命名，然后提交。这一轮没有 ADR 草稿就跳过。
+
+   最后跑 `mmw issue frontier <map 编号> --label-prefix wayfinder:`，frontier 为空时再跑 `mmw issue children <map 编号>`，按文末「下一步」处理。不要接着认领下一张。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
-| 当前 ticket 已记录并关闭，frontier 仍有 ticket | **停**：报告本次决定和当前 frontier；其他 session claim 下一张 ticket |
-| 当前 ticket 已记录并关闭，而且没有带 `wayfinder:` 标签的 open decision ticket | **自己继续**：读取 [closing.md](closing.md) |
-| 当前 ticket 已记录并关闭，frontier 为空，但仍有已被 claim 或仍被 blocking 的 open decision ticket | **停**：报告这些 ticket 的当前状态，map 保持 open |
+| 手上这张是必须由人动手的 `wayfinder:task`，正在等用户 | **停**：把要用户做的事一条条列清楚，等结果回来后继续这张 ticket |
+| 你解完了这张 ticket，已经提交并交回 | **停**：报告这次的决定，以及交回的分支名、HEAD SHA 和基点 SHA |
+| 你拥有 map 分支，刚合并完一个结果，frontier 上还有 ticket | **停**：报告这次的决定，以及 frontier 上还剩哪几张（用名称，不用编号）；下一张由另一个会话认领 |
+| 你拥有 map 分支，刚合并完一个结果，`mmw issue children` 显示已经没有带 `wayfinder:` 标签的 open ticket | **自己继续**：读取 [closing.md](closing.md) |
+| 你拥有 map 分支，frontier 为空，但还有 open ticket 已被别人认领或仍被挡着 | **停**：报告这些 ticket 现在是什么状态，map 保持 open |

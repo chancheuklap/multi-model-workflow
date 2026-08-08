@@ -1,16 +1,20 @@
 # map 收尾
 
-本文件只处理 MMW 中已经没有 open decision ticket 的 map 生命周期，由 [walking.md](walking.md) 移交。
+这张 map 已经没有 open 的 decision ticket 了，本文件负责收尾。
+
+收尾在拥有 map 分支的会话里做。先运行 `git rev-parse --abbrev-ref HEAD` 确认当前就在 map 分支上；不在就报告这一点并停止，让拥有 map 分支的会话来收尾。
 
 重新读取 map 正文，再运行 `mmw issue children <map 编号>`。仍有带 `wayfinder:` 标签的 open decision ticket 时停止；map 保持 open，不执行收尾。
+
+再确认每张已关闭 decision ticket 的结果都已经集成回 map 分支，而且没有遗留 `draft-<ticket 编号>-<slug>.md`。存在未集成的结果分支或 ADR 草稿时，先按 [walking.md](walking.md) 第 6 步完成集成和正式编号，再继续收尾。
 
 ## 1. 判断路线是否真的清楚
 
 读取 Not yet specified 中的剩余内容，逐项应用 [SKILL.md](SKILL.md) 的“Fog of war”一节判据：
 
-- 已经能够精确表述，而且仍位于通往 destination 的路线中：按 [charting.md](charting.md) 第 4 步执行 create-then-wire，建立新的 decision ticket。
-- 已经确定越过 destination：移入 Out of scope。存在对应 ticket 时，按 [SKILL.md](SKILL.md) 的“Out of scope”一节关闭并链接它。
-- 仍然是通往 destination 的 fog：map 尚未完成。按照 [charting.md](charting.md) 第 2 步的广度优先方式，再次对剩余 fog 进行 grilling。能够精确表述的问题按第一项建立 decision ticket；确定越过 destination 的内容按第二项移入 Out of scope。grilling 后仍无法精确表述的内容继续保留在 Not yet specified，报告这块 fog 和当前缺少的信息，然后停止。
+- 现在已经说得清楚了，而且它仍在通往 destination 的路上：按 [charting.md](charting.md) 第 4 步的两遍做法建成新的 decision ticket。
+- 现在看清楚了，它越过了 destination：移进 `Out of scope`。已经有对应 ticket 的，按 [SKILL.md](SKILL.md) 的“Out of scope”一节关掉它并留下链接。
+- 现在还是说不清楚，而且它仍在通往 destination 的路上：这张 map 还没做完。按 [charting.md](charting.md) 第 2 步的广度优先方式，对剩下这些再 grill 一次。谈完能说清楚的按第一项建 ticket，谈完发现越界的按第二项移走。谈完还是说不清楚的留在 `Not yet specified`，报告这一块是什么、现在缺哪些信息，然后停止。
 
 完成全部分类后，按下表处理：
 
@@ -30,22 +34,22 @@ gh issue close <map 编号>
 
 ## 3. 按 destination 移交
 
-destination 决定 Wayfinder 怎样结束。Wayfinder 只交出 map，不替后续技能建立输入产物：
+读 map 正文的 `Destination` 一节，按它写的是哪一种来处理。你只把 map 交出去，不替下一个技能先把它的输入准备好。
 
-| destination | 处理 |
+| `Destination` 写的是 | 处理 |
 | --- | --- |
-| destination 是一份 spec | 把 map 名称及其 URL 或编号交给 `/mmw-to-spec`。`/mmw-to-spec` 从 map 的 Decisions so far 进入相关 decision ticket，再按 ticket 中的精确链接读取需要的 prototype、research 或 evidence。Wayfinder 不预建 spec issue，不把 map 拆成多份 spec，也不复制这些输入 |
-| destination 是开始规划前必须锁定的决定 | 报告已经锁定的决定，并提供 map 名称及其 URL 或编号 |
-| destination 是一次就地完成的改动，而且 Notes 已经覆盖“规划，不执行” | 报告 map 已完成；不再建立下游入口 |
-| destination 是一次就地完成的改动，而且 Notes 没有覆盖“规划，不执行” | 报告路线已经清楚、改动尚未执行，并提供 map 名称及其 URL 或编号 |
+| 一份 spec | 交给 `/mmw-to-spec` 三样东西：map 名称和它的 URL 或编号、map 正文里的 `产物目录`、以及任务 slug（用 map 标题的短名，全小写、空格换连字符）。一张 map 只出一份 spec。剩下的由 `/mmw-to-spec` 自己去读：它顺着 `Decisions so far` 进各张 decision ticket，再按 ticket 评论里的链接取 prototype 和 research。你不要先建一张 spec issue，也不要把内容复制一份给它 |
+| 开始规划前必须锁定的一个决定 | 报告这个决定现在是什么，并给出 map 名称和它的 URL 或编号 |
+| 一次就地完成的改动，而且 map 的 `Notes` 里写了这项 effort 要把执行也带进 map | 报告 map 已完成 |
+| 一次就地完成的改动，而且 map 的 `Notes` 里没写这一条 | 报告路线已经清楚、但改动还没做，并给出 map 名称和它的 URL 或编号 |
 
-非 spec destination 到这里完成 Wayfinding：交出已经形成的决定，不继续执行 destination。
+除了 spec 那一种，其余三种到这里 Wayfinding 就结束了：把已经形成的决定交出去，不要接着去把 destination 做掉。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
-| destination 是一份 spec，map 已关闭 | **移交**：把 map 名称及其 URL 或编号交给 `/mmw-to-spec` |
+| destination 是一份 spec，map 已关闭 | **移交**：`/mmw-to-spec`，交给它 map 名称及其 URL 或编号、`产物目录` 和任务 slug |
 | destination 是已经锁定的决定，map 已关闭 | **停**：报告决定和 map 名称及其 URL 或编号 |
 | destination 是已经完成的就地改动，map 已关闭 | **停**：报告 map 已完成 |
 | destination 是尚未执行的就地改动，map 已关闭 | **停**：报告路线已经清楚、改动尚未执行，以及 map 名称及其 URL 或编号 |

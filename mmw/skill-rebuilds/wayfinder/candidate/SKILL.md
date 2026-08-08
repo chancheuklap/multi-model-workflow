@@ -1,6 +1,6 @@
 ---
 name: mmw-wayfinder
-description: Wayfinding：把同时超出一次 agent session 且存在 fog of war 的 effort 组织成 issue tracker 上由 decision ticket 组成的共享 map。用于新建 map、认领并解决一张 decision ticket、没有 open decision ticket 时检查路线是否清楚并完成移交，或用户显式标记 big。
+description: 把一件超出一次 agent session、而且从这里到终点的路线还看不清楚的大工作，组织成 issue tracker 上由 decision ticket 组成的共享 map。用于建这张 map、认领并解决其中一张 decision ticket，或者所有 ticket 都解完之后检查路线是否清楚并交给下游。
 argument-hint: "[map 编号、ticket 编号，或者要做的事]"
 ---
 
@@ -20,7 +20,7 @@ Wayfinder 默认负责**规划**。每张 ticket 解决一个决定；当路线�
 
 ## Map
 
-map 是当前仓库 issue tracker 上的一张 issue，带 `wayfinder:map` 标签。它是权威产物。map 的 ticket 是它的子 issue。
+map 是当前仓库 issue tracker 上的一张 issue，带 `wayfinder:map` 标签。这项 effort 的状态以它为准。map 的 ticket 是它的子 issue。
 
 map 是**索引**，不是存储库。它列出已经形成的决定，并指向保存细节的 ticket。一个决定只存在于一个地方，也就是它自己的 ticket。因此，map 绝不复述决定，只写一句概要并提供链接。
 
@@ -35,7 +35,7 @@ map 正文是整个 map 的低分辨率视图。每个 session 加载一次。op
 
 ## 产物目录
 
-<这项 effort 的 prototype、research、evidence 和 scratch 共用的单个安全路径段。map 创建后保持不变。>
+<这项 effort 的 prototype、research 和过程材料共用的一个目录名。建 map 时定下，之后不再改。>
 
 ## Notes
 
@@ -64,15 +64,9 @@ map 正文是整个 map 的低分辨率视图。每个 session 加载一次。op
 ## Question
 
 <这张 ticket 要解决的决定或调查问题>
-
-## 产物目录
-
-<原样继承 map 的“产物目录”值>
-
-## issue 子目录
-
-issue-<这张 ticket 的编号>
 ```
+
+ticket 正文只有 `Question` 这一节，不写别的。解决 ticket 时需要的 `产物目录` 从 map 正文读，需要的子目录就是 `issue-` 加上这张 ticket 自己的编号。
 
 每张 ticket 都带一个 `wayfinder:<type>` 标签。type 是 `research`、`prototype`、`grilling` 或 `task` 中的一个，见下方“Ticket 类型”一节。
 
@@ -82,16 +76,23 @@ blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 
 
 答案不属于 ticket 正文。答案在 ticket 解决时记录，见 [walking.md](walking.md) 的“沿 map 推进”流程。解决 ticket 期间建立的资产从 issue 链接，不粘贴进正文。
 
+## 并发会话
+
+一张 map 通常由多个会话分头推进：一个会话建 map，其余会话各解一张 decision ticket。用户可以并行处理没有阻塞的 ticket，所以要预期其他 session 同时在编辑 tracker 和仓库。以下四条约束对两个入口都适用。
+
+- **一个 session 绝不解决超过一张 decision ticket。** 唯一例外是 charting 会话可以为刚建好的多张 `wayfinder:research` ticket 并行派 research。
+- **claim 在动手之前。** 把 ticket 指派给推动这张 map 的开发者就是 claim。claim 完成之前不做任何工作。
+- **改 map 正文之前重新读取最新正文。** 编辑 issue 正文是整体替换。写完再读一次，确认本次那一行在；不在就重做一遍。
+- **每个 session 只在自己的任务 worktree 里写文件。** 建 map 的会话拥有 map 分支；每张 decision ticket 用一条从 map 分支派生的任务分支，解决期间写下的领域文档、ADR 和资产都提交在这条任务分支上，再交回给拥有 map 分支的那个会话合并。这一条不能省：两个会话同时改同一份领域文档时，各自一个 worktree 会让冲突在合并时暴露出来，而共用一个工作目录会让后写的那个直接覆盖先写的，谁都不会发现。
+
 ## Ticket 类型
 
 每张 ticket 要么是 **HITL**，即 human in the loop，由一个亲自表达意见的人与 agent 共同处理；要么是 **AFK**，由 agent 独立推动。HITL ticket 只能通过这场实时交流解决；agent 绝不代替人的一方回答。一个 grilling agent 自己回答自己的问题，就已经破坏了这项合同。
 
 - **Research**（AFK）：阅读文档、第三方 API 或本地知识库等资源，找出某项决定正在等待的事实。由 `/mmw-research` 解决。需要当前工作目录之外的知识时使用。
-- **Prototype**（HITL）：制作一个具体的可运行资产，提高讨论的保真度。初版可以粗糙；用户持续走查并迭代，直到它接近可以真实落地的状态，使后续实现可以直接参考或复用已经验证的设计与逻辑。把 prototype 作为资产链接到 ticket。关键问题是“它应该长什么样”或“它应该怎样表现”，而且只靠讨论无法决定时使用。
-- **Grilling**（HITL）：对话。默认情况。始终调用 `/mmw-grilling`；它在同一场讨论中应用 `/mmw-domain-modeling`。
-- **Task**（HITL 或 AFK）：形成一个**决定**之前必须完成的手工工作。此时没有需要讨论的决定，也不需要 prototype 或 research，但讨论必须等这项工作完成才能继续。例如注册一个服务以便评估它的 API、开通访问权限，或者移动数据以便看清数据形状。这是唯一一种执行操作而不形成决定的类型。它通过解除一个决定的 blocker 取得存在理由，不通过交付 destination 取得存在理由。agent 能独立推动时，由 agent 独立完成（AFK）；否则，向用户提供精确清单（HITL）。工作完成时，ticket 才算解决。答案记录完成了什么，以及后续 ticket 依赖的结果事实，例如凭证位置、新 URL 和行数。
-
-prototype ticket 调用 `/mmw-prototype`。必须由用户完成的多步 task 流程可以使用 `/wizard`。
+- **Prototype**（HITL）：制作一个具体的可运行资产，提高讨论的保真度。由 `/mmw-prototype` 解决。初版可以粗糙；用户持续走查并迭代，把这个想法磨清楚。想法磨清楚之后，prototype 里承载它的脚本、接口合同、状态模型和界面就是下游可以直接参考或复用的内容。把 prototype 作为资产链接到 ticket。关键问题是“它应该长什么样”或“它应该怎样表现”，而且只靠讨论无法决定时使用。
+- **Grilling**（HITL）：对话。默认情况。由 `/mmw-grilling` 解决；它在同一场讨论中应用 `/mmw-domain-modeling`。
+- **Task**（HITL 或 AFK）：形成一个**决定**之前必须完成的手工工作。此时没有需要讨论的决定，也不需要 prototype 或 research，但讨论必须等这项工作完成才能继续。例如注册一个服务以便评估它的 API、开通访问权限，或者移动数据以便看清数据形状。这是唯一一种执行操作而不形成决定的类型。它通过解除一个决定的 blocker 取得存在理由，不通过交付 destination 取得存在理由。agent 能独立推动时，由 agent 独立完成（AFK）；否则，向用户提供精确清单（HITL），需要用户按顺序做很多步时由 `/wizard` 生成这份清单。工作完成时，ticket 才算解决。答案记录完成了什么，以及后续 ticket 依赖的结果事实，例如凭证位置、新 URL 和行数。
 
 ## Fog of war
 
@@ -113,10 +114,6 @@ fog 只朝 destination 聚集。destination 固定范围，所以越过 destinat
 out-of-scope 工作永远不会转成 ticket；frontier 在 destination 停止。只有 destination 被 redraw 时，这项工作才会回来，而且它会成为一项新的 effort，不是恢复当前 effort。
 
 rule out of scope 是一项范围决定，不是路线上的一步。如果一张已经存在的 ticket 后来被证明位于 destination 之外，例如 charting 时错误地把它纳入范围，或者某次解决结果暴露了这个事实，就**关闭它**。关闭的 ticket 会明确地离开 frontier。随后在 **Out of scope** 中留下一行：概要、越界理由，以及指向已关闭 ticket 的链接。它不进入 **Decisions so far**；后者只记录实际走过的路线，而范围边界不是路线上的一步。
-
-## 调用方式
-
-有两种模式。无论使用哪一种，**每个 session 都绝不解决超过一张 ticket**；research ticket 是唯一例外。
 
 ## 下一步
 

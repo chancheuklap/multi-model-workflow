@@ -6,9 +6,15 @@
 
 第一阶段已经完成上游 `SKILL.md`、`LOGIC.md`、`UI.md` 和 `agents/openai.yaml` 的逐行中文翻译。翻译保留 logic 与 UI 两条分支、共同规则、可移植 logic module、引导式走查、UI 子形态、variant switcher、用户反馈迭代和一手来源留存，不加入 MMW prototype 资产接线。
 
-第二阶段已经形成单文件精简稿。它只应用已经确认的调整：把 prototype 改为持续迭代的仓库资产；允许后端脚本、Logic HTML 和 UI/UX 在同一份 prototype 中连续演进；按是否需要用按钮驱动状态模型选择最小后端脚本或 Logic HTML；只在 UI 结构方向未定时生成多个变体；允许达到项目质量要求的可移植内容被直接复用；删除外部系统取证分支、固定三状态字面量和单独的人工审批关卡。
+第二阶段已经形成单文件精简稿。它只应用已经确认的调整：把 prototype 改为持续迭代的仓库资产；允许后端脚本、Logic HTML 和 UI/UX 在同一份 prototype 中连续演进；按是否需要用按钮驱动状态模型选择最小后端脚本或 Logic HTML；只在 UI 结构方向未定时生成多个变体；允许达到项目质量要求的可移植内容被直接复用；把外部系统取证分支移出本技能、删除固定三状态字面量和单独的人工审批关卡。
 
-第三阶段已经在 `candidate/` 形成三文件候选。`candidate/SKILL.md` 负责每轮问题、资产路径、后端分支和 Logic HTML 的手动调用接线；`candidate/UI.md` 负责 UI/UX 形态、按需变体和前后端对应；`candidate/capture.md` 负责保存用户原话、选中产物、否定约束和下游输入。Logic HTML 和普通记录可视化都先询问用户；用户确认后手动调用 `/wait-what`，完成结果再交回此前等待的 Prototype 流程。当前发布技能仍不修改。
+第三阶段已经在 `candidate/` 形成四文件候选。`candidate/SKILL.md` 负责每轮问题、资产路径、后端工作面和共同规则；`candidate/LOGIC.md` 负责 Logic HTML；`candidate/UI.md` 负责 UI/UX 形态、按需变体和前后端对应；`candidate/capture.md` 负责保存用户原话、选中产物、否定约束和下游输入。
+
+prototype 的作用是把一个还很松的想法磨清楚。想法磨清楚之后，承载它的后端脚本、接口合同、状态模型和界面 mockup 就是下游可以直接参考或复用的内容，因此 prototype 保存进仓库供下游按精确路径引用。可复用的依据是想法已经被走查磨清楚，不是这份代码的工程完备度：候选明确不写测试、不写当前问题用不到的错误处理、不做抽象，并要求文件名、目录名、页面标题和路由一眼看得出这是 prototype。
+
+Logic HTML 是 prototype 自己的一个工作面，方法写在 `candidate/LOGIC.md`，不再绕经 `/wait-what`。反过来，用户看不懂一套业务逻辑时可以调 `/wait-what`，由它移交 `/mmw-prototype`。当前发布技能仍不修改。
+
+外部系统取证已经移交 `/mmw-research`（见 `mmw/skill-rebuilds/research/candidate/EVIDENCE.md`）。分界是**验的是谁**：prototype 验我们自己要写的那套东西成不成立，判据是用户走查；取证验外部世界既有的表现，判据是事先写死的通过判据加实测数据。`candidate/SKILL.md` 第 1 节的适用性判断表里有一行把这类问题直接转出去。
 
 ## 文件
 
