@@ -9,7 +9,7 @@ Wizard 是一个 Bash 脚本。它逐步带用户完成必须由人操作的流�
 
 **它针对的是两头都繁琐的流程**：用户每次手动做一遍很繁琐，每次向 agent 重新解释一遍同样繁琐。脚本一旦存在，这段流程就不必再解释第二次。只发生一次、以后不会再来的人工步骤，做成 wizard 不回本。
 
-[template.sh](template.sh) 已经实现统一交互：阶段进度、预计剩余时间、跨平台打开 URL、隐藏 secret 输入、幂等 `.env` 写入、GitHub secret 和 variable 写入，以及结束总结。
+[template.sh](template.sh) 已经实现统一交互：逐阶段进度、跨平台打开 URL、隐藏 secret 输入、幂等 `.env` 写入、GitHub secret 和 variable 写入，以及结束总结。
 
 你的职责是限定流程并编写各个 `stage`。`STAGES` 标记上方是固定 library，一个字都不改——**每一份 wizard 的这一段完全相同，一致性本身就是目的**，用户第二次跑另一份 wizard 时不用重新认界面。
 
@@ -71,7 +71,7 @@ Wizard 默认是临时产物，固定保存在当前任务的 Git 忽略 scratch
 | 写入 CI secret 或 variable | `set_secret`、`set_var` |
 | 等待或确认 | `pause`、`confirm` |
 
-设置诚实的 `TOTAL_STAGES` 和 `TOTAL_MINUTES`。打开 URL 后再索取值。Secret 使用 `ask_secret`。需要持久化的值使用 `write_env`。只有 CI 实际消费的值才使用 `set_secret`。不可逆动作前必须使用 `confirm`。
+把 `TOTAL_STAGES` 设成你实际写出的阶段数。打开 URL 后再索取值。Secret 使用 `ask_secret`。需要持久化的值使用 `write_env`。只有 CI 实际消费的值才使用 `set_secret`。不可逆动作前必须使用 `confirm`。
 
 一个 `stage` 只完成一个聚焦任务。`stage` 会清屏，当前步骤所需内容必须留在同一屏。
 
