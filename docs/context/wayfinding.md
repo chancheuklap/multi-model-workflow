@@ -47,7 +47,7 @@ _Avoid_: decision ticket、Out of scope
 用 `/mmw-prototype` 持续迭代可运行资产，并由用户走查来回答问题的 HITL decision ticket。
 
 **`wayfinder:research`**：
-需要当前工作目录之外的知识，由 `/mmw-research` 完成 research 的 AFK decision ticket。
+由 `/mmw-research` 系统取证找出决定等待的事实的 AFK decision ticket。事实可以来自当前仓库源码，也可以来自文档、第三方 API 或正式规范这类外部资源；事实靠取证就能得到、不需要人参与讨论时使用。
 
 **`wayfinder:task`**：
 一个决定形成之前必须完成的手工操作。它可以是 HITL，也可以是 AFK。

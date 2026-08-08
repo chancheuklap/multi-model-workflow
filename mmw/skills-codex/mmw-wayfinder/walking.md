@@ -4,7 +4,7 @@
 
 1. 加载 **map**，也就是低分辨率视图，不加载每张 ticket 的正文。
 
-   运行 `gh issue view <map 编号>` 读取 map 正文，记下 `产物目录` 和 Notes 点名的技能。再运行 `mmw issue frontier <map 编号> --label-prefix wayfinder:`。
+   运行 `gh issue view <map 编号>` 读取 map 正文，记下 map 标题、`产物目录` 和 Notes 点名的技能。再运行 `mmw issue frontier <map 编号> --label-prefix wayfinder:`。
 
    用户指定 ticket 时，运行 `mmw issue children <map 编号>`，在输出中确认这张 ticket 是当前 map 的子 issue，带 `wayfinder:` 标签，状态是 open，没有 assignee，而且被阻塞数量为零。五项全部成立时继续第 2 步；任何一项不成立时，报告实际状态并停止，不 claim 或解决这张 ticket。
 
@@ -26,12 +26,12 @@
 | 第一个词 | 什么意思 | 你做什么 |
 | --- | --- | --- |
 | `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。第二个词是任务分支名，第三个词是当前 HEAD，记下它们 |
-| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <分支名> "<用户原话>"`。`<分支名>` 用这个任务的 slug；宿主对任务分支有固定命名空间（Codex App 是 `codex/`）时带上它。知道预期基点就加 `--from <父分支或基点 SHA>`，它只是一道校验，不确定就不加。命令必须返回任务分支名和起始提交 |
-| `local` 或 `outside` | 你在主检出里，或者根本不在仓库里 | 这棵树要你自己建：`mmw task new <slug> "<用户原话>"`，从 map 分支派生时加 `--from <map 分支>`。命令返回绝对路径，用宿主切换工作目录的能力进去 |
+| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <分支名> "<用户原话>"`。`<用户原话>` 是用户这次提出这个任务时说的那句话。`<分支名>` 用这个任务的 slug；宿主对任务分支有固定命名空间（Codex App 是 `codex/`）时带上它。知道预期基点就加 `--from <父分支或基点 SHA>`，它只是一道校验，不确定就不加。命令必须返回任务分支名和起始提交 |
+| `local` 或 `outside` | 你在主检出里，或者根本不在仓库里 | 这棵树要你自己建：`mmw task new <slug> "<用户原话>"`，本技能上文点名了父分支时加 `--from <父分支>`。命令返回绝对路径，用宿主切换工作目录的能力进去 |
 
 两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
 
-3. 解决 ticket。需要更多背景时，按需取得相关或已关闭 ticket 的完整正文，不要一次把所有 ticket 都读进来。调用 map `## Notes` 区块点名的技能。不确定用什么时，使用 `$mmw:mmw-grilling`；它在同一场讨论中应用 `$mmw:mmw-domain-modeling`。
+3. 解决 ticket。先运行 `gh issue view <编号>` 取得这张 ticket 的完整正文，它的 `Question` 一节就是要解决的问题。需要更多背景时，按需取得相关或已关闭 ticket 的完整正文，不要一次把所有 ticket 都读进来。调用 map `## Notes` 区块点名的技能。不确定用什么时，使用 `$mmw:mmw-grilling`；它在同一场讨论中应用 `$mmw:mmw-domain-modeling`。
 
    需要资产路径时，用 map 的 `产物目录` 和这张 ticket 自己的编号拼：
 
@@ -64,7 +64,7 @@
 
 4. 记录这次的答案。三件事：
 
-   1. 把答案作为一条评论发在这张 ticket 上：`gh issue comment <编号> --body-file .scratch/<产物目录>/issue-<编号>/answer.md`。评论里链接这张 ticket 实际形成的 prototype 或 research；没有资产时只写答案。
+   1. 把答案写成 `.scratch/<产物目录>/issue-<编号>/answer.md`，写上这张 ticket 实际形成的资产：prototype 的路径，或 research 的 `README.md` 精确路径；没有资产时只写答案。然后把它发成这张 ticket 上的一条评论：`gh issue comment <编号> --body-file .scratch/<产物目录>/issue-<编号>/answer.md`。
    2. 关闭这张 ticket：`gh issue close <编号>`。
    3. 在 map 的 `Decisions so far` 追加一行：ticket 名称包着它的链接，加一句话概要。改 map 正文之前先 `gh issue view <map 编号>` 重新读一遍最新的，改完再读一遍确认自己那行在。别的会话可能刚改过 map，不要把它们的行覆盖掉。
 
@@ -84,7 +84,7 @@
 
    先运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`，三个值都用交回来的那份。命令通过后，从输出取得结果 worktree 路径。这一步不合入结果分支。
 
-   在这条路径里读报告和 diff，确认两件事：ticket 上那条答案评论和 diff 说的是同一件事；这次改动的领域文档和 ADR 草稿只涉及这张 ticket 的决定，没有顺手改别的。两件都成立才合并：
+   读交回的报告，并在这条路径里读 diff，确认两件事：ticket 上那条答案评论和 diff 说的是同一件事；这次改动的领域文档和 ADR 草稿只涉及这张 ticket 的决定，没有顺手改别的。两件都成立才合并：
 
    本技能规定的验收全部通过后，运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。命令成功后，结果提交才算进入当前任务分支。
 
