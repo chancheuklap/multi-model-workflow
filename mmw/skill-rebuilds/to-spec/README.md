@@ -8,7 +8,7 @@
 
 第二阶段已经形成单文件精简稿。精简稿删除上游安装说明；其余上游方法、步骤和完成判据保持不变。精简稿曾经把 user story 的范围改写成「真实存在的所有方面」并加入两条禁止编造的说明，这三处降低了上游给出的完成判据强度，候选已经恢复上游原文。
 
-第三阶段已经在 `candidate/` 形成两文件候选。`candidate/SKILL.md` 保留上游第 1、2 步，并在流程前写清四种真实入口怎样找到已经形成的产物、以及任务 slug 从哪里来。写 spec、① spec 审、spec 人工审批关卡、提交并发布各占一步，因为它们各自有等待和终止条件。缺少决定时只报告准确缺口并停止，不在 To Spec 内建立跨技能回退流程。`candidate/spec-template.md` 保留上游模板原文，并加入已经确认的条件式 MMW section。当前发布技能仍不修改。
+第三阶段已经在 `../candidate/skills/mmw-to-spec/` 形成两文件候选。`../candidate/skills/mmw-to-spec/SKILL.md` 保留上游第 1、2 步，并在流程前写清四种真实入口怎样找到已经形成的产物、以及任务 slug 从哪里来。写 spec、① spec 审、spec 人工审批关卡、提交并发布各占一步，因为它们各自有等待和终止条件。缺少决定时只报告准确缺口并停止，不在 To Spec 内建立跨技能回退流程。`../candidate/skills/mmw-to-spec/spec-template.md` 保留上游模板原文，并加入已经确认的条件式 MMW section。当前发布技能仍不修改。
 
 ## 已确认的接线边界
 
@@ -34,7 +34,7 @@
 | `upstream-1.2.2.zh-CN.md` | 上游 1.2.2 的逐段中文翻译基线 |
 | `translation-audit.md` | 术语选择、逐段完整性与无新增语义检查 |
 | `simplified.zh-CN.md` | 只应用用户已经确认的精简，不包含 MMW 路径、资产、审查或 tracker 接线 |
-| `candidate/SKILL.md` | 在精简稿外层增加精确输入指针、审查、人工审批和发布接线 |
-| `candidate/spec-template.md` | 保留上游核心 section，并加入已确认的条件式 MMW section |
+| `../candidate/skills/mmw-to-spec/SKILL.md` | 在精简稿外层增加精确输入指针、审查、人工审批和发布接线 |
+| `../candidate/skills/mmw-to-spec/spec-template.md` | 保留上游核心 section，并加入已确认的条件式 MMW section |
 
 当前发布技能保持不变。

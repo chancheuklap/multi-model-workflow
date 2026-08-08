@@ -8,7 +8,7 @@
 
 第二阶段已经形成单文件精简稿。它只应用已经确认的四项调整：删除 100K token 数字、收窄并补全 Prototype 合同、删除上游 tracker 通用安装与 fallback、把 Grilling 双重调用收敛到 `/mmw-grilling`。
 
-第三阶段已经在 `candidate/` 形成四文件候选。共享方法保留在 `candidate/SKILL.md`；Chart the map、沿 map 推进和 MMW 收尾分别按调用分支放在 `candidate/charting.md`、`candidate/walking.md` 和 `candidate/closing.md`。候选增加 tracker 命令、research 验证与保存、产物目录、持久资产和下游技能接线。
+第三阶段已经在 `../candidate/skills/mmw-wayfinder/` 形成四文件候选。共享方法保留在 `../candidate/skills/mmw-wayfinder/SKILL.md`；Chart the map、沿 map 推进和 MMW 收尾分别按调用分支放在 `../candidate/skills/mmw-wayfinder/charting.md`、`../candidate/skills/mmw-wayfinder/walking.md` 和 `../candidate/skills/mmw-wayfinder/closing.md`。候选增加 tracker 命令、research 验证与保存、产物目录、持久资产和下游技能接线。
 
 ticket 正文只写 `Question`：`产物目录` 从 map 正文读，`issue-<编号>` 子目录由 ticket 自己的编号得到，因此建 ticket 不再需要 `gh issue edit` 回填。
 
@@ -27,4 +27,4 @@ ticket 正文只写 `Question`：`产物目录` 从 map 正文读，`issue-<编�
 - [upstream-1.2.2.zh-CN.md](upstream-1.2.2.zh-CN.md)：上游 `SKILL.md` 的中文翻译。每段用 HTML 注释标出对应的上游行号。
 - [translation-audit.md](translation-audit.md)：本轮翻译使用的固定术语表，以及逐段完整性和语义检查结果。
 - [simplified.zh-CN.md](simplified.zh-CN.md)：以精确翻译为基线形成的单文件精简稿。它继续保留上游行号注释，不包含 research、Invocation、worktree、资产或收尾接线。
-- [candidate/](candidate/)：在精简稿外层增加 MMW 接线的四文件候选。这个目录仍不会被 `mmw skills materialize` 物化。
+- [candidate/](../candidate/skills/mmw-wayfinder/)：在精简稿外层增加 MMW 接线的四文件候选。这个目录仍不会被 `mmw skills materialize` 物化。

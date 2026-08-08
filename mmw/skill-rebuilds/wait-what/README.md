@@ -8,7 +8,7 @@
 
 第二阶段已经形成单文件精简稿。上游正文只有一个执行段落，没有需要删除的方法内容，因此精简稿完整保留翻译基线。
 
-第三阶段已经在 `candidate/` 形成两文件候选。`candidate/SKILL.md` 保留手动调用，并在文字重述、普通 HTML 可视化解释和「需要按按钮走一遍才能明白」三种请求之间路由；`candidate/VISUAL.md` 负责普通文档解释。
+第三阶段已经在 `../candidate/skills/wait-what/` 形成两文件候选。`../candidate/skills/wait-what/SKILL.md` 保留手动调用，并在文字重述、普通 HTML 可视化解释和「需要按按钮走一遍才能明白」三种请求之间路由；`../candidate/skills/wait-what/VISUAL.md` 负责普通文档解释。
 
 需要按按钮驱动状态模型时，本技能移交 `/mmw-prototype`，由它按 Logic HTML 工作面制作页面。本技能是 user-invoked，任何技能都够不到它，所以依赖方向只能是它调用别人；把 Logic HTML 的制作方法留在这里，会迫使 `/mmw-prototype` 停下来请用户手动敲一次技能名。
 
@@ -21,6 +21,6 @@
 | [upstream-1.2.2.zh-CN.md](upstream-1.2.2.zh-CN.md) | 上游 1.2.2 的逐段中文翻译基线 |
 | [translation-audit.md](translation-audit.md) | 术语选择、逐段完整性与无新增语义检查 |
 | [simplified.zh-CN.md](simplified.zh-CN.md) | 完整保留上游方法的单文件精简稿 |
-| [candidate/](candidate/) | 增加 MMW 领域上下文、普通可视化和 Logic HTML 路由的候选技能 |
+| [candidate/](../candidate/skills/wait-what/) | 增加 MMW 领域上下文、普通可视化和 Logic HTML 路由的候选技能 |
 
 本目录中的候选不会被 `mmw skills materialize` 物化。

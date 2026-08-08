@@ -6,7 +6,7 @@
 
 第一阶段已经完成上游 `SKILL.md` 和 `agents/openai.yaml` 的逐段中文翻译。第二阶段已经建立精简稿；精简稿只移除翻译基线中的出处标注，不删改上游方法内容。第三阶段从精简稿建立按 agent 身份渐进加载的接线候选；候选材料仍不参与 Plugin 运行。
 
-`candidate/SKILL.md` 直接按身份路由到 `MAIN.md`、`INTERNAL.md` 或 `EXTERNAL.md`，不再经过一层只做方向判断的中转文件。
+`../candidate/skills/mmw-research/SKILL.md` 直接按身份路由到 `MAIN.md`、`INTERNAL.md` 或 `EXTERNAL.md`，不再经过一层只做方向判断的中转文件。
 
 保存不是无条件询问：来自 `wayfinder:research` ticket 的 research 直接保存，因为那张 ticket 本身就是用户对这次调查的批准，而且它是 AFK，并行派出的多张 research ticket 不能各自停下来等人回答。其余情况仍要问过用户再落盘。
 
@@ -35,10 +35,10 @@
 | `upstream-1.2.2.zh-CN.md` | 上游 1.2.2 的逐段中文翻译基线 |
 | `translation-audit.md` | 术语选择、逐段完整性与无新增语义检查 |
 | `simplified.zh-CN.md` | 移除出处标注、尚未加入 MMW 接线的精简稿 |
-| `candidate/SKILL.md` | 识别当前 agent 是主 agent 还是 `investigator`，只加载对应入口 |
-| `candidate/MAIN.md` | 主 agent 使用的派发、验证、综合、保存和交回流程 |
-| `candidate/EVIDENCE.md` | 主 agent 使用的实测取证流程：立计划、用户批准、真实跑、记台账 |
-| `candidate/INTERNAL.md` | 内部 research 角度特有的源码出处要求，只供 `investigator` 读取 |
-| `candidate/EXTERNAL.md` | 外部 research 角度特有的一手来源要求，只供 `investigator` 读取 |
+| `../candidate/skills/mmw-research/SKILL.md` | 识别当前 agent 是主 agent 还是 `investigator`，只加载对应入口 |
+| `../candidate/skills/mmw-research/MAIN.md` | 主 agent 使用的派发、验证、综合、保存和交回流程 |
+| `../candidate/skills/mmw-research/EVIDENCE.md` | 主 agent 使用的实测取证流程：立计划、用户批准、真实跑、记台账 |
+| `../candidate/skills/mmw-research/INTERNAL.md` | 内部 research 角度特有的源码出处要求，只供 `investigator` 读取 |
+| `../candidate/skills/mmw-research/EXTERNAL.md` | 外部 research 角度特有的一手来源要求，只供 `investigator` 读取 |
 
 接线候选由五份技能文件组成。主 agent 读取 `SKILL.md` 和 `MAIN.md`，只有转进实测时才加读 `EVIDENCE.md`。`investigator` 只读取 `SKILL.md` 和 task 指定的 `INTERNAL.md` 或 `EXTERNAL.md`；原来那份只做方向判断的 `INVESTIGATOR.md` 已并入 `SKILL.md`。正式技能源保持不变，等待用户审查候选后再决定是否进入 Plugin 发布面。

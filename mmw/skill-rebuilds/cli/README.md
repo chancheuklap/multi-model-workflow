@@ -1,6 +1,6 @@
 # CLI rebuild
 
-`candidate/` 是 `mmw/cli/` 的完整副本，在 review 期间独立演进。现役 `mmw/cli/` 不动。
+`../candidate/cli/` 是 `mmw/cli/` 的完整副本，在 review 期间独立演进。现役 `mmw/cli/` 不动。
 
 候选与现役的关系跟技能一样：这里改完、跟七个技能候选一起验过之后，再整体替换现役 `mmw/cli/`。
 
@@ -16,7 +16,7 @@
 
 ## 已落地的修改
 
-全部集中在 `candidate/mmw` 的 `usage_*` 函数和 `candidate/seeds/CONTEXT-MAP-rules.md`。**命令行为一行没改**，只改帮助文本和注入文本。
+全部集中在 `../candidate/cli/mmw` 的 `usage_*` 函数和 `../candidate/cli/seeds/CONTEXT-MAP-rules.md`。**命令行为一行没改**，只改帮助文本和注入文本。
 
 | 位置 | 改了什么 |
 | --- | --- |
@@ -31,7 +31,7 @@
 
 见 `mmw/skill-rebuilds/` 顶层讨论：
 
-- `mmw path` 的六个 kind 要不要合并。取证已经并进 `/mmw-research`，实测台账写在 `mmw path research` 底下，所以 `evidence` 这个 kind 在七个技能候选里已经没有任何消费者。现役 `mmw/skills/mmw-prototype` 和 `mmw/skills/mmw-wayfinder` 还在用它，所以 `candidate/mmw` 里先原样留着，等其余技能也有 candidate 之后一起决定删不删。
+- `mmw path` 的六个 kind 要不要合并。取证已经并进 `/mmw-research`，实测台账写在 `mmw path research` 底下，所以 `evidence` 这个 kind 在七个技能候选里已经没有任何消费者。现役 `mmw/skills/mmw-prototype` 和 `mmw/skills/mmw-wayfinder` 还在用它，所以 `../candidate/cli/mmw` 里先原样留着，等其余技能也有 candidate 之后一起决定删不删。
 - `mmw issue` 要不要补齐 comment / close / view / edit。现在候选里这四个动作直接用 `gh`。
 
 两件都会改到命令行为，还没有做。
