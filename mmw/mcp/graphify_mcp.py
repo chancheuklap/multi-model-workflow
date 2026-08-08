@@ -33,8 +33,15 @@ QUERY_TIMEOUT = 120
 INSTRUCTIONS = (
     "Graphify answers structural questions over a repository graph: module relationships, "
     "dependency paths, reverse impact, cross-service routes, IPC channels, event topics and "
-    "cross-language data flow. Use it proactively during technical work whenever a non-trivial "
-    "investigation needs those; the user describes goals, not retrieval steps.\n\n"
+    "cross-language data flow.\n\n"
+    "A structural claim passes an admission rule before you write it down. A structural claim "
+    "says that one symbol calls another, that a change reaches some other place, or that nothing "
+    "references a definition. Such a claim may enter a design, plan, review, fix or delivery "
+    "report only after two steps: retrieve a candidate from Serena or Graphify, then verify that "
+    "candidate in the current source. Text search locates a line, but it cannot show that a set "
+    "of references is complete, so it does not satisfy the first step. The trigger is the claim "
+    "you are about to write, not how hard the investigation felt. Reverse impact, and any claim "
+    "that nothing reaches a place, are Graphify questions.\n\n"
     "If your host defers tool schemas, load this tool now, before exploring relationships by hand.\n\n"
     "Division of labour with Serena: symbol definitions, direct references, implementations and "
     "file symbol overviews go to Serena. Two kinds of relationship are invisible to a language "
@@ -44,17 +51,19 @@ INSTRUCTIONS = (
     "Each call ensures the graph matches the current checkout before querying. When the graph is "
     "missing, cannot be built, or is being built by another process, say so and fall back to grep "
     "and read — a graph problem never blocks the task.\n\n"
-    "Results are candidates, not conclusions: locate them with grep and read the current source "
-    "before the finding enters a design, plan, review, fix or delivery report. An empty result "
-    "never proves absence."
+    "Results are candidates, not conclusions: locate them with grep and read the current source. "
+    "An empty result never proves absence."
 )
 
 TOOL = {
     "name": "graphify",
     "description": (
-        "Query a repository code graph for module relationships, dependency paths, reverse impact, "
-        "routes, IPC, events, dynamic imports and cross-language data flow. The graph is a candidate "
-        "index: verify every conclusion in current source. Serena remains primary for symbol "
+        "Call this before you claim what a change reaches, what calls a handler, or that nothing "
+        "references a place. It answers reverse impact, dependency paths, module relationships, "
+        "cross-service routes, IPC channels, event topics, dynamic imports and cross-language data "
+        "flow. Text search and a language server both miss decorator-registered handlers and "
+        "dynamically imported symbols, so their silence is not absence. Returns candidates, not "
+        "conclusions: verify each one in current source. Serena remains primary for symbol "
         "definitions, direct references, implementations and file overviews."
     ),
     "inputSchema": {
