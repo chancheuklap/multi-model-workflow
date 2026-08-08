@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # 任务隔离：查状态、建 worktree、绑定分支、给出路径、清理。
 #
-# 切会话工作目录只有宿主工具做得到，脚本做不了。所以 new 与 enter 都只输出路
-# 径，切目录那一步由技能用宿主自己的工具做。
+# 切会话工作目录只有宿主工具做得到，脚本做不了。所以 new 只输出路径，切目录
+# 那一步由技能用宿主自己的工具做。
 #
 # 落点一律在主仓库的 .worktrees/ 下，不管命令在哪棵树上执行——分支可以嵌
 # 套，目录不嵌套。
@@ -229,16 +229,6 @@ mmw_task_new() {
   git -C "$root" worktree add -b "$slug" "$dir" "$base" >&2
   if [ -n "$note" ]; then
     git -C "$dir" commit --allow-empty -q -m "$slug" -m "$note"
-  fi
-  echo "$dir"
-}
-
-mmw_task_enter() {
-  local dir
-  dir="$(mmw_task_dir "$1")"
-  if [ ! -d "$dir" ]; then
-    echo "mmw: ${dir} 不存在" >&2
-    return 1
   fi
   echo "$dir"
 }

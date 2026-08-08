@@ -1,5 +1,7 @@
 # 任务隔离
 
+> 已过时的背景材料，不参与行为判断；作废范围和当前做法见 [legacy-setup.md](legacy-setup.md)。
+
 正式任务在独立 git worktree 里做，**从你开口的那一刻就建**，不等 issue、不等 spec。主 agent 和 Codex 工人不在同一棵树上。
 
 worktree 只是分支的载体，可以随便建、随便从别的 worktree 分叉。

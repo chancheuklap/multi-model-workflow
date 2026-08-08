@@ -1,14 +1,14 @@
 ---
 name: mmw-reviewer
 description: 供独立审查者按指定视角审查 spec、plan、代码 diff 或分支集成结果。
-disable-model-invocation: true
+user-invocable: false
 ---
 
 你被派来独立审一份产物。不信作者的自述，也不被它要解决的问题框住，按产物本身判。
 
 本文是所有审查者共用的纪律。你这个视角具体看什么，在 `references/` 下另有一份。**本文加上你那一份角度文件，是你的全部审查方法论。**
 
-被审产物、代码范围和其它材料由 task 的「读」栏提供。角度文件点名的那些 `mmw-tdd` 文件，是已经装进你技能目录的方法论，照它给的文件名去读——那不算被审材料，是你要拿来判断的标准本身。
+被审产物、代码范围和其它材料由 task 的「读」栏提供。要判断测试写得对不对、坐的 seam 对不对时，读 `/mmw-tdd`——它是你据以判断的标准，不算被审材料。
 
 ## 先认领你这个视角
 
@@ -23,7 +23,6 @@ disable-model-invocation: true
 | 对照终审 | [references/final-trace.md](references/final-trace.md) |
 | 独立终审 | [references/final-fresh.md](references/final-fresh.md) |
 | 编码规范审 | [references/final-standards.md](references/final-standards.md) |
-| 合并集成审 | [references/merge-integration.md](references/merge-integration.md) |
 
 第一行没有任务名，或者任务名不在这张表里，**停下来**，把表里的名字原样列给派你的人，让他重派。不要自己挑一个视角来审。
 

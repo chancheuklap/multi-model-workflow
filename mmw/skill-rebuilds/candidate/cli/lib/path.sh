@@ -23,4 +23,3 @@ mmw_path_safe_base() {
     esac
   done
 }
-

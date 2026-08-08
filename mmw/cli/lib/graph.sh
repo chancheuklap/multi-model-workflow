@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
-# 结构图谱：状态、建一次、验证建对了。
+# 结构图谱：建一次、验证建对了。
 #
-# 判定与构建的实现都在 mcp/graphify_ensure.py，这一层只做转发和报告。判据不在
-# 这里复写一遍——两处判据一定会漂移，那时命令行报新鲜、调用工具时又重建一次，
-# 谁都说不清哪个算数。
+# 构建的实现在 mcp/graphify_ensure.py，这一层只做转发和报告。
 #
 # 图谱本身是本机派生物：不进版本库，也不跨机器同步。
 
@@ -13,20 +11,10 @@ mmw_graph_ensure_bin() {
   echo "$MMW_ROOT/mcp/graphify_ensure.py"
 }
 
-mmw_graph_status() {
-  python3 "$(mmw_graph_ensure_bin)" --repo "$(mmw_repo_root)" --status
-}
-
 # 显式点名要建，就真的建一次，不因为"看着还新鲜"直接返回：会来敲这条命令的场合
 # 是配置刚改完、或者怀疑图跟代码对不上，那时新鲜度判断本身就是被怀疑的那一方。
 mmw_graph_build() {
   python3 "$(mmw_graph_ensure_bin)" --repo "$(mmw_repo_root)" --force
-}
-
-# 图对不上当前代码才建。跟 build 的差别是它会先看主仓库那份能不能直接用——任务
-# worktree 刚建出来时内容跟主仓库一样，没有理由再花几分钟建一份一模一样的。
-mmw_graph_ensure() {
-  python3 "$(mmw_graph_ensure_bin)" --repo "$(mmw_repo_root)"
 }
 
 # 图里各类关系各有多少条。判据不是数量本身，是配置里声明要算的那几类边一条都

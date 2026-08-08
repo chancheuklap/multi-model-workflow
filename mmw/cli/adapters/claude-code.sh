@@ -5,26 +5,14 @@
 # 进程——CLI 自己跑得完，直接跑。派 Claude 走 Agent 工具，CLI 跑不了，只能把
 # 参数交给模型去调。
 #
-# 方法论怎么到派出去的那个模型手里，两条路也不同：codex exec 看不见插件文件，
-# 靠 install-agent-skills.sh 软链进它自己的技能目录；会话内的 subagent 读得到
-# 插件原件，所以给绝对路径，由调用方写进提示词。
+# 两条路都不用把方法论路径写进提示词：codex exec 靠 install-agent-skills.sh
+# 把技能软链进它自己的技能目录，会话内的 subagent 由 subagent_type 带着技能。
 #
 # 本文件不做流程判断。它只回答「这个宿主管这个动作叫什么」。
 #
 # 入参走 MMW_D_* 环境变量，由 cli/mmw 设好。
 
 set -euo pipefail
-
-# 派出去的那一侧从哪个路径读方法论。走 codex exec 的读它自己技能目录里的软链，
-# 会话内的 subagent 读插件原件。
-mmw_adapter_skill_path() {
-  local skill="$1" family="$2"
-  if [ "$family" = gpt ]; then
-    echo "${CODEX_HOME:-$HOME/.codex}/skills/$skill/SKILL.md"
-  else
-    echo "$MMW_ROOT/skills/$skill/SKILL.md"
-  fi
-}
 
 # 派 codex 时把三个检索工具带上。
 #
@@ -71,9 +59,6 @@ mmw_adapter_dispatch() {
       printf 'mode: host-tool\n'
       printf 'tool: Agent\n'
       printf 'task-file: %s\n' "$MMW_D_TASK"
-      if [ -n "$MMW_D_SKILL_PATH" ]; then
-        printf 'skill-path: %s\n' "$MMW_D_SKILL_PATH"
-      fi
       # Agent 固定后台运行；task 正文进 prompt，与 Pi 的 task 同一概念。
       jq -nc --arg r "$plugin_name:$roster" --arg t "$tier" --arg e "$MMW_D_EFFORT" \
         --rawfile p "$MMW_D_TASK" \
@@ -138,7 +123,7 @@ mmw_adapter_dispatch() {
     *)
       # 这个宿主只有会话内 Agent 和 codex exec 两条通道，其他模型族无处可发。
       echo "mmw: Claude Code 发不了模型族 ${MMW_D_FAMILY}（只有 claude 和 gpt）" >&2
-      echo "mmw: 该角色要在别的宿主用这个模型族，把它写进 .mmw.json 的 hosts 覆盖" >&2
+      echo "mmw: 请在 MMW 源码的 cli/mmw.default.json 中配置该宿主可用的模型，然后重新安装" >&2
       return 1
       ;;
   esac

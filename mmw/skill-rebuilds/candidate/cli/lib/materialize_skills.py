@@ -244,6 +244,12 @@ def render_pi_prompt(skill_dir: Path) -> str:
     if not description_match:
         die(f"Pi 用户命令缺 description：{skill_file}")
     description = description_match.group(1).strip().strip('"')
+    argument_hint_match = re.search(r"(?m)^argument-hint:\s*(.+?)\s*$", frontmatter)
+    argument_hint = (
+        argument_hint_match.group(1).strip().strip('"')
+        if argument_hint_match
+        else None
+    )
     references = sorted(
         path for path in skill_dir.glob("*.md") if path.name != "SKILL.md"
     )
@@ -257,6 +263,12 @@ def render_pi_prompt(skill_dir: Path) -> str:
     return (
         "---\n"
         f"description: {json.dumps(description, ensure_ascii=False)}\n"
+        + (
+            f"argument-hint: {json.dumps(argument_hint, ensure_ascii=False)}\n"
+            if argument_hint is not None
+            else ""
+        )
+        +
         "---\n\n"
         + "\n\n".join(parts)
         + "\n"

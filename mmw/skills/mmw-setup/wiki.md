@@ -1,5 +1,7 @@
 # spec 归档:GitHub Wiki
 
+> 已过时的背景材料，不参与行为判断；作废范围和当前做法见 [legacy-setup.md](legacy-setup.md)。
+
 代码落地后，spec 与计划文档转成 GitHub Wiki，本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/` 随任务分支删掉。Wiki 从此是这份 spec 的唯一事实来源。
 
 Wiki 不夹带过程材料——map、审查记录、终审报告都不进（去向见 `issue-tracker.md`）。

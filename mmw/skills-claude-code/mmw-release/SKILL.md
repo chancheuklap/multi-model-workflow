@@ -13,13 +13,13 @@ description: 为终审通过的改动构建正式安装包。用于用户要求�
 
 | 检查 | 怎么查 |
 | --- | --- |
-| 终审跑过，采信的 findings 都已修复并验证 | `mmw path review` 返回的审查记录目录里有终审报告；有采信项时，记录顶部有 `修复提交` |
-| 当前 HEAD 就是终审完成的提交 | 普通实现读取 ⑤ final 终审记录；多分支集成读取 ⑥ 合并集成审记录。确认其中的 `终审提交` 等于 `git rev-parse HEAD` |
+| 终审跑过，采信的 findings 都已修复并验证 | `.reviews/<slug>-final.md` 在；有采信项时，它顶部有 `修复提交` |
+| 当前 HEAD 就是终审完成的提交 | 读 `.reviews/<slug>-final.md`（⑤ final 终审的记录，见 `/mmw-review`），确认其中的 `终审提交` 等于 `git rev-parse HEAD` |
 | 工作区干净 | `git status --porcelain` 是空的。引擎拒绝把自愈修复混进你没提交的改动里 |
-| 这个仓库配了出包 | `mmw` 的配置里有 `paths.release`，且仓库里能找到至少一份出包配置（下一步） |
+| 这个仓库配了出包 | 仓库里能找到至少一份出包配置（下一步） |
 | 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 |
 
-**没有出包配置不是失败。** 有 spec 的任务移交 `/mmw-closing`。只有 agent brief、没有 spec 的任务直接交回用户集成。
+**没有出包配置不是失败。** 这次是有 spec 还是只有 agent brief，由调用方移交时告诉你，不用自己推：有 spec 的移交 `/mmw-closing`，只有 agent brief 的直接交回用户集成。调用方没说就问它，不要拿文件系统猜。
 
 ## 2. 认这次要出哪几个产品
 
@@ -29,7 +29,7 @@ description: 为终审通过的改动构建正式安装包。用于用户要求�
 grep -rl '"product"' --include='*.release-adapter.json' .
 ```
 
-再判断这次要出哪几个：**看这次改动碰了哪些路径**（`git diff --name-only <本次任务的第一个提交>^..HEAD`），对照每份配置里 `build_target.desktop_dir` 与 `asset_roots` 声明的范围。碰到了就要出。
+再判断这次要出哪几个：**看这次改动碰了哪些路径**（`git diff --name-only $(git merge-base HEAD <父分支>)..HEAD`；`<父分支>` 是这条任务分支分叉出来的那条：普通任务是仓库默认分支，从 Wayfinder map 派生的是 map 分支，分支名记在 map 正文的 `## 分支` 一节），对照每份配置里 `build_target.desktop_dir` 与 `asset_roots` 声明的范围。碰到了就要出。
 
 判不准就问用户，不要漏出一个——漏了的那个产品，用户装到的还是旧代码。
 
@@ -57,12 +57,12 @@ mmw release init --manifest <那份配置的绝对路径>
 
 ```bash
 git rev-parse HEAD
-cat "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)"/<配置里 paths.release>/delivered/*.json
+cat "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)"/.release/delivered/*.json
 ```
 
 交付记录落在**主仓库根**，不在当前这棵任务 worktree 里——它比对的是几次出包之间的 commit，worktree 收尾就删，落在树里的记录活不过一次任务。
 
-每份交付记录里的 `source_commit` 都等于当前 HEAD，才算这批包是同一份代码。
+这个目录里躺着历次出包的记录，一个产品一份、后一次盖前一次。**只看第 2 步清单上那几个产品的那几份**，其余的跟这一轮无关。它们的 `source_commit` 都等于当前 HEAD，才算这批包是同一份代码。
 
 有对不上的：那个产品重出一遍（回第 3 步，只重出对不上的那些）。重出之后再核对一次——重出的过程可能又产生新提交。
 
@@ -70,7 +70,9 @@ cat "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)"/<
 
 ## 5. 交给用户实测
 
-安装包在哪，只从引擎状态输出里读，不按目录约定猜。状态输出没记路径就如实说「状态输出没有记安装包路径」。
+安装包在哪，从引擎打出的 `DELIVERED` 行读——出包成功时它把包收拢到交付根，一个包一行，行里就是完整路径。
+
+收拢失败时引擎打的是 WARN，里面带着包留在构建目录的位置——那也是有效路径，照它报，同时说清这个包没进交付根。两样都没有就如实说没拿到路径，不按目录约定猜一个。
 
 把这些交给用户：出了哪几个产品、每个包在哪、这批包对应哪个 commit。
 

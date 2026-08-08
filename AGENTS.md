@@ -15,11 +15,13 @@
 
 改产品版本时，上表「版本号位置」列的全部五处必须同步。
 
-原生多模型宿主的 agent 文件不要手改 model 行。改 `.mmw.json` 或 `mmw/cli/mmw.default.json` 后，用 `mmw agents materialize` 更新 Pi 与 Cursor，并运行：
+原生多模型宿主的 agent 文件不要手改 model 行。模型档只保存在 `mmw/cli/mmw.default.json`。修改模型档后，用 `mmw agents materialize` 更新 Pi 与 Cursor，并运行：
 
 ```bash
 python3 mmw/codex/runtime.py materialize  # 更新 Codex plugin 与四个原生 subagent
 ```
+
+`mmw/install.sh` 是本机安装的统一入口。它从 MMW 源码仓库构建稳定 runtime，再安装到本机已有的宿主。目标仓库初始化只执行 `mmw init`；验收本机运行时时另行执行只读的 `mmw doctor`。
 
 `archive/` 是冻结归档。
 
@@ -39,21 +41,23 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 1. 对应宿主的 manifest、根 marketplace 或 Pi package；Codex 角色结构只认 `mmw/codex/profiles.json`，模型只认 `mmw/cli/mmw.default.json` 的 `hosts.codex` 覆盖。
 2. `mmw/cli/` 的机械动作、宿主 adapter 和 `.mmw.json` 配置合同。
-3. `mmw/skills/` 技能源（含 `[[mmw-launch:…]]` 与 `[[mmw-host-action:…]]`）与 `mmw skills materialize` 产物；流程判据以源为准，宿主动作以对应产物为准。
+3. `mmw/skills/` 技能源（含 `[[mmw-launch:…]]` 与 `[[mmw-launch-group:…]]`）与 `mmw skills materialize` 产物；流程判据以源为准，宿主动作以对应产物为准。
 
-`.mmw.json` 保存目标仓库的模型档、标签、路径和领域文档形态。技能不硬编码这些值；通过 `mmw` 对应子命令读取。
+`.mmw.json` 保存目标仓库的标签、CLI 路径和领域文档形态。模型档属于已安装 runtime，不进入目标仓库配置。
+
+技能直接使用已规定的仓库相对产物路径，例如 `docs/specs/`、`docs/prototypes/` 和 `docs/research/`。`.mmw.json` 的 `paths` 只配置 CLI 自己消费的 `scratch`、`reviews`、`release` 和 `worktrees`。
 
 `mmw/.mcp.json` 是检索服务器声明的唯一事实来源；各宿主的展开产物都通过 `mmw mcp serve` 回到这一份。图谱只由 `mmw graph build` 更新。
 
 ## 宿主边界
 
-共享角色、技能和流程语义。宿主差异留在 Codex profile、原生 agent frontmatter、`mmw/cli/adapters/`、manifest 与 `.mmw.json` 的 hosts 覆盖：
+共享角色、技能和流程语义。宿主差异留在 Codex profile、原生 agent frontmatter、`mmw/cli/adapters/`、manifest 与 runtime 模型档的 hosts 覆盖：
 
 - Codex App 是 MMW 的主 agent 运行时，不调用外部模型 CLI 或 harness。Codex plugin 以 `mmw/` 为发布根；运行时不得回退 MMW 源码 checkout 或目标项目里的同名目录。App 设置里的 Worktree root 是所有项目共用的 managed worktree 物理存放目录，不是 MMW 源码路径，也不受目标项目 `.mmw.json` 的 `paths.worktrees` 控制。
 - Claude Code 只接 claude 与 gpt 两个模型族：GPT 角色通过后台 Bash 执行 Codex CLI，Claude 角色通过后台 Agent 工具执行。
 - Pi 与 Cursor 的全部角色走宿主原生 `subagent`，frontmatter 由 `mmw/agent-src/` 按 profile 生成（`mmw agents materialize`）。
-- 模型分配默认各宿主相同。某个宿主接不了基线模型时，在 `.mmw.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。
-- **禁止**在技能源或产物正文里让 agent 按宿主二选一。共享技能用完整自然语言规定流程；宿主差异只写成完整的 `[[mmw-launch:…]]`、`[[mmw-launch-group:…]]` 或 `[[mmw-host-action:…]]` 动作块，再由 `mmw skills materialize` 整块替换。**没有** `mmw-dispatching-agents` 中转技能。
+- 模型分配默认各宿主相同。某个宿主接不了基线模型时，在 `mmw/cli/mmw.default.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。
+- **禁止**在技能源或产物正文里按宿主名称分支。派发 subagent 使用完整的 `[[mmw-launch:…]]` 或 `[[mmw-launch-group:…]]` 动作块，再由 `mmw skills materialize` 整块替换。其他宿主能力使用按能力判断的自然语言，在所有宿主上保留同一份正文。**没有** `mmw-dispatching-agents` 中转技能。
 
 ## 修改规则
 
@@ -80,13 +84,13 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 <!-- MMW-DOMAIN-CONTEXT-START -->
 ## 领域上下文
 
-开始 research、讨论、设计、写文档、写代码或审查前，运行 `mmw domain path`：
+开始 research、讨论、设计、写文档、写代码或审查前，先读领域文档。看仓库根有什么，形态就定了：
 
-- 返回 `map`：先读 Map，再读本次涉及的全部 leaf。
-- 返回 `single`：读命令返回的领域文档。
-- 返回 `none`：直接继续，不报告缺失，也不创建领域文档。
+- 根上有 `CONTEXT-MAP.md`：它是索引。先读它，再读它列出的、本次涉及的全部 leaf（leaf 在 `docs/context/` 下）。
+- 根上只有 `CONTEXT.md`：直接读它。
+- 两个都没有：直接继续，不报告缺失，也不创建领域文档。
 
-运行 `mmw domain dirs`，读取 `adr` 路径下与本次范围相关的 ADR。
+读取 `docs/adr/` 下与本次范围相关的 ADR。
 
 任何面向用户或写入仓库的内容，都使用 leaf 定义的 canonical 术语。代码标识符和测试名也适用。不得使用 `_Avoid_` 中列出的说法。
 

@@ -1,57 +1,55 @@
 # map 收尾
 
-frontier 上一张 ticket 都不剩了。收尾就是把这张 map 结束掉：清算 `Not yet specified` 一节剩下的条目、把这张 map 上做出的决定各自归位、切出 spec、关掉 map issue。
+这张 map 已经没有 open 的 decision ticket 了，本文件负责收尾。
 
-本文件只在拥有 map 分支的任务中执行。`mmw task state` 必须显示当前 checkout 已绑定 map 分支；不满足时停止并让用户恢复原 map 任务。然后确认所有 decision ticket 任务结果已经通过 `mmw result verify` 并集成到 map 分支，再确认 `mmw issue frontier <map 编号> --label-prefix wayfinder:` 没有输出。Decision ticket 任务不能直接执行 map 收尾。
+收尾在拥有 map 分支的会话里做。先运行 `git rev-parse --abbrev-ref HEAD`，跟 map 正文 `## 分支` 一节记的分支名比对，确认当前就在 map 分支上；不在就报告这一点并停止，让拥有 map 分支的会话来收尾。
 
-## 1. 清算 `Not yet specified` 剩下的条目
+重新读取 map 正文，再运行 `mmw issue children <map 编号>`。仍有带 `wayfinder:` 标签的 open decision ticket 时停止；map 保持 open，不执行收尾。
 
-把 map 的 `Not yet specified` 一节剩下的条目原样列给用户看，问他里面还有没有会挡住后续工作的。
+再确认每张已关闭 decision ticket 的结果都已经集成回 map 分支，而且没有遗留 `draft-<ticket 编号>-<slug>.md`。存在未集成的结果分支或 ADR 草稿时，先按 [walking.md](walking.md) 第 7 节完成集成和正式编号，再继续收尾。
 
-用户点出会挡路的，就用 `mmw issue create --parent <map 编号> --label wayfinder:<类型>` 建成新的 decision ticket，再用 `mmw issue link` 连好阻塞关系，然后停——处置见本文「下一步」一节。用户没点出来的原样留在 `Not yet specified` 一节里，跟着 map issue 一起关掉。
+## 1. 判断路线是否真的清楚
 
-## 2. 决定各自归位
+读取 Not yet specified 中的剩余内容，逐项应用 [SKILL.md](SKILL.md) 的“Fog of war”一节判据：
 
-map 本身不上 Wiki，但 map 上记下的那些决定不能随任务一起消失。按类型分开落到仓库里：
+- 现在已经说得清楚了，而且它仍在通往 destination 的路上：按 [charting.md](charting.md) 第 4 步的两遍做法建成新的 decision ticket。
+- 现在看清楚了，它越过了 destination：移进 `Out of scope`。已经有对应 ticket 的，按 [SKILL.md](SKILL.md) 的“Out of scope”一节关掉它并留下链接。
+- 现在还是说不清楚，而且它仍在通往 destination 的路上：这张 map 还没做完。按 [charting.md](charting.md) 第 2 步的广度优先方式，对剩下这些再 grill 一次。谈完能说清楚的按第一项建 ticket，谈完发现越界的按第二项移走。谈完还是说不清楚的留在 `Not yet specified`，报告这一块是什么、现在缺哪些信息，然后停止。
 
-| 产物 | 去哪 | 为什么 |
-| --- | --- | --- |
-| 按 `/mmw-domain-modeling` 的三项 ADR 判据全部成立的决定 | ADR，落点与编号方案跑 `mmw domain adr-next` 取，写法见 `/mmw-domain-modeling` | 改代码时同一次 diff 就能看见相关决定，Wiki 看不见 |
-| 考察过但决定不做的方向 | `.out-of-scope/`，一个概念一个文件 | 分诊时按概念相似度查它，防止同一个需求换个说法再提一遍 |
-| 谈出来的术语 | 领域文档，落点跑 `mmw domain path` 取 | 项目自己的话怎么说，要跟代码一起演进 |
-| 用户走查过的 prototype 资产 | map 产物目录下的 prototype 路径及 decision ticket 的 `issue-<编号>` 子目录 | 它是逻辑决定和视觉合同的 primary source；正式实现吸收已确认决定，并移入逻辑 branch 的可移植模块 |
-| 用户选择保存的 research | map 产物目录下的 research 路径及 decision ticket 的 `issue-<编号>` 子目录 | 用户已经在 `/mmw-research` 的人工审批关卡决定保存；未保存的 research 事实只写 ticket 评论 |
-| 外部系统实测结论 | map 产物目录下的 evidence 路径及 decision ticket 的 `issue-<编号>` 子目录 | 保留测试计划、结论台账，以及不能低成本重建且直接支撑结论的最小脱敏原始证据 |
-| 其余可回退的决定 | 被 spec 的 `Implementation Decisions` 吸收 | 不值得单独归档 |
-| map 本身 | 关掉即止 | 它是按走过顺序记的过程日志，含死路，价值在过程中 |
+完成全部分类后，按下表处理：
 
-这些内容都写在 map 任务分支上，随 effort 一起合回最终目标分支，中途不提前合。
+| 分类结果 | 处理 |
+| --- | --- |
+| 建立了新的 decision ticket | 运行 `mmw issue frontier <map 编号> --label-prefix wayfinder:`，报告新 ticket 和当前 frontier，然后停止；map 保持 open，不执行第 2、3 步 |
+| 仍有通往 destination 的 fog | 报告仍无法形成 ticket 的 fog，然后停止；map 保持 open，不执行第 2、3 步 |
+| 通往 destination 的路线已经清楚，而且没有尚待解决的 decision ticket | 继续第 2 步 |
 
-同一 effort 下保留 map 的产物目录和各张 decision ticket 的 `issue-<编号>` 子目录。每张 decision ticket 必须在自己的 worktree 中按 [walking.md](walking.md) 的「清理当前 decision ticket 的 scratch」一节完成清理。map 任务不能代替 decision ticket 清理其他 worktree 的 scratch。scratch 不随 effort 合回。
+## 2. 关闭 map
 
-走 map 的过程中该写的已经写了，这一步是补漏：逐条重读 map 的 `Decisions so far` 一节，按 `/mmw-domain-modeling` 的完整 ADR 判据重新检查。三项判据现在全部成立的，补一份 ADR。
+通往 destination 的路线已经清楚，而且没有尚待解决的 decision ticket 时，关闭 map issue：
 
-## 3. 切出 spec
+```bash
+gh issue close <map 编号>
+```
 
-map 按**决定**组织，spec 按**能独立设计和实现的一块功能**组织。这一步把已经定好的决定重新分组，看哪些凑起来是一份做得下去的东西。**只分组，不重新讨论任何决定。**
+## 3. 按 destination 移交
 
-spec 是 map 的可读综合版：map 的 `Destination` 变成 spec 的问题陈述，`Decisions so far` 里的每一条变成 spec 的 `Implementation Decisions`，`Out of scope` 原样继承。Wiki 上只留这份综合版，不留原始日志。
+读 map 正文的 `Destination` 一节，按它写的是哪一种来处理。你只把 map 交出去，不替下一个技能先把它的输入准备好。
 
-一组一份 spec，各建一张 issue 挂在 map 底下。正文写清楚三件事：这份 spec 交付什么，它依赖 map 的 `Decisions so far` 一节里的哪几条，以及 map 原样继承的 `产物目录`。spec issue 不新建 `issue 子目录`。它引用依赖的 decision ticket 已有 prototype、research 或 evidence 时，只写精确的索引和文件路径。spec issue 跟 decision ticket 同处一层，靠**带不带 `wayfinder:` 类型标签**区分：decision ticket 带，spec issue 不带。
+| `Destination` 写的是 | 处理 |
+| --- | --- |
+| 一份 spec | 交给 `/mmw-to-spec` 三样东西：map 名称和它的 URL 或编号、map 正文里的 `产物目录`、以及任务 slug（用 map 标题的短名，全小写、空格换连字符）。一张 map 只出一份 spec。剩下的由 `/mmw-to-spec` 自己去读：它顺着 `Decisions so far` 进各张 decision ticket，再按 ticket 评论里的链接取 prototype 和 research。你不要先建一张 spec issue，也不要把内容复制一份给它 |
+| 开始规划前必须锁定的一个决定 | 报告这个决定现在是什么，并给出 map 名称和它的 URL 或编号 |
+| 一次就地完成的改动，而且 map 的 `Notes` 里写了这项 effort 要把执行也带进 map | 报告 map 已完成 |
+| 一次就地完成的改动，而且 map 的 `Notes` 里没写这一条 | 报告路线已经清楚、但改动还没做，并给出 map 名称和它的 URL 或编号 |
 
-切出来只有一份也照样切出去走下去，不回头重来。
-
-解决一张 decision ticket 后也可以提前切 spec，判据见 [walking.md](walking.md) 的“判断能否提前切出 spec”一节。
-
-## 4. 关掉 map
-
-关掉 map issue。把第 1 步到第 3 步写下的文件提交进 map 分支。
+除了 spec 那一种，其余三种到这里 Wayfinding 就结束了：把已经形成的决定交出去，不要接着去把 destination 做掉。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
-| 第 1 步用户点出还有会挡路的条目，已经建成 decision ticket | **停**：报新建了哪几张 ticket（用名字，不用编号），让用户另开一个会话认领 |
-| 决定归位完、spec 切完、map issue 关掉 | **停**：报这张 map 收尾了、切出了哪几份 spec（用名字，不用编号），说明每份 spec 各开一个会话去做 |
-
-每份 spec 使用从 map 分支派生的独立任务。spec 任务完成后交回分支名、HEAD SHA 和 map 基点 SHA，由 map 任务用 `mmw result verify` 和 `mmw result integrate` 集成。整个 effort 完成前不合回最终目标分支；map 分支是这些 spec 的汇合点。
+| destination 是一份 spec，map 已关闭 | **移交**：`/mmw-to-spec`，交给它 map 名称及其 URL 或编号、`产物目录` 和任务 slug |
+| destination 是已经锁定的决定，map 已关闭 | **停**：报告决定和 map 名称及其 URL 或编号 |
+| destination 是已经完成的就地改动，map 已关闭 | **停**：报告 map 已完成 |
+| destination 是尚未执行的就地改动，map 已关闭 | **停**：报告路线已经清楚、改动尚未执行，以及 map 名称及其 URL 或编号 |

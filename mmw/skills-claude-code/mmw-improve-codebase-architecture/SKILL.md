@@ -13,26 +13,32 @@ description: 扫描 deepening opportunities，生成候选报告供用户选择�
 
 | 材料 | 取得方式 | 读取内容 |
 | --- | --- | --- |
-| 领域文档 | **先读领域文档**：落点跑 `mmw domain path` 取；三种返回按 `/mmw-domain-modeling` 的「读领域文档」处理 | **好 seam 的名字**；不要停下来建 |
+| 领域文档 | **先读领域文档**：按 `/mmw-domain-modeling` 的「读领域文档」处理 | **好 seam 的名字**；不要停下来建 |
 | ADR | 读你要碰的那一片的 ADR | ADR 里已经拍过板的决定，这次不重新拿出来吵 |
 
 相关 leaf 里定义了「订单」，你就说「订单受理这个 module」，不说「那个 FooBarHandler」，也不说「订单服务」。
 
 ## 1. 先定范围
 
-**扫之前先定扫哪。** 最近一直在改的地方权重最高。
+**扫之前先定扫哪——YAGNI。** 把一个 module 做深，回报是让**将来**改它变容易。所以最近一直在改的地方权重最高：那里的将来最快到。反过来，一块没人碰、也看不出要碰的地方，做深了回报兑现不了，这轮别扫它。有实打实的迹象说某块马上要大改（正在谈的需求压在它上面、已经有 spec 指向它），它同样算热点，即使 `git log` 上很安静。
 
 - 用户点了方向（某个 module、某个子系统、某个痛点），就用他点的，跳过下面的推断。
 - 没点，主 agent 直接读取 `git log --oneline`，从反复出现的文件和目录整理热点。改动散得到处都是、没有明显热点时，才把网撒大。
 
 定完的这一片，是下一步所有人共同的地盘。
 
-## 2. 一个视角派一个 subagent 去扫
+## 2. 派几个 `investigator` 各自去探
 
-五个视角，一个视角一个 subagent，并行扫描。每个视角：四栏表（目标=该视角问题；读=范围路径 + 领域文档 + `/mmw-codebase-design` + ADR 路径；约束=只读；验收=摩擦点带出处）。
+派 3 到 4 个 `investigator`，**每份 task 完全一样**，都探第 1 步定下的整片地方。四栏表：目标=在这片地方找架构摩擦；读=范围路径 + 领域文档 + `docs/adr/` 下相关的 ADR + `/mmw-codebase-design`（点技能名，不给路径）；约束=只读；验收=摩擦点带出处。
+派一个独立上下文的 `investigator`。它只读，不需要工作目录。
 启动：把四栏表写入 task 文件，后台执行 `mmw dispatch investigator --task <task 文件绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 
-| 视角 | 让它去看 |
+互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
+按这个方式启动，重复 3 到 4 次，几个同时跑。
+
+**不给分工，也不给检查清单。** 让它有机地探，记下它自己在哪里觉得摩擦大。下面这五问写进每份 task，作为**起手的入口**，不是要它逐条打钩的表：
+
+| 入口 | 往哪看 |
 | --- | --- |
 | 概念散落 | 要理解一个概念，得在好几个小 module 之间来回跳吗？ |
 | interface 太宽 | 哪些 module 是 shallow 的——interface 几乎和 implementation 一样复杂？ |
@@ -40,23 +46,27 @@ description: 扫描 deepening opportunities，生成候选报告供用户选择�
 | seam 漏了 | 哪些互相咬死的 module 从 seam 漏了出去？ |
 | 测不进去 | 哪些地方没有测试，或者隔着现在这个 interface 根本测不了？ |
 
-**按视角分，不按范围分。** 每个 subagent 都看第 1 步定下来的整片地方，不要把它切成几块各管一段。
+task 里把这句原样写给它：**这五问是入口，不是清单。撞见五问之外的摩擦照样报，不要因为「不归我这条」丢掉。**
 
-每份 task 给同样的路径与范围（领域文档路径、`/mmw-codebase-design` 词汇表路径、这一片的 ADR 路径、第 1 步定下的范围），只有视角那一栏不同。subagent 自己读路径。
-
-**不要给它僵硬的打分表**，让它有机地探，记下它在哪里觉得摩擦大。
+**多样性来自各自独立的上下文，不来自分配。** 所以不要给它们切视角，也不要把范围切成几块各管一段——几个 `investigator` 看同一片地方、各走各的路，撞见的东西自然不同。
 
 怀疑某个东西 shallow 时，用 **deletion test** 验一下：把它删掉，复杂度是会聚到一处，还是只是挪个地方？「会聚到一处」才是你要的信号。
 
-## 3. 收回来的先验证再采信
+## 3. 先去重，再逐条验证
 
-subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说某个 module 是 shallow 的，你自己打开那几个文件，确认 interface 真的和 implementation 一样宽；它说某处耦合漏出了 seam，你自己找到那几行。验证不出来的不进报告。
+几份报告探的是同一片地方，重叠是预期之内的，不是谁做错了。
+
+**先去重**：指向同一个 module、同一条 seam 的条目合成一条，把各份报告给的出处并进去——几个人独立撞见同一处摩擦，这件事本身就是它成立的证据，合并时记下来。换了个说法其实是同一件事的，也算重复。
+
+**再逐条验证**：合并后的每条按 `/mmw-verifying-agent-output` 走。它说某个 module 是 shallow 的，你自己打开那几个文件，确认 interface 真的和 implementation 一样宽；它说某处耦合漏出了 seam，你自己找到那几行。验证不出来的不进报告。
 
 ## 4. 出报告
 
 写一个自包含的 HTML 文件，落系统临时目录：从 `$TMPDIR` 取，取不到退回 `/tmp`（Windows 上是 `%TEMP%`）。文件名是 `architecture-review-<时间戳>.html`，每次跑一份新的。
 
 生成后打开文件：macOS 使用 `open`，Linux 使用 `xdg-open`，Windows 使用 `start`。把绝对路径告诉用户。
+
+**这份报告以图为主，不是以文字为主。** 每个候选的 before/after 图承担主要说明责任，文字只在旁边收口。一张图要配一段话才看得懂，就把图重画，不要把话写长。
 
 每个候选一张卡片：
 
@@ -66,7 +76,7 @@ subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说�
 | 当前摩擦 | 现在这个结构在哪里造成摩擦 |
 | 目标结构 | 改成什么样 |
 | 收益 | 用 locality 和 leverage 说明好处，以及测试会怎么变好 |
-| 图 | 一张 before/after 图 |
+| before/after 图 | 整张卡片的重心，两列并排 |
 | 推荐强度 | `Strong`、`Worth exploring` 或 `Speculative` |
 
 结尾一节 **Top recommendation**：你会先做哪一个，为什么。
@@ -83,7 +93,15 @@ subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说�
 
 挑中后再定 slug。类型固定用 `refactor`，短语取被选中 module 的名字，例如 `refactor-order-intake`。然后按下面的宿主动作建立任务 worktree，任务目标写用户原话和卡片标题：
 
-运行 `mmw task new <slug> "<用户原话>"` 创建任务 worktree；从 map 分支派生时增加 `--from <map 分支>`。命令返回绝对路径后，使用宿主的 `EnterWorktree` 进入该 worktree。
+先跑 `mmw task state`。它输出一行，第一个词决定这棵树要不要你自己建：
+
+| 第一个词 | 什么意思 | 你做什么 |
+| --- | --- | --- |
+| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。第二个词是任务分支名，第三个词是当前 HEAD，记下它们 |
+| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <分支名> "<用户原话>"`。`<分支名>` 用这个任务的 slug；宿主对任务分支有固定命名空间（Codex App 是 `codex/`）时带上它。知道预期基点就加 `--from <父分支或基点 SHA>`，它只是一道校验，不确定就不加。命令必须返回任务分支名和起始提交 |
+| `local` 或 `outside` | 你在主检出里，或者根本不在仓库里 | 这棵树要你自己建：`mmw task new <slug> "<用户原话>"`，从 map 分支派生时加 `--from <map 分支>`。命令返回绝对路径，用宿主切换工作目录的能力进去 |
+
+两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
 
 ## 6. 就这一个候选谈下去
 
@@ -91,7 +109,7 @@ subagent 交回的东西按 `/mmw-verifying-agent-output` 逐条验证。它说�
 
 `/mmw-grilling` 自带 `/mmw-domain-modeling`，通用的那部分不用你再交代。这里只补三条本技能特有的：
 
-- **给做深后的 module 起的名字不在相关 leaf 里**，就把这个词加进去。先跑 `mmw domain path`：`single` 使用命令返回的 leaf；`map` 使用 Map 为本次范围登记的实际 leaf。
+- **给做深后的 module 起的名字不在相关 leaf 里**，就把这个词加进去。单 context 仓库加进仓库根 `CONTEXT.md`；有 Context Map 的加进 Map 为本次范围登记的那个 leaf。
 - **用户否掉这个候选**，按 `/mmw-domain-modeling` 的完整 ADR 判据决定是否提议记录。三项判据缺一项就不写。
 - **想看看这个 module 还能有哪几种 interface**，跑 `/mmw-codebase-design`，用它的 DESIGN-IT-TWICE。
 

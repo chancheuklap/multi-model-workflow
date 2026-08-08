@@ -5,7 +5,6 @@ description: |
   Use when: 主 agent 发起审查、要派会话内那个模型的审查者时。任务名与材料由派发方在提示词里给。
   <example>② plan 审：覆盖质量审与合规交叉审各派一个，并行</example>
   <example>⑤ final 终审：三个视角各派一个，另外三个走另一个模型</example>
-  <example>⑥ 合并集成审：派一个走全套七角度，另一个走另一个模型</example>
   Do NOT use for: 改代码、修 finding（本 agent 只读）、写 spec 或 plan、另一个模型负责的那几个视角。
   它交回的 findings 由主 agent 验证过才作数。它是审查 subagent，不是唯一事实来源。
 tools:

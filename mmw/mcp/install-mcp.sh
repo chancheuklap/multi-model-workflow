@@ -20,8 +20,8 @@
 #
 # 只加不删：用户自己配的别的服务器原样保留，同名的才覆盖成我们这份。
 #
-# 已知边界（跟 install-agent-skills.sh 同一条）：写进去的是绝对路径，指向脚本跑起来时
-# 所在的那棵树。在任务 worktree 里跑，worktree 删掉后那一面就断了。正式安装从主仓库跑。
+# 本脚本由源码仓库的 install.sh 从已安装 runtime 调用。写进用户配置的绝对路径
+# 指向 runtime，不指向源码 checkout 或任务 worktree。
 #
 #   install-mcp.sh          装
 #   install-mcp.sh --check  只看装没装。装齐回 0，缺东西回 1
@@ -30,7 +30,8 @@ set -euo pipefail
 
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SOURCE="$PLUGIN_ROOT/.mcp.json"
-PI_MCP="${MMW_PI_MCP_FILE:-${PI_HOME:-$HOME/.pi}/agent/mcp.json}"
+PI_AGENT_DIR="${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME/.pi}/agent}"
+PI_MCP="${MMW_PI_MCP_FILE:-$PI_AGENT_DIR/mcp.json}"
 CURSOR_MCP="${MMW_CURSOR_MCP_FILE:-$HOME/.cursor/mcp.json}"
 
 mode=install

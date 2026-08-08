@@ -19,22 +19,30 @@ mmw_init_touch() {
   MMW_INIT_TOUCHED+=("$1")
 }
 
+# 目标仓库配置不保存模型档。模型档由源码安装流程写进各宿主 runtime。
+# paths 只保留 CLI 消费的四个键（worktrees、reviews、release、scratch）。
 mmw_init_config() {
-  local root config default_config default_research default_evidence default_scratch temp config_mode
+  local root config default_config default_scratch default_reviews default_release default_worktrees temp config_mode
   root="$(mmw_repo_root)"
   config="$root/.mmw.json"
   default_config="$MMW_ROOT/cli/mmw.default.json"
   if [ -f "$config" ]; then
-    if jq -e '.paths.research != null and .paths.investigations == null and .paths.evidence != null and .paths.scratch != null' "$config" >/dev/null 2>&1; then
+    if jq -e '
+      (.paths.scratch != null and .paths.reviews != null and .paths.release != null and .paths.worktrees != null)
+      and ([.paths.specs, .paths.plans, .paths.prototypes, .paths.research, .paths.evidence, .paths.investigations] | all(. == null))
+      and (.models == null)
+    ' "$config" >/dev/null 2>&1; then
       mmw_init_say "配置     : 已有 ${config}，无需迁移"
       return 0
     fi
-    default_research="$(jq -er '.paths.research' "$default_config")" || return 1
-    default_evidence="$(jq -er '.paths.evidence' "$default_config")" || return 1
     default_scratch="$(jq -er '.paths.scratch' "$default_config")" || return 1
-    mmw_path_safe_base "$default_research" || return 1
-    mmw_path_safe_base "$default_evidence" || return 1
+    default_reviews="$(jq -er '.paths.reviews' "$default_config")" || return 1
+    default_release="$(jq -er '.paths.release' "$default_config")" || return 1
+    default_worktrees="$(jq -er '.paths.worktrees' "$default_config")" || return 1
     mmw_path_safe_base "$default_scratch" || return 1
+    mmw_path_safe_base "$default_reviews" || return 1
+    mmw_path_safe_base "$default_release" || return 1
+    mmw_path_safe_base "$default_worktrees" || return 1
     if config_mode="$(stat -f '%Lp' "$config" 2>/dev/null)"; then
       :
     elif config_mode="$(stat -c '%a' "$config" 2>/dev/null)"; then
@@ -43,12 +51,15 @@ mmw_init_config() {
       return 1
     fi
     temp="$(mktemp "$root/.mmw.json.migrate.XXXXXX")" || return 1
-    if ! jq --arg research "$default_research" --arg evidence "$default_evidence" --arg scratch "$default_scratch" '
+    if ! jq --arg scratch "$default_scratch" --arg reviews "$default_reviews" \
+            --arg release "$default_release" --arg worktrees "$default_worktrees" '
       .paths = (.paths // {}) |
-      .paths.research //= $research |
-      del(.paths.investigations) |
-      .paths.evidence //= $evidence |
-      .paths.scratch //= $scratch
+      .paths.scratch //= $scratch |
+      .paths.reviews //= $reviews |
+      .paths.release //= $release |
+      .paths.worktrees //= $worktrees |
+      del(.paths.specs, .paths.plans, .paths.prototypes,
+          .paths.research, .paths.evidence, .paths.investigations, .models)
     ' "$config" > "$temp"; then
       rm -f "$temp"
       return 1
@@ -56,46 +67,18 @@ mmw_init_config() {
     chmod "$config_mode" "$temp"
     mv -f "$temp" "$config"
     mmw_init_touch ".mmw.json"
-    mmw_init_say "配置     : 已为 ${config} 补入 paths.research、paths.evidence 与 paths.scratch，并删除旧 research 路径字段"
+    mmw_init_say "配置     : 已删除仓库级模型档，并把 paths 收敛到 CLI 消费的四个键"
   else
-    cp "$default_config" "$config"
+    temp="$(mktemp "$root/.mmw.json.create.XXXXXX")" || return 1
+    if ! jq 'del(.models)' "$default_config" > "$temp"; then
+      rm -f "$temp"
+      return 1
+    fi
+    chmod 0600 "$temp"
+    mv -f "$temp" "$config"
     mmw_init_touch ".mmw.json"
-    mmw_init_say "配置     : 已生成 $config"
+    mmw_init_say "配置     : 已生成不含模型档的 $config"
   fi
-}
-
-# 转发脚本先看当前 git 树里有没有 CLI——mmw 是自己开发自己的，任务 worktree
-# 里改了 CLI 要能自测；没有再回退主仓库那份。
-mmw_init_forward() {
-  local bin="$HOME/.local/bin/mmw"
-  if [ -x "$bin" ]; then
-    mmw_init_say "转发脚本 : 已有 $bin"
-    return 0
-  fi
-  mkdir -p "$(dirname "$bin")"
-  cat > "$bin" <<'FORWARD'
-#!/usr/bin/env bash
-set -euo pipefail
-root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-if [ -n "$root" ] && [ -x "$root/mmw/cli/mmw" ]; then
-  exec "$root/mmw/cli/mmw" "$@"
-fi
-exec "$HOME/multi-model-workflow/mmw/cli/mmw" "$@"
-FORWARD
-  chmod +x "$bin"
-  mmw_init_say "转发脚本 : 已装 $bin"
-}
-
-# Codex 的本机运行面一次装齐：原生 agent、指向已安装 plugin 的 mmw 命令，
-# 并清掉旧 Claude bridge 的三个技能链接。
-mmw_init_codex_runtime() {
-  local out
-  if out="$(python3 "$MMW_ROOT/codex/runtime.py" install 2>&1)"; then
-    mmw_init_say "Codex运行时: 已装四个原生 subagent 与 mmw 转发脚本；旧 Claude bridge 已检查"
-    return 0
-  fi
-  mmw_init_say "Codex运行时: 装不上，原样报出——$(printf '%s' "$out" | tail -5 | tr '\n' ' ')"
-  return 1
 }
 
 # TESTING.md 铺的是骨架，不是填好的事实。通用测试方法随插件走，
@@ -118,7 +101,7 @@ mmw_init_testing() {
 mmw_init_domain_context() {
   local out line prefix kind rel state
   local agents_state="" map_state="" claude_state=""
-  if ! out="$(mmw_domain_sync 2>&1)"; then
+  if ! out="$(mmw_domain_sync all 2>&1)"; then
     mmw_init_say "领域规则 : 同步失败"
     while IFS= read -r line; do
       [ -n "$line" ] || continue
@@ -191,15 +174,18 @@ mmw_init_labels() {
 # scratch 只随任务存活，不进 Git。graphify-out 是结构图谱：本机派生物，
 # 几十兆，每次改代码都变。漏掉它，第一次建完图那几十兆就跟着下一次提交进了版本库。
 mmw_init_gitignore() {
-  local root file added=0 line host
+  local root file added=0 line
   root="$(mmw_repo_root)"
   file="$root/.gitignore"
-  host="$(mmw_host)" || return 1
   touch "$file"
-  local -a lines=("$(mmw_path_field reviews)/" "$(mmw_path_field release)/" "$(mmw_path_field scratch)/" "graphify-out/")
-  if [ "$host" != "codex" ]; then
-    lines+=("$(mmw_path_field worktrees)/" ".dispatch/")
-  fi
+  local -a lines=(
+    "$(mmw_path_field reviews)/"
+    "$(mmw_path_field release)/"
+    "$(mmw_path_field scratch)/"
+    "$(mmw_path_field worktrees)/"
+    ".dispatch/"
+    "graphify-out/"
+  )
   for line in "${lines[@]}"; do
     if grep -qxF "$line" "$file"; then
       continue
@@ -213,50 +199,6 @@ mmw_init_gitignore() {
   fi
   mmw_init_say "gitignore: 补了 ${added} 行"
   mmw_init_touch ".gitignore"
-}
-
-# 三个检索工具。Codex 与 Claude Code 都由各自 plugin 直接提供；Pi/Cursor 才写用户配置。
-mmw_init_mcp() {
-  local host
-  host="$(mmw_host)" || return 1
-  if [ "$host" = "codex" ]; then
-    mmw_init_say "检索工具 : Codex plugin 直接提供，不写用户配置"
-    return 0
-  fi
-  local script="$MMW_ROOT/mcp/install-mcp.sh"
-  if [ ! -x "$script" ]; then
-    mmw_init_say "检索工具 : 找不到安装脚本 $script"
-    return 1
-  fi
-  local out
-  if out="$(bash "$script" 2>&1)"; then
-    mmw_init_say "检索工具 : $(printf '%s' "$out" | tail -1)"
-  else
-    mmw_init_say "检索工具 : 装不上，原样报出——$(printf '%s' "$out" | tail -3 | tr '\n' ' ')"
-    return 1
-  fi
-}
-
-# 旧方法论链接只服务 Claude Code 启动的外部 Codex 进程。Codex plugin 不装这些链接。
-mmw_init_skills() {
-  local host
-  host="$(mmw_host)" || return 1
-  if [ "$host" = "codex" ]; then
-    mmw_init_say "方法论   : Codex plugin 直接提供，不装旧 Claude bridge"
-    return 0
-  fi
-  local script="$MMW_ROOT/cli/lib/install-agent-skills.sh"
-  if [ ! -x "$script" ]; then
-    mmw_init_say "方法论   : 找不到安装脚本 $script"
-    return 1
-  fi
-  local out
-  if out="$(bash "$script" 2>&1)"; then
-    mmw_init_say "方法论   : $(printf '%s' "$out" | tail -1)"
-  else
-    mmw_init_say "方法论   : 装不上，原样报出——$(printf '%s' "$out" | tail -3 | tr '\n' ' ')"
-    return 1
-  fi
 }
 
 # init 写的配置文件要提交进分支才算数。任务 worktree 检出的是分支上的版本：
@@ -306,27 +248,12 @@ mmw_init_legacy() {
 }
 
 mmw_init() {
-  local status=0 host
-  host="$(mmw_host)" || return 1
+  local status=0
   mmw_init_config
   mmw_init_domain_context || status=1
-  if [ "$host" = "codex" ]; then
-    mmw_init_codex_runtime || status=1
-  else
-    mmw_init_forward
-  fi
   mmw_init_testing
   mmw_init_labels
   mmw_init_gitignore
-  if [ "$host" != "codex" ]; then
-    if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host all; then
-      :
-    else
-      status=1
-    fi
-  fi
-  mmw_init_skills || status=1
-  mmw_init_mcp || status=1
   # 提交排在最后：上面各步骤都登记完了，一个提交装下这一轮的全部配置改动。
   mmw_init_commit || status=1
   mmw_init_legacy
@@ -340,21 +267,5 @@ mmw_init() {
 NOTE
   fi
 
-  case "$host" in
-    claude-code)
-      cat <<'NOTE'
-
-还有一件要改宿主的全局配置，不替你动，确认后自己加：
-  ~/.claude/settings.json 的 permissions.allow 加 "Bash(mmw:*)"
-NOTE
-      ;;
-    codex)
-      cat <<'NOTE'
-
-Codex 运行时由已安装的 MMW plugin 和四个原生 subagent 组成。
-四个 subagent、指向已安装 plugin 的 mmw 命令与旧 Claude bridge 清理已经完成。
-NOTE
-      ;;
-  esac
   return "$status"
 }

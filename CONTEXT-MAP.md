@@ -1,15 +1,7 @@
 # Context Map
 
 <!-- MMW-CONTEXT-MAP-RULES-START -->
-## 使用规则
-
-1. 根据 `Contexts` 和 `Relationships` 选择本次涉及的全部 leaf。答复用户或写入文件前读完这些 leaf。
-2. 术语归属不明确时，运行 `mmw domain dirs` 取得 `context` 路径并搜索该术语。仍无法判断时询问用户。
-3. 使用 leaf 定义的 canonical 术语，避开 `_Avoid_`。共享术语以标有 `authoritative` 路径的主 leaf 为准。
-4. 读取 `mmw domain dirs` 返回的 `adr` 路径下与本次范围相关的 ADR。
-5. 用户说法、多个 leaf、ADR 或代码现状互相冲突时，明确列出冲突，不得静默覆盖。
-6. 长期术语、关系和歧义只写入拥有它们的 leaf。只有上下文集合、所有权或跨上下文关系改变时才修改本 Map。
-7. 操作步骤、实施计划、发布状态和一次性 research 不进入领域文档。
+> 下面是这个仓库的领域模型索引。答复用户、撰写文档或写代码之前，先读完本次涉及的全部 leaf，再全程使用它们定义的术语。
 <!-- MMW-CONTEXT-MAP-RULES-END -->
 
 ## Contexts
@@ -20,7 +12,7 @@
 | Tracker | [Tracker](./docs/context/tracker.md) | 类别角色、状态角色、agent brief、认领、frontier 和 `.out-of-scope/`。 |
 | Wayfinding | [Wayfinding](./docs/context/wayfinding.md) | effort、destination、map、decision ticket、会话边界和 fog of war。 |
 | Agent | [Agent](./docs/context/agent-coordination.md) | 主 agent、subagent、角色、task、报告、验证、任务分支和结果分支。 |
-| 审查 | [审查](./docs/context/review.md) | 六道审、视角（任务名）、finding、处置、固定点、被审 HEAD、终审提交和审查记录。 |
+| 审查 | [审查](./docs/context/review.md) | 五道审、视角（任务名）、finding、处置、固定点、被审 HEAD、终审提交和审查记录。 |
 | 出包与收尾 | [出包与收尾](./docs/context/release-and-closure.md) | 产品、出包配置、`mmw release`、交付记录、用户实测、对外发布和 Wiki 页面。 |
 | 宿主 | [宿主](./docs/context/host-runtime.md) | 技能源、技能产物、物化、原生 subagent 和 Codex App 后台 Worktree 任务。 |
 | 领域上下文与检索 | [领域上下文与检索](./docs/context/project-context.md) | 领域模型、Context Map、leaf、ADR、权威引用、结构图谱和结构候选。 |

@@ -11,6 +11,8 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 **issue 承载身份，文件承载内容。** 本技能为每张 tracer bullet ticket 创建一张 issue。issue 正文保存摘要、plan 路径和阻塞关系。`/mmw-to-plan` 后续把实施内容写入该路径下的 plan 文件。
 
+`<slug>` 和 `<spec issue 编号>` 都由调用方移交时给你。`<slug>` 是这次的任务 slug，也是 `docs/specs/<slug>/` 的目录名。缺少任意一项就停下，说明缺少哪项输入。
+
 ## 1. 上下文清单
 
 | 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
@@ -18,6 +20,8 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 | spec、对应 issue 或链接 | 始终 | 正文和评论全文 | 无关 issue | 每张 ticket 需要的目标、验收和阻塞关系 |
 | prototype | 上游引用时 | 索引、相关选中产物、明确相关的走查或长期证据 | 整个产物目录、无关过程材料；落选变体只在 ticket 必须落实其否定约束时读取 | 只传给消费该决定的 ticket |
 | research | 上游引用时 | research 索引和本批 ticket 需要的精确文件 | research 的上级目录、subagent 原始报告 | 只传给消费该事实的 ticket |
+
+**索引**指 prototype 或 research 目录里的那份 `README.md`——prototype 的在 `docs/prototypes/<产物目录>/README.md`，research 的在 `docs/research/<产物目录>[/issue-<编号>]/<主题>/README.md`。精确路径从 spec issue 正文的输入出处一节读，那是 `/mmw-to-spec` 发布时写进去的；那儿没有就是这份 spec 没用过 prototype 或 research。
 
 prototype 索引缺少问题、逐轮用户结论、选中产物、落选约束或长期证据时，回 `/mmw-prototype` 补齐；没有的项目写「无」。
 
@@ -59,7 +63,7 @@ ticket 的标题和描述用项目领域术语表里的词，遵守这块地方�
 
 按依赖顺序编号，从 `01` 起，阻塞方在前。每张列三样：
 
-- **Title**：一句话的名字
+- **Title**：一句话的名字。它同时是这张 ticket 的 plan 文件名来源（怎么压成 slug 见下面的 ticket 正文模板）
 - **Blocked by**：哪几张必须先做完
 - **What it delivers**：这张让什么端到端行为可用
 
@@ -73,10 +77,10 @@ ticket 的标题和描述用项目领域术语表里的词，遵守这块地方�
 
 ## 5. 发布
 
-一张 ticket 一张 issue：
+一张 ticket 一张 issue。先按下面的正文模板把每张的正文写进 `.scratch/<slug>/ticket-<NN>.md`，再逐张发：
 
 ```bash
-mmw issue create --title "<标题>" --body-file <正文文件> \
+mmw issue create --title "<标题>" --body-file .scratch/<slug>/ticket-<NN>.md \
   --parent <spec issue 编号> --blocked-by <编号,编号>
 ```
 
@@ -92,7 +96,7 @@ mmw issue create --title "<标题>" --body-file <正文文件> \
 
 ## Parent
 
-指向这批 ticket 所属的 spec issue（来源不是一张 issue 就省掉这一节）。
+指向这批 ticket 所属的 spec issue。
 
 ## What to build
 
@@ -100,7 +104,15 @@ mmw issue create --title "<标题>" --body-file <正文文件> \
 
 ## Plan
 
-`docs/plans/<slug>/<NN>-<ticket-slug>.md`。`<slug>` 跟这次的 spec 目录同名（`docs/specs/<slug>/`），`<NN>` 是第 4 步给这张定的编号。文件由 `/mmw-to-plan` 写，这里先把路径占住。
+`docs/plans/<slug>/<NN>-<ticket-slug>.md`。三段各自这么取：
+
+| 段 | 取值 |
+| --- | --- |
+| `<slug>` | 跟这次的 spec 目录同名（`docs/specs/<slug>/`） |
+| `<NN>` | 第 4 步给这张定的两位编号 |
+| `<ticket-slug>` | 从第 4 步的 Title 压成一个路径段：全小写，空格换成连字符，只留字母、数字和连字符，控制在三四个词以内 |
+
+文件由 `/mmw-to-plan` 写，这里先把路径占住。
 
 ## Acceptance criteria
 
@@ -135,4 +147,4 @@ mmw issue create --title "<标题>" --body-file <正文文件> \
 | 用户批准清单，ticket 全部发布完 | **移交**：`/mmw-to-plan`，一张 ticket 写一份 plan |
 | 第 4 步用户要改切分 | **自己继续**：回第 3 步改，改完重新展示完整清单 |
 | 第 4 步仍在等待用户批准 | **停**：不调用 tracker 写入命令，等待用户确认或修改 |
-| 来源是一份 spec，但那张 spec issue 没带 `ready-for-agent` | **停**：回 `/mmw-to-spec` 第 7 步 |
+| 来源是一份 spec，但那张 spec issue 没带 `ready-for-agent` | **停**：回 `/mmw-to-spec` 第 6 步，那份 spec 还没过用户那道批准关卡 |

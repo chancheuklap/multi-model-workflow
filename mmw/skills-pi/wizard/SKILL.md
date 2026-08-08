@@ -9,7 +9,7 @@ Wizard 是一个 Bash 脚本。它逐步带用户完成必须由人操作的流�
 
 **它针对的是两头都繁琐的流程**：用户每次手动做一遍很繁琐，每次向 agent 重新解释一遍同样繁琐。脚本一旦存在，这段流程就不必再解释第二次。只发生一次、以后不会再来的人工步骤，做成 wizard 不回本。
 
-[template.sh](template.sh) 已经实现统一交互：阶段进度、预计剩余时间、跨平台打开 URL、隐藏 secret 输入、幂等 `.env` 写入、GitHub secret 和 variable 写入，以及结束总结。
+[template.sh](template.sh) 已经实现统一交互：逐阶段进度、跨平台打开 URL、隐藏 secret 输入、幂等 `.env` 写入、GitHub secret 和 variable 写入，以及结束总结。
 
 你的职责是限定流程并编写各个 `stage`。`STAGES` 标记上方是固定 library，一个字都不改——**每一份 wizard 的这一段完全相同，一致性本身就是目的**，用户第二次跑另一份 wizard 时不用重新认界面。
 
@@ -43,9 +43,18 @@ Wizard 默认是临时产物，固定保存在当前任务的 Git 忽略 scratch
 
 ## 3. 生成 wizard
 
-先确定当前任务的产物目录。Wayfinder 场景从当前 map 或子 issue 正文的 `## 产物目录` 读取；decision ticket 同时读取正文记录的 `issue-<编号>`。Wayfinder 派生的 spec 任务从已绑定任务状态读取任务 slug，并使用 `task-<任务 slug>` 子目录。普通任务使用当前任务 slug，不带子目录。不要从任务 worktree 的物理目录名推断。
+这次的 scratch 落点形状是 `.scratch/<产物目录>/<子目录>`：
 
-运行 `mmw path scratch <产物目录> [issue-<编号>|task-<任务 slug>]`。以 [template.sh](template.sh) 为模板，在命令返回的 scratch 目录生成 `wizard-<slug>.sh`。保留 `STAGES` 标记上方的 library，只替换示例步骤。
+先判是哪种任务：**当前任务是从一张带 `wayfinder:map` 标签的 issue 派生出来的，就是 Wayfinder 场景**（`/mmw-wayfinder` 用 map 统筹一项跨多张 ticket 的 effort，那些 ticket 共用一个产物目录）；不是就是普通任务，走第一列。
+
+| 段 | 取值 |
+| --- | --- |
+| `<产物目录>` | 普通任务用当前任务 slug；Wayfinder 场景读 map 或子 issue 正文的 `## 产物目录` 一节 |
+| `<子目录>` | 普通任务没有这一层；Wayfinder 的 decision ticket 用正文记录的 `issue-<编号>`；Wayfinder 派生的 spec 任务用 `task-<任务 slug>`，slug 取 `mmw task state` 输出的第二个词去掉宿主命名空间前缀 |
+
+不要从任务 worktree 的物理目录名推断产物目录。`.scratch/` 在 `.gitignore` 里，放这儿的东西不进 Git。
+
+以 [template.sh](template.sh) 为模板，在这个 scratch 目录里生成 `wizard-<slug>.sh`。`<slug>` 是这次流程自己的名字（`setup-stripe-webhook` 这种），不是任务 slug——一个任务可能跑好几次 wizard。保留 `STAGES` 标记上方的 library，只替换示例步骤。
 
 用户明确要求把 wizard 变成可重复的仓库入口时，改用用户确认的正式路径，不在 scratch 保留第二份。
 
@@ -62,7 +71,7 @@ Wizard 默认是临时产物，固定保存在当前任务的 Git 忽略 scratch
 | 写入 CI secret 或 variable | `set_secret`、`set_var` |
 | 等待或确认 | `pause`、`confirm` |
 
-设置诚实的 `TOTAL_STAGES` 和 `TOTAL_MINUTES`。打开 URL 后再索取值。Secret 使用 `ask_secret`。需要持久化的值使用 `write_env`。只有 CI 实际消费的值才使用 `set_secret`。不可逆动作前必须使用 `confirm`。
+把 `TOTAL_STAGES` 设成你实际写出的阶段数。打开 URL 后再索取值。Secret 使用 `ask_secret`。需要持久化的值使用 `write_env`。只有 CI 实际消费的值才使用 `set_secret`。不可逆动作前必须使用 `confirm`。
 
 一个 `stage` 只完成一个聚焦任务。`stage` 会清屏，当前步骤所需内容必须留在同一屏。
 

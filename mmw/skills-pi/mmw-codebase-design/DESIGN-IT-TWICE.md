@@ -18,9 +18,12 @@
 
 ### 2. 派 subagent
 
-一个约束一个 `designer`，至少三个，并行。每个约束使用四栏表：目标是该设计约束下的 interface；读是技术材料路径、`SKILL.md` 和领域文档路径；约束是只读且与其它变体结构不同；验收是交回 interface、用法和取舍。
+一个约束一个 `designer`，至少三个，并行。每个约束使用四栏表：目标是该设计约束下的 interface；读是技术材料的精确路径，加 `/mmw-codebase-design`（点技能名，不给路径），加领域文档；约束是只读且与其它变体结构不同；验收是交回 interface、用法和取舍。
 
+派一个独立上下文的 `designer`。它只读，不需要工作目录。
 启动：调用原生 `subagent`，agent 设为 `mmw-designer`，task 传四栏表全文。
+
+互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 每个 subagent 须产出**截然不同**的 interface。
 
 每份 task 点名同样的技术材料路径（相关文件、耦合点、[DEEPENING.md](DEEPENING.md)、seam 位置），只有设计约束那一栏不同。task 与第 1 步给用户看的问题空间说明是两回事。
@@ -30,7 +33,7 @@
 - subagent 3：「为最常见的调用方优化——让默认情形简单到不用想。」
 - subagent 4（用得上的话）：「跨 seam 的依赖按 ports & adapters 来设计。」
 
-task 同时点名 [SKILL.md](SKILL.md) 与领域文档路径（`mmw domain path`），让命名跟架构语言和领域语言一致。领域文档三种返回怎么读见 `/mmw-domain-modeling` 的「读领域文档」一节。
+task 同时点名 [SKILL.md](SKILL.md) 与领域文档，让命名跟架构语言和领域语言一致。领域文档在哪、怎么读，见 `/mmw-domain-modeling` 的「读领域文档」一节。
 
 每个 subagent 交回：
 

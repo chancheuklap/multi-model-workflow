@@ -18,7 +18,7 @@ Wiki 只放这一样东西。map、审查记录、终审报告都不进——它
 | 检查 | 怎么查 |
 | --- | --- |
 | 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 |
-| 终审跑过，采信的 findings 都已修复并验证 | `mmw path review` 返回的审查记录目录里有终审报告；有采信项时，记录顶部有 `修复提交` |
+| 终审跑过，采信的 findings 都已修复并验证 | `.reviews/<任务 slug>-final.md` 在；有采信项时，它顶部有 `修复提交` |
 | 工作区干净 | `git status --porcelain` 是空的 |
 | Wiki 已初始化 | `mmw wiki ensure` 跑得通。没初始化它会报出来，只能由用户去仓库的 `/wiki` 页手建一页 |
 
@@ -44,7 +44,7 @@ mmw wiki ensure
 | 落地信息 | 父 spec issue 的链接、这条任务分支的名字、归档日期。**合并的 PR 这时候通常还不存在**，先写分支名，合并之后再补 |
 | spec 正文 | `docs/specs/<slug>/` 的定稿 |
 | 计划章节 | `docs/plans/<slug>/` 的每一份，一张 ticket 一节。计划不单独开页 |
-| 相关决定 | **只放指回仓库实际 ADR 文件的完整链接**，路径跑 `mmw domain dirs` 取，绝不把 ADR 复制进来 |
+| 相关决定 | **只放指回仓库实际 ADR 文件的完整链接**，路径在 `docs/adr/` 下，绝不把 ADR 复制进来 |
 
 Wiki 不支持自动生成目录，长页面靠标题分节。页间链接用 `[[Spec-phone-login|手机号登录]]`。
 
@@ -93,15 +93,19 @@ mmw wiki nav
 
 Wiki 验证通过，而且第 6 步已经归档并提交本地 spec 与 plan 后，清理当前任务自己的过程材料。
 
-先确定产物目录。从 Wayfinder 切出的 spec issue 读取 issue 正文继承的 `## 产物目录`；普通 spec 使用 spec slug。再从已绑定任务状态读取当前任务 slug。不要从任务 worktree 的物理目录名推断。
+先确定产物目录。从 Wayfinder 切出的 spec issue 读取 issue 正文继承的 `## 产物目录`；普通 spec 使用 spec slug。
 
-Wayfinder 派生的 spec 运行 `mmw path scratch <产物目录> task-<任务 slug>`；普通 spec 运行 `mmw path scratch <产物目录>`。只删除命令返回的当前任务 scratch 目录。
+当前任务 slug 取 `mmw task state` 输出的第二个词（任务分支名），去掉宿主命名空间前缀（Codex App 是 `codex/`）之后剩下的部分。不要从任务 worktree 的物理目录名推断。
 
-运行 `mmw path review`。审查记录使用任务 slug，不使用产物目录；只删除 `<命令返回目录>/<任务 slug>-*`。`.dispatch` 也归任务 worktree；只删除文件名或派发记录明确属于当前任务 slug 的 task 和报告文件。删除前列出目标，并逐项验证归属。无法确认归属的条目保留并报告。
+当前任务的 scratch 目录是：Wayfinder 派生的 spec 用 `.scratch/<产物目录>/task-<任务 slug>`，普通 spec 用 `.scratch/<产物目录>`。只删除这一个目录。
 
-不得整目录清空共享 scratch、审查记录目录或 `.dispatch` 目录。只删除 `mmw path scratch` 返回的当前任务目录、`mmw path review` 返回目录中属于当前任务 slug 的文件，以及 `.dispatch` 中明确属于当前任务 slug 的文件。持久 prototype 资产、用户选择保存的 research、evidence 和其他持久内容继续保留。
+界面证据另有一个落点 `.scratch/<任务 slug>/evidence/`（`$mmw:mmw-implement` 的界面验收和 `$mmw:mmw-review` 的终审取证都写这儿）。普通 spec 的产物目录就是任务 slug，它正好在上面那个目录里，一起删掉；**Wayfinder 派生的 spec 两个 slug 不同，它落在外面**，那时另外删这一个目录。用户明确要留的那些已经挪进 `docs/evidence/`，不在这儿。
 
-完成判据：当前任务的 scratch、审查与派发过程材料已经清理；其他任务的过程材料、prototype 资产、用户选择保存的 research、evidence 和其他持久内容仍在。
+审查记录在 `.reviews/`，文件名使用任务 slug，不使用产物目录；只删除 `.reviews/<任务 slug>-*`。`.dispatch/` 是派发产物的落点——走 `mmw dispatch` 派角色时，四栏表和它交回的报告都落在这儿，它也归任务 worktree。只删除文件名或派发记录明确属于当前任务 slug 的 task 和报告文件。删除前列出目标，并逐项验证归属。无法确认归属的条目保留并报告。
+
+不得整目录清空 `.scratch/`、`.reviews/` 或 `.dispatch/`。只删除上面点名的那一个 scratch 目录、`.scratch/<任务 slug>/evidence/`、`.reviews/` 中属于当前任务 slug 的文件，以及 `.dispatch/` 中明确属于当前任务 slug 的文件。持久 prototype 资产、用户选择保存的 research、evidence 和其他持久内容继续保留。
+
+完成判据：当前任务的 scratch、界面证据、审查与派发过程材料已经清理；其他任务的过程材料、prototype 资产、用户选择保存的 research、evidence 和其他持久内容仍在。
 
 ## 下一步
 

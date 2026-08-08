@@ -1,127 +1,117 @@
 ---
 name: mmw-domain-modeling
-description: 领域模型维护方法。用于定义或修正项目术语、bounded context 或 ADR，或其他技能形成这类长期结论；读取领域文档不属于本技能。
+description: 构建并明确项目的领域模型。用户想要明确领域术语、通用语言或 bounded context、记录一项架构决定，或者其他技能需要维护领域模型时使用。
 ---
 
 # Domain Modeling
 
-一边设计一边主动把项目的领域模型建起来、磨锋利。这是*主动*的那份纪律——挑战用词、造边界场景，术语一旦想清楚就当场写进 glossary，决定只有满足完整的三项判据才写成 ADR。（只是*读*领域文档取用词不算这个技能——那是任何技能都能做的一行习惯。这个技能管的是你在改这个模型，不是消费它。）
+在设计过程中主动构建并明确项目的领域模型。这是一项**主动**实践：质疑术语、构造边界场景，并在术语和决定刚刚明确时就把它们写入术语表和决定记录。（仅仅为了取得词汇而**读取**领域文档不属于本技能；任何技能都可以把它作为一行操作习惯。本技能用于改变模型，不用于只消费模型。）
 
-## 先判入口
+## 选择入口
 
-按用户要解决的问题路由，不按待决定事项的数量路由。
+- 用户想把整个计划、决定或未成形的想法追问清楚时，移交 `$mmw:mmw-grilling`。它会在同一段对话中应用本技能。
+- 用户想定义或修正领域术语、通用语言、bounded context、bounded context 之间的关系或 ADR 时，继续本技能。
+- 其他技能为了维护领域模型而调用时，继续本技能；维护完成后交回调用方。
 
-- 用户要把整个计划、决定或未成形想法追问清楚：**移交** `$mmw:mmw-grilling`。它会在同一段对话中应用本技能。
-- 用户要定义或修正领域术语、ubiquitous language、bounded context、上下文关系或 ADR：留在本技能。
-- 其他技能为了维护领域模型而调用：留在本技能，完成后回到调用方。
+## 文件结构
 
-领域建模本身可以包含多个相互依赖的决定。不能因为决定多，就把一个领域建模请求误判成 `$mmw:mmw-grilling`。
+开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
 
-## 读领域文档
+### 读领域文档
 
-开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。运行 `mmw domain path`：
+**看仓库根有什么，形态就定了**，别的技能说「按本节读领域文档」指的就是这张表。目标仓库的 `AGENTS.md` 里通常也有同一条规则（`mmw domain sync` 写进去的，给那些不会加载本技能的 agent 看）；两边说的是一回事，以本节为准。
 
-| 返回 | 读取动作 |
+| 仓库根有 | 形态 | 怎么读 |
+| --- | --- | --- |
+| `CONTEXT-MAP.md` | 多个 bounded context | 它是索引：先读它，再读它列出的、本次涉及的**全部** leaf。leaf 在 `docs/context/` 下 |
+| 只有 `CONTEXT.md` | 单个 bounded context | 直接读它 |
+| 两个都没有 | 还没有领域文档 | 继续做事。**不报缺失，也不顺手创建**——第一个需要长期保留的领域术语真的谈出来了才创建 |
+
+两个都在时以 `CONTEXT-MAP.md` 为准。
+
+### 写在哪
+
+| 要写什么 | 落点 |
 | --- | --- |
-| `map` | 先读 Map，再读本次涉及的全部命名 leaf |
-| `single` | 读命令返回的领域文档 |
-| `none` | 默认直接继续，不报告缺失，也不创建领域文档；只有本文「`none` 形态首次建模」一节规定的场景可以创建 |
+| 单 context 的领域文档 | 仓库根 `CONTEXT.md` |
+| Context Map | 仓库根 `CONTEXT-MAP.md` |
+| 各 leaf | `docs/context/` |
+| ADR | `docs/adr/` |
 
-## 文件放哪
-
-**落点是目标仓库的事实，不是这个技能的事实，不要写死。** 建任何文件之前先跑这两条：
-
-```bash
-mmw domain path    # 这个仓库现在是哪种形态：map / single / none，加对应的路径
-mmw domain dirs    # 写入侧的四个落点：single、map、context、adr
-```
-
-### `none` 形态首次建模
-
-`none` 是合法形态。只读领域文档，或者其他技能顺带调用本技能时，不创建领域文档。
-
-只有以下两个条件同时成立时，才按需创建首份领域文档：
-
-1. 用户当前请求本身是建立或维护领域模型。
-2. 对话已经定下至少一个需要长期保留的领域术语。
-
-条件满足后，先判断 bounded context 的数量和边界：
-
-- 明确只有一个 bounded context：在 `mmw domain dirs` 返回的 `single` 路径创建领域文档，并写入首个长期术语。
-- 明确存在多个 bounded context：
-  1. 运行 `mmw domain map-init`。
-  2. 只有命令输出 `map-init<TAB><相对路径><TAB>created` 后才编辑它创建的 Map；禁止直接创建 Map，也禁止复制受管规则。
-  3. 在 `mmw domain dirs` 返回的 `context` 路径或其子目录创建首个命名 leaf。
-  4. 在 Map 中登记实际路径，补齐全部已确认的 `Contexts` 行，并写入至少一条已确认的 `Relationships` 关系。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
-- bounded context 的数量、术语归属或跨上下文关系不清楚：一次只问用户一个具体问题。用户确认之前不创建领域文档。
-
-首次建模写完后运行 `mmw domain check`。检查失败就修正 Map、leaf 或受管规则；检查通过之前不得提交。
-
-`mmw domain path` 给 `single` 时，术语写进命令返回的领域文档：
+多数仓库只有一个 bounded context：
 
 ```
 /
-├── <mmw domain path 返回的 single leaf>
-├── <mmw domain dirs 返回的 adr 落点>/
+├── CONTEXT.md
+├── docs/adr/
 │   ├── 0001-event-sourced-orders.md
 │   └── 0002-postgres-for-write-model.md
 └── src/
 ```
 
-给 `map`，说明有多个上下文。命令返回的 Map 是索引，指出每个上下文的命名 leaf。新 leaf 建在 `mmw domain dirs` 给的 `context` 路径或其子目录中，并使用 `.md` 扩展名：
+有 `CONTEXT-MAP.md` 的仓库有多个 bounded context，Map 指向每个 leaf 的实际位置：
 
 ```
 /
-├── <mmw domain path 返回的 Map>
-├── <mmw domain dirs 返回的 adr 落点>/   ← 全系统级的决定
-├── <mmw domain dirs 给的 context 落点>/
+├── CONTEXT-MAP.md
+├── docs/adr/                    ← 全系统决定
+├── docs/context/
 │   ├── ordering.md
-│   └── billing/billing-language.md
+│   └── billing.md
+└── src/
 ```
 
-Map 中的 `Leaf` 链接决定已有上下文的真实落点。不要根据上下文名推测文件名，也不要在 Map 之外另建没有登记的 leaf。
+按需创建文件，也就是只有在确实有内容要写时才创建。两个都没有时，在第一个需要长期保留的领域术语得到解决时创建领域文档；`$mmw:mmw-grilling` 调用本技能时同样如此。尚未形成需要长期保留的领域术语时，不创建领域文档；本文「谨慎提议 ADR」一节列了三项条件，还没有出现三项同时成立的决定时，不创建 ADR。
 
-文件按需建——有东西要写了才建。Map 形态新增 leaf 时，同时登记 Map 的 `Contexts` 和 `Relationships`。没有 ADR 目录时，第一份 ADR 要写时再按 `mmw domain dirs` 返回的 `adr` 路径创建。
+创建首份领域文档前，先判断项目有一个还是多个 bounded context：
 
-## 谈的过程里
+- 明确只有一个 bounded context：创建仓库根 `CONTEXT.md`，并写入第一个需要长期保留的领域术语。
+- 明确存在多个 bounded context：运行 `mmw domain map-init`。命令成功创建 Context Map 后，在 `docs/context/` 创建首个 leaf，并在 Context Map 中登记实际路径、所有权和 bounded context 之间已经确认的关系。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
+- bounded context 的数量、术语归属或 bounded context 之间的关系仍不明确：当场询问用户。取得答案后继续创建首份领域文档。
 
-### 拿 glossary 挑战他
+创建或修改 Context Map 和 leaf 后运行 `mmw domain check`。`mmw domain check` 检查通过后，创建首份领域文档或修改 Context Map 和 leaf 的操作才完成。
 
-用户用了一个跟相关 leaf 里既有说法冲突的词，当场挑明。「你的 glossary 把『取消』定义成 X，但你现在说的像是 Y——到底是哪个？」
+`docs/adr/` 不存在时，在需要第一份 ADR 时按需创建。
 
-### 把含糊的说法收紧
+## Session 期间
 
-用户用了含糊的词，或者一个词被当成几个意思在用，提出一个精确的规范说法。「你说的『账户』——指的是 Customer 还是 User？这是两个东西。」
+### 对照术语表提出质疑
 
-### 拿具体场景压
+用户使用的术语与拥有该术语的领域文档中的现有语言冲突时，立即指出。“你的术语表把 cancellation 定义为 X，但你现在表达的意思似乎是 Y；到底是哪一个？”
 
-在谈领域关系时，用具体场景压它们站不站得住。造一些能戳到边界情形的场景，逼用户把概念之间的界线说清楚。
+### 明确含混语言
 
-### 跟代码对一下
+用户使用含混或承担多重含义的术语时，提出一个准确的 canonical 术语。“你说的是 account；你指 Customer 还是 User？二者是不同事物。”
 
-用户说某件事是怎么运作的，去看代码同不同意。发现矛盾就摆到明面上：「你的代码取消的是整张 Order，但你刚说可以部分取消——哪个是对的？」
+### 讨论具体场景
 
-### 当场更新拥有术语的 leaf
+讨论领域关系时，用具体场景进行压力测试。构造能够探查边界情况的场景，迫使用户准确说明概念之间的边界。
 
-一个术语定下来，就地更新拥有这个术语的 leaf。不要攒着——想清楚一个记一个。共享术语只在权威 leaf 定义，其他 leaf 使用权威引用。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
+### 与代码交叉检查
 
-领域 leaf 里绝不能有实现细节。不要把 leaf 当 spec、当草稿纸、当实现决定的收纳箱。它是一份 glossary，仅此而已。
+用户说明某项内容如何运行时，检查代码是否一致。如果发现矛盾，就把它呈现出来：“你的代码会取消整个 Order，但你刚才说可以部分取消；哪一个才正确？”
 
-### ADR 少提
+### 就地更新领域文档
 
-三个条件同时成立才提议写一份 ADR：
+一个术语得到解决时，立即更新拥有该术语的领域文档。不要成批积攒；在术语明确时就记录。单 bounded context 仓库更新 `CONTEXT.md`。多 bounded context 仓库更新拥有该术语的 leaf。使用 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md) 中的格式。
 
-1. **难以回退** —— 以后改主意的代价是实打实的
-2. **不给上下文会让人意外** —— 将来的读者会想「他们当初为什么要这么做？」
-3. **是一次真取舍的结果** —— 当时真有别的选项，你为了具体理由选了这个
+共享术语只在一个 leaf 中定义。其他 leaf 使用权威引用指向拥有该术语的 leaf。
 
-三条缺一条就不写。格式见 [ADR-FORMAT.md](./ADR-FORMAT.md)。
+领域文档必须完全不包含实现细节。不要把领域文档当作 spec、scratch pad 或存放实现决定的仓库。它只是术语表，没有其他用途。
+
+### 谨慎提议 ADR
+
+只有在以下三项全部成立时，才提议创建 ADR：
+
+1. **难以逆转**——以后改变主意的成本不可忽略
+2. **缺少上下文时令人意外**——未来读者会疑惑：“他们为什么这样做？”
+3. **来自真实取舍**——确实存在其他选项，而且你因为具体理由选择了其中一个
+
+缺少其中任何一项，都不要创建 ADR。使用 [ADR-FORMAT.md](./ADR-FORMAT.md) 中的格式。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
-| 由其他技能调用，领域术语或 ADR 已处理完成 | **移交**：回到调用本技能的技能 |
-| 用户直接要求建立或维护领域模型，工作已经完成 | **停**：报告更新了哪些术语、关系或 ADR |
-| 用户实际要追问整个计划、决定或未成形想法 | **移交**：`$mmw:mmw-grilling`，由它组织设计树和提问，并在同一段对话中应用本技能 |
-| `none` 形态首次建模时，bounded context 的数量、术语归属或关系仍不清楚 | **停**：一次询问一个具体的领域边界问题，用户确认前不创建领域文档 |
+| 其他技能调用了本技能，而且领域模型维护已经完成 | **移交**：把更新的领域术语、bounded context、bounded context 之间的关系和 ADR 交回调用方 |
+| 用户直接要求维护领域模型，而且领域模型维护已经完成 | **停**：报告更新的领域术语、bounded context、bounded context 之间的关系和 ADR |

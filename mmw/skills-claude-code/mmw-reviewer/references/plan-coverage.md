@@ -2,7 +2,7 @@
 
 **谁读**：任务名是「覆盖质量审」的审查者。
 
-一张 ticket 对应一份 plan 和一个 `worker`。按整份 plan 判断它是否给出了可执行路线，不要求 plan 再拆成独立 Task Pack。
+一张 ticket 对应一份 plan 和一个 `worker`。按整份 plan 判断它是否给出了可执行路线。
 
 ## 往哪里看
 

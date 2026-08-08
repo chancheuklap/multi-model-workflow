@@ -109,11 +109,6 @@
     }
   },
   "paths": {
-    "specs": "docs/specs",
-    "plans": "docs/plans",
-    "prototypes": "docs/prototypes",
-    "research": "docs/research",
-    "evidence": "docs/evidence",
     "scratch": ".scratch",
     "reviews": ".reviews",
     "release": ".release",

@@ -8,10 +8,10 @@ MMW 的用户界面是技能。日常工作的统一入口是 `$mmw:mmw-start`�
 
 | 项目 | 数量 | 结论 |
 | --- | --- | --- |
-| 当前版本 | 0.10.3 | 对齐 Matt Pocock Skills 1.2.2，并保留 MMW 的正式工作流合同 |
+| 当前版本 | 0.11.0 | 对齐 Matt Pocock Skills 1.2.3，并发布重建后的技能、安装和仓库初始化合同 |
 | 日常工作流入口 | 1 个 | `$mmw:mmw-start` |
-| Codex 技能调用方式 | 2 种 | 显式调用和隐式调用 |
-| `mmw-start` 识别的输入情况 | 15 种 | 恢复当前任务，或者移交 10 个下游技能 |
+| `mmw-start` 调用方式 | 1 种 | 只允许用户显式调用 |
+| `mmw-start` 识别的输入 | 路由表加兜底 | 恢复当前任务、直接查询，或者移交下游技能 |
 | MMW 工作流技能 | 23 个 | 21 个可触发技能，2 个角色方法论技能 |
 | 辅助技能 | 5 个 | 支持交接、agent 文档、人工向导、问卷和用户说明 |
 
@@ -32,7 +32,7 @@ MMW 的用户界面是技能。日常工作的统一入口是 `$mmw:mmw-start`�
 
 MMW 会在每个 agent 开工前选择本次涉及的领域文档。任务进入另一个 bounded context 时，agent 会重新选择相应 leaf。长期形成的新术语和关系由 `mmw-domain-modeling` 写回拥有它们的 leaf。难以回退的决定进入 ADR。
 
-每次技能准备移交到新阶段时，MMW 会检查上下文边界。默认先继续当前会话。只有当前上下文已经不适合下个阶段时，才交接到新会话、交给独立 subagent，或者生成 `handoff` 文档。宿主没有清理或压缩能力时，MMW 不会假装执行这些动作。
+用户需要把当前会话交给另一个 agent 时，可以显式调用 `handoff`。普通技能按照自己的下一步直接移交，不经过额外的阶段边界层。
 
 ### task（四栏表）
 
@@ -78,7 +78,7 @@ MMW 插件（plugin）还包含五个辅助技能。它们不属于上述 23 个
 | `writing-for-agents` | 约束技能、agent 指令和其他供 agent 读取的文本 |
 | `wizard` | 为复杂的人工操作生成可审查、可逐步执行的向导脚本 |
 | `to-questionnaire` | 把缺失信息整理成可转交给另一位知识持有者的问题清单 |
-| `wait-what` | 重新说明上一条消息；按要求生成本地可视化 HTML，并在 Codex 保存 Sites 版本 |
+| `wait-what` | 重新说明上一条消息，或者生成普通 HTML 可视化解释；需要按钮驱动状态模型时移交 `mmw-prototype` |
 
 ## MMW 与 Matt Pocock Skills 的关系
 
@@ -92,9 +92,9 @@ MMW 基于 Matt Pocock Skills 的工程方法构建。对于有上游对应项�
 | MMW 的差异缺少仓库证据，而且删改了方法步骤、解释或完成判据 | 恢复上游合同，再接回 MMW 工作流 |
 | 当前证据无法判断，而且选择会改变方法效果或用户流程 | 收敛成一个必要决定，再请用户确认 |
 
-prototype 同时体现这两层合同。它遵循上游的单文件 HTML、自由操作、引导式走查和可重复初态方法。Wayfinder map 在正文固定一个 `产物目录`；prototype 路径由 `mmw path prototype` 计算。默认配置下，Wayfinder decision ticket 使用 `docs/prototypes/<产物目录>/issue-<编号>/`，普通任务使用 `docs/prototypes/<任务 slug>/`。每个 prototype 资产索引只向下游传递用户选中的产物、走查结论和明确引用的长期证据；完整界面变体继续保留为 primary source。过程截图、DOM、console、录屏和生成中间物进入 Git 忽略的 scratch。正式实现只吸收已经验证的决定和可移植逻辑，不把 prototype 外壳当成生产代码。
+prototype 同时体现这两层合同。后端脚本、Logic HTML 和 UI/UX 是同一份 prototype 的不同工作面。它们在原位置持续迭代，由用户逐轮走查。Wayfinder map 在正文固定一个 `产物目录`。Wayfinder decision ticket 使用 `docs/prototypes/<产物目录>/issue-<编号>/`，普通任务使用 `docs/prototypes/<任务 slug>/`。prototype 索引向下游传递用户走查结论、选中产物、否定约束和可复用的想法。过程截图、DOM、console、录屏和生成中间物进入 Git 忽略的 scratch。prototype 外壳不直接进入正式产品。
 
-每次 `mmw-research` 完成验证与综合后，MMW 都展示结论摘要、拟保存文件和完整路径，并询问用户是否保存。research 路径由 `mmw path research` 计算。默认配置下，普通任务使用 `docs/research/<产物目录>/<research 主题>/`，Wayfinder decision ticket 使用 `docs/research/<产物目录>/issue-<编号>/<research 主题>/`。用户选择不保存时，不创建 research 目录或文件。保存不代表下游必须引用。下游只读取当前工作点名的 `README.md` 和精确文件。subagent 原始报告、网页转储和抓取缓存进入 Git 忽略的 scratch。
+`mmw-research` 由主 agent 和 `investigator` 共用入口。主 agent 只读取编排流程；`investigator` 根据 task 读取内部或外部取证方法。普通 research 完成验证与综合后，MMW 展示结论摘要、拟保存文件和完整路径，并询问用户是否保存。Wayfinder research ticket 和外部系统实测直接保存。普通任务使用 `docs/research/<产物目录>/<research 主题>/`；Wayfinder decision ticket 使用 `docs/research/<产物目录>/issue-<编号>/<research 主题>/`。下游只读取当前工作点名的 `README.md` 和精确文件。
 
 0.10.0 还恢复了一次会话只解决一张 Wayfinder decision ticket、ticket 发布前人工审批关卡、阶段边界决策树、实现阶段测试频率和出包后重新终审等合同。它新增 `writing-for-agents`、`wizard`、`to-questionnaire` 和 `wait-what`，但没有把这些辅助技能加入日常主路由。
 
@@ -104,6 +104,8 @@ prototype 同时体现这两层合同。它遵循上游的单文件 HTML、自�
 
 0.10.3 统一 active skill 的触发描述和文档结构，明确 prototype、research、evidence、scratch 与 review 的资产合同，并校正 Research、plan、审查和 tracer bullet ticket 的职责边界。⑤ final 终审与 ⑥ 合并集成审是互斥终审；多分支集成通过 ⑥ 后不再发起 ⑤。
 
+0.11.0 发布技能 rebuild。`mmw-start` 改为用户专用入口；下游缺少任务上下文时停止并说明，不再回跳。Prototype 改为持续迭代的持久资产。Research 按主 agent 与 `investigator` 身份渐进加载。审查收敛为五道，多分支集成结果进入同一道 ⑤ final 终审。模型档归已安装 runtime；`mmw/install.sh` 负责本机安装，`mmw init` 只配置目标仓库。
+
 ## 用户使用的三个阶段
 
 用户会接触安装、仓库初始化和日常工作三个阶段。安装和初始化是准备工作。MMW 日常工作流只有一个入口。
@@ -111,52 +113,53 @@ prototype 同时体现这两层合同。它遵循上游的单文件 HTML、自�
 | 使用时机 | 用户做什么 | Codex 做什么 |
 | --- | --- | --- |
 | 首次安装 | 授权 Codex 安装 MMW | 安装 plugin、原生 subagent、`mmw` 命令和检索依赖 |
-| 每个仓库首次接入 | 要求 Codex 初始化当前仓库 | 生成项目配置、同步领域上下文读取规则并完成环境检查 |
+| 每个仓库首次接入 | 要求 Codex 初始化当前仓库 | 运行 `mmw init` 配置仓库，再运行 `mmw doctor` 只读检查本机运行时 |
 | 开始或继续工作 | 显式调用 `$mmw:mmw-start` | 判断路线、处理任务 worktree，并移交对应技能 |
 
 日常开发只有一个统一入口：`$mmw:mmw-start`。用户不需要自己选择 `mmw-grilling`、`mmw-to-spec`、`mmw-implement` 或 `mmw-review`。
 
-## Codex 中有几种调用方式
+## Codex 中怎样调用入口
 
-Codex 支持两种技能调用方式。具体语法见 [Codex Skills 文档](https://learn.chatgpt.com/docs/build-skills)。
+`mmw-start` 是用户专用技能。具体语法见 [Codex Skills 文档](https://learn.chatgpt.com/docs/build-skills)。
 
-| 方式 | 写法 | 建议 |
+| 方式 | 写法 | 结果 |
 | --- | --- | --- |
-| 显式调用 | 在提示词（prompt）中使用 `$mmw:mmw-start` | 推荐。用户明确指定 MMW 入口 |
-| 隐式调用 | 只描述任务，让 Codex 根据技能 description 自动选择 | 支持，但不作为 README 的主要用法 |
+| 显式调用 | 在提示词中使用 `$mmw:mmw-start` | 进入 MMW 统一路由 |
+| 只描述任务 | 不调用 `mmw-start` | Agent 按普通技能发现机制处理，不会自动进入统一入口 |
 
 开始 MMW 工作时应使用显式调用。不要只写“使用 MMW”。
 
-## 安装到 Codex
+## 从源码仓库安装到本机宿主
 
 安装只做一次。用户在任意 Codex 本地任务中发送下面的请求，并把 `<本机目录>` 换成希望保存源码的位置。
 
 ```text
-请把 MMW 安装到当前 Codex。
+请把 MMW 安装到这台电脑已有的 agent harness。
 
 源码仓库：https://github.com/chancheuklap/multi-model-workflow.git
 源码位置：<本机目录>
 
-请完成 Codex plugin、原生 subagent、mmw 命令和检索依赖的安装。
+请运行源码仓库里的 mmw/install.sh。
+让它安装 Codex、Claude Code、Pi、原生 subagent、mmw 命令和 MCP 中当前可用的部分。
 安装后按仓库规则完成运行时和依赖检查。
 需要我登录 GitHub、确认权限或提供 Context7 密钥时再停下来问我。
 最后说明安装了什么、检查是否通过、哪些能力仍不可用。
 ```
 
-安装会修改 Codex 的全局 plugin 状态、`~/.codex/agents/` 和 `~/.local/bin/`。安装完成后，新建一个 Codex 任务，让新任务加载 MMW。
+安装会构建本机稳定 runtime，并修改已经安装的宿主配置、原生 subagent、MCP 配置和 `~/.local/bin/`。安装完成后，重启宿主或开始一个新会话。
 
 ### 从已有版本升级
 
-升级也需要同时更新两个安装面。Codex plugin cache 提供技能和 MCP。MMW 运行时安装器提供四个原生 subagent 和指向当前 plugin cache 的 `mmw` 命令。只更新其中一处不算完成。
+升级从 MMW 源码仓库统一运行 `mmw/install.sh`。安装器构建稳定 runtime，再更新本机已有的 Codex、Claude Code、Pi、原生 subagent、`mmw` 命令和 Pi/Cursor MCP。
 
 用户可以在 MMW 源码仓库的 Codex 任务中发送：
 
 ```text
 请把当前 MMW 升级安装到 Codex。
 
-先确认源码版本和工作区状态，再更新 Codex plugin cache。
-随后安装原生 subagent 和 mmw 命令，并运行 Codex runtime 检查。
-最后确认 plugin、运行时入口和源码使用同一版本。
+先确认源码版本和工作区状态，再运行 mmw/install.sh。
+随后运行 mmw doctor，按它报告的缺项处理。
+最后确认各宿主、稳定 runtime 和源码使用同一版本。
 不要推送或正式发布。
 ```
 
@@ -164,7 +167,7 @@ Codex 支持两种技能调用方式。具体语法见 [Codex Skills 文档](htt
 
 1. `codex plugin list` 显示 MMW 已安装、已启用，并使用当前版本。
 2. 四个原生 subagent 已更新。
-3. `mmw` 命令指向当前版本的 plugin cache。
+3. `mmw` 命令指向当前版本的稳定 runtime。
 4. Codex runtime 检查和物化检查通过。
 5. 用户新建 Codex 任务，或者重启 Codex。已经打开的任务不会热加载新技能。
 
@@ -176,8 +179,8 @@ Codex 支持两种技能调用方式。具体语法见 [Codex Skills 文档](htt
 请为当前仓库初始化 MMW。
 
 开始前检查初始化涉及的文件是否有未提交改动。
-完成项目配置、领域上下文读取规则、测试说明骨架和 GitHub 标签初始化。
-初始化后完成项目环境检查，并说明改了什么、创建了哪个提交、哪些检查没有通过。
+运行 `mmw init`，完成项目配置、领域上下文读取规则、测试说明骨架和 GitHub 标签初始化。
+再运行 `mmw doctor`，只读检查本机运行时，并说明哪些检查没有通过。
 这一步不要替项目创建领域模型。
 ```
 
@@ -187,7 +190,7 @@ Codex 会完成初始化和检查。用户不需要打开终端，也不需要�
 
 | 位置 | 作用 |
 | --- | --- |
-| `.mmw.json` | 保存角色模型、tracker 标签、过程材料路径和领域文档落点 |
+| `.mmw.json` | 保存 tracker 标签、CLI 路径和领域文档形态；不保存模型档 |
 | `AGENTS.md` | 保存“开工前怎样选择领域上下文”的受管规则块 |
 | `TESTING.md` | 保存目标仓库自己的测试层次、seam 和运行方法 |
 | `.gitignore` | 忽略审查记录、release 过程材料和结构图谱派生物 |
@@ -236,7 +239,7 @@ $mmw:mmw-start bug 支付成功后订单仍显示待支付。
 ```
 
 ```text
-$mmw:mmw-start big 重新设计整套商家结算系统。
+$mmw:mmw-start wayfinder 重新设计整套商家结算系统。
 ```
 
 ```text
@@ -247,11 +250,11 @@ $mmw:mmw-start issue #123
 $mmw:mmw-start <map 编号或链接>
 ```
 
-`bug` 和 `big` 是显式路线标签。没有标签时，`mmw-start` 根据用户内容和 issue tracker 状态判断路线。
+`bug` 和 `wayfinder` 是显式路线标签。没有标签时，`mmw-start` 根据用户内容和 issue tracker 状态判断路线。
 
 ## `mmw-start` 的完整路由
 
-`mmw-start` 识别 15 种输入情况。这些情况收敛为“恢复当前任务”或 10 个下游技能。
+`mmw-start` 识别 18 种输入情况。这些情况收敛为恢复、直接查询或 11 个下游技能。
 
 | # | 用户输入或 tracker 状态 | 下一步技能 |
 | --- | --- | --- |
@@ -259,24 +262,26 @@ $mmw:mmw-start <map 编号或链接>
 | 2 | 一张 map 的编号、链接，或者要求继续某张 map | `mmw-wayfinder` |
 | 3 | 带 `wayfinder:` 标签的 decision ticket | `mmw-wayfinder` |
 | 4 | 挂在 `wayfinder:map` 下、不带 `wayfinder:` 标签的 spec issue | `mmw-to-spec` |
-| 5 | 尚未分诊的 issue 或 PR | `mmw-triage` |
-| 6 | 已是 `ready-for-agent`，但 agent brief 不完整 | `mmw-triage` |
-| 7 | 已是 `ready-for-agent`，可以作为一张 ticket 独立验收，只有一个 Test seam，没有未决设计取舍 | `mmw-implement` |
-| 8 | 已是 `ready-for-agent`，但需要多张 ticket、多个 Test seam 或仍有设计取舍 | `mmw-to-spec` |
-| 9 | 有东西坏了、报错、跑不通、变慢，或者显式使用 `bug` | `mmw-diagnosing-bugs` |
-| 10 | 一项超过一个 agent 会话且路线尚不清楚的 effort，或者显式使用 `big` | `mmw-wayfinder` |
-| 11 | 想先看界面 prototype，或者要验证一套状态模型 | `mmw-prototype` |
-| 12 | 单个文件、符号、事实或一条命令能答完 | 主 agent 直接查询并回答 |
-| 13 | 需要多个独立角度或多份一手资料的重型调查 | `mmw-research` |
-| 14 | 新需求，或者对已有需求的改进 | `mmw-grilling` |
-| 15 | 没有具体需求，只想找代码库的可维护性问题 | `mmw-improve-codebase-architecture` |
-| 16 | 集成并行分支、让结果分支跟上目标分支，或者处理冲突 | `mmw-integrate` |
+| 5 | spec issue 下的 tracer bullet ticket 已有 plan，并带 `ready-for-agent` | `mmw-implement` |
+| 6 | spec issue 下的 tracer bullet ticket 缺少 plan 或 `ready-for-agent` | `mmw-to-plan` |
+| 7 | 尚未分诊的 issue 或 PR | `mmw-triage` |
+| 8 | 已是 `ready-for-agent`，但 agent brief 不完整 | `mmw-triage` |
+| 9 | 已是 `ready-for-agent`，可以作为一张 ticket 独立验收，只有一个 Test seam，没有未决设计取舍 | `mmw-implement` |
+| 10 | 已是 `ready-for-agent`，但需要多张 ticket、多个 Test seam 或仍有设计取舍 | `mmw-to-spec` |
+| 11 | 有东西坏了、报错、跑不通、变慢，或者显式使用 `bug` | `mmw-diagnosing-bugs` |
+| 12 | 一项超过一个 agent 会话且路线尚不清楚的 effort，或者显式使用 `wayfinder` | `mmw-wayfinder` |
+| 13 | 想先看界面 prototype，或者要验证一套状态模型 | `mmw-prototype` |
+| 14 | 单个文件、符号、事实或一条命令能答完 | 主 agent 直接查询并回答 |
+| 15 | 需要多个独立角度或多份一手资料的重型调查 | `mmw-research` |
+| 16 | 新需求，或者对已有需求的改进 | `mmw-grilling` |
+| 17 | 没有具体需求，只想找代码库的可维护性问题 | `mmw-improve-codebase-architecture` |
+| 18 | 集成并行分支、让结果分支跟上目标分支，或者处理冲突 | `mmw-integrate` |
 
 issue 或 PR 的标签和 agent brief 会影响路由。用户只需提供编号或链接，`mmw-start` 负责读取完整内容和状态。
 
 `mmw-prototype` 产生 prototype 资产。逻辑 prototype 使用可直接双击打开的单文件 HTML，并同时提供自由操作和引导式走查。同一 Wayfinder effort 共用 map 的 `产物目录`，每张 decision ticket 使用自己的 `issue-<编号>` 子目录。下游先读该子目录的 `README.md`，再读取用户选中的产物和明确引用的长期证据。临时运行材料进入 Git 忽略的 scratch。
 
-`mmw-research` 每次完成 research 后都询问用户是否保存。用户选择保存时，`README.md` 是 research 索引。下游只在当前工作需要时读取 research 索引和点名的精确文件。research 不进入 ADR 目录；只有满足 ADR 判据的决定才进入 ADR。
+普通 `mmw-research` 完成后询问用户是否保存。Wayfinder research ticket 和外部系统实测直接保存。`README.md` 是 research 索引。下游只读取当前工作点名的 research 索引和精确文件。research 不进入 ADR 目录；只有满足 ADR 判据的决定才进入 ADR。
 
 `mmw-to-tickets` 会先展示 tracer bullet 切分、阻塞关系，以及 prototype 与 research 引用。用户通过 ticket 切分的人工审批关卡后，MMW 才把 ticket 发布到 tracker。
 
@@ -286,22 +291,6 @@ issue 或 PR 的标签和 agent brief 会影响路由。用户只需提供编号
 
 主 agent 负责读取领域上下文、选择技能、编写 task、派发 subagent、验证报告、验收结果分支并推进工作流。用户不需要手动选择 `worker`、`planner` 或审查者，也不需要运行 `mmw` 命令。
 
-## 通过两张图理解完整工作流
+## 查看完整工作流
 
-第一张图展示全部技能、产物、移交关系、人工审批关卡和 Codex Worktree 边界。第二张图展开 `mmw-wayfinder` 内部的 map 工作流。
-
-GitHub README 会显示可点击的 SVG。点击图片或“打开全尺寸图”后可以缩放查看。需要搜索节点或连续平移时，克隆仓库并在浏览器中打开交互式 HTML。
-
-### MMW 完整工作流
-
-[![MMW 完整工作流](docs/assets/mmw-workflow-overview.svg)](docs/assets/mmw-workflow-overview.svg)
-
-[打开全尺寸图](docs/assets/mmw-workflow-overview.svg)
-
-### `mmw-wayfinder` 工作流
-
-[![mmw-wayfinder 工作流](docs/assets/mmw-wayfinder-workflow.svg)](docs/assets/mmw-wayfinder-workflow.svg)
-
-[打开全尺寸图](docs/assets/mmw-wayfinder-workflow.svg)
-
-交互式版本：[`mmw-skill-map.html`](mmw-skill-map.html)
+[`mmw-skill-map.html`](mmw-skill-map.html) 是当前架构的交互式地图。它展示技能、产物、移交关系、人工审批关卡、宿主发布面和 `mmw-wayfinder` 内部流程。

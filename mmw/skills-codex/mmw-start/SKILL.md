@@ -1,7 +1,8 @@
 ---
 name: mmw-start
-description: MMW 的统一入口和任务恢复路由。用户开始新任务、提出需求或 bug、提供 issue、PR、map 或 big effort、要求改善架构或集成分支，或没有交代内容而要恢复当前进度时使用；已直接指定下游技能时跳过。
-argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
+description: MMW 的统一入口。用于开始或恢复任务，并把输入路由到正确技能。
+argument-hint: "[wayfinder] [需求、bug、issue/PR/map 编号或链接；留空恢复当前任务]"
+disable-model-invocation: true
 ---
 
 本技能只做路由，这次任务本身一个字都不实现。
@@ -28,7 +29,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 | 一个 issue 编号，已是 `ready-for-agent`，整项工作可以作为一张 ticket 独立验收，只有一个已确认的测试 seam，而且没有未决设计取舍 | **移交**：`$mmw:mmw-implement` |
 | 一个 issue 或 PR 编号，已是 `ready-for-agent`，但需要拆成多张 ticket、需要多个测试 seam，或者还有设计取舍要谈 | **移交**：`$mmw:mmw-to-spec` |
 | 有东西坏了、报错、跑不通、变慢了，或者挂了 `bug` | **移交**：`$mmw:mmw-diagnosing-bugs` |
-| 一个 effort 超出一次 agent session，而且从当前状态到 destination 的路线还看不清，或者挂了 `big` | **移交**：`$mmw:mmw-wayfinder` |
+| 一个 effort 超出一次 agent session，而且从当前状态到 destination 的路线还看不清，或者用户在输入开头写了 `wayfinder` | **移交**：`$mmw:mmw-wayfinder` |
 | 想先看看某个界面长什么样，或者不确定一套状态模型对不对 | **移交**：`$mmw:mmw-prototype` |
 | 单个文件、符号、事实或一条命令能答完 | **自己继续**：主 agent 直接查询并回答，到这里完成，不进入第 2、3 步 |
 | 要从多个独立角度调查跨模块实现、调用链、数据流或影响面，或者需要对照多份一手资料 | **移交**：`$mmw:mmw-research`，跳过第 2、3 步 |
@@ -45,7 +46,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 最终形成一份还是多份 spec 不是入口判据。范围大但路线已经清楚时，直接进入 `$mmw:mmw-to-spec` 或 `$mmw:mmw-to-tickets`；路线模糊但一次会话能谈清时，走 `$mmw:mmw-grilling`。
 
-带 issue 编号的，先 `gh issue view <编号> --comments` 把它读出来再判，不要只看编号。标签的含义见 `$mmw:mmw-triage`。
+带 issue 编号的，先 `gh issue view <编号> --comments` 把它读出来再判，不要只看编号。`wayfinder:` 这一族标签的含义见 `$mmw:mmw-wayfinder`，其余分诊标签见 `$mmw:mmw-triage`。
 
 ## 2. 定 slug
 
@@ -78,11 +79,19 @@ slug 的类型前缀用连字符。不带 issue 编号，不带日期。同名�
 
 任务 worktree 必须从正确的父分支开始。普通任务使用当前目标分支；从 `$mmw:mmw-wayfinder` map 派生的任务使用 map 分支。父分支不包含任务所需决定时停下，不在错误基点上补提交。
 
-Codex App 在任务创建时已经准备好 detached worktree。确认任务范围和父分支后，运行 `mmw task bind codex/<slug> "<用户原话>" --from <父分支或基点 SHA>`。命令必须返回任务分支名和起始提交；当前状态不是 detached、工作区不干净、分支已存在或父分支不正确时停下。
+先跑 `mmw task state`。它输出一行，第一个词决定这棵树要不要你自己建：
+
+| 第一个词 | 什么意思 | 你做什么 |
+| --- | --- | --- |
+| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。第二个词是任务分支名，第三个词是当前 HEAD，记下它们 |
+| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <分支名> "<用户原话>"`。`<分支名>` 用这个任务的 slug；宿主对任务分支有固定命名空间（Codex App 是 `codex/`）时带上它。知道预期基点就加 `--from <父分支或基点 SHA>`，它只是一道校验，不确定就不加。命令必须返回任务分支名和起始提交 |
+| `local` 或 `outside` | 你在主检出里，或者根本不在仓库里 | 这棵树要你自己建：`mmw task new <slug> "<用户原话>"`，从 map 分支派生时加 `--from <map 分支>`。命令返回绝对路径，用宿主切换工作目录的能力进去 |
+
+两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
 
 **粒度是一份 spec 一棵树。** 这份 spec 拆出的几张 ticket 全在这棵树里按顺序做完，整体合并一次、终审一次、Wiki 写一次。确实能并行的 ticket 从当前这棵树的分支再分叉出去（判据在 `$mmw:mmw-implement`）。**分支可以嵌套，目录不嵌套**——所有 worktree 一律扁平挂在同一个落点下。
 
-任务 worktree 在整个任务期间持久，可以跨天，中途不要清理。**新 worktree 不预先创建产物目录**：spec、plan、prototype 和审查记录的配置落点都在首次写入时创建。
+任务 worktree 在整个任务期间持久，可以跨天，中途不要清理。**新 worktree 不预先创建产物目录**：spec、plan、prototype 和审查记录的目录都在首次写入时才创建。
 
 报一句你定的 slug 和你要走的路线，然后接着做，不用停下来等用户确认。
 

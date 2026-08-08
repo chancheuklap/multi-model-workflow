@@ -1,0 +1,5 @@
+interface:
+  display_name: "MMW Start"
+  short_description: "开始新任务或恢复当前任务"
+policy:
+  allow_implicit_invocation: false

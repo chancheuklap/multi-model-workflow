@@ -15,9 +15,11 @@ description: 为已发布 spec 的每张 tracer bullet ticket 编排一份 plan�
 
 | 检查 | 怎么查 |
 | --- | --- |
-| 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头；不满足就回 `/mmw-start` 建立或绑定任务 worktree |
+| 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头；不满足就停下，说明当前没有已绑定的任务上下文，无法继续 |
 | spec 已定稿并过了人工审批关卡 | `docs/specs/<slug>/<slug>.md` 存在，对应的 spec issue 已发布并带着 `ready-for-agent` |
 | ticket 已发布 | `mmw issue children <spec issue 编号>` 列得出这批 ticket；列不出先跑 `/mmw-to-tickets` |
+
+`<spec issue 编号>` 由调用方移交时给你。没有这个编号就停下，说明缺少哪项输入。
 
 ## 1. 定 plan 清单
 
@@ -67,12 +69,15 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 
 | 栏 | 本角色填写 |
 | --- | --- |
-| 目标 | 为 ticket `#<编号>` 写 plan，落到指定路径 |
-| 读 | 按「1. 定 plan 清单」逐行列出当前 ticket 的精确路径；最后加入 `mmw skill-path planner` 的输出，没有则写「无（宿主已注入）」 |
+| 目标 | 为 ticket `#<编号>` 写 plan，写进 `docs/plans/<slug>/<NN>-<ticket-slug>.md`——这条路径从 ticket 正文的 `## Plan` 一节原样抄过来，**把完整路径写进这一栏**，`planner` 只认 task 里给的这一个落点 |
+| 读 | 按「1. 定 plan 清单」逐行列出当前 ticket 的精确路径。方法论不用列——`planner` 自带 `/mmw-planner` |
 | 约束 | 只写该 plan 文件；不提交；不认领 `## Cross-Plan Contract Anchors` 划给别人的文件；不写其他 plan 的正文 |
 | 验收 | plan 文件存在且可被抽验；`## Acceptance` 覆盖 ticket `#<编号>` 的全部验收（详见 issue，不抄正文） |
 
+派一个 `planner`，它在**当前任务 worktree** 里写 plan 文件，不另开分支。
 启动：调用原生 `subagent`，agent 设为 `mmw-planner`，task 传四栏表全文，cwd 设为当前任务 worktree 的绝对路径。
+
+**当前任务 worktree 的绝对路径**：`git rev-parse --show-toplevel`。
 
 互不依赖的 plan：同一条消息里并行启动多个 `planner`。有依赖链：按依赖顺序启动。`planner` 使用当前任务 worktree，不建独立 worktree，不提交。每个 `planner` 只写自己的 plan 文件。
 
@@ -99,7 +104,7 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 
 ## 6. 发起 ② plan 审
 
-**全部 plan 都验证过、合同也回填完之后，发起一次审查，不逐份发起。** 按 `/mmw-review` 走。
+**全部 plan 都验证过、合同也回填完之后，发起一次审查，不逐份发起。** 按 `/mmw-review` 走，传给它：plan 目录 `docs/plans/<slug>/` 的路径、这份 spec 的精确路径、全部 ticket 的编号，以及这批 plan 实际引用到的 prototype `README.md`、选中产物、research `README.md` 和精确文件；某一项没有就写「无」。
 
 ## 7. 提交
 

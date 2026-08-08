@@ -24,6 +24,7 @@ DEFAULT_OUT = {
     "claude-code": PLUGIN_ROOT / "skills-claude-code",
     "codex": PLUGIN_ROOT / "skills-codex",
 }
+PI_PROMPTS_OUT = PLUGIN_ROOT / "prompts-pi"
 
 LAUNCH_RE = re.compile(
     r"\[\[mmw-launch:([a-z0-9-]+):(worktree|current|none)\]\]"
@@ -31,7 +32,6 @@ LAUNCH_RE = re.compile(
 LAUNCH_GROUP_RE = re.compile(
     r"\[\[mmw-launch-group:([a-z0-9-]+):(worktree|current|none)\]\]"
 )
-HOST_ACTION_RE = re.compile(r"\[\[mmw-host-action:([a-z0-9-]+)\]\]")
 CODEX_SKILL_REF_RE = re.compile(r"`/(mmw-[a-z0-9-]+)`")
 SKIP_DIR_NAMES = frozenset({"mmw-dispatching-agents", "mmw-setup"})
 POST_LAUNCH_RULE = (
@@ -132,8 +132,7 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
             die("Codex 缺 reviewer-gpt subagent profile")
         return (
             "Codex 只使用一个审查角色。①、②、⑤ 每个视角各启动一个 "
-            f"Codex 原生 `{profile['name']}` subagent；⑥ 同时启动两个该 subagent，"
-            "各自完成全部七个角度。"
+            f"Codex 原生 `{profile['name']}` subagent。"
             "每个审查者使用独立上下文，可以与产物作者使用相同模型。"
             "互不依赖的审查任务在同一条消息中并行启动。"
         )
@@ -146,195 +145,10 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
     return (
         "当前宿主使用两个审查角色。① 每个视角启动一个 `reviewer-gpt`。"
         f"{gpt}② 每个视角启动一个 `reviewer-claude`。{claude}"
-        "⑤ 每个视角分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude`；"
-        "⑥ 分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude` 完成全部七个角度。"
+        "⑤ 每个视角分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude`。"
         "同一视角的两份 findings 并排比较；只由一个审查者报告的条目优先验证，"
         "两个审查者都报告的条目仍需验证出处。每个审查者只收到自己的四栏 task。"
     )
-
-
-def expand_host_action(name: str, host: str) -> str:
-    if name == "present-ui-review":
-        if host == "codex":
-            return (
-                "完整读取并遵守 `/browser:control-in-app-browser`。使用 Codex 内置浏览器，"
-                "该 skill 不可用时明确报告 blocker，不得改用 Playwright CLI 冒充用户走查。"
-                "先清点全部相关页面或 URL，每个页面使用独立标签页；不得用一个标签页依次覆盖多份 mockup。"
-                "把浏览器设为可见，并用 `codex_app__open_in_codex` 在当前任务的 Codex 面板打开第一个标签页。"
-                "读取实际 URL、标题和可见状态；没有确认可见时，不得声称已经打开。"
-                "交给用户前，为每个相关页面的当前状态截图；把截图保留在当前对话，"
-                "有正式原型或走查目录时同时保存到该目录并记录路径。"
-                "用户需要继续标记或操作时，保留全部相关标签页为 `handoff`；"
-                "`finalize` 必须是本回合最后一个浏览器动作。页面交给用户后停止导航，等待用户反馈。"
-            )
-        return (
-            "使用当前宿主已有的浏览器工具打开全部相关页面，并保留给用户走查。"
-            "交给用户前保存每个相关页面的截图并记录出处。"
-            "没有可用浏览器工具时，给出一条运行命令、全部页面地址和目标 viewport，等待用户反馈。"
-        )
-
-    if name == "browser-evidence":
-        if host == "codex":
-            return (
-                "完整读取并遵守 `/browser:control-in-app-browser`。"
-                "交互式浏览器取证使用 Codex 内置浏览器，保存相关状态的截图、DOM 和 console 证据。"
-                "需要多轮测量或稳定断言时，仍使用项目已有的 Playwright 或 Puppeteer 入口。"
-                "取证时覆盖过 viewport 的，保存最后一份证据后恢复默认 viewport。"
-                "项目没有自动化入口时，记录可重复执行的浏览器步骤；不为本次取证安装新的浏览器工具。"
-            )
-        return (
-            "浏览器验证使用项目已有的 Playwright 入口；项目没有入口时，"
-            "记录可重复执行的人工步骤，不为本次验证新增浏览器工具。"
-        )
-
-    if name == "browser-bug-reproduction":
-        if host == "codex":
-            return (
-                "完整读取并遵守 `/browser:control-in-app-browser`。"
-                "**Codex 内置浏览器复现**——先确认用户看到的界面、状态和交互，"
-                "采集截图、DOM 与 console；这一步只负责复现和缩小范围，"
-                "复现时覆盖过 viewport 的，保存最后一份证据后恢复默认 viewport；"
-                "完成 Phase 1 前仍要把症状收敛成一条可重复执行的 red-capable 命令。"
-            )
-        return (
-            "**headless 浏览器脚本**（Playwright / Puppeteer）——驱动界面，"
-            "对 DOM／console／网络下断言。"
-        )
-
-    if name == "browser-ui-acceptance":
-        if host == "codex":
-            return (
-                "完整读取并遵守 `/browser:control-in-app-browser`。"
-                "主 agent 在结果 worktree 启动界面，使用 Codex 内置浏览器走通黄金路径和本次相关边界状态。"
-                "按视觉合同设置 viewport，逐个检查加载、空、错误、成功和部分完成中实际存在的状态。"
-                "保存关键截图；交互异常时同时读取 DOM 和 console。"
-                "保存最后一份证据后恢复默认 viewport。"
-                "浏览器验收没有通过，或者浏览器不可用且没有等价证据时，不得集成结果分支。"
-            )
-        return (
-            "界面 ticket 使用目标仓库已有的浏览器测试入口走通黄金路径和本次相关边界状态。"
-            "没有入口时记录可重复执行的人工步骤；验收没有通过时不得集成结果分支。"
-        )
-
-    if name == "browser-review-evidence":
-        if host == "codex":
-            return (
-                "完整读取并遵守 `/browser:control-in-app-browser`。"
-                "主 agent 在派审查者前使用 Codex 内置浏览器运行界面改动，"
-                "按视觉合同采集关键状态的截图、DOM 和 console 证据。"
-                "保存最后一份证据后恢复默认 viewport。"
-                "把证据路径只加入“对照终审”的读栏；“独立终审”仍只读 diff 范围。"
-                "无法运行界面时，把具体 blocker 写入审查材料，不得把未验证写成通过。"
-            )
-        return (
-            "主 agent 使用当前宿主已有的浏览器入口采集界面关键状态证据。"
-            "把证据路径只加入“对照终审”的读栏；无法运行时把 blocker 写入审查材料。"
-        )
-
-    if name == "browser-plan-validation":
-        if host == "codex":
-            return (
-                "界面 plan 把自动回归与人工浏览器审批分开写。"
-                "`Verification commands` 只写能重复执行的测试命令和预期结果；"
-                "`Browser acceptance` 写明由主 agent 使用 Codex 内置浏览器检查的页面、黄金路径、"
-                "本次相关状态、viewport 和每项可见结果。"
-                "不得把 Playwright CLI 写成人工走查的替代品，也不得把内置浏览器操作伪装成自动回归命令。"
-            )
-        return (
-            "界面 plan 把可重复执行的自动回归命令与当前宿主的人工浏览器审批分开写。"
-            "人工审批逐项写明页面、路径、状态、viewport 和可见结果；没有界面时写“不适用”。"
-        )
-
-    if name == "render-inline-visual-explanation":
-        if host == "codex":
-            return (
-                "完整读取并遵守 `$visualize:visualize`。使用 HTML fragment 完整解释用户指定的这一个小范围。"
-            )
-        return (
-            "**宿主动作待实现：`render-inline-visual-explanation`。**"
-            "当前宿主明确报告对话内可视化尚未实现。"
-        )
-
-    if name == "publish-visual-explanation":
-        if host == "codex":
-            return (
-                "完整读取并遵守 `$sites:sites-building` 和 `$sites:sites-hosting`。"
-                "把已经保存的本地 HTML 作为 Sites 网站的完整内容发布，发布的页面内容与本地 HTML 一致。"
-                "同一份本地 HTML 更新时复用同一个 Sites 网站，并保存一个新版本。"
-                "发布成功后返回本地 HTML 路径和 Sites 网址。"
-            )
-        return (
-            "**宿主动作待实现：`publish-visual-explanation`。**"
-            "当前宿主保留本地 HTML，并明确报告 Sites 发布尚未实现。"
-        )
-
-    if name == "prepare-task-worktree":
-        if host == "codex":
-            return (
-                "Codex App 在任务创建时已经准备好 detached worktree。确认任务范围和父分支后，"
-                "运行 `mmw task bind codex/<slug> \"<用户原话>\" --from <父分支或基点 SHA>`。"
-                "命令必须返回任务分支名和起始提交；当前状态不是 detached、工作区不干净、"
-                "分支已存在或父分支不正确时停下。"
-            )
-        enter = "`enter_worktree`" if host == "pi" else "`EnterWorktree`"
-        return (
-            "运行 `mmw task new <slug> \"<用户原话>\"` 创建任务 worktree；"
-            "从 map 分支派生时增加 `--from <map 分支>`。"
-            f"命令返回绝对路径后，使用宿主的 {enter} 进入该 worktree。"
-        )
-
-    if name == "collect-worktree-result":
-        return (
-            "该角色完成后，运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。"
-            "命令通过后，从输出取得结果 worktree 路径；在该路径读取报告与 diff，"
-            "并运行本技能规定的验收。此动作不合入结果分支。"
-        )
-
-    if name == "integrate-worktree-result":
-        return (
-            "本技能规定的验收全部通过后，运行 "
-            "`mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。"
-            "命令成功后，结果提交才算进入当前任务分支。"
-        )
-
-    if name == "continue-result-worktree":
-        if host == "codex":
-            return (
-                "继续拥有该结果分支的 Codex App 后台任务，在它自己的 worktree 中完成本节操作。"
-                "主 agent 不切换当前工作目录。后台任务完成后交回新的 HEAD SHA 和验证结果。"
-            )
-        enter = "`enter_worktree`" if host == "pi" else "`EnterWorktree`"
-        return (
-            f"运行 `mmw task enter <结果分支>` 取得绝对路径，使用宿主的 {enter} 进入后完成本节操作。"
-            "完成后回到原任务继续协调。"
-        )
-
-    if name == "cleanup-worktree":
-        if host == "codex":
-            return "Codex App 管理后台任务的 worktree；归档对应任务后由 App 清理，不运行 `mmw task cleanup`。"
-        return "用户批准清理后，运行 `mmw task cleanup <slug>`。"
-
-    if name == "phase-boundary-capabilities":
-        if host == "codex":
-            return (
-                "Codex App 会在当前任务中自动管理上下文压缩，主 agent 没有可调用的 `clear` 或 "
-                "`compact` 动作。Continue 时留在当前任务；需要 portability 时调用 `/handoff`；"
-                "AFK 工作只按调用技能已有的原生 subagent 或后台 Worktree 合同派发。"
-                "不得要求用户执行不存在的 Codex 命令，也不得声称自动压缩已经发生。"
-            )
-        if host == "claude-code":
-            return (
-                "Claude Code 的 `/clear` 与 `/compact` 由用户触发。决策树选中其中一个时，"
-                "停在阶段边界，给出准确命令和恢复所需出处，等用户执行后继续。"
-                "需要 portability 时调用 `/handoff`；AFK 工作按调用技能的 Agent 或后台 dispatch 合同派发。"
-            )
-        return (
-            "Pi 没有由本 plugin 保证可调用的 clear 或 compact 动作。Continue 时留在当前会话；"
-            "需要 portability 时调用 `/handoff`；AFK 工作按调用技能的原生 subagent 合同派发。"
-            "不得声称已经清空或压缩上下文。"
-        )
-
-    die(f"不认识的宿主动作：{name}")
 
 
 def expand_text(
@@ -363,26 +177,132 @@ def expand_text(
             return f"{instruction}\n\n{POST_LAUNCH_RULE}"
         return instruction
 
-    def host_action(match: re.Match[str]) -> str:
-        return expand_host_action(match.group(1), host)
-
     text = LAUNCH_RE.sub(launch, text)
     text = LAUNCH_GROUP_RE.sub(launch_group, text)
-    text = HOST_ACTION_RE.sub(host_action, text)
     if host == "codex":
         text = CODEX_SKILL_REF_RE.sub(r"`$mmw:\1`", text)
     return text
 
 
-def iter_skill_files() -> list[Path]:
+def skill_frontmatter(text: str) -> str:
+    if not text.startswith("---\n"):
+        return ""
+    end = text.find("\n---\n", 4)
+    return text[4:end] if end >= 0 else ""
+
+
+def user_only_skill_names() -> set[str]:
+    names: set[str] = set()
+    for skill_file in SKILLS_SRC.glob("*/SKILL.md"):
+        frontmatter = skill_frontmatter(skill_file.read_text(encoding="utf-8"))
+        if re.search(r"(?m)^disable-model-invocation:\s*true\s*$", frontmatter):
+            names.add(skill_file.parent.name)
+    return names
+
+
+def iter_skill_files(host: str) -> list[Path]:
     files: list[Path] = []
+    hidden_from_pi = user_only_skill_names() if host == "pi" else set()
     for path in sorted(SKILLS_SRC.rglob("*")):
         if not path.is_file():
             continue
-        if any(part in SKIP_DIR_NAMES for part in path.relative_to(SKILLS_SRC).parts):
+        rel = path.relative_to(SKILLS_SRC)
+        if any(part in SKIP_DIR_NAMES for part in rel.parts):
+            continue
+        if rel.parts[0] in hidden_from_pi:
             continue
         files.append(path)
     return files
+
+
+def strip_frontmatter(text: str) -> str:
+    if not text.startswith("---\n"):
+        return text
+    end = text.find("\n---\n", 4)
+    if end < 0:
+        die("SKILL.md frontmatter 没有结束标记")
+    return text[end + 5 :]
+
+
+def inline_reference_links(text: str, reference_names: set[str]) -> str:
+    def replace(match: re.Match[str]) -> str:
+        label, target = match.group(1), match.group(2)
+        if target == "SKILL.md":
+            return f"上文的「{label}」"
+        if target in reference_names:
+            return f"下文的「{label}」"
+        die(f"Pi 用户命令含无法内联的相对链接：{target}")
+
+    return re.sub(r"\[([^\]]+)\]\(([^):#]+\.md)\)", replace, text)
+
+
+def render_pi_prompt(skill_dir: Path) -> str:
+    skill_file = skill_dir / "SKILL.md"
+    raw = skill_file.read_text(encoding="utf-8")
+    frontmatter = skill_frontmatter(raw)
+    description_match = re.search(r"(?m)^description:\s*(.+?)\s*$", frontmatter)
+    if not description_match:
+        die(f"Pi 用户命令缺 description：{skill_file}")
+    description = description_match.group(1).strip().strip('"')
+    argument_hint_match = re.search(r"(?m)^argument-hint:\s*(.+?)\s*$", frontmatter)
+    argument_hint = (
+        argument_hint_match.group(1).strip().strip('"')
+        if argument_hint_match
+        else None
+    )
+    references = sorted(
+        path for path in skill_dir.glob("*.md") if path.name != "SKILL.md"
+    )
+    reference_names = {path.name for path in references}
+    body = strip_frontmatter(raw).replace("$ARGUMENTS", "$@")
+    parts = [inline_reference_links(body, reference_names).rstrip()]
+    for reference in references:
+        text = strip_frontmatter(reference.read_text(encoding="utf-8"))
+        text = inline_reference_links(text, reference_names).rstrip()
+        parts.append(f"## {reference.name}\n\n{text}")
+    return (
+        "---\n"
+        f"description: {json.dumps(description, ensure_ascii=False)}\n"
+        + (
+            f"argument-hint: {json.dumps(argument_hint, ensure_ascii=False)}\n"
+            if argument_hint is not None
+            else ""
+        )
+        +
+        "---\n\n"
+        + "\n\n".join(parts)
+        + "\n"
+    )
+
+
+def materialize_pi_prompts(*, check: bool) -> int:
+    expected = {
+        f"{name}.md": render_pi_prompt(SKILLS_SRC / name)
+        for name in sorted(user_only_skill_names())
+    }
+    if check:
+        if not PI_PROMPTS_OUT.is_dir():
+            print(f"缺  {PI_PROMPTS_OUT}")
+            return 1
+        actual = {
+            path.name: path.read_text(encoding="utf-8")
+            for path in PI_PROMPTS_OUT.glob("*.md")
+            if path.is_file()
+        }
+        drift = 0
+        for name in sorted(expected.keys() | actual.keys()):
+            if expected.get(name) != actual.get(name):
+                print(f"异  {PI_PROMPTS_OUT / name}")
+                drift = 1
+        return drift
+
+    if PI_PROMPTS_OUT.exists():
+        shutil.rmtree(PI_PROMPTS_OUT)
+    PI_PROMPTS_OUT.mkdir(parents=True)
+    for name, content in expected.items():
+        (PI_PROMPTS_OUT / name).write_text(content, encoding="utf-8")
+    print(f"物化完成：pi 用户命令 → {PI_PROMPTS_OUT}")
+    return 0
 
 
 def materialize_host(
@@ -397,7 +317,7 @@ def materialize_host(
         die(f"找不到技能源 {SKILLS_SRC}")
     tmp = Path(tempfile.mkdtemp(prefix=f"mmw-skills-{host}-"))
     try:
-        for src in iter_skill_files():
+        for src in iter_skill_files(host):
             rel = src.relative_to(SKILLS_SRC)
             dst = tmp / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
@@ -464,6 +384,8 @@ def main(argv: list[str] | None = None) -> int:
         status |= materialize_host(
             host, out, role_agents, codex_profiles, check=args.check
         )
+        if host == "pi" and args.out is None:
+            status |= materialize_pi_prompts(check=args.check)
     return status
 
 

@@ -101,7 +101,7 @@ PR 在范围内时，把外部 PR 也放进这三堆，每行标 `[PR]` 或 `[is
 4. **Grill（需要时）。** 这个需求还不够具体，就跑 `$mmw:mmw-grilling` 把它谈成双方确认的共同理解。它完成后回到本技能继续分诊。
 
 5. **落实结果：**
-   - `ready-for-agent` —— 先按 [AGENT-BRIEF.md](AGENT-BRIEF.md) 贴一条完整的 agent brief 评论，再把状态改成 `ready-for-agent`。`**Acceptance criteria:**` 和 `**Test seam:**` 都是必填栏。后续工作依赖已保存的 research 时，agent brief 同时写 research 索引和精确文件路径。然后按本文「下一步」一节决定它接着走哪个技能。
+   - `ready-for-agent` —— 先按 [AGENT-BRIEF.md](AGENT-BRIEF.md) 贴一条完整的 agent brief 评论，再把状态改成 `ready-for-agent`。`**Acceptance criteria:**` 和 `**Test seam:**` 都是必填栏。然后按本文「下一步」一节决定它接着走哪个技能。
    - `ready-for-human` —— 贴一条与 agent brief 使用相同字段的分诊记录，并写清为什么它派不出去（要拿判断、要外部权限、要做设计决定、要人工测试）。
    - `needs-info` —— 贴分诊记录，模板和写法在 [NEEDS-INFO.md](NEEDS-INFO.md)。
    - `wontfix` —— 关掉，评论内容取决于*为什么*：

@@ -1,136 +1,98 @@
 ---
 name: mmw-to-spec
-description: 综合、审查并发布 spec。用于需求或架构候选已经谈定、prototype 已走查、Wayfinding 已切出 spec、分诊判定需要多 tickets、多 seams 或设计取舍、实现阶段回来补 seam，或用户直接要求写 spec。
+description: 把已经谈定的内容综合、审查并发布成一份 spec。用于用户直接要求写 spec，或者 `/mmw-grilling`、`/mmw-prototype`、`/mmw-wayfinder` 已经把这件事谈定、接下来需要一份 spec 交给下游实现。
 ---
 
-把已经谈定的内容综合成一份 spec。**不采访，只综合**，不重开任何一个决定。
+本技能把已经谈定的内容和你对这个代码库的理解，综合成一份 spec。**不要**访谈用户，只综合已经有的东西。
 
-issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw issue`，读一张、评论、打标签这类一条命令做得完的直接用 `gh`。标签清单在仓库根 `.mmw.json` 的 `tracker.labels`。
+已经谈定的内容不一定在当前对话里。从 `/mmw-wayfinder` 进来时，那些决定分散在一张 map 和它的 decision ticket 上，当前对话里什么都没有。所以先看下一节，把它们读出来，再开始写。
 
-## 1. 认出你从哪条路进来
+开始前按 `/mmw-domain-modeling` 的「读领域文档」读取这个仓库的领域文档。整份 spec 使用其中定义的术语。
 
-**先把你这一条的产物取齐再往下走。**
+## 读取已经形成的产物
 
-| 从哪来 | 怎么认出来 | 必须取齐的 |
-| --- | --- | --- |
-| `/mmw-grilling` 谈定 | 这次对话里刚谈完。`/mmw-wayfinder` 横扫下来判定不需要 map 的也走这一行 | 这一轮写进领域文档的术语（落点跑 `mmw domain path` 取）、这一轮落成的 ADR、对话里达成的每一条共识 |
-| `/mmw-improve-codebase-architecture` 挑中的候选谈定 | slug 是 `refactor-` 开头，那个空提交里记着一张候选卡片的标题 | 这一轮写进领域文档的术语（落点跑 `mmw domain path` 取）、这一轮落成的 ADR、对话里达成的每一条共识，外加**那张卡片**——它的文件清单是第 2 步探仓库的起点，它的 Problem 和 before/after 直接进 spec 的 `## Current State` 与 `## Solution`。这次的外部行为不变，所以 `## Solution` 写的是结构怎么变、谁的调用方式跟着变 |
-| `/mmw-prototype` 走查完 | 能从上游取得 `产物目录`；Wayfinder decision ticket 还能取得 `issue-<编号>` | 运行 `mmw path prototype <产物目录> [issue-<编号>]`，先读命令返回目录中的 `README.md`，再只读本 spec 需要的选中产物，以及索引显式引用的对应走查记录和长期证据。普通非 Wayfinder 任务不传 issue 子目录。索引必须列出问题、逐轮用户结论、用户选中的路径、落选变体形成的约束、被提升为长期证据的路径；没有选中产物、落选约束或长期证据时，对应项写「无」，不能省略。缺一项就回 `/mmw-prototype` 补齐 |
-| `/mmw-research` 交回 | 上游交回验证后的事实；用户选择保存时还会交回 research 索引 | 始终取验证后的事实与出处。只有本 spec 依赖已保存的 research 时，才读取索引和精确文件路径；不递归读取 research 的上级目录 |
-| `/mmw-wayfinder` 切出的一份 spec | 有一张 issue 挂在带 `wayfinder:map` 标签的 issue 底下，自己不带任何 `wayfinder:` 标签 | 那张 map 的 `Destination`、`Decisions so far`、`Out of scope` 三节，各自落进 spec 哪里见第 4 步；走这张 map 过程中新增的 ADR 与 `.out-of-scope/` |
-| `/mmw-triage` 判出这件事需要多张 ticket、多个测试 seam，或者还有设计取舍要谈 | 那张 issue 或 PR 上有一条 agent brief 评论 | 那份 agent brief 全文，尤其 `Test seam` 那一栏，以及 `/mmw-triage` 的「分诊一张具体的 issue 或 PR」第 3 步验过的断言 |
-| `/mmw-implement` 回来补 seam | `docs/specs/<slug>/` 里已经有一份 spec | 现有那份 spec。**只补 seam 一节，不重写**，从第 2 步接着走 |
-| 用户直接叫你 | 上面都不成立 | 没有上游产物。先确认这件事真的谈定了，还在讨论阶段就先移交 `/mmw-grilling` |
+先确定当前情况，再按匹配行读取已经形成的产物。
 
-## 2. 探仓库
+| 当前情况 | 要读取的已有产物 | 产物位置 | 怎样找到属于这份 spec 的内容 |
+| --- | --- | --- | --- |
+| 用户直接调用 `/mmw-to-spec` | 当前对话中已经谈定的内容 | 当前对话 | 从用户提出本次需求的位置开始，读取已经明确形成的决定。不要使用尚未得到确认的建议或问题 |
+| `/mmw-grilling` 完成后进入 To Spec | 用户已经确认的共同理解 | 当前对话中 `/mmw-grilling` 最后一次总结的问题、约束、决定、取舍和范围 | 找到用户明确确认的最后一份完整总结。`/mmw-grilling` 调用过 `/mmw-research` 或 `/mmw-prototype` 时，同时读取这份总结引用的结论和精确产物路径 |
+| `/mmw-prototype` 完成后直接进入 To Spec | prototype 的 `README.md`，以及它列出的用户走查结论、选中产物、被否掉的方向和可复用内容 | `/mmw-prototype` 交回来的那个精确路径，指向一份 `README.md` | 读交回来的那份 `README.md`。确认它写的「当前问题」属于这份 spec，再顺着它读它点名的选中产物和可复用内容。不要去翻别的 prototype 目录 |
+| 被交来一张已经分诊过的 issue 编号（`/mmw-start` 或 `/mmw-triage` 判定它要拆成多张 ticket） | 那张 issue 的正文、agent brief 和讨论 | 交回来的那个 issue 编号。运行 `gh issue view <编号> --comments` 打开它 | 读正文和 agent brief，认出这次要交付的产品行为。它是这份 spec 的输入，不是 spec 本身——决定不够写成 spec 时按本节末尾停下 |
+| `/mmw-wayfinder` 关闭 map 后进入 To Spec | 已关闭的 map，跟这份 spec 有关的那几张 decision ticket 的结论，以及这些结论里点名的 prototype 和 research | `/mmw-wayfinder` 交回的 map URL 或编号。运行 `gh issue view <map 编号> --comments` 打开它 | 先确认 map 的 `Destination` 写的就是这份 spec。map 的 `Decisions so far` 一节每行都带着一张 decision ticket 的链接，顺着链接逐张运行 `gh issue view <ticket 编号> --comments`。每张 ticket 关闭前都留了一条写结论的评论，读这条评论和它里面写出的精确文件路径。跟 `Destination` 无关的 ticket 不要读 |
 
-还没做过 research 就先做。**按 `/mmw-research` 的内部方向派出去**，一个角度一个 subagent：这块功能现在怎么实现、它的 seam 在哪、数据从哪来到哪去、哪些地方会被这次改动波及。
+匹配行要求的产物不存在，或者产物中仍缺少一项产品、设计或架构决定时，写清缺少的完整内容和已经检查的位置，然后停止。不要在本技能中重新访谈，也不要猜测缺失产物的位置。
 
-`/mmw-grilling` 已经做过一轮 research 的，只补没有覆盖的角度。
+## 确定任务 slug
 
-整份 spec 用项目领域词汇，遵守你要碰的这块地方的 ADR。领域文档落点跑 `mmw domain path` 取，三种返回怎么读见 `/mmw-domain-modeling` 的「读领域文档」一节。
+spec 的落点由任务 slug 决定。按下表取得，不要自己另起一个：
 
-现状结论逐条带 `file:line` 引用写进 spec，**引用要你自己验证过**（`/mmw-verifying-agent-output`）。用户选择保存，而且本 spec 依赖该 research 时，spec 同时引用 research 索引和实际使用的精确文件路径。
-
-## 3. 钉 seam
-
-**seam** 是下断言的那个公开边界。这一节的形状是硬要求：**一份逐条可读的清单，不是一段散文。**
-
-每条写三样：这个 seam 是哪个公开接口、在它上面验证什么行为、为什么选这一层。
-
-怎么选：
-
-- **优先已有的 seam。** 新开一个之前先确认现有的哪个都覆盖不了。
-- **选能覆盖目标行为的最高层。** 层次越高，实现换掉时测试越不用跟着改。
-- **越少越好，理想数量是一。**
-- **确实要新开，提在最高点**，取舍理由写进这一节。
-
-这一步只定**测在哪**，不定怎么写。测试写法由 `/mmw-tdd` 和目标仓库的 `TESTING.md` 规定。
-
-从 `/mmw-triage` 进来的，那份 agent brief 的 `Test seam` 一栏是分诊时的初判。需要多个 seam 时，在它的基础上扩，并逐条说明为什么一个 seam 覆盖不了。只有一个 seam、但因为要拆多张 ticket 或讨论设计取舍而进入本技能时，保留并重新验证这个 seam。
-
-某个 seam 定不下来就停——处置见本文「下一步」一节。
-
-**从 `/mmw-implement` 回来补 seam 的**：补完这一节就跳到第 7 步，只把 seam 清单给用户看；他点头就把 spec 文件提交进分支，回 `/mmw-implement`。不重走第 6 步那一轮审查，也不动那张已经发布的 issue。
-
-## 4. 写 spec
-
-模板和逐节要求在 [spec-template.md](spec-template.md)。落点是任务分支的 `docs/specs/<slug>/<slug>.md`，主文件与目录同名。
-
-从 `/mmw-wayfinder` 进来的，map 的三节这样落进去，**只搬运，不重新讨论**：
-
-| map 上的 | 变成 spec 的 |
+| 当前情况 | 任务 slug |
 | --- | --- |
-| `Destination` | `Problem Statement` 与 `Solution` |
-| `Decisions so far` 每一条 | `Implementation Decisions` 里对应的一条 |
-| `Out of scope` | `Out of Scope`，原样继承 |
+| `/mmw-wayfinder` 关闭 map 后进入 | 使用 `/mmw-wayfinder` 交回的任务 slug，也就是 map 的 slug |
+| `/mmw-prototype` 完成后进入 | 使用这次 prototype 使用的 `产物目录` |
+| 被交来一张已分诊的 issue | 按这张 issue 要交付的东西提议一个名字，请用户确认后再使用 |
+| 当前任务已经有任务 slug | 复用已有值 |
+| 用户直接调用，而且当前任务还没有任务 slug | 根据这份 spec 要交付的东西提议一个名字，请用户确认后再使用 |
 
-## 5. 自检
+这个名字必须是单个路径段：首字符是字母或数字，其余只能是字母、数字、点、下划线、连字符，不能含斜杠。
 
-逐条过，有一条不过就回第 4 步改。
+定下 slug 之后，这份 spec 的落点就是 `docs/specs/<任务 slug>/<任务 slug>.md`。
 
-- 读起来是「现状加决定加行为」的记录，不是把模板每一节都填满；这次没有真实对应事实的节整节删掉了
-- 没有 TODO、待定、口头承诺；每个设计点都有具体可落地的方案
-- 不跟领域文档（落点跑 `mmw domain path` 取）、ADR 或代码现状冲突
-- 每条用户故事和每条实现决定都转得成一条可判过不过的验收标准
-- 现状结论逐条带 `file:line`；决定重建而不复用的写了为什么
-- 每个决定都写了为什么，落点精确到函数或模块，没有「某个模块」「相应调整」这类悬空话
-- 每条真实的失败路径都答得出四问：什么触发、谁捕获、用户看到什么、对应哪条验收
-- 新增或改变的对象、状态、角色写清了谁写谁读，稳定下来的术语已经进领域文档
-- **已有 prototype 时**：spec 只吸收用户选中的版本和已确认的决定。每条来自 prototype 的决定都写明资产路径和走查轮次。落选变体不进入当前方案。没有 prototype 不构成缺失
-- **有界面时**：每个页面、viewport 和真实状态各有一条可观察结果。已有 prototype 时，同时保存选中产物和走查证据的持久出处
-- `## Testing Decisions` 一节里那张 seam 清单表逐条填齐了，每行都写了在哪测、测什么行为、为什么是这一层
+## 流程
 
-完整 UI 变体集继续保留在 prototype 资产中，作为 primary source。prototype 资产索引只负责路由，不替代原始产物；本技能只读取选中产物和索引显式引用的证据或具体落选变体，不递归读取产物目录。
+1. 如果还没有探索过仓库，就探索仓库，以理解代码库当前状态。读取 `docs/adr/` 下与本次范围相关的 ADR，spec 里的决定不能和它们冲突。
 
-### Wayfinder 派生的 spec 需要补充 prototype 或 evidence
+2. 勾勒将用于测试这项功能的 seam。已有 seam 应优先于新 seam。使用尽可能高层的 seam。确实需要新 seam 时，在能够达到的最高层提出。整个代码库中的 seam 越少越好；理想数量是一个。
 
-当 Wayfinder 派生的 spec 需要补充 prototype 或 evidence 时，先停止 spec 工作。拥有 map 分支的任务在 map issue 已关闭时重新打开它，再新建 `wayfinder:prototype` 或 `wayfinder:research` decision ticket。Decision ticket 原样继承 map 的 `产物目录`，并使用自己的 `issue-<编号>` 子目录。
+每个 seam 写清公开 interface、将在这个 seam 上验证的外部行为，以及选择这一层的原因。
 
-Decision ticket 任务完成后，map 任务运行 `mmw result verify` 和 `mmw result integrate`。然后 map 任务按 `/mmw-integrate` 让未完成的 spec 分支 rebase 到更新后的 map 分支。Spec 任务只在 rebase 完成后回到第 5 步。
+| Seam | 验证的外部行为 | 选择这一层的原因 |
+| --- | --- | --- |
 
-## 6. 发起 ① spec 审
+向用户确认这些 seam 是否符合预期。用户确认前不要写 spec。
 
-自检全过之后按 `/mmw-review` 发起 **① spec 审**。**这不是关卡，是给用户和你的参考。**
+3. 完整读取 [spec-template.md](spec-template.md)，使用该模板编写 spec。把 spec 写入 `docs/specs/<任务 slug>/<任务 slug>.md`。
 
-两个视角各派一个独立审查者：设计内容审检查 spec 本身是否成立；项目一致性审检查它与项目既有术语、硬约束和登记机制是否一致。材料、task 和审查记录的要求都在 `/mmw-review`。
+只记录已经形成的决定。写作中发现缺少决定时，写清缺少的完整内容和已经检查的位置，然后停止。
 
-采信的 findings 拿去改 spec，改完重走一遍第 5 步自检。
+从 Wayfinder 进入时，把相关 decision ticket 中互相链接的决定综合成这一份 spec。prototype 的完整可运行资产继续留在 prototype 目录；spec 只吸收用户确认的决定，以及选中产物中能够比文字更精确地表达某项决定的片段。research 只使用主 agent 已经验证并综合的事实。
 
-## 7. 给用户看，等他点头
+   写完之后、发起审查之前，通读整份 spec 做一遍**自检**。审查者不替你兜底——审查是为了发现你看不见的问题，不是替你收没写完的尾。逐项过：
 
-**这是 spec 的人工审批关卡。** 摆三样给他：
+   - 模板每个必写 section 都有内容，条件式 section 该出现的出现了。
+   - 每项决定都能指回一个已确认的来源：对话中的用户确认、decision ticket 的结论评论、prototype 走查结论或验证过的 research 事实。指不回来源的不是决定，是你的发明——删掉或回去确认。
+   - 没有任何一处写着待定、二选一、待确认或类似说法。下游拿到 spec 就直接开工，没有人会回来替它做决定。
+   - seam 表与第 2 步用户确认的一致，没有悄悄增删。
+   - 引用的 prototype 与 research 路径每一条都真实存在。
 
-1. spec 定稿，重点讲清楚要解决什么问题、交付什么。
-2. 审查者报了什么、你怎么处置的。还开着的严重问题不许埋着给他看——改掉，或者写明为什么判成不改。
-3. seam 清单单独再说一遍。这是他这一轮唯一必须亲自过目的技术决定。
+   有一项不过就先修再审。修不了的（缺决定、缺来源），写清缺什么、查过哪里，然后停止。
 
-他点头之前不要发布。他要改就回第 4 步，改完重走第 5 步自检，不再发起审查。
+4. 调用 `/mmw-review` 发起一次 ① spec 审。传给它 spec 的精确路径，以及这份 spec 实际引用到的 prototype `README.md`、选中产物、research `README.md` 和精确文件；某一项没有就写「无」。
 
-## 8. 发布
+   `/mmw-review` 会返回一批问题，并说明每一条你打算怎么处理。你决定接受的那些，改完之后要回到 `/mmw-review` 让它确认改到位了。全部处理完再进第 5 步。
 
-先把 spec 文件提交进任务分支，再建 issue。
+5. 向用户展示完整 spec、① spec 审结果和已经确认的 seam 清单，询问是否批准定稿和发布。用户在这里点头之前，这份 spec 不算定稿。用户要求修改时，按用户意见修改 spec，再次展示完整结果。用户明确批准前不提交，也不发布。
+
+展示之前把第 3 步末尾那份自检再过一遍——处理审查意见的修改可能引入新的未定项或悬空引用。有一项不过就先修好再展示。
+
+6. 用户明确批准后，先提交 spec 文件，再把它发布到项目 issue tracker，添加 `ready-for-agent` triage 标签，不需要再次 triage。issue 正文保存 spec 摘要、spec 的精确路径，以及本 spec 实际使用的输入出处；从 Wayfinder 进入时，输入出处包含 map 名称及其 URL 或编号。
+
+正文先落盘再发。写进 `.scratch/<任务 slug>/spec-issue-body.md`——`.scratch/` 在 `.gitignore` 里，这份正文发完就没用了。
 
 ```bash
-mmw issue create --title "<一句话的名字>" --body-file <摘要文件> --label ready-for-agent
+mmw issue create --title "<spec 名称>" --body-file .scratch/<任务 slug>/spec-issue-body.md --label ready-for-agent
 ```
 
-**正文只放一段摘要加上那个 spec 文件的路径**，全文不进正文。
+记下 `mmw issue create` 返回的 issue 编号，移交时一起交出去——下游三个技能都要用它。
 
-从 `/mmw-wayfinder` 来的已经有一张 issue 了，改它的正文再 `gh issue edit <编号> --add-label ready-for-agent`，不要另建。
-
-**发布出去的这张 issue 加上这个标签，就是第 7 步人工审批关卡通过的凭据。** 没发布就是没过这道关卡。
+这一步做完的标志是三件事都成立：spec 文件已经提交；这张 spec issue 的正文指向那个文件；这张 issue 带着 `ready-for-agent`。这个标签的意思是用户已经批准了这份 spec，不是说可以照着它一口气实现完。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
-| 发布完了 | **移交**：`/mmw-to-tickets`，把这份 spec 拆成 tracer bullet ticket |
-| 从 `/mmw-implement` 回来补 seam，补完了、用户也点过头 | **移交**：回 `/mmw-implement`，它接着派 `worker` |
-| 第 1 步发现这件事还没谈定 | **移交**：`/mmw-grilling`，把用户原话原样传过去，它谈定后会回到这里 |
-| 某条决定建立在一条没人验过的外部事实上；当前 spec 来自 Wayfinder | **移交**：拥有 map 分支的任务执行本文“Wayfinder 派生的 spec 需要补充 prototype 或 evidence”流程，新建 `wayfinder:research` decision ticket；需要实测时由该 ticket 升级到 `/mmw-prototype` 的 `EVIDENCE.md` |
-| 某条决定建立在一条没人验过的外部事实上；当前 spec 不来自 Wayfinder | **移交**：`/mmw-prototype` 的 `EVIDENCE.md`。这条决定先留在 `## Open Decisions` 里，测出来再回填，不要拿一个猜的数字定稿 |
-| 第 7 步用户要改 | **自己继续**：回第 4 步改，改完重走第 5 步自检，不再发起审查 |
-| 审查者交回 `needs-redirection` | **停**：把它说的哪里可疑、建议怎么重新框定原样交给用户，不要自己改 spec 绕过去 |
-| 第 3 步某个 seam 定不下来 | **停**：说清是哪个行为找不到合适的边界、你考虑过哪几个位置，不要自己发明一个 |
-| 给用户看之后他不点头，也说不清要改什么 | **停**：报 spec 已定稿在哪个路径、审查者报了什么、卡在哪一条上 |
+| spec 已经提交并发布，而且对应 issue 带 `ready-for-agent` | **移交**：`/mmw-to-tickets`，交给它任务 slug 和这张 spec issue 的编号，把 spec 拆成 tracer bullet ticket |
+| 入口要求的产物不存在，或者其中缺少一项产品、设计或架构决定 | **停**：报告缺少的完整内容和已经检查的位置，等用户补齐或指出正确位置 |
+| 已经开始写 spec，但发现某项决定尚未形成 | **停**：报告缺少的完整内容和已经检查的位置；这项决定需要先谈定，不在本技能中访谈 |
+| 用户看过完整 spec 和 ① spec 审结果后要求修改 | **停**：按用户意见修改 spec，再次展示完整结果，等待批准 |

@@ -18,13 +18,15 @@ description: 派 `worker` 落地已准备好的工作。用于完整的 `ready-f
 
 然后检查下面各项。标明来源分支的检查只在对应分支适用；适用项有一件不满足就按表中出口处理。
 
+`<spec issue 编号>` 只用于 spec 分支，由调用方移交。spec 分支缺少这个编号时，停下并说明缺少这项输入。agent brief 分支不需要 spec issue 编号。
+
 | 检查 | 怎么查 | 不满足怎么办 |
 | --- | --- | --- |
-| 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 | 回 `/mmw-start` 建立或绑定任务 worktree |
+| 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 | **停**：说明当前没有已绑定的任务上下文，无法继续 |
 | spec 分支写明了测试 seam | 读 spec `## Testing Decisions` 一节里的 seam 清单表 | 回 `/mmw-to-spec` 第 3 步补 |
 | agent brief 分支的行为合同完整 | 原 issue 的 agent brief 有当前行为、目标行为、可独立验证的 `Acceptance criteria`、范围边界和且仅一个 `Test seam`；整项工作可以作为一张 ticket 独立验收，而且没有未决设计取舍 | 缺字段就回 `/mmw-triage` 补；需要多张 ticket、多个 seam 或设计取舍就转 `/mmw-to-spec` |
 | ticket 存在 | spec 分支：`mmw issue children <spec issue 编号>` 有输出；agent brief 分支：带 agent brief 的原 issue 就是这张 ticket | spec 分支先跑 `/mmw-to-tickets`；agent brief 分支回 `/mmw-triage` 补齐或修正 issue |
-| 这张 ticket 的 plan 已提交 | `git cat-file -e "HEAD:<plan 路径>"` 成功 | 先跑 `/mmw-to-plan`。走 agent brief 那条路的需求没有 plan 这一层，这一行不适用 |
+| 这张 ticket 的 plan 已提交 | 路径写在这张 ticket 正文的 `## Plan` 一节里，照它跑 `git cat-file -e "HEAD:<那条路径>"` | 先跑 `/mmw-to-plan`。走 agent brief 那条路的需求没有 plan 这一层，这一行不适用 |
 
 ### 2. 取下一张 ticket
 
@@ -61,13 +63,15 @@ agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一
 | 目标 | 完成 ticket `#<编号>`（或 tracker 等价编号） |
 | 读 | 按本节的上下文表逐行列出精确路径。没有 plan、prototype 或 research 时分别写「无 plan」「无 prototype 资产」「无 research」 |
 | 约束 | 只改本 worktree 源码与测试；不改 `docs/`；不扩大 ticket 范围；所有上下文只读 task 点名的精确路径 |
-| 验收 | spec 分支：见 ticket `#<编号>` 的验收标准，seam 见 spec `## Testing Decisions`；agent brief 分支：见原 issue 的 agent brief 中 `**Acceptance criteria:**` 与 `**Test seam:**`（在「读」里已给出定位，此处不抄正文） |
+| 验收 | spec 分支：见 ticket `#<编号>` 的验收标准，seam 见 spec `## Testing Decisions`；agent brief 分支：见原 issue 的 agent brief 中 `**Acceptance criteria:**` 与 `**Test seam:**`（在「读」里已给出定位，此处不抄正文）。两条路都要交回结果分支上的 HEAD SHA |
 
 TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
 
 ### 4. 派发
 
 派发前确认当前任务分支已经提交且工作区干净。为这次工作确定唯一、完整的结果分支名，并记下 `git rev-parse HEAD` 作为基点。结果分支名和基点 SHA 都要写入 task。
+
+**验收栏里要求它交回结果分支上的 HEAD SHA。** 收结果时 `mmw result verify` 要这个值，它自己不算，只有做完的那一侧知道。
 
 启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --from <基点 SHA>`，使用命令返回的 worktree 绝对路径。把四栏表写入 task 文件，后台执行 `mmw dispatch worker --task <task 文件绝对路径> --cwd <结果 worktree 绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 
@@ -77,7 +81,7 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 
 `worker` 完成后，先收取结果：
 
-该角色完成后，运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。命令通过后，从输出取得结果 worktree 路径；在该路径读取报告与 diff，并运行本技能规定的验收。此动作不合入结果分支。
+该角色完成后，运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。命令通过后，从输出取得结果 worktree 路径；在该路径读取报告与 diff，并运行本技能规定的验收。这一步不合入结果分支。
 
 ### 5. 验收：亲手验证三关
 
@@ -92,7 +96,7 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 
 ticket 涉及界面时，还要完成浏览器验收：
 
-界面 ticket 使用目标仓库已有的浏览器测试入口走通黄金路径和本次相关边界状态。没有入口时记录可重复执行的人工步骤；验收没有通过时不得集成结果分支。
+在结果 worktree 里把界面启动起来，用手上的浏览器入口走通黄金路径和本次相关的边界状态。viewport 和要检查的状态，按 `/mmw-prototype` 交回的那份选中 UI 产物定；这次没走过 prototype 的，按这张 ticket 的 plan 里界面验收那一段定。逐个检查加载、空、错误、成功、部分完成里**这次实际存在**的那些状态。关键截图存进 `.scratch/<任务 slug>/evidence/`，一个状态一份，文件名说清是哪个页面的哪个状态；交互异常时同时读 DOM 和 console，一并存进去。这些默认跟着 `/mmw-closing` 的收尾一起删掉；用户要留就挪进 `docs/evidence/<任务 slug>/`。改过 viewport 的，留下最后一份证据之后恢复默认。宿主和项目都没有浏览器入口时，记录一遍可重复执行的人工步骤。**验收没过，或者拿不出等价证据，就不许集成结果分支。**
 
 三关都过后，集成结果：
 
@@ -127,7 +131,7 @@ spec 分支通过合同门，或者 agent brief 分支完成第 5 步后，按 `
 | agent brief 分支第 5 步三关都过，原 issue 已关闭 | **自己继续**：跳过第 6 步，走第 7 步发起 ⑤ final 终审 |
 | 第 6 步有合同 grep 不到行号 | **停**：报是哪条合同、提供方或消费方缺在哪 |
 | 审出了采信的 findings | **自己继续**：按第 7 步一次性修复并验证；有一条没修好就停，不再审 |
-| 审完没有采信项，或者采信项已经修复并验证，而且这次改动碰了带出包配置的产品 | **移交**：`/mmw-release`，先把安装包出出来。仓库里有没有出包配置，跑 `grep -rl '"product"' --include='*.release-adapter.json' .` |
+| 审完没有采信项，或者采信项已经修复并验证，而且这次改动碰了带出包配置的产品 | **移交**：`/mmw-release`，先把安装包出出来。同时告诉它这次是有 spec 还是只有 agent brief——它收尾要按这个分岔。仓库里有没有出包配置，跑 `grep -rl '"product"' --include='*.release-adapter.json' .` |
 | 审完没有采信项，或者采信项已经修复并验证；这次不用出包，而且有 spec | **移交**：`/mmw-closing`，把 spec 与 plan 归档到 Wiki、删掉本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`，再交回用户合并 |
 | 审完没有采信项，或者采信项已经修复并验证；这次不用出包，而且只有 agent brief | **停**：报告实现结果、验证证据和当前分支 HEAD。这项任务没有 spec，不走 `/mmw-closing`；分支已就绪，交回用户集成 |
 | 第 1 步有一项前置不满足 | **停**：说清是哪一项，按第 1 步表中的出口回 `/mmw-triage`、`/mmw-to-spec`、`/mmw-to-tickets` 或 `/mmw-to-plan` |

@@ -11,23 +11,7 @@
 
 ```bash
 shellcheck --severity=warning mmw/cli/mmw mmw/cli/adapters/*.sh mmw/cli/lib/*.sh \
-  mmw/mcp/install-mcp.sh mmw/release/release-flow.sh
-
-test "$(MMW_HOST=codex mmw/cli/mmw path prototype effort issue-42)" = \
-  "docs/prototypes/effort/issue-42"
-test "$(MMW_HOST=codex mmw/cli/mmw path research effort issue-42)" = \
-  "docs/research/effort/issue-42"
-test "$(MMW_HOST=codex mmw/cli/mmw path scratch effort)" = ".scratch/effort"
-test "$(MMW_HOST=codex mmw/cli/mmw path scratch effort task-feat-a)" = \
-  ".scratch/effort/task-feat-a"
-test "$(MMW_HOST=codex mmw/cli/mmw path spec feat-a)" = \
-  "docs/specs/feat-a/feat-a.md"
-test "$(MMW_HOST=codex mmw/cli/mmw path review)" = ".reviews"
-test "$(MMW_HOST=codex mmw/cli/mmw artifact >/dev/null 2>&1; echo $?)" = 2
-! MMW_HOST=codex mmw/cli/mmw path prototype .. >/dev/null 2>&1
-! MMW_HOST=codex mmw/cli/mmw path prototype effort ticket-42 >/dev/null 2>&1
-! MMW_HOST=codex mmw/cli/mmw path spec ../feat-a >/dev/null 2>&1
-test "$(MMW_HOST=codex mmw/cli/mmw path unknown effort >/dev/null 2>&1; echo $?)" = 2
+  mmw/install.sh mmw/mcp/install-mcp.sh mmw/release/release-flow.sh
 
 # gh 桩放进 PATH，不用 shell 函数：函数形式依赖 bash 的 export -f，
 # 在别的 shell 下会静默失活，让下面三条断言打到真实 gh 上并假通过。
@@ -52,48 +36,47 @@ test "$(PATH="$gh_stub_dir:$PATH" MMW_GH_REPO=owner/repo MMW_HOST=codex mmw/cli/
   issue frontier 1 --label wayfinder:prototype)" = $'102\tPrototype decision'
 test "$(PATH="$gh_stub_dir:$PATH" MMW_GH_REPO=owner/repo MMW_HOST=codex mmw/cli/mmw \
   issue frontier 1 --label ready-for-agent --label-prefix wayfinder: >/dev/null 2>&1; echo $?)" = 2
-rm -rf "$gh_stub_dir"
-
 mmw_source_root="$PWD/mmw"
-path_test_dir="$(mktemp -d "${TMPDIR:-/tmp}/mmw-path-test.XXXXXX")"
-git -C "$path_test_dir" init -q
-jq '.paths.scratch = "../outside"' mmw/cli/mmw.default.json > "$path_test_dir/.mmw.json"
-! (cd "$path_test_dir" && MMW_HOST=codex "$mmw_source_root/cli/mmw" path scratch effort) \
-  >/dev/null 2>&1
-jq '.paths.specs = "../outside"' mmw/cli/mmw.default.json > "$path_test_dir/.mmw.json"
-! (cd "$path_test_dir" && MMW_HOST=codex "$mmw_source_root/cli/mmw" path spec feat-a) \
-  >/dev/null 2>&1
-find "$path_test_dir" -depth -delete
+init_dir="$(mktemp -d "${TMPDIR:-/tmp}/mmw-init-test.XXXXXX")"
+git -C "$init_dir" init -q
+git -C "$init_dir" config user.name "MMW Test"
+git -C "$init_dir" config user.email "mmw-test@example.invalid"
+printf 'keep-existing-testing\n' > "$init_dir/TESTING.md"
+git -C "$init_dir" add TESTING.md
+git -C "$init_dir" commit -q -m "test: seed repository"
 
-migration_dir="$(mktemp -d "${TMPDIR:-/tmp}/mmw-init-test.XXXXXX")"
-# 模拟仍使用旧 research 路径字段的配置。
-jq '.paths.investigations = "docs/investigating" | del(.paths.research, .paths.evidence, .paths.scratch)' \
-  mmw/cli/mmw.default.json > "$migration_dir/.mmw.json"
-chmod 0600 "$migration_dir/.mmw.json"
-git -C "$migration_dir" init -q
-(
-  cd "$migration_dir"
-  source "$mmw_source_root/cli/lib/config.sh"
-  source "$mmw_source_root/cli/lib/path.sh"
-  source "$mmw_source_root/cli/lib/init.sh"
-  MMW_ROOT="$mmw_source_root"
-  mmw_init_config
-)
-test "$(jq -r '.paths.research' "$migration_dir/.mmw.json")" = "docs/research"
-test "$(jq -r '.paths | has("investigations")' "$migration_dir/.mmw.json")" = "false"
-test "$(jq -r '.paths.evidence' "$migration_dir/.mmw.json")" = "docs/evidence"
-test "$(jq -r '.paths.scratch' "$migration_dir/.mmw.json")" = ".scratch"
-if migration_mode="$(stat -f '%Lp' "$migration_dir/.mmw.json" 2>/dev/null)"; then
-  :
-else
-  migration_mode="$(stat -c '%a' "$migration_dir/.mmw.json")"
-fi
-test "$migration_mode" = "600"
-find "$migration_dir" -depth -delete
+# 当前 gh 桩不支持 auth status，使 init 明确跳过真实 GitHub 标签操作。
+cat > "$gh_stub_dir/gh" <<'STUB'
+#!/bin/sh
+exit 1
+STUB
+chmod +x "$gh_stub_dir/gh"
+
+(cd "$init_dir" && PATH="$gh_stub_dir:$PATH" MMW_HOST=codex "$mmw_source_root/cli/mmw" init)
+test "$(cat "$init_dir/TESTING.md")" = "keep-existing-testing"
+jq -e '.models == null' "$init_dir/.mmw.json" >/dev/null
+test "$(jq -c '.paths | keys' "$init_dir/.mmw.json")" = \
+  '["release","reviews","scratch","worktrees"]'
+grep -q 'MMW-DOMAIN-CONTEXT-START' "$init_dir/AGENTS.md"
+grep -q 'MMW-DOMAIN-CONTEXT-START' "$init_dir/CLAUDE.md"
+grep -qxF '.scratch/' "$init_dir/.gitignore"
+grep -qxF '.reviews/' "$init_dir/.gitignore"
+test -z "$(git -C "$init_dir" status --porcelain)"
+
+init_head="$(git -C "$init_dir" rev-parse HEAD)"
+(cd "$init_dir" && PATH="$gh_stub_dir:$PATH" MMW_HOST=codex "$mmw_source_root/cli/mmw" init)
+test "$(git -C "$init_dir" rev-parse HEAD)" = "$init_head"
+test -z "$(git -C "$init_dir" status --porcelain)"
+
+find "$init_dir" -depth -delete
+find "$gh_stub_dir" -depth -delete
 
 git diff --check
 mmw/cli/mmw skills materialize --host all --check
+mmw/cli/mmw agents materialize --host pi --check
 python3 mmw/codex/runtime.py materialize --check
+grep -qxF 'argument-hint: "[wayfinder] [需求、bug、issue/PR/map 编号或链接；留空恢复当前任务]"' \
+  mmw/prompts-pi/mmw-start.md
 python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
 python3 -m json.tool mmw/codex/profiles.json >/dev/null
 python3 -m json.tool mmw/.codex-plugin/plugin.json >/dev/null
@@ -101,6 +84,12 @@ python3 -m json.tool mmw/.mcp-codex.json >/dev/null
 python3 -m json.tool .claude-plugin/marketplace.json >/dev/null
 python3 -m json.tool mmw/.claude-plugin/plugin.json >/dev/null
 python3 -m json.tool mmw/package.json >/dev/null
+
+mmw_version="$(jq -r '.version' mmw/package.json)"
+test "$(jq -r '.version' mmw/.codex-plugin/plugin.json)" = "$mmw_version"
+test "$(jq -r '.version' mmw/.claude-plugin/plugin.json)" = "$mmw_version"
+test "$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)" = "$mmw_version"
+test "$(jq -r '.version' .claude-plugin/marketplace.json)" = "$mmw_version"
 ```
 
 ## 真实宿主验证

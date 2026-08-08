@@ -1,39 +1,41 @@
-# 领域上下文文档的格式
+# 领域文档格式
 
 ## 结构
 
 ```md
-# {上下文名}
+# {bounded context 名称}
 
-{一两句话说明这个上下文是什么、为什么存在。}
+{用一两句话说明该 bounded context 是什么，以及它为何存在。}
 
 ## Language
 
 **Order**：
-{一两句话说明这个术语}
+{用一两句话描述该术语}
 _Avoid_: Purchase, transaction
 
 **Invoice**：
-交付之后发给客户的付款请求。
+交付后发送给 customer 的付款请求。
 _Avoid_: Bill, payment request
 
 **Customer**：
-下单的个人或组织。
+下订单的人或组织。
 _Avoid_: Client, buyer, account
 ```
 
 ## 规则
 
-- **要有立场。** 同一个概念有好几个说法时，挑最好的那个，其余的列进 `_Avoid_`。
-- **定义要紧。** 最多一两句。定义它*是*什么，不是它*做*什么。
-- **只收这个项目上下文特有的术语。** 通用编程概念（超时、错误类型、工具模式）不属于这里，哪怕项目里到处在用。加一个术语之前先问：这是这个上下文独有的概念，还是一个通用编程概念？只有前者才收。
-- **自然聚成簇时用小标题分组。** 所有术语本来就属于一个内聚的领域，平铺一个列表就够。
+- **要有明确主张。** 同一个概念存在多个词时，选出最合适的一个，并把其他词列在 `_Avoid_` 下。
+- **定义必须紧凑。** 最多一两句话。定义它**是什么**，不要定义它做什么。
+- **只加入本项目 bounded context 特有的术语。** 通用编程概念，例如超时、错误类型、工具模式，即使项目大量使用也不应加入。增加术语前，先问：这是当前 bounded context 独有的概念，还是通用编程概念？只有当前 bounded context 独有的概念可以加入。
+- 自然形成集群时，**用副标题组织术语**。如果所有术语都属于一个紧密统一的领域，扁平清单也可以。
 
-## 单上下文与多上下文
+## 单 bounded context 与多 bounded context 仓库
 
-开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则，并运行 `mmw domain path`。返回 `single` 时，按上面的结构维护命令返回的领域文档。返回 `map` 时，先读 Map，再读本次涉及的全部命名 leaf。
+开始前按 [SKILL.md 的「文件结构」](SKILL.md#文件结构)判定形态。只有 `CONTEXT.md` 时，按本文件 `## 结构` 维护它。有 `CONTEXT-MAP.md` 时，先读 Map，再读本次涉及的全部 leaf。两个都没有时，完整读取那一节，在第一个需要长期保留的领域术语得到解决后，根据 bounded context 的数量创建 `CONTEXT.md`，或者创建 Context Map 和首个 leaf。
 
-多上下文 Map 的 `Contexts` 使用固定三列表格。`Relationships` 使用非空的自然语言列表。每个 leaf 位于 `mmw domain dirs` 返回的 `context` 路径或其子目录中，并使用 `.md` 扩展名。例子里的 `docs/context/` 只展示形状：
+多个 bounded context 使用 Context Map。Context Map 的 `Contexts` 使用固定三列表格，`Relationships` 使用非空的自然语言列表。
+
+以下 Context Map 中的 `./docs/context/` 只展示相对链接的写法。每个 leaf 的实际路径必须位于 `docs/context/` 中：
 
 ```md
 # Context Map
@@ -42,33 +44,34 @@ _Avoid_: Client, buyer, account
 
 | Context | Leaf | Owns |
 | --- | --- | --- |
-| Ordering | [Ordering](./docs/context/ordering.md) | 受理并跟踪客户订单，定义 Customer。 |
-| Billing | [Billing](./docs/context/billing/billing-language.md) | 生成发票并处理付款。 |
+| Ordering | [Ordering](./docs/context/ordering.md) | 接收并跟踪 customer order，定义 Customer。 |
+| Billing | [Billing](./docs/context/billing.md) | 生成 invoice 并处理 payment。 |
 | Fulfillment | [Fulfillment](./docs/context/fulfillment.md) | 管理仓库拣货和发货。 |
 
 ## Relationships
 
-- Ordering 发出 `OrderPlaced` 事件。Fulfillment 消费该事件并开始拣货。
-- Fulfillment 发出 `ShipmentDispatched` 事件。Billing 消费该事件并生成发票。
+- Ordering 发出 `OrderPlaced` event。Fulfillment 消费这些 event 并开始拣货。
+- Fulfillment 发出 `ShipmentDispatched` event。Billing 消费这些 event 并生成 invoice。
 - Ordering 定义 Customer。Billing 使用权威引用指向 Ordering 的定义。
 ```
 
-`mmw domain sync` 拥有 `<!-- MMW-CONTEXT-MAP-RULES-START -->` 与 `<!-- MMW-CONTEXT-MAP-RULES-END -->` 之间的完整正文。本格式不复制受管规则。项目只维护 `Contexts` 和 `Relationships`。
+Context Map 遵守以下合同：
 
-三列表格遵守以下合同：
-
-- `Context` 是非空且唯一的上下文名称。
-- `Leaf` 整格是一个 Markdown 链接。链接相对 Map 解析，目标必须位于 `context` 路径内，并以 `.md` 结尾。
+- `Context` 是非空且唯一的 bounded context 名称。
+- `Leaf` 整格是一个 Markdown 链接。链接相对 Context Map 解析，目标位于 `docs/context/` 中，并以 `.md` 结尾。
 - `Owns` 是非空的自然语言所有权说明。
-- `Relationships` 至少包含一个 Markdown 列表项。关系使用自然语言，不另建端点或所有权机器语法。
+- `Relationships` 至少包含一个 Markdown 列表项。bounded context 之间的关系使用自然语言。
+- `mmw domain sync` 管理规则标记之间的完整正文。项目只维护 `Contexts` 和 `Relationships`。
+
+存在多个 bounded context 时，判断当前主题属于哪个 bounded context。如果无法判断，当场询问用户。
 
 ## 权威引用
 
-共享术语只在一个 leaf 中定义。例如，`billing/billing-language.md` 使用以下固定格式引用 `ordering.md` 的权威定义：
+共享术语只在一个 leaf 中定义。其他 leaf 使用以下格式引用权威定义：
 
 ```md
 **Customer**：
 (authoritative: [Customer](../ordering.md))
 ```
 
-路径相对当前 leaf 解析。引用目标必须是同一 Map 的 `Contexts` 已登记 leaf。
+路径相对当前 leaf 解析。引用目标必须是同一 Context Map 已登记的 leaf。
