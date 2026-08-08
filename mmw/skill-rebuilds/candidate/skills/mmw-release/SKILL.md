@@ -13,7 +13,7 @@ description: 为终审通过的改动构建正式安装包。用于用户要求�
 
 | 检查 | 怎么查 |
 | --- | --- |
-| 终审跑过，采信的 findings 都已修复并验证 | `.reviews/` 里有终审报告；有采信项时，记录顶部有 `修复提交` |
+| 终审跑过，采信的 findings 都已修复并验证 | `.reviews/<slug>-final.md` 在；有采信项时，它顶部有 `修复提交` |
 | 当前 HEAD 就是终审完成的提交 | 读 `.reviews/<slug>-final.md`（⑤ final 终审的记录，见 `/mmw-review`），确认其中的 `终审提交` 等于 `git rev-parse HEAD` |
 | 工作区干净 | `git status --porcelain` 是空的。引擎拒绝把自愈修复混进你没提交的改动里 |
 | 这个仓库配了出包 | 仓库里能找到至少一份出包配置（下一步） |

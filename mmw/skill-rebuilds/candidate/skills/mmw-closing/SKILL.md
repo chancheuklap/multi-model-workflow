@@ -18,7 +18,7 @@ Wiki 只放这一样东西。map、审查记录、终审报告都不进——它
 | 检查 | 怎么查 |
 | --- | --- |
 | 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 |
-| 终审跑过，采信的 findings 都已修复并验证 | `.reviews/` 里有终审报告；有采信项时，记录顶部有 `修复提交` |
+| 终审跑过，采信的 findings 都已修复并验证 | `.reviews/<任务 slug>-final.md` 在；有采信项时，它顶部有 `修复提交` |
 | 工作区干净 | `git status --porcelain` 是空的 |
 | Wiki 已初始化 | `mmw wiki ensure` 跑得通。没初始化它会报出来，只能由用户去仓库的 `/wiki` 页手建一页 |
 
