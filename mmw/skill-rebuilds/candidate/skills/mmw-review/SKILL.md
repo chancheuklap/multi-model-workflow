@@ -65,7 +65,7 @@ description: 编排 MMW 五道审查并处置 findings。用于 spec、整批 pl
 
 ⑤ final 终审包含界面改动时，派审查者前先采集浏览器证据：
 
-派审查者之前，主 agent 先用手上的浏览器入口（宿主自带的，或项目已有的 Playwright）把界面改动跑起来，按 `/mmw-prototype` 交回的那份选中 UI 产物采集关键状态的截图、DOM 和 console；这次没走过 prototype 的，按 plan 的界面验收段采集。证据存进 `docs/evidence/<任务 slug>/`，一个状态一份，文件名说清是哪个页面的哪个状态。改过 viewport 的，留下最后一份证据之后恢复默认。证据路径**只**加进「对照终审」的读栏——「独立终审」仍然只读 diff 范围。跑不起来时，把具体 blocker 写进审查材料；不得把没验证过的写成通过。
+派审查者之前，主 agent 先用手上的浏览器入口（宿主自带的，或项目已有的 Playwright）把界面改动跑起来，按 `/mmw-prototype` 交回的那份选中 UI 产物采集关键状态的截图、DOM 和 console；这次没走过 prototype 的，按 plan 的界面验收段采集。证据存进 `.scratch/<任务 slug>/evidence/`，一个状态一份，文件名说清是哪个页面的哪个状态。这些默认跟着 `/mmw-closing` 的收尾一起删掉；用户要留就挪进 `docs/evidence/<任务 slug>/`。改过 viewport 的，留下最后一份证据之后恢复默认。证据路径**只**加进「对照终审」的读栏——「独立终审」仍然只读 diff 范围。跑不起来时，把具体 blocker 写进审查材料；不得把没验证过的写成通过。
 
 ## 3. 写 task，派发
 
