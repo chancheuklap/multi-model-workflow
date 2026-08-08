@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""把角色真源与 .mmw.json 型号表物化成各宿主原生 subagent 文件。
+"""把角色真源与 MMW runtime 模型档物化成各宿主原生 subagent 文件。
 
 用法：
   materialize_agents.py --host pi|cursor|all [--check] [--config <path>] [--out <dir>]
@@ -48,32 +48,13 @@ def expand_user_path(raw: str) -> Path:
 
 
 def resolve_config_path(explicit: str = "") -> Path:
-    """显式 --config → 当前 git 根 .mmw.json → 插件 default。
-
-    仓库配置存在但非法 JSON 时直接失败，不回退 default。
-    """
+    """使用显式源码模型档；未指定时使用 MMW 默认模型档。"""
     if explicit:
         path = Path(explicit).expanduser()
         if not path.is_file():
             die(f"配置不存在：{path}")
         load_json(path)
         return path.resolve()
-
-    import subprocess
-
-    try:
-        root = subprocess.check_output(
-            ["git", "rev-parse", "--show-toplevel"],
-            text=True,
-            stderr=subprocess.DEVNULL,
-        ).strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        root = ""
-    if root:
-        cand = Path(root) / ".mmw.json"
-        if cand.is_file():
-            load_json(cand)
-            return cand.resolve()
 
     if not DEFAULT_CONFIG.is_file():
         die(f"配置不存在：{DEFAULT_CONFIG}")
@@ -83,7 +64,7 @@ def resolve_config_path(explicit: str = "") -> Path:
 def resolve_model(config: dict[str, Any], role: str, host: str) -> dict[str, str]:
     models = config.get("models") or {}
     if role not in models:
-        die(f".mmw.json 没有角色 {role} 的 models 条目")
+        die(f"模型档没有角色 {role} 的 models 条目")
     entry = models[role]
     hosts = entry.get("hosts") or {}
     override = hosts.get(host) or {}
@@ -312,7 +293,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="materialize_agents.py")
     parser.add_argument("--host", required=True, help="pi | cursor | all")
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--config", default="", help=".mmw.json 路径；默认：仓库 .mmw.json 或插件 default")
+    parser.add_argument("--config", default="", help="源码模型档路径；默认使用 MMW 模型档")
     parser.add_argument("--out", default="", help="覆盖输出目录")
     args = parser.parse_args(argv)
 

@@ -1,7 +1,7 @@
 ---
 name: mmw-planner
 description: 供 `planner` 将一张 tracer bullet ticket 写成可由零上下文 `worker` 执行的 plan。
-disable-model-invocation: true
+user-invocable: false
 ---
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
@@ -31,7 +31,7 @@ plan 说明实施路线。它不代替源码，也不预写完整实现；一张
 
 只调查写这份 plan 所需的现状：修改位置、现有入口、相关调用方、测试入口，以及跨 plan 接口。
 
-写进 plan 的既有路径和符号必须在当前源码中验证。结构检索工具可以找候选，最终结论回到源码。新文件标明 `Create`。不要为了证明计划详细而枚举与本 ticket 无关的 fixture、辅助函数和内部调用。
+写进 plan 的既有路径和符号必须在当前源码中验证。用 Serena 查符号定义、直接引用和实现。用 Graphify 查模块关系、依赖路径、影响面和跨语言数据流。两者只用于定位候选。最终结论回到源码。新文件标明 `Create`。不要为了证明计划详细而枚举与本 ticket 无关的 fixture、辅助函数和内部调用。
 
 ## 写 plan
 

@@ -69,18 +69,20 @@ mmw_host() {
 
 # mmw_model_field <角色> <字段>，字段是 family / id / effort。
 #
-# 一个角色的模型档默认对两个宿主相同。某个宿主接不了基线那个模型时，在这个角色
-# 底下写 hosts.<宿主> 覆盖同名字段——例如 `investigator` 在 Pi 走 xai/grok-4.5，而 Claude
-# Code 只有 Codex 一条外部通道，接不了 xai。覆盖按字段生效，覆盖里没写的字段仍读
-# 基线。
+# 模型档属于已安装的 MMW runtime，不属于目标仓库。源码安装流程从
+# cli/mmw.default.json 为各宿主物化运行时；目标仓库的 .mmw.json 不保存 models。
 mmw_model_field() {
   local role="$1" field="$2" host override
   host="$(mmw_host)" || return 1
-  if override="$(mmw_config ".models[\"$role\"].hosts[\"$host\"].$field" 2>/dev/null)"; then
+  if override="$(jq -er ".models[\"$role\"].hosts[\"$host\"].$field" \
+      "$MMW_ROOT/cli/mmw.default.json" 2>/dev/null)"; then
     echo "$override"
     return 0
   fi
-  mmw_config ".models[\"$role\"].$field"
+  jq -er ".models[\"$role\"].$field" "$MMW_ROOT/cli/mmw.default.json" 2>/dev/null || {
+    echo "mmw: 已安装 runtime 的模型档缺少 $role.$field" >&2
+    return 1
+  }
 }
 
 mmw_path_field() {
@@ -90,6 +92,20 @@ mmw_path_field() {
 # 任务 worktree 相对主仓的目录名；无 .mmw.json 时用默认 .worktrees。
 mmw_worktrees_rel() {
   mmw_path_field worktrees 2>/dev/null || echo ".worktrees"
+}
+
+# doctor 只验证 installed runtime。需要修复安装时，回到记录下来的源码仓库重装。
+mmw_install_repair_command() {
+  local marker source_repo
+  marker="$MMW_ROOT/../.mmw-source-root"
+  if [ -f "$marker" ]; then
+    source_repo="$(sed -n '1p' "$marker")"
+    if [ -x "$source_repo/mmw/install.sh" ]; then
+      printf 'bash %q\n' "$source_repo/mmw/install.sh"
+      return 0
+    fi
+  fi
+  echo "bash <MMW源码仓库>/mmw/install.sh"
 }
 
 # 可写角色的 cwd：必须是干净的 git 任务 worktree。Codex App 的 managed worktree

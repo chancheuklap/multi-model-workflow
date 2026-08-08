@@ -1,7 +1,8 @@
 ---
 name: mmw-start
-description: MMW 的统一入口和任务恢复路由。用户开始新任务、提出需求或 bug、提供 issue、PR、map 或 big effort、要求改善架构或集成分支，或没有交代内容而要恢复当前进度时使用；已直接指定下游技能时跳过。
-argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
+description: MMW 的统一入口。用于开始或恢复任务，并把输入路由到正确技能。
+argument-hint: "[wayfinder] [需求、bug、issue/PR/map 编号或链接；留空恢复当前任务]"
+disable-model-invocation: true
 ---
 
 本技能只做路由，这次任务本身一个字都不实现。
@@ -28,7 +29,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 | 一个 issue 编号，已是 `ready-for-agent`，整项工作可以作为一张 ticket 独立验收，只有一个已确认的测试 seam，而且没有未决设计取舍 | **移交**：`/mmw-implement` |
 | 一个 issue 或 PR 编号，已是 `ready-for-agent`，但需要拆成多张 ticket、需要多个测试 seam，或者还有设计取舍要谈 | **移交**：`/mmw-to-spec` |
 | 有东西坏了、报错、跑不通、变慢了，或者挂了 `bug` | **移交**：`/mmw-diagnosing-bugs` |
-| 一个 effort 超出一次 agent session，而且从当前状态到 destination 的路线还看不清，或者挂了 `big` | **移交**：`/mmw-wayfinder` |
+| 一个 effort 超出一次 agent session，而且从当前状态到 destination 的路线还看不清，或者用户在输入开头写了 `wayfinder` | **移交**：`/mmw-wayfinder` |
 | 想先看看某个界面长什么样，或者不确定一套状态模型对不对 | **移交**：`/mmw-prototype` |
 | 单个文件、符号、事实或一条命令能答完 | **自己继续**：主 agent 直接查询并回答，到这里完成，不进入第 2、3 步 |
 | 要从多个独立角度调查跨模块实现、调用链、数据流或影响面，或者需要对照多份一手资料 | **移交**：`/mmw-research`，跳过第 2、3 步 |

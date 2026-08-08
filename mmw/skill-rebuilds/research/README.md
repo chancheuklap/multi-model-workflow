@@ -43,6 +43,8 @@
 
 接线候选由五份技能文件组成。主 agent 读取 `SKILL.md` 和 `MAIN.md`，只有转进实测时才加读 `EVIDENCE.md`。`investigator` 只读取 `SKILL.md` 和 task 指定的 `INTERNAL.md` 或 `EXTERNAL.md`；原来那份只做方向判断的 `INVESTIGATOR.md` 已并入 `SKILL.md`。正式技能源保持不变，等待用户审查候选后再决定是否进入 Plugin 发布面。
 
+Claude Code 派出的 headless Codex 也必须读取这五份文件。候选安装清单已加入 `mmw-research`，避免 `investigator` 只能收到 task，却找不到身份路由和方向 reference。
+
 ## 2026-08 复审确认的两处有意改写
 
 1. **落点固定化**：上游要求单文件、落点匹配仓库既有笔记惯例；候选写死 `docs/research/<产物目录>/…` 多文件结构。理由：spec、plan、审查、实现都按精确路径消费 research，落点必须确定，这是 MMW 工作流对上游方法的取舍，用户已确认。

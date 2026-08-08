@@ -24,6 +24,7 @@ DEFAULT_OUT = {
     "claude-code": PLUGIN_ROOT / "skills-claude-code",
     "codex": PLUGIN_ROOT / "skills-codex",
 }
+PI_PROMPTS_OUT = PLUGIN_ROOT / "prompts-pi"
 
 LAUNCH_RE = re.compile(
     r"\[\[mmw-launch:([a-z0-9-]+):(worktree|current|none)\]\]"
@@ -183,15 +184,113 @@ def expand_text(
     return text
 
 
-def iter_skill_files() -> list[Path]:
+def skill_frontmatter(text: str) -> str:
+    if not text.startswith("---\n"):
+        return ""
+    end = text.find("\n---\n", 4)
+    return text[4:end] if end >= 0 else ""
+
+
+def user_only_skill_names() -> set[str]:
+    names: set[str] = set()
+    for skill_file in SKILLS_SRC.glob("*/SKILL.md"):
+        frontmatter = skill_frontmatter(skill_file.read_text(encoding="utf-8"))
+        if re.search(r"(?m)^disable-model-invocation:\s*true\s*$", frontmatter):
+            names.add(skill_file.parent.name)
+    return names
+
+
+def iter_skill_files(host: str) -> list[Path]:
     files: list[Path] = []
+    hidden_from_pi = user_only_skill_names() if host == "pi" else set()
     for path in sorted(SKILLS_SRC.rglob("*")):
         if not path.is_file():
             continue
-        if any(part in SKIP_DIR_NAMES for part in path.relative_to(SKILLS_SRC).parts):
+        rel = path.relative_to(SKILLS_SRC)
+        if any(part in SKIP_DIR_NAMES for part in rel.parts):
+            continue
+        if rel.parts[0] in hidden_from_pi:
             continue
         files.append(path)
     return files
+
+
+def strip_frontmatter(text: str) -> str:
+    if not text.startswith("---\n"):
+        return text
+    end = text.find("\n---\n", 4)
+    if end < 0:
+        die("SKILL.md frontmatter 没有结束标记")
+    return text[end + 5 :]
+
+
+def inline_reference_links(text: str, reference_names: set[str]) -> str:
+    def replace(match: re.Match[str]) -> str:
+        label, target = match.group(1), match.group(2)
+        if target == "SKILL.md":
+            return f"上文的「{label}」"
+        if target in reference_names:
+            return f"下文的「{label}」"
+        die(f"Pi 用户命令含无法内联的相对链接：{target}")
+
+    return re.sub(r"\[([^\]]+)\]\(([^):#]+\.md)\)", replace, text)
+
+
+def render_pi_prompt(skill_dir: Path) -> str:
+    skill_file = skill_dir / "SKILL.md"
+    raw = skill_file.read_text(encoding="utf-8")
+    frontmatter = skill_frontmatter(raw)
+    description_match = re.search(r"(?m)^description:\s*(.+?)\s*$", frontmatter)
+    if not description_match:
+        die(f"Pi 用户命令缺 description：{skill_file}")
+    description = description_match.group(1).strip().strip('"')
+    references = sorted(
+        path for path in skill_dir.glob("*.md") if path.name != "SKILL.md"
+    )
+    reference_names = {path.name for path in references}
+    body = strip_frontmatter(raw).replace("$ARGUMENTS", "$@")
+    parts = [inline_reference_links(body, reference_names).rstrip()]
+    for reference in references:
+        text = strip_frontmatter(reference.read_text(encoding="utf-8"))
+        text = inline_reference_links(text, reference_names).rstrip()
+        parts.append(f"## {reference.name}\n\n{text}")
+    return (
+        "---\n"
+        f"description: {json.dumps(description, ensure_ascii=False)}\n"
+        "---\n\n"
+        + "\n\n".join(parts)
+        + "\n"
+    )
+
+
+def materialize_pi_prompts(*, check: bool) -> int:
+    expected = {
+        f"{name}.md": render_pi_prompt(SKILLS_SRC / name)
+        for name in sorted(user_only_skill_names())
+    }
+    if check:
+        if not PI_PROMPTS_OUT.is_dir():
+            print(f"缺  {PI_PROMPTS_OUT}")
+            return 1
+        actual = {
+            path.name: path.read_text(encoding="utf-8")
+            for path in PI_PROMPTS_OUT.glob("*.md")
+            if path.is_file()
+        }
+        drift = 0
+        for name in sorted(expected.keys() | actual.keys()):
+            if expected.get(name) != actual.get(name):
+                print(f"异  {PI_PROMPTS_OUT / name}")
+                drift = 1
+        return drift
+
+    if PI_PROMPTS_OUT.exists():
+        shutil.rmtree(PI_PROMPTS_OUT)
+    PI_PROMPTS_OUT.mkdir(parents=True)
+    for name, content in expected.items():
+        (PI_PROMPTS_OUT / name).write_text(content, encoding="utf-8")
+    print(f"物化完成：pi 用户命令 → {PI_PROMPTS_OUT}")
+    return 0
 
 
 def materialize_host(
@@ -206,7 +305,7 @@ def materialize_host(
         die(f"找不到技能源 {SKILLS_SRC}")
     tmp = Path(tempfile.mkdtemp(prefix=f"mmw-skills-{host}-"))
     try:
-        for src in iter_skill_files():
+        for src in iter_skill_files(host):
             rel = src.relative_to(SKILLS_SRC)
             dst = tmp / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
@@ -273,6 +372,8 @@ def main(argv: list[str] | None = None) -> int:
         status |= materialize_host(
             host, out, role_agents, codex_profiles, check=args.check
         )
+        if host == "pi" and args.out is None:
+            status |= materialize_pi_prompts(check=args.check)
     return status
 
 

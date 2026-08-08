@@ -15,7 +15,10 @@ mmw_domain_sync() {
   local root config host
   root="$(mmw_repo_root)"
   config="$(mmw_require_config)" || return 1
-  host="$(mmw_host)" || return 1
+  host="${1:-}"
+  if [ -z "$host" ]; then
+    host="$(mmw_host)" || return 1
+  fi
   python3 "$MMW_ROOT/cli/lib/context_docs.py" sync \
     --root "$root" \
     --config "$config" \
@@ -38,7 +41,10 @@ mmw_domain_check() {
   local root config host
   root="$(mmw_repo_root)"
   config="$(mmw_require_config)" || return 1
-  host="$(mmw_host)" || return 1
+  host="${1:-}"
+  if [ -z "$host" ]; then
+    host="$(mmw_host)" || return 1
+  fi
   python3 "$MMW_ROOT/cli/lib/context_docs.py" check \
     --root "$root" \
     --config "$config" \

@@ -18,11 +18,11 @@ description: 派 `worker` 落地已准备好的工作。用于完整的 `ready-f
 
 然后检查下面各项。标明来源分支的检查只在对应分支适用；适用项有一件不满足就按表中出口处理。
 
-`<spec issue 编号>` 由调用方移交时给你。上下文断了、手上只有 slug 时，按 `/mmw-start` 的「回来接着做」那张表反查它。
+`<spec issue 编号>` 只用于 spec 分支，由调用方移交。spec 分支缺少这个编号时，停下并说明缺少这项输入。agent brief 分支不需要 spec issue 编号。
 
 | 检查 | 怎么查 | 不满足怎么办 |
 | --- | --- | --- |
-| 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 | 回 `/mmw-start` 建立或绑定任务 worktree |
+| 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 | **停**：说明当前没有已绑定的任务上下文，无法继续 |
 | spec 分支写明了测试 seam | 读 spec `## Testing Decisions` 一节里的 seam 清单表 | 回 `/mmw-to-spec` 第 3 步补 |
 | agent brief 分支的行为合同完整 | 原 issue 的 agent brief 有当前行为、目标行为、可独立验证的 `Acceptance criteria`、范围边界和且仅一个 `Test seam`；整项工作可以作为一张 ticket 独立验收，而且没有未决设计取舍 | 缺字段就回 `/mmw-triage` 补；需要多张 ticket、多个 seam 或设计取舍就转 `/mmw-to-spec` |
 | ticket 存在 | spec 分支：`mmw issue children <spec issue 编号>` 有输出；agent brief 分支：带 agent brief 的原 issue 就是这张 ticket | spec 分支先跑 `/mmw-to-tickets`；agent brief 分支回 `/mmw-triage` 补齐或修正 issue |

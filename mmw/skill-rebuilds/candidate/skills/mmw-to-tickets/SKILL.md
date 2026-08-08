@@ -11,7 +11,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 **issue 承载身份，文件承载内容。** 本技能为每张 tracer bullet ticket 创建一张 issue。issue 正文保存摘要、plan 路径和阻塞关系。`/mmw-to-plan` 后续把实施内容写入该路径下的 plan 文件。
 
-`<slug>` 和 `<spec issue 编号>` 都由调用方移交时给你：`<slug>` 是这次的任务 slug，也就是 `docs/specs/<slug>/` 的那个名字。上下文断了、手上只有分支名时，按 `/mmw-start` 的「回来接着做」那张表推 slug 并反查 issue 编号。
+`<slug>` 和 `<spec issue 编号>` 都由调用方移交时给你。`<slug>` 是这次的任务 slug，也是 `docs/specs/<slug>/` 的目录名。缺少任意一项就停下，说明缺少哪项输入。
 
 ## 1. 上下文清单
 
@@ -96,7 +96,7 @@ mmw issue create --title "<标题>" --body-file .scratch/<slug>/ticket-<NN>.md \
 
 ## Parent
 
-指向这批 ticket 所属的 spec issue（来源不是一张 issue 就省掉这一节）。
+指向这批 ticket 所属的 spec issue。
 
 ## What to build
 

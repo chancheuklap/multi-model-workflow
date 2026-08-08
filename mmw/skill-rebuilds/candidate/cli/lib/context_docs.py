@@ -220,7 +220,7 @@ def managed_target(
 def claude_target(root: Path, host: str) -> Target:
     rel_path = "CLAUDE.md"
     path = root / rel_path
-    if host != "claude-code":
+    if host not in {"claude-code", "all"}:
         return Target("claude", rel_path, path, "not-required", None, None, None)
     reject_unsafe_target(path, rel_path)
     if not path.exists():
@@ -788,7 +788,7 @@ def init_map(root: Path, config_path: Path) -> str:
 
 
 def check_contracts(root: Path, config_path: Path, host: str) -> CheckResult:
-    if host not in {"claude-code", "pi", "codex"}:
+    if host not in {"claude-code", "pi", "codex", "all"}:
         fail("-", "invalid-config", f"无法识别宿主：{host}")
     domain = load_domain_config(root, config_path)
     ensure_unique_managed_targets(root, domain["map"])
@@ -797,7 +797,7 @@ def check_contracts(root: Path, config_path: Path, host: str) -> CheckResult:
     check_managed_block(
         root / "AGENTS.md", "AGENTS.md", agents_seed, AGENTS_START, AGENTS_END
     )
-    if host == "claude-code":
+    if host in {"claude-code", "all"}:
         claude_path = root / "CLAUDE.md"
         reject_unsafe_target(claude_path, "CLAUDE.md")
         if not claude_path.is_file():
@@ -823,7 +823,7 @@ def check_contracts(root: Path, config_path: Path, host: str) -> CheckResult:
 
 
 def sync_contracts(root: Path, config_path: Path, host: str) -> list[Target]:
-    if host not in {"claude-code", "pi", "codex"}:
+    if host not in {"claude-code", "pi", "codex", "all"}:
         fail("-", "invalid-config", f"无法识别宿主：{host}")
     domain = load_domain_config(root, config_path)
     ensure_unique_managed_targets(root, domain["map"])

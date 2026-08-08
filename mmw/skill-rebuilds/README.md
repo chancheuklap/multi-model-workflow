@@ -4,12 +4,12 @@ MMW 的重建区。这里装两样东西，作用完全不同：
 
 | 位置 | 是什么 | 会不会进发布面 |
 | --- | --- | --- |
-| `candidate/` | **一整套 MMW 的候选副本**：`skills/` 29 个技能 + `cli/` 完整 CLI | 会。验完之后整体替换现役 |
+| `candidate/` | **一整套 MMW 的候选副本**：技能、CLI、Codex runtime、MCP 安装面、Pi package 与源码安装入口 | 会。验完之后整体替换现役 |
 | `<上游技能名>/` | 每个技能的上游翻译基线、翻译审计、和这一轮改了什么的台账 | 不会。它们是**依据**，不是产物 |
 
 ## `candidate/` 是什么
 
-它是 `mmw/skills/` 加 `mmw/cli/` 的完整副本，在 review 期间独立演进。现役两边都不动。
+它是最终 `mmw/` 发布根的候选改动，在 review 期间独立演进。现役发布面不动。未放入 `candidate/` 的文件继续使用现役基线；正式验证时把 candidate 覆盖到一份完整的 `mmw/` 副本上。
 
 **为什么要合成一棵完整的树**，而不是每个技能各存各的候选：技能之间靠 `[...](../mmw-start/x.md)` 这样的相对引用互相指，候选散在各目录时这些引用打不开，只能靠「想象它最终在 `mmw/skills/` 里的位置」来判断对不对。合成一棵树之后，引用真的能解析，接线检查从想象变成可执行——`check-wiring.py` 就是干这个的。
 
@@ -22,13 +22,13 @@ MMW 的重建区。这里装两样东西，作用完全不同：
 ## 在这里怎么干活
 
 1. **只改 `candidate/`。** 现役 `mmw/skills/` 和 `mmw/cli/` 在整体替换之前一律不动。
-2. **两半一起改。** `candidate/skills/` 和 `candidate/cli/` 是同一个发布面的两半——技能正文精简掉的参数来源和约束，落点常常是 CLI 的帮助文本。只改一半会留下对不上的另一半。
+2. **发布合同一起改。** 技能、CLI、宿主 runtime、manifest 与安装入口共同组成发布面。只改一处会留下断开的合同。
 3. **每轮的理由写进 `<上游技能名>/README.md`**，不写进候选正文。候选正文是给将来执行它的 agent 看的，不是给复核这一轮的人看的。MMW 原创技能没有上游目录，理由写进提交信息。
 4. **改完跑 `python3 mmw/skill-rebuilds/check-wiring.py`。** 它只判机器能直接判定的四类：相对链接打不开、技能名不存在、启动占位符的角色或组不认识、宿主动作名不认识。方法论对不对、编排合不合理，它不管，也不该让它管。
 
 ## 什么时候整体替换现役
 
-`candidate/skills/` 和 `candidate/cli/` 一起替换 `mmw/skills/` 和 `mmw/cli/`，然后按根 `TESTING.md` 跑整段、同步 `AGENTS.md` 里列的五处版本号、更新 `mmw-skill-map.html`。
+把 `candidate/` 中的每个路径覆盖到正式 `mmw/` 发布根，然后按根 `TESTING.md` 跑整段、同步 `AGENTS.md` 里列的五处版本号、更新 `mmw-skill-map.html`。
 
 在那之前，候选区的任何东西都不参与物化，也不改变任何宿主的运行行为。
 
@@ -42,3 +42,6 @@ MMW 的重建区。这里装两样东西，作用完全不同：
 4. **`mmw-improve-codebase-architecture` 保持 model-invoked**：上游有 `disable-model-invocation: true`；候选去掉它是有意的——`/mmw-diagnosing-bugs` 确认缺 seam 时要能移交到本技能，按 `writing-for-agents/SKILL-MECHANICS.md` 的机制这要求 model-invoked。
 5. **`handoff` 与 `writing-for-agents` 正文保持英文**：writing-for-agents 的方法论（leading word 等）依赖英文 pretraining priors，翻译会削弱效果；handoff 随其惯例。这是决定，不是漏译。
 6. **`mmw-triage` 不再要求 agent brief 携带 research 索引**：候选两侧（triage 与 to-spec 分诊入口）一致收窄，链路闭合。
+7. **`mmw-start` 只允许用户调用**：Claude Code 使用 `disable-model-invocation: true`；Codex 使用 `agents/openai.yaml` 禁止隐式调用；Pi 不识别 Claude Code 的字段，所以物化时从技能索引移出，并生成同名用户命令。下游缺少任务上下文时只报告缺失并停止，不回跳 `mmw-start`。
+8. **模型档属于已安装 runtime**：目标仓库的 `.mmw.json` 不再保存模型。源码安装流程从 `cli/mmw.default.json` 为各宿主物化模型选择。同一个目标仓库可由多个宿主共用。
+9. **本机安装统一从源码仓库发起**：`mmw/install.sh` 先构建稳定 runtime，再安装 Codex、Claude Code、Pi、headless Codex 方法技能和 Pi/Cursor MCP。`mmw init` 只配置目标仓库。

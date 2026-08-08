@@ -15,11 +15,11 @@ description: 为已发布 spec 的每张 tracer bullet ticket 编排一份 plan�
 
 | 检查 | 怎么查 |
 | --- | --- |
-| 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头；不满足就回 `/mmw-start` 建立或绑定任务 worktree |
+| 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头；不满足就停下，说明当前没有已绑定的任务上下文，无法继续 |
 | spec 已定稿并过了人工审批关卡 | `docs/specs/<slug>/<slug>.md` 存在，对应的 spec issue 已发布并带着 `ready-for-agent` |
 | ticket 已发布 | `mmw issue children <spec issue 编号>` 列得出这批 ticket；列不出先跑 `/mmw-to-tickets` |
 
-`<spec issue 编号>` 由调用方移交时给你。上下文断了、手上只有 slug 时，按 `/mmw-start` 的「回来接着做」那张表反查它。
+`<spec issue 编号>` 由调用方移交时给你。没有这个编号就停下，说明缺少哪项输入。
 
 ## 1. 定 plan 清单
 

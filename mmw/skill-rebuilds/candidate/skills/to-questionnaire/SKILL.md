@@ -1,7 +1,6 @@
 ---
 name: to-questionnaire
 description: 把当前用户无法回答的问题整理成给知识持有者填写的 questionnaire。
-disable-model-invocation: true
 ---
 
 把当前用户无法独自回答的内容变成一份 **questionnaire**。用户把 Markdown 发给一位掌握缺失知识的人，由对方异步填写，或者在会议中共同填写。

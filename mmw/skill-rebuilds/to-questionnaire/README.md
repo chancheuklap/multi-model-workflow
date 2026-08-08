@@ -6,11 +6,14 @@
 
 第一阶段已经完成上游 `SKILL.md` 和 `agents/openai.yaml` 的逐段中文翻译。翻译保持只追问发送安排、收件人、信息缺口、三步完成判据和整份 questionnaire 模板，不加入 MMW 的 scratch、Grilling 回流或清理流程。
 
+接线候选位于 `../candidate/skills/to-questionnaire/`。候选只改调用方式：上游是 user-invoked；MMW 的 `/mmw-grilling` 会调用它，所以候选必须保持 model-invoked。问卷方法和完成判据不变。
+
 ## 文件
 
 | 文件 | 作用 |
 | --- | --- |
 | `upstream-1.2.2.zh-CN.md` | 上游 1.2.2 的逐段中文翻译基线 |
 | `translation-audit.md` | 术语选择、逐段完整性与无新增语义检查 |
+| `../candidate/skills/to-questionnaire/` | 保留上游方法，只增加 Grilling 调用合同的候选技能 |
 
-后续只有在用户确认精简方案后，才增加 `simplified.zh-CN.md`；只有在用户确认接线方案后，才增加 `candidate/`。
+当前发布技能保持不变。

@@ -81,7 +81,7 @@ mmw dispatch <角色> --task <文件> [--cwd <目录>]
   --task <文件>   task 四栏表文件，必填（与 Pi 的 task 同一概念）
   --cwd <目录>    角色的工作目录。会写文件的角色必填；只读角色省略时使用仓库根
 
-模型、档位、护栏由角色决定，取自仓库根 .mmw.json，这里不用管。
+模型、档位和护栏由角色决定，取自已安装 MMW runtime 的模型档。
 
 返回开头一行是 mode: executed 或 mode: host-tool。
 host-tool 时原样用返回中的 params 调工具（params 内已含 task 正文或等价字段）。
@@ -292,7 +292,7 @@ cmd_dispatch() {
 usage_agents() {
   cat >&2 <<'EOF'
 mmw agents materialize --host <pi|cursor|all> [--check] [--config <文件>] [--out <目录>]
-    把 agent-src 与型号表物化成宿主原生 subagent 文件
+    把 agent-src 与模型档物化成宿主原生 subagent 文件
 Pi / Cursor：主 agent 直调原生 subagent，不经 mmw dispatch。
 Claude Code：仍用 mmw dispatch。
 EOF
@@ -494,7 +494,8 @@ cmd_graph() {
 }
 
 cmd_doctor() {
-  local host status=0 domain_ready=0
+  local host status=0 domain_ready=0 repair
+  repair="$(mmw_install_repair_command)"
   echo "CLI      : ${BASH_SOURCE[0]} -> $MMW_ROOT"
   if host="$(mmw_host 2>/dev/null)"; then
     echo "宿主     : $host"
@@ -555,7 +556,7 @@ cmd_doctor() {
     else
       # 绝对路径。插件装出去之后，读这行的 agent 待在用户自己的仓库里，
       # 那里没有 mmw/ 这个目录，相对路径它跑不了。
-      echo "方法论   : 没装，跑 $MMW_ROOT/cli/lib/install-agent-skills.sh"
+      echo "方法论   : 没装，重新运行 $repair"
       status=1
     fi
   elif [ "${host:-}" = "pi" ]; then
@@ -565,26 +566,26 @@ cmd_doctor() {
     echo "方法论   : 走 subagent 的 skill 参数，不用安装"
   elif [ "${host:-}" = "codex" ]; then
     if python3 "$MMW_ROOT/codex/runtime.py" check >/dev/null 2>&1; then
-      echo "Codex    : 四个原生 subagent 与 mmw 转发脚本已安装"
+      echo "Codex    : 四个原生 subagent 已安装"
     else
-      echo "Codex    : 运行时未装或过期，跑 python3 $MMW_ROOT/codex/runtime.py install"
+      echo "Codex    : 原生 subagent 未装或过期，重新运行 $repair"
       status=1
     fi
-    echo "方法论   : 由 Codex plugin 直接提供，不用装旧 Claude bridge"
+    echo "方法论   : 由 Codex plugin 直接提供"
   fi
 
   case "${host:-}" in
     pi)
       if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host pi --check >/dev/null 2>&1; then
-        echo "Pi agent : agents-pi 与 agent-src / 型号表一致"
+        echo "Pi agent : agents-pi 与 agent-src / 模型档一致"
       else
-        echo "Pi agent : 与真源不一致，跑 mmw agents materialize --host pi"
+        echo "Pi agent : 与 installed runtime 不一致，重新运行 $repair"
         status=1
       fi
       if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host pi --check >/dev/null 2>&1; then
         echo "Pi skills: skills-pi 与 skills/ 源一致"
       else
-        echo "Pi skills: 与真源不一致，跑 mmw skills materialize --host pi"
+        echo "Pi skills: 与 installed runtime 不一致，重新运行 $repair"
         status=1
       fi
       ;;
@@ -592,7 +593,7 @@ cmd_doctor() {
       if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host claude-code --check >/dev/null 2>&1; then
         echo "CC skills: skills-claude-code 与 skills/ 源一致"
       else
-        echo "CC skills: 与真源不一致，跑 mmw skills materialize --host claude-code"
+        echo "CC skills: 与 installed runtime 不一致，重新运行 $repair"
         status=1
       fi
       ;;
@@ -600,7 +601,7 @@ cmd_doctor() {
       if python3 "$MMW_ROOT/codex/runtime.py" materialize --check >/dev/null 2>&1; then
         echo "Codex src: plugin、agent 与 profiles 一致"
       else
-        echo "Codex src: 生成物漂移，跑 python3 $MMW_ROOT/codex/runtime.py materialize"
+        echo "Codex src: installed runtime 内部不一致，重新运行 $repair"
         status=1
       fi
       ;;
@@ -612,7 +613,7 @@ cmd_doctor() {
     if bash "$MMW_ROOT/mcp/install-mcp.sh" --check >/dev/null 2>&1; then
       echo "pi/Cursor: 用户级 MCP 已装（这台机器上没有的那一面自动跳过）"
     else
-      echo "pi/Cursor: 有一面没装或与插件定义不一致，跑 $MMW_ROOT/mcp/install-mcp.sh"
+      echo "pi/Cursor: 有一面没装或与 plugin 定义不一致，重新运行 $repair"
       status=1
     fi
   else
