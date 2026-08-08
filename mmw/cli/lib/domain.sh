@@ -9,6 +9,16 @@
 
 set -euo pipefail
 
+# 输出这个仓库的领域文档形态、路径和读取指令。
+mmw_domain_path() {
+  local root config
+  root="$(mmw_repo_root)"
+  config="$(mmw_require_config)" || return 1
+  python3 "$MMW_ROOT/cli/lib/context_docs.py" path \
+    --root "$root" \
+    --config "$config"
+}
+
 # 从 MMW 持有的种子同步目标仓库规则。Python 模块负责整轮预检和原子写入；
 # shell 只提供当前仓库、配置与宿主，不复制 Markdown 合同。
 mmw_domain_sync() {
@@ -59,6 +69,21 @@ mmw_domain_validated_config() {
   python3 "$MMW_ROOT/cli/lib/context_docs.py" paths \
     --root "$root" \
     --config "$config"
+}
+
+# 输出写入侧的四个配置路径。
+mmw_domain_dirs() {
+  local root domain fallback map context_dir adr_dir
+  root="$(mmw_repo_root)"
+  domain="$(mmw_domain_validated_config)" || return 1
+  fallback="$(jq -er '.fallback' <<< "$domain")" || return 1
+  map="$(jq -er '.map' <<< "$domain")" || return 1
+  context_dir="$(jq -er '.context_dir' <<< "$domain")" || return 1
+  adr_dir="$(jq -er '.adr_dir' <<< "$domain")" || return 1
+  printf 'single\t%s\n' "$root/$fallback"
+  printf 'map\t%s\n' "$root/$map"
+  printf 'context\t%s\n' "$root/$context_dir"
+  printf 'adr\t%s\n' "$root/$adr_dir"
 }
 
 # 下一个 ADR 编号，四位、零填充。目录不存在或空的时候是 0001。

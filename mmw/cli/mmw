@@ -173,6 +173,9 @@ EOF
 
 usage_domain() {
   cat >&2 <<'EOF'
+mmw domain path
+    输出领域文档形态、路径和读取指令。
+
 mmw domain adr-next
     下一个可用的 ADR 编号，四位零填充，例如 0007。每次调用都重新扫描 adr 目录。
     多个会话可能并行写 ADR 时不要提前取号：先用 draft-<标识>-<slug>.md 命名，
@@ -189,6 +192,9 @@ mmw domain sync
 mmw domain check
     检查那段提示和 Context Map 的结构是否完整。退出码非 0 时按输出修好，
     这次修改才算完成。
+
+mmw domain dirs
+    输出 single、map、context 和 adr 的配置路径。
 EOF
   return 2
 }
@@ -446,10 +452,12 @@ cmd_domain() {
   shift || true
   [ $# -eq 0 ] || usage_domain
   case "$sub" in
+    path) mmw_domain_path ;;
     map-init) mmw_domain_map_init ;;
     sync) mmw_domain_sync ;;
     check) mmw_domain_check ;;
     adr-next) mmw_domain_adr_next ;;
+    dirs) mmw_domain_dirs ;;
     *) usage_domain ;;
   esac
 }
