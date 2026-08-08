@@ -821,7 +821,7 @@ subgraph PA["A 段 · 一个会话建 map · 只并行解决 research ticket"]
 direction TB
   a1["第一步，给 destination 命名。<br/>它固定了范围，所以最先定"]
   a2["第二步，广度优先横扫整个空间。<br/>每条线都碰一下，不在任何一条上扎深"]
-  a3{"这项工作是否超过一个 agent 会话，<br/>而且路线仍不清楚？"}
+  a3{"广度扫完，<br/>还有 fog 吗？"}
   a4["建 map issue，打上 wayfinder:map 标签。<br/>正文固定一个产物目录，整个 effort 不再改名"]
   a5["已经能精确表述的问题，各建一张 decision ticket"]
   a6["第二遍补阻塞关系。<br/>issue 要先有编号，才能互相引用"]
@@ -830,20 +830,22 @@ end
 
 hA(["停，交回用户<br/>报 map、已完成的 research 和当前 frontier，<br/>说明每张 decision ticket 使用一个新会话"])
 
+hE(["停，交回用户<br/>路线已清楚、一个会话装得下、不需要 map；<br/>询问接下来怎样进行"])
+
 subgraph PB["B 段 · 一个会话解一张 decision ticket · 解完就停"]
 direction TB
   b1["读一遍 map，只看整体，不逐个打开 ticket"]
   b0{"frontier 上<br/>还有 ticket 吗？"}
   b2["挑一张没有阻塞、也没人认领的"]
-  b3["先指派给自己；Codex 从 map 分支创建独立 Worktree 任务并绑定任务分支。<br/>ticket 继承 map 的产物目录，并使用 issue 编号子目录"]
+  b3["先 claim 指派给自己，再从 map 分支建任务 worktree 并绑定任务分支。<br/>ticket 继承 map 的产物目录，并使用 issue 编号子目录"]
   b4{"这张是哪一类？"}
   b5["把答案写成结案评论，然后关掉这张 ticket"]
   b6{"mmw-domain-modeling 的<br/>三项 ADR 判据全部成立吗？"}
   b7["回头改 map。<br/>新问题先建 ticket 再连阻塞关系，<br/>判出范围的直接关掉"]
-  b9["本张 decision ticket 收尾：草稿 ADR 改成正式编号，<br/>交回分支、HEAD SHA 与基点 SHA；map 任务验证后集成"]
+  b9["本张 decision ticket 收尾：交回任务分支名、HEAD SHA 与基点 SHA；<br/>map 任务验证后集成，草稿 ADR 在集成后换正式编号"]
 end
 
-hB(["停，交回用户<br/>报本张 decision ticket 已完成，并列出当前 frontier"])
+hB(["停，交回用户<br/>报告本次结果，并列出当前 frontier 上的 ticket 名称"])
 
 subgraph TY["四类 ticket 怎么解 · 要人在场的那三类，agent 不许替人回答"]
 direction TB
@@ -851,7 +853,7 @@ direction TB
   t2[["prototype 类，要人在场。<br/>跑 mmw-prototype，一轮回答一个问题。<br/>持久资产与 Git 忽略的过程材料分开保存"]]
   t3[["research 类，人不用在场。<br/>只查当前这一个决定等待的事实，答完就停"]]
   t4{"task 类。<br/>agent 自己做得了吗？"}
-  r1[["按 mmw-research 列 research 清单，<br/>一个问题派一个 investigator"]]
+  r1[["按 mmw-research 拆角度，一个角度派一个 investigator；<br/>单角度不硬拆"]]
   r2["过滤无出处断言，打开出处验证，再由主 agent 综合。<br/>subagent 原始报告不等于 research"]
   r4["继承 map 的产物目录和 issue 子目录。<br/>这张 ticket 已经批准保存，<br/>research 不再询问是否保存"]
   r3["验证过的事实始终写进 ticket 评论。<br/>保存时再链接 research 索引；<br/>没查清的另起一节列出来"]
@@ -891,8 +893,8 @@ wik[/"<b>Wiki 的 Spec-&lt;slug&gt;.md</b><br/>· D 段收尾时写<br/>· 此�
 ent --> a1
 a1 --> a2
 a2 --> a3
-a3 -->|"否。路线清楚且能在一个会话内推进，直接移交"| d2
-a3 -->|"是"| a4
+a3 -->|"没有 fog，不需要 map"| hE
+a3 -->|"有"| a4
 a4 --> a5
 a5 --> a6
 a6 --> a7
@@ -971,7 +973,7 @@ class t1,t2,t3,t4,r1,r2,r3,r4 ty;
 class c1,c2,c3,c4,c5 pc;
 class d1,d2,d3,d4,d5,d6,d7 pd;
 class pmap,ptk,adr,oos,ctx,spf,wik sink;
-class hA,hB,hC,hT halt;
+class hA,hB,hC,hT,hE halt;
 
 </pre>
 </div>
@@ -1017,6 +1019,8 @@ end
 
 subgraph RROUTE["二、问题分流 · 只把需要隔离取证的工作派出去"]
 direction LR
+  broke{"要查的是坏了的东西<br/>为什么坏？"}
+  bugs["移交 mmw-diagnosing-bugs"]
   easy{"一个函数、一个已知文件<br/>或一条命令就能回答？"}
   local["主 agent 直接读取或运行，<br/>不派 subagent"]
   live{"必须在真实环境、多候选<br/>或多轮测量后才知道？"}
@@ -1039,11 +1043,11 @@ end
 
 subgraph RSAVE["四、确定路径与保存 · Wayfinder 和实测直接保存"]
 direction LR
-  owner["先确定产物目录。<br/>已有 effort 必须复用；Wayfinder 继承 map；<br/>普通任务使用任务 slug；无 effort 时向用户提议"]
+  owner["按 MAIN 第 0 节入口合同认领入口，确定产物目录。<br/>Wayfinder ticket 用传入路径；上下文已有产物目录就复用；<br/>都没有就给这项工作起名当产物目录，询问时让用户确认"]
   path{"是否是 Wayfinder<br/>decision ticket？"}
   normal["普通任务使用<br/>docs/research/&lt;产物目录&gt;/&lt;research 主题&gt;/"]
   wfpath["Wayfinder ticket 使用<br/>docs/research/&lt;产物目录&gt;/issue-&lt;编号&gt;/&lt;research 主题&gt;/"]
-  direct{"Wayfinder ticket 或<br/>外部系统实测？"}
+  direct{"Wayfinder ticket、外部系统实测，<br/>或调用方传入「直接保存」？"}
   proposal["展示 research 问题、结论摘要、<br/>拟保存文件和完整路径"]
   gate{"用户是否保存<br/>本次 research？"}
   saved["创建并独立保留 research 目录。<br/>README.md 是 research 索引；report.md 是 research 报告；<br/>实测另含 test-plan.md，最小原始 evidence 才进入 raw/。<br/>research 不因 spec 未引用而删除"]
@@ -1072,8 +1076,12 @@ c1 --> list
 c2 --> list
 c3 --> list
 c4 --> list
-list --> easy
+list --> broke
+broke -->|"是"| bugs
+broke -->|"否"| easy
 easy -->|"是"| local
+local -->|"来自 wayfinder ticket，仍走保存与交回"| owner
+local -->|"其他入口，拿到事实直接交回"| handoff
 easy -->|"否"| live
 live -->|"是"| evidence
 live -->|"否"| kind
@@ -1124,7 +1132,7 @@ classDef output fill:#FFFFFF,stroke:#4D7C0F,stroke-width:2.2px,color:#22300B;
 classDef downstream fill:#FBF2E4,stroke:#BE185D,stroke-width:2.2px,color:#3E0F26;
 
 class c0,c1,c2,c3,c4,list caller;
-class easy,local,live,evidence,kind,internal,external,tasks,reports route;
+class broke,bugs,easy,local,live,evidence,kind,internal,external,tasks,reports route;
 class filter,verify,conflict,synth,done verify;
 class owner,path,normal,wfpath,direct,proposal,gate save;
 class saved,none,scratch,rindex,rreport,rfiles output;

@@ -42,8 +42,9 @@ gh issue close <map 编号>
 | 开始规划前必须锁定的一个决定 | 报告这个决定现在是什么，并给出 map 名称和它的 URL 或编号 |
 | 一次就地完成的改动，而且 map 的 `Notes` 里写了这项 effort 要把执行也带进 map | 报告 map 已完成 |
 | 一次就地完成的改动，而且 map 的 `Notes` 里没写这一条 | 报告路线已经清楚、但改动还没做，并给出 map 名称和它的 URL 或编号 |
+| 以上都对不上 | 报告 `Destination` 原文和你无法归类的原因，请用户裁决交给谁 |
 
-除了 spec 那一种，其余三种到这里 Wayfinding 就结束了：把已经形成的决定交出去，不要接着去把 destination 做掉。
+除了 spec 那一种，其余几种到这里 Wayfinding 就结束了：把已经形成的决定交出去，不要接着去把 destination 做掉。
 
 ## 下一步
 
@@ -53,3 +54,4 @@ gh issue close <map 编号>
 | destination 是已经锁定的决定，map 已关闭 | **停**：报告决定和 map 名称及其 URL 或编号 |
 | destination 是已经完成的就地改动，map 已关闭 | **停**：报告 map 已完成 |
 | destination 是尚未执行的就地改动，map 已关闭 | **停**：报告路线已经清楚、改动尚未执行，以及 map 名称及其 URL 或编号 |
+| `Destination` 写的内容归不进上面任何一种 | **停**：报告 `Destination` 原文和无法归类的原因，请用户裁决 |
