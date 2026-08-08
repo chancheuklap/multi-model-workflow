@@ -9,11 +9,6 @@
 
 set -euo pipefail
 
-# 这个宿主的 subagent 工具自己解析 skill 参数并注入，不用把路径写进提示词。
-mmw_adapter_skill_path() {
-  :
-}
-
 mmw_adapter_dispatch() {
   # 仍校验模型族能映射，避免 .mmw.json 配了 Pi 接不住的族却静默写出坏 agent。
   case "$MMW_D_FAMILY" in

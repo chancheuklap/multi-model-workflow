@@ -68,7 +68,7 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 | 栏 | 本角色填写 |
 | --- | --- |
 | 目标 | 为 ticket `#<编号>` 写 plan，落到指定路径 |
-| 读 | 按「1. 定 plan 清单」逐行列出当前 ticket 的精确路径；最后加入 `mmw skill-path planner` 的输出，没有则写「无（宿主已注入）」 |
+| 读 | 按「1. 定 plan 清单」逐行列出当前 ticket 的精确路径。方法论不用列——`planner` 自带 `/mmw-planner` |
 | 约束 | 只写该 plan 文件；不提交；不认领 `## Cross-Plan Contract Anchors` 划给别人的文件；不写其他 plan 的正文 |
 | 验收 | plan 文件存在且可被抽验；`## Acceptance` 覆盖 ticket `#<编号>` 的全部验收（详见 issue，不抄正文） |
 

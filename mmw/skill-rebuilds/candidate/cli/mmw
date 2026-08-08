@@ -38,7 +38,6 @@ mmw <命令> [参数]
   dispatch    Claude Code：把 task 文件编成宿主工具参数（Pi 主路径不用）
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
-  skill-path  派出去那一侧读方法论的路径
   task        任务 worktree：查状态、建、绑分支、进、删
   result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
@@ -78,18 +77,6 @@ mmw dispatch <角色> --task <文件> [--cwd <目录>]
 
 返回开头一行是 mode: executed 或 mode: host-tool。
 host-tool 时原样用返回中的 params 调工具（params 内已含 task 正文或等价字段）。
-EOF
-  return 2
-}
-
-usage_skill_path() {
-  cat >&2 <<'EOF'
-mmw skill-path <角色>
-
-角色：worker、worker-high-risk、prototype-worker、planner、investigator、designer、reviewer-gpt、reviewer-claude
-
-输出派出去那一侧读方法论的绝对路径，写进给它的提示词里。
-宿主自己会把方法论送到位的角色什么都不输出，那时这句话省掉。
 EOF
   return 2
 }
@@ -283,9 +270,6 @@ cmd_dispatch() {
 
   export MMW_D_ROLE="$role"
   export MMW_D_ROSTER="$roster"
-  export MMW_D_SKILL="$skill"
-  export MMW_D_SKILL_PATH=""
-  [ -z "$skill" ] || MMW_D_SKILL_PATH="$MMW_ROOT/skills/$skill/SKILL.md"
   export MMW_D_FAMILY MMW_D_MODEL_ID MMW_D_EFFORT
   MMW_D_FAMILY="$(mmw_model_field "$role" family)"
   MMW_D_MODEL_ID="$(mmw_model_field "$role" id)"
@@ -381,29 +365,6 @@ cmd_skills() {
 }
 
 # 派出去的那一侧从哪个路径读方法论。宿主自己会送到位的，什么都不输出。
-cmd_skill_path() {
-  local role="${1:-}"
-  [ -n "$role" ] || usage_skill_path
-  role_roster "$role" >/dev/null || {
-    echo "mmw: 认不出角色 $role" >&2
-    usage_skill_path
-  }
-  local skill
-  skill="$(role_skill "$role")"
-  [ -n "$skill" ] || return 0
-
-  local host adapter
-  host="$(mmw_host)"
-  if [ "$host" = "codex" ]; then
-    return 0
-  fi
-  adapter="$MMW_ROOT/cli/adapters/$host.sh"
-  [ -f "$adapter" ] || { echo "mmw: 没有 $host 的 adapter" >&2; return 1; }
-  # shellcheck source=/dev/null
-  . "$adapter"
-  mmw_adapter_skill_path "$skill" "$(mmw_model_field "$role" family)"
-}
-
 cmd_task() {
   local host
   host="$(mmw_host)" || return 1
@@ -703,7 +664,6 @@ case "${1:-}" in
   dispatch) shift; cmd_dispatch "$@" ;;
   agents) shift; cmd_agents "$@" ;;
   skills) shift; cmd_skills "$@" ;;
-  skill-path) shift; cmd_skill_path "$@" ;;
   task) shift; cmd_task "$@" ;;
   result) shift; cmd_result "$@" ;;
   issue) shift; cmd_issue "$@" ;;

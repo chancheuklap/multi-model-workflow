@@ -29,7 +29,7 @@ description: 扫描 deepening opportunities，生成候选报告供用户选择�
 
 ## 2. 派几个 `investigator` 各自去探
 
-派 3 到 4 个 `investigator`，**每份 task 完全一样**，都探第 1 步定下的整片地方。四栏表：目标=在这片地方找架构摩擦；读=范围路径 + 领域文档 + `/mmw-codebase-design` + ADR 路径；约束=只读；验收=摩擦点带出处。
+派 3 到 4 个 `investigator`，**每份 task 完全一样**，都探第 1 步定下的整片地方。四栏表：目标=在这片地方找架构摩擦；读=范围路径 + 领域文档 + `docs/adr/` 下相关的 ADR + `/mmw-codebase-design`（点技能名，不给路径）；约束=只读；验收=摩擦点带出处。
 派一个独立上下文的 `investigator`。手上有名为 `mmw-investigator` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进 `.dispatch/investigator-<这次的短名>.md`，后台跑 `mmw dispatch investigator --task <这个文件的绝对路径>`。它的输出第一行是 `mode:`：`executed` 表示它已经自己跑完了，按 `report:` 那行的路径读报告；`host-tool` 表示要你来调，`tool:` 那行是宿主工具名，`params:` 那几行是 JSON 参数，原样传给它。这个角色只读，不指定工作目录。
 
 互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。

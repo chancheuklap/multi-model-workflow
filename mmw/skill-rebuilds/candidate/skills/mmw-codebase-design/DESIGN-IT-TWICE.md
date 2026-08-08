@@ -18,7 +18,7 @@
 
 ### 2. 派 subagent
 
-一个约束一个 `designer`，至少三个，并行。每个约束使用四栏表：目标是该设计约束下的 interface；读是技术材料路径、`SKILL.md` 和领域文档路径；约束是只读且与其它变体结构不同；验收是交回 interface、用法和取舍。
+一个约束一个 `designer`，至少三个，并行。每个约束使用四栏表：目标是该设计约束下的 interface；读是技术材料的精确路径，加 `/mmw-codebase-design`（点技能名，不给路径），加领域文档；约束是只读且与其它变体结构不同；验收是交回 interface、用法和取舍。
 
 派一个独立上下文的 `designer`。手上有名为 `mmw-designer` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进 `.dispatch/designer-<这次的短名>.md`，后台跑 `mmw dispatch designer --task <这个文件的绝对路径>`。它的输出第一行是 `mode:`：`executed` 表示它已经自己跑完了，按 `report:` 那行的路径读报告；`host-tool` 表示要你来调，`tool:` 那行是宿主工具名，`params:` 那几行是 JSON 参数，原样传给它。这个角色只读，不指定工作目录。
 
