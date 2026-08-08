@@ -37,6 +37,10 @@ map 正文是整个 map 的低分辨率视图。每个 session 加载一次。op
 
 <这项 effort 的 prototype、research 和过程材料共用的一个目录名。建 map 时定下，之后不再改。>
 
+## 分支
+
+<map 分支的完整分支名。建 map 的那个会话把自己的任务分支名填进来，之后不再改。后来的会话靠它知道从哪派生 decision ticket。>
+
 ## Notes
 
 <领域；每个 session 都应该查阅的技能；这项 effort 长期生效的偏好>

@@ -45,7 +45,7 @@ argument-hint: "[bug|big] [要做的事，或者一张 map 的编号]"
 
 最终形成一份还是多份 spec 不是入口判据。范围大但路线已经清楚时，直接进入 `/mmw-to-spec` 或 `/mmw-to-tickets`；路线模糊但一次会话能谈清时，走 `/mmw-grilling`。
 
-带 issue 编号的，先 `gh issue view <编号> --comments` 把它读出来再判，不要只看编号。标签的含义见 `/mmw-triage`。
+带 issue 编号的，先 `gh issue view <编号> --comments` 把它读出来再判，不要只看编号。`wayfinder:` 这一族标签的含义见 `/mmw-wayfinder`，其余分诊标签见 `/mmw-triage`。
 
 ## 2. 定 slug
 

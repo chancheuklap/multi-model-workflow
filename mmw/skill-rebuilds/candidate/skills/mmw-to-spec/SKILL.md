@@ -18,6 +18,7 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 | 用户直接调用 `/mmw-to-spec` | 当前对话中已经谈定的内容 | 当前对话 | 从用户提出本次需求的位置开始，读取已经明确形成的决定。不要使用尚未得到确认的建议或问题 |
 | `/mmw-grilling` 完成后进入 To Spec | 用户已经确认的共同理解 | 当前对话中 `/mmw-grilling` 最后一次总结的问题、约束、决定、取舍和范围 | 找到用户明确确认的最后一份完整总结。`/mmw-grilling` 调用过 `/mmw-research` 或 `/mmw-prototype` 时，同时读取这份总结引用的结论和精确产物路径 |
 | `/mmw-prototype` 完成后直接进入 To Spec | prototype 的 `README.md`，以及它列出的用户走查结论、选中产物、被否掉的方向和可复用内容 | `/mmw-prototype` 交回来的那个精确路径，指向一份 `README.md` | 读交回来的那份 `README.md`。确认它写的「当前问题」属于这份 spec，再顺着它读它点名的选中产物和可复用内容。不要去翻别的 prototype 目录 |
+| 被交来一张已经分诊过的 issue 编号（`/mmw-start` 或 `/mmw-triage` 判定它要拆成多张 ticket） | 那张 issue 的正文、agent brief 和讨论 | 交回来的那个 issue 编号。运行 `gh issue view <编号> --comments` 打开它 | 读正文和 agent brief，认出这次要交付的产品行为。它是这份 spec 的输入，不是 spec 本身——决定不够写成 spec 时按本节末尾停下 |
 | `/mmw-wayfinder` 关闭 map 后进入 To Spec | 已关闭的 map，跟这份 spec 有关的那几张 decision ticket 的结论，以及这些结论里点名的 prototype 和 research | `/mmw-wayfinder` 交回的 map URL 或编号。运行 `gh issue view <map 编号> --comments` 打开它 | 先确认 map 的 `Destination` 写的就是这份 spec。map 的 `Decisions so far` 一节每行都带着一张 decision ticket 的链接，顺着链接逐张运行 `gh issue view <ticket 编号> --comments`。每张 ticket 关闭前都留了一条写结论的评论，读这条评论和它里面写出的精确文件路径。跟 `Destination` 无关的 ticket 不要读 |
 
 匹配行要求的产物不存在，或者产物中仍缺少一项产品、设计或架构决定时，写清缺少的完整内容和已经检查的位置，然后停止。不要在本技能中重新访谈，也不要猜测缺失产物的位置。
@@ -30,6 +31,7 @@ spec 的落点由任务 slug 决定。按下表取得，不要自己另起一个
 | --- | --- |
 | `/mmw-wayfinder` 关闭 map 后进入 | 使用 `/mmw-wayfinder` 交回的任务 slug，也就是 map 的 slug |
 | `/mmw-prototype` 完成后进入 | 使用这次 prototype 使用的 `产物目录` |
+| 被交来一张已分诊的 issue | 按这张 issue 要交付的东西提议一个名字，请用户确认后再使用 |
 | 当前任务已经有任务 slug | 复用已有值 |
 | 用户直接调用，而且当前任务还没有任务 slug | 根据这份 spec 要交付的东西提议一个名字，请用户确认后再使用 |
 
@@ -66,9 +68,13 @@ spec 的落点由任务 slug 决定。按下表取得，不要自己另起一个
 
 6. 用户明确批准后，先提交 spec 文件，再把它发布到项目 issue tracker，添加 `ready-for-agent` triage 标签，不需要再次 triage。issue 正文保存 spec 摘要、spec 的精确路径，以及本 spec 实际使用的输入出处；从 Wayfinder 进入时，输入出处包含 map 名称及其 URL 或编号。
 
+正文先落盘再发。写进 `.scratch/<任务 slug>/spec-issue-body.md`——`.scratch/` 在 `.gitignore` 里，这份正文发完就没用了。
+
 ```bash
-mmw issue create --title "<spec 名称>" --body-file <摘要文件> --label ready-for-agent
+mmw issue create --title "<spec 名称>" --body-file .scratch/<任务 slug>/spec-issue-body.md --label ready-for-agent
 ```
+
+记下 `mmw issue create` 返回的 issue 编号，移交时一起交出去——下游三个技能都要用它。
 
 这一步做完的标志是三件事都成立：spec 文件已经提交；这张 spec issue 的正文指向那个文件；这张 issue 带着 `ready-for-agent`。这个标签的意思是用户已经批准了这份 spec，不是说可以照着它一口气实现完。
 
@@ -76,7 +82,7 @@ mmw issue create --title "<spec 名称>" --body-file <摘要文件> --label read
 
 | 情况 | 下一步 |
 | --- | --- |
-| spec 已经提交并发布，而且对应 issue 带 `ready-for-agent` | **移交**：`/mmw-to-tickets`，把 spec 拆成 tracer bullet ticket |
+| spec 已经提交并发布，而且对应 issue 带 `ready-for-agent` | **移交**：`/mmw-to-tickets`，交给它任务 slug 和这张 spec issue 的编号，把 spec 拆成 tracer bullet ticket |
 | 入口要求的产物不存在，或者其中缺少一项产品、设计或架构决定 | **停**：报告缺少的完整内容和已经检查的位置，等用户补齐或指出正确位置 |
 | 已经开始写 spec，但发现某项决定尚未形成 | **停**：报告缺少的完整内容和已经检查的位置；这项决定需要先谈定，不在本技能中访谈 |
 | 用户看过完整 spec 和 ① spec 审结果后要求修改 | **停**：按用户意见修改 spec，再次展示完整结果，等待批准 |

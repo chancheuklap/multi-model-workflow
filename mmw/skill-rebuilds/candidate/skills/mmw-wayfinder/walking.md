@@ -19,7 +19,7 @@
 
    使用 `mmw issue claim <编号>` claim。失败说明另一个 session 已经 claim 这张 ticket，改取下一张。所有 frontier ticket 都 claim 失败时，报告这些 ticket 已被其他 session 认领，然后停止；不要进入第 3 步。
 
-   claim 成功后，为这张 ticket 建立自己的任务 worktree。任务 slug 由两段拼成，中间一个连字符：前一段取 map 标题的短名（全小写、空格换成连字符），后一段取这张 ticket 标题的短名。父分支是 map 分支，起点是 map 分支当前已提交的 HEAD——先运行 `git rev-parse <map 分支>` 记下它，交回结果时要用。
+   claim 成功后，为这张 ticket 建立自己的任务 worktree。任务 slug 由两段拼成，中间一个连字符：前一段取 map 标题的短名（全小写、空格换成连字符），后一段取这张 ticket 标题的短名。父分支是 map 分支，分支名读 map 正文的 `## 分支` 一节；起点是它当前已提交的 HEAD——先运行 `git rev-parse <map 分支>` 记下它，交回结果时要用。
 
    先跑 `mmw task state`。它输出一行，第一个词决定这棵树要不要你自己建：
 
@@ -64,7 +64,7 @@
 
 4. 记录这次的答案。三件事：
 
-   1. 把答案作为一条评论发在这张 ticket 上：`gh issue comment <编号> --body-file <文件>`。评论里链接这张 ticket 实际形成的 prototype 或 research；没有资产时只写答案。
+   1. 把答案作为一条评论发在这张 ticket 上：`gh issue comment <编号> --body-file .scratch/<产物目录>/issue-<编号>/answer.md`。评论里链接这张 ticket 实际形成的 prototype 或 research；没有资产时只写答案。
    2. 关闭这张 ticket：`gh issue close <编号>`。
    3. 在 map 的 `Decisions so far` 追加一行：ticket 名称包着它的链接，加一句话概要。改 map 正文之前先 `gh issue view <map 编号>` 重新读一遍最新的，改完再读一遍确认自己那行在。别的会话可能刚改过 map，不要把它们的行覆盖掉。
 

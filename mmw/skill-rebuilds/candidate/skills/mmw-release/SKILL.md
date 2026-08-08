@@ -19,7 +19,7 @@ description: 为终审通过的改动构建正式安装包。用于用户要求�
 | 这个仓库配了出包 | 仓库里能找到至少一份出包配置（下一步） |
 | 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 |
 
-**没有出包配置不是失败。** 有 spec 的任务移交 `/mmw-closing`。只有 agent brief、没有 spec 的任务直接交回用户集成。
+**没有出包配置不是失败。** 这次是有 spec 还是只有 agent brief，由调用方移交时告诉你，不用自己推：有 spec 的移交 `/mmw-closing`，只有 agent brief 的直接交回用户集成。调用方没说就问它，不要拿文件系统猜。
 
 ## 2. 认这次要出哪几个产品
 
@@ -29,7 +29,7 @@ description: 为终审通过的改动构建正式安装包。用于用户要求�
 grep -rl '"product"' --include='*.release-adapter.json' .
 ```
 
-再判断这次要出哪几个：**看这次改动碰了哪些路径**（`git diff --name-only <本次任务的第一个提交>^..HEAD`），对照每份配置里 `build_target.desktop_dir` 与 `asset_roots` 声明的范围。碰到了就要出。
+再判断这次要出哪几个：**看这次改动碰了哪些路径**（`git diff --name-only $(git merge-base HEAD <父分支>)..HEAD`；父分支就是这条任务分支分叉出来的那条），对照每份配置里 `build_target.desktop_dir` 与 `asset_roots` 声明的范围。碰到了就要出。
 
 判不准就问用户，不要漏出一个——漏了的那个产品，用户装到的还是旧代码。
 
@@ -70,7 +70,9 @@ cat "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)"/.
 
 ## 5. 交给用户实测
 
-安装包在哪，只从引擎状态输出里读，不按目录约定猜。状态输出没记路径就如实说「状态输出没有记安装包路径」。
+安装包在哪，从引擎打出的 `DELIVERED` 行读——出包成功时它把包从构建目录收拢到交付根，一个包一行，行里就是完整路径。交付根按产品分子目录，默认 `D:\agentflow-releases\<产品>\`，`RELEASE_DELIVERY_ROOT` 可以改。
+
+收拢失败时引擎打的是 WARN，里面带着包留在构建目录的位置——那也是有效路径，照它报，同时说清这个包没进交付根。两样都没有就如实说没拿到路径，不按目录约定猜。
 
 把这些交给用户：出了哪几个产品、每个包在哪、这批包对应哪个 commit。
 

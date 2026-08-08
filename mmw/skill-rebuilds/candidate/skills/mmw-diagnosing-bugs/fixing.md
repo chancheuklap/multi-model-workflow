@@ -22,9 +22,11 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
    | 目标 | 修根因并补回归测试 |
    | 读 | ① 复现命令与输出若已落盘则给路径，否则写命令本身一行；② 最小化 repro / 假设若已落盘给路径；③ seam 说明（一层、断言什么）；④ `worker-brief.md`（与 `/mmw-implement` 的 `SKILL.md` 同目录）；⑤ 仓库根 `TESTING.md`（无则「无」） |
    | 约束 | 先在 seam 上把 repro 变成失败测试再修；不扩大范围 |
-   | 验收 | 新测试红后绿；Phase 1 原始 loop 不再复现 |
+   | 验收 | 新测试红后绿；Phase 1 原始 loop 不再复现；交回结果分支上的 HEAD SHA |
 
    派发前确认当前任务分支已经提交且工作区干净。为这次修复确定唯一、完整的结果分支名，并记下 `git rev-parse HEAD` 作为基点。结果分支名和基点 SHA 都要写入 task。
+
+   **验收栏里要求它交回结果分支上的 HEAD SHA。** 收结果时 `mmw result verify` 要这个值，它自己不算，只有做完的那一侧知道。
 
    [[mmw-launch:worker:worktree]]
 

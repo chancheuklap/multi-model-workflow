@@ -93,13 +93,15 @@ mmw wiki nav
 
 Wiki 验证通过，而且第 6 步已经归档并提交本地 spec 与 plan 后，清理当前任务自己的过程材料。
 
-先确定产物目录。从 Wayfinder 切出的 spec issue 读取 issue 正文继承的 `## 产物目录`；普通 spec 使用 spec slug。再从已绑定任务状态读取当前任务 slug。不要从任务 worktree 的物理目录名推断。
+先确定产物目录。从 Wayfinder 切出的 spec issue 读取 issue 正文继承的 `## 产物目录`；普通 spec 使用 spec slug。
+
+当前任务 slug 取 `mmw task state` 输出的第二个词（任务分支名），去掉宿主命名空间前缀（Codex App 是 `codex/`）之后剩下的部分。不要从任务 worktree 的物理目录名推断。
 
 当前任务的 scratch 目录是：Wayfinder 派生的 spec 用 `.scratch/<产物目录>/task-<任务 slug>`，普通 spec 用 `.scratch/<产物目录>`。只删除这一个目录。
 
-审查记录在 `.reviews/`，文件名使用任务 slug，不使用产物目录；只删除 `.reviews/<任务 slug>-*`。`.dispatch` 也归任务 worktree；只删除文件名或派发记录明确属于当前任务 slug 的 task 和报告文件。删除前列出目标，并逐项验证归属。无法确认归属的条目保留并报告。
+审查记录在 `.reviews/`，文件名使用任务 slug，不使用产物目录；只删除 `.reviews/<任务 slug>-*`。`.dispatch/` 是派发产物的落点——走 `mmw dispatch` 派角色时，四栏表和它交回的报告都落在这儿，它也归任务 worktree。只删除文件名或派发记录明确属于当前任务 slug 的 task 和报告文件。删除前列出目标，并逐项验证归属。无法确认归属的条目保留并报告。
 
-不得整目录清空 `.scratch/`、`.reviews/` 或 `.dispatch/`。只删除上面点名的那一个 scratch 目录、`.reviews/` 中属于当前任务 slug 的文件，以及 `.dispatch` 中明确属于当前任务 slug 的文件。持久 prototype 资产、用户选择保存的 research、evidence 和其他持久内容继续保留。
+不得整目录清空 `.scratch/`、`.reviews/` 或 `.dispatch/`。只删除上面点名的那一个 scratch 目录、`.reviews/` 中属于当前任务 slug 的文件，以及 `.dispatch/` 中明确属于当前任务 slug 的文件。持久 prototype 资产、用户选择保存的 research、evidence 和其他持久内容继续保留。
 
 完成判据：当前任务的 scratch、审查与派发过程材料已经清理；其他任务的过程材料、prototype 资产、用户选择保存的 research、evidence 和其他持久内容仍在。
 

@@ -2,11 +2,11 @@
 
 这张 map 已经没有 open 的 decision ticket 了，本文件负责收尾。
 
-收尾在拥有 map 分支的会话里做。先运行 `git rev-parse --abbrev-ref HEAD` 确认当前就在 map 分支上；不在就报告这一点并停止，让拥有 map 分支的会话来收尾。
+收尾在拥有 map 分支的会话里做。先运行 `git rev-parse --abbrev-ref HEAD`，跟 map 正文 `## 分支` 一节记的分支名比对，确认当前就在 map 分支上；不在就报告这一点并停止，让拥有 map 分支的会话来收尾。
 
 重新读取 map 正文，再运行 `mmw issue children <map 编号>`。仍有带 `wayfinder:` 标签的 open decision ticket 时停止；map 保持 open，不执行收尾。
 
-再确认每张已关闭 decision ticket 的结果都已经集成回 map 分支，而且没有遗留 `draft-<ticket 编号>-<slug>.md`。存在未集成的结果分支或 ADR 草稿时，先按 [walking.md](walking.md) 第 6 步完成集成和正式编号，再继续收尾。
+再确认每张已关闭 decision ticket 的结果都已经集成回 map 分支，而且没有遗留 `draft-<ticket 编号>-<slug>.md`。存在未集成的结果分支或 ADR 草稿时，先按 [walking.md](walking.md) 第 7 节完成集成和正式编号，再继续收尾。
 
 ## 1. 判断路线是否真的清楚
 

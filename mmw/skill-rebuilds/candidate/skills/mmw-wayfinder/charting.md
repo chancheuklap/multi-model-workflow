@@ -24,10 +24,10 @@
 
 3. **创建 map**，并添加 `wayfinder:map` 标签。填写 Destination 和 Notes；Decisions so far 留空；把 fog 的轮廓写入 **Not yet specified**。
 
-   同时把第 1 步确定的 `产物目录` 写入 map 正文。使用完整的 map 正文文件创建 issue：
+   同时把第 1 步确定的 `产物目录` 写入 map 正文，并把 `mmw task state` 报的当前分支名写进 `## 分支`——这个会话的任务分支就是 map 分支，后来的会话只能从这里拿到它。使用完整的 map 正文文件创建 issue：
 
    ```bash
-   mmw issue create --title "<map 名称>" --body-file <正文文件> --label wayfinder:map
+   mmw issue create --title "<map 名称>" --body-file .scratch/<产物目录>/map-body.md --label wayfinder:map
    ```
 
 4. 把**当前能够精确表述的问题全部建成 ticket**，作为 map 的子 issue。当前仍说不清楚的内容继续留在 **Not yet specified** 一节。
@@ -35,7 +35,7 @@
    分两遍做，因为 issue 要先有编号才能互相引用。第一遍全部建出来，按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节为每张选一个 `wayfinder:<type>`，正文只写 `Question`：
 
    ```bash
-   mmw issue create --title "<ticket 名称>" --body-file <正文文件> \
+   mmw issue create --title "<ticket 名称>" --body-file .scratch/<产物目录>/ticket-<序号>.md \
      --parent <map 编号> --label wayfinder:<type>
    ```
 
@@ -59,7 +59,7 @@
 
 6. **记录 research 结果并提交。** 对每张已经交回的 research ticket，按顺序完成：
 
-   1. 把答案作为一条评论发在这张 ticket 上：`gh issue comment <编号> --body-file <文件>`。内容是验证后的事实、research 的 `README.md` 精确路径，以及没查清楚的部分。
+   1. 把答案作为一条评论发在这张 ticket 上：`gh issue comment <编号> --body-file .scratch/<产物目录>/issue-<编号>/answer.md`。内容是验证后的事实、research 的 `README.md` 精确路径，以及没查清楚的部分。
    2. 关闭这张 ticket：`gh issue close <编号>`。
    3. 在 map 的 `Decisions so far` 追加一行：ticket 名称包着它的链接，加一句话概要。改 map 正文之前先 `gh issue view <map 编号>` 重新读一遍最新的，改完再读一遍确认自己那行在。
    4. research 让一部分原本说不清楚的问题变得说得清楚时，按第 4 步的两遍做法建成新 ticket；仍说不清楚的留在 `Not yet specified`。
