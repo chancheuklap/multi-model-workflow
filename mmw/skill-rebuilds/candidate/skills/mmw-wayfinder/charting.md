@@ -51,9 +51,7 @@
 
    claim 成功后，把 `docs/research/<产物目录>/issue-<编号>` 和 `.scratch/<产物目录>/issue-<编号>` 这两条路径连同 ticket 的 Question 一起传给 `/mmw-research`。每张 ticket 作为一项独立 research 并行处理；`/mmw-research` 根据取证角度决定 `investigator` 的数量。
 
-   在传给 `/mmw-research` 的内容里明确写一句：这次直接保存，不用问用户。理由是这张 ticket 本身就是用户对这次调查的批准，而且这里同时跑着好几张，各自停下来等人回答就没法并行了。
-
-   查证、验证、综合、保存和清理过程材料都由 `/mmw-research` 自己完成，你只等它交回。
+   查证、验证、综合、保存和清理过程材料都由 `/mmw-research` 自己完成，你只等它交回。ticket 入口在 `/mmw-research` 那边直接保存，不会停下来问用户。
 
    等待本次派出的 research 全部交回，再进入第 6 步。
 

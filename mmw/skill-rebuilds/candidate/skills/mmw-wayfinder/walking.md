@@ -64,7 +64,7 @@
 
 4. 记录这次的答案。三件事：
 
-   1. 把答案作为一条评论发在这张 ticket 上：`gh issue comment <编号> --body-file .scratch/<产物目录>/issue-<编号>/answer.md`。评论里链接这张 ticket 实际形成的 prototype 或 research；没有资产时只写答案。
+   1. 把答案作为一条评论发在这张 ticket 上：`gh issue comment <编号> --body-file .scratch/<产物目录>/issue-<编号>/answer.md`。评论里写上这张 ticket 实际形成的资产：prototype 的路径，或 research 的 `README.md` 精确路径；没有资产时只写答案。
    2. 关闭这张 ticket：`gh issue close <编号>`。
    3. 在 map 的 `Decisions so far` 追加一行：ticket 名称包着它的链接，加一句话概要。改 map 正文之前先 `gh issue view <map 编号>` 重新读一遍最新的，改完再读一遍确认自己那行在。别的会话可能刚改过 map，不要把它们的行覆盖掉。
 

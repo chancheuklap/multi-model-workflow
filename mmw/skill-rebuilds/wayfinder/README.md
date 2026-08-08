@@ -32,3 +32,9 @@ ticket 正文只写 `Question`：`产物目录` 从 map 正文读，`issue-<编�
 ## 2026-08 复审确认
 
 上游「sized to one 100K token agent session」的具体刻度在候选中改为「必须能在一次 agent session 内解决」。用户确认这是 MMW 自己的工作流取舍（各宿主与模型的窗口不同，不锚定具体数字），不是漏译。
+
+## 2026-08 与 research 路由重构同轮的三处改动
+
+1. **Research 类型判据扩张**（有意改写，用户确认）：上游 `SKILL.md:77` 是 "Use when knowledge outside the current working directory is required"；候选改为「读当前仓库的源码，或者文档、第三方 API、正式规范这类外部资源……事实靠取证就能得到、不需要人参与讨论时使用」。理由：`/mmw-research` 的 INTERNAL 方向（research 台账 2026-08 复审第 2 条）已经覆盖仓库内部取证，原判据把纯内部取证挡在 AFK Research 类型之外，只能挂成 HITL grilling ticket。发布时 `docs/context/wayfinding.md` 的 `wayfinder:research` 定义同步更新。
+2. **walking.md 第 4 步评论措辞对齐 charting**：原「链接……prototype 或 research」未指明链接对象文件；改为与 charting 第 6 步一致的「prototype 的路径，或 research 的 `README.md` 精确路径」。
+3. **charting.md 删除「明确写一句：这次直接保存」段**：该规则收进 `mmw-research/MAIN.md` 第 0 节入口合同表的 ticket 行（ticket 入口一律直接保存），调用方不再需要传旗标。原段的理由（ticket 即批准、并行不能各自停下）也随规则移到那里。charting 保留一句期望说明：ticket 入口不会停下来问用户。
