@@ -31,7 +31,7 @@
 
 见 `mmw/skill-rebuilds/` 顶层讨论：
 
-- `mmw path` 的六个 kind 要不要合并。取证已经并进 `/mmw-research`，实测台账写在 `mmw path research` 底下，所以 `evidence` 这个 kind 在七个技能候选里已经没有任何消费者。现役 `mmw/skills/mmw-prototype` 和 `mmw/skills/mmw-wayfinder` 还在用它，所以 `../candidate/cli/mmw` 里先原样留着，等其余技能也有 candidate 之后一起决定删不删。
+- `mmw path` 的六个 kind 要不要合并。取证已经并进 `/mmw-research`，实测台账写在 `mmw path research` 底下，所以 `evidence` 这个 kind 在七个技能候选里已经没有任何消费者。现役 `mmw/skills-src/mmw-prototype` 和 `mmw/skills-src/mmw-wayfinder` 还在用它，所以 `../candidate/cli/mmw` 里先原样留着，等其余技能也有 candidate 之后一起决定删不删。
 - `mmw issue` 要不要补齐 comment / close / view / edit。现在候选里这四个动作直接用 `gh`。
 
 两件都会改到命令行为，还没有做。
