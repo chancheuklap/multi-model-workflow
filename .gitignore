@@ -13,3 +13,4 @@ node_modules/
 .scratch/
 __pycache__/
 .dispatch/
+.release/
