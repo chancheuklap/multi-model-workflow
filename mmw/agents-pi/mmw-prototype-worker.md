@@ -1,8 +1,8 @@
 ---
 name: mmw-prototype-worker
 description: 原型执行者。由 mmw-prototype 派发，在独立 worktree 完成一个指定原型变体。不加载 TDD，不修改正式设计结论，不扩大变体范围。
-model: openai-codex/gpt-5.6-terra
-thinking: high
+model: openai-codex/gpt-5.6-sol
+thinking: medium
 defaultContext: fresh
 async: true
 tools: read, grep, find, ls, bash, edit, write, mcp:serena/find_symbol, mcp:serena/find_referencing_symbols, mcp:serena/get_symbols_overview, mcp:serena/find_implementations, mcp:graphify/graphify, mcp:context7/resolve-library-id, mcp:context7/query-docs
