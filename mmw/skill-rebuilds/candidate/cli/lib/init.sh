@@ -19,22 +19,29 @@ mmw_init_touch() {
   MMW_INIT_TOUCHED+=("$1")
 }
 
+# paths 只保留 CLI 自己消费的四个键（worktrees、reviews、release、scratch）。
+# 产物目录（docs/specs 等）写死在技能里，配置里留同名键会被误当成可配项。
 mmw_init_config() {
-  local root config default_config default_research default_evidence default_scratch temp config_mode
+  local root config default_config default_scratch default_reviews default_release default_worktrees temp config_mode
   root="$(mmw_repo_root)"
   config="$root/.mmw.json"
   default_config="$MMW_ROOT/cli/mmw.default.json"
   if [ -f "$config" ]; then
-    if jq -e '.paths.research != null and .paths.investigations == null and .paths.evidence != null and .paths.scratch != null' "$config" >/dev/null 2>&1; then
+    if jq -e '
+      (.paths.scratch != null and .paths.reviews != null and .paths.release != null and .paths.worktrees != null)
+      and ([.paths.specs, .paths.plans, .paths.prototypes, .paths.research, .paths.evidence, .paths.investigations] | all(. == null))
+    ' "$config" >/dev/null 2>&1; then
       mmw_init_say "配置     : 已有 ${config}，无需迁移"
       return 0
     fi
-    default_research="$(jq -er '.paths.research' "$default_config")" || return 1
-    default_evidence="$(jq -er '.paths.evidence' "$default_config")" || return 1
     default_scratch="$(jq -er '.paths.scratch' "$default_config")" || return 1
-    mmw_path_safe_base "$default_research" || return 1
-    mmw_path_safe_base "$default_evidence" || return 1
+    default_reviews="$(jq -er '.paths.reviews' "$default_config")" || return 1
+    default_release="$(jq -er '.paths.release' "$default_config")" || return 1
+    default_worktrees="$(jq -er '.paths.worktrees' "$default_config")" || return 1
     mmw_path_safe_base "$default_scratch" || return 1
+    mmw_path_safe_base "$default_reviews" || return 1
+    mmw_path_safe_base "$default_release" || return 1
+    mmw_path_safe_base "$default_worktrees" || return 1
     if config_mode="$(stat -f '%Lp' "$config" 2>/dev/null)"; then
       :
     elif config_mode="$(stat -c '%a' "$config" 2>/dev/null)"; then
@@ -43,12 +50,15 @@ mmw_init_config() {
       return 1
     fi
     temp="$(mktemp "$root/.mmw.json.migrate.XXXXXX")" || return 1
-    if ! jq --arg research "$default_research" --arg evidence "$default_evidence" --arg scratch "$default_scratch" '
+    if ! jq --arg scratch "$default_scratch" --arg reviews "$default_reviews" \
+            --arg release "$default_release" --arg worktrees "$default_worktrees" '
       .paths = (.paths // {}) |
-      .paths.research //= $research |
-      del(.paths.investigations) |
-      .paths.evidence //= $evidence |
-      .paths.scratch //= $scratch
+      .paths.scratch //= $scratch |
+      .paths.reviews //= $reviews |
+      .paths.release //= $release |
+      .paths.worktrees //= $worktrees |
+      del(.paths.specs, .paths.plans, .paths.prototypes,
+          .paths.research, .paths.evidence, .paths.investigations)
     ' "$config" > "$temp"; then
       rm -f "$temp"
       return 1
@@ -56,7 +66,7 @@ mmw_init_config() {
     chmod "$config_mode" "$temp"
     mv -f "$temp" "$config"
     mmw_init_touch ".mmw.json"
-    mmw_init_say "配置     : 已为 ${config} 补入 paths.research、paths.evidence 与 paths.scratch，并删除旧 research 路径字段"
+    mmw_init_say "配置     : 已把 ${config} 的 paths 收敛到 CLI 消费的四个键，删除了失效的产物目录键"
   else
     cp "$default_config" "$config"
     mmw_init_touch ".mmw.json"

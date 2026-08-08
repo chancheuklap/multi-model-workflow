@@ -4,6 +4,14 @@
 # 每条命令是（仓库，参数）的纯函数：不写状态文件，不记得上一步是什么。走到哪
 # 一步由技能决定，这里永远不知道。
 #
+# 准入判据——一个动作只有命中下面至少一条才配成为子命令，否则技能直接用
+# gh、git 或自然语言，少一层包装：
+#   1. 要连着发好几个请求、或要先取中间值（如 GitHub 的 database id）；
+#   2. 是护栏：在破坏性动作前做 agent 容易偷懒跳过的完整性校验；
+#   3. 是宿主机械差异的唯一落点（派发、物化、体检）；
+#   4. 目标系统没有 API，只能用固定套路操作（如 GitHub Wiki）。
+# 已有子命令越出这条线时删掉它，不加例外。
+#
 # 这里也不放 git push、不放远端合并、不放部署。宿主的命令白名单一旦放行
 # `mmw`，CLI 内部起的 git 与 gh 子进程就不再经过宿主的权限层，那三件事必须留
 # 在外面由人决定。
@@ -38,7 +46,7 @@ mmw <命令> [参数]
   dispatch    Claude Code：把 task 文件编成宿主工具参数（Pi 主路径不用）
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
-  task        任务 worktree：查状态、建、绑分支、进、删
+  task        任务 worktree：查状态、建、绑分支、删
   result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
   wiki        Wiki：clone、重建导航、删本地文档前的验证
@@ -190,10 +198,6 @@ role_roster() {
   agents_role_field "$1" agent
 }
 
-role_skill() {
-  agents_role_field "$1" skill
-}
-
 role_writable() {
   local w
   w="$(agents_role_field "$1" writable)" || return 1
@@ -214,9 +218,6 @@ agents_role_field() {
     agent)
       jq -er --arg r "$role" '.roles[$r].agent' "$path"
       ;;
-    skill)
-      jq -r --arg r "$role" '.roles[$r].skill // empty' "$path"
-      ;;
     writable)
       jq -r --arg r "$role" 'if .roles[$r].writable then "true" else "false" end' "$path"
       ;;
@@ -231,12 +232,11 @@ cmd_dispatch() {
   shift || true
   [ -n "$role" ] || usage_dispatch
 
-  local roster skill
+  local roster
   roster="$(role_roster "$role")" || {
     echo "mmw: 认不出角色 $role" >&2
     usage_dispatch
   }
-  skill="$(role_skill "$role")"
 
   local task="" cwd=""
   while [ $# -gt 0 ]; do
