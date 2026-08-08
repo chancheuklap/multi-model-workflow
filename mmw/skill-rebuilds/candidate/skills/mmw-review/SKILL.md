@@ -81,14 +81,14 @@ description: 编排 MMW 六道审查并处置 findings。用于 spec、整批 pl
 | 约束 | 只读；不改被审产物；方法论在「读」的路径里自读，不往 task 粘正文 |
 | 验收 | 按审查者技能交 findings（或 `needs-redirection` / `needs-context`） |
 
-可选：四栏表写入 `<审查记录目录>/<slug>-<哪一道>-<任务名>.prompt.md`。
+可选：四栏表写入 `.reviews/<slug>-<哪一道>-<任务名>.prompt.md`。
 
 每个视角各写一张四栏表。按当前宿主的审查策略启动；互不依赖的审查任务同时启动。
 [[mmw-launch-group:reviewers:none]]
 
 ## 4. findings 存盘
 
-把每个审查者交回的东西**原样**抄进 `<审查记录目录>/<slug>-<哪一道>.md`，按任务名分组。不要重写，不要摘要。文件顶部记下固定点和 `被审 HEAD`。固定点限定 diff 范围；被审 HEAD 标识审查期间必须保持不变的内容。
+把每个审查者交回的东西**原样**抄进 `.reviews/<slug>-<哪一道>.md`，按任务名分组。不要重写，不要摘要。文件顶部记下固定点和 `被审 HEAD`。固定点限定 diff 范围；被审 HEAD 标识审查期间必须保持不变的内容。
 
 ⑤ final 终审或 ⑥ 合并集成审完成第 5 步处置后，如果没有 `accepted`，在记录顶部加入 `终审提交`，值等于被审 HEAD。存在 `accepted` 时，调用方修复并验证完成后再登记修复后的 HEAD。
 

@@ -30,7 +30,7 @@ description: 扫描 deepening opportunities，生成候选报告供用户选择�
 ## 2. 派几个 `investigator` 各自去探
 
 派 3 到 4 个 `investigator`，**每份 task 完全一样**，都探第 1 步定下的整片地方。四栏表：目标=在这片地方找架构摩擦；读=范围路径 + 领域文档 + `/mmw-codebase-design` + ADR 路径；约束=只读；验收=摩擦点带出处。
-派一个独立上下文的 `investigator`。手上有名为 `mmw-investigator` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进一个 task 文件，后台跑 `mmw dispatch investigator --task <task 文件绝对路径>`——它返回 `mode: host-tool` 时，用输出里的 `params` 去调宿主工具。这个角色只读，不指定工作目录。
+派一个独立上下文的 `investigator`。手上有名为 `mmw-investigator` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进 `.dispatch/investigator-<这次的短名>.md`，后台跑 `mmw dispatch investigator --task <这个文件的绝对路径>`。它的输出第一行是 `mode:`：`executed` 表示它已经自己跑完了，按 `report:` 那行的路径读报告；`host-tool` 表示要你来调，`tool:` 那行是宿主工具名，`params:` 那几行是 JSON 参数，原样传给它。这个角色只读，不指定工作目录。
 
 互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 按这个方式启动，重复 3 到 4 次，几个同时跑。
@@ -92,12 +92,13 @@ task 里把这句原样写给它：**这五问是入口，不是清单。撞见�
 
 挑中后再定 slug。类型固定用 `refactor`，短语取被选中 module 的名字，例如 `refactor-order-intake`。然后按下面的宿主动作建立任务 worktree，任务目标写用户原话和卡片标题：
 
-先跑 `mmw task state`，它决定这棵树要不要你自己建：
+先跑 `mmw task state`。它输出一行，第一个词决定这棵树要不要你自己建：
 
-- 返回 `detached`——宿主已经把你放在一棵干净的树上了，只需要绑定：
-  `mmw task bind <分支名> "<用户原话>" --from <父分支或基点 SHA>`。命令必须返回任务分支名和起始提交。
-- 返回别的——这棵树要你自己建：`mmw task new <slug> "<用户原话>"`，从 map 分支派生时加 `--from <map 分支>`。
-  命令返回绝对路径，用宿主切换工作目录的能力进去。
+| 第一个词 | 什么意思 | 你做什么 |
+| --- | --- | --- |
+| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。第二个词是任务分支名，第三个词是当前 HEAD，记下它们 |
+| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <分支名> "<用户原话>"`。`<分支名>` 用这个任务的 slug；宿主对任务分支有固定命名空间（Codex App 是 `codex/`）时带上它。知道预期基点就加 `--from <父分支或基点 SHA>`，它只是一道校验，不确定就不加。命令必须返回任务分支名和起始提交 |
+| `local` 或 `outside` | 你在主检出里，或者根本不在仓库里 | 这棵树要你自己建：`mmw task new <slug> "<用户原话>"`，从 map 分支派生时加 `--from <map 分支>`。命令返回绝对路径，用宿主切换工作目录的能力进去 |
 
 两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
 

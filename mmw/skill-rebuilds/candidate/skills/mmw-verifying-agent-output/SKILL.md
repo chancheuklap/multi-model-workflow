@@ -33,7 +33,7 @@ description: 验证 subagent 报告中的关键断言。每次收到审查 findi
 **什么时候值得派取证**：条目多到你逐个打开会撑满上下文。三五条的时候自己打开更快。
 
 派取证时：四栏表——目标「原样抄回下列位置的原文」；读=位置清单路径或逐条 `文件:行号` + 仓库根路径；约束=「不要判断成立与否」；验收=每条一行原文或「不存在」。
-派一个独立上下文的 `investigator`。手上有名为 `mmw-investigator` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进一个 task 文件，后台跑 `mmw dispatch investigator --task <task 文件绝对路径>`——它返回 `mode: host-tool` 时，用输出里的 `params` 去调宿主工具。这个角色只读，不指定工作目录。
+派一个独立上下文的 `investigator`。手上有名为 `mmw-investigator` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进 `.dispatch/investigator-<这次的短名>.md`，后台跑 `mmw dispatch investigator --task <这个文件的绝对路径>`。它的输出第一行是 `mode:`：`executed` 表示它已经自己跑完了，按 `report:` 那行的路径读报告；`host-tool` 表示要你来调，`tool:` 那行是宿主工具名，`params:` 那几行是 JSON 参数，原样传给它。这个角色只读，不指定工作目录。
 
 互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 

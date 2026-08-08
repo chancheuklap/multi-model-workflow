@@ -15,7 +15,7 @@
 
 ## 1. 立计划
 
-先按 [MAIN.md](MAIN.md) 第 4 节算出这次的 research 路径和过程材料路径。下文的 `research 路径` 和 `scratch 路径` 指的就是这两行输出。
+先按 [MAIN.md](MAIN.md) 第 4 节拼出这次的 research 落点，下文的 `research 路径` 指的就是它。过程材料另有一条，形状是 `.scratch/<产物目录>/<子目录>`，`<产物目录>` 和 `<子目录>` 跟 research 落点用的是同两个值；下文的 `scratch 路径` 指的是它。
 
 把计划写成 `<research 路径>/test-plan.md`，四栏：
 
@@ -54,7 +54,7 @@
 
 派之前先对着这条探测确认一遍：它不施加负载、不需要多轮测量、不用真实凭证、不连生产、不花钱、不写外部系统的数据。这六条是 `investigator` 那边的硬边界，碰到任何一条它都会停下来把任务交回给你，白跑一轮。
 
-派一个独立上下文的 `investigator`。手上有名为 `mmw-investigator` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进一个 task 文件，后台跑 `mmw dispatch investigator --task <task 文件绝对路径>`——它返回 `mode: host-tool` 时，用输出里的 `params` 去调宿主工具。这个角色只读，不指定工作目录。
+派一个独立上下文的 `investigator`。手上有名为 `mmw-investigator` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进 `.dispatch/investigator-<这次的短名>.md`，后台跑 `mmw dispatch investigator --task <这个文件的绝对路径>`。它的输出第一行是 `mode:`：`executed` 表示它已经自己跑完了，按 `report:` 那行的路径读报告；`host-tool` 表示要你来调，`tool:` 那行是宿主工具名，`params:` 那几行是 JSON 参数，原样传给它。这个角色只读，不指定工作目录。
 
 互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 

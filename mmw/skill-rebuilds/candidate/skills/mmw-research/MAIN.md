@@ -42,7 +42,7 @@ research 要做的是：对照拥有这个事实的一手来源回答问题，�
 
 互不依赖的角度并行派发。派发以后，继续处理不依赖这些事实的工作。
 
-派一个独立上下文的 `investigator`。手上有名为 `mmw-investigator` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进一个 task 文件，后台跑 `mmw dispatch investigator --task <task 文件绝对路径>`——它返回 `mode: host-tool` 时，用输出里的 `params` 去调宿主工具。这个角色只读，不指定工作目录。
+派一个独立上下文的 `investigator`。手上有名为 `mmw-investigator` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进 `.dispatch/investigator-<这次的短名>.md`，后台跑 `mmw dispatch investigator --task <这个文件的绝对路径>`。它的输出第一行是 `mode:`：`executed` 表示它已经自己跑完了，按 `report:` 那行的路径读报告；`host-tool` 表示要你来调，`tool:` 那行是宿主工具名，`params:` 那几行是 JSON 参数，原样传给它。这个角色只读，不指定工作目录。
 
 互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 
@@ -116,7 +116,7 @@ docs/research/<产物目录>/issue-<编号>/<research 主题>/
 .scratch/<产物目录>/issue-<编号>
 ```
 
-末尾那一段按第 4 节的规则给：Wayfinder decision ticket 写 `issue-<编号>`，Wayfinder 派生的 spec 任务写 `task-<任务 slug>`，普通任务没有这一段。
+末尾那一段这样给：这次 research 属于一张 Wayfinder decision ticket 的，写 `issue-<这张 ticket 的编号>`；属于一个从 Wayfinder map 切出来的 spec 任务的，写 `task-<当前任务 slug>`；两样都不是的普通任务，没有这一段。
 
 交回结果之前，只删掉这次 research 自己在这个路径下建的文件，别人的留着。
 

@@ -20,7 +20,7 @@
 
 一个约束一个 `designer`，至少三个，并行。每个约束使用四栏表：目标是该设计约束下的 interface；读是技术材料路径、`SKILL.md` 和领域文档路径；约束是只读且与其它变体结构不同；验收是交回 interface、用法和取舍。
 
-派一个独立上下文的 `designer`。手上有名为 `mmw-designer` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进一个 task 文件，后台跑 `mmw dispatch designer --task <task 文件绝对路径>`——它返回 `mode: host-tool` 时，用输出里的 `params` 去调宿主工具。这个角色只读，不指定工作目录。
+派一个独立上下文的 `designer`。手上有名为 `mmw-designer` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进 `.dispatch/designer-<这次的短名>.md`，后台跑 `mmw dispatch designer --task <这个文件的绝对路径>`。它的输出第一行是 `mode:`：`executed` 表示它已经自己跑完了，按 `report:` 那行的路径读报告；`host-tool` 表示要你来调，`tool:` 那行是宿主工具名，`params:` 那几行是 JSON 参数，原样传给它。这个角色只读，不指定工作目录。
 
 互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 每个 subagent 须产出**截然不同**的 interface。
