@@ -20,10 +20,12 @@ description: 需要查明根因的 bug 和性能回退诊断。用于功能损�
 
 开始诊断时先定下这次的 scratch 落点，形状是 `.scratch/<产物目录>/<子目录>`：
 
+先判是哪种任务：**当前任务是从一张带 `wayfinder:map` 标签的 issue 派生出来的，就是 Wayfinder 场景**（`/mmw-wayfinder` 用 map 统筹一项跨多张 ticket 的 effort，那些 ticket 共用一个产物目录）；不是就是普通任务，走第一列。
+
 | 段 | 取值 |
 | --- | --- |
-| `<产物目录>` | 普通任务用当前任务 slug；Wayfinder 场景从当前 map 或子 issue 正文的 `## 产物目录` 读取 |
-| `<子目录>` | 普通任务没有这一层；Wayfinder 的 decision ticket 用正文记录的 `issue-<编号>`；Wayfinder 派生的 spec 任务用 `task-<任务 slug>`，slug 从已绑定任务状态读 |
+| `<产物目录>` | 普通任务用当前任务 slug；Wayfinder 场景读 map 或子 issue 正文的 `## 产物目录` 一节 |
+| `<子目录>` | 普通任务没有这一层；Wayfinder 的 decision ticket 用正文记录的 `issue-<编号>`；Wayfinder 派生的 spec 任务用 `task-<任务 slug>`，slug 取 `mmw task state` 输出的第二个词去掉宿主命名空间前缀 |
 
 不要从任务 worktree 的物理目录名推断产物目录。`.scratch/` 在 `.gitignore` 里，放这儿的东西不进 Git。
 
