@@ -131,8 +131,7 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
             die("Codex 缺 reviewer-gpt subagent profile")
         return (
             "Codex 只使用一个审查角色。①、②、⑤ 每个视角各启动一个 "
-            f"Codex 原生 `{profile['name']}` subagent；⑥ 同时启动两个该 subagent，"
-            "各自完成全部七个角度。"
+            f"Codex 原生 `{profile['name']}` subagent。"
             "每个审查者使用独立上下文，可以与产物作者使用相同模型。"
             "互不依赖的审查任务在同一条消息中并行启动。"
         )
@@ -145,8 +144,7 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
     return (
         "当前宿主使用两个审查角色。① 每个视角启动一个 `reviewer-gpt`。"
         f"{gpt}② 每个视角启动一个 `reviewer-claude`。{claude}"
-        "⑤ 每个视角分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude`；"
-        "⑥ 分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude` 完成全部七个角度。"
+        "⑤ 每个视角分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude`。"
         "同一视角的两份 findings 并排比较；只由一个审查者报告的条目优先验证，"
         "两个审查者都报告的条目仍需验证出处。每个审查者只收到自己的四栏 task。"
     )

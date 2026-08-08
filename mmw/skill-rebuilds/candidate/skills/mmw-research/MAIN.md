@@ -42,7 +42,8 @@ research 要做的是：对照拥有这个事实的一手来源回答问题，�
 
 互不依赖的角度并行派发。派发以后，继续处理不依赖这些事实的工作。
 
-派一个独立上下文的 `investigator`。手上有名为 `mmw-investigator` 的原生 subagent，就按名字调它，task 传四栏表全文；没有的话，把四栏表写进 `.dispatch/investigator-<这次的短名>.md`，后台跑 `mmw dispatch investigator --task <这个文件的绝对路径>`。它的输出第一行是 `mode:`：`executed` 表示它已经自己跑完了，按 `report:` 那行的路径读报告；`host-tool` 表示要你来调，`tool:` 那行是宿主工具名，`params:` 那几行是 JSON 参数，原样传给它。这个角色只读，不指定工作目录。
+派一个独立上下文的 `investigator`。它只读，不需要工作目录。
+[[mmw-launch:investigator:none]]
 
 互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 
