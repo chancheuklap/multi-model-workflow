@@ -87,7 +87,7 @@ blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 
 - **一个 session 绝不解决超过一张 decision ticket。** 唯一例外是 charting 会话可以为刚建好的多张 `wayfinder:research` ticket 并行派 research。
 - **claim 在动手之前。** 把 ticket 指派给推动这张 map 的开发者就是 claim。claim 完成之前不做任何工作。
 - **改 map 正文之前重新读取最新正文。** 编辑 issue 正文是整体替换。写完再读一次，确认本次那一行在；不在就重做一遍。
-- **每个 session 只在自己的任务 worktree 里写文件。** 建 map 的会话拥有 map 分支；每张 decision ticket 用一条从 map 分支派生的任务分支，解决期间写下的领域文档、ADR 和资产都提交在这条任务分支上，再交回给拥有 map 分支的那个会话合并。这一条不能省：两个会话同时改同一份领域文档时，各自一个 worktree 会让冲突在合并时暴露出来，而共用一个工作目录会让后写的那个直接覆盖先写的，谁都不会发现。
+- **每个 session 只在自己的任务 worktree 里写文件。** 建 map 的会话拥有 map 分支；每张 decision ticket 用一条从 map 分支派生的任务分支，解决期间写下的领域文档、ADR 和资产都提交在这条任务分支上，再由 map 分支上的会话验证合并；那个会话不必是建 map 的原会话，`/mmw-start` 可以随时按 map 编号恢复 map 的任务上下文。这一条不能省：两个会话同时改同一份领域文档时，各自一个 worktree 会让冲突在合并时暴露出来，而共用一个工作目录会让后写的那个直接覆盖先写的，谁都不会发现。
 
 ## Ticket 类型
 
