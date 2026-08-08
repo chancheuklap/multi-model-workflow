@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>/wayfinder 流程图</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #f4f6f9;
+    color: #1a2332;
+    font-family: "SF Pro Text", "PingFang SC", "Helvetica Neue", system-ui, sans-serif;
+    width: 1480px;
+    padding: 24px 20px 28px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 2px;
+    color: #1a2332;
+  }
+  h1 span { color: #1d6fd8; }
+  .sub {
+    text-align: center;
+    color: #5a6b80;
+    font-size: 12px;
+    margin-bottom: 14px;
+  }
+  svg {
+    display: block;
+    margin: 0 auto;
+    background: #ffffff;
+    border: 1px solid #d0d8e4;
+    border-radius: 12px;
+  }
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .legend span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #4a5a6e;
+  }
+  .sw {
+    display: inline-block;
+    width: 16px;
+    height: 12px;
+    border: 1.5px solid;
+    border-radius: 3px;
+  }
+  .sw.d { transform: rotate(45deg) scale(0.72); }
+  .sw.o { border-radius: 999px; }
+  .sw.dash { border-style: dashed; background: transparent !important; }
+</style>
+</head>
+<body>
+  <h1><span>/wayfinder</span> 流程图</h1>
+  <p class="sub">Plan, don't do · 决策票 ≠ 实现票 · 1 HITL / session · research 可并行 subagent</p>
+
+  <svg viewBox="0 0 1460 1510" width="1460" height="1510" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10z" fill="#6b7c90"/>
+      </marker>
+      <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10z" fill="#1a8f55"/>
+      </marker>
+      <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10z" fill="#c94a4a"/>
+      </marker>
+      <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10z" fill="#1d6fd8"/>
+      </marker>
+      <marker id="av" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10z" fill="#6b4fd8"/>
+      </marker>
+      <marker id="ac" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10z" fill="#0d8a8a"/>
+      </marker>
+      <marker id="aa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10z" fill="#c47a12"/>
+      </marker>
+    </defs>
+
+    <!-- START -->
+    <ellipse cx="730" cy="38" rx="155" ry="26" fill="#e8f2fc" stroke="#1d6fd8" stroke-width="2"/>
+    <text x="730" y="34" text-anchor="middle" fill="#0d4a9a" font-size="14" font-weight="700">用户调用 /wayfinder</text>
+    <text x="730" y="50" text-anchor="middle" fill="#4a6a90" font-size="11">想法太大 · 路径有雾</text>
+
+    <line x1="730" y1="64" x2="730" y2="92" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <!-- D: has map -->
+    <polygon points="730,92 845,138 730,184 615,138" fill="#fff6e5" stroke="#c47a12" stroke-width="2"/>
+    <text x="730" y="134" text-anchor="middle" fill="#8a5500" font-size="14" font-weight="700">已有 map？</text>
+    <text x="730" y="152" text-anchor="middle" fill="#a07030" font-size="11">URL / 编号</text>
+
+    <path d="M615,138 H370 V205" fill="none" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+    <path d="M845,138 H1090 V205" fill="none" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+    <text x="490" y="126" fill="#c94a4a" font-size="12" font-weight="700">否 · 建图</text>
+    <text x="950" y="126" fill="#1a8f55" font-size="12" font-weight="700">是 · 走路</text>
+
+    <!-- ========== MODE A ========== -->
+    <rect x="220" y="205" width="300" height="30" rx="7" fill="#f0ebff" stroke="#6b4fd8" stroke-width="1.5"/>
+    <text x="370" y="225" text-anchor="middle" fill="#4a2db0" font-size="13" font-weight="700">MODE A · Chart the map</text>
+
+    <line x1="370" y1="235" x2="370" y2="258" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <rect x="240" y="258" width="260" height="44" rx="8" fill="#f7f9fc" stroke="#7a8da6" stroke-width="1.5"/>
+    <text x="370" y="276" text-anchor="middle" fill="#1a2332" font-size="13" font-weight="700">A1 命名 Destination</text>
+    <text x="370" y="292" text-anchor="middle" fill="#5a6b80" font-size="11">/grilling + /domain-modeling</text>
+
+    <line x1="370" y1="302" x2="370" y2="324" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <rect x="240" y="324" width="260" height="44" rx="8" fill="#f7f9fc" stroke="#7a8da6" stroke-width="1.5"/>
+    <text x="370" y="342" text-anchor="middle" fill="#1a2332" font-size="13" font-weight="700">A2 广度扫 frontier</text>
+    <text x="370" y="358" text-anchor="middle" fill="#5a6b80" font-size="11">再 /grilling · breadth-first</text>
+
+    <line x1="370" y1="368" x2="370" y2="392" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <polygon points="370,392 475,438 370,484 265,438" fill="#fff6e5" stroke="#c47a12" stroke-width="2"/>
+    <text x="370" y="434" text-anchor="middle" fill="#8a5500" font-size="13" font-weight="700">有雾吗？</text>
+    <text x="370" y="452" text-anchor="middle" fill="#a07030" font-size="11">路径仍不清？</text>
+
+    <!-- no fog -->
+    <path d="M265,438 H130 V500" fill="none" stroke="#c94a4a" stroke-width="2" marker-end="url(#ar)"/>
+    <text x="190" y="428" fill="#c94a4a" font-size="12" font-weight="700">否</text>
+    <ellipse cx="130" cy="530" rx="88" ry="28" fill="#fdecec" stroke="#c94a4a" stroke-width="2"/>
+    <text x="130" y="526" text-anchor="middle" fill="#9a2020" font-size="12" font-weight="700">不建 map · 停</text>
+    <text x="130" y="542" text-anchor="middle" fill="#b05050" font-size="10">grilling / to-spec</text>
+
+    <!-- yes -->
+    <text x="390" y="500" fill="#1a8f55" font-size="12" font-weight="700">是</text>
+    <line x1="370" y1="484" x2="370" y2="512" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <rect x="240" y="512" width="260" height="44" rx="8" fill="#f7f9fc" stroke="#7a8da6" stroke-width="1.5"/>
+    <text x="370" y="530" text-anchor="middle" fill="#1a2332" font-size="13" font-weight="700">A4 创建 map issue</text>
+    <text x="370" y="546" text-anchor="middle" fill="#5a6b80" font-size="11">label: wayfinder:map</text>
+
+    <line x1="370" y1="556" x2="370" y2="578" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <rect x="240" y="578" width="260" height="52" rx="8" fill="#f7f9fc" stroke="#7a8da6" stroke-width="1.5"/>
+    <text x="370" y="597" text-anchor="middle" fill="#1a2332" font-size="13" font-weight="700">A5 建 tickets → wire</text>
+    <text x="370" y="613" text-anchor="middle" fill="#5a6b80" font-size="11">① 可陈述 child issue</text>
+    <text x="370" y="626" text-anchor="middle" fill="#5a6b80" font-size="11">② 原生 blocking 边</text>
+
+    <line x1="370" y1="630" x2="370" y2="654" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <rect x="225" y="654" width="290" height="64" rx="8" fill="#e6f9f9" stroke="#0d8a8a" stroke-width="2"/>
+    <text x="370" y="675" text-anchor="middle" fill="#066060" font-size="13" font-weight="700">A6 并行 /research subagent</text>
+    <text x="370" y="692" text-anchor="middle" fill="#2a7070" font-size="11">每张 research 票 → 1 个 subagent</text>
+    <text x="370" y="707" text-anchor="middle" fill="#2a7070" font-size="11">research/&lt;name&gt; + ticket pointer</text>
+
+    <line x1="370" y1="718" x2="370" y2="744" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <ellipse cx="370" cy="774" rx="120" ry="28" fill="#e8f8ef" stroke="#1a8f55" stroke-width="2"/>
+    <text x="370" y="770" text-anchor="middle" fill="#0d6a3a" font-size="13" font-weight="700">建图 session 结束</text>
+    <text x="370" y="786" text-anchor="middle" fill="#3a8a60" font-size="10">不解 HITL 票</text>
+
+    <!-- re-enter dashed -->
+    <path d="M490,774 H650 V220 H1090" fill="none" stroke="#1a8f55" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#ag)"/>
+    <text x="580" y="760" fill="#1a8f55" font-size="11" font-weight="600">再调 /wayfinder &lt;map&gt;</text>
+
+    <!-- ========== MODE B ========== -->
+    <rect x="940" y="205" width="300" height="30" rx="7" fill="#e8f8ef" stroke="#1a8f55" stroke-width="1.5"/>
+    <text x="1090" y="225" text-anchor="middle" fill="#0d6a3a" font-size="13" font-weight="700">MODE B · Work through map</text>
+
+    <line x1="1090" y1="235" x2="1090" y2="258" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <!-- B1 loop target -->
+    <circle cx="1220" cy="280" r="4" fill="#1d6fd8"/>
+    <text x="1230" y="284" fill="#1d6fd8" font-size="10" font-weight="600">↩ B1</text>
+
+    <rect x="960" y="258" width="260" height="44" rx="8" fill="#f7f9fc" stroke="#7a8da6" stroke-width="1.5"/>
+    <text x="1090" y="276" text-anchor="middle" fill="#1a2332" font-size="13" font-weight="700">B1 加载 map 索引</text>
+    <text x="1090" y="292" text-anchor="middle" fill="#5a6b80" font-size="11">Destination / Notes / Decisions</text>
+
+    <line x1="1090" y1="302" x2="1090" y2="324" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <rect x="960" y="324" width="260" height="50" rx="8" fill="#f7f9fc" stroke="#7a8da6" stroke-width="1.5"/>
+    <text x="1090" y="343" text-anchor="middle" fill="#1a2332" font-size="13" font-weight="700">B2 选票 + claim</text>
+    <text x="1090" y="359" text-anchor="middle" fill="#5a6b80" font-size="11">frontier 第一张 · 先 assign</text>
+    <text x="1090" y="372" text-anchor="middle" fill="#5a6b80" font-size="10">open ∧ unblocked ∧ unclaimed</text>
+
+    <line x1="1090" y1="374" x2="1090" y2="400" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <polygon points="1090,400 1200,450 1090,500 980,450" fill="#fff6e5" stroke="#c47a12" stroke-width="2"/>
+    <text x="1090" y="446" text-anchor="middle" fill="#8a5500" font-size="13" font-weight="700">B3 票类型？</text>
+    <text x="1090" y="464" text-anchor="middle" fill="#a07030" font-size="11">wayfinder:&lt;type&gt;</text>
+
+    <!-- 4 types evenly: 720, 950, 1180, 1380 -->
+    <path d="M980,450 H720 V540" fill="none" stroke="#6b4fd8" stroke-width="1.5" marker-end="url(#av)"/>
+    <path d="M1025,480 H950 V540" fill="none" stroke="#0d8a8a" stroke-width="1.5" marker-end="url(#ac)"/>
+    <path d="M1155,480 H1180 V540" fill="none" stroke="#1a8f55" stroke-width="1.5" marker-end="url(#ag)"/>
+    <path d="M1200,450 H1380 V540" fill="none" stroke="#c47a12" stroke-width="1.5" marker-end="url(#aa)"/>
+
+    <rect x="640" y="540" width="160" height="60" rx="8" fill="#f0ebff" stroke="#6b4fd8" stroke-width="1.5"/>
+    <text x="720" y="561" text-anchor="middle" fill="#4a2db0" font-size="12" font-weight="700">grilling · HITL</text>
+    <text x="720" y="577" text-anchor="middle" fill="#6a5a9a" font-size="10">/grilling</text>
+    <text x="720" y="590" text-anchor="middle" fill="#6a5a9a" font-size="10">+ /domain-modeling</text>
+
+    <rect x="870" y="540" width="160" height="60" rx="8" fill="#e6f9f9" stroke="#0d8a8a" stroke-width="1.5"/>
+    <text x="950" y="561" text-anchor="middle" fill="#066060" font-size="12" font-weight="700">prototype · HITL</text>
+    <text x="950" y="577" text-anchor="middle" fill="#2a7070" font-size="10">/prototype</text>
+    <text x="950" y="590" text-anchor="middle" fill="#2a7070" font-size="10">链 asset · 人选择</text>
+
+    <rect x="1100" y="540" width="160" height="60" rx="8" fill="#e8f8ef" stroke="#1a8f55" stroke-width="1.5"/>
+    <text x="1180" y="561" text-anchor="middle" fill="#0d6a3a" font-size="12" font-weight="700">research · AFK</text>
+    <text x="1180" y="577" text-anchor="middle" fill="#3a8a60" font-size="10">/research subagent</text>
+    <text x="1180" y="590" text-anchor="middle" fill="#3a8a60" font-size="10">research/&lt;n&gt; + pointer</text>
+
+    <rect x="1300" y="540" width="160" height="60" rx="8" fill="#fff6e5" stroke="#c47a12" stroke-width="1.5"/>
+    <text x="1380" y="561" text-anchor="middle" fill="#8a5500" font-size="12" font-weight="700">task · 任一</text>
+    <text x="1380" y="577" text-anchor="middle" fill="#a07030" font-size="10">AFK 或 checklist</text>
+    <text x="1380" y="590" text-anchor="middle" fill="#a07030" font-size="10">只解锁决策</text>
+
+    <!-- merge -->
+    <path d="M720,600 V630 H1090" fill="none" stroke="#6b7c90" stroke-width="1.5"/>
+    <path d="M950,600 V630 H1090" fill="none" stroke="#6b7c90" stroke-width="1.5"/>
+    <path d="M1180,600 V630 H1090" fill="none" stroke="#6b7c90" stroke-width="1.5"/>
+    <path d="M1380,600 V630 H1090" fill="none" stroke="#6b7c90" stroke-width="1.5"/>
+    <line x1="1090" y1="630" x2="1090" y2="656" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <rect x="950" y="656" width="280" height="48" rx="8" fill="#f7f9fc" stroke="#7a8da6" stroke-width="1.5"/>
+    <text x="1090" y="675" text-anchor="middle" fill="#1a2332" font-size="13" font-weight="700">B4 记录决议</text>
+    <text x="1090" y="692" text-anchor="middle" fill="#5a6b80" font-size="11">comment → close → Decisions 一行</text>
+
+    <line x1="1090" y1="704" x2="1090" y2="728" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <rect x="950" y="728" width="280" height="52" rx="8" fill="#f7f9fc" stroke="#7a8da6" stroke-width="1.5"/>
+    <text x="1090" y="747" text-anchor="middle" fill="#1a2332" font-size="13" font-weight="700">B5 更新 map</text>
+    <text x="1090" y="763" text-anchor="middle" fill="#5a6b80" font-size="11">graduate 雾 · 新票 wire</text>
+    <text x="1090" y="776" text-anchor="middle" fill="#5a6b80" font-size="11">out of scope · update / delete</text>
+
+    <line x1="1090" y1="780" x2="1090" y2="810" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <polygon points="1090,810 1205,862 1090,914 975,862" fill="#fff6e5" stroke="#c47a12" stroke-width="2"/>
+    <text x="1090" y="858" text-anchor="middle" fill="#8a5500" font-size="13" font-weight="700">还有未决票 / 雾？</text>
+    <text x="1090" y="876" text-anchor="middle" fill="#a07030" font-size="11">frontier / Not yet specified</text>
+
+    <!-- yes loop -->
+    <path d="M1205,862 H1420 V280 H1228" fill="none" stroke="#1d6fd8" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ab)"/>
+    <text x="1435" y="560" fill="#1d6fd8" font-size="12" font-weight="700" writing-mode="tb">有 · 结束 session · 下次回 B1</text>
+    <text x="1225" y="852" fill="#1d6fd8" font-size="12" font-weight="700">有</text>
+
+    <!-- no done -->
+    <text x="1090" y="938" text-anchor="middle" fill="#1a8f55" font-size="12" font-weight="700">无</text>
+    <line x1="1090" y1="914" x2="1090" y2="948" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <ellipse cx="1090" cy="982" rx="130" ry="30" fill="#e8f8ef" stroke="#1a8f55" stroke-width="2"/>
+    <text x="1090" y="977" text-anchor="middle" fill="#0d6a3a" font-size="14" font-weight="700">地图完成 · 移交</text>
+    <text x="1090" y="995" text-anchor="middle" fill="#3a8a60" font-size="11">产出决策集 · 不是代码</text>
+
+    <!-- ========== LEFT BOTTOM: classification flow ========== -->
+    <text x="370" y="860" text-anchor="middle" fill="#4a5a6e" font-size="12" font-weight="700">写票时的分类流</text>
+    <line x1="370" y1="868" x2="370" y2="890" stroke="#6b7c90" stroke-width="1.5" marker-end="url(#a)"/>
+
+    <polygon points="370,890 480,938 370,986 260,938" fill="#fff6e5" stroke="#c47a12" stroke-width="1.5"/>
+    <text x="370" y="934" text-anchor="middle" fill="#8a5500" font-size="12" font-weight="700">问题已 sharp？</text>
+    <text x="370" y="952" text-anchor="middle" fill="#a07030" font-size="10">能否陈述 · 非能否答</text>
+
+    <path d="M260,938 H150 V1040" fill="none" stroke="#c47a12" stroke-width="1.5" marker-end="url(#aa)"/>
+    <text x="195" y="928" fill="#c47a12" font-size="11" font-weight="700">否</text>
+    <rect x="70" y="1040" width="160" height="36" rx="7" fill="#fff6e5" stroke="#c47a12" stroke-width="1.5"/>
+    <text x="150" y="1062" text-anchor="middle" fill="#8a5500" font-size="12" font-weight="700">→ Not yet specified</text>
+
+    <path d="M480,938 H580 V1020" fill="none" stroke="#6b7c90" stroke-width="1.5" marker-end="url(#a)"/>
+    <text x="520" y="928" fill="#1a8f55" font-size="11" font-weight="700">是</text>
+
+    <polygon points="580,1020 680,1064 580,1108 480,1064" fill="#fff6e5" stroke="#c47a12" stroke-width="1.5"/>
+    <text x="580" y="1060" text-anchor="middle" fill="#8a5500" font-size="12" font-weight="700">在 destination 内？</text>
+    <text x="580" y="1076" text-anchor="middle" fill="#a07030" font-size="10">scope 边界</text>
+
+    <path d="M480,1064 H380 V1145" fill="none" stroke="#c94a4a" stroke-width="1.5" marker-end="url(#ar)"/>
+    <text x="430" y="1054" fill="#c94a4a" font-size="11" font-weight="700">否</text>
+    <rect x="300" y="1145" width="160" height="36" rx="7" fill="#fdecec" stroke="#c94a4a" stroke-width="1.5"/>
+    <text x="380" y="1167" text-anchor="middle" fill="#9a2020" font-size="12" font-weight="700">→ Out of scope</text>
+
+    <path d="M680,1064 H780 V1145" fill="none" stroke="#1d6fd8" stroke-width="1.5" marker-end="url(#ab)"/>
+    <text x="720" y="1054" fill="#1d6fd8" font-size="11" font-weight="700">是</text>
+    <rect x="700" y="1145" width="160" height="36" rx="7" fill="#e8f2fc" stroke="#1d6fd8" stroke-width="1.5"/>
+    <text x="780" y="1167" text-anchor="middle" fill="#0d4a9a" font-size="12" font-weight="700">→ 建 Ticket</text>
+
+    <!-- research subagent mini flow -->
+    <text x="370" y="1230" text-anchor="middle" fill="#4a5a6e" font-size="12" font-weight="700">research subagent 调用流</text>
+    <line x1="370" y1="1238" x2="370" y2="1258" stroke="#6b7c90" stroke-width="1.5" marker-end="url(#a)"/>
+
+    <rect x="245" y="1258" width="250" height="32" rx="7" fill="#e6f9f9" stroke="#0d8a8a" stroke-width="1.5"/>
+    <text x="370" y="1278" text-anchor="middle" fill="#066060" font-size="12" font-weight="700">发现 wayfinder:research 票</text>
+    <line x1="370" y1="1290" x2="370" y2="1306" stroke="#6b7c90" stroke-width="1.5" marker-end="url(#a)"/>
+
+    <rect x="245" y="1306" width="250" height="32" rx="7" fill="#e6f9f9" stroke="#0d8a8a" stroke-width="1.5"/>
+    <text x="370" y="1326" text-anchor="middle" fill="#066060" font-size="12" font-weight="700">spin /research subagent</text>
+    <line x1="370" y1="1338" x2="370" y2="1354" stroke="#6b7c90" stroke-width="1.5" marker-end="url(#a)"/>
+
+    <rect x="245" y="1354" width="250" height="32" rx="7" fill="#e6f9f9" stroke="#0d8a8a" stroke-width="1.5"/>
+    <text x="370" y="1374" text-anchor="middle" fill="#066060" font-size="12" font-weight="700">写 research/&lt;name&gt; 分支</text>
+    <line x1="370" y1="1386" x2="370" y2="1402" stroke="#6b7c90" stroke-width="1.5" marker-end="url(#a)"/>
+
+    <rect x="245" y="1402" width="250" height="32" rx="7" fill="#e6f9f9" stroke="#0d8a8a" stroke-width="1.5"/>
+    <text x="370" y="1422" text-anchor="middle" fill="#066060" font-size="12" font-weight="700">ticket 留 context pointer</text>
+    <line x1="370" y1="1434" x2="370" y2="1452" stroke="#6b7c90" stroke-width="1.5" marker-end="url(#a)"/>
+
+    <ellipse cx="370" cy="1476" rx="105" ry="22" fill="#e8f8ef" stroke="#1a8f55" stroke-width="1.5"/>
+    <text x="370" y="1481" text-anchor="middle" fill="#0d6a3a" font-size="12" font-weight="700">供后续 HITL 票引用</text>
+
+    <!-- Map body stack under done -->
+    <line x1="1090" y1="1012" x2="1090" y2="1040" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+    <text x="1090" y="1060" text-anchor="middle" fill="#4a5a6e" font-size="12" font-weight="700">Map body（只读索引）</text>
+    <line x1="1090" y1="1068" x2="1090" y2="1085" stroke="#6b7c90" stroke-width="1.5" marker-end="url(#a)"/>
+
+    <rect x="970" y="1085" width="240" height="24" rx="5" fill="#e8f2fc" stroke="#1d6fd8"/>
+    <text x="1090" y="1101" text-anchor="middle" fill="#0d4a9a" font-size="11" font-weight="600">Destination</text>
+    <line x1="1090" y1="1109" x2="1090" y2="1118" stroke="#6b7c90" stroke-width="1" marker-end="url(#a)"/>
+    <rect x="970" y="1118" width="240" height="24" rx="5" fill="#f0f3f7" stroke="#7a8da6"/>
+    <text x="1090" y="1134" text-anchor="middle" fill="#4a5a6e" font-size="11" font-weight="600">Notes</text>
+    <line x1="1090" y1="1142" x2="1090" y2="1151" stroke="#6b7c90" stroke-width="1" marker-end="url(#a)"/>
+    <rect x="970" y="1151" width="240" height="24" rx="5" fill="#e8f8ef" stroke="#1a8f55"/>
+    <text x="1090" y="1167" text-anchor="middle" fill="#0d6a3a" font-size="11" font-weight="600">Decisions so far</text>
+    <line x1="1090" y1="1175" x2="1090" y2="1184" stroke="#6b7c90" stroke-width="1" marker-end="url(#a)"/>
+    <rect x="970" y="1184" width="240" height="24" rx="5" fill="#fff6e5" stroke="#c47a12"/>
+    <text x="1090" y="1200" text-anchor="middle" fill="#8a5500" font-size="11" font-weight="600">Not yet specified</text>
+    <line x1="1090" y1="1208" x2="1090" y2="1217" stroke="#6b7c90" stroke-width="1" marker-end="url(#a)"/>
+    <rect x="970" y="1217" width="240" height="24" rx="5" fill="#fdecec" stroke="#c94a4a"/>
+    <text x="1090" y="1233" text-anchor="middle" fill="#9a2020" font-size="11" font-weight="600">Out of scope</text>
+
+    <!-- Downstream -->
+    <line x1="1090" y1="1241" x2="1090" y2="1280" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+    <text x="1090" y="1298" text-anchor="middle" fill="#4a5a6e" font-size="12" font-weight="700">下游链路</text>
+    <line x1="1090" y1="1306" x2="1090" y2="1325" stroke="#6b7c90" stroke-width="1.5" marker-end="url(#a)"/>
+
+    <rect x="840" y="1325" width="100" height="34" rx="8" fill="#e8f8ef" stroke="#1a8f55" stroke-width="1.5"/>
+    <text x="890" y="1346" text-anchor="middle" fill="#0d6a3a" font-size="12" font-weight="700">wayfinder</text>
+    <line x1="940" y1="1342" x2="970" y2="1342" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <rect x="970" y="1325" width="90" height="34" rx="8" fill="#f7f9fc" stroke="#7a8da6" stroke-width="1.5"/>
+    <text x="1015" y="1346" text-anchor="middle" fill="#1a2332" font-size="12" font-weight="700">to-spec</text>
+    <line x1="1060" y1="1342" x2="1090" y2="1342" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <rect x="1090" y="1325" width="100" height="34" rx="8" fill="#f7f9fc" stroke="#7a8da6" stroke-width="1.5"/>
+    <text x="1140" y="1346" text-anchor="middle" fill="#1a2332" font-size="12" font-weight="700">to-tickets</text>
+    <line x1="1190" y1="1342" x2="1220" y2="1342" stroke="#6b7c90" stroke-width="2" marker-end="url(#a)"/>
+
+    <rect x="1220" y="1325" width="100" height="34" rx="8" fill="#f7f9fc" stroke="#7a8da6" stroke-width="1.5"/>
+    <text x="1270" y="1346" text-anchor="middle" fill="#1a2332" font-size="12" font-weight="700">implement</text>
+
+    <!-- formula footer -->
+    <text x="730" y="1430" text-anchor="middle" fill="#5a6b80" font-size="11">
+      Frontier = open ∧ unblocked ∧ unclaimed · Claim = assign · 1 HITL / session · research 唯一可并行
+    </text>
+    <text x="730" y="1455" text-anchor="middle" fill="#8a96a8" font-size="11">
+      mattpocock/skills · skills/engineering/wayfinder
+    </text>
+  </svg>
+
+  <div class="legend">
+    <span><i class="sw d" style="border-color:#c47a12;background:#fff6e5"></i> 判断</span>
+    <span><i class="sw" style="border-color:#7a8da6;background:#f7f9fc"></i> 步骤</span>
+    <span><i class="sw" style="border-color:#0d8a8a;background:#e6f9f9"></i> subagent</span>
+    <span><i class="sw" style="border-color:#6b4fd8;background:#f0ebff"></i> HITL</span>
+    <span><i class="sw o" style="border-color:#1a8f55;background:#e8f8ef"></i> 起止</span>
+    <span><i class="sw dash" style="border-color:#1d6fd8"></i> 跨 session 循环</span>
+  </div>
+</body>
+</html>
