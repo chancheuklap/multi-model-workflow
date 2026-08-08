@@ -17,7 +17,7 @@ CODEX_ROOT = PLUGIN_ROOT / "codex"
 sys.path.insert(0, str(CODEX_ROOT))
 from config import CodexConfigError, load_profiles as load_codex_profiles  # noqa: E402
 
-SKILLS_SRC = PLUGIN_ROOT / "skills"
+SKILLS_SRC = PLUGIN_ROOT / "skills-src"
 ROLES_PATH = PLUGIN_ROOT / "agent-src" / "roles.json"
 DEFAULT_OUT = {
     "pi": PLUGIN_ROOT / "skills-pi",

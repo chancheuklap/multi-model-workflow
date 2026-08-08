@@ -1,6 +1,6 @@
 # Improve Codebase Architecture 重建区
 
-这个目录用于从 Matt Pocock Skills 1.2.2 重新建立 MMW Improve Codebase Architecture。当前发布技能仍位于 `mmw/skills/mmw-improve-codebase-architecture/`；本目录中的文件不会被 `mmw skills materialize` 物化，也不会改变任何宿主的运行行为。
+这个目录用于从 Matt Pocock Skills 1.2.2 重新建立 MMW Improve Codebase Architecture。当前发布技能仍位于 `mmw/skills-src/mmw-improve-codebase-architecture/`；本目录中的文件不会被 `mmw skills materialize` 物化，也不会改变任何宿主的运行行为。
 
 ## 当前阶段
 
@@ -40,7 +40,7 @@
 | --- | --- |
 | `upstream-1.2.2.zh-CN.md` | 上游 1.2.2 的逐行中文翻译基线 |
 | `translation-audit.md` | 术语选择、逐行完整性与无新增语义检查 |
-| `../candidate/skills/mmw-improve-codebase-architecture/SKILL.md` | 接线候选，按最终位置 `mmw/skills/mmw-improve-codebase-architecture/SKILL.md` 书写 |
+| `../candidate/skills/mmw-improve-codebase-architecture/SKILL.md` | 接线候选，按最终位置 `mmw/skills-src/mmw-improve-codebase-architecture/SKILL.md` 书写 |
 | `../candidate/skills/mmw-improve-codebase-architecture/HTML-REPORT.md` | 报告格式 reference，与现役一致，本轮未改 |
 
 正式技能源保持不变，等用户审查候选后再决定是否进入 Plugin 发布面。
