@@ -1,2 +1,0 @@
-[    1994ms] [ERROR] Failed to load resource: the server responded with a status of 403 () @ https://claude.ai/api/account:0
-[    3196ms] [ERROR] Unrecognized Content-Security-Policy directive 'webrtc'. @ https://bcdf8e6a-2712-4301-b427-99bf0dd86e12.frame.claudeusercontent.com/_f/1784130178-6b9e/?__frame_v=manifest.4af8359bd414963e.json:0
