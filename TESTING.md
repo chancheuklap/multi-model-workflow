@@ -4,6 +4,11 @@
 
 ## 提交前静态检查
 
+整段用 `bash -euo pipefail` 运行，不要粘进交互式 shell。交互式 shell 没有开
+`errexit`，`test` 断言失败只是静默返回非零，后面的命令照常往下跑，整段看起来
+像通过。这段也只在 bash 下成立：zsh 会把 `errexit` 带进命令替换的子 shell，
+`test "$(... ; echo $?)" = 2` 这类用例拿不到退出码。
+
 ```bash
 shellcheck --severity=warning mmw/cli/mmw mmw/cli/adapters/*.sh mmw/cli/lib/*.sh \
   mmw/mcp/install-mcp.sh mmw/release/release-flow.sh
@@ -24,24 +29,30 @@ test "$(MMW_HOST=codex mmw/cli/mmw artifact >/dev/null 2>&1; echo $?)" = 2
 ! MMW_HOST=codex mmw/cli/mmw path spec ../feat-a >/dev/null 2>&1
 test "$(MMW_HOST=codex mmw/cli/mmw path unknown effort >/dev/null 2>&1; echo $?)" = 2
 
-gh() {
-  if [ "$1" = "api" ] && [ "$2" = "--paginate" ]; then
-    printf '%s\n' '[
-      {"number":101,"title":"Spec issue","state":"open","assignees":[],"labels":[],"issue_dependencies_summary":{"blocked_by":0}},
-      {"number":102,"title":"Prototype decision","state":"open","assignees":[],"labels":[{"name":"wayfinder:prototype"}],"issue_dependencies_summary":{"blocked_by":0}}
-    ]'
-    return 0
-  fi
-  return 1
-}
-export -f gh
-test "$(MMW_GH_REPO=owner/repo MMW_HOST=codex mmw/cli/mmw issue frontier 1 \
-  --label-prefix wayfinder:)" = $'102\tPrototype decision'
-test "$(MMW_GH_REPO=owner/repo MMW_HOST=codex mmw/cli/mmw issue frontier 1 \
-  --label wayfinder:prototype)" = $'102\tPrototype decision'
-test "$(MMW_GH_REPO=owner/repo MMW_HOST=codex mmw/cli/mmw issue frontier 1 \
-  --label ready-for-agent --label-prefix wayfinder: >/dev/null 2>&1; echo $?)" = 2
-unset -f gh
+# gh 桩放进 PATH，不用 shell 函数：函数形式依赖 bash 的 export -f，
+# 在别的 shell 下会静默失活，让下面三条断言打到真实 gh 上并假通过。
+gh_stub_dir="$(mktemp -d "${TMPDIR:-/tmp}/mmw-gh-stub.XXXXXX")"
+cat > "$gh_stub_dir/gh" <<'STUB'
+#!/bin/sh
+if [ "$1" = "api" ] && [ "$2" = "--paginate" ]; then
+  printf '%s\n' '[
+    {"number":101,"title":"Spec issue","state":"open","assignees":[],"labels":[],"issue_dependencies_summary":{"blocked_by":0}},
+    {"number":102,"title":"Prototype decision","state":"open","assignees":[],"labels":[{"name":"wayfinder:prototype"}],"issue_dependencies_summary":{"blocked_by":0}}
+  ]'
+  exit 0
+fi
+exit 1
+STUB
+chmod +x "$gh_stub_dir/gh"
+# 先确认桩真的生效：这条失败说明 mmw 没走 PATH 上的 gh，下面三条不能算数。
+test "$(PATH="$gh_stub_dir:$PATH" command -v gh)" = "$gh_stub_dir/gh"
+test "$(PATH="$gh_stub_dir:$PATH" MMW_GH_REPO=owner/repo MMW_HOST=codex mmw/cli/mmw \
+  issue frontier 1 --label-prefix wayfinder:)" = $'102\tPrototype decision'
+test "$(PATH="$gh_stub_dir:$PATH" MMW_GH_REPO=owner/repo MMW_HOST=codex mmw/cli/mmw \
+  issue frontier 1 --label wayfinder:prototype)" = $'102\tPrototype decision'
+test "$(PATH="$gh_stub_dir:$PATH" MMW_GH_REPO=owner/repo MMW_HOST=codex mmw/cli/mmw \
+  issue frontier 1 --label ready-for-agent --label-prefix wayfinder: >/dev/null 2>&1; echo $?)" = 2
+rm -rf "$gh_stub_dir"
 
 mmw_source_root="$PWD/mmw"
 path_test_dir="$(mktemp -d "${TMPDIR:-/tmp}/mmw-path-test.XXXXXX")"
