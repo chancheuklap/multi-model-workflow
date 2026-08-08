@@ -1,6 +1,6 @@
 # Domain Modeling 重建区
 
-这个目录用于从 Matt Pocock Skills 1.2.2 重新建立 MMW Domain Modeling。当前发布技能仍位于 `mmw/skills/mmw-domain-modeling/`；本目录中的文件不会被 `mmw skills materialize` 物化，也不会改变任何宿主的运行行为。
+这个目录用于从 Matt Pocock Skills 1.2.2 重新建立 MMW Domain Modeling。当前发布技能仍位于 `mmw/skills-src/mmw-domain-modeling/`；本目录中的文件不会被 `mmw skills materialize` 物化，也不会改变任何宿主的运行行为。
 
 ## 当前阶段
 
@@ -15,4 +15,4 @@
 | `simplified.zh-CN.md` | 与翻译基线逐字一致的精简层 |
 | `../candidate/skills/mmw-domain-modeling/` | 在精简层基础上增加最小 MMW 接线的候选技能 |
 
-候选内容经过用户批准后，才进入 `mmw/skills/mmw-domain-modeling/`。
+候选内容经过用户批准后，才进入 `mmw/skills-src/mmw-domain-modeling/`。

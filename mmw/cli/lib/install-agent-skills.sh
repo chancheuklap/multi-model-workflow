@@ -26,7 +26,7 @@ rc=0
 [ "$mode" = check ] || mkdir -p "$SKILLS_DIR"
 
 for sk in "${WANTED[@]}"; do
-  src="$PLUGIN_ROOT/skills/$sk"
+  src="$PLUGIN_ROOT/skills-src/$sk"
   dst="$SKILLS_DIR/$sk"
 
   if [ ! -d "$src" ]; then
