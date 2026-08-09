@@ -70,6 +70,33 @@ build_runtime() {
   echo "runtime  : $RUNTIME_ROOT"
 }
 
+# 同一个版本号下改了内容就停下。
+#
+# Codex 与 Claude Code 运行的都是 plugins/cache 里的副本，不是这份 runtime。
+# Claude Code 的 plugin update 按版本号判定：版本号不动，它认定已是最新，副本
+# 一个字都不换。于是「install.sh 报了已安装」和「宿主真的读到新内容」是两回事。
+#
+# 绕过去的办法是 uninstall 再 install 强行覆盖，但那等于把版本号这道机制废掉，
+# 而且只有动手的人知道自己绕过了，下一个人照样踩。所以这里直接拦：内容变了就
+# 升版本号，五处一起升（见 AGENTS.md）。
+require_version_bump() {
+  local version cache_dir
+  version="$(jq -er '.version' "$RUNTIME_ROOT/mmw/.claude-plugin/plugin.json")" \
+    || die "读不出 runtime 的插件版本"
+  for cache_dir in \
+    "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/cache/multi-model-workflow/mmw/$version" \
+    "${CODEX_HOME:-$HOME/.codex}/plugins/cache/mmw-codex/mmw/$version"; do
+    [ -d "$cache_dir" ] || continue
+    if ! diff -r -q -x '__pycache__' -x '*.pyc' \
+        "$RUNTIME_ROOT/mmw" "$cache_dir" >/dev/null 2>&1; then
+      echo "mmw install: 版本仍是 ${version}，但内容与已安装副本不同：" >&2
+      diff -r -q -x '__pycache__' -x '*.pyc' "$RUNTIME_ROOT/mmw" "$cache_dir" 2>&1 \
+        | sed 's/^/  /' >&2
+      die "先把五处版本号一起升上去再装（见 AGENTS.md「版本号位置」）"
+    fi
+  done
+}
+
 install_forwarder() {
   local target current temp
   target="$BIN_DIR/mmw"
@@ -188,6 +215,7 @@ install_mcp() {
 require_source_repo
 verify_source
 build_runtime
+require_version_bump
 install_forwarder
 install_codex
 install_claude_code
