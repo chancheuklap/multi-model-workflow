@@ -206,6 +206,12 @@ role_roster() {
   agents_role_field "$1" agent
 }
 
+# 角色的方法论技能名。空字符串表示这个角色没有固定方法论技能，
+# 它这次要用什么由 task 指定（`investigator` 就是这一类）。
+role_skill() {
+  agents_role_field "$1" skill
+}
+
 role_writable() {
   local w
   w="$(agents_role_field "$1" writable)" || return 1
@@ -225,6 +231,9 @@ agents_role_field() {
   case "$field" in
     agent)
       jq -er --arg r "$role" '.roles[$r].agent' "$path"
+      ;;
+    skill)
+      jq -er --arg r "$role" '.roles[$r].skill // ""' "$path"
       ;;
     writable)
       jq -r --arg r "$role" 'if .roles[$r].writable then "true" else "false" end' "$path"
@@ -285,6 +294,8 @@ cmd_dispatch() {
   export MMW_D_TASK="$task"
   export MMW_D_CWD="$cwd"
   export MMW_D_WRITABLE="$writable"
+  MMW_D_SKILL="$(role_skill "$role")" || return 1
+  export MMW_D_SKILL
 
   # 可写：必须是干净任务 worktree（与 agents guard 同一套）。
   if [ "$MMW_D_WRITABLE" = "yes" ]; then

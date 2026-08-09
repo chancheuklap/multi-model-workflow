@@ -5,8 +5,9 @@
 # 进程——CLI 自己跑得完，直接跑。派 Claude 走 Agent 工具，CLI 跑不了，只能把
 # 参数交给模型去调。
 #
-# 两条路都不用把方法论路径写进提示词：codex exec 靠 install-agent-skills.sh
-# 把技能软链进它自己的技能目录，会话内的 subagent 由 subagent_type 带着技能。
+# 两条路都不写方法论的文件路径，只写技能名。技能已经装进对方的 harness：
+# codex exec 那边由 install-agent-skills.sh 软链进它自己的技能目录，会话内
+# subagent 那边由 plugin.json 的 skills 列表装好。派发只负责说清楚该调用哪个。
 #
 # 本文件不做流程判断。它只回答「这个宿主管这个动作叫什么」。
 #
@@ -104,6 +105,17 @@ mmw_adapter_dispatch() {
         echo "mmw: 检索纪律取不出来，拒绝派一个没有说明书的 worker" >&2
         return 1
       }
+
+      # 方法论同理：技能装在 ~/.codex/skills 里，但没人叫它去用，它就不会用。
+      # 技能名取自 roles.json 的 skill 字段。该字段为空表示这个角色没有固定
+      # 方法论技能，这次用什么由 task 指定，那就不加这一句。
+      if [ -n "${MMW_D_SKILL:-}" ]; then
+        preamble="## Method
+
+Call the \`$MMW_D_SKILL\` skill before you start. It holds the method for this task. Follow it.
+
+$preamble"
+      fi
 
       local code=0
       # ${mcp[@]+...}：.mcp.json 缺失时数组为空，macOS 自带的 bash 3.2 在 set -u 下

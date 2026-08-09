@@ -41,7 +41,7 @@ _Avoid_: worktree 路径、任务 slug 推导路径
 _Avoid_: 全部运行输出、未脱敏原始数据、可低成本重建的过程材料
 
 **scratch**：
-prototype、research 和外部系统实测产生的临时过程材料。过程截图、DOM、console、录屏、临时探测输出和生成中间物保存在 `.scratch/<产物目录>/`；Wayfinder decision ticket 使用其中的 `issue-<编号>/` 子目录。scratch 不进入 Git，并在任务结束时清理。
+prototype、research、外部系统实测和 `/mmw-grilling` 产生的临时过程材料。过程截图、DOM、console、录屏、临时探测输出、生成中间物和共同理解记录保存在 `.scratch/<产物目录>/`；Wayfinder decision ticket 使用其中的 `issue-<编号>/` 子目录。scratch 不进入 Git，并在任务结束时清理。
 _Avoid_: prototype 资产、evidence、长期合同出处
 
 **走查**：
@@ -51,6 +51,10 @@ _Avoid_: 审查、自动验收
 **共同理解**：
 `/mmw-grilling` 对已经谈定的问题、约束、决定、取舍和范围作出的总结。用户确认总结准确后，共同理解才成立。
 _Avoid_: spec、讨论记录、单方面假设
+
+**共同理解记录**：
+用户要求复核时，`/mmw-grilling` 为一次访谈写下的文件，保存在 `.scratch/<产物目录>/understanding.md`。它含逐轮问答原样、共同理解和支持材料三段，是 ⓪ 共同理解审的被审对象。
+_Avoid_: 共同理解、讨论记录、审查记录
 
 **spec**：
 把已经谈定的内容综合成的设计合同。spec 文件位于 `docs/specs/<任务 slug>/<任务 slug>.md`。

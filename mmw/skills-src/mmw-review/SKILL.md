@@ -1,16 +1,17 @@
 ---
 name: mmw-review
-description: 编排 MMW 五道审查并处置 findings。用于 spec、整批 plan、`worker` 结果或最终代码到达审查关卡，或用户要求审查 spec、plan、分支、PR 或未提交改动。
+description: 编排 MMW 六道审查并处置 findings。用于共同理解、spec、整批 plan、`worker` 结果或最终代码到达审查关卡，或用户要求审查共同理解、spec、plan、分支、PR 或未提交改动。
 ---
 
 发起一轮审查。**审查方法论不在本文**，在 `/mmw-reviewer` 里。你不读它，也不转述。
 
-## 五道审
+## 六道审
 
 先认准你在哪一道。**③、④ 不派审查者**，判据不在本文——③、④ 的「谁去审」列写的是 [self-review.md](self-review.md)，现在去读该文件，本文其余各节跳过。
 
 | 哪一道 | 什么时候发起 | 视角（任务名） | 谁去审 | 是不是关卡 |
 | --- | --- | --- | --- | --- |
+| ⓪ 共同理解审 | `/mmw-grilling` 的 frontier 为空、用户确认共同理解之后，而且用户要求审 | 共同理解审 | 按第 3 节的宿主审查策略 | 不是。findings 连同你的处置一起给用户看参考 |
 | ① spec 审 | spec 写完、自检过了，给用户看之前 | 设计内容审、项目一致性审 | 按第 3 节的宿主审查策略 | 不是。findings 连同你的处置一起给用户看参考 |
 | ② plan 审 | 全部 plan 写完、主 agent 验证过、跨 plan 合同回填完之后，发起一次 | 覆盖质量审、合规交叉审 | 按第 3 节的宿主审查策略 | 是 |
 | ③ 逐份验收 | 一个 `worker` 交回它写的代码 | 不派审查者 | **你自己**，判据读 [self-review.md](self-review.md) | 是。不过这一关不合并回任务分支 |
@@ -26,6 +27,7 @@ description: 编排 MMW 五道审查并处置 findings。用于 spec、整批 pl
 
 | 审哪一道 | 钉什么 |
 | --- | --- |
+| ⓪ | 那份共同理解记录的路径，`.scratch/<产物目录>/understanding.md` |
 | ① | 那份 spec 的路径 |
 | ② | plan 目录 `docs/plans/<slug>/` 的路径。**整批发起一次，不逐份发起** |
 | ⑤ | 一个固定点，加 `git diff <固定点>...HEAD`（三个点，比的是分叉点）。固定点通常是 `git merge-base HEAD <父分支>` |
@@ -34,12 +36,15 @@ description: 编排 MMW 五道审查并处置 findings。用于 spec、整批 pl
 
 往下走之前先确认它解析得出来（`git rev-parse`），而且 diff 非空。记录发起本轮审查时的 `git rev-parse HEAD`，审查期间用它确认被审内容没有漂移。
 
+⓪ 的被审对象是一份未提交的工作文件，`git rev-parse HEAD` 那道漂移检查对它不成立。这一道改用一条约束：本轮审查期间不重写 `understanding.md`，也不向用户提新问题。文件不存在时停下，回 `/mmw-grilling` 先把它写出来。
+
 ## 2. 给每个视角备齐材料
 
 审查者只拿当前视角判断得上的材料。**多给反而有害。**
 
 | 任务名 | 基础上下文 | prototype | research |
 | --- | --- | --- | --- |
+| 共同理解审 | 共同理解记录 | 本次讨论用到的索引、选中产物和走查结论 | 本次讨论用到的 research 索引和精确文件 |
 | 设计内容审 | spec | 被 spec 使用的索引、选中产物和相关证据 | 被 spec 使用的 research 索引和精确文件 |
 | 项目一致性审 | spec、相关领域文档和 ADR | 本视角需要的索引、选中产物和证据 | 本视角需要的 research 索引和精确文件 |
 | 覆盖质量审 | spec、全部 ticket 和全部 plan | 被 plan 使用的索引、选中产物和相关证据 | 被 plan 使用的 research 索引和精确文件 |
@@ -48,7 +53,7 @@ description: 编排 MMW 五道审查并处置 findings。用于 spec、整批 pl
 | 独立终审 | **只有 diff 范围** | 不提供 | 不提供 |
 | 编码规范审 | diff 范围和仓库编码标准 | 不提供 | 不提供 |
 
-按以下顺序查找 spec：
+⓪ 的基础上下文只有共同理解记录，不需要 spec，跳过下面这一段。①、②、⑤ 按以下顺序查找 spec：
 
 1. 这个分支上的 `docs/specs/<slug>/<slug>.md`。
 2. 提交信息里引用的 issue（`gh issue view <编号>`）。
@@ -69,7 +74,7 @@ description: 编排 MMW 五道审查并处置 findings。用于 spec、整批 pl
 
 ## 3. 写 task，派发
 
-审查记录写在 `.reviews/<slug>-<哪一道>.md`，**一道一份**，同一道的几个视角写进同一份、按任务名分节。`<哪一道>` 取 `spec`、`plan`、`final` 之一。
+审查记录写在 `.reviews/<slug>-<哪一道>.md`，**一道一份**，同一道的几个视角写进同一份、按任务名分节。`<哪一道>` 取 `understanding`、`spec`、`plan`、`final` 之一。
 
 给每个视角按 **四栏表**（目标 / 读 / 约束 / 验收）写 task：
 
@@ -77,7 +82,7 @@ description: 编排 MMW 五道审查并处置 findings。用于 spec、整批 pl
 | --- | --- |
 | 目标 | **第一句**为任务名（与「2. 给每个视角备齐材料」表中任务名一字不差）；其后写审什么：被审对象 |
 | 读 | 按「2. 给每个视角备齐材料」表中本任务名一行的基础上下文、prototype 和 research 三列，逐项列出精确路径；没有材料写「无」 |
-| 约束 | 只读；不改被审产物；方法论在「读」的路径里自读，不往 task 粘正文 |
+| 约束 | 只读；不改被审产物；方法论由审查者按技能名自取，不往 task 粘正文 |
 | 验收 | 按审查者技能交 findings（或 `needs-redirection` / `needs-context`） |
 
 可选：四栏表写入 `.reviews/<slug>-<哪一道>-<任务名>.prompt.md`。
@@ -137,6 +142,8 @@ description: 编排 MMW 五道审查并处置 findings。用于 spec、整批 pl
 
 有 `accepted` 时，调用方一次性修完全部采信项：spec 由主 agent 修改，plan 按受影响文件重派 `planner`，代码或集成结果合成一张修复 ticket 派一个 `worker`。修复回来后，主 agent 逐条检查原 finding 指向的问题已经消失，并运行修复涉及的验收命令。这个检查是修复验收，不再启动审查者。
 
+⓪ 不走这一步。它的采信项没有产物可改：把每一条交回 `/mmw-grilling`，由它重新打开对应的分叉，向用户提问。用户重新谈定之后，`/mmw-grilling` 重写 `understanding.md`。**不为重写后的版本发起第二轮 ⓪。**
+
 全部采信项修好后，在原审查记录顶部加入 `修复提交`，值等于当前 HEAD。⑤ final 终审把该 HEAD 登记为 `终审提交`。有一条没有修好就停下报告，不发起第二轮修复或审查。
 
 ## 下一步
@@ -145,6 +152,8 @@ description: 编排 MMW 五道审查并处置 findings。用于 spec、整批 pl
 | --- | --- |
 | 判定完了，一条 `accepted` 都没有 | **移交**：回到把你叫起来的那个技能，由它决定往下走 |
 | 有 `accepted` 的 findings | **移交**：回到调用方，按第 7 步一次性修复、验证并完成 |
+| ⓪ 判定完了，有 `accepted` | **移交**：`/mmw-grilling`，把采信项交给它重新打开对应分叉 |
+| ⓪ 的 `understanding.md` 不存在 | **停**：回 `/mmw-grilling` 先写出这份记录，再来审 |
 | 用户直接叫你来审，没有调用方 | **停**：报每个视角各报了几条、采信几条、最严重的是哪一条，让他定这一轮修不修 |
 | 第 1 步的固定点解析不出来，或者 diff 是空的 | **停**：说清是哪一种，让用户重新给 |
 | 收到 `needs-redirection` | **停**：把审查者说的「哪里可疑、建议怎么重新框定」原样交给用户 |

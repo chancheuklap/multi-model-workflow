@@ -111,6 +111,41 @@ def test_current_模式用当前任务_worktree(假源: Path, tmp_path: Path) ->
     assert "当前任务 worktree" in 正文
 
 
+# ---------------------------------------------------------------- 审查启动组
+
+def 审查组(host: str, 假源: Path, tmp_path: Path) -> str:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n"
+       "[[mmw-launch-group:reviewers:none]]\n")
+    out = tmp_path / host
+    物化(host, out)
+    return 读(out, "mmw-alpha/SKILL.md")
+
+
+@pytest.mark.parametrize("host", ["pi", "claude-code", "codex"])
+def test_每一道审都在启动组里有交代(假源: Path, tmp_path: Path, host: str) -> None:
+    # 少写哪一道，主 agent 走到那一道就没有可执行的启动句，只能自己编一个。
+    正文 = 审查组(host, 假源, tmp_path)
+    for 哪一道 in ("⓪", "①", "②", "⑤"):
+        assert 哪一道 in 正文
+
+
+@pytest.mark.parametrize("host", ["pi", "claude-code"])
+def test_两个审查角色的宿主让共同理解审换一个模型(
+    假源: Path, tmp_path: Path, host: str
+) -> None:
+    # ⓪ 审的是主 agent 自己问出来的共同理解，同一个模型审不出自己的盲点。
+    正文 = 审查组(host, 假源, tmp_path)
+    第零道 = 正文.split("①")[0]
+    assert "reviewer-gpt" in 第零道
+    assert "reviewer-claude" not in 第零道
+
+
+def test_只有一个审查角色的宿主说清楚换不了模型(假源: Path, tmp_path: Path) -> None:
+    正文 = 审查组("codex", 假源, tmp_path)
+    assert "换不了模型" in 正文
+
+
 # ------------------------------------------------------------------ Codex 专属
 
 def test_codex_把技能引用改成自己的调用写法(假源: Path, tmp_path: Path) -> None:

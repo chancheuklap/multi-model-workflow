@@ -131,9 +131,10 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
         if not profile:
             die("Codex 缺 reviewer-gpt subagent profile")
         return (
-            "Codex 只使用一个审查角色。①、②、⑤ 每个视角各启动一个 "
+            "Codex 只使用一个审查角色。⓪、①、②、⑤ 每个视角各启动一个 "
             f"Codex 原生 `{profile['name']}` subagent。"
             "每个审查者使用独立上下文，可以与产物作者使用相同模型。"
+            "⓪ 也一样：这个宿主换不了模型，只换上下文。"
             "互不依赖的审查任务在同一条消息中并行启动。"
         )
     for role in ("reviewer-gpt", "reviewer-claude"):
@@ -143,7 +144,9 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
     gpt = expand("reviewer-gpt", role_agents["reviewer-gpt"], "none")
     claude = expand("reviewer-claude", role_agents["reviewer-claude"], "none")
     return (
-        "当前宿主使用两个审查角色。① 每个视角启动一个 `reviewer-gpt`。"
+        "当前宿主使用两个审查角色。⓪ 启动一个 `reviewer-gpt`："
+        "共同理解是主 agent 自己问出来的，复核它的审查者必须换一个模型。"
+        f"{gpt}① 每个视角启动一个 `reviewer-gpt`。"
         f"{gpt}② 每个视角启动一个 `reviewer-claude`。{claude}"
         "⑤ 每个视角分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude`。"
         "同一视角的两份 findings 并排比较；只由一个审查者报告的条目优先验证，"

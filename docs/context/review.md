@@ -4,9 +4,16 @@
 
 ## Language
 
-**五道审**：
-spec 审、plan 审、逐份验收、合同门和 final 终审。多分支集成结果也进入 final 终审；集成调查属于 `/mmw-integrate`。
-_Avoid_: 人工审批关卡
+**六道审**：
+共同理解审、spec 审、plan 审、逐份验收、合同门和 final 终审。多分支集成结果也进入 final 终审；集成调查属于 `/mmw-integrate`。
+_Avoid_: 五道审、人工审批关卡
+
+**共同理解审**：
+第一道审。用户在 `/mmw-grilling` 确认共同理解之后要求复核时发起，审共同理解记录，不是关卡。
+_Avoid_: spec 审、走查
+
+**共同理解记录**：
+(authoritative: [共同理解记录](./delivery-workflow.md))
 
 **视角（任务名）**：
 一名审查者在独立上下文中检查的一个角度；task 的目标栏第一句使用表中任务名。

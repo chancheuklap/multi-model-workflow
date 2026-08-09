@@ -16,6 +16,7 @@ user-invocable: false
 
 | 任务名 | 读这一份 |
 | --- | --- |
+| 共同理解审 | [references/understanding.md](references/understanding.md) |
 | 设计内容审 | [references/spec-content.md](references/spec-content.md) |
 | 项目一致性审 | [references/spec-alignment.md](references/spec-alignment.md) |
 | 覆盖质量审 | [references/plan-coverage.md](references/plan-coverage.md) |

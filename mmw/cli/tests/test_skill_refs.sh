@@ -34,7 +34,7 @@ SKILLS="$(cd "$HERE/../../skills-src" && pwd)"
 CLI="$(cd "$HERE/.." && pwd)"
 
 python3 - "$SKILLS" "$CLI" <<'PY'
-import pathlib, re, sys
+import json, pathlib, re, sys
 
 skills = pathlib.Path(sys.argv[1])
 cli = pathlib.Path(sys.argv[2])
@@ -113,6 +113,29 @@ for p in sorted(skills.rglob('*.md')):
                 ok += 1
             else:
                 bad.append(f"{rel}:{i} 说「/{skill} 第 {step} 步」，但那个技能里没有第 {step} 步")
+
+# 第五类：派发时点名的方法论技能。roles.json 的 skill 字段非空时，派发会让那个
+# agent 去调用它。技能名写错，或者技能没装进 headless Codex 的技能目录，agent
+# 那边同样不会报错——它调不到，就自己按印象审。
+roles = json.loads((cli.parent / 'agent-src' / 'roles.json').read_text())['roles']
+wanted = re.search(r'^WANTED=\(([^)]*)\)',
+                   (cli / 'lib' / 'install-agent-skills.sh').read_text(), re.M)
+if not wanted:
+    print("  失败  解析不出 install-agent-skills.sh 的 WANTED 列表，写法变了就改这里")
+    sys.exit(1)
+installed = set(wanted.group(1).split())
+for role, meta in sorted(roles.items()):
+    skill = (meta.get('skill') or '').strip()
+    if not skill:
+        continue
+    if skill not in names:
+        bad.append(f"agent-src/roles.json 角色 {role} 的 skill 指向不存在的技能 {skill}")
+    elif skill not in installed:
+        bad.append(
+            f"agent-src/roles.json 角色 {role} 要 {skill}，"
+            "但 install-agent-skills.sh 的 WANTED 里没有它")
+    else:
+        ok += 1
 
 for b in bad:
     print(f"  失败  {b}")

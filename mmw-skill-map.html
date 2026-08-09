@@ -491,7 +491,7 @@ end
 
 subgraph MAIN["主干 · 从想法到落地"]
   direction LR
-  gri["<b>mmw-grilling</b><br/>· 开问前先查仓库现状<br/>· 用设计树组织当前 frontier<br/>· 每轮批量提出整个 frontier<br/>· 同时应用 domain-modeling<br/>· 共同理解经用户确认才完成"]
+  gri["<b>mmw-grilling</b><br/>· 开问前先查仓库现状<br/>· 用设计树组织当前 frontier<br/>· 每轮批量提出整个 frontier<br/>· 同时应用 domain-modeling<br/>· 共同理解经用户确认才完成<br/>· 用户要复核时写共同理解记录，走 ⓪"]
   pro[["<b>mmw-prototype</b><br/>· 一轮只回答一个可走查问题<br/>· 后端脚本、Logic HTML 与 UI/UX 原地迭代<br/>· 用户走查决定下一轮<br/>· 持久资产与过程材料分层保存"]]
   tsp[["<b>mmw-to-spec</b><br/>· 五种真实入口各自读取已有产物<br/>· 只综合已经谈定的内容<br/>· seam 在这里钉死<br/>· spec 定稿的人工审批关卡通过后发布"]]
   ttk[["<b>mmw-to-tickets</b><br/>· 切成 tracer bullet<br/>· 声明阻塞关系与精确上下文路径<br/>· 用户通过 ticket 切分人工审批关卡<br/>· 批准后才发布到 tracker"]]
@@ -502,7 +502,7 @@ subgraph MAIN["主干 · 从想法到落地"]
   clo["<b>mmw-closing</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· spec 与 plan 转成 Wiki 一页<br/>· 推送前给用户看<br/>· verify 通过后归档文档并清理任务过程材料"]
   intg[["<b>mmw-integrate</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 验证结果分支、HEAD 与基点<br/>· 按合同依赖排序<br/>· 合入当前任务分支"]]
   rel["<b>mmw-release</b><br/>· 出包前 HEAD 必须等于终审提交<br/>· 主 agent 驱动正式出包循环<br/>· 核对所有包的 source commit<br/>· 用户实测通过后收尾"]
-  crv[["<b>mmw-review</b><br/>· 五道审的编排，每道只运行一轮<br/>· 多分支集成结果同样进入 ⑤ final 终审<br/>· 按视角传入需要的索引与精确路径<br/>· findings 逐条判定<br/>· 采信项修复后由主 agent 验证完成"]]
+  crv[["<b>mmw-review</b><br/>· 六道审的编排，每道只运行一轮<br/>· ⓪ 共同理解审由用户点头才发起<br/>· 多分支集成结果同样进入 ⑤ final 终审<br/>· 按视角传入需要的索引与精确路径<br/>· findings 逐条判定<br/>· 采信项修复后由主 agent 验证完成"]]
   shp((("<b>提交到<br/>当前分支</b>")))
 end
 
@@ -547,7 +547,7 @@ ina[/"<b>用户选择保存的 research</b><br/>· 一个 research 主题一个�
 rfacts["<b>验证后的 research</b><br/>直接交回当前调用方；<br/>是否保存不影响结果成立"]
 tmp[/"<b>Git 忽略的 scratch</b><br/>· 截图、DOM、console、录屏与中间输出<br/>· 只提升长期决定所需的最小证据<br/>· 收尾清理当前任务自己的内容"/]
 wik[/"<b>GitHub Wiki</b><br/>· 此后是这份 spec 的<br/>  唯一事实来源"/]
-rvr[("<b>mmw-reviewer</b><br/>· 审查方法论单源<br/>· 共享纪律加七个视角<br/>· 审查者进门读它，主 agent 不读")]
+rvr[("<b>mmw-reviewer</b><br/>· 审查方法论单源<br/>· 共享纪律加八个视角<br/>· 审查者进门按技能名调用它，主 agent 不读")]
 
 
 set ==>|"建标签"| trk
@@ -583,6 +583,7 @@ imp ==>|"seam 由 spec 钉死<br/>走 red 到 green"| tdd
 tdd ==>|"重构不在这个循环里，留到终审"| crv
 imp ==>|"全部 ticket 落地、合同门过了<br/>发起 ⑤ final 终审"| crv
 crv ==>|"③ 验收或 ⑤ final 终审的采信项落进提交<br/>其余道的 findings 回各自调用方"| shp
+crv -.->|"⓪ 的采信项交回，重开对应分叉再问用户"| gri
 imp ==>|"终审过了，采信项都修完"| clo
 clo -->|"推送前把 diff 给用户看"| wik
 trk -.->|"spec 找不到时<br/>从提交信息引的 issue 取"| crv
@@ -618,6 +619,7 @@ pro ==>|"用户走查过了<br/>结论回填成 Implementation Decisions"| tsp
 mms ==>|"想先看看长什么样<br/>或不确定这套状态对不对"| pro
 mms ==>|"map 上切出来的一份 spec"| tsp
 pln -->|"全部 plan 通过 ② plan 审并提交后<br/>为全部 ticket 添加 ready-for-agent"| trk
+gri ==>|"用户要复核这次访谈时<br/>发起 ⓪ 共同理解审，一个视角"| crv
 tsp ==>|"定稿之后发起 ① spec 审，两个视角"| crv
 pln ==>|"发起 ② plan 审，两个视角"| crv
 crv ==>|"派出去的审查者都读这一份"| rvr
