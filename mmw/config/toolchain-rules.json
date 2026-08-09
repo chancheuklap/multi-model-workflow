@@ -1,0 +1,223 @@
+{
+  "_why": [
+    "语言工具链的探测规则表。一条规则说四件事：怎么认出仓库用了这门语言、该配哪个语言服务器、",
+    "该配哪些命令行检查器、有哪些版本约束。规则写在这里而不是写在 toolchain.sh 里，理由和",
+    "retrieval-contract.json 一样：探测逻辑各宿主共用一份，规则本身要能单独看、单独改、单独审。",
+    "",
+    "规则先写全，命中才产出。仓库现在没有 Rust，rust 规则照样留在表里——工具箱先备好工具，",
+    "不等到用的那天才去补规则。",
+    "",
+    "project_bin 排在 bin 前面：语言服务器必须和持续集成用的是同一个版本，否则编辑时看到的错误",
+    "和持续集成判定的错误对不上。2026-08-10 实测过一次：全局 pyright 1.1.411，仓库 .venv 里",
+    "1.1.409，官方 pyright-lsp 插件写死走 PATH，两边判定不一致。",
+    "",
+    "constraints 是版本闸门。同一天实测的第二个坑：TypeScript 7.0 是 Go 重写版、不带编程接口，",
+    "typescript-eslint 声明的 peer 上界是 <6.1.0，在 TS 7 下会主动抛错拒绝启动；openapi-typescript",
+    "会崩在 dist/lib/ts.mjs。所以 typescript 规则的 lint 选 oxlint 而不是 eslint，并且把",
+    "「需要编程接口的工具必须拿到 6.x」写成一条约束，让探测器直接报出来。"
+  ],
+  "version": 2,
+  "_workspace_ignore_why": [
+    "含 package.json 或 pyproject.toml 不等于是本仓库的工作区。docs/ 下会放竞品软件的",
+    "调查证据——那是别人的应用完整解包后的目录，带自己的 package.json 和依赖清单。",
+    "archive/ 是归档。这两处的清单不该被当成要配语言服务器的地方。"
+  ],
+  "workspace_ignore": ["docs/", "archive/", ".worktrees/", "node_modules/"],
+  "rules": [
+    {
+      "id": "python",
+      "title": "Python",
+      "detect": { "tracked_glob": ["*.py"] },
+      "server": {
+        "name": "pyright",
+        "project_bin": [".venv/bin/pyright-langserver"],
+        "bin": "pyright-langserver",
+        "args": ["--stdio"],
+        "extensions": { ".py": "python", ".pyi": "python" },
+        "install": "uv tool install pyright",
+        "version_from": "pyright",
+        "_version_from_why": "pyright-langserver 只认 --stdio 这类连接参数，喂它 --version 会打出一段 vscode-languageserver 的报错。版本取同目录的 pyright，两个是同一个包的两个入口。"
+      },
+      "checkers": [
+        {
+          "id": "pyright",
+          "project_bin": [".venv/bin/pyright"],
+          "bin": "pyright",
+          "args": ["--outputjson"],
+          "install": "uv tool install pyright"
+        },
+        {
+          "id": "ruff",
+          "project_bin": [".venv/bin/ruff"],
+          "bin": "ruff",
+          "args": ["check", "--output-format", "json"],
+          "install": "uv tool install ruff"
+        }
+      ],
+      "constraints": [
+        {
+          "id": "pyright-lsp-matches-ci",
+          "kind": "same_version",
+          "left": { "bin": "pyright", "scope": "project" },
+          "right": { "bin": "pyright", "scope": "global" },
+          "why": "语言服务器走 PATH 拿全局版本，持续集成用仓库锁定的版本。两边不同版本时，编辑时看到的类型错误和持续集成判定的不是同一套。"
+        }
+      ]
+    },
+    {
+      "id": "typescript",
+      "title": "TypeScript 与 JavaScript",
+      "detect": { "tracked_glob": ["*.ts", "*.tsx", "*.mts", "*.cts"] },
+      "server": {
+        "name": "typescript",
+        "project_bin": ["node_modules/.bin/typescript-language-server"],
+        "bin": "typescript-language-server",
+        "args": ["--stdio"],
+        "extensions": {
+          ".ts": "typescript",
+          ".tsx": "typescriptreact",
+          ".js": "javascript",
+          ".jsx": "javascriptreact",
+          ".mts": "typescript",
+          ".cts": "typescript",
+          ".mjs": "javascript",
+          ".cjs": "javascript"
+        },
+        "install": "pnpm add -g typescript-language-server typescript"
+      },
+      "checkers": [
+        {
+          "id": "tsc",
+          "project_bin": ["node_modules/.bin/tsc"],
+          "bin": "tsc",
+          "args": ["--noEmit"],
+          "install": "pnpm add -D typescript"
+        },
+        {
+          "id": "oxlint",
+          "project_bin": ["node_modules/.bin/oxlint"],
+          "bin": "oxlint",
+          "args": ["--type-aware", "."],
+          "install": "pnpm add -D oxlint oxlint-tsgolint",
+          "why": "选 oxlint 不选 eslint：typescript-eslint 在 TypeScript 7 下抛错拒绝启动（其 issue #12518 关成 not planned，等 TS 7.1 的稳定编程接口）。oxlint 自带 parser，类型感知规则经 oxlint-tsgolint 走 tsgo。",
+          "companions": ["oxlint-tsgolint"],
+          "requires_config": [".oxlintrc.json", "oxlint.config.ts"]
+        }
+      ],
+      "constraints": [
+        {
+          "id": "programmatic-api-consumers-need-ts6",
+          "kind": "peer_upper_bound",
+          "packages": ["typescript-eslint", "openapi-typescript", "ts-morph", "ts-jest", "vue-tsc"],
+          "requires": "typescript<7",
+          "remedy": "把 typescript 依赖 alias 成 @typescript/typescript6，另用 typescript-7 alias 提供跑 tsc 的 7.x：pnpm add -D 'typescript@npm:@typescript/typescript6@6.0.2' 'typescript-7@npm:typescript@7.0.2'",
+          "why": "这些包都 import typescript 的编程接口。TS 7.0 没有那个接口，装上就崩或直接拒绝启动。alias 之后 tsc 跑 7.x，require('typescript') 拿到 6.x，两个需求同时满足。"
+        }
+      ]
+    },
+    {
+      "id": "react",
+      "title": "React",
+      "_why": "React 不需要另配语言服务器：typescript 规则的扩展名映射已经含 .tsx 与 .jsx。它缺的是类型系统查不出的那一类错——在 if 里调 useState、useEffect 依赖数组漏变量。这两条规则 oxlint 原生实现，规则名是 react/rules-of-hooks 与 react/exhaustive-deps。",
+      "detect": { "package_dep": ["react"] },
+      "server": null,
+      "checkers": [
+        {
+          "id": "oxlint-react",
+          "project_bin": ["node_modules/.bin/oxlint"],
+          "bin": "oxlint",
+          "args": ["--type-aware", "."],
+          "install": "pnpm add -D oxlint oxlint-tsgolint",
+          "required_rules": ["react/rules-of-hooks", "react/exhaustive-deps"],
+          "required_plugins": ["react"],
+          "why": "eslint-plugin-react-hooks 需要 @typescript-eslint/parser 解析 .tsx，那条路在 TypeScript 7 下走不通。oxlint 内置这两条规则，不需要额外插件包。"
+        }
+      ],
+      "constraints": []
+    },
+    {
+      "id": "bash",
+      "title": "Shell 脚本",
+      "detect": { "tracked_glob": ["*.sh", "*.bash"] },
+      "server": {
+        "name": "bash",
+        "project_bin": [],
+        "bin": "bash-language-server",
+        "args": ["start"],
+        "extensions": { ".sh": "shellscript", ".bash": "shellscript" },
+        "install": "pnpm add -g bash-language-server"
+      },
+      "checkers": [
+        {
+          "id": "shellcheck",
+          "project_bin": [],
+          "bin": "shellcheck",
+          "args": ["--format", "json"],
+          "install": "brew install shellcheck"
+        }
+      ],
+      "constraints": []
+    },
+    {
+      "id": "rust",
+      "title": "Rust",
+      "detect": { "tracked_glob": ["*.rs"] },
+      "server": {
+        "name": "rust",
+        "project_bin": [],
+        "bin": "rust-analyzer",
+        "args": [],
+        "extensions": { ".rs": "rust" },
+        "install": "rustup component add rust-analyzer"
+      },
+      "checkers": [
+        {
+          "id": "cargo-check",
+          "project_bin": [],
+          "bin": "cargo",
+          "args": ["check", "--message-format", "json"],
+          "install": "见 https://rustup.rs"
+        }
+      ],
+      "constraints": []
+    },
+    {
+      "id": "go",
+      "title": "Go",
+      "detect": { "tracked_glob": ["*.go"] },
+      "server": {
+        "name": "go",
+        "project_bin": [],
+        "bin": "gopls",
+        "args": ["serve"],
+        "extensions": { ".go": "go" },
+        "install": "go install golang.org/x/tools/gopls@latest"
+      },
+      "checkers": [
+        {
+          "id": "go-vet",
+          "project_bin": [],
+          "bin": "go",
+          "args": ["vet", "./..."],
+          "install": "见 https://go.dev/dl"
+        }
+      ],
+      "constraints": []
+    },
+    {
+      "id": "swift",
+      "title": "Swift",
+      "detect": { "tracked_glob": ["*.swift"] },
+      "server": {
+        "name": "swift",
+        "project_bin": [],
+        "bin": "sourcekit-lsp",
+        "args": [],
+        "extensions": { ".swift": "swift" },
+        "install": "随 Xcode 命令行工具安装"
+      },
+      "checkers": [],
+      "constraints": []
+    }
+  ]
+}

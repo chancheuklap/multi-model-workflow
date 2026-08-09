@@ -35,6 +35,8 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$MMW_ROOT/cli/lib/domain.sh"
 # shellcheck source=lib/graph.sh
 . "$MMW_ROOT/cli/lib/graph.sh"
+# shellcheck source=lib/toolchain.sh
+. "$MMW_ROOT/cli/lib/toolchain.sh"
 # shellcheck source=lib/init.sh
 . "$MMW_ROOT/cli/lib/init.sh"
 
@@ -54,6 +56,7 @@ mmw <命令> [参数]
   wiki        Wiki：clone、重建导航、删本地文档前的验证
   domain      领域文档：初始化 Map、同步和检查消费合同、查询落点与 ADR 编号
   graph       结构图谱：状态、建一次、验证建对了
+  toolchain   语言工具链：探测该配哪些语言服务器与检查器，报缺失与版本不对齐
   mcp         MCP：按唯一服务器定义启动 Codex plugin 的 stdio 进程
   release     出包：起循环、问状态、跑一个阶段、派修、收束
   doctor      检查这台机器上跑 mmw 需要的东西（无参：跑一次就是检查）
@@ -485,6 +488,16 @@ EOF
   return 2
 }
 
+usage_toolchain() {
+  cat >&2 <<'EOF'
+mmw toolchain detect [--json]   探测该配哪些语言服务器与检查器，报缺失与版本不对齐
+
+只读：不写文件，不装东西。有缺失或版本对不上时退出码 1，可以当门禁用。
+规则表在 config/toolchain-rules.json，探测在 cli/lib/toolchain_detect.py。
+EOF
+  return 2
+}
+
 usage_mcp() {
   cat >&2 <<'EOF'
 mmw mcp serve <服务器名>
@@ -511,6 +524,13 @@ cmd_graph() {
     build) mmw_graph_build ;;
     verify) mmw_graph_verify ;;
     *) usage_graph ;;
+  esac
+}
+
+cmd_toolchain() {
+  case "${1:-}" in
+    detect) shift; mmw_toolchain_detect "$@" ;;
+    *) usage_toolchain ;;
   esac
 }
 
@@ -692,6 +712,7 @@ case "${1:-}" in
   wiki) shift; cmd_wiki "$@" ;;
   domain) shift; cmd_domain "$@" ;;
   graph) shift; cmd_graph "$@" ;;
+  toolchain) shift; cmd_toolchain "$@" ;;
   mcp) shift; cmd_mcp "$@" ;;
   release) shift; exec bash "$MMW_ROOT/release/release-flow.sh" "$@" ;;
   doctor) shift; cmd_doctor "$@" ;;
