@@ -3,6 +3,10 @@
 
 set -euo pipefail
 
+# 安装期间跑的 Python 不写 .pyc：物化和体检都在 runtime 里执行，写出来的
+# __pycache__ 就留在发布产物里了，而清理发生在它们之前，删不掉。
+export PYTHONDONTWRITEBYTECODE=1
+
 SOURCE_MMW="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_REPO="$(cd "$SOURCE_MMW/.." && pwd)"
 RUNTIME_HOME="${MMW_RUNTIME_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/mmw}"
@@ -39,6 +43,14 @@ build_runtime() {
   cp "$SOURCE_REPO/.claude-plugin/marketplace.json" "$stage/.claude-plugin/marketplace.json"
   cp -R "$SOURCE_MMW" "$stage/mmw"
   printf '%s\n' "$SOURCE_REPO" > "$stage/.mmw-source-root"
+
+  # 测试只在源码仓库跑，不跟着发到各宿主：它们要 uv、要建一次性 git 仓库，
+  # 装到用户机器上既用不到，又把 plugin 撑大。Python 缓存同理。
+  # -prune 不能省：不剪枝的话 find 会走进刚被 rm 掉的目录，报错退非零，
+  # 而那个错误正好被 2>/dev/null 吞掉，看起来像删干净了。
+  rm -f "$stage/mmw/test.sh" "$stage/mmw/mcp/test_graphify_ensure.py"
+  find "$stage/mmw" -type d \( -name tests -o -name __pycache__ -o -name .pytest_cache \) \
+    -prune -exec rm -rf {} +
 
   if [ -d "$stage/mmw/skill-rebuilds" ]; then
     find "$stage/mmw/skill-rebuilds" -depth -delete
