@@ -72,10 +72,13 @@ def toml_render_table(table: str, content: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def plan_workflow(plan: Plan, repo: Path, templates: Path, item: dict, entry: dict) -> None:
+def plan_workflow(
+    plan: Plan, repo: Path, templates: Path, item: dict, entry: dict, rule: dict
+) -> None:
     """持续集成工作流。判据和本地编辑后诊断同一套规则，所以它跟规则表走，不留在各仓库。
 
-    模板里的 __WORKSPACES__ 填成这条规则实际命中的工作区清单，当矩阵取值用。
+    模板里两个占位由规则填：__WORKSPACES__ 是这条规则实际命中的工作区清单（当矩阵取值
+    用），__PATTERNS__ 是密钥扫描的模式清单。
     """
     source = templates / item["template"]
     if not source.is_file():
@@ -89,6 +92,10 @@ def plan_workflow(plan: Plan, repo: Path, templates: Path, item: dict, entry: di
     if "__WORKSPACES__" in content:
         listed = "\n".join(f"          - {w['workspace']}" for w in entry["workspaces"])
         content = content.replace("__WORKSPACES__", listed)
+    if "__PATTERNS__" in content:
+        # 单引号包起来：模式里有反斜杠和大括号，双引号会被 shell 再解释一遍。
+        listed = "\n".join(f"            '{p}'" for p in rule.get("secret_patterns", []))
+        content = content.replace("__PATTERNS__", listed)
     plan.write(repo / item["to"], content, f"模板 {item['template']}")
 
 
@@ -178,7 +185,7 @@ def build_plan(repo: Path, rules_path: Path, templates: Path) -> Plan:
             if kind == "template":
                 plan_template(plan, repo, templates, item, entry)
             elif kind == "workflow":
-                plan_workflow(plan, repo, templates, item, entry)
+                plan_workflow(plan, repo, templates, item, entry, rule)
             elif kind == "toml_table":
                 plan_toml_table(plan, repo, item)
             else:

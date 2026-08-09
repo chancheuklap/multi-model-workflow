@@ -217,7 +217,11 @@ def detect(repo: Path, rules_path: Path) -> dict:
         hits: list[str] = []
         workspaces: list[str] = []
 
-        if "tracked_glob" in detect_spec:
+        if detect_spec.get("always"):
+            # 不看仓库内容，一律命中。给那些"每个仓库都该有"的规则用，比如密钥扫描。
+            workspaces = ["."]
+
+        elif "tracked_glob" in detect_spec:
             hits = match_glob(paths, detect_spec["tracked_glob"])
             if not hits:
                 continue

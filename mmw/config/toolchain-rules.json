@@ -207,6 +207,36 @@
       "constraints": []
     },
     {
+      "id": "secrets",
+      "title": "明文密钥",
+      "_why": "不是一门语言，是每个仓库都要有的一道门。always 命中：任何仓库都不该有明文凭证，不需要先探测出什么才配它。判据是纯 grep，秒级零依赖，所以整仓扫、不做增量——密钥泄漏没有「存量先欠着」这一说。",
+      "detect": { "always": true },
+      "server": null,
+      "checkers": [],
+      "constraints": [],
+      "secret_patterns": [
+        "discord\\.com/api/webhooks/[0-9]{16,}/[A-Za-z0-9_-]{32,}",
+        "hooks\\.slack\\.com/services/T[A-Za-z0-9]+/B[A-Za-z0-9]+/[A-Za-z0-9]{20,}",
+        "AKIA[0-9A-Z]{16}",
+        "^-----BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----$",
+        "gh[pousr]_[A-Za-z0-9]{36,}",
+        "sk-[A-Za-z0-9]{32,}",
+        "AIza[0-9A-Za-z_-]{35}"
+      ],
+      "_patterns_why": "七种都在 agentflow 全仓实测过：干净仓库零命中，植入 AWS key 与私钥文件都抓得到。加新模式之前先在真仓库上跑一遍——一条会误报的模式会让整道门失去意义。",
+      "_private_key_pattern_why": "私钥那条要求整行只有 BEGIN 标记。不加行首行尾锚点会命中文档里的占位示例，例如 `WECHAT_PAY_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\\n...`。代价是嵌在代码字符串里的私钥抓不到；宁可少抓那一种，也不能让门一直红——红久了就没人看了。",
+      "emit": [
+        {
+          "id": "ci-secrets",
+          "kind": "workflow",
+          "mode": "managed",
+          "template": "ci/secrets.yml",
+          "to": ".github/workflows/mmw-secrets.yml",
+          "why": "模板里的 __PATTERNS__ 由 apply 填成上面那份模式清单。"
+        }
+      ]
+    },
+    {
       "id": "bash",
       "title": "Shell 脚本",
       "detect": { "tracked_glob": ["*.sh", "*.bash"] },
