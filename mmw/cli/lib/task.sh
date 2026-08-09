@@ -204,7 +204,7 @@ mmw_task_new() {
 
 mmw_task_cleanup() {
   local slug="$1"
-  local root dir onto
+  local root dir onto here
   root="$(mmw_main_root)"
   dir="$(mmw_task_dir "$slug")"
 
@@ -213,16 +213,32 @@ mmw_task_cleanup() {
     return 1
   fi
 
+  # 站在自己那棵树里删自己，会把脚下的目录一起删掉，而这条分支上的提交多半还
+  # 没合进任何地方。git 不挡这个动作，下面那条合并判据也挡不住——一条分支永远
+  # 是它自己的祖先，判据恒真。所以在这里显式拒绝。
+  here="$(git rev-parse --show-toplevel)"
+  if [ "$here" = "$dir" ]; then
+    echo "mmw: 现在就在 ${slug} 这棵 worktree 里，先切到别处再清理" >&2
+    return 1
+  fi
+
   # 合没合并要在动 worktree 之前判。反过来会留下半完成状态：worktree 已经删
   # 掉、分支还在，而命令报的是失败——人看到失败，以为什么都没发生。
-  onto="$(git -C "$root" rev-parse --abbrev-ref HEAD)"
-  if ! mmw_git_contains "$slug" "$root"; then
+  #
+  # 判据看的是调用者当前所在的分支，不是主仓库 checkout 的那条。理由与 task new
+  # 取 base 的那一处相同：在任务 worktree 里跑时，主仓库停在哪条分支纯属偶然。
+  # 结果分支合进的是当前任务分支，拿主仓库 HEAD 判会把该删的判成不该删。
+  #
+  # 删除也留在当前位置执行。git branch -d 自带的已合并判据同样看执行位置的
+  # HEAD，放回主仓库跑会被它再挡一次，即便上面这条判据已经通过。
+  onto="$(git rev-parse --abbrev-ref HEAD)"
+  if ! mmw_git_contains "$slug"; then
     echo "mmw: ${slug} 还没合并进 ${onto}，不清理" >&2
     return 1
   fi
 
   # 这一条是非强制形式：worktree 里有未提交改动时 git 会拒绝，命令带着非零退
   # 出码停在这里，由人决定要不要真的丢掉。
-  git -C "$root" worktree remove "$dir"
-  git -C "$root" branch -d "$slug"
+  git worktree remove "$dir"
+  git branch -d "$slug"
 }

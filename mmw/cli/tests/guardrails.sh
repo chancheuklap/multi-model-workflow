@@ -185,7 +185,7 @@ suite_result_integrate() {
 
 suite_task_cleanup() {
   echo "mmw task cleanup"
-  local repo
+  local repo task_wt
   repo="$(fresh_repo)"
 
   grow_branch "$repo" unmerged >/dev/null
@@ -205,6 +205,34 @@ suite_task_cleanup() {
     env MMW_HOST=pi "$MMW" task cleanup merged
   expect_state "已经合并进当前分支时允许清理" "分支和 worktree 都已删掉" \
     branch_absent "$repo" merged
+
+  # 上面几条都站在主仓库里跑。那里「当前分支」和「主仓库 checkout 的分支」是同
+  # 一条，判据取哪一个都过，分不出对错。下面几条站在任务 worktree 里跑：主仓库
+  # 停在 main，结果分支只合进任务分支，判据必须看任务分支才判得对。
+  task_wt="$repo/.worktrees/task"
+  grow_branch "$repo" task >/dev/null
+
+  mmw_in "$task_wt" pi task new landed >/dev/null
+  git -C "$repo/.worktrees/landed" commit -q --allow-empty -m "landed work"
+  git -C "$task_wt" merge -q --no-ff --no-edit landed
+  expect_ok "在任务 worktree 里，已经合并进任务分支时允许清理" "$task_wt" \
+    env MMW_HOST=pi "$MMW" task cleanup landed
+  expect_state "在任务 worktree 里，已经合并进任务分支时允许清理" "分支和 worktree 都已删掉" \
+    branch_absent "$repo" landed
+
+  mmw_in "$task_wt" pi task new adrift >/dev/null
+  git -C "$repo/.worktrees/adrift" commit -q --allow-empty -m "adrift work"
+  expect_deny "在任务 worktree 里，还没合并进任务分支时不清理" "$task_wt" \
+    env MMW_HOST=pi "$MMW" task cleanup adrift
+  expect_state "在任务 worktree 里，还没合并进任务分支时不清理" "分支还在" \
+    branch_exists "$repo" adrift
+
+  # 一条分支永远是它自己的祖先，合并判据在这里恒真；git 也不挡，它会把调用者脚
+  # 下的目录真的删掉。挡这一下的只能是显式检查。
+  expect_deny "站在自己那棵 worktree 里不清理自己" "$repo/.worktrees/adrift" \
+    env MMW_HOST=pi "$MMW" task cleanup adrift
+  expect_state "站在自己那棵 worktree 里不清理自己" "worktree 还在" \
+    test -d "$repo/.worktrees/adrift"
 }
 
 # -------------------------------------------------------------------- task new
