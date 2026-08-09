@@ -53,7 +53,7 @@ _Avoid_: 审查、自动验收
 _Avoid_: spec、讨论记录、单方面假设
 
 **共同理解记录**：
-用户要求复核时，`/mmw-grilling` 为一次访谈写下的文件，保存在 `.scratch/<产物目录>/understanding.md`。它含逐轮问答原样、共同理解和支持材料三段，是 ⓪ 共同理解审的被审对象。
+`/mmw-grilling` 为一次访谈写下的文件，保存在 `.scratch/<产物目录>/understanding.md`。它含逐轮问答原样、共同理解和支持材料三段。
 _Avoid_: 共同理解、讨论记录、审查记录
 
 **spec**：

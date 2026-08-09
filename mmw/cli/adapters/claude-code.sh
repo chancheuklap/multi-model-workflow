@@ -112,7 +112,7 @@ mmw_adapter_dispatch() {
       if [ -n "${MMW_D_SKILL:-}" ]; then
         preamble="## Method
 
-Call the \`$MMW_D_SKILL\` skill before you start. It holds the method for this task. Follow it.
+Call the \`$MMW_D_SKILL\` skill before you start. It holds the method for this task.
 
 $preamble"
       fi

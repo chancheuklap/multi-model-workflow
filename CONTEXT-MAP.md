@@ -22,7 +22,7 @@
 - Tracker 保存交付工作流的 spec issue 和 tracer bullet ticket，也保存 Wayfinding 的 map 和 decision ticket。
 - Wayfinding 把 effort 收敛成一张路线已经清楚的 map；destination 是 spec 时，交付工作流把 map 中已经谈定的内容综合成一份 spec，并发布对应的 spec issue。
 - 交付工作流通过 Agent 派发 task；subagent 交回报告，主 agent 验证关键断言。
-- 审查读取 spec、plan、实现改动和集成结果；`accepted` finding 交回产物拥有者处理。
+- 审查读取共同理解记录、spec、plan、实现改动和集成结果；`accepted` finding 交回产物拥有者处理。
 - 出包与收尾接收通过 final 终审的结果；用户实测通过后，有 spec 的任务进入 `/mmw-closing`。
 - 宿主把共享技能源物化为技能产物；宿主差异不改变共享流程语义。
 - 领域上下文与检索向其他 Context 提供 canonical 术语和结构候选；关键结论由主 agent 回到当前源码验证。
