@@ -22,6 +22,10 @@ run() {
 }
 
 run "CLI 护栏" bash "$MMW_DIR/cli/tests/guardrails.sh"
+run "issue 过滤、排序与认领互斥" bash "$MMW_DIR/cli/tests/test_issue.sh"
+run "wiki 导航与删前验证" bash "$MMW_DIR/cli/tests/test_wiki.sh"
+run "domain 形态与 ADR 编号" bash "$MMW_DIR/cli/tests/test_domain.sh"
+run "技能之间的引用指得到东西" bash "$MMW_DIR/cli/tests/test_skill_refs.sh"
 run "release 引擎" bash "$MMW_DIR/release/tests/test_release_flow.sh"
 run "release 分级" bash "$MMW_DIR/release/tests/test_release_classify.sh"
 run "release 修复派发与路径闸" bash "$MMW_DIR/release/tests/test_release_dispatch.sh"
