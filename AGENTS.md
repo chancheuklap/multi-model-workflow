@@ -77,6 +77,16 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - 删除、覆盖、归档或移动现有发布入口前确认用户授权。
 - 禁止使用 `--no-verify`。
 
+## 提交检查
+
+改动 `mmw/cli/` 的护栏或 `mmw/cli/lib/gitfacts.sh` 的谓词之后运行：
+
+```bash
+bash mmw/cli/tests/guardrails.sh
+```
+
+它在一次性仓库上跑真命令，逐条断言护栏拒绝了、而且破坏没有发生。全部通过时退出码为 0。
+
 <!-- MMW-DOMAIN-CONTEXT-START -->
 ## 领域上下文
 
