@@ -177,16 +177,21 @@ install_claude_code() {
 #
 # 这些插件只在仓库里有对应语言的文件时才起语言服务器，没有 Python 的仓库装了也不耗资源。
 install_claude_code_lsp() {
-  local plugin installed
-  installed="$(claude plugin list --json 2>/dev/null | jq -r '.[] | (.id // .name // "")')"
+  local plugin id at_user
   for plugin in pyright-lsp typescript-lsp; do
-    case "$installed" in
-      *"$plugin"*) echo "Claude   : $plugin 已在" ; continue ;;
-    esac
-    if claude plugin install "$plugin@claude-plugins-official" --scope user >/dev/null 2>&1; then
-      echo "Claude   : 已装 $plugin（用户级）"
+    id="$plugin@claude-plugins-official"
+    # 认 scope 不只认名字：同一个插件可能已经装成 project scope 绑在某个仓库上，
+    # 那种装法换个仓库就没有，不算数。
+    at_user="$(claude plugin list --json 2>/dev/null \
+      | jq -r --arg i "$id" '[.[] | select((.id // "") == $i and .scope == "user")] | length')"
+    if [ "${at_user:-0}" != "0" ]; then
+      echo "Claude   : $plugin 已在（用户级）"
+      continue
+    fi
+    if claude plugin install "$id" --scope user >/dev/null 2>&1; then
+      echo "Claude   : 已装 ${plugin}（用户级）"
     else
-      echo "Claude   : 装不上 $plugin，自己跑 claude plugin install $plugin@claude-plugins-official 看报什么"
+      echo "Claude   : 装不上 $plugin，自己跑 claude plugin install $id --scope user 看报什么"
     fi
   done
 }
