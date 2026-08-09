@@ -74,9 +74,6 @@
           "why": "语言服务器走 PATH 拿全局版本，持续集成用仓库锁定的版本。两边不同版本时，编辑时看到的类型错误和持续集成判定的不是同一套。"
         }
       ],
-      "hosts": {
-        "claude-code": { "enabled_plugins": ["pyright-lsp@claude-plugins-official"] }
-      },
       "emit": [
         {
           "id": "ruff-select",
@@ -152,9 +149,6 @@
           "why": "这些包都 import typescript 的编程接口。TS 7.0 没有那个接口，装上就崩或直接拒绝启动。alias 之后 tsc 跑 7.x，require('typescript') 拿到 6.x，两个需求同时满足。"
         }
       ],
-      "hosts": {
-        "claude-code": { "enabled_plugins": ["typescript-lsp@claude-plugins-official"] }
-      },
       "emit": [
         {
           "id": "oxlint-base",

@@ -26,6 +26,14 @@ mmw_toolchain_detect() {
     "$@"
 }
 
+# 把探测出来缺的语言服务器与检查器装上。默认只列不装，加 --yes 才真装。
+mmw_toolchain_install() {
+  python3 "$MMW_ROOT/cli/lib/toolchain_install.py" \
+    "$(mmw_repo_root)" \
+    "$(mmw_toolchain_rules)" \
+    "$@"
+}
+
 # 按探测结果把配置写进仓库。`mmw init` 会调它，所以换仓库、换电脑不用靠人想起来。
 # 谁拥有哪份内容由规则表的 mode 决定，详见 cli/lib/toolchain_apply.py 的文件头。
 mmw_toolchain_apply() {

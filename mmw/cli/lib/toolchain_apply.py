@@ -10,8 +10,10 @@
                改仓库里那份会在下次 apply 被盖掉。
   create_only  仓库拥有。只在缺失时生成一份起步内容，之后再不碰。
 
-宿主配置（Claude Code 的 enabledPlugins）走键级合并：只加自己那几个键。仓库的
-permissions 和 hooks 是用户自己写的，整份覆盖会把它们抹掉。
+宿主那一层不在这里：Claude Code 的语言服务器插件由 install.sh 装成用户级，装一次所有
+仓库都有。写进各仓库的 .claude/settings.json 反而每台新电脑都要重来一遍——项目级
+enabledPlugins 指向内建 marketplace 的插件时，Claude Code 不会自动安装也不提示
+（anthropics/claude-code#41669）。
 """
 
 from __future__ import annotations
@@ -143,37 +145,9 @@ def plan_toml_table(plan: Plan, repo: Path, item: dict) -> None:
     plan.write(path, text + joiner + toml_render_table(table, item["content"]), f"补 [{table}]")
 
 
-def plan_claude_settings(plan: Plan, repo: Path, hit_rules: list[dict]) -> None:
-    """Claude Code 的项目设置。只合并 enabledPlugins 这一个键。"""
-    wanted = [
-        name
-        for rule in hit_rules
-        for name in rule.get("hosts", {}).get("claude-code", {}).get("enabled_plugins", [])
-    ]
-    if not wanted:
-        return
-
-    path = repo / ".claude" / "settings.json"
-    settings = read_json(path) if path.is_file() else {}
-    if path.is_file() and not settings:
-        plan.notes.append(f"读不出 {path}，跳过 enabledPlugins")
-        return
-
-    enabled = dict(settings.get("enabledPlugins", {}))
-    missing = [name for name in wanted if name not in enabled]
-    if not missing:
-        plan.skip(path, "enabledPlugins 已齐")
-        return
-    for name in missing:
-        enabled[name] = True
-    settings["enabledPlugins"] = enabled
-    plan.write(path, dumps(settings), "合入 enabledPlugins：" + "、".join(missing))
-
-
 def build_plan(repo: Path, rules_path: Path, templates: Path) -> Plan:
     report = detect(repo, rules_path)
     by_id = {r["id"]: r for r in read_json(rules_path).get("rules", [])}
-    hit_rules = [by_id[e["id"]] for e in report["rules"] if e["id"] in by_id]
 
     plan = Plan()
     for entry in report["rules"]:
@@ -190,7 +164,6 @@ def build_plan(repo: Path, rules_path: Path, templates: Path) -> Plan:
                 plan_toml_table(plan, repo, item)
             else:
                 plan.notes.append(f"{rule['id']} 的 emit `{item.get('id')}` 用了不认识的 kind：{kind}")
-    plan_claude_settings(plan, repo, hit_rules)
     return plan
 
 

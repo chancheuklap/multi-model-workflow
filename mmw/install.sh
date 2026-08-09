@@ -166,6 +166,29 @@ install_claude_code() {
     "$settings" > "$temp"
   mv "$temp" "$settings"
   echo "Claude   : 已安装 mmw@$name"
+  install_claude_code_lsp
+}
+
+# Claude Code 原生的语言服务器插件，装到用户级。
+#
+# 装用户级不装项目级：项目级 enabledPlugins 指向内建 marketplace 的插件时，Claude Code
+# 不会自动安装也不提示（anthropics/claude-code#41669），等于每台新电脑、每个新仓库都要
+# 人手动装一次。用户级一次装好，之后每个仓库都有。
+#
+# 这些插件只在仓库里有对应语言的文件时才起语言服务器，没有 Python 的仓库装了也不耗资源。
+install_claude_code_lsp() {
+  local plugin installed
+  installed="$(claude plugin list --json 2>/dev/null | jq -r '.[] | (.id // .name // "")')"
+  for plugin in pyright-lsp typescript-lsp; do
+    case "$installed" in
+      *"$plugin"*) echo "Claude   : $plugin 已在" ; continue ;;
+    esac
+    if claude plugin install "$plugin@claude-plugins-official" --scope user >/dev/null 2>&1; then
+      echo "Claude   : 已装 $plugin（用户级）"
+    else
+      echo "Claude   : 装不上 $plugin，自己跑 claude plugin install $plugin@claude-plugins-official 看报什么"
+    fi
+  done
 }
 
 remove_old_pi_mmw() {
