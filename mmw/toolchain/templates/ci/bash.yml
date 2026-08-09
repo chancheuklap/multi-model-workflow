@@ -27,7 +27,7 @@ concurrency:
 
 jobs:
   changed:
-    name: shellcheck（改动文件）
+    name: mmw-bash-changed
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
@@ -56,7 +56,7 @@ jobs:
           shellcheck --format gcc "${changed[@]}"
 
   full:
-    name: shellcheck（全仓审计）
+    name: mmw-bash-full
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:

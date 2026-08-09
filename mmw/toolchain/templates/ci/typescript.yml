@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   check:
-    name: tsc + oxlint
+    name: mmw-typescript-check
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

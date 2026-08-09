@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   changed:
-    name: ruff + pyright（改动文件）
+    name: mmw-python-changed
     if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
@@ -73,7 +73,7 @@ jobs:
           exit "$status"
 
   full:
-    name: ruff + pyright（全仓审计）
+    name: mmw-python-full
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
