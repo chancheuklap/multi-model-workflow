@@ -77,10 +77,6 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - 删除、覆盖、归档或移动现有发布入口前确认用户授权。
 - 禁止使用 `--no-verify`。
 
-## 提交检查
-
-本仓库不保留自动化测试、测试夹具或测试套件。提交前检查以根 `TESTING.md` 为准，运行前完整读取该文件。
-
 <!-- MMW-DOMAIN-CONTEXT-START -->
 ## 领域上下文
 
