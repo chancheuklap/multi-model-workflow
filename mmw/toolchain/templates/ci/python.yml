@@ -43,6 +43,10 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v4
 
+      # 不写死版本号：uv 按 pyproject.toml 的 requires-python 挑。
+      - name: Setup Python
+        run: uv python install
+
       - name: Sync dependencies
         run: uv sync --extra dev
 
@@ -78,6 +82,10 @@ jobs:
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v4
+
+      # 不写死版本号：uv 按 pyproject.toml 的 requires-python 挑。
+      - name: Setup Python
+        run: uv python install
 
       - name: Sync dependencies
         run: uv sync --extra dev

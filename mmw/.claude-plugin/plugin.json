@@ -1,6 +1,6 @@
 {
   "name": "mmw",
-  "version": "0.15.0",
+  "version": "0.15.1",
   "description": "多模型开发编排。Claude 主 agent 编排与判定，GPT `worker` 写代码，GPT `planner` 写 plan，`reviewer-gpt` 与 `reviewer-claude` 跨模型审查。长在 Matt Pocock 的工程技能之上。",
   "author": {
     "name": "Cheuklap Chan",
