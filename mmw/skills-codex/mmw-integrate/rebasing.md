@@ -36,9 +36,11 @@ git rebase --continue
 
 全部重放后运行项目要求的检查，提交报告交回新的结果分支 HEAD SHA 和验证结果。主 agent 用新的 HEAD 重新运行 `mmw result verify`。
 
-## 停止
+## 不要放弃 rebase
 
-`git rebase --abort` 会回到 rebase 开始前。只有用户取消本次集成，或现有目标无法决定冲突取舍时才停止；不要用停止代替冲突判断。
+**始终解决冲突；绝不运行 `git rebase --abort`。** 双方意图不兼容时，选择符合本轮已确定目标的一方，并把取舍写进集成记录。
+
+现有目标无法决定取舍时，停下来把冲突交给用户，不要用放弃 rebase 代替冲突判断。
 
 rebase 完成后不要用 `reset --hard` 回退；需要撤销时先由用户确认。
 
