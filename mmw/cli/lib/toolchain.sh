@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# 语言工具链：按规则表探测这个仓库该配哪些语言服务器与命令行检查器。
+# 语言工具链：按规则表探测这个仓库该配哪些语言服务器与命令行检查器，并把该有的配置写出来。
 #
-# 探测的实现在 cli/lib/toolchain_detect.py，这一层只做转发。规则表在
-# config/toolchain-rules.json。
+# 实现分三份，这一层只做转发：探测在 cli/lib/toolchain_detect.py，产出配置在
+# cli/lib/toolchain_apply.py，编辑后诊断在 cli/lib/toolchain_check.py。规则表在
+# config/toolchain-rules.json，模板在 toolchain/templates/。
 #
 # 为什么这值得一条子命令（对照 cli/mmw 顶部的准入判据第 3 条）：语言工具链是宿主机械
 # 差异的落点。Claude Code 有原生 LSP 通道，Codex 与 Pi 没有、要靠 hook 加 MCP 桥接同一批
@@ -22,6 +23,16 @@ mmw_toolchain_detect() {
   python3 "$MMW_ROOT/cli/lib/toolchain_detect.py" \
     --repo "$(mmw_repo_root)" \
     --rules "$(mmw_toolchain_rules)" \
+    "$@"
+}
+
+# 按探测结果把配置写进仓库。`mmw init` 会调它，所以换仓库、换电脑不用靠人想起来。
+# 谁拥有哪份内容由规则表的 mode 决定，详见 cli/lib/toolchain_apply.py 的文件头。
+mmw_toolchain_apply() {
+  python3 "$MMW_ROOT/cli/lib/toolchain_apply.py" \
+    "$(mmw_repo_root)" \
+    "$(mmw_toolchain_rules)" \
+    "$MMW_ROOT/toolchain/templates" \
     "$@"
 }
 

@@ -491,12 +491,18 @@ EOF
 usage_toolchain() {
   cat >&2 <<'EOF'
 mmw toolchain detect [--json]              探测该配哪些语言服务器与检查器，报缺失与版本不对齐
+mmw toolchain apply [--check]              把探测出来该有的配置写进仓库
 mmw toolchain check [--changed-only] <文件>...  对这些文件跑诊断，问题写 stderr
 
-两条都只读。detect 有缺失时退出码 1；check 有问题时退出码 2（宿主 hook 合同把 2 当作
-"把 stderr 交回 agent"）。--changed-only 只报落在改动行上的问题，历史债不重复刷屏。
+detect 与 check 只读。detect 有缺失时退出码 1；check 有问题时退出码 2（宿主 hook 合同
+把 2 当作"把 stderr 交回 agent"）。--changed-only 只报落在改动行上的问题，历史债不重复刷屏。
 
-规则表在 config/toolchain-rules.json。三个宿主的编辑后推送通道最终都调 check。
+apply 会写文件，`mmw init` 里已经调过一次。它带 --check 时只报差异、退出码 1，能当门禁用。
+MMW 拥有的那几份配置每次都比对重写，仓库自己拥有的（持续集成工作流、pyproject.toml 的
+规则集）只在缺失时生成一份。
+
+规则表在 config/toolchain-rules.json，模板在 toolchain/templates/。三个宿主的编辑后
+推送通道最终都调 check。
 EOF
   return 2
 }
@@ -533,6 +539,7 @@ cmd_graph() {
 cmd_toolchain() {
   case "${1:-}" in
     detect) shift; mmw_toolchain_detect "$@" ;;
+    apply) shift; mmw_toolchain_apply "$@" ;;
     check) shift; mmw_toolchain_check "$@" ;;
     *) usage_toolchain ;;
   esac

@@ -1,0 +1,65 @@
+name: mmw-typescript
+
+# 由 mmw toolchain apply 产出，MMW 拥有这份文件。改判据要改 MMW 的模板
+# （toolchain/templates/ci/typescript.yml）——只改这一份，换个仓库就没有了，而且下一次
+# apply 会把它盖回去。矩阵里的工作区清单由 apply 按实际探测结果填。
+#
+# 检查器和本地编辑后诊断（mmw toolchain check）是同一批：oxlint 走各工作区自己那份
+# .oxlintrc.json，它 extends 仓库根的 .oxlintrc.base.json，两处都由 MMW 产出。
+#
+# lint 用 oxlint 不用 eslint：typescript-eslint 声明的 peer 上界是 <6.1.0，在
+# TypeScript 7 下会主动抛错拒绝启动（其 issue #12518 已关成 not planned，要等 TS 7.1
+# 的稳定编程接口）。oxlint 自带 parser，配 oxlint-tsgolint 后类型感知规则走 tsgo。
+#
+# 不做增量：tsc 收下单个文件路径就会丢掉 tsconfig.json，报出的错和整仓跑的不是一回事；
+# oxlint 是 Rust 写的，整个工作区跑一遍也只要几秒。
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mmw-typescript-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: tsc + oxlint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace:
+__WORKSPACES__
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: ${{ matrix.workspace }}
+
+      # 用工作区自己那份 tsc 和 oxlint，不用全局的：版本对不上，判定就和本地不一样。
+      - name: Typecheck
+        run: pnpm typecheck
+        working-directory: ${{ matrix.workspace }}
+
+      - name: Lint
+        run: pnpm lint
+        working-directory: ${{ matrix.workspace }}

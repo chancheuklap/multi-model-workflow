@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/toolchain/hooks/codex-post-tool-use.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/toolchain/hooks/post-tool-use.sh\"",
             "timeout": 120
           }
         ]

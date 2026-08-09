@@ -1,0 +1,40 @@
+{
+  "plugins": ["typescript", "unicorn", "oxc", "react", "vitest", "import"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/await-thenable": "error",
+    "no-unused-expressions": ["error", { "allowTernary": true, "allowShortCircuit": true }],
+    "vitest/expect-expect": [
+      "error",
+      { "assertFunctionNames": ["expect", "expectNoForbiddenTerms"] }
+    ],
+    "no-unused-vars": "warn",
+    "unicorn/no-useless-spread": "warn",
+    "typescript/unbound-method": "off",
+    "typescript/no-base-to-string": "off",
+    "typescript/no-redundant-type-constituents": "off",
+    "typescript/restrict-template-expressions": "off",
+    "vitest/require-mock-type-parameters": "off"
+  },
+  "env": {
+    "builtin": true,
+    "browser": true,
+    "node": true
+  },
+  "ignorePatterns": ["out/**", "dist/**", "src/shared/generated/**"],
+  "overrides": [
+    {
+      "files": ["tests/**", "**/__tests__/**", "**/*.test.ts", "**/*.spec.ts"],
+      "rules": {
+        "typescript/await-thenable": "warn",
+        "vitest/no-conditional-expect": "warn"
+      }
+    }
+  ]
+}

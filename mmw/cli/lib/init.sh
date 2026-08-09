@@ -270,6 +270,36 @@ mmw_init_commit() {
   fi
 }
 
+# 语言工具链配置：oxlint 规则、各工作区的继承文件、持续集成工作流、宿主的语言服务器
+# 开关。哪些语言要配由探测决定，内容由 MMW 的模板决定，所以换一个仓库、换一台电脑，
+# 这些配置不用靠人想起来。
+#
+# 写出来的路径登记进本轮提交清单：配置留在工作区没提交，任务 worktree 里就看不到。
+mmw_init_toolchain() {
+  local root list rel count=0
+  root="$(mmw_repo_root)"
+  list="$(mktemp)"
+
+  if ! mmw_toolchain_apply --written-to "$list" > /dev/null 2>&1; then
+    rm -f "$list"
+    mmw_init_say "工具链   : 探测或产出失败，自己跑一次 mmw toolchain apply 看报什么"
+    return 1
+  fi
+
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    mmw_init_touch "$rel"
+    count=$((count + 1))
+  done < "$list"
+  rm -f "$list"
+
+  if [ "$count" -eq 0 ]; then
+    mmw_init_say "工具链   : 配置都在"
+    return 0
+  fi
+  mmw_init_say "工具链   : 写了 ${count} 份配置"
+}
+
 # 上一轮铺进去的 docs/agents/ 副本。技能不再读它，留着会被人当成有效配置。
 # 只报不删——删文件要用户点头。
 mmw_init_legacy() {
@@ -289,6 +319,7 @@ mmw_init() {
   mmw_init_labels
   mmw_init_gitignore
   mmw_init_graphifyignore
+  mmw_init_toolchain || status=1
   # 提交排在最后：上面各步骤都登记完了，一个提交装下这一轮的全部配置改动。
   mmw_init_commit || status=1
   mmw_init_legacy

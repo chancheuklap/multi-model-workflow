@@ -1,0 +1,92 @@
+name: mmw-python
+
+# 由 mmw toolchain apply 产出，MMW 拥有这份文件。改判据要改 MMW 的模板
+# （toolchain/templates/ci/python.yml）——只改这一份，换个仓库就没有了，而且下一次
+# apply 会把它盖回去。
+#
+# 检查器和本地编辑后诊断（mmw toolchain check）是同一批：ruff 与 pyright，同一份
+# pyproject.toml 规则集。持续集成报的问题和编辑时看到的因此是同一套。
+#
+# 两种模式：
+#   - PR / push：只查本次改动的文件。仓库通常有存量问题，整仓当门会一直红，红久了就
+#     没人看了；只查改动 = 不被存量误红，又挡得住新引入的问题。
+#   - 手动 workflow_dispatch：全仓审计，用于专门清存量。
+#
+# 排除 docs/：那里是设计验证用的一次性实验脚本，跑完存证据，不进生产、无人 import。
+# 它们的类型错基本都是第三方库 stub 不全。给它们上门禁只会逼出成片 cast 噪音。
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mmw-python-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changed:
+    name: ruff + pyright（改动文件）
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync dependencies
+        run: uv sync --extra dev
+
+      - name: Ruff 与 pyright
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_REF: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          # 三点 diff（merge-base...HEAD）：只取本分支引入的改动，不混入 main 侧独立改的文件。
+          mapfile -t changed < <(git diff --name-only --diff-filter=ACMR "${BASE_REF}...${HEAD_REF}" -- '*.py' ':(exclude)docs/**' || true)
+          if [ "${#changed[@]}" -eq 0 ]; then
+            echo "无改动的 .py 文件，跳过。"
+            exit 0
+          fi
+          printf '将检查：\n'; printf '  %s\n' "${changed[@]}"
+          # 三个检查都跑完再决定退出码。第一个挂了就停会藏住后面两个的结果，
+          # 一次 PR 要来回三趟才看全。
+          status=0
+          uv run ruff check "${changed[@]}" || status=1
+          uv run ruff format --check "${changed[@]}" || status=1
+          uv run pyright "${changed[@]}" || status=1
+          exit "$status"
+
+  full:
+    name: ruff + pyright（全仓审计）
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync dependencies
+        run: uv sync --extra dev
+
+      - name: Ruff baseline audit
+        run: |
+          uv run ruff check
+          uv run ruff format --check
+
+      # 基线未收口前，失败只说明存量类型债仍在。
+      - name: Pyright baseline audit
+        run: uv run pyright
