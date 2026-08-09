@@ -24,9 +24,10 @@
   "_workspace_ignore_why": [
     "含 package.json 或 pyproject.toml 不等于是本仓库的工作区。docs/ 下会放竞品软件的",
     "调查证据——那是别人的应用完整解包后的目录，带自己的 package.json 和依赖清单。",
-    "archive/ 是归档。这两处的清单不该被当成要配语言服务器的地方。"
+    "archive/ 是归档，vendor/ 是照搬进来的第三方源码。这几处的清单不该被当成要配语言",
+    "服务器的地方，也不该被上本仓库的 lint 判据——那是别人的代码，判据由别人定。"
   ],
-  "workspace_ignore": ["docs/", "archive/", ".worktrees/", "node_modules/"],
+  "workspace_ignore": ["docs/", "archive/", "vendor/", ".worktrees/", "node_modules/"],
   "rules": [
     {
       "id": "python",
