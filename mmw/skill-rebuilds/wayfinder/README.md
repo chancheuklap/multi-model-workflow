@@ -39,4 +39,9 @@ ticket 正文只写 `Question`：`产物目录` 从 map 正文读，`issue-<编�
 2. **walking.md 第 4 步评论措辞对齐 charting**：原「链接……prototype 或 research」未指明链接对象文件；改为与 charting 第 6 步一致的「prototype 的路径，或 research 的 `README.md` 精确路径」。
 3. **charting.md 删除「明确写一句：这次直接保存」段**：该规则收进 `mmw-research/MAIN.md` 第 0 节入口合同表的 ticket 行（ticket 入口一律直接保存），调用方不再需要传旗标。原段的理由（ticket 即批准、并行不能各自停下）也随规则移到那里。charting 保留一句期望说明：ticket 入口不会停下来问用户。
 
+## 2026-08-09 上游保真重扫补记
+
+1. **charting 第 2 步曾丢失第二场 grilling**（漏译，已修）：上游 `SKILL.md:112` 是 "**Grill again**, breadth-first this time"。发布面一度写成「在当前 charting session 中采用**广度优先**方式」，增写了上游没有、含义相反的限定语，把第二场 grilling 降级成主 agent 在当前会话里的自我判断，frontier 因此失去轮次、frontier 计算、事实与决定的分工和终止条件。`upstream-1.2.2.zh-CN.md:136` 与 `simplified.zh-CN.md:131` 都正确，丢失发生在 candidate 阶段。`translation-audit.md` 审 `SKILL.md:112` 那一行时列了四项，唯独漏掉 `Grill again`。已恢复调用，并按上游 `surfacing` 语义写明本场目的与终止条件。
+2. **frontmatter 删除 `disable-model-invocation: true`**（有意接线，此前未记）：上游 `SKILL.md:4` 有该字段，`simplified.zh-CN.md:4` 保留。发布面删除它，与上一条在同一阶段发生。删除是必要的：`mmw/skills-src/mmw-start/SKILL.md` 有五条移交指向 `/mmw-wayfinder`，而按 `writing-for-agents/SKILL-MECHANICS.md`，标了该字段的技能任何技能都够不到。因此 MMW 的 wayfinder 是 model-invoked，description 按模型可发现的写法带触发分支。行为不改，本条只补台账。
+
 同轮对 `SKILL.md`、`charting.md`、`walking.md` 各跑了一次单文件冷读。修掉的命中：charting 开头与宿主动作块重复的「运行 mmw task state 确认…」一句删除，补任务 slug 取名规则；map 名称与 ticket 名称补「就是 issue 标题」的来源；两处 `answer.md` 补「先写文件再发评论」的产生步骤；walking 第 1 步补记 map 标题，第 3 步补「gh issue view 取 ticket 正文、Question 在正文里」，第 7 步分开「读交回的报告」与「读路径里的 diff」；charting 第 5 步删除本轮新写的「ticket 入口」措辞，改为直述。未修（记为 finding，等用户决定）：宿主动作块内「用户原话」「这个任务的 slug」「从 map 分支派生」等措辞是跨技能共享的同款块，改动会级联到 `mmw-prototype` 与 `mmw-improve-codebase-architecture`；`SKILL.md` 不写 tracker 具体命令是有意分层，命令全部在 charting/walking。
