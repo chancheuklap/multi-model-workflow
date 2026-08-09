@@ -39,6 +39,8 @@ if command -v uv >/dev/null 2>&1; then
       "$MMW_DIR/release/tests/test_release_script_assembler.py" -q
   run "跨语言边与配置解析" \
     uv run --quiet --with pytest python -m pytest "$MMW_DIR/graph/tests/test_graph.py" -q
+  run "技能物化" \
+    uv run --quiet --with pytest python -m pytest "$MMW_DIR/cli/tests/test_materialize_skills.py" -q
 else
   # 装不了就明说，不要静默跳过：跳过和通过在输出里必须长得不一样。
   printf '\n======== 要 uv 的那几份 ========\n'
