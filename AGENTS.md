@@ -79,13 +79,16 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 ## 提交检查
 
-改动 `mmw/cli/` 的护栏或 `mmw/cli/lib/gitfacts.sh` 的谓词之后运行：
+改动 `mmw/cli/` 或 `mmw/release/` 之后运行：
 
 ```bash
-bash mmw/cli/tests/guardrails.sh
+bash mmw/test.sh
 ```
 
-它在一次性仓库上跑真命令，逐条断言护栏拒绝了、而且破坏没有发生。全部通过时退出码为 0。
+216 条，约两分钟。它在一次性仓库上跑真命令：护栏拒绝了什么、拒绝之后破坏有没有发生、
+出包合同与脚本装配给定输入返回什么。全部通过时退出码为 0。
+
+`mmw/release/` 的测试要 `uv`：被测的 Python 是 PEP 723 内联脚本，依赖写在文件头部。
 
 <!-- MMW-DOMAIN-CONTEXT-START -->
 ## 领域上下文
