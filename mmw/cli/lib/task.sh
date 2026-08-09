@@ -60,20 +60,15 @@ mmw_task_bind() {
     echo "mmw: task bind 只能在 detached linked worktree 执行" >&2
     return 1
   }
-  [ -z "$(git status --porcelain)" ] || {
-    echo "mmw: 当前 worktree 不干净，不绑定分支" >&2
-    return 1
-  }
+  mmw_git_clean . "不绑定分支" || return 1
   if git show-ref --verify --quiet "refs/heads/$branch"; then
     echo "mmw: ${branch} 已存在" >&2
     return 1
   fi
   if [ -n "$from" ]; then
-    git rev-parse --verify --quiet "${from}^{commit}" >/dev/null || {
-      echo "mmw: task bind 的基点无效：${from}" >&2
-      return 1
-    }
-    if [ "$(git rev-parse HEAD)" != "$(git rev-parse "$from")" ]; then
+    local from_sha
+    from_sha="$(mmw_git_commit "$from")" || return 1
+    if [ "$(git rev-parse HEAD)" != "$from_sha" ]; then
       echo "mmw: detached worktree 不在预期基点 ${from}" >&2
       return 1
     fi
@@ -90,44 +85,24 @@ mmw_result_verify() {
     echo "mmw: result verify 要 <结果分支> <HEAD SHA> <基点 SHA>" >&2
     return 1
   }
-  git show-ref --verify --quiet "refs/heads/$branch" || {
-    echo "mmw: 结果分支不存在：${branch}" >&2
-    return 1
-  }
-  git rev-parse --verify --quiet "${reported_head}^{commit}" >/dev/null || {
-    echo "mmw: 报告的 HEAD 不是有效提交：${reported_head}" >&2
-    return 1
-  }
-  git rev-parse --verify --quiet "${base}^{commit}" >/dev/null || {
-    echo "mmw: 基点不是有效提交：${base}" >&2
-    return 1
-  }
+  local actual_head reported_sha base_sha
+  actual_head="$(mmw_git_commit "refs/heads/$branch")" || return 1
+  reported_sha="$(mmw_git_commit "$reported_head")" || return 1
+  base_sha="$(mmw_git_commit "$base")" || return 1
 
-  local actual_head
-  actual_head="$(git rev-parse "$branch")"
-  [ "$actual_head" = "$(git rev-parse "$reported_head")" ] || {
+  [ "$actual_head" = "$reported_sha" ] || {
     echo "mmw: ${branch} 当前 HEAD ${actual_head} 与报告不一致" >&2
     return 1
   }
-  [ "$actual_head" != "$(git rev-parse "$base")" ] || {
-    echo "mmw: ${branch} 没有产生新提交" >&2
-    return 1
-  }
-  git merge-base --is-ancestor "$base" "$actual_head" || {
-    echo "mmw: ${branch} 不是从基点 ${base} 开始" >&2
-    return 1
-  }
+  mmw_git_descends_from "$actual_head" "$base_sha" "$branch" || return 1
+
   local worktree_path
-  worktree_path="$(git worktree list --porcelain | awk -v wanted="refs/heads/$branch" '
-    /^worktree / { path = substr($0, 10) }
-    /^branch / && substr($0, 8) == wanted { print path; found = 1; exit }
-    END { if (!found) exit 1 }
-  ')" || {
+  worktree_path="$(mmw_git_worktree_of "$branch")" || {
     echo "mmw: 找不到 ${branch} 对应的 worktree；先恢复拥有该分支的后台任务" >&2
     return 1
   }
   printf 'verified\t%s\t%s\t%s\t%s\n' \
-    "$branch" "$actual_head" "$(git rev-list --count "${base}..${actual_head}")" "$worktree_path"
+    "$branch" "$actual_head" "$(git rev-list --count "${base_sha}..${actual_head}")" "$worktree_path"
 }
 
 mmw_result_integrate() {
@@ -143,14 +118,11 @@ mmw_result_integrate() {
     echo "mmw: 结果分支不能与当前目标分支相同：${branch}" >&2
     return 1
   }
-  git merge-base --is-ancestor "$base" HEAD || {
+  mmw_git_contains "$base" || {
     echo "mmw: 基点 ${base} 不在当前目标分支 ${target} 的历史中" >&2
     return 1
   }
-  [ -z "$(git status --porcelain)" ] || {
-    echo "mmw: 当前工作区不干净，不集成结果" >&2
-    return 1
-  }
+  mmw_git_clean . "不集成结果" || return 1
   git merge --no-ff --no-edit "$branch"
   printf 'integrated\t%s\t%s\n' "$branch" "$(git rev-parse HEAD)"
 }
@@ -215,10 +187,7 @@ mmw_task_new() {
   fi
 
   if [ -n "$from" ]; then
-    if ! git rev-parse --verify --quiet "$from^{commit}" > /dev/null; then
-      echo "mmw: --from 给的 ${from} 不是这个仓库里的分支或提交" >&2
-      return 1
-    fi
+    mmw_git_commit "$from" >/dev/null || return 1
     base="$from"
   else
     # 当前 HEAD 要在这里取出来再传给 git -C "$root"。不传的话 worktree add 用
@@ -247,7 +216,7 @@ mmw_task_cleanup() {
   # 合没合并要在动 worktree 之前判。反过来会留下半完成状态：worktree 已经删
   # 掉、分支还在，而命令报的是失败——人看到失败，以为什么都没发生。
   onto="$(git -C "$root" rev-parse --abbrev-ref HEAD)"
-  if ! git -C "$root" merge-base --is-ancestor "$slug" HEAD; then
+  if ! mmw_git_contains "$slug" "$root"; then
     echo "mmw: ${slug} 还没合并进 ${onto}，不清理" >&2
     return 1
   fi

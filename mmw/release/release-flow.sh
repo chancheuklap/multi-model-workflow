@@ -13,6 +13,9 @@ set -euo pipefail
 SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # 状态落点从目标仓库的 .mmw.json 读。旧宿主这里读的是一个写死的常量，那份常量
 # 属于已经不存在的阶段引擎；除此之外整个引擎不认识任何宿主。
+# config.sh 的可写 cwd 判定要用 gitfacts 的谓词，两份一起进来。
+# shellcheck source=../cli/lib/gitfacts.sh
+. "$SCRIPT_DIR/../cli/lib/gitfacts.sh"
 # shellcheck source=../cli/lib/config.sh
 . "$SCRIPT_DIR/../cli/lib/config.sh"
 STATE_NAME="release-state.json"

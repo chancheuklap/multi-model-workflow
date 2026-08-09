@@ -19,6 +19,8 @@
 set -euo pipefail
 
 MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=lib/gitfacts.sh
+. "$MMW_ROOT/cli/lib/gitfacts.sh"
 # shellcheck source=lib/config.sh
 . "$MMW_ROOT/cli/lib/config.sh"
 # shellcheck source=lib/path.sh

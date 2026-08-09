@@ -128,17 +128,7 @@ mmw_require_writable_cwd() {
     return 1
   fi
 
-  local st
-  if ! st="$(git -C "$cwd" status --porcelain 2>&1)"; then
-    echo "mmw: 无法读取 $cwd 的 git 状态" >&2
-    printf '%s\n' "$st" >&2
-    return 1
-  fi
-  if [ -n "$st" ]; then
-    echo "mmw: $cwd 工作区不干净，可写任务不派" >&2
-    git -C "$cwd" status --short >&2
-    return 1
-  fi
+  mmw_git_clean "$cwd" "可写任务不派" || return 1
 
   local common main wt_root host git_dir branch
   common="$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || {
