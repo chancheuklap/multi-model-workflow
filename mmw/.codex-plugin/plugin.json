@@ -18,6 +18,7 @@
   ],
   "skills": "./skills-codex/",
   "mcpServers": "./.mcp-codex.json",
+  "hooks": "./hooks.json",
   "interface": {
     "displayName": "MMW",
     "shortDescription": "Codex 原生开发工作流",

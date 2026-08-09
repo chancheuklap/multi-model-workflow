@@ -43,14 +43,20 @@
           "id": "pyright",
           "project_bin": [".venv/bin/pyright"],
           "bin": "pyright",
-          "args": ["--outputjson"],
+          "args": [],
+          "per_file": true,
+          "file_args": ["--outputjson"],
+          "parse": "pyright_json",
           "install": "uv tool install pyright"
         },
         {
           "id": "ruff",
           "project_bin": [".venv/bin/ruff"],
           "bin": "ruff",
-          "args": ["check", "--output-format", "json"],
+          "args": ["check"],
+          "per_file": true,
+          "file_args": ["check", "--quiet", "--no-cache", "--output-format", "concise"],
+          "parse": "concise",
           "install": "uv tool install ruff"
         }
       ],
@@ -91,6 +97,8 @@
           "project_bin": ["node_modules/.bin/tsc"],
           "bin": "tsc",
           "args": ["--noEmit"],
+          "per_file": false,
+          "_per_file_why": "tsc 收下单个文件路径就会丢掉 tsconfig.json，改用它自己的默认设置，报出的错和整仓跑的不是一回事。编辑后的单文件诊断交给 oxlint。",
           "install": "pnpm add -D typescript"
         },
         {
@@ -98,6 +106,9 @@
           "project_bin": ["node_modules/.bin/oxlint"],
           "bin": "oxlint",
           "args": ["--type-aware", "."],
+          "per_file": true,
+          "file_args": ["--type-aware"],
+          "parse": "concise",
           "install": "pnpm add -D oxlint oxlint-tsgolint",
           "why": "选 oxlint 不选 eslint：typescript-eslint 在 TypeScript 7 下抛错拒绝启动（其 issue #12518 关成 not planned，等 TS 7.1 的稳定编程接口）。oxlint 自带 parser，类型感知规则经 oxlint-tsgolint 走 tsgo。",
           "companions": ["oxlint-tsgolint"],

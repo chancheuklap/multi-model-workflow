@@ -490,10 +490,13 @@ EOF
 
 usage_toolchain() {
   cat >&2 <<'EOF'
-mmw toolchain detect [--json]   探测该配哪些语言服务器与检查器，报缺失与版本不对齐
+mmw toolchain detect [--json]              探测该配哪些语言服务器与检查器，报缺失与版本不对齐
+mmw toolchain check [--changed-only] <文件>...  对这些文件跑诊断，问题写 stderr
 
-只读：不写文件，不装东西。有缺失或版本对不上时退出码 1，可以当门禁用。
-规则表在 config/toolchain-rules.json，探测在 cli/lib/toolchain_detect.py。
+两条都只读。detect 有缺失时退出码 1；check 有问题时退出码 2（宿主 hook 合同把 2 当作
+"把 stderr 交回 agent"）。--changed-only 只报落在改动行上的问题，历史债不重复刷屏。
+
+规则表在 config/toolchain-rules.json。三个宿主的编辑后推送通道最终都调 check。
 EOF
   return 2
 }
@@ -530,6 +533,7 @@ cmd_graph() {
 cmd_toolchain() {
   case "${1:-}" in
     detect) shift; mmw_toolchain_detect "$@" ;;
+    check) shift; mmw_toolchain_check "$@" ;;
     *) usage_toolchain ;;
   esac
 }

@@ -191,6 +191,23 @@ remove_old_pi_mmw() {
   done < <(jq -r '.packages[]? | if type == "string" then . else .source // empty end' "$settings")
 }
 
+# 编辑后诊断在 Pi 那一侧靠扩展，不靠 hook——Pi 没有 hooks.json 那一层。扩展要落到
+# Pi 自己的 extensions 目录才会被自动发现，所以这一步是拷贝，不是登记路径。
+# Codex 那一侧同一件事走 plugin.json 的 hooks 字段，跟着插件走，不用单独拷。
+install_pi_toolchain_extension() {
+  local source target dir
+  source="$RUNTIME_ROOT/mmw/toolchain/extensions-pi/toolchain-diagnostics.ts"
+  [ -f "$source" ] || { echo "Pi       : 缺 toolchain 扩展源，跳过"; return; }
+  dir="${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME/.pi}/agent}/extensions"
+  mkdir -p "$dir"
+  target="$dir/mmw-toolchain-diagnostics.ts"
+  if cp "$source" "$target"; then
+    echo "Pi       : 已装编辑后诊断扩展 $target"
+  else
+    echo "Pi       : 装编辑后诊断扩展失败 $target" >&2
+  fi
+}
+
 install_pi() {
   command -v pi >/dev/null 2>&1 || { echo "Pi       : 未安装，跳过"; return; }
   local runtime_package
@@ -198,6 +215,7 @@ install_pi() {
   remove_old_pi_mmw
   pi install "$runtime_package" >/dev/null
   echo "Pi       : 已安装 $runtime_package"
+  install_pi_toolchain_extension
 }
 
 install_cursor_agents() {
