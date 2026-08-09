@@ -79,16 +79,18 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 ## 提交检查
 
-改动 `mmw/cli/` 或 `mmw/release/` 之后运行：
+改动 `mmw/cli/`、`mmw/release/`、`mmw/graph/` 或 `mmw/mcp/` 之后运行：
 
 ```bash
 bash mmw/test.sh
 ```
 
-216 条，约两分钟。它在一次性仓库上跑真命令：护栏拒绝了什么、拒绝之后破坏有没有发生、
-出包合同与脚本装配给定输入返回什么。全部通过时退出码为 0。
+263 条，约两分钟。它在一次性仓库上跑真命令：护栏拒绝了什么、拒绝之后破坏有没有发生、
+图谱在什么情况下判定过期与恢复上一份、出包合同与脚本装配给定输入返回什么。
+全部通过时退出码为 0。
 
-`mmw/release/` 的测试要 `uv`：被测的 Python 是 PEP 723 内联脚本，依赖写在文件头部。
+其中几份要 `uv`：被测的 Python 是 PEP 723 内联脚本，依赖写在文件头部。没装 uv 时
+入口会把没跑的那几份列出来并以非零退出，不静默跳过。
 
 <!-- MMW-DOMAIN-CONTEXT-START -->
 ## 领域上下文

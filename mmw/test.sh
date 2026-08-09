@@ -25,17 +25,21 @@ run "CLI 护栏" bash "$MMW_DIR/cli/tests/guardrails.sh"
 run "release 引擎" bash "$MMW_DIR/release/tests/test_release_flow.sh"
 run "release 分级" bash "$MMW_DIR/release/tests/test_release_classify.sh"
 run "release 修复派发与路径闸" bash "$MMW_DIR/release/tests/test_release_dispatch.sh"
+run "图谱构建准入" python3 "$MMW_DIR/mcp/test_graphify_ensure.py"
 
 if command -v uv >/dev/null 2>&1; then
   run "release 合同与出包脚本装配" \
     uv run --quiet --with pytest --with 'pydantic>=2' python -m pytest \
       "$MMW_DIR/release/tests/test_release_contracts.py" \
       "$MMW_DIR/release/tests/test_release_script_assembler.py" -q
+  run "跨语言边与配置解析" \
+    uv run --quiet --with pytest python -m pytest "$MMW_DIR/graph/tests/test_graph.py" -q
 else
   # 装不了就明说，不要静默跳过：跳过和通过在输出里必须长得不一样。
-  printf '\n======== release 合同与出包脚本装配 ========\n'
-  echo "没装 uv，这两份没跑。release-flow.sh 本身也要 uv，装了再跑一次。"
-  FAILED+=("release 合同与出包脚本装配（没装 uv）")
+  printf '\n======== 要 uv 的那几份 ========\n'
+  echo "没装 uv，release 合同、出包脚本装配、跨语言边这三份没跑。"
+  echo "release-flow.sh 本身也要 uv，装了再跑一次。"
+  FAILED+=("要 uv 的那几份（没装 uv）")
 fi
 
 printf '\n========================================\n'
