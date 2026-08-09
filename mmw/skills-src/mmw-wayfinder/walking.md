@@ -68,7 +68,14 @@
    2. 关闭这张 ticket：`gh issue close <编号>`。
    3. 在 map 的 `Decisions so far` 追加一行：ticket 名称包着它的链接，加一句话概要。改 map 正文之前先 `gh issue view <map 编号>` 重新读一遍最新的，改完再读一遍确认自己那行在。别的会话可能刚改过 map，不要把它们的行覆盖掉。
 
-5. 这次的答案会让一部分原本说不清楚的问题变得说得清楚。把这些问题建成新的 decision ticket：先全部建出来，取得编号之后再连阻塞关系（issue 要先有编号才能互相引用）。每块变成 ticket 的内容都要从 `Not yet specified` 里删掉，让它只存在于新 ticket。
+5. 这次的答案会让一部分原本说不清楚的问题变得说得清楚。每一个这样的问题，先跑 `mmw issue children <map 编号>` 看 map 上是不是已经有人在问它；标题看着像的，用 `gh issue view <编号>` 读它的 `Question` 确认。
+
+   | 这个问题 | 怎么处置 |
+   | --- | --- |
+   | 已经有一张 open decision ticket 在问它 | 把这次说清楚的部分发成那张 ticket 上的一条评论。不另建一张，也不 claim 它——它仍然由认领它的会话去解 |
+   | map 上没有 | 建成新的 decision ticket。新 ticket 先全部建出来，取得编号之后再连阻塞关系（issue 要先有编号才能互相引用） |
+
+   两条路都一样：处置掉的那块内容要从 `Not yet specified` 里删掉，让它只存在于对应的那张 ticket。
 
    如果这次的答案说明某张 ticket 其实越过了 destination——不管是当前这张还是别的哪张——就关掉它，在 `Out of scope` 留一行：概要、为什么越界、以及指向这张已关闭 ticket 的链接。不要把它当成路线上的一个决定去解。如果这次的决定让 map 的其他部分失效了，同步更新或删掉对应 ticket。
 
