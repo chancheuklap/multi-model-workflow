@@ -36,7 +36,7 @@ description: 编排 MMW 六道审查并处置 findings。用于共同理解、sp
 
 往下走之前先确认它解析得出来（`git rev-parse`），而且 diff 非空。记录发起本轮审查时的 `git rev-parse HEAD`，审查期间用它确认被审内容没有漂移。
 
-⓪ 的被审对象是一份未提交的工作文件，`git rev-parse HEAD` 那道漂移检查对它不成立。这一道改用另一条：本轮审查期间 `understanding.md` 保持不动，也不向用户提新问题。
+⓪ 的被审对象是一份未提交的工作文件，`git rev-parse HEAD` 那道漂移检查对它不成立。这一道改用另一条：本轮审查期间 `understanding.md` 保持不动。用户这期间又补了内容，等审查者跑完，连同 findings 一起处理。
 
 ## 2. 给每个视角备齐材料
 
