@@ -84,8 +84,9 @@ mmw_adapter_dispatch() {
 
       local report_dir="$MMW_D_CWD/.dispatch"
       mkdir -p "$report_dir"
-      local report
+      local report log
       report="$report_dir/${MMW_D_ROLE}-$(basename "$MMW_D_TASK" .md).md"
+      log="$report_dir/${MMW_D_ROLE}-$(basename "$MMW_D_TASK" .md).log"
       local sandbox=(--sandbox read-only)
       if [ "$MMW_D_WRITABLE" = "yes" ]; then
         # workspace-write 默认把 .git 锁成只读，`worker` 提交会卡在 index.lock。
@@ -117,6 +118,14 @@ Call the \`$MMW_D_SKILL\` skill before you start. It holds the method for this t
 $preamble"
       fi
 
+      # codex exec 的过程输出进 log，不进 stdout。
+      #
+      # 这次派发的 stdout 是给调用方读的四行状态。调用方是主 agent，它的上下文有限。
+      # 报告已经由 -o 写进 report。过程输出实测上万行，对调用方没有用处。它混进
+      # stdout 只会把调用方的上下文冲掉。派发失败要看过程时，读 log 那一行的路径。
+      #
+      # 后台属性由上面那段定死，理由是不该指望主 agent 记住额外参数。stdout 往哪去
+      # 是同一类执行细节，同样定死在这里，不写进调用方要记的参数。
       local code=0
       # ${mcp[@]+...}：.mcp.json 缺失时数组为空，macOS 自带的 bash 3.2 在 set -u 下
       # 展开空数组会报 unbound variable，整次派发就废了。工具没有不该拖垮派发本身。
@@ -126,9 +135,10 @@ $preamble"
         ${mcp[@]+"${mcp[@]}"} \
         -m "$MMW_D_MODEL_ID" -c "model_reasoning_effort=\"$MMW_D_EFFORT\"" \
         -o "$report" \
-        - || code=$?
+        - > "$log" 2>&1 || code=$?
       printf 'mode: executed\n'
       printf 'report: %s\n' "$report"
+      printf 'log: %s\n' "$log"
       printf 'exit: %s\n' "$code"
       return "$code"
       ;;
