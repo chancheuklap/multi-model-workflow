@@ -9,12 +9,13 @@ UI mockup 用可运行页面理顺页面、状态和操作路径。它是 protot
 | 当前情况 | 本轮路径 |
 | --- | --- |
 | 还没有 `mockup/current/`，而且整体方向不明确 | 生成多个完整变体，让用户选择或组合一个起点 |
+| 还没有 `mockup/current/`，而且只有某一部分的方向不明确 | 先把已经明确的部分建立为 `mockup/current/`，再只为这一部分生成多个局部变体 |
 | 已有 `mockup/current/`，而且某一部分的方向不明确 | 保持其他部分不变，只为这一部分生成多个局部变体 |
 | 方向已经明确 | 没有当前 mockup 时直接创建 `mockup/current/`；已有当前 mockup 时直接修改它 |
 
 变体只用于比较不明确的方向。已有当前 mockup 时，以它为起点继续优化。只有整体方向需要重新比较时，才生成新的完整变体。
 
-没有当前 mockup，但只有局部方向不明确时，先把已经明确的部分建立为 `mockup/current/`。它是局部变体共享的基底。开始比较后，选择前不修改这个基底。
+局部变体共享 `mockup/current/` 作为基底。开始比较后，选择前不修改这个基底。
 
 把保持不变的部分和本轮路径写进 `README.md`。
 
@@ -47,7 +48,7 @@ UI mockup 的持久资产必须保存在 `mockup/`。应用源码只保留运行
 | 约束 | 只实现分配的方向；只修改对应变体目录；不写测试；在页面上标明 prototype 身份 |
 | 验收 | 变体可以运行；结构差异成立；交回运行方式、页面 URL、变体 key 和结果分支 HEAD SHA |
 
-派发前提交当前任务分支，并确认 worktree 干净。记录结果分支名和基点 SHA。把两者写进对应 task。
+派发前提交当前任务分支，并确认 worktree 干净。每个方向的结果分支名用它的 `变体 key` 作 slug。基点 SHA 用当前任务分支的 HEAD。把结果分支名和基点 SHA 写进对应 task。
 
 启动：先用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`。target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型使用 `gpt-5.6-sol`，思考档使用 `medium`。任务提示包含四栏 task、主 agent 已确定的完整结果分支名和派发前基点 SHA；结果分支名使用独立的 `codex/<slug>`。后台 agent 先运行 `mmw task bind <完整结果分支名> <目标栏原文> --from <基点 SHA>`，然后完成工作并提交。后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 worktree 设置，取得 threadId 后再等待。
 
