@@ -84,9 +84,17 @@ mmw_adapter_dispatch() {
 
       local report_dir="$MMW_D_CWD/.dispatch"
       mkdir -p "$report_dir"
+      # 报告和进度日志分开放。`.dispatch/` 装四栏 task 和角色交回的报告，那是产物；
+      # codex 的进度是临时过程材料，按仓库规定归 scratch。混在一处的后果是清理规则
+      # 也跟着混：同名同目录，`/mmw-closing` 判不出哪个能直接删、哪个要留。
+      # scratch 的目录名读目标仓库配置，读不到用默认，与 mmw_worktrees_rel 同一模式。
+      local scratch_rel log_dir
+      scratch_rel="$(mmw_path_field scratch 2>/dev/null || echo ".scratch")"
+      log_dir="$MMW_D_CWD/$scratch_rel/dispatch"
+      mkdir -p "$log_dir"
       local report log
       report="$report_dir/${MMW_D_ROLE}-$(basename "$MMW_D_TASK" .md).md"
-      log="$report_dir/${MMW_D_ROLE}-$(basename "$MMW_D_TASK" .md).log"
+      log="$log_dir/${MMW_D_ROLE}-$(basename "$MMW_D_TASK" .md).log"
       local sandbox=(--sandbox read-only)
       if [ "$MMW_D_WRITABLE" = "yes" ]; then
         # workspace-write 默认把 .git 锁成只读，`worker` 提交会卡在 index.lock。
@@ -145,6 +153,8 @@ $preamble"
       # 失败时它是唯一的诊断材料，保留并把路径交出去。
       if [ "$code" -eq 0 ]; then
         rm -f "$log"
+        # 这次派发没留下任何东西时把目录也收掉；里面还有别人的日志就留着。
+        rmdir "$log_dir" 2>/dev/null || true
       else
         printf 'log: %s\n' "$log"
       fi
