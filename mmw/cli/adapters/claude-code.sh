@@ -118,13 +118,16 @@ Call the \`$MMW_D_SKILL\` skill before you start. It holds the method for this t
 $preamble"
       fi
 
-      # codex exec 的过程输出进 log，不进 stdout。
+      # 只挡 stderr。
       #
-      # 这次派发的 stdout 是给调用方读的四行状态。调用方是主 agent，它的上下文有限。
-      # 报告已经由 -o 写进 report。过程输出实测上万行，对调用方没有用处。它混进
-      # stdout 只会把调用方的上下文冲掉。派发失败要看过程时，读 log 那一行的路径。
+      # codex exec 把进度流式写到 stderr，只把最终消息打到 stdout；-o 是额外写一份
+      # 到文件，不影响 stdout。见 https://learn.chatgpt.com/docs/non-interactive-mode。
+      # 所以 stdout 就是这次派发要交回的报告，调用方原样收下。stderr 是过程噪音，
+      # 实测一次两百万字节，混进来会把调用方的上下文冲掉。
       #
-      # 后台属性由上面那段定死，理由是不该指望主 agent 记住额外参数。stdout 往哪去
+      # 别写成 2>&1：那会把报告一起吞进日志，调用方拿到的只剩状态行。
+      #
+      # 后台属性由上面那段定死，理由是不该指望主 agent 记住额外参数。stderr 往哪去
       # 是同一类执行细节，同样定死在这里，不写进调用方要记的参数。
       local code=0
       # ${mcp[@]+...}：.mcp.json 缺失时数组为空，macOS 自带的 bash 3.2 在 set -u 下
@@ -135,10 +138,16 @@ $preamble"
         ${mcp[@]+"${mcp[@]}"} \
         -m "$MMW_D_MODEL_ID" -c "model_reasoning_effort=\"$MMW_D_EFFORT\"" \
         -o "$report" \
-        - > "$log" 2>&1 || code=$?
+        - 2> "$log" || code=$?
       printf 'mode: executed\n'
       printf 'report: %s\n' "$report"
-      printf 'log: %s\n' "$log"
+      # 成功的进度日志没人会看，留着只会堆积：一次两百万字节，十次就是二十兆。
+      # 失败时它是唯一的诊断材料，保留并把路径交出去。
+      if [ "$code" -eq 0 ]; then
+        rm -f "$log"
+      else
+        printf 'log: %s\n' "$log"
+      fi
       printf 'exit: %s\n' "$code"
       return "$code"
       ;;
