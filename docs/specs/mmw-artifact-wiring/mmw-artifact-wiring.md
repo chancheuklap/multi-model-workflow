@@ -3,7 +3,7 @@ slug: mmw-artifact-wiring
 summary: 为 MMW 全部产物定义唯一的路径形状与产物引用合同，让生产产物的技能按合同命名和归档，读取产物的技能按合同找到产物
 date: 2026-08-11
 branch: mmw-artifact-wiring
-spec_issue:  # 这一份在发布 spec issue 之后回填编号，再提交。见 Release Risk
+spec_issue: 36
 artifact_refs:
   - category: research
     name: mmw-artifact-wiring
@@ -830,7 +830,7 @@ decision ticket #30 的结论把这项对照交给了 spec 阶段。五项的出
 
 **已知并接受的风险**：`agentflow` 仓库的 50 个 plan 目录保留旧的名字段取值，不改名。那 50 个目录里如果还有没交付完的任务，恢复它时 `mmw-start/resuming.md:24` 会按 `docs/plans/<工作名>/` 去找，目录名对不上就会判定 plan 没写。用户已知情并接受。
 
-**这份 spec 自己落在旧路径上**。当前 `/mmw-to-spec` 规定 spec 落 `docs/specs/<任务 slug>/<任务 slug>.md`，本 spec 按当前生效的规则写在 `docs/specs/mmw-artifact-wiring/mmw-artifact-wiring.md`。它的元数据块已经按新合同写好，`artifact_refs` 的三条也已经填上；`spec_issue` 在这份 spec 发布之后、提交之前回填。实现这份 spec 时把文件改名为 `docs/specs/mmw-artifact-wiring/spec.md`——不改名的话新增的 `mmw doctor` 检查会把它报出来。
+**这份 spec 自己落在旧路径上**。当前 `/mmw-to-spec` 规定 spec 落 `docs/specs/<任务 slug>/<任务 slug>.md`，本 spec 按当前生效的规则写在 `docs/specs/mmw-artifact-wiring/mmw-artifact-wiring.md`。它的元数据块已经按新合同写好，六个字段齐全，`spec_issue` 在发布后回填为 36。实现这份 spec 时把文件改名为 `docs/specs/mmw-artifact-wiring/spec.md`——不改名的话新增的 `mmw doctor` 检查会把它报出来。
 
 **回滚方式**：全部改动在 Git 里，回滚是 revert 合并提交。路径形状与产物引用没有数据库或外部状态，回滚不产生中间态。已经按新合同写下的产物在回滚后仍然存在于旧路径规则找不到的位置，需要人工处理——这与前向的历史产物处理是同一类工作。
 
