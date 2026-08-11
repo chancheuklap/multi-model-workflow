@@ -16,7 +16,7 @@
 | 出包与收尾 | [出包与收尾](./docs/context/release-and-closure.md) | 产品、出包配置、`mmw release`、交付记录、用户实测、对外发布和 Wiki 页面。 |
 | 宿主 | [宿主](./docs/context/host-runtime.md) | 技能源、技能产物、物化、原生 subagent 和 Codex App 后台 Worktree 任务。 |
 | 领域上下文与检索 | [领域上下文与检索](./docs/context/project-context.md) | 领域模型、Context Map、leaf、ADR、权威引用、结构图谱和结构候选。 |
-| 产物落点 | [产物落点](./docs/context/artifact-location.md) | 路径形状、类别根、名字段、范围段、类别内细分、安全路径段和不落盘判据。 |
+| 产物落点 | [产物落点](./docs/context/artifact-location.md) | 路径形状、类别根、固定类别根、工作目录根、名字段、范围段、类别内细分、安全路径段和不落盘判据。 |
 
 ## Relationships
 
