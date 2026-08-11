@@ -36,6 +36,10 @@ _Avoid_: investigation 目录、artifact 目录、调查目录
 research 目录的精确仓库相对路径。它按[路径形状](./artifact-location.md)确定，类别内细分是 research 主题。
 _Avoid_: worktree 路径、任务分支名推导路径
 
+**点名**：
+上游在自己的产物中写下一条产物引用，指定下游必须读的那件产物。下游只读被点名的产物，以及该产物的索引显式列出的文件。
+_Avoid_: 引用、传路径、递归读取
+
 **evidence**：
 直接支撑结论、而且不能低成本重建的最小原始证据。外部系统实测的 evidence 经脱敏后保存在对应 research 目录的 `raw/`；界面 evidence 保存在 scratch 中，用户要求长期保留时由用户指定位置。
 _Avoid_: 全部运行输出、未脱敏原始数据、可低成本重建的过程材料
@@ -90,3 +94,6 @@ _Avoid_: `ready-for-agent`、人工审批关卡
 
 **路径形状**：
 (authoritative: [路径形状](./artifact-location.md))
+
+**产物引用**：
+(authoritative: [产物引用](./artifact-location.md))
