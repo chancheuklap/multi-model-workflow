@@ -9,7 +9,7 @@
 _Avoid_: MVP、静态设计稿、用完即丢的临时代码、把 prototype 外壳直接当成正式实现
 
 **prototype 资产**：
-用户走查过的可运行 prototype、完整界面变体、README 中的问题、逐轮用户走查结论、用户选中的产物和被提升为长期证据的文件。prototype 资产保存在 `docs/prototypes/<产物目录>/`；Wayfinder decision ticket 使用其中的 `issue-<编号>/` 子目录。spec、ticket、plan、审查和实现按精确路径持续引用。达到项目技术与质量要求的组件、纯逻辑、接口合同和后端脚本可以直接复用；调试外壳、切换器和落选变体继续作为 prototype 资产保存。
+用户走查过的可运行 prototype、完整界面变体、README 中的问题、逐轮用户走查结论、用户选中的产物和被提升为长期证据的文件。它的位置按[路径形状](./artifact-location.md)确定。spec、ticket、plan、审查和实现按精确路径持续引用。达到项目技术与质量要求的组件、纯逻辑、接口合同和后端脚本可以直接复用；调试外壳、切换器和落选变体继续作为 prototype 资产保存。
 _Avoid_: 过程截图、DOM、console、录屏、临时探测输出、生成中间物、把未达到项目质量要求的内容接入生产路由、只留结论
 
 **research**：
@@ -33,15 +33,15 @@ _Avoid_: research 资产、调查资产、配套资产
 _Avoid_: investigation 目录、artifact 目录、调查目录
 
 **research 路径**：
-research 目录的精确仓库相对路径。普通任务使用 `docs/research/<产物目录>/<research 主题>/`；Wayfinder decision ticket 使用 `docs/research/<产物目录>/issue-<编号>/<research 主题>/`。
+research 目录的精确仓库相对路径。它按[路径形状](./artifact-location.md)确定，类别内细分是 research 主题。
 _Avoid_: worktree 路径、任务 slug 推导路径
 
 **evidence**：
-直接支撑结论、而且不能低成本重建的最小原始证据。外部系统实测的 evidence 经脱敏后保存在对应 research 目录的 `raw/`；用户要求保留的界面 evidence 保存在 `docs/evidence/<任务 slug>/`。
+直接支撑结论、而且不能低成本重建的最小原始证据。外部系统实测的 evidence 经脱敏后保存在对应 research 目录的 `raw/`；界面 evidence 保存在 scratch 中，用户要求长期保留时由用户指定位置。
 _Avoid_: 全部运行输出、未脱敏原始数据、可低成本重建的过程材料
 
 **scratch**：
-prototype、research、外部系统实测和 `/mmw-grilling` 产生的临时过程材料。过程截图、DOM、console、录屏、临时探测输出、生成中间物和共同理解记录保存在 `.scratch/<产物目录>/`；Wayfinder decision ticket 使用其中的 `issue-<编号>/` 子目录。scratch 不进入 Git，并在任务结束时清理。
+prototype、research、外部系统实测和 `/mmw-grilling` 产生的临时过程材料。过程截图、DOM、console、录屏、临时探测输出、生成中间物和共同理解记录的位置按[路径形状](./artifact-location.md)确定，类别根是 scratch 根。scratch 不进入 Git，并在任务结束时清理。
 _Avoid_: prototype 资产、evidence、长期合同出处
 
 **走查**：
@@ -53,12 +53,16 @@ _Avoid_: 审查、自动验收
 _Avoid_: spec、讨论记录、单方面假设
 
 **共同理解记录**：
-`/mmw-grilling` 为一次访谈写下的文件，保存在 `.scratch/<产物目录>/understanding.md`。它含逐轮问答原样、共同理解和支持材料三段。
+`/mmw-grilling` 为一次访谈写下的文件，位置按[路径形状](./artifact-location.md)确定，类别根是 scratch 根，文件名是 `understanding.md`。它含逐轮问答原样、共同理解和支持材料三段。
 _Avoid_: 共同理解、讨论记录、审查记录
 
 **spec**：
-把已经谈定的内容综合成的设计合同。spec 文件位于 `docs/specs/<任务 slug>/<任务 slug>.md`。
+把已经谈定的内容综合成的设计合同。spec 文件的位置按[路径形状](./artifact-location.md)确定，类别根是 `docs/specs/`，文件名是 `spec.md`。
 _Avoid_: plan、Wiki 页面、讨论草稿
+
+**spec 索引**：
+仓库中一份自动生成的文件，收录全部 spec 的元数据，位于 `docs/specs/README.md`。它由一条 CLI 命令全量重建。
+_Avoid_: research 索引、tracker 索引、spec
 
 **tracer bullet ticket**：
 从 spec 拆出的端到端垂直切片，声明 blocking edge，并交给一名 `worker` 实现。
@@ -83,3 +87,6 @@ _Avoid_: `ready-for-human`、人工审批关卡
 **AFK**：
 away from keyboard。agent 可以独立完成，用户回来只需要看结果。
 _Avoid_: `ready-for-agent`、人工审批关卡
+
+**路径形状**：
+(authoritative: [路径形状](./artifact-location.md))

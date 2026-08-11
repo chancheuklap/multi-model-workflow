@@ -36,6 +36,12 @@ _Avoid_: 交回评论、共同理解记录、过程材料
 decision ticket 上记录结果分支名、HEAD SHA 和基点 SHA 的评论。map 分支上的会话用它验证并集成结果。
 _Avoid_: 结论评论、集成记录
 
+**路径形状**：
+(authoritative: [路径形状](./artifact-location.md))
+
+**范围段**：
+(authoritative: [范围段](./artifact-location.md))
+
 **权威副本**：
 (authoritative: [权威副本](./tracker.md))
 
