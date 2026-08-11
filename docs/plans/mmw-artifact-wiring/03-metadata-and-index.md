@@ -6,7 +6,7 @@ artifact_refs: []
 # Plan: 元数据块与 `mmw artifact index`
 
 **Goal:** 三类长期文档使用固定元数据块。`mmw artifact index adr|spec` 每次读取都计算并输出清单，同时维护可浏览的索引副本。
-**Source spec:** `docs/specs/mmw-artifact-wiring/mmw-artifact-wiring.md`
+**Source spec:** `docs/specs/mmw-artifact-wiring/spec.md`
 **Source ticket:** GitHub issue `#41`
 
 ## Constraints

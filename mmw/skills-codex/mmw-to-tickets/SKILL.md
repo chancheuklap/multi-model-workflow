@@ -9,9 +9,9 @@ description: 把已发布 spec 拆成有阻塞关系的 tracer bullet tickets。
 
 issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw issue`，读一张、评论、打标签这类一条命令做得完的直接用 `gh`。标签清单在仓库根 `.mmw.json` 的 `tracker.labels`。
 
-**issue 承载身份，文件承载内容。** 本技能为每张 tracer bullet ticket 创建一张 issue。issue 正文保存摘要、plan 路径和阻塞关系。`$mmw:mmw-to-plan` 后续把实施内容写入该路径下的 plan 文件。
+**issue 承载身份，文件承载内容。** 本技能为每张 tracer bullet ticket 创建一张 issue。issue 正文保存摘要、plan 的完整落点命令和阻塞关系。`$mmw:mmw-to-plan` 后续把实施内容写入命令输出的 plan 文件。
 
-`<slug>` 和 `<spec issue 编号>` 都由调用方移交时给你。`<slug>` 是这次的任务 slug，也是 `docs/specs/<slug>/` 的目录名。缺少任意一项就停下，说明缺少哪项输入。
+先运行 `mmw task state`。输出确认是 `bound` 后，只取第四字段作为工作名。`<spec issue 编号>` 由调用方移交。缺少任意一项就停下，说明缺少哪项输入。
 
 ## 1. 上下文清单
 
@@ -21,7 +21,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 | prototype | 上游引用时 | 索引、相关选中产物、明确相关的走查或长期证据 | 整个产物目录、无关过程材料；落选变体只在 ticket 必须落实其否定约束时读取 | 只传给消费该决定的 ticket |
 | research | 上游引用时 | research 索引和本批 ticket 需要的精确文件 | research 的上级目录、subagent 原始报告 | 只传给消费该事实的 ticket |
 
-**索引**指 prototype 或 research 目录里的那份 `README.md`——prototype 的在 `docs/prototypes/<产物目录>/README.md`，research 的在 `docs/research/<产物目录>[/issue-<编号>]/<主题>/README.md`。精确路径从 spec issue 正文的输入出处一节读，那是 `$mmw:mmw-to-spec` 发布时写进去的；那儿没有就是这份 spec 没用过 prototype 或 research。
+prototype 和 research 只使用 spec 元数据块的 `artifact_refs`。每项先运行对应的 `mmw artifact path <类别> --name <工作名>` 命令。条目有 `issue` 或 `sub` 时，追加对应参数。只读取解析成功后点名的索引和文件。
 
 prototype 索引缺少问题、逐轮用户结论、选中产物、落选约束或长期证据时，回 `$mmw:mmw-prototype` 补齐；没有的项目写「无」。
 
@@ -79,10 +79,10 @@ ticket 的标题和描述用项目领域术语表里的词，遵守这块地方�
 
 ## 5. 发布
 
-一张 ticket 一张 issue。先按下面的正文模板把每张的正文写进 `.scratch/<slug>/ticket-<NN>.md`，再逐张发：
+一张 ticket 一张 issue。先运行 `mmw artifact path scratch --sub outbox/ticket-<NN>.md`。把正文写入输出文件。再逐张发：
 
 ```bash
-mmw issue create --title "<标题>" --body-file .scratch/<slug>/ticket-<NN>.md \
+mmw issue create --title "<标题>" --body-file <上一步输出文件> \
   --parent <spec issue 编号> --blocked-by <编号,编号>
 ```
 
@@ -106,11 +106,16 @@ mmw issue create --title "<标题>" --body-file .scratch/<slug>/ticket-<NN>.md \
 
 ## Plan
 
-`docs/plans/<slug>/<NN>-<ticket-slug>.md`。三段各自这么取：
+运行下面的完整命令。它的输出是这张 ticket 的 plan 文件：
+
+```bash
+mmw artifact path plan --sub <NN>-<ticket-slug>.md
+```
+
+两段各自这么取：
 
 | 段 | 取值 |
 | --- | --- |
-| `<slug>` | 跟这次的 spec 目录同名（`docs/specs/<slug>/`） |
 | `<NN>` | 第 4 步给这张定的两位编号 |
 | `<ticket-slug>` | 从第 4 步的 Title 压成一个路径段：全小写，空格换成连字符，只留字母、数字和连字符，控制在三四个词以内 |
 
@@ -131,15 +136,14 @@ mmw issue create --title "<标题>" --body-file .scratch/<slug>/ticket-<NN>.md \
 
 ## prototype 资产
 
-- prototype 资产索引：对应的 `README.md` 精确路径。
-- 选中产物：这张 ticket 消费的精确路径。
-- 走查或长期证据：与这张 ticket 明确相关的精确路径。
+- 从 `artifact_refs` 解析的 prototype 产物引用。
+- 只读取该引用点名的索引、选中产物和走查或长期证据。
 - 没有资产时写「无 prototype 资产」。
 
 ## research
 
-- research 索引：对应的 `README.md` 精确路径。
-- research 文件：这张 ticket 消费的精确路径。
+- 从 `artifact_refs` 解析的 research 产物引用。
+- 只读取该引用点名的索引和 research 文件。
 - 没有时写「无 research」。
 
 ## Blocked by

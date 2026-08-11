@@ -241,7 +241,7 @@ subagent 派发不产生自己的落点。subagent 在派它的那个任务的�
 | `spec` | `["spec.md"]` | 无 |
 | `context-map` | `["CONTEXT-MAP.md"]` | 无 |
 | `review` | `["understanding.md", "spec.md", "plan.md", "final.md"]` | `^integration-\d{4}-\d{2}-\d{2}(-\d+)?\.md$`，用于集成记录 |
-| `scratch` | `["understanding.md", "evidence", "questionnaire", "wizard", "diagnosis", "architecture-review", "dispatch"]`，只约束第一层 | 无。第二层由技能自由取，按安全路径段校验 |
+| `scratch` | `["understanding.md", "evidence", "questionnaire", "wizard", "diagnosis", "architecture-review", "dispatch", "outbox"]`，只约束第一层 | 无。第二层由技能自由取，按安全路径段校验 |
 | `plan` | `[]` | `^\d{2}-[a-z0-9][a-z0-9._-]*\.md$`，两位编号加 ticket 短名 |
 | `adr` | `[]` | `^\d{4}-[a-z0-9][a-z0-9._-]*\.md$`，或 Wayfinder 期间的 `^draft-\d+-[a-z0-9][a-z0-9._-]*\.md$` |
 | `prototype`、`research`、`context`、`out-of-scope` | `[]` | 无。取值由调用方给，按安全路径段校验 |
@@ -250,7 +250,7 @@ subagent 派发不产生自己的落点。subagent 在派它的那个任务的�
 
 **`context-map` 的类别根是仓库根，在数据里写成空字符串。** 上表那一格写「仓库根」是给人读的说法，数据里的 `root` 取 `""`。拼接时空字符串不产生目录段，`mmw artifact path context-map` 的相对路径输出就是 `CONTEXT-MAP.md`，不带前导斜杠也不带 `./`。落点字面值校验解析固定类别根清单时跳过空 `root`：仓库根不构成可扫描的目录前缀，把空值当前缀会让正则匹配到任意占位符。
 
-`scratch` 标 `fixed-file` 是一处需要说明的判断。它的第一层细分是固定的一组名字（`understanding.md`、`evidence/`、`questionnaire/`、`wizard/`、`diagnosis/`、`architecture-review/`、`dispatch/`），第二层才由技能当场取。标 `ad-hoc` 会让每一次 scratch 查询都输出查重提醒，而 `0011-artifact-reference-collision.md` 查实真正会撞的只有 research 主题名与 prototype 变体组两处。取舍是：scratch 的第二层撞名不做查重，代价由「scratch 不进 Git、任务结束清理」兜住——撞名波及不到任何长期产物。
+`scratch` 标 `fixed-file` 是一处需要说明的判断。它的第一层细分是固定的一组名字（`understanding.md`、`evidence/`、`questionnaire/`、`wizard/`、`diagnosis/`、`architecture-review/`、`dispatch/`、`outbox/`），第二层才由技能当场取。标 `ad-hoc` 会让每一次 scratch 查询都输出查重提醒，而 `0011-artifact-reference-collision.md` 查实真正会撞的只有 research 主题名与 prototype 变体组两处。取舍是：scratch 的第二层撞名不做查重，代价由「scratch 不进 Git、任务结束清理」兜住——撞名波及不到任何长期产物。
 
 `status` 不是 `active` 的类别也必须列在这份数据里，否则 agent 拿到「认不出的类别名」这个回应会以为是自己拼错了，转而去试别的写法：
 
@@ -294,8 +294,11 @@ subagent 派发不产生自己的落点。subagent 在派它的那个任务的�
 | bug 诊断材料 | `<scratch 根>/<工作名>/[issue-<编号>/]diagnosis/<短名>/` |
 | 架构候选报告 | `<scratch 根>/<工作名>/[issue-<编号>/]architecture-review/<时间戳>.html` |
 | 派发进度日志 | `<scratch 根>/<工作名>/[issue-<编号>/]dispatch/<角色>-<时间戳>.log` |
+| 待发出的正文 | `<scratch 根>/<工作名>/[issue-<编号>/]outbox/<文件名>` |
 | 审查记录 | `<reviews 根>/<工作名>/<哪一道>.md`，`<哪一道>` 取 `understanding`、`spec`、`plan`、`final` |
 | 集成记录 | `<reviews 根>/<工作名>/integration-<日期>.md`，同一天第二轮在日期后加序号 |
+
+`outbox/` 是第 19 节改写技能源落点时补上的第八个细分。`mmw issue create --body-file` 与 `gh issue comment --body-file` 都要一个真实文件，所以 spec issue 正文、tracer bullet ticket 正文、map 正文和 decision ticket 的结论评论正文必须先落盘。改写前它们直接写在 `<scratch 根>/<工作名>/` 第一层；第一层收成固定清单之后，这四类文件在原有七个细分里没有落处。借用 `evidence/` 会让读技能的 agent 把待发出的 issue 正文当成界面验收证据。
 
 不套路径形状：出包状态 `<release 根>/release-state.json`、出包阶段产物 `<release 根>/release-artifacts/a<序号>-<stage>/`、交付记录 `<release 根>/delivered/<产品名>.json`、结构图谱 `graphify-out/`、任务工作树 `<worktrees 根>/<任务分支 slug>`。它们跨任务存在，身份由产品名、attempt 序号或分支名决定。
 

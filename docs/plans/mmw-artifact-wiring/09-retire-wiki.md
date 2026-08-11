@@ -6,7 +6,7 @@ artifact_refs: []
 # Plan: Wiki 退役、`.mmw.json` 收窄与 `mmw doctor` 报告
 
 **Goal:** spec 与 plan 长期留在仓库。Wiki 命令和归档流程消失。`mmw init` 收窄目标仓库配置。`mmw doctor` 只读报告遗留配置与历史产物。
-**Source spec:** `docs/specs/mmw-artifact-wiring/mmw-artifact-wiring.md`
+**Source spec:** `docs/specs/mmw-artifact-wiring/spec.md`
 **Source ticket:** GitHub issue `#42`
 
 ## Constraints

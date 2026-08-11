@@ -6,7 +6,7 @@ artifact_refs: []
 # Plan: 技能源落点改写与撞名查重
 
 **Goal:** 活跃技能源只通过工作名和 `mmw artifact path` 取得产物落点。两个当场取名位置在首次写文件前处理撞名。三个宿主的技能产物与技能源同步。
-**Source spec:** `docs/specs/mmw-artifact-wiring/mmw-artifact-wiring.md`。本 ticket 实施时改名为 `docs/specs/mmw-artifact-wiring/spec.md`。
+**Source spec:** `docs/specs/mmw-artifact-wiring/spec.md`
 **Source ticket:** GitHub issue `#44`
 
 ## Constraints
@@ -64,26 +64,26 @@ artifact_refs: []
 
 | 技能 | 当前源码位置 | 07 的处置 | 实施后正面证据 |
 | --- | --- | --- | --- |
-| `mmw-closing` | `SKILL.md:10,21,45-46,88,96-106` | 整份归 09。07 不修改。09 重写时直接使用完整落点命令。 | 实施时登记“09 独占”与 07 结果 diff 的零改动证明。 |
-| `mmw-diagnosing-bugs` | `SKILL.md:21-30` | 删除普通任务与 Wayfinder 的落点推导表。使用 `mmw artifact path scratch [--issue <编号>] --sub diagnosis/<短名>`。补上 `local` / `outside` 的任务工作树处置。 | 实施时登记完整命令和处置的最终 `文件:行号`。 |
-| `mmw-domain-modeling` | `ADR-FORMAT.md:3`、`CONTEXT-FORMAT.md:38-61`、`SKILL.md:26-74` | 固定类别根、具体示例和目录级读取保持不变。首次写仓库文件前补上 `local` / `outside` 的任务工作树处置。 | 实施时登记保留依据和新处置的最终 `文件:行号`。 |
-| `mmw-grilling` | `SKILL.md:62` | 把共同理解记录改为 `mmw artifact path scratch [--issue <编号>] --sub understanding.md`。删除自定工作名。补上 `local` / `outside` 的任务工作树处置。范围段自定规则的删除归 08。 | 实施时登记完整命令和处置的最终 `文件:行号`。 |
-| `mmw-implement` | `SKILL.md:16,99,135`；`worker-brief.md:18` | spec 与界面 evidence 的落点改为命令。固定的领域文档和 ADR 目录级读取保持不变。09 负责删除 Wiki 和长期 evidence 语义。 | 实施时登记完整命令、保留依据和共享分区的最终 `文件:行号`。 |
-| `mmw-improve-codebase-architecture` | `SKILL.md:32,94-102` | `docs/adr/` 保持不变。建立或绑定任务时传工作名。不得把任务分支 slug 当工作名。`local` / `outside` 时先进入新任务工作树。 | 实施时登记任务命令和保留依据的最终 `文件:行号`。 |
-| `mmw-integrate` | `SKILL.md:79` | 集成记录改为 `mmw artifact path review --sub integration-<日期>.md`。同日序号规则保持。 | 实施时登记完整命令的最终 `文件:行号`。 |
-| `mmw-prototype` | `SKILL.md:21,26-47`；`UI.md:36` | 删除产物目录取名表。读取工作名，并用 prototype 与 scratch 类别命令。`local` / `outside` 时先进入新任务工作树。`UI.md` 在问题 slug 取名后加入查重步骤。 | 实施时登记完整命令、任务工作树处置和查重处置的最终 `文件:行号`。 |
-| `mmw-release` | `SKILL.md:16-17` | 终审记录改为 `mmw artifact path review --sub final.md`。 | 实施时登记完整命令的最终 `文件:行号`。 |
-| `mmw-research` | `MAIN.md:14-16,31,78-88,114-120` | 删除入口决定产物目录的三行。工作名读任务状态。`local` / `outside` 时先进入新任务工作树。research 用主题作为 `--sub`。scratch 用对应类别命令。主题取名后加入查重步骤。 | 实施时登记完整命令、任务工作树处置和查重处置的最终 `文件:行号`。 |
-| `mmw-review` | `SKILL.md:30,32,58,73,77,88` | understanding、spec、plan、evidence 和四类审查记录都改为命令或上游点名的产物引用。06 负责不落盘的 task 动作。 | 实施时登记完整命令、产物引用和共享分区的最终 `文件:行号`。 |
-| `mmw-reviewer` | `references/spec-alignment.md:9` | 不改。`docs/context/` 和 `docs/adr/` 都是不带占位符的目录级读取。 | 实施时登记两处保留依据的最终 `文件:行号`。 |
-| `mmw-start` | `SKILL.md:51-69,82-96`；`resuming.md:13,21-29` | 07 只改 `SKILL.md`。类型前缀只用于任务分支名。建树时另传工作名。`resuming.md` 整份归 09，07 不修改。 | 实施时登记 `SKILL.md` 的任务命令行，并登记 `resuming.md` 的零改动证明。 |
-| `mmw-to-plan` | `SKILL.md:19,45,72,107` | spec 与每份 plan 的落点改为命令。批量审查传逐份 plan 路径，不传手拼目录。 | 实施时登记每种完整命令和共享分区的最终 `文件:行号`。 |
-| `mmw-to-spec` | `SKILL.md:26-40,55,81-84,95` | 删除五行入口取名表。读取工作名。`local` / `outside` 时先进入新任务工作树。spec 与 spec issue 正文的 scratch 文件都改为命令。固定 `docs/adr/` 读取保持不变。 | 实施时登记完整命令、任务工作树处置和保留依据的最终 `文件:行号`。 |
-| `mmw-to-tickets` | `SKILL.md:14,24,80-84,107-115` | 工作名由任务状态取得。prototype 和 research 只使用产物引用。ticket 正文 scratch 路径与 plan 文件路径改为命令。 | 实施时登记完整命令和产物引用的最终 `文件:行号`。 |
-| `mmw-triage` | `SKILL.md:23,87-110`、`OUT-OF-SCOPE.md:3-103`、`examples.md:46-80` | `SKILL.md` 与 `OUT-OF-SCOPE.md` 的固定类别根保持不变。`examples.md` 是上游材料，整份保持不变。 | 实施时登记保留依据与 `examples.md` 的零改动证明。 |
-| `mmw-wayfinder` | `SKILL.md:31-73`、`charting.md:5-62`、`walking.md:7-67`、`closing.md:41-53` | 07 只改 `charting.md` 的非 ticket 模板落点和 `walking.md` 的路径表、答案临时文件。两处已有的 `local` / `outside` 建树动作增加工作名。其余点名分区归 08。 | 实施时登记完整命令、任务命令和 08 保留分区的最终 `文件:行号`。 |
-| `to-questionnaire` | `SKILL.md:24-33` | 删除入口推导表。使用 `mmw artifact path scratch [--issue <编号>] --sub questionnaire/<主题>.md`。补上 `local` / `outside` 的任务工作树处置。 | 实施时登记完整命令和处置的最终 `文件:行号`。 |
-| `wizard` | `SKILL.md:46-57` | 删除入口推导表。使用 `mmw artifact path scratch [--issue <编号>] --sub wizard/<流程>.sh`。补上 `local` / `outside` 的任务工作树处置。 | 实施时登记完整命令和处置的最终 `文件:行号`。 |
+| `mmw-closing` | `SKILL.md:10,21,45-46,88,96-106` | 整份归 09。07 不修改。09 重写时直接使用完整落点命令。 | 09 独占。07 的结果 diff 对 `mmw-closing/` 为零。 |
+| `mmw-diagnosing-bugs` | `SKILL.md:21-30` | 删除普通任务与 Wayfinder 的落点推导表。使用 `mmw artifact path scratch [--issue <编号>] --sub diagnosis/<短名>`。补上 `local` / `outside` 的任务工作树处置。 | `SKILL.md:26,32,39`：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw artifact path scratch [--issue <编号>] --sub diagnosis/<短名>`。 |
+| `mmw-domain-modeling` | `ADR-FORMAT.md:3`、`CONTEXT-FORMAT.md:38-61`、`SKILL.md:26-74` | 固定类别根、具体示例和目录级读取保持不变。首次写仓库文件前补上 `local` / `outside` 的任务工作树处置。 | `SKILL.md:43-45`：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；随后读取第四字段。`ADR-FORMAT.md:3` 与 `CONTEXT-FORMAT.md:38-61` 保留固定根。 |
+| `mmw-grilling` | `SKILL.md:62` | 把共同理解记录改为 `mmw artifact path scratch [--issue <编号>] --sub understanding.md`。删除自定工作名。补上 `local` / `outside` 的任务工作树处置。范围段自定规则的删除归 08。 | `SKILL.md:64-69`：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw artifact path scratch [--issue <编号>] --sub understanding.md`。 |
+| `mmw-implement` | `SKILL.md:16,99,135`；`worker-brief.md:18` | spec 与界面 evidence 的落点改为命令。固定的领域文档和 ADR 目录级读取保持不变。09 负责删除 Wiki 和长期 evidence 语义。 | `SKILL.md:16`：`mmw artifact path spec`。`SKILL.md:102`：`mmw artifact path scratch --sub evidence`。`worker-brief.md:18` 的领域文档与 ADR 目录级读取保留。 |
+| `mmw-improve-codebase-architecture` | `SKILL.md:32,94-102` | `docs/adr/` 保持不变。建立或绑定任务时传工作名。不得把任务分支 slug 当工作名。`local` / `outside` 时先进入新任务工作树。 | `SKILL.md:101-102`：工作名不从任务分支名取得；`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支>]`。`SKILL.md:32` 保留 `docs/adr/`。 |
+| `mmw-integrate` | `SKILL.md:79` | 集成记录改为 `mmw artifact path review --sub integration-<日期>.md`。同日序号规则保持。 | `SKILL.md:82`：`mmw artifact path review --sub integration-<日期>[-<序号>].md`。 |
+| `mmw-prototype` | `SKILL.md:21,26-47`；`UI.md:36` | 删除产物目录取名表。读取工作名，并用 prototype 与 scratch 类别命令。`local` / `outside` 时先进入新任务工作树。`UI.md` 在问题 slug 取名后加入查重步骤。 | `SKILL.md:31-36`：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支>]`；`mmw artifact path prototype [--issue <编号>] --sub <类别内细分>`；`mmw artifact path scratch [--issue <编号>] --sub evidence`。`UI.md:36` 写父目录、索引、重新取名与 `-02`。 |
+| `mmw-release` | `SKILL.md:16-17` | 终审记录改为 `mmw artifact path review --sub final.md`。 | `SKILL.md:16-17`：两处都是 `mmw artifact path review --sub final.md`。 |
+| `mmw-research` | `MAIN.md:14-16,31,78-88,114-120` | 删除入口决定产物目录的三行。工作名读任务状态。`local` / `outside` 时先进入新任务工作树。research 用主题作为 `--sub`。scratch 用对应类别命令。主题取名后加入查重步骤。 | `MAIN.md:13,15-17`：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；随后读取第四字段。`MAIN.md:92`：`mmw artifact path research [--issue <编号>] --sub <主题>`。`MAIN.md:94` 写父目录、索引、重新取名与 `-02`。`MAIN.md:121`：`mmw artifact path scratch [--issue <编号>] --sub evidence/research-<主题>`。 |
+| `mmw-review` | `SKILL.md:30,32,58,73,77,88` | understanding、spec、plan、evidence 和四类审查记录都改为命令或上游点名的产物引用。06 负责不落盘的 task 动作。 | `SKILL.md:30-32,58,73,80`：`mmw artifact path scratch --sub understanding.md`、`mmw artifact path spec`、`mmw artifact path plan --sub <两位编号>-<ticket短名>.md`、`mmw artifact path scratch --sub evidence` 与 `mmw artifact path review --sub <哪一道>.md`。 |
+| `mmw-reviewer` | `references/spec-alignment.md:9` | 不改。`docs/context/` 和 `docs/adr/` 都是不带占位符的目录级读取。 | `references/spec-alignment.md:9` 保留 `docs/context/` 与 `docs/adr/`。 |
+| `mmw-start` | `SKILL.md:51-69,82-96`；`resuming.md:13,21-29` | 07 只改 `SKILL.md`。类型前缀只用于任务分支名。建树时另传工作名。`resuming.md` 整份归 09，07 不修改。 | `SKILL.md:87-88`：任务分支名不承担工作名；`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <map 分支>]`；随后读取第四字段。07 的结果 diff 对 `resuming.md` 为零。 |
+| `mmw-to-plan` | `SKILL.md:19,45,72,107` | spec 与每份 plan 的落点改为命令。批量审查传逐份 plan 路径，不传手拼目录。 | `SKILL.md:19`：`mmw artifact path spec`。`SKILL.md:48,75,112`：逐份运行 `mmw artifact path plan --sub <两位编号>-<ticket短名>.md`。 |
+| `mmw-to-spec` | `SKILL.md:26-40,55,81-84,95` | 删除五行入口取名表。读取工作名。`local` / `outside` 时先进入新任务工作树。spec 与 spec issue 正文的 scratch 文件都改为命令。固定 `docs/adr/` 读取保持不变。 | `SKILL.md:30,32-34`：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；随后读取第四字段。`SKILL.md:49`：`mmw artifact path spec`。`SKILL.md:107`：`mmw artifact path scratch --sub evidence/spec-issue-body.md`。`SKILL.md:40` 保留 `docs/adr/`。 |
+| `mmw-to-tickets` | `SKILL.md:14,24,80-84,107-115` | 工作名由任务状态取得。prototype 和 research 只使用产物引用。ticket 正文 scratch 路径与 plan 文件路径改为命令。 | `SKILL.md:14` 读取第四字段。`SKILL.md:24` 从 `artifact_refs` 解析 prototype 与 research。`SKILL.md:82`：`mmw artifact path scratch --sub evidence/ticket-<NN>.md`。`SKILL.md:112`：`mmw artifact path plan --sub <NN>-<ticket-slug>.md`。 |
+| `mmw-triage` | `SKILL.md:23,87-110`、`OUT-OF-SCOPE.md:3-103`、`examples.md:46-80` | `SKILL.md` 与 `OUT-OF-SCOPE.md` 的固定类别根保持不变。`examples.md` 是上游材料，整份保持不变。 | `SKILL.md:23,87-95` 与 `OUT-OF-SCOPE.md:3-103` 保留 `.out-of-scope/`。07 的结果 diff 对 `examples.md` 为零。 |
+| `mmw-wayfinder` | `SKILL.md:31-73`、`charting.md:5-62`、`walking.md:7-67`、`closing.md:41-53` | 07 只改 `charting.md` 的非 ticket 模板落点和 `walking.md` 的路径表、答案临时文件。`walking.md` 的认领步骤与四行交接表归 08。其余点名分区归 08。 | `charting.md:12-13,29,54,62`：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支>]`；`mmw artifact path scratch --sub evidence/map-body.md`；`mmw artifact path research --issue <编号> --sub <主题>`。`walking.md:40-42,67`：`mmw artifact path prototype --issue <编号> --sub <类别内细分>`、`research --issue <编号> --sub <主题>` 与 `scratch --issue <编号> --sub evidence/answer.md`。`SKILL.md`、`closing.md`、walking 认领步骤与 charting ticket 模板保留给 08。 |
+| `to-questionnaire` | `SKILL.md:24-33` | 删除入口推导表。使用 `mmw artifact path scratch [--issue <编号>] --sub questionnaire/<主题>.md`。补上 `local` / `outside` 的任务工作树处置。 | `SKILL.md:26,28-30`：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw artifact path scratch [--issue <编号>] --sub questionnaire/<主题>.md`。 |
+| `wizard` | `SKILL.md:46-57` | 删除入口推导表。使用 `mmw artifact path scratch [--issue <编号>] --sub wizard/<流程>.sh`。补上 `local` / `outside` 的任务工作树处置。 | `SKILL.md:48,50-52`：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`；`mmw artifact path scratch [--issue <编号>] --sub wizard/<流程>.sh`。 |
 
 “实施后正面证据”列是本 ticket 的持久审计记录。实施完成前，把每个单元格改成实际结果。落点改写行必须列出完整 `mmw artifact path` 命令的最终 `文件:行号`。只改任务入口的行必须列出任务命令。保留行必须列出归属或保留依据。
 

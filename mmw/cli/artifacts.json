@@ -109,7 +109,8 @@
       "wizard",
       "diagnosis",
       "architecture-review",
-      "dispatch"
+      "dispatch",
+      "outbox"
     ],
     "sub_pattern": null,
     "status": "active",

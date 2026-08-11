@@ -27,9 +27,9 @@ description: 编排 MMW 六道审查并处置 findings。用于共同理解、sp
 
 | 审哪一道 | 钉什么 |
 | --- | --- |
-| ⓪ | 那份共同理解记录的路径，`.scratch/<产物目录>/understanding.md` |
-| ① | 那份 spec 的路径 |
-| ② | plan 目录 `docs/plans/<slug>/` 的路径。**整批发起一次，不逐份发起** |
+| ⓪ | 运行 `mmw artifact path scratch --sub understanding.md`。审查该命令的输出文件 |
+| ① | 运行 `mmw artifact path spec`。审查该命令的输出文件 |
+| ② | 从每张 ticket 取得 plan 的类别内细分。逐份运行 `mmw artifact path plan --sub <两位编号>-<ticket短名>.md`。**整批发起一次，不逐份发起** |
 | ⑤ | 一个固定点，加 `git diff <固定点>...HEAD`（三个点，比的是分叉点）。固定点通常是 `git merge-base HEAD <父分支>` |
 
 用户直接叫你来审、又没说固定点的，问他要。
@@ -55,7 +55,7 @@ description: 编排 MMW 六道审查并处置 findings。用于共同理解、sp
 
 ⓪ 用不上 spec，跳过下面这一段。①、②、⑤ 按以下顺序查找 spec：
 
-1. 这个分支上的 `docs/specs/<slug>/<slug>.md`。
+1. 运行 `mmw artifact path spec`，读取输出文件。
 2. 提交信息里引用的 issue（`gh issue view <编号>`）。
 3. 用户当参数传进来的路径。
 
@@ -70,11 +70,15 @@ description: 编排 MMW 六道审查并处置 findings。用于共同理解、sp
 
 ⑤ final 终审包含界面改动时，派审查者前先采集浏览器证据：
 
-派审查者之前，主 agent 先用手上的浏览器入口（宿主自带的，或项目已有的 Playwright）把界面改动跑起来，按 `/mmw-prototype` 交回的那份选中 UI 产物采集关键状态的截图、DOM 和 console；这次没走过 prototype 的，按 plan 的界面验收段采集。证据存进 `.scratch/<任务 slug>/evidence/`，一个状态一份，文件名说清是哪个页面的哪个状态。这些默认跟着 `/mmw-closing` 的收尾一起删掉；用户要留就挪进 `docs/evidence/<任务 slug>/`。改过 viewport 的，留下最后一份证据之后恢复默认。证据路径**只**加进「对照终审」的读栏——「独立终审」仍然只读 diff 范围。跑不起来时，把具体 blocker 写进审查材料；不得把没验证过的写成通过。
+派审查者前，主 agent 先启动界面改动。使用宿主浏览器或项目已有的 Playwright。按选中的 UI 产物采集关键状态的截图、DOM 和 console。没有 prototype 时，按 plan 的界面验收段采集。运行 `mmw artifact path scratch --sub evidence`。证据写进输出目录。一个状态一份。文件名说明页面和状态。用户要求长期保存时，写到用户指定位置。改过 viewport 后，留下最后一份证据再恢复默认。证据路径**只**加进「对照终审」的读栏。「独立终审」仍然只读 diff 范围。跑不起来时，把具体 blocker 写进审查材料。不得把没验证过的写成通过。
 
 ## 3. 写 task，派发
 
-审查记录写在 `.reviews/<slug>-<哪一道>.md`，**一道一份**，同一道的几个视角写进同一份、按任务名分节。`<哪一道>` 取 `understanding`、`spec`、`plan`、`final` 之一。
+审查记录由以下完整命令取得。**一道一份**。同一道的几个视角写进同一份，按任务名分节。`<哪一道>` 取 `understanding`、`spec`、`plan`、`final` 之一：
+
+```bash
+mmw artifact path review --sub <哪一道>.md
+```
 
 给每个视角按 **四栏表**（目标 / 读 / 约束 / 验收）写 task：
 
@@ -85,7 +89,7 @@ description: 编排 MMW 六道审查并处置 findings。用于共同理解、sp
 | 约束 | 只读；不改被审产物；允许运行 `mmw artifact index` 更新索引副本；方法论由审查者按技能名自取，不往 task 粘正文 |
 | 验收 | 按审查者技能交 findings（或 `needs-redirection` / `needs-context`） |
 
-可选：四栏表写入 `.reviews/<slug>-<哪一道>-<任务名>.prompt.md`。
+可选：把四栏表写入同一份审查记录的对应任务名小节。
 
 每个视角各写一张四栏表。按当前宿主的审查策略启动；互不依赖的审查任务同时启动。
 当前宿主使用两个审查角色。⓪ 启动一个 `reviewer-gpt`：共同理解是主 agent 自己问出来的，复核它的审查者必须换一个模型。启动：后台执行 `mmw dispatch reviewer-gpt`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。① 每个视角启动一个 `reviewer-gpt`。启动：后台执行 `mmw dispatch reviewer-gpt`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。② 每个视角启动一个 `reviewer-claude`。启动：后台执行 `mmw dispatch reviewer-claude`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。⑤ 每个视角分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude`。同一视角的两份 findings 并排比较；只由一个审查者报告的条目优先验证，两个审查者都报告的条目仍需验证出处。每个审查者只收到自己的四栏 task。

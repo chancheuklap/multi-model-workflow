@@ -6,7 +6,7 @@ artifact_refs: []
 # Plan: mmw dispatch 接口变更与角色报告不落盘
 
 **Goal:** `mmw dispatch` 直接接收四栏 task 正文。各宿主 adapter 收到相同正文。角色报告只走标准输出。算得出日志落点时，失败只保留符合路径形状的派发进度日志。算不出时不写日志，派发照常进行。
-**Source spec:** `docs/specs/mmw-artifact-wiring/mmw-artifact-wiring.md`
+**Source spec:** `docs/specs/mmw-artifact-wiring/spec.md`
 **Source ticket:** `#39`
 
 ## Constraints

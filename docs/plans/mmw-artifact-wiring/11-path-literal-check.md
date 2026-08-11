@@ -10,7 +10,7 @@ artifact_refs:
 # Plan: 落点字面值的机械校验
 
 **Goal:** 技能源重新写入受禁的落点字面值时，独立测试失败并报告文件与行号；类别名参数也必须来自产物落点数据。
-**Source spec:** `docs/specs/mmw-artifact-wiring/mmw-artifact-wiring.md`
+**Source spec:** `docs/specs/mmw-artifact-wiring/spec.md`
 **Source ticket:** GitHub issue `#47`
 **Research source:** `docs/research/mmw-artifact-wiring/issue-20/aidlc-v2-artifact-wiring/README.md`；精确文件是同目录 `report.md` 第 11 节
 

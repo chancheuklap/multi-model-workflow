@@ -155,7 +155,7 @@ if [ -f "$DATA" ]; then
     $'prototype\t' \
     $'research\t' \
     $'review\tunderstanding.md,spec.md,plan.md,final.md' \
-    $'scratch\tunderstanding.md,evidence,questionnaire,wizard,diagnosis,architecture-review,dispatch' \
+    $'scratch\tunderstanding.md,evidence,questionnaire,wizard,diagnosis,architecture-review,dispatch,outbox' \
     $'spec\tspec.md' | sort)"
   check "活动类别的固定细分取值完整" "$expected_fixed_subs" \
     "$(jq -r 'to_entries | map(select(.value.status == "active")) | sort_by(.key)[] | [.key, (.value.sub_fixed | join(","))] | @tsv' "$DATA")"
@@ -433,6 +433,12 @@ check "research 的范围和类别内细分标准输出" "docs/research/release/
 contains "research 的范围和类别内细分标准错误" "写第一个文件之前先列一次父目录" "$(cat "$LAST_ERR")"
 expect_path "scratch 的固定首段与第二段" ".scratch/release/issue-19/evidence/screenshot" \
   "$MMW" artifact path scratch --name release --issue 19 --sub evidence/screenshot
+# outbox 是待发出的 issue 正文与评论正文的载体。它与 evidence 分开：读技能的 agent
+# 不该把待发出的 map 正文当成界面验收证据。
+expect_path "scratch 的待发出正文带范围段" ".scratch/release/issue-19/outbox/answer.md" \
+  "$MMW" artifact path scratch --name release --issue 19 --sub outbox/answer.md
+expect_path "scratch 的待发出正文无范围段" ".scratch/release/outbox/spec-issue-body.md" \
+  "$MMW" artifact path scratch --name release --sub outbox/spec-issue-body.md
 expect_path "plan 的类别内细分模式" "docs/plans/release/01-artifact-path.md" \
   "$MMW" artifact path plan --name release --sub 01-artifact-path.md
 expect_path "review 的类别内细分模式" ".reviews/release/integration-2026-08-12.md" \
@@ -508,6 +514,11 @@ expect_error "缺少必填类别内细分" "要 --sub" \
   "$MMW" artifact path research --name release
 expect_error "固定类别内细分不匹配" "允许的取值" \
   "$MMW" artifact path spec --name release --sub other.md
+# 取值列表用「逗号加空格」逐项分隔。分隔错了的话，读错误提示的人会把两个取值
+# 当成一个，例如把 `evidence questionnaire` 当成一个合法取值。
+expect_error "允许的取值逐项分隔" \
+  "understanding.md, evidence, questionnaire, wizard, diagnosis, architecture-review, dispatch, outbox" \
+  "$MMW" artifact path scratch --name release --sub nosuchsub
 expect_error "模式类别内细分不匹配" "允许的模式" \
   "$MMW" artifact path plan --name release --sub plan.md
 expect_error "sub 拒绝空段" "空路径段" \

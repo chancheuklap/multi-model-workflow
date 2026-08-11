@@ -6,7 +6,7 @@ artifact_refs: []
 # Plan: mmw issue append 与 mmw issue set-parent
 
 **Goal:** 两个并发追加调用保住各自的新行。已有 issue 也能通过同一套父子关系端点设置父 issue。`mmw issue` 用法把追加一行导向 `mmw issue append`。
-**Source spec:** `docs/specs/mmw-artifact-wiring/mmw-artifact-wiring.md`
+**Source spec:** `docs/specs/mmw-artifact-wiring/spec.md`
 **Source ticket:** GitHub issue #38
 
 ## Constraints

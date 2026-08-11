@@ -59,7 +59,17 @@ frontier 为空后，总结已经谈定的问题、约束、决定、取舍和�
 
 **等他回答。**他说不要，直接进入下一步。他说要，才做下面两件事。
 
-第一件：把这次访谈写成一份**共同理解记录**，`.scratch/<产物目录>/understanding.md`。`<产物目录>` 用这次讨论主题的短横线名字，进入 `/mmw-to-spec` 时沿用同一个；解决 Wayfinder 的 decision ticket 时用 `issue-<编号>`。
+第一件：先运行 `mmw task state`。输出是 `bound` 时，只取第四字段作为工作名。
+
+输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。输出是 `local` 或 `outside` 时，运行 `mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。
+
+`mmw task new` 返回绝对路径后，切换到该路径。两种建树动作之后都重新运行 `mmw task state`。只在输出确认是 `bound` 后，取第四字段作为工作名。
+
+然后运行下面的完整命令取得**共同理解记录**的落点。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
+
+```bash
+mmw artifact path scratch [--issue <编号>] --sub understanding.md
+```
 
 记录分三段，缺一段这份文件就不成立：
 
