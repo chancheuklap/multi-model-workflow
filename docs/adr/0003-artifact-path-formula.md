@@ -18,6 +18,7 @@ MMW 的 27 类产物原来逐类写死各自的路径，形状互不相同：res
 - 四段共用一条字符规则：单个安全路径段，一律小写。原规则来自 `mmw-research`，只覆盖产物名和 research 主题；新增「一律小写」是因为 macOS 默认文件系统不区分大小写而 Linux 区分，混用会在两台机器上表现不同。
 - 出包状态、出包阶段产物、交付记录、结构图谱和任务 worktree 不套用公式。它们跨任务存在，身份由产品名、attempt 序号或分支名决定。
 - handoff 文档留在操作系统临时目录，理由是它用于当前工作区不可用时接续会话。它有上游对应，改它的落点要先走 `upstream-skill-fidelity`。`/wait-what` 的解释 HTML 由用户指定位置。
+- 落点锚定名字段，也就是工作名，不锚定生产它的技能。aidlc-workflows v2 相反：产物位于生产它的阶段目录下，注释短语是 `UNDER THE STAGE THAT OWNS THE FILE`。MMW 不这样做的原因是一次交付有多条任务分支，按生产者归类会把同一次交付的 research、prototype 和 spec 散进多个目录，互相找不到。这一条由 Wayfinder decision ticket #30「九个决定与 aidlc-workflows v2 的对照复核」补记。
 - 合同影响全部已装 MMW 的仓库。历史产物由人工处理，不做迁移命令。本条原来写的是「由一条可重复执行的 CLI 迁移命令处理」，已由 Wayfinder decision ticket #25「历史产物迁移命令的形态与边界」修正，理由是实际对象数量少。
 
 来源：Wayfinder decision ticket #21「每类 MMW 产物的落点与路径形状」，map #18「MMW 产物归纳与接线合同」。
