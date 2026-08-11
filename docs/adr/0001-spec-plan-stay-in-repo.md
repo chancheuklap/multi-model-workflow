@@ -14,7 +14,7 @@ MMW 原来在 `/mmw-closing` 收尾时把 spec 与 plan 推到 GitHub Wiki，再
 - `/mmw-closing` 现有七步中的前六步作废，只剩清理当前任务的过程材料。该技能保留，继续作为「这条分支就绪待集成」的判定点。
 - `mmw/skills-src/mmw-start/resuming.md` 的「有没有归档」检查项，由查 Wiki 页面改为查仓库路径。
 - spec 与 plan 文件头写 YAML 元数据块。spec 五个字段：`slug`、`summary`、`date`、`branch`、`spec_issue`。plan 一个字段：`ticket`，值是对应的 tracer bullet ticket 的 GitHub issue 编号；plan 文件名中的两位编号是拆 ticket 时的顺序编号，不是 issue 编号。
-- 仓库里有一份自动生成的 spec 索引，内容取自各份 spec 的元数据块，收录全部 spec，包括尚未完成的。索引由一条 CLI 命令全量重建，不做增量。
+- 仓库里有一份自动生成的 spec 索引，内容取自各份 spec 的元数据块，收录全部 spec，包括尚未完成的。索引由一条 CLI 命令全量重建，不做增量。这一条里「仓库文件是权威、由命令重建」的读法由 Wayfinder decision ticket #31「长期产物的清单写成仓库文件还是命令当场输出」改写：权威是命令当场算出的输出，仓库文件是同一次运行写下的副本。
 - 不设 `pr` 字段。spec 与实现 PR 的关系由 GitHub 维护：PR 描述写 `Closes #<spec issue 编号>` 之后，该 PR 出现在这张 spec issue 页面上。MMW 中没有任何技能创建或读取 PR，因此没有可靠的回填人。
 - 同一个任务 slug 第二次做时覆盖原文件，不在文件里手写修订记录；修订历史由 `git log --follow` 回答。
 - 本次没有迁移对象。用户确认从未运行 `/mmw-closing`，也从未使用 Wiki；MMW 自身仓库的 Wiki 未初始化，克隆返回 `Repository not found`。

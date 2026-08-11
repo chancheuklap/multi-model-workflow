@@ -21,8 +21,8 @@ _Avoid_: spec、流程文档、参考手册
 _Avoid_: plan、变更日志、普通说明
 
 **ADR 索引**：
-仓库中一份自动生成的文件，收录全部 ADR 的元数据，位于 `docs/adr/README.md`。它由一条 CLI 命令全量重建。
-_Avoid_: spec 索引、tracker 索引、ADR 清单
+全部 ADR 元数据的清单，由一条 CLI 命令扫描各份 ADR 的元数据块当场算出。agent 读命令输出。`docs/adr/README.md` 是同一次运行写下的副本，供不运行命令的读者阅读，不是权威。
+_Avoid_: spec 索引、tracker 索引、ADR 清单、重建索引
 
 **权威引用**：
 非拥有 leaf 指向术语拥有 leaf 的引用。
