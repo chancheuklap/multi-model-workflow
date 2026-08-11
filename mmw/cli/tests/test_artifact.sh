@@ -189,6 +189,8 @@ echo
 echo "artifact path"
 expect_path "spec 的默认固定文件" "docs/specs/release/spec.md" \
   "$MMW" artifact path spec --name release
+expect_path "全小写工作名可以作为名字段" "docs/specs/beta/spec.md" \
+  "$MMW" artifact path spec --name beta
 expect_path "spec 的绝对路径" "$REPO/docs/specs/release/spec.md" \
   "$MMW" artifact path spec --name release --absolute
 capture "research 的范围和类别内细分" "$MMW" artifact path research --name release --issue 19 --sub report

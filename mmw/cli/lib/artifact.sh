@@ -30,7 +30,7 @@ mmw_artifact_validate_segment() {
     mmw_artifact_error "$label 不能是 . 或 .."
     return 1
   fi
-  if [[ "$value" == *[A-Z]* ]]; then
+  if [[ "$value" == *[[:upper:]]* ]]; then
     mmw_artifact_error "$label 只能用小写字母"
     return 1
   fi
