@@ -8,15 +8,15 @@
 
 | Context | Leaf | Owns |
 | --- | --- | --- |
-| 交付工作流 | [交付工作流](./docs/context/delivery-workflow.md) | prototype、prototype 资产、research、research 索引、research 报告、research 配套文件、research 目录、research 路径、共同理解、共同理解记录、spec、tracer bullet ticket、plan、任务包、HITL、AFK 和人工审批关卡。 |
+| 交付工作流 | [交付工作流](./docs/context/delivery-workflow.md) | prototype、prototype 资产、research、research 索引、research 报告、research 配套文件、research 目录、research 路径、共同理解、共同理解记录、spec、tracer bullet ticket、plan、任务包、点名、HITL、AFK 和人工审批关卡。 |
 | Tracker | [Tracker](./docs/context/tracker.md) | 类别角色、状态角色、agent brief、认领、frontier、权威副本、tracker 索引和 `.out-of-scope/`。 |
 | Wayfinding | [Wayfinding](./docs/context/wayfinding.md) | effort、destination、map、decision ticket、结论评论、交回评论、会话边界和 fog of war。 |
 | Agent | [Agent](./docs/context/agent-coordination.md) | 主 agent、subagent、角色、task、报告、验证、任务分支和结果分支。 |
 | 审查 | [审查](./docs/context/review.md) | 六道审、共同理解审、视角（任务名）、finding、处置、固定点、被审 HEAD、终审提交和审查记录。 |
 | 出包与收尾 | [出包与收尾](./docs/context/release-and-closure.md) | 产品、出包配置、`mmw release`、交付记录、用户实测、对外发布和 Wiki 页面。 |
 | 宿主 | [宿主](./docs/context/host-runtime.md) | 技能源、技能产物、物化、原生 subagent 和 Codex App 后台 Worktree 任务。 |
-| 领域上下文与检索 | [领域上下文与检索](./docs/context/project-context.md) | 领域模型、Context Map、leaf、ADR、权威引用、结构图谱和结构候选。 |
-| 产物落点 | [产物落点](./docs/context/artifact-location.md) | 路径形状、类别根、固定类别根、工作目录根、名字段、工作名、范围段、类别内细分、安全路径段和不落盘判据。 |
+| 领域上下文与检索 | [领域上下文与检索](./docs/context/project-context.md) | 领域模型、Context Map、leaf、ADR、ADR 索引、权威引用、结构图谱和结构候选。 |
+| 产物落点 | [产物落点](./docs/context/artifact-location.md) | 路径形状、类别根、固定类别根、工作目录根、名字段、工作名、范围段、类别内细分、产物引用、安全路径段和不落盘判据。 |
 
 ## Relationships
 
@@ -31,4 +31,5 @@
 - 领域上下文与检索向其他 Context 提供 canonical 术语和结构候选；关键结论由主 agent 回到当前源码验证。
 - Context Map 与 Wayfinding 的 map 是两个现有对象。Context Map 索引 bounded context；Wayfinding 的 map 索引一个 effort 的决定。
 - 产物落点向其他 Context 提供路径形状；交付工作流、Wayfinding、审查和 Agent 的产物按它确定位置。
+- 交付工作流的每一跳用产物引用点名下游要读的产物，不写路径字面值。产物引用由产物落点定义，路径由 `mmw artifact path` 解析。
 - 工作名由产物落点定义，与 Agent 的任务分支名是两个值。一次交付只有一个工作名，可以有多条任务分支；Wayfinding 的 map 正文记录这项 effort 的工作名，它的每张 decision ticket 继承这个值。
