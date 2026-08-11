@@ -32,7 +32,7 @@
 
 spec 文件已经提交、issue 却还没发布，是个中间状态：用户可能刚点完头，也可能还没看过。这时按没过这道关卡处理，重新给他看一次。
 
-有 open tracer bullet ticket 缺少 `ready-for-agent` 时，回 `$mmw:mmw-to-plan`。全部齐全后，才进入 `$mmw:mmw-implement`。
+plan 按批次写，某张 ticket 缺 `ready-for-agent` 不一定是流程断了，可能只是批次没到。判据：存在「阻塞已全部关闭、还没有 `ready-for-agent`」的 open ticket 时，回 `$mmw:mmw-to-plan` 写它们的 plan；frontier 上有带标签的 ticket 时，进入 `$mmw:mmw-implement` 继续落地；两者都没有、但仍有 open ticket 时，报告各张的状态（被谁阻塞、被谁认领）等用户处理。
 
 ## 查完之后
 

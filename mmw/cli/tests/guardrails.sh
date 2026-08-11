@@ -329,6 +329,93 @@ suite_dispatch() {
       --cwd "$repo/.worktrees/dispatchable"
 }
 
+# ------------------------------------------------------- dispatch --resume
+
+# 输出断言。用法：expect_out_has <用例名> <要找的字符串> <输出>
+expect_out_has() {
+  local name="$1" needle="$2" out="$3"
+  if printf '%s' "$out" | grep -qF -- "$needle"; then
+    report pass "$name"
+  else
+    report fail "$name" "输出里找不到：${needle}
+实际输出：${out}"
+  fi
+}
+
+suite_dispatch_resume() {
+  echo "mmw dispatch --resume（恢复原生产者）"
+  local repo task out
+  repo="$(fresh_repo)"
+  task="$WORKBENCH/fix-task.md"
+  printf '修复表\n' > "$task"
+
+  expect_deny "--resume 空句柄当场拒绝" "$repo" \
+    env MMW_HOST=claude-code "$MMW" dispatch reviewer-gpt --task "$task" --resume ""
+  expect_deny "pi 宿主没有 resume 通道" "$repo" \
+    env MMW_HOST=pi "$MMW" dispatch reviewer-gpt --task "$task" --resume abc
+
+  out="$(env MMW_HOST=claude-code "$MMW" dispatch 2>&1)" || true
+  expect_out_has "usage 登记了 --resume" "--resume" "$out"
+
+  # gpt 族第一段装配：--resume 必须进后台命令，否则第二段拿不到句柄。
+  out="$(cd "$repo" && env MMW_HOST=claude-code "$MMW" dispatch reviewer-gpt \
+    --task "$task" --resume abc123 2>&1)"
+  expect_out_has "gpt 族第一段带上 --resume" "--resume abc123" "$out"
+
+  # claude 族：派发要有确定性句柄，恢复走 SendMessage。
+  out="$(cd "$repo" && env MMW_HOST=claude-code "$MMW" dispatch reviewer-claude \
+    --task "$task" 2>&1)"
+  expect_out_has "claude 族派发输出 handle 行" "handle: reviewer-claude-fix-task" "$out"
+  expect_out_has "claude 族 params 携带确定性 name" '"name":"reviewer-claude-fix-task"' "$out"
+  out="$(cd "$repo" && env MMW_HOST=claude-code "$MMW" dispatch reviewer-claude \
+    --task "$task" --resume reviewer-claude-fix-task 2>&1)"
+  expect_out_has "claude 族恢复走 SendMessage" "tool: SendMessage" "$out"
+  expect_out_has "claude 族恢复收件名是句柄" '"to":"reviewer-claude-fix-task"' "$out"
+
+  # gpt 族第二段：拿 stub codex 跑真命令，断言句柄采集与 resume 装配。
+  # stub 把 argv 一行一个记下来，供断言检查真实传参顺序。
+  mkdir -p "$WORKBENCH/bin"
+  cat > "$WORKBENCH/bin/codex" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "${CODEX_STUB_ARGV:?}"
+cat > /dev/null
+report=""
+prev=""
+for arg in "$@"; do
+  [ "$prev" = "-o" ] && report="$arg"
+  prev="$arg"
+done
+[ -n "$report" ] && printf 'stub 报告\n' > "$report"
+printf '{"type":"thread.started","thread_id":"stub-thread-1"}\n'
+printf '{"type":"turn.completed"}\n'
+STUB
+  chmod +x "$WORKBENCH/bin/codex"
+
+  out="$(cd "$repo" && env PATH="$WORKBENCH/bin:$PATH" \
+    CODEX_STUB_ARGV="$WORKBENCH/argv-exec" \
+    MMW_HOST=claude-code MMW_INTERNAL_BACKGROUND_DISPATCH=1 \
+    "$MMW" dispatch reviewer-gpt --task "$task" 2>&1)"
+  expect_out_has "gpt 族第二段输出 session 行" "session: stub-thread-1" "$out"
+  expect_state "gpt 族第二段写出句柄文件" "句柄文件内容是 thread_id 原文" \
+    grep -qx "stub-thread-1" "$repo/.dispatch/reviewer-gpt-fix-task.session"
+
+  out="$(cd "$repo" && env PATH="$WORKBENCH/bin:$PATH" \
+    CODEX_STUB_ARGV="$WORKBENCH/argv-resume" \
+    MMW_HOST=claude-code MMW_INTERNAL_BACKGROUND_DISPATCH=1 \
+    "$MMW" dispatch reviewer-gpt --task "$task" --resume stub-thread-1 2>&1)"
+  # 下面三条把断言包进 bash -c，"$1" 由内层 bash 展开，不是外层漏引。
+  # shellcheck disable=SC2016
+  expect_state "恢复走 codex exec resume" "argv 前两项是 exec resume" \
+    bash -c 'head -2 "$1" | tr "\n" " " | grep -q "^exec resume "' _ "$WORKBENCH/argv-resume"
+  # shellcheck disable=SC2016
+  expect_state "恢复不传 --color" "argv 里没有 --color" \
+    bash -c '! grep -qx -- "--color" "$1"' _ "$WORKBENCH/argv-resume"
+  # shellcheck disable=SC2016
+  expect_state "选项排在句柄之前" "句柄是倒数第二个参数、stdin 记号收尾" \
+    bash -c '[ "$(tail -2 "$1" | head -1)" = "stub-thread-1" ] && [ "$(tail -1 "$1")" = "-" ]' \
+    _ "$WORKBENCH/argv-resume"
+}
+
 # -------------------------------------------------------------- gitfacts 谓词
 
 suite_gitfacts() {
@@ -354,6 +441,7 @@ suite_task_cleanup
 suite_task_new
 suite_task_bind
 suite_dispatch
+suite_dispatch_resume
 suite_gitfacts
 
 printf '\n通过 %d，失败 %d\n' "$PASS" "$FAIL"

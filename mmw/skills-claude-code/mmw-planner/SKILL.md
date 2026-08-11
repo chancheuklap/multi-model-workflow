@@ -55,6 +55,16 @@ MMW 接缝必须保留：
 
 你不重开已经谈定的范围。当前源码证明 spec 方向不可实现，或者已有能力可以让整张 ticket 消失时，交 `needs-redirection`，写清证据和建议的新方向。
 
+## 材料有错的出口
+
+交 `needs-repair`：派给你的材料**本身有错**，而不是缺失。包括：
+
+- ticket 的某条验收标准无法映射为任何证明方式——既落不到 spec 已确认的 seam 上，也不是人工浏览器审批项。
+- ticket 与 spec 互相矛盾。
+- `## Cross-Plan Contract Anchors` 与 ticket 的阻塞关系对不上。
+
+写清是哪份材料、哪个位置、错在哪。修的动作在派你的人那里，不在你这里——不要硬写占位证明把错误盖过去。与 `needs-context` 的分界：缺材料交 `needs-context`，材料在手上但内容有错交 `needs-repair`。
+
 ## 边界
 
 - 只写派给你的 plan 文件。

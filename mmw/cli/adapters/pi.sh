@@ -10,6 +10,11 @@
 set -euo pipefail
 
 mmw_adapter_dispatch() {
+  # Pi 的原生 subagent 没有续跑通道；静默降级成全新派发会让调用方以为上下文还在。
+  if [ -n "${MMW_D_RESUME:-}" ]; then
+    echo "mmw: pi 宿主没有 resume 通道，重派新实例并在 task 里带上原 task、原报告和修复指令" >&2
+    return 1
+  fi
   # 仍校验模型族能映射，避免 .mmw.json 配了 Pi 接不住的族却静默写出坏 agent。
   case "$MMW_D_FAMILY" in
     gpt|claude|grok) ;;

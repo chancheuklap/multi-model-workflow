@@ -122,6 +122,43 @@ def 审查组(host: str, 假源: Path, tmp_path: Path) -> str:
     return 读(out, "mmw-alpha/SKILL.md")
 
 
+def test_resume_只在_claude_code_给出恢复动作(假源: Path, tmp_path: Path) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n[[mmw-resume:worker:worktree]]\n")
+    产出 = {}
+    for host in ("pi", "claude-code", "codex"):
+        out = tmp_path / host
+        物化(host, out)
+        产出[host] = 读(out, "mmw-alpha/SKILL.md")
+    assert "mmw dispatch worker" in 产出["claude-code"]
+    assert "--resume" in 产出["claude-code"]
+    # 没验证过续跑通道的宿主给显式退路，不静默降级。
+    for host in ("pi", "codex"):
+        assert "--resume" not in 产出[host]
+        assert "重派新实例" in 产出[host]
+        assert "原报告路径" in 产出[host]
+
+
+def test_resume_的_cwd_模式落进恢复指令(假源: Path, tmp_path: Path) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n"
+       "[[mmw-resume:worker:worktree]]\n\n[[mmw-resume:worker:current]]\n\n"
+       "[[mmw-resume:reviewer-gpt:none]]\n")
+    out = tmp_path / "claude-code"
+    物化("claude-code", out)
+    正文 = 读(out, "mmw-alpha/SKILL.md")
+    assert "原结果 worktree 绝对路径" in 正文
+    assert "当前任务 worktree 绝对路径" in 正文
+    assert "mmw dispatch reviewer-gpt" in 正文
+
+
+def test_resume_点了不存在的角色就退出(假源: Path, tmp_path: Path) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n[[mmw-resume:nobody:none]]\n")
+    with pytest.raises(SystemExit):
+        物化("claude-code", tmp_path / "claude-code")
+
+
 @pytest.mark.parametrize("host", ["pi", "claude-code", "codex"])
 def test_每一道审都在启动组里有交代(假源: Path, tmp_path: Path, host: str) -> None:
     # 少写哪一道，主 agent 走到那一道就没有可执行的启动句，只能自己编一个。

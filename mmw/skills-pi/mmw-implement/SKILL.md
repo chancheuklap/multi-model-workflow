@@ -30,7 +30,11 @@ description: 派 `worker` 落地已准备好的工作。用于完整的 `ready-f
 
 ### 2. 取下一张 ticket
 
-spec 分支先重新读取全部子 issue。任何 open tracer bullet ticket 缺少 `ready-for-agent` 时，回 `/mmw-to-plan`。全部齐全后运行：
+plan 按批次写（见 `/mmw-to-plan`）：某张 ticket 没有 `ready-for-agent` 不一定是流程错了，可能只是它的批次还没到。spec 分支先重新读取全部子 issue，按下面的判据走：
+
+- 存在「阻塞已全部关闭、还没有 `ready-for-agent`」的 open ticket：回 `/mmw-to-plan`，它们是待写 plan 的批次。
+- 没有上面那种，运行 frontier（下条命令）有输出：取第一行那张，继续本步。
+- 两者都没有、但仍有 open ticket：它们都被认领或仍被阻塞。报告每张的状态并停下等待，不空转。
 
 ```bash
 mmw issue frontier <spec issue 编号> --label ready-for-agent
@@ -67,6 +71,8 @@ agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一
 
 TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
 
+**派发前抽验 plan 新鲜度**（spec 分支）：把这份 plan 引用的关键路径对当前任务分支抽验一遍。失效就先把差异发回原 `planner` 续跑刷新那份 plan（恢复动作见 `/mmw-to-plan` 第 4 步），刷新过再派 `worker`。抽验降低批次内漂移进入 `worker` task 的概率；没被抽到的残余漂移仍由 `worker` 的矛盾上报兜底。
+
 ### 4. 派发
 
 派发前确认当前任务分支已经提交且工作区干净。为这次工作确定唯一、完整的结果分支名，并记下 `git rev-parse HEAD` 作为基点。结果分支名和基点 SHA 都要写入 task。
@@ -78,6 +84,8 @@ TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
 ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --from <基点 SHA>`，使用命令返回的 worktree 绝对路径作为 cwd。然后调用原生 `subagent`，agent 设为 `mmw-worker-high-risk`，task 传四栏表全文，cwd 设为该绝对路径。
 升档由你决定，不由 worker 自报。
+
+派发返回的 `session:` 或 `handle:` 行是这个 `worker` 的恢复句柄，连同结果分支名、基点 SHA 一起记下——③ 返工的前三轮和 ④⑤ 的修复都用它恢复原 `worker`。
 
 `worker` 完成后，先收取结果：
 
@@ -102,7 +110,7 @@ ticket 涉及界面时，还要完成浏览器验收：
 
 本技能规定的验收全部通过后，运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。命令成功后，结果提交才算进入当前任务分支。
 
-结果提交已经进入当前任务分支，才关闭这张 ticket。spec 分支继续取下一张；agent brief 分支只有这一张，直接进入第 7 步。
+结果提交已经进入当前任务分支，才关闭这张 ticket。关票可能解锁新批次：spec 分支回第 2 步，按那里的判据决定是移交 `/mmw-to-plan` 写新批次的 plan，还是继续取下一张。agent brief 分支只有这一张，直接进入第 7 步。
 
 ### 6. spec 分支全部落地后验证合同
 
@@ -114,22 +122,28 @@ ticket 涉及界面时，还要完成浏览器验收：
 
 **grep 不到行号就不算兑现**，回去补，不要留给终审。这是本阶段特有的一句：终审那一道审的是代码本身，不替你补合同。
 
+补的路由：缺口指向哪张 ticket，就把修复发回那张 ticket 的原 `worker`。恢复前先做**同步前置**——集成只把结果分支合入任务分支，不推进结果分支，原结果 worktree 看不到后来集成的 ticket。主 agent 先在该结果 worktree 把当前任务分支合入结果分支（`git merge --no-ff`），无冲突才恢复：
+这个宿主没有续跑通道：按对应的启动动作重派新实例，task 带原 task 路径、原报告路径和本轮修复指令。
+
+合并有冲突、worktree 已收或句柄失效时，放弃恢复，把缺口合成一张修复 ticket 派新 `worker`。再失败才停。修复回来照第 4、5 步收结果、验收、集成。
+
 ### 7. 发起 ⑤ final 终审
 
 spec 分支通过合同门，或者 agent brief 分支完成第 5 步后，按 `/mmw-review` 发起一轮 **⑤ final 终审**，固定点取分支点。整体审一次，不逐张审。
 
 分支点用 `git merge-base HEAD <父分支>` 取。普通任务的父分支是创建任务时选择的目标分支；从 `/mmw-wayfinder` map 派生的任务以 map 分支为父分支。
 
-采信的 findings 打包成一张修复 ticket 派给新 `worker`，带上 `file:line` 和要改成什么。修复回来后逐条验证原问题已经消失，并运行修复涉及的验收命令。全部通过后按 `/mmw-review` 第 7 步在原审查记录登记 `修复提交` 和 `终审提交`；不再派审查者。
+采信的 findings 全部落在同一张 ticket 时，优先发回那张 ticket 的原 `worker` 续跑，恢复前先做第 6 步的同步前置；跨 ticket、同步冲突、worktree 已收或句柄失效时，打包成一张修复 ticket 派给新 `worker`，带上 `file:line` 和要改成什么。两条路都不逐 finding 派修复者。修复回来后逐条验证原问题已经消失，并运行修复涉及的验收命令。全部通过后按 `/mmw-review` 第 7 步在原审查记录登记 `修复提交` 和 `终审提交`；不再派审查者。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
-| spec 分支第 5 步三关都过，frontier 上还有 ticket | **自己继续**：回第 2 步取下一张 |
+| spec 分支第 5 步三关都过，还有 open ticket | **自己继续**：回第 2 步，按那里的判据取下一张或移交 `/mmw-to-plan` 写新批次 |
+| 第 2 步存在待写 plan 的批次 | **移交**：`/mmw-to-plan`，写完新批次的 plan 再回来 |
 | spec 分支的 ticket 全部关闭了 | **自己继续**：走第 6 步验证合同，过了再走第 7 步发起 ⑤ final 终审 |
 | agent brief 分支第 5 步三关都过，原 issue 已关闭 | **自己继续**：跳过第 6 步，走第 7 步发起 ⑤ final 终审 |
-| 第 6 步有合同 grep 不到行号 | **停**：报是哪条合同、提供方或消费方缺在哪 |
+| 第 6 步有合同 grep 不到行号 | **自己继续**：按第 6 步的路由发回原 `worker` 或派修复 ticket；修复仍失败才停，报是哪条合同、提供方或消费方缺在哪 |
 | 审出了采信的 findings | **自己继续**：按第 7 步一次性修复并验证；有一条没修好就停，不再审 |
 | 审完没有采信项，或者采信项已经修复并验证，而且这次改动碰了带出包配置的产品 | **移交**：`/mmw-release`，先把安装包出出来。同时告诉它这次是有 spec 还是只有 agent brief——它收尾要按这个分岔。仓库里有没有出包配置，跑 `grep -rl '"product"' --include='*.release-adapter.json' .` |
 | 审完没有采信项，或者采信项已经修复并验证；这次不用出包，而且有 spec | **移交**：`/mmw-closing`，把 spec 与 plan 归档到 Wiki、删掉本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`，再交回用户合并 |

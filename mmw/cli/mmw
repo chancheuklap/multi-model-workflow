@@ -85,6 +85,8 @@ mmw dispatch <角色> --task <文件> [--cwd <目录>]
 参数：
   --task <文件>   task 四栏表文件，必填（与 Pi 的 task 同一概念）
   --cwd <目录>    角色的工作目录。会写文件的角色必填；只读角色省略时使用仓库根
+  --resume <句柄> 恢复原 subagent 续跑，task 文件此时是修复 task。句柄用派发返回的
+                  session:（gpt 族 thread_id）或 handle:（claude 族名字）原文
 
 模型、档位和护栏由角色决定，取自已安装 MMW runtime 的模型档。
 
@@ -258,16 +260,22 @@ cmd_dispatch() {
     usage_dispatch
   }
 
-  local task="" cwd=""
+  local task="" cwd="" resume=""
+  local resume_given=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --task) task="${2:-}"; shift 2 ;;
       --cwd) cwd="${2:-}"; shift 2 ;;
+      --resume) resume="${2:-}"; resume_given=1; shift 2 ;;
       *) echo "mmw: 认不出参数 $1" >&2; usage_dispatch ;;
     esac
   done
 
   [ -n "$task" ] || { echo "mmw: dispatch 要 --task" >&2; usage_dispatch; }
+  if [ "$resume_given" = "1" ] && [ -z "$resume" ]; then
+    echo "mmw: --resume 的句柄是空的。gpt 族用派发返回的 session: 原文（也存在 .dispatch/<角色>-<task 名>.session），claude 族用 handle: 原文" >&2
+    return 1
+  fi
   [ -f "$task" ] || { echo "mmw: task 文件不存在：$task" >&2; return 1; }
   task="$(cd "$(dirname "$task")" && pwd)/$(basename "$task")"
 
@@ -297,6 +305,7 @@ cmd_dispatch() {
   export MMW_D_TASK="$task"
   export MMW_D_CWD="$cwd"
   export MMW_D_WRITABLE="$writable"
+  export MMW_D_RESUME="$resume"
   MMW_D_SKILL="$(role_skill "$role")" || return 1
   export MMW_D_SKILL
 

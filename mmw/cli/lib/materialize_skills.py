@@ -32,6 +32,15 @@ LAUNCH_RE = re.compile(
 LAUNCH_GROUP_RE = re.compile(
     r"\[\[mmw-launch-group:([a-z0-9-]+):(worktree|current|none)\]\]"
 )
+RESUME_RE = re.compile(
+    r"\[\[mmw-resume:([a-z0-9-]+):(worktree|current|none)\]\]"
+)
+# 没有续跑通道的宿主统一给这句退路，与上游「report 文件就是持久记忆」的原则一致：
+# 静默降级成全新派发会让调用方以为上下文还在，所以退路必须显式写明带什么材料。
+RESUME_FALLBACK = (
+    "这个宿主没有续跑通道：按对应的启动动作重派新实例，"
+    "task 带原 task 路径、原报告路径和本轮修复指令。"
+)
 CODEX_SKILL_REF_RE = re.compile(r"`/(mmw-[a-z0-9-]+)`")
 SKIP_DIR_NAMES = frozenset({"mmw-dispatching-agents", "mmw-setup"})
 POST_LAUNCH_RULE = (
@@ -125,6 +134,24 @@ def expand_codex(role: str, cwd_mode: str, profiles: dict) -> str:
     )
 
 
+def expand_resume_claude(role: str, cwd_mode: str) -> str:
+    if cwd_mode == "worktree":
+        cwd = " --cwd <原结果 worktree 绝对路径>"
+    elif cwd_mode == "current":
+        cwd = " --cwd <当前任务 worktree 绝对路径>"
+    else:
+        cwd = ""
+    return (
+        "恢复：把修复 task 写入新文件，后台执行 "
+        f"`mmw dispatch {role} --task <修复 task 文件绝对路径> --resume <句柄原文>{cwd}`。"
+        "gpt 族句柄取原派发返回的 `session:` 行原文"
+        "（也存在原结果 worktree 的 `.dispatch/<角色>-<task 名>.session`）；"
+        "claude 族取 `handle:` 行原文。"
+        "命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。"
+        f"句柄取不到或命令失败时退回重派：{RESUME_FALLBACK}"
+    )
+
+
 def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> str:
     if host == "codex":
         profile = (profiles.get("subagents") or {}).get("reviewer-gpt")
@@ -180,8 +207,20 @@ def expand_text(
             return f"{instruction}\n\n{POST_LAUNCH_RULE}"
         return instruction
 
+    def resume(match: re.Match[str]) -> str:
+        role, cwd_mode = match.group(1), match.group(2)
+        if role not in role_agents:
+            die(f"占位符角色不在 roles.json：{role}")
+        # 只有 Claude Code 已验证续跑通道（codex exec resume 与 SendMessage）。
+        # Pi 的原生 subagent 与 Codex App 的 thread 后续消息工具都还没实测，
+        # 先物化为显式退路，不做静默降级。
+        if host == "claude-code":
+            return expand_resume_claude(role, cwd_mode)
+        return RESUME_FALLBACK
+
     text = LAUNCH_RE.sub(launch, text)
     text = LAUNCH_GROUP_RE.sub(launch_group, text)
+    text = RESUME_RE.sub(resume, text)
     if host == "codex":
         text = CODEX_SKILL_REF_RE.sub(r"`$mmw:\1`", text)
     return text

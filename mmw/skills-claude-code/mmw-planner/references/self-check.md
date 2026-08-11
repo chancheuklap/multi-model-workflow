@@ -13,4 +13,4 @@
 - 界面 ticket 写了独立的浏览器审批；高风险 ticket 写了回滚或人工审批关卡。
 - plan 没有复制 spec、测试方法论或大段实现代码，也没有为了格式填充无关小节。
 
-这些条件全部成立才交 `pass`。缺少会改变目标、合同或验收的上下文时交 `needs-context`；源码证明方向不成立时交 `needs-redirection`。
+这些条件全部成立才交 `pass`。缺少会改变目标、合同或验收的上下文时交 `needs-context`；材料在手上但本身有错（验收无法映射为证明方式、ticket 与 spec 矛盾、合同锚点与阻塞关系对不上）时交 `needs-repair`；源码证明方向不成立时交 `needs-redirection`。
