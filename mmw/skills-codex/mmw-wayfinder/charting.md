@@ -34,10 +34,10 @@
 
 4. 把**当前能够精确表述的问题全部建成 ticket**，作为 map 的子 issue。当前仍说不清楚的内容继续留在 **Not yet specified** 一节。
 
-   分两遍做，因为 issue 要先有编号才能互相引用。第一遍全部建出来，按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节为每张选一个 `wayfinder:<type>`。ticket 名称就是它的 issue 标题，按那个问题起。每张正文都写 `## Question` 和 `## 必读材料声明`。后者列当时已经知道、且与这张 Question 相关的仓库产物引用与结论评论 issue 编号。没有材料时写 `无`。先写进 `.scratch/<产物目录>/ticket-<序号>.md`，再发：
+   分两遍做，因为 issue 要先有编号才能互相引用。第一遍全部建出来，按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节为每张选一个 `wayfinder:<type>`。ticket 名称就是它的 issue 标题，按那个问题起。每张正文都写 `## Question` 和 `## 必读材料声明`。后者列当时已经知道、且与这张 Question 相关的仓库产物引用与结论评论 issue 编号。没有材料时写 `无`。每张先运行 `mmw artifact path scratch --sub outbox/ticket-<序号>.md`。把正文写入输出文件，再发：
 
    ```bash
-   mmw issue create --title "<ticket 名称>" --body-file .scratch/<产物目录>/ticket-<序号>.md \
+   mmw issue create --title "<ticket 名称>" --body-file <上一步输出文件> \
      --parent <map 编号> --label wayfinder:<type>
    ```
 
