@@ -159,10 +159,18 @@ mmw issue claim <编号>
 mmw issue link <被挡的编号> --blocked-by <挡住它的编号>
     连一条阻塞边。一次只连一条，要连多条就多跑几次。
 
-以上五条之外的 tracker 动作直接用 gh：
+mmw issue append <issue 编号> --section <小节标题> --line <要追加的一行>
+    向现有二级标题的小节追加一行。不要拼整份正文写回。
+
+mmw issue set-parent <子 issue 编号> --parent <父 issue 编号>
+    给已存在的 issue 设置父 issue。
+
+以上七条之外的 tracker 动作直接用 gh：
     读 issue 和评论   gh issue view <编号> --comments
     发评论            gh issue comment <编号> --body-file <文件>
-    改正文            gh issue edit <编号> --body-file <文件>
+    追加一行          mmw issue append <编号> --section <小节标题> --line <要追加的一行>
+    整份替换正文      有意替换整份正文时，先读最新正文，再用 gh issue edit <编号> --body-file <文件>
+                      例如修改 Destination 小节。
     关 issue          gh issue close <编号>
 EOF
   return 2
@@ -415,9 +423,21 @@ cmd_result() {
 }
 
 cmd_issue() {
-  local sub="${1:-}"
+  local sub="${1:-}" rc
   shift || true
   case "$sub" in
+    append)
+      [ -n "${1:-}" ] || usage_issue
+      if mmw_issue_append "$@"; then
+        :
+      else
+        rc=$?
+        if [ "$rc" -eq 2 ]; then
+          usage_issue
+        fi
+        return "$rc"
+      fi
+      ;;
     create) mmw_issue_create "$@" ;;
     children) [ -n "${1:-}" ] || usage_issue; mmw_issue_children "$1" ;;
     claim) [ -n "${1:-}" ] || usage_issue; mmw_issue_claim "$1" ;;
@@ -450,6 +470,18 @@ cmd_issue() {
       done
       [ -n "$blocker" ] || { echo "mmw: issue link 要 --blocked-by" >&2; usage_issue; }
       mmw_issue_link "$child" "$blocker"
+      ;;
+    set-parent)
+      [ -n "${1:-}" ] || usage_issue
+      if mmw_issue_set_parent "$@"; then
+        :
+      else
+        rc=$?
+        if [ "$rc" -eq 2 ]; then
+          usage_issue
+        fi
+        return "$rc"
+      fi
       ;;
     *) usage_issue ;;
   esac
