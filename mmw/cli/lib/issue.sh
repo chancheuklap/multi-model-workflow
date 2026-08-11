@@ -46,8 +46,14 @@ mmw_issue_set_parent_edge() {
 # 单个 array），所以下面直接对整体取 length 和 .[0] 是成立的。
 mmw_issue_children_raw() {
   local parent="$1" repo list
-  repo="$(mmw_gh_repo)"
-  list="$(gh api --paginate "repos/$repo/issues/$parent/sub_issues")"
+  repo="$(mmw_gh_repo)" || return 1
+  # 显式判 gh 的失败，不靠 set -e。调用方把这个函数放进 `if` 或 `||` 的左侧时
+  # set -e 被禁用，那时空的 list 会一路走到下面的整数比较，函数反而返回 0，
+  # 调用方拿到一份空清单当成「这个 parent 没有子 issue」。
+  if ! list="$(gh api --paginate "repos/$repo/issues/$parent/sub_issues")"; then
+    echo "mmw issue: 读不到 issue $parent 的子 issue" >&2
+    return 1
+  fi
 
   if [ "$(jq 'length' <<<"$list")" -eq 0 ]; then
     return 0
