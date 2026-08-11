@@ -531,6 +531,7 @@ cmd_artifact() {
     path) mmw_artifact_path "$@" ;;
     index) mmw_artifact_index "$@" ;;
     check) mmw_artifact_check "$@" ;;
+    list) mmw_artifact_list "$@" ;;
     *) usage_artifact ;;
   esac
 }

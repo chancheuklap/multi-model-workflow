@@ -33,9 +33,9 @@ map 正文是整个 map 的低分辨率视图。每个 session 加载一次。op
 
 <抵达这张 map 的终点时是什么状态；这项 effort 正在寻找的 spec、决定或改动。一到两行；每个 session 选择 ticket 前都先用它校准方向。>
 
-## 产物目录
+## 工作名
 
-<这项 effort 的 prototype、research 和过程材料共用的一个目录名。建 map 时定下，之后不再改。>
+<这项 effort 的 prototype、research 和过程材料共用的工作名。建 map 时定下，之后不再改。>
 
 ## 分支
 
@@ -68,9 +68,13 @@ map 正文是整个 map 的低分辨率视图。每个 session 加载一次。op
 ## Question
 
 <这张 ticket 要解决的决定或调查问题>
+
+## 必读材料声明
+
+<建 ticket 时已经知道、且这张 ticket 必须读取的材料。仓库产物每条写 `category=<类别> name=<工作名> [issue=<编号>] [sub=<类别内细分>]`。结论评论每条写 `issue=<编号> 结论评论`。没有材料时写 `无`。>
 ```
 
-ticket 正文只有 `Question` 这一节，不写别的。解决 ticket 时需要的 `产物目录` 从 map 正文读，需要的子目录就是 `issue-` 加上这张 ticket 自己的编号。
+ticket 正文固定有 `Question` 和 `必读材料声明` 两节。建 ticket 的会话写当时已经知道的材料。认领 ticket 的会话在开工前补入后来产生且相关的材料。仓库产物写产物引用。tracker 产物写结论评论的 issue 编号。解决 ticket 时从 map 正文读取工作名；它的范围段是 `issue-` 加这张 ticket 自己的编号。
 
 每张 ticket 都带一个 `wayfinder:<type>` 标签。type 是 `research`、`prototype`、`grilling` 或 `task` 中的一个，见下方“Ticket 类型”一节。
 
@@ -86,7 +90,7 @@ blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 
 
 - **一个 session 绝不解决超过一张 decision ticket。** 唯一例外是 charting 会话可以为刚建好的多张 `wayfinder:research` ticket 并行派 research。
 - **claim 在动手之前。** 把 ticket 指派给推动这张 map 的开发者就是 claim。claim 完成之前不做任何工作。
-- **改 map 正文之前重新读取最新正文。** 编辑 issue 正文是整体替换。写完再读一次，确认本次那一行在；不在就重做一遍。
+- **追加 map 的决定索引时使用 `mmw issue append`。** 传 map 编号、`Decisions so far` 和新增行。不要自行读改写整份 map 正文。
 - **每个 session 只在自己的任务 worktree 里写文件。** 建 map 的会话拥有 map 分支；每张 decision ticket 用一条从 map 分支派生的任务分支，解决期间写下的领域文档、ADR 和资产都提交在这条任务分支上，再由 map 分支上的会话验证合并；那个会话不必是建 map 的原会话，`/mmw-start` 可以随时按 map 编号恢复 map 的任务上下文。这一条不能省：两个会话同时改同一份领域文档时，各自一个 worktree 会让冲突在合并时暴露出来，而共用一个工作目录会让后写的那个直接覆盖先写的，谁都不会发现。
 
 ## Ticket 类型

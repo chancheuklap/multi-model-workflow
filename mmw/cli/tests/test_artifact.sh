@@ -193,6 +193,7 @@ artifact_actions="$(sed -n '/^cmd_artifact() {$/,/^}$/p' "$MMW" | sed -nE 's/^  
 contains "artifact 动作解析到 path" "path" "$artifact_actions"
 contains "artifact 动作解析到 index" "index" "$artifact_actions"
 contains "artifact 动作解析到 check" "check" "$artifact_actions"
+contains "artifact 动作解析到 list" "list" "$artifact_actions"
 
 echo
 echo "artifact index"
@@ -537,6 +538,99 @@ expect_error "sub 拒绝中间空段" "空路径段" \
   "$MMW" artifact path research --name release --sub topic//detail
 
 echo
+echo "artifact list"
+mkdir -p \
+  docs/research/list-work/issue-42/scoped \
+  docs/research/list-work/unscoped \
+  docs/research/list-work/issue-99/incomplete \
+  docs/research/other-work/ignored \
+  docs/prototypes/list-work/issue-7/demo \
+  docs/prototypes/list-work/gallery \
+  docs/prototypes/list-work/empty
+printf '# Scoped research\n' > docs/research/list-work/issue-42/scoped/README.md
+printf '# Unscoped research\n' > docs/research/list-work/unscoped/README.md
+printf '# Other work\n' > docs/research/other-work/ignored/README.md
+printf '# Scoped prototype\n' > docs/prototypes/list-work/issue-7/demo/README.md
+printf '# Unscoped prototype\n' > docs/prototypes/list-work/gallery/README.md
+mkdir -p "$task_worktree/docs/research/artifact-work/default"
+printf '# Default work name\n' > "$task_worktree/docs/research/artifact-work/default/README.md"
+
+mkdir -p "$WORK/list-bin"
+cat > "$WORK/list-bin/gh" <<'STUB'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$MMW_LIST_LOG"
+
+case "$*" in
+  "repo view --json nameWithOwner -q .nameWithOwner")
+    echo "o/r" ;;
+  "api --paginate repos/o/r/issues/88/sub_issues")
+    cat "$MMW_LIST_CHILDREN" ;;
+  *)
+    echo "stub gh: 没预置这条命令：$*" >&2
+    exit 90 ;;
+esac
+STUB
+chmod +x "$WORK/list-bin/gh"
+export PATH="$WORK/list-bin:$PATH"
+export MMW_LIST_LOG="$WORK/list-gh.log"
+cat > "$WORK/list-children.json" <<'JSON'
+[
+  {"number": 70, "state": "open", "title": "还在处理", "labels": [{"name": "wayfinder:research"}], "issue_dependencies_summary": {"blocked_by": 0}},
+  {"number": 21, "state": "closed", "title": "不是 decision ticket", "labels": [{"name": "ready-for-agent"}], "issue_dependencies_summary": {"blocked_by": 0}},
+  {"number": 16, "state": "closed", "title": "已关闭原型", "labels": [{"name": "wayfinder:prototype"}], "issue_dependencies_summary": {"blocked_by": 0}},
+  {"number": 12, "state": "closed", "title": "已关闭对谈", "labels": [{"name": "wayfinder:grilling"}], "issue_dependencies_summary": {"blocked_by": 0}}
+]
+JSON
+export MMW_LIST_CHILDREN="$WORK/list-children.json"
+
+repository_list=$'- category=prototype name=list-work issue=7 sub=demo\n- category=prototype name=list-work sub=gallery\n- category=research name=list-work issue=42 sub=scoped\n- category=research name=list-work sub=unscoped'
+: > "$MMW_LIST_LOG"
+capture "显式工作名只列仓库候选" "$MMW" artifact list --name list-work
+check "显式工作名只列仓库候选退出码" "0" "$LAST_STATUS"
+check "显式工作名只列已保存产物" "$repository_list" "$(cat "$LAST_OUT")"
+check "显式工作名只列仓库候选标准错误" "" "$(cat "$LAST_ERR")"
+check "不传 map 不调用 GitHub" "" "$(cat "$MMW_LIST_LOG")"
+
+: > "$MMW_LIST_LOG"
+capture "空清单" "$MMW" artifact list --name empty-work
+check "空清单退出码" "0" "$LAST_STATUS"
+check "空清单没有标准输出" "" "$(cat "$LAST_OUT")"
+check "空清单没有标准错误" "" "$(cat "$LAST_ERR")"
+check "空清单不调用 GitHub" "" "$(cat "$MMW_LIST_LOG")"
+
+: > "$MMW_LIST_LOG"
+capture "缺省工作名" bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact list' \
+  _ "$task_worktree" "$MMW"
+check "缺省工作名退出码" "0" "$LAST_STATUS"
+check "缺省工作名列已保存产物" \
+  "- category=research name=artifact-work sub=default" "$(cat "$LAST_OUT")"
+check "缺省工作名没有标准错误" "" "$(cat "$LAST_ERR")"
+check "缺省工作名不调用 GitHub" "" "$(cat "$MMW_LIST_LOG")"
+
+: > "$MMW_LIST_LOG"
+capture "给 map 时加入结论评论候选" "$MMW" artifact list --name list-work --map 88
+check "给 map 时加入结论评论候选退出码" "0" "$LAST_STATUS"
+check "给 map 时过滤并排序候选" \
+  "$repository_list"$'\n- issue=12 结论评论 已关闭对谈\n- issue=16 结论评论 已关闭原型' \
+  "$(cat "$LAST_OUT")"
+check "给 map 时没有标准错误" "" "$(cat "$LAST_ERR")"
+check "给 map 时只查询子 issue" \
+  $'repo view --json nameWithOwner -q .nameWithOwner\napi --paginate repos/o/r/issues/88/sub_issues' \
+  "$(cat "$MMW_LIST_LOG")"
+
+# 读不到 map 时不能只列仓库那一半然后成功返回。调用方拿这份清单补必读材料声明，
+# 缺了结论评论那一半会让它以为 map 上没有已关闭的 decision ticket，于是一条上游
+# 结论都不补——那正是必读材料声明本身要修的失效。
+: > "$MMW_LIST_LOG"
+capture "读不到 map 时失败" "$MMW" artifact list --name list-work --map 77
+check "读不到 map 时退出码" "1" "$LAST_STATUS"
+check "读不到 map 时没有标准输出" "" "$(cat "$LAST_OUT")"
+contains "读不到 map 时点名编号" "读不到 map 77 的子 issue" "$(cat "$LAST_ERR")"
+
+before_dirs="$(find . -type d -print | sort)"
+
+echo
 echo "artifact usage"
 capture "无参用法" "$MMW" artifact
 check "无参用法退出码" "2" "$LAST_STATUS"
@@ -545,6 +639,7 @@ usage_text="$(cat "$LAST_ERR")"
 contains "无参用法有 path 说明" "mmw artifact path" "$usage_text"
 contains "无参用法有 index 说明" "mmw artifact index" "$usage_text"
 contains "无参用法有 check 说明" "mmw artifact check" "$usage_text"
+contains "无参用法有 list 说明" "mmw artifact list" "$usage_text"
 contains "无参用法列出 spec 术语" $'spec\tspec' "$usage_text"
 contains "无参用法列出解释 HTML 术语" $'explanation\t解释 HTML' "$usage_text"
 contains "无参用法列出 agent brief 术语" $'agent-brief\tagent brief' "$usage_text"
