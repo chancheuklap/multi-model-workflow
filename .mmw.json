@@ -1,5 +1,96 @@
 {
   "version": 1,
+  "models": {
+    "orchestrator": {
+      "family": "grok",
+      "id": "grok-4.5",
+      "effort": "high"
+    },
+    "worker": {
+      "family": "gpt",
+      "id": "gpt-5.6-terra",
+      "effort": "high",
+      "hosts": {
+        "codex": {
+          "effort": "xhigh"
+        }
+      }
+    },
+    "worker-high-risk": {
+      "family": "gpt",
+      "id": "gpt-5.6-sol",
+      "effort": "medium",
+      "hosts": {
+        "codex": {
+          "effort": "high"
+        }
+      }
+    },
+    "prototype-worker": {
+      "family": "gpt",
+      "id": "gpt-5.6-terra",
+      "effort": "high",
+      "hosts": {
+        "codex": {
+          "id": "gpt-5.6-sol",
+          "effort": "medium"
+        }
+      }
+    },
+    "planner": {
+      "family": "gpt",
+      "id": "gpt-5.6-sol",
+      "effort": "high",
+      "hosts": {
+        "codex": {
+          "effort": "xhigh"
+        }
+      }
+    },
+    "investigator": {
+      "family": "gpt",
+      "id": "gpt-5.6-terra",
+      "effort": "xhigh",
+      "hosts": {
+        "codex": {
+          "effort": "high"
+        },
+        "pi": {
+          "family": "grok",
+          "id": "grok-4.5",
+          "effort": "high"
+        }
+      }
+    },
+    "designer": {
+      "family": "gpt",
+      "id": "gpt-5.6-terra",
+      "effort": "high",
+      "hosts": {
+        "codex": {
+          "id": "gpt-5.6-sol",
+          "effort": "medium"
+        }
+      }
+    },
+    "reviewer-gpt": {
+      "family": "gpt",
+      "id": "gpt-5.6-sol",
+      "effort": "xhigh"
+    },
+    "reviewer-claude": {
+      "family": "grok",
+      "id": "grok-4.5",
+      "effort": "high",
+      "hosts": {
+        "claude-code": {
+          "family": "claude",
+          "id": "claude-opus-5",
+          "effort": "high"
+        }
+      }
+    }
+  },
   "tracker": {
     "kind": "github",
     "labels": {
@@ -18,6 +109,11 @@
     }
   },
   "paths": {
+    "specs": "docs/specs",
+    "plans": "docs/plans",
+    "prototypes": "docs/prototypes",
+    "research": "docs/research",
+    "evidence": "docs/evidence",
     "scratch": ".scratch",
     "reviews": ".reviews",
     "release": ".release",
@@ -28,5 +124,8 @@
     "fallback": "CONTEXT.md",
     "context_dir": "docs/context",
     "adr_dir": "docs/adr"
+  },
+  "wiki": {
+    "kind": "github-wiki"
   }
 }
