@@ -9,6 +9,7 @@ usage_artifact() {
   cat >&2 <<'EOF'
 mmw artifact path <类别> [--name <工作名>] [--issue <编号>] [--sub <类别内细分>] [--absolute]
 mmw artifact index <类别>
+mmw artifact check
 
 类别与术语：
 EOF
@@ -236,4 +237,12 @@ mmw_artifact_index() {
   fi
 
   python3 "$MMW_ROOT/cli/lib/artifact_index.py" "$1" "$(mmw_repo_root)" "$MMW_ARTIFACT_DATA"
+}
+
+mmw_artifact_check() {
+  if [ "$#" -ne 0 ]; then
+    usage_artifact
+  fi
+
+  python3 "$MMW_ROOT/cli/lib/artifact_check.py" "$(mmw_repo_root)" "$MMW_ROOT/cli/mmw"
 }

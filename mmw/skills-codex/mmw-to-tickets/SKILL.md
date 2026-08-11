@@ -25,6 +25,8 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 prototype 索引缺少问题、逐轮用户结论、选中产物、落选约束或长期证据时，回 `$mmw:mmw-prototype` 补齐；没有的项目写「无」。
 
+先读取 spec 元数据块的 `artifact_refs`。该键缺失时停止，说明缺少上游声明。按当前 ticket 实际需要的条目逐条传递。每条保留 `category`、`name`、可选 `issue` 和可选 `sub`。`name` 必须存在。没有要传递的条目时，ticket 写 `无`。
+
 ## 2. 检查现状与 prefactor
 
 从已有 spec 和现状调查中找能让后续实现更容易的 prefactor。「先把改动变容易，再做这个容易的改动。」材料没有覆盖相关代码时，主 agent 直接读取实施范围内的入口、调用方和测试。只有范围跨多个模块、需要从调用链、数据流或影响面等独立角度系统取证时，才调用 `$mmw:mmw-research`。
@@ -118,6 +120,14 @@ mmw issue create --title "<标题>" --body-file .scratch/<slug>/ticket-<NN>.md \
 
 - [ ] 判据 1
 - [ ] 判据 2
+
+## 产物引用
+
+- category=<类别> name=<工作名>
+
+类别需要范围段或类别内细分时，在同一行追加 `issue=<编号>` 或 `sub=<类别内细分>`。
+
+没有条目时写单独一行 `无`。
 
 ## prototype 资产
 

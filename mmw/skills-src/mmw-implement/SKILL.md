@@ -52,11 +52,14 @@ agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一
 | spec 或 agent brief | 始终 | 当前需求的精确位置 | 其他需求 | 精确位置 |
 | ticket | 始终 | 当前 ticket 编号 | 其他 ticket | ticket 编号 |
 | plan | spec 分支 | 当前 ticket 的 plan 路径 | 其他 plan | plan 路径 |
+| 产物引用 | plan 有 `artifact_refs` 时 | 当前 ticket 的条目 | 其他 plan 的条目 | 同一行键值形态 |
 | `TESTING.md` | 文件存在时 | 仓库根文件 | 自拟测试命令 | 文件路径 |
 | prototype | 当前 ticket 引用时 | 索引、选中产物和明确相关证据 | 整个产物目录和过程材料 | 精确路径 |
 | research | 当前 ticket 引用时 | research 索引和精确文件 | research 的上级目录和 subagent 原始报告 | 精确路径 |
 
 按 **四栏表**（目标 / 读 / 约束 / 验收）填写。issue 上的 **agent brief** 是 tracker 里的权威行为合同，进入「读」栏。
+
+从 plan 元数据块读取 `artifact_refs`。键缺失时停止，说明缺少 plan 声明。每条在 task 的「读」栏写成 `- category=<类别> name=<工作名>`。类别需要范围段或类别内细分时，在同一行追加 `issue=<编号>` 或 `sub=<类别内细分>`。`name` 必须显式出现。空列表时在「读」栏写 `无`。
 
 | 栏 | 本角色填写 |
 | --- | --- |

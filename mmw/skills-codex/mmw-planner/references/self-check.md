@@ -3,6 +3,7 @@
 按整份 plan 检查：
 
 - 元数据块的 `ticket` 等于当前 tracer bullet ticket 的 GitHub issue 编号，且 `artifact_refs` 键存在。
+- ticket 有 `## 产物引用` 固定节。plan 的 `artifact_refs` 逐条传递 ticket 的条目。每条都有显式 `name`。没有条目时两处分别写 `无` 和 `[]`。
 - ticket 的每条验收都能在 `## Acceptance` 找到证明方式。
 - 实施步骤覆盖完整路线，顺序成立，`worker` 不需要猜目标或未决业务决定。
 - 既有路径、符号和当前行为已经回到源码验证；新文件标明 `Create`。

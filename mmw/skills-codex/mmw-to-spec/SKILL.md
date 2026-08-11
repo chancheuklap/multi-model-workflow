@@ -56,6 +56,18 @@ spec 的落点由任务 slug 决定。按下表取得，不要自己另起一个
 
    元数据块固定写六个字段。`slug` 写任务 slug。`summary` 写一句交付说明。`date` 写当天的 `YYYY-MM-DD`。`branch` 写当前任务分支名。`spec_issue` 在发布前暂写模板占位编号。`artifact_refs` 始终存在；当前没有产物引用时写 `[]`。
 
+   把这份 spec 实际使用的 prototype 资产和 research 写成产物引用。每条都写显式工作名。使用下面的 YAML 映射列表。类别需要范围段或类别内细分时才写 `issue` 或 `sub`。没有引用时写 `artifact_refs: []`。
+
+   ```yaml
+   artifact_refs:
+     - category: <类别>
+       name: <工作名>
+       issue: <编号>
+       sub: <类别内细分>
+   ```
+
+   写完或修完 spec 后，先运行 `mmw artifact check`。命令非零时先修产物引用声明。命令通过后再自检和发起 ① spec 审。
+
 只记录已经形成的决定。写作中发现缺少决定时，写清缺少的完整内容和已经检查的位置，然后停止。
 
 从 Wayfinder 进入时，把相关 decision ticket 中互相链接的决定综合成这一份 spec。prototype 的完整可运行资产继续留在 prototype 目录；spec 只吸收用户确认的决定，以及选中产物中能够比文字更精确地表达某项决定的片段。research 只使用主 agent 已经验证并综合的事实。
@@ -80,15 +92,35 @@ spec 的落点由任务 slug 决定。按下表取得，不要自己另起一个
 
 6. 用户明确批准后，先提交 spec 文件，再把它发布到项目 issue tracker，添加 `ready-for-agent` triage 标签，不需要再次 triage。issue 正文保存 spec 摘要、spec 的精确路径，以及本 spec 实际使用的输入出处；从 Wayfinder 进入时，输入出处包含 map 名称及其 URL 或编号。
 
+   正文固定写出以下三节。`## 产物引用` 从 spec 的 `artifact_refs` 逐条转写。每条使用一行键值形态，工作名不得缺省。没有条目时只写一行 `无`。
+
+   ```markdown
+   ## 工作名
+
+   <工作名>
+
+   ## 输入出处
+
+   <本次实际输入>
+
+   ## 产物引用
+
+   - category=<类别> name=<工作名>
+   ```
+
+   类别需要范围段或类别内细分时，在同一行追加 `issue=<编号>` 或 `sub=<类别内细分>`。
+
 正文先落盘再发。写进 `.scratch/<任务 slug>/spec-issue-body.md`——`.scratch/` 在 `.gitignore` 里，这份正文发完就没用了。
 
 ```bash
 mmw issue create --title "<spec 名称>" --body-file .scratch/<任务 slug>/spec-issue-body.md --label ready-for-agent
 ```
 
-记下 `mmw issue create` 返回的 issue 编号。立刻用它替换 spec 元数据块中的 `spec_issue` 占位编号，再提交这次回填。最终 spec 不得保留占位编号。移交时把这个编号一起交出去——下游三个技能都要用它。
+记下 `mmw issue create` 返回的 issue 编号。入口是已分诊 issue 且它带 agent brief 时，先运行 `mmw issue set-parent <原 issue 编号> --parent <spec issue 编号>`。命令失败时停止，保留原 issue 为 open。命令成功后运行 `gh issue close <原 issue 编号>`。没有原 issue 时跳过这两步。
 
-这一步做完的标志是四件事都成立：spec 文件已经提交，且 `spec_issue` 已回填为实际编号；这张 spec issue 的正文指向那个文件；这张 issue 带着 `ready-for-agent`。这个标签的意思是用户已经批准了这份 spec，不是说可以照着它一口气实现完。
+立刻用这个编号替换 spec 元数据块中的 `spec_issue` 占位编号，再提交这次回填。最终 spec 不得保留占位编号。移交时把这个编号一起交出去——下游三个技能都要用它。
+
+这一步做完的标志是四件事都成立：spec 文件已经提交；spec 元数据块的 `spec_issue` 已经回填为实际编号；这张 spec issue 的正文指向那个文件；这张 issue 带着 `ready-for-agent`。这个标签的意思是用户已经批准了这份 spec，不是说可以照着它一口气实现完。
 
 ## 下一步
 

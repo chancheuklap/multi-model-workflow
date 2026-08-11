@@ -27,10 +27,13 @@ description: 为已发布 spec 的每张 tracer bullet ticket 编排一份 plan�
 | --- | --- | --- | --- | --- |
 | spec | 始终 | 问题、方案、实现决定、合同边界和测试 seam | 其他 spec | spec 路径 |
 | ticket | 始终 | 目标、验收、阻塞关系和 plan 路径 | 其他 ticket | ticket 编号和 plan 路径 |
+| 产物引用 | ticket 有 `## 产物引用` 时 | 当前 ticket 实际需要的条目 | 其他 ticket 的条目 | 同一行键值形态 |
 | prototype | ticket 引用时 | 索引、选中产物、明确相关的走查或长期证据 | 整个产物目录、无关过程材料 | 精确路径；没有写「无 prototype 资产」 |
 | research | ticket 引用时 | research 索引和当前 ticket 使用的精确文件 | research 的上级目录、subagent 原始报告 | 精确路径；没有写「无 research」 |
 
 prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
+
+读取当前 ticket 的 `## 产物引用`。缺少这节时停止，说明缺少 ticket 声明。每条必须含 `category=<类别> name=<工作名>`，可追加 `issue=<编号>` 和 `sub=<类别内细分>`。把当前 ticket 的条目原样写进 `planner` task 的「读」栏。该节写 `无` 时也把 `无` 写进 task。
 
 - `## Problem Statement`
 - `## Solution`
@@ -84,6 +87,8 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 ## 4. 验证返回
 
 每个 `planner` 交回 `pass` 之后，验证 plan 文件存在，元数据块的 `ticket` 等于当前 ticket 编号且 `artifact_refs` 键存在，ticket 的每条验收都能映射到 `## Acceptance`，再抽验至少一条源码依据。读取文件并检索源码，不认「我写完了」。
+
+接受 `pass` 前运行 `mmw artifact check`。命令非零时把当前 plan 的错误交回该 `planner` 修复。命令通过后才接受 `pass`。
 
 失实就把原 task 加上修复说明重派一次。交回 `needs-context` 或 `needs-repair` 的，按它说的补路径或修 spec 之后重派。
 
