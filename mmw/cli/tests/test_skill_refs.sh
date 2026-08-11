@@ -51,6 +51,16 @@ if not TOP_CMDS:
     print("  失败  解析不出 cli/mmw 的顶层命令表，分发写法变了就改这里")
     sys.exit(1)
 
+try:
+    artifacts = json.loads((cli / 'artifacts.json').read_text())
+except (OSError, json.JSONDecodeError) as exc:
+    print(f"  失败  读不出 artifacts.json：{exc}")
+    sys.exit(1)
+if not isinstance(artifacts, dict):
+    print("  失败  artifacts.json 顶层必须是对象")
+    sys.exit(1)
+ARTIFACT_CATEGORIES = set(artifacts)
+
 # `/名字` 里排除真实路径与别的宿主的东西：/wiki 是 GitHub 的 wiki 页，/tmp 是
 # 目录，/install-wiki 是 Factory droid 的命令，/settings 与 /playwright-cli
 # 属于别的宿主。
@@ -63,6 +73,8 @@ RE_STEP = re.compile(r'`/([a-z0-9-]+)`[^|。，]{0,12}第 ([0-9]+) 步')
 # 只认一种就是跟排版绑死：技能把步骤从标题改成列表，语义没动，测试却红。
 RE_STEP_NUM = re.compile(r'^(?:#{2,3} )?([0-9]+)\. ', re.M)
 RE_CMD = re.compile(r'`mmw ([a-z-]+)(?: ([a-z-]+))?')
+
+RE_ARTIFACT_PATH = re.compile(r'`mmw artifact path ([a-z0-9][a-z0-9-]*)')
 
 ok = 0
 bad = []
@@ -103,6 +115,14 @@ for p in sorted(skills.rglob('*.md')):
                 bad.append(f"{rel}:{i} mmw {top} 没有子命令 {sub}")
             else:
                 ok += 1
+
+        for m in RE_ARTIFACT_PATH.finditer(line):
+            category = m.group(1)
+            if category in ARTIFACT_CATEGORIES:
+                ok += 1
+            else:
+                bad.append(
+                    f"{rel}:{i} mmw artifact path 的类别不存在 {category}")
 
         for m in RE_STEP.finditer(line):
             skill, step = m.group(1), m.group(2)
