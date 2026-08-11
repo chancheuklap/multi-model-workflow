@@ -433,7 +433,7 @@ suite_dispatch() {
 
   # setup 失败就让它响。吞掉的话，下一条用例会拿一个不存在的目录去测，
   # dispatch 照样拒绝，用例照样绿——测到的却是「目录不存在」，不是「不干净」。
-  mmw_in "$repo" pi task new dispatchable "派活用" >/dev/null
+  mmw_in "$repo" pi task new dispatchable "派活用" --name dispatchable-work >/dev/null
   expect_ok "干净的任务 worktree 可以派活" "$repo" \
     env MMW_HOST=claude-code "$MMW" dispatch worker --task "$task" \
       --cwd "$repo/.worktrees/dispatchable"
