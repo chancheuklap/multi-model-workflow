@@ -1,3 +1,12 @@
+---
+ticket: 37
+artifact_refs:
+  - category: research
+    name: mmw-artifact-wiring
+    issue: 19
+    sub: artifact-inventory
+---
+
 # Plan: 产物落点数据与 `mmw artifact path`
 
 **Goal:** 一个 agent 给出产物类别和工作名后，可以用一条无副作用命令取得正确落点。

@@ -1,3 +1,8 @@
+---
+ticket: 39
+artifact_refs: []
+---
+
 # Plan: mmw dispatch 接口变更与角色报告不落盘
 
 **Goal:** `mmw dispatch` 直接接收四栏 task 正文。各宿主 adapter 收到相同正文。角色报告只走标准输出。失败时只保留符合路径形状的派发进度日志。

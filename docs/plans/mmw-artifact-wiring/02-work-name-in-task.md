@@ -1,3 +1,8 @@
+---
+ticket: 40
+artifact_refs: []
+---
+
 # Plan: 工作名贯穿任务分支
 
 **Goal:** 每棵已绑定的任务 worktree 都保存并输出工作名。`mmw artifact path` 可以用这个工作名解析当前交付的产物。

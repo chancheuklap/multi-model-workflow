@@ -248,6 +248,8 @@ subagent 派发不产生自己的落点。subagent 在派它的那个任务的�
 
 `sub_fixed` 只有一个值时，`--sub` 可以缺省，命令直接用那个值。这是 `mmw artifact path spec --name X` 能返回 `docs/specs/X/spec.md` 的依据。
 
+**`context-map` 的类别根是仓库根，在数据里写成空字符串。** 上表那一格写「仓库根」是给人读的说法，数据里的 `root` 取 `""`。拼接时空字符串不产生目录段，`mmw artifact path context-map` 的相对路径输出就是 `CONTEXT-MAP.md`，不带前导斜杠也不带 `./`。落点字面值校验解析固定类别根清单时跳过空 `root`：仓库根不构成可扫描的目录前缀，把空值当前缀会让正则匹配到任意占位符。
+
 `scratch` 标 `fixed-file` 是一处需要说明的判断。它的第一层细分是固定的一组名字（`understanding.md`、`evidence/`、`questionnaire/`、`wizard/`、`diagnosis/`、`architecture-review/`、`dispatch/`），第二层才由技能当场取。标 `ad-hoc` 会让每一次 scratch 查询都输出查重提醒，而 `0011-artifact-reference-collision.md` 查实真正会撞的只有 research 主题名与 prototype 变体组两处。取舍是：scratch 的第二层撞名不做查重，代价由「scratch 不进 Git、任务结束清理」兜住——撞名波及不到任何长期产物。
 
 `status` 不是 `active` 的类别也必须列在这份数据里，否则 agent 拿到「认不出的类别名」这个回应会以为是自己拼错了，转而去试别的写法：
@@ -349,6 +351,10 @@ mmw artifact path <类别> [--name <工作名>] [--issue <编号>] [--sub <类�
 
 `mmw task state` 返回 `local` 或 `outside` 时没有地方存工作名。因此任何要往仓库写文件的技能，发现这两种返回值时先建任务工作树并定工作名，再开始工作。不保留「用临时名字只写 scratch」的做法——那条路会让一次讨论的共同理解记录和它谈出的 spec 落在两个目录里。
 
+**已经存在的任务工作树怎么补上工作名。** 当前 `mmw_task_state` 完全从 Git 推导状态，没有任何地方保存工作名。改造落地的那一刻，本机上每一棵已绑定的任务工作树都读不出工作名，而 `mmw task state` 是 `/mmw-integrate`、`/mmw-release`、`/mmw-closing`、`/mmw-implement`、`/mmw-to-plan` 五个技能的前置门。补法是在已绑定的树上重跑 `mmw task bind <当前任务分支名> <目标原文> --name <工作名>`：它写入绑定信息，不建分支也不动提交。读不出工作名时的诊断信息要点名这条命令和当前分支名，让 agent 直接照着跑。不做静默默认值，也不用分支名当替代——工作名和任务分支名是两个值，猜出来的那个会把产物写到错的目录。
+
+**只读角色在主检出上派发时算不出落点。** `mmw dispatch` 不给 `--cwd` 时工作目录就是当前检出（`mmw/cli/mmw:282`），技能源里有六处 `none` 模式的派发走这条路。主检出上 `mmw task state` 返回 `local`，落点命令必然失败。决定是：**派发进度日志算不出落点时不写日志，派发照常进行**，命令把这一句写到标准错误。理由是日志是诊断材料，不是派发的前置条件；让整次派发因为算不出一个日志目录而失败，代价大于收益。这不是静默默认值——它不回退到某个猜出来的路径，而是明确不写并说明原因。
+
 ### 6. 产物引用
 
 技能之间传产物引用，不传路径字面值。产物引用由四项构成：
@@ -448,7 +454,7 @@ tracker 正文中被下游按位置读取的节必须固定标题。生产方规
 | --- | --- |
 | map 正文 | `## Destination`、`## 工作名`、`## 分支`、`## Notes`、`## Decisions so far`、`## Not yet specified`、`## Out of scope` |
 | decision ticket 正文 | `## Question`、`## 必读材料声明` |
-| 结论评论 | `## 答案`、`## 资产精确路径`、`## 材料使用记录` |
+| 结论评论 | `## 答案`、`## 产物引用`、`## 材料使用记录` |
 | 交回评论 | `## 交回` |
 | spec issue 正文 | `## 工作名`、`## 输入出处`、`## 产物引用` |
 | tracer bullet ticket 正文 | `## 产物引用` |
@@ -466,9 +472,11 @@ tracker 正文中被下游按位置读取的节必须固定标题。生产方规
 
 不给标识时两类评论只能靠语义或位置找：结论评论现在靠「写结论的那条」（`mmw-to-spec/SKILL.md:22`），交回评论靠「最后一条评论」（`mmw-wayfinder/closing.md:9` 与 `walking.md:92`），而 `walking.md:75` 本身就允许别的会话往同一张 ticket 追加评论。交回评论里的分支名、HEAD SHA 和基点 SHA 三个值是 `mmw result verify` 与 `mmw result integrate` 的输入，取错就是在错的基点上合并代码。这三个值写在 `## 交回` 一节里，每个值一行，行首是固定的中文字段名。
 
-map 正文的 `## 产物目录` 改名为 `## 工作名`。spec issue 正文的 `## 工作名` 与 `## 输入出处` 是本次补上的两条断链：`mmw-closing/SKILL.md:96` 按节读前者而 `/mmw-to-spec` 从没写过，`mmw-to-tickets/SKILL.md:24` 按节读后者而 `/mmw-to-spec` 没承诺有这一节。
+map 正文的 `## 产物目录` 改名为 `## 工作名`。spec issue 正文的 `## 工作名` 与 `## 输入出处` 是本次补上的两条断链：`mmw-closing/SKILL.md:96` 按节读前者而 `/mmw-to-spec` 从没写过，`mmw-to-tickets/SKILL.md:24` 按节读后者而 `/mmw-to-spec` 没承诺有这一节。这两节的生产方是 `/mmw-to-spec`，跟 `## 产物引用` 一起在发布 spec issue 那一步写出，同属一份 plan 的改动。
 
-spec 的精确路径要求出现在 spec issue 正文里，但不固定成节：`mmw-start/resuming.md:22` 拿它当搜索词反查 issue，要的是字符串存在。搜索词随文件名改动，从 `docs/specs/<工作名>/<工作名>.md` 改成 `docs/specs/<工作名>/spec.md`。
+**结论评论那一节从「资产精确路径」改名为 `## 产物引用`，内容也跟着换。** 原来那一节写的是仓库路径字面，与本 spec 的核心合同直接矛盾——必读材料声明指向结论评论只传 issue 编号，下游按编号打开评论，结果拿回来的还是路径。改成产物引用之后，这条链上的每一跳都不再传路径，下游用 `mmw artifact path` 解析。另一个理由是术语：`docs/context/artifact-location.md:45` 把「精确路径」列在产物引用条目的 `_Avoid_` 里，而这是要写进 tracker 的固定字面。
+
+spec 的路径字面要求出现在 spec issue 正文里，但不固定成节：`mmw-start/resuming.md:22` 拿它当搜索词反查 issue，要的是字符串存在。搜索词随文件名改动，从 `docs/specs/<工作名>/<工作名>.md` 改成 `docs/specs/<工作名>/spec.md`。
 
 ### 9. `mmw artifact index`——长期产物的清单
 
@@ -777,7 +785,9 @@ agent 靠两层知道要查重：`mmw artifact path` 对 `ad-hoc` 类别输出�
 | 文件 | 动作 | 装什么 |
 | --- | --- | --- |
 | `mmw/cli/tests/test_artifact.sh` | 新建 | `mmw/cli/artifacts.json` 的结构完整性、安全路径段规则、`mmw artifact path` 的三种失败与无副作用、`index`、`check`、`list` 三个动作的行为 |
-| `mmw/cli/tests/test_skill_paths.sh` | 新建 | 两条正则规则。字面值清单从 `mmw/cli/artifacts.json` 与 `mmw/cli/mmw.default.json` 解析，测试里不手抄第二份。排除 `mmw/skills-src/mmw-setup/` |
+| `mmw/cli/tests/test_skill_paths.sh` | 新建 | 两条正则规则。字面值清单从 `mmw/cli/artifacts.json` 与 `mmw/cli/mmw.default.json` 解析，测试里不手抄第二份。排除两处：`mmw/skills-src/mmw-setup/` 与 `mmw/skills-src/mmw-triage/examples.md` |
+
+**扫描范围为什么排除那两处。** `mmw-setup/` 是旧背景材料，`AGENTS.md` 规定扫描技能正文时排除它。`mmw-triage/examples.md` 是上游材料，本 spec 的 Out of Scope 规定不改它的路径写法，改它要先走 `upstream-skill-fidelity`。它第 54 行写着 `` `.out-of-scope/<概念>.md` ``，正是规则一要判失败的形态。三件事同时成立就无解：规则一必红、不许改那一行、不许加豁免清单。出路只有把这份文件排出扫描范围——它与排除 `mmw-setup/` 是同一类动作，按文件来源排除，不是按命中内容开豁免。判据是这份文件由上游拥有，不由 MMW 的落点合同拥有。这两处排除写死在测试里，不接受配置项，也不随命中数量增删。
 | `mmw/cli/tests/test_issue.sh` | 延伸 | `mmw issue append` 的四步、丢行重做、重做上限、小节不存在；`mmw issue set-parent` |
 | `mmw/cli/tests/test_skill_refs.sh` | 延伸 | 第四类引用增加：技能正文里出现的类别名参数值必须在产物落点数据里认得出 |
 | `mmw/cli/tests/test_init.sh` | 延伸 | `.mmw.json` 的 `paths` 只剩四项；`.gitignore` 五项不含 `.dispatch/`；`mmw doctor` 的两组报告与退出码不变 |
@@ -837,9 +847,12 @@ decision ticket #30 的结论把这项对照交给了 spec 阶段。五项的出
 | 护栏测试 `mmw/cli/tests/guardrails.sh` | 02 只改 task 分区的断言；06 只改 dispatch 分区的五处 `--task` 调用。两段互不重叠 |
 | `AGENTS.md` | 03 改读取 ADR 那一句（随受管种子物化）；10 改唯一事实来源一段与领域上下文一段。09 不改这份文件——提交检查一段没有 Wiki 内容 |
 | wayfinder 技能源（四个文件） | 08 独占交接表、ticket 正文模板、认领步骤和 map 正文小节标题；07 只改这四个文件里其余位置的落点字面值；06 只改其中的派发动作块。**交接表那几行归 08**，07 不碰——那几行既是落点又是接线，划给谁都行，划给 08 是因为它要重写整行的语义 |
-| 其余技能源 | 03 加元数据块要求与只读例外；04 加产物引用声明、传递与校验命令行；06 只改派发动作块；07 改落点字面值、取名规则和入口分支判断；08 改对谈技能的取得事实一节与调查技能的索引那一节；09 删 `mmw-closing/SKILL.md` 与 `mmw-start/resuming.md` 里的 Wiki 步骤。六者的行互不重叠 |
+| 其余技能源 | 03 加元数据块要求与只读例外；04 加产物引用声明、传递与校验命令行；06 只改派发动作块；07 改落点字面值、取名规则和入口分支判断；08 改对谈技能的取得事实一节与调查技能的索引那一节；09 删各处 Wiki 语义。六者的行互不重叠 |
+| 收尾与恢复两份技能源 | `mmw-closing/SKILL.md` 与 `mmw-start/resuming.md` **整份归 09**，07 不碰。09 要完整重写这两份文件的流程，重写时直接用新的落点命令形态。这两处的落点行同时是 Wiki 流程步骤，两份 plan 各改一半会在集成时整段冲突，先落地的那一方被后一方覆盖 |
 
-同一个技能文件被两份 plan 碰的四处，各自分区如下：`mmw-to-spec/SKILL.md` 由 03 规定六字段取值与回填 `spec_issue`，04 加两种声明与 `mmw artifact check` 调用行；`mmw-to-plan/SKILL.md` 由 03 验证 plan 的两字段，04 传递产物引用并运行校验；`mmw-planner/references/self-check.md` 由 03 加元数据块就绪门，04 加产物引用声明自检；`mmw-closing/SKILL.md` 与 `mmw-start/resuming.md` 由 09 删 Wiki 步骤，07 改落点字面值。
+同一个技能文件被三份 plan 碰的两处，各自分区如下：`mmw-to-spec/SKILL.md` 由 03 规定六字段取值与回填 `spec_issue`，04 加两种声明、`## 工作名` 与 `## 输入出处` 两节的生产、`mmw artifact check` 调用行与 `mmw issue set-parent` 调用行，07 改落点字面值、取名规则与入口分支判断；`mmw-to-plan/SKILL.md` 由 03 验证 plan 的两字段，04 传递产物引用并运行校验，07 改落点字面值。
+
+被两份 plan 碰的五处：`mmw-planner/references/self-check.md` 由 03 加元数据块就绪门，04 加产物引用声明自检；`mmw-review/SKILL.md` 由 03 加只读例外，07 改落点字面值；`mmw-implement/SKILL.md` 由 04 加产物引用传递、09 删 Wiki 归档那一行，07 改落点字面值；`mmw-implement/worker-brief.md` 由 04 加产物引用解析要求，07 改落点字面值；`mmw-start/SKILL.md` 由 09 删「Wiki 写一次」那一句，07 改落点字面值。`mmw-research/MAIN.md` 与 `mmw-grilling/SKILL.md` 的 07 与 08 分区已经写在上表的「其余技能源」一行里。
 
 独占归属，没有分区问题的：产物落点数据归 01；任务状态实现归 02；14 份 ADR 与索引副本归 03；issue 实现归 05；宿主适配器与派发物化归 06；初始化实现归 09；领域文档 leaf 与 Context Map 归 10；查引用测试与落点字面值测试归 11。
 
