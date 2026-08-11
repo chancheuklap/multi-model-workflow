@@ -34,7 +34,7 @@ _Avoid_: investigation 目录、artifact 目录、调查目录
 
 **research 路径**：
 research 目录的精确仓库相对路径。它按[路径形状](./artifact-location.md)确定，类别内细分是 research 主题。
-_Avoid_: worktree 路径、任务 slug 推导路径
+_Avoid_: worktree 路径、任务分支名推导路径
 
 **evidence**：
 直接支撑结论、而且不能低成本重建的最小原始证据。外部系统实测的 evidence 经脱敏后保存在对应 research 目录的 `raw/`；界面 evidence 保存在 scratch 中，用户要求长期保留时由用户指定位置。

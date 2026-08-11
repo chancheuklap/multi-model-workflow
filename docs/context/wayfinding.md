@@ -13,15 +13,11 @@ Wayfinding 的 map 要抵达的终态。destination 固定 effort 的范围。
 _Avoid_: 目标列表、交付清单
 
 **map**：
-issue tracker 上一项 effort 的共享索引，带 `wayfinder:map` 标签。
+issue tracker 上一项 effort 的共享索引，带 `wayfinder:map` 标签。它的正文记录这项 effort 的工作名，map 创建后不再改动这个值。
 _Avoid_: Context Map、plan、仓库
 
-**产物目录**：
-仓库内一个 effort 的 prototype、research、evidence 和 scratch 共用的单个安全路径段。它写在 map 正文中，map 创建后保持不变。Decision ticket 继承产物目录，并使用自己的 `issue-<编号>` 子目录。任务 worktree、任务 slug 和 subagent 不改变这个目录。
-_Avoid_: worktree slug、任务目录
-
 **decision ticket**：
-map 下解除一个决定或其前置阻塞的子 issue，带 `wayfinder:<类型>` 标签。它继承 map 的产物目录，并记录自己的 `issue-<编号>` 子目录。
+map 下解除一个决定或其前置阻塞的子 issue，带 `wayfinder:<类型>` 标签。它继承 map 的工作名，并使用自己的范围段。
 _Avoid_: tracer bullet ticket、任务包
 
 **fog of war**：
@@ -38,6 +34,12 @@ _Avoid_: 结论评论、集成记录
 
 **路径形状**：
 (authoritative: [路径形状](./artifact-location.md))
+
+**名字段**：
+(authoritative: [名字段](./artifact-location.md))
+
+**工作名**：
+(authoritative: [工作名](./artifact-location.md))
 
 **范围段**：
 (authoritative: [范围段](./artifact-location.md))
