@@ -63,7 +63,7 @@ argument-hint: "[wayfinder] [需求、bug、issue/PR/map 编号或链接；留�
 
 类型取自第 1 步的判定结果：走 `/mmw-diagnosing-bugs` 的用 `fix`，新需求和先做原型的用 `feat`。类型同时约束范围——一个 `fix` 里混进新功能，说明当初的类型定错了，或者这次改动该拆成两个。
 
-**一个 slug 贯穿四处**：任务分支名、`docs/specs/<slug>/`、这个目录里的主文件 `<slug>.md`、Wiki 上的 `Spec-<slug>.md`。worktree 的物理目录由宿主管理，不参与任务识别。
+**一个 slug 贯穿三处**：任务分支名、`docs/specs/<slug>/`、这个目录里的主文件 `<slug>.md`。worktree 的物理目录由宿主管理，不参与任务识别。
 
 slug 的类型前缀用连字符。不带 issue 编号，不带日期。同名冲突时加一个区分词，不加序号。宿主可以在分支名前增加固定命名空间；该命名空间不属于 slug。
 
@@ -88,7 +88,7 @@ slug 的类型前缀用连字符。不带 issue 编号，不带日期。同名�
 
 两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
 
-**粒度是一份 spec 一棵树。** 这份 spec 拆出的几张 ticket 全在这棵树里按顺序做完，整体合并一次、终审一次、Wiki 写一次。确实能并行的 ticket 从当前这棵树的分支再分叉出去（判据在 `/mmw-implement`）。**分支可以嵌套，目录不嵌套**——所有 worktree 一律扁平挂在同一个落点下。
+**粒度是一份 spec 一棵树。** 这份 spec 拆出的几张 ticket 全在这棵树里按顺序做完，整体合并一次、终审一次、收尾一次。确实能并行的 ticket 从当前这棵树的分支再分叉出去（判据在 `/mmw-implement`）。**分支可以嵌套，目录不嵌套**——所有 worktree 一律扁平挂在同一个落点下。
 
 任务 worktree 在整个任务期间持久，可以跨天，中途不要清理。**新 worktree 不预先创建产物目录**：spec、plan、prototype 和审查记录的目录都在首次写入时才创建。
 
@@ -108,42 +108,50 @@ slug 的类型前缀用连字符。不带 issue 编号，不带日期。同名�
 
 # 回来接着做
 
-用户不带内容叫 `/mmw-start`，或者当前 checkout 已绑定任务分支，问的都是同一件事：这个任务现在走到哪一步。
+用户不带内容调用 `/mmw-start`，或者当前 checkout 已绑定任务分支，都是要恢复现有任务。
 
-没有状态文件要读。每一步都有一件落在 git 或 GitHub 上的产物对应它，查产物在不在就够了。
+MMW 不保存流程状态文件。使用仓库产物、审查记录和 tracker 状态判断进度。
 
-## 有哪些任务在进行
+## 找到进行中的任务
 
-运行 `git worktree list --porcelain`。已绑定分支的 linked worktree 是进行中的任务。**slug 是分支名最后一个 `/` 之后的部分**——slug 本身不含斜杠，所以有斜杠就一定是宿主的命名空间前缀（Codex App 是 `codex/`）。detached worktree 尚未绑定，不替用户猜 slug。只有一项就直接查；有多项就把分支名和进度报给用户选择。
+运行 `git worktree list --porcelain`。已绑定分支的 linked worktree 是进行中的任务。detached worktree 尚未绑定，不替用户推断任务分支名或工作名。
 
-## 一个任务走到哪一步
+进入候选 worktree 后运行 `mmw task state`。输出以 `bound` 开头时，第二个字段是任务分支名，第四个字段是工作名。
 
-审查记录目录是 `.reviews/`。按顺序查，第一个查不到的地方就是它停下的地方。
+只有一项时直接检查。存在多项时，报告每项的任务分支名、工作名和当前进度，让用户选择。
+
+## 判断一个任务的进度
+
+按表中顺序检查。每次解析产物位置都运行表内的完整命令。不要自己拼路径。
 
 | 想知道 | 怎么查 |
 | --- | --- |
-| 当初用户要的是什么 | 分支上第一个提交的正文，也就是那个空提交：`git log --reverse --format='%B' $(git merge-base HEAD <父分支>)..HEAD \| head -20`。`<父分支>` 是这条任务分支分叉出来的那条：普通任务是仓库默认分支，从 Wayfinder map 派生的是 map 分支（map 正文的 `## 分支` 一节记着它） |
-| 是不是一个 `/mmw-wayfinder` 的 effort | 有没有一张打 `wayfinder:map` 标签的 issue 指向这个 slug |
-| 这张 map 走到哪一步了 | `mmw issue children <map 编号>`：一行一张，带状态、认领人、被几张挡着 |
-| 有几张 decision ticket 在同时推进 | 查从该任务分支派生的 worktree 与结果分支。**结果分支**是派出去的角色在自己那棵树上写代码用的分支，做完由主 agent 用 `mmw result verify` 收、`mmw result integrate` 合；每个结果分支只对应一张 decision ticket |
-| spec 有没有写出来 | `docs/specs/<slug>/` 在不在，里面的文件有没有提交进分支 |
-| spec 过没过用户那道关卡 | 先反查那张 spec issue：`gh issue list --search "docs/specs/<slug>/<slug>.md" --state all --json number,title,labels`。`/mmw-to-spec` 发布时把 spec 的精确路径写进了 issue 正文，所以搜得到。它在、而且带 `ready-for-agent`，才算过了这道关卡。**下面几行里的 `<spec issue 编号>` 就是它的编号** |
-| ticket 有没有拆 | `mmw issue children <spec issue 编号>` 有没有输出 |
-| plan 写了没有 | `docs/plans/<slug>/` 在不在，里面的份数跟 ticket 数对不对得上 |
-| 合同锚点回填了没有 | spec 的 `## Cross-Plan Contract Anchors` 一节在不在、精确字段补实了没有 |
-| plan 审过没过 | 逐张读取 open tracer bullet ticket；全部带 `ready-for-agent` 才算通过 |
-| 做到第几张 ticket | `mmw issue children <spec issue 编号>`：closed 的是做完的，open 且有认领人的是正在做的 |
-| 终审有没有跑 | `.reviews/<slug>-final.md` 在不在 |
-| 有没有归档 | `mmw wiki ensure` 把 Wiki 克隆到本地并输出那个目录的路径，看该目录下 `Spec-<slug>.md` 在不在 |
+| 当初用户要什么 | 读取任务分支上的第一个空提交正文。父分支取任务实际分叉点 |
+| 是否属于 Wayfinding effort | 查是否有一张带 `wayfinder:map` 标签的 issue 点名该工作名 |
+| map 走到哪里 | 运行 `mmw issue children <map 编号>` |
+| 共同理解记录是否仍在本机 | 运行 `mmw artifact path scratch --name <工作名> --sub understanding.md`，再检查输出路径 |
+| spec 是否已经写入仓库 | 运行 `mmw artifact path spec --name <工作名>`。检查输出路径是否存在并已提交 |
+| spec 是否通过人工审批关卡 | 用上一行的 spec 路径反查 spec issue。issue 存在且带 `ready-for-agent` 才算通过 |
+| tracer bullet ticket 是否已经拆出 | 运行 `mmw issue children <spec issue 编号>` |
+| 每份 plan 是否已经写入仓库 | 从每张 tracer bullet ticket 取得计划文件名。逐份运行 `mmw artifact path plan --name <工作名> --sub <计划文件>`，再检查输出路径 |
+| 共同理解审是否跑过 | 运行 `mmw artifact path review --name <工作名> --sub understanding.md`，再检查输出路径 |
+| spec 审是否跑过 | 运行 `mmw artifact path review --name <工作名> --sub spec.md`，再检查输出路径 |
+| plan 审是否跑过 | 运行 `mmw artifact path review --name <工作名> --sub plan.md`，再检查输出路径 |
+| 做到哪张 ticket | 运行 `mmw issue children <spec issue 编号>`。closed 表示完成；open 且有人认领表示正在处理 |
+| final 终审是否跑过 | 运行 `mmw artifact path review --name <工作名> --sub final.md`，再检查输出路径 |
+| 当前还有哪些过程材料 | 先运行 `mmw artifact path scratch --name <工作名> --sub evidence`，从输出取得 scratch 父目录。对每个实际条目再次运行对应的完整 `mmw artifact path scratch … --sub <类别内细分>` 命令 |
+| 长期文档是否仍在仓库 | 再次运行 spec 与每份 plan 的落点命令。全部输出路径都必须存在并已提交 |
 
-审查记录目录随 worktree 存活，不进 Git。它是空的不代表没做过，只代表这台机器上这一轮没做过。以提交记录和 issue 状态为准。
+Wayfinding decision ticket 的 scratch 检查必须加入 `--issue <编号>`。命令形态是 `mmw artifact path scratch --name <工作名> --issue <编号> --sub <类别内细分>`。
 
-spec 文件已经提交、issue 却还没发布，是个中间状态：用户可能刚点完头，也可能还没看过。这时按没过这道关卡处理，重新给他看一次。
+审查记录和 scratch 随 worktree 存活，不进入 Git。它们缺失只说明本机没有对应过程材料。spec、plan、提交记录和 tracker 状态才是长期依据。
 
-有 open tracer bullet ticket 缺少 `ready-for-agent` 时，回 `/mmw-to-plan`。全部齐全后，才进入 `/mmw-implement`。
+spec 已提交但 spec issue 未发布时，按尚未通过人工审批关卡处理。重新向用户展示 spec。
+
+任何 open tracer bullet ticket 缺少 `ready-for-agent` 时，回 `/mmw-to-plan`。全部具备后才进入 `/mmw-implement`。
 
 ## 查完之后
 
-用业务语言报三句：这个任务当初要做什么、现在完成了哪些、下一步归谁。然后调起下一步该走的那个技能接着走。
+用业务语言报告三项：任务目标、已完成内容、下一步归属。然后调起下一步技能。
 
-用户报的 slug 在任务分支和 worktree 清单中都找不到，按新任务处理，回 `SKILL.md` 第 1 步。
+用户给出的任务分支名和工作名都不在 worktree 清单中时，按新任务处理，回 `SKILL.md` 第 1 步。

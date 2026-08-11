@@ -136,7 +136,7 @@ spec 分支通过合同门，或者 agent brief 分支完成第 5 步后，按 `
 | 第 6 步有合同 grep 不到行号 | **停**：报是哪条合同、提供方或消费方缺在哪 |
 | 审出了采信的 findings | **自己继续**：按第 7 步一次性修复并验证；有一条没修好就停，不再审 |
 | 审完没有采信项，或者采信项已经修复并验证，而且这次改动碰了带出包配置的产品 | **移交**：`$mmw:mmw-release`，先把安装包出出来。同时告诉它这次是有 spec 还是只有 agent brief——它收尾要按这个分岔。仓库里有没有出包配置，跑 `grep -rl '"product"' --include='*.release-adapter.json' .` |
-| 审完没有采信项，或者采信项已经修复并验证；这次不用出包，而且有 spec | **移交**：`$mmw:mmw-closing`，把 spec 与 plan 归档到 Wiki、删掉本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`，再交回用户合并 |
+| 审完没有采信项，或者采信项已经修复并验证；这次不用出包，而且有 spec | **移交**：`$mmw:mmw-closing`，让 spec 与 plan 长期留在仓库的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`，只清理当前任务的过程材料，再交回用户合并 |
 | 审完没有采信项，或者采信项已经修复并验证；这次不用出包，而且只有 agent brief | **停**：报告实现结果、验证证据和当前分支 HEAD。这项任务没有 spec，不走 `$mmw:mmw-closing`；分支已就绪，交回用户集成 |
 | 第 1 步有一项前置不满足 | **停**：说清是哪一项，按第 1 步表中的出口回 `$mmw:mmw-triage`、`$mmw:mmw-to-spec`、`$mmw:mmw-to-tickets` 或 `$mmw:mmw-to-plan` |
 | `worker` 卡在 ticket 与代码互相矛盾上 | **停**：把矛盾交给用户，不要换一个 `worker` 再派一遍 |

@@ -70,6 +70,9 @@ git add CLAUDE.md && git commit -qm "加 CLAUDE.md"
 "$MMW" init > "$WORK/out1" 2>&1
 
 check "生成了 .mmw.json" "yes" "$([ -f .mmw.json ] && echo yes || echo no)"
+check "新配置的 paths 只有四个工作目录根" "release,reviews,scratch,worktrees" \
+  "$(jq -r '.paths | keys | join(",")' .mmw.json)"
+check "新配置没有顶层 wiki" "false" "$(jq 'has("wiki")' .mmw.json)"
 check "铺了 TESTING.md 骨架" "yes" "$([ -f TESTING.md ] && echo yes || echo no)"
 check "TESTING.md 是骨架不是填好的" "yes" \
   "$(grep -q '例如' TESTING.md && echo yes || echo no)"
@@ -77,15 +80,16 @@ check "TESTING.md 是骨架不是填好的" "yes" \
 # 上去,别人拉下来就是一堆跟他无关的中间产物。清单从 .mmw.json 读出来比对,不在这里
 # 手抄第二份:抄一份的话,加一个路径就得改两处,漏改的那天测试还是绿的。
 missing=""
-for key in worktrees reviews release; do
+for key in worktrees reviews release scratch; do
   p="$(jq -r ".paths[\"$key\"]" .mmw.json)/"
   grep -qxF "$p" .gitignore || missing="$missing $key"
 done
-grep -qxF '.dispatch/' .gitignore || missing="$missing dispatch"
 # 图谱几十兆、每次改代码都变。漏掉这一行，第一次建完图它就跟着下一次提交进版本库，
 # 而那时没有任何一处会提醒。
 grep -qxF 'graphify-out/' .gitignore || missing="$missing graphify-out"
 check "配置里声明的过程目录都被 gitignore 挡住" "" "$missing"
+check "gitignore 不再忽略退役的派发目录" "0" \
+  "$(grep -cxF '.dispatch/' .gitignore || true)"
 # 领域上下文块的本体写在 AGENTS.md，CLAUDE.md 只留一行 @AGENTS.md 引用过去。
 # 断标记不断标题：标题文案会改，标记是 CLI 认领这一段的凭据（见 lib/context_docs.py）。
 check "AGENTS.md 收下领域上下文块" 1 \
@@ -111,13 +115,15 @@ echo
 echo "从这个提交建 worktree，过程材料不挡清理"
 
 # 守:上面那几条只证明文件进了分支,不证明它们真管用。这一段跑一遍真实路径——
-# 建 worktree、写三种过程材料、非强制清理。gitignore 少一行,这里就会被 git 拦住。
+# 建 worktree、写四个工作目录根的过程材料、非强制清理。gitignore 少一行,这里就会被 git 拦住。
 git worktree add -q "$WORK/one-wt" -b task-x
-mkdir -p "$WORK/one-wt/.reviews" "$WORK/one-wt/.dispatch" "$WORK/one-wt/.release/delivered"
+mkdir -p "$WORK/one-wt/.reviews" "$WORK/one-wt/.scratch/session" \
+  "$WORK/one-wt/.release/delivered" "$WORK/one-wt/.worktrees/child"
 printf 'x\n' > "$WORK/one-wt/.reviews/r.md"
-printf 'x\n' > "$WORK/one-wt/.dispatch/b.md"
+printf 'x\n' > "$WORK/one-wt/.scratch/session/note.md"
 printf '{}\n' > "$WORK/one-wt/.release/delivered/p.json"
-check "worktree 里这三样都被忽略" "" "$(git -C "$WORK/one-wt" status --porcelain)"
+printf 'x\n' > "$WORK/one-wt/.worktrees/child/state"
+check "worktree 里四个工作目录根都被忽略" "" "$(git -C "$WORK/one-wt" status --porcelain)"
 set +e
 git worktree remove "$WORK/one-wt" > "$WORK/wtrm" 2>&1
 rc=$?
@@ -143,6 +149,57 @@ check "gitignore 不重复追加" "" "$(sort .gitignore | uniq -d | tr '\n' ' ' 
 check "领域上下文块不追加第二份" 1 \
   "$(grep -c 'MMW-DOMAIN-CONTEXT-START' AGENTS.md)"
 check "标签一个都不再建" 0 "$(grep -c . "$MMW_TEST_CREATED" || true)"
+
+echo
+echo "迁移已有配置"
+
+newrepo legacy-config
+cp "$HERE/../mmw.default.json" .mmw.json
+jq '
+  .paths.scratch = ".private-scratch" |
+  .paths.reviews = ".private-reviews" |
+  .paths.release = ".private-release" |
+  .paths.worktrees = ".private-worktrees" |
+  .paths.specs = "old-specs" |
+  .paths.plans = "old-plans" |
+  .paths.prototypes = "old-prototypes" |
+  .paths.research = "old-research" |
+  .paths.evidence = "old-evidence"
+' .mmw.json > .mmw.json.next
+mv .mmw.json.next .mmw.json
+git add .mmw.json && git commit -qm "加旧配置"
+"$MMW" init > "$WORK/out-legacy-config" 2>&1
+check "迁移后 paths 只有四个工作目录根" "release,reviews,scratch,worktrees" \
+  "$(jq -r '.paths | keys | join(",")' .mmw.json)"
+check "迁移保留四个工作目录根的现有取值" \
+  ".private-scratch,.private-reviews,.private-release,.private-worktrees" \
+  "$(jq -r '[.paths.scratch, .paths.reviews, .paths.release, .paths.worktrees] | join(",")' .mmw.json)"
+check "迁移删除五个旧路径键" "0" \
+  "$(jq '[.paths.specs, .paths.plans, .paths.prototypes, .paths.research, .paths.evidence] | map(select(. != null)) | length' .mmw.json)"
+check "迁移删除顶层 wiki" "false" "$(jq 'has("wiki")' .mmw.json)"
+
+jq '.wiki = null' .mmw.json > .mmw.json.next
+mv .mmw.json.next .mmw.json
+git add .mmw.json && git commit -qm "加空的 wiki 键"
+"$MMW" init > "$WORK/out-null-wiki" 2>&1
+check "迁移删除值为空的顶层 wiki 键" "false" "$(jq 'has("wiki")' .mmw.json)"
+
+jq '
+  .paths.specs = null |
+  .paths.plans = null |
+  .paths.prototypes = null |
+  .paths.research = null |
+  .paths.evidence = null |
+  .paths.investigations = null
+' .mmw.json > .mmw.json.next
+mv .mmw.json.next .mmw.json
+git add .mmw.json && git commit -qm "加值为空的旧路径键"
+"$MMW" init > "$WORK/out-null-legacy-paths" 2>&1
+check "迁移删除值为空的旧路径键" "" \
+  "$(jq -r '.paths | keys - ["release", "reviews", "scratch", "worktrees"] | join(",")' .mmw.json)"
+check "迁移值为空的旧路径键时保留四个工作目录根的现有取值" \
+  ".private-scratch,.private-reviews,.private-release,.private-worktrees" \
+  "$(jq -r '[.paths.scratch, .paths.reviews, .paths.release, .paths.worktrees] | join(",")' .mmw.json)"
 
 echo
 echo "两份都没有"
@@ -208,6 +265,147 @@ git add CLAUDE.md docs && git commit -qm "加 CLAUDE.md 与旧 docs/agents"
 check "报出来" 1 "$(grep -c '旧副本' "$WORK/out4")"
 check "但不删" "yes" \
   "$([ -f docs/agents/issue-tracker.md ] && echo yes || echo no)"
+
+echo
+echo "doctor 只读报告"
+
+# doctor 会真的运行 MCP 探针。这里替换三个外部服务器进程，保留探针、合同校验和
+# doctor 本身。每个替身只返回该服务器公开合同里的工具集合。
+export MMW_TEST_PYTHON3="$(command -v python3)"
+cat > "$WORK/bin/serena" <<'STUB'
+#!/usr/bin/env bash
+cat > /dev/null
+printf '%s\n' '{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"find_implementations"},{"name":"find_referencing_symbols"},{"name":"find_symbol"},{"name":"get_symbols_overview"}]}}'
+STUB
+cat > "$WORK/bin/npx" <<'STUB'
+#!/usr/bin/env bash
+cat > /dev/null
+printf '%s\n' '{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"query-docs"},{"name":"resolve-library-id"}]}}'
+STUB
+cat > "$WORK/bin/python3" <<'STUB'
+#!/usr/bin/env bash
+case "${1:-}" in
+  */mcp/graphify_mcp.py)
+    cat > /dev/null
+    printf '%s\n' '{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"graphify"}]}}'
+    ;;
+  *) exec "$MMW_TEST_PYTHON3" "$@" ;;
+esac
+STUB
+cat > "$WORK/bin/git-credential-mmw-test" <<'STUB'
+#!/usr/bin/env bash
+if [ "${1:-}" = "get" ]; then
+  printf 'username=test\npassword=test\n'
+fi
+STUB
+cat > "$WORK/bin/codex" <<'STUB'
+#!/usr/bin/env bash
+exit 0
+STUB
+chmod +x "$WORK/bin/serena" "$WORK/bin/npx" "$WORK/bin/python3" \
+  "$WORK/bin/git-credential-mmw-test" "$WORK/bin/codex"
+
+export MMW_HOST=claude-code
+export GIT_CONFIG_GLOBAL="$WORK/gitconfig-global" GIT_CONFIG_SYSTEM=/dev/null
+: > "$GIT_CONFIG_GLOBAL"
+mkdir -p "$CODEX_HOME/skills/mmw-reviewer"
+
+newrepo doctor
+"$MMW" init > "$WORK/out-doctor-init" 2>&1
+git config credential.helper "$WORK/bin/git-credential-mmw-test"
+
+set +e
+"$MMW" doctor > "$WORK/out-doctor-clean" 2>&1
+clean_rc=$?
+set -e
+if [ "$clean_rc" -ne 0 ]; then
+  sed 's/^/       /' "$WORK/out-doctor-clean" >&2
+fi
+check "没有遗留项时 doctor 通过" "零" "$(nonzero "$clean_rc")"
+check "推送鉴权成功输出保持不变" 1 \
+  "$(grep -cxF '推送鉴权 : github.com 的 https 凭据有人答得上' "$WORK/out-doctor-clean" || true)"
+
+mkdir -p docs/evidence .dispatch docs/specs/legacy-spec \
+  docs/plans/legacy-plan docs/research/legacy-research \
+  .scratch/old-internal .reviews/old-internal
+printf 'old\n' > docs/evidence/screenshot.png
+printf 'old\n' > .dispatch/task.txt
+printf 'old\n' > docs/specs/legacy-spec/legacy-spec.md
+printf 'normal\n' > docs/plans/legacy-plan/01-plan.md
+printf 'normal\n' > docs/research/legacy-research/report.md
+printf 'normal\n' > .scratch/old-internal/note.md
+printf 'normal\n' > .reviews/old-internal/review.md
+jq '
+  .paths.specs = "old-specs" |
+  .paths.plans = "old-plans" |
+  .paths.prototypes = "old-prototypes" |
+  .paths.research = "old-research" |
+  .paths.evidence = "old-evidence" |
+  .wiki = {"kind": "github-wiki"}
+' .mmw.json > .mmw.json.next
+mv .mmw.json.next .mmw.json
+git add .mmw.json && git commit -qm "恢复遗留配置"
+
+snapshot_tree() {
+  {
+    find . -path './.git' -prune -o -type d -print
+    find . -path './.git' -prune -o -type f -print
+    find . -path './.git' -prune -o -type f -exec shasum {} \;
+  } | LC_ALL=C sort
+}
+before_doctor="$(snapshot_tree)"
+set +e
+"$MMW" doctor > "$WORK/out-doctor-legacy" 2>&1
+legacy_rc=$?
+set -e
+after_doctor="$(snapshot_tree)"
+
+check "遗留报告不改变 doctor 的通过退出码" "零" "$(nonzero "$legacy_rc")"
+check "报告退役的证据目录" 1 \
+  "$(grep -cxF '历史产物 : 已退役路径 docs/evidence/' "$WORK/out-doctor-legacy" || true)"
+check "报告退役的派发目录" 1 \
+  "$(grep -cxF '历史产物 : 已退役路径 .dispatch/' "$WORK/out-doctor-legacy" || true)"
+check "报告旧文件名的 spec" 1 \
+  "$(grep -cxF '历史产物 : 已退役路径 docs/specs/legacy-spec/legacy-spec.md' "$WORK/out-doctor-legacy" || true)"
+for key in specs plans prototypes research evidence; do
+  check "报告退役配置 paths.$key" 1 \
+    "$(grep -cxF "遗留配置 : .mmw.json 的 paths.$key 已退役" "$WORK/out-doctor-legacy" || true)"
+done
+check "报告退役配置 wiki" 1 \
+  "$(grep -cxF '遗留配置 : .mmw.json 的 wiki 已退役' "$WORK/out-doctor-legacy" || true)"
+check "不报告 plan 名字段" 0 \
+  "$(grep -cF 'docs/plans/legacy-plan' "$WORK/out-doctor-legacy" || true)"
+check "不报告 research 名字段" 0 \
+  "$(grep -cF 'docs/research/legacy-research' "$WORK/out-doctor-legacy" || true)"
+check "不报告 scratch 内部细分" 0 \
+  "$(grep -cF '.scratch/old-internal' "$WORK/out-doctor-legacy" || true)"
+check "不报告 reviews 内部细分" 0 \
+  "$(grep -cF '.reviews/old-internal' "$WORK/out-doctor-legacy" || true)"
+check "doctor 不修改配置或历史产物" "$before_doctor" "$after_doctor"
+
+set +e
+"$MMW" init > "$WORK/out-doctor-migrate" 2>&1
+doctor_init_rc=$?
+set -e
+if [ "$doctor_init_rc" -ne 0 ]; then
+  sed 's/^/       /' "$WORK/out-doctor-migrate" >&2
+fi
+check "doctor 报告后 init 仍通过" "零" "$(nonzero "$doctor_init_rc")"
+check "doctor 报告后 init 删除六个退役配置键" "0" \
+  "$(jq '[.paths.specs, .paths.plans, .paths.prototypes, .paths.research, .paths.evidence, .wiki] | map(select(. != null)) | length' .mmw.json)"
+check "init 不删除已有派发目录" "yes" "$([ -d .dispatch ] && echo yes || echo no)"
+check "init 不删除已有证据目录" "yes" "$([ -d docs/evidence ] && echo yes || echo no)"
+
+git config --unset-all credential.helper
+set +e
+"$MMW" doctor > "$WORK/out-doctor-no-auth" 2>&1
+no_auth_rc=$?
+set -e
+check "缺少推送凭据时 doctor 仍失败" "非零" "$(nonzero "$no_auth_rc")"
+check "推送鉴权修复命令保持不变" 1 \
+  "$(grep -c '推送鉴权.*gh auth setup-git' "$WORK/out-doctor-no-auth" || true)"
+check "推送鉴权提示不再限定 Wiki" 0 \
+  "$(grep -c '推 Wiki 要它' "$WORK/out-doctor-no-auth" || true)"
 
 echo
 echo "过 ${pass}，失败 ${fail}"
