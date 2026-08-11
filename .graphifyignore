@@ -8,5 +8,10 @@
 # 不排除的话每个符号在图里有两份，查询预算全花在重复节点上。
 /mmw/skill-rebuilds/
 
+# 任务 worktree 是一整份代码副本。mmw init 要求这一行
+# （mmw/cli/lib/init.sh:214-236 按 .mmw.json 的 paths.worktrees 写入）。
+# 不排除的话，每开一棵 worktree 图里就多一份重复节点。
+/.worktrees/
+
 /archive/
 /.pi-subagents/
