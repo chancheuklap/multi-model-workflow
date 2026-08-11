@@ -31,6 +31,14 @@ mmw_issue_dbid() {
   gh api "repos/$(mmw_gh_repo)/issues/$1" --jq .id
 }
 
+mmw_issue_set_parent_edge() {
+  local child="$1" parent="$2" repo child_id
+  repo="$(mmw_gh_repo)"
+  child_id="$(mmw_issue_dbid "$child")"
+  gh api --method POST "repos/$repo/issues/$parent/sub_issues" \
+    -F "sub_issue_id=$child_id" > /dev/null
+}
+
 # 父 issue 的全部子 issue，一行一个 JSON 对象，按编号升序。
 # sub_issues 端点返回的对象不一定带依赖摘要，缺了就逐个补齐。
 #
@@ -131,17 +139,14 @@ mmw_issue_create() {
   [ -n "$body_file" ] || { echo "mmw: issue create 要 --body-file" >&2; return 2; }
   [ -f "$body_file" ] || { echo "mmw: 正文文件不存在：$body_file" >&2; return 1; }
 
-  local repo url n
-  repo="$(mmw_gh_repo)"
-
+  local url n
   local args=(--title "$title" --body-file "$body_file")
   [ -z "$labels" ] || args+=(--label "$labels")
   url="$(gh issue create "${args[@]}")"
   n="${url##*/}"
 
   if [ -n "$parent" ]; then
-    gh api --method POST "repos/$repo/issues/$parent/sub_issues" \
-      -F "sub_issue_id=$(mmw_issue_dbid "$n")" >/dev/null
+    mmw_issue_set_parent_edge "$n" "$parent"
   fi
 
   local b
@@ -152,4 +157,208 @@ mmw_issue_create() {
   done
 
   echo "$n"
+}
+
+# 把正文里的二级标题取成标题文字，一行一个。
+mmw_issue_h2_titles() {
+  awk '/^## / { print substr($0, 4) }' <<<"$1"
+}
+
+# 返回 first 的全部行中不在 second 里的行。重复行按出现次数分别计算。
+mmw_issue_missing_lines() {
+  awk '
+    NR == FNR {
+      count[$0]++
+      if (!($0 in seen)) {
+        seen[$0] = 1
+        order[++order_length] = $0
+      }
+      next
+    }
+    count[$0] > 0 { count[$0]-- }
+    END {
+      for (i = 1; i <= order_length; i++) {
+        for (j = 0; j < count[order[i]]; j++) {
+          print order[i]
+        }
+      }
+    }
+  ' <(printf '%s\n' "$1") <(printf '%s\n' "$2")
+}
+
+# 在指定二级标题的最后一个非空行之后插入传入的行。
+# 找不到标题时返回 3；调用方负责列出可用标题。
+mmw_issue_insert_lines() {
+  local body="$1" section="$2"
+  shift 2
+  local -a lines=("$@") body_lines=()
+  local i header=-1 last=-1 in_section=0 current
+
+  while IFS= read -r current || [ -n "$current" ]; do
+    body_lines+=("$current")
+  done <<<"$body"
+  for i in "${!body_lines[@]}"; do
+    current="${body_lines[$i]}"
+    if [ "$current" = "## $section" ]; then
+      header="$i"
+      last="$i"
+      in_section=1
+      continue
+    fi
+    if [ "$in_section" -eq 1 ] && [[ "$current" == "## "* ]]; then
+      break
+    fi
+    if [ "$in_section" -eq 1 ] && [[ "$current" =~ [^[:space:]] ]]; then
+      last="$i"
+    fi
+  done
+
+  [ "$header" -ge 0 ] || return 3
+
+  for i in "${!body_lines[@]}"; do
+    printf '%s\n' "${body_lines[$i]}"
+    if [ "$i" -eq "$last" ]; then
+      [ "${#lines[@]}" -eq 0 ] || printf '%s\n' "${lines[@]}"
+    fi
+  done
+}
+
+mmw_issue_read_body() {
+  gh api "repos/$(mmw_gh_repo)/issues/$1" --jq .body
+}
+
+mmw_issue_write_body() {
+  local n="$1" body="$2" file rc
+  file="$(mktemp "${TMPDIR:-/tmp}/mmw-issue-body.XXXXXX")"
+  printf '%s' "$body" > "$file"
+  if gh issue edit "$n" --body-file "$file" > /dev/null; then
+    rm "$file"
+    return 0
+  fi
+  rc=$?
+  rm "$file"
+  return "$rc"
+}
+
+# 追加一行：读、插入、写、等待、重读。重读同时确认旧行与新行都还在。
+mmw_issue_append() {
+  local n="$1"
+  shift
+  local section="" line="" got_section=0 got_line=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --section)
+        [ $# -ge 2 ] || { echo "mmw: issue append 要 --section" >&2; return 2; }
+        section="$2"
+        got_section=1
+        shift 2
+        ;;
+      --line)
+        [ $# -ge 2 ] || { echo "mmw: issue append 要 --line" >&2; return 2; }
+        line="$2"
+        got_line=1
+        shift 2
+        ;;
+      *) echo "mmw: issue append 认不出参数 $1" >&2; return 2 ;;
+    esac
+  done
+  [ "$got_section" -eq 1 ] && [ -n "$section" ] || {
+    echo "mmw: issue append 要 --section" >&2
+    return 2
+  }
+  [ "$got_line" -eq 1 ] && [ -n "$line" ] || {
+    echo "mmw: issue append 要 --line" >&2
+    return 2
+  }
+  case "$line" in
+    *$'\n'*) echo "mmw: issue append 的 --line 只接收单行内容" >&2; return 2 ;;
+  esac
+
+  local -a required_lines=("$line") additions=()
+  local attempt v1 v2 v3 missing_v1 candidate known new_line_present rc
+  for attempt in 0 1 2 3; do
+    if v1="$(mmw_issue_read_body "$n")"; then
+      :
+    else
+      return $?
+    fi
+    additions=()
+    for candidate in "${required_lines[@]}"; do
+      if ! grep -Fqx -- "$candidate" <<<"$v1"; then
+        additions+=("$candidate")
+      fi
+    done
+
+    if v2="$(mmw_issue_insert_lines "$v1" "$section" "${additions[@]}")"; then
+      rc=0
+    else
+      rc=$?
+    fi
+    if [ "$rc" -eq 3 ]; then
+      echo "mmw: #$n 找不到二级标题「${section}」；现有二级标题：" >&2
+      mmw_issue_h2_titles "$v1" | sed 's/^/  /' >&2
+      return 1
+    fi
+    [ "$rc" -eq 0 ] || return "$rc"
+
+    mmw_issue_write_body "$n" "$v2" || return $?
+    sleep 2 || return $?
+    if v3="$(mmw_issue_read_body "$n")"; then
+      :
+    else
+      return $?
+    fi
+    if missing_v1="$(mmw_issue_missing_lines "$v1" "$v3")"; then
+      :
+    else
+      return $?
+    fi
+    if grep -Fqx -- "$line" <<<"$v3"; then
+      new_line_present=1
+    else
+      new_line_present=0
+    fi
+    if [ -z "$missing_v1" ] && [ "$new_line_present" -eq 1 ]; then
+      echo "#$n 已向「${section}」追加一行"
+      return 0
+    fi
+
+    if [ -n "$missing_v1" ]; then
+      while IFS= read -r known || [ -n "$known" ]; do
+        [ -n "$known" ] || continue
+        local duplicate=0
+        for candidate in "${required_lines[@]}"; do
+          [ "$candidate" = "$known" ] && duplicate=1
+        done
+        [ "$duplicate" -eq 1 ] || required_lines+=("$known")
+      done <<<"$missing_v1"
+    fi
+
+    if [ "$attempt" -eq 3 ]; then
+      echo "mmw: #$n 重做 3 次后仍不一致；缺失行：" >&2
+      [ -z "$missing_v1" ] || printf '%s\n' "$missing_v1" >&2
+      [ "$new_line_present" -eq 1 ] || printf '%s\n' "$line" >&2
+      return 1
+    fi
+  done
+}
+
+# 给已存在的 issue 设置父 issue。端点不可用时直接把错误交给调用方。
+mmw_issue_set_parent() {
+  local child="$1"
+  shift
+  local parent=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --parent)
+        [ $# -ge 2 ] || { echo "mmw: issue set-parent 要 --parent" >&2; return 2; }
+        parent="$2"
+        shift 2
+        ;;
+      *) echo "mmw: issue set-parent 认不出参数 $1" >&2; return 2 ;;
+    esac
+  done
+  [ -n "$parent" ] || { echo "mmw: issue set-parent 要 --parent" >&2; return 2; }
+  mmw_issue_set_parent_edge "$child" "$parent" || return $?
+  echo "#$child 已挂到 #$parent 下"
 }
