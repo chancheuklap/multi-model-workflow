@@ -1,3 +1,8 @@
+---
+date: 2026-08-11
+amends: []
+---
+
 # decision ticket 自己声明必读材料，wayfinder 交接按它传
 
 一张 decision ticket 解开之后产生的结论，没有任何一步会送到后面那张 ticket 手里：`mmw/skills-src/mmw-wayfinder/charting.md` 第 4 步规定 ticket 正文「只写 `Question`」，`walking.md:46-51` 的四行交接表里 `wayfinder:grilling` 一行只有「调用」两个字。现在改为：decision ticket 正文增加**必读材料声明**一节，建 ticket 的会话写当时已知的，认领它的会话在开工前补进 blocker 关闭后新产生的材料；wayfinder 交接的四行一律把这一节的产物引用传给下游技能。理由是「这张 ticket 该读哪几节」是写的人的判断，从 map 上算不出来。

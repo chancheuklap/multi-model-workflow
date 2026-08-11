@@ -1,3 +1,8 @@
+---
+date: 2026-08-11
+amends: []
+---
+
 # research 索引的章节指引只指路，不限定读取范围
 
 `mmw/skills-src/mmw-research/MAIN.md:106` 规定 research 索引必写「下游怎么用」，写法是由写 research 的一方点名哪几张 decision ticket 该读哪几节。`0012-ticket-consumption-declaration.md` 定的必读材料声明方向相反：decision ticket 自己声明要读哪几件产物。两条同时存在。现在改为：两条并存，各管一层——必读材料声明是产物级合同，章节指引是 research 报告内部的地图；章节指引不再点名 decision ticket 编号，也不再限定读哪几节，两边不一致时以必读材料声明为准。理由是它们回答的不是同一个问题：一个是「读哪几件产物」，一个是「这件产物里哪几节讲什么」。

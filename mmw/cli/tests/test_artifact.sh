@@ -50,6 +50,10 @@ capture() {
   fi
 }
 
+copy_stamp() {
+  python3 -c 'import os, sys; state = os.stat(sys.argv[1]); print(f"{state.st_mtime_ns}:{state.st_ino}")' "$1"
+}
+
 expect_path() {
   local label="$1" want="$2"
   shift 2
@@ -187,6 +191,98 @@ top_commands="$(sed -n '/^case "${1:-}" in$/,/^esac$/p' "$MMW" | sed -nE 's/^  (
 contains "顶层分发解析到 artifact" "artifact" "$top_commands"
 artifact_actions="$(sed -n '/^cmd_artifact() {$/,/^}$/p' "$MMW" | sed -nE 's/^    ([a-z-]+)\).*/\1/p')"
 contains "artifact 动作解析到 path" "path" "$artifact_actions"
+contains "artifact 动作解析到 index" "index" "$artifact_actions"
+
+echo
+echo "artifact index"
+mkdir -p docs/adr docs/specs/alpha docs/specs/beta
+printf '%s\n' \
+  '---' \
+  'date: 2026-08-11' \
+  'amends: []' \
+  '---' \
+  '# 初始决定' > docs/adr/0001-initial.md
+printf '%s\n' \
+  '---' \
+  'date: 2026-08-12' \
+  'amends: [1]' \
+  '---' \
+  '# 后续决定' > docs/adr/0002-follow-up.md
+printf '%s\n' \
+  '---' \
+  'slug: alpha' \
+  'summary: Alpha spec' \
+  'date: 2026-08-11' \
+  'branch: task-alpha' \
+  'spec_issue: 31' \
+  'artifact_refs: []' \
+  '---' \
+  '# Alpha spec' > docs/specs/alpha/spec.md
+printf '%s\n' \
+  '---' \
+  'slug: beta' \
+  'summary: Beta spec' \
+  'date: 2026-08-12' \
+  'branch: task-beta' \
+  'spec_issue: 32' \
+  'artifact_refs: []' \
+  '---' \
+  '# Beta spec' > docs/specs/beta/spec.md
+
+expected_adr=$'# ADR 索引\n\n由 `mmw artifact index adr` 生成。\n\n| 编号 | 标题 | 日期 | 改写了哪几份 | 被哪几份改写 |\n| --- | --- | --- | --- | --- |\n| 0001 | 初始决定 | 2026-08-11 | 无 | 0002 |\n| 0002 | 后续决定 | 2026-08-12 | 0001 | 无 |'
+expected_spec=$'# spec 索引\n\n由 `mmw artifact index spec` 生成。\n\n| 工作名 | 摘要 | 日期 | 任务分支名 | spec issue 编号 |\n| --- | --- | --- | --- | --- |\n| alpha | Alpha spec | 2026-08-11 | task-alpha | 31 |\n| beta | Beta spec | 2026-08-12 | task-beta | 32 |'
+
+capture "ADR 当场计算" "$MMW" artifact index adr
+check "ADR 当场计算退出码" "0" "$LAST_STATUS"
+check "ADR 当场计算标准输出" "$expected_adr" "$(cat "$LAST_OUT")"
+check "ADR 当场计算标准错误" "" "$(cat "$LAST_ERR")"
+check "ADR 副本与输出逐字节相同" "true" "$(cmp -s "$LAST_OUT" docs/adr/README.md && echo true || echo false)"
+
+capture "spec 当场计算" "$MMW" artifact index spec
+check "spec 当场计算退出码" "0" "$LAST_STATUS"
+check "spec 当场计算标准输出" "$expected_spec" "$(cat "$LAST_OUT")"
+check "spec 当场计算标准错误" "" "$(cat "$LAST_ERR")"
+check "spec 副本与输出逐字节相同" "true" "$(cmp -s "$LAST_OUT" docs/specs/README.md && echo true || echo false)"
+
+adr_copy_before="$(copy_stamp docs/adr/README.md)"
+capture "ADR 一致副本不写" "$MMW" artifact index adr
+check "ADR 一致副本不写退出码" "0" "$LAST_STATUS"
+check "ADR 一致副本不写" "$adr_copy_before" "$(copy_stamp docs/adr/README.md)"
+
+printf '过期副本\n' > docs/specs/README.md
+capture "spec 过期副本更新" "$MMW" artifact index spec
+check "spec 过期副本更新退出码" "0" "$LAST_STATUS"
+check "spec 过期副本更新" "true" "$(cmp -s "$LAST_OUT" docs/specs/README.md && echo true || echo false)"
+
+printf '旧 ADR 副本\n' > docs/adr/README.md
+chmod a-w docs/adr
+capture "ADR 不可写降级" "$MMW" artifact index adr
+chmod u+w docs/adr
+check "ADR 不可写降级退出码" "0" "$LAST_STATUS"
+check "ADR 不可写降级仍输出完整清单" "$expected_adr" "$(cat "$LAST_OUT")"
+check "ADR 不可写降级保留旧副本" "旧 ADR 副本" "$(cat docs/adr/README.md)"
+check "ADR 不可写降级标准错误一行" "1" "$(wc -l < "$LAST_ERR" | tr -d ' ')"
+contains "ADR 不可写降级标准错误说明" "跳过" "$(cat "$LAST_ERR")"
+
+capture "不支持索引类别" "$MMW" artifact index plan
+check "不支持索引类别退出码" "2" "$LAST_STATUS"
+contains "不支持索引类别说明" "adr 或 spec" "$(cat "$LAST_ERR")"
+
+printf '%s\n' \
+  '---' \
+  'amends: []' \
+  '---' \
+  '# 缺少日期' > docs/adr/0003-missing-date.md
+capture "ADR 缺字段失败" "$MMW" artifact index adr
+if [ "$LAST_STATUS" -ne 0 ]; then
+  echo "  过  ADR 缺字段失败非零退出"
+  pass=$((pass + 1))
+else
+  echo "  失败 ADR 缺字段失败非零退出" >&2
+  fail=$((fail + 1))
+fi
+contains "ADR 缺字段失败说明" "date" "$(cat "$LAST_ERR")"
+rm docs/adr/0003-missing-date.md
 
 artifact_path_dirs_before="$(find . -type d -print | sort)"
 
@@ -303,6 +399,7 @@ check "无参用法退出码" "2" "$LAST_STATUS"
 check "无参用法没有标准输出" "" "$(cat "$LAST_OUT")"
 usage_text="$(cat "$LAST_ERR")"
 contains "无参用法有 path 说明" "mmw artifact path" "$usage_text"
+contains "无参用法有 index 说明" "mmw artifact index" "$usage_text"
 contains "无参用法列出 spec 术语" $'spec\tspec' "$usage_text"
 contains "无参用法列出解释 HTML 术语" $'explanation\t解释 HTML' "$usage_text"
 contains "无参用法列出 agent brief 术语" $'agent-brief\tagent brief' "$usage_text"

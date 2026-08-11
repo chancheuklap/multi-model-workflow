@@ -5,6 +5,11 @@
 ## 模板
 
 ```markdown
+---
+ticket: <tracer bullet ticket 的 GitHub issue 编号>
+artifact_refs: []
+---
+
 # Plan: <ticket 标题>
 
 **Goal:** <这张 ticket 完成后的可观察结果>

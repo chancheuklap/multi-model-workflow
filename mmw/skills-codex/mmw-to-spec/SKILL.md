@@ -54,6 +54,8 @@ spec 的落点由任务 slug 决定。按下表取得，不要自己另起一个
 
 3. 完整读取 [spec-template.md](spec-template.md)，使用该模板编写 spec。把 spec 写入 `docs/specs/<任务 slug>/<任务 slug>.md`。
 
+   元数据块固定写六个字段。`slug` 写任务 slug。`summary` 写一句交付说明。`date` 写当天的 `YYYY-MM-DD`。`branch` 写当前任务分支名。`spec_issue` 在发布前暂写模板占位编号。`artifact_refs` 始终存在；当前没有产物引用时写 `[]`。
+
 只记录已经形成的决定。写作中发现缺少决定时，写清缺少的完整内容和已经检查的位置，然后停止。
 
 从 Wayfinder 进入时，把相关 decision ticket 中互相链接的决定综合成这一份 spec。prototype 的完整可运行资产继续留在 prototype 目录；spec 只吸收用户确认的决定，以及选中产物中能够比文字更精确地表达某项决定的片段。research 只使用主 agent 已经验证并综合的事实。
@@ -84,9 +86,9 @@ spec 的落点由任务 slug 决定。按下表取得，不要自己另起一个
 mmw issue create --title "<spec 名称>" --body-file .scratch/<任务 slug>/spec-issue-body.md --label ready-for-agent
 ```
 
-记下 `mmw issue create` 返回的 issue 编号，移交时一起交出去——下游三个技能都要用它。
+记下 `mmw issue create` 返回的 issue 编号。立刻用它替换 spec 元数据块中的 `spec_issue` 占位编号，再提交这次回填。最终 spec 不得保留占位编号。移交时把这个编号一起交出去——下游三个技能都要用它。
 
-这一步做完的标志是三件事都成立：spec 文件已经提交；这张 spec issue 的正文指向那个文件；这张 issue 带着 `ready-for-agent`。这个标签的意思是用户已经批准了这份 spec，不是说可以照着它一口气实现完。
+这一步做完的标志是四件事都成立：spec 文件已经提交，且 `spec_issue` 已回填为实际编号；这张 spec issue 的正文指向那个文件；这张 issue 带着 `ready-for-agent`。这个标签的意思是用户已经批准了这份 spec，不是说可以照着它一口气实现完。
 
 ## 下一步
 

@@ -85,7 +85,7 @@ prototype 索引字段不完整时回 `$mmw:mmw-prototype` 补齐。
 
 ## 4. 验证返回
 
-每个 `planner` 交回 `pass` 之后，验证 plan 文件存在，ticket 的每条验收都能映射到 `## Acceptance`，再抽验至少一条源码依据。读取文件并检索源码，不认「我写完了」。
+每个 `planner` 交回 `pass` 之后，验证 plan 文件存在，元数据块的 `ticket` 等于当前 ticket 编号且 `artifact_refs` 键存在，ticket 的每条验收都能映射到 `## Acceptance`，再抽验至少一条源码依据。读取文件并检索源码，不认「我写完了」。
 
 失实就把原 task 加上修复说明重派一次。交回 `needs-context` 或 `needs-repair` 的，按它说的补路径或修 spec 之后重派。
 

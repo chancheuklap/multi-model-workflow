@@ -8,6 +8,7 @@ MMW_ARTIFACT_DATA="$MMW_ROOT/cli/artifacts.json"
 usage_artifact() {
   cat >&2 <<'EOF'
 mmw artifact path <类别> [--name <工作名>] [--issue <编号>] [--sub <类别内细分>] [--absolute]
+mmw artifact index <类别>
 
 类别与术语：
 EOF
@@ -226,4 +227,13 @@ mmw_artifact_path() {
   if [ "$sub_naming" = "ad-hoc" ]; then
     echo "mmw artifact: 这一类的名字当场取，写第一个文件之前先列一次父目录" >&2
   fi
+}
+
+mmw_artifact_index() {
+  if [ "$#" -ne 1 ]; then
+    echo "mmw artifact: 用法是 mmw artifact index <类别>；类别只能是 adr 或 spec" >&2
+    return 2
+  fi
+
+  python3 "$MMW_ROOT/cli/lib/artifact_index.py" "$1" "$(mmw_repo_root)" "$MMW_ARTIFACT_DATA"
 }
