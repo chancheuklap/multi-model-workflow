@@ -19,7 +19,7 @@
 - 行为层规定下游读不到该有的那一节就停下报缺，不猜、不静默继续。aidlc 对上游缺失的规定是同一件事：不许编造缺失产物的内容。
 - 上游有产物、下游写「无」这类漏写，机器永远发现不了，由 ① spec 审和 ② plan 审发现。这是本决定接受的代价。
 - `mmw artifact path` 的 `--name` 在已绑定任务 worktree 里可以缺省，由命令读 `mmw task state` 的工作名。不在任务 worktree 或读不到工作名时报错退出，不回退默认值。读别的交付的产物必须显式给名字。
-- ADR 增加元数据块和一份自动生成的索引 `docs/adr/README.md`。`AGENTS.md` 要求 agent 读取与本次范围相关的 ADR，而 `docs/adr/` 只有文件名可看。research 与 prototype 不补总索引，它们由上游点名；`.out-of-scope/` 不补，`/mmw-triage` 分诊时整个目录读一遍。
+- ADR 增加元数据块和一份自动生成的索引 `docs/adr/README.md`。这份索引的权威形态由 Wayfinder decision ticket #31「长期产物的清单写成仓库文件还是命令当场输出」改写：权威是命令当场算出的输出，`docs/adr/README.md` 是同一次运行写下的副本。`AGENTS.md` 要求 agent 读取与本次范围相关的 ADR，而 `docs/adr/` 只有文件名可看。research 与 prototype 不补总索引，它们由上游点名；`.out-of-scope/` 不补，`/mmw-triage` 分诊时整个目录读一遍。
 - 解析发生在下游：拿到产物引用的那一方自己跑 `mmw artifact path`。aidlc-workflows v2 相反，它由引擎在上游解析好，把实际路径放进 directive 交给执行方，执行方只是传递者。MMW 没有引擎那一层，这是同一条否决理由。后果是拿到产物引用的下游必须能运行这条命令。这一条由 Wayfinder decision ticket #30「九个决定与 aidlc-workflows v2 的对照复核」补记。
 - 产物引用在元数据块和 issue 正文里的具体写法、固定标题的字面、校验命令的名字和挂载位置、ADR 元数据块的字段清单都留给 spec 阶段。本决定只定机制。
 

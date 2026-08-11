@@ -65,8 +65,8 @@ _Avoid_: 共同理解、讨论记录、审查记录
 _Avoid_: plan、Wiki 页面、讨论草稿
 
 **spec 索引**：
-仓库中一份自动生成的文件，收录全部 spec 的元数据，位于 `docs/specs/README.md`。它由一条 CLI 命令全量重建。
-_Avoid_: research 索引、tracker 索引、spec
+全部 spec 元数据的清单，由一条 CLI 命令扫描各份 spec 的元数据块当场算出。agent 读命令输出。`docs/specs/README.md` 是同一次运行写下的副本，供不运行命令的读者阅读，不是权威。plan 没有对应的索引。
+_Avoid_: research 索引、tracker 索引、spec、重建索引
 
 **tracer bullet ticket**：
 从 spec 拆出的端到端垂直切片，声明 blocking edge，并交给一名 `worker` 实现。
