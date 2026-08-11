@@ -22,26 +22,7 @@ mmw_artifact_error() {
 
 mmw_artifact_validate_segment() {
   local value="$1" label="$2"
-  if [ -z "$value" ]; then
-    mmw_artifact_error "$label 不能有空路径段"
-    return 1
-  fi
-  if [ "$value" = "." ] || [ "$value" = ".." ]; then
-    mmw_artifact_error "$label 不能是 . 或 .."
-    return 1
-  fi
-  if [[ "$value" == *[[:upper:]]* ]]; then
-    mmw_artifact_error "$label 只能用小写字母"
-    return 1
-  fi
-  if [[ ! "$value" =~ ^[a-z0-9] ]]; then
-    mmw_artifact_error "$label 首字符必须是字母或数字"
-    return 1
-  fi
-  if [[ ! "$value" =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then
-    mmw_artifact_error "$label 只能包含小写字母、数字、点、下划线和连字符"
-    return 1
-  fi
+  mmw_path_safe_segment "$value" "$label" "mmw artifact:"
 }
 
 mmw_artifact_validate_sub() {
@@ -69,6 +50,7 @@ mmw_artifact_path() {
   local name_given=false issue_given=false sub_given=false
   local has_name allows_scope sub_naming fixed_count fixed_first pattern
   local scope="" relative="" result="" part
+  local task_state task_kind task_branch task_head task_name task_extra
 
   [ -n "$category" ] || usage_artifact
   shift
@@ -153,7 +135,16 @@ mmw_artifact_path() {
   has_name="$(jq -r '.has_name' <<< "$record")"
   allows_scope="$(jq -r '.allows_scope' <<< "$record")"
   if [ "$has_name" = "true" ]; then
-    [ "$name_given" = true ] || { mmw_artifact_error "$category 要 --name <工作名>"; return 1; }
+    if [ "$name_given" = false ]; then
+      task_state="$(mmw_task_state)" || return 1
+      IFS=' ' read -r task_kind task_branch task_head task_name task_extra <<< "$task_state"
+      if [ "$task_kind" != "bound" ] || [ -z "$task_branch" ] || [ -z "$task_head" ] || \
+        [ -z "$task_name" ] || [ -n "$task_extra" ]; then
+        mmw_artifact_error "$category 要 --name <工作名>，或在带工作名的任务 worktree 里运行"
+        return 1
+      fi
+      name="$task_name"
+    fi
     mmw_artifact_validate_segment "$name" "--name" || return 1
   elif [ "$name_given" = true ]; then
     mmw_artifact_error "$category 没有名字段，不能给 --name"
