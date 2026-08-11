@@ -184,6 +184,23 @@ git add .mmw.json && git commit -qm "加空的 wiki 键"
 "$MMW" init > "$WORK/out-null-wiki" 2>&1
 check "迁移删除值为空的顶层 wiki 键" "false" "$(jq 'has("wiki")' .mmw.json)"
 
+jq '
+  .paths.specs = null |
+  .paths.plans = null |
+  .paths.prototypes = null |
+  .paths.research = null |
+  .paths.evidence = null |
+  .paths.investigations = null
+' .mmw.json > .mmw.json.next
+mv .mmw.json.next .mmw.json
+git add .mmw.json && git commit -qm "加值为空的旧路径键"
+"$MMW" init > "$WORK/out-null-legacy-paths" 2>&1
+check "迁移删除值为空的旧路径键" "" \
+  "$(jq -r '.paths | keys - ["release", "reviews", "scratch", "worktrees"] | join(",")' .mmw.json)"
+check "迁移值为空的旧路径键时保留四个工作目录根的现有取值" \
+  ".private-scratch,.private-reviews,.private-release,.private-worktrees" \
+  "$(jq -r '[.paths.scratch, .paths.reviews, .paths.release, .paths.worktrees] | join(",")' .mmw.json)"
+
 echo
 echo "两份都没有"
 # 空仓库上 init 要能一次配好，不停下来问该往哪写：块的本体固定进 AGENTS.md，

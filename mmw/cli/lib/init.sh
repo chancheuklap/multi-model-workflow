@@ -29,7 +29,8 @@ mmw_init_config() {
   if [ -f "$config" ]; then
     if jq -e '
       (.paths.scratch != null and .paths.reviews != null and .paths.release != null and .paths.worktrees != null)
-      and ([.paths.specs, .paths.plans, .paths.prototypes, .paths.research, .paths.evidence, .paths.investigations] | all(. == null))
+      and ((.paths // {}) | [has("specs"), has("plans"), has("prototypes"),
+                             has("research"), has("evidence"), has("investigations")] | all(. == false))
       and (has("wiki") | not)
       and (.models == null)
     ' "$config" >/dev/null 2>&1; then
