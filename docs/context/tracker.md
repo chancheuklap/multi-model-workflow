@@ -56,6 +56,6 @@ _Avoid_: 读取、开始 research
 一个父 issue 下 open、无阻塞、未认领的子 issue。
 _Avoid_: issue 顺序、全部未完成项
 
-**`.out-of-scope/`**：
+**否决记录**：
 保存已明确否决的 enhancement 及理由。
 _Avoid_: backlog、`wontfix` issue 副本、已实现行为
