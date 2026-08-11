@@ -9,7 +9,7 @@
 #   1. 要连着发好几个请求、或要先取中间值（如 GitHub 的 database id）；
 #   2. 是护栏：在破坏性动作前做 agent 容易偷懒跳过的完整性校验；
 #   3. 是宿主机械差异的唯一落点（派发、物化、体检）；
-#   4. 目标系统没有 API，只能用固定套路操作（如 GitHub Wiki）。
+#   4. 目标系统没有 API，只能用固定套路操作。
 # 已有子命令越出这条线时删掉它，不加例外。
 #
 # 这里也不放 git push、不放远端合并、不放部署。宿主的命令白名单一旦放行
@@ -29,8 +29,6 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$MMW_ROOT/cli/lib/task.sh"
 # shellcheck source=lib/issue.sh
 . "$MMW_ROOT/cli/lib/issue.sh"
-# shellcheck source=lib/wiki.sh
-. "$MMW_ROOT/cli/lib/wiki.sh"
 # shellcheck source=lib/domain.sh
 . "$MMW_ROOT/cli/lib/domain.sh"
 # shellcheck source=lib/graph.sh
@@ -56,7 +54,6 @@ mmw <命令> [参数]
   task        任务 worktree：查状态、建、绑分支、删
   result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
-  wiki        Wiki：clone、重建导航、删本地文档前的验证
   domain      领域文档：初始化 Map、同步和检查消费合同、查询落点与 ADR 编号
   graph       结构图谱：状态、建一次、验证建对了
   toolchain   语言工具链：探测该配哪些语言服务器与检查器，报缺失与版本不对齐
@@ -175,17 +172,6 @@ mmw issue set-parent <子 issue 编号> --parent <父 issue 编号>
     整份替换正文      有意替换整份正文时，先读最新正文，再用 gh issue edit <编号> --body-file <文件>
                       例如修改 Destination 小节。
     关 issue          gh issue close <编号>
-EOF
-  return 2
-}
-
-usage_wiki() {
-  cat >&2 <<'EOF'
-mmw wiki ensure         clone 或 pull Wiki，输出本地路径
-mmw wiki nav            从各页面重新生成 Home.md 与 _Sidebar.md
-mmw wiki verify <slug>  删本地文档前那三条验证
-
-推 Wiki 是对外发布，要用户点头，这里不做。
 EOF
   return 2
 }
@@ -490,17 +476,6 @@ cmd_issue() {
   esac
 }
 
-cmd_wiki() {
-  local sub="${1:-}"
-  shift || true
-  case "$sub" in
-    ensure) mmw_wiki_ensure ;;
-    nav) mmw_wiki_nav ;;
-    verify) [ -n "${1:-}" ] || usage_wiki; mmw_wiki_verify "$1" ;;
-    *) usage_wiki ;;
-  esac
-}
-
 cmd_domain() {
   local sub="${1:-}"
   shift || true
@@ -598,7 +573,7 @@ cmd_toolchain() {
 }
 
 cmd_doctor() {
-  local host status=0 domain_ready=0 repair
+  local host status=0 domain_ready=0 repair repo_root="" config_path="" legacy_path legacy_spec key
   repair="$(mmw_install_repair_command)"
   echo "CLI      : ${BASH_SOURCE[0]} -> $MMW_ROOT"
   if host="$(mmw_host 2>/dev/null)"; then
@@ -608,9 +583,11 @@ cmd_doctor() {
     status=1
   fi
   if git rev-parse --show-toplevel >/dev/null 2>&1; then
-    echo "仓库     : $(mmw_repo_root)"
-    if [ -f "$(mmw_config_path)" ]; then
-      echo "配置     : $(mmw_config_path)"
+    repo_root="$(mmw_repo_root)"
+    config_path="$(mmw_config_path)"
+    echo "仓库     : $repo_root"
+    if [ -f "$config_path" ]; then
+      echo "配置     : $config_path"
       domain_ready=1
     else
       echo "配置     : 缺 .mmw.json，跑 mmw init"
@@ -619,6 +596,32 @@ cmd_doctor() {
   else
     echo "仓库     : 当前目录不在 git 仓库里"
     status=1
+  fi
+  if [ -n "$repo_root" ]; then
+    if [ -d "$repo_root/docs/evidence" ]; then
+      echo "历史产物 : 已退役路径 docs/evidence/"
+    fi
+    if [ -d "$repo_root/.dispatch" ]; then
+      echo "历史产物 : 已退役路径 .dispatch/"
+    fi
+    for legacy_path in "$repo_root"/docs/specs/*; do
+      [ -d "$legacy_path" ] || continue
+      legacy_spec="$legacy_path/$(basename "$legacy_path").md"
+      if [ -f "$legacy_spec" ]; then
+        echo "历史产物 : 已退役路径 ${legacy_spec#"$repo_root"/}"
+      fi
+    done
+  fi
+  if [ -n "$config_path" ] && command -v jq >/dev/null \
+     && jq empty "$config_path" >/dev/null 2>&1; then
+    for key in specs plans prototypes research evidence; do
+      if jq -e --arg key "$key" '(.paths? // {}) | has($key)' "$config_path" >/dev/null; then
+        echo "遗留配置 : .mmw.json 的 paths.$key 已退役"
+      fi
+    done
+    if jq -e 'has("wiki")' "$config_path" >/dev/null; then
+      echo "遗留配置 : .mmw.json 的 wiki 已退役"
+    fi
   fi
   if [ "$domain_ready" -eq 1 ] && [ -n "${host:-}" ]; then
     local domain_out domain_prefix domain_shape domain_path domain_state
@@ -639,15 +642,13 @@ cmd_doctor() {
   fi
   command -v jq >/dev/null && echo "jq       : $(command -v jq)" || { echo "jq       : 没装"; status=1; }
   command -v gh >/dev/null && echo "gh       : $(command -v gh)" || { echo "gh       : 没装"; status=1; }
-  # Wiki 没有 API，读写一律 clone 加 push，走 https://github.com/<仓库>.wiki.git
-  # （见 lib/wiki.sh）。凭据助手没配好的话，要等到 /mmw-closing 第 5 步、用户
-  # 已经点头同意推送之后才发现推不上去。这里提前探一次：喂一条 github.com 的
-  # https 查询，走完整条助手链，只判有没有人答上密码，不回显。
+  # GitHub HTTPS 推送需要凭据助手。这里提前探一次：喂一条 github.com 的 https
+  # 查询，走完整条助手链，只判有没有人答上密码，不回显。
   if printf 'protocol=https\nhost=github.com\n\n' \
      | GIT_TERMINAL_PROMPT=0 git credential fill 2>/dev/null | grep -q '^password='; then
     echo "推送鉴权 : github.com 的 https 凭据有人答得上"
   else
-    echo "推送鉴权 : github.com 的 https 凭据没人答得上，跑 gh auth setup-git（推 Wiki 要它）"
+    echo "推送鉴权 : github.com 的 https 凭据没人答得上，跑 gh auth setup-git"
     status=1
   fi
   if [ "${host:-}" = "claude-code" ]; then
@@ -773,7 +774,6 @@ case "${1:-}" in
   task) shift; cmd_task "$@" ;;
   result) shift; cmd_result "$@" ;;
   issue) shift; cmd_issue "$@" ;;
-  wiki) shift; cmd_wiki "$@" ;;
   domain) shift; cmd_domain "$@" ;;
   graph) shift; cmd_graph "$@" ;;
   toolchain) shift; cmd_toolchain "$@" ;;
