@@ -521,6 +521,7 @@ cmd_artifact() {
   shift || true
   case "$sub" in
     path) mmw_artifact_path "$@" ;;
+    index) mmw_artifact_index "$@" ;;
     *) usage_artifact ;;
   esac
 }

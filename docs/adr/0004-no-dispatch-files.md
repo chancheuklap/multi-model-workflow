@@ -1,3 +1,8 @@
+---
+date: 2026-08-11
+amends: []
+---
+
 # 四栏 task 与角色报告不写文件
 
 派发 subagent 时，四栏 task 原来必须先写成文件再交给 `mmw dispatch --task <文件>`，Codex 路径还会把角色报告额外写一份到 `.dispatch/`。现在两者都不写文件：`mmw dispatch` 改成从标准输入或 `--task-text` 接收正文，`codex exec` 去掉 `-o "$report"`。理由是这两份文件都没有必须落盘的读者——四栏 task 的正文最终被 adapter 用 `jq --rawfile` 读进 params 交给 subagent，subagent 从不打开那个文件；角色报告的内容同时走 stdout，主 agent 从后台 Bash 的输出里已经拿到一份。

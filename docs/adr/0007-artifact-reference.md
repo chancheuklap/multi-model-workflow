@@ -1,3 +1,8 @@
+---
+date: 2026-08-11
+amends: [1]
+---
+
 # 技能之间用产物引用传递产物，不逐跳抄写路径
 
 一份 research 或 prototype 的路径现在从生产它的那一步被手抄到 `worker`，中间经过 decision ticket 结论评论、map 的 `Decisions so far`、spec issue 正文、spec、tracer bullet ticket、plan 和四栏 task，共七跳；任何一跳漏写，下游拿不到，而且没有机械检查会发现。现在改为：每一跳传**产物引用**，也就是类别、工作名、范围段和类别内细分四项，路径由 `mmw artifact path` 解析。理由是路径字面值在散文里既不能被机器解析，也不能在落点形状变化时集中修改，而这四项是安全路径段，写进固定结构之后可以逐条解析验证。

@@ -5,6 +5,15 @@
 节名使用英文原文，正文使用项目的 canonical 术语。
 
 ```markdown
+---
+slug: <工作名>
+summary: <一句话说明这份 spec 交付什么>
+date: <YYYY-MM-DD>
+branch: <任务分支名>
+spec_issue: <spec issue 编号>
+artifact_refs: []
+---
+
 # <这次交付什么> spec
 
 > 写明这份 spec 来自哪次讨论、哪张 issue 或哪张 map。存在 prototype 或 research 输入时，写出这份 spec 实际使用的索引和精确文件。

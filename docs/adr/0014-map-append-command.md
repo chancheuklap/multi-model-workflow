@@ -1,3 +1,8 @@
+---
+date: 2026-08-11
+amends: []
+---
+
 # map 正文的决定索引由 CLI 追加，不由 agent 拼整份正文写回
 
 `mmw/skills-src/mmw-wayfinder/walking.md:69` 规定每张 decision ticket 解完要往 map 正文的 `Decisions so far` 追加一行，但没有给出改正文的命令，`mmw/cli/lib/issue.sh` 也没有这个动作——它只有 create、claim、link、children、frontier。agent 因此各自用 `gh issue edit --body-file` 拼整份正文写回。三个会话并行时，先写的那一行被后写的整份覆盖，本 effort 已经发生两次。现在改为：`mmw issue` 增加一个追加动作，读最新正文、在指定小节插入这一行、写回、再读比对上一版的行集合，少行就自己重做；技能正文那两条手工自检删掉。
@@ -21,6 +26,7 @@
 ## Consequences
 
 - `mmw issue` 增加追加动作。参数是 issue 编号、小节标题和要追加的内容。四步在一条命令内完成：读最新正文、在指定小节末尾插入、写回、再读比对。比对的对象是**上一版的行集合**，不是「自己那一行在不在」——后者查不出这类丢失。少行时命令自己重做，重做有次数上限；用尽仍不一致就非零退出，不静默。
+- **判据修正**：本 spec 的第 12 节把成功判据改为两项同时成立：V1 的全部行都在 V3，且本次新增行也在 V3。任一项不成立都重做。上一条只把两项中的一项与另一项对照，描述不完整。
 - 命令不为 map 写死。小节标题是参数，将来出现第二个并发编辑点时命令现成。规则这一层只规定 map 正文这一处必须用它：技能源里现在没有第二处二次编辑 issue 正文的地方，`mmw issue create` 出现在 `mmw-to-spec`、`charting` 与 `mmw-to-tickets` 三处，都是建立时写一次。
 - `mmw/skills-src/mmw-wayfinder/SKILL.md:89` 与 `walking.md:69` 那两条手工自检删掉，换成一句「用 `mmw issue` 的追加动作，不要自己拼整份正文写回」。留着它们等于让 agent 手工再做一遍命令已经做的事，而且做的是被证明无效的那一种。
 - 竞态窗口从「agent 读到写之间的思考时间」缩到「命令执行时间」。它不为零。这是本决定接受的代价。
