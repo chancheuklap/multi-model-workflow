@@ -75,7 +75,7 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 | 验收 | plan 文件存在且可被抽验；`## Acceptance` 覆盖 ticket `#<编号>` 的全部验收（详见 issue，不抄正文） |
 
 派一个 `planner`，它在**当前任务 worktree** 里写 plan 文件，不另开分支。
-启动：把四栏表写入 task 文件，后台执行 `mmw dispatch planner --task <task 文件绝对路径> --cwd <当前任务 worktree 绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
+启动：后台执行 `mmw dispatch planner --cwd <当前任务 worktree 绝对路径>`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 
 **当前任务 worktree 的绝对路径**：`git rev-parse --show-toplevel`。
 

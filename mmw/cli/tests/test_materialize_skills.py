@@ -22,8 +22,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 
 import materialize_skills as ms  # noqa: E402
 
-角色表 = {"worker": "mmw-worker", "reviewer-gpt": "mmw-reviewer-gpt",
-          "reviewer-claude": "mmw-reviewer-claude"}
+角色表 = {
+    "worker": "mmw-worker",
+    "worker-high-risk": "mmw-worker",
+    "prototype-worker": "mmw-prototype-worker",
+    "reviewer-gpt": "mmw-reviewer-gpt",
+    "reviewer-claude": "mmw-reviewer-claude",
+}
 
 CODEX_PROFILE = {
     "subagents": {
@@ -32,6 +37,16 @@ CODEX_PROFILE = {
     },
     "background_roles": {
         "worker": {"model": "gpt-x", "thinking": "high", "method_skill": "mmw:mmw-tdd"},
+        "worker-high-risk": {
+            "model": "gpt-x",
+            "thinking": "high",
+            "method_skill": "mmw:mmw-tdd",
+        },
+        "prototype-worker": {
+            "model": "gpt-x",
+            "thinking": "high",
+            "method_skill": "mmw:mmw-prototype",
+        },
     },
 }
 
@@ -111,6 +126,40 @@ def test_current_模式用当前任务_worktree(假源: Path, tmp_path: Path) ->
     assert "当前任务 worktree" in 正文
 
 
+@pytest.mark.parametrize("cwd_mode", ["worktree", "current", "none"])
+def test_claude_各工作目录模式直接从标准输入接收四栏_task(
+    假源: Path, tmp_path: Path, cwd_mode: str
+) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n"
+       f"[[mmw-launch:worker:{cwd_mode}]]\n")
+    out = tmp_path / "claude-code"
+    物化("claude-code", out)
+    正文 = 读(out, "mmw-alpha/SKILL.md")
+    assert "标准输入" in 正文
+    assert "写入 task 文件" not in 正文
+    assert "--task " not in 正文
+    assert "--task-text" not in 正文
+    assert (
+        "当前 task 属于 decision ticket 时，加 "
+        "`--issue <当前 decision ticket 编号>`"
+    ) in 正文
+
+
+def test_claude_审查启动组直接从标准输入接收四栏_task(
+    假源: Path, tmp_path: Path
+) -> None:
+    正文 = 审查组("claude-code", 假源, tmp_path)
+    assert "标准输入" in 正文
+    assert "写入 task 文件" not in 正文
+    assert "--task " not in 正文
+    assert "--task-text" not in 正文
+    assert (
+        "当前 task 属于 decision ticket 时，加 "
+        "`--issue <当前 decision ticket 编号>`"
+    ) in 正文
+
+
 # ---------------------------------------------------------------- 审查启动组
 
 def 审查组(host: str, 假源: Path, tmp_path: Path) -> str:
@@ -172,6 +221,27 @@ def test_只有_codex_在派活后追加不重做规则(假源: Path, tmp_path: 
         out = tmp_path / host
         物化(host, out)
         assert 片段 not in 读(out, "mmw-alpha/SKILL.md")
+
+
+@pytest.mark.parametrize("role", ["worker", "worker-high-risk", "prototype-worker"])
+def test_codex_后台_worktree_任务显式传递并绑定工作名(
+    假源: Path, tmp_path: Path, role: str
+) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n"
+       f"[[mmw-launch:{role}:worktree]]\n")
+    out = tmp_path / "codex"
+    物化("codex", out)
+    正文 = 读(out, "mmw-alpha/SKILL.md")
+    assert "当前任务 worktree" in 正文
+    assert "mmw task state" in 正文
+    assert "bound <任务分支> <HEAD> <工作名>" in 正文
+    assert "第四字段" in 正文
+    assert "四栏 task、完整结果分支名、派发前基点 SHA 和工作名" in 正文
+    assert (
+        "mmw task bind <完整结果分支名> <目标栏原文> "
+        "--name <工作名> --from <基点 SHA>"
+    ) in 正文
 
 
 # ------------------------------------------------------------------ 必须当场失败

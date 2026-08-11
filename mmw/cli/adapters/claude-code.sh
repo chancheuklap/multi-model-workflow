@@ -59,10 +59,9 @@ mmw_adapter_dispatch() {
 
       printf 'mode: host-tool\n'
       printf 'tool: Agent\n'
-      printf 'task-file: %s\n' "$MMW_D_TASK"
       # Agent 固定后台运行；task 正文进 prompt，与 Pi 的 task 同一概念。
       jq -nc --arg r "$plugin_name:$roster" --arg t "$tier" --arg e "$MMW_D_EFFORT" \
-        --rawfile p "$MMW_D_TASK" \
+        --arg p "$MMW_D_TASK_TEXT" \
         '{subagent_type: $r, model: $t, effort: $e, prompt: $p, run_in_background: true}' \
         | sed 's/^/params: /'
       ;;
@@ -70,31 +69,41 @@ mmw_adapter_dispatch() {
       # 第一次只生成宿主 Bash 工具调用。后台 Bash 再带内部标记进来执行 Codex；
       # 这样后台属性是 adapter 的机械合同，不靠主 agent 记住额外参数。
       if [ "${MMW_INTERNAL_BACKGROUND_DISPATCH:-}" != "1" ]; then
-        local command
+        local command issue_arg="" task_json
+        if [ -n "${MMW_D_ISSUE:-}" ]; then
+          printf -v issue_arg ' --issue %q' "$MMW_D_ISSUE"
+        fi
+        # Bash 3.2 的 printf %q 会破坏多字节正文。先变成只含 ASCII 的 JSON 字符串，
+        # 后台命令再用 jq 解码到标准输入。jq -j 不追加换行。
+        task_json="$(printf '%s' "$MMW_D_TASK_TEXT" | jq -Rsa .)"
         printf -v command \
-          'cd %q && MMW_HOST=claude-code MMW_INTERNAL_BACKGROUND_DISPATCH=1 %q dispatch %q --task %q --cwd %q' \
-          "$MMW_D_CWD" "$MMW_ROOT/cli/mmw" "$MMW_D_ROLE" "$MMW_D_TASK" "$MMW_D_CWD"
+          'cd %q && printf %%s %q | jq -rj . | MMW_HOST=claude-code MMW_INTERNAL_BACKGROUND_DISPATCH=1 %q dispatch %q --cwd %q%s' \
+          "$MMW_D_CWD" "$task_json" "$MMW_ROOT/cli/mmw" "$MMW_D_ROLE" "$MMW_D_CWD" "$issue_arg"
         printf 'mode: host-tool\n'
         printf 'tool: Bash\n'
-        printf 'task-file: %s\n' "$MMW_D_TASK"
         jq -nc --arg c "$command" '{command: $c, run_in_background: true}' \
           | sed 's/^/params: /'
         return
       fi
 
-      local report_dir="$MMW_D_CWD/.dispatch"
-      mkdir -p "$report_dir"
-      # 报告和进度日志分开放。`.dispatch/` 装四栏 task 和角色交回的报告，那是产物；
-      # codex 的进度是临时过程材料，按仓库规定归 scratch。混在一处的后果是清理规则
-      # 也跟着混：同名同目录，`/mmw-closing` 判不出哪个能直接删、哪个要留。
-      # scratch 的目录名读目标仓库配置，读不到用默认，与 mmw_worktrees_rel 同一模式。
-      local scratch_rel log_dir
-      scratch_rel="$(mmw_path_field scratch 2>/dev/null || echo ".scratch")"
-      log_dir="$MMW_D_CWD/$scratch_rel/dispatch"
-      mkdir -p "$log_dir"
-      local report log
-      report="$report_dir/${MMW_D_ROLE}-$(basename "$MMW_D_TASK" .md).md"
-      log="$log_dir/${MMW_D_ROLE}-$(basename "$MMW_D_TASK" .md).log"
+      # 进度日志是派发结束后的诊断材料。落点只由 artifact path 回答。
+      # 主检出没有工作名时算不出落点。此时明确说明不写日志，并继续派发。
+      local log_dir="" log="" timestamp
+      local -a artifact_args=(artifact path scratch --sub dispatch --absolute)
+      if [ -n "${MMW_D_ISSUE:-}" ]; then
+        artifact_args+=(--issue "$MMW_D_ISSUE")
+      fi
+      if log_dir="$(
+        cd "$MMW_D_CWD" \
+          && "$MMW_ROOT/cli/mmw" "${artifact_args[@]}" 2>/dev/null
+      )"; then
+        mkdir -p "$log_dir"
+        timestamp="$(date +%Y%m%d-%H%M%S)"
+        log="$log_dir/${MMW_D_ROLE}-${timestamp}.log"
+      else
+        log_dir=""
+        echo "mmw: 派发进度日志算不出落点时不写日志，派发照常进行" >&2
+      fi
       local sandbox=(--sandbox read-only)
       if [ "$MMW_D_WRITABLE" = "yes" ]; then
         # workspace-write 默认把 .git 锁成只读，`worker` 提交会卡在 index.lock。
@@ -126,12 +135,11 @@ Call the \`$MMW_D_SKILL\` skill before you start. It holds the method for this t
 $preamble"
       fi
 
-      # 只挡 stderr。
+      # 算得出日志落点时只挡 stderr。
       #
-      # codex exec 把进度流式写到 stderr，只把最终消息打到 stdout；-o 是额外写一份
-      # 到文件，不影响 stdout。见 https://learn.chatgpt.com/docs/non-interactive-mode。
-      # 所以 stdout 就是这次派发要交回的报告，调用方原样收下。stderr 是过程噪音，
-      # 实测一次两百万字节，混进来会把调用方的上下文冲掉。
+      # codex exec 把进度流式写到 stderr，只把最终消息打到 stdout。
+      # stdout 就是这次派发要交回的报告，调用方原样收下。stderr 是过程噪音，
+      # 算得出日志落点时把它留作失败诊断材料。
       #
       # 别写成 2>&1：那会把报告一起吞进日志，调用方拿到的只剩状态行。
       #
@@ -140,22 +148,29 @@ $preamble"
       local code=0
       # ${mcp[@]+...}：.mcp.json 缺失时数组为空，macOS 自带的 bash 3.2 在 set -u 下
       # 展开空数组会报 unbound variable，整次派发就废了。工具没有不该拖垮派发本身。
-      { printf '%s\n' "$preamble"; cat "$MMW_D_TASK"; } \
-      | codex exec -C "$MMW_D_CWD" --color never \
-        "${sandbox[@]}" \
-        ${mcp[@]+"${mcp[@]}"} \
-        -m "$MMW_D_MODEL_ID" -c "model_reasoning_effort=\"$MMW_D_EFFORT\"" \
-        -o "$report" \
-        - 2> "$log" || code=$?
+      if [ -n "$log" ]; then
+        { printf '%s\n' "$preamble"; printf '%s' "$MMW_D_TASK_TEXT"; } \
+        | codex exec -C "$MMW_D_CWD" --color never \
+          "${sandbox[@]}" \
+          ${mcp[@]+"${mcp[@]}"} \
+          -m "$MMW_D_MODEL_ID" -c "model_reasoning_effort=\"$MMW_D_EFFORT\"" \
+          - 2> "$log" || code=$?
+      else
+        { printf '%s\n' "$preamble"; printf '%s' "$MMW_D_TASK_TEXT"; } \
+        | codex exec -C "$MMW_D_CWD" --color never \
+          "${sandbox[@]}" \
+          ${mcp[@]+"${mcp[@]}"} \
+          -m "$MMW_D_MODEL_ID" -c "model_reasoning_effort=\"$MMW_D_EFFORT\"" \
+          - || code=$?
+      fi
       printf 'mode: executed\n'
-      printf 'report: %s\n' "$report"
       # 成功的进度日志没人会看，留着只会堆积：一次两百万字节，十次就是二十兆。
       # 失败时它是唯一的诊断材料，保留并把路径交出去。
-      if [ "$code" -eq 0 ]; then
+      if [ "$code" -eq 0 ] && [ -n "$log" ]; then
         rm -f "$log"
         # 这次派发没留下任何东西时把目录也收掉；里面还有别人的日志就留着。
         rmdir "$log_dir" 2>/dev/null || true
-      else
+      elif [ "$code" -ne 0 ] && [ -n "$log" ]; then
         printf 'log: %s\n' "$log"
       fi
       printf 'exit: %s\n' "$code"

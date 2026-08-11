@@ -31,7 +31,7 @@ description: 扫描 deepening opportunities，生成候选报告供用户选择�
 
 派 3 到 4 个 `investigator`，**每份 task 完全一样**，都探第 1 步定下的整片地方。四栏表：目标=在这片地方找架构摩擦；读=范围路径 + 领域文档 + `docs/adr/` 下相关的 ADR + `/mmw-codebase-design`（点技能名，不给路径）；约束=只读；验收=摩擦点带出处。
 派一个独立上下文的 `investigator`。它只读，不需要工作目录。
-启动：把四栏表写入 task 文件，后台执行 `mmw dispatch investigator --task <task 文件绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
+启动：后台执行 `mmw dispatch investigator`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 
 互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 按这个方式启动，重复 3 到 4 次，几个同时跑。

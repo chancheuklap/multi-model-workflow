@@ -47,7 +47,7 @@ usage() {
   cat >&2 <<'EOF'
 mmw <命令> [参数]
 
-  dispatch    Claude Code：把 task 文件编成宿主工具参数（Pi 主路径不用）
+  dispatch    Claude Code：把 task 正文编成宿主工具参数（Pi 主路径不用）
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
   artifact    产物：查询类别的落点
@@ -70,7 +70,7 @@ EOF
 
 usage_dispatch() {
   cat >&2 <<'EOF'
-mmw dispatch <角色> --task <文件> [--cwd <目录>]
+mmw dispatch <角色> [--task-text <正文>] [--cwd <目录>] [--issue <编号>]
 
 角色：
   worker            按一份 plan 写代码
@@ -83,8 +83,11 @@ mmw dispatch <角色> --task <文件> [--cwd <目录>]
   reviewer-claude   审查，Claude 那一侧
 
 参数：
-  --task <文件>   task 四栏表文件，必填（与 Pi 的 task 同一概念）
-  --cwd <目录>    角色的工作目录。会写文件的角色必填；只读角色省略时使用仓库根
+  --task-text <正文>  task 四栏表正文。省略时从标准输入读取
+  --cwd <目录>       角色的工作目录。会写文件的角色必填；只读角色省略时使用仓库根
+  --issue <编号>     当前 decision ticket 编号。只用于派发进度日志的范围段
+
+标准输入与 --task-text 只能使用一种。task 正文不能为空。
 
 模型、档位和护栏由角色决定，取自已安装 MMW runtime 的模型档。
 
@@ -258,18 +261,47 @@ cmd_dispatch() {
     usage_dispatch
   }
 
-  local task="" cwd=""
+  local task_text="" task_text_set="no" cwd="" issue=""
   while [ $# -gt 0 ]; do
     case "$1" in
-      --task) task="${2:-}"; shift 2 ;;
-      --cwd) cwd="${2:-}"; shift 2 ;;
+      --task-text)
+        [ $# -ge 2 ] || { echo "mmw: --task-text 要正文" >&2; usage_dispatch; }
+        task_text="$2"
+        task_text_set="yes"
+        shift 2
+        ;;
+      --cwd)
+        [ $# -ge 2 ] && [ -n "$2" ] || { echo "mmw: --cwd 要目录" >&2; usage_dispatch; }
+        cwd="$2"
+        shift 2
+        ;;
+      --issue)
+        [ $# -ge 2 ] && [ -n "$2" ] || { echo "mmw: --issue 要编号" >&2; usage_dispatch; }
+        issue="$2"
+        shift 2
+        ;;
       *) echo "mmw: 认不出参数 $1" >&2; usage_dispatch ;;
     esac
   done
 
-  [ -n "$task" ] || { echo "mmw: dispatch 要 --task" >&2; usage_dispatch; }
-  [ -f "$task" ] || { echo "mmw: task 文件不存在：$task" >&2; return 1; }
-  task="$(cd "$(dirname "$task")" && pwd)/$(basename "$task")"
+  local stdin_text=""
+  if [ "$task_text_set" = "yes" ]; then
+    if [ ! -t 0 ]; then
+      stdin_text="$(cat; printf x)"
+      stdin_text="${stdin_text%x}"
+      [ -z "$stdin_text" ] || {
+        echo "mmw: 标准输入与 --task-text 只能使用一种" >&2
+        return 1
+      }
+    fi
+  else
+    task_text="$(cat; printf x)"
+    task_text="${task_text%x}"
+  fi
+  [ -n "$task_text" ] || {
+    echo "mmw: dispatch 要从标准输入或 --task-text 接收 task 正文" >&2
+    usage_dispatch
+  }
 
   local writable
   writable="$(role_writable "$role")"
@@ -294,8 +326,9 @@ cmd_dispatch() {
   MMW_D_FAMILY="$(mmw_model_field "$role" family)"
   MMW_D_MODEL_ID="$(mmw_model_field "$role" id)"
   MMW_D_EFFORT="$(mmw_model_field "$role" effort)"
-  export MMW_D_TASK="$task"
+  export MMW_D_TASK_TEXT="$task_text"
   export MMW_D_CWD="$cwd"
+  export MMW_D_ISSUE="$issue"
   export MMW_D_WRITABLE="$writable"
   MMW_D_SKILL="$(role_skill "$role")" || return 1
   export MMW_D_SKILL
