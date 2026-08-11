@@ -79,6 +79,11 @@ git -C "$WORK" init -q repo
 cp "$HERE/../mmw.default.json" "$WORK/repo/.mmw.json"
 cd "$WORK/repo"
 REPO="$(pwd -P)"
+git -C "$REPO" config user.name "MMW Artifact"
+git -C "$REPO" config user.email "artifact@example.invalid"
+printf 'seed\n' > "$REPO/seed.txt"
+git -C "$REPO" add seed.txt
+git -C "$REPO" commit -q -m "seed"
 
 echo "artifact data"
 if [ -f "$DATA" ]; then
@@ -183,7 +188,7 @@ contains "顶层分发解析到 artifact" "artifact" "$top_commands"
 artifact_actions="$(sed -n '/^cmd_artifact() {$/,/^}$/p' "$MMW" | sed -nE 's/^    ([a-z-]+)\).*/\1/p')"
 contains "artifact 动作解析到 path" "path" "$artifact_actions"
 
-before_dirs="$(find . -type d -print | sort)"
+artifact_path_dirs_before="$(find . -type d -print | sort)"
 
 echo
 echo "artifact path"
@@ -212,6 +217,43 @@ capture "当场取名提醒" "$MMW" artifact path research --name release --sub 
 check "当场取名提醒退出码" "0" "$LAST_STATUS"
 check "当场取名提醒的路径" "docs/research/release/topic" "$(cat "$LAST_OUT")"
 contains "当场取名提醒在标准错误" "写第一个文件之前先列一次父目录" "$(cat "$LAST_ERR")"
+check "显式工作名查询不建立目录" "$artifact_path_dirs_before" "$(find . -type d -print | sort)"
+
+echo
+echo "artifact path 的缺省工作名"
+task_worktree="$REPO/.worktrees/artifact-task"
+capture "建立带工作名的任务 worktree" \
+  "$MMW" task new artifact-task "产物路径测试" --name artifact-work
+check "建立带工作名的任务 worktree 退出码" "0" "$LAST_STATUS"
+check "建立带工作名的任务 worktree 输出路径" "$task_worktree" "$(cat "$LAST_OUT")"
+capture "缺省工作名" bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact path spec' \
+  _ "$task_worktree" "$MMW"
+check "缺省工作名退出码" "0" "$LAST_STATUS"
+check "缺省工作名与显式工作名路径相同" "docs/specs/artifact-work/spec.md" "$(cat "$LAST_OUT")"
+check "缺省工作名没有标准错误" "" "$(cat "$LAST_ERR")"
+
+detached_worktree="$REPO/.worktrees/artifact-detached"
+git -C "$REPO" worktree add -q --detach "$detached_worktree" HEAD
+broken_worktree="$REPO/.worktrees/artifact-broken"
+capture "建立损坏绑定的任务 worktree" \
+  "$MMW" task new artifact-broken "损坏绑定" --name broken-work
+check "建立损坏绑定的任务 worktree 退出码" "0" "$LAST_STATUS"
+git -C "$broken_worktree" config --worktree --unset mmw.task.work-name
+failure_dirs_before="$(find "$REPO" -type d -print | sort)"
+
+expect_error "主检出缺省工作名不回退" "工作名" \
+  "$MMW" artifact path spec
+expect_error "仓库外缺省工作名不回退" "工作名" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact path spec' _ "$WORK" "$MMW"
+expect_error "detached worktree 缺省工作名不回退" "工作名" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact path spec' _ "$detached_worktree" "$MMW"
+expect_error "损坏绑定缺省工作名不回退" "mmw task bind artifact-broken" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact path spec' _ "$broken_worktree" "$MMW"
+check "缺省工作名的拒绝路径不建目录" "$failure_dirs_before" "$(find "$REPO" -type d -print | sort)"
+expect_path "显式工作名不读取损坏绑定" "docs/specs/other-work/spec.md" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact path spec --name other-work' \
+  _ "$broken_worktree" "$MMW"
+before_dirs="$(find . -type d -print | sort)"
 
 echo
 echo "artifact failures"

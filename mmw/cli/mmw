@@ -99,21 +99,24 @@ EOF
 
 usage_task() {
   cat >&2 <<'EOF'
-mmw task new <slug> [用户原话] [--from <基点分支或 SHA>]
+mmw task new <任务分支> [用户原话] [--name <工作名>] [--from <基点分支或 SHA>]
     建任务 worktree 和同名分支，输出这个 worktree 的绝对路径。
     用户原话记进这条分支的第一个空提交，让后来的人知道这个任务从哪来。
+    从普通检出新建时要给 --name；从已有任务 worktree 分叉时继承工作名。
     不给 --from 就从当前 HEAD 分叉；从 Wayfinding 的 map 分支派生时给 --from <map 分支>。
 mmw task cleanup <slug>
     删掉这个 worktree 和它的分支。有未提交改动时失败，不强制删除。
 mmw task state
-    当前所在位置，输出 outside、local、detached、bound 之一。
-mmw task bind <完整分支名> <用户原话或任务目标> [--from <预期基点>]
-    Codex App 专用：把 App 已经建好的 detached worktree 绑到任务分支上。
+    当前所在位置，输出 outside、local、detached，或带工作名的 bound。
+mmw task bind <完整任务分支名> <用户原话或任务目标> [--name <工作名>] [--from <预期基点>]
+    已绑定任务 worktree 用它补写工作名。
+    Codex App 也用它把 App 已经建好的 detached worktree 绑到任务分支上。
     给了 --from 就先校验当前 HEAD 等于这个基点。
 
 这条命令只输出路径；真正切进 worktree 要用宿主自己的工具。
 在 Codex App 上只有 state 和 bind 可用，worktree 由 App 创建和清理；
-在其他宿主上只有 state、new、cleanup 可用。
+其他宿主也可在已绑定任务 worktree 上用 bind 补写工作名。
+在其他宿主上 new 与 cleanup 可用。
 EOF
   return 2
 }
@@ -405,7 +408,7 @@ cmd_task() {
   shift || true
   case "$sub" in
     state) [ $# -eq 0 ] || usage_task; mmw_task_state ;;
-    bind) [ "$host" = "codex" ] || { echo "mmw: task bind 只用于 Codex App 已创建的 detached worktree" >&2; return 1; }; mmw_task_bind "$@" ;;
+    bind) mmw_task_bind "$@" ;;
     new) [ "$host" != "codex" ] || { echo "mmw: Codex App 负责创建 worktree，这里只用 task bind" >&2; return 1; }; mmw_task_new "$@" ;;
     cleanup) [ "$host" != "codex" ] || { echo "mmw: Codex App 负责清理 managed worktree" >&2; return 1; }; mmw_task_cleanup "$@" ;;
     *) usage_task ;;
