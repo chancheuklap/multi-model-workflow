@@ -24,6 +24,10 @@ _Avoid_: brief、agent brief、简报
 subagent 交回的内容。
 _Avoid_: 回执、笔记
 
+**handoff**：
+供另一个 agent 接续当前会话的文档。
+_Avoid_: 交回评论、报告
+
 **验证**：
 主 agent 使用当前源码、diff、命令输出或一手来源检查事实。
 _Avoid_: 复核、核验、亲验
@@ -35,6 +39,10 @@ _Avoid_: 结果分支、默认分支
 **结果分支**：
 可写 subagent 在独立 worktree 中提交结果的分支。
 _Avoid_: 任务分支、临时目录
+
+**任务 worktree**：
+绑定任务分支，并在任务期间承载该任务的 worktree。
+_Avoid_: 任务工作树、Codex App 后台 Worktree 任务
 
 **基点 SHA**：
 派发结果分支前记录的任务分支提交。

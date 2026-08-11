@@ -42,12 +42,12 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 同一项行为按以下顺序核对：
 
 1. 对应宿主的 manifest、根 marketplace 或 Pi package；Codex 角色结构只认 `mmw/codex/profiles.json`，模型只认 `mmw/cli/mmw.default.json` 的 `hosts.codex` 覆盖。
-2. `mmw/cli/` 的机械动作、宿主 adapter 和 `.mmw.json` 配置合同。
+2. `mmw/cli/` 的机械动作、宿主 adapter、`.mmw.json` 配置合同和 `mmw/cli/artifacts.json` 的产物落点数据。
 3. `mmw/skills-src/` 技能源（含 `[[mmw-launch:…]]` 与 `[[mmw-launch-group:…]]`）与 `mmw skills materialize` 产物；流程判据以源为准，宿主动作以对应产物为准。
 
 `.mmw.json` 保存目标仓库的标签、CLI 路径和领域文档形态。模型档属于已安装 runtime，不进入目标仓库配置。
 
-技能直接使用已规定的仓库相对产物路径，例如 `docs/specs/`、`docs/prototypes/` 和 `docs/research/`。`.mmw.json` 的 `paths` 只配置 CLI 自己消费的 `scratch`、`reviews`、`release` 和 `worktrees`。
+产物落点由 `mmw artifact path` 回答。技能正文不写路径字面值。`.mmw.json` 的 `paths` 只配置 CLI 自己消费的 `scratch`、`reviews`、`release` 和 `worktrees`。
 
 `mmw/.mcp.json` 是检索服务器声明的唯一事实来源；各宿主的展开产物都通过 `mmw mcp serve` 回到这一份。图谱只由 `mmw graph build` 更新。
 

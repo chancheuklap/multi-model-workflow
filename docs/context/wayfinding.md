@@ -29,7 +29,7 @@ _Avoid_: consumes、必读清单、支持材料
 _Avoid_: decision ticket、Out of scope
 
 **结论评论**：
-decision ticket 关闭前留下的评论，记录这张 ticket 形成的决定、它使用的资产精确路径和材料使用记录。它是这个决定的权威副本，issue 关闭后长期保留。
+decision ticket 关闭前留下的评论，记录这张 ticket 形成的决定、它使用的产物引用和材料使用记录。它是这个决定的权威副本，issue 关闭后长期保留。
 _Avoid_: 交回评论、共同理解记录、过程材料
 
 **材料使用记录**：

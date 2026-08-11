@@ -12,6 +12,10 @@ _Avoid_: MVP、静态设计稿、用完即丢的临时代码、把 prototype 外
 用户走查过的可运行 prototype、完整界面变体、README 中的问题、逐轮用户走查结论、用户选中的产物和被提升为长期证据的文件。它的位置按[路径形状](./artifact-location.md)确定。spec、ticket、plan、审查和实现按精确路径持续引用。达到项目技术与质量要求的组件、纯逻辑、接口合同和后端脚本可以直接复用；调试外壳、切换器和落选变体继续作为 prototype 资产保存。
 _Avoid_: 过程截图、DOM、console、录屏、临时探测输出、生成中间物、把未达到项目质量要求的内容接入生产路由、只留结论
 
+**解释 HTML**：
+把用户点名内容重新说明为普通 HTML 可视化的文档。
+_Avoid_: prototype、Logic HTML
+
 **research**：
 `/mmw-research` 中由主 agent 验证并综合的事实。每次 research 完成后，用户决定是否保存。用户选择不保存时，不创建 research 目录或文件。保存不代表下游必须引用。
 _Avoid_: investigation、artifact、调查资产、调查结果
@@ -67,6 +71,10 @@ _Avoid_: 共同理解、讨论记录、审查记录
 **spec**：
 把已经谈定的内容综合成的设计合同。spec 文件的位置按[路径形状](./artifact-location.md)确定，类别根是 `docs/specs/`，文件名是 `spec.md`。
 _Avoid_: plan、Wiki 页面、讨论草稿
+
+**spec issue**：
+一份已批准并发布的 spec 在 Tracker 中的父项，也是其 tracer bullet ticket 的父项。
+_Avoid_: spec、tracer bullet ticket、agent brief
 
 **spec 索引**：
 全部 spec 元数据的清单，由一条 CLI 命令扫描各份 spec 的元数据块当场算出。agent 读命令输出。`docs/specs/README.md` 是同一次运行写下的副本，供不运行命令的读者阅读，不是权威。plan 没有对应的索引。
