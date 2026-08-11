@@ -20,13 +20,21 @@ _Avoid_: Context Map、plan、仓库
 map 下解除一个决定或其前置阻塞的子 issue，带 `wayfinder:<类型>` 标签。它继承 map 的工作名，并使用自己的范围段。
 _Avoid_: tracer bullet ticket、任务包
 
+**必读材料声明**：
+decision ticket 正文中列出这张 ticket 必须读的材料的那一节。建 ticket 的会话写当时已知的，认领它的会话在开工前补进新产生的材料。
+_Avoid_: consumes、必读清单、支持材料
+
 **fog of war**：
 范围内已经看得出会出现、但尚不能精确写成 decision ticket 的部分，保存在 `Not yet specified`。
 _Avoid_: decision ticket、Out of scope
 
 **结论评论**：
-decision ticket 关闭前留下的评论，记录这张 ticket 形成的决定和它使用的资产精确路径。它是这个决定的权威副本，issue 关闭后长期保留。
+decision ticket 关闭前留下的评论，记录这张 ticket 形成的决定、它使用的资产精确路径和材料使用记录。它是这个决定的权威副本，issue 关闭后长期保留。
 _Avoid_: 交回评论、共同理解记录、过程材料
+
+**材料使用记录**：
+结论评论中逐条说明必读材料声明里每一项用上了没有的那一节。
+_Avoid_: 支持材料、对照节
 
 **交回评论**：
 decision ticket 上记录结果分支名、HEAD SHA 和基点 SHA 的评论。map 分支上的会话用它验证并集成结果。
