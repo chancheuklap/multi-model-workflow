@@ -88,7 +88,7 @@ description: 编排 MMW 六道审查并处置 findings。用于共同理解、sp
 可选：四栏表写入 `.reviews/<slug>-<哪一道>-<任务名>.prompt.md`。
 
 每个视角各写一张四栏表。按当前宿主的审查策略启动；互不依赖的审查任务同时启动。
-当前宿主使用两个审查角色。⓪ 启动一个 `reviewer-gpt`：共同理解是主 agent 自己问出来的，复核它的审查者必须换一个模型。启动：把四栏表写入 task 文件，后台执行 `mmw dispatch reviewer-gpt --task <task 文件绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。① 每个视角启动一个 `reviewer-gpt`。启动：把四栏表写入 task 文件，后台执行 `mmw dispatch reviewer-gpt --task <task 文件绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。② 每个视角启动一个 `reviewer-claude`。启动：把四栏表写入 task 文件，后台执行 `mmw dispatch reviewer-claude --task <task 文件绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。⑤ 每个视角分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude`。同一视角的两份 findings 并排比较；只由一个审查者报告的条目优先验证，两个审查者都报告的条目仍需验证出处。每个审查者只收到自己的四栏 task。
+当前宿主使用两个审查角色。⓪ 启动一个 `reviewer-gpt`：共同理解是主 agent 自己问出来的，复核它的审查者必须换一个模型。启动：后台执行 `mmw dispatch reviewer-gpt`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。① 每个视角启动一个 `reviewer-gpt`。启动：后台执行 `mmw dispatch reviewer-gpt`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。② 每个视角启动一个 `reviewer-claude`。启动：后台执行 `mmw dispatch reviewer-claude`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。⑤ 每个视角分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude`。同一视角的两份 findings 并排比较；只由一个审查者报告的条目优先验证，两个审查者都报告的条目仍需验证出处。每个审查者只收到自己的四栏 task。
 
 ## 4. findings 存盘
 

@@ -21,7 +21,6 @@ mmw_adapter_dispatch() {
 
   printf 'mode: host-tool\n'
   printf 'tool: subagent\n'
-  printf 'task-file: %s\n' "$MMW_D_TASK"
   printf 'native: agents-pi\n'
   printf 'note: model/thinking/context/async/skill 已在 agent 定义里；params 含 task 正文\n'
 
@@ -30,7 +29,7 @@ mmw_adapter_dispatch() {
   jq -nc \
     --arg a "$MMW_D_ROSTER" \
     --arg c "$MMW_D_CWD" \
-    --rawfile t "$MMW_D_TASK" \
+    --arg t "$MMW_D_TASK_TEXT" \
     '{agent: $a, cwd: $c, task: $t}' \
     | sed 's/^/params: /'
 }

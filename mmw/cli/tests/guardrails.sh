@@ -417,29 +417,185 @@ suite_task_bind() {
 
 # -------------------------------------------------------------------- dispatch
 
+suite_dispatch_output() {
+  echo "mmw dispatch（正文、报告与进度日志）"
+  local repo task_body task_text fake_bin request_out command execution_out execution_err
+  local captured task_size task_suffix log_dir log
+  repo="$(fresh_repo)"
+  task_body="$WORKBENCH/dispatch-output-task.txt"
+  printf '%s' '## 目标
+
+保留 "双引号"、反斜线 \\ 和 `反引号`。
+
+## 验收
+
+结尾换行也必须保留。
+' > "$task_body"
+  task_text="$(cat "$task_body"; printf x)"
+  task_text="${task_text%x}"
+
+  fake_bin="$WORKBENCH/fake-bin"
+  mkdir -p "$fake_bin"
+  printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'set -eu' \
+    'cat > "$FAKE_CODEX_STDIN"' \
+    'printf "fake progress\\n" >&2' \
+    'printf "%s\\n" "${FAKE_CODEX_REPORT:-fake report}"' \
+    'exit "${FAKE_CODEX_EXIT:-0}"' \
+    > "$fake_bin/codex"
+  chmod +x "$fake_bin/codex"
+
+  mmw_in "$repo" pi task new dispatch-output "派活输出" --name dispatch-output-work >/dev/null
+
+  request_out="$WORKBENCH/dispatch-background-request.out"
+  if (cd "$repo" && env -u MMW_INTERNAL_BACKGROUND_DISPATCH MMW_HOST=claude-code \
+      "$MMW" dispatch worker --task-text "$task_text" \
+      --cwd "$repo/.worktrees/dispatch-output" --issue 39 > "$request_out" 2>&1) \
+      && command="$(sed -n 's/^params: //p' "$request_out" | jq -r '.command')" \
+      && [ -n "$command" ]; then
+    report pass "GPT 后台命令接收多行 task 正文和范围段"
+  else
+    command=""
+    report fail "GPT 后台命令接收多行 task 正文和范围段" \
+      "$(cat "$request_out" 2>/dev/null || true)"
+  fi
+
+  captured="$WORKBENCH/codex-success.stdin"
+  execution_out="$WORKBENCH/codex-success.out"
+  execution_err="$WORKBENCH/codex-success.err"
+  if [ -n "$command" ] && env PATH="$fake_bin:$PATH" FAKE_CODEX_STDIN="$captured" \
+      FAKE_CODEX_REPORT="成功报告" FAKE_CODEX_EXIT=0 \
+      bash -c "$command" > "$execution_out" 2> "$execution_err"; then
+    report pass "GPT 后台命令执行成功"
+  else
+    report fail "GPT 后台命令执行成功" "$(cat "$execution_err" 2>/dev/null || true)"
+  fi
+
+  task_size="$(wc -c < "$task_body" | tr -d ' ')"
+  task_suffix="$WORKBENCH/codex-success-task.txt"
+  tail -c "$task_size" "$captured" > "$task_suffix" 2>/dev/null || true
+  expect_state "GPT 后台命令" "多行 task 正文和结尾换行一字不差" \
+    cmp -s "$task_body" "$task_suffix"
+  expect_state "角色报告" "内容只走标准输出" \
+    sh -c 'grep -qxF "成功报告" "$1" && ! grep -q "^report:" "$1"' sh "$execution_out"
+  expect_state "角色报告" "不创建 .dispatch 目录" \
+    test ! -e "$repo/.worktrees/dispatch-output/.dispatch"
+  log_dir="$repo/.worktrees/dispatch-output/.scratch/dispatch-output-work/issue-39/dispatch"
+  expect_state "成功的派发进度日志" "日志和空目录都已删除" \
+    test ! -e "$log_dir"
+
+  captured="$WORKBENCH/codex-failure.stdin"
+  execution_out="$WORKBENCH/codex-failure.out"
+  execution_err="$WORKBENCH/codex-failure.err"
+  if [ -n "$command" ] && env PATH="$fake_bin:$PATH" FAKE_CODEX_STDIN="$captured" \
+      FAKE_CODEX_REPORT="失败报告" FAKE_CODEX_EXIT=7 \
+      bash -c "$command" > "$execution_out" 2> "$execution_err"; then
+    report fail "GPT 失败时返回 codex 退出码" "期望退出码 7，实际成功"
+  elif [ "$?" -eq 7 ]; then
+    report pass "GPT 失败时返回 codex 退出码"
+  else
+    report fail "GPT 失败时返回 codex 退出码" \
+      "$(cat "$execution_err" 2>/dev/null || true)"
+  fi
+  log="$(find "$log_dir" -maxdepth 1 -type f -name 'worker-*.log' -print 2>/dev/null | head -n 1)"
+  expect_state "失败的派发进度日志" "路径带工作名与范围段" \
+    test -n "$log"
+  expect_state "失败的派发进度日志" "文件名是角色加时间戳" \
+    sh -c 'test "$(basename "$1")" != "" && echo "$(basename "$1")" | grep -Eq "^worker-[0-9]{8}-[0-9]{6}\\.log$"' sh "$log"
+  expect_state "失败的派发进度日志" "保留 codex 标准错误" \
+    grep -qxF "fake progress" "$log"
+  expect_state "失败的角色报告" "仍走标准输出" \
+    grep -qxF "失败报告" "$execution_out"
+  expect_state "失败的角色报告" "仍不创建 .dispatch 目录" \
+    test ! -e "$repo/.worktrees/dispatch-output/.dispatch"
+
+  captured="$WORKBENCH/codex-no-log.stdin"
+  execution_out="$WORKBENCH/codex-no-log.out"
+  execution_err="$WORKBENCH/codex-no-log.err"
+  if (cd "$repo" && env MMW_HOST=claude-code MMW_INTERNAL_BACKGROUND_DISPATCH=1 \
+      PATH="$fake_bin:$PATH" FAKE_CODEX_STDIN="$captured" \
+      FAKE_CODEX_REPORT="无日志报告" FAKE_CODEX_EXIT=0 \
+      "$MMW" dispatch reviewer-gpt --task-text "$task_text" \
+      > "$execution_out" 2> "$execution_err"); then
+    report pass "主检出算不出日志落点时仍然派发"
+  else
+    report fail "主检出算不出日志落点时仍然派发" \
+      "$(cat "$execution_err" 2>/dev/null || true)"
+  fi
+  expect_state "主检出算不出日志落点" "标准错误说明不写日志但继续派发" \
+    grep -qF "派发进度日志算不出落点时不写日志，派发照常进行" "$execution_err"
+  expect_state "主检出算不出日志落点" "报告仍走标准输出" \
+    grep -qxF "无日志报告" "$execution_out"
+  expect_state "主检出算不出日志落点" "不创建 .scratch 回退目录" \
+    test ! -e "$repo/.scratch"
+}
+
 suite_dispatch() {
   echo "mmw dispatch（可写角色）"
-  local repo task
+  local repo task_body task_text out actual
   repo="$(fresh_repo)"
-  task="$WORKBENCH/task.md"
-  printf '任务表\n' > "$task"
+  task_body="$WORKBENCH/task-body.txt"
+  printf '%s' '## 目标
+
+保留 "双引号"、反斜线 \\ 和 `反引号`。
+
+## 验收
+
+结尾换行也必须保留。
+' > "$task_body"
+  task_text="$(cat "$task_body"; printf x)"
+  task_text="${task_text%x}"
 
   expect_deny "可写角色没给 --cwd" "$repo" \
-    env MMW_HOST=claude-code "$MMW" dispatch worker --task "$task"
+    env MMW_HOST=claude-code "$MMW" dispatch worker --task-text "$task_text"
   expect_deny "--cwd 不是 git 工作树" "$repo" \
-    env MMW_HOST=claude-code "$MMW" dispatch worker --task "$task" --cwd "$WORKBENCH"
+    env MMW_HOST=claude-code "$MMW" dispatch worker --task-text "$task_text" --cwd "$WORKBENCH"
   expect_deny "--cwd 是主检出而不是任务 worktree" "$repo" \
-    env MMW_HOST=claude-code "$MMW" dispatch worker --task "$task" --cwd "$repo"
+    env MMW_HOST=claude-code "$MMW" dispatch worker --task-text "$task_text" --cwd "$repo"
 
   # setup 失败就让它响。吞掉的话，下一条用例会拿一个不存在的目录去测，
   # dispatch 照样拒绝，用例照样绿——测到的却是「目录不存在」，不是「不干净」。
   mmw_in "$repo" pi task new dispatchable "派活用" --name dispatchable-work >/dev/null
   expect_ok "干净的任务 worktree 可以派活" "$repo" \
-    env MMW_HOST=claude-code "$MMW" dispatch worker --task "$task" \
+    env MMW_HOST=claude-code "$MMW" dispatch worker --task-text "$task_text" \
       --cwd "$repo/.worktrees/dispatchable"
+
+  out="$WORKBENCH/dispatch-stdin.out"
+  actual="$WORKBENCH/dispatch-stdin-task.txt"
+  if (cd "$repo" && env MMW_HOST=pi "$MMW" dispatch reviewer-gpt \
+      < "$task_body" > "$out" 2>&1) \
+      && sed -n 's/^params: //p' "$out" | jq -j '.task' > "$actual" \
+      && cmp -s "$task_body" "$actual" \
+      && ! grep -q '^task-file:' "$out"; then
+    report pass "标准输入把多行 task 正文一字不差地交给 Pi adapter"
+  else
+    report fail "标准输入把多行 task 正文一字不差地交给 Pi adapter" \
+      "$(cat "$out" 2>/dev/null || true)"
+  fi
+
+  out="$WORKBENCH/dispatch-task-text.out"
+  actual="$WORKBENCH/dispatch-task-text-task.txt"
+  if (cd "$repo" && env MMW_HOST=claude-code "$MMW" dispatch reviewer-claude \
+      --task-text "$task_text" > "$out" 2>&1) \
+      && sed -n 's/^params: //p' "$out" | jq -j '.prompt' > "$actual" \
+      && cmp -s "$task_body" "$actual" \
+      && ! grep -q '^task-file:' "$out"; then
+    report pass "--task-text 把多行 task 正文一字不差地交给 Claude adapter"
+  else
+    report fail "--task-text 把多行 task 正文一字不差地交给 Claude adapter" \
+      "$(cat "$out" 2>/dev/null || true)"
+  fi
+
+  expect_deny "标准输入与 --task-text 不能同时使用" "$repo" \
+    sh -c 'printf task | env MMW_HOST=pi "$1" dispatch reviewer-gpt --task-text task' \
+      sh "$MMW"
+  expect_deny "旧 --task 文件接口已经删除" "$repo" \
+    env MMW_HOST=pi "$MMW" dispatch reviewer-gpt --task "$task_body"
+
   printf 'dirty\n' > "$repo/.worktrees/dispatchable/dirty.txt"
   expect_deny "任务 worktree 工作区不干净" "$repo" \
-    env MMW_HOST=claude-code "$MMW" dispatch worker --task "$task" \
+    env MMW_HOST=claude-code "$MMW" dispatch worker --task-text "$task_text" \
       --cwd "$repo/.worktrees/dispatchable"
 }
 
@@ -468,6 +624,7 @@ suite_task_cleanup
 suite_task_state
 suite_task_new
 suite_task_bind
+suite_dispatch_output
 suite_dispatch
 suite_gitfacts
 

@@ -78,14 +78,17 @@ def expand_claude(role: str, agent: str, cwd_mode: str) -> str:
     if cwd_mode == "worktree":
         return (
             "启动：先运行 `mmw task new <结果分支> \"<目标栏原文>\" --from <基点 SHA>`，"
-            "使用命令返回的 worktree 绝对路径。把四栏表写入 task 文件，后台执行 "
-            f"`mmw dispatch {role} --task <task 文件绝对路径> --cwd <结果 worktree 绝对路径>`。"
+            "使用命令返回的 worktree 绝对路径。后台执行 "
+            f"`mmw dispatch {role} --cwd <结果 worktree 绝对路径>`。"
+            "把四栏 task 正文作为命令的标准输入。"
+            "当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。"
             "命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。"
         )
     cwd = " --cwd <当前任务 worktree 绝对路径>" if cwd_mode == "current" else ""
     return (
-        "启动：把四栏表写入 task 文件，后台执行 "
-        f"`mmw dispatch {role} --task <task 文件绝对路径>{cwd}`。"
+        f"启动：后台执行 `mmw dispatch {role}{cwd}`。"
+        "把四栏 task 正文作为命令的标准输入。"
+        "当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。"
         "命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。"
     )
 
@@ -111,13 +114,16 @@ def expand_codex(role: str, cwd_mode: str, profiles: dict) -> str:
     method = profile.get("method_skill")
     method_instruction = f"，并在工作前完整读取 `${method}`" if method else ""
     return (
-        "启动：先用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`。"
+        "启动：先在当前任务 worktree 运行 `mmw task state`。"
+        "确认输出是 `bound <任务分支> <HEAD> <工作名>`，取第四字段作为工作名。"
+        "再用 `list_projects` 取得当前仓库的 projectId，并调用 `create_thread`。"
         "target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 "
         "`branch`，branchName 设为当前已提交的任务分支。"
         f"模型使用 `{profile['model']}`，思考档使用 `{profile['thinking']}`。"
-        "任务提示包含四栏 task、主 agent 已确定的完整结果分支名和派发前基点 SHA；"
+        "任务提示包含四栏 task、完整结果分支名、派发前基点 SHA 和工作名；"
         "结果分支名使用独立的 `codex/<slug>`。后台 agent 先运行 "
-        "`mmw task bind <完整结果分支名> <目标栏原文> --from <基点 SHA>`"
+        "`mmw task bind <完整结果分支名> <目标栏原文> "
+        "--name <工作名> --from <基点 SHA>`"
         f"{method_instruction}，然后完成工作并提交。"
         "后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。"
         "`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 "

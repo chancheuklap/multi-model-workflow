@@ -57,7 +57,7 @@ research 要做的是：对照拥有这个事实的一手来源回答问题，�
 互不依赖的角度并行派发。派发以后，继续处理不依赖这些事实的工作。
 
 派一个独立上下文的 `investigator`。它只读，不需要工作目录。
-启动：把四栏表写入 task 文件，后台执行 `mmw dispatch investigator --task <task 文件绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
+启动：后台执行 `mmw dispatch investigator`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 
 互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 
