@@ -17,7 +17,7 @@ _Avoid_: 过程截图、DOM、console、录屏、临时探测输出、生成中�
 _Avoid_: investigation、artifact、调查资产、调查结果
 
 **research 索引**：
-已保存 research 的 `README.md`。它记录问题、范围快照、结论摘要、文件索引、下游用途和未查清项。
+已保存 research 的 `README.md`。它记录问题、范围快照、结论摘要、文件索引、章节指引和未查清项。
 _Avoid_: 资产索引、调查索引
 
 **research 报告**：
@@ -35,6 +35,10 @@ _Avoid_: investigation 目录、artifact 目录、调查目录
 **research 路径**：
 research 目录的精确仓库相对路径。它按[路径形状](./artifact-location.md)确定，类别内细分是 research 主题。
 _Avoid_: worktree 路径、任务分支名推导路径
+
+**章节指引**：
+research 索引中逐节说明 research 报告各节内容的那一部分。它是报告内部的地图，不是读取范围的限定，也不指名读者。
+_Avoid_: 下游用途、下游怎么用、点名
 
 **点名**：
 上游在自己的产物中写下一条产物引用，指定下游必须读的那件产物。下游只读被点名的产物，以及该产物的索引显式列出的文件。
