@@ -192,6 +192,7 @@ contains "顶层分发解析到 artifact" "artifact" "$top_commands"
 artifact_actions="$(sed -n '/^cmd_artifact() {$/,/^}$/p' "$MMW" | sed -nE 's/^    ([a-z-]+)\).*/\1/p')"
 contains "artifact 动作解析到 path" "path" "$artifact_actions"
 contains "artifact 动作解析到 index" "index" "$artifact_actions"
+contains "artifact 动作解析到 check" "check" "$artifact_actions"
 
 echo
 echo "artifact index"
@@ -283,6 +284,138 @@ else
 fi
 contains "ADR 缺字段失败说明" "date" "$(cat "$LAST_ERR")"
 rm docs/adr/0003-missing-date.md
+
+echo
+echo "artifact check"
+mkdir -p \
+  docs/specs/check-valid \
+  docs/specs/check-empty \
+  docs/specs/check-history-no-block \
+  docs/specs/check-history-no-key \
+  docs/specs/check-errors \
+  docs/plans/check-valid \
+  docs/plans/check-empty \
+  docs/plans/check-history-no-block \
+  docs/plans/check-history-no-key
+printf '%s\n' \
+  '---' \
+  'slug: check-valid' \
+  'summary: Valid reference' \
+  'date: 2026-08-12' \
+  'branch: task-check-valid' \
+  'spec_issue: 41' \
+  'artifact_refs:' \
+  '  - category: research' \
+  '    name: release' \
+  '    issue: 99' \
+  '    sub: not-on-disk' \
+  '---' \
+  '# Valid reference' > docs/specs/check-valid/spec.md
+printf '%s\n' \
+  '---' \
+  'slug: check-empty' \
+  'summary: Explicitly empty' \
+  'date: 2026-08-12' \
+  'branch: task-check-empty' \
+  'spec_issue: 42' \
+  'artifact_refs: []' \
+  '---' \
+  '# Explicitly empty' > docs/specs/check-empty/spec.md
+printf '# Historical spec\n' > docs/specs/check-history-no-block/spec.md
+printf '%s\n' \
+  '---' \
+  'slug: check-history-no-key' \
+  'summary: Historical metadata' \
+  'date: 2026-08-12' \
+  'branch: task-check-history-no-key' \
+  'spec_issue: 43' \
+  '---' \
+  '# Historical metadata' > docs/specs/check-history-no-key/spec.md
+printf '%s\n' \
+  '---' \
+  'ticket: 44' \
+  'artifact_refs:' \
+  '  - category: research' \
+  '    name: release' \
+  '    issue: 99' \
+  '    sub: not-on-disk' \
+  '---' \
+  '# Valid plan reference' > docs/plans/check-valid/01-valid.md
+printf '%s\n' \
+  '---' \
+  'ticket: 45' \
+  'artifact_refs: []' \
+  '---' \
+  '# Explicitly empty plan' > docs/plans/check-empty/02-empty.md
+printf '# Historical plan\n' > docs/plans/check-history-no-block/03-no-block.md
+printf '%s\n' \
+  '---' \
+  'ticket: 46' \
+  '---' \
+  '# Historical plan metadata' > docs/plans/check-history-no-key/04-no-key.md
+
+artifact_check_tree_before="$(find . -print | sort)"
+capture "有效声明不查磁盘" "$MMW" artifact check
+check "有效声明不查磁盘退出码" "0" "$LAST_STATUS"
+contains "没有元数据块的历史文件报告" "docs/specs/check-history-no-block/spec.md: 历史文件，缺少 YAML 元数据块" "$(cat "$LAST_OUT")"
+contains "缺 artifact_refs 的历史文件报告" "docs/plans/check-history-no-key/04-no-key.md: 历史文件，缺少 artifact_refs" "$(cat "$LAST_OUT")"
+check "有效声明不查磁盘没有标准错误" "" "$(cat "$LAST_ERR")"
+check "有效声明不查磁盘不改文件树" "$artifact_check_tree_before" "$(find . -print | sort)"
+
+printf '%s\n' \
+  '---' \
+  'ticket: 47' \
+  'artifact_refs:' \
+  '  - category: spec' \
+  '  - category: absent' \
+  '    name: release' \
+  '  - category: spec' \
+  '    name: release' \
+  '    issue: 19' \
+  '  - category: research' \
+  '    name: release' \
+  '    issue: no' \
+  '    sub: Topic' \
+  '---' \
+  '# Invalid declarations' > docs/specs/check-errors/spec.md
+capture "错误声明逐条汇总" "$MMW" artifact check
+if [ "$LAST_STATUS" -ne 0 ]; then
+  echo "  过  错误声明逐条汇总非零退出"
+  pass=$((pass + 1))
+else
+  echo "  失败 错误声明逐条汇总非零退出" >&2
+  fail=$((fail + 1))
+fi
+contains "错误声明逐条汇总仍报告历史文件" "docs/plans/check-history-no-block/03-no-block.md: 历史文件，缺少 YAML 元数据块" "$(cat "$LAST_OUT")"
+contains "错误声明逐条汇总缺工作名" "docs/specs/check-errors/spec.md: artifact_refs[0]: 缺少或无效的 name" "$(cat "$LAST_ERR")"
+contains "错误声明逐条汇总非法类别" "docs/specs/check-errors/spec.md: artifact_refs[1]: mmw artifact: 认不出的类别 absent" "$(cat "$LAST_ERR")"
+contains "错误声明逐条汇总非法范围段" "docs/specs/check-errors/spec.md: artifact_refs[2]: mmw artifact: spec 没有范围段" "$(cat "$LAST_ERR")"
+contains "错误声明逐条汇总非法编号" "docs/specs/check-errors/spec.md: artifact_refs[3]: 缺少或无效的 issue" "$(cat "$LAST_ERR")"
+rm docs/specs/check-errors/spec.md
+
+echo
+echo "artifact reference source forms"
+to_spec_source="$(cat "$HERE/../../skills-src/mmw-to-spec/SKILL.md")"
+to_tickets_source="$(cat "$HERE/../../skills-src/mmw-to-tickets/SKILL.md")"
+to_plan_source="$(cat "$HERE/../../skills-src/mmw-to-plan/SKILL.md")"
+planner_source="$(cat "$HERE/../../skills-src/mmw-planner/SKILL.md")"
+planner_check_source="$(cat "$HERE/../../skills-src/mmw-planner/references/self-check.md")"
+implement_source="$(cat "$HERE/../../skills-src/mmw-implement/SKILL.md")"
+worker_brief_source="$(cat "$HERE/../../skills-src/mmw-implement/worker-brief.md")"
+contains "spec 生产 YAML 产物引用" "artifact_refs:" "$to_spec_source"
+contains "spec 生产空 YAML 产物引用" "artifact_refs: []" "$to_spec_source"
+contains "spec issue 生产工作名固定节" "## 工作名" "$to_spec_source"
+contains "spec issue 生产输入出处固定节" "## 输入出处" "$to_spec_source"
+contains "spec issue 生产产物引用固定节" "## 产物引用" "$to_spec_source"
+contains "spec issue 产物引用使用键值形态" "category=<类别> name=<工作名>" "$to_spec_source"
+contains "ticket 生产产物引用固定节" "## 产物引用" "$to_tickets_source"
+contains "ticket 产物引用写无" "无" "$to_tickets_source"
+contains "to-plan 向 planner 传产物引用" "artifact_refs" "$to_plan_source"
+contains "to-plan 运行声明校验" "mmw artifact check" "$to_plan_source"
+contains "planner 解析产物引用" "mmw artifact path" "$planner_source"
+contains "planner 自检工作名必填" "name" "$planner_check_source"
+contains "implement 向 worker 传产物引用" "category=<类别> name=<工作名>" "$implement_source"
+contains "worker 解析产物引用" "mmw artifact path" "$worker_brief_source"
 
 artifact_path_dirs_before="$(find . -type d -print | sort)"
 
@@ -400,6 +533,7 @@ check "无参用法没有标准输出" "" "$(cat "$LAST_OUT")"
 usage_text="$(cat "$LAST_ERR")"
 contains "无参用法有 path 说明" "mmw artifact path" "$usage_text"
 contains "无参用法有 index 说明" "mmw artifact index" "$usage_text"
+contains "无参用法有 check 说明" "mmw artifact check" "$usage_text"
 contains "无参用法列出 spec 术语" $'spec\tspec' "$usage_text"
 contains "无参用法列出解释 HTML 术语" $'explanation\t解释 HTML' "$usage_text"
 contains "无参用法列出 agent brief 术语" $'agent-brief\tagent brief' "$usage_text"
