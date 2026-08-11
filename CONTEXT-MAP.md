@@ -9,8 +9,8 @@
 | Context | Leaf | Owns |
 | --- | --- | --- |
 | 交付工作流 | [交付工作流](./docs/context/delivery-workflow.md) | prototype、prototype 资产、research、research 索引、research 报告、research 配套文件、research 目录、research 路径、共同理解、共同理解记录、spec、tracer bullet ticket、plan、任务包、HITL、AFK 和人工审批关卡。 |
-| Tracker | [Tracker](./docs/context/tracker.md) | 类别角色、状态角色、agent brief、认领、frontier 和 `.out-of-scope/`。 |
-| Wayfinding | [Wayfinding](./docs/context/wayfinding.md) | effort、destination、map、decision ticket、会话边界和 fog of war。 |
+| Tracker | [Tracker](./docs/context/tracker.md) | 类别角色、状态角色、agent brief、认领、frontier、权威副本、tracker 索引和 `.out-of-scope/`。 |
+| Wayfinding | [Wayfinding](./docs/context/wayfinding.md) | effort、destination、map、decision ticket、结论评论、交回评论、会话边界和 fog of war。 |
 | Agent | [Agent](./docs/context/agent-coordination.md) | 主 agent、subagent、角色、task、报告、验证、任务分支和结果分支。 |
 | 审查 | [审查](./docs/context/review.md) | 六道审、共同理解审、视角（任务名）、finding、处置、固定点、被审 HEAD、终审提交和审查记录。 |
 | 出包与收尾 | [出包与收尾](./docs/context/release-and-closure.md) | 产品、出包配置、`mmw release`、交付记录、用户实测、对外发布和 Wiki 页面。 |
@@ -20,6 +20,8 @@
 ## Relationships
 
 - Tracker 保存交付工作流的 spec issue 和 tracer bullet ticket，也保存 Wayfinding 的 map 和 decision ticket。
+- 同一份内容在 Tracker 和仓库文件两处都有时，权威副本在生产它的那一侧，另一侧是 tracker 索引。
+- agent 从 Tracker 进入：先读 issue 取得父子关系、阻塞关系、frontier 和认领状态，再沿 tracker 索引里的精确路径打开权威副本。父子关系、阻塞关系、frontier 和认领状态只存在于 Tracker；权威副本的细节只存在于它自己那一侧。两侧都不单独作为行动依据。
 - Wayfinding 把 effort 收敛成一张路线已经清楚的 map；destination 是 spec 时，交付工作流把 map 中已经谈定的内容综合成一份 spec，并发布对应的 spec issue。
 - 交付工作流通过 Agent 派发 task；subagent 交回报告，主 agent 验证关键断言。
 - 审查读取共同理解记录、spec、plan、实现改动和集成结果；`accepted` finding 交回产物拥有者处理。
