@@ -16,7 +16,7 @@
 | 出包与收尾 | [出包与收尾](./docs/context/release-and-closure.md) | 产品、出包配置、`mmw release`、交付记录、用户实测、对外发布和 Wiki 页面。 |
 | 宿主 | [宿主](./docs/context/host-runtime.md) | 技能源、技能产物、物化、原生 subagent 和 Codex App 后台 Worktree 任务。 |
 | 领域上下文与检索 | [领域上下文与检索](./docs/context/project-context.md) | 领域模型、Context Map、leaf、ADR、权威引用、结构图谱和结构候选。 |
-| 产物落点 | [产物落点](./docs/context/artifact-location.md) | 路径形状、类别根、名字段、范围段、类别内细分、安全路径段和不落盘判据。 |
+| 产物落点 | [产物落点](./docs/context/artifact-location.md) | 路径形状、类别根、名字段、工作名、范围段、类别内细分、安全路径段和不落盘判据。 |
 
 ## Relationships
 
@@ -30,4 +30,5 @@
 - 宿主把共享技能源物化为技能产物；宿主差异不改变共享流程语义。
 - 领域上下文与检索向其他 Context 提供 canonical 术语和结构候选；关键结论由主 agent 回到当前源码验证。
 - Context Map 与 Wayfinding 的 map 是两个现有对象。Context Map 索引 bounded context；Wayfinding 的 map 索引一个 effort 的决定。
-- 产物落点向其他 Context 提供路径形状；交付工作流、Wayfinding、审查和 Agent 的产物按它确定位置。名字段承载的 effort 名字由 Wayfinding 定义。
+- 产物落点向其他 Context 提供路径形状；交付工作流、Wayfinding、审查和 Agent 的产物按它确定位置。
+- 工作名由产物落点定义，与 Agent 的任务分支名是两个值。一次交付只有一个工作名，可以有多条任务分支；Wayfinding 的 map 正文记录这项 effort 的工作名，它的每张 decision ticket 继承这个值。
