@@ -28,6 +28,17 @@ _Avoid_: tracer bullet ticket、任务包
 范围内已经看得出会出现、但尚不能精确写成 decision ticket 的部分，保存在 `Not yet specified`。
 _Avoid_: decision ticket、Out of scope
 
+**结论评论**：
+decision ticket 关闭前留下的评论，记录这张 ticket 形成的决定和它使用的资产精确路径。它是这个决定的权威副本，issue 关闭后长期保留。
+_Avoid_: 交回评论、共同理解记录、过程材料
+
+**交回评论**：
+decision ticket 上记录结果分支名、HEAD SHA 和基点 SHA 的评论。map 分支上的会话用它验证并集成结果。
+_Avoid_: 结论评论、集成记录
+
+**权威副本**：
+(authoritative: [权威副本](./tracker.md))
+
 **frontier**：
 (authoritative: [frontier](./tracker.md))
 
