@@ -23,21 +23,15 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 
 匹配行要求的产物不存在，或者产物中仍缺少一项产品、设计或架构决定时，写清缺少的完整内容和已经检查的位置，然后停止。不要在本技能中重新访谈，也不要猜测缺失产物的位置。
 
-## 确定任务 slug
+## 确定工作名
 
-spec 的落点由任务 slug 决定。按下表取得，不要自己另起一个：
+先运行 `mmw task state`。输出是 `bound` 时，只取第四字段作为工作名。
 
-| 当前情况 | 任务 slug |
-| --- | --- |
-| `$mmw:mmw-wayfinder` 关闭 map 后进入 | 使用 `$mmw:mmw-wayfinder` 交回的任务 slug，也就是 map 的 slug |
-| `$mmw:mmw-prototype` 完成后进入 | 使用这次 prototype 使用的 `产物目录` |
-| 被交来一张已分诊的 issue | 按这张 issue 要交付的东西提议一个名字，请用户确认后再使用 |
-| 当前任务已经有任务 slug | 复用已有值 |
-| 用户直接调用，而且当前任务还没有任务 slug | 根据这份 spec 要交付的东西提议一个名字，请用户确认后再使用 |
+输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。
 
-这个名字必须是单个路径段：首字符是字母或数字，其余只能是字母、数字、点、下划线、连字符，不能含斜杠。
+输出是 `local` 或 `outside` 时，先分别确定任务分支名和工作名。运行 `mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。切换到返回的绝对路径。
 
-定下 slug 之后，这份 spec 的落点就是 `docs/specs/<任务 slug>/<任务 slug>.md`。
+两种建树动作之后都重新运行 `mmw task state`。只在输出确认是 `bound` 后，取第四字段作为工作名。
 
 ## 流程
 
@@ -52,9 +46,9 @@ spec 的落点由任务 slug 决定。按下表取得，不要自己另起一个
 
 向用户确认这些 seam 是否符合预期。用户确认前不要写 spec。
 
-3. 完整读取 [spec-template.md](spec-template.md)，使用该模板编写 spec。把 spec 写入 `docs/specs/<任务 slug>/<任务 slug>.md`。
+3. 完整读取 [spec-template.md](spec-template.md)。使用该模板编写 spec。运行 `mmw artifact path spec`。把 spec 写入输出文件。
 
-   元数据块固定写六个字段。`slug` 写任务 slug。`summary` 写一句交付说明。`date` 写当天的 `YYYY-MM-DD`。`branch` 写当前任务分支名。`spec_issue` 在发布前暂写模板占位编号。`artifact_refs` 始终存在；当前没有产物引用时写 `[]`。
+   元数据块固定写六个字段。`slug` 写工作名。`summary` 写一句交付说明。`date` 写当天的 `YYYY-MM-DD`。`branch` 写当前任务分支名。`spec_issue` 在发布前暂写模板占位编号。`artifact_refs` 始终存在；当前没有产物引用时写 `[]`。
 
    把这份 spec 实际使用的 prototype 资产和 research 写成产物引用。每条都写显式工作名。使用下面的 YAML 映射列表。类别需要范围段或类别内细分时才写 `issue` 或 `sub`。没有引用时写 `artifact_refs: []`。
 
@@ -110,10 +104,10 @@ spec 的落点由任务 slug 决定。按下表取得，不要自己另起一个
 
    类别需要范围段或类别内细分时，在同一行追加 `issue=<编号>` 或 `sub=<类别内细分>`。
 
-正文先落盘再发。写进 `.scratch/<任务 slug>/spec-issue-body.md`——`.scratch/` 在 `.gitignore` 里，这份正文发完就没用了。
+正文先落盘再发。运行 `mmw artifact path scratch --sub outbox/spec-issue-body.md`。把正文写入输出文件。这份正文发完就没用了。
 
 ```bash
-mmw issue create --title "<spec 名称>" --body-file .scratch/<任务 slug>/spec-issue-body.md --label ready-for-agent
+mmw issue create --title "<spec 名称>" --body-file <上一步输出文件> --label ready-for-agent
 ```
 
 记下 `mmw issue create` 返回的 issue 编号。入口是已分诊 issue 且它带 agent brief 时，先运行 `mmw issue set-parent <原 issue 编号> --parent <spec issue 编号>`。命令失败时停止，保留原 issue 为 open。命令成功后运行 `gh issue close <原 issue 编号>`。没有原 issue 时跳过这两步。
@@ -126,7 +120,7 @@ mmw issue create --title "<spec 名称>" --body-file .scratch/<任务 slug>/spec
 
 | 情况 | 下一步 |
 | --- | --- |
-| spec 已经提交并发布，而且对应 issue 带 `ready-for-agent` | **移交**：`$mmw:mmw-to-tickets`，交给它任务 slug 和这张 spec issue 的编号，把 spec 拆成 tracer bullet ticket |
+| spec 已经提交并发布，而且对应 issue 带 `ready-for-agent` | **移交**：`$mmw:mmw-to-tickets`，交给它工作名和这张 spec issue 的编号，把 spec 拆成 tracer bullet ticket |
 | 入口要求的产物不存在，或者其中缺少一项产品、设计或架构决定 | **停**：报告缺少的完整内容和已经检查的位置，等用户补齐或指出正确位置 |
 | 已经开始写 spec，但发现某项决定尚未形成 | **停**：报告缺少的完整内容和已经检查的位置；这项决定需要先谈定，不在本技能中访谈 |
 | 用户看过完整 spec 和 ① spec 审结果后要求修改 | **停**：按用户意见修改 spec，再次展示完整结果，等待批准 |

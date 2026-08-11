@@ -10,7 +10,7 @@ artifact_refs:
 # Plan: wayfinder 接线与 `mmw artifact list`
 
 **Goal:** decision ticket 在开工前声明并补全必读材料。四类 decision ticket 都把材料交给下游。`mmw artifact list` 提供候选清单。
-**Source spec:** `docs/specs/mmw-artifact-wiring/mmw-artifact-wiring.md`
+**Source spec:** `docs/specs/mmw-artifact-wiring/spec.md`
 **Source ticket:** GitHub issue `#45`
 **Research source:** `docs/research/mmw-artifact-wiring/issue-20/aidlc-v2-artifact-wiring/README.md`；精确文件是同目录的 `report.md`
 

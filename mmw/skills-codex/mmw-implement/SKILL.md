@@ -13,7 +13,7 @@ description: 派 `worker` 落地已准备好的工作。用于完整的 `ready-f
 
 先确认这次需求出自哪里：
 
-- `docs/specs/<slug>/` 里已经有 spec，就走 spec 分支。
+- 运行 `mmw artifact path spec`。输出路径有 spec 时，走 spec 分支。
 - 没有 spec，就读取原 issue 上那份 `ready-for-agent` 的 agent brief。只有整项工作可以作为一张 ticket 独立验收、只有一个已确认测试 seam、没有未决设计取舍时，才走 agent brief 分支。
 
 然后检查下面各项。标明来源分支的检查只在对应分支适用；适用项有一件不满足就按表中出口处理。
@@ -103,7 +103,7 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 
 ticket 涉及界面时，还要完成浏览器验收：
 
-在结果 worktree 里把界面启动起来，用手上的浏览器入口走通黄金路径和本次相关的边界状态。viewport 和要检查的状态，按 `$mmw:mmw-prototype` 交回的那份选中 UI 产物定；这次没走过 prototype 的，按这张 ticket 的 plan 里界面验收那一段定。逐个检查加载、空、错误、成功、部分完成里**这次实际存在**的那些状态。关键截图存进 `.scratch/<任务 slug>/evidence/`，一个状态一份，文件名说清是哪个页面的哪个状态；交互异常时同时读 DOM 和 console，一并存进去。这些默认跟着 `$mmw:mmw-closing` 的收尾一起删掉；用户要留就挪进 `docs/evidence/<任务 slug>/`。改过 viewport 的，留下最后一份证据之后恢复默认。宿主和项目都没有浏览器入口时，记录一遍可重复执行的人工步骤。**验收没过，或者拿不出等价证据，就不许集成结果分支。**
+在结果 worktree 里把界面启动起来。用浏览器入口走通黄金路径和相关边界状态。viewport 和状态以选中的 UI 产物为准。没有 prototype 时，按 plan 的界面验收段执行。逐个检查实际存在的加载、空、错误、成功和部分完成状态。运行 `mmw artifact path scratch --sub evidence`。关键截图写进输出目录。一个状态一份。文件名说明页面和状态。交互异常时同时读 DOM 和 console，并一并写入。用户要求长期保存时，写到用户指定位置。改过 viewport 后，留下最后一份证据再恢复默认。宿主和项目都没有浏览器入口时，记录可重复执行的人工步骤。**验收没过，或者拿不出等价证据，就不许集成结果分支。**
 
 三关都过后，集成结果：
 
@@ -139,7 +139,7 @@ spec 分支通过合同门，或者 agent brief 分支完成第 5 步后，按 `
 | 第 6 步有合同 grep 不到行号 | **停**：报是哪条合同、提供方或消费方缺在哪 |
 | 审出了采信的 findings | **自己继续**：按第 7 步一次性修复并验证；有一条没修好就停，不再审 |
 | 审完没有采信项，或者采信项已经修复并验证，而且这次改动碰了带出包配置的产品 | **移交**：`$mmw:mmw-release`，先把安装包出出来。同时告诉它这次是有 spec 还是只有 agent brief——它收尾要按这个分岔。仓库里有没有出包配置，跑 `grep -rl '"product"' --include='*.release-adapter.json' .` |
-| 审完没有采信项，或者采信项已经修复并验证；这次不用出包，而且有 spec | **移交**：`$mmw:mmw-closing`，让 spec 与 plan 长期留在仓库的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/`，只清理当前任务的过程材料，再交回用户合并 |
+| 审完没有采信项，或者采信项已经修复并验证；这次不用出包，而且有 spec | **移交**：`$mmw:mmw-closing`，让 spec 与 plan 长期留在仓库，只清理当前任务的过程材料，再交回用户合并 |
 | 审完没有采信项，或者采信项已经修复并验证；这次不用出包，而且只有 agent brief | **停**：报告实现结果、验证证据和当前分支 HEAD。这项任务没有 spec，不走 `$mmw:mmw-closing`；分支已就绪，交回用户集成 |
 | 第 1 步有一项前置不满足 | **停**：说清是哪一项，按第 1 步表中的出口回 `$mmw:mmw-triage`、`$mmw:mmw-to-spec`、`$mmw:mmw-to-tickets` 或 `$mmw:mmw-to-plan` |
 | `worker` 卡在 ticket 与代码互相矛盾上 | **停**：把矛盾交给用户，不要换一个 `worker` 再派一遍 |

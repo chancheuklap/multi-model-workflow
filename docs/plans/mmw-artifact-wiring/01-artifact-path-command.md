@@ -10,7 +10,7 @@ artifact_refs:
 # Plan: 产物落点数据与 `mmw artifact path`
 
 **Goal:** 一个 agent 给出产物类别和工作名后，可以用一条无副作用命令取得正确落点。
-**Source spec:** `docs/specs/mmw-artifact-wiring/mmw-artifact-wiring.md`
+**Source spec:** `docs/specs/mmw-artifact-wiring/spec.md`
 **Source ticket:** GitHub issue `#37`
 **Research source:** `docs/research/mmw-artifact-wiring/issue-19/artifact-inventory/README.md`；精确文件是同目录的 `report.md`
 

@@ -6,7 +6,7 @@ artifact_refs: []
 # Plan: 产物引用声明与 `mmw artifact check`
 
 **Goal:** 固定结构承载产物引用。`/mmw-to-spec` 发布三个固定节。它把带 agent brief 的原 issue 挂到 spec issue，并在成功后关闭。`mmw artifact check` 能检查全部 spec 与 plan，并在生产方完成文件后运行。
-**Source spec:** `docs/specs/mmw-artifact-wiring/mmw-artifact-wiring.md`
+**Source spec:** `docs/specs/mmw-artifact-wiring/spec.md`
 **Source ticket:** GitHub issue `#43`
 
 ## Constraints

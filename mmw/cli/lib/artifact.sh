@@ -43,7 +43,9 @@ mmw_artifact_validate_sub() {
 
 mmw_artifact_allowed_subs() {
   local record="$1"
-  jq -r '.sub_fixed[]' <<< "$record" | paste -sd ', ' -
+  # 用 jq 自己 join。`paste -d ', '` 把两个字符当成分隔符列表循环使用，
+  # 结果是逗号和空格交替出现，读的人会把 `evidence questionnaire` 当成一个取值。
+  jq -r '.sub_fixed | join(", ")' <<< "$record"
 }
 
 mmw_artifact_path() {

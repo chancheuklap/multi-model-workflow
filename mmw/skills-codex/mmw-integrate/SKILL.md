@@ -76,7 +76,13 @@ mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>
 
 冲突解决只组合已有意图，不发明新行为。若必须增加第三种行为才能让代码通过，现有目标不足以决定取舍，按“下一步”停止并交用户判断。
 
-把实质取舍写入 `.reviews/<任务 slug>-integration-<YYYY-MM-DD>.md`。同一天第二轮在日期后加序号。带任务 slug 是为了让 `$mmw:mmw-closing` 收尾时认得出它归谁。每条记录文件位置、双方意图、保留内容和理由。
+把实质取舍写入下面命令输出的记录。同一天第二轮在日期后加序号：
+
+```bash
+mmw artifact path review --sub integration-<日期>[-<序号>].md
+```
+
+每条记录文件位置、双方意图、保留内容和理由。
 
 完成条件：没有进行中的 merge 或 rebase；工作区干净；本轮应合入的分支都出现在当前任务分支历史中。
 

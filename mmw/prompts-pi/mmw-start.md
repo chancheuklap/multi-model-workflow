@@ -47,9 +47,9 @@ argument-hint: "[wayfinder] [需求、bug、issue/PR/map 编号或链接；留�
 
 带 issue 编号的，先 `gh issue view <编号> --comments` 把它读出来再判，不要只看编号。`wayfinder:` 这一族标签的含义见 `/mmw-wayfinder`，其余分诊标签见 `/mmw-triage`。
 
-## 2. 定 slug
+## 2. 定任务分支名
 
-名字叫 **slug**，形状是 `<类型>-<短语>`：类型取 Conventional Commits 那一套，短语用 kebab 说清这次做什么。例如 `feat-phone-login`、`fix-refund-rounding`、`refactor-order-state`。
+任务分支名使用 **slug**。形状是 `<类型>-<短语>`。类型取 Conventional Commits。短语用 kebab 说清这次做什么。例如 `feat-phone-login`、`fix-refund-rounding`、`refactor-order-state`。
 
 | 类型 | 用在 |
 | --- | --- |
@@ -63,7 +63,7 @@ argument-hint: "[wayfinder] [需求、bug、issue/PR/map 编号或链接；留�
 
 类型取自第 1 步的判定结果：走 `/mmw-diagnosing-bugs` 的用 `fix`，新需求和先做原型的用 `feat`。类型同时约束范围——一个 `fix` 里混进新功能，说明当初的类型定错了，或者这次改动该拆成两个。
 
-**一个 slug 贯穿三处**：任务分支名、`docs/specs/<slug>/`、这个目录里的主文件 `<slug>.md`。worktree 的物理目录由宿主管理，不参与任务识别。
+任务分支名只标识任务分支。它不承担工作名。worktree 的物理目录由宿主管理，不参与任务识别。
 
 slug 的类型前缀用连字符。不带 issue 编号，不带日期。同名冲突时加一个区分词，不加序号。宿主可以在分支名前增加固定命名空间；该命名空间不属于 slug。
 
@@ -82,9 +82,9 @@ slug 的类型前缀用连字符。不带 issue 编号，不带日期。同名�
 
 | 第一个词 | 什么意思 | 你做什么 |
 | --- | --- | --- |
-| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。第二个词是任务分支名，第三个词是当前 HEAD，记下它们 |
-| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <分支名> "<用户原话>"`。`<分支名>` 用这个任务的 slug；宿主对任务分支有固定命名空间（Codex App 是 `codex/`）时带上它。知道预期基点就加 `--from <父分支或基点 SHA>`，它只是一道校验，不确定就不加。命令必须返回任务分支名和起始提交 |
-| `local` 或 `outside` | 你在主检出里，或者根本不在仓库里 | 这棵树要你自己建：`mmw task new <slug> "<用户原话>"`，从 map 分支派生时加 `--from <map 分支>`。命令返回绝对路径，用宿主切换工作目录的能力进去 |
+| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。第四个词是工作名，记下它 |
+| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 先单独确定工作名。绑定：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。命令成功后重新运行 `mmw task state`。确认输出是 `bound`。再取第四个词 |
+| `local` 或 `outside` | 你在主检出里，或者根本不在仓库里 | 先单独确定工作名。建树：`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <map 分支>]`。切换到返回的绝对路径。重新运行 `mmw task state`。确认输出是 `bound`。再取第四个词 |
 
 两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
 

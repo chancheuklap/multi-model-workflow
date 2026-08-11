@@ -2,15 +2,15 @@
 
 用户带着一个松散的想法调用。这个会话把 map 建出来就结束，不去解那些需要讨论的 ticket；只有 `wayfinder:research` 这一种例外，因为它不需要用户参与，可以在这个会话里并行跑完（第 5、6 步）。
 
-这个会话的任务分支就是 map 分支，后面每张 decision ticket 都从它派生。这个任务的 slug 取这项 effort 的短名：全小写，空格换成连字符。
+这个会话的任务分支就是 map 分支。后面每张 decision ticket 都从它派生。先分别确定任务分支名和工作名。任务分支名取这项 effort 的短名。
 
 先跑 `mmw task state`。它输出一行，第一个词决定这棵树要不要你自己建：
 
 | 第一个词 | 什么意思 | 你做什么 |
 | --- | --- | --- |
-| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。第二个词是任务分支名，第三个词是当前 HEAD，记下它们 |
-| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <分支名> "<用户原话>"`。`<用户原话>` 是用户这次提出这个任务时说的那句话。`<分支名>` 用这个任务的 slug；宿主对任务分支有固定命名空间（Codex App 是 `codex/`）时带上它。知道预期基点就加 `--from <父分支或基点 SHA>`，它只是一道校验，不确定就不加。命令必须返回任务分支名和起始提交 |
-| `local` 或 `outside` | 你在主检出里，或者根本不在仓库里 | 这棵树要你自己建：`mmw task new <slug> "<用户原话>"`，本技能上文点名了父分支时加 `--from <父分支>`。命令返回绝对路径，用宿主切换工作目录的能力进去 |
+| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。第四个词是工作名，记下它 |
+| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。重新运行 `mmw task state`。确认输出是 `bound`。再取第四个词 |
+| `local` 或 `outside` | 你在主检出里，或者根本不在仓库里 | 建树：`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支>]`。切换到返回的绝对路径。重新运行 `mmw task state`。确认输出是 `bound`。再取第四个词 |
 
 两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
 
@@ -26,10 +26,10 @@
 
 3. **创建 map**，并添加 `wayfinder:map` 标签。map 名称就是这张 issue 的标题，按这项 effort 起。填写 Destination 和 Notes；Decisions so far 留空；把 fog 的轮廓写入 **Not yet specified**。
 
-   同时把第 1 步确定的 `产物目录` 写入 map 正文，并把 `mmw task state` 报的当前分支名写进 `## 分支`——这个会话的任务分支就是 map 分支，后来的会话只能从这里拿到它。把完整的 map 正文写进 `.scratch/<产物目录>/map-body.md`，再用它创建 issue：
+   同时把第 1 步确定的 `产物目录` 写入 map 正文，并把 `mmw task state` 报的当前分支名写进 `## 分支`——这个会话的任务分支就是 map 分支，后来的会话只能从这里拿到它。运行 `mmw artifact path scratch --sub outbox/map-body.md`。把完整的 map 正文写进输出文件，再用它创建 issue：
 
    ```bash
-   mmw issue create --title "<map 名称>" --body-file .scratch/<产物目录>/map-body.md --label wayfinder:map
+   mmw issue create --title "<map 名称>" --body-file <上一步输出文件> --label wayfinder:map
    ```
 
 4. 把**当前能够精确表述的问题全部建成 ticket**，作为 map 的子 issue。当前仍说不清楚的内容继续留在 **Not yet specified** 一节。
@@ -51,7 +51,7 @@
 
 5. **启动 research。** 对刚创建的每张 `wayfinder:research` ticket，先运行 `mmw issue claim <编号>`。claim 失败的 ticket 已由其他 session 占用，不重复派发。
 
-   claim 成功后，把 `docs/research/<产物目录>/issue-<编号>` 和 `.scratch/<产物目录>/issue-<编号>` 这两条路径连同 ticket 的 Question 一起传给 `$mmw:mmw-research`。每张 ticket 作为一项独立 research 并行处理；`$mmw:mmw-research` 根据取证角度决定 `investigator` 的数量。
+   claim 成功后，分别运行 `mmw artifact path research --issue <编号> --sub <主题>` 和 `mmw artifact path scratch --issue <编号> --sub evidence`。把两条输出路径和 ticket 的 Question 一起传给 `$mmw:mmw-research`。每张 ticket 作为一项独立 research 并行处理；`$mmw:mmw-research` 根据取证角度决定 `investigator` 的数量。
 
    查证、验证、综合、保存和清理过程材料都由 `$mmw:mmw-research` 自己完成，你只等它交回。`$mmw:mmw-research` 对 ticket 派来的调查直接保存，不会停下来问用户；它交回的内容里有 research 的 `README.md` 精确路径。
 
@@ -59,7 +59,7 @@
 
 6. **记录 research 结果并提交。** 对每张已经交回的 research ticket，按顺序完成：
 
-   1. 把答案写成 `.scratch/<产物目录>/issue-<编号>/answer.md`：内容是验证后的事实、`$mmw:mmw-research` 交回的 `README.md` 精确路径，以及没查清楚的部分。然后把它发成这张 ticket 上的一条评论：`gh issue comment <编号> --body-file .scratch/<产物目录>/issue-<编号>/answer.md`。
+   1. 运行 `mmw artifact path scratch --issue <编号> --sub outbox/answer.md`。把验证后的事实、`$mmw:mmw-research` 交回的 `README.md` 精确路径和未查清项写入输出文件。然后评论：`gh issue comment <编号> --body-file <上一步输出文件>`。
    2. 关闭这张 ticket：`gh issue close <编号>`。
    3. 在 map 的 `Decisions so far` 追加一行：ticket 名称包着它的链接，加一句话概要。改 map 正文之前先 `gh issue view <map 编号>` 重新读一遍最新的，改完再读一遍确认自己那行在。
    4. research 让一部分原本说不清楚的问题变得说得清楚时，按第 4 步的两遍做法建成新 ticket；仍说不清楚的留在 `Not yet specified`。

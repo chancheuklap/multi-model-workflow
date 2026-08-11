@@ -33,15 +33,15 @@
 
 3. 解决 ticket。先运行 `gh issue view <编号>` 取得这张 ticket 的完整正文，它的 `Question` 一节就是要解决的问题。需要更多背景时，按需取得相关或已关闭 ticket 的完整正文，不要一次把所有 ticket 都读进来。调用 map `## Notes` 区块点名的技能。不确定用什么时，使用 `/mmw-grilling`；它在同一场讨论中应用 `/mmw-domain-modeling`。
 
-   需要资产路径时，用 map 的 `产物目录` 和这张 ticket 自己的编号拼：
+   需要资产路径时，运行以下完整命令：
 
-   | 资产 | 路径 |
+   | 资产 | 命令 |
    | --- | --- |
-   | prototype | `docs/prototypes/<产物目录>/issue-<编号>` |
-   | research | `docs/research/<产物目录>/issue-<编号>` |
-   | 过程材料 | `.scratch/<产物目录>/issue-<编号>` |
+   | prototype | `mmw artifact path prototype --issue <编号> --sub <类别内细分>` |
+   | research | `mmw artifact path research --issue <编号> --sub <主题>` |
+   | 过程材料 | `mmw artifact path scratch --issue <编号> --sub evidence` |
 
-   只把拼好的完整路径传给下游技能，不传任务 slug 代替路径。按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节处理：
+   只把命令解析出的完整路径传给下游技能。按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节处理：
 
    | 标签 | MMW 接口 |
    | --- | --- |
@@ -64,7 +64,7 @@
 
 4. 记录这次的答案。三件事：
 
-   1. 把答案写成 `.scratch/<产物目录>/issue-<编号>/answer.md`，写上这张 ticket 实际形成的资产：prototype 的路径，或 research 的 `README.md` 精确路径；没有资产时只写答案。然后把它发成这张 ticket 上的一条评论：`gh issue comment <编号> --body-file .scratch/<产物目录>/issue-<编号>/answer.md`。
+   1. 运行 `mmw artifact path scratch --issue <编号> --sub outbox/answer.md`。把答案写入输出文件。写上这张 ticket 实际形成的资产：prototype 的路径，或 research 的 `README.md` 精确路径；没有资产时只写答案。然后评论：`gh issue comment <编号> --body-file <上一步输出文件>`。
    2. 关闭这张 ticket：`gh issue close <编号>`。
    3. 在 map 的 `Decisions so far` 追加一行：ticket 名称包着它的链接，加一句话概要。改 map 正文之前先 `gh issue view <map 编号>` 重新读一遍最新的，改完再读一遍确认自己那行在。别的会话可能刚改过 map，不要把它们的行覆盖掉。
 

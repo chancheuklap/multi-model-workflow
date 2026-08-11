@@ -6,7 +6,7 @@ artifact_refs: []
 # Plan: 领域文档收口
 
 **Goal:** 领域文档与产物落点、tracker 固定标题及 Wiki 退役合同一致，并补齐缺失的 canonical 术语。
-**Source spec:** `docs/specs/mmw-artifact-wiring/mmw-artifact-wiring.md`
+**Source spec:** `docs/specs/mmw-artifact-wiring/spec.md`
 **Source ticket:** GitHub issue `#46`
 
 ## Constraints

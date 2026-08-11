@@ -21,16 +21,21 @@ description: 把当前用户无法回答的问题整理成给知识持有者填�
 
 ## 3. 写 questionnaire
 
-这次的 scratch 落点形状是 `.scratch/<产物目录>/<子目录>`：
+先运行 `mmw task state`。输出是 `bound` 时，只取第四字段作为工作名。
 
-| 段 | 取值 |
-| --- | --- |
-| `<产物目录>` | 普通任务用当前任务 slug；Wayfinder 场景从当前 map 或子 issue 正文的 `## 产物目录` 读取 |
-| `<子目录>` | 普通任务没有这一层；Wayfinder 的 decision ticket 用正文记录的 `issue-<编号>`；Wayfinder 派生的 spec 任务用 `task-<任务 slug>`，slug 从已绑定任务状态读 |
+输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。
 
-不要从任务 worktree 的物理目录名推断产物目录。`.scratch/` 在 `.gitignore` 里，放这儿的东西不进 Git。
+输出是 `local` 或 `outside` 时，先分别确定任务分支名和工作名。运行 `mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。切换到返回的绝对路径。
 
-在这个 scratch 目录里写 `to-questionnaire-<slug>.md`，slug 取主题。不要写当前目录。完成后报告路径。
+两种建树动作之后都重新运行 `mmw task state`。只在输出确认是 `bound` 后，取第四字段作为工作名。
+
+取一个主题名。运行下面的完整命令取得 questionnaire 落点。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
+
+```bash
+mmw artifact path scratch [--issue <编号>] --sub questionnaire/<主题>.md
+```
+
+把 questionnaire 写进输出文件。完成后报告路径。
 
 用户明确要求长期保存 questionnaire 时，改写到用户指定的正式落点。
 
