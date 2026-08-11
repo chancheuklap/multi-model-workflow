@@ -39,6 +39,8 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$MMW_ROOT/cli/lib/toolchain.sh"
 # shellcheck source=lib/init.sh
 . "$MMW_ROOT/cli/lib/init.sh"
+# shellcheck source=lib/artifact.sh
+. "$MMW_ROOT/cli/lib/artifact.sh"
 
 # 用法分两层：这里只列命令名，参数在各命令自己的 usage_* 里。要查 dispatch
 # 怎么写的人不该顺带读完 issue 的六个子命令——认不出参数时打的也是那一个命令
@@ -50,6 +52,7 @@ mmw <命令> [参数]
   dispatch    Claude Code：把 task 文件编成宿主工具参数（Pi 主路径不用）
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
+  artifact    产物：查询类别的落点
   task        任务 worktree：查状态、建、绑分支、删
   result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
@@ -478,6 +481,15 @@ cmd_domain() {
   esac
 }
 
+cmd_artifact() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    path) mmw_artifact_path "$@" ;;
+    *) usage_artifact ;;
+  esac
+}
+
 usage_graph() {
   cat >&2 <<'EOF'
 mmw graph build    重建一次结构图谱
@@ -721,6 +733,7 @@ case "${1:-}" in
   dispatch) shift; cmd_dispatch "$@" ;;
   agents) shift; cmd_agents "$@" ;;
   skills) shift; cmd_skills "$@" ;;
+  artifact) shift; cmd_artifact "$@" ;;
   task) shift; cmd_task "$@" ;;
   result) shift; cmd_result "$@" ;;
   issue) shift; cmd_issue "$@" ;;
