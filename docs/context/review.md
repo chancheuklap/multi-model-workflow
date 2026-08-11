@@ -44,8 +44,11 @@ _Avoid_: 固定点、被审 HEAD、当前 HEAD、分支名
 _Avoid_: 被审 HEAD
 
 **审查记录**：
-保存在 `.reviews/` 中的审查者原始报告和主 agent 处置。
+审查者原始报告和主 agent 处置。它的位置按[路径形状](./artifact-location.md)确定，类别根是 reviews 根。
 _Avoid_: subagent 报告、聊天摘要
+
+**路径形状**：
+(authoritative: [路径形状](./artifact-location.md))
 
 **合同门**：
 主 agent 在全部实现合入任务分支后检查跨 plan 合同是否兑现的第四道审。
