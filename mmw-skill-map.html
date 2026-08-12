@@ -475,7 +475,7 @@ subgraph SETUP["前置"]
   set(["<b>mmw init</b><br/>· 只配置当前目标仓库<br/>· 铺 .mmw.json 与 TESTING.md 骨架<br/>· 同步 AGENTS.md 与 CLAUDE.md 领域规则<br/>· 补标签与 .gitignore；幂等"])
   subgraph CLIBOX["mmw · 技能写判据，它做动作"]
     direction TB
-    cl1(["<b>mmw task / result</b><br/>state / bind / new / cleanup（都带工作名）<br/>verify / integrate"])
+    cl1(["<b>mmw task / result</b><br/>state / name / bind / new / cleanup（都带工作名）<br/>工作名只由 mmw task name 回答<br/>verify / integrate"])
     cl2(["<b>mmw issue</b><br/>create / frontier / children / claim<br/>link / set-parent / append"])
     cl3(["<b>宿主角色入口</b><br/>Codex：后台任务或原生 subagent<br/>Pi：原生 subagent<br/>Claude Code：mmw dispatch"])
     cl4(["<b>mmw domain</b><br/>path / map-init / sync / check / adr-next / dirs"])
