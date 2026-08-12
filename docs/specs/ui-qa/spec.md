@@ -3,7 +3,7 @@ slug: ui-qa
 summary: 新增 `/mmw-ui-qa` 界面 QA 技能，让 agent 依据已谈定的判据自动检查界面并分流处置 finding
 date: 2026-08-12
 branch: mmw-ui-qa
-spec_issue: 0
+spec_issue: 52
 artifact_refs: []
 ---
 
