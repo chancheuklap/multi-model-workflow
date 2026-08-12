@@ -327,7 +327,7 @@ suite_task_new() {
 
 suite_task_bind() {
   echo "mmw task bind"
-  local repo base det legacy legacy_head legacy_count legacy_index legacy_worktree state_out state_err expected_state
+  local repo base det legacy legacy_head legacy_count legacy_index legacy_worktree state_out state_err expected_state work_name_err
   repo="$(fresh_repo)"
   base="$(git -C "$repo" rev-parse HEAD)"
 
@@ -359,7 +359,22 @@ suite_task_bind() {
   rm -f "$det/dirty.txt"
 
   expect_ok "干净的 detached worktree 允许 bind" "$det" \
-    env MMW_HOST=codex "$MMW" task bind codex/x "任务目标" --name codex-work
+    env MMW_HOST=codex "$MMW" task bind codex/x "任务目标" --name aaa
+  work_name_err="$WORKBENCH/detached-work-name.err"
+  if (cd "$det" && MMW_HOST=codex "$MMW" task bind codex/x "任务目标" --name bbb) \
+      >"$work_name_err" 2>&1; then
+    report fail "已绑定任务 worktree 不改写已经确定的工作名" "期望拒绝，实际成功"
+  else
+    report pass "已绑定任务 worktree 不改写已经确定的工作名"
+  fi
+  expect_state "已绑定任务 worktree 不改写已经确定的工作名" "错误说明原工作名" \
+    grep -F "aaa" "$work_name_err"
+  expect_state "已绑定任务 worktree 不改写已经确定的工作名" "错误说明传入工作名" \
+    grep -F "bbb" "$work_name_err"
+  expect_state "已绑定任务 worktree 不改写已经确定的工作名" "工作名保持不变" \
+    test "$(cd "$det" && MMW_HOST=codex "$MMW" task state)" = "bound codex/x $(git -C "$det" rev-parse HEAD) aaa"
+  expect_ok "已绑定任务 worktree 用原工作名可以重复 bind" "$det" \
+    env MMW_HOST=codex "$MMW" task bind codex/x "任务目标" --name aaa
   expect_deny "分支已经存在时不 bind" "$det" \
     env MMW_HOST=codex "$MMW" task bind codex/x "任务目标"
 
@@ -405,6 +420,11 @@ suite_task_bind() {
   expect_state "Pi 能在旧绑定上补写工作名" "工作区不变" \
     test "$(git -C "$legacy" status --porcelain)" = "$legacy_worktree"
 
+  expect_deny "已绑定任务 worktree 的 --from 与 HEAD 不符时拒绝" "$legacy" \
+    env MMW_HOST=pi "$MMW" task bind legacy "旧任务目标" --name legacy-work --from main
+  expect_ok "已绑定任务 worktree 的 --from 与 HEAD 相符时允许重复 bind" "$legacy" \
+    env MMW_HOST=pi "$MMW" task bind legacy "旧任务目标" --name legacy-work --from "$legacy_head"
+
   legacy="$repo/.worktrees/legacy-codex"
   git -C "$repo" branch -q legacy-codex "$base"
   git -C "$repo" worktree add -q "$legacy" legacy-codex
@@ -420,7 +440,7 @@ suite_task_bind() {
 suite_dispatch_output() {
   echo "mmw dispatch（正文、报告与进度日志）"
   local repo task_body task_text fake_bin request_out command execution_out execution_err
-  local captured task_size task_suffix log_dir log
+  local captured task_size task_suffix log_dir log first_log first_log_name second_log fixed_first_out fixed_second_out fixed_status
   repo="$(fresh_repo)"
   task_body="$WORKBENCH/dispatch-output-task.txt"
   printf '%s' '## 目标
@@ -440,11 +460,16 @@ suite_dispatch_output() {
     '#!/usr/bin/env bash' \
     'set -eu' \
     'cat > "$FAKE_CODEX_STDIN"' \
-    'printf "fake progress\\n" >&2' \
+    'printf "%s\\n" "${FAKE_CODEX_PROGRESS:-fake progress}" >&2' \
     'printf "%s\\n" "${FAKE_CODEX_REPORT:-fake report}"' \
     'exit "${FAKE_CODEX_EXIT:-0}"' \
     > "$fake_bin/codex"
   chmod +x "$fake_bin/codex"
+  printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'printf "%s\\n" "${FAKE_DATE:-20260812-101057}"' \
+    > "$fake_bin/date"
+  chmod +x "$fake_bin/date"
 
   mmw_in "$repo" pi task new dispatch-output "派活输出" --name dispatch-output-work >/dev/null
 
@@ -498,17 +523,68 @@ suite_dispatch_output() {
     report fail "GPT 失败时返回 codex 退出码" \
       "$(cat "$execution_err" 2>/dev/null || true)"
   fi
-  log="$(find "$log_dir" -maxdepth 1 -type f -name 'worker-*.log' -print 2>/dev/null | head -n 1)"
+  log="$(find "$log_dir" -maxdepth 1 -type f -name 'worker-*.log' -print -quit 2>/dev/null)"
   expect_state "失败的派发进度日志" "路径带工作名与范围段" \
     test -n "$log"
-  expect_state "失败的派发进度日志" "文件名是角色加时间戳" \
-    sh -c 'test "$(basename "$1")" != "" && echo "$(basename "$1")" | grep -Eq "^worker-[0-9]{8}-[0-9]{6}\\.log$"' sh "$log"
+  expect_state "失败的派发进度日志" "文件名是角色、时间戳和随机段" \
+    sh -c 'test "$(basename "$1")" != "" && echo "$(basename "$1")" | grep -Eq "^worker-[0-9]{8}-[0-9]{6}-[A-Za-z0-9]{6}\\.log$"' sh "$log"
   expect_state "失败的派发进度日志" "保留 codex 标准错误" \
     grep -qxF "fake progress" "$log"
   expect_state "失败的角色报告" "仍走标准输出" \
     grep -qxF "失败报告" "$execution_out"
   expect_state "失败的角色报告" "仍不创建 .dispatch 目录" \
     test ! -e "$repo/.worktrees/dispatch-output/.dispatch"
+
+  mv "$log" "$WORKBENCH/previous-dispatch.log" || exit 1
+
+  if [ -n "$command" ]; then
+    fixed_first_out="$WORKBENCH/codex-fixed-first.out"
+    fixed_second_out="$WORKBENCH/codex-fixed-second.out"
+    if env PATH="$fake_bin:$PATH" FAKE_CODEX_STDIN="$WORKBENCH/codex-fixed-first.stdin" \
+        FAKE_CODEX_PROGRESS="fixed-time first" FAKE_CODEX_EXIT=7 bash -c "$command" \
+        > "$fixed_first_out" 2>&1; then
+      report fail "固定时间戳的第一个同角色派发保留日志" "期望退出码 7，实际成功"
+    else
+      fixed_status=$?
+      if [ "$fixed_status" -eq 7 ]; then
+        report pass "固定时间戳的第一个同角色派发保留日志"
+      else
+        report fail "固定时间戳的第一个同角色派发保留日志" "期望退出码 7，实际是 $fixed_status"
+      fi
+    fi
+    first_log="$(sed -n 's/^log: //p' "$fixed_first_out")"
+    first_log_name="$(basename "$first_log")"
+    if [ -n "$first_log" ] && [ -f "$first_log" ]; then
+      mv "$first_log" "$WORKBENCH/fixed-time-first.log" || exit 1
+      first_log="$WORKBENCH/fixed-time-first.log"
+    fi
+    if env PATH="$fake_bin:$PATH" FAKE_CODEX_STDIN="$WORKBENCH/codex-fixed-second.stdin" \
+        FAKE_CODEX_PROGRESS="fixed-time second" FAKE_CODEX_EXIT=7 bash -c "$command" \
+        > "$fixed_second_out" 2>&1; then
+      report fail "固定时间戳的第二个同角色派发保留日志" "期望退出码 7，实际成功"
+    else
+      fixed_status=$?
+      if [ "$fixed_status" -eq 7 ]; then
+        report pass "固定时间戳的第二个同角色派发保留日志"
+      else
+        report fail "固定时间戳的第二个同角色派发保留日志" \
+          "期望退出码 7，实际是 ${fixed_status}：$(cat "$fixed_second_out")"
+      fi
+    fi
+    second_log="$(sed -n 's/^log: //p' "$fixed_second_out")"
+  else
+    report fail "固定时间戳的同角色派发保留两份日志" "后台命令为空"
+    first_log=""
+    first_log_name=""
+    second_log=""
+  fi
+  expect_state "固定时间戳的同角色派发" "留下两份不同文件名的日志" \
+    sh -c 'test -f "$1" && test -f "$2" && test "$3" != "$(basename "$2")"' \
+      sh "$first_log" "$second_log" "$first_log_name"
+  expect_state "固定时间戳的同角色派发" "第一份日志内容完整" \
+    grep -qxF "fixed-time first" "$first_log"
+  expect_state "固定时间戳的同角色派发" "第二份日志内容完整" \
+    grep -qxF "fixed-time second" "$second_log"
 
   captured="$WORKBENCH/codex-no-log.stdin"
   execution_out="$WORKBENCH/codex-no-log.out"
