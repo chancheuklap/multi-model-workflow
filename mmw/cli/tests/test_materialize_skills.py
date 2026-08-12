@@ -289,8 +289,11 @@ def test_codex_后台_worktree_任务显式传递并绑定工作名(
     正文 = 读(out, "mmw-alpha/SKILL.md")
     assert "当前任务 worktree" in 正文
     assert "mmw task state" in 正文
-    assert "bound <任务分支> <HEAD> <工作名>" in 正文
-    assert "第四字段" in 正文
+    # 工作名由 `mmw task name` 回答。原来这里断言展开出「取第四字段」——那个序号是
+    # 一份跨多个文档的合同，`state` 的输出形状一变就要散着改，而且漏掉一处没有检查
+    # 会发现。现在断言反过来：序号说法不许再出现。
+    assert "mmw task name" in 正文
+    assert "第四字段" not in 正文
     assert "四栏 task、完整结果分支名、派发前基点 SHA 和工作名" in 正文
     assert (
         "mmw task bind <完整结果分支名> <目标栏原文> "

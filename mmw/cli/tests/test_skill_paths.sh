@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
-# 技能源里的产物落点只由 artifact path 命令回答。
+# 技能源正文里，两样东西只由命令回答，不由正文写死。
+#
+# 规则一、规则二：产物落点只由 artifact path 回答。
+# 规则三：命令输出里的值只由专门回答它的命令给出，不按序号从另一条命令的输出里数。
 
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SKILLS="$(cd "$HERE/../../skills-src" && pwd)"
+MMW="$(cd "$HERE/../.." && pwd)"
 ARTIFACTS="$HERE/../artifacts.json"
 MODEL="$HERE/../mmw.default.json"
+
+# 源和四份物化产物都扫。启动块的正文不在源里，它在 lib/materialize_skills.py 的
+# 展开模板里——只扫源的话，模板里写死的落点和按序号取值都躲得过去。物化一致性由
+# `skills materialize --check` 保证，所以扫产物等于同时扫到了源和模板。
+SKILLS="$MMW/skills-src:$MMW/skills-pi:$MMW/skills-claude-code:$MMW/skills-codex:$MMW/prompts-pi"
 
 python3 - "$SKILLS" "$ARTIFACTS" "$MODEL" <<'PY'
 import copy
@@ -16,6 +24,18 @@ import pathlib
 import re
 import sys
 import tempfile
+
+
+# 规则三：按序号从命令输出里取值。
+#
+# 由来是工作名。十二份技能源都写着「运行 `mmw task state`，取第四字段」，于是那个
+# 序号成了一份跨十二个文档的合同：`state` 的输出形状一变就是十二处散着改，漏掉一处
+# 没有任何检查会发现。现在工作名由 `mmw task name` 单独回答。
+#
+# 只放过一种序号说法：`mmw task state` 的第一个词。技能用它决定要不要自己建树，
+# 那一个词就是这条命令要回答的问题本身，不是从一串字段里数出来的。
+POSITIONAL_PATTERN = re.compile(r"第\s*(?:[一二三四五六七八九十]+|\d+)\s*个?\s*(?:字段|词|列)")
+POSITIONAL_ALLOWED = "第一个词"
 
 
 def load_config(artifacts_path, model_path):
@@ -70,9 +90,11 @@ def check(skills_path, artifacts_path, model_path, output):
             print(f"  失败  {error}", file=output)
         return 1
 
-    skills = pathlib.Path(skills_path)
-    if not skills.is_dir():
-        print(f"  失败  技能源目录不存在：{skills}", file=output)
+    roots = [pathlib.Path(part) for part in str(skills_path).split(":") if part]
+    missing = [root for root in roots if not root.is_dir()]
+    if not roots or missing:
+        for root in missing or [pathlib.Path(skills_path)]:
+            print(f"  失败  技能目录不存在：{root}", file=output)
         return 1
 
     fixed_roots, workdir_defaults = config
@@ -87,12 +109,20 @@ def check(skills_path, artifacts_path, model_path, output):
     ]
     findings = []
     scanned = 0
-    for source in sorted(skills.rglob("*.md")):
-        relative = source.relative_to(skills)
+    sources = [
+        (root, source)
+        for root in roots
+        for source in sorted(root.rglob("*.md"))
+    ]
+    for root, source in sources:
+        relative = source.relative_to(root)
         if "mmw-setup" in relative.parts:
             continue
         if relative == pathlib.Path("mmw-triage/examples.md"):
             continue
+        # 一个根扫完接着下一个根，报告路径要带上根名才定位得到是哪一份。
+        if len(roots) > 1:
+            relative = pathlib.Path(root.name) / relative
         scanned += 1
         try:
             lines = source.read_text().splitlines()
@@ -110,6 +140,12 @@ def check(skills_path, artifacts_path, model_path, output):
                     findings.append(
                         f"{relative}:{line_number} 规则二：类别 {category} 的工作目录根 "
                         f"默认值 {default}")
+            for match in POSITIONAL_PATTERN.finditer(line):
+                if match.group(0) == POSITIONAL_ALLOWED:
+                    continue
+                findings.append(
+                    f"{relative}:{line_number} 规则三：按序号取值 "
+                    f"{match.group(0)}")
 
     for finding in findings:
         print(f"  失败  {finding}", file=output)
@@ -208,6 +244,20 @@ def run_examples(artifacts_path, model_path):
         })
         status, _ = capture_check(skills, fixture_artifacts, fixture_model)
         cases.append(("空固定根不形成正则前缀", status == 0))
+
+        for text in ("取第四字段作为工作名", "再取第四个词", "取第 4 字段", "看第二列"):
+            skills = write_case(root / f"positional-{len(cases)}", {
+                "skill/SKILL.md": text + "\n",
+            })
+            status, output = capture_check(skills, fixture_artifacts, fixture_model)
+            cases.append((f"按序号取值失败：{text}", status == 1 and
+                          "skill/SKILL.md:1 规则三：按序号取值" in output))
+
+        skills = write_case(root / "positional-allowed", {
+            "skill/SKILL.md": "先跑 `mmw task state`。第一个词决定这棵树要不要你自己建。\n",
+        })
+        status, output = capture_check(skills, fixture_artifacts, fixture_model)
+        cases.append(("state 的第一个词通过", status == 0))
 
         skills = write_case(root / "source-boundaries", {
             "mmw-setup/SKILL.md": fixed_root + "<工作名>\n",

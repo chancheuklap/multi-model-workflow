@@ -277,6 +277,38 @@ suite_task_state() {
     test "$(cd "$detached" && MMW_HOST=pi "$MMW" task state)" = "$expected_state"
 }
 
+suite_task_name() {
+  echo "mmw task name"
+  local repo tree detached out
+  repo="$(fresh_repo)"
+  mmw_in "$repo" pi task new named-work "取工作名" --name work-name-here >/dev/null
+  tree="$repo/.worktrees/named-work"
+
+  expect_state "已绑定的任务 worktree 输出工作名" "输出只有工作名这一行" \
+    test "$(cd "$tree" && MMW_HOST=pi "$MMW" task name)" = work-name-here
+
+  expect_deny "主检出取不到工作名" "$repo" \
+    env MMW_HOST=pi "$MMW" task name
+  expect_deny "仓库外取不到工作名" "$WORKBENCH" \
+    env MMW_HOST=pi "$MMW" task name
+
+  detached="$repo/.worktrees/name-detached"
+  git -C "$repo" worktree add -q --detach "$detached" HEAD
+  expect_deny "detached 树取不到工作名" "$detached" \
+    env MMW_HOST=pi "$MMW" task name
+
+  # 绑好了分支、工作名没写的那一种要给出补写命令。这条错误由 state 拥有，
+  # name 不重写第二份；断言它确实传了出来。
+  git -C "$tree" config --worktree --unset mmw.task.work-name
+  out="$WORKBENCH/task-name-missing.err"
+  (cd "$tree" && MMW_HOST=pi "$MMW" task name) 2> "$out" || true
+  expect_state "缺工作名时给出补写命令" "错误里带 mmw task bind" \
+    grep -qF "mmw task bind" "$out"
+
+  expect_deny "缺工作名时非零退出" "$tree" \
+    env MMW_HOST=pi "$MMW" task name
+}
+
 suite_task_new() {
   echo "mmw task new"
   local repo before expected_state
@@ -949,6 +981,7 @@ suite_result_verify
 suite_result_integrate
 suite_task_cleanup
 suite_task_state
+suite_task_name
 suite_task_new
 suite_task_bind
 suite_dispatch_output

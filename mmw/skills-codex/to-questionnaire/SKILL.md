@@ -21,7 +21,7 @@ description: 把当前用户无法回答的问题整理成给知识持有者填�
 
 ## 3. 写 questionnaire
 
-先运行 `mmw task state`。输出是 `bound` 时，只取第四字段作为工作名。
+先运行 `mmw task state`。第一个词是 `bound` 时，运行 `mmw task name` 取工作名。
 
 输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。
 
@@ -29,7 +29,7 @@ description: 把当前用户无法回答的问题整理成给知识持有者填�
 
 输出是 `outside` 时，向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`。
 
-两种建树动作之后都重新运行 `mmw task state`。只在输出确认是 `bound` 后，取第四字段作为工作名。
+两种建树动作之后都重新运行 `mmw task state`。第一个词确认是 `bound` 后，运行 `mmw task name` 取工作名。
 
 取一个主题名。运行下面的完整命令取得 questionnaire 落点。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
 

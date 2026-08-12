@@ -118,6 +118,33 @@ mmw_task_state() {
   fi
 }
 
+# 只回答工作名，一行，不带别的字段。
+#
+# 有了 `state` 还要这一条，是因为工作名原来靠位置取：技能正文写「运行 `mmw task
+# state`，取第四字段」。那句话是一份跨十二份技能源的合同——`state` 的输出形状一变，
+# 十二处散着改，漏掉一处不会有任何机械校验发现。
+#
+# 这条命令让工作名有一个自己的出口。`state` 继续回答「当前处在哪一种位置」，技能
+# 用它决定要不要建树；工作名从这里取。
+#
+# 不在已绑定的任务 worktree 里时非零退出，并说清当前是哪一种位置。调用方按 `state`
+# 的第一个词选建树动作，不用解析这条命令的错误文本。
+#
+# 取值走 `mmw_task_current_work_name`，不去切 `state` 的输出——那样这条命令自己就
+# 成了下一个位置型消费方，`state` 加一个字段又要跟着改。
+mmw_task_name() {
+  local name state
+  if name="$(mmw_task_current_work_name)"; then
+    printf '%s\n' "$name"
+    return 0
+  fi
+  # 取不到有两种。分支绑好了、工作名没写的那一种由 `state` 自己报——它的错误文本里
+  # 带着补写用的 `mmw task bind` 命令，这里不重写第二份。
+  state="$(mmw_task_state)" || return 1
+  echo "mmw: 当前位置是 $(printf '%s' "$state" | awk '{print $1}')，不是已绑定的任务 worktree，取不到工作名" >&2
+  return 1
+}
+
 # 把宿主已经创建的 detached linked worktree 绑到任务分支。
 # 用法：mmw_task_bind <完整分支名> <用户原话或任务目标> [--name <工作名>] [--from <预期基点>]
 mmw_task_bind() {

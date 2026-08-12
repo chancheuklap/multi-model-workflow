@@ -51,7 +51,7 @@ mmw <命令> [参数]
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
   artifact    产物：查询类别的落点
-  task        任务 worktree：查状态、建、绑分支、删
+  task        任务 worktree：查状态、取工作名、建、绑分支、删
   result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
   domain      领域文档：初始化 Map、同步和检查消费合同、查询落点与 ADR 编号
@@ -110,6 +110,9 @@ mmw task cleanup <slug>
     删掉这个 worktree 和它的分支。有未提交改动时失败，不强制删除。
 mmw task state
     当前所在位置，输出 outside、local、detached，或带工作名的 bound。
+    用它的第一个词决定要不要自己建树。工作名从 mmw task name 取。
+mmw task name
+    只输出工作名，一行。不在已绑定的任务 worktree 里时失败并说清当前位置。
 mmw task bind <完整任务分支名> <用户原话或任务目标> [--name <工作名>] [--from <预期基点>]
     已绑定任务 worktree 用它补写工作名。
     Codex App 也用它把 App 已经建好的 detached worktree 绑到任务分支上。
@@ -441,6 +444,7 @@ cmd_task() {
   shift || true
   case "$sub" in
     state) [ $# -eq 0 ] || usage_task; mmw_task_state ;;
+    name) [ $# -eq 0 ] || usage_task; mmw_task_name ;;
     bind) mmw_task_bind "$@" ;;
     new) [ "$host" != "codex" ] || { echo "mmw: Codex App 负责创建 worktree，这里只用 task bind" >&2; return 1; }; mmw_task_new "$@" ;;
     cleanup) [ "$host" != "codex" ] || { echo "mmw: Codex App 负责清理 managed worktree" >&2; return 1; }; mmw_task_cleanup "$@" ;;

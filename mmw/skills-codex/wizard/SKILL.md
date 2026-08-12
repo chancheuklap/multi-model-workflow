@@ -43,7 +43,7 @@ Wizard 默认是临时产物，固定保存在当前任务的 Git 忽略 scratch
 
 ## 3. 生成 wizard
 
-先运行 `mmw task state`。输出是 `bound` 时，只取第四字段作为工作名。
+先运行 `mmw task state`。第一个词是 `bound` 时，运行 `mmw task name` 取工作名。
 
 输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。
 
@@ -51,7 +51,7 @@ Wizard 默认是临时产物，固定保存在当前任务的 Git 忽略 scratch
 
 输出是 `outside` 时，向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`。
 
-两种建树动作之后都重新运行 `mmw task state`。只在输出确认是 `bound` 后，取第四字段作为工作名。
+两种建树动作之后都重新运行 `mmw task state`。第一个词确认是 `bound` 后，运行 `mmw task name` 取工作名。
 
 以 [template.sh](template.sh) 为模板。取这次流程的 `<流程>`。它不是任务分支名。一个任务可以运行多次 wizard。运行下面的完整命令。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
 

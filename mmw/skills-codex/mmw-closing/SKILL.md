@@ -13,7 +13,7 @@ description: 完成有 spec 任务的过程材料清理和交回。用于用户�
 
 | 检查 | 怎么查 |
 | --- | --- |
-| 当前 checkout 已绑定任务 | 运行 `mmw task state`。输出必须以 `bound` 开头。第四个字段是工作名 |
+| 当前 checkout 已绑定任务 | 运行 `mmw task state`。输出必须以 `bound` 开头。工作名运行 `mmw task name` 取得 |
 | spec 已提交 | 运行 `mmw artifact path spec --name <工作名>`。对输出路径运行 `git cat-file -e "HEAD:<输出路径>"` |
 | 每份 plan 已提交 | 从每张 tracer bullet ticket 取得计划文件名。逐份运行 `mmw artifact path plan --name <工作名> --sub <计划文件>`，再检查输出路径已提交 |
 | 终审已经完成 | 运行 `mmw artifact path review --name <工作名> --sub final.md`。审查记录必须存在；采信项必须有 `修复提交` |
@@ -24,7 +24,7 @@ description: 完成有 spec 任务的过程材料清理和交回。用于用户�
 
 ## 1. 清理当前任务的过程材料
 
-先从 `mmw task state` 的第四个字段取得工作名。不要从任务分支名或 worktree 目录名推断工作名。
+先运行 `mmw task name` 取得工作名。不要从任务分支名或 worktree 目录名推断工作名。
 
 用下面两条命令取得当前工作名的过程材料父目录：
 
