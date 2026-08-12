@@ -1,3 +1,11 @@
+---
+slug: plan-loop-and-resume
+summary: plan 按批次与实现交替推进；ticket 验收标准有写作判据；planner 的 needs-repair 有定义；② plan 审首批次做覆盖扫描；审查之后的修复默认发回原生产者续跑
+date: 2026-08-12
+branch: worktree-plan-loop-and-resume
+artifact_refs: []
+---
+
 # plan 批次循环与恢复原生产者 spec
 
 > 本 spec 来自当前对话：对上游 superpowers plugin（obra/superpowers，2026-07-24 改版）与 mattpocock/skills（提交 `84fdeffd`）的调查，加上对 MMW 交付工作流下游技能与 CLI 的逐文件核对，谈定五项改动。无 prototype 资产。无 research 目录（调查结论已由主 agent 在当前源码与真实命令上验证，关键事实记入 Current State）。
