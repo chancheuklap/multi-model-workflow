@@ -50,7 +50,7 @@ mmw_config() {
   }
 }
 
-# 当前宿主：claude-code | pi | codex。宿主变量都没有时报错，不猜。
+# 当前宿主：claude-code | pi | cursor | codex。宿主变量都没有时报错，不猜。
 mmw_host() {
   if [ -n "${MMW_HOST:-}" ]; then
     echo "$MMW_HOST"
@@ -58,11 +58,13 @@ mmw_host() {
     echo "claude-code"
   elif [ -n "${PI_CODING_AGENT:-}" ]; then
     echo "pi"
+  elif [ -n "${CURSOR_AGENT:-}" ]; then
+    echo "cursor"
   elif [ -n "${CODEX_THREAD_ID:-}" ]; then
     echo "codex"
   else
-    echo "mmw: 认不出当前宿主（Claude Code、Pi 与 Codex 标识都没有）" >&2
-    echo "mmw: 要在别处跑，用 MMW_HOST=claude-code、pi 或 codex 显式指定" >&2
+    echo "mmw: 认不出当前宿主（Claude Code、Pi、Cursor 与 Codex 标识都没有）" >&2
+    echo "mmw: 要在别处跑，用 MMW_HOST=claude-code、pi、cursor 或 codex 显式指定" >&2
     return 1
   fi
 }
@@ -108,8 +110,10 @@ mmw_install_repair_command() {
   echo "bash <MMW源码仓库>/mmw/install.sh"
 }
 
-# 可写角色的 cwd：必须是干净的 git 任务 worktree。Codex App 的 managed worktree
-# 可以位于全局 Worktree root 下，不受目标仓库 paths.worktrees 约束。
+# 可写角色的 cwd：必须是干净的 git 任务 worktree。
+# Codex App 的 managed worktree 可以位于全局 Worktree root 下，不受目标仓库
+# paths.worktrees 约束。Cursor 的任务树与结果树都在 $HOME/.cursor/worktrees/ 下，
+# 同样不受目标仓库 paths.worktrees 约束，也不使用宿主名前缀。
 # 成功时把绝对路径打到 stdout；失败非零，绝不把 git 报错当成干净。
 mmw_require_writable_cwd() {
   local cwd="${1:-}"
@@ -130,26 +134,42 @@ mmw_require_writable_cwd() {
 
   mmw_git_clean "$cwd" "可写任务不派" || return 1
 
-  local common main wt_root host git_dir branch
+  local common main wt_root host git_dir branch cursor_root
   common="$(git -C "$cwd" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || {
     echo "mmw: 无法解析 $cwd 的主仓库" >&2
     return 1
   }
   host="$(mmw_host)" || return 1
-  if [ "$host" = "codex" ]; then
+  if [ "$host" = "codex" ] || [ "$host" = "cursor" ]; then
     git_dir="$(git -C "$cwd" rev-parse --path-format=absolute --git-dir 2>/dev/null)" || {
       echo "mmw: 无法解析 $cwd 的 worktree 元数据" >&2
       return 1
     }
     if [ "$git_dir" = "$common" ]; then
-      echo "mmw: Codex 可写任务必须使用 App 创建的 linked worktree，不是 Local checkout" >&2
+      echo "mmw: ${host} 可写任务必须使用宿主创建的 linked worktree，不是 Local checkout" >&2
       return 1
     fi
-    branch="$(git -C "$cwd" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
-    case "$branch" in
-      codex/*) ;;
-      *) echo "mmw: Codex 可写任务必须先绑定 codex/<slug> 分支：$cwd" >&2; return 1 ;;
-    esac
+    if [ "$host" = "codex" ]; then
+      branch="$(git -C "$cwd" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+      case "$branch" in
+        codex/*) ;;
+        *) echo "mmw: Codex 可写任务必须先绑定 codex/<slug> 分支：$cwd" >&2; return 1 ;;
+      esac
+    else
+      cursor_root="${HOME}/.cursor/worktrees"
+      if [ ! -d "$cursor_root" ]; then
+        echo "mmw: Cursor 可写任务必须位于 ${cursor_root}/<仓库>/<slug>，目录还不存在" >&2
+        return 1
+      fi
+      cursor_root="$(cd "$cursor_root" && pwd -P)" || return 1
+      case "$cwd" in
+        "$cursor_root"/*) ;;
+        *)
+          echo "mmw: Cursor 可写任务的 --cwd 必须是 ${cursor_root}/<仓库>/<slug>，不是 $cwd" >&2
+          return 1
+          ;;
+      esac
+    fi
     printf '%s\n' "$cwd"
     return 0
   fi

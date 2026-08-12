@@ -44,12 +44,13 @@ mmw_toolchain_apply() {
     "$@"
 }
 
-# 编辑后的单文件诊断。三个宿主的推送通道最终都调到这里：Codex 从 hooks.json 的
-# PostToolUse 调，Pi 从扩展的 tool_execution_end 调，Claude Code 有原生 LSP 不用它。
-# 同一个仓库、同一份规则表、同一批检查器，三家看到的诊断因此是同一套。
+# 编辑后的单文件诊断。四个宿主的推送通道最终都调到这里：Codex 从 hooks.json 的
+# PostToolUse 调，Pi 从扩展的 tool_execution_end 调，Claude Code 有原生 LSP 之外
+# 也挂同一份 hook 补 LSP 不覆盖的检查器，Cursor 从用户级 postToolUse 调。
+# 同一个仓库、同一份规则表、同一批检查器，四家看到的诊断因此是同一套。
 #
 # 有问题时退出码 2：Claude Code 与 Codex 的 hook 合同都把 2 当作"把 stderr 交回给
-# agent"。
+# agent"。Cursor 那一份脚本自己把诊断写进 additional_context，始终退出 0。
 mmw_toolchain_check() {
   python3 "$MMW_ROOT/cli/lib/toolchain_check.py" \
     --repo "$(mmw_repo_root)" \

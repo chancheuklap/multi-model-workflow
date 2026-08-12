@@ -958,6 +958,61 @@ suite_dispatch_writable_roots() {
     sh -c 'grep -qx -- "read-only" "$1"' sh "$argv"
 }
 
+# -------------------------------------------------------------- Cursor 宿主
+
+suite_cursor_host() {
+  echo "Cursor 宿主"
+  local repo det home slug_dir out
+  repo="$(fresh_repo)"
+
+  expect_deny "Cursor 拒绝 task new" "$repo" \
+    env MMW_HOST=cursor "$MMW" task new cursor-new "不该建" --name cursor-work
+  expect_state "Cursor 拒绝 task new" "分支没有建出来" \
+    branch_absent "$repo" cursor-new
+
+  expect_deny "CURSOR_AGENT 也拒绝 task new" "$repo" \
+    env -u MMW_HOST -u CLAUDECODE -u PI_CODING_AGENT -u CODEX_THREAD_ID \
+      CURSOR_AGENT=1 "$MMW" task new cursor-env "不该建" --name cursor-work
+  expect_state "CURSOR_AGENT 也拒绝 task new" "分支没有建出来" \
+    branch_absent "$repo" cursor-env
+
+  expect_deny "Cursor 拒绝 task cleanup" "$repo" \
+    env MMW_HOST=cursor "$MMW" task cleanup nosuch
+
+  det="$repo/.worktrees/cursor-det"
+  git -C "$repo" worktree add -q --detach "$det" HEAD
+  expect_ok "Cursor 能 bind detached worktree" "$det" \
+    env MMW_HOST=cursor "$MMW" task bind cursor-bound "任务目标" --name cursor-work
+
+  mmw_in "$repo" pi task new pi-tree "对照" --name pi-work >/dev/null
+  out="$WORKBENCH/cursor-writable.err"
+  if (cd "$repo" && MMW_HOST=cursor "$MMW" dispatch worker --task-text "x" \
+       --cwd "$repo/.worktrees/pi-tree") >"$out" 2>&1; then
+    report fail "Cursor 可写角色不在 ~/.cursor/worktrees 时拒绝" "期望拒绝，实际成功"
+  else
+    report pass "Cursor 可写角色不在 ~/.cursor/worktrees 时拒绝"
+  fi
+  expect_state "Cursor 可写角色不在 ~/.cursor/worktrees 时拒绝" "诊断点名 ~/.cursor/worktrees" \
+    grep -F ".cursor/worktrees" "$out"
+
+  home="$WORKBENCH/cursor-home"
+  mkdir -p "$home/.cursor/worktrees"
+  slug_dir="$home/.cursor/worktrees/$(basename "$repo")/ok"
+  git -C "$repo" worktree add -q -b cursor-ok "$slug_dir" HEAD
+  out="$WORKBENCH/cursor-dispatch.err"
+  if (cd "$slug_dir" && HOME="$home" MMW_HOST=cursor "$MMW" dispatch worker \
+       --task-text "x" --cwd "$slug_dir") >"$out" 2>&1; then
+    report fail "Cursor worker 不走 dispatch" "期望拒绝，实际成功"
+  else
+    report pass "Cursor worker 不走 dispatch"
+  fi
+  expect_state "Cursor worker 不走 dispatch" "诊断点名 mmw-cursor-agent" \
+    grep -F "mmw-cursor-agent" "$out"
+
+  out="$(cd "$repo" && MMW_HOST=cursor "$MMW" dispatch investigator --task-text "查" 2>&1)"
+  expect_out_has "Cursor 只读角色走原生 Task" "tool: Task" "$out"
+}
+
 # -------------------------------------------------------------- gitfacts 谓词
 
 suite_gitfacts() {
@@ -988,6 +1043,7 @@ suite_dispatch_output
 suite_dispatch
 suite_dispatch_resume
 suite_dispatch_writable_roots
+suite_cursor_host
 suite_gitfacts
 
 printf '\n通过 %d，失败 %d\n' "$PASS" "$FAIL"

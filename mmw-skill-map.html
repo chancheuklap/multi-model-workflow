@@ -477,7 +477,7 @@ subgraph SETUP["前置"]
     direction TB
     cl1(["<b>mmw task / result</b><br/>state / name / bind / new / cleanup（都带工作名）<br/>工作名只由 mmw task name 回答<br/>verify / integrate"])
     cl2(["<b>mmw issue</b><br/>create / frontier / children / claim<br/>link / set-parent / append"])
-    cl3(["<b>宿主角色入口</b><br/>Codex：后台任务或原生 subagent<br/>Pi：原生 subagent<br/>Claude Code：mmw dispatch"])
+    cl3(["<b>宿主角色入口</b><br/>Codex：后台任务或原生 subagent<br/>Pi / Cursor：原生 Task 或 subagent<br/>Claude Code：mmw dispatch<br/>Cursor 结果树：mmw-cursor-agent"])
     cl4(["<b>mmw domain</b><br/>path / map-init / sync / check / adr-next / dirs"])
     cl5(["<b>mmw artifact</b><br/>path / index / check / list"])
     cl6(["<b>mmw/install.sh</b><br/>从源码仓库构建稳定 runtime<br/>统一安装到本机已有宿主"])
@@ -628,7 +628,7 @@ mms -.->|"任务绑定与结果集成"| cl1
 mms -.->|"Codex 绑定当前 worktree"| cwt
 imp -.->|"取 frontier 上的 ticket"| cl2
 clo -.->|"逐条解析落点，确认归属再删"| cl5
-dsp -.->|"物化进 skills-pi / skills-claude-code / Codex plugin"| cl3
+dsp -.->|"物化进 skills-pi / skills-claude-code / skills-cursor / Codex plugin"| cl3
 dsp -.->|"Codex profile 与安装面"| cdx
 cdx -.->|"可写任务交接"| cwt
 imp ==>|"四栏 task + 宿主写死启动句"| dsp

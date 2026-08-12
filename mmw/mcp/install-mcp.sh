@@ -7,8 +7,8 @@
 #   pi           package.json 的 pi 字段只收 extensions / skills / prompts，扩展接口
 #                也没有注册 MCP 的能力，所以只能写用户级的 ~/.pi/agent/mcp.json
 #   Cursor       它的插件规格同样没有 MCP 的位置，只能写用户级的 ~/.cursor/mcp.json。
-#                mmw 只接管它这三个检索工具，不往 Cursor 装技能和花名册——那两样是
-#                编排流程的一部分，Cursor 不是 mmw 的宿主
+#                技能、原生 subagent、hooks 与隔离包装由 install.sh 另外散装到
+#                ~/.cursor/ 与 PATH；本脚本只接管这三个检索工具。
 #
 # 服务器定义的唯一事实来源是插件根的 .mcp.json，本脚本只做翻译，不另存一份清单。
 # 只读白名单在 Serena 服务器那一侧（config/serena-readonly.yml），在这里再列一遍就是第二处

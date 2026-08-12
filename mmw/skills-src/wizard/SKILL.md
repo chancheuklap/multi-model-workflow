@@ -47,7 +47,7 @@ Wizard 默认是临时产物，固定保存在当前任务的 Git 忽略 scratch
 
 输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。
 
-输出是 `local` 时，先分别确定任务分支名和工作名。运行 `mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。切换到返回的绝对路径。
+输出是 `local` 时，先分别确定任务分支名和工作名。[[mmw-enter-worktree]]
 
 输出是 `outside` 时，向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`。
 

@@ -246,12 +246,120 @@ install_pi() {
   install_pi_toolchain_extension
 }
 
-install_cursor_agents() {
-  if [ -d "$HOME/.cursor" ]; then
-    "$RUNTIME_ROOT/mmw/cli/mmw" agents materialize --host cursor
-  else
-    echo "Cursor   : 未安装，跳过原生 subagent"
+# Cursor 的任务树与结果树都在 ~/.cursor/worktrees/。主 agent 用 task bind 绑定；
+# task new 与 task cleanup 在这个宿主上不可用，回收交给 Cursor 自己的 GC。
+install_cursor_skills() {
+  local src="$RUNTIME_ROOT/mmw/skills-cursor"
+  local dest="$HOME/.cursor/skills"
+  local manifest name tmp
+  [ -d "$src" ] || die "缺 skills-cursor，先在源码仓库跑 mmw skills materialize --host cursor"
+  mkdir -p "$dest"
+  manifest="$dest/.mmw-skill-names"
+  tmp="$(mktemp "$dest/.mmw-skill-names.XXXXXX")"
+  find "$src" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort > "$tmp"
+  if [ -f "$manifest" ]; then
+    while IFS= read -r name; do
+      [ -n "$name" ] || continue
+      grep -qx "$name" "$tmp" && continue
+      rm -rf "$dest/$name"
+    done < "$manifest"
   fi
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    rm -rf "$dest/$name"
+    cp -R "$src/$name" "$dest/$name"
+  done < "$tmp"
+  mv "$tmp" "$manifest"
+  echo "Cursor   : 已装技能到 $dest"
+}
+
+install_cursor_hooks() {
+  local hooks_json="$HOME/.cursor/hooks.json"
+  local hook_dir="$HOME/.cursor/hooks"
+  local hook_script="$hook_dir/mmw-toolchain-check.sh"
+  local source="$RUNTIME_ROOT/mmw/toolchain/hooks/cursor-post-tool-use.sh"
+  local tmp
+  [ -f "$source" ] || die "缺 Cursor 诊断 hook 源：$source"
+  mkdir -p "$hook_dir"
+  cp "$source" "$hook_script"
+  chmod 0755 "$hook_script"
+  if [ ! -f "$hooks_json" ]; then
+    printf '{"version":1,"hooks":{}}\n' > "$hooks_json"
+  fi
+  jq -e . "$hooks_json" >/dev/null 2>&1 \
+    || die "Cursor hooks.json 不是合法 JSON：$hooks_json"
+  tmp="$(mktemp "$HOME/.cursor/.hooks.XXXXXX")"
+  jq --arg cmd "$hook_script" '
+    .version = (.version // 1)
+    | .hooks = (.hooks // {})
+    | .hooks.postToolUse = (
+        ((.hooks.postToolUse // [])
+          | map(select((.command // "") | tostring | contains("mmw-toolchain-check") | not)))
+        + [{command: $cmd, matcher: "Write|StrReplace|Delete"}]
+      )
+  ' "$hooks_json" > "$tmp"
+  jq -e . "$tmp" >/dev/null 2>&1 || die "合并 Cursor hooks.json 失败"
+  mv "$tmp" "$hooks_json"
+  echo "Cursor   : 已合并 postToolUse 诊断 hook（保留已有 sessionStart）"
+}
+
+install_cursor_permissions() {
+  local file="$HOME/.cursor/permissions.json"
+  local tmp
+  mkdir -p "$(dirname "$file")"
+  if [ ! -f "$file" ]; then
+    printf '{}\n' > "$file"
+  fi
+  jq -e . "$file" >/dev/null 2>&1 \
+    || die "Cursor permissions.json 不是合法 JSON：$file"
+  tmp="$(mktemp "$HOME/.cursor/.permissions.XXXXXX")"
+  jq '
+    .terminalAllowlist = (((.terminalAllowlist // []) + ["mmw", "git", "gh", "jq"]) | unique)
+    | .mcpAllowlist = (((.mcpAllowlist // [])
+        + ["serena:*", "graphify:*", "context7:*"]) | unique)
+  ' "$file" > "$tmp"
+  jq -e . "$tmp" >/dev/null 2>&1 || die "合并 Cursor permissions.json 失败"
+  mv "$tmp" "$file"
+  echo "Cursor   : 已合并 terminalAllowlist 与 mcpAllowlist"
+}
+
+install_cursor_wrapper() {
+  local target current temp
+  target="$BIN_DIR/mmw-cursor-agent"
+  mkdir -p "$BIN_DIR"
+  if [ -e "$target" ]; then
+    current="$(sed -n '2p' "$target" 2>/dev/null || true)"
+    case "$current" in
+      "# Managed by MMW cursor isolate") ;;
+      *)
+        grep -q 'Managed by MMW cursor isolate' "$target" 2>/dev/null \
+          || die "拒绝覆盖非 MMW 管理的命令：$target"
+        ;;
+    esac
+  fi
+  temp="$(mktemp "$BIN_DIR/.mmw-cursor-agent.XXXXXX")"
+  cat > "$temp" <<EOF
+#!/usr/bin/env bash
+# Managed by MMW cursor isolate
+set -euo pipefail
+export MMW_HOST="\${MMW_HOST:-cursor}"
+exec "$RUNTIME_ROOT/mmw/cli/bin/mmw-cursor-agent" "\$@"
+EOF
+  chmod 0755 "$temp"
+  mv "$temp" "$target"
+  echo "Cursor   : 已装隔离包装 $target"
+}
+
+install_cursor() {
+  if [ ! -d "$HOME/.cursor" ]; then
+    echo "Cursor   : 未安装，跳过"
+    return
+  fi
+  "$RUNTIME_ROOT/mmw/cli/mmw" agents materialize --host cursor
+  install_cursor_skills
+  install_cursor_hooks
+  install_cursor_permissions
+  install_cursor_wrapper
 }
 
 install_mcp() {
@@ -266,7 +374,7 @@ install_forwarder
 install_codex
 install_claude_code
 install_pi
-install_cursor_agents
+install_cursor
 install_mcp
 
 if [ -e "$RUNTIME_HOME/runtime.previous" ]; then

@@ -215,10 +215,13 @@ mmw_task_bind() {
     echo "mmw: task bind 只能在 detached linked worktree 执行" >&2
     return 1
   }
-  [ "$(mmw_host)" = "codex" ] || {
-    echo "mmw: task bind 只用于 Codex App 已创建的 detached worktree" >&2
-    return 1
-  }
+  case "$(mmw_host)" in
+    codex|cursor) ;;
+    *)
+      echo "mmw: task bind 只用于宿主已创建的 detached worktree" >&2
+      return 1
+      ;;
+  esac
   parent_name=""
   if [ -n "$from" ]; then
     parent_name="$(mmw_task_parent_work_name "$from" || true)"

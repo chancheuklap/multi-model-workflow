@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """对刚改过的文件跑一遍诊断，把问题按统一格式打回给 agent。
 
-三个宿主共用这一个入口，只是触发方式不同：Claude Code 有原生 LSP 通道，不需要它；
-Codex 从 hooks.json 的 PostToolUse 调它；Pi 从扩展的 tool_execution_end 调它。
-同一个仓库、同一份规则表、同一批检查器，所以三家看到的诊断是同一套。
+四个宿主共用这一个入口，只是触发方式不同：Claude Code 有原生 LSP 通道，也挂 hook
+补 LSP 不覆盖的检查器；Codex 从 hooks.json 的 PostToolUse 调它；Pi 从扩展的
+tool_execution_end 调它；Cursor 从用户级 postToolUse 调它。
+同一个仓库、同一份规则表、同一批检查器，所以四家看到的诊断是同一套。
 
 为什么不自己写一个 LSP 客户端：跳转定义、找引用、找实现、列符号这四件事 Serena 已经
 在四个宿主上都给了。缺的只有"编辑之后这个文件错没错"。而 pyright 的命令行和它的

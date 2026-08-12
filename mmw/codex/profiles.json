@@ -6,8 +6,7 @@
     },
     "worker-high-risk": {
       "method_skill": "mmw:mmw-tdd"
-    },
-    "prototype-worker": {}
+    }
   },
   "subagents": {
     "investigator": {
@@ -28,6 +27,12 @@
       "description": "计划编写者。在当前任务 worktree 中把一张 ticket 写成一份 plan，不提交、不修改源码。",
       "body": "mmw-planner.md",
       "method_skill": "mmw:mmw-planner",
+      "sandbox_mode": "workspace-write"
+    },
+    "prototype-worker": {
+      "name": "mmw-prototype-worker",
+      "description": "原型执行者。在当前任务 worktree 完成一个指定原型变体，不创建结果 worktree。",
+      "body": "mmw-prototype-worker.md",
       "sandbox_mode": "workspace-write"
     },
     "designer": {

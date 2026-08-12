@@ -25,7 +25,7 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 
 ## 确定工作名
 
-从 `/mmw-wayfinder` 进入时，先从 map 的 `## 工作名` 取得 `<map 工作名>`。需要运行 `mmw task bind` 或 `mmw task new` 时，用它作为 `<工作名>`。
+从 `/mmw-wayfinder` 进入时，先从 map 的 `## 工作名` 取得 `<map 工作名>`。需要进入任务 worktree 时，用它作为 `<工作名>`。
 
 先运行 `mmw task state`。第一个词是 `bound` 时，运行 `mmw task name` 取工作名。
 

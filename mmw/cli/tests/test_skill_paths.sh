@@ -11,10 +11,10 @@ MMW="$(cd "$HERE/../.." && pwd)"
 ARTIFACTS="$HERE/../artifacts.json"
 MODEL="$HERE/../mmw.default.json"
 
-# 源和四份物化产物都扫。启动块的正文不在源里，它在 lib/materialize_skills.py 的
+# 源和五份物化产物都扫。启动块的正文不在源里，它在 lib/materialize_skills.py 的
 # 展开模板里——只扫源的话，模板里写死的落点和按序号取值都躲得过去。物化一致性由
 # `skills materialize --check` 保证，所以扫产物等于同时扫到了源和模板。
-SKILLS="$MMW/skills-src:$MMW/skills-pi:$MMW/skills-claude-code:$MMW/skills-codex:$MMW/prompts-pi"
+SKILLS="$MMW/skills-src:$MMW/skills-pi:$MMW/skills-claude-code:$MMW/skills-codex:$MMW/skills-cursor:$MMW/prompts-pi"
 
 python3 - "$SKILLS" "$ARTIFACTS" "$MODEL" <<'PY'
 import copy

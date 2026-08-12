@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Managed by MMW cursor isolate
+#
+# Cursor MMW worker 的唯一启动入口。技能产物与 Herdr 窗格都调这一条，不直接调
+# cursor-agent：直接调会读到用户级 ~/.codex/skills 与 ~/.claude/skills。
+#
+# --mmw-role <角色> 按已安装 runtime 的模型档注入 --model。其余参数原样交给
+# 真正的 cursor-agent。标准输入不是终端时，把读到的正文当作提示词追加到参数末尾。
+
+set -euo pipefail
+
+MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=/dev/null
+. "$MMW_ROOT/cli/lib/config.sh"
+# shellcheck source=/dev/null
+. "$MMW_ROOT/cli/lib/cursor-isolate.sh"
+
+export MMW_HOST="${MMW_HOST:-cursor}"
+
+role=""
+has_model=0
+args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --mmw-role)
+      [ $# -ge 2 ] && [ -n "$2" ] || {
+        echo "mmw-cursor-agent: --mmw-role 要角色名" >&2
+        exit 2
+      }
+      role="$2"
+      shift 2
+      ;;
+    --model)
+      has_model=1
+      args+=("$1")
+      if [ $# -ge 2 ]; then
+        args+=("$2")
+        shift 2
+      else
+        shift
+      fi
+      ;;
+    *)
+      args+=("$1")
+      shift
+      ;;
+  esac
+done
+
+if [ -n "$role" ] && [ "$has_model" = 0 ]; then
+  model_id="" effort=""
+  model_id="$(mmw_model_field "$role" id)" || exit 1
+  effort="$(mmw_model_field "$role" effort)" || exit 1
+  args=(--model "${model_id}[effort=${effort}]" "${args[@]+"${args[@]}"}")
+fi
+
+if [ ! -t 0 ]; then
+  prompt="$(cat; printf x)"
+  prompt="${prompt%x}"
+  if [ -n "$prompt" ]; then
+    args+=("$prompt")
+  fi
+fi
+
+mmw_cursor_exec "${args[@]+"${args[@]}"}"

@@ -5,7 +5,7 @@ description: 把 MMW 装到这台电脑、把这个仓库配好。用于新电�
 
 一句话交代这件事的全貌：**MMW 装一次管这台电脑的所有宿主，仓库配一次管这个仓库的所有语言。**两件事分开，第一次上手两件都要做，之后换仓库只做第二件。
 
-四步，按顺序走完。每一步都幂等，已经做过就跳过，重跑无害。
+五步，按顺序走完。每一步都幂等，已经做过就跳过，重跑无害。
 
 ## 1. MMW 装到这台电脑
 
@@ -22,7 +22,7 @@ cd <MMW 源码仓库>
 bash mmw/install.sh
 ```
 
-这一条覆盖 Claude Code、Codex、Pi、Cursor 四个宿主：技能、agent、MCP 服务器、编辑后诊断的 hook 与扩展、`mmw` 命令本身，还有 Claude Code 的两个语言服务器插件（装用户级，所有仓库都有）。
+这一条覆盖 Claude Code、Codex、Pi、Cursor 四个宿主：技能、agent、MCP 服务器、编辑后诊断的 hook 与扩展、`mmw` 命令本身，Cursor 的隔离包装 `mmw-cursor-agent`，还有 Claude Code 的两个语言服务器插件（装用户级，所有仓库都有）。Cursor 不把整棵 `mmw/` 装成 plugin，而是散装到 `~/.cursor/skills`、`~/.cursor/agents`、`~/.cursor/mcp.json`、`~/.cursor/hooks.json` 和 PATH。
 
 装完宿主要重启，或者开一个新会话，新装的东西才加载。
 
@@ -69,10 +69,18 @@ Codex 不会自动信任插件带来的 hook。它在**交互式**会话里弹�
 
 这一步只有用户能做，你做不了，也不要试着改 `~/.codex/config.toml` 里的 `trusted_hash`。
 
+## 5. Cursor 要用户做的三件事
+
+这台机器装了 Cursor 时才做。这三件只有用户能做：
+
+1. 在 App 设置里关闭 Include third-party Plugins, Skills, and other configs。关掉之后，Agents Window 的主 agent 只加载 Cursor 自己的技能和 MCP，不再加载用户级 `~/.codex/skills` 与 `~/.claude/skills`。CLI worker 由 `mmw-cursor-agent` 隔离，不靠这一项。
+2. 把 `cursor.worktreeMaxCount` 调到大于默认 25。Cursor 会回收 `~/.cursor/worktrees/` 里的树；数量太低时，还没结束的任务树会被清掉。
+3. 把 Agents Window 的编排模型选成 grok，与已安装 runtime 的 orchestrator 一致。CLI worker 的模型由 `mmw-cursor-agent --mmw-role` 注入，不要去改 `cli-config.json` 里用户自己的默认模型。
+
 ## 配好之后是什么样
 
 - 四个宿主都能用 MMW 的技能和 agent
-- 改完一个文件，宿主立刻报这个文件的诊断——三个宿主看到的是同一批，判据同一份
+- 改完一个文件，宿主立刻报这个文件的诊断——四个宿主看到的是同一批，判据同一份
 - 持续集成跑的判据和本地这一批是同一份规则表、同一批检查器
 
 诊断和持续集成为什么能对得上、规则表怎么改、谁拥有哪份配置，跑 `mmw toolchain` 看用法，再读规则表 `config/toolchain-rules.json` 的文件头。

@@ -85,7 +85,7 @@ slug 的类型前缀用连字符。不带 issue 编号，不带日期。同名�
 | --- | --- | --- |
 | `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名，记下它 |
 | `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 先单独确定工作名。绑定：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。命令成功后重新运行 `mmw task state`。确认输出是 `bound`。再运行 `mmw task name` 取工作名 |
-| `local` | 你在主检出里 | 先单独确定工作名。建树：`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <map 分支>]`。切换到返回的绝对路径。重新运行 `mmw task state`。确认输出是 `bound`。再运行 `mmw task name` 取工作名 |
+| `local` | 你在主检出里 | 先单独确定工作名。建树：[[mmw-enter-worktree]] 有 map 分支时加上 `--from <map 分支>`。重新运行 `mmw task state`。确认输出是 `bound`。再运行 `mmw task name` 取工作名 |
 | `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
 
 两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。

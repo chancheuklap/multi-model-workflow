@@ -130,6 +130,24 @@ def test_profile_缺某一档工具集就退出(假源: Path, tmp_path: Path) ->
         物化(tmp_path / "out")
 
 
+def test_frontmatter_不用工具集时可以没有_tools(假源: Path, tmp_path: Path) -> None:
+    无工具 = dict(PROFILE)
+    无工具.pop("tools")
+    无工具["frontmatter"] = {
+        "name": "{agent}",
+        "description": "{description}",
+        "model": "{model}",
+        "readonly": "{readonly}",
+    }
+    (假源 / "profiles" / "testhost.json").write_text(
+        json.dumps(无工具, ensure_ascii=False), encoding="utf-8")
+    out = tmp_path / "out"
+    物化(out)
+    头 = frontmatter(读(out, "mmw-worker.md"))
+    assert "tools" not in 头
+    assert 头["readonly"] == "false"
+
+
 # -------------------------------------------------------------- 模型档覆盖
 
 def test_宿主覆盖只换被覆盖的那个字段(假源: Path, tmp_path: Path) -> None:
