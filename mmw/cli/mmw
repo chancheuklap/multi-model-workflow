@@ -89,7 +89,7 @@ mmw dispatch <角色> [--task-text <正文>] [--cwd <目录>] [--issue <编号>]
   --resume <句柄>    恢复原 subagent 续跑，这次的 task 正文是修复 task。句柄用原派发
                      返回的 session:（gpt 族 thread_id）或 handle:（claude 族名字）原文
 
-标准输入与 --task-text 只能使用一种。task 正文不能为空。
+--task-text 优先于标准输入：给了它就不读标准输入。task 正文不能为空。
 
 模型、档位和护栏由角色决定，取自已安装 MMW runtime 的模型档。
 
@@ -298,17 +298,16 @@ cmd_dispatch() {
     return 1
   fi
 
-  local stdin_text=""
-  if [ "$task_text_set" = "yes" ]; then
-    if [ ! -t 0 ]; then
-      stdin_text="$(cat; printf x)"
-      stdin_text="${stdin_text%x}"
-      [ -z "$stdin_text" ] || {
-        echo "mmw: 标准输入与 --task-text 只能使用一种" >&2
-        return 1
-      }
-    fi
-  else
+  # --task-text 给了就用它，一个字节都不读标准输入。
+  #
+  # 原来这里会 `cat` 一次标准输入，用来拦「两种都给了」。那个检查让命令在最常见的
+  # 场景下永久挂住：调用方是 agent 的 Bash 工具时，标准输入是一根开着的空管道——
+  # 没有数据，也没人关写端，`cat` 就一直等。没有输出，没有退出码，看不出在等什么。
+  #
+  # bash 3.2 没有能用的非阻塞探测（`read -t 0` 在 3.2 上恒为失败，探不出有没有数据），
+  # 所以不做探测，改成写死优先级：`--task-text` 覆盖标准输入。两种都给时用 --task-text，
+  # 不报错也不读另一份。用法文本里写明这条优先级。
+  if [ "$task_text_set" != "yes" ]; then
     task_text="$(cat; printf x)"
     task_text="${task_text%x}"
   fi

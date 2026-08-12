@@ -31,6 +31,35 @@ mmw_adapter_mcp_overrides() {
   python3 "$MMW_ROOT/mcp/resolve.py" --format codex
 }
 
+# 可写角色要能提交，`writable_roots` 就得覆盖 git 真正要写的目录。
+#
+# 不要拼 `<cwd>/.git`。那一行只对「`.git` 是目录」的普通仓库成立，而 MMW 派活的主
+# 路径是 `mmw task new` 建的 linked worktree：那里的 `.git` 是个文件，里面写着
+# `gitdir: <主仓库>/.git/worktrees/<名字>`。`git commit` 的 `index.lock` 落在那个
+# 目录里，既不在工作目录下也不在拼出来的路径下，于是每一次提交都被沙箱拒掉。
+#
+# 改成问 git 自己要两条绝对路径：`--absolute-git-dir` 是这棵树的 Git 目录，`index`
+# 与 `HEAD` 在那里；`--git-common-dir` 是共用的，`objects` 与 `refs` 在那里。普通
+# 仓库里两条指到同一个 `.git`，那时只输出一条。
+#
+# 输出是一行 JSON 数组，直接嵌进 codex 的 `-c` 覆盖值。
+mmw_adapter_writable_roots() {
+  local cwd="$1" gitdir commondir
+  gitdir="$(cd "$cwd" && git rev-parse --absolute-git-dir 2>/dev/null)" || {
+    echo "mmw: $cwd 里问不出 Git 目录，可写角色提交会被沙箱拒" >&2
+    return 1
+  }
+  commondir="$(cd "$cwd" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || {
+    echo "mmw: $cwd 里问不出共用 Git 目录，可写角色提交会被沙箱拒" >&2
+    return 1
+  }
+  if [ "$gitdir" = "$commondir" ]; then
+    jq -nc --arg d "$gitdir" '[$d]'
+  else
+    jq -nc --arg d "$gitdir" --arg c "$commondir" '[$d, $c]'
+  fi
+}
+
 mmw_adapter_dispatch() {
   case "$MMW_D_FAMILY" in
     claude)
@@ -135,11 +164,12 @@ mmw_adapter_dispatch() {
         log_dir=""
         echo "mmw: 派发进度日志算不出落点时不写日志，派发照常进行" >&2
       fi
-      local sandbox=(--sandbox read-only)
+      local sandbox=(--sandbox read-only) writable_roots=""
       if [ "$MMW_D_WRITABLE" = "yes" ]; then
-        # workspace-write 默认把 .git 锁成只读，`worker` 提交会卡在 index.lock。
+        # workspace-write 默认把 Git 目录锁成只读，`worker` 提交会卡在 index.lock。
+        writable_roots="$(mmw_adapter_writable_roots "$MMW_D_CWD")" || return 1
         sandbox=(--sandbox workspace-write
-                 -c "sandbox_workspace_write.writable_roots=[\"$MMW_D_CWD/.git\"]")
+                 -c "sandbox_workspace_write.writable_roots=$writable_roots")
       fi
       local mcp=() line
       while IFS= read -r line; do
@@ -212,7 +242,7 @@ $preamble"
         local resume_cfg=(-c 'sandbox_mode="read-only"')
         if [ "$MMW_D_WRITABLE" = "yes" ]; then
           resume_cfg=(-c 'sandbox_mode="workspace-write"'
-                      -c "sandbox_workspace_write.writable_roots=[\"$MMW_D_CWD/.git\"]")
+                      -c "sandbox_workspace_write.writable_roots=$writable_roots")
         fi
         cd "$MMW_D_CWD" || { rm -f "$report_tmp" "$events_tmp"; return 1; }
         if [ -n "$log" ]; then

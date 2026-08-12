@@ -60,6 +60,26 @@ report() {
   return 0
 }
 
+# 在期限内跑完一条命令。用法：run_with_deadline <秒> <命令...>
+#
+# 不用 `timeout`：它在 macOS 上不是自带的，测试入口不该要求装 coreutils。
+# 超期返回 124，与 `timeout` 的约定一致。
+run_with_deadline() {
+  local secs="$1"; shift
+  "$@" &
+  local pid=$! waited=0
+  while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt "$secs" ]; do
+    sleep 1
+    waited=$((waited + 1))
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -9 "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    return 124
+  fi
+  wait "$pid"
+}
+
 # 期望命令成功。用法：expect_ok <用例名> <在哪个目录跑> <命令...>
 expect_ok() {
   local name="$1" dir="$2"; shift 2
@@ -732,9 +752,31 @@ suite_dispatch() {
       "$(cat "$out" 2>/dev/null || true)"
   fi
 
-  expect_deny "标准输入与 --task-text 不能同时使用" "$repo" \
-    sh -c 'printf task | env MMW_HOST=pi "$1" dispatch reviewer-gpt --task-text task' \
-      sh "$MMW"
+  # --task-text 优先于标准输入，两种都给时用 --task-text。
+  out="$WORKBENCH/dispatch-precedence.out"
+  actual="$WORKBENCH/dispatch-precedence-task.txt"
+  if (cd "$repo" && printf '管道正文' \
+      | env MMW_HOST=pi "$MMW" dispatch reviewer-gpt --task-text "参数正文" > "$out" 2>&1) \
+      && sed -n 's/^params: //p' "$out" | jq -j '.task' > "$actual" \
+      && [ "$(cat "$actual")" = "参数正文" ]; then
+    report pass "两种都给时用 --task-text"
+  else
+    report fail "两种都给时用 --task-text" "$(cat "$out" 2>/dev/null || true)"
+  fi
+
+  # 标准输入是一根开着的空管道时不许去读它。
+  # agent 的 Bash 工具给的就是这种标准输入：没有数据，也没人关写端。原来这里会
+  # `cat` 一次来拦「两种都给了」，于是命令永久挂住——没有输出，也没有退出码。
+  out="$WORKBENCH/dispatch-openpipe.out"
+  if run_with_deadline 20 \
+      bash -c 'cd "$1" && env MMW_HOST=pi "$2" dispatch reviewer-gpt \
+        --task-text "正文" > "$3" 2>&1 < <(sleep 60; :)' \
+      bash "$repo" "$MMW" "$out"; then
+    report pass "标准输入是开着的空管道时不挂住"
+  else
+    report fail "标准输入是开着的空管道时不挂住" \
+      "20 秒内没有返回，或者返回了非零：$(cat "$out" 2>/dev/null || true)"
+  fi
   expect_deny "旧 --task 文件接口已经删除" "$repo" \
     env MMW_HOST=pi "$MMW" dispatch reviewer-gpt --task "$task_body"
 
@@ -837,6 +879,53 @@ suite_dispatch_resume() {
     grep -qxF "修复第 3 条 finding。" "$WORKBENCH/resume-resume.stdin"
 }
 
+# --------------------------------------------- dispatch 的沙箱可写范围
+
+suite_dispatch_writable_roots() {
+  echo "mmw dispatch（可写角色的沙箱范围）"
+  local repo fake_bin gitdir commondir argv phys
+  repo="$(fresh_repo)"
+  fake_bin="$(make_fake_codex)"
+  mmw_in "$repo" pi task new writable-work "可写范围" --name writable-work >/dev/null
+
+  # linked worktree 的 .git 是文件，真正要写的是主仓库 .git/worktrees/<名字>。
+  # 拼 <cwd>/.git 的老写法在这里指向那个文件本身，git commit 的 index.lock 落不进去。
+  gitdir="$(cd "$repo/.worktrees/writable-work" && git rev-parse --absolute-git-dir)"
+  commondir="$(cd "$repo/.worktrees/writable-work" \
+    && git rev-parse --path-format=absolute --git-common-dir)"
+  expect_state "linked worktree 的 .git" "是文件而不是目录" \
+    sh -c 'test -f "$1/.git" && test ! -d "$1/.git"' sh "$repo/.worktrees/writable-work"
+
+  argv="$WORKBENCH/argv-writable"
+  (cd "$repo" && env PATH="$fake_bin:$PATH" \
+    CODEX_STUB_ARGV="$argv" \
+    FAKE_CODEX_STDIN="$WORKBENCH/writable.stdin" \
+    MMW_HOST=claude-code MMW_INTERNAL_BACKGROUND_DISPATCH=1 \
+    "$MMW" dispatch worker --task-text "干活" \
+    --cwd "$repo/.worktrees/writable-work" >/dev/null 2>&1) || true
+
+  expect_state "可写角色的 writable_roots" "含这棵 worktree 的 Git 目录" \
+    grep -qxF "sandbox_workspace_write.writable_roots=[\"$gitdir\",\"$commondir\"]" "$argv"
+  # 比对物理路径。`fresh_repo` 用 `mktemp -d`，在 macOS 上给的是 `/var/folders/…`，
+  # 而 `/var` 是 `/private/var` 的符号链接；落进 argv 的是解析过的物理路径。拿 `$repo`
+  # 原样去拼，字符串永远对不上，这条断言就恒为通过——旧写法也照样绿。
+  phys="$(cd "$repo/.worktrees/writable-work" && pwd -P)"
+  expect_state "可写角色的 writable_roots" "不再是拼出来的 <cwd>/.git" \
+    sh -c '! grep -qF "$2/.git\"]" "$1"' sh "$argv" "$phys"
+
+  # 只读角色不给可写范围。
+  argv="$WORKBENCH/argv-readonly"
+  (cd "$repo" && env PATH="$fake_bin:$PATH" \
+    CODEX_STUB_ARGV="$argv" \
+    FAKE_CODEX_STDIN="$WORKBENCH/readonly.stdin" \
+    MMW_HOST=claude-code MMW_INTERNAL_BACKGROUND_DISPATCH=1 \
+    "$MMW" dispatch reviewer-gpt --task-text "只读" >/dev/null 2>&1) || true
+  expect_state "只读角色" "argv 里没有 writable_roots" \
+    sh -c '! grep -q "writable_roots" "$1"' sh "$argv"
+  expect_state "只读角色" "sandbox 是 read-only" \
+    sh -c 'grep -qx -- "read-only" "$1"' sh "$argv"
+}
+
 # -------------------------------------------------------------- gitfacts 谓词
 
 suite_gitfacts() {
@@ -865,6 +954,7 @@ suite_task_bind
 suite_dispatch_output
 suite_dispatch
 suite_dispatch_resume
+suite_dispatch_writable_roots
 suite_gitfacts
 
 printf '\n通过 %d，失败 %d\n' "$PASS" "$FAIL"
