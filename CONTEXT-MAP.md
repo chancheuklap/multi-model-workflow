@@ -17,7 +17,7 @@
 | 宿主 | [宿主](./docs/context/host-runtime.md) | 技能源、技能产物、物化、原生 subagent 和 Codex App 后台 Worktree 任务。 |
 | 领域上下文与检索 | [领域上下文与检索](./docs/context/project-context.md) | 领域模型、Context Map、leaf、ADR、ADR 索引、权威引用、结构图谱和结构候选。 |
 | 产物落点 | [产物落点](./docs/context/artifact-location.md) | 路径形状、类别根、固定类别根、工作目录根、名字段、工作名、范围段、类别内细分、当场取名、产物引用、撞名、安全路径段、工作名重复和不落盘判据。 |
-| 界面 QA | [界面 QA](./docs/context/ui-qa.md) | 界面 QA、判拒、违规项、判据自检结果、界面全图和覆盖报告。 |
+| 界面 QA | [界面 QA](./docs/context/ui-qa.md) | 界面 QA、检查项、违规项、判据自检结果、界面全图和覆盖报告。 |
 
 ## Relationships
 

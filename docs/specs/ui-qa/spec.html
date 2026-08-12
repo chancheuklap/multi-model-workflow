@@ -267,7 +267,7 @@ pre.fp{background:var(--n-bg);border:1px solid var(--n-line);border-radius:8px;p
     </div>
     <div class="panel" style="border-color:var(--stop)">
       <b style="color:var(--stop)">规范目前是 alpha</b>
-      <p style="margin:8px 0 0;font-size:14px;color:var(--dim)"><code>version</code> 字段当前值就是 <code>alpha</code>，官方标明可能有破坏性变更。爆炸半径可控：出现破坏性变更时受影响的只有 A3 与 B1，其余七种判拒不受影响。这是选择依赖它的前提。</p>
+      <p style="margin:8px 0 0;font-size:14px;color:var(--dim)"><code>version</code> 字段当前值就是 <code>alpha</code>，官方标明可能有破坏性变更。爆炸半径可控：出现破坏性变更时受影响的只有 A3 与 B1，其余七种检查项不受影响。这是选择依赖它的前提。</p>
     </div>
   </div>
   <div class="hl">
@@ -301,8 +301,8 @@ pre.fp{background:var(--n-bg);border:1px solid var(--n-line);border-radius:8px;p
       <p style="margin:8px 0 0;font-size:14px;color:var(--dim)">界面全图的每个界面节点记着 <code>来源文件</code>。改动了文件 F，就取所有 <code>来源文件</code> 包含 F 的界面节点。<b>这是查表，不是再扫一遍代码</b>——代码抽取建全图时本来就知道自己在读哪个文件。</p>
     </div>
     <div class="panel">
-      <b>降级链：只改范围，不减判拒</b>
-      <p style="margin:8px 0 0;font-size:14px;color:var(--dim)">映射出零个界面（改的是后端、配置、文档）<b>→</b> 降到本任务。本任务也映射不出<b>→</b> 降到主窗口及其直接下一级。<code>HEAD~1</code> 不存在（任务分支的第一个提交）<b>→</b> 降到本任务。<br><b>九种判拒在任何一档上都全部运行</b>，档位只决定它们作用在哪些界面上。</p>
+      <b>降级链：只改范围，不减检查项</b>
+      <p style="margin:8px 0 0;font-size:14px;color:var(--dim)">映射出零个界面（改的是后端、配置、文档）<b>→</b> 降到本任务。本任务也映射不出<b>→</b> 降到主窗口及其直接下一级。<code>HEAD~1</code> 不存在（任务分支的第一个提交）<b>→</b> 降到本任务。<br><b>九种检查项在任何一档上都全部运行</b>，档位只决定它们作用在哪些界面上。</p>
     </div>
   </div>
   <div class="hl" style="margin-top:14px">
@@ -328,7 +328,7 @@ pre.fp{background:var(--n-bg);border:1px solid var(--n-line);border-radius:8px;p
   <div class="grid g4">
     <div class="card"><b>无障碍树快照</b><div class="meta">只含角色与可访问名，不含 class、测试标识、包装元素。</div><div class="feeds">因此对前端框架不敏感：原生 DOM、React、Web 应用共用一套方法</div></div>
     <div class="card"><b>计算样式与盒模型数值</b><div class="meta">间距、尺寸、对比度、是否在首屏内、是否被遮挡，全部用数值判断。</div><div class="feeds">供给 <span class="tag tA">A1</span> <span class="tag tA">A3</span></div></div>
-    <div class="card"><b>运行时 CSS 自定义属性</b><div class="meta">读 <code>getComputedStyle(document.documentElement)</code>，拿到<b>实际生效</b>的 token 集合。</div><div class="feeds"><b>A3 判的是声明层</b>——这条判拒叫「设计系统 token 越界」。实现层照样读，但用途是判断判据可不可信：两边对不上就作为报告项报出来，并标明 A3 的结果可能失真</div></div>
+    <div class="card"><b>运行时 CSS 自定义属性</b><div class="meta">读 <code>getComputedStyle(document.documentElement)</code>，拿到<b>实际生效</b>的 token 集合。</div><div class="feeds"><b>A3 判的是声明层</b>——这条检查项叫「设计系统 token 越界」。实现层照样读，但用途是判断判据可不可信：两边对不上就作为报告项报出来，并标明 A3 的结果可能失真</div></div>
     <div class="card"><b>渲染进程控制台 + 局部截图</b><div class="meta">控制台供给 A4。截图只在结构化数据判不了时用，且裁到相关区域。</div><div class="feeds">认知走查四问里只有第 2 问需要截图</div></div>
   </div>
   <div class="panel" style="margin-top:14px;border-color:var(--stop)">
@@ -394,16 +394,16 @@ pre.fp{background:var(--n-bg);border:1px solid var(--n-line);border-radius:8px;p
 局部截图路径     裁到相关区域的那一张，落 mktemp -d 建的临时目录，运行结束整个删掉        ← 只有第 2 问看
 运行时报错[]     本步产生的报错，没有就是空数组
 
-designer 交回：判拒（B2/B3/B4）· 步序号 · 界面标识 · 元素 · 失败的是哪一问 · 一句话问题 · 理由
+designer 交回：检查项（B2/B3/B4）· 步序号 · 界面标识 · 元素 · 失败的是哪一问 · 一句话问题 · 理由
         另交：困惑分，每步一档。B3 由主 agent 按上面那条规则从困惑分算出，不由 designer 直接报</pre>
 </section>
 
 <section>
-  <h2><span class="num">07</span>判拒：两类九种，外加三类报告项</h2>
+  <h2><span class="num">07</span>检查项：两类九种，外加三类报告项</h2>
   <p class="lead">分类依据是<b>判定性质</b>，不是判据载体：确定性检查的结果是事实，模型判断的结果是候选。九种是封闭集合。</p>
   <div class="scroll panel">
     <table>
-      <tr><th style="width:64px">编号</th><th style="width:32%">判拒</th><th>判据来源</th><th style="width:25%">性质与处置</th></tr>
+      <tr><th style="width:64px">编号</th><th style="width:32%">检查项</th><th>判据来源</th><th style="width:25%">性质与处置</th></tr>
       <tr><td><span class="tag tA">A1</span></td><td>可执行阈值违反</td><td>阈值表</td>
         <td rowspan="4" style="background:var(--a-bg);vertical-align:middle"><b>违规项</b><br><span style="font-size:13px;color:var(--dim)">违反即成立，<b>不需要裁决，直接修改</b>。不使用处置标记——它们不是候选</span></td></tr>
       <tr><td><span class="tag tA">A2</span></td><td>WCAG 规则违反</td><td>规则引擎自带规则集</td></tr>
@@ -425,7 +425,7 @@ designer 交回：判拒（B2/B3/B4）· 步序号 · 界面标识 · 元素 · 
   </div>
   <div class="panel" style="margin-top:14px">
     <b>为什么 A 类不叫 finding。</b>
-    <span style="color:var(--dim)">领域文档把 <code>finding</code> 定义为「审查者报告的一个可定位问题候选」，它的 <code>_Avoid_</code> 列了「已确认缺陷」。A 类结果正是已确认缺陷，所以另立<b>违规项</b>。<code>finding</code> 仍然是候选、仍然要主 agent 验证出处才作数，但它的定义要扩展一处：<b>生产方</b>。B 类由 <code>designer</code> 产出，它不是审查者，这一处扩展走 <code>/mmw-domain-modeling</code>。<br><b>产生新的确定性事实但没有界面修复目标时，加成报告项，不加成判拒。</b></span>
+    <span style="color:var(--dim)">领域文档把 <code>finding</code> 定义为「审查者报告的一个可定位问题候选」，它的 <code>_Avoid_</code> 列了「已确认缺陷」。A 类结果正是已确认缺陷，所以另立<b>违规项</b>。<code>finding</code> 仍然是候选、仍然要主 agent 验证出处才作数，但它的定义要扩展一处：<b>生产方</b>。B 类由 <code>designer</code> 产出，它不是审查者，这一处扩展走 <code>/mmw-domain-modeling</code>。<br><b>产生新的确定性事实但没有界面修复目标时，加成报告项，不加成检查项。</b></span>
   </div>
 </section>
 
@@ -443,7 +443,7 @@ designer 交回：判拒（B2/B3/B4）· 步序号 · 界面标识 · 元素 · 
   </div>
   <div class="panel" style="margin-top:14px">
     <div class="flow">
-      <div class="step" style="padding-top:0"><div class="n">1</div><div class="t"><b>先跑完全部九种判拒，收集全部结果，再统一进入修改</b><p>不边查边改。A3 改了 token，B1 看到的就是改后的界面，你在报告里读到的描述会对不上你打开界面看到的样子。全部检查跑在同一个界面状态上，结果才自洽。</p></div></div>
+      <div class="step" style="padding-top:0"><div class="n">1</div><div class="t"><b>先跑完全部九种检查项，收集全部结果，再统一进入修改</b><p>不边查边改。A3 改了 token，B1 看到的就是改后的界面，你在报告里读到的描述会对不上你打开界面看到的样子。全部检查跑在同一个界面状态上，结果才自洽。</p></div></div>
       <div class="step"><div class="n">2</div><div class="t"><b>逐条修改，逐条验证</b><p>每改完一条，只重跑触发这条违规项的那一项检查，不重跑全部。</p></div></div>
       <div class="step"><div class="n">3</div><div class="t"><b>全部改完之后，把四种 A 类检查整体重跑一遍</b><p>逐条验证只看得见自己那一条，看不见「这次修改是否引入了别的 A 类问题」。整体重跑补上这一层，成本很低——A1 读数值、A2 跑规则引擎、A3 比对 token 集合、A4 读控制台，全是确定性检查，不需要模型判断，也不需要重走语义层。<br><b>B 类不重跑</b>：你裁决时看到的是修改前的界面，这一点在报告里写明。A 类改的是阈值、WCAG、token、运行时错误四类确定性问题，不改变 B 类关心的流程与语义。</p></div></div>
       <div class="step"><div class="n">4</div><div class="t"><b>改坏了退回去</b><p>整体重跑发现新的 A 类违规项，或某条逐条验证没过 → <code>git checkout -- &lt;文件&gt;</code> 退回该次修改，降级成 finding 报给你，标「尝试修复失败」。</p></div></div>
@@ -456,21 +456,21 @@ designer 交回：判拒（B2/B3/B4）· 步序号 · 界面标识 · 元素 · 
   <h2><span class="num">09</span>裁决怎么被记住：指纹与两级匹配</h2>
   <p class="lead">这是「批注次数下降」的落地机制。没有它，「裁决长期保存」只是把条目堆起来，下一轮仍然全部重报。</p>
   <div class="grid g4">
-    <div class="card"><b>元素级 <span class="tag tB">B1</span> <span class="tag tB">B5</span></b><pre class="fp" style="margin-top:6px">判拒：B1
+    <div class="card"><b>元素级 <span class="tag tB">B1</span> <span class="tag tB">B5</span></b><pre class="fp" style="margin-top:6px">检查项：B1
 判据：DS-规则3
 界面：main
 状态：default
 元素角色：button
 元素名：同步</pre></div>
-    <div class="card"><b>步骤级 <span class="tag tB">B2</span></b><pre class="fp" style="margin-top:6px">判拒：B2
+    <div class="card"><b>步骤级 <span class="tag tB">B2</span></b><pre class="fp" style="margin-top:6px">检查项：B2
 走查任务：新建同步任务
 步骤：3
 问：2</pre></div>
-    <div class="card"><b>屏级 <span class="tag tB">B4</span></b><pre class="fp" style="margin-top:6px">判拒：B4
+    <div class="card"><b>屏级 <span class="tag tB">B4</span></b><pre class="fp" style="margin-top:6px">检查项：B4
 界面：main
 状态：default
 问：5</pre></div>
-    <div class="card"><b>屏级或路径级 <span class="tag tB">B3</span></b><pre class="fp" style="margin-top:6px">判拒：B3
+    <div class="card"><b>屏级或路径级 <span class="tag tB">B3</span></b><pre class="fp" style="margin-top:6px">检查项：B3
 界面：[main]
 状态：[default]</pre><div class="meta" style="margin-top:6px">数组。连续两屏时长度为 2</div></div>
   </div>
@@ -480,8 +480,8 @@ designer 交回：判拒（B2/B3/B4）· 步序号 · 界面标识 · 元素 · 
       <table>
         <tr><th style="width:22%">级</th><th style="width:38%">条件</th><th>结果</th></tr>
         <tr><td><b>第 1 级 · 全等</b></td><td>指纹每个字段都相同</td><td style="background:var(--n-bg)">同一件事。按已有裁决处理，<b>不报给你</b></td></tr>
-        <tr><td><b>第 2 级 · 近似</b></td><td>判拒相同，位置字段<b>恰好只有一个</b>不同</td><td style="background:var(--b-bg)">报给你，附上上一轮的裁决，只问「是不是同一件事」</td></tr>
-        <tr><td>都不中</td><td>判拒不同，或两个以上字段不同</td><td>新问题，正常报</td></tr>
+        <tr><td><b>第 2 级 · 近似</b></td><td>检查项相同，位置字段<b>恰好只有一个</b>不同</td><td style="background:var(--b-bg)">报给你，附上上一轮的裁决，只问「是不是同一件事」</td></tr>
+        <tr><td>都不中</td><td>检查项不同，或两个以上字段不同</td><td>新问题，正常报</td></tr>
       </table>
     </div>
     <p style="margin:12px 0 0;font-size:13.5px;color:var(--dim)"><b>「恰好只有一个字段不同」是确定性规则</b>，不依赖模型判断。它覆盖界面迭代中最常见的三种改动：按钮改文案（元素名变）、状态被拆开（状态变）、走查任务插了一步（步骤变）。既换界面又改名的元素两个字段都变 → 算新问题，这是有意的：它已经不是原来那个东西。</p>
@@ -531,7 +531,7 @@ designer 交回：判拒（B2/B3/B4）· 步序号 · 界面标识 · 元素 · 
         <div class="flow">
           <div class="step" style="padding-top:0"><div class="n">1</div><div class="t"><b>你手动启动一次</b><p>PowerShell 里启动，带远程调试端口。</p></div></div>
           <div class="step"><div class="n">2</div><div class="t"><b>主 agent 从 Mac 连接端口</b><p>接管渲染进程。</p></div></div>
-          <div class="step"><div class="n">3</div><div class="t"><b>连接后先自检四项能力</b><p>取快照、提取样式、局部截图、注入规则引擎。<b>连接成功不等于四项都在。</b>任一项失败按缺项处理，声明哪几种判拒没运行，不把缺项结果当完整 QA。</p></div></div>
+          <div class="step"><div class="n">3</div><div class="t"><b>连接后先自检四项能力</b><p>取快照、提取样式、局部截图、注入规则引擎。<b>连接成功不等于四项都在。</b>任一项失败按缺项处理，声明哪几种检查项没运行，不把缺项结果当完整 QA。</p></div></div>
           <div class="step" style="padding-bottom:0"><div class="n">4</div><div class="t"><b>要改东西之前先报数、等你点头</b><p>告诉你有几处要改、要重新构建并重启几次。你可以答「这次先只报告」。</p></div></div>
         </div>
       </div>
@@ -564,12 +564,12 @@ designer 交回：判拒（B2/B3/B4）· 步序号 · 界面标识 · 元素 · 
       <tr><td>浏览器自动化框架缺失</td><td>依赖未安装或入口定位失败</td><td style="background:var(--stop-bg);color:var(--stop)"><b>停止</b>，全部检查都依赖它</td></tr>
       <tr><td>可访问性规则引擎缺失</td><td>依赖未安装或调用失败</td><td style="background:var(--n-bg)">跳过 A2，其余照常</td></tr>
       <tr><td><b>判据自检报 <code>error</code></b></td><td>设计系统格式校验有 error 级 finding</td><td style="background:var(--stop-bg);color:var(--stop)"><b>停止</b>。文件解析不了，A3 与 B1 无从判起</td></tr>
-      <tr><td><b>判据自检报 <code>warning</code></b></td><td>跨 token 对比度不足、引用不完整、缺 primary</td><td style="background:var(--n-bg)">继续，九种判拒照常。报告标明<b>这是判据的问题不是界面的问题</b></td></tr>
+      <tr><td><b>判据自检报 <code>warning</code></b></td><td>跨 token 对比度不足、引用不完整、缺 primary</td><td style="background:var(--n-bg)">继续，九种检查项照常。报告标明<b>这是判据的问题不是界面的问题</b></td></tr>
       <tr><td>格式校验命令跑不起来</td><td>依赖拉取失败或无 JSON 输出</td><td style="background:var(--n-bg)">继续，报告顶部标明判据这一轮没被校验过</td></tr>
       <tr><td>应用启动失败</td><td>启动命令非零，或超时未出现主窗口</td><td style="background:var(--stop-bg);color:var(--stop)"><b>停止</b>，写出命令、环境变量与原始错误</td></tr>
       <tr><td>Windows 端口连不上</td><td>连不上你手动启动时开的端口</td><td style="background:var(--stop-bg);color:var(--stop)"><b>停止</b> Windows 侧，明确不尝试跨 SSH 启动</td></tr>
-      <tr><td>Windows 已连接但能力不足</td><td>四项能力自检有任一项失败</td><td style="background:var(--n-bg)">声明哪几项不可用、哪几种判拒没运行，继续跑能跑的</td></tr>
-      <tr><td>本次改动映射不出界面</td><td>改的是后端、配置或文档</td><td style="background:var(--n-bg)">降到本任务，<b>不减判拒</b></td></tr>
+      <tr><td>Windows 已连接但能力不足</td><td>四项能力自检有任一项失败</td><td style="background:var(--n-bg)">声明哪几项不可用、哪几种检查项没运行，继续跑能跑的</td></tr>
+      <tr><td>本次改动映射不出界面</td><td>改的是后端、配置或文档</td><td style="background:var(--n-bg)">降到本任务，<b>不减检查项</b></td></tr>
       <tr><td>范围内没有产物路径</td><td>MMW 产物里没有路径经过范围内界面</td><td style="background:var(--n-bg)">用全图跳转关系拼最短路径，标明是拼的，B2/B3/B4 照常</td></tr>
       <tr><td>全图建不全</td><td>代码抽取与运行时探测都到不了某些状态</td><td style="background:var(--n-bg)">进<b>覆盖报告</b>，不驱动修改，不静默略过</td></tr>
       <tr><td>修复后验证不通过</td><td>逐条重跑原违规项仍在，或整体重跑发现新违规项</td><td style="background:var(--n-bg)"><code>git checkout -- &lt;文件&gt;</code> 退回该次修改，降级成 finding，标「尝试修复失败」</td></tr>
