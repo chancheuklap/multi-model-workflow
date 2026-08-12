@@ -85,7 +85,7 @@ _Avoid_: research 索引、tracker 索引、spec、重建索引
 _Avoid_: decision ticket、任务包、横向层任务
 
 **plan**：
-一张 tracer bullet ticket 的实施计划。plan 按批次写，与实现交替推进，不一次写完。
+一张 tracer bullet ticket 的实施计划。plan 按批次写，与实现交替推进。
 _Avoid_: spec、tracer bullet ticket、路线图
 
 **批次**：

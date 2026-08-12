@@ -67,7 +67,7 @@ MMW 接缝必须保留：
 - ticket 与 spec 互相矛盾。
 - `## Cross-Plan Contract Anchors` 与 ticket 的阻塞关系对不上。
 
-写清是哪份材料、哪个位置、错在哪。修的动作在派你的人那里，不在你这里——不要硬写占位证明把错误盖过去。与 `needs-context` 的分界：缺材料交 `needs-context`，材料在手上但内容有错交 `needs-repair`。
+写清是哪份材料、哪个位置、错在哪，然后交回。材料由派你的人修。与 `needs-context` 的分界：缺材料交 `needs-context`，材料在手上但内容有错交 `needs-repair`。
 
 ## 边界
 

@@ -5,9 +5,9 @@ description: 为已发布 spec 的 tracer bullet ticket 按批次编排 plan。s
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
 
-把 ticket 写成 plan，供后面派 `worker` 照着落地。plan 不一次写完：**一个批次一轮**，与 `$mmw:mmw-implement` 交替推进。**批次**指某一时刻阻塞已全部关闭、还没有 `ready-for-agent` 标签的全部 open tracer bullet ticket。这样每个 `planner` 探到的代码里，阻塞它的 ticket 已经真实落地——plan 里钉的 `文件:行号` 在 `worker` 开工时仍然成立，跨 plan 接口也能直接对源码验证。
+把 ticket 写成 plan，供后面派 `worker` 照着落地。plan 不一次写完：**一个批次一轮**，与 `$mmw:mmw-implement` 交替推进。**批次**指某一时刻阻塞已全部关闭、还没有 `ready-for-agent` 标签的全部 open tracer bullet ticket。这样每个 `planner` 探到的代码里，阻塞它的 ticket 已经真实落地，plan 里钉的 `文件:行号` 到 `worker` 开工时仍然成立。
 
-批次成员资格只看标签这一个状态判据，plan 文件是否已经写出不参与判定。中断后重入时，已有 plan 文件但没有标签的 ticket 重新走验证、审查和打标签；`ready-for-agent` 的幂等添加保证重入收敛。
+批次成员资格只看标签这一个判据，plan 文件写出来了没有不参与判定。中断后重入时，已有 plan 文件但没有标签的 ticket 重新走验证、审查和打标签。
 
 **你不写 plan。** 写作全部下放给 `planner`，一张 ticket 一个。你的职责是定批次、划合同边界、派发、验证、回填、发起审查。
 
@@ -55,7 +55,7 @@ prototype 索引字段不完整时回 `$mmw:mmw-prototype` 补齐。
 
 ## 2. 把合同落到 plan 头上
 
-**这一步只在首次进入本技能时做**——它只依赖 spec 与 ticket 的阻塞关系，首日信息完整，后续批次直接沿用。spec 里已有 `## Cross-Plan Contract Anchors` 一节就跳过。全部 ticket 只产出一份 plan 时也跳过。
+**这一步只在首次进入本技能时做**，后续批次沿用同一节。spec 里已有 `## Cross-Plan Contract Anchors` 一节就跳过。全部 ticket 只产出一份 plan 时也跳过。
 
 在 spec 里新增一节 `## Cross-Plan Contract Anchors`，**不改已有的 `## Contract Boundaries`**。
 
@@ -88,7 +88,7 @@ prototype 索引字段不完整时回 `$mmw:mmw-prototype` 补齐。
 
 批次内的 ticket 互不阻塞，可以同一条消息里并行启动多个 `planner`。`planner` 使用当前任务 worktree，不建独立 worktree，不提交。每个 `planner` 只写自己的 plan 文件。
 
-派发返回的 `session:` 或 `handle:` 行是这个 `planner` 的恢复句柄，记下来——第 4 步的修复和 ② plan 审的采信项修复都用它恢复原 `planner`。
+派发返回的 `session:` 或 `handle:` 行是这个 `planner` 的恢复句柄。记下来，第 4 步与 ② plan 审的修复都用它。
 
 ## 4. 验证返回
 
@@ -96,7 +96,7 @@ prototype 索引字段不完整时回 `$mmw:mmw-prototype` 补齐。
 
 接受 `pass` 前运行 `mmw artifact check`。命令非零时把当前 plan 的错误交回该 `planner` 修复。命令通过后才接受 `pass`。
 
-失实就把修复说明发回原 `planner` 续跑——它的上下文还在，不用重新探码：
+失实就把修复说明发回原 `planner` 续跑：
 这个宿主没有续跑通道：按对应的启动动作重派新实例，task 正文带上原 task 全文、原报告全文和本轮修复指令。
 
 交回 `needs-context` 的，补齐它点名的材料之后重派。交回 `needs-repair` 的，它指的是 spec 或 ticket 本身有错：要改的内容会变更用户已批准的验收标准、spec 决定或 blocking edge 时，**停下**，把 `planner` 交回的证据交给用户，取得批准后再修对应材料；只有不改变已批准语义的笔误级修正可以直接修。修完带上修正后的材料重派。
@@ -120,7 +120,7 @@ prototype 索引字段不完整时回 `$mmw:mmw-prototype` 补齐。
 
 **本批次 plan 都验证过、合同也回填完之后，发起一次审查，批内不逐份发起。** 按 `$mmw:mmw-review` 走。传给它本批次每张 ticket 的 plan 类别内细分。逐份运行 `mmw artifact path plan --sub <两位编号>-<ticket短名>.md`。再传这份 spec 的精确路径、全部 ticket 编号，以及本批次 plan 引用的 prototype `README.md`、选中产物、research `README.md` 和精确文件。没有的项目写「无」。
 
-**首个批次**的审查材料里额外注明：本轮覆盖质量审执行 spec 到 ticket 集合的覆盖扫描。后续批次不重扫——ticket 集合在 `$mmw:mmw-to-tickets` 时已经固定。
+**首个批次**的审查材料里额外注明：本轮覆盖质量审执行 spec 到 ticket 集合的覆盖扫描。后续批次不写这一句。
 
 ## 7. 提交
 
@@ -134,7 +134,7 @@ prototype 索引字段不完整时回 `$mmw:mmw-prototype` 补齐。
 gh issue edit <ticket 编号> --add-label ready-for-agent
 ```
 
-添加完成后，运行 `mmw issue children <spec issue 编号>` 重新读取全部子 issue。本批次每张 ticket 都带 `ready-for-agent`，第 8 步才完成。仍有缺失时继续留在第 8 步；重复运行添加命令会收敛到相同状态。
+添加完成后，运行 `mmw issue children <spec issue 编号>` 重新读取全部子 issue。本批次每张 ticket 都带 `ready-for-agent`，第 8 步才完成。仍有缺失时继续留在第 8 步。
 
 `ready-for-agent` 表示 ticket 的 plan 已经通过 ② plan 审。`Blocked by` 和 `mmw issue frontier` 继续决定哪张 ticket 已经无阻塞并且可以认领；只有进入 frontier 的 ticket 才能派 `worker`。
 
