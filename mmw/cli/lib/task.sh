@@ -153,7 +153,7 @@ mmw_task_bind() {
     mmw_path_safe_segment "$name" "工作名" "mmw:" || return 1
   fi
 
-  local current_branch parent_name
+  local current_branch parent_name current_name from_sha
   current_branch="$(mmw_task_current_bound_branch || true)"
   if [ -n "$current_branch" ]; then
     [ "$branch" = "$current_branch" ] || {
@@ -164,6 +164,18 @@ mmw_task_bind() {
       echo "mmw: 已绑定任务 worktree 的 task bind 要 --name <工作名>" >&2
       return 1
     }
+    if [ -n "$from" ]; then
+      from_sha="$(mmw_git_commit "$from")" || return 1
+      if [ "$(git rev-parse HEAD)" != "$from_sha" ]; then
+        echo "mmw: 任务 worktree 不在预期基点 ${from}" >&2
+        return 1
+      fi
+    fi
+    current_name="$(mmw_task_current_work_name || true)"
+    if [ -n "$current_name" ] && [ "$name" != "$current_name" ]; then
+      echo "mmw: 已绑定任务 worktree 的工作名是 ${current_name}，不能改成 ${name}" >&2
+      return 1
+    fi
     mmw_task_store_binding . "$branch" "$note" "$name" || {
       echo "mmw: 没有写入任务 worktree 的绑定信息" >&2
       return 1
@@ -200,7 +212,6 @@ mmw_task_bind() {
     return 1
   fi
   if [ -n "$from" ]; then
-    local from_sha
     from_sha="$(mmw_git_commit "$from")" || return 1
     if [ "$(git rev-parse HEAD)" != "$from_sha" ]; then
       echo "mmw: detached worktree 不在预期基点 ${from}" >&2

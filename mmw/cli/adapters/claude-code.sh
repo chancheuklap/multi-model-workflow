@@ -88,7 +88,7 @@ mmw_adapter_dispatch() {
 
       # 进度日志是派发结束后的诊断材料。落点只由 artifact path 回答。
       # 主检出没有工作名时算不出落点。此时明确说明不写日志，并继续派发。
-      local log_dir="" log="" timestamp
+      local log_dir="" log="" log_tmp="" timestamp
       local -a artifact_args=(artifact path scratch --sub dispatch --absolute)
       if [ -n "${MMW_D_ISSUE:-}" ]; then
         artifact_args+=(--issue "$MMW_D_ISSUE")
@@ -99,7 +99,15 @@ mmw_adapter_dispatch() {
       )"; then
         mkdir -p "$log_dir"
         timestamp="$(date +%Y%m%d-%H%M%S)"
-        log="$log_dir/${MMW_D_ROLE}-${timestamp}.log"
+        log_tmp="$(mktemp "$log_dir/${MMW_D_ROLE}-${timestamp}-XXXXXX")" || {
+          echo "mmw: 不能创建派发进度日志" >&2
+          return 1
+        }
+        log="${log_tmp}.log"
+        mv "$log_tmp" "$log" || {
+          echo "mmw: 不能创建派发进度日志" >&2
+          return 1
+        }
       else
         log_dir=""
         echo "mmw: 派发进度日志算不出落点时不写日志，派发照常进行" >&2
