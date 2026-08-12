@@ -33,7 +33,7 @@ UI mockup 的持久资产必须保存在 `mockup/`。应用源码只保留运行
 
 直接创建或修改时，只改 `mockup/current/`。它是后续轮次持续优化的唯一当前 mockup。
 
-需要变体时，建立 `mockup/variants/<问题 slug>/`。完整变体可以改变整页布局、信息层级或主要操作入口。局部变体只替换本轮比较的部分。变体必须有真实结构差异。只改变颜色或文案不构成新变体。
+需要变体时，先取一个 `<问题 slug>`。写入第一个使用它的文件前，运行 `mmw artifact path prototype [--issue <编号>] --sub mockup/variants/<问题 slug>`。列出输出路径的父目录。目标已存在时，先读已有 `README.md`。没有索引时，读全部文件名和一级标题。确认是不同问题后，重新取一个承载差别的名字。仍取不出时，从 `-02` 开始加两位序号。不问用户，也不写进交回内容。然后建立 `mockup/variants/<问题 slug>/`。完整变体可以改变整页布局、信息层级或主要操作入口。局部变体只替换本轮比较的部分。变体必须有真实结构差异。只改变颜色或文案不构成新变体。
 
 每个变体使用一个简短的 `kebab-case` `变体 key`。同一个 key 同时用于变体目录名、`?variant=<变体 key>` 和 `preview/` 的加载映射。每个变体目录保存一份可以由 `preview/` 加载的可运行内容。
 
@@ -50,7 +50,7 @@ UI mockup 的持久资产必须保存在 `mockup/`。应用源码只保留运行
 
 派发前提交当前任务分支。确认 worktree 干净。每个方向的结果分支名用它的 `变体 key` 作 slug。基点 SHA 用当前任务分支的 HEAD。把结果分支名和基点 SHA 写进对应 task。
 
-启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --from <基点 SHA>`，使用命令返回的 worktree 绝对路径作为 cwd。然后调用原生 `subagent`，agent 设为 `mmw-prototype-worker`，task 传四栏表全文，cwd 设为该绝对路径。
+启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --name <工作名> --from <基点 SHA>`，使用命令返回的 worktree 绝对路径作为 cwd。然后调用原生 `subagent`，agent 设为 `mmw-prototype-worker`，task 传四栏表全文，cwd 设为该绝对路径。
 
 收到报告后，运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。命令通过后，在输出的 worktree 读取报告和 diff。按 `/mmw-verifying-agent-output` 验证结构差异、项目组件约束和可运行性。通过后运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。
 

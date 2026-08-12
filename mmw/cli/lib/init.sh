@@ -29,7 +29,9 @@ mmw_init_config() {
   if [ -f "$config" ]; then
     if jq -e '
       (.paths.scratch != null and .paths.reviews != null and .paths.release != null and .paths.worktrees != null)
-      and ([.paths.specs, .paths.plans, .paths.prototypes, .paths.research, .paths.evidence, .paths.investigations] | all(. == null))
+      and ((.paths // {}) | [has("specs"), has("plans"), has("prototypes"),
+                             has("research"), has("evidence"), has("investigations")] | all(. == false))
+      and (has("wiki") | not)
       and (.models == null)
     ' "$config" >/dev/null 2>&1; then
       mmw_init_say "配置     : 已有 ${config}，无需迁移"
@@ -59,7 +61,7 @@ mmw_init_config() {
       .paths.release //= $release |
       .paths.worktrees //= $worktrees |
       del(.paths.specs, .paths.plans, .paths.prototypes,
-          .paths.research, .paths.evidence, .paths.investigations, .models)
+          .paths.research, .paths.evidence, .paths.investigations, .wiki, .models)
     ' "$config" > "$temp"; then
       rm -f "$temp"
       return 1
@@ -183,7 +185,6 @@ mmw_init_gitignore() {
     "$(mmw_path_field release)/"
     "$(mmw_path_field scratch)/"
     "$(mmw_path_field worktrees)/"
-    ".dispatch/"
     "graphify-out/"
   )
   for line in "${lines[@]}"; do
@@ -237,7 +238,7 @@ mmw_init_graphifyignore() {
 
 # init 写的配置文件要提交进分支才算数。任务 worktree 检出的是分支上的版本：
 # .gitignore 那几行留在工作区没提交的话，worktree 里那份 .gitignore 里没有它
-# 们，于是 .reviews/ 与 .dispatch/ 变成未跟踪文件，旧宿主的 mmw task cleanup 被它们挡
+# 们，于是 scratch 根与 reviews 根变成未跟踪文件，旧宿主的 mmw task cleanup 被它们挡
 # 住，git 报的却是「contains modified or untracked files」，看不出真因是配置
 # 没提交。.mmw.json 同理，它不在分支上时 worktree 里每条 mmw 命令都报没配置。
 #

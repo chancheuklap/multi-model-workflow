@@ -11,6 +11,87 @@
 
 set -euo pipefail
 
+mmw_task_read_work_name_at() {
+  local dir="$1" name
+  name="$(git -C "$dir" config --worktree --get mmw.task.work-name 2>/dev/null || true)"
+  [ -n "$name" ] || return 1
+  mmw_path_safe_segment "$name" "工作名" "mmw:" >/dev/null 2>&1 || return 1
+  printf '%s\n' "$name"
+}
+
+mmw_task_current_bound_branch() {
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
+
+  local git_dir common_dir branch
+  git_dir="$(git rev-parse --path-format=absolute --git-dir)"
+  common_dir="$(git rev-parse --path-format=absolute --git-common-dir)"
+  branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+  [ "$git_dir" != "$common_dir" ] && [ -n "$branch" ] || return 1
+  printf '%s\n' "$branch"
+}
+
+mmw_task_current_work_name() {
+  mmw_task_current_bound_branch >/dev/null || return 1
+  mmw_task_read_work_name_at .
+}
+
+mmw_task_parent_work_name() {
+  local from="$1" parent
+  parent="$(mmw_git_worktree_of "$from")" || return 1
+  mmw_task_read_work_name_at "$parent"
+}
+
+mmw_task_store_binding() {
+  local dir="$1" branch="$2" note="$3" name="$4"
+  git -C "$dir" config extensions.worktreeConfig true || return 1
+  git -C "$dir" config --worktree mmw.task.branch "$branch" || return 1
+  git -C "$dir" config --worktree mmw.task.note "$note" || return 1
+  git -C "$dir" config --worktree mmw.task.work-name "$name" || return 1
+}
+
+mmw_task_note_for_branch() {
+  local branch="$1" commit subject note
+  note="$(git config --worktree --get mmw.task.note 2>/dev/null || true)"
+  if [ -n "$note" ]; then
+    printf '%s\n' "$note"
+    return 0
+  fi
+
+  while IFS= read -r commit; do
+    subject="$(git show -s --format=%s "$commit")"
+    [ "$subject" = "$branch" ] || continue
+    [ -z "$(git diff-tree --no-commit-id --name-only -r "$commit")" ] || continue
+    note="$(git show -s --format=%b "$commit")"
+    if [ -n "$note" ]; then
+      printf '%s\n' "$note"
+      return 0
+    fi
+  done < <(git rev-list --reverse "$branch")
+
+  printf '%s\n' "补写工作名"
+}
+
+mmw_task_quote() {
+  local value="$1"
+  value="${value//\'/\'\\\'\'}"
+  printf "'%s'" "$value"
+}
+
+mmw_task_command_word() {
+  local value="$1"
+  if [[ "$value" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+    printf '%s' "$value"
+  else
+    mmw_task_quote "$value"
+  fi
+}
+
+mmw_task_missing_work_name() {
+  local branch="$1" note
+  note="$(mmw_task_note_for_branch "$branch")"
+  echo "mmw: 当前任务 worktree 缺少合法工作名。运行：mmw task bind $(mmw_task_command_word "$branch") $(mmw_task_quote "$note") --name <工作名>" >&2
+}
+
 mmw_task_state() {
   if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "outside"
@@ -28,17 +109,29 @@ mmw_task_state() {
   elif [ -z "$branch" ]; then
     echo "detached ${head}"
   else
-    echo "bound ${branch} ${head}"
+    local name
+    if ! name="$(mmw_task_read_work_name_at .)"; then
+      mmw_task_missing_work_name "$branch"
+      return 1
+    fi
+    echo "bound ${branch} ${head} ${name}"
   fi
 }
 
 # 把宿主已经创建的 detached linked worktree 绑到任务分支。
-# 用法：mmw_task_bind <完整分支名> <用户原话或任务目标> [--from <预期基点>]
+# 用法：mmw_task_bind <完整分支名> <用户原话或任务目标> [--name <工作名>] [--from <预期基点>]
 mmw_task_bind() {
-  local branch="${1:-}" note="${2:-}" from=""
+  local branch="${1:-}" note="${2:-}" from="" name="" name_given=false
   shift 2 2>/dev/null || true
   while [ $# -gt 0 ]; do
     case "$1" in
+      --name)
+        name="${2:-}"
+        [ -n "$name" ] || { echo "mmw: task bind 的 --name 要工作名" >&2; return 1; }
+        [ "$name_given" = false ] || { echo "mmw: task bind 的 --name 只能给一次" >&2; return 1; }
+        name_given=true
+        shift 2
+        ;;
       --from)
         from="${2:-}"
         [ -n "$from" ] || { echo "mmw: task bind 的 --from 要基点" >&2; return 1; }
@@ -56,17 +149,69 @@ mmw_task_bind() {
     echo "mmw: ${branch} 不是合法分支名" >&2
     return 1
   }
+  if [ "$name_given" = true ]; then
+    mmw_path_safe_segment "$name" "工作名" "mmw:" || return 1
+  fi
+
+  local current_branch parent_name current_name from_sha
+  current_branch="$(mmw_task_current_bound_branch || true)"
+  if [ -n "$current_branch" ]; then
+    [ "$branch" = "$current_branch" ] || {
+      echo "mmw: task bind 的分支必须是当前任务分支 ${current_branch}" >&2
+      return 1
+    }
+    [ "$name_given" = true ] || {
+      echo "mmw: 已绑定任务 worktree 的 task bind 要 --name <工作名>" >&2
+      return 1
+    }
+    if [ -n "$from" ]; then
+      from_sha="$(mmw_git_commit "$from")" || return 1
+      if [ "$(git rev-parse HEAD)" != "$from_sha" ]; then
+        echo "mmw: 任务 worktree 不在预期基点 ${from}" >&2
+        return 1
+      fi
+    fi
+    current_name="$(mmw_task_current_work_name || true)"
+    if [ -n "$current_name" ] && [ "$name" != "$current_name" ]; then
+      echo "mmw: 已绑定任务 worktree 的工作名是 ${current_name}，不能改成 ${name}" >&2
+      return 1
+    fi
+    mmw_task_store_binding . "$branch" "$note" "$name" || {
+      echo "mmw: 没有写入任务 worktree 的绑定信息" >&2
+      return 1
+    }
+    printf '%s\t%s\n' "$branch" "$(git rev-parse HEAD)"
+    return 0
+  fi
+
   [ "$(mmw_task_state | awk '{print $1}')" = "detached" ] || {
     echo "mmw: task bind 只能在 detached linked worktree 执行" >&2
     return 1
   }
+  [ "$(mmw_host)" = "codex" ] || {
+    echo "mmw: task bind 只用于 Codex App 已创建的 detached worktree" >&2
+    return 1
+  }
+  parent_name=""
+  if [ -n "$from" ]; then
+    parent_name="$(mmw_task_parent_work_name "$from" || true)"
+  fi
+  if [ -n "$parent_name" ]; then
+    if [ "$name_given" = true ] && [ "$name" != "$parent_name" ]; then
+      echo "mmw: 显式工作名必须与父任务 worktree 的工作名相同：${parent_name}" >&2
+      return 1
+    fi
+    name="$parent_name"
+  elif [ "$name_given" = false ]; then
+    echo "mmw: task bind 找不到可继承的工作名，要 --name <工作名>" >&2
+    return 1
+  fi
   mmw_git_clean . "不绑定分支" || return 1
   if git show-ref --verify --quiet "refs/heads/$branch"; then
     echo "mmw: ${branch} 已存在" >&2
     return 1
   fi
   if [ -n "$from" ]; then
-    local from_sha
     from_sha="$(mmw_git_commit "$from")" || return 1
     if [ "$(git rev-parse HEAD)" != "$from_sha" ]; then
       echo "mmw: detached worktree 不在预期基点 ${from}" >&2
@@ -76,6 +221,10 @@ mmw_task_bind() {
 
   git switch -c "$branch"
   git commit --allow-empty -q -m "$branch" -m "$note"
+  mmw_task_store_binding . "$branch" "$note" "$name" || {
+    echo "mmw: 没有写入任务 worktree 的绑定信息" >&2
+    return 1
+  }
   printf '%s\t%s\n' "$branch" "$(git rev-parse HEAD)"
 }
 
@@ -134,7 +283,7 @@ mmw_task_dir() {
 
 # 建 worktree、建分支、打一个记住用户原话的空提交。
 #
-# 用法：mmw_task_new <slug> [原话] [--from <基点>]
+# 用法：mmw_task_new <slug> [原话] [--name <工作名>] [--from <基点>]
 #
 # 不给 --from 就从当前 HEAD 分叉：在主仓库跑从主线分叉，在某棵 worktree 里跑
 # 从那条分支分叉。要从别的分支分叉必须显式给 --from——`/mmw-wayfinder` 走链时
@@ -144,9 +293,22 @@ mmw_task_dir() {
 # 同名分支已经存在时挂回它，不新建也不打空提交，--from 一并忽略——map 的
 # worktree 被清理过之后要建回来，走的就是这条。
 mmw_task_new() {
-  local slug="" note="" from=""
+  local slug="" note="" from="" name="" name_given=false parent_name=""
   while [ $# -gt 0 ]; do
     case "$1" in
+      --name)
+        name="${2:-}"
+        if [ -z "$name" ]; then
+          echo "mmw: task new 的 --name 要工作名" >&2
+          return 1
+        fi
+        if [ "$name_given" = true ]; then
+          echo "mmw: task new 的 --name 只能给一次" >&2
+          return 1
+        fi
+        name_given=true
+        shift 2
+        ;;
       --from)
         from="${2:-}"
         if [ -z "$from" ]; then
@@ -170,6 +332,9 @@ mmw_task_new() {
     echo "mmw: task new 要一个 slug" >&2
     return 1
   fi
+  if [ "$name_given" = true ]; then
+    mmw_path_safe_segment "$name" "工作名" "mmw:" || return 1
+  fi
 
   local root dir base
   root="$(mmw_main_root)"
@@ -181,9 +346,33 @@ mmw_task_new() {
   fi
 
   if git show-ref --quiet --verify "refs/heads/$slug"; then
+    [ "$name_given" = true ] || {
+      echo "mmw: 挂回已有任务分支要 --name <工作名>" >&2
+      return 1
+    }
     git -C "$root" worktree add "$dir" "$slug" >&2
+    mmw_task_store_binding "$dir" "$slug" "$note" "$name" || {
+      echo "mmw: 没有写入任务 worktree 的绑定信息" >&2
+      return 1
+    }
     echo "$dir"
     return 0
+  fi
+
+  if [ -n "$from" ]; then
+    parent_name="$(mmw_task_parent_work_name "$from" || true)"
+  else
+    parent_name="$(mmw_task_current_work_name || true)"
+  fi
+  if [ -n "$parent_name" ]; then
+    if [ "$name_given" = true ] && [ "$name" != "$parent_name" ]; then
+      echo "mmw: 显式工作名必须与父任务 worktree 的工作名相同：${parent_name}" >&2
+      return 1
+    fi
+    name="$parent_name"
+  elif [ "$name_given" = false ]; then
+    echo "mmw: task new 找不到可继承的工作名，要 --name <工作名>" >&2
+    return 1
   fi
 
   if [ -n "$from" ]; then
@@ -199,6 +388,10 @@ mmw_task_new() {
   if [ -n "$note" ]; then
     git -C "$dir" commit --allow-empty -q -m "$slug" -m "$note"
   fi
+  mmw_task_store_binding "$dir" "$slug" "$note" "$name" || {
+    echo "mmw: 没有写入任务 worktree 的绑定信息" >&2
+    return 1
+  }
   echo "$dir"
 }
 

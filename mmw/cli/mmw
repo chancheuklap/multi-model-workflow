@@ -9,7 +9,7 @@
 #   1. 要连着发好几个请求、或要先取中间值（如 GitHub 的 database id）；
 #   2. 是护栏：在破坏性动作前做 agent 容易偷懒跳过的完整性校验；
 #   3. 是宿主机械差异的唯一落点（派发、物化、体检）；
-#   4. 目标系统没有 API，只能用固定套路操作（如 GitHub Wiki）。
+#   4. 目标系统没有 API，只能用固定套路操作。
 # 已有子命令越出这条线时删掉它，不加例外。
 #
 # 这里也不放 git push、不放远端合并、不放部署。宿主的命令白名单一旦放行
@@ -29,8 +29,6 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$MMW_ROOT/cli/lib/task.sh"
 # shellcheck source=lib/issue.sh
 . "$MMW_ROOT/cli/lib/issue.sh"
-# shellcheck source=lib/wiki.sh
-. "$MMW_ROOT/cli/lib/wiki.sh"
 # shellcheck source=lib/domain.sh
 . "$MMW_ROOT/cli/lib/domain.sh"
 # shellcheck source=lib/graph.sh
@@ -39,6 +37,8 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$MMW_ROOT/cli/lib/toolchain.sh"
 # shellcheck source=lib/init.sh
 . "$MMW_ROOT/cli/lib/init.sh"
+# shellcheck source=lib/artifact.sh
+. "$MMW_ROOT/cli/lib/artifact.sh"
 
 # 用法分两层：这里只列命令名，参数在各命令自己的 usage_* 里。要查 dispatch
 # 怎么写的人不该顺带读完 issue 的六个子命令——认不出参数时打的也是那一个命令
@@ -47,13 +47,13 @@ usage() {
   cat >&2 <<'EOF'
 mmw <命令> [参数]
 
-  dispatch    Claude Code：把 task 文件编成宿主工具参数（Pi 主路径不用）
+  dispatch    Claude Code：把 task 正文编成宿主工具参数（Pi 主路径不用）
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
+  artifact    产物：查询类别的落点
   task        任务 worktree：查状态、建、绑分支、删
   result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
-  wiki        Wiki：clone、重建导航、删本地文档前的验证
   domain      领域文档：初始化 Map、同步和检查消费合同、查询落点与 ADR 编号
   graph       结构图谱：状态、建一次、验证建对了
   toolchain   语言工具链：探测该配哪些语言服务器与检查器，报缺失与版本不对齐
@@ -70,7 +70,7 @@ EOF
 
 usage_dispatch() {
   cat >&2 <<'EOF'
-mmw dispatch <角色> --task <文件> [--cwd <目录>]
+mmw dispatch <角色> [--task-text <正文>] [--cwd <目录>] [--issue <编号>]
 
 角色：
   worker            按一份 plan 写代码
@@ -83,8 +83,13 @@ mmw dispatch <角色> --task <文件> [--cwd <目录>]
   reviewer-claude   审查，Claude 那一侧
 
 参数：
-  --task <文件>   task 四栏表文件，必填（与 Pi 的 task 同一概念）
-  --cwd <目录>    角色的工作目录。会写文件的角色必填；只读角色省略时使用仓库根
+  --task-text <正文>  task 四栏表正文。省略时从标准输入读取
+  --cwd <目录>       角色的工作目录。会写文件的角色必填；只读角色省略时使用仓库根
+  --issue <编号>     当前 decision ticket 编号。只用于派发进度日志与句柄的范围段
+  --resume <句柄>    恢复原 subagent 续跑，这次的 task 正文是修复 task。句柄用原派发
+                     返回的 session:（gpt 族 thread_id）或 handle:（claude 族名字）原文
+
+标准输入与 --task-text 只能使用一种。task 正文不能为空。
 
 模型、档位和护栏由角色决定，取自已安装 MMW runtime 的模型档。
 
@@ -96,21 +101,24 @@ EOF
 
 usage_task() {
   cat >&2 <<'EOF'
-mmw task new <slug> [用户原话] [--from <基点分支或 SHA>]
+mmw task new <任务分支> [用户原话] [--name <工作名>] [--from <基点分支或 SHA>]
     建任务 worktree 和同名分支，输出这个 worktree 的绝对路径。
     用户原话记进这条分支的第一个空提交，让后来的人知道这个任务从哪来。
+    从普通检出新建时要给 --name；从已有任务 worktree 分叉时继承工作名。
     不给 --from 就从当前 HEAD 分叉；从 Wayfinding 的 map 分支派生时给 --from <map 分支>。
 mmw task cleanup <slug>
     删掉这个 worktree 和它的分支。有未提交改动时失败，不强制删除。
 mmw task state
-    当前所在位置，输出 outside、local、detached、bound 之一。
-mmw task bind <完整分支名> <用户原话或任务目标> [--from <预期基点>]
-    Codex App 专用：把 App 已经建好的 detached worktree 绑到任务分支上。
+    当前所在位置，输出 outside、local、detached，或带工作名的 bound。
+mmw task bind <完整任务分支名> <用户原话或任务目标> [--name <工作名>] [--from <预期基点>]
+    已绑定任务 worktree 用它补写工作名。
+    Codex App 也用它把 App 已经建好的 detached worktree 绑到任务分支上。
     给了 --from 就先校验当前 HEAD 等于这个基点。
 
 这条命令只输出路径；真正切进 worktree 要用宿主自己的工具。
 在 Codex App 上只有 state 和 bind 可用，worktree 由 App 创建和清理；
-在其他宿主上只有 state、new、cleanup 可用。
+其他宿主也可在已绑定任务 worktree 上用 bind 补写工作名。
+在其他宿主上 new 与 cleanup 可用。
 EOF
   return 2
 }
@@ -156,22 +164,19 @@ mmw issue claim <编号>
 mmw issue link <被挡的编号> --blocked-by <挡住它的编号>
     连一条阻塞边。一次只连一条，要连多条就多跑几次。
 
-以上五条之外的 tracker 动作直接用 gh：
+mmw issue append <issue 编号> --section <小节标题> --line <要追加的一行>
+    向现有二级标题的小节追加一行。不要拼整份正文写回。
+
+mmw issue set-parent <子 issue 编号> --parent <父 issue 编号>
+    给已存在的 issue 设置父 issue。
+
+以上七条之外的 tracker 动作直接用 gh：
     读 issue 和评论   gh issue view <编号> --comments
     发评论            gh issue comment <编号> --body-file <文件>
-    改正文            gh issue edit <编号> --body-file <文件>
+    追加一行          mmw issue append <编号> --section <小节标题> --line <要追加的一行>
+    整份替换正文      有意替换整份正文时，先读最新正文，再用 gh issue edit <编号> --body-file <文件>
+                      例如修改 Destination 小节。
     关 issue          gh issue close <编号>
-EOF
-  return 2
-}
-
-usage_wiki() {
-  cat >&2 <<'EOF'
-mmw wiki ensure         clone 或 pull Wiki，输出本地路径
-mmw wiki nav            从各页面重新生成 Home.md 与 _Sidebar.md
-mmw wiki verify <slug>  删本地文档前那三条验证
-
-推 Wiki 是对外发布，要用户点头，这里不做。
 EOF
   return 2
 }
@@ -258,18 +263,59 @@ cmd_dispatch() {
     usage_dispatch
   }
 
-  local task="" cwd=""
+  local task_text="" task_text_set="no" cwd="" issue="" resume=""
+  local resume_given=0
   while [ $# -gt 0 ]; do
     case "$1" in
-      --task) task="${2:-}"; shift 2 ;;
-      --cwd) cwd="${2:-}"; shift 2 ;;
+      --task-text)
+        [ $# -ge 2 ] || { echo "mmw: --task-text 要正文" >&2; usage_dispatch; }
+        task_text="$2"
+        task_text_set="yes"
+        shift 2
+        ;;
+      --cwd)
+        [ $# -ge 2 ] && [ -n "$2" ] || { echo "mmw: --cwd 要目录" >&2; usage_dispatch; }
+        cwd="$2"
+        shift 2
+        ;;
+      --issue)
+        [ $# -ge 2 ] && [ -n "$2" ] || { echo "mmw: --issue 要编号" >&2; usage_dispatch; }
+        issue="$2"
+        shift 2
+        ;;
+      --resume)
+        [ $# -ge 2 ] || { echo "mmw: --resume 要句柄" >&2; usage_dispatch; }
+        resume="$2"
+        resume_given=1
+        shift 2
+        ;;
       *) echo "mmw: 认不出参数 $1" >&2; usage_dispatch ;;
     esac
   done
 
-  [ -n "$task" ] || { echo "mmw: dispatch 要 --task" >&2; usage_dispatch; }
-  [ -f "$task" ] || { echo "mmw: task 文件不存在：$task" >&2; return 1; }
-  task="$(cd "$(dirname "$task")" && pwd)/$(basename "$task")"
+  if [ "$resume_given" = "1" ] && [ -z "$resume" ]; then
+    echo "mmw: --resume 的句柄是空的。gpt 族用原派发返回的 session: 原文（也存在派发进度目录的 <角色>-<正文摘要>.session），claude 族用 handle: 原文" >&2
+    return 1
+  fi
+
+  local stdin_text=""
+  if [ "$task_text_set" = "yes" ]; then
+    if [ ! -t 0 ]; then
+      stdin_text="$(cat; printf x)"
+      stdin_text="${stdin_text%x}"
+      [ -z "$stdin_text" ] || {
+        echo "mmw: 标准输入与 --task-text 只能使用一种" >&2
+        return 1
+      }
+    fi
+  else
+    task_text="$(cat; printf x)"
+    task_text="${task_text%x}"
+  fi
+  [ -n "$task_text" ] || {
+    echo "mmw: dispatch 要从标准输入或 --task-text 接收 task 正文" >&2
+    usage_dispatch
+  }
 
   local writable
   writable="$(role_writable "$role")"
@@ -294,9 +340,11 @@ cmd_dispatch() {
   MMW_D_FAMILY="$(mmw_model_field "$role" family)"
   MMW_D_MODEL_ID="$(mmw_model_field "$role" id)"
   MMW_D_EFFORT="$(mmw_model_field "$role" effort)"
-  export MMW_D_TASK="$task"
+  export MMW_D_TASK_TEXT="$task_text"
   export MMW_D_CWD="$cwd"
+  export MMW_D_ISSUE="$issue"
   export MMW_D_WRITABLE="$writable"
+  export MMW_D_RESUME="$resume"
   MMW_D_SKILL="$(role_skill "$role")" || return 1
   export MMW_D_SKILL
 
@@ -394,7 +442,7 @@ cmd_task() {
   shift || true
   case "$sub" in
     state) [ $# -eq 0 ] || usage_task; mmw_task_state ;;
-    bind) [ "$host" = "codex" ] || { echo "mmw: task bind 只用于 Codex App 已创建的 detached worktree" >&2; return 1; }; mmw_task_bind "$@" ;;
+    bind) mmw_task_bind "$@" ;;
     new) [ "$host" != "codex" ] || { echo "mmw: Codex App 负责创建 worktree，这里只用 task bind" >&2; return 1; }; mmw_task_new "$@" ;;
     cleanup) [ "$host" != "codex" ] || { echo "mmw: Codex App 负责清理 managed worktree" >&2; return 1; }; mmw_task_cleanup "$@" ;;
     *) usage_task ;;
@@ -412,9 +460,21 @@ cmd_result() {
 }
 
 cmd_issue() {
-  local sub="${1:-}"
+  local sub="${1:-}" rc
   shift || true
   case "$sub" in
+    append)
+      [ -n "${1:-}" ] || usage_issue
+      if mmw_issue_append "$@"; then
+        :
+      else
+        rc=$?
+        if [ "$rc" -eq 2 ]; then
+          usage_issue
+        fi
+        return "$rc"
+      fi
+      ;;
     create) mmw_issue_create "$@" ;;
     children) [ -n "${1:-}" ] || usage_issue; mmw_issue_children "$1" ;;
     claim) [ -n "${1:-}" ] || usage_issue; mmw_issue_claim "$1" ;;
@@ -448,18 +508,19 @@ cmd_issue() {
       [ -n "$blocker" ] || { echo "mmw: issue link 要 --blocked-by" >&2; usage_issue; }
       mmw_issue_link "$child" "$blocker"
       ;;
+    set-parent)
+      [ -n "${1:-}" ] || usage_issue
+      if mmw_issue_set_parent "$@"; then
+        :
+      else
+        rc=$?
+        if [ "$rc" -eq 2 ]; then
+          usage_issue
+        fi
+        return "$rc"
+      fi
+      ;;
     *) usage_issue ;;
-  esac
-}
-
-cmd_wiki() {
-  local sub="${1:-}"
-  shift || true
-  case "$sub" in
-    ensure) mmw_wiki_ensure ;;
-    nav) mmw_wiki_nav ;;
-    verify) [ -n "${1:-}" ] || usage_wiki; mmw_wiki_verify "$1" ;;
-    *) usage_wiki ;;
   esac
 }
 
@@ -475,6 +536,18 @@ cmd_domain() {
     adr-next) mmw_domain_adr_next ;;
     dirs) mmw_domain_dirs ;;
     *) usage_domain ;;
+  esac
+}
+
+cmd_artifact() {
+  local sub="${1:-}"
+  shift || true
+  case "$sub" in
+    path) mmw_artifact_path "$@" ;;
+    index) mmw_artifact_index "$@" ;;
+    check) mmw_artifact_check "$@" ;;
+    list) mmw_artifact_list "$@" ;;
+    *) usage_artifact ;;
   esac
 }
 
@@ -550,7 +623,7 @@ cmd_toolchain() {
 }
 
 cmd_doctor() {
-  local host status=0 domain_ready=0 repair
+  local host status=0 domain_ready=0 repair repo_root="" config_path="" legacy_path legacy_spec key
   repair="$(mmw_install_repair_command)"
   echo "CLI      : ${BASH_SOURCE[0]} -> $MMW_ROOT"
   if host="$(mmw_host 2>/dev/null)"; then
@@ -560,9 +633,11 @@ cmd_doctor() {
     status=1
   fi
   if git rev-parse --show-toplevel >/dev/null 2>&1; then
-    echo "仓库     : $(mmw_repo_root)"
-    if [ -f "$(mmw_config_path)" ]; then
-      echo "配置     : $(mmw_config_path)"
+    repo_root="$(mmw_repo_root)"
+    config_path="$(mmw_config_path)"
+    echo "仓库     : $repo_root"
+    if [ -f "$config_path" ]; then
+      echo "配置     : $config_path"
       domain_ready=1
     else
       echo "配置     : 缺 .mmw.json，跑 mmw init"
@@ -571,6 +646,32 @@ cmd_doctor() {
   else
     echo "仓库     : 当前目录不在 git 仓库里"
     status=1
+  fi
+  if [ -n "$repo_root" ]; then
+    if [ -d "$repo_root/docs/evidence" ]; then
+      echo "历史产物 : 已退役路径 docs/evidence/"
+    fi
+    if [ -d "$repo_root/.dispatch" ]; then
+      echo "历史产物 : 已退役路径 .dispatch/"
+    fi
+    for legacy_path in "$repo_root"/docs/specs/*; do
+      [ -d "$legacy_path" ] || continue
+      legacy_spec="$legacy_path/$(basename "$legacy_path").md"
+      if [ -f "$legacy_spec" ]; then
+        echo "历史产物 : 已退役路径 ${legacy_spec#"$repo_root"/}"
+      fi
+    done
+  fi
+  if [ -n "$config_path" ] && command -v jq >/dev/null \
+     && jq empty "$config_path" >/dev/null 2>&1; then
+    for key in specs plans prototypes research evidence; do
+      if jq -e --arg key "$key" '(.paths? // {}) | has($key)' "$config_path" >/dev/null; then
+        echo "遗留配置 : .mmw.json 的 paths.$key 已退役"
+      fi
+    done
+    if jq -e 'has("wiki")' "$config_path" >/dev/null; then
+      echo "遗留配置 : .mmw.json 的 wiki 已退役"
+    fi
   fi
   if [ "$domain_ready" -eq 1 ] && [ -n "${host:-}" ]; then
     local domain_out domain_prefix domain_shape domain_path domain_state
@@ -591,15 +692,13 @@ cmd_doctor() {
   fi
   command -v jq >/dev/null && echo "jq       : $(command -v jq)" || { echo "jq       : 没装"; status=1; }
   command -v gh >/dev/null && echo "gh       : $(command -v gh)" || { echo "gh       : 没装"; status=1; }
-  # Wiki 没有 API，读写一律 clone 加 push，走 https://github.com/<仓库>.wiki.git
-  # （见 lib/wiki.sh）。凭据助手没配好的话，要等到 /mmw-closing 第 5 步、用户
-  # 已经点头同意推送之后才发现推不上去。这里提前探一次：喂一条 github.com 的
-  # https 查询，走完整条助手链，只判有没有人答上密码，不回显。
+  # GitHub HTTPS 推送需要凭据助手。这里提前探一次：喂一条 github.com 的 https
+  # 查询，走完整条助手链，只判有没有人答上密码，不回显。
   if printf 'protocol=https\nhost=github.com\n\n' \
      | GIT_TERMINAL_PROMPT=0 git credential fill 2>/dev/null | grep -q '^password='; then
     echo "推送鉴权 : github.com 的 https 凭据有人答得上"
   else
-    echo "推送鉴权 : github.com 的 https 凭据没人答得上，跑 gh auth setup-git（推 Wiki 要它）"
+    echo "推送鉴权 : github.com 的 https 凭据没人答得上，跑 gh auth setup-git"
     status=1
   fi
   if [ "${host:-}" = "claude-code" ]; then
@@ -721,10 +820,10 @@ case "${1:-}" in
   dispatch) shift; cmd_dispatch "$@" ;;
   agents) shift; cmd_agents "$@" ;;
   skills) shift; cmd_skills "$@" ;;
+  artifact) shift; cmd_artifact "$@" ;;
   task) shift; cmd_task "$@" ;;
   result) shift; cmd_result "$@" ;;
   issue) shift; cmd_issue "$@" ;;
-  wiki) shift; cmd_wiki "$@" ;;
   domain) shift; cmd_domain "$@" ;;
   graph) shift; cmd_graph "$@" ;;
   toolchain) shift; cmd_toolchain "$@" ;;

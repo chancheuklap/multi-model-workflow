@@ -13,8 +13,8 @@ description: 为终审通过的改动构建正式安装包。用于用户要求�
 
 | 检查 | 怎么查 |
 | --- | --- |
-| 终审跑过，采信的 findings 都已修复并验证 | `.reviews/<slug>-final.md` 在；有采信项时，它顶部有 `修复提交` |
-| 当前 HEAD 就是终审完成的提交 | 读 `.reviews/<slug>-final.md`（⑤ final 终审的记录，见 `/mmw-review`），确认其中的 `终审提交` 等于 `git rev-parse HEAD` |
+| 终审跑过，采信的 findings 都已修复并验证 | 运行 `mmw artifact path review --sub final.md`。输出文件存在。有采信项时，它顶部有 `修复提交` |
+| 当前 HEAD 就是终审完成的提交 | 运行 `mmw artifact path review --sub final.md`。读取输出文件。确认其中的 `终审提交` 等于 `git rev-parse HEAD` |
 | 工作区干净 | `git status --porcelain` 是空的。引擎拒绝把自愈修复混进你没提交的改动里 |
 | 这个仓库配了出包 | 仓库里能找到至少一份出包配置（下一步） |
 | 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 |
@@ -57,10 +57,9 @@ mmw release init --manifest <那份配置的绝对路径>
 
 ```bash
 git rev-parse HEAD
-cat "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)"/.release/delivered/*.json
 ```
 
-交付记录落在**主仓库根**，不在当前这棵任务 worktree 里——它比对的是几次出包之间的 commit，worktree 收尾就删，落在树里的记录活不过一次任务。
+交付记录的工作目录根由当前仓库 `.mmw.json` 的 `paths.release` 决定。读取该配置值，再读取它下面 `delivered/` 中的记录。记录落在**主仓库根**，不在当前这棵任务 worktree 里——它比对的是几次出包之间的 commit，worktree 收尾就删，落在树里的记录活不过一次任务。
 
 这个目录里躺着历次出包的记录，一个产品一份、后一次盖前一次。**只看第 2 步清单上那几个产品的那几份**，其余的跟这一轮无关。它们的 `source_commit` 都等于当前 HEAD，才算这批包是同一份代码。
 

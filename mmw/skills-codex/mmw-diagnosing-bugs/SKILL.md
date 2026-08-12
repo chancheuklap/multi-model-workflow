@@ -18,18 +18,29 @@ description: 需要查明根因的 bug 和性能回退诊断。用于功能损�
 
 ## 过程材料落点
 
-开始诊断时先定下这次的 scratch 落点，形状是 `.scratch/<产物目录>/<子目录>`：
+开始诊断前先运行 `mmw task state`。输出是 `bound` 时，只取第四字段作为工作名。
 
-先判是哪种任务：**当前任务是从一张带 `wayfinder:map` 标签的 issue 派生出来的，就是 Wayfinder 场景**（`$mmw:mmw-wayfinder` 用 map 统筹一项跨多张 ticket 的 effort，那些 ticket 共用一个产物目录）；不是就是普通任务，走第一列。
+输出是 `detached` 时，先分别确定任务分支名和工作名。运行：
 
-| 段 | 取值 |
-| --- | --- |
-| `<产物目录>` | 普通任务用当前任务 slug；Wayfinder 场景读 map 或子 issue 正文的 `## 产物目录` 一节 |
-| `<子目录>` | 普通任务没有这一层；Wayfinder 的 decision ticket 用正文记录的 `issue-<编号>`；Wayfinder 派生的 spec 任务用 `task-<任务 slug>`，slug 取 `mmw task state` 输出的第二个词去掉宿主命名空间前缀 |
+```bash
+mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]
+```
 
-不要从任务 worktree 的物理目录名推断产物目录。`.scratch/` 在 `.gitignore` 里，放这儿的东西不进 Git。
+输出是 `local` 或 `outside` 时，先分别确定任务分支名和工作名。运行：
 
-HAR、trace、日志转储、core dump、录屏、一次性 harness、临时埋点输出和其他过程材料默认写进这个目录。已经位于 correct seam、准备长期防回归的测试源码按 Phase 5 处理。
+```bash
+mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]
+```
+
+`mmw task new` 返回绝对路径后，切换到该路径。两种建树动作之后都重新运行 `mmw task state`。只在输出确认是 `bound` 后，取第四字段作为工作名。
+
+为本次诊断取一个 `<短名>`。运行下面的完整命令取得过程材料落点。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
+
+```bash
+mmw artifact path scratch [--issue <编号>] --sub diagnosis/<短名>
+```
+
+HAR、trace、日志转储、core dump、录屏、一次性 harness、临时埋点输出和其他过程材料写进该命令输出的目录。已经位于 correct seam、准备长期防回归的测试源码按 Phase 5 处理。
 
 ## 脱敏
 

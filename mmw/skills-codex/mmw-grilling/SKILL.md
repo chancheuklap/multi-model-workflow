@@ -23,6 +23,8 @@ description: relentless 地追问用户的计划、决定或想法。用户希�
 
 查明**事实**是你的工作，绝不是用户的工作。frontier 上的问题需要从环境中取得事实时，凡是你能自行查找的内容，都不要向用户提问。
 
+调用方传来 `必读材料声明` 时，先检查每项被点名材料是否已经回答当前 frontier 问题。仓库产物逐条运行 `mmw artifact path` 解析，再读索引与索引列出的文件。结论评论逐条读取对应 issue 中以 `<!-- mmw:conclusion -->` 开头的评论。已有答案进入设计树；仍未回答的部分再按下面各项取得事实。
+
 - 读一个文件、一个符号，或者跑一条命令就能答完时，你自己去读、去跑。
 - 要从几个互不依赖的角度系统地查才能答时，调用 `$mmw:mmw-research`。它交回验证过的事实、出处和没查清的部分，你把事实放回设计树。
 - 用户必须看见已有页面或 mockup 才能回答当前 frontier 问题时，读取与当前 frontier 问题有关的全部已有页面和 mockup，再执行：
@@ -59,7 +61,17 @@ frontier 为空后，总结已经谈定的问题、约束、决定、取舍和�
 
 **等他回答。**他说不要，直接进入下一步。他说要，才做下面两件事。
 
-第一件：把这次访谈写成一份**共同理解记录**，`.scratch/<产物目录>/understanding.md`。`<产物目录>` 用这次讨论主题的短横线名字，进入 `$mmw:mmw-to-spec` 时沿用同一个；解决 Wayfinder 的 decision ticket 时用 `issue-<编号>`。
+第一件：先运行 `mmw task state`。输出是 `bound` 时，只取第四字段作为工作名。
+
+输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。输出是 `local` 时，运行 `mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。输出是 `outside` 时，向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`。
+
+`mmw task new` 返回绝对路径后，切换到该路径。两种建树动作之后都重新运行 `mmw task state`。只在输出确认是 `bound` 后，取第四字段作为工作名。
+
+然后运行下面的完整命令取得**共同理解记录**的落点。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
+
+```bash
+mmw artifact path scratch [--issue <编号>] --sub understanding.md
+```
 
 记录分三段，缺一段这份文件就不成立：
 

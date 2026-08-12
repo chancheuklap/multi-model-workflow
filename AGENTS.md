@@ -42,12 +42,12 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 同一项行为按以下顺序核对：
 
 1. 对应宿主的 manifest、根 marketplace 或 Pi package；Codex 角色结构只认 `mmw/codex/profiles.json`，模型只认 `mmw/cli/mmw.default.json` 的 `hosts.codex` 覆盖。
-2. `mmw/cli/` 的机械动作、宿主 adapter 和 `.mmw.json` 配置合同。
+2. `mmw/cli/` 的机械动作、宿主 adapter、`.mmw.json` 配置合同和 `mmw/cli/artifacts.json` 的产物落点数据。
 3. `mmw/skills-src/` 技能源（含 `[[mmw-launch:…]]` 与 `[[mmw-launch-group:…]]`）与 `mmw skills materialize` 产物；流程判据以源为准，宿主动作以对应产物为准。
 
 `.mmw.json` 保存目标仓库的标签、CLI 路径和领域文档形态。模型档属于已安装 runtime，不进入目标仓库配置。
 
-技能直接使用已规定的仓库相对产物路径，例如 `docs/specs/`、`docs/prototypes/` 和 `docs/research/`。`.mmw.json` 的 `paths` 只配置 CLI 自己消费的 `scratch`、`reviews`、`release` 和 `worktrees`。
+产物落点由 `mmw artifact path` 回答。技能正文不写路径字面值。`.mmw.json` 的 `paths` 只配置 CLI 自己消费的 `scratch`、`reviews`、`release` 和 `worktrees`。
 
 `mmw/.mcp.json` 是检索服务器声明的唯一事实来源；各宿主的展开产物都通过 `mmw mcp serve` 回到这一份。图谱只由 `mmw graph build` 更新。
 
@@ -69,7 +69,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 - 脚本异常必须非零退出或留下结构化告警。
 - 机械校验只覆盖机器能直接判定的事实：语法与固定结构可解析、路径与文件安全、配置完整性和生成产物一致性。
 - 产物质量、方法选择、语义真实性和完成度由技能与主 agent 判断。不用计数、列表形状、固定阈值或豁免清单伪装成机械校验。已有校验越过这条边界时删除该校验，不增加例外分支。
-- `mmw/skills-src/mmw-setup/` 只保存旧背景材料，不是技能。扫描技能正文时必须排除它。
+- 扫描技能正文的机械校验按文件来源排除两处，两处都写死在测试里，不接受配置项，也不随命中数量增删：`mmw/skills-src/mmw-setup/` 只保存旧背景材料，不是技能；`mmw/skills-src/mmw-triage/examples.md` 是从上游翻译重建来的材料，改它要先走 `upstream-skill-fidelity`。判据是这两份内容不由 MMW 的合同拥有，与上一条禁止的「按命中内容开豁免」不是一回事。
 
 ## Git 与安全
 
@@ -104,7 +104,7 @@ issue 认领的互斥、图谱在什么情况下判定过期与恢复上一份�
 - 根上只有 `CONTEXT.md`：直接读它。
 - 两个都没有：直接继续，不报告缺失，也不创建领域文档。
 
-读取 `docs/adr/` 下与本次范围相关的 ADR。
+先运行 `mmw artifact index adr` 取得 ADR 索引，再读其中与本次范围相关的那几份。
 
 任何面向用户或写入仓库的内容，都使用 leaf 定义的 canonical 术语。代码标识符和测试名也适用。不得使用 `_Avoid_` 中列出的说法。
 

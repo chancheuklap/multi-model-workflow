@@ -22,8 +22,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 
 import materialize_skills as ms  # noqa: E402
 
-角色表 = {"worker": "mmw-worker", "reviewer-gpt": "mmw-reviewer-gpt",
-          "reviewer-claude": "mmw-reviewer-claude"}
+角色表 = {
+    "worker": "mmw-worker",
+    "worker-high-risk": "mmw-worker",
+    "prototype-worker": "mmw-prototype-worker",
+    "reviewer-gpt": "mmw-reviewer-gpt",
+    "reviewer-claude": "mmw-reviewer-claude",
+}
 
 CODEX_PROFILE = {
     "subagents": {
@@ -32,6 +37,16 @@ CODEX_PROFILE = {
     },
     "background_roles": {
         "worker": {"model": "gpt-x", "thinking": "high", "method_skill": "mmw:mmw-tdd"},
+        "worker-high-risk": {
+            "model": "gpt-x",
+            "thinking": "high",
+            "method_skill": "mmw:mmw-tdd",
+        },
+        "prototype-worker": {
+            "model": "gpt-x",
+            "thinking": "high",
+            "method_skill": "mmw:mmw-prototype",
+        },
     },
 }
 
@@ -85,10 +100,23 @@ def test_三个宿主对同一个占位符给出各自的动作(假源: Path, tm
     assert len({产出["pi"], 产出["claude-code"], 产出["codex"]}) == 3
 
 
-def test_worktree_模式先建结果分支(假源: Path, tmp_path: Path) -> None:
-    out = tmp_path / "pi"
-    物化("pi", out)
-    assert "mmw task new" in 读(out, "mmw-alpha/SKILL.md")
+@pytest.mark.parametrize(
+    ("host", "启动命令"),
+    [
+        ("pi", "mmw task new <结果分支> \"<目标栏原文>\" --name <工作名> --from <基点 SHA>"),
+        ("claude-code", "mmw task new <结果分支> \"<目标栏原文>\" --name <工作名> --from <基点 SHA>"),
+        (
+            "codex",
+            "mmw task bind <完整结果分支名> <目标栏原文> --name <工作名> --from <基点 SHA>",
+        ),
+    ],
+)
+def test_worktree_模式的三个宿主都显式传工作名(
+    假源: Path, tmp_path: Path, host: str, 启动命令: str
+) -> None:
+    out = tmp_path / host
+    物化(host, out)
+    assert 启动命令 in 读(out, "mmw-alpha/SKILL.md")
 
 
 def test_none_模式不提工作目录(假源: Path, tmp_path: Path) -> None:
@@ -111,6 +139,40 @@ def test_current_模式用当前任务_worktree(假源: Path, tmp_path: Path) ->
     assert "当前任务 worktree" in 正文
 
 
+@pytest.mark.parametrize("cwd_mode", ["worktree", "current", "none"])
+def test_claude_各工作目录模式直接从标准输入接收四栏_task(
+    假源: Path, tmp_path: Path, cwd_mode: str
+) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n"
+       f"[[mmw-launch:worker:{cwd_mode}]]\n")
+    out = tmp_path / "claude-code"
+    物化("claude-code", out)
+    正文 = 读(out, "mmw-alpha/SKILL.md")
+    assert "标准输入" in 正文
+    assert "写入 task 文件" not in 正文
+    assert "--task " not in 正文
+    assert "--task-text" not in 正文
+    assert (
+        "当前 task 属于 decision ticket 时，加 "
+        "`--issue <当前 decision ticket 编号>`"
+    ) in 正文
+
+
+def test_claude_审查启动组直接从标准输入接收四栏_task(
+    假源: Path, tmp_path: Path
+) -> None:
+    正文 = 审查组("claude-code", 假源, tmp_path)
+    assert "标准输入" in 正文
+    assert "写入 task 文件" not in 正文
+    assert "--task " not in 正文
+    assert "--task-text" not in 正文
+    assert (
+        "当前 task 属于 decision ticket 时，加 "
+        "`--issue <当前 decision ticket 编号>`"
+    ) in 正文
+
+
 # ---------------------------------------------------------------- 审查启动组
 
 def 审查组(host: str, 假源: Path, tmp_path: Path) -> str:
@@ -120,6 +182,47 @@ def 审查组(host: str, 假源: Path, tmp_path: Path) -> str:
     out = tmp_path / host
     物化(host, out)
     return 读(out, "mmw-alpha/SKILL.md")
+
+
+def test_resume_只在_claude_code_给出恢复动作(假源: Path, tmp_path: Path) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n[[mmw-resume:worker:worktree]]\n")
+    产出 = {}
+    for host in ("pi", "claude-code", "codex"):
+        out = tmp_path / host
+        物化(host, out)
+        产出[host] = 读(out, "mmw-alpha/SKILL.md")
+    assert "mmw dispatch worker" in 产出["claude-code"]
+    assert "--resume" in 产出["claude-code"]
+    # 修复 task 走标准输入，不落盘：`--task` 这个参数在升级后的接口里已经没有了，
+    # 物化产物里出现它就是在教主 agent 去调一个不存在的参数。
+    assert "--task " not in 产出["claude-code"]
+    assert "标准输入" in 产出["claude-code"]
+    # 没验证过续跑通道的宿主给显式退路，不静默降级。
+    for host in ("pi", "codex"):
+        assert "--resume" not in 产出[host]
+        assert "重派新实例" in 产出[host]
+        assert "原报告全文" in 产出[host]
+
+
+def test_resume_的_cwd_模式落进恢复指令(假源: Path, tmp_path: Path) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n"
+       "[[mmw-resume:worker:worktree]]\n\n[[mmw-resume:worker:current]]\n\n"
+       "[[mmw-resume:reviewer-gpt:none]]\n")
+    out = tmp_path / "claude-code"
+    物化("claude-code", out)
+    正文 = 读(out, "mmw-alpha/SKILL.md")
+    assert "原结果 worktree 绝对路径" in 正文
+    assert "当前任务 worktree 绝对路径" in 正文
+    assert "mmw dispatch reviewer-gpt" in 正文
+
+
+def test_resume_点了不存在的角色就退出(假源: Path, tmp_path: Path) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n[[mmw-resume:nobody:none]]\n")
+    with pytest.raises(SystemExit):
+        物化("claude-code", tmp_path / "claude-code")
 
 
 @pytest.mark.parametrize("host", ["pi", "claude-code", "codex"])
@@ -172,6 +275,27 @@ def test_只有_codex_在派活后追加不重做规则(假源: Path, tmp_path: 
         out = tmp_path / host
         物化(host, out)
         assert 片段 not in 读(out, "mmw-alpha/SKILL.md")
+
+
+@pytest.mark.parametrize("role", ["worker", "worker-high-risk", "prototype-worker"])
+def test_codex_后台_worktree_任务显式传递并绑定工作名(
+    假源: Path, tmp_path: Path, role: str
+) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n"
+       f"[[mmw-launch:{role}:worktree]]\n")
+    out = tmp_path / "codex"
+    物化("codex", out)
+    正文 = 读(out, "mmw-alpha/SKILL.md")
+    assert "当前任务 worktree" in 正文
+    assert "mmw task state" in 正文
+    assert "bound <任务分支> <HEAD> <工作名>" in 正文
+    assert "第四字段" in 正文
+    assert "四栏 task、完整结果分支名、派发前基点 SHA 和工作名" in 正文
+    assert (
+        "mmw task bind <完整结果分支名> <目标栏原文> "
+        "--name <工作名> --from <基点 SHA>"
+    ) in 正文
 
 
 # ------------------------------------------------------------------ 必须当场失败

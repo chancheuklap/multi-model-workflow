@@ -1,0 +1,29 @@
+---
+date: 2026-08-11
+amends: []
+---
+
+# 全部 MMW 产物使用同一条路径形状
+
+MMW 的 27 类产物原来逐类写死各自的路径，形状互不相同：research 是 `docs/research/<产物目录>/<主题>/`，审查记录是 `.reviews/<任务 slug>-plan.md`，派发报告是 `.dispatch/<角色>-<task 基名>.md`。现在改为一条统一公式 `<类别根>/<名字段>/[<范围段>/]<类别内细分>`，全部产物套用。理由是判据只有一条：一个零上下文的 agent 拿到产物类别和 effort 名字之后，要能不猜就写出正确路径；逐类形状要求它记住 27 条规则，统一公式只要求它知道四件事。
+
+## Considered Options
+
+- **保留逐类形状，只修四处已确认冲突。** 否决。四处冲突是同一个原因的四个表现——没有一条规则说明路径由哪几段构成，所以每个技能各写各的。修掉这四处不阻止第五处出现。
+- **照搬 aidlc-workflows v2 的做法：产物的身份是 canonical name，落点从名字加唯一生产者推导，下游声明消费同一个名字，由引擎解析成实际路径。** 否决。它要求一个引擎在派发时解析路径，而 MMW 的技能是自然语言正文，路径由 agent 自己拼。没有引擎这一层，声明层就没有消费方。它的另一条做法被采纳：技能正文里的路径不该各写各的。
+
+## Consequences
+
+- 名字段只有一个位置，所以一件事在仓库里只有一个名字。原来 spec、plan、evidence、审查记录用任务 slug，prototype、research、scratch 用产物名，两者可以不同。这个名字叫什么、由谁在什么时机取，由另一项决定确定。
+- 范围段只有 Wayfinder decision ticket 有。普通任务没有，map 派生的 spec 任务也没有——原来它有一层 `task-<任务 slug>`，与名字段重复，取消。
+- `docs/evidence/` 取消。界面验收证据留在 scratch 中；用户要求长期保留时由用户指定位置。它原来没有任何技能读取。
+- spec 从 `docs/specs/<名字段>/<名字段>.md` 改成 `docs/specs/<名字段>/spec.md`，名字不再写两遍。`mmw-start` 用路径当搜索词反查 spec issue 的做法仍然成立，搜索词里仍含名字段。
+- spec 索引落在 `docs/specs/README.md`。这项落点由 ADR 0001 移交本决定确定。
+- 审查记录从连字符拼名改成分层目录。scratch 下各类过程材料改用目录细分，不再用文件名前缀区分类别。
+- 四段共用一条字符规则：单个安全路径段，一律小写。原规则来自 `mmw-research`，只覆盖产物名和 research 主题；新增「一律小写」是因为 macOS 默认文件系统不区分大小写而 Linux 区分，混用会在两台机器上表现不同。
+- 出包状态、出包阶段产物、交付记录、结构图谱和任务 worktree 不套用公式。它们跨任务存在，身份由产品名、attempt 序号或分支名决定。
+- handoff 文档留在操作系统临时目录，理由是它用于当前工作区不可用时接续会话。它有上游对应，改它的落点要先走 `upstream-skill-fidelity`。`/wait-what` 的解释 HTML 由用户指定位置。
+- 落点锚定名字段，也就是工作名，不锚定生产它的技能。aidlc-workflows v2 相反：产物位于生产它的阶段目录下，注释短语是 `UNDER THE STAGE THAT OWNS THE FILE`。MMW 不这样做的原因是一次交付有多条任务分支，按生产者归类会把同一次交付的 research、prototype 和 spec 散进多个目录，互相找不到。这一条由 Wayfinder decision ticket #30「九个决定与 aidlc-workflows v2 的对照复核」补记。
+- 合同影响全部已装 MMW 的仓库。历史产物由人工处理，不做迁移命令。本条原来写的是「由一条可重复执行的 CLI 迁移命令处理」，已由 Wayfinder decision ticket #25「历史产物迁移命令的形态与边界」修正，理由是实际对象数量少。
+
+来源：Wayfinder decision ticket #21「每类 MMW 产物的落点与路径形状」，map #18「MMW 产物归纳与接线合同」。

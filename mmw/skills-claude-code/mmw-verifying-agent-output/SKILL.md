@@ -38,7 +38,7 @@ description: 验证 subagent 报告中的关键断言。每次收到审查 findi
 
 派取证时：四栏表——目标「原样抄回下列位置的原文」；读=位置清单路径或逐条 `文件:行号` + 仓库根路径；约束=「不要判断成立与否」；验收=每条一行原文或「不存在」。
 派一个独立上下文的 `investigator`。它只读，不需要工作目录。
-启动：把四栏表写入 task 文件，后台执行 `mmw dispatch investigator --task <task 文件绝对路径>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
+启动：后台执行 `mmw dispatch investigator`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 
 互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 

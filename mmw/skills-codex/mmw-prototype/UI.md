@@ -33,7 +33,7 @@ UI mockup 的持久资产必须保存在 `mockup/`。应用源码只保留运行
 
 直接创建或修改时，只改 `mockup/current/`。它是后续轮次持续优化的唯一当前 mockup。
 
-需要变体时，建立 `mockup/variants/<问题 slug>/`。完整变体可以改变整页布局、信息层级或主要操作入口。局部变体只替换本轮比较的部分。变体必须有真实结构差异。只改变颜色或文案不构成新变体。
+需要变体时，先取一个 `<问题 slug>`。写入第一个使用它的文件前，运行 `mmw artifact path prototype [--issue <编号>] --sub mockup/variants/<问题 slug>`。列出输出路径的父目录。目标已存在时，先读已有 `README.md`。没有索引时，读全部文件名和一级标题。确认是不同问题后，重新取一个承载差别的名字。仍取不出时，从 `-02` 开始加两位序号。不问用户，也不写进交回内容。然后建立 `mockup/variants/<问题 slug>/`。完整变体可以改变整页布局、信息层级或主要操作入口。局部变体只替换本轮比较的部分。变体必须有真实结构差异。只改变颜色或文案不构成新变体。
 
 每个变体使用一个简短的 `kebab-case` `变体 key`。同一个 key 同时用于变体目录名、`?variant=<变体 key>` 和 `preview/` 的加载映射。每个变体目录保存一份可以由 `preview/` 加载的可运行内容。
 
@@ -50,7 +50,7 @@ UI mockup 的持久资产必须保存在 `mockup/`。应用源码只保留运行
 
 派发前提交当前任务分支。确认 worktree 干净。每个方向的结果分支名用它的 `变体 key` 作 slug。基点 SHA 用当前任务分支的 HEAD。把结果分支名和基点 SHA 写进对应 task。
 
-启动：先用 `list_projects` 取得当前仓库的 projectId，再调用 `create_thread`。target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型使用 `gpt-5.6-sol`，思考档使用 `medium`。任务提示包含四栏 task、主 agent 已确定的完整结果分支名和派发前基点 SHA；结果分支名使用独立的 `codex/<slug>`。后台 agent 先运行 `mmw task bind <完整结果分支名> <目标栏原文> --from <基点 SHA>`，然后完成工作并提交。后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 worktree 设置，取得 threadId 后再等待。
+启动：先在当前任务 worktree 运行 `mmw task state`。确认输出是 `bound <任务分支> <HEAD> <工作名>`，取第四字段作为工作名。再用 `list_projects` 取得当前仓库的 projectId，并调用 `create_thread`。target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 `branch`，branchName 设为当前已提交的任务分支。模型使用 `gpt-5.6-sol`，思考档使用 `medium`。任务提示包含四栏 task、完整结果分支名、派发前基点 SHA 和工作名；结果分支名使用独立的 `codex/<slug>`。后台 agent 先运行 `mmw task bind <完整结果分支名> <目标栏原文> --name <工作名> --from <基点 SHA>`，然后完成工作并提交。后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 worktree 设置，取得 threadId 后再等待。
 
 派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
 

@@ -1,120 +1,90 @@
 ---
 name: mmw-closing
-description: 完成 spec 任务的归档和交回。用于用户要求收尾，或终审提交已登记且无需出包，或安装包实测通过。
+description: 完成有 spec 任务的过程材料清理和交回。用于用户要求收尾，或终审提交已登记且无需出包，或安装包实测通过。
 ---
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
 
-代码已经落地，终审过了。这一步把设计文档搬到它的长期落点，再把工作区收干净。
-
-**Wiki 从此是这份 spec 的唯一事实来源。** 本地的 `docs/specs/<slug>/` 与 `docs/plans/<slug>/` 随任务分支删掉，主线不留 spec 和计划文档。
-
-Wiki 只放这一样东西。map、审查记录、终审报告都不进——它们各自的去向见 `$mmw:mmw-wayfinder` 与 `$mmw:mmw-review`。
+代码已经落地，终审已经通过。spec 与 plan 长期留在仓库。本技能清理当前任务的过程材料，兜底回收没人收的结果 worktree，并判定这条分支就绪待集成。
 
 ## 前置条件
 
-四件事必须满足，缺一件就停下说清是哪一件。
+四项必须满足。缺一项就停下，并点名缺失项。
 
 | 检查 | 怎么查 |
 | --- | --- |
-| 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 |
-| 终审跑过，采信的 findings 都已修复并验证 | `.reviews/<任务 slug>-final.md` 在；有采信项时，它顶部有 `修复提交` |
-| 工作区干净 | `git status --porcelain` 是空的 |
-| Wiki 已初始化 | `mmw wiki ensure` 跑得通。没初始化它会报出来，只能由用户去仓库的 `/wiki` 页手建一页 |
+| 当前 checkout 已绑定任务 | 运行 `mmw task state`。输出必须以 `bound` 开头。第四个字段是工作名 |
+| spec 已提交 | 运行 `mmw artifact path spec --name <工作名>`。对输出路径运行 `git cat-file -e "HEAD:<输出路径>"` |
+| 每份 plan 已提交 | 从每张 tracer bullet ticket 取得计划文件名。逐份运行 `mmw artifact path plan --name <工作名> --sub <计划文件>`，再检查输出路径已提交 |
+| 终审已经完成 | 运行 `mmw artifact path review --name <工作名> --sub final.md`。审查记录必须存在；采信项必须有 `修复提交` |
 
-没有 spec 的任务不走这一步。
+工作区还必须干净。运行 `git status --porcelain`。输出不是空时停下，并报告改动路径。
 
-## 1. 取 Wiki 的工作副本
+没有 spec 的任务不走本技能。
 
-```bash
-mmw wiki ensure
-```
+## 1. 清理当前任务的过程材料
 
-它 clone 或 pull，输出本地路径。下面几步都在那个目录里做。
+先从 `mmw task state` 的第四个字段取得工作名。不要从任务分支名或 worktree 目录名推断工作名。
 
-## 2. 写这一页
-
-**文件名 `Spec-<slug>.md`，平铺在 Wiki 根目录，一份 spec 一页。** 不要建子目录——GitHub Wiki 的页面命名空间是平的，层级只能编进文件名，`Spec-` 前缀就是干这个的。标题禁用 `\ / : * ? " < > |`，slug 本来就用连字符，撞不上。
-
-五段各写什么：
-
-| 段 | 内容 |
-| --- | --- |
-| 抬头 | 一句话说这份 spec 解决什么问题 |
-| 落地信息 | 父 spec issue 的链接、这条任务分支的名字、归档日期。**合并的 PR 这时候通常还不存在**，先写分支名，合并之后再补 |
-| spec 正文 | `docs/specs/<slug>/` 的定稿 |
-| 计划章节 | `docs/plans/<slug>/` 的每一份，一张 ticket 一节。计划不单独开页 |
-| 相关决定 | **只放指回仓库实际 ADR 文件的完整链接**，路径在 `docs/adr/` 下，绝不把 ADR 复制进来 |
-
-Wiki 不支持自动生成目录，长页面靠标题分节。页间链接用 `[[Spec-phone-login|手机号登录]]`。
-
-**第一行先写这个块**，导航文件靠它取字段，缺了这一页进不了导航：
-
-```markdown
-<!-- mmw:spec
-slug: <这次的 slug>
-summary: <一句话说这份 spec 解决什么问题>
-date: <归档日期，YYYY-MM-DD>
-pr: <合并的 PR 链接；这时候通常还不存在，先写这条任务分支的名字>
--->
-```
-
-它是 HTML 注释，渲染出来看不见。
-
-正文内容全部从**这个分支**上取，不去别处找。
-
-slug 相同的那一页已经存在，就是同一份 spec 的演进：**覆盖它，在页尾追加一条修订记录**（日期、PR、一句话改了什么）。不要新开 `Spec-phone-login-v2`。
-
-## 3. 重新生成两个导航文件
+用下面两条命令取得当前工作名的过程材料父目录：
 
 ```bash
-mmw wiki nav
+scratch_root="$(dirname "$(mmw artifact path scratch --name <工作名> --sub evidence)")"
+review_root="$(dirname "$(mmw artifact path review --name <工作名> --sub final.md)")"
 ```
 
-它从现有的每一份 `Spec-*.md` 全量重建 `Home.md` 与 `_Sidebar.md`，按落地日期倒序。跟这一页一起提交。
+列出这两个父目录下的现有条目。此时只列出，不删除。
 
-退出码非零说明有页面缺第 2 步那个块，它会点名是哪几份。你这次写的那一页在名单里就回第 2 步补上；名单里是别人以前手写的旧页，那是既有欠账，记下来交给用户，不要顺手改别人的页面。
+对 scratch 根下的每个候选目标重新解析路径：
 
-## 4. 给用户看，等他点头
+- 无范围段的目标运行 `mmw artifact path scratch --name <工作名> --sub <类别内细分>`。
+- 位于 `issue-<编号>` 范围段的目标运行 `mmw artifact path scratch --name <工作名> --issue <编号> --sub <类别内细分>`。
 
-**推送到 Wiki 是对外发布的动作。** 在第 1 步输出的那个路径下跑 `git diff` 给他看，等他明确同意再推。
+对 reviews 根下的每个候选目标运行 `mmw artifact path review --name <工作名> --sub <审查记录>`。
 
-## 5. 推送，验证
+只有候选路径与命令输出完全相同时，才把它加入删除清单。命令拒绝的条目保留，并在交回时报告。
 
-推送之后跑 `mmw wiki verify <slug>`，它查三条：这一页在且非空、两个导航文件里都有它的条目、本地与远端一致。**三条都过才允许往下走**，退出码非零就停下报告是哪一条。
+打印删除清单。逐项确认路径属于当前工作名。然后只删除清单中的路径。
 
-## 6. 删本地文档，提交
+保留 spec、plan、prototype 资产和用户选择保存的 research。也保留其他工作名下的全部内容。
 
-「验证」一节那份清单全过之后，在任务分支上删掉 `docs/specs/<slug>/` 与 `docs/plans/<slug>/` 并提交。
+完成判据：删除清单中的路径均不存在。清单外的路径保持原样。
 
-**持久 prototype 资产、用户选择保存的 research 与 evidence 不删。**
+## 2. 清点残留的结果 worktree
 
-## 7. 清理当前任务的过程材料
+结果 worktree 由 `$mmw:mmw-implement` 在关票之后当场回收。这一步是兜底：中途断掉的轮次会留下没人回收的树。
 
-Wiki 验证通过，而且第 6 步已经归档并提交本地 spec 与 plan 后，清理当前任务自己的过程材料。
+运行 `git worktree list`。一棵树同时满足两条才属于当前任务：路径位于当前仓库 `.mmw.json` 的 `paths.worktrees` 下，分支名以当前任务分支名开头。两条不同时满足的一律不动。
 
-先确定产物目录。从 Wayfinder 切出的 spec issue 读取 issue 正文继承的 `## 产物目录`；普通 spec 使用 spec slug。
+对每一棵属于当前任务的树运行 `git merge-base --is-ancestor <该分支> HEAD`：
 
-当前任务 slug 取 `mmw task state` 输出的第二个词（任务分支名），去掉宿主命名空间前缀（Codex App 是 `codex/`）之后剩下的部分。不要从任务 worktree 的物理目录名推断。
+- 命令成功：它的提交已经在当前任务分支上。运行 `mmw task cleanup <该分支名>` 回收。
+- 命令失败：它还有没合并的提交。保留它，在交回时报出分支名。
 
-当前任务的 scratch 目录是：Wayfinder 派生的 spec 用 `.scratch/<产物目录>/task-<任务 slug>`，普通 spec 用 `.scratch/<产物目录>`。只删除这一个目录。
+当前任务 worktree 自己留着，由用户在集成之后处理。
 
-界面证据另有一个落点 `.scratch/<任务 slug>/evidence/`（`$mmw:mmw-implement` 的界面验收和 `$mmw:mmw-review` 的终审取证都写这儿）。普通 spec 的产物目录就是任务 slug，它正好在上面那个目录里，一起删掉；**Wayfinder 派生的 spec 两个 slug 不同，它落在外面**，那时另外删这一个目录。用户明确要留的那些已经挪进 `docs/evidence/`，不在这儿。
+完成判据：属于当前任务、且提交已进入任务分支的结果 worktree 都不存在了。
 
-审查记录在 `.reviews/`，文件名使用任务 slug，不使用产物目录；只删除 `.reviews/<任务 slug>-*`。`.dispatch/` 是派发产物的落点——走 `mmw dispatch` 派角色时，四栏表和它交回的报告都落在这儿，它也归任务 worktree。只删除文件名或派发记录明确属于当前任务 slug 的 task 和报告文件。删除前列出目标，并逐项验证归属。无法确认归属的条目保留并报告。
+## 交回
 
-不得整目录清空 `.scratch/`、`.reviews/` 或 `.dispatch/`。只删除上面点名的那一个 scratch 目录、`.scratch/<任务 slug>/evidence/`、`.reviews/` 中属于当前任务 slug 的文件，以及 `.dispatch/` 中明确属于当前任务 slug 的文件。持久 prototype 资产、用户选择保存的 research、evidence 和其他持久内容继续保留。
+再次运行 `mmw artifact path spec --name <工作名>`。逐份运行 `mmw artifact path plan --name <工作名> --sub <计划文件>`。
 
-完成判据：当前任务的 scratch、界面证据、审查与派发过程材料已经清理；其他任务的过程材料、prototype 资产、用户选择保存的 research、evidence 和其他持久内容仍在。
+交回时报告以下内容：
+
+- spec 的仓库相对路径。
+- 每份 plan 的仓库相对路径。
+- 已删除的过程材料路径。
+- 因无法确认归属而保留的路径。
+- 已回收的结果 worktree 分支名，以及因为还有未合并提交而保留的那些。
+- 当前任务 worktree 的路径，等用户集成之后处理。
+- 这条分支就绪待集成。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
-| 第 3 步报出别人以前手写的旧页缺那个块 | **自己继续**：记下来，末尾一并交给用户，不要改别人的页面 |
-| 七步都做完 | **停**：用业务语言交代现在什么能用了、什么证明它能用、这份 spec 归档到了哪一页、什么搁置了搁到哪里。这条分支就绪待集成——用户要现在就集成走 `$mmw:mmw-integrate`，要等别的并行分支一起再集成就先放着，worktree 在那之前别清理 |
-| 第 4 步用户不同意推送 | **停**：问清他要改哪里，改完重走第 2 步 |
-| 第 5 步 `mmw wiki verify` 有一条不过 | **停**：报是哪一条、看到的是什么。**不要删本地文档**，也不要重推一遍指望它自己好 |
-| `mmw wiki ensure` 报 Wiki 还没初始化 | **停**：告诉用户去仓库的 `/wiki` 页建一页任意内容。没有 API 能替他建，不要试着绕 |
-| 推上去的页面被自动任务覆盖或删除 | **停**：检查仓库是否存在从代码全量重建 Wiki 的自动任务。全量重建与本技能的增量追加不能同时管理同一组页面；让用户决定保留哪一种发布方式 |
-| 终审还没跑，或者还有采信的 findings 没修完 | **停**：说清缺哪一样。没审就回 `$mmw:mmw-implement` 第 7 步；审过就按 `$mmw:mmw-review` 第 7 步完成修复验证 |
+| 前置条件全部满足，而且清理完成 | **停**：交回上述七项。用户要立即集成时移交 `$mmw:mmw-integrate` |
+| 第 2 步有结果 worktree 的提交还没进任务分支 | **移交**：`$mmw:mmw-implement` 第 5 步，交给它那棵树的分支名。那张 ticket 的集成没有做完 |
+| 候选路径无法由 `mmw artifact path` 解析 | **停**：保留该路径，并报告命令、输出和候选路径 |
+| 终审还没跑 | **停**：回 `$mmw:mmw-implement` 第 7 步发起终审 |
+| 终审有采信项尚未修复 | **停**：按 `$mmw:mmw-review` 第 7 步完成修复验证 |

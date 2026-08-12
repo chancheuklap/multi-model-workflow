@@ -25,6 +25,8 @@ plan 说明实施路线。它不代替源码，也不预写完整实现；一张
 
 缺少会改变目标、合同或验收的材料时，交 `needs-context`。没有 prototype、research 或 `TESTING.md` 不构成缺失。
 
+读取 ticket 的 `## 产物引用`。缺少该固定节时交 `needs-context`。每个条目使用 `category=<类别> name=<工作名>`，并按需要追加 `issue=<编号>` 与 `sub=<类别内细分>`。逐条运行 `mmw artifact path <类别> --name <工作名>`，再附上对应的 `--issue` 与 `--sub`。命令失败时交 `needs-context`，不猜路径。该节为 `无` 时，在 plan 元数据块写 `artifact_refs: []`。
+
 测试 seam 以 spec 为准。plan 不重新设计 seam。只有现有 seam 无法验证 ticket 行为时才交 `needs-context`。
 
 ## 探代码
@@ -36,6 +38,8 @@ plan 说明实施路线。它不代替源码，也不预写完整实现；一张
 ## 写 plan
 
 完整读取 [references/plan-body.md](references/plan-body.md)，按其中的单份 plan 模板写入派发消息指定的路径。
+
+把 ticket 的每条产物引用写入 plan 元数据块的 `artifact_refs` 映射列表。键按 `category`、`name`、`issue`、`sub` 顺序书写。每条保留显式 `name`。
 
 实施顺序按依赖和可观察检查点排列。每一步写清改什么、落在哪、完成后怎样验证。步骤可以包含一个完整的 red-green 循环，也可以是迁移、登记、文档或人工审批动作。不要按两到五分钟切碎步骤。
 
@@ -54,6 +58,16 @@ MMW 接缝必须保留：
 ## 方向出口
 
 你不重开已经谈定的范围。当前源码证明 spec 方向不可实现，或者已有能力可以让整张 ticket 消失时，交 `needs-redirection`，写清证据和建议的新方向。
+
+## 材料有错的出口
+
+交 `needs-repair`：派给你的材料**本身有错**，而不是缺失。包括：
+
+- ticket 的某条验收标准无法映射为任何证明方式——既落不到 spec 已确认的 seam 上，也不是人工浏览器审批项。
+- ticket 与 spec 互相矛盾。
+- `## Cross-Plan Contract Anchors` 与 ticket 的阻塞关系对不上。
+
+写清是哪份材料、哪个位置、错在哪，然后交回。材料由派你的人修。与 `needs-context` 的分界：缺材料交 `needs-context`，材料在手上但内容有错交 `needs-repair`。
 
 ## 边界
 
