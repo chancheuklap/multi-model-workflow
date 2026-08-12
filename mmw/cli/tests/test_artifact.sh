@@ -292,7 +292,6 @@ mkdir -p \
   docs/specs/check-valid \
   docs/specs/check-empty \
   docs/specs/check-history-no-block \
-  docs/specs/check-history-no-key \
   docs/specs/check-errors \
   docs/plans/check-valid \
   docs/plans/check-empty \
@@ -325,15 +324,6 @@ printf '%s\n' \
 printf '# Historical spec\n' > docs/specs/check-history-no-block/spec.md
 printf '%s\n' \
   '---' \
-  'slug: check-history-no-key' \
-  'summary: Historical metadata' \
-  'date: 2026-08-12' \
-  'branch: task-check-history-no-key' \
-  'spec_issue: 43' \
-  '---' \
-  '# Historical metadata' > docs/specs/check-history-no-key/spec.md
-printf '%s\n' \
-  '---' \
   'ticket: 44' \
   'artifact_refs:' \
   '  - category: research' \
@@ -349,19 +339,113 @@ printf '%s\n' \
   '---' \
   '# Explicitly empty plan' > docs/plans/check-empty/02-empty.md
 printf '# Historical plan\n' > docs/plans/check-history-no-block/03-no-block.md
+artifact_check_tree_before="$(find . -print | sort)"
+capture "只有历史文件的声明校验" "$MMW" artifact check
+check "只有历史文件的声明校验退出码" "0" "$LAST_STATUS"
+contains "没有元数据块的历史文件报告" "docs/specs/check-history-no-block/spec.md: 历史文件，缺少 YAML 元数据块" "$(cat "$LAST_OUT")"
+check "只有历史文件的声明校验没有标准错误" "" "$(cat "$LAST_ERR")"
+check "只有历史文件的声明校验不改文件树" "$artifact_check_tree_before" "$(find . -print | sort)"
+
 printf '%s\n' \
   '---' \
   'ticket: 46' \
   '---' \
-  '# Historical plan metadata' > docs/plans/check-history-no-key/04-no-key.md
+  '# 新格式但缺产物引用' > docs/plans/check-history-no-key/04-no-key.md
+capture "有元数据块但缺 artifact_refs 拒绝" "$MMW" artifact check
+check "有元数据块但缺 artifact_refs 拒绝退出码" "1" "$LAST_STATUS"
+contains "有元数据块但缺 artifact_refs 仍报告历史文件" "docs/plans/check-history-no-block/03-no-block.md: 历史文件，缺少 YAML 元数据块" "$(cat "$LAST_OUT")"
+contains "有元数据块但缺 artifact_refs 说明" "docs/plans/check-history-no-key/04-no-key.md: 缺少 artifact_refs" "$(cat "$LAST_ERR")"
+rm docs/plans/check-history-no-key/04-no-key.md
 
-artifact_check_tree_before="$(find . -print | sort)"
-capture "有效声明不查磁盘" "$MMW" artifact check
-check "有效声明不查磁盘退出码" "0" "$LAST_STATUS"
-contains "没有元数据块的历史文件报告" "docs/specs/check-history-no-block/spec.md: 历史文件，缺少 YAML 元数据块" "$(cat "$LAST_OUT")"
-contains "缺 artifact_refs 的历史文件报告" "docs/plans/check-history-no-key/04-no-key.md: 历史文件，缺少 artifact_refs" "$(cat "$LAST_OUT")"
-check "有效声明不查磁盘没有标准错误" "" "$(cat "$LAST_ERR")"
-check "有效声明不查磁盘不改文件树" "$artifact_check_tree_before" "$(find . -print | sort)"
+echo
+echo "metadata subset"
+METADATA_REPO="$WORK/metadata-subset"
+git init -q "$METADATA_REPO"
+mkdir -p "$METADATA_REPO/docs/specs/boundary"
+printf '%s\n' \
+  '---' \
+  'slug: boundary' \
+  'summary: Boundary spec' \
+  'date: 2026-08-12' \
+  'branch: task-boundary' \
+  'spec_issue: 49' \
+  'artifact_refs: # 产物引用' \
+  '  - category: research' \
+  '    name: release' \
+  '    issue: 99' \
+  '    sub: not-on-disk' \
+  '---' \
+  '# Boundary spec' > "$METADATA_REPO/docs/specs/boundary/spec.md"
+capture "行尾注释的产物引用通过声明校验" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact check' _ "$METADATA_REPO" "$MMW"
+check "行尾注释的产物引用通过声明校验退出码" "0" "$LAST_STATUS"
+check "行尾注释的产物引用通过声明校验标准错误" "" "$(cat "$LAST_ERR")"
+capture "行尾注释的产物引用通过 spec 索引" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact index spec' _ "$METADATA_REPO" "$MMW"
+check "行尾注释的产物引用通过 spec 索引退出码" "0" "$LAST_STATUS"
+check "行尾注释的产物引用通过 spec 索引标准错误" "" "$(cat "$LAST_ERR")"
+
+mkdir -p "$METADATA_REPO/docs/plans/quoted-issue"
+printf '%s\n' \
+  '---' \
+  'ticket: 50' \
+  'artifact_refs:' \
+  '  - category: research' \
+  '    name: release' \
+  '    issue: "20"' \
+  '    sub: not-on-disk' \
+  '---' \
+  '# Quoted issue' > "$METADATA_REPO/docs/plans/quoted-issue/01-quoted-issue.md"
+capture "带引号的 issue 拒绝" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact check' _ "$METADATA_REPO" "$MMW"
+check "带引号的 issue 拒绝退出码" "1" "$LAST_STATUS"
+contains "带引号的 issue 拒绝说明" "artifact_refs[0]: 缺少或无效的 issue" "$(cat "$LAST_ERR")"
+rm "$METADATA_REPO/docs/plans/quoted-issue/01-quoted-issue.md"
+
+mkdir -p "$METADATA_REPO/docs/specs/folded"
+printf '%s\n' \
+  '---' \
+  'slug: folded' \
+  'summary: >-' \
+  '  不支持折叠字符串' \
+  'date: 2026-08-12' \
+  'branch: task-folded' \
+  'spec_issue: 51' \
+  'artifact_refs: []' \
+  '---' \
+  '# Folded spec' > "$METADATA_REPO/docs/specs/folded/spec.md"
+capture "折叠字符串的声明校验拒绝" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact check' _ "$METADATA_REPO" "$MMW"
+check "折叠字符串的声明校验拒绝退出码" "1" "$LAST_STATUS"
+contains "折叠字符串的声明校验说明" "第 3 行不支持 YAML 折叠字符串" "$(cat "$LAST_ERR")"
+capture "折叠字符串的 spec 索引拒绝" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact index spec' _ "$METADATA_REPO" "$MMW"
+check "折叠字符串的 spec 索引拒绝退出码" "1" "$LAST_STATUS"
+contains "折叠字符串的 spec 索引说明" "第 3 行不支持 YAML 折叠字符串" "$(cat "$LAST_ERR")"
+rm "$METADATA_REPO/docs/specs/folded/spec.md"
+
+echo
+echo "artifact check data roots"
+B10_MMW_ROOT="$WORK/b10-mmw"
+mkdir -p "$B10_MMW_ROOT"
+cp -R "$HERE/.." "$B10_MMW_ROOT/cli"
+B10_DATA="$B10_MMW_ROOT/cli/artifacts.json"
+jq '.plan.root = "alternate/plans"' "$B10_DATA" > "$WORK/b10-artifacts.json"
+mv "$WORK/b10-artifacts.json" "$B10_DATA"
+B10_REPO="$WORK/b10-repo"
+git init -q "$B10_REPO"
+mkdir -p "$B10_REPO/alternate/plans/from-data"
+printf '%s\n' \
+  '---' \
+  'ticket: 52' \
+  '---' \
+  '# 新格式但缺产物引用' > "$B10_REPO/alternate/plans/from-data/01-from-data.md"
+capture "声明校验读取数据里的 plan 根" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact check' \
+  _ "$B10_REPO" "$B10_MMW_ROOT/cli/mmw"
+check "声明校验读取数据里的 plan 根退出码" "1" "$LAST_STATUS"
+contains "声明校验读取数据里的 plan 根说明" \
+  "alternate/plans/from-data/01-from-data.md: 缺少 artifact_refs" "$(cat "$LAST_ERR")"
 
 printf '%s\n' \
   '---' \

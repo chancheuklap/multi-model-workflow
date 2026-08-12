@@ -357,5 +357,6 @@ mmw_artifact_check() {
     usage_artifact
   fi
 
-  python3 "$MMW_ROOT/cli/lib/artifact_check.py" "$(mmw_repo_root)" "$MMW_ROOT/cli/mmw"
+  python3 "$MMW_ROOT/cli/lib/artifact_check.py" \
+    "$(mmw_repo_root)" "$MMW_ROOT/cli/mmw" "$MMW_ARTIFACT_DATA"
 }
