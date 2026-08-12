@@ -26,6 +26,7 @@ run "issue 过滤、排序与认领互斥" bash "$MMW_DIR/cli/tests/test_issue.s
 run "domain 形态与 ADR 编号" bash "$MMW_DIR/cli/tests/test_domain.sh"
 run "产物落点数据与路径解析" bash "$MMW_DIR/cli/tests/test_artifact.sh"
 run "init 幂等与不覆盖用户文件" bash "$MMW_DIR/cli/tests/test_init.sh"
+run "工具链探测与生成" bash "$MMW_DIR/cli/tests/test_toolchain.sh"
 run "技能之间的引用指得到东西" bash "$MMW_DIR/cli/tests/test_skill_refs.sh"
 run "技能源不写产物落点字面值" bash "$MMW_DIR/cli/tests/test_skill_paths.sh"
 run "release 引擎" bash "$MMW_DIR/release/tests/test_release_flow.sh"
