@@ -92,7 +92,7 @@ worktree 里的图不进版本库，也不同步到别的机器——它是本�
 
 由此有两条后果：
 
-- 传 `.worktrees/` 开头的路径，或 worktree 内文件的绝对路径，Serena 拒绝回答。主检出的 `.gitignore` 排除了任务 worktree 目录，Serena 把 `.gitignore` 的每一条都当作自己的排除清单。报错文本是 `while the path is ignored` 或 `Cannot extract symbols from file`。
+- 传从 `.mmw.json` 的 `paths.worktrees` 得到的任务 worktree 相对路径，或 worktree 内文件的绝对路径，Serena 拒绝回答。主检出的 `.gitignore` 排除了任务 worktree 目录，Serena 把 `.gitignore` 的每一条都当作自己的排除清单。报错文本是 `while the path is ignored` 或 `Cannot extract symbols from file`。
 - 传仓库相对路径，Serena 答得出来，答的是主检出里那份源码，不是当前 worktree 里那份。
 
 所以在任务 worktree 里查符号，用仓库相对路径，并先确认这个文件在主检出和当前 worktree 里一致。当前 worktree 改过它时，Serena 答的是旧内容；这时回去读源码。

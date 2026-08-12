@@ -38,7 +38,7 @@ gh issue close <map 编号>
 
 | `Destination` 写的是 | 处理 |
 | --- | --- |
-| 一份 spec | 交给 `/mmw-to-spec` 三样东西：map 名称和它的 URL 或编号、map 正文里的工作名、以及任务 slug（用 map 标题的短名，全小写、空格换连字符）。一张 map 只出一份 spec。剩下的由 `/mmw-to-spec` 自己去读：它顺着 `Decisions so far` 进各张 decision ticket，再按 ticket 评论里的产物引用取 prototype 和 research。你不要先建一张 spec issue，也不要把内容复制一份给它 |
+| 一份 spec | 交给 `/mmw-to-spec` 两样东西：map 名称和它的 URL 或编号，以及 map 正文里的工作名。一张 map 只出一份 spec。剩下的由 `/mmw-to-spec` 自己去读：它顺着 `Decisions so far` 进各张 decision ticket，再按 ticket 评论里的产物引用取 prototype 和 research。你不要先建一张 spec issue，也不要把内容复制一份给它 |
 | 开始规划前必须锁定的一个决定 | 报告这个决定现在是什么，并给出 map 名称和它的 URL 或编号 |
 | 一次就地完成的改动，而且 map 的 `Notes` 里写了这项 effort 要把执行也带进 map | 报告 map 已完成 |
 | 一次就地完成的改动，而且 map 的 `Notes` 里没写这一条 | 报告路线已经清楚、但改动还没做，并给出 map 名称和它的 URL 或编号 |
@@ -50,7 +50,7 @@ gh issue close <map 编号>
 
 | 情况 | 下一步 |
 | --- | --- |
-| destination 是一份 spec，map 已关闭 | **移交**：`/mmw-to-spec`，交给它 map 名称及其 URL 或编号、工作名和任务 slug |
+| destination 是一份 spec，map 已关闭 | **移交**：`/mmw-to-spec`，交给它 map 名称及其 URL 或编号和工作名 |
 | destination 是已经锁定的决定，map 已关闭 | **停**：报告决定和 map 名称及其 URL 或编号 |
 | destination 是已经完成的就地改动，map 已关闭 | **停**：报告 map 已完成 |
 | destination 是尚未执行的就地改动，map 已关闭 | **停**：报告路线已经清楚、改动尚未执行，以及 map 名称及其 URL 或编号 |

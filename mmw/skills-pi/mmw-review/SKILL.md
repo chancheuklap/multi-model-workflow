@@ -27,7 +27,7 @@ description: 编排 MMW 六道审查并处置 findings。用于共同理解、sp
 
 | 审哪一道 | 钉什么 |
 | --- | --- |
-| ⓪ | 运行 `mmw artifact path scratch --sub understanding.md`。审查该命令的输出文件 |
+| ⓪ | 解 decision ticket 时，运行 `mmw artifact path scratch --issue <编号> --sub understanding.md`。用户直接发起讨论时，不加 `--issue`。审查命令的输出文件 |
 | ① | 运行 `mmw artifact path spec`。审查该命令的输出文件 |
 | ② | 从每张 ticket 取得 plan 的类别内细分。逐份运行 `mmw artifact path plan --sub <两位编号>-<ticket短名>.md`。**整批发起一次，不逐份发起** |
 | ⑤ | 一个固定点，加 `git diff <固定点>...HEAD`（三个点，比的是分叉点）。固定点通常是 `git merge-base HEAD <父分支>` |

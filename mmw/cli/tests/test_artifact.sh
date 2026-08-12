@@ -489,10 +489,13 @@ implement_source="$(cat "$HERE/../../skills-src/mmw-implement/SKILL.md")"
 worker_brief_source="$(cat "$HERE/../../skills-src/mmw-implement/worker-brief.md")"
 contains "spec 生产 YAML 产物引用" "artifact_refs:" "$to_spec_source"
 contains "spec 生产空 YAML 产物引用" "artifact_refs: []" "$to_spec_source"
-contains "spec issue 生产工作名固定节" "## 工作名" "$to_spec_source"
+# spec issue 正文只剩 `## 输入出处` 一节。`## 工作名` 与 `## 产物引用` 已经去掉：
+# 工作名由 `mmw task state` 权威回答，产物引用由 spec 文件的元数据块权威回答，issue 正文
+# 重复它们就是第二份事实来源。#49 的 B13 是这个决定。
 contains "spec issue 生产输入出处固定节" "## 输入出处" "$to_spec_source"
-contains "spec issue 生产产物引用固定节" "## 产物引用" "$to_spec_source"
-contains "spec issue 产物引用使用键值形态" "category=<类别> name=<工作名>" "$to_spec_source"
+contains "spec issue 正文只固定写出一节" "正文固定写出以下一节" "$to_spec_source"
+check "spec issue 不再生产产物引用的键值形态" "" \
+  "$(grep -F 'category=<类别> name=<工作名>' <<<"$to_spec_source" || true)"
 contains "ticket 生产产物引用固定节" "## 产物引用" "$to_tickets_source"
 contains "ticket 产物引用写无" "无" "$to_tickets_source"
 contains "to-plan 向 planner 传产物引用" "artifact_refs" "$to_plan_source"

@@ -63,7 +63,7 @@ frontier 为空后，总结已经谈定的问题、约束、决定、取舍和�
 
 第一件：先运行 `mmw task state`。输出是 `bound` 时，只取第四字段作为工作名。
 
-输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。输出是 `local` 或 `outside` 时，运行 `mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。
+输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。输出是 `local` 时，运行 `mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。输出是 `outside` 时，向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`。
 
 `mmw task new` 返回绝对路径后，切换到该路径。两种建树动作之后都重新运行 `mmw task state`。只在输出确认是 `bound` 后，取第四字段作为工作名。
 
