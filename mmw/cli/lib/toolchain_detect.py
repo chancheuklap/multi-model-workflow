@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """按规则表探测这个仓库该配哪些语言服务器与命令行检查器。
 
-只读：读 git 跟踪的文件清单、读各工作区的 package.json 与 pyproject.toml、跑
+只读：读 Git 已跟踪和未忽略的新文件清单、读各工作区的 package.json 与 pyproject.toml、跑
 `<bin> --version` 取版本。不写任何文件，不装任何东西。产出配置是下一步的事，
 这一步只回答"该配什么、缺什么、版本对不对得上"。
 
@@ -28,12 +28,24 @@ def die(message: str) -> None:
     raise SystemExit(1)
 
 
-def tracked_files(repo: Path) -> list[str]:
-    """git 跟踪的文件清单。用它而不是 glob 遍历：node_modules、.venv 和构建产物
-    本来就不在版本库里，走 git 就不用再维护一份排除清单。"""
+def repository_files(repo: Path) -> list[str]:
+    """Git 已跟踪文件和未忽略的新文件。
+
+    worker 会在第一次提交前运行 ``mmw toolchain apply``。只读已跟踪文件时，本轮
+    新建的工作区永远不会进入探测结果。``--exclude-standard`` 继续使用仓库现有的
+    ignore 规则排除 node_modules、构建产物和过程目录。
+    """
     try:
         out = subprocess.run(
-            ["git", "-C", str(repo), "ls-files"],
+            [
+                "git",
+                "-C",
+                str(repo),
+                "ls-files",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+            ],
             capture_output=True,
             text=True,
             timeout=VERSION_TIMEOUT,
@@ -207,7 +219,7 @@ def detect(repo: Path, rules_path: Path) -> dict:
     if not rules:
         die(f"读不到规则表：{rules_path}")
     ignore_prefixes = table.get("workspace_ignore", [])
-    paths = tracked_files(repo)
+    paths = repository_files(repo)
     node_ws = node_workspaces(repo, paths, ignore_prefixes)
     python_ws = python_workspaces(repo, paths, ignore_prefixes)
     report = {"repo": str(repo), "rules": []}
@@ -290,7 +302,7 @@ def render(report: dict) -> int:
     for rule in report["rules"]:
         print()
         print(f"{rule['title']}")
-        print(f"  命中      : {rule['hit_count']} 个跟踪文件")
+        print(f"  命中      : {rule['hit_count']} 个仓库文件")
         for ws in rule["workspaces"]:
             label = ws["workspace"] if ws["workspace"] != "." else "仓库根"
             print(f"  工作区    : {label}")
