@@ -76,10 +76,10 @@ TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
 
 **验收栏里要求它交回结果分支上的 HEAD SHA。** 收结果时 `mmw result verify` 要这个值，它自己不算，只有做完的那一侧知道。
 
-启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --from <基点 SHA>`，使用命令返回的 worktree 绝对路径作为 cwd。然后调用原生 `subagent`，agent 设为 `mmw-worker`，task 传四栏表全文，cwd 设为该绝对路径。
+启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --name <工作名> --from <基点 SHA>`，使用命令返回的 worktree 绝对路径作为 cwd。然后调用原生 `subagent`，agent 设为 `mmw-worker`，task 传四栏表全文，cwd 设为该绝对路径。
 
 ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
-启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --from <基点 SHA>`，使用命令返回的 worktree 绝对路径作为 cwd。然后调用原生 `subagent`，agent 设为 `mmw-worker-high-risk`，task 传四栏表全文，cwd 设为该绝对路径。
+启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --name <工作名> --from <基点 SHA>`，使用命令返回的 worktree 绝对路径作为 cwd。然后调用原生 `subagent`，agent 设为 `mmw-worker-high-risk`，task 传四栏表全文，cwd 设为该绝对路径。
 升档由你决定，不由 worker 自报。
 
 `worker` 完成后，先收取结果：
