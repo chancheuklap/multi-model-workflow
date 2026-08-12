@@ -152,8 +152,8 @@ if [ -f "$DATA" ]; then
     $'context-map\tCONTEXT-MAP.md' \
     $'out-of-scope\t' \
     $'plan\t' \
-    $'prototype\t' \
-    $'research\t' \
+    $'prototype\tREADME.md' \
+    $'research\tREADME.md' \
     $'review\tunderstanding.md,spec.md,plan.md,final.md' \
     $'scratch\tunderstanding.md,evidence,questionnaire,wizard,diagnosis,architecture-review,dispatch,outbox' \
     $'spec\tspec.md' | sort)"
@@ -187,13 +187,63 @@ fi
 
 echo
 echo "artifact command discovery"
-top_commands="$(sed -n '/^case "${1:-}" in$/,/^esac$/p' "$MMW" | sed -nE 's/^  ([a-z-]+)\) shift; .*/\1/p')"
-contains "顶层分发解析到 artifact" "artifact" "$top_commands"
-artifact_actions="$(sed -n '/^cmd_artifact() {$/,/^}$/p' "$MMW" | sed -nE 's/^    ([a-z-]+)\).*/\1/p')"
-contains "artifact 动作解析到 path" "path" "$artifact_actions"
-contains "artifact 动作解析到 index" "index" "$artifact_actions"
-contains "artifact 动作解析到 check" "check" "$artifact_actions"
-contains "artifact 动作解析到 list" "list" "$artifact_actions"
+capture "artifact 顶层用法" "$MMW" artifact
+check "artifact 顶层用法退出码" "2" "$LAST_STATUS"
+contains "artifact 顶层用法有 path" "mmw artifact path <类别>" "$(cat "$LAST_ERR")"
+contains "artifact 顶层用法有 index" "mmw artifact index <类别>" "$(cat "$LAST_ERR")"
+contains "artifact 顶层用法有 check" "mmw artifact check" "$(cat "$LAST_ERR")"
+contains "artifact 顶层用法有 list" "mmw artifact list" "$(cat "$LAST_ERR")"
+
+capture "artifact path 动作" "$MMW" artifact path
+check "artifact path 动作退出码" "2" "$LAST_STATUS"
+contains "artifact path 动作回应" "mmw artifact path <类别>" "$(cat "$LAST_ERR")"
+
+capture "artifact index 动作" "$MMW" artifact index
+check "artifact index 动作退出码" "2" "$LAST_STATUS"
+contains "artifact index 动作回应" "用法是 mmw artifact index <类别>" "$(cat "$LAST_ERR")"
+
+capture "artifact check 动作" "$MMW" artifact check
+check "artifact check 动作退出码" "0" "$LAST_STATUS"
+check "artifact check 动作标准输出" "" "$(cat "$LAST_OUT")"
+check "artifact check 动作标准错误" "" "$(cat "$LAST_ERR")"
+
+capture "artifact list 动作" "$MMW" artifact list --name release
+check "artifact list 动作退出码" "0" "$LAST_STATUS"
+check "artifact list 动作标准输出" "" "$(cat "$LAST_OUT")"
+check "artifact list 动作标准错误" "" "$(cat "$LAST_ERR")"
+
+echo
+echo "仓库外拒绝"
+OUTSIDE_REPO="$WORK/outside-repo"
+mkdir -p "$OUTSIDE_REPO"
+outside_tree_before="$(cd "$OUTSIDE_REPO" && find . -print | sort)"
+capture "仓库外 ADR 索引拒绝" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact index adr' _ "$OUTSIDE_REPO" "$MMW"
+if [ "$LAST_STATUS" -ne 0 ]; then
+  echo "  过  仓库外 ADR 索引拒绝非零退出"
+  pass=$((pass + 1))
+else
+  echo "  失败 仓库外 ADR 索引拒绝非零退出" >&2
+  fail=$((fail + 1))
+fi
+check "仓库外 ADR 索引拒绝没有标准输出" "" "$(cat "$LAST_OUT")"
+contains "仓库外 ADR 索引拒绝说明" "当前目录不在 git 仓库里" "$(cat "$LAST_ERR")"
+check "仓库外 ADR 索引拒绝不改文件树" "$outside_tree_before" \
+  "$(cd "$OUTSIDE_REPO" && find . -print | sort)"
+
+capture "仓库外声明校验拒绝" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact check' _ "$OUTSIDE_REPO" "$MMW"
+if [ "$LAST_STATUS" -ne 0 ]; then
+  echo "  过  仓库外声明校验拒绝非零退出"
+  pass=$((pass + 1))
+else
+  echo "  失败 仓库外声明校验拒绝非零退出" >&2
+  fail=$((fail + 1))
+fi
+check "仓库外声明校验拒绝没有标准输出" "" "$(cat "$LAST_OUT")"
+contains "仓库外声明校验拒绝说明" "当前目录不在 git 仓库里" "$(cat "$LAST_ERR")"
+check "仓库外声明校验拒绝不改文件树" "$outside_tree_before" \
+  "$(cd "$OUTSIDE_REPO" && find . -print | sort)"
 
 echo
 echo "artifact index"
@@ -516,6 +566,14 @@ capture "research 的范围和类别内细分" "$MMW" artifact path research --n
 check "research 的范围和类别内细分退出码" "0" "$LAST_STATUS"
 check "research 的范围和类别内细分标准输出" "docs/research/release/issue-19/report" "$(cat "$LAST_OUT")"
 contains "research 的范围和类别内细分标准错误" "写第一个文件之前先列一次父目录" "$(cat "$LAST_ERR")"
+capture "prototype 的固定 README" "$MMW" artifact path prototype --name probe --sub README.md
+check "prototype 的固定 README 退出码" "0" "$LAST_STATUS"
+check "prototype 的固定 README 标准输出" "docs/prototypes/probe/README.md" "$(cat "$LAST_OUT")"
+contains "prototype 的固定 README 标准错误" "写第一个文件之前先列一次父目录" "$(cat "$LAST_ERR")"
+capture "research 的末段固定 README" "$MMW" artifact path research --name probe --issue 19 --sub topic/README.md
+check "research 的末段固定 README 退出码" "0" "$LAST_STATUS"
+check "research 的末段固定 README 标准输出" "docs/research/probe/issue-19/topic/README.md" "$(cat "$LAST_OUT")"
+contains "research 的末段固定 README 标准错误" "写第一个文件之前先列一次父目录" "$(cat "$LAST_ERR")"
 expect_path "scratch 的固定首段与第二段" ".scratch/release/issue-19/evidence/screenshot" \
   "$MMW" artifact path scratch --name release --issue 19 --sub evidence/screenshot
 # outbox 是待发出的 issue 正文与评论正文的载体。它与 evidence 分开：读技能的 agent
@@ -528,6 +586,10 @@ expect_path "plan 的类别内细分模式" "docs/plans/release/01-artifact-path
   "$MMW" artifact path plan --name release --sub 01-artifact-path.md
 expect_path "review 的类别内细分模式" ".reviews/release/integration-2026-08-12.md" \
   "$MMW" artifact path review --name release --sub integration-2026-08-12.md
+expect_path "review 的固定终审文件" ".reviews/probe/final.md" \
+  "$MMW" artifact path review --name probe --sub final.md
+expect_error "固定终审文件不能再接路径" "文件名后面不能接路径段" \
+  "$MMW" artifact path review --name probe --sub final.md/extra
 expect_path "ADR 的类别内细分模式" "docs/adr/0001-architecture.md" \
   "$MMW" artifact path adr --sub 0001-architecture.md
 expect_path "仓库根的 Context Map" "CONTEXT-MAP.md" \
@@ -614,6 +676,10 @@ expect_error "sub 拒绝上级目录" "不能是 . 或 .." \
   "$MMW" artifact path research --name release --sub ..
 expect_error "sub 拒绝大写字母" "只能用小写字母" \
   "$MMW" artifact path research --name release --sub Topic
+expect_error "小写 README 前缀不能伪装固定文件" "不能用固定取值的大小写变体" \
+  "$MMW" artifact path prototype --name probe --sub readme.md/extra
+expect_error "固定 README 后面不能再接路径" "文件名后面不能接路径段" \
+  "$MMW" artifact path prototype --name probe --sub README.md/extra
 expect_error "sub 拒绝非法首字符" "首字符必须是字母或数字" \
   "$MMW" artifact path research --name release --sub -topic
 expect_error "sub 拒绝其他非法字符" "只能包含小写字母、数字、点、下划线和连字符" \

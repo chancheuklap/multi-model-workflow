@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 配置里的产物基础路径合不合法。路径本身写死在技能里，这里只挡住 .mmw.json 配出
-# 仓库外或者带 .. 的值。
+# 校验 `mmw artifact path` 使用的安全路径段和产物基础路径。
+# .mmw.json 只能把工作目录根配在仓库内，且不能包含 ..。
 
 set -euo pipefail
 
