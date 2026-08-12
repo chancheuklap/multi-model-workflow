@@ -413,6 +413,92 @@ contains "V1 行丢失后恢复原有决定" "原有决定" "$(body_get 100)"
 contains "V1 行丢失后保留新增决定" "新的决定" "$(body_get 100)"
 check "V1 行丢失时写两次" "2" "$(grep -c '^issue edit' "$MMW_TEST_LOG")"
 
+append_blank_line_lost='## Decisions so far
+原有决定
+新的决定
+
+## Destination
+仍在这里'
+append_blank_line_restored='## Decisions so far
+原有决定
+新的决定
+
+
+## Destination
+仍在这里'
+body_set 100 "$append_body"
+: > "$MMW_TEST_READ_COUNT"
+export MMW_TEST_MUTATE_READS=2
+export MMW_TEST_MUTATE_BODY="$append_blank_line_lost"
+unset MMW_TEST_CONCURRENT_DIR
+export MMW_TEST_LOG="$WORK/log-append-v1-blank-line"
+: > "$MMW_TEST_LOG"
+capture "append-V1-空行丢失" "$MMW" issue append 100 --section "Decisions so far" --line "新的决定"
+check "V1 只丢空行时重做后成功" "0" "$LAST_STATUS"
+check "V1 只丢空行时恢复空行数量" "$append_blank_line_restored" "$(body_get 100)"
+check "V1 只丢空行的桩触发重做" "2" "$(grep -c '^issue edit' "$MMW_TEST_LOG")"
+
+append_same_line_other_section='## A
+
+相同行
+
+## B
+
+B 原有行
+
+## Destination
+仍在这里'
+append_same_line_written='## A
+
+相同行
+
+## B
+
+B 原有行
+相同行
+
+## Destination
+仍在这里'
+body_set 100 "$append_same_line_other_section"
+: > "$MMW_TEST_READ_COUNT"
+unset MMW_TEST_MUTATE_READS MMW_TEST_MUTATE_BODY MMW_TEST_CONCURRENT_DIR
+export MMW_TEST_LOG="$WORK/log-append-same-line-other-section"
+: > "$MMW_TEST_LOG"
+capture "append-别的小节有同一行" "$MMW" issue append 100 --section "B" --line "相同行"
+check "别的小节有同一行时仍成功追加" "0" "$LAST_STATUS"
+check "别的小节有同一行时目标小节真的新增" "$append_same_line_written" "$(body_get 100)"
+
+append_other_section='## Decisions so far
+
+原有决定
+
+## Destination
+
+别的小节的决定
+
+仍在这里'
+append_other_section_lost='## Decisions so far
+
+原有决定
+新的决定
+
+## Destination
+
+仍在这里'
+body_set 100 "$append_other_section"
+: > "$MMW_TEST_READ_COUNT"
+export MMW_TEST_MUTATE_READS=2
+export MMW_TEST_MUTATE_BODY="$append_other_section_lost"
+unset MMW_TEST_CONCURRENT_DIR
+export MMW_TEST_LOG="$WORK/log-append-other-section-lost"
+: > "$MMW_TEST_LOG"
+capture "append-别的小节的行丢失" "$MMW" issue append 100 --section "Decisions so far" --line "新的决定"
+check "别的小节的行丢失时要求调用方重跑" "非零" "$(nonzero "$LAST_STATUS")"
+check "别的小节的行丢失时不搬进目标小节" "$append_other_section_lost" "$(body_get 100)"
+check "别的小节的行丢失时桩触发明确冲突" "1" "$(grep -c '^issue edit' "$MMW_TEST_LOG")"
+contains "别的小节的行丢失时报出来源小节" "Destination" "$(cat "$LAST_ERR")"
+contains "别的小节的行丢失时报出丢失行" "别的小节的决定" "$(cat "$LAST_ERR")"
+
 body_set 100 "$append_body"
 : > "$MMW_TEST_READ_COUNT"
 export MMW_TEST_MUTATE_READS='2,4,6,8'

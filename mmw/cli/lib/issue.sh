@@ -170,26 +170,51 @@ mmw_issue_h2_titles() {
   awk '/^## / { print substr($0, 4) }' <<<"$1"
 }
 
-# 返回 first 的全部行中不在 second 里的行。重复行按出现次数分别计算。
+# 返回 first 的全部行中不在 second 同一小节里的行。
+# 每行的输出是「小节标题<TAB>行内容」。重复行按出现次数分别计算。
+# 输出格式有一条调用方依赖的不变式：每一行都以小节名和一个制表符开头，所以整段输出
+# 永远不是纯换行，命令替换剥掉末尾换行之后不会把「只丢了一个空行」变成空字符串。
+# 去掉这个前缀就会让那种丢失重新变得看不见。
 mmw_issue_missing_lines() {
   awk '
     NR == FNR {
-      count[$0]++
-      if (!($0 in seen)) {
-        seen[$0] = 1
-        order[++order_length] = $0
-      }
+      if ($0 ~ /^## /) section = substr($0, 4)
+      count[section SUBSEP $0]++
       next
     }
-    count[$0] > 0 { count[$0]-- }
-    END {
-      for (i = 1; i <= order_length; i++) {
-        for (j = 0; j < count[order[i]]; j++) {
-          print order[i]
-        }
+    {
+      if ($0 ~ /^## /) section = substr($0, 4)
+      key = section SUBSEP $0
+      if (count[key] > 0) {
+        count[key]--
+      } else {
+        print section "\t" $0
       }
     }
-  ' <(printf '%s\n' "$1") <(printf '%s\n' "$2")
+  ' <(printf '%s\n' "$2") <(printf '%s\n' "$1")
+}
+
+# 指定二级标题的小节里是否有一行完全相同的内容。
+# 逐行比较用 bash 的 `=`，不用 awk。本机 awk（version 20200816）比较两个非 ASCII
+# 字符串会给出错误结果：`原有决定 == 新的决定` 判为真，`仍在这里 == 新的决定` 也判为真。
+# issue 正文是中文，这个坑必中。下面的 mmw_issue_insert_lines 用纯 bash 比较标题，
+# 同一个理由。
+mmw_issue_section_has_line() {
+  local body="$1" section="$2" candidate="$3"
+  local current in_section=0
+  while IFS= read -r current || [ -n "$current" ]; do
+    if [ "$current" = "## $section" ]; then
+      in_section=1
+      continue
+    fi
+    if [ "$in_section" -eq 1 ] && [[ "$current" == "## "* ]]; then
+      break
+    fi
+    if [ "$in_section" -eq 1 ] && [ "$current" = "$candidate" ]; then
+      return 0
+    fi
+  done <<<"$body"
+  return 1
 }
 
 # 在指定二级标题的最后一个非空行之后插入传入的行。
@@ -280,8 +305,8 @@ mmw_issue_append() {
     *$'\n'*) echo "mmw: issue append 的 --line 只接收单行内容" >&2; return 2 ;;
   esac
 
-  local -a required_lines=("$line") additions=()
-  local attempt v1 v2 v3 missing_v1 candidate known new_line_present rc
+  local -a additions=() recovery_lines=() missing_sections=() missing_lines=()
+  local attempt v1 v2 v3 missing_v1 candidate known missing_section new_line_present rc i
   for attempt in 0 1 2 3; do
     if v1="$(mmw_issue_read_body "$n")"; then
       :
@@ -289,10 +314,11 @@ mmw_issue_append() {
       return $?
     fi
     additions=()
-    for candidate in "${required_lines[@]}"; do
-      if ! grep -Fqx -- "$candidate" <<<"$v1"; then
-        additions+=("$candidate")
-      fi
+    if ! mmw_issue_section_has_line "$v1" "$section" "$line"; then
+      additions+=("$line")
+    fi
+    for candidate in ${recovery_lines[@]+"${recovery_lines[@]}"}; do
+      additions+=("$candidate")
     done
 
     if v2="$(mmw_issue_insert_lines "$v1" "$section" ${additions[@]+"${additions[@]}"})"; then
@@ -314,35 +340,61 @@ mmw_issue_append() {
     else
       return $?
     fi
+    missing_sections=()
+    missing_lines=()
+    # 命令替换在这里安全：mmw_issue_missing_lines 的每一行都以小节名和制表符开头，
+    # 丢了一个空行时输出是「小节名<TAB>」，剥掉末尾换行之后仍然非空。
     if missing_v1="$(mmw_issue_missing_lines "$v1" "$v3")"; then
       :
     else
       return $?
     fi
-    if grep -Fqx -- "$line" <<<"$v3"; then
+    while IFS=$'\t' read -r missing_section known || [ -n "$missing_section" ] || [ -n "$known" ]; do
+      missing_sections+=("$missing_section")
+      missing_lines+=("$known")
+    done < <(printf '%s' "$missing_v1")
+    if mmw_issue_section_has_line "$v3" "$section" "$line"; then
       new_line_present=1
     else
       new_line_present=0
     fi
-    if [ -z "$missing_v1" ] && [ "$new_line_present" -eq 1 ]; then
+    if [ "${#missing_lines[@]}" -eq 0 ] && [ "$new_line_present" -eq 1 ]; then
       echo "#$n 已向「${section}」追加一行"
       return 0
     fi
 
-    if [ -n "$missing_v1" ]; then
-      while IFS= read -r known || [ -n "$known" ]; do
-        [ -n "$known" ] || continue
-        local duplicate=0
-        for candidate in "${required_lines[@]}"; do
-          [ "$candidate" = "$known" ] && duplicate=1
-        done
-        [ "$duplicate" -eq 1 ] || required_lines+=("$known")
-      done <<<"$missing_v1"
+    local -a next_recovery_lines=() foreign_sections=() foreign_lines=()
+    for i in "${!missing_lines[@]}"; do
+      missing_section="${missing_sections[$i]}"
+      known="${missing_lines[$i]}"
+      if [ "$missing_section" != "$section" ]; then
+        foreign_sections+=("$missing_section")
+        foreign_lines+=("$known")
+      elif [ "$known" != "$line" ]; then
+        next_recovery_lines+=("$known")
+      fi
+    done
+    if [ "${#foreign_lines[@]}" -gt 0 ]; then
+      echo "mmw: #$n 并发覆盖丢了其他小节的行；请重跑：" >&2
+      for i in "${!foreign_lines[@]}"; do
+        missing_section="${foreign_sections[$i]}"
+        known="${foreign_lines[$i]}"
+        [ -n "$missing_section" ] || missing_section="二级标题之前"
+        if [ -n "$known" ]; then
+          printf '  小节「%s」：%s\n' "$missing_section" "$known" >&2
+        else
+          printf '  小节「%s」：空行\n' "$missing_section" >&2
+        fi
+      done
+      return 1
     fi
+    recovery_lines=("${next_recovery_lines[@]+"${next_recovery_lines[@]}"}")
 
     if [ "$attempt" -eq 3 ]; then
       echo "mmw: #$n 重做 3 次后仍不一致；缺失行：" >&2
-      [ -z "$missing_v1" ] || printf '%s\n' "$missing_v1" >&2
+      for known in ${missing_lines[@]+"${missing_lines[@]}"}; do
+        printf '%s\n' "$known" >&2
+      done
       [ "$new_line_present" -eq 1 ] || printf '%s\n' "$line" >&2
       return 1
     fi
