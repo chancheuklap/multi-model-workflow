@@ -130,8 +130,8 @@ def expand_codex(role: str, cwd_mode: str, profiles: dict) -> str:
     method = profile.get("method_skill")
     method_instruction = f"，并在工作前完整读取 `${method}`" if method else ""
     return (
-        "启动：先在当前任务 worktree 运行 `mmw task state`。"
-        "确认输出是 `bound <任务分支> <HEAD> <工作名>`，取第四字段作为工作名。"
+        "启动：先在当前任务 worktree 运行 `mmw task state`，确认输出以 `bound` 开头。"
+        "再运行 `mmw task name` 取得工作名。"
         "再用 `list_projects` 取得当前仓库的 projectId，并调用 `create_thread`。"
         "target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 "
         "`branch`，branchName 设为当前已提交的任务分支。"

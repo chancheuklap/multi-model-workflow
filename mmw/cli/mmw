@@ -51,7 +51,7 @@ mmw <命令> [参数]
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
   artifact    产物：查询类别的落点
-  task        任务 worktree：查状态、建、绑分支、删
+  task        任务 worktree：查状态、取工作名、建、绑分支、删
   result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
   domain      领域文档：初始化 Map、同步和检查消费合同、查询落点与 ADR 编号
@@ -89,7 +89,7 @@ mmw dispatch <角色> [--task-text <正文>] [--cwd <目录>] [--issue <编号>]
   --resume <句柄>    恢复原 subagent 续跑，这次的 task 正文是修复 task。句柄用原派发
                      返回的 session:（gpt 族 thread_id）或 handle:（claude 族名字）原文
 
-标准输入与 --task-text 只能使用一种。task 正文不能为空。
+--task-text 优先于标准输入：给了它就不读标准输入。task 正文不能为空。
 
 模型、档位和护栏由角色决定，取自已安装 MMW runtime 的模型档。
 
@@ -110,6 +110,9 @@ mmw task cleanup <slug>
     删掉这个 worktree 和它的分支。有未提交改动时失败，不强制删除。
 mmw task state
     当前所在位置，输出 outside、local、detached，或带工作名的 bound。
+    用它的第一个词决定要不要自己建树。工作名从 mmw task name 取。
+mmw task name
+    只输出工作名，一行。不在已绑定的任务 worktree 里时失败并说清当前位置。
 mmw task bind <完整任务分支名> <用户原话或任务目标> [--name <工作名>] [--from <预期基点>]
     已绑定任务 worktree 用它补写工作名。
     Codex App 也用它把 App 已经建好的 detached worktree 绑到任务分支上。
@@ -298,17 +301,16 @@ cmd_dispatch() {
     return 1
   fi
 
-  local stdin_text=""
-  if [ "$task_text_set" = "yes" ]; then
-    if [ ! -t 0 ]; then
-      stdin_text="$(cat; printf x)"
-      stdin_text="${stdin_text%x}"
-      [ -z "$stdin_text" ] || {
-        echo "mmw: 标准输入与 --task-text 只能使用一种" >&2
-        return 1
-      }
-    fi
-  else
+  # --task-text 给了就用它，一个字节都不读标准输入。
+  #
+  # 原来这里会 `cat` 一次标准输入，用来拦「两种都给了」。那个检查让命令在最常见的
+  # 场景下永久挂住：调用方是 agent 的 Bash 工具时，标准输入是一根开着的空管道——
+  # 没有数据，也没人关写端，`cat` 就一直等。没有输出，没有退出码，看不出在等什么。
+  #
+  # bash 3.2 没有能用的非阻塞探测（`read -t 0` 在 3.2 上恒为失败，探不出有没有数据），
+  # 所以不做探测，改成写死优先级：`--task-text` 覆盖标准输入。两种都给时用 --task-text，
+  # 不报错也不读另一份。用法文本里写明这条优先级。
+  if [ "$task_text_set" != "yes" ]; then
     task_text="$(cat; printf x)"
     task_text="${task_text%x}"
   fi
@@ -442,6 +444,7 @@ cmd_task() {
   shift || true
   case "$sub" in
     state) [ $# -eq 0 ] || usage_task; mmw_task_state ;;
+    name) [ $# -eq 0 ] || usage_task; mmw_task_name ;;
     bind) mmw_task_bind "$@" ;;
     new) [ "$host" != "codex" ] || { echo "mmw: Codex App 负责创建 worktree，这里只用 task bind" >&2; return 1; }; mmw_task_new "$@" ;;
     cleanup) [ "$host" != "codex" ] || { echo "mmw: Codex App 负责清理 managed worktree" >&2; return 1; }; mmw_task_cleanup "$@" ;;

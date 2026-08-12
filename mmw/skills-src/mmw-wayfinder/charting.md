@@ -8,9 +8,9 @@
 
 | 第一个词 | 什么意思 | 你做什么 |
 | --- | --- | --- |
-| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。第四个词是工作名，记下它 |
-| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。重新运行 `mmw task state`。确认输出是 `bound`。再取第四个词 |
-| `local` | 你在主检出里 | 建树：`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支>]`。切换到返回的绝对路径。重新运行 `mmw task state`。确认输出是 `bound`。再取第四个词 |
+| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名，记下它 |
+| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。重新运行 `mmw task state`。确认输出是 `bound`。再运行 `mmw task name` 取工作名 |
+| `local` | 你在主检出里 | 建树：`mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支>]`。切换到返回的绝对路径。重新运行 `mmw task state`。确认输出是 `bound`。再运行 `mmw task name` 取工作名 |
 | `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
 
 两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
@@ -48,7 +48,7 @@
    mmw issue link <被挡住的编号> --blocked-by <挡住它的编号>
    ```
 
-   连完之后运行 `mmw issue children <map 编号>`，它的第四列是每张 ticket 还被几张开着的 issue 挡着。对照你刚才连的关系逐张核一遍：该被挡的这一列不是 0，不该被挡的是 0。
+   连完之后运行 `mmw issue frontier <map 编号>`。它只列没有被挡住、也没有人认领的 ticket；这一步刚建出来的都还没人认领，所以出现在输出里就等于没被挡。对照你刚才连的关系逐张核一遍：该被挡的不在输出里，不该被挡的在。
 
 5. **启动 research。** 对刚创建的每张 `wayfinder:research` ticket，先运行 `mmw issue claim <编号>`。claim 失败的 ticket 已由其他 session 占用，不重复派发。
 

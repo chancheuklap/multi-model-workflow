@@ -11,7 +11,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 **issue 承载身份，文件承载内容。** 本技能为每张 tracer bullet ticket 创建一张 issue。issue 正文保存摘要、plan 的完整落点命令和阻塞关系。`/mmw-to-plan` 后续把实施内容写入命令输出的 plan 文件。
 
-先运行 `mmw task state`。输出确认是 `bound` 后，只取第四字段作为工作名。`<spec issue 编号>` 由调用方移交。缺少任意一项就停下，说明缺少哪项输入。
+先运行 `mmw task state`。第一个词确认是 `bound` 后，运行 `mmw task name` 取工作名。`<spec issue 编号>` 由调用方移交。缺少任意一项就停下，说明缺少哪项输入。
 
 ## 1. 上下文清单
 

@@ -27,7 +27,7 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 
 从 `$mmw:mmw-wayfinder` 进入时，先从 map 的 `## 工作名` 取得 `<map 工作名>`。需要运行 `mmw task bind` 或 `mmw task new` 时，用它作为 `<工作名>`。
 
-先运行 `mmw task state`。输出是 `bound` 时，只取第四字段作为工作名。
+先运行 `mmw task state`。第一个词是 `bound` 时，运行 `mmw task name` 取工作名。
 
 输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。
 
@@ -35,9 +35,9 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 
 输出是 `outside` 时，向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`。
 
-两种建树动作之后都重新运行 `mmw task state`。只在输出确认是 `bound` 后，取第四字段作为工作名。
+两种建树动作之后都重新运行 `mmw task state`。第一个词确认是 `bound` 后，运行 `mmw task name` 取工作名。
 
-从 `$mmw:mmw-wayfinder` 进入时，比较 `<map 工作名>` 与 `mmw task state` 的第四字段。不一致时，报告两者冲突并交给用户决定；不要自己选一个。
+从 `$mmw:mmw-wayfinder` 进入时，比较 `<map 工作名>` 与 `mmw task name` 的输出。不一致时，报告两者冲突并交给用户决定；不要自己选一个。
 
 ## 流程
 

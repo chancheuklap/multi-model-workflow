@@ -8,7 +8,7 @@ MMW 不保存流程状态文件。使用仓库产物、审查记录和 tracker �
 
 运行 `git worktree list --porcelain`。已绑定分支的 linked worktree 是进行中的任务。detached worktree 尚未绑定，不替用户推断任务分支名或工作名。
 
-进入候选 worktree 后运行 `mmw task state`。输出以 `bound` 开头时，第二个字段是任务分支名，第四个字段是工作名。
+进入候选 worktree 后运行 `mmw task state`。输出以 `bound` 开头时，运行 `git branch --show-current` 取得任务分支名，运行 `mmw task name` 取得工作名。
 
 只有一项时直接检查。存在多项时，报告每项的任务分支名、工作名和当前进度，让用户选择。
 
