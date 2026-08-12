@@ -96,7 +96,7 @@ if [ -f "$DATA" ]; then
     spec plan prototype research adr context context-map out-of-scope scratch review \
     task agent-report release-state release-artifact delivery-record graph worktree \
     handoff explanation map decision-ticket conclusion-comment handback-comment spec-issue \
-    tracer-ticket agent-brief | sort)"
+    tracer-ticket agent-brief ui-criteria ui-qa-wiring | sort)"
   check "类别集合完整" "$expected_categories" "$(jq -r 'keys[]' "$DATA" | sort)"
 
   required_fields='["term","root","root_kind","has_name","allows_scope","sub_naming","sub_fixed","sub_pattern","status","answered_by"]'
@@ -130,6 +130,8 @@ if [ -f "$DATA" ]; then
     $'spec-issue\tspec issue' \
     $'task\ttask' \
     $'tracer-ticket\ttracer bullet ticket' \
+    $'ui-criteria\t界面 QA 判据' \
+    $'ui-qa-wiring\t界面 QA 接线' \
     $'worktree\t任务 worktree' | sort)"
   check "全部类别使用规定术语" "$expected_terms" \
     "$(jq -r 'to_entries | sort_by(.key)[] | [.key, .value.term] | @tsv' "$DATA")"
@@ -143,7 +145,9 @@ if [ -f "$DATA" ]; then
     $'research\tdocs/research\tfixed\ttrue\ttrue\tad-hoc' \
     $'review\treviews\tworkdir\ttrue\tfalse\tfixed-file' \
     $'scratch\tscratch\tworkdir\ttrue\ttrue\tfixed-file' \
-    $'spec\tdocs/specs\tfixed\ttrue\tfalse\tfixed-file' | sort)"
+    $'spec\tdocs/specs\tfixed\ttrue\tfalse\tfixed-file' \
+    $'ui-criteria\tdocs/ui-criteria\tfixed\tfalse\tfalse\tone-per-concept' \
+    $'ui-qa-wiring\tdocs/ui-qa-wiring\tfixed\tfalse\tfalse\tone-per-concept' | sort)"
   check "活动类别的路径形状数据完整" "$expected_active_shape" \
     "$(jq -r 'to_entries | map(select(.value.status == "active")) | sort_by(.key)[] | [.key, .value.root, .value.root_kind, .value.has_name, .value.allows_scope, .value.sub_naming] | @tsv' "$DATA")"
   expected_fixed_subs="$(printf '%s\n' \
@@ -156,7 +160,9 @@ if [ -f "$DATA" ]; then
     $'research\tREADME.md' \
     $'review\tunderstanding.md,spec.md,plan.md,final.md' \
     $'scratch\tunderstanding.md,evidence,questionnaire,wizard,diagnosis,architecture-review,dispatch,outbox' \
-    $'spec\tspec.md' | sort)"
+    $'spec\tspec.md' \
+    $'ui-criteria\t' \
+    $'ui-qa-wiring\t' | sort)"
   check "活动类别的固定细分取值完整" "$expected_fixed_subs" \
     "$(jq -r 'to_entries | map(select(.value.status == "active")) | sort_by(.key)[] | [.key, (.value.sub_fixed | join(","))] | @tsv' "$DATA")"
   check "context-map 的根是空字符串" "" "$(jq -r '."context-map".root' "$DATA")"
@@ -171,6 +177,11 @@ if [ -f "$DATA" ]; then
     "$(jq -r '.adr.sub_pattern' "$DATA")"
   check "审查记录的类别内细分模式" '^integration-\d{4}-\d{2}-\d{2}(-\d+)?\.md$' \
     "$(jq -r '.review.sub_pattern' "$DATA")"
+  check "界面 QA 判据的类别内细分模式" \
+    '^(thresholds\.json|products/[a-z0-9][a-z0-9-]*\.md)$' \
+    "$(jq -r '."ui-criteria".sub_pattern' "$DATA")"
+  check "界面 QA 接线的类别内细分模式" '^[a-z0-9][a-z0-9-]*\.json$' \
+    "$(jq -r '."ui-qa-wiring".sub_pattern' "$DATA")"
   check "not-shaped 类别完整" \
     "delivery-record graph release-artifact release-state worktree" \
     "$(jq -r 'to_entries[] | select(.value.status == "not-shaped") | .key' "$DATA" | sort | tr '\n' ' ' | sed 's/ $//')"
@@ -597,6 +608,20 @@ expect_path "ADR 的类别内细分模式" "docs/adr/0001-architecture.md" \
   "$MMW" artifact path adr --sub 0001-architecture.md
 expect_path "仓库根的 Context Map" "CONTEXT-MAP.md" \
   "$MMW" artifact path context-map
+expect_path "界面 QA 判据的阈值表" "docs/ui-criteria/thresholds.json" \
+  "$MMW" artifact path ui-criteria --sub thresholds.json
+expect_path "界面 QA 判据的按产品分文件" "docs/ui-criteria/products/xiaohuangya.md" \
+  "$MMW" artifact path ui-criteria --sub products/xiaohuangya.md
+expect_path "界面 QA 接线的按产品分文件" "docs/ui-qa-wiring/xiaohuangya.json" \
+  "$MMW" artifact path ui-qa-wiring --sub xiaohuangya.json
+expect_error "界面 QA 判据拒绝模式外的取值" "不匹配允许的模式" \
+  "$MMW" artifact path ui-criteria --sub thresholds.yaml
+expect_error "界面 QA 接线拒绝模式外的取值" "不匹配允许的模式" \
+  "$MMW" artifact path ui-qa-wiring --sub products/xiaohuangya.json
+expect_error "界面 QA 判据没有名字段" "没有名字段" \
+  "$MMW" artifact path ui-criteria --name ui-qa --sub thresholds.json
+expect_error "界面 QA 接线没有范围段" "没有范围段" \
+  "$MMW" artifact path ui-qa-wiring --issue 52 --sub xiaohuangya.json
 
 capture "当场取名提醒" "$MMW" artifact path research --name release --sub topic
 check "当场取名提醒退出码" "0" "$LAST_STATUS"
