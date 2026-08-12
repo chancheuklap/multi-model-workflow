@@ -5,7 +5,7 @@ description: 完成有 spec 任务的过程材料清理和交回。用于用户�
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
 
-代码已经落地，终审已经通过。spec 与 plan 长期留在仓库。本技能只清理当前任务的过程材料，并判定这条分支就绪待集成。
+代码已经落地，终审已经通过。spec 与 plan 长期留在仓库。本技能清理当前任务的过程材料，兜底回收没人收的结果 worktree，并判定这条分支就绪待集成。
 
 ## 前置条件
 
@@ -50,6 +50,20 @@ review_root="$(dirname "$(mmw artifact path review --name <工作名> --sub fina
 
 完成判据：删除清单中的路径均不存在。清单外的路径保持原样。
 
+## 2. 清点残留的结果 worktree
+
+结果 worktree 由 `/mmw-implement` 在关票之后当场回收。这一步只做兜底核对：跑过旧版本技能的任务、或者中途断掉的轮次会留下没人回收的树。
+
+运行 `git worktree list`。逐行看它是不是这次任务留下的：路径位于当前仓库 `.mmw.json` 的 `paths.worktrees` 下，而且分支名以当前任务分支名开头。
+
+对每一棵这样的树运行 `git merge-base --is-ancestor <该分支> HEAD`。命令成功说明它的提交已经在当前任务分支上，运行 `mmw task cleanup <该分支名>` 回收。命令失败说明它还有没合并的提交，**保留**它并在交回时报告分支名。
+
+当前任务 worktree 自己不在这一步的范围里。`mmw task cleanup` 拒绝在一棵树里删掉这棵树自己，而且这条任务分支通常还没合回目标分支。它由用户在集成之后处理。
+
+不属于当前任务的树一律不动，包括宿主给的 managed worktree 和别的任务留下的树。
+
+完成判据：`git worktree list` 里属于当前任务、且提交已进入任务分支的结果 worktree 都不存在了。
+
 ## 交回
 
 再次运行 `mmw artifact path spec --name <工作名>`。逐份运行 `mmw artifact path plan --name <工作名> --sub <计划文件>`。
@@ -60,13 +74,16 @@ review_root="$(dirname "$(mmw artifact path review --name <工作名> --sub fina
 - 每份 plan 的仓库相对路径。
 - 已删除的过程材料路径。
 - 因无法确认归属而保留的路径。
+- 已回收的结果 worktree 分支名，以及因为还有未合并提交而保留的那些。
+- 这条任务 worktree 自己没有回收，等用户集成之后处理。
 - 这条分支就绪待集成。
 
 ## 下一步
 
 | 情况 | 下一步 |
 | --- | --- |
-| 前置条件全部满足，而且清理完成 | **停**：交回上述五项。用户要立即集成时移交 `/mmw-integrate` |
+| 前置条件全部满足，而且清理完成 | **停**：交回上述七项。用户要立即集成时移交 `/mmw-integrate` |
+| 第 2 步有结果 worktree 的提交还没进任务分支 | **停**：保留那棵树，报分支名。那次集成没有真正完成，回 `/mmw-implement` 第 5 步 |
 | 候选路径无法由 `mmw artifact path` 解析 | **停**：保留该路径，并报告命令、输出和候选路径 |
 | 终审还没跑 | **停**：回 `/mmw-implement` 第 7 步发起终审 |
 | 终审有采信项尚未修复 | **停**：按 `/mmw-review` 第 7 步完成修复验证 |
