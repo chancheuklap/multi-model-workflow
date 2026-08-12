@@ -35,7 +35,10 @@ fresh_repo() {
   git init -q -b main "$repo"
   git -C "$repo" config user.name "MMW Guardrails"
   git -C "$repo" config user.email "guardrails@example.invalid"
-  printf '.worktrees/\n' > "$repo/.gitignore"
+  # 与 mmw init 写的 gitignore 保持一致（见 lib/init.sh 的 mmw_init_gitignore）。
+  # 少写 .scratch/ 会让这些一次性仓库跟真实目标仓库行为不同：派发往 scratch 写进度
+  # 日志和句柄文件，那时工作区会被判成不干净，下一次派发被护栏拒掉。
+  printf '%s\n' '.worktrees/' '.scratch/' '.reviews/' '.release/' > "$repo/.gitignore"
   printf '{"paths":{"worktrees":".worktrees","scratch":".scratch","reviews":".reviews","release":".release"}}\n' \
     > "$repo/.mmw.json"
   printf 'seed\n' > "$repo/seed.txt"
@@ -437,10 +440,64 @@ suite_task_bind() {
 
 # -------------------------------------------------------------------- dispatch
 
+# 假 codex 与假 date，两个派发用例共用一份。
+#
+# 只写一份的理由跟 adapter 里 MCP 配置只写一份是同一条：假 codex 模拟的是真 codex 的
+# 参数合同（`--json` 把事件流打到标准输出、`-o` 把最终消息写进文件）。两份假 codex
+# 就是两处维护，其中一处漂了不会有人发现。
+#
+# 输出到标准输出的是这个目录路径，调用方接住它当 PATH 前缀。
+#
+# 行为由环境变量控制：
+#   FAKE_CODEX_STDIN      必填。把收到的标准输入原样存到这个文件
+#   FAKE_CODEX_REPORT     写进 `-o` 指向的文件的报告正文
+#   FAKE_CODEX_PROGRESS   写到标准错误的进度行
+#   FAKE_CODEX_THREAD_ID  `thread.started` 事件里的 thread_id
+#   FAKE_CODEX_NO_THREAD  设成 1 就不发 `thread.started`，模拟取不到句柄
+#   FAKE_CODEX_EXIT       退出码
+#   CODEX_STUB_ARGV       设了就把 argv 一行一个记进这个文件，供断言检查传参顺序
+make_fake_codex() {
+  local fake_bin="$WORKBENCH/fake-bin"
+  mkdir -p "$fake_bin"
+  cat > "$fake_bin/codex" <<'FAKE_CODEX'
+#!/usr/bin/env bash
+set -eu
+if [ -n "${CODEX_STUB_ARGV:-}" ]; then
+  printf '%s\n' "$@" > "$CODEX_STUB_ARGV"
+fi
+cat > "$FAKE_CODEX_STDIN"
+report=""
+prev=""
+for arg in "$@"; do
+  case "$prev" in
+    -o|--output-last-message) report="$arg" ;;
+  esac
+  prev="$arg"
+done
+if [ -n "$report" ]; then
+  printf '%s\n' "${FAKE_CODEX_REPORT:-fake report}" > "$report"
+fi
+printf '%s\n' "${FAKE_CODEX_PROGRESS:-fake progress}" >&2
+if [ "${FAKE_CODEX_NO_THREAD:-}" != "1" ]; then
+  printf '{"type":"thread.started","thread_id":"%s"}\n' \
+    "${FAKE_CODEX_THREAD_ID:-fake-thread-1}"
+fi
+printf '{"type":"turn.completed"}\n'
+exit "${FAKE_CODEX_EXIT:-0}"
+FAKE_CODEX
+  chmod +x "$fake_bin/codex"
+  cat > "$fake_bin/date" <<'FAKE_DATE_SCRIPT'
+#!/usr/bin/env bash
+printf '%s\n' "${FAKE_DATE:-20260812-101057}"
+FAKE_DATE_SCRIPT
+  chmod +x "$fake_bin/date"
+  printf '%s\n' "$fake_bin"
+}
+
 suite_dispatch_output() {
   echo "mmw dispatch（正文、报告与进度日志）"
   local repo task_body task_text fake_bin request_out command execution_out execution_err
-  local captured task_size task_suffix log_dir log first_log first_log_name second_log fixed_first_out fixed_second_out fixed_status
+  local captured task_size task_suffix log_dir log first_log first_log_name second_log fixed_first_out fixed_second_out fixed_status handle_stem
   repo="$(fresh_repo)"
   task_body="$WORKBENCH/dispatch-output-task.txt"
   printf '%s' '## 目标
@@ -454,22 +511,7 @@ suite_dispatch_output() {
   task_text="$(cat "$task_body"; printf x)"
   task_text="${task_text%x}"
 
-  fake_bin="$WORKBENCH/fake-bin"
-  mkdir -p "$fake_bin"
-  printf '%s\n' \
-    '#!/usr/bin/env bash' \
-    'set -eu' \
-    'cat > "$FAKE_CODEX_STDIN"' \
-    'printf "%s\\n" "${FAKE_CODEX_PROGRESS:-fake progress}" >&2' \
-    'printf "%s\\n" "${FAKE_CODEX_REPORT:-fake report}"' \
-    'exit "${FAKE_CODEX_EXIT:-0}"' \
-    > "$fake_bin/codex"
-  chmod +x "$fake_bin/codex"
-  printf '%s\n' \
-    '#!/usr/bin/env bash' \
-    'printf "%s\\n" "${FAKE_DATE:-20260812-101057}"' \
-    > "$fake_bin/date"
-  chmod +x "$fake_bin/date"
+  fake_bin="$(make_fake_codex)"
 
   mmw_in "$repo" pi task new dispatch-output "派活输出" --name dispatch-output-work >/dev/null
 
@@ -507,7 +549,34 @@ suite_dispatch_output() {
   expect_state "角色报告" "不创建 .dispatch 目录" \
     test ! -e "$repo/.worktrees/dispatch-output/.dispatch"
   log_dir="$repo/.worktrees/dispatch-output/.scratch/dispatch-output-work/issue-39/dispatch"
-  expect_state "成功的派发进度日志" "日志和空目录都已删除" \
+  # 下面这条把断言包进 sh -c，"$1" 由内层 sh 展开，不是外层漏引。
+  # shellcheck disable=SC2016
+  expect_state "成功的派发进度日志" "日志已删除" \
+    sh -c 'test -z "$(find "$1" -maxdepth 1 -name "*.log" -print -quit 2>/dev/null)"' \
+      sh "$log_dir"
+  # 句柄文件跟日志不同命：日志是过程噪音，成功就删；句柄是修复轮恢复原生产者的入口，
+  # 必须活到那一轮。文件名由角色加 task 正文摘要确定性算出，同一份 task 永远同一个名字。
+  handle_stem="worker-$(printf '%s' "$task_text" | shasum -a 256 | cut -c1-12)"
+  expect_state "成功的派发" "句柄文件留下，内容是 thread_id 原文" \
+    grep -qx "fake-thread-1" "$log_dir/$handle_stem.session"
+  expect_state "成功的派发" "句柄也在标准输出给一次" \
+    grep -qxF "session: fake-thread-1" "$execution_out"
+
+  # 取不到 thread_id 时不静默：说清修复轮恢复不了，并且目录确实空了就收掉。
+  execution_out="$WORKBENCH/codex-no-thread.out"
+  execution_err="$WORKBENCH/codex-no-thread.err"
+  rm -f "$log_dir/$handle_stem.session"
+  if [ -n "$command" ] && env PATH="$fake_bin:$PATH" \
+      FAKE_CODEX_STDIN="$WORKBENCH/codex-no-thread.stdin" \
+      FAKE_CODEX_REPORT="无句柄报告" FAKE_CODEX_NO_THREAD=1 FAKE_CODEX_EXIT=0 \
+      bash -c "$command" > "$execution_out" 2> "$execution_err"; then
+    report pass "取不到 thread_id 时派发仍然成功"
+  else
+    report fail "取不到 thread_id 时派发仍然成功" "$(cat "$execution_err" 2>/dev/null || true)"
+  fi
+  expect_state "取不到 thread_id" "标准错误说明恢复不了这个生产者" \
+    grep -qF "这次派发没取到 thread_id" "$execution_err"
+  expect_state "取不到 thread_id" "没有句柄文件，空目录被收掉" \
     test ! -e "$log_dir"
 
   captured="$WORKBENCH/codex-failure.stdin"
@@ -675,6 +744,99 @@ suite_dispatch() {
       --cwd "$repo/.worktrees/dispatchable"
 }
 
+# ------------------------------------------------------- dispatch --resume
+
+# 输出断言。用法：expect_out_has <用例名> <要找的字符串> <输出>
+expect_out_has() {
+  local name="$1" needle="$2" out="$3"
+  if printf '%s' "$out" | grep -qF -- "$needle"; then
+    report pass "$name"
+  else
+    report fail "$name" "输出里找不到：${needle}
+实际输出：${out}"
+  fi
+}
+
+suite_dispatch_resume() {
+  echo "mmw dispatch --resume（恢复原生产者）"
+  local repo task_text fake_bin out handle log_dir handle_stem
+  repo="$(fresh_repo)"
+  task_text='## 目标
+
+修复第 3 条 finding。'
+
+  expect_deny "--resume 空句柄当场拒绝" "$repo" \
+    env MMW_HOST=claude-code "$MMW" dispatch reviewer-gpt --task-text "$task_text" --resume ""
+  expect_deny "pi 宿主没有 resume 通道" "$repo" \
+    env MMW_HOST=pi "$MMW" dispatch reviewer-gpt --task-text "$task_text" --resume abc
+
+  out="$(env MMW_HOST=claude-code "$MMW" dispatch 2>&1)" || true
+  expect_out_has "usage 登记了 --resume" "--resume" "$out"
+
+  # gpt 族第一段装配：--resume 必须进后台命令，否则第二段拿不到句柄。
+  out="$(cd "$repo" && env MMW_HOST=claude-code "$MMW" dispatch reviewer-gpt \
+    --task-text "$task_text" --resume abc123 2>&1)"
+  expect_out_has "gpt 族第一段带上 --resume" "--resume abc123" "$out"
+
+  # claude 族：派发要有确定性句柄，恢复走 SendMessage。
+  # 句柄是角色名加 task 正文的 shasum 前 12 位——没有 task 文件可以借文件名，
+  # 正文摘要同样确定性：同一份 task 永远算出同一个名字，上下文压缩后也能重建。
+  handle="reviewer-claude-$(printf '%s' "$task_text" | shasum -a 256 | cut -c1-12)"
+  out="$(cd "$repo" && env MMW_HOST=claude-code "$MMW" dispatch reviewer-claude \
+    --task-text "$task_text" 2>&1)"
+  expect_out_has "claude 族派发输出 handle 行" "handle: $handle" "$out"
+  expect_out_has "claude 族 params 携带确定性 name" "\"name\":\"$handle\"" "$out"
+  out="$(cd "$repo" && env MMW_HOST=claude-code "$MMW" dispatch reviewer-claude \
+    --task-text "$task_text" --resume "$handle" 2>&1)"
+  expect_out_has "claude 族恢复走 SendMessage" "tool: SendMessage" "$out"
+  expect_out_has "claude 族恢复收件名是句柄" "\"to\":\"$handle\"" "$out"
+  expect_out_has "claude 族恢复把修复 task 原样带进去" '修复第 3 条 finding。' "$out"
+
+  # gpt 族第二段：拿假 codex 跑真命令，断言句柄采集与 resume 装配。
+  # 假 codex 把 argv 一行一个记下来，供断言检查真实传参顺序。
+  fake_bin="$(make_fake_codex)"
+  mmw_in "$repo" pi task new resume-work "恢复用" --name resume-work >/dev/null
+  log_dir="$repo/.worktrees/resume-work/.scratch/resume-work/dispatch"
+  handle_stem="worker-$(printf '%s' "$task_text" | shasum -a 256 | cut -c1-12)"
+
+  out="$(cd "$repo" && env PATH="$fake_bin:$PATH" \
+    CODEX_STUB_ARGV="$WORKBENCH/argv-exec" \
+    FAKE_CODEX_STDIN="$WORKBENCH/resume-exec.stdin" \
+    FAKE_CODEX_THREAD_ID=stub-thread-1 \
+    MMW_HOST=claude-code MMW_INTERNAL_BACKGROUND_DISPATCH=1 \
+    "$MMW" dispatch worker --task-text "$task_text" \
+    --cwd "$repo/.worktrees/resume-work" 2>&1)"
+  expect_out_has "gpt 族第二段输出 session 行" "session: stub-thread-1" "$out"
+  expect_state "gpt 族第二段写出句柄文件" "句柄文件内容是 thread_id 原文" \
+    grep -qx "stub-thread-1" "$log_dir/$handle_stem.session"
+
+  env PATH="$fake_bin:$PATH" \
+    CODEX_STUB_ARGV="$WORKBENCH/argv-resume" \
+    FAKE_CODEX_STDIN="$WORKBENCH/resume-resume.stdin" \
+    FAKE_CODEX_THREAD_ID=stub-thread-1 \
+    MMW_HOST=claude-code MMW_INTERNAL_BACKGROUND_DISPATCH=1 \
+    "$MMW" dispatch worker --task-text "$task_text" \
+    --cwd "$repo/.worktrees/resume-work" --resume stub-thread-1 >/dev/null 2>&1 || true
+  # 下面四条把断言包进 bash -c，"$1" 由内层 bash 展开，不是外层漏引。
+  # shellcheck disable=SC2016
+  expect_state "恢复走 codex exec resume" "argv 前两项是 exec resume" \
+    bash -c 'head -2 "$1" | tr "\n" " " | grep -q "^exec resume "' _ "$WORKBENCH/argv-resume"
+  # `codex exec resume` 没有 --color、-C、--sandbox 三个参数；传了当场报错。
+  # shellcheck disable=SC2016
+  expect_state "恢复不传 resume 认不了的参数" "argv 里没有 --color、-C 和 --sandbox" \
+    bash -c '! grep -qxE -- "--color|-C|--sandbox" "$1"' _ "$WORKBENCH/argv-resume"
+  # shellcheck disable=SC2016
+  expect_state "恢复用 -c 传同一档 sandbox" "argv 里有 workspace-write 配置覆盖" \
+    bash -c 'grep -qx -- "sandbox_mode=\"workspace-write\"" "$1"' _ "$WORKBENCH/argv-resume"
+  # shellcheck disable=SC2016
+  expect_state "选项排在句柄之前" "句柄是倒数第二个参数、stdin 记号收尾" \
+    bash -c '[ "$(tail -2 "$1" | head -1)" = "stub-thread-1" ] && [ "$(tail -1 "$1")" = "-" ]' \
+    _ "$WORKBENCH/argv-resume"
+  # 恢复不再拼检索纪律前言：上下文还在，那份纪律它已经读过。
+  expect_state "恢复只把修复 task 送进标准输入" "标准输入就是 task 正文本身" \
+    grep -qxF "修复第 3 条 finding。" "$WORKBENCH/resume-resume.stdin"
+}
+
 # -------------------------------------------------------------- gitfacts 谓词
 
 suite_gitfacts() {
@@ -702,6 +864,7 @@ suite_task_new
 suite_task_bind
 suite_dispatch_output
 suite_dispatch
+suite_dispatch_resume
 suite_gitfacts
 
 printf '\n通过 %d，失败 %d\n' "$PASS" "$FAIL"

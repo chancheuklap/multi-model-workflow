@@ -32,6 +32,22 @@ LAUNCH_RE = re.compile(
 LAUNCH_GROUP_RE = re.compile(
     r"\[\[mmw-launch-group:([a-z0-9-]+):(worktree|current|none)\]\]"
 )
+RESUME_RE = re.compile(
+    r"\[\[mmw-resume:([a-z0-9-]+):(worktree|current|none)\]\]"
+)
+# 没有续跑通道的宿主统一给这句退路。静默降级成全新派发会让调用方以为上下文还在，
+# 所以退路必须显式写明重派时要带什么材料。
+#
+# 这里说的是「正文」不是「路径」：task 与报告都不落盘，task 走标准输入，报告走标准
+# 输出，主 agent 手上有的就是那两段正文。
+#
+# 分两段：材料清单两处共用——没有续跑通道的宿主整块用它，有续跑通道的宿主在句柄失效
+# 时也退回到它。前缀分开写，不然「这个宿主没有续跑通道」会出现在明明有通道的宿主里。
+RESUME_MATERIAL = (
+    "按对应的启动动作重派新实例，"
+    "task 正文带上原 task 全文、原报告全文和本轮修复指令。"
+)
+RESUME_FALLBACK = f"这个宿主没有续跑通道：{RESUME_MATERIAL}"
 CODEX_SKILL_REF_RE = re.compile(r"`/(mmw-[a-z0-9-]+)`")
 SKIP_DIR_NAMES = frozenset({"mmw-dispatching-agents", "mmw-setup"})
 POST_LAUNCH_RULE = (
@@ -131,6 +147,27 @@ def expand_codex(role: str, cwd_mode: str, profiles: dict) -> str:
     )
 
 
+def expand_resume_claude(role: str, cwd_mode: str) -> str:
+    if cwd_mode == "worktree":
+        cwd = " --cwd <原结果 worktree 绝对路径>"
+    elif cwd_mode == "current":
+        cwd = " --cwd <当前任务 worktree 绝对路径>"
+    else:
+        cwd = ""
+    return (
+        "恢复：后台执行 "
+        f"`mmw dispatch {role} --resume <句柄原文>{cwd}`。"
+        "把修复 task 正文作为命令的标准输入。"
+        "gpt 族句柄取原派发返回的 `session:` 行原文；那一行不在手上时，"
+        "运行 `mmw artifact path scratch --sub dispatch` 取得派发进度目录，"
+        "读其中的 `<角色>-<正文摘要>.session`。"
+        "claude 族取 `handle:` 行原文；那一行不在手上时，在宿主的 subagent 清单里"
+        f"找以 `{role}-` 开头的那个名字。"
+        "命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。"
+        f"句柄取不到或命令失败时退回重派：{RESUME_MATERIAL}"
+    )
+
+
 def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> str:
     if host == "codex":
         profile = (profiles.get("subagents") or {}).get("reviewer-gpt")
@@ -186,8 +223,20 @@ def expand_text(
             return f"{instruction}\n\n{POST_LAUNCH_RULE}"
         return instruction
 
+    def resume(match: re.Match[str]) -> str:
+        role, cwd_mode = match.group(1), match.group(2)
+        if role not in role_agents:
+            die(f"占位符角色不在 roles.json：{role}")
+        # 只有 Claude Code 已验证续跑通道（codex exec resume 与 SendMessage）。
+        # Pi 的原生 subagent 与 Codex App 的 thread 后续消息工具都还没实测，
+        # 先物化为显式退路，不做静默降级。
+        if host == "claude-code":
+            return expand_resume_claude(role, cwd_mode)
+        return RESUME_FALLBACK
+
     text = LAUNCH_RE.sub(launch, text)
     text = LAUNCH_GROUP_RE.sub(launch_group, text)
+    text = RESUME_RE.sub(resume, text)
     if host == "codex":
         text = CODEX_SKILL_REF_RE.sub(r"`$mmw:\1`", text)
     return text

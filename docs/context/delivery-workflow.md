@@ -85,8 +85,12 @@ _Avoid_: research 索引、tracker 索引、spec、重建索引
 _Avoid_: decision ticket、任务包、横向层任务
 
 **plan**：
-一张 tracer bullet ticket 的实施计划。
+一张 tracer bullet ticket 的实施计划。plan 按批次写，与实现交替推进，不一次写完。
 _Avoid_: spec、tracer bullet ticket、路线图
+
+**批次**：
+某一时刻，阻塞已全部关闭、还没有 `ready-for-agent` 标签的全部 open tracer bullet ticket。成员资格只看标签这一个状态判据。`/mmw-to-plan` 一次为一个批次写 plan；`/mmw-implement` 关票解锁新批次后交回 `/mmw-to-plan`。
+_Avoid_: frontier、全部 ticket、plan 清单
 
 **任务包**：
 plan 内能携带自身测试周期、值得一名新审查者单独检查的最小单位。

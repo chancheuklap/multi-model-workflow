@@ -85,7 +85,9 @@ mmw dispatch <角色> [--task-text <正文>] [--cwd <目录>] [--issue <编号>]
 参数：
   --task-text <正文>  task 四栏表正文。省略时从标准输入读取
   --cwd <目录>       角色的工作目录。会写文件的角色必填；只读角色省略时使用仓库根
-  --issue <编号>     当前 decision ticket 编号。只用于派发进度日志的范围段
+  --issue <编号>     当前 decision ticket 编号。只用于派发进度日志与句柄的范围段
+  --resume <句柄>    恢复原 subagent 续跑，这次的 task 正文是修复 task。句柄用原派发
+                     返回的 session:（gpt 族 thread_id）或 handle:（claude 族名字）原文
 
 标准输入与 --task-text 只能使用一种。task 正文不能为空。
 
@@ -261,7 +263,8 @@ cmd_dispatch() {
     usage_dispatch
   }
 
-  local task_text="" task_text_set="no" cwd="" issue=""
+  local task_text="" task_text_set="no" cwd="" issue="" resume=""
+  local resume_given=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --task-text)
@@ -280,9 +283,20 @@ cmd_dispatch() {
         issue="$2"
         shift 2
         ;;
+      --resume)
+        [ $# -ge 2 ] || { echo "mmw: --resume 要句柄" >&2; usage_dispatch; }
+        resume="$2"
+        resume_given=1
+        shift 2
+        ;;
       *) echo "mmw: 认不出参数 $1" >&2; usage_dispatch ;;
     esac
   done
+
+  if [ "$resume_given" = "1" ] && [ -z "$resume" ]; then
+    echo "mmw: --resume 的句柄是空的。gpt 族用原派发返回的 session: 原文（也存在派发进度目录的 <角色>-<正文摘要>.session），claude 族用 handle: 原文" >&2
+    return 1
+  fi
 
   local stdin_text=""
   if [ "$task_text_set" = "yes" ]; then
@@ -330,6 +344,7 @@ cmd_dispatch() {
   export MMW_D_CWD="$cwd"
   export MMW_D_ISSUE="$issue"
   export MMW_D_WRITABLE="$writable"
+  export MMW_D_RESUME="$resume"
   MMW_D_SKILL="$(role_skill "$role")" || return 1
   export MMW_D_SKILL
 

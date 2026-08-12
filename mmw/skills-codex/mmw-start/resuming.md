@@ -40,7 +40,7 @@ Wayfinding decision ticket 的 scratch 检查必须加入 `--issue <编号>`。�
 
 spec 已提交但 spec issue 未发布时，按尚未通过人工审批关卡处理。重新向用户展示 spec。
 
-任何 open tracer bullet ticket 缺少 `ready-for-agent` 时，回 `$mmw:mmw-to-plan`。全部具备后才进入 `$mmw:mmw-implement`。
+plan 按批次写，某张 ticket 缺 `ready-for-agent` 不一定是流程断了，可能只是批次没到。判据：存在「阻塞已全部关闭、还没有 `ready-for-agent`」的 open ticket 时，回 `$mmw:mmw-to-plan` 写它们的 plan；frontier 上有带标签的 ticket 时，进入 `$mmw:mmw-implement` 继续落地；两者都没有、但仍有 open ticket 时，报告各张的状态（被谁阻塞、被谁认领）等用户处理。
 
 ## 查完之后
 

@@ -13,7 +13,7 @@ description: 编排 MMW 六道审查并处置 findings。用于共同理解、sp
 | --- | --- | --- | --- | --- |
 | ⓪ 共同理解审 | 用户在 `/mmw-grilling` 确认共同理解之后，要求复核这次访谈 | 共同理解审 | 按第 3 节的宿主审查策略 | 不是。findings 连同你的处置一起给用户看参考 |
 | ① spec 审 | spec 写完、自检过了，给用户看之前 | 设计内容审、项目一致性审 | 按第 3 节的宿主审查策略 | 不是。findings 连同你的处置一起给用户看参考 |
-| ② plan 审 | 全部 plan 写完、主 agent 验证过、跨 plan 合同回填完之后，发起一次 | 覆盖质量审、合规交叉审 | 按第 3 节的宿主审查策略 | 是 |
+| ② plan 审 | 一个批次的 plan 写完、主 agent 验证过、本批次合同回填完之后，每批次发起一次 | 覆盖质量审、合规交叉审 | 按第 3 节的宿主审查策略 | 是 |
 | ③ 逐份验收 | 一个 `worker` 交回它写的代码 | 不派审查者 | **你自己**，判据读 [self-review.md](self-review.md) | 是。不过这一关不合并回任务分支 |
 | ④ 合同门 | 每份 plan 对应的代码都合并回任务分支之后，一次 | 不派审查者 | **你自己**，判据读 [self-review.md](self-review.md) | 是 |
 | ⑤ final 终审 | 全部 ticket 落地、合同门过了 | 对照终审、独立终审、编码规范审 | 按第 3 节的宿主审查策略 | 是 |
@@ -29,7 +29,7 @@ description: 编排 MMW 六道审查并处置 findings。用于共同理解、sp
 | --- | --- |
 | ⓪ | 解 decision ticket 时，运行 `mmw artifact path scratch --issue <编号> --sub understanding.md`。用户直接发起讨论时，不加 `--issue`。审查命令的输出文件 |
 | ① | 运行 `mmw artifact path spec`。审查该命令的输出文件 |
-| ② | 从每张 ticket 取得 plan 的类别内细分。逐份运行 `mmw artifact path plan --sub <两位编号>-<ticket短名>.md`。**整批发起一次，不逐份发起** |
+| ② | 从本批次每张 ticket 取得 plan 的类别内细分（批次由调用方 `/mmw-to-plan` 给出）。逐份运行 `mmw artifact path plan --sub <两位编号>-<ticket短名>.md`。**一个批次发起一次，批内不逐份发起** |
 | ⑤ | 一个固定点，加 `git diff <固定点>...HEAD`（三个点，比的是分叉点）。固定点通常是 `git merge-base HEAD <父分支>` |
 
 用户直接叫你来审、又没说固定点的，问他要。
@@ -47,8 +47,8 @@ description: 编排 MMW 六道审查并处置 findings。用于共同理解、sp
 | 共同理解审 | 共同理解记录 | 本次讨论用到的索引、选中产物和走查结论 | 本次讨论用到的 research 索引和精确文件 |
 | 设计内容审 | spec | 被 spec 使用的索引、选中产物和相关证据 | 被 spec 使用的 research 索引和精确文件 |
 | 项目一致性审 | spec、相关领域文档和 ADR | 本视角需要的索引、选中产物和证据 | 本视角需要的 research 索引和精确文件 |
-| 覆盖质量审 | spec、全部 ticket 和全部 plan | 被 plan 使用的索引、选中产物和相关证据 | 被 plan 使用的 research 索引和精确文件 |
-| 合规交叉审 | spec、全部 ticket 和全部 plan | 被 plan 引用的索引、选中产物和证据 | 被 plan 引用的 research 索引和精确文件 |
+| 覆盖质量审 | spec、全部 ticket 和本批次 plan；首批次时注明执行覆盖扫描 | 被 plan 使用的索引、选中产物和相关证据 | 被 plan 使用的 research 索引和精确文件 |
+| 合规交叉审 | spec、全部 ticket 和本批次 plan | 被 plan 引用的索引、选中产物和证据 | 被 plan 引用的 research 索引和精确文件 |
 | 对照终审 | spec、全部 plan 和 diff 范围 | 实现应覆盖的索引、选中产物和相关证据 | 实现应覆盖的 research 索引和精确文件 |
 | 独立终审 | **只有 diff 范围** | 不提供 | 不提供 |
 | 编码规范审 | diff 范围和仓库编码标准 | 不提供 | 不提供 |
@@ -144,7 +144,15 @@ mmw artifact path review --sub <哪一道>.md
 
 ## 7. 修复后完成
 
-有 `accepted` 时，调用方一次性修完全部采信项：spec 由主 agent 修改，plan 按受影响文件重派 `planner`，代码或集成结果合成一张修复 ticket 派一个 `worker`。修复回来后，主 agent 逐条检查原 finding 指向的问题已经消失，并运行修复涉及的验收命令。这个检查是修复验收，不再启动审查者。
+有 `accepted` 时，调用方一次性修完全部采信项。**修复默认发回原生产者**——它的上下文还在，修复便宜且不丢已建立的理解：
+
+- spec 与共同理解的生产者是主 agent，主 agent 自己修。
+- plan 按受影响文件发回原 `planner` 续跑（恢复动作见 `/mmw-to-plan` 第 4 步），句柄失效时重派。
+- 代码或集成结果按 `/mmw-implement` 第 7 步路由：采信项全落在同一张 ticket 时发回原 `worker`（含同步前置），否则合成一张修复 ticket 派一个 `worker`。
+
+**小改动例外**：同时满足四个条件时主 agent 直接落地，不派发——不碰跨 plan 合同、seam 和共享文件归属；不涉及计费、权限、数据迁移和不可逆操作；改动量一眼可验证（一处文案、一个数值、一行断言这个量级）；验证成本低于一次派发。落地后必须运行该处验收命令并记录。
+
+修复回来后，主 agent 逐条检查原 finding 指向的问题已经消失，并运行修复涉及的验收命令。这个检查是修复验收，不再启动审查者。
 
 ⓪ 不走这一步。它的采信项没有产物可改，只能交回 `/mmw-grilling` 重新提问。
 
