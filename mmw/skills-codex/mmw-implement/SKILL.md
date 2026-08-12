@@ -32,8 +32,6 @@ description: 派 `worker` 落地已准备好的工作。用于完整的 `ready-f
 
 ## 循环：一张 ticket 一轮
 
-第 2 到第 5 步是一轮。一轮做完一张 ticket，回到第 2 步取下一张。
-
 ### 2. 取下一张 ticket
 
 plan 按批次写（见 `$mmw:mmw-to-plan`）：某张 ticket 没有 `ready-for-agent` 不一定是流程错了，可能只是它的批次还没到。spec 分支先重新读取全部子 issue，按下面的判据走：
@@ -110,6 +108,11 @@ ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 
 三关都过才允许合并回任务分支。**这一道不派审查者**，`$mmw:mmw-review` 正文其余各节跟它无关。报告按 `$mmw:mmw-verifying-agent-output` 采信，它交回的四档怎么读也在那里。
 
+`worker` 交回的不是「完成」时，先分清是哪一种：
+
+- 它卡在 ticket 与代码互相矛盾上：**停**，把矛盾交给用户。不要换一个 `worker` 再派一遍。
+- 其他情况：按 `$mmw:mmw-verifying-agent-output` 的四档读它交回的东西，再按 `self-review.md` 的返工升级策略接着走。
+
 再验证两项本阶段合同：
 
 - commit 存在并引用这张 ticket。
@@ -148,13 +151,13 @@ mmw issue children <spec issue 编号>
 | 有 open 行，但都不带 `ready-for-agent` | **移交 `$mmw:mmw-to-plan`** 写这一批的 plan，写完回本技能第 2 步 |
 | 没有 open 行 | 这批 ticket 全部落地，进入第 6 步 |
 
-**`children` 只要还有 open 行，就不许进入第 6 步和第 7 步。** frontier 这一刻为空不算数：下一批次的 plan 还没写时，那些 ticket 就是 open 而且没有 `ready-for-agent`，它们在等你回第 2 步。
+**`children` 还有 open 行，就说明这一批没做完，留在循环里按上表走。** frontier 这一刻为空不算数：下一批次的 plan 还没写时，那些 ticket 就是 open 而且没有 `ready-for-agent`，它们在等你回第 2 步。第 6 步和第 7 步要等 `children` 没有 open 行。
 
 agent brief 分支只有这一张 ticket，不跑 `children`，直接进入第 7 步。
 
 ## 这批 ticket 全部关闭之后
 
-循环到此结束。下面两步整批做一次，不逐张做。
+下面两步整批做一次，不逐张做。
 
 ### 6. spec 分支全部落地后验证合同
 
@@ -179,21 +182,15 @@ spec 分支通过合同门，或者 agent brief 分支完成第 5 步后，按 `
 
 分支点用 `git merge-base HEAD <父分支>` 取。普通任务的父分支是创建任务时选择的目标分支；从 `$mmw:mmw-wayfinder` map 派生的任务以 map 分支为父分支。
 
-采信的 findings 全部落在同一张 ticket 时，优先发回那张 ticket 的原 `worker` 续跑，恢复前先做第 6 步的同步前置；跨 ticket、同步冲突、worktree 已收或句柄失效时，打包成一张修复 ticket 派给新 `worker`，带上 `file:line` 和要改成什么。两条路都不逐 finding 派修复者。修复回来后逐条验证原问题已经消失，并运行修复涉及的验收命令。全部通过后按 `$mmw:mmw-review` 第 7 步在原审查记录登记 `修复提交` 和 `终审提交`；不再派审查者。
+采信的 findings 全部落在同一张 ticket 时，优先发回那张 ticket 的原 `worker` 续跑，恢复前先做第 6 步的同步前置；跨 ticket、同步冲突、worktree 已收或句柄失效时，打包成一张修复 ticket 派给新 `worker`，带上 `file:line` 和要改成什么。两条路都不逐 finding 派修复者。修复回来后逐条验证原问题已经消失，并运行修复涉及的验收命令。有一条没验证通过就停下报告，不再发起新一轮审查。全部通过后按 `$mmw:mmw-review` 第 7 步在原审查记录登记 `修复提交` 和 `终审提交`；不再派审查者。
 
 ## 下一步
 
-循环内部的路由不在这张表里，在第 5 步末尾那张判定表。这张表只管走完整个技能之后去哪。
+第 7 步终审做完之后才走这张表。
 
 | 情况 | 下一步 |
 | --- | --- |
-| spec 分支 `mmw issue children <spec issue 编号>` 输出里没有 open 行 | **自己继续**：走第 6 步验证合同，过了再走第 7 步发起 ⑤ final 终审 |
-| agent brief 分支第 5 步三关都过，原 issue 已关闭 | **自己继续**：跳过第 6 步，走第 7 步发起 ⑤ final 终审 |
-| 第 6 步有合同 grep 不到行号 | **自己继续**：按第 6 步的路由发回原 `worker` 或派修复 ticket；修复仍失败才停，报是哪条合同、提供方或消费方缺在哪 |
-| 审出了采信的 findings | **自己继续**：按第 7 步一次性修复并验证；有一条没修好就停，不再审 |
-| 审完没有采信项，或者采信项已经修复并验证，而且这次改动碰了带出包配置的产品 | **移交**：`$mmw:mmw-release`，先把安装包出出来。同时告诉它这次是有 spec 还是只有 agent brief——它收尾要按这个分岔。仓库里有没有出包配置，跑 `grep -rl '"product"' --include='*.release-adapter.json' .` |
-| 审完没有采信项，或者采信项已经修复并验证；这次不用出包，而且有 spec | **移交**：`$mmw:mmw-closing`，让 spec 与 plan 长期留在仓库，只清理当前任务的过程材料，再交回用户合并 |
-| 审完没有采信项，或者采信项已经修复并验证；这次不用出包，而且只有 agent brief | **停**：报告实现结果、验证证据和当前分支 HEAD。这项任务没有 spec，不走 `$mmw:mmw-closing`；分支已就绪，交回用户集成 |
-| 第 1 步有一项前置不满足 | **停**：说清是哪一项，按第 1 步表中的出口回 `$mmw:mmw-triage`、`$mmw:mmw-to-spec`、`$mmw:mmw-to-tickets` 或 `$mmw:mmw-to-plan` |
-| `worker` 卡在 ticket 与代码互相矛盾上 | **停**：把矛盾交给用户，不要换一个 `worker` 再派一遍 |
-| `worker` 交回的不是「完成」，也不是因为矛盾 | **自己继续**：按 `$mmw:mmw-verifying-agent-output` 的四档读它交回的东西，再按返工升级策略接着走 |
+| 终审没有采信项，或者采信项已经修复并验证，而且这次改动碰了带出包配置的产品 | **移交**：`$mmw:mmw-release`，先把安装包出出来。同时告诉它这次是有 spec 还是只有 agent brief——它收尾要按这个分岔。仓库里有没有出包配置，跑 `grep -rl '"product"' --include='*.release-adapter.json' .` |
+| 终审没有采信项，或者采信项已经修复并验证；这次不用出包，而且有 spec | **移交**：`$mmw:mmw-closing`，让 spec 与 plan 长期留在仓库，只清理当前任务的过程材料，再交回用户合并 |
+| 终审没有采信项，或者采信项已经修复并验证；这次不用出包，而且只有 agent brief | **停**：报告实现结果、验证证据和当前分支 HEAD。这项任务没有 spec，不走 `$mmw:mmw-closing`；分支已就绪，交回用户集成 |
+| 以上都不是 | **停**：说清终审停在哪一步、还差什么，交给用户 |
