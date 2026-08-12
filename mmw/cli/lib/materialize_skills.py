@@ -61,7 +61,7 @@ def load_role_agents() -> dict[str, str]:
 def expand_pi(role: str, agent: str, cwd_mode: str) -> str:
     if cwd_mode == "worktree":
         return (
-            "启动：先运行 `mmw task new <结果分支> \"<目标栏原文>\" --from <基点 SHA>`，"
+            "启动：先运行 `mmw task new <结果分支> \"<目标栏原文>\" --name <工作名> --from <基点 SHA>`，"
             "使用命令返回的 worktree 绝对路径作为 cwd。然后调用原生 `subagent`，"
             f"agent 设为 `{agent}`，task 传四栏表全文，cwd 设为该绝对路径。"
         )
@@ -77,7 +77,7 @@ def expand_claude(role: str, agent: str, cwd_mode: str) -> str:
     del agent
     if cwd_mode == "worktree":
         return (
-            "启动：先运行 `mmw task new <结果分支> \"<目标栏原文>\" --from <基点 SHA>`，"
+            "启动：先运行 `mmw task new <结果分支> \"<目标栏原文>\" --name <工作名> --from <基点 SHA>`，"
             "使用命令返回的 worktree 绝对路径。后台执行 "
             f"`mmw dispatch {role} --cwd <结果 worktree 绝对路径>`。"
             "把四栏 task 正文作为命令的标准输入。"

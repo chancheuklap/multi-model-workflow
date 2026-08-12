@@ -31,6 +31,10 @@ mmw_artifact_validate_segment() {
 mmw_artifact_validate_sub() {
   local sub="$1" segment
   local -a segments
+  if [[ "$sub" == *$'\n'* ]]; then
+    mmw_artifact_error "--sub 不能包含换行"
+    return 1
+  fi
   if [ -z "$sub" ] || [[ "$sub" == /* ]] || [[ "$sub" == */ ]] || [[ "$sub" == *//* ]]; then
     mmw_artifact_error "--sub 不能有空路径段"
     return 1

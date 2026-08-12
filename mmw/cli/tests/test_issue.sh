@@ -377,6 +377,16 @@ check "append 依次读、写、等两秒、重读" \
   'api repos/o/r/issues/100 --jq .body;issue edit 100 --body-file <文件>;sleep 2;api repos/o/r/issues/100 --jq .body;' \
   "$(append_events "$MMW_TEST_LOG")"
 
+body_set 100 "$append_written"
+: > "$MMW_TEST_READ_COUNT"
+unset MMW_TEST_MUTATE_READS MMW_TEST_MUTATE_BODY MMW_TEST_CONCURRENT_DIR
+export MMW_TEST_LOG="$WORK/log-append-existing-line"
+: > "$MMW_TEST_LOG"
+capture "append-目标行已存在" "$MMW" issue append 100 --section "Decisions so far" --line "新的决定"
+check "目标行已存在时正常收敛" "0" "$LAST_STATUS"
+check "目标行已存在时不抛 bash 错误" "" "$(cat "$LAST_ERR")"
+check "目标行已存在时正文不变" "$append_written" "$(body_get 100)"
+
 body_set 100 "$append_body"
 : > "$MMW_TEST_READ_COUNT"
 export MMW_TEST_MUTATE_READS=2

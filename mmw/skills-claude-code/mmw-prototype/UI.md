@@ -50,7 +50,7 @@ UI mockup 的持久资产必须保存在 `mockup/`。应用源码只保留运行
 
 派发前提交当前任务分支。确认 worktree 干净。每个方向的结果分支名用它的 `变体 key` 作 slug。基点 SHA 用当前任务分支的 HEAD。把结果分支名和基点 SHA 写进对应 task。
 
-启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --from <基点 SHA>`，使用命令返回的 worktree 绝对路径。后台执行 `mmw dispatch prototype-worker --cwd <结果 worktree 绝对路径>`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
+启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --name <工作名> --from <基点 SHA>`，使用命令返回的 worktree 绝对路径。后台执行 `mmw dispatch prototype-worker --cwd <结果 worktree 绝对路径>`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 
 收到报告后，运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。命令通过后，在输出的 worktree 读取报告和 diff。按 `/mmw-verifying-agent-output` 验证结构差异、项目组件约束和可运行性。通过后运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。
 

@@ -295,7 +295,7 @@ mmw_issue_append() {
       fi
     done
 
-    if v2="$(mmw_issue_insert_lines "$v1" "$section" "${additions[@]}")"; then
+    if v2="$(mmw_issue_insert_lines "$v1" "$section" ${additions[@]+"${additions[@]}"})"; then
       rc=0
     else
       rc=$?

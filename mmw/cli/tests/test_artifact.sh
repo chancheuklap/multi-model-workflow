@@ -536,6 +536,8 @@ expect_error "sub 拒绝其他非法字符" "只能包含小写字母、数字�
   "$MMW" artifact path research --name release --sub 'topic$'
 expect_error "sub 拒绝中间空段" "空路径段" \
   "$MMW" artifact path research --name release --sub topic//detail
+expect_error "sub 拒绝换行" "不能包含换行" \
+  "$MMW" artifact path research --name probe --sub $'safe\n/../../../../../escape'
 
 echo
 echo "artifact list"

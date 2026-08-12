@@ -100,10 +100,23 @@ def test_三个宿主对同一个占位符给出各自的动作(假源: Path, tm
     assert len({产出["pi"], 产出["claude-code"], 产出["codex"]}) == 3
 
 
-def test_worktree_模式先建结果分支(假源: Path, tmp_path: Path) -> None:
-    out = tmp_path / "pi"
-    物化("pi", out)
-    assert "mmw task new" in 读(out, "mmw-alpha/SKILL.md")
+@pytest.mark.parametrize(
+    ("host", "启动命令"),
+    [
+        ("pi", "mmw task new <结果分支> \"<目标栏原文>\" --name <工作名> --from <基点 SHA>"),
+        ("claude-code", "mmw task new <结果分支> \"<目标栏原文>\" --name <工作名> --from <基点 SHA>"),
+        (
+            "codex",
+            "mmw task bind <完整结果分支名> <目标栏原文> --name <工作名> --from <基点 SHA>",
+        ),
+    ],
+)
+def test_worktree_模式的三个宿主都显式传工作名(
+    假源: Path, tmp_path: Path, host: str, 启动命令: str
+) -> None:
+    out = tmp_path / host
+    物化(host, out)
+    assert 启动命令 in 读(out, "mmw-alpha/SKILL.md")
 
 
 def test_none_模式不提工作目录(假源: Path, tmp_path: Path) -> None:
