@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 界面 QA 三个运行时依赖的唯一入口。
+# 界面 QA 四个运行时依赖的唯一入口。
 #
 # 为什么是一个独立命令，不是 mmw 的子命令：mmw 的准入判据（见 cli/mmw 开头）说
 # 一个动作要么是多请求编排、要么是护栏、要么是宿主机械差异的落点、要么是没有 API
@@ -9,7 +9,7 @@
 # 可配。技能正文写命令名，路径由这里当场算，跟技能正文写 `mmw artifact path` 而不写
 # `docs/specs/…` 是同一种做法。
 #
-#   mmw-ui-qa check                     三个依赖装没装、版本对不对
+#   mmw-ui-qa check                     四个依赖装没装、版本对不对
 #   mmw-ui-qa home                      打印依赖根目录（Node 脚本 require Playwright 时用）
 #   mmw-ui-qa browser <参数...>          转发到 Playwright 的命令行
 #   mmw-ui-qa design-lint <文件>         转发到设计系统格式校验器的 lint
@@ -26,7 +26,7 @@ usage() {
   cat >&2 <<'EOF'
 mmw-ui-qa <动作> [参数]
 
-  check                  三个依赖装没装、版本对不对
+  check                  四个依赖装没装、版本对不对
   home                   打印依赖根目录
   browser <参数...>       转发到浏览器自动化框架的命令行
   design-lint <文件>      转发到设计系统格式校验器；文件参数不能省

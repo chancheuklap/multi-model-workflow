@@ -40,6 +40,24 @@ skills = pathlib.Path(sys.argv[1])
 cli = pathlib.Path(sys.argv[2])
 names = {d.name for d in skills.iterdir() if d.is_dir()}
 
+# MMW 装进各宿主的外部技能也算数。名字取自 ui-qa/deps.json 里 kind 为 skill
+# 的那几条的 installName——那份声明就是安装脚本照着装的那一份，不是另抄的清单。
+# 声明里没有的名字照样判不存在。
+ui_qa_deps = cli.parent / 'ui-qa' / 'deps.json'
+if ui_qa_deps.is_file():
+    try:
+        declared = json.loads(ui_qa_deps.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"  失败  读不出 ui-qa/deps.json：{exc}")
+        sys.exit(1)
+    for entry in declared.get('packages', []):
+        if entry.get('kind') == 'skill':
+            install_name = entry.get('installName')
+            if not install_name:
+                print("  失败  ui-qa/deps.json 里 kind 为 skill 的条目缺 installName")
+                sys.exit(1)
+            names.add(install_name)
+
 # 真实命令表从 cli/mmw 的两层分发解析出来，不另抄一份——抄一份就会跟 CLI 走散。
 cli_src = (cli / 'mmw').read_text()
 TOP_CMDS = set(re.findall(r'^  ([a-z-]+)\) shift; ', cli_src, re.M))

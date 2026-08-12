@@ -260,7 +260,7 @@ install_mcp() {
   bash "$RUNTIME_ROOT/mmw/mcp/install-mcp.sh"
 }
 
-# 界面 QA 的三个运行时依赖，以及技能定位它们用的那个转发器。
+# 界面 QA 的四个运行时依赖，以及技能定位它们用的那个转发器。
 #
 # 依赖本身装在 runtime 外面（理由见 install-ui-qa-deps.sh 开头）。转发器跟 mmw 一样
 # 装进 BIN_DIR：技能正文只写命令名，路径由转发器当场算，因此 MMW_RUNTIME_HOME

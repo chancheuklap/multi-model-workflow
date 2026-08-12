@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# 界面 QA 的三个运行时依赖装配。
+# 界面 QA 的四个运行时依赖装配。
 #
 # 为什么要这一份：技能正文写的是能力名（浏览器自动化框架、可访问性规则引擎、
-# 设计系统格式校验器），中间隔着 deps.json 与 mmw-ui-qa 两层。两层任何一处走散，
+# 设计系统格式校验器、设计系统作者），中间隔着 deps.json 与安装脚本两层。任何一处走散，
 # 技能读起来完全正常，第一次运行才在起步第二步停下来。既有的十条测试没有一条
 # 碰 install.sh，所以这是本次真正新增的合同面。
 #
@@ -78,13 +78,26 @@ if [ -f "$DEPS_JSON" ]; then
   # 能力名是技能正文与这份声明之间的连接点，重复了就有一条永远取不到。
   check "能力名不重复" "true" \
     "$(jq -r '(.packages | map(.capability) | unique | length) == (.packages | length)' "$DEPS_JSON")"
-  # command 要 bin，source 要 source。写错类别时转发器会去找一个不存在的字段。
+  # command 要 bin，source 要 source，skill 要那四个取来源的字段。
+  # 写错类别时，装的那一步会去找一个不存在的字段。
   check "命令型声明都有 bin" "true" \
     "$(jq -r 'all(.packages[] | select(.kind == "command"); has("bin"))' "$DEPS_JSON")"
   check "脚本型声明都有 source" "true" \
     "$(jq -r 'all(.packages[] | select(.kind == "source"); has("source"))' "$DEPS_JSON")"
+  check "技能型声明都有取来源的四个字段" "true" \
+    "$(jq -r 'all(.packages[] | select(.kind == "skill");
+      has("repo") and has("tag") and has("repoPath") and has("installName"))' "$DEPS_JSON")"
   check "类别取值受限" "true" \
-    "$(jq -r 'all(.packages[].kind; IN("command", "source"))' "$DEPS_JSON")"
+    "$(jq -r 'all(.packages[].kind; IN("command", "source", "skill"))' "$DEPS_JSON")"
+  # tag 与 version 必须对得上。对不上就会按一个版本号去取另一个版本的内容，
+  # 而 check 拿装完的 SKILL.md 比对声明版本，下一次运行会一直判「版本不对」。
+  check "技能型的 tag 含它声明的版本号" "true" \
+    "$(jq -r '[.packages[] | select(.kind == "skill")
+      | . as $p | ($p.tag | contains($p.version))] | all' "$DEPS_JSON")"
+  # 只取仓库里的技能目录，不取整个 plugin：repoPath 指到 SKILL.md 所在那一层。
+  check "技能型的 repoPath 指向技能目录" "true" \
+    "$(jq -r '[.packages[] | select(.kind == "skill")
+      | . as $p | ($p.repoPath | endswith("/" + $p.installName))] | all' "$DEPS_JSON")"
 fi
 
 echo
