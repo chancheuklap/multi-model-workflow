@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""计算 `mmw artifact index` 的 Markdown 清单。"""
+"""计算 `mmw artifact index` 的 Markdown 清单。
+
+元数据使用与 `artifact_check.py` 相同的受限 YAML 子集。它支持 `---`
+元数据块、无缩进的唯一键、单行普通标量、无转义的单行引号字符串、行尾注释、
+纯十进制整数、`[]`、只含整数的流式列表，以及 `artifact_refs` 的两级映射列表。
+它不支持折叠或字面字符串、嵌套映射、其他列表、锚点、别名、标签、制表符，
+或多行和带转义的引号字符串。解析器会说明不支持的行和语法。
+"""
 
 from __future__ import annotations
 
@@ -10,12 +17,17 @@ import sys
 import tempfile
 from pathlib import Path
 
+from artifact_check import (
+    HistoricalDocument,
+    InvalidDeclaration,
+    ParsedFrontmatter,
+    parse_frontmatter as parse_artifact_frontmatter,
+)
 
 class ArtifactIndexError(Exception):
     """索引输入不符合元数据合同。"""
 
 
-FRONTMATTER_DELIMITER = "---"
 DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 ADR_FILENAME_PATTERN = re.compile(r"^(\d{4})-[a-z0-9][a-z0-9._-]*\.md$")
 TITLE_PATTERN = re.compile(r"^#\s+(.+?)\s*$")
@@ -27,53 +39,19 @@ def command_usage() -> int:
 
 
 def parse_frontmatter(path: Path, relative: str) -> tuple[dict[str, object], list[str]]:
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError as error:
-        raise ArtifactIndexError(f"无法读取 {relative}: {error.strerror}") from error
-
-    if not lines or lines[0] != FRONTMATTER_DELIMITER:
-        raise ArtifactIndexError(f"{relative}: 缺少 YAML 元数据块")
-
-    try:
-        closing = lines.index(FRONTMATTER_DELIMITER, 1)
-    except ValueError as error:
-        raise ArtifactIndexError(f"{relative}: YAML 元数据块没有结束标记") from error
-
-    metadata: dict[str, object] = {}
-    list_key: str | None = None
-    for line in lines[1:closing]:
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        if line[0].isspace():
-            if list_key is None:
-                raise ArtifactIndexError(f"{relative}: YAML 元数据块格式错误")
-            continue
-
-        if ":" not in line:
-            raise ArtifactIndexError(f"{relative}: YAML 元数据块格式错误")
-        key, raw_value = line.split(":", 1)
-        key = key.strip()
-        raw_value = raw_value.strip()
-        if not key or key in metadata:
-            raise ArtifactIndexError(f"{relative}: YAML 元数据块格式错误")
-        if raw_value:
-            metadata[key] = raw_value
-            list_key = None
-        else:
-            metadata[key] = []
-            list_key = key
-
-    return metadata, lines[closing + 1 :]
+    parsed = parse_artifact_frontmatter(path)
+    if isinstance(parsed, HistoricalDocument):
+        raise ArtifactIndexError(f"{relative}: {parsed.reason}")
+    if isinstance(parsed, InvalidDeclaration):
+        raise ArtifactIndexError(f"{relative}: {parsed.reason}")
+    if not isinstance(parsed, ParsedFrontmatter):
+        raise ArtifactIndexError(f"{relative}: 元数据块格式错误")
+    return parsed.metadata, parsed.body
 
 
 def required_string(metadata: dict[str, object], field: str, relative: str) -> str:
     value = metadata.get(field)
     if not isinstance(value, str) or not value:
-        raise ArtifactIndexError(f"{relative}: 缺少或无效的 {field}")
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
-        value = value[1:-1]
-    if not value:
         raise ArtifactIndexError(f"{relative}: 缺少或无效的 {field}")
     return value
 
@@ -86,27 +64,17 @@ def required_date(metadata: dict[str, object], relative: str) -> str:
 
 
 def required_number(metadata: dict[str, object], field: str, relative: str) -> int:
-    value = required_string(metadata, field, relative)
-    if not value.isdigit():
+    value = metadata.get(field)
+    if not isinstance(value, int):
         raise ArtifactIndexError(f"{relative}: 缺少或无效的 {field}")
-    return int(value)
+    return value
 
 
 def required_amends(metadata: dict[str, object], relative: str) -> list[int]:
     value = metadata.get("amends")
-    if not isinstance(value, str) or not value.startswith("[") or not value.endswith("]"):
+    if not isinstance(value, list) or any(not isinstance(item, int) for item in value):
         raise ArtifactIndexError(f"{relative}: 缺少或无效的 amends")
-    contents = value[1:-1].strip()
-    if not contents:
-        return []
-
-    amends: list[int] = []
-    for part in contents.split(","):
-        number = part.strip()
-        if not number.isdigit():
-            raise ArtifactIndexError(f"{relative}: 缺少或无效的 amends")
-        amends.append(int(number))
-    return amends
+    return value
 
 
 def title_from(lines: list[str], relative: str) -> str:
