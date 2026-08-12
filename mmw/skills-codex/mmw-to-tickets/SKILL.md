@@ -21,11 +21,13 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 | prototype | 上游引用时 | 索引、相关选中产物、明确相关的走查或长期证据 | 整个产物目录、无关过程材料；落选变体只在 ticket 必须落实其否定约束时读取 | 只传给消费该决定的 ticket |
 | research | 上游引用时 | research 索引和本批 ticket 需要的精确文件 | research 的上级目录、subagent 原始报告 | 只传给消费该事实的 ticket |
 
-prototype 和 research 只使用 spec 元数据块的 `artifact_refs`。每项先运行对应的 `mmw artifact path <类别> --name <工作名>` 命令。条目有 `issue` 或 `sub` 时，追加对应参数。只读取解析成功后点名的索引和文件。
+先读取 spec issue 正文的 `## 输入出处`。它提供 map 名称及其 URL 或编号，以及 prototype 与 research 的来源链。再读取 spec 元数据块的 `artifact_refs`。它提供下游要解析的产物引用。
+
+prototype 和 research 只使用 spec 元数据块的 `artifact_refs` 解析落点。每项先运行对应的 `mmw artifact path <类别> --name <工作名>` 命令。条目有 `issue` 或 `sub` 时，追加对应参数。只读取解析成功后点名的索引和文件。
 
 prototype 索引缺少问题、逐轮用户结论、选中产物、落选约束或长期证据时，回 `$mmw:mmw-prototype` 补齐；没有的项目写「无」。
 
-先读取 spec 元数据块的 `artifact_refs`。该键缺失时停止，说明缺少上游声明。按当前 ticket 实际需要的条目逐条传递。每条保留 `category`、`name`、可选 `issue` 和可选 `sub`。`name` 必须存在。没有要传递的条目时，ticket 写 `无`。
+`## 输入出处` 或 spec 元数据块的 `artifact_refs` 缺失时停止，说明缺少上游声明。按当前 ticket 实际需要的条目逐条传递。每条保留 `category`、`name`、可选 `issue` 和可选 `sub`。`name` 必须存在。没有要传递的条目时，ticket 写 `无`。
 
 ## 2. 检查现状与 prefactor
 

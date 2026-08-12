@@ -17,7 +17,7 @@
 
 开始改代码前，再读取当前目录适用的 `AGENTS.md`、领域文档和相关 ADR。领域文档是仓库根 `CONTEXT.md`；根上有 `CONTEXT-MAP.md` 时它是索引，按它找到本次相关的 leaf（在 `docs/context/` 下）。相关 ADR 在 `docs/adr/` 下。
 
-prototype 资产使用 task 点名的精确路径。不要递归读取产物目录，也不要自行吸收无关截图、runs、过程输出或落选变体。落选变体只在 prototype 资产索引显式引用其否定约束，而且本 ticket 需要检查该约束时读取。
+prototype 资产使用 task 点名的产物引用。解析成功后，只读取索引、选中产物和相关证据。不要递归读取产物目录，也不要自行吸收无关截图、runs、过程输出或落选变体。落选变体只在 prototype 资产索引显式引用其否定约束，而且本 ticket 需要检查该约束时读取。
 
 research 只读取 task 点名的 research 索引和精确文件。不要递归读取 research 的上级目录，不要把 subagent 原始报告或过期范围快照当成当前事实。
 

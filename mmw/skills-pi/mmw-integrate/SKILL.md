@@ -109,4 +109,4 @@ mmw artifact path review --sub integration-<日期>[-<序号>].md
 | 项目检查因本次集成失败且无法当场修复 | **停**：报告失败命令和引入失败的集成步骤 |
 | 用户要求合入一条尚未通过终审的分支 | **停**：说明该分支缺少终审；先让它跟上当前任务分支，或先运行 ⑤ final 终审 |
 
-**不是你建的树就不归你清。** 看这棵树在哪：路径在仓库的 `.worktrees/` 下，是 `mmw task new` 建的，等用户批准之后跑 `mmw task cleanup <当前任务 slug>`；在别处，是宿主给的，它会在任务归档后自己回收，你不要跑 `mmw task cleanup`。
+**不是你建的树就不归你清。** 看这棵树在哪：位于当前仓库 `.mmw.json` 的 `paths.worktrees` 下，是 `mmw task new` 建的，等用户批准之后跑 `mmw task cleanup <当前任务 slug>`；在别处，是宿主给的，它会在任务归档后自己回收，你不要跑 `mmw task cleanup`。

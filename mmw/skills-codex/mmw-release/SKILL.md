@@ -57,10 +57,9 @@ mmw release init --manifest <那份配置的绝对路径>
 
 ```bash
 git rev-parse HEAD
-cat "$(git rev-parse --path-format=absolute --git-common-dir | xargs dirname)"/.release/delivered/*.json
 ```
 
-交付记录落在**主仓库根**，不在当前这棵任务 worktree 里——它比对的是几次出包之间的 commit，worktree 收尾就删，落在树里的记录活不过一次任务。
+交付记录的工作目录根由当前仓库 `.mmw.json` 的 `paths.release` 决定。读取该配置值，再读取它下面 `delivered/` 中的记录。记录落在**主仓库根**，不在当前这棵任务 worktree 里——它比对的是几次出包之间的 commit，worktree 收尾就删，落在树里的记录活不过一次任务。
 
 这个目录里躺着历次出包的记录，一个产品一份、后一次盖前一次。**只看第 2 步清单上那几个产品的那几份**，其余的跟这一轮无关。它们的 `source_commit` 都等于当前 HEAD，才算这批包是同一份代码。
 

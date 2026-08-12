@@ -34,7 +34,6 @@ def load_config(artifacts_path, model_path):
 
     errors = []
     fixed_roots = []
-    workdir_defaults = []
     for category, record in sorted(artifacts.items()):
         if not isinstance(category, str) or not isinstance(record, dict):
             errors.append("artifacts.json 的类别名与记录必须有效")
@@ -48,21 +47,19 @@ def load_config(artifacts_path, model_path):
                 errors.append(f"类别 {category} 的固定根必须是字符串")
             elif root:
                 fixed_roots.append((category, root.rstrip("/") + "/"))
-        elif root_kind == "workdir":
-            if not isinstance(root, str) or not root:
-                errors.append(f"类别 {category} 的工作目录根必须是非空字符串")
-                continue
-            default = model["paths"].get(root)
-            if not isinstance(default, str) or not default:
-                errors.append(
-                    f"模型档 paths 缺少类别 {category} 的工作目录根 {root}")
-            else:
-                workdir_defaults.append((category, default))
+
+    workdir_defaults = []
+    for root in ("scratch", "reviews", "release", "worktrees"):
+        default = model["paths"].get(root)
+        if not isinstance(default, str) or not default:
+            errors.append(f"模型档 paths 缺少工作目录根 {root}")
+        else:
+            workdir_defaults.append((root, default))
 
     if not fixed_roots:
         errors.append("artifacts.json 没有可扫描的 active fixed 类别根")
     if not workdir_defaults:
-        errors.append("artifacts.json 没有可扫描的 active workdir 类别根")
+        errors.append("模型档 paths 没有可扫描的工作目录根")
     return (fixed_roots, workdir_defaults), errors
 
 
@@ -82,6 +79,11 @@ def check(skills_path, artifacts_path, model_path, output):
     fixed_rules = [
         (category, root, re.compile(re.escape(root) + r"<[^>\r\n]+>"))
         for category, root in fixed_roots
+    ]
+    workdir_rules = [
+        (category, default, re.compile(
+            r"(?<![\\w.-])" + re.escape(default) + r"(?=$|/|<)"))
+        for category, default in workdir_defaults
     ]
     findings = []
     scanned = 0
@@ -103,8 +105,8 @@ def check(skills_path, artifacts_path, model_path, output):
                     findings.append(
                         f"{relative}:{line_number} 规则一：类别 {category} 的固定根 "
                         f"{root} 后面紧跟占位符")
-            for category, default in workdir_defaults:
-                if default in line:
+            for category, default, pattern in workdir_rules:
+                if pattern.search(line):
                     findings.append(
                         f"{relative}:{line_number} 规则二：类别 {category} 的工作目录根 "
                         f"默认值 {default}")
@@ -185,6 +187,20 @@ def run_examples(artifacts_path, model_path):
             cases.append((f"工作目录根 {category} 后接占位符失败", status == 1 and
                           f"skill/SKILL.md:1 规则二：类别 {category}" in output))
 
+        release_root = model["paths"]["release"]
+        worktrees_root = model["paths"]["worktrees"]
+        skills = write_case(root / "legacy-workdir-literals", {
+            "mmw-release/SKILL.md": release_root + "/delivered/one.json\n",
+            "mmw-integrate/SKILL.md": worktrees_root + "/task-a\n",
+            "mmw-retrieval/building.md": worktrees_root + "/task-b\n",
+        })
+        status, output = capture_check(skills, fixture_artifacts, fixture_model)
+        cases.append(("规则二覆盖 release 与 worktrees 下的三个历史字面值",
+                      status == 1 and
+                      "mmw-release/SKILL.md:1 规则二：类别 release" in output and
+                      "mmw-integrate/SKILL.md:1 规则二：类别 worktrees" in output and
+                      "mmw-retrieval/building.md:1 规则二：类别 worktrees" in output))
+
         # 反例要以斜杠开头。空 root 没被跳过时，它的正则是 `/<…>`；
         # 一行不带前导斜杠的 `<占位符>` 在有 bug 的代码上也不命中，证明不了跳过生效。
         skills = write_case(root / "empty-fixed-root", {
@@ -205,15 +221,14 @@ def run_examples(artifacts_path, model_path):
                       "mmw-triage/examples.md" not in output))
 
         broken_model = copy.deepcopy(model)
-        broken_key = artifacts[next(
-            category for category, _ in workdir_defaults)]["root"]
+        broken_key = workdir_defaults[0][0]
         del broken_model["paths"][broken_key]
         broken_model_path = root / "broken-mmw.default.json"
         write_json(broken_model_path, broken_model)
         skills = write_case(root / "broken-data", {"skill/SKILL.md": "安全文本\n"})
         status, output = capture_check(skills, fixture_artifacts, broken_model_path)
         cases.append(("工作目录根缺少默认值失败", status == 1 and
-                      "模型档 paths 缺少类别" in output))
+                      "模型档 paths 缺少工作目录根" in output))
 
     failed = [name for name, passed in cases if not passed]
     for name, passed in cases:

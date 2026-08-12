@@ -28,8 +28,8 @@ description: 为已发布 spec 的每张 tracer bullet ticket 编排一份 plan�
 | spec | 始终 | 问题、方案、实现决定、合同边界和测试 seam | 其他 spec | spec 路径 |
 | ticket | 始终 | 目标、验收、阻塞关系和 plan 路径 | 其他 ticket | ticket 编号和 plan 路径 |
 | 产物引用 | ticket 有 `## 产物引用` 时 | 当前 ticket 实际需要的条目 | 其他 ticket 的条目 | 同一行键值形态 |
-| prototype | ticket 引用时 | 索引、选中产物、明确相关的走查或长期证据 | 整个产物目录、无关过程材料 | 精确路径；没有写「无 prototype 资产」 |
-| research | ticket 引用时 | research 索引和当前 ticket 使用的精确文件 | research 的上级目录、subagent 原始报告 | 精确路径；没有写「无 research」 |
+| prototype | ticket 引用时 | 索引、选中产物、明确相关的走查或长期证据 | 整个产物目录、无关过程材料 | 产物引用；没有写「无 prototype 资产」 |
+| research | ticket 引用时 | research 索引和当前 ticket 使用的精确文件 | research 的上级目录、subagent 原始报告 | 产物引用；没有写「无 research」 |
 
 prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 
@@ -73,7 +73,7 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 | 栏 | 本角色填写 |
 | --- | --- |
 | 目标 | 为 ticket `#<编号>` 写 plan。运行 ticket `## Plan` 一节的完整 `mmw artifact path plan --sub <两位编号>-<ticket短名>.md` 命令。把输出路径写进这一栏。`planner` 只认 task 里给的这一个落点 |
-| 读 | 按「1. 定 plan 清单」逐行列出当前 ticket 的精确路径。方法论不用列——`planner` 自带 `/mmw-planner` |
+| 读 | 列出 spec 与当前 ticket 的精确路径，并原样传递当前 ticket 的产物引用。`planner` 自己运行 `mmw artifact path` 解析。方法论不用列——`planner` 自带 `/mmw-planner` |
 | 约束 | 只写该 plan 文件；不提交；不认领 `## Cross-Plan Contract Anchors` 划给别人的文件；不写其他 plan 的正文 |
 | 验收 | plan 文件存在且可被抽验；`## Acceptance` 覆盖 ticket `#<编号>` 的全部验收（详见 issue，不抄正文） |
 
