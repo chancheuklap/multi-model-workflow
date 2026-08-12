@@ -50,7 +50,7 @@ mmw_config() {
   }
 }
 
-# 当前宿主：claude-code | pi | codex。宿主变量都没有时报错，不猜。
+# 当前宿主：claude-code | pi | grok | codex。宿主变量都没有时报错，不猜。
 mmw_host() {
   if [ -n "${MMW_HOST:-}" ]; then
     echo "$MMW_HOST"
@@ -58,11 +58,13 @@ mmw_host() {
     echo "claude-code"
   elif [ -n "${PI_CODING_AGENT:-}" ]; then
     echo "pi"
+  elif [ -n "${GROK_AGENT:-}" ]; then
+    echo "grok"
   elif [ -n "${CODEX_THREAD_ID:-}" ]; then
     echo "codex"
   else
-    echo "mmw: 认不出当前宿主（Claude Code、Pi 与 Codex 标识都没有）" >&2
-    echo "mmw: 要在别处跑，用 MMW_HOST=claude-code、pi 或 codex 显式指定" >&2
+    echo "mmw: 认不出当前宿主（Claude Code、Pi、Grok 与 Codex 标识都没有）" >&2
+    echo "mmw: 要在别处跑，用 MMW_HOST=claude-code、pi、grok 或 codex 显式指定" >&2
     return 1
   fi
 }
@@ -149,6 +151,25 @@ mmw_require_writable_cwd() {
     case "$branch" in
       codex/*) ;;
       *) echo "mmw: Codex 可写任务必须先绑定 codex/<slug> 分支：$cwd" >&2; return 1 ;;
+    esac
+    printf '%s\n' "$cwd"
+    return 0
+  fi
+  if [ "$host" = "grok" ]; then
+    git_dir="$(git -C "$cwd" rev-parse --path-format=absolute --git-dir 2>/dev/null)" || {
+      echo "mmw: 无法解析 $cwd 的 worktree 元数据" >&2
+      return 1
+    }
+    if [ "$git_dir" = "$common" ]; then
+      echo "mmw: Grok 可写任务必须使用宿主创建的 linked worktree，不是 Local checkout" >&2
+      return 1
+    fi
+    case "$cwd" in
+      "$HOME/.grok/worktrees/"*) ;;
+      *)
+        echo "mmw: Grok 可写任务的 --cwd 必须在 ${HOME}/.grok/worktrees/ 下，不是 $cwd" >&2
+        return 1
+        ;;
     esac
     printf '%s\n' "$cwd"
     return 0

@@ -149,6 +149,62 @@ def toml_scalar(value: str) -> str:
     return json.dumps(value)
 
 
+def grok_table(name: str, spec: dict) -> str:
+    lines = [f"[mcp_servers.{name}]"]
+    lines.append(f"command = {json.dumps(spec['command'])}")
+    if spec.get("args"):
+        args = ", ".join(json.dumps(item) for item in spec["args"])
+        lines.append(f"args = [{args}]")
+    env = spec.get("env") or {}
+    if env:
+        inner = ", ".join(f"{key} = {json.dumps(value)}" for key, value in env.items())
+        lines.append(f"env = {{ {inner} }}")
+    return "\n".join(lines) + "\n"
+
+
+def upsert_grok_config(path: Path, servers: dict[str, dict]) -> None:
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    for name, spec in servers.items():
+        block = grok_table(name, spec)
+        header = f"[mcp_servers.{name}]"
+        start = text.find(header)
+        if start < 0:
+            if text and not text.endswith("\n"):
+                text += "\n"
+            if text:
+                text += "\n"
+            text += block
+            continue
+        rest = text[start + len(header) :]
+        nxt = 0
+        while True:
+            nxt = rest.find("\n[", nxt)
+            if nxt < 0:
+                end = len(text)
+                break
+            after = rest[nxt + 2 :]
+            if after.startswith("["):
+                nxt += 2
+                continue
+            end = start + len(header) + nxt + 1
+            break
+        text = text[:start] + block + text[end:]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def grok_config_has_servers(path: Path, servers: dict[str, dict]) -> bool:
+    if not path.is_file():
+        return False
+    text = path.read_text(encoding="utf-8")
+    for name, spec in servers.items():
+        if f"[mcp_servers.{name}]" not in text:
+            return False
+        if spec["command"] not in text:
+            return False
+    return True
+
+
 def as_codex(servers: dict[str, dict]) -> str:
     lines = []
     for name, spec in servers.items():
@@ -163,7 +219,12 @@ def as_codex(servers: dict[str, dict]) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(add_help=True)
-    parser.add_argument("--format", choices=["raw", "pi", "cursor", "codex"])
+    parser.add_argument("--format", choices=["raw", "pi", "cursor", "codex", "grok"])
+    parser.add_argument(
+        "--merge-grok",
+        metavar="PATH",
+        help="把 Grok 格式的三台服务器合并进这份 config.toml",
+    )
     opts = parser.parse_args()
 
     if not MCP_JSON.is_file():
@@ -171,6 +232,10 @@ def main() -> int:
         return 2
 
     resolver = Resolver()
+    if opts.merge_grok:
+        servers = resolver.servers(want_type=False, keep_env_placeholders=False)
+        upsert_grok_config(Path(opts.merge_grok).expanduser(), servers)
+        return 0
     fmt = opts.format
     # 只有 pi 那一面的目标文件入库。codex 靠命令行注入、退出即无痕，raw 要拿真值去拉
     # 服务器做体检，Cursor 的配置不在任何仓库里。
@@ -180,7 +245,7 @@ def main() -> int:
 
     if fmt == "raw":
         print(json.dumps({"mcpServers": servers}, ensure_ascii=False, indent=2))
-    elif fmt in ("pi", "cursor"):
+    elif fmt in ("pi", "cursor", "grok"):
         print(json.dumps(servers, ensure_ascii=False, indent=2))
     elif fmt == "codex":
         text = as_codex(servers)

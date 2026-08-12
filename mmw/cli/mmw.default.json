@@ -9,22 +9,50 @@
     "worker": {
       "family": "gpt",
       "id": "gpt-5.6-terra",
-      "effort": "xhigh"
+      "effort": "xhigh",
+      "hosts": {
+        "grok": {
+          "family": "grok",
+          "id": "grok-4.6",
+          "effort": "high"
+        }
+      }
     },
     "worker-high-risk": {
       "family": "gpt",
       "id": "gpt-5.6-sol",
-      "effort": "high"
+      "effort": "high",
+      "hosts": {
+        "grok": {
+          "family": "grok",
+          "id": "grok-4.6",
+          "effort": "high"
+        }
+      }
     },
     "prototype-worker": {
       "family": "gpt",
       "id": "gpt-5.6-sol",
-      "effort": "medium"
+      "effort": "medium",
+      "hosts": {
+        "grok": {
+          "family": "grok",
+          "id": "grok-4.6",
+          "effort": "medium"
+        }
+      }
     },
     "planner": {
       "family": "gpt",
       "id": "gpt-5.6-sol",
-      "effort": "xhigh"
+      "effort": "xhigh",
+      "hosts": {
+        "grok": {
+          "family": "grok",
+          "id": "grok-4.6",
+          "effort": "high"
+        }
+      }
     },
     "investigator": {
       "family": "gpt",
@@ -35,18 +63,37 @@
           "family": "grok",
           "id": "grok-4.5",
           "effort": "high"
+        },
+        "grok": {
+          "family": "grok",
+          "id": "grok-4.6",
+          "effort": "high"
         }
       }
     },
     "designer": {
       "family": "gpt",
       "id": "gpt-5.6-sol",
-      "effort": "medium"
+      "effort": "medium",
+      "hosts": {
+        "grok": {
+          "family": "grok",
+          "id": "grok-4.6",
+          "effort": "medium"
+        }
+      }
     },
     "reviewer-gpt": {
       "family": "gpt",
       "id": "gpt-5.6-sol",
-      "effort": "xhigh"
+      "effort": "xhigh",
+      "hosts": {
+        "grok": {
+          "family": "grok",
+          "id": "grok-4.6",
+          "effort": "high"
+        }
+      }
     },
     "reviewer-claude": {
       "family": "grok",

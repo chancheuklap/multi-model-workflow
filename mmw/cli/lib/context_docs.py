@@ -788,7 +788,7 @@ def init_map(root: Path, config_path: Path) -> str:
 
 
 def check_contracts(root: Path, config_path: Path, host: str) -> CheckResult:
-    if host not in {"claude-code", "pi", "codex", "all"}:
+    if host not in {"claude-code", "pi", "codex", "grok", "all"}:
         fail("-", "invalid-config", f"无法识别宿主：{host}")
     domain = load_domain_config(root, config_path)
     ensure_unique_managed_targets(root, domain["map"])
@@ -823,7 +823,7 @@ def check_contracts(root: Path, config_path: Path, host: str) -> CheckResult:
 
 
 def sync_contracts(root: Path, config_path: Path, host: str) -> list[Target]:
-    if host not in {"claude-code", "pi", "codex", "all"}:
+    if host not in {"claude-code", "pi", "codex", "grok", "all"}:
         fail("-", "invalid-config", f"无法识别宿主：{host}")
     domain = load_domain_config(root, config_path)
     ensure_unique_managed_targets(root, domain["map"])

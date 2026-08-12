@@ -79,7 +79,7 @@ def 读(out: Path, rel: str) -> str:
 
 # ------------------------------------------------------------ 占位符整块替换
 
-@pytest.mark.parametrize("host", ["pi", "claude-code", "codex"])
+@pytest.mark.parametrize("host", ["pi", "claude-code", "codex", "grok"])
 def test_物化后不留任何未展开的标记(假源: Path, tmp_path: Path, host: str) -> None:
     out = tmp_path / host
     assert 物化(host, out) == 0
@@ -366,6 +366,74 @@ def test_只给人调的技能不进_pi_技能目录但进别的宿主(
     cc = tmp_path / "cc"
     物化("claude-code", cc)
     assert (cc / "mmw-alpha" / "SKILL.md").is_file()
+
+
+def test_grok_worktree_不含_task_new_且含隔离与_bind(
+    假源: Path, tmp_path: Path
+) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n"
+       "[[mmw-launch:worker:worktree]]\n")
+    out = tmp_path / "grok"
+    物化("grok", out)
+    正文 = 读(out, "mmw-alpha/SKILL.md")
+    assert "运行 `mmw task new`" not in 正文
+    assert "不要 `mmw task new`" in 正文
+    assert "worktree 隔离" in 正文
+    assert "mmw task bind" in 正文
+    assert "mmw dispatch" not in 正文
+    assert "grok -p" not in 正文
+    assert "主 agent 不得执行与该 subagent task 重叠的" in 正文
+
+
+def test_grok_none_与_current_不含_task_new(假源: Path, tmp_path: Path) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n"
+       "[[mmw-launch:worker:none]]\n[[mmw-launch:worker:current]]\n")
+    out = tmp_path / "grok"
+    物化("grok", out)
+    正文 = 读(out, "mmw-alpha/SKILL.md")
+    assert "mmw task new" not in 正文
+    assert "原生 subagent" in 正文
+    assert "当前任务 worktree" in 正文
+
+
+def test_grok_resume_含续跑(假源: Path, tmp_path: Path) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n[[mmw-resume:worker:worktree]]\n")
+    out = tmp_path / "grok"
+    物化("grok", out)
+    正文 = 读(out, "mmw-alpha/SKILL.md")
+    assert "resume_from" in 正文
+    assert "grok --resume" in 正文
+
+
+def test_grok_审查组双角色(假源: Path, tmp_path: Path) -> None:
+    正文 = 审查组("grok", 假源, tmp_path)
+    assert "reviewer-gpt" in 正文
+    assert "reviewer-claude" in 正文
+    assert "换不了模型" not in 正文
+
+
+def test_enter_worktree_现有宿主保持_task_new(假源: Path, tmp_path: Path) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n[[mmw-enter-worktree]]\n")
+    for host in ("pi", "claude-code"):
+        out = tmp_path / host
+        物化(host, out)
+        正文 = 读(out, "mmw-alpha/SKILL.md")
+        assert "mmw task new" in 正文
+        assert "切换到返回的绝对路径" in 正文
+    out = tmp_path / "codex"
+    物化("codex", out)
+    assert "mmw task new" not in 读(out, "mmw-alpha/SKILL.md") or \
+        "禁止 `mmw task new`" in 读(out, "mmw-alpha/SKILL.md")
+    out = tmp_path / "grok"
+    物化("grok", out)
+    正文 = 读(out, "mmw-alpha/SKILL.md")
+    assert "禁止 `mmw task new`" in 正文
+    assert "herdr worktree create" in 正文
+    assert "grok --worktree" in 正文
 
 
 def test_二进制文件原样复制(假源: Path, tmp_path: Path) -> None:

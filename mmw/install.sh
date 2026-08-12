@@ -254,6 +254,35 @@ install_cursor_agents() {
   fi
 }
 
+sync_grok_skills() {
+  local src dest name
+  src="$RUNTIME_ROOT/mmw/skills-grok"
+  dest="$HOME/.grok/skills"
+  mkdir -p "$dest"
+  for name in mmw-* wizard handoff wait-what to-questionnaire writing-for-agents; do
+    [ -d "$src/$name" ] || continue
+    rm -rf "$dest/$name"
+    cp -R "$src/$name" "$dest/$name"
+  done
+}
+
+install_grok() {
+  command -v grok >/dev/null 2>&1 || [ -d "$HOME/.grok" ] || {
+    echo "Grok     : 未安装，跳过"
+    return
+  }
+  "$RUNTIME_ROOT/mmw/cli/mmw" skills materialize --host grok
+  sync_grok_skills
+  "$RUNTIME_ROOT/mmw/cli/mmw" agents materialize --host grok
+  mkdir -p "$HOME/.grok/hooks"
+  cp "$RUNTIME_ROOT/mmw/toolchain/hooks/grok-stop.sh" \
+    "$HOME/.grok/hooks/mmw-toolchain-check.sh"
+  chmod 0755 "$HOME/.grok/hooks/mmw-toolchain-check.sh"
+  cp "$RUNTIME_ROOT/mmw/toolchain/hooks/grok-stop.json" \
+    "$HOME/.grok/hooks/mmw-toolchain.json"
+  echo "Grok     : 已装技能、角色、Stop hook"
+}
+
 install_mcp() {
   bash "$RUNTIME_ROOT/mmw/mcp/install-mcp.sh"
 }
@@ -267,6 +296,7 @@ install_codex
 install_claude_code
 install_pi
 install_cursor_agents
+install_grok
 install_mcp
 
 if [ -e "$RUNTIME_HOME/runtime.previous" ]; then

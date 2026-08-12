@@ -14,10 +14,11 @@
 | Claude Code | `mmw/.claude-plugin/plugin.json`、根 `.claude-plugin/marketplace.json` | 两份都有；根 marketplace 的插件版本与顶层版本各算一处 |
 | Pi | `mmw/package.json` | `mmw/package.json` |
 | Cursor（安装面） | `mmw agents materialize --host cursor` → `~/.cursor/agents/` | 无 |
+| Grok Build（安装面） | `mmw skills materialize --host grok`、`mmw agents materialize --host grok` → `~/.grok/skills/` 与 `~/.grok/agents/` | 无 |
 
-改产品版本时，上表「版本号位置」列的全部五处必须同步。
+改产品版本时，上表「版本号位置」列的全部五处必须同步。Grok 与 Cursor 没有 plugin 版本号。
 
-原生多模型宿主的 agent 文件不要手改 model 行。模型档只保存在 `mmw/cli/mmw.default.json`。修改模型档后，用 `mmw agents materialize` 更新 Pi 与 Cursor，并运行：
+原生多模型宿主的 agent 文件不要手改 model 行。模型档只保存在 `mmw/cli/mmw.default.json`。修改模型档后，用 `mmw agents materialize` 更新 Pi、Cursor 与 Grok，并运行：
 
 ```bash
 python3 mmw/codex/runtime.py materialize  # 更新 Codex plugin 与四个原生 subagent

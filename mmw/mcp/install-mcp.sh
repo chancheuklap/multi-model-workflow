@@ -7,8 +7,8 @@
 #   pi           package.json 的 pi 字段只收 extensions / skills / prompts，扩展接口
 #                也没有注册 MCP 的能力，所以只能写用户级的 ~/.pi/agent/mcp.json
 #   Cursor       它的插件规格同样没有 MCP 的位置，只能写用户级的 ~/.cursor/mcp.json。
-#                mmw 只接管它这三个检索工具，不往 Cursor 装技能和花名册——那两样是
-#                编排流程的一部分，Cursor 不是 mmw 的宿主
+#                mmw 只接管它这三个检索工具。
+#   Grok         用户级 ~/.grok/config.toml 的 [mcp_servers]
 #
 # 服务器定义的唯一事实来源是插件根的 .mcp.json，本脚本只做翻译，不另存一份清单。
 # 只读白名单在 Serena 服务器那一侧（config/serena-readonly.yml），在这里再列一遍就是第二处
@@ -33,12 +33,14 @@ SOURCE="$PLUGIN_ROOT/.mcp.json"
 PI_AGENT_DIR="${PI_CODING_AGENT_DIR:-${PI_HOME:-$HOME/.pi}/agent}"
 PI_MCP="${MMW_PI_MCP_FILE:-$PI_AGENT_DIR/mcp.json}"
 CURSOR_MCP="${MMW_CURSOR_MCP_FILE:-$HOME/.cursor/mcp.json}"
+GROK_CONFIG="${MMW_GROK_CONFIG_FILE:-$HOME/.grok/config.toml}"
 
 mode=install
 case "${1:-}" in
   --check) mode=check ;;
+  --check-grok) mode=check-grok ;;
   "") ;;
-  *) echo "用法: install-mcp.sh [--check]" >&2; exit 2 ;;
+  *) echo "用法: install-mcp.sh [--check|--check-grok]" >&2; exit 2 ;;
 esac
 
 [ -f "$SOURCE" ] || { echo "ERROR: 插件里没有 .mcp.json: $SOURCE" >&2; exit 2; }
@@ -167,12 +169,46 @@ install_face() {
   for n in $names; do echo "装好  $label $n → $file"; done
 }
 
+check_grok() {
+  if [ ! -d "$(dirname "$GROK_CONFIG")" ] && [ ! -e "$GROK_CONFIG" ]; then
+    echo "跳过  这台机器没有 grok（$(dirname "$GROK_CONFIG") 不在）"
+    return 0
+  fi
+  if python3 "$PLUGIN_ROOT/mcp/resolve.py" --format grok >/dev/null \
+     && python3 - "$GROK_CONFIG" "$PLUGIN_ROOT" <<'PY'
+import json, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[2] + "/mcp")
+import resolve as r
+servers = r.Resolver().servers(want_type=False, keep_env_placeholders=False)
+sys.exit(0 if r.grok_config_has_servers(Path(sys.argv[1]), servers) else 1)
+PY
+  then
+    echo "已装  grok 三台检索服务器 → $GROK_CONFIG"
+    return 0
+  fi
+  echo "未装  grok 的 $GROK_CONFIG 缺三台检索服务器（或与插件当前定义不一致）" >&2
+  return 1
+}
+
+install_grok() {
+  if [ ! -d "$(dirname "$GROK_CONFIG")" ] && [ ! -e "$GROK_CONFIG" ]; then
+    echo "跳过  这台机器没有 grok（$(dirname "$GROK_CONFIG") 不在）"
+    return 0
+  fi
+  python3 "$PLUGIN_ROOT/mcp/resolve.py" --merge-grok "$GROK_CONFIG" || return 2
+  echo "装好  grok serena/graphify/context7 → $GROK_CONFIG"
+}
+
 rc=0
 if [ "$mode" = check ]; then
   check_face pi "$PI_MCP" || rc=1
   check_face cursor "$CURSOR_MCP" || rc=1
+elif [ "$mode" = check-grok ]; then
+  check_grok || rc=1
 else
   install_face pi "$PI_MCP" || rc=$?
   install_face cursor "$CURSOR_MCP" || rc=$?
+  install_grok || rc=$?
 fi
 exit "$rc"
