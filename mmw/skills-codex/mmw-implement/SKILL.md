@@ -9,6 +9,8 @@ description: 派 `worker` 落地已准备好的工作。用于完整的 `ready-f
 
 ## 流程
 
+第 1 步只做一次。第 2 到第 5 步是循环体：一张 ticket 一轮，关票之后回第 2 步。这批 ticket 全部关闭，才进入第 6、7 步。
+
 ### 1. 确认前置条件
 
 先确认这次需求出自哪里：
@@ -27,6 +29,10 @@ description: 派 `worker` 落地已准备好的工作。用于完整的 `ready-f
 | agent brief 分支的行为合同完整 | 原 issue 的 agent brief 有当前行为、目标行为、可独立验证的 `Acceptance criteria`、范围边界和且仅一个 `Test seam`；整项工作可以作为一张 ticket 独立验收，而且没有未决设计取舍 | 缺字段就回 `$mmw:mmw-triage` 补；需要多张 ticket、多个 seam 或设计取舍就转 `$mmw:mmw-to-spec` |
 | ticket 存在 | spec 分支：`mmw issue children <spec issue 编号>` 有输出；agent brief 分支：带 agent brief 的原 issue 就是这张 ticket | spec 分支先跑 `$mmw:mmw-to-tickets`；agent brief 分支回 `$mmw:mmw-triage` 补齐或修正 issue |
 | 这张 ticket 的 plan 已提交 | 路径写在这张 ticket 正文的 `## Plan` 一节里，照它跑 `git cat-file -e "HEAD:<那条路径>"` | 先跑 `$mmw:mmw-to-plan`。走 agent brief 那条路的需求没有 plan 这一层，这一行不适用 |
+
+## 循环：一张 ticket 一轮
+
+第 2 到第 5 步是一轮。一轮做完一张 ticket，回到第 2 步取下一张。
 
 ### 2. 取下一张 ticket
 
@@ -130,13 +136,33 @@ ticket 涉及界面时，还要完成浏览器验收：
 
 `mmw task cleanup` 有两道拒绝：结果分支还没合进当前任务分支，或者那棵树里有未提交改动。撞上任何一条，保留这棵树，报出是哪一条，回到本步开头重做集成。
 
-关票可能解锁新批次：spec 分支回第 2 步，按那里的判据决定是移交 `$mmw:mmw-to-plan` 写新批次的 plan，还是继续取下一张。agent brief 分支只有这一张，直接进入第 7 步。
+**这一轮到此结束。判定还有没有下一轮**，spec 分支运行：
+
+```bash
+mmw issue children <spec issue 编号>
+```
+
+| `children` 输出 | 去哪 |
+| --- | --- |
+| 有 open 行，其中有带 `ready-for-agent` 的 | **回第 2 步**取下一张 |
+| 有 open 行，但都不带 `ready-for-agent` | **移交 `$mmw:mmw-to-plan`** 写这一批的 plan，写完回本技能第 2 步 |
+| 没有 open 行 | 这批 ticket 全部落地，进入第 6 步 |
+
+**`children` 只要还有 open 行，就不许进入第 6 步和第 7 步。** frontier 这一刻为空不算数：下一批次的 plan 还没写时，那些 ticket 就是 open 而且没有 `ready-for-agent`，它们在等你回第 2 步。
+
+agent brief 分支只有这一张 ticket，不跑 `children`，直接进入第 7 步。
+
+## 这批 ticket 全部关闭之后
+
+循环到此结束。下面两步整批做一次，不逐张做。
 
 ### 6. spec 分支全部落地后验证合同
 
 本节只适用于有 spec 的分支。agent brief 分支没有跨 plan 合同，跳到第 7 步。
 
-每张 ticket 都关闭、改动都在任务分支上之后，按 `$mmw:mmw-review` 的 **④ 合同门**验证一次：spec 的 `## Cross-Plan Contract Anchors` 一节里每条跨 plan 合同，在合并后的代码里真兑现了。
+**进入本步前再确认一次这批 ticket 真的全部关闭了**：运行 `mmw issue children <spec issue 编号>`，输出里没有 open 行。有 open 行就回第 5 步末尾那张判定表，按它的三个分支走。
+
+改动都在任务分支上之后，按 `$mmw:mmw-review` 的 **④ 合同门**验证一次：spec 的 `## Cross-Plan Contract Anchors` 一节里每条跨 plan 合同，在合并后的代码里真兑现了。
 
 逐条要查什么、合同条数多时怎么把取证派出去，见 `$mmw:mmw-review` 目录里的 `self-review.md`。**这一道也不派审查者**。
 
@@ -157,11 +183,11 @@ spec 分支通过合同门，或者 agent brief 分支完成第 5 步后，按 `
 
 ## 下一步
 
+循环内部的路由不在这张表里，在第 5 步末尾那张判定表。这张表只管走完整个技能之后去哪。
+
 | 情况 | 下一步 |
 | --- | --- |
-| spec 分支第 5 步三关都过，还有 open ticket | **自己继续**：回第 2 步，按那里的判据取下一张或移交 `$mmw:mmw-to-plan` 写新批次 |
-| 第 2 步存在待写 plan 的批次 | **移交**：`$mmw:mmw-to-plan`，写完新批次的 plan 再回来 |
-| spec 分支的 ticket 全部关闭了 | **自己继续**：走第 6 步验证合同，过了再走第 7 步发起 ⑤ final 终审 |
+| spec 分支 `mmw issue children <spec issue 编号>` 输出里没有 open 行 | **自己继续**：走第 6 步验证合同，过了再走第 7 步发起 ⑤ final 终审 |
 | agent brief 分支第 5 步三关都过，原 issue 已关闭 | **自己继续**：跳过第 6 步，走第 7 步发起 ⑤ final 终审 |
 | 第 6 步有合同 grep 不到行号 | **自己继续**：按第 6 步的路由发回原 `worker` 或派修复 ticket；修复仍失败才停，报是哪条合同、提供方或消费方缺在哪 |
 | 审出了采信的 findings | **自己继续**：按第 7 步一次性修复并验证；有一条没修好就停，不再审 |
