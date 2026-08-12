@@ -28,8 +28,14 @@ mmw_artifact_validate_segment() {
   mmw_path_safe_segment "$value" "$label" "mmw artifact:"
 }
 
+mmw_artifact_fixed_sub_is_file() {
+  local fixed="$1" basename
+  basename="${fixed##*/}"
+  [[ "$basename" =~ \.[a-z0-9][a-z0-9._-]*$ ]]
+}
+
 mmw_artifact_validate_sub() {
-  local sub="$1" segment
+  local sub="$1" record="$2" segment index=0 last_index
   local -a segments
   if [[ "$sub" == *$'\n'* ]]; then
     mmw_artifact_error "--sub 不能包含换行"
@@ -41,8 +47,22 @@ mmw_artifact_validate_sub() {
   fi
   local IFS='/'
   read -r -a segments <<< "$sub"
+  last_index=$((${#segments[@]} - 1))
   for segment in "${segments[@]}"; do
-    mmw_artifact_validate_segment "$segment" "--sub 的路径段" || return 1
+    if jq -e --arg segment "$segment" '.sub_fixed | index($segment) != null' <<< "$record" >/dev/null; then
+      if [ "$index" -ne "$last_index" ] && mmw_artifact_fixed_sub_is_file "$segment"; then
+        mmw_artifact_error "--sub 的文件名后面不能接路径段：$segment"
+        return 1
+      fi
+    else
+      if jq -e --arg segment "$segment" \
+        '[.sub_fixed[] | ascii_downcase] | index($segment) != null' <<< "$record" >/dev/null; then
+        mmw_artifact_error "--sub 不能用固定取值的大小写变体：$segment"
+        return 1
+      fi
+      mmw_artifact_validate_segment "$segment" "--sub 的路径段" || return 1
+    fi
+    index=$((index + 1))
   done
 }
 
@@ -57,7 +77,7 @@ mmw_artifact_path() {
   local category="${1:-}" record status term root root_kind
   local name="" issue="" sub="" absolute=false
   local name_given=false issue_given=false sub_given=false
-  local has_name allows_scope sub_naming fixed_count fixed_first pattern
+  local has_name allows_scope sub_naming fixed_count fixed_first fixed_last pattern
   local scope="" relative="" result="" part
   local task_state task_kind task_branch task_head task_name task_extra
 
@@ -173,7 +193,8 @@ mmw_artifact_path() {
   fi
 
   fixed_count="$(jq -r '.sub_fixed | length' <<< "$record")"
-  if [ "$sub_given" = false ] && [ "$fixed_count" -eq 1 ]; then
+  sub_naming="$(jq -r '.sub_naming' <<< "$record")"
+  if [ "$sub_given" = false ] && [ "$fixed_count" -eq 1 ] && [ "$sub_naming" != "ad-hoc" ]; then
     sub="$(jq -r '.sub_fixed[0]' <<< "$record")"
   elif [ "$sub_given" = false ]; then
     mmw_artifact_error "$category 要 --sub <类别内细分>"
@@ -183,9 +204,13 @@ mmw_artifact_path() {
   if jq -e --arg sub "$sub" '.sub_fixed | index($sub) != null' <<< "$record" >/dev/null; then
     :
   else
-    mmw_artifact_validate_sub "$sub" || return 1
+    mmw_artifact_validate_sub "$sub" "$record" || return 1
     fixed_first="${sub%%/*}"
-    if [ "$fixed_count" -gt 1 ] && jq -e --arg first "$fixed_first" '.sub_fixed | index($first) != null' <<< "$record" >/dev/null; then
+    fixed_last="${sub##*/}"
+    if jq -e --arg last "$fixed_last" '.sub_fixed | index($last) != null' <<< "$record" >/dev/null && \
+      mmw_artifact_fixed_sub_is_file "$fixed_last"; then
+      :
+    elif [ "$fixed_count" -gt 1 ] && jq -e --arg first "$fixed_first" '.sub_fixed | index($first) != null' <<< "$record" >/dev/null; then
       :
     else
       pattern="$(jq -r '.sub_pattern // empty' <<< "$record")"
@@ -195,7 +220,7 @@ mmw_artifact_path() {
           mmw_artifact_error "$category 的 --sub 不匹配允许的模式"
           return 1
         fi
-      elif [ "$fixed_count" -gt 0 ]; then
+      elif [ "$fixed_count" -gt 0 ] && [ "$sub_naming" != "ad-hoc" ]; then
         mmw_artifact_error "$category 的 --sub 不在允许的取值：$(mmw_artifact_allowed_subs "$record")"
         return 1
       fi
@@ -231,7 +256,6 @@ mmw_artifact_path() {
   fi
   printf '%s\n' "$result"
 
-  sub_naming="$(jq -r '.sub_naming' <<< "$record")"
   if [ "$sub_naming" = "ad-hoc" ]; then
     echo "mmw artifact: 这一类的名字当场取，写第一个文件之前先列一次父目录" >&2
   fi
@@ -320,7 +344,7 @@ mmw_artifact_list() {
           sub="${BASH_REMATCH[2]}"
         fi
         [ -n "$sub" ] || continue
-        mmw_artifact_validate_sub "$sub" > /dev/null 2>&1 || continue
+        mmw_artifact_validate_sub "$sub" "$record" > /dev/null 2>&1 || continue
         if [ -n "$issue" ]; then
           printf '%s\n' "- category=$category name=$name issue=$issue sub=$sub"
         else
@@ -344,19 +368,23 @@ mmw_artifact_list() {
 }
 
 mmw_artifact_index() {
+  local repo_root
   if [ "$#" -ne 1 ]; then
     echo "mmw artifact: 用法是 mmw artifact index <类别>；类别只能是 adr 或 spec" >&2
     return 2
   fi
 
-  python3 "$MMW_ROOT/cli/lib/artifact_index.py" "$1" "$(mmw_repo_root)" "$MMW_ARTIFACT_DATA"
+  repo_root="$(mmw_repo_root)" || return 1
+  python3 "$MMW_ROOT/cli/lib/artifact_index.py" "$1" "$repo_root" "$MMW_ARTIFACT_DATA"
 }
 
 mmw_artifact_check() {
+  local repo_root
   if [ "$#" -ne 0 ]; then
     usage_artifact
   fi
 
+  repo_root="$(mmw_repo_root)" || return 1
   python3 "$MMW_ROOT/cli/lib/artifact_check.py" \
-    "$(mmw_repo_root)" "$MMW_ROOT/cli/mmw" "$MMW_ARTIFACT_DATA"
+    "$repo_root" "$MMW_ROOT/cli/mmw" "$MMW_ARTIFACT_DATA"
 }

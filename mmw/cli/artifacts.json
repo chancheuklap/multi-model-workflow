@@ -30,7 +30,7 @@
     "has_name": true,
     "allows_scope": true,
     "sub_naming": "ad-hoc",
-    "sub_fixed": [],
+    "sub_fixed": ["README.md"],
     "sub_pattern": null,
     "status": "active",
     "answered_by": null
@@ -42,7 +42,7 @@
     "has_name": true,
     "allows_scope": true,
     "sub_naming": "ad-hoc",
-    "sub_fixed": [],
+    "sub_fixed": ["README.md"],
     "sub_pattern": null,
     "status": "active",
     "answered_by": null
