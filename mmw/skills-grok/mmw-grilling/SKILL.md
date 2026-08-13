@@ -63,7 +63,7 @@ frontier 为空后，总结已经谈定的问题、约束、决定、取舍和�
 
 第一件：先运行 `mmw task state`。第一个词是 `bound` 时，运行 `mmw task name` 取工作名。
 
-输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。输出是 `local` 时，先分别确定任务分支名和工作名。禁止 `mmw task new`。在 Herdr（`HERDR_ENV=1`）里：新树用 `herdr worktree create --path ~/.grok/worktrees/<repo>/<slug>`，在该路径启动 `grok`，再运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。已有树则把新窗格的 cwd 指到那条路径再启动，同样 bind。不在 Herdr 且还没有树时，请用户用 `grok --worktree=<slug>` 开新会话，再 bind。不要 `git worktree add`。不要用终端 `cd` 代替把会话放进树。
+输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。输出是 `local` 时，先分别确定任务分支名和工作名。停。请用户用 `grok --worktree=<任务分支名>` 或 `-w` 开新会话。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。禁止 `git worktree add`。禁止用终端 `cd` 代替把会话放进树。
 输出是 `outside` 时，向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`。
 
 两种建树动作之后都重新运行 `mmw task state`。第一个词确认是 `bound` 后，运行 `mmw task name` 取工作名。

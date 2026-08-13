@@ -175,10 +175,12 @@ def test_enter_worktree_按宿主展开(假源: Path, tmp_path: Path) -> None:
     assert 产出["pi"] == 产出["claude-code"]
     assert "mmw task new" not in 产出["codex"]
     assert "mmw task bind" in 产出["codex"]
-    assert "mmw task new" not in 产出["cursor"]
-    assert "mmw-cursor-agent" in 产出["cursor"]
+    assert "运行 `mmw task new" not in 产出["cursor"]
+    assert "禁止 `mmw task new`" in 产出["cursor"]
     assert "New Worktree" in 产出["cursor"]
-    assert "mmw task bind" in 产出["cursor"]
+    assert "禁止 `herdr worktree create`" in 产出["cursor"]
+    assert "新树用 `herdr worktree create`" not in 产出["cursor"]
+    assert "停" in 产出["cursor"]
 
 
 @pytest.mark.parametrize("cwd_mode", ["worktree", "current", "none"])
@@ -482,8 +484,16 @@ def test_enter_worktree_现有宿主保持_task_new(假源: Path, tmp_path: Path
     物化("grok", out)
     正文 = 读(out, "mmw-alpha/SKILL.md")
     assert "禁止 `mmw task new`" in 正文
-    assert "herdr worktree create" in 正文
+    assert "禁止 `herdr worktree create`" in 正文
+    assert "新树用 `herdr worktree create`" not in 正文
     assert "grok --worktree" in 正文
+    assert "停" in 正文
+    out = tmp_path / "cursor"
+    物化("cursor", out)
+    正文 = 读(out, "mmw-alpha/SKILL.md")
+    assert "New Worktree" in 正文
+    assert "禁止 `herdr worktree create`" in 正文
+    assert "新树用 `herdr worktree create`" not in 正文
 
 
 @pytest.mark.parametrize("host", ["pi", "claude-code", "codex"])
