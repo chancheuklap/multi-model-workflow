@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名，记下它 |
 | `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。重新运行 `mmw task state`。确认输出是 `bound`。再运行 `mmw task name` 取工作名 |
-| `local` | 你在主检出里 | 停。请用户用 `grok --worktree=<任务分支名>` 或 `-w` 开新会话。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。禁止 `git worktree add`。禁止用终端 `cd` 代替把会话放进树。 |
+| `local` | 你在主检出里 | 停。请用户用 `grok --worktree=<任务分支名>` 或 `-w` 开新会话。本技能上文点名了父分支时，启动命令加上 `--worktree-ref=<父分支>`。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。禁止 `git worktree add`。禁止用终端 `cd` 代替把会话放进树。 |
 | `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
 
 两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
@@ -78,4 +78,4 @@
 | 情况 | 下一步 |
 | --- | --- |
 | 第 2 步没有发现 fog | **停**：说明路线已经清楚、不需要 map，询问用户接下来怎样进行 |
-| map、当前能够精确表述的 ticket 和 blocking edge 已建立，research 已全部交回并提交 | **停**：报告 destination、工作名、map 名称和当前 frontier 上的 ticket 名称，并说明每张 decision ticket 使用一个新会话 |
+| map、当前能够精确表述的 ticket 和 blocking edge 已建立，research 已全部交回并提交 | **停**：报告 destination、工作名、map 名称和当前 frontier 上的 ticket 名称，并说明每张 decision ticket 使用一个新会话。同时列出每张 frontier ticket 的任务 slug，并写明父分支是 map 分支。不要 claim 这些 ticket |

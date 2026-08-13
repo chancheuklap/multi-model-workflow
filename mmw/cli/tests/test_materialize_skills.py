@@ -487,11 +487,13 @@ def test_enter_worktree_现有宿主保持_task_new(假源: Path, tmp_path: Path
     assert "禁止 `herdr worktree create`" in 正文
     assert "新树用 `herdr worktree create`" not in 正文
     assert "grok --worktree" in 正文
+    assert "--worktree-ref=<父分支>" in 正文
     assert "停" in 正文
     out = tmp_path / "cursor"
     物化("cursor", out)
     正文 = 读(out, "mmw-alpha/SKILL.md")
     assert "New Worktree" in 正文
+    assert "基点用该父分支" in 正文
     assert "禁止 `herdr worktree create`" in 正文
     assert "新树用 `herdr worktree create`" not in 正文
 

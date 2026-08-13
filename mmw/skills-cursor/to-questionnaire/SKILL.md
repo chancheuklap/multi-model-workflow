@@ -25,7 +25,7 @@ description: 把当前用户无法回答的问题整理成给知识持有者填�
 
 输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。
 
-输出是 `local` 时，先分别确定任务分支名和工作名。停。请用户在 Agents Window 用 New Worktree 开新会话，树名用任务分支名。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。
+输出是 `local` 时，先分别确定任务分支名和工作名。停。请用户在 Agents Window 用 New Worktree 开新会话，树名用任务分支名。本技能上文点名了父分支时，基点用该父分支。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。
 
 输出是 `outside` 时，向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`。
 

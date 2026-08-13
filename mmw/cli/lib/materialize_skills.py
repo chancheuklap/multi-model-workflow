@@ -88,6 +88,7 @@ ENTER_WORKTREE_CODEX = (
 )
 ENTER_WORKTREE_CURSOR = (
     "停。请用户在 Agents Window 用 New Worktree 开新会话，树名用任务分支名。"
+    "本技能上文点名了父分支时，基点用该父分支。"
     "把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。"
     "新会话重新调用本技能，按 `detached` 行 bind。"
     "禁止 `mmw task new`。"
@@ -95,6 +96,7 @@ ENTER_WORKTREE_CURSOR = (
 )
 ENTER_WORKTREE_GROK = (
     "停。请用户用 `grok --worktree=<任务分支名>` 或 `-w` 开新会话。"
+    "本技能上文点名了父分支时，启动命令加上 `--worktree-ref=<父分支>`。"
     "把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。"
     "新会话重新调用本技能，按 `detached` 行 bind。"
     "禁止 `mmw task new`。"

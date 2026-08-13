@@ -186,7 +186,7 @@ Grok 没有内置浏览器。Grok 的 `PostToolUse` hook 忽略 stdout。能把�
 - Pi：现有 `mmw task new`，再用返回路径作 cwd
 - Claude Code：现有 `mmw task new`，再 `EnterWorktree`
 - Codex：禁止 `task new`；已在树上则 `bind`
-- Grok：禁止 `task new`。当前会话在主检出时停。请用户用 `grok --worktree=<slug>` 或 `-w` 开新会话。新会话按 `detached` 行 `bind`。禁止 `herdr worktree create`。禁止 `git worktree add`。禁止用终端 `cd` 代替把会话放进树。
+- Grok：禁止 `task new`。当前会话在主检出时停。请用户用 `grok --worktree=<slug>` 或 `-w` 开新会话。上文点名了父分支时，启动命令加上 `--worktree-ref=<父分支>`。新会话按 `detached` 行 `bind`。禁止 `herdr worktree create`。禁止 `git worktree add`。禁止用终端 `cd` 代替把会话放进树。
 
 Grok 会话必须在任务 worktree 里启动。不要先在主检出启动再改目录。Serena 按启动时的当前目录认项目。不改 Serena 的共享配置。
 
