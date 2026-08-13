@@ -162,35 +162,62 @@ def grok_table(name: str, spec: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def table_header(line: str) -> str | None:
+    """这一行是表头就返回表名，否则返回 None。`[[a.b]]` 与 `[a.b]` 都返回 `a.b`。"""
+    text = line.strip()
+    if not text.startswith("[") or not text.endswith("]"):
+        return None
+    if text.startswith("[["):
+        return text[2:-2].strip() if text.endswith("]]") else None
+    return text[1:-1].strip()
+
+
+def owns_table(table: str, name: str) -> bool:
+    """这个表属于服务器 name 自己：`mcp_servers.name` 或它的子表。"""
+    root = f"mcp_servers.{name}"
+    return table == root or table.startswith(root + ".")
+
+
 def upsert_grok_config(path: Path, servers: dict[str, dict]) -> None:
+    """把三台服务器写进 Grok 的 config.toml，保留文件里其他内容。
+
+    整块替换，而且连子表一起替换：Grok 自己保存配置时会把 `env = { … }` 内联表
+    改写成 `[mcp_servers.<name>.env]` 子表。只替换到子表前面就会留下那份子表，
+    加上新写的内联 env，同一个 key 出现两次，Grok 下次启动报 duplicate key。
+
+    按行找表头，不做完整 TOML 解析。config.toml 里出现以 `[` 起头的多行字符串
+    时这个判断会错——这份文件由 Grok 和本函数写，两边都不产生那种值。
+    """
     text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    if text and not text.endswith("\n"):
+        text += "\n"
     for name, spec in servers.items():
-        block = grok_table(name, spec)
-        header = f"[mcp_servers.{name}]"
-        start = text.find(header)
-        if start < 0:
-            if text and not text.endswith("\n"):
-                text += "\n"
-            if text:
-                text += "\n"
-            text += block
-            continue
-        rest = text[start + len(header) :]
-        nxt = 0
-        while True:
-            nxt = rest.find("\n[", nxt)
-            if nxt < 0:
-                end = len(text)
-                break
-            after = rest[nxt + 2 :]
-            if after.startswith("["):
-                nxt += 2
-                continue
-            end = start + len(header) + nxt + 1
-            break
-        text = text[:start] + block + text[end:]
+        text = replace_grok_server(text, name, grok_table(name, spec))
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def replace_grok_server(text: str, name: str, block: str) -> str:
+    kept: list[str] = []
+    insert_at: int | None = None
+    dropping = False
+    for line in text.splitlines(keepends=True):
+        table = table_header(line)
+        if table is not None:
+            dropping = owns_table(table, name)
+            if dropping and insert_at is None:
+                insert_at = len(kept)
+        if not dropping:
+            kept.append(line)
+    if insert_at is None:
+        if kept and kept[-1].strip():
+            kept.append("\n")
+        kept.append(block)
+        return "".join(kept)
+    if insert_at < len(kept) and kept[insert_at].strip():
+        block += "\n"
+    kept.insert(insert_at, block)
+    return "".join(kept)
 
 
 def grok_config_has_servers(path: Path, servers: dict[str, dict]) -> bool:
