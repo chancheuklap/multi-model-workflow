@@ -54,7 +54,7 @@ agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一
 
 第 3 到第 5 步对每张 ticket 各走一遍。派发可以一次派完，**第 5 步的验收由你逐张亲手做，不能并行**。
 
-集成也是逐张做的：先合入的那份进任务分支，后面几份合入时才可能撞上冲突。`mmw result integrate` 撞上冲突会当场失败并留下冲突状态——那时按 `/mmw-integrate` 处理，不要自己硬合。
+集成也是逐张做的：先合入的那份进任务分支，后面几份合入时才可能撞上冲突。`mmw result integrate` 撞上冲突会当场失败，并把冲突状态留在工作区——那时按 `/mmw-integrate` 处理，不要自己动手改冲突文件。
 
 ### 3. 写派工 task
 

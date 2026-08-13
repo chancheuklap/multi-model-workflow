@@ -89,7 +89,7 @@ _Avoid_: decision ticket、任务包、横向层任务
 _Avoid_: spec、tracer bullet ticket、路线图
 
 **批次**：
-某一时刻，还没有 `ready-for-agent` 标签的全部 open tracer bullet ticket，减去那些 plan 要描述的当前行为会被同批次另一张 ticket 改写的。成员资格看这两个判据，不看阻塞关系——阻塞决定谁先实现，不决定谁先写 plan。`/mmw-to-plan` 一次为一个批次写 plan；`/mmw-implement` 关票解锁新批次后交回 `/mmw-to-plan`。
+某一时刻，还没有 `ready-for-agent` 标签、而且现在就写得出 plan 的那些 open tracer bullet ticket。现在写不写得出，看写它的 plan 要知道的上游情况在 spec 的 `## Cross-Plan Contract Anchors` 里找不找得到；只有等上游代码做出来才知道的，进下一批。阻塞关系不参与判定，它决定谁先实现。`/mmw-to-plan` 一次为一个批次写 plan；`/mmw-implement` 关票解锁新批次后交回 `/mmw-to-plan`。
 _Avoid_: frontier、全部 ticket、plan 清单
 
 **任务包**：
