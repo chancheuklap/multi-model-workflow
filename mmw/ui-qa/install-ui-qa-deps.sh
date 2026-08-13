@@ -186,6 +186,10 @@ done < <(jq -r '.packages[] | select(.kind == "skill")
 
 # 技能要被宿主看见才有用。软链进本机已有的各宿主技能目录；目录不存在就说明
 # 那个宿主没装，跳过。指向非 MMW 内容时不覆盖，报出来让人自己处理。
+#
+# 这个列表里没有 ~/.grok/skills，是有意的：Grok 除了自己那个目录，还会扫每一层的
+# ~/.agents/skills（见它 user-guide 的 Skill Locations 一节），而这份技能本来就
+# 装在那里。再软链一份进 ~/.grok/skills，Grok 会在同一优先级看到两个同名技能。
 link_skill_into_hosts() {
   local name="$1"
   local src="$DEPS_ROOT/$name" dir dst current
