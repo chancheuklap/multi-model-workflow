@@ -363,9 +363,10 @@ cmd_dispatch() {
 
 usage_agents() {
   cat >&2 <<'EOF'
-mmw agents materialize --host <pi|cursor|all> [--check] [--config <文件>] [--out <目录>]
+mmw agents materialize --host <pi|cursor|grok|all> [--check] [--config <文件>] [--out <目录>]
     把 agent-src 与模型档物化成宿主原生 subagent 文件
-Pi / Cursor：主 agent 直调原生 subagent，不经 mmw dispatch。
+Pi / Cursor / Grok：主 agent 直调原生 subagent，不经 mmw dispatch。
+Grok 另出一份同名 role TOML：思考档只有那份文件读得到。
 Claude Code：仍用 mmw dispatch。
 EOF
   return 2

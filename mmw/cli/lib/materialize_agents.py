@@ -202,7 +202,32 @@ def build_values(
         "writable": "true" if writable else "false",
         "readonly": "false" if writable else "true",
         "acceptance_role": "writer" if writable else "read-only",
+        "capability_mode": "all" if writable else "read-only",
     }
+
+
+def toml_basic_string(raw: str) -> str:
+    """按 TOML 基本字符串转义。换行折成空格：role 的字段都是单行值。"""
+    flat = " ".join(str(raw).split())
+    escaped = flat.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def render_companion_file(companion: dict[str, Any], values: dict[str, Any]) -> str:
+    """渲染配套文件。模板每行一个 `键 = {占位符}`，值按 TOML 基本字符串转义。"""
+    lines = companion.get("template")
+    if not isinstance(lines, list) or not lines:
+        die("companion 缺 template")
+    out: list[str] = []
+    for line in lines:
+        if not isinstance(line, str):
+            die(f"companion.template 只接受字符串行：{line!r}")
+        key, sep, raw = line.partition("=")
+        if not sep:
+            die(f"companion.template 每行要写成 `键 = 值`：{line!r}")
+        rendered = raw.strip().format(**values)
+        out.append(f"{key.strip()} = {toml_basic_string(rendered)}")
+    return "\n".join(out) + "\n"
 
 
 def materialize_host(
@@ -238,6 +263,57 @@ def materialize_host(
         filename = f"{role['agent']}.md"
         planned[filename] = content
 
+    groups = [(out_dir, managed_glob, planned, "model:")]
+
+    # 有的宿主把思考档放在另一种文件里。Grok 是这样：subagent 的正文和 model 走
+    # `~/.grok/agents/<名>.md`，capability 与 reasoning_effort 走同名的
+    # `~/.grok/roles/<名>.toml`，两份按文件名配对。
+    companion = profile.get("companion")
+    if companion:
+        if out_override:
+            companion_dir = Path(out_override) / "_companion"
+        else:
+            companion_dir = output_dir_for(companion, None)
+        companion_glob = companion.get("managed_glob") or "mmw-*.toml"
+        companion_suffix = companion.get("suffix") or ".toml"
+        companion_planned = {
+            f"{role['agent']}{companion_suffix}": render_companion_file(
+                companion,
+                build_values(
+                    role_name, role, profile, resolve_model(config, role_name, host)
+                ),
+            )
+            for role_name, role in roles.items()
+        }
+        groups.append(
+            (companion_dir, companion_glob, companion_planned, "reasoning_effort")
+        )
+
+    reports: list[str] = []
+    for group_dir, group_glob, group_planned, report_key in groups:
+        reports.extend(
+            sync_group(
+                host,
+                group_dir,
+                group_glob,
+                group_planned,
+                report_key,
+                check_only=check_only,
+            )
+        )
+    return reports
+
+
+def sync_group(
+    host: str,
+    out_dir: Path,
+    managed_glob: str,
+    planned: dict[str, str],
+    report_key: str,
+    *,
+    check_only: bool,
+) -> list[str]:
+    """把一组生成物同步到一个目录。`report_key` 是报告行里回显的那一行的开头。"""
     reports: list[str] = []
     if check_only:
         if not out_dir.is_dir():
@@ -287,11 +363,11 @@ def materialize_host(
             except OSError:
                 pass
             raise
-        model_line = next(
-            (line for line in content.splitlines() if line.startswith("model:")),
-            "model: ?",
+        key_line = next(
+            (line for line in content.splitlines() if line.startswith(report_key)),
+            f"{report_key} ?",
         )
-        reports.append(f"写  {target}  ({model_line})")
+        reports.append(f"写  {target}  ({key_line})")
     return reports
 
 

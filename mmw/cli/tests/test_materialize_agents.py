@@ -330,3 +330,75 @@ def test_重复物化产出一致(假源: Path, tmp_path: Path) -> None:
     甲 = {p.name: p.read_bytes() for p in 一.iterdir()}
     乙 = {p.name: p.read_bytes() for p in 二.iterdir()}
     assert 甲 == 乙
+
+
+# --- 配套文件 ---------------------------------------------------------------
+# 有的宿主把思考档放在另一种文件里。Grok 是这样：正文和 model 走
+# `~/.grok/agents/<名>.md`，capability 与 reasoning_effort 走同名的
+# `~/.grok/roles/<名>.toml`。少了这一份，思考档就丢在模型档里没人读。
+
+COMPANION = {
+    "output": {"kind": "package-dir", "path": "unused-companion"},
+    "managed_glob": "mmw-*.toml",
+    "suffix": ".toml",
+    "template": [
+        "description = {description}",
+        "default_capability_mode = {capability_mode}",
+        "reasoning_effort = {effort}",
+    ],
+}
+
+
+def 带配套(假源: Path) -> None:
+    (假源 / "profiles" / "testhost.json").write_text(
+        json.dumps(dict(PROFILE, companion=COMPANION), ensure_ascii=False),
+        encoding="utf-8")
+
+
+def 读配套(out: Path, name: str) -> dict[str, str]:
+    文本 = (out / "_companion" / name).read_text(encoding="utf-8")
+    return dict(
+        (键.strip(), 值.strip().strip('"'))
+        for 键, _, 值 in (行.partition("=") for 行 in 文本.splitlines() if 行.strip())
+    )
+
+
+def test_配套文件带上本角色的思考档(假源: Path, tmp_path: Path) -> None:
+    带配套(假源)
+    out = tmp_path / "out"
+    物化(out)
+    assert 读配套(out, "mmw-worker.toml")["reasoning_effort"] == "high"
+    # investigator 在 CONFIG 里被 testhost 覆盖成 low，配套文件要跟着覆盖后的值
+    assert 读配套(out, "mmw-investigator.toml")["reasoning_effort"] == "low"
+
+
+def test_配套文件按可写与否给能力档(假源: Path, tmp_path: Path) -> None:
+    带配套(假源)
+    out = tmp_path / "out"
+    物化(out)
+    assert 读配套(out, "mmw-worker.toml")["default_capability_mode"] == "all"
+    assert 读配套(out, "mmw-investigator.toml")["default_capability_mode"] == "read-only"
+
+
+def test_配套文件转义引号与反斜杠(假源: Path, tmp_path: Path) -> None:
+    带配套(假源)
+    角色 = json.loads(json.dumps(ROLES))
+    角色["worker"]["description"] = '写 "代码"，路径 C:\\tmp'
+    物化(tmp_path / "out", roles=角色)
+    原文 = (tmp_path / "out" / "_companion" / "mmw-worker.toml").read_text(encoding="utf-8")
+    assert '\\"代码\\"' in 原文
+    assert "C:\\\\tmp" in 原文
+
+
+def test_配套模板每行都要有等号(假源: Path, tmp_path: Path) -> None:
+    坏的 = dict(COMPANION, template=["reasoning_effort"])
+    (假源 / "profiles" / "testhost.json").write_text(
+        json.dumps(dict(PROFILE, companion=坏的), ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(SystemExit):
+        物化(tmp_path / "out")
+
+
+def test_没有配套段的宿主不产出配套目录(假源: Path, tmp_path: Path) -> None:
+    out = tmp_path / "out"
+    物化(out)
+    assert not (out / "_companion").exists()
