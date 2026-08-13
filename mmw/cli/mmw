@@ -736,6 +736,18 @@ cmd_doctor() {
     echo "推送鉴权 : github.com 的 https 凭据没人答得上，跑 gh auth setup-git"
     status=1
   fi
+  # 界面 QA 的依赖。缺了不算体检失败：MMW 的其余部分不用它，/mmw-ui-qa 自己
+  # 会在第 2 步停下来说缺哪个。这里只是让用户在体检里就看得到这一项的状态。
+  if command -v mmw-ui-qa >/dev/null 2>&1; then
+    if mmw-ui-qa check >/dev/null 2>&1; then
+      echo "界面 QA  : 运行时依赖齐了"
+    else
+      echo "界面 QA  : 依赖缺项，跑一次 mmw-ui-qa check 看缺哪个"
+    fi
+  else
+    echo "界面 QA  : 没装 mmw-ui-qa 命令，只影响 /mmw-ui-qa。要用就重新运行 $repair"
+  fi
+
   if [ "${host:-}" = "claude-code" ]; then
     command -v codex >/dev/null \
       && echo "codex    : $(command -v codex)" \

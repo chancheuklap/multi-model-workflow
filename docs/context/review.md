@@ -20,8 +20,8 @@ _Avoid_: spec 审、走查
 _Avoid_: 五道审、自定义任务名、视角摘要
 
 **finding**：
-审查者报告的一个可定位问题候选。
-_Avoid_: 已确认缺陷、ReleaseFinding、建议清单
+审查者或[界面 QA](./ui-qa.md) 报告的一个可定位问题候选。两个来源都由主 agent 验证出处后才采信，处置都用下面五个标记。
+_Avoid_: 已确认缺陷、违规项、ReleaseFinding、建议清单
 
 **处置**：
 主 agent 对 finding 使用的五个标记：`accepted`、`rejected`、`duplicate`、`needs-evidence` 和 `waived`。

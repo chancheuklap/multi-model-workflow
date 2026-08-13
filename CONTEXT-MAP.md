@@ -17,6 +17,7 @@
 | 宿主 | [宿主](./docs/context/host-runtime.md) | 技能源、技能产物、物化、原生 subagent、Codex App 后台 Worktree 任务和 Cursor 任务树与结果树。 |
 | 领域上下文与检索 | [领域上下文与检索](./docs/context/project-context.md) | 领域模型、Context Map、leaf、ADR、ADR 索引、权威引用、结构图谱和结构候选。 |
 | 产物落点 | [产物落点](./docs/context/artifact-location.md) | 路径形状、类别根、固定类别根、工作目录根、名字段、工作名、范围段、类别内细分、当场取名、产物引用、撞名、安全路径段、工作名重复和不落盘判据。 |
+| 界面 QA | [界面 QA](./docs/context/ui-qa.md) | 界面 QA、检查项、违规项、判据自检结果、界面全图和覆盖报告。 |
 
 ## Relationships
 
@@ -33,3 +34,5 @@
 - 产物落点向其他 Context 提供路径形状；交付工作流、Wayfinding、审查和 Agent 的产物按它确定位置。
 - 交付工作流的每一跳用产物引用点名下游要读的产物，不写路径字面值。产物引用由产物落点定义，路径由 `mmw artifact path` 解析。
 - 工作名由产物落点定义，与 Agent 的任务分支名是两个值。一次交付只有一个工作名，可以有多条任务分支；Wayfinding 的 map 正文记录这项 effort 的工作名，它的每张 decision ticket 继承这个值。
+- 界面 QA 不是六道审的任何一道，它在 prototype 迭代中和落地之后都可以单独发起。审查定义 finding 与处置；界面 QA 的 B 类结果是 finding 的第二个来源，用同一套处置标记。A 类结果是违规项，不是 finding。
+- 界面 QA 的判据与接线跨交付累积，不带工作名，位置由产物落点定义。它的报告不写进仓库，界面全图也不落文件。

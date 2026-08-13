@@ -486,6 +486,22 @@ def test_enter_worktree_现有宿主保持_task_new(假源: Path, tmp_path: Path
     assert "grok --worktree" in 正文
 
 
+@pytest.mark.parametrize("host", ["pi", "claude-code", "codex"])
+def test_argument_hint_在三个宿主的产物里逐字保留(
+    假源: Path, tmp_path: Path, host: str
+) -> None:
+    # 挂标签的技能把范围档和产品名全压在这个字段上。字段被丢掉或改写时，
+    # 用户挂的标签不再生效，而技能正文读起来完全正常——没有任何运行时报错。
+    # 断言针对 materialize_host：普通技能走的是它，render_pi_prompt 只处理
+    # Pi 的用户命令，只覆盖那一条分支会漏掉三个宿主的普通技能产物。
+    原句 = 'argument-hint: "[本任务|全量] [产品名；留空自动判定]"'
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       f"---\nname: mmw-alpha\ndescription: 甲。\n{原句}\n---\n\n甲。\n")
+    out = tmp_path / host
+    assert 物化(host, out) == 0
+    assert 原句 in 读(out, "mmw-alpha/SKILL.md")
+
+
 def test_二进制文件原样复制(假源: Path, tmp_path: Path) -> None:
     原始 = bytes([0x89, 0x50, 0x4E, 0x47, 0x00, 0xFF, 0xFE])
     (假源 / "mmw-alpha" / "diagram.png").write_bytes(原始)

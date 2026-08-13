@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+# 界面 QA 四个运行时依赖的唯一入口。
+#
+# 为什么是一个独立命令，不是 mmw 的子命令：mmw 的准入判据（见 cli/mmw 开头）说
+# 一个动作要么是多请求编排、要么是护栏、要么是宿主机械差异的落点、要么是没有 API
+# 的固定套路。转发到三个已装好的 npm 包一条都不占。所以它单独成一个命令。
+#
+# 为什么技能不直接写路径：依赖装在 $MMW_RUNTIME_HOME/ui-qa 下，而 MMW_RUNTIME_HOME
+# 可配。技能正文写命令名，路径由这里当场算，跟技能正文写 `mmw artifact path` 而不写
+# `docs/specs/…` 是同一种做法。
+#
+#   mmw-ui-qa check                     四个依赖装没装、版本对不对
+#   mmw-ui-qa home                      打印依赖根目录（Node 脚本 require Playwright 时用）
+#   mmw-ui-qa browser <参数...>          转发到 Playwright 的命令行
+#   mmw-ui-qa design-lint <文件>         转发到设计系统格式校验器的 lint
+#   mmw-ui-qa accessibility-source      打印规则引擎那份注入脚本的绝对路径
+
+set -euo pipefail
+
+UI_QA_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEPS_JSON="$UI_QA_SRC/deps.json"
+RUNTIME_HOME="${MMW_RUNTIME_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/mmw}"
+DEPS_ROOT="${MMW_UI_QA_HOME:-$RUNTIME_HOME/ui-qa}"
+
+usage() {
+  cat >&2 <<'EOF'
+mmw-ui-qa <动作> [参数]
+
+  check                  四个依赖装没装、版本对不对
+  home                   打印依赖根目录
+  browser <参数...>       转发到浏览器自动化框架的命令行
+  design-lint <文件>      转发到设计系统格式校验器；文件参数不能省
+  accessibility-source   打印可访问性规则引擎那份注入脚本的绝对路径
+EOF
+  exit 2
+}
+
+die() {
+  echo "mmw-ui-qa: $1" >&2
+  exit "${2:-1}"
+}
+
+[ -f "$DEPS_JSON" ] || die "找不到依赖声明：$DEPS_JSON"
+
+# 按能力取声明，不按包名。技能正文说的是能力（浏览器自动化框架、可访问性规则
+# 引擎、设计系统格式校验器），换包时改 deps.json 一处，技能正文不动。
+dep_field() {
+  jq -er --arg cap "$1" --arg field "$2" \
+    '.packages[] | select(.capability == $cap) | .[$field] // empty' "$DEPS_JSON"
+}
+
+require_bin() {
+  local cap="$1" bin path
+  bin="$(dep_field "$cap" bin)" || die "依赖声明里没有能力 $cap"
+  path="$DEPS_ROOT/node_modules/.bin/$bin"
+  [ -x "$path" ] || die "$cap 没装。跑一次 mmw/install.sh 重装，或看 mmw-ui-qa check 报什么"
+  printf '%s' "$path"
+}
+
+action="${1:-}"
+[ -n "$action" ] || usage
+shift || true
+
+case "$action" in
+  check)
+    exec bash "$UI_QA_SRC/install-ui-qa-deps.sh" --check
+    ;;
+  home)
+    [ -d "$DEPS_ROOT" ] || die "依赖目录不存在：$DEPS_ROOT"
+    printf '%s\n' "$DEPS_ROOT"
+    ;;
+  browser)
+    exec "$(require_bin browser)" "$@"
+    ;;
+  design-lint)
+    # 官方语法是 lint <文件>，文件参数不接受省略。这里先拦一道：少了它，
+    # 校验器会去读当前目录碰巧有没有 DESIGN.md，而技能要校验的是接线文件
+    # designSystem 字段指向的那一份，两者未必是同一个文件。
+    [ $# -ge 1 ] || die "design-lint 要带文件路径。语法是 mmw-ui-qa design-lint <文件>"
+    exec "$(require_bin design-lint)" lint "$@"
+    ;;
+  accessibility-source)
+    source_file="$(dep_field accessibility source)" \
+      || die "依赖声明里没有能力 accessibility"
+    package="$(dep_field accessibility package)"
+    path="$DEPS_ROOT/node_modules/$package/$source_file"
+    [ -f "$path" ] || die "可访问性规则引擎没装。跑一次 mmw/install.sh 重装"
+    printf '%s\n' "$path"
+    ;;
+  *)
+    usage
+    ;;
+esac

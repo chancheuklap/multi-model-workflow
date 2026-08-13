@@ -95,6 +95,30 @@
     "status": "active",
     "answered_by": null
   },
+  "ui-criteria": {
+    "term": "界面 QA 判据",
+    "root": "docs/ui-criteria",
+    "root_kind": "fixed",
+    "has_name": false,
+    "allows_scope": false,
+    "sub_naming": "one-per-concept",
+    "sub_fixed": [],
+    "sub_pattern": "^(thresholds\\.json|products/[a-z0-9][a-z0-9-]*\\.md)$",
+    "status": "active",
+    "answered_by": null
+  },
+  "ui-qa-wiring": {
+    "term": "界面 QA 接线",
+    "root": "docs/ui-qa-wiring",
+    "root_kind": "fixed",
+    "has_name": false,
+    "allows_scope": false,
+    "sub_naming": "one-per-concept",
+    "sub_fixed": [],
+    "sub_pattern": "^[a-z0-9][a-z0-9-]*\\.json$",
+    "status": "active",
+    "answered_by": null
+  },
   "scratch": {
     "term": "scratch",
     "root": "scratch",

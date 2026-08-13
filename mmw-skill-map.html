@@ -497,6 +497,7 @@ subgraph MAIN["主干 · 从想法到落地"]
   ttk[["<b>mmw-to-tickets</b><br/>· 切成 tracer bullet<br/>· 声明阻塞关系与精确上下文路径<br/>· 用户通过 ticket 切分人工审批关卡<br/>· 批准后才发布到 tracker"]]
   imp[["<b>mmw-implement</b><br/>· 一张 ticket 派一个可写 worker<br/>· Codex 用独立后台 Worktree 任务<br/>· 每份走 ③ 逐份验收三关<br/>· 全部合并后走 ④ 合同门"]]
   tdd[("<b>mmw-tdd</b><br/>· red 到 green 的循环<br/>· seam 由 spec 钉死<br/>· seam 未定时读 codebase-design<br/>· 当前测试交错运行，全套只在末尾运行一次")]
+  uiq[("<b>mmw-ui-qa</b><br/>· 不是六道审的任何一道，prototype 阶段也能用<br/>· 起步先要求工作区干净，范围三档全由 git 当场算<br/>· A 类确定性检查产出违规项直接改，合成一个提交<br/>· B 类模型判断产出 finding，走五个处置标记等用户裁决<br/>· 裁决存指纹，下一轮全等的不再报<br/>· 语义层整条路径一次派一个 designer")]
   pln[["<b>mmw-to-plan</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 按批次写 plan：阻塞已关、还没 ready-for-agent 的 ticket 各写一份<br/>· 派 planner 写，记恢复句柄<br/>· 只传入本 ticket 使用的精确上下文路径<br/>· 验证返回，回填精确字段<br/>· 本批次 plan 审通过并提交后写 tracker 状态"]]
   pnr[("<b>mmw-planner</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 写计划方法论<br/>· 从 prototype 资产提取已确认决定<br/>· planner 进门读它，主 agent 不读")]
   clo["<b>mmw-closing</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· spec 与 plan 长期留在仓库<br/>· 只清理当前工作名的过程材料<br/>· 逐条用 mmw artifact path 确认归属再删"]
@@ -610,6 +611,10 @@ ica ==>|"术语当场更新 leaf<br/>ADR 按三项判据决定"| dmo
 ica ==>|"grilling 谈定之后回到它，由它移交"| tsp
 
 tdd -.->|"seam 的权威定义"| cbd
+pro ==>|"这一轮的界面改完了，查一次刚改的那一块"| uiq
+crv ==>|"⑤ final 终审含界面改动时点名调用"| uiq
+uiq -.->|"B 类 finding 用同一套处置标记"| crv
+ctx -.->|"报告与 finding 用术语表里的词"| uiq
 res -->|"过滤、验证与综合"| rfacts
 gri ==>|"某个决定必须看见实物<br/>才能判断"| pro
 gri -.->|"需要另一位知识持有者回答"| tq
@@ -683,7 +688,7 @@ classDef hIca fill:#E4EDF0,stroke:#7E22CE,stroke-width:2.4px,color:#14282C;
 classDef hRes fill:#E4EDF0,stroke:#4338CA,stroke-width:2.6px,color:#1E1B4B;
 
 class wfa,hof,wiz,tq,wwt user;
-class cbd,tdd,crv,dbg,imp,pro,ttk,tsp,rvr,pln,pnr,clo,intg,rel model;
+class cbd,tdd,uiq,crv,dbg,imp,pro,ttk,tsp,rvr,pln,pnr,clo,intg,rel model;
 class trk,oos,pta,ina,tmp art;
 class src,dsp,vfy,cdx,cwt hOwn;
 class cl1,cl2,cl3,cl4,cl5,cl6,cl7,cl8 hSetCli;

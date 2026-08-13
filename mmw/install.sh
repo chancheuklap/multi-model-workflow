@@ -191,7 +191,9 @@ install_claude_code_lsp() {
     if claude plugin install "$id" --scope user >/dev/null 2>&1; then
       echo "Claude   : 已装 ${plugin}（用户级）"
     else
-      echo "Claude   : 装不上 $plugin，自己跑 claude plugin install $id --scope user 看报什么"
+      # 变量名必须用花括号界定：全角标点是多字节的，bash 会把 `$plugin，` 整个
+      # 当成变量名，于是 set -u 直接崩，报的错跟真实原因（插件装不上）毫无关系。
+      echo "Claude   : 装不上 ${plugin}，自己跑 claude plugin install ${id} --scope user 看报什么"
     fi
   done
 }
@@ -396,6 +398,33 @@ install_mcp() {
   bash "$RUNTIME_ROOT/mmw/mcp/install-mcp.sh"
 }
 
+# 界面 QA 的四个运行时依赖，以及技能定位它们用的那个转发器。
+#
+# 依赖本身装在 runtime 外面（理由见 install-ui-qa-deps.sh 开头）。转发器跟 mmw 一样
+# 装进 BIN_DIR：技能正文只写命令名，路径由转发器当场算，因此 MMW_RUNTIME_HOME
+# 换位置时技能不用改。
+install_ui_qa() {
+  local target current temp
+  bash "$RUNTIME_ROOT/mmw/ui-qa/install-ui-qa-deps.sh"
+  target="$BIN_DIR/mmw-ui-qa"
+  mkdir -p "$BIN_DIR"
+  if [ -e "$target" ]; then
+    current="$(sed -n '2p' "$target" 2>/dev/null || true)"
+    [ "$current" = "$FORWARD_HEADER" ] \
+      || die "拒绝覆盖非 MMW 管理的命令：$target"
+  fi
+  temp="$(mktemp "$BIN_DIR/.mmw-ui-qa.XXXXXX")"
+  cat > "$temp" <<EOF
+#!/usr/bin/env bash
+$FORWARD_HEADER
+set -euo pipefail
+exec "$RUNTIME_ROOT/mmw/ui-qa/mmw-ui-qa" "\$@"
+EOF
+  chmod 0755 "$temp"
+  mv "$temp" "$target"
+  echo "界面 QA  : $target"
+}
+
 require_source_repo
 verify_source
 build_runtime
@@ -407,6 +436,7 @@ install_pi
 install_cursor
 install_grok
 install_mcp
+install_ui_qa
 
 if [ -e "$RUNTIME_HOME/runtime.previous" ]; then
   find "$RUNTIME_HOME/runtime.previous" -depth -delete
