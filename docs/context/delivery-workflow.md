@@ -89,7 +89,7 @@ _Avoid_: decision ticket、任务包、横向层任务
 _Avoid_: spec、tracer bullet ticket、路线图
 
 **批次**：
-某一时刻，阻塞已全部关闭、还没有 `ready-for-agent` 标签的全部 open tracer bullet ticket。成员资格只看标签这一个状态判据。`/mmw-to-plan` 一次为一个批次写 plan；`/mmw-implement` 关票解锁新批次后交回 `/mmw-to-plan`。
+某一时刻，还没有 `ready-for-agent` 标签的全部 open tracer bullet ticket，减去那些 plan 要描述的当前行为会被同批次另一张 ticket 改写的。成员资格看这两个判据，不看阻塞关系——阻塞决定谁先实现，不决定谁先写 plan。`/mmw-to-plan` 一次为一个批次写 plan；`/mmw-implement` 关票解锁新批次后交回 `/mmw-to-plan`。
 _Avoid_: frontier、全部 ticket、plan 清单
 
 **任务包**：

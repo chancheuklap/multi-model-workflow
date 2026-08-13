@@ -45,7 +45,7 @@
     "planner": {
       "family": "gpt",
       "id": "gpt-5.6-sol",
-      "effort": "xhigh",
+      "effort": "high",
       "hosts": {
         "grok": {
           "family": "grok",
