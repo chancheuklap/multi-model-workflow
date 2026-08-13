@@ -5,13 +5,17 @@ description: 为已发布 spec 的 tracer bullet ticket 按批次编排 plan。s
 
 开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
 
-把 ticket 写成 plan，供后面派 `worker` 照着落地。**批次**指某一时刻还没有 `ready-for-agent` 标签的全部 open tracer bullet ticket；其中 plan 要描述的当前行为会被同批次另一张 ticket 改写的，这一轮排除，进下一批。
+把 ticket 写成 plan，供后面派 `worker` 照着落地。
 
-**排除的判据只有这一条。** plan 不写行号，路径和符号名由 `worker` 开工时回到源码确认，所以下游 plan 不必等上游 ticket 落地。会被改写的「当前行为」是唯一等不了的东西：描述它的那份 plan 只能在改写之后写。ticket 之间的阻塞关系继续决定谁先**实现**，不决定谁先**写 plan**。
+**批次**指某一时刻还没有 `ready-for-agent` 标签、而且现在就写得出 plan 的那些 open tracer bullet ticket。
+
+一张 ticket 现在写不写得出 plan，看一件事：**写它的 plan 要知道上游的哪些情况，那些情况 spec 的 `## Cross-Plan Contract Anchors` 给了没有。** 给了就现在写；只有等上游代码做出来才知道的，这一轮排除，进下一批。
+
+plan 不写行号，路径和符号名由 `worker` 开工时回到源码确认。所以下游 plan 不必等上游 ticket 落地——它要的接口形状、字段和取值，那一节里都有。ticket 之间的阻塞关系决定谁先**实现**，不决定谁先**写 plan**。
 
 多数 spec 的 ticket 一个批次就写完了。有第二批时与 `/mmw-implement` 交替推进：它关票之后，还没有标签的 ticket 就是下一批。
 
-批次成员资格看两件事：有没有 `ready-for-agent` 标签，以及当前行为会不会被同批次另一张 ticket 改写。plan 文件写出来了没有不参与判定。中断后重入时，已有 plan 文件但没有标签的 ticket 重新走验证、审查和打标签。
+批次成员资格看两件事：有没有 `ready-for-agent` 标签，以及现在写不写得出 plan。plan 文件写出来了没有不参与判定。中断后重入时，已有 plan 文件但没有标签的 ticket 重新走验证、审查和打标签。
 
 **你不写 plan。** 写作全部下放给 `planner`，一张 ticket 一个。你的职责是定批次、划合同边界、派发、验证、发起审查。
 
@@ -51,11 +55,20 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 
 **只读，作为派发时给 `planner` 的上下文**，不在这里展开写作。
 
-用 `mmw issue children <spec issue 编号>` 取全部 ticket，读出各自要做什么和被谁阻塞。按批次定义筛出本批次：还没有 `ready-for-agent` 的 open ticket，减去那些 plan 要描述的当前行为会被同批次另一张 ticket 改写的。
+用 `mmw issue children <spec issue 编号>` 取全部 ticket，读出各自要做什么和被谁阻塞。还没有 `ready-for-agent` 的 open ticket 是候选，逐张问一遍：
 
-判这一条要读 ticket 正文：它改的是既有行为，而且改的正是另一张 ticket 的 plan 需要描述的那个行为，后者才排除。两张 ticket 各改各的、或者都在新建行为，都不排除。判不准时留在本批次，`planner` 探代码发现材料对不上会交回 `needs-context`。
+**写这张的 plan，要知道上游的哪些情况？那些情况在 `## Cross-Plan Contract Anchors` 里找得到吗？**
 
-**一张 ticket 一份 plan 一个 `planner`**；不在本批次的 ticket 这一轮不碰。本批次为空而仍有 open ticket 时，说明它们都已被认领或都在等改写完成——报告各张状态并停下，不空转。
+| 答案 | 怎么办 |
+| --- | --- |
+| 找得到 | 进本批次。上游代码还没写也不要紧，`planner` 照那一节写 |
+| 找不到，只有上游代码做出来才知道 | 排除，进下一批 |
+
+第二种最常见的是整体验收类 ticket：它要写的是全部功能做出来以后，界面和流程实际长什么样，那不是合同给得了的。
+
+判不准时留在本批次。`planner` 探代码发现材料对不上，会交回 `needs-context`，那时再挪。
+
+**一张 ticket 一份 plan 一个 `planner`**；不在本批次的 ticket 这一轮不碰。本批次为空而仍有 open ticket 时，说明它们都已被认领，或者都在等上游代码做出来——报告各张状态并停下。
 
 本批次每张 ticket 的 `## Plan` 一节写出完整的 `mmw artifact path plan --sub <两位编号>-<ticket短名>.md` 命令。逐份运行它，取得每份 plan 的落点。编号照抄，不自己重排。ticket 正文没有这一节时，按依赖顺序自己编号。被阻塞的排在阻塞它的后面。
 
@@ -69,14 +82,16 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 
 在 spec 里新增一节 `## Cross-Plan Contract Anchors`，**不改已有的 `## Contract Boundaries`**。
 
-从 `## Contract Boundaries`、`## Implementation Decisions` 两节和 ticket 的依赖关系判断有没有跨 plan 的连接面——共享文件、共享模块、共享数据结构，或者一份 plan 产出、另一份 plan 消费的接口。有就写进刚新增的 `## Cross-Plan Contract Anchors`，**一次为全部 ticket 写实**，不留待回填：
+从 `## Contract Boundaries`、`## Implementation Decisions` 两节和 ticket 的依赖关系判断有没有跨 plan 的连接面——共享文件、共享模块、共享数据结构，或者一份 plan 产出、另一份 plan 消费的接口。有就写进刚新增的 `## Cross-Plan Contract Anchors`，**一次把全部 ticket 的都写完**：
 
 - **文件归属**：哪份 plan 可以碰哪些共享文件。一个文件一个归属方。
-- **跨 plan 接口**：按 plan 编号写清谁提供、谁消费（比如「01 提供鉴权令牌接口，02 消费」），并写实字段名、签名、状态名、路由名和数值。
+- **跨 plan 接口**：按 plan 编号写清谁提供、谁消费（比如「01 提供鉴权令牌接口，02 消费」），并写出确切的字段名、签名、状态名、路由名和数值。
 
-**写实的材料来自 spec，不靠发明。** ticket 的验收标准里已经逐字定死的精确值（数字、文案、状态名、字段名）照抄进来。spec 里确实没有、必须看了代码才知道的，那一条留空并写明缺什么。`planner` 探代码时会拿它交 `needs-context`，那时由你补齐——不要先填一个猜的值，猜错了两边都跟着错。
+**这些值全部来自 spec。** ticket 的验收标准里已经逐字定死的精确值（数字、文案、状态名、字段名）照抄进来。
 
-这一节是这些字段的**权威副本**。plan 只引用条目名，不再抄一份（见 `/mmw-planner` 的 `plan-body.md`）：抄两份就要维护两份，两份都会跟代码漂开。
+spec 里确实没有、必须看了代码才知道的，那一格留空，并写明缺的是什么。`planner` 探代码时会拿这一格交 `needs-context`，那时由你补齐。先填一个猜的值，两边就会一起错下去。
+
+这一节是这些字段的**权威副本**。plan 只引用条目名，不再抄一份（见 `/mmw-planner` 的 `plan-body.md`）：抄成两份就要改两处，代码一变，两处都会跟代码对不上。
 
 没有跨 plan 连接面就在这一节写明「无跨 plan 共享合同」。
 
@@ -106,7 +121,7 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 
 每个 `planner` 交回 `pass` 之后，验证 plan 文件存在，元数据块的 `ticket` 等于当前 ticket 编号且 `artifact_refs` 键存在，ticket 的每条验收都能映射到 `## Acceptance`，再抽验至少一条源码依据。读取文件并检索源码，不认「我写完了」。
 
-**再问一次反向的。** 上面各项问的都是「有没有」，plan 只会越写越多。抽读 `## Constraints` 和 `## Contracts and Seams` 两节，看有没有这三样：
+**再问一次「有没有多」。** 上面各项问的都是有没有漏，只往一个方向使劲，plan 就会越写越长。抽读 `## Constraints` 和 `## Contracts and Seams` 两节，看有没有这三样：
 
 - 整段复制 spec 的内容，而不是只留影响本 ticket 的那几条。
 - 超出 `plan-body.md` 允许范围的实现代码。允许的只有 spec 已确定的公开合同、数据形状，以及文字表达不了的关键算法。
@@ -125,10 +140,10 @@ prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 
 **本批次只有一份 plan 时跳过本步**：没有别人可以认领，也没有第二方对接。
 
-本批次有多份 plan 时，对着第 2 步写实的 `## Cross-Plan Contract Anchors` 验证两件事。入口是每份 plan 的 `## Change Map`、`## Contracts and Seams`，以及 `planner` 报告里的 `Cross-plan touchpoints`：
+本批次有多份 plan 时，对着第 2 步写好的 `## Cross-Plan Contract Anchors` 验证两件事。入口是每份 plan 的 `## Change Map`、`## Contracts and Seams`，以及 `planner` 报告里的 `Cross-plan touchpoints`：
 
 - 有没有 `planner` 认领了别人归属的文件。
-- 提供方和消费方引用的锚点条目名一致，各自的实施步骤跟那个条目写实的字段对得上。
+- 提供方和消费方引用的锚点条目名一致，各自的实施步骤跟那个条目里的字段对得上。
 
 对不上就把差异说明发回原 `planner` 续跑修那一份，句柄失效时重派。
 
@@ -164,7 +179,7 @@ gh issue edit <ticket 编号> --add-label ready-for-agent
 | 审出了采信的 findings | **自己继续**：把全部采信项按 plan 归属发回对应的原 `planner` 续跑（第 4 步的恢复动作），句柄失效时重派；主 agent 逐条验证修复后直接进入第 7 步提交，不再审 |
 | 第 4 步某个 `planner` 交回 `needs-context` 或 `needs-repair` | **自己继续**：按第 4 步处理——`needs-context` 补材料；`needs-repair` 触及已批准语义时先停下取得用户批准，修完材料再重派 |
 | 第 5 步发现 `planner` 认领了别人归属的文件，或者提供方跟消费方对不上 | **自己继续**：发回原 `planner` 修那一份，不要自己动它的 plan |
-| 第 1 步本批次为空，但仍有 open ticket | **停**：报每张 open ticket 的状态（被谁认领，或者在等哪张 ticket 改写它要描述的行为），等那件事完成或用户处理 |
+| 第 1 步本批次为空，但仍有 open ticket | **停**：报每张 open ticket 的状态（被谁认领，或者在等哪张 ticket 的代码做出来），等那件事完成或用户处理 |
 | 前置三项有一项不满足 | **停**：说清是哪一项。缺 ticket 的回 `/mmw-to-tickets`，缺 spec 的回 `/mmw-to-spec` |
 | `planner` 交回 `needs-redirection` | **停**：把它说的哪里可疑、建议怎么重新框定原样交给用户，不要自己改 spec 绕过去。已落地批次保留在任务分支 |
 | 同一份 plan 返修三轮还没过 | **停**：报是哪一份、卡在哪里、三轮各自改了什么，让用户定 |
