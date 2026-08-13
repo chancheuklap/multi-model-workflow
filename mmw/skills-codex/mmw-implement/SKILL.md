@@ -9,7 +9,7 @@ description: 派 `worker` 落地已准备好的工作。用于完整的 `ready-f
 
 ## 流程
 
-第 1 步只做一次。第 2 到第 5 步是循环体：一张 ticket 一轮，关票之后回第 2 步。这批 ticket 全部关闭，才进入第 6、7 步。
+第 1 步只做一次。第 2 到第 5 步是循环体：一轮做完 frontier 上的全部 ticket，都关票之后回第 2 步取下一轮。这批 ticket 全部关闭，才进入第 6、7 步。
 
 ### 1. 确认前置条件
 
@@ -30,27 +30,31 @@ description: 派 `worker` 落地已准备好的工作。用于完整的 `ready-f
 | ticket 存在 | spec 分支：`mmw issue children <spec issue 编号>` 有输出；agent brief 分支：带 agent brief 的原 issue 就是这张 ticket | spec 分支先跑 `$mmw:mmw-to-tickets`；agent brief 分支回 `$mmw:mmw-triage` 补齐或修正 issue |
 | 这张 ticket 的 plan 已提交 | 路径写在这张 ticket 正文的 `## Plan` 一节里，照它跑 `git cat-file -e "HEAD:<那条路径>"` | 先跑 `$mmw:mmw-to-plan`。走 agent brief 那条路的需求没有 plan 这一层，这一行不适用 |
 
-## 循环：一张 ticket 一轮
+## 循环：一轮做完 frontier 上的全部 ticket
 
-### 2. 取下一张 ticket
+### 2. 取这一轮的 ticket
 
 plan 按批次写（见 `$mmw:mmw-to-plan`）：某张 ticket 没有 `ready-for-agent` 不一定是流程错了，可能只是它的批次还没到。spec 分支先重新读取全部子 issue，按下面的判据走：
 
-- 存在「阻塞已全部关闭、还没有 `ready-for-agent`」的 open ticket：回 `$mmw:mmw-to-plan`，它们是待写 plan 的批次。
-- 没有上面那种，运行 frontier（下条命令）有输出：取第一行那张，继续本步。
+- 存在还没有 `ready-for-agent` 的 open ticket：回 `$mmw:mmw-to-plan`，它们是待写 plan 的批次。
+- 没有上面那种，运行 frontier（下条命令）有输出：取**全部**输出行，继续本步。
 - 两者都没有、但仍有 open ticket：它们都被认领或仍被阻塞。报告每张的状态并停下等待，不空转。
 
 ```bash
 mmw issue frontier <spec issue 编号> --label ready-for-agent
 ```
 
-它给出阻塞全部关闭、没人认领、带这个标签的那些，按 `$mmw:mmw-to-tickets` 的发布顺序排。**取第一行那张。** 认领前，用 `gh issue view <编号> --json state,assignees,labels` 确认它仍然 open、无人认领并带 `ready-for-agent`。
+它给出阻塞全部关闭、没人认领、带这个标签的那些，按 `$mmw:mmw-to-tickets` 的发布顺序排。**取全部行**：这个命令已经按 open、无阻塞、无人认领和标签过滤过，输出里的每一张都可以现在开工，互相之间也没有先后。不必再逐张读一遍确认那四件事。
 
 agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一张 ticket。用 `gh issue view <编号> --json state,assignees,labels` 确认它仍然 open、无人认领并带 `ready-for-agent`。
 
-开工前先 `mmw issue claim <编号>`。认领失败说明别的会话抢先了。spec 分支取下一行；agent brief 分支没有下一张，停止并报告这张 issue 已被谁认领。
+逐张 `mmw issue claim <编号>` 认领。认领失败说明别的会话抢先了，跳过那一张。spec 分支继续认领其余各张；agent brief 分支没有下一张，停止并报告这张 issue 已被谁认领。
 
-一个 `worker` 的独立 worktree 一次只做一张 ticket。frontier 确实很宽、用户又明确要求并行推进时，每张 ticket 各派一个 `worker`，都从当前已提交的任务分支开始。
+**认领到几张就派几个 `worker`**，每个一棵独立 worktree、一张 ticket，都从当前已提交的任务分支开始。它们在各自的结果分支上并行工作，碰同一个文件也互不干扰。
+
+第 3 到第 5 步对每张 ticket 各走一遍。派发可以一次派完，**第 5 步的验收由你逐张亲手做，不能并行**。
+
+集成也是逐张做的：先合入的那份进任务分支，后面几份合入时才可能撞上冲突。`mmw result integrate` 撞上冲突会当场失败并留下冲突状态——那时按 `$mmw:mmw-integrate` 处理，不要自己硬合。
 
 ### 3. 写派工 task
 
@@ -139,7 +143,7 @@ ticket 涉及界面时，还要完成浏览器验收：
 
 `mmw task cleanup` 有两道拒绝：结果分支还没合进当前任务分支，或者那棵树里有未提交改动。撞上任何一条，保留这棵树，报出是哪一条，回到本步开头重做集成。
 
-**这一轮到此结束。判定还有没有下一轮**，spec 分支运行：
+**这一轮认领的 ticket 全部关票之后，判定还有没有下一轮**，spec 分支运行：
 
 ```bash
 mmw issue children <spec issue 编号>
@@ -147,7 +151,7 @@ mmw issue children <spec issue 编号>
 
 | `children` 输出 | 去哪 |
 | --- | --- |
-| 有 open 行，其中有带 `ready-for-agent` 的 | **回第 2 步**取下一张 |
+| 有 open 行，其中有带 `ready-for-agent` 的 | **回第 2 步**取下一轮 |
 | 有 open 行，但都不带 `ready-for-agent` | **移交 `$mmw:mmw-to-plan`** 写这一批的 plan，写完回本技能第 2 步 |
 | 没有 open 行 | 这批 ticket 全部落地，进入第 6 步 |
 
@@ -163,7 +167,7 @@ agent brief 分支只有这一张 ticket，不跑 `children`，直接进入第 7
 
 本节只适用于有 spec 的分支。agent brief 分支没有跨 plan 合同，跳到第 7 步。
 
-**进入本步前再确认一次这批 ticket 真的全部关闭了**：运行 `mmw issue children <spec issue 编号>`，输出里没有 open 行。有 open 行就回第 5 步末尾那张判定表，按它的三个分支走。
+你从第 5 步末尾那张判定表的「没有 open 行」一格进入本步，这批 ticket 已经全部关闭，不用再读一次 `children`。
 
 改动都在任务分支上之后，按 `$mmw:mmw-review` 的 **④ 合同门**验证一次：spec 的 `## Cross-Plan Contract Anchors` 一节里每条跨 plan 合同，在合并后的代码里真兑现了。
 

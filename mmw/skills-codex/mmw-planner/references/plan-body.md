@@ -24,7 +24,7 @@ artifact_refs: []
 
 ## Current State
 
-只在修改既有行为时写。列出实施路线依赖的当前行为和 `文件:行号`。
+只在修改既有行为时写。列出实施路线依赖的当前行为，以及涉及的文件路径和符号名。不写行号：行号是你验证过源码的凭据，交在报告的「源码依据」里；写进 plan 只会在 `worker` 开工前过期。
 
 ## Change Map
 
@@ -35,7 +35,7 @@ artifact_refs: []
 ## Contracts and Seams
 
 - **Test seam:** <照抄 spec 已确认的 seam，并说明验证什么行为>
-- **Consumes / Produces:** <只有跨 plan 接口存在时写归属方、提供方、消费方和已确定的字段或签名>
+- **Consumes / Produces:** <只有跨 plan 接口存在时写归属方、提供方、消费方，以及这个接口在 spec `## Cross-Plan Contract Anchors` 里的条目名。字段和签名的权威副本在那一节，这里不重复>
 - **Migration / Registry:** <只有涉及时写>
 
 ## Implementation

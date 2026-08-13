@@ -2,7 +2,7 @@
 name: mmw-planner
 description: 计划编写角色。由 mmw-to-plan 派发，一张 ticket 对应一个 planner 和一份 plan。按 mmw-planner 方法论拆出实施步骤；只写指定 plan，不改源码。
 model: openai-codex/gpt-5.6-sol
-thinking: xhigh
+thinking: high
 defaultContext: fresh
 async: true
 skill: mmw-planner
