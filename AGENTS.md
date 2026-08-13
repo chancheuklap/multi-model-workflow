@@ -44,7 +44,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 1. 对应宿主的 manifest、根 marketplace 或 Pi package；Codex 角色结构只认 `mmw/codex/profiles.json`，模型只认 `mmw/cli/mmw.default.json` 的 `hosts.codex` 覆盖。
 2. `mmw/cli/` 的机械动作、宿主 adapter、`.mmw.json` 配置合同和 `mmw/cli/artifacts.json` 的产物落点数据。
-3. `mmw/skills-src/` 技能源（含 `[[mmw-launch:…]]` 与 `[[mmw-launch-group:…]]`）与 `mmw skills materialize` 产物；流程判据以源为准，宿主动作以对应产物为准。
+3. `mmw/skills-src/` 技能源（含 `[[mmw-launch:…]]`、`[[mmw-launch-group:…]]` 与 `[[mmw-enter-worktree]]`）与 `mmw skills materialize` 产物；流程判据以源为准，宿主动作以对应产物为准。
 
 `.mmw.json` 保存目标仓库的标签、CLI 路径和领域文档形态。模型档属于已安装 runtime，不进入目标仓库配置。
 
@@ -58,9 +58,9 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 - Codex App 是 MMW 的主 agent 运行时，不调用外部模型 CLI 或 harness。Codex plugin 以 `mmw/` 为发布根；运行时不得回退 MMW 源码 checkout 或目标项目里的同名目录。App 设置里的 Worktree root 是所有项目共用的 managed worktree 物理存放目录，不是 MMW 源码路径，也不受目标项目 `.mmw.json` 的 `paths.worktrees` 控制。
 - Claude Code 只接 claude 与 gpt 两个模型族：GPT 角色通过后台 Bash 执行 Codex CLI，Claude 角色通过后台 Agent 工具执行。
-- Pi 与 Cursor 的全部角色走宿主原生 `subagent`，frontmatter 由 `mmw/agent-src/` 按 profile 生成（`mmw agents materialize`）。
+- Pi、Cursor 与 Grok 的全部角色走宿主原生 `subagent`，frontmatter 由 `mmw/agent-src/` 按 profile 生成（`mmw agents materialize`）。
 - 模型分配默认各宿主相同。某个宿主接不了基线模型时，在 `mmw/cli/mmw.default.json` 该角色底下写 `hosts.<宿主>` 覆盖，按字段生效。
-- **禁止**在技能源或产物正文里按宿主名称分支。派发 subagent 使用完整的 `[[mmw-launch:…]]` 或 `[[mmw-launch-group:…]]` 动作块，再由 `mmw skills materialize` 整块替换。其他宿主能力使用按能力判断的自然语言，在所有宿主上保留同一份正文。**没有** `mmw-dispatching-agents` 中转技能。
+- **禁止**在技能源或产物正文里按宿主名称分支。派发 subagent 使用完整的 `[[mmw-launch:…]]` 或 `[[mmw-launch-group:…]]` 动作块；「进入任务 worktree」使用 `[[mmw-enter-worktree]]`——各宿主建树通道不同，写死 `mmw task new` 会让有自己建树通道的宿主拿到错的指令。两类都由 `mmw skills materialize` 整块替换。新增占位符时，`materialize_skills.py` 里对应的展开函数**每个具名宿主各给一个显式分支**，兜底只留给行为确实相同的那几个宿主：让具名宿主掉进兜底，它拿到的是另一个宿主的指令，而且不报错。其他宿主能力使用按能力判断的自然语言，在所有宿主上保留同一份正文。**没有** `mmw-dispatching-agents` 中转技能。
 
 ## 修改规则
 
@@ -88,13 +88,23 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 bash mmw/test.sh
 ```
 
-860 项，约两分钟。它在一次性仓库上跑真命令：护栏拒绝了什么、拒绝之后破坏有没有发生、
+约两分钟。它在一次性仓库上跑真命令：护栏拒绝了什么、拒绝之后破坏有没有发生、
 issue 认领的互斥、图谱在什么情况下判定过期与恢复上一份、出包合同与脚本装配给定输入
 返回什么，技能与角色物化成各宿主产物时展开了什么、什么必须当场失败，
 以及技能之间的四类引用是否都指得到东西。全部通过时退出码为 0。
 
 其中几份要 `uv`：被测的 Python 是 PEP 723 内联脚本，依赖写在文件头部。没装 uv 时
 入口会把没跑的那几份列出来并以非零退出，不静默跳过。
+
+这里不写断言总数。各段自己报数，格式不统一（有的报「过 N，失败 M」，有的报
+`N passed`），加起来是多少要当场数：
+
+```bash
+bash mmw/test.sh 2>&1 | grep -oE "过 [0-9]+，失败|=== [0-9]+ PASS|^[0-9]+ passed|Ran [0-9]+ tests" \
+  | grep -oE "[0-9]+" | paste -sd+ - | bc
+```
+
+写死一个数字只会过时——它上一次写的是 860，而那时实际早就不是这个数了。
 
 <!-- MMW-DOMAIN-CONTEXT-START -->
 ## 领域上下文
