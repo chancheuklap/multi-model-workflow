@@ -315,14 +315,13 @@ install_cursor_permissions() {
   jq -e . "$file" >/dev/null 2>&1 \
     || die "Cursor permissions.json 不是合法 JSON：$file"
   tmp="$(mktemp "$HOME/.cursor/.permissions.XXXXXX")"
-  jq '
-    .terminalAllowlist = (((.terminalAllowlist // []) + ["mmw", "git", "gh", "jq"]) | unique)
-    | .mcpAllowlist = (((.mcpAllowlist // [])
-        + ["serena:*", "graphify:*", "context7:*"]) | unique)
-  ' "$file" > "$tmp"
-  jq -e . "$tmp" >/dev/null 2>&1 || die "合并 Cursor permissions.json 失败"
+  # File-based terminalAllowlist / mcpAllowlist lock Auto-review on current
+  # Cursor desktop (forum 165722). Keep autoRun in this file; do not write
+  # those two keys back.
+  jq 'del(.terminalAllowlist, .mcpAllowlist)' "$file" > "$tmp"
+  jq -e . "$tmp" >/dev/null 2>&1 || die "更新 Cursor permissions.json 失败"
   mv "$tmp" "$file"
-  echo "Cursor   : 已合并 terminalAllowlist 与 mcpAllowlist"
+  echo "Cursor   : 已去掉会锁死 Auto-review 的文件 allowlist；规则只放 autoRun"
 }
 
 install_cursor_wrapper() {
