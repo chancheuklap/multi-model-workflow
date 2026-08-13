@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""把共享 skill 中的宿主动作整块物化成 Pi、Claude Code、Codex 或 Grok 版本。"""
+"""把共享 skill 中的宿主动作整块物化成 Pi、Claude Code、Codex、Cursor 或 Grok 版本。"""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ DEFAULT_OUT = {
     "claude-code": PLUGIN_ROOT / "skills-claude-code",
     "codex": PLUGIN_ROOT / "skills-codex",
     "grok": PLUGIN_ROOT / "skills-grok",
+    "cursor": PLUGIN_ROOT / "skills-cursor",
 }
 PI_PROMPTS_OUT = PLUGIN_ROOT / "prompts-pi"
 
@@ -36,7 +37,7 @@ LAUNCH_GROUP_RE = re.compile(
 RESUME_RE = re.compile(
     r"\[\[mmw-resume:([a-z0-9-]+):(worktree|current|none)\]\]"
 )
-ENTER_RE = re.compile(r"\[\[mmw-enter-worktree\]\]")
+ENTER_WORKTREE_RE = re.compile(r"\[\[mmw-enter-worktree\]\]")
 # 没有续跑通道的宿主统一给这句退路。静默降级成全新派发会让调用方以为上下文还在，
 # 所以退路必须显式写明重派时要带什么材料。
 #
@@ -74,6 +75,53 @@ def load_role_agents() -> dict[str, str]:
             die(f"roles.json 角色 {role} 缺 agent")
         agents[str(role)] = str(agent)
     return agents
+
+
+ENTER_WORKTREE_NEW = (
+    "运行 `mmw task new <任务分支名> \"<用户原话>\" --name <工作名> "
+    "[--from <父分支或基点 SHA>]`。切换到返回的绝对路径。"
+)
+ENTER_WORKTREE_CODEX = (
+    "这棵树由 Codex App 创建。宿主给出干净的 detached worktree 之后，运行 "
+    "`mmw task bind <任务分支名> \"<用户原话>\" --name <工作名> "
+    "[--from <父分支或基点 SHA>]`。"
+)
+ENTER_WORKTREE_CURSOR = (
+    "这棵树由 Cursor 创建。随后运行 "
+    "`mmw task bind <任务分支名> \"<用户原话>\" --name <工作名> "
+    "[--from <父分支或基点 SHA>]`。"
+    "当前会话在终端复用器里（环境变量 `HERDR_ENV` 已设置）：用 "
+    "`herdr worktree create --path ~/.cursor/worktrees/<仓库目录名>/<任务分支名>` "
+    "建树；树已经存在时，把窗格工作目录指到那棵树。在该窗格启动 `mmw-cursor-agent`，然后 bind。"
+    "当前会话在 Agents Window，而且 "
+    "`~/.cursor/worktrees/<仓库目录名>/<任务分支名>` 已经存在：把当前会话根改到那棵树的绝对路径，然后 bind。"
+    "当前会话在 Agents Window，而且那棵树还不存在：请用户用 New Worktree，树名用任务分支名。"
+    "新会话已经在那棵树里之后，再 bind。"
+)
+ENTER_WORKTREE_GROK = (
+    "禁止 `mmw task new`。"
+    "在 Herdr（`HERDR_ENV=1`）里：新树用 "
+    "`herdr worktree create --path ~/.grok/worktrees/<repo>/<slug>`，"
+    "在该路径启动 `grok`，再运行 "
+    '`mmw task bind <任务分支名> "<用户原话>" --name <工作名> '
+    "[--from <父分支或基点 SHA>]`。"
+    "已有树则把新窗格的 cwd 指到那条路径再启动，同样 bind。"
+    "不在 Herdr 且还没有树时，请用户用 `grok --worktree=<slug>` 开新会话，再 bind。"
+    "不要 `git worktree add`。不要用终端 `cd` 代替把会话放进树。"
+)
+
+
+def expand_enter_worktree(host: str) -> str:
+    # 每个有自己建树通道的宿主都要显式一行。兜底只留给 pi 与 claude-code
+    # 这类「自己跑 mmw task new」的宿主——让具名宿主掉进兜底，它拿到的是
+    # 另一个宿主的建树指令，而且不会报错。
+    if host == "codex":
+        return ENTER_WORKTREE_CODEX
+    if host == "cursor":
+        return ENTER_WORKTREE_CURSOR
+    if host == "grok":
+        return ENTER_WORKTREE_GROK
+    return ENTER_WORKTREE_NEW
 
 
 def expand_pi(role: str, agent: str, cwd_mode: str) -> str:
@@ -120,32 +168,6 @@ def expand_grok(role: str, agent: str, cwd_mode: str) -> str:
     )
 
 
-def expand_enter_worktree(host: str) -> str:
-    if host in {"pi", "claude-code"}:
-        return (
-            "运行 `mmw task new <任务分支名> \"<用户原话>\" --name <工作名> "
-            "[--from <父分支或基点 SHA>]`。切换到返回的绝对路径。"
-        )
-    if host == "codex":
-        return (
-            "禁止 `mmw task new`。宿主已把你放在树上则运行 "
-            '`mmw task bind <任务分支名> "<用户原话>" --name <工作名> '
-            "[--from <父分支或基点 SHA>]`。"
-            "还没有树时请用户用宿主建树，新会话已经在树上后再 bind。"
-        )
-    return (
-        "禁止 `mmw task new`。"
-        "在 Herdr（`HERDR_ENV=1`）里：新树用 "
-        "`herdr worktree create --path ~/.grok/worktrees/<repo>/<slug>`，"
-        "在该路径启动 `grok`，再运行 "
-        '`mmw task bind <任务分支名> "<用户原话>" --name <工作名> '
-        "[--from <父分支或基点 SHA>]`。"
-        "已有树则把新窗格的 cwd 指到那条路径再启动，同样 bind。"
-        "不在 Herdr 且还没有树时，请用户用 `grok --worktree=<slug>` 开新会话，再 bind。"
-        "不要 `git worktree add`。不要用终端 `cd` 代替把会话放进树。"
-    )
-
-
 def expand_resume_grok() -> str:
     return (
         "恢复：调用原生 subagent，`resume_from` 设为原 subagent id。"
@@ -171,6 +193,33 @@ def expand_claude(role: str, agent: str, cwd_mode: str) -> str:
         "把四栏 task 正文作为命令的标准输入。"
         "当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。"
         "命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。"
+    )
+
+
+def expand_cursor(role: str, agent: str, cwd_mode: str) -> str:
+    if cwd_mode == "worktree":
+        return (
+            "启动：先在当前任务 worktree 运行 `mmw task state`，确认输出以 `bound` 开头。"
+            "再运行 `mmw task name` 取得工作名。"
+            "后台执行 `mmw-cursor-agent --mmw-role "
+            f"{role} -p --force --trust --approve-mcps "
+            "--worktree <结果分支> --worktree-base <当前任务分支>`。"
+            "把四栏 task 正文作为命令的标准输入。"
+            "worker 进入结果树后先运行 "
+            "`mmw task bind <结果分支> \"<目标栏原文>\" --name <工作名> --from <基点 SHA>`，"
+            "然后完成工作并提交。"
+            "交回结果分支名、HEAD SHA、基点 SHA。"
+        )
+    if cwd_mode == "current":
+        return (
+            "启动：先在当前任务 worktree 运行 `mmw task state`，确认输出以 `bound` 开头。"
+            f"调用原生 Task，agent 设为 `{agent}`，prompt 传四栏表全文。"
+            "该 subagent 直接使用当前任务 worktree，不创建结果 worktree。"
+            "互不依赖的实例在同一条消息中并行启动。"
+        )
+    return (
+        f"启动：调用原生 Task，agent 设为 `{agent}`，prompt 传四栏表全文。"
+        "互不依赖的实例在同一条消息中并行启动。"
     )
 
 
@@ -231,6 +280,16 @@ def expand_resume_claude(role: str, cwd_mode: str) -> str:
     )
 
 
+def expand_resume_cursor(role: str, cwd_mode: str) -> str:
+    del role, cwd_mode
+    return (
+        "恢复：后台执行 `mmw-cursor-agent --resume <句柄原文>`。"
+        "把修复 task 正文作为命令的标准输入。"
+        "句柄是原派发输出里的会话 id。"
+        f"句柄取不到或命令失败时退回重派：{RESUME_MATERIAL}"
+    )
+
+
 def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> str:
     if host == "codex":
         profile = (profiles.get("subagents") or {}).get("reviewer-gpt")
@@ -250,6 +309,8 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
         expand = expand_pi
     elif host == "grok":
         expand = expand_grok
+    elif host == "cursor":
+        expand = expand_cursor
     else:
         expand = expand_claude
     gpt = expand("reviewer-gpt", role_agents["reviewer-gpt"], "none")
@@ -275,6 +336,8 @@ def expand_text(
         expand = expand_pi
     elif host == "grok":
         expand = expand_grok
+    elif host == "cursor":
+        expand = expand_cursor
     else:
         expand = expand_claude
 
@@ -286,7 +349,7 @@ def expand_text(
             instruction = expand_codex(role, cwd_mode, codex_profiles)
             return f"{instruction}\n\n{POST_LAUNCH_RULE}"
         instruction = expand(role, role_agents[role], cwd_mode)
-        if host == "grok" and cwd_mode == "worktree":
+        if host in {"grok", "cursor"} and cwd_mode == "worktree":
             return f"{instruction}\n\n{POST_LAUNCH_RULE}"
         return instruction
 
@@ -305,18 +368,21 @@ def expand_text(
             die(f"占位符角色不在 roles.json：{role}")
         # 只有 Claude Code 已验证续跑通道（codex exec resume 与 SendMessage）。
         # Grok 的 resume_from 与 grok --resume 写在展开里。
+        # Cursor 的 CLI `--resume` 用于结果 worktree worker；原生 Task 还没有续跑通道。
         # Pi 的原生 subagent 与 Codex App 的 thread 后续消息工具都还没实测，
         # 先物化为显式退路，不做静默降级。
         if host == "claude-code":
             return expand_resume_claude(role, cwd_mode)
         if host == "grok":
             return expand_resume_grok()
+        if host == "cursor" and cwd_mode == "worktree":
+            return expand_resume_cursor(role, cwd_mode)
         return RESUME_FALLBACK
 
     text = LAUNCH_RE.sub(launch, text)
     text = LAUNCH_GROUP_RE.sub(launch_group, text)
     text = RESUME_RE.sub(resume, text)
-    text = ENTER_RE.sub(lambda _match: expand_enter_worktree(host), text)
+    text = ENTER_WORKTREE_RE.sub(lambda _match: expand_enter_worktree(host), text)
     if host == "codex":
         text = CODEX_SKILL_REF_RE.sub(r"`$mmw:\1`", text)
     return text
@@ -374,9 +440,20 @@ def inline_reference_links(text: str, reference_names: set[str]) -> str:
     return re.sub(r"\[([^\]]+)\]\(([^):#]+\.md)\)", replace, text)
 
 
-def render_pi_prompt(skill_dir: Path) -> str:
+def render_pi_prompt(
+    skill_dir: Path,
+    role_agents: dict[str, str] | None = None,
+    codex_profiles: dict | None = None,
+) -> str:
     skill_file = skill_dir / "SKILL.md"
     raw = skill_file.read_text(encoding="utf-8")
+    if role_agents is None:
+        role_agents = load_role_agents()
+    if codex_profiles is None:
+        try:
+            codex_profiles = load_codex_profiles()
+        except CodexConfigError:
+            codex_profiles = {}
     frontmatter = skill_frontmatter(raw)
     description_match = re.search(r"(?m)^description:\s*(.+?)\s*$", frontmatter)
     if not description_match:
@@ -393,12 +470,14 @@ def render_pi_prompt(skill_dir: Path) -> str:
     )
     reference_names = {path.name for path in references}
     body = strip_frontmatter(raw).replace("$ARGUMENTS", "$@")
+    body = expand_text(body, "pi", role_agents, codex_profiles)
     parts = [inline_reference_links(body, reference_names).rstrip()]
     for reference in references:
         text = strip_frontmatter(reference.read_text(encoding="utf-8"))
+        text = expand_text(text, "pi", role_agents, codex_profiles)
         text = inline_reference_links(text, reference_names).rstrip()
         parts.append(f"## {reference.name}\n\n{text}")
-    return (
+    rendered = (
         "---\n"
         f"description: {json.dumps(description, ensure_ascii=False)}\n"
         + (
@@ -411,11 +490,21 @@ def render_pi_prompt(skill_dir: Path) -> str:
         + "\n\n".join(parts)
         + "\n"
     )
+    if "[[mmw-" in rendered:
+        die(f"{skill_file} 仍有未识别的 MMW 物化标记")
+    return rendered
 
 
-def materialize_pi_prompts(*, check: bool) -> int:
+def materialize_pi_prompts(
+    role_agents: dict[str, str],
+    codex_profiles: dict,
+    *,
+    check: bool,
+) -> int:
     expected = {
-        f"{name}.md": render_pi_prompt(SKILLS_SRC / name)
+        f"{name}.md": render_pi_prompt(
+            SKILLS_SRC / name, role_agents, codex_profiles
+        )
         for name in sorted(user_only_skill_names())
     }
     if check:
@@ -504,7 +593,9 @@ def materialize_host(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="物化 skill 的宿主动作")
     parser.add_argument(
-        "--host", required=True, choices=("pi", "claude-code", "codex", "grok", "all")
+        "--host",
+        required=True,
+        choices=("pi", "claude-code", "codex", "cursor", "grok", "all"),
     )
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--out", type=Path, default=None)
@@ -516,7 +607,7 @@ def main(argv: list[str] | None = None) -> int:
     except CodexConfigError as exc:
         die(str(exc))
     hosts = (
-        ["pi", "claude-code", "codex", "grok"] if args.host == "all" else [args.host]
+        ["pi", "claude-code", "codex", "cursor", "grok"] if args.host == "all" else [args.host]
     )
     status = 0
     for host in hosts:
@@ -525,7 +616,9 @@ def main(argv: list[str] | None = None) -> int:
             host, out, role_agents, codex_profiles, check=args.check
         )
         if host == "pi" and args.out is None:
-            status |= materialize_pi_prompts(check=args.check)
+            status |= materialize_pi_prompts(
+                role_agents, codex_profiles, check=args.check
+            )
     return status
 
 

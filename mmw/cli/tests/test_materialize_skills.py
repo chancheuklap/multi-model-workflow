@@ -79,7 +79,7 @@ def 读(out: Path, rel: str) -> str:
 
 # ------------------------------------------------------------ 占位符整块替换
 
-@pytest.mark.parametrize("host", ["pi", "claude-code", "codex", "grok"])
+@pytest.mark.parametrize("host", ["pi", "claude-code", "codex", "cursor", "grok"])
 def test_物化后不留任何未展开的标记(假源: Path, tmp_path: Path, host: str) -> None:
     out = tmp_path / host
     assert 物化(host, out) == 0
@@ -87,17 +87,20 @@ def test_物化后不留任何未展开的标记(假源: Path, tmp_path: Path, h
         assert "[[mmw-" not in path.read_text(encoding="utf-8")
 
 
-def test_三个宿主对同一个占位符给出各自的动作(假源: Path, tmp_path: Path) -> None:
+def test_四个宿主对同一个占位符给出各自的动作(假源: Path, tmp_path: Path) -> None:
     产出 = {}
-    for host in ("pi", "claude-code", "codex"):
+    for host in ("pi", "claude-code", "codex", "cursor"):
         out = tmp_path / host
         物化(host, out)
         产出[host] = 读(out, "mmw-alpha/SKILL.md")
-    # Pi 直接调原生 subagent，Claude Code 走 mmw dispatch，Codex 开后台 worktree 任务。
+    # Pi 直接调原生 subagent，Claude Code 走 mmw dispatch，Codex 开后台 worktree 任务，
+    # Cursor 结果树走隔离包装 mmw-cursor-agent。
     assert "原生 `subagent`" in 产出["pi"]
     assert "mmw dispatch worker" in 产出["claude-code"]
     assert "create_thread" in 产出["codex"]
-    assert len({产出["pi"], 产出["claude-code"], 产出["codex"]}) == 3
+    assert "mmw-cursor-agent" in 产出["cursor"]
+    assert "mmw task new" not in 产出["cursor"]
+    assert len({产出["pi"], 产出["claude-code"], 产出["codex"], 产出["cursor"]}) == 4
 
 
 @pytest.mark.parametrize(
@@ -108,6 +111,10 @@ def test_三个宿主对同一个占位符给出各自的动作(假源: Path, tm
         (
             "codex",
             "mmw task bind <完整结果分支名> <目标栏原文> --name <工作名> --from <基点 SHA>",
+        ),
+        (
+            "cursor",
+            "mmw task bind <结果分支> \"<目标栏原文>\" --name <工作名> --from <基点 SHA>",
         ),
     ],
 )
@@ -137,6 +144,41 @@ def test_current_模式用当前任务_worktree(假源: Path, tmp_path: Path) ->
     正文 = 读(out, "mmw-alpha/SKILL.md")
     assert "mmw task new" not in 正文
     assert "当前任务 worktree" in 正文
+
+
+def test_cursor_current_模式不创建结果树(假源: Path, tmp_path: Path) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n"
+       "[[mmw-launch:prototype-worker:current]]\n")
+    out = tmp_path / "cursor"
+    物化("cursor", out)
+    正文 = 读(out, "mmw-alpha/SKILL.md")
+    assert "mmw-cursor-agent" not in 正文
+    assert "--worktree" not in 正文
+    assert "原生 Task" in 正文
+    assert "不创建结果 worktree" in 正文
+    assert "mmw task state" in 正文
+
+
+def test_enter_worktree_按宿主展开(假源: Path, tmp_path: Path) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n[[mmw-enter-worktree]]\n")
+    产出 = {}
+    for host in ("pi", "claude-code", "codex", "cursor"):
+        out = tmp_path / host
+        物化(host, out)
+        产出[host] = 读(out, "mmw-alpha/SKILL.md")
+        assert "[[mmw-enter-worktree]]" not in 产出[host]
+    assert "mmw task new" in 产出["pi"]
+    assert "mmw task new" in 产出["claude-code"]
+    assert "切换到返回的绝对路径" in 产出["pi"]
+    assert 产出["pi"] == 产出["claude-code"]
+    assert "mmw task new" not in 产出["codex"]
+    assert "mmw task bind" in 产出["codex"]
+    assert "mmw task new" not in 产出["cursor"]
+    assert "mmw-cursor-agent" in 产出["cursor"]
+    assert "New Worktree" in 产出["cursor"]
+    assert "mmw task bind" in 产出["cursor"]
 
 
 @pytest.mark.parametrize("cwd_mode", ["worktree", "current", "none"])
@@ -184,11 +226,11 @@ def 审查组(host: str, 假源: Path, tmp_path: Path) -> str:
     return 读(out, "mmw-alpha/SKILL.md")
 
 
-def test_resume_只在_claude_code_给出恢复动作(假源: Path, tmp_path: Path) -> None:
+def test_resume_只在已验证通道的宿主给出恢复动作(假源: Path, tmp_path: Path) -> None:
     写(假源 / "mmw-alpha" / "SKILL.md",
        "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n[[mmw-resume:worker:worktree]]\n")
     产出 = {}
-    for host in ("pi", "claude-code", "codex"):
+    for host in ("pi", "claude-code", "codex", "cursor"):
         out = tmp_path / host
         物化(host, out)
         产出[host] = 读(out, "mmw-alpha/SKILL.md")
@@ -198,6 +240,8 @@ def test_resume_只在_claude_code_给出恢复动作(假源: Path, tmp_path: Pa
     # 物化产物里出现它就是在教主 agent 去调一个不存在的参数。
     assert "--task " not in 产出["claude-code"]
     assert "标准输入" in 产出["claude-code"]
+    assert "mmw-cursor-agent --resume" in 产出["cursor"]
+    assert "标准输入" in 产出["cursor"]
     # 没验证过续跑通道的宿主给显式退路，不静默降级。
     for host in ("pi", "codex"):
         assert "--resume" not in 产出[host]
@@ -225,7 +269,7 @@ def test_resume_点了不存在的角色就退出(假源: Path, tmp_path: Path) 
         物化("claude-code", tmp_path / "claude-code")
 
 
-@pytest.mark.parametrize("host", ["pi", "claude-code", "codex"])
+@pytest.mark.parametrize("host", ["pi", "claude-code", "codex", "cursor"])
 def test_每一道审都在启动组里有交代(假源: Path, tmp_path: Path, host: str) -> None:
     # 少写哪一道，主 agent 走到那一道就没有可执行的启动句，只能自己编一个。
     正文 = 审查组(host, 假源, tmp_path)
@@ -233,7 +277,7 @@ def test_每一道审都在启动组里有交代(假源: Path, tmp_path: Path, h
         assert 哪一道 in 正文
 
 
-@pytest.mark.parametrize("host", ["pi", "claude-code"])
+@pytest.mark.parametrize("host", ["pi", "claude-code", "cursor"])
 def test_两个审查角色的宿主让共同理解审换一个模型(
     假源: Path, tmp_path: Path, host: str
 ) -> None:
@@ -258,7 +302,7 @@ def test_codex_把技能引用改成自己的调用写法(假源: Path, tmp_path
 
 
 def test_别的宿主保留斜杠写法(假源: Path, tmp_path: Path) -> None:
-    for host in ("pi", "claude-code"):
+    for host in ("pi", "claude-code", "cursor"):
         out = tmp_path / host
         物化(host, out)
         正文 = 读(out, "mmw-alpha/SKILL.md")
@@ -266,18 +310,21 @@ def test_别的宿主保留斜杠写法(假源: Path, tmp_path: Path) -> None:
         assert "$mmw:" not in 正文
 
 
-def test_只有_codex_在派活后追加不重做规则(假源: Path, tmp_path: Path) -> None:
+def test_codex_与_cursor_在结果树派活后追加不重做规则(
+    假源: Path, tmp_path: Path
+) -> None:
     片段 = "主 agent 不得执行与该 subagent task 重叠的"
-    out = tmp_path / "codex"
-    物化("codex", out)
-    assert 片段 in 读(out, "mmw-alpha/SKILL.md")
+    for host in ("codex", "cursor"):
+        out = tmp_path / host
+        物化(host, out)
+        assert 片段 in 读(out, "mmw-alpha/SKILL.md")
     for host in ("pi", "claude-code"):
         out = tmp_path / host
         物化(host, out)
         assert 片段 not in 读(out, "mmw-alpha/SKILL.md")
 
 
-@pytest.mark.parametrize("role", ["worker", "worker-high-risk", "prototype-worker"])
+@pytest.mark.parametrize("role", ["worker", "worker-high-risk"])
 def test_codex_后台_worktree_任务显式传递并绑定工作名(
     假源: Path, tmp_path: Path, role: str
 ) -> None:
@@ -349,7 +396,7 @@ def test_审查组两个角色缺一个就退出(假源: Path, tmp_path: Path) -
 
 def test_旧背景材料目录不进任何产物(假源: Path, tmp_path: Path) -> None:
     写(假源 / "mmw-setup" / "legacy.md", "旧材料。\n")
-    for host in ("pi", "claude-code", "codex"):
+    for host in ("pi", "claude-code", "codex", "cursor"):
         out = tmp_path / host
         物化(host, out)
         assert not (out / "mmw-setup").exists()
@@ -366,6 +413,9 @@ def test_只给人调的技能不进_pi_技能目录但进别的宿主(
     cc = tmp_path / "cc"
     物化("claude-code", cc)
     assert (cc / "mmw-alpha" / "SKILL.md").is_file()
+    cursor = tmp_path / "cursor"
+    物化("cursor", cursor)
+    assert (cursor / "mmw-alpha" / "SKILL.md").is_file()
 
 
 def test_grok_worktree_不含_task_new_且含隔离与_bind(
@@ -519,6 +569,16 @@ def test_用户命令带上_description(假源: Path, tmp_path: Path) -> None:
     渲染 = ms.render_pi_prompt(假源 / "mmw-alpha")
     assert 渲染.startswith("---\n")
     assert json.dumps("甲的说明。", ensure_ascii=False) in 渲染
+
+
+def test_用户命令展开_enter_worktree(假源: Path, tmp_path: Path) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\ndisable-model-invocation: true\n---\n\n"
+       "建树：[[mmw-enter-worktree]] 重新运行。\n")
+    渲染 = ms.render_pi_prompt(假源 / "mmw-alpha", 角色表, CODEX_PROFILE)
+    assert "[[mmw-enter-worktree]]" not in 渲染
+    assert "mmw task new" in 渲染
+    assert "切换到返回的绝对路径" in 渲染
 
 
 def test_用户命令缺_description_就退出(假源: Path, tmp_path: Path) -> None:

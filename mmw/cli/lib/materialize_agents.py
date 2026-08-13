@@ -101,6 +101,8 @@ def coerce_frontmatter_value(raw: Any, values: dict[str, Any]) -> Any | None:
     rendered = raw.format(**values)
     if raw in ("{skill}", "{skills}") and not str(values.get("skill", "")).strip():
         return None
+    if raw == "{tools}" and not str(values.get("tools", "")).strip():
+        return None
     if rendered in ("true", "false") and raw in ("{readonly}", "{async}"):
         return rendered == "true"
     # profile 里写的字面量 "true"/"false" 已是 bool；字符串 true 来自 format
@@ -179,7 +181,11 @@ def build_values(
     writable = bool(role.get("writable"))
     tools_key = "writable" if writable else "readonly"
     tools_map = profile.get("tools") or {}
-    if tools_key not in tools_map:
+    frontmatter = profile.get("frontmatter") or {}
+    needs_tools = any(
+        isinstance(value, str) and "{tools}" in value for value in frontmatter.values()
+    )
+    if needs_tools and tools_key not in tools_map:
         die(f"profile {profile.get('host')} 缺 tools.{tools_key}")
     skill = str(role.get("skill") or "")
     return {
@@ -188,7 +194,7 @@ def build_values(
         "description": role["description"],
         "skill": skill,
         "skills": skill,
-        "tools": tools_map[tools_key],
+        "tools": tools_map[tools_key] if needs_tools else "",
         "model": format_model(profile, model),
         "effort": model["effort"],
         "family": model["family"],

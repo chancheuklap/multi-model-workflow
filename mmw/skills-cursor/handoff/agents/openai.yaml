@@ -1,0 +1,5 @@
+interface:
+  display_name: "Handoff"
+  short_description: "为另一个 agent 生成接续当前会话的文档"
+policy:
+  allow_implicit_invocation: false

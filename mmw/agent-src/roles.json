@@ -20,7 +20,7 @@
       "body": "mmw-prototype-worker.md",
       "skill": "",
       "writable": true,
-      "description": "原型执行者。由 mmw-prototype 派发，在独立 worktree 完成一个指定原型变体。不加载 TDD，不修改正式设计结论，不扩大变体范围。"
+      "description": "原型执行者。由 mmw-prototype 派发，在当前任务 worktree 完成一个指定原型变体。不加载 TDD，不修改正式设计结论，不扩大变体范围，不创建结果 worktree。"
     },
     "planner": {
       "agent": "mmw-planner",

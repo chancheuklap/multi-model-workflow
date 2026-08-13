@@ -216,7 +216,7 @@ mmw_task_bind() {
     return 1
   }
   case "$(mmw_host)" in
-    codex|grok) ;;
+    codex|cursor|grok) ;;
     *)
       echo "mmw: task bind 只用于宿主已创建的 detached worktree" >&2
       return 1

@@ -104,6 +104,11 @@
           "family": "claude",
           "id": "claude-opus-5",
           "effort": "high"
+        },
+        "cursor": {
+          "family": "claude",
+          "id": "claude-opus-5",
+          "effort": "high"
         }
       }
     }

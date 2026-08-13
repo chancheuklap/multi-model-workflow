@@ -115,13 +115,13 @@ mmw task name
     只输出工作名，一行。不在已绑定的任务 worktree 里时失败并说清当前位置。
 mmw task bind <完整任务分支名> <用户原话或任务目标> [--name <工作名>] [--from <预期基点>]
     已绑定任务 worktree 用它补写工作名。
-    Codex App 与 Grok 也用它把宿主已经建好的 detached worktree 绑到任务分支上。
+    Codex App、Cursor 与 Grok 也用它把宿主已经建好的 detached worktree 绑到任务分支上。
     给了 --from 就先校验当前 HEAD 等于这个基点。
 
 这条命令只输出路径；真正切进 worktree 要用宿主自己的工具。
-在 Codex App 与 Grok 上只有 state 和 bind 可用，worktree 由宿主创建和清理；
+在 Codex App、Cursor 与 Grok 上只有 state 和 bind 可用，worktree 由宿主创建和清理；
 其他宿主也可在已绑定任务 worktree 上用 bind 补写工作名。
-在其他宿主上 new 与 cleanup 可用。
+在 Pi 与 Claude Code 上 new 与 cleanup 可用。
 EOF
   return 2
 }
@@ -403,9 +403,9 @@ cmd_agents() {
 
 usage_skills() {
   cat >&2 <<'EOF'
-mmw skills materialize --host <pi|claude-code|codex|all> [--check] [--out <目录>]
+mmw skills materialize --host <pi|claude-code|codex|cursor|all> [--check] [--out <目录>]
     把 skills/ 源里的启动块与宿主动作块物化成宿主写死的操作
-    pi → skills-pi/；claude-code → skills-claude-code/；codex → skills-codex/
+    pi → skills-pi/；claude-code → skills-claude-code/；codex → skills-codex/；cursor → skills-cursor/
 EOF
   return 2
 }
@@ -446,8 +446,40 @@ cmd_task() {
     state) [ $# -eq 0 ] || usage_task; mmw_task_state ;;
     name) [ $# -eq 0 ] || usage_task; mmw_task_name ;;
     bind) mmw_task_bind "$@" ;;
-    new) case "$host" in codex|grok) echo "mmw: 宿主负责创建 worktree，这里只用 task bind" >&2; return 1 ;; esac; mmw_task_new "$@" ;;
-    cleanup) case "$host" in codex|grok) echo "mmw: 宿主负责回收 managed worktree" >&2; return 1 ;; esac; mmw_task_cleanup "$@" ;;
+    new)
+      case "$host" in
+        codex)
+          echo "mmw: Codex App 负责创建 worktree，这里只用 task bind" >&2
+          return 1
+          ;;
+        cursor)
+          echo "mmw: Cursor 负责创建 worktree，这里只用 task bind" >&2
+          return 1
+          ;;
+        grok)
+          echo "mmw: Grok 负责创建 worktree，这里只用 task bind" >&2
+          return 1
+          ;;
+      esac
+      mmw_task_new "$@"
+      ;;
+    cleanup)
+      case "$host" in
+        codex)
+          echo "mmw: Codex App 负责清理 managed worktree" >&2
+          return 1
+          ;;
+        cursor)
+          echo "mmw: Cursor 负责清理 ~/.cursor/worktrees 下的树" >&2
+          return 1
+          ;;
+        grok)
+          echo "mmw: Grok 负责回收 managed worktree" >&2
+          return 1
+          ;;
+      esac
+      mmw_task_cleanup "$@"
+      ;;
     *) usage_task ;;
   esac
 }
@@ -580,7 +612,7 @@ install 跑的是规则表里每个条目自己的 install 命令。默认只列
 apply 会写文件，`mmw init` 里已经调过一次。MMW 拥有的那几份配置每次都比对重写，仓库
 自己拥有的（持续集成工作流、pyproject.toml 的规则集）只在缺失时生成一份。
 
-规则表在 config/toolchain-rules.json，模板在 toolchain/templates/。三个宿主的编辑后
+规则表在 config/toolchain-rules.json，模板在 toolchain/templates/。四个宿主的编辑后
 推送通道最终都调 check。
 EOF
   return 2
@@ -632,7 +664,7 @@ cmd_doctor() {
   if host="$(mmw_host 2>/dev/null)"; then
     echo "宿主     : $host"
   else
-    echo "宿主     : 认不出（Claude Code、Pi、Grok 与 Codex 标识都没有）"
+    echo "宿主     : 认不出（Claude Code、Pi、Cursor、Grok 与 Codex 标识都没有）"
     status=1
   fi
   if git rev-parse --show-toplevel >/dev/null 2>&1; then
@@ -724,7 +756,7 @@ cmd_doctor() {
     echo "方法论   : 走 subagent 的 skill 参数，不用安装"
   elif [ "${host:-}" = "codex" ]; then
     if python3 "$MMW_ROOT/codex/runtime.py" check >/dev/null 2>&1; then
-      echo "Codex    : 四个原生 subagent 已安装"
+      echo "Codex    : 原生 subagent 已安装"
     else
       echo "Codex    : 原生 subagent 未装或过期，重新运行 $repair"
       status=1
@@ -738,6 +770,18 @@ cmd_doctor() {
       echo "agent    : $(command -v agent)（不要把它当成 Grok CLI）"
     fi
     echo "方法论   : 走原生 subagent 与 ~/.grok/skills"
+  elif [ "${host:-}" = "cursor" ]; then
+    if command -v mmw-cursor-agent >/dev/null 2>&1 \
+       && grep -q 'Managed by MMW cursor isolate' "$(command -v mmw-cursor-agent)"; then
+      echo "隔离包装 : $(command -v mmw-cursor-agent)"
+    else
+      echo "隔离包装 : 没装 mmw-cursor-agent，重新运行 $repair"
+      status=1
+    fi
+    echo "方法论   : 走 ~/.cursor/skills 与原生 Task；结果树 worker 走 mmw-cursor-agent"
+    echo "Cursor 3P: 在 App 设置里关闭 Include third-party Plugins, Skills, and other configs"
+    echo "Cursor WT: 任务树与结果树都在 ~/.cursor/worktrees/。把 cursor.worktreeMaxCount 调到大于默认 25"
+    echo "Cursor 模型: Agents Window 的编排模型选 grok（与已安装 runtime 的 orchestrator 一致）"
   fi
 
   case "${host:-}" in
@@ -760,6 +804,29 @@ cmd_doctor() {
         echo "CC skills: skills-claude-code 与 skills/ 源一致"
       else
         echo "CC skills: 与 installed runtime 不一致，重新运行 $repair"
+        status=1
+      fi
+      ;;
+    cursor)
+      if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host cursor --check >/dev/null 2>&1; then
+        echo "Cursor ag: ~/.cursor/agents 与 agent-src / 模型档一致"
+      else
+        echo "Cursor ag: 与 installed runtime 不一致，重新运行 $repair"
+        status=1
+      fi
+      if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host cursor --check >/dev/null 2>&1; then
+        echo "Cursor sk: skills-cursor 与 skills/ 源一致"
+      else
+        echo "Cursor sk: 与 installed runtime 不一致，重新运行 $repair"
+        status=1
+      fi
+      if [ -x "$HOME/.cursor/hooks/mmw-toolchain-check.sh" ] \
+         && [ -f "$HOME/.cursor/hooks.json" ] \
+         && jq -e '.hooks.postToolUse[]? | select((.command // "") | tostring | contains("mmw-toolchain-check"))' \
+              "$HOME/.cursor/hooks.json" >/dev/null 2>&1; then
+        echo "Cursor hk: postToolUse 诊断 hook 已装"
+      else
+        echo "Cursor hk: 诊断 hook 未装或 hooks.json 里没有，重新运行 $repair"
         status=1
       fi
       ;;
@@ -789,7 +856,7 @@ cmd_doctor() {
 
   # Pi 与 Cursor 的插件规格没有声明 MCP 的位置，只能写用户级配置。
   # Codex 与 Claude Code 的 plugin 自己携带 MCP。
-  if [ "${host:-}" = "pi" ]; then
+  if [ "${host:-}" = "pi" ] || [ "${host:-}" = "cursor" ]; then
     if bash "$MMW_ROOT/mcp/install-mcp.sh" --check >/dev/null 2>&1; then
       echo "pi/Cursor: 用户级 MCP 已装（这台机器上没有的那一面自动跳过）"
     else

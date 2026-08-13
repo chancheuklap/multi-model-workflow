@@ -1,6 +1,6 @@
 {
   "name": "mmw",
-  "version": "0.20.2",
+  "version": "0.21.0",
   "description": "完全在 Codex App 内运行的 MMW 开发工作流，使用 Codex 原生 subagent、后台任务、worktree 与 GPT 模型。",
   "author": {
     "name": "Cheuk Lap Chan",
@@ -22,7 +22,7 @@
   "interface": {
     "displayName": "MMW",
     "shortDescription": "Codex 原生开发工作流",
-    "longDescription": "在 Codex App 内编排需求、计划、实现、调查、审查、集成与发布；实现和 prototype 使用独立后台任务与 worktree，计划、调查、设计和审查使用原生 subagent。",
+    "longDescription": "在 Codex App 内编排需求、计划、实现、调查、审查、集成与发布；实现使用独立后台任务与 worktree，计划、原型、调查、设计和审查使用原生 subagent。",
     "developerName": "Cheuk Lap Chan",
     "category": "Productivity",
     "capabilities": [

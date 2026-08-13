@@ -6,7 +6,7 @@
 # 和 Pi 同一个 mmw toolchain check。
 #
 # Claude Code 有原生 LSP，但 LSP 只报类型错误，ruff 和 oxlint 的规则不在里面。Claude Code
-# 也挂这个 hook，补上 LSP 不覆盖的那一半。三个宿主因此看到同一批诊断。
+# 也挂这个 hook，补上 LSP 不覆盖的那一半。四个宿主因此看到同一批诊断。
 #
 # 输入是 stdin 上的一份 JSON。文件路径的取法按工具分：
 #   apply_patch  路径写在 tool_input.command 的补丁正文里，从 *** Add/Update File: 取

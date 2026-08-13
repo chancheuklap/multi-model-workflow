@@ -22,6 +22,8 @@ run() {
 }
 
 run "CLI 护栏" bash "$MMW_DIR/cli/tests/guardrails.sh"
+run "Cursor 隔离包装" bash "$MMW_DIR/cli/tests/test_cursor_isolate.sh"
+run "Cursor 诊断 hook" bash "$MMW_DIR/cli/tests/test_cursor_hook.sh"
 run "issue 过滤、排序与认领互斥" bash "$MMW_DIR/cli/tests/test_issue.sh"
 run "domain 形态与 ADR 编号" bash "$MMW_DIR/cli/tests/test_domain.sh"
 run "产物落点数据与路径解析" bash "$MMW_DIR/cli/tests/test_artifact.sh"

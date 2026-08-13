@@ -12,7 +12,7 @@ research 要做的是：对照拥有这个事实的一手来源回答问题，�
 
 输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。
 
-输出是 `local` 时，先分别确定任务分支名和工作名。禁止 `mmw task new`。宿主已把你放在树上则运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。还没有树时请用户用宿主建树，新会话已经在树上后再 bind。
+输出是 `local` 时，先分别确定任务分支名和工作名。这棵树由 Codex App 创建。宿主给出干净的 detached worktree 之后，运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。
 
 输出是 `outside` 时，向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`。
 

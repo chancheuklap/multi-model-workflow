@@ -73,7 +73,13 @@ def render_agent(role: str, profile: dict) -> str:
 def rendered_agents() -> dict[str, str]:
     profiles = load_profiles()
     agents = profiles.get("subagents") or {}
-    expected_roles = {"investigator", "reviewer-gpt", "planner", "designer"}
+    expected_roles = {
+        "investigator",
+        "reviewer-gpt",
+        "planner",
+        "designer",
+        "prototype-worker",
+    }
     if set(agents) != expected_roles:
         die(f"Codex 原生 subagent 必须是 {', '.join(sorted(expected_roles))}")
     rendered: dict[str, str] = {}

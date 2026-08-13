@@ -45,14 +45,14 @@ UI mockup 的持久资产必须保存在 `mockup/`。应用源码只保留运行
 | --- | --- |
 | 目标 | 本轮验证问题、完整变体或局部变体，以及负责的方向和变体 key |
 | 读 | 相关页面、真实数据、组件库、样式系统和现有 prototype 资产的精确路径 |
-| 约束 | 只实现分配的方向；只修改对应变体目录；不写测试；在页面上标明 prototype 身份 |
-| 验收 | 变体可以运行；结构差异成立；交回运行方式、页面 URL、变体 key 和结果分支 HEAD SHA |
+| 约束 | 只实现分配的方向；只修改对应变体目录；不写测试；在页面上标明 prototype 身份；不创建结果 worktree |
+| 验收 | 变体可以运行；结构差异成立；交回运行方式、页面 URL 和变体 key |
 
-派发前提交当前任务分支。确认 worktree 干净。每个方向的结果分支名用它的 `变体 key` 作 slug。基点 SHA 用当前任务分支的 HEAD。把结果分支名和基点 SHA 写进对应 task。
+派发前提交当前任务分支。确认 worktree 干净。每个 worker 写在当前任务 worktree 的对应变体目录里，不创建结果 worktree。把 `<问题 slug>` 和 `变体 key` 写进对应 task。变体目录是 `mockup/variants/<问题 slug>/<变体 key>/`。
 
-启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --name <工作名> --from <基点 SHA>`，使用命令返回的 worktree 绝对路径作为 cwd。然后调用原生 `subagent`，agent 设为 `mmw-prototype-worker`，task 传四栏表全文，cwd 设为该绝对路径。
+启动：调用原生 `subagent`，agent 设为 `mmw-prototype-worker`，task 传四栏表全文，cwd 设为当前任务 worktree 的绝对路径。
 
-收到报告后，运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。命令通过后，在输出的 worktree 读取报告和 diff。按 `/mmw-verifying-agent-output` 验证结构差异、项目组件约束和可运行性。通过后运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。
+收到报告后，读取报告和对应变体目录的 diff。按 `/mmw-verifying-agent-output` 验证结构差异、项目组件约束和可运行性。
 
 并行没有明显收益时，由主 agent 直接完成。
 
