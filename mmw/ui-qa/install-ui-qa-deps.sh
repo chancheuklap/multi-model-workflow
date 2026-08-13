@@ -54,7 +54,60 @@ installed_skill_version() {
        n==1 && /^version:[[:space:]]*/{sub(/^version:[[:space:]]*/,""); print; exit}' "$skill"
 }
 
+# 同一份 frontmatter 的 name: 行。判断一个目录是不是某个技能时用它。
+skill_dir_name() {
+  local skill="$1/SKILL.md"
+  [ -f "$skill" ] || return 1
+  awk '/^---[[:space:]]*$/{n++; if (n==2) exit; next}
+       n==1 && /^name:[[:space:]]*/{sub(/^name:[[:space:]]*/,""); print; exit}' "$skill"
+}
+
+# 本机已有的宿主技能目录。装和查都走这一个列表，两边不会不一致。
+# 每行一个，目录不存在就说明那个宿主没装，不输出。
+#
+# ~/.agents/skills 在列表里：Grok 扫每一层的 .agents/skills（见它 user-guide 的
+# Skill Locations 一节），不软链进去，Grok 就只能看到那里原有的那份副本，而 MMW
+# 在 deps.json 里升版本时不会碰它——两份会漂。软链进去之后，全机器只有一份内容，
+# 落点是 MMW 自己的目录，各宿主都指向它。
+#
+# 列表里没有 ~/.grok/skills：Grok 已经从 ~/.agents/skills 看到了，再软链一份进去
+# 会让它在同一优先级看到两个同名技能。
+host_skill_dirs() {
+  local dir
+  for dir in "${CODEX_HOME:-$HOME/.codex}/skills" "$HOME/.claude/skills" \
+             "$HOME/.pi/skills" "$HOME/.cursor/skills" "$HOME/.agents/skills"; do
+    if [ -d "$dir" ]; then echo "$dir"; fi
+  done
+}
+
 dep_count="$(jq -r '.packages | length' "$DEPS_JSON")"
+
+# 装的那一份版本对，不代表宿主读的是这一份。落点上放着另一份真目录时，那个宿主
+# 读到的是它，MMW 后面升版本也不会碰它。查出来的就是这种漂移。
+check_skill_links() {
+  local name="$1"
+  local src="$DEPS_ROOT/$name" dir dst current bad=0
+  while IFS= read -r dir; do
+    [ -n "$dir" ] || continue
+    dst="$dir/$name"
+    if [ -L "$dst" ]; then
+      current="$(readlink "$dst")"
+      if [ "$current" != "$src" ]; then
+        # 变量名用花括号界定：全角标点是多字节的，bash 会把 `$current，` 整个
+        # 当成变量名，set -u 下当场报 unbound variable。
+        echo "界面 QA  : $dst 指向 ${current}，不是 $src" >&2
+        bad=1
+      fi
+    elif [ -e "$dst" ]; then
+      echo "界面 QA  : $dst 是另一份副本，不是指向 $src 的软链" >&2
+      bad=1
+    else
+      echo "界面 QA  : $dst 不存在，这个宿主看不到 $name" >&2
+      bad=1
+    fi
+  done < <(host_skill_dirs)
+  return "$bad"
+}
 
 if [ "$mode" = check ]; then
   missing=0
@@ -71,6 +124,10 @@ if [ "$mode" = check ]; then
     elif [ "$have" != "$want" ]; then
       echo "界面 QA  : ${pkg} 版本是 ${have}，声明要 ${want}" >&2
       missing=1
+    else
+      if [ "$kind" = skill ]; then
+        check_skill_links "$install_name" || missing=1
+      fi
     fi
   done < <(jq -r '.packages[] | [.kind, .package, .version, (.installName // "")] | @tsv' "$DEPS_JSON")
   [ "$missing" -eq 0 ] || exit 1
@@ -184,19 +241,37 @@ while IFS=$'\t' read -r pkg want repo tag repo_path name; do
 done < <(jq -r '.packages[] | select(.kind == "skill")
   | [.package, .version, .repo, .tag, .repoPath, .installName] | @tsv' "$DEPS_JSON")
 
-# 技能要被宿主看见才有用。软链进本机已有的各宿主技能目录；目录不存在就说明
-# 那个宿主没装，跳过。指向非 MMW 内容时不覆盖，报出来让人自己处理。
+# 技能要被宿主看见才有用。软链进 host_skill_dirs 列出的每个目录。
 #
-# 这个列表里没有 ~/.grok/skills，是有意的：Grok 除了自己那个目录，还会扫每一层的
-# ~/.agents/skills（见它 user-guide 的 Skill Locations 一节），而这份技能本来就
-# 装在那里。再软链一份进 ~/.grok/skills，Grok 会在同一优先级看到两个同名技能。
+# 落点里已经有一份真目录时怎么办：只有它确实是同一个技能（SKILL.md 的 name 对得上）
+# 才接管，接管前整份移进 MMW 自己的备份目录。不是同一个技能就报出来，不动。
+# 备份不放回宿主的 skills 目录：那里多出一个带 SKILL.md 的目录，宿主会当成另一个技能扫进去。
+readonly SKILL_BACKUP_DIR="$DEPS_ROOT/.backups"
+
+take_over_existing_dir() {
+  local dst="$1" name="$2" found stamp backup
+  found="$(skill_dir_name "$dst" || true)"
+  if [ "$found" != "$name" ]; then
+    echo "界面 QA  : $dst 不是技能 ${name}（SKILL.md 的 name 是 ${found:-读不出}），没动它" >&2
+    return 1
+  fi
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  backup="$SKILL_BACKUP_DIR/$name-$stamp"
+  mkdir -p "$SKILL_BACKUP_DIR"
+  mv "$dst" "$backup" || {
+    echo "界面 QA  : $dst 移不进备份，没动它" >&2
+    return 1
+  }
+  echo "界面 QA  : $dst 原有副本已移到 $backup"
+  return 0
+}
+
 link_skill_into_hosts() {
   local name="$1"
   local src="$DEPS_ROOT/$name" dir dst current
   [ -d "$src" ] || return 0
-  for dir in "${CODEX_HOME:-$HOME/.codex}/skills" "$HOME/.claude/skills" \
-             "$HOME/.pi/skills" "$HOME/.cursor/skills"; do
-    [ -d "$dir" ] || continue
+  while IFS= read -r dir; do
+    [ -n "$dir" ] || continue
     dst="$dir/$name"
     if [ -L "$dst" ]; then
       current="$(readlink "$dst")"
@@ -205,15 +280,19 @@ link_skill_into_hosts() {
       fi
       case "$current" in
         "$DEPS_ROOT"/*) ln -sfn "$src" "$dst"; echo "界面 QA  : 更新软链 $dst" ;;
-        *) echo "界面 QA  : $dst 指向非 MMW 内容（$current），没动它" >&2 ;;
+        *) echo "界面 QA  : $dst 指向非 MMW 内容（${current}），没动它" >&2 ;;
       esac
+    elif [ -d "$dst" ]; then
+      take_over_existing_dir "$dst" "$name" || continue
+      ln -s "$src" "$dst"
+      echo "界面 QA  : 软链 $dst"
     elif [ -e "$dst" ]; then
       echo "界面 QA  : $dst 已被非 MMW 内容占用，没动它" >&2
     else
       ln -s "$src" "$dst"
       echo "界面 QA  : 软链 $dst"
     fi
-  done
+  done < <(host_skill_dirs)
 }
 
 while IFS= read -r name; do

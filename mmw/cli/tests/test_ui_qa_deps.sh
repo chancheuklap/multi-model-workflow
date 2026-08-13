@@ -110,6 +110,32 @@ for f in "$FORWARDER" "$INSTALLER" "$INSTALL_SH"; do
 done
 
 echo
+echo "变量名紧跟全角标点"
+# `$name（` 里的全角括号是多字节的，bash 把它连进变量名，set -u 下当场
+# 报 unbound variable。shellcheck 抓不到，只有跑到那一行才炸——而那一行往往
+# 是出错分支，正常路径上跑不到。写成 `${name}（` 就好了。
+# 这里只列本仓库正文实际用到的几个全角标点。
+FULLWIDTH='（），。：、；！？「」'
+for f in "$FORWARDER" "$INSTALLER" "$INSTALL_SH"; do
+  [ -f "$f" ] || continue
+  # 只判可执行行。整行注释里解释这个坑本身就要举反例，排掉的只是整行注释，
+  # 行尾带注释的可执行行照样判。
+  hits="$(grep -nE "\\\$[A-Za-z_][A-Za-z0-9_]*[$FULLWIDTH]" "$f" \
+    | grep -v '^[0-9]*:[[:space:]]*#' || true)"
+  check "$(basename "$f") 的变量名都用花括号界定" "" "$hits"
+done
+# 上面那条规则得真能抓到东西，不然它过了也说明不了什么。
+# 两份样本里的 $ 都是要留在字面上的，所以用单引号。
+# shellcheck disable=SC2016
+bad_fixture='echo "x $name（y"'
+# shellcheck disable=SC2016
+good_fixture='echo "x ${name}（y"'
+check "这条规则抓得到未加花括号的写法" "1" \
+  "$(printf '%s\n' "$bad_fixture" | grep -cE "\\\$[A-Za-z_][A-Za-z0-9_]*[$FULLWIDTH]" || true)"
+check "加了花括号的写法不误报" "0" \
+  "$(printf '%s\n' "$good_fixture" | grep -cE "\\\$[A-Za-z_][A-Za-z0-9_]*[$FULLWIDTH]" || true)"
+
+echo
 echo "转发器的动作与用法一致"
 if [ -x "$FORWARDER" ]; then
   # 这一段全程关掉 set -e 与 pipefail：被测的三条路径本来就该非零退出，
@@ -176,6 +202,88 @@ if [ -f "$INSTALLER" ]; then
     contains "缺依赖时点名版本 $ver" "$ver" "$check_out"
   done < <(jq -r '.packages[].version' "$DEPS_JSON")
   check "只读的 --check 不建目录" "" "$(find "$EMPTY" -mindepth 1 -print)"
+fi
+
+echo
+echo "技能软链的落点"
+if [ -f "$INSTALLER" ]; then
+  dirs_fn="$(awk '/^host_skill_dirs\(\) \{/,/^\}/' "$INSTALLER")"
+  # Grok 扫每一层的 .agents/skills。这一行没了，Grok 读的就是那个目录里原有的副本，
+  # MMW 升依赖版本时不会碰它，两份内容会漂开。
+  # 要找的就是源码里那串没展开的字面量，所以这里必须用单引号。
+  # shellcheck disable=SC2016
+  contains "落点含 ~/.agents/skills" '$HOME/.agents/skills' "$dirs_fn"
+  # 反过来，~/.grok/skills 不能进落点：Grok 已经从 .agents/skills 看到了，
+  # 再软链一份进去它会在同一优先级看到两个同名技能。
+  check "落点不含 ~/.grok/skills" "" "$(printf '%s\n' "$dirs_fn" | grep -F '.grok/skills' || true)"
+  # 装和查必须读同一个列表，否则查过了的落点装的时候未必碰。
+  check "装与查都走 host_skill_dirs" "2" \
+    "$(grep -c '< <(host_skill_dirs)' "$INSTALLER")"
+fi
+
+echo
+echo "落点上已有一份真目录时的接管"
+# 不联网：把三个 npm 包和那份技能按声明版本预先摆好，安装脚本会判定「已是声明版本」
+# 直接跳到软链那一步。这里测的就是软链那一步。
+if [ -f "$INSTALLER" ] && [ -f "$DEPS_JSON" ]; then
+  SKILL_NAME="$(jq -r '.packages[] | select(.kind == "skill") | .installName' "$DEPS_JSON" | head -1)"
+  SKILL_VER="$(jq -r '.packages[] | select(.kind == "skill") | .version' "$DEPS_JSON" | head -1)"
+  TAKE="$(mktemp -d)"
+  trap 'rm -rf "$EMPTY" "$TAKE"' EXIT
+  DEPS="$TAKE/deps"
+  seed_deps() {
+    mkdir -p "$DEPS/$SKILL_NAME"
+    printf -- '---\nname: %s\nversion: %s\n---\n' "$SKILL_NAME" "$SKILL_VER" \
+      > "$DEPS/$SKILL_NAME/SKILL.md"
+    while IFS=$'\t' read -r pkg ver; do
+      [ -n "$pkg" ] || continue
+      mkdir -p "$DEPS/node_modules/$pkg"
+      jq -n --arg v "$ver" '{version: $v}' > "$DEPS/node_modules/$pkg/package.json"
+    done < <(jq -r '.packages[] | select(.kind != "skill") | [.package, .version] | @tsv' "$DEPS_JSON")
+  }
+  seed_deps
+
+  # 甲：~/.agents/skills 上放着同一个技能的一份真目录。要接管，并留下备份。
+  mkdir -p "$TAKE/home/.agents/skills/$SKILL_NAME" "$TAKE/home/.claude/skills"
+  printf -- '---\nname: %s\nversion: 0.0.1\n---\n旧副本\n' "$SKILL_NAME" \
+    > "$TAKE/home/.agents/skills/$SKILL_NAME/SKILL.md"
+  set +e
+  take_out="$(HOME="$TAKE/home" CODEX_HOME="$TAKE/home/.codex" MMW_UI_QA_HOME="$DEPS" \
+    bash "$INSTALLER" 2>&1)"
+  take_status=$?
+  set -e
+  check "接管后安装脚本退 0" "0" "$take_status"
+  check "落点 ~/.agents/skills 上是指向 MMW 那一份的软链" "$DEPS/$SKILL_NAME" \
+    "$(readlink "$TAKE/home/.agents/skills/$SKILL_NAME" || echo 不是软链)"
+  check "原副本移进了 MMW 的备份目录" "1" \
+    "$(find "$DEPS/.backups" -maxdepth 1 -name "$SKILL_NAME-*" -type d 2>/dev/null | wc -l | tr -d ' ')"
+  check "备份没有留在宿主的 skills 目录里" "1" \
+    "$(find "$TAKE/home/.agents/skills" -maxdepth 1 -mindepth 1 | wc -l | tr -d ' ')"
+  check "同一轮里 ~/.claude/skills 也软链上了" "$DEPS/$SKILL_NAME" \
+    "$(readlink "$TAKE/home/.claude/skills/$SKILL_NAME" || echo 不是软链)"
+  contains "接管时说清原副本去了哪" "原有副本已移到" "$take_out"
+
+  # 乙：落点上是另一个技能，只是重名。不许动它。
+  rm -rf "$TAKE/home2"
+  mkdir -p "$TAKE/home2/.agents/skills/$SKILL_NAME"
+  printf -- '---\nname: 别人的技能\nversion: 9.9.9\n---\n' \
+    > "$TAKE/home2/.agents/skills/$SKILL_NAME/SKILL.md"
+  set +e
+  other_out="$(HOME="$TAKE/home2" CODEX_HOME="$TAKE/home2/.codex" MMW_UI_QA_HOME="$DEPS" \
+    bash "$INSTALLER" 2>&1)"
+  set -e
+  check "重名但不是同一个技能时不接管" "是目录" \
+    "$([ -L "$TAKE/home2/.agents/skills/$SKILL_NAME" ] && echo 被软链了 || echo 是目录)"
+  contains "不接管时说清为什么" "不是技能 $SKILL_NAME" "$other_out"
+
+  # 丙：--check 不只看版本。落点上放着别的东西时要报出来。
+  set +e
+  drift_out="$(HOME="$TAKE/home2" CODEX_HOME="$TAKE/home2/.codex" MMW_UI_QA_HOME="$DEPS" \
+    bash "$INSTALLER" --check 2>&1)"
+  drift_status=$?
+  set -e
+  check "落点漂了时 --check 非零退出" "1" "$drift_status"
+  contains "--check 点名漂掉的那个落点" "$TAKE/home2/.agents/skills/$SKILL_NAME" "$drift_out"
 fi
 
 echo
