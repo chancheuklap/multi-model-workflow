@@ -1,0 +1,19 @@
+{
+  "host": "grok",
+  "output": {
+    "kind": "user-dir",
+    "path": "~/.grok/agents"
+  },
+  "managed_glob": "mmw-*.md",
+  "provider_map": {},
+  "model_format": "{id}",
+  "tools": {
+    "writable": "",
+    "readonly": ""
+  },
+  "frontmatter": {
+    "name": "{agent}",
+    "description": "{description}",
+    "model": "{model}"
+  }
+}

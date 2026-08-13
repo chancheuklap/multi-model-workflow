@@ -22,7 +22,7 @@ cd <MMW 源码仓库>
 bash mmw/install.sh
 ```
 
-这一条覆盖 Claude Code、Codex、Pi、Cursor 四个宿主：技能、agent、MCP 服务器、编辑后诊断的 hook 与扩展、`mmw` 命令本身，还有 Claude Code 的两个语言服务器插件（装用户级，所有仓库都有）。
+这一条覆盖 Claude Code、Codex、Pi、Cursor、Grok 五个宿主：技能、agent、MCP 服务器、编辑后诊断的 hook 与扩展、`mmw` 命令本身，还有 Claude Code 的两个语言服务器插件（装用户级，所有仓库都有）。Grok 的技能、角色和 Stop hook 打散到 `~/.grok/`。
 
 装完宿主要重启，或者开一个新会话，新装的东西才加载。
 
@@ -71,8 +71,8 @@ Codex 不会自动信任插件带来的 hook。它在**交互式**会话里弹�
 
 ## 配好之后是什么样
 
-- 四个宿主都能用 MMW 的技能和 agent
-- 改完一个文件，宿主立刻报这个文件的诊断——三个宿主看到的是同一批，判据同一份
+- 五个宿主都能用 MMW 的技能和 agent
+- 改完一个文件，宿主立刻报这个文件的诊断——判据同一份。Claude Code 走 LSP 插件加 hook，Codex 走 hook，Pi 走扩展，Grok 走 Stop hook
 - 持续集成跑的判据和本地这一批是同一份规则表、同一批检查器
 
 诊断和持续集成为什么能对得上、规则表怎么改、谁拥有哪份配置，跑 `mmw toolchain` 看用法，再读规则表 `config/toolchain-rules.json` 的文件头。

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""把共享 skill 中的宿主动作整块物化成 Pi、Claude Code 或 Codex 版本。"""
+"""把共享 skill 中的宿主动作整块物化成 Pi、Claude Code、Codex 或 Grok 版本。"""
 
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ DEFAULT_OUT = {
     "pi": PLUGIN_ROOT / "skills-pi",
     "claude-code": PLUGIN_ROOT / "skills-claude-code",
     "codex": PLUGIN_ROOT / "skills-codex",
+    "grok": PLUGIN_ROOT / "skills-grok",
 }
 PI_PROMPTS_OUT = PLUGIN_ROOT / "prompts-pi"
 
@@ -35,6 +36,7 @@ LAUNCH_GROUP_RE = re.compile(
 RESUME_RE = re.compile(
     r"\[\[mmw-resume:([a-z0-9-]+):(worktree|current|none)\]\]"
 )
+ENTER_RE = re.compile(r"\[\[mmw-enter-worktree\]\]")
 # 没有续跑通道的宿主统一给这句退路。静默降级成全新派发会让调用方以为上下文还在，
 # 所以退路必须显式写明重派时要带什么材料。
 #
@@ -87,6 +89,69 @@ def expand_pi(role: str, agent: str, cwd_mode: str) -> str:
             "cwd 设为当前任务 worktree 的绝对路径。"
         )
     return f"启动：调用原生 `subagent`，agent 设为 `{agent}`，task 传四栏表全文。"
+
+
+def expand_grok(role: str, agent: str, cwd_mode: str) -> str:
+    del role
+    if cwd_mode == "worktree":
+        return (
+            "启动：先在当前任务 worktree 运行 `mmw task state`，确认输出以 `bound` 开头。"
+            "再运行 `mmw task name` 取得工作名。"
+            f"调用原生 subagent，agent 设为 `{agent}`，打开 worktree 隔离。"
+            "把四栏 task 作为初始 prompt。"
+            "工人先运行 "
+            '`mmw task bind <结果分支 slug> "<目标栏原文>" '
+            "--name <工作名> --from <基点 SHA>`，再完成工作并提交。"
+            "交回结果分支名、HEAD SHA、基点 SHA。"
+            "不要 `mmw task new`。"
+            "提交前自己跑 `mmw toolchain check --changed-only`。"
+        )
+    if cwd_mode == "current":
+        return (
+            "启动：确认 `mmw task state` 以 `bound` 开头。"
+            f"调用原生 subagent，agent 设为 `{agent}`，task 传四栏表全文。"
+            "该 subagent 使用当前任务 worktree，不创建结果 worktree。"
+            "cwd 设为当前任务 worktree 的绝对路径。"
+        )
+    return (
+        f"启动：调用原生 subagent，agent 设为 `{agent}`，"
+        "只读角色加上只读能力，task 传四栏表全文。"
+        "互不依赖的实例在同一条消息中并行启动。"
+    )
+
+
+def expand_enter_worktree(host: str) -> str:
+    if host in {"pi", "claude-code"}:
+        return (
+            "运行 `mmw task new <任务分支名> \"<用户原话>\" --name <工作名> "
+            "[--from <父分支或基点 SHA>]`。切换到返回的绝对路径。"
+        )
+    if host == "codex":
+        return (
+            "禁止 `mmw task new`。宿主已把你放在树上则运行 "
+            '`mmw task bind <任务分支名> "<用户原话>" --name <工作名> '
+            "[--from <父分支或基点 SHA>]`。"
+            "还没有树时请用户用宿主建树，新会话已经在树上后再 bind。"
+        )
+    return (
+        "禁止 `mmw task new`。"
+        "在 Herdr（`HERDR_ENV=1`）里：新树用 "
+        "`herdr worktree create --path ~/.grok/worktrees/<repo>/<slug>`，"
+        "在该路径启动 `grok`，再运行 "
+        '`mmw task bind <任务分支名> "<用户原话>" --name <工作名> '
+        "[--from <父分支或基点 SHA>]`。"
+        "已有树则把新窗格的 cwd 指到那条路径再启动，同样 bind。"
+        "不在 Herdr 且还没有树时，请用户用 `grok --worktree=<slug>` 开新会话，再 bind。"
+        "不要 `git worktree add`。不要用终端 `cd` 代替把会话放进树。"
+    )
+
+
+def expand_resume_grok() -> str:
+    return (
+        "恢复：调用原生 subagent，`resume_from` 设为原 subagent id。"
+        "顶层 grok 会话则运行 `grok --resume <sessionId>`。"
+        f"句柄取不到或命令失败时退回重派：{RESUME_MATERIAL}"
+    )
 
 
 def expand_claude(role: str, agent: str, cwd_mode: str) -> str:
@@ -181,7 +246,12 @@ def expand_reviewers(host: str, role_agents: dict[str, str], profiles: dict) -> 
     for role in ("reviewer-gpt", "reviewer-claude"):
         if role not in role_agents:
             die(f"启动组角色不在 roles.json：{role}")
-    expand = expand_pi if host == "pi" else expand_claude
+    if host == "pi":
+        expand = expand_pi
+    elif host == "grok":
+        expand = expand_grok
+    else:
+        expand = expand_claude
     gpt = expand("reviewer-gpt", role_agents["reviewer-gpt"], "none")
     claude = expand("reviewer-claude", role_agents["reviewer-claude"], "none")
     return (
@@ -201,7 +271,12 @@ def expand_text(
     role_agents: dict[str, str],
     codex_profiles: dict,
 ) -> str:
-    expand = expand_pi if host == "pi" else expand_claude
+    if host == "pi":
+        expand = expand_pi
+    elif host == "grok":
+        expand = expand_grok
+    else:
+        expand = expand_claude
 
     def launch(match: re.Match[str]) -> str:
         role, cwd_mode = match.group(1), match.group(2)
@@ -210,7 +285,10 @@ def expand_text(
         if host == "codex":
             instruction = expand_codex(role, cwd_mode, codex_profiles)
             return f"{instruction}\n\n{POST_LAUNCH_RULE}"
-        return expand(role, role_agents[role], cwd_mode)
+        instruction = expand(role, role_agents[role], cwd_mode)
+        if host == "grok" and cwd_mode == "worktree":
+            return f"{instruction}\n\n{POST_LAUNCH_RULE}"
+        return instruction
 
     def launch_group(match: re.Match[str]) -> str:
         group, cwd_mode = match.group(1), match.group(2)
@@ -226,15 +304,19 @@ def expand_text(
         if role not in role_agents:
             die(f"占位符角色不在 roles.json：{role}")
         # 只有 Claude Code 已验证续跑通道（codex exec resume 与 SendMessage）。
+        # Grok 的 resume_from 与 grok --resume 写在展开里。
         # Pi 的原生 subagent 与 Codex App 的 thread 后续消息工具都还没实测，
         # 先物化为显式退路，不做静默降级。
         if host == "claude-code":
             return expand_resume_claude(role, cwd_mode)
+        if host == "grok":
+            return expand_resume_grok()
         return RESUME_FALLBACK
 
     text = LAUNCH_RE.sub(launch, text)
     text = LAUNCH_GROUP_RE.sub(launch_group, text)
     text = RESUME_RE.sub(resume, text)
+    text = ENTER_RE.sub(lambda _match: expand_enter_worktree(host), text)
     if host == "codex":
         text = CODEX_SKILL_REF_RE.sub(r"`$mmw:\1`", text)
     return text
@@ -422,7 +504,7 @@ def materialize_host(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="物化 skill 的宿主动作")
     parser.add_argument(
-        "--host", required=True, choices=("pi", "claude-code", "codex", "all")
+        "--host", required=True, choices=("pi", "claude-code", "codex", "grok", "all")
     )
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--out", type=Path, default=None)
@@ -433,7 +515,9 @@ def main(argv: list[str] | None = None) -> int:
         codex_profiles = load_codex_profiles()
     except CodexConfigError as exc:
         die(str(exc))
-    hosts = ["pi", "claude-code", "codex"] if args.host == "all" else [args.host]
+    hosts = (
+        ["pi", "claude-code", "codex", "grok"] if args.host == "all" else [args.host]
+    )
     status = 0
     for host in hosts:
         out = args.out if args.out and args.host != "all" else DEFAULT_OUT[host]

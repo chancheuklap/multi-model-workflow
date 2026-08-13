@@ -26,13 +26,10 @@ description: 需要查明根因的 bug 和性能回退诊断。用于功能损�
 mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]
 ```
 
-输出是 `local` 或 `outside` 时，先分别确定任务分支名和工作名。运行：
+输出是 `local` 时，先分别确定任务分支名和工作名。[[mmw-enter-worktree]]
+输出是 `outside` 时，向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`。
 
-```bash
-mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]
-```
-
-`mmw task new` 返回绝对路径后，切换到该路径。两种建树动作之后都重新运行 `mmw task state`。第一个词确认是 `bound` 后，运行 `mmw task name` 取工作名。
+两种建树动作之后都重新运行 `mmw task state`。第一个词确认是 `bound` 后，运行 `mmw task name` 取工作名。
 
 为本次诊断取一个 `<短名>`。运行下面的完整命令取得过程材料落点。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
 

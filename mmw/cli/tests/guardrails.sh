@@ -990,5 +990,36 @@ suite_dispatch_resume
 suite_dispatch_writable_roots
 suite_gitfacts
 
+suite_grok_host() {
+  echo "grok 宿主"
+  local repo fake_home tree
+  repo="$(fresh_repo)"
+  fake_home="$WORKBENCH/grok-home"
+  mkdir -p "$fake_home/.grok/worktrees/demo"
+
+  expect_deny "Grok 拒绝 task new" "$repo" \
+    env MMW_HOST=grok "$MMW" task new grok-new "目标" --name grok-new
+  expect_deny "Grok 拒绝 task cleanup" "$repo" \
+    env MMW_HOST=grok "$MMW" task cleanup grok-new
+
+  tree="$fake_home/.grok/worktrees/demo/tree"
+  git -C "$repo" worktree add -q --detach "$tree" HEAD
+  expect_ok "Grok 在 ~/.grok/worktrees 下 bind" "$tree" \
+    env HOME="$fake_home" MMW_HOST=grok "$MMW" task bind grok-result "目标" --name grok-work
+
+  expect_deny "Grok 拒绝仓库内 .worktrees 当可写目录" "$repo" \
+    env HOME="$fake_home" MMW_HOST=grok "$MMW" dispatch worker --task-text "干活" \
+      --cwd "$repo"
+
+  if (cd "$repo" && env -u MMW_HOST -u CLAUDECODE -u PI_CODING_AGENT -u CODEX_THREAD_ID \
+      GROK_AGENT=1 "$MMW" task state >/dev/null); then
+    report pass "GROK_AGENT 认出 grok 宿主"
+  else
+    report fail "GROK_AGENT 认出 grok 宿主" "task state 失败"
+  fi
+}
+
+suite_grok_host
+
 printf '\n通过 %d，失败 %d\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

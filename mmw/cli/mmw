@@ -115,11 +115,11 @@ mmw task name
     只输出工作名，一行。不在已绑定的任务 worktree 里时失败并说清当前位置。
 mmw task bind <完整任务分支名> <用户原话或任务目标> [--name <工作名>] [--from <预期基点>]
     已绑定任务 worktree 用它补写工作名。
-    Codex App 也用它把 App 已经建好的 detached worktree 绑到任务分支上。
+    Codex App 与 Grok 也用它把宿主已经建好的 detached worktree 绑到任务分支上。
     给了 --from 就先校验当前 HEAD 等于这个基点。
 
 这条命令只输出路径；真正切进 worktree 要用宿主自己的工具。
-在 Codex App 上只有 state 和 bind 可用，worktree 由 App 创建和清理；
+在 Codex App 与 Grok 上只有 state 和 bind 可用，worktree 由宿主创建和清理；
 其他宿主也可在已绑定任务 worktree 上用 bind 补写工作名。
 在其他宿主上 new 与 cleanup 可用。
 EOF
@@ -446,8 +446,8 @@ cmd_task() {
     state) [ $# -eq 0 ] || usage_task; mmw_task_state ;;
     name) [ $# -eq 0 ] || usage_task; mmw_task_name ;;
     bind) mmw_task_bind "$@" ;;
-    new) [ "$host" != "codex" ] || { echo "mmw: Codex App 负责创建 worktree，这里只用 task bind" >&2; return 1; }; mmw_task_new "$@" ;;
-    cleanup) [ "$host" != "codex" ] || { echo "mmw: Codex App 负责清理 managed worktree" >&2; return 1; }; mmw_task_cleanup "$@" ;;
+    new) case "$host" in codex|grok) echo "mmw: 宿主负责创建 worktree，这里只用 task bind" >&2; return 1 ;; esac; mmw_task_new "$@" ;;
+    cleanup) case "$host" in codex|grok) echo "mmw: 宿主负责回收 managed worktree" >&2; return 1 ;; esac; mmw_task_cleanup "$@" ;;
     *) usage_task ;;
   esac
 }
@@ -632,7 +632,7 @@ cmd_doctor() {
   if host="$(mmw_host 2>/dev/null)"; then
     echo "宿主     : $host"
   else
-    echo "宿主     : 认不出（Claude Code、Pi 与 Codex 标识都没有）"
+    echo "宿主     : 认不出（Claude Code、Pi、Grok 与 Codex 标识都没有）"
     status=1
   fi
   if git rev-parse --show-toplevel >/dev/null 2>&1; then
@@ -730,6 +730,14 @@ cmd_doctor() {
       status=1
     fi
     echo "方法论   : 由 Codex plugin 直接提供"
+  elif [ "${host:-}" = "grok" ]; then
+    command -v grok >/dev/null \
+      && echo "grok     : $(command -v grok)" \
+      || { echo "grok     : 没装"; status=1; }
+    if command -v agent >/dev/null; then
+      echo "agent    : $(command -v agent)（不要把它当成 Grok CLI）"
+    fi
+    echo "方法论   : 走原生 subagent 与 ~/.grok/skills"
   fi
 
   case "${host:-}" in
@@ -763,6 +771,20 @@ cmd_doctor() {
         status=1
       fi
       ;;
+    grok)
+      if python3 "$MMW_ROOT/cli/lib/materialize_skills.py" --host grok --check >/dev/null 2>&1; then
+        echo "Grok sk  : skills-grok 与技能源一致"
+      else
+        echo "Grok sk  : 与 installed runtime 不一致，重新运行 $repair"
+        status=1
+      fi
+      if python3 "$MMW_ROOT/cli/lib/materialize_agents.py" --host grok --check >/dev/null 2>&1; then
+        echo "Grok ag  : ~/.grok/agents 与 agent-src / 模型档一致"
+      else
+        echo "Grok ag  : 与 installed runtime 不一致，重新运行 $repair"
+        status=1
+      fi
+      ;;
   esac
 
   # Pi 与 Cursor 的插件规格没有声明 MCP 的位置，只能写用户级配置。
@@ -772,6 +794,13 @@ cmd_doctor() {
       echo "pi/Cursor: 用户级 MCP 已装（这台机器上没有的那一面自动跳过）"
     else
       echo "pi/Cursor: 有一面没装或与 plugin 定义不一致，重新运行 $repair"
+      status=1
+    fi
+  elif [ "${host:-}" = "grok" ]; then
+    if bash "$MMW_ROOT/mcp/install-mcp.sh" --check-grok >/dev/null 2>&1; then
+      echo "Grok MCP : 用户级三台检索服务器已装"
+    else
+      echo "Grok MCP : 没装或与 plugin 定义不一致，重新运行 $repair"
       status=1
     fi
   elif [ "${host:-}" = "codex" ]; then

@@ -1,6 +1,6 @@
 # 宿主
 
-这个 Context 定义共享 MMW 语义在 Codex App、Claude Code、Pi 和 Cursor 中的承载方式。
+这个 Context 定义共享 MMW 语义在 Codex App、Claude Code、Pi、Cursor 和 Grok Build 中的承载方式。
 
 ## Language
 
@@ -9,12 +9,14 @@
 _Avoid_: 技能产物、安装副本
 
 **技能产物**：
-从技能源为 Pi、Claude Code 或 Codex 物化的宿主版本。
+从技能源为 Pi、Claude Code、Codex 或 Grok 物化的宿主版本。
 _Avoid_: 技能源、手工分叉
 
 **物化**：
 把技能源中的启动块和宿主动作块整块替换为指定宿主的原生动作。
 _Avoid_: 局部字符串替换、手工改技能产物
+
+Grok Build 的安装面是用户目录：技能产物落到 `~/.grok/skills/`，角色落到 `~/.grok/agents/`。它不是 plugin 安装面。
 
 **原生 subagent**：
 由宿主自身的 agent 机制启动、并遵守 MMW 角色定义的 subagent。
