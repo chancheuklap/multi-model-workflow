@@ -15,19 +15,25 @@
    | 仍有带 `wayfinder:` 标签的 open decision ticket | 报告这些 ticket 已经被别人认领或仍被挡着，map 保持 open，然后停止；不要进入第 2 步 |
    | 没有带 `wayfinder:` 标签的 open decision ticket | 读取 [closing.md](closing.md)；不要进入第 2 步 |
 
-2. 选择 ticket。用户点名一张时使用那一张；用户没有点名时，按顺序取得第一张 frontier ticket。**claim 它**：开始任何工作前先把 ticket 指派给自己。
+2. 选择 ticket。用户点名一张时使用那一张；用户没有点名时，按顺序取得第一张 frontier ticket。
+
+   任务 slug 由两段拼成，中间一个连字符：前一段取 map 标题的短名（全小写、空格换成连字符），后一段取这张 ticket 标题的短名。父分支是 map 分支，分支名读 map 正文的 `## 分支` 一节；起点是它当前已提交的 HEAD——先运行 `git rev-parse <map 分支>` 记下它，交回结果时要用。
+
+   运行 `git branch --show-current`。当前分支等于 map 正文 `## 分支` 的值时：不要 claim，不要进入第 3 步。停。请用户在 Agents Window 用 New Worktree 开新会话，树名用任务分支名。本技能上文点名了父分支时，基点用该父分支。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。 `<任务分支名>` 用这个任务的 slug。本技能上文点名了父分支时加 `--from <父分支>`。工作名从 map 正文的 `## 工作名` 取得。然后停止。
+
+   **claim 它**：开始任何工作前先把 ticket 指派给自己。
 
    使用 `mmw issue claim <编号>` claim。失败说明另一个 session 已经 claim 这张 ticket，改取下一张。所有 frontier ticket 都 claim 失败时，报告这些 ticket 已被其他 session 认领，然后停止；不要进入第 3 步。
 
-   claim 成功后，为这张 ticket 建立自己的任务 worktree。任务 slug 由两段拼成，中间一个连字符：前一段取 map 标题的短名（全小写、空格换成连字符），后一段取这张 ticket 标题的短名。父分支是 map 分支，分支名读 map 正文的 `## 分支` 一节；起点是它当前已提交的 HEAD——先运行 `git rev-parse <map 分支>` 记下它，交回结果时要用。
+   claim 成功后，为这张 ticket 建立自己的任务 worktree。
 
    先跑 `mmw task state`。它输出一行，第一个词决定这棵树要不要你自己建：
 
 | 第一个词 | 什么意思 | 你做什么 |
 | --- | --- | --- |
-| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `git branch --show-current` 取得任务分支名，`git rev-parse HEAD` 取得当前 HEAD，记下它们 |
+| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `git branch --show-current` 取得任务分支名，`git rev-parse HEAD` 取得当前 HEAD，记下它们。当前分支不是这个任务的 slug 时：停，报告当前分支和预期 slug。不要进入第 3 步 |
 | `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <分支名> "<用户原话>" --name <工作名>`。`<用户原话>` 是用户这次提出这个任务时说的那句话。`<分支名>` 用这个任务的 slug；工作名从 map 正文的 `## 工作名` 取得；宿主对任务分支有固定命名空间（Codex App 是 `codex/`）时带上它。知道预期基点就加 `--from <父分支或基点 SHA>`，它只是一道校验，不确定就不加。命令必须返回任务分支名和起始提交 |
-| `local` | 你在主检出里 | 停。请用户在 Agents Window 用 New Worktree 开新会话，树名用任务分支名。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。 `<任务分支名>` 用这个任务的 slug。本技能上文点名了父分支时加 `--from <父分支>`。工作名从 map 正文的 `## 工作名` 取得。 |
+| `local` | 你在主检出里 | 停。请用户在 Agents Window 用 New Worktree 开新会话，树名用任务分支名。本技能上文点名了父分支时，基点用该父分支。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。 `<任务分支名>` 用这个任务的 slug。本技能上文点名了父分支时加 `--from <父分支>`。工作名从 map 正文的 `## 工作名` 取得。 |
 | `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
 
 两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。

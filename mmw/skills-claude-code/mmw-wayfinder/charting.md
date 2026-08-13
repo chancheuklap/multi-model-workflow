@@ -78,4 +78,4 @@
 | 情况 | 下一步 |
 | --- | --- |
 | 第 2 步没有发现 fog | **停**：说明路线已经清楚、不需要 map，询问用户接下来怎样进行 |
-| map、当前能够精确表述的 ticket 和 blocking edge 已建立，research 已全部交回并提交 | **停**：报告 destination、工作名、map 名称和当前 frontier 上的 ticket 名称，并说明每张 decision ticket 使用一个新会话 |
+| map、当前能够精确表述的 ticket 和 blocking edge 已建立，research 已全部交回并提交 | **停**：报告 destination、工作名、map 名称和当前 frontier 上的 ticket 名称，并说明每张 decision ticket 使用一个新会话。同时列出每张 frontier ticket 的任务 slug，并写明父分支是 map 分支。不要 claim 这些 ticket |
