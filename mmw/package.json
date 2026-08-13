@@ -1,6 +1,6 @@
 {
   "name": "@cheuklapchan/mmw",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "private": true,
   "description": "多模型开发编排。Claude 主 agent 编排与判定，GPT `worker` 写代码，GPT `planner` 写 plan，`reviewer-gpt` 与 `reviewer-claude` 跨模型审查。",
   "license": "MIT",
