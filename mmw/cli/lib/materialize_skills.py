@@ -87,27 +87,20 @@ ENTER_WORKTREE_CODEX = (
     "[--from <父分支或基点 SHA>]`。"
 )
 ENTER_WORKTREE_CURSOR = (
-    "这棵树由 Cursor 创建。随后运行 "
-    "`mmw task bind <任务分支名> \"<用户原话>\" --name <工作名> "
-    "[--from <父分支或基点 SHA>]`。"
-    "当前会话在终端复用器里（环境变量 `HERDR_ENV` 已设置）：用 "
-    "`herdr worktree create --path ~/.cursor/worktrees/<仓库目录名>/<任务分支名>` "
-    "建树；树已经存在时，把窗格工作目录指到那棵树。在该窗格启动 `mmw-cursor-agent`，然后 bind。"
-    "当前会话在 Agents Window，而且 "
-    "`~/.cursor/worktrees/<仓库目录名>/<任务分支名>` 已经存在：把当前会话根改到那棵树的绝对路径，然后 bind。"
-    "当前会话在 Agents Window，而且那棵树还不存在：请用户用 New Worktree，树名用任务分支名。"
-    "新会话已经在那棵树里之后，再 bind。"
+    "停。请用户在 Agents Window 用 New Worktree 开新会话，树名用任务分支名。"
+    "把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。"
+    "新会话重新调用本技能，按 `detached` 行 bind。"
+    "禁止 `mmw task new`。"
+    "禁止 `herdr worktree create`。"
 )
 ENTER_WORKTREE_GROK = (
+    "停。请用户用 `grok --worktree=<任务分支名>` 或 `-w` 开新会话。"
+    "把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。"
+    "新会话重新调用本技能，按 `detached` 行 bind。"
     "禁止 `mmw task new`。"
-    "在 Herdr（`HERDR_ENV=1`）里：新树用 "
-    "`herdr worktree create --path ~/.grok/worktrees/<repo>/<slug>`，"
-    "在该路径启动 `grok`，再运行 "
-    '`mmw task bind <任务分支名> "<用户原话>" --name <工作名> '
-    "[--from <父分支或基点 SHA>]`。"
-    "已有树则把新窗格的 cwd 指到那条路径再启动，同样 bind。"
-    "不在 Herdr 且还没有树时，请用户用 `grok --worktree=<slug>` 开新会话，再 bind。"
-    "不要 `git worktree add`。不要用终端 `cd` 代替把会话放进树。"
+    "禁止 `herdr worktree create`。"
+    "禁止 `git worktree add`。"
+    "禁止用终端 `cd` 代替把会话放进树。"
 )
 
 

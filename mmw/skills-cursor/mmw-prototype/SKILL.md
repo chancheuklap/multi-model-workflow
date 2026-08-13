@@ -29,7 +29,7 @@ prototype 是在真实代码落地前回答问题的可运行资产。它的作�
 | --- | --- | --- |
 | `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名，记下它 |
 | `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。重新运行 `mmw task state`。确认输出是 `bound`。再运行 `mmw task name` 取工作名 |
-| `local` | 你在主检出里 | 先分别确定任务分支名和工作名。这棵树由 Cursor 创建。随后运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。当前会话在终端复用器里（环境变量 `HERDR_ENV` 已设置）：用 `herdr worktree create --path ~/.cursor/worktrees/<仓库目录名>/<任务分支名>` 建树；树已经存在时，把窗格工作目录指到那棵树。在该窗格启动 `mmw-cursor-agent`，然后 bind。当前会话在 Agents Window，而且 `~/.cursor/worktrees/<仓库目录名>/<任务分支名>` 已经存在：把当前会话根改到那棵树的绝对路径，然后 bind。当前会话在 Agents Window，而且那棵树还不存在：请用户用 New Worktree，树名用任务分支名。新会话已经在那棵树里之后，再 bind。 重新运行 `mmw task state`。确认输出是 `bound`。再运行 `mmw task name` 取工作名 |
+| `local` | 你在主检出里 | 先分别确定任务分支名和工作名。停。请用户在 Agents Window 用 New Worktree 开新会话，树名用任务分支名。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。 重新运行 `mmw task state`。确认输出是 `bound`。再运行 `mmw task name` 取工作名 |
 | `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
 
 两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。

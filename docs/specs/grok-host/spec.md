@@ -186,7 +186,7 @@ Grok 没有内置浏览器。Grok 的 `PostToolUse` hook 忽略 stdout。能把�
 - Pi：现有 `mmw task new`，再用返回路径作 cwd
 - Claude Code：现有 `mmw task new`，再 `EnterWorktree`
 - Codex：禁止 `task new`；已在树上则 `bind`
-- Grok：禁止 `task new`。Herdr 里用 `herdr worktree create --path ~/.grok/worktrees/<repo>/<slug>`，在该路径启动 `grok`，再 `bind`。已有树则新窗格的 cwd 指到该路径再启动，再 `bind`。不在 Herdr 且还没有树时，请用户用 `grok --worktree=<slug>` 开新会话，再 `bind`。不要 `git worktree add`。不要用终端 `cd` 代替把会话放进树。
+- Grok：禁止 `task new`。当前会话在主检出时停。请用户用 `grok --worktree=<slug>` 或 `-w` 开新会话。新会话按 `detached` 行 `bind`。禁止 `herdr worktree create`。禁止 `git worktree add`。禁止用终端 `cd` 代替把会话放进树。
 
 Grok 会话必须在任务 worktree 里启动。不要先在主检出启动再改目录。Serena 按启动时的当前目录认项目。不改 Serena 的共享配置。
 
@@ -375,7 +375,7 @@ tracker、issue、artifact、graph、release、result verify、result integrate 
 | 技能或动作 | Grok 安排 |
 | --- | --- |
 | `mmw-start` / `wait-what` / `handoff` | 保留 slash；模型不可自动调用；进树走 `[[mmw-enter-worktree]]` |
-| `mmw-wayfinder` 建 map | Herdr 或 `grok --worktree` 建任务树，再 bind |
+| `mmw-wayfinder` 建 map | 用户用 `grok --worktree=<slug>` 开会话，再 bind |
 | `mmw-wayfinder` 并行 ticket | Herdr，`--kind grok`，每票一棵 `~/.grok/worktrees/` 任务树 |
 | `mmw-grilling` / `mmw-research` / `mmw-to-spec` / `mmw-prototype` / `mmw-domain-modeling` / `mmw-diagnosing-bugs` / `mmw-improve-codebase-architecture` / `wizard` / `to-questionnaire` | 进树走同一占位；只读或同树工作按下面的 launch |
 | `investigator:none` | 原生只读 subagent |

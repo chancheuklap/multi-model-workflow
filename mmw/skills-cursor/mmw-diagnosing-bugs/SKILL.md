@@ -26,7 +26,7 @@ description: 需要查明根因的 bug 和性能回退诊断。用于功能损�
 mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]
 ```
 
-输出是 `local` 时，先分别确定任务分支名和工作名。这棵树由 Cursor 创建。随后运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。当前会话在终端复用器里（环境变量 `HERDR_ENV` 已设置）：用 `herdr worktree create --path ~/.cursor/worktrees/<仓库目录名>/<任务分支名>` 建树；树已经存在时，把窗格工作目录指到那棵树。在该窗格启动 `mmw-cursor-agent`，然后 bind。当前会话在 Agents Window，而且 `~/.cursor/worktrees/<仓库目录名>/<任务分支名>` 已经存在：把当前会话根改到那棵树的绝对路径，然后 bind。当前会话在 Agents Window，而且那棵树还不存在：请用户用 New Worktree，树名用任务分支名。新会话已经在那棵树里之后，再 bind。
+输出是 `local` 时，先分别确定任务分支名和工作名。停。请用户在 Agents Window 用 New Worktree 开新会话，树名用任务分支名。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。
 输出是 `outside` 时，向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`。
 
 两种建树动作之后都重新运行 `mmw task state`。第一个词确认是 `bound` 后，运行 `mmw task name` 取工作名。

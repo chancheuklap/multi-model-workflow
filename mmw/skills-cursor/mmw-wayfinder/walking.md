@@ -27,7 +27,7 @@
 | --- | --- | --- |
 | `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `git branch --show-current` 取得任务分支名，`git rev-parse HEAD` 取得当前 HEAD，记下它们 |
 | `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <分支名> "<用户原话>" --name <工作名>`。`<用户原话>` 是用户这次提出这个任务时说的那句话。`<分支名>` 用这个任务的 slug；工作名从 map 正文的 `## 工作名` 取得；宿主对任务分支有固定命名空间（Codex App 是 `codex/`）时带上它。知道预期基点就加 `--from <父分支或基点 SHA>`，它只是一道校验，不确定就不加。命令必须返回任务分支名和起始提交 |
-| `local` | 你在主检出里 | 这棵树由 Cursor 创建。随后运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。当前会话在终端复用器里（环境变量 `HERDR_ENV` 已设置）：用 `herdr worktree create --path ~/.cursor/worktrees/<仓库目录名>/<任务分支名>` 建树；树已经存在时，把窗格工作目录指到那棵树。在该窗格启动 `mmw-cursor-agent`，然后 bind。当前会话在 Agents Window，而且 `~/.cursor/worktrees/<仓库目录名>/<任务分支名>` 已经存在：把当前会话根改到那棵树的绝对路径，然后 bind。当前会话在 Agents Window，而且那棵树还不存在：请用户用 New Worktree，树名用任务分支名。新会话已经在那棵树里之后，再 bind。 `<任务分支名>` 用这个任务的 slug。本技能上文点名了父分支时加 `--from <父分支>`。工作名从 map 正文的 `## 工作名` 取得。 |
+| `local` | 你在主检出里 | 停。请用户在 Agents Window 用 New Worktree 开新会话，树名用任务分支名。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。 `<任务分支名>` 用这个任务的 slug。本技能上文点名了父分支时加 `--from <父分支>`。工作名从 map 正文的 `## 工作名` 取得。 |
 | `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
 
 两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
