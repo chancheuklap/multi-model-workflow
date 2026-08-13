@@ -15,5 +15,18 @@
     "name": "{agent}",
     "description": "{description}",
     "model": "{model}"
+  },
+  "companion": {
+    "output": {
+      "kind": "user-dir",
+      "path": "~/.grok/roles"
+    },
+    "managed_glob": "mmw-*.toml",
+    "suffix": ".toml",
+    "template": [
+      "description = {description}",
+      "default_capability_mode = {capability_mode}",
+      "reasoning_effort = {effort}"
+    ]
   }
 }

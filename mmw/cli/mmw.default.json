@@ -4,7 +4,14 @@
     "orchestrator": {
       "family": "grok",
       "id": "grok-4.5",
-      "effort": "high"
+      "effort": "high",
+      "hosts": {
+        "grok": {
+          "family": "grok",
+          "id": "grok-4.6",
+          "effort": "high"
+        }
+      }
     },
     "worker": {
       "family": "gpt",
@@ -21,7 +28,7 @@
     "worker-high-risk": {
       "family": "gpt",
       "id": "gpt-5.6-sol",
-      "effort": "high",
+      "effort": "medium",
       "hosts": {
         "grok": {
           "family": "grok",
@@ -38,14 +45,14 @@
         "grok": {
           "family": "grok",
           "id": "grok-4.6",
-          "effort": "medium"
+          "effort": "high"
         }
       }
     },
     "planner": {
       "family": "gpt",
       "id": "gpt-5.6-sol",
-      "effort": "high",
+      "effort": "medium",
       "hosts": {
         "grok": {
           "family": "grok",
@@ -79,14 +86,14 @@
         "grok": {
           "family": "grok",
           "id": "grok-4.6",
-          "effort": "medium"
+          "effort": "high"
         }
       }
     },
     "reviewer-gpt": {
       "family": "gpt",
       "id": "gpt-5.6-sol",
-      "effort": "xhigh",
+      "effort": "high",
       "hosts": {
         "grok": {
           "family": "grok",
@@ -108,6 +115,11 @@
         "cursor": {
           "family": "claude",
           "id": "claude-opus-5",
+          "effort": "high"
+        },
+        "grok": {
+          "family": "grok",
+          "id": "grok-4.6",
           "effort": "high"
         }
       }
