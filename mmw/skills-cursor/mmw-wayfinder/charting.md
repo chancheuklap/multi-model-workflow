@@ -64,7 +64,11 @@
 
 6. **记录 research 结果并提交。** 对每张已经交回的 research ticket，按顺序完成：
 
-   1. 运行 `mmw artifact path scratch --issue <编号> --sub outbox/answer.md`。输出文件第一行写 `<!-- mmw:conclusion -->`。随后依次写 `## 答案`、`## 产物引用` 和 `## 材料使用记录`。产物引用逐行写键值形态；没有仓库产物时写 `无`。材料使用记录逐条覆盖 `## 必读材料声明` 里的每项材料，写明用上了没有；未用时写出理由。然后评论：`gh issue comment <编号> --body-file <上一步输出文件>`。
+   1. 运行 `mmw artifact path scratch --issue <编号> --sub outbox/answer.md`。输出文件第一行写 `<!-- mmw:conclusion -->`。随后依次写 `## 答案`、`## 产物引用` 和 `## 材料使用记录`。
+
+      `## 答案` 完整承载 `/mmw-research` 交回的结论。这条评论是这张 ticket 留在 tracker 上的唯一记录：读它的会话没有这次的对话，过程材料也已经清理。判据：交回的每一项事实，在这一节里各找得到一条，出处和没查清的部分随条目一起写出来。
+
+      产物引用逐行写键值形态；没有仓库产物时写 `无`。材料使用记录逐条覆盖 `## 必读材料声明` 里的每项材料，写明用上了没有；未用时写出理由。然后评论：`gh issue comment <编号> --body-file <上一步输出文件>`。
    2. 关闭这张 ticket：`gh issue close <编号>`。
    3. 在 map 的 `Decisions so far` 追加一行：`mmw issue append <map 编号> --section "Decisions so far" --line "<ticket 名称的链接与一句话概要>"`。
    4. research 让一部分原本说不清楚的问题变得说得清楚时，按第 4 步的两遍做法建成新 ticket；仍说不清楚的留在 `Not yet specified`。

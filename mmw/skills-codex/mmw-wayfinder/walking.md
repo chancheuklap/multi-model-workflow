@@ -75,7 +75,13 @@
 
 4. 记录这次的答案。三件事：
 
-   1. 运行 `mmw artifact path scratch --issue <编号> --sub outbox/answer.md`。输出文件第一行写 `<!-- mmw:conclusion -->`。随后依次写 `## 答案`、`## 产物引用` 和 `## 材料使用记录`。产物引用逐行写键值形态；没有仓库产物时写 `无`。材料使用记录逐条覆盖 `## 必读材料声明` 中的每项材料，写明用上了没有；未用时写出理由。然后评论：`gh issue comment <编号> --body-file <上一步输出文件>`。
+   1. 运行 `mmw artifact path scratch --issue <编号> --sub outbox/answer.md`。输出文件第一行写 `<!-- mmw:conclusion -->`。随后依次写 `## 答案`、`## 产物引用` 和 `## 材料使用记录`。
+
+      `## 答案` 完整承载这次得到的结论。这条评论是这次工作留在 tracker 上的唯一记录：读它的会话没有这次的对话，过程材料也已经清理。判据：这次交回的每一项结论，在这一节里各找得到一条，理由和数字随条目一起写出来。
+
+      `wayfinder:grilling` 另有一条：把 `$mmw:mmw-grilling` 交回的那份共同理解记录的 `## 共同理解` 整段转录进来，标题层级照原样。
+
+      产物引用逐行写键值形态；没有仓库产物时写 `无`。材料使用记录逐条覆盖 `## 必读材料声明` 中的每项材料，写明用上了没有；未用时写出理由。然后评论：`gh issue comment <编号> --body-file <上一步输出文件>`。
    2. 关闭这张 ticket：`gh issue close <编号>`。
    3. 在 map 的 `Decisions so far` 追加一行：`mmw issue append <map 编号> --section "Decisions so far" --line "<ticket 名称的链接与一句话概要>"`。
 
