@@ -11,12 +11,9 @@ description: relentless 地追问用户的计划、决定或想法。用户希�
 
 这场访谈要写仓库文件——领域文档、ADR，和收尾时的共同理解记录——所以第一轮提问之前先把树建好。
 
-先运行 `mmw task state`。第一个词是 `bound` 时，运行 `mmw task name` 取工作名。
+先运行 `mmw task state`，按第一个词选行。要建树的两行都先分别确定任务分支名和工作名。
 
-输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。输出是 `local` 时，先分别确定任务分支名和工作名。[[mmw-enter-worktree]]
-输出是 `outside` 时，向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`。
-
-两种建树动作之后都重新运行 `mmw task state`。第一个词确认是 `bound` 后，运行 `mmw task name` 取工作名。
+[[mmw-bind-task]]
 
 ## 按轮提问
 

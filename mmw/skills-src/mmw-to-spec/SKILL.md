@@ -27,15 +27,9 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 
 从 `/mmw-wayfinder` 进入时，先从 map 的 `## 工作名` 取得 `<map 工作名>`。需要进入任务 worktree 时，用它作为 `<工作名>`。
 
-先运行 `mmw task state`。第一个词是 `bound` 时，运行 `mmw task name` 取工作名。
+先运行 `mmw task state`，按第一个词选行。要建树的两行都先分别确定任务分支名和工作名。
 
-输出是 `detached` 时，先分别确定任务分支名和工作名。运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。
-
-输出是 `local` 时，先分别确定任务分支名和工作名。[[mmw-enter-worktree]]
-
-输出是 `outside` 时，向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`。
-
-两种建树动作之后都重新运行 `mmw task state`。第一个词确认是 `bound` 后，运行 `mmw task name` 取工作名。
+[[mmw-bind-task]]
 
 从 `/mmw-wayfinder` 进入时，比较 `<map 工作名>` 与 `mmw task name` 的输出。不一致时，报告两者冲突并交给用户决定；不要自己选一个。
 

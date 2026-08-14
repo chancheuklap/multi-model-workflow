@@ -18,18 +18,16 @@ description: 需要查明根因的 bug 和性能回退诊断。用于功能损�
 
 ## 过程材料落点
 
-开始诊断前先运行 `mmw task state`。第一个词是 `bound` 时，运行 `mmw task name` 取工作名。
+开始诊断前先运行 `mmw task state`，按第一个词选行。要建树的两行都先分别确定任务分支名和工作名。
 
-输出是 `detached` 时，先分别确定任务分支名和工作名。运行：
+| 第一个词 | 什么意思 | 你做什么 |
+| --- | --- | --- |
+| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名 |
+| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]` |
+| `local` | 你在主检出里 | 运行 `mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。切换到返回的绝对路径。 |
+| `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
 
-```bash
-mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]
-```
-
-输出是 `local` 时，先分别确定任务分支名和工作名。运行 `mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。切换到返回的绝对路径。
-输出是 `outside` 时，向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`。
-
-两种建树动作之后都重新运行 `mmw task state`。第一个词确认是 `bound` 后，运行 `mmw task name` 取工作名。
+`detached` 与 `local` 两行做完之后都重新运行 `mmw task state`，确认第一个词是 `bound`，再运行 `mmw task name` 取工作名。工作区不干净、分支已经存在，或者父分支里没有这次任务需要的决定时**停下来**，不要在错的基点上补提交。
 
 为本次诊断取一个 `<短名>`。运行下面的完整命令取得过程材料落点。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
 

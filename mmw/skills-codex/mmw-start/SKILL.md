@@ -79,16 +79,16 @@ slug 的类型前缀用连字符。不带 issue 编号，不带日期。同名�
 
 任务 worktree 必须从正确的父分支开始。普通任务使用当前目标分支；从 `$mmw:mmw-wayfinder` map 派生的任务使用 map 分支。父分支不包含任务所需决定时停下，不在错误基点上补提交。
 
-先跑 `mmw task state`。它输出一行，第一个词决定这棵树要不要你自己建：
+先跑 `mmw task state`，按第一个词选行。任务分支名第 2 步已经定下，这里只要再单独确定工作名；有 map 分支时 `--from` 用它。
 
 | 第一个词 | 什么意思 | 你做什么 |
 | --- | --- | --- |
-| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名，记下它 |
-| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 先单独确定工作名。绑定：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。命令成功后重新运行 `mmw task state`。确认输出是 `bound`。再运行 `mmw task name` 取工作名 |
-| `local` | 你在主检出里 | 先单独确定工作名。建树：这棵树由 Codex App 创建。宿主给出干净的 detached worktree 之后，运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。 有 map 分支时加上 `--from <map 分支>`。重新运行 `mmw task state`。确认输出是 `bound`。再运行 `mmw task name` 取工作名 |
+| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名 |
+| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]` |
+| `local` | 你在主检出里 | 这棵树由 Codex App 创建。宿主给出干净的 detached worktree 之后，运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。 |
 | `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
 
-两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
+`detached` 与 `local` 两行做完之后都重新运行 `mmw task state`，确认第一个词是 `bound`，再运行 `mmw task name` 取工作名。工作区不干净、分支已经存在，或者父分支里没有这次任务需要的决定时**停下来**，不要在错的基点上补提交。
 
 **粒度是一份 spec 一棵树。** 这份 spec 拆出的几张 ticket 全在这棵树里按顺序做完，整体合并一次、终审一次、收尾一次。确实能并行的 ticket 从当前这棵树的分支再分叉出去（判据在 `$mmw:mmw-implement`）。**分支可以嵌套，目录不嵌套**——所有 worktree 一律扁平挂在同一个落点下。
 

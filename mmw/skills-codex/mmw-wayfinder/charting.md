@@ -4,16 +4,16 @@
 
 这个会话的任务分支就是 map 分支。后面每张 decision ticket 都从它派生。先分别确定任务分支名和工作名。任务分支名取这项 effort 的短名。
 
-先跑 `mmw task state`。它输出一行，第一个词决定这棵树要不要你自己建：
+先跑 `mmw task state`，按第一个词选行。
 
 | 第一个词 | 什么意思 | 你做什么 |
 | --- | --- | --- |
-| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名，记下它 |
-| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。重新运行 `mmw task state`。确认输出是 `bound`。再运行 `mmw task name` 取工作名 |
+| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名 |
+| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]` |
 | `local` | 你在主检出里 | 这棵树由 Codex App 创建。宿主给出干净的 detached worktree 之后，运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。 |
 | `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
 
-两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
+`detached` 与 `local` 两行做完之后都重新运行 `mmw task state`，确认第一个词是 `bound`，再运行 `mmw task name` 取工作名。工作区不干净、分支已经存在，或者父分支里没有这次任务需要的决定时**停下来**，不要在错的基点上补提交。
 
 1. **给 destination 命名。** 运行一场 `$mmw:mmw-grilling` session；它在同一场讨论中应用 `$mmw:mmw-domain-modeling`，确定这张 map 正在寻找的 spec、决定或改动。destination 固定范围，所以先确定它。
 
