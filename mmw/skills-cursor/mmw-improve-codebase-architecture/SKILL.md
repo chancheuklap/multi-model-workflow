@@ -93,16 +93,16 @@ task 里把这句原样写给它：**这五问是入口，不是清单。撞见�
 
 挑中后再定任务分支名。类型固定用 `refactor`。短语取被选中 module 的名字。例如 `refactor-order-intake`。再单独确定工作名。工作名不从任务分支名取得。然后按下面的宿主动作建立任务 worktree，任务目标写用户原话和卡片标题：
 
-先跑 `mmw task state`。它输出一行，第一个词决定这棵树要不要你自己建：
+先跑 `mmw task state`，按第一个词选行。任务分支名和工作名上一段已经定下。
 
 | 第一个词 | 什么意思 | 你做什么 |
 | --- | --- | --- |
-| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名，记下它 |
-| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。命令成功后重新运行 `mmw task state`。确认输出是 `bound`。再运行 `mmw task name` 取工作名 |
-| `local` | 你在主检出里 | 先分别确定任务分支名和工作名。停。请用户在 Agents Window 用 New Worktree 开新会话，树名用任务分支名。本技能上文点名了父分支时，基点用该父分支。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。 重新运行 `mmw task state`。确认输出是 `bound`。再运行 `mmw task name` 取工作名 |
+| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名 |
+| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]` |
+| `local` | 你在主检出里 | 停。请用户在 Agents Window 用 New Worktree 开新会话，树名用任务分支名。本技能上文点名了父分支时，基点用该父分支。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。 |
 | `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
 
-两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
+`detached` 与 `local` 两行做完之后都重新运行 `mmw task state`，确认第一个词是 `bound`，再运行 `mmw task name` 取工作名。工作区不干净、分支已经存在，或者父分支里没有这次任务需要的决定时**停下来**，不要在错的基点上补提交。
 
 ## 6. 就这一个候选谈下去
 

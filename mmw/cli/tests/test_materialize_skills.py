@@ -160,6 +160,31 @@ def test_cursor_current_模式不创建结果树(假源: Path, tmp_path: Path) -
     assert "mmw task state" in 正文
 
 
+def test_bind_task_展开成四档表(假源: Path, tmp_path: Path) -> None:
+    写(假源 / "mmw-alpha" / "SKILL.md",
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n[[mmw-bind-task]]\n")
+    产出 = {}
+    for host in ("pi", "claude-code", "codex", "cursor", "grok"):
+        out = tmp_path / host
+        物化(host, out)
+        产出[host] = 读(out, "mmw-alpha/SKILL.md")
+        文本 = 产出[host]
+        assert "[[mmw-bind-task]]" not in 文本
+        # 四档一个都不能少：落不进任何一行时 agent 没有指示。
+        for 档 in ("`bound`", "`detached`", "`local`", "`outside`"):
+            assert 档 in 文本
+        assert "mmw task bind" in 文本
+        assert "mmw task name" in 文本
+    # local 那一行整行委托给 enter-worktree，所以宿主差异必须原样透过来。
+    assert "mmw task new" in 产出["pi"]
+    assert "mmw task new" in 产出["claude-code"]
+    assert "mmw task new" not in 产出["codex"]
+    assert "New Worktree" in 产出["cursor"]
+    assert "grok --worktree=" in 产出["grok"]
+    # 其余三档没有宿主差异，pi 与 claude-code 应当逐字相同。
+    assert 产出["pi"] == 产出["claude-code"]
+
+
 def test_enter_worktree_按宿主展开(假源: Path, tmp_path: Path) -> None:
     写(假源 / "mmw-alpha" / "SKILL.md",
        "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n[[mmw-enter-worktree]]\n")

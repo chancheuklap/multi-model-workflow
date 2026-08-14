@@ -38,6 +38,33 @@ RESUME_RE = re.compile(
     r"\[\[mmw-resume:([a-z0-9-]+):(worktree|current|none)\]\]"
 )
 ENTER_WORKTREE_RE = re.compile(r"\[\[mmw-enter-worktree\]\]")
+BIND_TASK_RE = re.compile(r"\[\[mmw-bind-task\]\]")
+# 建树四档表。十一份技能源原本各写一份，措辞已经漂开：有的四档表格、有的五段散文，
+# 同一件事有的写「先单独确定工作名」、有的写「先分别确定任务分支名和工作名」。收成
+# 这一处之后，改一次行为只改这里。
+#
+# 本函数自己不按宿主分支，这不是漏了 AGENTS.md 那条规则：四档里只有 `local` 有宿主
+# 差异，那一整行委托给 expand_enter_worktree，具名宿主的显式分支在它里面。
+#
+# 「任务分支名和工作名怎么定」各技能规则不同（wayfinder 从 map 正文取工作名，
+# mmw-start 在第 2 步已经定好 slug），留在调用处的占位符前后，不进本表。
+BIND_TASK_HEAD = (
+    "| 第一个词 | 什么意思 | 你做什么 |\n"
+    "| --- | --- | --- |\n"
+    "| `bound` | 你已经在一棵绑好的任务 worktree 里 | "
+    "什么都不用建。运行 `mmw task name` 取工作名 |\n"
+    "| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | "
+    '运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> '
+    "[--from <父分支或基点 SHA>]` |\n"
+)
+BIND_TASK_TAIL = (
+    "| `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。"
+    "拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |\n"
+    "\n"
+    "`detached` 与 `local` 两行做完之后都重新运行 `mmw task state`，确认第一个词是 "
+    "`bound`，再运行 `mmw task name` 取工作名。工作区不干净、分支已经存在，或者父分支里"
+    "没有这次任务需要的决定时**停下来**，不要在错的基点上补提交。"
+)
 # 没有续跑通道的宿主统一给这句退路。静默降级成全新派发会让调用方以为上下文还在，
 # 所以退路必须显式写明重派时要带什么材料。
 #
@@ -117,6 +144,14 @@ def expand_enter_worktree(host: str) -> str:
     if host == "grok":
         return ENTER_WORKTREE_GROK
     return ENTER_WORKTREE_NEW
+
+
+def expand_bind_task(host: str) -> str:
+    return (
+        BIND_TASK_HEAD
+        + f"| `local` | 你在主检出里 | {expand_enter_worktree(host)} |\n"
+        + BIND_TASK_TAIL
+    )
 
 
 def expand_pi(role: str, agent: str, cwd_mode: str) -> str:
@@ -377,6 +412,7 @@ def expand_text(
     text = LAUNCH_RE.sub(launch, text)
     text = LAUNCH_GROUP_RE.sub(launch_group, text)
     text = RESUME_RE.sub(resume, text)
+    text = BIND_TASK_RE.sub(lambda _match: expand_bind_task(host), text)
     text = ENTER_WORKTREE_RE.sub(lambda _match: expand_enter_worktree(host), text)
     if host == "codex":
         text = CODEX_SKILL_REF_RE.sub(r"`$mmw:\1`", text)
