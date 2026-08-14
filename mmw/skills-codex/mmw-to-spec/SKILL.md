@@ -16,7 +16,7 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 | 当前情况 | 要读取的已有产物 | 产物位置 | 怎样找到属于这份 spec 的内容 |
 | --- | --- | --- | --- |
 | 用户直接调用 `$mmw:mmw-to-spec` | 当前对话中已经谈定的内容 | 当前对话 | 从用户提出本次需求的位置开始，读取已经明确形成的决定。不要使用尚未得到确认的建议或问题 |
-| `$mmw:mmw-grilling` 完成后进入 To Spec | 用户已经确认的共同理解记录 | `$mmw:mmw-grilling` 交回的那个精确路径。它没有交回路径时，运行 `mmw artifact path scratch --name <工作名> --sub understanding.md` | 读这份记录的 `## 共同理解` 与 `## 支持材料` 两段。支持材料段点名 research 或 prototype 时，顺着它写出的精确路径读那些产物。这两段就是本次访谈的全部结果，不再回对话里重新总结一遍 |
+| `$mmw:mmw-grilling` 完成后进入 To Spec | 用户已经确认的共同理解记录 | `$mmw:mmw-grilling` 交回的那个精确路径。它没有交回路径时，运行 `mmw artifact path scratch --name <工作名> --sub understanding.md` | 读这份记录的 `## 共同理解` 与 `## 支持材料` 两段。支持材料段点名 research 或 prototype 时，顺着它写出的精确路径读那些产物。这两段就是本次访谈的全部结果 |
 | `$mmw:mmw-prototype` 完成后直接进入 To Spec | prototype 的 `README.md`，以及它列出的用户走查结论、选中产物、被否掉的方向和可复用内容 | `$mmw:mmw-prototype` 交回来的那个精确路径，指向一份 `README.md` | 读交回来的那份 `README.md`。确认它写的「当前问题」属于这份 spec，再顺着它读它点名的选中产物和可复用内容。不要去翻别的 prototype 目录 |
 | 被交来一张已经分诊过的 issue 编号（`$mmw:mmw-start` 或 `$mmw:mmw-triage` 判定它要拆成多张 ticket） | 那张 issue 的正文、agent brief 和讨论 | 交回来的那个 issue 编号。运行 `gh issue view <编号> --comments` 打开它 | 读正文和 agent brief，认出这次要交付的产品行为。它是这份 spec 的输入，不是 spec 本身——决定不够写成 spec 时按本节末尾停下 |
 | `$mmw:mmw-wayfinder` 关闭 map 后进入 To Spec | 已关闭的 map，跟这份 spec 有关的那几张 decision ticket 的结论，以及这些结论里点名的 prototype 和 research | `$mmw:mmw-wayfinder` 交回的 map URL 或编号。运行 `gh issue view <map 编号> --comments` 打开它 | 先确认 map 的 `Destination` 写的就是这份 spec。从 map 的 `## 工作名` 记下交来的工作名。map 的 `Decisions so far` 一节每行都带着一张 decision ticket 的链接，顺着链接逐张运行 `gh issue view <ticket 编号> --comments`。每张 ticket 关闭前都留了一条写结论的评论，读这条评论和它里面写出的精确文件路径。跟 `Destination` 无关的 ticket 不要读 |
