@@ -17,7 +17,7 @@
 
 2. 选择 ticket。用户点名一张时使用那一张；用户没有点名时，按顺序取得第一张 frontier ticket。
 
-   任务 slug 由两段英文 kebab 拼成，中间一个连字符：前一段取 map 分支的 slug（读 `## 分支`，去掉宿主命名空间）；后一段用英文三四个词说清这张 ticket 的 Question。issue 标题给人看，可以是中文；slug 按意思写成英文，规则同 `$mmw:mmw-start` 第 2 步。宿主对任务分支有固定命名空间时加在 slug 前面。父分支是 map 分支，分支名读 map 正文的 `## 分支` 一节；起点是它当前已提交的 HEAD——先运行 `git rev-parse <map 分支>` 记下它，交回结果时要用。
+   任务 slug 由两段拼成：map 分支 slug（读 `## 分支`，去掉宿主命名空间）+ 这张 Question 的英文三四个词。规则同 `$mmw:mmw-start` 第 2 步。宿主对任务分支有固定命名空间时加在前面。父分支是 map 分支，起点是它当前已提交的 HEAD——先运行 `git rev-parse <map 分支>` 记下它，交回结果时要用。
 
    写产物、列产物和交给下游时都传 `--name <map 分支 slug>`，不要用 ticket 分支名。取值读 map 正文的 `## 分支`。
 
@@ -44,11 +44,11 @@
 
 3. 解决 ticket。先运行 `gh issue view <编号>` 取得这张 ticket 的完整正文，它的 `Question` 一节就是要解决的问题。随后运行 `mmw artifact list --name <map 分支 slug> --map <map 编号>`。从候选中选出与 Question 相关的材料，补进自己的 `## 必读材料声明`，并保留已有条目。
 
-   开工前按 [SKILL.md](SKILL.md) 的「必读材料声明」解析并读取全部条目。
+   开工前按 [SKILL.md](SKILL.md) 的「解析必读材料声明」读取全部条目。
 
    需要更多背景时，按需取得相关或已关闭 ticket 的完整正文，不要一次把所有 ticket 都读进来。调用 map `## Notes` 区块点名的技能。不确定用什么时，使用 `$mmw:mmw-grilling`；它在同一场讨论中应用 `$mmw:mmw-domain-modeling`。
 
-   需要资产路径时，运行以下完整命令：
+   需要资产路径时：
 
    | 资产 | 命令 |
    | --- | --- |

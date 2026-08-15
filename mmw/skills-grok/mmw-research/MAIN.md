@@ -78,10 +78,10 @@ subagent 报告不是 research。research 是你验证并综合后的事实、�
 
 本节给出这次的 research 路径。走本文件时在验证和综合完成之后执行。从 [EVIDENCE.md](EVIDENCE.md) 过来时，在立计划前执行。
 
-给这次 research 取一个 `<主题>`。它是这次要回答的问题的短名。写入第一个文件前，运行下面的完整命令：
+给这次 research 取一个 `<主题>`。它是这次要回答的问题的短名。写入第一个文件前：
 
 ```bash
-mmw artifact path research [--name <名字段>] [--issue <编号>] --sub <主题>
+mmw artifact path research --sub <主题>
 ```
 
 列出输出路径的父目录。目标已存在时，先读已有索引。没有索引时，读全部文件名和一级标题。确认是不同问题后，重新取一个承载差别的名字。仍取不出时，从 `-02` 开始加两位序号。不问用户，也不写进交回内容。
@@ -110,7 +110,7 @@ mmw artifact path research [--name <名字段>] [--issue <编号>] --sub <主题
 
 这次 research 里出现了需要长期留下来的领域术语，或者一项值得记进 ADR 的决定时，不要自己往领域文档或 ADR 目录里写。有调用方时把这件事连同相关事实一起交回，由调用方去调 `/mmw-domain-modeling`；用户直接调用你时，按第 7 节报告，并问要不要现在维护领域模型。
 
-`investigator` 交回来的报告默认不写进仓库。需要留网页存档、抓取缓存、被否掉的材料或跨进程临时文件时，运行 `mmw artifact path scratch [--name <名字段>] [--issue <编号>] --sub evidence/research-<主题>`。写进输出目录。交回前，只删除本次 research 在该目录建的文件。别人的留着。
+`investigator` 交回来的报告默认不写进仓库。需要留网页存档、抓取缓存、被否掉的材料或跨进程临时文件时，运行 `mmw artifact path scratch --sub evidence/research-<主题>`。写进输出目录。交回前，只删除本次 research 在该目录建的文件。别人的留着。
 
 ## 7. 交回结果
 

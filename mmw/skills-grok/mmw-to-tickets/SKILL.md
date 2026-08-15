@@ -25,7 +25,11 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 `## 输入出处` 或 spec 元数据块的 `artifact_refs` 缺失时停止，说明缺少上游声明。
 
-prototype 和 research 按「解析产物引用」处理 spec 元数据块的 `artifact_refs`。prototype 索引缺少问题、逐轮用户结论、选中产物、落选约束或长期证据时，回 `/mmw-prototype` 补齐；没有的项目写「无」。
+### 解析产物引用
+
+每条运行 `mmw artifact path`，再读输出路径的索引和索引列出的文件。命令失败或缺少 `name` 时停止。值为 `无` 或 `[]` 时不读取产物。
+
+prototype 索引缺少问题、逐轮用户结论、选中产物、落选约束或长期证据时，回 `/mmw-prototype` 补齐；没有的项目写「无」。
 
 按当前 ticket 实际需要的条目原样写进该 ticket 的 `## 产物引用`。写法见下面的 issue 模板。没有要传递的条目时写 `无`。
 
@@ -117,7 +121,7 @@ mmw issue create --title "<标题>" --body-file <上一步输出文件> \
 
 ## Plan
 
-运行下面的完整命令。它的输出是这张 ticket 的 plan 文件：
+它的输出是这张 ticket 的 plan 文件：
 
 ```bash
 mmw artifact path plan --sub <NN>-<ticket-slug>.md
@@ -128,7 +132,7 @@ mmw artifact path plan --sub <NN>-<ticket-slug>.md
 | 段 | 取值 |
 | --- | --- |
 | `<NN>` | 第 4 步给这张定的两位编号 |
-| `<ticket-slug>` | 按第 4 步 Title 的意思写成英文 kebab：全小写，只留字母 a-z、数字和连字符，控制在三四个词以内。Title 本身可以是中文 |
+| `<ticket-slug>` | 按第 4 步 Title 的意思，用 `/mmw-start` 第 2 步的规则写成英文 kebab，控制在三四个词以内。Title 本身可以是中文 |
 
 文件由 `/mmw-to-plan` 写，这里先把路径占住。
 
@@ -164,10 +168,6 @@ mmw artifact path plan --sub <NN>-<ticket-slug>.md
 - 指向每一张阻塞它的 ticket，或者「None — can start immediately」。
 
 </issue-template>
-
-## 解析产物引用
-
-`## 产物引用` 与 YAML `artifact_refs` 用同一套解析：每条运行 `mmw artifact path`，再读输出路径的索引和索引列出的文件。命令失败或缺少 `name` 时停止。值为 `无` 或 `[]` 时不读取产物。
 
 正文里不要写实现文件路径和代码片段。两个理由：它们属于 plan 那一层；而且**它们很快就会过期**——ticket 在 tracker 上可能放上几周，路径改名、函数搬家之后，写死的位置会把 `worker` 带到不存在的地方。同一条风险在 plan 里同样成立，plan 只是过期得慢一些。prototype 的精确出处和当前 ticket 消费的 research 是例外。prototype 产出的一段代码若比散文更精确地编码决定，可以内联并注明选中产物路径；只保留决定含量，不粘贴完整 demo。
 

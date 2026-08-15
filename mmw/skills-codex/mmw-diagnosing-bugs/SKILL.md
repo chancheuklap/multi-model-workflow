@@ -18,10 +18,10 @@ description: 需要查明根因的 bug 和性能回退诊断。用于功能损�
 
 ## 过程材料落点
 
-为本次诊断取一个 `<短名>`。运行下面的完整命令取得过程材料落点：
+为本次诊断取一个 `<短名>`。
 
 ```bash
-mmw artifact path scratch [--name <名字段>] [--issue <编号>] --sub diagnosis/<短名>
+mmw artifact path scratch --sub diagnosis/<短名>
 ```
 
 HAR、trace、日志转储、core dump、录屏、一次性 harness、临时埋点输出和其他过程材料写进该命令输出的目录。已经位于 correct seam、准备长期防回归的测试源码按 Phase 5 处理。

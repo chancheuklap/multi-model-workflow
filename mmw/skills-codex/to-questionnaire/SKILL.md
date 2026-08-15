@@ -21,10 +21,10 @@ description: 把当前用户无法回答的问题整理成给知识持有者填�
 
 ## 3. 写 questionnaire
 
-取一个主题名。运行下面的完整命令取得 questionnaire 落点：
+取一个主题名。
 
 ```bash
-mmw artifact path scratch [--name <名字段>] [--issue <编号>] --sub questionnaire/<主题>.md
+mmw artifact path scratch --sub questionnaire/<主题>.md
 ```
 
 把 questionnaire 写进输出文件。完成后报告路径。

@@ -43,10 +43,10 @@ Wizard 默认是临时产物，固定保存在当前任务的 Git 忽略 scratch
 
 ## 3. 生成 wizard
 
-以 [template.sh](template.sh) 为模板。取这次流程的 `<流程>`。它不是任务分支名。一个任务可以运行多次 wizard。运行下面的完整命令：
+以 [template.sh](template.sh) 为模板。取这次流程的 `<流程>`。它不是任务分支名。一个任务可以运行多次 wizard。
 
 ```bash
-mmw artifact path scratch [--name <名字段>] [--issue <编号>] --sub wizard/<流程>.sh
+mmw artifact path scratch --sub wizard/<流程>.sh
 ```
 
 在输出文件生成 wizard。保留 `STAGES` 标记上方的 library。只替换示例步骤。

@@ -72,7 +72,9 @@ map 正文是整个 map 的低分辨率视图。每个 session 加载一次。op
 
 ticket 正文固定有 `Question` 和 `必读材料声明` 两节。建 ticket 的会话写当时已经知道的材料。认领 ticket 的会话在开工前补入后来产生且相关的材料。仓库产物写产物引用。tracker 产物写结论评论的 issue 编号。解决 ticket 时名字段取 map 正文 `## 分支` 的 slug；它的范围段是 `issue-` 加这张 ticket 自己的编号。
 
-开工前按声明解析。仓库产物每条运行 `mmw artifact path`，再读输出路径的索引和索引列出的文件。结论评论每条读取对应 issue 中以 `<!-- mmw:conclusion -->` 开头的评论。
+### 解析必读材料声明
+
+仓库产物每条运行 `mmw artifact path`，再读输出路径的索引和索引列出的文件。结论评论每条读取对应 issue 中以 `<!-- mmw:conclusion -->` 开头的评论。
 
 声明的材料找不到时：生产它的 ticket 按设计未运行，或用户选择不保存 research，继续。生产方已经运行而内容应当存在却找不到，停下问用户。问的时候给出两个选项：重新解决生产它的那张 decision ticket，或者由用户直接提供文件。
 

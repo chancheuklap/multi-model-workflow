@@ -43,7 +43,7 @@
 
 5. **启动 research。** 对刚创建的每张 `wayfinder:research` ticket，先运行 `mmw issue claim <编号>`。claim 失败的 ticket 已由其他 session 占用，不重复派发。
 
-   claim 成功后，运行 `mmw artifact list --map <map 编号>`。从候选中选出与这张 Question 相关的材料，补进自己的 `## 必读材料声明`；保留已有条目。开工前按 [SKILL.md](SKILL.md) 的「必读材料声明」解析并读取。
+   claim 成功后，运行 `mmw artifact list --map <map 编号>`。从候选中选出与这张 Question 相关的材料，补进自己的 `## 必读材料声明`；保留已有条目。开工前按 [SKILL.md](SKILL.md) 的「解析必读材料声明」读取。
 
    分别运行 `mmw artifact path research --issue <编号> --sub <主题>` 和 `mmw artifact path scratch --issue <编号> --sub evidence`。把 ticket 的 Question、必读材料声明中的全部仓库产物引用、全部结论评论 issue 编号、名字段（当前 map 分支的 slug）、范围段 `issue-<编号>`，以及两条输出路径一起传给 `/mmw-research`。每张 ticket 作为一项独立 research 并行处理；`/mmw-research` 根据取证角度决定 `investigator` 的数量。
 
