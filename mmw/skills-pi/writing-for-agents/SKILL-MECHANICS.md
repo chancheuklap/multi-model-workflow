@@ -20,3 +20,11 @@ The invocation cut of splitting (the sequence cut lives in `SKILL.md`): split of
 ## Router skills
 
 When user-invoked skills multiply past what you can remember, that piled-up cognitive load is cured by a **router skill**: one user-invoked skill that names the others and when to reach for each, so the human has one skill to remember instead of many. It can only hint, never fire them: user-invoked skills have no description, so nothing but the human can reach them.
+
+## Exits
+
+The last step's completion criterion is the exit. Forks that arise mid-document stay in that step.
+
+At a phase boundary, report what was done and name the usual two or three follow-on options, then wait. The user may name something off that list. When they pick, invoke that skill from this conversation.
+
+The catalogue of the delivery chain lives only in the router skill (`mmw-start`; upstream, `ask-matt`).
