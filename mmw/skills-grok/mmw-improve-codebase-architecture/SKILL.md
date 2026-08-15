@@ -58,7 +58,7 @@ task 里把这句原样写给它：**这五问是入口，不是清单。撞见�
 
 **先去重**：指向同一个 module、同一条 seam 的条目合成一条，把各份报告给的出处并进去——几个人独立撞见同一处摩擦，这件事本身就是它成立的证据，合并时记下来。换了个说法其实是同一件事的，也算重复。
 
-**再逐条验证**：合并后的每条按 `/mmw-verifying-agent-output` 走。它说某个 module 是 shallow 的，你自己打开那几个文件，确认 interface 真的和 implementation 一样宽；它说某处耦合漏出了 seam，你自己找到那几行。验证不出来的不进报告。验证完一条值得做的都没有：明说这一片现在没有值得做的 deepening opportunity，列出你扫了哪些方向。不要为了交差凑几个 `Speculative` 出来。
+**再逐条验证**：它说某个 module 是 shallow 的，你自己打开那几个文件，确认 interface 真的和 implementation 一样宽；它说某处耦合漏出了 seam，你自己找到那几行。验证不出来的不进报告。验证完一条值得做的都没有：明说这一片现在没有值得做的 deepening opportunity，列出你扫了哪些方向。不要为了交差凑几个 `Speculative` 出来。
 
 ## 4. 出报告
 

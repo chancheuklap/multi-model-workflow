@@ -57,7 +57,7 @@
 派一个独立上下文的 `investigator`。它只读，不需要工作目录。
 启动：按名称调用 Codex 原生 subagent `mmw-investigator`，task 传四栏表全文。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后打开关键断言的出处确认，不重做整个 task。
 
 互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 
@@ -65,7 +65,7 @@
 
 需要真实凭证、需要连生产、会产生费用或者会写入外部系统的探测，**不派 `investigator`**，由你自己在第 2 节拿到用户批准之后跑。
 
-收回结果后按 `$mmw:mmw-verifying-agent-output` 验证。
+收回结果后，对照命令原文和关键输出打开出处确认。
 
 ## 4. 记台账
 

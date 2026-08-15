@@ -52,7 +52,7 @@ UI mockup 的持久资产必须保存在 `mockup/`。应用源码只保留运行
 
 启动：后台执行 `mmw dispatch prototype-worker --cwd <当前工作树绝对路径>`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 
-收到报告后，读取报告和对应变体目录的 diff。按 `/mmw-verifying-agent-output` 验证结构差异、项目组件约束和可运行性。
+收到报告后，读取报告和对应变体目录的 diff，核对结构差异、项目组件约束和可运行性。
 
 并行没有明显收益时，由主 agent 直接完成。
 

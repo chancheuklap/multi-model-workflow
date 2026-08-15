@@ -62,7 +62,7 @@ research 索引是保存后 research 目录里的 `README.md`。第 6 节写它�
 
 ## 3. 验证并综合
 
-收到报告后，按 `/mmw-verifying-agent-output` 验证关键断言。不要重做 `investigator` 已经完成的整段 research。
+不要重做 `investigator` 已经完成的整段 research。
 
 1. 打开关键断言引用的源码位置或一手来源。
 2. 丢弃没有出处，或者出处不支持的断言。

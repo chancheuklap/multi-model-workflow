@@ -92,12 +92,12 @@ TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
 
 启动：后台执行 `mmw-cursor-agent --mmw-role worker -p --force --trust --approve-mcps --worktree <结果分支> --worktree-base <当前任务分支>`。把四栏 task 正文作为命令的标准输入。worker 进入结果树后直接完成工作并提交。交回结果分支名、HEAD SHA、基点 SHA。
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `/mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后打开关键断言的出处确认，不重做整个 task。
 
 ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
 启动：后台执行 `mmw-cursor-agent --mmw-role worker-high-risk -p --force --trust --approve-mcps --worktree <结果分支> --worktree-base <当前任务分支>`。把四栏 task 正文作为命令的标准输入。worker 进入结果树后直接完成工作并提交。交回结果分支名、HEAD SHA、基点 SHA。
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `/mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后打开关键断言的出处确认，不重做整个 task。
 升档由你决定，不由 worker 自报。
 
 派发返回的 `session:` 或 `handle:` 行是这个 `worker` 的恢复句柄。连同结果分支名、基点 SHA 一起记下，③ 返工的前三轮和 ④⑤ 的修复都用它。

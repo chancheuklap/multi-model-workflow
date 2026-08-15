@@ -71,7 +71,7 @@ SKIP_DIR_NAMES = frozenset({"mmw-dispatching-agents", "mmw-setup"})
 POST_LAUNCH_RULE = (
     "派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。"
     "没有明确不重叠的协调工作时，立即等待 subagent 交回报告；"
-    "报告交回后只按 `/mmw-verifying-agent-output` 验证关键断言，不重做整个 task。"
+    "报告交回后打开关键断言的出处确认，不重做整个 task。"
 )
 
 

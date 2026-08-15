@@ -117,7 +117,7 @@ mmw artifact path review --sub <哪一道>.md
 
 ## 5. 逐条判定
 
-先按 `/mmw-verifying-agent-output` 验证每一条的出处，验证不出来的标 `needs-evidence`。
+先打开每条的出处确认原文，验证不出来的标 `needs-evidence`。
 
 **条目多的时候把取证那一半派出去。** 派法和抽检的规矩在 `/mmw-verifying-agent-output` 的「取证可以派，判定不可以」一节。判定不派——下面那两问和五个处置词全是你的活。
 

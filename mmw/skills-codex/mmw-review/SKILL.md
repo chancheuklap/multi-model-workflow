@@ -98,7 +98,7 @@ mmw artifact path review --sub <哪一道>.md
 每个视角各写一张四栏表。按当前宿主的审查策略启动；互不依赖的审查任务同时启动。
 Codex 只使用一个审查角色。⓪、①、②、⑤ 每个视角各启动一个 Codex 原生 `mmw-reviewer-gpt` subagent。每个审查者使用独立上下文，可以与产物作者使用相同模型。⓪ 也一样：这个宿主换不了模型，只换上下文。互不依赖的审查任务在同一条消息中并行启动。
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后打开关键断言的出处确认，不重做整个 task。
 
 ## 4. findings 存盘
 
@@ -119,7 +119,7 @@ Codex 只使用一个审查角色。⓪、①、②、⑤ 每个视角各启动�
 
 ## 5. 逐条判定
 
-先按 `$mmw:mmw-verifying-agent-output` 验证每一条的出处，验证不出来的标 `needs-evidence`。
+先打开每条的出处确认原文，验证不出来的标 `needs-evidence`。
 
 **条目多的时候把取证那一半派出去。** 派法和抽检的规矩在 `$mmw:mmw-verifying-agent-output` 的「取证可以派，判定不可以」一节。判定不派——下面那两问和五个处置词全是你的活。
 

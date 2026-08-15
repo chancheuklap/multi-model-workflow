@@ -129,4 +129,4 @@
 
 ### 交回之后
 
-B2、B3、B4 产出的全部内容是 finding 候选。按 `/mmw-verifying-agent-output` 回到当前源码验证每一条的出处。验证不出来的标 `needs-evidence`，不进处置。
+B2、B3、B4 产出的全部内容是 finding 候选。回到当前源码打开每一条的出处。验证不出来的标 `needs-evidence`，不进处置。

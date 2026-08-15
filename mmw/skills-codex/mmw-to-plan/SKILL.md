@@ -111,7 +111,7 @@ spec 里确实没有、必须看了代码才知道的，那一格留空，并写
 派一个 `planner`，它在**当前任务 worktree** 里写 plan 文件，不另开分支。
 启动：按名称调用 Codex 原生 subagent `mmw-planner`，task 传四栏表全文；该 subagent 使用当前工作树，不另开结果树。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后打开关键断言的出处确认，不重做整个 task。
 
 **当前任务 worktree 的绝对路径**：`git rev-parse --show-toplevel`。
 

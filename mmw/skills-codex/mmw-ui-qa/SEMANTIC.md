@@ -117,7 +117,7 @@
 派一个独立上下文的 `designer`。它只读，不需要工作目录。
 启动：按名称调用 Codex 原生 subagent `mmw-designer`，task 传四栏表全文。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后打开关键断言的出处确认，不重做整个 task。
 
 互不依赖的路径在同一条消息里一起启动，全部回来之后再汇总。
 
@@ -131,4 +131,4 @@
 
 ### 交回之后
 
-B2、B3、B4 产出的全部内容是 finding 候选。按 `$mmw:mmw-verifying-agent-output` 回到当前源码验证每一条的出处。验证不出来的标 `needs-evidence`，不进处置。
+B2、B3、B4 产出的全部内容是 finding 候选。回到当前源码打开每一条的出处。验证不出来的标 `needs-evidence`，不进处置。

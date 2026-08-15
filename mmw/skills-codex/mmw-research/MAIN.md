@@ -58,13 +58,13 @@ research 索引是保存后 research 目录里的 `README.md`。第 6 节写它�
 派一个独立上下文的 `investigator`。它只读，不需要工作目录。
 启动：按名称调用 Codex 原生 subagent `mmw-investigator`，task 传四栏表全文。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `$mmw:mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后打开关键断言的出处确认，不重做整个 task。
 
 互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
 
 ## 3. 验证并综合
 
-收到报告后，按 `$mmw:mmw-verifying-agent-output` 验证关键断言。不要重做 `investigator` 已经完成的整段 research。
+不要重做 `investigator` 已经完成的整段 research。
 
 1. 打开关键断言引用的源码位置或一手来源。
 2. 丢弃没有出处，或者出处不支持的断言。

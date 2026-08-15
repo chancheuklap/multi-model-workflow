@@ -30,7 +30,7 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
    启动：调用原生 subagent，agent 设为 `mmw-worker`，打开 worktree 隔离。把四栏 task 作为初始 prompt。工人完成工作并提交。交回结果分支名、HEAD SHA、基点 SHA。提交前自己跑 `mmw toolchain check --changed-only`。
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `/mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后打开关键断言的出处确认，不重做整个 task。
 
    `worker` 完成后，先收取结果：
 
@@ -38,7 +38,7 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
 3. `worker` 要跑的循环是：在那个 seam 上把最小化 repro 变成一个失败的测试，看它红，写修复，看它绿。
 
-它交回来之后按 `/mmw-verifying-agent-output` 验收：自己把那个测试跑一遍，读它的 diff，再拿 Phase 1 的 loop 对着**原始的、没最小化的**场景跑一次。
+它交回来之后，自己把那个测试跑一遍，读它的 diff，再拿 Phase 1 的 loop 对着**原始的、没最小化的**场景跑一次。
 
 ## Phase 6 —— 清理 + 复盘
 
