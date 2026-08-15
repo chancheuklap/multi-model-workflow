@@ -363,7 +363,8 @@ check "append 缺小节时不写正文" "" "$(grep -F 'issue edit' "$MMW_TEST_LO
 capture "append-缺内容" "$MMW" issue append 100 --section "Decisions so far"
 check "append 缺内容时失败" "非零" "$(nonzero "$LAST_STATUS")"
 check "append 缺内容时不写正文" "" "$(grep -F 'issue edit' "$MMW_TEST_LOG" || true)"
-contains "append 缺内容时显示更新后的 issue 用法" "mmw issue set-parent" "$(cat "$LAST_ERR")"
+contains "append 缺内容时给出正确调用" "mmw issue append <issue 编号> --section <小节标题> --line <要追加的一行>" "$(cat "$LAST_ERR")"
+check "append 缺内容时不倒整段用法" "" "$(grep -F '以上七条' "$LAST_ERR" || true)"
 
 body_set 100 "$append_body"
 : > "$MMW_TEST_READ_COUNT"
@@ -567,7 +568,8 @@ check "set-parent 复用 create 的 sub_issues 端点和 database id" \
 
 capture "set-parent-缺父 issue" "$MMW" issue set-parent 42
 check "set-parent 缺父 issue 时失败" "非零" "$(nonzero "$LAST_STATUS")"
-contains "set-parent 缺父 issue 时显示更新后的 issue 用法" "mmw issue append" "$(cat "$LAST_ERR")"
+contains "set-parent 缺父 issue 时给出正确调用" "mmw issue set-parent <子 issue 编号> --parent <父 issue 编号>" "$(cat "$LAST_ERR")"
+check "set-parent 缺父 issue 时不倒整段用法" "" "$(grep -F '以上七条' "$LAST_ERR" || true)"
 
 export MMW_TEST_FAIL_SET_PARENT=1
 export MMW_TEST_LOG="$WORK/log-set-parent-failure"
