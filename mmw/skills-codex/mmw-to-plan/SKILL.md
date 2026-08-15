@@ -111,7 +111,7 @@ spec 里确实没有、必须看了代码才知道的，那一格留空，并写
 派一个 `planner`，它在**当前任务 worktree** 里写 plan 文件，不另开分支。
 启动：按名称调用 Codex 原生 subagent `mmw-planner`，task 传四栏表全文；该 subagent 使用当前工作树，不另开结果树。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后打开关键断言的出处确认，不重做整个 task。
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告。报告交回后不重做整个 task。
 
 **当前任务 worktree 的绝对路径**：`git rev-parse --show-toplevel`。
 
@@ -121,7 +121,7 @@ spec 里确实没有、必须看了代码才知道的，那一格留空，并写
 
 ## 4. 验证返回
 
-每个 `planner` 交回 `pass` 之后，验证 plan 文件存在，元数据块的 `ticket` 等于当前 ticket 编号且 `artifact_refs` 键存在，ticket 的每条验收都能映射到 `## Acceptance`，再抽验至少一条源码依据。读取文件并检索源码，不认「我写完了」。
+每个 `planner` 交回 `pass` 之后，确认 plan 文件存在，元数据块的 `ticket` 等于当前 ticket 编号且 `artifact_refs` 键存在，ticket 的每条验收都能映射到 `## Acceptance`。
 
 **再问一次「有没有多」。** 上面各项问的都是有没有漏，只往一个方向使劲，plan 就会越写越长。抽读 `## Constraints` 和 `## Contracts and Seams` 两节，看有没有这三样：
 

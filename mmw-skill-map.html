@@ -435,7 +435,7 @@
 <div class="contract-strip" aria-label="版本与方法合同">
   <div><strong>MMW 0.11.0</strong></div>
   <div><strong>上游基线 Matt Pocock Skills 1.2.3</strong></div>
-  <div>MMW 技能源保留 Matt 的方法、步骤、解释和完成判据，并接入 MMW 的 worktree、tracker、报告验证、领域文档、人工审批关卡和宿主承载。</div>
+  <div>MMW 技能源保留 Matt 的方法、步骤、解释和完成判据，并接入 MMW 的 worktree、tracker、领域文档、人工审批关卡和宿主承载。</div>
 </div>
 
 <div class="hue-strip">
@@ -495,15 +495,15 @@ subgraph MAIN["主干 · 从想法到落地"]
   pro[["<b>mmw-prototype</b><br/>· 一轮只回答一个可走查问题<br/>· 后端脚本、Logic HTML 与 UI/UX 原地迭代<br/>· 用户走查决定下一轮<br/>· 持久资产与过程材料分层保存"]]
   tsp[["<b>mmw-to-spec</b><br/>· 五种真实入口各自读取已有产物<br/>· 只综合已经谈定的内容<br/>· seam 在这里钉死<br/>· spec 定稿的人工审批关卡通过后发布"]]
   ttk[["<b>mmw-to-tickets</b><br/>· 切成 tracer bullet<br/>· 声明阻塞关系与精确上下文路径<br/>· 用户通过 ticket 切分人工审批关卡<br/>· 批准后才发布到 tracker"]]
-  imp[["<b>mmw-implement</b><br/>· 一张 ticket 派一个可写 worker<br/>· Codex 用独立后台 Worktree 任务<br/>· 每份走 ③ 逐份验收三关<br/>· 全部合并后走 ④ 合同门"]]
+  imp[["<b>mmw-implement</b><br/>· 一张 ticket 派一个可写 worker<br/>· Codex 用独立后台 Worktree 任务<br/>· 按四种结局选路并合并<br/>· 全部合并后发起 ⑤ final 终审"]]
   tdd[("<b>mmw-tdd</b><br/>· red 到 green 的循环<br/>· seam 由 spec 钉死<br/>· seam 未定时读 codebase-design<br/>· 当前测试交错运行，全套只在末尾运行一次")]
   uiq[("<b>mmw-ui-qa</b><br/>· 不是六道审的任何一道，prototype 阶段也能用<br/>· 起步先要求工作区干净，范围三档全由 git 当场算<br/>· A 类确定性检查产出违规项直接改，合成一个提交<br/>· B 类模型判断产出 finding，走五个处置标记等用户裁决<br/>· 裁决存指纹，下一轮全等的不再报<br/>· 语义层整条路径一次派一个 designer")]
-  pln[["<b>mmw-to-plan</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 按批次写 plan：阻塞已关、还没 ready-for-agent 的 ticket 各写一份<br/>· 派 planner 写，记恢复句柄<br/>· 只传入本 ticket 使用的精确上下文路径<br/>· 验证返回，回填精确字段<br/>· 本批次 plan 审通过并提交后写 tracker 状态"]]
+  pln[["<b>mmw-to-plan</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 按批次写 plan：阻塞已关、还没 ready-for-agent 的 ticket 各写一份<br/>· 派 planner 写，记恢复句柄<br/>· 只传入本 ticket 使用的精确上下文路径<br/>· 确认 plan 文件存在后回填<br/>· 本批次 plan 审通过并提交后写 tracker 状态"]]
   pnr[("<b>mmw-planner</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 写计划方法论<br/>· 从 prototype 资产提取已确认决定<br/>· planner 进门读它，主 agent 不读")]
   clo["<b>mmw-closing</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· spec 与 plan 长期留在仓库<br/>· 只清理当前名字段的过程材料<br/>· 逐条用 mmw artifact path 确认归属再删"]
-  intg[["<b>mmw-integrate</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 验证结果分支、HEAD 与基点<br/>· 按合同依赖排序<br/>· 合入当前任务分支"]]
+  intg[["<b>mmw-integrate</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 按合同依赖排序<br/>· 合入当前任务分支"]]
   rel["<b>mmw-release</b><br/>· 出包前 HEAD 必须等于终审提交<br/>· 主 agent 驱动正式出包循环<br/>· 核对所有包的 source commit<br/>· 用户实测通过后收尾"]
-  crv[["<b>mmw-review</b><br/>· 六道审的编排，每道只运行一轮<br/>· ⓪ 共同理解审由用户点头才发起<br/>· 多分支集成结果同样进入 ⑤ final 终审<br/>· 按视角传入需要的索引与精确路径<br/>· findings 逐条判定<br/>· 采信项修复后由主 agent 验证完成"]]
+  crv[["<b>mmw-review</b><br/>· ⓪①②⑤ 的编排，每道只运行一轮<br/>· ⓪ 共同理解审由用户点头才发起<br/>· 多分支集成结果同样进入 ⑤ final 终审<br/>· 按视角传入需要的索引与精确路径<br/>· findings 逐条判定<br/>· ③④ 已取消"]]
   shp((("<b>提交到<br/>当前分支</b>")))
 end
 
@@ -514,17 +514,16 @@ subgraph RAMP["支线入口 · 先产生工作，再并回主干"]
   wfd[["<b>mmw-wayfinder</b><br/>· effort 超过一个 agent 会话且路线尚不清楚<br/>· 三段：画 map、每会话解一张 decision ticket、收尾<br/>· 内部展开见第二张图"]]
 end
 
-  ica[["<b>mmw-improve-codebase-architecture</b><br/>· 派 3 到 4 个 investigator<br/>· 每份 task 相同，都自然探索同一范围<br/>· 主 agent 去重并验证候选<br/>· 用户挑中候选之后才绑定任务 worktree"]]
+  ica[["<b>mmw-improve-codebase-architecture</b><br/>· 派 3 到 4 个 investigator<br/>· 每份 task 相同，都自然探索同一范围<br/>· 主 agent 去重后出报告<br/>· 用户挑中候选之后才绑定任务 worktree"]]
 
 subgraph VOCAB["跑在别的技能底下"]
   direction TB
   ups[/"<b>Matt Pocock Skills 1.2.3</b><br/>· 对应技能的方法、步骤与解释<br/>· 完成判据和产物方法"/]
-  mmwc[/"<b>MMW 正式工作流合同</b><br/>· worktree · tracker · 报告验证<br/>· 领域文档 · 人工审批关卡 · 宿主边界"/]
+  mmwc[/"<b>MMW 正式工作流合同</b><br/>· worktree · tracker<br/>· 领域文档 · 人工审批关卡 · 宿主边界"/]
   src["<b>共享技能源 · mmw/skills-src/</b><br/>· 同时保留上游方法与 MMW 工作流<br/>· 有证据的适配保留<br/>· 无证据且改变方法效果的偏离修正"]
   dsp["<b>宿主动作物化</b><br/>· subagent 派发使用 [[mmw-launch:…]] 与 launch-group<br/>· 进树使用 [[mmw-enter-worktree]]<br/>· 其他宿主能力保留按能力判断的自然语言<br/>· Codex→后台任务或原生 subagent<br/>· Pi→subagent / CC→dispatch<br/>· Grok→原生 subagent"]
   cdx["<b>Codex App 原生运行面</b><br/>· 已安装 plugin 提供全部 skills 与三台 MCP<br/>· mmw 命令只指向稳定 runtime，不依赖源码 checkout<br/>· investigator / reviewer-gpt / planner / designer 原生 subagent<br/>· 模型从 runtime 的 hosts.codex 覆盖解析"]
-  cwt["<b>Codex worktree 合同</b><br/>· Worktree root 是 App 的跨项目全局存放目录<br/>· 用户创建 detached 主任务，确认父分支后绑定 codex/&lt;slug&gt;<br/>· MMW 不从物理目录名识别任务<br/>· 后台结果先验证与验收，通过后再集成"]
-  vfy["<b>mmw-verifying-agent-output</b><br/>· 关键断言都要有出处<br/>· 取证可以派，判定不可以"]
+  cwt["<b>Codex worktree 合同</b><br/>· Worktree root 是 App 的跨项目全局存放目录<br/>· 用户创建 detached 主任务，确认父分支后绑定 codex/&lt;slug&gt;<br/>· MMW 不从物理目录名识别任务<br/>· 后台结果直接集成"]
   dmo["<b>mmw-domain-modeling</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 计划或想法的整体追问转 grilling<br/>· 唯一往仓库写领域文档的技能<br/>· none 仅在明确建模且首个长期术语定下时创建<br/>· 多 context 首次建模由 mmw domain map-init 注入受管骨架<br/>· 术语写 leaf；三项判据全成立才写 ADR<br/>· 领域入口看仓库根；ADR 固定在 docs/adr/"]
   cbd["<b>mmw-codebase-design</b><br/>· module · interface · seam<br/>· adapter · depth<br/>· DESIGN-IT-TWICE 派 designer"]
   phb["<b>用户专用技能</b><br/>· mmw-start 负责开始或恢复任务<br/>· handoff 负责把会话交给另一个 agent<br/>· wait-what 负责重新解释<br/>· Agent 不会隐式调用这些入口"]
@@ -545,7 +544,7 @@ trk[/"<b>issue tracker</b><br/>· map、spec、ticket 三层"/]
 oos[/"<b>.out-of-scope/</b><br/>· 一个概念一个文件"/]
 pta[/"<b>持久 prototype 资产</b><br/>· Wayfinder 共用 map 的产物目录<br/>· decision ticket 使用 issue 子目录<br/>· 索引列出选中产物与长期证据<br/>· prototype 外壳不直接进入正式产品"/]
 ina[/"<b>用户选择保存的 research</b><br/>· 一个 research 主题一个子目录<br/>· README 是 research 索引<br/>· 下游只读点名的索引与精确文件<br/>· 保存不代表下游必须引用"/]
-rfacts["<b>验证后的 research</b><br/>直接交回当前调用方；<br/>是否保存不影响结果成立"]
+rfacts["<b>综合后的 research</b><br/>直接交回当前调用方；<br/>是否保存不影响结果成立"]
 tmp[/"<b>Git 忽略的 scratch</b><br/>· 截图、DOM、console、录屏与中间输出<br/>· 只提升长期决定所需的最小证据<br/>· 收尾清理当前任务自己的内容"/]
 rvr[("<b>mmw-reviewer</b><br/>· 审查方法论单源<br/>· 共享纪律加八个视角<br/>· 审查者进门按技能名调用它，主 agent 不读")]
 
@@ -582,8 +581,8 @@ ttk ==>|"首个批次的 tracer bullet ticket<br/>各写一份 plan"| pln
 imp ==>|"seam 由 spec 钉死<br/>走 red 到 green"| tdd
 imp ==>|"关票解锁新批次<br/>回去写下一批 plan"| pln
 tdd ==>|"重构不在这个循环里，留到终审"| crv
-imp ==>|"全部 ticket 落地、合同门过了<br/>发起 ⑤ final 终审"| crv
-crv ==>|"③ 验收或 ⑤ final 终审的采信项落进提交<br/>其余道的 findings 回各自调用方"| shp
+imp ==>|"全部 ticket 落地<br/>发起 ⑤ final 终审"| crv
+crv ==>|"⑤ final 终审的采信项落进提交<br/>其余道的 findings 回各自调用方"| shp
 crv -.->|"⓪ 的采信项交回，重开对应分叉再问用户"| gri
 imp ==>|"终审过了，采信项都修完"| clo
 trk -.->|"spec 找不到时<br/>从提交信息引的 issue 取"| crv
@@ -615,7 +614,7 @@ pro ==>|"这一轮的界面改完了，查一次刚改的那一块"| uiq
 crv ==>|"⑤ final 终审含界面改动时点名调用"| uiq
 uiq -.->|"B 类 finding 用同一套处置标记"| crv
 ctx -.->|"报告与 finding 用术语表里的词"| uiq
-res -->|"过滤、验证与综合"| rfacts
+res -->|"过滤与综合"| rfacts
 gri ==>|"某个决定必须看见实物<br/>才能判断"| pro
 gri -.->|"需要另一位知识持有者回答"| tq
 pro -->|"逐轮迭代，走查过的产物留在仓库里"| pta
@@ -637,17 +636,14 @@ dsp -.->|"物化进 skills-pi / skills-claude-code / skills-cursor / skills-grok
 dsp -.->|"Codex profile 与安装面"| cdx
 cdx -.->|"可写任务交接"| cwt
 imp ==>|"四栏 task + 宿主写死启动句"| dsp
-dsp ==>|"交回报告<br/>绝不原样转发"| vfy
-vfy ==>|"验证过出处才采信"| crv
 mms ==>|"多角度系统取证"| res
-dbg ==>|"修复验收过了<br/>发起 ⑤ final 终审"| crv
-vfy -.->|"派前查方法论装没装"| cl7
+dbg ==>|"修复交回完成<br/>发起 ⑤ final 终审"| crv
 cfg -.->|"安装后的 runtime 提供 CLI、技能与角色"| cl6
 clo ==>|"多条已完成任务分支"| intg
 intg ==>|"集成结果进入同一道<br/>⑤ final 终审"| crv
 imp ==>|"终审通过且产品需要出包"| rel
 rel ==>|"安装包由用户实测通过"| clo
-intg -.->|"mmw result verify → 主 agent 验收 → integrate"| cl1
+intg -.->|"mmw result integrate"| cl1
 phb -.->|"用户要求交接会话"| hof
 phb -.->|"用户开始或恢复任务"| mms
 ups -.->|"方法、步骤、解释和完成判据"| src
@@ -690,7 +686,7 @@ classDef hRes fill:#E4EDF0,stroke:#4338CA,stroke-width:2.6px,color:#1E1B4B;
 class wfa,hof,wiz,tq,wwt user;
 class cbd,tdd,uiq,crv,dbg,imp,pro,ttk,tsp,rvr,pln,pnr,clo,intg,rel model;
 class trk,oos,pta,ina,tmp art;
-class src,dsp,vfy,cdx,cwt hOwn;
+class src,dsp,cdx,cwt hOwn;
 class cl1,cl2,cl3,cl4,cl5,cl6,cl7,cl8 hSetCli;
 class shp,rfacts term;
 class ups,mmwc art;

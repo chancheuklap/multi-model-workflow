@@ -17,7 +17,7 @@ _Avoid_: 过程截图、DOM、console、录屏、临时探测输出、生成中�
 _Avoid_: prototype、Logic HTML
 
 **research**：
-`/mmw-research` 中由主 agent 验证并综合的事实。每次 research 完成后，用户决定是否保存。用户选择不保存时，不创建 research 目录或文件。保存不代表下游必须引用。
+`/mmw-research` 中由主 agent 综合的事实。每次 research 完成后，用户决定是否保存。用户选择不保存时，不创建 research 目录或文件。保存不代表下游必须引用。
 _Avoid_: investigation、artifact、调查资产、调查结果
 
 **research 索引**：
@@ -25,7 +25,7 @@ _Avoid_: investigation、artifact、调查资产、调查结果
 _Avoid_: 资产索引、调查索引
 
 **research 报告**：
-已保存 research 的 `report.md`。它只包含主 agent 验证后的完整结论和逐条出处。
+已保存 research 的 `report.md`。它只包含主 agent 综合后的完整结论和逐条出处。
 _Avoid_: investigation report、调查报告、subagent 原始报告
 
 **research 配套文件**：

@@ -26,37 +26,33 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
    派发前确认当前任务分支已经提交且工作区干净。为这次修复确定唯一、完整的结果分支名，并记下 `git rev-parse HEAD` 作为基点。结果分支名和基点 SHA 都要写入 task。
 
-   **验收栏里要求它交回结果分支上的 HEAD SHA。** 收结果时 `mmw result verify` 要这个值，它自己不算，只有做完的那一侧知道。
+   **验收栏里要求它交回结果分支上的 HEAD SHA。** `mmw result integrate` 要这个值，它自己不算，只有做完的那一侧知道。
 
    启动：调用原生 subagent，agent 设为 `mmw-worker`，打开 worktree 隔离。把四栏 task 作为初始 prompt。工人完成工作并提交。交回结果分支名、HEAD SHA、基点 SHA。提交前自己跑 `mmw toolchain check --changed-only`。
 
-派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后打开关键断言的出处确认，不重做整个 task。
+派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告。报告交回后不重做整个 task。
 
    `worker` 完成后，先收取结果：
 
-   该角色完成后，运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。命令通过后，从输出取得结果 worktree 路径；在该路径读取报告与 diff，并运行本技能规定的验收。这一步不合入结果分支。
+   该角色完成后，记下报告末尾的结局、结果分支、HEAD SHA 和基点 SHA。交回「完成」时进入 Phase 6。不要打开 diff、不要重跑测试、不要先跑 `mmw result verify`。交回「卡住」且卡在 bug 与代码互相矛盾上：把矛盾交给用户，不要换一个 `worker` 再派一遍。
 
 3. `worker` 要跑的循环是：在那个 seam 上把最小化 repro 变成一个失败的测试，看它红，写修复，看它绿。
-
-它交回来之后，自己把那个测试跑一遍，读它的 diff，再拿 Phase 1 的 loop 对着**原始的、没最小化的**场景跑一次。
 
 ## Phase 6 —— 清理 + 复盘
 
 宣布完成之前必须满足：
 
-- [ ] 原始的复现不再复现（重跑 Phase 1 的 loop）
-- [ ] 回归测试通过（或者没有 correct seam 这件事已经写下来）
 - [ ] `[DEBUG-...]` 埋点全部不在了（grep 那个前缀确认）
 - [ ] 只保留能长期防回归的测试，以及测试必需、已经脱敏、无法低成本重建的最小 fixture
 - [ ] 其余 HAR、trace、日志转储、core dump、录屏、一次性 harness、临时埋点输出和过程材料已经从任务 scratch 删除
 - [ ] 结果证明成立的那条假设写进了 `worker` 那次提交的信息里，或者由你追加一条评论
 
-六项全部通过后，集成结果：
+交回「完成」且上列清理做完后，集成结果：
 
-本技能规定的验收全部通过后，运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。命令成功后，结果提交才算进入当前任务分支。
+本技能规定的清理做完后，运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。命令成功后，结果提交才算进入当前任务分支。
 
 **然后问：什么本来能防住这个 bug？** 这个建议在修复落地**之后**给，不在之前。答案牵涉架构改动（没有好的测试 seam、调用方互相缠绕、藏着的耦合），或找不到 correct seam 时，把具体情况带去 `/mmw-improve-codebase-architecture` 当扫描方向。
 
-`worker` 的修复验收通过、Phase 6 六条全过、结果已集成：用业务语言报什么坏了、根因是什么、修成什么样、怎么证明它好了。结果 worktree 由宿主管理，不在这里另行清理。问用户：要不要终审，还是到这里停。终审的固定点取派 `worker` 之前那一条提交。
+`worker` 的修复交回「完成」、Phase 6 清理做完、结果已集成：用业务语言报什么坏了、根因是什么、修成什么样。结果 worktree 由宿主管理，不在这里另行清理。问用户：要不要终审，还是到这里停。终审的固定点取派 `worker` 之前那一条提交。
 
 `worker` 卡在 bug 与代码互相矛盾上：把矛盾交给用户。换一个 `worker` 再派一遍解决不了这个矛盾。

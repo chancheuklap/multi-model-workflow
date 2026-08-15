@@ -11,7 +11,7 @@ description: research 的共享入口。主 agent 在用户明确要求系统调
 
 | 当前身份 | 加载 |
 | --- | --- |
-| 你是接收用户请求或其他技能调用，并负责派发 `investigator`、验证、综合和保存的主 agent | 完整读取 [MAIN.md](MAIN.md)；不读取 `INTERNAL.md` 或 `EXTERNAL.md`。`MAIN.md` 第 1 节会告诉你要不要转去 [EVIDENCE.md](EVIDENCE.md) |
+| 你是接收用户请求或其他技能调用，并负责派发 `investigator`、综合和保存的主 agent | 完整读取 [MAIN.md](MAIN.md)；不读取 `INTERNAL.md` 或 `EXTERNAL.md`。`MAIN.md` 第 1 节会告诉你要不要转去 [EVIDENCE.md](EVIDENCE.md) |
 | 你是 `investigator`，task 指定内部方向 | 完整读取 [INTERNAL.md](INTERNAL.md)，完成 task 后直接交回报告 |
 | 你是 `investigator`，task 指定外部方向 | 完整读取 [EXTERNAL.md](EXTERNAL.md)，完成 task 后直接交回报告 |
 | 你是 `investigator`，但 task 没有指定唯一方向 | 向主 agent 报告缺少唯一的取证方向，停止取证 |

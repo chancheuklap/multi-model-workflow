@@ -5,7 +5,7 @@
 ## Language
 
 **主 agent**：
-发起并协调其他 agent，作出流程判断，并验证关键断言。
+发起并协调其他 agent，并作出流程判断。
 _Avoid_: 主线程
 
 **subagent**：
@@ -29,8 +29,8 @@ _Avoid_: 回执、笔记
 _Avoid_: 交回评论、报告
 
 **验证**：
-主 agent 使用当前源码、diff、命令输出或一手来源检查事实。
-_Avoid_: 复核、核验、亲验
+已取消的主 agent 对 subagent 报告的出处核对。独立审查者仍派。
+_Avoid_: 复核、核验、亲验、关键断言必须打开出处
 
 **任务分支**：
 承载当前 MMW 任务正式改动的分支。
@@ -48,5 +48,5 @@ _Avoid_: 任务工作树、Codex App 后台 Worktree 任务
 派发结果分支前记录的任务分支提交。
 
 **`mmw result verify`**：
-验证结果分支、HEAD SHA 和基点 SHA 与报告一致的命令。
+核对结果分支、HEAD SHA 和基点 SHA 与报告一致的命令。技能流程不单独调用；`mmw result integrate` 在合并前会跑它。
 _Avoid_: 审查、集成

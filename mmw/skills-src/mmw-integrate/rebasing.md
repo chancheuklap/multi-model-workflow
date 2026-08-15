@@ -34,7 +34,7 @@ git rebase --continue
 
 重复到 `git status` 不再显示 rebase。rebase 中途不运行 `git commit`，否则 rebase 仍未完成。
 
-全部重放后运行项目要求的检查，提交报告交回新的结果分支 HEAD SHA 和验证结果。主 agent 用新的 HEAD 重新运行 `mmw result verify`。
+全部重放后运行项目要求的检查，提交报告交回新的结果分支 HEAD SHA。不要让主 agent 再跑 `mmw result verify`。
 
 ## 不要放弃 rebase
 

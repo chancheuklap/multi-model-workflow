@@ -112,11 +112,9 @@
 
 7. **只有当前分支是 map 分支时才做这一节。** 拿到一张 decision ticket 的分支名、HEAD SHA 和基点 SHA 之后——现场没有交回报告时，从以 `<!-- mmw:handback -->` 开头的评论的 `## 交回` 取得这三个值：
 
-   先运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`，三个值都用交回来的那份。命令通过后，从输出取得结果 worktree 路径。这一步不合入结果分支。
+   使用交回来的分支名、HEAD SHA 和基点 SHA。不要先跑 `mmw result verify`，也不要读 diff 再核对。
 
-   读交回的报告，并在这条路径里读 diff，确认两件事：ticket 上那条答案评论和 diff 说的是同一件事；这次改动的领域文档和 ADR 草稿只涉及这张 ticket 的决定，没有顺手改别的。两件都成立才合并：
-
-   本技能规定的验收全部通过后，运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。命令成功后，结果提交才算进入当前任务分支。
+   本技能规定的步骤走完后，运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。命令成功后，结果提交才算进入当前任务分支。
 
    合并之后，把这次带回来的 `draft-<编号>-<短名>.md` 逐个换成正式编号：每份跑一次 `mmw domain adr-next` 取一个号，按 `<编号>-<短名>.md` 重命名，然后提交。这一轮没有 ADR 草稿就跳过。
 

@@ -19,10 +19,10 @@ description: 把结果分支集成到当前任务分支。用于合并已完成�
 | --- | --- |
 | 分支与报告 HEAD | 使用执行者交回的分支名和 HEAD SHA |
 | 基点 | 使用派发时记录并由执行者交回的基点 SHA |
-| 完成状态 | 检查 task 验收、主 agent 验证和终审记录 |
+| 完成状态 | 检查 task 验收和终审记录 |
 | 合同关系 | 检查一条分支是否提供另一条分支消费的数据模型、interface、迁移或序列化格式 |
 
-先运行 `mmw result verify <结果分支> <HEAD SHA> <基点 SHA>`。任何一项与报告不一致时，不集成该分支。
+使用执行者交回的分支名、HEAD SHA 和基点 SHA。不要先跑 `mmw result verify`。
 
 ## 2. 多条分支同时合，先调查
 
@@ -64,9 +64,9 @@ mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>
 
 **这条结果分支归谁，就让谁推进它。** 它是宿主后台任务产出的，就让那个后台任务在它自己的 worktree 里继续；它是本地 worktree，用 `git worktree list` 找到路径，让它在那棵树里做。无论哪种，**主 agent 不切换自己的工作目录**。
 
-推进它的那一侧按 [rebasing.md](rebasing.md) 操作，做完交回新的 HEAD SHA 和验证结果。
+推进它的那一侧按 [rebasing.md](rebasing.md) 操作，做完交回新的 HEAD SHA。
 
-主 agent 拿这两个新值重跑一次 `mmw result verify <结果分支> <新 HEAD SHA> <新基点 SHA>`——**rebase 之后基点变了**，新基点就是它 rebase 到的那个当前任务分支 HEAD，用它，不用旧的。整轮只跑这一次。
+记下新的 HEAD SHA 和新基点——**rebase 之后基点变了**，新基点就是它 rebase 到的那个当前任务分支 HEAD，用它，不用旧的。不要先跑 `mmw result verify`。
 
 冲突处理遵守三条规则：
 

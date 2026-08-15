@@ -12,7 +12,7 @@
 | Tracker | [Tracker](./docs/context/tracker.md) | 类别角色、状态角色、agent brief、认领、frontier、权威副本、tracker 索引和否决记录。 |
 | Wayfinding | [Wayfinding](./docs/context/wayfinding.md) | effort、destination、map、decision ticket、必读材料声明、结论评论、材料使用记录、交回评论、会话边界和 fog of war。 |
 | Agent | [Agent](./docs/context/agent-coordination.md) | 主 agent、subagent、角色、task、报告、handoff、验证、任务分支、结果分支和任务 worktree。 |
-| 审查 | [审查](./docs/context/review.md) | 六道审、共同理解审、视角（任务名）、finding、处置、固定点、被审 HEAD、终审提交和审查记录。 |
+| 审查 | [审查](./docs/context/review.md) | 六道审、共同理解审、视角（任务名）、finding、处置、固定点、被审 HEAD、终审提交、修复提交、审查记录、逐份验收和合同门。 |
 | 出包与收尾 | [出包与收尾](./docs/context/release-and-closure.md) | 产品、出包配置、`mmw release`、stage、出包状态、出包阶段产物、交付记录、用户实测和对外发布。 |
 | 宿主 | [宿主](./docs/context/host-runtime.md) | 技能源、技能产物、物化、原生 subagent、Codex App 后台 Worktree 任务和 Cursor 任务树与结果树。 |
 | 领域上下文与检索 | [领域上下文与检索](./docs/context/project-context.md) | 领域模型、Context Map、leaf、ADR、ADR 索引、权威引用、结构图谱和结构候选。 |
@@ -25,7 +25,7 @@
 - 同一份内容在 Tracker 和仓库文件两处都有时，权威副本在生产它的那一侧，另一侧是 tracker 索引。
 - agent 从 Tracker 进入：先读 issue 取得父子关系、阻塞关系、frontier 和认领状态，再沿 tracker 索引里的精确路径打开权威副本。父子关系、阻塞关系、frontier 和认领状态只存在于 Tracker；权威副本的细节只存在于它自己那一侧。两侧都不单独作为行动依据。
 - Wayfinding 把 effort 收敛成一张路线已经清楚的 map；destination 是 spec 时，交付工作流把 map 中已经谈定的内容综合成一份 spec，并发布对应的 spec issue。
-- 交付工作流通过 Agent 派发 task；subagent 交回报告，主 agent 验证关键断言。
+- 交付工作流通过 Agent 派发 task；subagent 交回报告，主 agent 按报告继续流程。独立审查者仍派。
 - 审查读取共同理解记录、spec、plan、实现改动和集成结果；`accepted` finding 交回产物拥有者处理。
 - 出包与收尾接收通过 final 终审的结果；用户实测通过后，有 spec 的任务进入 `/mmw-closing`。
 - 宿主把共享技能源物化为技能产物；宿主差异不改变共享流程语义。

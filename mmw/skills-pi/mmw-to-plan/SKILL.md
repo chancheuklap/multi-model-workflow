@@ -119,7 +119,7 @@ spec 里确实没有、必须看了代码才知道的，那一格留空，并写
 
 ## 4. 验证返回
 
-每个 `planner` 交回 `pass` 之后，验证 plan 文件存在，元数据块的 `ticket` 等于当前 ticket 编号且 `artifact_refs` 键存在，ticket 的每条验收都能映射到 `## Acceptance`，再抽验至少一条源码依据。读取文件并检索源码，不认「我写完了」。
+每个 `planner` 交回 `pass` 之后，确认 plan 文件存在，元数据块的 `ticket` 等于当前 ticket 编号且 `artifact_refs` 键存在，ticket 的每条验收都能映射到 `## Acceptance`。
 
 **再问一次「有没有多」。** 上面各项问的都是有没有漏，只往一个方向使劲，plan 就会越写越长。抽读 `## Constraints` 和 `## Contracts and Seams` 两节，看有没有这三样：
 

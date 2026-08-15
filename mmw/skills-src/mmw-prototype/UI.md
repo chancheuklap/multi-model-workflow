@@ -52,7 +52,7 @@ UI mockup 的持久资产必须保存在 `mockup/`。应用源码只保留运行
 
 [[mmw-launch:prototype-worker:current]]
 
-收到报告后，读取报告和对应变体目录的 diff，核对结构差异、项目组件约束和可运行性。
+收到报告后，读取报告和对应变体目录。
 
 并行没有明显收益时，由主 agent 直接完成。
 

@@ -44,7 +44,6 @@
     "./skills-claude-code/mmw-to-tickets",
     "./skills-claude-code/mmw-triage",
     "./skills-claude-code/mmw-ui-qa",
-    "./skills-claude-code/mmw-verifying-agent-output",
     "./skills-claude-code/mmw-wayfinder",
     "./skills-claude-code/writing-for-agents"
   ]

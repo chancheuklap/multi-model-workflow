@@ -17,7 +17,7 @@ MMW 的重建区。这里装两样东西，作用完全不同：
 
 - **已经重建过的**（`mmw-domain-modeling`、`mmw-grilling`、`mmw-improve-codebase-architecture`、`mmw-prototype`、`mmw-research`、`mmw-to-spec`、`mmw-wayfinder`、`wait-what`）：合同已经改过，对应 `<上游技能名>/README.md` 记着改了什么。
 - **有上游、复核过保真的**：原样搬进来的现役技能。它们不需要重建，搬进来是为了让这棵树完整、能整体接线。
-- **MMW 原创的**（`mmw-planner`、`mmw-to-plan`、`mmw-closing`、`mmw-release`、`mmw-retrieval`、`mmw-verifying-agent-output`）：上游没有对应物，判据只能是 MMW 自己的一致性和这棵树里的移交合同。
+- **MMW 原创的**（`mmw-planner`、`mmw-to-plan`、`mmw-closing`、`mmw-release`、`mmw-retrieval`）：上游没有对应物，判据只能是 MMW 自己的一致性和这棵树里的移交合同。
 
 ## 在这里怎么干活
 
