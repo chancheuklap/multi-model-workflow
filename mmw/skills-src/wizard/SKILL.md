@@ -43,11 +43,7 @@ Wizard 默认是临时产物，固定保存在当前任务的 Git 忽略 scratch
 
 ## 3. 生成 wizard
 
-先运行 `mmw task state`，按第一个词选行。要建树的两行都先分别确定任务分支名和工作名。
-
-[[mmw-bind-task]]
-
-以 [template.sh](template.sh) 为模板。取这次流程的 `<流程>`。它不是任务分支名。一个任务可以运行多次 wizard。运行下面的完整命令。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
+以 [template.sh](template.sh) 为模板。取这次流程的 `<流程>`。它不是任务分支名。一个任务可以运行多次 wizard。运行下面的完整命令。调用方给了名字段时加 `--name`。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
 
 ```bash
 mmw artifact path scratch [--issue <编号>] --sub wizard/<流程>.sh

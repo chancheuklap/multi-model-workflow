@@ -234,7 +234,7 @@
     "sub_fixed": [],
     "sub_pattern": null,
     "status": "not-shaped",
-    "answered_by": "mmw task"
+    "answered_by": "git worktree list"
   },
   "handoff": {
     "term": "handoff",

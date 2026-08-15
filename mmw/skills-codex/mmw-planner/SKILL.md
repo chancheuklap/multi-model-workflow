@@ -25,7 +25,7 @@ plan 说明实施路线。它不代替源码，也不预写完整实现；一张
 
 缺少会改变目标、合同或验收的材料时，交 `needs-context`。没有 prototype、research 或 `TESTING.md` 不构成缺失。
 
-读取 ticket 的 `## 产物引用`。缺少该固定节时交 `needs-context`。每个条目使用 `category=<类别> name=<工作名>`，并按需要追加 `issue=<编号>` 与 `sub=<类别内细分>`。逐条运行 `mmw artifact path <类别> --name <工作名>`，再附上对应的 `--issue` 与 `--sub`。命令失败时交 `needs-context`，不猜路径。该节为 `无` 时，在 plan 元数据块写 `artifact_refs: []`。
+读取 ticket 的 `## 产物引用`。缺少该固定节时交 `needs-context`。每个条目使用 `category=<类别> name=<名字段>`，并按需要追加 `issue=<编号>` 与 `sub=<类别内细分>`。逐条运行 `mmw artifact path <类别> --name <名字段>`，再附上对应的 `--issue` 与 `--sub`。命令失败时交 `needs-context`，不猜路径。该节为 `无` 时，在 plan 元数据块写 `artifact_refs: []`。
 
 测试 seam 以 spec 为准。plan 不重新设计 seam。只有现有 seam 无法验证 ticket 行为时才交 `needs-context`。
 

@@ -18,23 +18,12 @@ prototype 是在真实代码落地前回答问题的可运行资产。它的作�
 | 当前情况 | 处理 |
 | --- | --- |
 | 问题无法收敛成可走查的具体问题 | 移交 `/mmw-grilling`，谈清问题后再返回 |
-| 要验的不是我们自己要写的东西，而是一个外部系统在我们的负载、我们的数据、我们的账号下实际是什么表现 | 移交 `/mmw-research`。同时交出当前工作名和可用的范围段。它使用同一项产物引用 |
+| 要验的不是我们自己要写的东西，而是一个外部系统在我们的负载、我们的数据、我们的账号下实际是什么表现 | 移交 `/mmw-research`。同时交出当前名字段和可用的范围段。它使用同一项产物引用 |
 | 问题能够通过走查得到明确答案，而且必须运行产物才能回答 | 继续第 2 节 |
 
 ## 2. 确定资产位置
 
-开始写文件前运行 `mmw task state`，按第一个词选行。要建树的两行都先分别确定任务分支名和工作名。
-
-| 第一个词 | 什么意思 | 你做什么 |
-| --- | --- | --- |
-| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名 |
-| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]` |
-| `local` | 你在主检出里 | 运行 `mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。切换到返回的绝对路径。 |
-| `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
-
-`detached` 与 `local` 两行做完之后都重新运行 `mmw task state`，确认第一个词是 `bound`，再运行 `mmw task name` 取工作名。工作区不干净、分支已经存在，或者父分支里没有这次任务需要的决定时**停下来**，不要在错的基点上补提交。
-
-运行 `mmw artifact path prototype [--issue <编号>] --sub README.md`。它的输出文件所在目录是本轮 prototype 根。创建其他资产时，运行 `mmw artifact path prototype [--issue <编号>] --sub <类别内细分>`。过程材料使用 `mmw artifact path scratch [--issue <编号>] --sub evidence`。一个目录有资产时才建立它：
+开始写文件前，运行 `mmw artifact path prototype --sub README.md`。调用方给了名字段时加 `--name`。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`。它的输出文件所在目录是本轮 prototype 根。创建其他资产时，运行 `mmw artifact path prototype --sub <类别内细分>`，同样带上调用方给的 `--name` 与 `--issue`。过程材料使用 `mmw artifact path scratch --sub evidence`。一个目录有资产时才建立它：
 
 ```text
 <prototype 根>/

@@ -104,7 +104,7 @@ check "建的标签里没有 bug" 0 \
   "$(grep -cx 'bug' "$MMW_TEST_CREATED" || true)"
 # 守:配置留在工作区不提交,任务 worktree 检出的分支上就没有它们。.mmw.json 缺席时
 # worktree 里每条 mmw 命令都报没配置;.gitignore 缺席时过程材料变成未跟踪文件,
-# mmw task cleanup 被它们挡住,git 报的却是「contains untracked files」,看不出真因。
+# mmw worktree remove 被它们挡住,git 报的却是「contains untracked files」,看不出真因。
 check "配置文件都进了分支，工作区不留" "" "$(git status --porcelain)"
 for f in .mmw.json TESTING.md .gitignore CLAUDE.md; do
   check "$f 在分支上" "yes" \

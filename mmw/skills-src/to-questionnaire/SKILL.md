@@ -21,11 +21,7 @@ description: 把当前用户无法回答的问题整理成给知识持有者填�
 
 ## 3. 写 questionnaire
 
-先运行 `mmw task state`，按第一个词选行。要建树的两行都先分别确定任务分支名和工作名。
-
-[[mmw-bind-task]]
-
-取一个主题名。运行下面的完整命令取得 questionnaire 落点。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
+取一个主题名。运行下面的完整命令取得 questionnaire 落点。调用方给了名字段时加 `--name`。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
 
 ```bash
 mmw artifact path scratch [--issue <编号>] --sub questionnaire/<主题>.md

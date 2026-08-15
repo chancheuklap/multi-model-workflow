@@ -37,33 +37,21 @@ LAUNCH_GROUP_RE = re.compile(
 RESUME_RE = re.compile(
     r"\[\[mmw-resume:([a-z0-9-]+):(worktree|current|none)\]\]"
 )
-ENTER_WORKTREE_RE = re.compile(r"\[\[mmw-enter-worktree\]\]")
-BIND_TASK_RE = re.compile(r"\[\[mmw-bind-task\]\]")
-# 建树四档表。十一份技能源原本各写一份，措辞已经漂开：有的四档表格、有的五段散文，
-# 同一件事有的写「先单独确定工作名」、有的写「先分别确定任务分支名和工作名」。收成
-# 这一处之后，改一次行为只改这里。
-#
-# 本函数自己不按宿主分支，这不是漏了 AGENTS.md 那条规则：四档里只有 `local` 有宿主
-# 差异，那一整行委托给 expand_enter_worktree，具名宿主的显式分支在它里面。
-#
-# 「任务分支名和工作名怎么定」各技能规则不同（wayfinder 从 map 正文取工作名，
-# mmw-start 在第 2 步已经定好 slug），留在调用处的占位符前后，不进本表。
-BIND_TASK_HEAD = (
-    "| 第一个词 | 什么意思 | 你做什么 |\n"
-    "| --- | --- | --- |\n"
-    "| `bound` | 你已经在一棵绑好的任务 worktree 里 | "
-    "什么都不用建。运行 `mmw task name` 取工作名 |\n"
-    "| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | "
-    '运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> '
-    "[--from <父分支或基点 SHA>]` |\n"
-)
-BIND_TASK_TAIL = (
-    "| `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。"
-    "拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |\n"
+REQUIRE_TASK_BRANCH_RE = re.compile(r"\[\[mmw-require-task-branch\]\]")
+# 任务树由用户开。agent 只在已有的树上创建任务分支。各宿主正文相同：用户怎么开树
+# 由宿主自己的界面负责，技能不替用户建任务树。
+REQUIRE_TASK_BRANCH = (
+    "先确认当前仓库位置。判定从上到下，命中一行就停。\n"
     "\n"
-    "`detached` 与 `local` 两行做完之后都重新运行 `mmw task state`，确认第一个词是 "
-    "`bound`，再运行 `mmw task name` 取工作名。工作区不干净、分支已经存在，或者父分支里"
-    "没有这次任务需要的决定时**停下来**，不要在错的基点上补提交。"
+    "| 情况 | 怎么判断 | 你做什么 |\n"
+    "| --- | --- | --- |\n"
+    "| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | "
+    "向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |\n"
+    "| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 "
+    "`--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |\n"
+    "| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | "
+    "按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |\n"
+    "| 已有任务分支 | 上面都不成立 | 用当前分支 |\n"
 )
 # 没有续跑通道的宿主统一给这句退路。静默降级成全新派发会让调用方以为上下文还在，
 # 所以退路必须显式写明重派时要带什么材料。
@@ -104,67 +92,23 @@ def load_role_agents() -> dict[str, str]:
     return agents
 
 
-ENTER_WORKTREE_NEW = (
-    "运行 `mmw task new <任务分支名> \"<用户原话>\" --name <工作名> "
-    "[--from <父分支或基点 SHA>]`。切换到返回的绝对路径。"
-)
-ENTER_WORKTREE_CODEX = (
-    "这棵树由 Codex App 创建。宿主给出干净的 detached worktree 之后，运行 "
-    "`mmw task bind <任务分支名> \"<用户原话>\" --name <工作名> "
-    "[--from <父分支或基点 SHA>]`。"
-)
-ENTER_WORKTREE_CURSOR = (
-    "停。请用户在 Agents Window 用 New Worktree 开新会话，树名用任务分支名。"
-    "本技能上文点名了父分支时，基点用该父分支。"
-    "把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。"
-    "新会话重新调用本技能，按 `detached` 行 bind。"
-    "禁止 `mmw task new`。"
-    "禁止 `herdr worktree create`。"
-)
-ENTER_WORKTREE_GROK = (
-    "停。请用户用 `grok --worktree=<任务分支名>` 或 `-w` 开新会话。"
-    "本技能上文点名了父分支时，启动命令加上 `--worktree-ref=<父分支>`。"
-    "把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。"
-    "新会话重新调用本技能，按 `detached` 行 bind。"
-    "禁止 `mmw task new`。"
-    "禁止 `herdr worktree create`。"
-    "禁止 `git worktree add`。"
-    "禁止用终端 `cd` 代替把会话放进树。"
-)
-
-
-def expand_enter_worktree(host: str) -> str:
-    # 每个有自己建树通道的宿主都要显式一行。兜底只留给 pi 与 claude-code
-    # 这类「自己跑 mmw task new」的宿主——让具名宿主掉进兜底，它拿到的是
-    # 另一个宿主的建树指令，而且不会报错。
-    if host == "codex":
-        return ENTER_WORKTREE_CODEX
-    if host == "cursor":
-        return ENTER_WORKTREE_CURSOR
-    if host == "grok":
-        return ENTER_WORKTREE_GROK
-    return ENTER_WORKTREE_NEW
-
-
-def expand_bind_task(host: str) -> str:
-    return (
-        BIND_TASK_HEAD
-        + f"| `local` | 你在主检出里 | {expand_enter_worktree(host)} |\n"
-        + BIND_TASK_TAIL
-    )
+def expand_require_task_branch(host: str) -> str:
+    if host in ("pi", "claude-code", "codex", "cursor", "grok"):
+        return REQUIRE_TASK_BRANCH
+    die(f"未支持的宿主 {host}")
 
 
 def expand_pi(role: str, agent: str, cwd_mode: str) -> str:
     if cwd_mode == "worktree":
         return (
-            "启动：先运行 `mmw task new <结果分支> \"<目标栏原文>\" --name <工作名> --from <基点 SHA>`，"
+            "启动：先运行 `mmw worktree add <结果分支>`，"
             "使用命令返回的 worktree 绝对路径作为 cwd。然后调用原生 `subagent`，"
             f"agent 设为 `{agent}`，task 传四栏表全文，cwd 设为该绝对路径。"
         )
     if cwd_mode == "current":
         return (
             f"启动：调用原生 `subagent`，agent 设为 `{agent}`，task 传四栏表全文，"
-            "cwd 设为当前任务 worktree 的绝对路径。"
+            "cwd 设为当前工作树的绝对路径。该 subagent 使用当前工作树，不另开结果树。"
         )
     return f"启动：调用原生 `subagent`，agent 设为 `{agent}`，task 传四栏表全文。"
 
@@ -173,23 +117,17 @@ def expand_grok(role: str, agent: str, cwd_mode: str) -> str:
     del role
     if cwd_mode == "worktree":
         return (
-            "启动：先在当前任务 worktree 运行 `mmw task state`，确认输出以 `bound` 开头。"
-            "再运行 `mmw task name` 取得工作名。"
-            f"调用原生 subagent，agent 设为 `{agent}`，打开 worktree 隔离。"
+            f"启动：调用原生 subagent，agent 设为 `{agent}`，打开 worktree 隔离。"
             "把四栏 task 作为初始 prompt。"
-            "工人先运行 "
-            '`mmw task bind <结果分支 slug> "<目标栏原文>" '
-            "--name <工作名> --from <基点 SHA>`，再完成工作并提交。"
+            "工人完成工作并提交。"
             "交回结果分支名、HEAD SHA、基点 SHA。"
-            "不要 `mmw task new`。"
             "提交前自己跑 `mmw toolchain check --changed-only`。"
         )
     if cwd_mode == "current":
         return (
-            "启动：确认 `mmw task state` 以 `bound` 开头。"
-            f"调用原生 subagent，agent 设为 `{agent}`，task 传四栏表全文。"
-            "该 subagent 使用当前任务 worktree，不创建结果 worktree。"
-            "cwd 设为当前任务 worktree 的绝对路径。"
+            f"启动：调用原生 subagent，agent 设为 `{agent}`，task 传四栏表全文。"
+            "该 subagent 使用当前工作树，不另开结果树。"
+            "cwd 设为当前工作树的绝对路径。"
         )
     return (
         f"启动：调用原生 subagent，agent 设为 `{agent}`，"
@@ -210,14 +148,14 @@ def expand_claude(role: str, agent: str, cwd_mode: str) -> str:
     del agent
     if cwd_mode == "worktree":
         return (
-            "启动：先运行 `mmw task new <结果分支> \"<目标栏原文>\" --name <工作名> --from <基点 SHA>`，"
+            "启动：先运行 `mmw worktree add <结果分支>`，"
             "使用命令返回的 worktree 绝对路径。后台执行 "
             f"`mmw dispatch {role} --cwd <结果 worktree 绝对路径>`。"
             "把四栏 task 正文作为命令的标准输入。"
             "当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。"
             "命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。"
         )
-    cwd = " --cwd <当前任务 worktree 绝对路径>" if cwd_mode == "current" else ""
+    cwd = " --cwd <当前工作树绝对路径>" if cwd_mode == "current" else ""
     return (
         f"启动：后台执行 `mmw dispatch {role}{cwd}`。"
         "把四栏 task 正文作为命令的标准输入。"
@@ -229,22 +167,17 @@ def expand_claude(role: str, agent: str, cwd_mode: str) -> str:
 def expand_cursor(role: str, agent: str, cwd_mode: str) -> str:
     if cwd_mode == "worktree":
         return (
-            "启动：先在当前任务 worktree 运行 `mmw task state`，确认输出以 `bound` 开头。"
-            "再运行 `mmw task name` 取得工作名。"
-            "后台执行 `mmw-cursor-agent --mmw-role "
+            "启动：后台执行 `mmw-cursor-agent --mmw-role "
             f"{role} -p --force --trust --approve-mcps "
             "--worktree <结果分支> --worktree-base <当前任务分支>`。"
             "把四栏 task 正文作为命令的标准输入。"
-            "worker 进入结果树后先运行 "
-            "`mmw task bind <结果分支> \"<目标栏原文>\" --name <工作名> --from <基点 SHA>`，"
-            "然后完成工作并提交。"
+            "worker 进入结果树后直接完成工作并提交。"
             "交回结果分支名、HEAD SHA、基点 SHA。"
         )
     if cwd_mode == "current":
         return (
-            "启动：先在当前任务 worktree 运行 `mmw task state`，确认输出以 `bound` 开头。"
-            f"调用原生 Task，agent 设为 `{agent}`，prompt 传四栏表全文。"
-            "该 subagent 直接使用当前任务 worktree，不创建结果 worktree。"
+            f"启动：调用原生 Task，agent 设为 `{agent}`，prompt 传四栏表全文。"
+            "该 subagent 使用当前工作树，不另开结果树。"
             "互不依赖的实例在同一条消息中并行启动。"
         )
     return (
@@ -259,7 +192,7 @@ def expand_codex(role: str, cwd_mode: str, profiles: dict) -> str:
         if not profile:
             die(f"Codex 没有原生 subagent profile：{role}")
         location = (
-            "；该 subagent 直接使用当前任务 worktree，不创建后台 worktree 任务"
+            "；该 subagent 使用当前工作树，不另开结果树"
             if cwd_mode == "current"
             else ""
         )
@@ -274,17 +207,13 @@ def expand_codex(role: str, cwd_mode: str, profiles: dict) -> str:
     method = profile.get("method_skill")
     method_instruction = f"，并在工作前完整读取 `${method}`" if method else ""
     return (
-        "启动：先在当前任务 worktree 运行 `mmw task state`，确认输出以 `bound` 开头。"
-        "再运行 `mmw task name` 取得工作名。"
-        "再用 `list_projects` 取得当前仓库的 projectId，并调用 `create_thread`。"
+        "启动：用 `list_projects` 取得当前仓库的 projectId，并调用 `create_thread`。"
         "target 使用该 projectId，environment.type 设为 `worktree`，startingState.type 设为 "
         "`branch`，branchName 设为当前已提交的任务分支。"
         f"模型使用 `{profile['model']}`，思考档使用 `{profile['thinking']}`。"
-        "任务提示包含四栏 task、完整结果分支名、派发前基点 SHA 和工作名；"
-        "结果分支名使用独立的 `codex/<slug>`。后台 agent 先运行 "
-        "`mmw task bind <完整结果分支名> <目标栏原文> "
-        "--name <工作名> --from <基点 SHA>`"
-        f"{method_instruction}，然后完成工作并提交。"
+        "任务提示包含四栏 task、完整结果分支名和派发前基点 SHA；"
+        "结果分支名使用独立的 `codex/<slug>`。后台 agent 完成工作并提交"
+        f"{method_instruction}。"
         "后台 agent 交回结果分支名、HEAD SHA、基点 SHA 和验证结果。"
         "`create_thread` 返回 threadId 后用 `wait_threads` 等待；只返回 clientThreadId 时先等 App 完成 "
         "worktree 设置，取得 threadId 后再等待。"
@@ -412,8 +341,9 @@ def expand_text(
     text = LAUNCH_RE.sub(launch, text)
     text = LAUNCH_GROUP_RE.sub(launch_group, text)
     text = RESUME_RE.sub(resume, text)
-    text = BIND_TASK_RE.sub(lambda _match: expand_bind_task(host), text)
-    text = ENTER_WORKTREE_RE.sub(lambda _match: expand_enter_worktree(host), text)
+    text = REQUIRE_TASK_BRANCH_RE.sub(
+        lambda _match: expand_require_task_branch(host), text
+    )
     if host == "codex":
         text = CODEX_SKILL_REF_RE.sub(r"`$mmw:\1`", text)
     return text

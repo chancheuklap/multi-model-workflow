@@ -41,7 +41,7 @@ _Avoid_: 结果分支、默认分支
 _Avoid_: 任务分支、临时目录
 
 **任务 worktree**：
-绑定任务分支，并在任务期间承载该任务的 worktree。
+用户用宿主打开的 linked worktree，加上这条树上的任务分支。agent 不创建任务树。
 _Avoid_: 任务工作树、Codex App 后台 Worktree 任务
 
 **基点 SHA**：

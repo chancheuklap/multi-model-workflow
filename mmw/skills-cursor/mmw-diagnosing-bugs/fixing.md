@@ -28,7 +28,7 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
    **验收栏里要求它交回结果分支上的 HEAD SHA。** 收结果时 `mmw result verify` 要这个值，它自己不算，只有做完的那一侧知道。
 
-   启动：先在当前任务 worktree 运行 `mmw task state`，确认输出以 `bound` 开头。再运行 `mmw task name` 取得工作名。后台执行 `mmw-cursor-agent --mmw-role worker -p --force --trust --approve-mcps --worktree <结果分支> --worktree-base <当前任务分支>`。把四栏 task 正文作为命令的标准输入。worker 进入结果树后先运行 `mmw task bind <结果分支> "<目标栏原文>" --name <工作名> --from <基点 SHA>`，然后完成工作并提交。交回结果分支名、HEAD SHA、基点 SHA。
+   启动：后台执行 `mmw-cursor-agent --mmw-role worker -p --force --trust --approve-mcps --worktree <结果分支> --worktree-base <当前任务分支>`。把四栏 task 正文作为命令的标准输入。worker 进入结果树后直接完成工作并提交。交回结果分支名、HEAD SHA、基点 SHA。
 
 派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告；报告交回后只按 `/mmw-verifying-agent-output` 验证关键断言，不重做整个 task。
 

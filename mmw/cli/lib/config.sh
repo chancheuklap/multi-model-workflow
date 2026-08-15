@@ -155,7 +155,7 @@ mmw_require_writable_cwd() {
       branch="$(git -C "$cwd" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
       case "$branch" in
         codex/*) ;;
-        *) echo "mmw: Codex 可写任务必须先绑定 codex/<slug> 分支：$cwd" >&2; return 1 ;;
+        *) echo "mmw: Codex 可写任务必须使用 codex/<slug> 分支：$cwd" >&2; return 1 ;;
       esac
     else
       cursor_root="${HOME}/.cursor/worktrees"

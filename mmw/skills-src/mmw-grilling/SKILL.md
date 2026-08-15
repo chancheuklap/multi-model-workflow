@@ -7,14 +7,6 @@ description: relentless 地追问用户的计划、决定或想法。用户希�
 
 讨论中出现需要长期留下来的领域术语、bounded context、bounded context 之间的关系，或者一项值得记进 ADR 的决定时，就在同一段对话里调用 `/mmw-domain-modeling`，由它判断该不该写、怎么写，写完回到当前这一轮继续。不要攒到最后一起写——术语是在谈清楚的那一刻最准确的。
 
-## 先落在任务树里
-
-这场访谈要写仓库文件——领域文档、ADR，和收尾时的共同理解记录——所以第一轮提问之前先把树建好。
-
-先运行 `mmw task state`，按第一个词选行。要建树的两行都先分别确定任务分支名和工作名。
-
-[[mmw-bind-task]]
-
 ## 按轮提问
 
 按**轮**遍历设计树。**frontier** 包含所有前置条件已经确定的决定，也就是现在提问时不需要猜测尚未听到的答案。每一轮提出整个 frontier：给每个问题编号，并给出你的推荐答案。随后等待用户回答，再进入下一轮。
@@ -53,7 +45,7 @@ frontier 为空时，session 才完成：设计树的每个分支都已经访问
 
 frontier 为空后，先写下**共同理解记录**，再把它的正文交给用户确认。这份文件是本次访谈结果的唯一出处：给用户看的、送去复核的、写进 spec 的、回填进 issue 的，四处都从它转录。
 
-运行下面的完整命令取得落点。工作名用开场那一步取得的那个。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
+运行下面的完整命令取得落点。调用方给了名字段时加 `--name`。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
 
 ```bash
 mmw artifact path scratch [--issue <编号>] --sub understanding.md

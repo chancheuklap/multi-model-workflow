@@ -25,7 +25,7 @@ plan 不写行号，路径和符号名由 `worker` 开工时回到源码确认�
 
 | 检查 | 怎么查 |
 | --- | --- |
-| 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头；不满足就停下，说明当前没有已绑定的任务上下文，无法继续 |
+| 你在一条任务分支上 | `git symbolic-ref --quiet --short HEAD` 有输出，且不在主检出里；不满足就停下，说明当前没有任务分支，无法继续 |
 | spec 已定稿并过了人工审批关卡 | 运行 `mmw artifact path spec`。输出文件存在。对应的 spec issue 已发布并带着 `ready-for-agent` |
 | ticket 已发布 | `mmw issue children <spec issue 编号>` 列得出这批 ticket；列不出先跑 `/mmw-to-tickets` |
 
@@ -45,7 +45,7 @@ plan 不写行号，路径和符号名由 `worker` 开工时回到源码确认�
 
 prototype 索引字段不完整时回 `/mmw-prototype` 补齐。
 
-读取当前 ticket 的 `## 产物引用`。缺少这节时停止，说明缺少 ticket 声明。每条必须含 `category=<类别> name=<工作名>`，可追加 `issue=<编号>` 和 `sub=<类别内细分>`。把当前 ticket 的条目原样写进 `planner` task 的「读」栏。该节写 `无` 时也把 `无` 写进 task。
+读取当前 ticket 的 `## 产物引用`。缺少这节时停止，说明缺少 ticket 声明。每条必须含 `category=<类别> name=<名字段>`，可追加 `issue=<编号>` 和 `sub=<类别内细分>`。把当前 ticket 的条目原样写进 `planner` task 的「读」栏。该节写 `无` 时也把 `无` 写进 task。
 
 - `## Problem Statement`
 - `## Solution`
@@ -109,7 +109,7 @@ spec 里确实没有、必须看了代码才知道的，那一格留空，并写
 | 验收 | plan 文件存在且可被抽验；`## Acceptance` 覆盖 ticket `#<编号>` 的全部验收（详见 issue，不抄正文） |
 
 派一个 `planner`，它在**当前任务 worktree** 里写 plan 文件，不另开分支。
-启动：确认 `mmw task state` 以 `bound` 开头。调用原生 subagent，agent 设为 `mmw-planner`，task 传四栏表全文。该 subagent 使用当前任务 worktree，不创建结果 worktree。cwd 设为当前任务 worktree 的绝对路径。
+启动：调用原生 subagent，agent 设为 `mmw-planner`，task 传四栏表全文。该 subagent 使用当前工作树，不另开结果树。cwd 设为当前工作树的绝对路径。
 
 **当前任务 worktree 的绝对路径**：`git rev-parse --show-toplevel`。
 

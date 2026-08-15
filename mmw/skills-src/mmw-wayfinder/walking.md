@@ -4,7 +4,7 @@
 
 1. 加载 **map**，也就是低分辨率视图，不加载每张 ticket 的正文。
 
-   运行 `gh issue view <map 编号>` 读取 map 正文，记下 map 标题、`## 工作名` 和 Notes 点名的技能。再运行 `mmw issue frontier <map 编号> --label-prefix wayfinder:`。
+   运行 `gh issue view <map 编号>` 读取 map 正文，记下 map 标题、`## 分支` 和 Notes 点名的技能。再运行 `mmw issue frontier <map 编号> --label-prefix wayfinder:`。
 
    用户指定 ticket 时，运行 `mmw issue children <map 编号>`，在输出中确认这张 ticket 是当前 map 的子 issue，带 `wayfinder:` 标签，状态是 open，没有 assignee，而且被阻塞数量为零。五项全部成立时继续第 2 步；任何一项不成立时，报告实际状态并停止，不 claim 或解决这张 ticket。
 
@@ -17,28 +17,24 @@
 
 2. 选择 ticket。用户点名一张时使用那一张；用户没有点名时，按顺序取得第一张 frontier ticket。
 
-   任务 slug 由两段拼成，中间一个连字符：前一段取 map 标题的短名（全小写、空格换成连字符），后一段取这张 ticket 标题的短名。父分支是 map 分支，分支名读 map 正文的 `## 分支` 一节；起点是它当前已提交的 HEAD——先运行 `git rev-parse <map 分支>` 记下它，交回结果时要用。
+   任务 slug 由两段拼成，中间一个连字符：前一段取 map 标题的短名（全小写、空格换成连字符），后一段取这张 ticket 标题的短名。宿主对任务分支有固定命名空间时加在 slug 前面。父分支是 map 分支，分支名读 map 正文的 `## 分支` 一节；起点是它当前已提交的 HEAD——先运行 `git rev-parse <map 分支>` 记下它，交回结果时要用。
 
-   运行 `git branch --show-current`。当前分支等于 map 正文 `## 分支` 的值时：不要 claim，不要进入第 3 步。[[mmw-enter-worktree]] `<任务分支名>` 用这个任务的 slug。本技能上文点名了父分支时加 `--from <父分支>`。工作名从 map 正文的 `## 工作名` 取得。然后停止。
+   写产物、列产物和交给下游时都传 `--name <map 分支 slug>`，不要用 ticket 分支名。取值读 map 正文的 `## 分支`。
+
+   运行 `git symbolic-ref --quiet --short HEAD`。当前分支等于 map 正文 `## 分支` 的值时：不要 claim，不要进入第 3 步。停下，请用户为这张 ticket 另开一棵工作树再开会话。不要占用 map 分支所在的树。
 
    **claim 它**：开始任何工作前先把 ticket 指派给自己。
 
    使用 `mmw issue claim <编号>` claim。失败说明另一个 session 已经 claim 这张 ticket，改取下一张。所有 frontier ticket 都 claim 失败时，报告这些 ticket 已被其他 session 认领，然后停止；不要进入第 3 步。
 
-   claim 成功后，为这张 ticket 建立自己的任务 worktree。
+   claim 成功后，当前没有分支时先确认 HEAD 等于第 2 步记下的 map 分支 HEAD。不等就停。
 
-   先跑 `mmw task state`。它输出一行，第一个词决定这棵树要不要你自己建：
+   [[mmw-require-task-branch]]
 
-| 第一个词 | 什么意思 | 你做什么 |
-| --- | --- | --- |
-| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `git branch --show-current` 取得任务分支名，`git rev-parse HEAD` 取得当前 HEAD，记下它们。当前分支不是这个任务的 slug 时：停，报告当前分支和预期 slug。不要进入第 3 步 |
-| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 绑定：`mmw task bind <分支名> "<用户原话>" --name <工作名>`。`<用户原话>` 是用户这次提出这个任务时说的那句话。`<分支名>` 用这个任务的 slug；工作名从 map 正文的 `## 工作名` 取得；宿主对任务分支有固定命名空间（Codex App 是 `codex/`）时带上它。知道预期基点就加 `--from <父分支或基点 SHA>`，它只是一道校验，不确定就不加。命令必须返回任务分支名和起始提交 |
-| `local` | 你在主检出里 | [[mmw-enter-worktree]] `<任务分支名>` 用这个任务的 slug。本技能上文点名了父分支时加 `--from <父分支>`。工作名从 map 正文的 `## 工作名` 取得。 |
-| `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
+   当前分支不是这张 ticket 的预期分支时停，报告当前分支和预期 slug。不要进入第 3 步。
+   工作区不干净、或者分支已经存在于别处时，停下来。
 
-两条路都一样：工作区不干净、分支已经存在、或者父分支里没有这次任务需要的决定时，**停下来**——不要在错的基点上补提交。
-
-3. 解决 ticket。先运行 `gh issue view <编号>` 取得这张 ticket 的完整正文，它的 `Question` 一节就是要解决的问题。随后运行 `mmw artifact list --name <工作名> --map <map 编号>`。从候选中选出与 Question 相关的材料，补进自己的 `## 必读材料声明`，并保留已有条目。
+3. 解决 ticket。先运行 `gh issue view <编号>` 取得这张 ticket 的完整正文，它的 `Question` 一节就是要解决的问题。随后运行 `mmw artifact list --name <map 分支 slug> --map <map 编号>`。从候选中选出与 Question 相关的材料，补进自己的 `## 必读材料声明`，并保留已有条目。
 
    开工前读取 `## 必读材料声明` 中的全部条目。仓库产物逐条运行 `mmw artifact path` 解析，再读索引与索引列出的文件。结论评论逐条读取对应 issue 中以 `<!-- mmw:conclusion -->` 开头的评论。生产 ticket 按设计未运行，或用户选择不保存 research，是预期缺失，继续。生产方已经运行而声明内容应当存在却找不到，是异常缺失，停下问用户，不编造内容。问的时候给出两个选项：重新解决生产它的那张 decision ticket，或者由用户直接提供文件。
 
@@ -48,17 +44,17 @@
 
    | 资产 | 命令 |
    | --- | --- |
-   | prototype | `mmw artifact path prototype --issue <编号> --sub <类别内细分>` |
-   | research | `mmw artifact path research --issue <编号> --sub <主题>` |
-   | 过程材料 | `mmw artifact path scratch --issue <编号> --sub evidence` |
+   | prototype | `mmw artifact path prototype --name <map 分支 slug> --issue <编号> --sub <类别内细分>` |
+   | research | `mmw artifact path research --name <map 分支 slug> --issue <编号> --sub <主题>` |
+   | 过程材料 | `mmw artifact path scratch --name <map 分支 slug> --issue <编号> --sub evidence` |
 
-   按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节处理。四类交接都传五项：Question、必读材料声明中的全部仓库产物引用、全部结论评论 issue 编号、工作名和范围段 `issue-<编号>`。下游自己用 `mmw artifact path` 解析仓库产物引用。
+   按 [SKILL.md](SKILL.md) 的“Ticket 类型”一节处理。四类交接都传五项：Question、必读材料声明中的全部仓库产物引用、全部结论评论 issue 编号、名字段（map 分支 slug）和范围段 `issue-<编号>`。下游自己用 `mmw artifact path` 解析仓库产物引用；写产物时必须带 `--name <map 分支 slug>`。
 
    | 标签 | MMW 接口 |
    | --- | --- |
    | `wayfinder:grilling` | 把五项交给 `/mmw-grilling` |
-   | `wayfinder:prototype` | 把五项交给 `/mmw-prototype`；它需要的 prototype 产物与 scratch 路径由传入的工作名和范围段解析 |
-   | `wayfinder:research` | 把五项交给 `/mmw-research`；它需要的 research 产物与 scratch 路径由传入的工作名和范围段解析。这张 ticket 就是用户对本次调查的批准，research 直接保存，不再询问。这个问题只有把外部系统真跑起来才能答时，`/mmw-research` 会自己升级成实测；实测里要动真实凭证、生产环境或者会花钱的操作，仍然要停下来找用户点头 |
+   | `wayfinder:prototype` | 把五项交给 `/mmw-prototype`；它需要的 prototype 产物与 scratch 路径由传入的名字段和范围段解析 |
+   | `wayfinder:research` | 把五项交给 `/mmw-research`；它需要的 research 产物与 scratch 路径由传入的名字段和范围段解析。这张 ticket 就是用户对这次调查的批准，research 直接保存，不再询问。这个问题只有把外部系统真跑起来才能答时，`/mmw-research` 会自己升级成实测；实测里要动真实凭证、生产环境或者会花钱的操作，仍然要停下来找用户点头 |
    | `wayfinder:task` | 把五项交给完成任务的一方。agent 能完成时直接完成；必须由用户完成的多步流程调用 `/wizard` |
 
    `wayfinder:task` 必须等待用户操作时，给出精确操作并停止本步骤。用户返回后继续处理同一张 ticket；不要提前执行第 4 步。
@@ -75,7 +71,7 @@
 
 4. 记录这次的答案。三件事：
 
-   1. 运行 `mmw artifact path scratch --issue <编号> --sub outbox/answer.md`。输出文件第一行写 `<!-- mmw:conclusion -->`。随后依次写 `## 答案`、`## 产物引用` 和 `## 材料使用记录`。
+   1. 运行 `mmw artifact path scratch --name <map 分支 slug> --issue <编号> --sub outbox/answer.md`。输出文件第一行写 `<!-- mmw:conclusion -->`。随后依次写 `## 答案`、`## 产物引用` 和 `## 材料使用记录`。
 
       `## 答案` 完整承载这次得到的结论。这条评论是这次工作留在 tracker 上的唯一记录，读它的会话没有这次的对话。判据：这次交回的每一项结论，在这一节里各找得到一条，理由和数字随条目一起写出来。
 

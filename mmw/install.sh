@@ -248,8 +248,8 @@ install_pi() {
   install_pi_toolchain_extension
 }
 
-# Cursor 的任务树与结果树都在 ~/.cursor/worktrees/。主 agent 用 task bind 绑定；
-# task new 与 task cleanup 在这个宿主上不可用，回收交给 Cursor 自己的 GC。
+# Cursor 的任务树与结果树都在 ~/.cursor/worktrees/。用户开任务树，agent 只在树上建分支。
+# 工人树由 mmw-cursor-agent --worktree 创建，回收交给 Cursor 自己的 GC。
 install_cursor_skills() {
   local src="$RUNTIME_ROOT/mmw/skills-cursor"
   local dest="$HOME/.cursor/skills"

@@ -18,11 +18,7 @@ description: 需要查明根因的 bug 和性能回退诊断。用于功能损�
 
 ## 过程材料落点
 
-开始诊断前先运行 `mmw task state`，按第一个词选行。要建树的两行都先分别确定任务分支名和工作名。
-
-[[mmw-bind-task]]
-
-为本次诊断取一个 `<短名>`。运行下面的完整命令取得过程材料落点。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
+为本次诊断取一个 `<短名>`。运行下面的完整命令取得过程材料落点。调用方给了名字段时加 `--name`。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
 
 ```bash
 mmw artifact path scratch [--issue <编号>] --sub diagnosis/<短名>

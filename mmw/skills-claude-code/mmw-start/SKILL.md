@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 这一栏为空、用户也没有在对话里交代要做什么，走 [resuming.md](resuming.md)。
 
-有输入时先运行 `mmw task state`。只有输出以 `bound` 开头，才走 [resuming.md](resuming.md)。`detached` 表示宿主已经准备好 worktree，但 MMW 尚未绑定任务；这时继续判定路线和 slug。
+有输入时继续第 1 步。当前已经挂在一条任务分支上（`git symbolic-ref --quiet --short HEAD` 有输出，且不在主检出里）时，第 2、3 步沿用这条分支。没有分支时先判定路线和 slug，再在第 3 步创建分支。
 
 ## 1. 判定路线
 
@@ -32,7 +32,7 @@ disable-model-invocation: true
 | 一个 effort 超出一次 agent session，而且从当前状态到 destination 的路线还看不清，或者用户在输入开头写了 `wayfinder` | **移交**：`/mmw-wayfinder` |
 | 想先看看某个界面长什么样，或者不确定一套状态模型对不对 | **移交**：`/mmw-prototype` |
 | 单个文件、符号、事实或一条命令能答完 | **自己继续**：主 agent 直接查询并回答，到这里完成，不进入第 2、3 步 |
-| 要从多个独立角度调查跨模块实现、调用链、数据流或影响面，或者需要对照多份一手资料 | **移交**：`/mmw-research`，跳过第 2、3 步 |
+| 要从多个独立角度调查跨模块实现、调用链、数据流或影响面，或者需要对照多份一手资料 | **移交**：`/mmw-research` |
 | 一个新需求，或对已有需求的改进 | **移交**：`/mmw-grilling` |
 | 没有具体需求，只说想让代码库更好维护 | **移交**：`/mmw-improve-codebase-architecture`，跳过第 2、3 步 |
 | 几条并行分支要集成到当前目标分支，某条分支要跟上已经推进的目标分支，或者手上有一个正在进行中的冲突 | **移交**：`/mmw-integrate`，跳过第 2、3 步 |
@@ -62,41 +62,41 @@ disable-model-invocation: true
 | `test` | 只改测试 |
 | `chore` | 依赖、配置、构建脚本 |
 
-类型取自第 1 步的判定结果：走 `/mmw-diagnosing-bugs` 的用 `fix`，新需求和先做原型的用 `feat`。类型同时约束范围——一个 `fix` 里混进新功能，说明当初的类型定错了，或者这次改动该拆成两个。
+类型取自第 1 步的判定结果：走 `/mmw-diagnosing-bugs` 的用 `fix`，走 `/mmw-research` 的用 `docs`，新需求和先做原型的用 `feat`。类型同时约束范围——一个 `fix` 里混进新功能，说明当初的类型定错了，或者这次改动该拆成两个。
 
-任务分支名只标识任务分支。它不承担工作名。worktree 的物理目录由宿主管理，不参与任务识别。
+任务分支名标识这次任务的 git 线。worktree 的物理目录由宿主管理，不参与任务识别。
 
 slug 的类型前缀用连字符。不带 issue 编号，不带日期。同名冲突时加一个区分词，不加序号。宿主可以在分支名前增加固定命名空间；该命名空间不属于 slug。
 
-**下面四种情况跳过这一步**，第 3 步也一并跳过：
+**下面三种情况跳过这一步**，第 3 步也一并跳过：
 
 - 用户报的是一张已有 map 的编号或链接。slug 由 `/mmw-wayfinder` 定。
 - 判定走 `/mmw-improve-codebase-architecture`。slug 由它定，类型固定用 `refactor`。
-- 判定走 `/mmw-research`。
 - 判定走 `/mmw-integrate`。它使用当前目标分支，不新建任务分支。
 
-## 3. 建立任务 worktree
+## 3. 确认任务分支
 
-任务 worktree 必须从正确的父分支开始。普通任务使用当前目标分支；从 `/mmw-wayfinder` map 派生的任务使用 map 分支。父分支不包含任务所需决定时停下，不在错误基点上补提交。
+用户已经用宿主开好工作树。你只在这棵树上创建或沿用任务分支，不另建任务树。
 
-先跑 `mmw task state`，按第一个词选行。任务分支名第 2 步已经定下，这里只要再单独确定工作名；有 map 分支时 `--from` 用它。
+当前 HEAD 必须落在正确的父提交上。普通任务使用当前目标分支的已提交 HEAD；从 `/mmw-wayfinder` map 派生的任务使用 map 分支。父提交不包含任务所需决定时停下，不在错误基点上补提交。
 
-| 第一个词 | 什么意思 | 你做什么 |
+先确认当前仓库位置。判定从上到下，命中一行就停。
+
+| 情况 | 怎么判断 | 你做什么 |
 | --- | --- | --- |
-| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名 |
-| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]` |
-| `local` | 你在主检出里 | 运行 `mmw task new <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]`。切换到返回的绝对路径。 |
-| `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
+| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
+| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
+| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
+| 已有任务分支 | 上面都不成立 | 用当前分支 |
 
-`detached` 与 `local` 两行做完之后都重新运行 `mmw task state`，确认第一个词是 `bound`，再运行 `mmw task name` 取工作名。工作区不干净、分支已经存在，或者父分支里没有这次任务需要的决定时**停下来**，不要在错的基点上补提交。
 
-**粒度是一份 spec 一棵树。** 这份 spec 拆出的几张 ticket 全在这棵树里按顺序做完，整体合并一次、终审一次、收尾一次。确实能并行的 ticket 从当前这棵树的分支再分叉出去（判据在 `/mmw-implement`）。**分支可以嵌套，目录不嵌套**——所有 worktree 一律扁平挂在同一个落点下。
+**粒度是一份 spec 一棵树。** 这份 spec 拆出的几张 ticket 全在这棵树里按顺序做完，整体合并一次、终审一次、收尾一次。确实能并行的 ticket 从当前这棵树的分支再分叉出去（判据在 `/mmw-implement`）。
 
-任务 worktree 在整个任务期间持久，可以跨天，中途不要清理。**新 worktree 不预先创建产物目录**：spec、plan、prototype 和审查记录的目录都在首次写入时才创建。
+任务 worktree 在整个任务期间持久，可以跨天。
 
 报一句你定的 slug 和你要走的路线，然后接着做，不用停下来等用户确认。
 
-**第 2 步列出的四条路线同样跳过本步**，直接移交。
+**第 2 步列出的三条路线同样跳过本步**，直接移交。
 
 ## 下一步
 

@@ -11,7 +11,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 **issue 承载身份，文件承载内容。** 本技能为每张 tracer bullet ticket 创建一张 issue。issue 正文保存摘要、plan 的完整落点命令和阻塞关系。`$mmw:mmw-to-plan` 后续把实施内容写入命令输出的 plan 文件。
 
-先运行 `mmw task state`。第一个词确认是 `bound` 后，运行 `mmw task name` 取工作名。`<spec issue 编号>` 由调用方移交。缺少任意一项就停下，说明缺少哪项输入。
+先确认当前在一条任务分支上：`git symbolic-ref --quiet --short HEAD` 有输出，且不在主检出里。`<spec issue 编号>` 由调用方移交。缺少任意一项就停下，说明缺少哪项输入。
 
 ## 1. 上下文清单
 
@@ -23,7 +23,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 先读取 spec issue 正文的 `## 输入出处`。它提供 map 名称及其 URL 或编号，以及 prototype 与 research 的来源链。再读取 spec 元数据块的 `artifact_refs`。它提供下游要解析的产物引用。
 
-prototype 和 research 只使用 spec 元数据块的 `artifact_refs` 解析落点。每项先运行对应的 `mmw artifact path <类别> --name <工作名>` 命令。条目有 `issue` 或 `sub` 时，追加对应参数。只读取解析成功后点名的索引和文件。
+prototype 和 research 只使用 spec 元数据块的 `artifact_refs` 解析落点。每项先运行对应的 `mmw artifact path <类别> --name <名字段>` 命令。条目有 `issue` 或 `sub` 时，追加对应参数。只读取解析成功后点名的索引和文件。
 
 prototype 索引缺少问题、逐轮用户结论、选中产物、落选约束或长期证据时，回 `$mmw:mmw-prototype` 补齐；没有的项目写「无」。
 
@@ -141,7 +141,7 @@ mmw artifact path plan --sub <NN>-<ticket-slug>.md
 
 ## 产物引用
 
-- category=<类别> name=<工作名>
+- category=<类别> name=<名字段>
 
 类别需要范围段或类别内细分时，在同一行追加 `issue=<编号>` 或 `sub=<类别内细分>`。
 

@@ -7,10 +7,10 @@ MMW_ARTIFACT_DATA="$MMW_ROOT/cli/artifacts.json"
 
 usage_artifact() {
   cat >&2 <<'EOF'
-mmw artifact path <类别> [--name <工作名>] [--issue <编号>] [--sub <类别内细分>] [--absolute]
+mmw artifact path <类别> [--name <名字段>] [--issue <编号>] [--sub <类别内细分>] [--absolute]
 mmw artifact index <类别>
 mmw artifact check
-mmw artifact list [--name <工作名>] [--map <map 编号>]
+mmw artifact list [--name <名字段>] [--map <map 编号>]
 
 类别与术语：
 EOF
@@ -79,15 +79,13 @@ mmw_artifact_path() {
   local name_given=false issue_given=false sub_given=false
   local has_name allows_scope sub_naming fixed_count fixed_first fixed_last pattern
   local scope="" relative="" result="" part
-  local task_state task_kind task_branch task_head task_name task_extra
-
   [ -n "$category" ] || usage_artifact
   shift
 
   while [ $# -gt 0 ]; do
     case "$1" in
       --name)
-        [ $# -ge 2 ] || { mmw_artifact_error "--name 要有工作名"; return 1; }
+        [ $# -ge 2 ] || { mmw_artifact_error "--name 要有名字段"; return 1; }
         [ "$name_given" = false ] || { mmw_artifact_error "--name 只能给一次"; return 1; }
         name="$2"
         name_given=true
@@ -165,14 +163,7 @@ mmw_artifact_path() {
   allows_scope="$(jq -r '.allows_scope' <<< "$record")"
   if [ "$has_name" = "true" ]; then
     if [ "$name_given" = false ]; then
-      task_state="$(mmw_task_state)" || return 1
-      IFS=' ' read -r task_kind task_branch task_head task_name task_extra <<< "$task_state"
-      if [ "$task_kind" != "bound" ] || [ -z "$task_branch" ] || [ -z "$task_head" ] || \
-        [ -z "$task_name" ] || [ -n "$task_extra" ]; then
-        mmw_artifact_error "$category 要 --name <工作名>，或在带工作名的任务 worktree 里运行"
-        return 1
-      fi
-      name="$task_name"
+      name="$(mmw_current_name_segment)" || return 1
     fi
     mmw_artifact_validate_segment "$name" "--name" || return 1
   elif [ "$name_given" = true ]; then
@@ -262,14 +253,14 @@ mmw_artifact_path() {
 }
 
 mmw_artifact_list() {
-  local name="" map="" task_state task_kind task_branch task_head task_name task_extra
+  local name="" map=""
   local name_given=false map_given=false record root repo_root category category_dir index
   local relative issue sub ticket number title children
 
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --name)
-        [ $# -ge 2 ] || { mmw_artifact_error "--name 要有工作名"; return 1; }
+        [ $# -ge 2 ] || { mmw_artifact_error "--name 要有名字段"; return 1; }
         [ "$name_given" = false ] || { mmw_artifact_error "--name 只能给一次"; return 1; }
         name="$2"
         name_given=true
@@ -295,14 +286,7 @@ mmw_artifact_list() {
   }
 
   if [ "$name_given" = false ]; then
-    task_state="$(mmw_task_state)" || return 1
-    IFS=' ' read -r task_kind task_branch task_head task_name task_extra <<< "$task_state"
-    if [ "$task_kind" != "bound" ] || [ -z "$task_branch" ] || [ -z "$task_head" ] || \
-      [ -z "$task_name" ] || [ -n "$task_extra" ]; then
-      mmw_artifact_error "list 要 --name <工作名>，或在带工作名的任务 worktree 里运行"
-      return 1
-    fi
-    name="$task_name"
+    name="$(mmw_current_name_segment)" || return 1
   fi
   mmw_artifact_validate_segment "$name" "--name" || return 1
 
