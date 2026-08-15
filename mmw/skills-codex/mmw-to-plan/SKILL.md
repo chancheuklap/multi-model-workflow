@@ -39,13 +39,13 @@ plan 不写行号，路径和符号名由 `worker` 开工时回到源码确认�
 | spec | 后续批次 | 只读 `## Cross-Plan Contract Anchors` | spec 其余各节 | spec 路径 |
 | ticket | 首个批次 | 全部 ticket 的目标、验收、阻塞关系和 plan 路径 | 其他 spec 的 ticket | ticket 编号和 plan 路径 |
 | ticket | 后续批次 | 只读本批次 ticket | 已经写过 plan 的 ticket | ticket 编号和 plan 路径 |
-| 产物引用 | ticket 有 `## 产物引用` 时 | 当前 ticket 实际需要的条目 | 其他 ticket 的条目 | 同一行键值形态 |
+| 产物引用 | ticket 有 `## 产物引用` 时 | 当前 ticket 实际需要的条目 | 其他 ticket 的条目 | 原样传递 |
 | prototype | ticket 引用时 | 索引、选中产物、明确相关的走查或长期证据 | 整个产物目录、无关过程材料 | 产物引用；没有写「无 prototype 资产」 |
 | research | ticket 引用时 | research 索引和当前 ticket 使用的精确文件 | research 的上级目录、subagent 原始报告 | 产物引用；没有写「无 research」 |
 
 prototype 索引字段不完整时回 `$mmw:mmw-prototype` 补齐。
 
-读取当前 ticket 的 `## 产物引用`。缺少这节时停止，说明缺少 ticket 声明。每条必须含 `category=<类别> name=<名字段>`，可追加 `issue=<编号>` 和 `sub=<类别内细分>`。把当前 ticket 的条目原样写进 `planner` task 的「读」栏。该节写 `无` 时也把 `无` 写进 task。
+读取当前 ticket 的 `## 产物引用`。缺少这节时停止，说明缺少 ticket 声明。把当前 ticket 的条目原样写进 `planner` task 的「读」栏。该节写 `无` 时也把 `无` 写进 task。
 
 - `## Problem Statement`
 - `## Solution`
@@ -138,6 +138,10 @@ spec 里确实没有、必须看了代码才知道的，那一格留空，并写
 
 交回 `needs-context` 的，补齐它点名的材料之后重派。交回 `needs-repair` 的，它指的是 spec 或 ticket 本身有错：要改的内容会变更用户已批准的验收标准、spec 决定或 blocking edge 时，**停下**，把 `planner` 交回的证据交给用户，取得批准后再修对应材料；只有不改变已批准语义的笔误级修正可以直接修。修完带上修正后的材料重派。
 
+交回 `needs-redirection` 的，把它说的哪里可疑、建议怎么重新框定原样交给用户，不要自己改 spec 绕过去。已落地批次保留在任务分支。
+
+同一份 plan 返修三轮还没过：报是哪一份、卡在哪里、三轮各自改了什么，让用户定。
+
 ## 5. 验证边界
 
 **本批次只有一份 plan 时跳过本步**：没有别人可以认领，也没有第二方对接。
@@ -173,15 +177,4 @@ gh issue edit <ticket 编号> --add-label ready-for-agent
 
 `ready-for-agent` 表示 ticket 的 plan 已经通过 ② plan 审。`Blocked by` 和 `mmw issue frontier` 继续决定哪张 ticket 已经无阻塞并且可以认领；只有进入 frontier 的 ticket 才能派 `worker`。
 
-## 下一步
-
-| 情况 | 下一步 |
-| --- | --- |
-| 本批次 plan 过审、提交，且本批次 ticket 都带 `ready-for-agent` | **移交**：`$mmw:mmw-implement`，从 `mmw issue frontier` 返回的 ticket 开始落地。它关票解锁新批次后会回到本技能 |
-| 审出了采信的 findings | **自己继续**：把全部采信项按 plan 归属发回对应的原 `planner` 续跑（第 4 步的恢复动作），句柄失效时重派；主 agent 逐条验证修复后直接进入第 7 步提交，不再审 |
-| 第 4 步某个 `planner` 交回 `needs-context` 或 `needs-repair` | **自己继续**：按第 4 步处理——`needs-context` 补材料；`needs-repair` 触及已批准语义时先停下取得用户批准，修完材料再重派 |
-| 第 5 步发现 `planner` 认领了别人归属的文件，或者提供方跟消费方对不上 | **自己继续**：发回原 `planner` 修那一份，不要自己动它的 plan |
-| 第 1 步本批次为空，但仍有 open ticket | **停**：报每张 open ticket 的状态（被谁认领，或者在等哪张 ticket 的代码做出来），等那件事完成或用户处理 |
-| 前置三项有一项不满足 | **停**：说清是哪一项。缺 ticket 的回 `$mmw:mmw-to-tickets`，缺 spec 的回 `$mmw:mmw-to-spec` |
-| `planner` 交回 `needs-redirection` | **停**：把它说的哪里可疑、建议怎么重新框定原样交给用户，不要自己改 spec 绕过去。已落地批次保留在任务分支 |
-| 同一份 plan 返修三轮还没过 | **停**：报是哪一份、卡在哪里、三轮各自改了什么，让用户定 |
+本批次 plan 过审、提交，且本批次 ticket 都带 `ready-for-agent` 之后，报告本批次已就绪。问用户：开始实现，还是到这里停。`$mmw:mmw-implement` 关票解锁新批次后会回到本技能。

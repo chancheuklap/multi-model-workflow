@@ -2,7 +2,7 @@
 
 用户带着一个松散的想法调用。这个会话把 map 建出来就结束，不去解那些需要讨论的 ticket；只有 `wayfinder:research` 这一种例外，因为它不需要用户参与，可以在这个会话里并行跑完（第 5、6 步）。
 
-这个会话的任务分支就是 map 分支。后面每张 decision ticket 都从它派生。任务分支名取这项 effort 的短名。
+这个会话的任务分支就是 map 分支。后面每张 decision ticket 都从它派生。任务分支名按 `/mmw-start` 第 2 步取这项 effort 的英文 slug。map 的名称（issue 标题）给人看，可以是中文。
 
 给这项 effort 定任务分支名。
 
@@ -43,9 +43,7 @@
 
 5. **启动 research。** 对刚创建的每张 `wayfinder:research` ticket，先运行 `mmw issue claim <编号>`。claim 失败的 ticket 已由其他 session 占用，不重复派发。
 
-   claim 成功后，运行 `mmw artifact list --map <map 编号>`。从候选中选出与这张 Question 相关的材料，补进自己的 `## 必读材料声明`；保留已有条目。开工前读取声明的每项材料。仓库产物逐条运行 `mmw artifact path` 解析，再读它的索引与索引列出的文件。结论评论逐条读取对应 issue 中以 `<!-- mmw:conclusion -->` 开头的评论。
-
-   声明的材料缺失时先分类。生产 ticket 按设计未运行，或用户选择不保存 research，是预期缺失，继续。生产方已经运行而声明内容应当存在却找不到，是异常缺失，停下问用户，不编造内容。问的时候给出两个选项：重新解决生产它的那张 decision ticket，或者由用户直接提供文件。
+   claim 成功后，运行 `mmw artifact list --map <map 编号>`。从候选中选出与这张 Question 相关的材料，补进自己的 `## 必读材料声明`；保留已有条目。开工前按 [SKILL.md](SKILL.md) 的「必读材料声明」解析并读取。
 
    分别运行 `mmw artifact path research --issue <编号> --sub <主题>` 和 `mmw artifact path scratch --issue <编号> --sub evidence`。把 ticket 的 Question、必读材料声明中的全部仓库产物引用、全部结论评论 issue 编号、名字段（当前 map 分支的 slug）、范围段 `issue-<编号>`，以及两条输出路径一起传给 `/mmw-research`。每张 ticket 作为一项独立 research 并行处理；`/mmw-research` 根据取证角度决定 `investigator` 的数量。
 
@@ -59,7 +57,7 @@
 
       `## 答案` 完整承载 `/mmw-research` 交回的结论。这条评论是这张 ticket 留在 tracker 上的唯一记录，读它的会话没有这次的对话。判据：交回的每一项事实，在这一节里各找得到一条，出处和没查清的部分随条目一起写出来。
 
-      产物引用逐行写键值形态；没有仓库产物时写 `无`。材料使用记录逐条覆盖 `## 必读材料声明` 里的每项材料，写明用上了没有；未用时写出理由。然后评论：`gh issue comment <编号> --body-file <上一步输出文件>`。
+      仓库产物按「必读材料声明」的写法逐行写；没有仓库产物时写 `无`。材料使用记录逐条覆盖 `## 必读材料声明` 里的每项材料，写明用上了没有；未用时写出理由。然后评论：`gh issue comment <编号> --body-file <上一步输出文件>`。
    2. 关闭这张 ticket：`gh issue close <编号>`。
    3. 在 map 的 `Decisions so far` 追加一行：`mmw issue append <map 编号> --section "Decisions so far" --line "<ticket 名称的链接与一句话概要>"`。
    4. research 让一部分原本说不清楚的问题变得说得清楚时，按第 4 步的两遍做法建成新 ticket；仍说不清楚的留在 `Not yet specified`。
@@ -68,9 +66,4 @@
 
    charting 到这里完成。其他 decision ticket 由后续 session claim，每个 session 一张。
 
-## 下一步
-
-| 情况 | 下一步 |
-| --- | --- |
-| 第 2 步没有发现 fog | **停**：说明路线已经清楚、不需要 map，询问用户接下来怎样进行 |
-| map、当前能够精确表述的 ticket 和 blocking edge 已建立，research 已全部交回并提交 | **停**：报告 destination、map 分支、名字段、map 名称和当前 frontier 上的 ticket 名称，并说明每张 decision ticket 使用一个新会话。同时列出每张 frontier ticket 的任务 slug，并写明父分支是 map 分支。不要 claim 这些 ticket |
+map、当前能够精确表述的 ticket 和 blocking edge 已建立，research 已全部交回并提交时，报告 destination、map 分支、名字段、map 名称和当前 frontier 上的 ticket 名称，并说明每张 decision ticket 使用一个新会话。同时列出每张 frontier ticket 的任务 slug，并写明父分支是 map 分支。不要 claim 这些 ticket。

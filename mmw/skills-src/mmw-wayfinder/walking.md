@@ -17,7 +17,7 @@
 
 2. 选择 ticket。用户点名一张时使用那一张；用户没有点名时，按顺序取得第一张 frontier ticket。
 
-   任务 slug 由两段拼成，中间一个连字符：前一段取 map 标题的短名（全小写、空格换成连字符），后一段取这张 ticket 标题的短名。宿主对任务分支有固定命名空间时加在 slug 前面。父分支是 map 分支，分支名读 map 正文的 `## 分支` 一节；起点是它当前已提交的 HEAD——先运行 `git rev-parse <map 分支>` 记下它，交回结果时要用。
+   任务 slug 由两段英文 kebab 拼成，中间一个连字符：前一段取 map 分支的 slug（读 `## 分支`，去掉宿主命名空间）；后一段用英文三四个词说清这张 ticket 的 Question。issue 标题给人看，可以是中文；slug 按意思写成英文，规则同 `/mmw-start` 第 2 步。宿主对任务分支有固定命名空间时加在 slug 前面。父分支是 map 分支，分支名读 map 正文的 `## 分支` 一节；起点是它当前已提交的 HEAD——先运行 `git rev-parse <map 分支>` 记下它，交回结果时要用。
 
    写产物、列产物和交给下游时都传 `--name <map 分支 slug>`，不要用 ticket 分支名。取值读 map 正文的 `## 分支`。
 
@@ -36,7 +36,7 @@
 
 3. 解决 ticket。先运行 `gh issue view <编号>` 取得这张 ticket 的完整正文，它的 `Question` 一节就是要解决的问题。随后运行 `mmw artifact list --name <map 分支 slug> --map <map 编号>`。从候选中选出与 Question 相关的材料，补进自己的 `## 必读材料声明`，并保留已有条目。
 
-   开工前读取 `## 必读材料声明` 中的全部条目。仓库产物逐条运行 `mmw artifact path` 解析，再读索引与索引列出的文件。结论评论逐条读取对应 issue 中以 `<!-- mmw:conclusion -->` 开头的评论。生产 ticket 按设计未运行，或用户选择不保存 research，是预期缺失，继续。生产方已经运行而声明内容应当存在却找不到，是异常缺失，停下问用户，不编造内容。问的时候给出两个选项：重新解决生产它的那张 decision ticket，或者由用户直接提供文件。
+   开工前按 [SKILL.md](SKILL.md) 的「必读材料声明」解析并读取全部条目。
 
    需要更多背景时，按需取得相关或已关闭 ticket 的完整正文，不要一次把所有 ticket 都读进来。调用 map `## Notes` 区块点名的技能。不确定用什么时，使用 `/mmw-grilling`；它在同一场讨论中应用 `/mmw-domain-modeling`。
 
@@ -63,7 +63,7 @@
 
    `wayfinder:prototype`、`wayfinder:research` 或 `wayfinder:task` 得到结果后，看这次结果里有没有需要长期留下来的领域术语、bounded context、bounded context 之间的关系，或者一项值得记进 ADR 的决定。有其中任何一项时调用 `/mmw-domain-modeling`，由它判断和落笔。
 
-   这次要写 ADR 时，文件先命名成 `draft-<这张 ticket 的编号>-<短名>.md`，不要现在去取正式编号：别的会话可能正在同时写另一份 ADR，两边会拿到同一个号。正式编号在结果合回 map 分支之后统一分配。
+   这次要写 ADR 时，文件先命名成 `draft-<这张 ticket 的编号>-<英文短名>.md`，不要现在去取正式编号：别的会话可能正在同时写另一份 ADR，两边会拿到同一个号。正式编号在结果合回 map 分支之后统一分配。
 
    这次的答案明确否掉了一个功能需求时，把否掉它的理由写进仓库根目录的 `.out-of-scope/`，一个概念一份文件，格式见 [`../mmw-triage/OUT-OF-SCOPE.md`](../mmw-triage/OUT-OF-SCOPE.md)。这个文件要在更新 tracker 之前写好。
 
@@ -77,7 +77,7 @@
 
       `wayfinder:grilling` 另有一条：把 `/mmw-grilling` 交回的那份共同理解记录的 `## 共同理解` 整段转录进来，标题层级照原样。
 
-      产物引用逐行写键值形态；没有仓库产物时写 `无`。材料使用记录逐条覆盖 `## 必读材料声明` 中的每项材料，写明用上了没有；未用时写出理由。然后评论：`gh issue comment <编号> --body-file <上一步输出文件>`。
+      仓库产物按「必读材料声明」的写法逐行写；没有仓库产物时写 `无`。材料使用记录逐条覆盖 `## 必读材料声明` 中的每项材料，写明用上了没有；未用时写出理由。然后评论：`gh issue comment <编号> --body-file <上一步输出文件>`。
    2. 关闭这张 ticket：`gh issue close <编号>`。
    3. 在 map 的 `Decisions so far` 追加一行：`mmw issue append <map 编号> --section "Decisions so far" --line "<ticket 名称的链接与一句话概要>"`。
 
@@ -112,14 +112,4 @@
 
    合并之后，把这次带回来的 `draft-<编号>-<短名>.md` 逐个换成正式编号：每份跑一次 `mmw domain adr-next` 取一个号，按 `<编号>-<短名>.md` 重命名，然后提交。这一轮没有 ADR 草稿就跳过。
 
-   最后跑 `mmw issue frontier <map 编号> --label-prefix wayfinder:`，frontier 为空时再跑 `mmw issue children <map 编号>`，按文末「下一步」处理。不要接着认领下一张。
-
-## 下一步
-
-| 情况 | 下一步 |
-| --- | --- |
-| 手上这张是必须由人动手的 `wayfinder:task`，正在等用户 | **停**：把要用户做的事一条条列清楚，等结果回来后继续这张 ticket |
-| 你解完了这张 ticket，已经提交并交回 | **停**：报告这次的决定，以及交回的分支名、HEAD SHA 和基点 SHA |
-| 你拥有 map 分支，刚合并完一个结果，frontier 上还有 ticket | **停**：报告这次的决定，以及 frontier 上还剩哪几张（用名称，不用编号）；下一张由另一个会话认领 |
-| 你拥有 map 分支，刚合并完一个结果，`mmw issue children` 显示已经没有带 `wayfinder:` 标签的 open ticket | **自己继续**：读取 [closing.md](closing.md) |
-| 你拥有 map 分支，frontier 为空，但还有 open ticket 已被别人认领或仍被挡着 | **停**：报告这些 ticket 现在是什么状态，map 保持 open |
+   最后跑 `mmw issue frontier <map 编号> --label-prefix wayfinder:`。frontier 上还有 ticket 时，报告这次的决定，以及 frontier 上还剩哪几张（用名称，不用编号）；下一张由另一个会话认领，不要接着认领。frontier 为空时再跑 `mmw issue children <map 编号>`：已经没有带 `wayfinder:` 标签的 open ticket 时，读取 [closing.md](closing.md)；还有 open ticket 已被别人认领或仍被挡着时，报告这些 ticket 现在是什么状态，map 保持 open。

@@ -64,14 +64,14 @@ agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一
 | spec 或 agent brief | 始终 | 当前需求的精确位置 | 其他需求 | 精确位置 |
 | ticket | 始终 | 当前 ticket 编号 | 其他 ticket | ticket 编号 |
 | plan | spec 分支 | 当前 ticket 的 plan 路径 | 其他 plan | plan 路径 |
-| 产物引用 | plan 有 `artifact_refs` 时 | 当前 ticket 的条目 | 其他 plan 的条目 | 同一行键值形态 |
+| 产物引用 | plan 有 `artifact_refs` 时 | 当前 ticket 的条目 | 其他 plan 的条目 | 原样传递 |
 | `TESTING.md` | 文件存在时 | 仓库根文件 | 自拟测试命令 | 文件路径 |
 | prototype | 当前 ticket 引用时 | 索引、选中产物和明确相关证据 | 整个产物目录和过程材料 | 产物引用 |
 | research | 当前 ticket 引用时 | research 索引和精确文件 | research 的上级目录和 subagent 原始报告 | 产物引用 |
 
 按 **四栏表**（目标 / 读 / 约束 / 验收）填写。issue 上的 **agent brief** 是 tracker 里的权威行为合同，进入「读」栏。
 
-从 plan 元数据块读取 `artifact_refs`。键缺失时停止，说明缺少 plan 声明。每条在 task 的「读」栏写成 `- category=<类别> name=<名字段>`。类别需要范围段或类别内细分时，在同一行追加 `issue=<编号>` 或 `sub=<类别内细分>`。`name` 必须显式出现。空列表时在「读」栏写 `无`。
+从 plan 元数据块读取 `artifact_refs`。键缺失时停止，说明缺少 plan 声明。每条原样写进 task 的「读」栏。空列表时写 `无`。
 
 | 栏 | 本角色填写 |
 | --- | --- |
@@ -188,13 +188,6 @@ spec 分支通过合同门，或者 agent brief 分支完成第 5 步后，按 `
 
 采信的 findings 全部落在同一张 ticket 时，优先发回那张 ticket 的原 `worker` 续跑，恢复前先做第 6 步的同步前置；跨 ticket、同步冲突、worktree 已收或句柄失效时，打包成一张修复 ticket 派给新 `worker`，带上 `file:line` 和要改成什么。两条路都不逐 finding 派修复者。修复回来后逐条验证原问题已经消失，并运行修复涉及的验收命令。有一条没验证通过就停下报告，不再发起新一轮审查。全部通过后按 `/mmw-review` 第 7 步在原审查记录登记 `修复提交` 和 `终审提交`；不再派审查者。
 
-## 下一步
+终审没有做完时，说清停在哪一步、还差什么，交给用户。
 
-第 7 步终审做完之后才走这张表。
-
-| 情况 | 下一步 |
-| --- | --- |
-| 终审没有采信项，或者采信项已经修复并验证，而且这次改动碰了带出包配置的产品 | **移交**：`/mmw-release`，先把安装包出出来。同时告诉它这次是有 spec 还是只有 agent brief——它收尾要按这个分岔。仓库里有没有出包配置，跑 `grep -rl '"product"' --include='*.release-adapter.json' .` |
-| 终审没有采信项，或者采信项已经修复并验证；这次不用出包，而且有 spec | **移交**：`/mmw-closing`，让 spec 与 plan 长期留在仓库，只清理当前任务的过程材料，再交回用户合并 |
-| 终审没有采信项，或者采信项已经修复并验证；这次不用出包，而且只有 agent brief | **停**：报告实现结果、验证证据和当前分支 HEAD。这项任务没有 spec，不走 `/mmw-closing`；分支已就绪，交回用户集成 |
-| 以上都不是 | **停**：说清终审停在哪一步、还差什么，交给用户 |
+终审没有采信项，或采信项已经修复并验证：报告实现结果、验证证据和当前分支 HEAD。仓库里有没有出包配置，跑 `grep -rl '"product"' --include='*.release-adapter.json' .`。问用户：出包、收尾、还是到这里停。有 spec 才需要收尾；只有 agent brief 时没有 `/mmw-closing`。

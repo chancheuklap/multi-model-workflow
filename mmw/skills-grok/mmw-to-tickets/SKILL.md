@@ -11,7 +11,7 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 **issue 承载身份，文件承载内容。** 本技能为每张 tracer bullet ticket 创建一张 issue。issue 正文保存摘要、plan 的完整落点命令和阻塞关系。`/mmw-to-plan` 后续把实施内容写入命令输出的 plan 文件。
 
-先确认当前在一条任务分支上：`git symbolic-ref --quiet --short HEAD` 有输出，且不在主检出里。`<spec issue 编号>` 由调用方移交。缺少任意一项就停下，说明缺少哪项输入。
+先确认当前在一条任务分支上：`git symbolic-ref --quiet --short HEAD` 有输出，且不在主检出里。`<spec issue 编号>` 由调用方移交。缺少任意一项就停下，说明缺少哪项输入。来源是一份 spec、但那张 spec issue 没带 `ready-for-agent` 时停下，回 `/mmw-to-spec` 第 6 步——那份 spec 还没过用户那道批准关卡。
 
 ## 1. 上下文清单
 
@@ -23,11 +23,11 @@ issue tracker 是 GitHub Issues。要连着发好几个请求的动作走 `mmw i
 
 先读取 spec issue 正文的 `## 输入出处`。它提供 map 名称及其 URL 或编号，以及 prototype 与 research 的来源链。再读取 spec 元数据块的 `artifact_refs`。它提供下游要解析的产物引用。
 
-prototype 和 research 只使用 spec 元数据块的 `artifact_refs` 解析落点。每项先运行对应的 `mmw artifact path <类别> --name <名字段>` 命令。条目有 `issue` 或 `sub` 时，追加对应参数。只读取解析成功后点名的索引和文件。
+`## 输入出处` 或 spec 元数据块的 `artifact_refs` 缺失时停止，说明缺少上游声明。
 
-prototype 索引缺少问题、逐轮用户结论、选中产物、落选约束或长期证据时，回 `/mmw-prototype` 补齐；没有的项目写「无」。
+prototype 和 research 按「解析产物引用」处理 spec 元数据块的 `artifact_refs`。prototype 索引缺少问题、逐轮用户结论、选中产物、落选约束或长期证据时，回 `/mmw-prototype` 补齐；没有的项目写「无」。
 
-`## 输入出处` 或 spec 元数据块的 `artifact_refs` 缺失时停止，说明缺少上游声明。按当前 ticket 实际需要的条目逐条传递。每条保留 `category`、`name`、可选 `issue` 和可选 `sub`。`name` 必须存在。没有要传递的条目时，ticket 写 `无`。
+按当前 ticket 实际需要的条目原样写进该 ticket 的 `## 产物引用`。写法见下面的 issue 模板。没有要传递的条目时写 `无`。
 
 ## 2. 检查现状与 prefactor
 
@@ -128,7 +128,7 @@ mmw artifact path plan --sub <NN>-<ticket-slug>.md
 | 段 | 取值 |
 | --- | --- |
 | `<NN>` | 第 4 步给这张定的两位编号 |
-| `<ticket-slug>` | 从第 4 步的 Title 压成一个路径段：全小写，空格换成连字符，只留字母、数字和连字符，控制在三四个词以内 |
+| `<ticket-slug>` | 按第 4 步 Title 的意思写成英文 kebab：全小写，只留字母 a-z、数字和连字符，控制在三四个词以内。Title 本身可以是中文 |
 
 文件由 `/mmw-to-plan` 写，这里先把路径占住。
 
@@ -165,13 +165,10 @@ mmw artifact path plan --sub <NN>-<ticket-slug>.md
 
 </issue-template>
 
+## 解析产物引用
+
+`## 产物引用` 与 YAML `artifact_refs` 用同一套解析：每条运行 `mmw artifact path`，再读输出路径的索引和索引列出的文件。命令失败或缺少 `name` 时停止。值为 `无` 或 `[]` 时不读取产物。
+
 正文里不要写实现文件路径和代码片段。两个理由：它们属于 plan 那一层；而且**它们很快就会过期**——ticket 在 tracker 上可能放上几周，路径改名、函数搬家之后，写死的位置会把 `worker` 带到不存在的地方。同一条风险在 plan 里同样成立，plan 只是过期得慢一些。prototype 的精确出处和当前 ticket 消费的 research 是例外。prototype 产出的一段代码若比散文更精确地编码决定，可以内联并注明选中产物路径；只保留决定含量，不粘贴完整 demo。
 
-## 下一步
-
-| 情况 | 下一步 |
-| --- | --- |
-| 用户批准清单，ticket 全部发布完 | **移交**：`/mmw-to-plan`，一张 ticket 写一份 plan |
-| 第 4 步用户要改切分 | **自己继续**：回第 3 步改，改完重新展示完整清单 |
-| 第 4 步仍在等待用户批准 | **停**：不调用 tracker 写入命令，等待用户确认或修改 |
-| 来源是一份 spec，但那张 spec issue 没带 `ready-for-agent` | **停**：回 `/mmw-to-spec` 第 6 步，那份 spec 还没过用户那道批准关卡 |
+用户批准清单、ticket 全部发布完之后，报告已发布的 ticket。问用户：写 plan，还是到这里停。

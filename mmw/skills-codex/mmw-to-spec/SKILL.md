@@ -40,17 +40,7 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 
    元数据块固定写六个字段。`slug` 写名字段。`summary` 写一句交付说明。`date` 写当天的 `YYYY-MM-DD`。`branch` 写当前任务分支名。`spec_issue` 在发布前暂写模板占位编号。`artifact_refs` 始终存在；当前没有产物引用时写 `[]`。
 
-   把这份 spec 实际使用的 prototype 资产和 research 写成产物引用。每条都写显式名字段。使用下面的 YAML 映射列表。类别需要范围段或类别内细分时才写 `issue` 或 `sub`。没有引用时写 `artifact_refs: []`。
-
-   ```yaml
-   artifact_refs:
-     - category: <类别>
-       name: <名字段>
-       issue: <编号>
-       sub: <类别内细分>
-   ```
-
-   写完或修完 spec 后，先运行 `mmw artifact check`。命令非零时先修产物引用声明。命令通过后再自检和发起 ① spec 审。
+   把这份 spec 实际使用的 prototype 资产和 research 写成产物引用，写入元数据块的 `artifact_refs`。没有引用时写 `[]`。写完或修完 spec 后，先运行 `mmw artifact check`。命令非零时先修产物引用声明。命令通过后再自检和发起 ① spec 审。
 
 只记录已经形成的决定。写作中发现缺少决定时，写清缺少的完整内容和已经检查的位置，然后停止。
 
@@ -92,15 +82,8 @@ mmw issue create --title "<spec 名称>" --body-file <上一步输出文件> --l
 
 记下 `mmw issue create` 返回的 issue 编号。入口是已分诊 issue 且它带 agent brief 时，先运行 `mmw issue set-parent <原 issue 编号> --parent <spec issue 编号>`。命令失败时停止，保留原 issue 为 open。命令成功后运行 `gh issue close <原 issue 编号>`。没有原 issue 时跳过这两步。
 
-立刻用这个编号替换 spec 元数据块中的 `spec_issue` 占位编号，再提交这次回填。最终 spec 不得保留占位编号。移交时把这个编号一起交出去——下游三个技能都要用它。
+立刻用这个编号替换 spec 元数据块中的 `spec_issue` 占位编号，再提交这次回填。最终 spec 不得保留占位编号。记下这个编号，下游三个技能都要用它。
 
 这一步做完的标志是四件事都成立：spec 文件已经提交；spec 元数据块的 `spec_issue` 已经回填为实际编号；这张 spec issue 的正文指向那个文件；这张 issue 带着 `ready-for-agent`。这个标签的意思是用户已经批准了这份 spec，不是说可以照着它一口气实现完。
 
-## 下一步
-
-| 情况 | 下一步 |
-| --- | --- |
-| spec 已经提交并发布，而且对应 issue 带 `ready-for-agent` | **移交**：`$mmw:mmw-to-tickets`，交给它名字段和这张 spec issue 的编号，把 spec 拆成 tracer bullet ticket |
-| 入口要求的产物不存在，或者其中缺少一项产品、设计或架构决定 | **停**：报告缺少的完整内容和已经检查的位置，等用户补齐或指出正确位置 |
-| 已经开始写 spec，但发现某项决定尚未形成 | **停**：报告缺少的完整内容和已经检查的位置；这项决定需要先谈定，不在本技能中访谈 |
-| 用户看过完整 spec 和 ① spec 审结果后要求修改 | **停**：按用户意见修改 spec，再次展示完整结果，等待批准 |
+报告 spec 已发布，给出 spec 路径和 spec issue 编号。问用户：拆 tickets，还是到这里停。

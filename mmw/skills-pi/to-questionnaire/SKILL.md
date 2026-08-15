@@ -21,10 +21,10 @@ description: 把当前用户无法回答的问题整理成给知识持有者填�
 
 ## 3. 写 questionnaire
 
-取一个主题名。运行下面的完整命令取得 questionnaire 落点。调用方给了名字段时加 `--name`。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
+取一个主题名。运行下面的完整命令取得 questionnaire 落点：
 
 ```bash
-mmw artifact path scratch [--issue <编号>] --sub questionnaire/<主题>.md
+mmw artifact path scratch [--name <名字段>] [--issue <编号>] --sub questionnaire/<主题>.md
 ```
 
 把 questionnaire 写进输出文件。完成后报告路径。
@@ -61,18 +61,10 @@ _Why this matters: <只有需要时才写>_
 <还有什么没有问到但应该知道？>
 ```
 
-完成判据：文件存在；第 2 步清单中的每一项都由至少一个问题覆盖；没有复合问题；每题都有回答位置。
+完成判据：文件存在；第 2 步清单中的每一项都由至少一个问题覆盖；没有复合问题；每题都有回答位置。Questionnaire 已生成后，报告 scratch 文件路径和收件人，等待答案返回。
 
 ## 4. 吸收答案并清理
 
 调用方拿到答案后，先把答案吸收到共同理解、ticket、spec 或其他正式产物。确认正式产物已经完整承载答案后，删除 scratch 中的 questionnaire 和答案副本。用户明确要求长期保存时保留用户指定的正式副本。
 
-完成判据：正式产物已经承载下游需要的答案；scratch 不再保存 questionnaire 和答案副本，或者已有用户明确要求的长期保存落点。
-
-## 下一步
-
-| 情况 | 下一步 |
-| --- | --- |
-| Questionnaire 已生成 | **停**：报告 scratch 文件路径和收件人，等待答案返回 |
-| `/mmw-grilling` 因当前用户不掌握事实而移交进来，答案已经返回 | **移交**：`/mmw-grilling`，先把答案吸收到共同理解，再按第 4 步清理 scratch 副本 |
-| 收件人或信息缺口仍不清楚 | **自己继续**：回第 1 步或第 2 步，只追问发送过程 |
+完成判据：正式产物已经承载下游需要的答案；scratch 不再保存 questionnaire 和答案副本，或者已有用户明确要求的长期保存落点。`/mmw-grilling` 因当前用户不掌握事实而移交进来、答案已经返回时，先把答案吸收到共同理解，再按第 4 步清理 scratch 副本，然后交回 `/mmw-grilling`。

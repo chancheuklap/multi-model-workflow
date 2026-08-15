@@ -14,9 +14,9 @@ description: 完成有 spec 任务的过程材料清理和交回。用于用户�
 | 检查 | 怎么查 |
 | --- | --- |
 | 当前 checkout 有任务分支 | `git symbolic-ref --quiet --short HEAD` 有输出，且不在主检出里。spec 元数据 `slug` 与当前名字段不同时，后续命令加 `--name <spec slug>` |
-| spec 已提交 | 运行 `mmw artifact path spec`（需要时加 `--name`）。对输出路径运行 `git cat-file -e "HEAD:<输出路径>"` |
-| 每份 plan 已提交 | 从每张 tracer bullet ticket 取得计划文件名。逐份运行 `mmw artifact path plan --sub <计划文件>`（需要时加 `--name`），再检查输出路径已提交 |
-| 终审已经完成 | 运行 `mmw artifact path review --sub final.md`（需要时加 `--name`）。审查记录必须存在；采信项必须有 `修复提交` |
+| spec 已提交 | 运行 `mmw artifact path spec`。对输出路径运行 `git cat-file -e "HEAD:<输出路径>"` |
+| 每份 plan 已提交 | 从每张 tracer bullet ticket 取得计划文件名。逐份运行 `mmw artifact path plan --sub <计划文件>`，再检查输出路径已提交 |
+| 终审已经完成 | 运行 `mmw artifact path review --sub final.md`。审查记录必须存在；采信项必须有 `修复提交` |
 
 工作区还必须干净。运行 `git status --porcelain`。输出不是空时停下，并报告改动路径。
 
@@ -57,7 +57,7 @@ review_root="$(dirname "$(mmw artifact path review --sub final.md)")"
 对每一棵属于当前任务的树运行 `git merge-base --is-ancestor <该分支> HEAD`：
 
 - 命令成功：它的提交已经在当前任务分支上。运行 `mmw worktree remove <该分支名>` 回收。
-- 命令失败：它还有没合并的提交。保留它，在交回时报出分支名。
+- 命令失败：它还有没合并的提交。停下，报告分支名。那张 ticket 的集成没有做完，需要 `/mmw-implement` 第 5 步。问用户要不要现在回去做完集成。
 
 当前任务 worktree 自己留着，由用户在集成之后处理。
 
@@ -77,12 +77,4 @@ review_root="$(dirname "$(mmw artifact path review --sub final.md)")"
 - 当前任务 worktree 的路径，等用户集成之后处理。
 - 这条分支就绪待集成。
 
-## 下一步
-
-| 情况 | 下一步 |
-| --- | --- |
-| 前置条件全部满足，而且清理完成 | **停**：交回上述七项。用户要立即集成时移交 `/mmw-integrate` |
-| 第 2 步有结果 worktree 的提交还没进任务分支 | **移交**：`/mmw-implement` 第 5 步，交给它那棵树的分支名。那张 ticket 的集成没有做完 |
-| 候选路径无法由 `mmw artifact path` 解析 | **停**：保留该路径，并报告命令、输出和候选路径 |
-| 终审还没跑 | **停**：回 `/mmw-implement` 第 7 步发起终审 |
-| 终审有采信项尚未修复 | **停**：按 `/mmw-review` 第 7 步完成修复验证 |
+交回这七项之后，问用户：现在集成，还是到这里停。

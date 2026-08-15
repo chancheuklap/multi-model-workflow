@@ -23,7 +23,7 @@ prototype 是在真实代码落地前回答问题的可运行资产。它的作�
 
 ## 2. 确定资产位置
 
-开始写文件前，运行 `mmw artifact path prototype --sub README.md`。调用方给了名字段时加 `--name`。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`。它的输出文件所在目录是本轮 prototype 根。创建其他资产时，运行 `mmw artifact path prototype --sub <类别内细分>`，同样带上调用方给的 `--name` 与 `--issue`。过程材料使用 `mmw artifact path scratch --sub evidence`。一个目录有资产时才建立它：
+开始写文件前，运行 `mmw artifact path prototype [--name <名字段>] [--issue <编号>] --sub README.md`。它的输出文件所在目录是本轮 prototype 根。创建其他资产时，运行 `mmw artifact path prototype [--name <名字段>] [--issue <编号>] --sub <类别内细分>`。过程材料使用 `mmw artifact path scratch [--name <名字段>] [--issue <编号>] --sub evidence`。一个目录有资产时才建立它：
 
 ```text
 <prototype 根>/

@@ -72,6 +72,10 @@ map 正文是整个 map 的低分辨率视图。每个 session 加载一次。op
 
 ticket 正文固定有 `Question` 和 `必读材料声明` 两节。建 ticket 的会话写当时已经知道的材料。认领 ticket 的会话在开工前补入后来产生且相关的材料。仓库产物写产物引用。tracker 产物写结论评论的 issue 编号。解决 ticket 时名字段取 map 正文 `## 分支` 的 slug；它的范围段是 `issue-` 加这张 ticket 自己的编号。
 
+开工前按声明解析。仓库产物每条运行 `mmw artifact path`，再读输出路径的索引和索引列出的文件。结论评论每条读取对应 issue 中以 `<!-- mmw:conclusion -->` 开头的评论。
+
+声明的材料找不到时：生产它的 ticket 按设计未运行，或用户选择不保存 research，继续。生产方已经运行而内容应当存在却找不到，停下问用户。问的时候给出两个选项：重新解决生产它的那张 decision ticket，或者由用户直接提供文件。
+
 每张 ticket 都带一个 `wayfinder:<type>` 标签。type 是 `research`、`prototype`、`grilling` 或 `task` 中的一个，见下方“Ticket 类型”一节。
 
 一个 session 通过把 ticket 指派给推动这张 map 的开发者来 **claim** 它。claim 必须发生在任何工作之前，使并发 session 能够跳过这张 ticket。assignee 就是 claim：open 且没有 assignee 的 ticket 是 unclaimed。
@@ -119,9 +123,10 @@ out-of-scope 工作永远不会转成 ticket；frontier 在 destination 停止�
 
 rule out of scope 是一项范围决定，不是路线上的一步。如果一张已经存在的 ticket 后来被证明位于 destination 之外，例如 charting 时错误地把它纳入范围，或者某次解决结果暴露了这个事实，就**关闭它**。关闭的 ticket 会明确地离开 frontier。随后在 **Out of scope** 中留下一行：概要、越界理由，以及指向已关闭 ticket 的链接。它不进入 **Decisions so far**；后者只记录实际走过的路线，而范围边界不是路线上的一步。
 
-## 下一步
+## 进入方式
 
-| 情况 | 下一步 |
-| --- | --- |
-| 用户带着一个松散的想法调用 | **自己继续**：读取 [charting.md](charting.md)，执行 Chart the map |
-| 用户带着一张 map 调用，可以使用 URL 或编号；ticket 可以指定，也可以不指定 | **自己继续**：读取 [walking.md](walking.md)，沿 map 推进 |
+无论哪一种，**每个会话只解一张 ticket**——`research` ticket 除外。
+
+用户带着一个松散的想法调用时，读取 [charting.md](charting.md)，执行 Chart the map。
+
+用户带着一张 map 调用时（URL 或编号；ticket 可以指定，也可以不指定），读取 [walking.md](walking.md)，沿 map 推进。

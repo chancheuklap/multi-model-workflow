@@ -542,14 +542,16 @@ rm docs/specs/check-errors/spec.md
 echo
 echo "artifact reference source forms"
 to_spec_source="$(cat "$HERE/../../skills-src/mmw-to-spec/SKILL.md")"
+spec_template_source="$(cat "$HERE/../../skills-src/mmw-to-spec/spec-template.md")"
 to_tickets_source="$(cat "$HERE/../../skills-src/mmw-to-tickets/SKILL.md")"
 to_plan_source="$(cat "$HERE/../../skills-src/mmw-to-plan/SKILL.md")"
 planner_source="$(cat "$HERE/../../skills-src/mmw-planner/SKILL.md")"
 planner_check_source="$(cat "$HERE/../../skills-src/mmw-planner/references/self-check.md")"
 implement_source="$(cat "$HERE/../../skills-src/mmw-implement/SKILL.md")"
 worker_brief_source="$(cat "$HERE/../../skills-src/mmw-implement/worker-brief.md")"
-contains "spec 生产 YAML 产物引用" "artifact_refs:" "$to_spec_source"
-contains "spec 生产空 YAML 产物引用" "artifact_refs: []" "$to_spec_source"
+contains "spec 生产 YAML 产物引用" "artifact_refs:" "$spec_template_source"
+contains "spec 生产空 YAML 产物引用" "artifact_refs: []" "$spec_template_source"
+contains "spec 运行声明校验" "mmw artifact check" "$to_spec_source"
 # spec issue 正文只剩 `## 输入出处` 一节。`## 工作名` 与 `## 产物引用` 已经去掉：
 # 名字段由当前任务分支决定，产物引用由 spec 文件的元数据块权威回答，issue 正文
 # 重复它们就是第二份事实来源。#49 的 B13 是这个决定。
@@ -559,11 +561,12 @@ check "spec issue 不再生产产物引用的键值形态" "" \
   "$(grep -F 'category=<类别> name=<工作名>' <<<"$to_spec_source" || true)"
 contains "ticket 生产产物引用固定节" "## 产物引用" "$to_tickets_source"
 contains "ticket 产物引用写无" "无" "$to_tickets_source"
+contains "ticket 拥有产物引用解析" "解析产物引用" "$to_tickets_source"
 contains "to-plan 向 planner 传产物引用" "artifact_refs" "$to_plan_source"
 contains "to-plan 运行声明校验" "mmw artifact check" "$to_plan_source"
 contains "planner 解析产物引用" "mmw artifact path" "$planner_source"
 contains "planner 自检工作名必填" "name" "$planner_check_source"
-contains "implement 向 worker 传产物引用" "category=<类别> name=<名字段>" "$implement_source"
+contains "implement 向 worker 传产物引用" "原样写进" "$implement_source"
 contains "worker 解析产物引用" "mmw artifact path" "$worker_brief_source"
 
 artifact_path_dirs_before="$(find . -type d -print | sort)"
