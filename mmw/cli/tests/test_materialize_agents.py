@@ -193,6 +193,22 @@ def test_空字符串覆盖不算覆盖(假源: Path, tmp_path: Path) -> None:
     assert "gpt-x" in 读(out, "mmw-worker.md")
 
 
+def test_角色限定宿主时别的宿主不生成(假源: Path, tmp_path: Path) -> None:
+    角色 = json.loads(json.dumps(ROLES))
+    角色["investigator"]["hosts"] = ["别的宿主"]
+    out = tmp_path / "out"
+    物化(out, roles=角色)
+    assert (out / "mmw-worker.md").is_file()
+    assert not (out / "mmw-investigator.md").exists()
+
+
+def test_角色限定宿主名单必须是非空字符串列表(假源: Path, tmp_path: Path) -> None:
+    角色 = json.loads(json.dumps(ROLES))
+    角色["investigator"]["hosts"] = []
+    with pytest.raises(SystemExit):
+        物化(tmp_path / "out", roles=角色)
+
+
 # ------------------------------------------------------------------ 清理边界
 
 def test_只清自己管的文件(假源: Path, tmp_path: Path) -> None:

@@ -36,6 +36,14 @@
       "writable": false,
       "description": "上下文隔离的会话内调查者，只读。由 mmw-research 与 mmw-diagnosing-bugs 派发：一个角度一个，并行。查一个问题的事实，带出处交回，不下判断、不改任何文件。它交回的每条断言由主 agent 验证过才作数。"
     },
+    "advisor": {
+      "agent": "mmw-advisor",
+      "body": "mmw-advisor.md",
+      "skill": "",
+      "writable": false,
+      "hosts": ["cursor"],
+      "description": "Second-opinion advisor running the stronger model. Consult at commitment boundaries — before architectural decisions, data migrations, big refactors, or API designs, and whenever the same problem has resisted two attempts — and before you treat an interpretation as settled. Pass the last user/assistant text turns, your current understanding, the constraints, and the options considered. Do not pass the session or its tool trace. Returns a verdict with reasoning and the risk that decides it. Advises only — never implements."
+    },
     "designer": {
       "agent": "mmw-designer",
       "body": "mmw-designer.md",

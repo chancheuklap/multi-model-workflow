@@ -22,6 +22,11 @@
           "family": "grok",
           "id": "grok-4.6",
           "effort": "high"
+        },
+        "cursor": {
+          "family": "grok",
+          "id": "grok-4.6",
+          "effort": "high"
         }
       }
     },
@@ -34,6 +39,11 @@
           "family": "grok",
           "id": "grok-4.6",
           "effort": "high"
+        },
+        "cursor": {
+          "family": "grok",
+          "id": "grok-4.6",
+          "effort": "xhigh"
         }
       }
     },
@@ -46,6 +56,11 @@
           "family": "grok",
           "id": "grok-4.6",
           "effort": "high"
+        },
+        "cursor": {
+          "family": "grok",
+          "id": "grok-4.6",
+          "effort": "high"
         }
       }
     },
@@ -55,6 +70,11 @@
       "effort": "medium",
       "hosts": {
         "grok": {
+          "family": "grok",
+          "id": "grok-4.6",
+          "effort": "high"
+        },
+        "cursor": {
           "family": "grok",
           "id": "grok-4.6",
           "effort": "high"
@@ -75,6 +95,23 @@
           "family": "grok",
           "id": "grok-4.6",
           "effort": "high"
+        },
+        "cursor": {
+          "family": "grok",
+          "id": "grok-4.6",
+          "effort": "medium"
+        }
+      }
+    },
+    "advisor": {
+      "family": "claude",
+      "id": "claude-fable-5",
+      "effort": "medium",
+      "hosts": {
+        "cursor": {
+          "family": "claude",
+          "id": "claude-fable-5",
+          "effort": "medium"
         }
       }
     },
@@ -84,6 +121,11 @@
       "effort": "medium",
       "hosts": {
         "grok": {
+          "family": "grok",
+          "id": "grok-4.6",
+          "effort": "high"
+        },
+        "cursor": {
           "family": "grok",
           "id": "grok-4.6",
           "effort": "high"
@@ -99,6 +141,11 @@
           "family": "grok",
           "id": "grok-4.6",
           "effort": "high"
+        },
+        "cursor": {
+          "family": "gpt",
+          "id": "gpt-5.6-sol",
+          "effort": "medium"
         }
       }
     },
