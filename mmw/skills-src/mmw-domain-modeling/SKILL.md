@@ -111,9 +111,7 @@ description: 构建并明确项目的领域模型。用户想要明确领域术�
 
 缺少其中任何一项，都不要创建 ADR。使用 [ADR-FORMAT.md](./ADR-FORMAT.md) 中的格式。
 
-## 下一步
-
-| 情况 | 下一步 |
+| 情况 | 处理 |
 | --- | --- |
-| 其他技能调用了本技能，而且领域模型维护已经完成 | **移交**：把更新的领域术语、bounded context、bounded context 之间的关系和 ADR 交回调用方 |
-| 用户直接要求维护领域模型，而且领域模型维护已经完成 | **停**：报告更新的领域术语、bounded context、bounded context 之间的关系和 ADR |
+| 其他技能调用了本技能，而且领域模型维护已经完成 | 把更新的领域术语、bounded context、bounded context 之间的关系和 ADR 交回调用方 |
+| 用户直接要求维护领域模型，而且领域模型维护已经完成 | 报告更新的领域术语、bounded context、bounded context 之间的关系和 ADR |
