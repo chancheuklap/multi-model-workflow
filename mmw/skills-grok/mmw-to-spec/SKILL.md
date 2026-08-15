@@ -16,29 +16,12 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 | 当前情况 | 要读取的已有产物 | 产物位置 | 怎样找到属于这份 spec 的内容 |
 | --- | --- | --- | --- |
 | 用户直接调用 `/mmw-to-spec` | 当前对话中已经谈定的内容 | 当前对话 | 从用户提出本次需求的位置开始，读取已经明确形成的决定。不要使用尚未得到确认的建议或问题 |
-| `/mmw-grilling` 完成后进入 To Spec | 用户已经确认的共同理解记录 | `/mmw-grilling` 交回的那个精确路径。它没有交回路径时，运行 `mmw artifact path scratch --name <工作名> --sub understanding.md` | 读这份记录的 `## 共同理解` 与 `## 支持材料` 两段。支持材料段点名 research 或 prototype 时，顺着它写出的精确路径读那些产物。这两段就是本次访谈的全部结果 |
+| `/mmw-grilling` 完成后进入 To Spec | 用户已经确认的共同理解记录 | `/mmw-grilling` 交回的那个精确路径。它没有交回路径时，运行 `mmw artifact path scratch --sub understanding.md` | 读这份记录的 `## 共同理解` 与 `## 支持材料` 两段。支持材料段点名 research 或 prototype 时，顺着它写出的精确路径读那些产物。这两段就是本次访谈的全部结果 |
 | `/mmw-prototype` 完成后直接进入 To Spec | prototype 的 `README.md`，以及它列出的用户走查结论、选中产物、被否掉的方向和可复用内容 | `/mmw-prototype` 交回来的那个精确路径，指向一份 `README.md` | 读交回来的那份 `README.md`。确认它写的「当前问题」属于这份 spec，再顺着它读它点名的选中产物和可复用内容。不要去翻别的 prototype 目录 |
 | 被交来一张已经分诊过的 issue 编号（`/mmw-start` 或 `/mmw-triage` 判定它要拆成多张 ticket） | 那张 issue 的正文、agent brief 和讨论 | 交回来的那个 issue 编号。运行 `gh issue view <编号> --comments` 打开它 | 读正文和 agent brief，认出这次要交付的产品行为。它是这份 spec 的输入，不是 spec 本身——决定不够写成 spec 时按本节末尾停下 |
-| `/mmw-wayfinder` 关闭 map 后进入 To Spec | 已关闭的 map，跟这份 spec 有关的那几张 decision ticket 的结论，以及这些结论里点名的 prototype 和 research | `/mmw-wayfinder` 交回的 map URL 或编号。运行 `gh issue view <map 编号> --comments` 打开它 | 先确认 map 的 `Destination` 写的就是这份 spec。从 map 的 `## 工作名` 记下交来的工作名。map 的 `Decisions so far` 一节每行都带着一张 decision ticket 的链接，顺着链接逐张运行 `gh issue view <ticket 编号> --comments`。每张 ticket 关闭前都留了一条写结论的评论，读这条评论和它里面写出的精确文件路径。跟 `Destination` 无关的 ticket 不要读 |
+| `/mmw-wayfinder` 关闭 map 后进入 To Spec | 已关闭的 map，跟这份 spec 有关的那几张 decision ticket 的结论，以及这些结论里点名的 prototype 和 research | `/mmw-wayfinder` 交回的 map URL 或编号。运行 `gh issue view <map 编号> --comments` 打开它 | 先确认 map 的 `Destination` 写的就是这份 spec。从 map 的 `## 分支` 记下名字段。map 的 `Decisions so far` 一节每行都带着一张 decision ticket 的链接，顺着链接逐张运行 `gh issue view <ticket 编号> --comments`。每张 ticket 关闭前都留了一条写结论的评论，读这条评论和它里面写出的精确文件路径。跟 `Destination` 无关的 ticket 不要读 |
 
 匹配行要求的产物不存在，或者产物中仍缺少一项产品、设计或架构决定时，写清缺少的完整内容和已经检查的位置，然后停止。不要在本技能中重新访谈，也不要猜测缺失产物的位置。
-
-## 确定工作名
-
-从 `/mmw-wayfinder` 进入时，先从 map 的 `## 工作名` 取得 `<map 工作名>`。需要进入任务 worktree 时，用它作为 `<工作名>`。
-
-先运行 `mmw task state`，按第一个词选行。要建树的两行都先分别确定任务分支名和工作名。
-
-| 第一个词 | 什么意思 | 你做什么 |
-| --- | --- | --- |
-| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名 |
-| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]` |
-| `local` | 你在主检出里 | 停。请用户用 `grok --worktree=<任务分支名>` 或 `-w` 开新会话。本技能上文点名了父分支时，启动命令加上 `--worktree-ref=<父分支>`。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。禁止 `git worktree add`。禁止用终端 `cd` 代替把会话放进树。 |
-| `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
-
-`detached` 与 `local` 两行做完之后都重新运行 `mmw task state`，确认第一个词是 `bound`，再运行 `mmw task name` 取工作名。工作区不干净、分支已经存在，或者父分支里没有这次任务需要的决定时**停下来**，不要在错的基点上补提交。
-
-从 `/mmw-wayfinder` 进入时，比较 `<map 工作名>` 与 `mmw task name` 的输出。不一致时，报告两者冲突并交给用户决定；不要自己选一个。
 
 ## 流程
 
@@ -53,16 +36,16 @@ description: 把已经谈定的内容综合、审查并发布成一份 spec。�
 
 向用户确认这些 seam 是否符合预期。用户确认前不要写 spec。
 
-3. 完整读取 [spec-template.md](spec-template.md)。使用该模板编写 spec。运行 `mmw artifact path spec`。把 spec 写入输出文件。
+3. 完整读取 [spec-template.md](spec-template.md)。使用该模板编写 spec。从 `/mmw-wayfinder` 进入时运行 `mmw artifact path spec --name <map 分支 slug>`；否则运行 `mmw artifact path spec`。把 spec 写入输出文件。
 
-   元数据块固定写六个字段。`slug` 写工作名。`summary` 写一句交付说明。`date` 写当天的 `YYYY-MM-DD`。`branch` 写当前任务分支名。`spec_issue` 在发布前暂写模板占位编号。`artifact_refs` 始终存在；当前没有产物引用时写 `[]`。
+   元数据块固定写六个字段。`slug` 写名字段。`summary` 写一句交付说明。`date` 写当天的 `YYYY-MM-DD`。`branch` 写当前任务分支名。`spec_issue` 在发布前暂写模板占位编号。`artifact_refs` 始终存在；当前没有产物引用时写 `[]`。
 
-   把这份 spec 实际使用的 prototype 资产和 research 写成产物引用。每条都写显式工作名。使用下面的 YAML 映射列表。类别需要范围段或类别内细分时才写 `issue` 或 `sub`。没有引用时写 `artifact_refs: []`。
+   把这份 spec 实际使用的 prototype 资产和 research 写成产物引用。每条都写显式名字段。使用下面的 YAML 映射列表。类别需要范围段或类别内细分时才写 `issue` 或 `sub`。没有引用时写 `artifact_refs: []`。
 
    ```yaml
    artifact_refs:
      - category: <类别>
-       name: <工作名>
+       name: <名字段>
        issue: <编号>
        sub: <类别内细分>
    ```
@@ -117,7 +100,7 @@ mmw issue create --title "<spec 名称>" --body-file <上一步输出文件> --l
 
 | 情况 | 下一步 |
 | --- | --- |
-| spec 已经提交并发布，而且对应 issue 带 `ready-for-agent` | **移交**：`/mmw-to-tickets`，交给它工作名和这张 spec issue 的编号，把 spec 拆成 tracer bullet ticket |
+| spec 已经提交并发布，而且对应 issue 带 `ready-for-agent` | **移交**：`/mmw-to-tickets`，交给它名字段和这张 spec issue 的编号，把 spec 拆成 tracer bullet ticket |
 | 入口要求的产物不存在，或者其中缺少一项产品、设计或架构决定 | **停**：报告缺少的完整内容和已经检查的位置，等用户补齐或指出正确位置 |
 | 已经开始写 spec，但发现某项决定尚未形成 | **停**：报告缺少的完整内容和已经检查的位置；这项决定需要先谈定，不在本技能中访谈 |
 | 用户看过完整 spec 和 ① spec 审结果后要求修改 | **停**：按用户意见修改 spec，再次展示完整结果，等待批准 |

@@ -106,24 +106,22 @@ def test_四个宿主对同一个占位符给出各自的动作(假源: Path, tm
 @pytest.mark.parametrize(
     ("host", "启动命令"),
     [
-        ("pi", "mmw task new <结果分支> \"<目标栏原文>\" --name <工作名> --from <基点 SHA>"),
-        ("claude-code", "mmw task new <结果分支> \"<目标栏原文>\" --name <工作名> --from <基点 SHA>"),
-        (
-            "codex",
-            "mmw task bind <完整结果分支名> <目标栏原文> --name <工作名> --from <基点 SHA>",
-        ),
-        (
-            "cursor",
-            "mmw task bind <结果分支> \"<目标栏原文>\" --name <工作名> --from <基点 SHA>",
-        ),
+        ("pi", "mmw worktree add <结果分支>"),
+        ("claude-code", "mmw worktree add <结果分支>"),
+        ("codex", "create_thread"),
+        ("cursor", "mmw-cursor-agent"),
     ],
 )
-def test_worktree_模式的三个宿主都显式传工作名(
+def test_worktree_模式不认领(
     假源: Path, tmp_path: Path, host: str, 启动命令: str
 ) -> None:
     out = tmp_path / host
     物化(host, out)
-    assert 启动命令 in 读(out, "mmw-alpha/SKILL.md")
+    正文 = 读(out, "mmw-alpha/SKILL.md")
+    assert 启动命令 in 正文
+    assert "mmw task" not in 正文
+    assert "task bind" not in 正文
+    assert "task new --name" not in 正文
 
 
 def test_none_模式不提工作目录(假源: Path, tmp_path: Path) -> None:
@@ -132,7 +130,7 @@ def test_none_模式不提工作目录(假源: Path, tmp_path: Path) -> None:
     out = tmp_path / "pi"
     物化("pi", out)
     正文 = 读(out, "mmw-alpha/SKILL.md")
-    assert "mmw task new" not in 正文
+    assert "mmw worktree add" not in 正文
     assert "cwd" not in 正文
 
 
@@ -142,8 +140,8 @@ def test_current_模式用当前任务_worktree(假源: Path, tmp_path: Path) ->
     out = tmp_path / "pi"
     物化("pi", out)
     正文 = 读(out, "mmw-alpha/SKILL.md")
-    assert "mmw task new" not in 正文
-    assert "当前任务 worktree" in 正文
+    assert "mmw worktree add" not in 正文
+    assert "当前工作树" in 正文
 
 
 def test_cursor_current_模式不创建结果树(假源: Path, tmp_path: Path) -> None:
@@ -156,56 +154,24 @@ def test_cursor_current_模式不创建结果树(假源: Path, tmp_path: Path) -
     assert "mmw-cursor-agent" not in 正文
     assert "--worktree" not in 正文
     assert "原生 Task" in 正文
-    assert "不创建结果 worktree" in 正文
-    assert "mmw task state" in 正文
+    assert "不另开结果树" in 正文
+    assert "mmw task state" not in 正文
 
 
-def test_bind_task_展开成四档表(假源: Path, tmp_path: Path) -> None:
+def test_require_task_branch_各宿主相同(假源: Path, tmp_path: Path) -> None:
     写(假源 / "mmw-alpha" / "SKILL.md",
-       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n[[mmw-bind-task]]\n")
+       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n[[mmw-require-task-branch]]\n")
     产出 = {}
     for host in ("pi", "claude-code", "codex", "cursor", "grok"):
         out = tmp_path / host
         物化(host, out)
         产出[host] = 读(out, "mmw-alpha/SKILL.md")
         文本 = 产出[host]
-        assert "[[mmw-bind-task]]" not in 文本
-        # 四档一个都不能少：落不进任何一行时 agent 没有指示。
-        for 档 in ("`bound`", "`detached`", "`local`", "`outside`"):
-            assert 档 in 文本
-        assert "mmw task bind" in 文本
-        assert "mmw task name" in 文本
-    # local 那一行整行委托给 enter-worktree，所以宿主差异必须原样透过来。
-    assert "mmw task new" in 产出["pi"]
-    assert "mmw task new" in 产出["claude-code"]
-    assert "mmw task new" not in 产出["codex"]
-    assert "New Worktree" in 产出["cursor"]
-    assert "grok --worktree=" in 产出["grok"]
-    # 其余三档没有宿主差异，pi 与 claude-code 应当逐字相同。
-    assert 产出["pi"] == 产出["claude-code"]
-
-
-def test_enter_worktree_按宿主展开(假源: Path, tmp_path: Path) -> None:
-    写(假源 / "mmw-alpha" / "SKILL.md",
-       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n[[mmw-enter-worktree]]\n")
-    产出 = {}
-    for host in ("pi", "claude-code", "codex", "cursor"):
-        out = tmp_path / host
-        物化(host, out)
-        产出[host] = 读(out, "mmw-alpha/SKILL.md")
-        assert "[[mmw-enter-worktree]]" not in 产出[host]
-    assert "mmw task new" in 产出["pi"]
-    assert "mmw task new" in 产出["claude-code"]
-    assert "切换到返回的绝对路径" in 产出["pi"]
-    assert 产出["pi"] == 产出["claude-code"]
-    assert "mmw task new" not in 产出["codex"]
-    assert "mmw task bind" in 产出["codex"]
-    assert "运行 `mmw task new" not in 产出["cursor"]
-    assert "禁止 `mmw task new`" in 产出["cursor"]
-    assert "New Worktree" in 产出["cursor"]
-    assert "禁止 `herdr worktree create`" in 产出["cursor"]
-    assert "新树用 `herdr worktree create`" not in 产出["cursor"]
-    assert "停" in 产出["cursor"]
+        assert "[[mmw-require-task-branch]]" not in 文本
+        assert "git switch -c" in 文本
+        assert "mmw task" not in 文本
+        assert "请用户用当前宿主开一棵工作树" in 文本
+    assert len(set(产出.values())) == 1
 
 
 @pytest.mark.parametrize("cwd_mode", ["worktree", "current", "none"])
@@ -352,7 +318,7 @@ def test_codex_与_cursor_在结果树派活后追加不重做规则(
 
 
 @pytest.mark.parametrize("role", ["worker", "worker-high-risk"])
-def test_codex_后台_worktree_任务显式传递并绑定工作名(
+def test_codex_后台_worktree_任务不认领(
     假源: Path, tmp_path: Path, role: str
 ) -> None:
     写(假源 / "mmw-alpha" / "SKILL.md",
@@ -361,18 +327,10 @@ def test_codex_后台_worktree_任务显式传递并绑定工作名(
     out = tmp_path / "codex"
     物化("codex", out)
     正文 = 读(out, "mmw-alpha/SKILL.md")
-    assert "当前任务 worktree" in 正文
-    assert "mmw task state" in 正文
-    # 工作名由 `mmw task name` 回答。原来这里断言展开出「取第四字段」——那个序号是
-    # 一份跨多个文档的合同，`state` 的输出形状一变就要散着改，而且漏掉一处没有检查
-    # 会发现。现在断言反过来：序号说法不许再出现。
-    assert "mmw task name" in 正文
+    assert "create_thread" in 正文
+    assert "mmw task" not in 正文
     assert "第四字段" not in 正文
-    assert "四栏 task、完整结果分支名、派发前基点 SHA 和工作名" in 正文
-    assert (
-        "mmw task bind <完整结果分支名> <目标栏原文> "
-        "--name <工作名> --from <基点 SHA>"
-    ) in 正文
+    assert "四栏 task、完整结果分支名和派发前基点 SHA" in 正文
 
 
 # ------------------------------------------------------------------ 必须当场失败
@@ -445,7 +403,7 @@ def test_只给人调的技能不进_pi_技能目录但进别的宿主(
     assert (cursor / "mmw-alpha" / "SKILL.md").is_file()
 
 
-def test_grok_worktree_不含_task_new_且含隔离与_bind(
+def test_grok_worktree_含隔离不含认领(
     假源: Path, tmp_path: Path
 ) -> None:
     写(假源 / "mmw-alpha" / "SKILL.md",
@@ -454,10 +412,8 @@ def test_grok_worktree_不含_task_new_且含隔离与_bind(
     out = tmp_path / "grok"
     物化("grok", out)
     正文 = 读(out, "mmw-alpha/SKILL.md")
-    assert "运行 `mmw task new`" not in 正文
-    assert "不要 `mmw task new`" in 正文
+    assert "mmw task" not in 正文
     assert "worktree 隔离" in 正文
-    assert "mmw task bind" in 正文
     assert "mmw dispatch" not in 正文
     assert "grok -p" not in 正文
     assert "主 agent 不得执行与该 subagent task 重叠的" in 正文
@@ -470,9 +426,9 @@ def test_grok_none_与_current_不含_task_new(假源: Path, tmp_path: Path) -> 
     out = tmp_path / "grok"
     物化("grok", out)
     正文 = 读(out, "mmw-alpha/SKILL.md")
-    assert "mmw task new" not in 正文
+    assert "mmw task" not in 正文
     assert "原生 subagent" in 正文
-    assert "当前任务 worktree" in 正文
+    assert "当前工作树" in 正文
 
 
 def test_grok_resume_含续跑(假源: Path, tmp_path: Path) -> None:
@@ -490,37 +446,6 @@ def test_grok_审查组双角色(假源: Path, tmp_path: Path) -> None:
     assert "reviewer-gpt" in 正文
     assert "reviewer-claude" in 正文
     assert "换不了模型" not in 正文
-
-
-def test_enter_worktree_现有宿主保持_task_new(假源: Path, tmp_path: Path) -> None:
-    写(假源 / "mmw-alpha" / "SKILL.md",
-       "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n[[mmw-enter-worktree]]\n")
-    for host in ("pi", "claude-code"):
-        out = tmp_path / host
-        物化(host, out)
-        正文 = 读(out, "mmw-alpha/SKILL.md")
-        assert "mmw task new" in 正文
-        assert "切换到返回的绝对路径" in 正文
-    out = tmp_path / "codex"
-    物化("codex", out)
-    assert "mmw task new" not in 读(out, "mmw-alpha/SKILL.md") or \
-        "禁止 `mmw task new`" in 读(out, "mmw-alpha/SKILL.md")
-    out = tmp_path / "grok"
-    物化("grok", out)
-    正文 = 读(out, "mmw-alpha/SKILL.md")
-    assert "禁止 `mmw task new`" in 正文
-    assert "禁止 `herdr worktree create`" in 正文
-    assert "新树用 `herdr worktree create`" not in 正文
-    assert "grok --worktree" in 正文
-    assert "--worktree-ref=<父分支>" in 正文
-    assert "停" in 正文
-    out = tmp_path / "cursor"
-    物化("cursor", out)
-    正文 = 读(out, "mmw-alpha/SKILL.md")
-    assert "New Worktree" in 正文
-    assert "基点用该父分支" in 正文
-    assert "禁止 `herdr worktree create`" in 正文
-    assert "新树用 `herdr worktree create`" not in 正文
 
 
 @pytest.mark.parametrize("host", ["pi", "claude-code", "codex"])
@@ -624,14 +549,14 @@ def test_用户命令带上_description(假源: Path, tmp_path: Path) -> None:
     assert json.dumps("甲的说明。", ensure_ascii=False) in 渲染
 
 
-def test_用户命令展开_enter_worktree(假源: Path, tmp_path: Path) -> None:
+def test_用户命令展开_require_task_branch(假源: Path, tmp_path: Path) -> None:
     写(假源 / "mmw-alpha" / "SKILL.md",
        "---\nname: mmw-alpha\ndescription: 甲。\ndisable-model-invocation: true\n---\n\n"
-       "建树：[[mmw-enter-worktree]] 重新运行。\n")
+       "建树：[[mmw-require-task-branch]] 重新运行。\n")
     渲染 = ms.render_pi_prompt(假源 / "mmw-alpha", 角色表, CODEX_PROFILE)
-    assert "[[mmw-enter-worktree]]" not in 渲染
-    assert "mmw task new" in 渲染
-    assert "切换到返回的绝对路径" in 渲染
+    assert "[[mmw-require-task-branch]]" not in 渲染
+    assert "git switch -c" in 渲染
+    assert "mmw task" not in 渲染
 
 
 def test_用户命令缺_description_就退出(假源: Path, tmp_path: Path) -> None:

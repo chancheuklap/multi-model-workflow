@@ -175,7 +175,7 @@ def render_spec_index(documents: list[Path], repo_root: Path) -> str:
         "",
         "由 `mmw artifact index spec` 生成。",
         "",
-        "| 工作名 | 摘要 | 日期 | 任务分支名 | spec issue 编号 |",
+        "| 名字段 | 摘要 | 日期 | 任务分支名 | spec issue 编号 |",
         "| --- | --- | --- | --- | --- |",
     ]
     for entry in entries:

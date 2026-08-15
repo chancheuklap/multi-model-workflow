@@ -34,7 +34,7 @@ mmw_adapter_mcp_overrides() {
 # 可写角色要能提交，`writable_roots` 就得覆盖 git 真正要写的目录。
 #
 # 不要拼 `<cwd>/.git`。那一行只对「`.git` 是目录」的普通仓库成立，而 MMW 派活的主
-# 路径是 `mmw task new` 建的 linked worktree：那里的 `.git` 是个文件，里面写着
+# 路径是 `mmw worktree add` 建的 linked worktree：那里的 `.git` 是个文件，里面写着
 # `gitdir: <主仓库>/.git/worktrees/<名字>`。`git commit` 的 `index.lock` 落在那个
 # 目录里，既不在工作目录下也不在拼出来的路径下，于是每一次提交都被沙箱拒掉。
 #
@@ -139,7 +139,7 @@ mmw_adapter_dispatch() {
       fi
 
       # 进度日志是派发结束后的诊断材料。落点只由 artifact path 回答。
-      # 主检出没有工作名时算不出落点。此时明确说明不写日志，并继续派发。
+      # 当前没有任务分支时算不出落点。此时明确说明不写日志，并继续派发。
       local log_dir="" log="" log_tmp="" timestamp
       local -a artifact_args=(artifact path scratch --sub dispatch --absolute)
       if [ -n "${MMW_D_ISSUE:-}" ]; then

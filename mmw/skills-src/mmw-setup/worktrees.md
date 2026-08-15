@@ -1,6 +1,6 @@
 # 任务隔离
 
-> 已过时的背景材料，不参与行为判断；作废范围和当前做法见 [legacy-setup.md](legacy-setup.md)。
+> 已过时的背景材料，不参与行为判断；作废范围和当前做法见 [legacy-setup.md](legacy-setup.md)。任务树认领、独立工作名和空提交已废除：任务树由用户开，agent 只在已有的树上创建任务分支。
 
 正式任务在独立 git worktree 里做，**从你开口的那一刻就建**，不等 issue、不等 spec。主 agent 和 Codex 工人不在同一棵树上。
 

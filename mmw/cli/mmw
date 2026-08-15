@@ -25,8 +25,8 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 . "$MMW_ROOT/cli/lib/config.sh"
 # shellcheck source=lib/path.sh
 . "$MMW_ROOT/cli/lib/path.sh"
-# shellcheck source=lib/task.sh
-. "$MMW_ROOT/cli/lib/task.sh"
+# shellcheck source=lib/worktree.sh
+. "$MMW_ROOT/cli/lib/worktree.sh"
 # shellcheck source=lib/issue.sh
 . "$MMW_ROOT/cli/lib/issue.sh"
 # shellcheck source=lib/domain.sh
@@ -51,7 +51,7 @@ mmw <命令> [参数]
   agents      把角色物化成宿主原生 subagent 文件
   skills      把技能源占位符物化成宿主写死的启动句
   artifact    产物：查询类别的落点
-  task        任务 worktree：查状态、取工作名、建、绑分支、删
+  worktree    Pi / Claude Code：从当前 HEAD 长出或收回工人树
   result      后台结果：验证分支并集成到当前任务
   issue       tracker：建 issue、挂父子、算可认领集合
   domain      领域文档：初始化 Map、同步和检查消费合同、查询落点与 ADR 编号
@@ -99,29 +99,15 @@ EOF
   return 2
 }
 
-usage_task() {
+usage_worktree() {
   cat >&2 <<'EOF'
-mmw task new <任务分支> [用户原话] [--name <工作名>] [--from <基点分支或 SHA>]
-    建任务 worktree 和同名分支，输出这个 worktree 的绝对路径。
-    用户原话记进这条分支的第一个空提交，让后来的人知道这个任务从哪来。
-    从普通检出新建时要给 --name；从已有任务 worktree 分叉时继承工作名。
-    不给 --from 就从当前 HEAD 分叉；从 Wayfinding 的 map 分支派生时给 --from <map 分支>。
-mmw task cleanup <slug>
-    删掉这个 worktree 和它的分支。有未提交改动时失败，不强制删除。
-mmw task state
-    当前所在位置，输出 outside、local、detached，或带工作名的 bound。
-    用它的第一个词决定要不要自己建树。工作名从 mmw task name 取。
-mmw task name
-    只输出工作名，一行。不在已绑定的任务 worktree 里时失败并说清当前位置。
-mmw task bind <完整任务分支名> <用户原话或任务目标> [--name <工作名>] [--from <预期基点>]
-    已绑定任务 worktree 用它补写工作名。
-    Codex App、Cursor 与 Grok 也用它把宿主已经建好的 detached worktree 绑到任务分支上。
-    给了 --from 就先校验当前 HEAD 等于这个基点。
+mmw worktree add <结果分支>
+    在 paths.worktrees/<结果分支> 上从当前 HEAD 长出一棵隔离树，并创建同名分支。
+    只给 Pi 与 Claude Code 用。输出这棵树的绝对路径。
+mmw worktree remove <结果分支>
+    删掉这棵树和它的分支。结果分支必须已经合进当前分支，工作区必须干净。
 
-这条命令只输出路径；真正切进 worktree 要用宿主自己的工具。
-在 Codex App、Cursor 与 Grok 上只有 state 和 bind 可用，worktree 由宿主创建和清理；
-其他宿主也可在已绑定任务 worktree 上用 bind 补写工作名。
-在 Pi 与 Claude Code 上 new 与 cleanup 可用。
+Cursor、Codex App 与 Grok 上这两条命令失败：那些宿主自己创建和回收树。
 EOF
   return 2
 }
@@ -438,50 +424,17 @@ cmd_skills() {
 }
 
 # 派出去的那一侧从哪个路径读方法论。宿主自己会送到位的，什么都不输出。
-cmd_task() {
-  local host
-  host="$(mmw_host)" || return 1
+cmd_worktree() {
+  mmw_worktree_host_owns_trees || return 1
   local sub="${1:-}"
   shift || true
   case "$sub" in
-    state) [ $# -eq 0 ] || usage_task; mmw_task_state ;;
-    name) [ $# -eq 0 ] || usage_task; mmw_task_name ;;
-    bind) mmw_task_bind "$@" ;;
-    new)
-      case "$host" in
-        codex)
-          echo "mmw: Codex App 负责创建 worktree，这里只用 task bind" >&2
-          return 1
-          ;;
-        cursor)
-          echo "mmw: Cursor 负责创建 worktree，这里只用 task bind" >&2
-          return 1
-          ;;
-        grok)
-          echo "mmw: Grok 负责创建 worktree，这里只用 task bind" >&2
-          return 1
-          ;;
-      esac
-      mmw_task_new "$@"
+    add) mmw_worktree_add "$@" ;;
+    remove)
+      [ $# -eq 1 ] || usage_worktree
+      mmw_worktree_remove "$1"
       ;;
-    cleanup)
-      case "$host" in
-        codex)
-          echo "mmw: Codex App 负责清理 managed worktree" >&2
-          return 1
-          ;;
-        cursor)
-          echo "mmw: Cursor 负责清理 ~/.cursor/worktrees 下的树" >&2
-          return 1
-          ;;
-        grok)
-          echo "mmw: Grok 负责回收 managed worktree" >&2
-          return 1
-          ;;
-      esac
-      mmw_task_cleanup "$@"
-      ;;
-    *) usage_task ;;
+    *) usage_worktree ;;
   esac
 }
 
@@ -933,7 +886,7 @@ case "${1:-}" in
   agents) shift; cmd_agents "$@" ;;
   skills) shift; cmd_skills "$@" ;;
   artifact) shift; cmd_artifact "$@" ;;
-  task) shift; cmd_task "$@" ;;
+  worktree) shift; cmd_worktree "$@" ;;
   result) shift; cmd_result "$@" ;;
   issue) shift; cmd_issue "$@" ;;
   domain) shift; cmd_domain "$@" ;;

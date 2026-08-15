@@ -204,290 +204,98 @@ suite_result_integrate() {
     merge_count_is "$repo" 1
 }
 
-# ---------------------------------------------------------------- task cleanup
+# ------------------------------------------------------------- worktree remove
 
-suite_task_cleanup() {
-  echo "mmw task cleanup"
+suite_worktree_remove() {
+  echo "mmw worktree remove"
   local repo task_wt
   repo="$(fresh_repo)"
 
   grow_branch "$repo" unmerged >/dev/null
   expect_deny "分支还没合并进当前分支时不清理" "$repo" \
-    env MMW_HOST=pi "$MMW" task cleanup unmerged
+    env MMW_HOST=pi "$MMW" worktree remove unmerged
   expect_state "分支还没合并进当前分支时不清理" "分支还在" \
     branch_exists "$repo" unmerged
   expect_state "分支还没合并进当前分支时不清理" "worktree 还在" \
     test -d "$repo/.worktrees/unmerged"
 
   expect_deny "分支不存在时报错" "$repo" \
-    env MMW_HOST=pi "$MMW" task cleanup nosuch
+    env MMW_HOST=pi "$MMW" worktree remove nosuch
 
   grow_branch "$repo" merged >/dev/null
   git -C "$repo" merge -q --no-ff --no-edit merged
   expect_ok "已经合并进当前分支时允许清理" "$repo" \
-    env MMW_HOST=pi "$MMW" task cleanup merged
+    env MMW_HOST=pi "$MMW" worktree remove merged
   expect_state "已经合并进当前分支时允许清理" "分支和 worktree 都已删掉" \
     branch_absent "$repo" merged
 
-  # 上面几条都站在主仓库里跑。那里「当前分支」和「主仓库 checkout 的分支」是同
-  # 一条，判据取哪一个都过，分不出对错。下面几条站在任务 worktree 里跑：主仓库
-  # 停在 main，结果分支只合进任务分支，判据必须看任务分支才判得对。
   task_wt="$repo/.worktrees/task"
   grow_branch "$repo" task >/dev/null
 
-  mmw_in "$task_wt" pi task new landed --name cleanup-work >/dev/null
+  mmw_in "$task_wt" pi worktree add landed >/dev/null
   git -C "$repo/.worktrees/landed" commit -q --allow-empty -m "landed work"
   git -C "$task_wt" merge -q --no-ff --no-edit landed
   expect_ok "在任务 worktree 里，已经合并进任务分支时允许清理" "$task_wt" \
-    env MMW_HOST=pi "$MMW" task cleanup landed
+    env MMW_HOST=pi "$MMW" worktree remove landed
   expect_state "在任务 worktree 里，已经合并进任务分支时允许清理" "分支和 worktree 都已删掉" \
     branch_absent "$repo" landed
 
-  mmw_in "$task_wt" pi task new adrift --name cleanup-work >/dev/null
+  mmw_in "$task_wt" pi worktree add adrift >/dev/null
   git -C "$repo/.worktrees/adrift" commit -q --allow-empty -m "adrift work"
   expect_deny "在任务 worktree 里，还没合并进任务分支时不清理" "$task_wt" \
-    env MMW_HOST=pi "$MMW" task cleanup adrift
+    env MMW_HOST=pi "$MMW" worktree remove adrift
   expect_state "在任务 worktree 里，还没合并进任务分支时不清理" "分支还在" \
     branch_exists "$repo" adrift
 
-  # 一条分支永远是它自己的祖先，合并判据在这里恒真；git 也不挡，它会把调用者脚
-  # 下的目录真的删掉。挡这一下的只能是显式检查。
   expect_deny "站在自己那棵 worktree 里不清理自己" "$repo/.worktrees/adrift" \
-    env MMW_HOST=pi "$MMW" task cleanup adrift
+    env MMW_HOST=pi "$MMW" worktree remove adrift
   expect_state "站在自己那棵 worktree 里不清理自己" "worktree 还在" \
     test -d "$repo/.worktrees/adrift"
 }
 
-# -------------------------------------------------------------------- task new
+# ---------------------------------------------------------------- worktree add
 
-suite_task_state() {
-  echo "mmw task state"
-  local repo detached expected_state
+suite_worktree_add() {
+  echo "mmw worktree add"
+  local repo before head
   repo="$(fresh_repo)"
+  head="$(git -C "$repo" rev-parse HEAD)"
 
-  expect_state "仓库外输出 outside" "状态行只有 outside" \
-    test "$(cd "$WORKBENCH" && MMW_HOST=pi "$MMW" task state)" = outside
-  expected_state="local main $(git -C "$repo" rev-parse HEAD)"
-  expect_state "主检出输出 local" "状态行带分支和 HEAD" \
-    test "$(cd "$repo" && MMW_HOST=pi "$MMW" task state)" = "$expected_state"
-  detached="$repo/.worktrees/state-detached"
-  git -C "$repo" worktree add -q --detach "$detached" HEAD
-  expected_state="detached $(git -C "$detached" rev-parse HEAD)"
-  expect_state "detached linked worktree 输出 detached" "状态行带 HEAD" \
-    test "$(cd "$detached" && MMW_HOST=pi "$MMW" task state)" = "$expected_state"
-}
-
-suite_task_name() {
-  echo "mmw task name"
-  local repo tree detached out
-  repo="$(fresh_repo)"
-  mmw_in "$repo" pi task new named-work "取工作名" --name work-name-here >/dev/null
-  tree="$repo/.worktrees/named-work"
-
-  expect_state "已绑定的任务 worktree 输出工作名" "输出只有工作名这一行" \
-    test "$(cd "$tree" && MMW_HOST=pi "$MMW" task name)" = work-name-here
-
-  expect_deny "主检出取不到工作名" "$repo" \
-    env MMW_HOST=pi "$MMW" task name
-  expect_deny "仓库外取不到工作名" "$WORKBENCH" \
-    env MMW_HOST=pi "$MMW" task name
-
-  detached="$repo/.worktrees/name-detached"
-  git -C "$repo" worktree add -q --detach "$detached" HEAD
-  expect_deny "detached 树取不到工作名" "$detached" \
-    env MMW_HOST=pi "$MMW" task name
-
-  # 绑好了分支、工作名没写的那一种要给出补写命令。这条错误由 state 拥有，
-  # name 不重写第二份；断言它确实传了出来。
-  git -C "$tree" config --worktree --unset mmw.task.work-name
-  out="$WORKBENCH/task-name-missing.err"
-  (cd "$tree" && MMW_HOST=pi "$MMW" task name) 2> "$out" || true
-  expect_state "缺工作名时给出补写命令" "错误里带 mmw task bind" \
-    grep -qF "mmw task bind" "$out"
-
-  expect_deny "缺工作名时非零退出" "$tree" \
-    env MMW_HOST=pi "$MMW" task name
-}
-
-suite_task_new() {
-  echo "mmw task new"
-  local repo before expected_state
-  repo="$(fresh_repo)"
-
-  expect_deny "普通检出缺工作名时不建任务分支" "$repo" \
-    env MMW_HOST=pi "$MMW" task new nameless "没有工作名"
-  expect_state "普通检出缺工作名时不建任务分支" "分支没有建出来" \
-    branch_absent "$repo" nameless
-
-  expect_ok "建一条新任务分支" "$repo" \
-    env MMW_HOST=pi "$MMW" task new first "第一条" --name delivery-name
-  expected_state="bound first $(git -C "$repo/.worktrees/first" rev-parse HEAD) delivery-name"
-  expect_state "新任务状态输出工作名" "bound 的第四字段是工作名" \
-    test "$(cd "$repo/.worktrees/first" && MMW_HOST=pi "$MMW" task state)" = "$expected_state"
-  expect_deny "目录已经存在时不覆盖" "$repo" \
-    env MMW_HOST=pi "$MMW" task new first "重复的" --name delivery-name
-  expect_deny "--from 给了不存在的基点时报错" "$repo" \
-    env MMW_HOST=pi "$MMW" task new second "第二条" --name second-name --from nosuchref
-  expect_state "--from 给了不存在的基点时报错" "分支没有建出来" \
-    branch_absent "$repo" second
-
-  # 同名分支已存在、worktree 被清掉过：挂回去，不再打一个新的空提交。
+  expect_ok "从当前 HEAD 长出工人树" "$repo" \
+    env MMW_HOST=pi "$MMW" worktree add first
+  expect_state "从当前 HEAD 长出工人树" "分支从当前 HEAD 长出" \
+    test "$(git -C "$repo/.worktrees/first" rev-parse HEAD)" = "$head"
+  expect_state "从当前 HEAD 长出工人树" "不写 mmw.task 配置" \
+    test -z "$(git -C "$repo/.worktrees/first" config --get-regexp '^mmw\.task' || true)"
   before="$(git -C "$repo" rev-list --count first)"
-  git -C "$repo" worktree remove "$repo/.worktrees/first"
-  expect_deny "已有任务分支挂回时缺工作名不添加 worktree" "$repo" \
-    env MMW_HOST=pi "$MMW" task new first "再来一次"
-  expect_state "已有任务分支挂回时缺工作名不添加 worktree" "worktree 没有建出来" \
-    test ! -e "$repo/.worktrees/first"
-  expect_ok "同名分支已存在时挂回那条分支" "$repo" \
-    env MMW_HOST=pi "$MMW" task new first "再来一次" --name rebuilt-name
-  expect_state "同名分支已存在时挂回那条分支" "没有多打一个空提交" \
-    test "$(git -C "$repo" rev-list --count first)" -eq "$before"
-  expected_state="bound first $(git -C "$repo/.worktrees/first" rev-parse HEAD) rebuilt-name"
-  expect_state "挂回任务分支后重新保存工作名" "bound 的第四字段是重新给的工作名" \
-    test "$(cd "$repo/.worktrees/first" && MMW_HOST=pi "$MMW" task state)" = "$expected_state"
+  expect_state "从当前 HEAD 长出工人树" "不打空提交" \
+    test "$before" -eq "$(git -C "$repo" rev-list --count main)"
 
-  expect_ok "工作名允许点、下划线和连字符" "$repo" \
-    env MMW_HOST=pi "$MMW" task new safe-name "安全路径段" --name safe.name_with-tail
-  expect_deny "工作名拒绝大写字母" "$repo" \
-    env MMW_HOST=pi "$MMW" task new upper-name "大写" --name Upper
-  expect_state "工作名拒绝大写字母" "分支没有建出来" \
-    branch_absent "$repo" upper-name
-  expect_deny "工作名拒绝非法首字符" "$repo" \
-    env MMW_HOST=pi "$MMW" task new dash-name "连字符开头" --name -dash
-  expect_state "工作名拒绝非法首字符" "分支没有建出来" \
-    branch_absent "$repo" dash-name
-  expect_deny "工作名拒绝斜杠" "$repo" \
-    env MMW_HOST=pi "$MMW" task new slash-name "斜杠" --name bad/name
-  expect_state "工作名拒绝斜杠" "分支没有建出来" \
-    branch_absent "$repo" slash-name
+  expect_deny "目录已经存在时不覆盖" "$repo" \
+    env MMW_HOST=pi "$MMW" worktree add first
+  expect_deny "分支已经存在时不覆盖" "$repo" \
+    env MMW_HOST=pi "$MMW" worktree add first
 
-  expect_ok "当前任务 worktree 的子任务继承工作名" "$repo/.worktrees/safe-name" \
-    env MMW_HOST=pi "$MMW" task new child-name "子任务"
-  expected_state="bound child-name $(git -C "$repo/.worktrees/child-name" rev-parse HEAD) safe.name_with-tail"
-  expect_state "当前任务 worktree 的子任务继承工作名" "bound 的第四字段沿用父工作名" \
-    test "$(cd "$repo/.worktrees/child-name" && MMW_HOST=pi "$MMW" task state)" = "$expected_state"
+  expect_deny "结果分支名拒绝大写字母" "$repo" \
+    env MMW_HOST=pi "$MMW" worktree add Upper
+  expect_state "结果分支名拒绝大写字母" "分支没有建出来" \
+    branch_absent "$repo" Upper
+  expect_deny "结果分支名拒绝斜杠" "$repo" \
+    env MMW_HOST=pi "$MMW" worktree add bad/name
+  expect_state "结果分支名拒绝斜杠" "分支没有建出来" \
+    branch_absent "$repo" bad/name
 
-  expect_ok "--from 父任务分支时继承工作名" "$repo" \
-    env MMW_HOST=pi "$MMW" task new from-parent "指定父任务" --from safe-name
-  expected_state="bound from-parent $(git -C "$repo/.worktrees/from-parent" rev-parse HEAD) safe.name_with-tail"
-  expect_state "--from 父任务分支时继承工作名" "bound 的第四字段沿用父工作名" \
-    test "$(cd "$repo/.worktrees/from-parent" && MMW_HOST=pi "$MMW" task state)" = "$expected_state"
-  expect_deny "显式工作名不能改变父任务工作名" "$repo" \
-    env MMW_HOST=pi "$MMW" task new changed-parent "错误名字" --name changed-name --from safe-name
-  expect_state "显式工作名不能改变父任务工作名" "分支没有建出来" \
-    branch_absent "$repo" changed-parent
-}
+  expect_deny "Cursor 拒绝 worktree add" "$repo" \
+    env MMW_HOST=cursor "$MMW" worktree add cursor-new
+  expect_state "Cursor 拒绝 worktree add" "分支没有建出来" \
+    branch_absent "$repo" cursor-new
+  expect_deny "Codex 拒绝 worktree add" "$repo" \
+    env MMW_HOST=codex "$MMW" worktree add codex-new
+  expect_deny "Grok 拒绝 worktree add" "$repo" \
+    env MMW_HOST=grok "$MMW" worktree add grok-new
 
-# ------------------------------------------------------------------- task bind
-
-suite_task_bind() {
-  echo "mmw task bind"
-  local repo base det legacy legacy_head legacy_count legacy_index legacy_worktree state_out state_err expected_state work_name_err
-  repo="$(fresh_repo)"
-  base="$(git -C "$repo" rev-parse HEAD)"
-
-  expect_deny "在已绑定分支的检出上不允许 bind" "$repo" \
-    env MMW_HOST=codex "$MMW" task bind codex/x "任务目标"
-
-  # 让 main 往前走一步，detached worktree 留在 base：--from main 才是真的不符。
-  printf 'moved\n' > "$repo/moved.txt"
-  git -C "$repo" add moved.txt
-  git -C "$repo" commit -q -m "main 前进一步"
-
-  det="$repo/.worktrees/detached"
-  git -C "$repo" worktree add -q --detach "$det" "$base"
-
-  expect_deny "缺任务目标时不 bind" "$det" \
-    env MMW_HOST=codex "$MMW" task bind codex/x
-  expect_deny "分支名不合法时不 bind" "$det" \
-    env MMW_HOST=codex "$MMW" task bind "有空格的 名字" "任务目标"
-  expect_deny "--from 与当前 HEAD 不符时不 bind" "$det" \
-    env MMW_HOST=codex "$MMW" task bind codex/x "任务目标" --from main
-  expect_state "--from 与当前 HEAD 不符时不 bind" "分支没有建出来" \
-    branch_absent "$repo" codex/x
-
-  printf 'dirty\n' > "$det/dirty.txt"
-  expect_deny "工作区不干净时不 bind" "$det" \
-    env MMW_HOST=codex "$MMW" task bind codex/x "任务目标"
-  expect_state "工作区不干净时不 bind" "分支没有建出来" \
-    branch_absent "$repo" codex/x
-  rm -f "$det/dirty.txt"
-
-  expect_ok "干净的 detached worktree 允许 bind" "$det" \
-    env MMW_HOST=codex "$MMW" task bind codex/x "任务目标" --name aaa
-  work_name_err="$WORKBENCH/detached-work-name.err"
-  if (cd "$det" && MMW_HOST=codex "$MMW" task bind codex/x "任务目标" --name bbb) \
-      >"$work_name_err" 2>&1; then
-    report fail "已绑定任务 worktree 不改写已经确定的工作名" "期望拒绝，实际成功"
-  else
-    report pass "已绑定任务 worktree 不改写已经确定的工作名"
-  fi
-  expect_state "已绑定任务 worktree 不改写已经确定的工作名" "错误说明原工作名" \
-    grep -F "aaa" "$work_name_err"
-  expect_state "已绑定任务 worktree 不改写已经确定的工作名" "错误说明传入工作名" \
-    grep -F "bbb" "$work_name_err"
-  expect_state "已绑定任务 worktree 不改写已经确定的工作名" "工作名保持不变" \
-    test "$(cd "$det" && MMW_HOST=codex "$MMW" task state)" = "bound codex/x $(git -C "$det" rev-parse HEAD) aaa"
-  expect_ok "已绑定任务 worktree 用原工作名可以重复 bind" "$det" \
-    env MMW_HOST=codex "$MMW" task bind codex/x "任务目标" --name aaa
-  expect_deny "分支已经存在时不 bind" "$det" \
-    env MMW_HOST=codex "$MMW" task bind codex/x "任务目标"
-
-  legacy="$repo/.worktrees/legacy"
-  git -C "$repo" branch -q legacy "$base"
-  git -C "$repo" worktree add -q "$legacy" legacy
-  git -C "$legacy" commit --allow-empty -q -m legacy -m "旧任务目标"
-  state_out="$WORKBENCH/legacy-state.out"
-  state_err="$WORKBENCH/legacy-state.err"
-  if (cd "$legacy" && MMW_HOST=pi "$MMW" task state) >"$state_out" 2>"$state_err"; then
-    report fail "旧绑定缺工作名时 task state 拒绝" "期望非零，实际成功"
-  else
-    report pass "旧绑定缺工作名时 task state 拒绝"
-  fi
-  expect_state "旧绑定缺工作名时 task state 拒绝" "标准输出为空" test ! -s "$state_out"
-  expect_state "旧绑定缺工作名时 task state 拒绝" "诊断点名实际任务分支" \
-    grep -F "mmw task bind legacy '旧任务目标' --name <工作名>" "$state_err"
-
-  expect_deny "补写时分支必须等于当前任务分支" "$legacy" \
-    env MMW_HOST=pi "$MMW" task bind other "旧任务目标" --name legacy-work
-  expect_deny "补写时必须显式给工作名" "$legacy" \
-    env MMW_HOST=pi "$MMW" task bind legacy "旧任务目标"
-  expect_deny "补写时拒绝非法工作名" "$legacy" \
-    env MMW_HOST=pi "$MMW" task bind legacy "旧任务目标" --name Legacy
-
-  legacy_head="$(git -C "$legacy" rev-parse HEAD)"
-  legacy_count="$(git -C "$legacy" rev-list --count HEAD)"
-  legacy_index="$(git -C "$legacy" diff --cached --binary)"
-  legacy_worktree="$(git -C "$legacy" status --porcelain)"
-  expect_ok "Pi 能在旧绑定上补写工作名" "$legacy" \
-    env MMW_HOST=pi "$MMW" task bind legacy "旧任务目标" --name legacy-work
-  expected_state="bound legacy ${legacy_head} legacy-work"
-  expect_state "Pi 能在旧绑定上补写工作名" "状态读出补写的工作名" \
-    test "$(cd "$legacy" && MMW_HOST=pi "$MMW" task state)" = "$expected_state"
-  expect_state "Pi 能在旧绑定上补写工作名" "任务分支不变" \
-    test "$(git -C "$legacy" branch --show-current)" = legacy
-  expect_state "Pi 能在旧绑定上补写工作名" "HEAD 不变" \
-    test "$(git -C "$legacy" rev-parse HEAD)" = "$legacy_head"
-  expect_state "Pi 能在旧绑定上补写工作名" "提交数不变" \
-    test "$(git -C "$legacy" rev-list --count HEAD)" = "$legacy_count"
-  expect_state "Pi 能在旧绑定上补写工作名" "索引不变" \
-    test "$(git -C "$legacy" diff --cached --binary)" = "$legacy_index"
-  expect_state "Pi 能在旧绑定上补写工作名" "工作区不变" \
-    test "$(git -C "$legacy" status --porcelain)" = "$legacy_worktree"
-
-  expect_deny "已绑定任务 worktree 的 --from 与 HEAD 不符时拒绝" "$legacy" \
-    env MMW_HOST=pi "$MMW" task bind legacy "旧任务目标" --name legacy-work --from main
-  expect_ok "已绑定任务 worktree 的 --from 与 HEAD 相符时允许重复 bind" "$legacy" \
-    env MMW_HOST=pi "$MMW" task bind legacy "旧任务目标" --name legacy-work --from "$legacy_head"
-
-  legacy="$repo/.worktrees/legacy-codex"
-  git -C "$repo" branch -q legacy-codex "$base"
-  git -C "$repo" worktree add -q "$legacy" legacy-codex
-  expect_ok "Codex App 能在旧绑定上补写工作名" "$legacy" \
-    env MMW_HOST=codex "$MMW" task bind legacy-codex "Codex 旧任务目标" --name codex-legacy-work
-  expected_state="bound legacy-codex $(git -C "$legacy" rev-parse HEAD) codex-legacy-work"
-  expect_state "Codex App 能在旧绑定上补写工作名" "状态读出补写的工作名" \
-    test "$(cd "$legacy" && MMW_HOST=codex "$MMW" task state)" = "$expected_state"
+  expect_deny "没有 task 子命令" "$repo" \
+    env MMW_HOST=pi "$MMW" task state
 }
 
 # -------------------------------------------------------------------- dispatch
@@ -565,7 +373,7 @@ suite_dispatch_output() {
 
   fake_bin="$(make_fake_codex)"
 
-  mmw_in "$repo" pi task new dispatch-output "派活输出" --name dispatch-output-work >/dev/null
+  mmw_in "$repo" pi worktree add dispatch-output >/dev/null
 
   request_out="$WORKBENCH/dispatch-background-request.out"
   if (cd "$repo" && env -u MMW_INTERNAL_BACKGROUND_DISPATCH MMW_HOST=claude-code \
@@ -600,7 +408,7 @@ suite_dispatch_output() {
     sh -c 'grep -qxF "成功报告" "$1" && ! grep -q "^report:" "$1"' sh "$execution_out"
   expect_state "角色报告" "不创建 .dispatch 目录" \
     test ! -e "$repo/.worktrees/dispatch-output/.dispatch"
-  log_dir="$repo/.worktrees/dispatch-output/.scratch/dispatch-output-work/issue-39/dispatch"
+  log_dir="$repo/.worktrees/dispatch-output/.scratch/dispatch-output/issue-39/dispatch"
   # 下面这条把断言包进 sh -c，"$1" 由内层 sh 展开，不是外层漏引。
   # shellcheck disable=SC2016
   expect_state "成功的派发进度日志" "日志已删除" \
@@ -707,25 +515,27 @@ suite_dispatch_output() {
   expect_state "固定时间戳的同角色派发" "第二份日志内容完整" \
     grep -qxF "fixed-time second" "$second_log"
 
+  detached="$repo/.worktrees/no-log"
+  git -C "$repo" worktree add -q --detach "$detached" HEAD
   captured="$WORKBENCH/codex-no-log.stdin"
   execution_out="$WORKBENCH/codex-no-log.out"
   execution_err="$WORKBENCH/codex-no-log.err"
-  if (cd "$repo" && env MMW_HOST=claude-code MMW_INTERNAL_BACKGROUND_DISPATCH=1 \
+  if (cd "$detached" && env MMW_HOST=claude-code MMW_INTERNAL_BACKGROUND_DISPATCH=1 \
       PATH="$fake_bin:$PATH" FAKE_CODEX_STDIN="$captured" \
       FAKE_CODEX_REPORT="无日志报告" FAKE_CODEX_EXIT=0 \
       "$MMW" dispatch reviewer-gpt --task-text "$task_text" \
       > "$execution_out" 2> "$execution_err"); then
-    report pass "主检出算不出日志落点时仍然派发"
+    report pass "没有任务分支时算不出日志落点仍然派发"
   else
-    report fail "主检出算不出日志落点时仍然派发" \
+    report fail "没有任务分支时算不出日志落点仍然派发" \
       "$(cat "$execution_err" 2>/dev/null || true)"
   fi
-  expect_state "主检出算不出日志落点" "标准错误说明不写日志但继续派发" \
+  expect_state "没有任务分支时算不出日志落点" "标准错误说明不写日志但继续派发" \
     grep -qF "派发进度日志算不出落点时不写日志，派发照常进行" "$execution_err"
-  expect_state "主检出算不出日志落点" "报告仍走标准输出" \
+  expect_state "没有任务分支时算不出日志落点" "报告仍走标准输出" \
     grep -qxF "无日志报告" "$execution_out"
-  expect_state "主检出算不出日志落点" "不创建 .scratch 回退目录" \
-    test ! -e "$repo/.scratch"
+  expect_state "没有任务分支时算不出日志落点" "不创建 .scratch 回退目录" \
+    test ! -e "$detached/.scratch"
 }
 
 suite_dispatch() {
@@ -753,7 +563,7 @@ suite_dispatch() {
 
   # setup 失败就让它响。吞掉的话，下一条用例会拿一个不存在的目录去测，
   # dispatch 照样拒绝，用例照样绿——测到的却是「目录不存在」，不是「不干净」。
-  mmw_in "$repo" pi task new dispatchable "派活用" --name dispatchable-work >/dev/null
+  mmw_in "$repo" pi worktree add dispatchable >/dev/null
   expect_ok "干净的任务 worktree 可以派活" "$repo" \
     env MMW_HOST=claude-code "$MMW" dispatch worker --task-text "$task_text" \
       --cwd "$repo/.worktrees/dispatchable"
@@ -869,7 +679,7 @@ suite_dispatch_resume() {
   # gpt 族第二段：拿假 codex 跑真命令，断言句柄采集与 resume 装配。
   # 假 codex 把 argv 一行一个记下来，供断言检查真实传参顺序。
   fake_bin="$(make_fake_codex)"
-  mmw_in "$repo" pi task new resume-work "恢复用" --name resume-work >/dev/null
+  mmw_in "$repo" pi worktree add resume-work >/dev/null
   log_dir="$repo/.worktrees/resume-work/.scratch/resume-work/dispatch"
   handle_stem="worker-$(printf '%s' "$task_text" | shasum -a 256 | cut -c1-12)"
 
@@ -918,7 +728,7 @@ suite_dispatch_writable_roots() {
   local repo fake_bin gitdir commondir argv phys
   repo="$(fresh_repo)"
   fake_bin="$(make_fake_codex)"
-  mmw_in "$repo" pi task new writable-work "可写范围" --name writable-work >/dev/null
+  mmw_in "$repo" pi worktree add writable-work >/dev/null
 
   # linked worktree 的 .git 是文件，真正要写的是主仓库 .git/worktrees/<名字>。
   # 拼 <cwd>/.git 的老写法在这里指向那个文件本身，git commit 的 index.lock 落不进去。
@@ -962,29 +772,24 @@ suite_dispatch_writable_roots() {
 
 suite_cursor_host() {
   echo "Cursor 宿主"
-  local repo det home slug_dir out
+  local repo home slug_dir out
   repo="$(fresh_repo)"
 
-  expect_deny "Cursor 拒绝 task new" "$repo" \
-    env MMW_HOST=cursor "$MMW" task new cursor-new "不该建" --name cursor-work
-  expect_state "Cursor 拒绝 task new" "分支没有建出来" \
+  expect_deny "Cursor 拒绝 worktree add" "$repo" \
+    env MMW_HOST=cursor "$MMW" worktree add cursor-new
+  expect_state "Cursor 拒绝 worktree add" "分支没有建出来" \
     branch_absent "$repo" cursor-new
 
-  expect_deny "CURSOR_AGENT 也拒绝 task new" "$repo" \
+  expect_deny "CURSOR_AGENT 也拒绝 worktree add" "$repo" \
     env -u MMW_HOST -u CLAUDECODE -u PI_CODING_AGENT -u CODEX_THREAD_ID \
-      CURSOR_AGENT=1 "$MMW" task new cursor-env "不该建" --name cursor-work
-  expect_state "CURSOR_AGENT 也拒绝 task new" "分支没有建出来" \
+      CURSOR_AGENT=1 "$MMW" worktree add cursor-env
+  expect_state "CURSOR_AGENT 也拒绝 worktree add" "分支没有建出来" \
     branch_absent "$repo" cursor-env
 
-  expect_deny "Cursor 拒绝 task cleanup" "$repo" \
-    env MMW_HOST=cursor "$MMW" task cleanup nosuch
+  expect_deny "Cursor 拒绝 worktree remove" "$repo" \
+    env MMW_HOST=cursor "$MMW" worktree remove nosuch
 
-  det="$repo/.worktrees/cursor-det"
-  git -C "$repo" worktree add -q --detach "$det" HEAD
-  expect_ok "Cursor 能 bind detached worktree" "$det" \
-    env MMW_HOST=cursor "$MMW" task bind cursor-bound "任务目标" --name cursor-work
-
-  mmw_in "$repo" pi task new pi-tree "对照" --name pi-work >/dev/null
+  mmw_in "$repo" pi worktree add pi-tree >/dev/null
   out="$WORKBENCH/cursor-writable.err"
   if (cd "$repo" && MMW_HOST=cursor "$MMW" dispatch worker --task-text "x" \
        --cwd "$repo/.worktrees/pi-tree") >"$out" 2>&1; then
@@ -1034,11 +839,8 @@ suite_gitfacts() {
 
 suite_result_verify
 suite_result_integrate
-suite_task_cleanup
-suite_task_state
-suite_task_name
-suite_task_new
-suite_task_bind
+suite_worktree_remove
+suite_worktree_add
 suite_dispatch_output
 suite_dispatch
 suite_dispatch_resume
@@ -1048,31 +850,23 @@ suite_gitfacts
 
 suite_grok_host() {
   echo "grok 宿主"
-  local repo fake_home tree
+  local repo fake_home
   repo="$(fresh_repo)"
   fake_home="$WORKBENCH/grok-home"
   mkdir -p "$fake_home/.grok/worktrees/demo"
 
-  expect_deny "Grok 拒绝 task new" "$repo" \
-    env MMW_HOST=grok "$MMW" task new grok-new "目标" --name grok-new
-  expect_deny "Grok 拒绝 task cleanup" "$repo" \
-    env MMW_HOST=grok "$MMW" task cleanup grok-new
-
-  tree="$fake_home/.grok/worktrees/demo/tree"
-  git -C "$repo" worktree add -q --detach "$tree" HEAD
-  expect_ok "Grok 在 ~/.grok/worktrees 下 bind" "$tree" \
-    env HOME="$fake_home" MMW_HOST=grok "$MMW" task bind grok-result "目标" --name grok-work
+  expect_deny "Grok 拒绝 worktree add" "$repo" \
+    env MMW_HOST=grok "$MMW" worktree add grok-new
+  expect_deny "Grok 拒绝 worktree remove" "$repo" \
+    env MMW_HOST=grok "$MMW" worktree remove grok-new
 
   expect_deny "Grok 拒绝仓库内 .worktrees 当可写目录" "$repo" \
     env HOME="$fake_home" MMW_HOST=grok "$MMW" dispatch worker --task-text "干活" \
       --cwd "$repo"
 
-  if (cd "$repo" && env -u MMW_HOST -u CLAUDECODE -u PI_CODING_AGENT -u CODEX_THREAD_ID \
-      GROK_AGENT=1 "$MMW" task state >/dev/null); then
-    report pass "GROK_AGENT 认出 grok 宿主"
-  else
-    report fail "GROK_AGENT 认出 grok 宿主" "task state 失败"
-  fi
+  expect_deny "GROK_AGENT 认出 grok 宿主" "$repo" \
+    env -u MMW_HOST -u CLAUDECODE -u PI_CODING_AGENT -u CODEX_THREAD_ID \
+      GROK_AGENT=1 "$MMW" worktree add grok-env
 }
 
 suite_grok_host

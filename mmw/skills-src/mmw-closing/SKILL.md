@@ -13,10 +13,10 @@ description: 完成有 spec 任务的过程材料清理和交回。用于用户�
 
 | 检查 | 怎么查 |
 | --- | --- |
-| 当前 checkout 已绑定任务 | 运行 `mmw task state`。输出必须以 `bound` 开头。工作名运行 `mmw task name` 取得 |
-| spec 已提交 | 运行 `mmw artifact path spec --name <工作名>`。对输出路径运行 `git cat-file -e "HEAD:<输出路径>"` |
-| 每份 plan 已提交 | 从每张 tracer bullet ticket 取得计划文件名。逐份运行 `mmw artifact path plan --name <工作名> --sub <计划文件>`，再检查输出路径已提交 |
-| 终审已经完成 | 运行 `mmw artifact path review --name <工作名> --sub final.md`。审查记录必须存在；采信项必须有 `修复提交` |
+| 当前 checkout 有任务分支 | `git symbolic-ref --quiet --short HEAD` 有输出，且不在主检出里。spec 元数据 `slug` 与当前名字段不同时，后续命令加 `--name <spec slug>` |
+| spec 已提交 | 运行 `mmw artifact path spec`（需要时加 `--name`）。对输出路径运行 `git cat-file -e "HEAD:<输出路径>"` |
+| 每份 plan 已提交 | 从每张 tracer bullet ticket 取得计划文件名。逐份运行 `mmw artifact path plan --sub <计划文件>`（需要时加 `--name`），再检查输出路径已提交 |
+| 终审已经完成 | 运行 `mmw artifact path review --sub final.md`（需要时加 `--name`）。审查记录必须存在；采信项必须有 `修复提交` |
 
 工作区还必须干净。运行 `git status --porcelain`。输出不是空时停下，并报告改动路径。
 
@@ -24,29 +24,27 @@ description: 完成有 spec 任务的过程材料清理和交回。用于用户�
 
 ## 1. 清理当前任务的过程材料
 
-先运行 `mmw task name` 取得工作名。不要从任务分支名或 worktree 目录名推断工作名。
-
-用下面两条命令取得当前工作名的过程材料父目录：
+用下面两条命令取得当前名字段的过程材料父目录：
 
 ```bash
-scratch_root="$(dirname "$(mmw artifact path scratch --name <工作名> --sub evidence)")"
-review_root="$(dirname "$(mmw artifact path review --name <工作名> --sub final.md)")"
+scratch_root="$(dirname "$(mmw artifact path scratch --sub evidence)")"
+review_root="$(dirname "$(mmw artifact path review --sub final.md)")"
 ```
 
 列出这两个父目录下的现有条目。此时只列出，不删除。
 
 对 scratch 根下的每个候选目标重新解析路径：
 
-- 无范围段的目标运行 `mmw artifact path scratch --name <工作名> --sub <类别内细分>`。
-- 位于 `issue-<编号>` 范围段的目标运行 `mmw artifact path scratch --name <工作名> --issue <编号> --sub <类别内细分>`。
+- 无范围段的目标运行 `mmw artifact path scratch --sub <类别内细分>`。
+- 位于 `issue-<编号>` 范围段的目标运行 `mmw artifact path scratch --issue <编号> --sub <类别内细分>`。
 
-对 reviews 根下的每个候选目标运行 `mmw artifact path review --name <工作名> --sub <审查记录>`。
+对 reviews 根下的每个候选目标运行 `mmw artifact path review --sub <审查记录>`。
 
 只有候选路径与命令输出完全相同时，才把它加入删除清单。命令拒绝的条目保留，并在交回时报告。
 
-打印删除清单。逐项确认路径属于当前工作名。然后只删除清单中的路径。
+打印删除清单。逐项确认路径属于当前名字段。然后只删除清单中的路径。
 
-保留 spec、plan、prototype 资产和用户选择保存的 research。也保留其他工作名下的全部内容。
+保留 spec、plan、prototype 资产和用户选择保存的 research。也保留其他名字段下的全部内容。
 
 完成判据：删除清单中的路径均不存在。清单外的路径保持原样。
 
@@ -58,7 +56,7 @@ review_root="$(dirname "$(mmw artifact path review --name <工作名> --sub fina
 
 对每一棵属于当前任务的树运行 `git merge-base --is-ancestor <该分支> HEAD`：
 
-- 命令成功：它的提交已经在当前任务分支上。运行 `mmw task cleanup <该分支名>` 回收。
+- 命令成功：它的提交已经在当前任务分支上。运行 `mmw worktree remove <该分支名>` 回收。
 - 命令失败：它还有没合并的提交。保留它，在交回时报出分支名。
 
 当前任务 worktree 自己留着，由用户在集成之后处理。
@@ -67,7 +65,7 @@ review_root="$(dirname "$(mmw artifact path review --name <工作名> --sub fina
 
 ## 交回
 
-再次运行 `mmw artifact path spec --name <工作名>`。逐份运行 `mmw artifact path plan --name <工作名> --sub <计划文件>`。
+再次运行 `mmw artifact path spec`。逐份运行 `mmw artifact path plan --sub <计划文件>`。
 
 交回时报告以下内容：
 

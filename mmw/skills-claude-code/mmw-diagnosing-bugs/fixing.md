@@ -28,7 +28,7 @@ correct seam 是指：测试在调用点上跑的是**真实的 bug 形态**。�
 
    **验收栏里要求它交回结果分支上的 HEAD SHA。** 收结果时 `mmw result verify` 要这个值，它自己不算，只有做完的那一侧知道。
 
-   启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --name <工作名> --from <基点 SHA>`，使用命令返回的 worktree 绝对路径。后台执行 `mmw dispatch worker --cwd <结果 worktree 绝对路径>`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
+   启动：先运行 `mmw worktree add <结果分支>`，使用命令返回的 worktree 绝对路径。后台执行 `mmw dispatch worker --cwd <结果 worktree 绝对路径>`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 
    `worker` 完成后，先收取结果：
 

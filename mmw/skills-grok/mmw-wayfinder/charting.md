@@ -2,22 +2,21 @@
 
 用户带着一个松散的想法调用。这个会话把 map 建出来就结束，不去解那些需要讨论的 ticket；只有 `wayfinder:research` 这一种例外，因为它不需要用户参与，可以在这个会话里并行跑完（第 5、6 步）。
 
-这个会话的任务分支就是 map 分支。后面每张 decision ticket 都从它派生。先分别确定任务分支名和工作名。任务分支名取这项 effort 的短名。
+这个会话的任务分支就是 map 分支。后面每张 decision ticket 都从它派生。任务分支名取这项 effort 的短名。
 
-先跑 `mmw task state`，按第一个词选行。
+给这项 effort 定任务分支名。
 
-| 第一个词 | 什么意思 | 你做什么 |
+先确认当前仓库位置。判定从上到下，命中一行就停。
+
+| 情况 | 怎么判断 | 你做什么 |
 | --- | --- | --- |
-| `bound` | 你已经在一棵绑好的任务 worktree 里 | 什么都不用建。运行 `mmw task name` 取工作名 |
-| `detached` | 宿主把你放在一棵干净的树上了，还没绑分支 | 运行 `mmw task bind <任务分支名> "<用户原话>" --name <工作名> [--from <父分支或基点 SHA>]` |
-| `local` | 你在主检出里 | 停。请用户用 `grok --worktree=<任务分支名>` 或 `-w` 开新会话。本技能上文点名了父分支时，启动命令加上 `--worktree-ref=<父分支>`。把已经定下的任务分支名、工作名和用户原话写进请用户开新会话的那句话。新会话重新调用本技能，按 `detached` 行 bind。禁止 `mmw task new`。禁止 `herdr worktree create`。禁止 `git worktree add`。禁止用终端 `cd` 代替把会话放进树。 |
-| `outside` | 你根本不在仓库里 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新运行 `mmw task state`，按新输出重新选行 |
+| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
+| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
+| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
+| 已有任务分支 | 上面都不成立 | 用当前分支 |
 
-`detached` 与 `local` 两行做完之后都重新运行 `mmw task state`，确认第一个词是 `bound`，再运行 `mmw task name` 取工作名。工作区不干净、分支已经存在，或者父分支里没有这次任务需要的决定时**停下来**，不要在错的基点上补提交。
 
 1. **给 destination 命名。** 运行一场 `/mmw-grilling` session；它在同一场讨论中应用 `/mmw-domain-modeling`，确定这张 map 正在寻找的 spec、决定或改动。destination 固定范围，所以先确定它。
-
-   给这项 effort 定一个工作名。它是这项 effort 的 prototype、research 和过程材料共用的名字。它必须是单个路径段：首字符是字母或数字，其余只能是字母、数字、点、下划线、连字符，不能含斜杠。map 建好之后这个值不再改。
 
 2. **map frontier。** 再运行一场 `/mmw-grilling` session，这次采用**广度优先**方式：在整个空间铺开，不在任何一条问题线上深入。找出 open 的决定，以及当前可以采取的起始步骤。
 
@@ -27,7 +26,7 @@
 
 3. **创建 map**，并添加 `wayfinder:map` 标签。map 名称就是这张 issue 的标题，按这项 effort 起。填写 Destination 和 Notes；Decisions so far 留空；把 fog 的轮廓写入 **Not yet specified**。
 
-   同时把第 1 步确定的工作名写入 map 正文的 `## 工作名`，并把 `mmw task state` 报的当前分支名写进 `## 分支`——这个会话的任务分支就是 map 分支，后来的会话只能从这里拿到它。运行 `mmw artifact path scratch --sub outbox/map-body.md`。把完整的 map 正文写进输出文件，再用它创建 issue：
+   把当前完整任务分支名写进 map 正文的 `## 分支`——这个会话的任务分支就是 map 分支，后来的会话只能从这里拿到它。运行 `mmw artifact path scratch --sub outbox/map-body.md`。把完整的 map 正文写进输出文件，再用它创建 issue：
 
    ```bash
    mmw issue create --title "<map 名称>" --body-file <上一步输出文件> --label wayfinder:map
@@ -52,11 +51,11 @@
 
 5. **启动 research。** 对刚创建的每张 `wayfinder:research` ticket，先运行 `mmw issue claim <编号>`。claim 失败的 ticket 已由其他 session 占用，不重复派发。
 
-   claim 成功后，运行 `mmw artifact list --name <工作名> --map <map 编号>`。从候选中选出与这张 Question 相关的材料，补进自己的 `## 必读材料声明`；保留已有条目。开工前读取声明的每项材料。仓库产物逐条运行 `mmw artifact path` 解析，再读它的索引与索引列出的文件。结论评论逐条读取对应 issue 中以 `<!-- mmw:conclusion -->` 开头的评论。
+   claim 成功后，运行 `mmw artifact list --map <map 编号>`。从候选中选出与这张 Question 相关的材料，补进自己的 `## 必读材料声明`；保留已有条目。开工前读取声明的每项材料。仓库产物逐条运行 `mmw artifact path` 解析，再读它的索引与索引列出的文件。结论评论逐条读取对应 issue 中以 `<!-- mmw:conclusion -->` 开头的评论。
 
    声明的材料缺失时先分类。生产 ticket 按设计未运行，或用户选择不保存 research，是预期缺失，继续。生产方已经运行而声明内容应当存在却找不到，是异常缺失，停下问用户，不编造内容。问的时候给出两个选项：重新解决生产它的那张 decision ticket，或者由用户直接提供文件。
 
-   分别运行 `mmw artifact path research --issue <编号> --sub <主题>` 和 `mmw artifact path scratch --issue <编号> --sub evidence`。把 ticket 的 Question、必读材料声明中的全部仓库产物引用、全部结论评论 issue 编号、工作名、范围段 `issue-<编号>`，以及两条输出路径一起传给 `/mmw-research`。每张 ticket 作为一项独立 research 并行处理；`/mmw-research` 根据取证角度决定 `investigator` 的数量。
+   分别运行 `mmw artifact path research --issue <编号> --sub <主题>` 和 `mmw artifact path scratch --issue <编号> --sub evidence`。把 ticket 的 Question、必读材料声明中的全部仓库产物引用、全部结论评论 issue 编号、名字段（当前 map 分支的 slug）、范围段 `issue-<编号>`，以及两条输出路径一起传给 `/mmw-research`。每张 ticket 作为一项独立 research 并行处理；`/mmw-research` 根据取证角度决定 `investigator` 的数量。
 
    查证、验证、综合、保存和清理过程材料都由 `/mmw-research` 自己完成，你只等它交回。`/mmw-research` 对 ticket 派来的调查直接保存，不会停下来问用户；它交回的内容里有 research 的 `README.md` 精确路径。
 
@@ -82,4 +81,4 @@
 | 情况 | 下一步 |
 | --- | --- |
 | 第 2 步没有发现 fog | **停**：说明路线已经清楚、不需要 map，询问用户接下来怎样进行 |
-| map、当前能够精确表述的 ticket 和 blocking edge 已建立，research 已全部交回并提交 | **停**：报告 destination、工作名、map 名称和当前 frontier 上的 ticket 名称，并说明每张 decision ticket 使用一个新会话。同时列出每张 frontier ticket 的任务 slug，并写明父分支是 map 分支。不要 claim 这些 ticket |
+| map、当前能够精确表述的 ticket 和 blocking edge 已建立，research 已全部交回并提交 | **停**：报告 destination、map 分支、名字段、map 名称和当前 frontier 上的 ticket 名称，并说明每张 decision ticket 使用一个新会话。同时列出每张 frontier ticket 的任务 slug，并写明父分支是 map 分支。不要 claim 这些 ticket |

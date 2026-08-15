@@ -475,7 +475,7 @@ subgraph SETUP["前置"]
   set(["<b>mmw init</b><br/>· 只配置当前目标仓库<br/>· 铺 .mmw.json 与 TESTING.md 骨架<br/>· 同步 AGENTS.md 与 CLAUDE.md 领域规则<br/>· 补标签与 .gitignore；幂等"])
   subgraph CLIBOX["mmw · 技能写判据，它做动作"]
     direction TB
-    cl1(["<b>mmw task / result</b><br/>state / name / bind / new / cleanup（都带工作名）<br/>工作名只由 mmw task name 回答<br/>verify / integrate"])
+    cl1(["<b>mmw worktree / result</b><br/>add / remove（仅 Pi 与 Claude Code 工人树）<br/>名字段取当前任务分支 slug<br/>verify / integrate"])
     cl2(["<b>mmw issue</b><br/>create / frontier / children / claim<br/>link / set-parent / append"])
     cl3(["<b>宿主角色入口</b><br/>Codex：后台任务或原生 subagent<br/>Pi / Cursor / Grok：原生 Task 或 subagent<br/>Claude Code：mmw dispatch<br/>Cursor 结果树：mmw-cursor-agent"])
     cl4(["<b>mmw domain</b><br/>path / map-init / sync / check / adr-next / dirs"])
@@ -500,7 +500,7 @@ subgraph MAIN["主干 · 从想法到落地"]
   uiq[("<b>mmw-ui-qa</b><br/>· 不是六道审的任何一道，prototype 阶段也能用<br/>· 起步先要求工作区干净，范围三档全由 git 当场算<br/>· A 类确定性检查产出违规项直接改，合成一个提交<br/>· B 类模型判断产出 finding，走五个处置标记等用户裁决<br/>· 裁决存指纹，下一轮全等的不再报<br/>· 语义层整条路径一次派一个 designer")]
   pln[["<b>mmw-to-plan</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 按批次写 plan：阻塞已关、还没 ready-for-agent 的 ticket 各写一份<br/>· 派 planner 写，记恢复句柄<br/>· 只传入本 ticket 使用的精确上下文路径<br/>· 验证返回，回填精确字段<br/>· 本批次 plan 审通过并提交后写 tracker 状态"]]
   pnr[("<b>mmw-planner</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 写计划方法论<br/>· 从 prototype 资产提取已确认决定<br/>· planner 进门读它，主 agent 不读")]
-  clo["<b>mmw-closing</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· spec 与 plan 长期留在仓库<br/>· 只清理当前工作名的过程材料<br/>· 逐条用 mmw artifact path 确认归属再删"]
+  clo["<b>mmw-closing</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· spec 与 plan 长期留在仓库<br/>· 只清理当前名字段的过程材料<br/>· 逐条用 mmw artifact path 确认归属再删"]
   intg[["<b>mmw-integrate</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 验证结果分支、HEAD 与基点<br/>· 按合同依赖排序<br/>· 合入当前任务分支"]]
   rel["<b>mmw-release</b><br/>· 出包前 HEAD 必须等于终审提交<br/>· 主 agent 驱动正式出包循环<br/>· 核对所有包的 source commit<br/>· 用户实测通过后收尾"]
   crv[["<b>mmw-review</b><br/>· 六道审的编排，每道只运行一轮<br/>· ⓪ 共同理解审由用户点头才发起<br/>· 多分支集成结果同样进入 ⑤ final 终审<br/>· 按视角传入需要的索引与精确路径<br/>· findings 逐条判定<br/>· 采信项修复后由主 agent 验证完成"]]
@@ -893,7 +893,7 @@ ptk[/"<b>decision ticket</b> · map 的子 issue<br/>· A 段建立当前能精�
 adr[/"<b>ADR</b> · 固定放在 docs/adr/<br/>· 三项判据全部成立才写<br/>· decision ticket 内先写 draft- 草稿名<br/>· 随 map 分支进入最终目标"/]
 ctx[/"<b>目标 AGENTS.md 与领域文档</b> · 住 map 分支<br/>· 主 agent 与 subagent 共用领域入口<br/>· Map 登记命名 Markdown leaf 与 authoritative 引用<br/>· leaf 与 ADR 随 map 分支进入最终目标"/]
 oos[/"<b>.out-of-scope/</b> · 住 map 分支<br/>· 判出范围时写<br/>· 一个概念一个文件<br/>· 下次分诊先查它去重"/]
-spf[/"<b>docs/specs/&lt;工作名&gt;/</b> · 住 spec 分支<br/>· 落点由 mmw artifact path spec 回答<br/>· D 段 mmw-to-spec 写<br/>· mmw-to-plan 按批次补 plan<br/>· 代码落地后长期留在仓库"/]
+spf[/"<b>docs/specs/&lt;名字段&gt;/</b> · 住 spec 分支<br/>· 落点由 mmw artifact path spec 回答<br/>· D 段 mmw-to-spec 写<br/>· mmw-to-plan 按批次补 plan<br/>· 代码落地后长期留在仓库"/]
 
 ent --> a1
 a1 --> a2

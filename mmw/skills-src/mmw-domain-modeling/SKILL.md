@@ -38,9 +38,7 @@ description: 构建并明确项目的领域模型。用户想要明确领域术�
 | 各 leaf | `docs/context/` |
 | ADR | `docs/adr/` |
 
-首次写仓库文件前，先运行 `mmw task state`，按第一个词选行。要建树的两行都先分别确定任务分支名和工作名。
-
-[[mmw-bind-task]]
+首次写仓库文件前，确认 `git symbolic-ref --quiet --short HEAD` 有输出，且不在主检出里。不满足就停。
 
 多数仓库只有一个 bounded context：
 

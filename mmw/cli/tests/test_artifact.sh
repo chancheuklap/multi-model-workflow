@@ -293,7 +293,7 @@ printf '%s\n' \
   '# Beta spec' > docs/specs/beta/spec.md
 
 expected_adr=$'# ADR 索引\n\n由 `mmw artifact index adr` 生成。\n\n| 编号 | 标题 | 日期 | 改写了哪几份 | 被哪几份改写 |\n| --- | --- | --- | --- | --- |\n| 0001 | 初始决定 | 2026-08-11 | 无 | 0002 |\n| 0002 | 后续决定 | 2026-08-12 | 0001 | 无 |'
-expected_spec=$'# spec 索引\n\n由 `mmw artifact index spec` 生成。\n\n| 工作名 | 摘要 | 日期 | 任务分支名 | spec issue 编号 |\n| --- | --- | --- | --- | --- |\n| alpha | Alpha spec | 2026-08-11 | task-alpha | 31 |\n| beta | Beta spec | 2026-08-12 | task-beta | 32 |'
+expected_spec=$'# spec 索引\n\n由 `mmw artifact index spec` 生成。\n\n| 名字段 | 摘要 | 日期 | 任务分支名 | spec issue 编号 |\n| --- | --- | --- | --- | --- |\n| alpha | Alpha spec | 2026-08-11 | task-alpha | 31 |\n| beta | Beta spec | 2026-08-12 | task-beta | 32 |'
 
 capture "ADR 当场计算" "$MMW" artifact index adr
 check "ADR 当场计算退出码" "0" "$LAST_STATUS"
@@ -551,7 +551,7 @@ worker_brief_source="$(cat "$HERE/../../skills-src/mmw-implement/worker-brief.md
 contains "spec 生产 YAML 产物引用" "artifact_refs:" "$to_spec_source"
 contains "spec 生产空 YAML 产物引用" "artifact_refs: []" "$to_spec_source"
 # spec issue 正文只剩 `## 输入出处` 一节。`## 工作名` 与 `## 产物引用` 已经去掉：
-# 工作名由 `mmw task state` 权威回答，产物引用由 spec 文件的元数据块权威回答，issue 正文
+# 名字段由当前任务分支决定，产物引用由 spec 文件的元数据块权威回答，issue 正文
 # 重复它们就是第二份事实来源。#49 的 B13 是这个决定。
 contains "spec issue 生产输入出处固定节" "## 输入出处" "$to_spec_source"
 contains "spec issue 正文只固定写出一节" "正文固定写出以下一节" "$to_spec_source"
@@ -563,7 +563,7 @@ contains "to-plan 向 planner 传产物引用" "artifact_refs" "$to_plan_source"
 contains "to-plan 运行声明校验" "mmw artifact check" "$to_plan_source"
 contains "planner 解析产物引用" "mmw artifact path" "$planner_source"
 contains "planner 自检工作名必填" "name" "$planner_check_source"
-contains "implement 向 worker 传产物引用" "category=<类别> name=<工作名>" "$implement_source"
+contains "implement 向 worker 传产物引用" "category=<类别> name=<名字段>" "$implement_source"
 contains "worker 解析产物引用" "mmw artifact path" "$worker_brief_source"
 
 artifact_path_dirs_before="$(find . -type d -print | sort)"
@@ -630,39 +630,47 @@ contains "当场取名提醒在标准错误" "写第一个文件之前先列一�
 check "显式工作名查询不建立目录" "$artifact_path_dirs_before" "$(find . -type d -print | sort)"
 
 echo
-echo "artifact path 的缺省工作名"
-task_worktree="$REPO/.worktrees/artifact-task"
-capture "建立带工作名的任务 worktree" \
-  "$MMW" task new artifact-task "产物路径测试" --name artifact-work
-check "建立带工作名的任务 worktree 退出码" "0" "$LAST_STATUS"
-check "建立带工作名的任务 worktree 输出路径" "$task_worktree" "$(cat "$LAST_OUT")"
-capture "缺省工作名" bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact path spec' \
-  _ "$task_worktree" "$MMW"
-check "缺省工作名退出码" "0" "$LAST_STATUS"
-check "缺省工作名与显式工作名路径相同" "docs/specs/artifact-work/spec.md" "$(cat "$LAST_OUT")"
-check "缺省工作名没有标准错误" "" "$(cat "$LAST_ERR")"
+echo "artifact path 的缺省名字段"
+orig_branch="$(git -C "$REPO" branch --show-current)"
+expect_error "主检出缺省名字段不回退" "请用户用当前宿主开一棵工作树" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact path spec' _ "$REPO" "$MMW"
+
+git -C "$REPO" switch -q -c feat-login
+expect_error "主检出上的任务分支也不算" "请用户用当前宿主开一棵工作树" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact path spec' _ "$REPO" "$MMW"
+git -C "$REPO" switch -q "$orig_branch"
+git -C "$REPO" branch -D feat-login >/dev/null
+
+linked_worktree="$REPO/.worktrees/feat-login"
+git -C "$REPO" worktree add -q -b feat-login "$linked_worktree"
+capture "缺省名字段来自当前分支" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact path spec' _ "$linked_worktree" "$MMW"
+check "缺省名字段来自当前分支退出码" "0" "$LAST_STATUS"
+check "缺省名字段来自当前分支" "docs/specs/feat-login/spec.md" "$(cat "$LAST_OUT")"
+check "缺省名字段没有标准错误" "" "$(cat "$LAST_ERR")"
+
+git -C "$linked_worktree" switch -q -c cursor/feat-login
+capture "缺省名字段去掉宿主前缀" \
+  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact path spec' _ "$linked_worktree" "$MMW"
+check "缺省名字段去掉宿主前缀退出码" "0" "$LAST_STATUS"
+check "缺省名字段去掉宿主前缀" "docs/specs/feat-login/spec.md" "$(cat "$LAST_OUT")"
+check "缺省名字段不含宿主前缀" "0" \
+  "$(grep -c cursor <<<"$(cat "$LAST_OUT")" || true)"
+
+expect_path "显式 --name 覆盖当前分支" "docs/specs/other-work/spec.md" \
+  "$MMW" artifact path spec --name other-work
 
 detached_worktree="$REPO/.worktrees/artifact-detached"
 git -C "$REPO" worktree add -q --detach "$detached_worktree" HEAD
-broken_worktree="$REPO/.worktrees/artifact-broken"
-capture "建立损坏绑定的任务 worktree" \
-  "$MMW" task new artifact-broken "损坏绑定" --name broken-work
-check "建立损坏绑定的任务 worktree 退出码" "0" "$LAST_STATUS"
-git -C "$broken_worktree" config --worktree --unset mmw.task.work-name
 failure_dirs_before="$(find "$REPO" -type d -print | sort)"
 
-expect_error "主检出缺省工作名不回退" "工作名" \
-  "$MMW" artifact path spec
-expect_error "仓库外缺省工作名不回退" "工作名" \
+expect_error "仓库外缺省名字段不回退" "不在 git 仓库里" \
   bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact path spec' _ "$WORK" "$MMW"
-expect_error "detached worktree 缺省工作名不回退" "工作名" \
+expect_error "detached worktree 缺省名字段不回退" "当前没有任务分支" \
   bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact path spec' _ "$detached_worktree" "$MMW"
-expect_error "损坏绑定缺省工作名不回退" "mmw task bind artifact-broken" \
-  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact path spec' _ "$broken_worktree" "$MMW"
-check "缺省工作名的拒绝路径不建目录" "$failure_dirs_before" "$(find "$REPO" -type d -print | sort)"
-expect_path "显式工作名不读取损坏绑定" "docs/specs/other-work/spec.md" \
-  bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact path spec --name other-work' \
-  _ "$broken_worktree" "$MMW"
+check "缺省名字段的拒绝路径不建目录" "$failure_dirs_before" "$(find "$REPO" -type d -print | sort)"
+
+git -C "$REPO" switch -q "$orig_branch"
 before_dirs="$(find . -type d -print | sort)"
 
 echo
@@ -677,8 +685,8 @@ expect_error "handoff 在仓库外" "操作系统临时目录" \
   "$MMW" artifact path handoff
 expect_error "map 在 issue tracker" "gh issue view <编号>" \
   "$MMW" artifact path map
-expect_error "带名字段必须显式给 name" "要 --name" \
-  "$MMW" artifact path spec
+expect_error "任务 worktree 不套路径形状" "git worktree list" \
+  "$MMW" artifact path worktree
 expect_error "name 拒绝大写字母" "只能用小写字母" \
   "$MMW" artifact path spec --name Release
 expect_error "不允许范围段的类别拒绝 issue" "没有范围段" \
@@ -732,8 +740,8 @@ printf '# Unscoped research\n' > docs/research/list-work/unscoped/README.md
 printf '# Other work\n' > docs/research/other-work/ignored/README.md
 printf '# Scoped prototype\n' > docs/prototypes/list-work/issue-7/demo/README.md
 printf '# Unscoped prototype\n' > docs/prototypes/list-work/gallery/README.md
-mkdir -p "$task_worktree/docs/research/artifact-work/default"
-printf '# Default work name\n' > "$task_worktree/docs/research/artifact-work/default/README.md"
+mkdir -p docs/research/artifact-work/default
+printf '# Default name segment\n' > docs/research/artifact-work/default/README.md
 
 mkdir -p "$WORK/list-bin"
 cat > "$WORK/list-bin/gh" <<'STUB'
@@ -780,13 +788,17 @@ check "空清单没有标准错误" "" "$(cat "$LAST_ERR")"
 check "空清单不调用 GitHub" "" "$(cat "$MMW_LIST_LOG")"
 
 : > "$MMW_LIST_LOG"
-capture "缺省工作名" bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact list' \
-  _ "$task_worktree" "$MMW"
-check "缺省工作名退出码" "0" "$LAST_STATUS"
-check "缺省工作名列已保存产物" \
+list_worktree="$REPO/.worktrees/artifact-work"
+git -C "$REPO" worktree add -q -b artifact-work "$list_worktree"
+mkdir -p "$list_worktree/docs/research/artifact-work/default"
+printf '# Default name segment\n' > "$list_worktree/docs/research/artifact-work/default/README.md"
+capture "缺省名字段" bash -c 'cd "$1" && MMW_HOST=claude-code "$2" artifact list' \
+  _ "$list_worktree" "$MMW"
+check "缺省名字段退出码" "0" "$LAST_STATUS"
+check "缺省名字段列已保存产物" \
   "- category=research name=artifact-work sub=default" "$(cat "$LAST_OUT")"
-check "缺省工作名没有标准错误" "" "$(cat "$LAST_ERR")"
-check "缺省工作名不调用 GitHub" "" "$(cat "$MMW_LIST_LOG")"
+check "缺省名字段没有标准错误" "" "$(cat "$LAST_ERR")"
+check "缺省名字段不调用 GitHub" "" "$(cat "$MMW_LIST_LOG")"
 
 : > "$MMW_LIST_LOG"
 capture "给 map 时加入结论评论候选" "$MMW" artifact list --name list-work --map 88

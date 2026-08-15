@@ -29,6 +29,8 @@ description: 编排 MMW 六道审查并处置 findings。用于共同理解、sp
 
 它检查界面本身，审查者看的是 diff 与产物一致性，两者不重叠。**它不是第七道审，也不替代任何一个视角**；跑不起来时照常往下走，把 blocker 写进审查材料。
 
+调用方给了名字段时，本节所有 `mmw artifact path` 加 `--name <名字段>`。
+
 | 审哪一道 | 钉什么 |
 | --- | --- |
 | ⓪ | 解 decision ticket 时，运行 `mmw artifact path scratch --issue <编号> --sub understanding.md`。用户直接发起讨论时，不加 `--issue`。审查命令的输出文件 |

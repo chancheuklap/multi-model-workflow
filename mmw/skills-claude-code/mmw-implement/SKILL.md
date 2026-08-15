@@ -15,7 +15,7 @@ description: 派 `worker` 落地已准备好的工作。用于完整的 `ready-f
 
 先确认这次需求出自哪里：
 
-- 运行 `mmw artifact path spec`。输出路径有 spec 时，走 spec 分支。
+- 运行 `mmw artifact path spec`。调用方移交了名字段时加 `--name <名字段>`。输出路径有 spec 时，走 spec 分支。
 - 没有 spec，就读取原 issue 上那份 `ready-for-agent` 的 agent brief。只有整项工作可以作为一张 ticket 独立验收、只有一个已确认测试 seam、没有未决设计取舍时，才走 agent brief 分支。
 
 然后检查下面各项。标明来源分支的检查只在对应分支适用；适用项有一件不满足就按表中出口处理。
@@ -24,7 +24,7 @@ description: 派 `worker` 落地已准备好的工作。用于完整的 `ready-f
 
 | 检查 | 怎么查 | 不满足怎么办 |
 | --- | --- | --- |
-| 你在已绑定的任务 worktree 里 | `mmw task state` 输出以 `bound` 开头 | **停**：说明当前没有已绑定的任务上下文，无法继续 |
+| 你在一条任务分支上 | `git symbolic-ref --quiet --short HEAD` 有输出，且不在主检出里 | **停**：说明当前没有任务分支，无法继续 |
 | spec 分支写明了测试 seam | 读 spec `## Testing Decisions` 一节里的 seam 清单表 | 回 `/mmw-to-spec` 第 3 步补 |
 | agent brief 分支的行为合同完整 | 原 issue 的 agent brief 有当前行为、目标行为、可独立验证的 `Acceptance criteria`、范围边界和且仅一个 `Test seam`；整项工作可以作为一张 ticket 独立验收，而且没有未决设计取舍 | 缺字段就回 `/mmw-triage` 补；需要多张 ticket、多个 seam 或设计取舍就转 `/mmw-to-spec` |
 | ticket 存在 | spec 分支：`mmw issue children <spec issue 编号>` 有输出；agent brief 分支：带 agent brief 的原 issue 就是这张 ticket | spec 分支先跑 `/mmw-to-tickets`；agent brief 分支回 `/mmw-triage` 补齐或修正 issue |
@@ -71,7 +71,7 @@ agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一
 
 按 **四栏表**（目标 / 读 / 约束 / 验收）填写。issue 上的 **agent brief** 是 tracker 里的权威行为合同，进入「读」栏。
 
-从 plan 元数据块读取 `artifact_refs`。键缺失时停止，说明缺少 plan 声明。每条在 task 的「读」栏写成 `- category=<类别> name=<工作名>`。类别需要范围段或类别内细分时，在同一行追加 `issue=<编号>` 或 `sub=<类别内细分>`。`name` 必须显式出现。空列表时在「读」栏写 `无`。
+从 plan 元数据块读取 `artifact_refs`。键缺失时停止，说明缺少 plan 声明。每条在 task 的「读」栏写成 `- category=<类别> name=<名字段>`。类别需要范围段或类别内细分时，在同一行追加 `issue=<编号>` 或 `sub=<类别内细分>`。`name` 必须显式出现。空列表时在「读」栏写 `无`。
 
 | 栏 | 本角色填写 |
 | --- | --- |
@@ -90,10 +90,10 @@ TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
 
 **验收栏里要求它交回结果分支上的 HEAD SHA。** 收结果时 `mmw result verify` 要这个值，它自己不算，只有做完的那一侧知道。
 
-启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --name <工作名> --from <基点 SHA>`，使用命令返回的 worktree 绝对路径。后台执行 `mmw dispatch worker --cwd <结果 worktree 绝对路径>`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
+启动：先运行 `mmw worktree add <结果分支>`，使用命令返回的 worktree 绝对路径。后台执行 `mmw dispatch worker --cwd <结果 worktree 绝对路径>`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 
 ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
-启动：先运行 `mmw task new <结果分支> "<目标栏原文>" --name <工作名> --from <基点 SHA>`，使用命令返回的 worktree 绝对路径。后台执行 `mmw dispatch worker-high-risk --cwd <结果 worktree 绝对路径>`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
+启动：先运行 `mmw worktree add <结果分支>`，使用命令返回的 worktree 绝对路径。后台执行 `mmw dispatch worker-high-risk --cwd <结果 worktree 绝对路径>`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 升档由你决定，不由 worker 自报。
 
 派发返回的 `session:` 或 `handle:` 行是这个 `worker` 的恢复句柄。连同结果分支名、基点 SHA 一起记下，③ 返工的前三轮和 ④⑤ 的修复都用它。
@@ -134,10 +134,10 @@ ticket 涉及界面时，还要完成浏览器验收：
 
 | 树在哪 | 怎么办 |
 | --- | --- |
-| 位于当前仓库 `.mmw.json` 的 `paths.worktrees` 下 | 是 `mmw task new` 建的。在当前任务 worktree 里运行 `mmw task cleanup <结果分支名>` |
+| 位于当前仓库 `.mmw.json` 的 `paths.worktrees` 下 | 在当前任务 worktree 里运行 `mmw worktree remove <结果分支名>` |
 | 在别处 | 是宿主自己建的树，由宿主回收。这里不做动作 |
 
-`mmw task cleanup` 有两道拒绝：结果分支还没合进当前任务分支，或者那棵树里有未提交改动。撞上任何一条，保留这棵树，报出是哪一条，回到本步开头重做集成。
+`mmw worktree remove` 有两道拒绝：结果分支还没合进当前任务分支，或者那棵树里有未提交改动。撞上任何一条，保留这棵树，报出是哪一条，回到本步开头重做集成。
 
 **这一轮认领的 ticket 全部关票之后，判定还有没有下一轮**，spec 分支运行：
 

@@ -33,6 +33,6 @@
 - Context Map 与 Wayfinding 的 map 是两个现有对象。Context Map 索引 bounded context；Wayfinding 的 map 索引一个 effort 的决定。
 - 产物落点向其他 Context 提供路径形状；交付工作流、Wayfinding、审查和 Agent 的产物按它确定位置。
 - 交付工作流的每一跳用产物引用点名下游要读的产物，不写路径字面值。产物引用由产物落点定义，路径由 `mmw artifact path` 解析。
-- 工作名由产物落点定义，与 Agent 的任务分支名是两个值。一次交付只有一个工作名，可以有多条任务分支；Wayfinding 的 map 正文记录这项 effort 的工作名，它的每张 decision ticket 继承这个值。
+- 名字段由产物落点定义，取这次交付的任务分支 slug。一次交付只有一个名字段，可以有多条任务分支；Wayfinding 的 map 正文记录 map 分支，它的每张 decision ticket 继承这个名字段。
 - 界面 QA 不是六道审的任何一道，它在 prototype 迭代中和落地之后都可以单独发起。审查定义 finding 与处置；界面 QA 的 B 类结果是 finding 的第二个来源，用同一套处置标记。A 类结果是违规项，不是 finding。
-- 界面 QA 的判据与接线跨交付累积，不带工作名，位置由产物落点定义。它的报告不写进仓库，界面全图也不落文件。
+- 界面 QA 的判据与接线跨交付累积，不带名字段，位置由产物落点定义。它的报告不写进仓库，界面全图也不落文件。

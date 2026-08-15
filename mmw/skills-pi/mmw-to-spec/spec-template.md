@@ -6,7 +6,7 @@
 
 ```markdown
 ---
-slug: <工作名>
+slug: <名字段>
 summary: <一句话说明这份 spec 交付什么>
 date: <YYYY-MM-DD>
 branch: <任务分支名>
