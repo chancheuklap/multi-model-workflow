@@ -61,6 +61,20 @@ def resolve_config_path(explicit: str = "") -> Path:
     return DEFAULT_CONFIG.resolve()
 
 
+def role_applies_to_host(role: dict[str, Any], role_name: str, host: str) -> bool:
+    """未写 hosts 的角色对每个宿主都生成；写了则只生成列出的宿主。"""
+    allowed = role.get("hosts")
+    if allowed is None:
+        return True
+    if (
+        not isinstance(allowed, list)
+        or not allowed
+        or not all(isinstance(item, str) and item.strip() for item in allowed)
+    ):
+        die(f"角色 {role_name} 的 hosts 必须是非空字符串列表")
+    return host in allowed
+
+
 def resolve_model(config: dict[str, Any], role: str, host: str) -> dict[str, str]:
     models = config.get("models") or {}
     if role not in models:
@@ -250,6 +264,8 @@ def materialize_host(
     planned: dict[str, str] = {}
 
     for role_name, role in roles.items():
+        if not role_applies_to_host(role, role_name, host):
+            continue
         body_name = role.get("body")
         if not body_name:
             die(f"角色 {role_name} 缺 body")
@@ -284,6 +300,7 @@ def materialize_host(
                 ),
             )
             for role_name, role in roles.items()
+            if role_applies_to_host(role, role_name, host)
         }
         groups.append(
             (companion_dir, companion_glob, companion_planned, "reasoning_effort")
