@@ -22,6 +22,14 @@
       "writable": true,
       "description": "计划编写角色。由 mmw-to-plan 派发，一张 ticket 对应一个 planner 和一份 plan。按 mmw-planner 方法论拆出实施步骤；只写指定 plan，不改源码。"
     },
+    "advisor": {
+      "agent": "mmw-advisor",
+      "body": "mmw-advisor.md",
+      "skill": "",
+      "writable": false,
+      "hosts": ["cursor"],
+      "description": "Second-opinion advisor running the stronger model. Consult at commitment boundaries — before architectural decisions, data migrations, big refactors, or API designs, and whenever the same problem has resisted two attempts — and before you treat an interpretation as settled. Pass the last user/assistant text turns, your current understanding, the constraints, and the options considered. Do not pass the session or its tool trace. Returns a verdict with reasoning and the risk that decides it. Advises only — never implements."
+    },
     "designer": {
       "agent": "mmw-designer",
       "body": "mmw-designer.md",
