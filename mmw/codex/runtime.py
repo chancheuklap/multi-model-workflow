@@ -74,11 +74,9 @@ def rendered_agents() -> dict[str, str]:
     profiles = load_profiles()
     agents = profiles.get("subagents") or {}
     expected_roles = {
-        "investigator",
         "reviewer-gpt",
         "planner",
         "designer",
-        "prototype-worker",
     }
     if set(agents) != expected_roles:
         die(f"Codex 原生 subagent 必须是 {', '.join(sorted(expected_roles))}")
@@ -206,7 +204,7 @@ def valid_plugin_root(root: Path, version: str) -> bool:
         and (root / "cli" / "mmw").is_file()
         and (root / "codex" / "runtime.py").is_file()
         and (root / "codex" / "config.py").is_file()
-        and (root / "skills-codex" / "mmw-start" / "SKILL.md").is_file()
+        and (root / "skills-codex" / "mmw-grilling" / "SKILL.md").is_file()
         and (root / ".mcp-codex.json").is_file()
         and (root / ".mcp.json").is_file()
         and (root / "codex" / "profiles.json").is_file()

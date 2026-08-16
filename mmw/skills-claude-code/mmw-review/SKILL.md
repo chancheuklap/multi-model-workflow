@@ -1,180 +1,87 @@
 ---
 name: mmw-review
-description: 编排 MMW 六道审查并处置 findings。用于共同理解、spec、整批 plan、`worker` 结果或最终代码到达审查关卡，或用户要求审查共同理解、spec、plan、分支、PR 或未提交改动。
+description: Run one MMW review gate and dispose findings. Use when shared understanding, a spec, a round of plans, or final code reaches a review gate, or the user asks to review those, a branch, a PR, or uncommitted work.
 ---
 
-发起一轮审查。**审查方法论不在本文**，在 `/mmw-reviewer` 里。你不读它，也不转述。
+# Review
 
-## 六道审
+Run one round. Review method lives in `/mmw-reviewer`. Do not read it. Do not retell it.
 
-先认准你在哪一道。**③、④ 不派审查者**，判据不在本文——③、④ 的「谁去审」列写的是 [self-review.md](self-review.md)，现在去读该文件，本文其余各节跳过。
+The author of the object does not review it. Reviewers use independent context.
 
-| 哪一道 | 什么时候发起 | 视角（任务名） | 谁去审 | 是不是关卡 |
-| --- | --- | --- | --- | --- |
-| ⓪ 共同理解审 | 用户在 `/mmw-grilling` 确认共同理解之后，要求复核这次访谈 | 共同理解审 | 按第 3 节的宿主审查策略 | 不是。findings 连同你的处置一起给用户看参考 |
-| ① spec 审 | spec 写完、自检过了，给用户看之前 | 设计内容审、项目一致性审 | 按第 3 节的宿主审查策略 | 不是。findings 连同你的处置一起给用户看参考 |
-| ② plan 审 | 一个批次的 plan 写完、主 agent 验证过、本批次合同回填完之后，每批次发起一次 | 覆盖质量审、合规交叉审 | 按第 3 节的宿主审查策略 | 是 |
-| ③ 逐份验收 | 一个 `worker` 交回它写的代码 | 不派审查者 | **你自己**，判据读 [self-review.md](self-review.md) | 是。不过这一关不合并回任务分支 |
-| ④ 合同门 | 每份 plan 对应的代码都合并回任务分支之后，一次 | 不派审查者 | **你自己**，判据读 [self-review.md](self-review.md) | 是 |
-| ⑤ final 终审 | 全部 ticket 落地、合同门过了 | 对照终审、独立终审、编码规范审 | 按第 3 节的宿主审查策略 | 是 |
+③ per-ticket check and ④ contract gate are gone. Do not start them.
 
-多分支集成的结果同样走 ⑤。集成本身要不要先调查，由 `/mmw-integrate` 判，不是一道审查。
-
-**审查者必须使用独立上下文。** 产物作者不在自己的上下文中执行审查。具体角色、模型和实例数由当前宿主的审查策略决定；共享流程只规定视角和材料。
-
-
-## 1. 确定被审的东西
-
-⑤ final 终审包含界面改动时，**先跑一次 `/mmw-ui-qa`（挂 `本任务` 标签），跑完再往下走**。它会把确定性检查判定成立的界面问题改掉并单独提交，所以必须发生在记录被审 HEAD 之前——放在后面，那个提交会让 HEAD 漂移，本轮审查按第 4 节作废。这样它改的东西也进入被审范围。
-
-它检查界面本身，审查者看的是 diff 与产物一致性，两者不重叠。**它不是第七道审，也不替代任何一个视角**；跑不起来时照常往下走，把 blocker 写进审查材料。
-
-调用方给了名字段时，本节所有 `mmw artifact path` 加 `--name <名字段>`。
-
-| 审哪一道 | 钉什么 |
-| --- | --- |
-| ⓪ | 解 decision ticket 时，运行 `mmw artifact path scratch --issue <编号> --sub understanding.md`。用户直接发起讨论时，不加 `--issue`。审查命令的输出文件 |
-| ① | 运行 `mmw artifact path spec`。审查该命令的输出文件 |
-| ② | 从本批次每张 ticket 取得 plan 的类别内细分（批次由调用方 `/mmw-to-plan` 给出）。逐份运行 `mmw artifact path plan --sub <两位编号>-<ticket短名>.md`。**一个批次发起一次，批内不逐份发起** |
-| ⑤ | 一个固定点，加 `git diff <固定点>...HEAD`（三个点，比的是分叉点）。固定点通常是 `git merge-base HEAD <父分支>` |
-
-用户直接叫你来审、又没说固定点的，问他要。
-
-往下走之前先确认它解析得出来（`git rev-parse`），而且 diff 非空。记录发起本轮审查时的 `git rev-parse HEAD`，它是这份审查记录要写的 `被审 HEAD`。⑤ final 终审还要在第 4 节用它比对漂移。
-
-⓪ 的被审对象是一份未提交的工作文件，没有 `被审 HEAD`。这一道另有一条：本轮审查期间 `understanding.md` 保持不动。用户这期间又补了内容，等审查者跑完，连同 findings 一起处理。
-
-## 2. 给每个视角备齐材料
-
-审查者只拿当前视角判断得上的材料。**多给反而有害。**
-
-| 任务名 | 基础上下文 | prototype | research |
+| Gate | When | Perspectives | Gate? |
 | --- | --- | --- | --- |
-| 共同理解审 | 共同理解记录 | 本次讨论用到的索引、选中产物和走查结论 | 本次讨论用到的 research 索引和精确文件 |
-| 设计内容审 | spec | 被 spec 使用的索引、选中产物和相关证据 | 被 spec 使用的 research 索引和精确文件 |
-| 项目一致性审 | spec、相关领域文档和 ADR | 本视角需要的索引、选中产物和证据 | 本视角需要的 research 索引和精确文件 |
-| 覆盖质量审 | spec、全部 ticket 和本批次 plan；首批次时注明执行覆盖扫描 | 被 plan 使用的索引、选中产物和相关证据 | 被 plan 使用的 research 索引和精确文件 |
-| 合规交叉审 | spec、全部 ticket 和本批次 plan | 被 plan 引用的索引、选中产物和证据 | 被 plan 引用的 research 索引和精确文件 |
-| 对照终审 | spec、全部 plan 和 diff 范围 | 实现应覆盖的索引、选中产物和相关证据 | 实现应覆盖的 research 索引和精确文件 |
-| 独立终审 | **只有 diff 范围** | 不提供 | 不提供 |
-| 编码规范审 | diff 范围和仓库编码标准 | 不提供 | 不提供 |
+| ⓪ Shared understanding | User asks after `/mmw-grilling` confirms | Shared understanding | No. Show findings with your marks. |
+| ① Spec | Spec is written, before the user approves publish | Spec content, Spec alignment | No. Show findings with your marks. |
+| ② Plan | This round's plans are written | Plan coverage, Plan compliance | Yes |
+| ⑤ Final | Every ticket is closed | Final trace, Final fresh, Final standards | Yes |
 
-⓪ 用不上 spec，跳过下面这一段。①、②、⑤ 按以下顺序查找 spec：
+Merged integration results also use ⑤.
 
-1. 运行 `mmw artifact path spec`，读取输出文件。
-2. 提交信息里引用的 issue（`gh issue view <编号>`）。
-3. 用户当参数传进来的路径。
+Before any write:
 
-都找不到就问用户。他说确实没有 spec 时，把这一道里需要 spec 的视角全部撤掉，只留不需要 spec 的，并在报告里说明撤了哪些、为什么。①、② 两道的视角全都要 spec，撤完就没有可派的了——那时停下，告诉用户这两道审不了。⑤ 还剩独立终审和编码规范审，照常派。
+先确认当前仓库位置。判定从上到下，命中一行就停。
 
-| 上下文 | 索引必须包含 | 读取边界 | 没有时 |
-| --- | --- | --- | --- |
-| prototype | 问题、逐轮用户结论、选中产物、落选约束和长期证据；没有的项目写「无」 | 先读索引，再读本视角的精确路径；不递归读取目录 | 写「无 prototype 资产」 |
-| research | 问题、范围快照、结论摘要、文件索引、下游用途和未查清项 | 先读 research 索引，再读本视角的精确文件；过期快照只作历史证据 | 写「无 research」 |
+| 情况 | 怎么判断 | 你做什么 |
+| --- | --- | --- |
+| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
+| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
+| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
+| 已有任务分支 | 上面都不成立 | 用当前分支 |
 
-**路径一律是被审仓库里的路径。** 派发前逐个确认它们真的存在，缺了当场报错。
 
-⑤ final 终审包含界面改动时，派审查者前先采集浏览器证据：
+## 1. Pin the object
 
-派审查者前，主 agent 先启动界面改动。使用宿主浏览器或项目已有的 Playwright。按选中的 UI 产物采集关键状态的截图、DOM 和 console。没有 prototype 时，按 plan 的界面验收段采集。运行 `mmw artifact path scratch --sub evidence`。证据写进输出目录。一个状态一份。文件名说明页面和状态。用户要求长期保存时，写到用户指定位置。改过 viewport 后，留下最后一份证据再恢复默认。证据路径**只**加进「对照终审」的读栏。「独立终审」仍然只读 diff 范围。跑不起来时，把具体 blocker 写进审查材料。不得把没验证过的写成通过。
+If ⑤ touches UI, run `/mmw-ui-qa` tagged `this-task` first, then pin HEAD. It is not a seventh gate.
 
-## 3. 写 task，派发
-
-审查记录由以下完整命令取得。**一道一份**。同一道的几个视角写进同一份，按任务名分节。`<哪一道>` 取 `understanding`、`spec`、`plan`、`final` 之一：
-
-```bash
-mmw artifact path review --sub <哪一道>.md
-```
-
-给每个视角按 **四栏表**（目标 / 读 / 约束 / 验收）写 task：
-
-| 栏 | 本角色填写 |
+| Gate | Object |
 | --- | --- |
-| 目标 | **第一句**为任务名（与「2. 给每个视角备齐材料」表中任务名一字不差）；其后写审什么：被审对象 |
-| 读 | 按「2. 给每个视角备齐材料」表中本任务名一行的基础上下文、prototype 和 research 三列，逐项列出精确路径；没有材料写「无」 |
-| 约束 | 只读；不改被审产物；允许运行 `mmw artifact index` 更新索引副本；方法论由审查者按技能名自取，不往 task 粘正文 |
-| 验收 | 按审查者技能交 findings（或 `needs-redirection` / `needs-context`） |
+| ⓪ | `mmw artifact path scratch --sub understanding.md` (add `--issue` on a wayfinder decision ticket). Stop if the file is missing — `/mmw-grilling` writes it. |
+| ① | `mmw artifact path spec` |
+| ② | Each plan path from this round (run the ticket `## Plan` commands). One round, not one review per plan. |
+| ⑤ | `git diff <fixed-point>...HEAD`. The fixed point is usually `git merge-base HEAD <parent-branch>`. Ask if the user called you and gave none. |
 
-可选：把四栏表写入同一份审查记录的对应任务名小节。
+⑤: the diff must resolve and must not be empty. Record `git rev-parse HEAD` as Reviewed HEAD.
 
-每个视角各写一张四栏表。按当前宿主的审查策略启动；互不依赖的审查任务同时启动。
+Give each perspective what it needs to judge. **Final fresh** gets only the diff. Read artifact refs as `/mmw-wayfinder` specifies for Required materials; `none` means skip.
+
+## 2. Dispatch
+
+`mmw artifact path review --sub <gate>.md` prints this round's record (`understanding`, `spec`, `plan`, or `final`). One file per gate.
+
+Task fields. Goal's first sentence is the perspective name, copied exactly:
+
+- **Goal:** `<perspective name>`. Review `<object>`.
+- **Read:** the paths that perspective needs
+- **Constraints:** read-only; leave the object as it is
+- **Acceptance:** findings, or why the review cannot run
+
 当前宿主使用两个审查角色。⓪ 启动一个 `reviewer-gpt`：共同理解是主 agent 自己问出来的，复核它的审查者必须换一个模型。启动：后台执行 `mmw dispatch reviewer-gpt`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。① 每个视角启动一个 `reviewer-gpt`。启动：后台执行 `mmw dispatch reviewer-gpt`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。② 每个视角启动一个 `reviewer-claude`。启动：后台执行 `mmw dispatch reviewer-claude`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。⑤ 每个视角分别启动一个 `reviewer-gpt` 和一个 `reviewer-claude`。同一视角的两份 findings 并排比较；只由一个审查者报告的条目优先验证，两个审查者都报告的条目仍需验证出处。每个审查者只收到自己的四栏 task。
 
-## 4. findings 存盘
+If a reviewer cannot run: missing materials you failed to pass — fill them and resume that perspective; missing from the artifact itself — that is a finding. If they say the problem to solve is the wrong problem, give the user their words.
 
-把每个审查者交回的东西**原样**抄进这一道的那份记录，按任务名分节。不要重写，不要摘要。文件顶部记下固定点和 `被审 HEAD`。固定点限定 diff 范围；被审 HEAD 标识审查期间必须保持不变的内容。
+## 3. Record and mark
 
-⑤ final 终审完成第 5 步处置后，如果没有 `accepted`，在记录顶部加入 `终审提交`，值等于被审 HEAD。存在 `accepted` 时，调用方修复并验证完成后再登记修复后的 HEAD。
+Paste each report into the record under its perspective name. Do not rewrite. Put the fixed point and Reviewed HEAD at the top.
 
-**⑤ final 终审**写审查记录前再次运行 `git rev-parse HEAD`。它与发起审查时的 HEAD 不一致，说明审查期间被审内容已经变化；本轮结果失效，停止并报告两个 HEAD，不自动重新发起。这一道要查，是因为第 1 节的 `/mmw-ui-qa` 会提交。
+On ⑤, if HEAD moved since you pinned it, this round is void. Report both HEADs. Do not restart on your own.
 
-⓪、①、② 不查这一条：被审的是你自己刚写下或刚提交的文件，审查期间只有审查者在跑，而审查者只读。
+For each finding, ask: who is hurt, in what scene? Is it worth this round, or later? Then mark one of: `accepted`, `rejected`, `duplicate`, `needs-evidence`, `waived`. Only `accepted` drives a fix. Same issue from two reviewers: one mark. `waived` or a `needs-triage` issue does not stop the rest.
 
-审查者交回的是 `needs-redirection` 或 `needs-context`，不是 findings：
+Show findings with marks, by perspective. Then fix.
 
-| 收到 | 怎么办 |
-| --- | --- |
-| `needs-redirection` | 停。交给用户重新框定，不要自己改产物绕过去 |
-| `needs-context` | 看它缺什么。是你没给全就补齐重派这个视角；是产物里真的没有这份东西，那本身就是一条 finding |
+## 4. Fix
 
-## 5. 逐条判定
+`accepted` items go back to whoever produced the object, in one batch. Do not send reviewers at the fix.
 
-先按 `/mmw-verifying-agent-output` 验证每一条的出处，验证不出来的标 `needs-evidence`。
+- Spec and shared-understanding record: you edit them. ⓪ accepted items reopen grilling branches; rewrite the record; do not review the rewrite.
+- Plans: resume the `planner` who owns the file; new `planner` if the handle is dead.
+- Code: resume the `worker` when every accepted item is on one ticket (merge the task branch into that result branch first). Otherwise one repair ticket and a new `worker`.
 
-**条目多的时候把取证那一半派出去。** 派法和抽检的规矩在 `/mmw-verifying-agent-output` 的「取证可以派，判定不可以」一节。判定不派——下面那两问和五个处置词全是你的活。
+A one-line copy, number, or assertion: you may land it.
 
-验证过的每条再过两问：
+After the fix, register Repair commit as HEAD. On ⑤ that value is also Final commit. If any accepted item is still open, stop.
 
-1. **不修会伤到谁、在什么场景？** 说不清影响面的，不能当关键项采信。
-2. **这轮花预算修，还是挪出去？**
-
-然后标一个处置词。这五个词写英文，审查记录文件里当机器可扫的标记用：
-
-| 处置 | 含义 | 驱动返工？ |
-| --- | --- | --- |
-| `accepted` | 成立，且本轮值得修 | 是——唯一能驱动返工的 |
-| `rejected` | 不成立，或审查者误读 | 否，写一句理由 |
-| `duplicate` | 与另一条重复 | 否，指向保留的那条 |
-| `needs-evidence` | 可能成立，但没验证出出处 | 否，补证之前不修不争 |
-| `waived` | 可能成立，但过度设计、收益太低或超出本次范围 | 否，理由必填 |
-
-几个审查者报同一件事，合并成一条处置。
-
-搁置的按影响面分成两种：说得清影响面的，开一张 GitHub issue 打 `needs-triage`，issue 就是它的审查记录，也是交给用户的通道；纯品味、没有当前用户路径的只写进本次报告，不开 issue。
-
-**搁置项不打断你。** 判成 `waived` 或者开成 issue 的，记下来接着判定其余各条，不要停下来问用户。本文「下一步」一节里标「停」的那些情况仍然要停。
-
-## 6. 报告
-
-按任务名分节呈现，每条 finding 都带着它的处置词，包括被判 `rejected` 的那些。**不要跨视角合并或者重排。**
-
-每个视角末尾给出这个视角报了几条、采信几条，以及这个视角里最严重的那条采信项。不要跨视角评出一个总冠军。最后加一行讲搁置的：搁的是什么、现在由哪张 issue 收着。
-
-## 7. 修复后完成
-
-有 `accepted` 时，调用方一次性修完全部采信项。**修复默认发回原生产者**：
-
-- spec 与共同理解的生产者是主 agent，主 agent 自己修。
-- plan 按受影响文件发回原 `planner` 续跑（恢复动作见 `/mmw-to-plan` 第 4 步），句柄失效时重派。
-- 代码或集成结果按 `/mmw-implement` 第 7 步路由：采信项全落在同一张 ticket 时发回原 `worker`（含同步前置），否则合成一张修复 ticket 派一个 `worker`。
-
-**小改动例外**：三个条件同时成立时，主 agent 直接落地，不派发——改动落在单份产物内部，不动跨 plan 合同、seam 和共享文件归属；不涉及计费、权限、数据迁移和不可逆操作；改动量小到一眼验证得完，例如一处文案、一个数值、一行断言。落地后运行该处验收命令并记录。
-
-修复回来后，主 agent 逐条检查原 finding 指向的问题已经消失，并运行修复涉及的验收命令。这个检查是修复验收，不再启动审查者。
-
-⓪ 不走这一步。它的采信项没有产物可改，只能交回 `/mmw-grilling` 重新提问。
-
-全部采信项修好后，在原审查记录顶部加入 `修复提交`，值等于当前 HEAD。⑤ final 终审把该 HEAD 登记为 `终审提交`。有一条没有修好就停下报告，不发起第二轮修复或审查。
-
-## 下一步
-
-| 情况 | 下一步 |
-| --- | --- |
-| 判定完了，一条 `accepted` 都没有 | **移交**：回到把你叫起来的那个技能，由它决定往下走 |
-| 有 `accepted` 的 findings | **移交**：回到调用方，按第 7 步一次性修复、验证并完成 |
-| ⓪ 判定完了，有 `accepted` | **移交**：`/mmw-grilling`，把采信项交给它重新提问 |
-| ⓪ 的 `understanding.md` 不存在 | **停**：回 `/mmw-grilling` 先写出这份记录，再来审 |
-| 用户直接叫你来审，没有调用方 | **停**：报每个视角各报了几条、采信几条、最严重的是哪一条，让他定这一轮修不修 |
-| 第 1 步的固定点解析不出来，或者 diff 是空的 | **停**：说清是哪一种，让用户重新给 |
-| 收到 `needs-redirection` | **停**：把审查者说的「哪里可疑、建议怎么重新框定」原样交给用户 |
-| 收到 `needs-context`，且缺的东西产物里真的没有 | **自己继续**：把这件事本身记成一条 finding，接着判定其余各个视角 |
+No `accepted` items: return to the caller. If the user invoked you, report counts and wait.

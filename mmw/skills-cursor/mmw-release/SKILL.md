@@ -1,94 +1,79 @@
 ---
 name: mmw-release
-description: 为终审通过的改动构建正式安装包。用于用户要求出包，或实现影响了带出包配置的产品。
+description: Build official install packages for changes that passed final review. Use when the user asks to ship, or the work touched a product that has a release config.
 ---
 
-把这次改动影响到的每个产品出成安装包，出到可以交给用户去装为止。
+# Release
 
-引擎是确定层：状态机、把失败分成三级、路径护栏、同根因熔断、预算熔断全在 `mmw release` 里。**你是判断层**：认这次要出哪几个产品、读状态执行它给的动作、诊断引擎自己判不了的那一类暂停。你不判分级，不绕护栏，不自建第二个执行器。
+Ship an install package for every product this change touched, far enough that the user can install it.
 
-## 1. 前置条件
+The engine is the deterministic layer: the state machine, the three failure grades, path guards, same-cause circuit breakers, and budget breakers all live in `mmw release`. **You are the judgment layer:** name the products for this run, read the state and run the action it names, and diagnose the one class of pause the engine cannot judge. You do not grade failures. You do not bypass guards. You do not build a second executor.
 
-四项都满足才开工，缺一项就停下来说清是哪一项。
+## 1. Preconditions
 
-| 检查 | 怎么查 |
+All four must hold. If one fails, stop and name it.
+
+| Check | How |
 | --- | --- |
-| 终审跑过，采信的 findings 都已修复并验证 | 运行 `mmw artifact path review --sub final.md`。输出文件存在。有采信项时，它顶部有 `修复提交` |
-| 当前 HEAD 就是终审完成的提交 | 运行 `mmw artifact path review --sub final.md`。读取输出文件。确认其中的 `终审提交` 等于 `git rev-parse HEAD` |
-| 工作区干净 | `git status --porcelain` 是空的。引擎拒绝把自愈修复混进你没提交的改动里 |
-| 这个仓库配了出包 | 仓库里能找到至少一份出包配置（下一步） |
+| Final review ran; accepted findings are fixed and verified | Run `mmw artifact path review --sub final.md`. The file exists. When there were accepted findings, its header has `修复提交` |
+| Current HEAD is that final-review commit | Run `mmw artifact path review --sub final.md`. Read the file. `终审提交` equals `git rev-parse HEAD` |
+| Working tree is clean | `git status --porcelain` is empty. The engine refuses to mix self-heal commits with uncommitted work |
+| This repo has a release config | At least one release config exists (next step) |
 
-**没有出包配置不是失败。** 这次是有 spec 还是只有 agent brief，由调用方移交时告诉你，不用自己推：有 spec 的移交 `/mmw-closing`，只有 agent brief 的直接交回用户集成。调用方没说就问它，不要拿文件系统猜。
+**No release config is not a failure.** Report that this task does not ship, the current branch HEAD, and the verification evidence. Hand back to the user to integrate.
 
-## 2. 认这次要出哪几个产品
+## 2. Name the products for this run
 
-出包配置由仓库自己登记，一个产品一份，文件名以 `.release-adapter.json` 结尾。先列出全部：
+The repo registers release configs. One product per file. The filename ends with `.release-adapter.json`. List them:
 
 ```bash
 grep -rl '"product"' --include='*.release-adapter.json' .
 ```
 
-再判断这次要出哪几个：**看这次改动碰了哪些路径**（`git diff --name-only $(git merge-base HEAD <父分支>)..HEAD`；`<父分支>` 是这条任务分支分叉出来的那条：普通任务是仓库默认分支，从 Wayfinder map 派生的是 map 分支，分支名记在 map 正文的 `## 分支` 一节），对照每份配置里 `build_target.desktop_dir` 与 `asset_roots` 声明的范围。碰到了就要出。
+Decide which to ship: take the paths this change touched (`git diff --name-only $(git merge-base HEAD <parent>)..HEAD`; `<parent>` is the branch this task branch was created from — the repo default branch, or the map branch when this task came from `/mmw-wayfinder`, recorded under `## 分支` in the map body). Match each config's `build_target.desktop_dir` and `asset_roots`. A hit means ship that product.
 
-判不准就问用户，不要漏出一个——漏了的那个产品，用户装到的还是旧代码。
+If you cannot tell, ask the user. Do not omit a product.
 
-按这个形状亮一次清单，**不等回应直接往下走**：
+Show this list once and continue. Do not wait for a reply:
 
 ```
-| 产品 | 出包配置 | 这次为什么要出它 |
+| product | release config | why this run includes it |
 ```
 
-## 3. 一个产品一轮，按 driving.md 驱动
+## 3. One product per loop, driven by driving.md
 
-对第 2 步定下的每个产品，依次：
+For each product from step 2, in order:
 
 ```bash
-mmw release init --manifest <那份配置的绝对路径>
+mmw release init --manifest <absolute path of that config>
 ```
 
-然后读 [driving.md](driving.md) 整份，照它驱动到安装包就绪。**驱动合同只有那一份**，本文不复述。
+Then read [driving.md](driving.md) in full and drive until the package is ready. **That file is the driving contract.** This skill does not retell it.
 
-一个产品收束（`mmw release close`）之后再起下一个。不要同时起两个——状态文件一个仓库只有一份。
+`mmw release close` one product before starting the next. Do not run two at once — the repo has one state file.
 
-## 4. 核对几个包是不是同一份代码
+## 4. Same-commit check
 
-出完全部产品之后做这一步。**出一个产品的过程中引擎可能自愈修复、产生新提交**，于是先出的那个产品的包，用的已经不是最终代码了。
+Do this after every product has shipped. A stage, a dispatch, or a self-heal can create new commits, so an earlier package may not match the final code.
 
 ```bash
 git rev-parse HEAD
 ```
 
-交付记录的工作目录根由当前仓库 `.mmw.json` 的 `paths.release` 决定。读取该配置值，再读取它下面 `delivered/` 中的记录。记录落在**主仓库根**，不在当前这棵任务 worktree 里——它比对的是几次出包之间的 commit，worktree 收尾就删，落在树里的记录活不过一次任务。
+The delivery-record working-directory root is `.mmw.json` `paths.release` in the current repo. Read that value, then the records under `delivered/` there. Records live at the **main checkout root**, not in this task worktree.
 
-这个目录里躺着历次出包的记录，一个产品一份、后一次盖前一次。**只看第 2 步清单上那几个产品的那几份**，其余的跟这一轮无关。它们的 `source_commit` 都等于当前 HEAD，才算这批包是同一份代码。
+That directory holds one record per product. A later run overwrites the earlier one. **Read only the products on the step 2 list.** Their `source_commit` values must all equal current HEAD.
 
-有对不上的：那个产品重出一遍（回第 3 步，只重出对不上的那些）。重出之后再核对一次——重出的过程可能又产生新提交。
+A mismatch: ship that product again (back to step 3, only the mismatches). Then check again — a reship can create new commits.
 
-**混着不同 commit 的包一个都不能交给用户。** 他装上去会发现两个产品的行为对不上，而且查不出原因。
+**Do not give the user a mixed-commit set of packages.**
 
-## 5. 交给用户实测
+## 5. User install test
 
-安装包在哪，从引擎打出的 `DELIVERED` 行读——出包成功时它把包收拢到交付根，一个包一行，行里就是完整路径。
+Package paths come from the engine's `DELIVERED` lines. On success it gathers packages at the delivery root, one path per line.
 
-收拢失败时引擎打的是 WARN，里面带着包留在构建目录的位置——那也是有效路径，照它报，同时说清这个包没进交付根。两样都没有就如实说没拿到路径，不按目录约定猜一个。
+On gather failure the engine prints WARN with the path left in the build directory. Report that path, and say the package did not reach the delivery root. If neither line exists, say you have no path. Do not invent one from a directory convention.
 
-把这些交给用户：出了哪几个产品、每个包在哪、这批包对应哪个 commit。
+Give the user: which products shipped, where each package is, which commit this set is.
 
-**然后停下来等他装上去实测。** 包能不能装、装完能不能用，机器判不了。他说通过了才走下一步；不通过就按他报的问题回 `/mmw-implement` 修，修完重新出包，不再审。
-
-## 下一步
-
-| 情况 | 下一步 |
-| --- | --- |
-| 第 1 步查出这个仓库没配出包，而且有 spec | **移交**：`/mmw-closing`。这次任务不出包 |
-| 第 1 步查出这个仓库没配出包，而且只有 agent brief | **停**：报告这次任务不出包、当前分支 HEAD 和验证证据。分支已就绪，交回用户集成 |
-| 第 5 步用户实测通过，而且有 spec | **移交**：`/mmw-closing`，把 spec 与 plan 归档、分支交回他合并 |
-| 第 5 步用户实测通过，而且只有 agent brief | **停**：报告安装包、对应 commit 和用户实测结论。任务没有 spec，不走 `/mmw-closing`；分支已就绪，交回用户集成 |
-| 第 5 步用户报了问题 | **移交**：`/mmw-implement`，把他报的现象和复现步骤带过去。修完重新出包，不再审 |
-| 第 4 步有产品的 commit 对不上 | **自己继续**：只重出对不上的那几个，回第 3 步 |
-| 驱动中引擎报了要人拍板的暂停 | **停**：把引擎状态输出原样给用户，说清卡在哪个产品的哪个阶段、已经试过什么。不要自己 resume——那类暂停是保护性的 |
-| 驱动中引擎报了缺信息的暂停 | **自己继续**：按 [driving.md](driving.md) 的「自己处置：缺信息的那类暂停」办。同一个根因处置两次仍不成才交人 |
-| 第 1 步工作区不干净 | **停**：列出没提交的文件。引擎拒绝把自愈修复混进它们里面，这是防止你的改动被自动提交带走 |
-| 第 1 步终审没跑，或还有采信的 findings 没修完 | **停**：说清缺哪一样。没审就回 `/mmw-implement` 第 7 步；审过就按 `/mmw-review` 第 7 步完成修复验证 |
-| 开始出包前，当前 HEAD 与终审提交不同 | **停**：列出终审后新增的提交；本任务不再发起审查，由用户决定这些提交是否属于已验证修复 |
-| 第 2 步判不准这次要出哪几个产品 | **停**：把全部产品和这次改动碰的路径列给用户，让他点 |
+**Stop and wait for the user to install and try it.** The machine cannot judge install or use. Pass: report the packages, the commit, and the test result, then hand back to the user to integrate. Fail: take the symptoms and repro steps to `/mmw-implement`, then ship again. Do not start another review.

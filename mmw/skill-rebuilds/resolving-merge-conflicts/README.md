@@ -1,20 +1,30 @@
 # Resolving Merge Conflicts 重建区
 
-这个目录用于从 Matt Pocock Skills 1.2.2 重新建立 MMW 对 `resolving-merge-conflicts` 的承接。当前发布技能仍位于 `mmw/skills-src/mmw-integrate/`；本目录中的文件不会被 `mmw skills materialize` 物化，也不会改变任何宿主的运行行为。
+这个目录用于从 Matt Pocock Skills 重新建立 MMW Integrate。当前发布技能仍位于 `mmw/skills-src/mmw-integrate/`；本目录中的文件不会被 `mmw skills materialize` 物化，也不会改变任何宿主的运行行为。
 
-## 当前阶段
+## 当前阶段：英文逆向（2026-08-16）
 
-第一阶段已经完成上游 `SKILL.md` 和 `agents/openai.yaml` 的逐段中文翻译。翻译原样保留上游查看状态、追溯双方意图、逐块解决、自动检查和完成 Git 操作的顺序，也保留“始终解决，绝不 `--abort`”的上游原文；本阶段不加入 MMW 的安全停止边界。
+底稿是上游英文原文（一份 5 步 `SKILL.md`，vendor `1.2.3`）。候选是 **1 个文件**：[`candidate/SKILL.md`](candidate/SKILL.md)，按将来位于 `mmw/skills-src/mmw-integrate/SKILL.md` 书写。技能名仍是 `mmw-integrate`（`/mmw-implement` 已经这么调）。现役三文件技能源未改。
 
-## 文件
+上游五步原句留下：看现状、找 primary sources、逐 hunk 保留双方意图、跑项目自己的检查、完成 merge/rebase。Always resolve; never `--abort`。不按 `ours` / `theirs` 选边。
 
-| 文件 | 作用 |
-| --- | --- |
-| `upstream-1.2.2.zh-CN.md` | 上游 1.2.2 的逐段中文翻译基线 |
-| `translation-audit.md` | 术语选择、逐段完整性与无新增语义检查 |
+已叠进候选的接线：
 
-后续只有在用户确认精简方案后，才增加 `simplified.zh-CN.md`；只有在用户确认接线方案后，才增加 `candidate/`。
+- 目标是当前任务分支。主 agent 不换工作目录，不合进默认分支。
+- `mmw result integrate` 已经开了的 merge：接着解，不重跑那条命令。
+- 未完成的结果分支：在那棵结果 worktree 里 rebase。本会话留在任务分支。
+- 首次写入前 `[[mmw-require-task-branch]]`。
+- 取舍写进提交说明。有 `TESTING.md` 时从它开始跑检查。
+- 既定目标判不了就停下来问。不发明第三种行为（上游第 3 步已有）。
 
-## 2026-08 复审确认
+未叠：
 
-上游「Always resolve; never `--abort`」是绝对规则。候选 `mmw-integrate` 的 `merging.md` 与 `rebasing.md` 有意改为条件规则：只有用户取消本次集成，或现有目标无法决定冲突取舍时才停止，并以「不要用停止代替冲突判断」压住滥用。理由：MMW 是多分支自动集成场景，双方意图真不兼容时强行 resolve 等于替用户做设计决定。用户已确认这是刻意的产品决策。
+- `merging.md` / `rebasing.md`（`ours`/`theirs` 对照表是上游要杀掉的解法）。
+- 合之前的四角调查。组合对不对是 ⑤ Final trace。
+- 「终审过了才合」。worker 做完就合。
+- 合完自查三关、`mmw result verify` 单独跑、`integration-*.md` 审查记录。
+- `agents/openai.yaml`。技能保持 model-invoked，implement 要调得着。
+
+同轮改了 review 候选：⑤ 不再说「要不要先调查由 `/mmw-integrate` 判」。
+
+本轮不派冷读 subagent。不改 leaf。`任务分支` / `结果分支` / `基点 SHA` 已在 `docs/context/agent-coordination.md`。

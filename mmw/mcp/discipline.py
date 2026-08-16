@@ -17,7 +17,7 @@
     原生 subagent          Codex App、Pi、Cursor、Grok 的主 agent 直调原生 subagent。
                            这四个宿主的 adapter 只交参数不执行派发，codex/runtime.py
                            与 cli/lib/materialize_agents.py 也不注入本模块，四条都
-                           插不进去。planner、investigator、reviewer 靠各自技能里
+                           插不进去。planner、reviewer 靠各自技能里
                            那一句，worker 靠 agent-src/bodies/mmw-worker.md 的
                            「检索」一节
 

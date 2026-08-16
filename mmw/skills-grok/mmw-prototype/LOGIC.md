@@ -1,83 +1,69 @@
-# Logic HTML
+# Logic Prototype
 
-Logic HTML 是一个独立、自包含的 HTML 文件。任何人都能点击按钮来驱动状态模型。它回答业务逻辑、状态转移或数据形状的问题。
+A single, self-contained HTML file — a **shareable demo** — that lets anyone drive a state model by clicking buttons. Use this when the question is about **business logic, state transitions, or data shape** — the kind of thing that looks reasonable on paper but only feels wrong once you push it through real cases.
 
-这种工作面适合以下情况：
+Because it's one file with nothing to install, you can hand it to a non-developer — a designer, a PM, a domain expert — and let them feel the model for themselves. So it speaks their language, not the code's.
 
-- 纯状态模型没有合适的产品界面。
-- 非开发者需要亲自用按钮驱动状态模型。
-- 纸面上难以判断某条状态转移或数据边界。
+## When this is the right shape
 
-开始前，必须已经有以下内容：
+- "I'm not sure if this state machine handles the edge case where X then Y."
+- "Does this data model actually let me represent the case where..."
+- "I want to feel out what the API should look like before writing it."
+- Anything where someone wants to **press buttons and watch state change**.
 
-- 当前验证问题，由 [SKILL.md](SKILL.md) 第 1 节确定。
-- 现有状态模型或后端脚本的精确路径。
-- 真实场景和边界。
-- 输出路径，也就是 [SKILL.md](SKILL.md) 第 2 节 `prototype 产物路径` 下的 `logic/`。
+If the question is "what should this look like" — wrong branch. Use [UI.md](UI.md). If looking at one output is enough, stay on [SKILL.md](SKILL.md) and write a script.
 
-缺少会改变模型行为的输入时，先向用户取得缺失内容。不要自行补造业务动作、状态或边界。
+## Process
 
-## 1. 说明问题
+### 1. State the question
 
-编写代码前，读取现有状态模型或后端脚本。把当前验证问题写在页面顶部的可见介绍中。介绍必须说明用户正在驱动什么状态模型，以及这一轮要判断什么。
+Before writing code, write down what state model and what question you're prototyping. One paragraph, at the top of the demo (in a visible intro, not just a comment). A logic prototype that answers the wrong question is pure waste — make the question explicit so it can be checked later, whether the user is watching now or returning to it AFK.
 
-## 2. 隔离可移植逻辑
+Do not invent business actions, states, or edges the question needs. Ask.
 
-把回答当前问题的实际逻辑放进一个小型纯 `module`。根据问题选择形态：
+### 2. Isolate the logic in a portable module
 
-- 动作是离散事件，而且状态是单一值时，使用纯 `reducer`。
-- 合法动作取决于当前状态时，使用状态机。
-- 只有数据转换，没有隐含当前状态时，使用一组纯函数。
-- 逻辑确实持有持续的内部状态时，使用具有清晰方法集合的类或 `module`。
+Put the actual logic — the bit that's answering the question — in a small, pure module that could be lifted out and dropped into the real codebase later. Write that module as its own file in this prototype. The HTML page around it is throwaway; this module isn't.
 
-现有状态模型或后端脚本是行为依据。Logic HTML 只承载当前问题需要的最小逻辑。页面调用纯 `module`；纯 `module` 不访问 DOM、`document` 或按钮处理器。页面外壳不能反向决定业务行为。
+The right shape depends on the question:
 
-这个纯 `module` 就是这一轮磨清楚的想法本身。想法磨清楚之后，它是下游可以直接参考或复用的内容，所以把它单独成文件放在 `logic/` 中，不要和页面外壳混在一起。HTML 外壳只为人手点选走查而生，不挂进产品路由——值得留下的是它背后的 `module`。
+- **A pure reducer** — `(state, action) => state`. Good when actions are discrete events and state is a single value.
+- **A state machine** — explicit states and transitions. Good when "which actions are even legal right now" is part of the question.
+- **A small set of pure functions** over a plain data type. Good when there's no implicit current state — just transformations.
+- **A class or module with a clear method surface** when the logic genuinely owns ongoing internal state.
 
-现有状态模型或后端脚本无法直接在浏览器中运行时，根据它的公开行为实现回答当前问题的纯 `module`。只实现现有行为能够确定的动作、状态和边界；无法确定的业务事实向用户取得，不自行补造。
+Pick whichever shape best fits the question being asked, *not* whichever is easiest to wire to a page. Keep it pure: no DOM, no `document`, no button handlers reaching inside it. The page calls into it; nothing flows the other direction. This is what makes the prototype useful past its own lifetime: the validated reducer / machine / function set is the reusable idea. This skill does not fold it into production.
 
-构建 HTML 前确认现有行为足以表达当前验证问题：
+### 3. Build the shareable HTML file
 
-| 情况 | 处理 |
-| --- | --- |
-| 现有行为无法表达当前验证问题 | 向用户说明无法表达的事实，按文末「下一步」处理，不继续构建 |
-| 现有行为足以表达当前验证问题 | 继续第 3 节 |
+One HTML file, plain HTML/CSS/JS — no framework, no bundler, no server. It opens by double-click. It may load the module file beside it; the user still opens one page.
 
-## 3. 构建自包含 HTML
+Write it for a non-developer. Every label is in **domain language**, not code — buttons and state read like the business, not the reducer. Explain in plain words what's happening.
 
-生成一个原生 HTML、CSS 和 JavaScript 文件。全部内容内联。文件无需框架、打包器或服务器，用户双击就能运行。
+Lay it out with a clean hierarchy, top to bottom:
 
-页面使用领域语言，不暴露内部事件枚举或字段缩写。按照以下顺序布局：
+1. **Title and one-line explanation** of what this demo lets you explore (the question from step 1). The title marks this as a prototype.
+2. **Current state** — the full relevant state, rendered as a readable panel (labelled fields, not a raw JSON dump), re-rendered after every click so the change is visible. Where it helps a non-developer follow, call out what just changed.
+3. **Free-play buttons** — one button per action, always available, so anyone can poke at the model in any order. Each click dispatches its action and re-renders the state. Illegal actions can be pressed; the model rejects them and says why.
+4. **Guided walkthroughs** — a set of **scenarios**, one per tab. Each tab holds a short plain-language description of the scenario — the situation it sets up and what to watch for — and underneath it, the ordered **buttons to press** for that scenario. Each step is a real button: clicking it performs that action and moves to the next step. Starting a walkthrough resets to a known initial state so the scenario runs the same way every time.
 
-1. 标题和一行说明。标题让人一眼看出这是 prototype；说明写清当前验证问题。
-2. 当前状态。使用带标签的字段展示完整相关状态，不直接倾倒原始 JSON。每次动作后重新渲染。
-3. `free-play` 按钮。每种动作一个按钮，用户可以任意排序尝试。非法动作也可以触发，由模型明确拒绝并说明原因。
-4. `guided walkthrough`。一个场景一个标签页。每个场景说明初始情形和观察重点，并提供按顺序执行的真实动作按钮。
+Choose scenarios that demonstrate the awkward cases — the happy path, a tricky edge case, an attempt at something that should be illegal — the ones hard to reason about on paper.
 
-每次启动同一个 `guided walkthrough` 时，先重置到相同的已知初态。场景至少覆盖正常路径、一个真实边界和一次应被拒绝的非法动作。并发、回滚、空状态和失败状态只在模型真实存在时加入。
+Keep it beautiful but restrained: clean typography, generous spacing, one accent colour. No animations, no gimmicks — nothing that competes with the state and the buttons.
 
-排版保持克制。使用清楚的层级、足够的间距和一个强调色。视觉装饰不能盖过状态和动作。
+### 4. Hand it over
 
-## 4. 交给用户驱动状态模型
+Open it as [SKILL.md](SKILL.md) specifies for a walkthrough. They'll click through the walkthroughs and free-play; the interesting moments are when they say "wait, that shouldn't be possible" or "huh, I assumed X would be different" — those are the bugs in the _idea_, which is the whole point. If they want new actions or a new scenario, add them. Prototypes evolve. Later rounds edit this same file.
 
-打开 Logic HTML，把 `free-play` 和每个 `guided walkthrough` 交给用户。用户必须能够独立重置并重复运行场景。
+### 5. Capture the answer and the prototype
 
-按 [SKILL.md](SKILL.md)「用户走查」的浏览器规则打开 Logic HTML。保留页面供用户操作。确认页面真的可见之后，才说已经打开。交给用户之前为当前状态截图。截图写进 `scratch 路径`。页面交给用户之后停止导航，等待用户反馈。
+Once the prototype has answered its question, capture it the way the [SKILL](SKILL.md) describes. The logic-specific mapping: list the module as reusable; do not list the HTML shell as reusable. Do not hang the HTML shell on a product route.
 
-用户指出不合理行为时，记录原话。后续轮次继续修改同一个文件，不建立新文件。
+## Anti-patterns
 
-## 完成判据
-
-- 页面明确显示当前验证问题，并且一眼看得出这是 prototype。
-- 所有动作调用同一个纯 `module`，纯 `module` 单独成文件放在 `logic/` 中。
-- 每次动作后显示完整相关状态。
-- `free-play`、可重复的 `guided walkthrough` 和真实边界都能运行。
-- 文件保存在 `prototype 产物路径` 下的 `logic/`。
-
-## 下一步
-
-| 情况 | 下一步 |
-| --- | --- |
-| 用户已经驱动过状态模型并给出走查意见 | **自己继续**：读取 [capture.md](capture.md)，保存本轮记录和下游输入 |
-| Logic HTML 已经交给用户，但用户还没有驱动状态模型 | **停**：等待用户操作并返回意见 |
-| 现有状态模型无法表达当前验证问题 | **自己继续**：读取 [capture.md](capture.md)，把无法表达的事实记为本轮结论 |
+- **Don't add tests.** A prototype that needs tests is no longer a prototype.
+- **Don't wire it to the real database.** Use in-memory state unless the question is specifically about persistence.
+- **Don't generalise.** No "what if we wanted to support X later." The prototype answers one question.
+- **Don't blur the logic and the page together.** If the pure module references the DOM, `document`, or button handlers, it's no longer liftable. Keep the page as a thin shell over a pure module.
+- **Don't reach for a framework, bundler, or server.** One file the recipient double-clicks; a React app or a dev server defeats "shareable".
+- **Don't ship the HTML shell into production.** The page is optimised for being clicked through by hand. The logic module behind it is the bit worth keeping.

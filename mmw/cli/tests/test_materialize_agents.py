@@ -49,18 +49,18 @@ ROLES = {
         "body": "worker.md",
         "skill": "mmw-tdd",
     },
-    "investigator": {
-        "agent": "mmw-investigator",
+    "reader": {
+        "agent": "mmw-reader",
         "description": "查事实，带出处",
         "writable": False,
-        "body": "investigator.md",
+        "body": "reader.md",
     },
 }
 
 CONFIG = {
     "models": {
         "worker": {"family": "gpt", "id": "gpt-x", "effort": "high"},
-        "investigator": {
+        "reader": {
             "family": "gpt",
             "id": "gpt-x",
             "effort": "medium",
@@ -79,7 +79,7 @@ def 假源(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (profiles / "testhost.json").write_text(
         json.dumps(PROFILE, ensure_ascii=False), encoding="utf-8")
     (bodies / "worker.md").write_text("worker 的方法论。\n", encoding="utf-8")
-    (bodies / "investigator.md").write_text("investigator 的方法论。\n", encoding="utf-8")
+    (bodies / "reader.md").write_text("reader 的方法论。\n", encoding="utf-8")
     monkeypatch.setattr(ma, "PROFILES_DIR", profiles)
     monkeypatch.setattr(ma, "BODIES_DIR", bodies)
     return tmp_path
@@ -108,7 +108,7 @@ def frontmatter(text: str) -> dict[str, str]:
 def test_只读角色拿不到可写工具集(假源: Path, tmp_path: Path) -> None:
     out = tmp_path / "out"
     物化(out)
-    只读 = frontmatter(读(out, "mmw-investigator.md"))
+    只读 = frontmatter(读(out, "mmw-reader.md"))
     assert 只读["tools"] == "读"
     assert "写" not in 只读["tools"]
     assert 只读["readonly"] == "true"
@@ -151,10 +151,10 @@ def test_frontmatter_不用工具集时可以没有_tools(假源: Path, tmp_path
 # -------------------------------------------------------------- 模型档覆盖
 
 def test_宿主覆盖只换被覆盖的那个字段(假源: Path, tmp_path: Path) -> None:
-    # investigator 在 testhost 上只覆盖了 effort；family 与 id 必须还是基线那一份。
+    # reader 在 testhost 上只覆盖了 effort；family 与 id 必须还是基线那一份。
     out = tmp_path / "out"
     物化(out)
-    assert frontmatter(读(out, "mmw-investigator.md"))["model"] == "openai/gpt-x[effort=low]"
+    assert frontmatter(读(out, "mmw-reader.md"))["model"] == "openai/gpt-x[effort=low]"
 
 
 def test_没有覆盖的角色用基线(假源: Path, tmp_path: Path) -> None:
@@ -173,7 +173,7 @@ def test_别的宿主的覆盖不影响这个宿主(假源: Path, tmp_path: Path
 
 def test_模型档缺字段就退出(假源: Path, tmp_path: Path) -> None:
     配置 = {"models": {"worker": {"family": "gpt", "id": "gpt-x"},
-                       "investigator": CONFIG["models"]["investigator"]}}
+                       "reader": CONFIG["models"]["reader"]}}
     with pytest.raises(SystemExit):
         物化(tmp_path / "out", config=配置)
 
@@ -195,16 +195,16 @@ def test_空字符串覆盖不算覆盖(假源: Path, tmp_path: Path) -> None:
 
 def test_角色限定宿主时别的宿主不生成(假源: Path, tmp_path: Path) -> None:
     角色 = json.loads(json.dumps(ROLES))
-    角色["investigator"]["hosts"] = ["别的宿主"]
+    角色["reader"]["hosts"] = ["别的宿主"]
     out = tmp_path / "out"
     物化(out, roles=角色)
     assert (out / "mmw-worker.md").is_file()
-    assert not (out / "mmw-investigator.md").exists()
+    assert not (out / "mmw-reader.md").exists()
 
 
 def test_角色限定宿主名单必须是非空字符串列表(假源: Path, tmp_path: Path) -> None:
     角色 = json.loads(json.dumps(ROLES))
-    角色["investigator"]["hosts"] = []
+    角色["reader"]["hosts"] = []
     with pytest.raises(SystemExit):
         物化(tmp_path / "out", roles=角色)
 
@@ -294,7 +294,7 @@ def test_角色没写_skill_时那个键整个省掉(假源: Path, tmp_path: Pat
     # 留一个空的 skills: 会让宿主去找一个叫空字符串的技能。
     out = tmp_path / "out"
     物化(out)
-    assert "skills:" not in 读(out, "mmw-investigator.md")
+    assert "skills:" not in 读(out, "mmw-reader.md")
     assert "skills: mmw-tdd" in 读(out, "mmw-worker.md")
 
 
@@ -384,8 +384,8 @@ def test_配套文件带上本角色的思考档(假源: Path, tmp_path: Path) -
     out = tmp_path / "out"
     物化(out)
     assert 读配套(out, "mmw-worker.toml")["reasoning_effort"] == "high"
-    # investigator 在 CONFIG 里被 testhost 覆盖成 low，配套文件要跟着覆盖后的值
-    assert 读配套(out, "mmw-investigator.toml")["reasoning_effort"] == "low"
+    # reader 在 CONFIG 里被 testhost 覆盖成 low，配套文件要跟着覆盖后的值
+    assert 读配套(out, "mmw-reader.toml")["reasoning_effort"] == "low"
 
 
 def test_配套文件按可写与否给能力档(假源: Path, tmp_path: Path) -> None:
@@ -393,7 +393,7 @@ def test_配套文件按可写与否给能力档(假源: Path, tmp_path: Path) -
     out = tmp_path / "out"
     物化(out)
     assert 读配套(out, "mmw-worker.toml")["default_capability_mode"] == "all"
-    assert 读配套(out, "mmw-investigator.toml")["default_capability_mode"] == "read-only"
+    assert 读配套(out, "mmw-reader.toml")["default_capability_mode"] == "read-only"
 
 
 def test_配套文件转义引号与反斜杠(假源: Path, tmp_path: Path) -> None:

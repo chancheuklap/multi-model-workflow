@@ -433,9 +433,9 @@
 </header>
 
 <div class="contract-strip" aria-label="版本与方法合同">
-  <div><strong>MMW 0.11.0</strong></div>
+  <div><strong>MMW 0.30.0</strong></div>
   <div><strong>上游基线 Matt Pocock Skills 1.2.3</strong></div>
-  <div>MMW 技能源保留 Matt 的方法、步骤、解释和完成判据，并接入 MMW 的 worktree、tracker、报告验证、领域文档、人工审批关卡和宿主承载。</div>
+  <div>MMW 技能源保留 Matt 的方法、步骤、解释和完成判据，并接入 MMW 的 worktree、tracker、领域文档、人工审批关卡和宿主承载。</div>
 </div>
 
 <div class="hue-strip">
@@ -443,7 +443,6 @@
   <span class="hue upstream"><i></i>Matt 方法合同</span>
   <span class="hue workflow"><i></i>MMW 工作流合同</span>
   <span class="hue spine"><i></i>主干</span>
-  <span class="hue mms"><i></i>mmw-start</span>
   <span class="hue set"><i></i>mmw init 与 .mmw.json</span>
   <span class="hue gwd"><i></i>mmw-grilling</span>
   <span class="hue ctx"><i></i>mmw-domain-modeling 与领域文档</span>
@@ -487,23 +486,20 @@ subgraph SETUP["前置"]
   cfg[/"<b>.mmw.json</b> · 目标仓库根<br/>· 标签清单 · CLI 路径 · 领域文档形态<br/>· 不保存模型档<br/>· paths 只配 CLI 自己消费的 scratch / reviews / release / worktrees"/]
 end
 
-  mms(["<b>mmw-start</b> · 用户专用统一入口<br/>· 按任务类型与 tracker 状态判路线<br/>· 定 slug<br/>· 建立或恢复任务上下文<br/>· 下游技能不会回跳这里"])
-
 subgraph MAIN["主干 · 从想法到落地"]
   direction LR
   gri["<b>mmw-grilling</b><br/>· 开问前先查仓库现状<br/>· 用设计树组织当前 frontier<br/>· 每轮批量提出整个 frontier<br/>· 同时应用 domain-modeling<br/>· 共同理解经用户确认才完成<br/>· 用户要复核时写共同理解记录，走 ⓪"]
   pro[["<b>mmw-prototype</b><br/>· 一轮只回答一个可走查问题<br/>· 后端脚本、Logic HTML 与 UI/UX 原地迭代<br/>· 用户走查决定下一轮<br/>· 持久资产与过程材料分层保存"]]
   tsp[["<b>mmw-to-spec</b><br/>· 五种真实入口各自读取已有产物<br/>· 只综合已经谈定的内容<br/>· seam 在这里钉死<br/>· spec 定稿的人工审批关卡通过后发布"]]
   ttk[["<b>mmw-to-tickets</b><br/>· 切成 tracer bullet<br/>· 声明阻塞关系与精确上下文路径<br/>· 用户通过 ticket 切分人工审批关卡<br/>· 批准后才发布到 tracker"]]
-  imp[["<b>mmw-implement</b><br/>· 一张 ticket 派一个可写 worker<br/>· Codex 用独立后台 Worktree 任务<br/>· 每份走 ③ 逐份验收三关<br/>· 全部合并后走 ④ 合同门"]]
+  imp[["<b>mmw-implement</b><br/>· 一张 ticket 派一个可写 worker<br/>· Codex 用独立后台 Worktree 任务<br/>· 按四种结局选路并合并<br/>· 全部合并后发起 ⑤ final 终审"]]
   tdd[("<b>mmw-tdd</b><br/>· red 到 green 的循环<br/>· seam 由 spec 钉死<br/>· seam 未定时读 codebase-design<br/>· 当前测试交错运行，全套只在末尾运行一次")]
   uiq[("<b>mmw-ui-qa</b><br/>· 不是六道审的任何一道，prototype 阶段也能用<br/>· 起步先要求工作区干净，范围三档全由 git 当场算<br/>· A 类确定性检查产出违规项直接改，合成一个提交<br/>· B 类模型判断产出 finding，走五个处置标记等用户裁决<br/>· 裁决存指纹，下一轮全等的不再报<br/>· 语义层整条路径一次派一个 designer")]
-  pln[["<b>mmw-to-plan</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 按批次写 plan：阻塞已关、还没 ready-for-agent 的 ticket 各写一份<br/>· 派 planner 写，记恢复句柄<br/>· 只传入本 ticket 使用的精确上下文路径<br/>· 验证返回，回填精确字段<br/>· 本批次 plan 审通过并提交后写 tracker 状态"]]
+  pln[["<b>mmw-to-plan</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 按批次写 plan：阻塞已关、还没 ready-for-agent 的 ticket 各写一份<br/>· 派 planner 写，记恢复句柄<br/>· 只传入本 ticket 使用的精确上下文路径<br/>· 确认 plan 文件存在后回填<br/>· 本批次 plan 审通过并提交后写 tracker 状态"]]
   pnr[("<b>mmw-planner</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 写计划方法论<br/>· 从 prototype 资产提取已确认决定<br/>· planner 进门读它，主 agent 不读")]
-  clo["<b>mmw-closing</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· spec 与 plan 长期留在仓库<br/>· 只清理当前名字段的过程材料<br/>· 逐条用 mmw artifact path 确认归属再删"]
-  intg[["<b>mmw-integrate</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 验证结果分支、HEAD 与基点<br/>· 按合同依赖排序<br/>· 合入当前任务分支"]]
-  rel["<b>mmw-release</b><br/>· 出包前 HEAD 必须等于终审提交<br/>· 主 agent 驱动正式出包循环<br/>· 核对所有包的 source commit<br/>· 用户实测通过后收尾"]
-  crv[["<b>mmw-review</b><br/>· 六道审的编排，每道只运行一轮<br/>· ⓪ 共同理解审由用户点头才发起<br/>· 多分支集成结果同样进入 ⑤ final 终审<br/>· 按视角传入需要的索引与精确路径<br/>· findings 逐条判定<br/>· 采信项修复后由主 agent 验证完成"]]
+  intg[["<b>mmw-integrate</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 按合同依赖排序<br/>· 合入当前任务分支"]]
+  rel["<b>mmw-release</b><br/>· 出包前 HEAD 必须等于终审提交<br/>· 主 agent 驱动正式出包循环<br/>· 核对所有包的 source commit<br/>· 用户实测通过后停"]
+  crv[["<b>mmw-review</b><br/>· ⓪①②⑤ 的编排，每道只运行一轮<br/>· ⓪ 共同理解审由用户点头才发起<br/>· 多分支集成结果同样进入 ⑤ final 终审<br/>· 按视角传入需要的索引与精确路径<br/>· findings 逐条判定<br/>· ③④ 已取消"]]
   shp((("<b>提交到<br/>当前分支</b>")))
 end
 
@@ -514,30 +510,29 @@ subgraph RAMP["支线入口 · 先产生工作，再并回主干"]
   wfd[["<b>mmw-wayfinder</b><br/>· effort 超过一个 agent 会话且路线尚不清楚<br/>· 三段：画 map、每会话解一张 decision ticket、收尾<br/>· 内部展开见第二张图"]]
 end
 
-  ica[["<b>mmw-improve-codebase-architecture</b><br/>· 派 3 到 4 个 investigator<br/>· 每份 task 相同，都自然探索同一范围<br/>· 主 agent 去重并验证候选<br/>· 用户挑中候选之后才绑定任务 worktree"]]
+  ica[["<b>mmw-improve-codebase-architecture</b><br/>· 派 3 到 4 个 Explore<br/>· 每份 task 相同，都自然探索同一范围<br/>· 主 agent 去重后出报告<br/>· 用户挑中候选之后才绑定任务 worktree"]]
 
 subgraph VOCAB["跑在别的技能底下"]
   direction TB
   ups[/"<b>Matt Pocock Skills 1.2.3</b><br/>· 对应技能的方法、步骤与解释<br/>· 完成判据和产物方法"/]
-  mmwc[/"<b>MMW 正式工作流合同</b><br/>· worktree · tracker · 报告验证<br/>· 领域文档 · 人工审批关卡 · 宿主边界"/]
+  mmwc[/"<b>MMW 正式工作流合同</b><br/>· worktree · tracker<br/>· 领域文档 · 人工审批关卡 · 宿主边界"/]
   src["<b>共享技能源 · mmw/skills-src/</b><br/>· 同时保留上游方法与 MMW 工作流<br/>· 有证据的适配保留<br/>· 无证据且改变方法效果的偏离修正"]
   dsp["<b>宿主动作物化</b><br/>· subagent 派发使用 [[mmw-launch:…]] 与 launch-group<br/>· 进树使用 [[mmw-enter-worktree]]<br/>· 其他宿主能力保留按能力判断的自然语言<br/>· Codex→后台任务或原生 subagent<br/>· Pi→subagent / CC→dispatch<br/>· Grok→原生 subagent"]
-  cdx["<b>Codex App 原生运行面</b><br/>· 已安装 plugin 提供全部 skills 与三台 MCP<br/>· mmw 命令只指向稳定 runtime，不依赖源码 checkout<br/>· investigator / reviewer-gpt / planner / designer 原生 subagent<br/>· 模型从 runtime 的 hosts.codex 覆盖解析"]
-  cwt["<b>Codex worktree 合同</b><br/>· Worktree root 是 App 的跨项目全局存放目录<br/>· 用户创建 detached 主任务，确认父分支后绑定 codex/&lt;slug&gt;<br/>· MMW 不从物理目录名识别任务<br/>· 后台结果先验证与验收，通过后再集成"]
-  vfy["<b>mmw-verifying-agent-output</b><br/>· 关键断言都要有出处<br/>· 取证可以派，判定不可以"]
+  cdx["<b>Codex App 原生运行面</b><br/>· 已安装 plugin 提供全部 skills 与三台 MCP<br/>· mmw 命令只指向稳定 runtime，不依赖源码 checkout<br/>· reviewer-gpt / planner / designer 原生 subagent<br/>· 模型从 runtime 的 hosts.codex 覆盖解析"]
+  cwt["<b>Codex worktree 合同</b><br/>· Worktree root 是 App 的跨项目全局存放目录<br/>· 用户创建 detached 主任务，确认父分支后绑定 codex/&lt;slug&gt;<br/>· MMW 不从物理目录名识别任务<br/>· 后台结果直接集成"]
   dmo["<b>mmw-domain-modeling</b><br/>· 开工遵守目标 AGENTS.md 领域规则<br/>· 计划或想法的整体追问转 grilling<br/>· 唯一往仓库写领域文档的技能<br/>· none 仅在明确建模且首个长期术语定下时创建<br/>· 多 context 首次建模由 mmw domain map-init 注入受管骨架<br/>· 术语写 leaf；三项判据全成立才写 ADR<br/>· 领域入口看仓库根；ADR 固定在 docs/adr/"]
   cbd["<b>mmw-codebase-design</b><br/>· module · interface · seam<br/>· adapter · depth<br/>· DESIGN-IT-TWICE 派 designer"]
-  phb["<b>用户专用技能</b><br/>· mmw-start 负责开始或恢复任务<br/>· handoff 负责把会话交给另一个 agent<br/>· wait-what 负责重新解释<br/>· Agent 不会隐式调用这些入口"]
+  phb["<b>用户专用技能</b><br/>· mmw-handoff 负责把会话交给另一个 agent<br/>· mmw-wait-what 负责重新解释<br/>· Agent 不会隐式调用这些入口"]
 end
 
 subgraph SOLO["独立使用"]
   direction TB
   res[["<b>mmw-research</b>"]]
-  hof["<b>handoff</b>"]
-  wfa["<b>writing-for-agents</b>"]
-  wiz["<b>wizard</b><br/>复杂人工操作的可审查向导"]
-  tq["<b>to-questionnaire</b><br/>转交知识持有者的问题清单"]
-  wwt["<b>wait-what</b><br/>文字重述或普通 HTML 可视化解释<br/>需要按钮驱动状态模型时移交 prototype"]
+  hof["<b>mmw-handoff</b>"]
+  wfa["<b>mmw-writing-for-agents</b>"]
+  wiz["<b>mmw-wizard</b><br/>复杂人工操作的可审查向导"]
+  tq["<b>mmw-to-questionnaire</b><br/>转交知识持有者的问题清单"]
+  wwt["<b>mmw-wait-what</b><br/>文字重述或普通 HTML 可视化解释<br/>需要按钮驱动状态模型时移交 prototype"]
 end
 
 ctx[/"<b>目标 AGENTS.md 与领域文档</b><br/>· 主 agent 与 subagent 的共同领域入口<br/>· Map 是 Context / Leaf / Owns 三列表<br/>· leaf 是已登记的命名 Markdown 文件<br/>· 共享术语使用 authoritative 引用<br/>· ADR 固定在 docs/adr/"/]
@@ -545,8 +540,8 @@ trk[/"<b>issue tracker</b><br/>· map、spec、ticket 三层"/]
 oos[/"<b>.out-of-scope/</b><br/>· 一个概念一个文件"/]
 pta[/"<b>持久 prototype 资产</b><br/>· Wayfinder 共用 map 的产物目录<br/>· decision ticket 使用 issue 子目录<br/>· 索引列出选中产物与长期证据<br/>· prototype 外壳不直接进入正式产品"/]
 ina[/"<b>用户选择保存的 research</b><br/>· 一个 research 主题一个子目录<br/>· README 是 research 索引<br/>· 下游只读点名的索引与精确文件<br/>· 保存不代表下游必须引用"/]
-rfacts["<b>验证后的 research</b><br/>直接交回当前调用方；<br/>是否保存不影响结果成立"]
-tmp[/"<b>Git 忽略的 scratch</b><br/>· 截图、DOM、console、录屏与中间输出<br/>· 只提升长期决定所需的最小证据<br/>· 收尾清理当前任务自己的内容"/]
+rfacts["<b>综合后的 research</b><br/>直接交回当前调用方；<br/>是否保存不影响结果成立"]
+tmp[/"<b>Git 忽略的 scratch</b><br/>· 截图、DOM、console、录屏与中间输出<br/>· 只提升长期决定所需的最小证据<br/>· 不进 Git，工作树拆掉即消失"/]
 rvr[("<b>mmw-reviewer</b><br/>· 审查方法论单源<br/>· 共享纪律加八个视角<br/>· 审查者进门按技能名调用它，主 agent 不读")]
 
 
@@ -557,15 +552,7 @@ cfg -.->|"标签清单"| tri
 cfg -.->|"mmw issue 的参数"| crv
 cfg -.->|"路径与标签"| wfd
 cfg -.->|"领域文档形态"| ctx
-cfg -.->|"scratch 与 reviews 的路径"| clo
-
-mms ==>|"新需求，先谈"| gri
-mms ==>|"报 map 或 decision ticket 的编号、<br/>输入以 wayfinder 开头，或 effort 超过一个会话且路线未清"| wfd
-mms ==>|"用户标了 bug<br/>或说有东西坏了"| dbg
-mms ==>|"issue 还没评估过"| tri
-mms ==>|"issue 已是 ready-for-agent<br/>可作为一张 ticket 独立验收<br/>只有一个 Test seam，没有未决取舍"| imp
-mms ==>|"只说想让代码库更好维护<br/>这一条不定 slug、不建 worktree"| ica
-mms ==>|"几条分支要合到一起<br/>或冲突要解"| intg
+cfg -.->|"scratch 与 reviews 的路径"| tmp
 
 gri ==>|"同一段对话中默认应用"| dmo
 dmo ==>|"术语写进领域文档<br/>三个条件齐了才写 ADR"| ctx
@@ -582,11 +569,7 @@ ttk ==>|"首个批次的 tracer bullet ticket<br/>各写一份 plan"| pln
 imp ==>|"seam 由 spec 钉死<br/>走 red 到 green"| tdd
 imp ==>|"关票解锁新批次<br/>回去写下一批 plan"| pln
 tdd ==>|"重构不在这个循环里，留到终审"| crv
-imp ==>|"全部 ticket 落地、合同门过了<br/>发起 ⑤ final 终审"| crv
-crv ==>|"③ 验收或 ⑤ final 终审的采信项落进提交<br/>其余道的 findings 回各自调用方"| shp
-crv -.->|"⓪ 的采信项交回，重开对应分叉再问用户"| gri
-imp ==>|"终审过了，采信项都修完"| clo
-trk -.->|"spec 找不到时<br/>从提交信息引的 issue 取"| crv
+imp ==>|"全部 ticket 落地<br/>发起 ⑤ final 终审"| crv
 trk -.->|"frontier 上 ready-for-agent 的 ticket"| imp
 
 tri ==>|"需要谈清楚的时候"| gri
@@ -615,13 +598,11 @@ pro ==>|"这一轮的界面改完了，查一次刚改的那一块"| uiq
 crv ==>|"⑤ final 终审含界面改动时点名调用"| uiq
 uiq -.->|"B 类 finding 用同一套处置标记"| crv
 ctx -.->|"报告与 finding 用术语表里的词"| uiq
-res -->|"过滤、验证与综合"| rfacts
+res -->|"过滤与综合"| rfacts
 gri ==>|"某个决定必须看见实物<br/>才能判断"| pro
 gri -.->|"需要另一位知识持有者回答"| tq
 pro -->|"逐轮迭代，走查过的产物留在仓库里"| pta
 pro ==>|"用户走查过了<br/>结论回填成 Implementation Decisions"| tsp
-mms ==>|"想先看看长什么样<br/>或不确定这套状态对不对"| pro
-mms ==>|"map 上切出来的一份 spec"| tsp
 pln -->|"本批次 plan 通过 ② plan 审并提交后<br/>为本批次 ticket 添加 ready-for-agent"| trk
 gri ==>|"用户要复核这次访谈时<br/>发起 ⓪ 共同理解审，一个视角"| crv
 tsp ==>|"定稿之后发起 ① spec 审，两个视角"| crv
@@ -629,27 +610,17 @@ pln ==>|"发起 ② plan 审，两个视角"| crv
 crv ==>|"派出去的审查者都读这一份"| rvr
 pln ==>|"派出去的 planner 都读这一份"| pnr
 
-mms -.->|"任务绑定与结果集成"| cl1
-mms -.->|"Codex 绑定当前 worktree"| cwt
 imp -.->|"取 frontier 上的 ticket"| cl2
-clo -.->|"逐条解析落点，确认归属再删"| cl5
 dsp -.->|"物化进 skills-pi / skills-claude-code / skills-cursor / skills-grok / Codex plugin"| cl3
 dsp -.->|"Codex profile 与安装面"| cdx
 cdx -.->|"可写任务交接"| cwt
 imp ==>|"四栏 task + 宿主写死启动句"| dsp
-dsp ==>|"交回报告<br/>绝不原样转发"| vfy
-vfy ==>|"验证过出处才采信"| crv
-mms ==>|"多角度系统取证"| res
-dbg ==>|"修复验收过了<br/>发起 ⑤ final 终审"| crv
-vfy -.->|"派前查方法论装没装"| cl7
+dbg ==>|"修复交回完成<br/>发起 ⑤ final 终审"| crv
 cfg -.->|"安装后的 runtime 提供 CLI、技能与角色"| cl6
-clo ==>|"多条已完成任务分支"| intg
 intg ==>|"集成结果进入同一道<br/>⑤ final 终审"| crv
 imp ==>|"终审通过且产品需要出包"| rel
-rel ==>|"安装包由用户实测通过"| clo
-intg -.->|"mmw result verify → 主 agent 验收 → integrate"| cl1
+intg -.->|"mmw result integrate"| cl1
 phb -.->|"用户要求交接会话"| hof
-phb -.->|"用户开始或恢复任务"| mms
 ups -.->|"方法、步骤、解释和完成判据"| src
 mmwc -.->|"工作流承载与关卡"| src
 src -.->|"完整语义进入物化"| dsp
@@ -659,7 +630,6 @@ pta -.->|"索引、选中产物与明确证据"| pln
 pta -.->|"索引与本视角需要的精确路径"| crv
 cfg -.->|"CLI 路径与固定产物路径分工"| cl8
 pro -->|"过程材料默认不进 Git"| tmp
-clo -->|"清理当前任务过程材料"| tmp
 res -->|"用户选择保存"| ina
 ina -.->|"索引与精确路径"| tsp
 gri -.->|"事实问题"| res
@@ -688,15 +658,14 @@ classDef hIca fill:#E4EDF0,stroke:#7E22CE,stroke-width:2.4px,color:#14282C;
 classDef hRes fill:#E4EDF0,stroke:#4338CA,stroke-width:2.6px,color:#1E1B4B;
 
 class wfa,hof,wiz,tq,wwt user;
-class cbd,tdd,uiq,crv,dbg,imp,pro,ttk,tsp,rvr,pln,pnr,clo,intg,rel model;
+class cbd,tdd,uiq,crv,dbg,imp,pro,ttk,tsp,rvr,pln,pnr,intg,rel model;
 class trk,oos,pta,ina,tmp art;
-class src,dsp,vfy,cdx,cwt hOwn;
+class src,dsp,cdx,cwt hOwn;
 class cl1,cl2,cl3,cl4,cl5,cl6,cl7,cl8 hSetCli;
 class shp,rfacts term;
 class ups,mmwc art;
 class set hSetCli;
 class cfg hSetArt;
-class mms hMms;
 class gri hGwd;
 class dmo hDmo;
 class ctx hCtx;
@@ -706,87 +675,47 @@ class ica hIca;
 class res hRes;
 class phb term;
 linkStyle 0 stroke:#A16207,color:#A16207,stroke-width:2.2px;
-linkStyle 1 stroke:#A16207,color:#A16207,stroke-width:1.8px;
-linkStyle 2 stroke:#A16207,color:#A16207,stroke-width:1.8px;
-linkStyle 3 stroke:#A16207,color:#A16207,stroke-width:1.8px;
-linkStyle 4 stroke:#A16207,color:#A16207,stroke-width:1.8px;
-linkStyle 5 stroke:#A16207,color:#A16207,stroke-width:1.8px;
-linkStyle 6 stroke:#A16207,color:#A16207,stroke-width:1.8px;
-linkStyle 7 stroke:#A16207,color:#A16207,stroke-width:1.8px;
-linkStyle 8 stroke:#C2410C,color:#C2410C,stroke-width:2.2px;
-linkStyle 9 stroke:#C2410C,color:#C2410C,stroke-width:2.2px;
-linkStyle 10 stroke:#C2410C,color:#C2410C,stroke-width:2.2px;
-linkStyle 11 stroke:#C2410C,color:#C2410C,stroke-width:2.2px;
-linkStyle 12 stroke:#C2410C,color:#C2410C,stroke-width:2.2px;
-linkStyle 13 stroke:#C2410C,color:#C2410C,stroke-width:2.2px;
-linkStyle 14 stroke:#C2410C,color:#C2410C,stroke-width:2.2px;
-linkStyle 15 stroke:#BE185D,color:#BE185D,stroke-width:2.2px;
-linkStyle 16 stroke:#4D7C0F,color:#4D7C0F,stroke-width:2.2px;
-linkStyle 17 stroke:#4D7C0F,color:#4D7C0F,stroke-width:1.8px;
-linkStyle 18 stroke:#4D7C0F,color:#4D7C0F,stroke-width:1.8px;
-linkStyle 19 stroke:#4D7C0F,color:#4D7C0F,stroke-width:1.8px;
-linkStyle 20 stroke:#4D7C0F,color:#4D7C0F,stroke-width:1.8px;
-linkStyle 21 stroke:#BE185D,color:#BE185D,stroke-width:2.2px;
-linkStyle 22 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 23 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 24 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 25 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 26 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 27 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 28 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 29 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
+linkStyle 1,2,3,4,5,6,7 stroke:#A16207,color:#A16207,stroke-width:1.8px;
+linkStyle 8 stroke:#BE185D,color:#BE185D,stroke-width:2.2px;
+linkStyle 9 stroke:#4D7C0F,color:#4D7C0F,stroke-width:2.2px;
+linkStyle 10,11,12,13 stroke:#4D7C0F,color:#4D7C0F,stroke-width:1.8px;
+linkStyle 14 stroke:#BE185D,color:#BE185D,stroke-width:2.2px;
+linkStyle 15,16,17,18,19,20,21,22 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
+linkStyle 23 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
+linkStyle 24,25,26,27 stroke:#0369A1,color:#0369A1,stroke-width:2.2px;
+linkStyle 28 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
+linkStyle 29 stroke:#0369A1,color:#0369A1,stroke-width:2.2px;
 linkStyle 30 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 31 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 32 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
-linkStyle 33 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
-linkStyle 34 stroke:#0369A1,color:#0369A1,stroke-width:2.2px;
-linkStyle 35 stroke:#0369A1,color:#0369A1,stroke-width:2.2px;
-linkStyle 36 stroke:#0369A1,color:#0369A1,stroke-width:2.2px;
-linkStyle 37 stroke:#0369A1,color:#0369A1,stroke-width:2.2px;
-linkStyle 38 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
-linkStyle 39 stroke:#0369A1,color:#0369A1,stroke-width:2.2px;
-linkStyle 40 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
-linkStyle 41 stroke:#0F766E,color:#0F766E,stroke-width:2.2px;
-linkStyle 42 stroke:#0F766E,color:#0F766E,stroke-width:2.2px;
-linkStyle 43 stroke:#0F766E,color:#0F766E,stroke-width:2.2px;
-linkStyle 44 stroke:#0F766E,color:#0F766E,stroke-width:2.2px;
-linkStyle 45 stroke:#0F766E,color:#0F766E,stroke-width:2.2px;
-linkStyle 46 stroke:#7E22CE,color:#7E22CE,stroke-width:2.2px;
-linkStyle 47 stroke:#7E22CE,color:#7E22CE,stroke-width:2.2px;
-linkStyle 48 stroke:#7E22CE,color:#7E22CE,stroke-width:2.2px;
-linkStyle 49 stroke:#7E22CE,color:#7E22CE,stroke-width:2.2px;
-linkStyle 50 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
-linkStyle 51 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
+linkStyle 31 stroke:#0F766E,color:#0F766E,stroke-width:2.2px;
+linkStyle 32 stroke:#4338CA,color:#4338CA,stroke-width:2.0px;
+linkStyle 33,34,35,36 stroke:#0F766E,color:#0F766E,stroke-width:2.2px;
+linkStyle 37,38,39,40 stroke:#7E22CE,color:#7E22CE,stroke-width:2.2px;
+linkStyle 41 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
+linkStyle 42 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
+linkStyle 43 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
+linkStyle 44 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
+linkStyle 45 stroke:#4D7C0F,color:#4D7C0F,stroke-width:1.8px;
+linkStyle 46 stroke:#4338CA,color:#4338CA,stroke-width:2.0px;
+linkStyle 47,48 stroke:#BE185D,color:#BE185D,stroke-width:2.2px;
+linkStyle 49,50 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
+linkStyle 51 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
 linkStyle 52 stroke:#BE185D,color:#BE185D,stroke-width:2.2px;
-linkStyle 53 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 54 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 55 stroke:#C2410C,color:#C2410C,stroke-width:2.2px;
-linkStyle 56 stroke:#C2410C,color:#C2410C,stroke-width:2.2px;
-linkStyle 57 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 58 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 59 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 60 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 61 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
-linkStyle 62 stroke:#C2410C,color:#C2410C,stroke-width:1.8px;
-linkStyle 63 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
-linkStyle 64 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
-linkStyle 65 stroke:#15803D,color:#15803D,stroke-width:1.8px;
-linkStyle 66 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
-linkStyle 67 stroke:#15803D,color:#15803D,stroke-width:2.2px;
-linkStyle 68 stroke:#15803D,color:#15803D,stroke-width:2.2px;
-linkStyle 69 stroke:#C2410C,color:#C2410C,stroke-width:2.2px;
-linkStyle 70 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
-linkStyle 71 stroke:#15803D,color:#15803D,stroke-width:1.8px;
-linkStyle 72 stroke:#15803D,color:#15803D,stroke-width:1.8px;
-linkStyle 73,74,75,76 stroke:#1F2937,color:#1F2937,stroke-width:2.6px;
-linkStyle 77 stroke:#A16207,color:#A16207,stroke-width:1.8px;
-linkStyle 78 stroke:#9C6414,color:#9C6414,stroke-width:2px;
-linkStyle 79,80 stroke:#15803D,color:#15803D,stroke-width:2px;
-linkStyle 81,82,83,84 stroke:#BE185D,color:#BE185D,stroke-width:1.8px;
-linkStyle 85 stroke:#A16207,color:#A16207,stroke-width:1.8px;
-linkStyle 86 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
-linkStyle 87 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
-linkStyle 42,52,74,95,97,98,99,100,101,102 stroke:#4338CA,color:#4338CA,stroke-width:2px;
+linkStyle 53,54,55,56,57 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
+linkStyle 58,59 stroke:#15803D,color:#15803D,stroke-width:1.8px;
+linkStyle 60 stroke:#15803D,color:#15803D,stroke-width:2.2px;
+linkStyle 61,62 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
+linkStyle 63 stroke:#A16207,color:#A16207,stroke-width:1.8px;
+linkStyle 64 stroke:#1F2937,color:#1F2937,stroke-width:2.6px;
+linkStyle 65 stroke:#1F2937,color:#1F2937,stroke-width:2.8px;
+linkStyle 66 stroke:#1F2937,color:#1F2937,stroke-width:2.6px;
+linkStyle 67 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
+linkStyle 68 stroke:#A16207,color:#A16207,stroke-width:1.8px;
+linkStyle 69 stroke:#9C6414,color:#9C6414,stroke-width:2.0px;
+linkStyle 70 stroke:#15803D,color:#15803D,stroke-width:2.0px;
+linkStyle 71,72,73,74 stroke:#BE185D,color:#BE185D,stroke-width:1.8px;
+linkStyle 75 stroke:#A16207,color:#A16207,stroke-width:1.8px;
+linkStyle 76 stroke:#8A9490,color:#8A9490,stroke-width:1.6px;
+linkStyle 77,78,79,80,81,82,83,84 stroke:#4338CA,color:#4338CA,stroke-width:2.0px;
 </pre>
 </div>
 </div>
@@ -821,7 +750,7 @@ linkStyle 42,52,74,95,97,98,99,100,101,102 stroke:#4338CA,color:#4338CA,stroke-w
 <pre class="mermaid">%%{init: {"theme":"base","themeVariables":{"background":"#FAFAF8","primaryColor":"#FBF2E4","primaryTextColor":"#20262B","primaryBorderColor":"#8A9490","lineColor":"#8A9490","secondaryColor":"#E4EDF0","tertiaryColor":"#FFFFFF","fontSize":"13.5px","fontFamily":"-apple-system, PingFang SC, Helvetica, sans-serif","edgeLabelBackground":"#FAFAF8","clusterBkg":"#F2F2EE","clusterBorder":"#CBCFC9","titleColor":"#4E5A55","nodeTextColor":"#20262B"},"flowchart":{"curve":"basis","nodeSpacing":30,"rankSpacing":54,"padding":9,"useMaxWidth":false}}%%
 flowchart TB
 
-ent["用户调用 mmw-start，并以 wayfinder 开头<br/>或输入同时满足 effort 的两个判据<br/>mmw-start 建立或恢复 map 的任务上下文"]
+ent["用户调用 mmw-wayfinder<br/>effort 超过一个 agent 会话且路线尚不清楚"]
 
 subgraph PA["A 段 · 一个会话建 map · 只并行解决 research ticket"]
 direction TB
@@ -859,7 +788,7 @@ direction TB
   t2[["prototype 类，要人在场。<br/>跑 mmw-prototype，一轮回答一个问题。<br/>持久资产与 Git 忽略的过程材料分开保存"]]
   t3[["research 类，人不用在场。<br/>只查当前这一个决定等待的事实，答完就停"]]
   t4{"task 类。<br/>agent 自己做得了吗？"}
-  r1[["按 mmw-research 拆角度，一个角度派一个 investigator；<br/>单角度不硬拆"]]
+  r1[["按 mmw-research 拆角度，一个角度派一个 Explore；<br/>单角度不硬拆"]]
   r2["过滤无出处断言，打开出处验证，再由主 agent 综合。<br/>subagent 原始报告不等于 research"]
   r4["继承 map 的产物目录和 issue 子目录。<br/>这张 ticket 已经批准保存，<br/>research 不再询问是否保存"]
   r3["验证过的事实始终写进 ticket 评论。<br/>保存时再链接 research 索引；<br/>没查清的另起一节列出来"]
@@ -1013,7 +942,7 @@ flowchart TB
 
 subgraph RCALL["一、谁会调用 · research 不是一条孤立支线"]
 direction LR
-  c0["用户直接调用 research，<br/>或用户通过 mmw-start 选择系统调查"]
+  c0["用户直接调用 research"]
   c1["讨论与设计：mmw-grilling"]
   c2["拆分实现：mmw-to-tickets"]
   c3["路线调查：mmw-wayfinder"]
@@ -1028,11 +957,11 @@ direction LR
   easy{"一个函数、一个已知文件<br/>或一条命令就能回答？"}
   local["主 agent 直接读取或运行，<br/>不派 subagent"]
   live{"必须在真实环境、多候选<br/>或多轮测量后才知道？"}
-  evidence["读取 mmw-research 的 EVIDENCE.md。<br/>先写通过判据；涉及凭证、生产、费用或写入时，<br/>先取得用户批准，再运行并保存台账"]
+  evidence["涉及凭证、生产、费用或写入时先取得用户批准。<br/>每个 Explore 写一份 findings 文件。<br/>主 agent 写 README.md 索引"]
   kind{"事实在哪？"}
   internal[["内部 research<br/>当前仓库的实现、seam、数据流、<br/>调用链与影响面<br/>出处是文件与行号"]]
   external[["外部 research<br/>第三方库、接口、规范与本地知识库<br/>出处是一手链接或命令与输出"]]
-  tasks["一个问题一份四栏 task。<br/>目标、读、约束、验收写全；<br/>互不依赖的问题并行派 investigator"]
+  tasks["一个问题一份四栏 task。<br/>目标、读、约束、验收写全；<br/>互不依赖的问题并行派 Explore"]
   reports["subagent 交回原始报告。<br/>它是待验证输入，还不是 research"]
 end
 
@@ -1047,14 +976,14 @@ end
 
 subgraph RSAVE["四、确定路径与保存 · Wayfinder 和实测直接保存"]
 direction LR
-  owner["按 MAIN 第 0 节入口合同认领入口，确定产物目录。<br/>Wayfinder ticket 用传入路径；上下文已有产物目录就复用；<br/>都没有就给这项工作起名当产物目录，询问时让用户确认"]
+  owner["mmw artifact path research 给出索引路径。<br/>Wayfinder ticket 传入 --name 与 --issue"]
   path{"是否是 Wayfinder<br/>decision ticket？"}
   normal["普通任务使用<br/>docs/research/&lt;产物目录&gt;/&lt;research 主题&gt;/"]
   wfpath["Wayfinder ticket 使用<br/>docs/research/&lt;产物目录&gt;/issue-&lt;编号&gt;/&lt;research 主题&gt;/"]
   direct{"Wayfinder ticket、外部系统实测，<br/>或调用方传入「直接保存」？"}
   proposal["展示 research 问题、结论摘要、<br/>拟保存文件和完整路径"]
   gate{"用户是否保存<br/>本次 research？"}
-  saved["创建并独立保留 research 目录。<br/>README.md 是 research 索引；report.md 是 research 报告；<br/>实测另含 test-plan.md，最小原始 evidence 才进入 raw/。<br/>research 不因 spec 未引用而删除"]
+  saved["创建 research 目录。<br/>README.md 是 research 索引；<br/>每个 Explore 一份 findings 文件"]
   none["不创建 research 目录或文件。<br/>验证后的事实仍然有效，仍可交回调用方"]
   scratch["subagent 原始报告、网页转储、抓取缓存、<br/>未采信内容需要跨进程转交时写入 scratch。<br/>scratch 不进 Git，任务结束时清理"]
 end
@@ -1071,9 +1000,9 @@ direction LR
   rule["共同读取规则：<br/>先读 research 索引，再读精确文件。<br/>不递归读取 research 的上级目录，<br/>不把 subagent 原始报告当成 research"]
 end
 
-rindex[/"<b>research 索引 · README.md</b><br/>问题、范围快照、结论摘要、文件索引、<br/>下游用途与未查清项；内部记录 commit，<br/>外部记录访问日期与版本"/]
-rreport[/"<b>research 报告 · report.md</b><br/>验证后的完整结论与逐条出处"/]
-rfiles[/"<b>research 配套文件</b><br/>用户批准保存的 HTML、字段表、脚本等；<br/>用途必须写进 research 索引"/]
+rindex[/"<b>research 索引 · README.md</b><br/>问题，以及目录中的 findings 文件清单。<br/>它不是 findings"/]
+rreport[/"<b>findings 文件</b><br/>每个 Explore 一份 Markdown，带出处"/]
+rfiles[/"<b>Explore 组</b><br/>独立问题各派一个 Explore，同一轮发出"/]
 
 c0 --> list
 c1 --> list

@@ -1,6 +1,6 @@
 {
   "name": "mmw",
-  "version": "0.26.0",
+  "version": "0.30.0",
   "description": "多模型开发编排。Claude 主 agent 编排与判定，GPT `worker` 写代码，GPT `planner` 写 plan，`reviewer-gpt` 与 `reviewer-claude` 跨模型审查。长在 Matt Pocock 的工程技能之上。",
   "author": {
     "name": "Cheuklap Chan",
@@ -17,11 +17,10 @@
   ],
   "hooks": "./hooks.json",
   "skills": [
-    "./skills-claude-code/handoff",
-    "./skills-claude-code/to-questionnaire",
-    "./skills-claude-code/wait-what",
-    "./skills-claude-code/wizard",
-    "./skills-claude-code/mmw-closing",
+    "./skills-claude-code/mmw-handoff",
+    "./skills-claude-code/mmw-to-questionnaire",
+    "./skills-claude-code/mmw-wait-what",
+    "./skills-claude-code/mmw-wizard",
     "./skills-claude-code/mmw-codebase-design",
     "./skills-claude-code/mmw-diagnosing-bugs",
     "./skills-claude-code/mmw-domain-modeling",
@@ -37,15 +36,13 @@
     "./skills-claude-code/mmw-retrieval",
     "./skills-claude-code/mmw-review",
     "./skills-claude-code/mmw-reviewer",
-    "./skills-claude-code/mmw-start",
     "./skills-claude-code/mmw-tdd",
     "./skills-claude-code/mmw-to-plan",
     "./skills-claude-code/mmw-to-spec",
     "./skills-claude-code/mmw-to-tickets",
     "./skills-claude-code/mmw-triage",
     "./skills-claude-code/mmw-ui-qa",
-    "./skills-claude-code/mmw-verifying-agent-output",
     "./skills-claude-code/mmw-wayfinder",
-    "./skills-claude-code/writing-for-agents"
+    "./skills-claude-code/mmw-writing-for-agents"
   ]
 }

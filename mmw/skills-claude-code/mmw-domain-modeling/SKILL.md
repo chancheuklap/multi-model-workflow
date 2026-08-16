@@ -1,46 +1,21 @@
 ---
 name: mmw-domain-modeling
-description: 构建并明确项目的领域模型。用户想要明确领域术语、通用语言或 bounded context、记录一项架构决定，或者其他技能需要维护领域模型时使用。
+description: Build and sharpen a project's domain model. Use when the user wants to pin down domain terminology, a ubiquitous language, or a bounded context; record an architectural decision; or when another skill needs to maintain the domain model.
 ---
 
 # Domain Modeling
 
-在设计过程中主动构建并明确项目的领域模型。这是一项**主动**实践：质疑术语、构造边界场景，并在术语和决定刚刚明确时就把它们写入术语表和决定记录。（仅仅为了取得词汇而**读取**领域文档不属于本技能；任何技能都可以把它作为一行操作习惯。本技能用于改变模型，不用于只消费模型。）
+Actively build and sharpen the project's domain model as you design. This is the *active* discipline — challenging terms, inventing edge-case scenarios, and writing the glossary and decisions down the moment they crystallise. (Merely *reading* domain docs for vocabulary is not this skill — that's a one-line habit any skill can do. This skill is for when you're changing the model, not just consuming it.)
 
-## 选择入口
+- The user wants to grill a whole plan, decision, or unformed idea: invoke `/mmw-grilling`. It applies this skill in the same conversation.
+- The user wants to define or correct terms, ubiquitous language, bounded contexts, relationships between bounded contexts, or an ADR: continue here.
+- Another skill invoked this one to maintain the domain model: continue here, then return.
 
-- 用户想把整个计划、决定或未成形的想法追问清楚时，移交 `/mmw-grilling`。它会在同一段对话中应用本技能。
-- 用户想定义或修正领域术语、通用语言、bounded context、bounded context 之间的关系或 ADR 时，继续本技能。
-- 其他技能为了维护领域模型而调用时，继续本技能；维护完成后交回调用方。
+## File structure
 
-## 文件结构
+`mmw domain path` prints the current shape, the path to read, and the read instruction. Follow that output. `mmw domain dirs` prints the write paths for the single-context doc, the Context Map, the leaf directory, and ADRs.
 
-开始前，遵守目标仓库 `AGENTS.md` 的领域上下文规则。
-
-### 读领域文档
-
-**看仓库根有什么，形态就定了**，别的技能说「按本节读领域文档」指的就是这张表。目标仓库的 `AGENTS.md` 里通常也有同一条规则（`mmw domain sync` 写进去的，给那些不会加载本技能的 agent 看）；两边说的是一回事，以本节为准。
-
-| 仓库根有 | 形态 | 怎么读 |
-| --- | --- | --- |
-| `CONTEXT-MAP.md` | 多个 bounded context | 它是索引：先读它，再读它列出的、本次涉及的**全部** leaf。leaf 在 `docs/context/` 下 |
-| 只有 `CONTEXT.md` | 单个 bounded context | 直接读它 |
-| 两个都没有 | 还没有领域文档 | 继续做事。**不报缺失，也不顺手创建**——第一个需要长期保留的领域术语真的谈出来了才创建 |
-
-两个都在时以 `CONTEXT-MAP.md` 为准。
-
-### 写在哪
-
-| 要写什么 | 落点 |
-| --- | --- |
-| 单 context 的领域文档 | 仓库根 `CONTEXT.md` |
-| Context Map | 仓库根 `CONTEXT-MAP.md` |
-| 各 leaf | `docs/context/` |
-| ADR | `docs/adr/` |
-
-首次写仓库文件前，确认 `git symbolic-ref --quiet --short HEAD` 有输出，且不在主检出里。不满足就停。
-
-多数仓库只有一个 bounded context：
+Most repos have a single context:
 
 ```
 /
@@ -51,69 +26,74 @@ description: 构建并明确项目的领域模型。用户想要明确领域术�
 └── src/
 ```
 
-有 `CONTEXT-MAP.md` 的仓库有多个 bounded context，Map 指向每个 leaf 的实际位置：
+If a Context Map exists, the repo has multiple contexts. The map points to where each leaf lives:
 
 ```
 /
 ├── CONTEXT-MAP.md
-├── docs/adr/                    ← 全系统决定
+├── docs/adr/                    ← system-wide decisions
 ├── docs/context/
 │   ├── ordering.md
 │   └── billing.md
 └── src/
 ```
 
-按需创建文件，也就是只有在确实有内容要写时才创建。两个都没有时，在第一个需要长期保留的领域术语得到解决时创建领域文档；`/mmw-grilling` 调用本技能时同样如此。尚未形成需要长期保留的领域术语时，不创建领域文档；本文「谨慎提议 ADR」一节列了三项条件，还没有出现三项同时成立的决定时，不创建 ADR。
+Create files lazily — only when you have something to write. If the shape from `mmw domain path` is `none`, keep going. Do not announce a missing glossary. Create the first domain doc when the first term that must live in the glossary is resolved. Create the ADR directory when the first ADR is needed.
 
-创建首份领域文档前，先判断项目有一个还是多个 bounded context：
+Before the first write of a domain doc or ADR:
 
-- 明确只有一个 bounded context：创建仓库根 `CONTEXT.md`，并写入第一个需要长期保留的领域术语。
-- 明确存在多个 bounded context：运行 `mmw domain map-init`。命令成功创建 Context Map 后，在 `docs/context/` 创建首个 leaf，并在 Context Map 中登记实际路径、所有权和 bounded context 之间已经确认的关系。格式见 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
-- bounded context 的数量、术语归属或 bounded context 之间的关系仍不明确：当场询问用户。取得答案后继续创建首份领域文档。
+先确认当前仓库位置。判定从上到下，命中一行就停。
 
-创建或修改 Context Map 和 leaf 后运行 `mmw domain check`。`mmw domain check` 检查通过后，创建首份领域文档或修改 Context Map 和 leaf 的操作才完成。
+| 情况 | 怎么判断 | 你做什么 |
+| --- | --- | --- |
+| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
+| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
+| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
+| 已有任务分支 | 上面都不成立 | 用当前分支 |
 
-`docs/adr/` 不存在时，在需要第一份 ADR 时按需创建。
 
-## Session 期间
+When creating the first domain doc, how many bounded contexts the project has decides the shape:
 
-### 对照术语表提出质疑
+- One: write the first term into the single-context path from `mmw domain dirs`.
+- More than one: `mmw domain map-init`. After it creates the Context Map, add the first leaf under the context directory and register its path, ownership, and any relationship already confirmed. Format: [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md).
+- Still unclear: ask, then create.
 
-用户使用的术语与拥有该术语的领域文档中的现有语言冲突时，立即指出。“你的术语表把 cancellation 定义为 X，但你现在表达的意思似乎是 Y；到底是哪一个？”
+After creating or changing a Context Map or leaf, run `mmw domain check`. The write is done when that command exits 0. If it exits non-zero, fix from its output and run it again.
 
-### 明确含混语言
+## During the session
 
-用户使用含混或承担多重含义的术语时，提出一个准确的 canonical 术语。“你说的是 account；你指 Customer 还是 User？二者是不同事物。”
+### Challenge against the glossary
 
-### 讨论具体场景
+When the user uses a term that conflicts with the existing language in the owning domain doc, call it out immediately. "Your glossary defines 'cancellation' as X, but you seem to mean Y — which is it?"
 
-讨论领域关系时，用具体场景进行压力测试。构造能够探查边界情况的场景，迫使用户准确说明概念之间的边界。
+### Sharpen fuzzy language
 
-### 与代码交叉检查
+When the user uses vague or overloaded terms, propose a precise canonical term. "You're saying 'account' — do you mean the Customer or the User? Those are different things."
 
-用户说明某项内容如何运行时，检查代码是否一致。如果发现矛盾，就把它呈现出来：“你的代码会取消整个 Order，但你刚才说可以部分取消；哪一个才正确？”
+### Discuss concrete scenarios
 
-### 就地更新领域文档
+When domain relationships are being discussed, stress-test them with specific scenarios. Invent scenarios that probe edge cases and force the user to be precise about the boundaries between concepts.
 
-一个术语得到解决时，立即更新拥有该术语的领域文档。不要成批积攒；在术语明确时就记录。单 bounded context 仓库更新 `CONTEXT.md`。多 bounded context 仓库更新拥有该术语的 leaf。使用 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md) 中的格式。
+### Cross-reference with code
 
-共享术语只在一个 leaf 中定义。其他 leaf 使用权威引用指向拥有该术语的 leaf。
+When the user states how something works, check whether the code agrees. If you find a contradiction, surface it: "Your code cancels entire Orders, but you just said partial cancellation is possible — which is right?"
 
-领域文档必须完全不包含实现细节。不要把领域文档当作 spec、scratch pad 或存放实现决定的仓库。它只是术语表，没有其他用途。
+### Update the glossary inline
 
-### 谨慎提议 ADR
+When a term is resolved, update the owning domain doc right there. Don't batch these up — capture them as they happen. A single-context repo updates `CONTEXT.md`. A multi-context repo updates the leaf that owns the term. Use the format in [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md).
 
-只有在以下三项全部成立时，才提议创建 ADR：
+A shared term is defined in one leaf. Every other leaf points at that definition with an authoritative reference.
 
-1. **难以逆转**——以后改变主意的成本不可忽略
-2. **缺少上下文时令人意外**——未来读者会疑惑：“他们为什么这样做？”
-3. **来自真实取舍**——确实存在其他选项，而且你因为具体理由选择了其中一个
+The glossary should be totally devoid of implementation details. Do not treat it as a spec, a scratch pad, or a repository for implementation decisions. It is a glossary and nothing else.
 
-缺少其中任何一项，都不要创建 ADR。使用 [ADR-FORMAT.md](./ADR-FORMAT.md) 中的格式。
+### Offer ADRs sparingly
 
-## 下一步
+Only offer to create an ADR when all three are true:
 
-| 情况 | 下一步 |
-| --- | --- |
-| 其他技能调用了本技能，而且领域模型维护已经完成 | **移交**：把更新的领域术语、bounded context、bounded context 之间的关系和 ADR 交回调用方 |
-| 用户直接要求维护领域模型，而且领域模型维护已经完成 | **停**：报告更新的领域术语、bounded context、bounded context 之间的关系和 ADR |
+1. **Hard to reverse** — the cost of changing your mind later is meaningful
+2. **Surprising without context** — a future reader will wonder "why did they do it this way?"
+3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
+
+If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).
+
+If another skill invoked this one, return the terms, bounded contexts, relationships, and ADRs you updated. If the user invoked it, report the same.

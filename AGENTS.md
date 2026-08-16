@@ -77,7 +77,7 @@ git subtree pull --prefix vendor/mattpocock-skills https://github.com/mattpocock
 
 - 正式改动在独立 worktree；合回主分支使用 `git merge --no-ff`，禁止 squash。
 - 本地提交和合并可自主执行。`git push`、远端合并、部署和正式发布必须得到用户明确授权。
-- subagent 报告不是唯一事实来源。关键定位、测试结果和发布结论由主 agent 用当前源码或运行结果验证。
+- subagent 交回的报告由主 agent 按结局选路并继续流程。独立审查者仍派。不要求主 agent 打开出处或重跑帮手声称跑过的测试。
 - 删除、覆盖、归档或移动现有发布入口前确认用户授权。
 - 禁止使用 `--no-verify`。
 
@@ -118,7 +118,7 @@ bash mmw/test.sh 2>&1 | grep -oE "过 [0-9]+，失败|=== [0-9]+ PASS|^[0-9]+ pa
 
 先运行 `mmw artifact index adr` 取得 ADR 索引，再读其中与本次范围相关的那几份。
 
-任何面向用户或写入仓库的内容，都使用 leaf 定义的 canonical 术语。代码标识符和测试名也适用。不得使用 `_Avoid_` 中列出的说法。
+任何面向用户或写入仓库的内容，都使用 leaf 定义的 canonical term。代码标识符和测试名也适用。不得使用 `_Avoid_` 中列出的说法。
 
 用户说法、leaf、ADR 或代码现状互相冲突时，明确列出冲突，不得自行选择一个覆盖其他内容。
 

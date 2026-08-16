@@ -1,131 +1,78 @@
 ---
 name: mmw-grilling
-description: relentless 地追问用户的计划、决定或想法。用户希望对自己的思路进行压力测试、使用任何“grill”触发语、新需求或改进尚未谈定，或者其他技能遇到未决的产品或设计取舍时使用。
+description: Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, uses any grill trigger, a new need or change is not yet settled, or another skill hits an unresolved product or design trade-off.
 ---
 
-以 relentless 的方式访谈用户，直到双方形成共同理解。把这次访谈组织成一棵**设计树**：每个决定都会分叉出依赖它的决定。
+Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 
-讨论中出现需要长期留下来的领域术语、bounded context、bounded context 之间的关系，或者一项值得记进 ADR 的决定时，就在同一段对话里调用 `$mmw:mmw-domain-modeling`，由它判断该不该写、怎么写，写完回到当前这一轮继续。不要攒到最后一起写——术语是在谈清楚的那一刻最准确的。
+When a term, bounded context, relationship between bounded contexts, or ADR-worthy decision appears, invoke `$mmw:mmw-domain-modeling` in this same conversation, then return to the current round. Do not save them up.
 
-## 按轮提问
+Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
 
-按**轮**遍历设计树。**frontier** 包含所有前置条件已经确定的决定，也就是现在提问时不需要猜测尚未听到的答案。每一轮提出整个 frontier：给每个问题编号，并给出你的推荐答案。随后等待用户回答，再进入下一轮。
-
-每个问题采用以下格式：
+Each question should be formatted like so:
 
 ```
-❓ **Q1** - **<问题标题>**：<问题正文；可以包含多个段落和多个选项>
+❓ **Q1** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
 
-➡️ <你的推荐答案>
+➡️ <your recommended answer>
 ```
 
-用户每回答一轮，设计树都会改变：已经确定的决定会把 frontier 向外推进，并解除依赖它们的问题。重新计算 frontier，再提出下一轮问题。如果一个问题的答案依赖本轮仍未解决的另一个问题，它属于**后续**轮次，不属于当前轮次。
+Each round the user answers reshapes the tree: settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier and ask the next round. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
 
-## 取得事实
+Finding _facts_ is your job, never the user's. Don't ask the user for anything you could look up yourself. Don't block the frontier on a running lookup: only questions downstream of it wait; ask the rest now. The _decisions_ are the user's: put each to them and wait.
 
-查明**事实**是你的工作，绝不是用户的工作。frontier 上的问题需要从环境中取得事实时，凡是你能自行查找的内容，都不要向用户提问。
+If the caller passed Required materials, resolve them as `$mmw:mmw-wayfinder` specifies. Facts already in those materials go into the tree; fetch the rest as follows:
 
-调用方传来 `必读材料声明` 时，先检查每项被点名材料是否已经回答当前 frontier 问题。仓库产物逐条运行 `mmw artifact path` 解析，再读索引与索引列出的文件。结论评论逐条读取对应 issue 中以 `<!-- mmw:conclusion -->` 开头的评论。已有答案进入设计树；仍未回答的部分再按下面各项取得事实。
+- One file, one symbol, or one command: do it yourself.
+- Several independent angles: `$mmw:mmw-research`. It returns a README path. Read that index and the files it lists. Put those facts back in the tree.
+- Talk cannot decide it, or the fact only exists once something is running: `$mmw:mmw-prototype`. Pause only the branch that waits on that walkthrough.
+- Another person holds the fact and this user cannot answer: `$mmw:mmw-to-questionnaire`. Put the answer back in the tree when it returns.
+- The user must see existing pages: open each page in its own view so they can compare.
 
-- 读一个文件、一个符号，或者跑一条命令就能答完时，你自己去读、去跑。
-- 要从几个互不依赖的角度系统地查才能答时，调用 `$mmw:mmw-research`。它交回验证过的事实、出处和没查清的部分，你把事实放回设计树。
-- 用户必须看见已有页面或 mockup 才能回答当前 frontier 问题时，读取与当前 frontier 问题有关的全部已有页面和 mockup，再执行：
+The session is done when the frontier is empty: every branch of the design tree visited, nothing left silently assumed. Do not act on it until the user confirms you have reached a shared understanding.
 
-  先清点这次要给用户看的全部页面或 URL，**每个页面各自打开一处，不要用一个窗口依次覆盖几份产物**——用户要能来回对比。用手上的浏览器工具把它们打开并保留给用户操作；确认真的可见之后，才说已经打开。交给用户之前，为每个页面的当前状态截图并记下出处；有正式原型或走查目录时一并存进去。页面交给用户之后停止导航，等他反馈。宿主没有可用浏览器工具时，给出一条运行命令、全部页面地址和目标 viewport，让用户自己打开。
+Write the **shared-understanding record** before you ask for that confirmation. `mmw artifact path scratch --sub understanding.md` prints the path; write there. On a wayfinder decision ticket, add `--name` and `--issue` as `$mmw:mmw-wayfinder` specifies for that ticket.
 
-不要让事实调查阻塞整个 frontier。正在进行的调查是一项尚未确定的前置条件，因此只有依赖它的问题等待结果；立即提出 frontier 中其余问题。**决定**属于用户；逐项交给用户，并等待回答。
-
-光靠谈判定不了一个决定，或者某项事实必须真的跑起来才知道时，调用 `$mmw:mmw-prototype`。把当前这个缺口收敛成一个问题：用户走查之后能给出明确答案的那种，并写清楚要回答的是一个决定还是一个事实。做成什么形态由 `$mmw:mmw-prototype` 决定，你不用指定。只暂停依赖这个结果的那一支，其余照常提问。走查结论回来后，把确认下来的决定或事实放回设计树，重新计算 frontier。
-
-某项事实只由另一位知识持有者掌握，而且当前用户无法回答时，调用 `/to-questionnaire`。答案返回后把事实放回设计树，重新计算 frontier。
-
-## 完成
-
-frontier 为空时，session 才完成：设计树的每个分支都已经访问，没有任何内容被静默假设。在用户确认双方已经形成共同理解之前，不得据此采取行动。
-
-frontier 为空后，先写下**共同理解记录**，再把它的正文交给用户确认。这份文件是本次访谈结果的唯一出处：给用户看的、送去复核的、写进 spec 的、回填进 issue 的，四处都从它转录。
-
-运行下面的完整命令取得落点。调用方给了名字段时加 `--name`。Wayfinder decision ticket 需要范围段时加入 `--issue <编号>`：
-
-```bash
-mmw artifact path scratch [--issue <编号>] --sub understanding.md
-```
-
-记录分三段，缺一段这份文件就不成立：
+Write `## Round Q&A` first, then `## Shared understanding`. The shared understanding is transcribed from the Q&A — that section keeps the user's reasons, figures, and corrections.
 
 ```markdown
-## 逐轮问答
+## Round Q&A
 
-<每一轮各写一节。当轮发出去的问题原样抄进来，每个问题后面跟用户回答的原话。>
+<one subsection per round. Paste that round's questions as sent; under each, the user's words.>
 
-## 共同理解
+## Shared understanding
 
-### 范围
+### Scope
 
-- 这次解决什么。这次明确不解决什么。
+- What this settles. What it explicitly does not.
 
-### 决定
+### Decisions
 
-| 决定了什么 | 用户给的理由 | 考虑过并否掉的方案 |
-| --- | --- | --- |
+| What was decided | The user's reason | Options considered and rejected |
 
-### 约束
+### Constraints
 
-- 一条一行：约束是什么，从哪来——用户说的、仓库现状，还是外部限制。
+- One line each: the constraint, and whether it came from the user, the repo, or outside.
 
-### 取舍
+### Trade-offs
 
-- 一条一行：在什么之间取舍，选了哪边，放弃了什么。
+- One line each: between what, which side, what was given up.
 
-## 支持材料
+## Supporting materials
 
-<下面那张表的内容。>
+| Kind | What to list |
+| --- | --- |
+| research facts | facts from the findings files the README lists |
+| research directory | artifact ref for the `README.md`, when later tickets will cite them |
+| prototype | artifact refs for the prototype `README.md`, walkthrough conclusions, and the chosen artifact |
 ```
 
-**先写完 `## 逐轮问答`，再写 `## 共同理解`。**共同理解从逐轮问答转录：那一段留着用户当时给的理由、数字和纠正，记忆只留得住结论。
+Write `none` in a supporting-materials row that has no artifact. Then check: every visited branch has a Decisions row; every correction the user made landed in its row. Paste the `## Shared understanding` section into the chat and wait.
 
-`## 共同理解` 写完当场核两条：
+A yes here confirms this shared understanding only. A later spec still needs its own confirmation.
 
-- 设计树上访问过的每个分支，在「决定」里各有一条。
-- 用户纠正过你的每一处，结果都进对应条目。
+If they stop early, report what is settled, which decisions are still open, and which facts are still waiting. No shared understanding yet.
 
-这一段的读者是没有这次对话的下游会话。每一条都写到那个读者读完就能往下做的程度，理由和数字随条目一起写出来。
+After they confirm, ask whether to send an independent reviewer for ⓪ shared-understanding review (`$mmw:mmw-review`). Wait. If they say yes, the object is this record; `## Round Q&A` is what the reviewer uses to catch contradictions. Accepted findings reopen the affected branches, then rewrite the record. Do not send the rewrite to review again.
 
-`## 支持材料` 列出本次共同理解实际使用的材料，没有对应材料的行写「无」：
-
-| 支持材料 | 列出什么 |
-| --- | --- |
-| research 查到的事实 | 验证过的事实、每条的出处，以及没查清楚的部分 |
-| research 目录 | research 已经保存下来，而且后面还要引用时，写出它的 `README.md` 和相关文件的精确路径 |
-| prototype | prototype 的 `README.md`、用户走查得出的结论，以及用户选中那份产物的精确路径 |
-
-三段写完，把 `## 共同理解` 整段贴进对话，交给用户确认。
-
-用户纠正任何内容时，重新打开受影响的分支继续访谈，改这份记录，再贴一次。
-
-用户在这里点头，只表示他认可你们谈成的共同理解。后面写出 spec 之后，还要再请他看一遍那份 spec 并点头；那是另一次确认，不能拿这一次顶替。
-
-用户要求提前停止时，报告已经确定的内容、尚未解决的决定和仍在等待的事实。这时共同理解还没有形成。
-
-## 复核
-
-用户确认共同理解之后，问他一句：**要不要派一个独立审查者复核这次访谈。**说明它查两样东西——前后答案有没有矛盾，该问的有没有漏。
-
-**等他回答。**他说不要，直接进入下一步。他说要，就移交 `$mmw:mmw-review` 走 ⓪ 共同理解审，被审对象是刚写好的那份共同理解记录。
-
-`## 逐轮问答` 是复核前后矛盾的唯一依据。`## 共同理解` 会把矛盾抹平，只有原话留得下来。
-
-⓪ 交回采信项时，按上面「完成」一节重新打开受影响的分支继续访谈，谈定之后重写这份记录。重写后的记录不再送去复核。
-
-## 下一步
-
-| 情况 | 下一步 |
-| --- | --- |
-| frontier 为空，共同理解记录已经写完，正在等待用户确认 | **停**：把 `## 共同理解` 整段贴出来，等待用户确认或纠正 |
-| 用户已经确认共同理解，正在等他答复要不要复核 | **停**：等他回答 |
-| 用户要复核 | **移交**：`$mmw:mmw-review`，被审对象是刚写好的那份共同理解记录 |
-| 用户不要复核 | **自己继续**：按本表其余各行往下走 |
-| ⓪ 交回了采信项 | **自己继续**：重新打开受影响的分支继续访谈，谈定后重写这份记录 |
-| 用户直接发起本次讨论，已经确认共同理解，而且当前工作需要形成 spec | **移交**：`$mmw:mmw-to-spec`，交给它共同理解记录的精确路径 |
-| 用户直接发起本次讨论，已经确认共同理解，而且当前工作不需要形成 spec | **停**：把 `## 共同理解` 与 `## 支持材料` 两段贴出来，并给出这份记录的精确路径 |
-| 其他技能调用了本技能，而且用户已经确认共同理解 | **移交**：把共同理解记录的精确路径交回调用方，由它读取 `## 共同理解` 与 `## 支持材料` 两段 |
+If another skill invoked this one, return the record's path. If the user invoked it, report the path and ask: write a spec, start a prototype, or stop here.

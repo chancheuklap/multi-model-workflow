@@ -26,6 +26,24 @@ RF_MAX_SAME_FINGERPRINT="${RF_MAX_SAME_FINGERPRINT:-3}"
 die() { echo "ERROR: $*" >&2; exit 1; }
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
+usage_release() {
+  cat >&2 <<'EOF'
+mmw release init --manifest <path> [--max-rounds N]
+mmw release where
+mmw release stage run|done|fail
+mmw release round next
+mmw release surface|resume|close|exit-check
+mmw release receipt
+mmw release dispatch --stage <n> --findings <path>
+
+Examples:
+  mmw release where
+  mmw release init --manifest path/to/product.release-adapter.json
+  mmw release receipt
+EOF
+  return 2
+}
+
 state_file() {
   local top sd
   top="$(git rev-parse --show-toplevel 2>/dev/null)" || die "不在 git 仓库内"
@@ -598,6 +616,10 @@ cmd_init() {
       --manifest) manifest="$2"; shift 2 ;;
       --max-rounds) max_rounds="$2"; shift 2 ;;
       --max-wall-clock) max_wall_clock="$2"; shift 2 ;;
+      -h|--help)
+        if usage_release; then :; fi
+        exit 0
+        ;;
       *) die "未知参数 $1" ;;
     esac
   done
@@ -1321,6 +1343,10 @@ cmd_receipt() {
 }
 
 case "${1:-}" in
+  -h|--help)
+    if usage_release; then :; fi
+    exit 0
+    ;;
   init)       shift; cmd_init "$@" ;;
   where)      shift; cmd_where "$@" ;;
   stage)      shift; cmd_stage "$@" ;;
@@ -1331,5 +1357,5 @@ case "${1:-}" in
   exit-check) shift; cmd_exit_check "$@" ;;
   receipt)    shift; cmd_receipt "$@" ;;
   dispatch)   shift; cmd_dispatch "$@" ;;
-  *) die "用法: mmw release init|where|stage|round|surface|resume|close|exit-check|receipt|dispatch ..." ;;
+  *) usage_release ;;
 esac

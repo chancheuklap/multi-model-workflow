@@ -1,232 +1,229 @@
 ---
 name: mmw-ui-qa
-description: 界面 QA：依据已经谈定的判据自动检查界面，产出违规项与 finding。用于 prototype 迭代中随手检查刚改完的那一块，或应用完整落地后跑一次全流程；由用户本人操作界面并给出意见时不使用，那是走查。
-argument-hint: "[本任务|全量] [产品名；留空自动判定]"
+description: UI QA: check the interface against agreed criteria, and produce violations and findings. Use to check the piece just finished during prototype iteration, or to run a full flow after the app has landed. Do not use when the user operates the interface and gives opinions — that is a walkthrough.
+argument-hint: "[this-task|full] [product name; omit to auto-detect]"
 ---
 
-界面 QA 检查界面本身。它**不是六道审的任何一道**，在不走审查流程的 prototype 阶段也能用。它是交互式技能，正常流程里有停下来问用户的点。
+# UI QA
 
-**主场景是检查刚刚完成的那一块**，默认范围就是最近一个提交，日常发起一个字都不用多说。挂 `全量` 标签做全流程检查，用在初版落地和去 Windows 那一次。第一次运行时先把这个产品的判据和接线建起来，再接着往下跑。
+UI QA checks the interface itself. It **is not any of the review gates**. It can run during prototype, when review is not in play. It is interactive. The normal flow stops to ask the user.
 
-**用户挂了标签就直接用，不再推断。**
+**The main case is the piece just finished.** Default scope is the latest commit. Say nothing extra for a daily run. Tag `full` for a full-flow check, on first landing and on the Windows pass. The first run for a product builds its criteria and wiring, then continues.
 
-下面这几种事界面 QA 不接：
+**If the user tagged a scope, use that tag. Do not infer.**
 
-| 用户想要的 | 交给谁 |
+UI QA does not take these:
+
+| The user wants | Hand to |
 | --- | --- |
-| 他本人操作界面并给出意见 | `/mmw-prototype`。那叫走查，只有用户自己能做；界面 QA 由 agent 执行，不判「这一版可以了」 |
-| 判断某个界面方案该不该这么设计 | `/mmw-grilling`。界面 QA 只按已经谈定的判据检查，不替用户做设计决定 |
-| 改设计系统本身 | 目标仓库。设计系统对界面 QA 只读，采信的规则违反回流成可用性判据 |
-| 检查代码的正确性、diff 与产物是否一致 | `/mmw-review` 的六道审。界面 QA 不看 diff |
+| To operate the interface and give opinions | `/mmw-prototype`. That is a walkthrough. Only the user can do it. UI QA does not judge "this version is good" |
+| To decide whether an interface design should be this way | `/mmw-grilling`. UI QA checks against agreed criteria. It does not make design decisions |
+| To change the design system itself | The target repo. The design system is read-only to UI QA. An accepted rule break flows back as a usability criterion |
+| To check that code is correct, or that the diff matches the artifact | `/mmw-review`. UI QA does not read the diff |
 
-## 取上下文
+## Context
 
-| 材料 | 取得方式 | 读取内容 |
+| Material | How | Read for |
 | --- | --- | --- |
-| 领域文档 | 按 `/mmw-domain-modeling` 的「读领域文档」读取本次范围 | 报告与 finding 正文使用项目的 canonical 术语 |
-| ADR | 运行 `mmw artifact index adr` 取索引，读其中与界面有关的几份 | 界面决定不能与它们冲突 |
+| Domain docs | Read this run's range as `/mmw-domain-modeling` specifies | Report and finding bodies use the project's canonical terms |
+| ADR | Run `mmw artifact index adr`, then read the ones about the interface | Interface decisions must not conflict with them |
 
-## 检查项：两类九种
+## Checks: two classes, nine kinds
 
-技能每次运行会跑九种**检查项**。它们是封闭集合，本技能不产生第十种。后面每一步都按编号点名它们。
+Each run executes nine **checks**. The set is closed. This skill does not invent a tenth. Later steps name them by number.
 
-| 编号 | 判什么 | 判据来自哪 |
+| ID | Judges | Criteria from |
 | --- | --- | --- |
-| **A1** | 数值越过阈值表的下限或上限 | 阈值表 |
-| **A2** | 可访问性规则引擎报出的违规 | 引擎自带规则集 |
-| **A3** | 元素用的 token 不在设计系统**声明**的集合里 | 设计系统的机器可读部分 |
-| **A4** | 渲染进程控制台里的运行时错误 | 无，报错本身就是事实 |
-| **B1** | 违反设计系统正文里的具名规则 | 设计系统的散文部分 |
-| **B2** | 认知走查四问任一答不出 | 技能自带，写在 [SEMANTIC.md](SEMANTIC.md) |
-| **B3** | 困惑分偏高 | 技能自带，写在 [SEMANTIC.md](SEMANTIC.md) |
-| **B4** | Trunk Test 六问任一答不出 | 技能自带，写在 [SEMANTIC.md](SEMANTIC.md) |
-| **B5** | 违反该产品的可用性判据 | 可用性判据 |
+| **A1** | A number crosses a threshold min or max | Threshold table |
+| **A2** | The accessibility engine reports a violation | The engine's own rules |
+| **A3** | An element's token is outside the design system's **declared** set | The machine-readable part of the design system |
+| **A4** | A runtime error in the renderer console | None. The error is the fact |
+| **B1** | A named rule in the design-system prose | The prose part of the design system |
+| **B2** | Any of the four cognitive-walkthrough questions unanswered | This skill, in [SEMANTIC.md](SEMANTIC.md) |
+| **B3** | Confusion score high | This skill, in [SEMANTIC.md](SEMANTIC.md) |
+| **B4** | Any of the six Trunk Test questions unanswered | This skill, in [SEMANTIC.md](SEMANTIC.md) |
+| **B5** | A break of this product's usability criteria | Usability criteria |
 
-**一条检查项判出问题时产生的东西，两类各有自己的名字：**
+**What a failing check produces has a different name per class:**
 
-- **A 类**（A1–A4）是确定性检查，结果是事实，叫**违规项**，直接修改，不占用用户时间。
-- **B 类**（B1–B5）是模型判断，结果是候选，叫 **finding**，只报告，等用户裁决。
+- **Class A** (A1–A4) is deterministic. The result is a fact, a **violation**. Fix it. Do not spend the user's time.
+- **Class B** (B1–B5) is model judgment. The result is a candidate, a **finding**. Report it. Wait for a verdict.
 
-分类依据是判定性质，不是判据载体。
+The split is the kind of judgment, not where the criterion lives.
 
-另有**三类报告项**：覆盖报告、判据自检结果、声明与实现不一致。它们是确定的事实，但没有界面上的修复目标，因此不进用户裁决，也不驱动修改。
+Three more **report items**: coverage report, criterion self-check, declaration-vs-implementation mismatch. They are facts. They have no interface fix target, so they do not enter user verdicts and they do not drive edits.
 
-## 1. 检查工作区干净
+## 1. Clean working tree
 
-运行 `git status --porcelain`。**有输出就停下来**，列出未提交的文件，让用户先提交，然后重新发起。用户提交之后他自己重新喊你，这一轮到此为止。
+Run `git status --porcelain`. **If it prints anything, stop.** List the uncommitted files. Ask the user to commit, then invoke this skill again. After they commit they call you. This run ends here.
 
-这一步保证了后面三件事：范围就是最近一个提交（第 6 步）、改坏了用 git 退回去（第 9 步）、技能自己的修改可以单独提交而不夹带用户的代码。
+This step makes three later facts hold: scope is the latest commit (step 6), a bad edit rolls back with git (step 9), and this skill's edits can be one commit with none of the user's code mixed in.
 
-直接往下走。判据与接线的落点不带名字段，界面全图和报告都不写进仓库。用户在主检出还是在任务 worktree 里发起，行为一致。
+Continue. Criteria and wiring paths have no name segment. The screen map and the report do not enter the repo. Behavior is the same from the main checkout or a task worktree.
 
-## 2. 检查依赖
+## 2. Dependencies
 
-运行 `mmw-ui-qa check`。它报出四个依赖各自的包名、要求版本和实际版本；四个都齐时退出码为 0。
+Run `mmw-ui-qa check`. It prints package name, required version, and actual version for four dependencies. Exit 0 when all four are present.
 
-`mmw-ui-qa` 由 MMW 的安装入口装在 `PATH` 上。命令找不到时**停止**，让用户跑一次 MMW 的安装入口。
+`mmw-ui-qa` is on `PATH` from the MMW install entry. If the command is missing, **stop** and ask the user to run the MMW install entry.
 
-`check` 非零时按缺哪个决定：
+On non-zero `check`, switch on which capability is missing:
 
-| 缺哪个能力 | `check` 里的名字 | 怎么办 |
+| Missing capability | Name in `check` | Action |
 | --- | --- | --- |
-| 浏览器自动化框架 | `browser` | **停止**。它驱动全部检查 |
-| 设计系统作者 | `design-system-author` | **停止**。设计系统缺失时由它来建，见第 4 步 |
-| 可访问性规则引擎 | `accessibility` | 降级，跳过 A2，其余八种照常 |
-| 设计系统格式校验器 | `design-lint` | 降级，第 5 步的判据自检不做，报告顶部标明判据这一轮没有被校验过，九种照常 |
+| Browser automation | `browser` | **Stop.** It drives every check |
+| Design-system author | `design-system-author` | **Stop.** Step 4 uses it when the design system is missing |
+| Accessibility engine | `accessibility` | Degrade: skip A2. Run the other eight |
+| Design-system linter | `design-lint` | Degrade: skip the criterion self-check in step 5. Mark the report header that criteria were not linted this run. Run all nine |
 
-前两个停止，是因为它们都没有替代路径：浏览器没了什么都取不到，设计系统作者没了在第 4 步就走不下去。后两个各自只影响自己那一块。
+The first two stop: there is no fallback. The last two each affect only their own slice.
 
-## 3. 判定产品
+## 3. Product
 
-判据与接线都是按产品的，所以产品必须先定下来。**四级，第一级命中就不往下走：**
+Criteria and wiring are per product, so the product is first. **Four levels. Stop at the first hit:**
 
-1. argument hint 的自由内容里给了产品名 → 直接用，不问。
-2. 没给，但接线文件只有一份 → 用那一份，不问。只做一个应用的仓库永远不会被问到。
-3. 没给，接线文件有多份 → 列出来让用户选一次。**列的是接线文件里 `product` 字段的值，不是文件名**，用户看到的是产品的名字。
-4. **一份接线文件都没有**（全新仓库首次运行）→ 直接问用户这次要检查哪个产品。产品标识用小写字母、数字与连字符。
+1. The free text in the argument hint names a product → use it. Do not ask.
+2. No name, and there is one wiring file → use it. Do not ask. A single-app repo is never asked.
+3. No name, and there are several wiring files → list them and let the user pick once. **List the `product` field, not the filename.**
+4. **No wiring file** (first run on a new repo) → ask which product this run checks. Product id: lowercase letters, digits, hyphens.
 
-第 4 级问出来的产品名，就是下一步建立各文件时用的标识，问卷里不再重复问一遍。
+The name from level 4 is the id used when creating files in the next step. Do not ask it again in the questionnaire.
 
-**四份文件的落点全部由 `mmw artifact path` 解析：**
+**All four paths come from `mmw artifact path`:**
 
-| 要哪一份 | 命令 |
+| Want | Command |
 | --- | --- |
-| 该产品的接线文件 | `mmw artifact path ui-qa-wiring --sub <产品标识>.json` |
-| 阈值表（仓库一份） | `mmw artifact path ui-criteria --sub thresholds.json` |
-| 该产品的可用性判据 | `mmw artifact path ui-criteria --sub products/<产品标识>.md` |
-| 设计系统文件 | 接线文件的 `designSystem` 字段。它是仓库相对路径，不走 `mmw artifact path`——那份文件归目标仓库所有，不是 MMW 产物 |
+| This product's wiring file | `mmw artifact path ui-qa-wiring --sub <product-id>.json` |
+| Threshold table (one per repo) | `mmw artifact path ui-criteria --sub thresholds.json` |
+| This product's usability criteria | `mmw artifact path ui-criteria --sub products/<product-id>.md` |
+| Design-system file | Wiring field `designSystem`. Repo-relative path. It does not go through `mmw artifact path` — the target repo owns that file |
 
-第 2、3 级要列举现有产品：把接线文件那条命令的输出去掉最后一段文件名，得到接线的类别根，列出这个目录下的全部文件，逐个读出 `product` 字段。
+Levels 2 and 3 list existing products: drop the last path segment from the wiring command to get the wiring category root, list files there, read each `product` field.
 
-**一次运行只检查一个产品。** 要检查第二个就再发起一次。混进一份报告，用户裁决时会分不清在答哪个应用的事。
+**One product per run.** A second product is a second invocation.
 
-## 4. 检查判据与接线，缺了就建
+## 4. Criteria and wiring; create what is missing
 
-上一步那四份都在，跳过本步，直接进第 5 步。
+If all four files from the previous step exist, skip this step and go to step 5.
 
-缺任何一份就进**建立模式**：**现在完整读 [SETUP.md](SETUP.md)**，把缺的那几份建起来，然后回第 5 步继续本次检查。
+If any is missing, enter **setup mode**: **read [SETUP.md](SETUP.md) in full now**, create the missing files, then return to step 5 and continue this run.
 
-## 5. 判据自己要先被检查
+## 5. Lint the criteria first
 
-判据齐了之后，对设计系统文件跑一次格式校验：
+Once the files exist, lint the design-system file:
 
 ```bash
-mmw-ui-qa design-lint <上一步取到的设计系统文件路径>
+mmw-ui-qa design-lint <design-system file from the previous step>
 ```
 
-文件参数不能省。校验器不只查格式，还做跨 token 的 WCAG 对比度计算和引用完整性检查，不需要启动应用。它输出 JSON，每条带 `severity`，取值是 `error` 或 `warning`。
+The file argument is required. The linter checks format, cross-token WCAG contrast, and reference integrity. It does not start the app. It prints JSON. Each item has `severity` `error` or `warning`.
 
-这一步不可省略，因为 A3 与 B1 拿设计系统当判据，**判据自己违规时，判得越准越糟**——一份声明了「白字配琥珀色」的规范，会让 A3 把读不清的按钮判成合规。
+Do not skip this step. A3 and B1 treat the design system as criteria.
 
-| 校验结果 | 怎么办 |
+| Lint result | Action |
 | --- | --- |
-| 一条 finding 都没有 | 继续，报告的判据自检结果写「已校验，无问题」 |
-| 有 `error` 级 | **停止**。文件解析不了，A3 与 B1 无从判起 |
-| 只有 `warning` 级 | 继续，报告里逐条列出，**标明这是判据的问题不是界面的问题** |
-| 命令跑不起来，或输出不是合法 JSON | 继续，报告顶部标明判据这一轮没有被校验过 |
-| 第 4 步没建设计系统（用户拒绝） | 跳过本步，报告顶部写「A3、B1（设计系统文件不存在）」 |
+| No findings | Continue. Criterion self-check says "linted, no issues" |
+| Any `error` | **Stop.** The file will not parse. A3 and B1 cannot run |
+| Only `warning` | Continue. List each in the report. **Mark them as criteria problems, not interface problems** |
+| Command fails, or output is not JSON | Continue. Mark the report header that criteria were not linted this run |
+| Step 4 did not create a design system (user refused) | Skip this step. Report header: "A3, B1 (no design-system file)" |
 
-校验结果进报告的**判据自检结果**，**不进九种检查项**。它没有界面上的修复目标，也不进用户裁决。
+Lint results go in the report's **criterion self-check**. They **are not one of the nine checks**. No interface fix target. No user verdict.
 
-## 6. 建界面全图
+## 6. Build the screen map
 
-**现在完整读 [CRITERIA.md](CRITERIA.md)。** 本步要按接线文件的字段启动应用，第 8 步要按它判九种检查项。
+**Read [CRITERIA.md](CRITERIA.md) in full now.** This step starts the app from wiring fields. Step 8 judges the nine checks from that file.
 
-全图记录界面、每个界面的状态与界面之间的跳转。下一步靠它把改动的文件映射成要查的界面，第 8 步的认知走查靠它拼路径。**它在进程内构建，不落文件，用完即弃。**
+The map records screens, states per screen, and jumps between screens. The next step maps changed files to screens from it. Step 8's cognitive walkthrough builds paths from it. **It is built in-process. It is not a file. Discard it after the run.**
 
-按接线文件的 `launch` 启动应用（命令、工作目录、环境变量都在那个字段里；凭证是 `env:<名>` 或 `keychain:<名>` 形式的引用，按前缀取值）。按 `mainWindow` 的 `titlePattern` 或 `urlPattern` 认出主窗口。有 `prepare.steps` 时按顺序执行，准备登录态与测试数据。
+Start the app from wiring `launch` (command, working directory, env). Secrets are `env:<name>` or `keychain:<name>`; resolve by prefix. Recognize the main window from `mainWindow` `titlePattern` or `urlPattern`. If `prepare.steps` exists, run them in order for login and test data.
 
-三个来源合并成一张图，它们是并集不是互斥选择：
+Three sources merge into one map. Union, not exclusive:
 
-| 来源 | 怎么取 | 贡献什么 |
+| Source | How | Contributes |
 | --- | --- | --- |
-| 代码抽取 | 读路由表、状态机、条件渲染分支 | 打底的界面与跳转。**读到哪个文件，就把文件路径记进那个界面节点的 `来源文件` 数组**——下一步靠它 |
-| 运行时探测 | 从主窗口出发遍历可达路径 | 补充代码里看不出的跳转，并决定到达性 |
-| 可用性判据 | 读该产品可用性判据里提到的状态 | 补上探测不到、要特定条件才出现的状态 |
+| Code extract | Read routes, state machines, conditional-render branches | Baseline screens and jumps. **Record each file path you read into that screen node's `source-files` array** — the next step uses it |
+| Runtime probe | Walk reachable paths from the main window | Jumps code does not show, and reachability |
+| Usability criteria | States named in this product's usability criteria | States the probe cannot reach without special conditions |
 
-同一个状态被多个来源命中时合并成一条，记录被哪几个来源命中。**到达性只由运行时探测决定**：探测到过的标为已到达，只出现在另外两个来源里的标为未到达。未到达的状态留在图里，不删。
+The same state from several sources becomes one node, recording which sources hit it. **Reachability is runtime probe only:** probed states are reached; states only in the other two sources are unreached. Keep unreached states in the map. Do not delete them.
 
-**能到达什么，取决于接线文件。** 空状态、加载态、错误态和权限差异，只要 `prepare.steps` 能到达，就进入检查。它声明不了的（要注入故障、切换多个权限身份、或在检查中途复位数据），转成覆盖报告的一条——那属于产品自己的测试夹具范畴。
+**What you can reach depends on the wiring file.** Empty, loading, error, and permission states enter the check when `prepare.steps` can reach them. What it cannot declare (fault injection, several permission identities, resetting data mid-check) becomes one coverage-report line — that is the product's own test-fixture work.
 
-到不了的状态进**覆盖报告**，逐条写明状态名与到不了的原因。它不驱动修改，也不进用户裁决。
+Unreached states go in the **coverage report**, one line per state name and why. They do not drive edits. They do not enter user verdicts.
 
-## 7. 确定范围
+## 7. Scope
 
-**三档，用户挂的标签决定哪一档；不挂标签走默认档。**
+**Three levels. The user's tag picks the level. No tag is the default.**
 
-| 档 | 标签 | 范围怎么算 | 什么时候用 |
+| Level | Tag | How scope is computed | When |
 | --- | --- | --- | --- |
-| **本次改动** | 不挂（默认） | `git diff HEAD~1...HEAD --name-only` | 刚提交完一次改动，随手检查 |
-| **本任务** | `本任务` | `git diff $(git merge-base HEAD <父分支>)...HEAD --name-only` | 一个任务完整落地，交出去之前 |
-| **全量** | `全量` | 全图里的全部界面与状态，不看 git | 应用初版落地，或上 Windows 之前 |
+| **this-change** | none (default) | `git diff HEAD~1...HEAD --name-only` | Just committed; a quick check |
+| **this-task** | `this-task` | `git diff $(git merge-base HEAD <parent>)...HEAD --name-only` | A task has landed; before handoff |
+| **full** | `full` | Every screen and state in the map. Ignore git | First landing, or before Windows |
 
-`<父分支>` 取当前分支从哪里分出来的那一支。仓库有多条长期分支时问用户一次，不猜；只有一条主分支时用它。
+`<parent>` is the branch this branch was created from. Several long-lived branches: ask once. Do not guess. One main branch: use it.
 
-**改动的文件怎么变成要查的界面。** 改动了文件 F，就取全图里所有 `来源文件` 包含 F 的界面节点。这是查上一步已经建好的表，不是再扫一遍代码。
+**Changed files become screens.** File F maps to every screen node whose `source-files` contains F. That is a lookup in the map from the previous step, not another code scan.
 
-**降级链。降级只改范围，不减检查项。**
+**Degrade changes scope only. It does not drop checks.**
 
-| 情况 | 降到哪 | 报告第一行写什么 |
+| Case | Degrade to | Report first line |
 | --- | --- | --- |
-| 映射出至少一个界面 | 不降 | 正常写档位名 |
-| 映射出零个界面（改的是后端、配置或文档） | 本任务 | 本次改动 → 本任务（本次改动未涉及界面文件） |
-| 本任务也映射出零个界面 | 最小子集：`mainWindow` 指向的界面，加它在全图里的直接下一级 | 本任务 → 主窗口及其下一级（本任务未涉及界面文件） |
-| `HEAD~1` 不存在（分支的第一个提交） | 本任务 | 正常写「本任务」，不必说明 |
+| At least one screen | No degrade | The level name |
+| Zero screens (backend, config, or docs) | this-task | this-change → this-task (this-change did not touch interface files) |
+| this-task also maps to zero screens | Smallest set: the `mainWindow` screen plus its direct children in the map | this-task → main window and next level (this-task did not touch interface files) |
+| `HEAD~1` does not exist (first commit on the branch) | this-task | Write "this-task". No extra note |
 
-**九种检查项在任何一档上都全部运行**，档位只决定它们作用在哪些界面上。
+**All nine checks run at every level.** The level only chooses which screens they act on.
 
-## 8. 跑检查
+## 8. Run the checks
 
-**先跑完全部九种检查项，收集全部结果，再统一进入第 9 步。** 不边查边改：A3 改了 token，B1 看到的就是改后的界面，用户在报告里读到的描述会对不上他打开界面看到的样子。
+**Run all nine, collect every result, then go to step 9.** Do not fix while checking: an A3 token edit would change what B1 sees, and the report would not match the interface the user opens.
 
-每种检查项的细则在 [CRITERIA.md](CRITERIA.md)；B2、B3、B4 的方法与派发合同在 [SEMANTIC.md](SEMANTIC.md)，跑这三种之前完整读它。
+Per-check rules are in [CRITERIA.md](CRITERIA.md). Method and dispatch for B2, B3, B4 are in [SEMANTIC.md](SEMANTIC.md). Read that file in full before those three.
 
-**主要输入是结构化数据，不是截图。**四个来源，全部通过 `mmw-ui-qa browser` 驱动的浏览器会话取得：
+**Primary input is structured data, not screenshots.** Four sources, all from a browser session driven by `mmw-ui-qa browser`:
 
-| 输入 | 怎么取 | 供给谁 |
+| Input | How | Feeds |
 | --- | --- | --- |
-| 无障碍树快照 | 浏览器自动化框架的 ARIA snapshot | 元素定位、B 类全部 |
-| 计算样式与布局盒模型数值 | 对候选元素批量求值 `getComputedStyle` 与 `getBoundingClientRect` | A1、A3 |
-| 运行时的 CSS 自定义属性 | `getComputedStyle(document.documentElement)` | A3 的实现层对照 |
-| 渲染进程控制台 | 监听 console 与 page error | A4 |
+| Accessibility-tree snapshot | ARIA snapshot from the browser automation | Element location; all of class B |
+| Computed style and layout box | Batch `getComputedStyle` and `getBoundingClientRect` on candidates | A1, A3 |
+| Runtime CSS custom properties | `getComputedStyle(document.documentElement)` | A3 implementation-layer compare |
+| Renderer console | Listen for console and page error | A4 |
 
-无障碍树快照只含角色与可访问名，不含 class、测试标识、包装元素与内联样式，所以同一套方法覆盖原生 DOM、React 与 Web 应用，不需要按框架适配。
+The accessibility snapshot has roles and accessible names only. No class, test id, wrapper, or inline style. The same method covers native DOM, React, and web apps. No per-framework adapter.
 
-**A2 的跑法**：`mmw-ui-qa accessibility-source` 打印规则引擎那份注入脚本的绝对路径。把它整份注入页面，再调用引擎的分析入口，拿到的每条违规就是一条 A2。
+**A2:** `mmw-ui-qa accessibility-source` prints the absolute path of the engine's inject script. Inject the whole file, call the engine's analyze entry, and each violation is one A2.
 
-要在 Node 脚本里直接 `require` 浏览器自动化框架时，模块根路径用 `mmw-ui-qa home` 取。
+To `require` the browser automation from a Node script, the module root is `mmw-ui-qa home`.
 
-**五个数值字段的判定方式**（`可操作元素` 与 B2 第 2 问都用它们）：
+**Five numeric fields** (used by `interactive elements` and B2 question 2):
 
-| 字段 | 怎么算 |
+| Field | How |
 | --- | --- |
-| 是否在首屏内 | 元素的 `getBoundingClientRect` 与视口矩形相交 |
-| 尺寸 | `getBoundingClientRect` 的宽高，单位 px |
-| 对比度 | 元素前景色与其实际背景色的 WCAG 对比度 |
-| 是否被遮挡 | 对元素中心点做 `elementFromPoint`，返回的不是它自己也不是它的后代 |
-| 层叠次序 | 从元素向上取第一个形成层叠上下文的祖先的 `z-index` |
+| In first screen | Element `getBoundingClientRect` intersects the viewport |
+| Size | `getBoundingClientRect` width and height, px |
+| Contrast | WCAG contrast of foreground against actual background |
+| Occluded | `elementFromPoint` at the element's center is not the element and not a descendant |
+| Stacking | `z-index` of the first ancestor that forms a stacking context |
 
-截图只在两种情况下用，并且**裁到相关区域，不截整屏**：认知走查第 2 问，以及需要向用户出示证据时。
+Screenshots only in two cases, **cropped to the relevant region, never full screen**: cognitive-walkthrough question 2, and when you must show the user evidence.
 
-## 9. 处置与报告
+## 9. Dispose and report
 
-A 类产出违规项，**直接修改并单独提交**；B 类产出 finding，**只报告，等用户裁决**。
+Class A produces violations: **edit and commit them alone**. Class B produces findings: **report only, wait for a verdict**.
 
-**现在完整读 [VERDICTS.md](VERDICTS.md)。**
+**Read [VERDICTS.md](VERDICTS.md) in full now.**
 
-## 平台
-
-上面九步描述的是 Mac 侧：技能自行启动应用，全流程自动。
-
-**在 Windows 上跑时先完整读 [WINDOWS.md](WINDOWS.md)。** 那一侧用户必须在场手动启动一次，第 6 步的启动动作换成连接他开的调试端口，其余八步不变。
-
-## 下一步
-
-正文九步全部跑完之后，才用这张表。中途各步自己的分支写在那一步里。
-
-| 情况 | 下一步 |
+| Case | Action |
 | --- | --- |
-| 报告交给用户了，第 2、3 节有要他裁决或回答的条目 | **停**：等他逐条裁决，以及回答第 3 节那些「是不是同一件事」 |
-| 用户裁决完了 | **自己继续**：按 [VERDICTS.md](VERDICTS.md) 把裁决写进可用性判据，再报一次最终结果 |
-| 报告交给用户了，第 2、3 节都是空的 | **停**：本轮没有要他做的事，报告完就结束 |
-| 被 `/mmw-prototype` 或 `/mmw-review` 叫起来，而且用户已经裁决完 | **移交**：把报告交回调用方，由它决定往下走 |
+| Report given to the user; sections 2 and 3 have items to judge or answer | Wait for per-item verdicts and the "same thing?" answers in section 3. After they finish, write verdicts into usability criteria as [VERDICTS.md](VERDICTS.md) specifies, then report the final result once more |
+| Report given to the user; sections 2 and 3 are empty | Nothing for them this run. The report ends the run |
+| Called by `/mmw-prototype` or `/mmw-review`, and the user already judged | Hand the report back to the caller |
+
+## Platform
+
+The nine steps above are the Mac side: the skill starts the app and runs the whole flow.
+
+**On Windows, read [WINDOWS.md](WINDOWS.md) in full first.** The user must be present and start the app once. Step 6's start becomes a connect to the debug port they opened. The other eight steps stay the same.

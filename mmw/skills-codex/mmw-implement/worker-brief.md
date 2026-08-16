@@ -1,60 +1,20 @@
-# `worker` 纪律
+# Worker brief
 
-你读到本文，说明派你的人要你按这些边界做一张 ticket。路径与材料在 task 里点名，你自己打开读，不要等正文被粘进提示词。
+The task names every path. Open those yourself.
 
-## 上下文清单
+When the task names a plan, follow it. When it names an agent brief and no plan, follow the brief and its seam.
 
-| 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
-| --- | --- | --- | --- | --- |
-| task | 始终 | 验收与边界 | 未点名的上下文 | 实现边界 |
-| plan | task 点名时 | 当前 ticket 的 plan | 其他 plan | 实施步骤 |
-| prototype | task 点名时 | 索引、选中产物和相关证据 | 整个产物目录和过程材料 | 已确认决定 |
-| research | task 点名时 | research 索引和精确文件 | research 的上级目录和 subagent 原始报告 | 验证后的事实 |
-| spec 或 agent brief | 始终 | 意图和 seam | 其他需求 | 行为合同 |
-| TDD 方法论与 `TESTING.md` | 始终；仓库文件可不存在 | task 点名的路径 | 自拟规则 | 测试方法和命令 |
+When the Read field lists artifact refs, run `mmw artifact path` for each, then read the index and the files it lists. `none` means skip.
 
-以上来源冲突：停下来报是哪一处，不要自己挑一边。
+Stay in this worktree's source and tests. Leave `docs/` as they are. Stay inside the ticket and the plan. Use `git add` and `git commit`. Leave history as written. Do not push.
 
-开始改代码前，再读取当前目录适用的 `AGENTS.md`、领域文档和相关 ADR。领域文档是仓库根 `CONTEXT.md`；根上有 `CONTEXT-MAP.md` 时它是索引，按它找到本次相关的 leaf（在 `docs/context/` 下）。相关 ADR 在 `docs/adr/` 下。
+TDD is `$mmw:mmw-tdd`. Run the repo `TESTING.md` commands. End with a passing state. Cite the ticket in the commit message.
 
-prototype 资产使用 task 点名的产物引用。解析成功后，只读取索引、选中产物和相关证据。不要递归读取产物目录，也不要自行吸收无关截图、runs、过程输出或落选变体。落选变体只在 prototype 资产索引显式引用其否定约束，而且本 ticket 需要检查该约束时读取。
+If ticket, plan, spec, and code disagree, stop and say where. If a type, function, or fixture the task assumes is missing, report it.
 
-research 只读取 task 点名的 research 索引和精确文件。不要递归读取 research 的上级目录，不要把 subagent 原始报告或过期范围快照当成当前事实。
+End the report with exactly one of:
 
-task 的「读」栏出现产物引用时，逐条运行 `mmw artifact path <类别> --name <名字段>`。条目有 `issue=<编号>` 或 `sub=<类别内细分>` 时，追加对应参数。只在路径解析成功后读取那份产物的索引及其显式列出的文件。`name` 缺失、条目解析失败或上游缺少固定声明时，停止并报告。task 写 `无` 时不读取产物。
-
-## 边界
-
-- 只改这棵 worktree 里的源码与测试；不改 `docs/` 下任何文件。
-- 待在 ticket / plan 拥有的文件里；要越界先停下来报。
-- 只用 `git add` 与 `git commit`；不 amend、rebase、reset、强推，不回滚已有提交。
-- 不 push、不碰远端。
-- 一次一竖切：先失败测试，见红，最小实现，见绿。
-- 实现过程中定期运行类型检查和当前测试文件。“定期”表示与 red-green 循环交错，不把这些检查全部推迟到结束。
-- 全部实现完成后运行一次完整测试套件。具体命令和测试层次以仓库 `TESTING.md` 为准；仓库没有对应入口时记录不适用，不编造命令。
-- 跨 module 的数据使用项目现有的合同类型，不返回未定义结构的字典或 map。
-- 新增端口、命令、迁移、能力或 interface 时，使用项目现有的登记和校验机制。
-- 迁移同时提供正向与反向步骤，并写清执行顺序。
-
-`$mmw:mmw-integrate` 明确要求当前结果分支 rebase 时，按该技能操作；其余阶段不改写已有提交。
-
-## 卡住
-
-- 同一动作失败三次后停止，报告三次命令与输出。
-- ticket、plan、spec 或代码互相矛盾时，报告冲突位置。
-- task 假定的类型、函数或 fixture 不存在时，报告缺失项，不补默认值掩盖失败。
-
-## 交回
-
-完成时提交一个通过验证的状态。提交信息引用 ticket。报告包含改动文件、提交 SHA、每条验收使用的命令与结果，以及未完成项。验证命令按实际发生顺序列出，使主 agent 能确认实现期间的类型检查、当前测试和结束时的完整套件。
-
-报告末尾写这次的结局。四选一，只用下表中的词：
-
-| 结局 | 什么时候用 |
-| --- | --- |
-| 完成 | 全部验收标准达成，测试通过 |
-| 带隐忧完成 | 全部验收标准达成，但你对某处不放心。单独写出位置、担心什么、为什么没有在本轮解决 |
-| 缺上下文 | 需要的材料不在手上，无法继续。写清楚缺什么 |
-| 卡住 | 已经尝试但走不通。附尝试记录；如果实际工作比 ticket 大，也写清楚多出来的范围 |
-
-没做完时绝不写「完成」。主 agent 会重跑测试并读取 diff。
+- **Done** — every acceptance criterion holds; tests passed
+- **Done with concerns** — same, plus where you are uneasy and why it waited
+- **Missing context** — material you need is not in hand
+- **Stuck** — you tried; include what you ran and what is larger than the ticket

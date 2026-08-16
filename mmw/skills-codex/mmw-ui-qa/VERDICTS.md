@@ -1,180 +1,180 @@
-# 处置、指纹与报告
+# Disposition, fingerprints, report
 
-九种检查项的清单在 [SKILL.md](SKILL.md)「检查项：两类九种」。本文写它们跑完之后怎么办。
+The nine checks are listed in [SKILL.md](SKILL.md) under "Checks: two classes, nine kinds". This file is what happens after they run.
 
-## A 类违规项的修改流程
+## Class A edit flow
 
-**前提是工作区干净**，由 [SKILL.md](SKILL.md) 第 1 步保证。这个前提让下面每一条都成立，不需要任何自造的回滚机制。
+**The working tree is clean**, from [SKILL.md](SKILL.md) step 1. That fact makes every line below hold. No home-grown rollback.
 
-1. **先跑完全部九种检查项，收集全部结果，再统一进入修改。**
-2. **逐条修改，逐条验证。** 每改完一条，只重跑触发这条违规项的那一项检查。判据是：这条违规项对应的那条判据现在满足了。
-3. **全部改完之后，把四种 A 类检查整体重跑一遍。** 逐条验证只看得见自己那一条，看不见这次修改有没有引入别的 A 类问题。四种全是确定性检查，重跑不需要模型判断，也不重走语义层。
-4. **改坏了用 git 退回去。** 整体重跑发现新的 A 类违规项，或某条逐条验证没过，就 `git checkout` 那个文件退回该次修改。退回的那条降级成 finding 报给用户，验证结果记 `已回滚`。
-5. **改不了源码的一律不改。** 违规项定位到第三方组件内部或依赖包里的文件时，不修改，转成 finding 报给用户。
+1. **Run all nine checks, collect every result, then enter edits.**
+2. **Edit one, verify one.** After each edit, re-run only the check that produced that violation. The test: that violation's criterion now holds.
+3. **After all edits, re-run all four class A checks.** Per-item verify cannot see a new class A problem this edit introduced. All four are deterministic. The re-run needs no model, and does not re-walk the semantic layer.
+4. **A bad edit rolls back with git.** If the full re-run finds a new class A violation, or a per-item verify fails, `git checkout` that file to undo that edit. That item degrades to a finding. Verification result is `reverted`.
+5. **Do not edit what you cannot edit in source.** A violation inside a third-party component or a dependency package becomes a finding.
 
-**B 类不重跑。** 用户裁决时看到的是修改前的界面，这一点在报告里写明。A 类改的是阈值、WCAG、token、运行时错误这四类确定性问题，不改变 B 类关心的流程与语义。
+**Do not re-run class B.** The user judges the interface from before the class A edits. Say that in the report. Class A fixes thresholds, WCAG, tokens, and runtime errors. It does not change the flows and meaning class B cares about.
 
-**本次全部 A 类修改合成一个提交，不是一条一个。** 提交信息写明这是界面 QA 的修改、改了哪几条违规项。报告第 1 节仍逐条列出改了什么；用户要单独退某一条，在这个提交的基础上自己改。
+**All class A edits this run become one commit, not one commit per item.** The message says this is a UI QA edit and lists the violations. Report section 1 still lists each. To undo one item, the user edits on top of that commit.
 
-## 五个处置标记的去向
+## Where the five disposition marks go
 
-B 类走 MMW 既有的五个处置标记。技能不自动修改 B 类，等用户裁决。「判据」指该产品的可用性判据文件，字段见 [CRITERIA.md](CRITERIA.md)「可用性判据」。
+Class B uses MMW's existing five disposition marks. This skill does not auto-edit class B. Wait for a verdict. "Criteria" means this product's usability-criteria file. Fields are in [CRITERIA.md](CRITERIA.md) under "Usability criteria".
 
-| 裁决 | 谁去修 | 存不存进判据 | 下一轮指纹命中时 |
+| Verdict | Who fixes | Store in criteria? | Next run, fingerprint hits |
 | --- | --- | --- | --- |
-| `accepted` | **主 agent 当场修**，与 A 类的修改一起进本次那个提交 | 存，状态「已确认」 | **再报一次**，标明「上次已确认并修过，现在又出现了」 |
-| `rejected` | 不修 | 存，状态「已裁决不成立」 | 压制，不报 |
-| `waived` | 不修 | 存，状态「已搁置」 | 压制，不报 |
-| `duplicate` | 跟随它指向的那条 | 不单独存 | 不适用 |
-| `needs-evidence` | 不修 | **不存** | 不适用 |
+| `accepted` | **Main agent fixes now**, in the same commit as class A | Yes, status `confirmed` | **Report again**, marked "accepted and fixed last time, present again" |
+| `rejected` | No fix | Yes, status `rejected` | Suppress. Do not report |
+| `waived` | No fix | Yes, status `waived` | Suppress. Do not report |
+| `duplicate` | Follow the item it points at | Do not store on its own | n/a |
+| `needs-evidence` | No fix | **Do not store** | n/a |
 
-**`accepted` 是回归标记，不是压制标记。** 这一点容易搞反：`rejected` 和 `waived` 的意思是「这不是问题」，所以下一轮命中要压制；`accepted` 的意思是「这是问题，而且已经修了」，下一轮又命中说明**问题复现了**。
+**`accepted` is a regression mark, not a suppress mark.** `rejected` and `waived` mean "not a problem", so a later hit is suppressed. `accepted` means "it was a problem, and it was fixed", so a later hit means **it came back**.
 
-**`needs-evidence` 不进判据。** 它表示没能在源码里验证出这条 finding 的出处，还不是一个成立的判断。只出现在本次报告里。
+**`needs-evidence` does not enter criteria.** It means this finding's source was not verified in source, so it is not yet a standing judgment. It lives in this run's report only.
 
-B 类的修复没有确定性检查可重跑。验证方式是下一轮：问题真解决了，下一轮不会再产生这条 finding；没解决，下一轮按上表再报一次。
+Class B fixes have no deterministic check to re-run. Verify is the next run: if the problem is gone, that finding does not appear; if not, report again per the table.
 
-**裁决全部长期保存，不论结论。** `accepted`、`rejected`、`waived` 都一样，当场写进该产品的可用性判据，带状态字段区分。只回流 `accepted` 会让被判不成立的条目每轮重复出现。
+**Store every long-lived verdict, whatever the conclusion.** `accepted`, `rejected`, and `waived` all write into this product's usability criteria, distinguished by status. Storing only `accepted` would make ruled-out items repeat every run.
 
-## 归属裁决
+## Ownership default
 
-界面与判据不一致时，判据层次决定默认归属：
+When the interface and the criteria disagree, the criteria layer picks the default:
 
-- 与阈值表不一致 → **默认判实现错**。可执行下限没有「有意改小」的合理场景。
-- 与设计系统规则或可用性判据不一致 → **标为需要用户裁决**。有意改动设计是正常的。
+- Disagrees with the threshold table → **default: implementation is wrong**. An executable floor has no reasonable "intentionally smaller" case.
+- Disagrees with a design-system rule or a usability criterion → **mark for a user verdict**. An intentional design change is normal.
 
-## 指纹：哪条检查项 + 哪个位置
+## Fingerprint: which check + which location
 
-每条 B 类裁决存一个指纹，两截：检查项编号，加位置。位置按检查项的天然粒度取，四种形态。**指纹由技能自动生成，用户不参与。**
+Each class B verdict stores a fingerprint, two parts: check id, plus location. Location uses that check's natural grain. Four shapes. **This skill generates the fingerprint. The user does not.**
 
-**元素级（B1、B5）**
-
-```
-检查项：B1
-判据：DS-规则3          ← 被违反的是哪一条
-界面：main
-状态：default
-元素角色：button
-元素名：同步
-```
-
-界面与状态两个字段直接取界面全图（[SKILL.md](SKILL.md) 第 6 步建的那张）已有的标识。元素角色与元素名取无障碍树快照（[SKILL.md](SKILL.md) 第 8 步取的那份）里的值。
-
-**`判据` 字段不能省。** 同一个元素可能同时违反两条不同的判据——一个按钮既不符合设计系统的间距规则，又不满足某条产品可用性判据。不记被违反的是哪一条，两条 finding 的指纹完全相同，用户对其中一条判 `rejected`，会把另一条真实问题一并压制掉。取值：B1 取设计系统正文里那条规则的标识，B5 取可用性判据的条目编号（形如 `U-001`）。
-
-**位置不用 CSS 选择器。** 选择器带 class 名与位置序号，界面一重排就全变。
-
-**步骤级（B2）**
+**Element grain (B1, B5)**
 
 ```
-检查项：B2
-走查任务：新建同步任务
-步骤：3
-问：2
+check: B1
+criterion: DS-rule-3          ← which rule was broken
+screen: main
+state: default
+element-role: button
+element-name: Sync
 ```
 
-`走查任务` 取路径包的 `路径名`，`步骤` 取该步的 `序号`（两者见 [SEMANTIC.md](SEMANTIC.md)「路径包」）。`问` 是四问的第几问，取值 1–4。同一步在第 2 问和第 4 问上失败是两件事，分开记。
+`screen` and `state` come from ids already on the screen map ([SKILL.md](SKILL.md) step 6). `element-role` and `element-name` come from the accessibility snapshot ([SKILL.md](SKILL.md) step 8).
 
-**界面级（B4）**
+**`criterion` is required.** One element can break two different criteria — spacing in the design system, and a product usability criterion. Without which rule, the two findings share a fingerprint, and `rejected` on one suppresses the other. B1 takes the rule id from design-system prose. B5 takes the usability-criterion id (`U-001`).
 
-```
-检查项：B4
-界面：main
-状态：default
-问：5
-```
+**Location is not a CSS selector.** Selectors carry class names and positional indexes. A relayout changes all of them.
 
-`问` 是六问的第几问，取值 1–6。B4 逐步问，但指纹记界面加状态——同一条路径上两步停在同一个界面同一个状态时，两次的结果指纹相同，合并成一条。
-
-**界面级或路径级（B3）**
+**Step grain (B2)**
 
 ```
-检查项：B3
-界面：[main]
-状态：[default]
+check: B2
+walkthrough: create sync task
+step: 3
+question: 2
 ```
 
-界面与状态是数组。单步「很困惑」时长度为 1；连续两步「有点困惑」记的那一条指向一段路径，长度为 2，按两步的先后顺序排列。
+`walkthrough` is the path pack `path-name`. `step` is that step's `index` (both in [SEMANTIC.md](SEMANTIC.md) "Path pack"). `question` is which of the four, 1–4. Failures of question 2 and question 4 on the same step are two things. Store them apart.
 
-**A 类不记指纹。** 它直接修改，不产生裁决，没有要记住的东西。
+**Screen grain (B4)**
 
-## 两级匹配
+```
+check: B4
+screen: main
+state: default
+question: 5
+```
 
-每次运行，把本轮每一条 B 类 finding 的指纹，与该产品可用性判据里已有的裁决逐条比对。
+`question` is which of the six, 1–6. B4 asks per step, but the fingerprint is screen plus state — two steps that stop on the same screen and state merge into one.
 
-| 级 | 条件 | 结果 |
+**Screen grain or path grain (B3)**
+
+```
+check: B3
+screen: [main]
+state: [default]
+```
+
+`screen` and `state` are arrays. Length 1 for a single "very confused" step. Length 2 for the two-step "somewhat confused" item, in walk order.
+
+**Class A stores no fingerprint.** It edits. There is no verdict to remember.
+
+## Two-level match
+
+Each run compares every class B finding fingerprint this run to stored verdicts in this product's usability criteria.
+
+| Level | Condition | Result |
 | --- | --- | --- |
-| 第 1 级 · 全等 | 指纹每个字段都相同 | 同一件事。按已有裁决处理，**不报给用户** |
-| 第 2 级 · 近似 | 检查项相同，位置字段**恰好只有一个**不同 | 可能是同一件事。报给用户，附上上一轮的裁决，问是不是同一件事 |
-| 都不中 | 检查项不同，或两个以上位置字段不同 | 新问题，正常报 |
+| Level 1 · exact | Every fingerprint field matches | Same thing. Follow the stored verdict. **Do not report** |
+| Level 2 · near | Same check, **exactly one** location field differs | Maybe the same thing. Report, attach the previous verdict, ask if it is the same thing |
+| Neither | Different check, or two or more location fields differ | New problem. Report as usual |
 
-「恰好只有一个字段不同」是确定性规则，同样的输入永远得到同样的结果，不依赖模型判断。**`检查项` 字段不算在「位置字段」里**——它必须相同，否则直接落到「都不中」。四个例子：
+"Exactly one field differs" is deterministic. Same input, same result. No model. **`check` is not a location field** — it must match, or the item falls through to "neither". Four examples:
 
-| 改了什么 | 哪个字段变 | 落在哪级 |
+| What changed | Which field | Level |
 | --- | --- | --- |
-| 按钮文案从「同步」改成「立即同步」 | 元素名 | 第 2 级 |
-| 状态从 `default` 拆成 `default` 与 `syncing` | 状态 | 第 2 级 |
-| 走查任务中间插一步，原第 3 步变第 4 步 | 步骤 | 第 2 级 |
-| 按钮换了界面又改了名 | 界面 + 元素名 | 新问题 |
+| Button copy "Sync" → "Sync now" | element-name | Level 2 |
+| State `default` split into `default` and `syncing` | state | Level 2 |
+| A step inserted in the walkthrough; old step 3 is now 4 | step | Level 2 |
+| Button moved screen and renamed | screen + element-name | New problem |
 
-最后一行是有意的：既换界面又改名的元素已经不是原来那个东西，重新问一次是对的。
+The last row is intended: a new screen and a new name is not the old thing. Ask again.
 
-B3 的界面与状态是数组，比对时**整个数组当一个字段**：数组内容完全相同才算该字段相同。
+B3 `screen` and `state` are arrays. Compare **the whole array as one field**: identical contents means that field matches.
 
-**第 2 级命中后的处理。** 用户答「是」，把这条裁决的指纹更新成本轮的新值，以后按裁决处理；答「不是」，当新问题，用户重新裁决，判据里多一条。
+**After a level 2 hit.** User says "yes": update that verdict's fingerprint to this run's values, then follow the verdict. User says "no": treat as new; the user judges again; criteria gain an item.
 
-**位置对不上时不退而比对内容。** 界面改一版可能整屏重排，那种回退在这里误压制的概率太高。第 2 级停下来问用户，不自动判定。
+**Do not fall back to comparing content when location misses.** A relayout can reshuffle the whole screen. That fallback suppresses too often. Level 2 asks. It does not auto-judge.
 
-## 陈旧裁决：只列出，不自动删
+## Stale verdicts: list them, do not delete
 
-每次运行结束，检查该产品可用性判据里的裁决条目。**只检查指纹落在本轮范围内的那些**：指纹的界面在本轮检查过，而本轮两级都没有命中，才列进报告最后一节。
+At the end of each run, inspect verdict items in this product's usability criteria. **Only items whose fingerprint falls in this run's scope:** the fingerprint's screen was checked this run, and neither match level hit. Those go in the report's last section.
 
-**范围外的裁决一律不参与陈旧判定。** 默认那一档只查本次改动（三档见 [SKILL.md](SKILL.md) 第 7 步），绝大多数界面本轮根本没被检查，当然不会命中——把它们列成「可能失效」是把「没查」当成了「查过但没发现」，会诱导用户删掉仍然有效的判据。B2 的指纹按走查任务定位，同理只在本轮实际走过的走查任务范围内判定。
+**Verdicts outside scope never enter the stale test.** Default level is this-change (three levels in [SKILL.md](SKILL.md) step 7). Most screens were not checked this run, so they will not hit — listing them as "maybe dead" treats "not checked" as "checked and absent", and invites deleting criteria that still hold. B2 fingerprints locate by walkthrough; same rule: only walkthroughs actually walked this run.
 
-因此只有挂 `全量` 那一档会对全部裁决做一次完整的陈旧检查。
+So only the `full` level runs a complete stale check across every verdict.
 
-**只列出，不自动删除，也不因此让运行失败。** 用户看到了想删就说一句。这一条防的是判据腐烂：裁决只增不减，会长成一份越来越大、且在压制早已不存在问题的文件。
+**List them. Do not auto-delete. Do not fail the run.** If the user wants one gone, they say so. This line is how criteria stop rotting: verdicts only grow, and would keep suppressing problems that no longer exist.
 
-## 报告结构：五节
+## Report shape: five sections
 
-按「要用户做什么」排序：
+Order is "what the user must do":
 
-| 节 | 内容 | 要用户做什么 |
+| Section | Content | User does |
 | --- | --- | --- |
-| 1 · A 类改了什么 | 每条一行：违规项编号、文件与位置、改前值、改后值、验证结果。末尾给出本次修改的提交 SHA | 不做事，看一眼。要整轮退掉就 revert 那个 SHA |
-| 2 · B 类新 finding | 两级都没中的。验证结果是 `已回滚` 的 A 类也降级列在这里 | 逐条裁决 |
-| 3 · B 类近似匹配 | 第 2 级命中的，每条附上一轮裁决 | 每条答「是/不是」 |
-| 4 · 三类报告项 | 覆盖报告、判据自检结果、声明与实现不一致 | 不做事，可选择说一句 |
-| 5 · 陈旧裁决 | 指纹落在本轮范围内、却没有对应检查结果的裁决 | 不做事，想删就说一句 |
+| 1 · Class A edits | One line per item: violation id, file and location, before, after, verification. End with this edit commit SHA | Nothing required. Look. To undo the whole run, revert that SHA |
+| 2 · Class B new findings | Neither match level hit. Class A items whose verification is `reverted` also degrade into this section | Per-item verdict |
+| 3 · Class B near matches | Level 2 hits, each with the previous verdict | Per item: "same / not the same" |
+| 4 · Three report items | Coverage report, criterion self-check, declaration-vs-implementation mismatch | Nothing required. They may say one line |
+| 5 · Stale verdicts | Fingerprint in this run's scope, no matching check result | Nothing required. To delete, they say so |
 
-第 2 节与第 3 节分开：第 3 节要的只是「是/不是」，混在一起会让用户按同一种强度去想每一条。第 4 节说的是**本次检查的边界**，第 5 节说的是**已有判据可能该清理了**，也分开。
+Sections 2 and 3 stay apart: section 3 only wants "same / not". Mixing them makes every item feel like a full verdict. Section 4 is **this run's boundary**. Section 5 is **existing criteria that may need cleaning**. Keep them apart.
 
-第 1 节的「验证结果」栏取两个值：`已验证`（逐条重跑该项检查通过，且全部改完后的整体重跑没有引入新的 A 类违规项）或 `已回滚`（任一环节未过，修改已撤销）。**全文只用这两个词，不另换说法。**
+Section 1 "verification" takes two values: `verified` (per-item re-run of that check passed, and the full class A re-run after all edits introduced no new class A violation) or `reverted` (any step failed, the edit was undone). **The whole report uses only these two words.**
 
-**报告开头固定五行，写在五节之前：**
+**Five fixed header lines, before the five sections:**
 
 ```
-本次范围：本次改动（未指定，默认档）
-覆盖：3 个界面 / 7 个状态
-未覆盖：12 个界面 / 31 个状态
-判据：阈值表 v1 · 小黄鸭可用性判据 14 条 · 设计系统已读并校验
-本次跳过：无
+Scope: this-change (no tag, default)
+Covered: 3 screens / 7 states
+Uncovered: 12 screens / 31 states
+Criteria: thresholds v1 · Duck usability 14 confirmed · design system read and linted
+Skipped this run: none
 ```
 
-五行各自取什么值：
+Where each line comes from:
 
-| 行 | 取值 |
+| Line | Value |
 | --- | --- |
-| 本次范围 | [SKILL.md](SKILL.md) 第 7 步定下的那一档的名字。因降级变过时写成「本次改动 → 本任务（本次改动未涉及界面文件）」，把降级原因带上 |
-| 覆盖 | 本轮实际检查过的界面数与状态数，从界面全图里数落在范围内的那些 |
-| 未覆盖 | 界面全图的总数减去上一行。包含覆盖报告里那些到不了的状态 |
-| 判据 | 三段：阈值表的 `version`；该产品可用性判据里状态为「已确认」的条目数；设计系统的处置，取「已读并校验」「已读未校验」「不存在」之一，对应 [SKILL.md](SKILL.md) 第 5 步的结果 |
-| 本次跳过 | 本轮没跑的检查项编号加原因。设计系统文件缺失写「A3、B1（设计系统文件不存在）」；语义层没返回结果写「B2、B3、B4（语义层评估未返回结果）」；Windows 能力自检有缺项写缺哪几项。一项都没跳过时写「无」 |
+| Scope | The level name from [SKILL.md](SKILL.md) step 7. After a degrade: "this-change → this-task (this-change did not touch interface files)", with the reason |
+| Covered | Screens and states actually checked this run, counted from in-scope nodes on the screen map |
+| Uncovered | Screen-map totals minus the previous line. Includes unreached states from the coverage report |
+| Criteria | Three parts: threshold-table `version`; count of `confirmed` items in this product's usability criteria; design-system handling, one of "read and linted", "read, not linted", "missing" — matching [SKILL.md](SKILL.md) step 5 |
+| Skipped this run | Check ids skipped this run, plus why. Missing design-system file: "A3, B1 (no design-system file)". Semantic layer returned nothing: "B2, B3, B4 (semantic evaluation returned nothing)". Windows capability self-check missing items: name them. None skipped: "none" |
 
-## 裁决回流到哪
+## Where verdicts flow back
 
-**被采信的 B1 回流到可用性判据，不回流到设计系统。** 设计系统只读，改不了。采信的设计系统规则违反，写成该产品可用性判据里的一条，正文记录它是对哪条设计系统规则在本产品上的具体化，来源指向那条规则。
+**An accepted B1 flows into usability criteria, not into the design system.** The design system is read-only. An accepted design-system rule break becomes one item in this product's usability criteria. The body records which design-system rule it specializes for this product. Source points at that rule.
 
-**属于阈值性质的裁决进阈值表。** 例如用户确认某类元素的最小尺寸，按 [CRITERIA.md](CRITERIA.md)「阈值表」的四字段格式加一项，下一轮由 A1 直接判定。
+**A threshold-shaped verdict enters the threshold table.** For example the user confirms a min size for a class of elements: add an item in the four-field shape in [CRITERIA.md](CRITERIA.md) "Threshold table". The next run judges it as A1.
 
-每条回流都写明来源为本次界面 QA 与日期。两份文件的字段与格式都在 [CRITERIA.md](CRITERIA.md)「三份跨边界数据的字段」。
+Every flow-back names this UI QA run and the date as source. Fields and format for both files are in [CRITERIA.md](CRITERIA.md) "Fields of the three cross-boundary files".

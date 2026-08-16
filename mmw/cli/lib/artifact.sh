@@ -12,6 +12,13 @@ mmw artifact index <类别>
 mmw artifact check
 mmw artifact list [--name <名字段>] [--map <map 编号>]
 
+Examples:
+  mmw artifact path spec
+  mmw artifact path scratch --sub understanding.md
+  mmw artifact path research --name release --issue 19 --sub report
+  mmw artifact index adr
+  mmw artifact list --map 12
+
 类别与术语：
 EOF
   jq -r 'to_entries | sort_by(.key)[] | [.key, .value.term] | @tsv' "$MMW_ARTIFACT_DATA" >&2
@@ -79,6 +86,7 @@ mmw_artifact_path() {
   local name_given=false issue_given=false sub_given=false
   local has_name allows_scope sub_naming fixed_count fixed_first fixed_last pattern
   local scope="" relative="" result="" part
+  if mmw_is_help "$@"; then mmw_help usage_artifact; return 0; fi
   [ -n "$category" ] || usage_artifact
   shift
 
@@ -108,6 +116,10 @@ mmw_artifact_path() {
       --absolute)
         absolute=true
         shift
+        ;;
+      -h|--help)
+        mmw_help usage_artifact
+        return 0
         ;;
       *)
         mmw_artifact_error "认不出参数 $1"
@@ -257,6 +269,7 @@ mmw_artifact_list() {
   local name_given=false map_given=false record root repo_root category category_dir index
   local relative issue sub ticket number title children
 
+  if mmw_is_help "$@"; then mmw_help usage_artifact; return 0; fi
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --name)
@@ -272,6 +285,10 @@ mmw_artifact_list() {
         map="$2"
         map_given=true
         shift 2
+        ;;
+      -h|--help)
+        mmw_help usage_artifact
+        return 0
         ;;
       *)
         mmw_artifact_error "认不出参数 $1"
@@ -353,8 +370,10 @@ mmw_artifact_list() {
 
 mmw_artifact_index() {
   local repo_root
+  if mmw_is_help "$@"; then mmw_help usage_artifact; return 0; fi
   if [ "$#" -ne 1 ]; then
     echo "mmw artifact: 用法是 mmw artifact index <类别>；类别只能是 adr 或 spec" >&2
+    echo "  mmw artifact index adr" >&2
     return 2
   fi
 
@@ -364,6 +383,7 @@ mmw_artifact_index() {
 
 mmw_artifact_check() {
   local repo_root
+  if mmw_is_help "$@"; then mmw_help usage_artifact; return 0; fi
   if [ "$#" -ne 0 ]; then
     usage_artifact
   fi

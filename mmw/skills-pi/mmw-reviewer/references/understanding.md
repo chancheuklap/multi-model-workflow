@@ -1,38 +1,25 @@
-# 共同理解审
+# Shared understanding
 
-**谁读**：任务名是「共同理解审」的审查者。
+**Who reads this:** the reviewer whose Goal starts with `Shared understanding`.
 
-被审对象是一份**共同理解记录**：`/mmw-grilling` 与用户逐轮问答之后写下的文件。它有三段——逐轮问答原样、共同理解、支持材料表。
+The object is a **shared-understanding record**: `## Round Q&A`, `## Shared understanding`, `## Supporting materials`.
 
-这个视角只判一件事：**照这份共同理解往下做，做得出对的东西吗。**
+One question: **if we build from this record, do we build the right thing?**
 
-你报的缺陷在这份记录里，查仓库只为验证记录里的说法。**只按 `/mmw-grilling` 自己的合同判**：它承诺了什么，你就查什么；产物完不完整、方案好不好，spec 审在下游会审。这次谈的是什么形态的东西，由访谈本身决定，不要带一张固定的题目清单进来。
+Judge `/mmw-grilling`'s own contract. Completeness of a later spec is not this perspective. Do not bring a fixed question list.
 
-## 一致性
+## Look
 
-看已经写下来的内容自己对不对得上。
+- Later answers overturn earlier ones, and the record does not say which stands.
+- A decision hangs on a premise nobody asked and the user never confirmed.
+- A decision is marked settled while its prerequisite is still open, or the prerequisite moved and this one did not.
+- `## Shared understanding` does not match the user's words in `## Round Q&A` — merged answers, wider or narrower scope than they agreed.
+- A settled Q&A decision has no Decisions row, or the row dropped the user's reason and the rejected options.
+- A settled decision clearly forks, and that fork was never asked.
+- The record treats something as new that already exists in the repo.
+- A look-uppable fact was put to the user to decide.
+- A user sentence is used as fact with no source and no "still unknown" mark.
 
-- **前后矛盾**：后面某一轮的答案推翻了前面某一轮的答案，而记录里没有说哪一个作数。两处都要引出来。
-- **静默假设**：某个决定依赖一个前提，而这个前提从头到尾没有被提问，也没有被用户确认。
-- **依赖对不上**：一个决定的前置决定还没定，它却已经定了；或者前置决定后来改了，它没有跟着改。
-- **共同理解与原话不符**：共同理解那一段写的，与逐轮问答里用户的原话不是一回事。把两个互相矛盾的答案合成一句话、把范围写得比用户同意的宽或窄，都算。
-- **共同理解漏了已经定下的决定**：逐轮问答里定下来的某个决定，共同理解那一段没有对应条目；或者条目在，用户当时给的理由和否掉的方案没跟着进来。
+Cite `understanding.md:<line>` plus the line. Repo checks cite `path:line` in the reviewed tree.
 
-## 覆盖
-
-设计树上每个决定都会分叉出依赖它的决定，`/mmw-grilling` 声称每个分支都访问过才收尾。你找的是它漏掉的分支。
-
-- **分支没走完**：某个已经确定的决定明显分叉出下一个决定，而那个决定一轮都没有被提出。
-- **既有实现没查**：记录把某件事当成要新建的东西，但仓库里已经有一份。
-- **拿事实当决定**：某一项答案是查得出来的事实，却让用户拍板。它应该由 `/mmw-grilling` 自己查、走 `/mmw-research`，或者靠 `/mmw-prototype` 跑起来才知道。
-- **答案没有出处**：记录把用户的一句话当成事实往下用，而这句话没有任何来源，也没有标成待查。
-
-## 出处怎么给
-
-位置写 `understanding.md:<行号>`，加那一行的原文。引用仓库现状的那几条，给被审仓库里的 `文件:行号`。
-
-## 出口
-
-你报的是**这次访谈**的缺口。用户的决定本身由用户负责。
-
-要解决的问题本身可疑时走 `needs-redirection`；只拿到共同理解那一段、没拿到逐轮问答时走 `needs-context`。
+User decisions are the user's. Gaps in this interview are yours. Wrong problem: `needs-redirection`. You got Shared understanding but not Round Q&A: `needs-context`.

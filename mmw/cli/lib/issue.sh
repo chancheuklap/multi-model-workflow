@@ -138,11 +138,12 @@ mmw_issue_create() {
       --parent) parent="${2:-}"; shift 2 ;;
       --label) labels="${2:-}"; shift 2 ;;
       --blocked-by) blocked_by="${2:-}"; shift 2 ;;
+      -h|--help) mmw_help usage_issue; return 0 ;;
       *) echo "mmw: issue create 认不出参数 $1" >&2; return 2 ;;
     esac
   done
-  [ -n "$title" ] || { echo "mmw: issue create 要 --title" >&2; return 2; }
-  [ -n "$body_file" ] || { echo "mmw: issue create 要 --body-file" >&2; return 2; }
+  [ -n "$title" ] || mmw_need "issue create 要 --title" "mmw issue create --title <标题> --body-file <文件>"
+  [ -n "$body_file" ] || mmw_need "issue create 要 --body-file" "mmw issue create --title <标题> --body-file <文件>"
   [ -f "$body_file" ] || { echo "mmw: 正文文件不存在：$body_file" >&2; return 1; }
 
   local url n
@@ -279,28 +280,25 @@ mmw_issue_append() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --section)
-        [ $# -ge 2 ] || { echo "mmw: issue append 要 --section" >&2; return 2; }
+        [ $# -ge 2 ] || mmw_need "issue append 要 --section" "mmw issue append <issue 编号> --section <小节标题> --line <要追加的一行>"
         section="$2"
         got_section=1
         shift 2
         ;;
       --line)
-        [ $# -ge 2 ] || { echo "mmw: issue append 要 --line" >&2; return 2; }
+        [ $# -ge 2 ] || mmw_need "issue append 要 --line" "mmw issue append <issue 编号> --section <小节标题> --line <要追加的一行>"
         line="$2"
         got_line=1
         shift 2
         ;;
+      -h|--help) mmw_help usage_issue; return 0 ;;
       *) echo "mmw: issue append 认不出参数 $1" >&2; return 2 ;;
     esac
   done
-  [ "$got_section" -eq 1 ] && [ -n "$section" ] || {
-    echo "mmw: issue append 要 --section" >&2
-    return 2
-  }
-  [ "$got_line" -eq 1 ] && [ -n "$line" ] || {
-    echo "mmw: issue append 要 --line" >&2
-    return 2
-  }
+  [ "$got_section" -eq 1 ] && [ -n "$section" ] || \
+    mmw_need "issue append 要 --section" "mmw issue append <issue 编号> --section <小节标题> --line <要追加的一行>"
+  [ "$got_line" -eq 1 ] && [ -n "$line" ] || \
+    mmw_need "issue append 要 --line" "mmw issue append <issue 编号> --section <小节标题> --line <要追加的一行>"
   case "$line" in
     *$'\n'*) echo "mmw: issue append 的 --line 只接收单行内容" >&2; return 2 ;;
   esac
@@ -409,14 +407,15 @@ mmw_issue_set_parent() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --parent)
-        [ $# -ge 2 ] || { echo "mmw: issue set-parent 要 --parent" >&2; return 2; }
+        [ $# -ge 2 ] || mmw_need "issue set-parent 要 --parent" "mmw issue set-parent <子 issue 编号> --parent <父 issue 编号>"
         parent="$2"
         shift 2
         ;;
+      -h|--help) mmw_help usage_issue; return 0 ;;
       *) echo "mmw: issue set-parent 认不出参数 $1" >&2; return 2 ;;
     esac
   done
-  [ -n "$parent" ] || { echo "mmw: issue set-parent 要 --parent" >&2; return 2; }
+  [ -n "$parent" ] || mmw_need "issue set-parent 要 --parent" "mmw issue set-parent <子 issue 编号> --parent <父 issue 编号>"
   mmw_issue_set_parent_edge "$child" "$parent" || return $?
   echo "#$child 已挂到 #$parent 下"
 }

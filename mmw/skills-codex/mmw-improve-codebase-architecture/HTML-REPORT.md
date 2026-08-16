@@ -1,8 +1,8 @@
-# 报告怎么写
+# HTML Report Format
 
-这份架构走查渲染成一个自包含的 HTML 文件，落系统临时目录。Tailwind 和 Mermaid 都走 CDN。Mermaid 画图结构的东西很稳；手搭的 div 和内联 SVG 负责更有编排感的那些视觉（体量图、剖面图）。两种混用，不要什么都交给 Mermaid。
+The architectural review is rendered as a single self-contained HTML file in the OS temp directory. Tailwind and Mermaid both come from CDNs. Mermaid handles graph-shaped diagrams reliably; hand-built divs and inline SVG handle the more editorial visuals (mass diagrams, cross-sections). Mix the two — don't lean on Mermaid for everything, it'll start to look generic.
 
-## 骨架
+## Scaffold
 
 ```html
 <!doctype html>
@@ -33,34 +33,34 @@
 </html>
 ```
 
-## 页头
+## Header
 
-仓库名、日期，加一个紧凑的图例：实线框是 module，虚线是 seam，红箭头是漏出去的耦合，粗深色框是 deep module。不写引言段落，直接进候选。
+Repo name, date, and a compact legend: solid box = module, dashed line = seam, red arrow = leakage, thick dark box = deep module. No introduction paragraph — straight into the candidates.
 
-## 候选卡片
+## Candidate card
 
-图承担主要信息，文字稀疏、平实，直接用 `$mmw:mmw-codebase-design` 词汇表里的词，不加修饰。
+The diagrams carry the weight. Prose is sparse, plain, and uses the glossary terms (from the `$mmw:mmw-codebase-design` skill) without ceremony.
 
-一个候选一个 `<article>`：
+Each candidate is one `<article>`:
 
-- **标题**——短，说清这次做深的是什么（例如 "Collapse the Order intake pipeline"）。
-- **徽章行**——推荐强度（`Strong` 用 emerald、`Worth exploring` 用 amber、`Speculative` 用 slate），再加一个依赖类别的标签（`in-process`、`local-substitutable`、`ports & adapters`、`mock`）。
-- **文件**——等宽列表，`font-mono text-sm`。
-- **Before / After 图**——整张卡片的重心。两列并排，画法见本文「图的几种画法」一节。
-- **Problem**——一句话。哪里疼。
-- **Solution**——一句话。改什么。
-- **Wins**——列点，每条不超过六个词。例如 "Tests hit one interface"、"Pricing logic stops leaking"、"Delete 4 shallow wrappers"。
-- **ADR 提示**（如果撞上了）——琥珀色底的一行。
+- **Title** — short, names the deepening (e.g. "Collapse the Order intake pipeline").
+- **Badge row** — recommendation strength (`Strong` = emerald, `Worth exploring` = amber, `Speculative` = slate), plus a tag for the dependency category (`in-process`, `local-substitutable`, `ports & adapters`, `mock`).
+- **Files** — monospaced list, `font-mono text-sm`.
+- **Before / After diagram** — the centrepiece. Two columns, side by side. See patterns below.
+- **Problem** — one sentence. What hurts.
+- **Solution** — one sentence. What changes.
+- **Wins** — bullets, ≤6 words each. e.g. "Tests hit one interface", "Pricing logic stops leaking", "Delete 4 shallow wrappers".
+- **ADR callout** (if applicable) — one line in an amber-tinted box.
 
-不写解释性的段落。一张图需要一段话才看得懂，就把图重画。
+No paragraphs of explanation. If the diagram needs a paragraph to be understood, redraw the diagram.
 
-## 图的几种画法
+## Diagram patterns
 
-按候选的情况挑，混着用，不要每张图都长一个样。
+Pick the pattern that fits the candidate. Mix them. Don't make every diagram look the same — variety is part of the point.
 
-### Mermaid 图（画依赖和调用流的主力）
+### Mermaid graph (the workhorse for dependencies / call flow)
 
-重点是「X 调 Y 调 Z，你看这一团」时，用 Mermaid 的 `flowchart` 或 `graph`。用 Tailwind 卡片包一层。用 classDef 把漏出去的那条边标红、把 deep module 标深。「before 六次往返、after 一次」这种用序列图效果很好。
+Use a Mermaid `flowchart` or `graph` when the point is "X calls Y calls Z, and look at the mess." Wrap it in a Tailwind-styled card so it doesn't feel parachuted in. Style with classDef to colour leakage edges red and the deep module dark. Sequence diagrams work well for "before: 6 round-trips; after: 1."
 
 ```html
 <div class="rounded-lg border border-slate-200 bg-white p-4">
@@ -75,49 +75,49 @@
 </div>
 ```
 
-### 手搭的方框加箭头（Mermaid 的自动布局不听话时）
+### Hand-built boxes-and-arrows (when Mermaid's layout fights you)
 
-module 用带边框和标签的 `<div>`，箭头用内联 SVG 的 `<line>` 或 `<path>`，绝对定位盖在相对定位的容器上。想让 after 那张图呈现成一个粗边框的 deep module、内部件灰掉时用这个。
+Modules as `<div>`s with borders and labels. Arrows as inline SVG `<line>` or `<path>` elements positioned absolutely over a relative container. Reach for this when you want the "after" diagram to feel like one thick-bordered deep module with greyed-out internals — Mermaid won't render that with the right weight.
 
-### 剖面图（适合分层式的 shallow）
+### Cross-section (good for layered shallowness)
 
-用横向色带堆叠（`h-12 border-l-4`），表示一次调用穿过了几层。before：六层薄的，每层什么都没做。after：一条厚带，标上合并之后的那个职责。
+Stack horizontal bands (`h-12 border-l-4`) to show layers a call passes through. Before: 6 thin layers each doing nothing. After: 1 thick band labelled with the consolidated responsibility.
 
-### 体量图（适合「interface 和 implementation 一样宽」）
+### Mass diagram (good for "interface as wide as implementation")
 
-一个 module 画两个矩形，一个是 interface 的表面积，一个是 implementation。before：interface 的矩形高得几乎和 implementation 一样（shallow）。after：interface 矩形变矮，implementation 矩形变高（deep）。
+Two rectangles per module — one for interface surface area, one for implementation. Before: interface rectangle is nearly as tall as the implementation rectangle (shallow). After: interface rectangle is short, implementation rectangle is tall (deep).
 
-### 调用图坍缩
+### Call-graph collapse
 
-before：一棵函数调用树，画成嵌套的方框。after：同一棵树收进一个方框，里面那些现在变成内部调用的用淡色显示。
+Before: a tree of function calls rendered as nested boxes. After: the same tree collapsed into one box, with the now-internal calls shown faded inside it.
 
-## 风格
+## Style guidance
 
-- 偏编排感，不要企业仪表盘感。留白给足。标题用衬线（`font-serif`）配 stone / slate 很好看。
-- 颜色克制：一个强调色（emerald 或 indigo），加红色标漏出去的耦合、琥珀色标警告。
-- 图控制在 320px 高左右，让 before/after 并排时不用滚动就看得完。
-- 图里的 module 标签用 `text-xs uppercase tracking-wider`。
-- 只有 Tailwind CDN 和 Mermaid ESM 这两个脚本。报告本身是静态的，除了 Mermaid 自己的渲染之外没有任何交互。
+- Lean editorial, not corporate-dashboard. Generous whitespace. Serif optional for headings (`font-serif` works well with stone/slate).
+- Colour sparingly: one accent (emerald or indigo) plus red for leakage and amber for warnings.
+- Keep diagrams ~320px tall so before/after sits comfortably side by side without scrolling.
+- Use `text-xs uppercase tracking-wider` for module labels inside diagrams — they should read as schematic, not as UI.
+- The only scripts are the Tailwind CDN and the Mermaid ESM import. The report is otherwise static — no app code, no interactivity beyond Mermaid's own rendering.
 
-## Top recommendation 一节
+## Top recommendation section
 
-一张更大的卡片。候选名字、一句话说为什么、一个锚链接跳到它的卡片。就这些。
+One larger card. Candidate name, one sentence on why, anchor link to its card. That's it.
 
-## 语气
+## Tone
 
-平实、简洁，架构上的名词和动词直接取自 `$mmw:mmw-codebase-design`。
+Plain English, concise — but the architectural nouns and verbs come straight from the `$mmw:mmw-codebase-design` skill. Concision is not an excuse to drift.
 
-**只用**：module、interface、implementation、depth、deep、shallow、seam、adapter、leverage、locality。
+**Use exactly:** module, interface, implementation, depth, deep, shallow, seam, adapter, leverage, locality.
 
-**不要换成**：component、service、unit（当你指 module 时）· API、signature（当你指 interface 时）· boundary（当你指 seam 时）· layer、wrapper（当你指 module 时）。
+**Never substitute:** component, service, unit (for module) · API, signature (for interface) · boundary (for seam) · layer, wrapper (for module, when you mean module).
 
-**符合这份词汇表的说法**：
+**Phrasings that fit the style:**
 
 - "Order intake module is shallow — interface nearly matches the implementation."
 - "Pricing leaks across the seam."
 - "Deepen: one interface, one place to test."
 - "Two adapters justify the seam: HTTP in prod, in-memory in tests."
 
-**Wins 那几条**用词汇表里的词说收益，例如 *"locality: bugs concentrate in one module"*、*"leverage: one interface, N call sites"*、*"interface shrinks; implementation absorbs the wrappers"*。不要写 *"easier to maintain"* 或 *"cleaner code"*，这些词不在词汇表里。
+**Wins bullets** name the gain in glossary terms: *"locality: bugs concentrate in one module"*, *"leverage: one interface, N call sites"*, *"interface shrinks; implementation absorbs the wrappers"*. Don't write *"easier to maintain"* or *"cleaner code"* — those terms aren't in the glossary and don't earn their place.
 
-不要模棱两可，不要清嗓子，不要「值得一提的是……」。一句话能写成一条列点就写成列点，一条列点能删就删。一个词不在 `$mmw:mmw-codebase-design` 的词汇表里，先找一个在里面的，再考虑发明新词。
+No hedging, no throat-clearing, no "it's worth noting that…". If a sentence could be a bullet, make it a bullet. If a bullet could be cut, cut it. If a term isn't in the `$mmw:mmw-codebase-design` glossary, reach for one that is before inventing a new one.

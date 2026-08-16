@@ -1,57 +1,55 @@
-# 驱动一个产品出包
+# Drive one product
 
-`/mmw-release` 第 3 步读这一份。到这里时这个产品的循环已经起好，或者上一次的循环还留在那儿可以续。
+`/mmw-release` step 3 reads this file. By then this product's loop is started, or a previous loop is still there to resume.
 
-**引擎持有循环，你是它的手。** 进度、下一步、修复次数、成没成，全由引擎的状态算出来。不从会话记忆续跑，不自己挑下一个阶段，不另记一份「已经试过什么」的账。
+**The engine owns the loop. You are its hands.** Progress, next action, repair count, and success come from engine state. Do not resume from session memory. Do not pick the next stage yourself. Do not keep a second log of what you already tried.
 
-## 状态表：`where` 说什么就做什么
+## State table: do what `where` says
 
-每一轮先跑：
+Each round, first run:
 
 ```bash
 mmw release where
 ```
 
-只处理这一次的输出，不预判下一步。出包开始后的 stage、dispatch 或自愈修复可以产生新提交；这些提交由对应 stage 和最终全量出包结果验证，不再发起 final 终审。
+Act on this output only. Do not predict the next state. A stage, a dispatch, or a self-heal after shipping starts can create new commits. Those commits are verified by that stage and by the final full-package result. Do not start another final review.
 
-状态表：
-
-| 回显 | 做什么 | 要不要交回判断 |
+| Output | Do | Hand back? |
 | --- | --- | --- |
-| `STAGE:<名字>` 或 `RETRY-STAGE:<名字>` | `mmw release stage run --stage <名字>`。引擎自己展开参数、路由远端构建、跑诊断、按退出码写结果并记 findings | 不用 |
-| `SUCCESS:all stages done` | `mmw release exit-check` 必须回 `DONE`，然后 `mmw release close` | 不用。`exit-check` 不是 `DONE` 却报成功，那是引擎出错，别宣布成功 |
-| `PAUSED:needs-context` | 看本文「自己处置：缺信息的那类暂停」。这不是终点 | 处置两次仍不成才交人 |
-| `PAUSED:needs-redirection` | 读 `mmw release receipt`，原样交用户 | 要。这是保护性暂停：碰了受保护路径、熔断、预算烧完，都不许自己续 |
-| `CORRUPT:` / `FAILED-STAGE:` / `NO-STAGES:` | 读 `mmw release receipt`，不跑阶段、不 `resume` | 要 |
-| 别的输出，或命令本身报错 | 不猜状态，不重新 `init` | 要，带上原始输出 |
+| `STAGE:<name>` or `RETRY-STAGE:<name>` | `mmw release stage run --stage <name>`. The engine expands args, routes remote builds, runs diagnostics, writes the result from the exit code, and records findings | No |
+| `SUCCESS:all stages done` | `mmw release exit-check` must return `DONE`, then `mmw release close` | No. Success without `DONE` is an engine bug. Do not announce success |
+| `PAUSED:needs-context` | See "Pause: missing context" below. This is not the end | Hand back only after two failed attempts |
+| `PAUSED:needs-redirection` | Read `mmw release receipt`. Give it to the user as-is | Yes. Protected paths, circuit breakers, and spent budget must not continue on their own |
+| `CORRUPT:` / `FAILED-STAGE:` / `NO-STAGES:` | Read `mmw release receipt`. Do not run a stage. Do not `resume` | Yes |
+| Any other output, or the command itself errors | Do not guess the state. Do not `init` again | Yes, with the raw output |
 
-跑完一个阶段立刻重新问一次 `where`，直到状态表给出终态。**不要每问一次就停下来跟用户汇报一句**，那是把连续的机械动作切成几十轮对话。
+After a stage, ask `where` again until the table names a terminal state. **Do not stop to report to the user after every `where`.**
 
-## 一个阶段失败之后
+## After a stage fails
 
-`stage run` 失败时引擎已经在它内部跑完诊断并分好级了。看 `where`：
+When `stage run` fails, the engine has already diagnosed and graded. Read `where`:
 
-- 报 `PAUSED` —— 引擎已经把它拦下来了，读状态输出，别派修。
-- 报 `RETRY-STAGE` —— 跑一次 `mmw release dispatch --stage <名字>`，让引擎按分级裁决怎么修（findings 它自己从账本读回，你不用管在哪）。
-- `dispatch` 之后 `where` 仍是 `STAGE` 或 `RETRY-STAGE` —— 跑一次 `mmw release round next`，然后回到状态表重跑那个阶段。
+- `PAUSED` — the engine already stopped it. Read the state. Do not dispatch a fix.
+- `RETRY-STAGE` — run `mmw release dispatch --stage <name>` once. The engine decides the fix from its ledger.
+- After `dispatch`, `where` is still `STAGE` or `RETRY-STAGE` — run `mmw release round next` once, then return to the state table and re-run that stage.
 
-`round next` 记的是「已经处置过一次」，不是「跑过一个阶段」。全绿走完不消耗轮次。
+`round next` records "already handled once". A clean full run does not consume a round.
 
-**你不判 P0、P1、P2**，不改工作树，不绕路径护栏，不自建第二个执行器。分级、修复提交、人工审批关卡都属于引擎。
+**You do not grade P0, P1, or P2.** You do not edit the worktree to bypass a guard. You do not build a second executor. Grades, repair commits, and human-approval gates belong to the engine.
 
-## 自己处置：缺信息的那类暂停
+## Pause: missing context
 
-`PAUSED:needs-context` 是引擎缺信息、机械判不了，需要你补判断。**能自己解决的不要等人。**
+`PAUSED:needs-context` means the engine lacks information it cannot judge. **Resolve it yourself when you can.**
 
-1. `mmw release receipt` 读已经试过什么；从最近一次记录里的日志位置读引擎日志、构建机回传的日志和 findings 原文。
-2. 自己诊断根因。判断依据要能引用日志原文，不猜。
-3. 能处置就处置：环境类问题（网络、构建机忙）可以直接处理。改代码或配置时照常提交到当前分支，并把修复交给当前 stage 重新验证。
-4. 运行 `mmw release resume` 续跑，再按引擎状态完成当前 stage 和后续全量出包检查。
-5. **同一个根因处置两次仍不成，或者根因涉及计费、合同、受保护路径、要用户拍板的业务决定 —— 停下来写清楚交人。** 不无限打转。
+1. `mmw release receipt` for what was already tried. Read engine logs, builder logs, and finding text from the latest record.
+2. Diagnose from log text. Do not guess.
+3. If you can act: environment issues (network, busy builder) you may handle. Code or config changes commit to the current branch as usual, and the current stage re-verifies them.
+4. Run `mmw release resume`, then follow engine state through this stage and the remaining full-package checks.
+5. **Same root cause twice, or the cause is billing, a contract, a protected path, or a product decision the user must make — stop and hand it over.** Do not loop.
 
-## 收尾
+## Close
 
-- `SUCCESS` 不等于口头成功。只有 `mmw release exit-check` 回 `DONE` 才能说安装包就绪，随后 `mmw release close` 收束。
-- 安装包路径从这个阶段打出的 `DELIVERED` 行读；收拢失败时改读它打的 WARN，里面带着包留在构建目录的位置。两样都没有就如实说没拿到路径，不要按目录约定猜一个。
-- `close` 会留下一份交付记录（产品名加出包时的 commit），`/mmw-release` 第 4 步靠它核对几个包是不是同一份代码。**不要手工删它。**
-- `CORRUPT`、`FAILED-STAGE`、`NO-STAGES` 一律不跑下一个阶段、不自动 `resume`。状态输出里的记录是「已经试过什么」的唯一来源，原样交用户判断。
+- `SUCCESS` is not spoken success. Only `mmw release exit-check` returning `DONE` means the package is ready. Then `mmw release close`.
+- Package paths come from this stage's `DELIVERED` lines. On gather failure, read the WARN path left in the build directory. If neither exists, say you have no path. Do not invent one.
+- `close` leaves a delivery record (product name plus the ship commit). `/mmw-release` step 4 uses it for the same-commit check. **Do not delete it by hand.**
+- `CORRUPT`, `FAILED-STAGE`, and `NO-STAGES` never run the next stage and never `resume` on their own. The receipt is the only log of what was tried. Give it to the user as-is.

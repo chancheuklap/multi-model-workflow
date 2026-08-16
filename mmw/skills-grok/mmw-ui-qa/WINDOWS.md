@@ -1,71 +1,71 @@
-# Windows 侧
+# Windows side
 
-九种检查项的清单在 [SKILL.md](SKILL.md)「检查项：两类九种」。**Windows 上跑的是同一套九种**，本文只写这一侧不同的地方：应用怎么起、怎么连、连上之后先验什么、改之前要先问什么。
+The nine checks are listed in [SKILL.md](SKILL.md) under "Checks: two classes, nine kinds". **Windows runs the same nine.** This file is what differs on this side: how the app starts, how you connect, what you prove after connect, and what you ask before editing.
 
-Electron 渲染进程本质是 Chromium，运行 HTML、CSS 与 DOM。因此按 Web 处理，不作为第三个平台从头设计。
+The Electron renderer is Chromium. It runs HTML, CSS, and DOM. Treat it as web. Do not design a third platform from scratch.
 
-外壳差异不一样。**在 Mac 上检查不到这些行为**，报告必须明确列出，以免用户误以为已覆盖：
+Shell differences are different. **Mac cannot check these. The report must list them**, so the user does not think they were covered:
 
-- Windows 原生菜单
-- 托盘图标与通知
-- DPI 缩放
-- 系统中文字体回退导致的行高差异
-- 安装包行为与文件关联
-- 原生文件对话框
+- Windows native menus
+- Tray icon and notifications
+- DPI scaling
+- Line-height drift from system CJK font fallback
+- Installer behavior and file associations
+- Native file dialogs
 
-## 通道：用户手动启动，主 agent 连过去
+## Channel: the user starts, the main agent connects
 
-**不能跨 SSH 启动 Windows GUI。SSH 前台拉起会静默失败**——不报错，就是不出现窗口。这是目标仓库工程规则里已经记载的铁律，不要试。
+**Do not start a Windows GUI over SSH. An SSH foreground launch fails silently** — no error, no window. That is already a hard rule in the target repo. Do not try.
 
-正确的顺序：
+Correct order:
 
-**第一步，把这条命令给用户，让他在 Windows 那台机器的 PowerShell 里自己跑。** 端口取自接线文件 `windows.debugPort`：
+**First, give the user this command to run themselves in PowerShell on the Windows machine.** Port from wiring `windows.debugPort`:
 
 ```powershell
-& "<应用可执行文件的完整路径>" --remote-debugging-port=<windows.debugPort>
+& "<full path of the app executable>" --remote-debugging-port=<windows.debugPort>
 ```
 
-可执行文件路径从接线文件 `launch.command` 的第一项推出来，推不出来就问用户。**命令原样给他，不要替他改写、也不要包一层。**
+Derive the executable path from the first item of wiring `launch.command`. If you cannot, ask. **Give the command as-is. Do not rewrite it. Do not wrap it.**
 
-**第二步，主 agent 从 Mac 连过去。** 用浏览器自动化框架的 CDP 连接入口，地址是 `http://<windows.host>:<windows.debugPort>`（`host` 缺省 `127.0.0.1`，两台机器时填 Windows 那台的地址）。在 Node 脚本里 `require` 浏览器自动化框架时，模块根路径用 `mmw-ui-qa home` 取。连上之后按接线文件 `mainWindow` 的 `titlePattern` 或 `urlPattern` 认出主窗口。
+**Second, the main agent connects from Mac.** Use the browser automation's CDP connect entry, URL `http://<windows.host>:<windows.debugPort>` (`host` defaults to `127.0.0.1`; two machines: the Windows machine's address). To `require` the browser automation from a Node script, the module root is `mmw-ui-qa home`. After connect, recognize the main window from wiring `mainWindow` `titlePattern` or `urlPattern`.
 
-**第三步，检查全自动。** 主文件第 6 步的「启动应用」换成上面这两步，其余八步不变。
+**Third, the check is automatic.** Main-file step 6's "start the app" becomes the two steps above. The other eight steps stay the same.
 
-连不上时**停止 Windows 侧运行**，说明端口号，并提示应用必须在交互式用户会话中启动。不要尝试自己去启动它。
+If connect fails, **stop the Windows run**, name the port, and say the app must start in an interactive user session. Do not try to start it yourself.
 
-## 连接后必须先自检能力
+## After connect, prove capabilities
 
-通过调试端口接管已有实例，得到的能力低于自行启动的实例。**连接成功不等于四项能力都在。** 连上主窗口之后立刻依次验证，每一项都真的做一次：
+Taking over an existing instance through the debug port yields fewer capabilities than starting the instance. **Connect success is not four capabilities present.** Right after the main window, verify each by actually doing it:
 
-| # | 能力 | 怎么验 | 算通过的条件 |
+| # | Capability | How | Pass |
 | --- | --- | --- | --- |
-| 1 | 取无障碍树快照 | 对主窗口取一次 ARIA snapshot | 返回非空，且能从中读出至少一个带可访问名的元素 |
-| 2 | 批量提取计算样式 | 在页面里对 `document.body` 求一次 `getComputedStyle` | 读得到非空的 `font-family` |
-| 3 | 局部截图 | 对主窗口里任意一个可见元素截一张 | 拿到非空字节 |
-| 4 | 注入可访问性规则引擎 | 把 `mmw-ui-qa accessibility-source` 打印的那份脚本整份注入页面 | 注入后读得到引擎挂在 window 上的全局对象 |
+| 1 | Accessibility-tree snapshot | One ARIA snapshot of the main window | Non-empty, and at least one element with an accessible name |
+| 2 | Batch computed style | One `getComputedStyle` on `document.body` | Non-empty `font-family` |
+| 3 | Cropped screenshot | One shot of any visible element in the main window | Non-empty bytes |
+| 4 | Inject the accessibility engine | Inject the whole script from `mmw-ui-qa accessibility-source` | After inject, the engine's window global is readable |
 
-四项各自缺了影响谁：
+What each miss does:
 
-| 缺哪一项 | 后果 |
+| Missing | Effect |
 | --- | --- |
-| 1 取无障碍树快照 | **停止**。元素定位没了，九种一种也跑不了 |
-| 2 批量提取计算样式 | 跳过 A1、A3，其余七种照常 |
-| 3 局部截图 | 不跳检查项。B2 第 2 问只用结构化的视觉显著度数值判定，并在该条 finding 上标明没有截图 |
-| 4 注入可访问性规则引擎 | 跳过 A2，其余八种照常 |
+| 1 Accessibility-tree snapshot | **Stop.** No element location. None of the nine can run |
+| 2 Batch computed style | Skip A1 and A3. Run the other seven |
+| 3 Cropped screenshot | Do not skip a check. B2 question 2 judges from structured visual-salience numbers only, and that finding notes there was no screenshot |
+| 4 Inject the accessibility engine | Skip A2. Run the other eight |
 
-跳过的检查项编号写进报告开头「本次跳过」那一行。**不把缺项结果当成完整 QA。**
+Skipped check ids go in the report header "Skipped this run". **Do not treat a missing-capability result as a complete QA.**
 
-## 修改前先报数，等用户点头
+## Count first, wait for a yes, then edit
 
-Windows 侧照常修改 A 类违规项，但**动手前先报数**。检查跑完后告诉用户：
+Windows still edits class A violations, but **count first**. After the checks, tell the user:
 
-- 这一轮有几处要改
-- 改完需要重新构建并重启几次
+- How many sites this run would edit
+- How many rebuild-and-restart cycles the edits need
 
-用户说继续才动手。他可以答「这次先只报告」，那就全部转成 finding 带回，不修改，报告写明本次未修改及原因。
+Edit only after they say continue. They may answer "report only this time": turn every item into a finding, do not edit, and the report says this run did not edit and why.
 
-**修改在 Windows 侧当场做，不带回 Mac。** Windows 这一趟的全部价值就是覆盖 Mac 上测不到的行为，把修复推回 Mac 等于查出来了但改不了也验不了。
+**Edits happen on Windows, in this session. Do not bring them back to Mac.** This trip exists to cover behavior Mac cannot see. Pushing the fix to Mac means you found it and cannot change or verify it.
 
-## 这一趟不是 AFK 的
+## This trip is not AFK
 
-明确告诉用户：**他至少要启动一次；选择让技能修改时，每一轮修复再各启动一次。** 报数时把预计次数一并说出来，不要含糊说成「一次」。
+Tell the user: **they start at least once; if they let the skill edit, they start once more per repair round.** When you count, say the expected number. Do not blur it into "once".

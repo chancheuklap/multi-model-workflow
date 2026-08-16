@@ -1,18 +1,38 @@
 ---
 name: mmw-research
-description: research 的共享入口。主 agent 在用户明确要求系统调查、`wayfinder:research` ticket、问题需要多个独立角度或多份一手来源，或者必须真实运行外部系统才能知道它在我们的负载和数据下的实际表现时使用；收到 research task 的 `investigator` 也使用本技能进入内部或外部取证方法。一个函数、一个已知文件、一个事实、文件计数、一条命令或一次直接查询能回答时，主 agent 自己处理。
+description: Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, reading legwork delegated to a background agent, a `wayfinder:research` ticket arrives, or a question needs several independent primary sources.
 ---
 
-本技能根据当前 agent 在这次 research 中的身份加载不同方法。只读取当前身份对应的 reference。
+Each Explore writes one findings file. You write `README.md`. `README.md` is the index of this research directory: the question, and the files in it. It is not the findings. Downstream names `README.md` and reads the files it lists.
 
-`investigator` 只完成 task 分配的一个角度，不再派发其他 agent。task 同时指定两个方向时，停止取证，请主 agent 把它们拆成两个独立角度。
+1. If answering needs real credentials, production access, spend, or writing data outside this repo, ask the user first. Do not continue until they agree.
 
-## 下一步
+2. Decide whether files are written. A `wayfinder:research` ticket is yes. Otherwise ask. If they say no, do not create files.
 
-| 当前身份 | 下一步 |
-| --- | --- |
-| 你是接收用户请求或其他技能调用，并负责派发 `investigator`、验证、综合和保存的主 agent | **自己继续**：完整读取 [MAIN.md](MAIN.md)；不读取 `INTERNAL.md` 或 `EXTERNAL.md`。`MAIN.md` 第 1 节会告诉你要不要转去 [EVIDENCE.md](EVIDENCE.md) |
-| 你是 `investigator`，task 指定内部方向 | **自己继续**：完整读取 [INTERNAL.md](INTERNAL.md)，完成 task 后直接交回报告 |
-| 你是 `investigator`，task 指定外部方向 | **自己继续**：完整读取 [EXTERNAL.md](EXTERNAL.md)，完成 task 后直接交回报告 |
-| 你是 `investigator`，但 task 没有指定唯一方向 | **停**：向主 agent 报告缺少唯一的取证方向 |
-| 当前上下文无法判断你承担哪一种身份 | **停**：说明缺少主 agent 或 `investigator` 身份信息，不猜测执行路径 |
+3. If files will be written:
+
+先确认当前仓库位置。判定从上到下，命中一行就停。
+
+| 情况 | 怎么判断 | 你做什么 |
+| --- | --- | --- |
+| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
+| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
+| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
+| 已有任务分支 | 上面都不成立 | 用当前分支 |
+
+
+`<topic>` is a short kebab of the overall question. `mmw artifact path research --sub <topic>/README.md` prints the index path. For each Explore, `mmw artifact path research --sub <topic>/<slug>.md` prints that agent's findings path. `<slug>` is a short kebab of that agent's question. Add `--name` and `--issue` when the caller passed them.
+
+4. Spin up a **group of Explore** agents to do the research, so you keep working while they read. Independent questions: one Explore each, one group, same turn. Pass each its question and its findings path. Do not pass a file list; the question is the boundary. Do not pass the README path.
+
+Each Explore's job:
+
+1. Investigate the question against **primary sources** — official docs, source code, specs, first-party APIs — not a secondary write-up of them. Follow every claim back to the source that owns it. Source code includes this repo.
+2. Write the findings to a single Markdown file, citing each claim's source.
+3. Save it where the repo already keeps such notes; match the existing convention, and if there is none, put it somewhere sensible and say where.
+
+The findings path you passed is that convention. Explore writes that file. You do not rewrite it.
+
+5. Write `README.md` at the index path from step 3. List the overall question and each findings file. Do not copy the findings into it.
+
+6. Return the README path. If no file was written, report that.

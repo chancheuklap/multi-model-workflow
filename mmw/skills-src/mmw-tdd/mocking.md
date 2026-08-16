@@ -1,55 +1,61 @@
-# 什么时候可以 mock
+# When to Mock
 
-**只在系统边界上 mock**：
+Mock at **system boundaries** only:
 
-- 外部 API（支付、邮件之类）
-- 数据库（有时候；能用测试库就用测试库）
-- 时间与随机数
-- 文件系统（有时候）
+- External APIs (payment, email, etc.)
+- Databases (sometimes - prefer test DB)
+- Time/randomness
+- File system (sometimes)
 
-这些不许 mock：
+Don't mock:
 
-- 你自己的类和模块
-- 内部协作者
-- 任何由你掌控的东西
+- Your own classes/modules
+- Internal collaborators
+- Anything you control
 
-**这条边界画在哪，最终由目标仓库的 `TESTING.md` 说了算**：哪些依赖算外部供应商、哪些算自家，只有那个仓库自己知道。它没写就按本节「可以 mock」和「不许 mock」两组判断。
+The target repo's `TESTING.md` decides where that boundary sits: which dependencies are external vendors, which are ours. If it does not say, use the two lists above.
 
-## 让边界好 mock
+## Designing for Mockability
 
-在系统边界上，把接口设计成容易 mock 的样子。
+At system boundaries, design interfaces that are easy to mock:
 
-**一、用依赖注入**
+**1. Use dependency injection**
 
-外部依赖从外面传进来，不要在函数内部造：
+Pass external dependencies in rather than creating them internally:
 
 ```typescript
-// 好 mock
+// Easy to mock
 function processPayment(order, paymentClient) {
   return paymentClient.charge(order.total);
 }
 
-// 难 mock
+// Hard to mock
 function processPayment(order) {
   const client = new StripeClient(process.env.STRIPE_KEY);
   return client.charge(order.total);
 }
 ```
 
-**二、宁可写成 SDK 那样的接口，也不要一个通用 fetcher**
+**2. Prefer SDK-style interfaces over generic fetchers**
 
-每一个外部操作各写一个具体函数，不要一个通用函数内部再分支：
+Create specific functions for each external operation instead of one generic function with conditional logic:
 
 ```typescript
-// 好：每个函数各自都能独立 mock
+// GOOD: Each function is independently mockable
 const api = {
   getUser: (id) => fetch(`/users/${id}`),
   getOrders: (userId) => fetch(`/users/${userId}/orders`),
   createOrder: (data) => fetch('/orders', { method: 'POST', body: data }),
 };
 
-// 坏：mock 里面还得写分支逻辑
+// BAD: Mocking requires conditional logic inside the mock
 const api = {
   fetch: (endpoint, options) => fetch(endpoint, options),
 };
 ```
+
+The SDK approach means:
+- Each mock returns one specific shape
+- No conditional logic in test setup
+- Easier to see which endpoints a test exercises
+- Type safety per endpoint

@@ -1,81 +1,77 @@
 # Wayfinding
 
-这个 Context 定义 `/mmw-wayfinder` 使用的 map 和 decision ticket。
+This context defines the map and decision ticket used by `/mmw-wayfinder`.
 
 ## Language
 
-**effort**：
-超出一次 agent session，而且从当前状态到 destination 的路线仍不清楚的工作。destination 是否是一份 spec 不影响入口判定。
-_Avoid_: 大 ticket、大 spec
+**effort**:
+Work that does not fit in one agent session, and whose route from here to the destination is not yet clear. Whether the destination is a spec does not change the entry test.
+_Avoid_: big ticket, big spec
 
-**destination**：
-Wayfinding 的 map 要抵达的终态。destination 固定 effort 的范围。
-_Avoid_: 目标列表、交付清单
+**destination**:
+The end state the wayfinding map is finding its way to. The destination fixes the effort's scope.
+_Avoid_: goal list, delivery checklist
 
-**map**：
-issue tracker 上一项 effort 的共享索引，带 `wayfinder:map` 标签。它的正文记录 map 分支；这项 effort 的产物名字段从该分支计算，map 创建后不再改动。
-_Avoid_: Context Map、plan、仓库
+**map**:
+The shared index of one effort on the issue tracker, labelled `wayfinder:map`. Its body records the map branch; the name segment for this effort's artifacts is computed from that branch and does not change after the map is created.
+_Avoid_: Context Map, plan, repository
 
-**decision ticket**：
-map 下解除一个决定或其前置阻塞的子 issue，带 `wayfinder:<类型>` 标签。它使用自己的任务分支承载 git 改动，产物名字段继承 map 分支的 slug，并使用自己的范围段。
-_Avoid_: tracer bullet ticket、任务包
+**decision ticket**:
+A child issue under the map that clears one decision or a blocker in front of one, labelled `wayfinder:<type>`. Artifact name segment inherits the map branch slug; the scope segment is `issue-<ticket number>`. Git checkout and merge of ticket work sit outside this skill.
+_Avoid_: tracer bullet ticket, 任务包
 
-**必读材料声明**：
-decision ticket 正文中列出这张 ticket 必须读的材料的那一节。建 ticket 的会话写当时已知的，认领它的会话在开工前补进新产生的材料。
-_Avoid_: consumes、必读清单、支持材料
+**Required materials**:
+The section of a decision ticket body that lists what this ticket must read. The session that creates the ticket writes what is known then; the session that claims it adds materials produced since.
+_Avoid_: consumes, 必读清单, supporting materials, 必读材料声明
 
-**fog of war**：
-范围内已经看得出会出现、但尚不能精确写成 decision ticket 的部分，保存在 `Not yet specified`。
-_Avoid_: decision ticket、Out of scope
+**fog of war**:
+In-scope work that is visible enough to notice but not yet sharp enough to write as a decision ticket, kept in `Not yet specified`.
+_Avoid_: decision ticket, Out of scope
 
-**结论评论**：
-decision ticket 关闭前留下的评论，记录这张 ticket 形成的决定、它使用的产物引用和材料使用记录。它是这个决定的权威副本，issue 关闭后长期保留。
-_Avoid_: 交回评论、共同理解记录、过程材料
+**resolution comment**:
+The comment posted before a decision ticket is closed. It records the decision, the artifact refs this ticket used or produced, and Materials used. It is the authoritative copy of the decision and remains after the issue is closed.
+_Avoid_: handback comment, shared-understanding record, scratch, 结论评论, 交回评论
 
-**材料使用记录**：
-结论评论中逐条说明必读材料声明里每一项用上了没有的那一节。
-_Avoid_: 支持材料、对照节
+**Materials used**:
+The section of the resolution comment that accounts for every Required materials entry: used or not, and why if not.
+_Avoid_: supporting materials, 材料使用记录
 
-**交回评论**：
-decision ticket 上记录结果分支名、HEAD SHA 和基点 SHA 的评论。map 分支上的会话用它验证并集成结果。
-_Avoid_: 结论评论、集成记录
-
-**路径形状**：
+**路径形状**:
 (authoritative: [路径形状](./artifact-location.md))
 
-**名字段**：
+**名字段**:
 (authoritative: [名字段](./artifact-location.md))
 
-**范围段**：
+**范围段**:
 (authoritative: [范围段](./artifact-location.md))
 
-**权威副本**：
+**权威副本**:
 (authoritative: [权威副本](./tracker.md))
 
-**frontier**：
+**frontier**:
 (authoritative: [frontier](./tracker.md))
 
-**HITL**：
+**HITL**:
 (authoritative: [HITL](./delivery-workflow.md))
 
-**AFK**：
+**AFK**:
 (authoritative: [AFK](./delivery-workflow.md))
 
-**共同理解**：
-(authoritative: [共同理解](./delivery-workflow.md))
+**shared understanding**:
+(authoritative: [shared understanding](./delivery-workflow.md))
 
-**`wayfinder:grilling`**：
-用 `/mmw-grilling` 把 `Question` 谈成共同理解的 HITL decision ticket。提问方式由 `/mmw-grilling` 决定。
+**`wayfinder:grilling`**:
+A HITL decision ticket that uses `/mmw-grilling` to turn the `Question` into a shared understanding. How questions are asked is owned by `/mmw-grilling`.
 
-**`wayfinder:prototype`**：
-用 `/mmw-prototype` 持续迭代可运行资产，并由用户走查来回答问题的 HITL decision ticket。
+**`wayfinder:prototype`**:
+A HITL decision ticket that uses `/mmw-prototype` to iterate a running artifact and answer the question through a user walkthrough.
 
-**`wayfinder:research`**：
-由 `/mmw-research` 系统取证找出决定等待的事实的 AFK decision ticket。事实可以来自当前仓库源码，也可以来自文档、第三方 API 或正式规范这类外部资源；事实靠取证就能得到、不需要人参与讨论时使用。
+**`wayfinder:research`**:
+An AFK decision ticket that uses `/mmw-research` to surface a fact a decision waits on. The fact may come from this repo's source, or from docs, third-party APIs, or official specs. Use when investigation yields the fact without a human discussion.
 
-**`wayfinder:task`**：
-一个决定形成之前必须完成的手工操作。它可以是 HITL，也可以是 AFK。
+**`wayfinder:task`**:
+Manual work that must happen before a decision can be formed. It may be HITL or AFK.
 
-## 会话边界
+## Session boundary
 
-一个会话只解决一张 decision ticket。建图会话可以并行派发多张 `wayfinder:research` ticket，但每个 `investigator` 仍只解决一张 ticket。
+One session resolves one decision ticket. A charting session may fire several `wayfinder:research` tickets in parallel, but each research invocation still resolves one ticket.

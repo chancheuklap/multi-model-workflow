@@ -1,127 +1,218 @@
 ---
 name: mmw-wayfinder
-description: 把一件超出一次 agent session、而且从这里到终点的路线还看不清楚的大工作，组织成 issue tracker 上由 decision ticket 组成的共享 map。用于建这张 map、认领并解决其中一张 decision ticket，或者所有 ticket 都解完之后检查路线是否清楚并交给下游。
-argument-hint: "[map 编号、ticket 编号，或者要做的事]"
+description: Plan a huge chunk of work — more than one agent session can hold — as a shared map of decision tickets on the issue tracker. Use when charting a loose idea into a map, or when claiming and resolving one decision ticket on an existing map, until the way to the destination is clear.
+argument-hint: "[map number, ticket number, or the loose idea]"
 ---
 
-本次输入：`$ARGUMENTS`
+This turn's input: `$ARGUMENTS`
 
-一个松散的想法出现了。它太大，一次 agent session 容纳不下，而且被 fog 包围：从这里到 **destination** 的路线还看不见。Wayfinding 负责找到这条路线，不是径直冲向 destination。本技能把这条路线 chart 成仓库 issue tracker 上的一张**共享 map**，再逐张处理它的 **decision ticket**。Decision ticket 承载的问题在解决后得到一个决定，不是等待执行的构建切片。每次处理一张，直到路线清楚。
+A loose idea has arrived — too big for one agent session, and wrapped in fog: the way from here to the **destination** isn't visible yet. Wayfinding is about finding that way, not charging at the destination. This skill charts the way as a **shared map** on the repo's issue tracker, then works its **decision tickets** — questions whose resolution is a decision, not slices of a build to execute — one at a time until the route is clear.
 
-destination 随 effort 而异。给它命名是 charting 的第一个动作，因为它会塑造后面的每一张 ticket。destination 可能是一份要交出去并继续迭代的 spec，可能是开始规划前必须锁定的一个决定，也可能是一次就地完成的改动，例如数据结构迁移。map 与领域无关；工程工作、课程内容或其他符合这种形态的工作都可以使用。
+The destination varies per effort, and naming it is the first act of charting — it shapes every ticket. It might be a spec to hand off and iterate on, a decision to lock before planning starts, or a change made in place like a data-structure migration. The map is domain-agnostic — engineering work, course content, whatever fits the shape.
 
-## 规划，不执行
+## Plan, don't do
 
-Wayfinder 默认负责**规划**。每张 ticket 解决一个决定；当路线清楚时，map 就完成了：在有人开始执行那件事之前，已经没有决定尚待解决。想要直接开始执行，通常说明你已经抵达 map 的边界，现在应该交给下游。某项 effort 可以在 **Notes** 中覆盖这项默认行为，把执行也带进 map。没有这项覆盖时，产出决定，不产出交付物。
+Wayfinder is **planning** by default: each ticket resolves a decision, and the map is done when the way is clear — nothing left to decide before someone goes and does the thing. The pull to just do the work is usually the signal you've reached the edge of the map and it's time to hand off. An effort can override this in its **Notes** — carrying execution into the map itself — but absent that, produce decisions, not deliverables.
 
-## 用名称称呼
+## Refer by name
 
-每张 map 和 ticket 都是一张 issue，因此都有一个**名称**，也就是它的标题。在所有给人阅读的内容中，包括叙述和 map 的 Decisions so far，都使用名称称呼它；绝不使用裸的 id、编号或 slug。一整面 `#42, #43, #44` 无法阅读，名称则能让人一眼看懂。id 和 URL 不会消失；名称包裹对应链接。id 和 URL 位于名称内部，绝不代替名称单独出现。
+Every map and ticket is an issue, so it has a **name** — its title. In everything the human reads — narration, the map's Decisions so far — refer to it by that name, never by a bare id, number, or slug. A wall of `#42, #43, #44` is illegible; names read at a glance. The id and URL don't vanish — a name wraps its link — but they ride _inside_ the name, never stand in for it.
 
-## Map
+## The Map
 
-map 是当前仓库 issue tracker 上的一张 issue，带 `wayfinder:map` 标签。这项 effort 的状态以它为准。map 的 ticket 是它的子 issue。
+The map is a single issue on this repo's issue tracker, labelled `wayfinder:map` — the canonical artifact. Its tickets are child issues of the map.
 
-map 是**索引**，不是存储库。它列出已经形成的决定，并指向保存细节的 ticket。一个决定只存在于一个地方，也就是它自己的 ticket。因此，map 绝不复述决定，只写一句概要并提供链接。
+The map is an **index**, not a store. It lists the decisions made and points at the tickets that hold their detail; a decision lives in exactly one place — its ticket — so the map never restates it, only gists it and links.
 
-### map 正文
+Create, link, claim, frontier-query, and append through `mmw issue` in the invocation steps. Do not consult a separate tracker-operations doc.
 
-map 正文是整个 map 的低分辨率视图。每个 session 加载一次。open ticket **不**列在正文中；它们是 open 的子 issue，通过查询取得。
+### The map body
+
+The whole map at low resolution, loaded once per session. Open tickets are **not** listed — they are open child issues, found by query.
 
 ```markdown
 ## Destination
 
-<抵达这张 map 的终点时是什么状态；这项 effort 正在寻找的 spec、决定或改动。一到两行；每个 session 选择 ticket 前都先用它校准方向。>
+<what reaching the end of this map looks like — the spec, decision, or change this effort is finding its way to. One or two lines; every session orients to it before choosing a ticket.>
 
-## 分支
+## Branch
 
-<map 分支的完整分支名。建 map 的那个会话把自己的任务分支名填进来，之后不再改。后来的会话靠它知道从哪派生 decision ticket，以及这项 effort 产物路径的名字段。>
+<full branch name of the charting session. The name segment is the substring after the last `/` in this value. Do not change it after the map is created.>
 
 ## Notes
 
-<领域；每个 session 都应该查阅的技能；这项 effort 长期生效的偏好>
+<domain; skills every session should consult; standing preferences for this effort>
 
 ## Decisions so far
 
-<!-- 索引。每张已关闭的 ticket 一行；内容足以判断相关性，然后沿链接 zoom 到 ticket 保存的细节。 -->
+<!-- the index — one line per closed ticket: enough to judge relevance, then zoom the link for the detail the ticket holds -->
 
-- [<已关闭的 ticket 名称>](链接) —— <答案的一句话概要>
+- [<closed ticket title>](link) — <one-line gist of the answer>
 
 ## Not yet specified
 
-<!-- 见“Fog of war”：范围内、当前还无法建立 ticket 的 fog；它会随着 frontier 推进而转成 ticket。 -->
+<!-- see "Fog of war": in-scope fog you can't ticket yet; graduates as the frontier advances -->
 
 ## Out of scope
 
-<!-- 见“Out of scope”：已经判定越过 destination 的工作；关闭，并且永远不会转成 ticket。 -->
+<!-- see "Out of scope": work ruled beyond the destination; closed, never graduates -->
 ```
 
 ### Tickets
 
-每张 ticket 都是 map 的一个**子 issue**；tracker 的 issue id 就是它的身份。ticket 正文承载问题，必须能在一次 agent session 内解决：
+Each ticket is a **child issue** of the map; the tracker's issue id is its identity. Its body is the question, sized to one agent session:
 
 ```markdown
 ## Question
 
-<这张 ticket 要解决的决定或调查问题>
+<the decision or investigation this ticket resolves>
 
-## 必读材料声明
+## Required materials
 
-<建 ticket 时已经知道、且这张 ticket 必须读取的材料。仓库产物每条写 `category=<类别> name=<名字段> [issue=<编号>] [sub=<类别内细分>]`。结论评论每条写 `issue=<编号> 结论评论`。没有材料时写 `无`。>
+<one artifact ref per line: `category=<category> name=<name-segment> [issue=<number>] [sub=<subpath>]`. Include `issue=` and `sub=` only when that artifact has them. One resolution comment per line: `issue=<number> resolution comment` — the comment on that issue that starts with `<!-- mmw:conclusion -->`. Write `none` when there are none.>
 ```
 
-ticket 正文固定有 `Question` 和 `必读材料声明` 两节。建 ticket 的会话写当时已经知道的材料。认领 ticket 的会话在开工前补入后来产生且相关的材料。仓库产物写产物引用。tracker 产物写结论评论的 issue 编号。解决 ticket 时名字段取 map 正文 `## 分支` 的 slug；它的范围段是 `issue-` 加这张 ticket 自己的编号。
+The session that charts the map writes the materials already known. The session that claims the ticket adds materials produced since.
 
-每张 ticket 都带一个 `wayfinder:<type>` 标签。type 是 `research`、`prototype`、`grilling` 或 `task` 中的一个，见下方“Ticket 类型”一节。
+Resolve a line `category=<category> name=<name-segment> [issue=<number>] [sub=<subpath>]` by running `mmw artifact path <category> --name <name-segment>` plus `--issue` / `--sub` when those keys are present. The command prints a path; then read that path's index and the files the index lists. Resolve `issue=<number> resolution comment` by reading that issue's comment that starts with `<!-- mmw:conclusion -->`.
 
-一个 session 通过把 ticket 指派给推动这张 map 的开发者来 **claim** 它。claim 必须发生在任何工作之前，使并发 session 能够跳过这张 ticket。assignee 就是 claim：open 且没有 assignee 的 ticket 是 unclaimed。
+When this ticket writes or reads artifacts, every `mmw artifact path` takes `--name` from the substring after the last `/` in `## Branch`, and `--issue <this ticket's number>`. The scope segment is `issue-<this ticket's number>`.
 
-blocking 使用 tracker 的**原生依赖关系**。这一点很重要，因为 tracker 会在自己的 UI 中把 frontier **可视化**，人不需要打开 map 就能看见当前可以处理的内容。一张 ticket 的所有 blocker 都已关闭时，它才是 unblocked。**frontier** 是 open、unblocked、unclaimed 的子 issue，也就是已知区域的边缘。
+Each ticket carries a `wayfinder:<type>` label — one of `research`, `prototype`, `grilling`, `task` (see [Ticket Types](#ticket-types)).
 
-答案不属于 ticket 正文。答案在 ticket 解决时记录，见 [walking.md](walking.md) 的“沿 map 推进”流程。解决 ticket 期间建立的资产从 issue 链接，不粘贴进正文。
+A session **claims** a ticket **first**, before any work, so concurrent sessions skip it. Claim with `mmw issue claim <number>` — it assigns the ticket to the current tracker user. An open, unassigned ticket is unclaimed.
 
-## 并发会话
+Blocking uses the tracker's **native** dependency relationship — essential because it renders the frontier _visually_ in the tracker's own UI, so the human sees what's takeable without opening the map. Wire it with `mmw issue link <blocked> --blocked-by <blocker>`. A ticket is **unblocked** when every ticket blocking it is closed; the **frontier** is the open, unblocked, unclaimed children — the edge of the known. Query it with `mmw issue frontier <map number> --label-prefix wayfinder:`.
 
-一张 map 通常由多个会话分头推进：一个会话建 map，其余会话各解一张 decision ticket。用户可以并行处理没有阻塞的 ticket，所以要预期其他 session 同时在编辑 tracker 和仓库。以下四条约束对两个入口都适用。
+The answer isn't part of the body — it's recorded on resolution (see [Work through the map](#work-through-the-map)). Put new artifacts in the [resolution comment](#resolution-comment) Artifact refs; do not paste their contents into the ticket body.
 
-- **一个 session 绝不解决超过一张 decision ticket。** 唯一例外是 charting 会话可以为刚建好的多张 `wayfinder:research` ticket 并行派 research。
-- **claim 在动手之前。** 把 ticket 指派给推动这张 map 的开发者就是 claim。claim 完成之前不做任何工作。
-- **追加 map 的决定索引时使用 `mmw issue append`。** 传 map 编号、`Decisions so far` 和新增行。不要自行读改写整份 map 正文。
-- **每个 session 只在自己的任务 worktree 里写文件。** 建 map 的会话拥有 map 分支；每张 decision ticket 用一条从 map 分支派生的任务分支，解决期间写下的领域文档、ADR 和资产都提交在这条任务分支上，再由 map 分支上的会话验证合并；那个会话不必是建 map 的原会话，`/mmw-start` 可以随时按 map 编号恢复 map 的任务上下文。ticket 分支只承载那次会话的 git 改动；产物路径的名字段始终用 map 分支的 slug。这一条不能省：两个会话同时改同一份领域文档时，各自一个 worktree 会让冲突在合并时暴露出来，而共用一个工作目录会让后写的那个直接覆盖先写的，谁都不会发现。
+### Resolution comment
 
-## Ticket 类型
+Later sessions do not have this conversation, so the resolution comment is the record they will read. `mmw artifact path` prints a path; write the comment body there, then post that file:
 
-每张 ticket 要么是 **HITL**，即 human in the loop，由一个亲自表达意见的人与 agent 共同处理；要么是 **AFK**，由 agent 独立推动。HITL ticket 只能通过这场实时交流解决；agent 绝不代替人的一方回答。一个 grilling agent 自己回答自己的问题，就已经破坏了这项合同。
+```bash
+mmw artifact path scratch --name <map-branch-slug> --issue <number> --sub outbox/answer.md
+```
 
-- **Research**（AFK）：系统取证，找出某项决定正在等待的事实——读当前仓库的源码，或者文档、第三方 API、正式规范这类外部资源。由 `/mmw-research` 解决。事实靠取证就能得到、不需要人参与讨论时使用。
-- **Prototype**（HITL）：制作一个具体的可运行资产，提高讨论的保真度。由 `/mmw-prototype` 解决。初版可以粗糙；用户持续走查并迭代，把这个想法磨清楚。想法磨清楚之后，prototype 里承载它的脚本、接口合同、状态模型和界面就是下游可以直接参考或复用的内容。把 prototype 作为资产链接到 ticket。关键问题是“它应该长什么样”或“它应该怎样表现”，而且只靠讨论无法决定时使用。
-- **Grilling**（HITL）：对话。默认情况。由 `/mmw-grilling` 解决；它在同一场讨论中应用 `/mmw-domain-modeling`。
-- **Task**（HITL 或 AFK）：形成一个**决定**之前必须完成的手工工作。此时没有需要讨论的决定，也不需要 prototype 或 research，但讨论必须等这项工作完成才能继续。例如注册一个服务以便评估它的 API、开通访问权限，或者移动数据以便看清数据形状。这是唯一一种执行操作而不形成决定的类型。它通过解除一个决定的 blocker 取得存在理由，不通过交付 destination 取得存在理由。agent 能独立推动时，由 agent 独立完成（AFK）；否则，向用户提供精确清单（HITL），需要用户按顺序做很多步时由 `/wizard` 生成这份清单。工作完成时，ticket 才算解决。答案记录完成了什么，以及后续 ticket 依赖的结果事实，例如凭证位置、新 URL 和行数。
+`<map-branch-slug>` is the substring after the last `/` in `## Branch`. `<number>` is this ticket's id.
+
+First line: `<!-- mmw:conclusion -->`. Then:
+
+```markdown
+## Answer
+
+<every conclusion from this ticket, with reasons and figures. For a grilling ticket, transcribe the `## Shared understanding` section of the file `/mmw-grilling` just wrote via `mmw artifact path scratch --sub understanding.md`. For a research ticket, read the README `/mmw-research` returned, then the findings files it lists; write the conclusions from those files. For a prototype ticket, read the README `/mmw-prototype` returned, then the files it lists; write the walkthrough conclusions and the chosen artifact.>
+
+## Artifact refs
+
+<same lines as Required materials, for artifacts this ticket produced. `none` if none.>
+
+## Materials used
+
+<one line per Required materials entry: used or not, and why if not.>
+```
+
+Then post with GitHub CLI `gh`: `gh issue comment <number> --body-file <the path just printed>`, `gh issue close <number>`, and `mmw issue append <map number> --section "Decisions so far" --line "<ticket title wrapped around its issue URL> — <one-line gist>"`. `<map number>` is the map issue id (from create output when charting, or from the map you loaded when walking).
+
+If `/mmw-domain-modeling` writes an ADR in this session, keep the filename `draft-<ticket-number>-<short-english-slug>.md` that it uses. Do not assign a numeric ADR id here.
+
+## Ticket Types
+
+Every ticket is either **HITL** — human in the loop, worked _with_ a human who speaks for themselves — or **AFK**, driven by the agent alone. A HITL ticket only resolves through that live exchange; the agent never stands in for the human's side of it (a grilling agent that answers its own questions has broken this).
+
+- **Research** (AFK): Surface a fact a decision waits on — from this repo's source, or from docs, third-party APIs, or official specs. Resolved by `/mmw-research`. Use when the fact can be obtained by investigation without a human discussion. Invoke it with the ticket's Question, the map-branch slug as the name segment, and `issue-<number>` as the scope segment. A `wayfinder:research` ticket is the user's approval to save: `/mmw-research` saves without asking.
+- **Prototype** (HITL): Raise the fidelity of the discussion by making a cheap, rough, concrete running artifact to react to, via `/mmw-prototype`. The first cut can be rough; the user walks it and iterates until the idea is sharp. Link the prototype as an asset. Use when "how should it look" or "how should it behave" is the key question, and talk alone cannot decide it.
+- **Grilling** (HITL): Conversation. The default case. Invoke `/mmw-grilling`. It applies `/mmw-domain-modeling` in the same discussion.
+- **Task** (HITL or AFK): Manual work that must happen before a _decision_ can be made — nothing to decide, prototype, or research, but the discussion is blocked until it's done. Signing up for a service so its API can be judged, provisioning access, moving data so its shape can be seen. This is the one type that _does_ rather than decides — and it earns its place by unblocking a decision, not by delivering the destination. The agent drives it alone where it can (AFK); otherwise it hands the human a precise checklist (HITL). Resolved when the work is done; the answer records what was done and any resulting facts (credentials location, new URLs, row counts) later tickets depend on.
 
 ## Fog of war
 
-map 是**刻意**不完整的：不要 chart 当前还看不见的内容。open ticket 之外是 **fog of war**。那里是一些决定和调查问题的模糊轮廓；你知道它们将会出现，却还无法确定具体问题，因为它们依赖仍然 open 的问题。解决一张 ticket 会驱散前方的 fog，把此时已经能够精确表述的内容转成新的 ticket。每次处理一张，直到通往 destination 的路线清楚，而且没有尚待解决的 ticket。
+The map is _deliberately_ incomplete: don't chart what you can't yet see. Beyond the live tickets lies the **fog of war** — the dim view of decisions and investigations you can tell are coming but can't yet pin down, because they hang on questions still open. Resolving a ticket clears the fog ahead of it, graduating whatever's now specifiable into fresh tickets — one at a time, until the way to the destination is clear and no tickets remain.
 
-map 的 **Not yet specified** 一节记录这片模糊视野：怀疑存在的问题，以及以后需要回看的区域。它是朝向 destination、尚未发现的 frontier。这里的所有内容都在范围内，只是还不够清晰，无法建立 ticket。按照当前视野允许的程度书写，可以很松，也可以很完整。它同时是给协作者看的路标，让协作者知道这项 effort 正朝哪里发展。
+The map's **Not yet specified** section is where that dim view is written down: the suspected question, the area to revisit later. It's the undiscovered frontier _toward_ the destination — everything here is in scope, just not sharp enough to ticket. Write as loosely or as fully as the view allows; it doubles as a signpost for collaborators reading where the effort is headed.
 
-**Fog 还是 ticket？** 判据是现在能否精确陈述问题，**不是**现在能否回答问题。
+**Fog or ticket?** The test is whether you can state the question precisely now — _not_ whether you can answer it now.
 
-- **建立 ticket 的情况**：问题已经足够清晰。即使它仍被阻塞，而且当前无法采取行动，也要建立 ticket。
-- **写入 Not yet specified 的情况**：当前还无法把问题表达得足够清晰。不要提前把 fog 切成 ticket 大小的部分；fog 比 ticket 更粗。当 frontier 抵达那里时，一块 fog 可能转成多张 ticket，也可能一张都不产生。
+- **Ticket when** the question is already sharp — even if it's blocked and you can't act on it yet.
+- **Not yet specified when** you can't yet phrase it that sharply. Don't pre-slice the fog into ticket-sized pieces: it's coarser than a ticket, and one patch may graduate into several tickets, or none, once the frontier reaches it.
 
-**Not yet specified** 不包含已经决定的内容（Decisions so far）、已经存在的 open ticket，以及范围外内容（见下一节）。
+**Not yet specified** excludes what's already decided (Decisions so far), what's already a live ticket, and what's out of scope (the next section).
 
 ## Out of scope
 
-fog 只朝 destination 聚集。destination 固定范围，所以越过 destination 的工作属于 **out of scope**。它不是 fog，也不属于 **Not yet specified**。map 使用独立的 **Out of scope** 一节记录已经明确排除在当前 effort 之外的工作。范围决定一项工作是否进入这里，清晰度不决定。
+Fog only ever gathers _toward_ the destination. The destination fixes the scope, so work beyond it is **out of scope** — it isn't fog, and it doesn't belong in **Not yet specified**. It gets its own **Out of scope** section on the map: work you've consciously ruled out of _this_ effort. Scope, not sharpness, lands it here.
 
-out-of-scope 工作永远不会转成 ticket；frontier 在 destination 停止。只有 destination 被 redraw 时，这项工作才会回来，而且它会成为一项新的 effort，不是恢复当前 effort。
+Out-of-scope work never graduates — the frontier stops at the destination — so it returns only if the destination is redrawn, and then as a fresh effort, not a resumption.
 
-rule out of scope 是一项范围决定，不是路线上的一步。如果一张已经存在的 ticket 后来被证明位于 destination 之外，例如 charting 时错误地把它纳入范围，或者某次解决结果暴露了这个事实，就**关闭它**。关闭的 ticket 会明确地离开 frontier。随后在 **Out of scope** 中留下一行：概要、越界理由，以及指向已关闭 ticket 的链接。它不进入 **Decisions so far**；后者只记录实际走过的路线，而范围边界不是路线上的一步。
+Ruling something out of scope is a scoping act, not a step on the route. When a ticket that already exists turns out to sit past the destination — mis-scoped in while charting, or exposed by a resolution — **close it** (a closed ticket is unambiguously off the frontier) and leave one line in the **Out of scope** section: the gist plus why it's out of scope, linking the closed ticket. It stays out of **Decisions so far**, which records the route actually walked — a scope boundary isn't a step on it.
 
-## 下一步
+## Invocation
 
-| 情况 | 下一步 |
-| --- | --- |
-| 用户带着一个松散的想法调用 | **自己继续**：读取 [charting.md](charting.md)，执行 Chart the map |
-| 用户带着一张 map 调用，可以使用 URL 或编号；ticket 可以指定，也可以不指定 | **自己继续**：读取 [walking.md](walking.md)，沿 map 推进 |
+Two modes. Either way, **never resolve more than one ticket per session** — with the exception of research tickets during charting.
+
+### Chart the map
+
+User invokes with a loose idea. This session creates the map and fires research. It does not resolve HITL tickets.
+
+Name this effort's task branch.
+
+先确认当前仓库位置。判定从上到下，命中一行就停。
+
+| 情况 | 怎么判断 | 你做什么 |
+| --- | --- | --- |
+| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
+| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
+| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
+| 已有任务分支 | 上面都不成立 | 用当前分支 |
+
+
+1. **Name the destination.** Run a `/mmw-grilling` session to pin down what this map is finding its way to — the spec, decision, or change. `/mmw-grilling` applies `/mmw-domain-modeling` in the same discussion. The destination fixes the scope, so it's settled first.
+2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. This round surfaces questions and fog; it does not settle answers. Stop when the space is fanned out. Do not chase the frontier empty. **If this surfaces no fog** — the way to the destination is already clear, the whole journey small enough for one session — you don't need a map. Stop and ask the user how they'd like to proceed.
+3. **Create the map** (label `wayfinder:map`): Destination, Branch (this session's full task-branch name), and Notes filled in; Decisions so far empty; the fog sketched into **Not yet specified**. `mmw artifact path scratch --sub outbox/map-body.md` prints a path; write the body there. The map name is the issue title, taken from this effort. Then:
+
+   ```bash
+   mmw issue create --title "<map name>" --body-file <that path> --label wayfinder:map
+   ```
+
+   Keep the new issue id as `<map number>`.
+
+4. **Create the tickets you can specify now** as child issues of the map — then wire blocking edges in a **second pass** (issues need ids before they can reference each other). Everything you can't yet specify stays in **Not yet specified**. Each body has `## Question` and `## Required materials`. For each ticket, `mmw artifact path scratch --sub outbox/ticket-<n>.md` prints a path (`<n>` is 1, 2, 3… in this pass); write the body there. The ticket name is the issue title, taken from that question. Then:
+
+   ```bash
+   mmw issue create --title "<ticket name>" --body-file <that path> \
+     --parent <map number> --label wayfinder:<type>
+   ```
+
+   Keep each new id. Then one link per edge, using those ids:
+
+   ```bash
+   mmw issue link <blocked> --blocked-by <blocker>
+   ```
+
+5. **Fire research.** For each `wayfinder:research` ticket you just created, `mmw issue claim <number>`. Skip a ticket if that command exits non-zero. Invoke `/mmw-research` on each claimed ticket in the same turn: tell it this is a `wayfinder:research` ticket, and pass the Question, the name segment from `## Branch`, and `issue-<number>`. Each returns a README path. Wait until they all return, then record each as a [resolution comment](#resolution-comment). If a result makes fog specifiable, create those tickets (create-then-wire).
+6. Stop — charting is one session's work; it hand-resolves nothing except the research tickets in step 5. Commit files this session wrote. Do not create an empty commit. Report the destination, the map name, the Branch value, and the names of the frontier tickets. Do not claim those tickets.
+
+### Work through the map
+
+User invokes with a map (URL or number). A ticket is **optional** — without one, you pick the next decision, not the user. This session resolves one decision ticket.
+
+1. Load the **map** — the low-res view, not every ticket body. `gh issue view <map number>`. Note the title, `## Branch`, and skills named in Notes. Then `mmw issue frontier <map number> --label-prefix wayfinder:`.
+
+   If the user named a ticket, `gh issue view <number> --json state,assignees,labels` and `mmw issue children <map number>`. Continue only when it is an open, unassigned, unblocked child of this map with a `wayfinder:` label. Otherwise report its actual state and stop.
+
+   If the user named no ticket and the frontier is empty, the way is clear — stop. Do not resolve another ticket.
+
+2. Choose the ticket. If the user named one, use it. Otherwise take the first line `mmw issue frontier` printed. **Claim it**: `mmw issue claim <number>` before any work. If that command exits non-zero, take the next frontier line. If every frontier ticket fails claim, report that and stop.
+
+3. Resolve it. `gh issue view <number>` for the Question. Resolve [Required materials](#tickets). **Zoom as needed**: fetch the full body of any related or closed ticket on demand; invoke the skills the `## Notes` block names. Handle the ticket by its type under [Ticket Types](#ticket-types). If in doubt, use `/mmw-grilling`.
+
+   After `/mmw-research` or `/mmw-prototype` returns, invoke `/mmw-domain-modeling` only when this result produced terms, bounded contexts, or an ADR-worthy decision. `/mmw-grilling` already applied it.
+
+   A HITL `wayfinder:task` that needs the user: give the checklist and stop this step. Continue the same ticket when they return.
+
+4. Record the resolution as a [resolution comment](#resolution-comment).
+5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If an open ticket already asks that question, comment the newly-sharp part on that ticket instead of creating another, and do not claim it. If the answer reveals a ticket — this one or another — sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
+
+Commit files this session wrote. Do not create an empty commit.
+
+The user may run unblocked tickets in parallel, so expect other sessions to be editing the tracker concurrently.

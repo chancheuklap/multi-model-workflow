@@ -40,6 +40,24 @@ MMW_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/artifact.sh
 . "$MMW_ROOT/cli/lib/artifact.sh"
 
+mmw_is_help() {
+  [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]
+}
+
+# usage_* 以 2 返回。放进 if，set -e 不会把这次查询当失败。
+mmw_help() {
+  if "$1"; then
+    :
+  fi
+  return 0
+}
+
+mmw_need() {
+  echo "mmw: $1" >&2
+  echo "  $2" >&2
+  exit 2
+}
+
 # 用法分两层：这里只列命令名，参数在各命令自己的 usage_* 里。要查 dispatch
 # 怎么写的人不该顺带读完 issue 的六个子命令——认不出参数时打的也是那一个命令
 # 自己的用法，不是全部。
@@ -62,8 +80,13 @@ mmw <命令> [参数]
   doctor      检查这台机器上跑 mmw 需要的东西（无参：跑一次就是检查）
   init        把当前仓库配置成能跑这套工作流的样子；幂等（无参：跑一次就是配置）
 
-除 doctor 与 init 外，各命令不带参数运行时只显示该命令的用法。doctor 与 init 不收参数，
-跑它们就是执行——查它们做什么看上面这两行，不要拿跑一次当查用法。
+除 doctor 与 init 外，各命令不带参数运行时只显示该命令的用法。doctor 与 init 不带 --help 运行时就是执行。
+
+Examples:
+  mmw --version
+  mmw artifact --help
+  mmw issue --help
+  mmw doctor --help
 EOF
   return 2
 }
@@ -75,9 +98,7 @@ mmw dispatch <角色> [--task-text <正文>] [--cwd <目录>] [--issue <编号>]
 角色：
   worker            按一份 plan 写代码
   worker-high-risk  同上，但这块代码错了代价大
-  prototype-worker  做一个指定的原型变体
   planner           按一张 ticket 写一份 plan
-  investigator      查一个角度的事实，带出处交回
   designer          按一个约束提出 interface 方案
   reviewer-gpt      审查，GPT 那一侧
   reviewer-claude   审查，Claude 那一侧
@@ -95,6 +116,11 @@ mmw dispatch <角色> [--task-text <正文>] [--cwd <目录>] [--issue <编号>]
 
 返回开头一行是 mode: executed 或 mode: host-tool。
 host-tool 时原样用返回中的 params 调工具（params 内已含 task 正文或等价字段）。
+
+Examples:
+  mmw dispatch planner --cwd . --task-text "$(cat task.md)"
+  printf '%s' "$task" | mmw dispatch designer
+  mmw dispatch reviewer-gpt --task-text "$task" --resume session:abc123
 EOF
   return 2
 }
@@ -108,6 +134,10 @@ mmw worktree remove <结果分支>
     删掉这棵树和它的分支。结果分支必须已经合进当前分支，工作区必须干净。
 
 Cursor、Codex App 与 Grok 上这两条命令失败：那些宿主自己创建和回收树。
+
+Examples:
+  mmw worktree add result-login-form
+  mmw worktree remove result-login-form
 EOF
   return 2
 }
@@ -122,6 +152,10 @@ mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>
 
 三个参数都由交回结果的那一方给出，不要自己去查。SHA 对不上时退出码非 0，说明报告
 和实际提交不一致：先查清楚差在哪，不要重试，也不要改用 git merge 绕过去。
+
+Examples:
+  mmw result verify result-login-form abcdef1 1234567
+  mmw result integrate result-login-form abcdef1 1234567
 EOF
   return 2
 }
@@ -166,6 +200,12 @@ mmw issue set-parent <子 issue 编号> --parent <父 issue 编号>
     整份替换正文      有意替换整份正文时，先读最新正文，再用 gh issue edit <编号> --body-file <文件>
                       例如修改 Destination 小节。
     关 issue          gh issue close <编号>
+
+Examples:
+  mmw issue create --title "拆 tickets" --body-file /tmp/body.md --parent 12 --label ready-for-agent
+  mmw issue frontier 12 --label-prefix wayfinder:
+  mmw issue claim 34
+  mmw issue append 12 --section "Decisions so far" --line "- 选 A"
 EOF
   return 2
 }
@@ -194,6 +234,11 @@ mmw domain check
 
 mmw domain dirs
     输出 single、map、context 和 adr 的配置路径。
+
+Examples:
+  mmw domain path
+  mmw domain adr-next
+  mmw domain check
 EOF
   return 2
 }
@@ -204,7 +249,7 @@ role_roster() {
 }
 
 # 角色的方法论技能名。空字符串表示这个角色没有固定方法论技能，
-# 它这次要用什么由 task 指定（`investigator` 就是这一类）。
+# 它这次要用什么由 task 指定（`designer` 就是这一类）。
 role_skill() {
   agents_role_field "$1" skill
 }
@@ -242,6 +287,7 @@ agents_role_field() {
 }
 
 cmd_dispatch() {
+  if mmw_is_help "$@"; then mmw_help usage_dispatch; return 0; fi
   local role="${1:-}"
   shift || true
   [ -n "$role" ] || usage_dispatch
@@ -278,6 +324,7 @@ cmd_dispatch() {
         resume_given=1
         shift 2
         ;;
+      -h|--help) mmw_help usage_dispatch; return 0 ;;
       *) echo "mmw: 认不出参数 $1" >&2; usage_dispatch ;;
     esac
   done
@@ -354,15 +401,21 @@ mmw agents materialize --host <pi|cursor|grok|all> [--check] [--config <文件>]
 Pi / Cursor / Grok：主 agent 直调原生 subagent，不经 mmw dispatch。
 Grok 另出一份同名 role TOML：思考档只有那份文件读得到。
 Claude Code：仍用 mmw dispatch。
+
+Examples:
+  mmw agents materialize --host cursor
+  mmw agents materialize --host all --check
 EOF
   return 2
 }
 
 cmd_agents() {
+  if mmw_is_help "$@"; then mmw_help usage_agents; return 0; fi
   local sub="${1:-}"
   shift || true
   case "$sub" in
     materialize)
+      if mmw_is_help "$@"; then mmw_help usage_agents; return 0; fi
       local host=""
       local -a args=()
       while [ $# -gt 0 ]; do
@@ -377,10 +430,11 @@ cmd_agents() {
             [ -n "${2:-}" ] || { echo "mmw: --out 要目录" >&2; usage_agents; }
             args+=(--out "$2"); shift 2
             ;;
+          -h|--help) mmw_help usage_agents; return 0 ;;
           *) echo "mmw: 认不出参数 $1" >&2; usage_agents ;;
         esac
       done
-      [ -n "$host" ] || { echo "mmw: agents materialize 要 --host" >&2; usage_agents; }
+      [ -n "$host" ] || mmw_need "agents materialize 要 --host" "mmw agents materialize --host <pi|cursor|grok|all>"
       args+=(--host "$host")
       python3 "$MMW_ROOT/cli/lib/materialize_agents.py" "${args[@]}"
       ;;
@@ -393,15 +447,21 @@ usage_skills() {
 mmw skills materialize --host <pi|claude-code|codex|cursor|all> [--check] [--out <目录>]
     把 skills/ 源里的启动块与宿主动作块物化成宿主写死的操作
     pi → skills-pi/；claude-code → skills-claude-code/；codex → skills-codex/；cursor → skills-cursor/
+
+Examples:
+  mmw skills materialize --host all
+  mmw skills materialize --host cursor --check
 EOF
   return 2
 }
 
 cmd_skills() {
+  if mmw_is_help "$@"; then mmw_help usage_skills; return 0; fi
   local sub="${1:-}"
   shift || true
   case "$sub" in
     materialize)
+      if mmw_is_help "$@"; then mmw_help usage_skills; return 0; fi
       local host=""
       local -a args=()
       while [ $# -gt 0 ]; do
@@ -412,10 +472,11 @@ cmd_skills() {
             [ -n "${2:-}" ] || { echo "mmw: --out 要目录" >&2; usage_skills; }
             args+=(--out "$2"); shift 2
             ;;
+          -h|--help) mmw_help usage_skills; return 0 ;;
           *) echo "mmw: 认不出参数 $1" >&2; usage_skills ;;
         esac
       done
-      [ -n "$host" ] || { echo "mmw: skills materialize 要 --host" >&2; usage_skills; }
+      [ -n "$host" ] || mmw_need "skills materialize 要 --host" "mmw skills materialize --host <pi|claude-code|codex|cursor|all>"
       args+=(--host "$host")
       python3 "$MMW_ROOT/cli/lib/materialize_skills.py" "${args[@]}"
       ;;
@@ -425,6 +486,7 @@ cmd_skills() {
 
 # 派出去的那一侧从哪个路径读方法论。宿主自己会送到位的，什么都不输出。
 cmd_worktree() {
+  if mmw_is_help "$@"; then mmw_help usage_worktree; return 0; fi
   mmw_worktree_host_owns_trees || return 1
   local sub="${1:-}"
   shift || true
@@ -439,6 +501,7 @@ cmd_worktree() {
 }
 
 cmd_result() {
+  if mmw_is_help "$@"; then mmw_help usage_result; return 0; fi
   local sub="${1:-}"
   shift || true
   case "$sub" in
@@ -449,73 +512,76 @@ cmd_result() {
 }
 
 cmd_issue() {
-  local sub="${1:-}" rc
+  if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
+  local sub="${1:-}"
   shift || true
   case "$sub" in
     append)
-      [ -n "${1:-}" ] || usage_issue
-      if mmw_issue_append "$@"; then
-        :
-      else
-        rc=$?
-        if [ "$rc" -eq 2 ]; then
-          usage_issue
-        fi
-        return "$rc"
-      fi
+      if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
+      [ -n "${1:-}" ] || mmw_need "issue append 要 issue 编号" "mmw issue append <issue 编号> --section <小节标题> --line <要追加的一行>"
+      mmw_issue_append "$@"
       ;;
-    create) mmw_issue_create "$@" ;;
-    children) [ -n "${1:-}" ] || usage_issue; mmw_issue_children "$1" ;;
-    claim) [ -n "${1:-}" ] || usage_issue; mmw_issue_claim "$1" ;;
+    create)
+      if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
+      mmw_issue_create "$@"
+      ;;
+    children)
+      if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
+      [ -n "${1:-}" ] || mmw_need "issue children 要 map 或父 issue 编号" "mmw issue children <map 或父 issue 编号>"
+      mmw_issue_children "$1"
+      ;;
+    claim)
+      if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
+      [ -n "${1:-}" ] || mmw_need "issue claim 要编号" "mmw issue claim <编号>"
+      mmw_issue_claim "$1"
+      ;;
     frontier)
+      if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
       local parent="${1:-}" label="" label_prefix=""
-      [ -n "$parent" ] || usage_issue
+      [ -n "$parent" ] || mmw_need "issue frontier 要 map 或父 issue 编号" "mmw issue frontier <map 或父 issue 编号> [--label <标签> | --label-prefix <前缀>]"
       shift
       while [ $# -gt 0 ]; do
         case "$1" in
           --label) label="${2:-}"; shift 2 ;;
           --label-prefix) label_prefix="${2:-}"; shift 2 ;;
+          -h|--help) mmw_help usage_issue; return 0 ;;
           *) echo "mmw: issue frontier 认不出参数 $1" >&2; usage_issue ;;
         esac
       done
       if [ -n "$label" ] && [ -n "$label_prefix" ]; then
-        echo "mmw: issue frontier 不能同时使用 --label 和 --label-prefix" >&2
-        usage_issue
+        mmw_need "issue frontier 不能同时使用 --label 和 --label-prefix" "mmw issue frontier <编号> --label-prefix wayfinder:"
       fi
       mmw_issue_frontier "$parent" "$label" "$label_prefix"
       ;;
     link)
+      if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
       local child="${1:-}" blocker=""
-      [ -n "$child" ] || usage_issue
+      [ -n "$child" ] || mmw_need "issue link 要被挡的编号" "mmw issue link <被挡的编号> --blocked-by <挡住它的编号>"
       shift
       while [ $# -gt 0 ]; do
         case "$1" in
           --blocked-by) blocker="${2:-}"; shift 2 ;;
+          -h|--help) mmw_help usage_issue; return 0 ;;
           *) echo "mmw: issue link 认不出参数 $1" >&2; usage_issue ;;
         esac
       done
-      [ -n "$blocker" ] || { echo "mmw: issue link 要 --blocked-by" >&2; usage_issue; }
+      [ -n "$blocker" ] || mmw_need "issue link 要 --blocked-by" "mmw issue link <被挡的编号> --blocked-by <挡住它的编号>"
       mmw_issue_link "$child" "$blocker"
       ;;
     set-parent)
-      [ -n "${1:-}" ] || usage_issue
-      if mmw_issue_set_parent "$@"; then
-        :
-      else
-        rc=$?
-        if [ "$rc" -eq 2 ]; then
-          usage_issue
-        fi
-        return "$rc"
-      fi
+      if mmw_is_help "$@"; then mmw_help usage_issue; return 0; fi
+      [ -n "${1:-}" ] || mmw_need "issue set-parent 要子 issue 编号" "mmw issue set-parent <子 issue 编号> --parent <父 issue 编号>"
+      mmw_issue_set_parent "$@"
       ;;
     *) usage_issue ;;
   esac
 }
 
 cmd_domain() {
+  if mmw_is_help "$@"; then mmw_help usage_domain; return 0; fi
   local sub="${1:-}"
   shift || true
+  if mmw_is_help "$@"; then mmw_help usage_domain; return 0; fi
   [ $# -eq 0 ] || usage_domain
   case "$sub" in
     path) mmw_domain_path ;;
@@ -529,6 +595,7 @@ cmd_domain() {
 }
 
 cmd_artifact() {
+  if mmw_is_help "$@"; then mmw_help usage_artifact; return 0; fi
   local sub="${1:-}"
   shift || true
   case "$sub" in
@@ -546,6 +613,10 @@ mmw graph build    重建一次结构图谱
 mmw graph verify   图里各类关系各有多少条，够不够用
 
 构建在 mcp/graphify_ensure.py，这两条只是它的入口。
+
+Examples:
+  mmw graph build
+  mmw graph verify
 EOF
   return 2
 }
@@ -568,6 +639,12 @@ apply 会写文件，`mmw init` 里已经调过一次。MMW 拥有的那几份�
 
 规则表在 config/toolchain-rules.json，模板在 toolchain/templates/。四个宿主的编辑后
 推送通道最终都调 check。
+
+Examples:
+  mmw toolchain detect
+  mmw toolchain install
+  mmw toolchain install --yes
+  mmw toolchain check --changed-only src/app.ts
 EOF
   return 2
 }
@@ -577,16 +654,21 @@ usage_mcp() {
 mmw mcp serve <服务器名>
     从 mmw/.mcp.json 展开并启动一台 stdio MCP 服务器。
     这是 Codex plugin 的进程入口，不安装用户级 MCP 配置。
+
+Examples:
+  mmw mcp serve serena
 EOF
   return 2
 }
 
 cmd_mcp() {
+  if mmw_is_help "$@"; then mmw_help usage_mcp; return 0; fi
   local sub="${1:-}"
   shift || true
   case "$sub" in
     serve)
-      [ $# -eq 1 ] || usage_mcp
+      if mmw_is_help "$@"; then mmw_help usage_mcp; return 0; fi
+      [ $# -eq 1 ] || mmw_need "mcp serve 要服务器名" "mmw mcp serve <服务器名>"
       exec python3 "$MMW_ROOT/mcp/serve.py" "$1"
       ;;
     *) usage_mcp ;;
@@ -594,6 +676,7 @@ cmd_mcp() {
 }
 
 cmd_graph() {
+  if mmw_is_help "$@"; then mmw_help usage_graph; return 0; fi
   case "${1:-}" in
     build) mmw_graph_build ;;
     verify) mmw_graph_verify ;;
@@ -602,13 +685,48 @@ cmd_graph() {
 }
 
 cmd_toolchain() {
+  if mmw_is_help "$@"; then mmw_help usage_toolchain; return 0; fi
   case "${1:-}" in
-    detect) shift; mmw_toolchain_detect "$@" ;;
-    install) shift; mmw_toolchain_install "$@" ;;
-    apply) shift; mmw_toolchain_apply "$@" ;;
-    check) shift; mmw_toolchain_check "$@" ;;
+    detect) shift
+      if mmw_is_help "$@"; then mmw_help usage_toolchain; return 0; fi
+      mmw_toolchain_detect "$@" ;;
+    install) shift
+      if mmw_is_help "$@"; then mmw_help usage_toolchain; return 0; fi
+      mmw_toolchain_install "$@" ;;
+    apply) shift
+      if mmw_is_help "$@"; then mmw_help usage_toolchain; return 0; fi
+      mmw_toolchain_apply "$@" ;;
+    check) shift
+      if mmw_is_help "$@"; then mmw_help usage_toolchain; return 0; fi
+      mmw_toolchain_check "$@" ;;
     *) usage_toolchain ;;
   esac
+}
+
+usage_doctor() {
+  cat >&2 <<'EOF'
+mmw doctor
+
+检查这台机器上跑 mmw 需要的东西。不收参数。查用法用 --help，不要拿跑一次当查用法。
+
+Examples:
+  mmw doctor
+  mmw doctor --help
+EOF
+  return 2
+}
+
+usage_init() {
+  cat >&2 <<'EOF'
+mmw init
+
+把当前仓库配置成能跑这套工作流的样子。幂等。不收参数。查用法用 --help，不要拿跑一次当查用法。
+
+Examples:
+  mmw init
+  mmw init --help
+EOF
+  return 2
 }
 
 cmd_doctor() {
@@ -880,8 +998,23 @@ cmd_doctor() {
   return $status
 }
 
+cmd_doctor_entry() {
+  if mmw_is_help "$@"; then mmw_help usage_doctor
+  elif [ $# -gt 0 ]; then mmw_need "doctor 不收参数" "mmw doctor"
+  else cmd_doctor
+  fi
+}
+
+cmd_init_entry() {
+  if mmw_is_help "$@"; then mmw_help usage_init
+  elif [ $# -gt 0 ]; then mmw_need "init 不收参数" "mmw init"
+  else mmw_init "$@"
+  fi
+}
 
 case "${1:-}" in
+  -h|--help) mmw_help usage ;;
+  -v|--version) jq -er .version "$MMW_ROOT/package.json" ;;
   dispatch) shift; cmd_dispatch "$@" ;;
   agents) shift; cmd_agents "$@" ;;
   skills) shift; cmd_skills "$@" ;;
@@ -894,7 +1027,7 @@ case "${1:-}" in
   toolchain) shift; cmd_toolchain "$@" ;;
   mcp) shift; cmd_mcp "$@" ;;
   release) shift; exec bash "$MMW_ROOT/release/release-flow.sh" "$@" ;;
-  doctor) shift; cmd_doctor "$@" ;;
-  init) shift; mmw_init "$@" ;;
+  doctor) shift; cmd_doctor_entry "$@" ;;
+  init) shift; cmd_init_entry "$@" ;;
   *) usage ;;
 esac

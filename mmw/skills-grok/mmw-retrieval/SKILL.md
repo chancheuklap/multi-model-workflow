@@ -1,84 +1,79 @@
 ---
 name: mmw-retrieval
-description: 维护 MMW 的结构图谱和检索工具连接。仓库首次接入检索、图谱缺失或过期、建图失败、新鲜图谱答不出已知关系，或 MCP 工具无法连接、工具集不符时使用；正常的代码文本或符号查询不使用。
+description: Keep MMW's structure graph and retrieval tools connected. Use on a repo's first retrieval setup, a missing or stale graph, a failed build, a fresh graph that cannot answer a known relation, or MCP tools that will not connect or do not match the contract. Not for ordinary code text or symbol lookup.
 ---
 
-检索工具**怎么用**——什么问题问图、什么问题问符号、哪两类盲区要结合源码看、候选为什么必须回源码验证——由 Serena 和 Graphify 两台服务器各自的说明规定，那是这套用法的唯一事实来源，本技能和别处都不再写一份。
+# Retrieval
 
-宿主在 MCP 握手时就把说明交给你了。**Codex 是例外**：它不读握手交回的说明，所以 `mmw dispatch` 派 GPT 角色时会把这套纪律拼进提示词。你自己在 Codex 上跑、手里既没有说明也没有那段纪律时，说明这一面断了，按第 3 节查。
+How to query — which questions go to the graph, which go to symbols, which two blind spots still need source, and why a candidate must be verified in current source — lives in the Serena and Graphify server instructions. That is the only source for that usage. This skill does not copy it.
 
-本技能管它们说明里没有的两件事，都只有主 agent 做：**图怎么保持可用**，以及**工具本身连不上时怎么查**。
+The host hands those instructions over at MCP handshake. **If this host does not attach them, and the dispatch prompt did not include the retrieval discipline, the instruction face is down.** Follow section 3.
 
-先判是哪一件：图在但答不对，看第 1 节；工具压根调不动，跳到第 3 节。
+This skill covers two jobs the server instructions do not. Only the main agent does them: **keep the graph usable**, and **diagnose when the tools themselves will not connect**.
 
-## 1. 图的三种状态
+Pick which job: the graph is there but answers wrong → section 1. The tools will not run → section 3.
 
-结构查询自己会在调用前对一次账，你要看得懂它报的是什么：
+## 1. Three graph states
 
-| 状态 | 判据 | 处置 |
+A structure query reconciles the graph before it runs. Read what it reports:
+
+| State | Test | Action |
 | --- | --- | --- |
-| 缺失 | 图文件不在 | 建一次；不值得等就直接检索并读取源码，并说明这次没用图 |
-| 过期 | 图输入的内容指纹跟建图时不一样 | 建一次；不值得等就直接检索并读取源码，并说明这次没用图 |
-| 新鲜 | 指纹一致 | 直接查 |
+| Missing | No graph file | Build once. If a wait is not worth it, search and read source, and say this run did not use the graph |
+| Stale | Graph input fingerprint differs from the last build | Same as missing |
+| Fresh | Fingerprint matches | Query |
 
-判的是图输入内容，不是提交号。**Markdown 改动和空提交都不算过期**：文档不进图，空提交不改文件。按提交号判断会让新任务 worktree 错误地放弃仓库已有的新鲜图。
+The test is graph input content, not a commit. **Markdown edits and empty commits are not stale:** docs are not in the graph, and an empty commit changes no files. Judging by commit would make a new task worktree drop a graph that is still fresh.
 
-## 2. 建一次
+## 2. Build once
 
 ```bash
 mmw graph build
 ```
 
-五个阶段，任何一步失败旧图都原样保留。它报的是断在哪一阶段，照这张表读：
+Five stages. Any failure leaves the old graph in place. It reports which stage broke:
 
-| 阶段 | 断在这里意味着 |
+| Stage | Means |
 | --- | --- |
-| 原生抽取 | 语言解析器缺了。这时拒绝发布，宁可没有图也不要残的 |
-| 跨语言边 | 配置里对应那一项跟当前代码结构对不上，看 [building.md](building.md) |
-| 合并 | 两张图合不起来。这是插件自己的故障，报出来 |
-| 路由桥 | 代码里有同名处理函数，连不出唯一的一条边。去看那几处源码 |
-| 校验发布 | 半成品被拦住了，旧图还在。报出它列的具体违例 |
+| Native extract | A language parser is missing. Refuse to publish. No graph is better than a partial one |
+| Cross-language edges | That config item does not match the current code structure. See [building.md](building.md) |
+| Merge | The two graphs will not combine. Plugin fault. Report it |
+| Route bridge | Same-named handlers, no unique edge. Read those source sites |
+| Validate and publish | A partial graph was blocked. The old graph remains. Report the listed violations |
 
-## 3. 工具本身连不上
+## 3. Tools will not connect
 
-图是好的但工具调不动，是另一件事，这时重建图没有用。
+A good graph with tools that will not run is a different job. Rebuilding the graph does not help.
 
 ```bash
 mmw doctor
 ```
 
-它真把三台服务器——Serena、Graphify，加上给 `/mmw-research` 查官方文档用的 Context7——各拉起来握一次手，再拿实际暴露的工具跟裁剪合同逐条比对。只看配置在不在会漏掉一整类故障：配置在、工具名也在列表里，直到模型真去调用才报错，而那时它已经在一次审查的中途了。
+It actually starts the three servers — Serena, Graphify, and Context7 for `/mmw-research` official docs — handshakes each, and compares the exposed tools to the trim contract. Checking only that config exists misses a class of faults: the config is there, the tool names are in the list, and the model errors only when it calls, mid-review.
 
-| doctor 报的 | 意味着 |
+| doctor reports | Means |
 | --- | --- |
-| 某个服务器起不来 | 那个 Python 工具包没装。插件替不了你装，命令在它的输出里 |
-| 工具集跟合同对不上 | 上游改了默认暴露面。多一个是护栏破了，少一个是能力缺了，两种都当场处理 |
-| 用户级配置没装或跟插件定义不一致 | 跑它给出的安装脚本。这一面断了只在换宿主时才会发现 |
-| 以上都不是 | 把 doctor 的原样输出记下来，按第 4 节末尾降级：改用文本检索继续做，并在报告里写明 |
+| A server will not start | That Python package is not installed. The plugin does not install it. The command is in the output |
+| Tool set does not match the contract | Upstream changed the default surface. An extra tool is a broken guard. A missing tool is a missing capability. Handle both now |
+| User-level config is missing or disagrees with the plugin | Run the install script it prints. This face only shows up when switching hosts |
+| None of the above | Keep the raw doctor output. Degrade as the end of section 4: continue with text search, and say so in the report |
 
-## 4. 三条守则
+## 4. Three rules
 
-| 守则 | 为什么 |
+| Rule | Action |
 | --- | --- |
-| 图只由 `mmw graph build` 更新 | 检索工具自带的更新命令只做原生抽取，跨语言边和路由桥全丢，而文件名和体积看不出区别 |
-| 要新图就现跑这条命令 | 监听式自动更新和提交钩子会在后台产生说不清来历的图，出错时追不回是哪一次留下的 |
-| 图留在本机 | 它是几十兆的派生物，跟着 checkout 走。`mmw init` 已经把它挡在版本库外 |
+| Only `mmw graph build` updates the graph | The retrieval tool's own update command does native extract only. Cross-language edges and the route bridge are dropped. Filename and size look the same |
+| Want a new graph, run that command now | Watcher updates and commit hooks leave graphs with no provenance |
+| The graph stays on this machine | It is tens of megabytes of derived data, tied to the checkout. `mmw init` already keeps it out of the repo |
 
-图建不出来或工具连不上时，记下原因，改用文本检索和文件读取继续做。在报告里写明这次没有使用检索工具。
+If the graph will not build or the tools will not connect, record why, continue with text search and file reads, and say this run did not use retrieval tools.
 
-## 5. 接入、验证、出错
-
-一个仓库第一次接入，或者查询结果异常时，读取 [building.md](building.md)：它规定跨语言边、配置、验证、失败处置和任务 worktree 的图复用。
-
-## 下一步
-
-| 情况 | 下一步 |
+| Case | Action |
 | --- | --- |
-| 图建好了 | **自己继续**：回到把你叫起来的那件事 |
-| 图缺失或过期，值得等 | **自己继续**：`mmw graph build`，再查 |
-| 图缺失或过期，不值得等 | **自己继续**：直接检索并读取源码，在报告里写明这次没用图和原因 |
-| 建不出来，报了具体的失败阶段 | **自己继续**：对照本文「2. 建一次」里的阶段表读失败阶段；处置按 [building.md](building.md) 的「5. 建不出来」 |
-| 这个仓库还没接入 | **自己继续**：按 [building.md](building.md) 的「1. 接入一个仓库」配一次 |
-| 工具调不动，图却是好的 | **自己继续**：`mmw doctor`，按本文「3. 工具本身连不上」内 doctor 报表处置 |
-| 图建出来了，但某一类跨语言边是零 | **停**：报这个仓库的检索能力不完整、缺的是哪一类，让用户定是补配置还是先这样用 |
-| 结构查询答不出一个你确信存在的关系，图却是新鲜的 | **停**：报这个关系是什么、查过什么，让用户判断是提取算法漏了这种写法还是问法不对 |
+| Graph built, one class of cross-language edge is zero | Report incomplete retrieval for this repo and which class is missing. Let the user choose: fix the config, or use it as-is |
+| A relation you know exists is unanswered, and the graph is fresh | Report the relation and what you queried. Let the user judge: extractor gap, or a bad question |
+| Graph is usable | Return to the work that called you |
+
+## 5. First connect, verify, fail
+
+On a repo's first connect, or when query results look wrong, read [building.md](building.md): cross-language edges, config, verify, failure handling, and graph reuse on a task worktree.

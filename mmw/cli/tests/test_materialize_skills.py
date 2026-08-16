@@ -25,7 +25,7 @@ import materialize_skills as ms  # noqa: E402
 角色表 = {
     "worker": "mmw-worker",
     "worker-high-risk": "mmw-worker",
-    "prototype-worker": "mmw-prototype-worker",
+    "planner": "mmw-planner",
     "reviewer-gpt": "mmw-reviewer-gpt",
     "reviewer-claude": "mmw-reviewer-claude",
 }
@@ -41,11 +41,6 @@ CODEX_PROFILE = {
             "model": "gpt-x",
             "thinking": "high",
             "method_skill": "mmw:mmw-tdd",
-        },
-        "prototype-worker": {
-            "model": "gpt-x",
-            "thinking": "high",
-            "method_skill": "mmw:mmw-prototype",
         },
     },
 }
@@ -147,7 +142,7 @@ def test_current_模式用当前任务_worktree(假源: Path, tmp_path: Path) ->
 def test_cursor_current_模式不创建结果树(假源: Path, tmp_path: Path) -> None:
     写(假源 / "mmw-alpha" / "SKILL.md",
        "---\nname: mmw-alpha\ndescription: 甲。\n---\n\n"
-       "[[mmw-launch:prototype-worker:current]]\n")
+       "[[mmw-launch:planner:current]]\n")
     out = tmp_path / "cursor"
     物化("cursor", out)
     正文 = 读(out, "mmw-alpha/SKILL.md")

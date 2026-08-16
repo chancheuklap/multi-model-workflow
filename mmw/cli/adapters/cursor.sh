@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Cursor 宿主 adapter。
 #
-# 只读角色与当前任务 worktree 上的可写角色（planner、prototype-worker）：技能产物
+# 只读角色与当前任务 worktree 上的可写角色（planner）：技能产物
 # 已经写死原生 Task；本文件只在有人仍调用 `mmw dispatch` 时给出兼容返回。
 #
 # worker / worker-high-risk 必须走 `mmw-cursor-agent --worktree`，由隔离包装拉起

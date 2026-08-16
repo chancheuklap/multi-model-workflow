@@ -9,12 +9,6 @@
     }
   },
   "subagents": {
-    "investigator": {
-      "name": "mmw-investigator",
-      "description": "只读调查者。按一个明确角度检索仓库或一手资料，逐条给出出处，不修改文件。",
-      "body": "mmw-investigator.md",
-      "sandbox_mode": "read-only"
-    },
     "reviewer-gpt": {
       "name": "mmw-reviewer-gpt",
       "description": "只读审查者。按 MMW 审查方法论检查一个指定视角，只报告有证据的实际问题。",
@@ -27,12 +21,6 @@
       "description": "计划编写者。在当前任务 worktree 中把一张 ticket 写成一份 plan，不提交、不修改源码。",
       "body": "mmw-planner.md",
       "method_skill": "mmw:mmw-planner",
-      "sandbox_mode": "workspace-write"
-    },
-    "prototype-worker": {
-      "name": "mmw-prototype-worker",
-      "description": "原型执行者。在当前任务 worktree 完成一个指定原型变体，不创建结果 worktree。",
-      "body": "mmw-prototype-worker.md",
       "sandbox_mode": "workspace-write"
     },
     "designer": {

@@ -1,89 +1,121 @@
-# UI Mockup
+# UI Prototype
 
-UI mockup 用可运行页面理顺页面、状态和操作路径。它是 prototype 资产，不是临时预览。用户在浏览器中走查，选择一个方向，或者指出需要组合和修改的部分。
+Generate **several radically different UI variations** on a single route, switchable from a floating bottom bar. The user flips between variants in the browser, picks one (or steals bits from each). Keep every variant in this prototype; the README lists the chosen one as reusable.
 
-## 1. 确定本轮起点
+If the question is about logic/state rather than what something looks like — wrong branch. Use [LOGIC.md](LOGIC.md).
 
-先读取 `README.md` 和 `mockup/current/`。只读取 `README.md` 点名的历史变体。再读取与本轮验证问题相关的文档、讨论结论、真实数据、组件库和样式系统。
+## When this is the right shape
 
-| 当前情况 | 本轮路径 |
-| --- | --- |
-| 还没有 `mockup/current/`，而且整体方向不明确 | 生成多个完整变体，让用户选择或组合一个起点 |
-| 还没有 `mockup/current/`，而且只有某一部分的方向不明确 | 先把已经明确的部分建立为 `mockup/current/`。再只为不明确的部分生成多个局部变体 |
-| 已有 `mockup/current/`，而且某一部分的方向不明确 | 保持其他部分不变，只为这一部分生成多个局部变体 |
-| 方向已经明确 | 没有当前 mockup 时直接创建 `mockup/current/`；已有当前 mockup 时直接修改它 |
+- "What should this page look like?"
+- "I want to see a few options for this dashboard before committing."
+- "Try a different layout for the settings screen."
+- Any time the user would otherwise spend a day picking between three vague mockups in their head.
 
-变体只用于比较不明确的方向。已有当前 mockup 时，以它为起点继续优化。只有整体方向需要重新比较时，才生成新的完整变体。
+If a current UI already exists in this prototype and the direction is settled, edit that current UI. Generate variants only while a structural direction is still open. A later round that needs real writes is a new question — stub mutations this round.
 
-局部变体共享 `mockup/current/` 作为基底。开始比较后，选择前不修改这个基底。
+## Two sub-shapes — strongly prefer sub-shape A
 
-把保持不变的部分和本轮路径写进 `README.md`。
+A UI prototype is much easier to judge when it's **butting up against the rest of the app** — real header, real sidebar, real data, real density. A throwaway route on its own is a vacuum: every variant looks fine in isolation. Default to sub-shape A whenever there's a plausible existing page to host the variants. Only reach for sub-shape B if the prototype genuinely has no nearby home.
 
-## 2. 选择承载形态
+The durable files live where `mmw artifact path prototype` prints. The app keeps only the thin wiring that mounts them.
 
-| 项目情况 | 承载形态 |
-| --- | --- |
-| 已有成熟应用，而且 prototype 属于现有页面或流程 | 挂入已有页面。保留真实页头、侧边栏、数据密度、取数、参数和鉴权，只替换正在验证的部分 |
-| 全新产品、纯后端仓库，或者需要跨前端和后端验证可行性 | 使用独立 HTML。current 的入口是 `mockup/current/index.html` |
-| 已有应用，但没有现有页面能够承载新的顶层界面 | 按项目现有路由约定建立明确标记的 prototype 路由 |
+### Sub-shape A — adjustment to an existing page (preferred)
 
-UI mockup 的持久资产必须保存在 `mockup/`。应用源码只保留运行所需的薄接线。把接线文件与 `mockup/` 资产的对应关系写进 `README.md`。
+The route already exists. Variants are rendered **on the same route**, gated by a `?variant=` URL search param. The existing data fetching, params, and auth all stay — only the rendering swaps. This is the default; pick it unless there's a specific reason not to.
 
-## 3. 创建当前 mockup 或变体
+If the prototype is for something that doesn't yet have a page but *would naturally live inside one* (a new section of the dashboard, a new card on the settings screen, a new step in an existing flow) — that's still sub-shape A. Mount the variants inside the host page.
 
-直接创建或修改时，只改 `mockup/current/`。它是后续轮次持续优化的唯一当前 mockup。
+### Sub-shape B — a new page (last resort)
 
-需要变体时，先取一个 `<问题 slug>`。写入第一个使用它的文件前，运行 `mmw artifact path prototype [--issue <编号>] --sub mockup/variants/<问题 slug>`。列出输出路径的父目录。目标已存在时，先读已有 `README.md`。没有索引时，读全部文件名和一级标题。确认是不同问题后，重新取一个承载差别的名字。仍取不出时，从 `-02` 开始加两位序号。不问用户，也不写进交回内容。然后建立 `mockup/variants/<问题 slug>/`。完整变体可以改变整页布局、信息层级或主要操作入口。局部变体只替换本轮比较的部分。变体必须有真实结构差异。只改变颜色或文案不构成新变体。
+Only use this when the thing being prototyped genuinely has no existing page to live inside — e.g. an entirely new top-level surface, or a flow that can't be embedded anywhere sensible.
 
-每个变体使用一个简短的 `kebab-case` `变体 key`。同一个 key 同时用于变体目录名、`?variant=<变体 key>` 和 `preview/` 的加载映射。每个变体目录保存一份可以由 `preview/` 加载的可运行内容。
+Create a **prototype route** following whatever routing convention the project already uses — don't invent a new top-level structure. Name it so it's obviously a prototype (e.g. include the word `prototype` in the path or filename). Same `?variant=` pattern.
 
-`preview/` 是这一组变体的运行入口。它按 `?variant=` 加载对应变体。刷新后保持同一变体。它保留真实取数、参数和鉴权，只替换本轮比较的部分。把入口、每个变体 key、目录和页面 URL 写进 `README.md`。变体数量由仍待比较的结构方向决定，不使用固定数量。
+Before committing to sub-shape B, sanity-check: is there really no existing page this could be embedded in? An empty route hides design problems that a populated one would expose.
 
-多个结构方向可以独立生成，而且并行能够缩短本轮时，可以为每个方向派一个 `prototype-worker`：
+In both sub-shapes the floating bottom bar is identical.
 
-| 栏 | 内容 |
-| --- | --- |
-| 目标 | 本轮验证问题、完整变体或局部变体，以及负责的方向和变体 key |
-| 读 | 相关页面、真实数据、组件库、样式系统和现有 prototype 资产的精确路径 |
-| 约束 | 只实现分配的方向；只修改对应变体目录；不写测试；在页面上标明 prototype 身份；不创建结果 worktree |
-| 验收 | 变体可以运行；结构差异成立；交回运行方式、页面 URL 和变体 key |
+## Process
 
-派发前提交当前任务分支。确认 worktree 干净。每个 worker 写在当前任务 worktree 的对应变体目录里，不创建结果 worktree。把 `<问题 slug>` 和 `变体 key` 写进对应 task。变体目录是 `mockup/variants/<问题 slug>/<变体 key>/`。
+### 1. State the question and pick N
 
-启动：调用原生 Task，agent 设为 `mmw-prototype-worker`，prompt 传四栏表全文。该 subagent 使用当前工作树，不另开结果树。互不依赖的实例在同一条消息中并行启动。
+Default to **3 variants**. Use fewer when only one structural question is open. More than 5 stops being radically different and starts being noise — cap there.
 
-收到报告后，读取报告和对应变体目录的 diff。按 `/mmw-verifying-agent-output` 验证结构差异、项目组件约束和可运行性。
+Write down the plan in one line, in `README.md`:
 
-并行没有明显收益时，由主 agent 直接完成。
+> "Three variants of the settings page, switchable via `?variant=`, on the existing `/settings` route."
 
-## 4. 连接后端行为
+This works whether the user is here to push back or not.
 
-初轮可以使用桩来验证 UI 流程。流程确定后，为每个功能和按钮补上后端脚本、接口合同或可复用 `module`。把精确对应关系写进 `README.md`。
+### 2. Generate radically different variants
 
-写操作尚未接入真实后端时，页面必须清楚显示桩行为。当前问题需要真实写操作时，先完成对应的后端 prototype，再让页面调用它。
+Draft each variant. Hold each one to:
 
-呈现与当前问题相关的加载、空、错误、成功和部分完成状态。每次变化后，显示用户判断当前问题所需的完整状态。
+- The page's purpose and the data it has access to.
+- The project's component library / styling system (TailwindCSS, shadcn, MUI, plain CSS, whatever).
+- A clear exported component name, e.g. `VariantA`, `VariantB`, `VariantC`.
 
-## 5. 打开、走查和处理选择
+Variants must be **structurally different** — different layout, different information hierarchy, different primary affordance, not just different colours. Three slightly-tweaked card grids isn't a UI prototype, it's wallpaper. If two drafts come out too similar, redo one with explicit "do not use a card grid" guidance.
 
-交给用户前，启动 mockup，操作本轮关键路径，并确认页面可以运行。
+Write each variant under this prototype. `mmw artifact path prototype --sub <path>` prints each path.
 
-按 [SKILL.md](SKILL.md)「用户走查」的浏览器规则打开全部页面。变体组中的每个变体 key 使用一个独立 URL。本轮没有变体组时，直接打开 current。
+If several structural directions can run in parallel, dispatch a group of writable host subagents on this worktree — one variant each, same turn. Pass the question, the variant key, and that variant's path. Do not create a result worktree. Do not run TDD. Do not dispatch `worker`.
 
-用户给出意见后，先记下用户原话。再按下表继续：
+Otherwise do the variants yourself.
 
-| 用户意见 | 动作 |
-| --- | --- |
-| 继续修改 | 修改对应的 current 或变体，再次打开并走查 |
-| 接受当前 mockup | 把它记录为本轮结果 |
-| 选择一个变体 | 把选中结果独立写进 `mockup/current/`，再打开 current 让用户确认 |
-| 组合多个变体 | 把用户指定的部分组合进 `mockup/current/`，再打开 current 让用户确认 |
-| 否定整个方向 | 保留现有资产，记录击穿方向的事实 |
+### 3. Wire them together
 
-选择或组合后的 `mockup/current/` 不依赖 `preview/` 或变体目录。用户确认 current 与选择一致后，本轮才完成。原变体组继续作为 prototype 资产保存。
+Create a single switcher component on the route:
 
-## 6. 保存结果
+```tsx
+// pseudo-code — adapt to the project's framework
+const variant = searchParams.get('variant') ?? 'A';
+return (
+  <>
+    {variant === 'A' && <VariantA {...data} />}
+    {variant === 'B' && <VariantB {...data} />}
+    {variant === 'C' && <VariantC {...data} />}
+    <PrototypeSwitcher variants={['A','B','C']} current={variant} />
+  </>
+);
+```
 
-`mockup/current/` 中经过用户确认的页面结构、组件和交互，是下游可以直接参考或复用的内容。变体组和 `preview/` 继续作为 prototype 资产保存，不列为可复用内容。
+For sub-shape A (existing page): keep all the existing data fetching above the switcher; only the rendered subtree changes per variant.
 
-本轮得到用户确认后，按 [capture.md](capture.md) 更新 `README.md`、提交并交回。
+For sub-shape B (new page): the prototype route mounts the same switcher.
+
+### 4. Build the floating switcher
+
+A small fixed-position bar at the bottom-centre of the screen with three pieces:
+
+- **Left arrow** — cycles to the previous variant (wraps around).
+- **Variant label** — shows the current variant key and, if the variant exports a name, that name too. e.g. `B — Sidebar layout`.
+- **Right arrow** — cycles forward (wraps around).
+
+Behaviour:
+
+- Clicking an arrow updates the URL search param (use the framework's router — `router.replace` on Next, `navigate` on React Router, etc) so the variant is shareable and reload-stable.
+- Keyboard: `←` and `→` arrow keys also cycle. Don't intercept arrow keys when an `<input>`, `<textarea>`, or `[contenteditable]` is focused.
+- Visually distinct from the page (e.g. high-contrast pill, subtle shadow) so it's obviously not part of the design being evaluated.
+- Hidden in production builds — gate on `process.env.NODE_ENV !== 'production'` or an equivalent check, so a stray prototype merge can't ship the bar to users.
+
+Put the switcher in a single shared component so both sub-shapes can reuse it. Locate it in this prototype, or wherever shared UI lives in the project if the production gate holds.
+
+### 5. Hand it over
+
+Surface the URL (and the `?variant=` keys). Open each variant as [SKILL.md](SKILL.md) specifies for a walkthrough. The interesting feedback is usually **"I want the header from B with the sidebar from C"** — that's the actual design they want.
+
+If they pick or combine, write that result as the current UI in this prototype, then open it so they confirm. Keep the other variants. The current UI must not depend on the switcher.
+
+If they want a change, edit and walk through again. If they reject the whole direction, keep the files and record that fact in `README.md`.
+
+### 6. Capture the answer
+
+Once a variant has won, capture it the way the [SKILL](SKILL.md) describes. List the current UI as reusable. Do not list the switcher or the losing variants as reusable. This skill does not fold the winner into production.
+
+## Anti-patterns
+
+- **Variants that differ only in colour or copy.** That's a tweak, not a prototype. Real variants disagree about structure.
+- **Sharing too much code between variants.** A shared `<Header>` is fine; a shared `<Layout>` defeats the point. Each variant should be free to throw out the layout.
+- **Wiring variants to real mutations.** Read-only prototypes are fine. If a variant needs to mutate, point it at a stub — the question is "what should this look like", not "does the backend work".
+- **Promoting the prototype directly to production.** The variant code was written under prototype constraints (no tests, minimal error handling). Rewrite it properly when you fold it in.
