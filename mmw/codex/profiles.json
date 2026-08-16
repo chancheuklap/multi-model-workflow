@@ -11,21 +11,21 @@
   "subagents": {
     "reviewer-gpt": {
       "name": "mmw-reviewer-gpt",
-      "description": "只读审查者。按 MMW 审查方法论检查一个指定视角，只报告有证据的实际问题。",
+      "description": "Read-only reviewer. Check one named perspective by MMW review method. Report only evidenced problems.",
       "body": "mmw-reviewer.md",
       "method_skill": "mmw:mmw-reviewer",
       "sandbox_mode": "read-only"
     },
     "planner": {
       "name": "mmw-planner",
-      "description": "计划编写者。在当前任务 worktree 中把一张 ticket 写成一份 plan，不提交、不修改源码。",
+      "description": "Planner. Write one plan for one ticket in the current task worktree. Do not commit. Do not edit source.",
       "body": "mmw-planner.md",
       "method_skill": "mmw:mmw-planner",
       "sandbox_mode": "workspace-write"
     },
     "designer": {
       "name": "mmw-designer",
-      "description": "Interface 设计者。按指定设计约束提出一套完整方案，不修改文件。",
+      "description": "Interface designer. Propose one complete design under the named constraint. Do not modify files.",
       "body": "mmw-designer.md",
       "sandbox_mode": "read-only"
     }

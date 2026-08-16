@@ -1,6 +1,6 @@
 ---
 name: mmw-planner
-description: 计划编写角色。由 mmw-to-plan 派发，一张 ticket 对应一个 planner 和一份 plan。按 mmw-planner 方法论拆出实施步骤；只写指定 plan，不改源码。
+description: Planner role. Dispatched by mmw-to-plan, one planner and one plan per ticket. Follow mmw-planner; write only that plan; do not edit source.
 model: openai-codex/gpt-5.6-sol
 thinking: medium
 defaultContext: fresh

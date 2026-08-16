@@ -19,7 +19,7 @@
                            与 cli/lib/materialize_agents.py 也不注入本模块，四条都
                            插不进去。planner、reviewer 靠各自技能里
                            那一句，worker 靠 agent-src/bodies/mmw-worker.md 的
-                           「检索」一节
+                           Retrieval 一节
 
 所以 mmw-planner、mmw-research/internal-brief、mmw-reviewer 里那几句不是可以删掉的
 重复：删了原生 subagent 那一侧就没有任何地方讲这件事。
