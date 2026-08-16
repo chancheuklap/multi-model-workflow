@@ -1,98 +1,98 @@
-# 接入、验证、出错
+# Connect, verify, fail
 
-## 0. 跨语言边连的是什么
+## 0. What the cross-language edges connect
 
-原生抽取按语言各扫各的：前端发出的一次请求和后端处理它的那个函数之间没有任何一条边，两种语言的解析器互相看不见对方。同一处断裂也让符号查询失效——装饰器注册的处理函数没有静态引用者，动态导入解构出来的符号连不上定义。
+Native extract scans each language on its own. A request from the frontend and the backend function that handles it have no edge. The two parsers cannot see each other. The same break kills symbol query: a handler registered by a decorator has no static caller, and a symbol destructured from a dynamic import will not bind to its definition.
 
-建图时单算的这四类边补上它：
+Build time adds these four edge classes:
 
-| 边 | 连的是什么 |
+| Edge | Connects |
 | --- | --- |
-| 请求到接口 | 前端或另一个服务发出的调用，连到后端处理它的函数 |
-| 进程间调用到处理函数 | 渲染进程发出的调用，连到主进程注册的处理函数 |
-| 消息生产方到消费方 | 往一个主题写的地方，连到读它的地方 |
-| 函数到它注册的路由 | 普通函数，连到装饰器给它挂上的那个接口 |
+| Request to handler | A call from the frontend or another service, to the backend function that handles it |
+| IPC call to handler | A call from the renderer, to the handler registered in the main process |
+| Producer to consumer | A write to a topic, to a read of that topic |
+| Function to the route it registered | An ordinary function, to the interface a decorator hung on it |
 
-**这四类就是检索能不能用的分界。** 少了它们，「这个接口谁在调」「改这个函数影响哪个页面」都答不出来，而答不出来的样子跟「确实没人调」一模一样。
+**These four classes are the line between retrieval that works and retrieval that does not.** Without them, "who calls this interface" and "which page does this function change" look the same as "nobody calls it".
 
-## 1. 接入一个仓库
+## 1. Connect a repo
 
-配置在仓库根 `.mmw.json` 的 `retrieval.graph` 一节。四类边各自独立：某一类不写就是不算它，不因此失败。一个只有后端的仓库照样能建出请求到接口那一类。
+Config lives under `retrieval.graph` in the repo-root `.mmw.json`. Each class is independent: omit one and that class is not counted. That is not a failure. A backend-only repo can still build request-to-handler edges.
 
-| 键 | 写什么 | 不写会怎样 |
+| Key | Write | If omitted |
 | --- | --- | --- |
-| `services` | 后端服务的名字，一行一个。路由与 HTTP 调用的边靠它区分是谁的接口 | 配了 `routes` 或 `http` 时必填 |
-| `routes` | 后端路由怎么枚举，见下一节 | 不算请求到接口那一类边 |
-| `ipc` | 桌面壳的目录清单、频道常量表在壳里的相对路径、常量对象叫什么 | 不算进程间调用那一类边 |
-| `topics` | 消息主题的生产方、排空方、消费方各在哪个文件的哪个常量里 | 不算消息主题那一类边 |
-| `http` | 服务之间的客户端：Python 侧是文件加类名，TypeScript 侧是文件加名字，各自声明打给哪个服务 | 不算服务之间调用那一类边 |
-| `assertions` | 这个仓库的拓扑事实，见第 3 节 | 提取器静默退化时没有任何一处会报错 |
-| `exclude_roots` | 不该进图的根目录，发布前逐个节点核对 | 只挡 Markdown |
-| `tolerated_warnings` | 这个仓库已知且接受的能力缺口，见第 5 节 | 任何一条能力缺失的警告都会让整张图被拒 |
+| `services` | Backend service names, one per line. Route and HTTP edges use this to know whose interface | Required when `routes` or `http` is set |
+| `routes` | How to enumerate backend routes. See the next section | No request-to-handler edges |
+| `ipc` | Desktop-shell directory list, relative path of the channel-constant table in the shell, constant object name | No IPC edges |
+| `topics` | Which file and constant holds producers, drainers, and consumers for message topics | No topic edges |
+| `http` | Clients between services: Python is file plus class name, TypeScript is file plus name, each naming the target service | No service-to-service call edges |
+| `assertions` | Topology facts for this repo. See section 3 | Silent extractor drift has nowhere to fail |
+| `exclude_roots` | Root directories that must not enter the graph. Checked per node before publish | Markdown only |
+| `tolerated_warnings` | Known accepted capability gaps for this repo. See section 5 | Any capability-missing warning rejects the whole graph |
 
-排除哪些路径主要走仓库根的 `.graphifyignore`，那是检索工具自己的机制；`exclude_roots` 是发布前的双保险。`mmw init` 已经往这个文件里铺了两行：`*.md`，还有任务 worktree 的目录。
+Path exclusion is primarily `.graphifyignore` at the repo root, the retrieval tool's own mechanism. `exclude_roots` is a second check before publish. `mmw init` already writes two lines into that file: `*.md`, and the task-worktree directory.
 
-**Markdown 必须排除。** 新鲜度指纹本来就不看 `.md`。文档一旦进图，改文档不会让图过期，图里那份正文就一直是旧的，而状态照报新鲜。`exclude_roots` 那道校验挡得住 Markdown，但它只在配了 `retrieval.graph` 的仓库里走到；没配的仓库走裸 `graphify update`，没有任何一处拦截。所以这一条只能靠 `.graphifyignore`。
+**Markdown must be excluded.** The freshness fingerprint never looks at `.md`. Docs in the graph stay stale when docs change, while status still says fresh. `exclude_roots` catches Markdown, but only in repos that set `retrieval.graph`. A repo without that config runs bare `graphify update` with no intercept. So this rule lives in `.graphifyignore`.
 
-**任务 worktree 的目录必须排除。** 每棵 worktree 是一整份代码副本，不排除的话图会翻好几倍，而且全是重复节点。这个仓库还有别的整份副本——上游镜像、重建候选、vendor 目录——自己往这个文件里加。
+**The task-worktree directory must be excluded.** Each worktree is a full code copy. Leave it in and the graph multiplies, all duplicate nodes. Other full copies in this repo — upstream mirrors, rebuild candidates, vendor — add those yourself.
 
-## 2. 路由怎么枚举
+## 2. How to enumerate routes
 
-`routes.provider` 指向仓库自己的一个函数，写成 `相对路径.py:函数名`。它返回 `{服务名: 应用对象}`，插件在隔离的子进程里跑它、读完整路由表。
+`routes.provider` points at a function in this repo, written `relative/path.py:function_name`. It returns `{service_name: app_object}`. The plugin runs it in an isolated subprocess and reads the full route table.
 
-不扫源码里的装饰器，是因为路由器层层挂载时前缀在挂载处拼接，装饰器上只写得到最后一段。扫出来的那一段连不上前端调用的 `/api/v1/hold`，边就断在这里。
+Do not scan decorators in source. When routers mount in layers, the prefix is joined at the mount, and the decorator only has the last segment. That segment will not match a frontend call to `/api/v1/hold`, and the edge breaks there.
 
-provider 只做接线，不初始化用户状态：不跑启动流程、不建目录、不迁移数据库、不拿锁、不碰凭据。`routes.env` 里的环境变量把应用的落盘位置全指向临时目录，`{tmp}` 是唯一的占位符。
+The provider wires. It does not start user state: no boot, no directories, no migrations, no locks, no credentials. `routes.env` points the app's on-disk locations at a temp directory. `{tmp}` is the only placeholder.
 
-`routes.user_data_guard` 再指一个函数，返回真实用户数据目录的清单。探针前后各取一次指纹，动了就当场失败。这个函数在插件进程里跑，只能依赖标准库——它做的是路径计算，本来也不需要别的。
+`routes.user_data_guard` points at another function that returns the list of real user-data directories. The probe fingerprints before and after. A change fails immediately. That function runs in the plugin process and may use only the standard library — it computes paths.
 
-## 3. 拓扑断言
+## 3. Topology assertions
 
-覆盖率是数字，数字掉了没人看得见。断言钉的是具体事实，提取器静默退化时当场断在那里。
+Coverage is a number. A dropped number is invisible. An assertion pins a concrete fact. Silent extractor drift fails there.
 
-| 断言 | 钉住什么 |
+| Assertion | Pins |
 | --- | --- |
-| `route_handler` | 某条路由必须恰好解析到某个文件里的某个函数 |
-| `route_per_service` | 每个服务都要有这条路由，比如 `GET /health` |
-| `http_methods` | 服务之间的调用必须覆盖到这些方法。提取器把非 GET 退化成 GET 时这一条会断 |
-| `topic_relations` | 某个主题的关系集合必须恰好是这几个 |
+| `route_handler` | This route must resolve to exactly this function in this file |
+| `route_per_service` | Every service has this route, for example `GET /health` |
+| `http_methods` | Calls between services must cover these methods. Breaks when the extractor degrades non-GET to GET |
+| `topic_relations` | This topic's relation set must be exactly these |
 
-断言失效时先判断是提取器坏了还是拓扑合法演进了。是后者，就在 `.mmw.json` 里改这条断言。
+When an assertion fails, decide: extractor bug, or legal topology change. The latter: edit the assertion in `.mmw.json`.
 
-## 4. 验证接对了
+## 4. Verify the wiring
 
 ```bash
 mmw graph verify
 ```
 
-它报每一类边各算出来多少条。**判据不是数量本身，是配置里声明要算的那几类一条都不能是零。** 某一类是零，说明配置跟当前代码结构对不上，而不是这个仓库没有那种关系。
+It reports how many edges each class produced. **The test is not the count. Every class the config says to count must be non-zero.** A zero class means the config does not match the current code structure, not that this repo has no such relations.
 
-再抽查一条：挑一个装饰器注册的接口，用结构查询问它的调用方，应该能走到前端发起调用的位置。走不到就是路由桥没接上。
+Then spot-check one: pick a decorator-registered interface, ask the structure query for its callers, and you should reach the frontend call site. If not, the route bridge is not wired.
 
-## 5. 建不出来
+## 5. It will not build
 
-| 报的是什么 | 做什么 |
+| Report | Action |
 | --- | --- |
-| 缺某个语言的解析器 | 装上它再建。这时的图是残缺的，宁可没有也不要错的。确实可以接受的缺口写进 `tolerated_warnings`，写的是警告里能认出它的那段原文 |
-| 配了某一类却一条边都没建出来 | 本文「0. 跨语言边连的是什么」表里对应那一项的配置跟当前代码结构对不上了 |
-| 某条断言断了 | 看本文「3. 拓扑断言」 |
-| 路由桥出现多个候选 | 代码里有同名处理函数。这是真实的歧义，不猜，去看那几处源码 |
-| 正在被别的进程建 | 等待完成，或者直接检索并读取源码 |
-| 建到一半工作树变了 | 重建一次。中途改动会让图跟代码对不上 |
+| A language parser is missing | Install it, then build. The graph at this point is partial. No graph is better than a wrong one. An accepted gap goes in `tolerated_warnings`, using the warning's identifying text |
+| A class was configured and zero edges were built | The matching row in section 0 no longer matches the current code structure |
+| An assertion failed | See section 3 |
+| Route bridge has multiple candidates | Same-named handlers in the code. Real ambiguity. Do not guess. Read those source sites |
+| Another process is building | Wait for it, or search and read source |
+| The worktree changed mid-build | Build again. A mid-build edit leaves the graph off the code |
 
-**任何一种都不是任务的阻塞点。** 记下原因，回文本检索继续做事，在报告里写明这次没用图。
+**None of these block the task.** Record why, continue with text search, and say this run did not use the graph.
 
-## 6. 任务 worktree
+## 6. Task worktree
 
-新建的任务 worktree 与已有图的输入内容相同时，直接复用该图。输入内容不同后，为当前 worktree 重建。
+A new task worktree whose graph input matches an existing graph reuses that graph. After the input differs, rebuild for the current worktree.
 
-worktree 里的图不进版本库，也不同步到别的机器——它是本机派生物，几十兆。
+A worktree graph does not enter the repo and does not sync to other machines. It is derived data on this machine, tens of megabytes.
 
-符号查询在任务 worktree 里另有一条约束。Serena 按启动它的那个进程的当前目录确定项目根，之后不跟着会话切换目录。会话在主检出里启动、随后进任务 worktree 干活时，项目根仍然是主检出。
+Symbol query has one extra constraint on a task worktree. Serena pins the project root to the current directory of the process that started it, and does not follow later directory switches. Start the session in the main checkout, then enter a task worktree, and the project root is still the main checkout.
 
-由此有两条后果：
+Two consequences:
 
-- 传从 `.mmw.json` 的 `paths.worktrees` 得到的任务 worktree 相对路径，或 worktree 内文件的绝对路径，Serena 拒绝回答。主检出的 `.gitignore` 排除了任务 worktree 目录，Serena 把 `.gitignore` 的每一条都当作自己的排除清单。报错文本是 `while the path is ignored` 或 `Cannot extract symbols from file`。
-- 传仓库相对路径，Serena 答得出来，答的是主检出里那份源码，不是当前 worktree 里那份。
+- Pass a task-worktree relative path from `.mmw.json` `paths.worktrees`, or an absolute path inside the worktree, and Serena refuses. The main checkout `.gitignore` excludes the task-worktree directory, and Serena treats every `.gitignore` line as its own exclude list. The error text is `while the path is ignored` or `Cannot extract symbols from file`.
+- Pass a repo-relative path, and Serena answers — from the main checkout copy, not the current worktree copy.
 
-所以在任务 worktree 里查符号，用仓库相对路径，并先确认这个文件在主检出和当前 worktree 里一致。当前 worktree 改过它时，Serena 答的是旧内容；这时回去读源码。
+So on a task worktree, query symbols with repo-relative paths, and first confirm that file is the same in the main checkout and the current worktree. If the current worktree edited it, Serena answers the old content. Then read source.

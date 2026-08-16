@@ -1,53 +1,42 @@
 ---
 name: mmw-tdd
-description: 在 correct seam 上执行 red-to-green 的测试方法。用于用户要求 TDD 或 integration test，或 `planner`、`worker`、审查者需要测试设计与质量判据。
+description: Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions "red-green-refactor", or wants integration tests; or when a `planner`, `worker`, or reviewer needs the test-design bar.
 ---
 
-TDD 就是 red → green 这个循环。本技能规定什么算一个好测试、测试放在哪个 seam、哪些写法不能要，以及循环本身的规矩。在每一轮循环之前和进行中使用这些方法。
+# Test-Driven Development
 
-## 取上下文
+TDD is the red → green loop. This skill is the reference that makes that loop produce tests worth keeping: what a good test is, where tests go, the anti-patterns, and the rules of the loop. Every section applies on every cycle — consult them before and during the loop, not after.
 
-| 材料 | 取得方式 | 读取内容 |
-| --- | --- | --- |
-| 领域文档 | 按 `/mmw-domain-modeling` 的「读领域文档」读取本次范围 | 测试名和 interface 用词必须与项目领域语言一致 |
-| ADR | 读取本次范围内的 ADR | 还要遵守本次范围内的 ADR |
+When exploring the codebase, run `mmw domain path` and follow its read instruction so test names and interface vocabulary match the project's domain language, and respect ADRs in the area you're touching (`mmw artifact index adr`).
 
-## 开工前读项目规则
+[tests.md](tests.md) and [mocking.md](mocking.md) are the general method. The target repo's `TESTING.md` is the project's test layout, commands, layers, and external boundary. Read `TESTING.md` before the first test. If the repo root has no such file, read the auto-loaded `AGENTS.md` or `CLAUDE.md` for where the real test rules live. If you still cannot find them, follow this skill and say so in the report. If they conflict, list the conflict; do not pick a side.
 
-[tests.md](tests.md) 和 [mocking.md](mocking.md) 规定通用的测试方法。目标仓库的 `TESTING.md` 规定本项目的测试目录、命令、分层和外部边界。
+## What a good test is
 
-开工前先读 `TESTING.md`。根目录没有这个文件时，读目标仓库自动加载的 `AGENTS.md` 或 `CLAUDE.md`，找实际的测试规则位置。找不到时，按本技能的方法执行，并在报告中说明没有找到项目测试规则。两者冲突时，列出具体冲突，不自行用一方覆盖另一方。
+Tests verify behavior through public interfaces, not implementation details. Code can change entirely; tests shouldn't. A good test reads like a specification — "user can checkout with valid cart" tells you exactly what capability exists — and survives refactors because it doesn't care about internal structure.
 
-## 什么算一个好测试
+See [tests.md](tests.md) for examples and [mocking.md](mocking.md) for mocking guidelines.
 
-测试通过公开接口验证**行为**，不验证实现细节。代码可以整个换掉，测试不应该跟着变。一个好测试读起来像一份规格说明——「用户带着有效购物车能结账」一句话就说清了存在什么能力——而且它能活过重构，因为它不关心内部结构。
+## Seams — where tests go
 
-例子见 [tests.md](tests.md)，打桩的界限见 [mocking.md](mocking.md)。
+A **seam** is the public boundary you test at: the interface where you observe behavior without reaching inside. Tests live at seams, never against internals.
 
-## seam —— 测试放在哪
+**Test only at pre-agreed seams.** Before writing any test, write down the seams under test and confirm them with the user. When a spec already names the seams, read them from it instead of re-asking. No test is written at an unconfirmed seam. You can't test everything — agreeing the seams up front is how testing effort lands on the critical paths and complex logic instead of every edge case.
 
-**seam** 是你下断言的那个公开边界：在这个接口上观察行为，不伸手进内部。测试住在 seam 上，绝不对着内部写。
+Ask: "What's the public interface, and which seams should we test?"
 
-**只在事先谈定的 seam 上写测试。** seam 在 spec 里跟用户谈定，在任何代码存在之前——`/mmw-to-spec` 第 3 步就是干这个的。从那里读出来，就在那些 seam 上测。没有人同意过的 seam 上不写测试。
+If the work needs a seam the spec did not name, stop and say so. A dispatched `worker` has no one to ask; it stops here too.
 
-**为什么要先谈定：你不可能测试一切。** 事先把 seam 谈定，是为了让有限的测试精力落在关键路径和复杂逻辑上，而不是摊到每一个边界情况上。所以谈定的清单看着不全不是缺陷——它是一次分配。
+When the shape of that interface is itself in question — how deep the module is, where the seam belongs, what the interface should expose — use the `/mmw-codebase-design` skill for the vocabulary. It is the shared source of the module, interface, depth, seam, adapter, leverage and locality terms, and it is a reference to consult, not a session to run.
 
-没有 spec——你是被直接叫来做一个具体行为的——就把你要测的 seam 写下来，跟用户确认过再写测试。问他：「公开接口是哪个，我们该在哪几个 seam 上测？」
+## Anti-patterns
 
-seam 已经谈定，但这次的活需要一个 spec 没写到的，**停下来说明**。不要在写的过程中自己发明一个 seam。派出去的 `worker` 没有人可问，在这里同样要停。
+- **Implementation-coupled** — mocks internal collaborators, tests private methods, or verifies through a side channel (querying the database instead of using the interface). The tell: the test breaks when you refactor but behavior hasn't changed.
+- **Tautological** — the assertion recomputes the expected value the way the code does (`expect(add(a, b)).toBe(a + b)`, a snapshot derived by hand the same way, a constant asserted equal to itself), so it passes by construction and can never disagree with the code. Expected values must come from an independent source of truth — a known-good literal, a worked example, the spec.
+- **Horizontal slicing** — writing all tests first, then all implementation. Bulk tests verify _imagined_ behavior: you test the _shape_ of things rather than user-facing behavior, the tests go insensitive to real changes, and you commit to test structure before understanding the implementation. Work in **vertical slices** instead — one test → one implementation → repeat, each test a **tracer bullet** that responds to what the last cycle taught you.
 
-interface 的形状本身还没定时，完整读取 `/mmw-codebase-design`，使用它的 module、interface、depth、seam 和 adapter 词汇澄清边界。它是词汇与判据 reference，不是让 TDD 另开设计流程。
+## Rules of the loop
 
-Spec 已经确认 interface 和 seam 时，直接执行该决定，不在 TDD 中重新设计。
-
-## 不能要的三种写法
-
-- **跟实现绑死** —— 给内部协作者打桩、测私有方法、或者从侧面验证（去查数据库而不是用那个接口）。识别方法：重构之后测试挂了，可行为根本没变。
-- **同义反复** —— 断言用跟代码相同的方式重算了一遍预期值（`expect(add(a, b)).toBe(a + b)`、手工按同样算法推出来的快照、断言一个常量等于它自己），所以它按构造必然通过，永远不可能跟代码唱反调。预期值必须来自一个独立的唯一事实来源：一个已知正确的字面量、一份手工算过的样例、或者 spec。
-- **横切** —— 先把所有测试写完，再写所有实现。这样测到的是想象出来的行为：测试会盯着形状而不是用户行为，对真实变化不敏感，而且在理解实现之前就把测试结构定死。改成走**竖切**：一个测试、一份实现、再下一个，每个测试都是一颗 **tracer bullet**，回应上一轮循环教给你的东西。
-
-## 循环的规矩
-
-- **先红后绿。** 先写那个失败的测试，然后只写刚好够它通过的代码。不要预判后面的测试，不要加还没人要的功能。
-- **一次一片。** 一个 seam、一个测试、一份最小实现，构成一轮。全部 seam 走完后回到调用方，由它决定验收和发起审查。
-- **重构不属于这个循环。** 它归审查（见 `/mmw-review`），不在 red → green 这轮里。
+- **Red before green.** Write the failing test first, then only enough code to pass it. Don't anticipate future tests or add speculative features.
+- **One slice at a time.** One seam, one test, one minimal implementation per cycle.
+- **Refactoring is not part of the loop.** It belongs to the review stage (see `/mmw-review`), not the red → green implementation cycle.

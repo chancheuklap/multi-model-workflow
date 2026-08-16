@@ -12,8 +12,7 @@ SKILLS_DIR="${MMW_AGENT_SKILLS_DIR:-${CODEX_HOME:-$HOME/.codex}/skills}"
 
 # 审查者读审查方法论，`planner` 读写计划方法论，两边都要读测试那一份：
 # 审查者按它验证这次新增和改动的测试，`planner` 按它写测试规划。
-# `investigator` 按 research task 指定的身份和方向读取 mmw-research 的对应 reference。
-WANTED=(mmw-reviewer mmw-planner mmw-tdd mmw-research)
+WANTED=(mmw-reviewer mmw-planner mmw-tdd)
 
 mode=install
 case "${1:-}" in

@@ -1,166 +1,67 @@
 ---
 name: mmw-implement
-description: 派 `worker` 落地已准备好的工作。用于完整的 `ready-for-agent` agent brief，或全部 plans 已通过审查的 spec。
+description: Dispatch a worker per ready-for-agent ticket. Use when plans have passed review, or for a single ready-for-agent agent brief.
 ---
 
-把 spec 和它的 ticket 描述的需求实现出来。spec 已定稿，seam 已谈定；本技能执行那份计划，不重开它。
+# Implement
 
-**你不写代码。** 每张 ticket 交给一个 `worker`。你的职责是写清派工 task、派发、按结局选路、合并、发起审查。
+You do not write the code. One `worker` per ticket, each on its own result worktree.
 
-## 流程
+The caller passes `<spec issue number>` for spec work.
 
-第 1 步只做一次。第 2 到第 5 步是循环体：一轮做完 frontier 上的全部 ticket，都关票之后回第 2 步取下一轮。这批 ticket 全部关闭，才进入第 6、7 步。
+**No spec.** If `mmw artifact path spec` does not point at a spec file, the work is one `ready-for-agent` agent brief on the issue you were given. Skip the loop: no frontier, no plan, one `worker`, integrate, then ⑤. Task Read is this skill's `worker-brief.md`, the issue, and `TESTING.md` when it exists.
 
-### 1. 确认前置条件
+Before dispatch:
 
-先确认这次需求出自哪里：
+先确认当前仓库位置。判定从上到下，命中一行就停。
 
-- 运行 `mmw artifact path spec`。调用方移交了名字段时加 `--name <名字段>`。输出路径有 spec 时，走 spec 分支。
-- 没有 spec，就读取原 issue 上那份 `ready-for-agent` 的 agent brief。只有整项工作可以作为一张 ticket 独立验收、只有一个已确认测试 seam、没有未决设计取舍时，才走 agent brief 分支。
-
-然后检查下面各项。标明来源分支的检查只在对应分支适用；适用项有一件不满足就按表中出口处理。
-
-`<spec issue 编号>` 只用于 spec 分支，由调用方移交。spec 分支缺少这个编号时，停下并说明缺少这项输入。agent brief 分支不需要 spec issue 编号。
-
-| 检查 | 怎么查 | 不满足怎么办 |
+| 情况 | 怎么判断 | 你做什么 |
 | --- | --- | --- |
-| 你在一条任务分支上 | `git symbolic-ref --quiet --short HEAD` 有输出，且不在主检出里 | **停**：说明当前没有任务分支，无法继续 |
-| spec 分支写明了测试 seam | 读 spec `## Testing Decisions` 一节里的 seam 清单表 | 回 `/mmw-to-spec` 第 3 步补 |
-| agent brief 分支的行为合同完整 | 原 issue 的 agent brief 有当前行为、目标行为、可独立验证的 `Acceptance criteria`、范围边界和且仅一个 `Test seam`；整项工作可以作为一张 ticket 独立验收，而且没有未决设计取舍 | 缺字段就回 `/mmw-triage` 补；需要多张 ticket、多个 seam 或设计取舍就转 `/mmw-to-spec` |
-| ticket 存在 | spec 分支：`mmw issue children <spec issue 编号>` 有输出；agent brief 分支：带 agent brief 的原 issue 就是这张 ticket | spec 分支先跑 `/mmw-to-tickets`；agent brief 分支回 `/mmw-triage` 补齐或修正 issue |
-| 这张 ticket 的 plan 已提交 | 路径写在这张 ticket 正文的 `## Plan` 一节里，照它跑 `git cat-file -e "HEAD:<那条路径>"` | 先跑 `/mmw-to-plan`。走 agent brief 那条路的需求没有 plan 这一层，这一行不适用 |
+| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
+| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
+| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
+| 已有任务分支 | 上面都不成立 | 用当前分支 |
 
-## 循环：一轮做完 frontier 上的全部 ticket
 
-### 2. 取这一轮的 ticket
+## Loop
 
-plan 按批次写（见 `/mmw-to-plan`）：某张 ticket 没有 `ready-for-agent` 不一定是流程错了，可能只是它的批次还没到。spec 分支先重新读取全部子 issue，按下面的判据走：
+`mmw issue children <spec issue number>`.
 
-- 存在还没有 `ready-for-agent` 的 open ticket：回 `/mmw-to-plan`，它们是待写 plan 的批次。
-- 没有上面那种，运行 frontier（下条命令）有输出：取**全部**输出行，继续本步。
-- 两者都没有、但仍有 open ticket：它们都被认领或仍被阻塞。报告每张的状态并停下等待，不空转。
+- Open tickets with no `ready-for-agent`: `/mmw-to-plan`, then return here.
+- Else run `mmw issue frontier <spec issue number> --label ready-for-agent`. Claim every line (`mmw issue claim`). Dispatch one `worker` per claimed ticket.
+- No open tickets: ⑤ below.
 
-```bash
-mmw issue frontier <spec issue 编号> --label ready-for-agent
-```
+Commit the task branch first. Name a result branch. Record `git rev-parse HEAD` as the base. Both go in the task.
 
-它给出阻塞全部关闭、没人认领、带这个标签的那些，按 `/mmw-to-tickets` 的发布顺序排。**取全部行**：这个命令已经按 open、无阻塞、无人认领和标签过滤过，输出里的每一张都可以现在开工，互相之间也没有先后。不必再逐张读一遍确认那四件事。
+Task fields:
 
-agent brief 分支不查 frontier；带 agent brief 的原 issue 就是唯一一张 ticket。用 `gh issue view <编号> --json state,assignees,labels` 确认它仍然 open、无人认领并带 `ready-for-agent`。
-
-逐张 `mmw issue claim <编号>` 认领。认领失败说明别的会话抢先了，跳过那一张。spec 分支继续认领其余各张；agent brief 分支没有下一张，停止并报告这张 issue 已被谁认领。
-
-**认领到几张就派几个 `worker`**，每个一棵独立 worktree、一张 ticket，都从当前已提交的任务分支开始。它们在各自的结果分支上并行工作，碰同一个文件也互不干扰。
-
-第 3 到第 5 步对每张 ticket 各走一遍。派发可以一次派完，**第 5 步按结局选路并合并，逐张做，不能并行**。
-
-集成也是逐张做的：先合入的那份进任务分支，后面几份合入时才可能撞上冲突。`mmw result integrate` 撞上冲突会当场失败，并把冲突状态留在工作区——那时按 `/mmw-integrate` 处理，不要自己动手改冲突文件。
-
-### 3. 写派工 task
-
-| 上下文 | 何时读取 | 读取范围 | 不读取 | 向下传递 |
-| --- | --- | --- | --- | --- |
-| `worker-brief.md` | 始终 | 文件路径 | 正文副本 | 文件路径 |
-| spec 或 agent brief | 始终 | 当前需求的精确位置 | 其他需求 | 精确位置 |
-| ticket | 始终 | 当前 ticket 编号 | 其他 ticket | ticket 编号 |
-| plan | spec 分支 | 当前 ticket 的 plan 路径 | 其他 plan | plan 路径 |
-| 产物引用 | plan 有 `artifact_refs` 时 | 当前 ticket 的条目 | 其他 plan 的条目 | 原样传递 |
-| `TESTING.md` | 文件存在时 | 仓库根文件 | 自拟测试命令 | 文件路径 |
-| prototype | 当前 ticket 引用时 | 索引、选中产物和明确相关证据 | 整个产物目录和过程材料 | 产物引用 |
-| research | 当前 ticket 引用时 | research 索引和精确文件 | research 的上级目录和 subagent 原始报告 | 产物引用 |
-
-按 **四栏表**（目标 / 读 / 约束 / 验收）填写。issue 上的 **agent brief** 是 tracker 里的权威行为合同，进入「读」栏。
-
-从 plan 元数据块读取 `artifact_refs`。键缺失时停止，说明缺少 plan 声明。每条原样写进 task 的「读」栏。空列表时写 `无`。
-
-| 栏 | 本角色填写 |
-| --- | --- |
-| 目标 | 完成 ticket `#<编号>`（或 tracker 等价编号） |
-| 读 | 列出 spec、agent brief、ticket、plan 和 `TESTING.md` 的精确路径。prototype 与 research 原样传递产物引用；没有时分别写「无 plan」「无 prototype 资产」「无 research」 |
-| 约束 | 只改本 worktree 源码与测试；不改 `docs/`；不扩大 ticket 范围；所有上下文只读 task 点名的精确路径 |
-| 验收 | spec 分支：见 ticket `#<编号>` 的验收标准，seam 见 spec `## Testing Decisions`；agent brief 分支：见原 issue 的 agent brief 中 `**Acceptance criteria:**` 与 `**Test seam:**`（在「读」里已给出定位，此处不抄正文）。两条路都要交回结果分支上的 HEAD SHA |
-
-TDD 在 worker 的 `mmw-tdd` 技能里，不进 task 正文。
-
-### 4. 派发
-
-派发前确认当前任务分支已经提交且工作区干净。为这次工作确定唯一、完整的结果分支名，并记下 `git rev-parse HEAD` 作为基点。结果分支名和基点 SHA 都要写入 task。
-
-**验收栏里要求它交回结果分支上的 HEAD SHA。** `mmw result integrate` 要这个值，它自己不算，只有做完的那一侧知道。
+- **Goal:** complete ticket `#N`; return the result-branch HEAD SHA
+- **Read:** this skill's `worker-brief.md`, spec, ticket, plan path (run the ticket's `## Plan` command), `TESTING.md` when it exists, and the plan's artifact refs
+- **Constraints:** source and tests in this worktree; leave `docs/` as they are; stay inside the ticket
+- **Acceptance:** the ticket's criteria; HEAD SHA on the result branch
 
 启动：先运行 `mmw worktree add <结果分支>`，使用命令返回的 worktree 绝对路径。后台执行 `mmw dispatch worker --cwd <结果 worktree 绝对路径>`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
 
-ticket 涉及计费、权限、数据迁移，或改错不可逆时：改用
+Billing, permissions, data migration, or irreversible mistakes: use
+
 启动：先运行 `mmw worktree add <结果分支>`，使用命令返回的 worktree 绝对路径。后台执行 `mmw dispatch worker-high-risk --cwd <结果 worktree 绝对路径>`。把四栏 task 正文作为命令的标准输入。当前 task 属于 decision ticket 时，加 `--issue <当前 decision ticket 编号>`。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。
-升档由你决定，不由 worker 自报。
 
-派发返回的 `session:` 或 `handle:` 行是这个 `worker` 的恢复句柄。连同结果分支名、基点 SHA 一起记下，缺上下文或卡住后的重派，以及 ⑤ 的修复都用它。
+instead. You choose the upgrade.
 
-### 5. 按结局选路并合并
+Integrate one result at a time: `mmw result integrate <result-branch> <HEAD SHA> <base SHA>`. Conflicts: `/mmw-integrate`. Then `gh issue close <ticket number>` and `mmw worktree remove <result-branch>`. Host-created trees: the host removes them.
 
-报告末尾是四种结局之一。按表选路。不要打开 diff、不要重跑测试、不要先跑 `mmw result verify`。
+**Done** or **Done with concerns**: integrate, then close. Give concerns to the user. Any other outcome: stop and give the user what the `worker` said.
 
-| 交回 | 什么意思 | 怎么办 |
-| --- | --- | --- |
-| 完成 | 它认为做完了 | 运行 `mmw result integrate <结果分支> <HEAD SHA> <基点 SHA>`。命令成功后，结果提交才算进入当前任务分支。然后关闭这张 ticket |
-| 带隐忧完成 | 做完了，但它对某处不放心 | 先按「完成」合并并关票。把隐忧原样交给用户 |
-| 缺上下文 | 材料不够，做不下去 | 看它缺什么：你没给全就补齐重派；产物里真的没有，那是上游的问题 |
-| 卡住 | 试过了，走不通 | 读它的尝试记录再决定。它说这件事本身太大，处置是**把活拆开**，交回调用方重派。报告里说它缺输入、或者它怀疑自己解错了问题：把它缺的东西或者它的怀疑原样交给用户。它卡在 ticket 与代码互相矛盾上：**停**，把矛盾交给用户。不要换一个 `worker` 再派一遍 |
+After the claimed tickets are closed, run children again and follow the loop.
 
-`mmw result integrate` 撞上冲突会当场失败，并把冲突状态留在工作区——那时按 `/mmw-integrate` 处理，不要自己动手改冲突文件。
+## Final
 
-结果提交已经进入当前任务分支，才关闭这张 ticket。
+When children has no open tickets, send ⑤ final review (`/mmw-review`). The fixed point is `git merge-base HEAD <parent-branch>` — the branch this task was created from, or the map branch when this task came from `/mmw-wayfinder`. Handle findings as `/mmw-review` specifies.
 
-**关票之后当场回收这棵结果 worktree。** 后面还要恢复原 `worker` 时不回收：缺上下文或卡住后的重派、⑤ 的同 ticket 修复都需要这棵树当工作目录，回收推到那一轮结束之后。
+Accepted findings on one ticket: merge the task branch into that result branch (`git merge --no-ff`), then
 
-回收动作按这棵树在哪定：
-
-| 树在哪 | 怎么办 |
-| --- | --- |
-| 位于当前仓库 `.mmw.json` 的 `paths.worktrees` 下 | 在当前任务 worktree 里运行 `mmw worktree remove <结果分支名>` |
-| 在别处 | 是宿主自己建的树，由宿主回收。这里不做动作 |
-
-`mmw worktree remove` 有两道拒绝：结果分支还没合进当前任务分支，或者那棵树里有未提交改动。撞上任何一条，保留这棵树，报出是哪一条，回到本步开头重做集成。
-
-**这一轮认领的 ticket 全部关票之后，判定还有没有下一轮**，spec 分支运行：
-
-```bash
-mmw issue children <spec issue 编号>
-```
-
-| `children` 输出 | 去哪 |
-| --- | --- |
-| 有 open 行，其中有带 `ready-for-agent` 的 | **回第 2 步**取下一轮 |
-| 有 open 行，但都不带 `ready-for-agent` | **移交 `/mmw-to-plan`** 写这一批的 plan，写完回本技能第 2 步 |
-| 没有 open 行 | 这批 ticket 全部落地，进入第 6 步 |
-
-**`children` 还有 open 行，就说明这一批没做完，留在循环里按上表走。** frontier 这一刻为空不算数：下一批次的 plan 还没写时，那些 ticket 就是 open 而且没有 `ready-for-agent`，它们在等你回第 2 步。第 6 步和第 7 步要等 `children` 没有 open 行。
-
-agent brief 分支只有这一张 ticket，不跑 `children`，直接进入第 7 步。
-
-## 这批 ticket 全部关闭之后
-
-下面两步整批做一次，不逐张做。
-
-### 6. spec 分支全部落地后
-
-本节只适用于有 spec 的分支。agent brief 分支跳到第 7 步。
-
-你从第 5 步末尾那张判定表的「没有 open 行」一格进入本步，这批 ticket 已经全部关闭，不用再读一次 `children`。
-
-④ 合同门已取消。进入第 7 步。
-
-### 7. 发起 ⑤ final 终审
-
-spec 分支或 agent brief 分支完成第 5 步后，按 `/mmw-review` 发起一轮 **⑤ final 终审**，固定点取分支点。整体审一次，不逐张审。
-
-分支点用 `git merge-base HEAD <父分支>` 取。普通任务的父分支是创建任务时选择的目标分支；从 `/mmw-wayfinder` map 派生的任务以 map 分支为父分支。
-
-采信的 findings 全部落在同一张 ticket 时，优先发回那张 ticket 的原 `worker` 续跑，恢复前先做同步前置：在该结果 worktree 把当前任务分支合入结果分支（`git merge --no-ff`），无冲突才恢复：
 恢复：后台执行 `mmw dispatch worker --resume <句柄原文> --cwd <原结果 worktree 绝对路径>`。把修复 task 正文作为命令的标准输入。句柄是原派发输出里的 `session:` 或 `handle:` 行原文。那一行不在手上时，运行 `mmw artifact path scratch --sub dispatch` 取得派发进度目录，读其中以 `worker-` 开头的那个 `.session` 文件。命令返回 `mode: host-tool` 时，使用输出中的 `params` 调用对应宿主工具。句柄取不到或命令失败时退回重派：按对应的启动动作重派新实例，task 正文带上原 task 全文、原报告全文和本轮修复指令。
 
-合并有冲突、worktree 已收或句柄失效时，放弃恢复，把缺口合成一张修复 ticket 派新 `worker`。跨 ticket 时同样打包成一张修复 ticket 派给新 `worker`，带上 `file:line` 和要改成什么。两条路都不逐 finding 派修复者。修复交回「完成」后按第 5 步合并。全部采信项修好后按 `/mmw-review` 第 7 步在原审查记录登记 `修复提交` 和 `终审提交`；不再派审查者。
+Conflict, missing worktree, or dead handle: one new repair ticket and a new `worker`. Findings that span tickets: the same. After repair, register the commits as `/mmw-review` specifies.
 
-终审没有做完时，说清停在哪一步、还差什么，交给用户。
-
-终审没有采信项，或采信项已经修复：报告实现结果和当前分支 HEAD。仓库里有没有出包配置，跑 `grep -rl '"product"' --include='*.release-adapter.json' .`。问用户：出包、收尾、还是到这里停。有 spec 才需要收尾；只有 agent brief 时没有 `/mmw-closing`。
+Ask: release, or stop here.

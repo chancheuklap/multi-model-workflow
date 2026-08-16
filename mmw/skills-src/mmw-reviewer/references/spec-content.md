@@ -1,24 +1,23 @@
-# 设计内容审
+# Spec content
 
-**谁读**：任务名是「设计内容审」的审查者。
+**Who reads this:** the reviewer whose Goal starts with `Spec content`.
 
-这个视角看这份 spec 本身立不立得住：问题想清楚没有、表达完不完整、落不落得了地。
+Does this spec stand: is the problem thought through, is it complete enough to implement, will it land?
 
-对着它要解决的问题，报三类——**缺了什么**、**多了什么**、**理解错了什么**。
+Report what is **missing**, **extra**, or **misunderstood**.
 
-## 往哪里看
+## Look
 
-- **先答方向那一问。** 共用纪律 `mmw-reviewer/SKILL.md` 的「先问方向，再问方法，最后才验实现」一节里，方向级那几问答完再查一致性。方向可疑就交 `needs-redirection`，别对着一个错方向把 spec 补完整。
-- **目标可测**：每条可感知的行为都有一个断言得了的目标，不是「做好体验」这种话。
-- **完整性**：核心流程走得通；失败、边界、空态、并发都覆盖到了。
-- **过度设计**：有没有为当前和可见的将来都不需要的东西留结构。
-- **界面与数据结构**：拆到了可以照着实现的样子，不是只写一句「见那个目录」。
-- **prototype 资产**：先读 task 点名的 prototype 资产索引，再读取支撑 spec 决定的精确选中产物和对应走查或长期证据。检查 spec 正文是否吸收索引记录的用户确认决定和取舍。落选变体只提供已被否定的约束；确需验证该约束时，只读 task 点名的具体变体。不要递归读取完整产物目录。
-- **research**：先读 task 点名的 research 索引，再读取支撑 spec 现状与决定的 research 报告或配套文件精确路径。检查范围快照、出处和未查清项是否被 spec 正确使用。不要递归读取 research 的上级目录，也不要把过期快照当当前事实。
-- **解的是不是真问题**：这份 spec 解的是它声称要解决的那件事吗。
+Answer the direction questions in the shared reviewer skill before consistency. Wrong problem: `needs-redirection`. Do not complete a spec aimed at the wrong problem.
 
-## 这几种一定要报
+- Every user-visible behaviour has a goal you can pass or fail. Not "a good experience".
+- The core flow works. Failure, empty, edge, and concurrency are covered.
+- Structure for a future nobody asked for.
+- UI and data shapes are specified enough to implement, not "see that directory".
+- Spec text absorbed the confirmed prototype decisions and research facts the task named. Rejected variants are constraints, not current design.
 
-不要因为它读起来通顺就放过：核心意图不可测；目标含混到写计划的人必须靠猜；界面只写了目录没拆成视觉规格；关键场景整个缺失；新的业务对象没写清谁拥有它。
+## Always report
 
-这份 spec 接下来会被拆成计划、派给问不到人的 `worker`。**照着它做，做得出对的东西吗**——这是唯一的判据。
+Core intent that cannot be tested; goals so vague a planner must guess; UI that is only a folder; a whole key scene missing; a new business object with no owner.
+
+This spec will be split into tickets and given to a `worker` who cannot ask the user. **Build from it — do you get the right thing?** That is the only bar.

@@ -368,8 +368,7 @@ sync_grok_skills() {
   src="$RUNTIME_ROOT/mmw/skills-grok"
   dest="$HOME/.grok/skills"
   mkdir -p "$dest"
-  for name in "$src"/mmw-* "$src"/wizard "$src"/handoff "$src"/wait-what \
-      "$src"/to-questionnaire "$src"/writing-for-agents; do
+  for name in "$src"/mmw-*; do
     [ -d "$name" ] || continue
     rm -rf "$dest/$(basename "$name")"
     cp -R "$name" "$dest/$(basename "$name")"

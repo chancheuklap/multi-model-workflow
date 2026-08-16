@@ -1,5 +1,0 @@
-interface:
-  display_name: "Wait What"
-  short_description: "重新说明刚才没有讲清楚的内容"
-policy:
-  allow_implicit_invocation: false

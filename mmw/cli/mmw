@@ -98,9 +98,7 @@ mmw dispatch <角色> [--task-text <正文>] [--cwd <目录>] [--issue <编号>]
 角色：
   worker            按一份 plan 写代码
   worker-high-risk  同上，但这块代码错了代价大
-  prototype-worker  做一个指定的原型变体
   planner           按一张 ticket 写一份 plan
-  investigator      查一个角度的事实，带出处交回
   designer          按一个约束提出 interface 方案
   reviewer-gpt      审查，GPT 那一侧
   reviewer-claude   审查，Claude 那一侧
@@ -121,7 +119,7 @@ host-tool 时原样用返回中的 params 调工具（params 内已含 task 正�
 
 Examples:
   mmw dispatch planner --cwd . --task-text "$(cat task.md)"
-  printf '%s' "$task" | mmw dispatch investigator
+  printf '%s' "$task" | mmw dispatch designer
   mmw dispatch reviewer-gpt --task-text "$task" --resume session:abc123
 EOF
   return 2
@@ -251,7 +249,7 @@ role_roster() {
 }
 
 # 角色的方法论技能名。空字符串表示这个角色没有固定方法论技能，
-# 它这次要用什么由 task 指定（`investigator` 就是这一类）。
+# 它这次要用什么由 task 指定（`designer` 就是这一类）。
 role_skill() {
   agents_role_field "$1" skill
 }

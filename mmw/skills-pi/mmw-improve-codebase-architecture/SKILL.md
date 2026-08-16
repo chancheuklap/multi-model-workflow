@@ -1,114 +1,74 @@
 ---
 name: mmw-improve-codebase-architecture
-description: 扫描 deepening opportunities，生成候选报告供用户选择。用户没有具体改动，只要求提升代码库的可维护性、可测性或 agent 可导航性；某块代码难改难测；或 bug 诊断确认缺少 seam、调用方纠缠或隐藏耦合时使用。
+description: Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick. Use when the user wants the codebase more maintainable, testable, or agent-navigable without a specific change; a patch of code is hard to change or test; or bug diagnosis found a missing seam, tangled callers, or hidden coupling.
 ---
 
-把架构上的摩擦翻出来，提成 **deepening opportunity**——把 shallow 的 module 改成 deep 的那类重构。目的是可测，以及 agent 读得懂。
+# Improve Codebase Architecture
 
-**本技能不改代码。** 它的产物是一份候选报告，加一个被用户选中的方向。真正的改动走后面的主干：谈清楚、写 spec、派 `worker`。
+Surface architectural friction and propose **deepening opportunities** — refactors that turn shallow modules into deep ones. The aim is testability and AI-navigability.
 
-设计词汇一律用 `/mmw-codebase-design` 定的那一套（module、interface、implementation、depth、deep、shallow、seam、adapter、leverage、locality），连同它的判据——deletion test、interface 就是测试面、一个 adapter 只是假设有这条 seam 两个 adapter 才证明它真的存在。每条建议都用这些词的原词，不要漂成「组件」「服务」「API」「边界」。
+This command is _informed_ by the project's domain model and built on a shared design vocabulary:
 
-## 取上下文
+- Run the `/mmw-codebase-design` skill for the architecture vocabulary (**module**, **interface**, **depth**, **seam**, **adapter**, **leverage**, **locality**) and its principles (the deletion test, "the interface is the test surface", "one adapter = hypothetical seam, two = real"). Use these terms exactly in every suggestion — don't drift into "component," "service," "API," or "boundary."
+- `mmw domain path` prints the domain docs to read. Those docs give names to good seams; ADRs in the area record decisions this command should not re-litigate.
 
-| 材料 | 取得方式 | 读取内容 |
-| --- | --- | --- |
-| 领域文档 | **先读领域文档**：按 `/mmw-domain-modeling` 的「读领域文档」处理 | **好 seam 的名字**；不要停下来建 |
-| ADR | 读你要碰的那一片的 ADR | ADR 里已经拍过板的决定，这次不重新拿出来吵 |
+## Process
 
-相关 leaf 里定义了「订单」，你就说「订单受理这个 module」，不说「那个 FooBarHandler」，也不说「订单服务」。
+### 1. Explore
 
-## 1. 先定范围
+**Scope before you scan — YAGNI.** Deepening a module pays off by making future changes to it easier, so put extra weight on the parts of the codebase that have recently changed. Decide *where* to look before you look:
 
-**扫之前先定扫哪——YAGNI。** 把一个 module 做深，回报是让**将来**改它变容易。所以最近一直在改的地方权重最高：那里的将来最快到。反过来，一块没人碰、也看不出要碰的地方，做深了回报兑现不了，这轮别扫它。有实打实的迹象说某块马上要大改（正在谈的需求压在它上面、已经有 spec 指向它），它同样算热点，即使 `git log` 上很安静。
+- If the user named a direction — a module, a subsystem, a pain point — take it, and skip the inference below.
+- Otherwise, walk back a good stretch of the commit history (`git log --oneline`) to find the codebase's hot spots — the files and areas that keep coming up — and let those paths pull your attention first. If the changes are scattered with no clear hot spot, widen the net.
 
-- 用户点了方向（某个 module、某个子系统、某个痛点），就用他点的，跳过下面的推断。
-- 没点，主 agent 直接读取 `git log --oneline`，从反复出现的文件和目录整理热点。改动散得到处都是、没有明显热点时，才把网撒大。
+Read the domain docs `mmw domain path` printed, and any ADRs in the area you're touching first.
 
-定完的这一片，是下一步所有人共同的地盘。
+Then spin up a **group of Explore** agents to walk the codebase, each from a different route. Don't follow rigid heuristics — explore organically and note where they experience friction:
 
-## 2. 派几个 `investigator` 各自去探
+- Where does understanding one concept require bouncing between many small modules?
+- Where are modules **shallow** — interface nearly as complex as the implementation?
+- Where have pure functions been extracted just for testability, but the real bugs hide in how they're called (no **locality**)?
+- Where do tightly-coupled modules leak across their seams?
+- Which parts of the codebase are untested, or hard to test through their current interface?
 
-派 3 到 4 个 `investigator`，**每份 task 完全一样**，都探第 1 步定下的整片地方。四栏表：目标=在这片地方找架构摩擦；读=范围路径 + 领域文档 + `docs/adr/` 下相关的 ADR + `/mmw-codebase-design`（点技能名，不给路径）；约束=只读；验收=摩擦点带出处。
-派一个独立上下文的 `investigator`。它只读，不需要工作目录。
-启动：调用原生 `subagent`，agent 设为 `mmw-investigator`，task 传四栏表全文。
+Do not assign those questions as jobs, and do not split the scope into parcels. Pass each Explore the same scoped area.
 
-互不依赖的实例在同一条消息里一起启动，全部回来之后再汇总。
-按这个方式启动，重复 3 到 4 次，几个同时跑。
+Apply the **deletion test** to anything you suspect is shallow: would deleting it concentrate complexity, or just move it? A "yes, concentrates" is the signal you want.
 
-**不给分工，也不给检查清单。** 让它有机地探，记下它自己在哪里觉得摩擦大。下面这五问写进每份 task，作为**起手的入口**，不是要它逐条打钩的表：
+### 2. Present candidates as an HTML report
 
-| 入口 | 往哪看 |
-| --- | --- |
-| 概念散落 | 要理解一个概念，得在好几个小 module 之间来回跳吗？ |
-| interface 太宽 | 哪些 module 是 shallow 的——interface 几乎和 implementation 一样复杂？ |
-| 假的可测性 | 哪些纯函数是为了好测才抽出来的，但真正的 bug 藏在它们怎么被调用上（没有 locality）？ |
-| seam 漏了 | 哪些互相咬死的 module 从 seam 漏了出去？ |
-| 测不进去 | 哪些地方没有测试，或者隔着现在这个 interface 根本测不了？ |
+Write a self-contained HTML file to the OS temp directory so nothing lands in the repo. Resolve the temp dir from `$TMPDIR`, falling back to `/tmp` (or `%TEMP%` on Windows), and write to `<tmpdir>/architecture-review-<timestamp>.html` so each run gets a fresh file. Open it for the user — `xdg-open <path>` on Linux, `open <path>` on macOS, `start <path>` on Windows — and tell them the absolute path.
 
-task 里把这句原样写给它：**这五问是入口，不是清单。撞见五问之外的摩擦照样报，不要因为「不归我这条」丢掉。**
+If several Explore agents report the same friction, write one card. Overlap is evidence.
 
-**多样性来自各自独立的上下文，不来自分配。** 所以不要给它们切视角，也不要把范围切成几块各管一段——几个 `investigator` 看同一片地方、各走各的路，撞见的东西自然不同。
+The report uses **Tailwind via CDN** for layout and styling, and **Mermaid via CDN** for diagrams where a graph/flow/sequence reliably communicates the structure. Mix Mermaid with hand-crafted CSS/SVG visuals — use Mermaid when relationships are graph-shaped (call graphs, dependencies, sequences), and hand-built divs/SVG when you want something more editorial (mass diagrams, cross-sections, collapse animations). Each candidate gets a **before/after visualisation**. Be visual.
 
-怀疑某个东西 shallow 时，用 **deletion test** 验一下：把它删掉，复杂度是会聚到一处，还是只是挪个地方？「会聚到一处」才是你要的信号。
+For each candidate, render a card with:
 
-## 3. 先去重，再出报告
+- **Files** — which files/modules are involved
+- **Problem** — why the current architecture is causing friction
+- **Solution** — plain English description of what would change
+- **Benefits** — explained in terms of locality and leverage, and how tests would improve
+- **Before / After diagram** — side-by-side, custom-drawn, illustrating the shallowness and the deepening
+- **Recommendation strength** — one of `Strong`, `Worth exploring`, `Speculative`, rendered as a badge
 
-几份报告探的是同一片地方，重叠是预期之内的，不是谁做错了。
+End the report with a **Top recommendation** section: which candidate you'd tackle first and why.
 
-**先去重**：指向同一个 module、同一条 seam 的条目合成一条，把各份报告给的出处并进去——几个人独立撞见同一处摩擦，这件事本身就是它成立的证据，合并时记下来。换了个说法其实是同一件事的，也算重复。
+**Use the domain docs' vocabulary for the domain, and the `/mmw-codebase-design` vocabulary for the architecture.** If a leaf defines "Order," talk about "the Order intake module" — not "the FooBarHandler," and not "the Order service."
 
-**再出报告**：合并后的条目直接进入第 4 步。一条值得做的都没有：明说这一片现在没有值得做的 deepening opportunity，列出你扫了哪些方向。不要为了交差凑几个 `Speculative` 出来。
+**ADR conflicts**: if a candidate contradicts an existing ADR, only surface it when the friction is real enough to warrant revisiting the ADR. Mark it clearly in the card (e.g. a warning callout: _"contradicts ADR-0007 — but worth reopening because…"_). Don't list every theoretical refactor an ADR forbids.
 
-## 4. 出报告
+See [HTML-REPORT.md](HTML-REPORT.md) for the full HTML scaffold, diagram patterns, and styling guidance.
 
-写一个自包含的 HTML 文件，落系统临时目录：从 `$TMPDIR` 取，取不到退回 `/tmp`（Windows 上是 `%TEMP%`）。文件名是 `architecture-review-<时间戳>.html`，每次跑一份新的。
+Do NOT propose interfaces yet. After the file is written, ask the user: "Which of these would you like to explore?"
 
-生成后打开文件：macOS 使用 `open`，Linux 使用 `xdg-open`，Windows 使用 `start`。把绝对路径告诉用户。
+### 3. Grilling loop
 
-**这份报告以图为主，不是以文字为主。** 每个候选的 before/after 图承担主要说明责任，文字只在旁边收口。一张图要配一段话才看得懂，就把图重画，不要把话写长。
+Once the user picks a candidate, run the `/mmw-grilling` skill to walk the decision tree with them — constraints, dependencies, the shape of the deepened module, what sits behind the seam, what tests survive.
 
-每个候选一张卡片：
+Side effects happen inline as decisions crystallize — run the `/mmw-domain-modeling` skill to keep the domain model current as you go:
 
-| 字段 | 内容 |
-| --- | --- |
-| 涉及文件 | 涉及哪些文件 |
-| 当前摩擦 | 现在这个结构在哪里造成摩擦 |
-| 目标结构 | 改成什么样 |
-| 收益 | 用 locality 和 leverage 说明好处，以及测试会怎么变好 |
-| before/after 图 | 整张卡片的重心，两列并排 |
-| 推荐强度 | `Strong`、`Worth exploring` 或 `Speculative` |
-
-结尾一节 **Top recommendation**：你会先做哪一个，为什么。
-
-**跟 ADR 打架的候选**：只有摩擦真的大到值得重开那份 ADR 才提，提就在卡片里标明白（例如「与 ADR-0007 矛盾——但值得重开，因为……」）。不要把 ADR 禁掉的重构一条条列出来。
-
-完整的 HTML 骨架、几种图的画法和风格要求见 [HTML-REPORT.md](HTML-REPORT.md)。
-
-**这一步不要提 interface 方案。** 报告写完就停下来问用户：想深入看哪一个？用户说都不做：到这里结束，不进入第 5 步。
-
-## 5. 用户挑中之后确认任务分支
-
-挑中之前只读。挑中后再定任务分支名。类型固定用 `refactor`。短语取被选中 module 的英文名字，规则同 `/mmw-start` 第 2 步。例如 `refactor-order-intake`。任务目标写用户原话和卡片标题：
-
-先确认当前仓库位置。判定从上到下，命中一行就停。
-
-| 情况 | 怎么判断 | 你做什么 |
-| --- | --- | --- |
-| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
-| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
-| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
-| 已有任务分支 | 上面都不成立 | 用当前分支 |
-
-
-## 6. 就这一个候选谈下去
-
-跑 `/mmw-grilling`，用它的设计树把这些内容跟用户走一遍：约束、依赖、做深之后这个 module 什么形状、seam 后面藏什么、哪些测试还活着。谈清楚之后它会回到本技能收尾。
-
-`/mmw-grilling` 自带 `/mmw-domain-modeling`，通用的那部分不用你再交代。这里只补三条本技能特有的：
-
-- **给做深后的 module 起的名字不在相关 leaf 里**，就把这个词加进去。单 context 仓库加进仓库根 `CONTEXT.md`；有 Context Map 的加进 Map 为本次范围登记的那个 leaf。
-- **用户否掉这个候选**，按 `/mmw-domain-modeling` 的完整 ADR 判据决定是否提议记录。三项判据缺一项就不写。
-- **想看看这个 module 还能有哪几种 interface**，跑 `/mmw-codebase-design`，用它的 DESIGN-IT-TWICE。
-
-`/mmw-grilling` 谈清楚、回到本技能时，报告这张卡片的内容和谈出来的结论。问用户：写 spec，还是到这里停。
+- **Naming a deepened module after a concept not in the domain docs?** Add the term. `/mmw-domain-modeling` writes the leaf.
+- **Sharpening a fuzzy term during the conversation?** Update the owning leaf right there.
+- **User rejects the candidate with a load-bearing reason?** Offer an ADR, framed as: _"Want me to record this as an ADR so future architecture reviews don't re-suggest it?"_ Only offer when the reason would actually be needed by a future explorer to avoid re-suggesting the same thing — skip ephemeral reasons ("not worth it right now") and self-evident ones.
+- **Want to explore alternative interfaces for the deepened module?** Run the `/mmw-codebase-design` skill and use its design-it-twice parallel sub-agent pattern.

@@ -13,7 +13,7 @@ _Avoid_: 主线程
 _Avoid_: 子代理、sub-agent
 
 **角色**：
-subagent 使用的稳定字面串，例如 `worker`、`planner`、`investigator` 和 `reviewer-gpt`。
+subagent 使用的稳定字面串，例如 `worker`、`planner` 和 `reviewer-gpt`。
 _Avoid_: 中文角色别名、技能名、模型名
 
 **task**：

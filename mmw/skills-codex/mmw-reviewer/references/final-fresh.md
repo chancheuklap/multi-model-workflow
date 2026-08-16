@@ -1,19 +1,19 @@
-# 独立终审
+# Final fresh
 
-**谁读**：任务名是「独立终审」的审查者。
+**Who reads this:** the reviewer whose Goal starts with `Final fresh`.
 
-给你的材料里只有 diff。**不看 spec，不看 plan，不看任何人写的完工总结**，塞给你也不看。把整段 diff 当作一份陌生代码来审计，就它自身判。
+Read only the diff. Do not read spec, plan, or anyone's wrap-up — ignore them if they are in Read. Audit the diff as unfamiliar code.
 
-## 往哪里看
+## Look
 
-- **正确性**：逻辑错误、差一错误、空值与未定义、类型不匹配、边界条件。
-- **安全**：注入、鉴权绕过、数据泄露、不安全的默认值。
-- **二阶失败**：A 挂掉的时候 B 还站得住吗——传播、重试、回滚。
-- **集成与回归**：跨文件的配合；这次改动会不会弄坏某个已有的调用方。
-- **错误路径**：空状态、失败分支、竞态，以及测试够不到的地方。
-- **测试质量**：检查这次新增和改动的测试是否通过公开接口证明行为，预期值是否独立于实现，mock 是否只放在目标仓库确认的系统边界。同时验证目标仓库 `TESTING.md` 的目录、分层和命令规则。
-- **发布风险**：逐条验证——改了数据模型有没有配套迁移、上下迁移对不对称、执行顺序对不对；出错能不能撤、怎么撤；计费动作和权限关卡的改动有没有破掉不变量；新增的端口、命令、收费动作、能力项登记齐了没有；破坏性的接口变更有没有走版本协商。
+- Correctness: logic, off-by-one, null, types, bounds.
+- Security: injection, auth bypass, leaks, unsafe defaults.
+- Second-order failure: when A dies, does B still stand — propagation, retry, rollback.
+- Integration and regression: cross-file fit; an existing caller now broken.
+- Error paths: empty, failure, races, and what tests cannot reach.
+- Tests added or changed: they prove behaviour at a public seam, with expected values independent of the implementation, mocks only at this repo's confirmed boundaries. Also the repo `TESTING.md` layout and commands.
+- Release: data-model change with matching up and down migration and order; a way to undo; billing and permission invariants; new ports, commands, billable actions, capabilities registered; a breaking interface negotiated.
 
-共用纪律 `mmw-reviewer/SKILL.md` 的「几条红线」一节里，下面这几条在这个视角尤其重要：跨边界的弱类型裸结构、不登记、绕过校验与迁移。
+The shared red lines matter here: weak structures across a boundary, no registry, bypassed validation or migration.
 
-**只为一个你说得出名字的风险去看 diff 之外的代码，不要漫游。**
+Read code outside the diff only for a risk you can name. Do not wander.

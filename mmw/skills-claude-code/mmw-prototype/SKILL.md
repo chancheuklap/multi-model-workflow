@@ -1,101 +1,61 @@
 ---
 name: mmw-prototype
-description: 在真实代码落地前，用持续迭代的可运行资产回答只靠讨论无法判定的问题。用于验证后端逻辑、状态模型、数据形状或 UI/UX，并把经过走查的设计和逻辑保存为下游依据；读取文档或源码就能回答时不使用。
+description: Build a throwaway prototype to answer a design question. Use when talk cannot decide how something should look or behave, a `wayfinder:prototype` ticket arrives, or the user wants to sanity-check a state model, data shape, or UI.
 ---
 
-开始前按 `/mmw-domain-modeling` 的「读领域文档」读取这个仓库的领域文档。写 prototype 时使用其中定义的术语。
+# Prototype
 
-prototype 是在真实代码落地前回答问题的可运行资产。它的作用是把一个还很松的想法磨得越来越清晰。初版可以粗糙；后续轮次继续修改同一份 prototype，直到用户走查能够回答当前问题。
+A prototype is **throwaway code that answers a question**. The question decides the shape. Throwaway is how it is written — no tests, no extra error handling, no abstractions. The files stay in the repo as a prototype asset, edited in place across rounds, until a walkthrough answers the current question.
 
-想法被磨清楚之后，承载这个想法的后端脚本、接口合同、状态模型和 UI mockup 就是下游可以直接参考或复用的东西。所以 prototype 必须保存进仓库，由 spec、ticket、plan、审查和实现按精确路径引用。**复用的是想法，不是代码**：这些文件是在 prototype 约束下写的——没有测试、错误处理最少——折进正式代码时按生产标准重写，重写的判据见 [capture.md](capture.md)「可复用指的是想法」一段。
+`mmw domain path` prints the domain docs to read. Use those terms.
 
-## 1. 一轮回答一个问题
+If the question is an external system as it actually behaves under our load, data, or account, invoke `/mmw-research`. If the question cannot be made concrete enough to walk through, invoke `/mmw-grilling`, then return.
 
-开始一轮前，先从用户任务、已经进行的讨论或现有 prototype 中明确本轮验证问题。用户走查后必须能够说明哪里正确、哪里需要修改，或者哪个方向成立。
+One question this round. Later rounds edit the same prototype. Do not start a new prototype for a new question. Stop this direction only when a walkthrough shows the whole direction is wrong.
 
-同一份 prototype 可以连续回答多个问题。每一轮只收窄当前问题，不为新问题新建一套 prototype。只有走查事实证明整个方向不成立时，才停止这个方向。
+Before the first write:
 
-| 当前情况 | 处理 |
-| --- | --- |
-| 问题无法收敛成可走查的具体问题 | 移交 `/mmw-grilling`，谈清问题后再返回 |
-| 要验的不是我们自己要写的东西，而是一个外部系统在我们的负载、我们的数据、我们的账号下实际是什么表现 | 移交 `/mmw-research`。同时交出当前名字段和可用的范围段。它使用同一项产物引用 |
-| 问题能够通过走查得到明确答案，而且必须运行产物才能回答 | 继续第 2 节 |
+先确认当前仓库位置。判定从上到下，命中一行就停。
 
-## 2. 确定资产位置
+| 情况 | 怎么判断 | 你做什么 |
+| --- | --- | --- |
+| 不在 git 仓库里 | `git rev-parse --is-inside-work-tree` 失败 | 向用户索取目标仓库路径。拿到路径后进入该仓库，再重新判断 |
+| 在主检出里 | `git rev-parse --path-format=absolute --git-dir` 等于 `--git-common-dir` | 停下，请用户用当前宿主开一棵工作树再开会话 |
+| 没有分支 | `git symbolic-ref --quiet --short HEAD` 为空 | 按上文已定的任务分支名运行 `git switch -c <完整任务分支名>` |
+| 已有任务分支 | 上面都不成立 | 用当前分支 |
 
-开始写文件前，运行 `mmw artifact path prototype --sub README.md`。它的输出文件所在目录是本轮 prototype 根。创建其他资产时，运行 `mmw artifact path prototype --sub <类别内细分>`。过程材料使用 `mmw artifact path scratch --sub evidence`。一个目录有资产时才建立它：
 
-```text
-<prototype 根>/
-├── README.md              运行方式、逐轮问题、用户走查结论、选中产物和精确对应关系
-├── logic/                 后端脚本、接口合同、可移植逻辑和 Logic HTML
-└── mockup/
-    ├── current/           当前选中并持续优化的 UI mockup
-    ├── variants/
-    │   └── <问题 slug>/
-    │       ├── preview/   这一组变体的运行入口
-    │       └── <变体 key>/ 完整变体或局部变体
-    └── assets/            current 与变体确实共用的资源；没有时不建立
-```
+`mmw artifact path prototype --sub README.md` prints the index path. The directory that contains it is this prototype. Add `--name` and `--issue` when the caller passed them. Each other file: `mmw artifact path prototype --sub <path>`. Process shots: `mmw artifact path scratch --sub evidence`.
 
-过程截图、DOM、console、录屏、临时探测输出和生成中间物写进 scratch 命令输出的目录，不进 Git。
+## Pick a branch
 
-读取已有 `README.md`；没有时创建它。把本轮验证问题写进 `README.md`。再只读取当前问题需要的 prototype 资产。后续轮次继续修改 `mockup/current/`，不建立版本目录。`mockup/variants/` 下的每个目录回答一个验证问题，不代表一个版本。
+Identify which question this round answers — from the user's prompt, the surrounding code, the existing prototype, or by asking if the user is around:
 
-## 3. 选择并组合工作面
+- **"Does this logic / state model feel right?"** → [LOGIC.md](LOGIC.md). Build a single shareable HTML file — free-play buttons plus tabbed guided walkthroughs — that pushes the state machine through cases that are hard to reason about on paper, and that a non-developer can drive.
+- **"What should this look like?"** → [UI.md](UI.md). Generate several radically different UI variations on a single route, switchable via a URL search param and a floating bottom bar.
+- **Looking at one output is enough** — a payload, a contract, a transform. Write the smallest runnable script, contract sample, or sample data in this prototype. Hand the input and the output to the user. Cover the failures, empty values, and edges the question cares about, not only the happy path.
 
-后端脚本、Logic HTML 和 UI mockup 是同一份 prototype 的不同工作面。复杂产品逻辑通常先用 UI mockup 理顺页面、状态和操作路径，再为每个功能或按钮补上后端脚本或接口合同。纯后端逻辑简单时，可以直接从澄清后的问题开始编写后端脚本。
+The branches produce very different artifacts — getting this wrong wastes the round. If two branches fit and the user can answer, ask which this round. If the user isn't reachable, default to whichever branch better matches the surrounding code (a backend module → logic or a script; a page or component → UI) and state the assumption at the top of the prototype and in `README.md`.
 
-每轮只选择当前问题需要的工作面：
+## Rules that apply to both
 
-| 当前问题 | 处理 |
-| --- | --- |
-| 查看一次数据、接口或转换输出就能判断 | 继续第 4 节，在 `logic/` 中编写最小可运行后端脚本、接口合同样例或一份样例数据 |
-| 必须由用户用按钮驱动状态模型，而且没有合适产品界面 | 完整读取 [LOGIC.md](LOGIC.md) |
-| 涉及页面、操作流程或 UI/UX | 完整读取 [UI.md](UI.md) |
-| 同时符合两个工作面，而且用户可以回答 | 停止并请用户确认这一轮先回答哪个问题 |
-| 同时符合两个工作面，而且用户暂时无法回答 | 根据当前验证问题和周围代码选择最小工作面，并在 `README.md` 中写明假设 |
+1. **Throwaway from day one, and clearly marked as such.** Write the files where `mmw artifact path prototype` prints. Thin wiring may sit next to the real page or module so context is obvious — but name every file, title, and route so a casual reader can see it's a prototype, not production. For UI routes, obey whatever routing convention the project already uses; don't invent a new top-level structure.
+2. **Trivial to run.** A UI prototype starts from one command in the project's task runner — `pnpm <name>`, `python <path>`, `bun <path>`, etc. A logic demo is a single HTML file the user double-clicks. Either way, no thinking required to start it. Write that command or path in `README.md`.
+3. **No persistence by default.** State lives in memory. Persistence is the thing the prototype is _checking_, not something it should depend on. If the question explicitly involves a database, hit a scratch DB or a local file with a clear "PROTOTYPE — wipe me" name.
+4. **Skip the polish.** No tests, no error handling beyond what makes the prototype _runnable_, no abstractions. The point is to learn something fast.
+5. **Surface the state.** After every action (logic) or on every variant switch (UI), print or render the full relevant state so the user can see what changed.
+6. **Capture it when done.** `README.md` is the index of this prototype: the question, how to run it, the walkthrough conclusions in the user's words, the chosen artifacts, rejected constraints, and any long-lived evidence. It is not the running prototype. Downstream names `README.md` and reads the files it lists. Write `none` for a field that has none. Reuse is the idea, not engineering completeness — say that above any reusable path. This skill does not fold the prototype into production.
 
-问题涉及两个工作面时，先完成能够回答当前问题的一个；用户走查后再登记下一轮问题，并继续补齐另一个工作面。
+## Walkthrough
 
-## 4. 后端 prototype
+The user operates the running prototype and accepts, rejects, or asks for a change. Do not click, choose, or declare the round done for them. Open each page in its own view so they can compare. Wait.
 
-查看一次输出就能判断的问题，不需要额外搭建交互界面。提供最小可运行脚本、接口合同样例或一份样例数据，并把输入和输出一起交给用户。
+If they ask for a change, edit the same prototype and walk through again.
 
-最小后端 prototype 覆盖与当前问题直接相关的失败、空值和边界输入。不要只展示顺利路径。
+## After capture
 
-复杂逻辑在 UI mockup 流程确定后继续补齐。UI 功能对应、桩行为和页面状态按 [UI.md](UI.md)「连接后端行为」执行。
+Commit the prototype files and `README.md` this round wrote. Do not commit scratch. Do not create an empty commit.
 
-## 5. 共同规则
+After a UI round is committed, run `/mmw-ui-qa`. It does not replace the walkthrough. If it cannot run, continue and say so.
 
-1. **一眼看得出这是 prototype。** 文件名、目录名、页面标题和路由都要让一个随手点进来的人立刻知道它不是正式实现。挂进已有页面或按项目路由约定新建路由时，在页面上明确标出 prototype 身份。
-2. **运行方式清楚。** 使用项目已有的任务入口；自包含 HTML 应能直接打开。把精确运行方式写进 `README.md`。
-3. **默认把状态保存在内存。** 当前问题涉及持久化时，才接临时数据库或明确标记的本地文件。
-4. **不做重基建。** 每一轮只写回答当前问题所需的代码。不写测试，不写当前问题用不到的错误处理，不做抽象。prototype 靠用户走查回答问题，靠的不是工程完备度。
-5. **呈现完整相关状态。** 每次逻辑动作或界面状态变化后，都显示用户判断当前问题所需的完整状态。
-6. **原地迭代。** 后续轮次修改同一份 prototype，保留已经确认的状态、交互和文案。
-7. **保存问题和答案。** 本轮工作面完成后，按 [capture.md](capture.md) 保存本轮记录和下游输入。
-
-## 6. 用户走查
-
-把当前可运行资产和运行结果交给用户。用户自己操作并给出意见。不要替用户点、替用户选，也不要替用户说这一版可以了。
-
-先清点这次要给用户看的全部页面或 URL。每个页面各自打开一处，让用户能够来回比较。
-
-| 当前宿主能力 | 打开方式 |
-| --- | --- |
-| 宿主提供内置浏览器 | 使用内置浏览器打开全部页面，并保留页面供用户操作 |
-| 宿主没有内置浏览器 | 使用当前环境提供的 Playwright 打开全部页面；当前环境提供 `playwright-cli` 时，先执行 `playwright-cli open <第一个 URL>`，再用 `playwright-cli tab-new <其余 URL>` 打开其余页面；需要显式展示浏览器时执行 `playwright-cli show` |
-| 内置浏览器和 Playwright 都不可用，或者 Playwright 不能给用户留下可操作页面 | **停**：说明缺少用户可操作的浏览器，不能把只提供 URL 当作已经完成走查准备 |
-
-页面交给用户前，主 agent 必须亲自看到页面已经加载。使用内置浏览器时，检查可见页面并截图。使用 Playwright 时，读取 snapshot 并截图；需要用户在 CLI 中直接标注意见时，执行 `playwright-cli show --annotate`。截图和其他过程材料写进 `scratch 路径`。
-
-用户必须拿到仍然打开的可操作页面。主 agent 也必须能够继续检查同一组 URL 的页面、DOM 和 console。用户界面和 agent 检查界面可以是两个浏览器进程，但必须连接同一个运行中的 mockup。两项都成立后，才说明 mockup 已经打开。页面交给用户之后停止导航，保持浏览器打开，等待用户反馈。
-
-用户给出意见后，按本轮工作面继续：
-
-| 本轮工作面 | 下一步 |
-| --- | --- |
-| 只有第 4 节的后端 prototype | 读取 [capture.md](capture.md)，保存本轮记录和下游输入 |
-| UI mockup | 回 [UI.md](UI.md) 第 5 节 |
-| Logic HTML | 回 [LOGIC.md](LOGIC.md) 第 4 节 |
+When `/mmw-wayfinder` or another skill invoked this, return the README path. When the user invoked this, report that path and ask: write a spec, or stop here. If the whole direction is wrong, the README still holds that fact; return the path.

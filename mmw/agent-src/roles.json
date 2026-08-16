@@ -15,26 +15,12 @@
       "writable": true,
       "description": "高风险实现角色。由 mmw-implement 在计费、权限、数据迁移或不可逆改动中派发。按 mmw-tdd 执行 TDD 并提交；不改 docs/，不 push，不扩大 ticket 范围。"
     },
-    "prototype-worker": {
-      "agent": "mmw-prototype-worker",
-      "body": "mmw-prototype-worker.md",
-      "skill": "",
-      "writable": true,
-      "description": "原型执行者。由 mmw-prototype 派发，在当前任务 worktree 完成一个指定原型变体。不加载 TDD，不修改正式设计结论，不扩大变体范围，不创建结果 worktree。"
-    },
     "planner": {
       "agent": "mmw-planner",
       "body": "mmw-planner.md",
       "skill": "mmw-planner",
       "writable": true,
       "description": "计划编写角色。由 mmw-to-plan 派发，一张 ticket 对应一个 planner 和一份 plan。按 mmw-planner 方法论拆出实施步骤；只写指定 plan，不改源码。"
-    },
-    "investigator": {
-      "agent": "mmw-investigator",
-      "body": "mmw-investigator.md",
-      "skill": "",
-      "writable": false,
-      "description": "上下文隔离的会话内调查者，只读。由 mmw-research 与 mmw-diagnosing-bugs 派发：一个角度一个，并行。查一个问题的事实，带出处交回，不下判断、不改任何文件。它交回的每条断言由主 agent 验证过才作数。"
     },
     "designer": {
       "agent": "mmw-designer",

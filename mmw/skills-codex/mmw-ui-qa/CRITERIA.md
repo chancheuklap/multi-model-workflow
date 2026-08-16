@@ -1,141 +1,141 @@
-# 判据与检查项的细则
+# Criteria and check details
 
-每种检查项怎么判、判据从哪来，以及三份跨边界数据的字段。判据缺了怎么建在 [SETUP.md](SETUP.md)。
+How each check judges, where its criteria come from, and the fields of the three cross-boundary files. Creating missing criteria is in [SETUP.md](SETUP.md).
 
-## 判据五种，生产方各不相同
+## Five kinds of criteria, five producers
 
-| # | 判据 | 形态 | 谁生产 | 供给哪几种检查项 |
+| # | Criteria | Shape | Who produces | Feeds |
 | --- | --- | --- | --- | --- |
-| 1 | 阈值表 | JSON，仓库一份 | 界面 QA。intake 问卷建立，裁决结果追加 | A1 |
-| 2 | 可用性判据 | Markdown，每个产品一份 | 界面 QA。问卷、从共同理解与 spec 抽取、裁决结果回流 | B5 |
-| 3 | 设计系统 | DESIGN.md 格式的文件 | **目标仓库**。技能只读 | A3、B1 |
-| 4 | 可访问性规则集 | 规则引擎自带 | 规则引擎 | A2 |
-| 5 | 方法判据 | 写在 [SEMANTIC.md](SEMANTIC.md) 正文里 | 本技能自带 | B2、B3、B4 |
+| 1 | Threshold table | JSON, one per repo | UI QA. Intake questionnaire creates it; verdicts append | A1 |
+| 2 | Usability criteria | Markdown, one per product | UI QA. Questionnaire, extract from shared understanding and spec, verdict flow-back | B5 |
+| 3 | Design system | DESIGN.md-format file | **Target repo**. This skill reads only | A3, B1 |
+| 4 | Accessibility rules | Engine's own set | The engine | A2 |
+| 5 | Method criteria | Body of [SEMANTIC.md](SEMANTIC.md) | This skill | B2, B3, B4 |
 
-第 5 种不是目标仓库的配置，任何装了 MMW 的仓库直接具备。
+Kind 5 is not target-repo config. Every repo with MMW has it.
 
-**设计系统是只读边界。** 界面 QA 读它，不写它，所有权属于目标仓库。唯一的例外是它不存在时建一次，见下。
+**The design system is a read-only boundary.** UI QA reads it, does not write it, and the target repo owns it. The only exception is creating it once when it is missing. See below.
 
-设计系统用 **DESIGN.md 格式**——一份 Markdown，YAML frontmatter 放 `colors`、`typography`、`rounded`、`spacing`、`components` 这些机器可读的 token，正文放具名规则与 Do's/Don'ts 这些散文。A3 判前者，B1 判后者。校验它的命令是 `mmw-ui-qa design-lint <文件>`；`mmw-ui-qa check` 会报出这个格式校验器的实际包名与版本。
+The design system uses **DESIGN.md format** — one Markdown file, YAML frontmatter for machine-readable tokens (`colors`, `typography`, `rounded`, `spacing`, `components`), body for named rules and Do's/Don'ts. A3 judges the former. B1 judges the latter. Lint command: `mmw-ui-qa design-lint <file>`. `mmw-ui-qa check` prints this linter's actual package name and version.
 
-## A3 判的是声明层
+## A3 judges the declaration layer
 
-设计系统文件是**声明**（人写下的意图），运行时的 CSS 变量是**实现**（实际生效的）。**A3 拿声明层判**：元素用的值在不在设计系统声明的集合里。不拿实现层判。
+The design-system file is the **declaration** (written intent). Runtime CSS variables are the **implementation** (what actually applies). **A3 judges the declaration:** is the element's value in the declared set. It does not judge the implementation.
 
-**实现层照样要读，用途是判断判据可不可信。** 两组键值对比一比：
+**Still read the implementation, to test whether the criteria are trustworthy.** Compare the two key/value sets:
 
-| 对比结果 | 怎么处理 |
+| Compare | Action |
 | --- | --- |
-| 实现层有、声明层没有 | 这个 token 未经声明。作为报告项报一条（**按 token 报一条，不按使用它的元素逐个报**）。用到它的元素同时被 A3 判为越界，因为它确实不在声明集合里 |
-| 声明层有、实现层没有 | 声明已经过时。作为报告项报一条 |
+| Implementation has it, declaration does not | Undeclared token. One report item **per token, not per element that uses it**. Elements that use it also fail A3, because they are outside the declared set |
+| Declaration has it, implementation does not | Stale declaration. One report item |
 
-**出现第一条「实现层有、声明层没有」时，报告就要写出「A3 的结果可能失真」。** 那一类会翻转 A3 的判定；另一类（声明层有、实现层没有）不翻转，只报告，不加这句话。
+**On the first "implementation has it, declaration does not", the report must say "A3 results may be distorted".** That class flips A3. The other class (declaration without implementation) does not flip A3. Report it. Do not add that sentence.
 
-把脱节暴露给用户，不要偷偷换一个判据来源。报告里同时给一条建议：目标仓库改成构建时读设计系统的 token 产出 CSS 变量，这类不一致不会再出现。**只是建议，不替目标仓库改构建流程。**
+Show the split to the user. Do not silently switch criteria source. Also suggest: the target repo should emit CSS variables from design-system tokens at build time. **A suggestion only. Do not change the target repo's build.**
 
-## A2 的实际覆盖面
+## A2 coverage
 
-规则引擎覆盖对比度、ARIA 误用、缺 label、缺 alt、`tabindex` 取值、`aria-hidden` 元素可聚焦、嵌套交互控件、可滚动区域可达性、跳过链接。
+The engine covers contrast, ARIA misuse, missing label, missing alt, `tabindex` values, focusable `aria-hidden` elements, nested interactive controls, scroll-region access, skip links.
 
-**它不验证实际键盘遍历顺序。** 引擎里与焦点顺序同名的那条规则是实验规则、默认关闭，而且只检查已在焦点序列中的元素角色是否适合交互内容，不追踪按 Tab 时焦点实际走的次序。**必须在报告中声明这一点**，不得让用户以为焦点顺序已被覆盖。
+**It does not verify actual keyboard traversal order.** The engine rule with the same name as focus order is experimental, off by default, and only checks that elements already in the focus sequence have roles fit for interactive content. It does not track the order Tab actually walks. **The report must say this.** Do not let the user think focus order was covered.
 
-## 三份跨边界数据的字段
+## Fields of the three cross-boundary files
 
-三份都必须带 `version` 整数字段：格式变化时据此认出旧文件并说明，而不是静默误读。界面全图不在其列——它在进程内构建，不跨边界。
+All three must have integer `version`. Format changes use it to recognize an old file and explain, not to silently misread. The screen map is not in this set — it is in-process and does not cross a boundary.
 
-**当前认识的版本号是 `1`。** 三份都用这一个值。读到大于 1 的停止，说明文件由更新版本的技能写成；读到小于 1 的按 1 读取，并在报告中留一行提示。文件损坏或不是合法 JSON 时停止，写出解析器的原始错误，不猜测内容。
+**The version this skill knows is `1`.** All three use that value. Greater than 1: stop, and say a newer skill wrote the file. Less than 1: read as 1, and leave one report line. Corrupt or not JSON: stop, print the parser's raw error, do not guess.
 
-**未知内容按设计系统格式规范给出的那张消费者行为表处理**，不另立一套：未知的段落保留、不报错；未知的键，值合法就接受；未知的属性接受但在报告中留一行提示；重复的同名段落报错并拒绝该文件。这四条不是我们发明的容错规则，是我们已经依赖的那份规范自己定义的消费者行为。
+**Unknown content follows the consumer-behavior table in the design-system format spec.** Do not invent another: keep unknown sections, no error; accept unknown keys when the value is valid; accept unknown attributes and leave one report line; duplicate same-named sections error and reject the file. These four are that spec's consumer behavior, not ours.
 
-### 接线文件 · 归属方是目标仓库
+### Wiring file · owned by the target repo
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `version` | 整数 | 是 | 格式版本 |
-| `product` | 字符串 | 是 | 产品标识。小写字母、数字与连字符，与可用性判据的文件名一致 |
-| `launch` | 对象 | 是 | 见下 |
-| `mainWindow` | 对象 | 是 | 见下 |
-| `environment` | 对象 | 是 | 见下 |
-| `prepare` | 对象 | 否 | 见下。缺失时相关状态进覆盖报告 |
-| `designSystem` | 字符串 | 否 | 设计系统文件的仓库相对路径。缺失时跳过 A3 与 B1 |
-| `windows` | 对象 | 否 | 见下。只在 Windows 侧运行时需要 |
+| `version` | integer | yes | Format version |
+| `product` | string | yes | Product id. Lowercase letters, digits, hyphens. Matches the usability-criteria filename |
+| `launch` | object | yes | Below |
+| `mainWindow` | object | yes | Below |
+| `environment` | object | yes | Below |
+| `prepare` | object | no | Below. If missing, related states go in the coverage report |
+| `designSystem` | string | no | Repo-relative path of the design-system file. If missing, skip A3 and B1 |
+| `windows` | object | no | Below. Required only when running on Windows |
 
-五个对象的内部字段：
+Inner fields:
 
-| 对象 | 字段 | 类型 | 必填 | 说明 |
+| Object | Field | Type | Required | Notes |
 | --- | --- | --- | --- | --- |
-| `launch` | `command` | 字符串数组 | 是 | 启动命令与参数，逐个元素一项，不是待解析的整行 |
-| `launch` | `cwd` | 字符串 | 否 | 仓库相对路径。缺省为仓库根 |
-| `launch` | `env` | 字符串到字符串的映射 | 否 | 启动环境变量。值可以是凭证引用 |
-| `launch` | `readyTimeoutMs` | 整数 | 否 | 等待主窗口出现的上限。缺省 30000 |
-| `mainWindow` | `titlePattern` | 字符串 | 二选一必填 | 匹配窗口标题的正则 |
-| `mainWindow` | `urlPattern` | 字符串 | 二选一必填 | 匹配渲染进程地址的正则 |
-| `environment` | `kind` | 枚举 | 是 | `local-server` 或 `test-account` |
-| `environment` | `endpoint` | 字符串 | 是 | 本地服务器地址，或真实服务器地址 |
-| `environment` | `account` | 对象 | `kind` 为 `test-account` 时必填 | 两个字段：`id`（字符串，测试账号标识）与 `secret`（字符串，凭证引用，格式见下） |
-| `prepare` | `steps` | 对象数组 | 否 | 每项含 `name` 与 `command`（字符串数组），按顺序执行 |
-| `windows` | `debugPort` | 整数 | 是 | 远程调试端口。问卷第 7 问的默认值是 `9222` |
-| `windows` | `host` | 字符串 | 否 | 缺省 `127.0.0.1` |
+| `launch` | `command` | string array | yes | Start command and args, one element per item, not one line to parse |
+| `launch` | `cwd` | string | no | Repo-relative. Default: repo root |
+| `launch` | `env` | string-to-string map | no | Start env. Values may be secret refs |
+| `launch` | `readyTimeoutMs` | integer | no | Wait for the main window. Default 30000 |
+| `mainWindow` | `titlePattern` | string | one of two required | Regex on window title |
+| `mainWindow` | `urlPattern` | string | one of two required | Regex on renderer URL |
+| `environment` | `kind` | enum | yes | `local-server` or `test-account` |
+| `environment` | `endpoint` | string | yes | Local server URL, or real server URL |
+| `environment` | `account` | object | required when `kind` is `test-account` | `id` (string, test-account id) and `secret` (string, secret ref, format below) |
+| `prepare` | `steps` | object array | no | Each item has `name` and `command` (string array), in order |
+| `windows` | `debugPort` | integer | yes | Remote debug port. Questionnaire question 7 defaults to `9222` |
+| `windows` | `host` | string | no | Default `127.0.0.1` |
 
-`environment` 缺失或 `kind` 不是这两个值时**停止并说明**，不猜一个。它没有豁免情况：问卷第 5 问必问，只有两个选项，检查 prototype 的 mockup 时那也是本机起的服务，写 `local-server`。
+Missing `environment`, or `kind` not one of those two: **stop and explain**. Do not guess. No exemption: questionnaire question 5 always asks, two options only. A prototype mockup is still a local server — write `local-server`.
 
-**凭证只存引用，不存明文。** 引用的结构是固定前缀加名字：`env:<环境变量名>` 或 `keychain:<条目名>`。运行时按前缀取值。**写成其他形态的一律当作明文拒绝，并停止运行。** 必填字段缺失时停止并说明，不填默认值。
+**Secrets are refs, never plaintext.** A ref is a fixed prefix plus a name: `env:<env-var>` or `keychain:<entry>`. Resolve by prefix at run time. **Any other shape is plaintext: refuse it and stop.** Missing required fields: stop and explain. Do not fill defaults.
 
-### 阈值表 · 归属方是界面 QA
+### Threshold table · owned by UI QA
 
-仓库一份。除 `version` 外，顶层是阈值项的映射，每项四个字段：
+One per repo. Besides `version`, the top level is a map of threshold items. Each item has four fields:
 
-| 字段 | 类型 | 必填 | 说明 |
+| Field | Type | Required | Notes |
 | --- | --- | --- | --- |
-| `value` | 数值 | 是 | 阈值 |
-| `unit` | 枚举 | 是 | `px` 或 `ratio`。不接受无单位裸数 |
-| `appliesTo` | 枚举 | 是 | `interactive`（可点击元素）或 `presentational`（展示型元素） |
-| `compare` | 枚举 | 是 | `min` 或 `max`。决定「小于算违规」还是「大于算违规」 |
+| `value` | number | yes | Threshold |
+| `unit` | enum | yes | `px` or `ratio`. No unitless number |
+| `appliesTo` | enum | yes | `interactive` or `presentational` |
+| `compare` | enum | yes | `min` or `max` |
 
-后两项不能省。`appliesTo` 区分可点击与展示型，`compare` 说明比较方向——同一个数值在缺少比较方向时无法判定。
+The last two are required. `appliesTo` splits clickable from presentational. `compare` is the direction.
 
-**建立模式必须建出下面这三项，一项不少。** 键名是固定的，A1 按键名取值：
+**Setup mode must create these three keys.** Names are fixed. A1 looks them up by name:
 
-| 键名 | 判什么 | 通用下限 | `unit` | `appliesTo` | `compare` |
+| Key | Judges | Generic floor | `unit` | `appliesTo` | `compare` |
 | --- | --- | --- | --- | --- | --- |
-| `minTargetHeight` | 可点击元素的高度 | 24 | `px` | `interactive` | `min` |
-| `minTargetWidth` | 可点击元素的宽度 | 24 | `px` | `interactive` | `min` |
-| `minBodyFontSize` | 正文文本的字号 | 12 | `px` | `presentational` | `min` |
+| `minTargetHeight` | Clickable height | 24 | `px` | `interactive` | `min` |
+| `minTargetWidth` | Clickable width | 24 | `px` | `interactive` | `min` |
+| `minBodyFontSize` | Body font size | 12 | `px` | `presentational` | `min` |
 
-**对比度不在这张表里。** 它归 A2——规则引擎自带 WCAG 的两档对比度规则，本文「A2 的实际覆盖面」第一项就是它。在阈值表里再放一份，同一个问题会被 A1 和 A2 各报一遍，用户读到两条描述不同的记录，指向同一个元素。规则引擎缺失而降级跳过 A2 时也不补——那种情况报告顶部已经写明对比度这一轮没查。
+**Contrast is not in this table.** It belongs to A2 — the engine already has WCAG's two contrast rules, first item in "A2 coverage" above. A second copy in this table would report the same element twice. When the engine is missing and A2 is skipped, do not add contrast here either — the report header already says contrast was not checked this run.
 
-「通用下限」这一列是问卷第 3 问扫候选时用的比较基准，也是目标仓库没有对应规格时的兜底值。**有对应规格时用规格值，不用这一列。** 项目里常有高度低于 24px 的展示型组件，直接套用通用下限会把它们误判成违规。
+The "generic floor" column is the compare baseline when scanning candidates in questionnaire question 3, and the fallback when the target repo has no matching spec. **When a spec exists, use the spec, not this column.**
 
-目标仓库的组件规格在设计系统 frontmatter 的 `components` 段里，或在组件源码的尺寸常量里。两处都查不到时用通用下限，并在建立时告诉用户这三项各取了哪个来源。
+Component specs live in design-system frontmatter `components`, or size constants in component source. If neither has it, use the generic floor, and tell the user at setup which source each of the three used.
 
-用户要求加第四项时照加，格式同上（`compare: max` 就是给这种自定项留的，上面三项都用 `min`）。A1 对所有顶层项一视同仁，不认这三个键名之外的白名单。
+A user-requested fourth item uses the same four fields (`compare: max` is for those). A1 treats every top-level item the same. There is no whitelist beyond these three keys.
 
-### 可用性判据 · 归属方是界面 QA
+### Usability criteria · owned by UI QA
 
-每个产品一份 Markdown。`version` 写在 YAML frontmatter 里——这一份是给人读的，判据正文用散文写，机器只需要认出版本和逐条切分：
+One Markdown file per product. `version` is in YAML frontmatter — people read this file, criteria are prose, the machine only needs version and per-item splits:
 
 ```markdown
 ---
 version: 1
-product: <产品标识>
+product: <product-id>
 ---
 
 ## U-001
 
-正文：<判据内容>
-来源：<从哪次讨论、哪份 spec 或哪次界面 QA 来>
-状态：已确认
+Body: <criterion text>
+Source: <which discussion, spec, or UI QA run>
+Status: confirmed
 ```
 
-一条判据一个二级标题，标题就是编号。每条六项：
+One criterion per level-2 heading. The heading is the id. Six fields per item:
 
-| 字段 | 必填 | 内容 |
+| Field | Required | Content |
 | --- | --- | --- |
-| 编号 | 是 | 二级标题。形如 `U-001`，按建立顺序递增，删除条目时不回收编号 |
-| 正文 | 是 | 判据内容 |
-| 来源 | 是 | 从哪次讨论、哪份 spec 或哪次界面 QA 来 |
-| 状态 | 是 | 「已确认」「已裁决不成立」「已搁置」之一，对应用户裁决结果 |
-| 指纹 | 由裁决产生的条目必填 | [VERDICTS.md](VERDICTS.md) 四种形态之一。技能自动生成 |
-| 最后命中 | 由裁决产生的条目必填 | 这条最近一次被第 1 级或第 2 级匹配命中的日期 |
+| Id | yes | Level-2 heading. Shape `U-001`, increasing at create time. Deleted ids are not reused |
+| Body | yes | Criterion text |
+| Source | yes | Which discussion, spec, or UI QA run |
+| Status | yes | `confirmed`, `rejected`, or `waived` — the user verdict |
+| Fingerprint | required on items created from a verdict | One of the four shapes in [VERDICTS.md](VERDICTS.md). This skill generates it |
+| Last hit | required on items created from a verdict | Date this item last matched at level 1 or level 2 |
 
-**B5 只拿「已确认」的条目判。** 另外两个状态留在文件里供两级匹配查，不参与判定。
+**B5 judges `confirmed` items only.** The other two statuses stay in the file for two-level matching. They do not judge.

@@ -814,7 +814,7 @@ suite_cursor_host() {
   expect_state "Cursor worker 不走 dispatch" "诊断点名 mmw-cursor-agent" \
     grep -F "mmw-cursor-agent" "$out"
 
-  out="$(cd "$repo" && MMW_HOST=cursor "$MMW" dispatch investigator --task-text "查" 2>&1)"
+  out="$(cd "$repo" && MMW_HOST=cursor "$MMW" dispatch designer --task-text "查" 2>&1)"
   expect_out_has "Cursor 只读角色走原生 Task" "tool: Task" "$out"
 }
 

@@ -1,53 +1,53 @@
-# 建立模式
+# Setup mode
 
-[SKILL.md](SKILL.md) 第 3 步取的那四份判据与接线，缺任何一份就读本文，把缺的建起来，然后回第 5 步继续本次检查。四份都齐时不读本文。
+If any of the four criteria and wiring files from [SKILL.md](SKILL.md) step 3 is missing, read this file, create the missing ones, then return to step 5 and continue this run. If all four exist, do not read this file.
 
-缺一份和缺四份走同一条路径，只是问卷问的内容不同。
+One missing file and four missing files take the same path. The questionnaire content differs.
 
-## intake 问卷
+## Intake questionnaire
 
-**只问技能查不到的，七个问题一次问完。**
+**Ask only what this skill cannot look up. Seven questions, once.**
 
-技能自己能查到的不问：设计系统文件在不在、声明了什么组件规格、应用怎么启动（构建配置里的脚本）、用户在 `/mmw-grilling` 和 spec 里说过的可用性要求。
+Do not ask what the skill can look up: whether a design-system file exists, which component specs it declares, how the app starts (scripts in the build config), usability requirements the user already stated in `/mmw-grilling` and the spec.
 
-**预填只能用读代码就能拿到的东西。** 问卷跑在主文件第 4 步，那时接线文件还没建，应用启动不了，所以没有界面全图，也没有运行时的元素尺寸——第 2、3 问的预填都只读源码。
+**Prefill only from reading code.** The questionnaire runs at main-file step 4. The wiring file does not exist yet, so the app cannot start, so there is no screen map and no runtime element sizes — questions 2 and 3 prefill from source only.
 
-| # | 问什么 | 技能先做什么，好让用户少打字 |
+| # | Ask | What the skill does first, so the user types less |
 | --- | --- | --- |
-| 1 | 这个产品给谁用、在什么场景下用 | 从 spec 或共同理解抽一段草稿，用户改 |
-| 2 | 哪几条是核心流程 | 读路由表与状态机，列出从入口路由出发的跳转链，用户挑 |
-| 3 | 哪些元素是刻意做小的展示型元素 | 读设计系统 frontmatter 的 `components` 段与组件源码的尺寸常量，把小于通用下限的组件列成候选，用户勾 |
-| 4 | 启动方式对不对 | 从构建配置读出候选命令，用户确认或改 |
-| 5 | 这个产品跑在哪个环境：本机起的服务，还是真实服务器上的测试账号 | 无法预填。**两个选项二选一，没有第三个** |
-| 6 | 登录态与测试数据怎么准备 | 无法预填。答不上来记为空，到不了的状态进覆盖报告（主文件第 6 步） |
-| 7 | Windows 远程调试端口 | 默认值 `9222`，用户改或留空 |
+| 1 | Who this product is for, and in which situations | Draft a paragraph from spec or shared understanding. The user edits |
+| 2 | Which flows are core | Read routes and state machines, list jump chains from the entry route. The user picks |
+| 3 | Which elements are intentionally small and presentational | Read design-system frontmatter `components` and size constants in component source. List components below the generic floor. The user ticks |
+| 4 | Is the start command right | Read candidate commands from the build config. The user confirms or edits |
+| 5 | Where this product runs: a local server, or a test account on a real server | Cannot prefill. **Two options, no third** |
+| 6 | How to prepare login and test data | Cannot prefill. If unanswered, record empty; unreached states go in the coverage report (main-file step 6) |
+| 7 | Windows remote-debug port | Default `9222`. The user edits or leaves it |
 
-第 5 问是数据安全的唯一保障。项目落地后跑 QA 时，走查任务是完整用户路径且至少含一条失败路径，会真的点下去——真的新建、真的提交、真的触发错误。本地服务器和测试账号都与生产数据隔离，所以**不需要禁止操作清单，也不需要为不可逆操作逐个停下来问用户**。
+Question 5 is the data-safety gate. After the product has landed, walkthrough tasks are full user paths and include at least one failure path — they really click, really create, really submit, really trigger errors. Local servers and test accounts are isolated from production data, so **there is no forbidden-action list, and no per-irreversible-action pause**.
 
-**从共同理解与 spec 抽取的可用性判据一次性展示，默认全部接受，用户划掉不要的。** 不逐条确认——那是「一项一项盯」。也不静默采用——抽取是模型判断，抽错的条目会变成长期判据，每轮都拿它判 B5。抽取结果跟着问卷一起给用户看，不额外增加一次交互。
+**Show extracted usability criteria from shared understanding and spec once. Default: accept all. The user crosses out what they do not want.** Do not confirm item by item. Do not silently adopt — extract is model judgment, and a wrong item becomes a long-lived B5 criterion. Show extract results with the questionnaire. Do not add another interaction.
 
-## 四份缺失的性质不同
+## Four missing files, four natures
 
-| 缺哪一份 | 性质 | 用户拒绝建立时 |
+| Missing | Nature | If the user refuses to create it |
 | --- | --- | --- |
-| 阈值表 | 必须建 | **停止**。A1 没有判据，而它是最基础的一层 |
-| 该产品的可用性判据 | 必须建 | **停止**。B5 没有判据，而这一层承载「贴合真实工作流」这个核心目标 |
-| 该产品的接线文件 | 必须建 | **停止**。应用启动不了，九种检查项一种也跑不了 |
-| 设计系统 | **提议建** | **继续**。跳过 A3 与 B1，其余七种照常运行，报告顶部声明跳过原因 |
+| Threshold table | Must create | **Stop.** A1 has no criteria |
+| This product's usability criteria | Must create | **Stop.** B5 has no criteria |
+| This product's wiring file | Must create | **Stop.** The app will not start. None of the nine checks can run |
+| Design system | **Offer to create** | **Continue.** Skip A3 and B1. Run the other seven. The report header states why |
 
-设计系统那一行不一样，因为缺了它只影响两种检查项，而缺前三份中任何一份技能都跑不起来。
+The design-system row is different: missing it drops two checks. Missing any of the first three stops the skill.
 
-新建三份跨边界数据文件时一律写 `"version": 1`。它们的字段与格式在 [CRITERIA.md](CRITERIA.md)「三份跨边界数据的字段」。
+New cross-boundary files always write `"version": 1`. Fields and format are in [CRITERIA.md](CRITERIA.md) under "Fields of the three cross-boundary files".
 
-## 设计系统交给 `/impeccable` 建
+## The design system is created by `/impeccable`
 
-**不自己写。** 它是 DESIGN.md 格式的上游做法，`document` 流程覆盖了扫描现有 token、组件与渲染产物，再确认描述性语言这一整套。第 2 步的依赖检查已经保证它装好了；它是停止级依赖，跑到这里不会缺。
+**Do not write it yourself.** DESIGN.md format is an upstream practice. The `document` flow covers scanning existing tokens, components, and render output, then confirming descriptive language. Step 2 already required this dependency; it is stop-level, so it is present here.
 
-移交时交给它三件事：产品标识、intake 问卷答出来的内容，以及**不许从运行页面提取当前值**这条约束——那是逆向抽取，会把当前的缺陷固化成标准。
+Hand it three things: the product id, the intake answers, and **do not extract current values from a running page** — that reverse-extracts current defects into the standard.
 
-它交回文件之后，本技能做两件事：
+After it returns a file, this skill does two things:
 
-1. 用 `mmw-ui-qa design-lint <文件>` 校一遍，结果按主文件第 5 步处理。
-2. 把路径写进接线文件的 `designSystem` 字段，**此后转只读，永不再写它**。
+1. Lint with `mmw-ui-qa design-lint <file>`. Handle the result as main-file step 5.
+2. Write the path into wiring `designSystem`, **then read-only, never write it again**.
 
-`/impeccable` 起不来或交不回文件时**停止**，说明设计系统建不出来。不要退回自己写一份——两份来源写出的 DESIGN.md 不一样，而这个文件是 A3 与 B1 的判据，下一轮跑出来的结果会对不上。
+If `/impeccable` will not start or returns no file, **stop** and say the design system could not be created. Do not fall back to writing one yourself — two sources produce different DESIGN.md files, and this file is the criterion for A3 and B1. The next run would not match.

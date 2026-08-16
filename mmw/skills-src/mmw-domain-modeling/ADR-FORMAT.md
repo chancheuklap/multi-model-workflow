@@ -1,10 +1,10 @@
-# ADR 格式
+# ADR Format
 
-ADR 位于 `docs/adr/`，并使用连续编号，例如 `0001-slug.md`、`0002-slug.md`。
+ADRs live in the adr path from `mmw domain dirs` and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc.
 
-按需创建 `adr` 路径，也就是只在需要第一份 ADR 时创建。
+Create that directory lazily — only when the first ADR is needed.
 
-## 模板
+## Template
 
 ```md
 ---
@@ -12,43 +12,45 @@ date: <YYYY-MM-DD>
 amends: []
 ---
 
-# {决定的简短标题}
+# {Short title of the decision}
 
-{1 至 3 句话：上下文是什么、我们作出了什么决定，以及为什么。}
+{1-3 sentences: what's the context, what did we decide, and why.}
 ```
 
-就这些。一份 ADR 可以只有一个段落。价值在于记录**确实作出了一项决定**以及**作出决定的原因**，不在于填满各个章节。
+That's it. An ADR can be a single paragraph. The value is in recording *that* a decision was made and *why* — not in filling out sections.
 
-## 可选章节
+`date` is the day this ADR is written, `YYYY-MM-DD`. `amends` is the list of ADR numbers this one amends, or `[]`.
 
-只在这些章节确实能增加价值时加入。大多数 ADR 不需要它们。
+## Optional sections
 
-- **Status** frontmatter（`proposed | accepted | deprecated | superseded by ADR-NNNN`）——重新审视决定时有用
-- **Considered Options**——只有被否决的选项值得记住时才加入
-- **Consequences**——只有需要明确说明不明显的下游影响时才加入
+Only include these when they add genuine value. Most ADRs won't need them.
 
-## 编号
+- **Status** frontmatter (`proposed | accepted | deprecated | superseded by ADR-NNNN`) — useful when decisions are revisited
+- **Considered Options** — only when the rejected alternatives are worth remembering
+- **Consequences** — only when non-obvious downstream effects need to be called out
 
-运行 `mmw domain adr-next`，取得现有最大编号之后的下一个四位编号。
+## Numbering
 
-如果多条 decision ticket 结果分支可能同时创建 ADR，结果分支先使用 `draft-<ticket 编号>-<slug>.md`。结果分支集成到拥有 Wayfinding map 的任务分支后，任务分支重新运行 `mmw domain adr-next`，按顺序分配正式编号，并提交重命名。草稿文件不占用正式编号。
+If this session is resolving a wayfinder decision ticket, write `draft-<ticket-number>-<slug>.md`. `<ticket-number>` is that ticket's issue id. `<slug>` is a short English kebab name. Do not run `mmw domain adr-next` in that session. Drafts do not take a number.
 
-## 何时提议 ADR
+Otherwise run `mmw domain adr-next` and use the four-digit number it prints: `<that-number>-<slug>.md`.
 
-以下三项必须全部成立：
+## When to offer an ADR
 
-1. **难以逆转**——以后改变主意的成本不可忽略
-2. **缺少上下文时令人意外**——未来读者会查看代码并疑惑：“他们到底为什么这样做？”
-3. **来自真实取舍**——确实存在其他选项，而且你因为具体理由选择了其中一个
+All three of these must be true:
 
-如果一项决定容易逆转，就不要记录；你以后只会直接逆转它。如果它并不令人意外，就没有人会疑惑原因。如果不存在真实的其他选项，除了“我们采用了显然的做法”以外，没有其他值得记录的内容。
+1. **Hard to reverse** — the cost of changing your mind later is meaningful
+2. **Surprising without context** — a future reader will look at the code and wonder "why on earth did they do it this way?"
+3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
 
-### 符合条件的内容
+If a decision is easy to reverse, skip it — you'll just reverse it. If it's not surprising, nobody will wonder why. If there was no real alternative, there's nothing to record beyond "we did the obvious thing."
 
-- **架构形状。** “我们使用 monorepo。”“write model 采用 event sourcing，read model 被投影到 Postgres。”
-- **bounded context 之间的集成模式。** “Ordering 和 Billing 通过 domain event 通信，不使用同步 HTTP。”
-- **带来 lock-in 的技术选择。** 数据库、消息总线、鉴权提供方、部署目标。不是每个库；只记录那些更换需要一个季度的选择。
-- **边界和范围决定。** “Customer data 由 Customer bounded context 拥有；其他 bounded context 只通过 ID 引用它。”明确说明“不采用什么”与明确说明“采用什么”同样有价值。
-- **有意偏离显然路径。** “因为 X，我们使用手写 SQL，不使用 ORM。”任何理性读者都会假定相反做法的情形都属于这一类。它们能防止下一位 engineer 去“修复”一项有意为之的内容。
-- **代码中不可见的约束。** “由于合规要求，我们不能使用 AWS。”“由于 partner API contract，响应时间必须低于 200ms。”
-- **否决理由并不明显的备选方案。** 如果你考虑过 GraphQL，却因为细微理由选择 REST，就记录它；否则，六个月后还会有人再次提议 GraphQL。
+### What qualifies
+
+- **Architectural shape.** "We're using a monorepo." "The write model is event-sourced, the read model is projected into Postgres."
+- **Integration patterns between contexts.** "Ordering and Billing communicate via domain events, not synchronous HTTP."
+- **Technology choices that carry lock-in.** Database, message bus, auth provider, deployment target. Not every library — just the ones that would take a quarter to swap out.
+- **Boundary and scope decisions.** "Customer data is owned by the Customer context; other contexts reference it by ID only." The explicit no-s are as valuable as the yes-s.
+- **Deliberate deviations from the obvious path.** "We're using manual SQL instead of an ORM because X." Anything where a reasonable reader would assume the opposite. These stop the next engineer from "fixing" something that was deliberate.
+- **Constraints not visible in the code.** "We can't use AWS because of compliance requirements." "Response times must be under 200ms because of the partner API contract."
+- **Rejected alternatives when the rejection is non-obvious.** If you considered GraphQL and picked REST for subtle reasons, record it — otherwise someone will suggest GraphQL again in six months.

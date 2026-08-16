@@ -1,134 +1,134 @@
-# 语义层：B2、B3、B4
+# Semantic layer: B2, B3, B4
 
-三种检查项的清单在 [SKILL.md](SKILL.md)「检查项：两类九种」。本文写这三种怎么跑：方法、路径怎么来、派发合同。
+The three checks are listed in [SKILL.md](SKILL.md) under "Checks: two classes, nine kinds". This file is how to run them: method, where paths come from, dispatch contract.
 
-语义层判断界面想表达的功能、流程与目的是否被实现，**不判断组件是否存在**。
+The semantic layer judges whether the function, flow, and purpose the interface means to express are realized. **It does not judge whether a component exists.**
 
-## 两条写死的做法
+## Two fixed practices
 
-**保留完整会话历史。** 把已经走过的界面、做过的动作、给过的理由带进后续每一步。不带历史时，重复运行的结果彼此不一致。
+**Keep the full session history.** Carry screens already visited, actions already taken, and reasons already given into every later step. Without history, repeat runs disagree.
 
-**agent 走得通不等于用户走得通。** 任务完成**不**作为通过判据。依据：同一界面，人类评估者找出十个失败点，语言模型多轮合计只找出三个，而语言模型的任务完成率更高。
+**The agent completing the path is not the user completing the path.** Task completion is **not** a pass criterion.
 
-## 认知走查四问 · B2
+## Cognitive walkthrough · four questions · B2
 
-每一步问：
+At each step ask:
 
-1. 用户会不会想要达成正确的那个结果
-2. 用户会不会注意到正确的操作是可用的
-3. 用户会不会把正确的操作与他想达成的结果联系起来
-4. 操作之后，用户会不会看到事情在推进的反馈
+1. Will the user want the correct outcome
+2. Will the user notice that the correct action is available
+3. Will the user connect the correct action with the outcome they want
+4. After the action, will the user see feedback that things are moving
 
-**四问中只有第 2 问需要视觉信息。** 它同时用两种输入：结构化的视觉显著度数值（是否在首屏内、尺寸、对比度、是否被遮挡、层叠次序，五项各自怎么算见 [SKILL.md](SKILL.md) 第 8 步）与一张裁到相关区域的局部截图。第 1、3、4 问只用结构化数据。
+**Only question 2 needs visual information.** It uses both: structured visual-salience numbers (in first screen, size, contrast, occluded, stacking — how each is computed is [SKILL.md](SKILL.md) step 8) and one screenshot cropped to the relevant region. Questions 1, 3, and 4 use structured data only.
 
-四问逐步问：路径有几步，就问几轮。
+Ask the four questions per step. As many rounds as the path has steps.
 
-## Trunk Test 六问 · B4
+## Trunk Test · six questions · B4
 
-**每一步问一轮**，假设用户被直接放到这一步所在的界面，没有任何上文，他能否回答：
+**One round per step.** Assume the user is placed on this step's screen with no prior context. Can they answer:
 
-1. 这是什么产品
-2. 我现在在哪一个界面
-3. 这个界面有哪些主要区块
-4. 我在这一层有哪些可选的操作
-5. 我处在整个流程的什么位置
-6. 我怎么回到上一层，或者找到我要的东西
+1. What product is this
+2. Which screen am I on
+3. What are the main regions of this screen
+4. What actions can I take at this layer
+5. Where am I in the whole flow
+6. How do I go up a layer, or find what I need
 
-第 6 问是对桌面应用的调整：原始表述问「怎么搜索」，那假设界面上有搜索框，桌面工作台不一定有。其余五问按原表述。
+Question 6 is adjusted for desktop apps: the original asks "how do I search", which assumes a search box. A desktop workbench may not have one. The other five stay in the original wording.
 
-**六问按上面的固定表述提问，不逐个产品改写**，这样不同产品的结果可比。任一问答不出，记一条 B4。
+**Ask the six questions in the wording above. Do not rewrite them per product.** Results stay comparable. Any unanswered question is one B4.
 
-## 困惑分量表 · B3
+## Confusion scale · B3
 
-**每一步单独打分**，三档：
+**Score each step alone**, three bands:
 
-| 分档 | 含义 |
+| Band | Means |
 | --- | --- |
-| 完全不困惑 | 当前该做什么一眼可见 |
-| 有点困惑 | 需要停下来读或想一下才知道该做什么 |
-| 很困惑 | 读完仍不确定该做什么，或有两个以上看起来都对的选项 |
+| Not confused | What to do now is obvious |
+| Somewhat confused | Need to stop, read, or think before knowing what to do |
+| Very confused | Still unsure after reading, or two or more options both look right |
 
-**「偏高」怎么判**：任何一步被评为「很困惑」直接记一条 B3；同一条路径上连续两步被评为「有点困惑」也记一条 B3，指向这一段路径而不是单步。**单独一步「有点困惑」不记。**
+**"High" means:** any step scored "very confused" is one B3; two consecutive steps on the same path scored "somewhat confused" is also one B3, pointing at that path segment, not a single step. **One isolated "somewhat confused" is not recorded.**
 
-连续两步跨路径时不合并——两条路径各自独立打分。
+Consecutive steps across two paths do not merge — each path is scored on its own.
 
-## 走查任务从哪来
+## Where walkthrough tasks come from
 
-走查任务只覆盖**本次范围内的界面**（范围怎么算见 [SKILL.md](SKILL.md) 第 7 步）。两种来源，要求不同：
+Walkthrough tasks cover **screens in this run's scope** (scope is [SKILL.md](SKILL.md) step 7). Two sources, different bars:
 
-- **从 MMW 产物取到的路径。** 运行 `mmw artifact index prototype` 与 `mmw artifact index spec` 取索引，读其中与本次产品有关的那几份，取用户走查结论和验收段里写出的操作路径。必须是用户为达成一个真实目的所走的完整路径，跨多个界面，并且至少包含一条失败路径或边界情况。取到单个操作时，向上合并到它所属的完整路径，不拆细凑数。
-- **范围内没有产物路径时，用界面全图（[SKILL.md](SKILL.md) 第 6 步建的那张）的跳转关系拼。** 从主窗口出发到范围内每个界面的最短路径，各拼一条。不要求含失败路径，但**必须在报告中标明是拼的**——它只保证走得到，不保证用户真会这么走。
+- **Paths from MMW artifacts.** Run `mmw artifact index prototype` and `mmw artifact index spec`, read the files about this product, and take operation paths written in user walkthrough conclusions and acceptance sections. The path must be a full path the user walked for a real goal, across several screens, and must include at least one failure path or edge. A single action merges up into its full path. Do not split to pad the count.
+- **No artifact path in scope: build from jumps in the screen map** ([SKILL.md](SKILL.md) step 6). From the main window, one shortest path to each in-scope screen. Failure paths are not required. **The report must mark these as constructed** — they guarantee reach, not that a user would walk them.
 
-第二种保证 B2、B3、B4 在任何范围下都有路可走。**产物完全取不到时也不跳过这三种检查项。**
+The second source means B2, B3, and B4 always have a path. **Do not skip these three checks when artifacts yield nothing.**
 
-## 交接：主 agent 走，`designer` 判
+## Handoff: main agent walks, `designer` judges
 
-**浏览器由主 agent 独占，`designer` 拿不到它。** 它自己开一个实例就意味着应用状态归零，走到第五步才出现的那个界面它到不了。
+**The main agent owns the browser. The `designer` does not get it.** A second instance would reset app state, and a screen that appears at step five would be unreachable.
 
-**一条完整路径派一个 `designer`，不是一步派一个。** 一步一派时每个 `designer` 的上下文都是空的，第 4 问判不了——判它要知道操作之前是什么样。
+**One `designer` per full path, not one per step.** Per-step dispatch gives each `designer` an empty context, and question 4 cannot judge — it needs the state before the action.
 
-**主 agent 先把整条路径走完，再一次性交付。** 按路径逐步操作应用，每一步采集下面的数据，全部走完之后把整条路径的**路径包**一次交出去。
+**The main agent walks the whole path first, then delivers once.** Operate the app step by step, collect the data below, and after the path is done hand the whole **path pack** over once.
 
-### 路径包
+### Path pack
 
-路径级：
+Path level:
 
-| 字段 | 类型 | 内容 |
+| Field | Type | Content |
 | --- | --- | --- |
-| `产品名` | 字符串 | 本次检查的产品 |
-| `路径名` | 字符串 | 这条路径做的事，一句话 |
-| `用户目的` | 字符串 | 用户走这条路径想达成什么。第 1 问判的就是它 |
-| `来源` | 枚举 | `产物` 或 `拼的` |
-| `步骤` | 数组 | 见下，按执行顺序 |
+| `product` | string | Product this run checks |
+| `path-name` | string | What this path does, one sentence |
+| `user-goal` | string | What the user wants from this path. Question 1 judges this |
+| `source` | enum | `artifact` or `constructed` |
+| `steps` | array | Below, in order |
 
-每一步：
+Each step:
 
-| 字段 | 类型 | 内容 |
+| Field | Type | Content |
 | --- | --- | --- |
-| `序号` | 整数 | 从 1 开始 |
-| `界面标识` | 字符串 | 界面全图里的节点标识 |
-| `界面标题` | 字符串 | 用户看得到的那个标题 |
-| `本步动作` | 字符串 | 这一步做了什么操作。第一步写「到达此界面」 |
-| `可操作元素` | 数组 | 每项含 `名称`、`角色`、`是否在首屏内`、`尺寸`、`对比度`、`是否被遮挡`、`层叠次序`。第 2 问用它 |
-| `无障碍树快照` | 文本 | 本步执行后的快照 |
-| `动作后的变化` | 字符串 | 主 agent 比对动作前后两份快照得出的差异描述。第一步没有「动作前」，写 `到达时的初始状态`。第 4 问用它 |
-| `局部截图路径` | 字符串 | 裁到相关区域的那一张。第 2 问用它，其余三问不看 |
-| `运行时报错` | 数组 | 本步产生的报错。为空写空数组 |
+| `index` | integer | From 1 |
+| `screen-id` | string | Node id in the screen map |
+| `screen-title` | string | The title the user sees |
+| `action` | string | What this step did. Step 1 writes "arrived at this screen" |
+| `interactive-elements` | array | Each item: `name`, `role`, `in-first-screen`, `size`, `contrast`, `occluded`, `stacking`. Question 2 uses this |
+| `a11y-snapshot` | text | Snapshot after this step |
+| `change-after-action` | string | Diff the main agent wrote by comparing snapshots before and after. Step 1 has no before: write `initial state on arrival`. Question 4 uses this |
+| `crop-screenshot` | string | Path of the cropped region. Question 2 uses it. The other three questions do not |
+| `runtime-errors` | array | Errors this step produced. Empty array if none |
 
-**截图落临时目录，运行结束删除。** subagent 读不到主 agent 进程里的字节，截图只能走文件。落点用 `mktemp -d` 当场创建的目录，路径随路径包交给 `designer`，本次运行结束时整个目录删掉。这些截图在本次运行之后没有任何消费者，**不是产物，不走产物落点解析**。
+**Screenshots go in a temp directory and are deleted when the run ends.** A subagent cannot read bytes in the main agent's process, so screenshots go through files. Create the directory with `mktemp -d`, pass the path in the pack, delete the directory at the end of this run. After the run they have no consumer. **They are not artifacts. Do not resolve them with `mmw artifact path`.**
 
-`mktemp -d` 失败时继续跑，第 2 问只用结构化的视觉显著度数值判定，并在该条 finding 上标明没有截图。
+If `mktemp -d` fails, continue. Question 2 judges from structured visual-salience numbers only, and that finding notes there was no screenshot.
 
-**会话历史不落文件。** 整条路径的路径包本身就是完整历史，一次进 `designer` 的上下文。它在一次任务内看得到前面每一步，第 4 问因此判得了。
+**Session history is not a file.** The path pack is the full history, loaded once into the `designer` context. Inside one task it can see every earlier step, so question 4 can judge.
 
-### 派发
+### Dispatch
 
-四栏表：
+Four fields:
 
-| 栏 | 写什么 |
+| Field | Write |
 | --- | --- |
-| 目标 | 第一句写「语义层评估：<这条路径的名字>」。其后写：对路径包里的每一步跑一遍认知走查四问与 Trunk Test 六问，并给出这一步的困惑分档 |
-| 读 | 路径包全文、截图目录路径，以及**下面三段的原文**：认知走查四问、Trunk Test 六问、困惑分三档 |
-| 约束 | 只读；不碰浏览器；不改任何文件；不启动应用；四问六问按给到的表述逐字提问，不改写、不增删 |
-| 验收 | 交回下面那份结构化列表，外加逐步的困惑分档 |
+| Goal | First sentence: "Semantic layer: <this path's name>". Then: for every step in the pack, run the four cognitive-walkthrough questions and the six Trunk Test questions, and give this step's confusion band |
+| Read | The full path pack, the screenshot directory path, and **the original wording of these three blocks**: the four cognitive-walkthrough questions, the six Trunk Test questions, the three confusion bands |
+| Constraints | Read-only; do not touch the browser; do not edit any file; do not start the app; ask the four and the six in the wording given, verbatim, no rewrite, no add, no drop |
+| Acceptance | The structured list below, plus a confusion band per step |
 
-**四问、六问和三档的原文整段抄进 task。** `designer` 是独立上下文，读不到本文——只写「按认知走查四问评估」，它会自己编四个问题出来，不同路径编的还不一样，结果不可比。判据必须随 task 走。
+**Copy the four questions, the six questions, and the three bands into the task in full.** The `designer` is independent context and cannot read this file. "Evaluate with the cognitive walkthrough" makes it invent four questions, different per path, and results are not comparable. Criteria travel with the task.
 
-派一个独立上下文的 `designer`。它只读，不需要工作目录。
+Dispatch one independent-context `designer`. Read-only. No working directory.
 启动：按名称调用 Codex 原生 subagent `mmw-designer`，task 传四栏表全文。互不依赖的实例在同一条消息中并行启动，全部完成后再汇总。
 
 派出 subagent 后，主 agent 不得执行与该 subagent task 重叠的 research、实现或审查。没有明确不重叠的协调工作时，立即等待 subagent 交回报告。报告交回后不重做整个 task。
 
-互不依赖的路径在同一条消息里一起启动，全部回来之后再汇总。
+Independent paths start in the same message. Summarize after all have returned.
 
-### `designer` 交回什么
+### What the `designer` returns
 
-一份结构化列表，每条含：`检查项`（`B2`、`B3`、`B4` 之一）、`步序号`、`界面标识`、`元素`（判到具体元素时填，否则留空）、`失败的是哪一问`（四问或六问的编号）、`一句话问题`、`理由`。
+A structured list. Each item: `check` (`B2`, `B3`, or `B4`), `step-index`, `screen-id`, `element` (filled when a specific element was judged, else empty), `failed-question` (number of the four or the six), `one-line-problem`, `reason`.
 
-另交一份困惑分，每步一档，取值是上面那三档之一。**B3 由主 agent 按上面的判定规则从困惑分算出，不由 `designer` 直接报。**
+Also a confusion band per step, one of the three bands above. **The main agent computes B3 from those bands with the rule above. The `designer` does not report B3 directly.**
 
-派发返回空、格式对不上或中途失败时，跳过 B2、B3、B4，报告顶部的「本次跳过」写明原因。**不拿主 agent 自己的判断顶替独立上下文的评估。**
+Empty return, bad shape, or a mid-run failure: skip B2, B3, B4. The report header "Skipped this run" names why. **Do not substitute the main agent's own judgment for the independent-context evaluation.**
 
-### 交回之后
+### After return
 
-B2、B3、B4 产出的全部内容是 finding 候选。进入处置。报告里没有定位的标 `needs-evidence`。
+Everything B2, B3, and B4 produce is a finding candidate. Go to disposition. Report items with no location as `needs-evidence`.

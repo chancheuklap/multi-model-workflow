@@ -1,86 +1,78 @@
 ---
 name: mmw-install
-description: 把 MMW 装到这台电脑、把这个仓库配好。用于新电脑第一次装、新仓库第一次配、用户说「配一下这个仓库」或「装一下 MMW」、`mmw` 命令找不到，或者升级 MMW 之后重装。日常开发不使用。
+description: Install MMW on this machine and configure this repo. Use on a new machine, a new repo, when the user says set this repo up or install MMW, when `mmw` is missing, or after an MMW upgrade. Not for day-to-day work.
 ---
 
-一句话交代这件事的全貌：**MMW 装一次管这台电脑的所有宿主，仓库配一次管这个仓库的所有语言。**两件事分开，第一次上手两件都要做，之后换仓库只做第二件。
+# Install
 
-五步，按顺序走完。每一步都幂等，已经做过就跳过，重跑无害。
+Two jobs, in this order. Install once per machine. Configure once per repo. A new machine needs both. A new repo on an already-installed machine needs only configure.
 
-## 1. MMW 装到这台电脑
+Each step is idempotent. Skip what is already done. Re-running is safe.
 
-先看装没装：
+## 1. Install on this machine
 
 ```bash
 command -v mmw && mmw --version
 ```
 
-找得到就跳到第 2 步。找不到，从 MMW 源码仓库装：
+If that prints a version, go to step 2.
 
 ```bash
-cd <MMW 源码仓库>
+cd <MMW source repo>
 bash mmw/install.sh
 ```
 
-这一条覆盖 Claude Code、Codex、Pi、Cursor、Grok 五个宿主：技能、agent、MCP 服务器、编辑后诊断的 hook 与扩展、`mmw` 命令本身，Cursor 的隔离包装 `mmw-cursor-agent`，还有 Claude Code 的两个语言服务器插件（装用户级，所有仓库都有）。Cursor 不把整棵 `mmw/` 装成 plugin，而是散装到 `~/.cursor/skills`、`~/.cursor/agents`、`~/.cursor/mcp.json`、`~/.cursor/hooks.json` 和 PATH。Grok 的技能、角色和 Stop hook 打散到 `~/.grok/`。
+`install.sh` installs the CLI, skills, agents, MCP servers, and editor diagnostics for every host already on this machine. After it finishes, restart the host or open a new session.
 
-装完宿主要重启，或者开一个新会话，新装的东西才加载。
+Needs `git`, `python3`, `jq`, and `node`. `install.sh` names whatever is missing.
 
-**前置**：`git`、`python3`、`jq`、`node`。缺哪个装哪个，install.sh 会报。
+## 2. Configure this repo
 
-## 2. 仓库配好
-
-在目标仓库里跑：
+In the target repo:
 
 ```bash
 mmw init
 ```
 
-这一条做完仓库该有的全部配置，并把它们提交进当前分支。工具链那一部分按仓库实际用的语言产出——有 Python 就配 Python 的，有 TypeScript 就配 TypeScript 的，没有的语言不产出任何东西。
+This writes the repo's MMW config and commits it on the current branch. Toolchain files match the languages this repo actually uses.
 
-产出物和判据都来自 MMW 的规则表与模板，不是每个仓库各写一份。所以换个仓库、换台电脑，跑这一条就回来了。
-
-## 3. 缺的工具装上
-
-配置写好了不等于工具在。看缺什么：
+## 3. Install missing tools
 
 ```bash
 mmw toolchain detect
 ```
 
-报「缺」的条目，末尾一行就是装它的命令。要 MMW 代跑：
+Each missing line ends with the install command. To have MMW run them:
 
 ```bash
-mmw toolchain install          # 只列不装，先看清楚
-mmw toolchain install --yes    # 确认之后真装
+mmw toolchain install          # list only
+mmw toolchain install --yes    # install after the user agrees
 ```
 
-**装之前把清单给用户看，等他点头再加 `--yes`。**这些命令会往全局或工作区装东西。
+Show the list. Wait for the user to agree before `--yes`. These commands install into the machine or the workspace.
 
-装完再 `mmw toolchain detect` 确认一遍，「待办」那行应该是「无」。
+Run `mmw toolchain detect` again. The pending line should be none.
 
-## 4. Codex 的 hook 要用户确认一次
+## 4. Hosts that ask the user to trust hooks
 
-Codex 不会自动信任插件带来的 hook。它在**交互式**会话里弹确认，`codex exec` 不弹也不跑 hook。
+If this host prompts to trust plugin hooks in an interactive session, tell the user to open one interactive session and accept once. Non-interactive runs do not prompt and do not run the hooks.
 
-告诉用户：开一个交互式 Codex 会话，看到 MMW 的 hook 确认提示时同意一次。
+After every MMW upgrade the prompt comes back: the trust hash includes the expanded plugin path, and that path contains the version.
 
-**每次 MMW 升版都要重来一次**——Codex 的信任哈希把展开后的插件路径算进去，路径里含版本号。
+Do not edit the host's trusted-hash config.
 
-这一步只有用户能做，你做不了，也不要试着改 `~/.codex/config.toml` 里的 `trusted_hash`。
+## 5. Hosts that also load other agents' user-level skills
 
-## 5. Cursor 要用户做的三件事
+If this machine has Cursor, the user does three things. Only the user can do them:
 
-这台机器装了 Cursor 时才做。这三件只有用户能做：
+1. In App settings, turn off Include third-party Plugins, Skills, and other configs. The main agent then loads only this host's own skills and MCP. CLI workers are isolated by `mmw-cursor-agent` and do not depend on this setting.
+2. Raise `cursor.worktreeMaxCount` above the default 25. This host recycles trees under `~/.cursor/worktrees/`. A low cap deletes trees that are still in use.
+3. Set the Agents Window orchestrator model to grok, matching the installed runtime. CLI worker models come from `mmw-cursor-agent --mmw-role`. Leave the user's own default model in `cli-config.json` as it is.
 
-1. 在 App 设置里关闭 Include third-party Plugins, Skills, and other configs。关掉之后，Agents Window 的主 agent 只加载 Cursor 自己的技能和 MCP，不再加载用户级 `~/.codex/skills` 与 `~/.claude/skills`。CLI worker 由 `mmw-cursor-agent` 隔离，不靠这一项。
-2. 把 `cursor.worktreeMaxCount` 调到大于默认 25。Cursor 会回收 `~/.cursor/worktrees/` 里的树；数量太低时，还没结束的任务树会被清掉。
-3. 把 Agents Window 的编排模型选成 grok，与已安装 runtime 的 orchestrator 一致。CLI worker 的模型由 `mmw-cursor-agent --mmw-role` 注入，不要去改 `cli-config.json` 里用户自己的默认模型。
+## Done
 
-## 配好之后是什么样
+- Installed hosts can use MMW skills and agents.
+- Saving a file reports diagnostics for that file. Installed hosts share one rules table.
+- CI uses the same rules table and the same checkers.
 
-- 五个宿主都能用 MMW 的技能和 agent
-- 改完一个文件，宿主立刻报这个文件的诊断——五个宿主看到的是同一批，判据同一份。Claude Code 走 LSP 插件加 hook，Codex 走 hook，Pi 与 Cursor 走扩展，Grok 走 Stop hook
-- 持续集成跑的判据和本地这一批是同一份规则表、同一批检查器
-
-诊断和持续集成为什么能对得上、规则表怎么改、谁拥有哪份配置，跑 `mmw toolchain` 看用法，再读规则表 `config/toolchain-rules.json` 的文件头。
+How diagnostics and CI stay aligned, how to change the rules table, and who owns which config: run `mmw toolchain` for usage, then read the header of `config/toolchain-rules.json`.

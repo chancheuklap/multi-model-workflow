@@ -1,25 +1,20 @@
-# 合规交叉审
+# Plan compliance
 
-**谁读**：任务名是「合规交叉审」的审查者。
+**Who reads this:** the reviewer whose Goal starts with `Plan compliance`.
 
-这个视角检查 plan 是否服从项目合同，以及多份 plan 能否在同一任务分支上接起来。
+Does this plan obey the repo's contracts, and can several plans join on one task branch.
 
-## 往哪里看
+## Look
 
-- **源码依据**：plan 声称已经存在的关键路径、符号、表名和接口可以在当前源码找到。新文件已标明 `Create`。
-- **项目合同**：修改符合目标仓库的模块边界、登记、迁移、命名和发布规则。
-- **跨 plan 接缝**：共享文件只有一个归属方；提供方与消费方使用同一接口、字段和版本；依赖顺序成立。
-- **测试 seam**：验证计划使用 spec 已确认的 seam 和目标仓库已有命令，没有在 plan 阶段发明新的插桩点。
-- **prototype 资产**：引用路径、用户选中版本和逐轮记录真实存在；落选变体没有进入当前实现。
-- **research**：引用的 research 索引和精确文件真实存在；范围快照和未查清项没有被写成无条件当前事实。
-- **风险**：数据、基础设施、计费、权限和共享状态的变化包含必要迁移、回滚或人工审批关卡。
+- Paths, symbols, tables, and interfaces the plan says exist are in current source. New files are marked `Create`.
+- Edits fit this repo's module bounds, registry, migration, naming, and release rules.
+- One owner per shared file in the Change Maps. Provider and consumer cite the same `## Contract Boundaries` entry name. Field copies in the plan are a finding. Dependency order holds.
+- Tests use seams the spec already confirmed and commands the repo already has. A new seam invented at plan time is a finding.
+- Named prototype and research files exist. Rejected variants are not the current route. Unknowns are not written as current fact.
+- Data, infra, billing, permissions, and shared state include migration, rollback, or a human gate when they need one.
 
-不要因为 plan 没有抄出完整实现代码、测试方法论、测试金字塔、复杂度评级或逐步提交边界而报告 finding。
+Do not report a missing full implementation, a copied TDD lecture, a test pyramid, a complexity score, or a commit-by-commit schedule.
 
-## 每条 finding 标一类
+## Always report
 
-plan 自身的问题、plan 跟 spec 对不上、spec 本身有缺、ticket 跟 plan 对不上、上下文含混、架构摩擦。
-
-## 这几种一定要报
-
-引用不存在；违反项目硬规则；跨 plan 接口缺提供方或消费方；共享文件归属冲突；测试 seam 与 spec 不一致；高风险改动缺迁移、回滚或人工审批关卡。
+A cite that does not exist; a broken hard rule; a cross-plan interface missing provider or consumer; two plans claiming the same file; a seam that is not the spec's; high-risk work with no migration, rollback, or gate.
