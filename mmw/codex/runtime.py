@@ -50,7 +50,7 @@ def render_agent(role: str, profile: dict) -> str:
     method = profile.get("method_skill")
     if method:
         body = (
-            f"开始前必须完整读取并遵守 `${method}`。方法论只保留在该技能中。\n\n"
+            f"Call `${method}` first. Method lives only in that skill.\n\n"
             + body
         )
     if '"""' in body:

@@ -1,6 +1,6 @@
 ---
 name: mmw-reviewer-gpt
-description: 上下文隔离的会话内审查者（GPT 侧），只读。由 mmw-review 派发：一个视角一个，可与别的视角并行，也可与 Claude 侧审查者并行。任务名与材料由派发方在提示词里给。不改代码、不修 finding、不写 spec 或 plan。
+description: "Isolated in-session reviewer (GPT side), read-only. Dispatched by mmw-review: one perspective per reviewer, in parallel with others and with the Claude-side reviewer. Goal and materials come from the caller. Do not edit code, fix findings, or write spec or plan."
 model: openai-codex/gpt-5.6-sol
 thinking: high
 defaultContext: fresh

@@ -6,21 +6,21 @@
       "body": "mmw-worker.md",
       "skill": "mmw-tdd",
       "writable": true,
-      "description": "实现角色。由 mmw-implement 派发，一张 ticket 一个，在指定 worktree 完成实现。按 mmw-tdd 执行 TDD 并提交；不改 docs/，不 push，不扩大 ticket 范围。"
+      "description": "Implementation role. Dispatched by mmw-implement, one ticket per worker, in a given worktree. Follow mmw-tdd and commit; leave docs/ as they are; do not push; do not expand the ticket."
     },
     "worker-high-risk": {
       "agent": "mmw-worker-high-risk",
       "body": "mmw-worker.md",
       "skill": "mmw-tdd",
       "writable": true,
-      "description": "高风险实现角色。由 mmw-implement 在计费、权限、数据迁移或不可逆改动中派发。按 mmw-tdd 执行 TDD 并提交；不改 docs/，不 push，不扩大 ticket 范围。"
+      "description": "High-risk implementation role. Dispatched by mmw-implement for billing, permissions, data migration, or irreversible mistakes. Follow mmw-tdd and commit; leave docs/ as they are; do not push; do not expand the ticket."
     },
     "planner": {
       "agent": "mmw-planner",
       "body": "mmw-planner.md",
       "skill": "mmw-planner",
       "writable": true,
-      "description": "计划编写角色。由 mmw-to-plan 派发，一张 ticket 对应一个 planner 和一份 plan。按 mmw-planner 方法论拆出实施步骤；只写指定 plan，不改源码。"
+      "description": "Planner role. Dispatched by mmw-to-plan, one planner and one plan per ticket. Follow mmw-planner; write only that plan; do not edit source."
     },
     "advisor": {
       "agent": "mmw-advisor",
@@ -35,21 +35,21 @@
       "body": "mmw-designer.md",
       "skill": "",
       "writable": false,
-      "description": "只读 interface 设计者。由 Design It Twice 派发，一个设计约束一个实例。提出 interface、用法与取舍，不修改文件。"
+      "description": "Read-only interface designer. Dispatched by Design It Twice, one design per constraint. Return the interface, usage, and trade-offs. Do not modify files."
     },
     "reviewer-gpt": {
       "agent": "mmw-reviewer-gpt",
       "body": "mmw-reviewer.md",
       "skill": "mmw-reviewer",
       "writable": false,
-      "description": "上下文隔离的会话内审查者（GPT 侧），只读。由 mmw-review 派发：一个视角一个，可与别的视角并行，也可与 Claude 侧审查者并行。任务名与材料由派发方在提示词里给。不改代码、不修 finding、不写 spec 或 plan。"
+      "description": "Isolated in-session reviewer (GPT side), read-only. Dispatched by mmw-review: one perspective per reviewer, in parallel with others and with the Claude-side reviewer. Goal and materials come from the caller. Do not edit code, fix findings, or write spec or plan."
     },
     "reviewer-claude": {
       "agent": "mmw-reviewer-claude",
       "body": "mmw-reviewer.md",
       "skill": "mmw-reviewer",
       "writable": false,
-      "description": "上下文隔离的会话内审查者（Claude 侧），只读。由 mmw-review 派发：一个视角一个，可与别的视角并行，也可与 GPT 侧审查者并行。任务名与材料由派发方在提示词里给。不改代码、不修 finding、不写 spec 或 plan。"
+      "description": "Isolated in-session reviewer (Claude side), read-only. Dispatched by mmw-review: one perspective per reviewer, in parallel with others and with the GPT-side reviewer. Goal and materials come from the caller. Do not edit code, fix findings, or write spec or plan."
     }
   }
 }
